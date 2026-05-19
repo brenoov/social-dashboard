@@ -706,12 +706,14 @@ async function fetchData(accountId,period,customStart,customEnd){
   const histStartStr=localDate(histStartDate);
   const prevRefDate=new Date(refDate);prevRefDate.setDate(prevRefDate.getDate()-effectivePeriod);
   const prevRefDateStr=localDate(prevRefDate);
-  const[snaps,engCurr,engPrev,cntCurr,cntPrev]=await Promise.all([
+  const[snaps,engCurr,engPrev,cntCurr,cntPrev,adsCurr,adsPrev]=await Promise.all([
     sb(`daily_snapshots?account_id=eq.${accountId}&captured_at=gte.${histStartStr}&captured_at=lte.${refDateStr}&order=captured_at.asc&select=followers_count,captured_at`),
     sb(`engagement_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=likes,saves,shares,captured_at`),
     sb(`engagement_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=1&select=likes,saves,shares,captured_at`),
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=posts_count,stories_count,reels_count,captured_at`),
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=1&select=posts_count,stories_count,reels_count,captured_at`),
+    sb(`ads_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=spend,impressions,clicks,reach`),
+    sb(`ads_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=1&select=spend,impressions,clicks,reach`),
   ]);
   const eng=engCurr[0]||{likes:0,saves:0,shares:0};
   const prevEng=engPrev[0]||null;
@@ -736,15 +738,19 @@ async function fetchData(accountId,period,customStart,customEnd){
   const chartDates=currSnaps.length>0?currSnaps.map(s=>fmtFull(s.captured_at)):['Hoje'];
   const chartPrevDates=prevSnaps.length>0?prevSnaps.map(s=>fmtFull(s.captured_at)):['—'];
   const engTotal=eng.likes+eng.saves+eng.shares;
-  const prevEngTotal=prevEng.likes+prevEng.saves+prevEng.shares;
+  const prevEngTotal=(prevEng?.likes||0)+(prevEng?.saves||0)+(prevEng?.shares||0);
   const engRate=latest>0?((engTotal/latest)*100).toFixed(1):'0.0';
   const avgPerDay=effectivePeriod>0?(newFollowers/effectivePeriod).toFixed(1):'0.0';
   const pLabel=customStart&&customEnd?effectivePeriod+'D':period+'D';
   const followerDeltas=[{p:pLabel,v:(newFollowers>=0?'+':'')+fmtN(newFollowers),dir:newFollowers>=0?'up':'down'}];
   if(prevNewFollowers>0){followerDeltas.push({p:'vs per. ant.',v:pctDiff(newFollowers,prevNewFollowers),dir:newFollowers>=prevNewFollowers?'up':'down'});}
+  const spend=adsCurr[0]?parseFloat(adsCurr[0].spend||0):0;
+  const prevSpend=adsPrev[0]?parseFloat(adsPrev[0].spend||0):null;
+  const cps=spend>0&&newFollowers>0?spend/newFollowers:0;
+  const prevCps=prevSpend&&prevNewFollowers>0?prevSpend/prevNewFollowers:null;
   return{followerTotal:latest,newFollowers,prevNewFollowers,avgPerDay,bestDay:'—',engRate,followerDeltas,effectivePeriod,
     chart:{vals:chartVals,prev:chartPrev,labels:chartLabels,dates:chartDates,prevDates:chartPrevDates},
-    spend:0,prevSpend:0,cps:0,prevCps:0,
+    spend,prevSpend,cps,prevCps,
     eng:{likes:eng.likes,saves:eng.saves,shares:eng.shares,prevLikes:prevEng?.likes??null,prevSaves:prevEng?.saves??null,prevShares:prevEng?.shares??null},
     cnt:{posts:cnt.posts_count,stories:cnt.stories_count,reels:cnt.reels_count,prevPosts:prevCnt?.posts_count??null,prevStories:prevCnt?.stories_count??null,prevReels:prevCnt?.reels_count??null},
   };
@@ -766,7 +772,7 @@ function update(d,period){
   const engTotal=d.eng.likes+d.eng.saves+d.eng.shares;
   const prevEngTotal=d.eng.prevLikes+d.eng.prevSaves+d.eng.prevShares;
   setChips('chips-followers',['M\u00e9dia: +'+d.avgPerDay+'/dia','Taxa de eng.: '+d.engRate+'%','Engajamento total: '+fmtN(engTotal)]);
-  document.getElementById('ads-spend-val').textContent='R$ '+d.spend;
+  document.getElementById('ads-spend-val').textContent=d.spend>0?fmtR(d.spend):'R$ —';
   document.getElementById('ads-cps-val').textContent=d.cps>0?fmtR(d.cps):'R$ \u2014';
   setCompare('cmp-spend',d.spend,d.prevSpend,'R$ ',pl,true);
   setCompare('cmp-cps',d.cps,d.prevCps,'R$ ',pl,true);
