@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Social Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root {
     --bg:#f4f5fa;--surface:#ffffff;--surface2:#edf0f8;
     --border:rgba(0,0,0,0.08);
     --ig1:#f58529;--ig2:#dd2a7b;--ig3:#8134af;--ig4:#515bd4;
-    --text:#080810;--muted:rgba(0,0,0,0.52);
+    --text:#080810;--muted:rgba(0,0,0,0.68);
     --green:#00a86b;--yellow:#c98a00;--orange:#c96200;--red:#d41f3f;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
@@ -30,7 +30,7 @@
   .logo-area h1{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;background:linear-gradient(90deg,var(--ig1),var(--ig2),var(--ig3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
   .logo-sub{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;margin-top:-2px;}
   .profile-select{display:flex;gap:8px;flex-wrap:wrap;}
-  .profile-btn{background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:8px 16px;border-radius:100px;font-family:'Syne',sans-serif;font-size:13px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:8px;}
+  .profile-btn{background:var(--surface);border:1px solid var(--border);color:rgba(0,0,0,0.55);padding:8px 16px;border-radius:100px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:8px;}
   .profile-btn .av{width:22px;height:22px;border-radius:50%;font-size:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;}
   .profile-btn.active{background:var(--surface2);border-color:var(--ig2);color:var(--text);}
   .profile-btn:hover{border-color:rgba(221,42,123,.4);color:var(--text);}
@@ -40,15 +40,15 @@
   .live-dot{display:inline-flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--green);letter-spacing:1px;}
   .live-dot::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
   .period-tabs{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:100px;padding:4px;gap:2px;}
-  .ptab{padding:6px 18px;border-radius:100px;font-family:'DM Mono',monospace;font-size:12px;cursor:pointer;color:var(--muted);transition:all .25s;border:none;background:transparent;}
+  .ptab{padding:6px 18px;border-radius:100px;font-family:'DM Mono',monospace;font-size:12px;font-weight:600;cursor:pointer;color:rgba(0,0,0,0.55);transition:all .25s;border:none;background:transparent;}
   .ptab.active{background:linear-gradient(135deg,var(--ig2),var(--ig3));color:#fff;}
 
   /* SECTION */
   .sec-header{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
-  .section-label{font-family:'DM Mono',monospace;font-weight:500;font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;white-space:nowrap;}
+  .section-label{font-family:'DM Mono',monospace;font-weight:700;font-size:11px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;white-space:nowrap;}
   .sec-line{flex:1;height:1px;background:var(--border);}
   .sec-chips{display:flex;gap:6px;flex-wrap:wrap;}
-  .sec-chip{font-family:'DM Mono',monospace;font-weight:500;font-size:9px;padding:3px 8px;border-radius:100px;background:var(--surface2);color:var(--muted);border:1px solid var(--border);white-space:nowrap;}
+  .sec-chip{font-family:'DM Mono',monospace;font-weight:600;font-size:10px;padding:3px 8px;border-radius:100px;background:var(--surface2);color:var(--muted);border:1px solid var(--border);white-space:nowrap;}
   .mb40{margin-bottom:40px;}
 
   /* CARD */
@@ -59,24 +59,24 @@
   .mc-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;}
   .mc-icon{font-size:20px;opacity:.7;}
   .mc-goal-area{display:flex;align-items:center;gap:5px;}
-  .mc-goal-lbl{font-family:'DM Mono',monospace;font-weight:500;font-size:9px;letter-spacing:1px;color:var(--muted);}
-  .mc-goal-val{font-family:'DM Mono',monospace;font-weight:500;font-size:11px;color:var(--text);border-bottom:1px dashed rgba(0,0,0,.18);cursor:text;outline:none;background:transparent;min-width:20px;text-align:right;}
+  .mc-goal-lbl{font-family:'DM Mono',monospace;font-weight:700;font-size:10px;letter-spacing:1px;color:var(--muted);}
+  .mc-goal-val{font-family:'DM Mono',monospace;font-weight:600;font-size:12px;color:var(--text);border-bottom:1px dashed rgba(0,0,0,.18);cursor:text;outline:none;background:transparent;min-width:20px;text-align:right;}
   .mc-goal-val:focus{border-color:var(--ig2);color:var(--ig2);}
   .mc-edit-hint{font-size:9px;color:var(--muted);opacity:.4;transition:opacity .2s;}
   .mc-goal-val:focus+.mc-edit-hint,.mc-edit-hint:hover{opacity:1;}
-  .mc-lbl{font-family:'DM Mono',monospace;font-weight:500;font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:5px;}
+  .mc-lbl{font-family:'DM Mono',monospace;font-weight:700;font-size:11px;letter-spacing:2px;color:var(--muted);margin-bottom:5px;}
   .mc-val{font-family:'Bebas Neue',sans-serif;font-size:42px;line-height:1;margin-bottom:8px;}
   .mc-compare{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:6px 10px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);}
-  .mc-compare-label{font-family:'DM Mono',monospace;font-weight:500;font-size:9px;color:var(--muted);}
+  .mc-compare-label{font-family:'DM Mono',monospace;font-weight:700;font-size:10px;color:var(--muted);}
   .mc-compare-vals{display:flex;align-items:center;gap:8px;}
-  .mc-compare-prev{font-family:'DM Mono',monospace;font-weight:500;font-size:10px;color:var(--muted);}
-  .mc-compare-delta{font-family:'DM Mono',monospace;font-size:10px;font-weight:600;}
+  .mc-compare-prev{font-family:'DM Mono',monospace;font-weight:600;font-size:11px;color:var(--muted);}
+  .mc-compare-delta{font-family:'DM Mono',monospace;font-size:11px;font-weight:700;}
   .mc-divider{height:1px;background:var(--border);margin-bottom:10px;}
   .mc-progress-track{height:4px;border-radius:2px;background:var(--surface2);overflow:hidden;margin-bottom:7px;}
   .mc-progress-fill{height:100%;border-radius:2px;transition:width .8s cubic-bezier(.34,1.56,.64,1),background .4s;}
   .mc-bottom{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;}
   .mc-pct{font-family:'Bebas Neue',sans-serif;font-size:18px;}
-  .mc-diff{font-family:'DM Mono',monospace;font-size:10px;}
+  .mc-diff{font-family:'DM Mono',monospace;font-size:11px;font-weight:600;}
 
   /* colors */
   .c-green{color:var(--green)!important;} .c-yellow{color:var(--yellow)!important;} .c-orange{color:var(--orange)!important;} .c-red{color:var(--red)!important;}
@@ -102,11 +102,11 @@
   .chart-svg-wrap{position:relative;width:100%;}
   .chart-svg-wrap svg{width:100%;height:120px;overflow:visible;cursor:crosshair;}
   .chart-legend{display:flex;gap:16px;margin-top:8px;margin-bottom:4px;}
-  .legend-item{display:flex;align-items:center;gap:5px;font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);}
+  .legend-item{display:flex;align-items:center;gap:5px;font-family:'DM Mono',monospace;font-size:10px;font-weight:600;color:var(--muted);}
   .legend-line{width:20px;height:2px;border-radius:1px;}
   .legend-dash{width:20px;height:2px;background:repeating-linear-gradient(90deg,rgba(0,0,0,.2)0,rgba(0,0,0,.2)4px,transparent 4px,transparent 7px);}
   .x-labels{display:flex;justify-content:space-between;}
-  .x-label{font-family:'DM Mono',monospace;font-weight:500;font-size:9px;color:var(--muted);}
+  .x-label{font-family:'DM Mono',monospace;font-weight:600;font-size:10px;color:var(--muted);}
 
   /* TOOLTIP */
   #chart-tooltip{
@@ -115,12 +115,12 @@
     border-radius:12px;padding:12px 14px;min-width:180px;
     box-shadow:0 8px 32px rgba(0,0,0,.12);
   }
-  .tt-date{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;}
+  .tt-date{font-family:'DM Mono',monospace;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px;letter-spacing:1px;}
   .tt-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
   .tt-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
   .tt-dot.curr{background:var(--ig2);}
   .tt-dot.prev{background:rgba(0,0,0,.2);}
-  .tt-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);flex:1;}
+  .tt-label{font-family:'DM Mono',monospace;font-size:11px;font-weight:600;color:var(--muted);flex:1;}
   .tt-val{font-family:'Bebas Neue',sans-serif;font-size:16px;}
   .tt-sep{height:1px;background:var(--border);margin:6px 0;}
   .tt-delta{font-family:'DM Mono',monospace;font-size:11px;margin-top:4px;}
@@ -130,13 +130,13 @@
   .unavail-note{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:8px;line-height:1.5;}
 
   /* FOLLOWERS CARD */
-  .f-lbl{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--muted);margin-bottom:6px;}
+  .f-lbl{font-family:'DM Mono',monospace;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);margin-bottom:6px;}
   .f-total{font-family:'Bebas Neue',sans-serif;font-size:60px;line-height:1;background:linear-gradient(135deg,var(--ig1),var(--ig2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:4px;}
   .delta-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
-  .chip{font-family:'DM Mono',monospace;font-size:11px;padding:3px 9px;border-radius:100px;}
-  .chip.up{background:rgba(0,229,160,.1);color:var(--green);}
-  .chip.down{background:rgba(255,77,109,.1);color:var(--red);}
-  .chip-lbl{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);}
+  .chip{font-family:'DM Mono',monospace;font-size:12px;font-weight:700;padding:3px 10px;border-radius:100px;}
+  .chip.up{background:rgba(0,229,160,.12);color:var(--green);}
+  .chip.down{background:rgba(255,77,109,.12);color:var(--red);}
+  .chip-lbl{font-family:'DM Mono',monospace;font-size:11px;font-weight:600;color:var(--muted);}
 
   /* CALC BADGE */
   .calc-badge{display:inline-flex;align-items:center;gap:5px;font-family:'DM Mono',monospace;font-size:10px;background:rgba(255,209,102,.1);color:var(--yellow);padding:3px 10px;border-radius:100px;margin-top:8px;}
@@ -170,7 +170,7 @@
 
   /* USER BAR */
   .user-bar{display:flex;align-items:center;gap:10px;}
-  .user-badge{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;}
+  .user-badge{font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:6px;}
   .user-role-chip{font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:100px;background:linear-gradient(135deg,var(--ig2),var(--ig3));color:#fff;font-weight:600;letter-spacing:.5px;}
   .logout-btn{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:100px;padding:5px 12px;cursor:pointer;transition:all .2s;}
   .logout-btn:hover{border-color:var(--ig2);color:var(--ig2);}
@@ -195,8 +195,8 @@
   .user-list{display:flex;flex-direction:column;gap:8px;}
   .user-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);}
   .user-info{display:flex;flex-direction:column;gap:2px;}
-  .user-email{font-family:'DM Mono',monospace;font-size:12px;color:var(--text);}
-  .user-name{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);}
+  .user-email{font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:var(--text);}
+  .user-name{font-family:'DM Mono',monospace;font-size:11px;font-weight:600;color:var(--muted);}
   .user-role-select{font-family:'DM Mono',monospace;font-size:11px;padding:4px 8px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);cursor:pointer;outline:none;}
 </style>
 </head>
