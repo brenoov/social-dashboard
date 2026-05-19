@@ -714,9 +714,9 @@ async function fetchData(accountId,period,customStart,customEnd){
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=1&select=posts_count,stories_count,reels_count,captured_at`),
   ]);
   const eng=engCurr[0]||{likes:0,saves:0,shares:0};
-  const prevEng=engPrev[0]||{likes:0,saves:0,shares:0};
+  const prevEng=engPrev[0]||null;
   const cnt=cntCurr[0]||{posts_count:0,stories_count:0,reels_count:0};
-  const prevCnt=cntPrev[0]||{posts_count:0,stories_count:0,reels_count:0};
+  const prevCnt=cntPrev[0]||null;
   const periodStart=new Date(refDate);periodStart.setDate(periodStart.getDate()-effectivePeriod);
   const periodStartStr=localDate(periodStart);
   const currSnaps=snaps.filter(s=>s.captured_at>=periodStartStr);
@@ -727,7 +727,7 @@ async function fetchData(accountId,period,customStart,customEnd){
   const prevBegin=prevSnaps.length>0?prevSnaps[0].followers_count:0;
   const prevEnd=prevSnaps.length>0?prevSnaps[prevSnaps.length-1].followers_count:0;
   const newFollowers=Math.max(0,latest-periodBegin);
-  const prevNewFollowers=Math.max(0,prevEnd-prevBegin);
+  const prevNewFollowers=prevSnaps.length>0?Math.max(0,prevEnd-prevBegin):null;
   function fmtLabel(dateStr){const d=new Date(dateStr+'T12:00:00');return effectivePeriod<=7?days[d.getDay()]:d.getDate()+'/'+(d.getMonth()+1);}
   function fmtFull(dateStr){const d=new Date(dateStr+'T12:00:00');return d.getDate()+' '+months[d.getMonth()];}
   const chartVals=currSnaps.length>0?currSnaps.map(s=>s.followers_count):[latest];
@@ -745,8 +745,8 @@ async function fetchData(accountId,period,customStart,customEnd){
   return{followerTotal:latest,newFollowers,prevNewFollowers,avgPerDay,bestDay:'—',engRate,followerDeltas,effectivePeriod,
     chart:{vals:chartVals,prev:chartPrev,labels:chartLabels,dates:chartDates,prevDates:chartPrevDates},
     spend:0,prevSpend:0,cps:0,prevCps:0,
-    eng:{likes:eng.likes,saves:eng.saves,shares:eng.shares,prevLikes:prevEng.likes,prevSaves:prevEng.saves,prevShares:prevEng.shares},
-    cnt:{posts:cnt.posts_count,stories:cnt.stories_count,reels:cnt.reels_count,prevPosts:prevCnt.posts_count,prevStories:prevCnt.stories_count,prevReels:prevCnt.reels_count},
+    eng:{likes:eng.likes,saves:eng.saves,shares:eng.shares,prevLikes:prevEng?.likes??null,prevSaves:prevEng?.saves??null,prevShares:prevEng?.shares??null},
+    cnt:{posts:cnt.posts_count,stories:cnt.stories_count,reels:cnt.reels_count,prevPosts:prevCnt?.posts_count??null,prevStories:prevCnt?.stories_count??null,prevReels:prevCnt?.reels_count??null},
   };
 }
 
