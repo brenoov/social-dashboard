@@ -540,7 +540,7 @@ function animCount(el,target){
   requestAnimationFrame(tick);
 }
 function fmtN(n){return n>=1000?(n/1000).toFixed(1)+'K':String(n);}
-function fmtR(v){return 'R$ '+v.toFixed(2).replace('.',',');}
+function fmtR(v){const p=v.toFixed(2).split('.');return 'R$ '+p[0].replace(/\B(?=(\d{3})+(?!\d))/g,'.')+','+p[1];}
 function pctDiff(curr,prev){if(!prev)return '+0.0%';const d=((curr-prev)/prev*100);return (d>=0?'+':'')+d.toFixed(1)+'%';}
 function perfColor(pct){return pct>=100?'green':pct>=75?'yellow':pct>=50?'orange':'red';}
 function goalStorageKey(key,period,accountId){return 'ig_goal_'+(accountId||'default')+'_'+period+'_'+key;}
@@ -558,7 +558,7 @@ function getPrevLabel(period){
 /* ── COMPARE ROW ── */
 function setCompare(id,curr,prev,prefix,periodLabel,lowerIsBetter){
   const el=document.getElementById(id);el.textContent='';
-  if(!prev||prev===0){
+  if(prev===null||prev===undefined){
     const lbl=document.createElement('span');lbl.className='mc-compare-label';
     lbl.style.fontStyle='italic';lbl.textContent='Acumulando histórico...';
     el.appendChild(lbl);return;
@@ -566,11 +566,12 @@ function setCompare(id,curr,prev,prefix,periodLabel,lowerIsBetter){
   const lbl=document.createElement('span');lbl.className='mc-compare-label';lbl.textContent='vs '+periodLabel;
   const vals=document.createElement('div');vals.className='mc-compare-vals';
   const prevEl=document.createElement('span');prevEl.className='mc-compare-prev';
-  prevEl.textContent=(prefix||'')+fmtN(prev);
-  const d=curr-prev;const pct=((d/prev)*100);const isGood=lowerIsBetter?(d<=0):(d>=0);
+  prevEl.textContent=prefix?fmtR(prev):fmtN(prev);
+  const d=curr-prev;const pct=prev>0?((d/prev)*100):0;const isGood=lowerIsBetter?(d<=0):(d>=0);
   const deltaEl=document.createElement('span');
   deltaEl.className='mc-compare-delta '+(isGood?'c-green':'c-red');
-  deltaEl.textContent=(d>=0?'\u2191 +':'\u2193 ')+(prefix?fmtR(Math.abs(d)).replace('R$ ','R$ '):fmtN(Math.abs(d)))+' ('+Math.abs(pct).toFixed(1)+'%)';
+  const pctStr=prev>0?' ('+Math.abs(pct).toFixed(1)+'%)':'';
+  deltaEl.textContent=(d>=0?'\u2191 +':'\u2193 ')+(prefix?fmtR(Math.abs(d)):fmtN(Math.abs(d)))+pctStr;
   vals.appendChild(prevEl);vals.appendChild(deltaEl);el.appendChild(lbl);el.appendChild(vals);
 }
 
