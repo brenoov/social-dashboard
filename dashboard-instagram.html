@@ -514,12 +514,12 @@ let currentAccountId=null;
 let currentStartDate=null;
 let currentEndDate=null;
 let activeChartData=null;
+let currentSession=null;
 
 /* ── SUPABASE FETCH ── */
 async function sb(path){
   try{
-    const{data:{session}}=await sbClient.auth.getSession();
-    const token=session?.access_token||SUPABASE_ANON_KEY;
+    const token=currentSession?.access_token||SUPABASE_ANON_KEY;
     const r=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{
       headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${token}`}
     });
@@ -946,6 +946,7 @@ async function init(){
   if(hash.includes('type=invite')||hash.includes('type=recovery')){needsPasswordSet=true;}
 
   sbClient.auth.onAuthStateChange(async(event,session)=>{
+    currentSession=session;
     if(!session){
       showAuth(needsPasswordSet?'setpass':'login');
       return;
@@ -955,6 +956,7 @@ async function init(){
       return;
     }
     needsPasswordSet=false;
+    if(event==='TOKEN_REFRESHED')return;
     await loadDashboard(session);
   });
 }
