@@ -328,19 +328,20 @@
   </div>
   <div class="sec1-grid mb40">
     <div class="card">
-      <div class="f-lbl">TOTAL DE SEGUIDORES</div>
-      <div class="f-total" id="total-followers">0</div>
-      <div class="delta-row" id="followers-deltas"></div>
-      <div class="mc-divider"></div>
-      <div class="mc-header" style="margin-bottom:6px">
-        <span class="mc-lbl" style="margin-bottom:0">NOVOS NO PERÍODO</span>
+      <div class="mc-header">
+        <div>
+          <div class="mc-lbl">NOVOS SEGUIDORES</div>
+          <div style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);margin-top:2px;">Total: <span id="total-followers" style="font-weight:600;color:var(--text)">0</span></div>
+        </div>
         <div class="mc-goal-area">
           <span class="mc-goal-lbl">META</span>
           <span class="mc-goal-val" id="goal-followers" contenteditable="true" spellcheck="false">200</span>
           <span class="mc-edit-hint">✏</span>
         </div>
       </div>
+      <div class="mc-val a-blue" id="new-followers-val">0</div>
       <div class="mc-compare" id="cmp-followers"></div>
+      <div class="mc-divider"></div>
       <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-followers" style="width:0%"></div></div>
       <div class="mc-bottom">
         <span class="mc-pct" id="pct-followers">0%</span>
@@ -352,7 +353,7 @@
         <div style="font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:11px;letter-spacing:.5px;color:var(--muted)">EVOLUÇÃO DE SEGUIDORES</div>
         <div class="chart-legend">
           <div class="legend-item"><div class="legend-line" id="chart-legend-line" style="background:var(--accent)"></div><span>Atual</span></div>
-          <div class="legend-item"><div class="legend-dash"></div><span>Mês ant.</span></div>
+          <div class="legend-item"><div class="legend-dash"></div><span>Per. ant.</span></div>
         </div>
       </div>
       <div class="chart-svg-wrap">
@@ -769,13 +770,13 @@ async function fetchData(accountId,period,customStart,customEnd){
   } else {
     effectivePeriod=isHoje?1:period;storedPeriod=period;
     refDate=new Date();
+    if(period===1){refDate.setDate(refDate.getDate()-1);}  // 1D = ontem como referência
     histStartDate=new Date(refDate);histStartDate.setDate(histStartDate.getDate()-30-Math.max(effectivePeriod,1)-5);
   }
   const refDateStr=localDate(refDate);
   const histStartStr=localDate(histStartDate);
   const prevRefDate=new Date(refDate);
-  if(isHoje){prevRefDate.setDate(prevRefDate.getDate()-1);}
-  else{prevRefDate.setDate(prevRefDate.getDate()-30);}
+  prevRefDate.setDate(prevRefDate.getDate()-(isHoje?1:effectivePeriod));
   const prevRefDateStr=localDate(prevRefDate);
   const periodStartStr2=localDate(new Date(refDate.getTime()-effectivePeriod*86400000));
   const prevPeriodStartStr2=localDate(new Date(prevRefDate.getTime()-effectivePeriod*86400000));
@@ -848,26 +849,25 @@ async function fetchData(accountId,period,customStart,customEnd){
   const storyRep=storyDailyCurr.reduce((s,r)=>s+(r.story_replies||0),0);
   const prevStoryShares=storyDailyPrev.length?storyDailyPrev.reduce((s,r)=>s+(r.story_shares||0),0):null;
   const prevStoryRep=storyDailyPrev.length?storyDailyPrev.reduce((s,r)=>s+(r.story_replies||0),0):null;
+  // Etiqueta de comparação baseada no período anterior real
+  const _mm=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const _fd=d=>d.getDate()+' '+_mm[d.getMonth()];
+  const pl=effectivePeriod<=1?_fd(prevRefDate):(()=>{const s=new Date(prevRefDate.getTime()-effectivePeriod*86400000);return _fd(s)+' – '+_fd(prevRefDate);})();
   return{followerTotal:latest,newFollowers,prevNewFollowers,avgPerDay,bestDay:'—',engRate,followerDeltas,effectivePeriod,impressions,clicks,reach,
     chart:{vals:chartVals,prev:chartPrev,labels:chartLabels,dates:chartDates,prevDates:chartPrevDates},
     spend,prevSpend,cps,prevCps,
     eng:{likes:eng.likes,saves:eng.saves,shares:eng.shares,prevLikes:prevEng?.likes??null,prevSaves:prevEng?.saves??null,prevShares:prevEng?.shares??null},
     cnt:{posts:cnt.posts_count,stories:cnt.stories_count,reels:cnt.reels_count,postsReels:cnt.posts_count+cnt.reels_count,prevPostsReels:prevCnt!=null?prevCnt.posts_count+prevCnt.reels_count:null,prevStories:prevCnt?.stories_count??null},
     storyEng:{shares:storyShares,replies:storyRep,prevShares:prevStoryShares,prevReplies:prevStoryRep},
+    pl,
   };
 }
 
 /* ── MAIN UPDATE ── */
 function update(d,period){
-  const isHoje=period===0;
-  let pl;if(isHoje){const y=new Date();y.setDate(y.getDate()-1);const mm=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];pl=y.getDate()+' '+mm[y.getMonth()];}else{pl=getPrevLabel(period);}
-  animCount(document.getElementById('total-followers'),d.followerTotal);
-  const dr=document.getElementById('followers-deltas');dr.textContent='';
-  d.followerDeltas.forEach(item=>{
-    const lbl=document.createElement('span');lbl.className='chip-lbl';lbl.textContent=item.p;
-    const chip=document.createElement('span');chip.className='chip '+item.dir;chip.textContent=item.v;
-    dr.appendChild(lbl);dr.appendChild(chip);
-  });
+  const pl=d.pl;
+  const totalEl=document.getElementById('total-followers');if(totalEl)totalEl.textContent=fmtN(d.followerTotal);
+  const newEl=document.getElementById('new-followers-val');if(newEl)animCount(newEl,d.newFollowers);
   buildChart(d.chart);
   setCompare('cmp-followers',d.newFollowers,d.prevNewFollowers,'',pl,false);
   applyMetric('followers',d.newFollowers,getGoal('followers'));

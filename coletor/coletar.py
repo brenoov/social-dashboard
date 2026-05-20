@@ -105,9 +105,10 @@ def coletar_midias(ig_id, token, dias):
         if ts:
             ts_norm = ts.replace("+0000", "+00:00").replace("Z", "+00:00")
             pub = datetime.fromisoformat(ts_norm)
-            if pub.date() < from_date:
+            pub_local = pub.astimezone()  # converte UTC → fuso local (Brasil)
+            if pub_local.date() < from_date:
                 continue
-            if to_date is not None and pub.date() > to_date:
+            if to_date is not None and pub_local.date() > to_date:
                 continue
 
         # Stories não aparecem em /media — tratados separadamente
