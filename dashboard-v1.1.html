@@ -936,7 +936,7 @@ async function fetchData(accountId,period,customStart,customEnd){
   const refDateStr=localDate(refDate);
   const histStartStr=localDate(histStartDate);
   const prevRefDate=new Date(refDate);
-  prevRefDate.setDate(prevRefDate.getDate()-(isHoje?1:effectivePeriod));
+  prevRefDate.setMonth(prevRefDate.getMonth()-1);
   const prevRefDateStr=localDate(prevRefDate);
   const periodStartStr2=localDate(new Date(refDate.getTime()-effectivePeriod*86400000));
   const prevPeriodStartStr2=localDate(new Date(prevRefDate.getTime()-effectivePeriod*86400000));
