@@ -451,7 +451,7 @@
     </div>
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div style="font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:11px;letter-spacing:.5px;color:var(--muted)">EVOLUÇÃO DE SEGUIDORES</div>
+        <div style="font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:11px;letter-spacing:.5px;color:var(--muted)">NOVOS SEGUIDORES / DIA</div>
         <div class="chart-legend">
           <div class="legend-item"><div class="legend-line" id="chart-legend-line" style="background:var(--accent)"></div><span>Atual</span></div>
           <div class="legend-item"><div class="legend-dash"></div><span>Per. ant.</span></div>
@@ -815,9 +815,10 @@ function buildChart(chartData){
   while(prev.length>vals.length)prev.pop();
   const W=400,H=110,pad=6;
   const allV=[...vals,...prev.filter(v=>v>0)];
-  const rawMin=Math.min(...allV),rawMax=Math.max(...allV);
-  const vPad=Math.max((rawMax-rawMin)*0.5,rawMax*0.03);
-  const min=Math.max(0,rawMin-vPad),max=rawMax+vPad*0.1;
+  const rawMax=Math.max(...allV,1);
+  // Sempre começa do zero; padding no topo é 20% do máximo (mínimo 1)
+  // Isso garante que valores próximos formem linhas quase retas
+  const min=0,max=rawMax+Math.max(rawMax*0.20,1);
   const range=max-min||1;
   function px(i){return pad+(i/(vals.length-1))*(W-pad*2);}
   function py(v){return H-pad-((v-min)/range)*(H-pad*2);}
@@ -844,7 +845,7 @@ function buildChart(chartData){
     t.setAttribute('x',tx);t.setAttribute('y',ty);t.setAttribute('text-anchor','middle');
     t.setAttribute('font-size','7.5');t.setAttribute('fill','rgba(22,22,42,0.65)');
     t.setAttribute('font-weight','600');t.setAttribute('font-family','monospace');
-    t.textContent=fmtShort(v);labelsG.appendChild(t);
+    t.textContent=(v>0?'+':'')+fmtShort(v);labelsG.appendChild(t);
   });
   const xlWrap=document.getElementById('chart-xlabels');xlWrap.textContent='';
   const step=Math.max(1,Math.floor(labels.length/6));
@@ -874,9 +875,9 @@ overlay.addEventListener('mousemove',function(e){
   const curr=vals[i],prevV=prev[i],diff=curr-prevV;
   const diffPct=prevV>0?((diff/prevV)*100).toFixed(1):'\u2014';
   document.getElementById('tt-date').textContent=dates[i]||'';
-  document.getElementById('tt-curr-val').textContent=curr.toLocaleString('pt-BR');
-  document.getElementById('tt-prev-label').textContent=prevDates[i]||'M\u00eas ant.';
-  document.getElementById('tt-prev-val').textContent=prevV>0?prevV.toLocaleString('pt-BR'):'\u2014';
+  document.getElementById('tt-curr-val').textContent='+'+(curr.toLocaleString('pt-BR'));
+  document.getElementById('tt-prev-label').textContent=prevDates[i]||'Per. ant.';
+  document.getElementById('tt-prev-val').textContent=prevV>0?'+'+prevV.toLocaleString('pt-BR'):'\u2014';
   const dEl=document.getElementById('tt-delta');
   if(prevV>0){dEl.textContent=(diff>=0?'\u2191 ':'\u2193 ')+(diff>=0?'+':'')+diff.toLocaleString('pt-BR')+' ('+(diff>=0?'+':'')+diffPct+'%) vs per. ant.';dEl.className='tt-delta '+(diff>=0?'c-green':'c-red');}
   else{dEl.textContent='Sem hist\u00f3rico anterior';dEl.className='tt-delta';}
@@ -947,11 +948,14 @@ async function fetchData(accountId,period,customStart,customEnd){
   const prevNewFollowers=(prevEndSnap&&prevBeginSnap)?Math.max(0,prevEndSnap.followers_count-prevBeginSnap.followers_count):null;
   function fmtLabel(dateStr){const d=new Date(dateStr+'T12:00:00');return effectivePeriod<=7?days[d.getDay()]:d.getDate()+'/'+(d.getMonth()+1);}
   function fmtFull(dateStr){const d=new Date(dateStr+'T12:00:00');return d.getDate()+' '+months[d.getMonth()];}
-  const chartVals=currSnaps.length>0?currSnaps.map(s=>s.followers_count):[latest];
-  const chartPrev=prevSnaps.length>0?prevSnaps.map(s=>s.followers_count):[0];
-  const chartLabels=currSnaps.length>0?currSnaps.map(s=>fmtLabel(s.captured_at)):['Hoje'];
-  const chartDates=currSnaps.length>0?currSnaps.map(s=>fmtFull(s.captured_at)):['Hoje'];
-  const chartPrevDates=prevSnaps.length>0?prevSnaps.map(s=>fmtFull(s.captured_at)):['—'];
+  // Gráfico: novos seguidores por dia (delta entre snapshots consecutivos)
+  const _delta=(arr)=>arr.length>1?arr.slice(1).map((s,i)=>Math.max(0,s.followers_count-arr[i].followers_count)):[arr.length===1?newFollowers:0];
+  const chartVals=currSnaps.length>0?_delta(currSnaps):[newFollowers];
+  const chartPrev=prevSnaps.length>0?_delta(prevSnaps):[0];
+  const _snapSrc=(arr)=>arr.length>1?arr.slice(1):arr;
+  const chartLabels=currSnaps.length>0?_snapSrc(currSnaps).map(s=>fmtLabel(s.captured_at)):['Hoje'];
+  const chartDates=currSnaps.length>0?_snapSrc(currSnaps).map(s=>fmtFull(s.captured_at)):['Hoje'];
+  const chartPrevDates=prevSnaps.length>0?_snapSrc(prevSnaps).map(s=>fmtFull(s.captured_at)):['—'];
   const engTotal=eng.likes+eng.saves+eng.shares;
   const prevEngTotal=(prevEng?.likes||0)+(prevEng?.saves||0)+(prevEng?.shares||0);
   const engRate=latest>0?((engTotal/latest)*100).toFixed(1):'0.0';
