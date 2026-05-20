@@ -187,12 +187,14 @@
   /* CHART */
   .chart-svg-wrap{position:relative;width:100%;}
   .chart-svg-wrap svg{width:100%;height:120px;overflow:visible;cursor:crosshair;}
+  #chart-data-labels{position:absolute;top:0;left:0;width:100%;height:120px;pointer-events:none;overflow:visible;}
+  .cdl{position:absolute;transform:translate(-50%,calc(-100% - 3px));font-family:'Oswald',sans-serif;font-size:9px;font-weight:500;color:rgba(22,22,42,0.65);white-space:nowrap;letter-spacing:.3px;}
   .chart-legend{display:flex;gap:16px;margin-top:8px;margin-bottom:4px;}
-  .legend-item{display:flex;align-items:center;gap:5px;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:500;color:var(--muted);}
+  .legend-item{display:flex;align-items:center;gap:5px;font-family:'Oswald',sans-serif;font-size:10px;font-weight:400;color:var(--muted);letter-spacing:.5px;}
   .legend-line{width:20px;height:2px;border-radius:0;}
   .legend-dash{width:20px;height:2px;background:repeating-linear-gradient(90deg,rgba(0,0,0,.2)0,rgba(0,0,0,.2)4px,transparent 4px,transparent 7px);}
-  .x-labels{display:flex;justify-content:space-between;}
-  .x-label{font-family:'IBM Plex Sans',sans-serif;font-weight:500;font-size:10px;color:var(--muted);}
+  .x-labels{position:relative;height:16px;overflow:visible;}
+  .x-label{position:absolute;transform:translateX(-50%);font-family:'Oswald',sans-serif;font-weight:400;font-size:9px;color:var(--muted);white-space:nowrap;letter-spacing:.3px;}
 
   /* TOOLTIP */
   #chart-tooltip{
@@ -201,15 +203,15 @@
     border-radius:4px;padding:12px 14px;min-width:180px;
     box-shadow:0 8px 24px rgba(0,0,0,.1);
   }
-  .tt-date{font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:600;color:var(--muted);margin-bottom:8px;letter-spacing:1.5px;text-transform:uppercase;}
+  .tt-date{font-family:'Oswald',sans-serif;font-size:9px;font-weight:400;color:var(--muted);margin-bottom:8px;letter-spacing:1.5px;text-transform:uppercase;}
   .tt-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
   .tt-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
   .tt-dot.curr{background:var(--accent);}
   .tt-dot.prev{background:rgba(0,0,0,.2);}
-  .tt-label{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:500;color:var(--muted);flex:1;}
+  .tt-label{font-family:'Oswald',sans-serif;font-size:11px;font-weight:400;color:var(--muted);flex:1;letter-spacing:.5px;}
   .tt-val{font-family:'Oswald',sans-serif;font-weight:500;font-size:17px;color:var(--text);}
   .tt-sep{height:1px;background:var(--border);margin:6px 0;}
-  .tt-delta{font-family:'IBM Plex Sans',sans-serif;font-size:11px;margin-top:4px;}
+  .tt-delta{font-family:'Oswald',sans-serif;font-size:11px;font-weight:400;margin-top:4px;}
 
   /* FOLLOWERS CARD */
   .f-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
@@ -466,7 +468,7 @@
     </div>
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div style="font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:11px;letter-spacing:.5px;color:var(--muted)">NOVOS SEGUIDORES / DIA</div>
+        <div style="font-family:'Oswald',sans-serif;font-weight:400;font-size:11px;letter-spacing:1.5px;color:var(--muted)">NOVOS SEGUIDORES / DIA</div>
         <div class="chart-legend">
           <div class="legend-item"><div class="legend-line" id="chart-legend-line" style="background:var(--accent)"></div><span>Atual</span></div>
           <div class="legend-item"><div class="legend-dash"></div><span>Per. ant.</span></div>
@@ -486,9 +488,9 @@
           <line id="crosshair" x1="0" y1="0" x2="0" y2="110" stroke="rgba(0,0,0,0.15)" stroke-width="1" display="none"/>
           <circle id="dot-curr" r="4" fill="#1D4ED8" stroke="#f4f5fa" stroke-width="2" display="none"/>
           <circle id="dot-prev" r="3.5" fill="rgba(0,0,0,0.2)" stroke="#f4f5fa" stroke-width="2" display="none"/>
-          <g id="chart-data-labels"></g>
           <rect id="chart-overlay" x="0" y="0" width="400" height="110" fill="transparent"/>
         </svg>
+        <div id="chart-data-labels"></div>
       </div>
       <div class="x-labels" id="chart-xlabels"></div>
     </div>
@@ -855,18 +857,24 @@ function buildChart(chartData){
   const lblStep=vals.length>14?4:vals.length>7?2:1;
   vals.forEach((v,i)=>{
     if(i%lblStep!==0&&i!==0&&i!==vals.length-1)return;
-    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
-    const tx=px(i);let ty=py(v)-7;if(ty<10)ty=py(v)+14;
-    t.setAttribute('x',tx);t.setAttribute('y',ty);t.setAttribute('text-anchor','middle');
-    t.setAttribute('font-size','7.5');t.setAttribute('fill','rgba(22,22,42,0.65)');
-    t.setAttribute('font-weight','600');t.setAttribute('font-family','monospace');
-    t.textContent=(v>0?'+':'')+fmtShort(v);labelsG.appendChild(t);
+    const s=document.createElement('span');s.className='cdl';
+    s.textContent=(v>0?'+':'')+fmtShort(v);
+    const xPct=(px(i)/W)*100;
+    const yPyPct=(py(v)/H)*100;
+    s.style.left=xPct+'%';
+    s.style.top=yPyPct+'%';
+    // se o rótulo ficaria muito perto do topo, inverte para baixo do ponto
+    if(py(v)<14)s.style.transform='translate(-50%, 5px)';
+    labelsG.appendChild(s);
   });
   const xlWrap=document.getElementById('chart-xlabels');xlWrap.textContent='';
   const step=Math.max(1,Math.floor(labels.length/6));
   labels.forEach((l,i)=>{
     if(i%step!==0&&i!==labels.length-1)return;
-    const s=document.createElement('span');s.className='x-label';s.textContent=l;xlWrap.appendChild(s);
+    const s=document.createElement('span');s.className='x-label';s.textContent=l;
+    const pct=((px(i)-pad)/(W-pad*2))*100;
+    s.style.left=pct+'%';
+    xlWrap.appendChild(s);
   });
 }
 
