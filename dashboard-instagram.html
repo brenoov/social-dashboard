@@ -924,8 +924,8 @@ async function fetchData(accountId,period,customStart,customEnd){
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=posts_count,stories_count,reels_count,captured_at`),
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=1&select=posts_count,stories_count,reels_count,captured_at`),
     sb(`campaign_filters?account_id=eq.${accountId}&select=selected_ids`),
-    sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storyQP}&captured_at=gte.${periodStartStr2}&captured_at=lte.${refDateStr}&select=story_shares,story_replies`),
-    sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storyQP}&captured_at=gte.${prevPeriodStartStr2}&captured_at=lte.${prevRefDateStr}&select=story_shares,story_replies`),
+    sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storyQP}&captured_at=gte.${periodStartStr2}&captured_at=lte.${refDateStr}&select=story_shares,story_replies,stories_count`),
+    sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storyQP}&captured_at=gte.${prevPeriodStartStr2}&captured_at=lte.${prevRefDateStr}&select=story_shares,story_replies,stories_count`),
   ]);
   const eng=engCurr[0]||{likes:0,saves:0,shares:0};
   const prevEng=engPrev[0]||null;
@@ -985,6 +985,9 @@ async function fetchData(accountId,period,customStart,customEnd){
   const storyRep=storyDailyCurr.reduce((s,r)=>s+(r.story_replies||0),0);
   const prevStoryShares=storyDailyPrev.length?storyDailyPrev.reduce((s,r)=>s+(r.story_shares||0),0):null;
   const prevStoryRep=storyDailyPrev.length?storyDailyPrev.reduce((s,r)=>s+(r.story_replies||0),0):null;
+  // Para períodos >1, soma stories_count dos snapshots diários (period_days=1) em vez de usar o snapshot do período que não tem esse campo
+  const storiesCount=storedPeriod<=1?cnt.stories_count:storyDailyCurr.reduce((s,r)=>s+(r.stories_count||0),0);
+  const prevStoriesCount=storedPeriod<=1?(prevCnt?.stories_count??null):(storyDailyPrev.length?storyDailyPrev.reduce((s,r)=>s+(r.stories_count||0),0):null);
   // Etiqueta de comparação baseada no período anterior real
   const _mm=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const _fd=d=>d.getDate()+' '+_mm[d.getMonth()];
@@ -993,7 +996,7 @@ async function fetchData(accountId,period,customStart,customEnd){
     chart:{vals:chartVals,prev:chartPrev,labels:chartLabels,dates:chartDates,prevDates:chartPrevDates},
     spend,prevSpend,cps,prevCps,
     eng:{likes:eng.likes,saves:eng.saves,shares:eng.shares,prevLikes:prevEng?.likes??null,prevSaves:prevEng?.saves??null,prevShares:prevEng?.shares??null},
-    cnt:{posts:cnt.posts_count,stories:cnt.stories_count,reels:cnt.reels_count,postsReels:cnt.posts_count+cnt.reels_count,prevPostsReels:prevCnt!=null?prevCnt.posts_count+prevCnt.reels_count:null,prevStories:prevCnt?.stories_count??null},
+    cnt:{posts:cnt.posts_count,stories:storiesCount,reels:cnt.reels_count,postsReels:cnt.posts_count+cnt.reels_count,prevPostsReels:prevCnt!=null?prevCnt.posts_count+prevCnt.reels_count:null,prevStories:prevStoriesCount},
     storyEng:{shares:storyShares,replies:storyRep,prevShares:prevStoryShares,prevReplies:prevStoryRep},
     pl,
   };
@@ -1084,7 +1087,7 @@ let _acCountdown=null;
 let _acInactivity=null;
 let _acSecsLeft=0;
 const AC_INACTIVITY=5;    // segundos sem mouse p/ ativar
-const AC_DURATION=30;     // segundos por perfil
+const AC_DURATION=40;     // segundos por perfil
 
 function _acSwitchTo(idx){
   const wrapper=document.querySelector('.wrapper');
