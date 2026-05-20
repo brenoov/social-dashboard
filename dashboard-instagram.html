@@ -55,6 +55,15 @@
   .wrapper{transition:opacity .5s cubic-bezier(.4,0,.6,1),transform .5s cubic-bezier(.4,0,.6,1);}
   .wrapper.fading{opacity:0;transform:scale(.985) translateY(4px);}
   .wrapper.entering{animation:profileEnter .55s cubic-bezier(.22,1,.36,1) both;}
+  /* AUTO-CYCLE TOGGLE */
+  .ac-toggle{display:inline-flex;align-items:center;gap:7px;cursor:pointer;user-select:none;}
+  .ac-toggle-track{width:34px;height:19px;border-radius:10px;background:var(--border);position:relative;flex-shrink:0;transition:background .25s ease;border:1px solid rgba(0,0,0,.08);}
+  .ac-toggle-track.on{background:var(--accent);}
+  .ac-toggle-thumb{position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .25s cubic-bezier(.34,1.56,.64,1);}
+  .ac-toggle-track.on .ac-toggle-thumb{transform:translateX(15px);}
+  .ac-toggle-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;transition:color .2s;}
+  .ac-toggle.on .ac-toggle-lbl{color:var(--accent);}
+
   #autocycle-badge{position:fixed;bottom:18px;right:18px;display:none;align-items:center;gap:8px;background:rgba(10,10,18,.72);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:7px 14px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:rgba(255,255,255,.8);letter-spacing:.8px;z-index:9999;}
   #autocycle-badge .ac-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;flex-shrink:0;}
   #autocycle-progress{position:fixed;bottom:0;left:0;height:2px;background:var(--accent);width:0%;transition:width linear;z-index:9998;}
@@ -395,7 +404,13 @@
   </div>
 
   <div class="topbar">
-    <span class="live-dot">ATUALIZADO AGORA</span>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <span class="live-dot">ATUALIZADO AGORA</span>
+      <div class="ac-toggle on" id="ac-toggle-btn" onclick="toggleAutoCycle()" title="Rotação automática de perfis">
+        <div class="ac-toggle-track on" id="ac-toggle-track"><div class="ac-toggle-thumb"></div></div>
+        <span class="ac-toggle-lbl">AUTO</span>
+      </div>
+    </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
       <div class="period-tabs" id="period-tabs"></div>
       <button class="custom-range-btn" id="custom-range-btn" onclick="toggleCustomRange()">📅 Personalizado</button>
@@ -1090,6 +1105,7 @@ let _acTimer=null;
 let _acCountdown=null;
 let _acInactivity=null;
 let _acSecsLeft=0;
+let _acEnabled=true;
 const AC_INACTIVITY=5;    // segundos sem mouse p/ ativar
 const AC_DURATION=40;     // segundos por perfil
 
@@ -1110,7 +1126,7 @@ function _acSwitchTo(idx){
 }
 
 function _acStartCycle(){
-  if(_acTimer||_allAccounts.length<=1)return;
+  if(!_acEnabled||_acTimer||_allAccounts.length<=1)return;
   _acSecsLeft=AC_DURATION;
   const badge=document.getElementById('autocycle-badge');
   const prog=document.getElementById('autocycle-progress');
@@ -1147,9 +1163,36 @@ function _acStopCycle(){
 }
 
 function _acResetInactivity(){
+  if(!_acEnabled)return;
   if(_acTimer)_acStopCycle();
   clearTimeout(_acInactivity);
   _acInactivity=setTimeout(_acStartCycle,AC_INACTIVITY*1000);
+}
+
+function toggleAutoCycle(){
+  _acEnabled=!_acEnabled;
+  const btn=document.getElementById('ac-toggle-btn');
+  const track=document.getElementById('ac-toggle-track');
+  if(_acEnabled){
+    btn.classList.add('on');track.classList.add('on');
+    _acResetInactivity();
+  }else{
+    btn.classList.remove('on');track.classList.remove('on');
+    _acStopCycle();
+    clearTimeout(_acInactivity);_acInactivity=null;
+  }
+  localStorage.setItem('ac_enabled',_acEnabled?'1':'0');
+}
+
+function initAutoCycleToggle(){
+  const saved=localStorage.getItem('ac_enabled');
+  if(saved==='0'){
+    _acEnabled=false;
+    const btn=document.getElementById('ac-toggle-btn');
+    const track=document.getElementById('ac-toggle-track');
+    if(btn)btn.classList.remove('on');
+    if(track)track.classList.remove('on');
+  }
 }
 
 document.addEventListener('mousemove',_acResetInactivity,{passive:true});
@@ -1318,7 +1361,7 @@ async function loadDashboard(session){
     buildPeriodTabs();updateGoalDisplays(7);watchGoals();
     dashboardReady=true;
   }
-  await buildProfiles();restoreHeaderState();await refresh();
+  await buildProfiles();restoreHeaderState();initAutoCycleToggle();await refresh();
 }
 
 function detectDevice(){
