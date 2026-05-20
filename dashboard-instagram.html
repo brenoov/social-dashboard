@@ -581,12 +581,8 @@ function loadGoal(key,period,accountId){const s=localStorage.getItem(goalStorage
 function getGoal(key){return parseFloat(document.getElementById('goal-'+key).textContent)||GOALS[key][currentPeriod];}
 function getPrevLabel(period){
   const months=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  if(period===1){
-    // 1D shows yesterday, so comparison is anteontem
-    const d=new Date();d.setDate(d.getDate()-2);
-    return d.getDate()+' '+months[d.getMonth()];
-  }
   const end=new Date();end.setDate(end.getDate()-period);
+  if(period===1)return end.getDate()+' '+months[end.getMonth()];
   const start=new Date(end);start.setDate(start.getDate()-period+1);
   return start.getDate()+' '+months[start.getMonth()]+' – '+end.getDate()+' '+months[end.getMonth()];
 }
@@ -740,10 +736,7 @@ async function fetchData(accountId,period,customStart,customEnd){
   } else {
     effectivePeriod=period;storedPeriod=period;
     refDate=new Date();
-    if(period===1){
-      // 1D = ontem completo (evita zero quando o coletor ainda não rodou hoje)
-      refDate.setDate(refDate.getDate()-1);
-    }
+
     histStartDate=new Date(refDate);histStartDate.setDate(histStartDate.getDate()-period*3);
   }
   const refDateStr=localDate(refDate);
@@ -786,7 +779,7 @@ async function fetchData(accountId,period,customStart,customEnd){
   const prevEngTotal=(prevEng?.likes||0)+(prevEng?.saves||0)+(prevEng?.shares||0);
   const engRate=latest>0?((engTotal/latest)*100).toFixed(1):'0.0';
   const avgPerDay=effectivePeriod>0?(newFollowers/effectivePeriod).toFixed(1):'0.0';
-  const pLabel=customStart&&customEnd?effectivePeriod+'D':(period===1?'Ontem':period+'D');
+  const pLabel=customStart&&customEnd?effectivePeriod+'D':period+'D';
   const followerDeltas=[{p:pLabel,v:(newFollowers>=0?'+':'')+fmtN(newFollowers),dir:newFollowers>=0?'up':'down'}];
   if(prevNewFollowers>0){followerDeltas.push({p:'vs per. ant.',v:pctDiff(newFollowers,prevNewFollowers),dir:newFollowers>=prevNewFollowers?'up':'down'});}
   // Ads: lê de campaign_insights aplicando o filtro de campanhas em tempo real
