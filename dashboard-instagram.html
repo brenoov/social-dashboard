@@ -1097,6 +1097,7 @@ async function loadCampaignFilterBadge(){
     <div id="campaign-list" class="camp-list"></div>
     <div class="camp-modal-footer">
       <button class="btn-camp-all" onclick="document.querySelectorAll('#campaign-list input').forEach(cb=>cb.checked=true);updateCampaignCount()">Selecionar todas</button>
+      <button class="btn-camp-all" onclick="document.querySelectorAll('#campaign-list input').forEach(cb=>cb.checked=false);updateCampaignCount()">Desmarcar todas</button>
       <button class="btn-camp-save" onclick="saveCampaignFilter()">Salvar filtro</button>
     </div>
   </div>
