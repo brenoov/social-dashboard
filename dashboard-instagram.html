@@ -748,14 +748,13 @@ async function fetchData(accountId,period,customStart,customEnd){
   const histStartStr=localDate(histStartDate);
   const prevRefDate=new Date(refDate);prevRefDate.setDate(prevRefDate.getDate()-effectivePeriod);
   const prevRefDateStr=localDate(prevRefDate);
-  const[snaps,engCurr,engPrev,cntCurr,cntPrev,adsCurr,adsPrev]=await Promise.all([
+  const[snaps,engCurr,engPrev,cntCurr,cntPrev,filterRow]=await Promise.all([
     sb(`daily_snapshots?account_id=eq.${accountId}&captured_at=gte.${histStartStr}&captured_at=lte.${refDateStr}&order=captured_at.asc&select=followers_count,captured_at`),
     sb(`engagement_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=likes,saves,shares,captured_at`),
     sb(`engagement_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=1&select=likes,saves,shares,captured_at`),
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=posts_count,stories_count,reels_count,captured_at`),
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=1&select=posts_count,stories_count,reels_count,captured_at`),
-    sb(`ads_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=spend,impressions,clicks,reach`),
-    sb(`ads_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=1&select=spend,impressions,clicks,reach`),
+    sb(`campaign_filters?account_id=eq.${accountId}&select=selected_ids`),
   ]);
   const eng=engCurr[0]||{likes:0,saves:0,shares:0};
   const prevEng=engPrev[0]||null;
@@ -788,12 +787,26 @@ async function fetchData(accountId,period,customStart,customEnd){
   const pLabel=customStart&&customEnd?effectivePeriod+'D':(period===1?'Ontem':period+'D');
   const followerDeltas=[{p:pLabel,v:(newFollowers>=0?'+':'')+fmtN(newFollowers),dir:newFollowers>=0?'up':'down'}];
   if(prevNewFollowers>0){followerDeltas.push({p:'vs per. ant.',v:pctDiff(newFollowers,prevNewFollowers),dir:newFollowers>=prevNewFollowers?'up':'down'});}
-  const adsRow=adsCurr[0]||null;
-  const spend=adsRow?parseFloat(adsRow.spend||0):0;
-  const impressions=adsRow?parseInt(adsRow.impressions||0):0;
-  const clicks=adsRow?parseInt(adsRow.clicks||0):0;
-  const reach=adsRow?parseInt(adsRow.reach||0):0;
-  const prevSpend=adsPrev[0]?parseFloat(adsPrev[0].spend||0):null;
+  // Ads: lê de campaign_insights aplicando o filtro de campanhas em tempo real
+  const selectedIds=filterRow[0]?.selected_ids||[];
+  const idFilter=selectedIds.length>0?`&campaign_id=in.(${selectedIds.join(',')})` :'';
+  const[ciCurr,ciPrev]=await Promise.all([
+    sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=200&select=campaign_id,spend,impressions,clicks,reach,captured_at${idFilter}`),
+    sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=200&select=campaign_id,spend,impressions,clicks,reach,captured_at${idFilter}`),
+  ]);
+  function aggCi(rows){
+    if(!rows.length)return null;
+    const maxDate=rows[0].captured_at;
+    const d=rows.filter(r=>r.captured_at===maxDate);
+    return{spend:d.reduce((s,r)=>s+parseFloat(r.spend||0),0),impressions:d.reduce((s,r)=>s+parseInt(r.impressions||0),0),clicks:d.reduce((s,r)=>s+parseInt(r.clicks||0),0),reach:d.reduce((s,r)=>s+parseInt(r.reach||0),0)};
+  }
+  const adsAgg=aggCi(ciCurr);
+  const prevAdsAgg=aggCi(ciPrev);
+  const spend=adsAgg?.spend||0;
+  const impressions=adsAgg?.impressions||0;
+  const clicks=adsAgg?.clicks||0;
+  const reach=adsAgg?.reach||0;
+  const prevSpend=prevAdsAgg?prevAdsAgg.spend:null;
   const cps=spend>0&&newFollowers>0?spend/newFollowers:0;
   const prevCps=prevSpend&&prevNewFollowers>0?prevSpend/prevNewFollowers:null;
   return{followerTotal:latest,newFollowers,prevNewFollowers,avgPerDay,bestDay:'—',engRate,followerDeltas,effectivePeriod,impressions,clicks,reach,

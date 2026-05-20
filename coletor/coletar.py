@@ -147,37 +147,40 @@ def obter_filtro_campanhas(supabase, account_id):
     return None
 
 
-def coletar_ads(ad_account_id, token, dias, campaign_ids=None):
-    """Busca gasto, impressões, cliques e alcance via Marketing API.
-    Se campaign_ids for fornecido, filtra somente essas campanhas."""
+def coletar_ads_por_campanha(supabase, ad_account_id, account_id, token, dias, hoje):
+    """Busca gasto por campanha individual e salva em campaign_insights."""
     since = (date.today() - timedelta(days=dias)).isoformat()
     until = date.today().isoformat()
     params = {
-        "fields": "spend,impressions,clicks,reach",
+        "fields": "campaign_id,spend,impressions,clicks,reach",
         "time_range": json.dumps({"since": since, "until": until}),
-        "level": "account",
+        "level": "campaign",
         "access_token": token,
     }
-    if campaign_ids:
-        params["filtering"] = json.dumps([{
-            "field": "campaign_id",
-            "operator": "IN",
-            "value": campaign_ids,
-        }])
     try:
         data = api_get(f"act_{ad_account_id}/insights", params)
         rows = data.get("data", [])
-        if rows:
-            r = rows[0]
-            return {
+        if not rows:
+            return
+        camp_rows = [
+            {
+                "campaign_id": r["campaign_id"],
+                "account_id": account_id,
+                "captured_at": hoje,
+                "period_days": dias,
                 "spend": float(r.get("spend", 0) or 0),
                 "impressions": int(r.get("impressions", 0) or 0),
                 "clicks": int(r.get("clicks", 0) or 0),
                 "reach": int(r.get("reach", 0) or 0),
             }
+            for r in rows
+        ]
+        supabase.table("campaign_insights").upsert(
+            camp_rows, on_conflict="campaign_id,account_id,captured_at,period_days"
+        ).execute()
+        print(f"   📊 {len(camp_rows)} campanhas salvas em campaign_insights ({dias}D)")
     except Exception as e:
-        print(f"   ⚠️  Ads ({ad_account_id}): {e}")
-    return {"spend": 0.0, "impressions": 0, "clicks": 0, "reach": 0}
+        print(f"   ⚠️  campaign_insights ({ad_account_id}, {dias}D): {e}")
 
 
 def processar_conta(supabase, account_id, ig_id, token, nome):
@@ -217,21 +220,9 @@ def processar_conta(supabase, account_id, ig_id, token, nome):
     ad_account_id = AD_ACCOUNTS.get(ig_id, "")
     if ad_account_id:
         sincronizar_campanhas(supabase, account_id, ad_account_id, token)
-        filtro = obter_filtro_campanhas(supabase, account_id)
-        if filtro:
-            print(f"   🔍 Filtro ativo: {len(filtro)} campanhas selecionadas")
-        else:
-            print(f"   💰 Coletando Ads (todas as campanhas)...")
         for dias in PERIODS:
-            ads = coletar_ads(ad_account_id, token, dias, campaign_ids=filtro)
-            supabase.table("ads_snapshots").upsert(
-                {"account_id": account_id, "captured_at": hoje, "period_days": dias,
-                 "spend": ads["spend"], "impressions": ads["impressions"],
-                 "clicks": ads["clicks"], "reach": ads["reach"]},
-                on_conflict="account_id,captured_at,period_days"
-            ).execute()
-            print(f"   {dias:2d}D → 💸 R${ads['spend']:.2f} | 👁 {ads['impressions']:,} | "
-                  f"🖱 {ads['clicks']:,} | 📡 {ads['reach']:,}")
+            # Salva dados individuais por campanha (para filtro funcionar em tempo real no dashboard)
+            coletar_ads_por_campanha(supabase, ad_account_id, account_id, token, dias, hoje)
 
 
 NOMES_TOKENS = {
