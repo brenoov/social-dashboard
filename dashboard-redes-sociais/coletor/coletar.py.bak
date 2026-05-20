@@ -1,0 +1,213 @@
+#!/usr/bin/env python3
+"""
+Coletor de dados do Instagram para o Dashboard KPI.
+Executa diariamente e armazena os dados no Supabase.
+
+Como usar:
+  1. Configure o arquivo .env com seus tokens (veja .env.exemplo)
+  2. Execute: python3 coletar.py
+"""
+
+import os
+import requests
+from datetime import date, timedelta
+from supabase import create_client, Client
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# ============================================================
+# CONFIGURAÇÕES
+# ============================================================
+
+SUPABASE_URL = "https://kounqtdoioootxqegkij.supabase.co"
+SUPABASE_KEY = os.environ["SUPABASE_KEY"]
+
+# Tokens de acesso por conta (Page Access Tokens de longa duração — 60 dias)
+# Gere em: https://developers.facebook.com/tools/explorer/
+TOKENS = {
+    "17841401847160442": os.environ.get("TOKEN_RAISSA", ""),        # @raissa.nherculano
+    "17841401284454639": os.environ.get("TOKEN_BRENO", ""),         # @obrenovale
+    "17841406451230767": os.environ.get("TOKEN_MANTOVA", ""),       # @mantova_moveisplanejados
+    "17841462952561833": os.environ.get("TOKEN_VESSEL", ""),        # @vessel.brasil
+    "17841464138609037": os.environ.get("TOKEN_MOTOEASY", ""),      # @motoeasybrasil
+}
+
+GRAPH = "https://graph.facebook.com/v21.0"
+
+
+# ============================================================
+# FUNÇÕES DE COLETA
+# ============================================================
+
+def api_get(path, params):
+    """Faz uma chamada GET na Graph API do Meta."""
+    r = requests.get(f"{GRAPH}/{path}", params=params, timeout=30)
+    r.raise_for_status()
+    return r.json()
+
+
+def coletar_seguidores(ig_id: str, token: str) -> int:
+    """Retorna o número atual de seguidores da conta."""
+    data = api_get(ig_id, {"fields": "followers_count", "access_token": token})
+    return data.get("followers_count", 0)
+
+
+def extrair_valor_insight(item: dict) -> int:
+    """Extrai o valor numérico de um item de insight da Meta API."""
+    # Formato 1: {"value": 5}
+    if "value" in item:
+        return item["value"]
+    # Formato 2: {"values": [{"value": 5}]}
+    vals = item.get("values", [])
+    if vals:
+        return vals[0].get("value", 0)
+    return 0
+
+
+def coletar_midias(ig_id: str, token: str, dias: int = 30):
+    """
+    Busca as mídias dos últimos N dias e soma curtidas, salvamentos e
+    compartilhamentos. Também conta posts, stories e reels.
+    """
+    desde = (date.today() - timedelta(days=dias))
+    desde_ts = int(desde.strftime("%s"))  # Unix timestamp
+
+    likes = saves = shares = 0
+    posts = stories = reels = 0
+
+    # like_count vem direto no campo da mídia (mais confiável que insights)
+    data = api_get(f"{ig_id}/media", {
+        "fields": "id,media_type,media_product_type,timestamp,like_count",
+        "access_token": token,
+        "limit": 100
+    })
+
+    for midia in data.get("data", []):
+        tipo = midia.get("media_type", "")
+        produto = midia.get("media_product_type", "")
+
+        # Filtrar por data manualmente (o parâmetro since é pouco confiável)
+        ts = midia.get("timestamp", "")
+        if ts:
+            from datetime import datetime, timezone
+            # Meta retorna "+0000" sem os dois pontos — normalizar para "+00:00"
+            ts_norm = ts.replace("+0000", "+00:00").replace("Z", "+00:00")
+            pub = datetime.fromisoformat(ts_norm)
+            if pub.date() < desde:
+                continue
+
+        # Curtidas direto do campo
+        likes += midia.get("like_count", 0)
+
+        # Contagem por tipo
+        if produto == "REELS":
+            reels += 1
+        elif produto == "STORY":
+            stories += 1
+        elif tipo in ("IMAGE", "CAROUSEL_ALBUM", "VIDEO"):
+            posts += 1
+        else:
+            posts += 1
+
+        # Salvamentos e compartilhamentos via insights
+        try:
+            insights = api_get(f"{midia['id']}/insights", {
+                "metric": "saved,shares",
+                "access_token": token
+            })
+            for item in insights.get("data", []):
+                v = extrair_valor_insight(item)
+                if item["name"] == "saved":
+                    saves += v
+                elif item["name"] == "shares":
+                    shares += v
+        except Exception:
+            pass
+
+    return {
+        "likes": likes,
+        "saves": saves,
+        "shares": shares,
+        "posts": posts,
+        "stories": stories,
+        "reels": reels
+    }
+
+
+# ============================================================
+# FUNÇÃO PRINCIPAL
+# ============================================================
+
+def processar_conta(supabase: Client, account_id: str, ig_id: str, token: str, nome: str):
+    hoje = date.today().isoformat()
+    print(f"\n📊 Coletando: {nome} ({ig_id})")
+
+    # --- Seguidores ---
+    seguidores = coletar_seguidores(ig_id, token)
+    supabase.table("daily_snapshots").upsert(
+        {"account_id": account_id, "captured_at": hoje, "followers_count": seguidores},
+        on_conflict="account_id,captured_at"
+    ).execute()
+    print(f"   Seguidores: {seguidores:,}")
+
+    # --- Engajamento e conteúdo ---
+    midias = coletar_midias(ig_id, token, dias=30)
+
+    supabase.table("engagement_snapshots").upsert(
+        {
+            "account_id": account_id,
+            "captured_at": hoje,
+            "likes": midias["likes"],
+            "saves": midias["saves"],
+            "shares": midias["shares"]
+        },
+        on_conflict="account_id,captured_at"
+    ).execute()
+
+    supabase.table("content_snapshots").upsert(
+        {
+            "account_id": account_id,
+            "captured_at": hoje,
+            "posts_count": midias["posts"],
+            "stories_count": midias["stories"],
+            "reels_count": midias["reels"]
+        },
+        on_conflict="account_id,captured_at"
+    ).execute()
+
+    print(f"   Curtidas: {midias['likes']:,} | Salvamentos: {midias['saves']:,} | Compartilhamentos: {midias['shares']:,}")
+    print(f"   Posts: {midias['posts']} | Stories: {midias['stories']} | Reels: {midias['reels']}")
+
+
+def main():
+    print("=" * 50)
+    print("🚀 Iniciando coleta de dados do Instagram")
+    print(f"📅 Data: {date.today().isoformat()}")
+    print("=" * 50)
+
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+    # Buscar contas cadastradas no banco
+    contas = supabase.table("accounts").select("id, name, instagram_id").execute()
+
+    for conta in contas.data:
+        ig_id = conta["instagram_id"]
+        token = TOKENS.get(ig_id, "")
+
+        if not token:
+            print(f"\n⚠️  Sem token para {conta['name']} — pulando.")
+            continue
+
+        try:
+            processar_conta(supabase, conta["id"], ig_id, token, conta["name"])
+        except Exception as e:
+            print(f"\n❌ Erro em {conta['name']}: {e}")
+
+    print("\n" + "=" * 50)
+    print("✅ Coleta concluída!")
+    print("=" * 50)
+
+
+if __name__ == "__main__":
+    main()

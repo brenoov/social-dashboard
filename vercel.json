@@ -1,5 +1,5 @@
 {
   "rewrites": [
-    { "source": "/", "destination": "/dashboard-v1.1.html" }
+    { "source": "/", "destination": "/dashboard-redes-sociais/dashboard-v1.1.html" }
   ]
 }
