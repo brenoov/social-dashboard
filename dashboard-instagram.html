@@ -327,25 +327,32 @@
     <div class="sec-line"></div>
   </div>
   <div class="sec1-grid mb40">
-    <div class="card">
-      <div class="mc-header">
-        <div>
-          <div class="mc-lbl">NOVOS SEGUIDORES</div>
-          <div style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);margin-top:2px;">Total: <span id="total-followers" style="font-weight:600;color:var(--text)">0</span></div>
-        </div>
-        <div class="mc-goal-area">
-          <span class="mc-goal-lbl">META</span>
-          <span class="mc-goal-val" id="goal-followers" contenteditable="true" spellcheck="false">200</span>
-          <span class="mc-edit-hint">✏</span>
-        </div>
+    <div class="card" style="padding:0;overflow:hidden;">
+      <!-- Hero: total de seguidores -->
+      <div id="followers-hero" style="padding:22px 24px 18px;background:var(--accent-light);position:relative;">
+        <div class="mc-lbl" style="letter-spacing:2.5px;margin-bottom:10px;">TOTAL DE SEGUIDORES</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:54px;font-weight:500;line-height:1;color:var(--accent);letter-spacing:-1px;" id="total-followers">0</div>
       </div>
-      <div class="mc-val a-blue" id="new-followers-val">0</div>
-      <div class="mc-compare" id="cmp-followers"></div>
-      <div class="mc-divider"></div>
-      <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-followers" style="width:0%"></div></div>
-      <div class="mc-bottom">
-        <span class="mc-pct" id="pct-followers">0%</span>
-        <span class="mc-diff" id="diff-followers"></span>
+      <!-- Separador gradiente -->
+      <div style="height:2px;background:linear-gradient(to right,var(--accent-mid),var(--border));"></div>
+      <!-- Novos no período -->
+      <div style="padding:16px 24px 20px;">
+        <div class="mc-header" style="margin-bottom:6px;">
+          <div class="mc-lbl">NOVOS NO PERÍODO</div>
+          <div class="mc-goal-area">
+            <span class="mc-goal-lbl">META</span>
+            <span class="mc-goal-val" id="goal-followers" contenteditable="true" spellcheck="false">200</span>
+            <span class="mc-edit-hint">✏</span>
+          </div>
+        </div>
+        <div class="mc-val a-blue" id="new-followers-val">0</div>
+        <div class="mc-compare" id="cmp-followers"></div>
+        <div class="mc-divider"></div>
+        <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-followers" style="width:0%"></div></div>
+        <div class="mc-bottom">
+          <span class="mc-pct" id="pct-followers">0%</span>
+          <span class="mc-diff" id="diff-followers"></span>
+        </div>
       </div>
     </div>
     <div class="card">
@@ -592,6 +599,16 @@ function animCount(el,target){
   }
   requestAnimationFrame(tick);
 }
+function animCountFull(el,target){
+  const dur=900,start=performance.now();
+  function tick(now){
+    const t=Math.min((now-start)/dur,1);
+    const v=Math.round(target*(1-Math.pow(1-t,3)));
+    el.textContent=v.toLocaleString('pt-BR');
+    if(t<1)requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
 function fmtN(n){return n>=1000?(n/1000).toFixed(1)+'K':String(n);}
 function fmtR(v){const p=v.toFixed(2).split('.');return 'R$ '+p[0].replace(/\B(?=(\d{3})+(?!\d))/g,'.')+','+p[1];}
 function pctDiff(curr,prev){if(!prev)return '+0.0%';const d=((curr-prev)/prev*100);return (d>=0?'+':'')+d.toFixed(1)+'%';}
@@ -605,8 +622,8 @@ function saveGoal(key,val){
   if(RATE_GOALS.includes(key))return;
   [1,7,14,30].forEach(p=>{
     if(p===anchor)return;
-    const scaled=num*p/anchor;
-    const stored=Number.isInteger(scaled)?String(scaled):scaled.toFixed(2).replace(/\.?0+$/,'');
+    const scaled=Math.ceil(num*p/anchor);
+    const stored=String(scaled);
     localStorage.setItem(goalStorageKey(key,p,currentAccountId),stored);
   });
 }
@@ -866,7 +883,7 @@ async function fetchData(accountId,period,customStart,customEnd){
 /* ── MAIN UPDATE ── */
 function update(d,period){
   const pl=d.pl;
-  const totalEl=document.getElementById('total-followers');if(totalEl)totalEl.textContent=fmtN(d.followerTotal);
+  const totalEl=document.getElementById('total-followers');if(totalEl)animCountFull(totalEl,d.followerTotal);
   const newEl=document.getElementById('new-followers-val');if(newEl)animCount(newEl,d.newFollowers);
   buildChart(d.chart);
   setCompare('cmp-followers',d.newFollowers,d.prevNewFollowers,'',pl,false);
