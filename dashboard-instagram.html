@@ -21,6 +21,11 @@
 
   /* HEADER */
   header{display:flex;align-items:center;justify-content:space-between;margin-bottom:36px;flex-wrap:wrap;gap:16px;padding-bottom:24px;border-bottom:1px solid var(--border);}
+  #header-collapsible{display:flex;align-items:center;gap:16px;flex-wrap:wrap;overflow:hidden;max-height:120px;opacity:1;transition:max-height .35s ease,opacity .25s ease;}
+  #header-collapsible.collapsed{max-height:0;opacity:0;pointer-events:none;}
+  #header-toggle{background:none;border:1px solid var(--border);cursor:pointer;color:var(--muted);font-size:11px;padding:5px 10px;border-radius:3px;font-family:'IBM Plex Sans',sans-serif;display:flex;align-items:center;gap:5px;transition:border-color .18s,color .18s;white-space:nowrap;align-self:flex-start;}
+  #header-toggle:hover{border-color:var(--accent);color:var(--accent);}
+  #header-toggle .ht-arrow{display:inline-block;transition:transform .35s ease;font-size:9px;line-height:1;}
   .logo-area{display:flex;align-items:center;gap:14px;}
   .ig-icon{width:38px;height:38px;border-radius:4px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:17px;}
   .logo-area h1{font-family:'Oswald',sans-serif;font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--text);}
@@ -278,7 +283,7 @@
       <div class="ig-icon">📊</div>
       <div><h1>Social Dashboard</h1><div class="logo-sub">RBV COMPANY · INSTAGRAM</div></div>
     </div>
-    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+    <div id="header-collapsible">
       <div class="profile-select" id="profile-select"></div>
       <div class="user-bar">
         <span class="user-badge"><span id="user-email-lbl"></span><span class="user-role-chip" id="user-role-lbl"></span></span>
@@ -286,6 +291,7 @@
         <button class="logout-btn" onclick="doLogout()">Sair</button>
       </div>
     </div>
+    <button id="header-toggle" onclick="toggleHeader()" title="Ocultar cabeçalho"><span class="ht-arrow">▲</span></button>
   </header>
 
   <!-- ADMIN PANEL -->
@@ -1046,6 +1052,21 @@ function buildPeriodTabs(){
     wrap.appendChild(btn);
   });
 }
+function toggleHeader(){
+  const c=document.getElementById('header-collapsible');
+  const btn=document.getElementById('header-toggle');
+  const isNowCollapsed=c.classList.toggle('collapsed');
+  btn.querySelector('.ht-arrow').style.transform=isNowCollapsed?'rotate(180deg)':'rotate(0deg)';
+  localStorage.setItem('hdr_collapsed',isNowCollapsed?'1':'0');
+}
+function restoreHeaderState(){
+  if(localStorage.getItem('hdr_collapsed')==='1'){
+    const c=document.getElementById('header-collapsible');
+    const btn=document.getElementById('header-toggle');
+    c.classList.add('collapsed');
+    if(btn)btn.querySelector('.ht-arrow').style.transform='rotate(180deg)';
+  }
+}
 function updateGoalDisplays(period){const p=period===0?1:period;Object.keys(GOALS).forEach(k=>{const el=document.getElementById('goal-'+k);if(el)el.textContent=loadGoal(k,p,currentAccountId);});}
 function watchGoals(){document.querySelectorAll('.mc-goal-val').forEach(el=>{el.addEventListener('blur',()=>{const key=el.id.replace('goal-','');saveGoal(key,el.textContent.trim());refresh();});el.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();el.blur();}});});}
 async function refresh(){if(!currentAccountId)return;const data=await fetchData(currentAccountId,currentPeriod,currentStartDate,currentEndDate);update(data,currentPeriod);}
@@ -1174,7 +1195,7 @@ async function loadDashboard(session){
     buildPeriodTabs();updateGoalDisplays(7);watchGoals();
     dashboardReady=true;
   }
-  await buildProfiles();await refresh();
+  await buildProfiles();restoreHeaderState();await refresh();
 }
 
 async function init(){
