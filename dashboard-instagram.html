@@ -1042,11 +1042,13 @@ async function openCampaignModal(){
     sb('campaigns?account_id=eq.'+currentAccountId+'&order=status.asc,name.asc&select=campaign_id,name,objective,status'),
     sb('campaign_filters?account_id=eq.'+currentAccountId+'&select=selected_ids'),
   ]);
-  const selIds=new Set(filterRows[0]?.selected_ids||[]);
-  renderCampaignModal(campaigns,selIds);
+  const rawIds=filterRows[0]?.selected_ids; // null=todas, []=nenhuma, [ids]=filtradas
+  renderCampaignModal(campaigns,rawIds);
   document.getElementById('campaign-modal-overlay').style.display='flex';
 }
-function renderCampaignModal(campaigns,selIds){
+function renderCampaignModal(campaigns,rawIds){
+  // rawIds: null/undefined=todas marcadas, []=nenhuma marcada, [ids]=só essas marcadas
+  const selIds=rawIds===null||rawIds===undefined?null:new Set(rawIds);
   const list=document.getElementById('campaign-list');list.innerHTML='';
   const active=campaigns.filter(c=>c.status==='ACTIVE');
   const other=campaigns.filter(c=>c.status!=='ACTIVE');
@@ -1056,7 +1058,7 @@ function renderCampaignModal(campaigns,selIds){
     items.forEach(c=>{
       const row=document.createElement('label');row.className='camp-row';
       const cb=document.createElement('input');cb.type='checkbox';cb.value=c.campaign_id;
-      cb.checked=selIds.size===0||selIds.has(c.campaign_id);
+      cb.checked=selIds===null||selIds.has(c.campaign_id);
       const info=document.createElement('div');info.className='camp-info';
       const nm=document.createElement('span');nm.className='camp-name';nm.textContent=c.name;
       const obj=document.createElement('span');obj.className='camp-obj';obj.textContent=(c.objective||'').replace(/_/g,' ');
@@ -1095,7 +1097,7 @@ async function saveCampaignFilter(){
     body:JSON.stringify({account_id:currentAccountId,selected_ids:toSave,updated_at:new Date().toISOString()}),
   });
   document.getElementById('campaign-modal-overlay').style.display='none';
-  updateCampaignFilterBadge(toSave.length,allCbs.length);
+  updateCampaignFilterBadge(toSave===null?allCbs.length:toSave.length,allCbs.length);
   refresh();
 }
 function updateCampaignFilterBadge(selCount,total){
@@ -1111,8 +1113,9 @@ async function loadCampaignFilterBadge(){
     sb('campaign_filters?account_id=eq.'+currentAccountId+'&select=selected_ids'),
     sb('campaigns?account_id=eq.'+currentAccountId+'&select=campaign_id'),
   ]);
-  const ids=filterRows[0]?.selected_ids||[];
-  updateCampaignFilterBadge(ids.length,campaigns.length);
+  const rawIds=filterRows[0]?.selected_ids;
+  const selCount=rawIds===null||rawIds===undefined?campaigns.length:rawIds.length;
+  updateCampaignFilterBadge(selCount,campaigns.length);
 }
 </script>
 
