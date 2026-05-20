@@ -581,7 +581,7 @@ function loadGoal(key,period,accountId){const s=localStorage.getItem(goalStorage
 function getGoal(key){return parseFloat(document.getElementById('goal-'+key).textContent)||GOALS[key][currentPeriod];}
 function getPrevLabel(period){
   const months=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  const end=new Date();end.setDate(end.getDate()-period);
+  const end=new Date();end.setDate(end.getDate()-30);
   if(period===1)return end.getDate()+' '+months[end.getMonth()];
   const start=new Date(end);start.setDate(start.getDate()-period+1);
   return start.getDate()+' '+months[start.getMonth()]+' – '+end.getDate()+' '+months[end.getMonth()];
@@ -737,11 +737,11 @@ async function fetchData(accountId,period,customStart,customEnd){
     effectivePeriod=period;storedPeriod=period;
     refDate=new Date();
 
-    histStartDate=new Date(refDate);histStartDate.setDate(histStartDate.getDate()-period*3);
+    histStartDate=new Date(refDate);histStartDate.setDate(histStartDate.getDate()-30-period-5);
   }
   const refDateStr=localDate(refDate);
   const histStartStr=localDate(histStartDate);
-  const prevRefDate=new Date(refDate);prevRefDate.setDate(prevRefDate.getDate()-effectivePeriod);
+  const prevRefDate=new Date(refDate);prevRefDate.setDate(prevRefDate.getDate()-30);
   const prevRefDateStr=localDate(prevRefDate);
   const[snaps,engCurr,engPrev,cntCurr,cntPrev,filterRow]=await Promise.all([
     sb(`daily_snapshots?account_id=eq.${accountId}&captured_at=gte.${histStartStr}&captured_at=lte.${refDateStr}&order=captured_at.asc&select=followers_count,captured_at`),
@@ -763,11 +763,12 @@ async function fetchData(accountId,period,customStart,customEnd){
   const startSnap=[...snaps].reverse().find(s=>s.captured_at<=periodStartStr)||snaps[0];
   const periodBegin=startSnap?startSnap.followers_count:latest;
   const newFollowers=Math.max(0,latest-periodBegin);
-  // Find snapshot at exactly 2*period before refDate to correctly compute previous period gain
-  const twoPerBack=new Date(refDate);twoPerBack.setDate(twoPerBack.getDate()-effectivePeriod*2);
-  const twoPerBackStr=localDate(twoPerBack);
-  const prevStartSnap=[...snaps].reverse().find(s=>s.captured_at<=twoPerBackStr);
-  const prevNewFollowers=prevStartSnap?Math.max(0,periodBegin-prevStartSnap.followers_count):null;
+  // Comparativo: mesma janela 30 dias atrás
+  const prevEndSnap=[...snaps].reverse().find(s=>s.captured_at<=prevRefDateStr);
+  const prevPeriodStart=new Date(prevRefDate);prevPeriodStart.setDate(prevPeriodStart.getDate()-effectivePeriod);
+  const prevPeriodStartStr=localDate(prevPeriodStart);
+  const prevBeginSnap=[...snaps].reverse().find(s=>s.captured_at<=prevPeriodStartStr);
+  const prevNewFollowers=(prevEndSnap&&prevBeginSnap)?Math.max(0,prevEndSnap.followers_count-prevBeginSnap.followers_count):null;
   function fmtLabel(dateStr){const d=new Date(dateStr+'T12:00:00');return effectivePeriod<=7?days[d.getDay()]:d.getDate()+'/'+(d.getMonth()+1);}
   function fmtFull(dateStr){const d=new Date(dateStr+'T12:00:00');return d.getDate()+' '+months[d.getMonth()];}
   const chartVals=currSnaps.length>0?currSnaps.map(s=>s.followers_count):[latest];
