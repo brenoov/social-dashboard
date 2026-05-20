@@ -214,13 +214,21 @@
 
   /* BG SHAPES */
   #bg-shapes{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
-  #bg-shapes span{position:absolute;border-radius:50%;will-change:transform,opacity;}
-  #bg-shapes .s1{width:600px;height:600px;top:-180px;left:-180px;background:radial-gradient(circle,rgba(29,78,216,.05) 0%,transparent 70%);animation:bgFloat1 22s ease-in-out infinite;}
-  #bg-shapes .s2{width:800px;height:800px;top:30%;right:-300px;border:1px solid rgba(29,78,216,.05);animation:bgFloat2 28s ease-in-out infinite;}
-  #bg-shapes .s3{width:300px;height:300px;bottom:-80px;left:20%;background:radial-gradient(circle,rgba(29,78,216,.04) 0%,transparent 70%);animation:bgFloat1 18s ease-in-out infinite reverse;}
-  #bg-shapes .s4{width:180px;height:180px;top:15%;left:50%;border:1px solid rgba(29,78,216,.06);animation:bgFloat2 14s ease-in-out infinite;}
-  #bg-shapes .s5{width:500px;height:500px;bottom:-150px;right:-100px;border:1px solid rgba(29,78,216,.04);animation:bgFloat1 32s ease-in-out infinite;}
-  #bg-shapes .s6{width:120px;height:120px;top:60%;left:8%;background:radial-gradient(circle,rgba(29,78,216,.05) 0%,transparent 70%);animation:bgFloat2 16s ease-in-out infinite reverse;}
+  #bg-shapes .orb,#bg-shapes .ring{position:absolute;border-radius:50%;will-change:transform;}
+  #bg-shapes .ico{position:absolute;will-change:transform;opacity:.20;}
+  #bg-shapes .o1{width:700px;height:700px;top:-220px;left:-220px;background:radial-gradient(circle,rgba(29,78,216,.14) 0%,transparent 65%);animation:bgFloat1 22s ease-in-out infinite;}
+  #bg-shapes .o2{width:450px;height:450px;top:50%;right:-130px;background:radial-gradient(circle,rgba(29,78,216,.11) 0%,transparent 65%);animation:bgFloat2 28s ease-in-out infinite;}
+  #bg-shapes .o3{width:350px;height:350px;bottom:-90px;left:18%;background:radial-gradient(circle,rgba(29,78,216,.12) 0%,transparent 65%);animation:bgFloat1 19s ease-in-out infinite reverse;}
+  #bg-shapes .r1{width:850px;height:850px;top:15%;right:-320px;border:1.5px solid rgba(29,78,216,.13);animation:bgFloat2 32s ease-in-out infinite;}
+  #bg-shapes .r2{width:220px;height:220px;top:8%;left:48%;border:1.5px solid rgba(29,78,216,.15);animation:bgFloat1 15s ease-in-out infinite;}
+  #bg-shapes .r3{width:550px;height:550px;bottom:-180px;left:-80px;border:1px solid rgba(29,78,216,.11);animation:bgFloat2 26s ease-in-out infinite reverse;}
+  #bg-shapes .i1{top:20%;left:5%;animation:bgFloat2 20s ease-in-out infinite;}
+  #bg-shapes .i2{top:8%;left:76%;animation:bgFloat1 17s ease-in-out infinite reverse;}
+  #bg-shapes .i3{top:58%;left:3%;animation:bgFloat1 24s ease-in-out infinite;}
+  #bg-shapes .i4{top:72%;left:83%;animation:bgFloat2 19s ease-in-out infinite reverse;}
+  #bg-shapes .i5{top:38%;left:52%;animation:bgFloat1 21s ease-in-out infinite;}
+  #bg-shapes .i6{top:82%;left:36%;animation:bgFloat2 23s ease-in-out infinite;}
+  #bg-shapes .i7{top:14%;left:32%;animation:bgFloat1 16s ease-in-out infinite reverse;}
   @keyframes bgFloat1{0%,100%{transform:translate(0,0) scale(1);}33%{transform:translate(18px,-22px) scale(1.03);}66%{transform:translate(-12px,14px) scale(.97);}}
   @keyframes bgFloat2{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(-20px,16px) scale(1.04);}}
 
@@ -357,12 +365,19 @@
 
 <!-- BG SHAPES -->
 <div id="bg-shapes" aria-hidden="true">
-  <span class="s1"></span>
-  <span class="s2"></span>
-  <span class="s3"></span>
-  <span class="s4"></span>
-  <span class="s5"></span>
-  <span class="s6"></span>
+  <div class="orb o1"></div>
+  <div class="orb o2"></div>
+  <div class="orb o3"></div>
+  <div class="ring r1"></div>
+  <div class="ring r2"></div>
+  <div class="ring r3"></div>
+  <div class="ico i1"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="rgba(29,78,216,1)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div>
+  <div class="ico i2"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="rgba(29,78,216,1)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+  <div class="ico i3"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="rgba(29,78,216,1)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></div>
+  <div class="ico i4"><svg width="70" height="70" viewBox="0 0 24 24" fill="none" stroke="rgba(29,78,216,1)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg></div>
+  <div class="ico i5"><svg width="70" height="70" viewBox="0 0 24 24" fill="none" stroke="rgba(29,78,216,1)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="rgba(29,78,216,0.3)" stroke="none"/></svg></div>
+  <div class="ico i6"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="rgba(29,78,216,1)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg></div>
+  <div class="ico i7"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="rgba(29,78,216,1)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
 </div>
 
 <!-- AUTH SCREEN -->
