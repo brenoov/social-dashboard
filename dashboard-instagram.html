@@ -301,8 +301,11 @@
         </div>
         <div class="admin-input-row">
           <input type="email" id="invite-email" class="admin-input" placeholder="email@exemplo.com">
+          <input type="password" id="invite-password" class="admin-input" placeholder="Senha (mín. 6 caracteres)">
+        </div>
+        <div class="admin-input-row">
           <select id="invite-role" class="admin-select"><option value="viewer">Visualizador</option><option value="admin">Admin</option></select>
-          <button class="admin-action-btn" id="invite-btn" onclick="doInvite()">Convidar</button>
+          <button class="admin-action-btn" id="invite-btn" onclick="doInvite()">Criar acesso</button>
         </div>
         <div class="admin-msg" id="invite-msg"></div>
       </div>
