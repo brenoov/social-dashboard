@@ -529,7 +529,7 @@ const SUPABASE_URL='https://kounqtdoioootxqegkij.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtvdW5xdGRvaW9vb3R4cWVna2lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMDMwMDUsImV4cCI6MjA5NDc3OTAwNX0.MVXa6jngjKXkH3eZ7as_j_k8Eb7lJKcFmO4kCKAnuHM';
 const sbClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 
-const PERIODS=[{label:'1D',value:1},{label:'7D',value:7},{label:'14D',value:14},{label:'30D',value:30}];
+const PERIODS=[{label:'HOJE',value:0},{label:'1D',value:1},{label:'7D',value:7},{label:'14D',value:14},{label:'30D',value:30}];
 const PROFILE_THEMES={
   'Raíssa Herculano':{ accent:'#BE185D', light:'rgba(190,24,93,0.08)',  mid:'rgba(190,24,93,0.30)' },
   'Breno Vale':      { accent:'#1D4ED8', light:'rgba(29,78,216,0.08)',  mid:'rgba(29,78,216,0.30)' },
@@ -599,17 +599,18 @@ function goalStorageKey(key,period,accountId){return 'ig_goal_'+(accountId||'def
 const RATE_GOALS=['cps'];
 function saveGoal(key,val){
   const num=parseFloat(val);if(isNaN(num))return;
-  localStorage.setItem(goalStorageKey(key,currentPeriod,currentAccountId),val);
+  const anchor=currentPeriod===0?1:currentPeriod;
+  localStorage.setItem(goalStorageKey(key,anchor,currentAccountId),val);
   if(RATE_GOALS.includes(key))return;
   [1,7,14,30].forEach(p=>{
-    if(p===currentPeriod)return;
-    const scaled=num*p/currentPeriod;
+    if(p===anchor)return;
+    const scaled=num*p/anchor;
     const stored=Number.isInteger(scaled)?String(scaled):scaled.toFixed(2).replace(/\.?0+$/,'');
     localStorage.setItem(goalStorageKey(key,p,currentAccountId),stored);
   });
 }
-function loadGoal(key,period,accountId){const s=localStorage.getItem(goalStorageKey(key,period,accountId));return s!==null?s:String(GOALS[key]?.[period]??GOALS[key]?.[7]??0);}
-function getGoal(key){return parseFloat(document.getElementById('goal-'+key).textContent)||GOALS[key][currentPeriod];}
+function loadGoal(key,period,accountId){const p=period===0?1:period;const s=localStorage.getItem(goalStorageKey(key,p,accountId));return s!==null?s:String(GOALS[key]?.[p]??GOALS[key]?.[7]??0);}
+function getGoal(key){const p=currentPeriod===0?1:currentPeriod;return parseFloat(document.getElementById('goal-'+key).textContent)||(GOALS[key]?.[p]??0);}
 function getPrevLabel(period){
   const months=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const end=new Date();end.setDate(end.getDate()-30);
@@ -757,6 +758,7 @@ function localDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart
 async function fetchData(accountId,period,customStart,customEnd){
   const months=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const days=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  const isHoje=period===0;
   let refDate,histStartDate,storedPeriod,effectivePeriod;
   if(customStart&&customEnd){
     refDate=new Date(customEnd+'T12:00:00');
@@ -765,17 +767,19 @@ async function fetchData(accountId,period,customStart,customEnd){
     storedPeriod=closestStoredPeriod(effectivePeriod);
     histStartDate=sd;
   } else {
-    effectivePeriod=period;storedPeriod=period;
+    effectivePeriod=isHoje?1:period;storedPeriod=period;
     refDate=new Date();
-
-    histStartDate=new Date(refDate);histStartDate.setDate(histStartDate.getDate()-30-period-5);
+    histStartDate=new Date(refDate);histStartDate.setDate(histStartDate.getDate()-30-Math.max(effectivePeriod,1)-5);
   }
   const refDateStr=localDate(refDate);
   const histStartStr=localDate(histStartDate);
-  const prevRefDate=new Date(refDate);prevRefDate.setDate(prevRefDate.getDate()-30);
+  const prevRefDate=new Date(refDate);
+  if(isHoje){prevRefDate.setDate(prevRefDate.getDate()-1);}
+  else{prevRefDate.setDate(prevRefDate.getDate()-30);}
   const prevRefDateStr=localDate(prevRefDate);
   const periodStartStr2=localDate(new Date(refDate.getTime()-effectivePeriod*86400000));
-  const prevPeriodStartStr2=localDate(new Date(refDate.getTime()-(30+effectivePeriod)*86400000));
+  const prevPeriodStartStr2=localDate(new Date(prevRefDate.getTime()-effectivePeriod*86400000));
+  const storyQP=storedPeriod===0?0:1;
   const[snaps,engCurr,engPrev,cntCurr,cntPrev,filterRow,storyDailyCurr,storyDailyPrev]=await Promise.all([
     sb(`daily_snapshots?account_id=eq.${accountId}&captured_at=gte.${histStartStr}&captured_at=lte.${refDateStr}&order=captured_at.asc&select=followers_count,captured_at`),
     sb(`engagement_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=likes,saves,shares,captured_at`),
@@ -783,8 +787,8 @@ async function fetchData(accountId,period,customStart,customEnd){
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=posts_count,stories_count,reels_count,captured_at`),
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=1&select=posts_count,stories_count,reels_count,captured_at`),
     sb(`campaign_filters?account_id=eq.${accountId}&select=selected_ids`),
-    sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.1&captured_at=gte.${periodStartStr2}&captured_at=lte.${refDateStr}&select=story_shares,story_replies`),
-    sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.1&captured_at=gte.${prevPeriodStartStr2}&captured_at=lte.${prevRefDateStr}&select=story_shares,story_replies`),
+    sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storyQP}&captured_at=gte.${periodStartStr2}&captured_at=lte.${refDateStr}&select=story_shares,story_replies`),
+    sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storyQP}&captured_at=gte.${prevPeriodStartStr2}&captured_at=lte.${prevRefDateStr}&select=story_shares,story_replies`),
   ]);
   const eng=engCurr[0]||{likes:0,saves:0,shares:0};
   const prevEng=engPrev[0]||null;
@@ -855,7 +859,8 @@ async function fetchData(accountId,period,customStart,customEnd){
 
 /* ── MAIN UPDATE ── */
 function update(d,period){
-  const pl=getPrevLabel(period);
+  const isHoje=period===0;
+  let pl;if(isHoje){const y=new Date();y.setDate(y.getDate()-1);const mm=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];pl=y.getDate()+' '+mm[y.getMonth()];}else{pl=getPrevLabel(period);}
   animCount(document.getElementById('total-followers'),d.followerTotal);
   const dr=document.getElementById('followers-deltas');dr.textContent='';
   d.followerDeltas.forEach(item=>{
@@ -919,15 +924,25 @@ async function buildProfiles(){
   });
   if(accounts.length>0){currentAccountId=accounts[0].id;applyProfileTheme(accounts[0].name);setTimeout(loadCampaignFilterBadge,100);}
 }
+let _hojeTimer=null;
 function buildPeriodTabs(){
   const wrap=document.getElementById('period-tabs');
   PERIODS.forEach(p=>{
-    const btn=document.createElement('button');btn.className='ptab'+(p.value===7?' active':'');btn.textContent=p.label;
-    btn.addEventListener('click',()=>{document.querySelectorAll('.ptab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');currentPeriod=p.value;currentStartDate=null;currentEndDate=null;document.getElementById('custom-range-btn').classList.remove('active');document.getElementById('custom-range-panel').style.display='none';updateGoalDisplays(p.value);refresh();});
+    const btn=document.createElement('button');btn.className='ptab'+(p.value===7?' active':'');
+    if(p.value===0){const dot=document.createElement('span');dot.style.cssText='display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite;vertical-align:middle;';btn.appendChild(dot);}
+    btn.appendChild(document.createTextNode(p.label));
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('.ptab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+      currentPeriod=p.value;currentStartDate=null;currentEndDate=null;
+      document.getElementById('custom-range-btn').classList.remove('active');document.getElementById('custom-range-panel').style.display='none';
+      updateGoalDisplays(p.value);refresh();
+      if(_hojeTimer){clearInterval(_hojeTimer);_hojeTimer=null;}
+      if(p.value===0){_hojeTimer=setInterval(refresh,10*60*1000);}
+    });
     wrap.appendChild(btn);
   });
 }
-function updateGoalDisplays(period){Object.keys(GOALS).forEach(k=>{const el=document.getElementById('goal-'+k);if(el)el.textContent=loadGoal(k,period,currentAccountId);});}
+function updateGoalDisplays(period){const p=period===0?1:period;Object.keys(GOALS).forEach(k=>{const el=document.getElementById('goal-'+k);if(el)el.textContent=loadGoal(k,p,currentAccountId);});}
 function watchGoals(){document.querySelectorAll('.mc-goal-val').forEach(el=>{el.addEventListener('blur',()=>{const key=el.id.replace('goal-','');saveGoal(key,el.textContent.trim());refresh();});el.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();el.blur();}});});}
 async function refresh(){if(!currentAccountId)return;const data=await fetchData(currentAccountId,currentPeriod,currentStartDate,currentEndDate);update(data,currentPeriod);}
 function toggleCustomRange(){const panel=document.getElementById('custom-range-panel');const btn=document.getElementById('custom-range-btn');const open=panel.style.display==='none'||panel.style.display==='';panel.style.display=open?'flex':'none';btn.classList.toggle('active',open);}

@@ -34,7 +34,7 @@ AD_ACCOUNTS = {
     "17841464138609037": "803642218253857",   # Motoeasy
 }
 
-PERIODS = [1, 7, 14, 30]
+PERIODS = [0, 1, 7, 14, 30]  # 0=hoje, 1=ontem (exato)
 GRAPH = "https://graph.facebook.com/v21.0"
 
 
@@ -79,7 +79,17 @@ def coletar_stories_hoje(ig_id, token):
 
 
 def coletar_midias(ig_id, token, dias):
-    desde = date.today() - timedelta(days=dias)
+    hoje = date.today()
+    if dias == 0:
+        from_date = hoje          # somente hoje
+        to_date = hoje
+    elif dias == 1:
+        from_date = hoje - timedelta(days=1)  # somente ontem (exato)
+        to_date = from_date
+    else:
+        from_date = hoje - timedelta(days=dias)
+        to_date = None  # sem limite superior
+
     likes = saves = shares = 0
     posts = reels = 0
 
@@ -95,7 +105,9 @@ def coletar_midias(ig_id, token, dias):
         if ts:
             ts_norm = ts.replace("+0000", "+00:00").replace("Z", "+00:00")
             pub = datetime.fromisoformat(ts_norm)
-            if pub.date() < desde:
+            if pub.date() < from_date:
+                continue
+            if to_date is not None and pub.date() > to_date:
                 continue
 
         # Stories não aparecem em /media — tratados separadamente
@@ -218,7 +230,7 @@ def processar_conta(supabase, account_id, ig_id, token, nome):
     for dias in PERIODS:
         m = coletar_midias(ig_id, token, dias)
         # Para período 1D usamos stories_hoje; para períodos maiores acumulamos o histórico do BD
-        stories_val = stories_hoje if dias == 1 else None
+        stories_val = stories_hoje if dias <= 1 else None
         supabase.table("engagement_snapshots").upsert(
             {"account_id": account_id, "captured_at": hoje, "period_days": dias,
              "likes": m["likes"], "saves": m["saves"], "shares": m["shares"]},
