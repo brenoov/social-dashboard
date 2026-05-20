@@ -17,7 +17,7 @@
   }
   *{margin:0;padding:0;box-sizing:border-box;}
   body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-weight:400;min-height:100vh;}
-  .wrapper{max-width:1200px;margin:0 auto;padding:16px 24px;}
+  .wrapper{max-width:1200px;margin:0 auto;padding:16px 24px;position:relative;z-index:1;}
 
   /* HEADER */
   header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:16px;padding-bottom:10px;border-bottom:1px solid var(--border);}
@@ -212,6 +212,18 @@
   body.dev-tv .ac-toggle-lbl{font-size:14px;}
   body.dev-tv .chip{font-size:16px;}
 
+  /* BG SHAPES */
+  #bg-shapes{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+  #bg-shapes span{position:absolute;border-radius:50%;will-change:transform,opacity;}
+  #bg-shapes .s1{width:600px;height:600px;top:-180px;left:-180px;background:radial-gradient(circle,rgba(29,78,216,.05) 0%,transparent 70%);animation:bgFloat1 22s ease-in-out infinite;}
+  #bg-shapes .s2{width:800px;height:800px;top:30%;right:-300px;border:1px solid rgba(29,78,216,.05);animation:bgFloat2 28s ease-in-out infinite;}
+  #bg-shapes .s3{width:300px;height:300px;bottom:-80px;left:20%;background:radial-gradient(circle,rgba(29,78,216,.04) 0%,transparent 70%);animation:bgFloat1 18s ease-in-out infinite reverse;}
+  #bg-shapes .s4{width:180px;height:180px;top:15%;left:50%;border:1px solid rgba(29,78,216,.06);animation:bgFloat2 14s ease-in-out infinite;}
+  #bg-shapes .s5{width:500px;height:500px;bottom:-150px;right:-100px;border:1px solid rgba(29,78,216,.04);animation:bgFloat1 32s ease-in-out infinite;}
+  #bg-shapes .s6{width:120px;height:120px;top:60%;left:8%;background:radial-gradient(circle,rgba(29,78,216,.05) 0%,transparent 70%);animation:bgFloat2 16s ease-in-out infinite reverse;}
+  @keyframes bgFloat1{0%,100%{transform:translate(0,0) scale(1);}33%{transform:translate(18px,-22px) scale(1.03);}66%{transform:translate(-12px,14px) scale(.97);}}
+  @keyframes bgFloat2{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(-20px,16px) scale(1.04);}}
+
   /* CHART */
   .chart-svg-wrap{position:relative;width:100%;}
   .chart-svg-wrap svg{width:100%;height:120px;overflow:visible;cursor:crosshair;}
@@ -267,7 +279,7 @@
   @keyframes numPop{0%{transform:scale(1)}45%{transform:scale(1.045)}100%{transform:scale(1)}}
 
   /* AUTH SCREEN */
-  #auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--surface2);}
+  #auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--surface2);position:relative;z-index:1;}
   .auth-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:44px 40px;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.06);}
   .auth-logo{text-align:center;margin-bottom:32px;}
   .auth-logo .ig-icon{width:48px;height:48px;border-radius:4px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 14px;}
@@ -342,6 +354,16 @@
 </style>
 </head>
 <body>
+
+<!-- BG SHAPES -->
+<div id="bg-shapes" aria-hidden="true">
+  <span class="s1"></span>
+  <span class="s2"></span>
+  <span class="s3"></span>
+  <span class="s4"></span>
+  <span class="s5"></span>
+  <span class="s6"></span>
+</div>
 
 <!-- AUTH SCREEN -->
 <div id="auth-screen" style="display:none">
