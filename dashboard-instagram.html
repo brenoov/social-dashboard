@@ -972,21 +972,24 @@ async function loadUsers(){
 async function doInvite(){
   const email=document.getElementById('invite-email').value.trim();
   const name=document.getElementById('invite-name').value.trim();
+  const password=document.getElementById('invite-password').value;
   const role=document.getElementById('invite-role').value;
   const msgEl=document.getElementById('invite-msg');
   const btn=document.getElementById('invite-btn');
-  msgEl.style.display='none';btn.disabled=true;btn.textContent='Enviando...';
+  if(!email||!password){msgEl.textContent='Preencha email e senha.';msgEl.className='admin-msg err';msgEl.style.display='block';return;}
+  if(password.length<6){msgEl.textContent='Senha deve ter ao menos 6 caracteres.';msgEl.className='admin-msg err';msgEl.style.display='block';return;}
+  msgEl.style.display='none';btn.disabled=true;btn.textContent='Criando...';
   const{data:{session}}=await sbClient.auth.getSession();
   const token=session?.access_token||SUPABASE_ANON_KEY;
   const r=await fetch(`${SUPABASE_URL}/functions/v1/invite-user`,{
     method:'POST',
     headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
-    body:JSON.stringify({email,name,role})
+    body:JSON.stringify({email,name,role,password})
   });
   const res=await r.json();
-  btn.disabled=false;btn.textContent='Convidar';
+  btn.disabled=false;btn.textContent='Criar acesso';
   if(res.error){msgEl.textContent='Erro: '+res.error;msgEl.className='admin-msg err';msgEl.style.display='block';}
-  else{msgEl.textContent='Convite enviado para '+email;msgEl.className='admin-msg ok';msgEl.style.display='block';document.getElementById('invite-email').value='';document.getElementById('invite-name').value='';loadUsers();}
+  else{msgEl.innerHTML='Acesso criado! Compartilhe com <strong>'+email+'</strong> — Senha: <strong>'+password+'</strong>';msgEl.className='admin-msg ok';msgEl.style.display='block';document.getElementById('invite-email').value='';document.getElementById('invite-name').value='';document.getElementById('invite-password').value='';loadUsers();}
 }
 
 /* ── INIT COM AUTH ── */
