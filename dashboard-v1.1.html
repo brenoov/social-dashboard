@@ -184,11 +184,39 @@
     .logo-area h1{font-size:34px;}
   }
 
+  /* TV MODE (body.dev-tv — somente ≥ 1920px via JS) */
+  body.dev-tv{font-size:16px;}
+  body.dev-tv .logo-area h1{font-size:46px;}
+  body.dev-tv .logo-sub{font-size:16px;}
+  body.dev-tv #apb-name{font-size:52px;}
+  body.dev-tv .section-label{font-size:18px;letter-spacing:3px;}
+  body.dev-tv .mc-lbl{font-size:16px;letter-spacing:2px;}
+  body.dev-tv .mc-val{font-size:100px;}
+  body.dev-tv #total-followers{font-size:120px!important;}
+  body.dev-tv .f-lbl{font-size:16px;}
+  body.dev-tv .cdl{font-size:22px;}
+  body.dev-tv .x-label{font-size:15px;}
+  body.dev-tv .mc-compare-label{font-size:14px;}
+  body.dev-tv .mc-compare-prev{font-size:20px;}
+  body.dev-tv .mc-compare-delta{font-size:20px;}
+  body.dev-tv .mc-pct{font-size:26px;}
+  body.dev-tv .mc-diff{font-size:16px;}
+  body.dev-tv .sec-chip{font-size:14px;padding:5px 12px;}
+  body.dev-tv .profile-btn{font-size:16px;padding:10px 22px;}
+  body.dev-tv .profile-btn .av{width:30px;height:30px;font-size:13px;}
+  body.dev-tv .ptab{font-size:16px;padding:8px 24px;}
+  body.dev-tv .tt-val{font-size:26px;}
+  body.dev-tv .tt-date{font-size:13px;}
+  body.dev-tv .tt-label{font-size:14px;}
+  body.dev-tv .live-dot{font-size:13px;}
+  body.dev-tv .ac-toggle-lbl{font-size:14px;}
+  body.dev-tv .chip{font-size:16px;}
+
   /* CHART */
   .chart-svg-wrap{position:relative;width:100%;}
   .chart-svg-wrap svg{width:100%;height:120px;overflow:visible;cursor:crosshair;}
   #chart-data-labels{position:absolute;top:0;left:0;width:100%;height:120px;pointer-events:none;overflow:visible;}
-  .cdl{position:absolute;transform:translate(-50%,calc(-100% - 3px));font-family:'Oswald',sans-serif;font-size:9px;font-weight:500;color:rgba(22,22,42,0.65);white-space:nowrap;letter-spacing:.3px;}
+  .cdl{position:absolute;transform:translate(-50%,calc(-100% - 3px));font-family:'Oswald',sans-serif;font-size:14px;font-weight:500;color:rgba(22,22,42,0.65);white-space:nowrap;letter-spacing:.3px;}
   .chart-legend{display:flex;gap:16px;margin-top:8px;margin-bottom:4px;}
   .legend-item{display:flex;align-items:center;gap:5px;font-family:'Oswald',sans-serif;font-size:10px;font-weight:400;color:var(--muted);letter-spacing:.5px;}
   .legend-line{width:20px;height:2px;border-radius:0;}
@@ -1377,7 +1405,7 @@ function detectDevice(){
   document.body.classList.remove('dev-mobile','dev-tablet','dev-desktop','dev-tv');
   if(w<=480)document.body.classList.add('dev-mobile');
   else if(w<=1024)document.body.classList.add('dev-tablet');
-  else if(w<1600)document.body.classList.add('dev-desktop');
+  else if(w<1920)document.body.classList.add('dev-desktop');
   else document.body.classList.add('dev-tv');
 }
 window.addEventListener('resize',detectDevice,{passive:true});
