@@ -39,6 +39,13 @@
   .ptab{padding:5px 16px;border-radius:2px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted);transition:all .18s;border:none;background:transparent;letter-spacing:1px;text-transform:uppercase;}
   .ptab.active{background:var(--accent);color:#fff;}
 
+  /* AUTO-CYCLE */
+  .wrapper{transition:opacity .7s ease;}
+  .wrapper.fading{opacity:0;}
+  #autocycle-badge{position:fixed;bottom:18px;right:18px;display:none;align-items:center;gap:8px;background:rgba(10,10,18,.72);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:7px 14px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:rgba(255,255,255,.8);letter-spacing:.8px;z-index:9999;}
+  #autocycle-badge .ac-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;flex-shrink:0;}
+  #autocycle-progress{position:fixed;bottom:0;left:0;height:2px;background:var(--accent);width:0%;transition:width linear;z-index:9998;}
+
   /* SECTION */
   .sec-header{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
   .section-label{font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;white-space:nowrap;}
@@ -261,6 +268,8 @@
   <div class="tt-delta" id="tt-delta"></div>
 </div>
 
+<div id="autocycle-badge"><span class="ac-dot"></span><span id="ac-label">AUTO · PRÓXIMO EM <span id="ac-countdown">2:00</span></span></div>
+<div id="autocycle-progress"></div>
 <div class="wrapper" style="display:none">
 
   <!-- HEADER -->
@@ -936,11 +945,89 @@ async function buildProfiles(){
     const t=PROFILE_THEMES[acc.name]||{accent:'#1A3A6B'};
     const av=document.createElement('div');av.className='av';av.style.background=t.accent;av.textContent=acc.name.charAt(0);
     btn.appendChild(av);btn.appendChild(document.createTextNode(' '+acc.username));
-    btn.addEventListener('click',()=>{document.querySelectorAll('.profile-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');currentAccountId=acc.id;applyProfileTheme(acc.name);updateGoalDisplays(currentPeriod);refresh();loadCampaignFilterBadge();});
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('.profile-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      _acIdx=idx;
+      currentAccountId=acc.id;applyProfileTheme(acc.name);updateGoalDisplays(currentPeriod);refresh();loadCampaignFilterBadge();
+    });
     wrap.appendChild(btn);
   });
+  _allAccounts=accounts;
   if(accounts.length>0){currentAccountId=accounts[0].id;applyProfileTheme(accounts[0].name);setTimeout(loadCampaignFilterBadge,100);}
 }
+
+/* ── AUTO-CYCLE ── */
+let _allAccounts=[];
+let _acIdx=0;
+let _acTimer=null;
+let _acCountdown=null;
+let _acInactivity=null;
+let _acSecsLeft=0;
+const AC_INACTIVITY=60;   // segundos sem mouse p/ ativar
+const AC_DURATION=120;    // segundos por perfil
+
+function _acSwitchTo(idx){
+  const wrapper=document.querySelector('.wrapper');
+  wrapper.classList.add('fading');
+  setTimeout(()=>{
+    _acIdx=idx;
+    const acc=_allAccounts[idx];
+    document.querySelectorAll('.profile-btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
+    currentAccountId=acc.id;applyProfileTheme(acc.name);updateGoalDisplays(currentPeriod);refresh();loadCampaignFilterBadge();
+    wrapper.classList.remove('fading');
+    _acSecsLeft=AC_DURATION;
+  },700);
+}
+
+function _acStartCycle(){
+  if(_acTimer||_allAccounts.length<=1)return;
+  _acSecsLeft=AC_DURATION;
+  const badge=document.getElementById('autocycle-badge');
+  const prog=document.getElementById('autocycle-progress');
+  badge.style.display='flex';
+  prog.style.transition='none';prog.style.width='0%';
+  requestAnimationFrame(()=>{
+    prog.style.transition='width '+AC_DURATION+'s linear';
+    prog.style.width='100%';
+  });
+  _acCountdown=setInterval(()=>{
+    _acSecsLeft--;
+    const m=Math.floor(_acSecsLeft/60);
+    const s=String(_acSecsLeft%60).padStart(2,'0');
+    const el=document.getElementById('ac-countdown');if(el)el.textContent=m+':'+s;
+  },1000);
+  _acTimer=setInterval(()=>{
+    _acSwitchTo((_acIdx+1)%_allAccounts.length);
+    _acSecsLeft=AC_DURATION;
+    prog.style.transition='none';prog.style.width='0%';
+    requestAnimationFrame(()=>{
+      prog.style.transition='width '+AC_DURATION+'s linear';
+      prog.style.width='100%';
+    });
+  },AC_DURATION*1000);
+}
+
+function _acStopCycle(){
+  clearInterval(_acTimer);clearInterval(_acCountdown);
+  _acTimer=null;_acCountdown=null;
+  const badge=document.getElementById('autocycle-badge');
+  const prog=document.getElementById('autocycle-progress');
+  badge.style.display='none';
+  prog.style.transition='none';prog.style.width='0%';
+}
+
+function _acResetInactivity(){
+  if(_acTimer)_acStopCycle();
+  clearTimeout(_acInactivity);
+  _acInactivity=setTimeout(_acStartCycle,AC_INACTIVITY*1000);
+}
+
+document.addEventListener('mousemove',_acResetInactivity,{passive:true});
+document.addEventListener('click',_acResetInactivity,{passive:true});
+document.addEventListener('keydown',_acResetInactivity,{passive:true});
+document.addEventListener('touchstart',_acResetInactivity,{passive:true});
+
 let _hojeTimer=null;
 function buildPeriodTabs(){
   const wrap=document.getElementById('period-tabs');
