@@ -33,7 +33,9 @@
   .profile-select{display:flex;gap:6px;flex-wrap:wrap;}
   .profile-btn{background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:3px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .2s cubic-bezier(.4,0,.2,1),border-color .2s ease,color .15s ease,transform .12s ease;}
   .profile-btn:active{transform:scale(.95);}
-  .profile-btn .av{width:20px;height:20px;border-radius:50%;font-size:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;}
+  .profile-btn .av{width:20px;height:20px;border-radius:50%;font-size:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;overflow:hidden;flex-shrink:0;}
+  .profile-btn .av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+  #apb-img{width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid var(--accent);display:none;}
   .profile-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
   .profile-btn:hover{border-color:var(--accent);color:var(--text);}
 
@@ -204,6 +206,7 @@
   body.dev-tv .sec-chip{font-size:14px;padding:5px 12px;}
   body.dev-tv .profile-btn{font-size:16px;padding:10px 22px;}
   body.dev-tv .profile-btn .av{width:30px;height:30px;font-size:13px;}
+  body.dev-tv #apb-img{width:64px;height:64px;}
   body.dev-tv .ptab{font-size:16px;padding:8px 24px;}
   body.dev-tv .tt-val{font-size:26px;}
   body.dev-tv .tt-date{font-size:13px;}
@@ -492,6 +495,7 @@
   </div>
 
   <div id="active-profile-bar">
+    <img id="apb-img" alt="">
     <div id="apb-dot"></div>
     <span id="apb-name">—</span>
   </div>
@@ -714,6 +718,7 @@ const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const sbClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 
 const PERIODS=[{label:'HOJE',value:0},{label:'1D',value:1},{label:'7D',value:7},{label:'14D',value:14},{label:'30D',value:30}];
+const ACCOUNT_PICS={};
 const PROFILE_THEMES={
   'Raíssa Herculano':{ accent:'#BE185D', light:'rgba(190,24,93,0.08)',  mid:'rgba(190,24,93,0.30)' },
   'Breno Vale':      { accent:'#1D4ED8', light:'rgba(29,78,216,0.08)',  mid:'rgba(29,78,216,0.30)' },
@@ -731,6 +736,8 @@ function applyProfileTheme(name){
   document.querySelectorAll('#chartGrad stop').forEach(s=>s.setAttribute('stop-color',t.accent));
   const ll=document.getElementById('chart-legend-line');if(ll)ll.style.background=t.accent;
   const apbName=document.getElementById('apb-name');if(apbName)apbName.textContent=name;
+  const apbImg=document.getElementById('apb-img');
+  if(apbImg){const pic=ACCOUNT_PICS[name];if(pic){apbImg.src=pic;apbImg.style.display='block';}else{apbImg.style.display='none';}}
 }
 
 const GOALS={
@@ -1142,13 +1149,16 @@ function update(d,period){
 
 /* ── BUILD UI ── */
 async function buildProfiles(){
-  const accounts=await sb('accounts?order=name.asc&select=id,name,username');
+  const accounts=await sb('accounts?order=name.asc&select=id,name,username,picture_url');
+  accounts.forEach(acc=>{if(acc.picture_url)ACCOUNT_PICS[acc.name]=acc.picture_url;});
   const wrap=document.getElementById('profile-select');
   wrap.textContent='';
   accounts.forEach((acc,idx)=>{
     const btn=document.createElement('button');btn.className='profile-btn'+(idx===0?' active':'');btn.dataset.id=acc.id;
     const t=PROFILE_THEMES[acc.name]||{accent:'#1A3A6B'};
-    const av=document.createElement('div');av.className='av';av.style.background=t.accent;av.textContent=acc.name.charAt(0);
+    const av=document.createElement('div');av.className='av';av.style.background=t.accent;
+    if(acc.picture_url){const img=document.createElement('img');img.src=acc.picture_url;img.alt=acc.name.charAt(0);av.appendChild(img);}
+    else{av.textContent=acc.name.charAt(0);}
     btn.appendChild(av);btn.appendChild(document.createTextNode(' '+acc.username));
     btn.addEventListener('click',()=>{
       document.querySelectorAll('.profile-btn').forEach(b=>b.classList.remove('active'));
