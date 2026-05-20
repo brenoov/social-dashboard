@@ -475,13 +475,13 @@
   </div>
   <div class="sec4-grid mb40">
     <div class="card" style="animation-delay:.05s">
-      <div class="mc-header"><div class="mc-icon">👁</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-story-impressions" contenteditable="true" spellcheck="false">5000</span><span class="mc-edit-hint">✏</span></div></div>
-      <div class="mc-lbl">IMPRESSÕES (STORIES)</div>
-      <div class="mc-val a-orange" id="cnt-story-impressions">0</div>
-      <div class="mc-compare" id="cmp-story-impressions"></div>
+      <div class="mc-header"><div class="mc-icon">↗️</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-story-shares" contenteditable="true" spellcheck="false">200</span><span class="mc-edit-hint">✏</span></div></div>
+      <div class="mc-lbl">ENCAMINHAMENTOS (STORIES)</div>
+      <div class="mc-val a-orange" id="cnt-story-shares">0</div>
+      <div class="mc-compare" id="cmp-story-shares"></div>
       <div class="mc-divider"></div>
-      <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-story-impressions" style="width:0%"></div></div>
-      <div class="mc-bottom"><span class="mc-pct" id="pct-story-impressions">0%</span><span class="mc-diff" id="diff-story-impressions"></span></div>
+      <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-story-shares" style="width:0%"></div></div>
+      <div class="mc-bottom"><span class="mc-pct" id="pct-story-shares">0%</span><span class="mc-diff" id="diff-story-shares"></span></div>
     </div>
     <div class="card" style="animation-delay:.10s">
       <div class="mc-header"><div class="mc-icon">💬</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-story-replies" contenteditable="true" spellcheck="false">50</span><span class="mc-edit-hint">✏</span></div></div>
@@ -557,7 +557,7 @@ const GOALS={
   shares:{1:60,7:200,14:400,30:2000},
   stories:{1:6,7:28,14:56,30:120},
   'posts-reels':{1:3,7:12,14:24,30:50},
-  'story-impressions':{1:800,7:5000,14:10000,30:22000},
+  'story-shares':{1:30,7:200,14:400,30:900},
   'story-replies':{1:8,7:50,14:100,30:220},
 };
 
@@ -783,8 +783,8 @@ async function fetchData(accountId,period,customStart,customEnd){
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=posts_count,stories_count,reels_count,captured_at`),
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=1&select=posts_count,stories_count,reels_count,captured_at`),
     sb(`campaign_filters?account_id=eq.${accountId}&select=selected_ids`),
-    sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.1&captured_at=gte.${periodStartStr2}&captured_at=lte.${refDateStr}&select=story_impressions,story_replies`),
-    sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.1&captured_at=gte.${prevPeriodStartStr2}&captured_at=lte.${prevRefDateStr}&select=story_impressions,story_replies`),
+    sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.1&captured_at=gte.${periodStartStr2}&captured_at=lte.${refDateStr}&select=story_shares,story_replies`),
+    sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.1&captured_at=gte.${prevPeriodStartStr2}&captured_at=lte.${prevRefDateStr}&select=story_shares,story_replies`),
   ]);
   const eng=engCurr[0]||{likes:0,saves:0,shares:0};
   const prevEng=engPrev[0]||null;
@@ -840,16 +840,16 @@ async function fetchData(accountId,period,customStart,customEnd){
   }
   const cps=spend>0&&newFollowers>0?spend/newFollowers:0;
   const prevCps=prevSpend&&prevNewFollowers>0?prevSpend/prevNewFollowers:null;
-  const storyImp=storyDailyCurr.reduce((s,r)=>s+(r.story_impressions||0),0);
+  const storyShares=storyDailyCurr.reduce((s,r)=>s+(r.story_shares||0),0);
   const storyRep=storyDailyCurr.reduce((s,r)=>s+(r.story_replies||0),0);
-  const prevStoryImp=storyDailyPrev.length?storyDailyPrev.reduce((s,r)=>s+(r.story_impressions||0),0):null;
+  const prevStoryShares=storyDailyPrev.length?storyDailyPrev.reduce((s,r)=>s+(r.story_shares||0),0):null;
   const prevStoryRep=storyDailyPrev.length?storyDailyPrev.reduce((s,r)=>s+(r.story_replies||0),0):null;
   return{followerTotal:latest,newFollowers,prevNewFollowers,avgPerDay,bestDay:'—',engRate,followerDeltas,effectivePeriod,impressions,clicks,reach,
     chart:{vals:chartVals,prev:chartPrev,labels:chartLabels,dates:chartDates,prevDates:chartPrevDates},
     spend,prevSpend,cps,prevCps,
     eng:{likes:eng.likes,saves:eng.saves,shares:eng.shares,prevLikes:prevEng?.likes??null,prevSaves:prevEng?.saves??null,prevShares:prevEng?.shares??null},
     cnt:{posts:cnt.posts_count,stories:cnt.stories_count,reels:cnt.reels_count,postsReels:cnt.posts_count+cnt.reels_count,prevPostsReels:prevCnt!=null?prevCnt.posts_count+prevCnt.reels_count:null,prevStories:prevCnt?.stories_count??null},
-    storyEng:{impressions:storyImp,replies:storyRep,prevImpressions:prevStoryImp,prevReplies:prevStoryRep},
+    storyEng:{shares:storyShares,replies:storyRep,prevShares:prevStoryShares,prevReplies:prevStoryRep},
   };
 }
 
@@ -888,9 +888,9 @@ function update(d,period){
   });
   const avgPerPost=d.cnt.posts>0?Math.round(d.eng.likes/d.cnt.posts):0;
   setChips('chips-eng',['Taxa de eng.: '+d.engRate+'%','M\u00e9dia curtidas/post: '+fmtN(avgPerPost),prevEngTotal>0?'Total: '+fmtN(engTotal)+' vs '+fmtN(prevEngTotal)+' ('+pctDiff(engTotal,prevEngTotal)+')':'Total engajamento: '+fmtN(engTotal)]);
-  animCount(document.getElementById('cnt-story-impressions'),d.storyEng.impressions);
-  setCompare('cmp-story-impressions',d.storyEng.impressions,d.storyEng.prevImpressions,'',pl,false);
-  applyMetric('story-impressions',d.storyEng.impressions,getGoal('story-impressions'));
+  animCount(document.getElementById('cnt-story-shares'),d.storyEng.shares);
+  setCompare('cmp-story-shares',d.storyEng.shares,d.storyEng.prevShares,'',pl,false);
+  applyMetric('story-shares',d.storyEng.shares,getGoal('story-shares'));
   animCount(document.getElementById('cnt-story-replies'),d.storyEng.replies);
   setCompare('cmp-story-replies',d.storyEng.replies,d.storyEng.prevReplies,'',pl,false);
   applyMetric('story-replies',d.storyEng.replies,getGoal('story-replies'));

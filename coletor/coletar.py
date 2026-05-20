@@ -58,26 +58,24 @@ def coletar_stories_hoje(ig_id, token):
             "limit": 100
         })
         stories = data.get("data", [])
-        impressions = reach = replies = 0
+        shares = replies = 0
         for story in stories:
             try:
                 ins = api_get(f"{story['id']}/insights", {
-                    "metric": "impressions,reach,replies",
+                    "metric": "replies,shares",
                     "access_token": token
                 })
                 for item in ins.get("data", []):
                     v = item.get("value") or (item.get("values") or [{}])[0].get("value", 0) or 0
-                    if item["name"] == "impressions":
-                        impressions += v
-                    elif item["name"] == "reach":
-                        reach += v
+                    if item["name"] == "shares":
+                        shares += v
                     elif item["name"] == "replies":
                         replies += v
             except Exception:
                 pass
-        return {"count": len(stories), "impressions": impressions, "reach": reach, "replies": replies}
+        return {"count": len(stories), "shares": shares, "replies": replies}
     except Exception:
-        return {"count": 0, "impressions": 0, "reach": 0, "replies": 0}
+        return {"count": 0, "shares": 0, "replies": 0}
 
 
 def coletar_midias(ig_id, token, dias):
@@ -215,7 +213,7 @@ def processar_conta(supabase, account_id, ig_id, token, nome):
     # Stories só ficam disponíveis via API por 24h — coletamos uma vez por dia
     stories_data = coletar_stories_hoje(ig_id, token)
     stories_hoje = stories_data["count"]
-    print(f"   Stories ativos: {stories_hoje} | 👁 {stories_data['impressions']:,} | 💬 {stories_data['replies']:,}")
+    print(f"   Stories ativos: {stories_hoje} | ↗️ {stories_data['shares']:,} encaminh. | 💬 {stories_data['replies']:,} DMs")
 
     for dias in PERIODS:
         m = coletar_midias(ig_id, token, dias)
@@ -230,8 +228,7 @@ def processar_conta(supabase, account_id, ig_id, token, nome):
                "posts_count": m["posts"], "reels_count": m["reels"]}
         if stories_val is not None:
             row["stories_count"] = stories_val
-            row["story_impressions"] = stories_data["impressions"]
-            row["story_reach"] = stories_data["reach"]
+            row["story_shares"] = stories_data["shares"]
             row["story_replies"] = stories_data["replies"]
         supabase.table("content_snapshots").upsert(row, on_conflict="account_id,captured_at,period_days").execute()
         s_label = str(stories_val) if stories_val is not None else "—"
