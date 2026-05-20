@@ -11,8 +11,8 @@
   :root {
     --bg:#ffffff;--surface:#ffffff;--surface2:#f4f5f7;
     --border:rgba(0,0,0,0.09);
-    --accent:#1A3A6B;--accent-light:rgba(26,58,107,0.07);--accent-mid:rgba(26,58,107,0.3);
-    --text:#0a0a12;--muted:rgba(10,10,18,0.50);
+    --accent:#1D4ED8;--accent-light:rgba(29,78,216,0.08);--accent-mid:rgba(29,78,216,0.30);
+    --text:#0a0a12;--muted:rgba(10,10,18,0.80);
     --green:#1a6e45;--yellow:#8a6200;--orange:#b85800;--red:#b01e3a;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
@@ -359,15 +359,15 @@
         <svg id="followers-chart" viewBox="0 0 400 110" preserveAspectRatio="none">
           <defs>
             <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#1A3A6B" stop-opacity="0.25"/>
-              <stop offset="100%" stop-color="#1A3A6B" stop-opacity="0"/>
+              <stop offset="0%" stop-color="#1D4ED8" stop-opacity="0.25"/>
+              <stop offset="100%" stop-color="#1D4ED8" stop-opacity="0"/>
             </linearGradient>
           </defs>
           <path id="chart-fill" fill="url(#chartGrad)"/>
           <polyline id="prev-line" fill="none" stroke="rgba(0,0,0,0.15)" stroke-width="1.5" stroke-dasharray="4,3" stroke-linecap="round"/>
-          <polyline id="chart-line" fill="none" stroke="#1A3A6B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <polyline id="chart-line" fill="none" stroke="#1D4ED8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           <line id="crosshair" x1="0" y1="0" x2="0" y2="110" stroke="rgba(0,0,0,0.15)" stroke-width="1" display="none"/>
-          <circle id="dot-curr" r="4" fill="#1A3A6B" stroke="#f4f5fa" stroke-width="2" display="none"/>
+          <circle id="dot-curr" r="4" fill="#1D4ED8" stroke="#f4f5fa" stroke-width="2" display="none"/>
           <circle id="dot-prev" r="3.5" fill="rgba(0,0,0,0.2)" stroke="#f4f5fa" stroke-width="2" display="none"/>
           <g id="chart-data-labels"></g>
           <rect id="chart-overlay" x="0" y="0" width="400" height="110" fill="transparent"/>
@@ -467,9 +467,36 @@
     </div>
   </div>
 
-  <!-- 04 CONTEÚDO -->
+  <!-- 04 ENGAJAMENTO STORIES -->
   <div class="sec-header">
-    <div class="section-label">04 · Conteúdo</div>
+    <div class="section-label">04 · Engajamento — Stories</div>
+    <div class="sec-chips" id="chips-story-eng"></div>
+    <div class="sec-line"></div>
+  </div>
+  <div class="sec4-grid mb40">
+    <div class="card" style="animation-delay:.05s">
+      <div class="mc-header"><div class="mc-icon">👁</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-story-impressions" contenteditable="true" spellcheck="false">5000</span><span class="mc-edit-hint">✏</span></div></div>
+      <div class="mc-lbl">IMPRESSÕES (STORIES)</div>
+      <div class="mc-val a-orange" id="cnt-story-impressions">0</div>
+      <div class="mc-compare" id="cmp-story-impressions"></div>
+      <div class="mc-divider"></div>
+      <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-story-impressions" style="width:0%"></div></div>
+      <div class="mc-bottom"><span class="mc-pct" id="pct-story-impressions">0%</span><span class="mc-diff" id="diff-story-impressions"></span></div>
+    </div>
+    <div class="card" style="animation-delay:.10s">
+      <div class="mc-header"><div class="mc-icon">💬</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-story-replies" contenteditable="true" spellcheck="false">50</span><span class="mc-edit-hint">✏</span></div></div>
+      <div class="mc-lbl">RESPOSTAS / DM (STORIES)</div>
+      <div class="mc-val a-pink" id="cnt-story-replies">0</div>
+      <div class="mc-compare" id="cmp-story-replies"></div>
+      <div class="mc-divider"></div>
+      <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-story-replies" style="width:0%"></div></div>
+      <div class="mc-bottom"><span class="mc-pct" id="pct-story-replies">0%</span><span class="mc-diff" id="diff-story-replies"></span></div>
+    </div>
+  </div>
+
+  <!-- 05 CONTEÚDO -->
+  <div class="sec-header">
+    <div class="section-label">05 · Conteúdo</div>
     <div class="sec-chips" id="chips-cnt"></div>
     <div class="sec-line"></div>
   </div>
@@ -504,11 +531,11 @@ const sbClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 
 const PERIODS=[{label:'1D',value:1},{label:'7D',value:7},{label:'14D',value:14},{label:'30D',value:30}];
 const PROFILE_THEMES={
-  'Raíssa Herculano':{ accent:'#8B2252', light:'rgba(139,34,82,0.07)', mid:'rgba(139,34,82,0.3)' },
-  'Breno Vale':      { accent:'#1A3A6B', light:'rgba(26,58,107,0.07)', mid:'rgba(26,58,107,0.3)' },
-  'Mantova Móveis':  { accent:'#1A3A6B', light:'rgba(26,58,107,0.07)', mid:'rgba(26,58,107,0.3)' },
-  'La Vessel':       { accent:'#2E4A28', light:'rgba(46,74,40,0.07)',  mid:'rgba(46,74,40,0.3)' },
-  'Motoeasy':        { accent:'#6B1E2E', light:'rgba(107,30,46,0.07)', mid:'rgba(107,30,46,0.3)' },
+  'Raíssa Herculano':{ accent:'#BE185D', light:'rgba(190,24,93,0.08)',  mid:'rgba(190,24,93,0.30)' },
+  'Breno Vale':      { accent:'#1D4ED8', light:'rgba(29,78,216,0.08)',  mid:'rgba(29,78,216,0.30)' },
+  'Mantova Móveis':  { accent:'#1D4ED8', light:'rgba(29,78,216,0.08)',  mid:'rgba(29,78,216,0.30)' },
+  'La Vessel':       { accent:'#166534', light:'rgba(22,101,52,0.08)',   mid:'rgba(22,101,52,0.30)' },
+  'Motoeasy':        { accent:'#9B1C1C', light:'rgba(155,28,28,0.08)',   mid:'rgba(155,28,28,0.30)' },
 };
 function applyProfileTheme(name){
   const t=PROFILE_THEMES[name]||PROFILE_THEMES['Breno Vale'];
@@ -530,6 +557,8 @@ const GOALS={
   shares:{1:60,7:200,14:400,30:2000},
   stories:{1:6,7:28,14:56,30:120},
   'posts-reels':{1:3,7:12,14:24,30:50},
+  'story-impressions':{1:800,7:5000,14:10000,30:22000},
+  'story-replies':{1:8,7:50,14:100,30:220},
 };
 
 let currentPeriod=7;
@@ -567,8 +596,19 @@ function fmtR(v){const p=v.toFixed(2).split('.');return 'R$ '+p[0].replace(/\B(?
 function pctDiff(curr,prev){if(!prev)return '+0.0%';const d=((curr-prev)/prev*100);return (d>=0?'+':'')+d.toFixed(1)+'%';}
 function perfColor(pct){return pct>=100?'green':pct>=75?'yellow':pct>=50?'orange':'red';}
 function goalStorageKey(key,period,accountId){return 'ig_goal_'+(accountId||'default')+'_'+period+'_'+key;}
-function saveGoal(key,val){localStorage.setItem(goalStorageKey(key,currentPeriod,currentAccountId),val);}
-function loadGoal(key,period,accountId){const s=localStorage.getItem(goalStorageKey(key,period,accountId));return s!==null?s:String(GOALS[key][period]);}
+const RATE_GOALS=['cps'];
+function saveGoal(key,val){
+  const num=parseFloat(val);if(isNaN(num))return;
+  localStorage.setItem(goalStorageKey(key,currentPeriod,currentAccountId),val);
+  if(RATE_GOALS.includes(key))return;
+  [1,7,14,30].forEach(p=>{
+    if(p===currentPeriod)return;
+    const scaled=num*p/currentPeriod;
+    const stored=Number.isInteger(scaled)?String(scaled):scaled.toFixed(2).replace(/\.?0+$/,'');
+    localStorage.setItem(goalStorageKey(key,p,currentAccountId),stored);
+  });
+}
+function loadGoal(key,period,accountId){const s=localStorage.getItem(goalStorageKey(key,period,accountId));return s!==null?s:String(GOALS[key]?.[period]??GOALS[key]?.[7]??0);}
 function getGoal(key){return parseFloat(document.getElementById('goal-'+key).textContent)||GOALS[key][currentPeriod];}
 function getPrevLabel(period){
   const months=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -734,13 +774,17 @@ async function fetchData(accountId,period,customStart,customEnd){
   const histStartStr=localDate(histStartDate);
   const prevRefDate=new Date(refDate);prevRefDate.setDate(prevRefDate.getDate()-30);
   const prevRefDateStr=localDate(prevRefDate);
-  const[snaps,engCurr,engPrev,cntCurr,cntPrev,filterRow]=await Promise.all([
+  const periodStartStr2=localDate(new Date(refDate.getTime()-effectivePeriod*86400000));
+  const prevPeriodStartStr2=localDate(new Date(refDate.getTime()-(30+effectivePeriod)*86400000));
+  const[snaps,engCurr,engPrev,cntCurr,cntPrev,filterRow,storyDailyCurr,storyDailyPrev]=await Promise.all([
     sb(`daily_snapshots?account_id=eq.${accountId}&captured_at=gte.${histStartStr}&captured_at=lte.${refDateStr}&order=captured_at.asc&select=followers_count,captured_at`),
     sb(`engagement_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=likes,saves,shares,captured_at`),
     sb(`engagement_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=1&select=likes,saves,shares,captured_at`),
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=posts_count,stories_count,reels_count,captured_at`),
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=1&select=posts_count,stories_count,reels_count,captured_at`),
     sb(`campaign_filters?account_id=eq.${accountId}&select=selected_ids`),
+    sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.1&captured_at=gte.${periodStartStr2}&captured_at=lte.${refDateStr}&select=story_impressions,story_replies`),
+    sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.1&captured_at=gte.${prevPeriodStartStr2}&captured_at=lte.${prevRefDateStr}&select=story_impressions,story_replies`),
   ]);
   const eng=engCurr[0]||{likes:0,saves:0,shares:0};
   const prevEng=engPrev[0]||null;
@@ -796,11 +840,16 @@ async function fetchData(accountId,period,customStart,customEnd){
   }
   const cps=spend>0&&newFollowers>0?spend/newFollowers:0;
   const prevCps=prevSpend&&prevNewFollowers>0?prevSpend/prevNewFollowers:null;
+  const storyImp=storyDailyCurr.reduce((s,r)=>s+(r.story_impressions||0),0);
+  const storyRep=storyDailyCurr.reduce((s,r)=>s+(r.story_replies||0),0);
+  const prevStoryImp=storyDailyPrev.length?storyDailyPrev.reduce((s,r)=>s+(r.story_impressions||0),0):null;
+  const prevStoryRep=storyDailyPrev.length?storyDailyPrev.reduce((s,r)=>s+(r.story_replies||0),0):null;
   return{followerTotal:latest,newFollowers,prevNewFollowers,avgPerDay,bestDay:'—',engRate,followerDeltas,effectivePeriod,impressions,clicks,reach,
     chart:{vals:chartVals,prev:chartPrev,labels:chartLabels,dates:chartDates,prevDates:chartPrevDates},
     spend,prevSpend,cps,prevCps,
     eng:{likes:eng.likes,saves:eng.saves,shares:eng.shares,prevLikes:prevEng?.likes??null,prevSaves:prevEng?.saves??null,prevShares:prevEng?.shares??null},
     cnt:{posts:cnt.posts_count,stories:cnt.stories_count,reels:cnt.reels_count,postsReels:cnt.posts_count+cnt.reels_count,prevPostsReels:prevCnt!=null?prevCnt.posts_count+prevCnt.reels_count:null,prevStories:prevCnt?.stories_count??null},
+    storyEng:{impressions:storyImp,replies:storyRep,prevImpressions:prevStoryImp,prevReplies:prevStoryRep},
   };
 }
 
@@ -839,6 +888,13 @@ function update(d,period){
   });
   const avgPerPost=d.cnt.posts>0?Math.round(d.eng.likes/d.cnt.posts):0;
   setChips('chips-eng',['Taxa de eng.: '+d.engRate+'%','M\u00e9dia curtidas/post: '+fmtN(avgPerPost),prevEngTotal>0?'Total: '+fmtN(engTotal)+' vs '+fmtN(prevEngTotal)+' ('+pctDiff(engTotal,prevEngTotal)+')':'Total engajamento: '+fmtN(engTotal)]);
+  animCount(document.getElementById('cnt-story-impressions'),d.storyEng.impressions);
+  setCompare('cmp-story-impressions',d.storyEng.impressions,d.storyEng.prevImpressions,'',pl,false);
+  applyMetric('story-impressions',d.storyEng.impressions,getGoal('story-impressions'));
+  animCount(document.getElementById('cnt-story-replies'),d.storyEng.replies);
+  setCompare('cmp-story-replies',d.storyEng.replies,d.storyEng.prevReplies,'',pl,false);
+  applyMetric('story-replies',d.storyEng.replies,getGoal('story-replies'));
+  setChips('chips-story-eng',['Acumulado de snapshots diários','Stories expiram em 24h (API)']);
   animCount(document.getElementById('cnt-stories'),d.cnt.stories);
   setCompare('cmp-stories',d.cnt.stories,d.cnt.prevStories,'',pl,false);applyMetric('stories',d.cnt.stories,getGoal('stories'));
   animCount(document.getElementById('cnt-posts-reels'),d.cnt.postsReels);
