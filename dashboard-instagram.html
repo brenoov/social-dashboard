@@ -221,6 +221,8 @@
   .camp-modal-footer{display:flex;gap:10px;padding:14px 20px;border-top:1px solid rgba(0,0,0,.07);}
   .btn-camp-all{flex:1;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;padding:9px 14px;border-radius:8px;border:1.5px solid rgba(0,0,0,.14);background:transparent;color:#666;cursor:pointer;transition:background .1s;}
   .btn-camp-all:hover{background:rgba(0,0,0,.04);}
+  .btn-camp-none{font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;padding:9px 14px;border-radius:8px;border:1.5px solid rgba(220,50,50,.3);background:transparent;color:#c0392b;cursor:pointer;transition:background .1s;}
+  .btn-camp-none:hover{background:rgba(220,50,50,.06);}
   .btn-camp-save{flex:2;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;padding:9px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#8134af,#dd2a7b);color:#fff;cursor:pointer;transition:opacity .15s;}
   .btn-camp-save:hover{opacity:.88;}
 </style>
@@ -788,25 +790,25 @@ async function fetchData(accountId,period,customStart,customEnd){
   const followerDeltas=[{p:pLabel,v:(newFollowers>=0?'+':'')+fmtN(newFollowers),dir:newFollowers>=0?'up':'down'}];
   if(prevNewFollowers>0){followerDeltas.push({p:'vs per. ant.',v:pctDiff(newFollowers,prevNewFollowers),dir:newFollowers>=prevNewFollowers?'up':'down'});}
   // Ads: lê de campaign_insights aplicando o filtro de campanhas em tempo real
-  const selectedIds=filterRow[0]?.selected_ids||[];
-  const idFilter=selectedIds.length>0?`&campaign_id=in.(${selectedIds.join(',')})` :'';
-  const[ciCurr,ciPrev]=await Promise.all([
-    sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=200&select=campaign_id,spend,impressions,clicks,reach,captured_at${idFilter}`),
-    sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=200&select=campaign_id,spend,impressions,clicks,reach,captured_at${idFilter}`),
-  ]);
+  const selectedIds=filterRow[0]?.selected_ids; // null=todas, []=nenhuma, [ids]=filtradas
+  const noneSelected=Array.isArray(selectedIds)&&selectedIds.length===0;
+  const idFilter=Array.isArray(selectedIds)&&selectedIds.length>0?`&campaign_id=in.(${selectedIds.join(',')})` :'';
   function aggCi(rows){
     if(!rows.length)return null;
     const maxDate=rows[0].captured_at;
     const d=rows.filter(r=>r.captured_at===maxDate);
     return{spend:d.reduce((s,r)=>s+parseFloat(r.spend||0),0),impressions:d.reduce((s,r)=>s+parseInt(r.impressions||0),0),clicks:d.reduce((s,r)=>s+parseInt(r.clicks||0),0),reach:d.reduce((s,r)=>s+parseInt(r.reach||0),0)};
   }
-  const adsAgg=aggCi(ciCurr);
-  const prevAdsAgg=aggCi(ciPrev);
-  const spend=adsAgg?.spend||0;
-  const impressions=adsAgg?.impressions||0;
-  const clicks=adsAgg?.clicks||0;
-  const reach=adsAgg?.reach||0;
-  const prevSpend=prevAdsAgg?prevAdsAgg.spend:null;
+  let spend=0,impressions=0,clicks=0,reach=0,prevSpend=null;
+  if(!noneSelected){
+    const[ciCurr,ciPrev]=await Promise.all([
+      sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=200&select=campaign_id,spend,impressions,clicks,reach,captured_at${idFilter}`),
+      sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=200&select=campaign_id,spend,impressions,clicks,reach,captured_at${idFilter}`),
+    ]);
+    const adsAgg=aggCi(ciCurr);const prevAdsAgg=aggCi(ciPrev);
+    spend=adsAgg?.spend||0;impressions=adsAgg?.impressions||0;clicks=adsAgg?.clicks||0;reach=adsAgg?.reach||0;
+    prevSpend=prevAdsAgg?prevAdsAgg.spend:null;
+  }
   const cps=spend>0&&newFollowers>0?spend/newFollowers:0;
   const prevCps=prevSpend&&prevNewFollowers>0?prevSpend/prevNewFollowers:null;
   return{followerTotal:latest,newFollowers,prevNewFollowers,avgPerDay,bestDay:'—',engRate,followerDeltas,effectivePeriod,impressions,clicks,reach,
@@ -1070,10 +1072,22 @@ function updateCampaignCount(){
   const checked=document.querySelectorAll('#campaign-list input[type=checkbox]:checked').length;
   document.getElementById('camp-count').textContent=checked===total?'(todas selecionadas)':'('+checked+' de '+total+' selecionadas)';
 }
+async function saveNoneCampaigns(){
+  const token=currentSession?.access_token||SUPABASE_ANON_KEY;
+  await fetch(SUPABASE_URL+'/rest/v1/campaign_filters',{
+    method:'POST',
+    headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+token,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},
+    body:JSON.stringify({account_id:currentAccountId,selected_ids:[],updated_at:new Date().toISOString()}),
+  });
+  document.getElementById('campaign-modal-overlay').style.display='none';
+  const info=document.getElementById('camp-filter-info');
+  if(info)info.textContent='Nenhuma campanha selecionada';
+  refresh();
+}
 async function saveCampaignFilter(){
   const allCbs=[...document.querySelectorAll('#campaign-list input[type=checkbox]')];
   const checked=allCbs.filter(cb=>cb.checked).map(cb=>cb.value);
-  const toSave=checked.length===allCbs.length?[]:checked;
+  const toSave=checked.length===allCbs.length?null:checked;
   const token=currentSession?.access_token||SUPABASE_ANON_KEY;
   await fetch(SUPABASE_URL+'/rest/v1/campaign_filters',{
     method:'POST',
@@ -1086,7 +1100,10 @@ async function saveCampaignFilter(){
 }
 function updateCampaignFilterBadge(selCount,total){
   const info=document.getElementById('camp-filter-info');
-  if(info){info.textContent=selCount>0&&selCount<total?selCount+' de '+total+' campanhas selecionadas':'Todas as campanhas ('+total+')';}
+  if(!info)return;
+  if(selCount===0&&total>=0)info.textContent='Nenhuma campanha selecionada';
+  else if(selCount===total||total===0)info.textContent='Todas as campanhas ('+total+')';
+  else info.textContent=selCount+' de '+total+' campanhas selecionadas';
 }
 async function loadCampaignFilterBadge(){
   if(!currentAccountId)return;
@@ -1111,6 +1128,7 @@ async function loadCampaignFilterBadge(){
     <div class="camp-modal-footer">
       <button class="btn-camp-all" onclick="document.querySelectorAll('#campaign-list input').forEach(cb=>cb.checked=true);updateCampaignCount()">Selecionar todas</button>
       <button class="btn-camp-all" onclick="document.querySelectorAll('#campaign-list input').forEach(cb=>cb.checked=false);updateCampaignCount()">Desmarcar todas</button>
+      <button class="btn-camp-none" onclick="saveNoneCampaigns()">Nenhuma</button>
       <button class="btn-camp-save" onclick="saveCampaignFilter()">Salvar filtro</button>
     </div>
   </div>
