@@ -111,17 +111,61 @@ def coletar_midias(ig_id, token, dias):
             "posts": posts, "reels": reels}
 
 
-def coletar_ads(ad_account_id, token, dias):
-    """Busca gasto, impressões, cliques e alcance via Marketing API."""
-    since = (date.today() - timedelta(days=dias)).isoformat()
-    until = date.today().isoformat()
+def sincronizar_campanhas(supabase, account_id, ad_account_id, token):
+    """Busca todas as campanhas da conta e salva no banco (atualiza diariamente)."""
     try:
-        data = api_get(f"act_{ad_account_id}/insights", {
-            "fields": "spend,impressions,clicks,reach",
-            "time_range": json.dumps({"since": since, "until": until}),
-            "level": "account",
+        data = api_get(f"act_{ad_account_id}/campaigns", {
+            "fields": "id,name,objective,status",
+            "limit": 200,
             "access_token": token,
         })
+        campanhas = data.get("data", [])
+        if not campanhas:
+            return
+        rows = [
+            {"campaign_id": c["id"], "account_id": account_id,
+             "name": c.get("name",""), "objective": c.get("objective",""),
+             "status": c.get("status",""), "synced_at": date.today().isoformat()}
+            for c in campanhas
+        ]
+        supabase.table("campaigns").upsert(rows, on_conflict="campaign_id").execute()
+        ativos = sum(1 for c in campanhas if c.get("status") == "ACTIVE")
+        print(f"   📋 {len(campanhas)} campanhas sincronizadas ({ativos} ativas)")
+    except Exception as e:
+        print(f"   ⚠️  Sync campanhas: {e}")
+
+
+def obter_filtro_campanhas(supabase, account_id):
+    """Retorna lista de campaign_ids selecionados pelo usuário, ou None se sem filtro."""
+    try:
+        r = supabase.table("campaign_filters").select("selected_ids").eq("account_id", account_id).execute()
+        if r.data:
+            ids = r.data[0].get("selected_ids") or []
+            return ids if ids else None
+    except Exception:
+        pass
+    return None
+
+
+def coletar_ads(ad_account_id, token, dias, campaign_ids=None):
+    """Busca gasto, impressões, cliques e alcance via Marketing API.
+    Se campaign_ids for fornecido, filtra somente essas campanhas."""
+    since = (date.today() - timedelta(days=dias)).isoformat()
+    until = date.today().isoformat()
+    params = {
+        "fields": "spend,impressions,clicks,reach",
+        "time_range": json.dumps({"since": since, "until": until}),
+        "level": "account",
+        "access_token": token,
+    }
+    if campaign_ids:
+        params["filtering"] = json.dumps([{
+            "field": "campaign_id",
+            "operator": "IN",
+            "value": campaign_ids,
+        }])
+    try:
+        data = api_get(f"act_{ad_account_id}/insights", params)
         rows = data.get("data", [])
         if rows:
             r = rows[0]
@@ -172,9 +216,14 @@ def processar_conta(supabase, account_id, ig_id, token, nome):
     # Ads
     ad_account_id = AD_ACCOUNTS.get(ig_id, "")
     if ad_account_id:
-        print(f"   💰 Coletando Ads...")
+        sincronizar_campanhas(supabase, account_id, ad_account_id, token)
+        filtro = obter_filtro_campanhas(supabase, account_id)
+        if filtro:
+            print(f"   🔍 Filtro ativo: {len(filtro)} campanhas selecionadas")
+        else:
+            print(f"   💰 Coletando Ads (todas as campanhas)...")
         for dias in PERIODS:
-            ads = coletar_ads(ad_account_id, token, dias)
+            ads = coletar_ads(ad_account_id, token, dias, campaign_ids=filtro)
             supabase.table("ads_snapshots").upsert(
                 {"account_id": account_id, "captured_at": hoje, "period_days": dias,
                  "spend": ads["spend"], "impressions": ads["impressions"],
