@@ -2918,7 +2918,8 @@ async function loadDashboard(session){
 }
 
 function detectDevice(){
-  const w=window.innerWidth;
+  // Usa devicePixelRatio para detectar TVs com DPR=2 que reportam innerWidth menor
+  const w=window.innerWidth * (window.devicePixelRatio > 1.5 ? window.devicePixelRatio : 1);
   document.body.classList.remove('dev-mobile','dev-tablet','dev-desktop','dev-tv');
   if(w<=480)document.body.classList.add('dev-mobile');
   else if(w<=1024)document.body.classList.add('dev-tablet');
