@@ -3597,7 +3597,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     const C=2*Math.PI*R,sweep=240/360*C,gap=C-sweep;
     const fill=p!==null?Math.min(Math.max(p,0),100)/100*sweep:0;
     const rot=150;
-    return `<svg viewBox="0 0 200 210" style="width:100%;height:100%;overflow:visible;display:block">
+    return `<svg viewBox="0 0 200 190" style="width:100%;height:100%;overflow:visible;display:block">
       <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${trackClr}" stroke-width="13"
         stroke-dasharray="${sweep.toFixed(1)} ${gap.toFixed(1)}" stroke-linecap="round"
         transform="rotate(${rot} ${cx} ${cy})"/>
@@ -3607,9 +3607,9 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
         data-fill="${fill.toFixed(1)}" data-c="${C.toFixed(1)}"
         style="transition:stroke-dasharray 2s cubic-bezier(.4,0,.2,1);filter:drop-shadow(0 0 8px ${hexColor}88)"/>
       <text x="100" y="86" text-anchor="middle" font-family="Oswald,sans-serif" font-size="42" font-weight="600" fill="${hexColor}">${line1}</text>
-      <text x="100" y="104" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="10" fill="var(--muted)" letter-spacing="2">${line2}</text>
-      <text x="100" y="127" text-anchor="middle" font-family="Oswald,sans-serif" font-size="22" font-weight="500" fill="var(--text)">${line3}</text>
-      ${line4text?`<text x="100" y="148" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="10.5" font-weight="600" fill="${line4color||'var(--muted)'}">${line4text}</text>`:''}
+      <text x="100" y="109" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="10" fill="var(--muted)" letter-spacing="2">${line2}</text>
+      <text x="100" y="136" text-anchor="middle" font-family="Oswald,sans-serif" font-size="22" font-weight="500" fill="var(--text)">${line3}</text>
+      ${line4text?`<text x="100" y="162" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="10.5" font-weight="600" fill="${line4color||'var(--muted)'}">${line4text}</text>`:''}
     </svg>`;
   }
   function smGauge(p,hexColor,uid,topText,vendidoStr,metaStr,desvioStr,desvioCol){
@@ -3618,7 +3618,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     const fill=p!==null?Math.min(Math.max(p,0),100)/100*sweep:0;
     const rot=150;
     // Trim viewBox height to content — avoids gap between gauge and labels below
-    const vbH=desvioStr?102:metaStr?88:vendidoStr?74:62;
+    const vbH=desvioStr?114:metaStr?97:vendidoStr?79:62;
     return `<svg viewBox="0 0 100 ${vbH}" style="width:100%;height:auto;overflow:visible;display:block">
       <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${trackClr}" stroke-width="7"
         stroke-dasharray="${sweep.toFixed(1)} ${gap.toFixed(1)}" stroke-linecap="round"
@@ -3629,9 +3629,9 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
         data-fill="${fill.toFixed(1)}" data-c="${C.toFixed(1)}"
         style="transition:stroke-dasharray 2s cubic-bezier(.4,0,.2,1);filter:drop-shadow(0 0 4px ${hexColor}88)"/>
       <text x="50" y="51" text-anchor="middle" font-family="Oswald,sans-serif" font-size="22" font-weight="600" fill="${hexColor}">${topText}</text>
-      ${vendidoStr?`<text x="50" y="67" text-anchor="middle" font-family="Oswald,sans-serif" font-size="11" font-weight="500" fill="var(--text)">${vendidoStr}</text>`:''}
-      ${metaStr?`<text x="50" y="80" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="8.5" fill="var(--muted)">${metaStr}</text>`:''}
-      ${desvioStr?`<text x="50" y="93" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="9" font-weight="700" fill="${desvioCol||'var(--muted)'}">${desvioStr}</text>`:''}
+      ${vendidoStr?`<text x="50" y="72" text-anchor="middle" font-family="Oswald,sans-serif" font-size="11" font-weight="500" fill="var(--text)">${vendidoStr}</text>`:''}
+      ${metaStr?`<text x="50" y="88" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="8.5" fill="var(--muted)">${metaStr}</text>`:''}
+      ${desvioStr?`<text x="50" y="106" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="9" font-weight="700" fill="${desvioCol||'var(--muted)'}">${desvioStr}</text>`:''}
     </svg>`;
   }
 
