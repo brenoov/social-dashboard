@@ -3100,10 +3100,8 @@ function openGestaoVista(){
 }
 let _gvSkuVersion=0;
 async function _gvBuildSkuSlide(pedidos){
-  // Incrementa versão — se trocar período durante o fetch, a versão antiga aborta
-  const myVersion=++_gvSkuVersion;
-  // Aguarda 1s para dar prioridade ao fetch principal dos pedidos
-  await new Promise(r=>setTimeout(r,1000));
+  const myVersion=_gvSkuVersion; // captura versão atual (já incrementada pelo loadGestaoVistaData)
+  await new Promise(r=>setTimeout(r,1500)); // aguarda fetch principal terminar antes de iniciar
   if(myVersion!==_gvSkuVersion)return;
   const skuMap={};
   for(const p of pedidos){
@@ -3543,7 +3541,10 @@ function startGVClock(){
 }
 
 let _gvCurrentPeriod='today';
+let _gvLoadId=0; // cancela fetches anteriores imediatamente ao trocar período
 async function loadGestaoVistaData(period){
+  const myLoad=++_gvLoadId; // incrementa ANTES de qualquer await para cancelar SKU slide
+  ++_gvSkuVersion;           // aborta _gvBuildSkuSlide em andamento
   if(period)_gvCurrentPeriod=period;
   else period=_gvCurrentPeriod;
   document.querySelectorAll('.gv-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===period));
@@ -3581,6 +3582,7 @@ async function loadGestaoVistaData(period){
       vendedoresMap[v.id]={nome:v.nome||v.nomeFantasia||'',loja:lojaNome};
       console.log('[vendedor]',v.id,v.nome,'loja:',JSON.stringify(lojaObj));
     });
+    if(myLoad!==_gvLoadId)return; // troca de período enquanto carregava — descarta silenciosamente
     const totalPrev=pedidosPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
     _fadeSwap(board,()=>{
       renderGestaoVista(pedidos,canais,metasMap,df,diasMes,diaAtual,di,period,totalPrev,pedidosPrev.length,pedidosPrev,diPrev,dfPrev,vendedoresMap);
@@ -3589,6 +3591,7 @@ async function loadGestaoVistaData(period){
     window._gvTimer=setInterval(()=>loadGestaoVistaData(_gvCurrentPeriod),5*60*1000);
     document.getElementById('gv-refresh-tag').textContent='PRÓX. '+String(now.getHours()).padStart(2,'0')+':'+String((now.getMinutes()+5)%60).padStart(2,'0');
   }catch(e){
+    if(myLoad!==_gvLoadId)return;
     board.innerHTML=`<div class="gv-loading-full">Erro ao carregar — ${escHtml(e.message)}</div>`;
   }
 }
