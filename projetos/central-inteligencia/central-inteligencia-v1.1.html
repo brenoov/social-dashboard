@@ -109,7 +109,7 @@
   .mc-lbl{font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:11px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:5px;}
   .mc-val{font-family:'Oswald',sans-serif;font-size:44px;font-weight:500;line-height:1;margin-bottom:8px;color:var(--text);}
   .mc-compare{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;padding:7px 10px;background:var(--surface2);border-radius:2px;border:1px solid var(--border);}
-  .mc-compare-label{font-family:'IBM Plex Sans',sans-serif;font-weight:500;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .mc-compare-label{font-family:'IBM Plex Sans',sans-serif;font-weight:500;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;overflow-wrap:break-word;word-break:break-word;line-height:1.3;}
   .mc-compare-vals{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;}
   .mc-compare-prev{font-family:'IBM Plex Sans',sans-serif;font-weight:400;font-size:12px;color:var(--muted);}
   .mc-compare-delta{font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;white-space:nowrap;}
@@ -625,7 +625,7 @@
   .vs2-ch-bar.real-bar.warn{background:#b08000;}
   .vs2-ch-bar.real-bar.bad{background:var(--red);}
   .vs2-ch-pct{position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;white-space:nowrap;background:var(--surface);border:1px solid var(--border);border-radius:2px;padding:1px 4px;}
-  .vs2-ch-nm{font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);text-align:center;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.3px;}
+  .vs2-ch-nm{font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);text-align:center;max-width:90px;overflow-wrap:break-word;word-break:break-word;letter-spacing:.3px;line-height:1.3;}
   .vs2-ch-summary{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--border);}
   .vs2-ch-sum-cell{padding:12px 20px;border-right:1px solid var(--border);}
   .vs2-ch-sum-cell:last-child{border-right:none;}
@@ -713,7 +713,7 @@
   .gv-canal-panel{background:var(--bg);padding:7px 12px;display:flex;flex-direction:column;overflow:hidden;}
   .gv-canal-grid{flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;align-content:start;overflow:hidden;}
   .gv-sm-item{display:flex;flex-direction:column;align-items:center;gap:2px;}
-  .gv-sm-item-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:10px;letter-spacing:.5px;color:var(--muted);text-align:center;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+  .gv-sm-item-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:10px;letter-spacing:.5px;color:var(--muted);text-align:center;line-height:1.3;overflow-wrap:break-word;word-break:break-word;max-width:100%;}
   .gv-sm-item-val{font-family:'Oswald',sans-serif;font-size:13px;color:var(--text);}
   .gv-sm-item-delta{font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;letter-spacing:.3px;text-align:center;}
   .gv-sm-item-delta.up{color:#22c55e;}.gv-sm-item-delta.dn{color:#f43f5e;}
@@ -767,7 +767,7 @@
   .gv-rank-num.rest{color:var(--muted);}
   .gv-rank-body{flex:1;min-width:0;}
   .gv-rank-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;}
-  .gv-rank-nm{font-family:'IBM Plex Sans',sans-serif;font-size:14px;font-weight:400;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .gv-rank-nm{font-family:'IBM Plex Sans',sans-serif;font-size:14px;font-weight:400;color:var(--text);overflow-wrap:break-word;word-break:break-word;line-height:1.3;}
   .gv-rank-v{font-family:'Oswald',sans-serif;font-size:17px;font-weight:500;color:var(--text);flex-shrink:0;margin-left:6px;}
   .gv-rank-bar{height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;}
   .gv-rank-bar-fill{height:100%;border-radius:2px;transition:width 1.8s cubic-bezier(.4,0,.2,1);}
@@ -3484,13 +3484,12 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     const cPct=cMetaP?Math.round(c.v/cMetaP*100):null;
     const cHex=hasMeta?pctHex(cPct):'#4f7cff';
     const topText=hasMeta&&cPct!==null?cPct+'%':fmtR0(c.v);
-    const short=c.nm.length>13?c.nm.slice(0,12)+'…':c.nm;
     const cPrev=porCanalPrev[c.id]||0;
     const cDelta=cPrev>0?Math.round((c.v-cPrev)/cPrev*100):null;
     const cDesvio=cMetaP!=null?c.v-cMetaP:null;
     return `<div class="gv-sm-item">
       ${smGauge(hasMeta?cPct:null,cHex,'gv-g-c'+i,topText)}
-      <div class="gv-sm-item-lbl">${escHtml(short)}</div>
+      <div class="gv-sm-item-lbl">${escHtml(c.nm)}</div>
       ${hasMeta?`<div class="gv-sm-item-val">${fmtR0(c.v)}</div>`:''}
       ${cDesvio!=null?`<div class="gv-sm-item-desvio" style="color:${cDesvio>=0?'#22c55e':'#f43f5e'}">${cDesvio>=0?'+':''}${fmtK(cDesvio)} meta</div>`:''}
       ${cDelta!=null?`<div class="gv-sm-item-delta ${cDelta>=0?'up':'dn'}">${cDelta>=0?'↑':'↓'}${Math.abs(cDelta)}% vs ${prevLbl}</div>`:''}
