@@ -882,9 +882,9 @@
       <div class="admin-nav-group-label">Gestão</div>
       <div class="admin-nav-item active" data-section="users" onclick="loadAdminSection('users')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Usuários</span></div>
       <div class="admin-nav-item" data-section="accounts" onclick="loadAdminSection('accounts')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg><span>Contas</span></div>
+      <div class="admin-nav-item" data-section="requests" onclick="loadAdminSection('requests')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Solicitações</span></div>
       <div class="admin-nav-group-label">Vendas</div>
       <div class="admin-nav-item" data-section="metas" onclick="loadAdminSection('metas')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Metas</span></div>
-      <div class="admin-nav-item" data-section="requests" onclick="loadAdminSection('requests')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg><span>Solicitações</span></div>
       <div class="admin-nav-group-label">Plataforma</div>
       <div class="admin-nav-item" data-section="appearance" onclick="loadAdminSection('appearance')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg><span>Aparência</span></div>
       <div class="admin-nav-item" data-section="data" onclick="loadAdminSection('data')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><span>Dados</span></div>
@@ -2249,59 +2249,83 @@ function loadAdminSystem(){
 }
 
 /* ── METAS ADMIN ── */
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
 async function loadAdminMetas(){
   const body=document.getElementById('admin-metas-body');
-  body.innerHTML='<div style="color:var(--muted);font-size:12px;padding:16px 0">Carregando...</div>';
+  body.textContent='';
   const now=new Date();
   const y=now.getFullYear(),m=now.getMonth()+1;
+  const mesLabel=now.toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).toUpperCase();
   const [lojasRes,metasRes]=await Promise.all([
     sbClient.from('bling_lojas').select('loja_id,nome').order('nome'),
     sbClient.from('bling_metas').select('loja_id,meta_valor').eq('year',y).eq('month',m)
   ]);
   const lojas=lojasRes.data||[];
   const metasMap={};(metasRes.data||[]).forEach(r=>metasMap[r.loja_id]=r.meta_valor);
-  const mesLabel=now.toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).toUpperCase();
+  const hasData=Object.keys(metasMap).length>0;
+  const daysInMonth=new Date(y,m,0).getDate();
 
-  body.innerHTML=`
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
-      <span class="sg-label" style="margin:0">Metas para ${mesLabel}</span>
-      <button class="admin-btn-sm" onclick="saveAllMetas(${y},${m})" style="background:var(--accent);color:#fff;padding:6px 16px">Salvar tudo</button>
-    </div>
-    <div class="sg">
-      <table class="metas-tbl" id="metas-table">
-        <thead><tr><th>#</th><th>Canal / Loja</th><th style="text-align:right">Meta (R$)</th></tr></thead>
-        <tbody>
-          <tr>
-            <td style="color:var(--muted)">0</td>
-            <td><strong>Total Geral</strong></td>
-            <td><input class="metas-inp" data-id="0" type="number" placeholder="0,00" value="${metasMap[0]||''}"></td>
-          </tr>
-          ${lojas.map(l=>`
-          <tr>
-            <td style="color:var(--muted)">${l.loja_id}</td>
-            <td>${l.nome}</td>
-            <td><input class="metas-inp" data-id="${l.loja_id}" type="number" placeholder="0,00" value="${metasMap[l.loja_id]||''}"></td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>
-    <div id="metas-save-msg" style="margin-top:10px;font-size:12px;display:none"></div>
-  `;
+  const safeRows=hasData?[
+    ...(metasMap[0]?[`<tr><td><strong>Total Geral</strong></td><td style="text-align:right"><strong>${escHtml(fmtR(metasMap[0]))}</strong></td><td style="text-align:right;color:var(--muted)">${escHtml(fmtR(metasMap[0]/daysInMonth))}</td></tr>`]:[]),
+    ...lojas.filter(l=>metasMap[l.loja_id]).map(l=>`<tr><td>${escHtml(l.nome)}</td><td style="text-align:right">${escHtml(fmtR(metasMap[l.loja_id]))}</td><td style="text-align:right;color:var(--muted)">${escHtml(fmtR(metasMap[l.loja_id]/daysInMonth))}</td></tr>`)
+  ].join(''):null;
+
+  const html=[
+    '<div class="admin-section-sub" style="margin-bottom:20px">Importe uma planilha CSV com as metas mensais por canal. Use o template para garantir o formato correto.</div>',
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:24px">',
+    '<button class="admin-btn-sm" onclick="downloadMetasTemplate()" style="display:flex;align-items:center;gap:6px;padding:8px 16px">',
+    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Baixar template CSV</button>',
+    `<label class="admin-btn-sm" style="display:flex;align-items:center;gap:6px;padding:8px 16px;cursor:pointer;background:var(--accent);color:#fff;border-color:var(--accent)">`,
+    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Importar planilha',
+    `<input type="file" accept=".csv" id="metas-csv-input" style="display:none" onchange="importMetasCSV(this,${y},${m})"></label></div>`,
+    '<div id="metas-import-msg" style="font-size:12px;margin-bottom:16px;display:none"></div>',
+    hasData?`<div class="sg-label">Metas actuais — ${escHtml(mesLabel)}</div><div class="sg"><table class="metas-tbl"><thead><tr><th>Canal / Loja</th><th style="text-align:right">Meta (R$)</th><th style="text-align:right">Meta/dia*</th></tr></thead><tbody>${safeRows}</tbody></table><div style="font-size:10px;color:var(--muted);padding:8px 0">*Meta diária = meta mensal ÷ dias do mês</div></div>`
+      :'<div style="color:var(--muted);font-size:12px;padding:8px 0">Nenhuma meta cadastrada para este mês. Importe uma planilha para começar.</div>'
+  ].join('');
+  body.innerHTML=html;
 }
 
-async function saveAllMetas(y,m){
-  const inputs=document.querySelectorAll('#metas-table .metas-inp');
-  const msg=document.getElementById('metas-save-msg');
-  msg.style.display='none';
+async function downloadMetasTemplate(){
+  const{data:lojas}=await sbClient.from('bling_lojas').select('loja_id,nome').order('nome');
+  const rows=[['loja_id','nome','meta_valor'],['0','Total Geral',''],...(lojas||[]).map(l=>[l.loja_id,l.nome,''])];
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,﻿'+encodeURIComponent(csv);
+  const now=new Date();
+  a.download=`metas_template_${now.getFullYear()}_${String(now.getMonth()+1).padStart(2,'0')}.csv`;
+  a.click();
+}
+
+async function importMetasCSV(input,y,m){
+  const file=input.files[0];
+  if(!file)return;
+  const text=await file.text();
+  const lines=text.replace(/\r/g,'').split('\n').filter(l=>l.trim());
+  if(!lines.length){showMetasMsg('Arquivo vazio.',true);return;}
+  const header=lines[0].split(',').map(h=>h.replace(/^"|"$/g,'').trim().toLowerCase());
+  const idxId=header.indexOf('loja_id'),idxVal=header.findIndex(h=>h.includes('meta'));
+  if(idxId<0||idxVal<0){showMetasMsg('Colunas loja_id e meta_valor não encontradas. Use o template.',true);return;}
   const rows=[];
-  inputs.forEach(inp=>{
-    const v=parseFloat(inp.value);
-    if(!isNaN(v)&&v>0)rows.push({loja_id:parseInt(inp.dataset.id),year:y,month:m,meta_valor:v});
-  });
-  if(!rows.length){msg.style.color='var(--red)';msg.textContent='Nenhum valor para salvar.';msg.style.display='block';return;}
+  for(let i=1;i<lines.length;i++){
+    const cols=lines[i].split(',').map(c=>c.replace(/^"|"$/g,'').trim());
+    const id=parseInt(cols[idxId]);
+    const val=parseFloat(String(cols[idxVal]).replace(',','.'));
+    if(!isNaN(id)&&!isNaN(val)&&val>0)rows.push({loja_id:id,year:y,month:m,meta_valor:val});
+  }
+  if(!rows.length){showMetasMsg('Nenhum valor válido encontrado no arquivo.',true);return;}
+  showMetasMsg(`Importando ${rows.length} metas...`,false,true);
   const{error}=await sbClient.from('bling_metas').upsert(rows,{onConflict:'loja_id,year,month'});
-  if(error){msg.style.color='var(--red)';msg.textContent='Erro: '+error.message;}
-  else{msg.style.color='var(--green)';msg.textContent=`${rows.length} meta${rows.length!==1?'s':''} salva${rows.length!==1?'s':''}!`;}
+  if(error){showMetasMsg('Erro ao salvar: '+error.message,true);}
+  else{showMetasMsg(`${rows.length} meta${rows.length!==1?'s':''} importada${rows.length!==1?'s':''}!`,false);loadAdminMetas();}
+  input.value='';
+}
+
+function showMetasMsg(text,isErr,neutral){
+  const msg=document.getElementById('metas-import-msg');
+  if(!msg)return;
+  msg.style.color=neutral?'var(--muted)':isErr?'var(--red)':'var(--green)';
+  msg.textContent=text;
   msg.style.display='block';
 }
 
