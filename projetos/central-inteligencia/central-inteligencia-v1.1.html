@@ -718,23 +718,37 @@
   .gv-ticker-item strong{color:var(--text);}
   .gv-ticker-dot{display:inline-block;width:3px;height:3px;border-radius:50%;background:var(--accent);vertical-align:middle;margin:0 14px;}
   .gv-refresh-tag{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);opacity:.4;flex-shrink:0;}
+  /* ── TV OVERRIDES (≥1920px) — ~1.7× tudo ── */
   body.dev-tv #gestao-vista-screen .gv-board{grid-template-columns:1fr 2fr;}
-  body.dev-tv #gestao-vista-screen .gv-gauge-inner{max-width:480px;}
-  body.dev-tv #gestao-vista-screen .gv-canal-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:18px;}
-  body.dev-tv .gv-rank-nm{font-size:16px;}
-  body.dev-tv .gv-rank-v{font-size:22px;}
-  body.dev-tv .gv-rank-hint{font-size:13px;}
-  body.dev-tv .gv-rank-entry{margin-bottom:20px;}
-  body.dev-tv .gv-rank-col-hdr{font-size:12px;letter-spacing:4px;margin-bottom:22px;}
-  body.dev-tv .gv-main-kpi-v{font-size:26px;}
-  body.dev-tv .gv-main-kpi-l{font-size:11px;}
-  body.dev-tv .gv-rank-bar{height:6px;}
-  body.dev-tv .gv-sm-item-lbl{font-size:11px;}
-  body.dev-tv .gv-sm-item-val{font-size:13px;}
-  body.dev-tv .gv-ticker-item{font-size:15px;}
-  body.dev-tv .gv-kpi-period{font-size:11px;letter-spacing:3px;}
-  body.dev-tv .gv-clock-time{font-size:38px;}
-  body.dev-tv .gv-col-grid-label{font-size:11px;}
+  body.dev-tv #gestao-vista-screen .gv-right{grid-template-rows:58fr 42fr;}
+  body.dev-tv #gestao-vista-screen .gv-left{padding:32px 28px;gap:20px;}
+  body.dev-tv #gestao-vista-screen .gv-gauge-inner{max-width:520px;}
+  body.dev-tv #gestao-vista-screen .gv-canal-panel{padding:28px;}
+  body.dev-tv #gestao-vista-screen .gv-canal-grid{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:24px;}
+  body.dev-tv #gestao-vista-screen .gv-rank-panel{padding:28px 36px;}
+  body.dev-tv .gv-clock-time{font-size:48px;letter-spacing:4px;}
+  body.dev-tv .gv-clock-date{font-size:13px;}
+  body.dev-tv .gv-kpi-period{font-size:13px;letter-spacing:4px;}
+  body.dev-tv .gv-col-grid-label{font-size:14px;margin-bottom:16px;}
+  body.dev-tv .gv-main-kpi{gap:28px;}
+  body.dev-tv .gv-main-kpi-v{font-size:28px;}
+  body.dev-tv .gv-main-kpi-l{font-size:13px;}
+  body.dev-tv .gv-rank-col-hdr{font-size:14px;letter-spacing:5px;margin-bottom:28px;}
+  body.dev-tv .gv-rank-num{font-size:20px;width:24px;}
+  body.dev-tv .gv-rank-nm{font-size:20px;}
+  body.dev-tv .gv-rank-v{font-size:26px;}
+  body.dev-tv .gv-rank-hint{font-size:15px;}
+  body.dev-tv .gv-rank-entry{margin-bottom:26px;}
+  body.dev-tv .gv-rank-bar{height:7px;}
+  body.dev-tv .gv-sm-item-lbl{font-size:13px;}
+  body.dev-tv .gv-sm-item-val{font-size:16px;}
+  body.dev-tv .gv-ticker{height:54px;}
+  body.dev-tv .gv-ticker-lbl{font-size:13px;}
+  body.dev-tv .gv-ticker-item{font-size:20px;}
+  body.dev-tv .gv-ticker-dot{width:5px;height:5px;}
+  body.dev-tv #gestao-vista-screen .gv-topbar{padding:16px 44px;}
+  body.dev-tv .gv-back{font-size:20px;}
+  body.dev-tv .gv-brand-tag{font-size:13px;}
   /* ── AUTH CANVAS + DARK LOGIN ── */
   #auth-screen{background:#07080f;}
   #auth-bg-canvas{position:absolute;inset:0;z-index:0;pointer-events:none;}
