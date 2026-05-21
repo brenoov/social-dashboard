@@ -24,6 +24,7 @@ TOKENS = {
     "17841462952561833": os.environ.get("TOKEN_VESSEL", ""),
     "17841464138609037": os.environ.get("TOKEN_MOTOEASY", ""),
     "17841401243622922": os.environ.get("TOKEN_HUMBERTO", ""),
+    "17841400576243780": os.environ.get("TOKEN_MANTOVA", ""),  # Gustavo Guerra (@gumguerra) — usa token Mantova (mesmo BM)
 }
 
 # Ad Account IDs por ig_id (sem o prefixo "act_")
