@@ -51,14 +51,24 @@ def coletar_seguidores(ig_id, token):
 
 
 def coletar_stories_hoje(ig_id, token):
-    """Stories expiram em 24h — coleta contagem e engajamento dos ativos agora."""
+    """Conta apenas stories postados no dia calendário de hoje (fuso local)."""
     try:
         data = api_get(f"{ig_id}/stories", {
-            "fields": "id",
+            "fields": "id,timestamp",
             "access_token": token,
             "limit": 100
         })
-        stories = data.get("data", [])
+        all_stories = data.get("data", [])
+        hoje_str = date.today().isoformat()  # "2026-05-21"
+        # Filtra só os postados hoje no fuso local
+        stories = []
+        for s in all_stories:
+            ts = s.get("timestamp", "")
+            if ts:
+                ts_norm = ts.replace("+0000", "+00:00").replace("Z", "+00:00")
+                pub_local = datetime.fromisoformat(ts_norm).astimezone()
+                if pub_local.date().isoformat() == hoje_str:
+                    stories.append(s)
         shares = replies = 0
         for story in stories:
             try:
