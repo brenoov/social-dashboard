@@ -540,6 +540,13 @@
   .smenu-card-desc{font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);line-height:1.7;}
   .smenu-card-enter{position:absolute;bottom:16px;right:18px;font-size:18px;color:var(--muted);transition:all .2s;}
   .smenu-card:hover .smenu-card-enter{transform:translateX(4px);color:var(--accent);}
+  .smenu-cards.view-list{flex-direction:column;align-items:stretch;gap:8px;width:100%;max-width:640px;}
+  .smenu-cards.view-list .smenu-card{width:100%;min-height:unset;flex-direction:row;padding:14px 18px 14px 20px;gap:16px;align-items:center;}
+  .smenu-cards.view-list .smenu-card-num{display:none;}
+  .smenu-cards.view-list .smenu-card-icon{width:42px;height:42px;border-radius:9px;flex-shrink:0;}
+  .smenu-cards.view-list .smenu-card-title{font-size:14px;letter-spacing:1px;}
+  .smenu-cards.view-list .smenu-card-desc{font-size:11px;margin:0;}
+  .smenu-cards.view-list .smenu-card-enter{position:static;margin-left:auto;}
 
   /* Brand Picker */
   #sales-brand-screen{min-height:100vh;display:none;flex-direction:column;background:var(--bg);position:relative;z-index:1;}
@@ -685,7 +692,7 @@
   body.dev-tv #vessel-sales-screen .vs2-section span[style]{font-size:27px!important;}
 
   /* ── GESTÃO À VISTA — TV BOARD v2 ── */
-  #gestao-vista-screen{min-height:100vh;display:none;flex-direction:column;background:var(--bg);color:var(--text);overflow:hidden;position:relative;z-index:1;}
+  #gestao-vista-screen{height:100vh;max-height:100vh;display:none;flex-direction:column;background:var(--bg);color:var(--text);overflow:hidden;position:relative;z-index:1;}
   .gv-topbar{display:flex;align-items:center;justify-content:space-between;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
   .gv-back{display:flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);cursor:pointer;background:none;border:none;padding:0;transition:color .15s;letter-spacing:.2px;}
   .gv-back:hover{color:var(--text);}
@@ -2019,9 +2026,7 @@ function _acSwitchTo(idx){
 function _acStartCycle(){
   if(!_acEnabled||_acTimer||_allAccounts.length<=1)return;
   _acSecsLeft=AC_DURATION;
-  const badge=document.getElementById('autocycle-badge');
   const prog=document.getElementById('autocycle-progress');
-  badge.style.display='flex';
   prog.style.transition='none';prog.style.width='0%';
   requestAnimationFrame(()=>{
     prog.style.transition='width '+AC_DURATION+'s linear';
@@ -2880,11 +2885,24 @@ async function loadCampaignFilterBadge(){
 }
 
 /* ── DASHBOARD DE VENDAS ── */
+function setSMenuView(v){
+  const cards=document.getElementById('smenu-cards');
+  const headline=document.getElementById('smenu-headline');
+  if(!cards)return;
+  cards.classList.toggle('view-list',v==='list');
+  if(headline)headline.style.display=v==='list'?'none':'';
+  document.getElementById('smenu-vt-grid').classList.toggle('active',v==='grid');
+  document.getElementById('smenu-vt-list').classList.toggle('active',v==='list');
+  if(v==='list'){document.getElementById('smenu-body').style.justifyContent='flex-start';document.getElementById('smenu-body').style.paddingTop='28px';}
+  else{document.getElementById('smenu-body').style.justifyContent='';document.getElementById('smenu-body').style.paddingTop='';}
+  localStorage.setItem('smenu-view',v);
+}
 function openSalesDashboard(){
   document.getElementById('home-screen').style.display='none';
   document.getElementById('sales-menu-screen').style.display='flex';
   sessionStorage.setItem('rbv-screen','sales-menu');
   setHomeBgTheme('sales');
+  setSMenuView(localStorage.getItem('smenu-view')||'grid');
 }
 function closeSalesDashboard(){
   document.getElementById('sales-menu-screen').style.display='none';
@@ -2937,7 +2955,7 @@ function closeGestaoVista(){
 }
 
 /* ── VESSEL-SALES AUTO-CYCLE ── */
-const VS_AC_PERIODS=['today','1d','7d','14d','30d'];
+const VS_AC_PERIODS=['today','1d','7d','14d','30d','month'];
 const VS_AC_DURATION=25;
 let _vsAcIdx=0,_vsAcTimer=null;
 
@@ -2973,7 +2991,7 @@ function vsApplyCustom(){
 }
 
 /* ── GESTÃO À VISTA AUTO-CYCLE ── */
-const GV_AC_PERIODS=['today','1d','7d','14d','30d'];
+const GV_AC_PERIODS=['today','1d','7d','14d','30d','month'];
 const GV_AC_DURATION=25;
 let _gvAcIdx=0,_gvAcTimer=null;
 
@@ -3054,6 +3072,7 @@ async function loadVesselSalesData(period,customDi,customDf){
   else if(period==='7d'){di=iso(new Date(now-7*864e5));df=iso(now);}
   else if(period==='14d'){di=iso(new Date(now-14*864e5));df=iso(now);}
   else if(period==='30d'){di=iso(new Date(now-30*864e5));df=iso(now);}
+  else if(period==='month'){di=`${y}-${String(m).padStart(2,'0')}-01`;df=iso(now);}
   else if(period==='custom'&&customDi&&customDf){di=customDi;df=customDf;}
   else{di=`${y}-${String(m).padStart(2,'0')}-01`;df=iso(now);}
   // previous period — same length, immediately before
@@ -3301,17 +3320,24 @@ async function loadGestaoVistaData(period){
   else if(period==='7d'){di=iso(new Date(now-7*864e5));df=iso(now);}
   else if(period==='14d'){di=iso(new Date(now-14*864e5));df=iso(now);}
   else if(period==='30d'){di=iso(new Date(now-30*864e5));df=iso(now);}
+  else if(period==='month'){di=`${y}-${String(m).padStart(2,'0')}-01`;df=iso(now);}
   else{di=`${y}-${String(m).padStart(2,'0')}-01`;df=iso(now);}
   const diasMes=new Date(y,m,0).getDate();
   const diaAtual=now.getDate();
+  const periodMs=new Date(df+'T23:59:59')-new Date(di+'T00:00:00');
+  const prevEnd=new Date(new Date(di+'T00:00:00')-864e5);
+  const prevStart=new Date(prevEnd.getTime()-periodMs);
+  const diPrev=iso(prevStart),dfPrev=iso(prevEnd);
   try{
-    const[pedidos,canais,metasRows]=await Promise.all([
+    const[pedidos,canais,metasRows,pedidosPrev]=await Promise.all([
       blingPages('pedidos/vendas',{dataInicial:di,dataFinal:df,'idsSituacoes[]':9}),
       sbClient.from('bling_lojas').select('loja_id,nome').then(r=>{const mp={};(r.data||[]).forEach(l=>mp[l.loja_id]=l.nome);return mp;}).catch(()=>({})),
-      sbClient.from('bling_metas').select('loja_id,meta_valor').eq('year',y).eq('month',m).then(r=>r.data||[]).catch(()=>[])
+      sbClient.from('bling_metas').select('loja_id,meta_valor').eq('year',y).eq('month',m).then(r=>r.data||[]).catch(()=>[]),
+      blingPages('pedidos/vendas',{dataInicial:diPrev,dataFinal:dfPrev,'idsSituacoes[]':9}).catch(()=>[])
     ]);
     const metasMap={};metasRows.forEach(r=>metasMap[r.loja_id]=r.meta_valor);
-    renderGestaoVista(pedidos,canais,metasMap,df,diasMes,diaAtual,di,period);
+    const totalPrev=pedidosPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
+    renderGestaoVista(pedidos,canais,metasMap,df,diasMes,diaAtual,di,period,totalPrev,pedidosPrev.length);
     if(window._gvTimer)clearInterval(window._gvTimer);
     window._gvTimer=setInterval(()=>loadGestaoVistaData(_gvCurrentPeriod),5*60*1000);
     document.getElementById('gv-refresh-tag').textContent='PRÓX. '+String(now.getHours()).padStart(2,'0')+':'+String((now.getMinutes()+5)%60).padStart(2,'0');
@@ -3320,7 +3346,7 @@ async function loadGestaoVistaData(period){
   }
 }
 
-function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,period){
+function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,period,totalPrev,cntPrev){
   const total=pedidos.reduce((s,p)=>s+parseFloat(p.total||0),0);
   const totalHoje=pedidos.filter(p=>p.data?.slice(0,10)===hoje).reduce((s,p)=>s+parseFloat(p.total||0),0);
   const diasTot=di?Math.ceil((new Date(hoje)-new Date(di))/864e5)+1:diaAtual;
@@ -3328,6 +3354,8 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   const metaTotal=metasMap[0]||null;
   const metaPeriodo=metaTotal?metaTotal/diasMes*diasTot:null;
   const pct=metaPeriodo?Math.round(total/metaPeriodo*100):null;
+  const deltaPct=(totalPrev&&totalPrev>0)?Math.round((total-totalPrev)/totalPrev*100):null;
+  const desvioMeta=metaPeriodo!=null?total-metaPeriodo:null;
 
   // Per canal
   const porCanal={},cntCanal={};
@@ -3440,6 +3468,8 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
         <div class="gv-main-kpi-item"><div class="gv-main-kpi-v">${fmtR0(proj)}</div><div class="gv-main-kpi-l">Projeção</div></div>
         <div class="gv-main-kpi-item"><div class="gv-main-kpi-v">${pedidos.length}</div><div class="gv-main-kpi-l">Pedidos</div></div>
         <div class="gv-main-kpi-item"><div class="gv-main-kpi-v">${fmtR(pedidos.length?total/pedidos.length:0)}</div><div class="gv-main-kpi-l">Ticket</div></div>
+        ${desvioMeta!=null?`<div class="gv-main-kpi-item"><div class="gv-main-kpi-v" style="color:${desvioMeta>=0?'#22c55e':'#f43f5e'}">${desvioMeta>=0?'+':''}${fmtR0(desvioMeta)}</div><div class="gv-main-kpi-l">Desvio Meta</div></div>`:''}
+        ${deltaPct!=null?`<div class="gv-main-kpi-item"><div class="gv-main-kpi-v" style="color:${deltaPct>=0?'#22c55e':'#f43f5e'}">${deltaPct>=0?'+':''}${deltaPct}%</div><div class="gv-main-kpi-l">Var. Período</div></div>`:''}
       </div>
     </div>
     <div class="gv-right">
@@ -3576,14 +3606,21 @@ function setHomeBgTheme(type){
   <div class="smenu-topbar">
     <button class="smenu-back" onclick="closeSalesDashboard()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Central</button>
     <span class="smenu-title">Dashboard de Vendas</span>
-    <span></span>
+    <div class="view-toggle">
+      <button class="view-toggle-btn active" id="smenu-vt-grid" onclick="setSMenuView('grid')" title="Cards">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="0" width="6" height="6" rx="1"/><rect x="8" y="0" width="6" height="6" rx="1"/><rect x="0" y="8" width="6" height="6" rx="1"/><rect x="8" y="8" width="6" height="6" rx="1"/></svg>
+      </button>
+      <button class="view-toggle-btn" id="smenu-vt-list" onclick="setSMenuView('list')" title="Lista">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="1" width="14" height="2.5" rx="1"/><rect x="0" y="5.75" width="14" height="2.5" rx="1"/><rect x="0" y="10.5" width="14" height="2.5" rx="1"/></svg>
+      </button>
+    </div>
   </div>
-  <div class="smenu-body">
-    <div class="smenu-headline">
+  <div class="smenu-body" id="smenu-body">
+    <div class="smenu-headline" id="smenu-headline">
       <h2>Escolha seu modo</h2>
       <p>Visualizações disponíveis para dados de vendas</p>
     </div>
-    <div class="smenu-cards">
+    <div class="smenu-cards" id="smenu-cards">
       <div class="smenu-card" onclick="openGestaoVista()">
         <span class="smenu-card-num">01</span>
         <div class="smenu-card-icon">
@@ -3652,6 +3689,7 @@ function setHomeBgTheme(type){
       <button class="vsales-pbtn" data-period="7d" onclick="vsSelectPeriod('7d')">7D</button>
       <button class="vsales-pbtn" data-period="14d" onclick="vsSelectPeriod('14d')">14D</button>
       <button class="vsales-pbtn" data-period="30d" onclick="vsSelectPeriod('30d')">30D</button>
+      <button class="vsales-pbtn" data-period="month" onclick="vsSelectPeriod('month')">MÊS</button>
       <button class="vsales-pbtn" data-period="custom" onclick="vsToggleCustom()">Personalizado</button>
       <div class="vs-custom-wrap" id="vs-custom-wrap">
         <input type="date" id="vs-date-start" class="custom-date-input">
@@ -3679,6 +3717,7 @@ function setHomeBgTheme(type){
         <button class="gv-pbtn" data-period="7d" onclick="gvSelectPeriod('7d')">7D</button>
         <button class="gv-pbtn" data-period="14d" onclick="gvSelectPeriod('14d')">14D</button>
         <button class="gv-pbtn" data-period="30d" onclick="gvSelectPeriod('30d')">30D</button>
+        <button class="gv-pbtn" data-period="month" onclick="gvSelectPeriod('month')">MÊS</button>
         <button class="vs-ac-toggle" id="gv-ac-toggle" onclick="gvToggleAuto()" title="Auto-ciclo de períodos">▶ AUTO</button>
       </div>
     </div>
