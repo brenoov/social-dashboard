@@ -3107,9 +3107,9 @@ async function _gvBuildSkuSlide(pedidos){
       const resp=await blingCall(`pedidos/vendas/${p.id}`,{});
       const dt=p.data?new Date(p.data):null;
       for(const it of(resp.data?.itens||[])){
-        const sku=it.produto?.codigo||'—';
-        const nome=it.produto?.descricao||'—';
-        const preco=parseFloat(it.valor||0);
+        const sku=it.codigo||it.produto?.codigo||'—';
+        const nome=it.descricao||it.produto?.descricao||it.produto?.nome||'—';
+        const preco=parseFloat(it.valor||it.valorUnidade||0);
         const qty=parseFloat(it.quantidade||1);
         const key=sku;
         if(!skuMap[key])skuMap[key]={sku:escHtml(sku),nome:escHtml(nome),preco,qty:0,lastDate:null};
