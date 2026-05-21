@@ -344,7 +344,7 @@
   .view-toggle-btn.active{background:var(--surface);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.08);}
   /* Grid view */
   .home-cards{display:flex;flex-wrap:wrap;gap:16px;align-content:flex-start;align-items:flex-start;}
-  .home-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 22px 38px;width:200px;cursor:pointer;transition:all .22s;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;position:relative;overflow:hidden;flex-shrink:0;}
+  .home-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 22px 38px;width:200px;min-height:190px;cursor:pointer;transition:all .22s;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;position:relative;overflow:hidden;flex-shrink:0;}
   .home-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--accent-light) 0%,transparent 60%);opacity:0;transition:opacity .22s;}
   .home-card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 10px 28px rgba(29,78,216,.13);}
   .home-card:hover::before{opacity:1;}
@@ -644,9 +644,22 @@
   .gv-clock-wrap{text-align:right;}
   .gv-clock-time{font-family:'Oswald',sans-serif;font-size:28px;font-weight:400;letter-spacing:3px;color:var(--text);line-height:1;}
   .gv-clock-date{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:3px;}
-  /* Board 3-col layout */
-  .gv-board{flex:1;display:grid;grid-template-columns:300px 1fr 1fr;gap:1px;background:var(--border);overflow:hidden;}
-  .gv-col{background:var(--bg);padding:22px 20px;display:flex;flex-direction:column;overflow:hidden;}
+  /* Board layout — gauges row + rankings row */
+  .gv-board{flex:1;display:flex;flex-direction:column;overflow:hidden;gap:1px;background:var(--border);}
+  .gv-gauges-row{display:grid;grid-template-columns:260px 1fr;gap:1px;background:var(--border);flex-shrink:0;}
+  .gv-rankings-row{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);flex:1;overflow:hidden;min-height:0;}
+  .gv-col{background:var(--bg);padding:20px;display:flex;flex-direction:column;overflow:hidden;}
+  .gv-col-main{background:var(--bg);padding:20px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;}
+  .gv-col-grid{background:var(--bg);padding:16px;display:flex;flex-direction:column;overflow:hidden;}
+  .gv-col-grid-label{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+  .gv-sm-gauges{display:flex;flex-wrap:wrap;gap:10px;overflow-y:auto;align-content:flex-start;flex:1;}
+  .gv-sm-gauge{display:flex;flex-direction:column;align-items:center;gap:3px;}
+  .gv-main-gauge-info{display:flex;flex-direction:column;align-items:center;gap:3px;margin-top:-4px;}
+  .gv-main-kpi{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap;justify-content:center;}
+  .gv-main-kpi-item{display:flex;flex-direction:column;align-items:center;gap:2px;}
+  .gv-main-kpi-v{font-family:'Oswald',sans-serif;font-size:16px;font-weight:500;color:var(--text);}
+  .gv-main-kpi-l{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+  .gv-loading-full{flex:1;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:14px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);opacity:.4;}
   /* KPI col */
   .gv-kpi-period{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
   .gv-big-num{font-family:'Oswald',sans-serif;font-size:58px;font-weight:600;letter-spacing:-2px;line-height:1;transition:color .6s,text-shadow .6s;}
@@ -701,12 +714,22 @@
   .gv-ticker-item strong{color:var(--text);}
   .gv-ticker-dot{display:inline-block;width:3px;height:3px;border-radius:50%;background:var(--accent);vertical-align:middle;margin:0 14px;}
   .gv-refresh-tag{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);opacity:.4;flex-shrink:0;}
-  .gv-loading{flex:1;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:14px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);opacity:.4;}
   body.dev-tv .gv-big-num{font-size:82px;}
   body.dev-tv .gv-ring-pct{font-size:56px;}
   body.dev-tv .gv-sub-val{font-size:26px;}
-  body.dev-tv .gv-rank-nm{font-size:15px;}
-  body.dev-tv .gv-rank-v{font-size:18px;}
+  body.dev-tv .gv-rank-nm{font-size:16px;}
+  body.dev-tv .gv-rank-v{font-size:20px;}
+  body.dev-tv .gv-rank-hint{font-size:12px;}
+  body.dev-tv .gv-rank-entry{margin-bottom:18px;}
+  body.dev-tv .gv-rank-col-hdr{font-size:11px;letter-spacing:4px;margin-bottom:20px;}
+  body.dev-tv .gv-main-kpi-v{font-size:22px;}
+  body.dev-tv .gv-main-kpi-l{font-size:10px;}
+  body.dev-tv .gv-rank-bar{height:6px;}
+  body.dev-tv .gv-ticker-item{font-size:15px;}
+  body.dev-tv .gv-kpi-period{font-size:11px;letter-spacing:3px;}
+  body.dev-tv .gv-clock-time{font-size:38px;}
+  body.dev-tv .gv-col-grid-label{font-size:11px;}
+  body.dev-tv .gv-sm-gauges{gap:18px;}
   body.dev-tv .gv-ticker-item{font-size:14px;}
   body.dev-tv .gv-clock-time{font-size:38px;}
   /* ── AUTH CANVAS + DARK LOGIN ── */
@@ -3100,127 +3123,171 @@ function startGVClock(){
 }
 
 async function loadGestaoVistaData(){
-  const grid=document.getElementById('gv-board');
-  grid.innerHTML='<div class="gv-col" style="grid-column:1/-1;align-items:center;justify-content:center"><div class="gv-loading">Carregando dados...</div></div>';
+  const board=document.getElementById('gv-board');
+  board.innerHTML='<div class="gv-loading-full">Carregando dados...</div>';
   const now=new Date();
   const y=now.getFullYear(),m=now.getMonth()+1;
   const di=`${y}-${String(m).padStart(2,'0')}-01`;
   const df=now.toISOString().slice(0,10);
   const diasMes=new Date(y,m,0).getDate();
   const diaAtual=now.getDate();
-  const hoje=df;
   try{
-    const[pedidos,lojasRows,metaRow]=await Promise.all([
+    const[pedidos,canais,metasRows]=await Promise.all([
       blingPages('pedidos/vendas',{dataInicial:di,dataFinal:df,'idsSituacoes[]':9}),
-      sbClient.from('bling_lojas').select('loja_id,nome').then(r=>{const m={};(r.data||[]).forEach(l=>m[l.loja_id]=l.nome);return m;}).catch(()=>({})),
-      sbClient.from('bling_metas').select('meta_valor').eq('year',y).eq('month',m).eq('loja_id',0).maybeSingle()
+      sbClient.from('bling_lojas').select('loja_id,nome').then(r=>{const mp={};(r.data||[]).forEach(l=>mp[l.loja_id]=l.nome);return mp;}).catch(()=>({})),
+      sbClient.from('bling_metas').select('loja_id,meta_valor').eq('year',y).eq('month',m).then(r=>r.data||[]).catch(()=>[])
     ]);
-    const canais=lojasRows;
-    const metaTotal=metaRow.data?.meta_valor||null;
-    renderGestaoVista(pedidos,canais,metaTotal,hoje,diasMes,diaAtual);
-    // Auto-refresh every 5 min
+    const metasMap={};metasRows.forEach(r=>metasMap[r.loja_id]=r.meta_valor);
+    renderGestaoVista(pedidos,canais,metasMap,df,diasMes,diaAtual);
     if(window._gvTimer)clearInterval(window._gvTimer);
     window._gvTimer=setInterval(loadGestaoVistaData,5*60*1000);
-    document.getElementById('gv-refresh-tag').textContent='PRÓX. '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()+5).padStart(2,'0');
+    document.getElementById('gv-refresh-tag').textContent='PRÓX. '+String(now.getHours()).padStart(2,'0')+':'+String((now.getMinutes()+5)%60).padStart(2,'0');
   }catch(e){
-    grid.innerHTML=`<div class="gv-col" style="grid-column:1/-1;align-items:center;justify-content:center"><div class="gv-loading">Erro: ${e.message}</div></div>`;
+    board.innerHTML=`<div class="gv-loading-full">Erro: ${escHtml(e.message)}</div>`;
   }
 }
 
-function renderGestaoVista(pedidos,canais,metaTotal,hoje,diasMes,diaAtual){
+function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual){
   const total=pedidos.reduce((s,p)=>s+parseFloat(p.total||0),0);
   const totalHoje=pedidos.filter(p=>p.data?.slice(0,10)===hoje).reduce((s,p)=>s+parseFloat(p.total||0),0);
   const proj=diaAtual>0?(total/diaAtual)*diasMes:0;
+  const metaTotal=metasMap[0]||null;
   const pct=metaTotal?Math.round(total/metaTotal*100):null;
-  const color=pct===null?'c-white':pct>=100?'c-green':pct>=80?'c-yellow':'c-red';
-  const ringPct=pct?Math.min(pct,100):0;
 
-  // SVG ring
-  const R=56,C=2*Math.PI*R;
-  const isDarkMode=document.documentElement.dataset.theme==='dark';
-  const ringTrack=isDarkMode?'rgba(255,255,255,.07)':'rgba(0,0,0,.08)';
-  const ringColor=pct===null?ringTrack:pct>=100?'#22c55e':pct>=80?'#f59e0b':'#ef4444';
-  const dashOffset=C-(ringPct/100)*C;
+  // Per canal
+  const porCanal={},cntCanal={};
+  pedidos.forEach(p=>{const id=p.loja?.id||0;porCanal[id]=(porCanal[id]||0)+parseFloat(p.total||0);cntCanal[id]=(cntCanal[id]||0)+1;});
+  const canaisArr=Object.entries(porCanal).map(([id,v])=>({id:parseInt(id),nm:canais[id]||(id?'Canal #'+String(id).slice(-4):'Outros'),v,cnt:cntCanal[id]})).sort((a,b)=>b.v-a.v);
+  const maxC=canaisArr[0]?.v||1;
 
-  // Per loja
-  const porLojaId={},cntLojaId={};
-  pedidos.forEach(p=>{const id=p.loja?.id||0;porLojaId[id]=(porLojaId[id]||0)+parseFloat(p.total||0);cntLojaId[id]=(cntLojaId[id]||0)+1;});
-  const lojas=Object.entries(porLojaId).map(([id,v])=>({nm:canais[id]||(id?'Canal #'+String(id).slice(-4):'Outros'),v,cnt:cntLojaId[id]})).sort((a,b)=>b.v-a.v);
-  const maxL=lojas[0]?.v||1;
-
-  // Per contato
+  // Per vendedor (correct field from Bling)
   const porVend={},cntVend={};
-  pedidos.forEach(p=>{const nm=(p.contato?.nome||'Sem contato').split(' ').slice(0,2).join(' ');porVend[nm]=(porVend[nm]||0)+parseFloat(p.total||0);cntVend[nm]=(cntVend[nm]||0)+1;});
-  const vends=Object.entries(porVend).sort((a,b)=>b[1]-a[1]);
-  const maxV=vends[0]?.[1]||1;
+  pedidos.forEach(p=>{const nm=(p.vendedor?.nome||'Sem vendedor').split(' ').slice(0,2).join(' ');porVend[nm]=(porVend[nm]||0)+parseFloat(p.total||0);cntVend[nm]=(cntVend[nm]||0)+1;});
+  const vendsArr=Object.entries(porVend).sort((a,b)=>b[1]-a[1]);
+  const maxV=vendsArr[0]?.[1]||1;
 
+  const isDark=document.documentElement.dataset.theme==='dark';
+  const trackClr=isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.08)';
   const numCls=i=>i===0?'gold':i===1?'silver':i===2?'bronze':'rest';
 
-  const lojasHtml=lojas.map((l,i)=>`
+  function pctClr(p){return p===null?'var(--muted)':p>=100?'var(--green)':p>=80?'var(--yellow)':'var(--red)';}
+  function pctHex(p){return p===null?trackClr:p>=100?'#22c55e':p>=80?'#eab308':'#f43f5e';}
+
+  // Speedometer gauge SVG — 240° sweep, opens at bottom
+  function gauge(sz,p,hexColor,uid){
+    const R=sz/2-12,cx=sz/2,cy=sz/2;
+    const C=2*Math.PI*R,sweep=240/360*C,gap=C-sweep;
+    const fill=p!==null?Math.min(Math.max(p,0),100)/100*sweep:0;
+    const rot=150; // rotate so gap is at bottom
+    return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}" style="overflow:visible">
+      <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${trackClr}" stroke-width="10"
+        stroke-dasharray="${sweep.toFixed(1)} ${gap.toFixed(1)}" stroke-linecap="round"
+        transform="rotate(${rot} ${cx} ${cy})"/>
+      <circle id="${uid}" cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${hexColor}" stroke-width="10"
+        stroke-dasharray="0.01 ${C.toFixed(1)}" stroke-linecap="round"
+        transform="rotate(${rot} ${cx} ${cy})"
+        data-fill="${fill.toFixed(1)}" data-c="${C.toFixed(1)}"
+        style="transition:stroke-dasharray 2s cubic-bezier(.4,0,.2,1);filter:drop-shadow(0 0 6px ${hexColor}88)"/>
+    </svg>`;
+  }
+
+  // ── LARGE GAUGE (Total) ──
+  const mainSz=200;
+  const mainHex=pctHex(pct);
+  const mainLbl=pct!==null?pct+'%':'Sem meta';
+  const mainGauge=`
+    <div style="position:relative;width:${mainSz}px;height:${mainSz}px;flex-shrink:0">
+      ${gauge(mainSz,pct,mainHex,'gv-g-main')}
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-bottom:14px;pointer-events:none">
+        <div style="font-family:'Oswald',sans-serif;font-size:34px;font-weight:600;color:${mainHex};line-height:1">${mainLbl}</div>
+        <div style="font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-top:4px">Da meta</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:18px;font-weight:500;color:var(--text);margin-top:6px">${fmtR0(total)}</div>
+      </div>
+    </div>`;
+
+  // ── SMALL GAUGES (per canal with meta) ──
+  const canaisComMeta=canaisArr.filter(c=>metasMap[c.id]);
+  const smSz=document.body.classList.contains('dev-tv')?110:86;
+  const smGaugesHtml=(canaisComMeta.length>0?canaisComMeta:canaisArr.slice(0,8)).map((c,i)=>{
+    const hasMeta=!!metasMap[c.id];
+    const cPct=hasMeta?Math.round(c.v/metasMap[c.id]*100):null;
+    const cHex=hasMeta?pctHex(cPct):'var(--accent)';
+    const cPctDisp=hasMeta?cPct:null;
+    const short=c.nm.length>11?c.nm.slice(0,10)+'…':c.nm;
+    return `<div class="gv-sm-gauge">
+      <div style="position:relative;width:${smSz}px;height:${smSz}px">
+        ${gauge(smSz,cPctDisp,hasMeta?cHex:'#4f7cff','gv-g-c'+i)}
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-bottom:10px;pointer-events:none">
+          <div style="font-family:'Oswald',sans-serif;font-size:${smSz>90?16:13}px;font-weight:600;color:${hasMeta?cHex:'var(--accent)'};line-height:1">${hasMeta&&cPctDisp!==null?cPctDisp+'%':fmtR0(c.v)}</div>
+        </div>
+      </div>
+      <div style="font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:.5px;color:var(--muted);text-align:center;max-width:${smSz}px;line-height:1.3">${escHtml(short)}</div>
+      ${hasMeta?`<div style="font-family:'Oswald',sans-serif;font-size:11px;color:var(--text)">${fmtR0(c.v)}</div>`:''}
+    </div>`;
+  }).join('');
+
+  // ── RANKINGS ──
+  const canaisRank=canaisArr.map((c,i)=>`
     <div class="gv-rank-entry">
       <span class="gv-rank-num ${numCls(i)}">${i+1}</span>
       <div class="gv-rank-body">
-        <div class="gv-rank-row"><span class="gv-rank-nm">${l.nm}</span><span class="gv-rank-v">${fmtR0(l.v)}</span></div>
-        <div class="gv-rank-bar"><div class="gv-rank-bar-fill ${numCls(i)}" data-w="${Math.round(l.v/maxL*100)}%" style="width:0"></div></div>
-        <div class="gv-rank-hint">${l.cnt} pedido${l.cnt!==1?'s':''}</div>
+        <div class="gv-rank-row"><span class="gv-rank-nm">${escHtml(c.nm)}</span><span class="gv-rank-v">${fmtR0(c.v)}</span></div>
+        <div class="gv-rank-bar"><div class="gv-rank-bar-fill ${numCls(i)}" data-w="${Math.round(c.v/maxC*100)}%" style="width:0"></div></div>
+        <div class="gv-rank-hint">${c.cnt} pedido${c.cnt!==1?'s':''}</div>
       </div>
     </div>`).join('');
 
-  const vendsHtml=vends.slice(0,8).map(([nm,v],i)=>`
+  const vendsRank=vendsArr.slice(0,12).map(([nm,v],i)=>`
     <div class="gv-rank-entry">
       <span class="gv-rank-num ${numCls(i)}">${i+1}</span>
       <div class="gv-rank-body">
-        <div class="gv-rank-row"><span class="gv-rank-nm">${nm}</span><span class="gv-rank-v">${fmtR0(v)}</span></div>
+        <div class="gv-rank-row"><span class="gv-rank-nm">${escHtml(nm)}</span><span class="gv-rank-v">${fmtR0(v)}</span></div>
         <div class="gv-rank-bar"><div class="gv-rank-bar-fill ${numCls(i)}" data-w="${Math.round(v/maxV*100)}%" style="width:0"></div></div>
         <div class="gv-rank-hint">${cntVend[nm]} pedido${cntVend[nm]!==1?'s':''}</div>
       </div>
     </div>`).join('');
 
   document.getElementById('gv-board').innerHTML=`
-    <div class="gv-col">
-      <div class="gv-kpi-period">${String(diaAtual).padStart(2,'0')}/${String(new Date().getMonth()+1).padStart(2,'0')} · Dia ${diaAtual} de ${diasMes}</div>
-      <div class="gv-big-num ${color}">${fmtR0(total)}</div>
-      <div class="gv-ring-area">
-        <svg width="132" height="132" viewBox="0 0 132 132">
-          <circle cx="66" cy="66" r="${R}" fill="none" stroke="${ringTrack}" stroke-width="10"/>
-          <circle cx="66" cy="66" r="${R}" fill="none" stroke="${ringColor}" stroke-width="10"
-            stroke-linecap="round" stroke-dasharray="${C.toFixed(2)}" stroke-dashoffset="${C.toFixed(2)}"
-            transform="rotate(-90 66 66)" id="gv-ring-circle"
-            style="transition:stroke-dashoffset 2s cubic-bezier(.4,0,.2,1);filter:drop-shadow(0 0 8px ${ringColor}88)"/>
-        </svg>
-        <div class="gv-ring-right">
-          <div class="gv-ring-pct ${color}">${pct!==null?pct+'%':'—'}</div>
-          <div class="gv-ring-meta">Da meta mensal</div>
-          ${metaTotal?`<div class="gv-ring-meta">Meta: <strong>${fmtR0(metaTotal)}</strong></div>`:''}
+    <div class="gv-gauges-row">
+      <div class="gv-col-main">
+        <div class="gv-kpi-period">Dia ${diaAtual} de ${diasMes} · ${hoje.split('-').reverse().join('/')}</div>
+        ${mainGauge}
+        <div class="gv-main-kpi">
+          <div class="gv-main-kpi-item"><div class="gv-main-kpi-v">${fmtR0(totalHoje)}</div><div class="gv-main-kpi-l">Hoje</div></div>
+          <div class="gv-main-kpi-item"><div class="gv-main-kpi-v">${fmtR0(proj)}</div><div class="gv-main-kpi-l">Projeção</div></div>
+          <div class="gv-main-kpi-item"><div class="gv-main-kpi-v">${pedidos.length}</div><div class="gv-main-kpi-l">Pedidos</div></div>
+          <div class="gv-main-kpi-item"><div class="gv-main-kpi-v">${fmtR(pedidos.length?total/pedidos.length:0)}</div><div class="gv-main-kpi-l">Ticket</div></div>
         </div>
       </div>
-      <div class="gv-sub-row">
-        <div class="gv-sub-box"><div class="gv-sub-lbl">Hoje</div><div class="gv-sub-val">${fmtR0(totalHoje)}</div></div>
-        <div class="gv-sub-box"><div class="gv-sub-lbl">Projeção</div><div class="gv-sub-val">${fmtR0(proj)}</div></div>
-        <div class="gv-sub-box"><div class="gv-sub-lbl">Pedidos</div><div class="gv-sub-val">${pedidos.length}</div></div>
-        <div class="gv-sub-box"><div class="gv-sub-lbl">Ticket</div><div class="gv-sub-val">${fmtR(pedidos.length>0?total/pedidos.length:0)}</div></div>
+      <div class="gv-col-grid">
+        <div class="gv-col-grid-label">${canaisComMeta.length>0?'Meta por canal':'Vendas por canal'}</div>
+        <div class="gv-sm-gauges">${smGaugesHtml}</div>
       </div>
     </div>
-    <div class="gv-col">
-      <div class="gv-rank-col-hdr">Por Canal / Loja</div>
-      ${lojasHtml}
-    </div>
-    <div class="gv-col">
-      <div class="gv-rank-col-hdr">Por Contato</div>
-      ${vendsHtml}
+    <div class="gv-rankings-row">
+      <div class="gv-col">
+        <div class="gv-rank-col-hdr">Ranking por Canal</div>
+        <div style="overflow-y:auto;flex:1">${canaisRank}</div>
+      </div>
+      <div class="gv-col">
+        <div class="gv-rank-col-hdr">Ranking por Vendedor</div>
+        <div style="overflow-y:auto;flex:1">${vendsRank}</div>
+      </div>
     </div>
   `;
 
   // Ticker
-  const recent=[...pedidos].slice(-15).reverse();
-  const tickItems=recent.map(p=>`<span class="gv-ticker-item"><strong>${canais[p.loja?.id]||'#'+p.numero}</strong> · ${fmtR(parseFloat(p.total||0))}</span>`);
+  const recent=[...pedidos].sort((a,b)=>new Date(b.data||0)-new Date(a.data||0)).slice(0,20);
+  const tickItems=recent.map(p=>`<span class="gv-ticker-item"><strong>${escHtml(canais[p.loja?.id]||'Pedido #'+p.numero)}</strong> · ${fmtR(parseFloat(p.total||0))} · ${escHtml((p.vendedor?.nome||'—').split(' ')[0])}</span>`);
   document.getElementById('gv-ticker-inner').innerHTML=tickItems.concat(tickItems).join('<span class="gv-ticker-dot"></span>');
   if(recent.length>0)document.getElementById('gv-ticker-inner').classList.add('animate');
 
   setTimeout(()=>{
-    const circle=document.getElementById('gv-ring-circle');
-    if(circle)circle.style.strokeDashoffset=dashOffset.toFixed(2);
     document.querySelectorAll('#gestao-vista-screen [data-w]').forEach(el=>el.style.width=el.dataset.w);
+    document.querySelectorAll('[data-fill][data-c]').forEach(el=>{
+      const fill=parseFloat(el.dataset.fill),c=parseFloat(el.dataset.c);
+      el.style.strokeDasharray=`${fill.toFixed(1)} ${(c-fill).toFixed(1)}`;
+    });
   },150);
 }
 
