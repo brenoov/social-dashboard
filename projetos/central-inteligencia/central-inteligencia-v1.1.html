@@ -3093,6 +3093,9 @@ function openGestaoVista(){
   setHomeBgTheme('sales');
   startGVClock();
   initGvBgAnim();
+  window._gvTickerIdx=null;
+  window._gvTickerSlides=null;
+  if(window._gvTickerTimer){clearInterval(window._gvTickerTimer);window._gvTickerTimer=null;}
   _gvCurrentPeriod='month';
   loadGestaoVistaData('month');
   gvAutoStart();
@@ -3839,14 +3842,15 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   });
 
   // Inicializa slides do ticker
+  // Atualiza dados dos slides sem resetar o slide atual nem o timer
   window._gvTickerSlides=[
     {label:'Últimos pedidos',items:tickItemsPedidos},
     {label:'Itens mais vendidos',items:tickItemsSku}
   ];
-  window._gvTickerIdx=0;
-  _gvRenderTickerSlide(0);
-  if(window._gvTickerTimer)clearInterval(window._gvTickerTimer);
-  window._gvTickerTimer=setInterval(_gvNextTickerSlide,20000);
+  if(window._gvTickerIdx==null)window._gvTickerIdx=0;
+  _gvRenderTickerSlide(window._gvTickerIdx);
+  if(!window._gvTickerTimer)
+    window._gvTickerTimer=setInterval(_gvNextTickerSlide,20000);
 
   setTimeout(()=>{
     document.querySelectorAll('#gestao-vista-screen [data-w]').forEach(el=>el.style.width=el.dataset.w);
