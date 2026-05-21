@@ -564,9 +564,16 @@
   .vsales-brand{display:flex;align-items:center;gap:10px;}
   .vsales-brand-av{width:30px;height:30px;border-radius:50%;object-fit:cover;border:1px solid var(--border);}
   .vsales-brand-nm{font-family:'Oswald',sans-serif;font-size:13px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--text);}
-  .vsales-period-btns{display:flex;gap:4px;}
+  .vsales-period-btns{display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
   .vsales-pbtn{font-family:'IBM Plex Sans',sans-serif;font-size:11px;padding:5px 11px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
   .vsales-pbtn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .vs-custom-wrap{display:none;align-items:center;gap:4px;margin-left:2px;}
+  .vs-custom-wrap.open{display:flex;}
+  .vs-ac-toggle{font-family:'IBM Plex Sans',sans-serif;font-size:10px;letter-spacing:.8px;text-transform:uppercase;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;margin-left:6px;}
+  .vs-ac-toggle.running{border-color:var(--green);color:var(--green);}
+  .gv-period-btns{display:flex;align-items:center;gap:4px;}
+  .gv-pbtn{font-family:'IBM Plex Sans',sans-serif;font-size:10px;padding:4px 9px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
+  .gv-pbtn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
   .vsales-body{padding:20px 24px;max-width:1200px;margin:0 auto;width:100%;}
   /* KPI CARDS */
   .vs2-kpis{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:22px;}
@@ -679,7 +686,7 @@
 
   /* ── GESTÃO À VISTA — TV BOARD v2 ── */
   #gestao-vista-screen{min-height:100vh;display:none;flex-direction:column;background:var(--bg);color:var(--text);overflow:hidden;position:relative;z-index:1;}
-  .gv-topbar{display:flex;align-items:center;justify-content:space-between;padding:11px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
+  .gv-topbar{display:flex;align-items:center;justify-content:space-between;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
   .gv-back{display:flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);cursor:pointer;background:none;border:none;padding:0;transition:color .15s;letter-spacing:.2px;}
   .gv-back:hover{color:var(--text);}
   .gv-brand-tag{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:6px;text-transform:uppercase;color:var(--muted);opacity:.5;}
@@ -688,26 +695,26 @@
   .gv-clock-date{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:3px;}
   /* Board layout — 2-column grid: left=gauge panel, right=canal gauges + rankings */
   .gv-board{flex:1;display:grid;grid-template-columns:480px 1fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;}
-  .gv-left{background:var(--bg);display:flex;flex-direction:column;align-items:center;padding:14px 22px;gap:0;overflow:hidden;justify-content:space-between;}
-  .gv-gauge-wrap{flex:1;min-height:0;max-height:min(55vh,500px);width:100%;display:flex;align-items:center;justify-content:center;}
+  .gv-left{background:var(--bg);display:flex;flex-direction:column;align-items:center;padding:8px 22px;gap:0;overflow:hidden;justify-content:space-between;}
+  .gv-gauge-wrap{flex:1;min-height:0;max-height:min(50vh,420px);width:100%;display:flex;align-items:center;justify-content:center;}
   .gv-gauge-inner{width:100%;max-width:460px;aspect-ratio:1;}
   .gv-right{display:grid;grid-template-rows:60fr 40fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;}
-  .gv-canal-panel{background:var(--bg);padding:10px 14px;display:flex;flex-direction:column;overflow:hidden;}
-  .gv-canal-grid{flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;align-content:start;overflow:hidden;}
-  .gv-sm-item{display:flex;flex-direction:column;align-items:center;gap:3px;}
+  .gv-canal-panel{background:var(--bg);padding:7px 12px;display:flex;flex-direction:column;overflow:hidden;}
+  .gv-canal-grid{flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;align-content:start;overflow:hidden;}
+  .gv-sm-item{display:flex;flex-direction:column;align-items:center;gap:2px;}
   .gv-sm-item-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:10px;letter-spacing:.5px;color:var(--muted);text-align:center;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
   .gv-sm-item-val{font-family:'Oswald',sans-serif;font-size:13px;color:var(--text);}
   .gv-rankings{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;}
-  .gv-rank-panel{background:var(--bg);padding:10px 14px;display:flex;flex-direction:column;overflow:hidden;}
+  .gv-rank-panel{background:var(--bg);padding:7px 12px;display:flex;flex-direction:column;overflow:hidden;}
   .gv-rank-scroll{flex:1;overflow-y:auto;min-height:0;}
-  .gv-col-grid-label{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;flex-shrink:0;}
-  .gv-main-kpi{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);display:flex;gap:20px;flex-wrap:wrap;justify-content:center;flex-shrink:0;padding:6px 0;}
-  .gv-main-kpi-item{display:flex;flex-direction:column;align-items:center;gap:3px;}
+  .gv-col-grid-label{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:4px;flex-shrink:0;}
+  .gv-main-kpi{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);display:flex;gap:20px;flex-wrap:wrap;justify-content:center;flex-shrink:0;padding:4px 0;}
+  .gv-main-kpi-item{display:flex;flex-direction:column;align-items:center;gap:2px;}
   .gv-main-kpi-v{font-family:'Oswald',sans-serif;font-size:26px;font-weight:500;color:var(--text);}
   .gv-main-kpi-l{font-family:'IBM Plex Sans',sans-serif;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
   .gv-loading-full{grid-column:1/-1;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:14px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);opacity:.4;}
   /* KPI col */
-  .gv-kpi-period{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;flex-shrink:0;}
+  .gv-kpi-period{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px;flex-shrink:0;}
   .gv-big-num{font-family:'Oswald',sans-serif;font-size:58px;font-weight:600;letter-spacing:-2px;line-height:1;transition:color .6s,text-shadow .6s;}
   .gv-big-num.c-white{color:var(--text);}
   .gv-big-num.c-green{color:var(--green);text-shadow:0 0 50px rgba(34,197,94,.18);}
@@ -729,16 +736,16 @@
   .gv-sub-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
   .gv-sub-val{font-family:'Oswald',sans-serif;font-size:20px;font-weight:500;color:var(--text);}
   /* Rank cols */
-  .gv-rank-col-hdr{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:10px;}
+  .gv-rank-col-hdr{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:10px;}
   .gv-rank-col-hdr::after{content:'';flex:1;height:1px;background:var(--border);}
-  .gv-rank-entry{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;}
+  .gv-rank-entry{display:flex;align-items:flex-start;gap:8px;margin-bottom:5px;}
   .gv-rank-num{font-family:'Oswald',sans-serif;font-size:12px;font-weight:600;width:16px;text-align:center;flex-shrink:0;margin-top:1px;}
   .gv-rank-num.gold{color:#f59e0b;}
   .gv-rank-num.silver{color:#94a3b8;}
   .gv-rank-num.bronze{color:#b87333;}
   .gv-rank-num.rest{color:var(--muted);}
   .gv-rank-body{flex:1;min-width:0;}
-  .gv-rank-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;}
+  .gv-rank-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;}
   .gv-rank-nm{font-family:'IBM Plex Sans',sans-serif;font-size:14px;font-weight:400;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .gv-rank-v{font-family:'Oswald',sans-serif;font-size:17px;font-weight:500;color:var(--text);flex-shrink:0;margin-left:6px;}
   .gv-rank-bar{height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;}
@@ -747,9 +754,9 @@
   .gv-rank-bar-fill.silver{background:linear-gradient(90deg,#475569,#94a3b8);}
   .gv-rank-bar-fill.bronze{background:linear-gradient(90deg,#78350f,#b87333);}
   .gv-rank-bar-fill.rest{background:linear-gradient(90deg,var(--accent-mid),var(--accent));}
-  .gv-rank-hint{font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);margin-top:3px;}
+  .gv-rank-hint{font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);margin-top:1px;}
   /* Ticker */
-  .gv-ticker{border-top:1px solid var(--border);padding:0 28px;display:flex;align-items:center;gap:16px;background:var(--surface2);flex-shrink:0;height:38px;overflow:hidden;}
+  .gv-ticker{border-top:1px solid var(--border);padding:0 28px;display:flex;align-items:center;gap:16px;background:var(--surface2);flex-shrink:0;height:30px;overflow:hidden;}
   .gv-ticker-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:4px;text-transform:uppercase;color:var(--accent);flex-shrink:0;}
   .gv-ticker-sep{width:1px;height:14px;background:var(--border);flex-shrink:0;}
   .gv-ticker-outer{flex:1;overflow:hidden;}
@@ -2902,9 +2909,11 @@ function openVesselSales(){
   setHomeBgTheme('sales');
   const vesselImg=document.querySelector('#sbrand-vessel-img');
   if(vesselImg&&vesselImg.src)document.getElementById('vsales-brand-av').src=vesselImg.src;
-  loadVesselSalesData('month');
+  loadVesselSalesData('today');
+  vsAutoStart();
 }
 function closeVesselSales(){
+  vsAutoStop();
   document.getElementById('vessel-sales-screen').style.display='none';
   document.getElementById('sales-brand-screen').style.display='flex';
   sessionStorage.setItem('rbv-screen','sales-brand');
@@ -2915,14 +2924,75 @@ function openGestaoVista(){
   sessionStorage.setItem('rbv-screen','gestao-vista');
   setHomeBgTheme('sales');
   startGVClock();
-  loadGestaoVistaData();
+  _gvCurrentPeriod='today';
+  loadGestaoVistaData('today');
+  gvAutoStart();
 }
 function closeGestaoVista(){
+  gvAutoStop();
   document.getElementById('gestao-vista-screen').style.display='none';
   document.getElementById('sales-menu-screen').style.display='flex';
   sessionStorage.setItem('rbv-screen','sales-menu');
   if(window._gvTimer)clearInterval(window._gvTimer);
 }
+
+/* ── VESSEL-SALES AUTO-CYCLE ── */
+const VS_AC_PERIODS=['today','1d','7d','14d','30d'];
+const VS_AC_DURATION=25;
+let _vsAcIdx=0,_vsAcTimer=null;
+
+function vsSelectPeriod(p){vsAutoStop();loadVesselSalesData(p);}
+
+function vsAutoStart(){
+  if(_vsAcTimer)return;
+  const btn=document.getElementById('vs-ac-toggle');
+  if(btn)btn.classList.add('running');
+  _vsAcTimer=setInterval(()=>{
+    _vsAcIdx=(_vsAcIdx+1)%VS_AC_PERIODS.length;
+    loadVesselSalesData(VS_AC_PERIODS[_vsAcIdx]);
+  },VS_AC_DURATION*1000);
+}
+function vsAutoStop(){
+  clearInterval(_vsAcTimer);_vsAcTimer=null;
+  const btn=document.getElementById('vs-ac-toggle');
+  if(btn)btn.classList.remove('running');
+}
+function vsToggleAuto(){if(_vsAcTimer)vsAutoStop();else vsAutoStart();}
+function vsToggleCustom(){
+  const w=document.getElementById('vs-custom-wrap');
+  if(w)w.classList.toggle('open');
+  const b=document.querySelector('.vsales-pbtn[data-period="custom"]');
+  if(b)b.classList.toggle('active',document.getElementById('vs-custom-wrap')?.classList.contains('open'));
+}
+function vsApplyCustom(){
+  const s=document.getElementById('vs-date-start')?.value;
+  const e=document.getElementById('vs-date-end')?.value;
+  if(!s||!e)return;
+  vsAutoStop();
+  loadVesselSalesData('custom',s,e);
+}
+
+/* ── GESTÃO À VISTA AUTO-CYCLE ── */
+const GV_AC_PERIODS=['today','1d','7d','14d','30d'];
+const GV_AC_DURATION=25;
+let _gvAcIdx=0,_gvAcTimer=null;
+
+function gvSelectPeriod(p){gvAutoStop();loadGestaoVistaData(p);}
+function gvAutoStart(){
+  if(_gvAcTimer)return;
+  const btn=document.getElementById('gv-ac-toggle');
+  if(btn)btn.classList.add('running');
+  _gvAcTimer=setInterval(()=>{
+    _gvAcIdx=(_gvAcIdx+1)%GV_AC_PERIODS.length;
+    loadGestaoVistaData(GV_AC_PERIODS[_gvAcIdx]);
+  },GV_AC_DURATION*1000);
+}
+function gvAutoStop(){
+  clearInterval(_gvAcTimer);_gvAcTimer=null;
+  const btn=document.getElementById('gv-ac-toggle');
+  if(btn)btn.classList.remove('running');
+}
+function gvToggleAuto(){if(_gvAcTimer)gvAutoStop();else gvAutoStart();}
 
 async function loadBrandPickerPhotos(){
   try{
@@ -2972,20 +3042,25 @@ async function blingPages(endpoint,params){
 function fmtR0(v){return 'R$ '+Math.round(Number(v)).toLocaleString('pt-BR');}
 
 /* ── VESSEL SALES ANALYSIS ── */
-async function loadVesselSalesData(period){
+async function loadVesselSalesData(period,customDi,customDf){
   document.querySelectorAll('.vsales-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===period));
   document.getElementById('vessel-sales-body').innerHTML='<div class="vsales-loading">Carregando dados do Bling...</div>';
   const now=new Date();
   const y=now.getFullYear(),m=now.getMonth()+1;
   let di,df;
-  if(period==='today'){di=df=now.toISOString().slice(0,10);}
-  else if(period==='7d'){di=new Date(now-7*864e5).toISOString().slice(0,10);df=now.toISOString().slice(0,10);}
-  else{di=`${y}-${String(m).padStart(2,'0')}-01`;df=now.toISOString().slice(0,10);}
-  // previous period
-  let diPrev,dfPrev;
-  if(period==='today'){const p=new Date(now-864e5);diPrev=dfPrev=p.toISOString().slice(0,10);}
-  else if(period==='7d'){diPrev=new Date(now-14*864e5).toISOString().slice(0,10);dfPrev=new Date(now-8*864e5).toISOString().slice(0,10);}
-  else{const pm=m===1?12:m-1,py=m===1?y-1:y;diPrev=`${py}-${String(pm).padStart(2,'0')}-01`;dfPrev=`${py}-${String(pm).padStart(2,'0')}-${new Date(py,pm,0).getDate()}`;}
+  const iso=d=>d.toISOString().slice(0,10);
+  if(period==='today'){di=df=iso(now);}
+  else if(period==='1d'){const p=new Date(now-864e5);di=df=iso(p);}
+  else if(period==='7d'){di=iso(new Date(now-7*864e5));df=iso(now);}
+  else if(period==='14d'){di=iso(new Date(now-14*864e5));df=iso(now);}
+  else if(period==='30d'){di=iso(new Date(now-30*864e5));df=iso(now);}
+  else if(period==='custom'&&customDi&&customDf){di=customDi;df=customDf;}
+  else{di=`${y}-${String(m).padStart(2,'0')}-01`;df=iso(now);}
+  // previous period — same length, immediately before
+  const periodMs=new Date(df+'T23:59:59')-new Date(di+'T00:00:00');
+  const prevEnd=new Date(new Date(di+'T00:00:00')-864e5);
+  const prevStart=new Date(prevEnd.getTime()-periodMs);
+  const diPrev=iso(prevStart),dfPrev=iso(prevEnd);
   try{
     const[pedidos,canais,metasArr,pedidosPrev]=await Promise.all([
       blingPages('pedidos/vendas',{dataInicial:di,dataFinal:df,'idsSituacoes[]':9}),
@@ -3009,13 +3084,13 @@ function renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now)
   // metas
   const metasMap={};metasArr.forEach(r=>metasMap[r.loja_id]=parseFloat(r.meta_valor||0));
   const metaTotal=metasMap[0]||null;
-  const metaPeriodo=metaTotal&&period==='month'?metaTotal:metaTotal&&period==='7d'?metaTotal/diasMes*7:metaTotal&&period==='today'?metaTotal/diasMes:null;
+  const metaPeriodo=metaTotal?metaTotal/diasMes*diasTot:null;
 
   // core
   const total=pedidos.reduce((s,p)=>s+parseFloat(p.total||0),0);
   const n=pedidos.length;
   const ticket=n>0?total/n:0;
-  const proj=diasDec>0?(total/diasDec)*(period==='month'?diasMes:diasTot):0;
+  const proj=diasDec>0?(total/diasDec)*diasTot:0;
   const hoje=now.toISOString().slice(0,10);
   const totalHoje=pedidos.filter(p=>p.data?.slice(0,10)===hoje).reduce((s,p)=>s+parseFloat(p.total||0),0);
   const metaHoje=metaTotal?metaTotal/diasMes:null;
@@ -3210,13 +3285,23 @@ function startGVClock(){
   window._gvClockTimer=setInterval(tick,1000);
 }
 
-async function loadGestaoVistaData(){
+let _gvCurrentPeriod='today';
+async function loadGestaoVistaData(period){
+  if(period)_gvCurrentPeriod=period;
+  else period=_gvCurrentPeriod;
+  document.querySelectorAll('.gv-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===period));
   const board=document.getElementById('gv-board');
   board.innerHTML='<div class="gv-loading-full">Carregando dados...</div>';
   const now=new Date();
   const y=now.getFullYear(),m=now.getMonth()+1;
-  const di=`${y}-${String(m).padStart(2,'0')}-01`;
-  const df=now.toISOString().slice(0,10);
+  const iso=d=>d.toISOString().slice(0,10);
+  let di,df;
+  if(period==='today'){di=df=iso(now);}
+  else if(period==='1d'){const p=new Date(now-864e5);di=df=iso(p);}
+  else if(period==='7d'){di=iso(new Date(now-7*864e5));df=iso(now);}
+  else if(period==='14d'){di=iso(new Date(now-14*864e5));df=iso(now);}
+  else if(period==='30d'){di=iso(new Date(now-30*864e5));df=iso(now);}
+  else{di=`${y}-${String(m).padStart(2,'0')}-01`;df=iso(now);}
   const diasMes=new Date(y,m,0).getDate();
   const diaAtual=now.getDate();
   try{
@@ -3226,21 +3311,23 @@ async function loadGestaoVistaData(){
       sbClient.from('bling_metas').select('loja_id,meta_valor').eq('year',y).eq('month',m).then(r=>r.data||[]).catch(()=>[])
     ]);
     const metasMap={};metasRows.forEach(r=>metasMap[r.loja_id]=r.meta_valor);
-    renderGestaoVista(pedidos,canais,metasMap,df,diasMes,diaAtual);
+    renderGestaoVista(pedidos,canais,metasMap,df,diasMes,diaAtual,di,period);
     if(window._gvTimer)clearInterval(window._gvTimer);
-    window._gvTimer=setInterval(loadGestaoVistaData,5*60*1000);
+    window._gvTimer=setInterval(()=>loadGestaoVistaData(_gvCurrentPeriod),5*60*1000);
     document.getElementById('gv-refresh-tag').textContent='PRÓX. '+String(now.getHours()).padStart(2,'0')+':'+String((now.getMinutes()+5)%60).padStart(2,'0');
   }catch(e){
     board.innerHTML=`<div class="gv-loading-full">Erro: ${escHtml(e.message)}</div>`;
   }
 }
 
-function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual){
+function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,period){
   const total=pedidos.reduce((s,p)=>s+parseFloat(p.total||0),0);
   const totalHoje=pedidos.filter(p=>p.data?.slice(0,10)===hoje).reduce((s,p)=>s+parseFloat(p.total||0),0);
-  const proj=diaAtual>0?(total/diaAtual)*diasMes:0;
+  const diasTot=di?Math.ceil((new Date(hoje)-new Date(di))/864e5)+1:diaAtual;
+  const proj=diasTot>0?(total/diasTot)*diasMes:0;
   const metaTotal=metasMap[0]||null;
-  const pct=metaTotal?Math.round(total/metaTotal*100):null;
+  const metaPeriodo=metaTotal?metaTotal/diasMes*diasTot:null;
+  const pct=metaPeriodo?Math.round(total/metaPeriodo*100):null;
 
   // Per canal
   const porCanal={},cntCanal={};
@@ -3307,7 +3394,8 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual){
   const canaisComMeta=canaisArr.filter(c=>metasMap[c.id]);
   const smGaugesHtml=(canaisComMeta.length>0?canaisComMeta:canaisArr.slice(0,14)).map((c,i)=>{
     const hasMeta=!!metasMap[c.id];
-    const cPct=hasMeta?Math.round(c.v/metasMap[c.id]*100):null;
+    const cMetaP=hasMeta?(metasMap[c.id]/diasMes*diasTot):null;
+    const cPct=cMetaP?Math.round(c.v/cMetaP*100):null;
     const cHex=hasMeta?pctHex(cPct):'#4f7cff';
     const topText=hasMeta&&cPct!==null?cPct+'%':fmtR0(c.v);
     const short=c.nm.length>13?c.nm.slice(0,12)+'…':c.nm;
@@ -3341,7 +3429,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual){
 
   document.getElementById('gv-board').innerHTML=`
     <div class="gv-left">
-      <div class="gv-kpi-period">Dia ${diaAtual} de ${diasMes} · ${hoje.split('-').reverse().join('/')}</div>
+      <div class="gv-kpi-period">${period&&period!=='today'&&di?di.split('-').reverse().join('/')+ ' → '+hoje.split('-').reverse().join('/'):'Dia '+diaAtual+' de '+diasMes+' · '+hoje.split('-').reverse().join('/')}</div>
       <div class="gv-gauge-wrap">
         <div class="gv-gauge-inner">
           ${bigGauge(pct,mainHex,'gv-g-main',mainLine1,mainLine2,mainLine3)}
@@ -3559,9 +3647,19 @@ function setHomeBgTheme(type){
       <span class="vsales-brand-nm">Vessel · Análise de Vendas</span>
     </div>
     <div class="vsales-period-btns">
-      <button class="vsales-pbtn active" data-period="month" onclick="loadVesselSalesData('month')">Mês</button>
-      <button class="vsales-pbtn" data-period="7d" onclick="loadVesselSalesData('7d')">7D</button>
-      <button class="vsales-pbtn" data-period="today" onclick="loadVesselSalesData('today')">Hoje</button>
+      <button class="vsales-pbtn active" data-period="today" onclick="vsSelectPeriod('today')">HOJE</button>
+      <button class="vsales-pbtn" data-period="1d" onclick="vsSelectPeriod('1d')">1D</button>
+      <button class="vsales-pbtn" data-period="7d" onclick="vsSelectPeriod('7d')">7D</button>
+      <button class="vsales-pbtn" data-period="14d" onclick="vsSelectPeriod('14d')">14D</button>
+      <button class="vsales-pbtn" data-period="30d" onclick="vsSelectPeriod('30d')">30D</button>
+      <button class="vsales-pbtn" data-period="custom" onclick="vsToggleCustom()">Personalizado</button>
+      <div class="vs-custom-wrap" id="vs-custom-wrap">
+        <input type="date" id="vs-date-start" class="custom-date-input">
+        <span style="color:var(--muted);font-size:10px">→</span>
+        <input type="date" id="vs-date-end" class="custom-date-input">
+        <button class="vsales-pbtn" onclick="vsApplyCustom()" style="background:var(--accent);color:#fff;border-color:var(--accent)">OK</button>
+      </div>
+      <button class="vs-ac-toggle" id="vs-ac-toggle" onclick="vsToggleAuto()" title="Auto-ciclo de períodos">▶ AUTO</button>
     </div>
   </div>
   <div class="vsales-body" id="vessel-sales-body">
@@ -3573,7 +3671,17 @@ function setHomeBgTheme(type){
 <div id="gestao-vista-screen" style="display:none">
   <div class="gv-topbar">
     <button class="gv-back" onclick="closeGestaoVista()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Voltar</button>
-    <span class="gv-brand-tag">Vessel Brasil · Gestão à Vista</span>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="gv-brand-tag">Vessel Brasil · Gestão à Vista</span>
+      <div class="gv-period-btns" id="gv-period-btns">
+        <button class="gv-pbtn active" data-period="today" onclick="gvSelectPeriod('today')">HOJE</button>
+        <button class="gv-pbtn" data-period="1d" onclick="gvSelectPeriod('1d')">1D</button>
+        <button class="gv-pbtn" data-period="7d" onclick="gvSelectPeriod('7d')">7D</button>
+        <button class="gv-pbtn" data-period="14d" onclick="gvSelectPeriod('14d')">14D</button>
+        <button class="gv-pbtn" data-period="30d" onclick="gvSelectPeriod('30d')">30D</button>
+        <button class="vs-ac-toggle" id="gv-ac-toggle" onclick="gvToggleAuto()" title="Auto-ciclo de períodos">▶ AUTO</button>
+      </div>
+    </div>
     <div class="gv-clock-wrap">
       <div class="gv-clock-time" id="gv-clock">--:--:--</div>
       <div class="gv-clock-date" id="gv-date"></div>
