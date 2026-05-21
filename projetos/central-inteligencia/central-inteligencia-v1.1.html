@@ -576,7 +576,8 @@
   .vs2-kpi.good{border-top-color:var(--green);}
   .vs2-kpi.warn{border-top-color:var(--yellow);}
   .vs2-kpi.bad{border-top-color:var(--red);}
-  .vs2-kpi-icon{font-size:14px;margin-bottom:6px;opacity:.55;}
+  .vs2-kpi-icon{line-height:0;margin-bottom:8px;opacity:.6;}
+  .vs2-kpi-icon svg{width:18px;height:18px;stroke:var(--text);}
   .vs2-kpi-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:1.8px;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
   .vs2-kpi-val{font-family:'Oswald',sans-serif;font-size:22px;font-weight:500;color:var(--text);line-height:1.1;margin-bottom:4px;}
   .vs2-kpi-delta{font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;display:block;margin-bottom:2px;}
@@ -643,7 +644,8 @@
   body.dev-tv #vessel-sales-screen .vsales-body{max-width:none;padding:32px 44px;}
   body.dev-tv #vessel-sales-screen .vs2-kpis{gap:16px;margin-bottom:32px;}
   body.dev-tv #vessel-sales-screen .vs2-kpi{padding:24px 28px;}
-  body.dev-tv #vessel-sales-screen .vs2-kpi-icon{font-size:26px;margin-bottom:10px;}
+  body.dev-tv #vessel-sales-screen .vs2-kpi-icon{margin-bottom:14px;}
+  body.dev-tv #vessel-sales-screen .vs2-kpi-icon svg{width:30px;height:30px;}
   body.dev-tv #vessel-sales-screen .vs2-kpi-lbl{font-size:15px;margin-bottom:8px;}
   body.dev-tv #vessel-sales-screen .vs2-kpi-val{font-size:38px;margin-bottom:8px;}
   body.dev-tv #vessel-sales-screen .vs2-kpi-delta{font-size:17px;}
@@ -959,8 +961,8 @@
         <span class="home-card-enter">→</span>
       </div>
       <div class="home-card" onclick="openSalesDashboard()" onmouseenter="setHomeBgTheme('sales')" onmouseleave="setHomeBgTheme('default')">
-        <div class="home-card-icon" style="background:#1d4ed8">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        <div class="home-card-icon" style="background:linear-gradient(135deg,#1d4ed8 0%,#2563eb 100%)">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
         </div>
         <div class="home-card-text">
           <h3>Dashboard<br>de Vendas</h3>
@@ -3032,44 +3034,44 @@ function renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now)
   document.getElementById('vessel-sales-body').innerHTML=`
     <div class="vs2-kpis">
       <div class="vs2-kpi primary">
-        <div class="vs2-kpi-icon">💰</div>
+        <div class="vs2-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
         <div class="vs2-kpi-lbl">Venda Realizada</div>
         <div class="vs2-kpi-val">${fmtR0(total)}</div>
         ${metaPeriodo?dUpR(total,metaPeriodo)+'<div class="vs2-kpi-sub">vs meta</div>':`<div class="vs2-kpi-sub">${n} pedidos</div>`}
       </div>
       <div class="vs2-kpi">
-        <div class="vs2-kpi-icon">🎯</div>
+        <div class="vs2-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
         <div class="vs2-kpi-lbl">Meta do Período</div>
         <div class="vs2-kpi-val">${metaPeriodo?fmtR0(metaPeriodo):'—'}</div>
         <div class="vs2-kpi-sub">Objetivo</div>
       </div>
       <div class="vs2-kpi ${pctCls}">
-        <div class="vs2-kpi-icon">📊</div>
+        <div class="vs2-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg></div>
         <div class="vs2-kpi-lbl">% Atingido</div>
         <div class="vs2-kpi-val">${pct!==null?pct+'%':'—'}</div>
         ${pct!==null?`<div class="vs2-kpi-prog"><div class="vs2-kpi-prog-fill" style="width:0" data-w="${Math.min(pct,100)}"></div></div>`:''}
         <div class="vs2-kpi-sub">${pct!==null?(pct>=100?'Meta batida!':`Faltam ${100-pct}%`):'Sem meta'}</div>
       </div>
       <div class="vs2-kpi">
-        <div class="vs2-kpi-icon">📈</div>
+        <div class="vs2-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
         <div class="vs2-kpi-lbl">Projeção</div>
         <div class="vs2-kpi-val">${fmtR0(proj)}</div>
         ${metaPeriodo?dUpR(proj,metaPeriodo)+'<div class="vs2-kpi-sub">vs meta</div>':`<div class="vs2-kpi-sub">${diasDec}/${period==='month'?diasMes:diasTot} dias</div>`}
       </div>
       <div class="vs2-kpi">
-        <div class="vs2-kpi-icon">📅</div>
+        <div class="vs2-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/></svg></div>
         <div class="vs2-kpi-lbl">Meta de Hoje</div>
         <div class="vs2-kpi-val">${metaHoje?fmtR0(metaHoje):'—'}</div>
         <div class="vs2-kpi-sub">Hoje: ${fmtR0(totalHoje)}</div>
       </div>
       <div class="vs2-kpi">
-        <div class="vs2-kpi-icon">🛍️</div>
+        <div class="vs2-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div>
         <div class="vs2-kpi-lbl">Média Itens/Venda</div>
         <div class="vs2-kpi-val">${mediaItens.toFixed(2)}</div>
         <div class="vs2-kpi-sub">${n} vendas · ${totalItens} itens</div>
       </div>
       <div class="vs2-kpi">
-        <div class="vs2-kpi-icon">🏷️</div>
+        <div class="vs2-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div>
         <div class="vs2-kpi-lbl">Ticket Médio</div>
         <div class="vs2-kpi-val">${fmtR(ticket)}</div>
         ${ticketPrev?dUp(ticket,ticketPrev)+'<div class="vs2-kpi-sub">vs período anterior</div>':`<div class="vs2-kpi-sub">${n} pedidos</div>`}
@@ -3480,7 +3482,7 @@ function setHomeBgTheme(type){
       <div class="smenu-card" onclick="openSalesBrandPicker()">
         <span class="smenu-card-num">02</span>
         <div class="smenu-card-icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
         </div>
         <div class="smenu-card-title">Análise de Vendas</div>
         <div class="smenu-card-desc">KPIs detalhados, histórico e breakdown completo por canal, loja e vendedor — por marca.</div>
