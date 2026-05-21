@@ -1423,16 +1423,18 @@ function setHomeView(v){
   document.getElementById('vt-list').classList.toggle('active',v==='list');
   localStorage.setItem('home-view',v);
 }
+let appInitialized=false;
 function showHome(){
   document.getElementById('auth-screen').style.display='none';
   document.querySelector('.wrapper').style.display='none';
-  const hs=document.getElementById('home-screen');
-  hs.style.display='flex';
+  document.getElementById('home-screen').style.display='flex';
   setHomeView(localStorage.getItem('home-view')||'grid');
+  sessionStorage.setItem('rbv-screen','home');
 }
 function openDashboard(){
   document.getElementById('home-screen').style.display='none';
   document.querySelector('.wrapper').style.display='block';
+  sessionStorage.setItem('rbv-screen','dashboard');
 }
 function showDashboard(user,role){
   currentUserRole=role;
@@ -1441,9 +1443,12 @@ function showDashboard(user,role){
   document.getElementById('home-user-email').textContent=user.email+' ';
   document.getElementById('home-user-role').textContent=role==='admin'?'ADMIN':'VIEWER';
   document.getElementById('home-user-role').className='user-role-chip';
-  const adminBtn=document.getElementById('admin-panel-btn');
-  adminBtn.style.display=role==='admin'?'inline-block':'none';
-  showHome();
+  document.getElementById('admin-panel-btn').style.display=role==='admin'?'inline-block':'none';
+  if(!appInitialized){
+    appInitialized=true;
+    if(sessionStorage.getItem('rbv-screen')==='dashboard') openDashboard();
+    else showHome();
+  }
 }
 async function doLogin(){
   const email=document.getElementById('auth-email').value.trim();
@@ -1469,6 +1474,8 @@ async function doSetPassword(){
   if(error){errEl.textContent=error.message;errEl.style.display='block';}
 }
 async function doLogout(){
+  sessionStorage.removeItem('rbv-screen');
+  appInitialized=false;
   await sbClient.auth.signOut();
   dashboardReady=false;
   showAuth('login');
@@ -1577,7 +1584,7 @@ async function init(){
       return;
     }
     needsPasswordSet=false;
-    if(event==='TOKEN_REFRESHED')return;
+    if(event==='TOKEN_REFRESHED'||event==='USER_UPDATED')return;
     await loadDashboard(session);
   });
 }
