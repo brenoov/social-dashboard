@@ -498,6 +498,227 @@
   .overall-bar-fill{height:100%;border-radius:2px;transition:width .9s cubic-bezier(.4,0,.2,1);}
   .overall-bar-pct{font-family:'Oswald',sans-serif;font-size:13px;font-weight:500;white-space:nowrap;}
   #insight-card.loading .insight-list{opacity:.4;}
+
+  /* ── DASHBOARD DE VENDAS ── */
+  #sales-menu-screen{min-height:100vh;display:none;flex-direction:column;background:var(--bg);}
+  .smenu-topbar{display:flex;align-items:center;justify-content:space-between;padding:13px 24px;border-bottom:1px solid var(--border);background:var(--surface);gap:16px;position:sticky;top:0;z-index:10;}
+  .smenu-back{display:flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;letter-spacing:.2px;}
+  .smenu-title{font-family:'Oswald',sans-serif;font-size:15px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--text);}
+  .smenu-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;gap:40px;}
+  .smenu-headline{text-align:center;}
+  .smenu-headline h2{font-family:'Oswald',sans-serif;font-size:26px;font-weight:500;letter-spacing:3px;text-transform:uppercase;color:var(--text);margin-bottom:6px;}
+  .smenu-headline p{font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);}
+  .smenu-cards{display:flex;gap:22px;flex-wrap:wrap;justify-content:center;}
+  .smenu-card{position:relative;width:270px;min-height:210px;background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:30px 24px 48px;cursor:pointer;transition:all .25s;display:flex;flex-direction:column;gap:14px;overflow:hidden;}
+  .smenu-card::before{content:'';position:absolute;inset:0;background:var(--accent);opacity:0;transition:opacity .2s;border-radius:18px;}
+  .smenu-card:hover::before{opacity:.05;}
+  .smenu-card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 8px 32px rgba(0,0,0,.1);}
+  .smenu-card-num{font-family:'IBM Plex Sans',sans-serif;font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;font-weight:600;}
+  .smenu-card-icon{width:48px;height:48px;background:var(--accent);border-radius:12px;display:flex;align-items:center;justify-content:center;}
+  .smenu-card-title{font-family:'Oswald',sans-serif;font-size:18px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);line-height:1.2;}
+  .smenu-card-desc{font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);line-height:1.7;}
+  .smenu-card-enter{position:absolute;bottom:16px;right:18px;font-size:18px;color:var(--muted);transition:all .2s;}
+  .smenu-card:hover .smenu-card-enter{transform:translateX(4px);color:var(--accent);}
+
+  /* Brand Picker */
+  #sales-brand-screen{min-height:100vh;display:none;flex-direction:column;background:var(--bg);}
+  .sbrand-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;gap:28px;}
+  .sbrand-title{font-family:'Oswald',sans-serif;font-size:20px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--text);text-align:center;}
+  .sbrand-grid{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;}
+  .sbrand-card{position:relative;width:190px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:26px 18px;cursor:pointer;transition:all .25s;display:flex;flex-direction:column;align-items:center;gap:12px;overflow:hidden;}
+  .sbrand-card::before{content:'';position:absolute;inset:0;background:var(--accent);opacity:0;transition:opacity .2s;}
+  .sbrand-card:hover::before{opacity:.06;}
+  .sbrand-card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 6px 24px rgba(0,0,0,.09);}
+  .sbrand-card.soon{opacity:.5;cursor:default;pointer-events:none;}
+  .sbrand-avatar{width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--border);background:var(--surface2);}
+  .sbrand-avatar-ph{width:72px;height:72px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:24px;color:#fff;font-weight:600;flex-shrink:0;}
+  .sbrand-name{font-family:'Oswald',sans-serif;font-size:12px;font-weight:500;letter-spacing:1px;text-transform:uppercase;color:var(--text);text-align:center;line-height:1.3;}
+  .sbrand-badge{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;padding:3px 9px;border-radius:20px;background:var(--accent-light);color:var(--accent);font-weight:600;}
+  .sbrand-badge.soon{background:var(--surface2);color:var(--muted);}
+
+  /* Vessel Sales Analysis */
+  #vessel-sales-screen{min-height:100vh;display:none;flex-direction:column;background:var(--bg);}
+  .vsales-topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 24px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;flex-wrap:wrap;gap:8px;}
+  .vsales-back{display:flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;}
+  .vsales-brand{display:flex;align-items:center;gap:10px;}
+  .vsales-brand-av{width:30px;height:30px;border-radius:50%;object-fit:cover;border:1px solid var(--border);}
+  .vsales-brand-nm{font-family:'Oswald',sans-serif;font-size:13px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--text);}
+  .vsales-period-btns{display:flex;gap:4px;}
+  .vsales-pbtn{font-family:'IBM Plex Sans',sans-serif;font-size:11px;padding:5px 11px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
+  .vsales-pbtn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .vsales-body{padding:20px 24px;max-width:1200px;margin:0 auto;width:100%;}
+  /* KPI CARDS */
+  .vs2-kpis{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:22px;}
+  @media(max-width:1100px){.vs2-kpis{grid-template-columns:repeat(4,1fr);}}
+  @media(max-width:700px){.vs2-kpis{grid-template-columns:repeat(2,1fr);}}
+  .vs2-kpi{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:14px 16px;border-top:3px solid var(--border);transition:box-shadow .2s;}
+  .vs2-kpi.primary{border-top-color:var(--accent);}
+  .vs2-kpi.good{border-top-color:var(--green);}
+  .vs2-kpi.warn{border-top-color:var(--yellow);}
+  .vs2-kpi.bad{border-top-color:var(--red);}
+  .vs2-kpi-icon{font-size:14px;margin-bottom:6px;opacity:.55;}
+  .vs2-kpi-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:1.8px;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
+  .vs2-kpi-val{font-family:'Oswald',sans-serif;font-size:22px;font-weight:500;color:var(--text);line-height:1.1;margin-bottom:4px;}
+  .vs2-kpi-delta{font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;display:block;margin-bottom:2px;}
+  .vs2-kpi-delta.up{color:var(--green);}
+  .vs2-kpi-delta.dn{color:var(--red);}
+  .vs2-kpi-sub{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);}
+  .vs2-kpi-prog{margin-top:8px;height:3px;background:var(--surface2);border-radius:2px;overflow:hidden;}
+  .vs2-kpi-prog-fill{height:100%;border-radius:2px;background:var(--accent);transition:width 1.2s cubic-bezier(.4,0,.2,1);}
+  /* SECTION */
+  .vs2-section{margin-bottom:20px;}
+  .vs2-sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;}
+  .vs2-sec-title{font-family:'Oswald',sans-serif;font-size:15px;font-weight:500;letter-spacing:1px;color:var(--text);}
+  .vs2-legend{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+  .vs2-legend-item{display:flex;align-items:center;gap:4px;font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);}
+  .vs2-legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  /* CHANNEL BREAKDOWN */
+  .vs2-channels{background:var(--surface);border:1px solid var(--border);border-radius:4px;overflow:hidden;}
+  .vs2-ch-chart{padding:24px 24px 10px;overflow-x:auto;}
+  .vs2-ch-bars{display:flex;gap:24px;align-items:flex-end;min-height:150px;}
+  .vs2-ch-col{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;min-width:70px;}
+  .vs2-ch-col-bars{display:flex;gap:4px;align-items:flex-end;height:120px;position:relative;}
+  .vs2-ch-bar{border-radius:2px 2px 0 0;width:26px;position:relative;transition:height .9s cubic-bezier(.4,0,.2,1);}
+  .vs2-ch-bar.meta-bar{background:rgba(0,0,0,.06);border:1px dashed rgba(0,0,0,.18);}
+  .vs2-ch-bar.real-bar{background:var(--accent);}
+  .vs2-ch-bar.real-bar.good{background:var(--green);}
+  .vs2-ch-bar.real-bar.warn{background:#b08000;}
+  .vs2-ch-bar.real-bar.bad{background:var(--red);}
+  .vs2-ch-pct{position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;white-space:nowrap;background:var(--surface);border:1px solid var(--border);border-radius:2px;padding:1px 4px;}
+  .vs2-ch-nm{font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);text-align:center;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.3px;}
+  .vs2-ch-summary{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--border);}
+  .vs2-ch-sum-cell{padding:12px 20px;border-right:1px solid var(--border);}
+  .vs2-ch-sum-cell:last-child{border-right:none;}
+  .vs2-ch-sum-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
+  .vs2-ch-sum-val{font-family:'Oswald',sans-serif;font-size:20px;font-weight:500;color:var(--text);}
+  .vs2-ch-sum-val.bad{color:var(--red);}
+  .vs2-ch-sum-val.good{color:var(--green);}
+  /* DAILY CHART */
+  .vs2-daily{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:20px;overflow-x:auto;}
+  .vs2-daily-chart{display:flex;gap:4px;align-items:flex-end;min-height:130px;padding-bottom:24px;}
+  .vs2-day-col{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;min-width:24px;}
+  .vs2-day-bars{display:flex;gap:2px;align-items:flex-end;height:100px;}
+  .vs2-day-bar{border-radius:2px 2px 0 0;flex:1;min-width:10px;transition:height .8s cubic-bezier(.4,0,.2,1);}
+  .vs2-day-bar.real{background:var(--accent);}
+  .vs2-day-bar.real.good{background:var(--green);}
+  .vs2-day-bar.real.bad{background:var(--red);}
+  .vs2-day-bar.meta{background:rgba(0,0,0,.07);border:1px dashed rgba(0,0,0,.15);}
+  .vs2-day-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:8px;color:var(--muted);white-space:nowrap;}
+  /* VENDOR TABLE */
+  .vs2-vend{background:var(--surface);border:1px solid var(--border);border-radius:4px;overflow:hidden;}
+  .vs2-vend-tbl{width:100%;border-collapse:collapse;}
+  .vs2-vend-tbl th{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 16px;text-align:left;border-bottom:1px solid var(--border);background:var(--surface2);}
+  .vs2-vend-tbl td{font-family:'IBM Plex Sans',sans-serif;font-size:12px;padding:9px 16px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle;}
+  .vs2-vend-tbl tr:last-child td{border-bottom:none;}
+  .vs2-vend-tbl td.num{font-family:'Oswald',sans-serif;font-size:14px;}
+  .vs2-vend-hbar-wrap{height:3px;background:var(--surface2);border-radius:2px;overflow:hidden;margin-top:4px;}
+  .vs2-vend-hbar{height:100%;background:var(--accent);border-radius:2px;transition:width 1s cubic-bezier(.4,0,.2,1);}
+  .vsales-loading{text-align:center;padding:48px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;font-size:13px;}
+
+  /* ── GESTÃO À VISTA — TV BOARD v2 ── */
+  #gestao-vista-screen{min-height:100vh;display:none;flex-direction:column;background:#05050d;color:#fff;overflow:hidden;}
+  .gv-topbar{display:flex;align-items:center;justify-content:space-between;padding:11px 28px;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(0,0,0,.65);position:sticky;top:0;z-index:10;backdrop-filter:blur(8px);}
+  .gv-back{display:flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:rgba(255,255,255,.35);cursor:pointer;background:none;border:none;padding:0;transition:color .15s;letter-spacing:.2px;}
+  .gv-back:hover{color:#fff;}
+  .gv-brand-tag{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:6px;text-transform:uppercase;color:rgba(255,255,255,.2);}
+  .gv-clock-wrap{text-align:right;}
+  .gv-clock-time{font-family:'Oswald',sans-serif;font-size:28px;font-weight:400;letter-spacing:3px;color:rgba(255,255,255,.85);line-height:1;}
+  .gv-clock-date{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.25);margin-top:3px;}
+  /* Board 3-col layout */
+  .gv-board{flex:1;display:grid;grid-template-columns:300px 1fr 1fr;gap:1px;background:rgba(255,255,255,.05);overflow:hidden;}
+  .gv-col{background:#05050d;padding:22px 20px;display:flex;flex-direction:column;overflow:hidden;}
+  /* KPI col */
+  .gv-kpi-period{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:4px;text-transform:uppercase;color:rgba(255,255,255,.25);margin-bottom:10px;}
+  .gv-big-num{font-family:'Oswald',sans-serif;font-size:58px;font-weight:600;letter-spacing:-2px;line-height:1;transition:color .6s,text-shadow .6s;}
+  .gv-big-num.c-white{color:#fff;}
+  .gv-big-num.c-green{color:#22c55e;text-shadow:0 0 50px rgba(34,197,94,.25);}
+  .gv-big-num.c-yellow{color:#f59e0b;text-shadow:0 0 50px rgba(245,158,11,.2);}
+  .gv-big-num.c-red{color:#ef4444;text-shadow:0 0 50px rgba(239,68,68,.2);}
+  /* Progress ring */
+  .gv-ring-area{display:flex;align-items:center;gap:16px;margin:14px 0;}
+  .gv-ring-right{display:flex;flex-direction:column;gap:5px;}
+  .gv-ring-pct{font-family:'Oswald',sans-serif;font-size:40px;font-weight:600;line-height:1;}
+  .gv-ring-pct.c-green{color:#22c55e;}
+  .gv-ring-pct.c-yellow{color:#f59e0b;}
+  .gv-ring-pct.c-red{color:#ef4444;}
+  .gv-ring-pct.c-white{color:rgba(255,255,255,.7);}
+  .gv-ring-meta{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,.3);text-transform:uppercase;}
+  .gv-ring-meta strong{color:rgba(255,255,255,.55);font-weight:500;}
+  /* Sub KPIs */
+  .gv-sub-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:auto;}
+  .gv-sub-box{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:11px 13px;}
+  .gv-sub-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.28);margin-bottom:4px;}
+  .gv-sub-val{font-family:'Oswald',sans-serif;font-size:20px;font-weight:500;color:rgba(255,255,255,.8);}
+  /* Rank cols */
+  .gv-rank-col-hdr{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:5px;text-transform:uppercase;color:rgba(255,255,255,.25);margin-bottom:16px;display:flex;align-items:center;gap:10px;}
+  .gv-rank-col-hdr::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.05);}
+  .gv-rank-entry{display:flex;align-items:flex-start;gap:10px;margin-bottom:13px;}
+  .gv-rank-num{font-family:'Oswald',sans-serif;font-size:12px;font-weight:600;width:16px;text-align:center;flex-shrink:0;margin-top:1px;}
+  .gv-rank-num.gold{color:#f59e0b;}
+  .gv-rank-num.silver{color:#94a3b8;}
+  .gv-rank-num.bronze{color:#b87333;}
+  .gv-rank-num.rest{color:rgba(255,255,255,.25);}
+  .gv-rank-body{flex:1;min-width:0;}
+  .gv-rank-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;}
+  .gv-rank-nm{font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:400;color:rgba(255,255,255,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .gv-rank-v{font-family:'Oswald',sans-serif;font-size:14px;font-weight:500;color:rgba(255,255,255,.9);flex-shrink:0;margin-left:6px;}
+  .gv-rank-bar{height:4px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;}
+  .gv-rank-bar-fill{height:100%;border-radius:2px;transition:width 1.8s cubic-bezier(.4,0,.2,1);}
+  .gv-rank-bar-fill.gold{background:linear-gradient(90deg,#d97706,#fbbf24);}
+  .gv-rank-bar-fill.silver{background:linear-gradient(90deg,#475569,#94a3b8);}
+  .gv-rank-bar-fill.bronze{background:linear-gradient(90deg,#78350f,#b87333);}
+  .gv-rank-bar-fill.rest{background:linear-gradient(90deg,rgba(29,78,216,.5),rgba(59,130,246,.7));}
+  .gv-rank-hint{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:rgba(255,255,255,.25);margin-top:3px;}
+  /* Ticker */
+  .gv-ticker{border-top:1px solid rgba(255,255,255,.05);padding:0 28px;display:flex;align-items:center;gap:16px;background:rgba(0,0,0,.6);flex-shrink:0;height:38px;overflow:hidden;}
+  .gv-ticker-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:4px;text-transform:uppercase;color:rgba(29,78,216,.9);flex-shrink:0;}
+  .gv-ticker-sep{width:1px;height:14px;background:rgba(255,255,255,.1);flex-shrink:0;}
+  .gv-ticker-outer{flex:1;overflow:hidden;}
+  .gv-ticker-inner{display:flex;gap:48px;white-space:nowrap;}
+  .gv-ticker-inner.animate{animation:gvTicker 45s linear infinite;}
+  @keyframes gvTicker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+  .gv-ticker-item{font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:rgba(255,255,255,.5);flex-shrink:0;}
+  .gv-ticker-item strong{color:rgba(255,255,255,.8);}
+  .gv-ticker-dot{display:inline-block;width:3px;height:3px;border-radius:50%;background:rgba(29,78,216,.8);vertical-align:middle;margin:0 14px;}
+  .gv-refresh-tag{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.12);flex-shrink:0;}
+  .gv-loading{flex:1;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:14px;letter-spacing:4px;text-transform:uppercase;color:rgba(255,255,255,.18);}
+  body.dev-tv .gv-big-num{font-size:82px;}
+  body.dev-tv .gv-ring-pct{font-size:56px;}
+  body.dev-tv .gv-sub-val{font-size:26px;}
+  body.dev-tv .gv-rank-nm{font-size:15px;}
+  body.dev-tv .gv-rank-v{font-size:18px;}
+  body.dev-tv .gv-ticker-item{font-size:14px;}
+  body.dev-tv .gv-clock-time{font-size:38px;}
+  /* ── AUTH CANVAS + DARK LOGIN ── */
+  #auth-screen{background:#07080f;}
+  #auth-bg-canvas{position:absolute;inset:0;z-index:0;pointer-events:none;}
+  .auth-card{position:relative;z-index:1;}
+  .auth-link-row{display:flex;justify-content:space-between;margin-top:14px;}
+  .auth-link{background:none;border:none;font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:rgba(255,255,255,.35);cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:3px;transition:color .15s;}
+  .auth-link:hover{color:rgba(255,255,255,.7);}
+  .auth-back-link{display:flex;align-items:center;gap:4px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:rgba(255,255,255,.35);cursor:pointer;background:none;border:none;padding:0;transition:color .15s;margin-bottom:18px;}
+  .auth-back-link:hover{color:rgba(255,255,255,.7);}
+  .auth-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:44px 40px;width:100%;max-width:380px;box-shadow:0 8px 48px rgba(0,0,0,.5);}
+  .auth-logo h2{color:#fff!important;}
+  .auth-logo p{color:rgba(255,255,255,.3)!important;}
+  .auth-label{color:rgba(255,255,255,.4)!important;}
+  .auth-input{background:rgba(255,255,255,.06)!important;border-color:rgba(255,255,255,.12)!important;color:#fff!important;}
+  .auth-input:focus{border-color:rgba(29,78,216,.8)!important;}
+  .auth-input::placeholder{color:rgba(255,255,255,.2)!important;}
+  .auth-info{color:rgba(255,255,255,.4)!important;}
+  /* ── HOME HOVER ── */
+  #bg-shapes .ico{transition:opacity .4s ease;}
+  /* ── METAS ADMIN ── */
+  .metas-tbl{width:100%;border-collapse:collapse;}
+  .metas-tbl th{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:7px 10px;text-align:left;border-bottom:1px solid var(--border);}
+  .metas-tbl td{font-family:'IBM Plex Sans',sans-serif;font-size:12px;padding:8px 10px;border-bottom:1px solid var(--border);}
+  .metas-tbl tr:last-child td{border-bottom:none;}
+  .metas-inp{width:100%;max-width:130px;padding:5px 8px;border:1.5px solid var(--border);border-radius:3px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;background:var(--surface2);color:var(--text);outline:none;text-align:right;}
+  .metas-inp:focus{border-color:var(--accent);}
+  .upload-zone{border:2px dashed var(--border);border-radius:6px;padding:20px;text-align:center;cursor:pointer;transition:border-color .2s;margin-bottom:12px;}
+  .upload-zone:hover{border-color:var(--accent);}
+  .upload-zone p{font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);}
+  .upload-zone input{display:none;}
 </style>
 </head>
 <body>
@@ -521,6 +742,7 @@
 
 <!-- AUTH SCREEN -->
 <div id="auth-screen" style="display:none">
+  <canvas id="auth-bg-canvas"></canvas>
   <div class="auth-card">
     <div class="auth-logo">
       <img class="ig-icon" src="https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/profile-pics/rbv-logo.png" alt="RBV Company" style="object-fit:contain;background:transparent;border-radius:6px;display:block;margin:0 auto 14px;">
@@ -529,10 +751,14 @@
     </div>
     <!-- Login -->
     <div id="login-view">
-      <div class="auth-field"><label class="auth-label">Email</label><input type="email" id="auth-email" class="auth-input" placeholder="seu@email.com"></div>
-      <div class="auth-field"><label class="auth-label">Senha</label><input type="password" id="auth-password" class="auth-input" placeholder="••••••••"></div>
+      <div class="auth-field"><label class="auth-label">Email</label><input type="email" id="auth-email" class="auth-input" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div class="auth-field"><label class="auth-label">Senha</label><input type="password" id="auth-password" class="auth-input" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <button class="auth-btn" id="login-btn" onclick="doLogin()">Entrar</button>
       <div class="auth-error" id="login-error"></div>
+      <div class="auth-link-row">
+        <button class="auth-link" onclick="showAuthView('forgot-view')">Esqueci a senha</button>
+        <button class="auth-link" onclick="showAuthView('request-view')">Solicitar acesso</button>
+      </div>
     </div>
     <!-- Set password (invite flow) -->
     <div id="set-pass-view" style="display:none">
@@ -541,6 +767,24 @@
       <div class="auth-field"><label class="auth-label">Confirmar senha</label><input type="password" id="confirm-pass" class="auth-input" placeholder="repita a senha"></div>
       <button class="auth-btn" id="set-pass-btn" onclick="doSetPassword()">Definir senha e entrar</button>
       <div class="auth-error" id="set-pass-error"></div>
+    </div>
+    <!-- Forgot password -->
+    <div id="forgot-view" style="display:none">
+      <button class="auth-back-link" onclick="showAuthView('login-view')">← Voltar</button>
+      <p class="auth-info" style="margin-bottom:18px;font-size:12px">Digite seu email e enviaremos um link para redefinir sua senha.</p>
+      <div class="auth-field"><label class="auth-label">Email</label><input type="email" id="forgot-email" class="auth-input" placeholder="seu@email.com"></div>
+      <button class="auth-btn" id="forgot-btn" onclick="doForgotPassword()">Enviar link</button>
+      <div class="auth-error" id="forgot-msg"></div>
+    </div>
+    <!-- Request access -->
+    <div id="request-view" style="display:none">
+      <button class="auth-back-link" onclick="showAuthView('login-view')">← Voltar</button>
+      <p class="auth-info" style="margin-bottom:18px;font-size:12px">Preencha os dados abaixo. Sua solicitação será analisada pelo administrador.</p>
+      <div class="auth-field"><label class="auth-label">Nome</label><input type="text" id="req-name" class="auth-input" placeholder="Seu nome completo"></div>
+      <div class="auth-field"><label class="auth-label">Email</label><input type="email" id="req-email" class="auth-input" placeholder="seu@email.com"></div>
+      <div class="auth-field"><label class="auth-label">Mensagem (opcional)</label><input type="text" id="req-msg" class="auth-input" placeholder="Por que precisa de acesso?"></div>
+      <button class="auth-btn" id="req-btn" onclick="doRequestAccess()">Enviar solicitação</button>
+      <div class="auth-error" id="req-feedback"></div>
     </div>
   </div>
 </div>
@@ -589,7 +833,7 @@
       </div>
     </div>
     <div class="home-cards" id="home-cards">
-      <div class="home-card card-admin" id="home-card-admin" onclick="openAdmin()" style="display:none">
+      <div class="home-card card-admin" id="home-card-admin" onclick="openAdmin()" style="display:none" onmouseenter="setHomeBgTheme('admin')" onmouseleave="setHomeBgTheme('default')">
         <div class="home-card-icon">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
         </div>
@@ -599,13 +843,23 @@
         </div>
         <span class="home-card-enter">→</span>
       </div>
-      <div class="home-card" onclick="openDashboard()">
+      <div class="home-card" onclick="openDashboard()" onmouseenter="setHomeBgTheme('social')" onmouseleave="setHomeBgTheme('default')">
         <div class="home-card-icon">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
         </div>
         <div class="home-card-text">
           <h3>Dashboard<br>Redes Sociais</h3>
           <p>Métricas e KPIs do Instagram para todas as marcas</p>
+        </div>
+        <span class="home-card-enter">→</span>
+      </div>
+      <div class="home-card" onclick="openSalesDashboard()" onmouseenter="setHomeBgTheme('sales')" onmouseleave="setHomeBgTheme('default')">
+        <div class="home-card-icon" style="background:#1d4ed8">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </div>
+        <div class="home-card-text">
+          <h3>Dashboard<br>de Vendas</h3>
+          <p>Gestão à vista, análise por loja e vendedor</p>
         </div>
         <span class="home-card-enter">→</span>
       </div>
@@ -628,6 +882,9 @@
       <div class="admin-nav-group-label">Gestão</div>
       <div class="admin-nav-item active" data-section="users" onclick="loadAdminSection('users')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Usuários</span></div>
       <div class="admin-nav-item" data-section="accounts" onclick="loadAdminSection('accounts')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg><span>Contas</span></div>
+      <div class="admin-nav-group-label">Vendas</div>
+      <div class="admin-nav-item" data-section="metas" onclick="loadAdminSection('metas')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Metas</span></div>
+      <div class="admin-nav-item" data-section="requests" onclick="loadAdminSection('requests')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg><span>Solicitações</span></div>
       <div class="admin-nav-group-label">Plataforma</div>
       <div class="admin-nav-item" data-section="appearance" onclick="loadAdminSection('appearance')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg><span>Aparência</span></div>
       <div class="admin-nav-item" data-section="data" onclick="loadAdminSection('data')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><span>Dados</span></div>
@@ -711,6 +968,18 @@
           <div class="sr" style="justify-content:space-between"><div class="sr-label">Motor de IA</div><span class="sr-val">Claude AI · Anthropic</span></div>
           <div class="sr" style="justify-content:space-between"><div class="sr-label">Tokens Meta API</div><span class="sr-val" id="sys-token-expiry" style="color:#f59e0b">Verificando...</span></div>
         </div>
+      </div>
+      <!-- METAS -->
+      <div class="admin-section" id="admin-section-metas">
+        <div class="admin-section-title">Metas de Vendas</div>
+        <div class="admin-section-sub">Configure as metas mensais por canal e loja</div>
+        <div id="admin-metas-body"><div style="color:var(--muted);font-size:12px">Carregando...</div></div>
+      </div>
+      <!-- SOLICITAÇÕES -->
+      <div class="admin-section" id="admin-section-requests">
+        <div class="admin-section-title">Solicitações de Acesso</div>
+        <div class="admin-section-sub">Usuários que solicitaram acesso à plataforma</div>
+        <div id="admin-requests-body"><div style="color:var(--muted);font-size:12px">Carregando...</div></div>
       </div>
     </div>
   </div>
@@ -1749,11 +2018,16 @@ function clearCustomRange(){currentStartDate=null;currentEndDate=null;document.g
 /* ── AUTH ── */
 let currentUserRole='viewer';
 
+let _authCanvasCleanup=null;
 function showAuth(mode='login'){
   document.getElementById('auth-screen').style.display='flex';
   document.querySelector('.wrapper').style.display='none';
-  document.getElementById('login-view').style.display=mode==='login'?'block':'none';
-  document.getElementById('set-pass-view').style.display=mode==='setpass'?'block':'none';
+  ['login-view','set-pass-view','forgot-view','request-view'].forEach(v=>{
+    const el=document.getElementById(v);if(el)el.style.display='none';
+  });
+  const target=mode==='setpass'?'set-pass-view':'login-view';
+  document.getElementById(target).style.display='block';
+  if(!_authCanvasCleanup)_authCanvasCleanup=initAuthCanvas();
 }
 function setHomeView(v){
   const cards=document.getElementById('home-cards');
@@ -1783,7 +2057,7 @@ function loadAdminSection(name){
   document.querySelectorAll('.admin-nav-item').forEach(el=>el.classList.toggle('active',el.dataset.section===name));
   document.querySelectorAll('.admin-section').forEach(el=>el.classList.remove('active'));
   const sec=document.getElementById('admin-section-'+name);if(sec)sec.classList.add('active');
-  ({users:loadAdminUsers,accounts:loadAdminAccounts,appearance:loadAdminAppearance,data:loadAdminData,system:loadAdminSystem})[name]?.();
+  ({users:loadAdminUsers,accounts:loadAdminAccounts,appearance:loadAdminAppearance,data:loadAdminData,system:loadAdminSystem,metas:loadAdminMetas,requests:loadAdminRequests})[name]?.();
 }
 
 /* ── USUÁRIOS ── */
@@ -1974,6 +2248,95 @@ function loadAdminSystem(){
   const verEl=document.getElementById('sys-build-date');if(verEl)verEl.textContent=new Date().toLocaleDateString('pt-BR');
 }
 
+/* ── METAS ADMIN ── */
+async function loadAdminMetas(){
+  const body=document.getElementById('admin-metas-body');
+  body.innerHTML='<div style="color:var(--muted);font-size:12px;padding:16px 0">Carregando...</div>';
+  const now=new Date();
+  const y=now.getFullYear(),m=now.getMonth()+1;
+  const [lojasRes,metasRes]=await Promise.all([
+    sbClient.from('bling_lojas').select('loja_id,nome').order('nome'),
+    sbClient.from('bling_metas').select('loja_id,meta_valor').eq('year',y).eq('month',m)
+  ]);
+  const lojas=lojasRes.data||[];
+  const metasMap={};(metasRes.data||[]).forEach(r=>metasMap[r.loja_id]=r.meta_valor);
+  const mesLabel=now.toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).toUpperCase();
+
+  body.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <span class="sg-label" style="margin:0">Metas para ${mesLabel}</span>
+      <button class="admin-btn-sm" onclick="saveAllMetas(${y},${m})" style="background:var(--accent);color:#fff;padding:6px 16px">Salvar tudo</button>
+    </div>
+    <div class="sg">
+      <table class="metas-tbl" id="metas-table">
+        <thead><tr><th>#</th><th>Canal / Loja</th><th style="text-align:right">Meta (R$)</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="color:var(--muted)">0</td>
+            <td><strong>Total Geral</strong></td>
+            <td><input class="metas-inp" data-id="0" type="number" placeholder="0,00" value="${metasMap[0]||''}"></td>
+          </tr>
+          ${lojas.map(l=>`
+          <tr>
+            <td style="color:var(--muted)">${l.loja_id}</td>
+            <td>${l.nome}</td>
+            <td><input class="metas-inp" data-id="${l.loja_id}" type="number" placeholder="0,00" value="${metasMap[l.loja_id]||''}"></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div id="metas-save-msg" style="margin-top:10px;font-size:12px;display:none"></div>
+  `;
+}
+
+async function saveAllMetas(y,m){
+  const inputs=document.querySelectorAll('#metas-table .metas-inp');
+  const msg=document.getElementById('metas-save-msg');
+  msg.style.display='none';
+  const rows=[];
+  inputs.forEach(inp=>{
+    const v=parseFloat(inp.value);
+    if(!isNaN(v)&&v>0)rows.push({loja_id:parseInt(inp.dataset.id),year:y,month:m,meta_valor:v});
+  });
+  if(!rows.length){msg.style.color='var(--red)';msg.textContent='Nenhum valor para salvar.';msg.style.display='block';return;}
+  const{error}=await sbClient.from('bling_metas').upsert(rows,{onConflict:'loja_id,year,month'});
+  if(error){msg.style.color='var(--red)';msg.textContent='Erro: '+error.message;}
+  else{msg.style.color='var(--green)';msg.textContent=`${rows.length} meta${rows.length!==1?'s':''} salva${rows.length!==1?'s':''}!`;}
+  msg.style.display='block';
+}
+
+/* ── SOLICITAÇÕES ADMIN ── */
+async function loadAdminRequests(){
+  const body=document.getElementById('admin-requests-body');
+  body.innerHTML='<div style="color:var(--muted);font-size:12px;padding:16px 0">Carregando...</div>';
+  const{data,error}=await sbClient.from('access_requests').select('*').order('created_at',{ascending:false});
+  if(error||!data){body.innerHTML='<div style="color:var(--red);font-size:12px">Erro ao carregar solicitações.</div>';return;}
+  if(!data.length){body.innerHTML='<div style="color:var(--muted);font-size:12px;padding:16px 0">Nenhuma solicitação de acesso.</div>';return;}
+  const statusLabel={pending:'Pendente',approved:'Aprovado',denied:'Negado'};
+  const statusColor={pending:'var(--yellow)',approved:'var(--green)',denied:'var(--red)'};
+  body.innerHTML=`<div class="sg">
+    ${data.map(r=>`
+    <div class="sr" style="justify-content:space-between;flex-wrap:wrap;gap:8px" id="req-row-${r.id}">
+      <div class="sr-main">
+        <div class="sr-label">${r.name} <span style="color:var(--muted);font-weight:400">— ${r.email}</span></div>
+        <div class="sr-sub">${r.message||'Sem mensagem'} · ${new Date(r.created_at).toLocaleDateString('pt-BR')}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <span style="font-size:10px;font-weight:600;color:${statusColor[r.status]||'var(--muted)'};letter-spacing:1px;text-transform:uppercase">${statusLabel[r.status]||r.status}</span>
+        ${r.status==='pending'?`
+          <button class="admin-btn-sm" style="background:var(--green);color:#fff" onclick="handleRequest('${r.id}','approved')">Aprovar</button>
+          <button class="admin-btn-sm" style="background:var(--red);color:#fff" onclick="handleRequest('${r.id}','denied')">Negar</button>
+        `:''}
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+
+async function handleRequest(id,status){
+  await sbClient.from('access_requests').update({status}).eq('id',id);
+  loadAdminRequests();
+}
+
 /* ── RELÓGIO ── */
 function updateCollectionStatus(){
   const el=document.getElementById('collection-status');
@@ -2052,9 +2415,85 @@ function showDashboard(user,role){
     const screen=sessionStorage.getItem('rbv-screen');
     if(screen==='dashboard')openDashboard();
     else if(screen==='admin'&&role==='admin')openAdmin(true);
+    else if(screen==='sales-menu')openSalesDashboard();
+    else if(screen==='sales-brand'){openSalesDashboard();setTimeout(openSalesBrandPicker,0);}
+    else if(screen==='vessel-sales'){openSalesDashboard();setTimeout(()=>{openSalesBrandPicker();setTimeout(openVesselSales,0);},0);}
+    else if(screen==='gestao-vista'){openSalesDashboard();setTimeout(openGestaoVista,0);}
     else showHome();
   }
 }
+function showAuthView(id){
+  ['login-view','set-pass-view','forgot-view','request-view'].forEach(v=>{
+    const el=document.getElementById(v);
+    if(el)el.style.display=v===id?'block':'none';
+  });
+}
+
+async function doForgotPassword(){
+  const email=document.getElementById('forgot-email').value.trim();
+  const msgEl=document.getElementById('forgot-msg');
+  const btn=document.getElementById('forgot-btn');
+  msgEl.style.display='none';
+  if(!email){msgEl.textContent='Digite seu email.';msgEl.style.display='block';return;}
+  btn.disabled=true;btn.textContent='Enviando...';
+  const{error}=await sbClient.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+  btn.disabled=false;btn.textContent='Enviar link';
+  if(error){msgEl.style.color='#ef4444';msgEl.textContent=error.message;msgEl.style.display='block';}
+  else{msgEl.style.color='#22c55e';msgEl.textContent='Link enviado! Verifique seu email.';msgEl.style.display='block';}
+}
+
+async function doRequestAccess(){
+  const name=document.getElementById('req-name').value.trim();
+  const email=document.getElementById('req-email').value.trim();
+  const message=document.getElementById('req-msg').value.trim();
+  const fb=document.getElementById('req-feedback');
+  const btn=document.getElementById('req-btn');
+  fb.style.display='none';
+  if(!name||!email){fb.style.color='#ef4444';fb.textContent='Nome e email são obrigatórios.';fb.style.display='block';return;}
+  btn.disabled=true;btn.textContent='Enviando...';
+  const{error}=await sbClient.from('access_requests').insert({name,email,message});
+  btn.disabled=false;btn.textContent='Enviar solicitação';
+  if(error){fb.style.color='#ef4444';fb.textContent='Erro ao enviar. Tente novamente.';fb.style.display='block';}
+  else{fb.style.color='#22c55e';fb.textContent='Solicitação enviada! Aguarde aprovação do administrador.';fb.style.display='block';btn.style.display='none';}
+}
+
+function initAuthCanvas(){
+  const canvas=document.getElementById('auth-bg-canvas');
+  if(!canvas)return;
+  const ctx=canvas.getContext('2d');
+  let W,H,nodes,animId;
+  function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;initNodes();}
+  function initNodes(){
+    nodes=Array.from({length:55},()=>({
+      x:W/2+(Math.random()-.5)*W*.3,y:H/2+(Math.random()-.5)*H*.3,
+      vx:(Math.random()-.5)*1.1,vy:(Math.random()-.5)*1.1,
+      r:Math.random()*2+1.2,opacity:Math.random()*.6+.2
+    }));
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    nodes.forEach(n=>{
+      n.x+=n.vx;n.y+=n.vy;
+      if(n.x<0||n.x>W)n.vx*=-1;if(n.y<0||n.y>H)n.vy*=-1;
+    });
+    nodes.forEach((a,i)=>nodes.slice(i+1).forEach(b=>{
+      const d=Math.hypot(a.x-b.x,a.y-b.y);
+      if(d<160){
+        ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+        const alpha=(1-d/160)*.18;
+        ctx.strokeStyle=`rgba(29,78,216,${alpha})`;ctx.lineWidth=1;ctx.stroke();
+      }
+    }));
+    nodes.forEach(n=>{
+      ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(29,78,216,${n.opacity})`;ctx.fill();
+    });
+    animId=requestAnimationFrame(draw);
+  }
+  resize();window.addEventListener('resize',resize);draw();
+  return ()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',resize);};
+}
+
 async function doLogin(){
   const email=document.getElementById('auth-email').value.trim();
   const pass=document.getElementById('auth-password').value;
@@ -2278,6 +2717,507 @@ async function loadCampaignFilterBadge(){
   const selCount=rawIds===null||rawIds===undefined?campaigns.length:rawIds.length;
   updateCampaignFilterBadge(selCount,campaigns.length);
 }
+
+/* ── DASHBOARD DE VENDAS ── */
+function openSalesDashboard(){
+  document.getElementById('home-screen').style.display='none';
+  document.getElementById('sales-menu-screen').style.display='flex';
+  sessionStorage.setItem('rbv-screen','sales-menu');
+}
+function closeSalesDashboard(){
+  document.getElementById('sales-menu-screen').style.display='none';
+  showHome();
+}
+function openSalesBrandPicker(){
+  document.getElementById('sales-menu-screen').style.display='none';
+  document.getElementById('sales-brand-screen').style.display='flex';
+  sessionStorage.setItem('rbv-screen','sales-brand');
+  loadBrandPickerPhotos();
+}
+function closeSalesBrandPicker(){
+  document.getElementById('sales-brand-screen').style.display='none';
+  document.getElementById('sales-menu-screen').style.display='flex';
+  sessionStorage.setItem('rbv-screen','sales-menu');
+}
+function openVesselSales(){
+  document.getElementById('sales-brand-screen').style.display='none';
+  document.getElementById('vessel-sales-screen').style.display='flex';
+  sessionStorage.setItem('rbv-screen','vessel-sales');
+  // Set brand avatar
+  const vesselImg=document.querySelector('#sbrand-vessel-img');
+  if(vesselImg&&vesselImg.src)document.getElementById('vsales-brand-av').src=vesselImg.src;
+  loadVesselSalesData('month');
+}
+function closeVesselSales(){
+  document.getElementById('vessel-sales-screen').style.display='none';
+  document.getElementById('sales-brand-screen').style.display='flex';
+  sessionStorage.setItem('rbv-screen','sales-brand');
+}
+function openGestaoVista(){
+  document.getElementById('sales-menu-screen').style.display='none';
+  document.getElementById('gestao-vista-screen').style.display='flex';
+  sessionStorage.setItem('rbv-screen','gestao-vista');
+  startGVClock();
+  loadGestaoVistaData();
+}
+function closeGestaoVista(){
+  document.getElementById('gestao-vista-screen').style.display='none';
+  document.getElementById('sales-menu-screen').style.display='flex';
+  sessionStorage.setItem('rbv-screen','sales-menu');
+  if(window._gvTimer)clearInterval(window._gvTimer);
+}
+
+async function loadBrandPickerPhotos(){
+  try{
+    const{data}=await sbClient.from('accounts').select('instagram_id,profile_picture_url')
+      .in('instagram_id',['17841462952561833','17841401847160442','17841406451230767']);
+    if(!data)return;
+    const byId={};data.forEach(a=>byId[a.instagram_id]=a.profile_picture_url);
+    function setImg(id,igId){
+      const url=byId[igId];if(!url)return;
+      const img=document.getElementById(id);if(!img)return;
+      img.src=url;
+    }
+    setImg('sbrand-vessel-img','17841462952561833');
+    setImg('sbrand-raissa-img','17841401847160442');
+    setImg('sbrand-mantova-img','17841406451230767');
+  }catch(e){console.error('brand pics:',e);}
+}
+
+/* Bling API proxy helper */
+async function blingCall(endpoint,params){
+  const{data:{session}}=await sbClient.auth.getSession();
+  if(!session)throw new Error('Não autenticado');
+  const r=await fetch(SUPABASE_URL+'/functions/v1/bling-proxy',{
+    method:'POST',
+    headers:{
+      'Authorization':'Bearer '+session.access_token,
+      'apikey':SUPABASE_ANON_KEY,
+      'Content-Type':'application/json'
+    },
+    body:JSON.stringify({endpoint,params})
+  });
+  return r.json();
+}
+async function blingPages(endpoint,params){
+  const all=[];let page=1;
+  for(;;){
+    const resp=await blingCall(endpoint,{...params,pagina:page,limite:100});
+    const items=resp.data||[];
+    all.push(...items);
+    if(items.length<100)break;
+    page++;
+    if(page>10)break; // safety cap
+  }
+  return all;
+}
+
+function fmtR0(v){return 'R$ '+Math.round(Number(v)).toLocaleString('pt-BR');}
+
+/* ── VESSEL SALES ANALYSIS ── */
+async function loadVesselSalesData(period){
+  document.querySelectorAll('.vsales-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===period));
+  document.getElementById('vessel-sales-body').innerHTML='<div class="vsales-loading">Carregando dados do Bling...</div>';
+  const now=new Date();
+  const y=now.getFullYear(),m=now.getMonth()+1;
+  let di,df;
+  if(period==='today'){di=df=now.toISOString().slice(0,10);}
+  else if(period==='7d'){di=new Date(now-7*864e5).toISOString().slice(0,10);df=now.toISOString().slice(0,10);}
+  else{di=`${y}-${String(m).padStart(2,'0')}-01`;df=now.toISOString().slice(0,10);}
+  // previous period
+  let diPrev,dfPrev;
+  if(period==='today'){const p=new Date(now-864e5);diPrev=dfPrev=p.toISOString().slice(0,10);}
+  else if(period==='7d'){diPrev=new Date(now-14*864e5).toISOString().slice(0,10);dfPrev=new Date(now-8*864e5).toISOString().slice(0,10);}
+  else{const pm=m===1?12:m-1,py=m===1?y-1:y;diPrev=`${py}-${String(pm).padStart(2,'0')}-01`;dfPrev=`${py}-${String(pm).padStart(2,'0')}-${new Date(py,pm,0).getDate()}`;}
+  try{
+    const[pedidos,canais,metasArr,pedidosPrev]=await Promise.all([
+      blingPages('pedidos/vendas',{dataInicial:di,dataFinal:df,'idsSituacoes[]':9}),
+      sbClient.from('bling_lojas').select('loja_id,nome').then(r=>{const mp={};(r.data||[]).forEach(l=>mp[l.loja_id]=l.nome);return mp;}).catch(()=>({})),
+      sbClient.from('bling_metas').select('loja_id,meta_valor').eq('year',y).eq('month',m).then(r=>r.data||[]).catch(()=>[]),
+      blingPages('pedidos/vendas',{dataInicial:diPrev,dataFinal:dfPrev,'idsSituacoes[]':9}).catch(()=>[])
+    ]);
+    renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now);
+  }catch(e){
+    document.getElementById('vessel-sales-body').innerHTML=`<div class="vsales-loading">Erro: ${e.message}</div>`;
+  }
+}
+
+function renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now){
+  const y=now.getFullYear(),m=now.getMonth()+1;
+  const diasMes=new Date(y,m,0).getDate();
+  const dInicio=new Date(di),dFim=new Date(df);
+  const diasTot=Math.ceil((dFim-dInicio)/864e5)+1;
+  const diasDec=Math.min(Math.ceil((now-dInicio)/864e5)+1,diasTot);
+
+  // metas
+  const metasMap={};metasArr.forEach(r=>metasMap[r.loja_id]=parseFloat(r.meta_valor||0));
+  const metaTotal=metasMap[0]||null;
+  const metaPeriodo=metaTotal&&period==='month'?metaTotal:metaTotal&&period==='7d'?metaTotal/diasMes*7:metaTotal&&period==='today'?metaTotal/diasMes:null;
+
+  // core
+  const total=pedidos.reduce((s,p)=>s+parseFloat(p.total||0),0);
+  const n=pedidos.length;
+  const ticket=n>0?total/n:0;
+  const proj=diasDec>0?(total/diasDec)*(period==='month'?diasMes:diasTot):0;
+  const hoje=now.toISOString().slice(0,10);
+  const totalHoje=pedidos.filter(p=>p.data?.slice(0,10)===hoje).reduce((s,p)=>s+parseFloat(p.total||0),0);
+  const metaHoje=metaTotal?metaTotal/diasMes:null;
+  const pct=metaPeriodo?Math.round(total/metaPeriodo*100):null;
+  const pctCls=pct===null?'':pct>=100?'good':pct>=85?'warn':'bad';
+
+  // itens
+  const totalItens=pedidos.reduce((s,p)=>s+(p.itens?.reduce((si,i)=>si+(parseFloat(i.quantidade)||1),0)||1),0);
+  const mediaItens=n>0?totalItens/n:0;
+
+  // prev
+  const totalPrev=pedidosPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
+  const nPrev=pedidosPrev.length;
+  const ticketPrev=nPrev>0?totalPrev/nPrev:0;
+
+  // per loja
+  const porLojaId={},cntLojaId={};
+  pedidos.forEach(p=>{const id=p.loja?.id||0;porLojaId[id]=(porLojaId[id]||0)+parseFloat(p.total||0);cntLojaId[id]=(cntLojaId[id]||0)+1;});
+  const lojas=Object.entries(porLojaId).map(([id,v])=>({id:parseInt(id),nm:canais[id]||(id?'Canal #'+String(id).slice(-4):'Outros'),v,cnt:cntLojaId[id]})).sort((a,b)=>b.v-a.v);
+  const chartMaxL=Math.max(...lojas.map(l=>Math.max(l.v,metasMap[l.id]||0)),1);
+
+  // per day
+  const porDia={};
+  pedidos.forEach(p=>{const d=p.data?.slice(0,10)||'?';porDia[d]=(porDia[d]||0)+parseFloat(p.total||0);});
+  const dias=Object.entries(porDia).sort((a,b)=>a[0].localeCompare(b[0]));
+  const metaDia=metaTotal?metaTotal/diasMes:null;
+  const maxDia=Math.max(...dias.map(([,v])=>v),metaDia||0,1);
+
+  // per contato
+  const porVend={},cntVend={};
+  pedidos.forEach(p=>{const nm=p.contato?.nome||'Sem contato';porVend[nm]=(porVend[nm]||0)+parseFloat(p.total||0);cntVend[nm]=(cntVend[nm]||0)+1;});
+  const vends=Object.entries(porVend).sort((a,b)=>b[1]-a[1]);
+  const maxVend=vends[0]?.[1]||1;
+
+  const dUp=(v,b)=>!b?'':`<span class="vs2-kpi-delta ${v>=b?'up':'dn'}">${v>=b?'↑':'↓'} ${Math.abs(Math.round((v-b)/b*100))}%</span>`;
+  const dUpR=(v,b)=>!b?'':`<span class="vs2-kpi-delta ${v>=b?'up':'dn'}">${v>=b?'+':'-'} ${fmtR0(Math.abs(v-b))}</span>`;
+
+  document.getElementById('vessel-sales-body').innerHTML=`
+    <div class="vs2-kpis">
+      <div class="vs2-kpi primary">
+        <div class="vs2-kpi-icon">💰</div>
+        <div class="vs2-kpi-lbl">Venda Realizada</div>
+        <div class="vs2-kpi-val">${fmtR0(total)}</div>
+        ${metaPeriodo?dUpR(total,metaPeriodo)+'<div class="vs2-kpi-sub">vs meta</div>':`<div class="vs2-kpi-sub">${n} pedidos</div>`}
+      </div>
+      <div class="vs2-kpi">
+        <div class="vs2-kpi-icon">🎯</div>
+        <div class="vs2-kpi-lbl">Meta do Período</div>
+        <div class="vs2-kpi-val">${metaPeriodo?fmtR0(metaPeriodo):'—'}</div>
+        <div class="vs2-kpi-sub">Objetivo</div>
+      </div>
+      <div class="vs2-kpi ${pctCls}">
+        <div class="vs2-kpi-icon">📊</div>
+        <div class="vs2-kpi-lbl">% Atingido</div>
+        <div class="vs2-kpi-val">${pct!==null?pct+'%':'—'}</div>
+        ${pct!==null?`<div class="vs2-kpi-prog"><div class="vs2-kpi-prog-fill" style="width:0" data-w="${Math.min(pct,100)}"></div></div>`:''}
+        <div class="vs2-kpi-sub">${pct!==null?(pct>=100?'Meta batida!':`Faltam ${100-pct}%`):'Sem meta'}</div>
+      </div>
+      <div class="vs2-kpi">
+        <div class="vs2-kpi-icon">📈</div>
+        <div class="vs2-kpi-lbl">Projeção</div>
+        <div class="vs2-kpi-val">${fmtR0(proj)}</div>
+        ${metaPeriodo?dUpR(proj,metaPeriodo)+'<div class="vs2-kpi-sub">vs meta</div>':`<div class="vs2-kpi-sub">${diasDec}/${period==='month'?diasMes:diasTot} dias</div>`}
+      </div>
+      <div class="vs2-kpi">
+        <div class="vs2-kpi-icon">📅</div>
+        <div class="vs2-kpi-lbl">Meta de Hoje</div>
+        <div class="vs2-kpi-val">${metaHoje?fmtR0(metaHoje):'—'}</div>
+        <div class="vs2-kpi-sub">Hoje: ${fmtR0(totalHoje)}</div>
+      </div>
+      <div class="vs2-kpi">
+        <div class="vs2-kpi-icon">🛍️</div>
+        <div class="vs2-kpi-lbl">Média Itens/Venda</div>
+        <div class="vs2-kpi-val">${mediaItens.toFixed(2)}</div>
+        <div class="vs2-kpi-sub">${n} vendas · ${totalItens} itens</div>
+      </div>
+      <div class="vs2-kpi">
+        <div class="vs2-kpi-icon">🏷️</div>
+        <div class="vs2-kpi-lbl">Ticket Médio</div>
+        <div class="vs2-kpi-val">${fmtR(ticket)}</div>
+        ${ticketPrev?dUp(ticket,ticketPrev)+'<div class="vs2-kpi-sub">vs período anterior</div>':`<div class="vs2-kpi-sub">${n} pedidos</div>`}
+      </div>
+    </div>
+
+    <div class="vs2-section">
+      <div class="vs2-sec-hdr">
+        <span class="vs2-sec-title">Desdobramento por Loja / Canal</span>
+        <div class="vs2-legend">
+          <span class="vs2-legend-item"><span class="vs2-legend-dot" style="background:var(--green)"></span>≥ 100%</span>
+          <span class="vs2-legend-item"><span class="vs2-legend-dot" style="background:#b08000"></span>85–99%</span>
+          <span class="vs2-legend-item"><span class="vs2-legend-dot" style="background:var(--red)"></span>&lt; 85%</span>
+          <span class="vs2-legend-item"><span class="vs2-legend-dot" style="background:rgba(0,0,0,.06);border:1px dashed rgba(0,0,0,.2)"></span>Meta</span>
+        </div>
+      </div>
+      <div class="vs2-channels">
+        <div class="vs2-ch-chart">
+          <div class="vs2-ch-bars">
+            ${lojas.map(l=>{
+              const meta=metasMap[l.id]||null;
+              const pctL=meta?Math.round(l.v/meta*100):null;
+              const colCls=pctL===null?'':pctL>=100?'good':pctL>=85?'warn':'bad';
+              const pctCol=pctL===null?'var(--accent)':pctL>=100?'var(--green)':pctL>=85?'#b08000':'var(--red)';
+              const hR=Math.round(l.v/chartMaxL*110);
+              const hM=meta?Math.round(meta/chartMaxL*110):0;
+              return `<div class="vs2-ch-col">
+                <div class="vs2-ch-col-bars">
+                  ${meta?`<div class="vs2-ch-bar meta-bar" style="height:0" data-h="${hM}px"></div>`:''}
+                  <div class="vs2-ch-bar real-bar ${colCls}" style="height:0" data-h="${hR}px">
+                    ${pctL!==null?`<span class="vs2-ch-pct" style="color:${pctCol}">${pctL>=100?'↑':'↓'}${pctL}%</span>`:''}
+                  </div>
+                </div>
+                <div class="vs2-ch-nm" title="${l.nm}">${l.nm}</div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+        <div class="vs2-ch-summary">
+          <div class="vs2-ch-sum-cell"><div class="vs2-ch-sum-lbl">Meta</div><div class="vs2-ch-sum-val">${metaPeriodo?fmtR0(metaPeriodo):'—'}</div></div>
+          <div class="vs2-ch-sum-cell"><div class="vs2-ch-sum-lbl">Realizado</div><div class="vs2-ch-sum-val">${fmtR0(total)}</div></div>
+          <div class="vs2-ch-sum-cell"><div class="vs2-ch-sum-lbl">Desvio</div><div class="vs2-ch-sum-val ${metaPeriodo&&total<metaPeriodo?'bad':'good'}">${metaPeriodo?(total>=metaPeriodo?'+':'-')+fmtR0(Math.abs(total-metaPeriodo)):'—'}</div></div>
+          <div class="vs2-ch-sum-cell"><div class="vs2-ch-sum-lbl">Variação</div><div class="vs2-ch-sum-val ${pctCls}">${pct!==null?(pct>=100?'+':'')+(pct-100)+'%':'—'}</div></div>
+        </div>
+      </div>
+    </div>
+
+    ${dias.length>1?`
+    <div class="vs2-section">
+      <div class="vs2-sec-hdr">
+        <span class="vs2-sec-title">Visão Diária: Vendas por Dia</span>
+        <span style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted)">${n} vendas · ${fmtR0(total)}</span>
+      </div>
+      <div class="vs2-daily">
+        <div class="vs2-daily-chart">
+          ${dias.map(([d,v])=>{
+            const pctD=metaDia?Math.round(v/metaDia*100):null;
+            const colD=pctD===null?'':pctD>=100?'good':'bad';
+            const hR=Math.round(v/maxDia*90);
+            const hM=metaDia?Math.round(metaDia/maxDia*90):0;
+            return `<div class="vs2-day-col">
+              <div class="vs2-day-bars">
+                <div class="vs2-day-bar real ${colD}" style="height:0" data-h="${hR}px"></div>
+                ${metaDia?`<div class="vs2-day-bar meta" style="height:0" data-h="${hM}px"></div>`:''}
+              </div>
+              <div class="vs2-day-lbl">${d.slice(5).replace('-','/')}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`:''}
+
+    ${vends.length?`
+    <div class="vs2-section">
+      <div class="vs2-sec-hdr">
+        <span class="vs2-sec-title">Análise por Contato</span>
+        <span style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted)">${vends.length} contatos</span>
+      </div>
+      <div class="vs2-vend">
+        <table class="vs2-vend-tbl">
+          <thead><tr><th>Contato</th><th>Vendas (R$)</th><th>Pedidos</th><th>Ticket Médio</th></tr></thead>
+          <tbody>${vends.slice(0,20).map(([nm,v])=>`
+            <tr>
+              <td>${nm}</td>
+              <td class="num">${fmtR0(v)}<div class="vs2-vend-hbar-wrap"><div class="vs2-vend-hbar" style="width:0" data-w="${Math.round(v/maxVend*100)}%"></div></div></td>
+              <td class="num">${cntVend[nm]}</td>
+              <td class="num">${fmtR(v/cntVend[nm])}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`:''}
+  `;
+  setTimeout(()=>{
+    document.querySelectorAll('#vessel-sales-screen [data-h]').forEach(el=>el.style.height=el.dataset.h);
+    document.querySelectorAll('#vessel-sales-screen [data-w]').forEach(el=>el.style.width=el.dataset.w);
+  },100);
+}
+
+/* ── GESTÃO À VISTA ── */
+function startGVClock(){
+  const tEl=document.getElementById('gv-clock'),dEl=document.getElementById('gv-date');
+  if(!tEl)return;
+  const tick=()=>{
+    const now=new Date();
+    tEl.textContent=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0');
+    if(dEl){const ds=now.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});dEl.textContent=ds.toUpperCase();}
+  };
+  tick();if(window._gvClockTimer)clearInterval(window._gvClockTimer);
+  window._gvClockTimer=setInterval(tick,1000);
+}
+
+async function loadGestaoVistaData(){
+  const grid=document.getElementById('gv-board');
+  grid.innerHTML='<div class="gv-col" style="grid-column:1/-1;align-items:center;justify-content:center"><div class="gv-loading">Carregando dados...</div></div>';
+  const now=new Date();
+  const y=now.getFullYear(),m=now.getMonth()+1;
+  const di=`${y}-${String(m).padStart(2,'0')}-01`;
+  const df=now.toISOString().slice(0,10);
+  const diasMes=new Date(y,m,0).getDate();
+  const diaAtual=now.getDate();
+  const hoje=df;
+  try{
+    const[pedidos,lojasRows,metaRow]=await Promise.all([
+      blingPages('pedidos/vendas',{dataInicial:di,dataFinal:df,'idsSituacoes[]':9}),
+      sbClient.from('bling_lojas').select('loja_id,nome').then(r=>{const m={};(r.data||[]).forEach(l=>m[l.loja_id]=l.nome);return m;}).catch(()=>({})),
+      sbClient.from('bling_metas').select('meta_valor').eq('year',y).eq('month',m).eq('loja_id',0).maybeSingle()
+    ]);
+    const canais=lojasRows;
+    const metaTotal=metaRow.data?.meta_valor||null;
+    renderGestaoVista(pedidos,canais,metaTotal,hoje,diasMes,diaAtual);
+    // Auto-refresh every 5 min
+    if(window._gvTimer)clearInterval(window._gvTimer);
+    window._gvTimer=setInterval(loadGestaoVistaData,5*60*1000);
+    document.getElementById('gv-refresh-tag').textContent='PRÓX. '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()+5).padStart(2,'0');
+  }catch(e){
+    grid.innerHTML=`<div class="gv-col" style="grid-column:1/-1;align-items:center;justify-content:center"><div class="gv-loading">Erro: ${e.message}</div></div>`;
+  }
+}
+
+function renderGestaoVista(pedidos,canais,metaTotal,hoje,diasMes,diaAtual){
+  const total=pedidos.reduce((s,p)=>s+parseFloat(p.total||0),0);
+  const totalHoje=pedidos.filter(p=>p.data?.slice(0,10)===hoje).reduce((s,p)=>s+parseFloat(p.total||0),0);
+  const proj=diaAtual>0?(total/diaAtual)*diasMes:0;
+  const pct=metaTotal?Math.round(total/metaTotal*100):null;
+  const color=pct===null?'c-white':pct>=100?'c-green':pct>=80?'c-yellow':'c-red';
+  const ringPct=pct?Math.min(pct,100):0;
+
+  // SVG ring
+  const R=56,C=2*Math.PI*R;
+  const ringColor=pct===null?'rgba(255,255,255,.15)':pct>=100?'#22c55e':pct>=80?'#f59e0b':'#ef4444';
+  const dashOffset=C-(ringPct/100)*C;
+
+  // Per loja
+  const porLojaId={},cntLojaId={};
+  pedidos.forEach(p=>{const id=p.loja?.id||0;porLojaId[id]=(porLojaId[id]||0)+parseFloat(p.total||0);cntLojaId[id]=(cntLojaId[id]||0)+1;});
+  const lojas=Object.entries(porLojaId).map(([id,v])=>({nm:canais[id]||(id?'Canal #'+String(id).slice(-4):'Outros'),v,cnt:cntLojaId[id]})).sort((a,b)=>b.v-a.v);
+  const maxL=lojas[0]?.v||1;
+
+  // Per contato
+  const porVend={},cntVend={};
+  pedidos.forEach(p=>{const nm=(p.contato?.nome||'Sem contato').split(' ').slice(0,2).join(' ');porVend[nm]=(porVend[nm]||0)+parseFloat(p.total||0);cntVend[nm]=(cntVend[nm]||0)+1;});
+  const vends=Object.entries(porVend).sort((a,b)=>b[1]-a[1]);
+  const maxV=vends[0]?.[1]||1;
+
+  const numCls=i=>i===0?'gold':i===1?'silver':i===2?'bronze':'rest';
+
+  const lojasHtml=lojas.map((l,i)=>`
+    <div class="gv-rank-entry">
+      <span class="gv-rank-num ${numCls(i)}">${i+1}</span>
+      <div class="gv-rank-body">
+        <div class="gv-rank-row"><span class="gv-rank-nm">${l.nm}</span><span class="gv-rank-v">${fmtR0(l.v)}</span></div>
+        <div class="gv-rank-bar"><div class="gv-rank-bar-fill ${numCls(i)}" data-w="${Math.round(l.v/maxL*100)}%" style="width:0"></div></div>
+        <div class="gv-rank-hint">${l.cnt} pedido${l.cnt!==1?'s':''}</div>
+      </div>
+    </div>`).join('');
+
+  const vendsHtml=vends.slice(0,8).map(([nm,v],i)=>`
+    <div class="gv-rank-entry">
+      <span class="gv-rank-num ${numCls(i)}">${i+1}</span>
+      <div class="gv-rank-body">
+        <div class="gv-rank-row"><span class="gv-rank-nm">${nm}</span><span class="gv-rank-v">${fmtR0(v)}</span></div>
+        <div class="gv-rank-bar"><div class="gv-rank-bar-fill ${numCls(i)}" data-w="${Math.round(v/maxV*100)}%" style="width:0"></div></div>
+        <div class="gv-rank-hint">${cntVend[nm]} pedido${cntVend[nm]!==1?'s':''}</div>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('gv-board').innerHTML=`
+    <div class="gv-col">
+      <div class="gv-kpi-period">${String(diaAtual).padStart(2,'0')}/${String(new Date().getMonth()+1).padStart(2,'0')} · Dia ${diaAtual} de ${diasMes}</div>
+      <div class="gv-big-num ${color}">${fmtR0(total)}</div>
+      <div class="gv-ring-area">
+        <svg width="132" height="132" viewBox="0 0 132 132">
+          <circle cx="66" cy="66" r="${R}" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="10"/>
+          <circle cx="66" cy="66" r="${R}" fill="none" stroke="${ringColor}" stroke-width="10"
+            stroke-linecap="round" stroke-dasharray="${C.toFixed(2)}" stroke-dashoffset="${C.toFixed(2)}"
+            transform="rotate(-90 66 66)" id="gv-ring-circle"
+            style="transition:stroke-dashoffset 2s cubic-bezier(.4,0,.2,1);filter:drop-shadow(0 0 8px ${ringColor}88)"/>
+        </svg>
+        <div class="gv-ring-right">
+          <div class="gv-ring-pct ${color}">${pct!==null?pct+'%':'—'}</div>
+          <div class="gv-ring-meta">Da meta mensal</div>
+          ${metaTotal?`<div class="gv-ring-meta">Meta: <strong>${fmtR0(metaTotal)}</strong></div>`:''}
+        </div>
+      </div>
+      <div class="gv-sub-row">
+        <div class="gv-sub-box"><div class="gv-sub-lbl">Hoje</div><div class="gv-sub-val">${fmtR0(totalHoje)}</div></div>
+        <div class="gv-sub-box"><div class="gv-sub-lbl">Projeção</div><div class="gv-sub-val">${fmtR0(proj)}</div></div>
+        <div class="gv-sub-box"><div class="gv-sub-lbl">Pedidos</div><div class="gv-sub-val">${pedidos.length}</div></div>
+        <div class="gv-sub-box"><div class="gv-sub-lbl">Ticket</div><div class="gv-sub-val">${fmtR(pedidos.length>0?total/pedidos.length:0)}</div></div>
+      </div>
+    </div>
+    <div class="gv-col">
+      <div class="gv-rank-col-hdr">Por Canal / Loja</div>
+      ${lojasHtml}
+    </div>
+    <div class="gv-col">
+      <div class="gv-rank-col-hdr">Por Contato</div>
+      ${vendsHtml}
+    </div>
+  `;
+
+  // Ticker
+  const recent=[...pedidos].slice(-15).reverse();
+  const tickItems=recent.map(p=>`<span class="gv-ticker-item"><strong>${canais[p.loja?.id]||'#'+p.numero}</strong> · ${fmtR(parseFloat(p.total||0))}</span>`);
+  document.getElementById('gv-ticker-inner').innerHTML=tickItems.concat(tickItems).join('<span class="gv-ticker-dot"></span>');
+  if(recent.length>0)document.getElementById('gv-ticker-inner').classList.add('animate');
+
+  setTimeout(()=>{
+    const circle=document.getElementById('gv-ring-circle');
+    if(circle)circle.style.strokeDashoffset=dashOffset.toFixed(2);
+    document.querySelectorAll('#gestao-vista-screen [data-w]').forEach(el=>el.style.width=el.dataset.w);
+  },150);
+}
+
+/* ── HOME BG HOVER THEMES ── */
+const _S='rgba(29,78,216,1)',_SF='rgba(29,78,216,0.28)';
+const BG_ICON_SETS={
+  default:[
+    `<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`,
+    `<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+    `<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>`,
+    `<svg width="70" height="70" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>`,
+    `<svg width="70" height="70" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="${_SF}" stroke="none"/></svg>`,
+    `<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>`,
+    `<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`
+  ],
+  social:[
+    `<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="8.5" r="1.2" fill="${_S}"/></svg>`,
+    `<svg width="64" height="64" viewBox="0 0 24 24" fill="${_SF}" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`,
+    `<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+    `<svg width="70" height="70" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>`,
+    `<svg width="70" height="70" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+    `<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`,
+    `<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="${_SF}" stroke="none"/></svg>`
+  ],
+  sales:[
+    `<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
+    `<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`,
+    `<svg width="70" height="70" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`,
+    `<svg width="70" height="70" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>`,
+    `<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`,
+    `<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
+    `<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`
+  ],
+  admin:[
+    `<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>`,
+    `<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
+    `<svg width="70" height="70" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+    `<svg width="70" height="70" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>`,
+    `<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+    `<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>`,
+    `<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${_S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>`
+  ]
+};
+function setHomeBgTheme(type){
+  const icos=document.querySelectorAll('#bg-shapes .ico');
+  const set=BG_ICON_SETS[type]||BG_ICON_SETS.default;
+  icos.forEach(el=>el.style.opacity='0');
+  setTimeout(()=>{icos.forEach((el,i)=>{if(set[i])el.innerHTML=set[i];});icos.forEach(el=>el.style.opacity='.20');},220);
+}
 </script>
 
 <!-- CAMPAIGN FILTER MODAL -->
@@ -2295,6 +3235,114 @@ async function loadCampaignFilterBadge(){
       <button class="btn-camp-none" onclick="saveNoneCampaigns()">Nenhuma</button>
       <button class="btn-camp-save" onclick="saveCampaignFilter()">Salvar filtro</button>
     </div>
+  </div>
+</div>
+
+<!-- SALES MENU SCREEN -->
+<div id="sales-menu-screen" style="display:none">
+  <div class="smenu-topbar">
+    <button class="smenu-back" onclick="closeSalesDashboard()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Central</button>
+    <span class="smenu-title">Dashboard de Vendas</span>
+    <span></span>
+  </div>
+  <div class="smenu-body">
+    <div class="smenu-headline">
+      <h2>Escolha seu modo</h2>
+      <p>Visualizações disponíveis para dados de vendas</p>
+    </div>
+    <div class="smenu-cards">
+      <div class="smenu-card" onclick="openGestaoVista()">
+        <span class="smenu-card-num">01</span>
+        <div class="smenu-card-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        </div>
+        <div class="smenu-card-title">Gestão à Vista</div>
+        <div class="smenu-card-desc">Painel dinâmico para TVs — ranking em tempo real, metas e evolução do mês para manter o time focado em vendas.</div>
+        <span class="smenu-card-enter">→</span>
+      </div>
+      <div class="smenu-card" onclick="openSalesBrandPicker()">
+        <span class="smenu-card-num">02</span>
+        <div class="smenu-card-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        </div>
+        <div class="smenu-card-title">Análise de Vendas</div>
+        <div class="smenu-card-desc">KPIs detalhados, histórico e breakdown completo por canal, loja e vendedor — por marca.</div>
+        <span class="smenu-card-enter">→</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SALES BRAND PICKER -->
+<div id="sales-brand-screen" style="display:none">
+  <div class="smenu-topbar">
+    <button class="smenu-back" onclick="closeSalesBrandPicker()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Vendas</button>
+    <span class="smenu-title">Análise de Vendas</span>
+    <span></span>
+  </div>
+  <div class="sbrand-body">
+    <div class="sbrand-title">Selecione a marca</div>
+    <div class="sbrand-grid">
+      <div class="sbrand-card" onclick="openVesselSales()">
+        <img id="sbrand-vessel-img" class="sbrand-avatar" src="" alt="Vessel" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="sbrand-avatar-ph" style="display:none">V</div>
+        <div class="sbrand-name">Vessel Brasil</div>
+        <span class="sbrand-badge">Ativo</span>
+      </div>
+      <div class="sbrand-card soon">
+        <img id="sbrand-raissa-img" class="sbrand-avatar" src="" alt="Raíssa" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="sbrand-avatar-ph" style="display:none">R</div>
+        <div class="sbrand-name">Raissa Herculano Milano</div>
+        <span class="sbrand-badge soon">Em Breve</span>
+      </div>
+      <div class="sbrand-card soon">
+        <img id="sbrand-mantova-img" class="sbrand-avatar" src="" alt="Mantova" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="sbrand-avatar-ph" style="display:none">M</div>
+        <div class="sbrand-name">Mantova Planejados</div>
+        <span class="sbrand-badge soon">Em Breve</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VESSEL SALES ANALYSIS -->
+<div id="vessel-sales-screen" style="display:none">
+  <div class="vsales-topbar">
+    <button class="vsales-back" onclick="closeVesselSales()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Marcas</button>
+    <div class="vsales-brand">
+      <img id="vsales-brand-av" class="vsales-brand-av" src="" alt="" onerror="this.style.display='none'">
+      <span class="vsales-brand-nm">Vessel · Análise de Vendas</span>
+    </div>
+    <div class="vsales-period-btns">
+      <button class="vsales-pbtn active" data-period="month" onclick="loadVesselSalesData('month')">Mês</button>
+      <button class="vsales-pbtn" data-period="7d" onclick="loadVesselSalesData('7d')">7D</button>
+      <button class="vsales-pbtn" data-period="today" onclick="loadVesselSalesData('today')">Hoje</button>
+    </div>
+  </div>
+  <div class="vsales-body" id="vessel-sales-body">
+    <div class="vsales-loading">Carregando dados...</div>
+  </div>
+</div>
+
+<!-- GESTÃO À VISTA — TV BOARD v2 -->
+<div id="gestao-vista-screen" style="display:none">
+  <div class="gv-topbar">
+    <button class="gv-back" onclick="closeGestaoVista()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Voltar</button>
+    <span class="gv-brand-tag">Vessel Brasil · Gestão à Vista</span>
+    <div class="gv-clock-wrap">
+      <div class="gv-clock-time" id="gv-clock">--:--:--</div>
+      <div class="gv-clock-date" id="gv-date"></div>
+    </div>
+  </div>
+  <div class="gv-board" id="gv-board">
+    <div class="gv-col" style="grid-column:1/-1;align-items:center;justify-content:center">
+      <div class="gv-loading">Carregando dados...</div>
+    </div>
+  </div>
+  <div class="gv-ticker">
+    <span class="gv-ticker-lbl">Últimos pedidos</span>
+    <div class="gv-ticker-outer"><div class="gv-ticker-inner" id="gv-ticker-inner">—</div></div>
+    <span class="gv-refresh-tag" id="gv-refresh-tag">—</span>
   </div>
 </div>
 </body>
