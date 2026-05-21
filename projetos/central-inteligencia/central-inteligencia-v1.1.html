@@ -69,9 +69,9 @@
   #apb-name{font-family:'Oswald',sans-serif;font-size:22px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--text);}
 
   /* AUTO-CYCLE */
-  .wrapper{transition:opacity .18s ease,transform .18s ease;}
-  .wrapper.fading{opacity:.25;transform:scale(.998) translateY(2px);}
-  .wrapper.entering{animation:profileEnter .3s cubic-bezier(.22,1,.36,1) both;}
+  .wrapper{transition:opacity .08s ease;}
+  .wrapper.fading{opacity:.4;}
+  .wrapper.entering{animation:profileEnter .28s cubic-bezier(.22,1,.36,1) both;}
   /* AUTO-CYCLE TOGGLE */
   .ac-toggle{display:inline-flex;align-items:center;gap:7px;cursor:pointer;user-select:none;}
   .ac-toggle-track{width:34px;height:19px;border-radius:10px;background:var(--border);position:relative;flex-shrink:0;transition:background .25s ease;border:1px solid rgba(0,0,0,.08);}
@@ -749,7 +749,7 @@
   .gv-main-kpi-item{display:flex;flex-direction:column;align-items:center;gap:1px;}
   .gv-main-kpi-v{font-family:'Oswald',sans-serif;font-size:26px;font-weight:500;color:var(--text);}
   .gv-main-kpi-l{font-family:'IBM Plex Sans',sans-serif;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
-  .gv-main-kpi-d{font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;letter-spacing:.2px;}
+  .gv-main-kpi-d{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.2px;}
   .gv-loading-full{grid-column:1/-1;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:14px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);opacity:.4;}
   /* KPI col */
   .gv-kpi-period{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px;flex-shrink:0;}
@@ -3207,7 +3207,7 @@ function fmtR0(v){return 'R$ '+Math.round(Number(v)).toLocaleString('pt-BR');}
 async function loadVesselSalesData(period,customDi,customDf){
   document.querySelectorAll('.vsales-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===period));
   const _vsBody=document.getElementById('vessel-sales-body');
-  _vsBody.style.cssText='opacity:.2;transform:translateY(3px);transition:opacity .18s ease,transform .18s ease;pointer-events:none;';
+  _vsBody.style.cssText='opacity:.45;transition:opacity .08s ease;pointer-events:none;';
   const now=new Date();
   const y=now.getFullYear(),m=now.getMonth()+1;
   let di,df;
@@ -3482,7 +3482,7 @@ async function loadGestaoVistaData(period){
   else period=_gvCurrentPeriod;
   document.querySelectorAll('.gv-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===period));
   const board=document.getElementById('gv-board');
-  board.style.cssText='opacity:.2;transform:translateY(3px);transition:opacity .18s ease,transform .18s ease;pointer-events:none;';
+  board.style.cssText='opacity:.45;transition:opacity .08s ease;pointer-events:none;';
   const now=new Date();
   const y=now.getFullYear(),m=now.getMonth()+1;
   const iso=d=>d.toISOString().slice(0,10);
@@ -3578,6 +3578,11 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   const ticket=pedidos.length?total/pedidos.length:0;
   const ticketPrev=cntPrev?totalPrev/cntPrev:0;
   const deltaTicket=(ticketPrev>0)?Math.round((ticket-ticketPrev)/ticketPrev*100):null;
+  const totalHojePrev=(pedidosPrev||[]).filter(p=>p.data?.slice(0,10)===dfPrev).reduce((s,p)=>s+parseFloat(p.total||0),0);
+  const deltaHoje=totalHojePrev>0?Math.round((totalHoje-totalHojePrev)/totalHojePrev*100):null;
+  const projPrev=diasTot>0?totalPrev/diasTot*diasMes:0;
+  const deltaProj=projPrev>0?Math.round((proj-projPrev)/projPrev*100):null;
+  const deltaCnt=cntPrev>0?Math.round((pedidos.length-cntPrev)/cntPrev*100):null;
 
   // Per canal — current + prev
   const porCanal={},cntCanal={};
@@ -3729,12 +3734,25 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
         </div>
       </div>
       <div class="gv-main-kpi">
-        <div class="gv-main-kpi-item"><div class="gv-main-kpi-v">${fmtR0(totalHoje)}</div><div class="gv-main-kpi-l">Hoje</div></div>
-        <div class="gv-main-kpi-item"><div class="gv-main-kpi-v">${fmtR0(proj)}</div><div class="gv-main-kpi-l">Projeção</div></div>
-        <div class="gv-main-kpi-item"><div class="gv-main-kpi-v">${pedidos.length}</div><div class="gv-main-kpi-l">Pedidos</div></div>
+        <div class="gv-main-kpi-item">
+          <div class="gv-main-kpi-v">${fmtR0(totalHoje)}</div>
+          <div class="gv-main-kpi-l">Hoje</div>
+          ${deltaHoje!=null?`<div class="gv-main-kpi-d" style="color:${deltaHoje>=0?'#22c55e':'#f43f5e'}">${deltaHoje>=0?'↑':'↓'}${Math.abs(deltaHoje)}% vs ${prevLbl}</div>`:''}
+        </div>
+        <div class="gv-main-kpi-item">
+          <div class="gv-main-kpi-v">${fmtR0(proj)}</div>
+          <div class="gv-main-kpi-l">Projeção</div>
+          ${deltaProj!=null?`<div class="gv-main-kpi-d" style="color:${deltaProj>=0?'#22c55e':'#f43f5e'}">${deltaProj>=0?'↑':'↓'}${Math.abs(deltaProj)}% vs ${prevLbl}</div>`:''}
+        </div>
+        <div class="gv-main-kpi-item">
+          <div class="gv-main-kpi-v">${pedidos.length}</div>
+          <div class="gv-main-kpi-l">Pedidos</div>
+          ${deltaCnt!=null?`<div class="gv-main-kpi-d" style="color:${deltaCnt>=0?'#22c55e':'#f43f5e'}">${deltaCnt>=0?'↑':'↓'}${Math.abs(deltaCnt)}% vs ${prevLbl}</div>`:''}
+        </div>
         <div class="gv-main-kpi-item">
           <div class="gv-main-kpi-v">${fmtR(ticket)}</div>
-          <div class="gv-main-kpi-l">Ticket ${deltaTicket!=null?'<span style="font-size:9px;color:'+(deltaTicket>=0?'#22c55e':'#f43f5e')+'">'+(deltaTicket>=0?'↑':'↓')+Math.abs(deltaTicket)+'%</span>':''}</div>
+          <div class="gv-main-kpi-l">Ticket</div>
+          ${deltaTicket!=null?`<div class="gv-main-kpi-d" style="color:${deltaTicket>=0?'#22c55e':'#f43f5e'}">${deltaTicket>=0?'↑':'↓'}${Math.abs(deltaTicket)}% vs ${prevLbl}</div>`:''}
         </div>
         ${desvioMeta!=null?`<div class="gv-main-kpi-item"><div class="gv-main-kpi-v" style="color:${desvioMeta>=0?'#22c55e':'#f43f5e'}">${desvioMeta>=0?'+':''}${fmtR0(desvioMeta)}</div><div class="gv-main-kpi-l">Desvio Meta</div></div>`:''}
         ${deltaPct!=null?`<div class="gv-main-kpi-item"><div class="gv-main-kpi-v" style="color:${deltaPct>=0?'#22c55e':'#f43f5e'}">${deltaPct>=0?'+':''}${deltaPct}%</div><div class="gv-main-kpi-l">Var. Período</div></div>`:''}
