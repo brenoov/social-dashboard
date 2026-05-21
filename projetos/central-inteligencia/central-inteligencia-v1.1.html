@@ -3100,9 +3100,16 @@ function openGestaoVista(){
   loadGestaoVistaData('month');
   gvAutoStart();
 }
+let _gvSkuVersion=0;
 async function _gvBuildSkuSlide(pedidos){
+  // Incrementa versão — se trocar período durante o fetch, a versão antiga aborta
+  const myVersion=++_gvSkuVersion;
+  // Aguarda 1s para dar prioridade ao fetch principal dos pedidos
+  await new Promise(r=>setTimeout(r,1000));
+  if(myVersion!==_gvSkuVersion)return;
   const skuMap={};
   for(const p of pedidos){
+    if(myVersion!==_gvSkuVersion)return; // cancelado por nova troca de período
     try{
       const resp=await blingCall(`pedidos/vendas/${p.id}`,{});
       const dt=p.data?new Date(p.data):null;
@@ -3118,6 +3125,7 @@ async function _gvBuildSkuSlide(pedidos){
       }
     }catch(e){}
   }
+  if(myVersion!==_gvSkuVersion)return;
   const topSkus=Object.values(skuMap).sort((a,b)=>b.qty-a.qty).slice(0,25);
   if(!topSkus.length)return;
   const items=topSkus.map((s,i)=>{
