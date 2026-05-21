@@ -330,6 +330,56 @@
   /* Botão home no dashboard */
   .home-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);cursor:pointer;transition:all .18s;letter-spacing:.5px;display:flex;align-items:center;gap:6px;}
   .home-btn:hover{border-color:var(--accent);color:var(--accent);}
+  /* ── ADMIN MODULE ── */
+  #admin-screen{min-height:100vh;display:none;flex-direction:column;background:var(--bg);}
+  .admin-topbar{display:flex;align-items:center;justify-content:space-between;padding:13px 24px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
+  .admin-topbar-back{display:flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;letter-spacing:.2px;}
+  .admin-topbar-title{font-family:'Oswald',sans-serif;font-size:15px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--text);}
+  .admin-layout{display:grid;grid-template-columns:210px 1fr;min-height:calc(100vh - 50px);}
+  .admin-sidebar{border-right:1px solid var(--border);padding:12px 8px;background:var(--surface2);overflow-y:auto;}
+  .admin-nav-group-label{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(10,10,18,.35);padding:14px 12px 4px;margin-top:4px;}
+  .admin-nav-group-label:first-child{margin-top:0;}
+  .admin-nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:7px;cursor:pointer;transition:all .15s;font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--text);margin-bottom:1px;user-select:none;}
+  .admin-nav-item:hover{background:var(--surface);}
+  .admin-nav-item.active{background:var(--accent-light);color:var(--accent);}
+  .admin-nav-item svg{flex-shrink:0;opacity:.6;}
+  .admin-nav-item.active svg{opacity:1;}
+  .admin-content{padding:36px 44px;overflow-y:auto;max-height:calc(100vh - 50px);}
+  .admin-section{display:none;}
+  .admin-section.active{display:block;}
+  .admin-section-title{font-family:'Oswald',sans-serif;font-size:22px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);margin-bottom:3px;}
+  .admin-section-sub{font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);margin-bottom:28px;}
+  .admin-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:24px;}
+  .admin-stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;}
+  .admin-stat-val{font-family:'Oswald',sans-serif;font-size:30px;font-weight:500;color:var(--accent);}
+  .admin-stat-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-top:3px;}
+  .sg-label{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(10,10,18,.35);padding:0 4px 6px;margin-top:18px;display:block;}
+  .sg{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:4px;}
+  .sr{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);transition:background .15s;}
+  .sr:last-child{border-bottom:none;}
+  .sr.clickable{cursor:pointer;}
+  .sr.clickable:hover{background:var(--surface2);}
+  .sr-icon{width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .sr-main{flex:1;}
+  .sr-label{font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--text);font-weight:500;}
+  .sr-sub{font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);margin-top:1px;}
+  .sr-val{font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);white-space:nowrap;}
+  .sr-btn{font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--accent);cursor:pointer;background:var(--accent-light);border:none;padding:5px 12px;border-radius:5px;transition:all .15s;white-space:nowrap;}
+  .sr-btn:hover{background:var(--accent);color:#fff;}
+  .sr-btn.danger{color:#dc2626;background:rgba(220,38,38,.08);}
+  .sr-btn.danger:hover{background:#dc2626;color:#fff;}
+  .admin-role-chip{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:4px;font-weight:600;}
+  .admin-role-chip.admin{background:rgba(29,78,216,.1);color:var(--accent);}
+  .admin-role-chip.viewer{background:var(--surface2);color:var(--muted);}
+  .admin-input-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 16px;}
+  .admin-color-dot{width:18px;height:18px;border-radius:50%;flex-shrink:0;border:2px solid rgba(0,0,0,.08);}
+  .online-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0;}
+  /* Admin card on home */
+  .card-admin .home-card-icon{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);}
+  .card-admin{border-color:rgba(15,23,42,.1);}
+  .card-admin:hover{border-color:#0f172a;box-shadow:0 10px 28px rgba(15,23,42,.15);}
+  /* Responsive admin */
+  @media(max-width:768px){.admin-layout{grid-template-columns:1fr;}.admin-sidebar{display:flex;overflow-x:auto;border-right:none;border-bottom:1px solid var(--border);padding:8px;gap:4px;}.admin-nav-group-label{display:none;}.admin-content{padding:20px 16px;}}
   .auth-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:44px 40px;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.06);}
   .auth-logo{text-align:center;margin-bottom:32px;}
   .auth-logo .ig-icon{width:72px;height:72px;border-radius:4px;background:transparent;display:block;margin:0 auto 14px;}
@@ -502,11 +552,121 @@
         </div>
         <span class="home-card-enter">→</span>
       </div>
+      <div class="home-card card-admin" id="home-card-admin" onclick="openAdmin()" style="display:none">
+        <div class="home-card-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+        </div>
+        <div class="home-card-text">
+          <h3>Administração</h3>
+          <p>Controle total da Central de Inteligência</p>
+        </div>
+        <span class="home-card-enter">→</span>
+      </div>
     </div>
   </div>
   <footer class="home-footer">
     <div class="home-footer-phrase">Mentalidade Vencedora</div>
   </footer>
+</div>
+
+<!-- ADMIN SCREEN -->
+<div id="admin-screen">
+  <div class="admin-topbar">
+    <button class="admin-topbar-back" onclick="closeAdmin()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Central</button>
+    <span class="admin-topbar-title">Administração</span>
+    <span id="admin-topbar-user" style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted)"></span>
+  </div>
+  <div class="admin-layout">
+    <nav class="admin-sidebar">
+      <div class="admin-nav-group-label">Gestão</div>
+      <div class="admin-nav-item active" data-section="users" onclick="loadAdminSection('users')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Usuários</span></div>
+      <div class="admin-nav-item" data-section="accounts" onclick="loadAdminSection('accounts')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg><span>Contas</span></div>
+      <div class="admin-nav-group-label">Plataforma</div>
+      <div class="admin-nav-item" data-section="appearance" onclick="loadAdminSection('appearance')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg><span>Aparência</span></div>
+      <div class="admin-nav-item" data-section="data" onclick="loadAdminSection('data')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><span>Dados</span></div>
+      <div class="admin-nav-group-label">Info</div>
+      <div class="admin-nav-item" data-section="system" onclick="loadAdminSection('system')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Sistema</span></div>
+    </nav>
+    <div class="admin-content">
+      <!-- USUÁRIOS -->
+      <div class="admin-section active" id="admin-section-users">
+        <div class="admin-section-title">Usuários & Acessos</div>
+        <div class="admin-section-sub">Gerencie quem tem acesso à Central de Inteligência</div>
+        <div id="admin-stats-users" class="admin-stats"></div>
+        <span class="sg-label">Usuários cadastrados</span>
+        <div class="sg" id="admin-user-list"></div>
+        <span class="sg-label">Convidar novo usuário</span>
+        <div class="sg">
+          <div class="admin-input-row">
+            <input type="text" id="adm-name" class="auth-input" placeholder="Nome">
+            <input type="email" id="adm-email" class="auth-input" placeholder="Email">
+            <input type="password" id="adm-pass" class="auth-input" placeholder="Senha inicial (mín. 6)">
+            <select id="adm-role" class="auth-input"><option value="viewer">Visualizador</option><option value="admin">Administrador</option></select>
+          </div>
+          <div class="sr" style="justify-content:space-between;border-top:1px solid var(--border)">
+            <div id="adm-invite-msg" style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted)"></div>
+            <button class="sr-btn" onclick="adminInviteUser()" style="background:var(--accent);color:#fff;font-size:12px;padding:7px 20px">Criar acesso</button>
+          </div>
+        </div>
+      </div>
+      <!-- CONTAS -->
+      <div class="admin-section" id="admin-section-accounts">
+        <div class="admin-section-title">Contas Conectadas</div>
+        <div class="admin-section-sub">Perfis do Instagram vinculados à plataforma</div>
+        <div id="admin-accounts-list"></div>
+      </div>
+      <!-- APARÊNCIA -->
+      <div class="admin-section" id="admin-section-appearance">
+        <div class="admin-section-title">Aparência</div>
+        <div class="admin-section-sub">Identidade visual da plataforma</div>
+        <span class="sg-label">Logo & identidade</span>
+        <div class="sg">
+          <div class="sr" style="justify-content:space-between"><div class="sr-main"><div class="sr-label">Logo principal</div><div class="sr-sub">Header e tela de login</div></div><img src="https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/profile-pics/rbv-logo.png" style="width:38px;height:38px;object-fit:contain;border-radius:6px"></div>
+          <div class="sr" style="justify-content:space-between"><div class="sr-main"><div class="sr-label">Nome da plataforma</div><div class="sr-sub">Exibido no header e login</div></div><span class="sr-val">Inteligência RBV</span></div>
+          <div class="sr" style="justify-content:space-between"><div class="sr-main"><div class="sr-label">Frase de rodapé</div><div class="sr-sub">Tela inicial</div></div><span class="sr-val">Mentalidade Vencedora</span></div>
+        </div>
+        <span class="sg-label">Paleta de cores por conta</span>
+        <div class="sg" id="admin-theme-list"></div>
+      </div>
+      <!-- DADOS -->
+      <div class="admin-section" id="admin-section-data">
+        <div class="admin-section-title">Dados & Sincronização</div>
+        <div class="admin-section-sub">Saúde do banco de dados e coleta de dados</div>
+        <div id="admin-data-stats" class="admin-stats"></div>
+        <span class="sg-label">Última coleta por conta</span>
+        <div class="sg" id="admin-data-sync"></div>
+        <span class="sg-label">Ações de manutenção</span>
+        <div class="sg">
+          <div class="sr clickable" style="justify-content:space-between" onclick="adminShowRefetchInfo()"><div class="sr-main"><div class="sr-label">Atualizar fotos de perfil</div><div class="sr-sub">Rebusca as fotos dos perfis via Meta API</div></div><span style="font-size:18px">↻</span></div>
+          <div class="sr clickable" style="justify-content:space-between" onclick="adminShowColetorInfo()"><div class="sr-main"><div class="sr-label">Rodar coletor de dados</div><div class="sr-sub">Coleta métricas do Instagram para todos os perfis</div></div><span style="font-size:18px">⚡</span></div>
+        </div>
+        <div id="admin-action-info" style="display:none;margin-top:12px"></div>
+      </div>
+      <!-- SISTEMA -->
+      <div class="admin-section" id="admin-section-system">
+        <div class="admin-section-title">Sistema</div>
+        <div class="admin-section-sub">Informações técnicas da plataforma</div>
+        <span class="sg-label">Plataforma</span>
+        <div class="sg">
+          <div class="sr" style="justify-content:space-between"><div class="sr-label">Versão</div><span class="sr-val">Central de Inteligência v1.1</span></div>
+          <div class="sr" style="justify-content:space-between"><div class="sr-label">Ambiente</div><span class="sr-val" style="color:#16a34a;font-weight:600">● Produção</span></div>
+          <div class="sr" style="justify-content:space-between"><div class="sr-label">Domínio</div><span class="sr-val">socialdashboard.rbvcompany.com</span></div>
+        </div>
+        <span class="sg-label">Infraestrutura</span>
+        <div class="sg">
+          <div class="sr" style="justify-content:space-between"><div class="sr-main"><div class="sr-label">Banco de dados</div><div class="sr-sub">Supabase · sa-east-1 (Brasil)</div></div><span class="sr-val">PostgreSQL</span></div>
+          <div class="sr" style="justify-content:space-between"><div class="sr-main"><div class="sr-label">Hospedagem</div><div class="sr-sub">Deploy automático via GitHub</div></div><span class="sr-val">Vercel</span></div>
+          <div class="sr" style="justify-content:space-between"><div class="sr-main"><div class="sr-label">Dados em tempo real</div><div class="sr-sub">Meta Graph API v21.0</div></div><span class="sr-val">Instagram</span></div>
+        </div>
+        <span class="sg-label">Desenvolvimento</span>
+        <div class="sg">
+          <div class="sr" style="justify-content:space-between"><div class="sr-label">Empresa</div><span class="sr-val">RBV Company</span></div>
+          <div class="sr" style="justify-content:space-between"><div class="sr-label">Motor de IA</div><span class="sr-val">Claude AI · Anthropic</span></div>
+          <div class="sr" style="justify-content:space-between"><div class="sr-label">Tokens Meta API</div><span class="sr-val" id="sys-token-expiry" style="color:#f59e0b">Verificando...</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div id="autocycle-progress"></div>
@@ -1423,6 +1583,141 @@ function setHomeView(v){
   document.getElementById('vt-list').classList.toggle('active',v==='list');
   localStorage.setItem('home-view',v);
 }
+/* ── ADMIN MODULE ── */
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function mkEl(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;}
+function mkRow(lbl,sub){const r=mkEl('div','sr');r.style.justifyContent='space-between';const m=mkEl('div','sr-main');m.appendChild(mkEl('div','sr-label',lbl));if(sub)m.appendChild(mkEl('div','sr-sub',sub));r.appendChild(m);return r;}
+
+function openAdmin(skipStorage){
+  if(!skipStorage)sessionStorage.setItem('rbv-screen','admin');
+  ['auth-screen','home-screen'].forEach(id=>document.getElementById(id).style.display='none');
+  document.querySelector('.wrapper').style.display='none';
+  document.getElementById('admin-screen').style.display='flex';
+  document.getElementById('admin-topbar-user').textContent=document.getElementById('home-user-email').textContent.trim();
+  loadAdminSection('users');
+}
+function closeAdmin(){document.getElementById('admin-screen').style.display='none';showHome();}
+function loadAdminSection(name){
+  document.querySelectorAll('.admin-nav-item').forEach(el=>el.classList.toggle('active',el.dataset.section===name));
+  document.querySelectorAll('.admin-section').forEach(el=>el.classList.remove('active'));
+  const sec=document.getElementById('admin-section-'+name);if(sec)sec.classList.add('active');
+  ({users:loadAdminUsers,accounts:loadAdminAccounts,appearance:loadAdminAppearance,data:loadAdminData,system:loadAdminSystem})[name]?.();
+}
+async function loadAdminUsers(){
+  const tok=currentSession?.access_token||SUPABASE_ANON_KEY;
+  const res=await fetch(`${SUPABASE_URL}/rest/v1/profiles?order=created_at.asc&select=id,email,name,role`,{headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${tok}`}});
+  const users=await res.json();if(!Array.isArray(users))return;
+  const admins=users.filter(u=>u.role==='admin').length;
+  const stats=document.getElementById('admin-stats-users');stats.innerHTML='';
+  [[users.length,'Total'],[admins,'Admins'],[users.length-admins,'Viewers']].forEach(([v,l])=>{
+    const s=mkEl('div','admin-stat');const sv=mkEl('div','admin-stat-val',String(v));const sl=mkEl('div','admin-stat-lbl',l);s.appendChild(sv);s.appendChild(sl);stats.appendChild(s);
+  });
+  const list=document.getElementById('admin-user-list');list.innerHTML='';
+  users.forEach(u=>{
+    const row=mkRow(u.name||'—',u.email);
+    const sel=mkEl('select','auth-input');sel.style.maxWidth='130px';sel.style.fontSize='11px';
+    ['viewer','admin'].forEach(v=>{const o=mkEl('option');o.value=v;o.textContent=v==='viewer'?'Visualizador':'Admin';if(u.role===v)o.selected=true;sel.appendChild(o);});
+    sel.addEventListener('change',()=>adminChangeRole(u.id,sel.value));
+    const wrap=mkEl('div');wrap.style.cssText='display:flex;align-items:center;gap:10px';wrap.appendChild(sel);row.appendChild(wrap);
+    list.appendChild(row);
+  });
+}
+async function adminChangeRole(uid,role){
+  const tok=currentSession?.access_token||SUPABASE_ANON_KEY;
+  await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${uid}`,{method:'PATCH',headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${tok}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({role})});
+}
+async function adminInviteUser(){
+  const email=document.getElementById('adm-email').value.trim();
+  const name=document.getElementById('adm-name').value.trim();
+  const password=document.getElementById('adm-pass').value;
+  const role=document.getElementById('adm-role').value;
+  const msg=document.getElementById('adm-invite-msg');
+  if(!email||!password||password.length<6){msg.textContent='Preencha email e senha (mín. 6 caracteres).';msg.style.color='#dc2626';return;}
+  msg.textContent='Criando acesso...';msg.style.color='var(--muted)';
+  const{data:{session:s}}=await sbClient.auth.getSession();
+  const tok=s?.access_token||SUPABASE_ANON_KEY;
+  const r=await fetch(`${SUPABASE_URL}/functions/v1/invite-user`,{method:'POST',headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},body:JSON.stringify({email,name,role,password})});
+  const res=await r.json();
+  if(res.error){msg.textContent='Erro: '+res.error;msg.style.color='#dc2626';}
+  else{msg.textContent='✓ Acesso criado para '+email;msg.style.color='#16a34a';['adm-email','adm-name','adm-pass'].forEach(id=>document.getElementById(id).value='');setTimeout(loadAdminUsers,1200);}
+}
+async function loadAdminAccounts(){
+  const accounts=await sb('accounts?order=name.asc&select=id,name,username,instagram_id,picture_url');
+  const c=document.getElementById('admin-accounts-list');c.innerHTML='';
+  const group=mkEl('div','sg');
+  accounts.forEach(acc=>{
+    const t=PROFILE_THEMES[acc.name]||{accent:'#1A3A6B'};
+    const row=mkEl('div','sr');row.style.justifyContent='space-between';
+    const av=mkEl('div');av.style.cssText=`width:36px;height:36px;border-radius:50%;background:${t.accent};display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden`;
+    if(acc.picture_url){const img=mkEl('img');img.src=acc.picture_url;img.style.cssText='width:100%;height:100%;object-fit:cover';av.appendChild(img);}
+    else{const sp=mkEl('span');sp.style.cssText='color:#fff;font-size:14px;font-weight:700';sp.textContent=acc.name.charAt(0);av.appendChild(sp);}
+    const main=mkEl('div','sr-main');main.style.marginLeft='12px';
+    main.appendChild(mkEl('div','sr-label',acc.name));
+    main.appendChild(mkEl('div','sr-sub',acc.username+' · '+acc.instagram_id));
+    const dot=mkEl('span','online-dot');dot.title='Conectada';
+    row.appendChild(av);row.appendChild(main);row.appendChild(dot);group.appendChild(row);
+  });
+  c.appendChild(group);
+}
+function loadAdminAppearance(){
+  const list=document.getElementById('admin-theme-list');list.innerHTML='';
+  Object.entries(PROFILE_THEMES).forEach(([name,t])=>{
+    const row=mkEl('div','sr');row.style.justifyContent='space-between';
+    row.appendChild(mkEl('div','sr-label',name));
+    const right=mkEl('div');right.style.cssText='display:flex;align-items:center;gap:8px';
+    const dot=mkEl('div','admin-color-dot');dot.style.background=t.accent;
+    const val=mkEl('span','sr-val',t.accent);
+    right.appendChild(dot);right.appendChild(val);row.appendChild(right);list.appendChild(row);
+  });
+}
+async function loadAdminData(){
+  const accounts=await sb('accounts?order=name.asc&select=id,name');
+  const syncEl=document.getElementById('admin-data-sync');syncEl.innerHTML='';
+  const loading=mkEl('div','sr');loading.appendChild(mkEl('span',null,'Carregando...'));syncEl.appendChild(loading);
+  const [snapCount,engCount,results]=await Promise.all([
+    sb('daily_snapshots?select=id').then(r=>r.length).catch(()=>'—'),
+    sb('engagement_snapshots?select=id').then(r=>r.length).catch(()=>'—'),
+    Promise.all(accounts.map(acc=>sb(`daily_snapshots?account_id=eq.${acc.id}&order=date.desc&limit=1&select=date,followers`).then(r=>({acc,last:r[0]||null}))))
+  ]);
+  const stats=document.getElementById('admin-data-stats');stats.innerHTML='';
+  [[accounts.length,'Contas'],[snapCount,'Snapshots'],[engCount,'Engajamentos']].forEach(([v,l])=>{
+    const s=mkEl('div','admin-stat');s.appendChild(mkEl('div','admin-stat-val',String(v)));s.appendChild(mkEl('div','admin-stat-lbl',l));stats.appendChild(s);
+  });
+  syncEl.innerHTML='';
+  results.forEach(({acc,last})=>{
+    const row=mkEl('div','sr');row.style.justifyContent='space-between';
+    row.appendChild(mkEl('div','sr-label',acc.name));
+    const val=mkEl('span','sr-val');
+    if(last){val.textContent=last.date+' · '+fmtN(last.followers)+' seguidores';}
+    else{val.textContent='Sem dados';val.style.color='#f59e0b';}
+    row.appendChild(val);syncEl.appendChild(row);
+  });
+}
+function loadAdminSystem(){
+  const expEl=document.getElementById('sys-token-expiry');
+  if(!expEl)return;
+  const exp=new Date('2026-07-18');
+  const days=Math.ceil((exp-new Date())/(864e5));
+  expEl.textContent=days>0?`Expiram em ${days} dias (${exp.toLocaleDateString('pt-BR')})`:'Tokens expirados!';
+  expEl.style.color=days>30?'#16a34a':days>7?'#f59e0b':'#dc2626';
+}
+function adminShowRefetchInfo(){
+  const el=document.getElementById('admin-action-info');el.style.display='block';
+  el.textContent='';const sg=mkEl('div','sg');const row=mkEl('div','sr');
+  const m=mkEl('div','sr-main');m.appendChild(mkEl('div','sr-label','Comando para atualizar fotos'));
+  const code=mkEl('div','sr-sub');code.style.cssText='margin-top:6px;font-family:monospace;background:var(--surface2);padding:8px 10px;border-radius:5px;font-size:11px;line-height:1.7;white-space:pre';
+  code.textContent='cd ~/IAmundi/projetos/central-inteligencia/redes-sociais/coletor\npython3 fetch_profile_pics.py';
+  m.appendChild(code);row.appendChild(m);sg.appendChild(row);el.appendChild(sg);
+}
+function adminShowColetorInfo(){
+  const el=document.getElementById('admin-action-info');el.style.display='block';
+  el.textContent='';const sg=mkEl('div','sg');const row=mkEl('div','sr');
+  const m=mkEl('div','sr-main');m.appendChild(mkEl('div','sr-label','Comando para rodar o coletor'));
+  const code=mkEl('div','sr-sub');code.style.cssText='margin-top:6px;font-family:monospace;background:var(--surface2);padding:8px 10px;border-radius:5px;font-size:11px;line-height:1.7;white-space:pre';
+  code.textContent='cd ~/IAmundi/projetos/central-inteligencia/redes-sociais/coletor\npython3 coletar.py';
+  m.appendChild(code);row.appendChild(m);sg.appendChild(row);el.appendChild(sg);
+}
+
 let appInitialized=false;
 function showHome(){
   document.getElementById('auth-screen').style.display='none';
@@ -1444,9 +1739,13 @@ function showDashboard(user,role){
   document.getElementById('home-user-role').textContent=role==='admin'?'ADMIN':'VIEWER';
   document.getElementById('home-user-role').className='user-role-chip';
   document.getElementById('admin-panel-btn').style.display=role==='admin'?'inline-block':'none';
+  const adminCard=document.getElementById('home-card-admin');
+  if(adminCard)adminCard.style.display=role==='admin'?'':'none';
   if(!appInitialized){
     appInitialized=true;
-    if(sessionStorage.getItem('rbv-screen')==='dashboard') openDashboard();
+    const screen=sessionStorage.getItem('rbv-screen');
+    if(screen==='dashboard')openDashboard();
+    else if(screen==='admin'&&role==='admin')openAdmin(true);
     else showHome();
   }
 }
@@ -1476,6 +1775,7 @@ async function doSetPassword(){
 async function doLogout(){
   sessionStorage.removeItem('rbv-screen');
   appInitialized=false;
+  document.getElementById('admin-screen').style.display='none';
   await sbClient.auth.signOut();
   dashboardReady=false;
   showAuth('login');
