@@ -69,9 +69,9 @@
   #apb-name{font-family:'Oswald',sans-serif;font-size:22px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--text);}
 
   /* AUTO-CYCLE */
-  .wrapper{transition:opacity .5s cubic-bezier(.4,0,.6,1),transform .5s cubic-bezier(.4,0,.6,1);}
-  .wrapper.fading{opacity:0;transform:scale(.985) translateY(4px);}
-  .wrapper.entering{animation:profileEnter .55s cubic-bezier(.22,1,.36,1) both;}
+  .wrapper{transition:opacity .18s ease,transform .18s ease;}
+  .wrapper.fading{opacity:.25;transform:scale(.998) translateY(2px);}
+  .wrapper.entering{animation:profileEnter .3s cubic-bezier(.22,1,.36,1) both;}
   /* AUTO-CYCLE TOGGLE */
   .ac-toggle{display:inline-flex;align-items:center;gap:7px;cursor:pointer;user-select:none;}
   .ac-toggle-track{width:34px;height:19px;border-radius:10px;background:var(--border);position:relative;flex-shrink:0;transition:background .25s ease;border:1px solid rgba(0,0,0,.08);}
@@ -319,7 +319,9 @@
 
   @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
   @keyframes fadeUp{from{opacity:0;transform:translateY(16px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
-  @keyframes profileEnter{from{opacity:0;transform:translateY(8px) scale(.992)}to{opacity:1;transform:translateY(0) scale(1)}}
+  @keyframes profileEnter{from{opacity:.15;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes contentIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+  .content-entering{animation:contentIn .32s cubic-bezier(.22,1,.36,1) both;}
   @keyframes numPop{0%{transform:scale(1)}45%{transform:scale(1.045)}100%{transform:scale(1)}}
 
   /* AUTH SCREEN */
@@ -2065,7 +2067,7 @@ async function buildProfiles(){
         wrapper.classList.add('entering');
         const onEnd=()=>{wrapper.classList.remove('entering');wrapper.removeEventListener('animationend',onEnd);};
         wrapper.addEventListener('animationend',onEnd);
-      },300);
+      },180);
     });
     wrap.appendChild(btn);
   });
@@ -2097,7 +2099,7 @@ function _acSwitchTo(idx){
     const onEnd=()=>{wrapper.classList.remove('entering');wrapper.removeEventListener('animationend',onEnd);};
     wrapper.addEventListener('animationend',onEnd);
     _acSecsLeft=AC_DURATION;
-  },500);
+  },180);
 }
 
 function _acStartCycle(){
@@ -3204,7 +3206,8 @@ function fmtR0(v){return 'R$ '+Math.round(Number(v)).toLocaleString('pt-BR');}
 /* ── VESSEL SALES ANALYSIS ── */
 async function loadVesselSalesData(period,customDi,customDf){
   document.querySelectorAll('.vsales-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===period));
-  document.getElementById('vessel-sales-body').innerHTML='<div class="vsales-loading">Carregando dados do Bling...</div>';
+  const _vsBody=document.getElementById('vessel-sales-body');
+  _vsBody.style.cssText='opacity:.2;transform:translateY(3px);transition:opacity .18s ease,transform .18s ease;pointer-events:none;';
   const now=new Date();
   const y=now.getFullYear(),m=now.getMonth()+1;
   let di,df;
@@ -3228,8 +3231,12 @@ async function loadVesselSalesData(period,customDi,customDf){
       blingPages('pedidos/vendas',{dataInicial:diPrev,dataFinal:dfPrev,'idsSituacoes[]':9}).catch(()=>[])
     ]);
     renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now,diPrev,dfPrev);
+    _vsBody.style.cssText='';
+    _vsBody.classList.add('content-entering');
+    setTimeout(()=>_vsBody.classList.remove('content-entering'),380);
   }catch(e){
-    document.getElementById('vessel-sales-body').innerHTML=`<div class="vsales-loading">Erro: ${e.message}</div>`;
+    _vsBody.style.cssText='';
+    _vsBody.innerHTML=`<div class="vsales-loading">Erro: ${e.message}</div>`;
   }
 }
 
@@ -3475,7 +3482,7 @@ async function loadGestaoVistaData(period){
   else period=_gvCurrentPeriod;
   document.querySelectorAll('.gv-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===period));
   const board=document.getElementById('gv-board');
-  board.innerHTML='<div class="gv-loading-full">Carregando dados...</div>';
+  board.style.cssText='opacity:.2;transform:translateY(3px);transition:opacity .18s ease,transform .18s ease;pointer-events:none;';
   const now=new Date();
   const y=now.getFullYear(),m=now.getMonth()+1;
   const iso=d=>d.toISOString().slice(0,10);
@@ -3501,11 +3508,15 @@ async function loadGestaoVistaData(period){
     const metasMap={};metasRows.forEach(r=>metasMap[r.loja_id]=r.meta_valor);
     const totalPrev=pedidosPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
     renderGestaoVista(pedidos,canais,metasMap,df,diasMes,diaAtual,di,period,totalPrev,pedidosPrev.length,pedidosPrev,diPrev,dfPrev);
+    board.style.cssText='';
+    board.classList.add('content-entering');
+    setTimeout(()=>board.classList.remove('content-entering'),380);
     if(window._gvTimer)clearInterval(window._gvTimer);
     window._gvTimer=setInterval(()=>loadGestaoVistaData(_gvCurrentPeriod),5*60*1000);
     document.getElementById('gv-refresh-tag').textContent='PRÓX. '+String(now.getHours()).padStart(2,'0')+':'+String((now.getMinutes()+5)%60).padStart(2,'0');
   }catch(e){
-    board.innerHTML=`<div class="gv-loading-full">Erro: ${escHtml(e.message)}</div>`;
+    board.style.cssText='';
+    board.innerHTML=`<div class="gv-loading-full">Erro ao carregar — ${escHtml(e.message)}</div>`;
   }
 }
 
