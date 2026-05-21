@@ -3094,10 +3094,8 @@ async function loadVesselSalesData(period,customDi,customDf){
   else if(period==='custom'&&customDi&&customDf){di=customDi;df=customDf;}
   else{di=`${y}-${String(m).padStart(2,'0')}-01`;df=iso(now);}
   // previous period — same length, immediately before
-  const periodMs=new Date(df+'T23:59:59')-new Date(di+'T00:00:00');
-  const prevEnd=new Date(new Date(di+'T00:00:00')-864e5);
-  const prevStart=new Date(prevEnd.getTime()-periodMs);
-  const diPrev=iso(prevStart),dfPrev=iso(prevEnd);
+  function subMes(s){const d=new Date(s+'T12:00:00');const od=d.getDate();d.setDate(1);d.setMonth(d.getMonth()-1);d.setDate(Math.min(od,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()));return d.toISOString().slice(0,10);}
+  const diPrev=subMes(di),dfPrev=subMes(df);
   try{
     const[pedidos,canais,metasArr,pedidosPrev]=await Promise.all([
       blingPages('pedidos/vendas',{dataInicial:di,dataFinal:df,'idsSituacoes[]':9}),
@@ -3367,10 +3365,8 @@ async function loadGestaoVistaData(period){
   else{di=`${y}-${String(m).padStart(2,'0')}-01`;df=iso(now);}
   const diasMes=new Date(y,m,0).getDate();
   const diaAtual=now.getDate();
-  const periodMs=new Date(df+'T23:59:59')-new Date(di+'T00:00:00');
-  const prevEnd=new Date(new Date(di+'T00:00:00')-864e5);
-  const prevStart=new Date(prevEnd.getTime()-periodMs);
-  const diPrev=iso(prevStart),dfPrev=iso(prevEnd);
+  function subMes(s){const d=new Date(s+'T12:00:00');const od=d.getDate();d.setDate(1);d.setMonth(d.getMonth()-1);d.setDate(Math.min(od,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()));return d.toISOString().slice(0,10);}
+  const diPrev=subMes(di),dfPrev=subMes(df);
   try{
     const[pedidos,canais,metasRows,pedidosPrev]=await Promise.all([
       blingPages('pedidos/vendas',{dataInicial:di,dataFinal:df,'idsSituacoes[]':9}),
