@@ -2061,14 +2061,7 @@ async function buildProfiles(){
       _acIdx=idx;
       currentAccountId=acc.id;applyProfileTheme(acc.name);updateGoalDisplays(currentPeriod);loadCampaignFilterBadge();
       const wrapper=document.querySelector('.wrapper');
-      wrapper.classList.add('fading');
-      setTimeout(()=>{
-        refresh();
-        wrapper.classList.remove('fading');
-        wrapper.classList.add('entering');
-        const onEnd=()=>{wrapper.classList.remove('entering');wrapper.removeEventListener('animationend',onEnd);};
-        wrapper.addEventListener('animationend',onEnd);
-      },180);
+      _fadeSwap(wrapper,()=>refresh());
     });
     wrap.appendChild(btn);
   });
@@ -2089,18 +2082,13 @@ const AC_DURATION=40;     // segundos por perfil
 
 function _acSwitchTo(idx){
   const wrapper=document.querySelector('.wrapper');
-  wrapper.classList.add('fading');
-  setTimeout(()=>{
+  _fadeSwap(wrapper,()=>{
     _acIdx=idx;
     const acc=_allAccounts[idx];
     document.querySelectorAll('.profile-btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
     currentAccountId=acc.id;applyProfileTheme(acc.name);updateGoalDisplays(currentPeriod);refresh();loadCampaignFilterBadge();
-    wrapper.classList.remove('fading');
-    wrapper.classList.add('entering');
-    const onEnd=()=>{wrapper.classList.remove('entering');wrapper.removeEventListener('animationend',onEnd);};
-    wrapper.addEventListener('animationend',onEnd);
     _acSecsLeft=AC_DURATION;
-  },180);
+  });
 }
 
 function _acStartCycle(){
@@ -2764,6 +2752,20 @@ async function doSetPassword(){
   btn.disabled=false;btn.textContent='Definir senha e entrar';
   if(error){errEl.textContent=error.message;errEl.style.display='block';}
 }
+/* ── FADE SWAP — fetch-first, then smooth out→swap→in ── */
+function _fadeSwap(el,swapFn){
+  el.style.transition='opacity .13s ease';
+  el.style.opacity='0';
+  setTimeout(()=>{
+    swapFn();
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      el.style.transition='opacity .26s cubic-bezier(.22,1,.36,1)';
+      el.style.opacity='1';
+      setTimeout(()=>{el.style.transition='';el.style.opacity='';},300);
+    }));
+  },140);
+}
+
 async function doLogout(){
   sessionStorage.removeItem('rbv-screen');
   appInitialized=false;
@@ -3208,7 +3210,6 @@ function fmtR0(v){return 'R$ '+Math.round(Number(v)).toLocaleString('pt-BR');}
 async function loadVesselSalesData(period,customDi,customDf){
   document.querySelectorAll('.vsales-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===period));
   const _vsBody=document.getElementById('vessel-sales-body');
-  _vsBody.style.cssText='opacity:.45;transition:opacity .08s ease;pointer-events:none;';
   const now=new Date();
   const y=now.getFullYear(),m=now.getMonth()+1;
   let di,df;
@@ -3231,12 +3232,10 @@ async function loadVesselSalesData(period,customDi,customDf){
       sbClient.from('bling_metas').select('loja_id,meta_valor').eq('year',y).eq('month',m).then(r=>r.data||[]).catch(()=>[]),
       blingPages('pedidos/vendas',{dataInicial:diPrev,dataFinal:dfPrev,'idsSituacoes[]':9}).catch(()=>[])
     ]);
-    renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now,diPrev,dfPrev);
-    _vsBody.style.cssText='';
-    _vsBody.classList.add('content-entering');
-    setTimeout(()=>_vsBody.classList.remove('content-entering'),380);
+    _fadeSwap(_vsBody,()=>{
+      renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now,diPrev,dfPrev);
+    });
   }catch(e){
-    _vsBody.style.cssText='';
     _vsBody.innerHTML=`<div class="vsales-loading">Erro: ${e.message}</div>`;
   }
 }
@@ -3483,7 +3482,6 @@ async function loadGestaoVistaData(period){
   else period=_gvCurrentPeriod;
   document.querySelectorAll('.gv-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===period));
   const board=document.getElementById('gv-board');
-  board.style.cssText='opacity:.45;transition:opacity .08s ease;pointer-events:none;';
   const now=new Date();
   const y=now.getFullYear(),m=now.getMonth()+1;
   const iso=d=>d.toISOString().slice(0,10);
@@ -3508,15 +3506,13 @@ async function loadGestaoVistaData(period){
     ]);
     const metasMap={};metasRows.forEach(r=>metasMap[r.loja_id]=r.meta_valor);
     const totalPrev=pedidosPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
-    renderGestaoVista(pedidos,canais,metasMap,df,diasMes,diaAtual,di,period,totalPrev,pedidosPrev.length,pedidosPrev,diPrev,dfPrev);
-    board.style.cssText='';
-    board.classList.add('content-entering');
-    setTimeout(()=>board.classList.remove('content-entering'),380);
+    _fadeSwap(board,()=>{
+      renderGestaoVista(pedidos,canais,metasMap,df,diasMes,diaAtual,di,period,totalPrev,pedidosPrev.length,pedidosPrev,diPrev,dfPrev);
+    });
     if(window._gvTimer)clearInterval(window._gvTimer);
     window._gvTimer=setInterval(()=>loadGestaoVistaData(_gvCurrentPeriod),5*60*1000);
     document.getElementById('gv-refresh-tag').textContent='PRÓX. '+String(now.getHours()).padStart(2,'0')+':'+String((now.getMinutes()+5)%60).padStart(2,'0');
   }catch(e){
-    board.style.cssText='';
     board.innerHTML=`<div class="gv-loading-full">Erro ao carregar — ${escHtml(e.message)}</div>`;
   }
 }
