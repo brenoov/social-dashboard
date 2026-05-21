@@ -3100,6 +3100,36 @@ function openGestaoVista(){
   loadGestaoVistaData('month');
   gvAutoStart();
 }
+async function _gvBuildSkuSlide(pedidos){
+  const skuMap={};
+  for(const p of pedidos){
+    try{
+      const resp=await blingCall(`pedidos/vendas/${p.id}`,{});
+      const dt=p.data?new Date(p.data):null;
+      for(const it of(resp.data?.itens||[])){
+        const sku=it.produto?.codigo||'—';
+        const nome=it.produto?.descricao||'—';
+        const preco=parseFloat(it.valor||0);
+        const qty=parseFloat(it.quantidade||1);
+        const key=sku;
+        if(!skuMap[key])skuMap[key]={sku:escHtml(sku),nome:escHtml(nome),preco,qty:0,lastDate:null};
+        skuMap[key].qty+=qty;
+        if(dt&&(!skuMap[key].lastDate||dt>skuMap[key].lastDate))skuMap[key].lastDate=dt;
+      }
+    }catch(e){}
+  }
+  const topSkus=Object.values(skuMap).sort((a,b)=>b.qty-a.qty).slice(0,25);
+  if(!topSkus.length)return;
+  const items=topSkus.map((s,i)=>{
+    const nome=s.nome.length>40?s.nome.slice(0,40)+'…':s.nome;
+    const dtStr=s.lastDate?`${String(s.lastDate.getDate()).padStart(2,'0')}/${String(s.lastDate.getMonth()+1).padStart(2,'0')}/${s.lastDate.getFullYear().toString().slice(2)}`:'';
+    return `<span class="gv-ticker-item"><strong>#${i+1} ${s.sku}</strong> · ${nome} · ${fmtR(s.preco)} · <span style="opacity:.7">${Math.round(s.qty)} un.${dtStr?` · última: ${dtStr}`:''}</span></span>`;
+  });
+  if(window._gvTickerSlides){
+    window._gvTickerSlides[1]={label:'Itens mais vendidos',items};
+    if(window._gvTickerIdx===1)_gvRenderTickerSlide(1);
+  }
+}
 function _gvRenderTickerSlide(idx){
   const slide=(window._gvTickerSlides||[])[idx];
   if(!slide)return;
@@ -3820,37 +3850,18 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     return `<span class="gv-ticker-item"><strong>${canal}</strong> · ${val} · ${vend}${dtStr?` · <span style="opacity:.7">${dtStr}</span>`:''}${itensStr?` · ${itensStr}`:''}</span>`;
   });
 
-  // Ticker — slide 2: itens mais vendidos
-  const skuMap={};
-  for(const p of pedidos){
-    const dt=p.data?new Date(p.data):null;
-    for(const it of(p.itens||[])){
-      const sku=escHtml(it.produto?.codigo||'—');
-      const nome=escHtml(it.produto?.descricao||'—');
-      const preco=parseFloat(it.valor||0);
-      const qty=parseFloat(it.quantidade||1);
-      if(!skuMap[sku])skuMap[sku]={sku,nome,preco,qty:0,lastDate:null};
-      skuMap[sku].qty+=qty;
-      if(dt&&(!skuMap[sku].lastDate||dt>skuMap[sku].lastDate))skuMap[sku].lastDate=dt;
-    }
-  }
-  const topSkus=Object.values(skuMap).sort((a,b)=>b.qty-a.qty).slice(0,25);
-  const tickItemsSku=topSkus.map((s,i)=>{
-    const nome=s.nome.length>40?s.nome.slice(0,40)+'…':s.nome;
-    const dtStr=s.lastDate?`${String(s.lastDate.getDate()).padStart(2,'0')}/${String(s.lastDate.getMonth()+1).padStart(2,'0')}/${s.lastDate.getFullYear().toString().slice(2)}`:'';
-    return `<span class="gv-ticker-item"><strong>#${i+1} ${s.sku}</strong> · ${nome} · ${fmtR(s.preco)} · <span style="opacity:.7">${Math.round(s.qty)} un.${dtStr?` · última: ${dtStr}`:''}</span></span>`;
-  });
-
-  // Inicializa slides do ticker
-  // Atualiza dados dos slides sem resetar o slide atual nem o timer
+  // Inicializa slides — slide 2 começa como "carregando" e é preenchido em background
   window._gvTickerSlides=[
     {label:'Últimos pedidos',items:tickItemsPedidos},
-    {label:'Itens mais vendidos',items:tickItemsSku}
+    {label:'Itens mais vendidos',items:[]}
   ];
   if(window._gvTickerIdx==null)window._gvTickerIdx=0;
   _gvRenderTickerSlide(window._gvTickerIdx);
   if(!window._gvTickerTimer)
     window._gvTickerTimer=setInterval(_gvNextTickerSlide,20000);
+
+  // Busca itens de cada pedido em background (lista não inclui itens, precisa de detalhe individual)
+  _gvBuildSkuSlide([...pedidos].sort((a,b)=>new Date(b.data||0)-new Date(a.data||0)).slice(0,30));
 
   setTimeout(()=>{
     document.querySelectorAll('#gestao-vista-screen [data-w]').forEach(el=>el.style.width=el.dataset.w);
