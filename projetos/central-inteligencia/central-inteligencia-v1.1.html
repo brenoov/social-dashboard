@@ -707,6 +707,8 @@
   body.dev-tv #vessel-sales-screen .vs2-vend-hbar-wrap{height:7px;margin-top:12px;}
   body.dev-tv #vessel-sales-screen .vs2-sec-hdr{margin-bottom:24px;}
   body.dev-tv #vessel-sales-screen .vs2-section span[style]{font-size:27px!important;}
+  body.dev-tv .gv-pbtn{font-size:20px;padding:8px 18px;}
+  body.dev-tv .vs-ac-toggle{font-size:20px;padding:8px 14px;}
 
   /* ── GESTÃO À VISTA — TV BOARD v2 ── */
   #gestao-vista-screen{height:100vh;max-height:100vh;display:none;flex-direction:column;background:var(--bg);color:var(--text);overflow:hidden;position:relative;z-index:1;}
@@ -2754,16 +2756,17 @@ async function doSetPassword(){
 }
 /* ── FADE SWAP — fetch-first, then smooth out→swap→in ── */
 function _fadeSwap(el,swapFn){
-  el.style.transition='opacity .13s ease';
+  el.style.transition='opacity .18s ease';
   el.style.opacity='0';
   setTimeout(()=>{
     swapFn();
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      el.style.transition='opacity .26s cubic-bezier(.22,1,.36,1)';
+    // 80ms buffer: let browser fully paint new DOM before fading in
+    setTimeout(()=>{
+      el.style.transition='opacity .38s cubic-bezier(.22,1,.36,1)';
       el.style.opacity='1';
-      setTimeout(()=>{el.style.transition='';el.style.opacity='';},300);
-    }));
-  },140);
+      setTimeout(()=>{el.style.transition='';el.style.opacity='';},420);
+    },80);
+  },190);
 }
 
 async function doLogout(){
