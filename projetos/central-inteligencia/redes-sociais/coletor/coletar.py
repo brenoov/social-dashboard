@@ -95,7 +95,7 @@ def coletar_midias(ig_id, token, dias):
     posts = reels = 0
 
     data = api_get(f"{ig_id}/media", {
-        "fields": "id,media_type,media_product_type,timestamp,like_count",
+        "fields": "id,media_type,media_product_type,timestamp,like_count,owner",
         "access_token": token,
         "limit": 100
     })
@@ -103,6 +103,12 @@ def coletar_midias(ig_id, token, dias):
     for midia in data.get("data", []):
         produto = midia.get("media_product_type", "")
         ts = midia.get("timestamp", "")
+
+        # Ignora collabs onde a conta não é a criadora original
+        owner_id = (midia.get("owner") or {}).get("id", ig_id)
+        if owner_id != ig_id:
+            continue
+
         if ts:
             ts_norm = ts.replace("+0000", "+00:00").replace("Z", "+00:00")
             pub = datetime.fromisoformat(ts_norm)

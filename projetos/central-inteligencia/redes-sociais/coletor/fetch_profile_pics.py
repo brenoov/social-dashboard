@@ -23,6 +23,7 @@ TOKENS = {
     "17841406451230767": os.environ.get("TOKEN_MANTOVA", ""),
     "17841462952561833": os.environ.get("TOKEN_VESSEL", ""),
     "17841464138609037": os.environ.get("TOKEN_MOTOEASY", ""),
+    "17841401243622922": os.environ.get("TOKEN_HUMBERTO", ""),
 }
 
 sb = create_client(SUPABASE_URL, SUPABASE_KEY)
