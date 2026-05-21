@@ -458,30 +458,34 @@
   #dash-clock{font-family:'Oswald',sans-serif;font-size:15px;font-weight:400;letter-spacing:2px;color:var(--muted);white-space:nowrap;line-height:1;}
   #dash-clock span{color:var(--accent);font-weight:500;}
 
-  /* BARRA DE META GERAL */
-  .goal-bar-wrap{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
-  .goal-bar-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
-  .goal-bar-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;}
-  .goal-bar-pct{font-family:'Oswald',sans-serif;font-size:16px;font-weight:500;color:var(--accent);}
-  .goal-bar-track{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;border:1px solid var(--border);}
-  .goal-bar-fill{height:100%;border-radius:3px;background:var(--accent);transition:width .8s cubic-bezier(.4,0,.2,1);}
-  .goal-bar-sub{display:flex;justify-content:space-between;margin-top:4px;font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);}
-
-  /* INSIGHT CARD */
-  .insight-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:16px 20px;margin-bottom:22px;border-left:3px solid var(--accent);}
-  .insight-header{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
-  .insight-icon{font-size:14px;opacity:.7;}
+  /* INSIGHT CARD — layout horizontal */
+  .insight-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:14px 18px;margin-bottom:22px;border-left:3px solid var(--accent);}
+  .insight-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+  .insight-icon{font-size:13px;opacity:.6;}
   .insight-title{font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;}
   .insight-period{font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:1.5px;color:var(--accent);text-transform:uppercase;margin-left:auto;background:var(--accent-light);padding:3px 8px;border-radius:2px;}
-  .insight-list{display:flex;flex-direction:column;gap:8px;}
-  .insight-item{display:flex;align-items:flex-start;gap:10px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;line-height:1.55;color:var(--text);}
-  .insight-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:5px;}
+  /* body: 2 colunas */
+  .insight-body{display:grid;grid-template-columns:1fr 220px;gap:20px;align-items:start;}
+  @media(max-width:700px){.insight-body{grid-template-columns:1fr;}}
+  .insight-list{display:flex;flex-direction:column;gap:7px;}
+  .insight-item{display:flex;align-items:flex-start;gap:9px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;line-height:1.5;color:var(--text);}
+  .insight-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;margin-top:5px;}
   .insight-dot.green{background:#16a34a;}
   .insight-dot.blue{background:var(--accent);}
   .insight-dot.yellow{background:#d97706;}
   .insight-dot.red{background:#dc2626;}
   .insight-dot.muted{background:var(--border);}
   .insight-item.muted{color:var(--muted);}
+  /* Painel de metas — coluna direita */
+  .goals-panel{display:flex;flex-direction:column;gap:9px;border-left:1px solid var(--border);padding-left:18px;}
+  .goals-panel-title{font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:600;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:2px;}
+  .mini-goal{display:flex;flex-direction:column;gap:3px;}
+  .mini-goal-header{display:flex;align-items:center;justify-content:space-between;}
+  .mini-goal-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);font-weight:500;}
+  .mini-goal-pct{font-family:'Oswald',sans-serif;font-size:13px;font-weight:500;color:var(--accent);}
+  .mini-goal-track{height:5px;background:var(--surface2);border-radius:3px;overflow:hidden;border:1px solid var(--border);}
+  .mini-goal-fill{height:100%;border-radius:3px;transition:width .8s cubic-bezier(.4,0,.2,1);}
+  .mini-goal-sub{display:flex;justify-content:space-between;font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);}
   #insight-card.loading .insight-list{opacity:.4;}
 </style>
 </head>
@@ -783,18 +787,41 @@
       <span class="insight-title">Análise do período</span>
       <span class="insight-period" id="insight-period-label">—</span>
     </div>
-    <div class="insight-list" id="insight-list">
-      <div class="insight-item muted"><div class="insight-dot muted"></div><span>Carregando análise...</span></div>
-    </div>
-    <div class="goal-bar-wrap">
-      <div class="goal-bar-header">
-        <span class="goal-bar-lbl">Meta de seguidores no período</span>
-        <span class="goal-bar-pct" id="goal-bar-pct">0%</span>
+    <div class="insight-body">
+      <!-- Esquerda: análise textual -->
+      <div class="insight-list" id="insight-list">
+        <div class="insight-item muted"><div class="insight-dot muted"></div><span>Carregando análise...</span></div>
       </div>
-      <div class="goal-bar-track"><div class="goal-bar-fill" id="goal-bar-fill" style="width:0%"></div></div>
-      <div class="goal-bar-sub">
-        <span id="goal-bar-current">0 conquistados</span>
-        <span id="goal-bar-remaining">Meta: —</span>
+      <!-- Direita: panorama de metas -->
+      <div class="goals-panel">
+        <div class="goals-panel-title">Panorama · Metas</div>
+        <!-- Seguidores -->
+        <div class="mini-goal">
+          <div class="mini-goal-header">
+            <span class="mini-goal-lbl">Seguidores</span>
+            <span class="mini-goal-pct" id="mg-pct-followers">0%</span>
+          </div>
+          <div class="mini-goal-track"><div class="mini-goal-fill" id="mg-fill-followers" style="width:0%"></div></div>
+          <div class="mini-goal-sub"><span id="mg-curr-followers">0</span><span id="mg-meta-followers">Meta: —</span></div>
+        </div>
+        <!-- Curtidas -->
+        <div class="mini-goal">
+          <div class="mini-goal-header">
+            <span class="mini-goal-lbl">Curtidas</span>
+            <span class="mini-goal-pct" id="mg-pct-likes">0%</span>
+          </div>
+          <div class="mini-goal-track"><div class="mini-goal-fill" id="mg-fill-likes" style="width:0%"></div></div>
+          <div class="mini-goal-sub"><span id="mg-curr-likes">0</span><span id="mg-meta-likes">Meta: —</span></div>
+        </div>
+        <!-- Conteúdo -->
+        <div class="mini-goal">
+          <div class="mini-goal-header">
+            <span class="mini-goal-lbl">Conteúdo</span>
+            <span class="mini-goal-pct" id="mg-pct-content">0%</span>
+          </div>
+          <div class="mini-goal-track"><div class="mini-goal-fill" id="mg-fill-content" style="width:0%"></div></div>
+          <div class="mini-goal-sub"><span id="mg-curr-content">0</span><span id="mg-meta-content">Meta: —</span></div>
+        </div>
       </div>
     </div>
   </div>
@@ -1537,7 +1564,7 @@ function update(d,period){
   const ep=d.effectivePeriod||period;
   setChips('chips-cnt',['Total: '+totalContent+' publica\u00e7\u00f5es','Freq.: '+(totalContent/ep).toFixed(1)+'/dia',d.cnt.prevPostsReels>0?'Posts+Reels '+pctDiff(d.cnt.postsReels,d.cnt.prevPostsReels)+' vs '+pl:'Posts+Reels no per\u00edodo: '+d.cnt.postsReels]);
   renderInsight(d,period);
-  renderGoalBar(d.newFollowers,period);
+  renderGoalBar(d);
 }
 
 /* ── BUILD UI ── */
@@ -1961,21 +1988,24 @@ function startClock(){
   tick();setInterval(tick,1000);
 }
 
-/* ── BARRA DE META GERAL ── */
-function renderGoalBar(newFollowers,period){
-  const goal=getGoal('followers');
-  const pct=goal>0?Math.min(100,Math.round((newFollowers/goal)*100)):0;
-  const fill=document.getElementById('goal-bar-fill');
-  const pctEl=document.getElementById('goal-bar-pct');
-  const curr=document.getElementById('goal-bar-current');
-  const rem=document.getElementById('goal-bar-remaining');
-  if(!fill)return;
-  fill.style.width=pct+'%';
-  fill.style.background=pct>=100?'#16a34a':pct>=60?'var(--accent)':'#d97706';
-  if(pctEl)pctEl.textContent=pct+'%';
-  if(pctEl)pctEl.style.color=pct>=100?'#16a34a':pct>=60?'var(--accent)':'#d97706';
-  if(curr)curr.textContent=fmtN(newFollowers)+' conquistados';
-  if(rem)rem.textContent=goal>0?'Meta: '+fmtN(goal)+(newFollowers<goal?' · faltam '+fmtN(goal-newFollowers):'  ✓'):'Meta: —';
+/* ── PANORAMA DE METAS ── */
+function setMiniGoal(key,curr,goalKey,labelCurr,labelMeta){
+  const goal=getGoal(goalKey);
+  const pct=goal>0?Math.min(100,Math.round((curr/goal)*100)):0;
+  const color=pct>=100?'#16a34a':pct>=60?'var(--accent)':'#d97706';
+  const fill=document.getElementById('mg-fill-'+key);
+  const pctEl=document.getElementById('mg-pct-'+key);
+  const currEl=document.getElementById('mg-curr-'+key);
+  const metaEl=document.getElementById('mg-meta-'+key);
+  if(fill){fill.style.width=pct+'%';fill.style.background=color;}
+  if(pctEl){pctEl.textContent=pct+'%';pctEl.style.color=color;}
+  if(currEl)currEl.textContent=labelCurr;
+  if(metaEl)metaEl.textContent=goal>0?(pct>=100?'Meta ✓':'faltam '+fmtN(Math.max(0,goal-curr))):'Meta: —';
+}
+function renderGoalBar(d){
+  setMiniGoal('followers',d.newFollowers,'followers','+'+fmtN(d.newFollowers)+' seguidores','');
+  setMiniGoal('likes',d.eng.likes,'likes',fmtN(d.eng.likes)+' curtidas','');
+  setMiniGoal('content',d.cnt.postsReels+d.cnt.stories,'posts-reels',(d.cnt.postsReels+d.cnt.stories)+' publicações','');
 }
 
 let appInitialized=false;
