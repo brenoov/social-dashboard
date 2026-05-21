@@ -766,7 +766,7 @@
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:14px;">
       <div id="dash-clock">--:--:<span>--</span></div>
-      <span class="live-dot">ATUALIZADO AGORA</span>
+      <span class="live-dot" id="collection-status">—</span>
       <div class="ac-toggle on" id="ac-toggle-btn" onclick="toggleAutoCycle()" title="Rotação automática de perfis">
         <div class="ac-toggle-track on" id="ac-toggle-track"><div class="ac-toggle-thumb"></div></div>
         <span class="ac-toggle-lbl">TRANSIÇÃO AUTO</span>
@@ -1975,15 +1975,33 @@ function loadAdminSystem(){
 }
 
 /* ── RELÓGIO ── */
+function updateCollectionStatus(){
+  const el=document.getElementById('collection-status');
+  if(!el)return;
+  // Horários de coleta em BRT (minutos desde meia-noite): 07:00, 12:00, 18:00, 23:00
+  const sched=[7*60,12*60,18*60,23*60];
+  const brt=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Sao_Paulo'}));
+  const now=brt.getHours()*60+brt.getMinutes();
+  const fmt=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+  let last=null,next=null;
+  for(const t of sched){if(t<=now)last=t;}
+  for(const t of sched){if(t>now){next=t;break;}}
+  if(last===null)last=sched[sched.length-1]; // 23:00 do dia anterior
+  if(next===null)next=sched[0];              // 07:00 do dia seguinte
+  el.textContent=`ÚLT. ${fmt(last)} · PRÓX. ${fmt(next)}`;
+}
+
 function startClock(){
   const el=document.getElementById('dash-clock');
   if(!el)return;
+  let lastMin=-1;
   function tick(){
     const now=new Date();
     const h=String(now.getHours()).padStart(2,'0');
     const m=String(now.getMinutes()).padStart(2,'0');
     const s=String(now.getSeconds()).padStart(2,'0');
     el.innerHTML=`${h}:${m}:<span>${s}</span>`;
+    if(now.getMinutes()!==lastMin){lastMin=now.getMinutes();updateCollectionStatus();}
   }
   tick();setInterval(tick,1000);
 }
