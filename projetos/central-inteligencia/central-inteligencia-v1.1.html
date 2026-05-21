@@ -793,8 +793,8 @@
   .gv-rank-bar-fill.rest{background:linear-gradient(90deg,var(--accent-mid),var(--accent));}
   .gv-rank-hint{font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);margin-top:1px;}
   /* Ticker */
-  .gv-ticker{border-top:1px solid var(--border);padding:0 28px;display:flex;align-items:center;gap:16px;background:var(--surface2);flex-shrink:0;height:30px;overflow:hidden;position:relative;z-index:2;}
-  .gv-ticker-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:4px;text-transform:uppercase;color:var(--accent);flex-shrink:0;}
+  .gv-ticker{border-top:1px solid var(--border);padding:0 28px;display:flex;align-items:center;gap:16px;background:var(--surface2);flex-shrink:0;height:30px;overflow:hidden;position:relative;z-index:2;transition:opacity .35s ease;}
+  .gv-ticker-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:4px;text-transform:uppercase;color:var(--accent);flex-shrink:0;min-width:130px;}
   .gv-ticker-sep{width:1px;height:14px;background:var(--border);flex-shrink:0;}
   .gv-ticker-outer{flex:1;overflow:hidden;}
   .gv-ticker-inner{display:flex;gap:48px;white-space:nowrap;}
@@ -3096,8 +3096,31 @@ function openGestaoVista(){
   loadGestaoVistaData('month');
   gvAutoStart();
 }
+function _gvRenderTickerSlide(idx){
+  const slide=(window._gvTickerSlides||[])[idx];
+  if(!slide)return;
+  const lbl=document.getElementById('gv-ticker-lbl');
+  const inner=document.getElementById('gv-ticker-inner');
+  if(lbl)lbl.textContent=slide.label;
+  if(inner){
+    inner.classList.remove('animate');
+    inner.innerHTML=slide.items.length>0?slide.items.concat(slide.items).join('<span class="gv-ticker-dot"></span>'):'—';
+    if(slide.items.length>0)requestAnimationFrame(()=>inner.classList.add('animate'));
+  }
+}
+function _gvNextTickerSlide(){
+  const ticker=document.getElementById('gv-ticker');
+  if(!ticker)return;
+  window._gvTickerIdx=((window._gvTickerIdx||0)+1)%((window._gvTickerSlides||[{},{}]).length);
+  ticker.style.opacity='0';
+  setTimeout(()=>{
+    _gvRenderTickerSlide(window._gvTickerIdx);
+    ticker.style.opacity='1';
+  },350);
+}
 function closeGestaoVista(){
   gvAutoStop();
+  if(window._gvTickerTimer){clearInterval(window._gvTickerTimer);window._gvTickerTimer=null;}
   document.getElementById('gestao-vista-screen').style.display='none';
   document.getElementById('sales-menu-screen').style.display='flex';
   sessionStorage.setItem('rbv-screen','sales-menu');
@@ -3780,9 +3803,9 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     </div>
   `;
 
-  // Ticker
+  // Ticker — slide 1: últimos pedidos
   const recent=[...pedidos].sort((a,b)=>new Date(b.data||0)-new Date(a.data||0)).slice(0,20);
-  const tickItems=recent.map(p=>{
+  const tickItemsPedidos=recent.map(p=>{
     const canal=escHtml(canais[p.loja?.id]||'Pedido #'+p.numero);
     const val=fmtR(parseFloat(p.total||0));
     const vend=escHtml((p.vendedor?.nome||'—').split(' ').slice(0,2).join(' '));
@@ -3792,8 +3815,37 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     const itensStr=nItens>0?`${nItens} ${nItens===1?'item':'itens'}`:'';
     return `<span class="gv-ticker-item"><strong>${canal}</strong> · ${val} · ${vend}${dtStr?` · <span style="opacity:.7">${dtStr}</span>`:''}${itensStr?` · ${itensStr}`:''}</span>`;
   });
-  document.getElementById('gv-ticker-inner').innerHTML=tickItems.concat(tickItems).join('<span class="gv-ticker-dot"></span>');
-  if(recent.length>0)document.getElementById('gv-ticker-inner').classList.add('animate');
+
+  // Ticker — slide 2: itens mais vendidos
+  const skuMap={};
+  for(const p of pedidos){
+    const dt=p.data?new Date(p.data):null;
+    for(const it of(p.itens||[])){
+      const sku=escHtml(it.produto?.codigo||'—');
+      const nome=escHtml(it.produto?.descricao||'—');
+      const preco=parseFloat(it.valor||0);
+      const qty=parseFloat(it.quantidade||1);
+      if(!skuMap[sku])skuMap[sku]={sku,nome,preco,qty:0,lastDate:null};
+      skuMap[sku].qty+=qty;
+      if(dt&&(!skuMap[sku].lastDate||dt>skuMap[sku].lastDate))skuMap[sku].lastDate=dt;
+    }
+  }
+  const topSkus=Object.values(skuMap).sort((a,b)=>b.qty-a.qty).slice(0,25);
+  const tickItemsSku=topSkus.map((s,i)=>{
+    const nome=s.nome.length>40?s.nome.slice(0,40)+'…':s.nome;
+    const dtStr=s.lastDate?`${String(s.lastDate.getDate()).padStart(2,'0')}/${String(s.lastDate.getMonth()+1).padStart(2,'0')}/${s.lastDate.getFullYear().toString().slice(2)}`:'';
+    return `<span class="gv-ticker-item"><strong>#${i+1} ${s.sku}</strong> · ${nome} · ${fmtR(s.preco)} · <span style="opacity:.7">${Math.round(s.qty)} un.${dtStr?` · última: ${dtStr}`:''}</span></span>`;
+  });
+
+  // Inicializa slides do ticker
+  window._gvTickerSlides=[
+    {label:'Últimos pedidos',items:tickItemsPedidos},
+    {label:'Itens mais vendidos',items:tickItemsSku}
+  ];
+  window._gvTickerIdx=0;
+  _gvRenderTickerSlide(0);
+  if(window._gvTickerTimer)clearInterval(window._gvTickerTimer);
+  window._gvTickerTimer=setInterval(_gvNextTickerSlide,20000);
 
   setTimeout(()=>{
     document.querySelectorAll('#gestao-vista-screen [data-w]').forEach(el=>el.style.width=el.dataset.w);
@@ -4055,8 +4107,9 @@ function setHomeBgTheme(type){
       <div class="gv-loading">Carregando dados...</div>
     </div>
   </div>
-  <div class="gv-ticker">
-    <span class="gv-ticker-lbl">Últimos pedidos</span>
+  <div class="gv-ticker" id="gv-ticker">
+    <span class="gv-ticker-lbl" id="gv-ticker-lbl">Últimos pedidos</span>
+    <div class="gv-ticker-sep"></div>
     <div class="gv-ticker-outer"><div class="gv-ticker-inner" id="gv-ticker-inner">—</div></div>
     <span class="gv-refresh-tag" id="gv-refresh-tag">—</span>
   </div>
