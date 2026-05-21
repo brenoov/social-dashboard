@@ -1412,50 +1412,93 @@ async function fetchData(accountId,period,customStart,customEnd){
 function generateInsight(d,period,profileName){
   const insights=[];
   const nf=d.newFollowers,pnf=d.prevNewFollowers,avg=d.avgPerDay;
-  const engTotal=d.eng.likes+d.eng.saves+d.eng.shares;
+  const likes=d.eng.likes,saves=d.eng.saves,shares=d.eng.shares;
+  const engTotal=likes+saves+shares;
   const prevEngTotal=(d.eng.prevLikes||0)+(d.eng.prevSaves||0)+(d.eng.prevShares||0);
   const engRate=parseFloat(d.engRate||'0');
   const reels=d.cnt.reels,posts=d.cnt.posts,stories=d.cnt.stories;
   const totalContent=reels+posts+stories;
-  const pl=d.pl;
+  const stShares=d.storyEng.shares,stReplies=d.storyEng.replies;
+  const savesRate=engTotal>0?saves/engTotal:0;
+  const sharesRate=engTotal>0?shares/engTotal:0;
+  const r=pnf!=null&&pnf>0?nf/pnf:null;
 
-  /* ── SEGUIDORES ── */
   if(period===0){
-    const r=pnf>0?nf/pnf:null;
-    if(nf>0&&r&&r>=1.5)insights.push({t:'green',s:`+${nf} seguidores · ${Math.round((r-1)*100)}% acima do ritmo anterior`});
-    else if(nf>0)insights.push({t:'blue',s:`+${nf} seguidor${nf!==1?'es':''} até agora`});
-    else insights.push({t:'muted',s:`Sem novos seguidores ainda hoje`});
-    if(stories>0)insights.push({t:'blue',s:`${stories} storie${stories!==1?'s':''} publicado${stories!==1?'s':''}${d.storyEng.shares>0?' · '+d.storyEng.shares+' encaminh.':''}`});
-    if(reels>0)insights.push({t:'green',s:`${reels} reel${reels!==1?'s':''} no ar`});
-    else if(engTotal>0)insights.push({t:'blue',s:`${fmtN(engTotal)} interações hoje`});
-  } else if(period===1){
-    const r=pnf!=null&&pnf>0?nf/pnf:null;
-    if(nf>0&&r&&r>=1.3)insights.push({t:'green',s:`Ontem forte: +${nf} seguidores (${pctDiff(nf,pnf)} vs anterior)`});
-    else if(nf>0&&r&&r<0.6)insights.push({t:'yellow',s:`Ontem fraco: +${nf} seguidores (${pctDiff(nf,pnf)} vs anterior)`});
-    else if(nf>0)insights.push({t:'blue',s:`Ontem: +${nf} seguidores`});
-    else insights.push({t:'muted',s:`Sem dados de seguidores para ontem`});
-    if(engTotal>0){
-      const ep=prevEngTotal>0?Math.round(((engTotal-prevEngTotal)/prevEngTotal)*100):null;
-      insights.push({t:ep!=null&&ep>20?'green':ep!=null&&ep<-20?'yellow':'blue',s:`${fmtN(engTotal)} interações${ep!=null?' ('+pctDiff(engTotal,prevEngTotal)+')':''}`});
+    if(nf>0&&r&&r>=1.5)
+      insights.push({t:'green',s:`Ritmo acelerado hoje: +${nf} seguidor${nf!==1?'es':''} — ${Math.round((r-1)*100)}% acima do período anterior`});
+    else if(nf>0)
+      insights.push({t:'blue',s:`+${nf} seguidor${nf!==1?'es':''} captados até agora`});
+    else
+      insights.push({t:'muted',s:`Nenhum seguidor novo registrado ainda hoje`});
+    if(stories>0){
+      if(stReplies>=3)insights.push({t:'green',s:`${stories} storie${stories!==1?'s':''} gerando conversa — ${stReplies} pessoas responderam via DM`});
+      else if(stShares>=3)insights.push({t:'blue',s:`${stories} storie${stories!==1?'s':''} no ar com ${stShares} encaminhamentos`});
+      else insights.push({t:'blue',s:`${stories} storie${stories!==1?'s':''} publicado${stories!==1?'s':''}hoje`});
     }
-    if(totalContent===0)insights.push({t:'yellow',s:`Sem publicações ontem`});
-    else insights.push({t:'blue',s:`${totalContent} publicaç${totalContent!==1?'ões':'ão'} ontem`});
+    if(reels>0)insights.push({t:'green',s:`${reels} reel${reels!==1?'s':''} no ar — formato de maior alcance orgânico`});
+    else if(engTotal>0)insights.push({t:'blue',s:`${fmtN(engTotal)} interações acumuladas hoje`});
+
+  } else if(period===1){
+    if(nf>0&&r&&r>=1.3)
+      insights.push({t:'green',s:`Ontem acelerou: +${nf} seguidor${nf!==1?'es':''} — ${pctDiff(nf,pnf)} acima do dia anterior`});
+    else if(nf>0&&r&&r<0.6)
+      insights.push({t:'yellow',s:`Ontem abaixo do ritmo: +${nf} seguidor${nf!==1?'es':''} (${pctDiff(nf,pnf)} vs anterior)`});
+    else if(nf>0)
+      insights.push({t:'blue',s:`Ontem: +${nf} novo${nf!==1?'s':''} seguidor${nf!==1?'es':''}`});
+    else
+      insights.push({t:'muted',s:`Nenhum seguidor novo registrado ontem`});
+    if(savesRate>=0.15&&saves>0)
+      insights.push({t:'green',s:`${fmtN(saves)} salvamentos ontem — alto índice, conteúdo sendo guardado como referência`});
+    else if(engTotal>0){
+      const ep=prevEngTotal>0?Math.round(((engTotal-prevEngTotal)/prevEngTotal)*100):null;
+      insights.push({t:ep!=null&&ep>20?'green':ep!=null&&ep<-20?'yellow':'blue',
+        s:`${fmtN(engTotal)} interações ontem${ep!=null?' ('+pctDiff(engTotal,prevEngTotal)+' vs anterior)':''}`});
+    }
+    if(totalContent===0)
+      insights.push({t:'yellow',s:`Nenhum conteúdo publicado ontem — vale manter consistência diária`});
+    else{
+      const types=[];
+      if(reels>0)types.push(`${reels} reel${reels!==1?'s':''}`);
+      if(posts>0)types.push(`${posts} post${posts!==1?'s':''}`);
+      if(stories>0)types.push(`${stories} storie${stories!==1?'s':''}`);
+      insights.push({t:'blue',s:types.join(', ')+` publicado${totalContent!==1?'s':''} ontem`});
+    }
+
   } else {
     const ptx=`${period}D`;
-    const r=pnf!=null&&pnf>0?nf/pnf:null;
-    if(nf>0&&avg>0&&r&&r>=1.5)insights.push({t:'green',s:`+${fmtN(nf)} seguidores em ${ptx} · +${avg}/dia · ${pctDiff(nf,pnf)} vs anterior`});
-    else if(nf>0&&avg>0&&r&&r<0.7)insights.push({t:'yellow',s:`+${fmtN(nf)} seguidores em ${ptx} · desacelerou ${pctDiff(nf,pnf)} vs anterior`});
-    else if(nf>0)insights.push({t:'blue',s:`+${fmtN(nf)} seguidores em ${ptx} · média +${avg}/dia`});
-    else insights.push({t:'muted',s:`Sem dados de crescimento em ${ptx}`});
-    if(engTotal>0){
-      if(engRate>=3)insights.push({t:'green',s:`Eng. ${d.engRate}% — excelente${d.eng.saves>0?' · '+fmtN(d.eng.saves)+' salv.':''}`});
-      else if(engRate>=1)insights.push({t:'blue',s:`Eng. ${d.engRate}%${d.eng.saves>0?' · '+fmtN(d.eng.saves)+' salv.':''}`});
-      else if(engRate>0)insights.push({t:'yellow',s:`Eng. ${d.engRate}% — abaixo de 1%`});
+    if(nf>0&&avg>0&&r&&r>=1.5)
+      insights.push({t:'green',s:`+${fmtN(nf)} seguidores em ${ptx} — crescimento ${Math.round((r-1)*100)}% acima do período anterior (média +${avg}/dia)`});
+    else if(nf>0&&avg>0&&r&&r<0.7)
+      insights.push({t:'yellow',s:`+${fmtN(nf)} seguidores em ${ptx} — ritmo desacelerou ${pctDiff(nf,pnf)} vs período anterior (média +${avg}/dia)`});
+    else if(nf>0)
+      insights.push({t:'blue',s:`+${fmtN(nf)} seguidores em ${ptx} — média de +${avg} novos por dia`});
+    else
+      insights.push({t:'muted',s:`Sem dados de crescimento disponíveis para ${ptx}`});
+    if(savesRate>=0.15&&saves>0)
+      insights.push({t:'green',s:`Alto índice de salvamentos (${fmtN(saves)}) — conteúdo sendo guardado como referência de valor`});
+    else if(sharesRate>=0.12&&shares>0)
+      insights.push({t:'green',s:`Alto volume de compartilhamentos (${fmtN(shares)}) — conteúdo com alto potencial viral no período`});
+    else if(engRate>=5)
+      insights.push({t:'green',s:`Taxa de engajamento em ${d.engRate}% — excelente, bem acima da média do setor`});
+    else if(engRate>=3)
+      insights.push({t:'green',s:`Engajamento de ${d.engRate}% com ${fmtN(engTotal)} interações — muito bom para ${ptx}`});
+    else if(engRate>=1)
+      insights.push({t:'blue',s:`Engajamento de ${d.engRate}% em ${ptx} — ${fmtN(likes)} curtidas · ${fmtN(saves)} salvamentos · ${fmtN(shares)} compartilhamentos`});
+    else if(engRate>0)
+      insights.push({t:'yellow',s:`Engajamento abaixo de 1% em ${ptx} — vale revisar formatos e horários de publicação`});
+    if(totalContent===0)
+      insights.push({t:'yellow',s:`Nenhum conteúdo publicado nos últimos ${ptx} — produção pausada no período`});
+    else{
+      const pubs=reels+posts;
+      const freq=(pubs/period).toFixed(1);
+      const parts=[];
+      if(reels>0)parts.push(`${reels} reel${reels!==1?'s':''}`);
+      if(posts>0)parts.push(`${posts} post${posts!==1?'s':''}`);
+      const freqLbl=parseFloat(freq)>=0.7?` — ritmo consistente (${freq}/dia)`:parseFloat(freq)>=0.3?` — ${freq}/dia`:``;
+      if(parts.length>0)insights.push({t:'blue',s:parts.join(' + ')+` publicado${pubs!==1?'s':''}${freqLbl}`});
     }
-    if(totalContent===0)insights.push({t:'yellow',s:`Sem publicações em ${ptx}`});
-    else{const freq=((reels+posts)/period).toFixed(1);insights.push({t:'blue',s:`${reels+posts} posts/reels em ${ptx} · ${freq}/dia`});}
   }
-  return insights.slice(0,3);
+  return insights.slice(0,4);
 }
 
 function renderInsight(d,period){
