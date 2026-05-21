@@ -617,6 +617,10 @@
   .vs2-ch-bar{border-radius:2px 2px 0 0;width:26px;position:relative;transition:height .9s cubic-bezier(.4,0,.2,1);}
   .vs2-ch-bar.meta-bar{background:rgba(0,0,0,.06);border:1px dashed rgba(0,0,0,.18);}
   .vs2-ch-bar.real-bar{background:var(--accent);}
+  .vs2-ch-bar.prev-bar{background:var(--surface2);border:1px dashed var(--border);opacity:.7;}
+  .vs2-ch-delta{font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;text-align:center;margin-top:2px;}
+  .vs2-ch-delta.up{color:var(--green);}.vs2-ch-delta.dn{color:var(--red);}
+  .vs2-ch-prev-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:8px;color:var(--muted);text-align:center;letter-spacing:.3px;opacity:.7;}
   .vs2-ch-bar.real-bar.good{background:var(--green);}
   .vs2-ch-bar.real-bar.warn{background:#b08000;}
   .vs2-ch-bar.real-bar.bad{background:var(--red);}
@@ -705,15 +709,25 @@
   .gv-left{background:var(--bg);display:flex;flex-direction:column;align-items:center;padding:8px 22px;gap:0;overflow:hidden;justify-content:space-between;}
   .gv-gauge-wrap{flex:1;min-height:0;max-height:min(50vh,420px);width:100%;display:flex;align-items:center;justify-content:center;}
   .gv-gauge-inner{width:100%;max-width:460px;aspect-ratio:1;}
-  .gv-right{display:grid;grid-template-rows:60fr 40fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;}
+  .gv-right{display:grid;grid-template-rows:55fr 45fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;}
   .gv-canal-panel{background:var(--bg);padding:7px 12px;display:flex;flex-direction:column;overflow:hidden;}
   .gv-canal-grid{flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;align-content:start;overflow:hidden;}
   .gv-sm-item{display:flex;flex-direction:column;align-items:center;gap:2px;}
   .gv-sm-item-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:10px;letter-spacing:.5px;color:var(--muted);text-align:center;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
   .gv-sm-item-val{font-family:'Oswald',sans-serif;font-size:13px;color:var(--text);}
+  .gv-sm-item-delta{font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;letter-spacing:.3px;text-align:center;}
+  .gv-sm-item-delta.up{color:#22c55e;}.gv-sm-item-delta.dn{color:#f43f5e;}
+  .gv-sm-item-desvio{font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);text-align:center;}
+  .gv-rank-delta{font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;flex-shrink:0;margin-right:2px;}
+  .gv-rank-delta.up{color:#22c55e;}.gv-rank-delta.dn{color:#f43f5e;}
+  .gv-rank-desvio{font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;flex-shrink:0;}
+  .gv-rank-desvio.pos{color:#22c55e;}.gv-rank-desvio.neg{color:#f43f5e;}
   .gv-rankings{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;}
   .gv-rank-panel{background:var(--bg);padding:7px 12px;display:flex;flex-direction:column;overflow:hidden;}
-  .gv-rank-scroll{flex:1;overflow-y:auto;min-height:0;}
+  .gv-rank-scroll{flex:1;overflow:hidden;min-height:0;position:relative;}
+  .gv-rank-scroll-inner{display:flex;flex-direction:column;}
+  @keyframes gvRankUp{0%,8%{transform:translateY(0)}92%,100%{transform:translateY(var(--gv-scroll-h,0px))}}
+  .gv-rank-scroll-inner.scrolling{animation:gvRankUp var(--gv-scroll-dur,20s) ease-in-out infinite alternate;}
   .gv-col-grid-label{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:4px;flex-shrink:0;}
   .gv-main-kpi{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);display:flex;gap:20px;flex-wrap:wrap;justify-content:center;flex-shrink:0;padding:4px 0;}
   .gv-main-kpi-item{display:flex;flex-direction:column;align-items:center;gap:2px;}
@@ -799,6 +813,10 @@
   body.dev-tv .gv-rank-bar{height:9px;}
   body.dev-tv .gv-sm-item-lbl{font-size:20px;}
   body.dev-tv .gv-sm-item-val{font-size:24px;}
+  body.dev-tv .gv-sm-item-delta{font-size:18px;}
+  body.dev-tv .gv-sm-item-desvio{font-size:16px;}
+  body.dev-tv .gv-rank-delta{font-size:22px;}
+  body.dev-tv .gv-rank-desvio{font-size:20px;}
   body.dev-tv .gv-ticker{height:70px;}
   body.dev-tv .gv-ticker-lbl{font-size:20px;}
   body.dev-tv .gv-ticker-item{font-size:30px;}
@@ -3087,13 +3105,13 @@ async function loadVesselSalesData(period,customDi,customDf){
       sbClient.from('bling_metas').select('loja_id,meta_valor').eq('year',y).eq('month',m).then(r=>r.data||[]).catch(()=>[]),
       blingPages('pedidos/vendas',{dataInicial:diPrev,dataFinal:dfPrev,'idsSituacoes[]':9}).catch(()=>[])
     ]);
-    renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now);
+    renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now,diPrev,dfPrev);
   }catch(e){
     document.getElementById('vessel-sales-body').innerHTML=`<div class="vsales-loading">Erro: ${e.message}</div>`;
   }
 }
 
-function renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now){
+function renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now,diPrev,dfPrev){
   const y=now.getFullYear(),m=now.getMonth()+1;
   const diasMes=new Date(y,m,0).getDate();
   const dInicio=new Date(di),dFim=new Date(df);
@@ -3124,6 +3142,12 @@ function renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now)
   const totalPrev=pedidosPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
   const nPrev=pedidosPrev.length;
   const ticketPrev=nPrev>0?totalPrev/nPrev:0;
+  const porLojaPrev={};
+  pedidosPrev.forEach(p=>{const id=p.loja?.id||0;porLojaPrev[id]=(porLojaPrev[id]||0)+parseFloat(p.total||0);});
+  const totalItensPrev=pedidosPrev.reduce((s,p)=>s+(p.itens?.reduce((si,i)=>si+(parseFloat(i.quantidade)||1),0)||1),0);
+  const mediaItensPrev=nPrev>0?totalItensPrev/nPrev:0;
+  const pctPrev=metaPeriodo&&totalPrev>0?Math.round(totalPrev/metaPeriodo*100):null;
+  const projPrev=diasTot>0?totalPrev/diasTot*diasTot:0;
 
   // per loja
   const porLojaId={},cntLojaId={};
@@ -3150,6 +3174,16 @@ function renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now)
 
   const dUp=(v,b)=>!b?'':`<span class="vs2-kpi-delta ${v>=b?'up':'dn'}">${v>=b?'↑':'↓'} ${Math.abs(Math.round((v-b)/b*100))}%</span>`;
   const dUpR=(v,b)=>!b?'':`<span class="vs2-kpi-delta ${v>=b?'up':'dn'}">${v>=b?'+':'-'} ${fmtR0(Math.abs(v-b))}</span>`;
+  function fmtPrevLbl(dip,dfp){
+    if(!dip||!dfp)return 'ant.';
+    const mons=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+    const s=dip.slice(8),e=dfp.slice(8),mo=mons[parseInt(dip.slice(5,7))-1];
+    const moe=mons[parseInt(dfp.slice(5,7))-1];
+    if(dip===dfp)return `${s}/${mo}`;
+    if(dip.slice(0,7)===dfp.slice(0,7))return `${s}-${e}/${mo}`;
+    return `${s}/${mo}→${e}/${moe}`;
+  }
+  const prevLbl=fmtPrevLbl(diPrev,dfPrev);
 
   document.getElementById('vessel-sales-body').innerHTML=`
     <div class="vs2-kpis">
@@ -3157,44 +3191,46 @@ function renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now)
         <div class="vs2-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
         <div class="vs2-kpi-lbl">Venda Realizada</div>
         <div class="vs2-kpi-val">${fmtR0(total)}</div>
-        ${metaPeriodo?dUpR(total,metaPeriodo)+'<div class="vs2-kpi-sub">vs meta</div>':`<div class="vs2-kpi-sub">${n} pedidos</div>`}
+        ${metaPeriodo?dUpR(total,metaPeriodo)+'<div class="vs2-kpi-sub">vs meta · '+n+' pedidos</div>':
+          (totalPrev?dUp(total,totalPrev)+'<div class="vs2-kpi-sub">vs '+prevLbl+'</div>':`<div class="vs2-kpi-sub">${n} pedidos</div>`)}
       </div>
       <div class="vs2-kpi">
         <div class="vs2-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
         <div class="vs2-kpi-lbl">Meta do Período</div>
         <div class="vs2-kpi-val">${metaPeriodo?fmtR0(metaPeriodo):'—'}</div>
-        <div class="vs2-kpi-sub">Objetivo</div>
+        ${totalPrev&&metaPeriodo?dUpR(total,metaPeriodo)+'<div class="vs2-kpi-sub">'+fmtR0(metaPeriodo-total)+' restam</div>':`<div class="vs2-kpi-sub">Objetivo ${diasTot}d</div>`}
       </div>
       <div class="vs2-kpi ${pctCls}">
         <div class="vs2-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg></div>
         <div class="vs2-kpi-lbl">% Atingido</div>
         <div class="vs2-kpi-val">${pct!==null?pct+'%':'—'}</div>
         ${pct!==null?`<div class="vs2-kpi-prog"><div class="vs2-kpi-prog-fill" style="width:0" data-w="${Math.min(pct,100)}"></div></div>`:''}
-        <div class="vs2-kpi-sub">${pct!==null?(pct>=100?'Meta batida!':`Faltam ${100-pct}%`):'Sem meta'}</div>
+        <div class="vs2-kpi-sub">${pct!==null?(pct>=100?'Meta batida!':`Faltam ${100-pct}%`):'Sem meta'}${pctPrev!==null?' · ant: '+pctPrev+'%':''}</div>
       </div>
       <div class="vs2-kpi">
         <div class="vs2-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
         <div class="vs2-kpi-lbl">Projeção</div>
         <div class="vs2-kpi-val">${fmtR0(proj)}</div>
-        ${metaPeriodo?dUpR(proj,metaPeriodo)+'<div class="vs2-kpi-sub">vs meta</div>':`<div class="vs2-kpi-sub">${diasDec}/${period==='month'?diasMes:diasTot} dias</div>`}
+        ${metaPeriodo?dUpR(proj,metaPeriodo)+'<div class="vs2-kpi-sub">vs meta</div>':
+          (totalPrev?dUp(proj,totalPrev)+'<div class="vs2-kpi-sub">vs '+prevLbl+'</div>':`<div class="vs2-kpi-sub">${diasDec}/${period==='month'?diasMes:diasTot} dias</div>`)}
       </div>
       <div class="vs2-kpi">
         <div class="vs2-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/></svg></div>
         <div class="vs2-kpi-lbl">Meta de Hoje</div>
         <div class="vs2-kpi-val">${metaHoje?fmtR0(metaHoje):'—'}</div>
-        <div class="vs2-kpi-sub">Hoje: ${fmtR0(totalHoje)}</div>
+        ${metaHoje?dUpR(totalHoje,metaHoje)+'<div class="vs2-kpi-sub">realizado hoje</div>':`<div class="vs2-kpi-sub">Hoje: ${fmtR0(totalHoje)}</div>`}
       </div>
       <div class="vs2-kpi">
         <div class="vs2-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div>
         <div class="vs2-kpi-lbl">Média Itens/Venda</div>
         <div class="vs2-kpi-val">${mediaItens.toFixed(2)}</div>
-        <div class="vs2-kpi-sub">${n} vendas · ${totalItens} itens</div>
+        ${mediaItensPrev?dUp(mediaItens,mediaItensPrev)+'<div class="vs2-kpi-sub">vs '+prevLbl+' · '+totalItens+' itens</div>':`<div class="vs2-kpi-sub">${n} vendas · ${totalItens} itens</div>`}
       </div>
       <div class="vs2-kpi">
         <div class="vs2-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div>
         <div class="vs2-kpi-lbl">Ticket Médio</div>
         <div class="vs2-kpi-val">${fmtR(ticket)}</div>
-        ${ticketPrev?dUp(ticket,ticketPrev)+'<div class="vs2-kpi-sub">vs período anterior</div>':`<div class="vs2-kpi-sub">${n} pedidos</div>`}
+        ${ticketPrev?dUp(ticket,ticketPrev)+'<div class="vs2-kpi-sub">vs '+prevLbl+'</div>':`<div class="vs2-kpi-sub">${n} pedidos</div>`}
       </div>
     </div>
 
@@ -3213,18 +3249,25 @@ function renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now)
           <div class="vs2-ch-bars">
             ${lojas.map(l=>{
               const meta=metasMap[l.id]||null;
+              const prev=porLojaPrev[l.id]||0;
+              const allVals=[l.v,meta||0,prev];
+              const localMax=Math.max(...allVals,1);
               const pctL=meta?Math.round(l.v/meta*100):null;
               const colCls=pctL===null?'':pctL>=100?'good':pctL>=85?'warn':'bad';
               const pctCol=pctL===null?'var(--accent)':pctL>=100?'var(--green)':pctL>=85?'#b08000':'var(--red)';
-              const hR=Math.round(l.v/chartMaxL*chBarMax);
-              const hM=meta?Math.round(meta/chartMaxL*chBarMax):0;
+              const hR=Math.round(l.v/localMax*chBarMax);
+              const hM=meta?Math.round(meta/localMax*chBarMax):0;
+              const hP=prev?Math.round(prev/localMax*chBarMax):0;
+              const deltaL=prev>0?Math.round((l.v-prev)/prev*100):null;
               return `<div class="vs2-ch-col">
                 <div class="vs2-ch-col-bars">
+                  ${prev?`<div class="vs2-ch-bar prev-bar" style="height:0" data-h="${hP}px" title="Período ant.: ${fmtR0(prev)}"></div>`:''}
                   ${meta?`<div class="vs2-ch-bar meta-bar" style="height:0" data-h="${hM}px"></div>`:''}
                   <div class="vs2-ch-bar real-bar ${colCls}" style="height:0" data-h="${hR}px">
                     ${pctL!==null?`<span class="vs2-ch-pct" style="color:${pctCol}">${pctL>=100?'↑':'↓'}${pctL}%</span>`:''}
                   </div>
                 </div>
+                ${deltaL!==null?`<div class="vs2-ch-delta ${deltaL>=0?'up':'dn'}">${deltaL>=0?'↑':'↓'}${Math.abs(deltaL)}%</div>`:''}
                 <div class="vs2-ch-nm" title="${l.nm}">${l.nm}</div>
               </div>`;
             }).join('')}
@@ -3233,8 +3276,8 @@ function renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now)
         <div class="vs2-ch-summary">
           <div class="vs2-ch-sum-cell"><div class="vs2-ch-sum-lbl">Meta</div><div class="vs2-ch-sum-val">${metaPeriodo?fmtR0(metaPeriodo):'—'}</div></div>
           <div class="vs2-ch-sum-cell"><div class="vs2-ch-sum-lbl">Realizado</div><div class="vs2-ch-sum-val">${fmtR0(total)}</div></div>
-          <div class="vs2-ch-sum-cell"><div class="vs2-ch-sum-lbl">Desvio</div><div class="vs2-ch-sum-val ${metaPeriodo&&total<metaPeriodo?'bad':'good'}">${metaPeriodo?(total>=metaPeriodo?'+':'-')+fmtR0(Math.abs(total-metaPeriodo)):'—'}</div></div>
-          <div class="vs2-ch-sum-cell"><div class="vs2-ch-sum-lbl">Variação</div><div class="vs2-ch-sum-val ${pctCls}">${pct!==null?(pct>=100?'+':'')+(pct-100)+'%':'—'}</div></div>
+          <div class="vs2-ch-sum-cell"><div class="vs2-ch-sum-lbl">Desvio Meta</div><div class="vs2-ch-sum-val ${metaPeriodo&&total<metaPeriodo?'bad':'good'}">${metaPeriodo?(total>=metaPeriodo?'+':'-')+fmtR0(Math.abs(total-metaPeriodo)):'—'}</div></div>
+          <div class="vs2-ch-sum-cell"><div class="vs2-ch-sum-lbl">vs ${prevLbl}</div><div class="vs2-ch-sum-val ${totalPrev&&total>=totalPrev?'good':'bad'}">${totalPrev?(total>=totalPrev?'↑':'↓')+Math.abs(Math.round((total-totalPrev)/totalPrev*100))+'%':'—'}</div></div>
         </div>
       </div>
     </div>
@@ -3337,7 +3380,7 @@ async function loadGestaoVistaData(period){
     ]);
     const metasMap={};metasRows.forEach(r=>metasMap[r.loja_id]=r.meta_valor);
     const totalPrev=pedidosPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
-    renderGestaoVista(pedidos,canais,metasMap,df,diasMes,diaAtual,di,period,totalPrev,pedidosPrev.length);
+    renderGestaoVista(pedidos,canais,metasMap,df,diasMes,diaAtual,di,period,totalPrev,pedidosPrev.length,pedidosPrev,diPrev,dfPrev);
     if(window._gvTimer)clearInterval(window._gvTimer);
     window._gvTimer=setInterval(()=>loadGestaoVistaData(_gvCurrentPeriod),5*60*1000);
     document.getElementById('gv-refresh-tag').textContent='PRÓX. '+String(now.getHours()).padStart(2,'0')+':'+String((now.getMinutes()+5)%60).padStart(2,'0');
@@ -3346,7 +3389,7 @@ async function loadGestaoVistaData(period){
   }
 }
 
-function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,period,totalPrev,cntPrev){
+function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,period,totalPrev,cntPrev,pedidosPrev,diPrev,dfPrev){
   const total=pedidos.reduce((s,p)=>s+parseFloat(p.total||0),0);
   const totalHoje=pedidos.filter(p=>p.data?.slice(0,10)===hoje).reduce((s,p)=>s+parseFloat(p.total||0),0);
   const diasTot=di?Math.ceil((new Date(hoje)-new Date(di))/864e5)+1:diaAtual;
@@ -3356,32 +3399,40 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   const pct=metaPeriodo?Math.round(total/metaPeriodo*100):null;
   const deltaPct=(totalPrev&&totalPrev>0)?Math.round((total-totalPrev)/totalPrev*100):null;
   const desvioMeta=metaPeriodo!=null?total-metaPeriodo:null;
+  const ticket=pedidos.length?total/pedidos.length:0;
+  const ticketPrev=cntPrev?totalPrev/cntPrev:0;
+  const deltaTicket=(ticketPrev>0)?Math.round((ticket-ticketPrev)/ticketPrev*100):null;
 
-  // Per canal
+  // Per canal — current + prev
   const porCanal={},cntCanal={};
   pedidos.forEach(p=>{const id=p.loja?.id||0;porCanal[id]=(porCanal[id]||0)+parseFloat(p.total||0);cntCanal[id]=(cntCanal[id]||0)+1;});
+  const porCanalPrev={};
+  (pedidosPrev||[]).forEach(p=>{const id=p.loja?.id||0;porCanalPrev[id]=(porCanalPrev[id]||0)+parseFloat(p.total||0);});
   const canaisArr=Object.entries(porCanal).map(([id,v])=>({id:parseInt(id),nm:canais[id]||(id?'Canal #'+String(id).slice(-4):'Outros'),v,cnt:cntCanal[id]})).sort((a,b)=>b.v-a.v);
   const maxC=canaisArr[0]?.v||1;
 
-  // Per vendedor (correct field from Bling)
+  // Per vendedor — current + prev
   const porVend={},cntVend={};
   pedidos.forEach(p=>{const nm=(p.vendedor?.nome||'Sem vendedor').split(' ').slice(0,2).join(' ');porVend[nm]=(porVend[nm]||0)+parseFloat(p.total||0);cntVend[nm]=(cntVend[nm]||0)+1;});
+  const porVendPrev={};
+  (pedidosPrev||[]).forEach(p=>{const nm=(p.vendedor?.nome||'Sem vendedor').split(' ').slice(0,2).join(' ');porVendPrev[nm]=(porVendPrev[nm]||0)+parseFloat(p.total||0);});
   const vendsArr=Object.entries(porVend).sort((a,b)=>b[1]-a[1]);
   const maxV=vendsArr[0]?.[1]||1;
 
   const isDark=document.documentElement.dataset.theme==='dark';
   const trackClr=isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.08)';
   const numCls=i=>i===0?'gold':i===1?'silver':i===2?'bronze':'rest';
-
   function pctHex(p){return p===null?'#4f7cff':p>=100?'#22c55e':p>=80?'#eab308':'#f43f5e';}
+  function fmtK(v){const a=Math.abs(v);return a>=1e6?(v/1e6).toFixed(1)+'M':a>=1e3?(v/1e3).toFixed(0)+'k':String(Math.round(v));}
+  function fmtPrevLbl(dip,dfp){if(!dip||!dfp)return 'ant.';const mons=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];const s=dip.slice(8),e=dfp.slice(8),mo=mons[parseInt(dip.slice(5,7))-1];const moe=mons[parseInt(dfp.slice(5,7))-1];if(dip===dfp)return s+'/'+mo;if(dip.slice(0,7)===dfp.slice(0,7))return s+'-'+e+'/'+mo;return s+'/'+mo+'→'+e+'/'+moe;}
+  const prevLbl=fmtPrevLbl(diPrev,dfPrev);
 
-  // Responsive SVG gauges — fill container via CSS, text inside scales automatically
-  function bigGauge(p,hexColor,uid,line1,line2,line3){
-    const R=82,cx=100,cy=100;
+  function bigGauge(p,hexColor,uid,line1,line2,line3,line4text,line4color){
+    const R=78,cx=100,cy=98;
     const C=2*Math.PI*R,sweep=240/360*C,gap=C-sweep;
     const fill=p!==null?Math.min(Math.max(p,0),100)/100*sweep:0;
     const rot=150;
-    return `<svg viewBox="0 0 200 200" style="width:100%;height:100%;overflow:visible;display:block">
+    return `<svg viewBox="0 0 200 210" style="width:100%;height:100%;overflow:visible;display:block">
       <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${trackClr}" stroke-width="13"
         stroke-dasharray="${sweep.toFixed(1)} ${gap.toFixed(1)}" stroke-linecap="round"
         transform="rotate(${rot} ${cx} ${cy})"/>
@@ -3390,9 +3441,10 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
         transform="rotate(${rot} ${cx} ${cy})"
         data-fill="${fill.toFixed(1)}" data-c="${C.toFixed(1)}"
         style="transition:stroke-dasharray 2s cubic-bezier(.4,0,.2,1);filter:drop-shadow(0 0 8px ${hexColor}88)"/>
-      <text x="100" y="88" text-anchor="middle" font-family="Oswald,sans-serif" font-size="42" font-weight="600" fill="${hexColor}">${line1}</text>
-      <text x="100" y="107" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="10" fill="var(--muted)" letter-spacing="2">${line2}</text>
-      <text x="100" y="130" text-anchor="middle" font-family="Oswald,sans-serif" font-size="22" font-weight="500" fill="var(--text)">${line3}</text>
+      <text x="100" y="86" text-anchor="middle" font-family="Oswald,sans-serif" font-size="42" font-weight="600" fill="${hexColor}">${line1}</text>
+      <text x="100" y="104" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="10" fill="var(--muted)" letter-spacing="2">${line2}</text>
+      <text x="100" y="127" text-anchor="middle" font-family="Oswald,sans-serif" font-size="22" font-weight="500" fill="var(--text)">${line3}</text>
+      ${line4text?`<text x="100" y="148" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="10.5" font-weight="600" fill="${line4color||'var(--muted)'}">${line4text}</text>`:''}
     </svg>`;
   }
   function smGauge(p,hexColor,uid,topText){
@@ -3413,10 +3465,16 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     </svg>`;
   }
 
+  // Main gauge lines
   const mainHex=pctHex(pct);
   const mainLine1=pct!==null?pct+'%':'–';
   const mainLine2=pct!==null?'DA META':'SEM META';
   const mainLine3=fmtR0(total);
+  // 4th line: desvio R$ + delta % vs anterior
+  const desvioStr=desvioMeta!=null?(desvioMeta>=0?'+':'')+fmtK(desvioMeta)+' meta':null;
+  const deltaStr=deltaPct!=null?(deltaPct>=0?'↑':'↓')+Math.abs(deltaPct)+'% vs '+prevLbl:null;
+  const line4txt=[desvioStr,deltaStr].filter(Boolean).join(' · ');
+  const line4col=desvioMeta!=null?(desvioMeta>=0?'#22c55e':'#f43f5e'):(deltaPct!=null&&deltaPct>=0?'#22c55e':'#f43f5e');
 
   // ── SMALL GAUGES (per canal) ──
   const canaisComMeta=canaisArr.filter(c=>metasMap[c.id]);
@@ -3427,47 +3485,75 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     const cHex=hasMeta?pctHex(cPct):'#4f7cff';
     const topText=hasMeta&&cPct!==null?cPct+'%':fmtR0(c.v);
     const short=c.nm.length>13?c.nm.slice(0,12)+'…':c.nm;
+    const cPrev=porCanalPrev[c.id]||0;
+    const cDelta=cPrev>0?Math.round((c.v-cPrev)/cPrev*100):null;
+    const cDesvio=cMetaP!=null?c.v-cMetaP:null;
     return `<div class="gv-sm-item">
       ${smGauge(hasMeta?cPct:null,cHex,'gv-g-c'+i,topText)}
       <div class="gv-sm-item-lbl">${escHtml(short)}</div>
       ${hasMeta?`<div class="gv-sm-item-val">${fmtR0(c.v)}</div>`:''}
+      ${cDesvio!=null?`<div class="gv-sm-item-desvio" style="color:${cDesvio>=0?'#22c55e':'#f43f5e'}">${cDesvio>=0?'+':''}${fmtK(cDesvio)} meta</div>`:''}
+      ${cDelta!=null?`<div class="gv-sm-item-delta ${cDelta>=0?'up':'dn'}">${cDelta>=0?'↑':'↓'}${Math.abs(cDelta)}% vs ${prevLbl}</div>`:''}
     </div>`;
   }).join('');
 
   // ── RANKINGS ──
-  const canaisRank=canaisArr.map((c,i)=>`
-    <div class="gv-rank-entry">
+  const canaisRank=canaisArr.map((c,i)=>{
+    const cPrev=porCanalPrev[c.id]||0;
+    const cDelta=cPrev>0?Math.round((c.v-cPrev)/cPrev*100):null;
+    const cMetaP=metasMap[c.id]?metasMap[c.id]/diasMes*diasTot:null;
+    const cDesvio=cMetaP!=null?c.v-cMetaP:null;
+    return `<div class="gv-rank-entry">
       <span class="gv-rank-num ${numCls(i)}">${i+1}</span>
       <div class="gv-rank-body">
-        <div class="gv-rank-row"><span class="gv-rank-nm">${escHtml(c.nm)}</span><span class="gv-rank-v">${fmtR0(c.v)}</span></div>
+        <div class="gv-rank-row">
+          <span class="gv-rank-nm">${escHtml(c.nm)}</span>
+          <div style="display:flex;align-items:center;gap:3px;flex-shrink:0">
+            ${cDelta!=null?`<span class="gv-rank-delta ${cDelta>=0?'up':'dn'}">${cDelta>=0?'↑':'↓'}${Math.abs(cDelta)}%</span>`:''}
+            <span class="gv-rank-v">${fmtR0(c.v)}</span>
+          </div>
+        </div>
         <div class="gv-rank-bar"><div class="gv-rank-bar-fill ${numCls(i)}" data-w="${Math.round(c.v/maxC*100)}%" style="width:0"></div></div>
-        <div class="gv-rank-hint">${c.cnt} pedido${c.cnt!==1?'s':''}</div>
+        <div class="gv-rank-hint">${c.cnt} pedido${c.cnt!==1?'s':''}${cDesvio!=null?' · <span style="color:'+( cDesvio>=0?'#22c55e':'#f43f5e')+'">'+(cDesvio>=0?'+':'')+fmtK(cDesvio)+' meta</span>':''}</div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
-  const vendsRank=vendsArr.slice(0,12).map(([nm,v],i)=>`
-    <div class="gv-rank-entry">
+  const vendsRank=vendsArr.slice(0,12).map(([nm,v],i)=>{
+    const vPrev=porVendPrev[nm]||0;
+    const vDelta=vPrev>0?Math.round((v-vPrev)/vPrev*100):null;
+    return `<div class="gv-rank-entry">
       <span class="gv-rank-num ${numCls(i)}">${i+1}</span>
       <div class="gv-rank-body">
-        <div class="gv-rank-row"><span class="gv-rank-nm">${escHtml(nm)}</span><span class="gv-rank-v">${fmtR0(v)}</span></div>
+        <div class="gv-rank-row">
+          <span class="gv-rank-nm">${escHtml(nm)}</span>
+          <div style="display:flex;align-items:center;gap:3px;flex-shrink:0">
+            ${vDelta!=null?`<span class="gv-rank-delta ${vDelta>=0?'up':'dn'}">${vDelta>=0?'↑':'↓'}${Math.abs(vDelta)}%</span>`:''}
+            <span class="gv-rank-v">${fmtR0(v)}</span>
+          </div>
+        </div>
         <div class="gv-rank-bar"><div class="gv-rank-bar-fill ${numCls(i)}" data-w="${Math.round(v/maxV*100)}%" style="width:0"></div></div>
         <div class="gv-rank-hint">${cntVend[nm]} pedido${cntVend[nm]!==1?'s':''}</div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   document.getElementById('gv-board').innerHTML=`
     <div class="gv-left">
       <div class="gv-kpi-period">${period&&period!=='today'&&di?di.split('-').reverse().join('/')+ ' → '+hoje.split('-').reverse().join('/'):'Dia '+diaAtual+' de '+diasMes+' · '+hoje.split('-').reverse().join('/')}</div>
       <div class="gv-gauge-wrap">
         <div class="gv-gauge-inner">
-          ${bigGauge(pct,mainHex,'gv-g-main',mainLine1,mainLine2,mainLine3)}
+          ${bigGauge(pct,mainHex,'gv-g-main',mainLine1,mainLine2,mainLine3,line4txt,line4col)}
         </div>
       </div>
       <div class="gv-main-kpi">
         <div class="gv-main-kpi-item"><div class="gv-main-kpi-v">${fmtR0(totalHoje)}</div><div class="gv-main-kpi-l">Hoje</div></div>
         <div class="gv-main-kpi-item"><div class="gv-main-kpi-v">${fmtR0(proj)}</div><div class="gv-main-kpi-l">Projeção</div></div>
         <div class="gv-main-kpi-item"><div class="gv-main-kpi-v">${pedidos.length}</div><div class="gv-main-kpi-l">Pedidos</div></div>
-        <div class="gv-main-kpi-item"><div class="gv-main-kpi-v">${fmtR(pedidos.length?total/pedidos.length:0)}</div><div class="gv-main-kpi-l">Ticket</div></div>
+        <div class="gv-main-kpi-item">
+          <div class="gv-main-kpi-v">${fmtR(ticket)}</div>
+          <div class="gv-main-kpi-l">Ticket ${deltaTicket!=null?'<span style="font-size:9px;color:'+(deltaTicket>=0?'#22c55e':'#f43f5e')+'">'+(deltaTicket>=0?'↑':'↓')+Math.abs(deltaTicket)+'%</span>':''}</div>
+        </div>
         ${desvioMeta!=null?`<div class="gv-main-kpi-item"><div class="gv-main-kpi-v" style="color:${desvioMeta>=0?'#22c55e':'#f43f5e'}">${desvioMeta>=0?'+':''}${fmtR0(desvioMeta)}</div><div class="gv-main-kpi-l">Desvio Meta</div></div>`:''}
         ${deltaPct!=null?`<div class="gv-main-kpi-item"><div class="gv-main-kpi-v" style="color:${deltaPct>=0?'#22c55e':'#f43f5e'}">${deltaPct>=0?'+':''}${deltaPct}%</div><div class="gv-main-kpi-l">Var. Período</div></div>`:''}
       </div>
@@ -3480,11 +3566,11 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
       <div class="gv-rankings">
         <div class="gv-rank-panel">
           <div class="gv-rank-col-hdr">Ranking por Canal</div>
-          <div class="gv-rank-scroll">${canaisRank}</div>
+          <div class="gv-rank-scroll" id="gv-rank-scroll-c"><div class="gv-rank-scroll-inner" id="gv-rank-inner-c">${canaisRank}</div></div>
         </div>
         <div class="gv-rank-panel">
           <div class="gv-rank-col-hdr">Ranking por Vendedor</div>
-          <div class="gv-rank-scroll">${vendsRank}</div>
+          <div class="gv-rank-scroll" id="gv-rank-scroll-v"><div class="gv-rank-scroll-inner" id="gv-rank-inner-v">${vendsRank}</div></div>
         </div>
       </div>
     </div>
@@ -3502,7 +3588,19 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
       const fill=parseFloat(el.dataset.fill),c=parseFloat(el.dataset.c);
       el.style.strokeDasharray=`${fill.toFixed(1)} ${(c-fill).toFixed(1)}`;
     });
-  },150);
+    ['c','v'].forEach(id=>{
+      const wrap=document.getElementById('gv-rank-scroll-'+id);
+      const inner=document.getElementById('gv-rank-inner-'+id);
+      if(!wrap||!inner)return;
+      const overflow=inner.scrollHeight-wrap.clientHeight;
+      if(overflow>16){
+        const dur=Math.max(12,overflow/18);
+        inner.style.setProperty('--gv-scroll-h',`-${overflow}px`);
+        inner.style.setProperty('--gv-scroll-dur',`${dur}s`);
+        inner.classList.add('scrolling');
+      }
+    });
+  },300);
 }
 
 /* ── THEME TOGGLE ── */
