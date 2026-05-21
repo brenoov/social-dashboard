@@ -402,6 +402,8 @@
   .logout-btn:hover{border-color:var(--accent);color:var(--accent);}
   .admin-btn{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:#fff;background:var(--accent);border:none;border-radius:3px;padding:5px 12px;cursor:pointer;letter-spacing:.8px;transition:opacity .18s;text-transform:uppercase;}
   .admin-btn:hover{opacity:.85;}
+  .admin-btn-sm{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:#fff;background:var(--accent);border:none;border-radius:3px;padding:5px 10px;cursor:pointer;letter-spacing:.6px;white-space:nowrap;transition:opacity .18s;text-transform:uppercase;}
+  .admin-btn-sm:hover{opacity:.85;}
 
   /* ADMIN PANEL */
   #admin-panel{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:28px;margin-bottom:32px;animation:fadeUp .3s ease;}
@@ -542,16 +544,6 @@
       </div>
     </div>
     <div class="home-cards" id="home-cards">
-      <div class="home-card" onclick="openDashboard()">
-        <div class="home-card-icon">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        </div>
-        <div class="home-card-text">
-          <h3>Dashboard<br>Redes Sociais</h3>
-          <p>Métricas e KPIs do Instagram para todas as marcas</p>
-        </div>
-        <span class="home-card-enter">→</span>
-      </div>
       <div class="home-card card-admin" id="home-card-admin" onclick="openAdmin()" style="display:none">
         <div class="home-card-icon">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
@@ -559,6 +551,16 @@
         <div class="home-card-text">
           <h3>Administração</h3>
           <p>Controle total da Central de Inteligência</p>
+        </div>
+        <span class="home-card-enter">→</span>
+      </div>
+      <div class="home-card" onclick="openDashboard()">
+        <div class="home-card-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        </div>
+        <div class="home-card-text">
+          <h3>Dashboard<br>Redes Sociais</h3>
+          <p>Métricas e KPIs do Instagram para todas as marcas</p>
         </div>
         <span class="home-card-enter">→</span>
       </div>
@@ -622,8 +624,8 @@
         <span class="sg-label">Logo & identidade</span>
         <div class="sg">
           <div class="sr" style="justify-content:space-between"><div class="sr-main"><div class="sr-label">Logo principal</div><div class="sr-sub">Header e tela de login</div></div><img src="https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/profile-pics/rbv-logo.png" style="width:38px;height:38px;object-fit:contain;border-radius:6px"></div>
-          <div class="sr" style="justify-content:space-between"><div class="sr-main"><div class="sr-label">Nome da plataforma</div><div class="sr-sub">Exibido no header e login</div></div><span class="sr-val">Inteligência RBV</span></div>
-          <div class="sr" style="justify-content:space-between"><div class="sr-main"><div class="sr-label">Frase de rodapé</div><div class="sr-sub">Tela inicial</div></div><span class="sr-val">Mentalidade Vencedora</span></div>
+          <div class="sr" style="justify-content:space-between;gap:12px"><div class="sr-main"><div class="sr-label">Nome da plataforma</div><div class="sr-sub">Exibido no header e login</div></div><div style="display:flex;align-items:center;gap:8px"><input id="adm-platform-name" class="admin-input" style="width:200px;padding:6px 10px;font-size:12px" placeholder="Inteligência RBV"><button class="admin-btn-sm" onclick="adminSaveSetting('platform_name','adm-platform-name')">Salvar</button></div></div>
+          <div class="sr" style="justify-content:space-between;gap:12px"><div class="sr-main"><div class="sr-label">Frase de rodapé</div><div class="sr-sub">Tela inicial</div></div><div style="display:flex;align-items:center;gap:8px"><input id="adm-footer-phrase" class="admin-input" style="width:200px;padding:6px 10px;font-size:12px" placeholder="Mentalidade Vencedora"><button class="admin-btn-sm" onclick="adminSaveSetting('footer_phrase','adm-footer-phrase')">Salvar</button></div></div>
         </div>
         <span class="sg-label">Paleta de cores por conta</span>
         <div class="sg" id="admin-theme-list"></div>
@@ -1392,8 +1394,11 @@ function update(d,period){
 
 /* ── BUILD UI ── */
 async function buildProfiles(){
-  const accounts=await sb('accounts?order=name.asc&select=id,name,username,picture_url');
-  accounts.forEach(acc=>{if(acc.picture_url)ACCOUNT_PICS[acc.name]=acc.picture_url;});
+  const accounts=await sb('accounts?order=name.asc&select=id,name,username,picture_url,accent_color');
+  accounts.forEach(acc=>{
+    if(acc.picture_url)ACCOUNT_PICS[acc.name]=acc.picture_url;
+    if(acc.accent_color&&PROFILE_THEMES[acc.name]){PROFILE_THEMES[acc.name].accent=acc.accent_color;PROFILE_THEMES[acc.name].light=acc.accent_color+'1a';PROFILE_THEMES[acc.name].mid=acc.accent_color+'4d';}
+  });
   const wrap=document.getElementById('profile-select');
   wrap.textContent='';
   accounts.forEach((acc,idx)=>{
@@ -1584,9 +1589,11 @@ function setHomeView(v){
   localStorage.setItem('home-view',v);
 }
 /* ── ADMIN MODULE ── */
-function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function mkEl(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;}
-function mkRow(lbl,sub){const r=mkEl('div','sr');r.style.justifyContent='space-between';const m=mkEl('div','sr-main');m.appendChild(mkEl('div','sr-label',lbl));if(sub)m.appendChild(mkEl('div','sr-sub',sub));r.appendChild(m);return r;}
+function adTok(){return currentSession?.access_token||SUPABASE_ANON_KEY;}
+function adFetch(path,opts={}){return fetch(`${SUPABASE_URL}/rest/v1/${path}`,{...opts,headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${adTok()}`,'Content-Type':'application/json',...(opts.headers||{})}});}
+function adminToast(msg,ok=true){let t=document.getElementById('admin-toast');if(!t){t=mkEl('div');t.id='admin-toast';t.style.cssText='position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:8px;font-family:"IBM Plex Sans",sans-serif;font-size:13px;font-weight:500;z-index:9999;transition:opacity .3s;box-shadow:0 4px 16px rgba(0,0,0,.15)';document.body.appendChild(t);}
+  t.textContent=msg;t.style.background=ok?'#166534':'#991b1b';t.style.color='#fff';t.style.opacity='1';clearTimeout(t._to);t._to=setTimeout(()=>t.style.opacity='0',2800);}
 
 function openAdmin(skipStorage){
   if(!skipStorage)sessionStorage.setItem('rbv-screen','admin');
@@ -1603,28 +1610,50 @@ function loadAdminSection(name){
   const sec=document.getElementById('admin-section-'+name);if(sec)sec.classList.add('active');
   ({users:loadAdminUsers,accounts:loadAdminAccounts,appearance:loadAdminAppearance,data:loadAdminData,system:loadAdminSystem})[name]?.();
 }
+
+/* ── USUÁRIOS ── */
 async function loadAdminUsers(){
-  const tok=currentSession?.access_token||SUPABASE_ANON_KEY;
-  const res=await fetch(`${SUPABASE_URL}/rest/v1/profiles?order=created_at.asc&select=id,email,name,role`,{headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${tok}`}});
+  const res=await adFetch('profiles?order=created_at.asc&select=id,email,name,role,disabled,created_at');
   const users=await res.json();if(!Array.isArray(users))return;
-  const admins=users.filter(u=>u.role==='admin').length;
+  const active=users.filter(u=>!u.disabled),admins=active.filter(u=>u.role==='admin').length;
   const stats=document.getElementById('admin-stats-users');stats.innerHTML='';
-  [[users.length,'Total'],[admins,'Admins'],[users.length-admins,'Viewers']].forEach(([v,l])=>{
-    const s=mkEl('div','admin-stat');const sv=mkEl('div','admin-stat-val',String(v));const sl=mkEl('div','admin-stat-lbl',l);s.appendChild(sv);s.appendChild(sl);stats.appendChild(s);
+  [[users.length,'Total'],[admins,'Admins'],[active.length-admins,'Viewers'],[users.filter(u=>u.disabled).length,'Inativos']].forEach(([v,l])=>{
+    const s=mkEl('div','admin-stat');s.appendChild(mkEl('div','admin-stat-val',String(v)));s.appendChild(mkEl('div','admin-stat-lbl',l));stats.appendChild(s);
   });
   const list=document.getElementById('admin-user-list');list.innerHTML='';
   users.forEach(u=>{
-    const row=mkRow(u.name||'—',u.email);
-    const sel=mkEl('select','auth-input');sel.style.maxWidth='130px';sel.style.fontSize='11px';
-    ['viewer','admin'].forEach(v=>{const o=mkEl('option');o.value=v;o.textContent=v==='viewer'?'Visualizador':'Admin';if(u.role===v)o.selected=true;sel.appendChild(o);});
-    sel.addEventListener('change',()=>adminChangeRole(u.id,sel.value));
-    const wrap=mkEl('div');wrap.style.cssText='display:flex;align-items:center;gap:10px';wrap.appendChild(sel);row.appendChild(wrap);
-    list.appendChild(row);
+    const isSelf=u.email===document.getElementById('home-user-email').textContent.trim();
+    const row=mkEl('div','sr');row.style.justifyContent='space-between';if(u.disabled)row.style.opacity='.5';
+    // Avatar inicial
+    const av=mkEl('div');av.style.cssText=`width:34px;height:34px;border-radius:50%;background:${u.role==='admin'?'var(--accent)':'var(--surface2)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid var(--border)`;
+    const avTxt=mkEl('span');avTxt.style.cssText=`font-family:'Oswald',sans-serif;font-size:14px;font-weight:600;color:${u.role==='admin'?'#fff':'var(--muted)'}`;avTxt.textContent=(u.name||u.email).charAt(0).toUpperCase();av.appendChild(avTxt);
+    // Info principal
+    const main=mkEl('div','sr-main');main.style.marginLeft='10px';
+    // Nome editável
+    const nameWrap=mkEl('div');nameWrap.style.cssText='display:flex;align-items:center;gap:6px';
+    const nameInp=mkEl('input');nameInp.value=u.name||'';nameInp.placeholder='Nome';nameInp.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:13px;font-weight:500;color:var(--text);background:transparent;border:none;border-bottom:1px solid transparent;outline:none;width:140px;padding:1px 0;transition:border-color .15s';
+    nameInp.addEventListener('focus',()=>nameInp.style.borderBottomColor='var(--accent)');
+    nameInp.addEventListener('blur',async()=>{nameInp.style.borderBottomColor='transparent';if(nameInp.value.trim()===u.name)return;await adFetch(`profiles?id=eq.${u.id}`,{method:'PATCH',body:JSON.stringify({name:nameInp.value.trim()})});adminToast('Nome atualizado');});
+    nameWrap.appendChild(nameInp);
+    if(isSelf){const you=mkEl('span');you.textContent='Você';you.style.cssText='font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--accent);background:var(--accent-light);padding:2px 6px;border-radius:3px';nameWrap.appendChild(you);}
+    main.appendChild(nameWrap);
+    const emailTxt=mkEl('div','sr-sub',u.email);
+    const dateTxt=mkEl('span');dateTxt.style.cssText='font-size:10px;color:rgba(10,10,18,.3);margin-left:8px';dateTxt.textContent=u.created_at?new Date(u.created_at).toLocaleDateString('pt-BR'):'';
+    emailTxt.appendChild(dateTxt);main.appendChild(emailTxt);
+    // Controles
+    const ctrl=mkEl('div');ctrl.style.cssText='display:flex;align-items:center;gap:8px;flex-shrink:0';
+    const sel=mkEl('select','auth-input');sel.style.cssText='max-width:120px;font-size:11px;padding:4px 6px';
+    [{v:'viewer',l:'Viewer'},{v:'admin',l:'Admin'}].forEach(({v,l})=>{const o=mkEl('option');o.value=v;o.textContent=l;if(u.role===v)o.selected=true;sel.appendChild(o);});
+    if(!isSelf)sel.addEventListener('change',async()=>{await adFetch(`profiles?id=eq.${u.id}`,{method:'PATCH',body:JSON.stringify({role:sel.value})});adminToast('Role atualizado');setTimeout(loadAdminUsers,800);});
+    else sel.disabled=true;
+    ctrl.appendChild(sel);
+    if(!isSelf){
+      const disBtn=mkEl('button','sr-btn '+(u.disabled?'':'danger'));disBtn.textContent=u.disabled?'Ativar':'Desativar';
+      disBtn.addEventListener('click',async()=>{await adFetch(`profiles?id=eq.${u.id}`,{method:'PATCH',body:JSON.stringify({disabled:!u.disabled})});adminToast(u.disabled?'Usuário ativado':'Usuário desativado');setTimeout(loadAdminUsers,600);});
+      ctrl.appendChild(disBtn);
+    }
+    row.appendChild(av);row.appendChild(main);row.appendChild(ctrl);list.appendChild(row);
   });
-}
-async function adminChangeRole(uid,role){
-  const tok=currentSession?.access_token||SUPABASE_ANON_KEY;
-  await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${uid}`,{method:'PATCH',headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${tok}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({role})});
 }
 async function adminInviteUser(){
   const email=document.getElementById('adm-email').value.trim();
@@ -1639,83 +1668,135 @@ async function adminInviteUser(){
   const r=await fetch(`${SUPABASE_URL}/functions/v1/invite-user`,{method:'POST',headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},body:JSON.stringify({email,name,role,password})});
   const res=await r.json();
   if(res.error){msg.textContent='Erro: '+res.error;msg.style.color='#dc2626';}
-  else{msg.textContent='✓ Acesso criado para '+email;msg.style.color='#16a34a';['adm-email','adm-name','adm-pass'].forEach(id=>document.getElementById(id).value='');setTimeout(loadAdminUsers,1200);}
+  else{msg.textContent='✓ Acesso criado para '+email;msg.style.color='#16a34a';['adm-email','adm-name','adm-pass'].forEach(id=>document.getElementById(id).value='');adminToast('Acesso criado com sucesso');setTimeout(loadAdminUsers,1200);}
 }
+
+/* ── CONTAS ── */
 async function loadAdminAccounts(){
-  const accounts=await sb('accounts?order=name.asc&select=id,name,username,instagram_id,picture_url');
+  const accounts=await sb('accounts?order=name.asc&select=id,name,username,instagram_id,picture_url,accent_color');
   const c=document.getElementById('admin-accounts-list');c.innerHTML='';
-  const group=mkEl('div','sg');
   accounts.forEach(acc=>{
-    const t=PROFILE_THEMES[acc.name]||{accent:'#1A3A6B'};
-    const row=mkEl('div','sr');row.style.justifyContent='space-between';
-    const av=mkEl('div');av.style.cssText=`width:36px;height:36px;border-radius:50%;background:${t.accent};display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden`;
+    const storedColor=acc.accent_color||(PROFILE_THEMES[acc.name]||{accent:'#1A3A6B'}).accent;
+    const card=mkEl('div','sg');card.style.marginBottom='12px';
+    // Cabeçalho do card
+    const head=mkEl('div','sr');head.style.cssText='border-bottom:1px solid var(--border);padding-bottom:0';
+    const av=mkEl('div');av.style.cssText=`width:44px;height:44px;border-radius:50%;background:${storedColor};display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:2px solid var(--border)`;
     if(acc.picture_url){const img=mkEl('img');img.src=acc.picture_url;img.style.cssText='width:100%;height:100%;object-fit:cover';av.appendChild(img);}
-    else{const sp=mkEl('span');sp.style.cssText='color:#fff;font-size:14px;font-weight:700';sp.textContent=acc.name.charAt(0);av.appendChild(sp);}
-    const main=mkEl('div','sr-main');main.style.marginLeft='12px';
-    main.appendChild(mkEl('div','sr-label',acc.name));
-    main.appendChild(mkEl('div','sr-sub',acc.username+' · '+acc.instagram_id));
-    const dot=mkEl('span','online-dot');dot.title='Conectada';
-    row.appendChild(av);row.appendChild(main);row.appendChild(dot);group.appendChild(row);
+    else{const sp=mkEl('span');sp.style.cssText='color:#fff;font-size:16px;font-weight:700';sp.textContent=acc.name.charAt(0);av.appendChild(sp);}
+    const hMain=mkEl('div','sr-main');hMain.style.marginLeft='12px';
+    hMain.appendChild(mkEl('div','sr-label',acc.name));
+    hMain.appendChild(mkEl('div','sr-sub',acc.instagram_id));
+    const connBadge=mkEl('span');connBadge.style.cssText='display:flex;align-items:center;gap:5px;font-family:"IBM Plex Sans",sans-serif;font-size:11px;color:#16a34a';
+    const dot=mkEl('span','online-dot');connBadge.appendChild(dot);connBadge.appendChild(document.createTextNode('Conectada'));
+    head.appendChild(av);head.appendChild(hMain);head.appendChild(connBadge);card.appendChild(head);
+    // Linha: Nome editável
+    const nameRow=mkEl('div','sr');nameRow.style.justifyContent='space-between';nameRow.appendChild(mkEl('div','sr-sub','Nome da conta'));
+    const nameInp=mkEl('input','auth-input');nameInp.value=acc.name;nameInp.style.cssText='max-width:220px;font-size:12px;padding:5px 10px';
+    nameRow.appendChild(nameInp);card.appendChild(nameRow);
+    // Linha: Username editável
+    const usrRow=mkEl('div','sr');usrRow.style.justifyContent='space-between';usrRow.appendChild(mkEl('div','sr-sub','Username'));
+    const usrInp=mkEl('input','auth-input');usrInp.value=acc.username;usrInp.style.cssText='max-width:220px;font-size:12px;padding:5px 10px';
+    usrRow.appendChild(usrInp);card.appendChild(usrRow);
+    // Linha: Cor de destaque
+    const colorRow=mkEl('div','sr');colorRow.style.justifyContent='space-between';colorRow.appendChild(mkEl('div','sr-sub','Cor de destaque'));
+    const colorWrap=mkEl('div');colorWrap.style.cssText='display:flex;align-items:center;gap:10px';
+    const colorPick=mkEl('input');colorPick.type='color';colorPick.value=storedColor;colorPick.style.cssText='width:36px;height:28px;border:none;border-radius:6px;cursor:pointer;background:none;padding:0';
+    const colorVal=mkEl('span','sr-val',storedColor);
+    colorPick.addEventListener('input',()=>{colorVal.textContent=colorPick.value;av.style.background=colorPick.value;});
+    colorWrap.appendChild(colorPick);colorWrap.appendChild(colorVal);colorRow.appendChild(colorWrap);card.appendChild(colorRow);
+    // Linha: ações
+    const actRow=mkEl('div','sr');actRow.style.justifyContent='flex-end';actRow.style.gap='8px';
+    const saveBtn=mkEl('button','sr-btn');saveBtn.textContent='Salvar alterações';saveBtn.style.cssText='background:var(--accent);color:#fff;font-size:12px;padding:7px 16px';
+    saveBtn.addEventListener('click',async()=>{
+      saveBtn.textContent='Salvando...';saveBtn.disabled=true;
+      await adFetch(`accounts?id=eq.${acc.id}`,{method:'PATCH',body:JSON.stringify({name:nameInp.value.trim(),username:usrInp.value.trim(),accent_color:colorPick.value})});
+      if(PROFILE_THEMES[acc.name]){const t=PROFILE_THEMES[acc.name];t.accent=colorPick.value;t.light=colorPick.value+'1a';t.mid=colorPick.value+'4d';}
+      ACCOUNT_PICS[nameInp.value.trim()]=ACCOUNT_PICS[acc.name];
+      saveBtn.textContent='Salvo ✓';setTimeout(()=>{saveBtn.textContent='Salvar alterações';saveBtn.disabled=false;},1500);
+      adminToast('Conta atualizada');
+    });
+    actRow.appendChild(saveBtn);card.appendChild(actRow);
+    c.appendChild(card);
   });
-  c.appendChild(group);
 }
-function loadAdminAppearance(){
+
+/* ── APARÊNCIA ── */
+async function loadAdminAppearance(){
+  const tok=adTok();
+  const settings=await adFetch('platform_settings?select=key,value').then(r=>r.json()).catch(()=>[]);
+  const map={};(Array.isArray(settings)?settings:[]).forEach(s=>map[s.key]=s.value);
+  // Footer phrase
+  const fp=document.getElementById('adm-footer-phrase');if(fp)fp.value=map.footer_phrase||'Mentalidade Vencedora';
+  // Platform name
+  const pn=document.getElementById('adm-platform-name');if(pn)pn.value=map.platform_name||'Inteligência RBV';
+  // Cores por conta
+  const accounts=await sb('accounts?order=name.asc&select=id,name,accent_color');
   const list=document.getElementById('admin-theme-list');list.innerHTML='';
-  Object.entries(PROFILE_THEMES).forEach(([name,t])=>{
+  accounts.forEach(acc=>{
+    const color=acc.accent_color||(PROFILE_THEMES[acc.name]||{accent:'#1A3A6B'}).accent;
     const row=mkEl('div','sr');row.style.justifyContent='space-between';
-    row.appendChild(mkEl('div','sr-label',name));
-    const right=mkEl('div');right.style.cssText='display:flex;align-items:center;gap:8px';
-    const dot=mkEl('div','admin-color-dot');dot.style.background=t.accent;
-    const val=mkEl('span','sr-val',t.accent);
-    right.appendChild(dot);right.appendChild(val);row.appendChild(right);list.appendChild(row);
+    row.appendChild(mkEl('div','sr-label',acc.name));
+    const right=mkEl('div');right.style.cssText='display:flex;align-items:center;gap:10px';
+    const pick=mkEl('input');pick.type='color';pick.value=color;pick.style.cssText='width:36px;height:26px;border:none;border-radius:5px;cursor:pointer;padding:0';
+    const val=mkEl('span','sr-val',color);
+    pick.addEventListener('input',()=>val.textContent=pick.value);
+    pick.addEventListener('change',async()=>{await adFetch(`accounts?id=eq.${acc.id}`,{method:'PATCH',body:JSON.stringify({accent_color:pick.value})});if(PROFILE_THEMES[acc.name])PROFILE_THEMES[acc.name].accent=pick.value;adminToast('Cor de '+acc.name+' atualizada');});
+    right.appendChild(pick);right.appendChild(val);row.appendChild(right);list.appendChild(row);
   });
 }
+async function adminSaveSetting(key,inputId){
+  const val=document.getElementById(inputId)?.value?.trim();if(!val)return;
+  await adFetch(`platform_settings?key=eq.${key}`,{method:'PATCH',body:JSON.stringify({value:val,updated_at:new Date().toISOString()})});
+  if(key==='footer_phrase'){const el=document.querySelector('.home-footer-phrase');if(el)el.textContent=val;}
+  if(key==='platform_name'){['apb-name','admin-topbar-title'].forEach(id=>{const el=document.getElementById(id);});}
+  adminToast('Configuração salva');
+}
+
+/* ── DADOS ── */
 async function loadAdminData(){
   const accounts=await sb('accounts?order=name.asc&select=id,name');
-  const syncEl=document.getElementById('admin-data-sync');syncEl.innerHTML='';
-  const loading=mkEl('div','sr');loading.appendChild(mkEl('span',null,'Carregando...'));syncEl.appendChild(loading);
-  const [snapCount,engCount,results]=await Promise.all([
-    sb('daily_snapshots?select=id').then(r=>r.length).catch(()=>'—'),
-    sb('engagement_snapshots?select=id').then(r=>r.length).catch(()=>'—'),
-    Promise.all(accounts.map(acc=>sb(`daily_snapshots?account_id=eq.${acc.id}&order=date.desc&limit=1&select=date,followers`).then(r=>({acc,last:r[0]||null}))))
+  const syncEl=document.getElementById('admin-data-sync');
+  syncEl.innerHTML='';const loading=mkEl('div','sr');loading.appendChild(mkEl('span',null,'Carregando...'));syncEl.appendChild(loading);
+  const [daily,eng,cnt,ads,syncResults]=await Promise.all([
+    sb('daily_snapshots?select=id').then(r=>r.length).catch(()=>'?'),
+    sb('engagement_snapshots?select=id').then(r=>r.length).catch(()=>'?'),
+    sb('content_snapshots?select=id').then(r=>r.length).catch(()=>'?'),
+    sb('ads_snapshots?select=id').then(r=>r.length).catch(()=>'?'),
+    Promise.all(accounts.map(a=>sb(`daily_snapshots?account_id=eq.${a.id}&order=date.desc&limit=1&select=date,followers`).then(r=>({a,d:r[0]||null}))))
   ]);
   const stats=document.getElementById('admin-data-stats');stats.innerHTML='';
-  [[accounts.length,'Contas'],[snapCount,'Snapshots'],[engCount,'Engajamentos']].forEach(([v,l])=>{
+  [[accounts.length,'Contas'],[daily,'Snapshots'],[eng,'Engajamentos'],[cnt,'Conteúdos'],[ads,'Ads']].forEach(([v,l])=>{
     const s=mkEl('div','admin-stat');s.appendChild(mkEl('div','admin-stat-val',String(v)));s.appendChild(mkEl('div','admin-stat-lbl',l));stats.appendChild(s);
   });
   syncEl.innerHTML='';
-  results.forEach(({acc,last})=>{
+  syncResults.forEach(({a,d})=>{
     const row=mkEl('div','sr');row.style.justifyContent='space-between';
-    row.appendChild(mkEl('div','sr-label',acc.name));
+    const m=mkEl('div','sr-main');m.appendChild(mkEl('div','sr-label',a.name));
+    if(d){const ago=Math.floor((Date.now()-new Date(d.date))/(864e5));const sub=mkEl('div','sr-sub',`Última coleta: ${d.date} (${ago===0?'hoje':ago===1?'ontem':ago+'d atrás'})`);m.appendChild(sub);}
+    row.appendChild(m);
     const val=mkEl('span','sr-val');
-    if(last){val.textContent=last.date+' · '+fmtN(last.followers)+' seguidores';}
+    if(d){val.textContent=fmtN(d.followers)+' seguidores';val.style.color=d.followers>0?'var(--accent)':'var(--muted)';}
     else{val.textContent='Sem dados';val.style.color='#f59e0b';}
     row.appendChild(val);syncEl.appendChild(row);
   });
 }
+function adminShowCmd(title,cmd){
+  const el=document.getElementById('admin-action-info');el.style.display='block';el.textContent='';
+  const card=mkEl('div','sg');const row=mkEl('div','sr');const m=mkEl('div','sr-main');
+  m.appendChild(mkEl('div','sr-label',title));
+  const code=mkEl('div');code.style.cssText='margin-top:8px;font-family:monospace;background:var(--surface2);padding:10px 12px;border-radius:6px;font-size:11px;line-height:1.8;white-space:pre;border:1px solid var(--border)';
+  code.textContent=cmd;m.appendChild(code);row.appendChild(m);card.appendChild(row);el.appendChild(card);
+}
+function adminShowRefetchInfo(){adminShowCmd('Atualizar fotos de perfil','cd ~/IAmundi/projetos/central-inteligencia/redes-sociais/coletor\npython3 fetch_profile_pics.py');}
+function adminShowColetorInfo(){adminShowCmd('Rodar coletor de dados','cd ~/IAmundi/projetos/central-inteligencia/redes-sociais/coletor\npython3 coletar.py');}
+
+/* ── SISTEMA ── */
 function loadAdminSystem(){
-  const expEl=document.getElementById('sys-token-expiry');
-  if(!expEl)return;
-  const exp=new Date('2026-07-18');
-  const days=Math.ceil((exp-new Date())/(864e5));
-  expEl.textContent=days>0?`Expiram em ${days} dias (${exp.toLocaleDateString('pt-BR')})`:'Tokens expirados!';
+  const expEl=document.getElementById('sys-token-expiry');if(!expEl)return;
+  const exp=new Date('2026-07-18');const days=Math.ceil((exp-new Date())/(864e5));
+  expEl.textContent=days>0?`Expiram em ${days} dias (${exp.toLocaleDateString('pt-BR')})`:'Tokens expirados — renovar agora!';
   expEl.style.color=days>30?'#16a34a':days>7?'#f59e0b':'#dc2626';
-}
-function adminShowRefetchInfo(){
-  const el=document.getElementById('admin-action-info');el.style.display='block';
-  el.textContent='';const sg=mkEl('div','sg');const row=mkEl('div','sr');
-  const m=mkEl('div','sr-main');m.appendChild(mkEl('div','sr-label','Comando para atualizar fotos'));
-  const code=mkEl('div','sr-sub');code.style.cssText='margin-top:6px;font-family:monospace;background:var(--surface2);padding:8px 10px;border-radius:5px;font-size:11px;line-height:1.7;white-space:pre';
-  code.textContent='cd ~/IAmundi/projetos/central-inteligencia/redes-sociais/coletor\npython3 fetch_profile_pics.py';
-  m.appendChild(code);row.appendChild(m);sg.appendChild(row);el.appendChild(sg);
-}
-function adminShowColetorInfo(){
-  const el=document.getElementById('admin-action-info');el.style.display='block';
-  el.textContent='';const sg=mkEl('div','sg');const row=mkEl('div','sr');
-  const m=mkEl('div','sr-main');m.appendChild(mkEl('div','sr-label','Comando para rodar o coletor'));
-  const code=mkEl('div','sr-sub');code.style.cssText='margin-top:6px;font-family:monospace;background:var(--surface2);padding:8px 10px;border-radius:5px;font-size:11px;line-height:1.7;white-space:pre';
-  code.textContent='cd ~/IAmundi/projetos/central-inteligencia/redes-sociais/coletor\npython3 coletar.py';
-  m.appendChild(code);row.appendChild(m);sg.appendChild(row);el.appendChild(sg);
+  const verEl=document.getElementById('sys-build-date');if(verEl)verEl.textContent=new Date().toLocaleDateString('pt-BR');
 }
 
 let appInitialized=false;
