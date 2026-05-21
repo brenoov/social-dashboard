@@ -722,7 +722,10 @@
   .gv-gauge-inner{width:100%;max-width:460px;aspect-ratio:1;}
   .gv-right{display:grid;grid-template-rows:55fr 45fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;}
   .gv-canal-panel{background:var(--bg);padding:7px 12px;display:flex;flex-direction:column;overflow:hidden;}
-  .gv-canal-grid{flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;align-content:start;overflow:hidden;}
+  .gv-canal-scroll{flex:1;overflow:hidden;min-height:0;}
+  .gv-canal-scroll-inner{display:flex;flex-direction:column;}
+  .gv-canal-scroll-inner.scrolling{animation:gvRankUp var(--gv-scroll-dur,20s) ease-in-out infinite alternate;}
+  .gv-canal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;align-content:start;}
   .gv-sm-item{display:flex;flex-direction:column;align-items:center;gap:10px;}
   .gv-sm-item-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:13px;letter-spacing:.5px;color:var(--muted);text-align:center;line-height:1.3;overflow-wrap:break-word;word-break:break-word;max-width:100%;}
   .gv-sm-item-val{font-family:'Oswald',sans-serif;font-size:17px;color:var(--text);}
@@ -814,7 +817,7 @@
   body.dev-tv #gestao-vista-screen .gv-gauge-wrap{max-height:none;}
   body.dev-tv #gestao-vista-screen .gv-gauge-inner{max-width:680px;}
   body.dev-tv #gestao-vista-screen .gv-canal-panel{padding:18px 28px;}
-  body.dev-tv #gestao-vista-screen .gv-canal-grid{grid-template-columns:repeat(auto-fill,minmax(450px,1fr));gap:28px;}
+  body.dev-tv #gestao-vista-screen .gv-canal-grid{grid-template-columns:repeat(auto-fill,minmax(315px,1fr));gap:20px;}
   body.dev-tv #gestao-vista-screen .gv-rank-panel{padding:18px 44px;}
   body.dev-tv .gv-clock-time{font-size:72px;letter-spacing:5px;}
   body.dev-tv .gv-clock-date{font-size:20px;}
@@ -830,10 +833,10 @@
   body.dev-tv .gv-rank-hint{font-size:23px;}
   body.dev-tv .gv-rank-entry{margin-bottom:20px;}
   body.dev-tv .gv-rank-bar{height:9px;}
-  body.dev-tv .gv-sm-item-lbl{font-size:28px;}
-  body.dev-tv .gv-sm-item-val{font-size:34px;}
-  body.dev-tv .gv-sm-item-delta{font-size:26px;}
-  body.dev-tv .gv-sm-item-desvio{font-size:24px;}
+  body.dev-tv .gv-sm-item-lbl{font-size:20px;}
+  body.dev-tv .gv-sm-item-val{font-size:24px;}
+  body.dev-tv .gv-sm-item-delta{font-size:18px;}
+  body.dev-tv .gv-sm-item-desvio{font-size:17px;}
   body.dev-tv .gv-rank-delta{font-size:22px;}
   body.dev-tv .gv-rank-desvio{font-size:20px;}
   body.dev-tv .gv-ticker{height:70px;}
@@ -3729,7 +3732,11 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     <div class="gv-right">
       <div class="gv-canal-panel">
         <div class="gv-col-grid-label">${canaisComMeta.length>0?'Meta por canal':'Vendas por canal'}</div>
-        <div class="gv-canal-grid">${smGaugesHtml}</div>
+        <div class="gv-canal-scroll" id="gv-canal-scroll">
+          <div class="gv-canal-scroll-inner" id="gv-canal-inner">
+            <div class="gv-canal-grid">${smGaugesHtml}</div>
+          </div>
+        </div>
       </div>
       <div class="gv-rankings">
         <div class="gv-rank-panel">
@@ -3777,6 +3784,18 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
         inner.classList.add('scrolling');
       }
     });
+    // Canal gauge grid auto-scroll
+    const cWrap=document.getElementById('gv-canal-scroll');
+    const cInner=document.getElementById('gv-canal-inner');
+    if(cWrap&&cInner){
+      const overflow=cInner.scrollHeight-cWrap.clientHeight;
+      if(overflow>16){
+        const dur=Math.max(14,overflow/16);
+        cInner.style.setProperty('--gv-scroll-h',`-${overflow}px`);
+        cInner.style.setProperty('--gv-scroll-dur',`${dur}s`);
+        cInner.classList.add('scrolling');
+      }
+    }
   },300);
 }
 
