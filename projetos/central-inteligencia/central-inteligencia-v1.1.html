@@ -453,6 +453,36 @@
   .btn-camp-none:hover{background:rgba(176,30,58,.04);}
   .btn-camp-save{flex:2;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;padding:9px 20px;border-radius:3px;border:none;background:var(--accent);color:#fff;cursor:pointer;transition:opacity .15s;text-transform:uppercase;letter-spacing:.8px;}
   .btn-camp-save:hover{opacity:.88;}
+
+  /* RELÓGIO */
+  #dash-clock{font-family:'Oswald',sans-serif;font-size:15px;font-weight:400;letter-spacing:2px;color:var(--muted);white-space:nowrap;line-height:1;}
+  #dash-clock span{color:var(--accent);font-weight:500;}
+
+  /* BARRA DE META GERAL */
+  .goal-bar-wrap{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
+  .goal-bar-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  .goal-bar-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;}
+  .goal-bar-pct{font-family:'Oswald',sans-serif;font-size:16px;font-weight:500;color:var(--accent);}
+  .goal-bar-track{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;border:1px solid var(--border);}
+  .goal-bar-fill{height:100%;border-radius:3px;background:var(--accent);transition:width .8s cubic-bezier(.4,0,.2,1);}
+  .goal-bar-sub{display:flex;justify-content:space-between;margin-top:4px;font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);}
+
+  /* INSIGHT CARD */
+  .insight-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:16px 20px;margin-bottom:22px;border-left:3px solid var(--accent);}
+  .insight-header{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .insight-icon{font-size:14px;opacity:.7;}
+  .insight-title{font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;}
+  .insight-period{font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:1.5px;color:var(--accent);text-transform:uppercase;margin-left:auto;background:var(--accent-light);padding:3px 8px;border-radius:2px;}
+  .insight-list{display:flex;flex-direction:column;gap:8px;}
+  .insight-item{display:flex;align-items:flex-start;gap:10px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;line-height:1.55;color:var(--text);}
+  .insight-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:5px;}
+  .insight-dot.green{background:#16a34a;}
+  .insight-dot.blue{background:var(--accent);}
+  .insight-dot.yellow{background:#d97706;}
+  .insight-dot.red{background:#dc2626;}
+  .insight-dot.muted{background:var(--border);}
+  .insight-item.muted{color:var(--muted);}
+  #insight-card.loading .insight-list{opacity:.4;}
 </style>
 </head>
 <body>
@@ -720,6 +750,7 @@
 
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:14px;">
+      <div id="dash-clock">--:--:<span>--</span></div>
       <span class="live-dot">ATUALIZADO AGORA</span>
       <div class="ac-toggle on" id="ac-toggle-btn" onclick="toggleAutoCycle()" title="Rotação automática de perfis">
         <div class="ac-toggle-track on" id="ac-toggle-track"><div class="ac-toggle-thumb"></div></div>
@@ -743,6 +774,29 @@
     <img id="apb-img" alt="">
     <div id="apb-dot"></div>
     <span id="apb-name">—</span>
+  </div>
+
+  <!-- ANÁLISE INTELIGENTE -->
+  <div class="insight-card" id="insight-card">
+    <div class="insight-header">
+      <span class="insight-icon">◈</span>
+      <span class="insight-title">Análise do período</span>
+      <span class="insight-period" id="insight-period-label">—</span>
+    </div>
+    <div class="insight-list" id="insight-list">
+      <div class="insight-item muted"><div class="insight-dot muted"></div><span>Carregando análise...</span></div>
+    </div>
+    <div class="goal-bar-wrap">
+      <div class="goal-bar-header">
+        <span class="goal-bar-lbl">Meta de seguidores no período</span>
+        <span class="goal-bar-pct" id="goal-bar-pct">0%</span>
+      </div>
+      <div class="goal-bar-track"><div class="goal-bar-fill" id="goal-bar-fill" style="width:0%"></div></div>
+      <div class="goal-bar-sub">
+        <span id="goal-bar-current">0 conquistados</span>
+        <span id="goal-bar-remaining">Meta: —</span>
+      </div>
+    </div>
   </div>
 
   <!-- 01 SEGUIDORES -->
@@ -1346,6 +1400,98 @@ async function fetchData(accountId,period,customStart,customEnd){
   };
 }
 
+/* ── ANÁLISE INTELIGENTE ── */
+function generateInsight(d,period,profileName){
+  const insights=[];
+  const nf=d.newFollowers,pnf=d.prevNewFollowers,avg=d.avgPerDay;
+  const engTotal=d.eng.likes+d.eng.saves+d.eng.shares;
+  const prevEngTotal=(d.eng.prevLikes||0)+(d.eng.prevSaves||0)+(d.eng.prevShares||0);
+  const engRate=parseFloat(d.engRate||'0');
+  const reels=d.cnt.reels,posts=d.cnt.posts,stories=d.cnt.stories;
+  const totalContent=reels+posts+stories;
+  const pl=d.pl;
+
+  /* ── SEGUIDORES ── */
+  if(period===0){
+    if(nf>0){
+      const r=pnf>0?nf/pnf:null;
+      if(r&&r>=2)insights.push({t:'green',s:`Crescimento acelerado hoje: +${nf} seguidores — ${Math.round((r-1)*100)}% acima do ritmo do período anterior.`});
+      else if(r&&r>1.1)insights.push({t:'green',s:`Bom ritmo hoje: +${nf} seguidores, acima da média comparativa.`});
+      else if(nf>=10)insights.push({t:'blue',s:`+${nf} seguidores captados até agora. Dia em andamento.`});
+      else insights.push({t:'blue',s:`+${nf} seguidor${nf>1?'es':''} até o momento. Ainda é cedo.`});
+    } else {
+      insights.push({t:'muted',s:`Nenhum seguidor novo registrado ainda hoje — aguarde a próxima coleta (4× ao dia).`});
+    }
+    if(stories>0)insights.push({t:'blue',s:`${stories} storie${stories>1?'s':''} publicado${stories>1?'s':''} hoje${d.storyEng.shares>0?' com '+d.storyEng.shares+' encaminhamento'+(d.storyEng.shares>1?'s':''):''}. Conteúdo ativo.`});
+    else insights.push({t:'muted',s:`Nenhum story publicado hoje até o momento.`});
+    if(reels>0)insights.push({t:'green',s:`${reels} reel${reels>1?'s':''} publicado${reels>1?'s':''} hoje — formato com maior alcance orgânico.`});
+  }
+  else if(period===1){
+    if(nf>0){
+      const r=pnf!=null&&pnf>0?nf/pnf:null;
+      if(r&&r>=1.3)insights.push({t:'green',s:`Ontem foi um dia forte: +${nf} seguidores, bem acima da média do período de comparação.`});
+      else if(r&&r<0.6)insights.push({t:'yellow',s:`Ontem foi mais fraco que o esperado: +${nf} seguidores, abaixo da média comparativa.`});
+      else insights.push({t:'blue',s:`Ontem: +${nf} seguidores${pnf!=null?' (vs '+pnf+' no mesmo período anterior)':''}.`});
+    } else {
+      insights.push({t:'muted',s:`Sem novos seguidores registrados ontem, ou coleta ainda sem dados do dia.`});
+    }
+    if(engTotal>0){
+      const ep=prevEngTotal>0?Math.round(((engTotal-prevEngTotal)/prevEngTotal)*100):null;
+      if(ep!=null&&ep>30)insights.push({t:'green',s:`Engajamento ontem ${ep}% acima do período anterior: ${fmtN(engTotal)} interações.`});
+      else if(ep!=null&&ep<-30)insights.push({t:'yellow',s:`Engajamento ontem ${Math.abs(ep)}% abaixo do período anterior: ${fmtN(engTotal)} interações.`});
+      else insights.push({t:'blue',s:`Engajamento ontem: ${fmtN(engTotal)} interações${ep!=null?' ('+pctDiff(engTotal,prevEngTotal)+' vs período anterior)':''}.`});
+    } else {
+      insights.push({t:'muted',s:`Sem dados de engajamento para ontem.`});
+    }
+    if(totalContent===0)insights.push({t:'yellow',s:`Nenhuma publicação registrada ontem.`});
+    else insights.push({t:'blue',s:`Conteúdo ontem: ${reels>0?reels+' reel'+(reels>1?'s':''):''}${posts>0?(reels>0?', ':'')+posts+' post'+(posts>1?'s':''):''}${stories>0?', '+stories+' storie'+(stories>1?'s':''):''}.`});
+  }
+  else{
+    /* 7D / 14D / 30D */
+    const periodoTxt=`últimos ${period} dias`;
+    if(nf>0&&avg>0){
+      const r=pnf!=null&&pnf>0?nf/pnf:null;
+      if(r&&r>=1.5)insights.push({t:'green',s:`Crescimento ${Math.round((r-1)*100)}% acima do mesmo período anterior: +${fmtN(nf)} seguidores nos ${periodoTxt}, média de +${avg}/dia.`});
+      else if(r&&r<0.7)insights.push({t:'yellow',s:`Crescimento desacelerou nos ${periodoTxt}: +${fmtN(nf)} seguidores, ${Math.round((1-r)*100)}% abaixo do período anterior. Avaliar estratégia de conteúdo.`});
+      else insights.push({t:'blue',s:`+${fmtN(nf)} seguidores nos ${periodoTxt} — média de +${avg}/dia${pnf!=null?' ('+pctDiff(nf,pnf)+' vs mesmo período anterior)':''}.`});
+    } else {
+      insights.push({t:'muted',s:`Sem dados de crescimento suficientes para os ${periodoTxt}.`});
+    }
+    if(engTotal>0){
+      const avgPost=reels+posts>0?Math.round(d.eng.likes/(reels+posts)):0;
+      if(engRate>=3)insights.push({t:'green',s:`Taxa de engajamento de ${d.engRate}% nos ${periodoTxt} — excelente (benchmark: acima de 3%).${d.eng.saves>0?' '+fmtN(d.eng.saves)+' salvamentos indicam conteúdo de referência.':''}`});
+      else if(engRate>=1)insights.push({t:'blue',s:`Taxa de engajamento: ${d.engRate}% nos ${periodoTxt}.${avgPost>0?' Média de '+fmtN(avgPost)+' curtidas por post.':''}`});
+      else if(engRate>0)insights.push({t:'yellow',s:`Engajamento de ${d.engRate}% nos ${periodoTxt} — abaixo de 1%. Testar formatos mais interativos (enquetes, reels, CTAs).`});
+      if(d.eng.saves>d.eng.likes*0.08)insights.push({t:'green',s:`Alto índice de salvamentos (${fmtN(d.eng.saves)}) — conteúdo sendo guardado como referência, sinal forte de relevância.`});
+    }
+    if(totalContent>0){
+      const freq=((reels+posts)/period).toFixed(1);
+      if(reels>0&&reels>posts)insights.push({t:'green',s:`${reels} reels nos ${periodoTxt} — frequência ${freq}/dia. Reels respondem pelo maior alcance orgânico.`});
+      else if(posts>0)insights.push({t:'blue',s:`${posts+reels} posts+reels nos ${periodoTxt}, frequência ${freq}/dia.`});
+    } else {
+      insights.push({t:'yellow',s:`Nenhum post ou reel publicado nos ${periodoTxt}. Consistência é fundamental para crescimento.`});
+    }
+  }
+  return insights.slice(0,3);
+}
+
+function renderInsight(d,period){
+  const labels={0:'Hoje',1:'Ontem',7:'7 dias',14:'14 dias',30:'30 dias'};
+  const lbl=document.getElementById('insight-period-label');
+  const list=document.getElementById('insight-list');
+  if(!lbl||!list)return;
+  lbl.textContent=labels[period]||period+'D';
+  const profileName=document.getElementById('apb-name')?.textContent||'';
+  const items=generateInsight(d,period,profileName);
+  list.textContent='';
+  items.forEach(item=>{
+    const row=document.createElement('div');row.className='insight-item'+(item.t==='muted'?' muted':'');
+    const dot=document.createElement('div');dot.className='insight-dot '+item.t;
+    const span=document.createElement('span');span.textContent=item.s;
+    row.appendChild(dot);row.appendChild(span);list.appendChild(row);
+  });
+}
+
 /* ── MAIN UPDATE ── */
 function update(d,period){
   const pl=d.pl;
@@ -1390,6 +1536,8 @@ function update(d,period){
   const totalContent=d.cnt.postsReels+d.cnt.stories;
   const ep=d.effectivePeriod||period;
   setChips('chips-cnt',['Total: '+totalContent+' publica\u00e7\u00f5es','Freq.: '+(totalContent/ep).toFixed(1)+'/dia',d.cnt.prevPostsReels>0?'Posts+Reels '+pctDiff(d.cnt.postsReels,d.cnt.prevPostsReels)+' vs '+pl:'Posts+Reels no per\u00edodo: '+d.cnt.postsReels]);
+  renderInsight(d,period);
+  renderGoalBar(d.newFollowers,period);
 }
 
 /* ── BUILD UI ── */
@@ -1799,6 +1947,37 @@ function loadAdminSystem(){
   const verEl=document.getElementById('sys-build-date');if(verEl)verEl.textContent=new Date().toLocaleDateString('pt-BR');
 }
 
+/* ── RELÓGIO ── */
+function startClock(){
+  const el=document.getElementById('dash-clock');
+  if(!el)return;
+  function tick(){
+    const now=new Date();
+    const h=String(now.getHours()).padStart(2,'0');
+    const m=String(now.getMinutes()).padStart(2,'0');
+    const s=String(now.getSeconds()).padStart(2,'0');
+    el.innerHTML=`${h}:${m}:<span>${s}</span>`;
+  }
+  tick();setInterval(tick,1000);
+}
+
+/* ── BARRA DE META GERAL ── */
+function renderGoalBar(newFollowers,period){
+  const goal=getGoal('followers');
+  const pct=goal>0?Math.min(100,Math.round((newFollowers/goal)*100)):0;
+  const fill=document.getElementById('goal-bar-fill');
+  const pctEl=document.getElementById('goal-bar-pct');
+  const curr=document.getElementById('goal-bar-current');
+  const rem=document.getElementById('goal-bar-remaining');
+  if(!fill)return;
+  fill.style.width=pct+'%';
+  fill.style.background=pct>=100?'#16a34a':pct>=60?'var(--accent)':'#d97706';
+  if(pctEl)pctEl.textContent=pct+'%';
+  if(pctEl)pctEl.style.color=pct>=100?'#16a34a':pct>=60?'var(--accent)':'#d97706';
+  if(curr)curr.textContent=fmtN(newFollowers)+' conquistados';
+  if(rem)rem.textContent=goal>0?'Meta: '+fmtN(goal)+(newFollowers<goal?' · faltam '+fmtN(goal-newFollowers):'  ✓'):'Meta: —';
+}
+
 let appInitialized=false;
 function showHome(){
   document.getElementById('auth-screen').style.display='none';
@@ -1936,7 +2115,7 @@ async function loadDashboard(session){
     buildPeriodTabs();updateGoalDisplays(7);watchGoals();
     dashboardReady=true;
   }
-  await buildProfiles();restoreHeaderState();initAutoCycleToggle();await refresh();
+  await buildProfiles();restoreHeaderState();initAutoCycleToggle();startClock();await refresh();
 }
 
 function detectDevice(){
