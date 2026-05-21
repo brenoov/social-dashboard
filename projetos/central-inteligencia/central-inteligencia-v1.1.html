@@ -634,6 +634,45 @@
   .vs2-vend-hbar-wrap{height:3px;background:var(--surface2);border-radius:2px;overflow:hidden;margin-top:4px;}
   .vs2-vend-hbar{height:100%;background:var(--accent);border-radius:2px;transition:width 1s cubic-bezier(.4,0,.2,1);}
   .vsales-loading{text-align:center;padding:48px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;font-size:13px;}
+  /* ── VESSEL-SALES TV OVERRIDES ── */
+  body.dev-tv #vessel-sales-screen .vsales-topbar{padding:16px 44px;}
+  body.dev-tv #vessel-sales-screen .vsales-back{font-size:22px;}
+  body.dev-tv #vessel-sales-screen .vsales-brand-av{width:48px;height:48px;}
+  body.dev-tv #vessel-sales-screen .vsales-brand-nm{font-size:22px;}
+  body.dev-tv #vessel-sales-screen .vsales-pbtn{font-size:18px;padding:8px 20px;}
+  body.dev-tv #vessel-sales-screen .vsales-body{max-width:none;padding:32px 44px;}
+  body.dev-tv #vessel-sales-screen .vs2-kpis{gap:16px;margin-bottom:32px;}
+  body.dev-tv #vessel-sales-screen .vs2-kpi{padding:24px 28px;}
+  body.dev-tv #vessel-sales-screen .vs2-kpi-icon{font-size:26px;margin-bottom:10px;}
+  body.dev-tv #vessel-sales-screen .vs2-kpi-lbl{font-size:15px;margin-bottom:8px;}
+  body.dev-tv #vessel-sales-screen .vs2-kpi-val{font-size:38px;margin-bottom:8px;}
+  body.dev-tv #vessel-sales-screen .vs2-kpi-delta{font-size:17px;}
+  body.dev-tv #vessel-sales-screen .vs2-kpi-sub{font-size:16px;}
+  body.dev-tv #vessel-sales-screen .vs2-kpi-prog{height:5px;margin-top:14px;}
+  body.dev-tv #vessel-sales-screen .vs2-section{margin-bottom:32px;}
+  body.dev-tv #vessel-sales-screen .vs2-sec-title{font-size:26px;}
+  body.dev-tv #vessel-sales-screen .vs2-legend-item{font-size:17px;}
+  body.dev-tv #vessel-sales-screen .vs2-legend-dot{width:13px;height:13px;}
+  body.dev-tv #vessel-sales-screen .vs2-ch-chart{padding:32px 32px 14px;}
+  body.dev-tv #vessel-sales-screen .vs2-ch-bars{min-height:260px;gap:36px;}
+  body.dev-tv #vessel-sales-screen .vs2-ch-col-bars{height:210px;}
+  body.dev-tv #vessel-sales-screen .vs2-ch-bar{width:44px;}
+  body.dev-tv #vessel-sales-screen .vs2-ch-pct{font-size:15px;padding:2px 6px;}
+  body.dev-tv #vessel-sales-screen .vs2-ch-nm{font-size:15px;max-width:150px;}
+  body.dev-tv #vessel-sales-screen .vs2-ch-sum-cell{padding:20px 32px;}
+  body.dev-tv #vessel-sales-screen .vs2-ch-sum-lbl{font-size:15px;margin-bottom:6px;}
+  body.dev-tv #vessel-sales-screen .vs2-ch-sum-val{font-size:34px;}
+  body.dev-tv #vessel-sales-screen .vs2-daily{padding:28px;}
+  body.dev-tv #vessel-sales-screen .vs2-daily-chart{min-height:230px;gap:6px;padding-bottom:32px;}
+  body.dev-tv #vessel-sales-screen .vs2-day-bars{height:175px;}
+  body.dev-tv #vessel-sales-screen .vs2-day-bar{min-width:16px;}
+  body.dev-tv #vessel-sales-screen .vs2-day-lbl{font-size:13px;}
+  body.dev-tv #vessel-sales-screen .vs2-vend-tbl th{font-size:15px;padding:16px 24px;letter-spacing:2px;}
+  body.dev-tv #vessel-sales-screen .vs2-vend-tbl td{font-size:20px;padding:14px 24px;}
+  body.dev-tv #vessel-sales-screen .vs2-vend-tbl td.num{font-size:24px;}
+  body.dev-tv #vessel-sales-screen .vs2-vend-hbar-wrap{height:5px;margin-top:8px;}
+  body.dev-tv #vessel-sales-screen .vs2-sec-hdr{margin-bottom:16px;}
+  body.dev-tv #vessel-sales-screen .vs2-section span[style]{font-size:18px!important;}
 
   /* ── GESTÃO À VISTA — TV BOARD v2 ── */
   #gestao-vista-screen{min-height:100vh;display:none;flex-direction:column;background:var(--bg);color:var(--text);overflow:hidden;}
@@ -2983,6 +3022,10 @@ function renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now)
   const vends=Object.entries(porVend).sort((a,b)=>b[1]-a[1]);
   const maxVend=vends[0]?.[1]||1;
 
+  const isTV=document.body.classList.contains('dev-tv');
+  const chBarMax=isTV?190:110;
+  const dayBarMax=isTV?160:90;
+
   const dUp=(v,b)=>!b?'':`<span class="vs2-kpi-delta ${v>=b?'up':'dn'}">${v>=b?'↑':'↓'} ${Math.abs(Math.round((v-b)/b*100))}%</span>`;
   const dUpR=(v,b)=>!b?'':`<span class="vs2-kpi-delta ${v>=b?'up':'dn'}">${v>=b?'+':'-'} ${fmtR0(Math.abs(v-b))}</span>`;
 
@@ -3051,8 +3094,8 @@ function renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now)
               const pctL=meta?Math.round(l.v/meta*100):null;
               const colCls=pctL===null?'':pctL>=100?'good':pctL>=85?'warn':'bad';
               const pctCol=pctL===null?'var(--accent)':pctL>=100?'var(--green)':pctL>=85?'#b08000':'var(--red)';
-              const hR=Math.round(l.v/chartMaxL*110);
-              const hM=meta?Math.round(meta/chartMaxL*110):0;
+              const hR=Math.round(l.v/chartMaxL*chBarMax);
+              const hM=meta?Math.round(meta/chartMaxL*chBarMax):0;
               return `<div class="vs2-ch-col">
                 <div class="vs2-ch-col-bars">
                   ${meta?`<div class="vs2-ch-bar meta-bar" style="height:0" data-h="${hM}px"></div>`:''}
@@ -3085,8 +3128,8 @@ function renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now)
           ${dias.map(([d,v])=>{
             const pctD=metaDia?Math.round(v/metaDia*100):null;
             const colD=pctD===null?'':pctD>=100?'good':'bad';
-            const hR=Math.round(v/maxDia*90);
-            const hM=metaDia?Math.round(metaDia/maxDia*90):0;
+            const hR=Math.round(v/maxDia*dayBarMax);
+            const hM=metaDia?Math.round(metaDia/maxDia*dayBarMax):0;
             return `<div class="vs2-day-col">
               <div class="vs2-day-bars">
                 <div class="vs2-day-bar real ${colD}" style="height:0" data-h="${hR}px"></div>
