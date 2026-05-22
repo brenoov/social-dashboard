@@ -3244,7 +3244,7 @@ function openGestaoVista(){
   initGvBgAnim();
   window._gvTickerIdx=null;
   window._gvTickerSlides=null;
-  window._gvVendedoresCache=null;
+  window._gvVendedoresCache={};
   if(window._gvTickerTimer){clearInterval(window._gvTickerTimer);window._gvTickerTimer=null;}
   if(_gvStatusTimer){clearInterval(_gvStatusTimer);_gvStatusTimer=null;}
   _gvLastLoadTime=null;
@@ -3788,12 +3788,6 @@ async function loadGestaoVistaData(period){
     const pedidosPrev=await blingPages('pedidos/vendas',{dataInicial:diPrev,dataFinal:dfPrev,'idsSituacoes[]':9}).catch(()=>[]);
     if(myLoad!==_gvLoadId)return;
 
-    // Vendedores: cache por sessão (não muda com o período)
-    if(!window._gvVendedoresCache){
-      window._gvVendedoresCache=await blingPages('vendedores',{}).catch(()=>[]);
-    }
-    const vendedoresList=window._gvVendedoresCache;
-
     // Supabase: pode rodar em paralelo (API diferente)
     const[canais,metasRows]=await Promise.all([
       sbClient.from('bling_lojas').select('loja_id,nome').then(r=>{const mp={};(r.data||[]).forEach(l=>mp[l.loja_id]=l.nome);return mp;}).catch(()=>({})),
@@ -3802,12 +3796,29 @@ async function loadGestaoVistaData(period){
 
     const metasMap={};const dailyGoalsMap={};
     metasRows.forEach(r=>{metasMap[r.loja_id]=r.meta_valor;if(r.daily_goals)dailyGoalsMap[r.loja_id]=r.daily_goals;});
+
+    // Vendedores: busca individualmente por ID (lista de pedidos não inclui nome, só id)
     const vendedoresMap={};
-    vendedoresList.forEach(v=>{
-      const lojaObj=Array.isArray(v.loja)?v.loja[0]:v.loja;
-      const lojaNome=lojaObj?.nome||lojaObj?.descricao||canais[lojaObj?.id]||'';
-      vendedoresMap[v.id]={nome:v.nome||v.nomeFantasia||'',loja:lojaNome};
-    });
+    const allPedidos=[...pedidos,...pedidosPrev];
+    const vendIds=[...new Set(allPedidos.map(p=>p.vendedor?.id).filter(Boolean))];
+    if(vendIds.length){
+      if(!window._gvVendedoresCache)window._gvVendedoresCache={};
+      await Promise.all(vendIds.map(async vid=>{
+        if(window._gvVendedoresCache[vid]){vendedoresMap[vid]=window._gvVendedoresCache[vid];return;}
+        try{
+          const resp=await blingCall(`vendedores/${vid}`,{});
+          const v=resp.data;
+          if(v){
+            const nome=v.contato?.nome||v.nome||v.nomeFantasia||'';
+            const lojaObj=Array.isArray(v.loja)?v.loja[0]:v.loja;
+            const lojaNome=lojaObj?.nome||lojaObj?.descricao||canais[lojaObj?.id]||'';
+            const entry={nome,loja:lojaNome};
+            vendedoresMap[vid]=entry;
+            window._gvVendedoresCache[vid]=entry;
+          }
+        }catch(e){}
+      }));
+    }
     if(myLoad!==_gvLoadId)return; // troca de período enquanto carregava — descarta silenciosamente
     const totalPrev=pedidosPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
     _fadeSwap(board,()=>{
@@ -4129,7 +4140,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   const tickItemsPedidos=recent.map(p=>{
     const canal=escHtml(canais[p.loja?.id]||'Pedido #'+p.numero);
     const val=fmtR(parseFloat(p.total||0));
-    const vend=escHtml((p.vendedor?.nome||'—').split(' ').slice(0,2).join(' '));
+    const vend=escHtml((vendedoresMap[p.vendedor?.id]?.nome||p.vendedor?.nome||'—').split(' ').slice(0,2).join(' '));
     const isDateOnly=p.data&&p.data.length<=10;
     const dt=p.data?new Date(isDateOnly?p.data+'T12:00:00':p.data):null;
     const dtStr=dt?isDateOnly?`${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}`:`${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`:'';
