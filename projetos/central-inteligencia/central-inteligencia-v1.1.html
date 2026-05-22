@@ -55,8 +55,10 @@
   .profile-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
   .profile-btn:hover{border-color:var(--accent);color:var(--text);}
 
-  /* TOPBAR */
-  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:12px;}
+  /* TOPBAR — GV-style standard header */
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;margin-bottom:12px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px;}
+  .topbar-left{display:flex;align-items:center;gap:14px;}
+  .topbar-right{display:flex;align-items:center;gap:12px;text-align:right;}
   .live-dot{display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--green);letter-spacing:1.5px;font-weight:500;text-transform:uppercase;}
   .live-dot::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
   .period-tabs{display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:3px;gap:2px;}
@@ -335,9 +337,15 @@
   #theme-pill:hover{color:var(--text);border-color:var(--accent);box-shadow:0 6px 28px rgba(0,0,0,.22);}
   [data-theme="dark"] #theme-pill{box-shadow:0 4px 20px rgba(0,0,0,.5);}
   #theme-pill svg{flex-shrink:0;}
+  /* RBV Logo theming */
+  .rbv-logo{height:26px;width:auto;object-fit:contain;display:block;}
+  .rbv-logo-dark{display:none;}
+  [data-theme="dark"] .rbv-logo-light{display:none;}
+  [data-theme="dark"] .rbv-logo-dark{display:block;}
+  body.dev-tv .rbv-logo{height:38px;}
   .home-header{display:flex;align-items:center;justify-content:space-between;padding:18px 32px;border-bottom:1px solid var(--border);}
   .home-header-brand{display:flex;align-items:center;gap:12px;cursor:pointer;}
-  .home-header-brand img{width:36px;height:36px;object-fit:contain;}
+  .home-header-brand img{height:26px;width:auto;object-fit:contain;}
   .home-header-brand h1{font-family:'Oswald',sans-serif;font-size:18px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--text);}
   .home-header-user{display:flex;align-items:center;gap:10px;}
   .home-main{flex:1;padding:28px 32px;display:flex;flex-direction:column;}
@@ -896,6 +904,11 @@
   .gv-ring-pct.c-white{color:var(--text);}
   .gv-ring-meta{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;}
   .gv-ring-meta strong{color:var(--text);font-weight:500;}
+  /* Gauge liquid shimmer & neon glow */
+  @keyframes gaugeShimmer{0%{transform:translateX(-220px)}100%{transform:translateX(440px)}}
+  @keyframes gaugeNeonPulse{0%,100%{opacity:.7}50%{opacity:1}}
+  .gauge-shimmer{animation:gaugeShimmer 3.5s linear infinite;}
+  .gauge-neon-arc{animation:gaugeNeonPulse 1.8s ease-in-out infinite;}
   /* Sub KPIs */
   .gv-sub-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:auto;}
   .gv-sub-box{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;}
@@ -995,6 +1008,8 @@
   .auth-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:44px 40px;width:100%;max-width:380px;box-shadow:0 8px 48px rgba(0,0,0,.5);}
   .auth-logo h2{color:#fff!important;}
   .auth-logo p{color:rgba(255,255,255,.3)!important;}
+  .auth-logo .rbv-logo-light{display:none!important;}
+  .auth-logo .rbv-logo-dark{display:block!important;}
   .auth-label{color:rgba(255,255,255,.4)!important;}
   .auth-input{background:rgba(255,255,255,.06)!important;border-color:rgba(255,255,255,.12)!important;color:#fff!important;}
   .auth-input:focus{border-color:rgba(29,78,216,.8)!important;}
@@ -1085,7 +1100,8 @@
   <canvas id="auth-bg-canvas"></canvas>
   <div class="auth-card">
     <div class="auth-logo">
-      <img class="ig-icon" src="https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/profile-pics/rbv-logo.png" alt="RBV Company" style="object-fit:contain;background:transparent;border-radius:6px;display:block;margin:0 auto 14px;">
+      <img class="rbv-logo rbv-logo-light" src="/midia/LOGOTIPOBRENOPRETO.png" alt="RBV" style="margin:0 auto 14px;height:32px;">
+      <img class="rbv-logo rbv-logo-dark" src="/midia/LOGOTIPOBRENOBRANCO.png" alt="RBV" style="margin:0 auto 14px;height:32px;">
       <h2>Inteligência RBV</h2>
       <p>RBV COMPANY</p>
     </div>
@@ -1152,7 +1168,8 @@
 <div id="home-screen">
   <div class="home-header">
     <div class="home-header-brand" onclick="void(0)">
-      <img src="https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/profile-pics/rbv-logo.png" alt="RBV">
+      <img class="rbv-logo rbv-logo-light" src="/midia/LOGOTIPOBRENOPRETO.png" alt="RBV">
+      <img class="rbv-logo rbv-logo-dark" src="/midia/LOGOTIPOBRENOBRANCO.png" alt="RBV">
       <h1>Inteligência RBV</h1>
     </div>
     <div class="home-header-user">
@@ -1213,7 +1230,11 @@
 <div id="admin-screen">
   <div class="admin-topbar">
     <button class="admin-topbar-back" onclick="closeAdmin()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Central</button>
-    <span class="admin-topbar-title">Administração</span>
+    <div style="display:flex;align-items:center;gap:12px">
+      <img class="rbv-logo rbv-logo-light" src="/midia/LOGOTIPOBRENOPRETO.png" alt="RBV">
+      <img class="rbv-logo rbv-logo-dark" src="/midia/LOGOTIPOBRENOBRANCO.png" alt="RBV">
+      <span class="admin-topbar-title">Administração</span>
+    </div>
     <span id="admin-topbar-user" style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted)"></span>
   </div>
   <div class="admin-layout">
@@ -1342,9 +1363,8 @@
   <!-- HEADER -->
   <header>
     <div class="logo-area">
-      <img class="ig-icon" src="https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/profile-pics/rbv-logo.png" alt="RBV Company" style="object-fit:contain;background:transparent;border-radius:6px;">
-      <div><h1>Social Dashboard</h1><div class="logo-sub">RBV COMPANY · INSTAGRAM</div></div>
-      <button class="home-btn" onclick="showHome()" title="Voltar ao início">← Início</button>
+      <img class="rbv-logo rbv-logo-light" src="/midia/LOGOTIPOBRENOPRETO.png" alt="RBV">
+      <img class="rbv-logo rbv-logo-dark" src="/midia/LOGOTIPOBRENOBRANCO.png" alt="RBV">
     </div>
     <div id="header-collapsible">
       <div class="profile-select" id="profile-select"></div>
@@ -1391,17 +1411,16 @@
   </div>
 
   <div class="topbar">
-    <div style="display:flex;align-items:center;gap:14px;">
-      <div id="dash-clock">--:--:<span>--</span></div>
-      <span class="live-dot" id="collection-status">—</span>
-      <div class="ac-toggle on" id="ac-toggle-btn" onclick="toggleAutoCycle()" title="Rotação automática de perfis">
-        <div class="ac-toggle-track on" id="ac-toggle-track"><div class="ac-toggle-thumb"></div></div>
-        <span class="ac-toggle-lbl">TRANSIÇÃO AUTO</span>
+    <div class="topbar-left">
+      <button class="gv-back" onclick="showHome()"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Central</button>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <span class="gv-perf-tag" style="font-size:12px;letter-spacing:4px">Análise de Redes Sociais</span>
+        <span class="gv-brand-tag">Inteligência RBV</span>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
       <div class="period-tabs" id="period-tabs"></div>
-      <button class="custom-range-btn" id="custom-range-btn" onclick="toggleCustomRange()">📅 Personalizado</button>
+      <button class="custom-range-btn" id="custom-range-btn" onclick="toggleCustomRange()">📅</button>
       <div id="custom-range-panel" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;">
         <input type="date" id="custom-start" class="custom-date-input">
         <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--muted)">até</span>
@@ -1409,6 +1428,14 @@
         <button class="custom-apply-btn" onclick="applyCustomRange()">Aplicar</button>
         <button class="custom-clear-btn" onclick="clearCustomRange()">✕</button>
       </div>
+      <div class="ac-toggle on" id="ac-toggle-btn" onclick="toggleAutoCycle()" title="Rotação automática de perfis">
+        <div class="ac-toggle-track on" id="ac-toggle-track"><div class="ac-toggle-thumb"></div></div>
+        <span class="ac-toggle-lbl">AUTO</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="live-dot" id="collection-status">Tempo Real</span>
+      <div id="dash-clock">--:--:<span>--</span></div>
     </div>
   </div>
 
@@ -3341,6 +3368,13 @@ async function _gvBuildSkuSlide(pedidos,pedidosPrev){
     if(batchCount%10===0){
       if(newVendorFound){_gvUpdateVendRanking();newVendorFound=false;}
       if(bgMappings.length){const snap=[...bgMappings];bgMappings.length=0;sbClient.from('bling_pedido_vendedor').upsert(snap,{onConflict:'pedido_id'}).then(null,()=>{});}
+      // Progressive SKU ticker update — updates the slide as data arrives instead of waiting until the end
+      const _intTop=Object.values(skuMap).sort((a,b)=>b.qty-a.qty).slice(0,10);
+      if(_intTop.length&&window._gvTickerSlides){
+        const _intItems=_intTop.map((s,i)=>{const nm=s.nome.length>40?s.nome.slice(0,40)+'…':s.nome;const dt=s.lastDate?`${String(s.lastDate.getDate()).padStart(2,'0')}/${String(s.lastDate.getMonth()+1).padStart(2,'0')}/${s.lastDate.getFullYear().toString().slice(2)}`:'';return `<span class="gv-ticker-item"><strong>#${i+1} ${s.sku}</strong> · ${nm} · ${fmtR(s.preco)} · <span style="opacity:.7">${Math.round(s.qty)} un.${dt?` · última: ${dt}`:''}</span></span>`;});
+        window._gvTickerSlides[1]={label:'Itens mais vendidos',items:_intItems};
+        if(window._gvTickerIdx===1)_gvRenderTickerSlide(1);
+      }
     }
   }
 
@@ -3393,9 +3427,8 @@ async function _gvBuildSkuSlide(pedidos,pedidosPrev){
     return `<span class="gv-ticker-item"><strong>#${i+1} ${s.sku}</strong> · ${nome} · ${fmtR(s.preco)} · <span style="opacity:.7">${Math.round(s.qty)} un.${dtStr?` · última: ${dtStr}`:''}</span></span>`;
   });
   if(window._gvTickerSlides){
-    const wasEmpty=!window._gvTickerSlides[1].items.length;
     window._gvTickerSlides[1]={label:'Itens mais vendidos',items};
-    if(window._gvTickerIdx===1&&wasEmpty)_gvRenderTickerSlide(1);
+    if(window._gvTickerIdx===1)_gvRenderTickerSlide(1);
   }
 }
 function _gvUpdateVendRanking(){
@@ -4173,15 +4206,31 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     const rot=150;
     const parts=Array.isArray(line4parts)?line4parts:(line4parts?[{text:line4parts,color:'var(--muted)'}]:[]);
     const line4svg=parts.length?`<text x="100" y="162" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="10.5" font-weight="600">${parts.map((pt,i)=>`<tspan fill="${pt.color}">${i>0?' · ':''}${pt.text}</tspan>`).join('')}</text>`:'';
+    const isGoal=p!==null&&p>=100;
+    const gid=`bgliq_${uid}`;
+    const nid=`bgneon_${uid}`;
+    const neonFilter=isGoal?`drop-shadow(0 0 6px ${hexColor}) drop-shadow(0 0 20px ${hexColor}99)`:`drop-shadow(0 0 8px ${hexColor}88)`;
     return `<svg viewBox="0 0 200 190" style="width:100%;height:100%;overflow:visible;display:block">
+      <defs>
+        <linearGradient id="${gid}" x1="0" y1="0" x2="200" y2="0" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="${hexColor}"/>
+          <stop offset="44%" stop-color="${hexColor}"/>
+          <stop offset="50%" stop-color="white" stop-opacity="0.38"/>
+          <stop offset="56%" stop-color="${hexColor}"/>
+          <stop offset="100%" stop-color="${hexColor}"/>
+          <animate attributeName="x1" values="-200;400" dur="3.5s" repeatCount="indefinite"/>
+          <animate attributeName="x2" values="0;600" dur="3.5s" repeatCount="indefinite"/>
+        </linearGradient>
+      </defs>
       <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${trackClr}" stroke-width="13"
         stroke-dasharray="${sweep.toFixed(1)} ${gap.toFixed(1)}" stroke-linecap="round"
         transform="rotate(${rot} ${cx} ${cy})"/>
-      <circle id="${uid}" cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${hexColor}" stroke-width="13"
+      <circle id="${uid}" cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="url(#${gid})" stroke-width="13"
         stroke-dasharray="0.01 ${C.toFixed(1)}" stroke-linecap="round"
         transform="rotate(${rot} ${cx} ${cy})"
         data-fill="${fill.toFixed(1)}" data-c="${C.toFixed(1)}"
-        style="transition:stroke-dasharray 2s cubic-bezier(.4,0,.2,1);filter:drop-shadow(0 0 8px ${hexColor}88)"/>
+        style="transition:stroke-dasharray 2s cubic-bezier(.4,0,.2,1);filter:${neonFilter}"
+        ${isGoal?`class="gauge-neon-arc"`:''}/>
       <text x="100" y="86" text-anchor="middle" font-family="Oswald,sans-serif" font-size="42" font-weight="600" fill="${hexColor}">${line1}</text>
       <text x="100" y="109" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="10" fill="var(--muted)" letter-spacing="2">${line2}</text>
       <text x="100" y="138" text-anchor="middle" font-family="Oswald,sans-serif" font-size="22" font-weight="500" fill="var(--text)">${line3}</text>
@@ -4193,18 +4242,32 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     const C=2*Math.PI*R,sweep=240/360*C,gap=C-sweep;
     const fill=p!==null?Math.min(Math.max(p,0),100)/100*sweep:0;
     const rot=150;
-    // vendido descolado do arco; meta→desvio→nome→delta agrupados abaixo
     const deltaY=canalNm?135:123;
     const vbH=deltaStr?(canalNm?145:133):canalNm?133:desvioStr?121:metaStr?109:vendidoStr?97:62;
+    const isGoal=p!==null&&p>=100;
+    const gid=`sgliq_${uid}`;
+    const neonFilter=isGoal?`drop-shadow(0 0 4px ${hexColor}) drop-shadow(0 0 12px ${hexColor}99)`:`drop-shadow(0 0 4px ${hexColor}88)`;
     return `<svg viewBox="0 0 100 ${vbH}" style="width:100%;height:auto;overflow:visible;display:block">
+      <defs>
+        <linearGradient id="${gid}" x1="0" y1="0" x2="100" y2="0" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="${hexColor}"/>
+          <stop offset="44%" stop-color="${hexColor}"/>
+          <stop offset="50%" stop-color="white" stop-opacity="0.38"/>
+          <stop offset="56%" stop-color="${hexColor}"/>
+          <stop offset="100%" stop-color="${hexColor}"/>
+          <animate attributeName="x1" values="-100;200" dur="3.5s" repeatCount="indefinite"/>
+          <animate attributeName="x2" values="0;300" dur="3.5s" repeatCount="indefinite"/>
+        </linearGradient>
+      </defs>
       <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${trackClr}" stroke-width="7"
         stroke-dasharray="${sweep.toFixed(1)} ${gap.toFixed(1)}" stroke-linecap="round"
         transform="rotate(${rot} ${cx} ${cy})"/>
-      <circle id="${uid}" cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${hexColor}" stroke-width="7"
+      <circle id="${uid}" cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="url(#${gid})" stroke-width="7"
         stroke-dasharray="0.01 ${C.toFixed(1)}" stroke-linecap="round"
         transform="rotate(${rot} ${cx} ${cy})"
         data-fill="${fill.toFixed(1)}" data-c="${C.toFixed(1)}"
-        style="transition:stroke-dasharray 2s cubic-bezier(.4,0,.2,1);filter:drop-shadow(0 0 4px ${hexColor}88)"/>
+        style="transition:stroke-dasharray 2s cubic-bezier(.4,0,.2,1);filter:${neonFilter}"
+        ${isGoal?`class="gauge-neon-arc"`:''}/>
       <text x="50" y="51" text-anchor="middle" font-family="Oswald,sans-serif" font-size="22" font-weight="600" fill="${hexColor}">${topText}</text>
       ${vendidoStr?`<text x="50" y="86" text-anchor="middle" font-family="Oswald,sans-serif" font-size="15" font-weight="500" fill="var(--text)">${vendidoStr}</text>`:''}
       ${metaStr?`<text x="50" y="99" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="9" fill="var(--muted)">${metaStr}</text>`:''}
@@ -4502,7 +4565,11 @@ function setHomeBgTheme(type){
 <div id="sales-menu-screen" style="display:none">
   <div class="smenu-topbar">
     <button class="smenu-back" onclick="closeSalesDashboard()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Central</button>
-    <span class="smenu-title">Dashboard de Vendas</span>
+    <div style="display:flex;align-items:center;gap:10px">
+      <img class="rbv-logo rbv-logo-light" src="/midia/LOGOTIPOBRENOPRETO.png" alt="RBV">
+      <img class="rbv-logo rbv-logo-dark" src="/midia/LOGOTIPOBRENOBRANCO.png" alt="RBV">
+      <span class="smenu-title">Dashboard de Vendas</span>
+    </div>
     <div class="view-toggle">
       <button class="view-toggle-btn active" id="smenu-vt-grid" onclick="setSMenuView('grid')" title="Cards">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="0" width="6" height="6" rx="1"/><rect x="8" y="0" width="6" height="6" rx="1"/><rect x="0" y="8" width="6" height="6" rx="1"/><rect x="8" y="8" width="6" height="6" rx="1"/></svg>
@@ -4544,7 +4611,11 @@ function setHomeBgTheme(type){
 <div id="sales-brand-screen" style="display:none">
   <div class="smenu-topbar">
     <button class="smenu-back" onclick="closeSalesBrandPicker()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Vendas</button>
-    <span class="smenu-title">Análise de Vendas</span>
+    <div style="display:flex;align-items:center;gap:10px">
+      <img class="rbv-logo rbv-logo-light" src="/midia/LOGOTIPOBRENOPRETO.png" alt="RBV">
+      <img class="rbv-logo rbv-logo-dark" src="/midia/LOGOTIPOBRENOBRANCO.png" alt="RBV">
+      <span class="smenu-title">Análise de Vendas</span>
+    </div>
     <span></span>
   </div>
   <div class="sbrand-body">
@@ -4575,7 +4646,11 @@ function setHomeBgTheme(type){
 <!-- VESSEL SALES ANALYSIS -->
 <div id="vessel-sales-screen" style="display:none">
   <div class="vsales-topbar">
-    <button class="vsales-back" onclick="closeVesselSales()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Marcas</button>
+    <div style="display:flex;align-items:center;gap:14px">
+      <button class="vsales-back" onclick="closeVesselSales()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Marcas</button>
+      <img class="rbv-logo rbv-logo-light" src="/midia/LOGOTIPOBRENOPRETO.png" alt="RBV">
+      <img class="rbv-logo rbv-logo-dark" src="/midia/LOGOTIPOBRENOBRANCO.png" alt="RBV">
+    </div>
     <div class="vsales-brand">
       <img id="vsales-brand-av" class="vsales-brand-av" src="" alt="" onerror="this.style.display='none'">
       <span class="vsales-brand-nm">Vessel · Análise de Vendas</span>
@@ -4609,6 +4684,8 @@ function setHomeBgTheme(type){
   <div class="gv-topbar">
     <div style="display:flex;align-items:center;gap:14px">
       <button class="gv-back" onclick="closeGestaoVista()"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Voltar</button>
+      <img class="rbv-logo rbv-logo-light" src="/midia/LOGOTIPOBRENOPRETO.png" alt="RBV">
+      <img class="rbv-logo rbv-logo-dark" src="/midia/LOGOTIPOBRENOBRANCO.png" alt="RBV">
       <div style="display:flex;flex-direction:column;gap:2px">
         <span class="gv-perf-tag">Performance de Vendas</span>
         <span class="gv-brand-tag">Vessel Brasil · Gestão à Vista</span>
@@ -4624,6 +4701,7 @@ function setHomeBgTheme(type){
       <button class="vs-ac-toggle" id="gv-ac-toggle" onclick="gvToggleAuto()" title="Auto-ciclo de períodos">▶ AUTO</button>
     </div>
     <div class="gv-clock-wrap">
+      <span class="live-dot" style="margin-bottom:4px;display:flex">Tempo Real</span>
       <div class="gv-clock-time" id="gv-clock">--:--:--</div>
       <div class="gv-clock-date" id="gv-date"></div>
       <div class="gv-update-status" id="gv-update-status">—</div>
