@@ -3110,10 +3110,17 @@ detectDevice();
 
 async function init(){
   const hash=window.location.hash;
-  if(hash.includes('type=invite')||hash.includes('type=recovery')){needsPasswordSet=true;}
+  const search=window.location.search;
+  if(hash.includes('type=invite')||hash.includes('type=recovery')||
+     search.includes('type=invite')||search.includes('type=recovery')){needsPasswordSet=true;}
 
   sbClient.auth.onAuthStateChange(async(event,session)=>{
     currentSession=session;
+    if(event==='PASSWORD_RECOVERY'){
+      needsPasswordSet=true;
+      showAuth('setpass');
+      return;
+    }
     if(!session){
       showAuth(needsPasswordSet?'setpass':'login');
       return;
