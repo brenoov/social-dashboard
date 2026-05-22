@@ -809,7 +809,8 @@
   .gv-topbar{display:flex;align-items:center;justify-content:space-between;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
   .gv-back{display:flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);cursor:pointer;background:none;border:none;padding:0;transition:color .15s;letter-spacing:.2px;}
   .gv-back:hover{color:var(--text);}
-  .gv-brand-tag{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:6px;text-transform:uppercase;color:var(--muted);opacity:.5;}
+  .gv-brand-tag{font-family:'IBM Plex Sans',sans-serif;font-size:10.4px;font-weight:700;letter-spacing:6px;text-transform:uppercase;color:var(--muted);opacity:.5;}
+  .gv-perf-tag{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);opacity:.4;line-height:1;}
   .gv-clock-wrap{text-align:right;}
   .gv-clock-time{font-family:'Oswald',sans-serif;font-size:28px;font-weight:400;letter-spacing:3px;color:var(--text);line-height:1;}
   .gv-clock-date{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:3px;}
@@ -945,7 +946,8 @@
   body.dev-tv .gv-ticker-dot{width:6px;height:6px;}
   body.dev-tv #gestao-vista-screen .gv-topbar{padding:22px 56px;}
   body.dev-tv .gv-back{font-size:28px;}
-  body.dev-tv .gv-brand-tag{font-size:20px;}
+  body.dev-tv .gv-brand-tag{font-size:30px;}
+  body.dev-tv .gv-perf-tag{font-size:18px;}
   body.dev-tv #gestao-vista-screen .gv-pbtn{font-size:21px;padding:8px 19px;border-radius:8px;}
   body.dev-tv #gestao-vista-screen #gv-ac-toggle{font-size:21px;padding:8px 17px;}
   /* ── AUTH CANVAS + DARK LOGIN ── */
@@ -3257,22 +3259,30 @@ function openGestaoVista(){
   gvAutoStart();
 }
 let _gvSkuVersion=0;
-async function _gvBuildSkuSlide(pedidos){
+async function _gvBuildSkuSlide(pedidos,pedidosPrev){
   const myVersion=_gvSkuVersion;
-  await new Promise(r=>setTimeout(r,1500));
+  await new Promise(r=>setTimeout(r,500));
   if(myVersion!==_gvSkuVersion)return;
   const skuMap={};
   const newVendIds=new Set();
+  const bgMappings=[];
+  const bgVendRows=[];
+  let newVendorFound=false;
+  let batchCount=0;
+
+  // Processa pedidos do período atual: SKU + vendor mapping
   for(const p of pedidos){
     if(myVersion!==_gvSkuVersion)return;
     try{
       const resp=await blingCall(`pedidos/vendas/${p.id}`,{});
       const det=resp.data;
-      // Extrai vendor ID do detail e mapeia ao pedido
       const vid=det?.vendedor?.id;
       if(vid){
+        const isNew=!window._gvPedidoVendorMap[p.id];
         window._gvPedidoVendorMap[p.id]=vid;
+        bgMappings.push({pedido_id:parseInt(p.id),vendor_id:vid,pedido_data:p.data?.slice(0,10)||null});
         if(!window._gvVendedoresCache[vid])newVendIds.add(vid);
+        if(isNew)newVendorFound=true;
       }
       const dt=p.data?new Date(p.data):null;
       for(const it of(det?.itens||[])){
@@ -3280,20 +3290,35 @@ async function _gvBuildSkuSlide(pedidos){
         const nome=it.descricao||it.produto?.descricao||it.produto?.nome||'—';
         const preco=parseFloat(it.valor||it.valorUnidade||0);
         const qty=parseFloat(it.quantidade||1);
-        const key=sku;
-        if(!skuMap[key])skuMap[key]={sku:escHtml(sku),nome:escHtml(nome),preco,qty:0,lastDate:null};
-        skuMap[key].qty+=qty;
-        if(dt&&(!skuMap[key].lastDate||dt>skuMap[key].lastDate))skuMap[key].lastDate=dt;
+        if(!skuMap[sku])skuMap[sku]={sku:escHtml(sku),nome:escHtml(nome),preco,qty:0,lastDate:null};
+        skuMap[sku].qty+=qty;
+        if(dt&&(!skuMap[sku].lastDate||dt>skuMap[sku].lastDate))skuMap[sku].lastDate=dt;
       }
     }catch(e){}
+    batchCount++;
+    if(batchCount%8===0&&newVendorFound){_gvUpdateVendRanking();newVendorFound=false;}
   }
+
+  // Processa pedidos anteriores: só vendor mapping (sem SKU)
+  for(const p of(pedidosPrev||[])){
+    if(myVersion!==_gvSkuVersion)return;
+    if(window._gvPedidoVendorMap[p.id])continue;
+    try{
+      const resp=await blingCall(`pedidos/vendas/${p.id}`,{});
+      const vid=resp.data?.vendedor?.id;
+      if(vid){
+        window._gvPedidoVendorMap[p.id]=vid;
+        bgMappings.push({pedido_id:parseInt(p.id),vendor_id:vid,pedido_data:p.data?.slice(0,10)||null});
+        if(!window._gvVendedoresCache[vid])newVendIds.add(vid);
+        newVendorFound=true;
+      }
+    }catch(e){}
+    batchCount++;
+    if(batchCount%8===0&&newVendorFound){_gvUpdateVendRanking();newVendorFound=false;}
+  }
+
   if(myVersion!==_gvSkuVersion)return;
-  // Busca nomes dos novos vendedores e salva no Supabase
-  const bgMappings=[];const bgVendRows=[];
-  for(const [pid,vid] of Object.entries(window._gvPedidoVendorMap)){
-    const p=pedidos.find(x=>x.id==pid);
-    if(p)bgMappings.push({pedido_id:parseInt(pid),vendor_id:vid,pedido_data:p.data?.slice(0,10)||null});
-  }
+  // Busca nomes dos novos vendedores
   for(const vid of newVendIds){
     if(myVersion!==_gvSkuVersion)return;
     if(window._gvVendedoresCache[vid])continue;
@@ -3304,12 +3329,14 @@ async function _gvBuildSkuSlide(pedidos){
         const nome=v.contato?.nome||v.nome||v.nomeFantasia||'';
         window._gvVendedoresCache[vid]={nome,loja:''};
         bgVendRows.push({vendor_id:vid,nome,updated_at:new Date().toISOString()});
+        newVendorFound=true;
       }
     }catch(e){}
   }
   if(bgMappings.length)sbClient.from('bling_pedido_vendedor').upsert(bgMappings,{onConflict:'pedido_id'}).then(null,()=>{});
   if(bgVendRows.length)sbClient.from('bling_vendedores').upsert(bgVendRows,{onConflict:'vendor_id'}).then(null,()=>{});
-  if(newVendIds.size)_gvUpdateVendRanking();
+  if(newVendorFound||newVendIds.size)_gvUpdateVendRanking();
+
   const topSkus=Object.values(skuMap).sort((a,b)=>b.qty-a.qty).slice(0,10);
   if(!topSkus.length)return;
   const items=topSkus.map((s,i)=>{
@@ -3386,7 +3413,7 @@ function _gvRenderTickerSlide(idx){
     inner.style.removeProperty('--ticker-travel');
     inner.innerHTML=slide.items.length>0?slide.items.join('<span class="gv-ticker-dot"></span>'):'—';
     if(slide.items.length>0){
-      inner.style.setProperty('--ticker-dur',Math.max(10,Math.round(slide.items.length*1.2))+'s');
+      inner.style.setProperty('--ticker-dur',Math.max(30,Math.round(slide.items.length*4))+'s');
       requestAnimationFrame(()=>{
         const outer=inner.parentElement;
         const travel=Math.max(0,inner.scrollWidth-(outer?outer.clientWidth:0));
@@ -3898,34 +3925,7 @@ async function loadGestaoVistaData(period){
     vendRows.forEach(r=>{window._gvVendedoresCache[r.vendor_id]={nome:r.nome,loja:''};});
     pedVRows.forEach(r=>{window._gvPedidoVendorMap[r.pedido_id]=r.vendor_id;});
     if(myLoad!==_gvLoadId)return;
-    // Pedidos sem mapeamento: busca detail sequencial até ter todos (ou máx 30 pré-render)
-    const unmapped=[...pedidos,...pedidosPrev].filter(p=>!window._gvPedidoVendorMap[p.id]);
-    const preUnmapped=unmapped.slice(0,30);
-    const newMappings=[];
-    const newVendorRows=[];
-    for(let i=0;i<preUnmapped.length;i+=3){
-      if(myLoad!==_gvLoadId)return;
-      const batch=preUnmapped.slice(i,i+3);
-      const batchVids=new Set();
-      await Promise.allSettled(batch.map(async p=>{
-        try{
-          const resp=await blingCall(`pedidos/vendas/${p.id}`,{});
-          const vid=resp.data?.vendedor?.id;
-          if(vid){window._gvPedidoVendorMap[p.id]=vid;newMappings.push({pedido_id:p.id,vendor_id:vid,pedido_data:p.data?.slice(0,10)||null});batchVids.add(vid);}
-        }catch(e){}
-      }));
-      for(const vid of batchVids){
-        if(window._gvVendedoresCache[vid])continue;
-        try{
-          const vr=await blingCall(`vendedores/${vid}`,{});
-          const v=vr.data;
-          if(v){const nome=v.contato?.nome||v.nome||v.nomeFantasia||'';window._gvVendedoresCache[vid]={nome,loja:''};newVendorRows.push({vendor_id:vid,nome,updated_at:new Date().toISOString()});}
-        }catch(e){}
-      }
-    }
-    if(newMappings.length)sbClient.from('bling_pedido_vendedor').upsert(newMappings,{onConflict:'pedido_id'}).then(null,()=>{});
-    if(newVendorRows.length)sbClient.from('bling_vendedores').upsert(newVendorRows,{onConflict:'vendor_id'}).then(null,()=>{});
-    if(myLoad!==_gvLoadId)return;
+    // Renderiza imediatamente com o cache do Supabase — fetches pendentes vão para background
     const vendedoresMap={};
     window._gvRenderCtx={pedidos,pedidosPrev,canais,diPrev,dfPrev};
     if(myLoad!==_gvLoadId)return; // troca de período enquanto carregava — descarta silenciosamente
@@ -4274,7 +4274,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     window._gvTickerTimer=setInterval(_gvNextTickerSlide,90000);
 
   // Busca itens de cada pedido em background (lista não inclui itens, precisa de detalhe individual)
-  _gvBuildSkuSlide([...pedidos].sort((a,b)=>new Date(b.data||0)-new Date(a.data||0)).slice(0,60));
+  _gvBuildSkuSlide([...pedidos].sort((a,b)=>new Date(b.data||0)-new Date(a.data||0)),pedidosPrev);
 
   setTimeout(()=>{
     document.querySelectorAll('#gestao-vista-screen [data-w]').forEach(el=>el.style.width=el.dataset.w);
@@ -4514,21 +4514,21 @@ function setHomeBgTheme(type){
   <div id="gv-watermark" aria-hidden="true">Vessel Brasil</div>
   <div id="gv-bg-anim" aria-hidden="true"></div>
   <div class="gv-topbar">
-    <button class="gv-back" onclick="closeGestaoVista()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Voltar</button>
-    <div style="display:flex;align-items:center;gap:10px">
-      <div style="display:flex;flex-direction:column;gap:1px">
+    <div style="display:flex;align-items:center;gap:14px">
+      <button class="gv-back" onclick="closeGestaoVista()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Voltar</button>
+      <div style="display:flex;flex-direction:column;gap:2px">
         <span class="gv-brand-tag">Vessel Brasil · Gestão à Vista</span>
-        <span style="font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);line-height:1">Performance de Vendas</span>
+        <span class="gv-perf-tag">Performance de Vendas</span>
       </div>
-      <div class="gv-period-btns" id="gv-period-btns">
-        <button class="gv-pbtn active" data-period="today" onclick="gvSelectPeriod('today')">HOJE</button>
-        <button class="gv-pbtn" data-period="1d" onclick="gvSelectPeriod('1d')">1D</button>
-        <button class="gv-pbtn" data-period="7d" onclick="gvSelectPeriod('7d')">7D</button>
-        <button class="gv-pbtn" data-period="14d" onclick="gvSelectPeriod('14d')">14D</button>
-        <button class="gv-pbtn" data-period="30d" onclick="gvSelectPeriod('30d')">MÊS</button>
-        <button class="gv-pbtn" data-period="month" onclick="gvSelectPeriod('month')">ATÉ AGORA</button>
-        <button class="vs-ac-toggle" id="gv-ac-toggle" onclick="gvToggleAuto()" title="Auto-ciclo de períodos">▶ AUTO</button>
-      </div>
+    </div>
+    <div class="gv-period-btns" id="gv-period-btns">
+      <button class="gv-pbtn active" data-period="today" onclick="gvSelectPeriod('today')">HOJE</button>
+      <button class="gv-pbtn" data-period="1d" onclick="gvSelectPeriod('1d')">1D</button>
+      <button class="gv-pbtn" data-period="7d" onclick="gvSelectPeriod('7d')">7D</button>
+      <button class="gv-pbtn" data-period="14d" onclick="gvSelectPeriod('14d')">14D</button>
+      <button class="gv-pbtn" data-period="30d" onclick="gvSelectPeriod('30d')">MÊS</button>
+      <button class="gv-pbtn" data-period="month" onclick="gvSelectPeriod('month')">ATÉ AGORA</button>
+      <button class="vs-ac-toggle" id="gv-ac-toggle" onclick="gvToggleAuto()" title="Auto-ciclo de períodos">▶ AUTO</button>
     </div>
     <div class="gv-clock-wrap">
       <div class="gv-clock-time" id="gv-clock">--:--:--</div>
