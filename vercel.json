@@ -1,5 +1,6 @@
 {
   "rewrites": [
+    { "source": "/midia/:path*", "destination": "/projetos/central-inteligencia/midia/:path*" },
     { "source": "/", "destination": "/projetos/central-inteligencia/central-inteligencia-v1.1.html" }
   ]
 }
