@@ -3962,13 +3962,13 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
       ${line4svg}
     </svg>`;
   }
-  function smGauge(p,hexColor,uid,topText,vendidoStr,metaStr,desvioStr,desvioCol){
+  function smGauge(p,hexColor,uid,topText,vendidoStr,metaStr,desvioStr,desvioCol,canalNm,deltaStr,deltaCol){
     const R=34,cx=50,cy=44;
     const C=2*Math.PI*R,sweep=240/360*C,gap=C-sweep;
     const fill=p!==null?Math.min(Math.max(p,0),100)/100*sweep:0;
     const rot=150;
-    // Trim viewBox height to content — avoids gap between gauge and labels below
-    const vbH=desvioStr?112:metaStr?97:vendidoStr?82:62;
+    // vendido descolado do arco; meta→desvio→nome→delta agrupados abaixo
+    const vbH=deltaStr?145:canalNm?133:desvioStr?121:metaStr?109:vendidoStr?97:62;
     return `<svg viewBox="0 0 100 ${vbH}" style="width:100%;height:auto;overflow:visible;display:block">
       <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${trackClr}" stroke-width="7"
         stroke-dasharray="${sweep.toFixed(1)} ${gap.toFixed(1)}" stroke-linecap="round"
@@ -3979,9 +3979,11 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
         data-fill="${fill.toFixed(1)}" data-c="${C.toFixed(1)}"
         style="transition:stroke-dasharray 2s cubic-bezier(.4,0,.2,1);filter:drop-shadow(0 0 4px ${hexColor}88)"/>
       <text x="50" y="51" text-anchor="middle" font-family="Oswald,sans-serif" font-size="22" font-weight="600" fill="${hexColor}">${topText}</text>
-      ${vendidoStr?`<text x="50" y="70" text-anchor="middle" font-family="Oswald,sans-serif" font-size="15" font-weight="500" fill="var(--text)">${vendidoStr}</text>`:''}
-      ${metaStr?`<text x="50" y="84" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="12" fill="var(--muted)">${metaStr}</text>`:''}
-      ${desvioStr?`<text x="50" y="100" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="7.5" font-weight="700" fill="${desvioCol||'var(--muted)'}">${desvioStr}</text>`:''}
+      ${vendidoStr?`<text x="50" y="86" text-anchor="middle" font-family="Oswald,sans-serif" font-size="15" font-weight="500" fill="var(--text)">${vendidoStr}</text>`:''}
+      ${metaStr?`<text x="50" y="99" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="9" fill="var(--muted)">${metaStr}</text>`:''}
+      ${desvioStr?`<text x="50" y="111" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="7.5" font-weight="700" fill="${desvioCol||'var(--muted)'}">${desvioStr}</text>`:''}
+      ${canalNm?`<text x="50" y="123" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="9" fill="var(--muted)">${canalNm}</text>`:''}
+      ${deltaStr?`<text x="50" y="135" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="7.5" font-weight="700" fill="${deltaCol||'var(--muted)'}">${deltaStr}</text>`:''}
     </svg>`;
   }
 
@@ -4012,10 +4014,10 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     const metaTxt=cMetaP?'meta '+fmtR0(cMetaP):null;
     const desvTxt=cDesvio!=null?(cDesvio>=0?'↑ R$':'↓ R$')+fmtK(Math.abs(cDesvio))+' da meta':null;
     const desvCol=cDesvio!=null?(cDesvio>=0?'#22c55e':'#f43f5e'):null;
+    const cDeltaTxt=cDelta!=null?(cDelta>=0?'↑':'↓')+Math.abs(cDelta)+'% vs '+prevLbl:null;
+    const cDeltaCol=cDelta!=null?(cDelta>=0?'#22c55e':'#f43f5e'):null;
     return `<div class="gv-sm-item">
-      ${smGauge(hasMeta?cPct:null,cHex,'gv-g-c'+i,topText,vendStr,metaTxt,desvTxt,desvCol)}
-      <div class="gv-sm-item-lbl">${escHtml(c.nm)}</div>
-      ${cDelta!=null?`<div class="gv-sm-item-delta ${cDelta>=0?'up':'dn'}">${cDelta>=0?'↑':'↓'}${Math.abs(cDelta)}% vs ${prevLbl}</div>`:''}
+      ${smGauge(hasMeta?cPct:null,cHex,'gv-g-c'+i,topText,vendStr,metaTxt,desvTxt,desvCol,escHtml(c.nm),cDeltaTxt,cDeltaCol)}
     </div>`;
   }).join('');
 
