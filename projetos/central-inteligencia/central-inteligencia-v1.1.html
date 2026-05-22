@@ -3857,7 +3857,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   vendedoresMap=vendedoresMap||{};dailyGoalsMap=dailyGoalsMap||{};
   const todayStr=actualToday||hoje;
   const total=pedidos.reduce((s,p)=>s+parseFloat(p.total||0),0);
-  const totalHoje=pedidos.filter(p=>p.data?.slice(0,10)===todayStr).reduce((s,p)=>s+parseFloat(p.total||0),0);
+  const totalHoje=period==='1d'?total:pedidos.filter(p=>p.data?.slice(0,10)===todayStr).reduce((s,p)=>s+parseFloat(p.total||0),0);
   const diasTot=di?Math.ceil((new Date(hoje)-new Date(di))/864e5)+1:diaAtual;
   const diasTotMeta=period==='30d'?diasMes:diasTot;
   const diasElapsed=period==='30d'?diaAtual:diasTot;
@@ -4060,7 +4060,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
       <div class="gv-main-kpi">
         <div class="gv-main-kpi-item">
           <div class="gv-main-kpi-v">${fmtR0(totalHoje)}</div>
-          <div class="gv-main-kpi-l">Hoje</div>
+          <div class="gv-main-kpi-l">${period==='1d'?'Ontem':'Hoje'}</div>
           ${deltaHoje!=null?`<div class="gv-main-kpi-d" style="color:${deltaHoje>=0?'#22c55e':'#f43f5e'}">${deltaHoje>=0?'↑':'↓'}${Math.abs(deltaHoje)}% vs ${todayPrevLbl}</div>`:''}
         </div>
         <div class="gv-main-kpi-item">
