@@ -3440,23 +3440,23 @@ async function loadVesselSalesData(period,customDi,customDf){
   const y=now.getFullYear(),m=now.getMonth()+1;
   let di,df;
   const iso=d=>d.toISOString().slice(0,10);
-  const _ldom=`${y}-${String(m).padStart(2,'0')}-${String(new Date(y,m,0).getDate()).padStart(2,'0')}`;
   if(period==='today'){di=df=iso(now);}
   else if(period==='1d'){const p=new Date(now-864e5);di=df=iso(p);}
   else if(period==='7d'){di=iso(new Date(now-7*864e5));df=iso(now);}
   else if(period==='14d'){di=iso(new Date(now-14*864e5));df=iso(now);}
-  else if(period==='30d'){di=`${y}-${String(m).padStart(2,'0')}-01`;df=_ldom;}
+  else if(period==='30d'){di=`${y}-${String(m).padStart(2,'0')}-01`;df=iso(now);}
   else if(period==='month'){di=`${y}-${String(m).padStart(2,'0')}-01`;df=iso(now);}
   else if(period==='custom'&&customDi&&customDf){di=customDi;df=customDf;}
   else{di=`${y}-${String(m).padStart(2,'0')}-01`;df=iso(now);}
   // previous period — same length, immediately before
   function subMes(s){const d=new Date(s+'T12:00:00');const od=d.getDate();d.setDate(1);d.setMonth(d.getMonth()-1);d.setDate(Math.min(od,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()));return d.toISOString().slice(0,10);}
-  const diPrev=subMes(di),dfPrev=subMes(df);
+  let diPrev=subMes(di),dfPrev=subMes(df);
+  if(period==='30d'){const _pme=new Date(y,m-1,0);dfPrev=_pme.toISOString().slice(0,10);}
   try{
     const[pedidos,canais,metasArr,pedidosPrev]=await Promise.all([
       blingPages('pedidos/vendas',{dataInicial:di,dataFinal:df,'idsSituacoes[]':9}),
       sbClient.from('bling_lojas').select('loja_id,nome').then(r=>{const mp={};(r.data||[]).forEach(l=>mp[l.loja_id]=l.nome);return mp;}).catch(()=>({})),
-      sbClient.from('bling_metas').select('loja_id,meta_valor').eq('year',y).eq('month',m).then(r=>r.data||[]).catch(()=>[]),
+      sbClient.from('bling_metas').select('loja_id,meta_valor,daily_goals').eq('year',y).eq('month',m).then(r=>r.data||[]).catch(()=>[]),
       blingPages('pedidos/vendas',{dataInicial:diPrev,dataFinal:dfPrev,'idsSituacoes[]':9}).catch(()=>[])
     ]);
     _fadeSwap(_vsBody,()=>{
@@ -3475,9 +3475,27 @@ function renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now,
   const diasDec=Math.min(Math.ceil((now-dInicio)/864e5)+1,diasTot);
 
   // metas
-  const metasMap={};metasArr.forEach(r=>metasMap[r.loja_id]=parseFloat(r.meta_valor||0));
-  const metaTotal=metasMap[0]||null;
-  const metaPeriodo=metaTotal?metaTotal/diasMes*(period==='30d'?diasMes:diasTot):null;
+  const metasMap={};const dailyGoalsMap={};
+  metasArr.forEach(r=>{metasMap[r.loja_id]=parseFloat(r.meta_valor||0);if(r.daily_goals)dailyGoalsMap[r.loja_id]=r.daily_goals;});
+  const metaTotal=(metasMap[0]!=null&&metasMap[0]>0?Number(metasMap[0]):null)||Object.values(metasMap).reduce((s,v)=>s+(Number(v)||0),0)||null;
+  // Usa daily_goals quando disponíveis (período dentro do mesmo mês)
+  const _calcMetaPeriodo=(lojaId,fallback)=>{
+    let dg=lojaId===0?null:dailyGoalsMap[lojaId];
+    if(lojaId===0){const mg={};Object.entries(dailyGoalsMap).forEach(([,g])=>{if(g)Object.entries(g).forEach(([d,v])=>mg[d]=(mg[d]||0)+Number(v||0));});if(Object.keys(mg).length>0)dg=mg;}
+    if(dg&&di&&di.slice(0,7)===df.slice(0,7)){
+      const d1=parseInt(di.slice(8)),d2=parseInt(df.slice(8));
+      let s=0;for(let d=d1;d<=d2;d++)s+=Number(dg[String(d)]||0);
+      if(s>0)return s;
+    }
+    return fallback;
+  };
+  const getMetaDia=(dateStr)=>{
+    const dayNum=parseInt(dateStr.slice(8));
+    const isCurrM=dateStr.slice(0,7)===`${y}-${String(m).padStart(2,'0')}`;
+    if(isCurrM){let s=0;let has=false;Object.values(dailyGoalsMap).forEach(dg=>{if(dg&&dg[String(dayNum)]!=null){s+=Number(dg[String(dayNum)]||0);has=true;}});if(has)return s;}
+    return metaTotal?metaTotal/diasMes:null;
+  };
+  const metaPeriodo=metaTotal?_calcMetaPeriodo(0,metaTotal/diasMes*diasTot):null;
 
   // core
   const total=pedidos.reduce((s,p)=>s+parseFloat(p.total||0),0);
@@ -3486,7 +3504,7 @@ function renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now,
   const proj=diasDec>0?(total/diasDec)*diasTot:0;
   const hoje=now.toISOString().slice(0,10);
   const totalHoje=pedidos.filter(p=>p.data?.slice(0,10)===hoje).reduce((s,p)=>s+parseFloat(p.total||0),0);
-  const metaHoje=metaTotal?metaTotal/diasMes:null;
+  const metaHoje=getMetaDia(hoje);
   const pct=metaPeriodo?Math.round(total/metaPeriodo*100):null;
   const pctCls=pct===null?'':pct>=100?'good':pct>=85?'warn':'bad';
 
@@ -3515,8 +3533,7 @@ function renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now,
   const porDia={};
   pedidos.forEach(p=>{const d=p.data?.slice(0,10)||'?';porDia[d]=(porDia[d]||0)+parseFloat(p.total||0);});
   const dias=Object.entries(porDia).sort((a,b)=>a[0].localeCompare(b[0]));
-  const metaDia=metaTotal?metaTotal/diasMes:null;
-  const maxDia=Math.max(...dias.map(([,v])=>v),metaDia||0,1);
+  const maxDia=Math.max(...dias.map(([d,v])=>Math.max(v,getMetaDia(d)||0)),1);
 
   // per contato
   const porVend={},cntVend={};
@@ -3604,7 +3621,7 @@ function renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now,
         <div class="vs2-ch-chart">
           <div class="vs2-ch-bars">
             ${lojas.map(l=>{
-              const meta=metasMap[l.id]||null;
+              const meta=l.id>0?_calcMetaPeriodo(l.id,metasMap[l.id]?metasMap[l.id]/diasMes*diasTot:null):null;
               const prev=porLojaPrev[l.id]||0;
               const allVals=[l.v,meta||0,prev];
               const localMax=Math.max(...allVals,1);
@@ -3647,14 +3664,15 @@ function renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now,
       <div class="vs2-daily">
         <div class="vs2-daily-chart">
           ${dias.map(([d,v])=>{
-            const pctD=metaDia?Math.round(v/metaDia*100):null;
+            const mDia=getMetaDia(d);
+            const pctD=mDia?Math.round(v/mDia*100):null;
             const colD=pctD===null?'':pctD>=100?'good':'bad';
             const hR=Math.round(v/maxDia*dayBarMax);
-            const hM=metaDia?Math.round(metaDia/maxDia*dayBarMax):0;
+            const hM=mDia?Math.round(mDia/maxDia*dayBarMax):0;
             return `<div class="vs2-day-col">
               <div class="vs2-day-bars">
                 <div class="vs2-day-bar real ${colD}" style="height:0" data-h="${hR}px"></div>
-                ${metaDia?`<div class="vs2-day-bar meta" style="height:0" data-h="${hM}px"></div>`:''}
+                ${mDia?`<div class="vs2-day-bar meta" style="height:0" data-h="${hM}px"></div>`:''}
               </div>
               <div class="vs2-day-lbl">${d.slice(5).replace('-','/')}</div>
             </div>`;
@@ -3738,11 +3756,12 @@ async function loadGestaoVistaData(period){
   else if(period==='1d'){di=df=brtAdd(-1);}
   else if(period==='7d'){di=brtAdd(-7);df=brtToday;}
   else if(period==='14d'){di=brtAdd(-14);df=brtToday;}
-  else if(period==='30d'){di=`${y}-${pad2(m)}-01`;df=`${y}-${pad2(m)}-${pad2(diasMes)}`;}
+  else if(period==='30d'){di=`${y}-${pad2(m)}-01`;df=brtToday;}
   else if(period==='month'){di=`${y}-${pad2(m)}-01`;df=brtToday;}
   else{di=`${y}-${pad2(m)}-01`;df=brtToday;}
   function subMes(s){const d=new Date(s+'T12:00:00');const od=d.getDate();d.setDate(1);d.setMonth(d.getMonth()-1);d.setDate(Math.min(od,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()));return d.toISOString().slice(0,10);}
-  const diPrev=subMes(di),dfPrev=subMes(df);
+  let diPrev=subMes(di),dfPrev=subMes(df);
+  if(period==='30d'){const _pme=new Date(y,m-1,0);dfPrev=`${_pme.getFullYear()}-${pad2(_pme.getMonth()+1)}-${pad2(_pme.getDate())}`; }
   try{
     // Bling: chamadas SEQUENCIAIS para evitar rate limit (3 simultâneas causavam paginação incompleta)
     const pedidos=await blingPages('pedidos/vendas',{dataInicial:di,dataFinal:df,'idsSituacoes[]':9});
