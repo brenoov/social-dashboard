@@ -488,22 +488,33 @@
     .gv-ticker-inner.animate{animation:none;}
   }
   @media(max-width:640px){
+    /* TopBar */
     .gv-topbar{padding:6px 10px;}
     .gv-brand-tag{display:none;}
     .gv-period-btns{flex-wrap:wrap;gap:3px;}
     .gv-pbtn{font-size:9px;padding:3px 7px;border-radius:4px;}
     #gv-ac-toggle{font-size:9px;padding:3px 7px;}
-    .gv-canal-grid{grid-template-columns:repeat(2,1fr);}
-    .gv-big-num{font-size:30px;}
-    .gv-gauge-wrap{height:200px;max-height:200px;}
-    .gv-main-kpi{gap:8px;}
-    .gv-main-kpi-v{font-size:16px;}
-    .gv-main-kpi-l,.gv-main-kpi-d{font-size:9px;}
     .gv-update-status{display:none;}
+    /* Left panel: gauge (esq) + KPIs (dir) na mesma linha */
+    .gv-left{display:grid!important;grid-template-columns:42% 1fr;grid-template-rows:auto 1fr;padding:8px 12px;gap:4px 10px;align-items:start;flex:none;}
+    .gv-kpi-period{grid-column:1/-1;margin-bottom:0;}
+    .gv-gauge-wrap{grid-column:1;grid-row:2;height:auto!important;max-height:none!important;align-self:center;}
+    .gv-gauge-inner{max-width:none;}
+    /* KPIs: lista vertical compacta à direita */
+    .gv-main-kpi{grid-column:2;grid-row:2;flex-direction:column;align-items:flex-start;flex-wrap:nowrap;gap:5px;padding:4px 0;justify-content:center;}
+    .gv-main-kpi-item{flex-direction:row;align-items:baseline;flex-wrap:wrap;gap:3px;row-gap:0;}
+    .gv-main-kpi-v{font-size:14px;}
+    .gv-main-kpi-l{font-size:8px;letter-spacing:.3px;}
+    .gv-main-kpi-d{font-size:8px;width:100%;}
+    /* Canais: 3 por linha */
+    .gv-canal-panel,.gv-rank-panel{padding:8px 12px;}
+    .gv-canal-grid{grid-template-columns:repeat(3,1fr);gap:6px;}
+    /* Rankings lado a lado */
+    .gv-rankings{display:grid!important;grid-template-columns:1fr 1fr;}
+    /* Misc */
+    .gv-big-num{font-size:30px;}
     .gv-ticker-lbl{font-size:9px;min-width:80px;}
     .gv-ticker-item{font-size:11px;}
-    .gv-left{padding:12px 14px;gap:10px;}
-    .gv-canal-panel,.gv-rank-panel{padding:10px 14px;}
   }
   .auth-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:44px 40px;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.06);}
   .auth-logo{text-align:center;margin-bottom:32px;}
