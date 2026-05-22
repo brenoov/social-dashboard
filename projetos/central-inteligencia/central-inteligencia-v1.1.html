@@ -1192,16 +1192,28 @@
         <span class="sg-label">Usuários cadastrados</span>
         <div class="sg" id="admin-user-list"></div>
         <span class="sg-label">Convidar novo usuário</span>
-        <div class="sg">
-          <div class="admin-input-row">
-            <input type="text" id="adm-name" class="auth-input" placeholder="Nome">
-            <input type="email" id="adm-email" class="auth-input" placeholder="Email">
-            <input type="password" id="adm-pass" class="auth-input" placeholder="Senha inicial (mín. 6)">
-            <select id="adm-role" class="auth-input"><option value="viewer">Visualizador</option><option value="admin">Administrador</option></select>
+        <div class="sg" style="padding:16px 20px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;">
+            <div>
+              <label class="auth-label" for="adm-name">Nome</label>
+              <input type="text" id="adm-name" class="auth-input" placeholder="Nome completo" style="width:100%;box-sizing:border-box;">
+            </div>
+            <div>
+              <label class="auth-label" for="adm-email">Email</label>
+              <input type="email" id="adm-email" class="auth-input" placeholder="email@exemplo.com" style="width:100%;box-sizing:border-box;">
+            </div>
+            <div>
+              <label class="auth-label" for="adm-pass">Senha inicial</label>
+              <input type="password" id="adm-pass" class="auth-input" placeholder="Mínimo 6 caracteres" style="width:100%;box-sizing:border-box;">
+            </div>
+            <div>
+              <label class="auth-label" for="adm-role">Perfil de acesso</label>
+              <select id="adm-role" class="auth-input" style="width:100%;box-sizing:border-box;cursor:pointer;"><option value="viewer">Visualizador</option><option value="admin">Administrador</option></select>
+            </div>
           </div>
-          <div class="sr" style="justify-content:space-between;border-top:1px solid var(--border)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
             <div id="adm-invite-msg" style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted)"></div>
-            <button class="sr-btn" onclick="adminInviteUser()" style="background:var(--accent);color:#fff;font-size:12px;padding:7px 20px">Criar acesso</button>
+            <button class="sr-btn" onclick="adminInviteUser()" style="background:var(--accent);color:#fff;font-size:12px;padding:7px 20px;flex-shrink:0">Criar acesso</button>
           </div>
         </div>
       </div>
@@ -2560,10 +2572,10 @@ async function loadAdminMetas(){
   ].join(''):null;
 
   const html=[
-    '<div class="admin-section-sub" style="margin-bottom:20px">Importe uma planilha CSV com as metas mensais por canal. Use o template para garantir o formato correto.</div>',
+    '<div class="admin-section-sub" style="margin-bottom:20px">Importe uma planilha <strong>.xlsx</strong> (Excel) com as metas por canal. Baixe o template, preencha a meta de cada dia por canal e importe. Também aceita <em>.xls</em> e <em>.csv</em>.</div>',
     '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:24px">',
     '<button class="admin-btn-sm" onclick="downloadMetasTemplate()" style="display:flex;align-items:center;gap:6px;padding:8px 16px">',
-    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Baixar template CSV</button>',
+    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Baixar template .xlsx</button>',
     `<label class="admin-btn-sm" style="display:flex;align-items:center;gap:6px;padding:8px 16px;cursor:pointer;background:var(--accent);color:#fff;border-color:var(--accent)">`,
     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Importar planilha',
     `<input type="file" accept=".xlsx,.xls,.csv" id="metas-csv-input" style="display:none" onchange="importMetasCSV(this,${y},${m})"></label></div>`,
@@ -2580,20 +2592,20 @@ async function downloadMetasTemplate(){
   const daysInMonth=new Date(y,m,0).getDate();
   const[{data:lojas},{data:metas}]=await Promise.all([
     sbClient.from('bling_lojas').select('loja_id,nome').order('nome'),
-    sbClient.from('bling_metas').select('loja_id,meta_valor').eq('year',y).eq('month',m)
+    sbClient.from('bling_metas').select('loja_id,meta_valor,daily_goals').eq('year',y).eq('month',m)
   ]);
-  const metasMap={};(metas||[]).forEach(r=>metasMap[r.loja_id]=r.meta_valor);
+  const metasMap={};const dailyMap={};
+  (metas||[]).forEach(r=>{metasMap[r.loja_id]=r.meta_valor;if(r.daily_goals)dailyMap[r.loja_id]=r.daily_goals;});
   const dayHdrs=Array.from({length:daysInMonth},(_,i)=>`dia_${String(i+1).padStart(2,'0')}`);
   const makeRow=(id,nome)=>{
-    const total=metasMap[id]!=null?metasMap[id]:'';
-    const daily=total!==''?parseFloat((total/daysInMonth).toFixed(2)):'';
-    return[id,nome,total,...dayHdrs.map(()=>daily)];
+    const dg=dailyMap[id]||{};
+    // Usa metas diárias salvas; se não existir, deixa célula vazia para o usuário preencher
+    return[id,nome,...Array.from({length:daysInMonth},(_,i)=>dg[i+1]!=null?Number(dg[i+1]):'')];
   };
-  const rows=[['loja_id','nome','meta_total',...dayHdrs],makeRow(0,'Total Geral'),...(lojas||[]).map(l=>makeRow(l.loja_id,l.nome))];
-  // Gera .xlsx via SheetJS — sem problemas de BOM ou separador
+  // Sem coluna meta_total — a soma das colunas diárias é calculada no import
+  const rows=[['loja_id','nome',...dayHdrs],makeRow(0,'Total Geral'),...(lojas||[]).map(l=>makeRow(l.loja_id,l.nome))];
   const ws=XLSX.utils.aoa_to_sheet(rows);
-  // Congela a primeira linha para facilitar edição
-  ws['!freeze']={xSplit:0,ySplit:1,topLeftCell:'A2',activePane:'bottomLeft',state:'frozen'};
+  ws['!freeze']={xSplit:2,ySplit:1,topLeftCell:'C2',activePane:'bottomLeft',state:'frozen'};
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Metas');
   XLSX.writeFile(wb,`metas_template_${y}_${String(m).padStart(2,'0')}.xlsx`);
@@ -2612,29 +2624,31 @@ async function importMetasCSV(input,y,m){
     const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
     if(!data.length){showMetasMsg('Arquivo vazio.',true);return;}
     // Primeira linha = cabeçalho; normaliza para minúsculo sem espaços extras
-    const header=data[0].map(h=>String(h==null?'':h).trim().toLowerCase());
-    const idxId=header.indexOf('loja_id');
-    const idxTotal=header.findIndex(h=>h==='meta_total'||h==='meta_valor');
-    const dayIdxs=header.map((h,i)=>/^dia_\d+$/.test(h)?i:-1).filter(i=>i>=0);
-    if(idxId<0||(idxTotal<0&&!dayIdxs.length)){
-      const preview=header.filter(Boolean).slice(0,5).join(' | ')||'(nenhuma)';
-      showMetasMsg(`Coluna loja_id não encontrada. Colunas detectadas: ${preview}. Use o template.`,true);
+    const hdr=data[0].map(h=>String(h==null?'':h).trim().toLowerCase());
+    const idxId=hdr.indexOf('loja_id');
+    const idxTotal=hdr.findIndex(h=>h==='meta_total'||h==='meta_valor');
+    const dayMap=[];hdr.forEach((h,i)=>{const mt=/^dia_(\d+)$/.exec(h);if(mt)dayMap.push({i,d:parseInt(mt[1])});});
+    if(idxId<0||(idxTotal<0&&!dayMap.length)){
+      const preview=hdr.filter(Boolean).slice(0,5).join(' | ')||'(nenhuma)';
+      showMetasMsg('Coluna loja_id nao encontrada. Colunas: '+preview+'. Use o template.',true);
       return;
     }
-    // SheetJS já retorna números como number; trata strings com formato BR "1.234,56"
-    const toNum=v=>{if(typeof v==='number')return v;const s=String(v).trim().replace(/[R$\s]/g,'');const lc=s.lastIndexOf(','),ld=s.lastIndexOf('.');return parseFloat(lc>ld?s.replace(/\./g,'').replace(',','.'):s);};
+    const toNum=v=>{if(typeof v==='number')return isNaN(v)?NaN:v;const s=String(v).trim().replace(/[R$\s]/g,'');const lc=s.lastIndexOf(','),ld=s.lastIndexOf('.');return parseFloat(lc>ld?s.replace(/\./g,'').replace(',','.'):s);};
     const rows=[];
     for(let i=1;i<data.length;i++){
       const row=data[i];
       const id=parseInt(String(row[idxId]||''));
       if(isNaN(id))continue;
-      let val=idxTotal>=0?toNum(row[idxTotal]):NaN;
-      if((isNaN(val)||val<=0)&&dayIdxs.length){
-        val=dayIdxs.reduce((s,di)=>{const v=toNum(row[di]||0);return s+(isNaN(v)?0:v);},0);
+      const dg={};let sumDays=0;
+      dayMap.forEach(({i:ci,d:day})=>{const v=toNum(row[ci]);if(!isNaN(v)&&v>0){dg[day]=v;sumDays+=v;}});
+      const val=sumDays>0?sumDays:(idxTotal>=0?toNum(row[idxTotal]):NaN);
+      if(!isNaN(id)&&!isNaN(val)&&val>0){
+        const rec={loja_id:id,year:y,month:m,meta_valor:val};
+        if(sumDays>0)rec.daily_goals=dg;
+        rows.push(rec);
       }
-      if(!isNaN(id)&&!isNaN(val)&&val>0)rows.push({loja_id:id,year:y,month:m,meta_valor:val});
     }
-    if(!rows.length){showMetasMsg('Nenhum valor válido encontrado. Verifique se loja_id e meta_total estão preenchidos.',true);return;}
+    if(!rows.length){showMetasMsg('Nenhum valor valido encontrado. Verifique loja_id e valores nos dias.',true);return;}
     showMetasMsg(`Importando ${rows.length} metas...`,false,true);
     const{error}=await sbClient.from('bling_metas').upsert(rows,{onConflict:'loja_id,year,month'});
     if(error){showMetasMsg('Erro ao salvar: '+error.message,true);}
@@ -3744,10 +3758,11 @@ async function loadGestaoVistaData(period){
     // Supabase: pode rodar em paralelo (API diferente)
     const[canais,metasRows]=await Promise.all([
       sbClient.from('bling_lojas').select('loja_id,nome').then(r=>{const mp={};(r.data||[]).forEach(l=>mp[l.loja_id]=l.nome);return mp;}).catch(()=>({})),
-      sbClient.from('bling_metas').select('loja_id,meta_valor').eq('year',y).eq('month',m).then(r=>r.data||[]).catch(()=>[])
+      sbClient.from('bling_metas').select('loja_id,meta_valor,daily_goals').eq('year',y).eq('month',m).then(r=>r.data||[]).catch(()=>[])
     ]);
 
-    const metasMap={};metasRows.forEach(r=>metasMap[r.loja_id]=r.meta_valor);
+    const metasMap={};const dailyGoalsMap={};
+    metasRows.forEach(r=>{metasMap[r.loja_id]=r.meta_valor;if(r.daily_goals)dailyGoalsMap[r.loja_id]=r.daily_goals;});
     const vendedoresMap={};
     vendedoresList.forEach(v=>{
       const lojaObj=Array.isArray(v.loja)?v.loja[0]:v.loja;
@@ -3757,7 +3772,7 @@ async function loadGestaoVistaData(period){
     if(myLoad!==_gvLoadId)return; // troca de período enquanto carregava — descarta silenciosamente
     const totalPrev=pedidosPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
     _fadeSwap(board,()=>{
-      renderGestaoVista(pedidos,canais,metasMap,df,diasMes,diaAtual,di,period,totalPrev,pedidosPrev.length,pedidosPrev,diPrev,dfPrev,vendedoresMap);
+      renderGestaoVista(pedidos,canais,metasMap,df,diasMes,diaAtual,di,period,totalPrev,pedidosPrev.length,pedidosPrev,diPrev,dfPrev,vendedoresMap,dailyGoalsMap);
     });
     if(window._gvTimer)clearInterval(window._gvTimer);
     window._gvTimer=setInterval(()=>loadGestaoVistaData(_gvCurrentPeriod),5*60*1000);
@@ -3817,14 +3832,24 @@ function initGvBgAnim(){
   el.appendChild(svg);
 }
 
-function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,period,totalPrev,cntPrev,pedidosPrev,diPrev,dfPrev,vendedoresMap){
-  vendedoresMap=vendedoresMap||{};
+function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,period,totalPrev,cntPrev,pedidosPrev,diPrev,dfPrev,vendedoresMap,dailyGoalsMap){
+  vendedoresMap=vendedoresMap||{};dailyGoalsMap=dailyGoalsMap||{};
   const total=pedidos.reduce((s,p)=>s+parseFloat(p.total||0),0);
   const totalHoje=pedidos.filter(p=>p.data?.slice(0,10)===hoje).reduce((s,p)=>s+parseFloat(p.total||0),0);
   const diasTot=di?Math.ceil((new Date(hoje)-new Date(di))/864e5)+1:diaAtual;
   const proj=diasTot>0?(total/diasTot)*diasMes:0;
   const metaTotal=metasMap[0]||null;
-  const metaPeriodo=metaTotal?metaTotal/diasMes*diasTot:null;
+  // Usa metas diárias quando disponíveis (período dentro do mesmo mês)
+  const _calcMetaPeriodo=(lojaId,fallback)=>{
+    const dg=dailyGoalsMap[lojaId];
+    if(dg&&di&&di.slice(0,7)===hoje.slice(0,7)){
+      const d1=parseInt(di.slice(8)),d2=parseInt(hoje.slice(8));
+      let s=0;for(let d=d1;d<=d2;d++)s+=Number(dg[d]||0);
+      if(s>0)return s;
+    }
+    return fallback;
+  };
+  const metaPeriodo=metaTotal?_calcMetaPeriodo(0,metaTotal/diasMes*diasTot):null;
   const pct=metaPeriodo?Math.round(total/metaPeriodo*100):null;
   const deltaPct=(totalPrev&&totalPrev>0)?Math.round((total-totalPrev)/totalPrev*100):null;
   const desvioMeta=metaPeriodo!=null?total-metaPeriodo:null;
@@ -3902,7 +3927,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     const fill=p!==null?Math.min(Math.max(p,0),100)/100*sweep:0;
     const rot=150;
     // Trim viewBox height to content — avoids gap between gauge and labels below
-    const vbH=desvioStr?114:metaStr?97:vendidoStr?79:62;
+    const vbH=desvioStr?136:metaStr?114:vendidoStr?94:62;
     return `<svg viewBox="0 0 100 ${vbH}" style="width:100%;height:auto;overflow:visible;display:block">
       <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${trackClr}" stroke-width="7"
         stroke-dasharray="${sweep.toFixed(1)} ${gap.toFixed(1)}" stroke-linecap="round"
@@ -3913,9 +3938,9 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
         data-fill="${fill.toFixed(1)}" data-c="${C.toFixed(1)}"
         style="transition:stroke-dasharray 2s cubic-bezier(.4,0,.2,1);filter:drop-shadow(0 0 4px ${hexColor}88)"/>
       <text x="50" y="51" text-anchor="middle" font-family="Oswald,sans-serif" font-size="22" font-weight="600" fill="${hexColor}">${topText}</text>
-      ${vendidoStr?`<text x="50" y="72" text-anchor="middle" font-family="Oswald,sans-serif" font-size="11" font-weight="500" fill="var(--text)">${vendidoStr}</text>`:''}
-      ${metaStr?`<text x="50" y="88" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="8.5" fill="var(--muted)">${metaStr}</text>`:''}
-      ${desvioStr?`<text x="50" y="106" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="9" font-weight="700" fill="${desvioCol||'var(--muted)'}">${desvioStr}</text>`:''}
+      ${vendidoStr?`<text x="50" y="78" text-anchor="middle" font-family="Oswald,sans-serif" font-size="15" font-weight="500" fill="var(--text)">${vendidoStr}</text>`:''}
+      ${metaStr?`<text x="50" y="100" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="12" fill="var(--muted)">${metaStr}</text>`:''}
+      ${desvioStr?`<text x="50" y="124" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="12.5" font-weight="700" fill="${desvioCol||'var(--muted)'}">${desvioStr}</text>`:''}
     </svg>`;
   }
 
@@ -3925,7 +3950,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   const mainLine2=pct!==null?'DA META':'SEM META';
   const mainLine3=fmtR0(total);
   // 4th line: desvio R$ + delta % vs anterior
-  const desvioStr=desvioMeta!=null?(desvioMeta>=0?'+':'')+fmtK(desvioMeta)+' meta':null;
+  const desvioStr=desvioMeta!=null?(desvioMeta>=0?'↑ R$':'↓ R$')+fmtK(Math.abs(desvioMeta))+' da meta':null;
   const deltaStr=deltaPct!=null?(deltaPct>=0?'↑':'↓')+Math.abs(deltaPct)+'% vs '+prevLbl:null;
   const line4txt=[desvioStr,deltaStr].filter(Boolean).join(' · ');
   const line4col=desvioMeta!=null?(desvioMeta>=0?'#22c55e':'#f43f5e'):(deltaPct!=null&&deltaPct>=0?'#22c55e':'#f43f5e');
@@ -3934,7 +3959,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   const canaisComMeta=canaisArr.filter(c=>metasMap[c.id]);
   const smGaugesHtml=(canaisComMeta.length>0?canaisComMeta:canaisArr.slice(0,14)).map((c,i)=>{
     const hasMeta=!!metasMap[c.id];
-    const cMetaP=hasMeta?(metasMap[c.id]/diasMes*diasTot):null;
+    const cMetaP=hasMeta?_calcMetaPeriodo(c.id,metasMap[c.id]/diasMes*diasTot):null;
     const cPct=cMetaP?Math.round(c.v/cMetaP*100):null;
     const cHex=hasMeta?pctHex(cPct):'#4f7cff';
     const topText=hasMeta&&cPct!==null?cPct+'%':fmtR0(c.v);
@@ -3943,7 +3968,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     const cDesvio=cMetaP!=null?c.v-cMetaP:null;
     const vendStr=hasMeta?fmtR0(c.v):null;
     const metaTxt=cMetaP?'meta '+fmtR0(cMetaP):null;
-    const desvTxt=cDesvio!=null?(cDesvio>=0?'+':'')+fmtK(cDesvio)+' dev':null;
+    const desvTxt=cDesvio!=null?(cDesvio>=0?'↑ R$':'↓ R$')+fmtK(Math.abs(cDesvio))+' da meta':null;
     const desvCol=cDesvio!=null?(cDesvio>=0?'#22c55e':'#f43f5e'):null;
     return `<div class="gv-sm-item">
       ${smGauge(hasMeta?cPct:null,cHex,'gv-g-c'+i,topText,vendStr,metaTxt,desvTxt,desvCol)}
