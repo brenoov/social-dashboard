@@ -3841,10 +3841,12 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   const diasTot=di?Math.ceil((new Date(hoje)-new Date(di))/864e5)+1:diaAtual;
   const diasTotMeta=period==='30d'?diasMes:diasTot;
   const proj=diasTot>0?(total/diasTot)*diasMes:0;
-  const metaTotal=metasMap[0]||null;
+  const metaTotal=(metasMap[0]!=null?Number(metasMap[0]):null)||Object.values(metasMap).reduce((s,v)=>s+(Number(v)||0),0)||null;
   // Usa metas diárias quando disponíveis (período dentro do mesmo mês)
   const _calcMetaPeriodo=(lojaId,fallback)=>{
-    const dg=dailyGoalsMap[lojaId];
+    let dg=dailyGoalsMap[lojaId];
+    // lojaId=0 (geral): agrega daily goals de todos os canais individuais
+    if(lojaId===0&&!dg){const m={};Object.entries(dailyGoalsMap).forEach(([,g])=>{if(g)Object.entries(g).forEach(([d,v])=>m[d]=(m[d]||0)+Number(v||0));});if(Object.keys(m).length>0)dg=m;}
     if(dg&&di&&di.slice(0,7)===hoje.slice(0,7)){
       const d1=parseInt(di.slice(8)),d2=period==='30d'?diasMes:parseInt(hoje.slice(8));
       let s=0;for(let d=d1;d<=d2;d++)s+=Number(dg[d]||0);
@@ -3943,7 +3945,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
       <text x="50" y="51" text-anchor="middle" font-family="Oswald,sans-serif" font-size="22" font-weight="600" fill="${hexColor}">${topText}</text>
       ${vendidoStr?`<text x="50" y="78" text-anchor="middle" font-family="Oswald,sans-serif" font-size="15" font-weight="500" fill="var(--text)">${vendidoStr}</text>`:''}
       ${metaStr?`<text x="50" y="100" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="12" fill="var(--muted)">${metaStr}</text>`:''}
-      ${desvioStr?`<text x="50" y="124" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="12.5" font-weight="700" fill="${desvioCol||'var(--muted)'}">${desvioStr}</text>`:''}
+      ${desvioStr?`<text x="50" y="122" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="7.5" font-weight="700" fill="${desvioCol||'var(--muted)'}">${desvioStr}</text>`:''}
     </svg>`;
   }
 
