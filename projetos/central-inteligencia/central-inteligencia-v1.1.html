@@ -4048,7 +4048,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
 
   document.getElementById('gv-board').innerHTML=`
     <div class="gv-left">
-      <div class="gv-kpi-period">${period&&period!=='today'&&di?di.split('-').reverse().join('/')+' → '+(period==='30d'?`${pad2(diasMes)}/${hoje.slice(5,7)}/${hoje.slice(0,4)}`:hoje.split('-').reverse().join('/')):'Dia '+diaAtual+' de '+diasMes+' · '+hoje.split('-').reverse().join('/')}</div>
+      <div class="gv-kpi-period">${period&&period!=='today'&&di?di.split('-').reverse().join('/')+' → '+(period==='30d'?`${String(diasMes).padStart(2,'0')}/${hoje.slice(5,7)}/${hoje.slice(0,4)}`:hoje.split('-').reverse().join('/')):'Dia '+diaAtual+' de '+diasMes+' · '+hoje.split('-').reverse().join('/')}</div>
       <div class="gv-gauge-wrap">
         <div class="gv-gauge-inner">
           ${bigGauge(pct,mainHex,'gv-g-main',mainLine1,mainLine2,mainLine3,line4txt,line4col)}
