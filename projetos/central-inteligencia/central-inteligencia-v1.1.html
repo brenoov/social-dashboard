@@ -1959,7 +1959,6 @@ async function fetchData(accountId,period,customStart,customEnd){
   } else {
     effectivePeriod=isHoje?1:period;storedPeriod=period;
     refDate=new Date();
-    if(period===1){refDate.setDate(refDate.getDate()-1);}  // 1D = ontem como referência
     histStartDate=new Date(refDate);histStartDate.setDate(histStartDate.getDate()-30-Math.max(effectivePeriod,1)-5);
   }
   const refDateStr=localDate(refDate);
