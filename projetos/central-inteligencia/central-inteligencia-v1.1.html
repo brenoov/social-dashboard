@@ -36,7 +36,7 @@
   .wrapper{max-width:1200px;margin:0 auto;padding:16px 24px;position:relative;z-index:1;}
 
   /* HEADER */
-  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:16px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:16px;padding-bottom:0;}
   #header-collapsible{display:flex;align-items:center;gap:16px;flex-wrap:wrap;overflow:hidden;max-height:120px;opacity:1;transition:max-height .35s ease,opacity .25s ease;}
   #header-collapsible.collapsed{max-height:0;opacity:0;pointer-events:none;}
   #header-toggle{background:none;border:1px solid var(--border);cursor:pointer;color:var(--muted);font-size:11px;padding:5px 10px;border-radius:3px;font-family:'IBM Plex Sans',sans-serif;display:flex;align-items:center;gap:5px;transition:border-color .18s,color .18s;white-space:nowrap;align-self:flex-start;}
@@ -56,7 +56,7 @@
   .profile-btn:hover{border-color:var(--accent);color:var(--text);}
 
   /* TOPBAR — GV-style standard header */
-  .topbar{display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;margin-bottom:12px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding-bottom:6px;margin-bottom:6px;flex-wrap:wrap;gap:10px;}
   .topbar-left{display:flex;align-items:center;gap:14px;}
   .topbar-right{display:flex;align-items:center;gap:12px;text-align:right;}
   .live-dot{display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--green);letter-spacing:1.5px;font-weight:500;text-transform:uppercase;}
@@ -1396,10 +1396,6 @@
   <header>
     <div id="header-collapsible">
       <div class="profile-select" id="profile-select"></div>
-      <div class="user-bar">
-        <span class="user-badge"><span id="user-email-lbl"></span><span class="user-role-chip" id="user-role-lbl"></span></span>
-        <button class="admin-btn" id="admin-panel-btn" style="display:none" onclick="toggleAdminPanel()">⚙ Admin</button>
-      </div>
     </div>
     <button id="header-toggle" onclick="toggleHeader()" title="Ocultar cabeçalho"><span class="ht-arrow">▲</span></button>
   </header>
@@ -2845,13 +2841,10 @@ function openDashboard(){
 }
 function showDashboard(user,role){
   currentUserRole=role;
-  document.getElementById('user-email-lbl').textContent=user.email+' ';
-  document.getElementById('user-role-lbl').textContent=role==='admin'?'ADMIN':'VIEWER';
   document.getElementById('home-user-email').textContent=user.email+' ';
   document.getElementById('home-user-role').textContent=role==='admin'?'ADMIN':'VIEWER';
   document.getElementById('home-user-role').className='user-role-chip';
   setGlobalUserBtn(user.email,role);
-  document.getElementById('admin-panel-btn').style.display=role==='admin'?'inline-block':'none';
   const adminCard=document.getElementById('home-card-admin');
   if(adminCard)adminCard.style.display=role==='admin'?'':'none';
   if(!appInitialized){
