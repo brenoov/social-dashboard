@@ -851,7 +851,7 @@
   .gv-right{display:grid;grid-template-rows:55fr 45fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;}
   .gv-canal-panel{background:var(--bg);padding:7px 12px;display:flex;flex-direction:column;overflow:hidden;}
   .gv-canal-scroll{flex:1;overflow:hidden;min-height:0;display:flex;align-items:center;justify-content:center;}
-  .gv-canal-scroll-inner{width:100%;overflow:hidden;}
+  .gv-canal-scroll-inner{width:100%;}
   .gv-canal-scroll-inner.scrolling{animation:gvRankUp var(--gv-scroll-dur,20s) ease-in-out infinite alternate;}
   .gv-canal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;align-content:start;width:100%;}
   .gv-sm-item{display:flex;flex-direction:column;align-items:center;gap:2px;}
@@ -3461,7 +3461,7 @@ function _gvFitCanalGrid(){
   const W=scroll.clientWidth;
   const H_card=panel.clientHeight;
   if(!W||!H_card)return;
-  const H_max=Math.floor(H_card*0.6);
+  const H_max=Math.floor(H_card*0.8);
   const gap=isTV?20:10;
   const labelH=isTV?46:20;
   const vbAR=1.33;
@@ -3483,7 +3483,6 @@ function _gvFitCanalGrid(){
     grid.style.gridTemplateColumns=`repeat(${bestCols},1fr)`;
     grid.style.justifyContent='';
   }
-  inner.style.maxHeight=H_max+'px';
 }
 function _gvRenderTickerSlide(idx){
   const slide=(window._gvTickerSlides||[])[idx];
