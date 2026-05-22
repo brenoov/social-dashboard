@@ -3245,6 +3245,8 @@ function openGestaoVista(){
   window._gvTickerIdx=null;
   window._gvTickerSlides=null;
   window._gvVendedoresCache={};
+  window._gvPedidoVendorMap={};
+  window._gvRenderCtx=null;
   if(window._gvTickerTimer){clearInterval(window._gvTickerTimer);window._gvTickerTimer=null;}
   if(_gvStatusTimer){clearInterval(_gvStatusTimer);_gvStatusTimer=null;}
   _gvLastLoadTime=null;
@@ -3256,16 +3258,24 @@ function openGestaoVista(){
 }
 let _gvSkuVersion=0;
 async function _gvBuildSkuSlide(pedidos){
-  const myVersion=_gvSkuVersion; // captura versão atual (já incrementada pelo loadGestaoVistaData)
-  await new Promise(r=>setTimeout(r,1500)); // aguarda fetch principal terminar antes de iniciar
+  const myVersion=_gvSkuVersion;
+  await new Promise(r=>setTimeout(r,1500));
   if(myVersion!==_gvSkuVersion)return;
   const skuMap={};
+  const newVendIds=new Set();
   for(const p of pedidos){
-    if(myVersion!==_gvSkuVersion)return; // cancelado por nova troca de período
+    if(myVersion!==_gvSkuVersion)return;
     try{
       const resp=await blingCall(`pedidos/vendas/${p.id}`,{});
+      const det=resp.data;
+      // Extrai vendor ID do detail e mapeia ao pedido
+      const vid=det?.vendedor?.id;
+      if(vid){
+        window._gvPedidoVendorMap[p.id]=vid;
+        if(!window._gvVendedoresCache[vid])newVendIds.add(vid);
+      }
       const dt=p.data?new Date(p.data):null;
-      for(const it of(resp.data?.itens||[])){
+      for(const it of(det?.itens||[])){
         const sku=it.codigo||it.produto?.codigo||'—';
         const nome=it.descricao||it.produto?.descricao||it.produto?.nome||'—';
         const preco=parseFloat(it.valor||it.valorUnidade||0);
@@ -3278,6 +3288,21 @@ async function _gvBuildSkuSlide(pedidos){
     }catch(e){}
   }
   if(myVersion!==_gvSkuVersion)return;
+  // Busca nomes dos novos vendedores encontrados nos detalhes
+  for(const vid of newVendIds){
+    if(myVersion!==_gvSkuVersion)return;
+    try{
+      const resp=await blingCall(`vendedores/${vid}`,{});
+      const v=resp.data;
+      if(v){
+        const nome=v.contato?.nome||v.nome||v.nomeFantasia||'';
+        const lojaObj=Array.isArray(v.loja)?v.loja[0]:v.loja;
+        const lojaNome=lojaObj?.nome||lojaObj?.descricao||'';
+        window._gvVendedoresCache[vid]={nome,loja:lojaNome};
+      }
+    }catch(e){}
+  }
+  if(newVendIds.size)_gvUpdateVendRanking();
   const topSkus=Object.values(skuMap).sort((a,b)=>b.qty-a.qty).slice(0,50);
   if(!topSkus.length)return;
   const items=topSkus.map((s,i)=>{
@@ -3290,6 +3315,56 @@ async function _gvBuildSkuSlide(pedidos){
     window._gvTickerSlides[1]={label:'Itens mais vendidos',items};
     if(window._gvTickerIdx===1&&wasEmpty)_gvRenderTickerSlide(1);
   }
+}
+function _gvUpdateVendRanking(){
+  const ctx=window._gvRenderCtx;
+  if(!ctx)return;
+  const el=document.getElementById('gv-rank-inner-v');
+  if(!el)return;
+  const {pedidos,pedidosPrev,canais,diPrev,dfPrev}=ctx;
+  const vm=window._gvVendedoresCache||{};
+  const pm=window._gvPedidoVendorMap||{};
+  const porVendObj={};
+  pedidos.forEach(p=>{
+    const vId=pm[p.id]||p.vendedor?.id;
+    const vNome=(vm[vId]?.nome||'Sem vendedor').split(' ').slice(0,2).join(' ');
+    const vLoja=vm[vId]?.loja||'';
+    const key=vId||vNome;
+    if(!porVendObj[key])porVendObj[key]={nm:vNome,loja:vLoja,total:0,cnt:0};
+    porVendObj[key].total+=parseFloat(p.total||0);
+    porVendObj[key].cnt++;
+  });
+  const vendsArr=Object.values(porVendObj).sort((a,b)=>b.total-a.total);
+  const porVendPrev={};
+  (pedidosPrev||[]).forEach(p=>{
+    const vId=pm[p.id]||p.vendedor?.id;
+    const vNome=(vm[vId]?.nome||'Sem vendedor').split(' ').slice(0,2).join(' ');
+    const key=vId||vNome;
+    porVendPrev[key]=(porVendPrev[key]||0)+parseFloat(p.total||0);
+  });
+  const maxVend=vendsArr[0]?.total||1;
+  function numCls(i){return i===0?'gold':i===1?'silver':i===2?'bronze':'rest';}
+  function fmtR0(v){return 'R$ '+Math.round(Number(v)).toLocaleString('pt-BR');}
+  function fmtK(v){const a=Math.abs(v);return a>=1e6?(v/1e6).toFixed(1)+'M':a>=1e3?(v/1e3).toFixed(0)+'k':String(Math.round(v));}
+  el.innerHTML=vendsArr.slice(0,12).map((vd,i)=>{
+    const key=Object.keys(porVendObj).find(k=>porVendObj[k]===vd)||vd.nm;
+    const vPrev=porVendPrev[key]||0;
+    const vDelta=vPrev>0?Math.round((vd.total-vPrev)/vPrev*100):null;
+    return `<div class="gv-rank-entry">
+      <span class="gv-rank-num ${numCls(i)}">${i+1}</span>
+      <div class="gv-rank-body">
+        <div class="gv-rank-row">
+          <span class="gv-rank-nm">${escHtml(vd.nm)}</span>
+          <div style="display:flex;align-items:center;gap:3px;flex-shrink:0">
+            ${vDelta!=null?`<span class="gv-rank-delta ${vDelta>=0?'up':'dn'}">${vDelta>=0?'↑':'↓'}${Math.abs(vDelta)}%</span>`:''}
+            <span class="gv-rank-v">${fmtR0(vd.total)}</span>
+          </div>
+        </div>
+        <div class="gv-rank-bar"><div class="gv-rank-bar-fill ${numCls(i)}" style="width:${Math.round(vd.total/maxVend*100)}%"></div></div>
+        <div class="gv-rank-hint">${vd.cnt} pedido${vd.cnt!==1?'s':''}${vd.loja?` · <span style="opacity:.7">${escHtml(vd.loja)}</span>`:''}</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 function _gvRenderTickerSlide(idx){
   const slide=(window._gvTickerSlides||[])[idx];
@@ -3797,26 +3872,12 @@ async function loadGestaoVistaData(period){
     const metasMap={};const dailyGoalsMap={};
     metasRows.forEach(r=>{metasMap[r.loja_id]=r.meta_valor;if(r.daily_goals)dailyGoalsMap[r.loja_id]=r.daily_goals;});
 
-    // Vendedores: busca individualmente por ID, sequencial para não bater rate limit
-    const vendedoresMap={};
-    const allPedidos=[...pedidos,...pedidosPrev];
-    const vendIds=[...new Set(allPedidos.map(p=>p.vendedor?.id).filter(Boolean))];
+    // Vendedores: a lista não inclui vendedor.id — buscamos do detail em background (_gvBuildSkuSlide)
     if(!window._gvVendedoresCache)window._gvVendedoresCache={};
-    for(const vid of vendIds){
-      if(window._gvVendedoresCache[vid]){vendedoresMap[vid]=window._gvVendedoresCache[vid];continue;}
-      try{
-        const resp=await blingCall(`vendedores/${vid}`,{});
-        const v=resp.data;
-        if(v){
-          const nome=v.contato?.nome||v.nome||v.nomeFantasia||'';
-          const lojaObj=Array.isArray(v.loja)?v.loja[0]:v.loja;
-          const lojaNome=lojaObj?.nome||lojaObj?.descricao||canais[lojaObj?.id]||'';
-          const entry={nome,loja:lojaNome};
-          vendedoresMap[vid]=entry;
-          window._gvVendedoresCache[vid]=entry;
-        }
-      }catch(e){}
-    }
+    if(!window._gvPedidoVendorMap)window._gvPedidoVendorMap={};
+    const vendedoresMap={}; // preenchido pelo _gvUpdateVendRanking após _gvBuildSkuSlide
+    // Armazena contexto para o update em background
+    window._gvRenderCtx={pedidos,pedidosPrev,canais,diPrev,dfPrev};
     if(myLoad!==_gvLoadId)return; // troca de período enquanto carregava — descarta silenciosamente
     const totalPrev=pedidosPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
     _fadeSwap(board,()=>{
@@ -3923,13 +3984,14 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   const canaisArr=Object.entries(porCanal).map(([id,v])=>({id:parseInt(id),nm:canais[id]||(id?'Canal #'+String(id).slice(-4):'Outros'),v,cnt:cntCanal[id]})).sort((a,b)=>b.v-a.v);
   const maxC=canaisArr[0]?.v||1;
 
-  // Per vendedor — current + prev
-  // Agrupa vendedores por ID (mais preciso que nome) e enriquece com dados do cadastro
+  // Per vendedor — usa mapa pedido→vendedor preenchido em background pelo _gvBuildSkuSlide
+  const _vm=window._gvVendedoresCache||{};
+  const _pm=window._gvPedidoVendorMap||{};
   const porVendObj={};
   pedidos.forEach(p=>{
-    const vId=p.vendedor?.id;
-    const vNome=(vendedoresMap[vId]?.nome||p.vendedor?.nome||'Sem vendedor').split(' ').slice(0,2).join(' ');
-    const vLoja=vendedoresMap[vId]?.loja||'';
+    const vId=_pm[p.id]||p.vendedor?.id;
+    const vNome=(_vm[vId]?.nome||'Sem vendedor').split(' ').slice(0,2).join(' ');
+    const vLoja=_vm[vId]?.loja||'';
     const key=vId||vNome;
     if(!porVendObj[key])porVendObj[key]={nm:vNome,loja:vLoja,total:0,cnt:0};
     porVendObj[key].total+=parseFloat(p.total||0);
@@ -3938,8 +4000,8 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   const vendsArr=Object.values(porVendObj).sort((a,b)=>b.total-a.total);
   const porVendPrev={};
   (pedidosPrev||[]).forEach(p=>{
-    const vId=p.vendedor?.id;
-    const vNome=(vendedoresMap[vId]?.nome||p.vendedor?.nome||'Sem vendedor').split(' ').slice(0,2).join(' ');
+    const vId=_pm[p.id]||p.vendedor?.id;
+    const vNome=(_vm[vId]?.nome||'Sem vendedor').split(' ').slice(0,2).join(' ');
     const key=vId||vNome;
     porVendPrev[key]=(porVendPrev[key]||0)+parseFloat(p.total||0);
   });
