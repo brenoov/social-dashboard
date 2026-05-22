@@ -3307,8 +3307,8 @@ async function _gvBuildSkuSlide(pedidos){
       }
     }catch(e){}
   }
-  if(bgMappings.length)sbClient.from('bling_pedido_vendedor').upsert(bgMappings,{onConflict:'pedido_id'}).catch(()=>{});
-  if(bgVendRows.length)sbClient.from('bling_vendedores').upsert(bgVendRows,{onConflict:'vendor_id'}).catch(()=>{});
+  if(bgMappings.length)sbClient.from('bling_pedido_vendedor').upsert(bgMappings,{onConflict:'pedido_id'}).then(null,()=>{});
+  if(bgVendRows.length)sbClient.from('bling_vendedores').upsert(bgVendRows,{onConflict:'vendor_id'}).then(null,()=>{});
   if(newVendIds.size)_gvUpdateVendRanking();
   const topSkus=Object.values(skuMap).sort((a,b)=>b.qty-a.qty).slice(0,10);
   if(!topSkus.length)return;
@@ -3923,8 +3923,8 @@ async function loadGestaoVistaData(period){
         }catch(e){}
       }
     }
-    if(newMappings.length)sbClient.from('bling_pedido_vendedor').upsert(newMappings,{onConflict:'pedido_id'}).catch(()=>{});
-    if(newVendorRows.length)sbClient.from('bling_vendedores').upsert(newVendorRows,{onConflict:'vendor_id'}).catch(()=>{});
+    if(newMappings.length)sbClient.from('bling_pedido_vendedor').upsert(newMappings,{onConflict:'pedido_id'}).then(null,()=>{});
+    if(newVendorRows.length)sbClient.from('bling_vendedores').upsert(newVendorRows,{onConflict:'vendor_id'}).then(null,()=>{});
     if(myLoad!==_gvLoadId)return;
     const vendedoresMap={};
     window._gvRenderCtx={pedidos,pedidosPrev,canais,diPrev,dfPrev};
