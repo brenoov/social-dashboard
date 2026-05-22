@@ -798,7 +798,7 @@
   .gv-ticker-sep{width:1px;height:14px;background:var(--border);flex-shrink:0;}
   .gv-ticker-outer{flex:1;overflow:hidden;}
   .gv-ticker-inner{display:flex;gap:48px;white-space:nowrap;}
-  .gv-ticker-inner.animate{animation:gvTicker 45s linear infinite;}
+  .gv-ticker-inner.animate{animation:gvTicker 32s linear infinite;}
   @keyframes gvTicker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
   .gv-ticker-item{font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);flex-shrink:0;}
   .gv-ticker-item strong{color:var(--text);}
@@ -3095,6 +3095,7 @@ function openGestaoVista(){
   window._gvTickerSlides=null;
   window._gvVendedoresCache=null;
   if(window._gvTickerTimer){clearInterval(window._gvTickerTimer);window._gvTickerTimer=null;}
+  _gvAcIdx=0; // sempre começa no MÊS (índice 0 do ciclo)
   _gvCurrentPeriod='month';
   loadGestaoVistaData('month');
   gvAutoStart();
@@ -3151,11 +3152,13 @@ function _gvNextTickerSlide(){
   const ticker=document.getElementById('gv-ticker');
   if(!ticker)return;
   window._gvTickerIdx=((window._gvTickerIdx||0)+1)%((window._gvTickerSlides||[{},{}]).length);
+  ticker.style.transition='opacity .18s ease';
   ticker.style.opacity='0';
   setTimeout(()=>{
     _gvRenderTickerSlide(window._gvTickerIdx);
+    ticker.style.transition='opacity .25s ease';
     ticker.style.opacity='1';
-  },350);
+  },200);
 }
 function closeGestaoVista(){
   gvAutoStop();
@@ -3203,22 +3206,33 @@ function vsApplyCustom(){
 }
 
 /* ── GESTÃO À VISTA AUTO-CYCLE ── */
-const GV_AC_PERIODS=['today','1d','7d','14d','30d','month'];
-const GV_AC_DURATION=60;
+// Ordem do ciclo: começa em MÊS e avança para a direita
+const GV_AC_PERIODS=['month','today','1d','7d','14d','30d'];
+const GV_AC_DURATION=60; // segundos por período
 let _gvAcIdx=0,_gvAcTimer=null;
 
-function gvSelectPeriod(p){loadGestaoVistaData(p);}
+function gvSelectPeriod(p){
+  // Sincroniza índice do ciclo com o período escolhido manualmente
+  const idx=GV_AC_PERIODS.indexOf(p);
+  if(idx>=0)_gvAcIdx=idx;
+  loadGestaoVistaData(p);
+}
 function gvAutoStart(){
   if(_gvAcTimer)return;
   const btn=document.getElementById('gv-ac-toggle');
   if(btn)btn.classList.add('running');
-  _gvAcTimer=setInterval(()=>{
-    _gvAcIdx=(_gvAcIdx+1)%GV_AC_PERIODS.length;
-    loadGestaoVistaData(GV_AC_PERIODS[_gvAcIdx]);
-  },GV_AC_DURATION*1000);
+  const scheduleNext=()=>{
+    _gvAcTimer=setTimeout(async()=>{
+      if(!_gvAcTimer)return;
+      _gvAcIdx=(_gvAcIdx+1)%GV_AC_PERIODS.length;
+      await loadGestaoVistaData(GV_AC_PERIODS[_gvAcIdx]);
+      if(_gvAcTimer)scheduleNext(); // só reagenda após o load terminar
+    },GV_AC_DURATION*1000);
+  };
+  scheduleNext();
 }
 function gvAutoStop(){
-  clearInterval(_gvAcTimer);_gvAcTimer=null;
+  clearTimeout(_gvAcTimer);_gvAcTimer=null;
   const btn=document.getElementById('gv-ac-toggle');
   if(btn)btn.classList.remove('running');
 }
@@ -3909,7 +3923,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   if(window._gvTickerIdx==null)window._gvTickerIdx=0;
   _gvRenderTickerSlide(window._gvTickerIdx);
   if(!window._gvTickerTimer)
-    window._gvTickerTimer=setInterval(_gvNextTickerSlide,20000);
+    window._gvTickerTimer=setInterval(_gvNextTickerSlide,30000);
 
   // Busca itens de cada pedido em background (lista não inclui itens, precisa de detalhe individual)
   _gvBuildSkuSlide([...pedidos].sort((a,b)=>new Date(b.data||0)-new Date(a.data||0)).slice(0,30));
