@@ -3872,11 +3872,26 @@ async function loadGestaoVistaData(period){
     const metasMap={};const dailyGoalsMap={};
     metasRows.forEach(r=>{metasMap[r.loja_id]=r.meta_valor;if(r.daily_goals)dailyGoalsMap[r.loja_id]=r.daily_goals;});
 
-    // Vendedores: a lista não inclui vendedor.id — buscamos do detail em background (_gvBuildSkuSlide)
+    // Vendedores: lista não inclui vendedor.id — extraímos do detail de cada pedido
     if(!window._gvVendedoresCache)window._gvVendedoresCache={};
     if(!window._gvPedidoVendorMap)window._gvPedidoVendorMap={};
-    const vendedoresMap={}; // preenchido pelo _gvUpdateVendRanking após _gvBuildSkuSlide
-    // Armazena contexto para o update em background
+    // Fase pré-render: primeiros 20 pedidos em batches de 3 para descobrir vendor IDs
+    const preP=[...pedidos].sort((a,b)=>new Date(b.data||0)-new Date(a.data||0)).slice(0,20);
+    for(let i=0;i<preP.length;i+=3){
+      if(myLoad!==_gvLoadId)return;
+      await Promise.allSettled(preP.slice(i,i+3).map(async p=>{
+        if(window._gvPedidoVendorMap[p.id])return;
+        try{const resp=await blingCall(`pedidos/vendas/${p.id}`,{});const vid=resp.data?.vendedor?.id;if(vid)window._gvPedidoVendorMap[p.id]=vid;}catch(e){}
+      }));
+    }
+    if(myLoad!==_gvLoadId)return;
+    // Busca nomes dos vendors descobertos (poucos IDs, paralelo seguro)
+    const preVids=[...new Set(Object.values(window._gvPedidoVendorMap))].filter(vid=>!window._gvVendedoresCache[vid]);
+    await Promise.allSettled(preVids.map(async vid=>{
+      try{const resp=await blingCall(`vendedores/${vid}`,{});const v=resp.data;if(v)window._gvVendedoresCache[vid]={nome:v.contato?.nome||v.nome||v.nomeFantasia||'',loja:''};}catch(e){}
+    }));
+    if(myLoad!==_gvLoadId)return;
+    const vendedoresMap={}; // não usado — renderGestaoVista lê de _gvVendedoresCache/_gvPedidoVendorMap
     window._gvRenderCtx={pedidos,pedidosPrev,canais,diPrev,dfPrev};
     if(myLoad!==_gvLoadId)return; // troca de período enquanto carregava — descarta silenciosamente
     const totalPrev=pedidosPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
