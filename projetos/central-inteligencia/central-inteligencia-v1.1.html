@@ -2650,7 +2650,9 @@ async function importMetasCSV(input,y,m){
     }
     if(!rows.length){showMetasMsg('Nenhum valor valido encontrado. Verifique loja_id e valores nos dias.',true);return;}
     showMetasMsg(`Importando ${rows.length} metas...`,false,true);
-    const{error}=await sbClient.from('bling_metas').upsert(rows,{onConflict:'loja_id,year,month'});
+    const{error:delErr}=await sbClient.from('bling_metas').delete().eq('year',y).eq('month',m);
+    if(delErr){showMetasMsg('Erro ao limpar metas anteriores: '+delErr.message,true);return;}
+    const{error}=await sbClient.from('bling_metas').insert(rows);
     if(error){showMetasMsg('Erro ao salvar: '+error.message,true);}
     else{showMetasMsg(`${rows.length} meta${rows.length!==1?'s':''} importada${rows.length!==1?'s':''}!`,false);loadAdminMetas();}
   }catch(e){showMetasMsg('Erro ao ler arquivo: '+e.message,true);}
