@@ -3797,27 +3797,25 @@ async function loadGestaoVistaData(period){
     const metasMap={};const dailyGoalsMap={};
     metasRows.forEach(r=>{metasMap[r.loja_id]=r.meta_valor;if(r.daily_goals)dailyGoalsMap[r.loja_id]=r.daily_goals;});
 
-    // Vendedores: busca individualmente por ID (lista de pedidos não inclui nome, só id)
+    // Vendedores: busca individualmente por ID, sequencial para não bater rate limit
     const vendedoresMap={};
     const allPedidos=[...pedidos,...pedidosPrev];
     const vendIds=[...new Set(allPedidos.map(p=>p.vendedor?.id).filter(Boolean))];
-    if(vendIds.length){
-      if(!window._gvVendedoresCache)window._gvVendedoresCache={};
-      await Promise.all(vendIds.map(async vid=>{
-        if(window._gvVendedoresCache[vid]){vendedoresMap[vid]=window._gvVendedoresCache[vid];return;}
-        try{
-          const resp=await blingCall(`vendedores/${vid}`,{});
-          const v=resp.data;
-          if(v){
-            const nome=v.contato?.nome||v.nome||v.nomeFantasia||'';
-            const lojaObj=Array.isArray(v.loja)?v.loja[0]:v.loja;
-            const lojaNome=lojaObj?.nome||lojaObj?.descricao||canais[lojaObj?.id]||'';
-            const entry={nome,loja:lojaNome};
-            vendedoresMap[vid]=entry;
-            window._gvVendedoresCache[vid]=entry;
-          }
-        }catch(e){}
-      }));
+    if(!window._gvVendedoresCache)window._gvVendedoresCache={};
+    for(const vid of vendIds){
+      if(window._gvVendedoresCache[vid]){vendedoresMap[vid]=window._gvVendedoresCache[vid];continue;}
+      try{
+        const resp=await blingCall(`vendedores/${vid}`,{});
+        const v=resp.data;
+        if(v){
+          const nome=v.contato?.nome||v.nome||v.nomeFantasia||'';
+          const lojaObj=Array.isArray(v.loja)?v.loja[0]:v.loja;
+          const lojaNome=lojaObj?.nome||lojaObj?.descricao||canais[lojaObj?.id]||'';
+          const entry={nome,loja:lojaNome};
+          vendedoresMap[vid]=entry;
+          window._gvVendedoresCache[vid]=entry;
+        }
+      }catch(e){}
     }
     if(myLoad!==_gvLoadId)return; // troca de período enquanto carregava — descarta silenciosamente
     const totalPrev=pedidosPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
