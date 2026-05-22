@@ -887,6 +887,10 @@
   .gv-main-kpi-l{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);}
   .gv-main-kpi-d{font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;letter-spacing:.2px;white-space:nowrap;}
   .gv-loading-full{grid-column:1/-1;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:14px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);opacity:.4;}
+  @keyframes gvSpin{to{transform:rotate(360deg)}}
+  .gv-loading-screen{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;min-height:60vh;}
+  .gv-spinner{width:48px;height:48px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:gvSpin .9s linear infinite;}
+  .gv-loading-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);opacity:.6;}
   /* KPI col */
   .gv-kpi-period{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px;flex-shrink:0;}
   .gv-big-num{font-family:'Oswald',sans-serif;font-size:58px;font-weight:600;letter-spacing:-2px;line-height:1;transition:color .6s,text-shadow .6s;}
@@ -4700,8 +4704,9 @@ function setHomeBgTheme(type){
     </div>
   </div>
   <div class="gv-board" id="gv-board">
-    <div class="gv-col" style="grid-column:1/-1;align-items:center;justify-content:center">
-      <div class="gv-loading">Carregando dados...</div>
+    <div class="gv-loading-screen">
+      <div class="gv-spinner"></div>
+      <span class="gv-loading-lbl">Carregando dados</span>
     </div>
   </div>
   <div class="gv-ticker" id="gv-ticker">
