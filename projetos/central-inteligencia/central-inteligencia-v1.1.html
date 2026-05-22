@@ -472,9 +472,9 @@
     .gv-gauge-wrap{flex:none;min-height:0;height:260px;max-height:260px;}
     /* Right panel: flex column instead of 2-row grid */
     .gv-right{display:flex;flex-direction:column;gap:1px;background:var(--border);overflow:visible;min-height:0;}
-    .gv-canal-panel{overflow:hidden;padding:12px 16px;max-height:46vh;}
-    .gv-canal-scroll{overflow:hidden;flex:none;min-height:0;max-height:calc(46vh - 36px);}
-    .gv-canal-grid{grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px;}
+    .gv-canal-panel{overflow:visible;padding:12px 16px;}
+    .gv-canal-scroll{overflow:visible;flex:none;min-height:0;}
+    .gv-canal-grid{grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;}
     .gv-canal-scroll-inner{animation:none!important;transform:none!important;}
     /* Rankings: flex column instead of 2-col grid */
     .gv-rankings{display:flex;flex-direction:column;gap:1px;background:var(--border);overflow:visible;min-height:0;}
@@ -510,8 +510,8 @@
     /* Canais: 3 por linha */
     .gv-canal-panel,.gv-rank-panel{padding:8px 12px;}
     .gv-canal-grid{grid-template-columns:repeat(3,1fr);gap:6px;}
-    /* Rankings lado a lado */
-    .gv-rankings{display:grid!important;grid-template-columns:1fr 1fr;}
+    /* Rankings empilhados no mobile */
+    .gv-rankings{display:flex!important;flex-direction:column;}
     /* Misc */
     .gv-big-num{font-size:30px;}
     .gv-ticker-lbl{font-size:9px;min-width:80px;}
@@ -3332,7 +3332,10 @@ async function _gvBuildSkuSlide(pedidos,pedidosPrev){
       }
     }catch(e){}
     batchCount++;
-    if(batchCount%8===0&&newVendorFound){_gvUpdateVendRanking();newVendorFound=false;}
+    if(batchCount%10===0){
+      if(newVendorFound){_gvUpdateVendRanking();newVendorFound=false;}
+      if(bgMappings.length){const snap=[...bgMappings];bgMappings.length=0;sbClient.from('bling_pedido_vendedor').upsert(snap,{onConflict:'pedido_id'}).then(null,()=>{});}
+    }
   }
 
   // Processa pedidos anteriores: só vendor mapping (sem SKU)
@@ -3350,7 +3353,10 @@ async function _gvBuildSkuSlide(pedidos,pedidosPrev){
       }
     }catch(e){}
     batchCount++;
-    if(batchCount%8===0&&newVendorFound){_gvUpdateVendRanking();newVendorFound=false;}
+    if(batchCount%10===0){
+      if(newVendorFound){_gvUpdateVendRanking();newVendorFound=false;}
+      if(bgMappings.length){const snap=[...bgMappings];bgMappings.length=0;sbClient.from('bling_pedido_vendedor').upsert(snap,{onConflict:'pedido_id'}).then(null,()=>{});}
+    }
   }
 
   if(myVersion!==_gvSkuVersion)return;
@@ -3437,6 +3443,30 @@ function _gvUpdateVendRanking(){
       </div>
     </div>`;
   }).join('');
+}
+function _gvFitCanalGrid(){
+  const isTV=document.body.classList.contains('dev-tv');
+  const isDesktop=document.body.classList.contains('dev-desktop');
+  if(!isTV&&!isDesktop)return;
+  const scroll=document.getElementById('gv-canal-scroll');
+  const grid=scroll?.querySelector('.gv-canal-grid');
+  if(!scroll||!grid)return;
+  const n=grid.children.length;
+  if(!n)return;
+  const W=scroll.clientWidth;
+  const H=scroll.clientHeight;
+  if(!W||!H)return;
+  const gap=isTV?20:10;
+  const labelH=isTV?46:20;
+  const vbAR=1.33;
+  let bestCols=n;
+  for(let c=1;c<=n;c++){
+    const itemW=(W-(c-1)*gap)/c;
+    const rows=Math.ceil(n/c);
+    const totalH=rows*(labelH+itemW*vbAR)+(rows-1)*gap;
+    if(totalH<=H){bestCols=c;break;}
+  }
+  grid.style.gridTemplateColumns=`repeat(${bestCols},1fr)`;
 }
 function _gvRenderTickerSlide(idx){
   const slide=(window._gvTickerSlides||[])[idx];
@@ -4331,19 +4361,11 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
         inner.classList.add('scrolling');
       }
     });
-    // Canal gauge grid auto-scroll
-    const cWrap=document.getElementById('gv-canal-scroll');
-    const cInner=document.getElementById('gv-canal-inner');
-    if(cWrap&&cInner){
-      const overflow=cInner.scrollHeight-cWrap.clientHeight;
-      if(overflow>16){
-        const dur=Math.max(14,overflow/16);
-        cInner.style.setProperty('--gv-scroll-h',`-${overflow}px`);
-        cInner.style.setProperty('--gv-scroll-dur',`${dur}s`);
-        cInner.classList.add('scrolling');
-      }
-    }
+    // Fit canal grid to available height (desktop/TV only)
+    _gvFitCanalGrid();
   },300);
+  window.removeEventListener('resize',_gvFitCanalGrid);
+  window.addEventListener('resize',_gvFitCanalGrid,{passive:true});
 }
 
 /* ── THEME TOGGLE ── */
