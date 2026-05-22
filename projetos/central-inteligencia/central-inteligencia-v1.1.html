@@ -2591,24 +2591,35 @@ async function downloadMetasTemplate(){
 async function importMetasCSV(input,y,m){
   const file=input.files[0];
   if(!file)return;
-  const text=(await file.text()).replace(/^﻿/,'');  // strip UTF-8 BOM added by Excel/template
-  const parseCSVLine=line=>{const r=[];let cur='',q=false;for(const c of line){if(c==='"')q=!q;else if(c===','&&!q){r.push(cur.trim());cur='';}else cur+=c;}r.push(cur.trim());return r;};
+  // Strip UTF-8 BOM — presente no template gerado e em arquivos salvos pelo Excel
+  const text=(await file.text()).replace(/^﻿/,'');
   const lines=text.replace(/\r/g,'').split('\n').filter(l=>l.trim());
   if(!lines.length){showMetasMsg('Arquivo vazio.',true);return;}
+  // Auto-detecta separador: Excel PT-BR salva com ";" em vez de ","
+  const detectDelim=line=>{let inQ=false,c1=0,sc=0;for(const c of line){if(c==='"')inQ=!inQ;else if(!inQ&&c===',')c1++;else if(!inQ&&c===';')sc++;}return sc>=c1?';':',';};
+  const delim=detectDelim(lines[0]);
+  const parseCSVLine=line=>{const r=[];let cur='',q=false;for(const c of line){if(c==='"')q=!q;else if(c===delim&&!q){r.push(cur.trim());cur='';}else cur+=c;}r.push(cur.trim());return r;};
+  // Remove BOM do primeiro caractere do header (caso a substituição acima não tenha pego)
   const rawHdr=lines[0].charCodeAt(0)===0xFEFF?lines[0].slice(1):lines[0];
   const header=parseCSVLine(rawHdr).map(h=>h.replace(/^"|"$/g,'').trim().toLowerCase());
   const idxId=header.indexOf('loja_id');
   const idxTotal=header.findIndex(h=>h==='meta_total'||h==='meta_valor');
   const dayIdxs=header.map((h,i)=>/^dia_\d+$/.test(h)?i:-1).filter(i=>i>=0);
-  if(idxId<0||(idxTotal<0&&!dayIdxs.length)){showMetasMsg('Colunas loja_id e meta_total não encontradas. Use o template.',true);return;}
+  if(idxId<0||(idxTotal<0&&!dayIdxs.length)){
+    const preview=header.slice(0,4).join(' | ')||'(vazio)';
+    showMetasMsg(`Colunas não encontradas (sep="${delim}"). Colunas lidas: ${preview}. Use o template CSV.`,true);
+    return;
+  }
+  // Converte número brasileiro "1.234,56" → 1234.56
+  const parseBrNum=s=>{if(!s)return NaN;s=String(s).trim();const lc=s.lastIndexOf(','),ld=s.lastIndexOf('.');if(lc>ld)s=s.replace(/\./g,'').replace(',','.');else if(ld>lc&&lc>=0)s=s.replace(/,/g,'');return parseFloat(s);};
   const rows=[];
   for(let i=1;i<lines.length;i++){
     const cols=parseCSVLine(lines[i]).map(c=>c.replace(/^"|"$/g,'').trim());
     const id=parseInt(cols[idxId]);
     if(isNaN(id))continue;
-    let val=idxTotal>=0?parseFloat(String(cols[idxTotal]||'').replace(',','.')):NaN;
+    let val=idxTotal>=0?parseBrNum(cols[idxTotal]):NaN;
     if((isNaN(val)||val<=0)&&dayIdxs.length){
-      val=dayIdxs.reduce((s,di)=>{const v=parseFloat(String(cols[di]||'0').replace(',','.'));return s+(isNaN(v)?0:v);},0);
+      val=dayIdxs.reduce((s,di)=>{const v=parseBrNum(cols[di]||'0');return s+(isNaN(v)?0:v);},0);
     }
     if(!isNaN(id)&&!isNaN(val)&&val>0)rows.push({loja_id:id,year:y,month:m,meta_valor:val});
   }
