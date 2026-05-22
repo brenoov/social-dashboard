@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root {
     --bg:#ffffff;--surface:#ffffff;--surface2:#f4f5f7;
@@ -2557,7 +2558,7 @@ async function loadAdminMetas(){
     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Baixar template CSV</button>',
     `<label class="admin-btn-sm" style="display:flex;align-items:center;gap:6px;padding:8px 16px;cursor:pointer;background:var(--accent);color:#fff;border-color:var(--accent)">`,
     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Importar planilha',
-    `<input type="file" accept=".csv" id="metas-csv-input" style="display:none" onchange="importMetasCSV(this,${y},${m})"></label></div>`,
+    `<input type="file" accept=".xlsx,.xls,.csv" id="metas-csv-input" style="display:none" onchange="importMetasCSV(this,${y},${m})"></label></div>`,
     '<div id="metas-import-msg" style="font-size:12px;margin-bottom:16px;display:none"></div>',
     hasData?`<div class="sg-label">Metas actuais — ${escHtml(mesLabel)}</div><div class="sg"><table class="metas-tbl"><thead><tr><th>Canal / Loja</th><th style="text-align:right">Meta (R$)</th><th style="text-align:right">Meta/dia*</th></tr></thead><tbody>${safeRows}</tbody></table><div style="font-size:10px;color:var(--muted);padding:8px 0">*Meta diária = meta mensal ÷ dias do mês</div></div>`
       :'<div style="color:var(--muted);font-size:12px;padding:8px 0">Nenhuma meta cadastrada para este mês. Importe uma planilha para começar.</div>'
@@ -2577,57 +2578,60 @@ async function downloadMetasTemplate(){
   const dayHdrs=Array.from({length:daysInMonth},(_,i)=>`dia_${String(i+1).padStart(2,'0')}`);
   const makeRow=(id,nome)=>{
     const total=metasMap[id]!=null?metasMap[id]:'';
-    const daily=total!==''?(total/daysInMonth).toFixed(2):'';
+    const daily=total!==''?parseFloat((total/daysInMonth).toFixed(2)):'';
     return[id,nome,total,...dayHdrs.map(()=>daily)];
   };
   const rows=[['loja_id','nome','meta_total',...dayHdrs],makeRow(0,'Total Geral'),...(lojas||[]).map(l=>makeRow(l.loja_id,l.nome))];
-  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const a=document.createElement('a');
-  a.href='data:text/csv;charset=utf-8,﻿'+encodeURIComponent(csv);
-  a.download=`metas_template_${y}_${String(m).padStart(2,'0')}.csv`;
-  a.click();
+  // Gera .xlsx via SheetJS — sem problemas de BOM ou separador
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  // Congela a primeira linha para facilitar edição
+  ws['!freeze']={xSplit:0,ySplit:1,topLeftCell:'A2',activePane:'bottomLeft',state:'frozen'};
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Metas');
+  XLSX.writeFile(wb,`metas_template_${y}_${String(m).padStart(2,'0')}.xlsx`);
 }
 
 async function importMetasCSV(input,y,m){
   const file=input.files[0];
   if(!file)return;
-  // Strip UTF-8 BOM — presente no template gerado e em arquivos salvos pelo Excel
-  const text=(await file.text()).replace(/^﻿/,'');
-  const lines=text.replace(/\r/g,'').split('\n').filter(l=>l.trim());
-  if(!lines.length){showMetasMsg('Arquivo vazio.',true);return;}
-  // Auto-detecta separador: Excel PT-BR salva com ";" em vez de ","
-  const detectDelim=line=>{let inQ=false,c1=0,sc=0;for(const c of line){if(c==='"')inQ=!inQ;else if(!inQ&&c===',')c1++;else if(!inQ&&c===';')sc++;}return sc>=c1?';':',';};
-  const delim=detectDelim(lines[0]);
-  const parseCSVLine=line=>{const r=[];let cur='',q=false;for(const c of line){if(c==='"')q=!q;else if(c===delim&&!q){r.push(cur.trim());cur='';}else cur+=c;}r.push(cur.trim());return r;};
-  // Remove BOM do primeiro caractere do header (caso a substituição acima não tenha pego)
-  const rawHdr=lines[0].charCodeAt(0)===0xFEFF?lines[0].slice(1):lines[0];
-  const header=parseCSVLine(rawHdr).map(h=>h.replace(/^"|"$/g,'').trim().toLowerCase());
-  const idxId=header.indexOf('loja_id');
-  const idxTotal=header.findIndex(h=>h==='meta_total'||h==='meta_valor');
-  const dayIdxs=header.map((h,i)=>/^dia_\d+$/.test(h)?i:-1).filter(i=>i>=0);
-  if(idxId<0||(idxTotal<0&&!dayIdxs.length)){
-    const preview=header.slice(0,4).join(' | ')||'(vazio)';
-    showMetasMsg(`Colunas não encontradas (sep="${delim}"). Colunas lidas: ${preview}. Use o template CSV.`,true);
-    return;
-  }
-  // Converte número brasileiro "1.234,56" → 1234.56
-  const parseBrNum=s=>{if(!s)return NaN;s=String(s).trim();const lc=s.lastIndexOf(','),ld=s.lastIndexOf('.');if(lc>ld)s=s.replace(/\./g,'').replace(',','.');else if(ld>lc&&lc>=0)s=s.replace(/,/g,'');return parseFloat(s);};
-  const rows=[];
-  for(let i=1;i<lines.length;i++){
-    const cols=parseCSVLine(lines[i]).map(c=>c.replace(/^"|"$/g,'').trim());
-    const id=parseInt(cols[idxId]);
-    if(isNaN(id))continue;
-    let val=idxTotal>=0?parseBrNum(cols[idxTotal]):NaN;
-    if((isNaN(val)||val<=0)&&dayIdxs.length){
-      val=dayIdxs.reduce((s,di)=>{const v=parseBrNum(cols[di]||'0');return s+(isNaN(v)?0:v);},0);
+  showMetasMsg('Lendo arquivo...',false,true);
+  try{
+    // Usa SheetJS para ler xlsx, xls e csv — elimina problemas de BOM, separador e encoding
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array',cellDates:false,raw:false});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    // sheet_to_json com header:1 retorna array de arrays; defval:'' evita células undefined
+    const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+    if(!data.length){showMetasMsg('Arquivo vazio.',true);return;}
+    // Primeira linha = cabeçalho; normaliza para minúsculo sem espaços extras
+    const header=data[0].map(h=>String(h==null?'':h).trim().toLowerCase());
+    const idxId=header.indexOf('loja_id');
+    const idxTotal=header.findIndex(h=>h==='meta_total'||h==='meta_valor');
+    const dayIdxs=header.map((h,i)=>/^dia_\d+$/.test(h)?i:-1).filter(i=>i>=0);
+    if(idxId<0||(idxTotal<0&&!dayIdxs.length)){
+      const preview=header.filter(Boolean).slice(0,5).join(' | ')||'(nenhuma)';
+      showMetasMsg(`Coluna loja_id não encontrada. Colunas detectadas: ${preview}. Use o template.`,true);
+      return;
     }
-    if(!isNaN(id)&&!isNaN(val)&&val>0)rows.push({loja_id:id,year:y,month:m,meta_valor:val});
-  }
-  if(!rows.length){showMetasMsg('Nenhum valor válido encontrado no arquivo.',true);return;}
-  showMetasMsg(`Importando ${rows.length} metas...`,false,true);
-  const{error}=await sbClient.from('bling_metas').upsert(rows,{onConflict:'loja_id,year,month'});
-  if(error){showMetasMsg('Erro ao salvar: '+error.message,true);}
-  else{showMetasMsg(`${rows.length} meta${rows.length!==1?'s':''} importada${rows.length!==1?'s':''}!`,false);loadAdminMetas();}
+    // SheetJS já retorna números como number; trata strings com formato BR "1.234,56"
+    const toNum=v=>{if(typeof v==='number')return v;const s=String(v).trim().replace(/[R$\s]/g,'');const lc=s.lastIndexOf(','),ld=s.lastIndexOf('.');return parseFloat(lc>ld?s.replace(/\./g,'').replace(',','.'):s);};
+    const rows=[];
+    for(let i=1;i<data.length;i++){
+      const row=data[i];
+      const id=parseInt(String(row[idxId]||''));
+      if(isNaN(id))continue;
+      let val=idxTotal>=0?toNum(row[idxTotal]):NaN;
+      if((isNaN(val)||val<=0)&&dayIdxs.length){
+        val=dayIdxs.reduce((s,di)=>{const v=toNum(row[di]||0);return s+(isNaN(v)?0:v);},0);
+      }
+      if(!isNaN(id)&&!isNaN(val)&&val>0)rows.push({loja_id:id,year:y,month:m,meta_valor:val});
+    }
+    if(!rows.length){showMetasMsg('Nenhum valor válido encontrado. Verifique se loja_id e meta_total estão preenchidos.',true);return;}
+    showMetasMsg(`Importando ${rows.length} metas...`,false,true);
+    const{error}=await sbClient.from('bling_metas').upsert(rows,{onConflict:'loja_id,year,month'});
+    if(error){showMetasMsg('Erro ao salvar: '+error.message,true);}
+    else{showMetasMsg(`${rows.length} meta${rows.length!==1?'s':''} importada${rows.length!==1?'s':''}!`,false);loadAdminMetas();}
+  }catch(e){showMetasMsg('Erro ao ler arquivo: '+e.message,true);}
   input.value='';
 }
 
