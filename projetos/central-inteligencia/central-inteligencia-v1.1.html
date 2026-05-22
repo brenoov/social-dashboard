@@ -895,7 +895,7 @@
   .gv-ticker-sep{width:1px;height:14px;background:var(--border);flex-shrink:0;}
   .gv-ticker-outer{flex:1;overflow:hidden;}
   .gv-ticker-inner{display:flex;gap:48px;white-space:nowrap;}
-  .gv-ticker-inner.animate{animation:gvTicker 32s linear infinite;}
+  .gv-ticker-inner.animate{animation:gvTicker 16s linear infinite;}
   @keyframes gvTicker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
   .gv-ticker-item{font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);flex-shrink:0;}
   .gv-ticker-item strong{color:var(--text);}
@@ -3277,7 +3277,7 @@ async function _gvBuildSkuSlide(pedidos){
     }catch(e){}
   }
   if(myVersion!==_gvSkuVersion)return;
-  const topSkus=Object.values(skuMap).sort((a,b)=>b.qty-a.qty).slice(0,25);
+  const topSkus=Object.values(skuMap).sort((a,b)=>b.qty-a.qty).slice(0,50);
   if(!topSkus.length)return;
   const items=topSkus.map((s,i)=>{
     const nome=s.nome.length>40?s.nome.slice(0,40)+'…':s.nome;
@@ -4125,8 +4125,9 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     const canal=escHtml(canais[p.loja?.id]||'Pedido #'+p.numero);
     const val=fmtR(parseFloat(p.total||0));
     const vend=escHtml((p.vendedor?.nome||'—').split(' ').slice(0,2).join(' '));
-    const dt=p.data?new Date(p.data):null;
-    const dtStr=dt?`${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`:'';
+    const isDateOnly=p.data&&p.data.length<=10;
+    const dt=p.data?new Date(isDateOnly?p.data+'T12:00:00':p.data):null;
+    const dtStr=dt?isDateOnly?`${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}`:`${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`:'';
     const nItens=Math.round((p.itens||[]).reduce((s,i)=>s+(parseFloat(i.quantidade)||1),0));
     const itensStr=nItens>0?`${nItens} ${nItens===1?'item':'itens'}`:'';
     return `<span class="gv-ticker-item"><strong>${canal}</strong> · ${val} · ${vend}${dtStr?` · <span style="opacity:.7">${dtStr}</span>`:''}${itensStr?` · ${itensStr}`:''}</span>`;
@@ -4140,10 +4141,10 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   if(window._gvTickerIdx==null)window._gvTickerIdx=0;
   _gvRenderTickerSlide(window._gvTickerIdx);
   if(!window._gvTickerTimer)
-    window._gvTickerTimer=setInterval(_gvNextTickerSlide,30000);
+    window._gvTickerTimer=setInterval(_gvNextTickerSlide,90000);
 
   // Busca itens de cada pedido em background (lista não inclui itens, precisa de detalhe individual)
-  _gvBuildSkuSlide([...pedidos].sort((a,b)=>new Date(b.data||0)-new Date(a.data||0)).slice(0,30));
+  _gvBuildSkuSlide([...pedidos].sort((a,b)=>new Date(b.data||0)-new Date(a.data||0)).slice(0,60));
 
   setTimeout(()=>{
     document.querySelectorAll('#gestao-vista-screen [data-w]').forEach(el=>el.style.width=el.dataset.w);
