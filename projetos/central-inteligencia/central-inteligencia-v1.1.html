@@ -2345,6 +2345,7 @@ document.addEventListener('touchstart',_acResetInactivity,{passive:true});
 let _hojeTimer=null;
 function buildPeriodTabs(){
   const wrap=document.getElementById('period-tabs');
+  wrap.innerHTML='';
   PERIODS.forEach(p=>{
     const btn=document.createElement('button');btn.className='ptab'+(p.value===7?' active':'');
     if(p.value===0){const dot=document.createElement('span');dot.style.cssText='display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite;vertical-align:middle;';btn.appendChild(dot);}
