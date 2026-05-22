@@ -462,21 +462,29 @@
 
   /* ── RESPONSIVE: GESTÃO À VISTA ── */
   @media(max-width:1024px){
-    #gestao-vista-screen{height:auto;max-height:none;overflow-y:auto;-webkit-overflow-scrolling:touch;}
-    .gv-board{grid-template-columns:1fr;overflow:visible;min-height:0;background:transparent;gap:8px;padding:8px;}
-    .gv-left{overflow:visible;min-height:auto;padding:12px 16px;}
-    .gv-right{grid-template-rows:auto;overflow:visible;gap:8px;background:transparent;}
-    .gv-gauge-wrap{max-height:280px;}
-    .gv-rankings{grid-template-columns:1fr;grid-template-rows:auto;}
-    .gv-rank-panel,.gv-canal-panel{overflow:visible;}
-    .gv-rank-scroll,.gv-canal-scroll{overflow:visible;max-height:none;}
-    .gv-rank-scroll-inner,.gv-canal-scroll-inner{animation:none!important;transform:none!important;}
+    #gestao-vista-screen{height:auto;min-height:100vh;max-height:none;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+    #gv-bg-anim{display:none;}
+    /* Board: flex column instead of 2-col grid */
+    .gv-board{display:flex;flex-direction:column;gap:1px;background:var(--border);overflow:visible;min-height:0;padding:0;}
+    /* Left panel: stacks vertically, no overflow trap */
+    .gv-left{overflow:visible;flex:none;min-height:auto;padding:16px 20px;gap:12px;justify-content:flex-start;}
+    .gv-gauge-wrap{flex:none;min-height:0;height:260px;max-height:260px;}
+    /* Right panel: flex column instead of 2-row grid */
+    .gv-right{display:flex;flex-direction:column;gap:1px;background:var(--border);overflow:visible;min-height:0;}
+    .gv-canal-panel{overflow:visible;padding:12px 16px;}
+    .gv-canal-scroll{overflow:visible;flex:none;min-height:0;}
+    .gv-canal-scroll-inner{animation:none!important;transform:none!important;}
+    /* Rankings: flex column instead of 2-col grid */
+    .gv-rankings{display:flex;flex-direction:column;gap:1px;background:var(--border);overflow:visible;min-height:0;}
+    .gv-rank-panel{overflow:visible;padding:12px 16px;}
+    .gv-rank-scroll{overflow:visible;flex:none;min-height:0;}
+    .gv-rank-scroll-inner{animation:none!important;transform:none!important;}
     .gv-topbar{flex-wrap:wrap;padding:8px 14px;gap:6px;}
     .gv-clock-wrap{display:none;}
-    .gv-ticker{height:auto;flex-wrap:wrap;padding:8px 12px;gap:6px;}
-    .gv-ticker-outer{overflow-x:auto;flex:1;}
+    .gv-ticker{height:auto;flex-shrink:0;padding:8px 12px;gap:6px;}
+    .gv-ticker-outer{flex:1;overflow-x:auto;}
     .gv-ticker-inner{white-space:nowrap;}
-    .gv-ticker-inner.animate{animation:gvTicker 20s linear infinite;}
+    .gv-ticker-inner.animate{animation:none;}
   }
   @media(max-width:640px){
     .gv-topbar{padding:6px 10px;}
@@ -485,15 +493,16 @@
     .gv-pbtn{font-size:9px;padding:3px 7px;border-radius:4px;}
     #gv-ac-toggle{font-size:9px;padding:3px 7px;}
     .gv-canal-grid{grid-template-columns:repeat(2,1fr);}
-    .gv-big-num{font-size:34px;}
-    .gv-gauge-wrap{max-height:220px;}
-    .gv-main-kpi{gap:10px;}
-    .gv-main-kpi-v{font-size:18px;}
+    .gv-big-num{font-size:30px;}
+    .gv-gauge-wrap{height:200px;max-height:200px;}
+    .gv-main-kpi{gap:8px;}
+    .gv-main-kpi-v{font-size:16px;}
     .gv-main-kpi-l,.gv-main-kpi-d{font-size:9px;}
     .gv-update-status{display:none;}
     .gv-ticker-lbl{font-size:9px;min-width:80px;}
     .gv-ticker-item{font-size:11px;}
-    .gv-board{gap:6px;padding:6px;}
+    .gv-left{padding:12px 14px;gap:10px;}
+    .gv-canal-panel,.gv-rank-panel{padding:10px 14px;}
   }
   .auth-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:44px 40px;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.06);}
   .auth-logo{text-align:center;margin-bottom:32px;}
@@ -2582,11 +2591,12 @@ async function downloadMetasTemplate(){
 async function importMetasCSV(input,y,m){
   const file=input.files[0];
   if(!file)return;
-  const text=await file.text();
+  const text=(await file.text()).replace(/^﻿/,'');  // strip UTF-8 BOM added by Excel/template
   const parseCSVLine=line=>{const r=[];let cur='',q=false;for(const c of line){if(c==='"')q=!q;else if(c===','&&!q){r.push(cur.trim());cur='';}else cur+=c;}r.push(cur.trim());return r;};
   const lines=text.replace(/\r/g,'').split('\n').filter(l=>l.trim());
   if(!lines.length){showMetasMsg('Arquivo vazio.',true);return;}
-  const header=parseCSVLine(lines[0]).map(h=>h.replace(/^"|"$/g,'').trim().toLowerCase());
+  const rawHdr=lines[0].charCodeAt(0)===0xFEFF?lines[0].slice(1):lines[0];
+  const header=parseCSVLine(rawHdr).map(h=>h.replace(/^"|"$/g,'').trim().toLowerCase());
   const idxId=header.indexOf('loja_id');
   const idxTotal=header.findIndex(h=>h==='meta_total'||h==='meta_valor');
   const dayIdxs=header.map((h,i)=>/^dia_\d+$/.test(h)?i:-1).filter(i=>i>=0);
