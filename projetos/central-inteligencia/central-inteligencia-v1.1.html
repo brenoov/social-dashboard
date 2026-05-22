@@ -813,7 +813,7 @@
   .gv-canal-scroll-inner{display:flex;flex-direction:column;}
   .gv-canal-scroll-inner.scrolling{animation:gvRankUp var(--gv-scroll-dur,20s) ease-in-out infinite alternate;}
   .gv-canal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;align-content:start;}
-  .gv-sm-item{display:flex;flex-direction:column;align-items:center;gap:5px;}
+  .gv-sm-item{display:flex;flex-direction:column;align-items:center;gap:2px;}
   .gv-sm-item-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:10px;letter-spacing:.5px;color:var(--muted);text-align:center;line-height:1.3;overflow-wrap:break-word;word-break:break-word;max-width:100%;}
   .gv-sm-item-val{font-family:'Oswald',sans-serif;font-size:13px;color:var(--text);}
   .gv-sm-item-delta{font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;letter-spacing:.3px;text-align:center;}
@@ -3957,7 +3957,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     const fill=p!==null?Math.min(Math.max(p,0),100)/100*sweep:0;
     const rot=150;
     // Trim viewBox height to content — avoids gap between gauge and labels below
-    const vbH=desvioStr?136:metaStr?114:vendidoStr?94:62;
+    const vbH=desvioStr?112:metaStr?97:vendidoStr?82:62;
     return `<svg viewBox="0 0 100 ${vbH}" style="width:100%;height:auto;overflow:visible;display:block">
       <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${trackClr}" stroke-width="7"
         stroke-dasharray="${sweep.toFixed(1)} ${gap.toFixed(1)}" stroke-linecap="round"
@@ -3968,9 +3968,9 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
         data-fill="${fill.toFixed(1)}" data-c="${C.toFixed(1)}"
         style="transition:stroke-dasharray 2s cubic-bezier(.4,0,.2,1);filter:drop-shadow(0 0 4px ${hexColor}88)"/>
       <text x="50" y="51" text-anchor="middle" font-family="Oswald,sans-serif" font-size="22" font-weight="600" fill="${hexColor}">${topText}</text>
-      ${vendidoStr?`<text x="50" y="78" text-anchor="middle" font-family="Oswald,sans-serif" font-size="15" font-weight="500" fill="var(--text)">${vendidoStr}</text>`:''}
-      ${metaStr?`<text x="50" y="100" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="12" fill="var(--muted)">${metaStr}</text>`:''}
-      ${desvioStr?`<text x="50" y="122" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="7.5" font-weight="700" fill="${desvioCol||'var(--muted)'}">${desvioStr}</text>`:''}
+      ${vendidoStr?`<text x="50" y="70" text-anchor="middle" font-family="Oswald,sans-serif" font-size="15" font-weight="500" fill="var(--text)">${vendidoStr}</text>`:''}
+      ${metaStr?`<text x="50" y="84" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="12" fill="var(--muted)">${metaStr}</text>`:''}
+      ${desvioStr?`<text x="50" y="100" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="7.5" font-weight="700" fill="${desvioCol||'var(--muted)'}">${desvioStr}</text>`:''}
     </svg>`;
   }
 
