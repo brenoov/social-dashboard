@@ -1303,16 +1303,24 @@
     <div class="admin-grid">
       <div>
         <div class="admin-section-title">Convidar novo usuário</div>
-        <div class="admin-input-row">
-          <input type="text" id="invite-name" class="admin-input" placeholder="Nome">
-        </div>
-        <div class="admin-input-row">
-          <input type="email" id="invite-email" class="admin-input" placeholder="email@exemplo.com">
-          <input type="password" id="invite-password" class="admin-input" placeholder="Senha (mín. 6 caracteres)">
-        </div>
-        <div class="admin-input-row">
-          <select id="invite-role" class="admin-select"><option value="viewer">Visualizador</option><option value="admin">Admin</option></select>
-          <button class="admin-action-btn" id="invite-btn" onclick="doInvite()">Criar acesso</button>
+        <div class="admin-input-row" style="display:flex;flex-direction:column;gap:12px;padding:14px 0;">
+          <div>
+            <label class="auth-label" for="invite-name">Nome</label>
+            <input type="text" id="invite-name" class="admin-input" placeholder="Nome completo" style="width:100%;box-sizing:border-box;">
+          </div>
+          <div>
+            <label class="auth-label" for="invite-email">Email</label>
+            <input type="email" id="invite-email" class="admin-input" placeholder="email@exemplo.com" style="width:100%;box-sizing:border-box;">
+          </div>
+          <div>
+            <label class="auth-label" for="invite-password">Senha</label>
+            <input type="password" id="invite-password" class="admin-input" placeholder="Mínimo 6 caracteres" style="width:100%;box-sizing:border-box;">
+          </div>
+          <div>
+            <label class="auth-label" for="invite-role">Perfil de acesso</label>
+            <select id="invite-role" class="admin-select" style="width:100%;box-sizing:border-box;"><option value="viewer">Visualizador</option><option value="admin">Admin</option></select>
+          </div>
+          <button class="admin-action-btn" id="invite-btn" onclick="doInvite()" style="width:100%;padding:11px;">Criar acesso</button>
         </div>
         <div class="admin-msg" id="invite-msg"></div>
       </div>
