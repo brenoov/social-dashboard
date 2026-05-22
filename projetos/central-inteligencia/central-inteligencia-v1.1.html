@@ -835,8 +835,8 @@
   #gestao-vista-screen{height:100vh;max-height:100vh;display:none;flex-direction:column;background:var(--bg);color:var(--text);overflow:hidden;position:relative;z-index:1;}
   #gv-watermark{position:absolute;bottom:100px;right:32px;font-family:'Oswald',sans-serif;font-size:73px;font-weight:700;letter-spacing:8px;text-transform:uppercase;color:var(--text);opacity:.18;pointer-events:none;user-select:none;z-index:1;line-height:1;}
   .gv-topbar{display:flex;align-items:center;justify-content:space-between;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
-  .gv-back{display:flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);cursor:pointer;background:none;border:none;padding:0;transition:color .15s;letter-spacing:.2px;}
-  .gv-back:hover{color:var(--text);}
+  .gv-back{display:flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;transition:opacity .15s;letter-spacing:.3px;text-transform:uppercase;}
+  .gv-back:hover{opacity:.75;}
   .gv-brand-tag{font-family:'IBM Plex Sans',sans-serif;font-size:13.5px;font-weight:700;letter-spacing:6px;text-transform:uppercase;color:var(--text);}
   .gv-perf-tag{font-family:'IBM Plex Sans',sans-serif;font-size:10.4px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--text);opacity:.6;line-height:1;}
   .gv-clock-wrap{text-align:right;}
@@ -4594,8 +4594,8 @@ function setHomeBgTheme(type){
     <div style="display:flex;align-items:center;gap:14px">
       <button class="gv-back" onclick="closeGestaoVista()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Voltar</button>
       <div style="display:flex;flex-direction:column;gap:2px">
-        <span class="gv-brand-tag">Vessel Brasil · Gestão à Vista</span>
         <span class="gv-perf-tag">Performance de Vendas</span>
+        <span class="gv-brand-tag">Vessel Brasil · Gestão à Vista</span>
       </div>
     </div>
     <div class="gv-period-btns" id="gv-period-btns">
