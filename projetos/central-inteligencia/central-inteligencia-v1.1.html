@@ -3093,6 +3093,7 @@ function openGestaoVista(){
   initGvBgAnim();
   window._gvTickerIdx=null;
   window._gvTickerSlides=null;
+  window._gvVendedoresCache=null;
   if(window._gvTickerTimer){clearInterval(window._gvTickerTimer);window._gvTickerTimer=null;}
   _gvCurrentPeriod='month';
   loadGestaoVistaData('month');
@@ -3203,7 +3204,7 @@ function vsApplyCustom(){
 
 /* ── GESTÃO À VISTA AUTO-CYCLE ── */
 const GV_AC_PERIODS=['today','1d','7d','14d','30d','month'];
-const GV_AC_DURATION=25;
+const GV_AC_DURATION=60;
 let _gvAcIdx=0,_gvAcTimer=null;
 
 function gvSelectPeriod(p){loadGestaoVistaData(p);}
@@ -3258,12 +3259,18 @@ async function blingCall(endpoint,params){
 async function blingPages(endpoint,params){
   const all=[];let page=1;
   for(;;){
-    const resp=await blingCall(endpoint,{...params,pagina:page,limite:100});
-    const items=resp.data||[];
+    let items=[];
+    for(let retry=0;retry<3;retry++){
+      const resp=await blingCall(endpoint,{...params,pagina:page,limite:100});
+      const d=resp.data;
+      if(Array.isArray(d)&&d.length>0){items=d;break;}
+      if(retry<2)await new Promise(r=>setTimeout(r,700));
+    }
+    if(!items.length)break;
     all.push(...items);
     if(items.length<100)break;
     page++;
-    if(page>10)break; // safety cap
+    if(page>10)break;
   }
   return all;
 }
@@ -3565,22 +3572,30 @@ async function loadGestaoVistaData(period){
   function subMes(s){const d=new Date(s+'T12:00:00');const od=d.getDate();d.setDate(1);d.setMonth(d.getMonth()-1);d.setDate(Math.min(od,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()));return d.toISOString().slice(0,10);}
   const diPrev=subMes(di),dfPrev=subMes(df);
   try{
-    const[pedidos,canais,metasRows,pedidosPrev,vendedoresList]=await Promise.all([
-      blingPages('pedidos/vendas',{dataInicial:di,dataFinal:df,'idsSituacoes[]':9}),
+    // Bling: chamadas SEQUENCIAIS para evitar rate limit (3 simultâneas causavam paginação incompleta)
+    const pedidos=await blingPages('pedidos/vendas',{dataInicial:di,dataFinal:df,'idsSituacoes[]':9});
+    if(myLoad!==_gvLoadId)return;
+    const pedidosPrev=await blingPages('pedidos/vendas',{dataInicial:diPrev,dataFinal:dfPrev,'idsSituacoes[]':9}).catch(()=>[]);
+    if(myLoad!==_gvLoadId)return;
+
+    // Vendedores: cache por sessão (não muda com o período)
+    if(!window._gvVendedoresCache){
+      window._gvVendedoresCache=await blingPages('vendedores',{}).catch(()=>[]);
+    }
+    const vendedoresList=window._gvVendedoresCache;
+
+    // Supabase: pode rodar em paralelo (API diferente)
+    const[canais,metasRows]=await Promise.all([
       sbClient.from('bling_lojas').select('loja_id,nome').then(r=>{const mp={};(r.data||[]).forEach(l=>mp[l.loja_id]=l.nome);return mp;}).catch(()=>({})),
-      sbClient.from('bling_metas').select('loja_id,meta_valor').eq('year',y).eq('month',m).then(r=>r.data||[]).catch(()=>[]),
-      blingPages('pedidos/vendas',{dataInicial:diPrev,dataFinal:dfPrev,'idsSituacoes[]':9}).catch(()=>[]),
-      blingPages('vendedores',{}).catch(()=>[])
+      sbClient.from('bling_metas').select('loja_id,meta_valor').eq('year',y).eq('month',m).then(r=>r.data||[]).catch(()=>[])
     ]);
+
     const metasMap={};metasRows.forEach(r=>metasMap[r.loja_id]=r.meta_valor);
-    // Monta mapa id → {nome, loja_nome}
     const vendedoresMap={};
     vendedoresList.forEach(v=>{
-      // Bling V3: loja pode vir como objeto {id, nome} ou array
       const lojaObj=Array.isArray(v.loja)?v.loja[0]:v.loja;
       const lojaNome=lojaObj?.nome||lojaObj?.descricao||canais[lojaObj?.id]||'';
       vendedoresMap[v.id]={nome:v.nome||v.nomeFantasia||'',loja:lojaNome};
-      console.log('[vendedor]',v.id,v.nome,'loja:',JSON.stringify(lojaObj));
     });
     if(myLoad!==_gvLoadId)return; // troca de período enquanto carregava — descarta silenciosamente
     const totalPrev=pedidosPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
