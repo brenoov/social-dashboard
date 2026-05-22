@@ -3927,11 +3927,13 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   const prevLbl=fmtPrevLbl(diPrev,dfPrev);
   const todayPrevLbl=fmtPrevLbl(dfPrev,dfPrev);  // sempre só o dia equivalente do mês anterior
 
-  function bigGauge(p,hexColor,uid,line1,line2,line3,line4text,line4color){
+  function bigGauge(p,hexColor,uid,line1,line2,line3,line4parts){
     const R=78,cx=100,cy=98;
     const C=2*Math.PI*R,sweep=240/360*C,gap=C-sweep;
     const fill=p!==null?Math.min(Math.max(p,0),100)/100*sweep:0;
     const rot=150;
+    const parts=Array.isArray(line4parts)?line4parts:(line4parts?[{text:line4parts,color:'var(--muted)'}]:[]);
+    const line4svg=parts.length?`<text x="100" y="162" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="10.5" font-weight="600">${parts.map((pt,i)=>`<tspan fill="${pt.color}">${i>0?' · ':''}${pt.text}</tspan>`).join('')}</text>`:'';
     return `<svg viewBox="0 0 200 190" style="width:100%;height:100%;overflow:visible;display:block">
       <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${trackClr}" stroke-width="13"
         stroke-dasharray="${sweep.toFixed(1)} ${gap.toFixed(1)}" stroke-linecap="round"
@@ -3944,7 +3946,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
       <text x="100" y="86" text-anchor="middle" font-family="Oswald,sans-serif" font-size="42" font-weight="600" fill="${hexColor}">${line1}</text>
       <text x="100" y="109" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="10" fill="var(--muted)" letter-spacing="2">${line2}</text>
       <text x="100" y="136" text-anchor="middle" font-family="Oswald,sans-serif" font-size="22" font-weight="500" fill="var(--text)">${line3}</text>
-      ${line4text?`<text x="100" y="162" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="10.5" font-weight="600" fill="${line4color||'var(--muted)'}">${line4text}</text>`:''}
+      ${line4svg}
     </svg>`;
   }
   function smGauge(p,hexColor,uid,topText,vendidoStr,metaStr,desvioStr,desvioCol){
@@ -3978,8 +3980,9 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   // 4th line: desvio R$ + delta % vs anterior
   const desvioStr=desvioMeta!=null?(desvioMeta>=0?'↑ R$':'↓ R$')+fmtK(Math.abs(desvioMeta))+' da meta':null;
   const deltaStr=deltaPct!=null?(deltaPct>=0?'↑':'↓')+Math.abs(deltaPct)+'% vs '+prevLbl:null;
-  const line4txt=[desvioStr,deltaStr].filter(Boolean).join(' · ');
-  const line4col=desvioMeta!=null?(desvioMeta>=0?'#22c55e':'#f43f5e'):(deltaPct!=null&&deltaPct>=0?'#22c55e':'#f43f5e');
+  const line4parts=[];
+  if(desvioStr)line4parts.push({text:desvioStr,color:desvioMeta>=0?'#22c55e':'#f43f5e'});
+  if(deltaStr)line4parts.push({text:deltaStr,color:deltaPct>=0?'#22c55e':'#f43f5e'});
 
   // ── SMALL GAUGES (per canal) ──
   const canaisComMeta=canaisArr.filter(c=>metasMap[c.id]);
@@ -4051,7 +4054,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
       <div class="gv-kpi-period">${period&&period!=='today'&&di?di.split('-').reverse().join('/')+' → '+(period==='30d'?`${String(diasMes).padStart(2,'0')}/${hoje.slice(5,7)}/${hoje.slice(0,4)}`:hoje.split('-').reverse().join('/')):'Dia '+diaAtual+' de '+diasMes+' · '+hoje.split('-').reverse().join('/')}</div>
       <div class="gv-gauge-wrap">
         <div class="gv-gauge-inner">
-          ${bigGauge(pct,mainHex,'gv-g-main',mainLine1,mainLine2,mainLine3,line4txt,line4col)}
+          ${bigGauge(pct,mainHex,'gv-g-main',mainLine1,mainLine2,mainLine3,line4parts)}
         </div>
       </div>
       <div class="gv-main-kpi">
