@@ -805,6 +805,7 @@
   body.dev-tv #vessel-sales-screen .vs2-section span[style]{font-size:27px!important;}
   /* ── GESTÃO À VISTA — TV BOARD v2 ── */
   #gestao-vista-screen{height:100vh;max-height:100vh;display:none;flex-direction:column;background:var(--bg);color:var(--text);overflow:hidden;position:relative;z-index:1;}
+  #gv-watermark{position:absolute;bottom:36px;right:32px;font-family:'Oswald',sans-serif;font-size:52px;font-weight:700;letter-spacing:8px;text-transform:uppercase;color:var(--text);opacity:.045;pointer-events:none;user-select:none;z-index:1;line-height:1;}
   .gv-topbar{display:flex;align-items:center;justify-content:space-between;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
   .gv-back{display:flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);cursor:pointer;background:none;border:none;padding:0;transition:color .15s;letter-spacing:.2px;}
   .gv-back:hover{color:var(--text);}
@@ -4381,6 +4382,7 @@ function setHomeBgTheme(type){
 
 <!-- GESTÃO À VISTA — TV BOARD v2 -->
 <div id="gestao-vista-screen" style="display:none">
+  <div id="gv-watermark" aria-hidden="true">Vessel Brasil</div>
   <div id="gv-bg-anim" aria-hidden="true"></div>
   <div class="gv-topbar">
     <button class="gv-back" onclick="closeGestaoVista()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> Voltar</button>
