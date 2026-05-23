@@ -58,6 +58,7 @@
   /* TOPBAR — GV-style standard header */
   .topbar{display:flex;align-items:center;justify-content:space-between;padding-bottom:6px;margin-bottom:6px;flex-wrap:wrap;gap:10px;}
   .topbar-left{display:flex;align-items:center;gap:14px;}
+  .topbar-center{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .topbar-right{display:flex;align-items:center;gap:12px;text-align:right;}
   .live-dot{display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--green);letter-spacing:1.5px;font-weight:500;text-transform:uppercase;}
   .live-dot::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
@@ -138,23 +139,119 @@
 
   /* MOBILE (≤ 480px) */
   @media(max-width:480px){
-    .wrapper{padding:10px 12px;}
-    header{margin-bottom:10px;padding-bottom:8px;}
-    .logo-area h1{font-size:18px;letter-spacing:2px;}
-    .logo-sub{display:none;}
-    #header-toggle{padding:4px 8px;font-size:10px;}
-    .topbar{flex-direction:column;align-items:flex-start;gap:6px;margin-bottom:8px;}
-    .period-tabs{overflow-x:auto;width:100%;}
-    #apb-name{font-size:16px;}
-    #active-profile-bar{margin-bottom:10px;}
-    .sec1-grid,.sec2-grid,.sec3-grid,.sec4-grid{grid-template-columns:1fr;gap:10px;}
-    .card{padding:14px 16px;}
-    .mc-val{font-size:36px;}
-    #total-followers{font-size:42px!important;}
-    .mb40{margin-bottom:14px;}
-    .sec-header{margin-bottom:6px;}
-    .profile-btn{padding:5px 10px;font-size:11px;}
-    .ptab{padding:4px 10px;font-size:11px;}
+    /* ── WRAPPER ── */
+    .wrapper{padding:0 0 24px;}
+
+    /* ── TOPBAR: linha 1 (back + título + tempo real) / linha 2 (períodos) ── */
+    .topbar{
+      flex-wrap:wrap;
+      gap:0;
+      padding:0;
+      margin-bottom:0;
+      border-bottom:1px solid var(--border);
+    }
+    .topbar-left{
+      flex:1;
+      min-width:0;
+      gap:8px;
+      padding:9px 12px;
+      order:1;
+    }
+    .topbar-right{
+      gap:6px;
+      padding:9px 12px;
+      order:2;
+    }
+    .topbar-center{
+      order:3;
+      width:100%;
+      padding:6px 12px 8px;
+      border-top:1px solid var(--border);
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+      gap:6px;
+      flex-wrap:nowrap;
+      box-sizing:border-box;
+    }
+    /* Esconde logo e subtítulo no mobile */
+    .topbar .rbv-logo{display:none!important;}
+    .gv-perf-tag{font-size:9px!important;letter-spacing:2px!important;}
+    .gv-brand-tag{display:none!important;}
+    /* Period tabs: sem background próprio, inline na faixa */
+    .period-tabs{background:none;border:none;padding:0;gap:3px;flex-shrink:0;}
+    .ptab{padding:5px 10px;font-size:10px;letter-spacing:.5px;}
+    /* Clock menor */
+    #dash-clock{font-size:11px;}
+    .live-dot{font-size:8px;letter-spacing:1px;}
+    /* Auto toggle: só o switch, sem label */
+    .ac-toggle-lbl{display:none;}
+    .ac-toggle{flex-shrink:0;}
+    /* Back button */
+    .gv-back{font-size:11px;padding:5px 10px;}
+
+    /* ── HEADER (seletor de perfis) ── */
+    header{
+      padding:8px 12px;
+      margin-bottom:0;
+      gap:8px;
+      flex-wrap:nowrap;
+      overflow:hidden;
+      border-bottom:1px solid var(--border);
+    }
+    #header-collapsible{
+      flex:1;
+      min-width:0;
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+    }
+    .profile-select{flex-wrap:nowrap;gap:5px;}
+    .profile-btn{padding:5px 8px;font-size:10px;white-space:nowrap;flex-shrink:0;}
+    .profile-btn .av{width:18px;height:18px;font-size:8px;}
+    #header-toggle{flex-shrink:0;align-self:center;}
+
+    /* ── ACTIVE PROFILE BAR ── */
+    #active-profile-bar{padding:8px 12px;margin-bottom:0;gap:7px;border-bottom:1px solid var(--border);}
+    #apb-name{font-size:15px;letter-spacing:1.5px;}
+    #apb-img{display:block;width:28px;height:28px;border-width:1.5px;}
+    #apb-dot{width:6px;height:6px;}
+
+    /* ── SECTIONS ── */
+    .sec-header{margin:14px 12px 8px;padding-bottom:0;}
+    .section-label{font-size:8px;letter-spacing:2px;}
+    .sec-chip{font-size:8px;padding:2px 6px;}
+    .camp-filter-bar{padding:6px 12px;font-size:10px;gap:5px;}
+    .camp-filter-lbl{display:none;}
+    .btn-campaign-filter{font-size:9px;padding:4px 8px;}
+    .sec1-grid,.sec2-grid,.sec3-grid,.sec4-grid{
+      grid-template-columns:1fr;
+      gap:8px;
+      padding:0 12px;
+      margin-left:0;
+      margin-right:0;
+    }
+    .mb40{margin-bottom:16px;}
+
+    /* ── CARDS ── */
+    .card{padding:13px 14px;border-radius:3px;}
+    .mc-val{font-size:32px;margin-bottom:5px;}
+    #total-followers{font-size:38px!important;}
+    .mc-lbl{font-size:8px;letter-spacing:1.5px;}
+    .mc-compare-prev,.mc-compare-delta{font-size:11px;}
+    .mc-pct{font-size:13px;}
+    .mc-diff{font-size:11px;}
+    .mc-icon{font-size:16px;}
+    .calc-badge{font-size:8px;padding:4px 8px;margin-top:8px;}
+
+    /* Seguidores hero */
+    #followers-hero{padding:14px 14px 12px;}
+    #followers-hero .mc-lbl{font-size:7px;margin-bottom:6px;}
+
+    /* Gráfico */
+    .chart-legend{flex-wrap:wrap;gap:4px;}
+    .x-labels{font-size:8px;}
+
+    /* Rbv logo (no logo-area do home — mantém) */
+    .logo-area .rbv-logo{height:32px;}
   }
 
   /* TABLET (481px – 1024px) */
@@ -1375,7 +1472,7 @@
         <span class="gv-brand-tag">Inteligência RBV</span>
       </div>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <div class="topbar-center">
       <div class="period-tabs" id="period-tabs"></div>
       <button class="custom-range-btn" id="custom-range-btn" onclick="toggleCustomRange()">📅</button>
       <div id="custom-range-panel" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;">
