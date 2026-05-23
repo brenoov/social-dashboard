@@ -49,9 +49,11 @@
   .profile-select{display:flex;gap:6px;flex-wrap:wrap;}
   .profile-btn{background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:3px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .2s cubic-bezier(.4,0,.2,1),border-color .2s ease,color .15s ease,transform .12s ease;}
   .profile-btn:active{transform:scale(.95);}
-  .profile-btn .av{width:20px;height:20px;border-radius:50%;font-size:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;overflow:hidden;flex-shrink:0;}
+  .profile-btn .av{width:20px;height:20px;border-radius:50%;font-size:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;overflow:hidden;flex-shrink:0;transition:box-shadow .3s;}
   .profile-btn .av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
-  #apb-img{width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid var(--accent);display:none;}
+  .profile-btn .av.has-stories{box-shadow:0 0 0 1.5px var(--bg),0 0 0 3.5px #e1306c,0 0 0 5px #833ab4;}
+  #apb-img{width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid var(--accent);display:none;transition:box-shadow .3s;}
+  #apb-img.has-stories{border-color:transparent;box-shadow:0 0 0 3px var(--bg),0 0 0 5.5px #e1306c,0 0 0 7.5px #833ab4,0 0 12px #e1306c66;}
   .profile-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
   .profile-btn:hover{border-color:var(--accent);color:var(--text);}
 
@@ -118,8 +120,12 @@
   .mc-compare-prev{font-family:'IBM Plex Sans',sans-serif;font-weight:400;font-size:12px;color:var(--muted);}
   .mc-compare-delta{font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;white-space:nowrap;}
   .mc-divider{height:1px;background:var(--border);margin-bottom:10px;}
+  @keyframes barLiq{0%{left:-60%}100%{left:120%}}
   .mc-progress-track{height:2px;border-radius:0;background:var(--surface2);overflow:hidden;margin-bottom:7px;}
-  .mc-progress-fill{height:100%;border-radius:0;transition:width .8s cubic-bezier(.34,1.56,.64,1),background .4s;}
+  .mc-progress-fill{height:100%;border-radius:0;transition:width .8s cubic-bezier(.34,1.56,.64,1),background .4s,box-shadow .5s;position:relative;overflow:hidden;}
+  .mc-progress-fill::after{content:'';position:absolute;top:0;left:-60%;width:55%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.42),transparent);animation:barLiq 2.2s ease-in-out infinite;pointer-events:none;}
+  .mc-progress-fill.bg-green{box-shadow:0 0 7px #22c55e99,0 0 18px #22c55e33;}
+  [data-theme="light"] .mc-progress-fill.bg-green{box-shadow:0 0 5px #1a6e4566;}
   .mc-bottom{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;}
   .mc-pct{font-family:'Oswald',sans-serif;font-size:15px;font-weight:400;color:var(--muted);}
   .mc-diff{font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:500;}
@@ -816,7 +822,8 @@
   .overall-bar-row{display:flex;align-items:center;gap:10px;}
   .overall-bar-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:600;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;white-space:nowrap;}
   .overall-bar-track{flex:1;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;border:1px solid var(--border);}
-  .overall-bar-fill{height:100%;border-radius:2px;transition:width .9s cubic-bezier(.4,0,.2,1);}
+  .overall-bar-fill{height:100%;border-radius:2px;transition:width .9s cubic-bezier(.4,0,.2,1),box-shadow .5s;position:relative;overflow:hidden;}
+  .overall-bar-fill::after{content:'';position:absolute;top:0;left:-60%;width:55%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);animation:barLiq 2.2s ease-in-out infinite;pointer-events:none;}
   .overall-bar-pct{font-family:'Oswald',sans-serif;font-size:13px;font-weight:500;white-space:nowrap;}
   #insight-card.loading .insight-list{opacity:.4;}
 
@@ -2384,6 +2391,10 @@ function update(d,period){
   setChips('chips-cnt',['Total: '+totalContent+' publica\u00e7\u00f5es','Freq.: '+(totalContent/ep).toFixed(1)+'/dia',d.cnt.prevPostsReels>0?'Posts+Reels '+pctDiff(d.cnt.postsReels,d.cnt.prevPostsReels)+' vs '+pl:'Posts+Reels no per\u00edodo: '+d.cnt.postsReels]);
   renderInsight(d,period);
   renderGoalBar(d);
+  // Stories arc: anel no perfil ativo + atualiza todos os botões
+  const apbImg=document.getElementById('apb-img');
+  if(apbImg)apbImg.classList.toggle('has-stories',d.cnt.stories>0);
+  updateStoriesRings();
 }
 
 /* ── BUILD UI ── */
@@ -2398,7 +2409,7 @@ async function buildProfiles(){
   accounts.forEach((acc,idx)=>{
     const btn=document.createElement('button');btn.className='profile-btn'+(idx===0?' active':'');btn.dataset.id=acc.id;
     const t=PROFILE_THEMES[acc.name]||{accent:'#1A3A6B'};
-    const av=document.createElement('div');av.className='av';av.style.background=t.accent;
+    const av=document.createElement('div');av.className='av';av.style.background=t.accent;av.dataset.accountId=acc.id;
     if(acc.picture_url){const img=document.createElement('img');img.src=acc.picture_url;img.alt=acc.name.charAt(0);av.appendChild(img);}
     else{av.textContent=acc.name.charAt(0);}
     btn.appendChild(av);btn.appendChild(document.createTextNode(' '+acc.username));
@@ -2414,6 +2425,18 @@ async function buildProfiles(){
   });
   _allAccounts=accounts;
   if(accounts.length>0){currentAccountId=accounts[0].id;applyProfileTheme(accounts[0].name);setTimeout(loadCampaignFilterBadge,100);}
+  updateStoriesRings();
+}
+
+async function updateStoriesRings(){
+  try{
+    const today=new Date().toISOString().slice(0,10);
+    const rows=await sb(`content_snapshots?captured_at=eq.${today}&period_days=lte.1&select=account_id,stories_count&order=period_days.asc`);
+    const hasStories=new Set((rows||[]).filter(r=>(r.stories_count||0)>0).map(r=>String(r.account_id)));
+    document.querySelectorAll('.profile-btn .av[data-account-id]').forEach(av=>{
+      av.classList.toggle('has-stories',hasStories.has(String(av.dataset.accountId)));
+    });
+  }catch(e){}
 }
 
 /* ── AUTO-CYCLE ── */
@@ -2989,7 +3012,7 @@ function renderGoalBar(d){
   const color=pct>=100?'#16a34a':pct>=60?'var(--accent)':'#d97706';
   const fill=document.getElementById('overall-bar-fill');
   const pctEl=document.getElementById('overall-bar-pct');
-  if(fill){fill.style.width=pct+'%';fill.style.background=color;}
+  if(fill){fill.style.width=pct+'%';fill.style.background=color;fill.style.boxShadow=pct>=100?'0 0 7px #16a34a99,0 0 18px #16a34a33':'';}
   if(pctEl){pctEl.textContent=pct+'%';pctEl.style.color=color;}
 }
 
@@ -4591,14 +4614,14 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     const _pm=window._gvPedidoVendorMap||{};
     const vId=_pm[p.id]||p.vendedor?.id;
     const vend=escHtml((_vc[vId]?.nome||p.vendedor?.nome||'—').split(' ').slice(0,2).join(' '));
-    // Horário em Brasília (America/Sao_Paulo)
-    const raw=p.data||'';
-    const hasTime=raw.length>10;
-    const dt=raw?new Date(hasTime?raw.replace(' ','T'):raw+'T12:00:00'):null;
+    // Horário em Brasília (America/Sao_Paulo) — dataCriacao tem o timestamp completo
+    const rawTs=p.dataCriacao||p.data||'';
+    const dt=rawTs?new Date(rawTs.replace(' ','T')):null;
     let dtStr='';
-    if(dt&&hasTime&&!isNaN(dt)){
+    if(dt&&!isNaN(dt)){
       const brt=new Date(dt.toLocaleString('en-US',{timeZone:'America/Sao_Paulo'}));
-      dtStr=`${String(brt.getDate()).padStart(2,'0')}/${String(brt.getMonth()+1).padStart(2,'0')} ${String(brt.getHours()).padStart(2,'0')}:${String(brt.getMinutes()).padStart(2,'0')}`;
+      const hasHour=rawTs.length>10;
+      dtStr=`${String(brt.getDate()).padStart(2,'0')}/${String(brt.getMonth()+1).padStart(2,'0')}${hasHour?` ${String(brt.getHours()).padStart(2,'0')}:${String(brt.getMinutes()).padStart(2,'0')}`:''}`;
     }
     const nItens=Math.round((p.itens||[]).reduce((s,i)=>s+(parseFloat(i.quantidade)||1),0));
     const itensStr=nItens>0?`${nItens} ${nItens===1?'item':'itens'}`:'';
