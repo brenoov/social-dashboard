@@ -3729,11 +3729,42 @@ function _gvFitKpiText(){
     }
   });
 }
+const _GV_QUOTES=[
+  {q:'A imaginação é mais importante que o conhecimento.',a:'Albert Einstein'},
+  {q:'A vida é o que acontece enquanto você está ocupado fazendo outros planos.',a:'John Lennon'},
+  {q:'Seja a mudança que você quer ver no mundo.',a:'Mahatma Gandhi'},
+  {q:'O sucesso é ir de fracasso em fracasso sem perder o entusiasmo.',a:'Winston Churchill'},
+  {q:'Aqueles que são loucos o suficiente para achar que podem mudar o mundo são os que o fazem.',a:'Steve Jobs'},
+  {q:'Não é a mais forte das espécies que sobrevive, mas a mais adaptável.',a:'Charles Darwin'},
+  {q:'A mente que se abre a uma nova ideia jamais voltará ao seu tamanho original.',a:'Albert Einstein'},
+  {q:'Você nunca cruzará o oceano se tiver medo de perder a costa de vista.',a:'Cristóvão Colombo'},
+  {q:'O único modo de fazer um excelente trabalho é amar o que você faz.',a:'Steve Jobs'},
+  {q:'Errar é humano, mas perseverar no erro é diabólico.',a:'Sêneca'},
+  {q:'O tempo é o recurso mais escasso. Sem geri-lo, você não poderá gerir nada.',a:'Peter Drucker'},
+  {q:'A criatividade é a inteligência se divertindo.',a:'Albert Einstein'},
+  {q:'Não espere por oportunidades extraordinárias. Agarre ocasiões comuns e as torne grandiosas.',a:'Orison Swett Marden'},
+  {q:'Se você quer ir rápido, vá sozinho. Se quer ir longe, vá acompanhado.',a:'Provérbio africano'},
+  {q:'A excelência não é um ato, mas um hábito.',a:'Aristóteles'},
+  {q:'Toda grande jornada começa com um único passo.',a:'Lao Tsé'},
+  {q:'O homem que move montanhas começa carregando pequenas pedras.',a:'Confúcio'},
+  {q:'Aquilo que não te mata te fortalece.',a:'Friedrich Nietzsche'},
+  {q:'Eu não falhei. Apenas descobri 10.000 maneiras que não funcionam.',a:'Thomas Edison'},
+  {q:'O segredo do sucesso é começar.',a:'Mark Twain'},
+];
+let _gvLastQuoteIdx=-1;
+function _gvPickQuote(){
+  let idx;
+  do{idx=Math.floor(Math.random()*_GV_QUOTES.length);}while(idx===_gvLastQuoteIdx&&_GV_QUOTES.length>1);
+  _gvLastQuoteIdx=idx;
+  return _GV_QUOTES[idx];
+}
 function _gvRenderTickerSlide(idx){
   const slide=(window._gvTickerSlides||[])[idx];
   if(!slide)return;
   const lbl=document.getElementById('gv-ticker-lbl');
   const inner=document.getElementById('gv-ticker-inner');
+  // Slide de citações: sorteia uma frase nova a cada exibição
+  if(slide.isQuotes){const qt=_gvPickQuote();slide.items=[`<span class="gv-ticker-item"><em>"${qt.q}"</em> — <strong>${qt.a}</strong></span>`];}
   if(lbl)lbl.textContent=slide.label;
   if(inner){
     if(window._gvTickerTimer){clearTimeout(window._gvTickerTimer);window._gvTickerTimer=null;}
@@ -4636,7 +4667,8 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   if(!tickerAlreadyRunning){
     window._gvTickerSlides=[
       {label:'Últimos pedidos',items:tickItemsPedidos},
-      {label:'Itens mais vendidos',items:[]}
+      {label:'Itens mais vendidos',items:[]},
+      {label:'Citação',items:[],isQuotes:true}
     ];
     window._gvTickerIdx=0;
     _gvRenderTickerSlide(0);
