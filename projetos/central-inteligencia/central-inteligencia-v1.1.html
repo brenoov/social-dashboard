@@ -3535,7 +3535,7 @@ async function _gvBuildSkuSlide(pedidos,pedidosPrev){
       if(_intTop.length&&window._gvTickerSlides){
         const _intItems=_intTop.map((s,i)=>{const nm=s.nome.length>40?s.nome.slice(0,40)+'…':s.nome;const dt=s.lastDate?`${String(s.lastDate.getDate()).padStart(2,'0')}/${String(s.lastDate.getMonth()+1).padStart(2,'0')}/${s.lastDate.getFullYear().toString().slice(2)}`:'';return `<span class="gv-ticker-item"><strong>#${i+1} ${s.sku}</strong> · ${nm} · ${fmtR(s.preco)} · <span style="opacity:.7">${Math.round(s.qty)} un.${dt?` · última: ${dt}`:''}</span></span>`;});
         window._gvTickerSlides[1]={label:'Itens mais vendidos',items:_intItems};
-        if(window._gvTickerIdx===1)_gvRenderTickerSlide(1);
+        // Não re-renderiza — ticker usa os dados na próxima troca de slide naturalmente
       }
     }
   }
@@ -3590,7 +3590,7 @@ async function _gvBuildSkuSlide(pedidos,pedidosPrev){
   });
   if(window._gvTickerSlides){
     window._gvTickerSlides[1]={label:'Itens mais vendidos',items};
-    if(window._gvTickerIdx===1)_gvRenderTickerSlide(1);
+    // Não re-renderiza — ticker usa os dados na próxima troca de slide naturalmente
   }
 }
 function _gvUpdateVendRanking(){
@@ -3701,6 +3701,7 @@ function _gvRenderTickerSlide(idx){
   const inner=document.getElementById('gv-ticker-inner');
   if(lbl)lbl.textContent=slide.label;
   if(inner){
+    if(inner._gvAnimEnd){inner.removeEventListener('animationend',inner._gvAnimEnd);inner._gvAnimEnd=null;}
     inner.classList.remove('animate');
     inner.style.removeProperty('--ticker-travel');
     inner.innerHTML=slide.items.length>0?slide.items.join('<span class="gv-ticker-dot"></span>'):'—';
@@ -3712,7 +3713,8 @@ function _gvRenderTickerSlide(idx){
         inner.style.setProperty('--ticker-travel',`-${travel}px`);
         inner.style.setProperty('--ticker-dur',dur+'s');
         inner.classList.add('animate');
-        inner.addEventListener('animationend',_gvNextTickerSlide,{once:true});
+        inner._gvAnimEnd=_gvNextTickerSlide;
+        inner.addEventListener('animationend',inner._gvAnimEnd,{once:true});
       });
     }else{
       setTimeout(_gvNextTickerSlide,2000);
