@@ -4577,6 +4577,8 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
       </div>
     </div>
   `;
+  // Ajusta grid de canais antes do board aparecer (board ainda opacity:0 — sem flash)
+  requestAnimationFrame(()=>{_gvFitCanalGrid();_gvFitKpiText();});
 
   // Ticker — slide 1: últimos pedidos
   const recent=[...pedidos].sort((a,b)=>new Date(b.data||0)-new Date(a.data||0)).slice(0,10);
