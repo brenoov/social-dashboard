@@ -49,11 +49,20 @@
   .profile-select{display:flex;gap:6px;flex-wrap:wrap;}
   .profile-btn{background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:3px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .2s cubic-bezier(.4,0,.2,1),border-color .2s ease,color .15s ease,transform .12s ease;}
   .profile-btn:active{transform:scale(.95);}
-  .profile-btn .av{width:20px;height:20px;border-radius:50%;font-size:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;overflow:hidden;flex-shrink:0;transition:box-shadow .3s;}
+  @keyframes storiesRotate{to{transform:rotate(360deg)}}
+  .profile-btn .av{width:20px;height:20px;border-radius:50%;font-size:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;overflow:hidden;flex-shrink:0;position:relative;z-index:1;}
   .profile-btn .av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
-  .profile-btn .av.has-stories{box-shadow:0 0 0 1.5px var(--bg),0 0 0 3.5px #e1306c,0 0 0 5px #833ab4;}
-  #apb-img{width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid var(--accent);display:none;transition:box-shadow .3s;}
-  #apb-img.has-stories{border-color:transparent;box-shadow:0 0 0 3px var(--bg),0 0 0 5.5px #e1306c,0 0 0 7.5px #833ab4,0 0 12px #e1306c66;}
+  /* wrapper para arco de stories nos botões de perfil */
+  .av-ring-wrap{position:relative;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .av-ring-wrap::before{content:'';position:absolute;inset:-2.5px;border-radius:50%;background:conic-gradient(#f09433,#e6683c,#dc2743,#cc2366,#bc1888,#833ab4,#405de6,#f09433);animation:storiesRotate 3s linear infinite;opacity:0;transition:opacity .3s;}
+  .av-ring-wrap.has-stories::before{opacity:1;}
+  .av-ring-wrap.has-stories>.av{outline:1.5px solid var(--bg);outline-offset:0;}
+  /* wrapper para arco de stories na foto de perfil ativa */
+  #apb-ring-wrap{position:relative;display:none;flex-shrink:0;}
+  #apb-ring-wrap::before{content:'';position:absolute;inset:-4px;border-radius:50%;background:conic-gradient(#f09433,#e6683c,#dc2743,#cc2366,#bc1888,#833ab4,#405de6,#f09433);animation:storiesRotate 3s linear infinite;opacity:0;transition:opacity .3s;}
+  #apb-ring-wrap.has-stories::before{opacity:1;}
+  #apb-img{width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;border:none;display:block;position:relative;z-index:1;}
+  #apb-ring-wrap.has-stories #apb-img{outline:2.5px solid var(--bg);outline-offset:0;}
   .profile-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
   .profile-btn:hover{border-color:var(--accent);color:var(--text);}
 
@@ -218,7 +227,8 @@
     /* ── ACTIVE PROFILE BAR ── */
     #active-profile-bar{padding:8px 12px;margin-bottom:0;gap:7px;border-bottom:1px solid var(--border);}
     #apb-name{font-size:15px;letter-spacing:1.5px;}
-    #apb-img{display:block;width:28px;height:28px;border-width:1.5px;}
+    #apb-ring-wrap{display:flex;}
+    #apb-img{width:28px;height:28px;}
     #apb-dot{width:6px;height:6px;}
 
     /* ── SECTIONS ── */
@@ -1612,7 +1622,7 @@
   </div>
 
   <div id="active-profile-bar">
-    <img id="apb-img" alt="">
+    <div id="apb-ring-wrap"><img id="apb-img" alt=""></div>
     <div id="apb-dot"></div>
     <span id="apb-name">—</span>
   </div>
@@ -1871,7 +1881,8 @@ function applyProfileTheme(name){
   const ll=document.getElementById('chart-legend-line');if(ll)ll.style.background=t.accent;
   const apbName=document.getElementById('apb-name');if(apbName)apbName.textContent=name;
   const apbImg=document.getElementById('apb-img');
-  if(apbImg){const pic=ACCOUNT_PICS[name];if(pic){apbImg.src=pic;apbImg.style.display='block';}else{apbImg.style.display='none';}}
+  const apbRingWrap2=document.getElementById('apb-ring-wrap');
+  if(apbImg){const pic=ACCOUNT_PICS[name];if(pic){apbImg.src=pic;if(apbRingWrap2)apbRingWrap2.style.display='flex';}else{if(apbRingWrap2)apbRingWrap2.style.display='none';}}
 }
 
 const GOALS={
@@ -2392,8 +2403,8 @@ function update(d,period){
   renderInsight(d,period);
   renderGoalBar(d);
   // Stories arc: anel no perfil ativo + atualiza todos os botões
-  const apbImg=document.getElementById('apb-img');
-  if(apbImg)apbImg.classList.toggle('has-stories',d.cnt.stories>0);
+  const apbRingWrap=document.getElementById('apb-ring-wrap');
+  if(apbRingWrap)apbRingWrap.classList.toggle('has-stories',d.cnt.stories>0);
   updateStoriesRings();
 }
 
@@ -2412,7 +2423,8 @@ async function buildProfiles(){
     const av=document.createElement('div');av.className='av';av.style.background=t.accent;av.dataset.accountId=acc.id;
     if(acc.picture_url){const img=document.createElement('img');img.src=acc.picture_url;img.alt=acc.name.charAt(0);av.appendChild(img);}
     else{av.textContent=acc.name.charAt(0);}
-    btn.appendChild(av);btn.appendChild(document.createTextNode(' '+acc.username));
+    const ringWrap=document.createElement('div');ringWrap.className='av-ring-wrap';ringWrap.dataset.accountId=acc.id;ringWrap.appendChild(av);
+    btn.appendChild(ringWrap);btn.appendChild(document.createTextNode(' '+acc.username));
     btn.addEventListener('click',()=>{
       document.querySelectorAll('.profile-btn').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
@@ -2433,8 +2445,8 @@ async function updateStoriesRings(){
     const today=new Date().toISOString().slice(0,10);
     const rows=await sb(`content_snapshots?captured_at=eq.${today}&period_days=lte.1&select=account_id,stories_count&order=period_days.asc`);
     const hasStories=new Set((rows||[]).filter(r=>(r.stories_count||0)>0).map(r=>String(r.account_id)));
-    document.querySelectorAll('.profile-btn .av[data-account-id]').forEach(av=>{
-      av.classList.toggle('has-stories',hasStories.has(String(av.dataset.accountId)));
+    document.querySelectorAll('.av-ring-wrap[data-account-id]').forEach(wrap=>{
+      wrap.classList.toggle('has-stories',hasStories.has(String(wrap.dataset.accountId)));
     });
   }catch(e){}
 }
@@ -4614,18 +4626,9 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     const _pm=window._gvPedidoVendorMap||{};
     const vId=_pm[p.id]||p.vendedor?.id;
     const vend=escHtml((_vc[vId]?.nome||p.vendedor?.nome||'—').split(' ').slice(0,2).join(' '));
-    // Horário em Brasília (America/Sao_Paulo) — dataCriacao tem o timestamp completo
-    const rawTs=p.dataCriacao||p.data||'';
-    const dt=rawTs?new Date(rawTs.replace(' ','T')):null;
-    let dtStr='';
-    if(dt&&!isNaN(dt)){
-      const brt=new Date(dt.toLocaleString('en-US',{timeZone:'America/Sao_Paulo'}));
-      const hasHour=rawTs.length>10;
-      dtStr=`${String(brt.getDate()).padStart(2,'0')}/${String(brt.getMonth()+1).padStart(2,'0')}${hasHour?` ${String(brt.getHours()).padStart(2,'0')}:${String(brt.getMinutes()).padStart(2,'0')}`:''}`;
-    }
     const nItens=Math.round((p.itens||[]).reduce((s,i)=>s+(parseFloat(i.quantidade)||1),0));
     const itensStr=nItens>0?`${nItens} ${nItens===1?'item':'itens'}`:'';
-    return `<span class="gv-ticker-item">${num?`<strong>${num}</strong> · `:''}${canal} · ${val} · ${vend}${dtStr?` · <span style="opacity:.7">${dtStr}</span>`:''}${itensStr?` · ${itensStr}`:''}</span>`;
+    return `<span class="gv-ticker-item">${num?`<strong>${num}</strong> · `:''}${canal} · ${val} · ${vend}${itensStr?` · ${itensStr}`:''}</span>`;
   });
 
   // Inicializa slides apenas na primeira carga — mudanças de período não reiniciam o ticker
