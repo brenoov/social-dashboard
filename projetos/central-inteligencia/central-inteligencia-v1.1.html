@@ -4581,15 +4581,20 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   // Ticker — slide 1: últimos pedidos
   const recent=[...pedidos].sort((a,b)=>new Date(b.data||0)-new Date(a.data||0)).slice(0,10);
   const tickItemsPedidos=recent.map(p=>{
-    const canal=escHtml(canais[p.loja?.id]||'Pedido #'+p.numero);
+    const num=p.numero?`#${p.numero}`:'';
+    const canal=escHtml(canais[p.loja?.id]||'—');
     const val=fmtR(parseFloat(p.total||0));
     const vend=escHtml((vendedoresMap[p.vendedor?.id]?.nome||p.vendedor?.nome||'—').split(' ').slice(0,2).join(' '));
     const isDateOnly=p.data&&p.data.length<=10;
     const dt=p.data?new Date(isDateOnly?p.data+'T12:00:00':p.data):null;
-    const dtStr=dt?isDateOnly?`${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}`:`${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`:'';
+    let dtStr='';
+    if(dt&&!isDateOnly){
+      const brt=new Date(dt.toLocaleString('en-US',{timeZone:'America/Sao_Paulo'}));
+      dtStr=`${String(brt.getDate()).padStart(2,'0')}/${String(brt.getMonth()+1).padStart(2,'0')} ${String(brt.getHours()).padStart(2,'0')}:${String(brt.getMinutes()).padStart(2,'0')}`;
+    }
     const nItens=Math.round((p.itens||[]).reduce((s,i)=>s+(parseFloat(i.quantidade)||1),0));
     const itensStr=nItens>0?`${nItens} ${nItens===1?'item':'itens'}`:'';
-    return `<span class="gv-ticker-item"><strong>${canal}</strong> · ${val} · ${vend}${dtStr?` · <span style="opacity:.7">${dtStr}</span>`:''}${itensStr?` · ${itensStr}`:''}</span>`;
+    return `<span class="gv-ticker-item">${num?`<strong>${num}</strong> · `:''}${canal} · ${val} · ${vend}${dtStr?` · <span style="opacity:.7">${dtStr}</span>`:''}${itensStr?` · ${itensStr}`:''}</span>`;
   });
 
   // Inicializa slides apenas na primeira carga — mudanças de período não reiniciam o ticker
