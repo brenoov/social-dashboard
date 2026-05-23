@@ -4586,11 +4586,17 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     const num=p.numero?`#${p.numero}`:'';
     const canal=escHtml(canais[p.loja?.id]||'—');
     const val=fmtR(parseFloat(p.total||0));
-    const vend=escHtml((vendedoresMap[p.vendedor?.id]?.nome||p.vendedor?.nome||'—').split(' ').slice(0,2).join(' '));
-    const isDateOnly=p.data&&p.data.length<=10;
-    const dt=p.data?new Date(isDateOnly?p.data+'T12:00:00':p.data):null;
+    // Vendedor: usa cache de nomes + mapeamento pedido→vendedor populados em background
+    const _vc=window._gvVendedoresCache||{};
+    const _pm=window._gvPedidoVendorMap||{};
+    const vId=_pm[p.id]||p.vendedor?.id;
+    const vend=escHtml((_vc[vId]?.nome||p.vendedor?.nome||'—').split(' ').slice(0,2).join(' '));
+    // Horário em Brasília (America/Sao_Paulo)
+    const raw=p.data||'';
+    const hasTime=raw.length>10;
+    const dt=raw?new Date(hasTime?raw.replace(' ','T'):raw+'T12:00:00'):null;
     let dtStr='';
-    if(dt&&!isDateOnly){
+    if(dt&&hasTime&&!isNaN(dt)){
       const brt=new Date(dt.toLocaleString('en-US',{timeZone:'America/Sao_Paulo'}));
       dtStr=`${String(brt.getDate()).padStart(2,'0')}/${String(brt.getMonth()+1).padStart(2,'0')} ${String(brt.getHours()).padStart(2,'0')}:${String(brt.getMinutes()).padStart(2,'0')}`;
     }
