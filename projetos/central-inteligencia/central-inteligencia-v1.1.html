@@ -3480,7 +3480,7 @@ function openGestaoVista(){
   window._gvVendedoresCache={};
   window._gvPedidoVendorMap={};
   window._gvRenderCtx=null;
-  if(window._gvTickerTimer){clearInterval(window._gvTickerTimer);window._gvTickerTimer=null;}
+  if(window._gvTickerTimer){clearTimeout(window._gvTickerTimer);window._gvTickerTimer=null;}
   if(_gvStatusTimer){clearInterval(_gvStatusTimer);_gvStatusTimer=null;}
   _gvLastLoadTime=null;
   updateGvUpdateStatus();
@@ -3701,7 +3701,7 @@ function _gvRenderTickerSlide(idx){
   const inner=document.getElementById('gv-ticker-inner');
   if(lbl)lbl.textContent=slide.label;
   if(inner){
-    if(inner._gvAnimEnd){inner.removeEventListener('animationend',inner._gvAnimEnd);inner._gvAnimEnd=null;}
+    if(window._gvTickerTimer){clearTimeout(window._gvTickerTimer);window._gvTickerTimer=null;}
     inner.classList.remove('animate');
     inner.style.removeProperty('--ticker-travel');
     inner.innerHTML=slide.items.length>0?slide.items.join('<span class="gv-ticker-dot"></span>'):'—';
@@ -3713,11 +3713,11 @@ function _gvRenderTickerSlide(idx){
         inner.style.setProperty('--ticker-travel',`-${travel}px`);
         inner.style.setProperty('--ticker-dur',dur+'s');
         inner.classList.add('animate');
-        inner._gvAnimEnd=_gvNextTickerSlide;
-        inner.addEventListener('animationend',inner._gvAnimEnd,{once:true});
+        // Timer baseado na duração calculada — independente de CSS animation (que pode ser none em telas pequenas)
+        window._gvTickerTimer=setTimeout(_gvNextTickerSlide,dur*2*1000+1500);
       });
     }else{
-      setTimeout(_gvNextTickerSlide,2000);
+      window._gvTickerTimer=setTimeout(_gvNextTickerSlide,3000);
     }
   }
 }
@@ -3735,7 +3735,7 @@ function _gvNextTickerSlide(){
 }
 function closeGestaoVista(){
   gvAutoStop();
-  if(window._gvTickerTimer){clearInterval(window._gvTickerTimer);window._gvTickerTimer=null;}
+  if(window._gvTickerTimer){clearTimeout(window._gvTickerTimer);window._gvTickerTimer=null;}
   if(_gvStatusTimer){clearInterval(_gvStatusTimer);_gvStatusTimer=null;}
   document.getElementById('gestao-vista-screen').style.display='none';
   document.getElementById('sales-menu-screen').style.display='flex';
