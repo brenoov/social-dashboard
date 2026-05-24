@@ -641,42 +641,41 @@
 
   /* ── GESTÃO À VISTA · MOBILE (≤480px) ── */
   @media(max-width:480px){
-    #gestao-vista-screen{height:auto;min-height:100svh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+    #gestao-vista-screen{height:auto;min-height:100svh;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;}
 
-    /* Topbar: 2 linhas — brand+live dot / períodos scroll */
-    .gv-topbar{flex-wrap:wrap;padding:0;gap:0;border-bottom:1px solid var(--border);}
+    /* Topbar: 2 linhas — brand+live / períodos scroll */
+    .gv-topbar{flex-wrap:wrap;padding:0;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;position:sticky;top:0;z-index:10;background:var(--surface);}
     .gv-topbar-brand{order:1;flex:1;min-width:0;gap:8px;padding:9px 12px;}
     .gv-topbar .rbv-logo{display:none!important;}
     .gv-perf-tag{font-size:10px!important;letter-spacing:3px!important;}
     .gv-brand-tag{display:none!important;}
-    /* Live dot: visível, clock: oculto */
     .gv-clock-wrap{order:2;display:flex!important;flex-direction:row;align-items:center;gap:6px;padding:9px 12px;}
     .gv-clock-time,.gv-clock-date,.gv-update-status{display:none!important;}
-    /* Período: linha própria, scroll horizontal */
     .gv-period-btns{order:3;width:100%;box-sizing:border-box;overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap!important;gap:4px;padding:6px 12px 8px;border-top:1px solid var(--border);background:var(--surface);}
     .gv-pbtn{font-size:10px;padding:5px 10px;flex-shrink:0;border-radius:4px;}
     #gv-ac-toggle{flex-shrink:0;font-size:9px;padding:4px 8px;}
 
-    /* Board: coluna única */
-    .gv-board{display:flex!important;flex-direction:column;gap:1px;background:var(--border);overflow:visible;min-height:0;}
+    /* Board: fundo neutro + cards empilhados com espaçamento */
+    .gv-board{display:flex!important;flex-direction:column;gap:10px;background:var(--surface2);overflow:visible;min-height:0;padding:12px;}
 
-    /* Left: coluna com gauge + grid KPI */
-    .gv-left{display:flex!important;flex-direction:column;align-items:center;padding:12px 14px;gap:8px;overflow:visible;background:var(--bg);justify-content:flex-start;}
+    /* Card: KPI principal (período + gauge + KPIs) */
+    .gv-left{display:flex!important;flex-direction:column;align-items:center;padding:14px;gap:10px;overflow:visible;background:var(--surface);border:1px solid var(--border);border-radius:4px;justify-content:flex-start;width:100%;box-sizing:border-box;}
     .gv-kpi-period{align-self:flex-start;margin-bottom:0;}
     .gv-col-grid-label.gv-main-chart-title{align-self:flex-start;margin-top:0!important;margin-bottom:0!important;}
-    .gv-gauge-wrap{flex:none;height:auto;max-height:none;min-height:0;width:100%;max-width:240px;}
+    .gv-gauge-wrap{flex:none;height:auto;max-height:none;min-height:0;width:100%;max-width:220px;}
     .gv-gauge-inner{width:100%;max-width:none;}
 
-    /* KPI grid: 3 colunas compactas */
-    .gv-main-kpi{display:grid!important;grid-template-columns:repeat(3,1fr)!important;flex-direction:unset;width:100%;border:1px solid var(--border);}
-    .gv-main-kpi-item{display:flex!important;flex-direction:column!important;align-items:center;padding:7px 4px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);border-left:none;border-top:none;}
+    /* KPI grid: 3 colunas dentro do card */
+    .gv-main-kpi{display:grid!important;grid-template-columns:repeat(3,1fr)!important;flex-direction:unset;width:100%;border:1px solid var(--border);border-radius:3px;overflow:hidden;}
+    .gv-main-kpi-item{display:flex!important;flex-direction:column!important;align-items:center;text-align:center;padding:8px 4px;border-right:1px solid var(--border);border-bottom:none;border-left:none;border-top:none;}
+    .gv-main-kpi-item:last-child{border-right:none;}
     .gv-main-kpi-v{font-size:15px;}
     .gv-main-kpi-l{font-size:7px;letter-spacing:.3px;}
     .gv-main-kpi-d{font-size:8px;}
 
-    /* Right: coluna */
-    .gv-right{display:flex!important;flex-direction:column;gap:1px;background:var(--border);overflow:visible;min-height:0;}
-    .gv-canal-panel{overflow:visible;padding:10px 12px;background:var(--bg);}
+    /* Card: canais */
+    .gv-right{display:flex!important;flex-direction:column;gap:10px;background:transparent;overflow:visible;min-height:0;}
+    .gv-canal-panel{overflow:visible;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:4px;}
     .gv-canal-scroll{display:block;overflow:visible;flex:none;}
     .gv-canal-scroll-inner{animation:none!important;transform:none!important;}
     .gv-canal-grid{grid-template-columns:repeat(2,1fr)!important;gap:10px;}
@@ -684,21 +683,21 @@
     .gv-sm-item-val{font-size:11px;}
     .gv-sm-item-delta{font-size:8px;}
 
-    /* Rankings: empilhados */
-    .gv-rankings{display:flex!important;flex-direction:column;gap:1px;background:var(--border);}
-    .gv-rank-panel{overflow:visible;padding:10px 12px;background:var(--bg);}
+    /* Cards: rankings (canal + vendedor, cada um no seu card) */
+    .gv-rankings{display:flex!important;flex-direction:column;gap:10px;background:transparent;}
+    .gv-rank-panel{overflow:visible;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:4px;}
     .gv-rank-scroll{overflow:visible;flex:none;}
     .gv-rank-scroll-inner{animation:none!important;transform:none!important;}
     .gv-rank-nm{font-size:12px;}
     .gv-rank-v{font-size:13px;}
     .gv-rank-hint{font-size:9px;}
     .gv-rank-num{font-size:10px;width:14px;}
-    .gv-rank-entry{margin-bottom:4px;padding-bottom:4px;gap:6px;}
+    .gv-rank-entry{margin-bottom:6px;padding-bottom:6px;gap:6px;}
     .gv-rank-delta{font-size:9px;}
     .gv-rank-desvio{font-size:9px;}
     .gv-big-num{font-size:28px;}
 
-    /* Ticker: scroll manual (swipe) */
+    /* Ticker: swipe horizontal */
     .gv-ticker{height:auto;padding:7px 10px;gap:6px;flex-shrink:0;}
     .gv-ticker-sep{display:none;}
     .gv-ticker-outer{flex:1;overflow-x:auto;-webkit-overflow-scrolling:touch;}
