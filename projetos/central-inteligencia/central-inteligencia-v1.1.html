@@ -641,68 +641,203 @@
 
   /* ── GESTÃO À VISTA · MOBILE (≤480px) ── */
   @media(max-width:480px){
-    #gestao-vista-screen{height:auto;min-height:100svh;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;}
 
-    /* Topbar: 2 linhas — brand+live / períodos scroll */
-    .gv-topbar{flex-wrap:wrap;padding:0;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;position:sticky;top:0;z-index:10;background:var(--surface);}
-    .gv-topbar-brand{order:1;flex:1;min-width:0;gap:8px;padding:9px 12px;}
+    /* ─ Tela ─ */
+    #gestao-vista-screen{
+      height:auto;min-height:100svh;overflow-y:auto;
+      -webkit-overflow-scrolling:touch;
+      display:flex;flex-direction:column;
+    }
+
+    /* ─ Topbar: linha 1 = back+tag, linha 2 = períodos scroll ─ */
+    .gv-topbar{
+      flex-wrap:wrap;padding:0;gap:0;
+      border-bottom:1px solid var(--border);
+      flex-shrink:0;position:sticky;top:0;z-index:10;
+      background:var(--surface);
+    }
+    .gv-topbar-brand{
+      order:1;flex:1;min-width:0;
+      display:flex;align-items:center;gap:8px;
+      padding:10px 14px;
+    }
     .gv-topbar .rbv-logo{display:none!important;}
     .gv-perf-tag{font-size:10px!important;letter-spacing:3px!important;}
     .gv-brand-tag{display:none!important;}
-    .gv-clock-wrap{order:2;display:flex!important;flex-direction:row;align-items:center;gap:6px;padding:9px 12px;}
+    .gv-clock-wrap{display:none!important;}
     .gv-clock-time,.gv-clock-date,.gv-update-status{display:none!important;}
-    .gv-period-btns{order:3;width:100%;box-sizing:border-box;overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap!important;gap:4px;padding:6px 12px 8px;border-top:1px solid var(--border);background:var(--surface);}
-    .gv-pbtn{font-size:10px;padding:5px 10px;flex-shrink:0;border-radius:4px;}
-    #gv-ac-toggle{flex-shrink:0;font-size:9px;padding:4px 8px;}
+    .gv-period-btns{
+      order:2;width:100%;box-sizing:border-box;
+      overflow-x:auto;-webkit-overflow-scrolling:touch;
+      display:flex;flex-wrap:nowrap!important;gap:4px;
+      padding:7px 14px 9px;
+      border-top:1px solid var(--border);
+      background:var(--surface);
+    }
+    .gv-pbtn{font-size:10px;padding:5px 11px;flex-shrink:0;border-radius:4px;}
+    #gv-ac-toggle{flex-shrink:0;font-size:9px;padding:5px 10px;}
 
-    /* Board: fundo neutro + cards empilhados com espaçamento */
-    .gv-board{display:flex!important;flex-direction:column;gap:10px;background:var(--surface2);overflow:visible;min-height:0;padding:12px;}
+    /* ─ Board: coluna de cards sobre fundo neutro ─ */
+    .gv-board{
+      display:flex!important;flex-direction:column;
+      gap:12px;background:var(--surface2);
+      overflow:visible;min-height:0;flex:none;
+      padding:12px;
+    }
 
-    /* Card: KPI principal (período + gauge + KPIs) */
-    .gv-left{display:flex!important;flex-direction:column;align-items:center;padding:14px;gap:10px;overflow:visible;background:var(--surface);border:1px solid var(--border);border-radius:4px;justify-content:flex-start;width:100%;box-sizing:border-box;}
-    .gv-kpi-period{align-self:flex-start;margin-bottom:0;}
-    .gv-col-grid-label.gv-main-chart-title{align-self:flex-start;margin-top:0!important;margin-bottom:0!important;}
-    .gv-gauge-wrap{flex:none;height:auto;max-height:none;min-height:0;width:100%;max-width:220px;}
-    .gv-gauge-inner{width:100%;max-width:none;aspect-ratio:200/190;}
+    /* ─ CARD 1: KPI principal ─ */
+    .gv-left{
+      display:flex!important;flex-direction:column;
+      align-items:center;
+      padding:16px;gap:12px;
+      overflow:visible;
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:6px;
+      width:100%;box-sizing:border-box;
+      flex:none;
+    }
+    /* resetar grid-column/row herdados do bloco 640px */
+    .gv-kpi-period{
+      align-self:flex-start;
+      grid-column:unset;grid-row:unset;
+      margin:0;
+    }
+    .gv-col-grid-label.gv-main-chart-title{
+      align-self:flex-start;
+      grid-column:unset;
+      margin:0!important;
+      border-bottom:none!important;
+      padding-bottom:0!important;
+      font-size:9px!important;letter-spacing:2px!important;
+    }
+    .gv-gauge-wrap{
+      flex:none;
+      grid-column:unset;grid-row:unset;
+      height:auto!important;max-height:none!important;
+      min-height:0;width:100%;max-width:196px;
+    }
+    .gv-gauge-inner{
+      width:100%;max-width:none;
+      aspect-ratio:200/190;
+    }
+    .gv-big-num{font-size:24px;letter-spacing:-0.5px;}
 
-    /* KPI grid: 2 colunas (4 itens = 2×2 perfeito) */
-    .gv-main-kpi{display:grid!important;grid-template-columns:repeat(2,1fr)!important;flex-direction:unset;width:100%;border:1px solid var(--border);border-radius:3px;overflow:hidden;}
-    .gv-main-kpi-item{display:flex!important;flex-direction:column!important;align-items:center;text-align:center;padding:10px 6px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);border-left:none;border-top:none;}
+    /* KPI grid 2×2 */
+    .gv-main-kpi{
+      display:grid!important;
+      grid-template-columns:repeat(2,1fr)!important;
+      grid-column:unset;grid-row:unset;
+      flex-direction:unset;
+      width:100%;
+      border:1px solid var(--border);
+      border-radius:4px;
+      overflow:hidden;
+      gap:0;padding:0;justify-content:unset;
+    }
+    .gv-main-kpi-item{
+      display:flex!important;flex-direction:column!important;
+      align-items:center;text-align:center;
+      padding:12px 8px;
+      border-right:1px solid var(--border);
+      border-bottom:1px solid var(--border);
+      border-left:none;border-top:none;
+      flex-wrap:unset;row-gap:unset;
+    }
     .gv-main-kpi-item:nth-child(2n){border-right:none;}
-    .gv-main-kpi-v{font-size:15px;}
-    .gv-main-kpi-l{font-size:7px;letter-spacing:.3px;}
-    .gv-main-kpi-d{font-size:8px;}
+    .gv-main-kpi-item:nth-child(n+3){border-bottom:none;}
+    .gv-main-kpi-v{font-size:16px;}
+    .gv-main-kpi-l{font-size:8px;letter-spacing:.5px;}
+    .gv-main-kpi-d{font-size:9px;width:auto;}
 
-    /* Card: canais */
-    .gv-right{display:flex!important;flex-direction:column;gap:10px;background:transparent;overflow:visible;min-height:0;}
-    .gv-canal-panel{overflow:visible;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:4px;}
+    /* ─ Container direito: transparente, empilha os cards ─ */
+    .gv-right{
+      display:flex!important;flex-direction:column;
+      gap:12px;background:transparent;
+      overflow:visible;min-height:0;
+    }
+
+    /* ─ CARD 2: Canais de venda ─ */
+    .gv-canal-panel{
+      display:flex!important;flex-direction:column;
+      gap:12px;
+      overflow:visible;
+      padding:16px;
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:6px;
+    }
+    .gv-col-grid-label{
+      border-bottom:none!important;
+      padding-bottom:0!important;
+      margin-bottom:0!important;
+    }
     .gv-canal-scroll{display:block;overflow:visible;flex:none;}
     .gv-canal-scroll-inner{animation:none!important;transform:none!important;}
-    .gv-canal-grid{grid-template-columns:repeat(2,1fr)!important;gap:10px;}
-    .gv-sm-item-lbl{font-size:12px;}
-    .gv-sm-item-val{font-size:11px;}
-    .gv-sm-item-delta{font-size:8px;}
+    .gv-canal-grid{
+      grid-template-columns:repeat(2,1fr)!important;
+      gap:8px;
+    }
+    .gv-sm-item{
+      padding:10px 8px;
+      background:var(--surface2);
+      border:1px solid var(--border);
+      border-radius:4px;
+    }
+    .gv-sm-item-lbl{font-size:11px;font-weight:600;}
+    .gv-sm-item-val{font-size:13px;}
+    .gv-sm-item-delta{font-size:9px;}
+    .gv-sm-item-desvio{font-size:9px;}
 
-    /* Cards: rankings (canal + vendedor, cada um no seu card) */
-    .gv-rankings{display:flex!important;flex-direction:column;gap:10px;background:transparent;}
-    .gv-rank-panel{overflow:visible;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:4px;}
+    /* ─ Container rankings ─ */
+    .gv-rankings{
+      display:flex!important;flex-direction:column;
+      gap:12px;background:transparent;
+    }
+
+    /* ─ CARDS 3 & 4: Rankings ─ */
+    .gv-rank-panel{
+      display:flex!important;flex-direction:column;
+      gap:10px;
+      overflow:visible;
+      padding:16px;
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:6px;
+    }
+    .gv-rank-col-hdr{
+      margin-bottom:0;
+      font-size:8px;letter-spacing:4px;
+    }
     .gv-rank-scroll{overflow:visible;flex:none;}
-    .gv-rank-scroll-inner{animation:none!important;transform:none!important;}
+    .gv-rank-scroll-inner{
+      display:flex;flex-direction:column;
+      animation:none!important;transform:none!important;
+    }
+    .gv-rank-entry{
+      margin-bottom:8px;padding-bottom:8px;
+      gap:8px;
+    }
+    .gv-rank-entry:last-child{
+      margin-bottom:0;padding-bottom:0;
+      border-bottom:none;
+    }
+    .gv-rank-num{font-size:11px;width:16px;}
     .gv-rank-nm{font-size:12px;}
     .gv-rank-v{font-size:13px;}
     .gv-rank-hint{font-size:9px;}
-    .gv-rank-num{font-size:10px;width:14px;}
-    .gv-rank-entry{margin-bottom:6px;padding-bottom:6px;gap:6px;}
+    .gv-rank-bar{height:3px;}
     .gv-rank-delta{font-size:9px;}
     .gv-rank-desvio{font-size:9px;}
-    .gv-big-num{font-size:28px;}
 
-    /* Ticker: swipe horizontal */
-    .gv-ticker{height:auto;padding:7px 10px;gap:6px;flex-shrink:0;}
+    /* ─ Ticker: scroll horizontal ─ */
+    .gv-ticker{
+      height:auto;padding:8px 14px;gap:6px;flex-shrink:0;
+    }
     .gv-ticker-sep{display:none;}
     .gv-ticker-outer{flex:1;overflow-x:auto;-webkit-overflow-scrolling:touch;}
     .gv-ticker-inner{white-space:nowrap;animation:none!important;}
-    .gv-ticker-lbl{font-size:8px;min-width:70px;letter-spacing:2px;}
+    .gv-ticker-lbl{font-size:8px;min-width:72px;letter-spacing:2px;}
     .gv-ticker-item{font-size:10px;}
   }
 
