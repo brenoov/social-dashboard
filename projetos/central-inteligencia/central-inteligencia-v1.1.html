@@ -663,12 +663,12 @@
     .gv-kpi-period{align-self:flex-start;margin-bottom:0;}
     .gv-col-grid-label.gv-main-chart-title{align-self:flex-start;margin-top:0!important;margin-bottom:0!important;}
     .gv-gauge-wrap{flex:none;height:auto;max-height:none;min-height:0;width:100%;max-width:220px;}
-    .gv-gauge-inner{width:100%;max-width:none;}
+    .gv-gauge-inner{width:100%;max-width:none;aspect-ratio:200/190;}
 
-    /* KPI grid: 3 colunas dentro do card */
-    .gv-main-kpi{display:grid!important;grid-template-columns:repeat(3,1fr)!important;flex-direction:unset;width:100%;border:1px solid var(--border);border-radius:3px;overflow:hidden;}
-    .gv-main-kpi-item{display:flex!important;flex-direction:column!important;align-items:center;text-align:center;padding:8px 4px;border-right:1px solid var(--border);border-bottom:none;border-left:none;border-top:none;}
-    .gv-main-kpi-item:last-child{border-right:none;}
+    /* KPI grid: 2 colunas (4 itens = 2×2 perfeito) */
+    .gv-main-kpi{display:grid!important;grid-template-columns:repeat(2,1fr)!important;flex-direction:unset;width:100%;border:1px solid var(--border);border-radius:3px;overflow:hidden;}
+    .gv-main-kpi-item{display:flex!important;flex-direction:column!important;align-items:center;text-align:center;padding:10px 6px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);border-left:none;border-top:none;}
+    .gv-main-kpi-item:nth-child(2n){border-right:none;}
     .gv-main-kpi-v{font-size:15px;}
     .gv-main-kpi-l{font-size:7px;letter-spacing:.3px;}
     .gv-main-kpi-d{font-size:8px;}
