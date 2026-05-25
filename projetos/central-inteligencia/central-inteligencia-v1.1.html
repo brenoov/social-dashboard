@@ -4543,6 +4543,96 @@ function renderSADesconto({pedidos,lojas,lojaMap}){
   return sec;
 }
 
+function renderSAVendedoras({pedidos,vendedoresArr,pvMap,lojaMap}){
+  const sec=document.createElement('div');sec.className='sa-section';
+  const title=document.createElement('div');title.className='sa-section-title';title.textContent='Vendedoras';
+  sec.appendChild(title);
+
+  const tabs=['Vendas (R$)','Qtd Cupons','Ticket Médio','% 2+ Itens','% Desconto'];
+  const tabRow=document.createElement('div');tabRow.className='sa-tab-row';
+  const wrap=document.createElement('div');wrap.className='sa-chart-wrap';wrap.style.height='260px';
+  const canvas=document.createElement('canvas');wrap.appendChild(canvas);
+  sec.appendChild(tabRow);sec.appendChild(wrap);
+
+  const stats={};
+  vendedoresArr.forEach(v=>{stats[v.vendor_id]={nome:v.nome,vendas:0,cupons:0,itens:0,desc:0};});
+  pedidos.forEach(p=>{
+    const vid=pvMap[parseInt(p.id)];if(!vid)return;
+    if(!stats[vid])stats[vid]={nome:'ID '+vid,vendas:0,cupons:0,itens:0,desc:0};
+    const s=stats[vid];
+    s.vendas+=parseFloat(p.total||0);
+    s.cupons++;
+    s.itens+=(p.itens?.reduce((si,i)=>si+(parseFloat(i.quantidade)||1),0)||1);
+    if(parseFloat(p.desconto||0)>0)s.desc++;
+  });
+
+  const vends=Object.entries(stats).filter(([,s])=>s.cupons>0).sort((a,b)=>b[1].vendas-a[1].vendas).map(([id,s])=>({
+    id,nome:s.nome,vendas:s.vendas,cupons:s.cupons,
+    ticket:s.cupons>0?s.vendas/s.cupons:0,
+    multi:s.cupons>0?pedidos.filter(p=>pvMap[parseInt(p.id)]==id&&(p.itens?.length||0)>=2).length/s.cupons*100:0,
+    desc:s.cupons>0?s.desc/s.cupons*100:0
+  }));
+
+  const metrics=[
+    vends.map(v=>v.vendas),
+    vends.map(v=>v.cupons),
+    vends.map(v=>v.ticket),
+    vends.map(v=>parseFloat(v.multi.toFixed(1))),
+    vends.map(v=>parseFloat(v.desc.toFixed(1)))
+  ];
+
+  let activeTab=0;
+  let chart=null;
+
+  const buildChart=()=>{
+    if(chart){try{chart.destroy();}catch(e){}}
+    chart=new Chart(canvas,{
+      type:'bar',
+      data:{labels:vends.map(v=>v.nome),datasets:[{label:tabs[activeTab],data:metrics[activeTab],backgroundColor:'rgba(99,102,241,0.75)',borderRadius:4}]},
+      options:{
+        indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        plugins:{
+          legend:{display:false},
+          tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;const v=vends[i];return[`Vendas: ${fmtR(v.vendas)}`,`Cupons: ${v.cupons}`,`Ticket: ${fmtR(v.ticket)}`,`2+ itens: ${v.multi.toFixed(1)}%`,`Desconto: ${v.desc.toFixed(1)}%`];}}}
+        },
+        scales:{x:{ticks:{callback:(val)=>activeTab===0||activeTab===2?fmtR0(val):activeTab>=3?val+'%':String(val)},grid:{color:'rgba(128,128,128,0.1)'}},y:{grid:{display:false}}}
+      }
+    });
+    window._saCharts=window._saCharts||{};
+    window._saCharts.vendedoras=chart;
+  };
+
+  tabs.forEach((t,i)=>{
+    const btn=document.createElement('button');btn.className='sa-tab'+(i===0?' active':'');btn.textContent=t;
+    btn.addEventListener('click',()=>{activeTab=i;tabRow.querySelectorAll('.sa-tab').forEach((b,j)=>b.classList.toggle('active',j===i));buildChart();});
+    tabRow.appendChild(btn);
+  });
+
+  buildChart();
+
+  const totalVendas=vends.reduce((s,v)=>s+v.vendas,0);
+  const totalCupons=vends.reduce((s,v)=>s+v.cupons,0);
+  const ticketGeral=totalCupons>0?totalVendas/totalCupons:0;
+  const pctMulti=pedidos.length>0?pedidos.filter(p=>(p.itens?.length||0)>=2).length/pedidos.length*100:0;
+  const pctDesc=pedidos.length>0?pedidos.filter(p=>parseFloat(p.desconto||0)>0).length/pedidos.length*100:0;
+
+  const sumCard=document.createElement('div');sumCard.className='sa-summary-card';
+  [
+    ['Total vendido',fmtR(totalVendas)],
+    ['Cupons',String(totalCupons)],
+    ['Ticket médio',fmtR(ticketGeral)],
+    ['2+ itens',pctMulti.toFixed(1)+'%'],
+    ['Com desconto',pctDesc.toFixed(1)+'%']
+  ].forEach(([lbl,val])=>{
+    const sp=document.createElement('span');sp.textContent=lbl+': ';
+    const vsp=document.createElement('span');vsp.textContent=val;
+    sumCard.appendChild(sp);sumCard.appendChild(vsp);
+    sumCard.appendChild(document.createTextNode(' '));
+  });
+  sec.appendChild(sumCard);
+  return sec;
+}
+
 /* ── GESTÃO À VISTA ── */
 function startGVClock(){
   const tEl=document.getElementById('gv-clock'),dEl=document.getElementById('gv-date');
