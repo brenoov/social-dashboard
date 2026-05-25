@@ -3975,6 +3975,7 @@ function openSalesAnalysis(){
 function closeSalesAnalysis(){
   clearInterval(window._saRefreshTimer);
   clearInterval(window._saCountdownTimer);
+  saAutoStop();
   if(window._saCharts){Object.values(window._saCharts).forEach(c=>{try{c.destroy();}catch(e){}});window._saCharts={};}
   document.getElementById('sales-analysis-screen').style.display='none';
   document.getElementById('sales-brand-screen').style.display='flex';
@@ -4293,6 +4294,29 @@ function saSelectPeriod(p){
   document.querySelectorAll('.sa-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===p));
   loadSalesAnalysisData(p);
 }
+const SA_AC_PERIODS=['sofar','today','7d','14d','month'];
+const SA_AC_DURATION=60;
+let _saAcIdx=0,_saAcTimer=null;
+function saAutoStart(){
+  if(_saAcTimer)return;
+  const btn=document.getElementById('sa-ac-toggle');
+  if(btn)btn.classList.add('running');
+  const scheduleNext=()=>{
+    _saAcTimer=setTimeout(async()=>{
+      if(!_saAcTimer)return;
+      _saAcIdx=(_saAcIdx+1)%SA_AC_PERIODS.length;
+      await loadSalesAnalysisData(SA_AC_PERIODS[_saAcIdx]);
+      if(_saAcTimer)scheduleNext();
+    },SA_AC_DURATION*1000);
+  };
+  scheduleNext();
+}
+function saAutoStop(){
+  clearTimeout(_saAcTimer);_saAcTimer=null;
+  const btn=document.getElementById('sa-ac-toggle');
+  if(btn)btn.classList.remove('running');
+}
+function saToggleAuto(){if(_saAcTimer)saAutoStop();else saAutoStart();}
 function saToggleCanalDrop(e){
   e.stopPropagation();
   document.getElementById('sa-canal-drop')?.classList.toggle('open');
@@ -5743,6 +5767,7 @@ function setHomeBgTheme(type){
           <button class="sa-pbtn" data-period="7d" onclick="saSelectPeriod('7d')">7D</button>
           <button class="sa-pbtn" data-period="14d" onclick="saSelectPeriod('14d')">14D</button>
           <button class="sa-pbtn" data-period="month" onclick="saSelectPeriod('month')">MÊS</button>
+          <button class="vs-ac-toggle" id="sa-ac-toggle" onclick="saToggleAuto()" title="Auto-ciclo de períodos">▶ AUTO</button>
         </div>
       </div>
     </div>
