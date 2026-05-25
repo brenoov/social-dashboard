@@ -4361,6 +4361,8 @@ window._saRawData=null;
 async function loadSalesAnalysisData(period){
   document.querySelectorAll('.sa-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===period));
   if(typeof ChartDataLabels!=='undefined')Chart.register(ChartDataLabels);
+  Chart.defaults.font.family="'IBM Plex Sans',sans-serif";
+  Chart.defaults.font.size=11;
   const body=document.getElementById('sa-body');
   body.textContent='';
   const loading=document.createElement('div');
