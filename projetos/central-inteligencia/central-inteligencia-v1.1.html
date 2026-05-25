@@ -1080,6 +1080,10 @@
   .sa-summary-card span{color:var(--text);font-weight:600}
   .sa-loja-section{display:flex;flex-direction:column;gap:12px}
   .sa-loja-title{font-size:13px;font-weight:700;color:var(--text)}
+  .sa-loja-summary{display:flex;flex-wrap:wrap;gap:8px;padding:8px 0}
+  .sa-loja-summary-item{background:var(--surface2);border-radius:6px;padding:6px 12px;display:flex;flex-direction:column;gap:2px;min-width:100px}
+  .sa-loja-summary-label{font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px}
+  .sa-loja-summary-val{font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:700;color:var(--text)}
   .sa-loja-table{width:100%;border-collapse:collapse;font-size:12px}
   .sa-loja-table th{color:var(--muted);font-weight:600;text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
   .sa-loja-table td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top}
@@ -4551,9 +4555,9 @@ function renderSalesAnalysis(raw,lojaFilter){
   body.appendChild(renderSADiario({pedidos,di,df,diasTot,dailyGoalsMap,metaTotal,diasMes}));
   body.appendChild(renderSATicket({pedidos,pedidosPrev,lojas:lojasFiltradas,lojaMap}));
   body.appendChild(renderSADesconto({pedidos,lojas:lojasFiltradas,lojaMap}));
-  body.appendChild(renderSAVendedoras({pedidos,vendedoresArr,pvMap,lojaMap}));
+  body.appendChild(renderSAVendedoras({pedidos,pedidosPrev,vendedoresArr,pvMap,lojaMap}));
   lojasFiltradas.forEach(loja=>{
-    body.appendChild(renderSALojaSection({loja,pedidos:allPedidos,pedidosPrev:allPrev,vendedoresArr,pvMap,metasArr,now,y,m,pedidos15,di15,df15}));
+    body.appendChild(renderSALojaSection({loja,pedidos:allPedidos,pedidosPrev:allPrev,vendedoresArr,pvMap,metasArr,now,y,m,pedidos15,di15,df15,diasTot,diasMes}));
   });
 }
 
@@ -4563,30 +4567,63 @@ function renderSAKpis({pedidos,pedidosPrev,metaPeriodo,diasMes,diasTot,diasDec,n
   const n=pedidos.length;
   const totalItens=pedidos.reduce((s,p)=>s+(p.itens?.reduce((si,i)=>si+(parseFloat(i.quantidade)||1),0)||1),0);
   const multiItem=pedidos.filter(p=>(p.itens?.length||0)>=2).length;
-  const pct=metaPeriodo>0?Math.round(total/metaPeriodo*100):null;
+  const pct=metaPeriodo>0?total/metaPeriodo*100:null;
   const proj=diasDec>0?(total/diasDec)*diasTot:0;
   const hojeDayNum=now.getDate();
+  const hoje=now.toISOString().slice(0,10);
   let metaHoje=0;let hasDaily=false;
   Object.values(dailyGoalsMap).forEach(dg=>{if(dg&&dg[String(hojeDayNum)]!=null){metaHoje+=Number(dg[String(hojeDayNum)]||0);hasDaily=true;}});
   if(!hasDaily&&metaPeriodo>0)metaHoje=metaPeriodo/diasTot;
+  const vendidoHoje=pedidos.filter(p=>p.data?.slice(0,10)===hoje).reduce((s,p)=>s+parseFloat(p.total||0),0);
+  const faltanteHoje=metaHoje-vendidoHoje;
 
   const pctCls=pct===null?'':(pct>=100?'good':pct>=85?'warn':'bad');
-  const deltaTotal=totalPrev>0?((total-totalPrev)/totalPrev*100):null;
+  const desvioMeta=metaPeriodo>0?total-metaPeriodo:null;
+  const deltaTotal=totalPrev>0?(total-totalPrev)/totalPrev*100:null;
+  const pctPrev=metaPeriodo>0&&totalPrev>0?totalPrev/metaPeriodo*100:null;
   const mediaItens=n>0?totalItens/n:0;
   const mediaItensPrev=pedidosPrev.length>0?pedidosPrev.reduce((s,p)=>s+(p.itens?.reduce((si,i)=>si+(parseFloat(i.quantidade)||1),0)||1),0)/pedidosPrev.length:0;
-  const multiPct=n>0?Math.round(multiItem/n*100):0;
-  const multiPrev=pedidosPrev.length>0?Math.round(pedidosPrev.filter(p=>(p.itens?.length||0)>=2).length/pedidosPrev.length*100):0;
+  const multiPct=n>0?multiItem/n*100:0;
+  const multiPrev=pedidosPrev.length>0?pedidosPrev.filter(p=>(p.itens?.length||0)>=2).length/pedidosPrev.length*100:0;
 
   const sec=document.createElement('div');sec.className='sa-kpis';
 
   const kpis=[
-    {label:'Venda Realizada',val:fmtR(total),delta:deltaTotal!=null?`${deltaTotal>=0?'+':''}${deltaTotal.toFixed(1)}% vs ant.`:null,cls:deltaTotal!=null?(deltaTotal>=0?'good':'bad'):null},
-    {label:'Meta Total',val:metaPeriodo>0?fmtR(metaPeriodo):'—',delta:null,cls:null},
-    {label:'% Atingido',val:pct!=null?pct+'%':'—',delta:null,cls:pctCls},
-    {label:'Projeção Mês',val:fmtR(proj),delta:metaPeriodo>0?`${proj>=metaPeriodo?'+':''}${((proj/metaPeriodo-1)*100).toFixed(1)}% vs meta`:null,cls:metaPeriodo>0?(proj>=metaPeriodo?'good':'bad'):null},
-    {label:'Meta Hoje',val:fmtR(metaHoje),delta:null,cls:null},
-    {label:'Média Itens/Venda',val:mediaItens.toFixed(1),delta:mediaItensPrev>0?`${((mediaItens-mediaItensPrev)/mediaItensPrev*100)>=0?'+':''}${((mediaItens-mediaItensPrev)/mediaItensPrev*100).toFixed(1)}% vs ant.`:null,cls:mediaItensPrev>0?(mediaItens>=mediaItensPrev?'good':'bad'):null},
-    {label:'Vendas +1 Item',val:multiPct+'%',delta:multiPrev>0?`${multiPct-multiPrev>=0?'+':''}${multiPct-multiPrev}pp vs ant.`:null,cls:multiPrev>0?(multiPct>=multiPrev?'good':'bad'):null}
+    {
+      label:'Venda Realizada',val:fmtR(total),
+      sub:desvioMeta!=null?`Meta: ${desvioMeta>=0?'+':''}${fmtR(desvioMeta)}`:null,subCls:desvioMeta!=null?(desvioMeta>=0?'good':'bad'):null,
+      delta:deltaTotal!=null?`${deltaTotal>=0?'+':''}${deltaTotal.toFixed(1)}% vs ant. (${fmtR(total-totalPrev)})`:null,cls:deltaTotal!=null?(deltaTotal>=0?'good':'bad'):null
+    },
+    {
+      label:'Meta Período',val:metaPeriodo>0?fmtR(metaPeriodo):'—',
+      sub:metaPeriodo>0?`Realiz.: ${pct!=null?pct.toFixed(1)+'%':'—'}`:null,subCls:pctCls,
+      delta:desvioMeta!=null?(desvioMeta>=0?`↑ Superado em ${fmtR(desvioMeta)}`:`↓ Faltam ${fmtR(Math.abs(desvioMeta))}`):null,cls:desvioMeta!=null?(desvioMeta>=0?'good':'bad'):null
+    },
+    {
+      label:'% Atingido',val:pct!=null?pct.toFixed(1)+'%':'—',
+      sub:pctPrev!=null?`Ant.: ${pctPrev.toFixed(1)}%`:null,subCls:null,
+      delta:pct!=null&&pctPrev!=null?`${(pct-pctPrev)>=0?'+':''}${(pct-pctPrev).toFixed(1)}pp vs ant.`:null,cls:pctCls
+    },
+    {
+      label:'Projeção Mês',val:fmtR(proj),
+      sub:metaPeriodo>0?`Meta: ${fmtR(metaPeriodo)}`:null,subCls:null,
+      delta:metaPeriodo>0?`${proj>=metaPeriodo?'+':''}${((proj/metaPeriodo-1)*100).toFixed(1)}% vs meta (${fmtR(proj-metaPeriodo)})`:null,cls:metaPeriodo>0?(proj>=metaPeriodo?'good':'bad'):null
+    },
+    {
+      label:'Meta Hoje',val:fmtR(metaHoje),
+      sub:`Vendido: ${fmtR(vendidoHoje)}`,subCls:faltanteHoje<=0?'good':'bad',
+      delta:metaHoje>0?(faltanteHoje<=0?`✓ Atingido (+${fmtR(Math.abs(faltanteHoje))})`:`Faltam ${fmtR(faltanteHoje)}`):null,cls:faltanteHoje<=0?'good':'bad'
+    },
+    {
+      label:'Média Itens/Venda',val:mediaItens.toFixed(2)+' itens',
+      sub:mediaItensPrev>0?`Ant.: ${mediaItensPrev.toFixed(2)} itens`:null,subCls:null,
+      delta:mediaItensPrev>0?`${(mediaItens-mediaItensPrev)>=0?'+':''}${((mediaItens-mediaItensPrev)/mediaItensPrev*100).toFixed(1)}% vs ant.`:null,cls:mediaItensPrev>0?(mediaItens>=mediaItensPrev?'good':'bad'):null
+    },
+    {
+      label:'Vendas +1 Item',val:multiPct.toFixed(1)+'%',
+      sub:multiPrev>0?`Ant.: ${multiPrev.toFixed(1)}%`:null,subCls:null,
+      delta:multiPrev>0?`${(multiPct-multiPrev)>=0?'+':''}${(multiPct-multiPrev).toFixed(1)}pp vs ant.`:null,cls:multiPrev>0?(multiPct>=multiPrev?'good':'bad'):null
+    }
   ];
 
   kpis.forEach(k=>{
@@ -4594,6 +4631,7 @@ function renderSAKpis({pedidos,pedidosPrev,metaPeriodo,diasMes,diasTot,diasDec,n
     const lbl=document.createElement('div');lbl.className='sa-kpi-label';lbl.textContent=k.label;
     const val=document.createElement('div');val.className='sa-kpi-val';val.textContent=k.val;
     card.appendChild(lbl);card.appendChild(val);
+    if(k.sub){const s=document.createElement('div');s.className=k.subCls?'sa-kpi-delta '+k.subCls:'sa-kpi-sub';s.textContent=k.sub;card.appendChild(s);}
     if(k.delta){const d=document.createElement('div');d.className='sa-kpi-delta'+(k.cls?' '+k.cls:'');d.textContent=k.delta;card.appendChild(d);}
     sec.appendChild(card);
   });
@@ -4715,9 +4753,10 @@ function renderSADesconto({pedidos,lojas,lojaMap}){
   const title=document.createElement('div');title.className='sa-section-title';title.textContent='Vendas com vs Sem Desconto';
   const row=document.createElement('div');row.className='sa-chart-row';
 
-  const wrapD=document.createElement('div');wrapD.className='sa-chart-wrap';
+  row.style.cssText='display:flex;gap:12px;align-items:stretch';
+  const wrapD=document.createElement('div');wrapD.className='sa-chart-wrap';wrapD.style.cssText='flex:0 0 30%;min-width:160px;height:200px';
   const canvasD=document.createElement('canvas');wrapD.appendChild(canvasD);
-  const wrapB=document.createElement('div');wrapB.className='sa-chart-wrap';
+  const wrapB=document.createElement('div');wrapB.className='sa-chart-wrap';wrapB.style.cssText='flex:1 1 0;height:200px';
   const canvasB=document.createElement('canvas');wrapB.appendChild(canvasB);
   row.appendChild(wrapD);row.appendChild(wrapB);
   sec.appendChild(title);sec.appendChild(row);
@@ -4755,7 +4794,7 @@ function renderSADesconto({pedidos,lojas,lojaMap}){
   return sec;
 }
 
-function renderSAVendedoras({pedidos,vendedoresArr,pvMap,lojaMap}){
+function renderSAVendedoras({pedidos,pedidosPrev,vendedoresArr,pvMap,lojaMap}){
   const sec=document.createElement('div');sec.className='sa-section';
   const title=document.createElement('div');title.className='sa-section-title';title.textContent='Vendedoras';
   sec.appendChild(title);
@@ -4831,27 +4870,74 @@ function renderSAVendedoras({pedidos,vendedoresArr,pvMap,lojaMap}){
   const pctMulti=pedidos.length>0?pedidos.filter(p=>(p.itens?.length||0)>=2).length/pedidos.length*100:0;
   const pctDesc=pedidos.length>0?pedidos.filter(p=>parseFloat(p.desconto?.valor??p.desconto??0)>0).length/pedidos.length*100:0;
 
+  const totalVendasPrev=(pedidosPrev||[]).reduce((s,p)=>s+parseFloat(p.total||0),0);
+  const totalCuponsPrev=(pedidosPrev||[]).length;
+  const ticketGeralPrev=totalCuponsPrev>0?totalVendasPrev/totalCuponsPrev:0;
+  const pctMultiPrev=(pedidosPrev||[]).length>0?(pedidosPrev||[]).filter(p=>(p.itens?.length||0)>=2).length/(pedidosPrev||[]).length*100:0;
+  const pctDescPrev=(pedidosPrev||[]).length>0?(pedidosPrev||[]).filter(p=>parseFloat(p.desconto?.valor??p.desconto??0)>0).length/(pedidosPrev||[]).length*100:0;
+  const deltaVendas=totalVendasPrev>0?(totalVendas-totalVendasPrev)/totalVendasPrev*100:null;
+  const deltaCupons=totalCuponsPrev>0?(totalCupons-totalCuponsPrev)/totalCuponsPrev*100:null;
+  const deltaTicket=ticketGeralPrev>0?(ticketGeral-ticketGeralPrev)/ticketGeralPrev*100:null;
+  const deltaMulti=pctMultiPrev>0?pctMulti-pctMultiPrev:null;
+  const deltaDesc=pctDescPrev>0?pctDesc-pctDescPrev:null;
+
   const sumCard=document.createElement('div');sumCard.className='sa-summary-card';
-  [
-    ['Total vendido',fmtR(totalVendas)],
-    ['Cupons',String(totalCupons)],
-    ['Ticket médio',fmtR(ticketGeral)],
-    ['2+ itens',pctMulti.toFixed(1)+'%'],
-    ['Com desconto',pctDesc.toFixed(1)+'%']
-  ].forEach(([lbl,val])=>{
-    const sp=document.createElement('span');sp.textContent=lbl+': ';
-    const vsp=document.createElement('span');vsp.textContent=val;
-    sumCard.appendChild(sp);sumCard.appendChild(vsp);
-    sumCard.appendChild(document.createTextNode(' '));
-  });
+  const addSumItem=(lbl,val,delta,isPp)=>{
+    const wrap=document.createElement('span');
+    const l=document.createElement('span');l.style.fontWeight='400';l.style.color='var(--muted)';l.textContent=lbl+': ';
+    const v=document.createElement('span');v.textContent=val;
+    wrap.appendChild(l);wrap.appendChild(v);
+    if(delta!=null){
+      const d=document.createElement('span');
+      d.textContent=' ('+(delta>=0?'+':'')+delta.toFixed(1)+(isPp?'pp':'%')+')';
+      d.style.color=delta>=0?'#22c55e':'#ef4444';d.style.fontSize='10px';
+      wrap.appendChild(d);
+    }
+    sumCard.appendChild(wrap);
+  };
+  addSumItem('Total vendido',fmtR(totalVendas),deltaVendas,false);
+  addSumItem('Cupons',String(totalCupons),deltaCupons,false);
+  addSumItem('Ticket médio',fmtR(ticketGeral),deltaTicket,false);
+  addSumItem('2+ itens',pctMulti.toFixed(1)+'%',deltaMulti,true);
+  addSumItem('Com desconto',pctDesc.toFixed(1)+'%',deltaDesc,true);
   sec.appendChild(sumCard);
   return sec;
 }
 
-function renderSALojaSection({loja,pedidos,pedidosPrev,vendedoresArr,pvMap,metasArr,now,y,m,pedidos15,di15,df15}){
+function renderSALojaSection({loja,pedidos,pedidosPrev,vendedoresArr,pvMap,metasArr,now,y,m,pedidos15,di15,df15,diasTot,diasMes}){
   const sec=document.createElement('div');sec.className='sa-section sa-loja-section';
   const t=document.createElement('div');t.className='sa-section-title sa-loja-title';t.textContent=loja.nome;
   sec.appendChild(t);
+
+  const lojaPeds=pedidos.filter(p=>String(p.loja?.id)===String(loja.id));
+  const lojaPrevPeds=(pedidosPrev||[]).filter(p=>String(p.loja?.id)===String(loja.id));
+  const lojaTotal=lojaPeds.reduce((s,p)=>s+parseFloat(p.total||0),0);
+  const lojaTotalPrev=lojaPrevPeds.reduce((s,p)=>s+parseFloat(p.total||0),0);
+  const metaLoja=metasArr.find(r=>r.loja_id===loja.id)||null;
+  const metaVal=parseFloat(metaLoja?.meta_valor||0);
+  const lojaMeta=(diasMes>0&&diasTot>0)?metaVal/diasMes*diasTot:0;
+  const lojaDesvioMeta=lojaMeta>0?lojaTotal-lojaMeta:null;
+  const lojaDeltaPrev=lojaTotalPrev>0?(lojaTotal-lojaTotalPrev)/lojaTotalPrev*100:null;
+  const lojaTicket=lojaPeds.length>0?lojaTotal/lojaPeds.length:0;
+  const lojaTicketPrev=lojaPrevPeds.length>0?lojaTotalPrev/lojaPrevPeds.length:0;
+  const deltaTicket=lojaTicketPrev>0?(lojaTicket-lojaTicketPrev)/lojaTicketPrev*100:null;
+
+  const strip=document.createElement('div');strip.className='sa-loja-summary';
+  const addStripItem=(lbl,val,color)=>{
+    const item=document.createElement('div');item.className='sa-loja-summary-item';
+    const l=document.createElement('span');l.className='sa-loja-summary-label';l.textContent=lbl;
+    const v=document.createElement('span');v.className='sa-loja-summary-val';v.textContent=val;
+    if(color)v.style.color=color;
+    item.appendChild(l);item.appendChild(v);strip.appendChild(item);
+  };
+  addStripItem('Realizado',fmtR(lojaTotal),null);
+  if(lojaMeta>0)addStripItem('Meta Período',fmtR(lojaMeta),null);
+  if(lojaDesvioMeta!=null){const clr=lojaDesvioMeta>=0?'#22c55e':'#ef4444';addStripItem('Desvio Meta',(lojaDesvioMeta>=0?'+':'')+fmtR(lojaDesvioMeta)+' ('+(lojaDesvioMeta/lojaMeta*100).toFixed(1)+'%)',clr);}
+  if(lojaDeltaPrev!=null){const clr=lojaDeltaPrev>=0?'#22c55e':'#ef4444';addStripItem('vs Anterior',(lojaDeltaPrev>=0?'+':'')+lojaDeltaPrev.toFixed(1)+'% ('+fmtR(lojaTotal-lojaTotalPrev)+')',clr);}
+  addStripItem('Cupons',String(lojaPeds.length),null);
+  if(lojaTicket>0)addStripItem('Ticket Médio',fmtR(lojaTicket)+(deltaTicket!=null?' ('+(deltaTicket>=0?'+':'')+deltaTicket.toFixed(1)+'%)':''),deltaTicket!=null?(deltaTicket>=0?'#22c55e':'#ef4444'):null);
+  sec.appendChild(strip);
+
   sec.appendChild(renderSALojaTable({loja,pedidos,vendedoresArr,pvMap,metasArr,now,y,m}));
   sec.appendChild(renderSAPositivacao({loja,pedidos15,vendedoresArr,pvMap,di15,df15,now}));
   return sec;
