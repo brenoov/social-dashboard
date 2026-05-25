@@ -4426,14 +4426,15 @@ async function loadSalesAnalysisData(period){
 
     const lojas=Object.entries(lojaMap).map(([id,nome])=>({id:parseInt(id),nome})).sort((a,b)=>a.id-b.id);
     const lojasComVenda=new Set(pedidos.map(p=>String(p.loja?.id)).filter(Boolean));
-    const lojasFiltradas=lojas.filter(l=>lojasComVenda.has(String(l.id)));
+    const initialIds=lojas.filter(l=>lojasComVenda.has(String(l.id))).map(l=>String(l.id));
     const canalDrop=document.getElementById('sa-canal-drop');
     const canalTrigger=document.getElementById('sa-canal-trigger');
     if(canalDrop){
       canalDrop.textContent='';
-      lojasFiltradas.forEach(l=>{
+      lojas.forEach(l=>{
         const lbl=document.createElement('label');lbl.className='sa-canal-check';
-        const cb=document.createElement('input');cb.type='checkbox';cb.className='sa-canal-chk';cb.value=String(l.id);cb.checked=true;
+        const cb=document.createElement('input');cb.type='checkbox';cb.className='sa-canal-chk';cb.value=String(l.id);
+        cb.checked=lojasComVenda.has(String(l.id));
         cb.addEventListener('change',saSelectCanal);
         const nm=document.createElement('span');nm.textContent=l.nome;
         lbl.appendChild(cb);lbl.appendChild(nm);
@@ -4447,10 +4448,10 @@ async function loadSalesAnalysisData(period){
       foot.appendChild(btnTodos);foot.appendChild(btnNenhum);
       canalDrop.appendChild(foot);
     }
-    if(canalTrigger)canalTrigger.textContent='Todos os canais ▾';
+    if(canalTrigger)canalTrigger.textContent=initialIds.length===lojas.length?'Todos os canais ▾':`${initialIds.length} canal(is) ▾`;
 
     window._saRawData={pedidos,pedidosPrev,lojaMap,lojas,metasArr,vendedoresArr,pvMap,pedidos15,period,di,df,diPrev,dfPrev,di15,df15,now,y,m};
-    renderSalesAnalysis(window._saRawData,[]);
+    renderSalesAnalysis(window._saRawData,initialIds);
   }catch(e){
     body.textContent='';
     const err=document.createElement('div');err.className='sa-loading';err.textContent='Erro: '+e.message;body.appendChild(err);
@@ -4460,8 +4461,9 @@ async function loadSalesAnalysisData(period){
 function renderSalesAnalysis(raw,lojaFilter){
   const{pedidos:allPedidos,pedidosPrev:allPrev,lojaMap,lojas,metasArr,vendedoresArr,pvMap,pedidos15,period,di,df,diPrev,dfPrev,di15,df15,now,y,m}=raw;
   const filterIds=Array.isArray(lojaFilter)?lojaFilter:(lojaFilter?[String(lojaFilter)]:[]);
-  const pedidos=filterIds.length?allPedidos.filter(p=>filterIds.includes(String(p.loja?.id))):allPedidos;
-  const pedidosPrev=filterIds.length?allPrev.filter(p=>filterIds.includes(String(p.loja?.id))):allPrev;
+  const pedidos=allPedidos.filter(p=>filterIds.includes(String(p.loja?.id)));
+  const pedidosPrev=allPrev.filter(p=>filterIds.includes(String(p.loja?.id)));
+  const lojasFiltradas=lojas.filter(l=>filterIds.includes(String(l.id)));
 
   if(window._saCharts){Object.values(window._saCharts).forEach(c=>{try{c.destroy();}catch(e){}});window._saCharts={};}
 
@@ -4495,13 +4497,12 @@ function renderSalesAnalysis(raw,lojaFilter){
   const metaPeriodo=calcMetaPeriodo(0);
 
   body.appendChild(renderSAKpis({pedidos,pedidosPrev,metaPeriodo,diasMes,diasTot,diasDec,now,y,m,dailyGoalsMap,metasMap,period}));
-  body.appendChild(renderSACanal({pedidos,pedidosPrev,lojas,lojaMap,metasMap,dailyGoalsMap,di,df,diasMes,diasTot}));
+  body.appendChild(renderSACanal({pedidos,pedidosPrev,lojas:lojasFiltradas,lojaMap,metasMap,dailyGoalsMap,di,df,diasMes,diasTot}));
   body.appendChild(renderSADiario({pedidos,di,df,diasTot,dailyGoalsMap,metaTotal,diasMes}));
-  body.appendChild(renderSATicket({pedidos,pedidosPrev,lojas,lojaMap}));
-  body.appendChild(renderSADesconto({pedidos,lojas,lojaMap}));
+  body.appendChild(renderSATicket({pedidos,pedidosPrev,lojas:lojasFiltradas,lojaMap}));
+  body.appendChild(renderSADesconto({pedidos,lojas:lojasFiltradas,lojaMap}));
   body.appendChild(renderSAVendedoras({pedidos,vendedoresArr,pvMap,lojaMap}));
-  lojas.forEach(loja=>{
-    if(filterIds.length&&!filterIds.includes(String(loja.id)))return;
+  lojasFiltradas.forEach(loja=>{
     body.appendChild(renderSALojaSection({loja,pedidos:allPedidos,pedidosPrev:allPrev,vendedoresArr,pvMap,metasArr,now,y,m,pedidos15,di15,df15}));
   });
 }
