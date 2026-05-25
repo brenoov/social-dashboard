@@ -85,10 +85,10 @@
   .topbar-right{display:flex;align-items:center;gap:12px;text-align:right;}
   .live-dot{display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--green);letter-spacing:1.5px;font-weight:500;text-transform:uppercase;}
   .live-dot::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
-  .period-tabs{display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:3px;gap:2px;}
-  .ptab{padding:5px 16px;border-radius:var(--radius-sm);font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted);border:none;background:transparent;letter-spacing:1px;text-transform:uppercase;transition:background .2s cubic-bezier(.4,0,.2,1),color .15s ease,transform .12s ease,box-shadow .2s ease;}
+  .period-tabs{display:flex;gap:4px;}
+  .ptab{padding:5px 16px;border-radius:var(--radius-sm);font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted);border:1px solid var(--border);background:none;letter-spacing:1px;text-transform:uppercase;transition:background .2s cubic-bezier(.4,0,.2,1),color .15s ease,border-color .15s ease,transform .12s ease,box-shadow .2s ease;}
   .ptab:active{transform:scale(.94);}
-  .ptab.active{background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(29,78,216,.25);}
+  .ptab.active{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 2px 8px rgba(29,78,216,.25);}
   [data-theme="dark"] .ptab.active{box-shadow:0 2px 10px rgba(79,124,255,.35);}
   .ptab:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 
@@ -207,7 +207,7 @@
     .gv-perf-tag{font-size:9px!important;letter-spacing:2px!important;}
     .gv-brand-tag{display:none!important;}
     /* Period tabs: sem background próprio, inline na faixa */
-    .period-tabs{background:none;border:none;padding:0;gap:3px;flex-shrink:0;}
+    .period-tabs{gap:3px;flex-shrink:0;}
     .ptab{padding:5px 10px;font-size:10px;letter-spacing:.5px;}
     /* Clock menor */
     #dash-clock{font-size:11px;}
@@ -4978,7 +4978,7 @@ function setHomeBgTheme(type){
       </div>
     </div>
     <div class="gv-period-btns" id="gv-period-btns">
-      <button class="gv-pbtn active" data-period="today" onclick="gvSelectPeriod('today')">HOJE</button>
+      <button class="gv-pbtn active" data-period="today" onclick="gvSelectPeriod('today')"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite;vertical-align:middle;flex-shrink:0;"></span>HOJE</button>
       <button class="gv-pbtn" data-period="1d" onclick="gvSelectPeriod('1d')">1D</button>
       <button class="gv-pbtn" data-period="7d" onclick="gvSelectPeriod('7d')">7D</button>
       <button class="gv-pbtn" data-period="14d" onclick="gvSelectPeriod('14d')">14D</button>
