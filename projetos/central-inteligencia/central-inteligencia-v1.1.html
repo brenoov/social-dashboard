@@ -3099,6 +3099,7 @@ function showHome(){
   setHomeBgTheme('default');
 }
 function openDashboard(){
+  if(!hasPermission('tool:social'))return;
   document.getElementById('home-screen').style.display='none';
   document.querySelector('.wrapper').style.display='block';
   sessionStorage.setItem('rbv-screen','dashboard');
@@ -3530,6 +3531,11 @@ function setSMenuView(v){
   localStorage.setItem('smenu-view',v);
 }
 function openSalesDashboard(){
+  if(!hasPermission('tool:sales'))return;
+  const gvCard=document.getElementById('smenu-card-gestao-vista');
+  if(gvCard)gvCard.style.display=hasPermission('module:sales:gestao-vista')?'':'none';
+  const avCard=document.getElementById('smenu-card-analise-vendas');
+  if(avCard)avCard.style.display=hasPermission('module:sales:analise-vendas')?'':'none';
   document.getElementById('home-screen').style.display='none';
   document.getElementById('sales-menu-screen').style.display='flex';
   sessionStorage.setItem('rbv-screen','sales-menu');
@@ -3541,6 +3547,7 @@ function closeSalesDashboard(){
   showHome();
 }
 function openSalesBrandPicker(){
+  if(!hasPermission('module:sales:analise-vendas'))return;
   document.getElementById('sales-menu-screen').style.display='none';
   document.getElementById('sales-brand-screen').style.display='flex';
   sessionStorage.setItem('rbv-screen','sales-brand');
@@ -3569,6 +3576,7 @@ function closeVesselSales(){
   sessionStorage.setItem('rbv-screen','sales-brand');
 }
 function openGestaoVista(){
+  if(!hasPermission('module:sales:gestao-vista'))return;
   document.getElementById('sales-menu-screen').style.display='none';
   document.getElementById('gestao-vista-screen').style.display='flex';
   sessionStorage.setItem('rbv-screen','gestao-vista');
