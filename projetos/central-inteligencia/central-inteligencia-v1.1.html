@@ -1429,7 +1429,7 @@
         </div>
         <span class="home-card-enter">→</span>
       </div>
-      <div class="home-card" onclick="openDashboard()" onmouseenter="setHomeBgTheme('social')" onmouseleave="setHomeBgTheme('default')">
+      <div class="home-card" id="home-card-social" onclick="openDashboard()" onmouseenter="setHomeBgTheme('social')" onmouseleave="setHomeBgTheme('default')">
         <div class="home-card-icon">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
         </div>
@@ -1439,7 +1439,7 @@
         </div>
         <span class="home-card-enter">→</span>
       </div>
-      <div class="home-card" onclick="openSalesDashboard()" onmouseenter="setHomeBgTheme('sales')" onmouseleave="setHomeBgTheme('default')">
+      <div class="home-card" id="home-card-sales" onclick="openSalesDashboard()" onmouseenter="setHomeBgTheme('sales')" onmouseleave="setHomeBgTheme('default')">
         <div class="home-card-icon" style="background:linear-gradient(135deg,#1d4ed8 0%,#2563eb 100%)">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
         </div>
@@ -4871,7 +4871,7 @@ function setHomeBgTheme(type){
       <p>Visualizações disponíveis para dados de vendas</p>
     </div>
     <div class="smenu-cards" id="smenu-cards">
-      <div class="smenu-card" onclick="openGestaoVista()">
+      <div class="smenu-card" id="smenu-card-gestao-vista" onclick="openGestaoVista()">
         <span class="smenu-card-num">01</span>
         <div class="smenu-card-icon">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
@@ -4880,7 +4880,7 @@ function setHomeBgTheme(type){
         <div class="smenu-card-desc">Painel dinâmico para TVs — ranking em tempo real, metas e evolução do mês para manter o time focado em vendas.</div>
         <span class="smenu-card-enter">→</span>
       </div>
-      <div class="smenu-card" onclick="openSalesBrandPicker()">
+      <div class="smenu-card" id="smenu-card-analise-vendas" onclick="openSalesBrandPicker()">
         <span class="smenu-card-num">02</span>
         <div class="smenu-card-icon">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
