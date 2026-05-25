@@ -3125,6 +3125,103 @@ async function renderUserPermPanel(panel,userId,role){
   });
 }
 
+async function loadAdminPermissions(){
+  const container=document.getElementById('admin-perms-matrix');
+  if(!container)return;
+  container.textContent='';
+
+  const{data:users}=await sbClient.from('profiles').select('id,name,email,role').order('created_at',{ascending:true});
+  const viewers=(users||[]).filter(u=>u.role!=='admin');
+
+  const{data:allPerms}=await sbClient.from('user_permissions').select('user_id,resource_key,granted').eq('granted',true);
+  const permSet=new Set((allPerms||[]).map(r=>r.user_id+'|'+r.resource_key));
+
+  const{data:{session}}=await sbClient.auth.getSession();
+  const grantedBy=session?.user?.id;
+
+  const resources=[];
+  TOOL_REGISTRY.forEach(t=>{
+    resources.push({key:'tool:'+t.key,label:t.label,isModule:false});
+    t.modules.forEach(m=>resources.push({key:'module:'+t.key+':'+m.key,label:m.label,isModule:true}));
+  });
+
+  const wrap=document.createElement('div');wrap.style.cssText='overflow-x:auto';
+  const table=document.createElement('table');
+  table.style.cssText='width:100%;border-collapse:collapse;font-family:"IBM Plex Sans",sans-serif;font-size:12px';
+
+  const thead=document.createElement('thead');
+  const hRow=document.createElement('tr');
+  const thUser=document.createElement('th');
+  thUser.style.cssText='text-align:left;padding:8px 12px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--border);white-space:nowrap';
+  thUser.textContent='Usuário';hRow.appendChild(thUser);
+  resources.forEach(r=>{
+    const th=document.createElement('th');
+    th.style.cssText='padding:8px 10px;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--border);text-align:center;white-space:nowrap;'+(r.isModule?'padding-left:18px;color:var(--accent)':'');
+    th.textContent=(r.isModule?'↳ ':'')+r.label;hRow.appendChild(th);
+  });
+  const thActions=document.createElement('th');thActions.style.cssText='padding:8px 10px;border-bottom:2px solid var(--border)';hRow.appendChild(thActions);
+  thead.appendChild(hRow);table.appendChild(thead);
+
+  const tbody=document.createElement('tbody');
+  viewers.forEach((u,uIdx)=>{
+    const tr=document.createElement('tr');
+    tr.style.cssText='border-bottom:1px solid var(--border);'+(uIdx%2===1?'background:var(--surface2)':'');
+
+    const tdName=document.createElement('td');tdName.style.cssText='padding:10px 12px;white-space:nowrap';
+    const nameDiv=document.createElement('div');nameDiv.style.cssText='font-weight:500;color:var(--text);font-size:13px';nameDiv.textContent=u.name||u.email;
+    const emailDiv=document.createElement('div');emailDiv.style.cssText='font-size:10px;color:var(--muted)';emailDiv.textContent=u.email;
+    tdName.appendChild(nameDiv);tdName.appendChild(emailDiv);tr.appendChild(tdName);
+
+    const rowCbs=[];
+    resources.forEach(r=>{
+      const td=document.createElement('td');td.style.cssText='text-align:center;padding:8px 10px';
+      const cb=document.createElement('input');cb.type='checkbox';
+      cb.checked=permSet.has(u.id+'|'+r.key);
+      cb.style.cssText='width:16px;height:16px;cursor:pointer;accent-color:var(--accent)';
+      cb.addEventListener('change',async()=>{
+        const granted=cb.checked;
+        await sbClient.from('user_permissions').upsert(
+          {user_id:u.id,resource_key:r.key,granted,granted_by:grantedBy,granted_at:new Date().toISOString()},
+          {onConflict:'user_id,resource_key'}
+        );
+        if(granted)permSet.add(u.id+'|'+r.key);else permSet.delete(u.id+'|'+r.key);
+        adminToast(granted?'Acesso liberado':'Acesso revogado');
+      });
+      td.appendChild(cb);tr.appendChild(td);rowCbs.push(cb);
+    });
+
+    const tdAct=document.createElement('td');tdAct.style.cssText='padding:8px 12px;white-space:nowrap';
+    const grantAllBtn=mkEl('button','sr-btn');grantAllBtn.textContent='Liberar tudo';grantAllBtn.style.cssText='font-size:10px;margin-right:4px';
+    grantAllBtn.addEventListener('click',async()=>{
+      const ups=resources.map(r=>({user_id:u.id,resource_key:r.key,granted:true,granted_by:grantedBy,granted_at:new Date().toISOString()}));
+      await sbClient.from('user_permissions').upsert(ups,{onConflict:'user_id,resource_key'});
+      resources.forEach(r=>permSet.add(u.id+'|'+r.key));
+      rowCbs.forEach(c=>c.checked=true);
+      adminToast('Todos os acessos liberados');
+    });
+    const revokeAllBtn=mkEl('button','sr-btn danger');revokeAllBtn.textContent='Revogar tudo';revokeAllBtn.style.cssText='font-size:10px';
+    revokeAllBtn.addEventListener('click',async()=>{
+      const ups=resources.map(r=>({user_id:u.id,resource_key:r.key,granted:false,granted_by:grantedBy,granted_at:new Date().toISOString()}));
+      await sbClient.from('user_permissions').upsert(ups,{onConflict:'user_id,resource_key'});
+      resources.forEach(r=>permSet.delete(u.id+'|'+r.key));
+      rowCbs.forEach(c=>c.checked=false);
+      adminToast('Todos os acessos revogados');
+    });
+    tdAct.appendChild(grantAllBtn);tdAct.appendChild(revokeAllBtn);tr.appendChild(tdAct);
+    tbody.appendChild(tr);
+  });
+
+  if(viewers.length===0){
+    const tr=document.createElement('tr');
+    const td=document.createElement('td');td.colSpan=resources.length+2;
+    td.style.cssText='padding:24px;text-align:center;color:var(--muted);font-size:13px';
+    td.textContent='Nenhum usuário viewer cadastrado.';
+    tr.appendChild(td);tbody.appendChild(tr);
+  }
+
+  table.appendChild(tbody);wrap.appendChild(table);container.appendChild(wrap);
+}
+
 async function handleRequest(id,status){
   await sbClient.from('access_requests').update({status}).eq('id',id);
   loadAdminRequests();
