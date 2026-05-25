@@ -4353,6 +4353,49 @@ function renderSalesAnalysis(raw,lojaFilter){
   });
 }
 
+function renderSAKpis({pedidos,pedidosPrev,metaPeriodo,diasMes,diasTot,diasDec,now,y,m,dailyGoalsMap,metasMap,period}){
+  const total=pedidos.reduce((s,p)=>s+parseFloat(p.total||0),0);
+  const totalPrev=pedidosPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
+  const n=pedidos.length;
+  const totalItens=pedidos.reduce((s,p)=>s+(p.itens?.reduce((si,i)=>si+(parseFloat(i.quantidade)||1),0)||1),0);
+  const multiItem=pedidos.filter(p=>(p.itens?.length||0)>=2).length;
+  const pct=metaPeriodo>0?Math.round(total/metaPeriodo*100):null;
+  const proj=diasDec>0?(total/diasDec)*diasTot:0;
+  const hojeDayNum=now.getDate();
+  let metaHoje=0;let hasDaily=false;
+  Object.values(dailyGoalsMap).forEach(dg=>{if(dg&&dg[String(hojeDayNum)]!=null){metaHoje+=Number(dg[String(hojeDayNum)]||0);hasDaily=true;}});
+  if(!hasDaily&&metaPeriodo>0)metaHoje=metaPeriodo/diasTot;
+
+  const pctCls=pct===null?'':(pct>=100?'good':pct>=85?'warn':'bad');
+  const deltaTotal=totalPrev>0?((total-totalPrev)/totalPrev*100):null;
+  const mediaItens=n>0?totalItens/n:0;
+  const mediaItensPrev=pedidosPrev.length>0?pedidosPrev.reduce((s,p)=>s+(p.itens?.reduce((si,i)=>si+(parseFloat(i.quantidade)||1),0)||1),0)/pedidosPrev.length:0;
+  const multiPct=n>0?Math.round(multiItem/n*100):0;
+  const multiPrev=pedidosPrev.length>0?Math.round(pedidosPrev.filter(p=>(p.itens?.length||0)>=2).length/pedidosPrev.length*100):0;
+
+  const sec=document.createElement('div');sec.className='sa-kpis';
+
+  const kpis=[
+    {label:'Venda Realizada',val:fmtR(total),delta:deltaTotal!=null?`${deltaTotal>=0?'+':''}${deltaTotal.toFixed(1)}% vs ant.`:null,cls:deltaTotal!=null?(deltaTotal>=0?'good':'bad'):null},
+    {label:'Meta Total',val:metaPeriodo>0?fmtR(metaPeriodo):'—',delta:null,cls:null},
+    {label:'% Atingido',val:pct!=null?pct+'%':'—',delta:null,cls:pctCls},
+    {label:'Projeção Mês',val:fmtR(proj),delta:metaPeriodo>0?`${proj>=metaPeriodo?'+':''}${((proj/metaPeriodo-1)*100).toFixed(1)}% vs meta`:null,cls:metaPeriodo>0?(proj>=metaPeriodo?'good':'bad'):null},
+    {label:'Meta Hoje',val:fmtR(metaHoje),delta:null,cls:null},
+    {label:'Média Itens/Venda',val:mediaItens.toFixed(1),delta:mediaItensPrev>0?`${((mediaItens-mediaItensPrev)/mediaItensPrev*100)>=0?'+':''}${((mediaItens-mediaItensPrev)/mediaItensPrev*100).toFixed(1)}% vs ant.`:null,cls:mediaItensPrev>0?(mediaItens>=mediaItensPrev?'good':'bad'):null},
+    {label:'Vendas +1 Item',val:multiPct+'%',delta:multiPrev>0?`${multiPct-multiPrev>=0?'+':''}${multiPct-multiPrev}pp vs ant.`:null,cls:multiPrev>0?(multiPct>=multiPrev?'good':'bad'):null}
+  ];
+
+  kpis.forEach(k=>{
+    const card=document.createElement('div');card.className='sa-kpi';
+    const lbl=document.createElement('div');lbl.className='sa-kpi-label';lbl.textContent=k.label;
+    const val=document.createElement('div');val.className='sa-kpi-val';val.textContent=k.val;
+    card.appendChild(lbl);card.appendChild(val);
+    if(k.delta){const d=document.createElement('div');d.className='sa-kpi-delta'+(k.cls?' '+k.cls:'');d.textContent=k.delta;card.appendChild(d);}
+    sec.appendChild(card);
+  });
+  return sec;
+}
+
 /* ── GESTÃO À VISTA ── */
 function startGVClock(){
   const tEl=document.getElementById('gv-clock'),dEl=document.getElementById('gv-date');
