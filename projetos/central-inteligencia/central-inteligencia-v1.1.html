@@ -4240,281 +4240,117 @@ async function blingPages(endpoint,params){
 
 function fmtR0(v){return 'R$ '+Math.round(Number(v)).toLocaleString('pt-BR');}
 
-/* ── VESSEL SALES ANALYSIS ── */
-async function loadVesselSalesData(period,customDi,customDf){
-  document.querySelectorAll('.vsales-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===period));
-  const _vsBody=document.getElementById('vessel-sales-body');
-  const now=new Date();
+/* ── SALES ANALYSIS ── */
+window._saCharts={};
+window._saRawData=null;
+
+async function loadSalesAnalysisData(period){
+  document.querySelectorAll('.sa-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===period));
+  const body=document.getElementById('sa-body');
+  body.textContent='';
+  const loading=document.createElement('div');
+  loading.className='sa-loading';
+  loading.textContent='Carregando dados...';
+  body.appendChild(loading);
+
+  const now=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Sao_Paulo'}));
   const y=now.getFullYear(),m=now.getMonth()+1;
-  let di,df;
   const iso=d=>d.toISOString().slice(0,10);
-  if(period==='today'){di=df=iso(now);}
-  else if(period==='1d'){const p=new Date(now-864e5);di=df=iso(p);}
+  const pad=n=>String(n).padStart(2,'0');
+  let di,df;
+  if(period==='sofar'){di=`${y}-${pad(m)}-01`;df=iso(now);}
+  else if(period==='today'){di=df=iso(now);}
   else if(period==='7d'){di=iso(new Date(now-7*864e5));df=iso(now);}
   else if(period==='14d'){di=iso(new Date(now-14*864e5));df=iso(now);}
-  else if(period==='30d'){di=`${y}-${String(m).padStart(2,'0')}-01`;df=iso(now);}
-  else if(period==='month'){di=`${y}-${String(m).padStart(2,'0')}-01`;df=iso(now);}
-  else if(period==='custom'&&customDi&&customDf){di=customDi;df=customDf;}
-  else{di=`${y}-${String(m).padStart(2,'0')}-01`;df=iso(now);}
-  // previous period — same length, immediately before
-  function subMes(s){const d=new Date(s+'T12:00:00');const od=d.getDate();d.setDate(1);d.setMonth(d.getMonth()-1);d.setDate(Math.min(od,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()));return d.toISOString().slice(0,10);}
-  let diPrev=subMes(di),dfPrev=subMes(df);
-  if(period==='30d'){const _pme=new Date(y,m-1,0);dfPrev=_pme.toISOString().slice(0,10);}
+  else if(period==='month'){di=`${y}-${pad(m)}-01`;df=new Date(y,m,0).toISOString().slice(0,10);}
+  else{di=`${y}-${pad(m)}-01`;df=iso(now);}
+
+  const spanMs=new Date(df+'T00:00:00')-new Date(di+'T00:00:00');
+  const diPrev=iso(new Date(new Date(di+'T00:00:00')-spanMs-864e5));
+  const dfPrev=iso(new Date(new Date(di+'T00:00:00')-864e5));
+
+  const di15=iso(new Date(now-14*864e5));
+  const df15=iso(now);
+
   try{
-    const[pedidos,canais,metasArr,pedidosPrev]=await Promise.all([
+    const[pedidos,pedidosPrev,lojaMap,metasArr,vendedoresArr,pedidos15]=await Promise.all([
       blingPages('pedidos/vendas',{dataInicial:di,dataFinal:df,'idsSituacoes[]':9}),
-      sbClient.from('bling_lojas').select('loja_id,nome').then(r=>{const mp={};(r.data||[]).forEach(l=>mp[l.loja_id]=l.nome);return mp;}).catch(()=>({})),
-      sbClient.from('bling_metas').select('loja_id,meta_valor,daily_goals').eq('year',y).eq('month',m).then(r=>r.data||[]).catch(()=>[]),
-      blingPages('pedidos/vendas',{dataInicial:diPrev,dataFinal:dfPrev,'idsSituacoes[]':9}).catch(()=>[])
+      blingPages('pedidos/vendas',{dataInicial:diPrev,dataFinal:dfPrev,'idsSituacoes[]':9}).catch(()=>[]),
+      sbClient.from('bling_lojas').select('loja_id,nome').order('loja_id').then(r=>{const mp={};(r.data||[]).forEach(l=>mp[l.loja_id]=l.nome);return mp;}),
+      sbClient.from('bling_metas').select('loja_id,meta_valor,daily_goals').eq('year',y).eq('month',m).then(r=>r.data||[]),
+      sbClient.from('bling_vendedores').select('vendor_id,nome').then(r=>r.data||[]),
+      blingPages('pedidos/vendas',{dataInicial:di15,dataFinal:df15,'idsSituacoes[]':9}).catch(()=>[])
     ]);
-    _fadeSwap(_vsBody,()=>{
-      renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now,diPrev,dfPrev);
-    });
+
+    const allIds=[...new Set([...pedidos,...pedidosPrev,...pedidos15].map(p=>parseInt(p.id)))];
+    let pvMap={};
+    if(allIds.length){
+      const pvArr=await sbClient.from('bling_pedido_vendedor').select('pedido_id,vendor_id').in('pedido_id',allIds.slice(0,500)).then(r=>r.data||[]);
+      pvArr.forEach(r=>{pvMap[r.pedido_id]=r.vendor_id;});
+    }
+
+    const lojas=Object.entries(lojaMap).map(([id,nome])=>({id:parseInt(id),nome})).sort((a,b)=>a.id-b.id);
+    const canalSel=document.getElementById('sa-canal-select');
+    if(canalSel){
+      canalSel.textContent='';
+      const optAll=document.createElement('option');optAll.value='';optAll.textContent='Todas as lojas';canalSel.appendChild(optAll);
+      lojas.forEach(l=>{const o=document.createElement('option');o.value=l.id;o.textContent=l.nome;canalSel.appendChild(o);});
+    }
+
+    window._saRawData={pedidos,pedidosPrev,lojaMap,lojas,metasArr,vendedoresArr,pvMap,pedidos15,period,di,df,diPrev,dfPrev,di15,df15,now,y,m};
+    renderSalesAnalysis(window._saRawData,'');
   }catch(e){
-    _vsBody.innerHTML=`<div class="vsales-loading">Erro: ${e.message}</div>`;
+    body.textContent='';
+    const err=document.createElement('div');err.className='sa-loading';err.textContent='Erro: '+e.message;body.appendChild(err);
   }
 }
 
-function renderVesselSales(pedidos,pedidosPrev,canais,metasArr,period,di,df,now,diPrev,dfPrev){
-  const y=now.getFullYear(),m=now.getMonth()+1;
+function renderSalesAnalysis(raw,lojaFilter){
+  const{pedidos:allPedidos,pedidosPrev:allPrev,lojaMap,lojas,metasArr,vendedoresArr,pvMap,pedidos15,period,di,df,diPrev,dfPrev,di15,df15,now,y,m}=raw;
+  const pedidos=lojaFilter?allPedidos.filter(p=>String(p.loja?.id)===String(lojaFilter)):allPedidos;
+  const pedidosPrev=lojaFilter?allPrev.filter(p=>String(p.loja?.id)===String(lojaFilter)):allPrev;
+
+  if(window._saCharts){Object.values(window._saCharts).forEach(c=>{try{c.destroy();}catch(e){}});window._saCharts={};}
+
+  const body=document.getElementById('sa-body');
+  body.textContent='';
+
   const diasMes=new Date(y,m,0).getDate();
-  const dInicio=new Date(di),dFim=new Date(df);
+  const dInicio=new Date(di+'T00:00:00');
+  const dFim=new Date(df+'T00:00:00');
   const diasTot=Math.ceil((dFim-dInicio)/864e5)+1;
   const diasDec=Math.min(Math.ceil((now-dInicio)/864e5)+1,diasTot);
 
-  // metas
   const metasMap={};const dailyGoalsMap={};
-  metasArr.forEach(r=>{metasMap[r.loja_id]=parseFloat(r.meta_valor||0);if(r.daily_goals)dailyGoalsMap[r.loja_id]=r.daily_goals;});
-  const metaTotal=(metasMap[0]!=null&&metasMap[0]>0?Number(metasMap[0]):null)||Object.values(metasMap).reduce((s,v)=>s+(Number(v)||0),0)||null;
-  // Usa daily_goals quando disponíveis (período dentro do mesmo mês)
-  const _calcMetaPeriodo=(lojaId,fallback)=>{
-    let dg=lojaId===0?null:dailyGoalsMap[lojaId];
-    if(lojaId===0){const mg={};Object.entries(dailyGoalsMap).forEach(([,g])=>{if(g)Object.entries(g).forEach(([d,v])=>mg[d]=(mg[d]||0)+Number(v||0));});if(Object.keys(mg).length>0)dg=mg;}
-    if(dg&&di&&di.slice(0,7)===df.slice(0,7)){
-      const d1=parseInt(di.slice(8)),d2=parseInt(df.slice(8));
-      let s=0;for(let d=d1;d<=d2;d++)s+=Number(dg[String(d)]||0);
-      if(s>0)return s;
+  metasArr.forEach(r=>{
+    if(!lojaFilter||String(r.loja_id)===String(lojaFilter)||r.loja_id===0){
+      metasMap[r.loja_id]=parseFloat(r.meta_valor||0);
+      if(r.daily_goals)dailyGoalsMap[r.loja_id]=r.daily_goals;
     }
-    return fallback;
+  });
+  const metaTotal=lojaFilter
+    ?(metasMap[parseInt(lojaFilter)]||0)
+    :(metasMap[0]>0?metasMap[0]:Object.entries(metasMap).filter(([k])=>k!=='0').reduce((s,[,v])=>s+v,0))||0;
+
+  const calcMetaPeriodo=(lojaId)=>{
+    let dg=lojaId===0?null:dailyGoalsMap[lojaId];
+    if(lojaId===0){const mg={};Object.values(dailyGoalsMap).forEach(g=>{if(g)Object.entries(g).forEach(([d,v])=>mg[d]=(mg[d]||0)+Number(v||0));});if(Object.keys(mg).length)dg=mg;}
+    if(dg&&di.slice(0,7)===df.slice(0,7)){const d1=parseInt(di.slice(8)),d2=parseInt(df.slice(8));let s=0;for(let d=d1;d<=d2;d++)s+=Number(dg[String(d)]||0);if(s>0)return s;}
+    return lojaId===0?metaTotal/diasMes*diasTot:(metasMap[lojaId]||0)/diasMes*diasTot;
   };
-  const getMetaDia=(dateStr)=>{
-    const dayNum=parseInt(dateStr.slice(8));
-    const isCurrM=dateStr.slice(0,7)===`${y}-${String(m).padStart(2,'0')}`;
-    if(isCurrM){let s=0;let has=false;Object.values(dailyGoalsMap).forEach(dg=>{if(dg&&dg[String(dayNum)]!=null){s+=Number(dg[String(dayNum)]||0);has=true;}});if(has)return s;}
-    return metaTotal?metaTotal/diasMes:null;
-  };
-  const metaPeriodo=metaTotal?_calcMetaPeriodo(0,metaTotal/diasMes*diasTot):null;
 
-  // core
-  const total=pedidos.reduce((s,p)=>s+parseFloat(p.total||0),0);
-  const n=pedidos.length;
-  const ticket=n>0?total/n:0;
-  const diasTotDisplay=period==='30d'?diasMes:diasTot;
-  const proj=diasDec>0?(total/diasDec)*diasTotDisplay:0;
-  const hoje=now.toISOString().slice(0,10);
-  const totalHoje=pedidos.filter(p=>p.data?.slice(0,10)===hoje).reduce((s,p)=>s+parseFloat(p.total||0),0);
-  const metaHoje=getMetaDia(hoje);
-  const pct=metaPeriodo?Math.round(total/metaPeriodo*100):null;
-  const pctCls=pct===null?'':pct>=100?'good':pct>=85?'warn':'bad';
+  const metaPeriodo=calcMetaPeriodo(0);
 
-  // itens
-  const totalItens=pedidos.reduce((s,p)=>s+(p.itens?.reduce((si,i)=>si+(parseFloat(i.quantidade)||1),0)||1),0);
-  const mediaItens=n>0?totalItens/n:0;
-
-  // prev
-  const totalPrev=pedidosPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
-  const nPrev=pedidosPrev.length;
-  const ticketPrev=nPrev>0?totalPrev/nPrev:0;
-  const porLojaPrev={};
-  pedidosPrev.forEach(p=>{const id=p.loja?.id||0;porLojaPrev[id]=(porLojaPrev[id]||0)+parseFloat(p.total||0);});
-  const totalItensPrev=pedidosPrev.reduce((s,p)=>s+(p.itens?.reduce((si,i)=>si+(parseFloat(i.quantidade)||1),0)||1),0);
-  const mediaItensPrev=nPrev>0?totalItensPrev/nPrev:0;
-  const pctPrev=metaPeriodo&&totalPrev>0?Math.round(totalPrev/metaPeriodo*100):null;
-  const projPrev=diasTot>0?totalPrev/diasTot*diasTot:0;
-
-  // per loja
-  const porLojaId={},cntLojaId={};
-  pedidos.forEach(p=>{const id=p.loja?.id||0;porLojaId[id]=(porLojaId[id]||0)+parseFloat(p.total||0);cntLojaId[id]=(cntLojaId[id]||0)+1;});
-  const lojas=Object.entries(porLojaId).map(([id,v])=>({id:parseInt(id),nm:canais[id]||(id?'Canal #'+String(id).slice(-4):'Outros'),v,cnt:cntLojaId[id]})).sort((a,b)=>b.v-a.v);
-  const chartMaxL=Math.max(...lojas.map(l=>Math.max(l.v,metasMap[l.id]||0)),1);
-
-  // per day
-  const porDia={};
-  pedidos.forEach(p=>{const d=p.data?.slice(0,10)||'?';porDia[d]=(porDia[d]||0)+parseFloat(p.total||0);});
-  const dias=Object.entries(porDia).sort((a,b)=>a[0].localeCompare(b[0]));
-  const maxDia=Math.max(...dias.map(([d,v])=>Math.max(v,getMetaDia(d)||0)),1);
-
-  // per contato
-  const porVend={},cntVend={};
-  pedidos.forEach(p=>{const nm=p.contato?.nome||'Sem contato';porVend[nm]=(porVend[nm]||0)+parseFloat(p.total||0);cntVend[nm]=(cntVend[nm]||0)+1;});
-  const vends=Object.entries(porVend).sort((a,b)=>b[1]-a[1]);
-  const maxVend=vends[0]?.[1]||1;
-
-  const isTV=document.body.classList.contains('dev-tv');
-  const chBarMax=isTV?285:110;
-  const dayBarMax=isTV?240:90;
-
-  const dUp=(v,b)=>!b?'':`<span class="vs2-kpi-delta ${v>=b?'up':'dn'}">${v>=b?'↑':'↓'} ${Math.abs(Math.round((v-b)/b*100))}%</span>`;
-  const dUpR=(v,b)=>!b?'':`<span class="vs2-kpi-delta ${v>=b?'up':'dn'}">${v>=b?'+':'-'} ${fmtR0(Math.abs(v-b))}</span>`;
-  function fmtPrevLbl(dip,dfp){
-    if(!dip||!dfp)return 'ant.';
-    const mons=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-    const s=dip.slice(8),e=dfp.slice(8),mo=mons[parseInt(dip.slice(5,7))-1];
-    const moe=mons[parseInt(dfp.slice(5,7))-1];
-    if(dip===dfp)return `${s}/${mo}`;
-    if(dip.slice(0,7)===dfp.slice(0,7))return `${s}-${e}/${mo}`;
-    return `${s}/${mo}→${e}/${moe}`;
-  }
-  const prevLbl=fmtPrevLbl(diPrev,dfPrev);
-
-  document.getElementById('vessel-sales-body').innerHTML=`
-    <div class="vs2-kpis">
-      <div class="vs2-kpi primary">
-        <div class="vs2-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
-        <div class="vs2-kpi-lbl">Venda Realizada</div>
-        <div class="vs2-kpi-val">${fmtR0(total)}</div>
-        ${metaPeriodo?dUpR(total,metaPeriodo)+'<div class="vs2-kpi-sub">vs meta · '+n+' pedidos</div>':
-          (totalPrev?dUp(total,totalPrev)+'<div class="vs2-kpi-sub">vs '+prevLbl+'</div>':`<div class="vs2-kpi-sub">${n} pedidos</div>`)}
-      </div>
-      <div class="vs2-kpi">
-        <div class="vs2-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
-        <div class="vs2-kpi-lbl">Meta do Período</div>
-        <div class="vs2-kpi-val">${metaPeriodo?fmtR0(metaPeriodo):'—'}</div>
-        ${totalPrev&&metaPeriodo?dUpR(total,metaPeriodo)+'<div class="vs2-kpi-sub">'+fmtR0(metaPeriodo-total)+' restam</div>':`<div class="vs2-kpi-sub">Objetivo ${diasTot}d</div>`}
-      </div>
-      <div class="vs2-kpi ${pctCls}">
-        <div class="vs2-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg></div>
-        <div class="vs2-kpi-lbl">% Atingido</div>
-        <div class="vs2-kpi-val">${pct!==null?pct+'%':'—'}</div>
-        ${pct!==null?`<div class="vs2-kpi-prog"><div class="vs2-kpi-prog-fill" style="width:0" data-w="${Math.min(pct,100)}"></div></div>`:''}
-        <div class="vs2-kpi-sub">${pct!==null?(pct>=100?'Meta batida!':`Faltam ${100-pct}%`):'Sem meta'}${pctPrev!==null?' · ant: '+pctPrev+'%':''}</div>
-      </div>
-      <div class="vs2-kpi">
-        <div class="vs2-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
-        <div class="vs2-kpi-lbl">Projeção</div>
-        <div class="vs2-kpi-val">${fmtR0(proj)}</div>
-        ${metaPeriodo?dUpR(proj,metaPeriodo)+'<div class="vs2-kpi-sub">vs meta</div>':
-          (totalPrev?dUp(proj,totalPrev)+'<div class="vs2-kpi-sub">vs '+prevLbl+'</div>':`<div class="vs2-kpi-sub">${diasDec}/${diasTotDisplay} dias</div>`)}
-      </div>
-      <div class="vs2-kpi">
-        <div class="vs2-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/></svg></div>
-        <div class="vs2-kpi-lbl">Meta de Hoje</div>
-        <div class="vs2-kpi-val">${metaHoje?fmtR0(metaHoje):'—'}</div>
-        ${metaHoje?dUpR(totalHoje,metaHoje)+'<div class="vs2-kpi-sub">realizado hoje</div>':`<div class="vs2-kpi-sub">Hoje: ${fmtR0(totalHoje)}</div>`}
-      </div>
-      <div class="vs2-kpi">
-        <div class="vs2-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div>
-        <div class="vs2-kpi-lbl">Média Itens/Venda</div>
-        <div class="vs2-kpi-val">${mediaItens.toFixed(2)}</div>
-        ${mediaItensPrev?dUp(mediaItens,mediaItensPrev)+'<div class="vs2-kpi-sub">vs '+prevLbl+' · '+totalItens+' itens</div>':`<div class="vs2-kpi-sub">${n} vendas · ${totalItens} itens</div>`}
-      </div>
-      <div class="vs2-kpi">
-        <div class="vs2-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div>
-        <div class="vs2-kpi-lbl">Ticket Médio</div>
-        <div class="vs2-kpi-val">${fmtR(ticket)}</div>
-        ${ticketPrev?dUp(ticket,ticketPrev)+'<div class="vs2-kpi-sub">vs '+prevLbl+'</div>':`<div class="vs2-kpi-sub">${n} pedidos</div>`}
-      </div>
-    </div>
-
-    <div class="vs2-section">
-      <div class="vs2-sec-hdr">
-        <span class="vs2-sec-title">Desdobramento por Loja / Canal</span>
-        <div class="vs2-legend">
-          <span class="vs2-legend-item"><span class="vs2-legend-dot" style="background:var(--green)"></span>≥ 100%</span>
-          <span class="vs2-legend-item"><span class="vs2-legend-dot" style="background:#b08000"></span>85–99%</span>
-          <span class="vs2-legend-item"><span class="vs2-legend-dot" style="background:var(--red)"></span>&lt; 85%</span>
-          <span class="vs2-legend-item"><span class="vs2-legend-dot" style="background:rgba(0,0,0,.06);border:1px dashed rgba(0,0,0,.2)"></span>Meta</span>
-        </div>
-      </div>
-      <div class="vs2-channels">
-        <div class="vs2-ch-chart">
-          <div class="vs2-ch-bars">
-            ${lojas.map(l=>{
-              const meta=l.id>0?_calcMetaPeriodo(l.id,metasMap[l.id]?metasMap[l.id]/diasMes*diasTot:null):null;
-              const prev=porLojaPrev[l.id]||0;
-              const allVals=[l.v,meta||0,prev];
-              const localMax=Math.max(...allVals,1);
-              const pctL=meta?Math.round(l.v/meta*100):null;
-              const colCls=pctL===null?'':pctL>=100?'good':pctL>=85?'warn':'bad';
-              const pctCol=pctL===null?'var(--accent)':pctL>=100?'var(--green)':pctL>=85?'#b08000':'var(--red)';
-              const hR=Math.round(l.v/localMax*chBarMax);
-              const hM=meta?Math.round(meta/localMax*chBarMax):0;
-              const hP=prev?Math.round(prev/localMax*chBarMax):0;
-              const deltaL=prev>0?Math.round((l.v-prev)/prev*100):null;
-              return `<div class="vs2-ch-col">
-                <div class="vs2-ch-col-bars">
-                  ${prev?`<div class="vs2-ch-bar prev-bar" style="height:0" data-h="${hP}px" title="Período ant.: ${fmtR0(prev)}"></div>`:''}
-                  ${meta?`<div class="vs2-ch-bar meta-bar" style="height:0" data-h="${hM}px"></div>`:''}
-                  <div class="vs2-ch-bar real-bar ${colCls}" style="height:0" data-h="${hR}px">
-                    ${pctL!==null?`<span class="vs2-ch-pct" style="color:${pctCol}">${pctL>=100?'↑':'↓'}${pctL}%</span>`:''}
-                  </div>
-                </div>
-                ${deltaL!==null?`<div class="vs2-ch-delta ${deltaL>=0?'up':'dn'}">${deltaL>=0?'↑':'↓'}${Math.abs(deltaL)}%</div>`:''}
-                <div class="vs2-ch-nm" title="${escHtml(l.nm)}">${escHtml(l.nm)}</div>
-              </div>`;
-            }).join('')}
-          </div>
-        </div>
-        <div class="vs2-ch-summary">
-          <div class="vs2-ch-sum-cell"><div class="vs2-ch-sum-lbl">Meta</div><div class="vs2-ch-sum-val">${metaPeriodo?fmtR0(metaPeriodo):'—'}</div></div>
-          <div class="vs2-ch-sum-cell"><div class="vs2-ch-sum-lbl">Realizado</div><div class="vs2-ch-sum-val">${fmtR0(total)}</div></div>
-          <div class="vs2-ch-sum-cell"><div class="vs2-ch-sum-lbl">Desvio Meta</div><div class="vs2-ch-sum-val ${metaPeriodo&&total<metaPeriodo?'bad':'good'}">${metaPeriodo?(total>=metaPeriodo?'+':'-')+fmtR0(Math.abs(total-metaPeriodo)):'—'}</div></div>
-          <div class="vs2-ch-sum-cell"><div class="vs2-ch-sum-lbl">vs ${prevLbl}</div><div class="vs2-ch-sum-val ${totalPrev&&total>=totalPrev?'good':'bad'}">${totalPrev?(total>=totalPrev?'↑':'↓')+Math.abs(Math.round((total-totalPrev)/totalPrev*100))+'%':'—'}</div></div>
-        </div>
-      </div>
-    </div>
-
-    ${dias.length>1?`
-    <div class="vs2-section">
-      <div class="vs2-sec-hdr">
-        <span class="vs2-sec-title">Visão Diária: Vendas por Dia</span>
-        <span style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted)">${n} vendas · ${fmtR0(total)}</span>
-      </div>
-      <div class="vs2-daily">
-        <div class="vs2-daily-chart">
-          ${dias.map(([d,v])=>{
-            const mDia=getMetaDia(d);
-            const pctD=mDia?Math.round(v/mDia*100):null;
-            const colD=pctD===null?'':pctD>=100?'good':'bad';
-            const hR=Math.round(v/maxDia*dayBarMax);
-            const hM=mDia?Math.round(mDia/maxDia*dayBarMax):0;
-            return `<div class="vs2-day-col">
-              <div class="vs2-day-bars">
-                <div class="vs2-day-bar real ${colD}" style="height:0" data-h="${hR}px"></div>
-                ${mDia?`<div class="vs2-day-bar meta" style="height:0" data-h="${hM}px"></div>`:''}
-              </div>
-              <div class="vs2-day-lbl">${d.slice(5).replace('-','/')}</div>
-            </div>`;
-          }).join('')}
-        </div>
-      </div>
-    </div>`:''}
-
-    ${vends.length?`
-    <div class="vs2-section">
-      <div class="vs2-sec-hdr">
-        <span class="vs2-sec-title">Análise por Contato</span>
-        <span style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted)">${vends.length} contatos</span>
-      </div>
-      <div class="vs2-vend">
-        <table class="vs2-vend-tbl">
-          <thead><tr><th>Contato</th><th>Vendas (R$)</th><th>Pedidos</th><th>Ticket Médio</th></tr></thead>
-          <tbody>${vends.slice(0,20).map(([nm,v])=>`
-            <tr>
-              <td>${escHtml(nm)}</td>
-              <td class="num">${fmtR0(v)}<div class="vs2-vend-hbar-wrap"><div class="vs2-vend-hbar" style="width:0" data-w="${Math.round(v/maxVend*100)}%"></div></div></td>
-              <td class="num">${cntVend[nm]}</td>
-              <td class="num">${fmtR(v/cntVend[nm])}</td>
-            </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>`:''}
-  `;
-  setTimeout(()=>{
-    document.querySelectorAll('#vessel-sales-screen [data-h]').forEach(el=>el.style.height=el.dataset.h);
-    document.querySelectorAll('#vessel-sales-screen [data-w]').forEach(el=>el.style.width=el.dataset.w);
-  },100);
+  body.appendChild(renderSAKpis({pedidos,pedidosPrev,metaPeriodo,diasMes,diasTot,diasDec,now,y,m,dailyGoalsMap,metasMap,period}));
+  body.appendChild(renderSACanal({pedidos,pedidosPrev,lojas,lojaMap,metasMap,dailyGoalsMap,di,df,diasMes,diasTot}));
+  body.appendChild(renderSADiario({pedidos,di,df,diasTot,dailyGoalsMap,metaTotal,diasMes}));
+  body.appendChild(renderSATicket({pedidos,pedidosPrev,lojas,lojaMap}));
+  body.appendChild(renderSADesconto({pedidos,lojas,lojaMap}));
+  body.appendChild(renderSAVendedoras({pedidos,vendedoresArr,pvMap,lojaMap}));
+  lojas.forEach(loja=>{
+    if(lojaFilter&&String(loja.id)!==String(lojaFilter))return;
+    body.appendChild(renderSALojaSection({loja,pedidos:allPedidos,pedidosPrev:allPrev,vendedoresArr,pvMap,metasArr,now,y,m,pedidos15,di15,df15}));
+  });
 }
 
 /* ── GESTÃO À VISTA ── */
