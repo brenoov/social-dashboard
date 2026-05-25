@@ -2697,7 +2697,7 @@ function loadAdminSection(name){
   document.querySelectorAll('.admin-nav-item').forEach(el=>el.classList.toggle('active',el.dataset.section===name));
   document.querySelectorAll('.admin-section').forEach(el=>el.classList.remove('active'));
   const sec=document.getElementById('admin-section-'+name);if(sec)sec.classList.add('active');
-  ({users:loadAdminUsers,accounts:loadAdminAccounts,appearance:loadAdminAppearance,data:loadAdminData,system:loadAdminSystem,metas:loadAdminMetas,requests:loadAdminRequests})[name]?.();
+  ({users:loadAdminUsers,accounts:loadAdminAccounts,appearance:loadAdminAppearance,data:loadAdminData,system:loadAdminSystem,metas:loadAdminMetas,requests:loadAdminRequests,permissions:loadAdminPermissions})[name]?.();
 }
 
 /* ── USUÁRIOS ── */
