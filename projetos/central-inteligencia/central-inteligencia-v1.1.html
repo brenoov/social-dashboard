@@ -3001,6 +3001,7 @@ async function loadAdminMetas(){
       :'<div style="color:var(--muted);font-size:12px;padding:8px 0">Nenhuma meta cadastrada para este mês. Importe uma planilha para começar.</div>'
   ].join('');
   body.innerHTML=html;
+  await loadAdminVendMetas(body,y,m,mesLabel);
 }
 
 async function downloadMetasTemplate(){
@@ -3073,6 +3074,113 @@ async function importMetasCSV(input,y,m){
     if(error){showMetasMsg('Erro ao salvar: '+error.message,true);}
     else{showMetasMsg(`${rows.length} meta${rows.length!==1?'s':''} importada${rows.length!==1?'s':''}!`,false);loadAdminMetas();}
   }catch(e){showMetasMsg('Erro ao ler arquivo: '+e.message,true);}
+  input.value='';
+}
+
+async function loadAdminVendMetas(parentBody,y,m,mesLabel){
+  const[vendsRes,vendMetasRes]=await Promise.all([
+    sbClient.from('bling_vendedores').select('vendor_id,nome').order('nome'),
+    sbClient.from('bling_vendedor_metas').select('vendor_id,meta_valor').eq('year',y).eq('month',m)
+  ]);
+  const vends=vendsRes.data||[];
+  const vendMetasMap={};(vendMetasRes.data||[]).forEach(r=>vendMetasMap[r.vendor_id]=r.meta_valor);
+  const diasMes=new Date(y,m,0).getDate();
+  const hasVendData=Object.keys(vendMetasMap).length>0;
+
+  const sec=document.createElement('div');sec.style.marginTop='32px';
+  const hdr=document.createElement('div');hdr.className='sg-label';hdr.textContent='METAS DE VENDEDORAS';
+  sec.appendChild(hdr);
+
+  const desc=document.createElement('div');desc.className='admin-section-sub';desc.style.marginBottom='20px';
+  desc.textContent='Baixe o template, preencha as metas diárias por vendedora e importe.';
+  sec.appendChild(desc);
+
+  const btnRow=document.createElement('div');btnRow.style.cssText='display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:24px';
+
+  const dlBtn=document.createElement('button');dlBtn.className='admin-btn-sm';dlBtn.style.cssText='display:flex;align-items:center;gap:6px;padding:8px 16px';dlBtn.textContent='Baixar template .xlsx';
+  dlBtn.addEventListener('click',()=>downloadVendedoresTemplate());
+  btnRow.appendChild(dlBtn);
+
+  const label=document.createElement('label');label.className='admin-btn-sm';label.style.cssText='display:flex;align-items:center;gap:6px;padding:8px 16px;cursor:pointer;background:var(--accent);color:#fff;border-color:var(--accent)';
+  label.textContent='Importar planilha';
+  const fileInput=document.createElement('input');fileInput.type='file';fileInput.accept='.xlsx,.xls,.csv';fileInput.style.display='none';fileInput.id='vend-metas-csv-input';
+  fileInput.addEventListener('change',function(){importVendedoresCSV(this,y,m);});
+  label.appendChild(fileInput);
+  btnRow.appendChild(label);
+  sec.appendChild(btnRow);
+
+  const msgEl=document.createElement('div');msgEl.id='vend-metas-import-msg';msgEl.style.cssText='font-size:12px;margin-bottom:16px;display:none';
+  sec.appendChild(msgEl);
+
+  if(hasVendData){
+    const tblTitle=document.createElement('div');tblTitle.className='sg-label';tblTitle.textContent='Metas actuais — '+mesLabel;sec.appendChild(tblTitle);
+    const sg=document.createElement('div');sg.className='sg';
+    const tbl=document.createElement('table');tbl.className='metas-tbl';
+    const thead=document.createElement('thead');
+    const hr=document.createElement('tr');
+    ['Vendedora','Meta (R$)','Meta/dia'].forEach(h=>{const th=document.createElement('th');th.textContent=h;hr.appendChild(th);});
+    thead.appendChild(hr);tbl.appendChild(thead);
+    const tbody=document.createElement('tbody');
+    vends.filter(v=>vendMetasMap[v.vendor_id]).forEach(v=>{
+      const tr=document.createElement('tr');
+      const nm=document.createElement('td');nm.textContent=v.nome;tr.appendChild(nm);
+      const mv=document.createElement('td');mv.style.textAlign='right';mv.textContent=fmtR(vendMetasMap[v.vendor_id]);tr.appendChild(mv);
+      const md=document.createElement('td');md.style.cssText='text-align:right;color:var(--muted)';md.textContent=fmtR(vendMetasMap[v.vendor_id]/diasMes);tr.appendChild(md);
+      tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);sg.appendChild(tbl);sec.appendChild(sg);
+  }else{
+    const empty=document.createElement('div');empty.style.cssText='color:var(--muted);font-size:12px;padding:8px 0';empty.textContent='Nenhuma meta de vendedora para este mês.';sec.appendChild(empty);
+  }
+  parentBody.appendChild(sec);
+}
+
+async function downloadVendedoresTemplate(){
+  const now=new Date();const y=now.getFullYear(),m=now.getMonth()+1;const diasMes=new Date(y,m,0).getDate();
+  const[{data:vends},{data:metas}]=await Promise.all([
+    sbClient.from('bling_vendedores').select('vendor_id,nome').order('nome'),
+    sbClient.from('bling_vendedor_metas').select('vendor_id,daily_goals').eq('year',y).eq('month',m)
+  ]);
+  const dailyMap={};(metas||[]).forEach(r=>{if(r.daily_goals)dailyMap[r.vendor_id]=r.daily_goals;});
+  const dayHdrs=Array.from({length:diasMes},(_,i)=>String(i+1));
+  const makeRow=(id,nome)=>{const dg=dailyMap[id]||{};return[id,nome,...Array.from({length:diasMes},(_,i)=>dg[i+1]!=null?Number(dg[i+1]):'')];};
+  const rows=[['vendor_id','nome',...dayHdrs],...(vends||[]).map(v=>makeRow(v.vendor_id,v.nome))];
+  const ws=XLSX.utils.aoa_to_sheet(rows);ws['!freeze']={xSplit:2,ySplit:1,topLeftCell:'C2',activePane:'bottomLeft',state:'frozen'};
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'MetasVendedoras');
+  XLSX.writeFile(wb,`metas_vendedoras_${y}_${String(m).padStart(2,'0')}.xlsx`);
+}
+
+async function importVendedoresCSV(input,y,m){
+  const msgEl=document.getElementById('vend-metas-import-msg');
+  if(msgEl){msgEl.style.display='block';msgEl.textContent='Processando...';}
+  try{
+    const file=input.files[0];if(!file)return;
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+    if(rows.length<2){throw new Error('Planilha vazia');}
+    const header=rows[0].map(h=>String(h).trim());
+    const idIdx=header.indexOf('vendor_id');
+    if(idIdx<0)throw new Error('Coluna vendor_id não encontrada');
+    const dayIdxs=[];for(let c=0;c<header.length;c++){const n=parseInt(header[c]);if(!isNaN(n)&&n>=1&&n<=31)dayIdxs.push({col:c,day:n});}
+    const records=[];
+    for(let r=1;r<rows.length;r++){
+      const row=rows[r];const id=parseInt(row[idIdx]);if(!id||isNaN(id))continue;
+      const goals={};let total=0;
+      dayIdxs.forEach(({col,day})=>{const v=parseFloat(row[col])||0;if(v>0){goals[String(day)]=v;total+=v;}});
+      records.push({vendor_id:id,year:y,month:m,meta_valor:total,daily_goals:goals});
+    }
+    for(const rec of records){
+      const{error}=await sbClient.from('bling_vendedor_metas').upsert(rec,{onConflict:'vendor_id,year,month'});
+      if(error)throw error;
+    }
+    if(msgEl){msgEl.style.color='var(--accent)';msgEl.textContent=records.length+' vendedora(s) importada(s) com sucesso.';}
+    adminToast('Metas de vendedoras importadas');
+  }catch(e){
+    if(msgEl){msgEl.style.color='#ef4444';msgEl.textContent='Erro: '+e.message;}
+    adminToast('Erro ao importar: '+e.message,false);
+  }
   input.value='';
 }
 
