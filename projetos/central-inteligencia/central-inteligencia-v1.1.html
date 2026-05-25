@@ -3033,6 +3033,84 @@ async function loadAdminRequests(){
   body.innerHTML='';body.appendChild(wrap);
 }
 
+/* ── PERMISSIONS ADMIN HELPERS ── */
+function buildPermToggle(initialValue,onChange){
+  const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;cursor:pointer;';
+  const inp=document.createElement('input');inp.type='checkbox';inp.checked=initialValue;inp.style.display='none';
+  const track=document.createElement('div');
+  track.style.cssText='width:36px;height:20px;border-radius:10px;background:'+(initialValue?'var(--accent)':'var(--surface2)')+';border:1px solid var(--border);position:relative;transition:background .2s;cursor:pointer;flex-shrink:0';
+  const thumb=document.createElement('div');
+  thumb.style.cssText='width:14px;height:14px;border-radius:50%;background:#fff;position:absolute;top:2px;left:'+(initialValue?'18px':'2px')+';transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)';
+  track.appendChild(thumb);label.appendChild(inp);label.appendChild(track);
+  label.addEventListener('click',async(e)=>{
+    e.preventDefault();
+    const newVal=!inp.checked;inp.checked=newVal;
+    track.style.background=newVal?'var(--accent)':'var(--surface2)';
+    thumb.style.left=newVal?'18px':'2px';
+    await onChange(newVal);
+  });
+  return label;
+}
+
+async function renderUserPermPanel(panel,userId,role){
+  panel.textContent='';
+  if(role==='admin'){
+    const msg=document.createElement('div');
+    msg.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:12px;color:var(--muted);padding:4px 0';
+    msg.textContent='Admin tem acesso total a todas as ferramentas.';
+    panel.appendChild(msg);return;
+  }
+  const{data:rows}=await sbClient.from('user_permissions').select('resource_key,granted').eq('user_id',userId);
+  const permMap=new Map((rows||[]).map(r=>[r.resource_key,r.granted]));
+  const{data:{session}}=await sbClient.auth.getSession();
+  const grantedBy=session?.user?.id;
+
+  TOOL_REGISTRY.forEach((tool,toolIdx)=>{
+    const toolKey='tool:'+tool.key;
+    const toolWrap=document.createElement('div');toolWrap.style.marginBottom='8px';
+    const toolRow=document.createElement('div');
+    toolRow.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:6px 0';
+    const toolLbl=document.createElement('span');
+    toolLbl.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:13px;font-weight:500;color:var(--text)';
+    toolLbl.textContent=tool.icon+' '+tool.label;
+    const modWrappers=[];
+    const toolToggle=buildPermToggle(permMap.get(toolKey)||false,async(v)=>{
+      await sbClient.from('user_permissions').upsert(
+        {user_id:userId,resource_key:toolKey,granted:v,granted_by:grantedBy,granted_at:new Date().toISOString()},
+        {onConflict:'user_id,resource_key'}
+      );
+      modWrappers.forEach(w=>{w.style.opacity=v?'1':'0.4';w.style.pointerEvents=v?'':'none';});
+      adminToast(v?'Acesso liberado':'Acesso revogado');
+    });
+    toolRow.appendChild(toolLbl);toolRow.appendChild(toolToggle);toolWrap.appendChild(toolRow);
+
+    tool.modules.forEach(mod=>{
+      const modKey='module:'+tool.key+':'+mod.key;
+      const toolGranted=permMap.get(toolKey)||false;
+      const modWrap=document.createElement('div');
+      modWrap.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:5px 0 5px 20px;'+(toolGranted?'':'opacity:0.4;pointer-events:none');
+      const modLbl=document.createElement('span');
+      modLbl.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:12px;color:var(--muted)';
+      modLbl.textContent='↳ '+mod.label;
+      const modToggle=buildPermToggle(permMap.get(modKey)||false,async(v)=>{
+        await sbClient.from('user_permissions').upsert(
+          {user_id:userId,resource_key:modKey,granted:v,granted_by:grantedBy,granted_at:new Date().toISOString()},
+          {onConflict:'user_id,resource_key'}
+        );
+        adminToast(v?'Módulo liberado':'Módulo revogado');
+      });
+      modWrap.appendChild(modLbl);modWrap.appendChild(modToggle);
+      toolWrap.appendChild(modWrap);modWrappers.push(modWrap);
+    });
+
+    panel.appendChild(toolWrap);
+    if(toolIdx<TOOL_REGISTRY.length-1){
+      const sep=document.createElement('div');sep.style.cssText='border-top:1px solid var(--border);margin:4px 0';
+      panel.appendChild(sep);
+    }
+  });
+}
+
 async function handleRequest(id,status){
   await sbClient.from('access_requests').update({status}).eq('id',id);
   loadAdminRequests();
