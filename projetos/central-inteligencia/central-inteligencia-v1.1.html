@@ -4398,20 +4398,23 @@ window._saRawData=null;
 
 async function loadSalesAnalysisData(period){
   document.querySelectorAll('.sa-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===period));
-  if(typeof ChartDataLabels!=='undefined')Chart.register(ChartDataLabels);
-  Chart.defaults.font.family="'IBM Plex Sans',sans-serif";
-  Chart.defaults.font.size=11;
-  Chart.defaults.animation.duration=800;
-  Chart.defaults.animation.easing='easeOutQuart';
-  Chart.defaults.transitions.active.animation.duration=200;
-  window._saLabelColor=()=>getComputedStyle(document.documentElement).getPropertyValue('--text').trim()||'#333';
-  Chart.defaults.color=window._saLabelColor();
   const body=document.getElementById('sa-body');
   body.textContent='';
   const loading=document.createElement('div');
   loading.className='sa-loading';
   loading.textContent='Carregando dados...';
   body.appendChild(loading);
+  try{
+    if(typeof ChartDataLabels!=='undefined')Chart.register(ChartDataLabels);
+    Chart.defaults.font.family="'IBM Plex Sans',sans-serif";
+    Chart.defaults.font.size=11;
+    Chart.defaults.animation.duration=800;
+    Chart.defaults.animation.easing='easeOutQuart';
+    try{Chart.defaults.transitions.active.animation.duration=200;}catch(e){}
+    window._saLabelColor=()=>getComputedStyle(document.documentElement).getPropertyValue('--text').trim()||'#333';
+    Chart.defaults.color=window._saLabelColor();
+  }catch(e){}
+
 
   const now=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Sao_Paulo'}));
   const y=now.getFullYear(),m=now.getMonth()+1;
