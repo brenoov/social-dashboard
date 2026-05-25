@@ -3112,6 +3112,10 @@ function showDashboard(user,role){
   setGlobalUserBtn(user.email,role);
   const adminCard=document.getElementById('home-card-admin');
   if(adminCard)adminCard.style.display=role==='admin'?'':'none';
+  const socialCard=document.getElementById('home-card-social');
+  if(socialCard)socialCard.style.display=hasPermission('tool:social')?'':'none';
+  const salesCard=document.getElementById('home-card-sales');
+  if(salesCard)salesCard.style.display=hasPermission('tool:sales')?'':'none';
   if(!appInitialized){
     appInitialized=true;
     const screen=sessionStorage.getItem('rbv-screen');
@@ -3380,6 +3384,7 @@ async function loadDashboard(session){
   });
   const profiles=await pr.json();
   const role=profiles?.[0]?.role||'viewer';
+  await loadUserPermissions(session.user.id,role);
   showDashboard(session.user,role);
   if(!dashboardReady){
     buildPeriodTabs();updateGoalDisplays(7);watchGoals();
