@@ -4761,8 +4761,8 @@ function renderSADesconto({pedidos,lojas,lojaMap,di,df}){
   row.appendChild(wrapD);row.appendChild(wrapB);
   sec.appendChild(title);sec.appendChild(row);
 
-  const comDesc=pedidos.filter(p=>parseFloat(p.desconto?.valor??p.desconto??0)>0);
-  const semDesc=pedidos.filter(p=>!(parseFloat(p.desconto?.valor??p.desconto??0)>0));
+  const comDesc=pedidos.filter(p=>p.itens?.some(i=>parseFloat(i.desconto||0)>0));
+  const semDesc=pedidos.filter(p=>!(p.itens?.some(i=>parseFloat(i.desconto||0)>0)));
   const totalCom=comDesc.reduce((s,p)=>s+parseFloat(p.total||0),0);
   const totalSem=semDesc.reduce((s,p)=>s+parseFloat(p.total||0),0);
 
@@ -4775,8 +4775,8 @@ function renderSADesconto({pedidos,lojas,lojaMap,di,df}){
 
   const dias=[];{const d=new Date(di+'T00:00:00');const end=new Date(df+'T00:00:00');while(d<=end){dias.push(d.toISOString().slice(0,10));d.setDate(d.getDate()+1);}}
   const labelsB=dias.map(dt=>{const d=new Date(dt+'T12:00:00');return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');});
-  const comB=dias.map(dt=>pedidos.filter(p=>p.data?.slice(0,10)===dt&&parseFloat(p.desconto?.valor??p.desconto??0)>0).reduce((s,p)=>s+parseFloat(p.total||0),0));
-  const semB=dias.map(dt=>pedidos.filter(p=>p.data?.slice(0,10)===dt&&!(parseFloat(p.desconto?.valor??p.desconto??0)>0)).reduce((s,p)=>s+parseFloat(p.total||0),0));
+  const comB=dias.map(dt=>pedidos.filter(p=>p.data?.slice(0,10)===dt&&p.itens?.some(i=>parseFloat(i.desconto||0)>0)).reduce((s,p)=>s+parseFloat(p.total||0),0));
+  const semB=dias.map(dt=>pedidos.filter(p=>p.data?.slice(0,10)===dt&&!(p.itens?.some(i=>parseFloat(i.desconto||0)>0))).reduce((s,p)=>s+parseFloat(p.total||0),0));
 
   window._saCharts.descontoBar=new Chart(canvasB,{
     type:'bar',
@@ -4815,7 +4815,7 @@ function renderSAVendedoras({pedidos,pedidosPrev,vendedoresArr,pvMap,lojaMap}){
     s.vendas+=parseFloat(p.total||0);
     s.cupons++;
     s.itens+=(p.itens?.reduce((si,i)=>si+(parseFloat(i.quantidade)||1),0)||1);
-    if(parseFloat(p.desconto?.valor??p.desconto??0)>0)s.desc++;
+    if(p.itens?.some(i=>parseFloat(i.desconto||0)>0))s.desc++;
   });
 
   const vends=Object.entries(stats).filter(([,s])=>s.cupons>0).sort((a,b)=>b[1].vendas-a[1].vendas).map(([id,s])=>({
@@ -4869,13 +4869,13 @@ function renderSAVendedoras({pedidos,pedidosPrev,vendedoresArr,pvMap,lojaMap}){
   const totalCupons=vends.reduce((s,v)=>s+v.cupons,0);
   const ticketGeral=totalCupons>0?totalVendas/totalCupons:0;
   const pctMulti=pedidos.length>0?pedidos.filter(p=>(p.itens?.length||0)>=2).length/pedidos.length*100:0;
-  const pctDesc=pedidos.length>0?pedidos.filter(p=>parseFloat(p.desconto?.valor??p.desconto??0)>0).length/pedidos.length*100:0;
+  const pctDesc=pedidos.length>0?pedidos.filter(p=>p.itens?.some(i=>parseFloat(i.desconto||0)>0)).length/pedidos.length*100:0;
 
   const totalVendasPrev=(pedidosPrev||[]).reduce((s,p)=>s+parseFloat(p.total||0),0);
   const totalCuponsPrev=(pedidosPrev||[]).length;
   const ticketGeralPrev=totalCuponsPrev>0?totalVendasPrev/totalCuponsPrev:0;
   const pctMultiPrev=(pedidosPrev||[]).length>0?(pedidosPrev||[]).filter(p=>(p.itens?.length||0)>=2).length/(pedidosPrev||[]).length*100:0;
-  const pctDescPrev=(pedidosPrev||[]).length>0?(pedidosPrev||[]).filter(p=>parseFloat(p.desconto?.valor??p.desconto??0)>0).length/(pedidosPrev||[]).length*100:0;
+  const pctDescPrev=(pedidosPrev||[]).length>0?(pedidosPrev||[]).filter(p=>p.itens?.some(i=>parseFloat(i.desconto||0)>0)).length/(pedidosPrev||[]).length*100:0;
   const deltaVendas=totalVendasPrev>0?(totalVendas-totalVendasPrev)/totalVendasPrev*100:null;
   const deltaCupons=totalCuponsPrev>0?(totalCupons-totalCuponsPrev)/totalCuponsPrev*100:null;
   const deltaTicket=ticketGeralPrev>0?(ticketGeral-ticketGeralPrev)/ticketGeralPrev*100:null;
