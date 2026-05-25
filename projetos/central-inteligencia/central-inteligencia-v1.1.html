@@ -1903,6 +1903,23 @@
 const SUPABASE_URL='https://kounqtdoioootxqegkij.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtvdW5xdGRvaW9vb3R4cWVna2lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMDMwMDUsImV4cCI6MjA5NDc3OTAwNX0.MVXa6jngjKXkH3eZ7as_j_k8Eb7lJKcFmO4kCKAnuHM';
 const sbClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+// ── PERMISSIONS ──
+const TOOL_REGISTRY=[
+  {key:'social',label:'Análise de Redes Sociais',icon:'📊',modules:[]},
+  {key:'sales',label:'Vendas',icon:'💰',modules:[
+    {key:'gestao-vista',label:'Gestão à Vista'},
+    {key:'analise-vendas',label:'Análise de Vendas'}
+  ]}
+];
+let _userPerms=new Set();
+let _isAdmin=false;
+function hasPermission(resourceKey){return _isAdmin||_userPerms.has(resourceKey);}
+async function loadUserPermissions(userId,role){
+  _isAdmin=(role==='admin');
+  if(_isAdmin)return;
+  const{data}=await sbClient.from('user_permissions').select('resource_key,granted').eq('user_id',userId).eq('granted',true);
+  _userPerms=new Set((data||[]).map(r=>r.resource_key));
+}
 
 const PERIODS=[{label:'HOJE',value:0},{label:'1D',value:1},{label:'7D',value:7},{label:'14D',value:14},{label:'30D',value:30}];
 const ACCOUNT_PICS={};
