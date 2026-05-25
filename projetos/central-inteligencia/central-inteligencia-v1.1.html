@@ -4633,6 +4633,76 @@ function renderSAVendedoras({pedidos,vendedoresArr,pvMap,lojaMap}){
   return sec;
 }
 
+function renderSALojaSection({loja,pedidos,pedidosPrev,vendedoresArr,pvMap,metasArr,now,y,m,pedidos15,di15,df15}){
+  const sec=document.createElement('div');sec.className='sa-section sa-loja-section';
+  const t=document.createElement('div');t.className='sa-section-title sa-loja-title';t.textContent=loja.nome;
+  sec.appendChild(t);
+  sec.appendChild(renderSALojaTable({loja,pedidos,vendedoresArr,pvMap,metasArr,now,y,m}));
+  sec.appendChild(renderSAPositivacao({loja,pedidos15,vendedoresArr,pvMap,di15,df15,now}));
+  return sec;
+}
+
+function renderSALojaTable({loja,pedidos,vendedoresArr,pvMap,metasArr,now,y,m}){
+  const hoje=now.toISOString().slice(0,10);
+  const ontem=new Date(now-864e5).toISOString().slice(0,10);
+  const diaSem=new Date(now-6*864e5).toISOString().slice(0,10);
+
+  const metaLoja=metasArr.find(r=>r.loja_id===loja.id)||null;
+  const dg=metaLoja?.daily_goals||null;
+  const diasMes=new Date(y,m,0).getDate();
+  const metaVal=parseFloat(metaLoja?.meta_valor||0);
+
+  const getMetaDia=(dt)=>{const dn=parseInt(dt.slice(8));return dg&&dg[String(dn)]!=null?Number(dg[String(dn)]):metaVal/diasMes;};
+  const getMetaWeek=()=>{if(!dg)return metaVal/diasMes*7;let s=0;for(let i=0;i<7;i++){const d=new Date(now-i*864e5);s+=Number(dg[String(d.getDate())]||metaVal/diasMes);}return s;};
+  const metaMes=metaVal;
+
+  const lojaPedidos=pedidos.filter(p=>String(p.loja?.id)===String(loja.id));
+  const vendStats=vendedoresArr.map(v=>{
+    const vid=v.vendor_id;
+    const mine=lojaPedidos.filter(p=>pvMap[parseInt(p.id)]===vid);
+    const mHoje=mine.filter(p=>p.data?.slice(0,10)===hoje).reduce((s,p)=>s+parseFloat(p.total||0),0);
+    const mOntem=mine.filter(p=>p.data?.slice(0,10)===ontem).reduce((s,p)=>s+parseFloat(p.total||0),0);
+    const mSem=mine.filter(p=>p.data?.slice(0,10)>=diaSem).reduce((s,p)=>s+parseFloat(p.total||0),0);
+    const mMes=mine.reduce((s,p)=>s+parseFloat(p.total||0),0);
+    return{nome:v.nome,mHoje,mOntem,mSem,mMes};
+  }).filter(v=>v.mMes>0).sort((a,b)=>b.mMes-a.mMes);
+
+  const metaH=getMetaDia(hoje);
+  const metaO=getMetaDia(ontem);
+  const metaW=getMetaWeek();
+  const nVends=vendStats.length||1;
+
+  const wrap=document.createElement('div');wrap.style.overflowX='auto';
+  const tbl=document.createElement('table');tbl.className='sa-loja-table';
+
+  const thead=document.createElement('thead');
+  const hr=document.createElement('tr');
+  ['Vendedora','Hoje Vend.','Hoje Meta','Hoje Falt.','Ontem Vend.','Ontem Meta','Ontem Falt.','Sem. Vend.','Sem. Meta','Sem. Falt.','Mês Vend.','Mês Meta','Mês Falt.'].forEach(h=>{
+    const th=document.createElement('th');th.textContent=h;hr.appendChild(th);
+  });
+  thead.appendChild(hr);tbl.appendChild(thead);
+
+  const tbody=document.createElement('tbody');
+  vendStats.forEach(v=>{
+    const tr=document.createElement('tr');
+    const addCell=(val,diff)=>{
+      const td=document.createElement('td');
+      td.textContent=fmtR(val);
+      if(diff!=null)td.style.color=diff<=0?'#22c55e':'#ef4444';
+      tr.appendChild(td);
+    };
+    const nm=document.createElement('td');nm.textContent=v.nome;tr.appendChild(nm);
+    addCell(v.mHoje);addCell(metaH/nVends);addCell(v.mHoje-metaH/nVends,v.mHoje-metaH/nVends);
+    addCell(v.mOntem);addCell(metaO/nVends);addCell(v.mOntem-metaO/nVends,v.mOntem-metaO/nVends);
+    addCell(v.mSem);addCell(metaW/nVends);addCell(v.mSem-metaW/nVends,v.mSem-metaW/nVends);
+    addCell(v.mMes);addCell(metaMes/nVends);addCell(v.mMes-metaMes/nVends,v.mMes-metaMes/nVends);
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  wrap.appendChild(tbl);
+  return wrap;
+}
+
 /* ── GESTÃO À VISTA ── */
 function startGVClock(){
   const tEl=document.getElementById('gv-clock'),dEl=document.getElementById('gv-date');
