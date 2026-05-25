@@ -4806,7 +4806,7 @@ function renderSAVendedoras({pedidos,vendedoresArr,pvMap,lojaMap}){
         animation:{duration:700,easing:'easeOutQuart',delay:ctx=>ctx.dataIndex*40},
         plugins:{
           legend:{display:false},
-          tooltip:{mode:'nearest',intersect:false,backgroundColor:'rgba(10,10,20,0.88)',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.85)',titleFont:{size:12,weight:'700'},bodyFont:{size:11},padding:12,cornerRadius:8,callbacks:{label:ctx=>{const i=ctx.dataIndex;const v=vends[i];const rankIdx=i+1;return[` #${rankIdx} — ${v.nome}`,` Vendas: ${fmtR(v.vendas)}`,` Cupons: ${v.cupons} | Ticket: ${fmtR(v.ticket)}`,` 2+ itens: ${v.multi.toFixed(1)}% | Desconto: ${v.desc.toFixed(1)}%`];},title:()=>''}}},
+          tooltip:{mode:'nearest',intersect:false,backgroundColor:'rgba(10,10,20,0.88)',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.85)',titleFont:{size:12,weight:'700'},bodyFont:{size:11},padding:12,cornerRadius:8,callbacks:{label:ctx=>{const i=ctx.dataIndex;const v=vends[i];const rankIdx=i+1;return[` #${rankIdx} — ${v.nome}`,` Vendas: ${fmtR(v.vendas)}`,` Cupons: ${v.cupons} | Ticket: ${fmtR(v.ticket)}`,` 2+ itens: ${v.multi.toFixed(1)}% | Desconto: ${v.desc.toFixed(1)}%`];},title:()=>''}},
           datalabels:{display:ctx=>ctx.dataset.data[ctx.dataIndex]>0,anchor:'end',align:'end',formatter:(v)=>activeTab===0||activeTab===2?fmtR0(v):activeTab>=3?v.toFixed(1)+'%':String(Math.round(v)),font:{size:10,weight:'700'},color:()=>window._saLabelColor?.()||'#333',padding:{left:4}}
         },
         scales:{x:{ticks:{callback:(val)=>activeTab===0||activeTab===2?fmtR0(val):activeTab>=3?val+'%':String(val),font:{size:10}},grid:{color:'rgba(128,128,128,0.07)'},border:{dash:[4,4]}},y:{grid:{display:false},ticks:{font:{size:11}}}},
