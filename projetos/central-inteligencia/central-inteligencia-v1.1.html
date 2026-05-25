@@ -1023,10 +1023,17 @@
   .sa-brand-av{width:28px;height:28px;border-radius:50%;object-fit:cover}
   .sa-brand-nm{font-size:13px;font-weight:600;color:var(--text)}
   .sa-filters{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap}
-  .sa-canal-btns{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
-  .sa-canal-btn{background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 9px;font-size:11px;cursor:pointer;transition:all .15s}
-  .sa-canal-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
-  .sa-canal-btn:hover:not(.active){background:var(--hover);color:var(--text)}
+  .sa-canal-wrap{position:relative}
+  .sa-canal-trigger{background:none;border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;white-space:nowrap;transition:all .15s}
+  .sa-canal-trigger:hover{border-color:var(--accent);color:var(--accent)}
+  .sa-canal-drop{position:absolute;top:calc(100% + 6px);right:0;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 6px;min-width:190px;z-index:9999;display:none;flex-direction:column;gap:2px;box-shadow:0 8px 24px rgba(0,0,0,.15)}
+  .sa-canal-drop.open{display:flex}
+  .sa-canal-check{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;cursor:pointer;font-size:12px;color:var(--text);user-select:none}
+  .sa-canal-check:hover{background:var(--hover)}
+  .sa-canal-check input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px;cursor:pointer;flex-shrink:0}
+  .sa-canal-drop-foot{display:flex;gap:6px;margin-top:4px;padding-top:6px;border-top:1px solid var(--border)}
+  .sa-canal-drop-foot button{flex:1;background:none;border:1px solid var(--border);color:var(--muted);border-radius:5px;padding:4px 0;font-size:11px;cursor:pointer}
+  .sa-canal-drop-foot button:hover{background:var(--hover);color:var(--text)}
   .sa-period-btns{display:flex;gap:4px}
   .sa-pbtn{background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;transition:all .15s}
   .sa-pbtn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -4261,10 +4268,20 @@ function saSelectPeriod(p){
   document.querySelectorAll('.sa-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===p));
   loadSalesAnalysisData(p);
 }
-function saSelectCanal(btn){
-  btn.classList.toggle('active');
+function saToggleCanalDrop(e){
+  e.stopPropagation();
+  document.getElementById('sa-canal-drop')?.classList.toggle('open');
+}
+document.addEventListener('click',function(e){
+  const wrap=document.getElementById('sa-canal-wrap');
+  if(wrap&&!wrap.contains(e.target))document.getElementById('sa-canal-drop')?.classList.remove('open');
+});
+function saSelectCanal(){
   if(!window._saRawData)return;
-  const active=[...document.querySelectorAll('.sa-canal-btn.active')].map(b=>b.dataset.lojaId);
+  const boxes=[...document.querySelectorAll('.sa-canal-chk')];
+  const active=boxes.filter(cb=>cb.checked).map(cb=>cb.value);
+  const trigger=document.getElementById('sa-canal-trigger');
+  if(trigger)trigger.textContent=active.length===boxes.length?'Todos os canais ▾':active.length===0?'Nenhum canal ▾':`${active.length} canal(is) ▾`;
   renderSalesAnalysis(window._saRawData,active);
 }
 
@@ -4363,6 +4380,7 @@ async function loadSalesAnalysisData(period){
   if(typeof ChartDataLabels!=='undefined')Chart.register(ChartDataLabels);
   Chart.defaults.font.family="'IBM Plex Sans',sans-serif";
   Chart.defaults.font.size=11;
+  window._saLabelColor=()=>getComputedStyle(document.documentElement).getPropertyValue('--text').trim()||'#333';
   const body=document.getElementById('sa-body');
   body.textContent='';
   const loading=document.createElement('div');
@@ -4408,18 +4426,28 @@ async function loadSalesAnalysisData(period){
 
     const lojas=Object.entries(lojaMap).map(([id,nome])=>({id:parseInt(id),nome})).sort((a,b)=>a.id-b.id);
     const lojasComVenda=new Set(pedidos.map(p=>String(p.loja?.id)).filter(Boolean));
-    const canalBtns=document.getElementById('sa-canal-btns');
-    if(canalBtns){
-      canalBtns.textContent='';
-      lojas.filter(l=>lojasComVenda.has(String(l.id))).forEach(l=>{
-        const btn=document.createElement('button');
-        btn.className='sa-canal-btn active';
-        btn.dataset.lojaId=String(l.id);
-        btn.textContent=l.nome;
-        btn.addEventListener('click',function(){saSelectCanal(this);});
-        canalBtns.appendChild(btn);
+    const lojasFiltradas=lojas.filter(l=>lojasComVenda.has(String(l.id)));
+    const canalDrop=document.getElementById('sa-canal-drop');
+    const canalTrigger=document.getElementById('sa-canal-trigger');
+    if(canalDrop){
+      canalDrop.textContent='';
+      lojasFiltradas.forEach(l=>{
+        const lbl=document.createElement('label');lbl.className='sa-canal-check';
+        const cb=document.createElement('input');cb.type='checkbox';cb.className='sa-canal-chk';cb.value=String(l.id);cb.checked=true;
+        cb.addEventListener('change',saSelectCanal);
+        const nm=document.createElement('span');nm.textContent=l.nome;
+        lbl.appendChild(cb);lbl.appendChild(nm);
+        canalDrop.appendChild(lbl);
       });
+      const foot=document.createElement('div');foot.className='sa-canal-drop-foot';
+      const btnTodos=document.createElement('button');btnTodos.textContent='Todos';
+      btnTodos.addEventListener('click',()=>{document.querySelectorAll('.sa-canal-chk').forEach(cb=>cb.checked=true);saSelectCanal();});
+      const btnNenhum=document.createElement('button');btnNenhum.textContent='Nenhum';
+      btnNenhum.addEventListener('click',()=>{document.querySelectorAll('.sa-canal-chk').forEach(cb=>cb.checked=false);saSelectCanal();});
+      foot.appendChild(btnTodos);foot.appendChild(btnNenhum);
+      canalDrop.appendChild(foot);
     }
+    if(canalTrigger)canalTrigger.textContent='Todos os canais ▾';
 
     window._saRawData={pedidos,pedidosPrev,lojaMap,lojas,metasArr,vendedoresArr,pvMap,pedidos15,period,di,df,diPrev,dfPrev,di15,df15,now,y,m};
     renderSalesAnalysis(window._saRawData,[]);
@@ -4553,7 +4581,7 @@ function renderSACanal({pedidos,pedidosPrev,lojas,lojaMap,metasMap,dailyGoalsMap
       plugins:{
         legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},
         tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;const r=realizado[i],mt=meta[i],ant=anterior[i];if(ctx.datasetIndex===0)return[`Realizado: ${fmtR(r)}`,`Meta: ${fmtR(mt)}`,`Desvio: ${fmtR(r-mt)} (${mt>0?((r/mt-1)*100).toFixed(1):'—'}%)`,`Anterior: ${fmtR(ant)}`,`Δ vs ant: ${ant>0?((r/ant-1)*100).toFixed(1)+'%':'—'}`];return null;}}},
-        datalabels:{display:ctx=>ctx.dataset.data[ctx.dataIndex]>0&&ctx.datasetIndex===0,anchor:'end',align:'end',formatter:v=>fmtR0(v),font:{size:9},color:'var(--text)'}
+        datalabels:{display:ctx=>ctx.dataset.data[ctx.dataIndex]>0,anchor:'end',align:'end',formatter:v=>fmtR0(v),font:{size:9,weight:'600'},color:()=>window._saLabelColor?.()||'#333'}
       },
       scales:{y:{ticks:{callback:v=>fmtR0(v)},grid:{color:'rgba(128,128,128,0.1)'}},x:{grid:{display:false}}}
     }
@@ -4592,7 +4620,7 @@ function renderSADiario({pedidos,di,df,diasTot,dailyGoalsMap,metaTotal,diasMes})
     },
     options:{
       responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;const v=vendido[i],mt=metaDia[i];if(ctx.datasetIndex===0)return[`Vendido: ${fmtR(v)}`,`Meta: ${mt!=null?fmtR(mt):'—'}`,`Desvio: ${mt!=null?fmtR(v-mt)+' ('+(mt>0?((v/mt-1)*100).toFixed(1):'—')+'%)':'—'}`];return null;}}},datalabels:{display:ctx=>ctx.datasetIndex===0&&ctx.dataset.data[ctx.dataIndex]>0,anchor:'end',align:'top',formatter:v=>fmtR0(v),font:{size:8},color:'var(--text)'}},
+      plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;const v=vendido[i],mt=metaDia[i];if(ctx.datasetIndex===0)return[`Vendido: ${fmtR(v)}`,`Meta: ${mt!=null?fmtR(mt):'—'}`,`Desvio: ${mt!=null?fmtR(v-mt)+' ('+(mt>0?((v/mt-1)*100).toFixed(1):'—')+'%)':'—'}`];return null;}}},datalabels:{display:ctx=>ctx.datasetIndex===0&&ctx.dataset.data[ctx.dataIndex]>0,anchor:'end',align:'top',formatter:v=>fmtR0(v),font:{size:9,weight:'600'},color:()=>window._saLabelColor?.()||'#333'}},
       scales:{y:{ticks:{callback:v=>fmtR0(v)},grid:{color:'rgba(128,128,128,0.1)'}},x:{grid:{display:false},ticks:{maxRotation:45,font:{size:10}}}}
     }
   });
@@ -4619,7 +4647,7 @@ function renderSATicket({pedidos,pedidosPrev,lojas,lojaMap}){
     ]},
     options:{
       responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;if(ctx.datasetIndex===0)return[`Atual: ${fmtR(ticketAtual[i])}`,`Anterior: ${fmtR(ticketAnt[i])}`,`Δ: ${ticketAnt[i]>0?((ticketAtual[i]/ticketAnt[i]-1)*100).toFixed(1)+'%':'—'}`];return null;}}},datalabels:{display:ctx=>ctx.dataset.data[ctx.dataIndex]>0&&ctx.datasetIndex===0,anchor:'end',align:'end',formatter:v=>fmtR0(v),font:{size:9},color:'var(--text)'}},
+      plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;if(ctx.datasetIndex===0)return[`Atual: ${fmtR(ticketAtual[i])}`,`Anterior: ${fmtR(ticketAnt[i])}`,`Δ: ${ticketAnt[i]>0?((ticketAtual[i]/ticketAnt[i]-1)*100).toFixed(1)+'%':'—'}`];return null;}}},datalabels:{display:ctx=>ctx.dataset.data[ctx.dataIndex]>0,anchor:'end',align:'end',formatter:v=>fmtR0(v),font:{size:9,weight:'600'},color:()=>window._saLabelColor?.()||'#333'}},
       scales:{y:{ticks:{callback:v=>fmtR0(v)},grid:{color:'rgba(128,128,128,0.1)'}},x:{grid:{display:false}}}
     }
   });
@@ -4647,7 +4675,7 @@ function renderSADesconto({pedidos,lojas,lojaMap}){
   window._saCharts.descontoDonut=new Chart(canvasD,{
     type:'doughnut',
     data:{labels:['Com Desconto','Sem Desconto'],datasets:[{data:[comDesc.length,semDesc.length],backgroundColor:['rgba(239,68,68,0.8)','rgba(34,197,94,0.8)']}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:ctx=>{const n=ctx.raw;const tot=pedidos.length;return[`${n} pedidos (${tot>0?(n/tot*100).toFixed(1):'0'}%)`,`${fmtR(ctx.dataIndex===0?totalCom:totalSem)}`];}}},datalabels:{display:ctx=>ctx.raw>0,formatter:(v,ctx)=>{const tot=pedidos.length;return tot>0?(v/tot*100).toFixed(1)+'%':'';},color:'#fff',font:{size:10,weight:'bold'}}}}
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:ctx=>{const n=ctx.raw;const tot=pedidos.length;return[`${n} pedidos (${tot>0?(n/tot*100).toFixed(1):'0'}%)`,`${fmtR(ctx.dataIndex===0?totalCom:totalSem)}`];}}},datalabels:{display:ctx=>ctx.raw>0,formatter:(v,ctx)=>{const tot=pedidos.length;return tot>0?(v/tot*100).toFixed(1)+'%':'';},color:'#fff',font:{size:10,weight:'600',family:"'IBM Plex Sans',sans-serif"}}}}
   });
 
   const labelsB=lojas.map(l=>l.nome);
@@ -4662,7 +4690,7 @@ function renderSADesconto({pedidos,lojas,lojaMap}){
     ]},
     options:{
       responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;const tot=comB[i]+semB[i];return[`Com Desconto: ${fmtR(comB[i])}`,`Sem Desconto: ${fmtR(semB[i])}`,`% com desc: ${tot>0?(comB[i]/tot*100).toFixed(1)+'%':'—'}`];}}},datalabels:{display:ctx=>ctx.dataset.data[ctx.dataIndex]>0,anchor:'center',align:'center',formatter:v=>fmtR0(v),font:{size:9},color:'#fff'}},
+      plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;const tot=comB[i]+semB[i];return[`Com Desconto: ${fmtR(comB[i])}`,`Sem Desconto: ${fmtR(semB[i])}`,`% com desc: ${tot>0?(comB[i]/tot*100).toFixed(1)+'%':'—'}`];}}},datalabels:{display:ctx=>ctx.dataset.data[ctx.dataIndex]>0,anchor:'center',align:'center',formatter:v=>fmtR0(v),font:{size:9,weight:'600',family:"'IBM Plex Sans',sans-serif"},color:'#fff'}},
       scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,ticks:{callback:v=>fmtR0(v)},grid:{color:'rgba(128,128,128,0.1)'}}}
     }
   });
@@ -4720,7 +4748,7 @@ function renderSAVendedoras({pedidos,vendedoresArr,pvMap,lojaMap}){
         plugins:{
           legend:{display:false},
           tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;const v=vends[i];return[`Vendas: ${fmtR(v.vendas)}`,`Cupons: ${v.cupons}`,`Ticket: ${fmtR(v.ticket)}`,`2+ itens: ${v.multi.toFixed(1)}%`,`Desconto: ${v.desc.toFixed(1)}%`];}}},
-          datalabels:{display:ctx=>ctx.dataset.data[ctx.dataIndex]>0,anchor:'end',align:'end',formatter:(v)=>activeTab===0||activeTab===2?fmtR0(v):activeTab>=3?v.toFixed(1)+'%':String(Math.round(v)),font:{size:9},color:'var(--text)'}
+          datalabels:{display:ctx=>ctx.dataset.data[ctx.dataIndex]>0,anchor:'end',align:'end',formatter:(v)=>activeTab===0||activeTab===2?fmtR0(v):activeTab>=3?v.toFixed(1)+'%':String(Math.round(v)),font:{size:9,weight:'600'},color:()=>window._saLabelColor?.()||'#333'}
         },
         scales:{x:{ticks:{callback:(val)=>activeTab===0||activeTab===2?fmtR0(val):activeTab>=3?val+'%':String(val)},grid:{color:'rgba(128,128,128,0.1)'}},y:{grid:{display:false}}}
       }
@@ -5557,7 +5585,10 @@ function setHomeBgTheme(type){
     <img id="sa-brand-av" class="sa-brand-av" src="" alt="" onerror="this.style.display='none'">
     <span class="sa-brand-nm">Vessel · Análise de Vendas</span>
     <div class="sa-filters">
-      <div id="sa-canal-btns" class="sa-canal-btns"></div>
+      <div class="sa-canal-wrap" id="sa-canal-wrap">
+        <button class="sa-canal-trigger" id="sa-canal-trigger" onclick="saToggleCanalDrop(event)">Canais ▾</button>
+        <div class="sa-canal-drop" id="sa-canal-drop"></div>
+      </div>
       <div class="sa-period-btns">
         <button class="sa-pbtn active" data-period="sofar" onclick="saSelectPeriod('sofar')">ATÉ AGORA</button>
         <button class="sa-pbtn" data-period="today" onclick="saSelectPeriod('today')">HOJE</button>
