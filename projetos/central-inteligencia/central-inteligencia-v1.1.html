@@ -4435,6 +4435,114 @@ function renderSACanal({pedidos,pedidosPrev,lojas,lojaMap,metasMap,dailyGoalsMap
   return sec;
 }
 
+function renderSADiario({pedidos,di,df,diasTot,dailyGoalsMap,metaTotal,diasMes}){
+  const sec=document.createElement('div');sec.className='sa-section';
+  const title=document.createElement('div');title.className='sa-section-title';title.textContent='Visão Diária';
+  const wrap=document.createElement('div');wrap.className='sa-chart-wrap';
+  const canvas=document.createElement('canvas');wrap.appendChild(canvas);
+  sec.appendChild(title);sec.appendChild(wrap);
+
+  const dates=[];const d=new Date(di+'T00:00:00');const end=new Date(df+'T00:00:00');
+  while(d<=end){dates.push(d.toISOString().slice(0,10));d.setDate(d.getDate()+1);}
+
+  const vendido=dates.map(dt=>pedidos.filter(p=>p.data?.slice(0,10)===dt).reduce((s,p)=>s+parseFloat(p.total||0),0));
+  const metaDia=dates.map(dt=>{
+    const dayNum=parseInt(dt.slice(8));
+    let s=0;let has=false;
+    Object.values(dailyGoalsMap).forEach(dg=>{if(dg&&dg[String(dayNum)]!=null){s+=Number(dg[String(dayNum)]||0);has=true;}});
+    return has?s:(metaTotal>0?metaTotal/diasMes:null);
+  });
+
+  const labels=dates.map(dt=>dt.slice(8)+'/'+dt.slice(5,7));
+  window._saCharts=window._saCharts||{};
+  window._saCharts.diario=new Chart(canvas,{
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label:'Vendido',data:vendido,borderColor:'rgba(99,102,241,1)',backgroundColor:'rgba(99,102,241,0.15)',fill:true,tension:0.3,pointRadius:3},
+        {label:'Meta',data:metaDia,borderColor:'rgba(180,180,180,0.7)',borderDash:[5,5],fill:false,tension:0.3,pointRadius:0}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;const v=vendido[i],mt=metaDia[i];if(ctx.datasetIndex===0)return[`Vendido: ${fmtR(v)}`,`Meta: ${mt!=null?fmtR(mt):'—'}`,`Desvio: ${mt!=null?fmtR(v-mt)+' ('+(mt>0?((v/mt-1)*100).toFixed(1):'—')+'%)':'—'}`];return null;}}}},
+      scales:{y:{ticks:{callback:v=>fmtR0(v)},grid:{color:'rgba(128,128,128,0.1)'}},x:{grid:{display:false},ticks:{maxRotation:45,font:{size:10}}}}
+    }
+  });
+  return sec;
+}
+
+function renderSATicket({pedidos,pedidosPrev,lojas,lojaMap}){
+  const sec=document.createElement('div');sec.className='sa-section';
+  const title=document.createElement('div');title.className='sa-section-title';title.textContent='Comparativo de Ticket Médio';
+  const wrap=document.createElement('div');wrap.className='sa-chart-wrap';
+  const canvas=document.createElement('canvas');wrap.appendChild(canvas);
+  sec.appendChild(title);sec.appendChild(wrap);
+
+  const labels=lojas.map(l=>l.nome);
+  const ticketAtual=lojas.map(l=>{const pp=pedidos.filter(p=>String(p.loja?.id)===String(l.id));return pp.length>0?pp.reduce((s,p)=>s+parseFloat(p.total||0),0)/pp.length:0;});
+  const ticketAnt=lojas.map(l=>{const pp=pedidosPrev.filter(p=>String(p.loja?.id)===String(l.id));return pp.length>0?pp.reduce((s,p)=>s+parseFloat(p.total||0),0)/pp.length:0;});
+
+  window._saCharts=window._saCharts||{};
+  window._saCharts.ticket=new Chart(canvas,{
+    type:'bar',
+    data:{labels,datasets:[
+      {label:'Atual',data:ticketAtual,backgroundColor:'rgba(99,102,241,0.8)',borderRadius:4},
+      {label:'Anterior',data:ticketAnt,backgroundColor:'rgba(99,102,241,0.25)',borderRadius:4}
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;if(ctx.datasetIndex===0)return[`Atual: ${fmtR(ticketAtual[i])}`,`Anterior: ${fmtR(ticketAnt[i])}`,`Δ: ${ticketAnt[i]>0?((ticketAtual[i]/ticketAnt[i]-1)*100).toFixed(1)+'%':'—'}`];return null;}}}},
+      scales:{y:{ticks:{callback:v=>fmtR0(v)},grid:{color:'rgba(128,128,128,0.1)'}},x:{grid:{display:false}}}
+    }
+  });
+  return sec;
+}
+
+function renderSADesconto({pedidos,lojas,lojaMap}){
+  const sec=document.createElement('div');sec.className='sa-section';
+  const title=document.createElement('div');title.className='sa-section-title';title.textContent='Vendas com vs Sem Desconto';
+  const row=document.createElement('div');row.className='sa-chart-row';
+
+  const wrapD=document.createElement('div');wrapD.className='sa-chart-wrap';
+  const canvasD=document.createElement('canvas');wrapD.appendChild(canvasD);
+  const wrapB=document.createElement('div');wrapB.className='sa-chart-wrap';
+  const canvasB=document.createElement('canvas');wrapB.appendChild(canvasB);
+  row.appendChild(wrapD);row.appendChild(wrapB);
+  sec.appendChild(title);sec.appendChild(row);
+
+  const comDesc=pedidos.filter(p=>parseFloat(p.desconto||0)>0);
+  const semDesc=pedidos.filter(p=>!(parseFloat(p.desconto||0)>0));
+  const totalCom=comDesc.reduce((s,p)=>s+parseFloat(p.total||0),0);
+  const totalSem=semDesc.reduce((s,p)=>s+parseFloat(p.total||0),0);
+
+  window._saCharts=window._saCharts||{};
+  window._saCharts.descontoDonut=new Chart(canvasD,{
+    type:'doughnut',
+    data:{labels:['Com Desconto','Sem Desconto'],datasets:[{data:[comDesc.length,semDesc.length],backgroundColor:['rgba(239,68,68,0.8)','rgba(34,197,94,0.8)']}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:ctx=>{const n=ctx.raw;const tot=pedidos.length;return[`${n} pedidos (${tot>0?(n/tot*100).toFixed(1):'0'}%)`,`${fmtR(ctx.dataIndex===0?totalCom:totalSem)}`];}}}}}
+  });
+
+  const labelsB=lojas.map(l=>l.nome);
+  const comB=lojas.map(l=>pedidos.filter(p=>String(p.loja?.id)===String(l.id)&&parseFloat(p.desconto||0)>0).reduce((s,p)=>s+parseFloat(p.total||0),0));
+  const semB=lojas.map(l=>pedidos.filter(p=>String(p.loja?.id)===String(l.id)&&!(parseFloat(p.desconto||0)>0)).reduce((s,p)=>s+parseFloat(p.total||0),0));
+
+  window._saCharts.descontoBar=new Chart(canvasB,{
+    type:'bar',
+    data:{labels:labelsB,datasets:[
+      {label:'Com Desconto',data:comB,backgroundColor:'rgba(239,68,68,0.7)',borderRadius:4},
+      {label:'Sem Desconto',data:semB,backgroundColor:'rgba(34,197,94,0.7)',borderRadius:4}
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;const tot=comB[i]+semB[i];return[`Com Desconto: ${fmtR(comB[i])}`,`Sem Desconto: ${fmtR(semB[i])}`,`% com desc: ${tot>0?(comB[i]/tot*100).toFixed(1)+'%':'—'}`];}}}},
+      scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,ticks:{callback:v=>fmtR0(v)},grid:{color:'rgba(128,128,128,0.1)'}}}
+    }
+  });
+  return sec;
+}
+
 /* ── GESTÃO À VISTA ── */
 function startGVClock(){
   const tEl=document.getElementById('gv-clock'),dEl=document.getElementById('gv-date');
