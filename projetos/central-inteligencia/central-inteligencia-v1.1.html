@@ -2735,7 +2735,21 @@ async function loadAdminUsers(){
       disBtn.addEventListener('click',async()=>{await adFetch(`profiles?id=eq.${u.id}`,{method:'PATCH',body:JSON.stringify({disabled:!u.disabled})});adminToast(u.disabled?'Usuário ativado':'Usuário desativado');setTimeout(loadAdminUsers,600);});
       ctrl.appendChild(disBtn);
     }
-    row.appendChild(av);row.appendChild(main);row.appendChild(ctrl);list.appendChild(row);
+    row.appendChild(av);row.appendChild(main);row.appendChild(ctrl);
+    const permPanel=document.createElement('div');
+    permPanel.style.cssText='display:none;border-top:1px solid var(--border);padding:14px 16px;background:var(--surface2)';
+    let permOpen=false;
+    const permBtn=mkEl('button','sr-btn');permBtn.textContent='Permissões ▾';
+    permBtn.addEventListener('click',async()=>{
+      permOpen=!permOpen;
+      permPanel.style.display=permOpen?'block':'none';
+      permBtn.textContent=permOpen?'Permissões ▲':'Permissões ▾';
+      if(permOpen)await renderUserPermPanel(permPanel,u.id,u.role);
+    });
+    ctrl.appendChild(permBtn);
+    const wrapper=document.createElement('div');
+    wrapper.style.cssText='border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:10px';
+    wrapper.appendChild(row);wrapper.appendChild(permPanel);list.appendChild(wrapper);
   });
 }
 async function adminInviteUser(){
