@@ -3820,19 +3820,19 @@ function closeSalesBrandPicker(){
   document.getElementById('sales-menu-screen').style.display='flex';
   sessionStorage.setItem('rbv-screen','sales-menu');
 }
-function openVesselSales(){
+function openSalesAnalysis(){
+  if(!hasPermission('module:sales:analise-vendas'))return;
   document.getElementById('sales-brand-screen').style.display='none';
-  document.getElementById('vessel-sales-screen').style.display='flex';
-  sessionStorage.setItem('rbv-screen','vessel-sales');
+  document.getElementById('sales-analysis-screen').style.display='flex';
+  sessionStorage.setItem('rbv-screen','sales-analysis');
   setHomeBgTheme('sales');
   const vesselImg=document.querySelector('#sbrand-vessel-img');
-  if(vesselImg&&vesselImg.src)document.getElementById('vsales-brand-av').src=vesselImg.src;
-  loadVesselSalesData('today');
-  vsAutoStart();
+  if(vesselImg&&vesselImg.src)document.getElementById('sa-brand-av').src=vesselImg.src;
+  loadSalesAnalysisData('sofar');
 }
-function closeVesselSales(){
-  vsAutoStop();
-  document.getElementById('vessel-sales-screen').style.display='none';
+function closeSalesAnalysis(){
+  if(window._saCharts){Object.values(window._saCharts).forEach(c=>{try{c.destroy();}catch(e){}});window._saCharts={};}
+  document.getElementById('sales-analysis-screen').style.display='none';
   document.getElementById('sales-brand-screen').style.display='flex';
   sessionStorage.setItem('rbv-screen','sales-brand');
 }
@@ -4145,40 +4145,13 @@ function closeGestaoVista(){
   if(window._gvTimer)clearInterval(window._gvTimer);
 }
 
-/* ── VESSEL-SALES AUTO-CYCLE ── */
-const VS_AC_PERIODS=['today','1d','7d','14d','30d','month'];
-const VS_AC_DURATION=25;
-let _vsAcIdx=0,_vsAcTimer=null;
-
-function vsSelectPeriod(p){loadVesselSalesData(p);}
-
-function vsAutoStart(){
-  if(_vsAcTimer)return;
-  const btn=document.getElementById('vs-ac-toggle');
-  if(btn)btn.classList.add('running');
-  _vsAcTimer=setInterval(()=>{
-    _vsAcIdx=(_vsAcIdx+1)%VS_AC_PERIODS.length;
-    loadVesselSalesData(VS_AC_PERIODS[_vsAcIdx]);
-  },VS_AC_DURATION*1000);
+function saSelectPeriod(p){
+  document.querySelectorAll('.sa-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===p));
+  loadSalesAnalysisData(p);
 }
-function vsAutoStop(){
-  clearInterval(_vsAcTimer);_vsAcTimer=null;
-  const btn=document.getElementById('vs-ac-toggle');
-  if(btn)btn.classList.remove('running');
-}
-function vsToggleAuto(){if(_vsAcTimer)vsAutoStop();else vsAutoStart();}
-function vsToggleCustom(){
-  const w=document.getElementById('vs-custom-wrap');
-  if(w)w.classList.toggle('open');
-  const b=document.querySelector('.vsales-pbtn[data-period="custom"]');
-  if(b)b.classList.toggle('active',document.getElementById('vs-custom-wrap')?.classList.contains('open'));
-}
-function vsApplyCustom(){
-  const s=document.getElementById('vs-date-start')?.value;
-  const e=document.getElementById('vs-date-end')?.value;
-  if(!s||!e)return;
-  vsAutoStop();
-  loadVesselSalesData('custom',s,e);
+function saSelectCanal(lojaId){
+  if(!window._saRawData)return;
+  renderSalesAnalysis(window._saRawData,lojaId);
 }
 
 /* ── GESTÃO À VISTA AUTO-CYCLE ── */
