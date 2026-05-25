@@ -1171,9 +1171,9 @@
   #gv-bg-anim{position:absolute;left:0;right:0;top:40px;bottom:30px;z-index:0;pointer-events:none;overflow:hidden;opacity:1;}
   #gv-bg-anim svg{width:100%;height:100%;position:absolute;inset:0;}
   @keyframes gvBgRise{0%{transform:translateY(90px)}100%{transform:translateY(-90px)}}
-  /* GV panels: glass effect — leaves animation and watermark visible */
-  .gv-left,.gv-canal-panel,.gv-rank-panel{background:rgba(255,255,255,.60)!important;backdrop-filter:blur(1px);-webkit-backdrop-filter:blur(1px);}
-  [data-theme="dark"] .gv-left,[data-theme="dark"] .gv-canal-panel,[data-theme="dark"] .gv-rank-panel{background:rgba(10,11,20,.60)!important;backdrop-filter:blur(1px);-webkit-backdrop-filter:blur(1px);}
+  /* GV panels: semi-transparent so animated background shows through */
+  .gv-left,.gv-canal-panel,.gv-rank-panel{background:rgba(255,255,255,.60)!important;}
+  [data-theme="dark"] .gv-left,[data-theme="dark"] .gv-canal-panel,[data-theme="dark"] .gv-rank-panel{background:rgba(10,11,20,.60)!important;}
 
   /* prefers-reduced-motion */
   @media(prefers-reduced-motion:reduce){
