@@ -3385,7 +3385,7 @@ function showDashboard(user,role){
     else if(screen==='admin'&&role==='admin')openAdmin(true);
     else if(screen==='sales-menu')openSalesDashboard();
     else if(screen==='sales-brand'){openSalesDashboard();setTimeout(openSalesBrandPicker,0);}
-    else if(screen==='vessel-sales'){openSalesDashboard();setTimeout(()=>{openSalesBrandPicker();setTimeout(openVesselSales,0);},0);}
+    else if(screen==='sales-analysis'){openSalesDashboard();setTimeout(()=>{openSalesBrandPicker();setTimeout(openSalesAnalysis,0);},0);}
     else if(screen==='gestao-vista'){openSalesDashboard();setTimeout(openGestaoVista,0);}
     else showHome();
   }
@@ -5198,7 +5198,7 @@ function setHomeBgTheme(type){
   <div class="sbrand-body">
     <div class="sbrand-title">Selecione a marca</div>
     <div class="sbrand-grid">
-      <div class="sbrand-card" onclick="openVesselSales()">
+      <div class="sbrand-card" onclick="openSalesAnalysis()">
         <img id="sbrand-vessel-img" class="sbrand-avatar" src="" alt="Vessel" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
         <div class="sbrand-avatar-ph" style="display:none">V</div>
         <div class="sbrand-name">Vessel Brasil</div>
@@ -5220,38 +5220,28 @@ function setHomeBgTheme(type){
   </div>
 </div>
 
-<!-- VESSEL SALES ANALYSIS -->
-<div id="vessel-sales-screen" style="display:none">
-  <div class="vsales-topbar">
-    <div style="display:flex;align-items:center;gap:14px">
-      <button class="vsales-back" onclick="closeVesselSales()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Marcas</button>
-      <img class="rbv-logo rbv-logo-light" src="midia/LOGOTIPOBRENOPRETO.png" alt="RBV">
-      <img class="rbv-logo rbv-logo-dark" src="midia/LOGOTIPOBRENOBRANCO.png" alt="RBV">
-    </div>
-    <div class="vsales-brand">
-      <img id="vsales-brand-av" class="vsales-brand-av" src="" alt="" onerror="this.style.display='none'">
-      <span class="vsales-brand-nm">Vessel · Análise de Vendas</span>
-    </div>
-    <div class="vsales-period-btns">
-      <button class="vsales-pbtn active" data-period="today" onclick="vsSelectPeriod('today')">HOJE</button>
-      <button class="vsales-pbtn" data-period="1d" onclick="vsSelectPeriod('1d')">1D</button>
-      <button class="vsales-pbtn" data-period="7d" onclick="vsSelectPeriod('7d')">7D</button>
-      <button class="vsales-pbtn" data-period="14d" onclick="vsSelectPeriod('14d')">14D</button>
-      <button class="vsales-pbtn" data-period="30d" onclick="vsSelectPeriod('30d')">MÊS</button>
-      <button class="vsales-pbtn" data-period="month" onclick="vsSelectPeriod('month')">ATÉ AGORA</button>
-      <button class="vsales-pbtn" data-period="custom" onclick="vsToggleCustom()">Personalizado</button>
-      <div class="vs-custom-wrap" id="vs-custom-wrap">
-        <input type="date" id="vs-date-start" class="custom-date-input">
-        <span style="color:var(--muted);font-size:10px">→</span>
-        <input type="date" id="vs-date-end" class="custom-date-input">
-        <button class="vsales-pbtn" onclick="vsApplyCustom()" style="background:var(--accent);color:#fff;border-color:var(--accent)">OK</button>
+<!-- SALES ANALYSIS -->
+<div id="sales-analysis-screen" style="display:none">
+  <div class="sa-topbar">
+    <button class="sa-back" onclick="closeSalesAnalysis()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Marcas
+    </button>
+    <img id="sa-brand-av" class="sa-brand-av" src="" alt="" onerror="this.style.display='none'">
+    <span class="sa-brand-nm">Vessel · Análise de Vendas</span>
+    <div class="sa-filters">
+      <select id="sa-canal-select" class="sa-canal-sel" onchange="saSelectCanal(this.value)">
+        <option value="">Todas as lojas</option>
+      </select>
+      <div class="sa-period-btns">
+        <button class="sa-pbtn active" data-period="sofar" onclick="saSelectPeriod('sofar')">ATÉ AGORA</button>
+        <button class="sa-pbtn" data-period="today" onclick="saSelectPeriod('today')">HOJE</button>
+        <button class="sa-pbtn" data-period="7d" onclick="saSelectPeriod('7d')">7D</button>
+        <button class="sa-pbtn" data-period="14d" onclick="saSelectPeriod('14d')">14D</button>
+        <button class="sa-pbtn" data-period="month" onclick="saSelectPeriod('month')">MÊS</button>
       </div>
-      <button class="vs-ac-toggle" id="vs-ac-toggle" onclick="vsToggleAuto()" title="Auto-ciclo de períodos">▶ AUTO</button>
     </div>
   </div>
-  <div class="vsales-body" id="vessel-sales-body">
-    <div class="vsales-loading">Carregando dados...</div>
-  </div>
+  <div id="sa-body"></div>
 </div>
 
 <!-- GESTÃO À VISTA — TV BOARD v2 -->
