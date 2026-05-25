@@ -1023,7 +1023,10 @@
   .sa-brand-av{width:28px;height:28px;border-radius:50%;object-fit:cover}
   .sa-brand-nm{font-size:13px;font-weight:600;color:var(--text)}
   .sa-filters{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap}
-  .sa-canal-sel{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer}
+  .sa-canal-btns{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+  .sa-canal-btn{background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 9px;font-size:11px;cursor:pointer;transition:all .15s}
+  .sa-canal-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .sa-canal-btn:hover:not(.active){background:var(--hover);color:var(--text)}
   .sa-period-btns{display:flex;gap:4px}
   .sa-pbtn{background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;transition:all .15s}
   .sa-pbtn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -1350,6 +1353,7 @@
   .cpm-cancel-btn:hover{border-color:var(--accent);color:var(--text);}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 </head>
 <body>
 
@@ -4257,9 +4261,11 @@ function saSelectPeriod(p){
   document.querySelectorAll('.sa-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===p));
   loadSalesAnalysisData(p);
 }
-function saSelectCanal(lojaId){
+function saSelectCanal(btn){
+  btn.classList.toggle('active');
   if(!window._saRawData)return;
-  renderSalesAnalysis(window._saRawData,lojaId);
+  const active=[...document.querySelectorAll('.sa-canal-btn.active')].map(b=>b.dataset.lojaId);
+  renderSalesAnalysis(window._saRawData,active);
 }
 
 /* ── GESTÃO À VISTA AUTO-CYCLE ── */
@@ -4354,6 +4360,7 @@ window._saRawData=null;
 
 async function loadSalesAnalysisData(period){
   document.querySelectorAll('.sa-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===period));
+  if(typeof ChartDataLabels!=='undefined')Chart.register(ChartDataLabels);
   const body=document.getElementById('sa-body');
   body.textContent='';
   const loading=document.createElement('div');
@@ -4398,15 +4405,22 @@ async function loadSalesAnalysisData(period){
     }
 
     const lojas=Object.entries(lojaMap).map(([id,nome])=>({id:parseInt(id),nome})).sort((a,b)=>a.id-b.id);
-    const canalSel=document.getElementById('sa-canal-select');
-    if(canalSel){
-      canalSel.textContent='';
-      const optAll=document.createElement('option');optAll.value='';optAll.textContent='Todas as lojas';canalSel.appendChild(optAll);
-      lojas.forEach(l=>{const o=document.createElement('option');o.value=l.id;o.textContent=l.nome;canalSel.appendChild(o);});
+    const lojasComVenda=new Set(pedidos.map(p=>String(p.loja?.id)).filter(Boolean));
+    const canalBtns=document.getElementById('sa-canal-btns');
+    if(canalBtns){
+      canalBtns.textContent='';
+      lojas.filter(l=>lojasComVenda.has(String(l.id))).forEach(l=>{
+        const btn=document.createElement('button');
+        btn.className='sa-canal-btn active';
+        btn.dataset.lojaId=String(l.id);
+        btn.textContent=l.nome;
+        btn.addEventListener('click',function(){saSelectCanal(this);});
+        canalBtns.appendChild(btn);
+      });
     }
 
     window._saRawData={pedidos,pedidosPrev,lojaMap,lojas,metasArr,vendedoresArr,pvMap,pedidos15,period,di,df,diPrev,dfPrev,di15,df15,now,y,m};
-    renderSalesAnalysis(window._saRawData,'');
+    renderSalesAnalysis(window._saRawData,[]);
   }catch(e){
     body.textContent='';
     const err=document.createElement('div');err.className='sa-loading';err.textContent='Erro: '+e.message;body.appendChild(err);
@@ -4415,8 +4429,9 @@ async function loadSalesAnalysisData(period){
 
 function renderSalesAnalysis(raw,lojaFilter){
   const{pedidos:allPedidos,pedidosPrev:allPrev,lojaMap,lojas,metasArr,vendedoresArr,pvMap,pedidos15,period,di,df,diPrev,dfPrev,di15,df15,now,y,m}=raw;
-  const pedidos=lojaFilter?allPedidos.filter(p=>String(p.loja?.id)===String(lojaFilter)):allPedidos;
-  const pedidosPrev=lojaFilter?allPrev.filter(p=>String(p.loja?.id)===String(lojaFilter)):allPrev;
+  const filterIds=Array.isArray(lojaFilter)?lojaFilter:(lojaFilter?[String(lojaFilter)]:[]);
+  const pedidos=filterIds.length?allPedidos.filter(p=>filterIds.includes(String(p.loja?.id))):allPedidos;
+  const pedidosPrev=filterIds.length?allPrev.filter(p=>filterIds.includes(String(p.loja?.id))):allPrev;
 
   if(window._saCharts){Object.values(window._saCharts).forEach(c=>{try{c.destroy();}catch(e){}});window._saCharts={};}
 
@@ -4431,13 +4446,13 @@ function renderSalesAnalysis(raw,lojaFilter){
 
   const metasMap={};const dailyGoalsMap={};
   metasArr.forEach(r=>{
-    if(!lojaFilter||String(r.loja_id)===String(lojaFilter)||r.loja_id===0){
+    if(!filterIds.length||filterIds.includes(String(r.loja_id))||r.loja_id===0){
       metasMap[r.loja_id]=parseFloat(r.meta_valor||0);
       if(r.daily_goals)dailyGoalsMap[r.loja_id]=r.daily_goals;
     }
   });
-  const metaTotal=lojaFilter
-    ?(metasMap[parseInt(lojaFilter)]||0)
+  const metaTotal=filterIds.length===1
+    ?(metasMap[parseInt(filterIds[0])]||0)
     :(metasMap[0]>0?metasMap[0]:Object.entries(metasMap).filter(([k])=>k!=='0').reduce((s,[,v])=>s+v,0))||0;
 
   const calcMetaPeriodo=(lojaId)=>{
@@ -4456,7 +4471,7 @@ function renderSalesAnalysis(raw,lojaFilter){
   body.appendChild(renderSADesconto({pedidos,lojas,lojaMap}));
   body.appendChild(renderSAVendedoras({pedidos,vendedoresArr,pvMap,lojaMap}));
   lojas.forEach(loja=>{
-    if(lojaFilter&&String(loja.id)!==String(lojaFilter))return;
+    if(filterIds.length&&!filterIds.includes(String(loja.id)))return;
     body.appendChild(renderSALojaSection({loja,pedidos:allPedidos,pedidosPrev:allPrev,vendedoresArr,pvMap,metasArr,now,y,m,pedidos15,di15,df15}));
   });
 }
@@ -4535,7 +4550,8 @@ function renderSACanal({pedidos,pedidosPrev,lojas,lojaMap,metasMap,dailyGoalsMap
       responsive:true,maintainAspectRatio:false,
       plugins:{
         legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},
-        tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;const r=realizado[i],mt=meta[i],ant=anterior[i];if(ctx.datasetIndex===0)return[`Realizado: ${fmtR(r)}`,`Meta: ${fmtR(mt)}`,`Desvio: ${fmtR(r-mt)} (${mt>0?((r/mt-1)*100).toFixed(1):'—'}%)`,`Anterior: ${fmtR(ant)}`,`Δ vs ant: ${ant>0?((r/ant-1)*100).toFixed(1)+'%':'—'}`];return null;}}}
+        tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;const r=realizado[i],mt=meta[i],ant=anterior[i];if(ctx.datasetIndex===0)return[`Realizado: ${fmtR(r)}`,`Meta: ${fmtR(mt)}`,`Desvio: ${fmtR(r-mt)} (${mt>0?((r/mt-1)*100).toFixed(1):'—'}%)`,`Anterior: ${fmtR(ant)}`,`Δ vs ant: ${ant>0?((r/ant-1)*100).toFixed(1)+'%':'—'}`];return null;}}},
+        datalabels:{display:ctx=>ctx.dataset.data[ctx.dataIndex]>0&&ctx.datasetIndex===0,anchor:'end',align:'end',formatter:v=>fmtR0(v),font:{size:9},color:'var(--text)'}
       },
       scales:{y:{ticks:{callback:v=>fmtR0(v)},grid:{color:'rgba(128,128,128,0.1)'}},x:{grid:{display:false}}}
     }
@@ -4574,7 +4590,7 @@ function renderSADiario({pedidos,di,df,diasTot,dailyGoalsMap,metaTotal,diasMes})
     },
     options:{
       responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;const v=vendido[i],mt=metaDia[i];if(ctx.datasetIndex===0)return[`Vendido: ${fmtR(v)}`,`Meta: ${mt!=null?fmtR(mt):'—'}`,`Desvio: ${mt!=null?fmtR(v-mt)+' ('+(mt>0?((v/mt-1)*100).toFixed(1):'—')+'%)':'—'}`];return null;}}}},
+      plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;const v=vendido[i],mt=metaDia[i];if(ctx.datasetIndex===0)return[`Vendido: ${fmtR(v)}`,`Meta: ${mt!=null?fmtR(mt):'—'}`,`Desvio: ${mt!=null?fmtR(v-mt)+' ('+(mt>0?((v/mt-1)*100).toFixed(1):'—')+'%)':'—'}`];return null;}}},datalabels:{display:ctx=>ctx.datasetIndex===0&&ctx.dataset.data[ctx.dataIndex]>0,anchor:'end',align:'top',formatter:v=>fmtR0(v),font:{size:8},color:'var(--text)'}},
       scales:{y:{ticks:{callback:v=>fmtR0(v)},grid:{color:'rgba(128,128,128,0.1)'}},x:{grid:{display:false},ticks:{maxRotation:45,font:{size:10}}}}
     }
   });
@@ -4601,7 +4617,7 @@ function renderSATicket({pedidos,pedidosPrev,lojas,lojaMap}){
     ]},
     options:{
       responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;if(ctx.datasetIndex===0)return[`Atual: ${fmtR(ticketAtual[i])}`,`Anterior: ${fmtR(ticketAnt[i])}`,`Δ: ${ticketAnt[i]>0?((ticketAtual[i]/ticketAnt[i]-1)*100).toFixed(1)+'%':'—'}`];return null;}}}},
+      plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;if(ctx.datasetIndex===0)return[`Atual: ${fmtR(ticketAtual[i])}`,`Anterior: ${fmtR(ticketAnt[i])}`,`Δ: ${ticketAnt[i]>0?((ticketAtual[i]/ticketAnt[i]-1)*100).toFixed(1)+'%':'—'}`];return null;}}},datalabels:{display:ctx=>ctx.dataset.data[ctx.dataIndex]>0&&ctx.datasetIndex===0,anchor:'end',align:'end',formatter:v=>fmtR0(v),font:{size:9},color:'var(--text)'}},
       scales:{y:{ticks:{callback:v=>fmtR0(v)},grid:{color:'rgba(128,128,128,0.1)'}},x:{grid:{display:false}}}
     }
   });
@@ -4620,8 +4636,8 @@ function renderSADesconto({pedidos,lojas,lojaMap}){
   row.appendChild(wrapD);row.appendChild(wrapB);
   sec.appendChild(title);sec.appendChild(row);
 
-  const comDesc=pedidos.filter(p=>parseFloat(p.desconto||0)>0);
-  const semDesc=pedidos.filter(p=>!(parseFloat(p.desconto||0)>0));
+  const comDesc=pedidos.filter(p=>parseFloat(p.desconto?.valor??p.desconto??0)>0);
+  const semDesc=pedidos.filter(p=>!(parseFloat(p.desconto?.valor??p.desconto??0)>0));
   const totalCom=comDesc.reduce((s,p)=>s+parseFloat(p.total||0),0);
   const totalSem=semDesc.reduce((s,p)=>s+parseFloat(p.total||0),0);
 
@@ -4629,12 +4645,12 @@ function renderSADesconto({pedidos,lojas,lojaMap}){
   window._saCharts.descontoDonut=new Chart(canvasD,{
     type:'doughnut',
     data:{labels:['Com Desconto','Sem Desconto'],datasets:[{data:[comDesc.length,semDesc.length],backgroundColor:['rgba(239,68,68,0.8)','rgba(34,197,94,0.8)']}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:ctx=>{const n=ctx.raw;const tot=pedidos.length;return[`${n} pedidos (${tot>0?(n/tot*100).toFixed(1):'0'}%)`,`${fmtR(ctx.dataIndex===0?totalCom:totalSem)}`];}}}}}
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:ctx=>{const n=ctx.raw;const tot=pedidos.length;return[`${n} pedidos (${tot>0?(n/tot*100).toFixed(1):'0'}%)`,`${fmtR(ctx.dataIndex===0?totalCom:totalSem)}`];}}},datalabels:{display:ctx=>ctx.raw>0,formatter:(v,ctx)=>{const tot=pedidos.length;return tot>0?(v/tot*100).toFixed(1)+'%':'';},color:'#fff',font:{size:10,weight:'bold'}}}}
   });
 
   const labelsB=lojas.map(l=>l.nome);
-  const comB=lojas.map(l=>pedidos.filter(p=>String(p.loja?.id)===String(l.id)&&parseFloat(p.desconto||0)>0).reduce((s,p)=>s+parseFloat(p.total||0),0));
-  const semB=lojas.map(l=>pedidos.filter(p=>String(p.loja?.id)===String(l.id)&&!(parseFloat(p.desconto||0)>0)).reduce((s,p)=>s+parseFloat(p.total||0),0));
+  const comB=lojas.map(l=>pedidos.filter(p=>String(p.loja?.id)===String(l.id)&&parseFloat(p.desconto?.valor??p.desconto??0)>0).reduce((s,p)=>s+parseFloat(p.total||0),0));
+  const semB=lojas.map(l=>pedidos.filter(p=>String(p.loja?.id)===String(l.id)&&!(parseFloat(p.desconto?.valor??p.desconto??0)>0)).reduce((s,p)=>s+parseFloat(p.total||0),0));
 
   window._saCharts.descontoBar=new Chart(canvasB,{
     type:'bar',
@@ -4644,7 +4660,7 @@ function renderSADesconto({pedidos,lojas,lojaMap}){
     ]},
     options:{
       responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;const tot=comB[i]+semB[i];return[`Com Desconto: ${fmtR(comB[i])}`,`Sem Desconto: ${fmtR(semB[i])}`,`% com desc: ${tot>0?(comB[i]/tot*100).toFixed(1)+'%':'—'}`];}}}},
+      plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;const tot=comB[i]+semB[i];return[`Com Desconto: ${fmtR(comB[i])}`,`Sem Desconto: ${fmtR(semB[i])}`,`% com desc: ${tot>0?(comB[i]/tot*100).toFixed(1)+'%':'—'}`];}}},datalabels:{display:ctx=>ctx.dataset.data[ctx.dataIndex]>0,anchor:'center',align:'center',formatter:v=>fmtR0(v),font:{size:9},color:'#fff'}},
       scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,ticks:{callback:v=>fmtR0(v)},grid:{color:'rgba(128,128,128,0.1)'}}}
     }
   });
@@ -4671,7 +4687,7 @@ function renderSAVendedoras({pedidos,vendedoresArr,pvMap,lojaMap}){
     s.vendas+=parseFloat(p.total||0);
     s.cupons++;
     s.itens+=(p.itens?.reduce((si,i)=>si+(parseFloat(i.quantidade)||1),0)||1);
-    if(parseFloat(p.desconto||0)>0)s.desc++;
+    if(parseFloat(p.desconto?.valor??p.desconto??0)>0)s.desc++;
   });
 
   const vends=Object.entries(stats).filter(([,s])=>s.cupons>0).sort((a,b)=>b[1].vendas-a[1].vendas).map(([id,s])=>({
@@ -4701,7 +4717,8 @@ function renderSAVendedoras({pedidos,vendedoresArr,pvMap,lojaMap}){
         indexAxis:'y',responsive:true,maintainAspectRatio:false,
         plugins:{
           legend:{display:false},
-          tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;const v=vends[i];return[`Vendas: ${fmtR(v.vendas)}`,`Cupons: ${v.cupons}`,`Ticket: ${fmtR(v.ticket)}`,`2+ itens: ${v.multi.toFixed(1)}%`,`Desconto: ${v.desc.toFixed(1)}%`];}}}
+          tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;const v=vends[i];return[`Vendas: ${fmtR(v.vendas)}`,`Cupons: ${v.cupons}`,`Ticket: ${fmtR(v.ticket)}`,`2+ itens: ${v.multi.toFixed(1)}%`,`Desconto: ${v.desc.toFixed(1)}%`];}}},
+          datalabels:{display:ctx=>ctx.dataset.data[ctx.dataIndex]>0,anchor:'end',align:'end',formatter:(v)=>activeTab===0||activeTab===2?fmtR0(v):activeTab>=3?v.toFixed(1)+'%':String(Math.round(v)),font:{size:9},color:'var(--text)'}
         },
         scales:{x:{ticks:{callback:(val)=>activeTab===0||activeTab===2?fmtR0(val):activeTab>=3?val+'%':String(val)},grid:{color:'rgba(128,128,128,0.1)'}},y:{grid:{display:false}}}
       }
@@ -4722,7 +4739,7 @@ function renderSAVendedoras({pedidos,vendedoresArr,pvMap,lojaMap}){
   const totalCupons=vends.reduce((s,v)=>s+v.cupons,0);
   const ticketGeral=totalCupons>0?totalVendas/totalCupons:0;
   const pctMulti=pedidos.length>0?pedidos.filter(p=>(p.itens?.length||0)>=2).length/pedidos.length*100:0;
-  const pctDesc=pedidos.length>0?pedidos.filter(p=>parseFloat(p.desconto||0)>0).length/pedidos.length*100:0;
+  const pctDesc=pedidos.length>0?pedidos.filter(p=>parseFloat(p.desconto?.valor??p.desconto??0)>0).length/pedidos.length*100:0;
 
   const sumCard=document.createElement('div');sumCard.className='sa-summary-card';
   [
@@ -4796,7 +4813,7 @@ function renderSALojaTable({loja,pedidos,vendedoresArr,pvMap,metasArr,now,y,m}){
     const addCell=(val,diff)=>{
       const td=document.createElement('td');
       td.textContent=fmtR(val);
-      if(diff!=null)td.style.color=diff<=0?'#22c55e':'#ef4444';
+      if(diff!=null)td.style.color=diff>=0?'#22c55e':'#ef4444';
       tr.appendChild(td);
     };
     const nm=document.createElement('td');nm.textContent=v.nome;tr.appendChild(nm);
@@ -5538,9 +5555,7 @@ function setHomeBgTheme(type){
     <img id="sa-brand-av" class="sa-brand-av" src="" alt="" onerror="this.style.display='none'">
     <span class="sa-brand-nm">Vessel · Análise de Vendas</span>
     <div class="sa-filters">
-      <select id="sa-canal-select" class="sa-canal-sel" onchange="saSelectCanal(this.value)">
-        <option value="">Todas as lojas</option>
-      </select>
+      <div id="sa-canal-btns" class="sa-canal-btns"></div>
       <div class="sa-period-btns">
         <button class="sa-pbtn active" data-period="sofar" onclick="saSelectPeriod('sofar')">ATÉ AGORA</button>
         <button class="sa-pbtn" data-period="today" onclick="saSelectPeriod('today')">HOJE</button>
