@@ -4703,6 +4703,48 @@ function renderSALojaTable({loja,pedidos,vendedoresArr,pvMap,metasArr,now,y,m}){
   return wrap;
 }
 
+function renderSAPositivacao({loja,pedidos15,vendedoresArr,pvMap,di15,df15,now}){
+  const dias=[];const d=new Date(di15+'T00:00:00');const end=new Date(df15+'T00:00:00');
+  while(d<=end){dias.push(d.toISOString().slice(0,10));d.setDate(d.getDate()+1);}
+
+  const lojaPed=pedidos15.filter(p=>String(p.loja?.id)===String(loja.id));
+  const vendCom=vendedoresArr.filter(v=>lojaPed.some(p=>pvMap[parseInt(p.id)]===v.vendor_id));
+
+  const wrap=document.createElement('div');
+  const posTitle=document.createElement('div');posTitle.className='sa-section-title';posTitle.style.marginBottom='8px';posTitle.textContent='Frequência de Positivação — 15 dias';
+  wrap.appendChild(posTitle);
+
+  if(!vendCom.length){
+    const empty=document.createElement('div');empty.style.cssText='color:var(--muted);font-size:12px';empty.textContent='Sem vendas nos últimos 15 dias.';
+    wrap.appendChild(empty);return wrap;
+  }
+
+  const WEEK_NAMES=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  const grid=document.createElement('div');
+  grid.style.cssText='display:grid;grid-template-columns:auto repeat('+dias.length+',minmax(52px,1fr));gap:3px;overflow-x:auto';
+
+  const emptyHdr=document.createElement('div');grid.appendChild(emptyHdr);
+  dias.forEach(dt=>{
+    const hd=document.createElement('div');hd.className='sa-pos-cell header';
+    const dd=new Date(dt+'T12:00:00');
+    hd.textContent=WEEK_NAMES[dd.getDay()]+' '+dd.getDate();
+    grid.appendChild(hd);
+  });
+
+  vendCom.forEach(v=>{
+    const nm=document.createElement('div');nm.className='sa-pos-name';nm.textContent=v.nome.split(' ')[0];grid.appendChild(nm);
+    dias.forEach(dt=>{
+      const dayPed=lojaPed.filter(p=>p.data?.slice(0,10)===dt&&pvMap[parseInt(p.id)]===v.vendor_id);
+      const cell=document.createElement('div');cell.className='sa-pos-cell '+(dayPed.length>0?'green':'red');
+      cell.textContent=dayPed.length>0?fmtR0(dayPed.reduce((s,p)=>s+parseFloat(p.total||0),0)):'—';
+      grid.appendChild(cell);
+    });
+  });
+
+  wrap.appendChild(grid);
+  return wrap;
+}
+
 /* ── GESTÃO À VISTA ── */
 function startGVClock(){
   const tEl=document.getElementById('gv-clock'),dEl=document.getElementById('gv-date');
