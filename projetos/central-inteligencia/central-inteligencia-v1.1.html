@@ -2812,8 +2812,10 @@ async function loadAdminAccounts(){
     const saveBtn=mkEl('button','sr-btn');saveBtn.textContent='Salvar alterações';saveBtn.style.cssText='background:var(--accent);color:#fff;font-size:12px;padding:7px 16px';
     saveBtn.addEventListener('click',async()=>{
       saveBtn.textContent='Salvando...';saveBtn.disabled=true;
-      await adFetch(`accounts?id=eq.${acc.id}`,{method:'PATCH',body:JSON.stringify({name:nameInp.value.trim(),username:usrInp.value.trim(),accent_color:colorPick.value})});
+      const{error}=await sbClient.from('accounts').update({name:nameInp.value.trim(),username:usrInp.value.trim(),accent_color:colorPick.value}).eq('id',acc.id);
+      if(error){saveBtn.textContent='Salvar alterações';saveBtn.disabled=false;adminToast('Erro ao salvar: '+error.message,false);return;}
       if(PROFILE_THEMES[acc.name]){const t=PROFILE_THEMES[acc.name];t.accent=colorPick.value;t.light=colorPick.value+'1a';t.mid=colorPick.value+'4d';}
+      else{PROFILE_THEMES[nameInp.value.trim()]={accent:colorPick.value,light:colorPick.value+'1a',mid:colorPick.value+'4d'};}
       ACCOUNT_PICS[nameInp.value.trim()]=ACCOUNT_PICS[acc.name];
       saveBtn.textContent='Salvo ✓';setTimeout(()=>{saveBtn.textContent='Salvar alterações';saveBtn.disabled=false;},1500);
       adminToast('Conta atualizada');
@@ -2843,15 +2845,25 @@ async function loadAdminAppearance(){
     const pick=mkEl('input');pick.type='color';pick.value=color;pick.style.cssText='width:36px;height:26px;border:none;border-radius:5px;cursor:pointer;padding:0';
     const val=mkEl('span','sr-val',color);
     pick.addEventListener('input',()=>val.textContent=pick.value);
-    pick.addEventListener('change',async()=>{await adFetch(`accounts?id=eq.${acc.id}`,{method:'PATCH',body:JSON.stringify({accent_color:pick.value})});if(PROFILE_THEMES[acc.name])PROFILE_THEMES[acc.name].accent=pick.value;adminToast('Cor de '+acc.name+' atualizada');});
-    right.appendChild(pick);right.appendChild(val);row.appendChild(right);list.appendChild(row);
+    const saveColorBtn=mkEl('button','sr-btn');saveColorBtn.textContent='Salvar';saveColorBtn.style.cssText='background:var(--accent);color:#fff;font-size:11px;padding:5px 12px';
+    saveColorBtn.addEventListener('click',async()=>{
+      saveColorBtn.textContent='Salvando...';saveColorBtn.disabled=true;
+      const{error}=await sbClient.from('accounts').update({accent_color:pick.value}).eq('id',acc.id);
+      if(error){saveColorBtn.textContent='Salvar';saveColorBtn.disabled=false;adminToast('Erro ao salvar: '+error.message,false);return;}
+      if(PROFILE_THEMES[acc.name]){const t=PROFILE_THEMES[acc.name];t.accent=pick.value;t.light=pick.value+'1a';t.mid=pick.value+'4d';}
+      else{PROFILE_THEMES[acc.name]={accent:pick.value,light:pick.value+'1a',mid:pick.value+'4d'};}
+      saveColorBtn.textContent='Salvo ✓';setTimeout(()=>{saveColorBtn.textContent='Salvar';saveColorBtn.disabled=false;},1500);
+      adminToast('Cor de '+acc.name+' atualizada');
+    });
+    right.appendChild(pick);right.appendChild(val);right.appendChild(saveColorBtn);row.appendChild(right);list.appendChild(row);
   });
 }
 async function adminSaveSetting(key,inputId){
   const val=document.getElementById(inputId)?.value?.trim();if(!val)return;
-  await adFetch(`platform_settings?key=eq.${key}`,{method:'PATCH',body:JSON.stringify({value:val,updated_at:new Date().toISOString()})});
+  const{error}=await sbClient.from('platform_settings').upsert({key,value:val,updated_at:new Date().toISOString()},{onConflict:'key'});
+  if(error){adminToast('Erro ao salvar: '+error.message,false);return;}
   if(key==='footer_phrase'){const el=document.querySelector('.home-footer-phrase');if(el)el.textContent=val;}
-  if(key==='platform_name'){['apb-name','admin-topbar-title'].forEach(id=>{const el=document.getElementById(id);});}
+  if(key==='platform_name'){['apb-name','admin-topbar-title'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=val;});}
   adminToast('Configuração salva');
 }
 
