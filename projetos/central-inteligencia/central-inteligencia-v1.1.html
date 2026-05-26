@@ -4607,9 +4607,42 @@ async function loadSalesAnalysisData(period){
     window._saCountdownTimer=setInterval(_tickStatus,1000);
 
     renderSalesAnalysis(window._saRawData,initialIds);
+    // Se pvQtdMap não tem nenhum valor > 1, GV nunca rodou — busca em background
+    const _hasRealQtd=Object.values(pvQtdMap).some(v=>v>1);
+    if(!_hasRealQtd)_saPopulateItemCounts([...pedidos,...pedidosPrev],pvQtdMap,pvMap);
   }catch(e){
     body.textContent='';
     const err=document.createElement('div');err.className='sa-loading';err.textContent='Erro: '+e.message;body.appendChild(err);
+  }
+}
+
+window._saItemFetchV=0;
+async function _saPopulateItemCounts(pedidos,pvQtdMap,pvMap){
+  const myV=++window._saItemFetchV;
+  const upsert=[];
+  for(let i=0;i<Math.min(pedidos.length,200);i++){
+    if(window._saItemFetchV!==myV)return;
+    const p=pedidos[i];
+    if(pvQtdMap[parseInt(p.id)]>1)continue;
+    try{
+      const resp=await blingCall(`pedidos/vendas/${p.id}`,{});
+      const n=resp.data?.itens?.length||1;
+      const vid=resp.data?.vendedor?.id;
+      pvQtdMap[parseInt(p.id)]=n;
+      if(vid)pvMap[parseInt(p.id)]=vid;
+      const row={pedido_id:parseInt(p.id),qtd_itens:n};
+      if(vid)row.vendor_id=vid;
+      upsert.push(row);
+    }catch(e){}
+    if((i+1)%10===0)await new Promise(r=>setTimeout(r,250));
+  }
+  if(window._saItemFetchV!==myV||!upsert.length)return;
+  sbClient.from('bling_pedido_vendedor').upsert(upsert,{onConflict:'pedido_id'}).then(null,()=>{});
+  const scr=document.getElementById('sales-analysis-screen');
+  if(scr&&scr.style.display!=='none'&&window._saRawData){
+    const boxes=[...document.querySelectorAll('.sa-canal-chk')];
+    const active=boxes.filter(cb=>cb.checked).map(cb=>cb.value);
+    renderSalesAnalysis(window._saRawData,active);
   }
 }
 
