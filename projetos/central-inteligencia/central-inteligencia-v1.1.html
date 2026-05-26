@@ -1635,6 +1635,32 @@
           </div>
           <div id="adm-invite-msg" style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);margin-top:10px"></div>
         </div>
+        <span class="sg-label">Criar acesso manual</span>
+        <div class="sg" style="padding:16px 20px;">
+          <p style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);margin:0 0 14px">Cria acesso imediatamente com senha definida por você — compartilhe as credenciais com a pessoa.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;">
+            <div>
+              <label class="auth-label" for="adm-name">Nome</label>
+              <input type="text" id="adm-name" class="auth-input" placeholder="Nome completo" style="width:100%;box-sizing:border-box;">
+            </div>
+            <div>
+              <label class="auth-label" for="adm-manual-email">E-mail</label>
+              <input type="email" id="adm-manual-email" class="auth-input" placeholder="email@exemplo.com" style="width:100%;box-sizing:border-box;">
+            </div>
+            <div>
+              <label class="auth-label" for="adm-pass">Senha inicial</label>
+              <input type="password" id="adm-pass" class="auth-input" placeholder="Mínimo 6 caracteres" style="width:100%;box-sizing:border-box;">
+            </div>
+            <div>
+              <label class="auth-label" for="adm-role">Perfil de acesso</label>
+              <select id="adm-role" class="auth-input" style="width:100%;box-sizing:border-box;cursor:pointer;"><option value="viewer">Visualizador</option><option value="admin">Administrador</option></select>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+            <div id="adm-create-msg" style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted)"></div>
+            <button class="sr-btn" onclick="adminCreateUser()" style="background:var(--accent);color:#fff;font-size:12px;padding:7px 20px;flex-shrink:0">Criar acesso</button>
+          </div>
+        </div>
       </div>
       <!-- CONTAS -->
       <div class="admin-section" id="admin-section-accounts">
@@ -2878,6 +2904,31 @@ async function adminInviteUser(){
   const res=await r.json();
   if(res.error){msg.textContent='Erro: '+res.error;msg.style.color='#dc2626';}
   else{msg.textContent='✓ Convite enviado para '+email;msg.style.color='#16a34a';document.getElementById('adm-email').value='';adminToast('Convite enviado!');setTimeout(loadAdminUsers,1200);}
+}
+async function adminCreateUser(){
+  const name=document.getElementById('adm-name').value.trim();
+  const email=document.getElementById('adm-manual-email').value.trim();
+  const password=document.getElementById('adm-pass').value;
+  const role=document.getElementById('adm-role').value;
+  const msg=document.getElementById('adm-create-msg');
+  if(!email||!password||password.length<6){msg.textContent='Preencha e-mail e senha (mín. 6 caracteres).';msg.style.color='#dc2626';return;}
+  msg.textContent='Criando acesso...';msg.style.color='var(--muted)';
+  const{data:{session:s}}=await sbClient.auth.getSession();
+  const tok=s?.access_token||SUPABASE_ANON_KEY;
+  const r=await fetch(`${SUPABASE_URL}/functions/v1/invite-user`,{method:'POST',headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},body:JSON.stringify({email,name,role,password})});
+  const res=await r.json();
+  if(res.error){msg.textContent='Erro: '+res.error;msg.style.color='#dc2626';}
+  else{
+    msg.textContent='';
+    const t=document.createTextNode('✓ Acesso criado para ');
+    const eb=document.createElement('strong');eb.textContent=email;
+    const t2=document.createTextNode(' — Senha: ');
+    const pb=document.createElement('strong');pb.textContent=password;
+    msg.appendChild(t);msg.appendChild(eb);msg.appendChild(t2);msg.appendChild(pb);
+    msg.style.color='#16a34a';
+    ['adm-name','adm-manual-email','adm-pass'].forEach(id=>document.getElementById(id).value='');
+    adminToast('Acesso criado com sucesso!');setTimeout(loadAdminUsers,1200);
+  }
 }
 
 /* ── CONTAS ── */
