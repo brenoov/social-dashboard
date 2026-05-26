@@ -4595,15 +4595,13 @@ async function loadSalesAnalysisData(period){
 
     clearInterval(window._saCountdownTimer);
     const _tickStatus=()=>{
-      const lastEl=document.getElementById('sa-last-update');
-      const nextEl=document.getElementById('sa-next-update');
-      if(!lastEl||!nextEl)return;
+      const el=document.getElementById('sa-update-status');
+      if(!el)return;
       const l=window._saLastUpdateTime;
-      lastEl.textContent=`Últ.: ${String(l.getHours()).padStart(2,'0')}:${String(l.getMinutes()).padStart(2,'0')}`;
       const tz=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Sao_Paulo'}));
       const diff=Math.max(0,window._saNextRefreshAt-tz);
       const mm=Math.floor(diff/60000);const ss=Math.floor((diff%60000)/1000);
-      nextEl.textContent=`Próx.: ${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+      el.textContent=`Últ.: ${String(l.getHours()).padStart(2,'0')}:${String(l.getMinutes()).padStart(2,'0')} · Próx.: ${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
     };
     _tickStatus();
     window._saCountdownTimer=setInterval(_tickStatus,1000);
@@ -4623,6 +4621,7 @@ function renderSalesAnalysis(raw,lojaFilter){
   const lojasFiltradas=lojas.filter(l=>filterIds.includes(String(l.id)));
 
   if(window._saCharts){Object.values(window._saCharts).forEach(c=>{try{c.destroy();}catch(e){}});window._saCharts={};}
+  if(window._saLabelColor)Chart.defaults.color=window._saLabelColor();
 
   const body=document.getElementById('sa-body');
   body.textContent='';
@@ -4668,8 +4667,10 @@ function renderSAKpis({pedidos,pedidosPrev,metaPeriodo,diasMes,diasTot,diasDec,n
   const total=pedidos.reduce((s,p)=>s+parseFloat(p.total||0),0);
   const totalPrev=pedidosPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
   const n=pedidos.length;
-  const totalItens=pedidos.reduce((s,p)=>s+(p.itens?.length||1),0);
-  const multiItem=pedidos.filter(p=>(p.itens?.length||0)>=2).length;
+  const qtd=pvQtdMap||{};
+  const getQtd=p=>qtd[parseInt(p.id)]||(p.itens?.length)||1;
+  const totalItens=pedidos.reduce((s,p)=>s+getQtd(p),0);
+  const multiItem=pedidos.filter(p=>getQtd(p)>=2).length;
   const pct=metaPeriodo>0?total/metaPeriodo*100:null;
   const proj=diasDec>0?(total/diasDec)*diasTot:0;
   const hojeDayNum=now.getDate();
@@ -4685,9 +4686,9 @@ function renderSAKpis({pedidos,pedidosPrev,metaPeriodo,diasMes,diasTot,diasDec,n
   const deltaTotal=totalPrev>0?(total-totalPrev)/totalPrev*100:null;
   const pctPrev=metaPeriodo>0&&totalPrev>0?totalPrev/metaPeriodo*100:null;
   const mediaItens=n>0?totalItens/n:0;
-  const mediaItensPrev=pedidosPrev.length>0?pedidosPrev.reduce((s,p)=>s+(p.itens?.length||1),0)/pedidosPrev.length:0;
+  const mediaItensPrev=pedidosPrev.length>0?pedidosPrev.reduce((s,p)=>s+getQtd(p),0)/pedidosPrev.length:0;
   const multiPct=n>0?multiItem/n*100:0;
-  const multiPrev=pedidosPrev.length>0?pedidosPrev.filter(p=>(p.itens?.length||0)>=2).length/pedidosPrev.length*100:0;
+  const multiPrev=pedidosPrev.length>0?pedidosPrev.filter(p=>getQtd(p)>=2).length/pedidosPrev.length*100:0;
 
   const sec=document.createElement('div');sec.className='sa-kpis';
 
@@ -4769,9 +4770,9 @@ function renderSACanal({pedidos,pedidosPrev,lojas,lojaMap,metasMap,dailyGoalsMap
     data:{
       labels,
       datasets:[
-        {label:'Meta',data:meta,backgroundColor:clrMeta,hoverBackgroundColor:'rgba(249,115,22,1)',borderRadius:{topLeft:6,topRight:6,bottomLeft:6,bottomRight:6},borderSkipped:false,stack:'meta'},
-        {label:'Realizado',data:realizado,backgroundColor:clrReal,hoverBackgroundColor:'rgba(79,124,255,1)',borderRadius:{topLeft:0,topRight:0,bottomLeft:6,bottomRight:6},borderSkipped:false,stack:'progress'},
-        {label:'A completar',data:desvio,backgroundColor:clrDesvio,borderColor:'rgba(249,115,22,0.45)',borderWidth:1.5,borderRadius:{topLeft:6,topRight:6,bottomLeft:0,bottomRight:0},borderSkipped:false,stack:'progress'}
+        {label:'Meta',data:meta,backgroundColor:clrMeta,hoverBackgroundColor:'rgba(249,115,22,1)',borderRadius:6,borderSkipped:false},
+        {label:'Desvio',data:desvio,backgroundColor:clrDesvio,borderColor:'rgba(249,115,22,0.5)',borderWidth:1.5,borderRadius:6,borderSkipped:false},
+        {label:'Realizado',data:realizado,backgroundColor:clrReal,hoverBackgroundColor:'rgba(79,124,255,1)',borderRadius:6,borderSkipped:false}
       ]
     },
     options:{
@@ -4784,37 +4785,29 @@ function renderSACanal({pedidos,pedidosPrev,lojas,lojaMap,metasMap,dailyGoalsMap
           label:ctx=>{
             const i=ctx.dataIndex;const r=realizado[i],mt=meta[i],ant=anterior[i];
             if(ctx.datasetIndex===0)return` Meta: ${fmtR(mt)}`;
-            if(ctx.datasetIndex===1){const dev=r-mt;const pct=mt>0?((r/mt-1)*100).toFixed(1)+'%':'—';return[` Realizado: ${fmtR(r)}`,` vs Meta: ${dev>=0?'▲ +':'▼ '}${fmtR(Math.abs(dev))} (${pct})`,` vs Anterior: ${r>=ant?'▲ +':'▼ '}${fmtR(Math.abs(r-ant))} (${ant>0?((r/ant-1)*100).toFixed(1)+'%':'—'})`];}
-            if(ctx.datasetIndex===2)return desvio[i]>0?` Falta: ${fmtR(desvio[i])} para meta`:` ✓ Meta atingida`;
+            if(ctx.datasetIndex===1)return desvio[i]>0?` Desvio: −${fmtR(desvio[i])} (${mt>0?((r/mt-1)*100).toFixed(1)+'%':'—'})`:` ✓ Meta atingida`;
+            if(ctx.datasetIndex===2){const dev=r-mt;const pct=mt>0?((r/mt-1)*100).toFixed(1)+'%':'—';return[` Realizado: ${fmtR(r)}`,` vs Meta: ${dev>=0?'▲ +':'▼ '}${fmtR(Math.abs(dev))} (${pct})`,` vs Anterior: ${r>=ant?'▲ +':'▼ '}${fmtR(Math.abs(r-ant))} (${ant>0?((r/ant-1)*100).toFixed(1)+'%':'—'})`];}
             return null;
           },
           labelTextColor:ctx=>{
             const i=ctx.dataIndex;const r=realizado[i],mt=meta[i],ant=anterior[i];
-            if(ctx.datasetIndex===1)return r>=mt?'#4ade80':'rgba(255,255,255,0.85)';
-            if(ctx.datasetIndex===2)return desvio[i]>0?'#fca5a5':'#4ade80';
+            if(ctx.datasetIndex===1)return desvio[i]>0?'#fca5a5':'#4ade80';
+            if(ctx.datasetIndex===2)return r>=mt?'#4ade80':'rgba(255,255,255,0.85)';
             return 'rgba(255,255,255,0.85)';
           },
         }},
         datalabels:{
           display:ctx=>ctx.dataset.data[ctx.dataIndex]>0,
-          anchor:ctx=>ctx.datasetIndex===2?'end':'center',
-          align:ctx=>ctx.datasetIndex===2?'end':'center',
-          formatter:(v,ctx)=>{
-            if(ctx.datasetIndex===2)return v>0?fmtR0(v):'';
-            return fmtR0(v);
-          },
+          anchor:'end',align:'end',
+          formatter:v=>fmtR0(v),
           font:{size:9,weight:'700'},
-          color:ctx=>{
-            if(ctx.datasetIndex===0)return '#fff';
-            if(ctx.datasetIndex===1)return '#fff';
-            return labelCol();
-          },
+          color:ctx=>ctx.datasetIndex===1?labelCol():'#fff',
           padding:{bottom:2}
         }
       },
       scales:{
-        y:{stacked:true,ticks:{callback:v=>fmtR0(v),font:{size:10}},grid:{color:'rgba(128,128,128,0.07)'},border:{dash:[4,4]}},
-        x:{stacked:true,grid:{display:false},ticks:{font:{size:11}}}
+        y:{ticks:{callback:v=>fmtR0(v),font:{size:10}},grid:{color:'rgba(128,128,128,0.07)'},border:{dash:[4,4]}},
+        x:{grid:{display:false},ticks:{font:{size:11}}}
       },
       barPercentage:0.88,categoryPercentage:0.65
     }
@@ -4903,9 +4896,10 @@ function renderSADesconto({pedidos,lojas,lojaMap,di,df}){
   row.appendChild(wrapD);row.appendChild(wrapB);
   sec.appendChild(title);sec.appendChild(row);
 
-  const calcDescPedido=p=>(p.itens||[]).reduce((s,i)=>s+parseFloat(i.valor||0)*parseFloat(i.desconto||0)/100,0);
-  const comDesc=pedidos.filter(p=>p.itens?.some(i=>parseFloat(i.desconto||0)>0));
-  const semDesc=pedidos.filter(p=>!(p.itens?.some(i=>parseFloat(i.desconto||0)>0)));
+  const getDescVal=p=>{const d=p.desconto;if(d&&typeof d==='object')return parseFloat(d.valor||0);return parseFloat(d||0);};
+  const calcDescPedido=p=>{const v=getDescVal(p);if(!v)return 0;const d=p.desconto;if(d&&typeof d==='object'&&d.tipo===2)return v;return parseFloat(p.total||0)*v/100;};
+  const comDesc=pedidos.filter(p=>getDescVal(p)>0);
+  const semDesc=pedidos.filter(p=>getDescVal(p)<=0);
   const totalCom=comDesc.reduce((s,p)=>s+parseFloat(p.total||0),0);
   const totalSem=semDesc.reduce((s,p)=>s+parseFloat(p.total||0),0);
   const totalDescCom=comDesc.reduce((s,p)=>s+calcDescPedido(p),0);
@@ -4919,8 +4913,8 @@ function renderSADesconto({pedidos,lojas,lojaMap,di,df}){
 
   const dias=[];{const d=new Date(di+'T00:00:00');const end=new Date(df+'T00:00:00');while(d<=end){dias.push(d.toISOString().slice(0,10));d.setDate(d.getDate()+1);}}
   const labelsB=dias.map(dt=>{const d=new Date(dt+'T12:00:00');return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');});
-  const comB=dias.map(dt=>pedidos.filter(p=>p.data?.slice(0,10)===dt&&p.itens?.some(i=>parseFloat(i.desconto||0)>0)).reduce((s,p)=>s+parseFloat(p.total||0),0));
-  const semB=dias.map(dt=>pedidos.filter(p=>p.data?.slice(0,10)===dt&&!(p.itens?.some(i=>parseFloat(i.desconto||0)>0))).reduce((s,p)=>s+parseFloat(p.total||0),0));
+  const comB=dias.map(dt=>pedidos.filter(p=>p.data?.slice(0,10)===dt&&getDescVal(p)>0).reduce((s,p)=>s+parseFloat(p.total||0),0));
+  const semB=dias.map(dt=>pedidos.filter(p=>p.data?.slice(0,10)===dt&&getDescVal(p)<=0).reduce((s,p)=>s+parseFloat(p.total||0),0));
   const descValorB=dias.map(dt=>pedidos.filter(p=>p.data?.slice(0,10)===dt).reduce((s,p)=>s+calcDescPedido(p),0));
 
   window._saCharts.descontoBar=new Chart(canvasB,{
@@ -4959,14 +4953,14 @@ function renderSAVendedoras({pedidos,pedidosPrev,vendedoresArr,pvMap,pvQtdMap,lo
     const s=stats[vid];
     s.vendas+=parseFloat(p.total||0);
     s.cupons++;
-    s.itens+=(p.itens?.length||1);
-    if(p.itens?.some(i=>parseFloat(i.desconto||0)>0))s.desc++;
+    s.itens+=((pvQtdMap?.[parseInt(p.id)])||(p.itens?.length)||1);
+    if(parseFloat(p.desconto?.valor??p.desconto??0)>0)s.desc++;
   });
 
   const vends=Object.entries(stats).filter(([,s])=>s.cupons>0).sort((a,b)=>b[1].vendas-a[1].vendas).map(([id,s])=>({
     id,nome:s.nome,vendas:s.vendas,cupons:s.cupons,
     ticket:s.cupons>0?s.vendas/s.cupons:0,
-    multi:s.cupons>0?pedidos.filter(p=>pvMap[parseInt(p.id)]==id&&(p.itens?.length||0)>=2).length/s.cupons*100:0,
+    multi:s.cupons>0?pedidos.filter(p=>pvMap[parseInt(p.id)]==id&&((pvQtdMap?.[parseInt(p.id)])||(p.itens?.length)||1)>=2).length/s.cupons*100:0,
     desc:s.cupons>0?s.desc/s.cupons*100:0
   }));
 
@@ -4983,15 +4977,17 @@ function renderSAVendedoras({pedidos,pedidosPrev,vendedoresArr,pvMap,pvQtdMap,lo
 
   const buildChart=()=>{
     if(chart){try{chart.destroy();}catch(e){}}
+    const sorted=[...vends].sort((a,b)=>metrics[activeTab][vends.indexOf(b)]-metrics[activeTab][vends.indexOf(a)]);
+    const sortedData=sorted.map(v=>metrics[activeTab][vends.indexOf(v)]);
     chart=new Chart(canvas,{
       type:'bar',
-      data:{labels:vends.map(v=>v.nome),datasets:[{label:tabs[activeTab],data:metrics[activeTab],backgroundColor:'rgba(99,102,241,0.85)',hoverBackgroundColor:'rgba(99,102,241,1)',borderRadius:6,borderSkipped:false}]},
+      data:{labels:sorted.map(v=>v.nome),datasets:[{label:tabs[activeTab],data:sortedData,backgroundColor:'rgba(99,102,241,0.85)',hoverBackgroundColor:'rgba(99,102,241,1)',borderRadius:6,borderSkipped:false}]},
       options:{
         indexAxis:'y',responsive:true,maintainAspectRatio:false,
         animation:{duration:700,easing:'easeOutQuart',delay:ctx=>ctx.dataIndex*40},
         plugins:{
           legend:{display:false},
-          tooltip:{mode:'nearest',intersect:false,backgroundColor:'rgba(10,10,20,0.88)',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.85)',titleFont:{size:12,weight:'700'},bodyFont:{size:11},padding:12,cornerRadius:8,callbacks:{label:ctx=>{const i=ctx.dataIndex;const v=vends[i];const rankIdx=i+1;return[` #${rankIdx} — ${v.nome}`,` Vendas: ${fmtR(v.vendas)}`,` Cupons: ${v.cupons} | Ticket: ${fmtR(v.ticket)}`,` 2+ itens: ${v.multi.toFixed(1)}% | Desconto: ${v.desc.toFixed(1)}%`];},title:()=>''}},
+          tooltip:{mode:'nearest',intersect:false,backgroundColor:'rgba(10,10,20,0.88)',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.85)',titleFont:{size:12,weight:'700'},bodyFont:{size:11},padding:12,cornerRadius:8,callbacks:{label:ctx=>{const i=ctx.dataIndex;const v=sorted[i];const rankIdx=i+1;return[` #${rankIdx} — ${v.nome}`,` Vendas: ${fmtR(v.vendas)}`,` Cupons: ${v.cupons} | Ticket: ${fmtR(v.ticket)}`,` 2+ itens: ${v.multi.toFixed(1)}% | Desconto: ${v.desc.toFixed(1)}%`];},title:()=>''}},
           datalabels:{display:ctx=>ctx.dataset.data[ctx.dataIndex]>0,anchor:'end',align:'end',formatter:(v)=>activeTab===0||activeTab===2?fmtR0(v):activeTab>=3?v.toFixed(1)+'%':String(Math.round(v)),font:{size:10,weight:'700'},color:()=>window._saLabelColor?.()||'#333',padding:{left:4}}
         },
         scales:{x:{ticks:{callback:(val)=>activeTab===0||activeTab===2?fmtR0(val):activeTab>=3?val+'%':String(val),font:{size:10}},grid:{color:'rgba(128,128,128,0.07)'},border:{dash:[4,4]}},y:{grid:{display:false},ticks:{font:{size:11}}}},
@@ -5013,14 +5009,16 @@ function renderSAVendedoras({pedidos,pedidosPrev,vendedoresArr,pvMap,pvQtdMap,lo
   const totalVendas=vends.reduce((s,v)=>s+v.vendas,0);
   const totalCupons=vends.reduce((s,v)=>s+v.cupons,0);
   const ticketGeral=totalCupons>0?totalVendas/totalCupons:0;
-  const pctMulti=pedidos.length>0?pedidos.filter(p=>(p.itens?.length||0)>=2).length/pedidos.length*100:0;
-  const pctDesc=pedidos.length>0?pedidos.filter(p=>p.itens?.some(i=>parseFloat(i.desconto||0)>0)).length/pedidos.length*100:0;
+  const hasDesc2=p=>parseFloat(p.desconto?.valor??p.desconto??0)>0;
+  const getQtd2=p=>((pvQtdMap?.[parseInt(p.id)])||(p.itens?.length)||1);
+  const pctMulti=pedidos.length>0?pedidos.filter(p=>getQtd2(p)>=2).length/pedidos.length*100:0;
+  const pctDesc=pedidos.length>0?pedidos.filter(hasDesc2).length/pedidos.length*100:0;
 
   const totalVendasPrev=(pedidosPrev||[]).reduce((s,p)=>s+parseFloat(p.total||0),0);
   const totalCuponsPrev=(pedidosPrev||[]).length;
   const ticketGeralPrev=totalCuponsPrev>0?totalVendasPrev/totalCuponsPrev:0;
-  const pctMultiPrev=(pedidosPrev||[]).length>0?(pedidosPrev||[]).filter(p=>(p.itens?.length||0)>=2).length/(pedidosPrev||[]).length*100:0;
-  const pctDescPrev=(pedidosPrev||[]).length>0?(pedidosPrev||[]).filter(p=>p.itens?.some(i=>parseFloat(i.desconto||0)>0)).length/(pedidosPrev||[]).length*100:0;
+  const pctMultiPrev=(pedidosPrev||[]).length>0?(pedidosPrev||[]).filter(p=>getQtd2(p)>=2).length/(pedidosPrev||[]).length*100:0;
+  const pctDescPrev=(pedidosPrev||[]).length>0?(pedidosPrev||[]).filter(hasDesc2).length/(pedidosPrev||[]).length*100:0;
   const deltaVendas=totalVendasPrev>0?(totalVendas-totalVendasPrev)/totalVendasPrev*100:null;
   const deltaCupons=totalCuponsPrev>0?(totalCupons-totalCuponsPrev)/totalCuponsPrev*100:null;
   const deltaTicket=ticketGeralPrev>0?(ticketGeral-ticketGeralPrev)/ticketGeralPrev*100:null;
@@ -5892,16 +5890,11 @@ function setHomeBgTheme(type){
         </div>
       </div>
     </div>
-    <div class="sa-status">
-      <div class="sa-status-live"><span class="sa-live-dot"></span>Tempo Real</div>
-      <div class="sa-status-times">
-        <span class="sa-status-time" id="sa-last-update">Últ.: —</span>
-        <span class="sa-status-time" id="sa-next-update">Próx.: —</span>
-      </div>
-      <div class="sa-clock-wrap">
-        <div class="sa-clock-time" id="sa-clock">--:--:--</div>
-        <div class="sa-clock-date" id="sa-clock-date"></div>
-      </div>
+    <div class="gv-clock-wrap">
+      <span class="live-dot" style="margin-bottom:4px">Tempo Real</span>
+      <div class="gv-clock-time" id="sa-clock">--:--:--</div>
+      <div class="gv-clock-date" id="sa-clock-date"></div>
+      <div class="gv-update-status" id="sa-update-status">—</div>
     </div>
   </div>
   <div id="sa-body"></div>
