@@ -1623,30 +1623,17 @@
         <div id="admin-stats-users" class="admin-stats"></div>
         <span class="sg-label">Usuários cadastrados</span>
         <div class="sg" id="admin-user-list"></div>
-        <span class="sg-label">Convidar novo usuário</span>
+        <span class="sg-label">Enviar convite por e-mail</span>
         <div class="sg" style="padding:16px 20px;">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;">
-            <div>
-              <label class="auth-label" for="adm-name">Nome</label>
-              <input type="text" id="adm-name" class="auth-input" placeholder="Nome completo" style="width:100%;box-sizing:border-box;">
-            </div>
-            <div>
-              <label class="auth-label" for="adm-email">Email</label>
+          <p style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);margin:0 0 14px">A pessoa receberá um e-mail com link para cadastrar a própria senha. O acesso começa sem permissões — libere depois na aba Permissões.</p>
+          <div style="display:flex;align-items:flex-end;gap:10px;">
+            <div style="flex:1">
+              <label class="auth-label" for="adm-email">E-mail</label>
               <input type="email" id="adm-email" class="auth-input" placeholder="email@exemplo.com" style="width:100%;box-sizing:border-box;">
             </div>
-            <div>
-              <label class="auth-label" for="adm-pass">Senha inicial</label>
-              <input type="password" id="adm-pass" class="auth-input" placeholder="Mínimo 6 caracteres" style="width:100%;box-sizing:border-box;">
-            </div>
-            <div>
-              <label class="auth-label" for="adm-role">Perfil de acesso</label>
-              <select id="adm-role" class="auth-input" style="width:100%;box-sizing:border-box;cursor:pointer;"><option value="viewer">Visualizador</option><option value="admin">Administrador</option></select>
-            </div>
+            <button class="sr-btn" onclick="adminInviteUser()" style="background:var(--accent);color:#fff;font-size:12px;padding:7px 20px;flex-shrink:0;margin-bottom:1px">Enviar convite</button>
           </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
-            <div id="adm-invite-msg" style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted)"></div>
-            <button class="sr-btn" onclick="adminInviteUser()" style="background:var(--accent);color:#fff;font-size:12px;padding:7px 20px;flex-shrink:0">Criar acesso</button>
-          </div>
+          <div id="adm-invite-msg" style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);margin-top:10px"></div>
         </div>
       </div>
       <!-- CONTAS -->
@@ -1774,25 +1761,13 @@
     <div class="admin-title">⚙️ <span>Gerenciar Usuários</span></div>
     <div class="admin-grid">
       <div>
-        <div class="admin-section-title">Convidar novo usuário</div>
+        <div class="admin-section-title">Enviar convite</div>
         <div class="admin-input-row" style="display:flex;flex-direction:column;gap:12px;padding:14px 0;">
           <div>
-            <label class="auth-label" for="invite-name">Nome</label>
-            <input type="text" id="invite-name" class="admin-input" placeholder="Nome completo" style="width:100%;box-sizing:border-box;">
-          </div>
-          <div>
-            <label class="auth-label" for="invite-email">Email</label>
+            <label class="auth-label" for="invite-email">E-mail</label>
             <input type="email" id="invite-email" class="admin-input" placeholder="email@exemplo.com" style="width:100%;box-sizing:border-box;">
           </div>
-          <div>
-            <label class="auth-label" for="invite-password">Senha</label>
-            <input type="password" id="invite-password" class="admin-input" placeholder="Mínimo 6 caracteres" style="width:100%;box-sizing:border-box;">
-          </div>
-          <div>
-            <label class="auth-label" for="invite-role">Perfil de acesso</label>
-            <select id="invite-role" class="admin-select" style="width:100%;box-sizing:border-box;"><option value="viewer">Visualizador</option><option value="admin">Admin</option></select>
-          </div>
-          <button class="admin-action-btn" id="invite-btn" onclick="doInvite()" style="width:100%;padding:11px;">Criar acesso</button>
+          <button class="admin-action-btn" id="invite-btn" onclick="doInvite()" style="width:100%;padding:11px;">Enviar convite</button>
         </div>
         <div class="admin-msg" id="invite-msg"></div>
       </div>
@@ -2893,18 +2868,16 @@ async function loadAdminUsers(){
 }
 async function adminInviteUser(){
   const email=document.getElementById('adm-email').value.trim();
-  const name=document.getElementById('adm-name').value.trim();
-  const password=document.getElementById('adm-pass').value;
-  const role=document.getElementById('adm-role').value;
   const msg=document.getElementById('adm-invite-msg');
-  if(!email||!password||password.length<6){msg.textContent='Preencha email e senha (mín. 6 caracteres).';msg.style.color='#dc2626';return;}
-  msg.textContent='Criando acesso...';msg.style.color='var(--muted)';
+  if(!email){msg.textContent='Informe o e-mail.';msg.style.color='#dc2626';return;}
+  msg.textContent='Enviando convite...';msg.style.color='var(--muted)';
   const{data:{session:s}}=await sbClient.auth.getSession();
   const tok=s?.access_token||SUPABASE_ANON_KEY;
-  const r=await fetch(`${SUPABASE_URL}/functions/v1/invite-user`,{method:'POST',headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},body:JSON.stringify({email,name,role,password})});
+  const redirectTo=location.origin+location.pathname;
+  const r=await fetch(`${SUPABASE_URL}/functions/v1/invite-user`,{method:'POST',headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},body:JSON.stringify({email,redirectTo})});
   const res=await r.json();
   if(res.error){msg.textContent='Erro: '+res.error;msg.style.color='#dc2626';}
-  else{msg.textContent='✓ Acesso criado para '+email;msg.style.color='#16a34a';['adm-email','adm-name','adm-pass'].forEach(id=>document.getElementById(id).value='');adminToast('Acesso criado com sucesso');setTimeout(loadAdminUsers,1200);}
+  else{msg.textContent='✓ Convite enviado para '+email;msg.style.color='#16a34a';document.getElementById('adm-email').value='';adminToast('Convite enviado!');setTimeout(loadAdminUsers,1200);}
 }
 
 /* ── CONTAS ── */
@@ -3675,7 +3648,11 @@ async function doSetPassword(){
   btn.disabled=true;btn.textContent='Salvando...';
   const{error}=await sbClient.auth.updateUser({password:p1});
   btn.disabled=false;btn.textContent='Definir senha e entrar';
-  if(error){errEl.textContent=error.message;errEl.style.display='block';}
+  if(error){errEl.textContent=error.message;errEl.style.display='block';return;}
+  needsPasswordSet=false;
+  history.replaceState(null,'',location.pathname+location.search);
+  const{data:{session}}=await sbClient.auth.getSession();
+  if(session)await loadDashboard(session);
 }
 /* ── FADE SWAP — fetch-first, then smooth out→swap→in ── */
 function _fadeSwap(el,swapFn){
@@ -3803,25 +3780,22 @@ async function loadUsers(){
 }
 async function doInvite(){
   const email=document.getElementById('invite-email').value.trim();
-  const name=document.getElementById('invite-name').value.trim();
-  const password=document.getElementById('invite-password').value;
-  const role=document.getElementById('invite-role').value;
   const msgEl=document.getElementById('invite-msg');
   const btn=document.getElementById('invite-btn');
-  if(!email||!password){msgEl.textContent='Preencha email e senha.';msgEl.className='admin-msg err';msgEl.style.display='block';return;}
-  if(password.length<6){msgEl.textContent='Senha deve ter ao menos 6 caracteres.';msgEl.className='admin-msg err';msgEl.style.display='block';return;}
-  msgEl.style.display='none';btn.disabled=true;btn.textContent='Criando...';
+  if(!email){msgEl.textContent='Informe o e-mail.';msgEl.className='admin-msg err';msgEl.style.display='block';return;}
+  msgEl.style.display='none';btn.disabled=true;btn.textContent='Enviando...';
   const{data:{session}}=await sbClient.auth.getSession();
   const token=session?.access_token||SUPABASE_ANON_KEY;
+  const redirectTo=location.origin+location.pathname;
   const r=await fetch(`${SUPABASE_URL}/functions/v1/invite-user`,{
     method:'POST',
     headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
-    body:JSON.stringify({email,name,role,password})
+    body:JSON.stringify({email,redirectTo})
   });
   const res=await r.json();
-  btn.disabled=false;btn.textContent='Criar acesso';
+  btn.disabled=false;btn.textContent='Enviar convite';
   if(res.error){msgEl.textContent='Erro: '+res.error;msgEl.className='admin-msg err';msgEl.style.display='block';}
-  else{msgEl.textContent='';const t=document.createTextNode('Acesso criado! Compartilhe com ');const eb=document.createElement('strong');eb.textContent=email;const t2=document.createTextNode(' — Senha: ');const pb=document.createElement('strong');pb.textContent=password;msgEl.appendChild(t);msgEl.appendChild(eb);msgEl.appendChild(t2);msgEl.appendChild(pb);msgEl.className='admin-msg ok';msgEl.style.display='block';document.getElementById('invite-email').value='';document.getElementById('invite-name').value='';document.getElementById('invite-password').value='';loadUsers();}
+  else{msgEl.textContent='';const t=document.createTextNode('✓ Convite enviado para ');const eb=document.createElement('strong');eb.textContent=email;msgEl.appendChild(t);msgEl.appendChild(eb);msgEl.className='admin-msg ok';msgEl.style.display='block';document.getElementById('invite-email').value='';loadUsers();}
 }
 
 /* ── INIT COM AUTH ── */
