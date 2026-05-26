@@ -4332,76 +4332,42 @@ function _saStartBgAnim(){
   cv=document.createElement('canvas');cv.id='sa-bg-canvas';
   screen.insertBefore(cv,screen.firstChild);
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
-  const SERIES=[
-    {col:isDark?'rgba(79,124,255,':'rgba(29,78,216,',val:0.35,vol:0.007,bias:0.0003},
-    {col:isDark?'rgba(34,197,94,':'rgba(22,163,74,', val:0.65,vol:0.009,bias:-0.0002},
-    {col:isDark?'rgba(249,115,22,':'rgba(234,88,12,', val:0.50,vol:0.011,bias:0.0004},
-    {col:isDark?'rgba(167,139,250,':'rgba(124,58,237,',val:0.40,vol:0.006,bias:0.0001}
-  ].map(s=>({...s,pts:[]}));
-  const SPEED=1.2;
-  let raf=null;
-  const resize=()=>{cv.width=cv.offsetWidth||screen.offsetWidth;cv.height=cv.offsetHeight||screen.offsetHeight;};
+  const col=isDark?'rgba(79,124,255,':'rgba(29,78,216,';
+  // 3 slow trend lines with different phases and amplitudes
+  const LINES=[
+    {phase:0,      speed:0.00018,amp:0.13,center:0.38,drift:0.000008},
+    {phase:2.1,    speed:0.00012,amp:0.09,center:0.60,drift:-0.000005},
+    {phase:4.4,    speed:0.00022,amp:0.07,center:0.75,drift:0.000003}
+  ];
+  let t=0;
+  const resize=()=>{cv.width=screen.offsetWidth||800;cv.height=screen.offsetHeight||600;};
   resize();
-  const ro=new ResizeObserver(resize);ro.observe(screen);
-  // Pre-fill history
-  for(let k=0;k<320;k++)SERIES.forEach(s=>{s.val=Math.max(0.08,Math.min(0.92,s.val+(Math.random()-0.5+s.bias)*s.vol));s.pts.push({x:-(320-k)*SPEED,y:0});});
+  window._saAnimRO=new ResizeObserver(resize);window._saAnimRO.observe(screen);
   const draw=()=>{
+    window._saAnimRAF=requestAnimationFrame(draw);
+    t++;
     const W=cv.width,H=cv.height;
-    if(!W||!H){raf=requestAnimationFrame(draw);return;}
+    if(!W||!H)return;
     const ctx=cv.getContext('2d');
     ctx.clearRect(0,0,W,H);
-    // Grid
-    ctx.strokeStyle=isDark?'rgba(79,124,255,0.06)':'rgba(29,78,216,0.04)';
-    ctx.lineWidth=1;
-    for(let i=1;i<6;i++){ctx.beginPath();ctx.moveTo(0,H*i/6);ctx.lineTo(W,H*i/6);ctx.stroke();}
-    for(let i=1;i<10;i++){ctx.beginPath();ctx.moveTo(W*i/10,0);ctx.lineTo(W*i/10,H);ctx.stroke();}
-    // Volume bars (bottom 12%)
-    const volH=H*0.12;
-    SERIES.forEach((s,si)=>{
-      if(!s.pts.length)return;
-      const last=s.pts[s.pts.length-1];
-      const barW=Math.max(2,(W/60));
-      const barX=W-barW;
-      const barH=volH*(0.2+Math.random()*0.6);
-      ctx.fillStyle=s.col+'0.18)';
-      ctx.fillRect(barX-si*barW*1.1,H-barH,barW*0.8,barH);
-    });
-    // Lines + fill
-    SERIES.forEach(s=>{
-      s.val=Math.max(0.08,Math.min(0.92,s.val+(Math.random()-0.5+s.bias)*s.vol));
-      const newY=H*0.08+H*0.72*s.val;
-      s.pts.forEach(p=>p.x-=SPEED);
-      s.pts.push({x:W,y:newY});
-      s.pts=s.pts.filter(p=>p.x>-10);
-      if(s.pts.length<2)return;
-      // Fill
-      const grad=ctx.createLinearGradient(0,0,0,H);
-      grad.addColorStop(0,s.col+'0.12)');grad.addColorStop(1,s.col+'0)');
+    LINES.forEach((ln,li)=>{
+      ln.center=Math.max(0.2,Math.min(0.8,ln.center+ln.drift*(Math.sin(t*0.001+li)*0.5+0.5-0.5)));
       ctx.beginPath();
-      ctx.moveTo(s.pts[0].x,H);ctx.lineTo(s.pts[0].x,s.pts[0].y);
-      for(let i=1;i<s.pts.length;i++){
-        const pp=s.pts[i-1],p=s.pts[i],cx=(pp.x+p.x)/2;
-        ctx.bezierCurveTo(cx,pp.y,cx,p.y,p.x,p.y);
+      const pts=80;
+      for(let i=0;i<=pts;i++){
+        const x=W*i/pts;
+        const tOff=t*ln.speed+ln.phase;
+        const y=H*(ln.center+ln.amp*Math.sin(tOff+i*0.09)+ln.amp*0.4*Math.sin(tOff*1.7+i*0.05));
+        i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
       }
-      ctx.lineTo(s.pts[s.pts.length-1].x,H);ctx.closePath();
-      ctx.fillStyle=grad;ctx.fill();
-      // Stroke
-      ctx.beginPath();ctx.moveTo(s.pts[0].x,s.pts[0].y);
-      for(let i=1;i<s.pts.length;i++){
-        const pp=s.pts[i-1],p=s.pts[i],cx=(pp.x+p.x)/2;
-        ctx.bezierCurveTo(cx,pp.y,cx,p.y,p.x,p.y);
-      }
-      ctx.strokeStyle=s.col+'0.55)';ctx.lineWidth=1.5;ctx.stroke();
-      // Dot at latest point
-      const lp=s.pts[s.pts.length-1];
-      ctx.beginPath();ctx.arc(lp.x,lp.y,3,0,Math.PI*2);
-      ctx.fillStyle=s.col+'0.9)';ctx.fill();
+      const opacity=[0.18,0.13,0.10][li];
+      ctx.strokeStyle=col+opacity+')';
+      ctx.lineWidth=1.5-li*0.3;
+      ctx.stroke();
     });
-    raf=requestAnimationFrame(draw);
   };
   draw();
-  cv.style.opacity='0.6';
-  window._saAnimRAF=raf;window._saAnimRO=ro;
+  cv.style.opacity='1';
 }
 function _saStopBgAnim(){
   if(window._saAnimRAF){cancelAnimationFrame(window._saAnimRAF);window._saAnimRAF=null;}
@@ -4808,7 +4774,6 @@ function renderSACanal({pedidos,pedidosPrev,lojas,lojaMap,metasMap,dailyGoalsMap
             if(ctx.datasetIndex===1)return desvio[i]>0?'#fca5a5':'#4ade80';
             return 'rgba(255,255,255,0.85)';
           },
-          borderColor:ctx=>{const i=ctx[0]?.dataIndex??0;return realizado[i]>=meta[i]?'#22c55e':'rgba(255,255,255,0.15)';}
         }},
         datalabels:{display:ctx=>ctx.datasetIndex===0&&ctx.dataset.data[ctx.dataIndex]>0,anchor:'end',align:'end',formatter:v=>fmtR0(v),font:{size:10,weight:'700'},color:()=>window._saLabelColor?.()||'#333',padding:{bottom:2}}
       },
