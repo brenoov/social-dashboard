@@ -4668,7 +4668,7 @@ function renderSAKpis({pedidos,pedidosPrev,metaPeriodo,diasMes,diasTot,diasDec,n
   const totalPrev=pedidosPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
   const n=pedidos.length;
   const qtd=pvQtdMap||{};
-  const getQtd=p=>qtd[parseInt(p.id)]||(p.itens?.length)||1;
+  const getQtd=p=>{const n=p.itens?.length;if(n>0)return n;const sv=qtd[parseInt(p.id)];return(sv&&sv>1)?sv:1;};
   const totalItens=pedidos.reduce((s,p)=>s+getQtd(p),0);
   const multiItem=pedidos.filter(p=>getQtd(p)>=2).length;
   const pct=metaPeriodo>0?total/metaPeriodo*100:null;
@@ -4956,14 +4956,14 @@ function renderSAVendedoras({pedidos,pedidosPrev,vendedoresArr,pvMap,pvQtdMap,lo
     const s=stats[vid];
     s.vendas+=parseFloat(p.total||0);
     s.cupons++;
-    s.itens+=((pvQtdMap?.[parseInt(p.id)])||(p.itens?.length)||1);
+    s.itens+=(()=>{const n=p.itens?.length;if(n>0)return n;const sv=pvQtdMap?.[parseInt(p.id)];return(sv&&sv>1)?sv:1;})();
     if(parseFloat(p.desconto?.valor??p.desconto??0)>0)s.desc++;
   });
 
   const vends=Object.entries(stats).filter(([,s])=>s.cupons>0).sort((a,b)=>b[1].vendas-a[1].vendas).map(([id,s])=>({
     id,nome:s.nome,vendas:s.vendas,cupons:s.cupons,
     ticket:s.cupons>0?s.vendas/s.cupons:0,
-    multi:s.cupons>0?pedidos.filter(p=>pvMap[parseInt(p.id)]==id&&((pvQtdMap?.[parseInt(p.id)])||(p.itens?.length)||1)>=2).length/s.cupons*100:0,
+    multi:s.cupons>0?pedidos.filter(p=>pvMap[parseInt(p.id)]==id&&(()=>{const n=p.itens?.length;if(n>0)return n;const sv=pvQtdMap?.[parseInt(p.id)];return(sv&&sv>1)?sv:1;})()>=2).length/s.cupons*100:0,
     desc:s.cupons>0?s.desc/s.cupons*100:0
   }));
 
@@ -5014,7 +5014,7 @@ function renderSAVendedoras({pedidos,pedidosPrev,vendedoresArr,pvMap,pvQtdMap,lo
   const totalCupons=vends.reduce((s,v)=>s+v.cupons,0);
   const ticketGeral=totalCupons>0?totalVendas/totalCupons:0;
   const hasDesc2=p=>parseFloat(p.desconto?.valor??p.desconto??0)>0;
-  const getQtd2=p=>((pvQtdMap?.[parseInt(p.id)])||(p.itens?.length)||1);
+  const getQtd2=p=>{const n=p.itens?.length;if(n>0)return n;const sv=pvQtdMap?.[parseInt(p.id)];return(sv&&sv>1)?sv:1;};
   const pctMulti=pedidos.length>0?pedidos.filter(p=>getQtd2(p)>=2).length/pedidos.length*100:0;
   const pctDesc=pedidos.length>0?pedidos.filter(hasDesc2).length/pedidos.length*100:0;
 
