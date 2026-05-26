@@ -5704,6 +5704,12 @@ function toggleTheme(){
   document.documentElement.dataset.theme=next;
   localStorage.setItem('rbv-theme',next);
   _updateThemePill(next);
+  const saScreen=document.getElementById('sales-analysis-screen');
+  if(saScreen&&saScreen.style.display!=='none'&&window._saRawData){
+    const boxes=[...document.querySelectorAll('.sa-canal-chk')];
+    const active=boxes.length?boxes.filter(cb=>cb.checked).map(cb=>cb.value):[];
+    renderSalesAnalysis(window._saRawData,active);
+  }
 }
 function _updateThemePill(t){
   const icon=document.getElementById('theme-pill-icon');
