@@ -4998,12 +4998,16 @@ function setupBancoUpload(){
   zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('drag-over');Array.from(e.dataTransfer.files).forEach(f=>_bancoUpload(f));});
 }
 
+function _sanitizeStorageKey(name){
+  return name.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9._\-]/g,'_');
+}
 async function _bancoUpload(file){
   const wrap=document.getElementById('banco-progress-wrap');
   const fill=document.getElementById('banco-progress-fill');
   const lbl=document.getElementById('banco-progress-lbl');
+  const storageKey=_sanitizeStorageKey(file.name);
   wrap.style.display='block';lbl.textContent='Enviando '+file.name+'…';fill.style.width='20%';
-  const{error}=await sbClient.storage.from('arquivos').upload(file.name,file,{cacheControl:'3600',upsert:true});
+  const{error}=await sbClient.storage.from('arquivos').upload(storageKey,file,{cacheControl:'3600',upsert:true});
   fill.style.width='100%';
   if(error){lbl.textContent='Erro: '+error.message;setTimeout(()=>{wrap.style.display='none';fill.style.width='0%';},3500);return;}
   lbl.textContent=file.name+' enviado!';
