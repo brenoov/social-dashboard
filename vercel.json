@@ -2,19 +2,5 @@
   "rewrites": [
     { "source": "/midia/:path*", "destination": "/projetos/central-inteligencia/midia/:path*" },
     { "source": "/", "destination": "/projetos/central-inteligencia/central-inteligencia-v1.3.html" }
-  ],
-  "headers": [
-    {
-      "source": "/(.*\\.html)",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0, s-maxage=0" }
-      ]
-    },
-    {
-      "source": "/",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0, s-maxage=0" }
-      ]
-    }
   ]
 }
