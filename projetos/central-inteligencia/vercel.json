@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/", "destination": "/central-inteligencia-v1.2-preview.html" }
+    { "source": "/", "destination": "/central-inteligencia-v1.3.html" }
   ],
   "headers": [
     {
