@@ -1713,6 +1713,7 @@
           </div>
         </div>
         <div class="mc-val a-blue" id="new-followers-val">0</div>
+        <div id="nf-debug" style="font-size:9px;font-family:monospace;color:#e55;background:#2a0000;border:1px solid #e55;border-radius:3px;padding:2px 5px;margin:2px 0 4px;display:none;line-height:1.5;"></div>
         <div class="mc-compare" id="cmp-followers"></div>
         <div class="mc-divider"></div>
         <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-followers" style="width:0%"></div></div>
@@ -2406,6 +2407,8 @@ function update(d,period){
   const pl=d.pl;
   const totalEl=document.getElementById('total-followers');if(totalEl)animCountFull(totalEl,d.followerTotal);
   const newEl=document.getElementById('new-followers-val');if(newEl)animCount(newEl,d.newFollowers);
+  const nfDbg=document.getElementById('nf-debug');
+  if(nfDbg){const chartSum=d.chart.vals.reduce((a,b)=>a+b,0);nfDbg.style.display='block';nfDbg.textContent='v27mai | indicador='+d.newFollowers+' | soma gráfico='+chartSum+' | barras='+JSON.stringify(d.chart.vals);}
   buildChart(d.chart);
   setCompare('cmp-followers',d.newFollowers,d.prevNewFollowers,'',pl,false);
   applyMetric('followers',d.newFollowers,getGoal('followers'));
