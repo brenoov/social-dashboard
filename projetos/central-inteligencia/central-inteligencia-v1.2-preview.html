@@ -2280,6 +2280,7 @@ async function fetchData(accountId,period,customStart,customEnd){
   const _mm=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const _fd=d=>d.getDate()+' '+_mm[d.getMonth()];
   const pl=effectivePeriod<=1?_fd(prevRefDate):(()=>{const s=new Date(prevRefDate.getTime()-effectivePeriod*86400000);return _fd(s)+' – '+_fd(prevRefDate);})();
+  console.log('[FOLLOWERS]',{acct:accountId,period:effectivePeriod+'D',snaps:snaps.length,currSnaps:currSnaps.length,periodStartStr,snapDates:snaps.map(s=>s.captured_at+'='+s.followers_count),dailyGains,newFollowers,chartVals});
   return{followerTotal:latest,newFollowers,prevNewFollowers,avgPerDay,bestDay:'—',engRate,followerDeltas,effectivePeriod,impressions,clicks,reach,
     chart:{vals:chartVals,prev:chartPrev,labels:chartLabels,dates:chartDates,prevDates:chartPrevDates},
     spend,prevSpend,cps,prevCps,
