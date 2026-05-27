@@ -2854,10 +2854,11 @@ async function loadAdminUsers(){
     const main=mkEl('div','sr-main');main.style.marginLeft='10px';
     // Nome editável
     const nameWrap=mkEl('div');nameWrap.style.cssText='display:flex;align-items:center;gap:6px';
-    const nameInp=mkEl('input');nameInp.value=u.name||'';nameInp.placeholder='Nome';nameInp.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:13px;font-weight:500;color:var(--text);background:transparent;border:none;border-bottom:1px solid transparent;outline:none;width:140px;padding:1px 0;transition:border-color .15s';
+    const nameInp=mkEl('input');nameInp.value=u.name||'';nameInp.placeholder='Nome';nameInp.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:13px;font-weight:500;color:var(--text);background:transparent;border:none;border-bottom:1px solid var(--border);outline:none;width:140px;padding:1px 0;transition:border-color .15s';
     nameInp.addEventListener('focus',()=>nameInp.style.borderBottomColor='var(--accent)');
-    nameInp.addEventListener('blur',async()=>{nameInp.style.borderBottomColor='transparent';if(nameInp.value.trim()===u.name)return;await adFetch(`profiles?id=eq.${u.id}`,{method:'PATCH',body:JSON.stringify({name:nameInp.value.trim()})});adminToast('Nome atualizado');});
-    nameWrap.appendChild(nameInp);
+    nameInp.addEventListener('blur',async()=>{nameInp.style.borderBottomColor='var(--border)';if(nameInp.value.trim()===(u.name||''))return;await adFetch(`profiles?id=eq.${u.id}`,{method:'PATCH',body:JSON.stringify({name:nameInp.value.trim()})});adminToast('Nome atualizado');u.name=nameInp.value.trim();});
+    const editIco=mkEl('span');editIco.textContent='✏';editIco.title='Editar nome';editIco.style.cssText='font-size:10px;color:var(--muted);cursor:pointer;opacity:.5;transition:opacity .15s';editIco.addEventListener('mouseenter',()=>editIco.style.opacity='1');editIco.addEventListener('mouseleave',()=>editIco.style.opacity='.5');editIco.addEventListener('click',()=>nameInp.focus());
+    nameWrap.appendChild(nameInp);nameWrap.appendChild(editIco);
     if(isSelf){const you=mkEl('span');you.textContent='Você';you.style.cssText='font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--accent);background:var(--accent-light);padding:2px 6px;border-radius:3px';nameWrap.appendChild(you);}
     main.appendChild(nameWrap);
     const emailTxt=mkEl('div','sr-sub',u.email);
@@ -2874,6 +2875,18 @@ async function loadAdminUsers(){
       const disBtn=mkEl('button','sr-btn '+(u.disabled?'':'danger'));disBtn.textContent=u.disabled?'Ativar':'Desativar';
       disBtn.addEventListener('click',async()=>{await adFetch(`profiles?id=eq.${u.id}`,{method:'PATCH',body:JSON.stringify({disabled:!u.disabled})});adminToast(u.disabled?'Usuário ativado':'Usuário desativado');setTimeout(loadAdminUsers,600);});
       ctrl.appendChild(disBtn);
+      const delBtn=mkEl('button','sr-btn danger');delBtn.textContent='Excluir';delBtn.title='Excluir usuário permanentemente';
+      delBtn.addEventListener('click',async()=>{
+        if(!confirm('Excluir '+(u.name||u.email)+'? Esta ação não pode ser desfeita.'))return;
+        delBtn.disabled=true;delBtn.textContent='Excluindo...';
+        const{data:{session:s}}=await sbClient.auth.getSession();
+        const tok=s?.access_token||SUPABASE_ANON_KEY;
+        const r=await fetch(`${SUPABASE_URL}/functions/v1/invite-user`,{method:'POST',headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},body:JSON.stringify({deleteUserId:u.id})});
+        const res=await r.json();
+        if(res.error){adminToast('Erro: '+res.error);delBtn.disabled=false;delBtn.textContent='Excluir';}
+        else{adminToast('Usuário excluído');setTimeout(loadAdminUsers,600);}
+      });
+      ctrl.appendChild(delBtn);
     }
     row.appendChild(av);row.appendChild(main);row.appendChild(ctrl);
     const permPanel=document.createElement('div');
@@ -2899,8 +2912,7 @@ async function adminInviteUser(){
   msg.textContent='Enviando convite...';msg.style.color='var(--muted)';
   const{data:{session:s}}=await sbClient.auth.getSession();
   const tok=s?.access_token||SUPABASE_ANON_KEY;
-  const redirectTo=location.origin+location.pathname;
-  const r=await fetch(`${SUPABASE_URL}/functions/v1/invite-user`,{method:'POST',headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},body:JSON.stringify({email,redirectTo})});
+  const r=await fetch(`${SUPABASE_URL}/functions/v1/invite-user`,{method:'POST',headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},body:JSON.stringify({email})});
   const res=await r.json();
   if(res.error){msg.textContent='Erro: '+res.error;msg.style.color='#dc2626';}
   else{msg.textContent='✓ Convite enviado para '+email;msg.style.color='#16a34a';document.getElementById('adm-email').value='';adminToast('Convite enviado!');setTimeout(loadAdminUsers,1200);}
