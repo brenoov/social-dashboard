@@ -2222,22 +2222,23 @@ async function fetchData(accountId,period,customStart,customEnd){
   const latest=snaps.length>0?snaps[snaps.length-1].followers_count:0;
   const startSnap=[...snaps].reverse().find(s=>s.captured_at<=periodStartStr)||snaps[0];
   const periodBegin=startSnap?startSnap.followers_count:latest;
-  const newFollowers=Math.max(0,latest-periodBegin);
+  const newFollowers=latest-periodBegin;
   // Comparativo: mesma janela 30 dias atrás
   const prevEndSnap=[...snaps].reverse().find(s=>s.captured_at<=prevRefDateStr);
   const prevPeriodStart=new Date(prevRefDate);prevPeriodStart.setDate(prevPeriodStart.getDate()-effectivePeriod);
   const prevPeriodStartStr=localDate(prevPeriodStart);
   const prevBeginSnap=[...snaps].reverse().find(s=>s.captured_at<=prevPeriodStartStr);
-  const prevNewFollowers=(prevEndSnap&&prevBeginSnap)?Math.max(0,prevEndSnap.followers_count-prevBeginSnap.followers_count):null;
+  const prevNewFollowers=(prevEndSnap&&prevBeginSnap)?prevEndSnap.followers_count-prevBeginSnap.followers_count:null;
   function fmtLabel(dateStr){const d=new Date(dateStr+'T12:00:00');return effectivePeriod<=7?days[d.getDay()]:d.getDate()+'/'+(d.getMonth()+1);}
   function fmtFull(dateStr){const d=new Date(dateStr+'T12:00:00');return d.getDate()+' '+months[d.getMonth()];}
-  // Gráfico: novos seguidores por dia (delta entre snapshots consecutivos)
+  // Gráfico: inclui startSnap como ponto base para que a soma do gráfico bata com o indicador
   const _delta=(arr)=>arr.length>1?arr.slice(1).map((s,i)=>s.followers_count-arr[i].followers_count):[arr.length===1?newFollowers:0];
-  const chartVals=currSnaps.length>0?_delta(currSnaps):[newFollowers];
+  const chartSrc=(startSnap&&currSnaps.length>0&&startSnap.captured_at!==currSnaps[0].captured_at)?[startSnap,...currSnaps]:currSnaps;
+  const chartVals=chartSrc.length>0?_delta(chartSrc):[newFollowers];
   const chartPrev=prevSnaps.length>0?_delta(prevSnaps):[0];
   const _snapSrc=(arr)=>arr.length>1?arr.slice(1):arr;
-  const chartLabels=currSnaps.length>0?_snapSrc(currSnaps).map(s=>fmtLabel(s.captured_at)):['Hoje'];
-  const chartDates=currSnaps.length>0?_snapSrc(currSnaps).map(s=>fmtFull(s.captured_at)):['Hoje'];
+  const chartLabels=chartSrc.length>0?_snapSrc(chartSrc).map(s=>fmtLabel(s.captured_at)):['Hoje'];
+  const chartDates=chartSrc.length>0?_snapSrc(chartSrc).map(s=>fmtFull(s.captured_at)):['Hoje'];
   const chartPrevDates=prevSnaps.length>0?_snapSrc(prevSnaps).map(s=>fmtFull(s.captured_at)):['—'];
   const engTotal=eng.likes+eng.saves+eng.shares;
   const prevEngTotal=(prevEng?.likes||0)+(prevEng?.saves||0)+(prevEng?.shares||0);
@@ -2410,7 +2411,7 @@ function update(d,period){
   applyMetric('followers',d.newFollowers,getGoal('followers'));
   const engTotal=d.eng.likes+d.eng.saves+d.eng.shares;
   const prevEngTotal=d.eng.prevLikes+d.eng.prevSaves+d.eng.prevShares;
-  setChips('chips-followers',['M\u00e9dia: +'+d.avgPerDay+'/dia','Taxa de eng.: '+d.engRate+'%','Engajamento total: '+fmtN(engTotal)]);
+  setChips('chips-followers',['M\u00e9dia: '+(parseFloat(d.avgPerDay)>=0?'+':'')+d.avgPerDay+'/dia','Taxa de eng.: '+d.engRate+'%','Engajamento total: '+fmtN(engTotal)]);
   document.getElementById('ads-spend-val').textContent=d.spend>0?fmtR(d.spend):'R$ —';
   document.getElementById('ads-cps-val').textContent=d.cps>0?fmtR(d.cps):'R$ \u2014';
   setCompare('cmp-spend',d.spend,d.prevSpend,'R$ ',pl,true);
