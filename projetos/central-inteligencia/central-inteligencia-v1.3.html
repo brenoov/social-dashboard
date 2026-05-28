@@ -1479,7 +1479,7 @@
         </div>
         <span class="home-card-enter">→</span>
       </div>
-      <div class="home-card" onclick="openDashboard()" onmouseenter="setHomeBgTheme('social')" onmouseleave="setHomeBgTheme('default')">
+      <div class="home-card" id="home-card-social" onclick="openDashboard()" onmouseenter="setHomeBgTheme('social')" onmouseleave="setHomeBgTheme('default')">
         <div class="home-card-icon">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
         </div>
@@ -1489,7 +1489,7 @@
         </div>
         <span class="home-card-enter">→</span>
       </div>
-      <div class="home-card" onclick="openSalesDashboard()" onmouseenter="setHomeBgTheme('sales')" onmouseleave="setHomeBgTheme('default')">
+      <div class="home-card" id="home-card-sales" onclick="openSalesDashboard()" onmouseenter="setHomeBgTheme('sales')" onmouseleave="setHomeBgTheme('default')">
         <div class="home-card-icon" style="background:linear-gradient(135deg,#1d4ed8 0%,#2563eb 100%)">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
         </div>
@@ -1499,7 +1499,7 @@
         </div>
         <span class="home-card-enter">→</span>
       </div>
-      <div class="home-card" onclick="openBanco()">
+      <div class="home-card" id="home-card-banco" onclick="openBanco()">
         <div class="home-card-icon" style="background:linear-gradient(135deg,#0f4c81 0%,#1d4ed8 100%)">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
         </div>
@@ -2711,6 +2711,7 @@ function clearCustomRange(){currentStartDate=null;currentEndDate=null;document.g
 
 /* ── AUTH ── */
 let currentUserRole='viewer';
+let currentUserFeatures=[];
 
 let _authCanvasCleanup=null;
 function showAuth(mode='login'){
@@ -2756,44 +2757,78 @@ function loadAdminSection(name){
 }
 
 /* ── USUÁRIOS ── */
+const FEATURE_DEFS=[{key:'social',label:'Redes Sociais'},{key:'sales',label:'Vendas'},{key:'banco',label:'Arquivos'}];
 async function loadAdminUsers(){
-  const res=await adFetch('profiles?order=created_at.asc&select=id,email,name,role,disabled,created_at');
+  const res=await adFetch('profiles?order=created_at.asc&select=id,email,name,role,disabled,created_at,features');
   const users=await res.json();if(!Array.isArray(users))return;
   const active=users.filter(u=>!u.disabled),admins=active.filter(u=>u.role==='admin').length;
-  const stats=document.getElementById('admin-stats-users');stats.innerHTML='';
+  const stats=document.getElementById('admin-stats-users');stats.replaceChildren();
   [[users.length,'Total'],[admins,'Admins'],[active.length-admins,'Viewers'],[users.filter(u=>u.disabled).length,'Inativos']].forEach(([v,l])=>{
     const s=mkEl('div','admin-stat');s.appendChild(mkEl('div','admin-stat-val',String(v)));s.appendChild(mkEl('div','admin-stat-lbl',l));stats.appendChild(s);
   });
-  const list=document.getElementById('admin-user-list');list.innerHTML='';
+  const list=document.getElementById('admin-user-list');list.replaceChildren();
   users.forEach(u=>{
     const isSelf=u.email===document.getElementById('home-user-email').textContent.trim();
-    const row=mkEl('div','sr');row.style.justifyContent='space-between';if(u.disabled)row.style.opacity='.5';
-    // Avatar inicial
-    const av=mkEl('div');av.style.cssText=`width:34px;height:34px;border-radius:50%;background:${u.role==='admin'?'var(--accent)':'var(--surface2)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid var(--border)`;
-    const avTxt=mkEl('span');avTxt.style.cssText=`font-family:'Oswald',sans-serif;font-size:14px;font-weight:600;color:${u.role==='admin'?'#fff':'var(--muted)'}`;avTxt.textContent=(u.name||u.email).charAt(0).toUpperCase();av.appendChild(avTxt);
+    const userFeatures=u.features||['banco'];
+    const row=mkEl('div','sr');row.style.cssText='justify-content:space-between;flex-wrap:wrap;gap:8px';if(u.disabled)row.style.opacity='.5';
+    // Avatar
+    const av=mkEl('div');av.style.cssText='width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid var(--border)';
+    av.style.background=u.role==='admin'?'var(--accent)':'var(--surface2)';
+    const avTxt=mkEl('span');avTxt.style.cssText='font-family:\'Oswald\',sans-serif;font-size:14px;font-weight:600';
+    avTxt.style.color=u.role==='admin'?'#fff':'var(--muted)';
+    avTxt.textContent=(u.name||u.email).charAt(0).toUpperCase();av.appendChild(avTxt);
     // Info principal
     const main=mkEl('div','sr-main');main.style.marginLeft='10px';
-    // Nome editável
     const nameWrap=mkEl('div');nameWrap.style.cssText='display:flex;align-items:center;gap:6px';
-    const nameInp=mkEl('input');nameInp.value=u.name||'';nameInp.placeholder='Nome';nameInp.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:13px;font-weight:500;color:var(--text);background:transparent;border:none;border-bottom:1px solid transparent;outline:none;width:140px;padding:1px 0;transition:border-color .15s';
+    const nameInp=mkEl('input');nameInp.value=u.name||'';nameInp.placeholder='Nome';
+    nameInp.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:13px;font-weight:500;color:var(--text);background:transparent;border:none;border-bottom:1px solid transparent;outline:none;width:140px;padding:1px 0;transition:border-color .15s';
     nameInp.addEventListener('focus',()=>nameInp.style.borderBottomColor='var(--accent)');
-    nameInp.addEventListener('blur',async()=>{nameInp.style.borderBottomColor='transparent';if(nameInp.value.trim()===u.name)return;await adFetch(`profiles?id=eq.${u.id}`,{method:'PATCH',body:JSON.stringify({name:nameInp.value.trim()})});adminToast('Nome atualizado');});
+    nameInp.addEventListener('blur',async()=>{nameInp.style.borderBottomColor='transparent';if(nameInp.value.trim()===u.name)return;await adFetch('profiles?id=eq.'+u.id,{method:'PATCH',body:JSON.stringify({name:nameInp.value.trim()})});adminToast('Nome atualizado');});
     nameWrap.appendChild(nameInp);
     if(isSelf){const you=mkEl('span');you.textContent='Você';you.style.cssText='font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--accent);background:var(--accent-light);padding:2px 6px;border-radius:3px';nameWrap.appendChild(you);}
     main.appendChild(nameWrap);
     const emailTxt=mkEl('div','sr-sub',u.email);
-    const dateTxt=mkEl('span');dateTxt.style.cssText='font-size:10px;color:rgba(10,10,18,.3);margin-left:8px';dateTxt.textContent=u.created_at?new Date(u.created_at).toLocaleDateString('pt-BR'):'';
+    const dateTxt=mkEl('span');dateTxt.style.cssText='font-size:10px;color:rgba(10,10,18,.3);margin-left:8px';
+    dateTxt.textContent=u.created_at?new Date(u.created_at).toLocaleDateString('pt-BR'):'';
     emailTxt.appendChild(dateTxt);main.appendChild(emailTxt);
+    // Feature chips (toggles de acesso por ferramenta)
+    const chipRow=mkEl('div');chipRow.style.cssText='display:flex;gap:4px;flex-wrap:wrap;margin-top:6px';
+    FEATURE_DEFS.forEach(({key,label})=>{
+      const isAdminUser=u.role==='admin';
+      const on=isAdminUser||userFeatures.includes(key);
+      const chip=mkEl('button',null,label);
+      chip.style.fontFamily='\'IBM Plex Sans\',sans-serif';chip.style.fontSize='9px';chip.style.letterSpacing='.5px';
+      chip.style.padding='2px 8px';chip.style.borderRadius='3px';chip.style.border='1px solid';chip.style.transition='all .15s';
+      chip.style.cursor=isAdminUser||isSelf?'default':'pointer';
+      chip.style.background=on?'var(--accent-light)':'transparent';
+      chip.style.color=on?'var(--accent)':'var(--muted)';
+      chip.style.borderColor=on?'var(--accent-mid)':'var(--border)';
+      if(!isAdminUser&&!isSelf){
+        chip.addEventListener('click',async()=>{
+          const cur=u.features||['banco'];
+          const next=cur.includes(key)?cur.filter(f=>f!==key):[...cur,key];
+          await adFetch('profiles?id=eq.'+u.id,{method:'PATCH',body:JSON.stringify({features:next})});
+          u.features=next;
+          const nowOn=next.includes(key);
+          chip.style.background=nowOn?'var(--accent-light)':'transparent';
+          chip.style.color=nowOn?'var(--accent)':'var(--muted)';
+          chip.style.borderColor=nowOn?'var(--accent-mid)':'var(--border)';
+          adminToast('Permissões atualizadas');
+        });
+      }
+      chipRow.appendChild(chip);
+    });
+    main.appendChild(chipRow);
     // Controles
     const ctrl=mkEl('div');ctrl.style.cssText='display:flex;align-items:center;gap:8px;flex-shrink:0';
     const sel=mkEl('select','admin-form-input');sel.style.cssText='max-width:120px;font-size:11px;padding:4px 6px';
     [{v:'viewer',l:'Viewer'},{v:'admin',l:'Admin'}].forEach(({v,l})=>{const o=mkEl('option');o.value=v;o.textContent=l;if(u.role===v)o.selected=true;sel.appendChild(o);});
-    if(!isSelf)sel.addEventListener('change',async()=>{await adFetch(`profiles?id=eq.${u.id}`,{method:'PATCH',body:JSON.stringify({role:sel.value})});adminToast('Role atualizado');setTimeout(loadAdminUsers,800);});
+    if(!isSelf)sel.addEventListener('change',async()=>{await adFetch('profiles?id=eq.'+u.id,{method:'PATCH',body:JSON.stringify({role:sel.value})});adminToast('Role atualizado');setTimeout(loadAdminUsers,800);});
     else sel.disabled=true;
     ctrl.appendChild(sel);
     if(!isSelf){
       const disBtn=mkEl('button','sr-btn '+(u.disabled?'':'danger'));disBtn.textContent=u.disabled?'Ativar':'Desativar';
-      disBtn.addEventListener('click',async()=>{await adFetch(`profiles?id=eq.${u.id}`,{method:'PATCH',body:JSON.stringify({disabled:!u.disabled})});adminToast(u.disabled?'Usuário ativado':'Usuário desativado');setTimeout(loadAdminUsers,600);});
+      disBtn.addEventListener('click',async()=>{await adFetch('profiles?id=eq.'+u.id,{method:'PATCH',body:JSON.stringify({disabled:!u.disabled})});adminToast(u.disabled?'Usuário ativado':'Usuário desativado');setTimeout(loadAdminUsers,600);});
       ctrl.appendChild(disBtn);
     }
     row.appendChild(av);row.appendChild(main);row.appendChild(ctrl);list.appendChild(row);
@@ -3175,14 +3210,20 @@ function openDashboard(){
   sessionStorage.setItem('rbv-screen','dashboard');
   setHomeBgTheme('social');
 }
-function showDashboard(user,role){
+function showDashboard(user,role,features){
   currentUserRole=role;
+  currentUserFeatures=features||['banco'];
   document.getElementById('home-user-email').textContent=user.email+' ';
   document.getElementById('home-user-role').textContent=role==='admin'?'ADMIN':'VIEWER';
   document.getElementById('home-user-role').className='user-role-chip';
   setGlobalUserBtn(user.email,role);
   const adminCard=document.getElementById('home-card-admin');
   if(adminCard)adminCard.style.display=role==='admin'?'':'none';
+  const isAdmin=role==='admin';
+  ['social','sales','banco'].forEach(f=>{
+    const c=document.getElementById('home-card-'+f);
+    if(c)c.style.display=(isAdmin||currentUserFeatures.includes(f))?'':'none';
+  });
   if(!appInitialized){
     appInitialized=true;
     const screen=sessionStorage.getItem('rbv-screen');
@@ -3290,8 +3331,15 @@ async function doSetPassword(){
   if(p1!==p2){errEl.textContent='As senhas não coincidem.';errEl.style.display='block';return;}
   btn.disabled=true;btn.textContent='Salvando...';
   const{error}=await sbClient.auth.updateUser({password:p1});
-  btn.disabled=false;btn.textContent='Definir senha e entrar';
-  if(error){errEl.textContent=error.message;errEl.style.display='block';}
+  if(error){
+    btn.disabled=false;btn.textContent='Definir senha e entrar';
+    errEl.textContent=error.message;errEl.style.display='block';
+    return;
+  }
+  btn.textContent='✓ Acessando...';
+  needsPasswordSet=false;
+  const{data:{session}}=await sbClient.auth.getSession();
+  if(session)await loadDashboard(session);
 }
 /* ── FADE SWAP — fetch-first, then smooth out→swap→in ── */
 function _fadeSwap(el,swapFn){
@@ -3447,12 +3495,13 @@ let _loginHandled=false;
 
 async function loadDashboard(session){
   const tok=session.access_token||SUPABASE_ANON_KEY;
-  const pr=await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${session.user.id}&select=role`,{
+  const pr=await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${session.user.id}&select=role,features`,{
     headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${tok}`}
   });
   const profiles=await pr.json();
   const role=profiles?.[0]?.role||'viewer';
-  showDashboard(session.user,role);
+  const features=profiles?.[0]?.features||['banco'];
+  showDashboard(session.user,role,features);
   if(!dashboardReady){
     buildPeriodTabs();updateGoalDisplays(7);watchGoals();
     dashboardReady=true;
