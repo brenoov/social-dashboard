@@ -1410,6 +1410,80 @@
   .user-bar{padding-right:44px;}
   .smenu-topbar .view-toggle:last-child,.smenu-topbar>span:last-child,.smenu-topbar>div:last-child{padding-right:44px;}
 
+  .admin-form-label{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px;font-weight:600;}
+  .admin-form-input{width:100%;padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:3px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;outline:none;transition:border-color .18s;box-sizing:border-box;}
+  .admin-form-input:focus{border-color:var(--accent);}
+  .admin-form-input::placeholder{color:var(--muted);opacity:.7;}
+
+  /* ── PERMISSIONS MODAL ── */
+  .perm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+  .perm-overlay.open{display:flex;}
+  .perm-modal{background:var(--surface);border-radius:8px;width:420px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden;}
+  .perm-modal-hdr{padding:20px 22px 14px;border-bottom:1px solid var(--border);}
+  .perm-modal-title{font-family:'Oswald',sans-serif;font-size:17px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--text);}
+  .perm-modal-user{font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);margin-top:3px;}
+  .perm-modal-body{flex:1;overflow-y:auto;padding:14px 22px;}
+  .perm-section{margin-bottom:2px;}
+  .perm-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:5px;transition:background .12s;cursor:pointer;}
+  .perm-row:hover{background:var(--surface2);}
+  .perm-row.child{padding-left:36px;}
+  .perm-row-label{font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--text);flex:1;user-select:none;}
+  .perm-row.child .perm-row-label{font-size:12px;color:var(--muted);}
+  .perm-section-sep{height:6px;}
+  .perm-toggle{position:relative;width:36px;height:20px;flex-shrink:0;}
+  .perm-toggle input{opacity:0;width:0;height:0;position:absolute;}
+  .perm-toggle-track{position:absolute;inset:0;background:var(--border);border-radius:10px;cursor:pointer;transition:background .2s;}
+  .perm-toggle input:checked ~ .perm-toggle-track{background:var(--accent);}
+  .perm-toggle-track::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+  .perm-toggle input:checked ~ .perm-toggle-track::after{transform:translateX(16px);}
+  .perm-modal-ftr{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;}
+
+  /* ── BANCO DE ARQUIVOS ── */
+  #banco-screen{min-height:100vh;display:none;flex-direction:column;background:var(--bg);}
+  .banco-topbar{display:flex;align-items:center;justify-content:space-between;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
+  .banco-back{display:flex;align-items:center;gap:4px;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;letter-spacing:.3px;text-transform:uppercase;}
+  .banco-topbar-title{font-family:'Oswald',sans-serif;font-size:15px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--text);}
+  .banco-body{max-width:860px;margin:0 auto;width:100%;padding:32px 24px;}
+  .banco-upload-zone{border:2px dashed var(--accent-mid);border-radius:var(--radius-lg);background:var(--accent-light);padding:28px 24px 22px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:28px;}
+  .banco-upload-zone.drag-over{border-color:var(--accent);background:rgba(29,78,216,.14);transform:scale(1.01);}
+  .banco-upload-zone:hover{border-color:var(--accent);}
+  .banco-upload-icon{color:var(--accent);opacity:.65;margin-bottom:8px;}
+  .banco-upload-text{font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--muted);line-height:1.7;}
+  .banco-upload-text em{color:var(--accent);font-style:normal;font-weight:600;cursor:pointer;}
+  .banco-upload-text em:hover{text-decoration:underline;}
+  .banco-upload-limit{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);letter-spacing:.5px;margin-top:4px;opacity:.7;}
+  .banco-progress-wrap{margin-top:14px;text-align:left;display:none;}
+  .banco-progress-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .banco-progress-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;}
+  .banco-progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .25s ease;}
+  .banco-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+  .banco-search{flex:1;padding:9px 13px;border-radius:var(--radius-md);border:1.5px solid var(--border);background:var(--surface);font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--text);outline:none;transition:border-color .18s;}
+  .banco-search:focus{border-color:var(--accent);}
+  .banco-stats-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);white-space:nowrap;flex-shrink:0;}
+  .banco-file-list{display:flex;flex-direction:column;gap:4px;}
+  .banco-file-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:var(--radius-md);background:var(--surface);border:1px solid var(--border);transition:border-color .15s,box-shadow .15s;}
+  .banco-file-row:hover{border-color:var(--accent);box-shadow:var(--shadow-sm);}
+  .banco-file-icon{width:34px;height:34px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'IBM Plex Sans',sans-serif;font-size:8.5px;font-weight:700;letter-spacing:.3px;}
+  .bfi-img{background:rgba(29,78,216,.1);color:var(--accent);}
+  .bfi-pdf{background:rgba(176,30,58,.1);color:var(--red);}
+  .bfi-vid{background:rgba(0,0,0,.07);color:var(--text);}
+  .bfi-zip{background:rgba(138,98,0,.1);color:var(--yellow);}
+  .bfi-doc{background:rgba(26,110,69,.1);color:var(--green);}
+  .bfi-oth{background:var(--surface2);color:var(--muted);}
+  .banco-file-meta{flex:1;min-width:0;}
+  .banco-file-name{font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .banco-file-details{font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);margin-top:1px;}
+  .banco-file-acts{display:flex;gap:5px;flex-shrink:0;}
+  .banco-dl-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:500;cursor:pointer;transition:all .15s;text-decoration:none;white-space:nowrap;}
+  .banco-dl-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light);}
+  .banco-del-btn{display:flex;align-items:center;padding:6px 8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
+  .banco-del-btn:hover{border-color:var(--red);color:var(--red);background:rgba(176,30,58,.06);}
+  .banco-empty{text-align:center;padding:64px 24px;color:var(--muted);}
+  .banco-empty svg{margin:0 auto 14px;display:block;opacity:.2;}
+  .banco-empty-text{font-family:'IBM Plex Sans',sans-serif;font-size:14px;color:var(--text);margin-bottom:5px;}
+  .banco-empty-sub{font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);}
+  @media(max-width:600px){.banco-body{padding:16px 12px;}.banco-file-details{display:none;}.banco-dl-btn span{display:none;}.banco-topbar{padding:7px 14px;}}
+
   /* ── CHANGE PASSWORD MODAL ── */
   #cpm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:none;backdrop-filter:blur(3px);}
   #cpm-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10000;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:26px 28px;width:340px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.25);display:none;}
@@ -1582,6 +1656,16 @@
         </div>
         <span class="home-card-enter">→</span>
       </div>
+      <div class="home-card" id="home-card-banco" onclick="openBanco()">
+        <div class="home-card-icon" style="background:linear-gradient(135deg,#0f4c81 0%,#1d4ed8 100%)">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
+        </div>
+        <div class="home-card-text">
+          <h3>Banco de<br>Arquivos</h3>
+          <p>Downloads e uploads de materiais e recursos visuais</p>
+        </div>
+        <span class="home-card-enter">→</span>
+      </div>
     </div>
   </div>
   <footer class="home-footer">
@@ -1604,7 +1688,6 @@
     <nav class="admin-sidebar">
       <div class="admin-nav-group-label">Gestão</div>
       <div class="admin-nav-item active" data-section="users" onclick="loadAdminSection('users')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Usuários</span></div>
-      <div class="admin-nav-item" data-section="permissions" onclick="loadAdminSection('permissions')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span>Permissões</span></div>
       <div class="admin-nav-item" data-section="accounts" onclick="loadAdminSection('accounts')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg><span>Contas</span></div>
       <div class="admin-nav-item" data-section="requests" onclick="loadAdminSection('requests')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Solicitações</span></div>
       <div class="admin-nav-group-label">Vendas</div>
@@ -1623,42 +1706,42 @@
         <div id="admin-stats-users" class="admin-stats"></div>
         <span class="sg-label">Usuários cadastrados</span>
         <div class="sg" id="admin-user-list"></div>
-        <span class="sg-label">Enviar convite por e-mail</span>
+        <span class="sg-label">Convidar novo usuário</span>
         <div class="sg" style="padding:16px 20px;">
-          <p style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);margin:0 0 14px">A pessoa receberá um e-mail com link para cadastrar a própria senha. O acesso começa sem permissões — libere depois na aba Permissões.</p>
-          <div style="display:flex;align-items:flex-end;gap:10px;">
-            <div style="flex:1">
-              <label class="auth-label" for="adm-email">E-mail</label>
-              <input type="email" id="adm-email" class="auth-input" placeholder="email@exemplo.com" style="width:100%;box-sizing:border-box;">
-            </div>
-            <button class="sr-btn" onclick="adminInviteUser()" style="background:var(--accent);color:#fff;font-size:12px;padding:7px 20px;flex-shrink:0;margin-bottom:1px">Enviar convite</button>
-          </div>
-          <div id="adm-invite-msg" style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);margin-top:10px"></div>
-        </div>
-        <span class="sg-label">Criar acesso manual</span>
-        <div class="sg" style="padding:16px 20px;">
-          <p style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);margin:0 0 14px">Cria acesso imediatamente com senha definida por você — compartilhe as credenciais com a pessoa.</p>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;">
             <div>
-              <label class="auth-label" for="adm-name">Nome</label>
-              <input type="text" id="adm-name" class="auth-input" placeholder="Nome completo" style="width:100%;box-sizing:border-box;">
+              <label class="admin-form-label" for="adm-name">Nome</label>
+              <input type="text" id="adm-name" class="admin-form-input" placeholder="Nome completo" style="width:100%;box-sizing:border-box;">
             </div>
             <div>
-              <label class="auth-label" for="adm-manual-email">E-mail</label>
-              <input type="email" id="adm-manual-email" class="auth-input" placeholder="email@exemplo.com" style="width:100%;box-sizing:border-box;">
+              <label class="admin-form-label" for="adm-email">Email</label>
+              <input type="email" id="adm-email" class="admin-form-input" placeholder="email@exemplo.com" style="width:100%;box-sizing:border-box;">
             </div>
             <div>
-              <label class="auth-label" for="adm-pass">Senha inicial</label>
-              <input type="password" id="adm-pass" class="auth-input" placeholder="Mínimo 6 caracteres" style="width:100%;box-sizing:border-box;">
+              <label class="admin-form-label" for="adm-pass">Senha inicial <span style="font-weight:400;opacity:.6">(opcional)</span></label>
+              <input type="password" id="adm-pass" class="admin-form-input" placeholder="Deixe vazio p/ enviar convite" style="width:100%;box-sizing:border-box;">
             </div>
             <div>
-              <label class="auth-label" for="adm-role">Perfil de acesso</label>
-              <select id="adm-role" class="auth-input" style="width:100%;box-sizing:border-box;cursor:pointer;"><option value="viewer">Visualizador</option><option value="admin">Administrador</option></select>
+              <label class="admin-form-label" for="adm-role">Perfil de acesso</label>
+              <select id="adm-role" class="admin-form-input" style="width:100%;box-sizing:border-box;cursor:pointer;"><option value="viewer">Visualizador</option><option value="admin">Administrador</option></select>
             </div>
           </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
-            <div id="adm-create-msg" style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted)"></div>
-            <button class="sr-btn" onclick="adminCreateUser()" style="background:var(--accent);color:#fff;font-size:12px;padding:7px 20px;flex-shrink:0">Criar acesso</button>
+          <div style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);margin-top:12px;display:flex;align-items:center;gap:6px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.6"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Se a senha for deixada em branco, um link de primeiro acesso será enviado para o email.
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+            <div id="adm-invite-msg" style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);flex:1"></div>
+            <div style="display:flex;gap:8px;flex-shrink:0">
+              <button class="sr-btn" onclick="adminInviteUser('invite')" style="font-size:11px;padding:7px 14px;gap:5px;display:flex;align-items:center;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                Enviar convite
+              </button>
+              <button class="sr-btn" onclick="adminInviteUser('create')" style="background:var(--accent);color:#fff;font-size:11px;padding:7px 14px;gap:5px;display:flex;align-items:center;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                Criar com senha
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1729,11 +1812,6 @@
         <div class="admin-section-title">Solicitações de Acesso</div>
         <div class="admin-section-sub">Usuários que solicitaram acesso à plataforma</div>
         <div id="admin-requests-body"><div style="color:var(--muted);font-size:12px">Carregando...</div></div>
-      </div>
-      <div class="admin-section" id="admin-section-permissions">
-        <div class="admin-section-title">Permissões</div>
-        <div class="admin-section-sub">Controle de acesso por ferramenta e módulo para cada usuário</div>
-        <div id="admin-perms-matrix"></div>
       </div>
     </div>
   </div>
@@ -2044,21 +2122,12 @@ const SUPABASE_URL='https://kounqtdoioootxqegkij.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtvdW5xdGRvaW9vb3R4cWVna2lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMDMwMDUsImV4cCI6MjA5NDc3OTAwNX0.MVXa6jngjKXkH3eZ7as_j_k8Eb7lJKcFmO4kCKAnuHM';
 const sbClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 // ── PERMISSIONS ──
-const TOOL_REGISTRY=[
-  {key:'social',label:'Análise de Redes Sociais',icon:'📊',modules:[]},
-  {key:'sales',label:'Vendas',icon:'💰',modules:[
-    {key:'gestao-vista',label:'Gestão à Vista'},
-    {key:'analise-vendas',label:'Análise de Vendas'}
-  ]}
-];
-let _userPerms=new Set();
-let _isAdmin=false;
-function hasPermission(resourceKey){return _isAdmin||_userPerms.has(resourceKey);}
-async function loadUserPermissions(userId,role){
-  _isAdmin=(role==='admin');
-  if(_isAdmin)return;
-  const{data}=await sbClient.from('user_permissions').select('resource_key,granted').eq('user_id',userId).eq('granted',true);
-  _userPerms=new Set((data||[]).map(r=>r.resource_key));
+function hasPermission(resourceKey){
+  if(currentUserRole==='admin')return true;
+  const keyMap={'tool:social':'social','tool:sales':'sales',
+    'module:sales:gestao-vista':'sales.gestao','module:sales:analise-vendas':'sales.analise'};
+  const fKey=keyMap[resourceKey]||resourceKey;
+  return (currentUserFeatures||[]).includes(fKey);
 }
 
 const PERIODS=[{label:'HOJE',value:0},{label:'1D',value:1},{label:'7D',value:7},{label:'14D',value:14},{label:'30D',value:30}];
@@ -2790,6 +2859,7 @@ function clearCustomRange(){currentStartDate=null;currentEndDate=null;document.g
 
 /* ── AUTH ── */
 let currentUserRole='viewer';
+let currentUserFeatures=[];
 
 let _authCanvasCleanup=null;
 function showAuth(mode='login'){
@@ -2831,115 +2901,154 @@ function loadAdminSection(name){
   document.querySelectorAll('.admin-nav-item').forEach(el=>el.classList.toggle('active',el.dataset.section===name));
   document.querySelectorAll('.admin-section').forEach(el=>el.classList.remove('active'));
   const sec=document.getElementById('admin-section-'+name);if(sec)sec.classList.add('active');
-  ({users:loadAdminUsers,accounts:loadAdminAccounts,appearance:loadAdminAppearance,data:loadAdminData,system:loadAdminSystem,metas:loadAdminMetas,requests:loadAdminRequests,permissions:loadAdminPermissions})[name]?.();
+  ({users:loadAdminUsers,accounts:loadAdminAccounts,appearance:loadAdminAppearance,data:loadAdminData,system:loadAdminSystem,metas:loadAdminMetas,requests:loadAdminRequests})[name]?.();
 }
 
+/* ── PERMISSION TREE ── */
+const PERMISSION_TREE=[
+  {key:'social',label:'Dashboard Redes Sociais',children:[]},
+  {key:'sales',label:'Dashboard de Vendas',children:[
+    {key:'sales.gestao',label:'Gestão à Vista'},
+    {key:'sales.analise',label:'Análise de Vendas'},
+  ]},
+  {key:'banco',label:'Banco de Arquivos',children:[]},
+];
+const SUPERADMIN_EMAIL='erick@rbvcompany.com';
+let _permUserId=null;
+function openPermModal(u){
+  _permUserId=u.id;
+  const feats=u.features||['banco'];
+  const sub=document.getElementById('perm-modal-user');
+  sub.textContent='';
+  const strong=document.createElement('strong');strong.textContent=u.name||u.email;
+  const rest=document.createTextNode(' · '+u.email);
+  sub.appendChild(strong);sub.appendChild(rest);
+  const body=document.getElementById('perm-modal-body');body.replaceChildren();
+  PERMISSION_TREE.forEach(item=>{
+    body.appendChild(_buildPermRow(item.key,item.label,false,feats.includes(item.key)));
+    item.children.forEach(child=>body.appendChild(_buildPermRow(child.key,child.label,true,feats.includes(child.key))));
+    if(item.children.length){const sep=document.createElement('div');sep.className='perm-section-sep';body.appendChild(sep);}
+  });
+  document.getElementById('perm-modal-overlay').classList.add('open');
+}
+function _buildPermRow(key,label,isChild,isOn){
+  const row=document.createElement('div');row.className='perm-row'+(isChild?' child':'');
+  const tog=document.createElement('label');tog.className='perm-toggle';
+  const inp=document.createElement('input');inp.type='checkbox';inp.checked=isOn;inp.dataset.key=key;
+  inp.addEventListener('change',()=>{
+    const node=PERMISSION_TREE.find(t=>t.key===key);
+    if(node){
+      node.children.forEach(c=>{
+        const ci=document.querySelector('#perm-modal-body input[data-key="'+c.key+'"]');
+        if(ci)ci.checked=inp.checked;
+      });
+    }
+  });
+  const track=document.createElement('span');track.className='perm-toggle-track';
+  tog.appendChild(inp);tog.appendChild(track);
+  const lbl=document.createElement('span');lbl.className='perm-row-label';lbl.textContent=label;
+  row.addEventListener('click',e=>{if(e.target!==inp){inp.checked=!inp.checked;inp.dispatchEvent(new Event('change'));}});
+  row.appendChild(tog);row.appendChild(lbl);
+  return row;
+}
+function closePermModal(){
+  document.getElementById('perm-modal-overlay').classList.remove('open');
+  _permUserId=null;
+}
+async function savePermissions(){
+  const checkboxes=document.querySelectorAll('#perm-modal-body input[type=checkbox]');
+  const features=[];
+  checkboxes.forEach(cb=>{if(cb.checked)features.push(cb.dataset.key);});
+  const btn=document.getElementById('perm-save-btn');
+  btn.disabled=true;btn.textContent='Salvando...';
+  await adFetch('profiles?id=eq.'+_permUserId,{method:'PATCH',body:JSON.stringify({features})});
+  btn.disabled=false;btn.textContent='Salvar';
+  adminToast('Permissões atualizadas');
+  closePermModal();
+  setTimeout(loadAdminUsers,400);
+}
+function _applySubFeatures(){
+  const isAdmin=currentUserRole==='admin';
+  const f=currentUserFeatures;
+  const gc=document.getElementById('smenu-card-gestao');
+  const ac=document.getElementById('smenu-card-analise');
+  if(gc)gc.style.display=(isAdmin||f.includes('sales.gestao'))?'':'none';
+  if(ac)ac.style.display=(isAdmin||f.includes('sales.analise'))?'':'none';
+}
 /* ── USUÁRIOS ── */
 async function loadAdminUsers(){
-  const res=await adFetch('profiles?order=created_at.asc&select=id,email,name,role,disabled,created_at');
+  const res=await adFetch('profiles?order=created_at.asc&select=id,email,name,role,disabled,created_at,features');
   const users=await res.json();if(!Array.isArray(users))return;
   const active=users.filter(u=>!u.disabled),admins=active.filter(u=>u.role==='admin').length;
-  const stats=document.getElementById('admin-stats-users');stats.innerHTML='';
+  const stats=document.getElementById('admin-stats-users');stats.replaceChildren();
   [[users.length,'Total'],[admins,'Admins'],[active.length-admins,'Viewers'],[users.filter(u=>u.disabled).length,'Inativos']].forEach(([v,l])=>{
     const s=mkEl('div','admin-stat');s.appendChild(mkEl('div','admin-stat-val',String(v)));s.appendChild(mkEl('div','admin-stat-lbl',l));stats.appendChild(s);
   });
-  const list=document.getElementById('admin-user-list');list.innerHTML='';
+  const list=document.getElementById('admin-user-list');list.replaceChildren();
+  const currentEmail=document.getElementById('home-user-email').textContent.trim();
   users.forEach(u=>{
-    const isSelf=u.email===document.getElementById('home-user-email').textContent.trim();
-    const row=mkEl('div','sr');row.style.justifyContent='space-between';if(u.disabled)row.style.opacity='.5';
-    // Avatar inicial
-    const av=mkEl('div');av.style.cssText=`width:34px;height:34px;border-radius:50%;background:${u.role==='admin'?'var(--accent)':'var(--surface2)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid var(--border)`;
-    const avTxt=mkEl('span');avTxt.style.cssText=`font-family:'Oswald',sans-serif;font-size:14px;font-weight:600;color:${u.role==='admin'?'#fff':'var(--muted)'}`;avTxt.textContent=(u.name||u.email).charAt(0).toUpperCase();av.appendChild(avTxt);
-    // Info principal
+    const isSelf=u.email===currentEmail;
+    const isSuperAdmin=u.email===SUPERADMIN_EMAIL;
+    const canEdit=!isSuperAdmin||(currentEmail===SUPERADMIN_EMAIL);
+    const row=mkEl('div','sr');row.style.cssText='justify-content:space-between;flex-wrap:wrap;gap:8px';if(u.disabled)row.style.opacity='.5';
+    const av=mkEl('div');av.style.cssText='width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid var(--border)';
+    av.style.background=u.role==='admin'?'var(--accent)':'var(--surface2)';
+    const avTxt=mkEl('span');avTxt.style.cssText='font-family:\'Oswald\',sans-serif;font-size:14px;font-weight:600';
+    avTxt.style.color=u.role==='admin'?'#fff':'var(--muted)';
+    avTxt.textContent=(u.name||u.email).charAt(0).toUpperCase();av.appendChild(avTxt);
     const main=mkEl('div','sr-main');main.style.marginLeft='10px';
-    // Nome editável
     const nameWrap=mkEl('div');nameWrap.style.cssText='display:flex;align-items:center;gap:6px';
-    const nameInp=mkEl('input');nameInp.value=u.name||'';nameInp.placeholder='Nome';nameInp.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:13px;font-weight:500;color:var(--text);background:transparent;border:none;border-bottom:1px solid var(--border);outline:none;width:140px;padding:1px 0;transition:border-color .15s';
+    const nameInp=mkEl('input');nameInp.value=u.name||'';nameInp.placeholder='Nome';
+    nameInp.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:13px;font-weight:500;color:var(--text);background:transparent;border:none;border-bottom:1px solid transparent;outline:none;width:140px;padding:1px 0;transition:border-color .15s';
     nameInp.addEventListener('focus',()=>nameInp.style.borderBottomColor='var(--accent)');
-    nameInp.addEventListener('blur',async()=>{nameInp.style.borderBottomColor='var(--border)';if(nameInp.value.trim()===(u.name||''))return;await adFetch(`profiles?id=eq.${u.id}`,{method:'PATCH',body:JSON.stringify({name:nameInp.value.trim()})});adminToast('Nome atualizado');u.name=nameInp.value.trim();});
-    const editIco=mkEl('span');editIco.textContent='✏';editIco.title='Editar nome';editIco.style.cssText='font-size:10px;color:var(--muted);cursor:pointer;opacity:.5;transition:opacity .15s';editIco.addEventListener('mouseenter',()=>editIco.style.opacity='1');editIco.addEventListener('mouseleave',()=>editIco.style.opacity='.5');editIco.addEventListener('click',()=>nameInp.focus());
-    nameWrap.appendChild(nameInp);nameWrap.appendChild(editIco);
+    nameInp.addEventListener('blur',async()=>{nameInp.style.borderBottomColor='transparent';if(nameInp.value.trim()===(u.name||''))return;await adFetch('profiles?id=eq.'+u.id,{method:'PATCH',body:JSON.stringify({name:nameInp.value.trim()})});adminToast('Nome atualizado');});
+    nameWrap.appendChild(nameInp);
     if(isSelf){const you=mkEl('span');you.textContent='Você';you.style.cssText='font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--accent);background:var(--accent-light);padding:2px 6px;border-radius:3px';nameWrap.appendChild(you);}
+    if(isSuperAdmin){const sa=mkEl('span');sa.textContent='SUPERADMIN';sa.style.cssText='font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#fff;background:#7c3aed;padding:2px 6px;border-radius:3px';nameWrap.appendChild(sa);}
     main.appendChild(nameWrap);
     const emailTxt=mkEl('div','sr-sub',u.email);
-    const dateTxt=mkEl('span');dateTxt.style.cssText='font-size:10px;color:rgba(10,10,18,.3);margin-left:8px';dateTxt.textContent=u.created_at?new Date(u.created_at).toLocaleDateString('pt-BR'):'';
+    const dateTxt=mkEl('span');dateTxt.style.cssText='font-size:10px;color:rgba(10,10,18,.3);margin-left:8px';
+    dateTxt.textContent=u.created_at?new Date(u.created_at).toLocaleDateString('pt-BR'):'';
     emailTxt.appendChild(dateTxt);main.appendChild(emailTxt);
-    // Controles
     const ctrl=mkEl('div');ctrl.style.cssText='display:flex;align-items:center;gap:8px;flex-shrink:0';
-    const sel=mkEl('select','auth-input');sel.style.cssText='max-width:120px;font-size:11px;padding:4px 6px';
+    const sel=mkEl('select','admin-form-input');sel.style.cssText='max-width:120px;font-size:11px;padding:4px 6px';
     [{v:'viewer',l:'Viewer'},{v:'admin',l:'Admin'}].forEach(({v,l})=>{const o=mkEl('option');o.value=v;o.textContent=l;if(u.role===v)o.selected=true;sel.appendChild(o);});
-    if(!isSelf)sel.addEventListener('change',async()=>{await adFetch(`profiles?id=eq.${u.id}`,{method:'PATCH',body:JSON.stringify({role:sel.value})});adminToast('Role atualizado');setTimeout(loadAdminUsers,800);});
+    if(!isSelf&&canEdit)sel.addEventListener('change',async()=>{await adFetch('profiles?id=eq.'+u.id,{method:'PATCH',body:JSON.stringify({role:sel.value})});adminToast('Role atualizado');setTimeout(loadAdminUsers,800);});
     else sel.disabled=true;
     ctrl.appendChild(sel);
-    if(!isSelf){
+    if(!isSelf&&canEdit){
+      const permBtn=mkEl('button','sr-btn');permBtn.textContent='Permissões';
+      permBtn.addEventListener('click',()=>openPermModal(u));
+      ctrl.appendChild(permBtn);
       const disBtn=mkEl('button','sr-btn '+(u.disabled?'':'danger'));disBtn.textContent=u.disabled?'Ativar':'Desativar';
-      disBtn.addEventListener('click',async()=>{await adFetch(`profiles?id=eq.${u.id}`,{method:'PATCH',body:JSON.stringify({disabled:!u.disabled})});adminToast(u.disabled?'Usuário ativado':'Usuário desativado');setTimeout(loadAdminUsers,600);});
+      disBtn.addEventListener('click',async()=>{await adFetch('profiles?id=eq.'+u.id,{method:'PATCH',body:JSON.stringify({disabled:!u.disabled})});adminToast(u.disabled?'Usuário ativado':'Usuário desativado');setTimeout(loadAdminUsers,600);});
       ctrl.appendChild(disBtn);
-      const delBtn=mkEl('button','sr-btn danger');delBtn.textContent='Excluir';delBtn.title='Excluir usuário permanentemente';
-      delBtn.addEventListener('click',async()=>{
-        if(!confirm('Excluir '+(u.name||u.email)+'? Esta ação não pode ser desfeita.'))return;
-        delBtn.disabled=true;delBtn.textContent='Excluindo...';
-        const{data:{session:s}}=await sbClient.auth.getSession();
-        const tok=s?.access_token||SUPABASE_ANON_KEY;
-        const r=await fetch(`${SUPABASE_URL}/functions/v1/invite-user`,{method:'POST',headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},body:JSON.stringify({deleteUserId:u.id})});
-        const res=await r.json();
-        if(res.error){adminToast('Erro: '+res.error);delBtn.disabled=false;delBtn.textContent='Excluir';}
-        else{adminToast('Usuário excluído');setTimeout(loadAdminUsers,600);}
-      });
-      ctrl.appendChild(delBtn);
     }
-    row.appendChild(av);row.appendChild(main);row.appendChild(ctrl);
-    const permPanel=document.createElement('div');
-    permPanel.style.cssText='display:none;border-top:1px solid var(--border);padding:14px 16px;background:var(--surface2)';
-    let permOpen=false;
-    const permBtn=mkEl('button','sr-btn');permBtn.textContent='Permissões ▾';
-    permBtn.addEventListener('click',async()=>{
-      permOpen=!permOpen;
-      permPanel.style.display=permOpen?'block':'none';
-      permBtn.textContent=permOpen?'Permissões ▲':'Permissões ▾';
-      if(permOpen)await renderUserPermPanel(permPanel,u.id,u.role);
-    });
-    ctrl.appendChild(permBtn);
-    const wrapper=document.createElement('div');
-    wrapper.style.cssText='border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:10px';
-    wrapper.appendChild(row);wrapper.appendChild(permPanel);list.appendChild(wrapper);
+    row.appendChild(av);row.appendChild(main);row.appendChild(ctrl);list.appendChild(row);
   });
 }
-async function adminInviteUser(){
+async function adminInviteUser(mode){
   const email=document.getElementById('adm-email').value.trim();
-  const msg=document.getElementById('adm-invite-msg');
-  if(!email){msg.textContent='Informe o e-mail.';msg.style.color='#dc2626';return;}
-  msg.textContent='Enviando convite...';msg.style.color='var(--muted)';
-  const{data:{session:s}}=await sbClient.auth.getSession();
-  const tok=s?.access_token||SUPABASE_ANON_KEY;
-  const r=await fetch(`${SUPABASE_URL}/functions/v1/invite-user`,{method:'POST',headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},body:JSON.stringify({email})});
-  const res=await r.json();
-  if(res.error){msg.textContent='Erro: '+res.error;msg.style.color='#dc2626';}
-  else{msg.textContent='✓ Convite enviado para '+email;msg.style.color='#16a34a';document.getElementById('adm-email').value='';adminToast('Convite enviado!');setTimeout(loadAdminUsers,1200);}
-}
-async function adminCreateUser(){
   const name=document.getElementById('adm-name').value.trim();
-  const email=document.getElementById('adm-manual-email').value.trim();
   const password=document.getElementById('adm-pass').value;
   const role=document.getElementById('adm-role').value;
-  const msg=document.getElementById('adm-create-msg');
-  if(!email||!password||password.length<6){msg.textContent='Preencha e-mail e senha (mín. 6 caracteres).';msg.style.color='#dc2626';return;}
-  msg.textContent='Criando acesso...';msg.style.color='var(--muted)';
+  const msg=document.getElementById('adm-invite-msg');
+  if(!email){msg.textContent='Informe o email.';msg.style.color='#dc2626';return;}
+  const isInvite=mode==='invite'||!password;
+  if(!isInvite&&password.length<6){msg.textContent='A senha precisa ter no mínimo 6 caracteres.';msg.style.color='#dc2626';return;}
+  msg.textContent=isInvite?'Enviando convite...':'Criando acesso...';msg.style.color='var(--muted)';
   const{data:{session:s}}=await sbClient.auth.getSession();
   const tok=s?.access_token||SUPABASE_ANON_KEY;
-  const r=await fetch(`${SUPABASE_URL}/functions/v1/invite-user`,{method:'POST',headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},body:JSON.stringify({email,name,role,password})});
+  const body=isInvite?{email,name,role}:{email,name,role,password};
+  const r=await fetch(`${SUPABASE_URL}/functions/v1/invite-user`,{method:'POST',headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
   const res=await r.json();
   if(res.error){msg.textContent='Erro: '+res.error;msg.style.color='#dc2626';}
   else{
-    msg.textContent='';
-    const t=document.createTextNode('✓ Acesso criado para ');
-    const eb=document.createElement('strong');eb.textContent=email;
-    const t2=document.createTextNode(' — Senha: ');
-    const pb=document.createElement('strong');pb.textContent=password;
-    msg.appendChild(t);msg.appendChild(eb);msg.appendChild(t2);msg.appendChild(pb);
+    msg.textContent=isInvite?'✓ Convite enviado para '+email:'✓ Acesso criado para '+email;
     msg.style.color='#16a34a';
-    ['adm-name','adm-manual-email','adm-pass'].forEach(id=>document.getElementById(id).value='');
-    adminToast('Acesso criado com sucesso!');setTimeout(loadAdminUsers,1200);
+    ['adm-email','adm-name','adm-pass'].forEach(id=>document.getElementById(id).value='');
+    adminToast(isInvite?'Convite enviado!':'Acesso criado com sucesso');
+    setTimeout(loadAdminUsers,1200);
   }
 }
 
@@ -3342,86 +3451,9 @@ async function loadAdminRequests(){
   body.innerHTML='';body.appendChild(wrap);
 }
 
-/* ── PERMISSIONS ADMIN HELPERS ── */
-function buildPermToggle(initialValue,onChange){
-  const label=document.createElement('label');label.style.cssText='display:flex;align-items:center;cursor:pointer;';
-  const inp=document.createElement('input');inp.type='checkbox';inp.checked=initialValue;inp.style.display='none';
-  const track=document.createElement('div');
-  track.style.cssText='width:36px;height:20px;border-radius:10px;background:'+(initialValue?'var(--accent)':'var(--surface2)')+';border:1px solid var(--border);position:relative;transition:background .2s;cursor:pointer;flex-shrink:0';
-  const thumb=document.createElement('div');
-  thumb.style.cssText='width:14px;height:14px;border-radius:50%;background:#fff;position:absolute;top:2px;left:'+(initialValue?'18px':'2px')+';transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)';
-  track.appendChild(thumb);label.appendChild(inp);label.appendChild(track);
-  label.addEventListener('click',async(e)=>{
-    e.preventDefault();
-    const newVal=!inp.checked;inp.checked=newVal;
-    track.style.background=newVal?'var(--accent)':'var(--surface2)';
-    thumb.style.left=newVal?'18px':'2px';
-    await onChange(newVal);
-  });
-  return label;
-}
 
-async function renderUserPermPanel(panel,userId,role){
-  panel.textContent='';
-  if(role==='admin'){
-    const msg=document.createElement('div');
-    msg.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:12px;color:var(--muted);padding:4px 0';
-    msg.textContent='Admin tem acesso total a todas as ferramentas.';
-    panel.appendChild(msg);return;
-  }
-  const{data:rows}=await sbClient.from('user_permissions').select('resource_key,granted').eq('user_id',userId);
-  const permMap=new Map((rows||[]).map(r=>[r.resource_key,r.granted]));
-  const grantedBy=currentSession?.user?.id;
 
-  TOOL_REGISTRY.forEach((tool,toolIdx)=>{
-    const toolKey='tool:'+tool.key;
-    const toolWrap=document.createElement('div');toolWrap.style.marginBottom='8px';
-    const toolRow=document.createElement('div');
-    toolRow.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:6px 0';
-    const toolLbl=document.createElement('span');
-    toolLbl.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:13px;font-weight:500;color:var(--text)';
-    toolLbl.textContent=tool.icon+' '+tool.label;
-    const modWrappers=[];
-    const toolToggle=buildPermToggle(permMap.get(toolKey)||false,async(v)=>{
-      const{error}=await sbClient.from('user_permissions').upsert(
-        {user_id:userId,resource_key:toolKey,granted:v,granted_by:grantedBy,granted_at:new Date().toISOString()},
-        {onConflict:'user_id,resource_key'}
-      );
-      if(error){adminToast('Erro ao salvar permissão',false);return;}
-      modWrappers.forEach(w=>{w.style.opacity=v?'1':'0.4';w.style.pointerEvents=v?'':'none';});
-      adminToast(v?'Acesso liberado':'Acesso revogado');
-    });
-    toolRow.appendChild(toolLbl);toolRow.appendChild(toolToggle);toolWrap.appendChild(toolRow);
-
-    tool.modules.forEach(mod=>{
-      const modKey='module:'+tool.key+':'+mod.key;
-      const toolGranted=permMap.get(toolKey)||false;
-      const modWrap=document.createElement('div');
-      modWrap.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:5px 0 5px 20px;'+(toolGranted?'':'opacity:0.4;pointer-events:none');
-      const modLbl=document.createElement('span');
-      modLbl.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:12px;color:var(--muted)';
-      modLbl.textContent='↳ '+mod.label;
-      const modToggle=buildPermToggle(permMap.get(modKey)||false,async(v)=>{
-        const{error}=await sbClient.from('user_permissions').upsert(
-          {user_id:userId,resource_key:modKey,granted:v,granted_by:grantedBy,granted_at:new Date().toISOString()},
-          {onConflict:'user_id,resource_key'}
-        );
-        if(error){adminToast('Erro ao salvar permissão',false);return;}
-        adminToast(v?'Módulo liberado':'Módulo revogado');
-      });
-      modWrap.appendChild(modLbl);modWrap.appendChild(modToggle);
-      toolWrap.appendChild(modWrap);modWrappers.push(modWrap);
-    });
-
-    panel.appendChild(toolWrap);
-    if(toolIdx<TOOL_REGISTRY.length-1){
-      const sep=document.createElement('div');sep.style.cssText='border-top:1px solid var(--border);margin:4px 0';
-      panel.appendChild(sep);
-    }
-  });
-}
-
-async function loadAdminPermissions(){
+async function _loadAdminPermissions_removed(){
   const container=document.getElementById('admin-perms-matrix');
   if(!container)return;
   container.textContent='';
@@ -3592,18 +3624,21 @@ function openDashboard(){
   sessionStorage.setItem('rbv-screen','dashboard');
   setHomeBgTheme('social');
 }
-function showDashboard(user,role){
+function showDashboard(user,role,features){
   currentUserRole=role;
+  currentUserFeatures=features||['banco'];
   document.getElementById('home-user-email').textContent=user.email+' ';
   document.getElementById('home-user-role').textContent=role==='admin'?'ADMIN':'VIEWER';
   document.getElementById('home-user-role').className='user-role-chip';
   setGlobalUserBtn(user.email,role);
   const adminCard=document.getElementById('home-card-admin');
   if(adminCard)adminCard.style.display=role==='admin'?'':'none';
-  const socialCard=document.getElementById('home-card-social');
-  if(socialCard)socialCard.style.display=hasPermission('tool:social')?'':'none';
-  const salesCard=document.getElementById('home-card-sales');
-  if(salesCard)salesCard.style.display=hasPermission('tool:sales')?'':'none';
+  const isAdmin=role==='admin';
+  ['social','sales','banco'].forEach(f=>{
+    const c=document.getElementById('home-card-'+f);
+    if(c)c.style.display=(isAdmin||currentUserFeatures.includes(f))?'':'none';
+  });
+  _applySubFeatures();
   if(!appInitialized){
     appInitialized=true;
     const screen=sessionStorage.getItem('rbv-screen');
@@ -3613,6 +3648,7 @@ function showDashboard(user,role){
     else if(screen==='sales-brand'){openSalesDashboard();setTimeout(openSalesBrandPicker,0);}
     else if(screen==='sales-analysis'){openSalesDashboard();setTimeout(()=>{openSalesBrandPicker();setTimeout(openSalesAnalysis,0);},0);}
     else if(screen==='gestao-vista'){openSalesDashboard();setTimeout(openGestaoVista,0);}
+    else if(screen==='banco')openBanco(true);
     else showHome();
   }
 }
@@ -3868,13 +3904,13 @@ let _loginHandled=false;
 
 async function loadDashboard(session){
   const tok=session.access_token||SUPABASE_ANON_KEY;
-  const pr=await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${session.user.id}&select=role`,{
+  const pr=await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${session.user.id}&select=role,features`,{
     headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${tok}`}
   });
   const profiles=await pr.json();
   const role=profiles?.[0]?.role||'viewer';
-  await loadUserPermissions(session.user.id,role);
-  showDashboard(session.user,role);
+  const features=profiles?.[0]?.features||['banco'];
+  showDashboard(session.user,role,features);
   if(!dashboardReady){
     buildPeriodTabs();updateGoalDisplays(7);watchGoals();
     dashboardReady=true;
@@ -5877,6 +5913,131 @@ const BG_ICON_SETS={
     `<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>`
   ]
 };
+/* ── BANCO DE ARQUIVOS ── */
+let _bancoFiles=[];
+const _SVG_DL='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+const _SVG_DEL='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
+const _SVG_FOLDER='<svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
+function openBanco(skipStorage){
+  document.getElementById('home-screen').style.display='none';
+  document.getElementById('banco-screen').style.display='flex';
+  if(!skipStorage)sessionStorage.setItem('rbv-screen','banco');
+  setupBancoUpload();
+  loadArquivos();
+}
+function closeBanco(){
+  document.getElementById('banco-screen').style.display='none';
+  showHome();
+}
+async function loadArquivos(){
+  const listEl=document.getElementById('banco-file-list');
+  _bancoBuildEmpty(listEl,'Carregando…','');
+  const{data,error}=await sbClient.storage.from('arquivos').list('',{limit:500,sortBy:{column:'name',order:'asc'}});
+  if(error){_bancoBuildEmpty(listEl,'Erro ao carregar arquivos',error.message);return;}
+  _bancoFiles=(data||[]).filter(f=>f.name&&f.name!=='.emptyFolderPlaceholder');
+  renderArquivos();
+}
+function renderArquivos(){
+  const q=(document.getElementById('banco-search')?.value||'').toLowerCase().trim();
+  const files=q?_bancoFiles.filter(f=>f.name.toLowerCase().includes(q)):_bancoFiles;
+  const statsEl=document.getElementById('banco-stats-lbl');
+  if(statsEl){
+    const total=_bancoFiles.reduce((s,f)=>s+(f.metadata?.size||0),0);
+    statsEl.textContent=_bancoFiles.length+' arquivo'+((_bancoFiles.length!==1)?'s':'')+' · '+_fmtBytes(total);
+  }
+  const listEl=document.getElementById('banco-file-list');
+  listEl.textContent='';
+  if(!files.length){
+    _bancoBuildEmpty(listEl,q?'Nenhum resultado para "'+q+'"':'Nenhum arquivo ainda',q?'Tente outro termo':'Faça upload usando a área acima');
+    return;
+  }
+  const isAdmin=currentUserRole==='admin';
+  files.forEach(f=>{
+    const{cls,lbl}=_bancoIconInfo(f.name);
+    const size=_fmtBytes(f.metadata?.size||0);
+    const date=f.updated_at?new Date(f.updated_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}).replace(/ de /g,'/').replace('.',''):'—';
+    const pub=SUPABASE_URL+'/storage/v1/object/public/arquivos/'+encodeURIComponent(f.name);
+    const row=document.createElement('div');
+    row.className='banco-file-row';
+    row.dataset.fname=f.name;
+    const ico=document.createElement('div');
+    ico.className='banco-file-icon '+cls;
+    ico.textContent=lbl;
+    const meta=document.createElement('div');
+    meta.className='banco-file-meta';
+    const nm=document.createElement('div');nm.className='banco-file-name';nm.textContent=f.name;nm.title=f.name;
+    const dt=document.createElement('div');dt.className='banco-file-details';dt.textContent=lbl+' · '+size+' · '+date;
+    meta.appendChild(nm);meta.appendChild(dt);
+    const acts=document.createElement('div');acts.className='banco-file-acts';
+    const dlA=document.createElement('a');
+    dlA.className='banco-dl-btn';dlA.href=pub;dlA.download=f.name;dlA.target='_blank';
+    dlA.innerHTML=_SVG_DL;
+    const dlSp=document.createElement('span');dlSp.textContent='Baixar';dlA.appendChild(dlSp);
+    acts.appendChild(dlA);
+    if(isAdmin){
+      const delB=document.createElement('button');
+      delB.className='banco-del-btn';delB.title='Excluir';
+      delB.innerHTML=_SVG_DEL;
+      delB.addEventListener('click',()=>deletarArquivo(row.dataset.fname));
+      acts.appendChild(delB);
+    }
+    row.appendChild(ico);row.appendChild(meta);row.appendChild(acts);
+    listEl.appendChild(row);
+  });
+}
+function _bancoBuildEmpty(container,title,sub){
+  container.textContent='';
+  const wrap=document.createElement('div');wrap.className='banco-empty';
+  wrap.innerHTML=_SVG_FOLDER;
+  const t=document.createElement('div');t.className='banco-empty-text';t.textContent=title;
+  const s=document.createElement('div');s.className='banco-empty-sub';s.textContent=sub;
+  wrap.appendChild(t);if(sub)wrap.appendChild(s);
+  container.appendChild(wrap);
+}
+function _bancoIconInfo(name){
+  const ext=(name.split('.').pop()||'').toLowerCase();
+  if(['jpg','jpeg','png','gif','webp','svg'].includes(ext))return{cls:'bfi-img',lbl:ext.toUpperCase()};
+  if(ext==='pdf')return{cls:'bfi-pdf',lbl:'PDF'};
+  if(['mp4','mov','avi','mkv','webm'].includes(ext))return{cls:'bfi-vid',lbl:'VID'};
+  if(['zip','rar','7z'].includes(ext))return{cls:'bfi-zip',lbl:'ZIP'};
+  if(['doc','docx','xls','xlsx','csv','txt'].includes(ext))return{cls:'bfi-doc',lbl:ext.toUpperCase().slice(0,4)};
+  return{cls:'bfi-oth',lbl:(ext||'FILE').toUpperCase().slice(0,4)};
+}
+function _fmtBytes(b){if(!b)return'0 B';const k=1024,u=['B','KB','MB','GB'],i=Math.floor(Math.log(b)/Math.log(k));return(b/Math.pow(k,i)).toFixed(i?1:0)+' '+u[i];}
+async function deletarArquivo(name){
+  if(!confirm('Excluir "'+name+'"?'))return;
+  const{error}=await sbClient.storage.from('arquivos').remove([name]);
+  if(error){alert('Erro ao excluir: '+error.message);return;}
+  loadArquivos();
+}
+let _bancoUploadReady=false;
+function setupBancoUpload(){
+  if(_bancoUploadReady)return;
+  _bancoUploadReady=true;
+  const zone=document.getElementById('banco-drop-zone');
+  const inp=document.getElementById('banco-file-input');
+  zone.addEventListener('click',e=>{if(e.target.tagName!=='EM')inp.click();});
+  inp.addEventListener('change',e=>{Array.from(e.target.files).forEach(f=>_bancoUpload(f));inp.value='';});
+  zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag-over');});
+  zone.addEventListener('dragleave',()=>zone.classList.remove('drag-over'));
+  zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('drag-over');Array.from(e.dataTransfer.files).forEach(f=>_bancoUpload(f));});
+}
+function _sanitizeStorageKey(name){
+  return name.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9._\-]/g,'_');
+}
+async function _bancoUpload(file){
+  const wrap=document.getElementById('banco-progress-wrap');
+  const fill=document.getElementById('banco-progress-fill');
+  const lbl=document.getElementById('banco-progress-lbl');
+  const storageKey=_sanitizeStorageKey(file.name);
+  wrap.style.display='block';lbl.textContent='Enviando '+file.name+'…';fill.style.width='20%';
+  const{error}=await sbClient.storage.from('arquivos').upload(storageKey,file,{cacheControl:'3600',upsert:true});
+  fill.style.width='100%';
+  if(error){lbl.textContent='Erro: '+error.message;setTimeout(()=>{wrap.style.display='none';fill.style.width='0%';},3500);return;}
+  lbl.textContent=file.name+' enviado!';
+  setTimeout(()=>{wrap.style.display='none';fill.style.width='0%';loadArquivos();},1200);
+}
+
 function setHomeBgTheme(type){
   const icos=document.querySelectorAll('#bg-shapes .ico');
   const set=BG_ICON_SETS[type]||BG_ICON_SETS.default;
@@ -6085,6 +6246,52 @@ function setHomeBgTheme(type){
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       Sair
     </button>
+  </div>
+</div>
+
+<!-- ── PERMISSIONS MODAL ── -->
+<div id="perm-modal-overlay" class="perm-overlay" onclick="if(event.target===this)closePermModal()">
+  <div class="perm-modal">
+    <div class="perm-modal-hdr">
+      <div class="perm-modal-title">Permissões</div>
+      <div class="perm-modal-user" id="perm-modal-user"></div>
+    </div>
+    <div class="perm-modal-body" id="perm-modal-body"></div>
+    <div class="perm-modal-ftr">
+      <button class="sr-btn" onclick="closePermModal()" style="font-size:12px;padding:8px 16px">Cancelar</button>
+      <button class="sr-btn" id="perm-save-btn" onclick="savePermissions()" style="background:var(--accent);color:#fff;font-size:12px;padding:8px 16px">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── BANCO DE ARQUIVOS ── -->
+<div id="banco-screen">
+  <div class="banco-topbar">
+    <button class="banco-back" onclick="closeBanco()">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      Central
+    </button>
+    <span class="banco-topbar-title">Banco de Arquivos</span>
+    <div style="width:80px"></div>
+  </div>
+  <div class="banco-body">
+    <div class="banco-upload-zone" id="banco-drop-zone">
+      <div class="banco-upload-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+      </div>
+      <div class="banco-upload-text">Arraste arquivos aqui ou <em onclick="document.getElementById('banco-file-input').click()">clique para selecionar</em></div>
+      <div class="banco-upload-limit">Máx. 50 MB por arquivo</div>
+      <div class="banco-progress-wrap" id="banco-progress-wrap">
+        <div class="banco-progress-lbl" id="banco-progress-lbl"></div>
+        <div class="banco-progress-bar"><div class="banco-progress-fill" id="banco-progress-fill" style="width:0%"></div></div>
+      </div>
+      <input type="file" id="banco-file-input" multiple style="display:none">
+    </div>
+    <div class="banco-toolbar">
+      <input type="text" class="banco-search" id="banco-search" placeholder="Buscar arquivo…" oninput="renderArquivos()">
+      <span class="banco-stats-lbl" id="banco-stats-lbl"></span>
+    </div>
+    <div class="banco-file-list" id="banco-file-list"></div>
   </div>
 </div>
 
