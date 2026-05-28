@@ -802,6 +802,10 @@
   .admin-input{flex:1;padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:3px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;outline:none;transition:border-color .18s;}
   .admin-input:focus{border-color:var(--accent);}
   .admin-select{padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:3px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:12px;outline:none;cursor:pointer;}
+  .admin-form-label{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px;font-weight:600;}
+  .admin-form-input{width:100%;padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:3px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;outline:none;transition:border-color .18s;box-sizing:border-box;}
+  .admin-form-input:focus{border-color:var(--accent);}
+  .admin-form-input::placeholder{color:var(--muted);opacity:.7;}
   .admin-action-btn{padding:9px 16px;background:var(--accent);color:#fff;border:none;border-radius:3px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;cursor:pointer;white-space:nowrap;transition:opacity .18s;font-weight:600;text-transform:uppercase;letter-spacing:.8px;}
   .admin-action-btn:hover{opacity:.85;}.admin-action-btn:disabled{opacity:.5;}
   .admin-msg{font-family:'IBM Plex Sans',sans-serif;font-size:11px;margin-top:8px;padding:7px 12px;border-radius:3px;display:none;}
@@ -1235,16 +1239,16 @@
   .auth-link:hover{color:rgba(255,255,255,.7);}
   .auth-back-link{display:flex;align-items:center;gap:4px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:rgba(255,255,255,.35);cursor:pointer;background:none;border:none;padding:0;transition:color .15s;margin-bottom:18px;}
   .auth-back-link:hover{color:rgba(255,255,255,.7);}
-  .auth-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:44px 40px;width:100%;max-width:380px;box-shadow:0 8px 48px rgba(0,0,0,.5);}
-  .auth-logo h2{color:#fff!important;}
-  .auth-logo p{color:rgba(255,255,255,.3)!important;}
-  .auth-logo .rbv-logo-light{display:none!important;}
-  .auth-logo .rbv-logo-dark{display:block!important;}
-  .auth-label{color:rgba(255,255,255,.4)!important;}
-  .auth-input{background:rgba(255,255,255,.06)!important;border-color:rgba(255,255,255,.12)!important;color:#fff!important;}
-  .auth-input:focus{border-color:rgba(29,78,216,.8)!important;}
-  .auth-input::placeholder{color:rgba(255,255,255,.2)!important;}
-  .auth-info{color:rgba(255,255,255,.4)!important;}
+  #auth-screen .auth-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:44px 40px;width:100%;max-width:380px;box-shadow:0 8px 48px rgba(0,0,0,.5);}
+  #auth-screen .auth-logo h2{color:#fff!important;}
+  #auth-screen .auth-logo p{color:rgba(255,255,255,.3)!important;}
+  #auth-screen .auth-logo .rbv-logo-light{display:none!important;}
+  #auth-screen .auth-logo .rbv-logo-dark{display:block!important;}
+  #auth-screen .auth-label{color:rgba(255,255,255,.4)!important;}
+  #auth-screen .auth-input{background:rgba(255,255,255,.06)!important;border-color:rgba(255,255,255,.12)!important;color:#fff!important;}
+  #auth-screen .auth-input:focus{border-color:rgba(29,78,216,.8)!important;}
+  #auth-screen .auth-input::placeholder{color:rgba(255,255,255,.2)!important;}
+  #auth-screen .auth-info{color:rgba(255,255,255,.4)!important;}
   /* ── HOME HOVER ── */
   #bg-shapes .ico{transition:opacity .4s ease;}
   /* ── METAS ADMIN ── */
@@ -1549,25 +1553,38 @@
         <div class="sg" style="padding:16px 20px;">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;">
             <div>
-              <label class="auth-label" for="adm-name">Nome</label>
-              <input type="text" id="adm-name" class="auth-input" placeholder="Nome completo" style="width:100%;box-sizing:border-box;">
+              <label class="admin-form-label" for="adm-name">Nome</label>
+              <input type="text" id="adm-name" class="admin-form-input" placeholder="Nome completo" style="width:100%;box-sizing:border-box;">
             </div>
             <div>
-              <label class="auth-label" for="adm-email">Email</label>
-              <input type="email" id="adm-email" class="auth-input" placeholder="email@exemplo.com" style="width:100%;box-sizing:border-box;">
+              <label class="admin-form-label" for="adm-email">Email</label>
+              <input type="email" id="adm-email" class="admin-form-input" placeholder="email@exemplo.com" style="width:100%;box-sizing:border-box;">
             </div>
             <div>
-              <label class="auth-label" for="adm-pass">Senha inicial</label>
-              <input type="password" id="adm-pass" class="auth-input" placeholder="Mínimo 6 caracteres" style="width:100%;box-sizing:border-box;">
+              <label class="admin-form-label" for="adm-pass">Senha inicial <span style="font-weight:400;opacity:.6">(opcional)</span></label>
+              <input type="password" id="adm-pass" class="admin-form-input" placeholder="Deixe vazio p/ enviar convite" style="width:100%;box-sizing:border-box;">
             </div>
             <div>
-              <label class="auth-label" for="adm-role">Perfil de acesso</label>
-              <select id="adm-role" class="auth-input" style="width:100%;box-sizing:border-box;cursor:pointer;"><option value="viewer">Visualizador</option><option value="admin">Administrador</option></select>
+              <label class="admin-form-label" for="adm-role">Perfil de acesso</label>
+              <select id="adm-role" class="admin-form-input" style="width:100%;box-sizing:border-box;cursor:pointer;"><option value="viewer">Visualizador</option><option value="admin">Administrador</option></select>
             </div>
           </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
-            <div id="adm-invite-msg" style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted)"></div>
-            <button class="sr-btn" onclick="adminInviteUser()" style="background:var(--accent);color:#fff;font-size:12px;padding:7px 20px;flex-shrink:0">Criar acesso</button>
+          <div style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);margin-top:12px;display:flex;align-items:center;gap:6px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.6"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Se a senha for deixada em branco, um link de primeiro acesso será enviado para o email.
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+            <div id="adm-invite-msg" style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);flex:1"></div>
+            <div style="display:flex;gap:8px;flex-shrink:0">
+              <button class="sr-btn" onclick="adminInviteUser('invite')" style="font-size:11px;padding:7px 14px;gap:5px;display:flex;align-items:center;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                Enviar convite
+              </button>
+              <button class="sr-btn" onclick="adminInviteUser('create')" style="background:var(--accent);color:#fff;font-size:11px;padding:7px 14px;gap:5px;display:flex;align-items:center;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                Criar com senha
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -2769,7 +2786,7 @@ async function loadAdminUsers(){
     emailTxt.appendChild(dateTxt);main.appendChild(emailTxt);
     // Controles
     const ctrl=mkEl('div');ctrl.style.cssText='display:flex;align-items:center;gap:8px;flex-shrink:0';
-    const sel=mkEl('select','auth-input');sel.style.cssText='max-width:120px;font-size:11px;padding:4px 6px';
+    const sel=mkEl('select','admin-form-input');sel.style.cssText='max-width:120px;font-size:11px;padding:4px 6px';
     [{v:'viewer',l:'Viewer'},{v:'admin',l:'Admin'}].forEach(({v,l})=>{const o=mkEl('option');o.value=v;o.textContent=l;if(u.role===v)o.selected=true;sel.appendChild(o);});
     if(!isSelf)sel.addEventListener('change',async()=>{await adFetch(`profiles?id=eq.${u.id}`,{method:'PATCH',body:JSON.stringify({role:sel.value})});adminToast('Role atualizado');setTimeout(loadAdminUsers,800);});
     else sel.disabled=true;
@@ -2782,20 +2799,30 @@ async function loadAdminUsers(){
     row.appendChild(av);row.appendChild(main);row.appendChild(ctrl);list.appendChild(row);
   });
 }
-async function adminInviteUser(){
+async function adminInviteUser(mode){
   const email=document.getElementById('adm-email').value.trim();
   const name=document.getElementById('adm-name').value.trim();
   const password=document.getElementById('adm-pass').value;
   const role=document.getElementById('adm-role').value;
   const msg=document.getElementById('adm-invite-msg');
-  if(!email||!password||password.length<6){msg.textContent='Preencha email e senha (mín. 6 caracteres).';msg.style.color='#dc2626';return;}
-  msg.textContent='Criando acesso...';msg.style.color='var(--muted)';
+  if(!email){msg.textContent='Informe o email.';msg.style.color='#dc2626';return;}
+  const isInvite=mode==='invite'||!password;
+  if(!isInvite&&password.length<6){msg.textContent='A senha precisa ter no mínimo 6 caracteres.';msg.style.color='#dc2626';return;}
+  if(!isInvite&&!password){msg.textContent='Informe a senha ou use "Enviar convite".';msg.style.color='#dc2626';return;}
+  msg.textContent=isInvite?'Enviando convite...':'Criando acesso...';msg.style.color='var(--muted)';
   const{data:{session:s}}=await sbClient.auth.getSession();
   const tok=s?.access_token||SUPABASE_ANON_KEY;
-  const r=await fetch(`${SUPABASE_URL}/functions/v1/invite-user`,{method:'POST',headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},body:JSON.stringify({email,name,role,password})});
+  const body=isInvite?{email,name,role}:{email,name,role,password};
+  const r=await fetch(`${SUPABASE_URL}/functions/v1/invite-user`,{method:'POST',headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
   const res=await r.json();
   if(res.error){msg.textContent='Erro: '+res.error;msg.style.color='#dc2626';}
-  else{msg.textContent='✓ Acesso criado para '+email;msg.style.color='#16a34a';['adm-email','adm-name','adm-pass'].forEach(id=>document.getElementById(id).value='');adminToast('Acesso criado com sucesso');setTimeout(loadAdminUsers,1200);}
+  else{
+    msg.textContent=isInvite?'✓ Convite enviado para '+email:'✓ Acesso criado para '+email;
+    msg.style.color='#16a34a';
+    ['adm-email','adm-name','adm-pass'].forEach(id=>document.getElementById(id).value='');
+    adminToast(isInvite?'Convite enviado!':'Acesso criado com sucesso');
+    setTimeout(loadAdminUsers,1200);
+  }
 }
 
 /* ── CONTAS ── */
