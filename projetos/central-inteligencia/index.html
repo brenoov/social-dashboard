@@ -4724,6 +4724,7 @@ async function loadSalesAnalysisData(period){
     // Se pvQtdMap não tem nenhum valor > 1, GV nunca rodou — busca em background
     const _hasRealQtd=Object.values(pvQtdMap).some(v=>v>1);
     if(!_hasRealQtd)_saPopulateItemCounts([...pedidos,...pedidosPrev],pvQtdMap,pvMap);
+    _saPopulateDescontos(pedidos);
   }catch(e){
     body.textContent='';
     const err=document.createElement('div');err.className='sa-loading';err.textContent='Erro: '+e.message;body.appendChild(err);
@@ -4752,6 +4753,31 @@ async function _saPopulateItemCounts(pedidos,pvQtdMap,pvMap){
   }
   if(window._saItemFetchV!==myV||!upsert.length)return;
   sbClient.from('bling_pedido_vendedor').upsert(upsert,{onConflict:'pedido_id'}).then(null,()=>{});
+  const scr=document.getElementById('sales-analysis-screen');
+  if(scr&&scr.style.display!=='none'&&window._saRawData){
+    const boxes=[...document.querySelectorAll('.sa-canal-chk')];
+    const active=boxes.filter(cb=>cb.checked).map(cb=>cb.value);
+    renderSalesAnalysis(window._saRawData,active);
+  }
+}
+
+window._saDescFetchV=0;
+async function _saPopulateDescontos(pedidos){
+  const myV=++window._saDescFetchV;
+  let changed=false;
+  for(let i=0;i<Math.min(pedidos.length,400);i++){
+    if(window._saDescFetchV!==myV)return;
+    const p=pedidos[i];
+    if(p._desconto!==undefined)continue;
+    try{
+      const resp=await blingCall(`pedidos/vendas/${p.id}`,{});
+      const d=resp?.data?.desconto;
+      p._desconto=d&&typeof d==='object'?{valor:parseFloat(d.valor||0),unidade:d.unidade||'REAL'}:{valor:0,unidade:'REAL'};
+      changed=true;
+    }catch(e){p._desconto={valor:0,unidade:'REAL'};}
+    if((i+1)%10===0)await new Promise(r=>setTimeout(r,300));
+  }
+  if(!changed||window._saDescFetchV!==myV)return;
   const scr=document.getElementById('sales-analysis-screen');
   if(scr&&scr.style.display!=='none'&&window._saRawData){
     const boxes=[...document.querySelectorAll('.sa-canal-chk')];
@@ -5048,8 +5074,8 @@ function renderSADesconto({pedidos,lojas,lojaMap,di,df}){
   sec.appendChild(title);sec.appendChild(row);
 
   const tc=window._saLabelColor?.()||'#333';
-  const getDescVal=p=>{const d=p.desconto;if(d&&typeof d==='object')return parseFloat(d.valor||0);return parseFloat(d||0);};
-  const calcDescPedido=p=>{const v=getDescVal(p);if(!v)return 0;const d=p.desconto;if(d&&typeof d==='object'&&d.tipo===2)return v;return parseFloat(p.total||0)*v/100;};
+  const getDescVal=p=>{const d=p._desconto??p.desconto;if(d&&typeof d==='object')return parseFloat(d.valor||0);return parseFloat(d||0);};
+  const calcDescPedido=p=>{const v=getDescVal(p);if(!v)return 0;const d=p._desconto??p.desconto;if(d&&typeof d==='object'&&d.unidade==='REAL')return v;return parseFloat(p.total||0)*v/100;};
   const comDesc=pedidos.filter(p=>getDescVal(p)>0);
   const semDesc=pedidos.filter(p=>getDescVal(p)<=0);
   const totalCom=comDesc.reduce((s,p)=>s+parseFloat(p.total||0),0);
@@ -5106,7 +5132,7 @@ function renderSAVendedoras({pedidos,pedidosPrev,vendedoresArr,pvMap,pvQtdMap,lo
     s.vendas+=parseFloat(p.total||0);
     s.cupons++;
     s.itens+=(()=>{const n=p.itens?.length;if(n>0)return n;const sv=pvQtdMap?.[parseInt(p.id)];return(sv&&sv>1)?sv:1;})();
-    if(parseFloat(p.desconto?.valor??p.desconto??0)>0)s.desc++;
+    if(parseFloat((p._desconto??p.desconto)?.valor??(p._desconto??p.desconto)??0)>0)s.desc++;
   });
 
   const vends=Object.entries(stats).filter(([,s])=>s.cupons>0).sort((a,b)=>b[1].vendas-a[1].vendas).map(([id,s])=>({
@@ -5162,7 +5188,7 @@ function renderSAVendedoras({pedidos,pedidosPrev,vendedoresArr,pvMap,pvQtdMap,lo
   const totalVendas=vends.reduce((s,v)=>s+v.vendas,0);
   const totalCupons=vends.reduce((s,v)=>s+v.cupons,0);
   const ticketGeral=totalCupons>0?totalVendas/totalCupons:0;
-  const hasDesc2=p=>parseFloat(p.desconto?.valor??p.desconto??0)>0;
+  const hasDesc2=p=>parseFloat((p._desconto??p.desconto)?.valor??(p._desconto??p.desconto)??0)>0;
   const getQtd2=p=>{const n=p.itens?.length;if(n>0)return n;const sv=pvQtdMap?.[parseInt(p.id)];return(sv&&sv>1)?sv:1;};
   const pctMulti=pedidos.length>0?pedidos.filter(p=>getQtd2(p)>=2).length/pedidos.length*100:0;
   const pctDesc=pedidos.length>0?pedidos.filter(hasDesc2).length/pedidos.length*100:0;
