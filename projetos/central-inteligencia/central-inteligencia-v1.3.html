@@ -1262,6 +1262,28 @@
   .upload-zone:hover{border-color:var(--accent);}
   .upload-zone p{font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);}
   .upload-zone input{display:none;}
+  /* ── PERMISSIONS MODAL ── */
+  .perm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+  .perm-overlay.open{display:flex;}
+  .perm-modal{background:var(--surface);border-radius:8px;width:420px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden;}
+  .perm-modal-hdr{padding:20px 22px 14px;border-bottom:1px solid var(--border);}
+  .perm-modal-title{font-family:'Oswald',sans-serif;font-size:17px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--text);}
+  .perm-modal-user{font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);margin-top:3px;}
+  .perm-modal-body{flex:1;overflow-y:auto;padding:14px 22px;}
+  .perm-section{margin-bottom:2px;}
+  .perm-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:5px;transition:background .12s;cursor:pointer;}
+  .perm-row:hover{background:var(--surface2);}
+  .perm-row.child{padding-left:36px;}
+  .perm-row-label{font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--text);flex:1;user-select:none;}
+  .perm-row.child .perm-row-label{font-size:12px;color:var(--muted);}
+  .perm-section-sep{height:6px;}
+  .perm-toggle{position:relative;width:36px;height:20px;flex-shrink:0;}
+  .perm-toggle input{opacity:0;width:0;height:0;position:absolute;}
+  .perm-toggle-track{position:absolute;inset:0;background:var(--border);border-radius:10px;cursor:pointer;transition:background .2s;}
+  .perm-toggle input:checked ~ .perm-toggle-track{background:var(--accent);}
+  .perm-toggle-track::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+  .perm-toggle input:checked ~ .perm-toggle-track::after{transform:translateX(16px);}
+  .perm-modal-ftr{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;}
 
   /* ── GLOBAL USER BUTTON ── */
   #global-user-btn{position:fixed;top:8px;right:12px;z-index:9998;display:none;flex-direction:column;align-items:flex-end;}
@@ -2756,8 +2778,77 @@ function loadAdminSection(name){
   ({users:loadAdminUsers,accounts:loadAdminAccounts,appearance:loadAdminAppearance,data:loadAdminData,system:loadAdminSystem,metas:loadAdminMetas,requests:loadAdminRequests})[name]?.();
 }
 
+/* ── PERMISSION TREE ── */
+const PERMISSION_TREE=[
+  {key:'social',label:'Dashboard Redes Sociais',children:[]},
+  {key:'sales',label:'Dashboard de Vendas',children:[
+    {key:'sales.gestao',label:'Gestão à Vista'},
+    {key:'sales.analise',label:'Análise de Vendas'},
+  ]},
+  {key:'banco',label:'Banco de Arquivos',children:[]},
+];
+let _permUserId=null;
+function openPermModal(u){
+  _permUserId=u.id;
+  const feats=u.features||['banco'];
+  const sub=document.getElementById('perm-modal-user');
+  sub.textContent='';
+  const strong=document.createElement('strong');strong.textContent=u.name||u.email;
+  const rest=document.createTextNode(' · '+u.email);
+  sub.appendChild(strong);sub.appendChild(rest);
+  const body=document.getElementById('perm-modal-body');body.replaceChildren();
+  PERMISSION_TREE.forEach(item=>{
+    body.appendChild(_buildPermRow(item.key,item.label,false,feats.includes(item.key)));
+    item.children.forEach(child=>body.appendChild(_buildPermRow(child.key,child.label,true,feats.includes(child.key))));
+    if(item.children.length){const sep=document.createElement('div');sep.className='perm-section-sep';body.appendChild(sep);}
+  });
+  document.getElementById('perm-modal-overlay').classList.add('open');
+}
+function _buildPermRow(key,label,isChild,isOn){
+  const row=document.createElement('div');row.className='perm-row'+(isChild?' child':'');
+  const tog=document.createElement('label');tog.className='perm-toggle';
+  const inp=document.createElement('input');inp.type='checkbox';inp.checked=isOn;inp.dataset.key=key;
+  inp.addEventListener('change',()=>{
+    const node=PERMISSION_TREE.find(t=>t.key===key);
+    if(node){
+      node.children.forEach(c=>{
+        const ci=document.querySelector('#perm-modal-body input[data-key="'+c.key+'"]');
+        if(ci)ci.checked=inp.checked;
+      });
+    }
+  });
+  const track=document.createElement('span');track.className='perm-toggle-track';
+  tog.appendChild(inp);tog.appendChild(track);
+  const lbl=document.createElement('span');lbl.className='perm-row-label';lbl.textContent=label;
+  row.addEventListener('click',e=>{if(e.target!==inp){inp.checked=!inp.checked;inp.dispatchEvent(new Event('change'));}});
+  row.appendChild(tog);row.appendChild(lbl);
+  return row;
+}
+function closePermModal(){
+  document.getElementById('perm-modal-overlay').classList.remove('open');
+  _permUserId=null;
+}
+async function savePermissions(){
+  const checkboxes=document.querySelectorAll('#perm-modal-body input[type=checkbox]');
+  const features=[];
+  checkboxes.forEach(cb=>{if(cb.checked)features.push(cb.dataset.key);});
+  const btn=document.getElementById('perm-save-btn');
+  btn.disabled=true;btn.textContent='Salvando...';
+  await adFetch('profiles?id=eq.'+_permUserId,{method:'PATCH',body:JSON.stringify({features})});
+  btn.disabled=false;btn.textContent='Salvar';
+  adminToast('Permissões atualizadas');
+  closePermModal();
+  setTimeout(loadAdminUsers,400);
+}
+function _applySubFeatures(){
+  const isAdmin=currentUserRole==='admin';
+  const f=currentUserFeatures;
+  const gc=document.getElementById('smenu-card-gestao');
+  const ac=document.getElementById('smenu-card-analise');
+  if(gc)gc.style.display=(isAdmin||f.includes('sales.gestao'))?'':'none';
+  if(ac)ac.style.display=(isAdmin||f.includes('sales.analise'))?'':'none';
+}
 /* ── USUÁRIOS ── */
-const FEATURE_DEFS=[{key:'social',label:'Redes Sociais'},{key:'sales',label:'Vendas'},{key:'banco',label:'Arquivos'}];
 async function loadAdminUsers(){
   const res=await adFetch('profiles?order=created_at.asc&select=id,email,name,role,disabled,created_at,features');
   const users=await res.json();if(!Array.isArray(users))return;
@@ -2769,7 +2860,6 @@ async function loadAdminUsers(){
   const list=document.getElementById('admin-user-list');list.replaceChildren();
   users.forEach(u=>{
     const isSelf=u.email===document.getElementById('home-user-email').textContent.trim();
-    const userFeatures=u.features||['banco'];
     const row=mkEl('div','sr');row.style.cssText='justify-content:space-between;flex-wrap:wrap;gap:8px';if(u.disabled)row.style.opacity='.5';
     // Avatar
     const av=mkEl('div');av.style.cssText='width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid var(--border)';
@@ -2791,34 +2881,6 @@ async function loadAdminUsers(){
     const dateTxt=mkEl('span');dateTxt.style.cssText='font-size:10px;color:rgba(10,10,18,.3);margin-left:8px';
     dateTxt.textContent=u.created_at?new Date(u.created_at).toLocaleDateString('pt-BR'):'';
     emailTxt.appendChild(dateTxt);main.appendChild(emailTxt);
-    // Feature chips (toggles de acesso por ferramenta)
-    const chipRow=mkEl('div');chipRow.style.cssText='display:flex;gap:4px;flex-wrap:wrap;margin-top:6px';
-    FEATURE_DEFS.forEach(({key,label})=>{
-      const isAdminUser=u.role==='admin';
-      const on=isAdminUser||userFeatures.includes(key);
-      const chip=mkEl('button',null,label);
-      chip.style.fontFamily='\'IBM Plex Sans\',sans-serif';chip.style.fontSize='9px';chip.style.letterSpacing='.5px';
-      chip.style.padding='2px 8px';chip.style.borderRadius='3px';chip.style.border='1px solid';chip.style.transition='all .15s';
-      chip.style.cursor=isAdminUser||isSelf?'default':'pointer';
-      chip.style.background=on?'var(--accent-light)':'transparent';
-      chip.style.color=on?'var(--accent)':'var(--muted)';
-      chip.style.borderColor=on?'var(--accent-mid)':'var(--border)';
-      if(!isAdminUser&&!isSelf){
-        chip.addEventListener('click',async()=>{
-          const cur=u.features||['banco'];
-          const next=cur.includes(key)?cur.filter(f=>f!==key):[...cur,key];
-          await adFetch('profiles?id=eq.'+u.id,{method:'PATCH',body:JSON.stringify({features:next})});
-          u.features=next;
-          const nowOn=next.includes(key);
-          chip.style.background=nowOn?'var(--accent-light)':'transparent';
-          chip.style.color=nowOn?'var(--accent)':'var(--muted)';
-          chip.style.borderColor=nowOn?'var(--accent-mid)':'var(--border)';
-          adminToast('Permissões atualizadas');
-        });
-      }
-      chipRow.appendChild(chip);
-    });
-    main.appendChild(chipRow);
     // Controles
     const ctrl=mkEl('div');ctrl.style.cssText='display:flex;align-items:center;gap:8px;flex-shrink:0';
     const sel=mkEl('select','admin-form-input');sel.style.cssText='max-width:120px;font-size:11px;padding:4px 6px';
@@ -2827,6 +2889,9 @@ async function loadAdminUsers(){
     else sel.disabled=true;
     ctrl.appendChild(sel);
     if(!isSelf){
+      const permBtn=mkEl('button','sr-btn');permBtn.textContent='Permissões';
+      permBtn.addEventListener('click',()=>openPermModal(u));
+      ctrl.appendChild(permBtn);
       const disBtn=mkEl('button','sr-btn '+(u.disabled?'':'danger'));disBtn.textContent=u.disabled?'Ativar':'Desativar';
       disBtn.addEventListener('click',async()=>{await adFetch('profiles?id=eq.'+u.id,{method:'PATCH',body:JSON.stringify({disabled:!u.disabled})});adminToast(u.disabled?'Usuário ativado':'Usuário desativado');setTimeout(loadAdminUsers,600);});
       ctrl.appendChild(disBtn);
@@ -3224,6 +3289,7 @@ function showDashboard(user,role,features){
     const c=document.getElementById('home-card-'+f);
     if(c)c.style.display=(isAdmin||currentUserFeatures.includes(f))?'':'none';
   });
+  _applySubFeatures();
   if(!appInitialized){
     appInitialized=true;
     const screen=sessionStorage.getItem('rbv-screen');
@@ -3651,6 +3717,7 @@ function openSalesDashboard(){
   sessionStorage.setItem('rbv-screen','sales-menu');
   setHomeBgTheme('sales');
   setSMenuView(localStorage.getItem('smenu-view')||'grid');
+  _applySubFeatures();
 }
 function closeSalesDashboard(){
   document.getElementById('sales-menu-screen').style.display='none';
@@ -5102,6 +5169,21 @@ function setHomeBgTheme(type){
 }
 </script>
 
+<!-- PERMISSIONS MODAL -->
+<div id="perm-modal-overlay" class="perm-overlay" onclick="if(event.target===this)closePermModal()">
+  <div class="perm-modal">
+    <div class="perm-modal-hdr">
+      <div class="perm-modal-title">Permissões de Acesso</div>
+      <div class="perm-modal-user" id="perm-modal-user"></div>
+    </div>
+    <div class="perm-modal-body" id="perm-modal-body"></div>
+    <div class="perm-modal-ftr">
+      <button class="sr-btn" onclick="closePermModal()">Cancelar</button>
+      <button class="sr-btn" id="perm-save-btn" onclick="savePermissions()" style="background:var(--accent);color:#fff;padding:7px 18px">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <!-- CAMPAIGN FILTER MODAL -->
 <div id="campaign-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;align-items:center;justify-content:center;backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
   <div class="campaign-modal">
@@ -5144,7 +5226,7 @@ function setHomeBgTheme(type){
       <p>Visualizações disponíveis para dados de vendas</p>
     </div>
     <div class="smenu-cards" id="smenu-cards">
-      <div class="smenu-card" onclick="openGestaoVista()">
+      <div class="smenu-card" id="smenu-card-gestao" onclick="openGestaoVista()">
         <span class="smenu-card-num">01</span>
         <div class="smenu-card-icon">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
@@ -5153,7 +5235,7 @@ function setHomeBgTheme(type){
         <div class="smenu-card-desc">Painel dinâmico para TVs — ranking em tempo real, metas e evolução do mês para manter o time focado em vendas.</div>
         <span class="smenu-card-enter">→</span>
       </div>
-      <div class="smenu-card" onclick="openSalesBrandPicker()">
+      <div class="smenu-card" id="smenu-card-analise" onclick="openSalesBrandPicker()">
         <span class="smenu-card-num">02</span>
         <div class="smenu-card-icon">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
