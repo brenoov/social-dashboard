@@ -497,7 +497,7 @@
   .home-card:hover .home-card-enter{transform:translateX(4px);color:var(--accent);}
   /* List view */
   .home-cards.view-list{flex-direction:column;gap:3px;}
-  .home-cards.view-list .home-card{width:100%;max-width:640px;flex-direction:row;padding:7px 14px;gap:12px;text-align:left;align-items:center;}
+  .home-cards.view-list .home-card{width:100%;max-width:none;flex-direction:row;padding:6px 14px;gap:12px;text-align:left;align-items:center;min-height:0;}
   .home-cards.view-list .home-card-icon{width:30px;height:30px;border-radius:7px;margin-bottom:0;flex-shrink:0;font-size:14px;}
   .home-cards.view-list .home-card-text{flex-direction:row;align-items:center;gap:14px;flex:1;}
   .home-cards.view-list .home-card h3{font-size:12px;letter-spacing:1px;white-space:nowrap;}
@@ -1392,8 +1392,16 @@
 
   /* ── GLOBAL USER BUTTON ── */
   #global-user-btn{position:fixed;top:8px;right:12px;z-index:9998;display:none;flex-direction:column;align-items:flex-end;}
-  #gub-trigger{width:32px;height:32px;border-radius:50%;background:var(--accent);border:2px solid rgba(255,255,255,.2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;color:#fff;letter-spacing:.3px;box-shadow:0 2px 10px rgba(0,0,0,.25);transition:transform .15s,box-shadow .15s;flex-shrink:0;outline:none;}
+  #gub-trigger{width:32px;height:32px;border-radius:50%;background:var(--accent);border:2px solid rgba(255,255,255,.2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;color:#fff;letter-spacing:.3px;box-shadow:0 2px 10px rgba(0,0,0,.25);transition:transform .15s,box-shadow .15s;flex-shrink:0;outline:none;overflow:hidden;position:relative;}
   #gub-trigger:hover{transform:scale(1.1);box-shadow:0 4px 18px rgba(0,0,0,.32);}
+  #gub-av-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%;display:none;}
+  #gub-av-edit{position:absolute;bottom:-1px;right:-1px;width:14px;height:14px;border-radius:50%;background:var(--accent);border:1.5px solid #fff;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;z-index:9999;opacity:0;transition:opacity .15s;pointer-events:none;}
+  #global-user-btn:hover #gub-av-edit{opacity:1;pointer-events:auto;}
+  /* Avatar edit in admin user list */
+  .av-wrap{position:relative;flex-shrink:0;}
+  .av-edit-btn{position:absolute;bottom:-2px;right:-2px;width:16px;height:16px;border-radius:50%;background:var(--accent);border:1.5px solid var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;opacity:0;transition:opacity .15s;}
+  .av-wrap:hover .av-edit-btn{opacity:1;}
+  .av-img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
   #gub-menu{position:absolute;top:40px;right:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.18);min-width:220px;overflow:hidden;display:none;}
   .gub-info{padding:13px 15px 11px;border-bottom:1px solid var(--border);}
   .gub-email{font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--text);font-weight:500;display:block;margin-bottom:5px;word-break:break-all;line-height:1.4;}
@@ -2860,6 +2868,7 @@ function clearCustomRange(){currentStartDate=null;currentEndDate=null;document.g
 /* ── AUTH ── */
 let currentUserRole='viewer';
 let currentUserFeatures=[];
+let currentUserId=null;
 
 let _authCanvasCleanup=null;
 function showAuth(mode='login'){
@@ -2977,7 +2986,7 @@ function _applySubFeatures(){
 }
 /* ── USUÁRIOS ── */
 async function loadAdminUsers(){
-  const res=await adFetch('profiles?order=created_at.asc&select=id,email,name,role,disabled,created_at,features');
+  const res=await adFetch('profiles?order=created_at.asc&select=id,email,name,role,disabled,created_at,features,avatar_url');
   const users=await res.json();if(!Array.isArray(users))return;
   const active=users.filter(u=>!u.disabled),admins=active.filter(u=>u.role==='admin').length;
   const stats=document.getElementById('admin-stats-users');stats.replaceChildren();
@@ -2991,11 +3000,18 @@ async function loadAdminUsers(){
     const isSuperAdmin=u.email===SUPERADMIN_EMAIL;
     const canEdit=!isSuperAdmin||(currentEmail===SUPERADMIN_EMAIL);
     const row=mkEl('div','sr');row.style.cssText='justify-content:space-between;flex-wrap:wrap;gap:8px';if(u.disabled)row.style.opacity='.5';
-    const av=mkEl('div');av.style.cssText='width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid var(--border)';
+    const avWrap=mkEl('div','av-wrap');avWrap.style.cssText='width:34px;height:34px;';
+    const av=mkEl('div');av.style.cssText='width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);overflow:hidden;position:relative;';
     av.style.background=u.role==='admin'?'var(--accent)':'var(--surface2)';
-    const avTxt=mkEl('span');avTxt.style.cssText='font-family:\'Oswald\',sans-serif;font-size:14px;font-weight:600';
-    avTxt.style.color=u.role==='admin'?'#fff':'var(--muted)';
-    avTxt.textContent=(u.name||u.email).charAt(0).toUpperCase();av.appendChild(avTxt);
+    if(u.avatar_url){const img=mkEl('img','av-img');img.src=u.avatar_url+'?t='+Date.now();img.alt='';av.appendChild(img);}
+    else{const avTxt=mkEl('span');avTxt.style.cssText='font-family:\'Oswald\',sans-serif;font-size:14px;font-weight:600';avTxt.style.color=u.role==='admin'?'#fff':'var(--muted)';avTxt.textContent=(u.name||u.email).charAt(0).toUpperCase();av.appendChild(avTxt);}
+    const avEditBtn=mkEl('button','av-edit-btn');avEditBtn.title='Trocar foto';avEditBtn.innerHTML='<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+    avEditBtn.addEventListener('click',()=>_triggerAvatarUpload(u.id,(url)=>{
+      av.innerHTML='';const img=mkEl('img','av-img');img.src=url+'?t='+Date.now();img.alt='';av.appendChild(img);
+      if(u.id===currentUserId)_setGubAvatar(url);
+      adminToast('Foto atualizada!');
+    }));
+    avWrap.appendChild(av);avWrap.appendChild(avEditBtn);
     const main=mkEl('div','sr-main');main.style.marginLeft='10px';
     const nameWrap=mkEl('div');nameWrap.style.cssText='display:flex;align-items:center;gap:6px';
     const nameInp=mkEl('input');nameInp.value=u.name||'';nameInp.placeholder='Nome';
@@ -3024,7 +3040,7 @@ async function loadAdminUsers(){
       disBtn.addEventListener('click',async()=>{await adFetch('profiles?id=eq.'+u.id,{method:'PATCH',body:JSON.stringify({disabled:!u.disabled})});adminToast(u.disabled?'Usuário ativado':'Usuário desativado');setTimeout(loadAdminUsers,600);});
       ctrl.appendChild(disBtn);
     }
-    row.appendChild(av);row.appendChild(main);row.appendChild(ctrl);list.appendChild(row);
+    row.appendChild(avWrap);row.appendChild(main);row.appendChild(ctrl);list.appendChild(row);
   });
 }
 async function adminInviteUser(mode){
@@ -3624,13 +3640,14 @@ function openDashboard(){
   sessionStorage.setItem('rbv-screen','dashboard');
   setHomeBgTheme('social');
 }
-function showDashboard(user,role,features){
+function showDashboard(user,role,features,avatarUrl){
   currentUserRole=role;
   currentUserFeatures=features||['banco'];
+  currentUserId=user.id||null;
   document.getElementById('home-user-email').textContent=user.email+' ';
   document.getElementById('home-user-role').textContent=role==='admin'?'ADMIN':'VIEWER';
   document.getElementById('home-user-role').className='user-role-chip';
-  setGlobalUserBtn(user.email,role);
+  setGlobalUserBtn(user.email,role,avatarUrl);
   const adminCard=document.getElementById('home-card-admin');
   if(adminCard)adminCard.style.display=role==='admin'?'':'none';
   const isAdmin=role==='admin';
@@ -3790,7 +3807,7 @@ function closeUserMenu(){
   const m=document.getElementById('gub-menu');
   if(m)m.style.display='none';
 }
-function setGlobalUserBtn(email,role){
+function setGlobalUserBtn(email,role,avatarUrl){
   const btn=document.getElementById('global-user-btn');
   if(!btn)return;
   btn.style.display='flex';
@@ -3800,6 +3817,14 @@ function setGlobalUserBtn(email,role){
   document.getElementById('gub-email-lbl').textContent=email||'';
   const chip=document.getElementById('gub-role-chip');
   if(chip){chip.textContent=role==='admin'?'ADMIN':'VIEWER';}
+  _setGubAvatar(avatarUrl);
+}
+function _setGubAvatar(url){
+  const img=document.getElementById('gub-av-img');
+  const inits=document.getElementById('gub-initials');
+  if(!img)return;
+  if(url){img.src=url+'?t='+Date.now();img.style.display='block';if(inits)inits.style.display='none';}
+  else{img.style.display='none';if(inits)inits.style.display='';}
 }
 function hideGlobalUserBtn(){
   const btn=document.getElementById('global-user-btn');
@@ -3807,6 +3832,26 @@ function hideGlobalUserBtn(){
   closeUserMenu();
 }
 document.addEventListener('click',()=>closeUserMenu());
+
+/* ── AVATAR UPLOAD ── */
+let _avCb=null;
+const _avInput=(()=>{const i=document.createElement('input');i.type='file';i.accept='image/jpeg,image/png,image/webp,image/gif';i.style.display='none';document.body.appendChild(i);i.addEventListener('change',async()=>{const f=i.files?.[0];if(f&&_avCb)_avCb(f);i.value='';});return i;})();
+async function _uploadAvatar(userId,file){
+  const path=userId;
+  const{error}=await sbClient.storage.from('avatars').upload(path,file,{upsert:true,contentType:file.type});
+  if(error)throw error;
+  const{data:{publicUrl}}=sbClient.storage.from('avatars').getPublicUrl(path);
+  await adFetch('profiles?id=eq.'+userId,{method:'PATCH',body:JSON.stringify({avatar_url:publicUrl})});
+  return publicUrl;
+}
+function _triggerAvatarUpload(userId,onDone){
+  if(!userId)return;
+  _avCb=async(file)=>{
+    try{const url=await _uploadAvatar(userId,file);onDone(url);}
+    catch(e){adminToast('Erro ao enviar: '+e.message);}
+  };
+  _avInput.click();
+}
 
 /* ── CHANGE PASSWORD MODAL ── */
 function openCpmModal(){
@@ -3904,13 +3949,14 @@ let _loginHandled=false;
 
 async function loadDashboard(session){
   const tok=session.access_token||SUPABASE_ANON_KEY;
-  const pr=await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${session.user.id}&select=role,features`,{
+  const pr=await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${session.user.id}&select=role,features,avatar_url`,{
     headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${tok}`}
   });
   const profiles=await pr.json();
   const role=profiles?.[0]?.role||'viewer';
   const features=profiles?.[0]?.features||['banco'];
-  showDashboard(session.user,role,features);
+  const avatarUrl=profiles?.[0]?.avatar_url||null;
+  showDashboard(session.user,role,features,avatarUrl);
   if(!dashboardReady){
     buildPeriodTabs();updateGoalDisplays(7);watchGoals();
     dashboardReady=true;
@@ -6255,9 +6301,13 @@ function setHomeBgTheme(type){
 </div>
 
 <!-- ── GLOBAL USER BUTTON ── -->
-<div id="global-user-btn" onclick="event.stopPropagation()">
+<div id="global-user-btn" onclick="event.stopPropagation()" style="position:relative">
   <button id="gub-trigger" onclick="toggleUserMenu()" title="Minha conta">
+    <img id="gub-av-img" alt="avatar">
     <span id="gub-initials">?</span>
+  </button>
+  <button id="gub-av-edit" onclick="event.stopPropagation();_triggerAvatarUpload(currentUserId,function(url){_setGubAvatar(url);})" title="Trocar foto">
+    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
   </button>
   <div id="gub-menu">
     <div class="gub-info">
