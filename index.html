@@ -2258,7 +2258,7 @@ function hasPermission(resourceKey){
   return (currentUserFeatures||[]).includes(fKey);
 }
 
-const PERIODS=[{label:'HOJE',value:0},{label:'1D',value:1},{label:'7D',value:7},{label:'14D',value:14},{label:'30D',value:30}];
+const PERIODS=[{label:'HOJE',value:0},{label:'1D',value:1},{label:'7D',value:7},{label:'14D',value:14},{label:'MÊS',value:'month'},{label:'ATÉ AGORA',value:'sofar'}];
 const ACCOUNT_PICS={};
 const PROFILE_THEMES={
   'Raíssa Herculano':{ accent:'#BE185D', light:'rgba(190,24,93,0.08)',  mid:'rgba(190,24,93,0.30)' },
@@ -2534,6 +2534,7 @@ async function fetchData(accountId,period,customStart,customEnd){
   const months=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const days=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
   const isHoje=period===0;
+  const isCalMonth=period==='month'||period==='sofar';
   let refDate,histStartDate,storedPeriod,effectivePeriod;
   if(customStart&&customEnd){
     refDate=new Date(customEnd+'T12:00:00');
@@ -2541,6 +2542,13 @@ async function fetchData(accountId,period,customStart,customEnd){
     effectivePeriod=Math.max(1,Math.round((refDate-sd)/86400000));
     storedPeriod=closestStoredPeriod(effectivePeriod);
     histStartDate=sd;
+  } else if(isCalMonth){
+    const now=new Date();
+    const firstOfMonth=new Date(now.getFullYear(),now.getMonth(),1,12);
+    refDate=now;
+    effectivePeriod=Math.max(1,now.getDate()-1);
+    storedPeriod=closestStoredPeriod(effectivePeriod);
+    histStartDate=new Date(firstOfMonth);histStartDate.setDate(histStartDate.getDate()-5);
   } else {
     effectivePeriod=isHoje?1:period;storedPeriod=period;
     refDate=new Date();
@@ -2977,7 +2985,7 @@ function restoreHeaderState(){
     if(btn)btn.querySelector('.ht-arrow').style.transform='rotate(180deg)';
   }
 }
-function updateGoalDisplays(period){const p=period===0?1:period;Object.keys(GOALS).forEach(k=>{const el=document.getElementById('goal-'+k);if(el)el.textContent=loadGoal(k,p,currentAccountId);});}
+function updateGoalDisplays(period){const p=period===0?1:(typeof period==='string'?30:period);Object.keys(GOALS).forEach(k=>{const el=document.getElementById('goal-'+k);if(el)el.textContent=loadGoal(k,p,currentAccountId);});}
 function watchGoals(){document.querySelectorAll('.mc-goal-val').forEach(el=>{el.addEventListener('blur',()=>{const key=el.id.replace('goal-','');saveGoal(key,el.textContent.trim());refresh();});el.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();el.blur();}});});}
 let _refreshId=0;
 async function refresh(){if(!currentAccountId)return;const myId=++_refreshId;const data=await fetchData(currentAccountId,currentPeriod,currentStartDate,currentEndDate);if(myId!==_refreshId)return;update(data,currentPeriod);}
