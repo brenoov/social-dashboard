@@ -6658,103 +6658,8 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily,prevDaily,a
     }
     col.appendChild(funnelSec);
 
-    // ── Evolução diária + por objetivo (2 col)
-    const twoCol=document.createElement('div');twoCol.className='ma-two-col';
-
-    const secDaily=document.createElement('div');secDaily.className='ma-section';
-    secDaily.innerHTML='<div class="ma-section-title" style="margin-bottom:14px">Evolução de Gasto</div>';
-    const wrapDaily=document.createElement('div');wrapDaily.className='ma-chart-wrap';wrapDaily.style.height='220px';
-    const cvDaily=document.createElement('canvas');wrapDaily.appendChild(cvDaily);secDaily.appendChild(wrapDaily);
-    twoCol.appendChild(secDaily);
-
-    const secObjChart=document.createElement('div');secObjChart.className='ma-section';
-    secObjChart.innerHTML='<div class="ma-section-title">Por Objetivo</div>';
-    const wrapObj=document.createElement('div');wrapObj.className='ma-chart-wrap';wrapObj.style.height='220px';
-    const cvObj=document.createElement('canvas');wrapObj.appendChild(cvObj);secObjChart.appendChild(wrapObj);
-    twoCol.appendChild(secObjChart);
-    col.appendChild(twoCol);
-
-    // ── Gasto por campanha (horizontal bar)
-    const sortedSpend=[...insArr].sort((a,b)=>parseFloat(b.spend||0)-parseFloat(a.spend||0)).slice(0,10);
-    const secSpend=document.createElement('div');secSpend.className='ma-section';
-    secSpend.innerHTML='<div class="ma-section-title">Gasto por Campanha</div>';
-    const rowH=Math.max(36,sortedSpend.length>0?sortedSpend.length*38+60:60);
-    const wrapSpend=document.createElement('div');wrapSpend.className='ma-chart-wrap';wrapSpend.style.height=rowH+'px';
-    const cvSpend=document.createElement('canvas');wrapSpend.appendChild(cvSpend);secSpend.appendChild(wrapSpend);
-    col.appendChild(secSpend);
-
-    // ── CTR ranking
-    const sortedCtr=[...insArr].filter(i=>parseFloat(i.impressions||0)>0).sort((a,b)=>parseFloat(b.ctr||0)-parseFloat(a.ctr||0)).slice(0,10);
-    const secCtr=document.createElement('div');secCtr.className='ma-section';
-    secCtr.innerHTML='<div class="ma-section-title">CTR por Campanha</div>';
-    const ctrRowH=Math.max(36,sortedCtr.length>0?sortedCtr.length*38+60:60);
-    const wrapCtr=document.createElement('div');wrapCtr.className='ma-chart-wrap';wrapCtr.style.height=ctrRowH+'px';
-    const cvCtr=document.createElement('canvas');wrapCtr.appendChild(cvCtr);secCtr.appendChild(wrapCtr);
-    col.appendChild(secCtr);
-
-    // ── Campaign list with sub-filter
-    col.appendChild(_buildMaCampaignSection(insArr,campaigns,prevCampMap));
-
-    // ── Ad list
-    if(adInsights.length){
-      col.appendChild(_buildMaAdSection(adInsights,insArr));
-    }
-
-    requestAnimationFrame(()=>{
-      try{
-        const tc=window._saLabelColor?.()||getComputedStyle(document.documentElement).getPropertyValue('--text').trim()||'#333';
-        const isDark=document.documentElement.dataset.theme==='dark';
-        const dlColor=isDark?'rgba(226,228,240,.85)':'rgba(20,20,30,.75)';
-
-        // Daily line chart with previous period comparison
-        if(daily.length){
-          const labels=daily.map(d=>{const dt=new Date(d.date_start+'T12:00:00');return String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0');});
-          const vals=daily.map(d=>parseFloat(d.spend||0));
-          const showPoints=vals.length<=20;
-          const showLabels=vals.length<=10;
-          const datasets=[{label:'Período Atual',data:vals,borderColor:'#1877F2',backgroundColor:'rgba(24,119,242,.10)',borderWidth:2.5,fill:true,pointRadius:showPoints?4:0,pointHoverRadius:7,pointBackgroundColor:'#1877F2',tension:.35,order:1}];
-          if(prevDaily.length){
-            const pv=prevDaily.map(d=>parseFloat(d.spend||0));
-            datasets.push({label:'Período Ant.',data:pv,borderColor:'rgba(100,110,140,.55)',backgroundColor:'transparent',borderWidth:1.5,borderDash:[5,4],fill:false,pointRadius:0,pointHoverRadius:5,tension:.35,order:2,datalabels:{display:false}});
-          }
-          _maCharts.daily=new Chart(cvDaily,{type:'line',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,position:'top',labels:{boxWidth:10,usePointStyle:true,pointStyle:'circle',font:{size:10},color:tc,padding:14}},tooltip:{backgroundColor:'rgba(10,10,24,.9)',titleColor:'#fff',bodyColor:'rgba(255,255,255,.85)',padding:10,cornerRadius:7,callbacks:{title:items=>items[0].label,label:ctx=>`${ctx.dataset.label}: R$ ${ctx.raw.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}`}},datalabels:{display:ctx=>showLabels&&ctx.datasetIndex===0,formatter:v=>'R$'+v.toFixed(0),color:dlColor,font:{size:9,weight:'700'},anchor:'end',align:'top',offset:4}},scales:{x:{grid:{display:false},ticks:{font:{size:10},color:tc,maxTicksLimit:12}},y:{ticks:{callback:v=>'R$'+v.toFixed(0),font:{size:10},color:tc},grid:{color:'rgba(128,128,128,.07)'}}}}});
-        }else{cvDaily.parentElement.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:220px;font-size:12px;color:var(--muted)">Sem dados diários</div>';}
-
-        // Doughnut — por objetivo
-        const objMap={};insArr.forEach(ins=>{const l=_maObjLabel(ins.objective);objMap[l]=(objMap[l]||0)+parseFloat(ins.spend||0);});
-        const objKeys=Object.keys(objMap);const objVals=objKeys.map(k=>objMap[k]);
-        const totalSpend=objVals.reduce((a,b)=>a+b,0)||1;
-        const pal=['#1877F2','#7C3AED','#D97706','#059669','#0891B2','#DC2626'];
-        if(objKeys.length){
-          _maCharts.obj=new Chart(cvObj,{type:'doughnut',data:{labels:objKeys,datasets:[{data:objVals,backgroundColor:pal.slice(0,objKeys.length),borderWidth:0,hoverOffset:10}]},options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'bottom',labels:{boxWidth:10,usePointStyle:true,pointStyle:'circle',font:{size:10},color:tc,padding:10}},tooltip:{backgroundColor:'rgba(10,10,24,.9)',titleColor:'#fff',bodyColor:'rgba(255,255,255,.85)',padding:10,cornerRadius:7,callbacks:{label:ctx=>`${ctx.label}: ${_maFmtR(ctx.raw)} (${(ctx.raw/totalSpend*100).toFixed(1)}%)`}},datalabels:{display:ctx=>ctx.raw/totalSpend>.05,formatter:v=>(v/totalSpend*100).toFixed(0)+'%',color:'#fff',font:{size:10,weight:'700'}}}}});
-        }else{cvObj.parentElement.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:220px;font-size:12px;color:var(--muted)">Sem dados</div>';}
-
-        // Gasto por campanha — with prev period comparison
-        if(sortedSpend.length){
-          const spLabels=sortedSpend.map(i=>(i.campaign_name||'—').replace(/\[TRÁFEGO\]|\[Leads\]|\[L\]/gi,'').trim().slice(0,32));
-          const spVals=sortedSpend.map(i=>parseFloat(i.spend||0));
-          const spPrev=sortedSpend.map(i=>parseFloat(prevCampMap[i.campaign_id]?.spend||0));
-          const hasPrevSpend=spPrev.some(v=>v>0);
-          const spDatasets=[{label:'Atual',data:spVals,backgroundColor:'rgba(24,119,242,.82)',borderRadius:4,borderSkipped:false,datalabels:{display:ctx=>ctx.raw>0,formatter:v=>_maFmtR(v),color:dlColor,font:{size:9,weight:'700'},anchor:'end',align:'right',offset:4,clamp:true}}];
-          if(hasPrevSpend)spDatasets.push({label:'Período Ant.',data:spPrev,backgroundColor:'rgba(100,110,160,.35)',borderRadius:4,borderSkipped:false,datalabels:{display:false}});
-          _maCharts.spend=new Chart(cvSpend,{type:'bar',data:{labels:spLabels,datasets:spDatasets},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:hasPrevSpend,position:'top',labels:{boxWidth:10,usePointStyle:true,pointStyle:'rect',font:{size:10},color:tc,padding:10}},tooltip:{backgroundColor:'rgba(10,10,24,.9)',titleColor:'#fff',bodyColor:'rgba(255,255,255,.85)',padding:10,cornerRadius:7,callbacks:{label:ctx=>`${ctx.dataset.label}: ${_maFmtR(ctx.raw)}`}},datalabels:{}},scales:{x:{grid:{color:'rgba(128,128,128,.07)'},ticks:{callback:v=>'R$'+v.toFixed(0),font:{size:9},color:tc}},y:{grid:{display:false},ticks:{font:{size:10},color:tc}}}}});
-        }
-
-        // CTR ranking — with prev period comparison
-        if(sortedCtr.length){
-          const ctrLabels=sortedCtr.map(i=>(i.campaign_name||'—').replace(/\[TRÁFEGO\]|\[Leads\]|\[L\]/gi,'').trim().slice(0,32));
-          const ctrVals=sortedCtr.map(i=>parseFloat(i.ctr||0));
-          const ctrPrev=sortedCtr.map(i=>{const pi=prevCampMap[i.campaign_id];if(!pi)return 0;const pimp=parseFloat(pi.impressions||0);const pclk=parseFloat(pi.clicks||0);return pimp>0?pclk/pimp*100:0;});
-          const hasPrevCtr=ctrPrev.some(v=>v>0);
-          const ctrColors=ctrVals.map(v=>v>=2?'rgba(22,163,74,.85)':v>=0.8?'rgba(245,158,11,.85)':'rgba(220,38,38,.82)');
-          const ctrDatasets=[{label:'CTR Atual',data:ctrVals,backgroundColor:ctrColors,borderRadius:4,borderSkipped:false,datalabels:{display:ctx=>ctx.raw>0,formatter:v=>v.toFixed(2)+'%',color:dlColor,font:{size:9,weight:'700'},anchor:'end',align:'right',offset:4,clamp:true}}];
-          if(hasPrevCtr)ctrDatasets.push({label:'CTR Ant.',data:ctrPrev,backgroundColor:'rgba(100,110,160,.35)',borderRadius:4,borderSkipped:false,datalabels:{display:false}});
-          _maCharts.ctr=new Chart(cvCtr,{type:'bar',data:{labels:ctrLabels,datasets:ctrDatasets},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:hasPrevCtr,position:'top',labels:{boxWidth:10,usePointStyle:true,pointStyle:'rect',font:{size:10},color:tc,padding:10}},tooltip:{backgroundColor:'rgba(10,10,24,.9)',titleColor:'#fff',bodyColor:'rgba(255,255,255,.85)',padding:10,cornerRadius:7,callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.raw.toFixed(2)}%`}},datalabels:{}},scales:{x:{grid:{color:'rgba(128,128,128,.07)'},ticks:{callback:v=>v.toFixed(1)+'%',font:{size:9},color:tc}},y:{grid:{display:false},ticks:{font:{size:10},color:tc}}}}});
-        }
-      }catch(chartErr){
-        console.error('[MetaAds] chart error:',chartErr);
-      }
-    });
+    // ── Tabbed card: Campanhas | Anúncios
+    col.appendChild(_buildMaTabCard(insArr,campaigns,prevCampMap,adInsights));
   } // end _drawContent
 
   _drawContent(insights,null);
@@ -6802,6 +6707,66 @@ function _buildMaTable(insights,campaigns){
     tbody.appendChild(tr);
   });
   tbl.appendChild(tbody);wrap.appendChild(tbl);
+  return wrap;
+}
+
+function _buildMaTabCard(insArr,campaigns,prevCampMap,adInsights){
+  const wrap=document.createElement('div');wrap.className='ma-section';wrap.style.padding='0';wrap.style.overflow='hidden';
+
+  // Tab bar
+  const tabBar=document.createElement('div');
+  tabBar.style.cssText='display:flex;align-items:center;gap:0;border-bottom:1px solid var(--border);background:var(--surface2);';
+
+  const tabs=[
+    {id:'campanhas',label:'Campanhas',badge:insArr.length},
+    {id:'anuncios',label:'Anúncios',badge:(adInsights||[]).length},
+  ];
+
+  const panes={};
+  let activeTab='campanhas';
+
+  function switchTab(id){
+    activeTab=id;
+    tabBtns.forEach((btn,i)=>{
+      const isActive=tabs[i].id===id;
+      btn.style.borderBottom=isActive?'2px solid var(--accent)':'2px solid transparent';
+      btn.style.color=isActive?'var(--accent)':'var(--muted)';
+      btn.style.fontWeight=isActive?'700':'500';
+    });
+    Object.entries(panes).forEach(([k,p])=>{p.style.display=k===id?'':'none';});
+  }
+
+  const tabBtns=tabs.map(t=>{
+    const btn=document.createElement('button');
+    btn.style.cssText='display:flex;align-items:center;gap:6px;padding:12px 18px;background:none;border:none;border-bottom:2px solid transparent;font-family:"IBM Plex Sans",sans-serif;font-size:12px;cursor:pointer;transition:all .15s;color:var(--muted);font-weight:500;white-space:nowrap;';
+    const badgeEl=document.createElement('span');
+    badgeEl.style.cssText='display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--border);color:var(--text);font-size:9px;font-weight:700;';
+    badgeEl.textContent=t.badge;
+    btn.textContent=t.label;
+    btn.appendChild(badgeEl);
+    btn.addEventListener('click',()=>switchTab(t.id));
+    tabBar.appendChild(btn);
+    return btn;
+  });
+  wrap.appendChild(tabBar);
+
+  // Build pane content
+  const campPane=document.createElement('div');campPane.style.cssText='padding:18px 20px;';
+  const campSec=_buildMaCampaignSection(insArr,campaigns,prevCampMap);
+  // Transplant inner content (strip the outer .ma-section wrapper)
+  campSec.style.padding='0';campSec.style.background='none';campSec.style.borderRadius='0';
+  campPane.appendChild(campSec);
+  panes['campanhas']=campPane;
+  wrap.appendChild(campPane);
+
+  const adPane=document.createElement('div');adPane.style.cssText='padding:18px 20px;display:none;';
+  const adSec=_buildMaAdSection(adInsights||[],insArr);
+  adSec.style.padding='0';adSec.style.background='none';adSec.style.borderRadius='0';
+  adPane.appendChild(adSec);
+  panes['anuncios']=adPane;
+  wrap.appendChild(adPane);
+
+  switchTab('campanhas');
   return wrap;
 }
 
