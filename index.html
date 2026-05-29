@@ -6352,10 +6352,47 @@ function _buildMaDropdown(drop){
   });
 }
 
+let _maCustomSince=null,_maCustomUntil=null;
+
 function setMaPeriod(btn){
   document.querySelectorAll('#ma-period-btns .gv-pbtn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   _maPreset=btn.dataset.preset;
+  _maCustomSince=null;_maCustomUntil=null;
+  const panel=document.getElementById('ma-custom-range-panel');
+  const rangeBtn=document.getElementById('ma-custom-range-btn');
+  if(panel)panel.style.display='none';
+  if(rangeBtn)rangeBtn.classList.remove('active');
+  loadMaData();
+}
+
+function toggleMaCustomRange(){
+  const panel=document.getElementById('ma-custom-range-panel');
+  const btn=document.getElementById('ma-custom-range-btn');
+  const open=panel.style.display==='none'||panel.style.display==='';
+  panel.style.display=open?'flex':'none';
+  btn.classList.toggle('active',open);
+}
+
+function applyMaCustomRange(){
+  const s=document.getElementById('ma-custom-start').value;
+  const e=document.getElementById('ma-custom-end').value;
+  if(!s||!e){alert('Selecione data de início e fim.');return;}
+  if(s>e){alert('Data de início deve ser anterior à data de fim.');return;}
+  _maCustomSince=s;_maCustomUntil=e;
+  document.querySelectorAll('#ma-period-btns .gv-pbtn').forEach(b=>b.classList.remove('active'));
+  loadMaData();
+}
+
+function clearMaCustomRange(){
+  _maCustomSince=null;_maCustomUntil=null;
+  document.getElementById('ma-custom-start').value='';
+  document.getElementById('ma-custom-end').value='';
+  document.getElementById('ma-custom-range-panel').style.display='none';
+  document.getElementById('ma-custom-range-btn').classList.remove('active');
+  // Re-activate the default preset button
+  const def=document.querySelector('#ma-period-btns .gv-pbtn[data-preset="30d"]');
+  if(def){def.classList.add('active');_maPreset='30d';}
   loadMaData();
 }
 
@@ -6384,7 +6421,17 @@ async function loadMaData(){
   content.innerHTML='<div class="gv-loading-screen"><div class="gv-spinner"></div><span class="gv-loading-lbl">Carregando campanhas</span></div>';
   Object.values(_maCharts).forEach(c=>{try{c.destroy();}catch(e){}});_maCharts={};
 
-  const{since,until,prevSince,prevUntil}=_maDateRange(_maPreset);
+  let since,until,prevSince,prevUntil;
+  if(_maCustomSince&&_maCustomUntil){
+    since=_maCustomSince;until=_maCustomUntil;
+    // prev range = same length immediately before since
+    const days=Math.round((new Date(until)-new Date(since))/86400000);
+    const iso=d=>{const dd=new Date(d);return dd.toISOString().slice(0,10);};
+    const shift=n=>{const d=new Date(since+'T12:00:00');d.setDate(d.getDate()+n);return iso(d);};
+    prevUntil=shift(-1);prevSince=shift(-days-1);
+  }else{
+    ({since,until,prevSince,prevUntil}=_maDateRange(_maPreset));
+  }
   try{
     const[insights,campaigns,prevInsights,daily,prevDaily,adInsights]=await Promise.all([
       _fetchInsights(_maCurAcc.ad_account_id,_maCurAcc.access_token,{time_range:{since,until}}),
@@ -7477,14 +7524,22 @@ function setHomeBgTheme(type){
         <span class="gv-brand-tag" style="font-size:9px;letter-spacing:2px;opacity:.5;">Meta · Tráfego Pago</span>
       </div>
     </div>
-    <div class="gv-period-btns" id="ma-period-btns">
+    <div class="gv-period-btns" id="ma-period-btns" style="flex-wrap:wrap;">
       <button class="gv-pbtn" data-preset="today" onclick="setMaPeriod(this)"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite;vertical-align:middle;flex-shrink:0;"></span>HOJE</button>
       <button class="gv-pbtn" data-preset="1d" onclick="setMaPeriod(this)">1D</button>
       <button class="gv-pbtn" data-preset="7d" onclick="setMaPeriod(this)">7D</button>
       <button class="gv-pbtn" data-preset="14d" onclick="setMaPeriod(this)">14D</button>
       <button class="gv-pbtn active" data-preset="30d" onclick="setMaPeriod(this)">MÊS</button>
       <button class="gv-pbtn" data-preset="month" onclick="setMaPeriod(this)">ATÉ AGORA</button>
+      <button class="custom-range-btn" id="ma-custom-range-btn" onclick="toggleMaCustomRange()">📅</button>
       <button class="gv-pbtn" id="ma-refresh-btn" onclick="loadMaData()" style="border-color:var(--accent);color:var(--accent)">↻</button>
+      <div id="ma-custom-range-panel" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;width:100%;padding-top:6px;">
+        <input type="date" id="ma-custom-start" class="custom-date-input">
+        <span style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted)">até</span>
+        <input type="date" id="ma-custom-end" class="custom-date-input">
+        <button class="custom-apply-btn" onclick="applyMaCustomRange()">Aplicar</button>
+        <button class="custom-clear-btn" onclick="clearMaCustomRange()">✕</button>
+      </div>
     </div>
     <div id="ma-account-picker" onclick="event.stopPropagation()" style="position:relative;display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
       <button id="ma-acc-trigger" style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:7px;padding:5px 12px;background:var(--surface2);cursor:pointer;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--text);white-space:nowrap;" onclick="event.stopPropagation();toggleMaAccPicker()">
