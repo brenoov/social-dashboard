@@ -6774,34 +6774,41 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily,prevDaily,a
 
     // Header row
     const hdr=document.createElement('div');
-    hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:12px;flex-wrap:wrap;';
+    hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:12px;';
     const ttl=document.createElement('div');ttl.className='ma-section-title';ttl.style.marginBottom='0';ttl.textContent='Funil de Conversão';
     hdr.appendChild(ttl);
-
-    // Objective selector chips (shown when multiple objectives)
-    if(uniqueObjs.length>1){
-      const chips=document.createElement('div');chips.style.cssText='display:flex;gap:6px;flex-wrap:wrap;align-items:center;';
-      uniqueObjs.forEach(o=>{
-        const chip=document.createElement('button');
-        const isActive=o===resolvedObj;
-        chip.style.cssText=`padding:4px 10px;border-radius:20px;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:.4px;cursor:pointer;transition:all .15s;border:1px solid ${isActive?'var(--accent)':'var(--border)'};background:${isActive?'var(--accent)':'none'};color:${isActive?'#fff':'var(--muted)'};white-space:nowrap;`;
-        chip.textContent=MA_FUNNEL_DEF[o]?.label||o;
-        chip.addEventListener('click',()=>_drawContent(insArr,o));
-        chips.appendChild(chip);
-      });
-      hdr.appendChild(chips);
+    if(uniqueObjs.length===1&&!activeObj){
+      const autoLbl=document.createElement('div');
+      autoLbl.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:10px;color:var(--muted);';
+      autoLbl.textContent=(MA_FUNNEL_DEF[uniqueObjs[0]]?.label||uniqueObjs[0])+' · único objetivo ativo';
+      hdr.appendChild(autoLbl);
     }
     sec.appendChild(hdr);
 
+    // Prominent objective toggle bar — shown when funnel is active and multiple objectives exist
+    if(uniqueObjs.length>1&&resolvedObj){
+      const toggleBar=document.createElement('div');
+      toggleBar.style.cssText='display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:16px;padding:10px 14px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);';
+      const lbl=document.createElement('span');
+      lbl.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:10px;font-weight:600;letter-spacing:.6px;color:var(--muted);text-transform:uppercase;margin-right:4px;white-space:nowrap;';
+      lbl.textContent='Objetivo:';
+      toggleBar.appendChild(lbl);
+      uniqueObjs.forEach(o=>{
+        const btn=document.createElement('button');
+        const isActive=o===resolvedObj;
+        btn.style.cssText=`padding:6px 16px;border-radius:20px;font-family:"IBM Plex Sans",sans-serif;font-size:11px;font-weight:600;letter-spacing:.3px;cursor:pointer;transition:all .15s;border:1px solid ${isActive?'var(--accent)':'var(--border)'};background:${isActive?'var(--accent)':'none'};color:${isActive?'#fff':'var(--text)'};white-space:nowrap;`;
+        btn.textContent=MA_FUNNEL_DEF[o]?.label||o;
+        if(!isActive){
+          btn.addEventListener('mouseenter',()=>{btn.style.background='var(--accent)';btn.style.borderColor='var(--accent)';btn.style.color='#fff';});
+          btn.addEventListener('mouseleave',()=>{btn.style.background='none';btn.style.borderColor='var(--border)';btn.style.color='var(--text)';});
+        }
+        btn.addEventListener('click',()=>_drawContent(insArr,o));
+        toggleBar.appendChild(btn);
+      });
+      sec.appendChild(toggleBar);
+    }
+
     if(resolvedObj){
-      // Show funnel directly
-      if(uniqueObjs.length===1&&!activeObj){
-        // Auto-selected — show subtle label
-        const autoLbl=document.createElement('div');
-        autoLbl.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:10px;color:var(--muted);margin-bottom:12px;';
-        autoLbl.textContent=(MA_FUNNEL_DEF[resolvedObj]?.label||resolvedObj)+' · único objetivo ativo';
-        sec.appendChild(autoLbl);
-      }
       _renderFunnel(sec,insArr,resolvedObj);
     }else{
       // Prompt to select
@@ -6993,7 +7000,7 @@ function _buildMaTabCard(insArr,campaigns,prevCampMap,adInsights){
   wrap.appendChild(tabBar);
 
   // Build pane content — remove duplicate section titles since tabs already label each pane
-  const campPane=document.createElement('div');campPane.style.cssText='padding:14px 20px 20px;';
+  const campPane=document.createElement('div');campPane.style.cssText='padding:14px 28px 24px;';
   const campSec=_buildMaCampaignSection(insArr,campaigns,prevCampMap);
   campSec.style.padding='0';campSec.style.background='none';campSec.style.borderRadius='0';
   const campTitle=campSec.querySelector('.ma-section-title');if(campTitle)campTitle.remove();
@@ -7001,7 +7008,7 @@ function _buildMaTabCard(insArr,campaigns,prevCampMap,adInsights){
   panes['campanhas']=campPane;
   wrap.appendChild(campPane);
 
-  const adPane=document.createElement('div');adPane.style.cssText='padding:14px 20px 20px;display:none;';
+  const adPane=document.createElement('div');adPane.style.cssText='padding:14px 28px 24px;display:none;';
   const adSec=_buildMaAdSection(adInsights||[],insArr);
   adSec.style.padding='0';adSec.style.background='none';adSec.style.borderRadius='0';
   const adTitle=adSec.querySelector('.ma-section-title');if(adTitle)adTitle.remove();
