@@ -6359,38 +6359,93 @@ function setMaPeriod(btn){
   btn.classList.add('active');
   _maPreset=btn.dataset.preset;
   _maCustomSince=null;_maCustomUntil=null;
-  const panel=document.getElementById('ma-custom-range-panel');
-  const rangeBtn=document.getElementById('ma-custom-range-btn');
-  if(panel)panel.style.display='none';
-  if(rangeBtn)rangeBtn.classList.remove('active');
+  document.getElementById('ma-custom-modal-bd')?.remove();
+  document.getElementById('ma-custom-modal')?.remove();
+  document.getElementById('ma-custom-range-btn')?.classList.remove('active');
   loadMaData();
 }
 
 function toggleMaCustomRange(){
-  const panel=document.getElementById('ma-custom-range-panel');
-  const btn=document.getElementById('ma-custom-range-btn');
-  const open=panel.style.display==='none'||panel.style.display==='';
-  panel.style.display=open?'flex':'none';
-  btn.classList.toggle('active',open);
+  document.getElementById('ma-custom-modal')?.remove();
+  document.getElementById('ma-custom-modal-bd')?.remove();
+
+  const rangeBtn=document.getElementById('ma-custom-range-btn');
+
+  // Pre-fill with existing custom range or leave empty
+  const startVal=_maCustomSince||'';
+  const endVal=_maCustomUntil||'';
+
+  const bd=document.createElement('div');
+  bd.id='ma-custom-modal-bd';
+  bd.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1100;display:flex;align-items:center;justify-content:center;';
+
+  const modal=document.createElement('div');
+  modal.id='ma-custom-modal';
+  modal.style.cssText='background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px 28px 22px;box-shadow:0 16px 48px rgba(0,0,0,.28);width:320px;max-width:92vw;display:flex;flex-direction:column;gap:20px;position:relative;z-index:1101;';
+  modal.onclick=e=>e.stopPropagation();
+
+  modal.innerHTML=`
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+      <div>
+        <div style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">Período Personalizado</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:20px;font-weight:700;color:var(--text);line-height:1;">Selecionar Datas</div>
+      </div>
+      <button id="ma-modal-close" style="background:none;border:1px solid var(--border);border-radius:7px;width:32px;height:32px;cursor:pointer;color:var(--muted);font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        <label style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);">Início</label>
+        <input type="date" id="ma-custom-start" value="${startVal}" class="custom-date-input" style="width:100%;box-sizing:border-box;font-size:13px;padding:8px 12px;">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        <label style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);">Fim</label>
+        <input type="date" id="ma-custom-end" value="${endVal}" class="custom-date-input" style="width:100%;box-sizing:border-box;font-size:13px;padding:8px 12px;">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button id="ma-modal-clear" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;color:var(--muted);background:none;cursor:pointer;">Limpar</button>
+      <button id="ma-modal-apply" style="flex:2;padding:10px;border:none;border-radius:8px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;color:#fff;background:var(--accent);cursor:pointer;">Aplicar</button>
+    </div>
+  `;
+
+  const close=()=>{bd.remove();rangeBtn.classList.remove('active');};
+  bd.addEventListener('click',close);
+  modal.querySelector('#ma-modal-close').addEventListener('click',close);
+
+  modal.querySelector('#ma-modal-clear').addEventListener('click',()=>{
+    _maCustomSince=null;_maCustomUntil=null;
+    close();
+    const def=document.querySelector('#ma-period-btns .gv-pbtn[data-preset="30d"]');
+    if(def){def.classList.add('active');_maPreset='30d';}
+    loadMaData();
+  });
+
+  modal.querySelector('#ma-modal-apply').addEventListener('click',()=>{
+    const s=modal.querySelector('#ma-custom-start').value;
+    const e=modal.querySelector('#ma-custom-end').value;
+    if(!s||!e){modal.querySelector('#ma-custom-start').style.borderColor=s?'var(--border)':'#dc2626';modal.querySelector('#ma-custom-end').style.borderColor=e?'var(--border)':'#dc2626';return;}
+    if(s>e){modal.querySelector('#ma-custom-end').style.borderColor='#dc2626';return;}
+    _maCustomSince=s;_maCustomUntil=e;
+    document.querySelectorAll('#ma-period-btns .gv-pbtn').forEach(b=>b.classList.remove('active'));
+    rangeBtn.classList.add('active');
+    close();
+    loadMaData();
+  });
+
+  bd.appendChild(modal);
+  document.body.appendChild(bd);
+  rangeBtn.classList.add('active');
+  // Focus first empty input
+  setTimeout(()=>{
+    const inp=modal.querySelector(startVal?'#ma-custom-end':'#ma-custom-start');
+    inp?.focus();
+  },50);
 }
 
-function applyMaCustomRange(){
-  const s=document.getElementById('ma-custom-start').value;
-  const e=document.getElementById('ma-custom-end').value;
-  if(!s||!e){alert('Selecione data de início e fim.');return;}
-  if(s>e){alert('Data de início deve ser anterior à data de fim.');return;}
-  _maCustomSince=s;_maCustomUntil=e;
-  document.querySelectorAll('#ma-period-btns .gv-pbtn').forEach(b=>b.classList.remove('active'));
-  loadMaData();
-}
-
+function applyMaCustomRange(){} // kept for legacy refs, logic now in modal
 function clearMaCustomRange(){
   _maCustomSince=null;_maCustomUntil=null;
-  document.getElementById('ma-custom-start').value='';
-  document.getElementById('ma-custom-end').value='';
-  document.getElementById('ma-custom-range-panel').style.display='none';
-  document.getElementById('ma-custom-range-btn').classList.remove('active');
-  // Re-activate the default preset button
+  document.getElementById('ma-custom-range-btn')?.classList.remove('active');
   const def=document.querySelector('#ma-period-btns .gv-pbtn[data-preset="30d"]');
   if(def){def.classList.add('active');_maPreset='30d';}
   loadMaData();
@@ -7524,7 +7579,7 @@ function setHomeBgTheme(type){
         <span class="gv-brand-tag" style="font-size:9px;letter-spacing:2px;opacity:.5;">Meta · Tráfego Pago</span>
       </div>
     </div>
-    <div class="gv-period-btns" id="ma-period-btns" style="flex-wrap:wrap;">
+    <div class="gv-period-btns" id="ma-period-btns">
       <button class="gv-pbtn" data-preset="today" onclick="setMaPeriod(this)"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite;vertical-align:middle;flex-shrink:0;"></span>HOJE</button>
       <button class="gv-pbtn" data-preset="1d" onclick="setMaPeriod(this)">1D</button>
       <button class="gv-pbtn" data-preset="7d" onclick="setMaPeriod(this)">7D</button>
@@ -7533,13 +7588,6 @@ function setHomeBgTheme(type){
       <button class="gv-pbtn" data-preset="month" onclick="setMaPeriod(this)">ATÉ AGORA</button>
       <button class="custom-range-btn" id="ma-custom-range-btn" onclick="toggleMaCustomRange()">📅</button>
       <button class="gv-pbtn" id="ma-refresh-btn" onclick="loadMaData()" style="border-color:var(--accent);color:var(--accent)">↻</button>
-      <div id="ma-custom-range-panel" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;width:100%;padding-top:6px;">
-        <input type="date" id="ma-custom-start" class="custom-date-input">
-        <span style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted)">até</span>
-        <input type="date" id="ma-custom-end" class="custom-date-input">
-        <button class="custom-apply-btn" onclick="applyMaCustomRange()">Aplicar</button>
-        <button class="custom-clear-btn" onclick="clearMaCustomRange()">✕</button>
-      </div>
     </div>
     <div id="ma-account-picker" onclick="event.stopPropagation()" style="position:relative;display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
       <button id="ma-acc-trigger" style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:7px;padding:5px 12px;background:var(--surface2);cursor:pointer;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--text);white-space:nowrap;" onclick="event.stopPropagation();toggleMaAccPicker()">
