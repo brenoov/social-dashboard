@@ -6774,10 +6774,10 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily,prevDaily,a
 
     // Header row
     const hdr=document.createElement('div');
-    hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:12px;';
+    hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;';
     const ttl=document.createElement('div');ttl.className='ma-section-title';ttl.style.marginBottom='0';ttl.textContent='Funil de Conversão';
     hdr.appendChild(ttl);
-    if(uniqueObjs.length===1&&!activeObj){
+    if(uniqueObjs.length===1){
       const autoLbl=document.createElement('div');
       autoLbl.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:10px;color:var(--muted);';
       autoLbl.textContent=(MA_FUNNEL_DEF[uniqueObjs[0]]?.label||uniqueObjs[0])+' · único objetivo ativo';
@@ -6785,56 +6785,39 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily,prevDaily,a
     }
     sec.appendChild(hdr);
 
-    // Prominent objective toggle bar — shown when funnel is active and multiple objectives exist
-    if(uniqueObjs.length>1&&resolvedObj){
-      const toggleBar=document.createElement('div');
-      toggleBar.style.cssText='display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:16px;padding:10px 14px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);';
+    // Objective selector — always visible when multiple objectives exist
+    if(uniqueObjs.length>1){
+      const selectorBar=document.createElement('div');
+      selectorBar.style.cssText='display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:16px;padding:10px 14px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);';
       const lbl=document.createElement('span');
-      lbl.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:10px;font-weight:600;letter-spacing:.6px;color:var(--muted);text-transform:uppercase;margin-right:4px;white-space:nowrap;';
+      lbl.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:10px;font-weight:600;letter-spacing:.6px;color:var(--muted);text-transform:uppercase;margin-right:6px;white-space:nowrap;flex-shrink:0;';
       lbl.textContent='Objetivo:';
-      toggleBar.appendChild(lbl);
+      selectorBar.appendChild(lbl);
       uniqueObjs.forEach(o=>{
         const btn=document.createElement('button');
         const isActive=o===resolvedObj;
-        btn.style.cssText=`padding:6px 16px;border-radius:20px;font-family:"IBM Plex Sans",sans-serif;font-size:11px;font-weight:600;letter-spacing:.3px;cursor:pointer;transition:all .15s;border:1px solid ${isActive?'var(--accent)':'var(--border)'};background:${isActive?'var(--accent)':'none'};color:${isActive?'#fff':'var(--text)'};white-space:nowrap;`;
+        btn.style.cssText=`padding:7px 18px;border-radius:20px;font-family:"IBM Plex Sans",sans-serif;font-size:12px;font-weight:600;letter-spacing:.3px;cursor:pointer;transition:all .15s;border:1px solid ${isActive?'var(--accent)':'var(--border)'};background:${isActive?'var(--accent)':'none'};color:${isActive?'#fff':'var(--text)'};white-space:nowrap;`;
         btn.textContent=MA_FUNNEL_DEF[o]?.label||o;
-        if(!isActive){
-          btn.addEventListener('mouseenter',()=>{btn.style.background='var(--accent)';btn.style.borderColor='var(--accent)';btn.style.color='#fff';});
-          btn.addEventListener('mouseleave',()=>{btn.style.background='none';btn.style.borderColor='var(--border)';btn.style.color='var(--text)';});
-        }
+        btn.addEventListener('mouseenter',()=>{if(o!==resolvedObj){btn.style.background='var(--accent)';btn.style.borderColor='var(--accent)';btn.style.color='#fff';}});
+        btn.addEventListener('mouseleave',()=>{if(o!==resolvedObj){btn.style.background='none';btn.style.borderColor='var(--border)';btn.style.color='var(--text)';}});
         btn.addEventListener('click',()=>_drawContent(insArr,o));
-        toggleBar.appendChild(btn);
+        selectorBar.appendChild(btn);
       });
-      sec.appendChild(toggleBar);
+      sec.appendChild(selectorBar);
     }
 
     if(resolvedObj){
       _renderFunnel(sec,insArr,resolvedObj);
     }else{
-      // Prompt to select
+      // Prompt — no objective selected yet
       const prompt=document.createElement('div');
-      prompt.style.cssText='display:flex;flex-direction:column;align-items:center;gap:14px;padding:24px 0;';
-
+      prompt.style.cssText='display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px 0;';
       const icon=document.createElement('div');
-      icon.innerHTML=`<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`;
-
+      icon.innerHTML=`<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:.4"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`;
       const msg=document.createElement('div');
-      msg.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:13px;color:var(--muted);text-align:center;line-height:1.5;';
-      msg.textContent='Selecione um objetivo para visualizar o funil de conversão';
-
-      const bigChips=document.createElement('div');
-      bigChips.style.cssText='display:flex;gap:8px;flex-wrap:wrap;justify-content:center;';
-      uniqueObjs.forEach(o=>{
-        const btn=document.createElement('button');
-        btn.style.cssText='padding:7px 16px;border-radius:20px;font-family:"IBM Plex Sans",sans-serif;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--accent);background:none;color:var(--accent);transition:all .15s;';
-        btn.textContent=MA_FUNNEL_DEF[o]?.label||o;
-        btn.addEventListener('mouseenter',()=>{btn.style.background='var(--accent)';btn.style.color='#fff';});
-        btn.addEventListener('mouseleave',()=>{btn.style.background='none';btn.style.color='var(--accent)';});
-        btn.addEventListener('click',()=>_drawContent(insArr,o));
-        bigChips.appendChild(btn);
-      });
-
-      prompt.appendChild(icon);prompt.appendChild(msg);prompt.appendChild(bigChips);
+      msg.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:12px;color:var(--muted);text-align:center;';
+      msg.textContent='Selecione um objetivo acima para visualizar o funil';
+      prompt.appendChild(icon);prompt.appendChild(msg);
       sec.appendChild(prompt);
     }
     return sec;
