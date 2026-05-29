@@ -6760,11 +6760,78 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily,prevDaily,a
   const col=document.createElement('div');col.style.cssText='display:flex;flex-direction:column;gap:16px;';
   el.appendChild(col);
 
-  // Funnel section — full width, hidden until objective selected
-  const funnelSec=document.createElement('div');funnelSec.className='ma-section';funnelSec.id='ma-funnel-sec';funnelSec.style.display='none';
-  funnelSec.innerHTML='<div class="ma-section-title" id="ma-funnel-title">Funil de Conversão</div>';
-  const funnelInner=document.createElement('div');funnelInner.id='ma-funnel-inner';
-  funnelSec.appendChild(funnelInner);
+  // Funnel card — always present, auto-selects if single objective
+  function _buildFunnelCard(insArr, activeObj){
+    const sec=document.createElement('div');sec.className='ma-section';sec.style.padding='18px 20px';
+
+    // Derive unique objectives with spend > 0, sorted desc by spend
+    const objSpend={};
+    insArr.forEach(i=>{const o=i.objective;if(o){objSpend[o]=(objSpend[o]||0)+parseFloat(i.spend||0);}});
+    const uniqueObjs=Object.entries(objSpend).filter(([,s])=>s>0).sort((a,b)=>b[1]-a[1]).map(([o])=>o);
+
+    // Resolve which objective to show
+    const resolvedObj=activeObj||(uniqueObjs.length===1?uniqueObjs[0]:null);
+
+    // Header row
+    const hdr=document.createElement('div');
+    hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:12px;flex-wrap:wrap;';
+    const ttl=document.createElement('div');ttl.className='ma-section-title';ttl.style.marginBottom='0';ttl.textContent='Funil de Conversão';
+    hdr.appendChild(ttl);
+
+    // Objective selector chips (shown when multiple objectives)
+    if(uniqueObjs.length>1){
+      const chips=document.createElement('div');chips.style.cssText='display:flex;gap:6px;flex-wrap:wrap;align-items:center;';
+      uniqueObjs.forEach(o=>{
+        const chip=document.createElement('button');
+        const isActive=o===resolvedObj;
+        chip.style.cssText=`padding:4px 10px;border-radius:20px;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:.4px;cursor:pointer;transition:all .15s;border:1px solid ${isActive?'var(--accent)':'var(--border)'};background:${isActive?'var(--accent)':'none'};color:${isActive?'#fff':'var(--muted)'};white-space:nowrap;`;
+        chip.textContent=MA_FUNNEL_DEF[o]?.label||o;
+        chip.addEventListener('click',()=>_drawContent(insArr,o));
+        chips.appendChild(chip);
+      });
+      hdr.appendChild(chips);
+    }
+    sec.appendChild(hdr);
+
+    if(resolvedObj){
+      // Show funnel directly
+      if(uniqueObjs.length===1&&!activeObj){
+        // Auto-selected — show subtle label
+        const autoLbl=document.createElement('div');
+        autoLbl.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:10px;color:var(--muted);margin-bottom:12px;';
+        autoLbl.textContent=(MA_FUNNEL_DEF[resolvedObj]?.label||resolvedObj)+' · único objetivo ativo';
+        sec.appendChild(autoLbl);
+      }
+      _renderFunnel(sec,insArr,resolvedObj);
+    }else{
+      // Prompt to select
+      const prompt=document.createElement('div');
+      prompt.style.cssText='display:flex;flex-direction:column;align-items:center;gap:14px;padding:24px 0;';
+
+      const icon=document.createElement('div');
+      icon.innerHTML=`<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`;
+
+      const msg=document.createElement('div');
+      msg.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:13px;color:var(--muted);text-align:center;line-height:1.5;';
+      msg.textContent='Selecione um objetivo para visualizar o funil de conversão';
+
+      const bigChips=document.createElement('div');
+      bigChips.style.cssText='display:flex;gap:8px;flex-wrap:wrap;justify-content:center;';
+      uniqueObjs.forEach(o=>{
+        const btn=document.createElement('button');
+        btn.style.cssText='padding:7px 16px;border-radius:20px;font-family:"IBM Plex Sans",sans-serif;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--accent);background:none;color:var(--accent);transition:all .15s;';
+        btn.textContent=MA_FUNNEL_DEF[o]?.label||o;
+        btn.addEventListener('mouseenter',()=>{btn.style.background='var(--accent)';btn.style.color='#fff';});
+        btn.addEventListener('mouseleave',()=>{btn.style.background='none';btn.style.color='var(--accent)';});
+        btn.addEventListener('click',()=>_drawContent(insArr,o));
+        bigChips.appendChild(btn);
+      });
+
+      prompt.appendChild(icon);prompt.appendChild(msg);prompt.appendChild(bigChips);
+      sec.appendChild(prompt);
+    }
+    return sec;
+  }
 
   function _applyFilter(filtered,obj){
     _activeInsights=filtered;_activeObj=obj;
@@ -6830,17 +6897,8 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily,prevDaily,a
     });
     col.appendChild(kpi2);
 
-    // ── Funnel — managed here so visibility is correct after col.innerHTML=''
-    if(obj&&insArr.length){
-      funnelSec.style.display='';
-      const ft=funnelSec.querySelector('#ma-funnel-title');
-      if(ft)ft.textContent='Funil · '+(MA_FUNNEL_DEF[obj]?.label||obj);
-      funnelInner.innerHTML='';
-      _renderFunnel(funnelInner,insArr,obj);
-    }else{
-      funnelSec.style.display='none';
-    }
-    col.appendChild(funnelSec);
+    // ── Funnel card — always visible, auto-selects single objective
+    col.appendChild(_buildFunnelCard(insArr,obj));
 
     // ── Tabbed card: Campanhas | Anúncios
     col.appendChild(_buildMaTabCard(insArr,campaigns,prevCampMap,adInsights));
