@@ -6153,6 +6153,8 @@ function openMetaCampanha(){
   document.getElementById('meta-ads-hub-screen').style.display='none';
   document.getElementById('meta-ads-campanha-screen').style.display='flex';
   sessionStorage.setItem('rbv-screen','meta-ads-campanha');
+  const c=document.getElementById('ma-content');
+  if(c)c.innerHTML='<div class="gv-loading-screen"><div class="gv-spinner"></div><span class="gv-loading-lbl">Iniciando</span></div>';
   _initMetaAds();
 }
 function closeMetaCampanha(){
@@ -6254,7 +6256,12 @@ async function _initMetaAds(){
 
     _buildMaDropdown(drop);
     _maCurAcc=_maAccounts[0];_setMaCurAccUI(_maAccounts[0]);loadMaData();
-  }catch(e){if(nm)nm.textContent='Erro';}
+  }catch(e){
+    console.error('[MetaAds] _initMetaAds error:',e);
+    if(nm)nm.textContent='Erro';
+    const c=document.getElementById('ma-content');
+    if(c)c.innerHTML=`<div class="gv-loading-screen"><span class="gv-loading-lbl" style="color:#dc2626">Erro ao carregar contas: ${e.message}</span></div>`;
+  }
 }
 
 function _buildMaDropdown(drop){
@@ -6664,40 +6671,46 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily}){
     col.appendChild(secTable);
 
     requestAnimationFrame(()=>{
-      const tc=window._saLabelColor?.()||'#888';
-      const isDark=document.body.classList.contains('dark');
-      const dlColor=isDark?'rgba(255,255,255,.75)':'rgba(30,30,30,.8)';
+      try{
+        const tc=window._saLabelColor?.()||'#333';
+        const isDark=document.body.classList.contains('dark');
+        const dlColor=isDark?'rgba(255,255,255,.8)':'rgba(30,30,30,.75)';
+        const bgSurface=isDark?'#1e1e1e':'#ffffff';
+        const bgBorder=isDark?'rgba(255,255,255,.1)':'rgba(0,0,0,.1)';
 
-      // Daily line chart — improved
-      if(daily.length){
-        const labels=daily.map(d=>{const dt=new Date(d.date_start+'T12:00:00');return String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0');});
-        const vals=daily.map(d=>parseFloat(d.spend||0));
-        const showPoints=vals.length<=20;
-        _maCharts.daily=new Chart(cvDaily,{type:'line',data:{labels,datasets:[{label:'Gasto (R$)',data:vals,borderColor:'#1877F2',backgroundColor:'rgba(24,119,242,.1)',borderWidth:2.5,fill:true,pointRadius:showPoints?4:0,pointHoverRadius:6,pointBackgroundColor:'#1877F2',tension:.3}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,position:'top',labels:{boxWidth:10,usePointStyle:true,pointStyle:'circle',font:{size:10,family:"'IBM Plex Sans',sans-serif"},color:tc,padding:14}},tooltip:{backgroundColor:'var(--surface)',borderColor:'var(--border)',borderWidth:1,titleColor:tc,bodyColor:tc,padding:10,callbacks:{title:items=>`📅 ${items[0].label}`,label:ctx=>`Gasto: R$ ${ctx.raw.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}`}},datalabels:{display:showPoints&&vals.length<=10,formatter:v=>'R$'+v.toFixed(0),color:dlColor,font:{size:9,weight:'700'},anchor:'end',align:'top',offset:4}},scales:{x:{grid:{display:false},ticks:{font:{size:10},color:tc,maxTicksLimit:12}},y:{ticks:{callback:v=>'R$'+v.toFixed(0),font:{size:10},color:tc},grid:{color:'rgba(128,128,128,.07)'}}}}});
-      }else{cvDaily.parentElement.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:220px;font-size:12px;color:var(--muted)">Sem dados diários</div>';}
+        // Daily line chart
+        if(daily.length){
+          const labels=daily.map(d=>{const dt=new Date(d.date_start+'T12:00:00');return String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0');});
+          const vals=daily.map(d=>parseFloat(d.spend||0));
+          const showPoints=vals.length<=20;
+          _maCharts.daily=new Chart(cvDaily,{type:'line',data:{labels,datasets:[{label:'Gasto (R$)',data:vals,borderColor:'#1877F2',backgroundColor:'rgba(24,119,242,.1)',borderWidth:2.5,fill:true,pointRadius:showPoints?4:0,pointHoverRadius:6,pointBackgroundColor:'#1877F2',tension:.3}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,position:'top',labels:{boxWidth:10,usePointStyle:true,pointStyle:'circle',font:{size:10},color:tc,padding:14}},tooltip:{callbacks:{title:items=>items[0].label,label:ctx=>`Gasto: R$ ${ctx.raw.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}`}},datalabels:{display:showPoints&&vals.length<=10,formatter:v=>'R$'+v.toFixed(0),color:dlColor,font:{size:9,weight:'700'},anchor:'end',align:'top',offset:4}},scales:{x:{grid:{display:false},ticks:{font:{size:10},color:tc,maxTicksLimit:12}},y:{ticks:{callback:v=>'R$'+v.toFixed(0),font:{size:10},color:tc},grid:{color:'rgba(128,128,128,.07)'}}}}});
+        }else{cvDaily.parentElement.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:220px;font-size:12px;color:var(--muted)">Sem dados diários</div>';}
 
-      // Doughnut — por objetivo — improved
-      const objMap={};insArr.forEach(ins=>{const l=_maObjLabel(ins.objective);objMap[l]=(objMap[l]||0)+parseFloat(ins.spend||0);});
-      const objKeys=Object.keys(objMap);const objVals=objKeys.map(k=>objMap[k]);
-      const totalSpend=objVals.reduce((a,b)=>a+b,0)||1;
-      const pal=['#1877F2','#7C3AED','#D97706','#059669','#0891B2','#DC2626'];
-      if(objKeys.length){
-        _maCharts.obj=new Chart(cvObj,{type:'doughnut',data:{labels:objKeys,datasets:[{data:objVals,backgroundColor:pal,borderWidth:2,borderColor:'var(--surface)',hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'bottom',labels:{boxWidth:10,usePointStyle:true,pointStyle:'circle',font:{size:10,family:"'IBM Plex Sans',sans-serif"},color:tc,padding:10,generateLabels:chart=>{const ds=chart.data.datasets[0];return chart.data.labels.map((label,i)=>({text:`${label} · ${_maFmtR(ds.data[i])}`,fillStyle:ds.backgroundColor[i],strokeStyle:ds.backgroundColor[i],hidden:false,index:i}));}}},tooltip:{backgroundColor:'var(--surface)',borderColor:'var(--border)',borderWidth:1,titleColor:tc,bodyColor:tc,padding:10,callbacks:{label:ctx=>`${ctx.label}: ${_maFmtR(ctx.raw)} (${(ctx.raw/totalSpend*100).toFixed(1)}%)`}},datalabels:{display:ctx=>ctx.raw/totalSpend>.05,formatter:(v)=>(v/totalSpend*100).toFixed(0)+'%',color:'#fff',font:{size:10,weight:'700'}}}}});
-      }else{cvObj.parentElement.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:220px;font-size:12px;color:var(--muted)">Sem dados</div>';}
+        // Doughnut — por objetivo
+        const objMap={};insArr.forEach(ins=>{const l=_maObjLabel(ins.objective);objMap[l]=(objMap[l]||0)+parseFloat(ins.spend||0);});
+        const objKeys=Object.keys(objMap);const objVals=objKeys.map(k=>objMap[k]);
+        const totalSpend=objVals.reduce((a,b)=>a+b,0)||1;
+        const pal=['#1877F2','#7C3AED','#D97706','#059669','#0891B2','#DC2626'];
+        if(objKeys.length){
+          _maCharts.obj=new Chart(cvObj,{type:'doughnut',data:{labels:objKeys,datasets:[{data:objVals,backgroundColor:pal.slice(0,objKeys.length),borderWidth:0,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'bottom',labels:{boxWidth:10,usePointStyle:true,pointStyle:'circle',font:{size:10},color:tc,padding:10}},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${_maFmtR(ctx.raw)} (${(ctx.raw/totalSpend*100).toFixed(1)}%)`}},datalabels:{display:ctx=>ctx.raw/totalSpend>.05,formatter:v=>(v/totalSpend*100).toFixed(0)+'%',color:'#fff',font:{size:10,weight:'700'}}}}});
+        }else{cvObj.parentElement.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:220px;font-size:12px;color:var(--muted)">Sem dados</div>';}
 
-      // Spend per campaign horizontal bar
-      if(sortedSpend.length){
-        const spLabels=sortedSpend.map(i=>i.campaign_name?.replace(/\[TRÁFEGO\]|\[Leads\]|\[L\]/gi,'').trim().slice(0,32)||'—');
-        const spVals=sortedSpend.map(i=>parseFloat(i.spend||0));
-        _maCharts.spend=new Chart(cvSpend,{type:'bar',data:{labels:spLabels,datasets:[{data:spVals,backgroundColor:'rgba(24,119,242,.75)',borderRadius:4,borderSkipped:false}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'var(--surface)',borderColor:'var(--border)',borderWidth:1,titleColor:tc,bodyColor:tc,padding:10,callbacks:{label:ctx=>`Gasto: ${_maFmtR(ctx.raw)}`}},datalabels:{display:ctx=>ctx.raw>0,formatter:v=>_maFmtR(v),color:dlColor,font:{size:9,weight:'700'},anchor:'end',align:'left',offset:4,clamp:true}},scales:{x:{grid:{color:'rgba(128,128,128,.07)'},ticks:{callback:v=>'R$'+v.toFixed(0),font:{size:9},color:tc}},y:{grid:{display:false},ticks:{font:{size:10},color:tc}}}}});
-      }
+        // Gasto por campanha
+        if(sortedSpend.length){
+          const spLabels=sortedSpend.map(i=>(i.campaign_name||'—').replace(/\[TRÁFEGO\]|\[Leads\]|\[L\]/gi,'').trim().slice(0,32));
+          const spVals=sortedSpend.map(i=>parseFloat(i.spend||0));
+          _maCharts.spend=new Chart(cvSpend,{type:'bar',data:{labels:spLabels,datasets:[{data:spVals,backgroundColor:'rgba(24,119,242,.75)',borderRadius:4,borderSkipped:false}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`Gasto: ${_maFmtR(ctx.raw)}`}},datalabels:{display:ctx=>ctx.raw>0,formatter:v=>_maFmtR(v),color:dlColor,font:{size:9,weight:'700'},anchor:'end',align:'left',offset:4,clamp:true}},scales:{x:{grid:{color:'rgba(128,128,128,.07)'},ticks:{callback:v=>'R$'+v.toFixed(0),font:{size:9},color:tc}},y:{grid:{display:false},ticks:{font:{size:10},color:tc}}}}});
+        }
 
-      // CTR ranking horizontal bar — improved
-      if(sortedCtr.length){
-        const ctrLabels=sortedCtr.map(i=>i.campaign_name?.replace(/\[TRÁFEGO\]|\[Leads\]|\[L\]/gi,'').trim().slice(0,32)||'—');
-        const ctrVals=sortedCtr.map(i=>parseFloat(i.ctr||0));
-        const ctrColors=ctrVals.map(v=>v>=2?'rgba(22,163,74,.82)':v>=0.8?'rgba(245,158,11,.82)':'rgba(220,38,38,.78)');
-        _maCharts.ctr=new Chart(cvCtr,{type:'bar',data:{labels:ctrLabels,datasets:[{data:ctrVals,backgroundColor:ctrColors,borderRadius:4,borderSkipped:false}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'var(--surface)',borderColor:'var(--border)',borderWidth:1,titleColor:tc,bodyColor:tc,padding:10,callbacks:{label:ctx=>`CTR: ${ctx.raw.toFixed(2)}%`}},datalabels:{display:ctx=>ctx.raw>0,formatter:v=>v.toFixed(2)+'%',color:'#fff',font:{size:9,weight:'700'},anchor:'end',align:'left',offset:4,clamp:true}},scales:{x:{grid:{color:'rgba(128,128,128,.07)'},ticks:{callback:v=>v.toFixed(1)+'%',font:{size:9},color:tc}},y:{grid:{display:false},ticks:{font:{size:10},color:tc}}}}});
+        // CTR ranking
+        if(sortedCtr.length){
+          const ctrLabels=sortedCtr.map(i=>(i.campaign_name||'—').replace(/\[TRÁFEGO\]|\[Leads\]|\[L\]/gi,'').trim().slice(0,32));
+          const ctrVals=sortedCtr.map(i=>parseFloat(i.ctr||0));
+          const ctrColors=ctrVals.map(v=>v>=2?'rgba(22,163,74,.82)':v>=0.8?'rgba(245,158,11,.82)':'rgba(220,38,38,.78)');
+          _maCharts.ctr=new Chart(cvCtr,{type:'bar',data:{labels:ctrLabels,datasets:[{data:ctrVals,backgroundColor:ctrColors,borderRadius:4,borderSkipped:false}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`CTR: ${ctx.raw.toFixed(2)}%`}},datalabels:{display:ctx=>ctx.raw>0,formatter:v=>v.toFixed(2)+'%',color:'#fff',font:{size:9,weight:'700'},anchor:'end',align:'left',offset:4,clamp:true}},scales:{x:{grid:{color:'rgba(128,128,128,.07)'},ticks:{callback:v=>v.toFixed(1)+'%',font:{size:9},color:tc}},y:{grid:{display:false},ticks:{font:{size:10},color:tc}}}}});
+        }
+      }catch(chartErr){
+        console.error('[MetaAds] chart error:',chartErr);
       }
     });
   } // end _drawContent
