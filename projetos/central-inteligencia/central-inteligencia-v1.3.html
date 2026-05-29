@@ -6042,6 +6042,8 @@ function toggleTheme(){
     const active=boxes.length?boxes.filter(cb=>cb.checked).map(cb=>cb.value):[];
     renderSalesAnalysis(window._saRawData,active);
   }
+  const maScreen=document.getElementById('meta-ads-campanha-screen');
+  if(maScreen&&maScreen.style.display!=='none'&&_maCurAcc){loadMaData();}
 }
 function _updateThemePill(t){
   const icon=document.getElementById('theme-pill-icon');
@@ -6214,8 +6216,9 @@ async function _initMetaAds(){
     // STEP 2 — discover ALL remaining ad accounts via /me/adaccounts for EVERY token
     // We try every unique token so accounts from different Business Managers are found
     const tokens=[...new Set(socialAccs.filter(a=>a.access_token).map(a=>a.access_token))];
-    const photoMap={};  // adAccountId → photo from Supabase account with matching token
-    socialAccs.forEach(a=>{if(a.access_token&&(a.profile_picture_url||a.picture_url))photoMap[a.access_token]=a.profile_picture_url||a.picture_url;});
+    // Map cleanAdAccountId → photo, only for accounts explicitly linked in Supabase
+    const adAccPhotoMap={};
+    socialAccs.forEach(a=>{if(a.ad_account_id&&(a.profile_picture_url||a.picture_url))adAccPhotoMap[_maCleanAccId(a.ad_account_id)]=a.profile_picture_url||a.picture_url;});
 
     await Promise.all(tokens.map(async tok=>{
       try{
@@ -6224,8 +6227,8 @@ async function _initMetaAds(){
           const cleanId=_maCleanAccId(adAcc.id);
           if(seen.has(cleanId))continue;
           seen.add(cleanId);
-          // Match photo: find Supabase account whose access_token matches
-          const pic=photoMap[tok]||'';
+          // Only use photo if this account is linked in Supabase — avoids all accounts sharing the token owner's photo
+          const pic=adAccPhotoMap[cleanId]||'';
           _maAccounts.push({
             id:null,name:adAcc.name,instagram_id:null,
             access_token:tok,
@@ -6302,13 +6305,14 @@ async function loadMaData(){
   Object.values(_maCharts).forEach(c=>{try{c.destroy();}catch(e){}});_maCharts={};
 
   try{
-    const[insights,campaigns,prevInsights]=await Promise.all([
+    const[insights,campaigns,prevInsights,daily,prevDaily]=await Promise.all([
       _fetchInsights(_maCurAcc.ad_account_id,_maCurAcc.access_token,{date_preset:_maPreset}),
       _fetchCampaigns(_maCurAcc.ad_account_id,_maCurAcc.access_token),
       _fetchInsightsPrev(_maCurAcc.ad_account_id,_maCurAcc.access_token,_maPreset),
+      _fetchDaily(_maCurAcc.ad_account_id,_maCurAcc.access_token,_maPreset),
+      _fetchPrevDaily(_maCurAcc.ad_account_id,_maCurAcc.access_token,_maPreset),
     ]);
-    const daily=await _fetchDaily(_maCurAcc.ad_account_id,_maCurAcc.access_token,_maPreset);
-    _renderMaCampanha(content,{insights,campaigns,prevInsights,daily});
+    _renderMaCampanha(content,{insights,campaigns,prevInsights,daily,prevDaily});
   }catch(e){
     content.innerHTML=`<div class="gv-loading-screen"><span class="gv-loading-lbl" style="color:var(--red)">Erro: ${e.message}</span></div>`;
   }
@@ -6339,6 +6343,18 @@ async function _fetchCampaigns(adAccId,token){
 async function _fetchDaily(adAccId,token,preset){
   const fields='spend,impressions,clicks,reach,date_start';
   try{return await metaFetchAll(`/act_${_maCleanAccId(adAccId)}/insights`,{level:'account',fields,time_increment:1,date_preset:preset},token);}catch(e){return[];}
+}
+async function _fetchPrevDaily(adAccId,token,preset){
+  const now=new Date();const iso=d=>d.toISOString().slice(0,10);
+  let since,until;
+  if(preset==='today'){const y=new Date(now-864e5);since=until=iso(y);}
+  else if(preset==='last_7d'){const e=new Date(now-7*864e5);const s=new Date(now-14*864e5);since=iso(s);until=iso(e);}
+  else if(preset==='last_30d'){const e=new Date(now-30*864e5);const s=new Date(now-60*864e5);since=iso(s);until=iso(e);}
+  else if(preset==='this_month'){const y=now.getFullYear(),m=now.getMonth();const s=new Date(y,m-1,1),e=new Date(y,m,0);since=iso(s);until=iso(e);}
+  else if(preset==='last_month'){const y=now.getFullYear(),m=now.getMonth()-1;const s=new Date(y,m-1,1),e=new Date(y,m,0);since=iso(s);until=iso(e);}
+  else return [];
+  const fields='spend,date_start';
+  try{return await metaFetchAll(`/act_${_maCleanAccId(adAccId)}/insights`,{level:'account',fields,time_increment:1,time_range:{since,until}},token);}catch(e){return[];}
 }
 
 function _getActions(ins,type){
@@ -6528,10 +6544,11 @@ function _openCampanhaFilter(insights,campaigns,onApply){
   document.body.appendChild(drawer);
 }
 
-function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily}){
+function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily,prevDaily}){
   el.innerHTML='';
   let _activeInsights=insights;
   let _activeObj=null;
+  prevDaily=prevDaily||[];
 
   const sum=(arr,field)=>arr.reduce((s,x)=>s+parseFloat(x[field]||0),0);
   const ps=sum(prevInsights,'spend');
@@ -6540,6 +6557,8 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily}){
   const pctr=pi>0?pc/pi*100:0;
   const pcpc=pc>0?ps/pc:0;
   const pcpm=pi>0?ps/pi*1000:0;
+  // Per-campaign prev lookup
+  const prevCampMap={};prevInsights.forEach(i=>prevCampMap[i.campaign_id]=i);
 
   // Single column layout
   const col=document.createElement('div');col.style.cssText='display:flex;flex-direction:column;gap:16px;';
@@ -6553,15 +6572,6 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily}){
 
   function _applyFilter(filtered,obj){
     _activeInsights=filtered;_activeObj=obj;
-    const fs=document.getElementById('ma-funnel-sec');
-    const ft=document.getElementById('ma-funnel-title');
-    if(obj&&filtered.length){
-      if(fs)fs.style.display='';
-      if(ft)ft.textContent='Funil · '+(MA_FUNNEL_DEF[obj]?.label||obj);
-      _renderFunnel(funnelInner,filtered,obj);
-    }else{
-      if(fs)fs.style.display='none';
-    }
     _drawContent(filtered,obj);
   }
 
@@ -6624,16 +6634,23 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily}){
     });
     col.appendChild(kpi2);
 
-    // ── Funnel (reappend after KPIs)
+    // ── Funnel — managed here so visibility is correct after col.innerHTML=''
+    if(obj&&insArr.length){
+      funnelSec.style.display='';
+      const ft=funnelSec.querySelector('#ma-funnel-title');
+      if(ft)ft.textContent='Funil · '+(MA_FUNNEL_DEF[obj]?.label||obj);
+      funnelInner.innerHTML='';
+      _renderFunnel(funnelInner,insArr,obj);
+    }else{
+      funnelSec.style.display='none';
+    }
     col.appendChild(funnelSec);
 
     // ── Evolução diária + por objetivo (2 col)
     const twoCol=document.createElement('div');twoCol.className='ma-two-col';
 
     const secDaily=document.createElement('div');secDaily.className='ma-section';
-    const dailyHdr=document.createElement('div');dailyHdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;';
-    dailyHdr.innerHTML='<div class="ma-section-title" style="margin-bottom:0">Evolução de Gasto</div>';
-    secDaily.appendChild(dailyHdr);
+    secDaily.innerHTML='<div class="ma-section-title" style="margin-bottom:14px">Evolução de Gasto</div>';
     const wrapDaily=document.createElement('div');wrapDaily.className='ma-chart-wrap';wrapDaily.style.height='220px';
     const cvDaily=document.createElement('canvas');wrapDaily.appendChild(cvDaily);secDaily.appendChild(wrapDaily);
     twoCol.appendChild(secDaily);
@@ -6649,7 +6666,8 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily}){
     const sortedSpend=[...insArr].sort((a,b)=>parseFloat(b.spend||0)-parseFloat(a.spend||0)).slice(0,10);
     const secSpend=document.createElement('div');secSpend.className='ma-section';
     secSpend.innerHTML='<div class="ma-section-title">Gasto por Campanha</div>';
-    const wrapSpend=document.createElement('div');wrapSpend.className='ma-chart-wrap';wrapSpend.style.height=(sortedSpend.length*30+50)+'px';
+    const rowH=Math.max(36,sortedSpend.length>0?sortedSpend.length*38+60:60);
+    const wrapSpend=document.createElement('div');wrapSpend.className='ma-chart-wrap';wrapSpend.style.height=rowH+'px';
     const cvSpend=document.createElement('canvas');wrapSpend.appendChild(cvSpend);secSpend.appendChild(wrapSpend);
     col.appendChild(secSpend);
 
@@ -6657,33 +6675,38 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily}){
     const sortedCtr=[...insArr].filter(i=>parseFloat(i.impressions||0)>0).sort((a,b)=>parseFloat(b.ctr||0)-parseFloat(a.ctr||0)).slice(0,10);
     const secCtr=document.createElement('div');secCtr.className='ma-section';
     secCtr.innerHTML='<div class="ma-section-title">CTR por Campanha</div>';
-    const wrapCtr=document.createElement('div');wrapCtr.className='ma-chart-wrap';wrapCtr.style.height=(sortedCtr.length*30+50)+'px';
+    const ctrRowH=Math.max(36,sortedCtr.length>0?sortedCtr.length*38+60:60);
+    const wrapCtr=document.createElement('div');wrapCtr.className='ma-chart-wrap';wrapCtr.style.height=ctrRowH+'px';
     const cvCtr=document.createElement('canvas');wrapCtr.appendChild(cvCtr);secCtr.appendChild(wrapCtr);
     col.appendChild(secCtr);
 
-    // ── Table
-    const secTable=document.createElement('div');secTable.className='ma-section';
-    const thdr=document.createElement('div');thdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:14px';
-    const ttl=document.createElement('div');ttl.className='ma-section-title';ttl.style.marginBottom='0';ttl.textContent='Campanhas';
-    const tcnt=document.createElement('div');tcnt.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:11px;color:var(--muted)';tcnt.textContent=insArr.length+' campanhas';
-    thdr.appendChild(ttl);thdr.appendChild(tcnt);secTable.appendChild(thdr);
-    secTable.appendChild(_buildMaTable(insArr,campaigns));
-    col.appendChild(secTable);
+    // ── Campaign cards
+    const secCards=document.createElement('div');secCards.className='ma-section';
+    const cardsHdr=document.createElement('div');cardsHdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:14px';
+    const cardsTtl=document.createElement('div');cardsTtl.className='ma-section-title';cardsTtl.style.marginBottom='0';cardsTtl.textContent='Campanhas';
+    const cardsCnt=document.createElement('div');cardsCnt.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:11px;color:var(--muted)';cardsCnt.textContent=insArr.length+' campanhas';
+    cardsHdr.appendChild(cardsTtl);cardsHdr.appendChild(cardsCnt);secCards.appendChild(cardsHdr);
+    secCards.appendChild(_buildMaCampaignCards(insArr,campaigns,prevCampMap));
+    col.appendChild(secCards);
 
     requestAnimationFrame(()=>{
       try{
-        const tc=window._saLabelColor?.()||'#333';
-        const isDark=document.body.classList.contains('dark');
-        const dlColor=isDark?'rgba(255,255,255,.8)':'rgba(30,30,30,.75)';
-        const bgSurface=isDark?'#1e1e1e':'#ffffff';
-        const bgBorder=isDark?'rgba(255,255,255,.1)':'rgba(0,0,0,.1)';
+        const tc=window._saLabelColor?.()||getComputedStyle(document.documentElement).getPropertyValue('--text').trim()||'#333';
+        const isDark=document.documentElement.dataset.theme==='dark';
+        const dlColor=isDark?'rgba(226,228,240,.85)':'rgba(20,20,30,.75)';
 
-        // Daily line chart
+        // Daily line chart with previous period comparison
         if(daily.length){
           const labels=daily.map(d=>{const dt=new Date(d.date_start+'T12:00:00');return String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0');});
           const vals=daily.map(d=>parseFloat(d.spend||0));
           const showPoints=vals.length<=20;
-          _maCharts.daily=new Chart(cvDaily,{type:'line',data:{labels,datasets:[{label:'Gasto (R$)',data:vals,borderColor:'#1877F2',backgroundColor:'rgba(24,119,242,.1)',borderWidth:2.5,fill:true,pointRadius:showPoints?4:0,pointHoverRadius:6,pointBackgroundColor:'#1877F2',tension:.3}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,position:'top',labels:{boxWidth:10,usePointStyle:true,pointStyle:'circle',font:{size:10},color:tc,padding:14}},tooltip:{callbacks:{title:items=>items[0].label,label:ctx=>`Gasto: R$ ${ctx.raw.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}`}},datalabels:{display:showPoints&&vals.length<=10,formatter:v=>'R$'+v.toFixed(0),color:dlColor,font:{size:9,weight:'700'},anchor:'end',align:'top',offset:4}},scales:{x:{grid:{display:false},ticks:{font:{size:10},color:tc,maxTicksLimit:12}},y:{ticks:{callback:v=>'R$'+v.toFixed(0),font:{size:10},color:tc},grid:{color:'rgba(128,128,128,.07)'}}}}});
+          const showLabels=vals.length<=10;
+          const datasets=[{label:'Período Atual',data:vals,borderColor:'#1877F2',backgroundColor:'rgba(24,119,242,.10)',borderWidth:2.5,fill:true,pointRadius:showPoints?4:0,pointHoverRadius:7,pointBackgroundColor:'#1877F2',tension:.35,order:1}];
+          if(prevDaily.length){
+            const pv=prevDaily.map(d=>parseFloat(d.spend||0));
+            datasets.push({label:'Período Ant.',data:pv,borderColor:'rgba(100,110,140,.55)',backgroundColor:'transparent',borderWidth:1.5,borderDash:[5,4],fill:false,pointRadius:0,pointHoverRadius:5,tension:.35,order:2,datalabels:{display:false}});
+          }
+          _maCharts.daily=new Chart(cvDaily,{type:'line',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,position:'top',labels:{boxWidth:10,usePointStyle:true,pointStyle:'circle',font:{size:10},color:tc,padding:14}},tooltip:{backgroundColor:'rgba(10,10,24,.9)',titleColor:'#fff',bodyColor:'rgba(255,255,255,.85)',padding:10,cornerRadius:7,callbacks:{title:items=>items[0].label,label:ctx=>`${ctx.dataset.label}: R$ ${ctx.raw.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}`}},datalabels:{display:ctx=>showLabels&&ctx.datasetIndex===0,formatter:v=>'R$'+v.toFixed(0),color:dlColor,font:{size:9,weight:'700'},anchor:'end',align:'top',offset:4}},scales:{x:{grid:{display:false},ticks:{font:{size:10},color:tc,maxTicksLimit:12}},y:{ticks:{callback:v=>'R$'+v.toFixed(0),font:{size:10},color:tc},grid:{color:'rgba(128,128,128,.07)'}}}}});
         }else{cvDaily.parentElement.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:220px;font-size:12px;color:var(--muted)">Sem dados diários</div>';}
 
         // Doughnut — por objetivo
@@ -6692,22 +6715,30 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily}){
         const totalSpend=objVals.reduce((a,b)=>a+b,0)||1;
         const pal=['#1877F2','#7C3AED','#D97706','#059669','#0891B2','#DC2626'];
         if(objKeys.length){
-          _maCharts.obj=new Chart(cvObj,{type:'doughnut',data:{labels:objKeys,datasets:[{data:objVals,backgroundColor:pal.slice(0,objKeys.length),borderWidth:0,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'bottom',labels:{boxWidth:10,usePointStyle:true,pointStyle:'circle',font:{size:10},color:tc,padding:10}},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${_maFmtR(ctx.raw)} (${(ctx.raw/totalSpend*100).toFixed(1)}%)`}},datalabels:{display:ctx=>ctx.raw/totalSpend>.05,formatter:v=>(v/totalSpend*100).toFixed(0)+'%',color:'#fff',font:{size:10,weight:'700'}}}}});
+          _maCharts.obj=new Chart(cvObj,{type:'doughnut',data:{labels:objKeys,datasets:[{data:objVals,backgroundColor:pal.slice(0,objKeys.length),borderWidth:0,hoverOffset:10}]},options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'bottom',labels:{boxWidth:10,usePointStyle:true,pointStyle:'circle',font:{size:10},color:tc,padding:10}},tooltip:{backgroundColor:'rgba(10,10,24,.9)',titleColor:'#fff',bodyColor:'rgba(255,255,255,.85)',padding:10,cornerRadius:7,callbacks:{label:ctx=>`${ctx.label}: ${_maFmtR(ctx.raw)} (${(ctx.raw/totalSpend*100).toFixed(1)}%)`}},datalabels:{display:ctx=>ctx.raw/totalSpend>.05,formatter:v=>(v/totalSpend*100).toFixed(0)+'%',color:'#fff',font:{size:10,weight:'700'}}}}});
         }else{cvObj.parentElement.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:220px;font-size:12px;color:var(--muted)">Sem dados</div>';}
 
-        // Gasto por campanha
+        // Gasto por campanha — with prev period comparison
         if(sortedSpend.length){
           const spLabels=sortedSpend.map(i=>(i.campaign_name||'—').replace(/\[TRÁFEGO\]|\[Leads\]|\[L\]/gi,'').trim().slice(0,32));
           const spVals=sortedSpend.map(i=>parseFloat(i.spend||0));
-          _maCharts.spend=new Chart(cvSpend,{type:'bar',data:{labels:spLabels,datasets:[{data:spVals,backgroundColor:'rgba(24,119,242,.75)',borderRadius:4,borderSkipped:false}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`Gasto: ${_maFmtR(ctx.raw)}`}},datalabels:{display:ctx=>ctx.raw>0,formatter:v=>_maFmtR(v),color:dlColor,font:{size:9,weight:'700'},anchor:'end',align:'left',offset:4,clamp:true}},scales:{x:{grid:{color:'rgba(128,128,128,.07)'},ticks:{callback:v=>'R$'+v.toFixed(0),font:{size:9},color:tc}},y:{grid:{display:false},ticks:{font:{size:10},color:tc}}}}});
+          const spPrev=sortedSpend.map(i=>parseFloat(prevCampMap[i.campaign_id]?.spend||0));
+          const hasPrevSpend=spPrev.some(v=>v>0);
+          const spDatasets=[{label:'Atual',data:spVals,backgroundColor:'rgba(24,119,242,.82)',borderRadius:4,borderSkipped:false,datalabels:{display:ctx=>ctx.raw>0,formatter:v=>_maFmtR(v),color:dlColor,font:{size:9,weight:'700'},anchor:'end',align:'right',offset:4,clamp:true}}];
+          if(hasPrevSpend)spDatasets.push({label:'Período Ant.',data:spPrev,backgroundColor:'rgba(100,110,160,.35)',borderRadius:4,borderSkipped:false,datalabels:{display:false}});
+          _maCharts.spend=new Chart(cvSpend,{type:'bar',data:{labels:spLabels,datasets:spDatasets},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:hasPrevSpend,position:'top',labels:{boxWidth:10,usePointStyle:true,pointStyle:'rect',font:{size:10},color:tc,padding:10}},tooltip:{backgroundColor:'rgba(10,10,24,.9)',titleColor:'#fff',bodyColor:'rgba(255,255,255,.85)',padding:10,cornerRadius:7,callbacks:{label:ctx=>`${ctx.dataset.label}: ${_maFmtR(ctx.raw)}`}},datalabels:{}},scales:{x:{grid:{color:'rgba(128,128,128,.07)'},ticks:{callback:v=>'R$'+v.toFixed(0),font:{size:9},color:tc}},y:{grid:{display:false},ticks:{font:{size:10},color:tc}}}}});
         }
 
-        // CTR ranking
+        // CTR ranking — with prev period comparison
         if(sortedCtr.length){
           const ctrLabels=sortedCtr.map(i=>(i.campaign_name||'—').replace(/\[TRÁFEGO\]|\[Leads\]|\[L\]/gi,'').trim().slice(0,32));
           const ctrVals=sortedCtr.map(i=>parseFloat(i.ctr||0));
-          const ctrColors=ctrVals.map(v=>v>=2?'rgba(22,163,74,.82)':v>=0.8?'rgba(245,158,11,.82)':'rgba(220,38,38,.78)');
-          _maCharts.ctr=new Chart(cvCtr,{type:'bar',data:{labels:ctrLabels,datasets:[{data:ctrVals,backgroundColor:ctrColors,borderRadius:4,borderSkipped:false}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`CTR: ${ctx.raw.toFixed(2)}%`}},datalabels:{display:ctx=>ctx.raw>0,formatter:v=>v.toFixed(2)+'%',color:'#fff',font:{size:9,weight:'700'},anchor:'end',align:'left',offset:4,clamp:true}},scales:{x:{grid:{color:'rgba(128,128,128,.07)'},ticks:{callback:v=>v.toFixed(1)+'%',font:{size:9},color:tc}},y:{grid:{display:false},ticks:{font:{size:10},color:tc}}}}});
+          const ctrPrev=sortedCtr.map(i=>{const pi=prevCampMap[i.campaign_id];if(!pi)return 0;const pimp=parseFloat(pi.impressions||0);const pclk=parseFloat(pi.clicks||0);return pimp>0?pclk/pimp*100:0;});
+          const hasPrevCtr=ctrPrev.some(v=>v>0);
+          const ctrColors=ctrVals.map(v=>v>=2?'rgba(22,163,74,.85)':v>=0.8?'rgba(245,158,11,.85)':'rgba(220,38,38,.82)');
+          const ctrDatasets=[{label:'CTR Atual',data:ctrVals,backgroundColor:ctrColors,borderRadius:4,borderSkipped:false,datalabels:{display:ctx=>ctx.raw>0,formatter:v=>v.toFixed(2)+'%',color:dlColor,font:{size:9,weight:'700'},anchor:'end',align:'right',offset:4,clamp:true}}];
+          if(hasPrevCtr)ctrDatasets.push({label:'CTR Ant.',data:ctrPrev,backgroundColor:'rgba(100,110,160,.35)',borderRadius:4,borderSkipped:false,datalabels:{display:false}});
+          _maCharts.ctr=new Chart(cvCtr,{type:'bar',data:{labels:ctrLabels,datasets:ctrDatasets},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:hasPrevCtr,position:'top',labels:{boxWidth:10,usePointStyle:true,pointStyle:'rect',font:{size:10},color:tc,padding:10}},tooltip:{backgroundColor:'rgba(10,10,24,.9)',titleColor:'#fff',bodyColor:'rgba(255,255,255,.85)',padding:10,cornerRadius:7,callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.raw.toFixed(2)}%`}},datalabels:{}},scales:{x:{grid:{color:'rgba(128,128,128,.07)'},ticks:{callback:v=>v.toFixed(1)+'%',font:{size:9},color:tc}},y:{grid:{display:false},ticks:{font:{size:10},color:tc}}}}});
         }
       }catch(chartErr){
         console.error('[MetaAds] chart error:',chartErr);
@@ -6761,6 +6792,99 @@ function _buildMaTable(insights,campaigns){
   });
   tbl.appendChild(tbody);wrap.appendChild(tbl);
   return wrap;
+}
+
+function _buildMaCampaignCards(insights,campaigns,prevCampMap){
+  const campMap={};campaigns.forEach(c=>campMap[c.id]=c);
+  const sorted=[...insights].sort((a,b)=>parseFloat(b.spend||0)-parseFloat(a.spend||0));
+  prevCampMap=prevCampMap||{};
+
+  const grid=document.createElement('div');
+  grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px;';
+
+  if(!sorted.length){
+    const empty=document.createElement('div');
+    empty.style.cssText='grid-column:1/-1;text-align:center;padding:32px;font-family:"IBM Plex Sans",sans-serif;font-size:12px;color:var(--muted);';
+    empty.textContent='Nenhuma campanha no período';
+    grid.appendChild(empty);
+    return grid;
+  }
+
+  sorted.forEach(ins=>{
+    const camp=campMap[ins.campaign_id];
+    const status=camp?.effective_status||'—';
+    const ctr=parseFloat(ins.ctr||0);
+    const spend=parseFloat(ins.spend||0);
+    const impressions=parseInt(ins.impressions||0);
+    const clicks=parseInt(ins.clicks||0);
+    const cpc=parseFloat(ins.cpc||0);
+    const cpm=parseFloat(ins.cpm||0);
+    const freq=parseFloat(ins.frequency||0);
+    const leads=_getActions(ins,'lead');
+    const statusColor=status==='ACTIVE'?'#16a34a':status==='PAUSED'?'#f59e0b':'#6b7280';
+    const ctrColor=ctr>=2?'#16a34a':ctr<0.8?'#dc2626':'#d97706';
+    const statusLabel=status==='ACTIVE'?'Ativa':status==='PAUSED'?'Pausada':status==='ARCHIVED'?'Arquivada':status;
+    const prev=prevCampMap[ins.campaign_id];
+    const prevSpend=parseFloat(prev?.spend||0);
+    const prevImp=parseFloat(prev?.impressions||0);
+    const prevClk=parseFloat(prev?.clicks||0);
+    const prevCtr=prevImp>0?prevClk/prevImp*100:0;
+    const dSpend=_maDelta(spend,prevSpend);
+    const dCtr=_maDelta(ctr,prevCtr);
+    const budget=camp?.daily_budget?'R$'+(parseFloat(camp.daily_budget)/100).toFixed(0)+'/dia':camp?.lifetime_budget?'R$'+(parseFloat(camp.lifetime_budget)/100).toFixed(0)+' total':'—';
+
+    const card=document.createElement('div');
+    card.className='ma-section';
+    card.style.cssText='padding:14px 16px;transition:box-shadow .18s,border-color .18s;cursor:default;';
+    card.addEventListener('mouseenter',()=>card.style.cssText='padding:14px 16px;transition:box-shadow .18s,border-color .18s;cursor:default;box-shadow:0 6px 20px rgba(0,0,0,.12);border-color:var(--accent-mid);');
+    card.addEventListener('mouseleave',()=>card.style.cssText='padding:14px 16px;transition:box-shadow .18s,border-color .18s;cursor:default;');
+
+    card.innerHTML=`
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:12px;">
+        <div style="min-width:0;flex:1;">
+          <div style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:5px;" title="${(ins.campaign_name||'').replace(/"/g,'&quot;')}">${ins.campaign_name||'—'}</div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <span style="font-size:9px;color:${statusColor};font-family:'IBM Plex Sans',sans-serif;font-weight:700;">● ${statusLabel}</span>
+            <span class="ma-obj-chip">${_maObjLabel(ins.objective)}</span>
+            ${budget!=='—'?`<span style="font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);">${budget}</span>`:''}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-family:'Oswald',sans-serif;font-size:20px;font-weight:700;color:var(--text);line-height:1;">${_maFmtR(spend)}</div>
+          ${dSpend.pct!==null?`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:600;margin-top:2px;" class="${dSpend.cls}">${dSpend.sym}</div>`:'<div style="font-family:\'IBM Plex Sans\',sans-serif;font-size:9px;color:var(--muted);margin-top:2px;">gasto</div>'}
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;border-top:1px solid var(--border);padding-top:10px;">
+        <div>
+          <div style="font-family:'IBM Plex Sans',sans-serif;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">CTR</div>
+          <div style="font-family:'Oswald',sans-serif;font-size:15px;font-weight:700;color:${ctrColor};line-height:1;">${_maFmtPct(ctr)}</div>
+          ${dCtr.pct!==null?`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:8px;font-weight:600;" class="${dCtr.cls}">${dCtr.sym}</div>`:''}
+        </div>
+        <div>
+          <div style="font-family:'IBM Plex Sans',sans-serif;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">CPC</div>
+          <div style="font-family:'Oswald',sans-serif;font-size:15px;font-weight:700;color:var(--text);line-height:1;">${_maFmtR(cpc)}</div>
+        </div>
+        <div>
+          <div style="font-family:'IBM Plex Sans',sans-serif;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">${leads>0?'Leads':'CPM'}</div>
+          <div style="font-family:'Oswald',sans-serif;font-size:15px;font-weight:700;color:var(--text);line-height:1;">${leads>0?_maFmt(leads):_maFmtR(cpm)}</div>
+        </div>
+        <div>
+          <div style="font-family:'IBM Plex Sans',sans-serif;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Impressões</div>
+          <div style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;color:var(--text);">${_maFmt(impressions)}</div>
+        </div>
+        <div>
+          <div style="font-family:'IBM Plex Sans',sans-serif;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Cliques</div>
+          <div style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;color:var(--text);">${_maFmt(clicks)}</div>
+        </div>
+        <div>
+          <div style="font-family:'IBM Plex Sans',sans-serif;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Freq.</div>
+          <div style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;color:var(--text);">${_maFmt(freq,2)}×</div>
+        </div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+  return grid;
 }
 
 let _bancoFiles=[];
