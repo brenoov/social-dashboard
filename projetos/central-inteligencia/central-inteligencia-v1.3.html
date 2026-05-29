@@ -6192,61 +6192,60 @@ function _setMaCurAccUI(acc){
 async function _initMetaAds(){
   const drop=document.getElementById('ma-acc-dropdown');
   const nm=document.getElementById('ma-acc-name');
+  const content=document.getElementById('ma-content');
   if(nm)nm.textContent='Carregando…';
   try{
-    // Fetch all social accounts including their stored ad_account_id link
+    // Fetch all social accounts from Supabase
     const res=await adFetch('accounts?select=id,name,instagram_id,access_token,ad_account_id,profile_picture_url,picture_url&order=name.asc');
     const socialAccs=await res.json();
 
     const seen=new Set();
     _maAccounts=[];
 
-    // STEP 1 — accounts explicitly linked via ad_account_id in Supabase (most reliable; uses that brand's own photo)
+    // STEP 1 — accounts with ad_account_id explicitly linked in Supabase (best: correct photo)
     for(const acc of socialAccs){
       if(!acc.ad_account_id||!acc.access_token)continue;
       const cleanId=_maCleanAccId(acc.ad_account_id);
       if(seen.has(cleanId))continue;
       seen.add(cleanId);
-      _maAccounts.push({
-        ...acc,
-        ad_account_id:cleanId,
-        display_name:acc.name,
-        balance:null,
-        _fromSupabase:true,
-      });
+      _maAccounts.push({...acc,ad_account_id:cleanId,display_name:acc.name,balance:null,_fromSupabase:true});
     }
 
-    // STEP 2 — discover remaining ad accounts via Meta API (any account with a token)
-    // These won't have a brand photo yet
-    const anyToken=(socialAccs.find(a=>a.access_token)||{}).access_token;
-    if(anyToken){
+    // STEP 2 — discover ALL remaining ad accounts via /me/adaccounts for EVERY token
+    // We try every unique token so accounts from different Business Managers are found
+    const tokens=[...new Set(socialAccs.filter(a=>a.access_token).map(a=>a.access_token))];
+    const photoMap={};  // adAccountId → photo from Supabase account with matching token
+    socialAccs.forEach(a=>{if(a.access_token&&(a.profile_picture_url||a.picture_url))photoMap[a.access_token]=a.profile_picture_url||a.picture_url;});
+
+    await Promise.all(tokens.map(async tok=>{
       try{
-        const d=await metaFetch('/me/adaccounts',{fields:'id,name,account_id,account_status,currency'},anyToken);
+        const d=await metaFetch('/me/adaccounts',{fields:'id,name,account_status,currency'},tok);
         for(const adAcc of(d.data||[])){
           const cleanId=_maCleanAccId(adAcc.id);
           if(seen.has(cleanId))continue;
           seen.add(cleanId);
+          // Match photo: find Supabase account whose access_token matches
+          const pic=photoMap[tok]||'';
           _maAccounts.push({
             id:null,name:adAcc.name,instagram_id:null,
-            access_token:anyToken,
+            access_token:tok,
             ad_account_id:cleanId,display_name:adAcc.name,
             currency:adAcc.currency,account_status:adAcc.account_status,
-            profile_picture_url:'',picture_url:'',balance:null,
+            profile_picture_url:pic,picture_url:'',balance:null,
             _fromSupabase:false,
           });
         }
-      }catch(e){}
-    }
+      }catch(e){console.warn('[MetaAds] /me/adaccounts failed for token:',e.message);}
+    }));
 
     if(!_maAccounts.length){
       if(nm)nm.textContent='Sem contas';
-      if(drop)drop.innerHTML='<div style="padding:14px;font-size:12px;color:var(--muted);text-align:center">Nenhuma conta de anúncio encontrada</div>';
-      const c=document.getElementById('ma-content');
-      if(c)c.innerHTML='<div class="gv-loading-screen"><span class="gv-loading-lbl">Nenhuma conta de anúncio encontrada.<br>Verifique se há contas com token e ad_account_id cadastrados.</span></div>';
+      if(drop)drop.innerHTML='<div style="padding:14px;font-size:12px;color:var(--muted);text-align:center">Nenhuma conta de anúncios encontrada</div>';
+      if(content)content.innerHTML='<div class="gv-loading-screen"><span class="gv-loading-lbl" style="text-align:center">Nenhuma conta de anúncios encontrada.<br><span style="font-size:9px;opacity:.6">Verifique se os access_tokens estão cadastrados nas contas do Supabase.</span></span></div>';
       return;
     }
 
-    // STEP 3 — for each ad account fetch Meta name + balance (never overwrite a Supabase-sourced photo)
+    // STEP 3 — enrich each account: fetch name + balance from Meta (never overwrite Supabase photo)
     await Promise.all(_maAccounts.map(async a=>{
       try{
         const d=await metaFetch(`/act_${a.ad_account_id}`,{fields:'name,balance,currency'},a.access_token);
@@ -6261,8 +6260,7 @@ async function _initMetaAds(){
   }catch(e){
     console.error('[MetaAds] _initMetaAds error:',e);
     if(nm)nm.textContent='Erro';
-    const c=document.getElementById('ma-content');
-    if(c)c.innerHTML=`<div class="gv-loading-screen"><span class="gv-loading-lbl" style="color:#dc2626">Erro ao carregar contas: ${e.message}</span></div>`;
+    if(content)content.innerHTML=`<div class="gv-loading-screen"><span class="gv-loading-lbl" style="color:#dc2626">Erro: ${e.message}</span></div>`;
   }
 }
 
