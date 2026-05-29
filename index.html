@@ -1712,7 +1712,7 @@
       <img class="rbv-logo rbv-logo-dark" src="midia/LOGOTIPOBRENOBRANCO.png" alt="RBV">
       <h1>Inteligência RBV</h1>
     </div>
-    <div class="home-header-user">
+    <div class="home-header-user" style="display:none">
       <span class="user-badge"><span id="home-user-email"></span><span class="user-role-chip" id="home-user-role"></span></span>
     </div>
   </div>
@@ -6240,7 +6240,9 @@ async function _initMetaAds(){
 
     if(!_maAccounts.length){
       if(nm)nm.textContent='Sem contas';
-      drop.innerHTML='<div style="padding:14px;font-size:12px;color:var(--muted);text-align:center">Nenhuma conta de anúncio encontrada</div>';
+      if(drop)drop.innerHTML='<div style="padding:14px;font-size:12px;color:var(--muted);text-align:center">Nenhuma conta de anúncio encontrada</div>';
+      const c=document.getElementById('ma-content');
+      if(c)c.innerHTML='<div class="gv-loading-screen"><span class="gv-loading-lbl">Nenhuma conta de anúncio encontrada.<br>Verifique se há contas com token e ad_account_id cadastrados.</span></div>';
       return;
     }
 
@@ -7078,7 +7080,7 @@ function setHomeBgTheme(type){
 </div>
 
 <!-- ── GLOBAL USER BUTTON ── -->
-<div id="global-user-btn" onclick="event.stopPropagation()" style="position:relative">
+<div id="global-user-btn" onclick="event.stopPropagation()">
   <button id="gub-trigger" onclick="toggleUserMenu()" title="Minha conta">
     <img id="gub-av-img" alt="avatar">
     <span id="gub-initials">?</span>
