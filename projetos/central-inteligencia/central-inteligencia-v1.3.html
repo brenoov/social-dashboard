@@ -6223,13 +6223,11 @@ function _setMaCurAccUI(acc){
   const img=document.getElementById('ma-acc-img');
   const av=document.getElementById('ma-acc-av');
   const nm=document.getElementById('ma-acc-name');
-  const sl=document.getElementById('ma-status-lbl');
   const pic=acc.profile_picture_url||acc.picture_url||'';
   const label=acc.display_name||acc.name||'—';
   if(pic){img.src=pic;img.style.display='block';av.style.display='none';}
   else{img.style.display='none';av.style.display='flex';av.textContent=label.charAt(0).toUpperCase();}
   if(nm)nm.textContent=label;
-  if(sl){const b=acc.balance!=null?_maFmtR(acc.balance):'—';sl.textContent=`Saldo: ${b}`;}
 }
 
 async function _initMetaAds(){
@@ -6810,7 +6808,7 @@ function _buildMaTabCard(insArr,campaigns,prevCampMap,adInsights){
 
   const tabBtns=tabs.map(t=>{
     const btn=document.createElement('button');
-    btn.style.cssText='display:flex;align-items:center;gap:6px;padding:12px 18px;background:none;border:none;border-bottom:2px solid transparent;font-family:"IBM Plex Sans",sans-serif;font-size:12px;cursor:pointer;transition:all .15s;color:var(--muted);font-weight:500;white-space:nowrap;';
+    btn.style.cssText='display:flex;align-items:center;gap:6px;padding:9px 16px;background:none;border:none;border-bottom:2px solid transparent;font-family:"IBM Plex Sans",sans-serif;font-size:11px;cursor:pointer;transition:all .15s;color:var(--muted);font-weight:500;white-space:nowrap;';
     const badgeEl=document.createElement('span');
     badgeEl.style.cssText='display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--border);color:var(--text);font-size:9px;font-weight:700;';
     badgeEl.textContent=t.badge;
@@ -6822,18 +6820,19 @@ function _buildMaTabCard(insArr,campaigns,prevCampMap,adInsights){
   });
   wrap.appendChild(tabBar);
 
-  // Build pane content
-  const campPane=document.createElement('div');campPane.style.cssText='padding:18px 20px;';
+  // Build pane content — remove duplicate section titles since tabs already label each pane
+  const campPane=document.createElement('div');campPane.style.cssText='padding:14px 20px 20px;';
   const campSec=_buildMaCampaignSection(insArr,campaigns,prevCampMap);
-  // Transplant inner content (strip the outer .ma-section wrapper)
   campSec.style.padding='0';campSec.style.background='none';campSec.style.borderRadius='0';
+  const campTitle=campSec.querySelector('.ma-section-title');if(campTitle)campTitle.remove();
   campPane.appendChild(campSec);
   panes['campanhas']=campPane;
   wrap.appendChild(campPane);
 
-  const adPane=document.createElement('div');adPane.style.cssText='padding:18px 20px;display:none;';
+  const adPane=document.createElement('div');adPane.style.cssText='padding:14px 20px 20px;display:none;';
   const adSec=_buildMaAdSection(adInsights||[],insArr);
   adSec.style.padding='0';adSec.style.background='none';adSec.style.borderRadius='0';
+  const adTitle=adSec.querySelector('.ma-section-title');if(adTitle)adTitle.remove();
   adPane.appendChild(adSec);
   panes['anuncios']=adPane;
   wrap.appendChild(adPane);
@@ -7475,21 +7474,20 @@ function setHomeBgTheme(type){
       <button class="gv-pbtn" data-preset="month" onclick="setMaPeriod(this)">ATÉ AGORA</button>
       <button class="gv-pbtn" id="ma-refresh-btn" onclick="loadMaData()" style="border-color:var(--accent);color:var(--accent)">↻</button>
     </div>
-    <div class="gv-clock-wrap" onclick="event.stopPropagation()" style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
-      <span class="live-dot">Tempo Real</span>
+    <div id="ma-account-picker" onclick="event.stopPropagation()" style="position:relative;display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
+      <button id="ma-acc-trigger" style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:7px;padding:5px 12px;background:var(--surface2);cursor:pointer;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--text);white-space:nowrap;" onclick="event.stopPropagation();toggleMaAccPicker()">
+        <img id="ma-acc-img" style="width:22px;height:22px;border-radius:50%;object-fit:cover;display:none;flex-shrink:0;" alt="">
+        <span id="ma-acc-av" style="width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;"></span>
+        <span id="ma-acc-name" style="font-weight:500;max-width:130px;overflow:hidden;text-overflow:ellipsis;">—</span>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div id="ma-acc-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:260px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.18);z-index:999;overflow:hidden;" onclick="event.stopPropagation()"></div>
+    </div>
+    <div class="gv-clock-wrap" onclick="event.stopPropagation()">
+      <span class="live-dot" style="margin-bottom:4px">Tempo Real</span>
       <div class="gv-clock-time" id="ma-clock">--:--:--</div>
       <div class="gv-clock-date" id="ma-date"></div>
       <div class="gv-update-status" id="ma-update-status">—</div>
-      <div id="ma-account-picker" style="position:relative;margin-top:4px;">
-        <button id="ma-acc-trigger" style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:7px;padding:5px 12px;background:var(--surface2);cursor:pointer;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--text);white-space:nowrap;" onclick="event.stopPropagation();toggleMaAccPicker()">
-          <img id="ma-acc-img" style="width:22px;height:22px;border-radius:50%;object-fit:cover;display:none;flex-shrink:0;" alt="">
-          <span id="ma-acc-av" style="width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;"></span>
-          <span id="ma-acc-name" style="font-weight:500;max-width:130px;overflow:hidden;text-overflow:ellipsis;">—</span>
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        <div id="ma-acc-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:240px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.18);z-index:999;overflow:hidden;" onclick="event.stopPropagation()"></div>
-      </div>
-      <div id="ma-status-lbl" style="font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);text-align:right;letter-spacing:.5px;">—</div>
     </div>
   </div>
   <div class="ma-body" id="ma-content-wrap">
