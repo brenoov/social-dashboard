@@ -6806,8 +6806,10 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily,prevDaily,a
       sec.appendChild(selectorBar);
     }
 
+    const body=document.createElement('div');
+    sec.appendChild(body);
     if(resolvedObj){
-      _renderFunnel(sec,insArr,resolvedObj);
+      _renderFunnel(body,insArr,resolvedObj);
     }else{
       // Prompt — no objective selected yet
       const prompt=document.createElement('div');
@@ -6818,7 +6820,7 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily,prevDaily,a
       msg.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:12px;color:var(--muted);text-align:center;';
       msg.textContent='Selecione um objetivo acima para visualizar o funil';
       prompt.appendChild(icon);prompt.appendChild(msg);
-      sec.appendChild(prompt);
+      body.appendChild(prompt);
     }
     return sec;
   }
