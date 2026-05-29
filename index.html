@@ -6260,15 +6260,21 @@ async function _initMetaAds(){
       return;
     }
 
-    // STEP 3 — enrich each account: fetch name + balance from Meta (never overwrite Supabase photo)
+    // STEP 3 — enrich each account: fetch name + balance + this-month spend from Meta
     await Promise.all(_maAccounts.map(async a=>{
       try{
-        const d=await metaFetch(`/act_${a.ad_account_id}`,{fields:'name,balance,currency'},a.access_token);
+        const[d,spData]=await Promise.all([
+          metaFetch(`/act_${a.ad_account_id}`,{fields:'name,balance,currency'},a.access_token),
+          metaFetch(`/act_${a.ad_account_id}/insights`,{fields:'spend',date_preset:'this_month'},a.access_token).catch(()=>null),
+        ]);
         if(d.name)a.display_name=d.name;
         if(d.balance!==undefined)a.balance=parseFloat(d.balance)/100;
         if(d.currency)a.currency=d.currency;
-      }catch(e){}
+        a.monthSpend=parseFloat(spData?.data?.[0]?.spend||0);
+      }catch(e){a.monthSpend=0;}
     }));
+    // Sort by this-month spend descending so highest spenders appear first
+    _maAccounts.sort((a,b)=>(b.monthSpend||0)-(a.monthSpend||0));
 
     _buildMaDropdown(drop);
     _maCurAcc=_maAccounts[0];_setMaCurAccUI(_maAccounts[0]);loadMaData();
@@ -6281,20 +6287,25 @@ async function _initMetaAds(){
 
 function _buildMaDropdown(drop){
   drop.innerHTML='';
-  _maAccounts.forEach(a=>{
+  _maAccounts.forEach((a,idx)=>{
     const row=document.createElement('div');
-    row.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:background .13s;';
+    row.style.cssText='display:flex;align-items:center;gap:12px;padding:10px 14px;cursor:pointer;transition:background .13s;';
     row.addEventListener('mouseenter',()=>row.style.background='var(--surface2)');
     row.addEventListener('mouseleave',()=>row.style.background='');
-    const pic=a.profile_picture_url||a.picture_url||'';
     const lbl=a.display_name||a.name||'—';
-    const balStr=a.balance!==null&&a.balance!==undefined?'  ·  '+_maFmtR(a.balance):'';
+    const bal=a.balance;
+    const balColor=bal==null?'var(--muted)':bal>=1000?'#16a34a':bal>=500?'#f59e0b':'#dc2626';
+    const balStr=bal!=null?_maFmtR(bal):'—';
+    const spendTxt=a.monthSpend>0?`R$ ${a.monthSpend.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})} este mês`:'';
     row.innerHTML=`
-      ${pic?`<img src="${pic}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`:''}
-      <div style="width:32px;height:32px;border-radius:50%;background:var(--accent);display:${pic?'none':'flex'};align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;">${lbl.charAt(0).toUpperCase()}</div>
-      <div style="min-width:0;">
-        <div style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${lbl}</div>
-        <div style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);">act_${a.ad_account_id}${a.currency?' · '+a.currency:''}${balStr}</div>
+      <div style="width:20px;flex-shrink:0;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;color:var(--muted);text-align:right;">${idx+1}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${lbl}</div>
+        ${spendTxt?`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);margin-top:1px;">${spendTxt} gasto</div>`:''}
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;color:${balColor};line-height:1;">${balStr}</div>
+        <div style="font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);margin-top:2px;letter-spacing:.3px;text-transform:uppercase;">saldo</div>
       </div>
     `;
     row.addEventListener('click',()=>{_maCurAcc=a;_setMaCurAccUI(a);toggleMaAccPicker();loadMaData();});
@@ -6506,12 +6517,38 @@ function _openCampanhaFilter(insights,campaigns,onApply){
     const label=def?.label||obj;
     const totalSpend=camps.reduce((s,c)=>s+parseFloat(c.spend||0),0);
     const grp=document.createElement('div');grp.style.cssText='border:1px solid var(--border);border-radius:10px;overflow:hidden;';
+    // Group header: "select all" checkbox + label + spend + collapse toggle
     const ghdr=document.createElement('div');
-    ghdr.style.cssText='padding:11px 14px;background:var(--surface2);display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;';
-    ghdr.innerHTML=`<div style="display:flex;align-items:center;gap:8px;"><span style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);">${label}</span><span style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);">${camps.length} camp.</span></div><span style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--text);font-weight:600;">${_maFmtR(totalSpend)}</span>`;
+    ghdr.style.cssText='padding:10px 14px;background:var(--surface2);display:flex;align-items:center;gap:10px;user-select:none;';
+    const grpChkWrap=document.createElement('label');grpChkWrap.style.cssText='display:flex;align-items:center;cursor:pointer;flex-shrink:0;';
+    const grpChk=document.createElement('input');grpChk.type='checkbox';grpChk.style.cssText='width:16px;height:16px;cursor:pointer;accent-color:var(--accent);flex-shrink:0;';
+    const allChecked=camps.every(c=>selected.has(c.campaign_id));
+    grpChk.checked=allChecked;grpChk.indeterminate=!allChecked&&camps.some(c=>selected.has(c.campaign_id));
+    grpChkWrap.appendChild(grpChk);
+    ghdr.appendChild(grpChkWrap);
+    const grpInfo=document.createElement('div');grpInfo.style.cssText='flex:1;min-width:0;cursor:pointer;';
+    grpInfo.innerHTML=`<div style="display:flex;align-items:center;gap:6px;"><span style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);">${label}</span><span style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);">${camps.length} camp.</span></div>`;
+    ghdr.appendChild(grpInfo);
+    const ghdrRight=document.createElement('div');ghdrRight.style.cssText='display:flex;align-items:center;gap:8px;flex-shrink:0;';
+    ghdrRight.innerHTML=`<span style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--text);font-weight:600;">${_maFmtR(totalSpend)}</span><span id="garw_${obj}" style="font-size:10px;color:var(--muted);transition:transform .2s;display:inline-block;">▼</span>`;
+    ghdr.appendChild(ghdrRight);
+
     const gbody=document.createElement('div');gbody.style.cssText='display:flex;flex-direction:column;';
     let grpOpen=true;
-    ghdr.addEventListener('click',()=>{grpOpen=!grpOpen;gbody.style.display=grpOpen?'':'none';});
+    const arwEl=ghdrRight.querySelector(`#garw_${obj}`);
+    grpInfo.addEventListener('click',()=>{grpOpen=!grpOpen;gbody.style.display=grpOpen?'':'none';if(arwEl)arwEl.style.transform=grpOpen?'':'rotate(-90deg)';});
+    ghdrRight.querySelector('span:last-child')?.addEventListener('click',()=>{grpOpen=!grpOpen;gbody.style.display=grpOpen?'':'none';if(arwEl)arwEl.style.transform=grpOpen?'':'rotate(-90deg)';});
+
+    const rowChks=[];
+    function updateGrpChk(){
+      const allC=rowChks.every(c=>c.checked);
+      const anyC=rowChks.some(c=>c.checked);
+      grpChk.checked=allC;grpChk.indeterminate=!allC&&anyC;
+    }
+    grpChk.addEventListener('change',()=>{
+      rowChks.forEach(c=>{c.checked=grpChk.checked;if(grpChk.checked)selected.add(c.value);else selected.delete(c.value);});
+    });
+
     camps.forEach(ins=>{
       const camp=campMap[ins.campaign_id];
       const status=camp?.effective_status||'—';
@@ -6519,12 +6556,15 @@ function _openCampanhaFilter(insights,campaigns,onApply){
       const ctr=parseFloat(ins.ctr||0);
       const statusColor=status==='ACTIVE'?'#16a34a':status==='PAUSED'?'#f59e0b':'var(--muted)';
       const row=document.createElement('label');
-      row.style.cssText='display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-top:1px solid var(--border);cursor:pointer;';
+      row.style.cssText='display:flex;align-items:center;gap:12px;padding:10px 14px;border-top:1px solid var(--border);cursor:pointer;transition:background .12s;';
+      row.addEventListener('mouseenter',()=>row.style.background='var(--surface2)');
+      row.addEventListener('mouseleave',()=>row.style.background='');
       const chk=document.createElement('input');chk.type='checkbox';chk.value=ins.campaign_id;chk.checked=selected.has(ins.campaign_id);
-      chk.style.cssText='margin-top:3px;flex-shrink:0;accent-color:var(--accent);';
-      chk.addEventListener('change',()=>{if(chk.checked)selected.add(ins.campaign_id);else selected.delete(ins.campaign_id);});
+      chk.style.cssText='width:16px;height:16px;cursor:pointer;accent-color:var(--accent);flex-shrink:0;';
+      chk.addEventListener('change',()=>{if(chk.checked)selected.add(ins.campaign_id);else selected.delete(ins.campaign_id);updateGrpChk();});
+      rowChks.push(chk);
       const info=document.createElement('div');info.style.cssText='flex:1;min-width:0;';
-      info.innerHTML=`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${ins.campaign_name||''}">${ins.campaign_name||'—'}</div><div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;align-items:center;"><span style="font-size:10px;color:${statusColor};font-family:'IBM Plex Sans',sans-serif;">● ${status==='ACTIVE'?'Ativa':status==='PAUSED'?'Pausada':status}</span><span style="font-size:10px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;">Gasto: ${_maFmtR(ins.spend)}</span><span style="font-size:10px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;">CTR: ${ctr.toFixed(2)}%</span><span style="font-size:10px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;">Impr.: ${_maFmt(ins.impressions)}</span><span style="font-size:10px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;">Budget: ${db}</span></div>`;
+      info.innerHTML=`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(ins.campaign_name||'').replace(/"/g,'&quot;')}">${ins.campaign_name||'—'}</div><div style="display:flex;gap:8px;margin-top:3px;flex-wrap:wrap;align-items:center;"><span style="font-size:10px;color:${statusColor};font-family:'IBM Plex Sans',sans-serif;font-weight:600;">● ${status==='ACTIVE'?'Ativa':status==='PAUSED'?'Pausada':status}</span><span style="font-size:10px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;">${_maFmtR(ins.spend)}</span><span style="font-size:10px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;">CTR ${ctr.toFixed(2)}%</span><span style="font-size:10px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;">${db}</span></div>`;
       row.appendChild(chk);row.appendChild(info);gbody.appendChild(row);
     });
     grp.appendChild(ghdr);grp.appendChild(gbody);body.appendChild(grp);
@@ -6544,7 +6584,7 @@ function _openCampanhaFilter(insights,campaigns,onApply){
     const filtered=insights.filter(i=>selected.has(i.campaign_id));
     const objCount={};filtered.forEach(i=>{const o=i.objective||'OTHER';objCount[o]=(objCount[o]||0)+1;});
     const domObj=Object.entries(objCount).sort((a,b)=>b[1]-a[1])[0]?.[0]||null;
-    onApply(filtered,filtered.length===insights.length?null:domObj);
+    onApply(filtered,domObj);
     drawer.remove();document.getElementById('ma-filter-bd')?.remove();
   });
   ftr.appendChild(verBtn);ftr.appendChild(applyBtn);drawer.appendChild(ftr);
