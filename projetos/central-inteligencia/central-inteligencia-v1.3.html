@@ -1971,9 +1971,11 @@
         <span class="ac-toggle-lbl">AUTO</span>
       </div>
     </div>
-    <div class="topbar-right">
-      <span class="live-dot" id="collection-status">Tempo Real</span>
+    <div class="topbar-right" style="flex-direction:column;align-items:flex-end;gap:2px;">
+      <span class="live-dot" style="margin-bottom:2px">Tempo Real</span>
       <div id="dash-clock">--:--:<span>--</span></div>
+      <div class="gv-clock-date" id="dash-date"></div>
+      <div class="gv-update-status" id="collection-status">—</div>
     </div>
   </div>
 
@@ -3713,6 +3715,7 @@ function updateCollectionStatus(){
 
 function startClock(){
   const el=document.getElementById('dash-clock');
+  const dEl=document.getElementById('dash-date');
   if(!el)return;
   let lastMin=-1;
   function tick(){
@@ -3721,6 +3724,7 @@ function startClock(){
     const m=String(now.getMinutes()).padStart(2,'0');
     const s=String(now.getSeconds()).padStart(2,'0');
     el.innerHTML=`${h}:${m}:<span>${s}</span>`;
+    if(dEl){const ds=now.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});dEl.textContent=ds.toUpperCase();}
     if(now.getMinutes()!==lastMin){lastMin=now.getMinutes();updateCollectionStatus();}
   }
   tick();setInterval(tick,1000);
