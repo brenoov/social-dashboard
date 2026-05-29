@@ -6288,46 +6288,35 @@ async function _initGestaoTrafego(){
   const col=document.getElementById('gt-camp-col');
   if(col)col.innerHTML='<div class="gv-loading-screen"><div class="gv-spinner"></div><span class="gv-loading-lbl">Carregando contas</span></div>';
   try{
+    // If Meta Ads Análise hasn't loaded accounts yet, do a lightweight fetch
     if(!_maAccounts.length){
-      // Fetch accounts fresh if not yet loaded
       const res=await adFetch('accounts?select=id,name,access_token,ad_account_id,profile_picture_url,picture_url&order=name.asc');
       const socialAccs=await res.json();
       const seen=new Set();
-      const accs=[];
       for(const acc of socialAccs){
         if(!acc.ad_account_id||!acc.access_token)continue;
         const cid=_maCleanAccId(acc.ad_account_id);
         if(seen.has(cid))continue;seen.add(cid);
-        accs.push({...acc,display_name:acc.name,monthSpend:0,balance:null});
+        _maAccounts.push({...acc,display_name:acc.name,monthSpend:0,balance:null});
       }
-      // Enrich with balance + spend
-      await Promise.all(accs.map(async a=>{
-        try{
-          const[d,sp]=await Promise.all([
-            metaFetch(`/act_${_maCleanAccId(a.ad_account_id)}`,{fields:'name,balance,currency'},a.access_token),
-            metaFetch(`/act_${_maCleanAccId(a.ad_account_id)}/insights`,{fields:'spend',date_preset:'this_month'},a.access_token).catch(()=>null),
-          ]);
-          if(d.name)a.display_name=d.name;
-          if(d.balance!==undefined)a.balance=parseFloat(d.balance)/100;
-          a.monthSpend=parseFloat(sp?.data?.[0]?.spend||0);
-        }catch(e){a.monthSpend=0;}
-      }));
-      accs.sort((a,b)=>(b.monthSpend||0)-(a.monthSpend||0));
-      // Store back so meta ads can use them too
-      _maAccounts.push(...accs.filter(a=>!_maAccounts.find(x=>x.ad_account_id===a.ad_account_id)));
     }
-    _gtCurAcc=_gtCurAcc||_maCurAcc||_maAccounts[0]||null;
+    if(!_maAccounts.length){
+      if(col)col.innerHTML='<div class="gt-camp-card"><div class="gt-empty">Nenhuma conta de anúncios vinculada.<br>Acesse Meta Ads → Análise de Campanhas para configurar.</div></div>';
+      return;
+    }
+    _gtCurAcc=_gtCurAcc||_maCurAcc||_maAccounts[0];
     const nm=document.getElementById('gt-acc-name');
     if(nm)nm.textContent=_gtCurAcc?.display_name||_gtCurAcc?.name||'—';
     _buildGtDropdown();
     await loadGtData();
   }catch(e){
-    if(col)col.innerHTML=`<div class="gt-camp-card"><div class="gt-empty">Erro ao carregar: ${e.message}</div></div>`;
+    if(col)col.innerHTML=`<div class="gt-camp-card"><div class="gt-empty">Erro ao carregar contas:<br>${e.message}</div></div>`;
   }
 }
 async function loadGtData(){
   const col=document.getElementById('gt-camp-col');
-  if(!col||!_gtCurAcc)return;
+  if(!col)return;
+  if(!_gtCurAcc){col.innerHTML='<div class="gt-camp-card"><div class="gt-empty">Nenhuma conta selecionada.</div></div>';return;}
   col.innerHTML='<div class="gv-loading-screen"><div class="gv-spinner"></div><span class="gv-loading-lbl">Carregando campanhas</span></div>';
   // Reset AI suggestions
   const sugs=document.getElementById('gt-suggestions');
