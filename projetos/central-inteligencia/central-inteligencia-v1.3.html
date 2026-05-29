@@ -6159,9 +6159,10 @@ function _setMaCurAccUI(acc){
   const av=document.getElementById('ma-acc-av');
   const nm=document.getElementById('ma-acc-name');
   const pic=acc.profile_picture_url||acc.picture_url||'';
+  const label=acc.display_name||acc.name||'—';
   if(pic){img.src=pic;img.style.display='block';av.style.display='none';}
-  else{img.style.display='none';av.style.display='flex';av.textContent=(acc.name||'?').charAt(0).toUpperCase();}
-  if(nm)nm.textContent=acc.name||'—';
+  else{img.style.display='none';av.style.display='flex';av.textContent=label.charAt(0).toUpperCase();}
+  if(nm)nm.textContent=label;
 }
 
 async function _initMetaAds(){
@@ -6169,27 +6170,53 @@ async function _initMetaAds(){
   const nm=document.getElementById('ma-acc-name');
   if(nm)nm.textContent='Carregando…';
   try{
-    const res=await adFetch('accounts?select=id,name,instagram_id,access_token,ad_account_id,profile_picture_url,picture_url,accent_color&order=name.asc');
-    _maAccounts=await res.json();
+    // Load Supabase social accounts (for tokens + profile pics)
+    const res=await adFetch('accounts?select=id,name,access_token,profile_picture_url,picture_url&order=name.asc');
+    const socialAccs=await res.json();
+
+    // Fetch ad accounts from Meta for each account with a token; deduplicate by ad account ID
+    const seen=new Set();
+    _maAccounts=[];
+    for(const acc of socialAccs){
+      if(!acc.access_token)continue;
+      try{
+        const d=await metaFetch('/me/adaccounts',{fields:'id,name,account_id,account_status,currency'},acc.access_token);
+        for(const adAcc of(d.data||[])){
+          const cleanId=_maCleanAccId(adAcc.id);
+          if(seen.has(cleanId))continue;
+          seen.add(cleanId);
+          _maAccounts.push({...acc,ad_account_id:cleanId,display_name:adAcc.name,currency:adAcc.currency,account_status:adAcc.account_status});
+        }
+      }catch(e){}
+    }
+
     drop.innerHTML='';
+    if(!_maAccounts.length){
+      if(nm)nm.textContent='Sem contas';
+      drop.innerHTML='<div style="padding:14px;font-size:12px;color:var(--muted);text-align:center">Nenhuma conta de anúncio encontrada</div>';
+      return;
+    }
+
     _maAccounts.forEach(a=>{
       const row=document.createElement('div');
       row.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:background .13s;';
       row.addEventListener('mouseenter',()=>row.style.background='var(--surface2)');
       row.addEventListener('mouseleave',()=>row.style.background='');
       const pic=a.profile_picture_url||a.picture_url||'';
+      const lbl=a.display_name||a.name||'—';
       row.innerHTML=`
         ${pic?`<img src="${pic}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`:''}
-        <div style="width:30px;height:30px;border-radius:50%;background:var(--accent);display:${pic?'none':'flex'};align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;">${(a.name||'?').charAt(0).toUpperCase()}</div>
+        <div style="width:30px;height:30px;border-radius:50%;background:var(--accent);display:${pic?'none':'flex'};align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;">${lbl.charAt(0).toUpperCase()}</div>
         <div>
-          <div style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:500;color:var(--text)">${a.name||'—'}</div>
-          <div style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted)">${a.ad_account_id?'act_'+_maCleanAccId(a.ad_account_id):'Sem conta de anúncio'}</div>
+          <div style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:500;color:var(--text)">${lbl}</div>
+          <div style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted)">act_${a.ad_account_id}${a.currency?' · '+a.currency:''}</div>
         </div>
       `;
       row.addEventListener('click',()=>{_maCurAcc=a;_setMaCurAccUI(a);toggleMaAccPicker();loadMaData();});
       drop.appendChild(row);
     });
-    if(_maAccounts.length){_maCurAcc=_maAccounts[0];_setMaCurAccUI(_maAccounts[0]);loadMaData();}
+
+    _maCurAcc=_maAccounts[0];_setMaCurAccUI(_maAccounts[0]);loadMaData();
   }catch(e){if(nm)nm.textContent='Erro';}
 }
 
@@ -6207,9 +6234,6 @@ async function loadMaData(){
   // Destroy existing charts
   Object.values(_maCharts).forEach(c=>{try{c.destroy();}catch(e){}});_maCharts={};
 
-  if(!_maCurAcc.ad_account_id){
-    _renderMaSetup(content);return;
-  }
   try{
     const[insights,campaigns,prevInsights]=await Promise.all([
       _fetchInsights(_maCurAcc.ad_account_id,_maCurAcc.access_token,{date_preset:_maPreset}),
@@ -6259,37 +6283,6 @@ function _getCpa(ins,type){
   return a?parseFloat(a.value||0):0;
 }
 
-function _renderMaSetup(el){
-  el.innerHTML=`
-  <div class="ma-setup">
-    <div class="ma-setup-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
-    <div class="ma-setup-title">Conectar Conta de Anúncios</div>
-    <div class="ma-setup-sub">Preciso encontrar a conta de anúncios do Meta (act_XXXXXXXXX) associada a <strong>${_maCurAcc?.name||'esta conta'}</strong> para buscar os dados.</div>
-    <button class="ma-setup-btn" onclick="_discoverAdAccounts()">Descobrir automaticamente</button>
-    <div id="ma-adacc-list" class="ma-adacc-list" style="display:none;width:100%;max-width:420px;"></div>
-  </div>`;
-}
-
-async function _discoverAdAccounts(){
-  const btn=document.querySelector('.ma-setup-btn');
-  if(btn){btn.textContent='Buscando…';btn.disabled=true;}
-  try{
-    const data=await metaFetch('/me/adaccounts',{fields:'id,name,account_id,account_status,currency'},_maCurAcc.access_token);
-    const list=document.getElementById('ma-adacc-list');
-    if(!data.data?.length){list.style.display='block';list.innerHTML='<p style="text-align:center;color:var(--muted);font-size:12px">Nenhuma conta encontrada com este token.</p>';return;}
-    list.style.display='block';list.innerHTML='';
-    data.data.forEach(acc=>{
-      const row=document.createElement('div');row.className='ma-adacc-row';
-      row.innerHTML=`<div><div class="ma-adacc-name">${acc.name}</div><div class="ma-adacc-id">${acc.id} · ${acc.currency||''}</div></div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
-      row.addEventListener('click',async()=>{
-        await adFetch(`accounts?id=eq.${_maCurAcc.id}`,{method:'PATCH',body:JSON.stringify({ad_account_id:acc.account_id||acc.id.replace('act_','')})});
-        _maCurAcc.ad_account_id=acc.account_id||acc.id.replace('act_','');
-        adminToast('Conta conectada!');loadMaData();
-      });
-      list.appendChild(row);
-    });
-  }catch(e){adminToast('Erro: '+e.message);if(btn){btn.textContent='Tentar novamente';btn.disabled=false;}}
-}
 
 function _maFmtR(v){if(!v&&v!==0)return'—';const n=parseFloat(v);if(n>=1000)return'R$'+n.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});return'R$'+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function _maFmt(v,dec=0){if(!v&&v!==0)return'—';return parseFloat(v).toLocaleString('pt-BR',{minimumFractionDigits:dec,maximumFractionDigits:dec});}
