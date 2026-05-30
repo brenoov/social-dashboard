@@ -5046,9 +5046,20 @@ async function _saPopulateDescontos(pedidos){
       // Item-level discounts: PDV applies % discount per item
       const itens=resp?.data?.itens||[];
       const descItens=itens.reduce((s,it)=>{
-        const pct=parseFloat(it.desconto||0);
-        const val=parseFloat(it.valor||0)*parseFloat(it.quantidade||1);
-        return s+val*pct/100;
+        const preDisc=parseFloat(it.valor||0)*parseFloat(it.quantidade||1);
+        if(!preDisc)return s;
+        // Most reliable: valorTotal = price after discount already applied
+        if(it.valorTotal!==undefined){
+          return s+Math.max(0,preDisc-parseFloat(it.valorTotal||0));
+        }
+        // Fallback: desconto field — may be object {valor,unidade} or plain % number
+        const d=it.desconto;
+        if(!d&&d!==0)return s;
+        if(typeof d==='object'){
+          const v=parseFloat(d.valor||0);
+          return s+(d.unidade==='%'?preDisc*v/100:v);
+        }
+        return s+preDisc*parseFloat(d||0)/100;
       },0);
       // Order-level discount (fallback, usually 0 in PDV)
       const d=resp?.data?.desconto;
