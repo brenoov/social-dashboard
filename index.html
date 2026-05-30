@@ -4697,7 +4697,7 @@ function closeGestaoVista(){
 }
 
 function saSelectPeriod(p){
-  document.querySelectorAll('.sa-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===p));
+  document.querySelectorAll('#sales-analysis-screen .gv-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===p));
   loadSalesAnalysisData(p);
 }
 const SA_AC_PERIODS=['sofar','today','7d','14d','month'];
@@ -4882,7 +4882,7 @@ window._saCharts={};
 window._saRawData=null;
 
 async function loadSalesAnalysisData(period){
-  document.querySelectorAll('.sa-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===period));
+  document.querySelectorAll('#sales-analysis-screen .gv-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===period));
   const body=document.getElementById('sa-body');
   body.textContent='';
   const loading=document.createElement('div');loading.className='sa-loading';
@@ -4917,14 +4917,13 @@ async function loadSalesAnalysisData(period){
   else if(period==='month'){di=`${y}-${pad(m)}-01`;df=new Date(y,m,0).toISOString().slice(0,10);}
   else{di=`${y}-${pad(m)}-01`;df=brtToday;}
 
-  const iso=s=>s; // dates already BRT strings, kept for compat
-  const spanMs=new Date(df+'T00:00:00')-new Date(di+'T00:00:00');
   const isoD=d=>d.toISOString().slice(0,10);
+  const spanMs=new Date(df+'T00:00:00')-new Date(di+'T00:00:00');
   const diPrev=isoD(new Date(new Date(di+'T00:00:00')-spanMs-864e5));
   const dfPrev=isoD(new Date(new Date(di+'T00:00:00')-864e5));
 
-  const di15=iso(new Date(now-14*864e5));
-  const df15=iso(now);
+  const di15=brtAdd(-14);
+  const df15=brtToday;
 
   try{
     const[pedidos,pedidosPrev,lojaMap,metasArr,vendedoresArr,pedidos15]=await Promise.all([
@@ -5121,7 +5120,8 @@ function renderSAKpis({pedidos,pedidosPrev,metaPeriodo,diasMes,diasTot,diasDec,n
   const pct=metaPeriodo>0?total/metaPeriodo*100:null;
   const proj=diasDec>0?(total/diasDec)*diasTot:0;
   const hojeDayNum=now.getDate();
-  const hoje=now.toISOString().slice(0,10);
+  const pad2=n=>String(n).padStart(2,'0');
+  const hoje=`${y}-${pad2(m)}-${pad2(hojeDayNum)}`;
   let metaHoje=0;let hasDaily=false;
   Object.values(dailyGoalsMap).forEach(dg=>{if(dg&&dg[String(hojeDayNum)]!=null){metaHoje+=Number(dg[String(hojeDayNum)]||0);hasDaily=true;}});
   if(!hasDaily&&metaPeriodo>0)metaHoje=metaPeriodo/diasTot;
@@ -8088,29 +8088,32 @@ function setHomeBgTheme(type){
 
 <!-- SALES ANALYSIS -->
 <div id="sales-analysis-screen" style="display:none">
-  <div class="sa-topbar">
-    <button class="sa-back" onclick="closeSalesAnalysis()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Marcas
-    </button>
-    <div class="sa-topbar-center">
-      <img id="sa-brand-av" class="sa-brand-av" src="" alt="" onerror="this.style.display='none'">
-      <span class="sa-brand-nm">Vessel · Análise de Vendas</span>
-      <div class="sa-filters">
-        <div class="sa-canal-wrap" id="sa-canal-wrap">
-          <button class="sa-canal-trigger" id="sa-canal-trigger" onclick="saToggleCanalDrop(event)">Canais ▾</button>
-          <div class="sa-canal-drop" id="sa-canal-drop"></div>
-        </div>
-        <div class="sa-period-btns">
-          <button class="sa-pbtn" data-period="today" onclick="saSelectPeriod('today')"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite;vertical-align:middle;flex-shrink:0;"></span>HOJE</button>
-          <button class="sa-pbtn" data-period="7d" onclick="saSelectPeriod('7d')">7D</button>
-          <button class="sa-pbtn" data-period="14d" onclick="saSelectPeriod('14d')">14D</button>
-          <button class="sa-pbtn" data-period="month" onclick="saSelectPeriod('month')">MÊS</button>
-          <button class="sa-pbtn active" data-period="sofar" onclick="saSelectPeriod('sofar')">ATÉ AGORA</button>
-          <button class="vs-ac-toggle" id="sa-ac-toggle" onclick="saToggleAuto()" title="Auto-ciclo de períodos">▶ AUTO</button>
-        </div>
+  <div class="gv-topbar">
+    <div class="gv-topbar-brand">
+      <button class="gv-back" onclick="closeSalesAnalysis()">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Marcas
+      </button>
+      <img id="sa-brand-av" class="sa-brand-av" src="" alt="" onerror="this.style.display='none'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <span class="gv-perf-tag" id="sa-brand-nm" style="font-size:11px;letter-spacing:3px;">Análise de Vendas</span>
+        <span class="gv-brand-tag" style="font-size:9px;letter-spacing:2px;opacity:.5;">Vessel Brasil · Dados Bling</span>
       </div>
     </div>
-    <div class="gv-clock-wrap">
+    <div class="gv-period-btns" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+      <button class="gv-pbtn" data-period="today" onclick="saSelectPeriod('today')"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite;vertical-align:middle;flex-shrink:0;"></span>HOJE</button>
+      <button class="gv-pbtn" data-period="7d" onclick="saSelectPeriod('7d')">7D</button>
+      <button class="gv-pbtn" data-period="14d" onclick="saSelectPeriod('14d')">14D</button>
+      <button class="gv-pbtn" data-period="month" onclick="saSelectPeriod('month')">MÊS</button>
+      <button class="gv-pbtn active" data-period="sofar" onclick="saSelectPeriod('sofar')">ATÉ AGORA</button>
+      <button class="vs-ac-toggle" id="sa-ac-toggle" onclick="saToggleAuto()" title="Auto-ciclo de períodos">▶ AUTO</button>
+    </div>
+    <div style="position:relative;" onclick="event.stopPropagation()">
+      <div class="sa-canal-wrap" id="sa-canal-wrap">
+        <button class="sa-canal-trigger" id="sa-canal-trigger" onclick="saToggleCanalDrop(event)">Canais ▾</button>
+        <div class="sa-canal-drop" id="sa-canal-drop"></div>
+      </div>
+    </div>
+    <div class="gv-clock-wrap" onclick="event.stopPropagation()">
       <span class="live-dot" style="margin-bottom:4px">Tempo Real</span>
       <div class="gv-clock-time" id="sa-clock">--:--:--</div>
       <div class="gv-clock-date" id="sa-clock-date"></div>
