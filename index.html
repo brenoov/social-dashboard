@@ -5047,33 +5047,14 @@ async function _saPopulateDescontos(pedidos){
     if(p._desconto!==undefined)continue;
     try{
       const resp=await blingCall(`pedidos/vendas/${p.id}`,{});
-      // Item-level discounts: PDV applies % discount per item
-      const itens=resp?.data?.itens||[];
       if(i===0)console.log('[BLING_DESC_DEBUG] pedido',p.id,'data:',JSON.stringify(resp?.data).slice(0,2000));
-      const descItens=itens.reduce((s,it)=>{
-        const preDisc=parseFloat(it.valor||0)*parseFloat(it.quantidade||1);
-        if(!preDisc)return s;
-        // Most reliable: valorTotal = price after discount already applied
-        if(it.valorTotal!==undefined){
-          return s+Math.max(0,preDisc-parseFloat(it.valorTotal||0));
-        }
-        // Fallback: desconto field — may be object {valor,unidade} or plain % number
-        const d=it.desconto;
-        if(!d&&d!==0)return s;
-        if(typeof d==='object'){
-          const v=parseFloat(d.valor||0);
-          return s+(d.unidade==='%'?preDisc*v/100:v);
-        }
-        return s+preDisc*parseFloat(d||0)/100;
-      },0);
-      // Order-level discount (fallback, usually 0 in PDV)
-      const d=resp?.data?.desconto;
-      let descPedido=0;
-      if(d&&typeof d==='object'){
-        const v=parseFloat(d.valor||0);
-        if(v>0)descPedido=(d.unidade==='REAL')?v:parseFloat(resp?.data?.total||0)*v/100;
-      }
-      p._desconto={valor:descItens+descPedido,unidade:'REAL'};
+      const itens=resp?.data?.itens||[];
+      // Pre-discount total = sum of (valor × quantidade) for each item
+      const preDiscTotal=itens.reduce((s,it)=>s+parseFloat(it.valor||0)*parseFloat(it.quantidade||1),0);
+      // Order final total already has all discounts applied (item-level + order-level)
+      const orderTotal=parseFloat(resp?.data?.total||0);
+      const desconto=preDiscTotal>0?Math.max(0,preDiscTotal-orderTotal):0;
+      p._desconto={valor:desconto,unidade:'REAL'};
       changed=true;
     }catch(e){p._desconto={valor:0,unidade:'REAL'};}
     if((i+1)%10===0)await new Promise(r=>setTimeout(r,300));
