@@ -5037,34 +5037,55 @@ async function _saPopulateItemCounts(pedidos,pvQtdMap,pvMap){
   }
 }
 
+const _SA_DISC_CACHE_KEY='rbv_sa_disc';
+function _saGetDiscCache(){try{return JSON.parse(sessionStorage.getItem(_SA_DISC_CACHE_KEY)||'{}');}catch{return {};}}
+function _saSaveDiscCache(id,val){try{const c=_saGetDiscCache();c[String(id)]=val;sessionStorage.setItem(_SA_DISC_CACHE_KEY,JSON.stringify(c));}catch{}}
+
 window._saDescFetchV=0;
 async function _saPopulateDescontos(pedidos){
   const myV=++window._saDescFetchV;
-  let changed=false;
-  for(let i=0;i<Math.min(pedidos.length,400);i++){
+  const cache=_saGetDiscCache();
+
+  const _rerender=()=>{
     if(window._saDescFetchV!==myV)return;
-    const p=pedidos[i];
-    if(p._desconto!==undefined)continue;
-    try{
-      const resp=await blingCall(`pedidos/vendas/${p.id}`,{});
-      const itens=resp?.data?.itens||[];
-      // it.desconto is a plain percentage (0-100) applied per item in PDV
-      const desconto=itens.reduce((s,it)=>{
-        const pct=parseFloat(it.desconto)||0;
-        if(!pct)return s;
-        return s+parseFloat(it.valor||0)*parseFloat(it.quantidade||1)*pct/100;
-      },0);
-      p._desconto={valor:desconto,unidade:'REAL'};
-      changed=true;
-    }catch(e){p._desconto={valor:0,unidade:'REAL'};}
-    if((i+1)%10===0)await new Promise(r=>setTimeout(r,300));
-  }
-  if(!changed||window._saDescFetchV!==myV)return;
-  const scr=document.getElementById('sales-analysis-screen');
-  if(scr&&scr.style.display!=='none'&&window._saRawData){
-    const boxes=[...document.querySelectorAll('.sa-canal-chk')];
-    const active=boxes.filter(cb=>cb.checked).map(cb=>cb.value);
-    renderSalesAnalysis(window._saRawData,active);
+    const scr=document.getElementById('sales-analysis-screen');
+    if(scr&&scr.style.display!=='none'&&window._saRawData){
+      const boxes=[...document.querySelectorAll('.sa-canal-chk')];
+      const active=boxes.filter(cb=>cb.checked).map(cb=>cb.value);
+      renderSalesAnalysis(window._saRawData,active);
+    }
+  };
+
+  // Apply cached values immediately and re-render
+  let hadCache=false;
+  pedidos.forEach(p=>{
+    if(p._desconto===undefined&&cache[String(p.id)]!==undefined){
+      p._desconto={valor:cache[String(p.id)],unidade:'REAL'};
+      hadCache=true;
+    }
+  });
+  if(hadCache)_rerender();
+
+  // Fetch uncached orders in parallel batches of 5
+  const toFetch=pedidos.filter(p=>p._desconto===undefined).slice(0,400);
+  const BATCH=5;
+  for(let i=0;i<toFetch.length;i+=BATCH){
+    if(window._saDescFetchV!==myV)return;
+    await Promise.all(toFetch.slice(i,i+BATCH).map(async p=>{
+      try{
+        const resp=await blingCall(`pedidos/vendas/${p.id}`,{});
+        const itens=resp?.data?.itens||[];
+        const desconto=itens.reduce((s,it)=>{
+          const pct=parseFloat(it.desconto)||0;
+          if(!pct)return s;
+          return s+parseFloat(it.valor||0)*parseFloat(it.quantidade||1)*pct/100;
+        },0);
+        p._desconto={valor:desconto,unidade:'REAL'};
+        _saSaveDiscCache(p.id,desconto);
+      }catch(e){p._desconto={valor:0,unidade:'REAL'};}
+    }));
+    _rerender();
+    if(i+BATCH<toFetch.length)await new Promise(r=>setTimeout(r,150));
   }
 }
 
