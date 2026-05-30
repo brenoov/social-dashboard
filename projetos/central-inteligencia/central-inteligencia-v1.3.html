@@ -6450,12 +6450,11 @@ async function _initGestaoTrafego(){
       return;
     }
     setLbl(`Calculando gastos de ${accs.length} conta${accs.length!==1?'s':''}…`);
-    const timed=(p,ms=6000)=>Promise.race([p,new Promise(r=>setTimeout(()=>r(null),ms))]);
     await Promise.all(accs.map(async a=>{
       try{
         const [d,sp]=await Promise.all([
-          timed(metaFetch(`/act_${a.ad_account_id}`,{fields:'name,balance,currency'},a.access_token)),
-          timed(metaFetch(`/act_${a.ad_account_id}/insights`,{fields:'spend',date_preset:'this_month'},a.access_token).catch(()=>null)),
+          metaFetch(`/act_${a.ad_account_id}`,{fields:'name,balance,currency'},a.access_token),
+          metaFetch(`/act_${a.ad_account_id}/insights`,{fields:'spend',date_preset:'this_month'},a.access_token).catch(()=>null),
         ]);
         if(d?.name)a.display_name=d.name;
         if(d?.balance!==undefined)a.balance=parseFloat(d.balance)/100;
@@ -6909,7 +6908,6 @@ async function _gtRunAuto(){
     else if(_gtPreset==='month'){since=new Date(now.getFullYear(),now.getMonth(),1).toISOString().slice(0,10);until=new Date(now.getFullYear(),now.getMonth()+1,0).toISOString().slice(0,10);}
     else{const n=parseInt(_gtPreset);since=new Date(now.getTime()-n*86400000).toISOString().slice(0,10);until=now.toISOString().slice(0,10);}
     const timeRange={since,until};
-    const timed=(p,ms=8000)=>Promise.race([p,new Promise(r=>setTimeout(()=>r(null),ms))]);
     const queue=[];
     await Promise.all(accs.map(async acc=>{
       try{
@@ -6918,8 +6916,8 @@ async function _gtRunAuto(){
         const campFields='id,name,effective_status,objective,daily_budget,lifetime_budget';
         const fields='campaign_id,campaign_name,impressions,clicks,spend,ctr,cpc,reach,frequency,actions,objective,video_play_actions';
         const [insights,campaigns]=await Promise.all([
-          timed(metaFetchAll(`/act_${_maCleanAccId(adAccId)}/insights`,{level:'campaign',fields,filtering:JSON.stringify([{field:'spend',operator:'GREATER_THAN',value:'0'}]),time_range:timeRange},tok).catch(()=>[])),
-          timed(metaFetchAll(`/act_${_maCleanAccId(adAccId)}/campaigns`,{fields:campFields,effective_status:JSON.stringify(['ACTIVE','PAUSED'])},tok).catch(()=>[])),
+          metaFetchAll(`/act_${_maCleanAccId(adAccId)}/insights`,{level:'campaign',fields,filtering:JSON.stringify([{field:'spend',operator:'GREATER_THAN',value:'0'}]),time_range:timeRange},tok).catch(()=>[]),
+          metaFetchAll(`/act_${_maCleanAccId(adAccId)}/campaigns`,{fields:campFields,effective_status:JSON.stringify(['ACTIVE','PAUSED'])},tok).catch(()=>[]),
         ]);
         if(!insights||!campaigns)return;
         const campMap={};campaigns.forEach(c=>campMap[c.id]=c);
@@ -6957,10 +6955,14 @@ async function metaFetch(path,params,token){
   const url=new URL(META_GRAPH+path);
   url.searchParams.set('access_token',token);
   Object.entries(params||{}).forEach(([k,v])=>url.searchParams.set(k,typeof v==='object'?JSON.stringify(v):String(v)));
-  const r=await fetch(url.toString());
-  const d=await r.json();
-  if(d.error)throw new Error(d.error.message||'Meta API error');
-  return d;
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),10000);
+  try{
+    const r=await fetch(url.toString(),{signal:ctrl.signal});
+    const d=await r.json();
+    if(d.error)throw new Error(d.error.message||'Meta API error');
+    return d;
+  }finally{clearTimeout(timer);}
 }
 async function metaFetchAll(path,params,token){
   let results=[];let cursor=null;
@@ -7029,13 +7031,15 @@ function _setMaCurAccUI(acc){
   if(nm)nm.textContent=label;
 }
 
+let _maInitInFlight=false;
 async function _initMetaAds(){
+  if(_maInitInFlight)return;
+  _maInitInFlight=true;
   const drop=document.getElementById('ma-acc-dropdown');
   const nm=document.getElementById('ma-acc-name');
   const content=document.getElementById('ma-content');
   if(nm)nm.textContent='Carregando…';
   try{
-    const timed=(p,ms=7000)=>Promise.race([p,new Promise(r=>setTimeout(()=>r(null),ms))]);
     // Fetch all social accounts from Supabase
     const res=await adFetch('accounts?select=id,name,instagram_id,access_token,ad_account_id,profile_picture_url,picture_url&order=name.asc');
     if(!res.ok)throw new Error(`Supabase ${res.status}`);
@@ -7063,7 +7067,7 @@ async function _initMetaAds(){
 
     await Promise.all(tokens.map(async tok=>{
       try{
-        const d=await timed(metaFetch('/me/adaccounts',{fields:'id,name,account_status,currency'},tok));
+        const d=await metaFetch('/me/adaccounts',{fields:'id,name,account_status,currency'},tok);
         for(const adAcc of(d?.data||[])){
           const cleanId=_maCleanAccId(adAcc.id);
           if(seen.has(cleanId))continue;
@@ -7093,8 +7097,8 @@ async function _initMetaAds(){
     await Promise.all(_maAccounts.map(async a=>{
       try{
         const[d,spData]=await Promise.all([
-          timed(metaFetch(`/act_${a.ad_account_id}`,{fields:'name,balance,currency'},a.access_token)),
-          timed(metaFetch(`/act_${a.ad_account_id}/insights`,{fields:'spend',date_preset:'this_month'},a.access_token).catch(()=>null)),
+          metaFetch(`/act_${a.ad_account_id}`,{fields:'name,balance,currency'},a.access_token),
+          metaFetch(`/act_${a.ad_account_id}/insights`,{fields:'spend',date_preset:'this_month'},a.access_token).catch(()=>null),
         ]);
         if(d?.name)a.display_name=d.name;
         if(d?.balance!==undefined)a.balance=parseFloat(d.balance)/100;
@@ -7111,6 +7115,8 @@ async function _initMetaAds(){
     console.error('[MetaAds] _initMetaAds error:',e);
     if(nm)nm.textContent='Erro';
     if(content)content.innerHTML=`<div class="gv-loading-screen"><span class="gv-loading-lbl" style="color:#dc2626">Erro: ${e.message}</span></div>`;
+  }finally{
+    _maInitInFlight=false;
   }
 }
 
