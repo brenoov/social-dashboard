@@ -6291,29 +6291,40 @@ async function _initGestaoTrafego(){
   const setLbl=t=>{if(col)col.innerHTML=`<div class="gv-loading-screen"><div class="gv-spinner"></div><span class="gv-loading-lbl">${t}</span></div>`;};
   setLbl('Carregando contas…');
   try{
-    // Always fetch fresh — GT is self-sufficient, no dependency on Análise
     const res=await adFetch('accounts?select=id,name,access_token,ad_account_id,profile_picture_url,picture_url&order=name.asc');
     const socialAccs=await res.json();
     const seen=new Set();
     const accs=[];
+    // Step 1 — accounts with ad_account_id explicitly in Supabase
     for(const acc of socialAccs){
       if(!acc.ad_account_id||!acc.access_token)continue;
       const cid=_maCleanAccId(acc.ad_account_id);
       if(seen.has(cid))continue;seen.add(cid);
-      accs.push({...acc,display_name:acc.name,monthSpend:0,balance:null});
+      accs.push({...acc,ad_account_id:cid,display_name:acc.name,monthSpend:0,balance:null});
     }
+    // Step 2 — discover remaining accounts via /me/adaccounts for each unique token
+    const tokens=[...new Set(socialAccs.filter(a=>a.access_token).map(a=>a.access_token))];
+    await Promise.all(tokens.map(async tok=>{
+      try{
+        const d=await metaFetch('/me/adaccounts',{fields:'id,name,account_status,currency'},tok);
+        for(const adAcc of(d.data||[])){
+          const cid=_maCleanAccId(adAcc.id);
+          if(seen.has(cid))continue;seen.add(cid);
+          accs.push({id:null,name:adAcc.name,access_token:tok,ad_account_id:cid,display_name:adAcc.name,currency:adAcc.currency,monthSpend:0,balance:null,profile_picture_url:'',picture_url:''});
+        }
+      }catch(e){}
+    }));
     if(!accs.length){
-      if(col)col.innerHTML='<div class="gt-camp-card"><div class="gt-empty">Nenhuma conta de anúncios vinculada.</div></div>';
+      if(col)col.innerHTML='<div class="gt-camp-card"><div class="gt-empty">Nenhuma conta de anúncios encontrada.</div></div>';
       return;
     }
     setLbl(`Calculando gastos de ${accs.length} conta${accs.length!==1?'s':''}…`);
-    // Enrich with spend (this month) + balance — per-account timeout 6s so one bad account doesn't block
     const timed=(p,ms=6000)=>Promise.race([p,new Promise(r=>setTimeout(()=>r(null),ms))]);
     await Promise.all(accs.map(async a=>{
       try{
         const [d,sp]=await Promise.all([
-          timed(metaFetch(`/act_${_maCleanAccId(a.ad_account_id)}`,{fields:'name,balance,currency'},a.access_token)),
-          timed(metaFetch(`/act_${_maCleanAccId(a.ad_account_id)}/insights`,{fields:'spend',date_preset:'this_month'},a.access_token).catch(()=>null)),
+          timed(metaFetch(`/act_${a.ad_account_id}`,{fields:'name,balance,currency'},a.access_token)),
+          timed(metaFetch(`/act_${a.ad_account_id}/insights`,{fields:'spend',date_preset:'this_month'},a.access_token).catch(()=>null)),
         ]);
         if(d?.name)a.display_name=d.name;
         if(d?.balance!==undefined)a.balance=parseFloat(d.balance)/100;
@@ -6322,7 +6333,6 @@ async function _initGestaoTrafego(){
       }catch(e){a.monthSpend=0;}
     }));
     accs.sort((a,b)=>(b.monthSpend||0)-(a.monthSpend||0));
-    // Merge into _maAccounts (shared state — so Análise also benefits if opened later)
     _maAccounts.length=0;
     _maAccounts.push(...accs);
     _gtCurAcc=_maAccounts[0];
