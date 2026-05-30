@@ -4349,7 +4349,7 @@ function startSAClock(){
   const tick=()=>{
     const now=new Date();
     tEl.textContent=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0');
-    if(dEl){const ds=now.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'});dEl.textContent=ds.toUpperCase();}
+    if(dEl){const ds=now.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});dEl.textContent=ds.toUpperCase();}
   };
   tick();if(window._saClockTimer)clearInterval(window._saClockTimer);
   window._saClockTimer=setInterval(tick,1000);
@@ -4896,19 +4896,23 @@ async function loadSalesAnalysisData(period){
 
   const now=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Sao_Paulo'}));
   const y=now.getFullYear(),m=now.getMonth()+1;
-  const iso=d=>d.toISOString().slice(0,10);
   const pad=n=>String(n).padStart(2,'0');
+  // Use getDate() component (= Brazil local date), never toISOString() which returns UTC
+  const brtToday=`${y}-${pad(m)}-${pad(now.getDate())}`;
+  const brtAdd=days=>{const d=new Date(now);d.setDate(d.getDate()+days);return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;};
   let di,df;
-  if(period==='sofar'){di=`${y}-${pad(m)}-01`;df=iso(now);}
-  else if(period==='today'){di=df=iso(now);}
-  else if(period==='7d'){di=iso(new Date(now-7*864e5));df=iso(now);}
-  else if(period==='14d'){di=iso(new Date(now-14*864e5));df=iso(now);}
+  if(period==='sofar'){di=`${y}-${pad(m)}-01`;df=brtToday;}
+  else if(period==='today'){di=df=brtToday;}
+  else if(period==='7d'){di=brtAdd(-7);df=brtToday;}
+  else if(period==='14d'){di=brtAdd(-14);df=brtToday;}
   else if(period==='month'){di=`${y}-${pad(m)}-01`;df=new Date(y,m,0).toISOString().slice(0,10);}
-  else{di=`${y}-${pad(m)}-01`;df=iso(now);}
+  else{di=`${y}-${pad(m)}-01`;df=brtToday;}
 
+  const iso=s=>s; // dates already BRT strings, kept for compat
   const spanMs=new Date(df+'T00:00:00')-new Date(di+'T00:00:00');
-  const diPrev=iso(new Date(new Date(di+'T00:00:00')-spanMs-864e5));
-  const dfPrev=iso(new Date(new Date(di+'T00:00:00')-864e5));
+  const isoD=d=>d.toISOString().slice(0,10);
+  const diPrev=isoD(new Date(new Date(di+'T00:00:00')-spanMs-864e5));
+  const dfPrev=isoD(new Date(new Date(di+'T00:00:00')-864e5));
 
   const di15=iso(new Date(now-14*864e5));
   const df15=iso(now);
@@ -5311,7 +5315,7 @@ function renderSATicket({pedidos,pedidosPrev,lojas,lojaMap}){
     options:{
       responsive:true,maintainAspectRatio:false,
       animation:{delay:ctx=>ctx.dataIndex*60},
-      plugins:{legend:{position:'bottom',labels:{boxWidth:10,usePointStyle:true,pointStyle:'circle',font:{size:_saFsz(11)},padding:16,color:tc}},tooltip:{mode:'index',intersect:false,backgroundColor:'rgba(10,10,20,0.88)',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.85)',titleFont:{size:_saFsz(12),weight:'700'},bodyFont:{size:_saFsz(11)},padding:12,cornerRadius:8,callbacks:{label:ctx=>{const i=ctx.dataIndex;const ta=ticketAtual[i],tb=ticketAnt[i];if(ctx.datasetIndex===0){const d=ta-tb;const p=tb>0?((ta/tb-1)*100).toFixed(1)+'%':'—';return[` Ticket atual: ${fmtR(ta)}`,` vs Anterior: ${d>=0?'+':''}${fmtR(d)} (${p})`];}if(ctx.datasetIndex===1)return` Anterior: ${fmtR(tb)}`;return null;},labelTextColor:ctx=>{const i=ctx.dataIndex;if(ctx.datasetIndex===0)return ticketAtual[i]>=ticketAnt[i]?'#4ade80':'#fca5a5';return 'rgba(255,255,255,0.85)';}}},datalabels:{display:ctx=>ctx.datasetIndex===0&&ctx.dataset.data[ctx.dataIndex]>0,anchor:'end',align:'end',formatter:v=>fmtR0(v),font:{size:_saFsz(10),weight:'700'},color:tc,padding:{bottom:2}}},
+      plugins:{legend:{position:'bottom',labels:{boxWidth:10,usePointStyle:true,pointStyle:'circle',font:{size:_saFsz(11)},padding:16,color:tc}},tooltip:{mode:'index',intersect:false,backgroundColor:'rgba(10,10,20,0.88)',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.85)',titleFont:{size:_saFsz(12),weight:'700'},bodyFont:{size:_saFsz(11)},padding:12,cornerRadius:8,callbacks:{label:ctx=>{const i=ctx.dataIndex;const ta=ticketAtual[i],tb=ticketAnt[i];if(ctx.datasetIndex===0){const d=ta-tb;const p=tb>0?((ta/tb-1)*100).toFixed(1)+'%':'—';return[` Ticket atual: ${fmtR(ta)}`,` vs Anterior: ${d>=0?'+':''}${fmtR(d)} (${p})`];}if(ctx.datasetIndex===1)return` Anterior: ${fmtR(tb)}`;return null;},labelTextColor:ctx=>{const i=ctx.dataIndex;if(ctx.datasetIndex===0)return ticketAtual[i]>=ticketAnt[i]?'#4ade80':'#fca5a5';return 'rgba(255,255,255,0.85)';}}},datalabels:{display:ctx=>ctx.dataset.data[ctx.dataIndex]>0,anchor:'end',align:'end',formatter:v=>fmtR0(v),font:{size:_saFsz(10),weight:'700'},color:ctx=>ctx.datasetIndex===0?tc:'rgba(128,128,128,0.7)',padding:{bottom:2}}},
       scales:{y:{ticks:{callback:v=>fmtR0(v),font:{size:_saFsz(10)},color:tc},grid:{color:'rgba(128,128,128,0.07)'},border:{dash:[4,4]}},x:{grid:{display:false},ticks:{color:tc}}},
       barPercentage:0.7,categoryPercentage:0.8
     }
@@ -8100,11 +8104,11 @@ function setHomeBgTheme(type){
           <div class="sa-canal-drop" id="sa-canal-drop"></div>
         </div>
         <div class="sa-period-btns">
-          <button class="sa-pbtn active" data-period="sofar" onclick="saSelectPeriod('sofar')">ATÉ AGORA</button>
-          <button class="sa-pbtn" data-period="today" onclick="saSelectPeriod('today')">HOJE</button>
+          <button class="sa-pbtn" data-period="today" onclick="saSelectPeriod('today')"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite;vertical-align:middle;flex-shrink:0;"></span>HOJE</button>
           <button class="sa-pbtn" data-period="7d" onclick="saSelectPeriod('7d')">7D</button>
           <button class="sa-pbtn" data-period="14d" onclick="saSelectPeriod('14d')">14D</button>
           <button class="sa-pbtn" data-period="month" onclick="saSelectPeriod('month')">MÊS</button>
+          <button class="sa-pbtn active" data-period="sofar" onclick="saSelectPeriod('sofar')">ATÉ AGORA</button>
           <button class="vs-ac-toggle" id="sa-ac-toggle" onclick="saToggleAuto()" title="Auto-ciclo de períodos">▶ AUTO</button>
         </div>
       </div>
