@@ -1551,15 +1551,25 @@
   .gt-camp-row:last-child{border-bottom:none;}
   /* Campaign inner block */
   .gt-camp-inner{padding:13px 22px 10px;}
-  .gt-camp-top{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;}
+  .gt-camp-top{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;border-radius:6px;padding:4px 2px;margin:-4px -2px;transition:background .12s;}
+  .gt-camp-top:hover{background:var(--surface2);}
   .gt-camp-top:hover .gt-name{color:var(--accent);}
-  .gt-camp-row-ads{padding:4px 22px 12px 36px;display:none;flex-direction:column;gap:6px;}
+  .gt-camp-row-ads{padding:4px 22px 14px 22px;display:none;flex-direction:column;gap:8px;}
   .gt-camp-row-ads.open{display:flex;}
   .gt-ad-card{border-radius:7px;background:var(--surface2);border:1px solid var(--border);padding:10px 14px;display:flex;flex-direction:column;gap:6px;}
   .gt-ad-top{display:flex;align-items:center;gap:8px;}
-  .gt-status-dot{flex-shrink:0;width:7px;height:7px;border-radius:50%;}
-  .gt-chevron{flex-shrink:0;transition:transform .15s;color:var(--muted);opacity:.4;}
+  /* Status badge — replaces dot */
+  .gt-status-badge{display:inline-flex;align-items:center;gap:4px;font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;letter-spacing:.4px;padding:2px 8px;border-radius:20px;flex-shrink:0;text-transform:uppercase;}
+  .gt-status-badge.active{background:rgba(22,163,74,.12);color:#16a34a;}
+  .gt-status-badge.active::before{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:#16a34a;animation:pulse 2s infinite;flex-shrink:0;}
+  .gt-status-badge.paused{background:rgba(245,158,11,.12);color:#d97706;}
+  .gt-status-badge.paused::before{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:#f59e0b;flex-shrink:0;}
+  .gt-status-badge.inactive{background:rgba(107,114,128,.1);color:#6b7280;}
+  .gt-status-badge.inactive::before{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:#9ca3af;flex-shrink:0;}
+  .gt-chevron{flex-shrink:0;transition:transform .2s;color:var(--muted);opacity:.55;}
   .gt-chevron.open{transform:rotate(90deg);}
+  .gt-expand-hint{font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);opacity:.7;white-space:nowrap;flex-shrink:0;transition:opacity .12s;}
+  .gt-camp-top:hover .gt-expand-hint{opacity:1;color:var(--accent);}
   .gt-name{flex:1;min-width:0;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color .12s;}
   .gt-metrics{display:flex;align-items:center;gap:14px;flex-wrap:wrap;flex-shrink:0;}
   .gt-metric{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);white-space:nowrap;}
@@ -1587,8 +1597,29 @@
   .gt-act-btn.primary{border-color:var(--accent);color:var(--accent);}
   .gt-act-btn.primary:hover{background:var(--accent);color:#fff;}
   .gt-act-btn:disabled{opacity:.5;cursor:not-allowed;pointer-events:none;}
+  /* Auto button */
+  .gt-auto-btn{display:flex;align-items:center;gap:6px;padding:5px 14px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:1px solid #7c3aed;background:rgba(124,58,237,.1);color:#7c3aed;letter-spacing:.3px;transition:all .15s;white-space:nowrap;}
+  .gt-auto-btn:hover{background:rgba(124,58,237,.18);border-color:#6d28d9;}
+  .gt-auto-btn:disabled{opacity:.5;cursor:not-allowed;}
+  /* Auto modal */
+  #gt-auto-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1200;display:none;backdrop-filter:blur(2px);}
+  #gt-auto-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1201;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(520px,92vw);max-height:80vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+  .gt-auto-modal-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  .gt-auto-modal-title{font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:700;color:var(--text);}
+  .gt-auto-modal-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0;line-height:1;}
+  .gt-auto-modal-body{padding:16px 20px;overflow-y:auto;flex:1;}
+  .gt-auto-modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;gap:10px;}
+  .gt-auto-item{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;border-radius:7px;border:1px solid var(--border);margin-bottom:7px;background:var(--surface2);}
+  .gt-auto-item.critico{border-color:rgba(220,38,38,.3);}
+  .gt-auto-item.oportunidade{border-color:rgba(22,163,74,.3);}
+  .gt-auto-item-text{flex:1;min-width:0;}
+  .gt-auto-item-name{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;color:var(--text);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .gt-auto-item-action{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);}
+  .gt-auto-results{padding:8px 0;}
+  .gt-auto-result-row{display:flex;align-items:center;gap:8px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;padding:5px 0;border-bottom:1px solid var(--border);}
+  .gt-auto-result-row:last-child{border-bottom:none;}
   .gt-empty{text-align:center;padding:32px 16px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);line-height:1.7;}
-  @media(max-width:768px){.gt-body{padding:12px 14px;}.gt-camp-inner{padding:11px 14px 9px;}.gt-camp-row-ads{padding-left:22px;padding-right:14px;}}
+  @media(max-width:768px){.gt-body{padding:12px 14px;}.gt-camp-inner{padding:11px 14px 9px;}.gt-camp-row-ads{padding-left:14px;padding-right:14px;}}
   /* ── BANCO DE ARQUIVOS ── */
   #banco-screen{min-height:100vh;display:none;flex-direction:column;background:var(--bg);}
   .banco-topbar{display:flex;align-items:center;justify-content:space-between;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
@@ -6551,10 +6582,13 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       const objCat=_gtObjCategory(ins.objective||camp?.objective||'');
       const row=document.createElement('div');row.className='gt-camp-row';
       const inner=document.createElement('div');inner.className='gt-camp-inner';
-      // Top line: status dot + name + chips + metrics + spend + chevron
+      // Top line
       const top=document.createElement('div');top.className='gt-camp-top';
-      const dot=document.createElement('div');dot.className='gt-status-dot';
-      dot.style.cssText=`background:${statusColor};${status==='ACTIVE'?'box-shadow:0 0 5px '+statusColor+'70;':''}`;
+      // Status badge
+      const badge=document.createElement('div');
+      const badgeCls=status==='ACTIVE'?'active':status==='PAUSED'?'paused':'inactive';
+      const badgeLbl=status==='ACTIVE'?'Ativo':status==='PAUSED'?'Pausado':'Inativo';
+      badge.className=`gt-status-badge ${badgeCls}`;badge.textContent=badgeLbl;
       const nm=document.createElement('div');nm.className='gt-name';nm.title=ins.campaign_name||'';nm.textContent=ins.campaign_name||'—';
       const chips=document.createElement('div');chips.style.cssText='display:flex;flex-direction:column;gap:2px;flex-shrink:0;';
       chips.innerHTML=`<span class="ma-obj-chip" style="font-size:9px;">${_maObjLabel(ins.objective)}</span>${daily?`<span style="font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);">${_maFmtR(daily)}/dia</span>`:''}`;
@@ -6567,8 +6601,10 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       else if(objCat==='traffic'){const cl=parseInt(ins.clicks||0);if(cl>0)extraMetric=`<div class="gt-metric">Cliques <span>${_maFmt(cl)}</span></div>`;}
       metrics.innerHTML=`<div class="gt-metric">CTR <span style="color:${ctrColor}">${_maFmtPct(ctr)}</span></div><div class="gt-metric">CPC <span>${_maFmtR(parseFloat(ins.cpc||0))}</span></div>${extraMetric}`;
       const spendEl=document.createElement('div');spendEl.className='gt-spend';spendEl.textContent=_maFmtR(spend);
+      const adCount=ads.length;
+      const hint=document.createElement('span');hint.className='gt-expand-hint';hint.textContent=adCount>0?`${adCount} anúncio${adCount!==1?'s':''}  ▾`:'sem anúncios';
       const chev=document.createElement('svg');chev.setAttribute('class','gt-chevron');chev.setAttribute('width','12');chev.setAttribute('height','12');chev.setAttribute('viewBox','0 0 24 24');chev.setAttribute('fill','none');chev.setAttribute('stroke','currentColor');chev.setAttribute('stroke-width','2.5');chev.setAttribute('stroke-linecap','round');chev.setAttribute('stroke-linejoin','round');chev.innerHTML='<polyline points="9 18 15 12 9 6"/>';
-      top.appendChild(dot);top.appendChild(nm);top.appendChild(chips);top.appendChild(metrics);top.appendChild(spendEl);top.appendChild(chev);
+      top.appendChild(badge);top.appendChild(nm);top.appendChild(chips);top.appendChild(metrics);top.appendChild(spendEl);top.appendChild(hint);top.appendChild(chev);
       // Insight row
       const insightEl=document.createElement('div');insightEl.className=`gt-insight ${sug.priority}`;
       insightEl.innerHTML=`<span style="font-size:13px;flex-shrink:0;">${sug.icon}</span><span class="gt-insight-text">${sug.text}</span>`;
@@ -6603,12 +6639,15 @@ function _renderGtAds(pane,ads,allInsights,allAdInsights){
     const sug=_gtInlineSuggestAd(ad,allAdInsights);
     const card=document.createElement('div');card.className='gt-ad-card';
     const top=document.createElement('div');top.className='gt-ad-top';
-    const dot=document.createElement('div');dot.className='gt-status-dot';dot.style.cssText=`background:${statusColor};width:6px;height:6px;`;
+    const adBadge=document.createElement('div');
+    const adBadgeCls=ad.status==='ACTIVE'?'active':ad.status==='PAUSED'?'paused':'inactive';
+    const adBadgeLbl=ad.status==='ACTIVE'?'Ativo':ad.status==='PAUSED'?'Pausado':'Inativo';
+    adBadge.className=`gt-status-badge ${adBadgeCls}`;adBadge.textContent=adBadgeLbl;
     const nameWrap=document.createElement('div');nameWrap.style.cssText='flex:1;min-width:0;';
     nameWrap.innerHTML=`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${ad.ad_name||ad.adset_name||'—'}</div>${ad.adset_name&&ad.ad_name?`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);">${ad.adset_name}</div>`:''}`;
     const metrics=document.createElement('div');metrics.className='gt-metrics';
     metrics.innerHTML=`<div class="gt-metric">CTR <span style="color:${ctrColor}">${_maFmtPct(ctr)}</span></div><div class="gt-metric">CPC <span>${_maFmtR(parseFloat(ad.cpc||0))}</span></div><div class="gt-metric" style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;"><span>${_maFmtR(spend)}</span></div>`;
-    top.appendChild(dot);top.appendChild(nameWrap);top.appendChild(metrics);
+    top.appendChild(adBadge);top.appendChild(nameWrap);top.appendChild(metrics);
     const insightEl=document.createElement('div');insightEl.className=`gt-insight ${sug.priority}`;
     insightEl.innerHTML=`<span style="font-size:12px;flex-shrink:0;">${sug.icon}</span><span class="gt-insight-text">${sug.text}</span>`;
     const actBar=_gtRenderActions(sug.actions,card);
@@ -6643,6 +6682,126 @@ async function _gtApplyAction(action,btn,rowEl){
     btn.textContent='✗ Erro';btn.style.color='#dc2626';btn.style.borderColor='#dc2626';
     setTimeout(()=>{btn.textContent=orig;btn.style.color='';btn.style.borderColor='';btn.disabled=false;},2000);
   }
+}
+
+// Auto mode — collect all critico/oportunidade actions from ALL accounts
+let _gtAutoQueue=[];
+function closeGtAutoModal(){
+  document.getElementById('gt-auto-overlay').style.display='none';
+  document.getElementById('gt-auto-modal').style.display='none';
+  _gtAutoQueue=[];
+}
+async function _gtRunAuto(){
+  const btn=document.getElementById('gt-auto-btn');
+  if(btn)btn.disabled=true;
+  const overlay=document.getElementById('gt-auto-overlay');
+  const modal=document.getElementById('gt-auto-modal');
+  const body=document.getElementById('gt-auto-modal-body');
+  const footer=document.getElementById('gt-auto-modal-footer');
+  overlay.style.display='block';modal.style.display='flex';
+  body.innerHTML='<div style="text-align:center;padding:24px;font-family:\'IBM Plex Sans\',sans-serif;font-size:12px;color:var(--muted);"><div class="gv-spinner" style="margin:0 auto 12px;"></div>Analisando campanhas de '+((_maAccounts.length||1))+' conta'+(_maAccounts.length!==1?'s':'')+'…</div>';
+  footer.style.display='none';
+  _gtAutoQueue=[];
+  try{
+    const accs=_maAccounts.length?_maAccounts:(_gtCurAcc?[_gtCurAcc]:[]);
+    if(!accs.length){body.innerHTML='<div class="gt-empty">Nenhuma conta disponível.</div>';footer.style.display='flex';return;}
+    const now=new Date();
+    let since,until;
+    if(_gtPreset==='today'){const d=now.toISOString().slice(0,10);since=d;until=d;}
+    else if(_gtPreset==='month'){since=new Date(now.getFullYear(),now.getMonth(),1).toISOString().slice(0,10);until=new Date(now.getFullYear(),now.getMonth()+1,0).toISOString().slice(0,10);}
+    else{const n=parseInt(_gtPreset);since=new Date(now.getTime()-n*86400000).toISOString().slice(0,10);until=now.toISOString().slice(0,10);}
+    const timeRange={since,until};
+    const timed=(p,ms=8000)=>Promise.race([p,new Promise(r=>setTimeout(()=>r(null),ms))]);
+    // Fetch data for each account in parallel
+    await Promise.all(accs.map(async acc=>{
+      try{
+        const tok=acc.access_token;
+        const adAccId=acc.ad_account_id;
+        const campFields='id,name,effective_status,objective,daily_budget,lifetime_budget';
+        const fields='campaign_id,campaign_name,impressions,clicks,spend,ctr,cpc,reach,frequency,actions,objective,video_play_actions';
+        const [insights,campaigns]=await Promise.all([
+          timed(metaFetchAll(`/act_${_maCleanAccId(adAccId)}/insights`,{level:'campaign',fields,filtering:JSON.stringify([{field:'spend',operator:'GREATER_THAN',value:'0'}]),time_range:timeRange},tok).catch(()=>[])),
+          timed(metaFetchAll(`/act_${_maCleanAccId(adAccId)}/campaigns`,{fields:campFields,effective_status:JSON.stringify(['ACTIVE','PAUSED'])},tok).catch(()=>[])),
+        ]);
+        if(!insights||!campaigns)return;
+        const campMap={};campaigns.forEach(c=>campMap[c.id]=c);
+        for(const ins of insights){
+          const camp=campMap[ins.campaign_id];
+          const sug=_gtInlineSuggest(ins,camp,insights);
+          if((sug.priority==='critico'||sug.priority==='oportunidade')&&sug.actions&&sug.actions.length){
+            // Only take first action (most important)
+            const a=sug.actions[0];
+            _gtAutoQueue.push({
+              accName:acc.display_name||acc.name||'Conta',
+              campName:ins.campaign_name||'—',
+              priority:sug.priority,
+              insight:sug.text,
+              actionLabel:a.label,
+              action:{...a.action},
+              tok,
+            });
+          }
+        }
+      }catch(e){}
+    }));
+    if(!_gtAutoQueue.length){
+      body.innerHTML='<div class="gt-empty">✅ Nenhuma ação crítica ou oportunidade identificada. Campanhas dentro do esperado.</div>';
+      footer.innerHTML='<button style="padding:7px 16px;border-radius:7px;font-family:\'IBM Plex Sans\',sans-serif;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);" onclick="closeGtAutoModal()">Fechar</button>';
+      footer.style.display='flex';
+      if(btn)btn.disabled=false;
+      return;
+    }
+    // Render action list
+    let html=`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);margin-bottom:12px;">O agente IA identificou <strong style="color:var(--text)">${_gtAutoQueue.length} ação${_gtAutoQueue.length!==1?'ões':''}</strong> para executar:</div>`;
+    _gtAutoQueue.forEach((item,i)=>{
+      const color=item.priority==='critico'?'#dc2626':'#16a34a';
+      const icon=item.priority==='critico'?'⛔':'🚀';
+      html+=`<div class="gt-auto-item ${item.priority}">
+        <span style="font-size:14px;flex-shrink:0;">${icon}</span>
+        <div class="gt-auto-item-text">
+          <div class="gt-auto-item-name" title="${item.campName}">${item.campName}</div>
+          <div class="gt-auto-item-action" style="color:var(--muted)">${item.accName} · ${item.insight}</div>
+          <div style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;color:${color};margin-top:3px;">${item.actionLabel}</div>
+        </div>
+      </div>`;
+    });
+    body.innerHTML=html;
+    footer.innerHTML=`<button style="padding:7px 16px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);" onclick="closeGtAutoModal()">Cancelar</button><button id="gt-auto-confirm-btn" style="padding:7px 18px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:none;background:#7c3aed;color:#fff;" onclick="_gtExecuteAuto()">Executar ${_gtAutoQueue.length} ação${_gtAutoQueue.length!==1?'ões':''}</button>`;
+    footer.style.display='flex';
+  }catch(e){
+    body.innerHTML=`<div class="gt-empty">Erro ao analisar: ${e.message}</div>`;
+    footer.style.display='flex';
+  }
+  if(btn)btn.disabled=false;
+}
+async function _gtExecuteAuto(){
+  const confirmBtn=document.getElementById('gt-auto-confirm-btn');
+  if(confirmBtn){confirmBtn.disabled=true;confirmBtn.textContent='Executando…';}
+  const body=document.getElementById('gt-auto-modal-body');
+  const footer=document.getElementById('gt-auto-modal-footer');
+  footer.style.display='none';
+  let html='<div class="gt-auto-results">';
+  let ok=0,fail=0;
+  for(const item of _gtAutoQueue){
+    try{
+      const a=item.action;
+      if(a.type==='pause_campaign'||a.type==='activate_campaign')
+        await metaPost('/'+a.id,{status:a.type==='pause_campaign'?'PAUSED':'ACTIVE'},item.tok);
+      else if(a.type==='update_budget')
+        await metaPost('/'+a.id,{daily_budget:String(a.budget)},item.tok);
+      html+=`<div class="gt-auto-result-row"><span style="color:#16a34a;font-size:14px;">✓</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.campName}</span><span style="color:#16a34a;font-weight:700;flex-shrink:0;">${item.actionLabel}</span></div>`;
+      ok++;
+    }catch(e){
+      html+=`<div class="gt-auto-result-row"><span style="color:#dc2626;font-size:14px;">✗</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.campName}</span><span style="color:#dc2626;font-size:10px;flex-shrink:0;">Erro: ${e.message.slice(0,40)}</span></div>`;
+      fail++;
+    }
+    body.innerHTML=html+'</div>';
+    await new Promise(r=>setTimeout(r,200));
+  }
+  body.innerHTML=html+'</div>';
+  footer.innerHTML=`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);">${ok} executadas${fail?` · ${fail} com erro`:''}</div><button style="padding:7px 18px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:none;background:var(--accent);color:#fff;" onclick="closeGtAutoModal();loadGtData()">Fechar e Atualizar</button>`;
+  footer.style.display='flex';
+  _gtAutoQueue=[];
 }
 
 async function metaFetch(path,params,token){
@@ -8162,6 +8321,10 @@ function setHomeBgTheme(type){
       <button class="gv-pbtn" data-preset="month" onclick="setGtPeriod(this)">ATÉ AGORA</button>
       <button class="gv-pbtn" onclick="loadGtData()" style="border-color:var(--accent);color:var(--accent)">↻</button>
     </div>
+    <button class="gt-auto-btn" id="gt-auto-btn" onclick="_gtRunAuto()" title="Agente IA analisa todas as campanhas e executa os ajustes recomendados">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      AUTO
+    </button>
     <div id="gt-account-picker" onclick="event.stopPropagation()" style="position:relative;display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
       <button id="gt-acc-trigger" style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:7px;padding:5px 12px;background:var(--surface2);cursor:pointer;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--text);white-space:nowrap;" onclick="event.stopPropagation();toggleGtAccPicker()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.6"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
@@ -8181,6 +8344,20 @@ function setHomeBgTheme(type){
     <div id="gt-camp-col">
       <div class="gt-camp-card"><div class="gt-empty">Carregando…</div></div>
     </div>
+  </div>
+</div>
+
+<!-- GT Auto Modal -->
+<div id="gt-auto-overlay" onclick="closeGtAutoModal()"></div>
+<div id="gt-auto-modal">
+  <div class="gt-auto-modal-head">
+    <span class="gt-auto-modal-title">⚡ Agente IA · Execução Automática</span>
+    <button class="gt-auto-modal-close" onclick="closeGtAutoModal()">✕</button>
+  </div>
+  <div class="gt-auto-modal-body" id="gt-auto-modal-body"></div>
+  <div class="gt-auto-modal-footer" id="gt-auto-modal-footer">
+    <button style="padding:7px 16px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);" onclick="closeGtAutoModal()">Cancelar</button>
+    <button id="gt-auto-confirm-btn" style="padding:7px 18px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:none;background:#7c3aed;color:#fff;" onclick="_gtExecuteAuto()">Executar Tudo</button>
   </div>
 </div>
 
