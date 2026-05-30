@@ -7035,9 +7035,12 @@ async function _initMetaAds(){
   const content=document.getElementById('ma-content');
   if(nm)nm.textContent='Carregando…';
   try{
+    const timed=(p,ms=7000)=>Promise.race([p,new Promise(r=>setTimeout(()=>r(null),ms))]);
     // Fetch all social accounts from Supabase
     const res=await adFetch('accounts?select=id,name,instagram_id,access_token,ad_account_id,profile_picture_url,picture_url&order=name.asc');
+    if(!res.ok)throw new Error(`Supabase ${res.status}`);
     const socialAccs=await res.json();
+    if(!Array.isArray(socialAccs))throw new Error('Resposta inválida do Supabase');
 
     const seen=new Set();
     _maAccounts=[];
@@ -7060,8 +7063,8 @@ async function _initMetaAds(){
 
     await Promise.all(tokens.map(async tok=>{
       try{
-        const d=await metaFetch('/me/adaccounts',{fields:'id,name,account_status,currency'},tok);
-        for(const adAcc of(d.data||[])){
+        const d=await timed(metaFetch('/me/adaccounts',{fields:'id,name,account_status,currency'},tok));
+        for(const adAcc of(d?.data||[])){
           const cleanId=_maCleanAccId(adAcc.id);
           if(seen.has(cleanId))continue;
           seen.add(cleanId);
@@ -7090,12 +7093,12 @@ async function _initMetaAds(){
     await Promise.all(_maAccounts.map(async a=>{
       try{
         const[d,spData]=await Promise.all([
-          metaFetch(`/act_${a.ad_account_id}`,{fields:'name,balance,currency'},a.access_token),
-          metaFetch(`/act_${a.ad_account_id}/insights`,{fields:'spend',date_preset:'this_month'},a.access_token).catch(()=>null),
+          timed(metaFetch(`/act_${a.ad_account_id}`,{fields:'name,balance,currency'},a.access_token)),
+          timed(metaFetch(`/act_${a.ad_account_id}/insights`,{fields:'spend',date_preset:'this_month'},a.access_token).catch(()=>null)),
         ]);
-        if(d.name)a.display_name=d.name;
-        if(d.balance!==undefined)a.balance=parseFloat(d.balance)/100;
-        if(d.currency)a.currency=d.currency;
+        if(d?.name)a.display_name=d.name;
+        if(d?.balance!==undefined)a.balance=parseFloat(d.balance)/100;
+        if(d?.currency)a.currency=d.currency;
         a.monthSpend=parseFloat(spData?.data?.[0]?.spend||0);
       }catch(e){a.monthSpend=0;}
     }));
