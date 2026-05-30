@@ -1607,7 +1607,7 @@
   .gt-auto-btn.active:hover{background:rgba(124,58,237,.2);}
   .gt-auto-btn.running{border-color:#7c3aed;background:#7c3aed;color:#fff;animation:pulse 1.5s infinite;}
   .gt-auto-btn:disabled{opacity:.5;cursor:not-allowed;}
-  .gt-auto-tooltip{position:absolute;bottom:calc(100% + 8px);right:0;background:rgba(220,38,38,.95);color:#fff;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;padding:6px 10px;border-radius:6px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .2s;z-index:999;max-width:260px;text-align:center;line-height:1.4;}
+  .gt-auto-tooltip{position:absolute;bottom:calc(100% + 8px);right:0;background:rgba(220,38,38,.95);color:#fff;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;padding:6px 10px;border-radius:6px;white-space:normal;pointer-events:none;opacity:0;transition:opacity .2s;z-index:1300;max-width:240px;text-align:center;line-height:1.4;}
   .gt-auto-tooltip::after{content:'';position:absolute;top:100%;right:18px;border:5px solid transparent;border-top-color:rgba(220,38,38,.95);}
   .gt-auto-btn:hover .gt-auto-tooltip{opacity:1;}
   /* Auto modal */
@@ -6453,9 +6453,9 @@ function _gtInlineSuggest(ins,camp,allInsights){
   const pause={label:'⏸ Pausar',cls:'danger',action:{type:'pause_campaign',id:campId}};
   const reativar={label:'▶ Reativar',cls:'success',action:{type:'activate_campaign',id:campId}};
 
-  // ── INACTIVE / PAUSED: evaluate quality by objective, suggest reactivation ──
-  const isInactive=(status==='PAUSED'||status==='ARCHIVED'||status==='INACTIVE');
-  if(isInactive){
+  // ── PAUSED / ARCHIVED: evaluate quality, suggest reactivation ──
+  const isPaused=(status==='PAUSED'||status==='ARCHIVED');
+  if(isPaused){
     // Engagement objective
     if(cat==='engagement'){
       const eng=_getActions(ins,'post_engagement')||_getActions(ins,'page_engagement');
@@ -6485,6 +6485,10 @@ function _gtInlineSuggest(ins,camp,allInsights){
       return{priority:'oportunidade',icon:'▶',text:`CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)} gastos — bom histórico. Reativar?`,actions:[reativar]};
     return{priority:'ok',icon:'⏸',text:`${status==='ARCHIVED'?'Arquivada':'Pausada'} · CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)}.`,actions:[]};
   }
+
+  // ── Unknown status: no actions ──
+  if(status!=='ACTIVE')
+    return{priority:'ok',icon:'📊',text:`CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)} gastos.`,actions:[]};
 
   // ── ACTIVE: universal frequency check ──
   if(freq>=4)
@@ -6601,13 +6605,42 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
   searchInp.style.cssText='padding:6px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);color:var(--text);font-family:"IBM Plex Sans",sans-serif;font-size:11px;outline:none;width:180px;transition:border-color .15s;';
   searchInp.addEventListener('focus',()=>searchInp.style.borderColor='var(--accent)');
   searchInp.addEventListener('blur',()=>searchInp.style.borderColor='var(--border)');
-  hdr.appendChild(ttlWrap);hdr.appendChild(searchInp);
+  // Status filter buttons
+  const filterWrap=document.createElement('div');filterWrap.style.cssText='display:flex;gap:4px;flex-shrink:0;';
+  const filterDefs=[{v:'all',l:'Todas'},{v:'active',l:'Ativas'},{v:'inactive',l:'Inativas'}];
+  const filterBtns={};
+  filterDefs.forEach(fd=>{
+    const fb=document.createElement('button');
+    fb.textContent=fd.l;
+    const isActive=_gtStatusFilter===fd.v;
+    fb.style.cssText=`font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;padding:4px 10px;border-radius:5px;cursor:pointer;transition:all .15s;letter-spacing:.3px;border:1px solid ${isActive?'var(--accent)':'var(--border)'};background:${isActive?'var(--accent-light)':'none'};color:${isActive?'var(--accent)':'var(--muted)'};`;
+    fb.addEventListener('click',()=>{
+      _gtStatusFilter=fd.v;
+      Object.entries(filterBtns).forEach(([k,b])=>{
+        const on=k===fd.v;
+        b.style.borderColor=on?'var(--accent)':'var(--border)';
+        b.style.background=on?'var(--accent-light)':'none';
+        b.style.color=on?'var(--accent)':'var(--muted)';
+      });
+      renderList(searchInp.value);
+    });
+    filterBtns[fd.v]=fb;filterWrap.appendChild(fb);
+  });
+  const hdrRight=document.createElement('div');hdrRight.style.cssText='display:flex;align-items:center;gap:8px;';
+  hdrRight.appendChild(filterWrap);hdrRight.appendChild(searchInp);
+  hdr.appendChild(ttlWrap);hdr.appendChild(hdrRight);
   card.appendChild(hdr);
   const list=document.createElement('div');list.className='gt-camp-list';card.appendChild(list);
   const tok=_gtCurAcc?.access_token;
   function renderList(q){
     list.innerHTML='';
-    const filtered=sorted.filter(ins=>!q||(ins.campaign_name||'').toLowerCase().includes(q.toLowerCase()));
+    const filtered=sorted.filter(ins=>{
+      if(q&&!(ins.campaign_name||'').toLowerCase().includes(q.toLowerCase()))return false;
+      const st=campMap[ins.campaign_id]?.effective_status||'';
+      if(_gtStatusFilter==='active')return st==='ACTIVE';
+      if(_gtStatusFilter==='inactive')return st==='PAUSED'||st==='ARCHIVED';
+      return true;
+    });
     if(!filtered.length){list.innerHTML='<div class="gt-empty">Nenhuma campanha encontrada</div>';return;}
     filtered.forEach(ins=>{
       const camp=campMap[ins.campaign_id];
@@ -6728,6 +6761,7 @@ async function _gtApplyAction(action,btn,rowEl){
 // Auto mode — toggle: off=gray, on=purple, runs immediately without modal
 let _gtAutoActive=false;
 let _gtAutoRunning=false;
+let _gtStatusFilter='all';
 function closeGtAutoModal(){
   document.getElementById('gt-auto-overlay').style.display='none';
   document.getElementById('gt-auto-modal').style.display='none';
