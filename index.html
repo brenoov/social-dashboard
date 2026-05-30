@@ -1554,9 +1554,12 @@
   .gt-camp-top{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;border-radius:6px;padding:4px 2px;margin:-4px -2px;transition:background .12s;}
   .gt-camp-top:hover{background:var(--surface2);}
   .gt-camp-top:hover .gt-name{color:var(--accent);}
-  .gt-camp-row-ads{padding:4px 22px 14px 22px;display:none;flex-direction:column;gap:8px;}
+  .gt-camp-row-ads{padding:0 18px 14px 22px;display:none;flex-direction:column;gap:0;background:var(--surface2);border-top:1px solid var(--border);position:relative;}
+  .gt-camp-row-ads::before{content:'';position:absolute;left:36px;top:0;bottom:18px;width:2px;background:var(--border);border-radius:1px;opacity:.6;}
   .gt-camp-row-ads.open{display:flex;}
-  .gt-ad-card{border-radius:7px;background:var(--surface2);border:1px solid var(--border);padding:10px 14px;display:flex;flex-direction:column;gap:6px;}
+  .gt-ads-section-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 0 6px 20px;opacity:.7;}
+  .gt-ad-card{border-radius:8px;background:var(--surface);border:1px solid var(--border);padding:11px 14px;display:flex;flex-direction:column;gap:6px;margin-left:20px;margin-bottom:7px;box-shadow:0 2px 8px rgba(0,0,0,.07);position:relative;}
+  .gt-ad-card::before{content:'';position:absolute;left:-20px;top:18px;width:16px;height:2px;background:var(--border);opacity:.6;}
   .gt-ad-top{display:flex;align-items:center;gap:8px;}
   /* Status badge — replaces dot */
   .gt-status-badge{display:inline-flex;align-items:center;gap:4px;font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;letter-spacing:.4px;padding:2px 8px;border-radius:20px;flex-shrink:0;text-transform:uppercase;}
@@ -1598,9 +1601,15 @@
   .gt-act-btn.primary:hover{background:var(--accent);color:#fff;}
   .gt-act-btn:disabled{opacity:.5;cursor:not-allowed;pointer-events:none;}
   /* Auto button */
-  .gt-auto-btn{display:flex;align-items:center;gap:6px;padding:5px 14px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:1px solid #7c3aed;background:rgba(124,58,237,.1);color:#7c3aed;letter-spacing:.3px;transition:all .15s;white-space:nowrap;}
-  .gt-auto-btn:hover{background:rgba(124,58,237,.18);border-color:#6d28d9;}
+  .gt-auto-btn{display:flex;align-items:center;gap:6px;padding:5px 14px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);letter-spacing:.3px;transition:all .2s;white-space:nowrap;position:relative;}
+  .gt-auto-btn:hover{border-color:#9ca3af;color:var(--text);}
+  .gt-auto-btn.active{border-color:#7c3aed;background:rgba(124,58,237,.12);color:#7c3aed;}
+  .gt-auto-btn.active:hover{background:rgba(124,58,237,.2);}
+  .gt-auto-btn.running{border-color:#7c3aed;background:#7c3aed;color:#fff;animation:pulse 1.5s infinite;}
   .gt-auto-btn:disabled{opacity:.5;cursor:not-allowed;}
+  .gt-auto-tooltip{position:absolute;bottom:calc(100% + 8px);right:0;background:rgba(220,38,38,.95);color:#fff;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;padding:6px 10px;border-radius:6px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .2s;z-index:999;max-width:260px;text-align:center;line-height:1.4;}
+  .gt-auto-tooltip::after{content:'';position:absolute;top:100%;right:18px;border:5px solid transparent;border-top-color:rgba(220,38,38,.95);}
+  .gt-auto-btn:hover .gt-auto-tooltip{opacity:1;}
   /* Auto modal */
   #gt-auto-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1200;display:none;backdrop-filter:blur(2px);}
   #gt-auto-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1201;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(520px,92vw);max-height:80vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.35);}
@@ -6444,19 +6453,46 @@ function _gtInlineSuggest(ins,camp,allInsights){
   const pause={label:'⏸ Pausar',cls:'danger',action:{type:'pause_campaign',id:campId}};
   const reativar={label:'▶ Reativar',cls:'success',action:{type:'activate_campaign',id:campId}};
 
-  // Paused
-  if(status==='PAUSED'&&ctr>=1.5&&spend>30)
-    return{priority:'oportunidade',icon:'▶',text:`Pausada com CTR histórico de ${_maFmtPct(ctr)} — boa performance anterior.`,actions:[reativar]};
-  if(status==='PAUSED')
-    return{priority:'ok',icon:'⏸',text:'Campanha pausada.',actions:[]};
+  // ── INACTIVE / PAUSED: evaluate quality by objective, suggest reactivation ──
+  const isInactive=(status==='PAUSED'||status==='ARCHIVED'||status==='INACTIVE');
+  if(isInactive){
+    // Engagement objective
+    if(cat==='engagement'){
+      const eng=_getActions(ins,'post_engagement')||_getActions(ins,'page_engagement');
+      if(eng>50||ctr>=0.5)
+        return{priority:'oportunidade',icon:'▶',text:`${eng>0?_maFmt(eng)+' engajamentos · ':''}CTR ${_maFmtPct(ctr)} — pausada com bom histórico. Reativar?`,actions:[reativar]};
+    }
+    // Lead / conversion
+    if(cat==='lead'||cat==='conversion'){
+      const leads=_getActions(ins,'lead');
+      if(leads>0||ctr>=1.0)
+        return{priority:'oportunidade',icon:'▶',text:`${leads>0?_maFmt(leads)+' lead'+( leads!==1?'s':'')+' · ':''}CTR ${_maFmtPct(ctr)} — pausada com resultado. Reativar?`,actions:[reativar]};
+    }
+    // Traffic
+    if(cat==='traffic'){
+      const clicks=parseInt(ins.clicks||0);
+      if(ctr>=0.8&&clicks>50)
+        return{priority:'oportunidade',icon:'▶',text:`${_maFmt(clicks)} cliques · CTR ${_maFmtPct(ctr)} — bom histórico de tráfego. Reativar?`,actions:[reativar]};
+    }
+    // Video
+    if(cat==='video'){
+      const views=parseInt(ins.video_play_actions?.[0]?.value||0);
+      if(views>200||ctr>=0.5)
+        return{priority:'oportunidade',icon:'▶',text:`${views>0?_maFmt(views)+' plays · ':''}CTR ${_maFmtPct(ctr)} — vídeo com engajamento. Reativar?`,actions:[reativar]};
+    }
+    // Generic: any meaningful spend + CTR
+    if(ctr>=0.8&&spend>20)
+      return{priority:'oportunidade',icon:'▶',text:`CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)} gastos — bom histórico. Reativar?`,actions:[reativar]};
+    return{priority:'ok',icon:'⏸',text:`${status==='ARCHIVED'?'Arquivada':'Pausada'} · CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)}.`,actions:[]};
+  }
 
-  // Universal: saturação de frequência
+  // ── ACTIVE: universal frequency check ──
   if(freq>=4)
     return{priority:'critico',icon:'😴',text:`Frequência ${_maFmt(freq,1)}× — público saturado. Reduzir orçamento ou pausar.`,actions:[minus,pause].filter(Boolean)};
   if(freq>=3.5)
     return{priority:'atencao',icon:'😴',text:`Frequência ${_maFmt(freq,1)}× — monitorar saturação do público.`,actions:[]};
 
-  // Por objetivo
+  // ── Por objetivo (active) ──
   if(cat==='lead'||cat==='conversion'){
     const leads=_getActions(ins,'lead');
     const cpl=leads>0?spend/leads:null;
@@ -6471,7 +6507,7 @@ function _gtInlineSuggest(ins,camp,allInsights){
       return{priority:'atencao',icon:'🔗',text:`CTR ${_maFmtPct(ctr)} mas zero conversões — verificar landing page e oferta.`,actions:[]};
     if(leads>0)
       return{priority:'ok',icon:'✅',text:`${_maFmt(leads)} lead${leads!==1?'s':''}, CPL ${_maFmtR(cpl||0)} · CTR ${_maFmtPct(ctr)}.`,actions:[]};
-    return{priority:'ok',icon:'📊',text:`CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)} gastos. Sem conversões no período.`,actions:[]};
+    return{priority:'ok',icon:'📊',text:`CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)} gastos.`,actions:[]};
   }
 
   if(cat==='engagement'){
@@ -6591,7 +6627,7 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       // Status badge
       const badge=document.createElement('div');
       const badgeCls=status==='ACTIVE'?'active':status==='PAUSED'?'paused':'inactive';
-      const badgeLbl=status==='ACTIVE'?'Ativo':status==='PAUSED'?'Pausado':'Inativo';
+      const badgeLbl=status==='ACTIVE'?'Ativo':status==='PAUSED'?'Pausado':status==='ARCHIVED'?'Arquivado':'Inativo';
       badge.className=`gt-status-badge ${badgeCls}`;badge.textContent=badgeLbl;
       const nm=document.createElement('div');nm.className='gt-name';nm.title=ins.campaign_name||'';nm.textContent=ins.campaign_name||'—';
       const chips=document.createElement('div');chips.style.cssText='display:flex;flex-direction:column;gap:2px;flex-shrink:0;';
@@ -6633,7 +6669,8 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
   col.innerHTML='';col.appendChild(card);
 }
 function _renderGtAds(pane,ads,allInsights,allAdInsights){
-  if(!ads.length){pane.innerHTML='<div style="font-family:\'IBM Plex Sans\',sans-serif;font-size:11px;color:var(--muted);padding:6px 0;">Nenhum anúncio com gasto neste período</div>';return;}
+  const lbl=document.createElement('div');lbl.className='gt-ads-section-lbl';lbl.textContent=`Anúncios (${ads.length})`;pane.appendChild(lbl);
+  if(!ads.length){const empty=document.createElement('div');empty.style.cssText='font-family:\'IBM Plex Sans\',sans-serif;font-size:11px;color:var(--muted);padding:6px 0 6px 20px;';empty.textContent='Nenhum anúncio com gasto neste período';pane.appendChild(empty);return;}
   const sorted=[...ads].sort((a,b)=>parseFloat(b.spend||0)-parseFloat(a.spend||0));
   sorted.forEach(ad=>{
     const ctr=parseFloat(ad.ctr||0);
@@ -6688,27 +6725,36 @@ async function _gtApplyAction(action,btn,rowEl){
   }
 }
 
-// Auto mode — collect all critico/oportunidade actions from ALL accounts
-let _gtAutoQueue=[];
+// Auto mode — toggle: off=gray, on=purple, runs immediately without modal
+let _gtAutoActive=false;
+let _gtAutoRunning=false;
 function closeGtAutoModal(){
   document.getElementById('gt-auto-overlay').style.display='none';
   document.getElementById('gt-auto-modal').style.display='none';
-  _gtAutoQueue=[];
+}
+function _gtToggleAuto(){
+  _gtAutoActive=!_gtAutoActive;
+  const btn=document.getElementById('gt-auto-btn');
+  const lbl=document.getElementById('gt-auto-btn-lbl');
+  if(_gtAutoActive){
+    btn.classList.add('active');
+    if(lbl)lbl.textContent='AUTO ON';
+    _gtRunAuto();
+  }else{
+    btn.classList.remove('active','running');
+    if(lbl)lbl.textContent='AUTO';
+  }
 }
 async function _gtRunAuto(){
+  if(!_gtAutoActive||_gtAutoRunning)return;
+  _gtAutoRunning=true;
   const btn=document.getElementById('gt-auto-btn');
-  if(btn)btn.disabled=true;
-  const overlay=document.getElementById('gt-auto-overlay');
-  const modal=document.getElementById('gt-auto-modal');
-  const body=document.getElementById('gt-auto-modal-body');
-  const footer=document.getElementById('gt-auto-modal-footer');
-  overlay.style.display='block';modal.style.display='flex';
-  body.innerHTML='<div style="text-align:center;padding:24px;font-family:\'IBM Plex Sans\',sans-serif;font-size:12px;color:var(--muted);"><div class="gv-spinner" style="margin:0 auto 12px;"></div>Analisando campanhas de '+((_maAccounts.length||1))+' conta'+(_maAccounts.length!==1?'s':'')+'…</div>';
-  footer.style.display='none';
-  _gtAutoQueue=[];
+  const lbl=document.getElementById('gt-auto-btn-lbl');
+  if(btn)btn.classList.add('running');
+  if(lbl)lbl.textContent='…';
   try{
     const accs=_maAccounts.length?_maAccounts:(_gtCurAcc?[_gtCurAcc]:[]);
-    if(!accs.length){body.innerHTML='<div class="gt-empty">Nenhuma conta disponível.</div>';footer.style.display='flex';return;}
+    if(!accs.length){_gtAutoRunning=false;return;}
     const now=new Date();
     let since,until;
     if(_gtPreset==='today'){const d=now.toISOString().slice(0,10);since=d;until=d;}
@@ -6716,7 +6762,7 @@ async function _gtRunAuto(){
     else{const n=parseInt(_gtPreset);since=new Date(now.getTime()-n*86400000).toISOString().slice(0,10);until=now.toISOString().slice(0,10);}
     const timeRange={since,until};
     const timed=(p,ms=8000)=>Promise.race([p,new Promise(r=>setTimeout(()=>r(null),ms))]);
-    // Fetch data for each account in parallel
+    const queue=[];
     await Promise.all(accs.map(async acc=>{
       try{
         const tok=acc.access_token;
@@ -6733,79 +6779,30 @@ async function _gtRunAuto(){
           const camp=campMap[ins.campaign_id];
           const sug=_gtInlineSuggest(ins,camp,insights);
           if((sug.priority==='critico'||sug.priority==='oportunidade')&&sug.actions&&sug.actions.length){
-            // Only take first action (most important)
-            const a=sug.actions[0];
-            _gtAutoQueue.push({
-              accName:acc.display_name||acc.name||'Conta',
-              campName:ins.campaign_name||'—',
-              priority:sug.priority,
-              insight:sug.text,
-              actionLabel:a.label,
-              action:{...a.action},
-              tok,
-            });
+            queue.push({action:{...sug.actions[0].action},tok});
           }
         }
       }catch(e){}
     }));
-    if(!_gtAutoQueue.length){
-      body.innerHTML='<div class="gt-empty">✅ Nenhuma ação crítica ou oportunidade identificada. Campanhas dentro do esperado.</div>';
-      footer.innerHTML='<button style="padding:7px 16px;border-radius:7px;font-family:\'IBM Plex Sans\',sans-serif;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);" onclick="closeGtAutoModal()">Fechar</button>';
-      footer.style.display='flex';
-      if(btn)btn.disabled=false;
-      return;
+    // Execute all actions silently
+    for(const item of queue){
+      if(!_gtAutoActive)break;
+      try{
+        const a=item.action;
+        if(a.type==='pause_campaign'||a.type==='activate_campaign')
+          await metaPost('/'+a.id,{status:a.type==='pause_campaign'?'PAUSED':'ACTIVE'},item.tok);
+        else if(a.type==='update_budget')
+          await metaPost('/'+a.id,{daily_budget:String(a.budget)},item.tok);
+        await new Promise(r=>setTimeout(r,300));
+      }catch(e){}
     }
-    // Render action list
-    let html=`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);margin-bottom:12px;">O agente IA identificou <strong style="color:var(--text)">${_gtAutoQueue.length} ação${_gtAutoQueue.length!==1?'ões':''}</strong> para executar:</div>`;
-    _gtAutoQueue.forEach((item,i)=>{
-      const color=item.priority==='critico'?'#dc2626':'#16a34a';
-      const icon=item.priority==='critico'?'⛔':'🚀';
-      html+=`<div class="gt-auto-item ${item.priority}">
-        <span style="font-size:14px;flex-shrink:0;">${icon}</span>
-        <div class="gt-auto-item-text">
-          <div class="gt-auto-item-name" title="${item.campName}">${item.campName}</div>
-          <div class="gt-auto-item-action" style="color:var(--muted)">${item.accName} · ${item.insight}</div>
-          <div style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;color:${color};margin-top:3px;">${item.actionLabel}</div>
-        </div>
-      </div>`;
-    });
-    body.innerHTML=html;
-    footer.innerHTML=`<button style="padding:7px 16px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);" onclick="closeGtAutoModal()">Cancelar</button><button id="gt-auto-confirm-btn" style="padding:7px 18px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:none;background:#7c3aed;color:#fff;" onclick="_gtExecuteAuto()">Executar ${_gtAutoQueue.length} ação${_gtAutoQueue.length!==1?'ões':''}</button>`;
-    footer.style.display='flex';
-  }catch(e){
-    body.innerHTML=`<div class="gt-empty">Erro ao analisar: ${e.message}</div>`;
-    footer.style.display='flex';
+    if(_gtAutoActive)setTimeout(()=>loadGtData(),800);
+  }catch(e){}
+  _gtAutoRunning=false;
+  if(_gtAutoActive){
+    if(btn)btn.classList.remove('running');btn.classList.add('active');
+    if(lbl)lbl.textContent='AUTO ON';
   }
-  if(btn)btn.disabled=false;
-}
-async function _gtExecuteAuto(){
-  const confirmBtn=document.getElementById('gt-auto-confirm-btn');
-  if(confirmBtn){confirmBtn.disabled=true;confirmBtn.textContent='Executando…';}
-  const body=document.getElementById('gt-auto-modal-body');
-  const footer=document.getElementById('gt-auto-modal-footer');
-  footer.style.display='none';
-  let html='<div class="gt-auto-results">';
-  let ok=0,fail=0;
-  for(const item of _gtAutoQueue){
-    try{
-      const a=item.action;
-      if(a.type==='pause_campaign'||a.type==='activate_campaign')
-        await metaPost('/'+a.id,{status:a.type==='pause_campaign'?'PAUSED':'ACTIVE'},item.tok);
-      else if(a.type==='update_budget')
-        await metaPost('/'+a.id,{daily_budget:String(a.budget)},item.tok);
-      html+=`<div class="gt-auto-result-row"><span style="color:#16a34a;font-size:14px;">✓</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.campName}</span><span style="color:#16a34a;font-weight:700;flex-shrink:0;">${item.actionLabel}</span></div>`;
-      ok++;
-    }catch(e){
-      html+=`<div class="gt-auto-result-row"><span style="color:#dc2626;font-size:14px;">✗</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.campName}</span><span style="color:#dc2626;font-size:10px;flex-shrink:0;">Erro: ${e.message.slice(0,40)}</span></div>`;
-      fail++;
-    }
-    body.innerHTML=html+'</div>';
-    await new Promise(r=>setTimeout(r,200));
-  }
-  body.innerHTML=html+'</div>';
-  footer.innerHTML=`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);">${ok} executadas${fail?` · ${fail} com erro`:''}</div><button style="padding:7px 18px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:none;background:var(--accent);color:#fff;" onclick="closeGtAutoModal();loadGtData()">Fechar e Atualizar</button>`;
-  footer.style.display='flex';
-  _gtAutoQueue=[];
 }
 
 async function metaFetch(path,params,token){
@@ -8325,9 +8322,10 @@ function setHomeBgTheme(type){
       <button class="gv-pbtn" data-preset="month" onclick="setGtPeriod(this)">ATÉ AGORA</button>
       <button class="gv-pbtn" onclick="loadGtData()" style="border-color:var(--accent);color:var(--accent)">↻</button>
     </div>
-    <button class="gt-auto-btn" id="gt-auto-btn" onclick="_gtRunAuto()" title="Agente IA analisa todas as campanhas e executa os ajustes recomendados">
+    <button class="gt-auto-btn" id="gt-auto-btn" onclick="_gtToggleAuto()">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-      AUTO
+      <span id="gt-auto-btn-lbl">AUTO</span>
+      <div class="gt-auto-tooltip">⚠️ Cuidado: quando ativado, o Agente IA aplica automaticamente pausas e ajustes de orçamento em todas as campanhas. Ative apenas se confiar nas análises.</div>
     </button>
     <div id="gt-account-picker" onclick="event.stopPropagation()" style="position:relative;display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
       <button id="gt-acc-trigger" style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:7px;padding:5px 12px;background:var(--surface2);cursor:pointer;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--text);white-space:nowrap;" onclick="event.stopPropagation();toggleGtAccPicker()">
