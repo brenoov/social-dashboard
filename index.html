@@ -8150,13 +8150,15 @@ function setHomeBgTheme(type){
 <!-- SALES ANALYSIS -->
 <div id="sales-analysis-screen" style="display:none">
   <div class="gv-topbar">
-    <div class="gv-topbar-brand" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+    <div class="gv-topbar-brand" style="display:flex;align-items:center;gap:14px">
       <button class="gv-back" onclick="closeSalesAnalysis()">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Marcas
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Marcas
       </button>
-      <img id="sa-brand-av" class="sa-brand-av" src="" alt="" onerror="this.style.display='none'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;">
-      <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
-        <span class="gv-perf-tag" id="sa-brand-nm" style="font-size:11px;letter-spacing:3px;">Análise de Vendas</span>
+      <img class="rbv-logo rbv-logo-light" src="midia/LOGOTIPOBRENOPRETO.png" alt="RBV">
+      <img class="rbv-logo rbv-logo-dark" src="midia/LOGOTIPOBRENOBRANCO.png" alt="RBV">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <span class="gv-perf-tag" id="sa-brand-nm" style="font-size:11px;letter-spacing:4px;">Análise de Vendas</span>
         <span class="gv-brand-tag" style="font-size:9px;letter-spacing:2px;opacity:.5;">Vessel Brasil · Dados Bling</span>
       </div>
     </div>
@@ -8174,7 +8176,7 @@ function setHomeBgTheme(type){
         <div class="sa-canal-drop" id="sa-canal-drop"></div>
       </div>
     </div>
-    <div class="gv-clock-wrap" style="flex-shrink:0;" onclick="event.stopPropagation()">
+    <div class="gv-clock-wrap" onclick="event.stopPropagation()">
       <span class="live-dot" style="margin-bottom:4px">Tempo Real</span>
       <div class="gv-clock-time" id="sa-clock">--:--:--</div>
       <div class="gv-clock-date" id="sa-clock-date"></div>
