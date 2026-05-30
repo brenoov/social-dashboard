@@ -6411,11 +6411,15 @@ async function loadGtData(){
     const adFields='campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,impressions,clicks,spend,ctr,cpc,reach,frequency,actions,objective';
     const campFields='id,name,effective_status,objective,daily_budget,lifetime_budget,start_time,stop_time,bid_strategy';
     const timeRange={since,until};
-    const [insights,campaigns,adInsights]=await Promise.all([
+    const [insights,campaigns,adInsights,adObjs]=await Promise.all([
       metaFetchAll(`/act_${_maCleanAccId(adAccId)}/insights`,{level:'campaign',fields,filtering:JSON.stringify([{field:'spend',operator:'GREATER_THAN',value:'0'}]),time_range:timeRange},tok).catch(()=>[]),
       metaFetchAll(`/act_${_maCleanAccId(adAccId)}/campaigns`,{fields:campFields,effective_status:JSON.stringify(['ACTIVE','PAUSED','ARCHIVED'])},tok).catch(()=>[]),
       metaFetchAll(`/act_${_maCleanAccId(adAccId)}/insights`,{level:'ad',fields:adFields,filtering:JSON.stringify([{field:'spend',operator:'GREATER_THAN',value:'0'}]),time_range:timeRange},tok).catch(()=>[]),
+      metaFetchAll(`/act_${_maCleanAccId(adAccId)}/ads`,{fields:'id,effective_status'},tok).catch(()=>[]),
     ]);
+    // Attach real effective_status to each ad insight (insights endpoint doesn't return status)
+    const adStatusMap={};adObjs.forEach(a=>{adStatusMap[a.id]=a.effective_status||'';});
+    adInsights.forEach(a=>{a.effective_status=adStatusMap[a.ad_id]||'';});
     _gtCampaigns=campaigns;_gtInsights=insights;_gtAdInsights=adInsights;
     _gtLastLoadTime=new Date();updateGtUpdateStatus();
     if(_gtStatusTimer)clearInterval(_gtStatusTimer);
@@ -6563,10 +6567,13 @@ function _gtInlineSuggestAd(ad,allAds){
   const freq=parseFloat(ad.frequency||0);
   const campAds=allAds.filter(a=>a.campaign_id===ad.campaign_id);
   const avgAdCTR=campAds.length>1?campAds.reduce((s,a)=>s+parseFloat(a.ctr||0),0)/campAds.length:0;
+  const adSt=ad.effective_status||'';
   const pause={label:'⏸ Pausar Anúncio',cls:'danger',action:{type:'pause_ad',id:ad.ad_id}};
   const ativar={label:'▶ Ativar Anúncio',cls:'success',action:{type:'activate_ad',id:ad.ad_id}};
-  if(ad.status==='PAUSED')
-    return{priority:'ok',icon:'⏸',text:`Anúncio pausado · ${_maFmtR(spend)} histórico.`,actions:[ativar]};
+  if(adSt==='PAUSED'||adSt==='ARCHIVED')
+    return{priority:'ok',icon:'⏸',text:`Anúncio pausado · ${_maFmtR(spend)} histórico.`,actions:adSt==='PAUSED'?[ativar]:[]};
+  if(adSt!=='ACTIVE')
+    return{priority:'ok',icon:'📊',text:`CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)}`,actions:[]};
   if(freq>=4)
     return{priority:'atencao',icon:'😴',text:`Frequência ${_maFmt(freq,1)}× — criativo com fadiga.`,actions:[pause]};
   if(ctr<0.3&&spend>15&&impr>1000)
@@ -6708,14 +6715,15 @@ function _renderGtAds(pane,ads,allInsights,allAdInsights){
   sorted.forEach(ad=>{
     const ctr=parseFloat(ad.ctr||0);
     const spend=parseFloat(ad.spend||0);
-    const statusColor=ad.status==='ACTIVE'?'#16a34a':ad.status==='PAUSED'?'#f59e0b':'#6b7280';
+    const adStatus=ad.effective_status||'';
+    const statusColor=adStatus==='ACTIVE'?'#16a34a':adStatus==='PAUSED'?'#f59e0b':'#6b7280';
     const ctrColor=ctr>=2?'#16a34a':ctr<0.8?'#dc2626':'#d97706';
     const sug=_gtInlineSuggestAd(ad,allAdInsights);
     const card=document.createElement('div');card.className='gt-ad-card';
     const top=document.createElement('div');top.className='gt-ad-top';
     const adBadge=document.createElement('div');
-    const adBadgeCls=ad.status==='ACTIVE'?'active':ad.status==='PAUSED'?'paused':'inactive';
-    const adBadgeLbl=ad.status==='ACTIVE'?'Ativo':ad.status==='PAUSED'?'Pausado':'Inativo';
+    const adBadgeCls=adStatus==='ACTIVE'?'active':adStatus==='PAUSED'?'paused':'inactive';
+    const adBadgeLbl=adStatus==='ACTIVE'?'Ativo':adStatus==='PAUSED'?'Pausado':adStatus==='ARCHIVED'?'Arquivado':'Inativo';
     adBadge.className=`gt-status-badge ${adBadgeCls}`;adBadge.textContent=adBadgeLbl;
     const nameWrap=document.createElement('div');nameWrap.style.cssText='flex:1;min-width:0;';
     nameWrap.innerHTML=`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${ad.ad_name||ad.adset_name||'—'}</div>${ad.adset_name&&ad.ad_name?`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);">${ad.adset_name}</div>`:''}`;
