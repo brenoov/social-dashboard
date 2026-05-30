@@ -5066,7 +5066,7 @@ async function _saPopulateDescontos(pedidos){
   });
   if(hadCache)_rerender();
 
-  // Fetch uncached orders in parallel batches of 5
+  // Fetch uncached orders in parallel batches of 5, single re-render at the end
   const toFetch=pedidos.filter(p=>p._desconto===undefined).slice(0,400);
   const BATCH=5;
   for(let i=0;i<toFetch.length;i+=BATCH){
@@ -5084,9 +5084,9 @@ async function _saPopulateDescontos(pedidos){
         _saSaveDiscCache(p.id,desconto);
       }catch(e){p._desconto={valor:0,unidade:'REAL'};}
     }));
-    _rerender();
     if(i+BATCH<toFetch.length)await new Promise(r=>setTimeout(r,150));
   }
+  _rerender();
 }
 
 function renderSalesAnalysis(raw,lojaFilter){
@@ -5409,7 +5409,7 @@ function renderSADesconto({pedidos,lojas,lojaMap,di,df}){
     options:{
       responsive:true,maintainAspectRatio:false,
       animation:{delay:ctx=>ctx.dataIndex*30},
-      plugins:{legend:{position:'bottom',labels:{boxWidth:10,usePointStyle:true,pointStyle:'circle',font:{size:_saFsz(11)},padding:16,color:tc}},tooltip:{mode:'index',intersect:false,backgroundColor:'rgba(10,10,20,0.88)',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.85)',titleFont:{size:_saFsz(12),weight:'700'},bodyFont:{size:_saFsz(11)},padding:12,cornerRadius:8,callbacks:{title:ctx=>labelsB[ctx[0].dataIndex],label:ctx=>{const i=ctx.dataIndex;const tot=comB[i]+semB[i];if(ctx.datasetIndex===0){const lines=[` Com desconto: ${fmtR(comB[i])}`,` (${tot>0?(comB[i]/tot*100).toFixed(1):'0'}% do dia)`];if(descValorB[i]>0)lines.push(` Desconto aplicado: ${fmtR(descValorB[i])}`);return lines;}if(ctx.datasetIndex===1)return[` Sem desconto: ${fmtR(semB[i])}`,` Total dia: ${fmtR(tot)}`];return null;}}},datalabels:{display:false}},
+      plugins:{legend:{position:'bottom',labels:{boxWidth:10,usePointStyle:true,pointStyle:'circle',font:{size:_saFsz(11)},padding:16,color:tc}},tooltip:{mode:'index',intersect:false,backgroundColor:'rgba(10,10,20,0.88)',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.85)',titleFont:{size:_saFsz(12),weight:'700'},bodyFont:{size:_saFsz(11)},padding:12,cornerRadius:8,callbacks:{title:ctx=>labelsB[ctx[0].dataIndex],label:ctx=>{const i=ctx.dataIndex;const tot=comB[i]+semB[i];if(ctx.datasetIndex===0){const lines=[` Com desconto: ${fmtR(comB[i])}`,` (${tot>0?(comB[i]/tot*100).toFixed(1):'0'}% do dia)`];if(descValorB[i]>0)lines.push(` Desconto aplicado: ${fmtR(descValorB[i])}`);return lines;}if(ctx.datasetIndex===1)return[` Sem desconto: ${fmtR(semB[i])}`,` Total dia: ${fmtR(tot)}`];return null;}}},datalabels:{display:ctx=>ctx.raw>100,formatter:v=>fmtR0(v),color:'#fff',anchor:'center',align:'center',font:{size:_saFsz(9),weight:'600',family:"'IBM Plex Sans',sans-serif"}}},
       scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:_saFsz(10)},maxRotation:0,color:tc}},y:{stacked:true,ticks:{callback:v=>fmtR0(v),font:{size:_saFsz(10)},color:tc},grid:{color:'rgba(128,128,128,0.07)'},border:{dash:[4,4]}}},
       barPercentage:0.85
     }
