@@ -1607,9 +1607,9 @@
   .gt-auto-btn.active:hover{background:rgba(124,58,237,.2);}
   .gt-auto-btn.running{border-color:#7c3aed;background:#7c3aed;color:#fff;animation:pulse 1.5s infinite;}
   .gt-auto-btn:disabled{opacity:.5;cursor:not-allowed;}
-  .gt-auto-tooltip{position:absolute;bottom:calc(100% + 8px);right:0;background:rgba(220,38,38,.95);color:#fff;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;padding:6px 10px;border-radius:6px;white-space:normal;pointer-events:none;opacity:0;transition:opacity .2s;z-index:1300;max-width:240px;text-align:center;line-height:1.4;}
-  .gt-auto-tooltip::after{content:'';position:absolute;top:100%;right:18px;border:5px solid transparent;border-top-color:rgba(220,38,38,.95);}
-  .gt-auto-btn:hover .gt-auto-tooltip{opacity:1;}
+  #gt-auto-floating-tip{position:fixed;background:rgba(220,38,38,.97);color:#fff;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;padding:8px 12px;border-radius:7px;white-space:normal;pointer-events:none;opacity:0;transition:opacity .18s;z-index:9999;max-width:230px;text-align:center;line-height:1.5;box-shadow:0 4px 18px rgba(0,0,0,.3);}
+  #gt-auto-floating-tip.visible{opacity:1;}
+  #gt-auto-floating-tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:rgba(220,38,38,.97);}
   /* Auto modal */
   #gt-auto-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1200;display:none;backdrop-filter:blur(2px);}
   #gt-auto-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1201;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(520px,92vw);max-height:80vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.35);}
@@ -6774,6 +6774,25 @@ function closeGtAutoModal(){
   document.getElementById('gt-auto-overlay').style.display='none';
   document.getElementById('gt-auto-modal').style.display='none';
 }
+function _gtShowAutoTip(btn){
+  const tip=document.getElementById('gt-auto-floating-tip');
+  if(!tip)return;
+  const r=btn.getBoundingClientRect();
+  tip.style.left='';tip.style.right='';
+  // Position above button, horizontally centered
+  const tw=230;
+  let left=r.left+r.width/2-tw/2;
+  if(left<8)left=8;
+  if(left+tw>window.innerWidth-8)left=window.innerWidth-tw-8;
+  tip.style.left=left+'px';
+  tip.style.top=(r.top-8)+'px';
+  tip.style.transform='translateY(-100%)';
+  tip.classList.add('visible');
+}
+function _gtHideAutoTip(){
+  const tip=document.getElementById('gt-auto-floating-tip');
+  if(tip)tip.classList.remove('visible');
+}
 function _gtToggleAuto(){
   _gtAutoActive=!_gtAutoActive;
   const btn=document.getElementById('gt-auto-btn');
@@ -8367,10 +8386,9 @@ function setHomeBgTheme(type){
       <button class="gv-pbtn" data-preset="month" onclick="setGtPeriod(this)">ATÉ AGORA</button>
       <button class="gv-pbtn" onclick="loadGtData()" style="border-color:var(--accent);color:var(--accent)">↻</button>
     </div>
-    <button class="gt-auto-btn" id="gt-auto-btn" onclick="_gtToggleAuto()">
+    <button class="gt-auto-btn" id="gt-auto-btn" onclick="_gtToggleAuto()" onmouseenter="_gtShowAutoTip(this)" onmouseleave="_gtHideAutoTip()">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
       <span id="gt-auto-btn-lbl">AUTO</span>
-      <div class="gt-auto-tooltip">⚠️ Cuidado: quando ativado, o Agente IA aplica automaticamente pausas e ajustes de orçamento em todas as campanhas. Ative apenas se confiar nas análises.</div>
     </button>
     <div id="gt-account-picker" onclick="event.stopPropagation()" style="position:relative;display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
       <button id="gt-acc-trigger" style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:7px;padding:5px 12px;background:var(--surface2);cursor:pointer;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--text);white-space:nowrap;" onclick="event.stopPropagation();toggleGtAccPicker()">
@@ -8393,6 +8411,9 @@ function setHomeBgTheme(type){
     </div>
   </div>
 </div>
+
+<!-- GT Auto floating tooltip (fixed-position, escapes stacking contexts) -->
+<div id="gt-auto-floating-tip">⚠️ Cuidado: quando ativado, o Agente IA aplica automaticamente pausas e ajustes de orçamento em todas as campanhas. Ative apenas se confiar nas análises.</div>
 
 <!-- GT Auto Modal -->
 <div id="gt-auto-overlay" onclick="closeGtAutoModal()"></div>
