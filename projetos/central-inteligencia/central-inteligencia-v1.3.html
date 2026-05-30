@@ -5047,13 +5047,13 @@ async function _saPopulateDescontos(pedidos){
     if(p._desconto!==undefined)continue;
     try{
       const resp=await blingCall(`pedidos/vendas/${p.id}`,{});
-      if(i===0)console.log('[BLING_DESC_DEBUG] pedido',p.id,'data:',JSON.stringify(resp?.data).slice(0,2000));
       const itens=resp?.data?.itens||[];
-      // Pre-discount total = sum of (valor × quantidade) for each item
-      const preDiscTotal=itens.reduce((s,it)=>s+parseFloat(it.valor||0)*parseFloat(it.quantidade||1),0);
-      // Order final total already has all discounts applied (item-level + order-level)
-      const orderTotal=parseFloat(resp?.data?.total||0);
-      const desconto=preDiscTotal>0?Math.max(0,preDiscTotal-orderTotal):0;
+      // it.desconto is a plain percentage (0-100) applied per item in PDV
+      const desconto=itens.reduce((s,it)=>{
+        const pct=parseFloat(it.desconto)||0;
+        if(!pct)return s;
+        return s+parseFloat(it.valor||0)*parseFloat(it.quantidade||1)*pct/100;
+      },0);
       p._desconto={valor:desconto,unidade:'REAL'};
       changed=true;
     }catch(e){p._desconto={valor:0,unidade:'REAL'};}
