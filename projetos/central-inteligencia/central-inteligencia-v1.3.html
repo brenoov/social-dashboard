@@ -5210,6 +5210,8 @@ function renderSAKpis({pedidos,pedidosPrev,metaPeriodo,diasMes,diasTot,diasDec,n
 
   kpis.forEach(k=>{
     const card=document.createElement('div');card.className='sa-kpi';
+    const borderColor=k.cls==='good'?'#22c55e':k.cls==='warn'?'#f59e0b':k.cls==='bad'?'#ef4444':'var(--border)';
+    card.style.borderLeft=`3px solid ${borderColor}`;
     const lbl=document.createElement('div');lbl.className='sa-kpi-label';lbl.textContent=k.label;
     const val=document.createElement('div');val.className='sa-kpi-val';val.textContent=k.val;
     card.appendChild(lbl);card.appendChild(val);
