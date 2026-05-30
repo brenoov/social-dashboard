@@ -6384,42 +6384,102 @@ async function loadGtData(){
     col.innerHTML=`<div class="gt-camp-card"><div class="gt-empty">Erro ao carregar dados:<br>${e.message}</div></div>`;
   }
 }
+function _gtObjCategory(obj){
+  const o=(obj||'').toUpperCase();
+  if(o.includes('LEAD'))return'lead';
+  if(o.includes('CONVERSION')||o.includes('SALE'))return'conversion';
+  if(o.includes('ENGAGEMENT')||o==='POST_ENGAGEMENT'||o==='PAGE_LIKES')return'engagement';
+  if(o.includes('VIDEO')||o==='VIDEO_VIEWS')return'video';
+  if(o.includes('AWARENESS')||o==='BRAND_AWARENESS'||o==='REACH')return'awareness';
+  if(o.includes('TRAFFIC')||o==='LINK_CLICKS')return'traffic';
+  return'other';
+}
 function _gtInlineSuggest(ins,camp,allInsights){
   const ctr=parseFloat(ins.ctr||0);
   const spend=parseFloat(ins.spend||0);
   const impr=parseInt(ins.impressions||0);
-  const leads=_getActions(ins,'lead');
   const freq=parseFloat(ins.frequency||0);
-  const cpc=parseFloat(ins.cpc||0);
-  const cpl=leads>0?spend/leads:null;
-  const totalSpend=allInsights.reduce((s,i)=>s+parseFloat(i.spend||0),0);
-  const totalLeads=allInsights.reduce((s,i)=>s+_getActions(i,'lead'),0);
-  const avgCPL=totalLeads>0?totalSpend/totalLeads:null;
-  const totalImpr=allInsights.reduce((s,i)=>s+parseInt(i.impressions||0),0);
-  const totalClicks=allInsights.reduce((s,i)=>s+parseInt(i.clicks||0),0);
-  const avgCTR=totalImpr>0?totalClicks/totalImpr*100:0;
   const status=camp?.effective_status||'';
   const daily=camp?.daily_budget?parseFloat(camp.daily_budget)/100:null;
+  const campId=ins.campaign_id;
+  const obj=ins.objective||camp?.objective||'';
+  const cat=_gtObjCategory(obj);
+  const plus=daily?{label:'📈 +25% Budget',cls:'primary',action:{type:'update_budget',id:campId,budget:Math.round(daily*1.25*100)}}:null;
+  const minus=daily?{label:'📉 -25% Budget',cls:'',action:{type:'update_budget',id:campId,budget:Math.round(daily*0.75*100)}}:null;
+  const pause={label:'⏸ Pausar',cls:'danger',action:{type:'pause_campaign',id:campId}};
+  const reativar={label:'▶ Reativar',cls:'success',action:{type:'activate_campaign',id:campId}};
 
+  // Paused
   if(status==='PAUSED'&&ctr>=1.5&&spend>30)
-    return{priority:'oportunidade',icon:'▶',text:`Campanha pausada com CTR histórico de ${_maFmtPct(ctr)} — boa performance anterior. Considere reativar.`};
-  if(spend>80&&leads===0&&impr>4000&&status==='ACTIVE')
-    return{priority:'critico',icon:'⛔',text:`${_maFmtR(spend)} investidos, ${_maFmt(impr)} impressões e zero conversões. Pausar recomendado.`};
-  if(ctr<0.5&&spend>40&&impr>2000&&avgCTR>0&&ctr<avgCTR*0.5)
-    return{priority:'critico',icon:'📉',text:`CTR ${_maFmtPct(ctr)} — ${Math.round((1-ctr/avgCTR)*100)}% abaixo da média da conta. Criativo não engaja.`};
-  if(freq>=3.5&&status==='ACTIVE')
-    return{priority:'atencao',icon:'😴',text:`Frequência ${_maFmt(freq,1)}× — público saturado. Risco de queda de CTR e aumento de CPM.`};
-  if(ctr>=2&&leads===0&&impr>3000&&spend>50&&status==='ACTIVE')
-    return{priority:'atencao',icon:'🔗',text:`CTR ${_maFmtPct(ctr)} mas zero conversões — verificar landing page e oferta.`};
-  if(ctr>=2.5&&leads>0&&(!avgCPL||cpl<avgCPL*0.85)&&daily&&status==='ACTIVE')
-    return{priority:'oportunidade',icon:'🚀',text:`Excelente: CTR ${_maFmtPct(ctr)}, CPL ${_maFmtR(cpl||0)}. Campanha com alto potencial de escala.`};
-  if(ctr>=1.5&&leads>0&&status==='ACTIVE')
-    return{priority:'ok',icon:'✅',text:`Performance estável — CTR ${_maFmtPct(ctr)}, ${_maFmt(leads)} lead${leads!==1?'s':''}, CPL ${_maFmtR(cpl||0)}.`};
-  if(ctr>=1&&status==='ACTIVE')
-    return{priority:'ok',icon:'✅',text:`CTR ${_maFmtPct(ctr)} dentro do esperado. Monitorar frequência e custo.`};
+    return{priority:'oportunidade',icon:'▶',text:`Pausada com CTR histórico de ${_maFmtPct(ctr)} — boa performance anterior.`,actions:[reativar]};
   if(status==='PAUSED')
-    return{priority:'ok',icon:'⏸',text:'Campanha pausada.'};
-  return{priority:'ok',icon:'📊',text:`CTR ${_maFmtPct(ctr)} · Gasto ${_maFmtR(spend)}. Sem alertas críticos.`};
+    return{priority:'ok',icon:'⏸',text:'Campanha pausada.',actions:[]};
+
+  // Universal: saturação de frequência
+  if(freq>=4)
+    return{priority:'critico',icon:'😴',text:`Frequência ${_maFmt(freq,1)}× — público saturado. Reduzir orçamento ou pausar.`,actions:[minus,pause].filter(Boolean)};
+  if(freq>=3.5)
+    return{priority:'atencao',icon:'😴',text:`Frequência ${_maFmt(freq,1)}× — monitorar saturação do público.`,actions:[]};
+
+  // Por objetivo
+  if(cat==='lead'||cat==='conversion'){
+    const leads=_getActions(ins,'lead');
+    const cpl=leads>0?spend/leads:null;
+    const totalSpend=allInsights.reduce((s,i)=>s+parseFloat(i.spend||0),0);
+    const totalLeads=allInsights.reduce((s,i)=>s+_getActions(i,'lead'),0);
+    const avgCPL=totalLeads>0?totalSpend/totalLeads:null;
+    if(spend>80&&leads===0&&impr>4000)
+      return{priority:'critico',icon:'⛔',text:`${_maFmtR(spend)} gastos e zero conversões. Pausar recomendado.`,actions:[pause]};
+    if(ctr>=2.5&&leads>0&&(!avgCPL||cpl<avgCPL*0.85)&&daily)
+      return{priority:'oportunidade',icon:'🚀',text:`CTR ${_maFmtPct(ctr)}, CPL ${_maFmtR(cpl||0)} — excelente. Oportunidade de escala.`,actions:[plus].filter(Boolean)};
+    if(ctr>=2&&leads===0&&impr>3000&&spend>50)
+      return{priority:'atencao',icon:'🔗',text:`CTR ${_maFmtPct(ctr)} mas zero conversões — verificar landing page e oferta.`,actions:[]};
+    if(leads>0)
+      return{priority:'ok',icon:'✅',text:`${_maFmt(leads)} lead${leads!==1?'s':''}, CPL ${_maFmtR(cpl||0)} · CTR ${_maFmtPct(ctr)}.`,actions:[]};
+    return{priority:'ok',icon:'📊',text:`CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)} gastos. Sem conversões no período.`,actions:[]};
+  }
+
+  if(cat==='engagement'){
+    const eng=_getActions(ins,'post_engagement')||_getActions(ins,'page_engagement');
+    if(spend>60&&eng<10&&impr>2000)
+      return{priority:'critico',icon:'⛔',text:`${_maFmtR(spend)} gastos e apenas ${_maFmt(eng)} engajamentos — criativo sem resposta.`,actions:[pause]};
+    if(ctr<0.5&&spend>30&&impr>1500)
+      return{priority:'atencao',icon:'📉',text:`CTR ${_maFmtPct(ctr)} baixo para engajamento — criativo pode não estar conectando.`,actions:[]};
+    if(eng>100&&ctr>=1&&daily)
+      return{priority:'oportunidade',icon:'🚀',text:`${_maFmt(eng)} engajamentos · CTR ${_maFmtPct(ctr)} — boa tração. Considere escalar.`,actions:[plus].filter(Boolean)};
+    if(eng>0)
+      return{priority:'ok',icon:'✅',text:`${_maFmt(eng)} engajamentos · CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)}.`,actions:[]};
+    return{priority:'ok',icon:'📊',text:`CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)} gastos.`,actions:[]};
+  }
+
+  if(cat==='traffic'){
+    const clicks=parseInt(ins.clicks||0);
+    const cpc=parseFloat(ins.cpc||0);
+    if(ctr<0.5&&spend>40&&impr>2000)
+      return{priority:'critico',icon:'⛔',text:`CTR ${_maFmtPct(ctr)} muito baixo — tráfego caro e ineficiente.`,actions:[pause]};
+    if(ctr>=2&&cpc<2&&daily)
+      return{priority:'oportunidade',icon:'🚀',text:`CTR ${_maFmtPct(ctr)} · CPC ${_maFmtR(cpc)} — excelente custo por clique.`,actions:[plus].filter(Boolean)};
+    return{priority:'ok',icon:'✅',text:`${_maFmt(clicks)} cliques · CTR ${_maFmtPct(ctr)} · CPC ${_maFmtR(cpc)}.`,actions:[]};
+  }
+
+  if(cat==='video'){
+    const views=parseInt(ins.video_play_actions?.[0]?.value||0);
+    if(spend>50&&views<100&&impr>2000)
+      return{priority:'atencao',icon:'📉',text:`Poucos plays (${_maFmt(views)}) com ${_maFmtR(spend)} gastos — hook do vídeo pode estar fraco.`,actions:[]};
+    if(views>500&&ctr>=0.8&&daily)
+      return{priority:'oportunidade',icon:'🚀',text:`${_maFmt(views)} plays · CTR ${_maFmtPct(ctr)} — boa tração para o vídeo.`,actions:[plus].filter(Boolean)};
+    return{priority:'ok',icon:'✅',text:`${_maFmt(views)} plays · ${_maFmtR(spend)}.`,actions:[]};
+  }
+
+  if(cat==='awareness'){
+    const reach=parseInt(ins.reach||0);
+    return{priority:'ok',icon:'✅',text:`${_maFmt(reach)} alcance · Frequência ${_maFmt(freq,1)}× · ${_maFmtR(spend)}.`,actions:[]};
+  }
+
+  // Fallback
+  if(ctr<0.5&&spend>50&&impr>2000)
+    return{priority:'atencao',icon:'📉',text:`CTR ${_maFmtPct(ctr)} abaixo do esperado para o gasto atual.`,actions:[]};
+  return{priority:'ok',icon:'📊',text:`CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)} gastos.`,actions:[]};
 }
 function _gtInlineSuggestAd(ad,allAds){
   const ctr=parseFloat(ad.ctr||0);
@@ -6428,44 +6488,28 @@ function _gtInlineSuggestAd(ad,allAds){
   const freq=parseFloat(ad.frequency||0);
   const campAds=allAds.filter(a=>a.campaign_id===ad.campaign_id);
   const avgAdCTR=campAds.length>1?campAds.reduce((s,a)=>s+parseFloat(a.ctr||0),0)/campAds.length:0;
-  if(ctr<0.3&&spend>15&&impr>1000)
-    return{priority:'critico',icon:'⛔',text:`CTR crítico ${_maFmtPct(ctr)} com ${_maFmtR(spend)} gastos — anúncio desperdiçando budget.`};
-  if(ctr<0.5&&spend>30)
-    return{priority:'atencao',icon:'📉',text:`CTR baixo ${_maFmtPct(ctr)} — considere pausar ou substituir o criativo.`};
+  const pause={label:'⏸ Pausar Anúncio',cls:'danger',action:{type:'pause_ad',id:ad.ad_id}};
+  const ativar={label:'▶ Ativar Anúncio',cls:'success',action:{type:'activate_ad',id:ad.ad_id}};
+  if(ad.status==='PAUSED')
+    return{priority:'ok',icon:'⏸',text:`Anúncio pausado · ${_maFmtR(spend)} histórico.`,actions:[ativar]};
   if(freq>=4)
-    return{priority:'atencao',icon:'😴',text:`Frequência ${_maFmt(freq,1)}× — criativo com fadiga alta neste anúncio.`};
+    return{priority:'atencao',icon:'😴',text:`Frequência ${_maFmt(freq,1)}× — criativo com fadiga.`,actions:[pause]};
+  if(ctr<0.3&&spend>15&&impr>1000)
+    return{priority:'critico',icon:'⛔',text:`CTR crítico ${_maFmtPct(ctr)} com ${_maFmtR(spend)} gastos — desperdiçando budget.`,actions:[pause]};
+  if(ctr<0.5&&spend>30)
+    return{priority:'atencao',icon:'📉',text:`CTR ${_maFmtPct(ctr)} baixo — substituir ou pausar o criativo.`,actions:[pause]};
   if(avgAdCTR>0&&ctr>avgAdCTR*1.8&&spend>10)
-    return{priority:'oportunidade',icon:'⭐',text:`Melhor anúncio do conjunto: CTR ${_maFmtPct(ctr)} (${Math.round(ctr/avgAdCTR)}× a média).`};
-  return{priority:'ok',icon:'✅',text:`CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)}`};
+    return{priority:'oportunidade',icon:'⭐',text:`Melhor anúncio do conjunto: CTR ${_maFmtPct(ctr)} (${Math.round(ctr/avgAdCTR)}× a média).`,actions:[]};
+  return{priority:'ok',icon:'✅',text:`CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)}`,actions:[]};
 }
-function _gtActionBtns(campId,adId,status,daily,tok,rowEl){
+function _gtRenderActions(actions,rowEl){
+  if(!actions||!actions.length)return null;
   const bar=document.createElement('div');bar.className='gt-action-row';
-  const mk=(label,cls,action)=>{
-    const b=document.createElement('button');b.className='gt-act-btn '+cls;b.textContent=label;
-    b.addEventListener('click',e=>{e.stopPropagation();_gtApplyAction(action,b,rowEl);});
-    return b;
-  };
-  if(adId){
-    // Ad-level buttons
-    bar.appendChild(mk('⏸ Pausar Anúncio','danger',{type:'pause_ad',id:adId}));
-    bar.appendChild(mk('▶ Ativar Anúncio','success',{type:'activate_ad',id:adId}));
-  }else{
-    // Campaign-level buttons
-    if(status==='ACTIVE'||status==='PAUSED'||!status){
-      if(status!=='PAUSED')bar.appendChild(mk('⏸ Pausar','danger',{type:'pause_campaign',id:campId}));
-      if(status==='PAUSED')bar.appendChild(mk('▶ Reativar','success',{type:'activate_campaign',id:campId}));
-      if(status==='ACTIVE')bar.appendChild(mk('▶ Ativar','success',{type:'activate_campaign',id:campId}));
-    }
-    if(daily){
-      const plus=Math.round(daily*1.25*100);
-      const minus=Math.round(daily*0.75*100);
-      bar.appendChild(mk('📈 +25% Budget','primary',{type:'update_budget',id:campId,budget:plus}));
-      bar.appendChild(mk('📉 -25% Budget','',{type:'update_budget',id:campId,budget:minus}));
-    }else{
-      bar.appendChild(mk('📈 Aumentar Budget','primary',{type:'update_budget',id:campId,budget:5000}));
-      bar.appendChild(mk('📉 Reduzir Budget','',{type:'update_budget',id:campId,budget:1000}));
-    }
-  }
+  actions.forEach(a=>{
+    const b=document.createElement('button');b.className='gt-act-btn '+a.cls;b.textContent=a.label;
+    b.addEventListener('click',e=>{e.stopPropagation();_gtApplyAction(a.action,b,rowEl);});
+    bar.appendChild(b);
+  });
   return bar;
 }
 function _renderGtCampaigns(col,campaigns,insights,adInsights){
@@ -6500,11 +6544,11 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       const statusColor=status==='ACTIVE'?'#16a34a':status==='PAUSED'?'#f59e0b':'#6b7280';
       const ctr=parseFloat(ins.ctr||0);
       const spend=parseFloat(ins.spend||0);
-      const leads=_getActions(ins,'lead');
       const daily=camp?.daily_budget?parseFloat(camp.daily_budget)/100:null;
       const ctrColor=ctr>=2?'#16a34a':ctr<0.8?'#dc2626':'#d97706';
       const ads=adByCamp[ins.campaign_id]||[];
       const sug=_gtInlineSuggest(ins,camp,insights);
+      const objCat=_gtObjCategory(ins.objective||camp?.objective||'');
       const row=document.createElement('div');row.className='gt-camp-row';
       const inner=document.createElement('div');inner.className='gt-camp-inner';
       // Top line: status dot + name + chips + metrics + spend + chevron
@@ -6515,16 +6559,21 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       const chips=document.createElement('div');chips.style.cssText='display:flex;flex-direction:column;gap:2px;flex-shrink:0;';
       chips.innerHTML=`<span class="ma-obj-chip" style="font-size:9px;">${_maObjLabel(ins.objective)}</span>${daily?`<span style="font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);">${_maFmtR(daily)}/dia</span>`:''}`;
       const metrics=document.createElement('div');metrics.className='gt-metrics';
-      metrics.innerHTML=`<div class="gt-metric">CTR <span style="color:${ctrColor}">${_maFmtPct(ctr)}</span></div><div class="gt-metric">CPC <span>${_maFmtR(parseFloat(ins.cpc||0))}</span></div>${leads>0?`<div class="gt-metric">Leads <span>${_maFmt(leads)}</span></div>`:''}`;
+      // Show objective-relevant metric as third column
+      let extraMetric='';
+      if(objCat==='lead'||objCat==='conversion'){const l=_getActions(ins,'lead');if(l>0)extraMetric=`<div class="gt-metric">Leads <span>${_maFmt(l)}</span></div>`;}
+      else if(objCat==='engagement'){const e=_getActions(ins,'post_engagement')||_getActions(ins,'page_engagement');if(e>0)extraMetric=`<div class="gt-metric">Eng. <span>${_maFmt(e)}</span></div>`;}
+      else if(objCat==='video'){const v=parseInt(ins.video_play_actions?.[0]?.value||0);if(v>0)extraMetric=`<div class="gt-metric">Plays <span>${_maFmt(v)}</span></div>`;}
+      else if(objCat==='traffic'){const cl=parseInt(ins.clicks||0);if(cl>0)extraMetric=`<div class="gt-metric">Cliques <span>${_maFmt(cl)}</span></div>`;}
+      metrics.innerHTML=`<div class="gt-metric">CTR <span style="color:${ctrColor}">${_maFmtPct(ctr)}</span></div><div class="gt-metric">CPC <span>${_maFmtR(parseFloat(ins.cpc||0))}</span></div>${extraMetric}`;
       const spendEl=document.createElement('div');spendEl.className='gt-spend';spendEl.textContent=_maFmtR(spend);
       const chev=document.createElement('svg');chev.setAttribute('class','gt-chevron');chev.setAttribute('width','12');chev.setAttribute('height','12');chev.setAttribute('viewBox','0 0 24 24');chev.setAttribute('fill','none');chev.setAttribute('stroke','currentColor');chev.setAttribute('stroke-width','2.5');chev.setAttribute('stroke-linecap','round');chev.setAttribute('stroke-linejoin','round');chev.innerHTML='<polyline points="9 18 15 12 9 6"/>';
       top.appendChild(dot);top.appendChild(nm);top.appendChild(chips);top.appendChild(metrics);top.appendChild(spendEl);top.appendChild(chev);
       // Insight row
       const insightEl=document.createElement('div');insightEl.className=`gt-insight ${sug.priority}`;
       insightEl.innerHTML=`<span style="font-size:13px;flex-shrink:0;">${sug.icon}</span><span class="gt-insight-text">${sug.text}</span>`;
-      // Action buttons
-      const actBar=_gtActionBtns(ins.campaign_id,null,status,daily,tok,row);
-      inner.appendChild(top);inner.appendChild(insightEl);inner.appendChild(actBar);
+      const actBar=_gtRenderActions(sug.actions,row);
+      inner.appendChild(top);inner.appendChild(insightEl);if(actBar)inner.appendChild(actBar);
       // Ads pane
       const adsPane=document.createElement('div');adsPane.className='gt-camp-row-ads';
       top.addEventListener('click',()=>{
@@ -6562,8 +6611,8 @@ function _renderGtAds(pane,ads,allInsights,allAdInsights){
     top.appendChild(dot);top.appendChild(nameWrap);top.appendChild(metrics);
     const insightEl=document.createElement('div');insightEl.className=`gt-insight ${sug.priority}`;
     insightEl.innerHTML=`<span style="font-size:12px;flex-shrink:0;">${sug.icon}</span><span class="gt-insight-text">${sug.text}</span>`;
-    const actBar=_gtActionBtns(ad.campaign_id,ad.ad_id,ad.status,null,_gtCurAcc?.access_token,card);
-    card.appendChild(top);card.appendChild(insightEl);card.appendChild(actBar);
+    const actBar=_gtRenderActions(sug.actions,card);
+    card.appendChild(top);card.appendChild(insightEl);if(actBar)card.appendChild(actBar);
     pane.appendChild(card);
   });
 }
