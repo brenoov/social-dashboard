@@ -633,6 +633,9 @@
     .gv-rank-scroll-inner{animation:none!important;transform:none!important;}
     .gv-topbar{flex-wrap:wrap;padding:8px 14px;gap:6px;}
     .gv-clock-wrap{display:none;}
+    #sales-analysis-screen .gv-clock-wrap,
+    #meta-ads-screen .gv-clock-wrap,
+    #gt-screen .gv-clock-wrap{display:block!important;}
     .gv-ticker{height:auto;flex-shrink:0;padding:8px 12px;gap:6px;}
     .gv-ticker-outer{flex:1;overflow-x:auto;}
     .gv-ticker-inner{white-space:nowrap;}
@@ -5045,6 +5048,7 @@ async function _saPopulateDescontos(pedidos){
       const resp=await blingCall(`pedidos/vendas/${p.id}`,{});
       // Item-level discounts: PDV applies % discount per item
       const itens=resp?.data?.itens||[];
+      if(i===0)console.log('[BLING_DESC_DEBUG] pedido',p.id,'data:',JSON.stringify(resp?.data).slice(0,2000));
       const descItens=itens.reduce((s,it)=>{
         const preDisc=parseFloat(it.valor||0)*parseFloat(it.quantidade||1);
         if(!preDisc)return s;
