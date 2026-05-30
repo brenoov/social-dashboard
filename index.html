@@ -5043,8 +5043,21 @@ async function _saPopulateDescontos(pedidos){
     if(p._desconto!==undefined)continue;
     try{
       const resp=await blingCall(`pedidos/vendas/${p.id}`,{});
+      // Item-level discounts: PDV applies % discount per item
+      const itens=resp?.data?.itens||[];
+      const descItens=itens.reduce((s,it)=>{
+        const pct=parseFloat(it.desconto||0);
+        const val=parseFloat(it.valor||0)*parseFloat(it.quantidade||1);
+        return s+val*pct/100;
+      },0);
+      // Order-level discount (fallback, usually 0 in PDV)
       const d=resp?.data?.desconto;
-      p._desconto=d&&typeof d==='object'?{valor:parseFloat(d.valor||0),unidade:d.unidade||'REAL'}:{valor:0,unidade:'REAL'};
+      let descPedido=0;
+      if(d&&typeof d==='object'){
+        const v=parseFloat(d.valor||0);
+        if(v>0)descPedido=(d.unidade==='REAL')?v:parseFloat(resp?.data?.total||0)*v/100;
+      }
+      p._desconto={valor:descItens+descPedido,unidade:'REAL'};
       changed=true;
     }catch(e){p._desconto={valor:0,unidade:'REAL'};}
     if((i+1)%10===0)await new Promise(r=>setTimeout(r,300));
@@ -5347,8 +5360,9 @@ function renderSADesconto({pedidos,lojas,lojaMap,di,df}){
   sec.appendChild(title);sec.appendChild(row);
 
   const tc=window._saLabelColor?.()||'#333';
-  const getDescVal=p=>{const d=p._desconto??p.desconto;if(d&&typeof d==='object')return parseFloat(d.valor||0);return parseFloat(d||0);};
-  const calcDescPedido=p=>{const v=getDescVal(p);if(!v)return 0;const d=p._desconto??p.desconto;if(d&&typeof d==='object'&&d.unidade==='REAL')return v;return parseFloat(p.total||0)*v/100;};
+  // _desconto is always {valor: R$real, unidade:'REAL'} — item-level % already converted
+  const getDescVal=p=>{const d=p._desconto;if(d&&typeof d==='object')return parseFloat(d.valor||0);return 0;};
+  const calcDescPedido=p=>getDescVal(p);
   const comDesc=pedidos.filter(p=>getDescVal(p)>0);
   const semDesc=pedidos.filter(p=>getDescVal(p)<=0);
   const totalCom=comDesc.reduce((s,p)=>s+parseFloat(p.total||0),0);
@@ -5405,7 +5419,7 @@ function renderSAVendedoras({pedidos,pedidosPrev,vendedoresArr,pvMap,pvQtdMap,lo
     s.vendas+=parseFloat(p.total||0);
     s.cupons++;
     s.itens+=(()=>{const n=p.itens?.length;if(n>0)return n;const sv=pvQtdMap?.[parseInt(p.id)];return(sv&&sv>1)?sv:1;})();
-    if(parseFloat((p._desconto??p.desconto)?.valor??(p._desconto??p.desconto)??0)>0)s.desc++;
+    if(parseFloat(p._desconto?.valor||0)>0)s.desc++;
   });
 
   const vends=Object.entries(stats).filter(([,s])=>s.cupons>0).sort((a,b)=>b[1].vendas-a[1].vendas).map(([id,s])=>({
@@ -5461,7 +5475,7 @@ function renderSAVendedoras({pedidos,pedidosPrev,vendedoresArr,pvMap,pvQtdMap,lo
   const totalVendas=vends.reduce((s,v)=>s+v.vendas,0);
   const totalCupons=vends.reduce((s,v)=>s+v.cupons,0);
   const ticketGeral=totalCupons>0?totalVendas/totalCupons:0;
-  const hasDesc2=p=>parseFloat((p._desconto??p.desconto)?.valor??(p._desconto??p.desconto)??0)>0;
+  const hasDesc2=p=>parseFloat(p._desconto?.valor||0)>0;
   const getQtd2=p=>{const n=p.itens?.length;if(n>0)return n;const sv=pvQtdMap?.[parseInt(p.id)];return(sv&&sv>1)?sv:1;};
   const pctMulti=pedidos.length>0?pedidos.filter(p=>getQtd2(p)>=2).length/pedidos.length*100:0;
   const pctDesc=pedidos.length>0?pedidos.filter(hasDesc2).length/pedidos.length*100:0;
