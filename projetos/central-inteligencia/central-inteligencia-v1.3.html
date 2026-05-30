@@ -1609,7 +1609,7 @@
   .gt-auto-btn:disabled{opacity:.5;cursor:not-allowed;}
   #gt-auto-floating-tip{position:fixed;background:rgba(220,38,38,.97);color:#fff;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;padding:8px 12px;border-radius:7px;white-space:normal;pointer-events:none;opacity:0;transition:opacity .18s;z-index:9999;max-width:230px;text-align:center;line-height:1.5;box-shadow:0 4px 18px rgba(0,0,0,.3);}
   #gt-auto-floating-tip.visible{opacity:1;}
-  #gt-auto-floating-tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:rgba(220,38,38,.97);}
+  #gt-auto-floating-tip::after{content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-bottom-color:rgba(220,38,38,.97);}
   /* Auto modal */
   #gt-auto-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1200;display:none;backdrop-filter:blur(2px);}
   #gt-auto-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1201;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(520px,92vw);max-height:80vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.35);}
@@ -6778,15 +6778,15 @@ function _gtShowAutoTip(btn){
   const tip=document.getElementById('gt-auto-floating-tip');
   if(!tip)return;
   const r=btn.getBoundingClientRect();
-  tip.style.left='';tip.style.right='';
-  // Position above button, horizontally centered
   const tw=230;
+  // Horizontal: center on button, clamp to viewport
   let left=r.left+r.width/2-tw/2;
   if(left<8)left=8;
   if(left+tw>window.innerWidth-8)left=window.innerWidth-tw-8;
   tip.style.left=left+'px';
-  tip.style.top=(r.top-8)+'px';
-  tip.style.transform='translateY(-100%)';
+  tip.style.transform='none';
+  // Always below the button (button is in sticky topbar at top of screen)
+  tip.style.top=(r.bottom+8)+'px';
   tip.classList.add('visible');
 }
 function _gtHideAutoTip(){
