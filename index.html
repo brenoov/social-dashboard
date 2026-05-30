@@ -5366,19 +5366,9 @@ function renderSATicket({pedidos,pedidosPrev,lojas,lojaMap}){
 function renderSADesconto({pedidos,lojas,lojaMap,di,df}){
   const sec=document.createElement('div');sec.className='sa-section';
   const title=document.createElement('div');title.className='sa-section-title';title.textContent='Vendas com vs Sem Desconto';
-  const row=document.createElement('div');row.className='sa-chart-row';
-
-  row.style.cssText='display:flex;gap:12px;align-items:stretch';
-  const _tvH=Math.round(200*(window._saTvF||1));
-  const wrapD=document.createElement('div');wrapD.className='sa-chart-wrap';wrapD.style.cssText=`flex:0 0 30%;min-width:${Math.round(160*(window._saTvF||1))}px;height:${_tvH}px`;
-  const canvasD=document.createElement('canvas');wrapD.appendChild(canvasD);
-  const wrapB=document.createElement('div');wrapB.className='sa-chart-wrap';wrapB.style.cssText=`flex:1 1 0;height:${_tvH}px`;
-  const canvasB=document.createElement('canvas');wrapB.appendChild(canvasB);
-  row.appendChild(wrapD);row.appendChild(wrapB);
-  sec.appendChild(title);sec.appendChild(row);
+  sec.appendChild(title);
 
   const tc=window._saLabelColor?.()||'#333';
-  // _desconto is always {valor: R$real, unidade:'REAL'} — item-level % already converted
   const getDescVal=p=>{const d=p._desconto;if(d&&typeof d==='object')return parseFloat(d.valor||0);return 0;};
   const calcDescPedido=p=>getDescVal(p);
   const comDesc=pedidos.filter(p=>getDescVal(p)>0);
@@ -5386,6 +5376,33 @@ function renderSADesconto({pedidos,lojas,lojaMap,di,df}){
   const totalCom=comDesc.reduce((s,p)=>s+parseFloat(p.total||0),0);
   const totalSem=semDesc.reduce((s,p)=>s+parseFloat(p.total||0),0);
   const totalDescCom=comDesc.reduce((s,p)=>s+calcDescPedido(p),0);
+  const tot=pedidos.length;
+  const pctCom=tot>0?(comDesc.length/tot*100).toFixed(1):'0';
+  const pctSem=tot>0?(semDesc.length/tot*100).toFixed(1):'0';
+
+  // Stat boxes — always visible at a glance
+  const stats=document.createElement('div');
+  stats.style.cssText='display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap';
+  const mkStat=(label,val1,val2,color)=>{
+    const b=document.createElement('div');
+    b.style.cssText=`flex:1;min-width:150px;background:var(--card);border:1px solid var(--border);border-left:3px solid ${color};border-radius:8px;padding:10px 14px`;
+    b.innerHTML=`<div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:4px">${label}</div><div style="font-size:18px;font-weight:700;font-family:'Oswald',sans-serif;color:var(--text);letter-spacing:1px">${val1}</div>${val2?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${val2}</div>`:''}`;
+    return b;
+  };
+  stats.appendChild(mkStat('Com Desconto',fmtR(totalCom),`${comDesc.length} pedidos · ${pctCom}%`,'rgba(239,68,68,0.8)'));
+  stats.appendChild(mkStat('Sem Desconto',fmtR(totalSem),`${semDesc.length} pedidos · ${pctSem}%`,'rgba(34,197,94,0.8)'));
+  stats.appendChild(mkStat('Total Descontos Aplicados',fmtR(totalDescCom),`Média: ${comDesc.length>0?fmtR(totalDescCom/comDesc.length):fmtR(0)} por pedido`,'rgba(251,191,36,0.8)'));
+  sec.appendChild(stats);
+
+  const row=document.createElement('div');row.className='sa-chart-row';
+  row.style.cssText='display:flex;gap:12px;align-items:stretch';
+  const _tvH=Math.round(200*(window._saTvF||1));
+  const wrapD=document.createElement('div');wrapD.className='sa-chart-wrap';wrapD.style.cssText=`flex:0 0 30%;min-width:${Math.round(160*(window._saTvF||1))}px;height:${_tvH}px`;
+  const canvasD=document.createElement('canvas');wrapD.appendChild(canvasD);
+  const wrapB=document.createElement('div');wrapB.className='sa-chart-wrap';wrapB.style.cssText=`flex:1 1 0;height:${_tvH}px`;
+  const canvasB=document.createElement('canvas');wrapB.appendChild(canvasB);
+  row.appendChild(wrapD);row.appendChild(wrapB);
+  sec.appendChild(row);
 
   window._saCharts=window._saCharts||{};
   window._saCharts.descontoDonut=new Chart(canvasD,{
