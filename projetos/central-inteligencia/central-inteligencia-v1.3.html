@@ -4374,7 +4374,8 @@ function openSalesAnalysis(){
   sessionStorage.setItem('rbv-screen','sales-analysis');
   setHomeBgTheme('sales');
   const vesselImg=document.querySelector('#sbrand-vessel-img');
-  if(vesselImg&&vesselImg.src)document.getElementById('sa-brand-av').src=vesselImg.src;
+  const saBrandAv=document.getElementById('sa-brand-av');
+  if(vesselImg&&vesselImg.src&&saBrandAv)saBrandAv.src=vesselImg.src;
   _saStartBgAnim();
   startSAClock();
   loadSalesAnalysisData('sofar');
