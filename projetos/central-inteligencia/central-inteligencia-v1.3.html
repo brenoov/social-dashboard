@@ -8150,17 +8150,17 @@ function setHomeBgTheme(type){
 <!-- SALES ANALYSIS -->
 <div id="sales-analysis-screen" style="display:none">
   <div class="gv-topbar">
-    <div class="gv-topbar-brand">
+    <div class="gv-topbar-brand" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
       <button class="gv-back" onclick="closeSalesAnalysis()">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Marcas
       </button>
       <img id="sa-brand-av" class="sa-brand-av" src="" alt="" onerror="this.style.display='none'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;">
-      <div style="display:flex;flex-direction:column;gap:2px">
+      <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
         <span class="gv-perf-tag" id="sa-brand-nm" style="font-size:11px;letter-spacing:3px;">Análise de Vendas</span>
         <span class="gv-brand-tag" style="font-size:9px;letter-spacing:2px;opacity:.5;">Vessel Brasil · Dados Bling</span>
       </div>
     </div>
-    <div class="gv-period-btns" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+    <div class="gv-period-btns">
       <button class="gv-pbtn" data-period="today" onclick="saSelectPeriod('today')"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite;vertical-align:middle;flex-shrink:0;"></span>HOJE</button>
       <button class="gv-pbtn" data-period="7d" onclick="saSelectPeriod('7d')">7D</button>
       <button class="gv-pbtn" data-period="14d" onclick="saSelectPeriod('14d')">14D</button>
@@ -8168,13 +8168,13 @@ function setHomeBgTheme(type){
       <button class="gv-pbtn active" data-period="sofar" onclick="saSelectPeriod('sofar')">ATÉ AGORA</button>
       <button class="vs-ac-toggle" id="sa-ac-toggle" onclick="saToggleAuto()" title="Auto-ciclo de períodos">▶ AUTO</button>
     </div>
-    <div style="position:relative;" onclick="event.stopPropagation()">
+    <div style="position:relative;flex-shrink:0;" onclick="event.stopPropagation()">
       <div class="sa-canal-wrap" id="sa-canal-wrap">
         <button class="sa-canal-trigger" id="sa-canal-trigger" onclick="saToggleCanalDrop(event)">Canais ▾</button>
         <div class="sa-canal-drop" id="sa-canal-drop"></div>
       </div>
     </div>
-    <div class="gv-clock-wrap" onclick="event.stopPropagation()">
+    <div class="gv-clock-wrap" style="flex-shrink:0;" onclick="event.stopPropagation()">
       <span class="live-dot" style="margin-bottom:4px">Tempo Real</span>
       <div class="gv-clock-time" id="sa-clock">--:--:--</div>
       <div class="gv-clock-date" id="sa-clock-date"></div>
