@@ -249,6 +249,39 @@ def coletar_ads_por_campanha(supabase, ad_account_id, account_id, token, dias, h
         print(f"   ⚠️  campaign_insights ({ad_account_id}, {dias}D): {e}")
 
 
+def coletar_ads_conta(supabase, ad_account_id, account_id, token, dias, hoje):
+    """Insights NÍVEL CONTA (sem time_increment) → account_insights.
+    reach aqui é DEDUPLICADO pela Meta no período. Somar reach por campanha
+    (campaign_insights) ou por dia conta a mesma pessoa várias vezes."""
+    since = (date.today() - timedelta(days=dias)).isoformat()
+    until = date.today().isoformat()
+    params = {
+        "fields": "spend,impressions,clicks,reach,frequency",
+        "time_range": json.dumps({"since": since, "until": until}),
+        "level": "account",
+        "access_token": token,
+    }
+    try:
+        data = api_get(f"act_{ad_account_id}/insights", params)
+        rows = data.get("data", [])
+        if not rows:
+            return
+        r = rows[0]
+        supabase.table("account_insights").upsert({
+            "account_id": account_id,
+            "captured_at": hoje,
+            "period_days": dias,
+            "spend": float(r.get("spend", 0) or 0),
+            "impressions": int(r.get("impressions", 0) or 0),
+            "clicks": int(r.get("clicks", 0) or 0),
+            "reach": int(r.get("reach", 0) or 0),
+            "frequency": float(r.get("frequency", 0) or 0),
+        }, on_conflict="account_id,captured_at,period_days").execute()
+        print(f"   📡 account_insights ({dias}D): reach {int(r.get('reach', 0) or 0):,} (dedup)")
+    except Exception as e:
+        print(f"   ⚠️  account_insights ({ad_account_id}, {dias}D): {e}")
+
+
 def processar_conta(supabase, account_id, ig_id, token, nome):
     hoje = date.today().isoformat()
     print(f"\n📊 Coletando: {nome} ({ig_id})")
@@ -292,6 +325,8 @@ def processar_conta(supabase, account_id, ig_id, token, nome):
         for dias in PERIODS:
             # Salva dados individuais por campanha (para filtro funcionar em tempo real no dashboard)
             coletar_ads_por_campanha(supabase, ad_account_id, account_id, token, dias, hoje)
+            # Salva totais nível-conta (reach deduplicado) → account_insights
+            coletar_ads_conta(supabase, ad_account_id, account_id, token, dias, hoje)
 
 
 NOMES_TOKENS = {
