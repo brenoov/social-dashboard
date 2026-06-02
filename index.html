@@ -3402,7 +3402,7 @@ async function loadAdminData(){
     sb('engagement_snapshots?select=id').then(r=>r.length).catch(()=>'?'),
     sb('content_snapshots?select=id').then(r=>r.length).catch(()=>'?'),
     sb('ads_snapshots?select=id').then(r=>r.length).catch(()=>'?'),
-    Promise.all(accounts.map(a=>sb(`daily_snapshots?account_id=eq.${a.id}&order=date.desc&limit=1&select=date,followers`).then(r=>({a,d:r[0]||null}))))
+    Promise.all(accounts.map(a=>sb(`daily_snapshots?account_id=eq.${a.id}&order=captured_at.desc&limit=1&select=captured_at,followers_count`).then(r=>({a,d:r[0]||null}))))
   ]);
   const stats=document.getElementById('admin-data-stats');stats.innerHTML='';
   [[accounts.length,'Contas'],[daily,'Snapshots'],[eng,'Engajamentos'],[cnt,'Conteúdos'],[ads,'Ads']].forEach(([v,l])=>{
@@ -3412,10 +3412,10 @@ async function loadAdminData(){
   syncResults.forEach(({a,d})=>{
     const row=mkEl('div','sr');row.style.justifyContent='space-between';
     const m=mkEl('div','sr-main');m.appendChild(mkEl('div','sr-label',a.name));
-    if(d){const ago=Math.floor((Date.now()-new Date(d.date))/(864e5));const sub=mkEl('div','sr-sub',`Última coleta: ${d.date} (${ago===0?'hoje':ago===1?'ontem':ago+'d atrás'})`);m.appendChild(sub);}
+    if(d){const ago=Math.floor((Date.now()-new Date(d.captured_at))/(864e5));const sub=mkEl('div','sr-sub',`Última coleta: ${d.captured_at} (${ago===0?'hoje':ago===1?'ontem':ago+'d atrás'})`);m.appendChild(sub);}
     row.appendChild(m);
     const val=mkEl('span','sr-val');
-    if(d){val.textContent=fmtN(d.followers)+' seguidores';val.style.color=d.followers>0?'var(--accent)':'var(--muted)';}
+    if(d){val.textContent=fmtN(d.followers_count)+' seguidores';val.style.color=d.followers_count>0?'var(--accent)':'var(--muted)';}
     else{val.textContent='Sem dados';val.style.color='#f59e0b';}
     row.appendChild(val);syncEl.appendChild(row);
   });
@@ -6355,7 +6355,7 @@ const BG_ICON_SETS={
 const META_GRAPH='https://graph.facebook.com/v22.0';
 let _maAccounts=[];
 let _maCurAcc=null;
-let _maPreset='30d';
+let _maPreset='month';
 let _maCharts={};
 
 // ── GESTÃO DE TRÁFEGO ────────────────────────────────────────────────────────
@@ -7224,8 +7224,8 @@ function toggleMaCustomRange(){
   modal.querySelector('#ma-modal-clear').addEventListener('click',()=>{
     _maCustomSince=null;_maCustomUntil=null;
     close();
-    const def=document.querySelector('#ma-period-btns .gv-pbtn[data-preset="30d"]');
-    if(def){def.classList.add('active');_maPreset='30d';}
+    const def=document.querySelector('#ma-period-btns .gv-pbtn[data-preset="month"]');
+    if(def){def.classList.add('active');_maPreset='month';}
     loadMaData();
   });
 
@@ -7255,8 +7255,8 @@ function applyMaCustomRange(){} // kept for legacy refs, logic now in modal
 function clearMaCustomRange(){
   _maCustomSince=null;_maCustomUntil=null;
   document.getElementById('ma-custom-range-btn')?.classList.remove('active');
-  const def=document.querySelector('#ma-period-btns .gv-pbtn[data-preset="30d"]');
-  if(def){def.classList.add('active');_maPreset='30d';}
+  const def=document.querySelector('#ma-period-btns .gv-pbtn[data-preset="month"]');
+  if(def){def.classList.add('active');_maPreset='month';}
   loadMaData();
 }
 
@@ -7272,10 +7272,11 @@ function _maDateRange(preset){
   if(preset==='1d'){const d=add(-1);return{since:d,until:d,prevSince:add(-2),prevUntil:add(-2)};}
   if(preset==='7d')return{since:add(-7),until:today,prevSince:add(-14),prevUntil:add(-8)};
   if(preset==='14d')return{since:add(-14),until:today,prevSince:add(-28),prevUntil:add(-15)};
-  if(preset==='30d'||preset==='month'){
+  if(preset==='month'){ // MÊS = mês corrente (1º do mês até hoje); anterior = mês passado inteiro
     const pmEnd=new Date(y,m-1,0);const pmStart=new Date(y,m-2,1);
     return{since:firstOfMonth,until:today,prevSince:iso(pmStart),prevUntil:iso(pmEnd)};
   }
+  // '30d' (e fallback) = 30 dias corridos (janela móvel)
   return{since:add(-30),until:today,prevSince:add(-60),prevUntil:add(-31)};
 }
 
@@ -7297,15 +7298,16 @@ async function loadMaData(){
     ({since,until,prevSince,prevUntil}=_maDateRange(_maPreset));
   }
   try{
-    const[insights,campaigns,prevInsights,daily,prevDaily,adInsights]=await Promise.all([
+    const[insights,campaigns,prevInsights,daily,prevDaily,adInsights,acctReach]=await Promise.all([
       _fetchInsights(_maCurAcc.ad_account_id,_maCurAcc.access_token,{time_range:{since,until}}),
       _fetchCampaigns(_maCurAcc.ad_account_id,_maCurAcc.access_token),
       _fetchInsights(_maCurAcc.ad_account_id,_maCurAcc.access_token,{time_range:{since:prevSince,until:prevUntil}}).catch(()=>[]),
       _fetchDaily(_maCurAcc.ad_account_id,_maCurAcc.access_token,since,until),
       _fetchDaily(_maCurAcc.ad_account_id,_maCurAcc.access_token,prevSince,prevUntil).catch(()=>[]),
       _fetchAdInsights(_maCurAcc.ad_account_id,_maCurAcc.access_token,since,until).catch(()=>[]),
+      _fetchAccountReach(_maCurAcc.ad_account_id,_maCurAcc.access_token,since,until).catch(()=>null),
     ]);
-    _renderMaCampanha(content,{insights,campaigns,prevInsights,daily,prevDaily,adInsights});
+    _renderMaCampanha(content,{insights,campaigns,prevInsights,daily,prevDaily,adInsights,acctReach});
     _maLastLoadTime=new Date();
     updateMaUpdateStatus();
     if(!_maStatusTimer)_maStatusTimer=setInterval(updateMaUpdateStatus,60000);
@@ -7330,6 +7332,11 @@ async function _fetchDaily(adAccId,token,since,until){
 async function _fetchAdInsights(adAccId,token,since,until){
   const fields='ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,objective,spend,impressions,clicks,ctr,cpc,cpm,reach,frequency,actions';
   try{return await metaFetchAll(`/act_${_maCleanAccId(adAccId)}/insights`,{level:'ad',fields,filtering:JSON.stringify([{field:'spend',operator:'GREATER_THAN',value:'0'}]),time_range:{since,until}},token);}catch(e){return[];}
+}
+// Reach REAL do período: nível conta, SEM time_increment → a Meta deduplica.
+// Somar reach por campanha (ou por dia) conta a mesma pessoa várias vezes.
+async function _fetchAccountReach(adAccId,token,since,until){
+  try{const r=await metaFetchAll(`/act_${_maCleanAccId(adAccId)}/insights`,{level:'account',fields:'reach,frequency',time_range:{since,until}},token);return r&&r[0]?r[0]:null;}catch(e){return null;}
 }
 
 function _getActions(ins,type){
@@ -7548,7 +7555,7 @@ function _openCampanhaFilter(insights,campaigns,onApply){
   document.body.appendChild(drawer);
 }
 
-function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily,prevDaily,adInsights}){
+function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily,prevDaily,adInsights,acctReach}){
   el.innerHTML='';
   let _activeInsights=insights;
   let _activeObj=null;
@@ -7646,7 +7653,8 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily,prevDaily,a
     const s_=sum(insArr,'spend');
     const imp_=sum(insArr,'impressions');
     const clk_=sum(insArr,'clicks');
-    const rch_=sum(insArr,'reach');
+    // Reach deduplicado do período (nível conta). Fallback p/ soma só se a consulta falhar.
+    const rch_=(acctReach&&acctReach.reach!=null)?parseInt(acctReach.reach):sum(insArr,'reach');
     const ctr_=imp_>0?clk_/imp_*100:0;
     const cpc_=clk_>0?s_/clk_:0;
     const cpm_=imp_>0?s_/imp_*1000:0;
@@ -8450,8 +8458,8 @@ function setHomeBgTheme(type){
       <button class="gv-pbtn" data-preset="1d" onclick="setMaPeriod(this)">1D</button>
       <button class="gv-pbtn" data-preset="7d" onclick="setMaPeriod(this)">7D</button>
       <button class="gv-pbtn" data-preset="14d" onclick="setMaPeriod(this)">14D</button>
-      <button class="gv-pbtn active" data-preset="30d" onclick="setMaPeriod(this)">MÊS</button>
-      <button class="gv-pbtn" data-preset="month" onclick="setMaPeriod(this)">ATÉ AGORA</button>
+      <button class="gv-pbtn" data-preset="30d" onclick="setMaPeriod(this)">30D</button>
+      <button class="gv-pbtn active" data-preset="month" onclick="setMaPeriod(this)">MÊS</button>
       <button class="custom-range-btn" id="ma-custom-range-btn" onclick="toggleMaCustomRange()">📅</button>
       <button class="gv-pbtn" id="ma-refresh-btn" onclick="loadMaData()" style="border-color:var(--accent);color:var(--accent)">↻</button>
     </div>
