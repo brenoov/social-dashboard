@@ -60,10 +60,11 @@ def get_token():
     t = os.environ.get("META_TOKEN")
     if not t:
         try:
-            t = getpass.getpass("Cole o token da Meta (não aparece na tela): ").strip()
+            t = getpass.getpass("Cole o token da Meta (não aparece na tela): ")
         except Exception:
-            t = input("Cole o token da Meta: ").strip()
-    return t
+            t = input("Cole o token da Meta: ")
+    # Remove QUALQUER espaço/quebra de linha (colar em terminal costuma quebrar a linha)
+    return re.sub(r"\s", "", t or "")
 
 
 def check_ig(ig_id, token):

@@ -403,7 +403,10 @@ def main():
             processar_conta(supabase, conta["id"], ig_id, token, conta["name"])
         except Exception as e:
             print(f"\n❌ Erro em {conta['name']}: {e}")
-    renovar_todos_tokens()
+    # Renovação desativada: usamos token de System User (não expira). O
+    # fb_exchange_token não perpetua token e só gerava erros 400 ruidosos —
+    # rode gerar_tokens.py se algum dia precisar trocar o token.
+    # renovar_todos_tokens()
     print("\n✅ Concluído!")
 
 
