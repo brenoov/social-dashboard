@@ -2361,7 +2361,7 @@ function hasPermission(resourceKey){
   return (currentUserFeatures||[]).includes(fKey);
 }
 
-const PERIODS=[{label:'HOJE',value:0},{label:'1D',value:1},{label:'7D',value:7},{label:'14D',value:14},{label:'30D',value:30},{label:'MÊS',value:'month'}];
+const PERIODS=[{label:'HOJE',value:0},{label:'1D',value:1},{label:'7D',value:7},{label:'14D',value:14},{label:'30D',value:30},{label:'MÊS',value:'monthfull'},{label:'MÊS PASS.',value:'lastmonth'},{label:'ATÉ AGORA',value:'sofar'}];
 const ACCOUNT_PICS={};
 const PROFILE_THEMES={
   'Raíssa Herculano':{ accent:'#BE185D', light:'rgba(190,24,93,0.08)',  mid:'rgba(190,24,93,0.30)' },
@@ -2645,7 +2645,8 @@ async function fetchData(accountId,period,customStart,customEnd){
   const months=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const days=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
   const isHoje=period===0;
-  const isCalMonth=period==='month'||period==='sofar';
+  const isCalMonth=period==='monthfull'||period==='sofar'||period==='month';
+  const isLastMonth=period==='lastmonth';
   let refDate,histStartDate,storedPeriod,effectivePeriod;
   if(customStart&&customEnd){
     refDate=new Date(customEnd+'T12:00:00');
@@ -2653,12 +2654,22 @@ async function fetchData(accountId,period,customStart,customEnd){
     effectivePeriod=Math.max(1,Math.round((refDate-sd)/86400000));
     storedPeriod=closestStoredPeriod(effectivePeriod);
     histStartDate=sd;
+  } else if(isLastMonth){
+    // MÊS PASS: refDate = último dia do mês passado → todas as queries (followers,
+    // engajamento, ads) recortam no mês anterior. storedPeriod=30 usa o snapshot
+    // 30D capturado no fim daquele mês (proxy do mês; histórico diário já existe).
+    const now=new Date();
+    const lastDayPrev=new Date(now.getFullYear(),now.getMonth(),0);
+    refDate=new Date(lastDayPrev.getFullYear(),lastDayPrev.getMonth(),lastDayPrev.getDate(),12);
+    effectivePeriod=lastDayPrev.getDate();
+    storedPeriod=30;
+    histStartDate=new Date(refDate);histStartDate.setDate(histStartDate.getDate()-effectivePeriod-5);
   } else if(isCalMonth){
     const now=new Date();
     const firstOfMonth=new Date(now.getFullYear(),now.getMonth(),1,12);
     refDate=now;
     effectivePeriod=Math.max(1,now.getDate()-1);
-    storedPeriod=99; // MÊS = mês-corrente real (snapshot MTD do coletor); antes pegava o mais próximo de [1,7,14,30]
+    storedPeriod=99; // MÊS/ATÉ AGORA = mês-corrente real (snapshot MTD do coletor)
     histStartDate=new Date(firstOfMonth);histStartDate.setDate(histStartDate.getDate()-5);
   } else {
     effectivePeriod=isHoje?1:period;storedPeriod=period;
@@ -2921,7 +2932,7 @@ function applyFreshness(lastSnapStr){
 /* ── MAIN UPDATE ── */
 function update(d,period){
   const pl=d.pl;
-  applyFreshness(d.lastSnap);
+  applyFreshness(period==='lastmonth'?undefined:d.lastSnap); // MÊS PASS é histórico — não avalia frescor
   const totalEl=document.getElementById('total-followers');if(totalEl)animCountFull(totalEl,d.followerTotal);
   const newEl=document.getElementById('new-followers-val');if(newEl)animCount(newEl,d.newFollowers);
   const grossEl=document.getElementById('gross-followers');
