@@ -4914,11 +4914,13 @@ async function loadSalesAnalysisData(period){
   const brtToday=`${y}-${pad(m)}-${pad(now.getDate())}`;
   const brtAdd=days=>{const d=new Date(now);d.setDate(d.getDate()+days);return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;};
   let di,df;
+  let effY=y,effM=m,effNow=now;
   if(period==='sofar'){di=`${y}-${pad(m)}-01`;df=brtToday;}
   else if(period==='today'){di=df=brtToday;}
   else if(period==='7d'){di=brtAdd(-7);df=brtToday;}
   else if(period==='14d'){di=brtAdd(-14);df=brtToday;}
   else if(period==='month'){di=`${y}-${pad(m)}-01`;df=new Date(y,m,0).toISOString().slice(0,10);}
+  else if(period==='lastmonth'){const s=new Date(y,m-2,1),e=new Date(y,m-1,0);di=`${s.getFullYear()}-${pad(s.getMonth()+1)}-${pad(s.getDate())}`;df=`${e.getFullYear()}-${pad(e.getMonth()+1)}-${pad(e.getDate())}`;effY=e.getFullYear();effM=e.getMonth()+1;effNow=e;}
   else{di=`${y}-${pad(m)}-01`;df=brtToday;}
 
   const isoD=d=>d.toISOString().slice(0,10);
@@ -4934,7 +4936,7 @@ async function loadSalesAnalysisData(period){
       blingPages('pedidos/vendas',{dataInicial:di,dataFinal:df,'idsSituacoes[]':9}),
       blingPages('pedidos/vendas',{dataInicial:diPrev,dataFinal:dfPrev,'idsSituacoes[]':9}).catch(()=>[]),
       sbClient.from('bling_lojas').select('loja_id,nome').order('loja_id').then(r=>{const mp={};(r.data||[]).forEach(l=>mp[l.loja_id]=l.nome);return mp;}),
-      sbClient.from('bling_metas').select('loja_id,meta_valor,daily_goals').eq('year',y).eq('month',m).then(r=>r.data||[]),
+      sbClient.from('bling_metas').select('loja_id,meta_valor,daily_goals').eq('year',effY).eq('month',effM).then(r=>r.data||[]),
       sbClient.from('bling_vendedores').select('vendor_id,nome').then(r=>r.data||[]),
       blingPages('pedidos/vendas',{dataInicial:di15,dataFinal:df15,'idsSituacoes[]':9}).catch(()=>[])
     ]);
@@ -4975,7 +4977,7 @@ async function loadSalesAnalysisData(period){
     }
     if(canalTrigger)canalTrigger.textContent=initialIds.length===lojas.length?'Todos os canais ▾':`${initialIds.length} canal(is) ▾`;
 
-    window._saRawData={pedidos,pedidosPrev,lojaMap,lojas,metasArr,vendedoresArr,pvMap,pvQtdMap,pedidos15,period,di,df,diPrev,dfPrev,di15,df15,now,y,m};
+    window._saRawData={pedidos,pedidosPrev,lojaMap,lojas,metasArr,vendedoresArr,pvMap,pvQtdMap,pedidos15,period,di,df,diPrev,dfPrev,di15,df15,now:effNow,y:effY,m:effM};
     window._saCurrentPeriod=period;
     window._saLastUpdateTime=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Sao_Paulo'}));
     window._saNextRefreshAt=new Date(window._saLastUpdateTime.getTime()+5*60*1000);
@@ -5795,8 +5797,9 @@ async function loadGestaoVistaData(period){
   const pad2=n=>String(n).padStart(2,'0');
   const brtAdd=days=>{const d=new Date(brt);d.setDate(d.getDate()+days);return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;};
   const brtToday=`${y}-${pad2(m)}-${pad2(brt.getDate())}`;
-  const diasMes=new Date(y,m,0).getDate();
-  const diaAtual=brt.getDate();
+  let diasMes=new Date(y,m,0).getDate();
+  let diaAtual=brt.getDate();
+  let metaY=y,metaM=m;
   let di,df;
   if(period==='today'){di=df=brtToday;}
   else if(period==='1d'){di=df=brtAdd(-1);}
@@ -5804,6 +5807,7 @@ async function loadGestaoVistaData(period){
   else if(period==='14d'){di=brtAdd(-14);df=brtToday;}
   else if(period==='30d'){di=`${y}-${pad2(m)}-01`;df=brtToday;}
   else if(period==='month'){di=`${y}-${pad2(m)}-01`;df=brtToday;}
+  else if(period==='lastmonth'){const s=new Date(y,m-2,1),e=new Date(y,m-1,0);di=`${s.getFullYear()}-${pad2(s.getMonth()+1)}-${pad2(s.getDate())}`;df=`${e.getFullYear()}-${pad2(e.getMonth()+1)}-${pad2(e.getDate())}`;metaY=e.getFullYear();metaM=e.getMonth()+1;diasMes=e.getDate();diaAtual=e.getDate();}
   else{di=`${y}-${pad2(m)}-01`;df=brtToday;}
   function subMes(s){const d=new Date(s+'T12:00:00');const od=d.getDate();d.setDate(1);d.setMonth(d.getMonth()-1);d.setDate(Math.min(od,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()));return d.toISOString().slice(0,10);}
   let diPrev=subMes(di),dfPrev=subMes(df);
@@ -5818,7 +5822,7 @@ async function loadGestaoVistaData(period){
     // Supabase: pode rodar em paralelo (API diferente)
     const[canais,metasRows]=await Promise.all([
       sbClient.from('bling_lojas').select('loja_id,nome').then(r=>{const mp={};(r.data||[]).forEach(l=>mp[l.loja_id]=l.nome);return mp;}).catch(()=>({})),
-      sbClient.from('bling_metas').select('loja_id,meta_valor,daily_goals').eq('year',y).eq('month',m).then(r=>r.data||[]).catch(()=>[])
+      sbClient.from('bling_metas').select('loja_id,meta_valor,daily_goals').eq('year',metaY).eq('month',metaM).then(r=>r.data||[]).catch(()=>[])
     ]);
 
     const metasMap={};const dailyGoalsMap={};
@@ -8263,6 +8267,7 @@ function setHomeBgTheme(type){
       <button class="gv-pbtn" data-period="7d" onclick="saSelectPeriod('7d')">7D</button>
       <button class="gv-pbtn" data-period="14d" onclick="saSelectPeriod('14d')">14D</button>
       <button class="gv-pbtn" data-period="month" onclick="saSelectPeriod('month')">MÊS</button>
+      <button class="gv-pbtn" data-period="lastmonth" onclick="saSelectPeriod('lastmonth')">MÊS PASS.</button>
       <button class="gv-pbtn active" data-period="sofar" onclick="saSelectPeriod('sofar')">ATÉ AGORA</button>
       <button class="vs-ac-toggle" id="sa-ac-toggle" onclick="saToggleAuto()" title="Auto-ciclo de períodos">▶ AUTO</button>
     </div>
@@ -8302,6 +8307,7 @@ function setHomeBgTheme(type){
       <button class="gv-pbtn" data-period="7d" onclick="gvSelectPeriod('7d')">7D</button>
       <button class="gv-pbtn" data-period="14d" onclick="gvSelectPeriod('14d')">14D</button>
       <button class="gv-pbtn" data-period="30d" onclick="gvSelectPeriod('30d')">MÊS</button>
+      <button class="gv-pbtn" data-period="lastmonth" onclick="gvSelectPeriod('lastmonth')">MÊS PASS.</button>
       <button class="gv-pbtn" data-period="month" onclick="gvSelectPeriod('month')">ATÉ AGORA</button>
       <button class="vs-ac-toggle" id="gv-ac-toggle" onclick="gvToggleAuto()" title="Auto-ciclo de períodos">▶ AUTO</button>
     </div>
