@@ -37,6 +37,7 @@ AD_ACCOUNTS = {
 }
 
 PERIODS = [0, 1, 7, 14, 30]  # 0=hoje, 1=ontem (exato)
+MTD_PERIOD = 99  # sentinel: mês corrente (1º do mês até hoje). Dashboard lê isso no "MÊS".
 GRAPH = "https://graph.facebook.com/v21.0"
 
 
@@ -213,8 +214,10 @@ def obter_filtro_campanhas(supabase, account_id):
     return None
 
 
-def coletar_ads_por_campanha(supabase, ad_account_id, account_id, token, dias, hoje):
-    """Busca gasto por campanha individual e salva em campaign_insights."""
+def coletar_ads_por_campanha(supabase, ad_account_id, account_id, token, dias, hoje, store_as=None):
+    """Busca gasto por campanha individual e salva em campaign_insights.
+    store_as: grava sob esse period_days (ex.: 99=mês-corrente) usando a janela de `dias`."""
+    pdays = store_as if store_as is not None else dias
     since = (date.today() - timedelta(days=dias)).isoformat()
     until = date.today().isoformat()
     params = {
@@ -233,7 +236,7 @@ def coletar_ads_por_campanha(supabase, ad_account_id, account_id, token, dias, h
                 "campaign_id": r["campaign_id"],
                 "account_id": account_id,
                 "captured_at": hoje,
-                "period_days": dias,
+                "period_days": pdays,
                 "spend": float(r.get("spend", 0) or 0),
                 "impressions": int(r.get("impressions", 0) or 0),
                 "clicks": int(r.get("clicks", 0) or 0),
@@ -244,15 +247,17 @@ def coletar_ads_por_campanha(supabase, ad_account_id, account_id, token, dias, h
         supabase.table("campaign_insights").upsert(
             camp_rows, on_conflict="campaign_id,account_id,captured_at,period_days"
         ).execute()
-        print(f"   📊 {len(camp_rows)} campanhas salvas em campaign_insights ({dias}D)")
+        print(f"   📊 {len(camp_rows)} campanhas salvas em campaign_insights ({pdays}{'=mês' if store_as else 'D'})")
     except Exception as e:
         print(f"   ⚠️  campaign_insights ({ad_account_id}, {dias}D): {e}")
 
 
-def coletar_ads_conta(supabase, ad_account_id, account_id, token, dias, hoje):
+def coletar_ads_conta(supabase, ad_account_id, account_id, token, dias, hoje, store_as=None):
     """Insights NÍVEL CONTA (sem time_increment) → account_insights.
     reach aqui é DEDUPLICADO pela Meta no período. Somar reach por campanha
-    (campaign_insights) ou por dia conta a mesma pessoa várias vezes."""
+    (campaign_insights) ou por dia conta a mesma pessoa várias vezes.
+    store_as: grava sob esse period_days (ex.: 99=mês-corrente)."""
+    pdays = store_as if store_as is not None else dias
     since = (date.today() - timedelta(days=dias)).isoformat()
     until = date.today().isoformat()
     params = {
@@ -270,14 +275,14 @@ def coletar_ads_conta(supabase, ad_account_id, account_id, token, dias, hoje):
         supabase.table("account_insights").upsert({
             "account_id": account_id,
             "captured_at": hoje,
-            "period_days": dias,
+            "period_days": pdays,
             "spend": float(r.get("spend", 0) or 0),
             "impressions": int(r.get("impressions", 0) or 0),
             "clicks": int(r.get("clicks", 0) or 0),
             "reach": int(r.get("reach", 0) or 0),
             "frequency": float(r.get("frequency", 0) or 0),
         }, on_conflict="account_id,captured_at,period_days").execute()
-        print(f"   📡 account_insights ({dias}D): reach {int(r.get('reach', 0) or 0):,} (dedup)")
+        print(f"   📡 account_insights ({pdays}{'=mês' if store_as else 'D'}): reach {int(r.get('reach', 0) or 0):,} (dedup)")
     except Exception as e:
         print(f"   ⚠️  account_insights ({ad_account_id}, {dias}D): {e}")
 
@@ -318,6 +323,22 @@ def processar_conta(supabase, account_id, ig_id, token, nome):
         print(f"   {dias:2d}D → ❤️ {m['likes']:,} | 🔖 {m['saves']:,} | ↗️ {m['shares']:,} | "
               f"Posts:{m['posts']} Stories:{s_label} Reels:{m['reels']}")
 
+    # ── Mês corrente (1º do mês até hoje) → period_days=99 (MÊS real no dashboard) ──
+    dias_mtd = max(date.today().day - 1, 0)  # dia 1 do mês → 0 (só hoje)
+    m_mtd = coletar_midias(ig_id, token, dias_mtd)
+    supabase.table("engagement_snapshots").upsert(
+        {"account_id": account_id, "captured_at": hoje, "period_days": MTD_PERIOD,
+         "likes": m_mtd["likes"], "saves": m_mtd["saves"], "shares": m_mtd["shares"]},
+        on_conflict="account_id,captured_at,period_days"
+    ).execute()
+    supabase.table("content_snapshots").upsert(
+        {"account_id": account_id, "captured_at": hoje, "period_days": MTD_PERIOD,
+         "posts_count": m_mtd["posts"], "reels_count": m_mtd["reels"]},
+        on_conflict="account_id,captured_at,period_days"
+    ).execute()
+    print(f"   MÊS → ❤️ {m_mtd['likes']:,} | 🔖 {m_mtd['saves']:,} | ↗️ {m_mtd['shares']:,} | "
+          f"Posts:{m_mtd['posts']} Reels:{m_mtd['reels']}")
+
     # Ads
     ad_account_id = AD_ACCOUNTS.get(ig_id, "")
     if ad_account_id:
@@ -327,6 +348,9 @@ def processar_conta(supabase, account_id, ig_id, token, nome):
             coletar_ads_por_campanha(supabase, ad_account_id, account_id, token, dias, hoje)
             # Salva totais nível-conta (reach deduplicado) → account_insights
             coletar_ads_conta(supabase, ad_account_id, account_id, token, dias, hoje)
+        # Mês corrente (period_days=99): janela do 1º do mês até hoje
+        coletar_ads_por_campanha(supabase, ad_account_id, account_id, token, dias_mtd, hoje, store_as=MTD_PERIOD)
+        coletar_ads_conta(supabase, ad_account_id, account_id, token, dias_mtd, hoje, store_as=MTD_PERIOD)
 
 
 NOMES_TOKENS = {
