@@ -404,6 +404,13 @@
   #chart-data-labels{position:absolute;top:0;left:0;width:100%;height:120px;pointer-events:none;overflow:visible;}
   .cdl{position:absolute;transform:translate(-50%,calc(-100% - 3px));font-family:'Oswald',sans-serif;font-size:14px;font-weight:500;color:rgba(22,22,42,0.65);white-space:nowrap;letter-spacing:.3px;}
   [data-theme="dark"] .cdl{color:rgba(226,228,240,0.78);}
+  .cdl-sm{font-size:10px;letter-spacing:0;}
+  .cdl-hi{transform:translate(-50%,calc(-100% - 22px));}
+  .cdl-hi::after{content:'';position:absolute;left:50%;top:100%;width:0;height:20px;border-left:1px dashed currentColor;opacity:.4;}
+  .cdl-up{color:#16a34a;}
+  .cdl-down{color:#dc2626;}
+  [data-theme="dark"] .cdl-up{color:#4ade80;}
+  [data-theme="dark"] .cdl-down{color:#f87171;}
   .chart-legend{display:flex;gap:16px;margin-top:8px;margin-bottom:4px;}
   .legend-item{display:flex;align-items:center;gap:5px;font-family:'Oswald',sans-serif;font-size:10px;font-weight:400;color:var(--muted);letter-spacing:.5px;}
   .legend-line{width:20px;height:2px;border-radius:0;}
@@ -2153,6 +2160,7 @@
           </div>
         </div>
         <div class="mc-val a-blue" id="new-followers-val">0</div>
+        <div id="gross-followers" style="display:none;gap:12px;align-items:center;font-family:'IBM Plex Sans',sans-serif;font-size:10.5px;font-weight:600;letter-spacing:.2px;margin-top:3px;"></div>
         <div class="mc-compare" id="cmp-followers"></div>
         <div class="mc-divider"></div>
         <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-followers" style="width:0%"></div></div>
@@ -2566,17 +2574,22 @@ function buildChart(chartData){
   document.getElementById('prev-line').setAttribute('points',prevPts);
   const labelsG=document.getElementById('chart-data-labels');labelsG.textContent='';
   function fmtShort(v){return v>=1000000?(v/1000000).toFixed(1)+'M':v>=1000?(v/1000).toFixed(1)+'K':String(v);}
-  const lblStep=1; // rótulo de dados em TODOS os dias do período
+  // Períodos longos (30D/MÊS/MÊS PASS.): fonte menor + elevação alternada
+  // com linha tracejada nos elevados, pra abrir espaço entre os rótulos.
+  const many=vals.length>14;
   vals.forEach((v,i)=>{
-    if(i%lblStep!==0&&i!==0&&i!==vals.length-1)return;
-    const s=document.createElement('span');s.className='cdl';
+    const s=document.createElement('span');
+    s.className='cdl'+(many?' cdl-sm':'')+(v>0?' cdl-up':v<0?' cdl-down':'');
     s.textContent=(v>0?'+':'')+fmtShort(v);
     const xPct=(px(i)/W)*100;
     const yPyPct=(py(v)/H)*100;
     s.style.left=xPct+'%';
     s.style.top=yPyPct+'%';
-    // se o rótulo ficaria muito perto do topo, inverte para baixo do ponto
-    if(py(v)<14)s.style.transform='translate(-50%, 5px)';
+    if(py(v)<14){
+      s.style.transform='translate(-50%, 5px)'; // perto do topo → joga pra baixo
+    }else if(many&&i%2===1){
+      s.classList.add('cdl-hi'); // elevação alternada + tracejado (via CSS)
+    }
     labelsG.appendChild(s);
   });
   const xlWrap=document.getElementById('chart-xlabels');xlWrap.textContent='';
@@ -2699,6 +2712,10 @@ async function fetchData(accountId,period,customStart,customEnd){
   const _afterFirst=(arr)=>arr.slice(1);
   const chartVals=seriesPts.length>1?_signedDelta(seriesPts):[newFollowers];
   const chartPrev=prevSnaps.length>1?_signedDelta(prevSnaps):[0];
+  // Bruto a partir da movimentação diária (não é follow/unfollow literal da Meta,
+  // é a soma dos dias de alta vs dias de queda). ganhou - perdeu === newFollowers.
+  const grossGained=chartVals.reduce((s,v)=>s+(v>0?v:0),0);
+  const grossLost=chartVals.reduce((s,v)=>s+(v<0?-v:0),0);
   const chartLabels=seriesPts.length>1?_afterFirst(seriesPts).map(s=>fmtLabel(s.captured_at)):['Hoje'];
   const chartDates=seriesPts.length>1?_afterFirst(seriesPts).map(s=>fmtFull(s.captured_at)):['Hoje'];
   const chartPrevDates=prevSnaps.length>1?_afterFirst(prevSnaps).map(s=>fmtFull(s.captured_at)):['—'];
@@ -2759,6 +2776,7 @@ async function fetchData(accountId,period,customStart,customEnd){
     storyEng:{shares:storyShares,replies:storyRep,prevShares:prevStoryShares,prevReplies:prevStoryRep},
     pl,
     lastSnap:snaps.length?snaps[snaps.length-1].captured_at:null,
+    grossGained,grossLost,
   };
 }
 
@@ -2906,6 +2924,13 @@ function update(d,period){
   applyFreshness(d.lastSnap);
   const totalEl=document.getElementById('total-followers');if(totalEl)animCountFull(totalEl,d.followerTotal);
   const newEl=document.getElementById('new-followers-val');if(newEl)animCount(newEl,d.newFollowers);
+  const grossEl=document.getElementById('gross-followers');
+  if(grossEl){
+    if((d.grossGained||0)+(d.grossLost||0)>0){
+      grossEl.style.display='flex';
+      grossEl.innerHTML=`<span style="color:#16a34a">▲ ${fmtN(d.grossGained)} novos</span><span style="color:#dc2626">▼ ${fmtN(d.grossLost)} saíram</span>`;
+    }else{grossEl.style.display='none';}
+  }
   buildChart(d.chart);
   setCompare('cmp-followers',d.newFollowers,d.prevNewFollowers,'',pl,false);
   applyMetric('followers',d.newFollowers,getGoal('followers'));
