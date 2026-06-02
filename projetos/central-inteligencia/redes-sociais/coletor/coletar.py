@@ -105,54 +105,73 @@ def coletar_midias(ig_id, token, dias):
     likes = saves = shares = 0
     posts = reels = 0
 
-    data = api_get(f"{ig_id}/media", {
+    # Paginação: /media volta no máx. 100 itens por página. Sem isso, contas
+    # com >100 publicações na janela subcontavam likes/posts/saves/shares (ex.: 30D).
+    # Como /media vem do mais novo p/ o mais antigo, paramos assim que passamos
+    # do início da janela (early stop) — evita varrer o feed inteiro.
+    url = f"{GRAPH}/{ig_id}/media"
+    params = {
         "fields": "id,media_type,media_product_type,timestamp,like_count,owner",
         "access_token": token,
-        "limit": 100
-    })
+        "limit": 100,
+    }
+    stop = False
+    while url and not stop:
+        resp = requests.get(url, params=params, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+        params = None  # a URL de 'next' já carrega cursor + token
 
-    for midia in data.get("data", []):
-        produto = midia.get("media_product_type", "")
-        ts = midia.get("timestamp", "")
+        items = data.get("data", [])
+        if not items:
+            break
 
-        # Ignora collabs onde a conta não é a criadora original
-        owner_id = (midia.get("owner") or {}).get("id", ig_id)
-        if owner_id != ig_id:
-            continue
+        for midia in items:
+            produto = midia.get("media_product_type", "")
+            ts = midia.get("timestamp", "")
 
-        if ts:
-            ts_norm = ts.replace("+0000", "+00:00").replace("Z", "+00:00")
-            pub = datetime.fromisoformat(ts_norm)
-            pub_local = pub.astimezone()  # converte UTC → fuso local (Brasil)
-            if pub_local.date() < from_date:
+            if ts:
+                ts_norm = ts.replace("+0000", "+00:00").replace("Z", "+00:00")
+                pub_local = datetime.fromisoformat(ts_norm).astimezone()  # UTC → fuso local
+                # Passou do início da janela: nada mais à frente interessa → para tudo
+                if pub_local.date() < from_date:
+                    stop = True
+                    break
+                if to_date is not None and pub_local.date() > to_date:
+                    continue
+
+            # Ignora collabs onde a conta não é a criadora original
+            owner_id = (midia.get("owner") or {}).get("id", ig_id)
+            if owner_id != ig_id:
                 continue
-            if to_date is not None and pub_local.date() > to_date:
+
+            # Stories não aparecem em /media — tratados separadamente
+            if produto == "STORY":
                 continue
 
-        # Stories não aparecem em /media — tratados separadamente
-        if produto == "STORY":
-            continue
+            likes += midia.get("like_count", 0)
 
-        likes += midia.get("like_count", 0)
+            if produto == "REELS":
+                reels += 1
+            else:
+                posts += 1
 
-        if produto == "REELS":
-            reels += 1
-        else:
-            posts += 1
+            try:
+                insights = api_get(f"{midia['id']}/insights", {
+                    "metric": "saved,shares",
+                    "access_token": token
+                })
+                for item in insights.get("data", []):
+                    v = item.get("value") or (item.get("values") or [{}])[0].get("value", 0)
+                    if item["name"] == "saved":
+                        saves += v
+                    elif item["name"] == "shares":
+                        shares += v
+            except Exception:
+                pass
 
-        try:
-            insights = api_get(f"{midia['id']}/insights", {
-                "metric": "saved,shares",
-                "access_token": token
-            })
-            for item in insights.get("data", []):
-                v = item.get("value") or (item.get("values") or [{}])[0].get("value", 0)
-                if item["name"] == "saved":
-                    saves += v
-                elif item["name"] == "shares":
-                    shares += v
-        except Exception:
-            pass
+        if not stop:
+            url = (data.get("paging") or {}).get("next")
 
     return {"likes": likes, "saves": saves, "shares": shares,
             "posts": posts, "reels": reels}
@@ -338,10 +357,10 @@ def main():
     print("🚀 Iniciando coleta | Data:", date.today().isoformat())
     print("=" * 60)
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-    contas = supabase.table("accounts").select("id, name, instagram_id").execute()
+    contas = supabase.table("accounts").select("id, name, instagram_id, access_token").execute()
     for conta in contas.data:
         ig_id = conta["instagram_id"]
-        token = TOKENS.get(ig_id, "")
+        token = conta.get("access_token") or TOKENS.get(ig_id, "")
         if not token:
             print(f"\n⚠️  Sem token para {conta['name']}")
             continue
