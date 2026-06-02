@@ -2070,6 +2070,9 @@
     </div>
   </div>
 
+  <!-- GUARDA DE FRESCOR: avisa quando os dados não são de hoje (coletor parado) -->
+  <div id="freshness-banner" style="display:none;align-items:center;gap:8px;padding:9px 16px;background:#7f1d1d;color:#fff;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;letter-spacing:.3px;border-bottom:1px solid #991b1b;"></div>
+
   <!-- HEADER — seleção de perfil (abaixo da topbar) -->
   <header>
     <div id="header-collapsible">
@@ -2754,6 +2757,7 @@ async function fetchData(accountId,period,customStart,customEnd){
     cnt:{posts:cnt.posts_count,stories:storiesCount,reels:cnt.reels_count,postsReels:cnt.posts_count+cnt.reels_count,prevPostsReels:prevCnt!=null?prevCnt.posts_count+prevCnt.reels_count:null,prevStories:prevStoriesCount},
     storyEng:{shares:storyShares,replies:storyRep,prevShares:prevStoryShares,prevReplies:prevStoryRep},
     pl,
+    lastSnap:snaps.length?snaps[snaps.length-1].captured_at:null,
   };
 }
 
@@ -2867,9 +2871,38 @@ function renderInsight(d,period){
   });
 }
 
+/* ── GUARDA DE FRESCOR: dado de hoje? senão, avisa (não mente em silêncio) ── */
+function applyFreshness(lastSnapStr){
+  if(lastSnapStr!==undefined)window._lastSnap=lastSnapStr; // guarda p/ reavaliação no relógio
+  const banner=document.getElementById('freshness-banner');
+  const status=document.getElementById('collection-status');
+  if(!banner)return;
+  const snap=window._lastSnap;
+  if(snap===undefined)return; // nenhum perfil carregado ainda
+  const brt=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Sao_Paulo'}));
+  const today=`${brt.getFullYear()}-${String(brt.getMonth()+1).padStart(2,'0')}-${String(brt.getDate()).padStart(2,'0')}`;
+  if(!snap){
+    banner.style.display='flex';
+    banner.textContent='⚠️ Sem dados coletados para este perfil.';
+    if(status){status.textContent='⚠️ SEM DADOS';status.style.color='#ef4444';status.style.opacity='1';}
+    return;
+  }
+  const diff=Math.round((new Date(today+'T00:00:00')-new Date(snap+'T00:00:00'))/864e5);
+  const br=snap.split('-').reverse().join('/');
+  if(diff<=0){
+    banner.style.display='none';
+    if(status){status.textContent='ATUALIZADO HOJE';status.style.color='';status.style.opacity='';}
+  }else{
+    banner.style.display='flex';
+    banner.textContent=`⚠️ Dados desatualizados — última coleta ${br} (${diff} dia${diff>1?'s':''} atrás). O coletor pode estar parado (verifique o token da Meta).`;
+    if(status){status.textContent=`⚠️ DESATUALIZADO · ${br}`;status.style.color='#ef4444';status.style.opacity='1';}
+  }
+}
+
 /* ── MAIN UPDATE ── */
 function update(d,period){
   const pl=d.pl;
+  applyFreshness(d.lastSnap);
   const totalEl=document.getElementById('total-followers');if(totalEl)animCountFull(totalEl,d.followerTotal);
   const newEl=document.getElementById('new-followers-val');if(newEl)animCount(newEl,d.newFollowers);
   buildChart(d.chart);
@@ -3812,19 +3845,9 @@ async function handleRequest(id,status){
 
 /* ── RELÓGIO ── */
 function updateCollectionStatus(){
-  const el=document.getElementById('collection-status');
-  if(!el)return;
-  // Horários de coleta em BRT (minutos desde meia-noite): 07:00, 12:00, 18:00, 23:00
-  const sched=[7*60,12*60,18*60,23*60];
-  const brt=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Sao_Paulo'}));
-  const now=brt.getHours()*60+brt.getMinutes();
-  const fmt=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
-  let last=null,next=null;
-  for(const t of sched){if(t<=now)last=t;}
-  for(const t of sched){if(t>now){next=t;break;}}
-  if(last===null)last=sched[sched.length-1]; // 23:00 do dia anterior
-  if(next===null)next=sched[0];              // 07:00 do dia seguinte
-  el.textContent=`ÚLT. ${fmt(last)} · PRÓX. ${fmt(next)}`;
+  // Status baseado no FRESCOR REAL do dado (não em horário agendado, que mentia
+  // mostrando "coletou" mesmo com o coletor parado). Reavalia p/ pegar virada de dia.
+  applyFreshness();
 }
 
 function startClock(){
