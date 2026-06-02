@@ -2727,6 +2727,12 @@ async function fetchData(accountId,period,customStart,customEnd){
     const adsAgg=aggCi(ciCurr);const prevAdsAgg=aggCi(ciPrev);
     spend=adsAgg?.spend||0;impressions=adsAgg?.impressions||0;clicks=adsAgg?.clicks||0;reach=adsAgg?.reach||0;
     prevSpend=prevAdsAgg?prevAdsAgg.spend:null;
+    // Reach DEDUPLICADO: sem filtro de campanhas, usa o total nível-conta (account_insights).
+    // Somar reach por campanha infla (mesma pessoa em várias) — chegava a ~35% no real.
+    if(safeIds.length===0){
+      const aiCurr=await sb(`account_insights?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=reach`).catch(()=>[]);
+      if(aiCurr&&aiCurr.length&&aiCurr[0].reach!=null)reach=parseInt(aiCurr[0].reach);
+    }
   }
   const cps=spend>0&&newFollowers>0?spend/newFollowers:0;
   const prevCps=prevSpend&&prevNewFollowers>0?prevSpend/prevNewFollowers:null;
