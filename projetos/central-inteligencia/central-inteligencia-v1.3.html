@@ -2536,17 +2536,20 @@ function buildChart(chartData){
   while(prev.length<vals.length)prev.unshift(prev[0]||0);
   while(prev.length>vals.length)prev.pop();
   const W=400,H=110,pad=6;
-  const allV=[...vals,...prev.filter(v=>v>0)];
-  const rawMax=Math.max(...allV,1);
-  // Sempre começa do zero; padding no topo é 20% do máximo (mínimo 1)
-  // Isso garante que valores próximos formem linhas quase retas
-  const min=0,max=rawMax+Math.max(rawMax*0.20,1);
+  // Suporta valores ASSINADOS: a escala inclui o zero e ganha padding em ambos os lados.
+  const allV=[...vals,...prev];
+  const rawMax=Math.max(...allV,0);
+  const rawMin=Math.min(...allV,0);
+  const span=Math.max(rawMax-rawMin,1);
+  const max=rawMax+span*0.20;
+  const min=rawMin-(rawMin<0?span*0.20:0); // só estende abaixo de zero quando há perdas reais
   const range=max-min||1;
   function px(i){return pad+(i/(vals.length-1))*(W-pad*2);}
   function py(v){return H-pad-((v-min)/range)*(H-pad*2);}
-  activeChartData={vals,prev,labels,dates,prevDates,px,py,W,H};
+  const yZero=py(0); // linha do zero: base do preenchimento (não mais o fundo do SVG)
+  activeChartData={vals,prev,labels,dates,prevDates,px,py,W,H,yZero};
   const pts=vals.map((v,i)=>px(i)+','+py(v)).join(' ');
-  const fillD='M'+px(0)+','+H+' '+vals.map((v,i)=>'L'+px(i)+','+py(v)).join(' ')+' L'+px(vals.length-1)+','+H+' Z';
+  const fillD='M'+px(0)+','+yZero+' '+vals.map((v,i)=>'L'+px(i)+','+py(v)).join(' ')+' L'+px(vals.length-1)+','+yZero+' Z';
   const prevPts=prev.map((v,i)=>px(i)+','+py(v)).join(' ');
   const lineEl=document.getElementById('chart-line');
   lineEl.setAttribute('points',pts);
@@ -2603,7 +2606,7 @@ overlay.addEventListener('mousemove',function(e){
   const curr=vals[i],prevV=prev[i],diff=curr-prevV;
   const diffPct=prevV>0?((diff/prevV)*100).toFixed(1):'\u2014';
   document.getElementById('tt-date').textContent=dates[i]||'';
-  document.getElementById('tt-curr-val').textContent='+'+(curr.toLocaleString('pt-BR'));
+  document.getElementById('tt-curr-val').textContent=(curr>=0?'+':'')+curr.toLocaleString('pt-BR');
   document.getElementById('tt-prev-label').textContent=prevDates[i]||'Per. ant.';
   document.getElementById('tt-prev-val').textContent=prevV>0?'+'+prevV.toLocaleString('pt-BR'):'\u2014';
   const dEl=document.getElementById('tt-delta');
@@ -2669,28 +2672,34 @@ async function fetchData(accountId,period,customStart,customEnd){
   const prevCnt=cntPrev[0]||null;
   const periodStart=new Date(refDate);periodStart.setDate(periodStart.getDate()-effectivePeriod);
   const periodStartStr=localDate(periodStart);
-  const currSnaps=snaps.filter(s=>s.captured_at>=periodStartStr);
+  const inWindow=snaps.filter(s=>s.captured_at>=periodStartStr);
   const prevSnaps=snaps.filter(s=>s.captured_at<periodStartStr);
   const latest=snaps.length>0?snaps[snaps.length-1].followers_count:0;
-  const startSnap=[...snaps].reverse().find(s=>s.captured_at<=periodStartStr)||snaps[0];
-  const periodBegin=startSnap?startSnap.followers_count:latest;
-  const newFollowers=Math.max(0,latest-periodBegin);
-  // Comparativo: mesma janela 30 dias atrás
+  // FONTE ÚNICA: baseline = último snapshot ESTRITAMENTE antes da janela.
+  // Indicador e gráfico partem do MESMO ponto (mata a divergência baseline/janela).
+  const baseline=[...snaps].reverse().find(s=>s.captured_at<periodStartStr);
+  const seriesPts=baseline?[baseline,...inWindow]:inWindow;
+  const periodBegin=seriesPts.length?seriesPts[0].followers_count:latest;
+  const newFollowers=latest-periodBegin; // LÍQUIDO COM SINAL — pode ser negativo (perda real)
+  // Comparativo: mesma janela no período anterior
   const prevEndSnap=[...snaps].reverse().find(s=>s.captured_at<=prevRefDateStr);
   const prevPeriodStart=new Date(prevRefDate);prevPeriodStart.setDate(prevPeriodStart.getDate()-effectivePeriod);
   const prevPeriodStartStr=localDate(prevPeriodStart);
   const prevBeginSnap=[...snaps].reverse().find(s=>s.captured_at<=prevPeriodStartStr);
-  const prevNewFollowers=(prevEndSnap&&prevBeginSnap)?Math.max(0,prevEndSnap.followers_count-prevBeginSnap.followers_count):null;
+  const prevNewFollowers=(prevEndSnap&&prevBeginSnap)?(prevEndSnap.followers_count-prevBeginSnap.followers_count):null;
   function fmtLabel(dateStr){const d=new Date(dateStr+'T12:00:00');return effectivePeriod<=7?days[d.getDay()]:d.getDate()+'/'+(d.getMonth()+1);}
   function fmtFull(dateStr){const d=new Date(dateStr+'T12:00:00');return d.getDate()+' '+months[d.getMonth()];}
-  // Gráfico: novos seguidores por dia (delta entre snapshots consecutivos)
-  const _delta=(arr)=>arr.length>1?arr.slice(1).map((s,i)=>Math.max(0,s.followers_count-arr[i].followers_count)):[arr.length===1?newFollowers:0];
-  const chartVals=currSnaps.length>0?_delta(currSnaps):[newFollowers];
-  const chartPrev=prevSnaps.length>0?_delta(prevSnaps):[0];
-  const _snapSrc=(arr)=>arr.length>1?arr.slice(1):arr;
-  const chartLabels=currSnaps.length>0?_snapSrc(currSnaps).map(s=>fmtLabel(s.captured_at)):['Hoje'];
-  const chartDates=currSnaps.length>0?_snapSrc(currSnaps).map(s=>fmtFull(s.captured_at)):['Hoje'];
-  const chartPrevDates=prevSnaps.length>0?_snapSrc(prevSnaps).map(s=>fmtFull(s.captured_at)):['—'];
+  // Gráfico: novos seguidores/dia = deltas ASSINADOS entre snapshots consecutivos da MESMA série.
+  // Invariante garantida: soma(chartVals) === newFollowers (último − baseline).
+  const _signedDelta=(arr)=>arr.length>1?arr.slice(1).map((s,i)=>s.followers_count-arr[i].followers_count):[0];
+  const _afterFirst=(arr)=>arr.slice(1);
+  const chartVals=seriesPts.length>1?_signedDelta(seriesPts):[newFollowers];
+  const chartPrev=prevSnaps.length>1?_signedDelta(prevSnaps):[0];
+  const chartLabels=seriesPts.length>1?_afterFirst(seriesPts).map(s=>fmtLabel(s.captured_at)):['Hoje'];
+  const chartDates=seriesPts.length>1?_afterFirst(seriesPts).map(s=>fmtFull(s.captured_at)):['Hoje'];
+  const chartPrevDates=prevSnaps.length>1?_afterFirst(prevSnaps).map(s=>fmtFull(s.captured_at)):['—'];
+  // ── Semente do sistema de conferência (F4): indicador deve bater com a soma do gráfico ──
+  if(window._DBG_INTEGRITY){const _s=chartVals.reduce((a,b)=>a+b,0);if(_s!==newFollowers)console.warn('[integridade] seguidores: soma do gráfico',_s,'≠ indicador',newFollowers,'| conta',accountId,'período',period);}
   const engTotal=eng.likes+eng.saves+eng.shares;
   const prevEngTotal=(prevEng?.likes||0)+(prevEng?.saves||0)+(prevEng?.shares||0);
   const engRate=latest>0?((engTotal/latest)*100).toFixed(1):'0.0';
