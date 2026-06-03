@@ -322,13 +322,23 @@ def processar_conta(supabase, account_id, ig_id, token, nome):
     print(f"\n📊 Coletando: {nome} ({ig_id})")
 
     seguidores = coletar_seguidores(ig_id, token)
-    g, l = coletar_follows_dia(ig_id, token, date.today())
-    row_ds = {"account_id": account_id, "captured_at": hoje, "followers_count": seguidores}
-    if g is not None:
-        row_ds["gained"] = g
-        row_ds["lost"] = l
-    supabase.table("daily_snapshots").upsert(row_ds, on_conflict="account_id,captured_at").execute()
-    extra = f" | ▲{g} novos / ▼{l} saíram (hoje)" if g is not None else ""
+    supabase.table("daily_snapshots").upsert(
+        {"account_id": account_id, "captured_at": hoje, "followers_count": seguidores},
+        on_conflict="account_id,captured_at"
+    ).execute()
+    # gained/lost: a métrica follows_and_unfollows finaliza com atraso (1-2 dias),
+    # então re-coletamos os últimos 3 dias a cada run (auto-corrige os mais recentes).
+    g0 = l0 = None
+    for dd in range(0, 3):
+        dia = date.today() - timedelta(days=dd)
+        gg, ll = coletar_follows_dia(ig_id, token, dia)
+        if gg is None:
+            continue
+        supabase.table("daily_snapshots").update({"gained": gg, "lost": ll}) \
+            .eq("account_id", account_id).eq("captured_at", dia.isoformat()).execute()
+        if dd == 0:
+            g0, l0 = gg, ll
+    extra = f" | ▲{g0} novos / ▼{l0} saíram (hoje)" if g0 is not None else ""
     print(f"   Seguidores: {seguidores:,}{extra}")
 
     # Stories só ficam disponíveis via API por 24h — coletamos uma vez por dia
