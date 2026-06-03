@@ -2764,10 +2764,15 @@ async function fetchData(accountId,period,customStart,customEnd){
     return{spend:d.reduce((s,r)=>s+parseFloat(r.spend||0),0),impressions:d.reduce((s,r)=>s+parseInt(r.impressions||0),0),clicks:d.reduce((s,r)=>s+parseInt(r.clicks||0),0),reach:d.reduce((s,r)=>s+parseInt(r.reach||0),0)};
   }
   let spend=0,impressions=0,clicks=0,reach=0,prevSpend=null;
+  // Ads dia-preciso p/ HOJE/1D: gasto do DIA exato (period_days=0 de hoje/ontem),
+  // em vez do agregado "última captura" (que defasava o HOJE e somava 2 dias no 1D).
+  let _adsPd=storedPeriod,_adsCur=`captured_at=lte.${refDateStr}&order=captured_at.desc`,_adsPrev=`captured_at=lte.${prevRefDateStr}&order=captured_at.desc`;
+  if(isHoje){_adsPd=0;_adsCur=`captured_at=eq.${_hojeBRT}`;_adsPrev=`captured_at=eq.${_ontemBRT}`;}
+  else if(period===1){const _anteBRT=localDate(new Date(new Date(_ontemBRT+'T00:00:00').getTime()-86400000));_adsPd=0;_adsCur=`captured_at=eq.${_ontemBRT}`;_adsPrev=`captured_at=eq.${_anteBRT}`;}
   if(!noneSelected){
     const[ciCurr,ciPrev]=await Promise.all([
-      sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=200&select=campaign_id,spend,impressions,clicks,reach,captured_at${idFilter}`),
-      sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=200&select=campaign_id,spend,impressions,clicks,reach,captured_at${idFilter}`),
+      sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.${_adsPd}&${_adsCur}&limit=200&select=campaign_id,spend,impressions,clicks,reach,captured_at${idFilter}`),
+      sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.${_adsPd}&${_adsPrev}&limit=200&select=campaign_id,spend,impressions,clicks,reach,captured_at${idFilter}`),
     ]);
     const adsAgg=aggCi(ciCurr);const prevAdsAgg=aggCi(ciPrev);
     spend=adsAgg?.spend||0;impressions=adsAgg?.impressions||0;clicks=adsAgg?.clicks||0;reach=adsAgg?.reach||0;
@@ -2775,7 +2780,7 @@ async function fetchData(accountId,period,customStart,customEnd){
     // Reach DEDUPLICADO: sem filtro de campanhas, usa o total nível-conta (account_insights).
     // Somar reach por campanha infla (mesma pessoa em várias) — chegava a ~35% no real.
     if(safeIds.length===0){
-      const aiCurr=await sb(`account_insights?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=reach`).catch(()=>[]);
+      const aiCurr=await sb(`account_insights?account_id=eq.${accountId}&period_days=eq.${_adsPd}&${_adsCur}&limit=1&select=reach`).catch(()=>[]);
       if(aiCurr&&aiCurr.length&&aiCurr[0].reach!=null)reach=parseInt(aiCurr[0].reach);
     }
   }
