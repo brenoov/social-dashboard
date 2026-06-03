@@ -2700,11 +2700,17 @@ async function fetchData(accountId,period,customStart,customEnd){
   const prevCnt=cntPrev[0]||null;
   const periodStart=new Date(refDate);periodStart.setDate(periodStart.getDate()-effectivePeriod);
   const periodStartStr=localDate(periodStart);
-  // Dia corrente: a métrica follows_and_unfollows só consolida no dia seguinte.
-  // Enquanto vier 0/0 hoje, descartamos o ponto (evita barra "chapada" enganosa).
+  // Janela de NOVOS x SAÍRAM por período, com limites EXPLÍCITOS:
+  //  HOJE = só o dia atual (tempo real) · 1D = só ontem (24h do dia anterior) · demais = janela rolante/mês.
   const _hojeBRT=localDate(new Date(new Date().toLocaleString('en-US',{timeZone:'America/Sao_Paulo'})));
-  const inWindow=snaps.filter(s=>s.captured_at>=periodStartStr)
-    .filter(s=>!(s.captured_at===_hojeBRT&&(Number(s.gained)||0)===0&&(Number(s.lost)||0)===0));
+  const _ontemBRT=localDate(new Date(new Date(new Date().toLocaleString('en-US',{timeZone:'America/Sao_Paulo'})).getTime()-86400000));
+  let followStart,followEnd;
+  if(isHoje){followStart=followEnd=_hojeBRT;}
+  else if(period===1){followStart=followEnd=_ontemBRT;}
+  else{followStart=periodStartStr;followEnd=refDateStr;}
+  // descarta hoje 0/0 (métrica consolida no dia seguinte) — EXCETO em HOJE, que é a visão tempo real
+  const inWindow=snaps.filter(s=>s.captured_at>=followStart&&s.captured_at<=followEnd)
+    .filter(s=>!(!isHoje&&s.captured_at===_hojeBRT&&(Number(s.gained)||0)===0&&(Number(s.lost)||0)===0));
   const latest=snaps.length>0?snaps[snaps.length-1].followers_count:0;
   function fmtLabel(dateStr){const d=new Date(dateStr+'T12:00:00');return effectivePeriod<=7?days[d.getDay()]:d.getDate()+'/'+(d.getMonth()+1);}
   function fmtFull(dateStr){const d=new Date(dateStr+'T12:00:00');return d.getDate()+' '+months[d.getMonth()];}
@@ -2717,9 +2723,12 @@ async function fetchData(accountId,period,customStart,customEnd){
   const newFollowers=grossGained-grossLost; // LÍQUIDO real
   const chartLabels=inWindow.length?inWindow.map(s=>fmtLabel(s.captured_at)):['Hoje'];
   const chartDates=inWindow.length?inWindow.map(s=>fmtFull(s.captured_at)):['Hoje'];
-  // Período anterior (mesma duração) para comparação
-  const prevWindowStartStr=localDate(new Date(periodStart.getTime()-effectivePeriod*86400000));
-  const prevWindow=snaps.filter(s=>s.captured_at>=prevWindowStartStr&&s.captured_at<periodStartStr);
+  // Período anterior (mesma duração) imediatamente antes da janela
+  const _fsMs=new Date(followStart+'T00:00:00').getTime();
+  const _spanDays=Math.round((new Date(followEnd+'T00:00:00').getTime()-_fsMs)/86400000)+1;
+  const prevEndStr=localDate(new Date(_fsMs-86400000));
+  const prevStartStr=localDate(new Date(_fsMs-_spanDays*86400000));
+  const prevWindow=snaps.filter(s=>s.captured_at>=prevStartStr&&s.captured_at<=prevEndStr);
   const prevNewFollowers=prevWindow.length?prevWindow.reduce((a,s)=>a+((Number(s.gained)||0)-(Number(s.lost)||0)),0):null;
   // ── Conferência (F4): líquido === novos − saíram ──
   if(window._DBG_INTEGRITY){const _s=grossGained-grossLost;if(_s!==newFollowers)console.warn('[integridade] seguidores',_s,'≠',newFollowers,'| conta',accountId,period);}
