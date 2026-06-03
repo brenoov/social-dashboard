@@ -2720,7 +2720,17 @@ async function fetchData(accountId,period,customStart,customEnd){
   const lostArr=inWindow.map(s=>Number(s.lost)||0);
   const grossGained=gainedArr.reduce((a,b)=>a+b,0);
   const grossLost=lostArr.reduce((a,b)=>a+b,0);
-  const newFollowers=grossGained-grossLost; // LÍQUIDO real
+  // HOJE: o bruto (novos/saíram) só consolida amanhã → mostrar LÍQUIDO em tempo real
+  // pela variação da contagem total (hoje − ontem), sem chamada nova à API.
+  let newFollowers, realtimeHoje=false;
+  if(isHoje){
+    const _ydaySnap=[...snaps].reverse().find(s=>s.captured_at<=_ontemBRT);
+    const _ytot=_ydaySnap?_ydaySnap.followers_count:null;
+    newFollowers=(_ytot!=null)?(latest-_ytot):0; // latest = total de hoje (snapshot mais recente)
+    realtimeHoje=true;
+  }else{
+    newFollowers=grossGained-grossLost; // LÍQUIDO real (bruto)
+  }
   const chartLabels=inWindow.length?inWindow.map(s=>fmtLabel(s.captured_at)):['Hoje'];
   const chartDates=inWindow.length?inWindow.map(s=>fmtFull(s.captured_at)):['Hoje'];
   // Período anterior (mesma duração) imediatamente antes da janela
@@ -2783,7 +2793,7 @@ async function fetchData(accountId,period,customStart,customEnd){
     storyEng:{shares:storyShares,replies:storyRep,prevShares:prevStoryShares,prevReplies:prevStoryRep},
     pl,
     lastSnap:snaps.length?snaps[snaps.length-1].captured_at:null,
-    grossGained,grossLost,
+    grossGained,grossLost,realtimeHoje,
   };
 }
 
@@ -2933,7 +2943,10 @@ function update(d,period){
   const newEl=document.getElementById('new-followers-val');if(newEl)animCount(newEl,d.newFollowers);
   const grossEl=document.getElementById('gross-followers');
   if(grossEl){
-    if((d.grossGained||0)+(d.grossLost||0)>0){
+    if(d.realtimeHoje){
+      grossEl.style.display='flex';
+      grossEl.innerHTML=`<span style="color:var(--muted);font-weight:500;">líquido em tempo real · novos/saíram consolidam amanhã</span>`;
+    }else if((d.grossGained||0)+(d.grossLost||0)>0){
       grossEl.style.display='flex';
       grossEl.innerHTML=`<span style="color:#16a34a">▲ ${fmtN(d.grossGained)} novos</span><span style="color:#dc2626">▼ ${fmtN(d.grossLost)} saíram</span>`;
     }else{grossEl.style.display='none';}
