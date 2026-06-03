@@ -2720,17 +2720,15 @@ async function fetchData(accountId,period,customStart,customEnd){
   const lostArr=inWindow.map(s=>Number(s.lost)||0);
   const grossGained=gainedArr.reduce((a,b)=>a+b,0);
   const grossLost=lostArr.reduce((a,b)=>a+b,0);
-  // HOJE: o bruto (novos/saíram) só consolida amanhã → mostrar LÍQUIDO em tempo real
-  // pela variação da contagem total (hoje − ontem), sem chamada nova à API.
-  let newFollowers, realtimeHoje=false;
-  if(isHoje){
-    const _ydaySnap=[...snaps].reverse().find(s=>s.captured_at<=_ontemBRT);
-    const _ytot=_ydaySnap?_ydaySnap.followers_count:null;
-    newFollowers=(_ytot!=null)?(latest-_ytot):0; // latest = total de hoje (snapshot mais recente)
-    realtimeHoje=true;
-  }else{
-    newFollowers=grossGained-grossLost; // LÍQUIDO real (bruto)
-  }
+  // LÍQUIDO em TEMPO REAL (todos os períodos): variação da contagem total dentro da janela.
+  // A contagem total é coletada todo dia (sem a defasagem ~2 dias do bruto novos/saíram),
+  // então o saldo nunca zera indevidamente. Soma dos deltas diários = total(fim) − total(antes do início).
+  const _endSnap=[...snaps].reverse().find(s=>s.captured_at<=followEnd);
+  const _beforeStartStr=localDate(new Date(new Date(followStart+'T00:00:00').getTime()-86400000));
+  const _startSnap=[...snaps].reverse().find(s=>s.captured_at<=_beforeStartStr);
+  const newFollowers=(_endSnap&&_startSnap)?(_endSnap.followers_count-_startSnap.followers_count):0;
+  // Bruto (novos/saíram) consolida ~2 dias depois → "parcial" quando a janela termina nos últimos 2 dias.
+  const grossPartial=followEnd>=_ontemBRT;
   // Gráfico: períodos normais usam a própria janela; no HOJE (dia único, bruto não-consolidado)
   // mostra os ÚLTIMOS 7 DIAS já consolidados como contexto recente.
   let chartGained=gainedArr, chartLost=lostArr, chartSrc=inWindow;
@@ -2745,7 +2743,8 @@ async function fetchData(accountId,period,customStart,customEnd){
   const prevWindow=snaps.filter(s=>s.captured_at>=prevStartStr&&s.captured_at<=prevEndStr);
   const prevNewFollowers=prevWindow.length?prevWindow.reduce((a,s)=>a+((Number(s.gained)||0)-(Number(s.lost)||0)),0):null;
   // ── Conferência (F4): líquido === novos − saíram ──
-  if(window._DBG_INTEGRITY){const _s=grossGained-grossLost;if(_s!==newFollowers)console.warn('[integridade] seguidores',_s,'≠',newFollowers,'| conta',accountId,period);}
+  // (nota) o líquido pela contagem total e o bruto novos−saíram são medições distintas da Meta
+  // e não batem exatamente — por isso o saldo principal usa a contagem total (confiável/tempo real).
   const engTotal=eng.likes+eng.saves+eng.shares;
   const prevEngTotal=(prevEng?.likes||0)+(prevEng?.saves||0)+(prevEng?.shares||0);
   const engRate=latest>0?((engTotal/latest)*100).toFixed(1):'0.0';
@@ -2801,7 +2800,7 @@ async function fetchData(accountId,period,customStart,customEnd){
     storyEng:{shares:storyShares,replies:storyRep,prevShares:prevStoryShares,prevReplies:prevStoryRep},
     pl,
     lastSnap:snaps.length?snaps[snaps.length-1].captured_at:null,
-    grossGained,grossLost,realtimeHoje,
+    grossGained,grossLost,grossPartial,
   };
 }
 
@@ -2951,12 +2950,13 @@ function update(d,period){
   const newEl=document.getElementById('new-followers-val');if(newEl)animCount(newEl,d.newFollowers);
   const grossEl=document.getElementById('gross-followers');
   if(grossEl){
-    if(d.realtimeHoje){
+    const _g=d.grossGained||0,_l=d.grossLost||0;
+    if(d.grossPartial&&_g+_l===0){
       grossEl.style.display='flex';
-      grossEl.innerHTML=`<span style="color:var(--muted);font-weight:500;">líquido em tempo real · novos/saíram consolidam amanhã</span>`;
-    }else if((d.grossGained||0)+(d.grossLost||0)>0){
+      grossEl.innerHTML=`<span style="color:var(--muted);font-weight:500;">novos/saíram consolidam em ~2 dias</span>`;
+    }else if(_g+_l>0){
       grossEl.style.display='flex';
-      grossEl.innerHTML=`<span style="color:#16a34a">▲ ${fmtN(d.grossGained)} novos</span><span style="color:#dc2626">▼ ${fmtN(d.grossLost)} saíram</span>`;
+      grossEl.innerHTML=`<span style="color:#16a34a">▲ ${fmtN(_g)} novos</span><span style="color:#dc2626">▼ ${fmtN(_l)} saíram</span>`+(d.grossPartial?`<span style="color:var(--muted);font-weight:500;">(parcial)</span>`:``);
     }else{grossEl.style.display='none';}
   }
   buildChart(d.chart);
