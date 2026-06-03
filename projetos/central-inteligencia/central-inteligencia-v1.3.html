@@ -2577,8 +2577,10 @@ function buildChart(chartData){
   const labelsG=document.getElementById('chart-data-labels');labelsG.textContent='';
   function fmtShort(v){const a=Math.abs(v);return a>=1000?(v/1000).toFixed(1)+'K':String(v);}
   const many=n>10;
+  const lblStep=n>14?Math.ceil(n/12):1; // ralo em períodos longos p/ não sobrepor
   net.forEach((v,i)=>{
     if(gained[i]===0&&lost[i]===0&&i!==0&&i!==n-1)return;
+    if(lblStep>1&&i%lblStep!==0&&i!==0&&i!==n-1)return;
     const s=document.createElement('span');
     s.className='cdl'+(many?' cdl-sm':'')+(v>0?' cdl-up':v<0?' cdl-down':'');
     s.textContent=(v>0?'+':'')+fmtShort(v);
@@ -2694,7 +2696,11 @@ async function fetchData(accountId,period,customStart,customEnd){
   const prevCnt=cntPrev[0]||null;
   const periodStart=new Date(refDate);periodStart.setDate(periodStart.getDate()-effectivePeriod);
   const periodStartStr=localDate(periodStart);
-  const inWindow=snaps.filter(s=>s.captured_at>=periodStartStr);
+  // Dia corrente: a métrica follows_and_unfollows só consolida no dia seguinte.
+  // Enquanto vier 0/0 hoje, descartamos o ponto (evita barra "chapada" enganosa).
+  const _hojeBRT=localDate(new Date(new Date().toLocaleString('en-US',{timeZone:'America/Sao_Paulo'})));
+  const inWindow=snaps.filter(s=>s.captured_at>=periodStartStr)
+    .filter(s=>!(s.captured_at===_hojeBRT&&(Number(s.gained)||0)===0&&(Number(s.lost)||0)===0));
   const latest=snaps.length>0?snaps[snaps.length-1].followers_count:0;
   function fmtLabel(dateStr){const d=new Date(dateStr+'T12:00:00');return effectivePeriod<=7?days[d.getDay()]:d.getDate()+'/'+(d.getMonth()+1);}
   function fmtFull(dateStr){const d=new Date(dateStr+'T12:00:00');return d.getDate()+' '+months[d.getMonth()];}
