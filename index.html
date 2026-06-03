@@ -2731,8 +2731,16 @@ async function fetchData(accountId,period,customStart,customEnd){
   }else{
     newFollowers=grossGained-grossLost; // LÍQUIDO real (bruto)
   }
-  const chartLabels=inWindow.length?inWindow.map(s=>fmtLabel(s.captured_at)):['Hoje'];
-  const chartDates=inWindow.length?inWindow.map(s=>fmtFull(s.captured_at)):['Hoje'];
+  // Gráfico: períodos normais usam a própria janela; no HOJE (dia único, bruto não-consolidado)
+  // mostra os ÚLTIMOS 7 DIAS já consolidados como contexto recente.
+  let chartGained=gainedArr, chartLost=lostArr, chartSrc=inWindow;
+  if(isHoje){
+    chartSrc=snaps.filter(s=>s.captured_at<_hojeBRT).slice(-7);
+    chartGained=chartSrc.map(s=>Number(s.gained)||0);
+    chartLost=chartSrc.map(s=>Number(s.lost)||0);
+  }
+  const chartLabels=chartSrc.length?chartSrc.map(s=>fmtLabel(s.captured_at)):['Hoje'];
+  const chartDates=chartSrc.length?chartSrc.map(s=>fmtFull(s.captured_at)):['Hoje'];
   // Período anterior (mesma duração) imediatamente antes da janela
   const prevWindow=snaps.filter(s=>s.captured_at>=prevStartStr&&s.captured_at<=prevEndStr);
   const prevNewFollowers=prevWindow.length?prevWindow.reduce((a,s)=>a+((Number(s.gained)||0)-(Number(s.lost)||0)),0):null;
@@ -2786,7 +2794,7 @@ async function fetchData(accountId,period,customStart,customEnd){
   const _fd=d=>d.getDate()+' '+_mm[d.getMonth()];
   const pl=effectivePeriod<=1?_fd(prevRefDate):(()=>{const s=new Date(prevRefDate.getTime()-effectivePeriod*86400000);return _fd(s)+' – '+_fd(prevRefDate);})();
   return{followerTotal:latest,newFollowers,prevNewFollowers,avgPerDay,bestDay:'—',engRate,followerDeltas,effectivePeriod,impressions,clicks,reach,
-    chart:{gained:gainedArr,lost:lostArr,labels:chartLabels,dates:chartDates},
+    chart:{gained:chartGained,lost:chartLost,labels:chartLabels,dates:chartDates},
     spend,prevSpend,cps,prevCps,
     eng:{likes:eng.likes,saves:eng.saves,shares:eng.shares,prevLikes:prevEng?.likes??null,prevSaves:prevEng?.saves??null,prevShares:prevEng?.shares??null},
     cnt:{posts:cnt.posts_count,stories:storiesCount,reels:cnt.reels_count,postsReels:cnt.posts_count+cnt.reels_count,prevPostsReels:prevCnt!=null?prevCnt.posts_count+prevCnt.reels_count:null,prevStories:prevStoriesCount},
