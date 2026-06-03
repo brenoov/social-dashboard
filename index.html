@@ -2187,6 +2187,8 @@
             </linearGradient>
           </defs>
           <path id="chart-fill" fill="url(#chartGrad)"/>
+          <line id="chart-zero" x1="0" y1="0" x2="400" y2="0" stroke="currentColor" stroke-width="0.6" opacity="0.25"/>
+          <g id="chart-bars"></g>
           <polyline id="prev-line" fill="none" stroke="rgba(0,0,0,0.15)" stroke-width="1.5" stroke-dasharray="4,3" stroke-linecap="round"/>
           <polyline id="chart-line" fill="none" stroke="#1D4ED8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           <line id="crosshair" x1="0" y1="0" x2="0" y2="110" stroke="rgba(0,0,0,0.15)" stroke-width="1" display="none"/>
@@ -2541,64 +2543,58 @@ function _animateChartLine(el,pts){
   el.style.strokeDashoffset='0';
 }
 function buildChart(chartData){
-  let{vals,prev,labels,dates,prevDates}=chartData;
-  if(vals.length===0){vals=[0,0];labels=['',''];dates=['',''];prevDates=['',''];}
-  if(vals.length===1){vals=[vals[0],vals[0]];labels=[labels[0],labels[0]];dates=[dates[0]||'Hoje',dates[0]||'Hoje'];prevDates=[prevDates[0]||'\u2014',prevDates[0]||'\u2014'];}
-  if(prev.length===0)prev=vals.map(()=>0);
-  while(prev.length<vals.length)prev.unshift(prev[0]||0);
-  while(prev.length>vals.length)prev.pop();
+  // BARRAS DIVERGENTES: verde (novos) pra cima, vermelho (sairam) pra baixo, por dia.
+  let{gained,lost,labels,dates}=chartData;
+  gained=(gained||[]).slice();lost=(lost||[]).slice();labels=(labels||[]).slice();dates=(dates||[]).slice();
+  if(gained.length===0){gained=[0];lost=[0];labels=labels.length?labels:[''];dates=dates.length?dates:[''];}
+  const n=gained.length;
+  const net=gained.map((g,i)=>g-(lost[i]||0));
   const W=400,H=110,pad=6;
-  // Suporta valores ASSINADOS: a escala inclui o zero e ganha padding em ambos os lados.
-  const allV=[...vals,...prev];
-  const rawMax=Math.max(...allV,0);
-  const rawMin=Math.min(...allV,0);
+  const rawMax=Math.max(...gained,1);
+  const rawMin=Math.min(...lost.map(v=>-v),0);
   const span=Math.max(rawMax-rawMin,1);
-  const max=rawMax+span*0.20;
-  const min=rawMin-(rawMin<0?span*0.20:0); // só estende abaixo de zero quando há perdas reais
+  const max=rawMax+span*0.18;
+  const min=rawMin-(rawMin<0?span*0.18:0);
   const range=max-min||1;
-  function px(i){return pad+(i/(vals.length-1))*(W-pad*2);}
-  function py(v){return H-pad-((v-min)/range)*(H-pad*2);}
-  const yZero=py(0); // linha do zero: base do preenchimento (não mais o fundo do SVG)
-  activeChartData={vals,prev,labels,dates,prevDates,px,py,W,H,yZero};
-  const pts=vals.map((v,i)=>px(i)+','+py(v)).join(' ');
-  const fillD='M'+px(0)+','+yZero+' '+vals.map((v,i)=>'L'+px(i)+','+py(v)).join(' ')+' L'+px(vals.length-1)+','+yZero+' Z';
-  const prevPts=prev.map((v,i)=>px(i)+','+py(v)).join(' ');
-  const lineEl=document.getElementById('chart-line');
-  lineEl.setAttribute('points',pts);
-  _animateChartLine(lineEl,pts);
-  const fillEl=document.getElementById('chart-fill');
-  fillEl.setAttribute('d',fillD);
-  fillEl.style.opacity='0';fillEl.style.transition='none';
-  void fillEl.getBoundingClientRect();
-  fillEl.style.transition='opacity .4s ease .85s';fillEl.style.opacity='1';
-  document.getElementById('prev-line').setAttribute('points',prevPts);
+  const px=i=>n>1?pad+(i/(n-1))*(W-pad*2):W/2;
+  const py=v=>H-pad-((v-min)/range)*(H-pad*2);
+  const yZero=py(0);
+  activeChartData={gained,lost,net,labels,dates,px,py,W,H,yZero,n};
+  const zl=document.getElementById('chart-zero');if(zl){zl.setAttribute('y1',yZero);zl.setAttribute('y2',yZero);}
+  const NS='http://www.w3.org/2000/svg';
+  const bars=document.getElementById('chart-bars');bars.textContent='';
+  const slot=(W-pad*2)/Math.max(n,1);
+  const bw=Math.max(1.5,Math.min(slot*0.42,9));
+  const _rect=(x,y,h,fill,op)=>{const r=document.createElementNS(NS,'rect');r.setAttribute('x',(x-bw/2).toFixed(2));r.setAttribute('y',y.toFixed(2));r.setAttribute('width',bw.toFixed(2));r.setAttribute('height',Math.max(0,h).toFixed(2));r.setAttribute('rx','1');r.setAttribute('fill',fill);r.setAttribute('opacity',op);bars.appendChild(r);};
+  for(let i=0;i<n;i++){
+    const x=px(i);
+    if(gained[i]>0){const yt=py(gained[i]);_rect(x,yt,yZero-yt,'#16a34a','0.85');}
+    if(lost[i]>0){const yb=py(-lost[i]);_rect(x,yZero,yb-yZero,'#dc2626','0.8');}
+  }
+  document.getElementById('chart-line').setAttribute('points','');
+  document.getElementById('chart-fill').setAttribute('d','');
+  document.getElementById('prev-line').setAttribute('points','');
   const labelsG=document.getElementById('chart-data-labels');labelsG.textContent='';
-  function fmtShort(v){return v>=1000000?(v/1000000).toFixed(1)+'M':v>=1000?(v/1000).toFixed(1)+'K':String(v);}
-  // Períodos longos (30D/MÊS/MÊS PASS.): fonte menor + elevação alternada
-  // com linha tracejada nos elevados, pra abrir espaço entre os rótulos.
-  const many=vals.length>14;
-  vals.forEach((v,i)=>{
+  function fmtShort(v){const a=Math.abs(v);return a>=1000?(v/1000).toFixed(1)+'K':String(v);}
+  const many=n>10;
+  net.forEach((v,i)=>{
+    if(gained[i]===0&&lost[i]===0&&i!==0&&i!==n-1)return;
     const s=document.createElement('span');
     s.className='cdl'+(many?' cdl-sm':'')+(v>0?' cdl-up':v<0?' cdl-down':'');
     s.textContent=(v>0?'+':'')+fmtShort(v);
-    const xPct=(px(i)/W)*100;
-    const yPyPct=(py(v)/H)*100;
-    s.style.left=xPct+'%';
-    s.style.top=yPyPct+'%';
-    if(py(v)<14){
-      s.style.transform='translate(-50%, 5px)'; // perto do topo → joga pra baixo
-    }else if(many&&i%2===1){
-      s.classList.add('cdl-hi'); // elevação alternada + tracejado (via CSS)
-    }
+    const topPx=v>=0?py(gained[i]||0):py(-(lost[i]||0));
+    s.style.left=((px(i)/W)*100)+'%';
+    s.style.top=((topPx/H)*100)+'%';
+    if(v<0)s.style.transform='translate(-50%, 3px)';
+    else if(topPx<14)s.style.transform='translate(-50%, 5px)';
     labelsG.appendChild(s);
   });
   const xlWrap=document.getElementById('chart-xlabels');xlWrap.textContent='';
-  const step=Math.max(1,Math.floor(labels.length/6));
+  const step=Math.max(1,Math.floor(n/6));
   labels.forEach((l,i)=>{
-    if(i%step!==0&&i!==labels.length-1)return;
+    if(i%step!==0&&i!==n-1)return;
     const s=document.createElement('span');s.className='x-label';s.textContent=l;
-    const pct=((px(i)-pad)/(W-pad*2))*100;
-    s.style.left=pct+'%';
+    s.style.left=(((px(i)-pad)/(W-pad*2))*100)+'%';
     xlWrap.appendChild(s);
   });
 }
@@ -2611,24 +2607,22 @@ const dotCurr=document.getElementById('dot-curr');
 const dotPrev=document.getElementById('dot-prev');
 const tooltip=document.getElementById('chart-tooltip');
 overlay.addEventListener('mousemove',function(e){
-  if(!activeChartData)return;
-  const{vals,prev,dates,prevDates,px,py}=activeChartData;
+  if(!activeChartData||!activeChartData.n)return;
+  const{gained,lost,net,dates,px,py,yZero,n}=activeChartData;
   const rect=svgEl.getBoundingClientRect();
   const xPct=(e.clientX-rect.left)/rect.width;
-  const i=Math.max(0,Math.min(vals.length-1,Math.round(xPct*(vals.length-1))));
-  const x=px(i),yCurr=py(vals[i]),yPrev=py(prev[i]);
+  const i=Math.max(0,Math.min(n-1,Math.round(xPct*(n-1))));
+  const x=px(i);
   crosshair.setAttribute('x1',x);crosshair.setAttribute('x2',x);crosshair.removeAttribute('display');
-  dotCurr.setAttribute('cx',x);dotCurr.setAttribute('cy',yCurr);dotCurr.removeAttribute('display');
-  dotPrev.setAttribute('cx',x);dotPrev.setAttribute('cy',yPrev);dotPrev.removeAttribute('display');
-  const curr=vals[i],prevV=prev[i],diff=curr-prevV;
-  const diffPct=prevV>0?((diff/prevV)*100).toFixed(1):'\u2014';
+  dotCurr.setAttribute('cx',x);dotCurr.setAttribute('cy',gained[i]>0?py(gained[i]):yZero);dotCurr.removeAttribute('display');
+  dotPrev.setAttribute('display','none');
   document.getElementById('tt-date').textContent=dates[i]||'';
-  document.getElementById('tt-curr-val').textContent=(curr>=0?'+':'')+curr.toLocaleString('pt-BR');
-  document.getElementById('tt-prev-label').textContent=prevDates[i]||'Per. ant.';
-  document.getElementById('tt-prev-val').textContent=prevV>0?'+'+prevV.toLocaleString('pt-BR'):'\u2014';
+  document.getElementById('tt-curr-val').textContent=(net[i]>=0?'+':'')+net[i].toLocaleString('pt-BR');
+  document.getElementById('tt-prev-label').textContent='Novos x Sa\u00edram';
+  document.getElementById('tt-prev-val').textContent='\u25b2 '+(gained[i]||0).toLocaleString('pt-BR')+'   \u25bc '+(lost[i]||0).toLocaleString('pt-BR');
   const dEl=document.getElementById('tt-delta');
-  if(prevV>0){dEl.textContent=(diff>=0?'\u2191 ':'\u2193 ')+(diff>=0?'+':'')+diff.toLocaleString('pt-BR')+' ('+(diff>=0?'+':'')+diffPct+'%) vs per. ant.';dEl.className='tt-delta '+(diff>=0?'c-green':'c-red');}
-  else{dEl.textContent='Sem hist\u00f3rico anterior';dEl.className='tt-delta';}
+  dEl.textContent='L\u00edquido '+(net[i]>=0?'+':'')+net[i].toLocaleString('pt-BR');
+  dEl.className='tt-delta '+(net[i]>=0?'c-green':'c-red');
   let tx=e.clientX+16,ty=e.clientY-60;
   if(tx+200>window.innerWidth)tx=e.clientX-216;if(ty<8)ty=8;
   tooltip.style.left=tx+'px';tooltip.style.top=ty+'px';tooltip.style.display='block';
@@ -2685,7 +2679,7 @@ async function fetchData(accountId,period,customStart,customEnd){
   const prevPeriodStartStr2=localDate(new Date(prevRefDate.getTime()-effectivePeriod*86400000));
   const storyQP=storedPeriod===0?0:1;
   const[snaps,engCurr,engPrev,cntCurr,cntPrev,filterRow,storyDailyCurr,storyDailyPrev]=await Promise.all([
-    sb(`daily_snapshots?account_id=eq.${accountId}&captured_at=gte.${histStartStr}&captured_at=lte.${refDateStr}&order=captured_at.asc&select=followers_count,captured_at`),
+    sb(`daily_snapshots?account_id=eq.${accountId}&captured_at=gte.${histStartStr}&captured_at=lte.${refDateStr}&order=captured_at.asc&select=followers_count,captured_at,gained,lost`),
     sb(`engagement_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=likes,saves,shares,captured_at`),
     sb(`engagement_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=1&select=likes,saves,shares,captured_at`),
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=posts_count,stories_count,reels_count,captured_at`),
@@ -2701,37 +2695,24 @@ async function fetchData(accountId,period,customStart,customEnd){
   const periodStart=new Date(refDate);periodStart.setDate(periodStart.getDate()-effectivePeriod);
   const periodStartStr=localDate(periodStart);
   const inWindow=snaps.filter(s=>s.captured_at>=periodStartStr);
-  const prevSnaps=snaps.filter(s=>s.captured_at<periodStartStr);
   const latest=snaps.length>0?snaps[snaps.length-1].followers_count:0;
-  // FONTE ÚNICA: baseline = último snapshot ESTRITAMENTE antes da janela.
-  // Indicador e gráfico partem do MESMO ponto (mata a divergência baseline/janela).
-  const baseline=[...snaps].reverse().find(s=>s.captured_at<periodStartStr);
-  const seriesPts=baseline?[baseline,...inWindow]:inWindow;
-  const periodBegin=seriesPts.length?seriesPts[0].followers_count:latest;
-  const newFollowers=latest-periodBegin; // LÍQUIDO COM SINAL — pode ser negativo (perda real)
-  // Comparativo: mesma janela no período anterior
-  const prevEndSnap=[...snaps].reverse().find(s=>s.captured_at<=prevRefDateStr);
-  const prevPeriodStart=new Date(prevRefDate);prevPeriodStart.setDate(prevPeriodStart.getDate()-effectivePeriod);
-  const prevPeriodStartStr=localDate(prevPeriodStart);
-  const prevBeginSnap=[...snaps].reverse().find(s=>s.captured_at<=prevPeriodStartStr);
-  const prevNewFollowers=(prevEndSnap&&prevBeginSnap)?(prevEndSnap.followers_count-prevBeginSnap.followers_count):null;
   function fmtLabel(dateStr){const d=new Date(dateStr+'T12:00:00');return effectivePeriod<=7?days[d.getDay()]:d.getDate()+'/'+(d.getMonth()+1);}
   function fmtFull(dateStr){const d=new Date(dateStr+'T12:00:00');return d.getDate()+' '+months[d.getMonth()];}
-  // Gráfico: novos seguidores/dia = deltas ASSINADOS entre snapshots consecutivos da MESMA série.
-  // Invariante garantida: soma(chartVals) === newFollowers (último − baseline).
-  const _signedDelta=(arr)=>arr.length>1?arr.slice(1).map((s,i)=>s.followers_count-arr[i].followers_count):[0];
-  const _afterFirst=(arr)=>arr.slice(1);
-  const chartVals=seriesPts.length>1?_signedDelta(seriesPts):[newFollowers];
-  const chartPrev=prevSnaps.length>1?_signedDelta(prevSnaps):[0];
-  // Bruto a partir da movimentação diária (não é follow/unfollow literal da Meta,
-  // é a soma dos dias de alta vs dias de queda). ganhou - perdeu === newFollowers.
-  const grossGained=chartVals.reduce((s,v)=>s+(v>0?v:0),0);
-  const grossLost=chartVals.reduce((s,v)=>s+(v<0?-v:0),0);
-  const chartLabels=seriesPts.length>1?_afterFirst(seriesPts).map(s=>fmtLabel(s.captured_at)):['Hoje'];
-  const chartDates=seriesPts.length>1?_afterFirst(seriesPts).map(s=>fmtFull(s.captured_at)):['Hoje'];
-  const chartPrevDates=prevSnaps.length>1?_afterFirst(prevSnaps).map(s=>fmtFull(s.captured_at)):['—'];
-  // ── Semente do sistema de conferência (F4): indicador deve bater com a soma do gráfico ──
-  if(window._DBG_INTEGRITY){const _s=chartVals.reduce((a,b)=>a+b,0);if(_s!==newFollowers)console.warn('[integridade] seguidores: soma do gráfico',_s,'≠ indicador',newFollowers,'| conta',accountId,'período',period);}
+  // NOVOS x SAÍRAM — BRUTO REAL (métrica follows_and_unfollows gravada por dia: gained/lost).
+  // Cada dia tem os DOIS; o líquido = novos − saíram.
+  const gainedArr=inWindow.map(s=>Number(s.gained)||0);
+  const lostArr=inWindow.map(s=>Number(s.lost)||0);
+  const grossGained=gainedArr.reduce((a,b)=>a+b,0);
+  const grossLost=lostArr.reduce((a,b)=>a+b,0);
+  const newFollowers=grossGained-grossLost; // LÍQUIDO real
+  const chartLabels=inWindow.length?inWindow.map(s=>fmtLabel(s.captured_at)):['Hoje'];
+  const chartDates=inWindow.length?inWindow.map(s=>fmtFull(s.captured_at)):['Hoje'];
+  // Período anterior (mesma duração) para comparação
+  const prevWindowStartStr=localDate(new Date(periodStart.getTime()-effectivePeriod*86400000));
+  const prevWindow=snaps.filter(s=>s.captured_at>=prevWindowStartStr&&s.captured_at<periodStartStr);
+  const prevNewFollowers=prevWindow.length?prevWindow.reduce((a,s)=>a+((Number(s.gained)||0)-(Number(s.lost)||0)),0):null;
+  // ── Conferência (F4): líquido === novos − saíram ──
+  if(window._DBG_INTEGRITY){const _s=grossGained-grossLost;if(_s!==newFollowers)console.warn('[integridade] seguidores',_s,'≠',newFollowers,'| conta',accountId,period);}
   const engTotal=eng.likes+eng.saves+eng.shares;
   const prevEngTotal=(prevEng?.likes||0)+(prevEng?.saves||0)+(prevEng?.shares||0);
   const engRate=latest>0?((engTotal/latest)*100).toFixed(1):'0.0';
@@ -2780,7 +2761,7 @@ async function fetchData(accountId,period,customStart,customEnd){
   const _fd=d=>d.getDate()+' '+_mm[d.getMonth()];
   const pl=effectivePeriod<=1?_fd(prevRefDate):(()=>{const s=new Date(prevRefDate.getTime()-effectivePeriod*86400000);return _fd(s)+' – '+_fd(prevRefDate);})();
   return{followerTotal:latest,newFollowers,prevNewFollowers,avgPerDay,bestDay:'—',engRate,followerDeltas,effectivePeriod,impressions,clicks,reach,
-    chart:{vals:chartVals,prev:chartPrev,labels:chartLabels,dates:chartDates,prevDates:chartPrevDates},
+    chart:{gained:gainedArr,lost:lostArr,labels:chartLabels,dates:chartDates},
     spend,prevSpend,cps,prevCps,
     eng:{likes:eng.likes,saves:eng.saves,shares:eng.shares,prevLikes:prevEng?.likes??null,prevSaves:prevEng?.saves??null,prevShares:prevEng?.shares??null},
     cnt:{posts:cnt.posts_count,stories:storiesCount,reels:cnt.reels_count,postsReels:cnt.posts_count+cnt.reels_count,prevPostsReels:prevCnt!=null?prevCnt.posts_count+prevCnt.reels_count:null,prevStories:prevStoriesCount},
