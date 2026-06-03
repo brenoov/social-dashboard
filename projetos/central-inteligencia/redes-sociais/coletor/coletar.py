@@ -52,6 +52,36 @@ def coletar_seguidores(ig_id, token):
     return data.get("followers_count", 0)
 
 
+def coletar_follows_dia(ig_id, token, dia):
+    """Follows/unfollows BRUTOS de um dia (métrica follows_and_unfollows).
+    Retorna (gained, lost) — FOLLOWER e NON_FOLLOWER — ou (None, None) se indisponível.
+    Requer conta com 100+ seguidores."""
+    start = int(datetime.combine(dia, datetime.min.time()).timestamp())
+    end = int(datetime.combine(dia, datetime.max.time()).timestamp())
+    try:
+        data = api_get(f"{ig_id}/insights", {
+            "metric": "follows_and_unfollows", "period": "day",
+            "metric_type": "total_value", "breakdown": "follow_type",
+            "since": start, "until": end, "access_token": token,
+        })
+        rows = data.get("data") or []
+        if not rows:
+            return None, None
+        bd = (rows[0].get("total_value") or {}).get("breakdowns") or []
+        results = (bd[0].get("results") if bd else []) or []
+        gained = lost = 0
+        for r in results:
+            dv = (r.get("dimension_values") or [None])[0]
+            v = r.get("value", 0) or 0
+            if dv == "FOLLOWER":
+                gained = v
+            elif dv == "NON_FOLLOWER":
+                lost = v
+        return gained, lost
+    except Exception:
+        return None, None
+
+
 def coletar_stories_hoje(ig_id, token):
     """Conta apenas stories postados no dia calendário de hoje (fuso local)."""
     try:
@@ -292,11 +322,14 @@ def processar_conta(supabase, account_id, ig_id, token, nome):
     print(f"\n📊 Coletando: {nome} ({ig_id})")
 
     seguidores = coletar_seguidores(ig_id, token)
-    supabase.table("daily_snapshots").upsert(
-        {"account_id": account_id, "captured_at": hoje, "followers_count": seguidores},
-        on_conflict="account_id,captured_at"
-    ).execute()
-    print(f"   Seguidores: {seguidores:,}")
+    g, l = coletar_follows_dia(ig_id, token, date.today())
+    row_ds = {"account_id": account_id, "captured_at": hoje, "followers_count": seguidores}
+    if g is not None:
+        row_ds["gained"] = g
+        row_ds["lost"] = l
+    supabase.table("daily_snapshots").upsert(row_ds, on_conflict="account_id,captured_at").execute()
+    extra = f" | ▲{g} novos / ▼{l} saíram (hoje)" if g is not None else ""
+    print(f"   Seguidores: {seguidores:,}{extra}")
 
     # Stories só ficam disponíveis via API por 24h — coletamos uma vez por dia
     stories_data = coletar_stories_hoje(ig_id, token)
