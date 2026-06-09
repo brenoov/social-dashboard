@@ -2754,7 +2754,7 @@ async function fetchData(accountId,period,customStart,customEnd){
   const prevEngTotal=(prevEng?.likes||0)+(prevEng?.saves||0)+(prevEng?.shares||0);
   const engRate=latest>0?((engTotal/latest)*100).toFixed(1):'0.0';
   const avgPerDay=effectivePeriod>0?(newFollowers/effectivePeriod).toFixed(1):'0.0';
-  const pLabel=customStart&&customEnd?effectivePeriod+'D':period+'D';
+  const pLabel=customStart&&customEnd?effectivePeriod+'D':_perShort(period,effectivePeriod);
   const followerDeltas=[{p:pLabel,v:(newFollowers>=0?'+':'')+fmtN(newFollowers),dir:newFollowers>=0?'up':'down'}];
   if(prevNewFollowers>0){followerDeltas.push({p:'vs per. ant.',v:pctDiff(newFollowers,prevNewFollowers),dir:newFollowers>=prevNewFollowers?'up':'down'});}
   // Ads: lê de campaign_insights aplicando o filtro de campanhas em tempo real
@@ -2815,6 +2815,19 @@ async function fetchData(accountId,period,customStart,customEnd){
 }
 
 /* ── ANÁLISE INTELIGENTE ── */
+// Rótulos de período legíveis (evita "monthfullD"/"sofarD" etc.).
+function _perShort(period,eff){
+  if(period===0)return 'Hoje';
+  if(period===1)return 'Ontem';
+  if(period==='monthfull'||period==='sofar')return 'Mês';
+  if(period==='lastmonth')return 'Mês passado';
+  return (eff||period)+' dias';
+}
+function _perPhrase(period,eff){
+  if(period==='monthfull'||period==='sofar')return 'no mês';
+  if(period==='lastmonth')return 'no mês passado';
+  return 'em '+(eff||period)+'D';
+}
 function generateInsight(d,period,profileName){
   const insights=[];
   const nf=d.newFollowers,pnf=d.prevNewFollowers,avg=d.avgPerDay;
@@ -2871,15 +2884,16 @@ function generateInsight(d,period,profileName){
     }
 
   } else {
-    const ptx=`${period}D`;
+    const ptx=_perPhrase(period,d.effectivePeriod);
+    const epd=d.effectivePeriod||(typeof period==='number'?period:1);
     if(nf>0&&avg>0&&r&&r>=1.5)
-      insights.push({t:'green',s:`+${fmtN(nf)} seguidores em ${ptx} — crescimento ${Math.round((r-1)*100)}% acima do período anterior (média +${avg}/dia)`});
+      insights.push({t:'green',s:`+${fmtN(nf)} seguidores ${ptx} — crescimento ${Math.round((r-1)*100)}% acima do período anterior (média +${avg}/dia)`});
     else if(nf>0&&avg>0&&r&&r<0.7)
-      insights.push({t:'yellow',s:`+${fmtN(nf)} seguidores em ${ptx} — ritmo desacelerou ${pctDiff(nf,pnf)} vs período anterior (média +${avg}/dia)`});
+      insights.push({t:'yellow',s:`+${fmtN(nf)} seguidores ${ptx} — ritmo desacelerou ${pctDiff(nf,pnf)} vs período anterior (média +${avg}/dia)`});
     else if(nf>0)
-      insights.push({t:'blue',s:`+${fmtN(nf)} seguidores em ${ptx} — média de +${avg} novos por dia`});
+      insights.push({t:'blue',s:`+${fmtN(nf)} seguidores ${ptx} — média de +${avg} novos por dia`});
     else
-      insights.push({t:'muted',s:`Sem dados de crescimento disponíveis para ${ptx}`});
+      insights.push({t:'muted',s:`Sem dados de crescimento disponíveis ${ptx}`});
     if(savesRate>=0.15&&saves>0)
       insights.push({t:'green',s:`Alto índice de salvamentos (${fmtN(saves)}) — conteúdo sendo guardado como referência de valor`});
     else if(sharesRate>=0.12&&shares>0)
@@ -2887,16 +2901,16 @@ function generateInsight(d,period,profileName){
     else if(engRate>=5)
       insights.push({t:'green',s:`Taxa de engajamento em ${d.engRate}% — excelente, bem acima da média do setor`});
     else if(engRate>=3)
-      insights.push({t:'green',s:`Engajamento de ${d.engRate}% com ${fmtN(engTotal)} interações — muito bom para ${ptx}`});
+      insights.push({t:'green',s:`Engajamento de ${d.engRate}% com ${fmtN(engTotal)} interações — muito bom ${ptx}`});
     else if(engRate>=1)
-      insights.push({t:'blue',s:`Engajamento de ${d.engRate}% em ${ptx} — ${fmtN(likes)} curtidas · ${fmtN(saves)} salvamentos · ${fmtN(shares)} compartilhamentos`});
+      insights.push({t:'blue',s:`Engajamento de ${d.engRate}% ${ptx} — ${fmtN(likes)} curtidas · ${fmtN(saves)} salvamentos · ${fmtN(shares)} compartilhamentos`});
     else if(engRate>0)
-      insights.push({t:'yellow',s:`Engajamento abaixo de 1% em ${ptx} — vale revisar formatos e horários de publicação`});
+      insights.push({t:'yellow',s:`Engajamento abaixo de 1% ${ptx} — vale revisar formatos e horários de publicação`});
     if(totalContent===0)
-      insights.push({t:'yellow',s:`Nenhum conteúdo publicado nos últimos ${ptx} — produção pausada no período`});
+      insights.push({t:'yellow',s:`Nenhum conteúdo publicado ${ptx} — produção pausada no período`});
     else{
       const pubs=reels+posts;
-      const freq=(pubs/period).toFixed(1);
+      const freq=(pubs/epd).toFixed(1);
       const parts=[];
       if(reels>0)parts.push(`${reels} reel${reels!==1?'s':''}`);
       if(posts>0)parts.push(`${posts} post${posts!==1?'s':''}`);
@@ -2908,11 +2922,10 @@ function generateInsight(d,period,profileName){
 }
 
 function renderInsight(d,period){
-  const labels={0:'Hoje',1:'Ontem',7:'7 dias',14:'14 dias',30:'30 dias'};
   const lbl=document.getElementById('insight-period-label');
   const list=document.getElementById('insight-list');
   if(!lbl||!list)return;
-  lbl.textContent=labels[period]||period+'D';
+  lbl.textContent=_perShort(period,d.effectivePeriod);
   const profileName=document.getElementById('apb-name')?.textContent||'';
   const items=generateInsight(d,period,profileName);
   list.textContent='';
