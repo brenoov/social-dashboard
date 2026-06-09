@@ -2359,7 +2359,7 @@ function hasPermission(resourceKey){
   if(currentUserRole==='admin')return true;
   const keyMap={'tool:social':'social','tool:sales':'sales','tool:meta':'meta',
     'module:sales:gestao-vista':'sales.gestao','module:sales:analise-vendas':'sales.analise',
-    'module:meta:campanha':'meta.campanha'};
+    'module:meta:campanha':'meta.campanha','module:meta:gestor':'meta.gestor'};
   const fKey=keyMap[resourceKey]||resourceKey;
   return (currentUserFeatures||[]).includes(fKey);
 }
@@ -2624,8 +2624,9 @@ overlay.addEventListener('mousemove',function(e){
   dotPrev.setAttribute('display','none');
   document.getElementById('tt-date').textContent=dates[i]||'';
   document.getElementById('tt-curr-val').textContent=(net[i]>=0?'+':'')+net[i].toLocaleString('pt-BR');
-  document.getElementById('tt-prev-label').textContent='Novos x Sa\u00edram';
-  document.getElementById('tt-prev-val').textContent='\u25b2 '+(gained[i]||0).toLocaleString('pt-BR')+'   \u25bc '+(lost[i]||0).toLocaleString('pt-BR');
+  const _acc=net.slice(0,i+1).reduce((a,b)=>a+b,0);
+  document.getElementById('tt-prev-label').textContent='Acumulado no per\u00edodo';
+  document.getElementById('tt-prev-val').textContent=(_acc>=0?'+':'')+_acc.toLocaleString('pt-BR');
   const dEl=document.getElementById('tt-delta');
   dEl.textContent='L\u00edquido '+(net[i]>=0?'+':'')+net[i].toLocaleString('pt-BR');
   dEl.className='tt-delta '+(net[i]>=0?'c-green':'c-red');
@@ -2729,19 +2730,23 @@ async function fetchData(accountId,period,customStart,customEnd){
   const newFollowers=(_endSnap&&_startSnap)?(_endSnap.followers_count-_startSnap.followers_count):0;
   // Bruto (novos/saíram) consolida ~2 dias depois → "parcial" quando a janela termina nos últimos 2 dias.
   const grossPartial=followEnd>=_ontemBRT;
-  // Gráfico: períodos normais usam a própria janela; no HOJE (dia único, bruto não-consolidado)
-  // mostra os ÚLTIMOS 7 DIAS já consolidados como contexto recente.
-  let chartGained=gainedArr, chartLost=lostArr, chartSrc=inWindow;
-  if(isHoje){
-    chartSrc=snaps.filter(s=>s.captured_at<_hojeBRT).slice(-7);
-    chartGained=chartSrc.map(s=>Number(s.gained)||0);
-    chartLost=chartSrc.map(s=>Number(s.lost)||0);
-  }
-  const chartLabels=chartSrc.length?chartSrc.map(s=>fmtLabel(s.captured_at)):['Hoje'];
-  const chartDates=chartSrc.length?chartSrc.map(s=>fmtFull(s.captured_at)):['Hoje'];
-  // Período anterior (mesma duração) imediatamente antes da janela
-  const prevWindow=snaps.filter(s=>s.captured_at>=prevStartStr&&s.captured_at<=prevEndStr);
-  const prevNewFollowers=prevWindow.length?prevWindow.reduce((a,s)=>a+((Number(s.gained)||0)-(Number(s.lost)||0)),0):null;
+  // GRÁFICO "/dia" = LÍQUIDO pela CONTAGEM TOTAL (régua única). Garante que a soma das barras
+  // seja EXATAMENTE o indicador do período (newFollowers): delta(dia)=contagem(dia)−contagem(dia
+  // anterior na série) telescopa p/ contagem(fim)−contagem(antes do início). Inclui hoje (a
+  // contagem é fresca, sem a defasagem ~2 dias do bruto novos/saíram).
+  const _idxByDate={};snaps.forEach((s,i)=>{_idxByDate[s.captured_at]=i;});
+  const _countDeltaOf=s=>{const i=_idxByDate[s.captured_at];return i>0?((Number(s.followers_count)||0)-(Number(snaps[i-1].followers_count)||0)):0;};
+  const chartSrc=snaps.filter(s=>s.captured_at>=followStart&&s.captured_at<=followEnd);
+  const chartNet=chartSrc.map(_countDeltaOf);
+  const chartGained=chartNet.map(v=>v>0?v:0);
+  const chartLost=chartNet.map(v=>v<0?-v:0);
+  const chartLabels=chartSrc.length?chartSrc.map(s=>fmtLabel(s.captured_at)):['—'];
+  const chartDates=chartSrc.length?chartSrc.map(s=>fmtFull(s.captured_at)):['—'];
+  // Período anterior (mesma duração) imediatamente antes da janela — MESMA régua (contagem total).
+  const _prevBeforeStr=localDate(new Date(new Date(prevStartStr+'T00:00:00').getTime()-86400000));
+  const _prevEndSnap=[...snaps].reverse().find(s=>s.captured_at<=prevEndStr);
+  const _prevStartSnap=[...snaps].reverse().find(s=>s.captured_at<=_prevBeforeStr);
+  const prevNewFollowers=(_prevEndSnap&&_prevStartSnap)?(_prevEndSnap.followers_count-_prevStartSnap.followers_count):null;
   // ── Conferência (F4): líquido === novos − saíram ──
   // (nota) o líquido pela contagem total e o bruto novos−saíram são medições distintas da Meta
   // e não batem exatamente — por isso o saldo principal usa a contagem total (confiável/tempo real).
@@ -2953,17 +2958,10 @@ function update(d,period){
   applyFreshness(period==='lastmonth'?undefined:d.lastSnap); // MÊS PASS é histórico — não avalia frescor
   const totalEl=document.getElementById('total-followers');if(totalEl)animCountFull(totalEl,d.followerTotal);
   const newEl=document.getElementById('new-followers-val');if(newEl)animCount(newEl,d.newFollowers);
+  // Sublinha de fluxo bruto (▲novos ▼saíram) removida: era outra régua da Meta (≠ indicador
+  // líquido por contagem) e abria divergência. Mantém-se UMA régua só em toda a tela.
   const grossEl=document.getElementById('gross-followers');
-  if(grossEl){
-    const _g=d.grossGained||0,_l=d.grossLost||0;
-    if(d.grossPartial&&_g+_l===0){
-      grossEl.style.display='flex';
-      grossEl.innerHTML=`<span style="color:var(--muted);font-weight:500;">novos/saíram consolidam em ~2 dias</span>`;
-    }else if(_g+_l>0){
-      grossEl.style.display='flex';
-      grossEl.innerHTML=`<span style="color:#16a34a">▲ ${fmtN(_g)} novos</span><span style="color:#dc2626">▼ ${fmtN(_l)} saíram</span>`+(d.grossPartial?`<span style="color:var(--muted);font-weight:500;">(parcial)</span>`:``);
-    }else{grossEl.style.display='none';}
-  }
+  if(grossEl)grossEl.style.display='none';
   buildChart(d.chart);
   setCompare('cmp-followers',d.newFollowers,d.prevNewFollowers,'',pl,false);
   applyMetric('followers',d.newFollowers,getGoal('followers'));
@@ -3248,6 +3246,7 @@ const PERMISSION_TREE=[
   ]},
   {key:'meta',label:'Meta Ads',children:[
     {key:'meta.campanha',label:'Análise de Campanhas'},
+    {key:'meta.gestor',label:'Gestão de Tráfego'},
   ]},
   {key:'banco',label:'Banco de Arquivos',children:[]},
 ];
@@ -3312,6 +3311,11 @@ function _applySubFeatures(){
   const ac=document.getElementById('smenu-card-analise');
   if(gc)gc.style.display=(isAdmin||f.includes('sales.gestao'))?'':'none';
   if(ac)ac.style.display=(isAdmin||f.includes('sales.analise'))?'':'none';
+  // Submódulos Meta Ads (hub): cada card só aparece com a permissão correspondente.
+  const mc=document.getElementById('ma-hub-card-campanha');
+  const mg=document.getElementById('ma-hub-card-gestao');
+  if(mc)mc.style.display=(isAdmin||f.includes('meta.campanha'))?'':'none';
+  if(mg)mg.style.display=(isAdmin||f.includes('meta.gestor'))?'':'none';
 }
 /* ── USUÁRIOS ── */
 async function loadAdminUsers(){
@@ -3368,6 +3372,24 @@ async function loadAdminUsers(){
       const disBtn=mkEl('button','sr-btn '+(u.disabled?'':'danger'));disBtn.textContent=u.disabled?'Ativar':'Desativar';
       disBtn.addEventListener('click',async()=>{await adFetch('profiles?id=eq.'+u.id,{method:'PATCH',body:JSON.stringify({disabled:!u.disabled})});adminToast(u.disabled?'Usuário ativado':'Usuário desativado');setTimeout(loadAdminUsers,600);});
       ctrl.appendChild(disBtn);
+      const delBtn=mkEl('button','sr-btn danger');delBtn.textContent='Excluir';
+      delBtn.addEventListener('click',async()=>{
+        if(!confirm(`Excluir definitivamente "${u.name||u.email}"?\n\nRemove o acesso e o perfil. Esta ação NÃO pode ser desfeita.`))return;
+        delBtn.disabled=true;delBtn.textContent='Excluindo…';
+        try{
+          const{data:{session:s}}=await sbClient.auth.getSession();
+          const tok=s?.access_token||SUPABASE_ANON_KEY;
+          const r=await fetch(`${SUPABASE_URL}/functions/v1/invite-user`,{method:'POST',headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'},body:JSON.stringify({deleteUserId:u.id})});
+          const res=await r.json();
+          if(res.error)throw new Error(res.error);
+          adminToast('Usuário excluído');
+          setTimeout(loadAdminUsers,600);
+        }catch(e){
+          alert('Erro ao excluir: '+(e.message||e));
+          delBtn.disabled=false;delBtn.textContent='Excluir';
+        }
+      });
+      ctrl.appendChild(delBtn);
     }
     row.appendChild(avWrap);row.appendChild(main);row.appendChild(ctrl);list.appendChild(row);
   });
@@ -6461,7 +6483,7 @@ let _gtInsights=[];
 let _gtAdInsights=[];
 
 function openGestaoTrafego(){
-  if(!hasPermission('tool:meta'))return;
+  if(!hasPermission('module:meta:gestor'))return;
   document.getElementById('meta-ads-hub-screen').style.display='none';
   document.getElementById('gestao-trafego-screen').style.display='flex';
   sessionStorage.setItem('rbv-screen','gestao-trafego');
@@ -6536,6 +6558,21 @@ async function _initGestaoTrafego(){
       const cid=_maCleanAccId(acc.ad_account_id);
       if(seen.has(cid))continue;seen.add(cid);
       accs.push({...acc,ad_account_id:cid,display_name:acc.name,monthSpend:0,balance:null});
+    }
+    // Step 2 — discover remaining ad accounts via /me/adaccounts (token lives in meta-proxy).
+    // Any account row works as proxy carrier: meta-proxy resolves the shared token from accounts.id.
+    const carrierId=socialAccs.find(a=>a.id)?.id||null;
+    if(carrierId){
+      const adAccPhotoMap={};
+      socialAccs.forEach(a=>{if(a.ad_account_id&&(a.profile_picture_url||a.picture_url))adAccPhotoMap[_maCleanAccId(a.ad_account_id)]=a.profile_picture_url||a.picture_url;});
+      try{
+        const d=await metaFetch('/me/adaccounts',{fields:'id,name,account_status,currency'},carrierId);
+        for(const adAcc of(d?.data||[])){
+          const cid=_maCleanAccId(adAcc.id);
+          if(seen.has(cid))continue;seen.add(cid);
+          accs.push({id:carrierId,name:adAcc.name,ad_account_id:cid,display_name:adAcc.name,currency:adAcc.currency,account_status:adAcc.account_status,profile_picture_url:adAccPhotoMap[cid]||'',picture_url:'',monthSpend:0,balance:null});
+        }
+      }catch(e){console.warn('[GT] /me/adaccounts discovery failed:',e.message);}
     }
     if(!accs.length){
       if(col)col.innerHTML='<div class="gt-camp-card"><div class="gt-empty">Nenhuma conta de anúncios encontrada.</div></div>';
@@ -7093,6 +7130,7 @@ function closeMetaAds(){
   showHome();
 }
 function openMetaCampanha(){
+  if(!hasPermission('module:meta:campanha'))return;
   document.getElementById('meta-ads-hub-screen').style.display='none';
   document.getElementById('meta-ads-campanha-screen').style.display='flex';
   sessionStorage.setItem('rbv-screen','meta-ads-campanha');
@@ -7159,6 +7197,31 @@ async function _initMetaAds(){
       if(seen.has(cleanId))continue;
       seen.add(cleanId);
       _maAccounts.push({...acc,ad_account_id:cleanId,display_name:acc.name,balance:null,_fromSupabase:true});
+    }
+
+    // STEP 2 — discover remaining ad accounts via /me/adaccounts (token lives in meta-proxy).
+    // All Supabase accounts share the same Meta token, so any account row works as the proxy
+    // carrier: meta-proxy resolves the token from accounts.id, and that token owns every ad account.
+    const carrierId=socialAccs.find(a=>a.id)?.id||null;
+    if(carrierId){
+      // Map cleanAdAccountId → photo for accounts explicitly linked in Supabase (avoids sharing token-owner's photo)
+      const adAccPhotoMap={};
+      socialAccs.forEach(a=>{if(a.ad_account_id&&(a.profile_picture_url||a.picture_url))adAccPhotoMap[_maCleanAccId(a.ad_account_id)]=a.profile_picture_url||a.picture_url;});
+      try{
+        const d=await metaFetch('/me/adaccounts',{fields:'id,name,account_status,currency'},carrierId);
+        for(const adAcc of(d?.data||[])){
+          const cleanId=_maCleanAccId(adAcc.id);
+          if(seen.has(cleanId))continue;
+          seen.add(cleanId);
+          _maAccounts.push({
+            id:carrierId,name:adAcc.name,instagram_id:null,
+            ad_account_id:cleanId,display_name:adAcc.name,
+            currency:adAcc.currency,account_status:adAcc.account_status,
+            profile_picture_url:adAccPhotoMap[cleanId]||'',picture_url:'',balance:null,
+            _fromSupabase:false,
+          });
+        }
+      }catch(e){console.warn('[MetaAds] /me/adaccounts discovery failed:',e.message);}
     }
 
     if(!_maAccounts.length){
