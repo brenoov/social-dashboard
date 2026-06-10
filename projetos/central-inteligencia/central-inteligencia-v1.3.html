@@ -2692,6 +2692,12 @@ async function fetchData(accountId,period,customStart,customEnd){
   let followStart,followEnd;
   if(isHoje){followStart=followEnd=_hojeBRT;}
   else if(period===1){followStart=followEnd=_ontemBRT;}
+  else if(typeof period==='number'&&!customStart){
+    // Dias corridos (7/14/30): N dias terminando ONTEM (régua do app — não conta o dia corrente
+    // incompleto). Ex.: 7D = [ontem−6 .. ontem]. 1D acima = só ontem.
+    followEnd=_ontemBRT;
+    followStart=localDate(new Date(new Date(_ontemBRT+'T00:00:00').getTime()-(period-1)*86400000));
+  }
   else{followStart=periodStartStr;followEnd=refDateStr;}
   const _fsMs=new Date(followStart+'T00:00:00').getTime();
   const _spanDays=Math.round((new Date(followEnd+'T00:00:00').getTime()-_fsMs)/86400000)+1;
