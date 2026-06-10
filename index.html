@@ -2695,7 +2695,7 @@ async function fetchData(accountId,period,customStart,customEnd){
   const _spanDays=Math.round((new Date(followEnd+'T00:00:00').getTime()-_fsMs)/86400000)+1;
   const prevEndStr=localDate(new Date(_fsMs-86400000));
   const prevStartStr=localDate(new Date(_fsMs-_spanDays*86400000));
-  const[snaps,engCurr,engPrev,cntCurr,cntPrev,filterRow,storyDailyCurr,storyDailyPrev]=await Promise.all([
+  const[snaps,engCurr,engPrev,cntCurr,cntPrev,filterRow,storyDailyCurr,storyDailyPrev,trueLastRows]=await Promise.all([
     sb(`daily_snapshots?account_id=eq.${accountId}&captured_at=gte.${histStartStr}&captured_at=lte.${refDateStr}&order=captured_at.asc&select=followers_count,captured_at,gained,lost`),
     sb(`engagement_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=likes,saves,shares,captured_at`),
     sb(`engagement_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=1&select=likes,saves,shares,captured_at`),
@@ -2704,6 +2704,9 @@ async function fetchData(accountId,period,customStart,customEnd){
     sb(`campaign_filters?account_id=eq.${accountId}&select=selected_ids`),
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.1&captured_at=gte.${followStart}&captured_at=lte.${followEnd}&select=captured_at,story_shares,story_replies,stories_count`),
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.1&captured_at=gte.${prevStartStr}&captured_at=lte.${prevEndStr}&select=captured_at,story_shares,story_replies,stories_count`),
+    // FRESCOR = saúde do coletor (global por perfil), NÃO o fim da janela escolhida.
+    // Sem limite superior: pega a última coleta REAL, independente do período exibido.
+    sb(`daily_snapshots?account_id=eq.${accountId}&order=captured_at.desc&limit=1&select=captured_at`),
   ]);
   const eng=engCurr[0]||{likes:0,saves:0,shares:0};
   const prevEng=engPrev[0]||null;
@@ -2809,7 +2812,8 @@ async function fetchData(accountId,period,customStart,customEnd){
     cnt:{posts:cnt.posts_count,stories:storiesCount,reels:cnt.reels_count,postsReels:cnt.posts_count+cnt.reels_count,prevPostsReels:prevCnt!=null?prevCnt.posts_count+prevCnt.reels_count:null,prevStories:prevStoriesCount},
     storyEng:{shares:storyShares,replies:storyRep,prevShares:prevStoryShares,prevReplies:prevStoryRep},
     pl,
-    lastSnap:snaps.length?snaps[snaps.length-1].captured_at:null,
+    // Última coleta REAL do perfil (não o fim da janela) → frescor honesto em todo período.
+    trueLastSnap:trueLastRows.length?trueLastRows[0].captured_at:null,
     grossGained,grossLost,grossPartial,
   };
 }
@@ -2968,7 +2972,7 @@ function applyFreshness(lastSnapStr){
 /* ── MAIN UPDATE ── */
 function update(d,period){
   const pl=d.pl;
-  applyFreshness(period==='lastmonth'?undefined:d.lastSnap); // MÊS PASS é histórico — não avalia frescor
+  applyFreshness(d.trueLastSnap); // frescor = última coleta REAL do coletor, igual em qualquer período
   const totalEl=document.getElementById('total-followers');if(totalEl)animCountFull(totalEl,d.followerTotal);
   const newEl=document.getElementById('new-followers-val');if(newEl)animCount(newEl,d.newFollowers);
   // Sublinha de fluxo bruto (▲novos ▼saíram) removida: era outra régua da Meta (≠ indicador
