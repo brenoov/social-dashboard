@@ -2654,9 +2654,9 @@ async function fetchData(accountId,period,customStart,customEnd){
     const sd=new Date(customStart+'T12:00:00');
     effectivePeriod=Math.max(1,Math.round((refDate-sd)/86400000));
     storedPeriod=closestStoredPeriod(effectivePeriod);
-    // Margem p/ trás: o líquido = contagem(fim) − contagem(dia ANTERIOR ao início). Sem margem,
-    // snaps começava em customStart e não havia base anterior → _startSnap undefined → newFollowers=0.
-    histStartDate=new Date(sd);histStartDate.setDate(histStartDate.getDate()-7);
+    // Margem p/ trás suficiente p/ cobrir TAMBÉM a janela do período anterior (comparação bruta).
+    // Sem margem, snaps começava em customStart e o bruto do período anterior ficava incompleto.
+    histStartDate=new Date(sd);histStartDate.setDate(histStartDate.getDate()-(effectivePeriod+2));
   } else if(isLastMonth){
     // MÊS PASS: refDate = último dia do mês passado → todas as queries (followers,
     // engajamento, ads) recortam no mês anterior. storedPeriod=30 usa o snapshot
@@ -2726,32 +2726,24 @@ async function fetchData(accountId,period,customStart,customEnd){
   const lostArr=inWindow.map(s=>Number(s.lost)||0);
   const grossGained=gainedArr.reduce((a,b)=>a+b,0);
   const grossLost=lostArr.reduce((a,b)=>a+b,0);
-  // LÍQUIDO em TEMPO REAL (todos os períodos): variação da contagem total dentro da janela.
-  // A contagem total é coletada todo dia (sem a defasagem ~2 dias do bruto novos/saíram),
-  // então o saldo nunca zera indevidamente. Soma dos deltas diários = total(fim) − total(antes do início).
-  const _endSnap=[...snaps].reverse().find(s=>s.captured_at<=followEnd);
-  const _beforeStartStr=localDate(new Date(new Date(followStart+'T00:00:00').getTime()-86400000));
-  const _startSnap=[...snaps].reverse().find(s=>s.captured_at<=_beforeStartStr);
-  const newFollowers=(_endSnap&&_startSnap)?(_endSnap.followers_count-_startSnap.followers_count):0;
+  // NOVOS/SAÍRAM = MESMA RÉGUA DO PAINEL PROFISSIONAL (métrica follows_and_unfollows da Meta,
+  // gravada por dia em gained/lost). Líquido do período = Σnovos − Σsaíram. Confirmado batendo
+  // EXATO com o app (ex.: 7d Breno = 166 novos / 114 saíram / 52 líquido).
+  const newFollowers=grossGained-grossLost;
   // Bruto (novos/saíram) consolida ~2 dias depois → "parcial" quando a janela termina nos últimos 2 dias.
   const grossPartial=followEnd>=_ontemBRT;
-  // GRÁFICO "/dia" = LÍQUIDO pela CONTAGEM TOTAL (régua única). Garante que a soma das barras
-  // seja EXATAMENTE o indicador do período (newFollowers): delta(dia)=contagem(dia)−contagem(dia
-  // anterior na série) telescopa p/ contagem(fim)−contagem(antes do início). Inclui hoje (a
-  // contagem é fresca, sem a defasagem ~2 dias do bruto novos/saíram).
-  const _idxByDate={};snaps.forEach((s,i)=>{_idxByDate[s.captured_at]=i;});
-  const _countDeltaOf=s=>{const i=_idxByDate[s.captured_at];return i>0?((Number(s.followers_count)||0)-(Number(snaps[i-1].followers_count)||0)):0;};
+  // GRÁFICO "/dia" = bruto novos (▲) e saíram (▼) por dia, mesma régua do app. A soma das barras
+  // ▲ = Σnovos e ▼ = Σsaíram, batendo com a sublinha e com o painel profissional.
   const chartSrc=snaps.filter(s=>s.captured_at>=followStart&&s.captured_at<=followEnd);
-  const chartNet=chartSrc.map(_countDeltaOf);
-  const chartGained=chartNet.map(v=>v>0?v:0);
-  const chartLost=chartNet.map(v=>v<0?-v:0);
+  const chartGained=chartSrc.map(s=>Number(s.gained)||0);
+  const chartLost=chartSrc.map(s=>Number(s.lost)||0);
   const chartLabels=chartSrc.length?chartSrc.map(s=>fmtLabel(s.captured_at)):['—'];
   const chartDates=chartSrc.length?chartSrc.map(s=>fmtFull(s.captured_at)):['—'];
-  // Período anterior (mesma duração) imediatamente antes da janela — MESMA régua (contagem total).
-  const _prevBeforeStr=localDate(new Date(new Date(prevStartStr+'T00:00:00').getTime()-86400000));
-  const _prevEndSnap=[...snaps].reverse().find(s=>s.captured_at<=prevEndStr);
-  const _prevStartSnap=[...snaps].reverse().find(s=>s.captured_at<=_prevBeforeStr);
-  const prevNewFollowers=(_prevEndSnap&&_prevStartSnap)?(_prevEndSnap.followers_count-_prevStartSnap.followers_count):null;
+  // Período anterior (mesma duração) imediatamente antes da janela — MESMA régua (bruto novos−saíram).
+  const _prevWindow=snaps.filter(s=>s.captured_at>=prevStartStr&&s.captured_at<=prevEndStr);
+  const _prevGained=_prevWindow.reduce((a,s)=>a+(Number(s.gained)||0),0);
+  const _prevLost=_prevWindow.reduce((a,s)=>a+(Number(s.lost)||0),0);
+  const prevNewFollowers=_prevWindow.length?(_prevGained-_prevLost):null;
   // ── Conferência (F4): líquido === novos − saíram ──
   // (nota) o líquido pela contagem total e o bruto novos−saíram são medições distintas da Meta
   // e não batem exatamente — por isso o saldo principal usa a contagem total (confiável/tempo real).
@@ -2977,10 +2969,14 @@ function update(d,period){
   applyFreshness(d.trueLastSnap); // frescor = última coleta REAL do coletor, igual em qualquer período
   const totalEl=document.getElementById('total-followers');if(totalEl)animCountFull(totalEl,d.followerTotal);
   const newEl=document.getElementById('new-followers-val');if(newEl)animCount(newEl,d.newFollowers);
-  // Sublinha de fluxo bruto (▲novos ▼saíram) removida: era outra régua da Meta (≠ indicador
-  // líquido por contagem) e abria divergência. Mantém-se UMA régua só em toda a tela.
+  // Sublinha ▲novos ▼saíram = bruto da MESMA régua do painel profissional (gained/lost).
   const grossEl=document.getElementById('gross-followers');
-  if(grossEl)grossEl.style.display='none';
+  if(grossEl){
+    grossEl.style.display='flex';
+    grossEl.innerHTML=`<span style="color:#16a34a">▲ ${fmtN(d.grossGained)} novos</span>`+
+                      `<span style="color:#ef4444">▼ ${fmtN(d.grossLost)} saíram</span>`+
+                      (d.grossPartial?`<span style="color:#9aa0a6;font-weight:500">· últimos dias parciais</span>`:'');
+  }
   buildChart(d.chart);
   setCompare('cmp-followers',d.newFollowers,d.prevNewFollowers,'',pl,false);
   applyMetric('followers',d.newFollowers,getGoal('followers'));
