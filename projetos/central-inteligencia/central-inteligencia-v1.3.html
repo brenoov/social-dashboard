@@ -2810,6 +2810,9 @@ async function fetchData(accountId,period,customStart,customEnd){
     storyEng:{shares:storyShares,replies:storyRep,prevShares:prevStoryShares,prevReplies:prevStoryRep},
     pl,
     lastSnap:snaps.length?snaps[snaps.length-1].captured_at:null,
+    // Range personalizado que termina antes de hoje é HISTÓRICO → não avalia frescor
+    // (senão o último snap da janela é sempre < hoje e dispara falso "desatualizado").
+    isHistorical:!!(customStart&&customEnd&&customEnd<_hojeBRT),
     grossGained,grossLost,grossPartial,
   };
 }
@@ -2968,7 +2971,7 @@ function applyFreshness(lastSnapStr){
 /* ── MAIN UPDATE ── */
 function update(d,period){
   const pl=d.pl;
-  applyFreshness(period==='lastmonth'?undefined:d.lastSnap); // MÊS PASS é histórico — não avalia frescor
+  applyFreshness((period==='lastmonth'||d.isHistorical)?undefined:d.lastSnap); // MÊS PASS / range histórico — não avalia frescor
   const totalEl=document.getElementById('total-followers');if(totalEl)animCountFull(totalEl,d.followerTotal);
   const newEl=document.getElementById('new-followers-val');if(newEl)animCount(newEl,d.newFollowers);
   // Sublinha de fluxo bruto (▲novos ▼saíram) removida: era outra régua da Meta (≠ indicador

@@ -1,6 +1,20 @@
-dashboard-redes-sociais/coletor/.env
-dashboard-redes-sociais/coletor/__pycache__/
+# segredos — .env em qualquer pasta (mantém .env.exemplo rastreado)
+.env
+**/.env
+!**/.env.exemplo
+
+# coletor / python
+**/coletor/__pycache__/
 *.pyc
+
+# logs e backups
+**/coletor/logs/
+**/backup/*.bak.html
+**/backup/*.log
+
+# config local / ferramentas
 .DS_Store
 .playwright-mcp/
 .claude/
+.vercel/
+.superpowers/
