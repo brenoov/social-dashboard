@@ -2714,29 +2714,34 @@ async function fetchData(accountId,period,customStart,customEnd){
   const prevEng=engPrev[0]||null;
   const cnt=cntCurr[0]||{posts_count:0,stories_count:0,reels_count:0};
   const prevCnt=cntPrev[0]||null;
-  // descarta hoje 0/0 (métrica consolida no dia seguinte) — EXCETO em HOJE, que é a visão tempo real
-  const inWindow=snaps.filter(s=>s.captured_at>=followStart&&s.captured_at<=followEnd)
-    .filter(s=>!(!isHoje&&s.captured_at===_hojeBRT&&(Number(s.gained)||0)===0&&(Number(s.lost)||0)===0));
   const latest=snaps.length>0?snaps[snaps.length-1].followers_count:0;
   function fmtLabel(dateStr){const d=new Date(dateStr+'T12:00:00');return effectivePeriod<=7?days[d.getDay()]:d.getDate()+'/'+(d.getMonth()+1);}
   function fmtFull(dateStr){const d=new Date(dateStr+'T12:00:00');return d.getDate()+' '+months[d.getMonth()];}
-  // NOVOS x SAÍRAM — BRUTO REAL (métrica follows_and_unfollows gravada por dia: gained/lost).
-  // Cada dia tem os DOIS; o líquido = novos − saíram.
-  const gainedArr=inWindow.map(s=>Number(s.gained)||0);
-  const lostArr=inWindow.map(s=>Number(s.lost)||0);
-  const grossGained=gainedArr.reduce((a,b)=>a+b,0);
-  const grossLost=lostArr.reduce((a,b)=>a+b,0);
-  // NOVOS/SAÍRAM = MESMA RÉGUA DO PAINEL PROFISSIONAL (métrica follows_and_unfollows da Meta,
-  // gravada por dia em gained/lost). Líquido do período = Σnovos − Σsaíram. Confirmado batendo
-  // EXATO com o app (ex.: 7d Breno = 166 novos / 114 saíram / 52 líquido).
-  const newFollowers=grossGained-grossLost;
-  // Bruto (novos/saíram) consolida ~2 dias depois → "parcial" quando a janela termina nos últimos 2 dias.
-  const grossPartial=followEnd>=_ontemBRT;
-  // GRÁFICO "/dia" = bruto novos (▲) e saíram (▼) por dia, mesma régua do app. A soma das barras
-  // ▲ = Σnovos e ▼ = Σsaíram, batendo com a sublinha e com o painel profissional.
+  // NOVOS x SAÍRAM por dia. Régua do app = bruto follows_and_unfollows (gained/lost). PORÉM a Graph
+  // API consolida o bruto ~2 dias depois (dias recentes vêm 0/0, mesmo o app já mostrando). Para NÃO
+  // deixar dias zerados, dias recentes ainda 0/0 caem no LÍQUIDO pela contagem total (followers_count,
+  // diário/tempo real) — preserva o líquido do período; quando a Meta consolida, o coletor re-coleta
+  // e o bruto real entra no lugar automaticamente.
+  const _idxByDate={};snaps.forEach((s,i)=>{_idxByDate[s.captured_at]=i;});
+  const _netCountOf=s=>{const i=_idxByDate[s.captured_at];return i>0?((Number(s.followers_count)||0)-(Number(snaps[i-1].followers_count)||0)):0;};
+  const _daysAgo=s=>Math.round((new Date(_hojeBRT+'T00:00:00')-new Date(s.captured_at+'T00:00:00'))/864e5);
+  // [novos, saíram, ehFallback] do dia: bruto se consolidado; senão (recente e 0/0) líquido pela contagem.
+  const _glOf=s=>{
+    const g=Number(s.gained)||0,l=Number(s.lost)||0;
+    if(g>0||l>0)return[g,l,false];
+    if(_daysAgo(s)<=2){const n=_netCountOf(s);return n>=0?[n,0,true]:[0,-n,true];}
+    return[0,0,false];
+  };
   const chartSrc=snaps.filter(s=>s.captured_at>=followStart&&s.captured_at<=followEnd);
-  const chartGained=chartSrc.map(s=>Number(s.gained)||0);
-  const chartLost=chartSrc.map(s=>Number(s.lost)||0);
+  const _gl=chartSrc.map(_glOf);
+  const chartGained=_gl.map(x=>x[0]);
+  const chartLost=_gl.map(x=>x[1]);
+  const grossGained=chartGained.reduce((a,b)=>a+b,0);
+  const grossLost=chartLost.reduce((a,b)=>a+b,0);
+  // Líquido do período = Σnovos − Σsaíram (mesma régua do painel profissional; 7d Breno consolidado=166/114/52).
+  const newFollowers=grossGained-grossLost;
+  // "parcial": algum dia da janela ainda não consolidou o bruto e entrou pelo líquido da contagem.
+  const grossPartial=_gl.some(x=>x[2]);
   const chartLabels=chartSrc.length?chartSrc.map(s=>fmtLabel(s.captured_at)):['—'];
   const chartDates=chartSrc.length?chartSrc.map(s=>fmtFull(s.captured_at)):['—'];
   // Período anterior (mesma duração) imediatamente antes da janela — MESMA régua (bruto novos−saíram).
