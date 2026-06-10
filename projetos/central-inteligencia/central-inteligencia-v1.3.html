@@ -2731,11 +2731,15 @@ async function fetchData(accountId,period,customStart,customEnd){
   const _idxByDate={};snaps.forEach((s,i)=>{_idxByDate[s.captured_at]=i;});
   const _netCountOf=s=>{const i=_idxByDate[s.captured_at];return i>0?((Number(s.followers_count)||0)-(Number(snaps[i-1].followers_count)||0)):0;};
   const _daysAgo=s=>Math.round((new Date(_hojeBRT+'T00:00:00')-new Date(s.captured_at+'T00:00:00'))/864e5);
+  // 7/14/30 dias = BRUTO PURO, EXATAMENTE igual ao painel profissional (7d Breno = 166/114/52).
+  // Sem fallback: o painel também deixa o último dia consolidar (não preenche pela contagem).
+  // HOJE/1D/MÊS/MÊS PASS/ATÉ AGORA/custom mantêm o fallback p/ não zerar o dia corrente/recente.
+  const _pureGross=(typeof period==='number'&&period>1&&!customStart);
   // [novos, saíram, ehFallback] do dia: bruto se consolidado; senão (recente e 0/0) líquido pela contagem.
   const _glOf=s=>{
     const g=Number(s.gained)||0,l=Number(s.lost)||0;
     if(g>0||l>0)return[g,l,false];
-    if(_daysAgo(s)<=2){const n=_netCountOf(s);return n>=0?[n,0,true]:[0,-n,true];}
+    if(!_pureGross&&_daysAgo(s)<=2){const n=_netCountOf(s);return n>=0?[n,0,true]:[0,-n,true];}
     return[0,0,false];
   };
   const chartSrc=snaps.filter(s=>s.captured_at>=followStart&&s.captured_at<=followEnd);
