@@ -2698,6 +2698,13 @@ async function fetchData(accountId,period,customStart,customEnd){
     followEnd=_ontemBRT;
     followStart=localDate(new Date(new Date(_ontemBRT+'T00:00:00').getTime()-(period-1)*86400000));
   }
+  else if(isLastMonth){
+    // MÊS PASSADO = mês-calendário anterior EXATO (ex.: jun → 01/05..31/05). Antes pegava
+    // refDate−effectivePeriod = 30/04..31/05 (off-by-one que incluía o último dia de abril).
+    const _n=new Date();
+    followStart=localDate(new Date(_n.getFullYear(),_n.getMonth()-1,1));
+    followEnd=localDate(new Date(_n.getFullYear(),_n.getMonth(),0));
+  }
   else{followStart=periodStartStr;followEnd=refDateStr;}
   const _fsMs=new Date(followStart+'T00:00:00').getTime();
   const _spanDays=Math.round((new Date(followEnd+'T00:00:00').getTime()-_fsMs)/86400000)+1;
