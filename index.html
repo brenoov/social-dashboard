@@ -2654,7 +2654,9 @@ async function fetchData(accountId,period,customStart,customEnd){
     const sd=new Date(customStart+'T12:00:00');
     effectivePeriod=Math.max(1,Math.round((refDate-sd)/86400000));
     storedPeriod=closestStoredPeriod(effectivePeriod);
-    histStartDate=sd;
+    // Margem p/ trás: o líquido = contagem(fim) − contagem(dia ANTERIOR ao início). Sem margem,
+    // snaps começava em customStart e não havia base anterior → _startSnap undefined → newFollowers=0.
+    histStartDate=new Date(sd);histStartDate.setDate(histStartDate.getDate()-7);
   } else if(isLastMonth){
     // MÊS PASS: refDate = último dia do mês passado → todas as queries (followers,
     // engajamento, ads) recortam no mês anterior. storedPeriod=30 usa o snapshot
