@@ -1,0 +1,14 @@
+{
+  "name": "iamundi-coletor",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Runner de migrations e coletor de notícias do iamundi/social-dashboard",
+  "scripts": {
+    "migrate": "node run-migrations.mjs",
+    "migrate:dry": "node run-migrations.mjs --dry"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}
