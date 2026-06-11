@@ -21,3 +21,6 @@
 
 # node
 **/node_modules/
+
+# poll temporário do coletor (contém credencial local)
+coletor/np-poll.mjs
