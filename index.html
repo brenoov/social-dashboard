@@ -917,6 +917,40 @@
   .smenu-card-title{font-family:'Oswald',sans-serif;font-size:18px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);line-height:1.2;}
   .smenu-card-desc{font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);line-height:1.7;}
   .smenu-card-enter{position:absolute;bottom:16px;right:18px;font-size:18px;color:var(--muted);transition:all .2s;}
+
+  /* ===== Portal de Notícias ===== */
+  #noticias-screen{display:none;flex-direction:column;min-height:100vh;background:var(--bg);}
+  .np-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 22px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:20;}
+  .np-back{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:1px;}
+  .np-back:hover{color:var(--text);}
+  .np-title{font-family:'Oswald',sans-serif;font-size:15px;font-weight:500;letter-spacing:3px;text-transform:uppercase;color:var(--text);}
+  .np-meta{font-family:'IBM Plex Sans',sans-serif;font-size:10px;letter-spacing:1px;color:var(--muted);white-space:nowrap;}
+  .np-tabs{display:flex;gap:6px;flex-wrap:wrap;padding:14px 22px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:49px;z-index:19;}
+  .np-tab{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;letter-spacing:.5px;padding:6px 13px;border-radius:999px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap;}
+  .np-tab:hover{color:var(--text);border-color:var(--accent-mid);}
+  .np-tab.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .np-tab-count{opacity:.7;margin-left:5px;font-size:10px;}
+  .np-body{flex:1;padding:22px;max-width:1120px;margin:0 auto;width:100%;}
+  .np-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;}
+  .np-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;display:flex;flex-direction:column;gap:10px;transition:all .2s;box-shadow:var(--shadow-sm);}
+  .np-card:hover{border-color:var(--accent-mid);box-shadow:var(--shadow-md);transform:translateY(-2px);}
+  .np-card.destaque{border-color:var(--accent-mid);background:var(--accent-light);}
+  .np-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .np-chip{font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:5px;background:var(--surface2);color:var(--muted);}
+  .np-chip.c-faturamento{background:rgba(26,110,69,.12);color:var(--green);}
+  .np-chip.c-precopromo{background:rgba(176,30,58,.12);color:var(--red);}
+  .np-chip.c-lancamento,.np-chip.c-campanha,.np-chip.c-estrategia{background:var(--accent-light);color:var(--accent);}
+  .np-chip.c-tendencia,.np-chip.c-expansao{background:rgba(184,88,0,.12);color:var(--orange);}
+  .np-card-date{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);}
+  .np-card-title{font-family:'Oswald',sans-serif;font-size:16px;font-weight:500;line-height:1.25;color:var(--text);}
+  .np-card-resumo{font-family:'IBM Plex Sans',sans-serif;font-size:12.5px;line-height:1.6;color:var(--muted);}
+  .np-card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;padding-top:6px;}
+  .np-card-fonte{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);}
+  .np-card-link{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;color:var(--accent);text-decoration:none;white-space:nowrap;}
+  .np-card-link:hover{text-decoration:underline;}
+  .np-empty{grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;}
+  .np-empty h3{font-family:'Oswald',sans-serif;font-weight:500;letter-spacing:1px;color:var(--text);margin:0 0 6px;}
+  @media(max-width:560px){.np-cards{grid-template-columns:1fr;}.np-body{padding:16px;}.np-tabs{padding:10px 14px;top:47px;}.np-topbar{padding:12px 14px;}.np-meta{display:none;}}
   .smenu-card:hover .smenu-card-enter{transform:translateX(4px);color:var(--accent);}
   .smenu-cards.view-list{flex-direction:column;align-items:stretch;gap:8px;width:100%;max-width:640px;}
   .smenu-cards.view-list .smenu-card{width:100%;min-height:unset;flex-direction:row;padding:14px 18px 14px 20px;gap:16px;align-items:center;}
@@ -1888,6 +1922,16 @@
         <div class="home-card-text">
           <h3>Banco de<br>Arquivos</h3>
           <p>Downloads e uploads de materiais e recursos visuais</p>
+        </div>
+        <span class="home-card-enter">→</span>
+      </div>
+      <div class="home-card" id="home-card-noticias" onclick="openNoticias()" onmouseenter="setHomeBgTheme('default')" onmouseleave="setHomeBgTheme('default')">
+        <div class="home-card-icon" style="background:linear-gradient(135deg,#0f4c81 0%,#1d4ed8 100%)">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v16a2 2 0 0 1-2 2 2 2 0 0 1-2-2V9a1 1 0 0 1 1-1h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8z"/></svg>
+        </div>
+        <div class="home-card-text">
+          <h3>Portal de<br>Notícias</h3>
+          <p>Inteligência de concorrentes por marca, atualizada toda semana</p>
         </div>
         <span class="home-card-enter">→</span>
       </div>
@@ -4031,7 +4075,7 @@ function showDashboard(user,role,features,avatarUrl){
   const adminCard=document.getElementById('home-card-admin');
   if(adminCard)adminCard.style.display=role==='admin'?'':'none';
   const isAdmin=role==='admin';
-  ['social','sales','meta','banco'].forEach(f=>{
+  ['social','sales','meta','banco','noticias'].forEach(f=>{
     const c=document.getElementById('home-card-'+f);
     if(c)c.style.display=(isAdmin||currentUserFeatures.includes(f))?'':'none';
   });
@@ -4046,6 +4090,7 @@ function showDashboard(user,role,features,avatarUrl){
     else if(screen==='sales-analysis'){openSalesDashboard();setTimeout(()=>{openSalesBrandPicker();setTimeout(openSalesAnalysis,0);},0);}
     else if(screen==='gestao-vista'){openSalesDashboard();setTimeout(openGestaoVista,0);}
     else if(screen==='banco')openBanco(true);
+    else if(screen==='noticias')openNoticias();
     else if(screen==='meta-ads')openMetaAds();
     else if(screen==='meta-ads-campanha'){openMetaAds();setTimeout(openMetaCampanha,0);}
     else showHome();
@@ -8206,6 +8251,70 @@ function closeBanco(){
   document.getElementById('banco-screen').style.display='none';
   showHome();
 }
+
+// ===== Portal de Notícias =====
+let _npData=[], _npTab=null;
+const NP_ORDER=['Santa Lolla','Capodarte','Carmen Steffens','Dumond','Arezzo&Co','Chenson','SAAD','La Vessel','Mercado'];
+function openNoticias(){
+  document.getElementById('home-screen').style.display='none';
+  document.getElementById('noticias-screen').style.display='flex';
+  sessionStorage.setItem('rbv-screen','noticias');
+  loadNoticias();
+}
+function closeNoticias(){
+  document.getElementById('noticias-screen').style.display='none';
+  showHome();
+}
+async function loadNoticias(){
+  const cardsEl=document.getElementById('np-cards');
+  cardsEl.innerHTML='<div class="np-empty"><h3>Carregando…</h3></div>';
+  const{data,error}=await sbClient.from('noticias_concorrentes')
+    .select('*')
+    .order('rodada',{ascending:false})
+    .order('destaque',{ascending:false})
+    .order('created_at',{ascending:false});
+  if(error){cardsEl.innerHTML='<div class="np-empty"><h3>Erro ao carregar</h3><p>'+_npEsc(error.message)+'</p></div>';return;}
+  _npData=data||[];
+  const rodadas=[...new Set(_npData.map(n=>n.rodada))].filter(Boolean).sort().reverse();
+  document.getElementById('np-meta').textContent=rodadas[0]?('Atualizado em '+_npFmtDate(rodadas[0])):'Sem dados';
+  _npRenderTabs();
+}
+function _npRenderTabs(){
+  const marcas=[...new Set(_npData.map(n=>n.marca))];
+  marcas.sort((a,b)=>{const ia=NP_ORDER.indexOf(a),ib=NP_ORDER.indexOf(b);return(ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);});
+  if(!_npTab||!marcas.includes(_npTab))_npTab=marcas[0]||null;
+  const tabsEl=document.getElementById('np-tabs');
+  tabsEl.textContent='';
+  marcas.forEach(m=>{
+    const n=_npData.filter(x=>x.marca===m).length;
+    const b=document.createElement('button');
+    b.className='np-tab'+(m===_npTab?' active':'');
+    b.innerHTML=_npEsc(m)+'<span class="np-tab-count">'+n+'</span>';
+    b.onclick=()=>{_npTab=m;_npRenderTabs();};
+    tabsEl.appendChild(b);
+  });
+  _npRenderCards();
+}
+function _npRenderCards(){
+  const cardsEl=document.getElementById('np-cards');
+  const items=_npData.filter(n=>n.marca===_npTab);
+  if(!items.length){cardsEl.innerHTML='<div class="np-empty"><h3>Nenhuma notícia</h3><p>Esta marca ainda não tem registros.</p></div>';return;}
+  cardsEl.innerHTML=items.map(n=>{
+    const cat=n.categoria||'';
+    const cls='c-'+cat.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z]/g,'');
+    const link=n.url?'<a class="np-card-link" href="'+_npEsc(n.url)+'" target="_blank" rel="noopener noreferrer">Ver fonte →</a>':'';
+    const chip=cat?'<span class="np-chip '+cls+'">'+_npEsc(cat)+'</span>':'<span></span>';
+    const date=n.data_publicacao?_npFmtDate(n.data_publicacao):'';
+    return '<div class="np-card'+(n.destaque?' destaque':'')+'">'
+      +'<div class="np-card-top">'+chip+'<span class="np-card-date">'+date+'</span></div>'
+      +'<div class="np-card-title">'+_npEsc(n.titulo)+'</div>'
+      +(n.resumo?'<div class="np-card-resumo">'+_npEsc(n.resumo)+'</div>':'')
+      +'<div class="np-card-foot"><span class="np-card-fonte">'+_npEsc(n.fonte||'')+'</span>'+link+'</div>'
+      +'</div>';
+  }).join('');
+}
+function _npFmtDate(d){try{return new Date(d+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}).replace(/ de /g,'/').replace('.','');}catch(e){return d;}}
+function _npEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 async function loadArquivos(){
   const listEl=document.getElementById('banco-file-list');
   _bancoBuildEmpty(listEl,'Carregando…','');
@@ -8750,6 +8859,21 @@ function setHomeBgTheme(type){
     </div>
     <div class="banco-file-list" id="banco-file-list"></div>
   </div>
+</div>
+
+<!-- PORTAL DE NOTÍCIAS -->
+<div id="noticias-screen">
+  <div class="np-topbar">
+    <button class="np-back" onclick="closeNoticias()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Central</button>
+    <div style="display:flex;align-items:center;gap:10px">
+      <img class="rbv-logo rbv-logo-light" src="midia/LOGOTIPOBRENOPRETO.png" alt="RBV">
+      <img class="rbv-logo rbv-logo-dark" src="midia/LOGOTIPOBRENOBRANCO.png" alt="RBV">
+      <span class="np-title">Portal de Notícias</span>
+    </div>
+    <span class="np-meta" id="np-meta">—</span>
+  </div>
+  <div class="np-tabs" id="np-tabs"></div>
+  <div class="np-body"><div class="np-cards" id="np-cards"></div></div>
 </div>
 
 <!-- ── CHANGE PASSWORD MODAL ── -->
