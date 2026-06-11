@@ -45,15 +45,18 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 
-// TLS com verificação de certificado ligada (os certs do Supabase são válidos
-// contra CAs públicas). Se precisar de CA própria, aponte PGSSLROOTCERT pro .crt.
-const sslRootCert = process.env.PGSSLROOTCERT;
+// TLS com verificação de certificado ligada. O pooler do Supabase usa CA própria,
+// então usamos o supabase-ca.crt (ao lado deste script) por padrão; dá pra
+// sobrescrever com PGSSLROOTCERT.
+const caPath = process.env.PGSSLROOTCERT || join(__dirname, 'supabase-ca.crt');
+if (!existsSync(caPath)) {
+  console.error('✗ CA não encontrada:', caPath);
+  console.error('  Baixe a CA do Supabase: curl -fsSL https://supabase-downloads.s3-ap-southeast-1.amazonaws.com/prod/ssl/prod-ca-2021.crt -o coletor/supabase-ca.crt');
+  process.exit(1);
+}
 const client = new pg.Client({
   connectionString: DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: true,
-    ...(sslRootCert && existsSync(sslRootCert) ? { ca: readFileSync(sslRootCert, 'utf8') } : {}),
-  },
+  ssl: { rejectUnauthorized: true, ca: readFileSync(caPath, 'utf8') },
 });
 
 async function main() {
