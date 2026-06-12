@@ -1,0 +1,32 @@
+name: Coletor de Notícias (concorrentes Vessel)
+
+# Roda todo dia às 11:00 UTC (08:00 Brasília). Também dá pra disparar à mão.
+on:
+  schedule:
+    - cron: '0 11 * * *'
+  workflow_dispatch: {}
+
+# Evita rodadas sobrepostas se uma demorar
+concurrency:
+  group: coletor-noticias
+  cancel-in-progress: false
+
+jobs:
+  coletar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Rodar agente coletor
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # SUPABASE_URL e COLETOR_MODEL têm default no script; sobrescreva aqui se quiser.
+        run: node coletor/agente-noticias.mjs
