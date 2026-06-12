@@ -50,11 +50,23 @@ const baseHeaders = {
   'anthropic-version': '2023-06-01',
   'content-type': 'application/json',
 };
-async function anthropic(body) {
-  const r = await fetch(ANTHROPIC_URL, { method: 'POST', headers: baseHeaders, body: JSON.stringify(body) });
-  const j = await r.json();
-  if (!r.ok) throw new Error('Anthropic ' + r.status + ' ' + JSON.stringify(j).slice(0, 400));
-  return j;
+const sleep = (ms) => new Promise(res => setTimeout(res, ms));
+async function anthropic(body, tentativas = 6) {
+  for (let t = 0; t < tentativas; t++) {
+    const r = await fetch(ANTHROPIC_URL, { method: 'POST', headers: baseHeaders, body: JSON.stringify(body) });
+    if (r.ok) return r.json();
+    // 429 (rate limit) ou 529/500 (sobrecarga) → espera e tenta de novo
+    if (r.status === 429 || r.status === 529 || r.status >= 500) {
+      const ra = parseInt(r.headers.get('retry-after') || '0', 10);
+      const espera = (ra > 0 ? ra : Math.min(60, 8 * (t + 1))) * 1000;
+      console.log('    rate limit/sobrecarga (' + r.status + '); aguardando ' + (espera / 1000) + 's…');
+      await sleep(espera);
+      continue;
+    }
+    const j = await r.json().catch(() => ({}));
+    throw new Error('Anthropic ' + r.status + ' ' + JSON.stringify(j).slice(0, 300));
+  }
+  throw new Error('Anthropic: esgotadas as tentativas após rate limit');
 }
 
 const SCHEMA = {
@@ -94,35 +106,38 @@ function promptPesquisa(marca) {
     + 'NUNCA invente — use só fontes reais com URL verificável. Quando terminar de pesquisar, resuma o que achou.';
 }
 
-function promptEstrutura(marca) {
-  return 'Com base APENAS no que você pesquisou acima, gere a lista de notícias desta marca. '
+function promptEstrutura(marca, notas) {
+  return 'Notas de pesquisa sobre "' + marca + '":\n\n' + notas + '\n\n'
+    + 'Com base APENAS nessas notas, gere a lista de notícias. '
     + 'Para cada notícia: titulo (curto, sem aspas duplas), resumo (1-2 frases com o INSIGHT competitivo para a Vessel), '
     + 'categoria (EXATAMENTE um de: ' + CATEGORIAS.join(', ') + '), url (link real da fonte), fonte (nome do veículo), '
-    + 'data_publicacao (YYYY-MM-DD, a data real da matéria; se desconhecida, use a mais provável), '
+    + 'data_publicacao (YYYY-MM-DD, a data real; se desconhecida, a mais provável), '
     + 'destaque (true APENAS para a matéria mais importante/recente; false nas demais). '
-    + 'Inclua só matérias com fonte e URL reais. Se não achou nada relevante, retorne lista vazia.';
+    + 'Inclua só matérias com fonte e URL reais. Se não houver nada relevante, retorne lista vazia.';
 }
 
-// Roda o loop agêntico de pesquisa (lida com pause_turn dos server tools) e
-// depois força a saída estruturada (JSON validado por schema).
+// Fase 1: loop agêntico de pesquisa (web search). Fase 2: estrutura em JSON a
+// partir SÓ do texto-resumo (não reenvia os resultados brutos — economiza tokens
+// e respeita o limite de TPM da conta).
 async function coletarMarca(marca) {
   const messages = [{ role: 'user', content: promptPesquisa(marca) }];
-  const tools = [{ type: 'web_search_20260209', name: 'web_search', max_uses: 6 }];
+  const tools = [{ type: 'web_search_20260209', name: 'web_search', max_uses: 3 }];
 
-  for (let i = 0; i < 8; i++) {
-    const resp = await anthropic({ model: MODEL, max_tokens: 4096, tools, messages });
+  let notas = '';
+  for (let i = 0; i < 6; i++) {
+    const resp = await anthropic({ model: MODEL, max_tokens: 3000, tools, messages });
     messages.push({ role: 'assistant', content: resp.content });
-    if (resp.stop_reason === 'pause_turn') continue;       // server-tool loop pausou → reenvia
-    if (resp.stop_reason === 'tool_use') continue;         // (defensivo) continua o loop
-    break;                                                  // end_turn / max_tokens → pesquisa terminou
+    notas = resp.content.filter(b => b.type === 'text').map(b => b.text).join('\n');
+    if (resp.stop_reason === 'pause_turn' || resp.stop_reason === 'tool_use') continue;
+    break; // end_turn / max_tokens → pesquisa terminou
   }
+  if (!notas.trim()) return [];
 
-  // Passo 2: estruturar em JSON validado (sem tools, com output_config.format)
-  messages.push({ role: 'user', content: promptEstrutura(marca) });
+  // Passo 2: estruturar em JSON validado — input pequeno (só as notas de texto)
   const estrut = await anthropic({
     model: MODEL,
     max_tokens: 8192,
-    messages,
+    messages: [{ role: 'user', content: promptEstrutura(marca, notas) }],
     output_config: { format: { type: 'json_schema', schema: SCHEMA } },
   });
   const txt = (estrut.content.find(b => b.type === 'text') || {}).text || '{"noticias":[]}';
@@ -167,6 +182,7 @@ async function main() {
       resumo.push(marca + ': ERRO');
       console.error('  ' + marca + ' → ERRO: ' + e.message);
     }
+    await sleep(45000); // espaça as marcas p/ respeitar o limite de tokens/minuto (Tier 1 = 30k/min)
   }
 
   console.log('== Total: ' + inseridas + ' enviadas (dedupe no banco) ==');
