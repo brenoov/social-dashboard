@@ -32,6 +32,23 @@ enviar para WhatsApp/e-mail (fica só no dashboard nesta fase), previsão estat�
 
 Os outros 11 canais entram como pano de fundo/comparação, não no foco principal.
 
+## Enhancement pendente: 5ª frente — Estoque por armazém (PENDE escopo do Bling)
+
+Requisito adicional (pedido em 2026-06-12): o gestor deve olhar o **estoque de cada
+armazém** e sugerir **ações no item** (ex.: promoção em produto parado/encalhado, empurrar
+item com sobra, evitar promover o que está acabando).
+
+**BLOQUEIO:** o token OAuth do Bling usado pelo `bling-proxy` só tem escopo de
+**pedidos/vendas**. Os endpoints `depositos`, `produtos` e `estoques/saldos` retornam
+**403 `insufficient_scope`**. Para liberar, o app do Bling precisa ser re-autorizado
+incluindo os escopos **Produtos** e **Estoques** (ação no painel do Bling do usuário;
+possível ajuste no fluxo de auth do `bling-proxy`).
+
+**Quando liberar, implementar:** buscar saldo por depósito (`estoques/saldos` / `produtos`),
+identificar itens com sobra (giro baixo / estoque alto) vs. ruptura, e incluir no pacote de
+dados do agente uma seção de estoque; adicionar ao prompt a seção `## Estoque & ações no
+item` (promoção/queima por item e por armazém). Mapear depósito↔canal foco.
+
 ## As 4 frentes de análise (cada briefing cobre todas)
 
 1. **Meta vs venda real (R$)** — por canal foco: faturamento do mês corrente vs a meta
