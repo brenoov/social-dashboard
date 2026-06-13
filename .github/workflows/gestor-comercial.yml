@@ -1,0 +1,28 @@
+name: Gestor Comercial (briefing semanal)
+
+# Segunda 11:00 UTC (08:00 Brasília) + disparo manual.
+on:
+  schedule:
+    - cron: '0 11 * * 1'
+  workflow_dispatch: {}
+
+concurrency:
+  group: gestor-comercial
+  cancel-in-progress: false
+
+jobs:
+  briefing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Rodar gestor comercial
+        env:
+          ANTHROPIC_API_KEY_GESTOR: ${{ secrets.ANTHROPIC_API_KEY_GESTOR }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
+          GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
+        run: node coletor/gestor-comercial.mjs
