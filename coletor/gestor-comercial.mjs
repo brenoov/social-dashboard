@@ -152,25 +152,51 @@ async function blingGiroMes(token, pedidos, maxPedidos = 400) {
   return vendidos;
 }
 
-// Monta o resumo de estoque por canal foco: itens PARADOS (com estoque e sem
-// venda no mês) como candidatos a promoção, + total de itens com estoque.
+// Classifica o item pela descrição. Retorna a categoria, ou null se NÃO for
+// produto vendável (sacola/TNT/embalagem/matéria-prima → ignorar no comercial).
+function classificarItem(nome) {
+  const n = (nome || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (/(sacola|tnt|embalagem|caixa|linha|poliamida|poliester|nylon|tinta|materia.?prima|aviamento|ziper|ziper|tecido|forro|cola|verniz|fivela a granel)/.test(n)) return null;
+  if (/carteira/.test(n)) return 'Carteira';
+  if (/transversal|tiracolo|crossbody/.test(n)) return 'Transversal';
+  if (/tote/.test(n)) return 'Tote';
+  if (/mochila/.test(n)) return 'Mochila';
+  if (/clutch|festa|baguete/.test(n)) return 'Festa/Clutch';
+  if (/ombro/.test(n)) return 'Bolsa de ombro';
+  if (/(alca de mao|de mao|handbag)/.test(n)) return 'Bolsa de mão';
+  if (/(porta.?cartao|porta cartao| cartao)/.test(n)) return 'Porta-cartão';
+  if (/(porta.?niquel|niquel|porta.?moeda|moedeir)/.test(n)) return 'Porta-níquel';
+  if (/necessaire|nessaire/.test(n)) return 'Necessaire';
+  if (/oculos/.test(n)) return 'Óculos';
+  if (/cinto/.test(n)) return 'Cinto';
+  if (/chaveiro/.test(n)) return 'Chaveiro';
+  if (/mala/.test(n)) return 'Mala/Viagem';
+  if (/bolsa|bag/.test(n)) return 'Bolsa (outros)';
+  return 'Outros acessórios';
+}
+
+// Resumo estratégico de estoque por canal foco: só produtos vendáveis (LV),
+// agrupados por CATEGORIA, com estoque vs giro do mês e os itens parados (com
+// estoque e sem venda no mês) — base para ações por categoria e por item.
 function montarEstoque(saldoPorDep, prodMap, giro) {
   return DEP_FOCO.map(x => {
     const saldos = saldoPorDep[x.deposito_id] || {};
-    const itens = Object.entries(saldos).map(([pid, saldo]) => ({
-      nome: prodMap[pid]?.nome || pid,
-      codigo: prodMap[pid]?.codigo || '',
-      saldo,
-      vendidoMes: giro[pid] || 0,
-    }));
-    const parados = itens.filter(it => it.vendidoMes === 0).sort((a, b) => b.saldo - a.saldo).slice(0, 12);
-    const totalUnid = itens.reduce((s, it) => s + it.saldo, 0);
-    return {
-      canal: x.canal,
-      skusComEstoque: itens.length,
-      unidadesEmEstoque: totalUnid,
-      itensParados: parados,         // estoque > 0 e sem venda no mês
-    };
+    const porCat = {};   // categoria → { skus, unidEstoque, vendidoMes, parados[] }
+    let totalUnid = 0, totalSkus = 0;
+    for (const [pid, saldo] of Object.entries(saldos)) {
+      const nome = prodMap[pid]?.nome || pid;
+      const cat = classificarItem(nome);
+      if (!cat) continue;            // ignora não-vendável (sacola/tnt/insumo)
+      const vendidoMes = giro[pid] || 0;
+      totalUnid += saldo; totalSkus++;
+      const c = porCat[cat] || (porCat[cat] = { categoria: cat, skus: 0, unidEstoque: 0, vendidoMes: 0, parados: [] });
+      c.skus++; c.unidEstoque += saldo; c.vendidoMes += vendidoMes;
+      if (vendidoMes === 0) c.parados.push({ nome, codigo: prodMap[pid]?.codigo || '', saldo });
+    }
+    const categorias = Object.values(porCat)
+      .map(c => ({ ...c, parados: c.parados.sort((a, b) => b.saldo - a.saldo).slice(0, 6) }))
+      .sort((a, b) => b.unidEstoque - a.unidEstoque);
+    return { canal: x.canal, skusVendaveis: totalSkus, unidadesEmEstoque: totalUnid, categorias };
   });
 }
 
@@ -226,7 +252,7 @@ async function main() {
     const saldoPorDep = await blingSaldoFoco(token, prodMap);
     const giro = await blingGiroMes(token, pedidos);
     estoque = montarEstoque(saldoPorDep, prodMap, giro);
-    console.log('estoque coletado:', estoque.map(e => `${e.canal}=${e.skusComEstoque} SKUs/${e.itensParados.length} parados`).join(' · '));
+    console.log('estoque coletado:', estoque.map(e => `${e.canal}=${e.skusVendaveis} SKUs vend./${e.categorias.length} categorias`).join(' · '));
   } catch (e) {
     console.error('aviso estoque:', e.message); // não derruba o briefing se o estoque falhar
   }
@@ -250,7 +276,7 @@ async function main() {
     + '## Resumo executivo (3-5 bullets) · ## Ritmo das metas (por canal foco: % da meta, adiantado/atrasado, projeção de fechamento) · '
     + '## Frente competitiva (o que os concorrentes fizeram + resposta promocional sugerida) · '
     + '## Calendário comercial (próximas datas relevantes e o que preparar) · '
-    + '## Estoque & ações no item (em dados.estoque há, por armazém de cada canal foco, os itensParados = produtos COM estoque e SEM venda no mês; aponte os principais candidatos a PROMOÇÃO/queima por item e por canal, com a quantidade parada; priorize quem tem mais unidade encalhada) · '
+    + '## Estoque & ações estratégicas (em dados.estoque há, por canal foco, o estoque de PRODUTOS VENDÁVEIS agrupado por CATEGORIA — carteira, transversal, tote, ombro, mão, festa, mochila, porta-cartão, óculos etc. — com unidEstoque (em estoque), vendidoMes (giro) e parados (itens com estoque e sem venda no mês). Seja ESTRATÉGICO: (a) por CATEGORIA, diga quais estão ENCALHADAS (muito estoque, pouco/zero giro) vs GIRANDO (repor/dar destaque); (b) sugira ações concretas — promoção/queima, COMBO (ex.: carteira + bolsa), brinde, vitrine por categoria/cor da estação; (c) aponte REALOCAÇÃO entre lojas quando um item/categoria está parado num canal e girando em outro; (d) destaque os itens parados de maior capital. Cite produtos pelo nome/código. NÃO mencione sacola/TNT/insumo — já foram excluídos.) · '
     + '## Performance (destaques/alertas) · ## Ações priorizadas (lista numerada: o quê, onde, urgência). '
     + 'Use os números reais fornecidos. Não invente faturamento nem produtos que não estão nos dados. '
     + 'No fim, escreva numa última linha SÓ um resumo de 1 frase prefixado por "RESUMO: " para usar no card.';
