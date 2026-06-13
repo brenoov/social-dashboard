@@ -178,10 +178,11 @@ function classificarItem(nome) {
 // Resumo estratégico de estoque por canal foco: só produtos vendáveis (LV),
 // agrupados por CATEGORIA, com estoque vs giro do mês e os itens parados (com
 // estoque e sem venda no mês) — base para ações por categoria e por item.
-function montarEstoque(saldoPorDep, prodMap, giro) {
+function montarEstoque(saldoPorDep, prodMap, giro, diaDoMes) {
   return DEP_FOCO.map(x => {
     const saldos = saldoPorDep[x.deposito_id] || {};
     const porCat = {};   // categoria → { skus, unidEstoque, vendidoMes, parados[] }
+    const rupturas = []; // itens que giram e estão com estoque baixo
     let totalUnid = 0, totalSkus = 0;
     for (const [pid, saldo] of Object.entries(saldos)) {
       const nome = prodMap[pid]?.nome || pid;
@@ -192,11 +193,18 @@ function montarEstoque(saldoPorDep, prodMap, giro) {
       const c = porCat[cat] || (porCat[cat] = { categoria: cat, skus: 0, unidEstoque: 0, vendidoMes: 0, parados: [] });
       c.skus++; c.unidEstoque += saldo; c.vendidoMes += vendidoMes;
       if (vendidoMes === 0) c.parados.push({ nome, codigo: prodMap[pid]?.codigo || '', saldo });
+      // Ruptura: vende de verdade (>=2/mês) e tem menos de ~1 mês de cobertura
+      if (vendidoMes >= 2) {
+        const ritmoDia = vendidoMes / (diaDoMes || 1);
+        const diasCobertura = ritmoDia > 0 ? Math.round(saldo / ritmoDia) : 999;
+        if (diasCobertura <= 20) rupturas.push({ nome, codigo: prodMap[pid]?.codigo || '', categoria: cat, saldo, vendidoMes, diasCobertura });
+      }
     }
     const categorias = Object.values(porCat)
       .map(c => ({ ...c, parados: c.parados.sort((a, b) => b.saldo - a.saldo).slice(0, 6) }))
       .sort((a, b) => b.unidEstoque - a.unidEstoque);
-    return { canal: x.canal, skusVendaveis: totalSkus, unidadesEmEstoque: totalUnid, categorias };
+    rupturas.sort((a, b) => a.diasCobertura - b.diasCobertura);
+    return { canal: x.canal, skusVendaveis: totalSkus, unidadesEmEstoque: totalUnid, categorias, rupturas: rupturas.slice(0, 10) };
   });
 }
 
@@ -251,11 +259,38 @@ async function main() {
     const prodMap = await blingProdutos(token);
     const saldoPorDep = await blingSaldoFoco(token, prodMap);
     const giro = await blingGiroMes(token, pedidos);
-    estoque = montarEstoque(saldoPorDep, prodMap, giro);
-    console.log('estoque coletado:', estoque.map(e => `${e.canal}=${e.skusVendaveis} SKUs vend./${e.categorias.length} categorias`).join(' · '));
+    estoque = montarEstoque(saldoPorDep, prodMap, giro, d);
+    console.log('estoque coletado:', estoque.map(e => `${e.canal}=${e.skusVendaveis} SKUs vend./${e.rupturas.length} alertas ruptura`).join(' · '));
   } catch (e) {
     console.error('aviso estoque:', e.message); // não derruba o briefing se o estoque falhar
   }
+
+  // 3.6) comparativo com o briefing anterior (semana vs semana)
+  let comparativo = null;
+  try {
+    const ant = await sbGet('/gestao_comercial_briefings?select=rodada,dados_json&order=created_at.desc&limit=8');
+    const prev = (ant || []).find(b => b.rodada !== hoje && b.dados_json);
+    if (prev) {
+      const prevCanais = prev.dados_json.canaisFoco || [];
+      comparativo = {
+        rodadaAnterior: prev.rodada,
+        canais: CANAIS.map(c => {
+          const at = realPorCanal[c.loja_id];
+          const pv = prevCanais.find(p => p.canal === c.nome);
+          return {
+            canal: c.nome,
+            realizadoAnterior: pv ? pv.realizado : null,
+            realizadoAtual: Math.round(at),
+            deltaRealizado: pv ? Math.round(at - pv.realizado) : null,
+            percentMetaAnterior: pv ? pv.percentMeta : null,
+          };
+        }),
+      };
+      console.log('comparativo vs', prev.rodada, 'montado');
+    } else {
+      console.log('sem briefing anterior de outra data p/ comparar');
+    }
+  } catch (e) { console.error('aviso comparativo:', e.message); }
 
   // 4) monta o pacote de números (com ritmo de meta por canal foco)
   const canaisResumo = CANAIS.map(c => {
@@ -263,7 +298,7 @@ async function main() {
     const pace = metaPace({ metaValor: meta?.meta_valor, dailyGoals: meta?.daily_goals, diaDoMes: d, diasNoMes, realizado: realPorCanal[c.loja_id] });
     return { canal: c.nome, ...pace };
   });
-  const dados = { rodada: hoje, mesReferencia: `${y}-${String(m).padStart(2, '0')}`, diaDoMes: d, diasNoMes, canaisFoco: canaisResumo, totalPedidosMes: pedidos.length, estoque };
+  const dados = { rodada: hoje, mesReferencia: `${y}-${String(m).padStart(2, '0')}`, diaDoMes: d, diasNoMes, canaisFoco: canaisResumo, totalPedidosMes: pedidos.length, comparativo, estoque };
 
   // 5) Claude escreve o briefing (persona de gestor veterano)
   const sys = 'Você é um gestor comercial veterano de varejo e atacado de moda (bolsas, marca Vessel). '
@@ -274,6 +309,8 @@ async function main() {
     + 'CONCORRENTES (últimas 2 semanas):\n' + noticias.map(n => `- [${n.marca}/${n.categoria}] ${n.titulo} (${n.fonte}, ${n.data_publicacao})`).join('\n') + '\n\n'
     + 'Escreva o briefing em markdown com estas seções: '
     + '## Resumo executivo (3-5 bullets) · ## Ritmo das metas (por canal foco: % da meta, adiantado/atrasado, projeção de fechamento) · '
+    + '## Evolução vs. semana anterior (use dados.comparativo, se houver: por canal, o faturamento subiu ou caiu vs a rodada anterior — deltaRealizado em R$ — e comente o ritmo; se comparativo for null, diga que é a 1ª medição e pule a comparação) · '
+    + '## Alerta de ruptura (use dados.estoque[].rupturas: itens que VENDEM e estão com poucos dias de cobertura (diasCobertura) — risco de FALTAR. Liste os mais urgentes por canal e recomende reposição/realocação imediata, citando produto/código, saldo e quanto vendeu no mês) · '
     + '## Frente competitiva (o que os concorrentes fizeram + resposta promocional sugerida) · '
     + '## Calendário comercial (próximas datas relevantes e o que preparar) · '
     + '## Estoque & ações estratégicas (em dados.estoque há, por canal foco, o estoque de PRODUTOS VENDÁVEIS agrupado por CATEGORIA — carteira, transversal, tote, ombro, mão, festa, mochila, porta-cartão, óculos etc. — com unidEstoque (em estoque), vendidoMes (giro) e parados (itens com estoque e sem venda no mês). Seja ESTRATÉGICO: (a) por CATEGORIA, diga quais estão ENCALHADAS (muito estoque, pouco/zero giro) vs GIRANDO (repor/dar destaque); (b) sugira ações concretas — promoção/queima, COMBO (ex.: carteira + bolsa), brinde, vitrine por categoria/cor da estação; (c) aponte REALOCAÇÃO entre lojas quando um item/categoria está parado num canal e girando em outro; (d) destaque os itens parados de maior capital. Cite produtos pelo nome/código. NÃO mencione sacola/TNT/insumo — já foram excluídos.) · '
