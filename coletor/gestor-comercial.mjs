@@ -109,7 +109,7 @@ async function blingProdutos(token, maxPaginas = 20) {
     const resp = await blingProxy(token, 'produtos', { pagina, limite: 100 });
     const d = resp.data;
     if (!Array.isArray(d) || !d.length) break;
-    for (const p of d) prod[String(p.id)] = { nome: (p.nome || '').slice(0, 60), codigo: p.codigo || '' };
+    for (const p of d) prod[String(p.id)] = { nome: (p.nome || '').slice(0, 60), codigo: p.codigo || '', preco: Number(p.preco) || 0 };
     if (d.length < 100) break;
   }
   return prod;
@@ -139,17 +139,23 @@ async function blingSaldoFoco(token, prodMap) {
   return saldoPorDep;
 }
 
-// Unidades vendidas por produto no mês (dos detalhes dos pedidos) → giro.
-async function blingGiroMes(token, pedidos, maxPedidos = 400) {
-  const vendidos = {};               // produtoId → unidades no mês
+// Percorre os detalhes dos pedidos (janela ~90d) e retorna, por produto:
+// giro = unidades vendidas NO MÊS (data >= mesStart) e ultimaVenda = data da
+// venda mais recente (para "dias sem vender" nas oportunidades).
+async function blingVendas(token, pedidos, mesStart, maxPedidos = 500) {
+  const giro = {}, ultimaVenda = {};
   for (const p of pedidos.slice(0, maxPedidos)) {
+    const dataPedido = String(p.data || '').slice(0, 10);
     const resp = await blingProxy(token, 'pedidos/vendas/' + p.id, {});
     for (const it of (resp.data?.itens || [])) {
       const pid = String(it.produto?.id || '');
-      if (pid) vendidos[pid] = (vendidos[pid] || 0) + (Number(it.quantidade) || 0);
+      if (!pid) continue;
+      const q = Number(it.quantidade) || 0;
+      if (dataPedido >= mesStart) giro[pid] = (giro[pid] || 0) + q;
+      if (!ultimaVenda[pid] || dataPedido > ultimaVenda[pid]) ultimaVenda[pid] = dataPedido;
     }
   }
-  return vendidos;
+  return { giro, ultimaVenda };
 }
 
 // Classifica o item pela descrição. Retorna a categoria, ou null se NÃO for
@@ -208,6 +214,83 @@ function montarEstoque(saldoPorDep, prodMap, giro, diaDoMes) {
   });
 }
 
+// ── Oportunidades da Semana (vitrine de ofertas do varejo) ──
+// Degradê de % (amplo/base): rotaciona entre as categorias a cada semana.
+const PARES_OPP = [[40, 15], [35, 20], [30, 25], [25, 30], [20, 35], [15, 40]];
+const CAT_OFERTA = ['Transversal', 'Tote', 'Festa/Clutch', 'Bolsa de ombro', 'Bolsa de mão', 'Mochila', 'Bolsa (outros)'];
+const LOJAS_VAREJO = [
+  { loja: 'Tivoli (Santa Bárbara)', deposito_id: '14888726315' },
+  { loja: 'Shopping Dom Pedro',     deposito_id: '14888617206' },
+];
+const DEP_PULMAO = '14888248253';
+function _diasSemVender(ultima, hoje) {
+  if (!ultima) return '90+';
+  const d = Math.round((new Date(hoje + 'T00:00:00') - new Date(ultima + 'T00:00:00')) / 864e5);
+  return String(Math.max(0, d));
+}
+// 12 itens por loja de varejo: 6 categorias (mais estoque parado) × (1 Amplo + 1 Base),
+// com o degradê de % rotacionado pela semana. Só bolsas/mochilas, encalhados primeiro.
+function montarOportunidades(saldoPorDep, prodMap, giro, ultimaVenda, hoje, weekNum) {
+  const saldoPulmao = saldoPorDep[DEP_PULMAO] || {};
+  return LOJAS_VAREJO.map(L => {
+    const saldos = saldoPorDep[L.deposito_id] || {};
+    const porCat = {};
+    for (const [pid, saldo] of Object.entries(saldos)) {
+      const meta = prodMap[pid]; if (!meta) continue;
+      const cat = classificarItem(meta.nome);
+      if (!cat || !CAT_OFERTA.includes(cat)) continue;
+      if (saldo < 2 || (Number(meta.preco) || 0) <= 0) continue;
+      (porCat[cat] = porCat[cat] || []).push({ pid, nome: meta.nome, codigo: meta.codigo, preco: Number(meta.preco), saldo, vendidoMes: giro[pid] || 0 });
+    }
+    for (const cat in porCat) porCat[cat].sort((a, b) => (a.vendidoMes - b.vendidoMes) || (b.saldo - a.saldo));
+    const cats = Object.keys(porCat).filter(c => porCat[c].length).sort((a, b) => {
+      const pk = arr => arr.filter(i => i.vendidoMes === 0).reduce((s, i) => s + i.saldo, 0);
+      const da = porCat[a].length >= 2 ? 1 : 0, db = porCat[b].length >= 2 ? 1 : 0; // prefere quem dá amplo+base
+      if (da !== db) return db - da;
+      return pk(porCat[b]) - pk(porCat[a]);
+    });
+    const cats6 = cats.slice(0, 6);
+    if (!cats6.length) return { loja: L.loja, itens: [] };
+    const cursor = {}; cats6.forEach(c => cursor[c] = 0);
+    const usados = new Set();
+    const pickFrom = cat => { const a = porCat[cat] || []; while (cursor[cat] < a.length) { const it = a[cursor[cat]++]; if (!usados.has(it.pid)) { usados.add(it.pid); return it; } } return null; };
+    const pickPool = () => { const all = [].concat(...cats6.map(c => porCat[c])).filter(i => !usados.has(i.pid)).sort((a, b) => (a.vendidoMes - b.vendidoMes) || (b.saldo - a.saldo)); if (all.length) { usados.add(all[0].pid); return all[0]; } return null; };
+    const offset = ((weekNum % cats6.length) + cats6.length) % cats6.length;
+    const itens = [];
+    for (let p = 0; p < 6; p++) {
+      const pair = PARES_OPP[p];
+      const cat = cats6[(p + offset) % cats6.length];
+      for (const [publico, pct] of [['Amplo', pair[0]], ['Base', pair[1]]]) {
+        const it = pickFrom(cat) || pickPool();
+        if (!it) continue;
+        const precoDesc = it.preco * (1 - pct / 100);
+        itens.push({
+          sku: it.codigo, descricao: it.nome, categoria: classificarItem(it.nome) || cat, publico,
+          precoOriginal: Math.round(it.preco * 100) / 100, pct,
+          precoComDesconto: Math.round(precoDesc * 100) / 100,
+          parcela6x: Math.round((precoDesc / 6) * 100) / 100,
+          estoqueLoja: it.saldo, estoquePulmao: saldoPulmao[it.pid] || 0,
+          diasSemVender: _diasSemVender(ultimaVenda[it.pid], hoje),
+        });
+      }
+    }
+    return { loja: L.loja, itens };
+  });
+}
+function _rOpp(v) { return 'R$ ' + (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function buildOportunidadesMd(opp) {
+  let md = '## Oportunidades da Semana\n\n*Vitrine de ofertas do varejo (Tivoli e Dom Pedro, independentes) — estoque parado de bolsas e mochilas. Preços calculados pelo sistema.*\n';
+  for (const loja of opp) {
+    md += '\n### ' + loja.loja + '\n\n';
+    if (!loja.itens.length) { md += '_Sem itens elegíveis com estoque esta semana._\n'; continue; }
+    md += '| SKU | Descrição | Categoria | Público | Preço orig. | % | Com desconto | 6x | Estoque (loja/pulmão) | Dias s/ vender |\n|---|---|---|---|---|---|---|---|---|---|\n';
+    for (const it of loja.itens) {
+      md += '| ' + it.sku + ' | ' + it.descricao + ' | ' + it.categoria + ' | ' + it.publico + ' | ' + _rOpp(it.precoOriginal) + ' | ' + it.pct + '% | ' + _rOpp(it.precoComDesconto) + ' | ' + _rOpp(it.parcela6x) + ' | ' + it.estoqueLoja + ' / ' + it.estoquePulmao + ' | ' + it.diasSemVender + ' |\n';
+    }
+  }
+  return md;
+}
+
 // ── Anthropic (retry em 429/5xx/rede) ──
 async function anthropic(body, tentativas = 6) {
   for (let t = 0; t < tentativas; t++) {
@@ -254,15 +337,19 @@ async function main() {
   const noticias = await sbGet(`/noticias_concorrentes?rodada=gte.${desde}&select=marca,titulo,resumo,categoria,fonte,data_publicacao&order=data_publicacao.desc&limit=40`);
 
   // 3.5) estoque por armazém dos canais foco + giro do mês (itens parados)
-  let estoque = [];
+  let estoque = [], oportunidades = [];
   try {
     const prodMap = await blingProdutos(token);
     const saldoPorDep = await blingSaldoFoco(token, prodMap);
-    const giro = await blingGiroMes(token, pedidos);
+    const di90 = new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10);
+    const pedidos90 = await blingPedidos(token, di90, df);
+    const { giro, ultimaVenda } = await blingVendas(token, pedidos90, di);
     estoque = montarEstoque(saldoPorDep, prodMap, giro, d);
-    console.log('estoque coletado:', estoque.map(e => `${e.canal}=${e.skusVendaveis} SKUs vend./${e.rupturas.length} alertas ruptura`).join(' · '));
+    const weekNum = Math.floor(Date.now() / (7 * 864e5));
+    oportunidades = montarOportunidades(saldoPorDep, prodMap, giro, ultimaVenda, hoje, weekNum);
+    console.log('estoque/opp:', estoque.map(e => `${e.canal}=${e.rupturas.length} rupt`).join(' · '), '| ofertas:', oportunidades.map(o => `${o.loja}=${o.itens.length}`).join(' · '));
   } catch (e) {
-    console.error('aviso estoque:', e.message); // não derruba o briefing se o estoque falhar
+    console.error('aviso estoque/opp:', e.message); // não derruba o briefing
   }
 
   // 3.6) comparativo com o briefing anterior (semana vs semana)
@@ -316,16 +403,21 @@ async function main() {
     + '## Estoque & ações estratégicas (em dados.estoque há, por canal foco, o estoque de PRODUTOS VENDÁVEIS agrupado por CATEGORIA — carteira, transversal, tote, ombro, mão, festa, mochila, porta-cartão, óculos etc. — com unidEstoque (em estoque), vendidoMes (giro) e parados (itens com estoque e sem venda no mês). Seja ESTRATÉGICO: (a) por CATEGORIA, diga quais estão ENCALHADAS (muito estoque, pouco/zero giro) vs GIRANDO (repor/dar destaque); (b) sugira ações concretas — promoção/queima, COMBO (ex.: carteira + bolsa), brinde, vitrine por categoria/cor da estação; (c) aponte REALOCAÇÃO entre lojas quando um item/categoria está parado num canal e girando em outro; (d) destaque os itens parados de maior capital. Cite produtos pelo nome/código. NÃO mencione sacola/TNT/insumo — já foram excluídos.) · '
     + '## Performance (destaques/alertas) · ## Ações priorizadas (lista numerada: o quê, onde, urgência). '
     + 'Use os números reais fornecidos. Não invente faturamento nem produtos que não estão nos dados. '
+    + 'NÃO escreva a seção "Oportunidades da Semana" — ela é gerada automaticamente pelo sistema com os preços exatos e anexada depois. '
     + 'No fim, escreva numa última linha SÓ um resumo de 1 frase prefixado por "RESUMO: " para usar no card.';
 
   const resp = await anthropic({ model: MODEL, max_tokens: 4000, thinking: { type: 'adaptive' }, system: sys, messages: [{ role: 'user', content: user }] });
-  const conteudo = resp.content.filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
-  const mResumo = conteudo.match(/RESUMO:\s*(.+)\s*$/);
+  const bruto = resp.content.filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+  const mResumo = bruto.match(/RESUMO:\s*(.+)\s*$/);
   const resumo = mResumo ? mResumo[1].trim() : (canaisResumo.map(c => `${c.canal}: ${c.percentMeta}% da meta`).join(' · '));
+  // monta o conteúdo final: corpo do LLM + tabelas de oportunidades (preços exatos) + RESUMO
+  let corpo = bruto.replace(/\n*RESUMO:.*$/s, '').trim();
+  if (oportunidades.some(o => o.itens.length)) corpo += '\n\n' + buildOportunidadesMd(oportunidades);
+  const conteudo = corpo + '\n\nRESUMO: ' + resumo;
   const periodo = `Semana de ${hoje} (${dados.mesReferencia})`;
 
   // 6) grava o briefing
-  await sbInsert('/gestao_comercial_briefings', [{ rodada: hoje, periodo, resumo, conteudo, dados_json: dados }], 'return=minimal');
+  await sbInsert('/gestao_comercial_briefings', [{ rodada: hoje, periodo, resumo, conteudo, dados_json: { ...dados, oportunidades } }], 'return=minimal');
   console.log('briefing gravado. canais:', canaisResumo.map(c => `${c.canal}=${c.percentMeta}%`).join(', '));
   await logGestor('fim', null, 'pedidos=' + pedidos.length + ' · ' + canaisResumo.map(c => `${c.canal}:${c.status}`).join(' · '));
 }
