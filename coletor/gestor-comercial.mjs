@@ -58,14 +58,23 @@ async function loginServico() {
 }
 
 // ── Bling via edge function bling-proxy (precisa do token de usuário) ──
+// Throttle global: o Bling limita ~3 req/seg → espaçamos ~380ms e retry em 429.
+let _lastBling = 0;
 async function blingProxy(token, endpoint, params) {
-  const r = await fetch(SUPABASE_URL + '/functions/v1/bling-proxy', {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + token, apikey: ANON_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ endpoint, params }),
-  });
-  if (!r.ok) throw new Error('bling-proxy ' + endpoint + ' -> ' + r.status + ' ' + (await r.text()).slice(0, 200));
-  return r.json();
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const espera = 380 - (Date.now() - _lastBling);
+    if (espera > 0) await sleep(espera);
+    _lastBling = Date.now();
+    const r = await fetch(SUPABASE_URL + '/functions/v1/bling-proxy', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, apikey: ANON_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint, params: params || {} }),
+    });
+    if (r.status === 429) { await sleep(1500); continue; }
+    if (!r.ok) throw new Error('bling-proxy ' + endpoint + ' -> ' + r.status + ' ' + (await r.text()).slice(0, 200));
+    return r.json();
+  }
+  throw new Error('bling-proxy ' + endpoint + ' -> 429 repetido');
 }
 // Lista todas as páginas de pedidos de venda concluídos no intervalo
 async function blingPedidos(token, dataInicial, dataFinal) {
@@ -83,6 +92,86 @@ async function blingPedidos(token, dataInicial, dataFinal) {
     if (items.length < 100) break;
   }
   return all;
+}
+
+// ── Estoque por armazém dos canais foco ──
+// Depósito de cada canal foco (mapeado no Bling):
+const DEP_FOCO = [
+  { canal: 'Shopping Tivoli (Santa Bárbara)', deposito_id: '14888726315' },
+  { canal: 'Shopping Dom Pedro',              deposito_id: '14888617206' },
+  { canal: 'Atacado Nuvem Shop (Estoque Pulmão)', deposito_id: '14888248253' },
+];
+
+// Lista o catálogo de produtos (id → nome/código). Bounded por segurança.
+async function blingProdutos(token, maxPaginas = 20) {
+  const prod = {};
+  for (let pagina = 1; pagina <= maxPaginas; pagina++) {
+    const resp = await blingProxy(token, 'produtos', { pagina, limite: 100 });
+    const d = resp.data;
+    if (!Array.isArray(d) || !d.length) break;
+    for (const p of d) prod[String(p.id)] = { nome: (p.nome || '').slice(0, 60), codigo: p.codigo || '' };
+    if (d.length < 100) break;
+  }
+  return prod;
+}
+
+// Saldo físico por depósito foco, por produto (em lotes de idsProdutos).
+async function blingSaldoFoco(token, prodMap) {
+  const ids = Object.keys(prodMap);
+  const saldoPorDep = {};            // deposito_id → { produtoId → saldo }
+  for (const x of DEP_FOCO) saldoPorDep[x.deposito_id] = {};
+  for (let i = 0; i < ids.length; i += 40) {
+    const batch = ids.slice(i, i + 40);
+    const params = {};
+    batch.forEach((id, k) => { params['idsProdutos[' + k + ']'] = id; });
+    const resp = await blingProxy(token, 'estoques/saldos', params);
+    for (const row of (resp.data || [])) {
+      const pid = String(row.produto?.id || '');
+      for (const dep of (row.depositos || [])) {
+        const did = String(dep.id);
+        if (did in saldoPorDep) {
+          const saldo = Number(dep.saldoFisico) || 0;
+          if (saldo > 0) saldoPorDep[did][pid] = saldo;
+        }
+      }
+    }
+  }
+  return saldoPorDep;
+}
+
+// Unidades vendidas por produto no mês (dos detalhes dos pedidos) → giro.
+async function blingGiroMes(token, pedidos, maxPedidos = 400) {
+  const vendidos = {};               // produtoId → unidades no mês
+  for (const p of pedidos.slice(0, maxPedidos)) {
+    const resp = await blingProxy(token, 'pedidos/vendas/' + p.id, {});
+    for (const it of (resp.data?.itens || [])) {
+      const pid = String(it.produto?.id || '');
+      if (pid) vendidos[pid] = (vendidos[pid] || 0) + (Number(it.quantidade) || 0);
+    }
+  }
+  return vendidos;
+}
+
+// Monta o resumo de estoque por canal foco: itens PARADOS (com estoque e sem
+// venda no mês) como candidatos a promoção, + total de itens com estoque.
+function montarEstoque(saldoPorDep, prodMap, giro) {
+  return DEP_FOCO.map(x => {
+    const saldos = saldoPorDep[x.deposito_id] || {};
+    const itens = Object.entries(saldos).map(([pid, saldo]) => ({
+      nome: prodMap[pid]?.nome || pid,
+      codigo: prodMap[pid]?.codigo || '',
+      saldo,
+      vendidoMes: giro[pid] || 0,
+    }));
+    const parados = itens.filter(it => it.vendidoMes === 0).sort((a, b) => b.saldo - a.saldo).slice(0, 12);
+    const totalUnid = itens.reduce((s, it) => s + it.saldo, 0);
+    return {
+      canal: x.canal,
+      skusComEstoque: itens.length,
+      unidadesEmEstoque: totalUnid,
+      itensParados: parados,         // estoque > 0 e sem venda no mês
+    };
+  });
 }
 
 // ── Anthropic (retry em 429/5xx/rede) ──
@@ -130,13 +219,25 @@ async function main() {
   const desde = new Date(Date.now() - 14 * 864e5).toISOString().slice(0, 10);
   const noticias = await sbGet(`/noticias_concorrentes?rodada=gte.${desde}&select=marca,titulo,resumo,categoria,fonte,data_publicacao&order=data_publicacao.desc&limit=40`);
 
+  // 3.5) estoque por armazém dos canais foco + giro do mês (itens parados)
+  let estoque = [];
+  try {
+    const prodMap = await blingProdutos(token);
+    const saldoPorDep = await blingSaldoFoco(token, prodMap);
+    const giro = await blingGiroMes(token, pedidos);
+    estoque = montarEstoque(saldoPorDep, prodMap, giro);
+    console.log('estoque coletado:', estoque.map(e => `${e.canal}=${e.skusComEstoque} SKUs/${e.itensParados.length} parados`).join(' · '));
+  } catch (e) {
+    console.error('aviso estoque:', e.message); // não derruba o briefing se o estoque falhar
+  }
+
   // 4) monta o pacote de números (com ritmo de meta por canal foco)
   const canaisResumo = CANAIS.map(c => {
     const meta = metas.find(mm => String(mm.loja_id) === c.loja_id);
     const pace = metaPace({ metaValor: meta?.meta_valor, dailyGoals: meta?.daily_goals, diaDoMes: d, diasNoMes, realizado: realPorCanal[c.loja_id] });
     return { canal: c.nome, ...pace };
   });
-  const dados = { rodada: hoje, mesReferencia: `${y}-${String(m).padStart(2, '0')}`, diaDoMes: d, diasNoMes, canaisFoco: canaisResumo, totalPedidosMes: pedidos.length };
+  const dados = { rodada: hoje, mesReferencia: `${y}-${String(m).padStart(2, '0')}`, diaDoMes: d, diasNoMes, canaisFoco: canaisResumo, totalPedidosMes: pedidos.length, estoque };
 
   // 5) Claude escreve o briefing (persona de gestor veterano)
   const sys = 'Você é um gestor comercial veterano de varejo e atacado de moda (bolsas, marca Vessel). '
@@ -149,8 +250,9 @@ async function main() {
     + '## Resumo executivo (3-5 bullets) · ## Ritmo das metas (por canal foco: % da meta, adiantado/atrasado, projeção de fechamento) · '
     + '## Frente competitiva (o que os concorrentes fizeram + resposta promocional sugerida) · '
     + '## Calendário comercial (próximas datas relevantes e o que preparar) · '
+    + '## Estoque & ações no item (em dados.estoque há, por armazém de cada canal foco, os itensParados = produtos COM estoque e SEM venda no mês; aponte os principais candidatos a PROMOÇÃO/queima por item e por canal, com a quantidade parada; priorize quem tem mais unidade encalhada) · '
     + '## Performance (destaques/alertas) · ## Ações priorizadas (lista numerada: o quê, onde, urgência). '
-    + 'Use os números reais fornecidos. Não invente faturamento que não está nos dados. '
+    + 'Use os números reais fornecidos. Não invente faturamento nem produtos que não estão nos dados. '
     + 'No fim, escreva numa última linha SÓ um resumo de 1 frase prefixado por "RESUMO: " para usar no card.';
 
   const resp = await anthropic({ model: MODEL, max_tokens: 4000, thinking: { type: 'adaptive' }, system: sys, messages: [{ role: 'user', content: user }] });
