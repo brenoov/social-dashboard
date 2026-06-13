@@ -994,6 +994,56 @@
     .np-topbar{padding:14px 18px;}
     .np-hero-art,.np-hero-side{padding:28px 24px;}
   }
+  /* ── Gestão Comercial (briefing do agente) ── */
+  #gestao-comercial-screen{display:none;flex-direction:column;min-height:100vh;background:var(--bg);}
+  .gc-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 26px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:20;}
+  .gc-back{display:inline-flex;align-items:center;gap:7px;background:none;border:none;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:1.5px;}
+  .gc-back:hover{color:var(--text);}
+  .gc-title{font-family:'Oswald',sans-serif;font-size:15px;font-weight:500;letter-spacing:3px;text-transform:uppercase;color:var(--text);}
+  .gc-edicao{display:flex;align-items:center;gap:8px;}
+  .gc-edicao-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+  .gc-edicao select{font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--text);border:1px solid var(--border);border-radius:7px;padding:5px 9px;background:var(--surface);cursor:pointer;}
+  .gc-body{flex:1;max-width:1080px;margin:0 auto;width:100%;padding:26px 26px 70px;}
+  .gc-head{margin-bottom:22px;}
+  .gc-head-over{font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--accent);}
+  .gc-head-title{font-family:'Playfair Display',serif;font-weight:800;font-size:clamp(26px,4vw,40px);line-height:1.05;margin:6px 0 4px;color:var(--text);}
+  .gc-head-sub{font-size:12px;color:var(--muted);}
+  .gc-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;}
+  .gc-kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;border-top:4px solid var(--muted);position:relative;}
+  .gc-kpi.atrasado{border-top-color:var(--red);}
+  .gc-kpi.adiantado{border-top-color:var(--green);}
+  .gc-kpi-canal{font-family:'Oswald',sans-serif;font-size:12px;font-weight:500;letter-spacing:1px;text-transform:uppercase;color:var(--text);line-height:1.25;min-height:30px;}
+  .gc-kpi-pct{font-family:'Oswald',sans-serif;font-size:38px;font-weight:600;line-height:1;margin:8px 0 2px;font-variant-numeric:tabular-nums;color:var(--text);}
+  .gc-kpi.atrasado .gc-kpi-pct{color:var(--red);}
+  .gc-kpi.adiantado .gc-kpi-pct{color:var(--green);}
+  .gc-kpi-pctlbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+  .gc-kpi-bar{height:6px;border-radius:4px;background:var(--surface2);margin:12px 0 10px;overflow:hidden;}
+  .gc-kpi-bar-fill{height:100%;border-radius:4px;background:var(--muted);}
+  .gc-kpi.atrasado .gc-kpi-bar-fill{background:var(--red);}
+  .gc-kpi.adiantado .gc-kpi-bar-fill{background:var(--green);}
+  .gc-kpi-row{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-top:3px;}
+  .gc-kpi-row b{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums;}
+  .gc-kpi-pill{position:absolute;top:14px;right:16px;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:3px 8px;border-radius:20px;background:var(--surface2);color:var(--muted);}
+  .gc-kpi.atrasado .gc-kpi-pill{background:rgba(176,30,58,.10);color:var(--red);}
+  .gc-kpi.adiantado .gc-kpi-pill{background:rgba(26,110,69,.12);color:var(--green);}
+  .gc-resumo{background:var(--accent-light);border:1px solid var(--accent);border-left-width:4px;border-radius:10px;padding:14px 18px;margin-bottom:24px;font-size:14px;line-height:1.55;color:var(--text);}
+  .gc-resumo b{color:var(--accent);text-transform:uppercase;font-size:10px;letter-spacing:1.5px;display:block;margin-bottom:5px;}
+  .gc-report{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:26px 30px;}
+  .gc-report h1{display:none;}
+  .gc-report h2{font-family:'Oswald',sans-serif;font-size:17px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text);margin:26px 0 12px;padding-bottom:7px;border-bottom:2px solid var(--accent);display:inline-block;}
+  .gc-report h2:first-child{margin-top:0;}
+  .gc-report h3{font-family:'IBM Plex Sans',sans-serif;font-size:13.5px;font-weight:700;color:var(--text);margin:16px 0 6px;}
+  .gc-report p{font-size:13.5px;line-height:1.65;color:var(--muted);margin:8px 0;}
+  .gc-report ul,.gc-report ol{margin:8px 0 8px 4px;padding-left:20px;}
+  .gc-report li{font-size:13.5px;line-height:1.6;color:var(--muted);margin:5px 0;}
+  .gc-report strong{color:var(--text);font-weight:700;}
+  .gc-report table{width:100%;border-collapse:collapse;margin:12px 0;font-size:12.5px;}
+  .gc-report th{background:var(--surface2);text-align:left;padding:8px 10px;font-weight:600;border-bottom:2px solid var(--border);color:var(--text);}
+  .gc-report td{padding:7px 10px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;color:var(--muted);}
+  .gc-report tr:last-child td{border-bottom:none;}
+  .gc-empty{text-align:center;padding:60px 20px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;}
+  .gc-empty h3{font-family:'Oswald',sans-serif;font-weight:500;letter-spacing:1px;color:var(--text);margin:0 0 6px;}
+  @media(max-width:760px){#gestao-comercial-screen .gc-kpis{grid-template-columns:1fr;}.gc-body{padding:18px 14px 50px;}.gc-report{padding:18px 16px;}.gc-topbar{padding:12px 14px;}}
   .smenu-card:hover .smenu-card-enter{transform:translateX(4px);color:var(--accent);}
   .smenu-cards.view-list{flex-direction:column;align-items:stretch;gap:8px;width:100%;max-width:640px;}
   .smenu-cards.view-list .smenu-card{width:100%;min-height:unset;flex-direction:row;padding:14px 18px 14px 20px;gap:16px;align-items:center;}
@@ -1975,6 +2025,16 @@
         <div class="home-card-text">
           <h3>Portal de<br>Notícias</h3>
           <p>Inteligência de concorrentes por marca, atualizada toda semana</p>
+        </div>
+        <span class="home-card-enter">→</span>
+      </div>
+      <div class="home-card" id="home-card-gestor" onclick="openGestao()" onmouseenter="setHomeBgTheme('default')" onmouseleave="setHomeBgTheme('default')">
+        <div class="home-card-icon" style="background:linear-gradient(135deg,#0f4c81 0%,#1d4ed8 100%)">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
+        </div>
+        <div class="home-card-text">
+          <h3>Gestão<br>Comercial</h3>
+          <p>Briefing semanal do gestor de IA: metas, concorrência e estoque</p>
         </div>
         <span class="home-card-enter">→</span>
       </div>
@@ -3373,6 +3433,7 @@ const PERMISSION_TREE=[
     {key:'meta.gestor',label:'Gestão de Tráfego'},
   ]},
   {key:'banco',label:'Banco de Arquivos',children:[]},
+  {key:'gestor',label:'Gestão Comercial (IA)',children:[]},
 ];
 const SUPERADMIN_EMAIL='erick@rbvcompany.com';
 let _permUserId=null;
@@ -4118,7 +4179,7 @@ function showDashboard(user,role,features,avatarUrl){
   const adminCard=document.getElementById('home-card-admin');
   if(adminCard)adminCard.style.display=role==='admin'?'':'none';
   const isAdmin=role==='admin';
-  ['social','sales','meta','banco','noticias'].forEach(f=>{
+  ['social','sales','meta','banco','noticias','gestor'].forEach(f=>{
     const c=document.getElementById('home-card-'+f);
     if(c)c.style.display=(isAdmin||currentUserFeatures.includes(f))?'':'none';
   });
@@ -4134,6 +4195,7 @@ function showDashboard(user,role,features,avatarUrl){
     else if(screen==='gestao-vista'){openSalesDashboard();setTimeout(openGestaoVista,0);}
     else if(screen==='banco')openBanco(true);
     else if(screen==='noticias')openNoticias();
+    else if(screen==='gestao-comercial')openGestao();
     else if(screen==='meta-ads')openMetaAds();
     else if(screen==='meta-ads-campanha'){openMetaAds();setTimeout(openMetaCampanha,0);}
     else showHome();
@@ -8387,6 +8449,75 @@ function _npRenderBody(){
 }
 function _npFmtDate(d){try{return new Date(d+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}).replace(/ de /g,'/').replace('.','');}catch(e){return d;}}
 function _npEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+// ── Gestão Comercial (briefing do agente) ──
+let _gcData=[];
+function _gcInline(s){return _npEsc(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');}
+function _gcFmtR(v){return 'R$ '+Math.round(Number(v)||0).toLocaleString('pt-BR');}
+function _gcMarkdown(md){
+  const lines=String(md||'').replace(/\r/g,'').split('\n');let html='',i=0;
+  while(i<lines.length){
+    const ln=lines[i];
+    if(/^RESUMO:/.test(ln)){i++;continue;}
+    if(/^###\s+/.test(ln)){html+='<h3>'+_gcInline(ln.replace(/^###\s+/,''))+'</h3>';i++;continue;}
+    if(/^##\s+/.test(ln)){html+='<h2>'+_gcInline(ln.replace(/^##\s+/,''))+'</h2>';i++;continue;}
+    if(/^#\s+/.test(ln)){html+='<h1>'+_gcInline(ln.replace(/^#\s+/,''))+'</h1>';i++;continue;}
+    if(/^\s*\|.*\|\s*$/.test(ln)&&i+1<lines.length&&/^\s*\|[\s:|-]+\|\s*$/.test(lines[i+1])){
+      const cells=r=>r.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+      const head=cells(ln);i+=2;let body='';
+      while(i<lines.length&&/^\s*\|.*\|\s*$/.test(lines[i])){body+='<tr>'+cells(lines[i]).map(c=>'<td>'+_gcInline(c)+'</td>').join('')+'</tr>';i++;}
+      html+='<table><thead><tr>'+head.map(h=>'<th>'+_gcInline(h)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table>';continue;
+    }
+    if(/^\s*[-*]\s+/.test(ln)){let it='';while(i<lines.length&&/^\s*[-*]\s+/.test(lines[i])){it+='<li>'+_gcInline(lines[i].replace(/^\s*[-*]\s+/,''))+'</li>';i++;}html+='<ul>'+it+'</ul>';continue;}
+    if(/^\s*\d+\.\s+/.test(ln)){let it='';while(i<lines.length&&/^\s*\d+\.\s+/.test(lines[i])){it+='<li>'+_gcInline(lines[i].replace(/^\s*\d+\.\s+/,''))+'</li>';i++;}html+='<ol>'+it+'</ol>';continue;}
+    if(ln.trim()===''){i++;continue;}
+    html+='<p>'+_gcInline(ln)+'</p>';i++;
+  }
+  return html;
+}
+function openGestao(){
+  document.getElementById('home-screen').style.display='none';
+  document.getElementById('gestao-comercial-screen').style.display='flex';
+  sessionStorage.setItem('rbv-screen','gestao-comercial');
+  loadGestao();
+}
+function closeGestao(){
+  document.getElementById('gestao-comercial-screen').style.display='none';
+  showHome();
+}
+async function loadGestao(){
+  const body=document.getElementById('gc-body');
+  body.innerHTML='<div class="gc-empty"><h3>Carregando…</h3></div>';
+  const{data,error}=await sbClient.from('gestao_comercial_briefings')
+    .select('rodada,periodo,resumo,conteudo,dados_json,created_at')
+    .order('created_at',{ascending:false}).limit(20);
+  if(error){body.innerHTML='<div class="gc-empty"><h3>Erro ao carregar</h3><p>'+_npEsc(error.message)+'</p></div>';return;}
+  _gcData=data||[];
+  const sel=document.getElementById('gc-select');sel.textContent='';
+  if(!_gcData.length){body.innerHTML='<div class="gc-empty"><h3>Nenhum briefing ainda</h3><p>O gestor comercial publica toda segunda-feira.</p></div>';return;}
+  _gcData.forEach((b,idx)=>{const o=document.createElement('option');o.value=idx;o.textContent=(b.rodada||'').slice(0,10);sel.appendChild(o);});
+  _gcRenderIdx(0);
+}
+function _gcRenderIdx(idx){const b=_gcData[idx];if(b)_gcRender(b);}
+function _gcRender(b){
+  const dj=b.dados_json||{};const canais=dj.canaisFoco||[];
+  let html='<div class="gc-head"><div class="gc-head-over">Briefing do Gestor Comercial · IA</div>'
+    +'<div class="gc-head-title">'+_npEsc(b.periodo||'')+'</div>'
+    +'<div class="gc-head-sub">'+(dj.diaDoMes?('Dia '+dj.diaDoMes+' de '+dj.diasNoMes+' · '):'')+(dj.totalPedidosMes!=null?dj.totalPedidosMes+' pedidos no mês':'')+'</div></div>';
+  html+='<div class="gc-kpis">'+canais.map(c=>{
+    const st=c.status==='adiantado'?'adiantado':'atrasado';const pct=Math.max(0,Math.min(100,c.percentMeta||0));
+    return '<div class="gc-kpi '+st+'"><span class="gc-kpi-pill">'+st+'</span>'
+      +'<div class="gc-kpi-canal">'+_npEsc(c.canal)+'</div>'
+      +'<div class="gc-kpi-pct">'+(c.percentMeta||0)+'%</div><div class="gc-kpi-pctlbl">da meta do mês</div>'
+      +'<div class="gc-kpi-bar"><div class="gc-kpi-bar-fill" style="width:'+pct+'%"></div></div>'
+      +'<div class="gc-kpi-row"><span>Realizado</span><b>'+_gcFmtR(c.realizado)+'</b></div>'
+      +'<div class="gc-kpi-row"><span>Meta</span><b>'+_gcFmtR(c.metaValor)+'</b></div>'
+      +'<div class="gc-kpi-row"><span>Projeção fech.</span><b>'+_gcFmtR(c.projecaoFechamento)+'</b></div></div>';
+  }).join('')+'</div>';
+  if(b.resumo)html+='<div class="gc-resumo"><b>Resumo da semana</b>'+_gcInline(b.resumo)+'</div>';
+  html+='<div class="gc-report">'+_gcMarkdown(b.conteudo||'')+'</div>';
+  document.getElementById('gc-body').innerHTML=html;
+}
 async function loadArquivos(){
   const listEl=document.getElementById('banco-file-list');
   _bancoBuildEmpty(listEl,'Carregando…','');
@@ -8942,6 +9073,15 @@ function setHomeBgTheme(type){
   </div>
   <div class="np-tabs" id="np-tabs"></div>
   <div class="np-body" id="np-body"></div>
+</div>
+
+<div id="gestao-comercial-screen">
+  <div class="gc-topbar">
+    <button class="gc-back" onclick="closeGestao()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Central</button>
+    <span class="gc-title">Gestão Comercial</span>
+    <div class="gc-edicao"><span class="gc-edicao-lbl">Edição</span><select id="gc-select" onchange="_gcRenderIdx(this.value)"></select></div>
+  </div>
+  <div class="gc-body" id="gc-body"></div>
 </div>
 
 <!-- ── CHANGE PASSWORD MODAL ── -->
