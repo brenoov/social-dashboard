@@ -53,7 +53,15 @@ const baseHeaders = {
 const sleep = (ms) => new Promise(res => setTimeout(res, ms));
 async function anthropic(body, tentativas = 6) {
   for (let t = 0; t < tentativas; t++) {
-    const r = await fetch(ANTHROPIC_URL, { method: 'POST', headers: baseHeaders, body: JSON.stringify(body) });
+    let r;
+    try {
+      r = await fetch(ANTHROPIC_URL, { method: 'POST', headers: baseHeaders, body: JSON.stringify(body) });
+    } catch (netErr) {
+      // erro de rede (fetch failed) → espera e tenta de novo
+      console.log('    erro de rede (' + netErr.message + '); aguardando…');
+      await sleep(Math.min(60, 8 * (t + 1)) * 1000);
+      continue;
+    }
     if (r.ok) return r.json();
     // 429 (rate limit) ou 529/500 (sobrecarga) → espera e tenta de novo
     if (r.status === 429 || r.status === 529 || r.status >= 500) {
