@@ -3,6 +3,14 @@
 **/.env
 !**/.env.exemplo
 
+# segredos extras — chaves/credenciais locais em qualquer pasta
+*.secret
+*.secret.*
+**/secrets/
+*-credentials.json
+*.pem
+*.key
+
 # coletor / python
 **/coletor/__pycache__/
 *.pyc
@@ -22,5 +30,10 @@
 # node
 **/node_modules/
 
-# poll temporário do coletor (contém credencial local)
+# monitor local do coletor (utilitário; já lê do .env, sem credencial embutida)
 coletor/np-poll.mjs
+coletor/np-watch.mjs
+coletor/bling-reauth.mjs
+gestor-briefings.json
+gestor-lab.html
+noticias-sample.json
