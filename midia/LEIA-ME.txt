@@ -1,0 +1,36 @@
+==================================================================
+ PASTA: midia/   —  IMAGENS E LOGOS
+==================================================================
+
+O que é esta pasta?
+-------------------
+Guarda imagens e logos usados pelo dashboard.
+
+OBS sobre os caminhos: no arquivo vercel.json da raiz existe uma
+regra que faz "/midia/..." apontar, no site publicado, para a pasta
+de mídia que fica dentro do projeto:
+   projetos/central-inteligencia/midia/
+Ou seja, há mídia em dois lugares; o site usa a que está dentro do
+projeto. Por isso, ao adicionar um logo novo, confira em qual pasta
+o HTML está chamando.
+
+
+Subpastas e arquivos
+--------------------
+  logos/      -> Logos da marca:
+                 LOGOTIPOBRENOBRANCO.png  (versão branca)
+                 LOGOTIPOBRENOPRETO.png   (versão preta)
+                 rbv-logo.png             (logo RBV)
+
+  elementos/  -> Ilustrações/elementos visuais avulsos do painel.
+                 (tem um .gitkeep, que é só um arquivo vazio para o
+                 git "guardar" a pasta mesmo quando ela está vazia.)
+
+
+Para iniciante: o que é ".gitkeep"?
+-----------------------------------
+O Git não consegue guardar uma pasta VAZIA. Então colocamos um
+arquivo vazio chamado ".gitkeep" dentro dela só para a pasta existir
+no GitHub. Não tem conteúdo nem função além disso.
+
+==================================================================

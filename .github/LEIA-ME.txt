@@ -1,0 +1,49 @@
+==================================================================
+ PASTA: .github/   —  TAREFAS AUTOMÁTICAS (GitHub Actions / robôs)
+==================================================================
+
+O que é esta pasta?
+-------------------
+É onde o GitHub procura por "workflows": instruções de tarefas que
+o próprio GitHub roda SOZINHO, em horários marcados (agendamento por
+"cron"). Aqui moram os 2 robôs do projeto. Eles ficam em:
+   .github/workflows/
+
+O que é cada arquivo?
+---------------------
+  coletor-noticias.yml
+     -> Robô "Coletor de Notícias (concorrentes Vessel)".
+        Roda a cada 3 dias (cron: 0 11 */3 * *).
+        Ele chama o script coletor/agente-noticias.mjs, que usa a IA
+        (Claude) para pesquisar notícias na web, julgar relevância e
+        salvar resumos no banco.
+
+  gestor-comercial.yml
+     -> Robô "Gestor Comercial (briefing semanal)".
+        Roda toda semana (cron: 0 11 * * 1 = segunda-feira).
+        Ele chama coletor/gestor-comercial.mjs, que junta faturamento
+        (Bling), metas e notícias, e a IA (Claude) escreve um briefing
+        comercial da semana.
+
+
+Para iniciante: como ler um "cron"?
+-----------------------------------
+Cron é um jeito de dizer "que horas rodar", com 5 campos:
+   minuto  hora  dia-do-mês  mês  dia-da-semana
+
+Exemplos usados aqui:
+   0 11 */3 * *   -> 11:00 (UTC), a cada 3 dias
+   0 11 * * 1     -> 11:00 (UTC), toda segunda-feira (1 = segunda)
+
+OBS: o horário é em UTC, então no Brasil cai algumas horas antes.
+
+
+O que é um "workflow" (.yml)?
+-----------------------------
+É uma receita escrita em YAML (formato de texto com indentação) que
+diz: "quando isto acontecer (ex.: tal horário), faça estes passos".
+Os passos típicos aqui: baixar o código (checkout), instalar o
+Node, e rodar o script do robô. As senhas/chaves que o robô precisa
+ficam guardadas nos "Secrets" do GitHub (não no código).
+
+==================================================================

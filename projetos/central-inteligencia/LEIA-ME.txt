@@ -1,0 +1,66 @@
+==================================================================
+ PROJETO: central-inteligencia/   —  O DASHBOARD "Inteligência RBV"
+==================================================================
+
+O que é este projeto?
+---------------------
+É o painel de inteligência da RBV: um único arquivo HTML gigante que
+mostra, num só lugar, dados de Instagram/Meta, Meta Ads, vendas
+(Bling) e notícias de concorrentes. É o coração do repositório.
+
+
+As VERSÕES do dashboard (arquivos .html)
+----------------------------------------
+  central-inteligencia-v1.3.html
+     -> A versão ATUAL e boa. É a que vira o index.html da raiz (o
+        site no ar). Quando você melhora o painel, trabalha aqui.
+
+  central-inteligencia-v1.2-preview.html
+     -> Uma versão de prévia/intermediária (histórico).
+
+  central-inteligencia-v1.1.html
+     -> Versão antiga (histórico).
+
+  index.html
+     -> Uma cópia interna do dashboard (NÃO é a que vai pro ar; a do
+        ar é o index.html lá na RAIZ do repositório). Difere um pouco
+        da v1.3 — trate as versões "vX.Y" como a referência.
+
+Dica: o que está REALMENTE publicado é o /index.html da raiz, que
+hoje é igual à v1.3. Ao mexer, atualize a v1.3 e depois copie para
+a raiz (o script/processo de deploy cuida disso).
+
+
+Subpastas
+---------
+  midia/        -> Imagens/logos que ESTE dashboard usa. O site
+                   aponta "/midia/..." para cá (veja vercel.json da
+                   raiz). Ex.: LOGOTIPOBRENOBRANCO.png / ...PRETO.png.
+
+  backup/       -> Cópias de segurança com data, feitas antes de
+                   mudanças grandes (ex.: ...pre-noticias.bak.html) e
+                   um backup.sh + backup.log. Servem para voltar atrás
+                   se algo quebrar. (Os .bak.html e .log são ignorados
+                   pelo git — ficam só na sua máquina.)
+
+  redes-sociais/-> Um SUB-PROJETO mais antigo, focado em redes
+                   sociais, com o próprio coletor em Python e um
+                   dashboard v1.0. (veja redes-sociais/LEIA-ME.txt)
+
+
+Arquivos
+--------
+  vercel.json   -> Cabeçalhos de segurança específicos deste projeto
+                   (proíbe iframe, evita "adivinhação" de tipo de
+                   arquivo, etc.). É um espelho menor do vercel.json
+                   da raiz.
+
+
+Para iniciante: por onde começar?
+---------------------------------
+O dashboard é um arquivo único e MUITO grande (~600 KB), com HTML,
+CSS e JavaScript tudo junto. Não tente ler de cima a baixo. Em vez
+disso, use a busca (Ctrl+F) pelo nome de uma seção que você vê na
+tela (ex.: "Meta Ads", "Notícias") para achar o trecho certo.
+
+==================================================================

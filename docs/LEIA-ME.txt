@@ -1,0 +1,54 @@
+==================================================================
+ PASTA: docs/   —  DOCUMENTAÇÃO DO PROJETO
+==================================================================
+
+O que é esta pasta?
+-------------------
+É a "memória escrita" do projeto: o histórico de mudanças no banco
+e os planos/projetos de cada funcionalidade. Aqui não roda nada — é
+só leitura, para entender decisões.
+
+Tem duas subpastas:
+
+1) docs/migrations/   —  HISTÓRICO DO BANCO DE DADOS (.sql)
+-----------------------------------------------------------
+Cada arquivo é uma "migration": uma mudança no banco, na ordem em
+que foi aplicada (os números no início dão a sequência). Quem APLICA
+esses arquivos no banco é o coletor/run-migrations.mjs.
+
+  003_user_permissions.sql        -> Permissões de usuário (quem vê o quê).
+  004_vendedor_metas.sql          -> Metas por vendedor.
+  005_pedido_qtd_itens.sql        -> Quantidade de itens por pedido.
+  006_accounts_update_policy.sql  -> Regra de atualização de contas.
+  007_noticias_concorrentes.sql   -> Estrutura das notícias de concorrentes.
+  008_noticias_seed_2026-06-11.sql-> Carga inicial de notícias.
+  009_noticias_..._rodada2.sql    -> Segunda rodada de notícias.
+  010_coletor_log.sql             -> Registro de execução do coletor.
+  011_gestao_comercial.sql        -> Estrutura do módulo Gestor Comercial.
+
+REGRA DE OURO: nunca edite uma migration antiga já aplicada. Para
+mudar algo, crie um arquivo NOVO com o próximo número.
+
+
+2) docs/superpowers/   —  PLANOS E ESPECIFICAÇÕES
+--------------------------------------------------
+Textos (.md = Markdown) que descrevem O QUE e COMO cada
+funcionalidade foi pensada antes de programar.
+
+  plans/  -> "planos de execução": o passo a passo de cada entrega
+             (ex.: redesign do admin, análise de vendas, permissões,
+             "IG hoje em tempo real", meta-proxy, gestor comercial F1).
+  specs/  -> "especificações de design": a ideia/decisão por trás de
+             cada funcionalidade (o porquê e o desenho da solução).
+
+O nome de cada arquivo começa com a data (ano-mês-dia), então dá
+para ler na ordem do tempo e acompanhar a evolução do projeto.
+
+
+Para iniciante
+--------------
+  - SQL : a linguagem para falar com o banco de dados.
+  - Markdown (.md) : texto simples com formatação (títulos, listas)
+    usando símbolos como # e -. É o formato dos planos e specs.
+
+==================================================================

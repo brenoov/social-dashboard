@@ -1,0 +1,69 @@
+==================================================================
+ PASTA: coletor/   —  OS ROBÔS EM NODE.JS (+ runner de migrations)
+==================================================================
+
+O que é esta pasta?
+-------------------
+Aqui ficam os "robôs" escritos em JavaScript para rodar no Node.js
+(fora do navegador). Eles são chamados pelos GitHub Actions
+(veja .github/LEIA-ME.txt) ou rodados por você na mão.
+
+Arquivos ".mjs" = módulos JavaScript que rodam no Node.
+
+
+O que é cada arquivo?
+---------------------
+  agente-noticias.mjs
+     -> Robô que COLETA NOTÍCIAS dos concorrentes. Usa a IA (Claude
+        Sonnet) com busca na web para achar, julgar e resumir
+        notícias por marca, e grava no banco (Supabase). Roda no
+        GitHub Actions a cada 3 dias.
+
+  gestor-comercial.mjs
+     -> Robô GESTOR COMERCIAL. Junta o faturamento real (do Bling,
+        via "bling-proxy", logado como conta de serviço), as metas e
+        as notícias dos concorrentes; a IA (Claude Opus) escreve um
+        briefing comercial. Roda no GitHub Actions toda semana.
+
+  run-migrations.mjs
+     -> "Aplicador de mudanças no banco". Pega os arquivos .sql de
+        docs/migrations/ que ainda NÃO foram aplicados e roda em
+        ordem, anotando numa tabela de controle (schema_migrations)
+        para não rodar o mesmo duas vezes. (Conecta na porta 6543 do
+        Supabase usando o certificado supabase-ca.crt.)
+
+  lib/                -> Pasta de "biblioteca" (código reutilizável):
+     meta-pace.mjs        -> Cálculo puro do "ritmo de meta" (quanto
+                             falta/sobra para bater a meta do mês).
+                             Não acessa internet — fácil de testar.
+     meta-pace.test.mjs   -> Os TESTES do arquivo acima (confere se
+                             as contas estão certas).
+
+  package.json        -> Lista as "dependências" (bibliotecas que os
+                         robôs usam) e comandos do projeto Node.
+  package-lock.json   -> Trava as versões exatas dessas dependências.
+                         (Gerado automaticamente — não edite na mão.)
+
+  supabase-ca.crt     -> Certificado de segurança para o robô conectar
+                         no banco Supabase com conexão verificada.
+
+  .env (oculto)       -> Os SEGREDOS dos robôs (chaves de IA, banco,
+                         Bling). NUNCA vai para o GitHub.
+  .env.exemplo        -> Um modelo do .env, SEM segredos, mostrando
+                         quais variáveis precisam ser preenchidas.
+                         (Este sim fica no GitHub, como referência.)
+
+  logs/               -> Diário de execução dos robôs. É ignorado pelo
+                         git (não sobe ao GitHub).
+
+
+Para iniciante: o que é "migration"?
+------------------------------------
+É uma mudança no banco salva como arquivo .sql, em ordem numerada
+(ficam em docs/migrations/). O run-migrations.mjs é quem APLICA
+essas mudanças no banco de verdade, uma vez cada. Assim qualquer
+pessoa monta o mesmo banco rodando os arquivos na sequência.
+
+ATENÇÃO: rodar migrations altera o banco DE VERDADE. Cuidado.
+
+==================================================================

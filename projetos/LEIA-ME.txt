@@ -1,0 +1,37 @@
+==================================================================
+ PASTA: projetos/   —  O CÓDIGO-FONTE DO DASHBOARD (e sub-projetos)
+==================================================================
+
+O que é esta pasta?
+-------------------
+Aqui mora o "código-fonte" do painel, com o histórico de versões e
+os sub-projetos. Hoje há UM projeto grande:
+
+  central-inteligencia/  -> O dashboard "Inteligência RBV" em si.
+                            É a versão de trabalho do painel. A versão
+                            boa (v1.3) é copiada para o index.html da
+                            raiz, que é o que vai para o ar.
+                            (veja central-inteligencia/LEIA-ME.txt)
+
+
+Como isso vira o site no ar?
+----------------------------
+Lembre da regra do repositório (veja o LEIA-ME.txt da raiz):
+  - Você trabalha no dashboard aqui dentro de central-inteligencia/.
+  - A versão aprovada (hoje a v1.3) é copiada para  /index.html
+    (na raiz), e é ESSA cópia que a Vercel publica.
+
+Dentro de central-inteligencia/ você verá várias versões do mesmo
+arquivo (v1.1, v1.2-preview, v1.3) guardadas para histórico, além de
+backups. É normal: como o dashboard é um arquivo único e gigante,
+guardar versões nomeadas é o jeito de não perder o trabalho antigo.
+
+
+Para iniciante: por que tantas cópias do mesmo HTML?
+----------------------------------------------------
+O dashboard é um único arquivo enorme. Em vez de depender só do
+histórico do Git, o projeto também salva "fotografias" do arquivo
+com nome de versão (v1.1, v1.2, v1.3) e backups com data. Assim dá
+para voltar a uma versão antiga rápido e comparar mudanças.
+
+==================================================================

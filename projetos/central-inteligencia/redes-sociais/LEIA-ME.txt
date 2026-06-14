@@ -1,0 +1,50 @@
+==================================================================
+ SUB-PROJETO: redes-sociais/   —  COLETOR DE INSTAGRAM (Python)
+==================================================================
+
+O que é esta pasta?
+-------------------
+É um sub-projeto mais antigo, focado em redes sociais. Tem um
+dashboard próprio (dashboard-v1.0.html) e, principalmente, um
+COLETOR escrito em Python (em vez de Node), que busca dados do
+Instagram/Meta e salva no banco.
+
+ATENÇÃO: o coletor "principal" e atual do projeto é o de Node, lá em
+/coletor (na raiz). Este aqui é a geração anterior — entenda como
+parte do histórico/origem do projeto.
+
+
+Arquivos
+--------
+  dashboard-v1.0.html  -> A primeira versão do painel de redes sociais.
+
+  coletor/             -> Os scripts em Python (.py):
+    coletar.py            -> O coletor principal: busca os dados das
+                             redes e grava no banco.
+    coletar.py.bak        -> Backup de uma versão anterior do coletar.py.
+    gerar_tokens.py       -> Gera/renova os tokens de acesso da Meta
+                             (a "chave" para a API do Instagram/Facebook).
+    backfill.py           -> Preenche dados ANTIGOS que faltaram
+                             (histórico que não foi coletado na época).
+    backfill_follows.py   -> Mesmo ideia, focado no número de seguidores.
+    probe_follows.py      -> "Sonda" para testar/checar a coleta de
+                             seguidores.
+    fetch_profile_pics.py -> Baixa as fotos de perfil dos perfis.
+    requirements.txt      -> Lista das bibliotecas Python necessárias.
+    instalar.sh           -> Script para instalar o ambiente (as
+                             dependências) deste coletor.
+    .env (oculto)         -> Segredos (tokens/chaves). NUNCA vai ao GitHub.
+    .env.exemplo          -> Modelo do .env, sem segredos (vai ao GitHub).
+    logs/                 -> Diário de execução (ignorado pelo git):
+                             coletor.log e coletor_error.log.
+
+
+Para iniciante: Python x Node, qual a diferença aqui?
+-----------------------------------------------------
+São duas linguagens de programação diferentes. Este coletor antigo é
+em Python (.py); os robôs atuais (na pasta /coletor da raiz) são em
+JavaScript/Node (.mjs). Fazem a mesma ideia — buscar dados e salvar —
+só que escritos em linguagens diferentes, de épocas diferentes do
+projeto.
+
+==================================================================

@@ -1,0 +1,88 @@
+==================================================================
+ LEIA-ME  —  REPOSITÓRIO "iamundi" (Inteligência RBV / social-dashboard)
+==================================================================
+
+O que é este repositório?
+-------------------------
+É a "pasta-mãe" do painel de inteligência da RBV: um DASHBOARD que
+mostra dados de redes sociais (Instagram/Meta), anúncios (Meta Ads),
+vendas (Bling) e notícias de concorrentes, tudo num só lugar.
+
+Está publicado na Vercel no endereço:
+   socialdashboard.rbvcompany.com   (domínio "Inteligência RBV")
+
+No GitHub o repositório se chama:  brenoov/social-dashboard
+A identidade do git aqui é a sua:  brenoov / breno@rbvcompany.com
+
+
+Como o site é montado? (importante de entender)
+-----------------------------------------------
+O dashboard é UM ÚNICO arquivo HTML gigante (tem ~600 KB!). Ele
+existe em duas cópias iguais:
+
+  index.html
+     -> É O ARQUIVO QUE FICA NO AR. A Vercel publica este.
+        Hoje ele é uma cópia EXATA da versão v1.3 (veja abaixo).
+
+  projetos/central-inteligencia/central-inteligencia-v1.3.html
+     -> A "versão fonte" v1.3, guardada junto com as versões antigas
+        (v1.1, v1.2-preview) para histórico.
+
+Resumindo: você trabalha na versão dentro de projetos/, e a versão
+boa vira o index.html da raiz, que é o que o site exibe.
+
+ATENÇÃO ao deploy: o git checa a identidade. Garanta que
+user.name/user.email NÃO estejam vazios, senão o build na Vercel
+pode falhar.
+
+
+O que é cada pasta/arquivo da raiz?
+-----------------------------------
+(cada pasta também tem o seu próprio LEIA-ME.txt)
+
+  index.html   -> O dashboard publicado (cópia da v1.3). É o site.
+
+  projetos/    -> O "código-fonte" do dashboard e dos sub-projetos,
+                  com o histórico de versões. (veja projetos/LEIA-ME.txt)
+
+  coletor/     -> Os ROBÔS em Node.js: agente de notícias, gestor
+                  comercial e o aplicador de mudanças no banco
+                  (migrations). (veja coletor/LEIA-ME.txt)
+
+  .github/     -> Onde ficam as tarefas AUTOMÁTICAS (GitHub Actions):
+                  os robôs que rodam sozinhos em horário marcado.
+                  (veja .github/LEIA-ME.txt)
+
+  docs/        -> Documentação: migrations do banco (.sql) e os
+                  planos/specs de cada funcionalidade. (docs/LEIA-ME.txt)
+
+  midia/       -> Imagens e logos compartilhados. (midia/LEIA-ME.txt)
+
+  vercel.json  -> Configuração do site na Vercel: redireciona
+                  "/midia/..." para a pasta de mídia certa e aplica
+                  cabeçalhos de SEGURANÇA (proíbe abrir o site dentro
+                  de iframe, força HTTPS, etc.).
+
+  deploy-noticias.sh -> Script que VOCÊ roda na sua máquina para
+                  publicar o módulo de Notícias com segurança.
+
+  .gitignore   -> Lista do que o Git ignora (não envia ao GitHub):
+                  segredos (.env, chaves), logs, backups, node_modules.
+
+  .env (oculto)-> Segredos/chaves. NUNCA vão para o GitHub.
+
+  .github / .vercel / .claude / .superpowers / .playwright-mcp
+               -> Pastas de configuração de ferramentas (algumas
+                  ignoradas pelo git). Não precisa mexer.
+
+
+Conceitos rápidos (pra quem está aprendendo)
+--------------------------------------------
+  - Vercel   : serviço que publica o site na internet.
+  - Supabase : o banco de dados na nuvem (guarda os números do painel).
+  - Meta API : de onde vêm os dados do Instagram/Facebook e Meta Ads.
+  - Bling    : sistema de gestão de onde vêm as vendas/faturamento.
+  - GitHub Actions: robôs que a GitHub roda sozinha em horário marcado.
+  - .mjs     : arquivo JavaScript que roda no Node.js (fora do navegador).
+
+==================================================================
