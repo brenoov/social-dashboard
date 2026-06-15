@@ -207,7 +207,9 @@ function montarEstoque(saldoPorDep, prodMap, giro, diaDoMes) {
       }
     }
     const categorias = Object.values(porCat)
-      .map(c => ({ ...c, parados: c.parados.sort((a, b) => b.saldo - a.saldo).slice(0, 6) }))
+      .map(c => ({ ...c,
+        sellThrough: (c.unidEstoque + c.vendidoMes) > 0 ? Math.round(100 * c.vendidoMes / (c.unidEstoque + c.vendidoMes)) : 0,
+        parados: c.parados.sort((a, b) => b.saldo - a.saldo).slice(0, 6) }))
       .sort((a, b) => b.unidEstoque - a.unidEstoque);
     rupturas.sort((a, b) => a.diasCobertura - b.diasCobertura);
     return { canal: x.canal, skusVendaveis: totalSkus, unidadesEmEstoque: totalUnid, categorias, rupturas: rupturas.slice(0, 10) };
@@ -291,6 +293,115 @@ function buildOportunidadesMd(opp) {
   return md;
 }
 
+// ── Garimpo do Gestor (até 5 itens livres POR LOJA, curados pela IA) ──
+// Princípio: a IA ESCOLHE do cardápio; o SISTEMA precifica (LLM não calcula preço).
+const GARIMPO_MAX = 5;     // por loja
+const GARIMPO_TETO = 40;   // % máximo de desconto
+// Cardápio de candidatos por loja de varejo: qualquer item vendável com estoque e preço.
+function montarCardapio(saldoPorDep, prodMap, giro, ultimaVenda, hoje, capPorLoja = 60) {
+  const saldoPulmao = saldoPorDep[DEP_PULMAO] || {};
+  const out = {};
+  for (const L of LOJAS_VAREJO) {
+    const saldos = saldoPorDep[L.deposito_id] || {};
+    const itens = [];
+    for (const [pid, saldo] of Object.entries(saldos)) {
+      const meta = prodMap[pid]; if (!meta) continue;
+      const cat = classificarItem(meta.nome); if (!cat) continue;   // ignora não-vendável
+      const preco = Number(meta.preco) || 0;
+      if (saldo < 1 || preco <= 0) continue;
+      itens.push({
+        pid, sku: meta.codigo || pid, nome: meta.nome, categoria: cat, preco,
+        estoqueLoja: saldo, estoquePulmao: saldoPulmao[pid] || 0,
+        giro: giro[pid] || 0, diasSemVender: _diasSemVender(ultimaVenda[pid], hoje),
+      });
+    }
+    // repertório: prioriza capital parado (preço×estoque), mas a lista mista deixa a IA
+    // escolher tanto encalhado quanto mover (item-isca) — ela decide.
+    itens.sort((a, b) => (b.preco * b.estoqueLoja) - (a.preco * a.estoqueLoja));
+    out[L.loja] = itens.slice(0, capPorLoja);
+  }
+  return out;
+}
+// Cardápio compacto pro prompt
+function cardapioMd(cardapio) {
+  let md = '';
+  for (const loja in cardapio) {
+    md += `\n### ${loja}\n`;
+    if (!cardapio[loja].length) { md += '_sem itens com estoque_\n'; continue; }
+    md += 'SKU | Item | Categoria | Preço | Estoque(loja/pulmão) | Giro mês | Dias s/ vender\n';
+    for (const it of cardapio[loja]) {
+      md += `${it.sku} | ${it.nome} | ${it.categoria} | ${_rOpp(it.preco)} | ${it.estoqueLoja}/${it.estoquePulmao} | ${it.giro} | ${it.diasSemVender}\n`;
+    }
+  }
+  return md;
+}
+// Casa a chave de loja escolhida pela IA com a loja real (tolerante a variação de texto)
+function _garimpoKeyMatch(obj, loja) {
+  if (!obj) return [];
+  const want = loja.toLowerCase();
+  for (const k of Object.keys(obj)) {
+    const kl = k.toLowerCase();
+    if (kl === want || (want.includes('tivoli') && kl.includes('tivoli')) || (want.includes('dom pedro') && kl.includes('dom pedro'))) {
+      return Array.isArray(obj[k]) ? obj[k] : [];
+    }
+  }
+  return [];
+}
+// Valida os picks da IA contra o cardápio e precifica (exato pelo sistema).
+function validarGarimpo(picksPorLoja, cardapio, oportunidades) {
+  const usadosOpp = {};   // loja -> SKUs já nos 12 (não repetir)
+  for (const o of (oportunidades || [])) usadosOpp[o.loja] = new Set((o.itens || []).map(i => String(i.sku)));
+  const out = [];
+  for (const L of LOJAS_VAREJO) {
+    const cat = cardapio[L.loja] || [];
+    const bySku = {}; cat.forEach(i => { bySku[String(i.sku)] = i; });
+    const picks = _garimpoKeyMatch(picksPorLoja, L.loja);
+    const vistos = new Set(); const itens = [];
+    for (const p of picks) {
+      if (itens.length >= GARIMPO_MAX) break;
+      const sku = String(p?.sku || '').trim();
+      const it = bySku[sku];
+      if (!it || vistos.has(sku)) continue;                      // sku inexistente/duplicado
+      if (usadosOpp[L.loja] && usadosOpp[L.loja].has(sku)) continue; // já está nos 12
+      let pct = Math.round(Number(p?.pct) || 0);
+      if (!pct) continue;
+      pct = Math.max(1, Math.min(GARIMPO_TETO, pct));            // trava 1..40
+      vistos.add(sku);
+      const precoDesc = it.preco * (1 - pct / 100);
+      itens.push({
+        sku: it.sku, descricao: it.nome, categoria: it.categoria,
+        precoOriginal: Math.round(it.preco * 100) / 100, pct,
+        precoComDesconto: Math.round(precoDesc * 100) / 100,
+        parcela6x: Math.round((precoDesc / 6) * 100) / 100,
+        estoqueLoja: it.estoqueLoja, estoquePulmao: it.estoquePulmao,
+        diasSemVender: it.diasSemVender, motivo: String(p?.motivo || '').slice(0, 160),
+      });
+    }
+    out.push({ loja: L.loja, itens });
+  }
+  return out;
+}
+function buildGarimpoMd(garimpo) {
+  let md = '## Garimpo do Gestor\n\n*Apostas da semana curadas pela gestão (qualquer item, até 40%) — preços calculados pelo sistema.*\n';
+  for (const loja of garimpo) {
+    md += '\n### ' + loja.loja + '\n\n';
+    if (!loja.itens.length) { md += '_Sem apostas esta semana._\n'; continue; }
+    md += '| SKU | Descrição | Categoria | Preço orig. | % | Com desconto | 6x | Estoque (loja/pulmão) | Dias s/ vender | Por quê |\n|---|---|---|---|---|---|---|---|---|---|\n';
+    for (const it of loja.itens) {
+      md += '| ' + it.sku + ' | ' + it.descricao + ' | ' + it.categoria + ' | ' + _rOpp(it.precoOriginal) + ' | ' + it.pct + '% | ' + _rOpp(it.precoComDesconto) + ' | ' + _rOpp(it.parcela6x) + ' | ' + it.estoqueLoja + ' / ' + it.estoquePulmao + ' | ' + it.diasSemVender + ' | ' + it.motivo + ' |\n';
+    }
+  }
+  return md;
+}
+// Extrai o bloco ```garimpo {json} ``` da resposta do LLM e devolve {picks, limpo}
+function parseGarimpoBlock(texto) {
+  const m = texto.match(/```garimpo\s*([\s\S]*?)```/i);
+  if (!m) return { picks: null, limpo: texto };
+  let picks = null;
+  try { picks = JSON.parse(m[1].trim()); } catch (e) { picks = null; }
+  return { picks, limpo: texto.replace(m[0], '').trim() };
+}
+
 // ── Anthropic (retry em 429/5xx/rede) ──
 async function anthropic(body, tentativas = 6) {
   for (let t = 0; t < tentativas; t++) {
@@ -308,6 +419,37 @@ async function anthropic(body, tentativas = 6) {
 function hojeBR() {
   const f = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' });
   return f.format(new Date()); // YYYY-MM-DD
+}
+
+// ── Calendário comercial BR (datado, p/ a IA não inventar datas) ──
+function _nthSunday(y, monthIdx, n) {            // n-ésimo domingo do mês
+  const d = new Date(y, monthIdx, 1); let c = 0;
+  for (;;) { if (d.getDay() === 0 && ++c === n) return new Date(d); d.setDate(d.getDate() + 1); }
+}
+function _lastFriday(y, monthIdx) {              // última sexta do mês
+  const d = new Date(y, monthIdx + 1, 0);
+  while (d.getDay() !== 5) d.setDate(d.getDate() - 1);
+  return d;
+}
+function proximasDatasComerciais(hoje, dias = 80) {
+  const base = new Date(hoje + 'T00:00:00');
+  const eventos = [];
+  for (const y of [base.getFullYear(), base.getFullYear() + 1]) {
+    eventos.push(
+      { nome: 'Dia das Mães',       data: _nthSunday(y, 4, 2) },   // 2º domingo de maio
+      { nome: 'Dia dos Namorados',  data: new Date(y, 5, 12) },    // 12/06
+      { nome: 'Dia dos Pais',       data: _nthSunday(y, 7, 2) },   // 2º domingo de agosto
+      { nome: 'Dia do Cliente',     data: new Date(y, 8, 15) },    // 15/09
+      { nome: 'Dia das Crianças',   data: new Date(y, 9, 12) },    // 12/10
+      { nome: 'Black Friday',       data: _lastFriday(y, 10) },    // última 6ª de novembro
+      { nome: 'Natal',              data: new Date(y, 11, 25) },   // 25/12
+    );
+  }
+  const fim = new Date(base); fim.setDate(base.getDate() + dias);
+  return eventos
+    .filter(e => e.data >= base && e.data <= fim)
+    .sort((a, b) => a.data - b.data)
+    .map(e => ({ nome: e.nome, data: e.data.toISOString().slice(0, 10), emDias: Math.round((e.data - base) / 864e5) }));
 }
 
 async function main() {
@@ -337,7 +479,7 @@ async function main() {
   const noticias = await sbGet(`/noticias_concorrentes?rodada=gte.${desde}&select=marca,titulo,resumo,categoria,fonte,data_publicacao&order=data_publicacao.desc&limit=40`);
 
   // 3.5) estoque por armazém dos canais foco + giro do mês (itens parados)
-  let estoque = [], oportunidades = [];
+  let estoque = [], oportunidades = [], cardapio = {};
   try {
     const prodMap = await blingProdutos(token);
     const saldoPorDep = await blingSaldoFoco(token, prodMap);
@@ -347,7 +489,8 @@ async function main() {
     estoque = montarEstoque(saldoPorDep, prodMap, giro, d);
     const weekNum = Math.floor(Date.now() / (7 * 864e5));
     oportunidades = montarOportunidades(saldoPorDep, prodMap, giro, ultimaVenda, hoje, weekNum);
-    console.log('estoque/opp:', estoque.map(e => `${e.canal}=${e.rupturas.length} rupt`).join(' · '), '| ofertas:', oportunidades.map(o => `${o.loja}=${o.itens.length}`).join(' · '));
+    cardapio = montarCardapio(saldoPorDep, prodMap, giro, ultimaVenda, hoje);
+    console.log('estoque/opp:', estoque.map(e => `${e.canal}=${e.rupturas.length} rupt`).join(' · '), '| ofertas:', oportunidades.map(o => `${o.loja}=${o.itens.length}`).join(' · '), '| cardápio:', Object.entries(cardapio).map(([l, a]) => `${l}=${a.length}`).join(' · '));
   } catch (e) {
     console.error('aviso estoque/opp:', e.message); // não derruba o briefing
   }
@@ -374,6 +517,10 @@ async function main() {
         }),
       };
       console.log('comparativo vs', prev.rodada, 'montado');
+      // tendência: variação de giro por categoria vs a rodada anterior
+      const prevEst = {};
+      for (const e of (prev.dados_json.estoque || [])) { prevEst[e.canal] = {}; for (const c of (e.categorias || [])) prevEst[e.canal][c.categoria] = c.vendidoMes || 0; }
+      for (const e of estoque) for (const c of (e.categorias || [])) { const pv = prevEst[e.canal] ? prevEst[e.canal][c.categoria] : undefined; c.deltaGiro = (pv == null) ? null : (c.vendidoMes - pv); }
     } else {
       console.log('sem briefing anterior de outra data p/ comparar');
     }
@@ -385,39 +532,52 @@ async function main() {
     const pace = metaPace({ metaValor: meta?.meta_valor, dailyGoals: meta?.daily_goals, diaDoMes: d, diasNoMes, realizado: realPorCanal[c.loja_id] });
     return { canal: c.nome, ...pace };
   });
-  const dados = { rodada: hoje, mesReferencia: `${y}-${String(m).padStart(2, '0')}`, diaDoMes: d, diasNoMes, canaisFoco: canaisResumo, totalPedidosMes: pedidos.length, comparativo, estoque };
+  const calendario = proximasDatasComerciais(hoje);
+  const dados = { rodada: hoje, mesReferencia: `${y}-${String(m).padStart(2, '0')}`, diaDoMes: d, diasNoMes, canaisFoco: canaisResumo, totalPedidosMes: pedidos.length, comparativo, estoque, calendario };
 
-  // 5) Claude escreve o briefing (persona de gestor veterano)
-  const sys = 'Você é um gestor comercial veterano de varejo e atacado de moda (bolsas, marca Vessel). '
-    + 'Escreve briefings semanais diretos, práticos e acionáveis — chão de loja, sem encheção. '
+  // 5) Claude escreve o briefing (persona de gestor-chefe, cabeça de dono)
+  const sys = 'Você é o gestor comercial-chefe (cabeça de dono) de uma operação de varejo e atacado de moda em bolsas (marca Vessel). '
+    + 'Pensa como dono: prioriza caixa, giro e competitividade; é criativo e agressivo no ponto certo; escreve briefings semanais AFIADOS, diretos e 100% acionáveis — chão de loja, sem encheção, sem repetir número à toa. '
     + 'Foco TOTAL em 3 canais: Shopping Tivoli (Santa Bárbara), Shopping Dom Pedro e Atacado Nuvem Shop.';
+  const lojasGarimpo = LOJAS_VAREJO.map(l => l.loja).join('" e "');
   const user = 'Dados desta semana (R$ reais do Bling, metas e movimento de concorrentes):\n\n'
     + 'NÚMEROS:\n' + JSON.stringify(dados, null, 2) + '\n\n'
-    + 'CONCORRENTES (últimas 2 semanas):\n' + noticias.map(n => `- [${n.marca}/${n.categoria}] ${n.titulo} (${n.fonte}, ${n.data_publicacao})`).join('\n') + '\n\n'
+    + 'CONCORRENTES (últimas 2 semanas):\n' + (noticias.length ? noticias.map(n => `- [${n.marca}/${n.categoria}] ${n.titulo} (${n.fonte}, ${n.data_publicacao})`).join('\n') : '(sem notícias recentes)') + '\n\n'
+    + 'CARDÁPIO PARA O GARIMPO (itens disponíveis por loja — escolha SÓ daqui):\n' + (cardapioMd(cardapio) || '(sem cardápio)') + '\n\n'
     + 'Escreva o briefing em markdown com estas seções: '
-    + '## Resumo executivo (3-5 bullets) · ## Ritmo das metas (por canal foco: % da meta, adiantado/atrasado, projeção de fechamento) · '
-    + '## Evolução vs. semana anterior (use dados.comparativo, se houver: por canal, o faturamento subiu ou caiu vs a rodada anterior — deltaRealizado em R$ — e comente o ritmo; se comparativo for null, diga que é a 1ª medição e pule a comparação) · '
-    + '## Alerta de ruptura (use dados.estoque[].rupturas: itens que VENDEM e estão com poucos dias de cobertura (diasCobertura) — risco de FALTAR. Liste os mais urgentes por canal e recomende reposição/realocação imediata, citando produto/código, saldo e quanto vendeu no mês) · '
-    + '## Frente competitiva (o que os concorrentes fizeram + resposta promocional sugerida) · '
-    + '## Calendário comercial (próximas datas relevantes e o que preparar) · '
-    + '## Estoque & ações estratégicas (em dados.estoque há, por canal foco, o estoque de PRODUTOS VENDÁVEIS agrupado por CATEGORIA — carteira, transversal, tote, ombro, mão, festa, mochila, porta-cartão, óculos etc. — com unidEstoque (em estoque), vendidoMes (giro) e parados (itens com estoque e sem venda no mês). Seja ESTRATÉGICO: (a) por CATEGORIA, diga quais estão ENCALHADAS (muito estoque, pouco/zero giro) vs GIRANDO (repor/dar destaque); (b) sugira ações concretas — promoção/queima, COMBO (ex.: carteira + bolsa), brinde, vitrine por categoria/cor da estação; (c) aponte REALOCAÇÃO entre lojas quando um item/categoria está parado num canal e girando em outro; (d) destaque os itens parados de maior capital. Cite produtos pelo nome/código. NÃO mencione sacola/TNT/insumo — já foram excluídos.) · '
-    + '## Performance (destaques/alertas) · ## Ações priorizadas (lista numerada: o quê, onde, urgência). '
-    + 'Use os números reais fornecidos. Não invente faturamento nem produtos que não estão nos dados. '
-    + 'NÃO escreva a seção "Oportunidades da Semana" — ela é gerada automaticamente pelo sistema com os preços exatos e anexada depois. '
-    + 'No fim, escreva numa última linha SÓ um resumo de 1 frase prefixado por "RESUMO: " para usar no card.';
+    + '## Leitura da Semana (3-5 bullets afiados: o que de fato importa e o que decidir agora) · '
+    + '## Ritmo das metas (por canal foco: % da meta, adiantado/atrasado, projeção de fechamento) · '
+    + '## Evolução vs. semana anterior (use dados.comparativo: por canal subiu/caiu vs a rodada anterior — deltaRealizado em R$ — e comente o ritmo; se null, diga que é a 1ª medição) · '
+    + '## Tendência por categoria (use dados.estoque[].categorias com sellThrough (% vendido do disponível no mês) e deltaGiro (variação de unidades vendidas vs a semana anterior): aponte categorias que ACELERAM (repor/destacar) vs DESACELERAM/ENCALHAM (queima/combo). Se deltaGiro for null, é a 1ª medição) · '
+    + '## Alerta de ruptura (use dados.estoque[].rupturas: itens que VENDEM e com poucos dias de cobertura (diasCobertura) — risco de FALTAR. Liste os urgentes por canal e recomende reposição/realocação, citando produto/código, saldo e giro) · '
+    + '## Frente competitiva (CRUZE cada movimento de concorrente com NOSSOS itens/categorias parados e proponha contra-ataque DIRETO — preço, combo, vitrine, recorte de público — citando produto/código nossos) · '
+    + '## Calendário & campanhas (use SOMENTE as datas de dados.calendario, que são reais e datadas; para cada data próxima monte uma campanha objetiva: tema, categorias-alvo, mecânica e o que preparar já) · '
+    + '## Estoque & ações estratégicas (dados.estoque tem, por canal, o estoque VENDÁVEL por CATEGORIA com unidEstoque, vendidoMes, sellThrough e parados. Seja ESTRATÉGICO: (a) ENCALHADAS vs GIRANDO; (b) ações concretas — queima, COMBO (carteira+bolsa), brinde, vitrine; (c) REALOCAÇÃO entre lojas (parado num canal, girando em outro); (d) maiores capitais parados. Cite nome/código. NÃO mencione sacola/TNT/insumo) · '
+    + '## Garimpo do Gestor — sua leitura (explique a lógica das suas apostas da semana e proponha MECÂNICAS criativas além do %: combos ex. bolsa+carteira, brinde por faixa de valor, leve 2 pague 1, kit presente. A TABELA com os preços é gerada pelo sistema a partir das suas escolhas no bloco garimpo) · '
+    + '## Plano de Ataque (lista numerada com os 3-5 movimentos mais importantes da semana: o quê, onde, urgência e impacto esperado). '
+    + 'Use só os números reais fornecidos. Não invente faturamento, datas nem produtos fora dos dados. '
+    + 'NÃO escreva as tabelas de "Oportunidades da Semana" nem "Garimpo do Gestor" — são geradas pelo sistema com preços exatos e anexadas depois. '
+    + 'GARIMPO: escolha até ' + GARIMPO_MAX + ' itens POR LOJA do CARDÁPIO (qualquer item; seja criativo e competitivo — pode ser encalhado de alto capital, item-isca de tráfego ou resposta a concorrente), com desconto INTEIRO de 5% a ' + GARIMPO_TETO + '%, e um motivo curto pra cada. Não repita itens das Oportunidades. '
+    + 'Saída NESTA ORDEM: (1) o briefing; (2) uma linha "RESUMO: <1 frase>"; (3) por ÚLTIMO, um bloco de código ```garimpo contendo JSON no formato '
+    + '{"' + lojasGarimpo + '":[{"sku":"<código do cardápio>","pct":30,"motivo":"..."}]} — use EXATAMENTE esses nomes de loja como chaves e SKUs do cardápio.';
 
-  const resp = await anthropic({ model: MODEL, max_tokens: 4000, thinking: { type: 'adaptive' }, system: sys, messages: [{ role: 'user', content: user }] });
+  const resp = await anthropic({ model: MODEL, max_tokens: 7000, thinking: { type: 'adaptive' }, system: sys, messages: [{ role: 'user', content: user }] });
   const bruto = resp.content.filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
-  const mResumo = bruto.match(/RESUMO:\s*(.+)\s*$/);
+  // extrai e remove o bloco garimpo ANTES do RESUMO (que deve ficar no fim do texto limpo)
+  const { picks: garimpoPicks, limpo } = parseGarimpoBlock(bruto);
+  const garimpo = validarGarimpo(garimpoPicks, cardapio, oportunidades);
+  console.log('garimpo:', garimpo.map(g => `${g.loja}=${g.itens.length}`).join(' · '));
+  const mResumo = limpo.match(/RESUMO:\s*(.+)\s*$/);
   const resumo = mResumo ? mResumo[1].trim() : (canaisResumo.map(c => `${c.canal}: ${c.percentMeta}% da meta`).join(' · '));
-  // monta o conteúdo final: corpo do LLM + tabelas de oportunidades (preços exatos) + RESUMO
-  let corpo = bruto.replace(/\n*RESUMO:.*$/s, '').trim();
+  // monta o conteúdo final: corpo do LLM + Oportunidades + Garimpo (preços exatos) + RESUMO
+  let corpo = limpo.replace(/\n*RESUMO:.*$/s, '').trim();
   if (oportunidades.some(o => o.itens.length)) corpo += '\n\n' + buildOportunidadesMd(oportunidades);
+  if (garimpo.some(o => o.itens.length)) corpo += '\n\n' + buildGarimpoMd(garimpo);
   const conteudo = corpo + '\n\nRESUMO: ' + resumo;
   const periodo = `Semana de ${hoje} (${dados.mesReferencia})`;
 
   // 6) grava o briefing
-  await sbInsert('/gestao_comercial_briefings', [{ rodada: hoje, periodo, resumo, conteudo, dados_json: { ...dados, oportunidades } }], 'return=minimal');
+  await sbInsert('/gestao_comercial_briefings', [{ rodada: hoje, periodo, resumo, conteudo, dados_json: { ...dados, oportunidades, garimpo } }], 'return=minimal');
   console.log('briefing gravado. canais:', canaisResumo.map(c => `${c.canal}=${c.percentMeta}%`).join(', '));
   await logGestor('fim', null, 'pedidos=' + pedidos.length + ' · ' + canaisResumo.map(c => `${c.canal}:${c.status}`).join(' · '));
 }
