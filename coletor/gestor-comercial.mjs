@@ -71,10 +71,11 @@ async function blingProxy(token, endpoint, params) {
       body: JSON.stringify({ endpoint, params: params || {} }),
     });
     if (r.status === 429) { await sleep(1500); continue; }
+    if (r.status >= 500) { console.log('  bling-proxy ' + endpoint + ' -> ' + r.status + ' (gateway); aguardando…'); await sleep(2000 * (attempt + 1)); continue; }
     if (!r.ok) throw new Error('bling-proxy ' + endpoint + ' -> ' + r.status + ' ' + (await r.text()).slice(0, 200));
     return r.json();
   }
-  throw new Error('bling-proxy ' + endpoint + ' -> 429 repetido');
+  throw new Error('bling-proxy ' + endpoint + ' -> falhou (429/5xx repetido)');
 }
 // Lista todas as páginas de pedidos de venda concluídos no intervalo
 async function blingPedidos(token, dataInicial, dataFinal) {
