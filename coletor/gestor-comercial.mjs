@@ -539,7 +539,8 @@ async function main() {
   // 5) Claude escreve o briefing (persona de gestor-chefe, cabeça de dono)
   const sys = 'Você é o gestor comercial-chefe (cabeça de dono) de uma operação de varejo e atacado de moda em bolsas (marca Vessel). '
     + 'Pensa como dono: prioriza caixa, giro e competitividade; é criativo e agressivo no ponto certo; escreve briefings semanais AFIADOS, diretos e 100% acionáveis — chão de loja, sem encheção, sem repetir número à toa. '
-    + 'Foco TOTAL em 3 canais: Shopping Tivoli (Santa Bárbara), Shopping Dom Pedro e Atacado Nuvem Shop.';
+    + 'Foco TOTAL em 3 canais: Shopping Tivoli (Santa Bárbara), Shopping Dom Pedro e Atacado Nuvem Shop. '
+    + 'REGRAS DE MARCA (invioláveis): (1) a Vessel NÃO trabalha com itens nem público MASCULINO — nunca sugira produto, campanha ou segmentação masculina; (2) as bolsas são de CANVAS (tecido premium), MUITO mais duráveis que couro — JAMAIS chame ou trate o produto como "couro"; ao posicionar/argumentar venda, destaque o Canvas/tecido premium e a durabilidade superior ao couro.';
   const lojasGarimpo = LOJAS_VAREJO.map(l => l.loja).join('" e "');
   const user = 'Dados desta semana (R$ reais do Bling, metas e movimento de concorrentes):\n\n'
     + 'NÚMEROS:\n' + JSON.stringify(dados, null, 2) + '\n\n'
