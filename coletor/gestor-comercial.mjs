@@ -282,7 +282,7 @@ function montarOportunidades(saldoPorDep, prodMap, giro, ultimaVenda, hoje, week
 }
 function _rOpp(v) { return 'R$ ' + (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function buildOportunidadesMd(opp) {
-  let md = '## Oportunidades da Semana\n\n*Vitrine de ofertas do varejo (Tivoli e Dom Pedro, independentes) — estoque parado de bolsas e mochilas. Preços calculados pelo sistema.*\n';
+  let md = '## 🛒 Oportunidades da Semana\n\n*Vitrine fixa de queima: 12 itens por loja (Tivoli e Dom Pedro, separados), priorizando bolsas/mochilas paradas. A coluna **Público**: "Amplo" = desconto menor, pra atrair o público geral; "Base" = desconto maior, pra girar o que está mais encalhado. Preço com desconto e parcela já calculados.*\n';
   for (const loja of opp) {
     md += '\n### ' + loja.loja + '\n\n';
     if (!loja.itens.length) { md += '_Sem itens elegíveis com estoque esta semana._\n'; continue; }
@@ -383,7 +383,7 @@ function validarGarimpo(picksPorLoja, cardapio, oportunidades) {
   return out;
 }
 function buildGarimpoMd(garimpo) {
-  let md = '## Garimpo do Gestor\n\n*Apostas da semana curadas pela gestão (qualquer item, até 40%) — preços calculados pelo sistema.*\n';
+  let md = '## 💎 Garimpo do Gestor\n\n*As "apostas" da semana: itens escolhidos a dedo (qualquer categoria, desconto até 40%) pra destravar venda. A coluna **Por quê** explica cada escolha. Preço com desconto e parcela já calculados — é só aplicar.*\n';
   for (const loja of garimpo) {
     md += '\n### ' + loja.loja + '\n\n';
     if (!loja.itens.length) { md += '_Sem apostas esta semana._\n'; continue; }
@@ -546,21 +546,17 @@ async function main() {
     + 'NÚMEROS:\n' + JSON.stringify(dados, null, 2) + '\n\n'
     + 'CONCORRENTES (últimas 2 semanas):\n' + (noticias.length ? noticias.map(n => `- [${n.marca}/${n.categoria}] ${n.titulo} (${n.fonte}, ${n.data_publicacao})`).join('\n') : '(sem notícias recentes)') + '\n\n'
     + 'CARDÁPIO PARA O GARIMPO (itens disponíveis por loja — escolha SÓ daqui):\n' + (cardapioMd(cardapio) || '(sem cardápio)') + '\n\n'
-    + 'Escreva o briefing em markdown com estas seções: '
-    + '## Leitura da Semana (3-5 bullets afiados: o que de fato importa e o que decidir agora) · '
-    + '## Ritmo das metas (por canal foco: % da meta, adiantado/atrasado, projeção de fechamento) · '
-    + '## Evolução vs. semana anterior (use dados.comparativo: por canal subiu/caiu vs a rodada anterior — deltaRealizado em R$ — e comente o ritmo; se null, diga que é a 1ª medição) · '
-    + '## Tendência por categoria (use dados.estoque[].categorias com sellThrough (% vendido do disponível no mês) e deltaGiro (variação de unidades vendidas vs a semana anterior): aponte categorias que ACELERAM (repor/destacar) vs DESACELERAM/ENCALHAM (queima/combo). Se deltaGiro for null, é a 1ª medição) · '
-    + '## Alerta de ruptura (use dados.estoque[].rupturas: itens que VENDEM e com poucos dias de cobertura (diasCobertura) — risco de FALTAR. Liste os urgentes por canal e recomende reposição/realocação, citando produto/código, saldo e giro) · '
-    + '## Frente competitiva (CRUZE cada movimento de concorrente com NOSSOS itens/categorias parados e proponha contra-ataque DIRETO — preço, combo, vitrine, recorte de público — citando produto/código nossos) · '
-    + '## Calendário & campanhas (use SOMENTE as datas de dados.calendario, que são reais e datadas; para cada data próxima monte uma campanha objetiva: tema, categorias-alvo, mecânica e o que preparar já) · '
-    + '## Estoque & ações estratégicas (dados.estoque tem, por canal, o estoque VENDÁVEL por CATEGORIA com unidEstoque, vendidoMes, sellThrough e parados. Seja ESTRATÉGICO: (a) ENCALHADAS vs GIRANDO; (b) ações concretas — queima, COMBO (carteira+bolsa), brinde, vitrine; (c) REALOCAÇÃO entre lojas (parado num canal, girando em outro); (d) maiores capitais parados. Cite nome/código. NÃO mencione sacola/TNT/insumo) · '
-    + '## Garimpo do Gestor — sua leitura (explique a lógica das suas apostas da semana e proponha MECÂNICAS criativas além do %: combos ex. bolsa+carteira, brinde por faixa de valor, leve 2 pague 1, kit presente. A TABELA com os preços é gerada pelo sistema a partir das suas escolhas no bloco garimpo) · '
-    + '## Plano de Ataque (lista numerada com os 3-5 movimentos mais importantes da semana: o quê, onde, urgência e impacto esperado). '
+    + 'COMO ESCREVER (importante): você fala com o DONO do negócio, que NÃO é técnico. Seja CLARO, simples e direto. Explique cada número e cada termo na primeira vez que usar, em português do dia a dia — ex.: "sell-through 30% = de cada 10 peças disponíveis no mês, 3 venderam"; "ruptura = risco de faltar, porque vende rápido e tem pouco estoque". Nada de jargão solto. Toda recomendação tem que deixar claro O QUÊ, ONDE e POR QUÊ. '
+    + 'Escreva o briefing em markdown com EXATAMENTE estas 5 seções, nesta ordem, e NENHUMA outra: '
+    + '## 📌 Leitura da Semana (3-5 bullets: o que importa de verdade e o que decidir agora) · '
+    + '## 🎯 Metas & Ritmo (por canal: % da meta, se está adiantado ou atrasado, e projeção de fechamento do mês; use dados.comparativo p/ dizer se faturou MAIS ou MENOS que a semana passada — deltaRealizado em R$. Se comparativo for null, diga que é a 1ª medição) · '
+    + '## 📦 Estoque: repor x queimar (use dados.estoque[].categorias (sellThrough, deltaGiro, parados) + dados.estoque[].rupturas. Organize em DUAS frentes claras: (A) REPOR/DESTACAR — o que vende e pode FALTAR (ruptura) ou está acelerando; (B) QUEIMAR/COMBO — o que está parado ou desacelerando e trava dinheiro em estoque. Aponte REALOCAÇÃO entre lojas (parado num canal e girando no outro). Cite nome/código. Não mencione sacola/TNT/insumo) · '
+    + '## ⚔️ Concorrência & Calendário (PRIMEIRO: o que os concorrentes fizeram e o NOSSO contra-ataque direto — preço, combo, vitrine, argumento de venda — citando nossos produtos/códigos. DEPOIS: use SOMENTE as datas de dados.calendario (reais e datadas) e monte, pra cada data próxima, uma campanha objetiva: tema, categorias-alvo, mecânica e o que preparar já) · '
+    + '## ✅ Plano de Ataque (lista numerada com os 3-5 movimentos mais importantes da semana: o quê, onde, urgência e impacto esperado. Inclua AQUI as mecânicas criativas que sugerir — combo ex. bolsa+carteira, brinde por faixa de valor, leve 2 pague 1, kit presente). '
     + 'Use só os números reais fornecidos. Não invente faturamento, datas nem produtos fora dos dados. '
-    + 'NÃO escreva as tabelas de "Oportunidades da Semana" nem "Garimpo do Gestor" — são geradas pelo sistema com preços exatos e anexadas depois. '
-    + 'GARIMPO: escolha até ' + GARIMPO_MAX + ' itens POR LOJA do CARDÁPIO (qualquer item; seja criativo e competitivo — pode ser encalhado de alto capital, item-isca de tráfego ou resposta a concorrente), com desconto INTEIRO de 5% a ' + GARIMPO_TETO + '%, e um motivo curto pra cada. Não repita itens das Oportunidades. '
-    + 'Saída NESTA ORDEM: (1) o briefing; (2) uma linha "RESUMO: <1 frase>"; (3) por ÚLTIMO, um bloco de código ```garimpo contendo JSON no formato '
+    + 'NÃO escreva nenhuma tabela de ofertas nem uma seção própria de "Garimpo" no texto — as tabelas de Garimpo e Oportunidades são geradas pelo sistema (com preços exatos) e anexadas no FIM. Sua única entrega sobre o Garimpo é o bloco JSON abaixo. '
+    + 'GARIMPO (suas apostas): escolha até ' + GARIMPO_MAX + ' itens POR LOJA do CARDÁPIO (qualquer item; criativo e competitivo — encalhado de alto capital, item-isca de tráfego ou resposta a concorrente), desconto INTEIRO de 5% a ' + GARIMPO_TETO + '%, com um motivo curto e CLARO pra cada. Não repita itens das Oportunidades. '
+    + 'Saída NESTA ORDEM: (1) as 5 seções; (2) uma linha "RESUMO: <1 frase>"; (3) por ÚLTIMO, um bloco de código ```garimpo contendo JSON no formato '
     + '{"' + lojasGarimpo + '":[{"sku":"<código do cardápio>","pct":30,"motivo":"..."}]} — use EXATAMENTE esses nomes de loja como chaves e SKUs do cardápio.';
 
   const resp = await anthropic({ model: MODEL, max_tokens: 16000, thinking: { type: 'adaptive' }, system: sys, messages: [{ role: 'user', content: user }] });
@@ -571,10 +567,10 @@ async function main() {
   console.log('garimpo:', garimpo.map(g => `${g.loja}=${g.itens.length}`).join(' · '));
   const mResumo = limpo.match(/RESUMO:\s*(.+)\s*$/);
   const resumo = mResumo ? mResumo[1].trim() : (canaisResumo.map(c => `${c.canal}: ${c.percentMeta}% da meta`).join(' · '));
-  // monta o conteúdo final: corpo do LLM + Oportunidades + Garimpo (preços exatos) + RESUMO
+  // monta o conteúdo final: corpo do LLM + Garimpo + Oportunidades (POR ÚLTIMO) + RESUMO
   let corpo = limpo.replace(/\n*RESUMO:.*$/s, '').trim();
-  if (oportunidades.some(o => o.itens.length)) corpo += '\n\n' + buildOportunidadesMd(oportunidades);
   if (garimpo.some(o => o.itens.length)) corpo += '\n\n' + buildGarimpoMd(garimpo);
+  if (oportunidades.some(o => o.itens.length)) corpo += '\n\n' + buildOportunidadesMd(oportunidades);
   const conteudo = corpo + '\n\nRESUMO: ' + resumo;
   const periodo = `Semana de ${hoje} (${dados.mesReferencia})`;
 
