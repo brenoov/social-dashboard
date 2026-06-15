@@ -563,7 +563,7 @@ async function main() {
     + 'Saída NESTA ORDEM: (1) o briefing; (2) uma linha "RESUMO: <1 frase>"; (3) por ÚLTIMO, um bloco de código ```garimpo contendo JSON no formato '
     + '{"' + lojasGarimpo + '":[{"sku":"<código do cardápio>","pct":30,"motivo":"..."}]} — use EXATAMENTE esses nomes de loja como chaves e SKUs do cardápio.';
 
-  const resp = await anthropic({ model: MODEL, max_tokens: 7000, thinking: { type: 'adaptive' }, system: sys, messages: [{ role: 'user', content: user }] });
+  const resp = await anthropic({ model: MODEL, max_tokens: 16000, thinking: { type: 'adaptive' }, system: sys, messages: [{ role: 'user', content: user }] });
   const bruto = resp.content.filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
   // extrai e remove o bloco garimpo ANTES do RESUMO (que deve ficar no fim do texto limpo)
   const { picks: garimpoPicks, limpo } = parseGarimpoBlock(bruto);
