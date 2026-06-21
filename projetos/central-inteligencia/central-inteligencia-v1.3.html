@@ -2941,6 +2941,11 @@ async function fetchData(accountId,period,customStart,customEnd){
   let _cBase=_countAtOrBefore(_prevBaseD),_partialSince=null;
   if(_cBase==null&&snaps.length){_cBase=Number(snaps[0].followers_count)||0;_partialSince=snaps[0].captured_at;} // histórico curto
   const previaReal=(_cNum!=null&&_cBase!=null)?(_cNum-_cBase):null;
+  // CONFIRMADO PELO IG: o bruto (gained/lost) cobre todo o período? A Meta às vezes atrasa/para de
+  // entregar follows_and_unfollows (ex.: parou em 13/06/2026). Se o último dia da janela já tem bruto,
+  // mostramos o oficial (IGUAL ao IG); senão, mostramos a variação da contagem (fresca) "em consolidação".
+  const lastGrossDay=snaps.reduce((mx,s)=>(((Number(s.gained)||0)>0||(Number(s.lost)||0)>0)&&s.captured_at>mx)?s.captured_at:mx,'');
+  const confirmadoIG=!!lastGrossDay&&followEnd<=lastGrossDay;
   const chartLabels=chartSrc.length?chartSrc.map(s=>fmtLabel(s.captured_at)):['—'];
   const chartDates=chartSrc.length?chartSrc.map(s=>fmtFull(s.captured_at)):['—'];
   // Período anterior (mesma duração) imediatamente antes da janela — MESMA régua (bruto novos−saíram).
@@ -3012,7 +3017,7 @@ async function fetchData(accountId,period,customStart,customEnd){
     pl,
     // Última coleta REAL do perfil (não o fim da janela) → frescor honesto em todo período.
     trueLastSnap:trueLastRows.length?trueLastRows[0].captured_at:null,
-    grossGained,grossLost,grossPartial,previaReal,partialSince:_partialSince,
+    grossGained,grossLost,grossPartial,previaReal,partialSince:_partialSince,confirmadoIG,lastGrossDay,
   };
 }
 
@@ -3180,14 +3185,17 @@ function openFollowersInfo(){
       <button id="_fi_x" style="border:0;background:#f1f5f9;border-radius:8px;width:30px;height:30px;font-size:15px;cursor:pointer;color:#475569;">✕</button>
     </div>
     <div style="padding:18px 20px;font-size:13px;line-height:1.6;">
-      <p style="margin:0 0 14px;"><b style="color:#2563eb;">Igual ao Instagram.</b> Em <b>7 dias, 14 dias, 30 dias e mês</b>, mostramos exatamente o que o painel profissional do Instagram mostra: <b>seguiram − deixaram de seguir</b>. Se você conferir no app do Instagram, vai bater.</p>
-      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;margin:0 0 14px;">
-        <p style="margin:0 0 6px;"><b style="color:#b45309;">⏳ Por que Hoje e Ontem aparecem como "parcial"?</b></p>
-        <p style="margin:0;">O Instagram leva cerca de <b>2 dias</b> para fechar (consolidar) os números de seguiram/saíram. Enquanto não fecha, mostramos a <b>contagem em tempo real</b> — quantos seguidores a mais a conta tem agora — com o selo <b>⏳ parcial</b>.</p>
+      <div style="background:#dcfce7;border:1px solid #86efac;border-radius:10px;padding:12px 14px;margin:0 0 14px;">
+        <p style="margin:0 0 6px;"><b style="color:#15803d;">✓ Confirmado pelo Instagram</b></p>
+        <p style="margin:0;">O período já tem o número oficial do Instagram (<b>seguiram − deixaram de seguir</b>). É exatamente o que aparece no painel profissional — se conferir no app, vai bater.</p>
       </div>
-      <p style="margin:0 0 14px;"><b>Por que o número pode mudar depois?</b> Ao consolidar, o número oficial pode ficar um pouco <b>diferente da prévia</b>, principalmente em dias de pico. A contagem total e o "seguiram − saíram" do Instagram são medidas um pouco diferentes (a contagem inclui também quem desativou/reativou a conta).</p>
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;margin:0 0 14px;">
+        <p style="margin:0 0 6px;"><b style="color:#b45309;">⏳ Em consolidação</b></p>
+        <p style="margin:0;">O Instagram ainda <b>não fechou</b> os números oficiais (seguiram/saíram) deste período. Isso costuma levar 1–2 dias, mas às vezes a Meta <b>atrasa bastante</b>. Enquanto isso, mostramos a <b>variação real de seguidores</b> (quantos a conta tem a mais), que é sempre atual. Quando o Instagram fecha, o card vira <b>✓ confirmado</b> sozinho.</p>
+      </div>
+      <p style="margin:0 0 14px;"><b>Por que pode mudar ao confirmar?</b> A variação da contagem e o "seguiram − saíram" do Instagram são medidas um pouco diferentes (a contagem inclui também quem desativou/reativou a conta), então em dias de pico podem divergir.</p>
       <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:12px 14px;">
-        <p style="margin:0;"><b style="color:#0369a1;">Na prática:</b> para apresentar ao cliente, use <b>7 / 14 / 30 dias</b> — já batem com o Instagram. <b>Hoje e Ontem</b> são termômetro em tempo real e se ajustam sozinhos quando o Instagram fecha.</p>
+        <p style="margin:0;"><b style="color:#0369a1;">Na prática:</b> o número <b>✓ confirmado</b> é o oficial do Instagram (use para apresentar). O <b>⏳ em consolidação</b> é o crescimento real mais recente, que o Instagram ainda vai oficializar.</p>
       </div>
     </div>`;
   ov.appendChild(m);document.body.appendChild(ov);
@@ -3199,34 +3207,36 @@ function update(d,period){
   const pl=d.pl;
   applyFreshness(d.trueLastSnap); // frescor = última coleta REAL do coletor, igual em qualquer período
   const totalEl=document.getElementById('total-followers');if(totalEl)animCountFull(totalEl,d.followerTotal);
-  const isRealtime=(period===0||period===1); // Hoje / Ontem → número em tempo real (parcial)
-  const headlineVal=(isRealtime&&d.previaReal!=null)?d.previaReal:d.newFollowers;
+  // RESILIENTE: se o período está confirmado pela Meta (bruto cobre a janela) → número oficial = IGUAL ao IG.
+  // Senão (Meta atrasada/sem dado) → variação real da contagem, marcada "em consolidação". Nunca zera.
+  const confirmado=d.confirmadoIG;
+  const headlineVal=confirmado?d.newFollowers:(d.previaReal!=null?d.previaReal:d.newFollowers);
   const newEl=document.getElementById('new-followers-val');if(newEl)animCount(newEl,headlineVal);
-  // ▲seguiram ▼saíram = bruto/IG. Só nos períodos OFICIAIS (em Hoje/Ontem o bruto ainda é 0/0 e enganaria).
+  // ▲seguiram ▼saíram (bruto/IG) — só quando o período está confirmado (senão o bruto está incompleto).
   const grossEl=document.getElementById('gross-followers');
   if(grossEl){
-    if(isRealtime){grossEl.style.display='none';}
-    else{
+    if(confirmado){
       grossEl.style.display='flex';
       grossEl.innerHTML=`<span style="color:#16a34a">▲ ${fmtN(d.grossGained)} seguiram</span>`+
-                        `<span style="color:#ef4444">▼ ${fmtN(d.grossLost)} saíram</span>`+
-                        (d.grossPartial?`<span style="color:#9aa0a6;font-weight:500">· consolidando (Meta fecha em ~2 dias)</span>`:'');
-    }
+                        `<span style="color:#ef4444">▼ ${fmtN(d.grossLost)} saíram</span>`;
+    } else {grossEl.style.display='none';}
   }
-  // Aviso "parcial" — SÓ em Hoje/Ontem: o número é a contagem em tempo real, ainda não confirmada pelo IG.
+  // Selo de status: ✓ confirmado pelo IG (verde) ou ⏳ em consolidação (âmbar — número é a contagem real).
   const prevEl=document.getElementById('previa-followers');
   if(prevEl){
-    if(isRealtime&&d.previaReal!=null){
-      prevEl.style.display='block';
-      prevEl.innerHTML=`<span style="display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:800;color:#b45309;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:2px 8px;">⏳ parcial</span>`+
-        `<div style="font-size:9.5px;line-height:1.35;color:#9aa0a6;font-weight:500;margin-top:3px;">Contagem em tempo real — ainda não confirmada pelo painel profissional do Instagram (fecha em ~2 dias). Pode ajustar ao consolidar.</div>`;
-    } else {prevEl.style.display='none';}
+    prevEl.style.display='block';
+    if(confirmado){
+      prevEl.innerHTML=`<span style="display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:800;color:#15803d;background:#dcfce7;border:1px solid #86efac;border-radius:6px;padding:2px 8px;">✓ confirmado pelo Instagram</span>`;
+    } else {
+      prevEl.innerHTML=`<span style="display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:800;color:#b45309;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:2px 8px;">⏳ em consolidação</span>`+
+        `<div style="font-size:9.5px;line-height:1.35;color:#9aa0a6;font-weight:500;margin-top:3px;">Número pela variação real de seguidores. O Instagram ainda não fechou os números oficiais (seguiram/saíram) deste período — quando fechar, aparece o ✓ confirmado.</div>`;
+    }
   }
   buildChart(d.chart);
-  // Comparação só nos períodos oficiais (em Hoje/Ontem o "anterior" é bruto 0 e distorceria).
+  // Comparação só quando confirmado (no período em consolidação o "anterior" do bruto distorceria).
   const cmpEl=document.getElementById('cmp-followers');
-  if(isRealtime){if(cmpEl)cmpEl.innerHTML='';}
-  else setCompare('cmp-followers',d.newFollowers,d.prevNewFollowers,'',pl,false);
+  if(confirmado)setCompare('cmp-followers',d.newFollowers,d.prevNewFollowers,'',pl,false);
+  else if(cmpEl)cmpEl.innerHTML='';
   applyMetric('followers',headlineVal,getGoal('followers'));
   const engTotal=d.eng.likes+d.eng.saves+d.eng.shares;
   const prevEngTotal=d.eng.prevLikes+d.eng.prevSaves+d.eng.prevShares;
