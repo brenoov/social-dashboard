@@ -2918,15 +2918,24 @@ async function fetchData(accountId,period,customStart,customEnd){
     return[0,0,_daysAgo(s)<=2]; // recente e 0/0 → ainda consolidando (não inventa pela contagem)
   };
   const chartSrc=snaps.filter(s=>s.captured_at>=followStart&&s.captured_at<=followEnd);
+  // BRUTO puro (p/ o oficial confirmado e o sub-rótulo ▲novos ▼saíram).
   const _gl=chartSrc.map(_glOf);
-  const chartGained=_gl.map(x=>x[0]);
-  const chartLost=_gl.map(x=>x[1]);
-  const grossGained=chartGained.reduce((a,b)=>a+b,0);
-  const grossLost=chartLost.reduce((a,b)=>a+b,0);
-  // Líquido do período = Σnovos − Σsaíram (mesma régua do painel profissional; 7d Breno consolidado=166/114/52).
+  const grossGained=_gl.reduce((a,x)=>a+x[0],0);
+  const grossLost=_gl.reduce((a,x)=>a+x[1],0);
+  // Líquido do período = Σnovos − Σsaíram (régua do painel profissional; usado quando confirmado).
   const newFollowers=grossGained-grossLost;
   // "parcial/consolidando": algum dia da janela ainda não fechou o bruto na Meta.
   const grossPartial=_gl.some(x=>x[2]);
+  // GRÁFICO resiliente (sincronizado com o número): dia COM bruto → split ▲novos/▼saíram;
+  // dia SEM bruto → variação real da contagem (sobe verde se +, desce vermelho se −). Nunca achata.
+  const _chart=chartSrc.map(s=>{
+    const g=Number(s.gained)||0,l=Number(s.lost)||0;
+    if(g>0||l>0)return[g,l];
+    const n=_netCountOf(s);
+    return n>=0?[n,0]:[0,-n];
+  });
+  const chartGained=_chart.map(x=>x[0]);
+  const chartLost=_chart.map(x=>x[1]);
   // ── PRÉVIA TEMPO REAL (variação da contagem de seguidores; janela terminando HOJE) ──
   // Métrica DIFERENTE do bruto/IG. Em picos fica acima do que o IG contabiliza. Mesma régua em
   // todos os períodos → entre si nunca inverte (hoje ≤ 7d ≤ 14d ≤ 30d).
