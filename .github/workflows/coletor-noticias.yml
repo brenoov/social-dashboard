@@ -1,9 +1,9 @@
 name: Coletor de Notícias (concorrentes Vessel)
 
-# Roda a cada 3 dias às 11:00 UTC (08:00 Brasília). Também dá pra disparar à mão.
+# Roda toda segunda às 11:00 UTC (08:00 Brasília), junto com o gestor comercial. Também dá pra disparar à mão.
 on:
   schedule:
-    - cron: '0 11 */3 * *'
+    - cron: '0 11 * * 1'
   workflow_dispatch: {}
 
 # Evita rodadas sobrepostas se uma demorar
