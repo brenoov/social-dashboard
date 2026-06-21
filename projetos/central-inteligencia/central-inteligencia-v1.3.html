@@ -2321,7 +2321,7 @@
       <!-- Novos no período -->
       <div style="padding:16px 24px 20px;">
         <div class="mc-header" style="margin-bottom:6px;">
-          <div class="mc-lbl">NOVOS NO PERÍODO</div>
+          <div class="mc-lbl">NOVOS NO PERÍODO <button onclick="openFollowersInfo()" title="Como esse número é contado?" style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;border:1px solid currentColor;background:transparent;color:inherit;font-size:10px;font-weight:700;cursor:pointer;line-height:1;padding:0;vertical-align:middle;opacity:.6;">?</button></div>
           <div class="mc-goal-area">
             <span class="mc-goal-lbl">META</span>
             <span class="mc-goal-val" id="goal-followers" contenteditable="true" spellcheck="false">200</span>
@@ -3167,39 +3167,71 @@ function applyFreshness(lastSnapStr){
   }
 }
 
+/* ── INFO: como contamos novos seguidores (modal do "?") ── */
+function openFollowersInfo(){
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px;';
+  ov.onclick=e=>{if(e.target===ov)ov.remove();};
+  const m=document.createElement('div');
+  m.style.cssText="background:#fff;max-width:470px;width:100%;max-height:85vh;overflow:auto;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.32);font-family:'IBM Plex Sans',sans-serif;color:#1e293b;";
+  m.innerHTML=
+   `<div style="padding:18px 20px;border-bottom:1px solid #eef2f7;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;letter-spacing:.5px;">COMO CONTAMOS OS NOVOS SEGUIDORES</div>
+      <button id="_fi_x" style="border:0;background:#f1f5f9;border-radius:8px;width:30px;height:30px;font-size:15px;cursor:pointer;color:#475569;">✕</button>
+    </div>
+    <div style="padding:18px 20px;font-size:13px;line-height:1.6;">
+      <p style="margin:0 0 14px;"><b style="color:#2563eb;">Igual ao Instagram.</b> Em <b>7 dias, 14 dias, 30 dias e mês</b>, mostramos exatamente o que o painel profissional do Instagram mostra: <b>seguiram − deixaram de seguir</b>. Se você conferir no app do Instagram, vai bater.</p>
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;margin:0 0 14px;">
+        <p style="margin:0 0 6px;"><b style="color:#b45309;">⏳ Por que Hoje e Ontem aparecem como "parcial"?</b></p>
+        <p style="margin:0;">O Instagram leva cerca de <b>2 dias</b> para fechar (consolidar) os números de seguiram/saíram. Enquanto não fecha, mostramos a <b>contagem em tempo real</b> — quantos seguidores a mais a conta tem agora — com o selo <b>⏳ parcial</b>.</p>
+      </div>
+      <p style="margin:0 0 14px;"><b>Por que o número pode mudar depois?</b> Ao consolidar, o número oficial pode ficar um pouco <b>diferente da prévia</b>, principalmente em dias de pico. A contagem total e o "seguiram − saíram" do Instagram são medidas um pouco diferentes (a contagem inclui também quem desativou/reativou a conta).</p>
+      <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:12px 14px;">
+        <p style="margin:0;"><b style="color:#0369a1;">Na prática:</b> para apresentar ao cliente, use <b>7 / 14 / 30 dias</b> — já batem com o Instagram. <b>Hoje e Ontem</b> são termômetro em tempo real e se ajustam sozinhos quando o Instagram fecha.</p>
+      </div>
+    </div>`;
+  ov.appendChild(m);document.body.appendChild(ov);
+  m.querySelector('#_fi_x').onclick=()=>ov.remove();
+}
+
 /* ── MAIN UPDATE ── */
 function update(d,period){
   const pl=d.pl;
   applyFreshness(d.trueLastSnap); // frescor = última coleta REAL do coletor, igual em qualquer período
   const totalEl=document.getElementById('total-followers');if(totalEl)animCountFull(totalEl,d.followerTotal);
-  const newEl=document.getElementById('new-followers-val');if(newEl)animCount(newEl,d.newFollowers);
-  // Sublinha ▲novos ▼saíram = bruto da MESMA régua do painel profissional (gained/lost).
+  const isRealtime=(period===0||period===1); // Hoje / Ontem → número em tempo real (parcial)
+  const headlineVal=(isRealtime&&d.previaReal!=null)?d.previaReal:d.newFollowers;
+  const newEl=document.getElementById('new-followers-val');if(newEl)animCount(newEl,headlineVal);
+  // ▲seguiram ▼saíram = bruto/IG. Só nos períodos OFICIAIS (em Hoje/Ontem o bruto ainda é 0/0 e enganaria).
   const grossEl=document.getElementById('gross-followers');
   if(grossEl){
-    grossEl.style.display='flex';
-    grossEl.innerHTML=`<span style="color:#16a34a">▲ ${fmtN(d.grossGained)} novos</span>`+
-                      `<span style="color:#ef4444">▼ ${fmtN(d.grossLost)} saíram</span>`+
-                      (d.grossPartial?`<span style="color:#9aa0a6;font-weight:500">· consolidando (Meta fecha em ~2 dias)</span>`:'');
-  }
-  // PRÉVIA tempo real (contagem) — separada e avisada; NUNCA se mistura com o consolidado/IG (número grande).
-  const prevEl=document.getElementById('previa-followers');
-  if(prevEl){
-    if(d.previaReal==null||(!d.grossPartial&&d.previaReal===d.newFollowers)){prevEl.style.display='none';}
+    if(isRealtime){grossEl.style.display='none';}
     else{
-      prevEl.style.display='block';
-      const _dm=d.partialSince?(d.partialSince.slice(8,10)+'/'+d.partialSince.slice(5,7)):'';
-      prevEl.innerHTML=
-        `<div style="font-size:11px;font-weight:700;color:#2563eb;">⏳ Tempo real (prévia): ${d.previaReal>=0?'+':''}${fmtN(d.previaReal)}`+
-        (d.partialSince?` <span style="font-weight:500;color:#9aa0a6">· parcial desde ${_dm}</span>`:'')+`</div>`+
-        `<div style="font-size:9.5px;line-height:1.35;color:#9aa0a6;font-weight:500;margin-top:2px;">Pela contagem de seguidores, incluindo hoje. O painel profissional do Instagram ainda não fechou este período — o número oficial é o de cima. Em picos, a contagem real pode ficar bem acima do que o Instagram contabiliza.</div>`;
+      grossEl.style.display='flex';
+      grossEl.innerHTML=`<span style="color:#16a34a">▲ ${fmtN(d.grossGained)} seguiram</span>`+
+                        `<span style="color:#ef4444">▼ ${fmtN(d.grossLost)} saíram</span>`+
+                        (d.grossPartial?`<span style="color:#9aa0a6;font-weight:500">· consolidando (Meta fecha em ~2 dias)</span>`:'');
     }
   }
+  // Aviso "parcial" — SÓ em Hoje/Ontem: o número é a contagem em tempo real, ainda não confirmada pelo IG.
+  const prevEl=document.getElementById('previa-followers');
+  if(prevEl){
+    if(isRealtime&&d.previaReal!=null){
+      prevEl.style.display='block';
+      prevEl.innerHTML=`<span style="display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:800;color:#b45309;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:2px 8px;">⏳ parcial</span>`+
+        `<div style="font-size:9.5px;line-height:1.35;color:#9aa0a6;font-weight:500;margin-top:3px;">Contagem em tempo real — ainda não confirmada pelo painel profissional do Instagram (fecha em ~2 dias). Pode ajustar ao consolidar.</div>`;
+    } else {prevEl.style.display='none';}
+  }
   buildChart(d.chart);
-  setCompare('cmp-followers',d.newFollowers,d.prevNewFollowers,'',pl,false);
-  applyMetric('followers',d.newFollowers,getGoal('followers'));
+  // Comparação só nos períodos oficiais (em Hoje/Ontem o "anterior" é bruto 0 e distorceria).
+  const cmpEl=document.getElementById('cmp-followers');
+  if(isRealtime){if(cmpEl)cmpEl.innerHTML='';}
+  else setCompare('cmp-followers',d.newFollowers,d.prevNewFollowers,'',pl,false);
+  applyMetric('followers',headlineVal,getGoal('followers'));
   const engTotal=d.eng.likes+d.eng.saves+d.eng.shares;
   const prevEngTotal=d.eng.prevLikes+d.eng.prevSaves+d.eng.prevShares;
-  setChips('chips-followers',['M\u00e9dia: +'+d.avgPerDay+'/dia','Taxa de eng.: '+d.engRate+'%','Engajamento total: '+fmtN(engTotal)]);
+  const _avgShown=(d.effectivePeriod>0?(headlineVal/d.effectivePeriod):headlineVal).toFixed(1);
+  setChips('chips-followers',['M\u00e9dia: +'+_avgShown+'/dia','Taxa de eng.: '+d.engRate+'%','Engajamento total: '+fmtN(engTotal)]);
   document.getElementById('ads-spend-val').textContent=d.spend>0?fmtR(d.spend):'R$ —';
   document.getElementById('ads-cps-val').textContent=d.cps>0?fmtR(d.cps):'R$ \u2014';
   setCompare('cmp-spend',d.spend,d.prevSpend,'R$ ',pl,true);
