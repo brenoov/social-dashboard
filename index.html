@@ -2331,6 +2331,7 @@
         <div class="mc-val a-blue" id="new-followers-val">0</div>
         <div id="gross-followers" style="display:none;gap:12px;align-items:center;font-family:'IBM Plex Sans',sans-serif;font-size:10.5px;font-weight:600;letter-spacing:.2px;margin-top:3px;"></div>
         <div class="mc-compare" id="cmp-followers"></div>
+        <div id="previa-followers" style="display:none;margin-top:6px;"></div>
         <div class="mc-divider"></div>
         <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-followers" style="width:0%"></div></div>
         <div class="mc-bottom">
@@ -2906,16 +2907,15 @@ async function fetchData(accountId,period,customStart,customEnd){
   const _idxByDate={};snaps.forEach((s,i)=>{_idxByDate[s.captured_at]=i;});
   const _netCountOf=s=>{const i=_idxByDate[s.captured_at];return i>0?((Number(s.followers_count)||0)-(Number(snaps[i-1].followers_count)||0)):0;};
   const _daysAgo=s=>Math.round((new Date(_hojeBRT+'T00:00:00')-new Date(s.captured_at+'T00:00:00'))/864e5);
-  // 7/14/30 dias = BRUTO PURO, EXATAMENTE igual ao painel profissional (7d Breno = 166/114/52).
-  // Sem fallback: o painel também deixa o último dia consolidar (não preenche pela contagem).
-  // HOJE/1D/MÊS/MÊS PASS/ATÉ AGORA/custom mantêm o fallback p/ não zerar o dia corrente/recente.
-  const _pureGross=(typeof period==='number'&&period>1&&!customStart);
-  // [novos, saíram, ehFallback] do dia: bruto se consolidado; senão (recente e 0/0) líquido pela contagem.
+  // CONSOLIDADO = BRUTO PURO (seguiram−saíram), EXATAMENTE igual ao painel profissional do IG,
+  // em TODOS os períodos (conferidos no painel: 7d Breno=3, 14d=165, 30d=1268). SEM fallback por
+  // contagem: dia recente ainda não consolidado pela Meta conta 0 e é marcado "consolidando".
+  // O número em tempo real (variação da contagem) vai SEPARADO, como PRÉVIA (previaReal, abaixo).
+  // [novos, saíram, parcial] do dia.
   const _glOf=s=>{
     const g=Number(s.gained)||0,l=Number(s.lost)||0;
     if(g>0||l>0)return[g,l,false];
-    if(!_pureGross&&_daysAgo(s)<=2){const n=_netCountOf(s);return n>=0?[n,0,true]:[0,-n,true];}
-    return[0,0,false];
+    return[0,0,_daysAgo(s)<=2]; // recente e 0/0 → ainda consolidando (não inventa pela contagem)
   };
   const chartSrc=snaps.filter(s=>s.captured_at>=followStart&&s.captured_at<=followEnd);
   const _gl=chartSrc.map(_glOf);
@@ -2925,8 +2925,22 @@ async function fetchData(accountId,period,customStart,customEnd){
   const grossLost=chartLost.reduce((a,b)=>a+b,0);
   // Líquido do período = Σnovos − Σsaíram (mesma régua do painel profissional; 7d Breno consolidado=166/114/52).
   const newFollowers=grossGained-grossLost;
-  // "parcial": algum dia da janela ainda não consolidou o bruto e entrou pelo líquido da contagem.
+  // "parcial/consolidando": algum dia da janela ainda não fechou o bruto na Meta.
   const grossPartial=_gl.some(x=>x[2]);
+  // ── PRÉVIA TEMPO REAL (variação da contagem de seguidores; janela terminando HOJE) ──
+  // Métrica DIFERENTE do bruto/IG. Em picos fica acima do que o IG contabiliza. Mesma régua em
+  // todos os períodos → entre si nunca inverte (hoje ≤ 7d ≤ 14d ≤ 30d).
+  const _countAtOrBefore=ds=>{let v=null;for(let i=0;i<snaps.length;i++){if(snaps[i].captured_at<=ds)v=Number(snaps[i].followers_count)||0;else break;}return v;};
+  let _prevNumD=_hojeBRT,_prevBaseD;
+  if(period===1){_prevNumD=_ontemBRT;_prevBaseD=localDate(new Date(new Date(_ontemBRT+'T00:00:00').getTime()-86400000));}
+  else if(customStart&&customEnd){_prevNumD=customEnd;_prevBaseD=localDate(new Date(new Date(customStart+'T00:00:00').getTime()-86400000));}
+  else if(isLastMonth){_prevNumD=followEnd;_prevBaseD=localDate(new Date(new Date(followStart+'T00:00:00').getTime()-86400000));}
+  else if(isCalMonth){const _n=new Date();_prevBaseD=localDate(new Date(_n.getFullYear(),_n.getMonth(),0));}
+  else{_prevBaseD=localDate(new Date(new Date(_hojeBRT+'T00:00:00').getTime()-(isHoje?1:period)*86400000));}
+  const _cNum=_countAtOrBefore(_prevNumD);
+  let _cBase=_countAtOrBefore(_prevBaseD),_partialSince=null;
+  if(_cBase==null&&snaps.length){_cBase=Number(snaps[0].followers_count)||0;_partialSince=snaps[0].captured_at;} // histórico curto
+  const previaReal=(_cNum!=null&&_cBase!=null)?(_cNum-_cBase):null;
   const chartLabels=chartSrc.length?chartSrc.map(s=>fmtLabel(s.captured_at)):['—'];
   const chartDates=chartSrc.length?chartSrc.map(s=>fmtFull(s.captured_at)):['—'];
   // Período anterior (mesma duração) imediatamente antes da janela — MESMA régua (bruto novos−saíram).
@@ -2998,7 +3012,7 @@ async function fetchData(accountId,period,customStart,customEnd){
     pl,
     // Última coleta REAL do perfil (não o fim da janela) → frescor honesto em todo período.
     trueLastSnap:trueLastRows.length?trueLastRows[0].captured_at:null,
-    grossGained,grossLost,grossPartial,
+    grossGained,grossLost,grossPartial,previaReal,partialSince:_partialSince,
   };
 }
 
@@ -3165,7 +3179,20 @@ function update(d,period){
     grossEl.style.display='flex';
     grossEl.innerHTML=`<span style="color:#16a34a">▲ ${fmtN(d.grossGained)} novos</span>`+
                       `<span style="color:#ef4444">▼ ${fmtN(d.grossLost)} saíram</span>`+
-                      (d.grossPartial?`<span style="color:#9aa0a6;font-weight:500">· últimos dias parciais</span>`:'');
+                      (d.grossPartial?`<span style="color:#9aa0a6;font-weight:500">· consolidando (Meta fecha em ~2 dias)</span>`:'');
+  }
+  // PRÉVIA tempo real (contagem) — separada e avisada; NUNCA se mistura com o consolidado/IG (número grande).
+  const prevEl=document.getElementById('previa-followers');
+  if(prevEl){
+    if(d.previaReal==null||(!d.grossPartial&&d.previaReal===d.newFollowers)){prevEl.style.display='none';}
+    else{
+      prevEl.style.display='block';
+      const _dm=d.partialSince?(d.partialSince.slice(8,10)+'/'+d.partialSince.slice(5,7)):'';
+      prevEl.innerHTML=
+        `<div style="font-size:11px;font-weight:700;color:#2563eb;">⏳ Tempo real (prévia): ${d.previaReal>=0?'+':''}${fmtN(d.previaReal)}`+
+        (d.partialSince?` <span style="font-weight:500;color:#9aa0a6">· parcial desde ${_dm}</span>`:'')+`</div>`+
+        `<div style="font-size:9.5px;line-height:1.35;color:#9aa0a6;font-weight:500;margin-top:2px;">Pela contagem de seguidores, incluindo hoje. O painel profissional do Instagram ainda não fechou este período — o número oficial é o de cima. Em picos, a contagem real pode ficar bem acima do que o Instagram contabiliza.</div>`;
+    }
   }
   buildChart(d.chart);
   setCompare('cmp-followers',d.newFollowers,d.prevNewFollowers,'',pl,false);
