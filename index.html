@@ -2090,6 +2090,7 @@
       <div class="admin-nav-item" data-section="data" onclick="loadAdminSection('data')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><span>Dados</span></div>
       <div class="admin-nav-group-label">Info</div>
       <div class="admin-nav-item" data-section="system" onclick="loadAdminSection('system')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Sistema</span></div>
+      <div class="admin-nav-item" data-section="saude" onclick="loadAdminSection('saude')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>Saúde dos dados</span></div>
     </nav>
     <div class="admin-content">
       <!-- USUÁRIOS -->
@@ -2195,6 +2196,11 @@
         </div>
       </div>
       <!-- METAS -->
+      <div class="admin-section" id="admin-section-saude">
+        <div class="admin-section-title">Saúde dos dados</div>
+        <div class="admin-section-sub">Verificação automática diária (23:30) — frescor, consistência e anomalias das métricas de todos os perfis.</div>
+        <div id="admin-saude-body"><div style="color:var(--muted);font-size:12px">Carregando...</div></div>
+      </div>
       <div class="admin-section" id="admin-section-metas">
         <div class="admin-section-title">Metas de Vendas</div>
         <div class="admin-section-sub">Configure as metas mensais por canal e loja</div>
@@ -3562,7 +3568,35 @@ function loadAdminSection(name){
   document.querySelectorAll('.admin-nav-item').forEach(el=>el.classList.toggle('active',el.dataset.section===name));
   document.querySelectorAll('.admin-section').forEach(el=>el.classList.remove('active'));
   const sec=document.getElementById('admin-section-'+name);if(sec)sec.classList.add('active');
-  ({users:loadAdminUsers,accounts:loadAdminAccounts,appearance:loadAdminAppearance,data:loadAdminData,system:loadAdminSystem,metas:loadAdminMetas,requests:loadAdminRequests})[name]?.();
+  ({users:loadAdminUsers,accounts:loadAdminAccounts,appearance:loadAdminAppearance,data:loadAdminData,system:loadAdminSystem,metas:loadAdminMetas,requests:loadAdminRequests,saude:loadAdminSaude})[name]?.();
+}
+
+async function loadAdminSaude(){
+  const body=document.getElementById('admin-saude-body');if(!body)return;
+  body.innerHTML='<div style="color:var(--muted);font-size:12px">Carregando...</div>';
+  const last=await sb('data_integrity_checks?select=checked_date&order=checked_date.desc&limit=1');
+  if(!last.length){body.innerHTML='<div style="color:var(--muted);font-size:12px">Nenhuma verificação registrada ainda.</div>';return;}
+  const date=last[0].checked_date;
+  const[rows,accs]=await Promise.all([
+    sb('data_integrity_checks?checked_date=eq.'+date+'&select=account_id,check_name,status,detail'),
+    sb('accounts?select=id,name,username')
+  ]);
+  const accMap={};accs.forEach(a=>accMap[a.id]=a.name||a.username||'—');
+  const LBL={frescor:'Frescor (dados de hoje)',bruto_seguidores:'Bruto de seguidores (Meta)',eng_likes0:'Curtidas zeradas (resposta parcial)',aninhamento:'Aninhamento 7d ≤ 14d ≤ 30d',nav_soma:'Navegação = soma dos tipos'};
+  const ST={ok:['✅','#16a34a'],warn:['⚠️','#d97706'],fail:['❌','#dc2626']};
+  const counts={ok:0,warn:0,fail:0};rows.forEach(r=>counts[r.status]=(counts[r.status]||0)+1);
+  const byCheck={};rows.forEach(r=>{(byCheck[r.check_name]=byCheck[r.check_name]||[]).push(r);});
+  let html='<div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Verificação de <b>'+date+'</b> — '+counts.ok+' ✅ · '+counts.warn+' ⚠️ · '+counts.fail+' ❌. Roda automático todo dia às 23:30.</div>';
+  html+='<table class="metas-tbl"><thead><tr><th>Verificação</th><th>Status</th><th>Detalhe</th></tr></thead><tbody>';
+  Object.keys(byCheck).forEach(ck=>{
+    const list=byCheck[ck];
+    const worst=list.some(r=>r.status==='fail')?'fail':list.some(r=>r.status==='warn')?'warn':'ok';
+    const probs=list.filter(r=>r.status!=='ok').map(r=>(accMap[r.account_id]||'?')+(r.detail?' — '+r.detail:'')).join(' · ');
+    const s=ST[worst];
+    html+='<tr><td>'+(LBL[ck]||ck)+'</td><td style="color:'+s[1]+';font-weight:700;white-space:nowrap">'+s[0]+' '+worst.toUpperCase()+'</td><td style="font-size:11px;color:var(--muted)">'+(worst==='ok'?'todos os perfis ok':probs)+'</td></tr>';
+  });
+  html+='</tbody></table>';
+  body.innerHTML=html;
 }
 
 /* ── PERMISSION TREE ── */
