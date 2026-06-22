@@ -121,7 +121,7 @@ async function coletarEngajamentoConta(igId: string, token: string, dias: number
 
 async function coletarStoriesHoje(igId: string, token: string): Promise<Record<string, number>> {
   const hoje = todayBR();
-  const zero = { count: 0, shares: 0, replies: 0, reach: 0, interactions: 0, navigation: 0, profile_visits: 0, follows: 0 };
+  const zero = { count: 0, shares: 0, replies: 0, reach: 0, interactions: 0, navigation: 0, profile_visits: 0, follows: 0, nav_forward: 0, nav_back: 0, nav_exit: 0, nav_next: 0 };
   try {
     const d = await apiGet(`${igId}/stories`, { fields: 'id,timestamp', access_token: token, limit: '100' });
     const stories = (d.data ?? []).filter((s: any) => s.timestamp && localDate(s.timestamp) === hoje);
@@ -140,6 +140,19 @@ async function coletarStoriesHoje(igId: string, token: string): Promise<Record<s
           else if (item.name === 'follows') tot.follows += v;
         }
       } catch { /* ignora erro por story */ }
+      try {
+        // Quebra da navegação por tipo de ação (avançou/voltou/saiu/próximo) — agregado, nunca por pessoa.
+        const nb = await apiGet(`${s.id}/insights`, { metric: 'navigation', breakdown: 'story_navigation_action_type', access_token: token });
+        const results = nb.data?.[0]?.total_value?.breakdowns?.[0]?.results ?? [];
+        for (const r of results) {
+          const k = (r.dimension_values ?? [null])[0];
+          const v = r.value ?? 0;
+          if (k === 'tap_forward') tot.nav_forward += v;
+          else if (k === 'tap_back') tot.nav_back += v;
+          else if (k === 'tap_exit') tot.nav_exit += v;
+          else if (k === 'swipe_forward') tot.nav_next += v;
+        }
+      } catch { /* breakdown opcional */ }
     }));
     return tot;
   } catch { return zero; }
@@ -266,6 +279,7 @@ async function processarConta(sb: any, acc: any) {
       row.stories_count = stories.count; row.story_shares = stories.shares; row.story_replies = stories.replies;
       row.story_reach = stories.reach; row.story_interactions = stories.interactions; row.story_navigation = stories.navigation;
       row.story_profile_visits = stories.profile_visits; row.story_follows = stories.follows;
+      row.story_nav_forward = stories.nav_forward; row.story_nav_back = stories.nav_back; row.story_nav_exit = stories.nav_exit; row.story_nav_next = stories.nav_next;
     }
     await sb.from('content_snapshots').upsert(row, { onConflict: 'account_id,captured_at,period_days' });
   }

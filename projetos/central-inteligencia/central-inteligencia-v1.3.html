@@ -2494,7 +2494,7 @@
     </div>
     <div class="card"><div class="mc-header"><div class="mc-icon">👁</div></div><div class="mc-lbl">ALCANCE (STORIES)</div><div class="mc-val a-blue" id="st-reach">0</div><div class="mc-compare" id="cmp-st-reach"></div></div>
     <div class="card"><div class="mc-header"><div class="mc-icon">🤝</div></div><div class="mc-lbl">INTERAÇÕES (STORIES)</div><div class="mc-val a-pink" id="st-interactions">0</div><div class="mc-compare" id="cmp-st-interactions"></div></div>
-    <div class="card"><div class="mc-header"><div class="mc-icon">👆</div></div><div class="mc-lbl">NAVEGAÇÃO (STORIES)</div><div class="mc-val a-purple" id="st-navigation">0</div><div class="mc-compare" id="cmp-st-navigation"></div></div>
+    <div class="card"><div class="mc-header"><div class="mc-icon">👆</div></div><div class="mc-lbl">NAVEGAÇÃO (STORIES)</div><div class="mc-val a-purple" id="st-navigation">0</div><div class="mc-compare" id="cmp-st-navigation"></div><div id="st-nav-breakdown" style="margin-top:8px;"></div></div>
     <div class="card"><div class="mc-header"><div class="mc-icon">👤</div></div><div class="mc-lbl">VISITAS AO PERFIL (STORIES)</div><div class="mc-val a-orange" id="st-profile-visits">0</div><div class="mc-compare" id="cmp-st-profile-visits"></div></div>
     <div class="card"><div class="mc-header"><div class="mc-icon">➕</div></div><div class="mc-lbl">NOVOS SEGUIDORES (STORIES)</div><div class="mc-val a-blue" id="st-follows">0</div><div class="mc-compare" id="cmp-st-follows"></div></div>
   </div>
@@ -2896,8 +2896,8 @@ async function fetchData(accountId,period,customStart,customEnd){
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=posts_count,stories_count,reels_count,captured_at`),
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=1&select=posts_count,stories_count,reels_count,captured_at`),
     sb(`campaign_filters?account_id=eq.${accountId}&select=selected_ids`),
-    sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.1&captured_at=gte.${followStart}&captured_at=lte.${followEnd}&select=captured_at,story_shares,story_replies,stories_count,story_reach,story_interactions,story_navigation,story_profile_visits,story_follows`),
-    sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.1&captured_at=gte.${prevStartStr}&captured_at=lte.${prevEndStr}&select=captured_at,story_shares,story_replies,stories_count,story_reach,story_interactions,story_navigation,story_profile_visits,story_follows`),
+    sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.1&captured_at=gte.${followStart}&captured_at=lte.${followEnd}&select=captured_at,story_shares,story_replies,stories_count,story_reach,story_interactions,story_navigation,story_nav_forward,story_nav_back,story_nav_exit,story_nav_next,story_profile_visits,story_follows`),
+    sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.1&captured_at=gte.${prevStartStr}&captured_at=lte.${prevEndStr}&select=captured_at,story_shares,story_replies,stories_count,story_reach,story_interactions,story_navigation,story_nav_forward,story_nav_back,story_nav_exit,story_nav_next,story_profile_visits,story_follows`),
     // FRESCOR = saúde do coletor (global por perfil), NÃO o fim da janela escolhida.
     // Sem limite superior: pega a última coleta REAL, independente do período exibido.
     sb(`daily_snapshots?account_id=eq.${accountId}&order=captured_at.desc&limit=1&select=captured_at`),
@@ -3026,6 +3026,7 @@ async function fetchData(accountId,period,customStart,customEnd){
   const _sdSum=(arr,key)=>arr.reduce((s,r)=>s+(r[key]||0),0);
   const storyReach=_sdSum(storyDailyCurr,'story_reach'),storyInter=_sdSum(storyDailyCurr,'story_interactions'),storyNav=_sdSum(storyDailyCurr,'story_navigation'),storyPV=_sdSum(storyDailyCurr,'story_profile_visits'),storyFol=_sdSum(storyDailyCurr,'story_follows');
   const prevStoryReach=storyDailyPrev.length?_sdSum(storyDailyPrev,'story_reach'):null,prevStoryInter=storyDailyPrev.length?_sdSum(storyDailyPrev,'story_interactions'):null,prevStoryNav=storyDailyPrev.length?_sdSum(storyDailyPrev,'story_navigation'):null,prevStoryPV=storyDailyPrev.length?_sdSum(storyDailyPrev,'story_profile_visits'):null,prevStoryFol=storyDailyPrev.length?_sdSum(storyDailyPrev,'story_follows'):null;
+  const storyNavF=_sdSum(storyDailyCurr,'story_nav_forward'),storyNavB=_sdSum(storyDailyCurr,'story_nav_back'),storyNavE=_sdSum(storyDailyCurr,'story_nav_exit'),storyNavN=_sdSum(storyDailyCurr,'story_nav_next');
   // Stories postados: soma diária dentro da janela (corrige HOJE = 1D). Posts/Reels NÃO mudam (são por-período).
   const storiesCount=storyDailyCurr.reduce((s,r)=>s+(r.stories_count||0),0);
   const prevStoriesCount=storyDailyPrev.length?storyDailyPrev.reduce((s,r)=>s+(r.stories_count||0),0):null;
@@ -3038,7 +3039,7 @@ async function fetchData(accountId,period,customStart,customEnd){
     spend,prevSpend,cps,prevCps,
     eng:{likes:eng.likes,saves:eng.saves,shares:eng.shares,comments:eng.comments??0,reach:eng.reach??0,views:eng.views??0,interactions:eng.total_interactions??0,engaged:eng.accounts_engaged??0,profileViews:eng.profile_views??0,prevLikes:prevEng?.likes??null,prevSaves:prevEng?.saves??null,prevShares:prevEng?.shares??null,prevComments:prevEng?.comments??null,prevReach:prevEng?.reach??null,prevViews:prevEng?.views??null,prevInteractions:prevEng?.total_interactions??null,prevEngaged:prevEng?.accounts_engaged??null,prevProfileViews:prevEng?.profile_views??null},
     cnt:{posts:cnt.posts_count,stories:storiesCount,reels:cnt.reels_count,postsReels:cnt.posts_count+cnt.reels_count,prevPostsReels:prevCnt!=null?prevCnt.posts_count+prevCnt.reels_count:null,prevStories:prevStoriesCount},
-    storyEng:{shares:storyShares,replies:storyRep,prevShares:prevStoryShares,prevReplies:prevStoryRep,reach:storyReach,interactions:storyInter,navigation:storyNav,profileVisits:storyPV,follows:storyFol,prevReach:prevStoryReach,prevInteractions:prevStoryInter,prevNavigation:prevStoryNav,prevProfileVisits:prevStoryPV,prevFollows:prevStoryFol},
+    storyEng:{shares:storyShares,replies:storyRep,prevShares:prevStoryShares,prevReplies:prevStoryRep,reach:storyReach,interactions:storyInter,navigation:storyNav,profileVisits:storyPV,follows:storyFol,navForward:storyNavF,navBack:storyNavB,navExit:storyNavE,navNext:storyNavN,prevReach:prevStoryReach,prevInteractions:prevStoryInter,prevNavigation:prevStoryNav,prevProfileVisits:prevStoryPV,prevFollows:prevStoryFol},
     pl,
     // Última coleta REAL do perfil (não o fim da janela) → frescor honesto em todo período.
     trueLastSnap:trueLastRows.length?trueLastRows[0].captured_at:null,
@@ -3302,6 +3303,12 @@ function update(d,period){
     animCount(document.getElementById(id),d.storyEng[k]||0);
     setCompare('cmp-'+id,d.storyEng[k]||0,d.storyEng[pk],'',pl,false);
   });
+  // Quebra da navegação em linhas (mesmo card, com separadores).
+  const _navBk=document.getElementById('st-nav-breakdown');
+  if(_navBk){
+    const _its=[['Avançou',d.storyEng.navForward||0],['Voltou',d.storyEng.navBack||0],['Saiu',d.storyEng.navExit||0],['Próximo',d.storyEng.navNext||0]];
+    _navBk.innerHTML=_its.map((it,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:5px 0;${i>0?'border-top:1px solid var(--border);':''}"><span style="color:var(--text-muted);">${it[0]}</span><span style="font-weight:700;color:var(--text);">${fmtN(it[1])}</span></div>`).join('');
+  }
   setChips('chips-story-eng',['Acumulado de snapshots diários','Stories expiram em 24h (API)']);
   animCount(document.getElementById('cnt-stories'),d.cnt.stories);
   setCompare('cmp-stories',d.cnt.stories,d.cnt.prevStories,'',pl,false);applyMetric('stories',d.cnt.stories,getGoal('stories'));
