@@ -231,14 +231,14 @@ async function coletarAdsPorCampanha(sb: any, adAccountId: string, accountId: st
   } catch { /* sem dados de ads */ }
 }
 
-// Monta as colunas de engagement_snapshots a partir do mapa de métricas nível-conta.
-function engCols(v: Record<string, number> | null) {
-  v = v || {};
-  return {
-    likes: v.likes || 0, comments: v.comments || 0, saves: v.saves || 0, shares: v.shares || 0,
-    reach: v.reach || 0, views: v.views || 0, total_interactions: v.total_interactions || 0,
-    accounts_engaged: v.accounts_engaged || 0, profile_views: v.profile_views || 0,
-  };
+// Só grava as métricas REALMENTE presentes na resposta (a Meta às vezes omite algumas) — assim nunca
+// sobrescreve dado bom com 0. Retorna null se a resposta veio vazia → o caller PULA o upsert.
+function engCols(v: Record<string, number> | null): Record<string, number> | null {
+  if (!v) return null;
+  const KEYS = ['likes', 'comments', 'saves', 'shares', 'reach', 'views', 'total_interactions', 'accounts_engaged', 'profile_views'];
+  const out: Record<string, number> = {};
+  for (const k of KEYS) if (k in v) out[k] = v[k] ?? 0;
+  return Object.keys(out).length ? out : null;
 }
 
 async function processarConta(sb: any, acc: any) {
@@ -269,9 +269,9 @@ async function processarConta(sb: any, acc: any) {
 
   for (const dias of PERIODS) {
     const m = await coletarMidias(igId, token, dias);
-    const eng = await coletarEngajamentoConta(igId, token, dias);
-    await sb.from('engagement_snapshots').upsert(
-      { account_id: accountId, captured_at: hoje, period_days: dias, ...engCols(eng) },
+    const engC = engCols(await coletarEngajamentoConta(igId, token, dias));
+    if (engC) await sb.from('engagement_snapshots').upsert(
+      { account_id: accountId, captured_at: hoje, period_days: dias, ...engC },
       { onConflict: 'account_id,captured_at,period_days' }
     );
     const row: any = { account_id: accountId, captured_at: hoje, period_days: dias, posts_count: m.posts, reels_count: m.reels };
@@ -285,9 +285,9 @@ async function processarConta(sb: any, acc: any) {
   }
 
   // Engajamento do mês-corrente (MTD, period_days=99) — visão "Mês / Até agora" do painel.
-  const engMes = await coletarEngajamentoConta(igId, token, 99);
-  await sb.from('engagement_snapshots').upsert(
-    { account_id: accountId, captured_at: hoje, period_days: 99, ...engCols(engMes) },
+  const engMesC = engCols(await coletarEngajamentoConta(igId, token, 99));
+  if (engMesC) await sb.from('engagement_snapshots').upsert(
+    { account_id: accountId, captured_at: hoje, period_days: 99, ...engMesC },
     { onConflict: 'account_id,captured_at,period_days' }
   );
 
