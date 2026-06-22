@@ -3582,18 +3582,19 @@ async function loadAdminSaude(){
     sb('accounts?select=id,name,username')
   ]);
   const accMap={};accs.forEach(a=>accMap[a.id]=a.name||a.username||'—');
+  const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   const LBL={frescor:'Frescor (dados de hoje)',bruto_seguidores:'Bruto de seguidores (Meta)',eng_likes0:'Curtidas zeradas (resposta parcial)',aninhamento:'Aninhamento 7d ≤ 14d ≤ 30d',nav_soma:'Navegação = soma dos tipos'};
   const ST={ok:['✅','#16a34a'],warn:['⚠️','#d97706'],fail:['❌','#dc2626']};
   const counts={ok:0,warn:0,fail:0};rows.forEach(r=>counts[r.status]=(counts[r.status]||0)+1);
   const byCheck={};rows.forEach(r=>{(byCheck[r.check_name]=byCheck[r.check_name]||[]).push(r);});
-  let html='<div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Verificação de <b>'+date+'</b> — '+counts.ok+' ✅ · '+counts.warn+' ⚠️ · '+counts.fail+' ❌. Roda automático todo dia às 23:30.</div>';
+  let html='<div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Verificação de <b>'+esc(date)+'</b> — '+counts.ok+' ✅ · '+counts.warn+' ⚠️ · '+counts.fail+' ❌. Roda automático todo dia às 23:30.</div>';
   html+='<table class="metas-tbl"><thead><tr><th>Verificação</th><th>Status</th><th>Detalhe</th></tr></thead><tbody>';
   Object.keys(byCheck).forEach(ck=>{
     const list=byCheck[ck];
     const worst=list.some(r=>r.status==='fail')?'fail':list.some(r=>r.status==='warn')?'warn':'ok';
-    const probs=list.filter(r=>r.status!=='ok').map(r=>(accMap[r.account_id]||'?')+(r.detail?' — '+r.detail:'')).join(' · ');
+    const probs=list.filter(r=>r.status!=='ok').map(r=>esc(accMap[r.account_id]||'?')+(r.detail?' — '+esc(r.detail):'')).join(' · ');
     const s=ST[worst];
-    html+='<tr><td>'+(LBL[ck]||ck)+'</td><td style="color:'+s[1]+';font-weight:700;white-space:nowrap">'+s[0]+' '+worst.toUpperCase()+'</td><td style="font-size:11px;color:var(--muted)">'+(worst==='ok'?'todos os perfis ok':probs)+'</td></tr>';
+    html+='<tr><td>'+esc(LBL[ck]||ck)+'</td><td style="color:'+s[1]+';font-weight:700;white-space:nowrap">'+s[0]+' '+worst.toUpperCase()+'</td><td style="font-size:11px;color:var(--muted)">'+(worst==='ok'?'todos os perfis ok':probs)+'</td></tr>';
   });
   html+='</tbody></table>';
   body.innerHTML=html;
