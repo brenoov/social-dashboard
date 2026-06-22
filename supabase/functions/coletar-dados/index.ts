@@ -106,6 +106,7 @@ async function coletarEngajamentoConta(igId: string, token: string, dias: number
   let since: number, until: number;
   if (dias === 0) { since = startOf(todayBR()); until = now; }                 // hoje (parcial)
   else if (dias === 1) { since = startOf(brDateMinus(1)); until = startOf(todayBR()); } // ontem
+  else if (dias === 99) { since = startOf(`${todayBR().slice(0, 7)}-01`); until = now; } // mês-corrente (MTD)
   else { since = now - dias * 86400; until = now; }                            // últimos N dias (≤30, limite da Meta)
   try {
     const d = await apiGet(`${igId}/insights`, {
@@ -251,6 +252,13 @@ async function processarConta(sb: any, acc: any) {
     if (dias <= 1) { row.stories_count = stories.count; row.story_shares = stories.shares; row.story_replies = stories.replies; }
     await sb.from('content_snapshots').upsert(row, { onConflict: 'account_id,captured_at,period_days' });
   }
+
+  // Engajamento do mês-corrente (MTD, period_days=99) — visão "Mês / Até agora" do painel.
+  const engMes = await coletarEngajamentoConta(igId, token, 99) || { likes: 0, comments: 0, saves: 0, shares: 0 };
+  await sb.from('engagement_snapshots').upsert(
+    { account_id: accountId, captured_at: hoje, period_days: 99, likes: engMes.likes, comments: engMes.comments, saves: engMes.saves, shares: engMes.shares },
+    { onConflict: 'account_id,captured_at,period_days' }
+  );
 
   const adAccountId = AD_ACCOUNTS[igId];
   if (adAccountId) {

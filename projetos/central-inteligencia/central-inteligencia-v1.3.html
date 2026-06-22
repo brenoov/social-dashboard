@@ -3004,7 +3004,10 @@ async function fetchData(accountId,period,customStart,customEnd){
       if(aiCurr&&aiCurr.length&&aiCurr[0].reach!=null)reach=parseInt(aiCurr[0].reach);
     }
   }
-  const cps=spend>0&&newFollowers>0?spend/newFollowers:0;
+  // Custo por seguidor = gasto ÷ seguidores ganhos. Usa o MESMO número resiliente que o card exibe
+  // (bruto quando confirmado; senão a variação da contagem) — o bruto sozinho zera durante a falha da Meta.
+  const _cpsFollowers=confirmadoIG?newFollowers:(previaReal!=null?previaReal:newFollowers);
+  const cps=spend>0&&_cpsFollowers>0?spend/_cpsFollowers:0;
   const prevCps=prevSpend&&prevNewFollowers>0?prevSpend/prevNewFollowers:null;
   const storyShares=storyDailyCurr.reduce((s,r)=>s+(r.story_shares||0),0);
   const storyRep=storyDailyCurr.reduce((s,r)=>s+(r.story_replies||0),0);
