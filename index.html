@@ -3571,33 +3571,56 @@ function loadAdminSection(name){
   ({users:loadAdminUsers,accounts:loadAdminAccounts,appearance:loadAdminAppearance,data:loadAdminData,system:loadAdminSystem,metas:loadAdminMetas,requests:loadAdminRequests,saude:loadAdminSaude})[name]?.();
 }
 
+async function rpcCall(fn,args){
+  const token=currentSession?.access_token||SUPABASE_ANON_KEY;
+  return fetch(SUPABASE_URL+'/rest/v1/rpc/'+fn,{method:'POST',headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(args||{})});
+}
 async function loadAdminSaude(){
   const body=document.getElementById('admin-saude-body');if(!body)return;
+  const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  const BTN='style="border:1px solid var(--accent);color:var(--accent);background:transparent;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;"';
+  const wire=()=>{const b=body.querySelector('.btn-rodar');if(b)b.onclick=async()=>{b.disabled=true;b.textContent='⏳ Rodando...';try{await rpcCall('run_integrity_checks');}catch(e){}await loadAdminSaude();};};
   body.innerHTML='<div style="color:var(--muted);font-size:12px">Carregando...</div>';
   const last=await sb('data_integrity_checks?select=checked_date&order=checked_date.desc&limit=1');
-  if(!last.length){body.innerHTML='<div style="color:var(--muted);font-size:12px">Nenhuma verificação registrada ainda.</div>';return;}
+  if(!last.length){body.innerHTML='<div style="font-size:12px;color:var(--muted)">Nenhuma verificação registrada ainda.</div><div style="margin-top:10px"><button class="btn-rodar" '+BTN+'>🔄 Rodar agora</button></div>';wire();return;}
   const date=last[0].checked_date;
   const[rows,accs]=await Promise.all([
-    sb('data_integrity_checks?checked_date=eq.'+date+'&select=account_id,check_name,status,detail'),
-    sb('accounts?select=id,name,username')
+    sb('data_integrity_checks?checked_date=eq.'+date+'&select=account_id,check_name,status,detail,created_at&order=created_at.desc'),
+    sb('accounts?select=id,name,username&order=name.asc')
   ]);
   const accMap={};accs.forEach(a=>accMap[a.id]=a.name||a.username||'—');
-  const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-  const LBL={frescor:'Frescor (dados de hoje)',bruto_seguidores:'Bruto de seguidores (Meta)',eng_likes0:'Curtidas zeradas (resposta parcial)',aninhamento:'Aninhamento 7d ≤ 14d ≤ 30d',nav_soma:'Navegação = soma dos tipos'};
+  const runAt=rows.length?new Date(rows[0].created_at).toLocaleString('pt-BR'):String(date);
+  const CHECKS=[['frescor','Frescor'],['bruto_seguidores','Bruto seg.'],['eng_likes0','Curtidas'],['aninhamento','Aninham.'],['nav_soma','Navegação']];
   const ST={ok:['✅','#16a34a'],warn:['⚠️','#d97706'],fail:['❌','#dc2626']};
-  const counts={ok:0,warn:0,fail:0};rows.forEach(r=>counts[r.status]=(counts[r.status]||0)+1);
-  const byCheck={};rows.forEach(r=>{(byCheck[r.check_name]=byCheck[r.check_name]||[]).push(r);});
-  let html='<div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Verificação de <b>'+esc(date)+'</b> — '+counts.ok+' ✅ · '+counts.warn+' ⚠️ · '+counts.fail+' ❌. Roda automático todo dia às 23:30.</div>';
-  html+='<table class="metas-tbl"><thead><tr><th>Verificação</th><th>Status</th><th>Detalhe</th></tr></thead><tbody>';
-  Object.keys(byCheck).forEach(ck=>{
-    const list=byCheck[ck];
-    const worst=list.some(r=>r.status==='fail')?'fail':list.some(r=>r.status==='warn')?'warn':'ok';
-    const probs=list.filter(r=>r.status!=='ok').map(r=>esc(accMap[r.account_id]||'?')+(r.detail?' — '+esc(r.detail):'')).join(' · ');
-    const s=ST[worst];
-    html+='<tr><td>'+esc(LBL[ck]||ck)+'</td><td style="color:'+s[1]+';font-weight:700;white-space:nowrap">'+s[0]+' '+worst.toUpperCase()+'</td><td style="font-size:11px;color:var(--muted)">'+(worst==='ok'?'todos os perfis ok':probs)+'</td></tr>';
+  const idx={};rows.forEach(r=>{(idx[r.account_id]=idx[r.account_id]||{})[r.check_name]=r;});
+  const counts={ok:0,warn:0,fail:0};rows.forEach(r=>{counts[r.status]=(counts[r.status]||0)+1;});
+  let html='<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;">';
+  html+='<div style="font-size:12px;color:var(--muted)">Última verificação: <b>'+esc(runAt)+'</b> &nbsp;·&nbsp; '+counts.ok+' ✅ '+counts.warn+' ⚠️ '+counts.fail+' ❌ &nbsp;·&nbsp; roda sozinho todo dia 23:30</div>';
+  html+='<button class="btn-rodar" '+BTN+'>🔄 Rodar agora</button></div>';
+  html+='<table class="metas-tbl"><thead><tr><th>Perfil</th>'+CHECKS.map(c=>'<th style="text-align:center">'+c[1]+'</th>').join('')+'</tr></thead><tbody>';
+  accs.forEach(a=>{
+    html+='<tr><td style="font-weight:600">'+esc(a.name||a.username||'—')+'</td>';
+    CHECKS.forEach(c=>{const r=idx[a.id]&&idx[a.id][c[0]];
+      if(!r){html+='<td style="text-align:center;color:#cbd5e1">—</td>';return;}
+      const s=ST[r.status]||['?','#888'];
+      html+='<td style="text-align:center;color:'+s[1]+'" title="'+esc(r.detail)+'">'+s[0]+'</td>';});
+    html+='</tr>';
   });
   html+='</tbody></table>';
-  body.innerHTML=html;
+  const probs=rows.filter(r=>r.status!=='ok');
+  if(probs.length){
+    html+='<div style="margin-top:18px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">Problemas encontrados</div><div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">';
+    probs.forEach(r=>{const s=ST[r.status];const lbl=(CHECKS.find(c=>c[0]===r.check_name)||['',r.check_name])[1];
+      html+='<div style="font-size:12px"><span style="color:'+s[1]+'">'+s[0]+'</span> <b>'+esc(accMap[r.account_id]||'?')+'</b> — '+esc(lbl)+(r.detail?' <span style="color:var(--muted)">('+esc(r.detail)+')</span>':'')+'</div>';});
+    html+='</div>';
+  }else{html+='<div style="margin-top:14px;color:#16a34a;font-size:12px;font-weight:600">✅ Nenhum problema — todos os perfis e verificações OK.</div>';}
+  html+='<details style="margin-top:18px"><summary style="cursor:pointer;font-size:11px;color:var(--muted)">O que cada verificação significa</summary><div style="font-size:11px;color:var(--muted);line-height:1.8;margin-top:8px">'
+    +'<b>Frescor</b> — os dados de hoje foram coletados (seguidores + engajamento + conteúdo).<br>'
+    +'<b>Bruto seg.</b> — a métrica do IG de "seguiram − deixaram de seguir" está chegando. ⚠️ quando a Meta para de entregar (problema dela; o painel cai na contagem "em consolidação").<br>'
+    +'<b>Curtidas</b> — não há curtidas zeradas com interações &gt; 0 (detecta resposta incompleta da Meta).<br>'
+    +'<b>Aninham.</b> — 7 dias ≤ 14 dias ≤ 30 dias (consistência entre períodos).<br>'
+    +'<b>Navegação</b> — o total de navegação dos stories bate com a soma dos 4 tipos.</div></details>';
+  body.innerHTML=html;wire();
 }
 
 /* ── PERMISSION TREE ── */
