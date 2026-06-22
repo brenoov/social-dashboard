@@ -2881,8 +2881,8 @@ async function fetchData(accountId,period,customStart,customEnd){
   const prevStartStr=localDate(new Date(_fsMs-_spanDays*86400000));
   const[snaps,engCurr,engPrev,cntCurr,cntPrev,filterRow,storyDailyCurr,storyDailyPrev,trueLastRows]=await Promise.all([
     sb(`daily_snapshots?account_id=eq.${accountId}&captured_at=gte.${histStartStr}&captured_at=lte.${refDateStr}&order=captured_at.asc&select=followers_count,captured_at,gained,lost`),
-    sb(`engagement_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=likes,saves,shares,captured_at`),
-    sb(`engagement_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=1&select=likes,saves,shares,captured_at`),
+    sb(`engagement_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=likes,saves,shares,comments,captured_at`),
+    sb(`engagement_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=1&select=likes,saves,shares,comments,captured_at`),
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=posts_count,stories_count,reels_count,captured_at`),
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=1&select=posts_count,stories_count,reels_count,captured_at`),
     sb(`campaign_filters?account_id=eq.${accountId}&select=selected_ids`),
@@ -2892,7 +2892,7 @@ async function fetchData(accountId,period,customStart,customEnd){
     // Sem limite superior: pega a última coleta REAL, independente do período exibido.
     sb(`daily_snapshots?account_id=eq.${accountId}&order=captured_at.desc&limit=1&select=captured_at`),
   ]);
-  const eng=engCurr[0]||{likes:0,saves:0,shares:0};
+  const eng=engCurr[0]||{likes:0,saves:0,shares:0,comments:0};
   const prevEng=engPrev[0]||null;
   const cnt=cntCurr[0]||{posts_count:0,stories_count:0,reels_count:0};
   const prevCnt=cntPrev[0]||null;
@@ -2965,7 +2965,7 @@ async function fetchData(accountId,period,customStart,customEnd){
   // ── Conferência (F4): líquido === novos − saíram ──
   // (nota) o líquido pela contagem total e o bruto novos−saíram são medições distintas da Meta
   // e não batem exatamente — por isso o saldo principal usa a contagem total (confiável/tempo real).
-  const engTotal=eng.likes+eng.saves+eng.shares;
+  const engTotal=eng.likes+eng.saves+eng.shares+(eng.comments||0);
   const prevEngTotal=(prevEng?.likes||0)+(prevEng?.saves||0)+(prevEng?.shares||0);
   const engRate=latest>0?((engTotal/latest)*100).toFixed(1):'0.0';
   const avgPerDay=effectivePeriod>0?(newFollowers/effectivePeriod).toFixed(1):'0.0';
@@ -3020,7 +3020,7 @@ async function fetchData(accountId,period,customStart,customEnd){
   return{followerTotal:latest,newFollowers,prevNewFollowers,avgPerDay,bestDay:'—',engRate,followerDeltas,effectivePeriod,impressions,clicks,reach,
     chart:{gained:chartGained,lost:chartLost,labels:chartLabels,dates:chartDates},
     spend,prevSpend,cps,prevCps,
-    eng:{likes:eng.likes,saves:eng.saves,shares:eng.shares,prevLikes:prevEng?.likes??null,prevSaves:prevEng?.saves??null,prevShares:prevEng?.shares??null},
+    eng:{likes:eng.likes,saves:eng.saves,shares:eng.shares,comments:eng.comments??0,prevLikes:prevEng?.likes??null,prevSaves:prevEng?.saves??null,prevShares:prevEng?.shares??null,prevComments:prevEng?.comments??null},
     cnt:{posts:cnt.posts_count,stories:storiesCount,reels:cnt.reels_count,postsReels:cnt.posts_count+cnt.reels_count,prevPostsReels:prevCnt!=null?prevCnt.posts_count+prevCnt.reels_count:null,prevStories:prevStoriesCount},
     storyEng:{shares:storyShares,replies:storyRep,prevShares:prevStoryShares,prevReplies:prevStoryRep},
     pl,
@@ -3047,9 +3047,9 @@ function _perPhrase(period,eff){
 function generateInsight(d,period,profileName){
   const insights=[];
   const nf=d.newFollowers,pnf=d.prevNewFollowers,avg=d.avgPerDay;
-  const likes=d.eng.likes,saves=d.eng.saves,shares=d.eng.shares;
-  const engTotal=likes+saves+shares;
-  const prevEngTotal=(d.eng.prevLikes||0)+(d.eng.prevSaves||0)+(d.eng.prevShares||0);
+  const likes=d.eng.likes,saves=d.eng.saves,shares=d.eng.shares,comments=d.eng.comments||0;
+  const engTotal=likes+saves+shares+comments;
+  const prevEngTotal=(d.eng.prevLikes||0)+(d.eng.prevSaves||0)+(d.eng.prevShares||0)+(d.eng.prevComments||0);
   const engRate=parseFloat(d.engRate||'0');
   const reels=d.cnt.reels,posts=d.cnt.posts,stories=d.cnt.stories;
   const totalContent=reels+posts+stories;
@@ -3247,8 +3247,8 @@ function update(d,period){
   if(confirmado)setCompare('cmp-followers',d.newFollowers,d.prevNewFollowers,'',pl,false);
   else if(cmpEl)cmpEl.innerHTML='';
   applyMetric('followers',headlineVal,getGoal('followers'));
-  const engTotal=d.eng.likes+d.eng.saves+d.eng.shares;
-  const prevEngTotal=d.eng.prevLikes+d.eng.prevSaves+d.eng.prevShares;
+  const engTotal=d.eng.likes+d.eng.saves+d.eng.shares+(d.eng.comments||0);
+  const prevEngTotal=d.eng.prevLikes+d.eng.prevSaves+d.eng.prevShares+(d.eng.prevComments||0);
   const _avgShown=(d.effectivePeriod>0?(headlineVal/d.effectivePeriod):headlineVal).toFixed(1);
   setChips('chips-followers',['M\u00e9dia: +'+_avgShown+'/dia','Taxa de eng.: '+d.engRate+'%','Engajamento total: '+fmtN(engTotal)]);
   document.getElementById('ads-spend-val').textContent=d.spend>0?fmtR(d.spend):'R$ —';
@@ -3269,7 +3269,7 @@ function update(d,period){
     setCompare('cmp-'+k,curr,prev,'',pl,false);applyMetric(k,curr,getGoal(k));
   });
   const avgPerPost=d.cnt.posts>0?Math.round(d.eng.likes/d.cnt.posts):0;
-  setChips('chips-eng',['Taxa de eng.: '+d.engRate+'%','M\u00e9dia curtidas/post: '+fmtN(avgPerPost),prevEngTotal>0?'Total: '+fmtN(engTotal)+' vs '+fmtN(prevEngTotal)+' ('+pctDiff(engTotal,prevEngTotal)+')':'Total engajamento: '+fmtN(engTotal)]);
+  setChips('chips-eng',['Taxa de eng.: '+d.engRate+'%','Coment\u00e1rios: '+fmtN(d.eng.comments||0),'M\u00e9dia curtidas/post: '+fmtN(avgPerPost),prevEngTotal>0?'Total: '+fmtN(engTotal)+' vs '+fmtN(prevEngTotal)+' ('+pctDiff(engTotal,prevEngTotal)+')':'Total engajamento: '+fmtN(engTotal)]);
   animCount(document.getElementById('cnt-story-shares'),d.storyEng.shares);
   setCompare('cmp-story-shares',d.storyEng.shares,d.storyEng.prevShares,'',pl,false);
   applyMetric('story-shares',d.storyEng.shares,getGoal('story-shares'));

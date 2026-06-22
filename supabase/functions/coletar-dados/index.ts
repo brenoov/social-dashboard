@@ -97,6 +97,27 @@ async function coletarFollowsDia(igId: string, dia: string, token: string): Prom
   } catch { return null; }
 }
 
+// Engajamento NÍVEL-CONTA por período (likes/comments/saves/shares RECEBIDOS no período).
+// É o que o painel profissional do IG mostra — inclui reels e colabs, e conta interações em todo o
+// conteúdo (não só posts publicados na janela). Substitui a antiga soma por-post, que subcontava ~27x.
+async function coletarEngajamentoConta(igId: string, token: string, dias: number): Promise<{ likes: number; comments: number; saves: number; shares: number } | null> {
+  const now = Math.floor(Date.now() / 1000);
+  const startOf = (dia: string) => Math.floor(new Date(`${dia}T00:00:00-03:00`).getTime() / 1000);
+  let since: number, until: number;
+  if (dias === 0) { since = startOf(todayBR()); until = now; }                 // hoje (parcial)
+  else if (dias === 1) { since = startOf(brDateMinus(1)); until = startOf(todayBR()); } // ontem
+  else { since = now - dias * 86400; until = now; }                            // últimos N dias (≤30, limite da Meta)
+  try {
+    const d = await apiGet(`${igId}/insights`, {
+      metric: 'likes,comments,saves,shares', period: 'day', metric_type: 'total_value',
+      since: String(since), until: String(until), access_token: token,
+    });
+    const v: Record<string, number> = {};
+    for (const it of d.data ?? []) v[it.name] = it.total_value?.value ?? 0;
+    return { likes: v.likes || 0, comments: v.comments || 0, saves: v.saves || 0, shares: v.shares || 0 };
+  } catch { return null; }
+}
+
 async function coletarStoriesHoje(igId: string, token: string): Promise<{ count: number; shares: number; replies: number }> {
   const hoje = todayBR();
   try {
@@ -132,35 +153,27 @@ async function coletarMidias(igId: string, token: string, dias: number) {
     const d = new Date(hojeDate); d.setDate(d.getDate() - dias);
     fromDate = d.toLocaleDateString('en-CA');
   }
-  let likes = 0, saves = 0, shares = 0, posts = 0, reels = 0;
+  // Só CONTAGEM de posts/reels publicados na janela (o engajamento vem do nível-conta, ver coletarEngajamentoConta).
+  let posts = 0, reels = 0;
   try {
     const d = await apiGet(`${igId}/media`, {
-      fields: 'id,media_type,media_product_type,timestamp,like_count,owner',
+      fields: 'id,media_product_type,timestamp,owner',
       access_token: token, limit: '100',
     });
-    await Promise.all((d.data ?? []).map(async (m: any) => {
+    for (const m of (d.data ?? [])) {
       const ownerId = m.owner?.id ?? igId;
-      if (ownerId !== igId) return;
+      if (ownerId !== igId) continue;
       const produto = m.media_product_type ?? '';
-      if (produto === 'STORY') return;
+      if (produto === 'STORY') continue;
       if (m.timestamp) {
         const pubDate = localDate(m.timestamp);
-        if (pubDate < fromDate) return;
-        if (toDate && pubDate > toDate) return;
+        if (pubDate < fromDate) continue;
+        if (toDate && pubDate > toDate) continue;
       }
-      likes += m.like_count ?? 0;
       if (produto === 'REELS') reels++; else posts++;
-      try {
-        const ins = await apiGet(`${m.id}/insights`, { metric: 'saved,shares', access_token: token });
-        for (const item of ins.data ?? []) {
-          const v = item.value ?? (item.values?.[0]?.value ?? 0);
-          if (item.name === 'saved') saves += v;
-          if (item.name === 'shares') shares += v;
-        }
-      } catch { /* ignora erro por mídia */ }
-    }));
+    }
   } catch { /* ignora conta sem acesso */ }
-  return { likes, saves, shares, posts, reels };
+  return { posts, reels };
 }
 
 async function sincronizarCampanhas(sb: any, accountId: string, adAccountId: string, token: string) {
@@ -229,8 +242,9 @@ async function processarConta(sb: any, acc: any) {
 
   for (const dias of PERIODS) {
     const m = await coletarMidias(igId, token, dias);
+    const eng = await coletarEngajamentoConta(igId, token, dias) || { likes: 0, comments: 0, saves: 0, shares: 0 };
     await sb.from('engagement_snapshots').upsert(
-      { account_id: accountId, captured_at: hoje, period_days: dias, likes: m.likes, saves: m.saves, shares: m.shares },
+      { account_id: accountId, captured_at: hoje, period_days: dias, likes: eng.likes, comments: eng.comments, saves: eng.saves, shares: eng.shares },
       { onConflict: 'account_id,captured_at,period_days' }
     );
     const row: any = { account_id: accountId, captured_at: hoje, period_days: dias, posts_count: m.posts, reels_count: m.reels };
