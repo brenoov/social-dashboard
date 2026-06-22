@@ -296,8 +296,10 @@ function buildOportunidadesMd(opp) {
 
 // ── Garimpo do Gestor (até 5 itens livres POR LOJA, curados pela IA) ──
 // Princípio: a IA ESCOLHE do cardápio; o SISTEMA precifica (LLM não calcula preço).
-const GARIMPO_MAX = 5;     // por loja
-const GARIMPO_TETO = 40;   // % máximo de desconto
+const GARIMPO_MAX = 5;          // por loja
+const GARIMPO_TETO = 40;        // % máximo de desconto (padrão)
+const GARIMPO_TETO_ALTO = 60;   // % máximo das ofertas-âncora agressivas
+const GARIMPO_MAX_ALTO = 2;     // quantas ofertas por loja podem usar o teto alto (60%)
 // Cardápio de candidatos por loja de varejo: qualquer item vendável com estoque e preço.
 function montarCardapio(saldoPorDep, prodMap, giro, ultimaVenda, hoje, capPorLoja = 60) {
   const saldoPulmao = saldoPorDep[DEP_PULMAO] || {};
@@ -357,7 +359,7 @@ function validarGarimpo(picksPorLoja, cardapio, oportunidades) {
     const cat = cardapio[L.loja] || [];
     const bySku = {}; cat.forEach(i => { bySku[String(i.sku)] = i; });
     const picks = _garimpoKeyMatch(picksPorLoja, L.loja);
-    const vistos = new Set(); const itens = [];
+    const vistos = new Set(); const itens = []; let altos = 0;
     for (const p of picks) {
       if (itens.length >= GARIMPO_MAX) break;
       const sku = String(p?.sku || '').trim();
@@ -366,7 +368,10 @@ function validarGarimpo(picksPorLoja, cardapio, oportunidades) {
       if (usadosOpp[L.loja] && usadosOpp[L.loja].has(sku)) continue; // já está nos 12
       let pct = Math.round(Number(p?.pct) || 0);
       if (!pct) continue;
-      pct = Math.max(1, Math.min(GARIMPO_TETO, pct));            // trava 1..40
+      // até GARIMPO_MAX_ALTO ofertas-âncora por loja podem chegar a 60%; as demais ficam no teto de 40%.
+      const tetoItem = (pct > GARIMPO_TETO && altos < GARIMPO_MAX_ALTO) ? GARIMPO_TETO_ALTO : GARIMPO_TETO;
+      if (tetoItem === GARIMPO_TETO_ALTO) altos++;
+      pct = Math.max(1, Math.min(tetoItem, pct));                // trava 1..40 (ou 1..60 nas âncoras)
       vistos.add(sku);
       const precoDesc = it.preco * (1 - pct / 100);
       itens.push({
@@ -383,7 +388,7 @@ function validarGarimpo(picksPorLoja, cardapio, oportunidades) {
   return out;
 }
 function buildGarimpoMd(garimpo) {
-  let md = '## 💎 Garimpo do Gestor\n\n*As "apostas" da semana: itens escolhidos a dedo (qualquer categoria, desconto até 40%) pra destravar venda. A coluna **Por quê** explica cada escolha. Preço com desconto e parcela já calculados — é só aplicar.*\n';
+  let md = '## 💎 Garimpo do Gestor\n\n*As "apostas" da semana: itens escolhidos a dedo (qualquer categoria, desconto até 40% — e até 2 ofertas-âncora por loja podem chegar a 60%) pra destravar venda. A coluna **Por quê** explica cada escolha. Preço com desconto e parcela já calculados — é só aplicar.*\n';
   for (const loja of garimpo) {
     md += '\n### ' + loja.loja + '\n\n';
     if (!loja.itens.length) { md += '_Sem apostas esta semana._\n'; continue; }
@@ -555,7 +560,7 @@ async function main() {
     + '## ✅ Plano de Ataque (lista numerada com os 3-5 movimentos mais importantes da semana: o quê, onde, urgência e impacto esperado. Inclua AQUI as mecânicas criativas que sugerir — combo ex. bolsa+carteira, brinde por faixa de valor, leve 2 pague 1, kit presente. SEMPRE que um movimento empurrar bolsas/produtos específicos, cite-os por nome/código E ancore-os no Garimpo: esses MESMOS itens devem entrar nas suas apostas do bloco garimpo (quando existirem no cardápio), pra o desconto sustentar o movimento — escreva "(ver Garimpo)" ao lado do item ancorado). '
     + 'Use só os números reais fornecidos. Não invente faturamento, datas nem produtos fora dos dados. '
     + 'NÃO escreva nenhuma tabela de ofertas nem uma seção própria de "Garimpo" no texto — as tabelas de Garimpo e Oportunidades são geradas pelo sistema (com preços exatos) e anexadas no FIM. Sua única entrega sobre o Garimpo é o bloco JSON abaixo. '
-    + 'GARIMPO (suas apostas): escolha até ' + GARIMPO_MAX + ' itens POR LOJA do CARDÁPIO (qualquer item; criativo e competitivo — encalhado de alto capital, item-isca de tráfego ou resposta a concorrente), desconto INTEIRO de 5% a ' + GARIMPO_TETO + '%, com um motivo curto e CLARO pra cada. Não repita itens das Oportunidades. '
+    + 'GARIMPO (suas apostas): escolha até ' + GARIMPO_MAX + ' itens POR LOJA do CARDÁPIO (qualquer item; criativo e competitivo — encalhado de alto capital, item-isca de tráfego ou resposta a concorrente), desconto INTEIRO de 5% a ' + GARIMPO_TETO + '% — e ATÉ ' + GARIMPO_MAX_ALTO + ' desses itens por loja podem chegar a ' + GARIMPO_TETO_ALTO + '% (ofertas-âncora: reserve pra encalhado pesado/alto capital que precisa de empurrão forte). Um motivo curto e CLARO pra cada. Não repita itens das Oportunidades. '
     + 'O Garimpo é a MUNIÇÃO DE PREÇO do Plano de Ataque, não uma lista solta: PRIORIZE as bolsas/itens que você recomendou atacar no Plano de Ataque (sempre que estiverem no cardápio) e, no "motivo" de cada um, amarre à jogada do Plano (ex.: "sustenta o movimento 2: combo bolsa+carteira"). Só preencha as vagas restantes com apostas livres (isca de tráfego ou resposta a concorrente). '
     + 'Saída NESTA ORDEM: (1) as 5 seções; (2) uma linha "RESUMO: <1 frase>"; (3) por ÚLTIMO, um bloco de código ```garimpo contendo JSON no formato '
     + '{"' + lojasGarimpo + '":[{"sku":"<código do cardápio>","pct":30,"motivo":"..."}]} — use EXATAMENTE esses nomes de loja como chaves e SKUs do cardápio.';
