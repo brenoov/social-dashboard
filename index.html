@@ -2460,6 +2460,11 @@
       <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-shares" style="width:0%"></div></div>
       <div class="mc-bottom"><span class="mc-pct" id="pct-shares">0%</span><span class="mc-diff" id="diff-shares"></span></div>
     </div>
+    <div class="card"><div class="mc-header"><div class="mc-icon">👁</div></div><div class="mc-lbl">ALCANCE</div><div class="mc-val a-blue" id="eng-reach">0</div><div class="mc-compare" id="cmp-reach"></div></div>
+    <div class="card"><div class="mc-header"><div class="mc-icon">▶️</div></div><div class="mc-lbl">VISUALIZAÇÕES</div><div class="mc-val a-orange" id="eng-views">0</div><div class="mc-compare" id="cmp-views"></div></div>
+    <div class="card"><div class="mc-header"><div class="mc-icon">🤝</div></div><div class="mc-lbl">INTERAÇÕES TOTAIS</div><div class="mc-val a-pink" id="eng-interactions">0</div><div class="mc-compare" id="cmp-interactions"></div></div>
+    <div class="card"><div class="mc-header"><div class="mc-icon">👥</div></div><div class="mc-lbl">CONTAS ENGAJADAS</div><div class="mc-val a-purple" id="eng-engaged">0</div><div class="mc-compare" id="cmp-engaged"></div></div>
+    <div class="card"><div class="mc-header"><div class="mc-icon">👤</div></div><div class="mc-lbl">VISITAS AO PERFIL</div><div class="mc-val a-blue" id="eng-profile-views">0</div><div class="mc-compare" id="cmp-profile-views"></div></div>
   </div>
 
   <!-- 04 ENGAJAMENTO STORIES -->
@@ -2487,6 +2492,11 @@
       <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-story-replies" style="width:0%"></div></div>
       <div class="mc-bottom"><span class="mc-pct" id="pct-story-replies">0%</span><span class="mc-diff" id="diff-story-replies"></span></div>
     </div>
+    <div class="card"><div class="mc-header"><div class="mc-icon">👁</div></div><div class="mc-lbl">ALCANCE (STORIES)</div><div class="mc-val a-blue" id="st-reach">0</div><div class="mc-compare" id="cmp-st-reach"></div></div>
+    <div class="card"><div class="mc-header"><div class="mc-icon">🤝</div></div><div class="mc-lbl">INTERAÇÕES (STORIES)</div><div class="mc-val a-pink" id="st-interactions">0</div><div class="mc-compare" id="cmp-st-interactions"></div></div>
+    <div class="card"><div class="mc-header"><div class="mc-icon">👆</div></div><div class="mc-lbl">NAVEGAÇÃO (STORIES)</div><div class="mc-val a-purple" id="st-navigation">0</div><div class="mc-compare" id="cmp-st-navigation"></div></div>
+    <div class="card"><div class="mc-header"><div class="mc-icon">👤</div></div><div class="mc-lbl">VISITAS AO PERFIL (STORIES)</div><div class="mc-val a-orange" id="st-profile-visits">0</div><div class="mc-compare" id="cmp-st-profile-visits"></div></div>
+    <div class="card"><div class="mc-header"><div class="mc-icon">➕</div></div><div class="mc-lbl">NOVOS SEGUIDORES (STORIES)</div><div class="mc-val a-blue" id="st-follows">0</div><div class="mc-compare" id="cmp-st-follows"></div></div>
   </div>
 
   <!-- 05 CONTEÚDO -->
@@ -2881,13 +2891,13 @@ async function fetchData(accountId,period,customStart,customEnd){
   const prevStartStr=localDate(new Date(_fsMs-_spanDays*86400000));
   const[snaps,engCurr,engPrev,cntCurr,cntPrev,filterRow,storyDailyCurr,storyDailyPrev,trueLastRows]=await Promise.all([
     sb(`daily_snapshots?account_id=eq.${accountId}&captured_at=gte.${histStartStr}&captured_at=lte.${refDateStr}&order=captured_at.asc&select=followers_count,captured_at,gained,lost`),
-    sb(`engagement_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=likes,saves,shares,comments,captured_at`),
-    sb(`engagement_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=1&select=likes,saves,shares,comments,captured_at`),
+    sb(`engagement_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=likes,saves,shares,comments,reach,views,total_interactions,accounts_engaged,profile_views,captured_at`),
+    sb(`engagement_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=1&select=likes,saves,shares,comments,reach,views,total_interactions,accounts_engaged,profile_views,captured_at`),
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${refDateStr}&order=captured_at.desc&limit=1&select=posts_count,stories_count,reels_count,captured_at`),
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.${storedPeriod}&captured_at=lte.${prevRefDateStr}&order=captured_at.desc&limit=1&select=posts_count,stories_count,reels_count,captured_at`),
     sb(`campaign_filters?account_id=eq.${accountId}&select=selected_ids`),
-    sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.1&captured_at=gte.${followStart}&captured_at=lte.${followEnd}&select=captured_at,story_shares,story_replies,stories_count`),
-    sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.1&captured_at=gte.${prevStartStr}&captured_at=lte.${prevEndStr}&select=captured_at,story_shares,story_replies,stories_count`),
+    sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.1&captured_at=gte.${followStart}&captured_at=lte.${followEnd}&select=captured_at,story_shares,story_replies,stories_count,story_reach,story_interactions,story_navigation,story_profile_visits,story_follows`),
+    sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.1&captured_at=gte.${prevStartStr}&captured_at=lte.${prevEndStr}&select=captured_at,story_shares,story_replies,stories_count,story_reach,story_interactions,story_navigation,story_profile_visits,story_follows`),
     // FRESCOR = saúde do coletor (global por perfil), NÃO o fim da janela escolhida.
     // Sem limite superior: pega a última coleta REAL, independente do período exibido.
     sb(`daily_snapshots?account_id=eq.${accountId}&order=captured_at.desc&limit=1&select=captured_at`),
@@ -3013,6 +3023,9 @@ async function fetchData(accountId,period,customStart,customEnd){
   const storyRep=storyDailyCurr.reduce((s,r)=>s+(r.story_replies||0),0);
   const prevStoryShares=storyDailyPrev.length?storyDailyPrev.reduce((s,r)=>s+(r.story_shares||0),0):null;
   const prevStoryRep=storyDailyPrev.length?storyDailyPrev.reduce((s,r)=>s+(r.story_replies||0),0):null;
+  const _sdSum=(arr,key)=>arr.reduce((s,r)=>s+(r[key]||0),0);
+  const storyReach=_sdSum(storyDailyCurr,'story_reach'),storyInter=_sdSum(storyDailyCurr,'story_interactions'),storyNav=_sdSum(storyDailyCurr,'story_navigation'),storyPV=_sdSum(storyDailyCurr,'story_profile_visits'),storyFol=_sdSum(storyDailyCurr,'story_follows');
+  const prevStoryReach=storyDailyPrev.length?_sdSum(storyDailyPrev,'story_reach'):null,prevStoryInter=storyDailyPrev.length?_sdSum(storyDailyPrev,'story_interactions'):null,prevStoryNav=storyDailyPrev.length?_sdSum(storyDailyPrev,'story_navigation'):null,prevStoryPV=storyDailyPrev.length?_sdSum(storyDailyPrev,'story_profile_visits'):null,prevStoryFol=storyDailyPrev.length?_sdSum(storyDailyPrev,'story_follows'):null;
   // Stories postados: soma diária dentro da janela (corrige HOJE = 1D). Posts/Reels NÃO mudam (são por-período).
   const storiesCount=storyDailyCurr.reduce((s,r)=>s+(r.stories_count||0),0);
   const prevStoriesCount=storyDailyPrev.length?storyDailyPrev.reduce((s,r)=>s+(r.stories_count||0),0):null;
@@ -3023,9 +3036,9 @@ async function fetchData(accountId,period,customStart,customEnd){
   return{followerTotal:latest,newFollowers,prevNewFollowers,avgPerDay,bestDay:'—',engRate,followerDeltas,effectivePeriod,impressions,clicks,reach,
     chart:{gained:chartGained,lost:chartLost,labels:chartLabels,dates:chartDates},
     spend,prevSpend,cps,prevCps,
-    eng:{likes:eng.likes,saves:eng.saves,shares:eng.shares,comments:eng.comments??0,prevLikes:prevEng?.likes??null,prevSaves:prevEng?.saves??null,prevShares:prevEng?.shares??null,prevComments:prevEng?.comments??null},
+    eng:{likes:eng.likes,saves:eng.saves,shares:eng.shares,comments:eng.comments??0,reach:eng.reach??0,views:eng.views??0,interactions:eng.total_interactions??0,engaged:eng.accounts_engaged??0,profileViews:eng.profile_views??0,prevLikes:prevEng?.likes??null,prevSaves:prevEng?.saves??null,prevShares:prevEng?.shares??null,prevComments:prevEng?.comments??null,prevReach:prevEng?.reach??null,prevViews:prevEng?.views??null,prevInteractions:prevEng?.total_interactions??null,prevEngaged:prevEng?.accounts_engaged??null,prevProfileViews:prevEng?.profile_views??null},
     cnt:{posts:cnt.posts_count,stories:storiesCount,reels:cnt.reels_count,postsReels:cnt.posts_count+cnt.reels_count,prevPostsReels:prevCnt!=null?prevCnt.posts_count+prevCnt.reels_count:null,prevStories:prevStoriesCount},
-    storyEng:{shares:storyShares,replies:storyRep,prevShares:prevStoryShares,prevReplies:prevStoryRep},
+    storyEng:{shares:storyShares,replies:storyRep,prevShares:prevStoryShares,prevReplies:prevStoryRep,reach:storyReach,interactions:storyInter,navigation:storyNav,profileVisits:storyPV,follows:storyFol,prevReach:prevStoryReach,prevInteractions:prevStoryInter,prevNavigation:prevStoryNav,prevProfileVisits:prevStoryPV,prevFollows:prevStoryFol},
     pl,
     // Última coleta REAL do perfil (não o fim da janela) → frescor honesto em todo período.
     trueLastSnap:trueLastRows.length?trueLastRows[0].captured_at:null,
@@ -3271,6 +3284,11 @@ function update(d,period){
     animCount(document.getElementById('eng-'+k),curr);
     setCompare('cmp-'+k,curr,prev,'',pl,false);applyMetric(k,curr,getGoal(k));
   });
+  // Cards novos (alcance/visualizações/interações/contas engajadas/visitas) — sem meta/progresso.
+  [['reach','reach','prevReach'],['views','views','prevViews'],['interactions','interactions','prevInteractions'],['engaged','engaged','prevEngaged'],['profile-views','profileViews','prevProfileViews']].forEach(([id,k,pk])=>{
+    animCount(document.getElementById('eng-'+id),d.eng[k]||0);
+    setCompare('cmp-'+id,d.eng[k]||0,d.eng[pk],'',pl,false);
+  });
   const avgPerPost=d.cnt.posts>0?Math.round(d.eng.likes/d.cnt.posts):0;
   setChips('chips-eng',['Taxa de eng.: '+d.engRate+'%','Coment\u00e1rios: '+fmtN(d.eng.comments||0),'M\u00e9dia curtidas/post: '+fmtN(avgPerPost),prevEngTotal>0?'Total: '+fmtN(engTotal)+' vs '+fmtN(prevEngTotal)+' ('+pctDiff(engTotal,prevEngTotal)+')':'Total engajamento: '+fmtN(engTotal)]);
   animCount(document.getElementById('cnt-story-shares'),d.storyEng.shares);
@@ -3279,6 +3297,11 @@ function update(d,period){
   animCount(document.getElementById('cnt-story-replies'),d.storyEng.replies);
   setCompare('cmp-story-replies',d.storyEng.replies,d.storyEng.prevReplies,'',pl,false);
   applyMetric('story-replies',d.storyEng.replies,getGoal('story-replies'));
+  // Cards novos de stories (alcance/interações/navegação/visitas/novos seguidores).
+  [['st-reach','reach','prevReach'],['st-interactions','interactions','prevInteractions'],['st-navigation','navigation','prevNavigation'],['st-profile-visits','profileVisits','prevProfileVisits'],['st-follows','follows','prevFollows']].forEach(([id,k,pk])=>{
+    animCount(document.getElementById(id),d.storyEng[k]||0);
+    setCompare('cmp-'+id,d.storyEng[k]||0,d.storyEng[pk],'',pl,false);
+  });
   setChips('chips-story-eng',['Acumulado de snapshots diários','Stories expiram em 24h (API)']);
   animCount(document.getElementById('cnt-stories'),d.cnt.stories);
   setCompare('cmp-stories',d.cnt.stories,d.cnt.prevStories,'',pl,false);applyMetric('stories',d.cnt.stories,getGoal('stories'));
