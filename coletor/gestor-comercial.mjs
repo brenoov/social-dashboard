@@ -281,14 +281,28 @@ function montarOportunidades(saldoPorDep, prodMap, giro, ultimaVenda, hoje, week
   });
 }
 function _rOpp(v) { return 'R$ ' + (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+// Matriz BCG por item (determinístico): participação (sell-through) x crescimento (recência de venda).
+// Estrela = vende e gira; Vaca leiteira = vende muito mas com estoque alto; Interrogação = parado mas
+// se mexeu recentemente (potencial); Abacaxi = parado e sem girar (liquidar pesado).
+function _bcgClass(it) {
+  const estoque = (Number(it.estoqueLoja) || 0) + (Number(it.estoquePulmao) || 0);
+  const giro = Number(it.giro) || 0;
+  const dias = (it.diasSemVender == null) ? 999 : Number(it.diasSemVender);
+  const st = giro / Math.max(1, giro + estoque);   // sell-through proxy
+  const movendo = dias <= 21;                       // vendeu nas últimas ~3 semanas
+  if (giro > 0 && st >= 0.4) return movendo ? 'Estrela' : 'Vaca leiteira';
+  if (movendo) return 'Interrogação';
+  return 'Abacaxi';
+}
+
 function buildOportunidadesMd(opp) {
   let md = '## 🛒 Oportunidades da Semana\n\n*Vitrine fixa de queima: 12 itens por loja (Tivoli e Dom Pedro, separados), priorizando bolsas/mochilas paradas. A coluna **Público**: "Amplo" = desconto menor, pra atrair o público geral; "Base" = desconto maior, pra girar o que está mais encalhado. Preço com desconto e parcela já calculados.*\n';
   for (const loja of opp) {
     md += '\n### ' + loja.loja + '\n\n';
     if (!loja.itens.length) { md += '_Sem itens elegíveis com estoque esta semana._\n'; continue; }
-    md += '| SKU | Descrição | Categoria | Público | Preço orig. | % | Com desconto | 6x | Estoque (loja/pulmão) | Dias s/ vender |\n|---|---|---|---|---|---|---|---|---|---|\n';
+    md += '| SKU | Descrição | Categoria | BCG | Público | Preço orig. | % | Com desconto | 6x | Estoque (loja/pulmão) | Dias s/ vender |\n|---|---|---|---|---|---|---|---|---|---|---|\n';
     for (const it of loja.itens) {
-      md += '| ' + it.sku + ' | ' + it.descricao + ' | ' + it.categoria + ' | ' + it.publico + ' | ' + _rOpp(it.precoOriginal) + ' | ' + it.pct + '% | ' + _rOpp(it.precoComDesconto) + ' | ' + _rOpp(it.parcela6x) + ' | ' + it.estoqueLoja + ' / ' + it.estoquePulmao + ' | ' + it.diasSemVender + ' |\n';
+      md += '| ' + it.sku + ' | ' + it.descricao + ' | ' + it.categoria + ' | ' + _bcgClass(it) + ' | ' + it.publico + ' | ' + _rOpp(it.precoOriginal) + ' | ' + it.pct + '% | ' + _rOpp(it.precoComDesconto) + ' | ' + _rOpp(it.parcela6x) + ' | ' + it.estoqueLoja + ' / ' + it.estoquePulmao + ' | ' + it.diasSemVender + ' |\n';
     }
   }
   return md;
@@ -392,9 +406,9 @@ function buildGarimpoMd(garimpo) {
   for (const loja of garimpo) {
     md += '\n### ' + loja.loja + '\n\n';
     if (!loja.itens.length) { md += '_Sem apostas esta semana._\n'; continue; }
-    md += '| SKU | Descrição | Categoria | Preço orig. | % | Com desconto | 6x | Estoque (loja/pulmão) | Dias s/ vender | Por quê |\n|---|---|---|---|---|---|---|---|---|---|\n';
+    md += '| SKU | Descrição | Categoria | BCG | Preço orig. | % | Com desconto | 6x | Estoque (loja/pulmão) | Dias s/ vender | Por quê |\n|---|---|---|---|---|---|---|---|---|---|---|\n';
     for (const it of loja.itens) {
-      md += '| ' + it.sku + ' | ' + it.descricao + ' | ' + it.categoria + ' | ' + _rOpp(it.precoOriginal) + ' | ' + it.pct + '% | ' + _rOpp(it.precoComDesconto) + ' | ' + _rOpp(it.parcela6x) + ' | ' + it.estoqueLoja + ' / ' + it.estoquePulmao + ' | ' + it.diasSemVender + ' | ' + it.motivo + ' |\n';
+      md += '| ' + it.sku + ' | ' + it.descricao + ' | ' + it.categoria + ' | ' + _bcgClass(it) + ' | ' + _rOpp(it.precoOriginal) + ' | ' + it.pct + '% | ' + _rOpp(it.precoComDesconto) + ' | ' + _rOpp(it.parcela6x) + ' | ' + it.estoqueLoja + ' / ' + it.estoquePulmao + ' | ' + it.diasSemVender + ' | ' + it.motivo + ' |\n';
     }
   }
   return md;
