@@ -84,7 +84,7 @@ for (const [marca, handles] of Object.entries(HANDLES)) {
     const imgPub = poster ? await rehost(poster, `${handle}/${m.id}.jpg`) : null;
     const vidPub = (isVid && m.media_url) ? await rehost(m.media_url, `${handle}/${m.id}.mp4`, 'video/mp4', 30) : null;
     if (!imgPub && !vidPub) continue;
-    produtos.push({ nome: cut(clean(m.caption), 110), img: imgPub, video: vidPub, url: m.permalink, curtidas: m.like_count ?? null, comentarios: m.comments_count ?? null, tipo: isVid ? 'video' : 'imagem' });
+    produtos.push({ nome: cut(clean(m.caption), 1500), img: imgPub, video: vidPub, url: m.permalink, curtidas: m.like_count ?? null, comentarios: m.comments_count ?? null, tipo: isVid ? 'video' : 'imagem' });
   }
   if (!produtos.length) { console.log(`${marca} (@${handle}): 0 imagens re-hospedadas`); continue; }
   rows.push({
