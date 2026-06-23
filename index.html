@@ -1192,6 +1192,23 @@
   .gc-mix-n i{font-style:normal;color:var(--muted);font-size:13px;}
   .gc-mix-chip.off{box-shadow:inset 0 0 0 1px currentColor;}
   .gc-mix-chip.off .gc-mix-l::after{content:' ⚠';}
+  .gc-info{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;border:none;background:var(--accent-light);color:var(--accent);font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:800;cursor:pointer;margin-left:6px;vertical-align:middle;padding:0;line-height:1;transition:background .15s,transform .15s;flex-shrink:0;}
+  .gc-info:hover{background:var(--accent);color:#fff;transform:scale(1.12);}
+  .gc-infomodal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:none;align-items:center;justify-content:center;padding:20px;animation:npfade .15s ease;}
+  .gc-infomodal.open{display:flex;}
+  .gc-infomodal-card{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);width:min(620px,96vw);max-height:88vh;overflow:auto;}
+  .gc-infomodal-body{padding:26px 30px 30px;}
+  .gc-infomodal-h{font-family:'Playfair Display',serif;font-size:23px;font-weight:800;color:var(--text);margin:0 0 14px;line-height:1.15;padding-right:30px;}
+  .gc-infomodal-body h4{font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--accent);margin:18px 0 7px;}
+  .gc-infomodal-body p{font-size:14px;line-height:1.62;color:var(--text);margin:9px 0;}
+  .gc-infomodal-body ul{margin:8px 0;padding-left:20px;}
+  .gc-infomodal-body li{font-size:14px;line-height:1.55;color:var(--text);margin:5px 0;}
+  .gc-infomodal-body code{background:var(--surface2);padding:2px 6px;border-radius:5px;font-size:12.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+  .gc-infomodal-body table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px;}
+  .gc-infomodal-body th{text-align:left;padding:8px 10px;background:var(--surface2);border-bottom:2px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);}
+  .gc-infomodal-body td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top;}
+  .gc-infomodal-body .ex{background:var(--accent-light);border-left:3px solid var(--accent);border-radius:8px;padding:11px 14px;font-size:13px;margin:13px 0;color:var(--text);line-height:1.55;}
+  .gc-infomodal-body small{color:var(--muted);font-size:12px;}
   .gc-empty{text-align:center;padding:60px 20px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;}
   .gc-empty h3{font-family:'Oswald',sans-serif;font-weight:500;letter-spacing:1px;color:var(--text);margin:0 0 6px;}
   @media(max-width:920px){#gestao-comercial-screen .gc-kpis{grid-template-columns:repeat(2,1fr);}}
@@ -8921,6 +8938,36 @@ function _gcCell(c){
   if(/^[A-Za-z]{1,5}\d{2,4}[\p{L}\d .\/\-]*$/u.test(t))return _npEsc(t)+_gcLupaBtn(t);  // célula de SKU (aceita espaço/acento: LV1167-CG Palha, LV5027-CaféM)
   return _gcInline(c);
 }
+// Botões de ajuda "?" → modal explicativo
+function _gcInfoBtn(key){return '<button class="gc-info" type="button" title="Entenda" onclick="gcInfo(\''+key+'\')">?</button>';}
+const GC_INFO={
+  bcg:{titulo:'Como classifico a Matriz BCG',html:`<p>A BCG real cruza <b>participação de mercado × crescimento</b>. Como não temos dado de mercado, uso dois <b>proxies do seu Bling</b>:</p>
+<h4>Eixo 1 — Participação (sell-through)</h4><p><code>sell-through = vendas no mês ÷ (vendas no mês + estoque NA LOJA)</code><br>De tudo que o item teve disponível na loja, que fração já vendeu. <small>O estoque do pulmão/atacado não entra aqui, pra não jogar em Abacaxi um item que vende bem na loja.</small></p>
+<h4>Eixo 2 — Crescimento / vida</h4><p>Vendeu alguma unidade no mês <b>e/ou</b> teve venda nos <b>últimos 21 dias</b>.</p>
+<h4>As 4 regras (nessa ordem)</h4><table><thead><tr><th>Quadrante</th><th>Critério</th></tr></thead><tbody>
+<tr><td>⭐ <b>Estrela</b></td><td>vendeu <b>e</b> sell-through ≥ 50% — vende rápido, sobra pouco</td></tr>
+<tr><td>🐮 <b>Vaca leiteira</b></td><td>vendeu <b>e</b> sell-through 25–50% — vende firme, ainda tem estoque</td></tr>
+<tr><td>❓ <b>Interrogação</b></td><td>não bateu acima, mas vendeu algo <b>ou</b> teve venda nos últimos 21 dias</td></tr>
+<tr><td>🍍 <b>Abacaxi</b></td><td>giro 0 <b>e</b> parado há mais de 21 dias — não gira</td></tr></tbody></table>
+<div class="ex"><b>Exemplos reais:</b> Tote Paris Preto vendeu 2 com pouco estoque → ~50% → <b>Estrela</b>. Ombro Cambridge 2 vendas / estoque 4 → ~33% → <b>Vaca</b>. Ombro Perugia 1 venda / estoque 4 → ~20% mas girou → <b>Interrogação</b>. Ombro Viena giro 0, parado 90+ dias → <b>Abacaxi</b>.</div>
+<p><small>É uma BCG aproximada (proxy), não a acadêmica. Os cortes (50% / 25% / 21 dias) são ajustáveis.</small></p>`},
+  projecao:{titulo:'Como calculo a Projeção de fechamento',html:`<p>Pego seu <b>ritmo médio diário</b> até hoje e estendo até o fim do mês.</p>
+<h4>A conta</h4><p><code>ritmo diário = realizado ÷ dias já corridos</code><br><code>projeção = ritmo diário × dias do mês</code></p>
+<div class="ex"><b>Exemplo:</b> faturou R$ 12.000 em 23 dias → ritmo ~R$ 522/dia. Mês de 30 dias → projeção ≈ <b>R$ 15.660</b>.</div>
+<h4>Adiantado × atrasado</h4><p>Comparo o <b>realizado</b> com o <b>esperado até hoje</b> (a soma das metas diárias do mês, ou a meta dividida igual pelos dias). Acima = adiantado; abaixo = atrasado.</p>
+<p><small>A projeção assume ritmo constante — uma promoção, data comemorativa ou virada de coleção pode acelerar e mudar o número.</small></p>`},
+  publico:{titulo:'Amplo × Base — os dois públicos da vitrine',html:`<p>A vitrine de 12 itens é dividida <b>~50/50</b> entre dois públicos, cada um com desconto atrativo:</p>
+<h4>🛍️ Amplo — 30% OFF</h4><p>O <b>fluxo do shopping</b> (clientes novos, que passam na porta). Recebe a metade mais <b>desejável</b> da vitrine (campeãs e itens que vendem) com uma oferta de entrada que converte o impulso.</p>
+<h4>💜 Base — 45% OFF</h4><p>A <b>base que já comprou</b> (recompra/fidelidade). Desconto maior, que recompensa o cliente fiel e ao mesmo tempo <b>queima o estoque mais parado</b>.</p>
+<p><small>O <b>BCG</b> decide QUAIS itens entram (mix 2/3/4/3); o <b>Público</b> decide pra QUEM e com qual desconto.</small></p>`}
+};
+function gcInfo(key){
+  const info=GC_INFO[key]; if(!info) return;
+  let ov=document.getElementById('gc-info-modal');
+  if(!ov){ov=document.createElement('div');ov.id='gc-info-modal';ov.className='gc-infomodal';ov.onclick=e=>{if(e.target===ov)ov.classList.remove('open');};document.body.appendChild(ov);}
+  ov.innerHTML='<div class="gc-infomodal-card"><button class="gc-im-x" type="button" onclick="document.getElementById(\'gc-info-modal\').classList.remove(\'open\')">✕</button><div class="gc-infomodal-body"><h3 class="gc-infomodal-h">'+_npEsc(info.titulo)+'</h3>'+info.html+'</div></div>';
+  ov.classList.add('open');
+}
 async function _gcBlingList(params){try{const r=await sbClient.functions.invoke('bling-proxy',{body:{endpoint:'produtos',params}});return (r&&r.data&&r.data.data)||[];}catch(e){return [];}}
 async function _gcBlingDetalhe(id){try{const d=await sbClient.functions.invoke('bling-proxy',{body:{endpoint:'produtos/'+id}});return (d&&d.data&&d.data.data)||null;}catch(e){return null;}}
 async function gcAbrirItem(sku){
@@ -8975,14 +9022,14 @@ function _gcMarkdown(md){
       const get=k=>{const mm=ln.match(new RegExp(k+':(\\d+)/(\\d+)'));return mm?[+mm[1],+mm[2]]:[0,0];};
       const defs=[['Estrela','estrela','e'],['Vaca leiteira','vaca','v'],['Interrogação','interrogacao','i'],['Abacaxi','abacaxi','a']];
       let chips='';for(const[lbl,cls,k]of defs){const a=get(k),off=a[0]!==a[1];chips+='<div class="gc-mix-chip '+cls+(off?' off':'')+'"><span class="gc-mix-l">'+lbl+'</span><span class="gc-mix-n"><b>'+a[0]+'</b><i>/'+a[1]+'</i></span></div>';}
-      html+='<div class="gc-mix"><div class="gc-mix-h">Composição ideal da vitrine <span>· entrou / alvo</span></div><div class="gc-mix-row">'+chips+'</div></div>';
+      html+='<div class="gc-mix"><div class="gc-mix-h">Composição ideal da vitrine <span>· entrou / alvo</span>'+_gcInfoBtn('bcg')+'</div><div class="gc-mix-row">'+chips+'</div></div>';
       i++;continue;
     }
     if(/^\s*\|.*\|\s*$/.test(ln)&&i+1<lines.length&&/^\s*\|[\s:|-]+\|\s*$/.test(lines[i+1])){
       const cells=r=>r.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
       const head=cells(ln);i+=2;let body='';
       while(i<lines.length&&/^\s*\|.*\|\s*$/.test(lines[i])){body+='<tr>'+cells(lines[i]).map(c=>'<td>'+_gcCell(c)+'</td>').join('')+'</tr>';i++;}
-      html+='<div class="gc-tw"><div class="gc-tw-scroll"><table><thead><tr>'+head.map(h=>'<th>'+_gcInline(h)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div></div>';continue;
+      html+='<div class="gc-tw"><div class="gc-tw-scroll"><table><thead><tr>'+head.map(h=>{const ht=String(h).trim();const ex=ht==='BCG'?_gcInfoBtn('bcg'):(ht==='Público'?_gcInfoBtn('publico'):'');return '<th>'+_gcInline(h)+ex+'</th>';}).join('')+'</tr></thead><tbody>'+body+'</tbody></table></div></div>';continue;
     }
     if(/^\s*[-*]\s+/.test(ln)){let it='';while(i<lines.length&&/^\s*[-*]\s+/.test(lines[i])){it+='<li>'+_gcInline(lines[i].replace(/^\s*[-*]\s+/,''))+'</li>';i++;}html+='<ul>'+it+'</ul>';continue;}
     if(/^\s*\d+\.\s+/.test(ln)){let it='';while(i<lines.length&&/^\s*\d+\.\s+/.test(lines[i])){it+='<li>'+_gcInline(lines[i].replace(/^\s*\d+\.\s+/,''))+'</li>';i++;}html+='<ol>'+it+'</ol>';continue;}
@@ -9031,7 +9078,7 @@ function _gcRender(b){
     const ring=_gcRing(84,37,c.percentMeta||0,'gck-ring',(c.percentMeta||0)+'%','da meta');
     return '<div class="gck '+st+'"><div class="gck-top"><span class="gck-canal">'+_npEsc(c.canal)+'</span><span class="gck-pill">'+st+'</span></div>'
       +'<div class="gck-mid">'+ring
-      +'<div class="gck-proj"><div class="gck-proj-l">Projeção de fechamento</div><div class="gck-proj-v">'+_gcFmtR(c.projecaoFechamento)+'</div></div></div>'
+      +'<div class="gck-proj"><div class="gck-proj-l">Projeção de fechamento'+_gcInfoBtn('projecao')+'</div><div class="gck-proj-v">'+_gcFmtR(c.projecaoFechamento)+'</div></div></div>'
       +'<div class="gck-rows"><div class="gck-row"><span>Realizado</span><b>'+_gcFmtR(c.realizado)+'</b></div>'
       +'<div class="gck-row"><span>Meta do mês</span><b>'+_gcFmtR(c.metaValor)+'</b></div></div></div>';
   }).join('')+'</div>';
