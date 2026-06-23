@@ -1080,8 +1080,7 @@
   .gc-edicao{display:flex;align-items:center;gap:8px;}
   .gc-edicao-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
   .gc-edicao select{font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--text);border:1px solid var(--border);border-radius:7px;padding:5px 9px;background:var(--surface);cursor:pointer;}
-  .gc-body{flex:1;max-width:min(96vw,1640px);margin:0 auto;width:100%;padding:clamp(22px,2vw,34px) clamp(22px,3.2vw,56px) 96px;}
-  .gc-report p,.gc-report ul,.gc-report ol,.gc-report h3{max-width:82ch;}
+  .gc-body{flex:1;max-width:min(98vw,1860px);margin:0 auto;width:100%;padding:clamp(22px,2vw,34px) clamp(20px,2.8vw,46px) 96px;}
   /* Hero com gradiente + anel de progresso do mês */
   .gc-hero{position:relative;overflow:hidden;border-radius:var(--radius-xl);padding:28px 34px;margin-bottom:26px;background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:24px;box-shadow:var(--shadow-md);}
   .gc-hero::after{content:'';position:absolute;right:-70px;top:-70px;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(79,124,255,.35),transparent 70%);pointer-events:none;}
@@ -1128,8 +1127,15 @@
   .gck-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);margin-top:6px;}
   .gck-row:first-child{margin-top:0;}
   .gck-row b{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums;}
-  /* Relatório (uma coluna) */
-  .gc-report{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:clamp(26px,2.6vw,46px) clamp(28px,3.4vw,58px) 46px;box-shadow:var(--shadow-sm);}
+  /* Relatório = pilha de cards de seção (full-width, lateralizado) */
+  .gc-report{display:flex;flex-direction:column;gap:18px;}
+  .gc-sec{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:clamp(22px,2vw,32px) clamp(24px,2.6vw,44px) clamp(22px,2vw,34px);box-shadow:var(--shadow-sm);transition:box-shadow .18s ease,border-color .18s ease;}
+  .gc-sec:hover{box-shadow:var(--shadow-md);border-color:var(--accent-mid);}
+  .gc-sec-h{display:flex;align-items:center;gap:14px;margin-bottom:18px;padding-bottom:15px;border-bottom:1px solid var(--border);}
+  .gc-sec-n{font-family:'Oswald',sans-serif;font-size:14px;font-weight:600;color:#fff;background:linear-gradient(135deg,var(--accent),#2563eb);min-width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 3px 10px var(--accent-mid);}
+  .gc-report .gc-sec-h h2{font-family:'Oswald',sans-serif;font-size:clamp(16px,1.7vw,20px);font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--text);margin:0;border:none;padding:0;display:block;}
+  .gc-sec-b>*:first-child{margin-top:0;}
+  .gc-sec-b>*:last-child{margin-bottom:0;}
   .gc-report h1{display:none;}
   .gc-report h2{font-family:'Oswald',sans-serif;font-size:19px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text);margin:32px 0 14px;padding-bottom:8px;border-bottom:2px solid var(--accent);display:inline-block;}
   .gc-report h2:first-child{margin-top:0;}
@@ -8920,8 +8926,29 @@ function _gcRender(b){
       +'<div class="gck-rows"><div class="gck-row"><span>Realizado</span><b>'+_gcFmtR(c.realizado)+'</b></div>'
       +'<div class="gck-row"><span>Meta do mês</span><b>'+_gcFmtR(c.metaValor)+'</b></div></div></div>';
   }).join('')+'</div>';
-  html+='<div class="gc-report">'+_gcMarkdown(b.conteudo||'')+'</div>';
+  html+='<div class="gc-report">'+_gcReportCards(b.conteudo||'')+'</div>';
   document.getElementById('gc-body').innerHTML=html;
+}
+// Quebra o markdown do relatório em CARDS por seção (## ), cada um full-width com cabeçalho numerado.
+function _gcReportCards(md){
+  const lines=String(md||'').replace(/\r/g,'').split('\n');
+  const secs=[]; let cur=null;
+  for(const ln of lines){
+    const h2=ln.match(/^##\s+(?!#)(.+)/);
+    if(h2){ cur={title:h2[1].trim(),body:[]}; secs.push(cur); continue; }
+    if(/^#\s+/.test(ln)||/^RESUMO:/.test(ln)) continue;
+    if(!cur){ cur={title:null,body:[]}; secs.push(cur); }
+    cur.body.push(ln);
+  }
+  let n=0;
+  const html=secs.map(s=>{
+    const body=_gcMarkdown(s.body.join('\n'));
+    if(!s.title && !body.replace(/<[^>]+>/g,'').trim()) return '';
+    let head='';
+    if(s.title){ n++; head='<div class="gc-sec-h"><span class="gc-sec-n">'+String(n).padStart(2,'0')+'</span><h2>'+_gcInline(s.title)+'</h2></div>'; }
+    return '<section class="gc-sec">'+head+'<div class="gc-sec-b">'+body+'</div></section>';
+  }).join('');
+  return html||_gcMarkdown(md);
 }
 function _gcRing(size,r,pct,cls,big,lbl){
   const c=2*Math.PI*r;const off=c*(1-Math.max(0,Math.min(100,Number(pct)||0))/100);
