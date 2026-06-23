@@ -4,32 +4,42 @@
 // Reaproveitado pelo piloto manual e pelo agente automático (agente-noticias.mjs).
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
-const TIMEOUT = 20000;
+const TIMEOUT = 22000;
+
+async function getJson(u, json = true) {
+  const r = await fetch(u, { headers: { 'User-Agent': UA, Accept: json ? 'application/json' : '*/*' }, signal: AbortSignal.timeout(TIMEOUT) });
+  if (!r.ok) return null;
+  return r.json();
+}
 
 // ── VTEX (catálogo legado público) ──
-// order: OrderByTopSaleDESC (mais vendidos) | OrderByReleaseDateDESC (novidades)
-async function vtex(base, cat, order, n = 12) {
-  const u = `${base}/api/catalog_system/pub/products/search/${cat}?O=${order}&_from=0&_to=${n - 1}`;
-  const r = await fetch(u, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(TIMEOUT) });
-  if (!r.ok) return [];
-  const a = await r.json();
-  return a.map(p => {
+function mapVtex(base) {
+  return p => {
     const it = (p.items && p.items[0]) || {};
     const img = (it.images && it.images[0] && it.images[0].imageUrl) || '';
     const off = (it.sellers && it.sellers[0] && it.sellers[0].commertialOffer) || {};
     return { nome: p.productName, preco: off.Price || null, url: p.link || (base + '/' + (p.linkText || '') + '/p'), img };
-  }).filter(p => p.img && p.nome);
+  };
+}
+// Busca por categoria (ex.: Santa Lolla /bolsas). order: OrderByTopSaleDESC | OrderByReleaseDateDESC
+async function vtexCat(base, cat, order, n = 12) {
+  const a = await getJson(`${base}/api/catalog_system/pub/products/search/${cat}?O=${order}&_from=0&_to=${n - 1}`);
+  return Array.isArray(a) ? a.map(mapVtex(base)).filter(p => p.img && p.nome) : [];
+}
+// Busca full-text "bolsa" (lojas VTEX sem categoria conhecida). Filtra p/ nome de bolsa.
+const BAG_RE = /bolsa|bag|mochila|clutch|carteira|necessaire|tiracolo|shoulder|hobo|tote|shopper|baguete|crossbody/i;
+async function vtexFt(base, order, n = 14) {
+  const a = await getJson(`${base}/api/catalog_system/pub/products/search?ft=bolsa&O=${order}&_from=0&_to=${n - 1}`);
+  if (!Array.isArray(a)) return [];
+  return a.map(mapVtex(base)).filter(p => p.img && p.nome && BAG_RE.test(p.nome)).slice(0, 12);
 }
 
-// ── SAP Commerce OCC (Arezzo&Co / Azzas) ──
-// sort: best-selling-desc (mais vendidos) | creation-time (novidades)
-async function occArezzo(category, sort, n = 12) {
-  const base = 'https://www.arezzo.com.br';
-  const u = `${base}/arezzocoocc/v2/arezzo/products/search?category=${category}&currentPage=0&pageSize=${n}&fields=FULL&storeFinder=false&sort=${sort}`;
-  const r = await fetch(u, { headers: { 'User-Agent': UA, 'Accept': 'application/json' }, signal: AbortSignal.timeout(TIMEOUT) });
-  if (!r.ok) return [];
-  const j = await r.json();
-  return (j.products || []).map(p => {
+// ── SAP Commerce OCC (grupo Azzas: Arezzo, Schutz, Anacapri) ──
+// Backend compartilhado em /arezzocoocc/v2/<store>/. sort: best-selling-desc | creation-time
+async function occ(domain, store, sort, n = 12) {
+  const base = `https://${domain}`;
+  const j = await getJson(`${base}/arezzocoocc/v2/${store}/products/search?category=BOLSAS&currentPage=0&pageSize=${n}&fields=FULL&storeFinder=false&sort=${sort}`);
+  return ((j && j.products) || []).map(p => {
     const im = (p.images && (p.images.find(i => i.format === 'product') || p.images.find(i => i.imageType === 'PRIMARY') || p.images[0])) || {};
     let img = im.url || '';
     if (img && img.startsWith('/')) img = base + img;
@@ -40,13 +50,43 @@ async function occArezzo(category, sort, n = 12) {
 export const LOJAS = {
   'Santa Lolla': {
     site: 'https://www.santalolla.com.br/bolsas',
-    bestsellers: () => vtex('https://www.santalolla.com.br', 'bolsas', 'OrderByTopSaleDESC'),
-    novidades: () => vtex('https://www.santalolla.com.br', 'bolsas', 'OrderByReleaseDateDESC'),
+    bestsellers: () => vtexCat('https://www.santalolla.com.br', 'bolsas', 'OrderByTopSaleDESC'),
+    novidades: () => vtexCat('https://www.santalolla.com.br', 'bolsas', 'OrderByReleaseDateDESC'),
   },
   'Arezzo&Co': {
     site: 'https://www.arezzo.com.br/c/bolsas',
-    bestsellers: () => occArezzo('BOLSAS', 'best-selling-desc'),
-    novidades: () => occArezzo('BOLSAS', 'creation-time'),
+    bestsellers: () => occ('www.arezzo.com.br', 'arezzo', 'best-selling-desc'),
+    novidades: () => occ('www.arezzo.com.br', 'arezzo', 'creation-time'),
+  },
+  'Schutz': {
+    site: 'https://www.schutz.com.br/c/bolsas',
+    bestsellers: () => occ('www.schutz.com.br', 'schutz', 'best-selling-desc'),
+    novidades: () => occ('www.schutz.com.br', 'schutz', 'creation-time'),
+  },
+  'Anacapri': {
+    site: 'https://www.anacapri.com.br/c/bolsas',
+    bestsellers: () => occ('www.anacapri.com.br', 'anacapri', 'best-selling-desc'),
+    novidades: () => occ('www.anacapri.com.br', 'anacapri', 'creation-time'),
+  },
+  'Capodarte': {
+    site: 'https://www.capodarte.com.br/bolsas',
+    bestsellers: () => vtexFt('https://www.capodarte.com.br', 'OrderByTopSaleDESC'),
+    novidades: () => vtexFt('https://www.capodarte.com.br', 'OrderByReleaseDateDESC'),
+  },
+  'Luz da Lua': {
+    site: 'https://www.luzdalua.com.br/bolsas',
+    bestsellers: () => vtexFt('https://www.luzdalua.com.br', 'OrderByTopSaleDESC'),
+    novidades: () => vtexFt('https://www.luzdalua.com.br', 'OrderByReleaseDateDESC'),
+  },
+  'Petite Jolie': {
+    site: 'https://www.petitejolie.com.br/bolsas',
+    bestsellers: () => vtexFt('https://www.petitejolie.com.br', 'OrderByTopSaleDESC'),
+    novidades: () => vtexFt('https://www.petitejolie.com.br', 'OrderByReleaseDateDESC'),
+  },
+  'Jorge Bischoff': {
+    site: 'https://www.jorgebischoff.com.br/bolsas',
+    bestsellers: () => vtexFt('https://www.jorgebischoff.com.br', 'OrderByTopSaleDESC'),
+    novidades: () => vtexFt('https://www.jorgebischoff.com.br', 'OrderByReleaseDateDESC'),
   },
 };
 

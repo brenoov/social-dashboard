@@ -8645,9 +8645,11 @@ function _npRenderTabs(){
 }
 function _npRenderBody(){
   const body=document.getElementById('np-body');
-  const items=_npData.filter(n=>n.marca===_npTab);
+  const todas=_npData.filter(n=>n.marca===_npTab);
+  const maxRod=todas.reduce((m,n)=>String(n.rodada||'')>m?String(n.rodada||''):m,'');
+  const items=maxRod?todas.filter(n=>String(n.rodada||'')===maxRod):todas;
   if(!items.length){body.innerHTML='<div class="np-empty"><h3>Nenhuma notícia</h3><p>Esta marca ainda não tem registros.</p></div>';return;}
-  const issueDate=_npRod?_npFmtDate(_npRod):'';
+  const issueDate=maxRod?_npFmtDate(maxRod):(_npRod?_npFmtDate(_npRod):'');
   const sorted=[...items].sort((a,b)=>String(b.data_publicacao||'').localeCompare(String(a.data_publicacao||'')));
   const galerias=sorted.filter(n=>_npProds(n).length);
   const normais=sorted.filter(n=>!_npProds(n).length);
