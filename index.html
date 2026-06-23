@@ -1149,7 +1149,7 @@
   .gc-tw-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
   .gc-report table{width:100%;border-collapse:collapse;margin:0;font-size:13.5px;display:table;}
   .gc-report thead th{background:linear-gradient(180deg,var(--accent-light),transparent);text-align:left;padding:14px 18px;font-family:'IBM Plex Sans',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--accent);border-bottom:2px solid var(--accent-mid);white-space:nowrap;}
-  .gc-report tbody td{padding:13px 18px;border-bottom:1px solid var(--border);color:var(--text);font-variant-numeric:tabular-nums;vertical-align:middle;line-height:1.45;}
+  .gc-report tbody td{padding:13px 18px;border-bottom:1px solid var(--border);color:var(--text);font-variant-numeric:tabular-nums;vertical-align:middle;line-height:1.45;white-space:nowrap;}
   .gc-report tbody tr{transition:background .14s ease;}
   .gc-report tbody tr:nth-child(even){background:rgba(125,125,135,.045);}
   .gc-report tbody tr:hover{background:var(--accent-light);}
@@ -8905,9 +8905,9 @@ let _gcData=[];
 function _gcInline(s){return _gcLupa(_npEsc(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>'));}
 function _gcFmtR(v){return 'R$ '+Math.round(Number(v)||0).toLocaleString('pt-BR');}
 // lupa → abre modal com a imagem do Bling
-function _gcLupaBtn(sku){const k=String(sku).replace(/[^A-Za-z0-9\-]/g,'');return '<button class="gc-lupa" type="button" title="Ver '+k+'" onclick="gcAbrirItem(\''+k+'\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.65" y2="16.65"/></svg></button>';}
-// SKUs em parênteses no texto corrido (ex.: (LV102), (Lv1027-Caramelo))
-function _gcLupa(s){return String(s).replace(/\(([A-Za-z]{1,5}\d{2,4}[A-Za-z0-9\-]*)\)/g,(m,sku)=>'('+sku+')'+_gcLupaBtn(sku));}
+function _gcLupaBtn(sku){return '<button class="gc-lupa" type="button" title="Ver item" data-sku="'+_npEsc(String(sku).trim())+'" onclick="gcAbrirItem(this.dataset.sku)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.65" y2="16.65"/></svg></button>';}
+// SKUs em parênteses no texto corrido (ex.: (LV102), (Lv1027-Caramelo), (LV108-Wara Palha))
+function _gcLupa(s){return String(s).replace(/\(([A-Za-z]{1,5}\d{2,4}[\p{L}\d .\/\-]*?)\)/gu,(m,sku)=>'('+sku+')'+_gcLupaBtn(sku));}
 // badge de matriz BCG quando a célula é a classificação
 function _gcBcgBadge(t){const s=String(t).replace(/[^\p{L}\s]/gu,'').trim().toLowerCase();
   if(s==='estrela')return '<span class="gc-bcg estrela">Estrela</span>';
@@ -8918,24 +8918,42 @@ function _gcBcgBadge(t){const s=String(t).replace(/[^\p{L}\s]/gu,'').trim().toLo
 function _gcCell(c){
   const b=_gcBcgBadge(c);if(b)return b;
   const t=String(c).trim();
-  if(/^[A-Za-z]{1,5}\d{2,4}[A-Za-z0-9\-]*$/.test(t))return _npEsc(t)+_gcLupaBtn(t);  // célula de SKU (coluna SKU das tabelas)
+  if(/^[A-Za-z]{1,5}\d{2,4}[\p{L}\d .\/\-]*$/u.test(t))return _npEsc(t)+_gcLupaBtn(t);  // célula de SKU (aceita espaço/acento: LV1167-CG Palha, LV5027-CaféM)
   return _gcInline(c);
 }
+async function _gcBlingList(params){try{const r=await sbClient.functions.invoke('bling-proxy',{body:{endpoint:'produtos',params}});return (r&&r.data&&r.data.data)||[];}catch(e){return [];}}
+async function _gcBlingDetalhe(id){try{const d=await sbClient.functions.invoke('bling-proxy',{body:{endpoint:'produtos/'+id}});return (d&&d.data&&d.data.data)||null;}catch(e){return null;}}
 async function gcAbrirItem(sku){
+  sku=String(sku||'').trim();
   let ov=document.getElementById('gc-item-modal');
   if(!ov){ov=document.createElement('div');ov.id='gc-item-modal';ov.className='gc-im';ov.onclick=e=>{if(e.target===ov)ov.classList.remove('open');};document.body.appendChild(ov);}
   ov.innerHTML='<div class="gc-im-card"><button class="gc-im-x" type="button" onclick="document.getElementById(\'gc-item-modal\').classList.remove(\'open\')">✕</button><div class="gc-im-body"><div class="gc-im-ph">Buscando <b>'+_npEsc(sku)+'</b> no Bling…</div></div></div>';
   ov.classList.add('open');
   try{
-    const r=await sbClient.functions.invoke('bling-proxy',{body:{endpoint:'produtos',params:{codigo:sku,limite:1}}});
-    const prod=r&&r.data&&r.data.data&&r.data.data[0];
-    if(!prod){_gcItemRender(ov,sku,null);return;}
-    let full=prod;
-    try{const d=await sbClient.functions.invoke('bling-proxy',{body:{endpoint:'produtos/'+prod.id}});if(d&&d.data&&d.data.data)full=d.data.data;}catch(e){}
+    const base=sku.split('-')[0].trim();
+    let list=await _gcBlingList({codigo:sku,limite:3});
+    if(!list.length&&base!==sku)list=await _gcBlingList({codigo:base,limite:6});
+    if(!list.length)list=await _gcBlingList({pesquisa:sku,limite:8});
+    if(!list.length&&base!==sku)list=await _gcBlingList({pesquisa:base,limite:8});
+    if(!list.length){_gcItemRender(ov,sku,null);return;}
+    const prod=list.find(p=>String(p.codigo||'').toLowerCase().startsWith(base.toLowerCase()))||list[0];
+    let full=(await _gcBlingDetalhe(prod.id))||prod;
+    if(!_gcItemImg(full)&&base!==sku){            // sem imagem na variação → tenta o produto-pai pelo código base
+      const pl=await _gcBlingList({codigo:base,limite:6});
+      const pp=pl.find(p=>String(p.codigo||'').toLowerCase()===base.toLowerCase())||pl[0];
+      if(pp){const pd=await _gcBlingDetalhe(pp.id);if(pd&&_gcItemImg(pd))full=pd;}
+    }
     _gcItemRender(ov,sku,full);
   }catch(e){_gcItemRender(ov,sku,'erro');}
 }
-function _gcItemImg(p){if(!p||typeof p!=='object')return '';if(p.imagemURL)return p.imagemURL;const mi=p.midia&&p.midia.imagens;if(mi){const e=mi.externas&&mi.externas[0]&&mi.externas[0].link;const i=mi.internas&&mi.internas[0]&&mi.internas[0].link;return e||i||'';}return '';}
+function _gcItemImg(p){
+  if(!p||typeof p!=='object')return '';
+  if(p.imagemURL&&/^https?:/.test(p.imagemURL))return p.imagemURL;
+  const mi=p.midia&&p.midia.imagens;
+  if(mi){const e=mi.externas&&mi.externas[0]&&mi.externas[0].link;const i=mi.internas&&mi.internas[0]&&mi.internas[0].link;if(e||i)return e||i;}
+  try{const m=JSON.stringify(p).match(/https?:\/\/[^"'\\]+\.(?:jpg|jpeg|png|webp)/i);if(m)return m[0];}catch(e){}
+  return '';
+}
 function _gcItemRender(ov,sku,p){
   let inner;
   if(p===null)inner='<div class="gc-im-ph">Item <b>'+_npEsc(sku)+'</b> não encontrado no Bling.</div>';
