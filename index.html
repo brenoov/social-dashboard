@@ -945,17 +945,16 @@
   .np-issue-title{font-family:'Playfair Display',serif;font-weight:800;font-size:clamp(46px,9vw,108px);line-height:.9;letter-spacing:-.02em;color:var(--ink);}
   .np-issue-r{text-align:right;font-family:'IBM Plex Sans',sans-serif;font-size:10px;letter-spacing:2.5px;text-transform:uppercase;color:var(--np-muted);line-height:1.9;white-space:nowrap;}
   .np-issue-r b{color:var(--ink);font-weight:700;}
-  .np-hero{position:relative;margin-top:34px;border-radius:3px;overflow:hidden;color:#fff;display:grid;grid-template-columns:1.15fr .85fr;min-height:420px;box-shadow:0 30px 60px -30px rgba(0,0,0,.5);background:var(--hero,#1a1a1a);}
-  .np-hero-art{position:relative;padding:40px 42px;display:flex;flex-direction:column;justify-content:space-between;}
-  .np-hero-art::before{content:'';position:absolute;inset:0;background:radial-gradient(120% 90% at 15% 0%,rgba(255,255,255,.20),transparent 55%);pointer-events:none;}
-  .np-hero-num{font-family:'Playfair Display',serif;font-style:italic;font-weight:500;font-size:84px;line-height:1;opacity:.32;position:relative;}
+  .np-hero{position:relative;margin-top:34px;border-radius:3px;overflow:hidden;display:grid;grid-template-columns:minmax(240px,.82fr) 1.18fr;min-height:380px;box-shadow:0 30px 60px -30px rgba(0,0,0,.5);background:#fff;border:1px solid var(--np-rule);}
+  .np-hero-img{width:100%;height:100%;min-height:340px;object-fit:cover;object-position:center;display:block;background:var(--paper2);}
+  .np-hero-text{position:relative;background:var(--hero,#1a1a1a);color:#fff;padding:40px 42px;display:flex;flex-direction:column;gap:18px;}
+  .np-hero-text::before{content:'';position:absolute;inset:0;background:radial-gradient(120% 90% at 100% 0%,rgba(255,255,255,.16),transparent 58%);pointer-events:none;}
+  .np-hero-top{position:relative;}
   .np-hero-kicker{position:relative;display:inline-flex;align-items:center;gap:10px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;margin-bottom:14px;}
   .np-hero-kicker::before{content:'';width:26px;height:1px;background:#fff;opacity:.8;}
-  .np-hero-headline{position:relative;font-family:'Playfair Display',serif;font-weight:800;font-size:clamp(30px,4vw,52px);line-height:1.02;letter-spacing:-.015em;}
-  .np-hero-side{position:relative;padding:40px 40px 34px;background:rgba(0,0,0,.30);display:flex;flex-direction:column;justify-content:flex-end;gap:18px;border-left:1px solid rgba(255,255,255,.20);}
-  .np-hero-resumo{font-family:'Playfair Display',serif;font-size:18px;line-height:1.5;font-weight:400;}
-  .np-hero-resumo::first-letter{font-size:46px;font-weight:800;float:left;line-height:.82;margin:6px 10px 0 0;}
-  .np-hero-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;border-top:1px solid rgba(255,255,255,.22);padding-top:14px;}
+  .np-hero-headline{position:relative;font-family:'Playfair Display',serif;font-weight:800;font-size:clamp(28px,3.4vw,46px);line-height:1.04;letter-spacing:-.015em;}
+  .np-hero-resumo{position:relative;font-family:'Playfair Display',serif;font-size:17px;line-height:1.5;font-weight:400;}
+  .np-hero-foot{position:relative;margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:14px;border-top:1px solid rgba(255,255,255,.22);padding-top:14px;}
   .np-hero-fonte{font-family:'IBM Plex Sans',sans-serif;font-size:10px;letter-spacing:2px;text-transform:uppercase;opacity:.9;}
   .np-hero-fonte b{display:block;font-size:12px;letter-spacing:1px;margin-top:2px;}
   .np-link{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:inherit;text-decoration:none;border-bottom:2px solid currentColor;padding-bottom:2px;white-space:nowrap;transition:opacity .2s;}
@@ -1010,7 +1009,7 @@
   }
   @media(max-width:900px){
     .np-hero{grid-template-columns:1fr;}
-    .np-hero-side{border-left:none;border-top:1px solid rgba(255,255,255,.16);}
+    .np-hero-img{min-height:240px;max-height:320px;}
     .np-grid{grid-template-columns:repeat(2,1fr);}
     .np-grid .np-art:nth-child(3n),.np-grid .np-art:nth-child(4n),.np-grid .np-art:nth-child(5n){border-right:1px solid var(--np-rule);}
     .np-grid .np-art:nth-child(2n){border-right:none;}
@@ -1022,7 +1021,7 @@
     .np-issue-r{display:none;}
     .np-body{padding:0 18px 60px;}
     .np-topbar{padding:14px 18px;}
-    .np-hero-art,.np-hero-side{padding:28px 24px;}
+    .np-hero-text{padding:28px 24px;}
   }
   /* ── Gestão Comercial (briefing do agente) ── */
   #gestao-comercial-screen{display:none;flex-direction:column;min-height:100vh;background:var(--bg);}
@@ -8664,12 +8663,11 @@ function _npRenderBody(){
     const hd=hero.data_publicacao?_npFmtDate(hero.data_publicacao):'';
     const hlink=hero.url?'<a class="np-link" href="'+_npEsc(hero.url)+'" target="_blank" rel="noopener noreferrer">Ler matéria</a>':'';
     const himg=_npImg(hero.imagem_url);
-    const hsty='--hero:'+col+(himg?";background-image:linear-gradient(90deg,rgba(0,0,0,.74),rgba(0,0,0,.42)),url('"+himg+"');background-size:cover;background-position:center;":'');
-    html+='<article class="np-hero" style="'+hsty+'"><div class="np-hero-art">'
-      +'<span class="np-hero-num">01</span>'
-      +'<div><div class="np-hero-kicker">'+_npEsc(hero.categoria||'Destaque')+'</div>'
-      +'<h2 class="np-hero-headline">'+_npEsc(hero.titulo)+'</h2></div></div>'
-      +'<div class="np-hero-side">'
+    html+='<article class="np-hero" style="--hero:'+col+'">'
+      +(himg?'<img class="np-hero-img" src="'+himg+'" loading="lazy" alt="" onerror="this.style.display=&#39;none&#39;">':'<div class="np-hero-img"></div>')
+      +'<div class="np-hero-text">'
+      +'<div class="np-hero-top"><div class="np-hero-kicker">'+_npEsc(hero.categoria||'Destaque')+'</div>'
+      +'<h2 class="np-hero-headline">'+_npEsc(hero.titulo)+'</h2></div>'
       +(hero.resumo?'<p class="np-hero-resumo">'+_npEsc(hero.resumo)+'</p>':'')
       +'<div class="np-hero-foot"><span class="np-hero-fonte">Fonte<b>'+_npEsc(hero.fonte||'—')+(hd?' · '+hd:'')+'</b></span>'+hlink+'</div>'
       +'</div></article>';
