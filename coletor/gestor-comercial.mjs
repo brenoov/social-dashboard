@@ -6,6 +6,7 @@
 // Sem deps externas — fetch nativo (Node 18+).
 
 import { metaPace } from './lib/meta-pace.mjs';
+import fs from 'fs';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY_GESTOR || process.env.ANTHROPIC_API_KEY;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -233,51 +234,45 @@ function _diasSemVender(ultima, hoje) {
 }
 // 12 itens por loja de varejo: 6 categorias (mais estoque parado) × (1 Amplo + 1 Base),
 // com o degradê de % rotacionado pela semana. Só bolsas/mochilas, encalhados primeiro.
-function montarOportunidades(saldoPorDep, prodMap, giro, ultimaVenda, hoje, weekNum) {
+// Alvo de composição BCG dos 12 (âncora provada + apostas + liquidação) e desconto por quadrante.
+const BCG_META = { 'Estrela': 2, 'Vaca leiteira': 3, 'Interrogação': 4, 'Abacaxi': 3 };
+const BCG_DESC = { 'Estrela': [10, 'Amplo'], 'Vaca leiteira': [15, 'Amplo'], 'Interrogação': [25, 'Base'], 'Abacaxi': [40, 'Base'] };
+function montarOportunidades(saldoPorDep, prodMap, giro, ultimaVenda, hoje) {
   const saldoPulmao = saldoPorDep[DEP_PULMAO] || {};
   return LOJAS_VAREJO.map(L => {
     const saldos = saldoPorDep[L.deposito_id] || {};
-    const porCat = {};
+    const cands = [];
     for (const [pid, saldo] of Object.entries(saldos)) {
       const meta = prodMap[pid]; if (!meta) continue;
       const cat = classificarItem(meta.nome);
       if (!cat || !CAT_OFERTA.includes(cat)) continue;
       if (saldo < 2 || (Number(meta.preco) || 0) <= 0) continue;
-      (porCat[cat] = porCat[cat] || []).push({ pid, nome: meta.nome, codigo: meta.codigo, preco: Number(meta.preco), saldo, vendidoMes: giro[pid] || 0 });
+      const it = { pid, sku: meta.codigo || pid, nome: meta.nome, categoria: cat, preco: Number(meta.preco), estoqueLoja: saldo, estoquePulmao: saldoPulmao[pid] || 0, giro: giro[pid] || 0, diasSemVender: _diasSemVender(ultimaVenda[pid], hoje) };
+      it.bcg = _bcgClass(it);
+      cands.push(it);
     }
-    for (const cat in porCat) porCat[cat].sort((a, b) => (a.vendidoMes - b.vendidoMes) || (b.saldo - a.saldo));
-    const cats = Object.keys(porCat).filter(c => porCat[c].length).sort((a, b) => {
-      const pk = arr => arr.filter(i => i.vendidoMes === 0).reduce((s, i) => s + i.saldo, 0);
-      const da = porCat[a].length >= 2 ? 1 : 0, db = porCat[b].length >= 2 ? 1 : 0; // prefere quem dá amplo+base
-      if (da !== db) return db - da;
-      return pk(porCat[b]) - pk(porCat[a]);
+    if (!cands.length) return { loja: L.loja, itens: [] };
+    const byQ = { 'Estrela': [], 'Vaca leiteira': [], 'Interrogação': [], 'Abacaxi': [] };
+    for (const it of cands) byQ[it.bcg].push(it);
+    const cap = (a, b) => (b.preco * b.estoqueLoja) - (a.preco * a.estoqueLoja);
+    byQ['Estrela'].sort((a, b) => b.giro - a.giro || b.preco - a.preco);
+    byQ['Vaca leiteira'].sort((a, b) => b.giro - a.giro || cap(a, b));
+    byQ['Interrogação'].sort((a, b) => b.giro - a.giro || (parseInt(a.diasSemVender) || 999) - (parseInt(b.diasSemVender) || 999));
+    byQ['Abacaxi'].sort(cap);   // queima o maior capital parado primeiro
+    const usados = new Set(); const escolhidos = [];
+    const take = (q, n) => { let c = 0; for (const it of byQ[q]) { if (c >= n || escolhidos.length >= 12) break; if (usados.has(it.pid)) continue; usados.add(it.pid); escolhidos.push(it); c++; } return c; };
+    for (const q of ['Estrela', 'Vaca leiteira', 'Interrogação', 'Abacaxi']) take(q, BCG_META[q]);          // cota-alvo
+    for (const q of ['Interrogação', 'Vaca leiteira', 'Estrela', 'Abacaxi']) { if (escolhidos.length >= 12) break; take(q, 12); }  // completa 12 c/ sobra
+    const itens = escolhidos.slice(0, 12).map(it => {
+      const [pct, publico] = BCG_DESC[it.bcg];
+      const precoDesc = it.preco * (1 - pct / 100);
+      return {
+        sku: it.sku, descricao: it.nome, categoria: it.categoria, publico,
+        precoOriginal: Math.round(it.preco * 100) / 100, pct,
+        precoComDesconto: Math.round(precoDesc * 100) / 100, parcela6x: Math.round((precoDesc / 6) * 100) / 100,
+        estoqueLoja: it.estoqueLoja, estoquePulmao: it.estoquePulmao, diasSemVender: it.diasSemVender, giro: it.giro,
+      };
     });
-    const cats6 = cats.slice(0, 6);
-    if (!cats6.length) return { loja: L.loja, itens: [] };
-    const cursor = {}; cats6.forEach(c => cursor[c] = 0);
-    const usados = new Set();
-    const pickFrom = cat => { const a = porCat[cat] || []; while (cursor[cat] < a.length) { const it = a[cursor[cat]++]; if (!usados.has(it.pid)) { usados.add(it.pid); return it; } } return null; };
-    const pickPool = () => { const all = [].concat(...cats6.map(c => porCat[c])).filter(i => !usados.has(i.pid)).sort((a, b) => (a.vendidoMes - b.vendidoMes) || (b.saldo - a.saldo)); if (all.length) { usados.add(all[0].pid); return all[0]; } return null; };
-    const offset = ((weekNum % cats6.length) + cats6.length) % cats6.length;
-    const itens = [];
-    for (let p = 0; p < 6; p++) {
-      const pair = PARES_OPP[p];
-      const cat = cats6[(p + offset) % cats6.length];
-      for (const [publico, pct] of [['Amplo', pair[0]], ['Base', pair[1]]]) {
-        const it = pickFrom(cat) || pickPool();
-        if (!it) continue;
-        const precoDesc = it.preco * (1 - pct / 100);
-        itens.push({
-          sku: it.codigo, descricao: it.nome, categoria: classificarItem(it.nome) || cat, publico,
-          precoOriginal: Math.round(it.preco * 100) / 100, pct,
-          precoComDesconto: Math.round(precoDesc * 100) / 100,
-          parcela6x: Math.round((precoDesc / 6) * 100) / 100,
-          estoqueLoja: it.saldo, estoquePulmao: saldoPulmao[it.pid] || 0,
-          diasSemVender: _diasSemVender(ultimaVenda[it.pid], hoje),
-          giro: it.vendidoMes || 0,
-        });
-      }
-    }
     return { loja: L.loja, itens };
   });
 }
@@ -286,14 +281,15 @@ function _rOpp(v) { return 'R$ ' + (Number(v) || 0).toLocaleString('pt-BR', { mi
 // Estrela = vende e gira; Vaca leiteira = vende muito mas com estoque alto; Interrogação = parado mas
 // se mexeu recentemente (potencial); Abacaxi = parado e sem girar (liquidar pesado).
 function _bcgClass(it) {
-  const estoque = (Number(it.estoqueLoja) || 0) + (Number(it.estoquePulmao) || 0);
+  const estoque = Number(it.estoqueLoja) || 0;       // participação = venda x estoque DA LOJA (pulmão não penaliza a vitrine)
   const giro = Number(it.giro) || 0;
-  const dias = (it.diasSemVender == null) ? 999 : Number(it.diasSemVender);
-  const st = giro / Math.max(1, giro + estoque);   // sell-through proxy
-  const movendo = dias <= 21;                       // vendeu nas últimas ~3 semanas
-  if (giro > 0 && st >= 0.4) return movendo ? 'Estrela' : 'Vaca leiteira';
-  if (movendo) return 'Interrogação';
-  return 'Abacaxi';
+  const diasN = parseInt(it.diasSemVender, 10);
+  const recente = Number.isFinite(diasN) && diasN <= 21;   // vendeu nas últimas ~3 semanas
+  const st = giro / Math.max(1, giro + estoque);     // sell-through proxy
+  if (giro > 0 && st >= 0.5) return 'Estrela';        // vende rápido, pouco estoque
+  if (giro > 0 && st >= 0.25) return 'Vaca leiteira'; // vende firme, mais estoque
+  if (recente || giro > 0) return 'Interrogação';     // mexe pouco, mas tem sinal de vida
+  return 'Abacaxi';                                   // parado, sem girar
 }
 
 // Mix BCG ideal dentro dos 12 itens da vitrine por loja (âncora provada + apostas + liquidação controlada).
@@ -585,8 +581,19 @@ async function main() {
     + 'Saída NESTA ORDEM: (1) as 5 seções; (2) uma linha "RESUMO: <1 frase>"; (3) por ÚLTIMO, um bloco de código ```garimpo contendo JSON no formato '
     + '{"' + lojasGarimpo + '":[{"sku":"<código do cardápio>","pct":30,"motivo":"..."}]} — use EXATAMENTE esses nomes de loja como chaves e SKUs do cardápio.';
 
-  const resp = await anthropic({ model: MODEL, max_tokens: 16000, thinking: { type: 'adaptive' }, system: sys, messages: [{ role: 'user', content: user }] });
-  const bruto = resp.content.filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+  // Modos manuais (sem custo de API): GESTOR_DUMP = só coleta dados e para; GESTOR_BRUTO_FILE = usa narrativa escrita à mão.
+  let bruto;
+  if (process.env.GESTOR_BRUTO_FILE) {
+    bruto = fs.readFileSync(process.env.GESTOR_BRUTO_FILE, 'utf8').trim();
+    console.log('narrativa manual de', process.env.GESTOR_BRUTO_FILE, '(sem LLM)');
+  } else if (process.env.GESTOR_DUMP) {
+    fs.writeFileSync(process.env.GESTOR_DUMP, JSON.stringify({ rodada: hoje, periodo: `Semana de ${hoje} (${dados.mesReferencia})`, sys, user, dados, oportunidades, cardapio }, null, 2));
+    console.log('DUMP escrito em', process.env.GESTOR_DUMP, '— parando antes do LLM (nada gravado).');
+    return;
+  } else {
+    const resp = await anthropic({ model: MODEL, max_tokens: 16000, thinking: { type: 'adaptive' }, system: sys, messages: [{ role: 'user', content: user }] });
+    bruto = resp.content.filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+  }
   // extrai e remove o bloco garimpo ANTES do RESUMO (que deve ficar no fim do texto limpo)
   const { picks: garimpoPicks, limpo } = parseGarimpoBlock(bruto);
   const garimpo = validarGarimpo(garimpoPicks, cardapio, oportunidades);
