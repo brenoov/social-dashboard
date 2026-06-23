@@ -132,6 +132,22 @@ function promptEstrutura(marca, notas) {
     + 'Priorize os itens de foco primário (campanha/estratégia/best-seller do site e IG). Inclua só itens com fonte e URL reais. Se não houver nada relevante, retorne lista vazia.';
 }
 
+// Extrai a imagem de capa (og:image/twitter:image) de uma URL. Ignora logos (e-commerce
+// costuma devolver o logo da marca como og:image em páginas de categoria). null se não achar.
+async function ogImage(url) {
+  try {
+    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }, signal: AbortSignal.timeout(15000) });
+    if (!r.ok) return null;
+    const html = await r.text();
+    const m = html.match(/<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)[^"']*["'][^>]*>/i);
+    if (!m) return null;
+    const c = m[0].match(/content=["']([^"']+)["']/i);
+    const img = c ? c[1] : null;
+    if (!img || !/^https?:\/\//.test(img) || /logo/i.test(img)) return null;
+    return img.slice(0, 1000);
+  } catch (e) { return null; }
+}
+
 // Fase 1: loop agêntico de pesquisa (web search). Fase 2: estrutura em JSON a
 // partir SÓ do texto-resumo (não reenvia os resultados brutos — economiza tokens
 // e respeita o limite de TPM da conta).
@@ -162,12 +178,12 @@ async function coletarMarca(marca) {
   const lista = Array.isArray(parsed.noticias) ? parsed.noticias : [];
 
   // Sanitiza + injeta marca/rodada (não confia no modelo p/ esses campos)
-  return lista
+  const out = lista
     .filter(n => n && n.titulo && n.url && CATEGORIAS.includes(n.categoria))
     .map(n => ({
       marca,
       titulo: String(n.titulo).slice(0, 300),
-      resumo: n.resumo ? String(n.resumo).slice(0, 1200) : null,
+      resumo: n.resumo ? String(n.resumo).slice(0, 1500) : null,
       categoria: n.categoria,
       url: String(n.url).slice(0, 1000),
       fonte: n.fonte ? String(n.fonte).slice(0, 200) : null,
@@ -175,6 +191,9 @@ async function coletarMarca(marca) {
       rodada: HOJE,
       destaque: !!n.destaque,
     }));
+  // Enriquece com a imagem de capa (og:image) de cada matéria
+  for (const item of out) { item.imagem_url = await ogImage(item.url); }
+  return out;
 }
 
 async function main() {

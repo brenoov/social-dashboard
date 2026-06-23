@@ -971,6 +971,7 @@
   .np-art-kicker::before{content:'';width:18px;height:3px;background:var(--cat,#1a1a1a);}
   .np-art-headline{font-family:'Playfair Display',serif;font-weight:700;font-size:23px;line-height:1.12;letter-spacing:-.01em;color:var(--ink);}
   .np-art:hover .np-art-headline{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;}
+  .np-art-img{width:100%;height:160px;object-fit:cover;border-radius:2px;margin:-4px 0 2px;background:var(--np-rule);}
   .np-art-resumo{font-family:'IBM Plex Sans',sans-serif;font-size:13px;line-height:1.62;color:#33302b;}
   .np-art-foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:8px;border-top:1px solid var(--np-rule);}
   .np-art-fonte{font-family:'IBM Plex Sans',sans-serif;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--np-muted);}
@@ -8639,7 +8640,9 @@ function _npRenderBody(){
     const col=_npCatColor(hero.categoria);
     const hd=hero.data_publicacao?_npFmtDate(hero.data_publicacao):'';
     const hlink=hero.url?'<a class="np-link" href="'+_npEsc(hero.url)+'" target="_blank" rel="noopener noreferrer">Ler matéria</a>':'';
-    html+='<article class="np-hero" style="--hero:'+col+'"><div class="np-hero-art">'
+    const himg=_npImg(hero.imagem_url);
+    const hsty='--hero:'+col+(himg?";background-image:linear-gradient(90deg,rgba(0,0,0,.74),rgba(0,0,0,.42)),url('"+himg+"');background-size:cover;background-position:center;":'');
+    html+='<article class="np-hero" style="'+hsty+'"><div class="np-hero-art">'
       +'<span class="np-hero-num">01</span>'
       +'<div><div class="np-hero-kicker">'+_npEsc(hero.categoria||'Destaque')+'</div>'
       +'<h2 class="np-hero-headline">'+_npEsc(hero.titulo)+'</h2></div></div>'
@@ -8655,7 +8658,9 @@ function _npRenderBody(){
       const col=_npCatColor(n.categoria);i++;
       const date=n.data_publicacao?_npFmtDate(n.data_publicacao):'';
       const link=n.url?'<a class="np-link" href="'+_npEsc(n.url)+'" target="_blank" rel="noopener noreferrer">Fonte ↗</a>':'';
+      const nimg=_npImg(n.imagem_url);
       html+='<article class="np-art" style="--cat:'+col+'">'
+        +(nimg?'<img class="np-art-img" src="'+nimg+'" loading="lazy" alt="" onerror="this.style.display=&#39;none&#39;">':'')
         +'<div class="np-art-kicker">'+_npEsc(n.categoria||'—')+'</div>'
         +'<h3 class="np-art-headline">'+_npEsc(n.titulo)+'</h3>'
         +(n.resumo?'<p class="np-art-resumo">'+_npEsc(n.resumo)+'</p>':'')
@@ -8668,6 +8673,7 @@ function _npRenderBody(){
 }
 function _npFmtDate(d){try{return new Date(d+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}).replace(/ de /g,'/').replace('.','');}catch(e){return d;}}
 function _npEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function _npImg(u){u=String(u==null?'':u);return /^https?:\/\/[^\s"'<>]+$/.test(u)?u:'';}
 
 // ── Gestão Comercial (briefing do agente) ──
 let _gcData=[];
