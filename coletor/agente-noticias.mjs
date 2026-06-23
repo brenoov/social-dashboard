@@ -18,7 +18,7 @@ if (!ANTHROPIC_API_KEY || !SUPABASE_SERVICE_KEY) {
 }
 
 const MARCAS = ['Santa Lolla', 'Capodarte', 'Carmen Steffens', 'Dumond', 'Arezzo&Co', 'Chenson', 'SAAD', 'La Vessel', 'Mercado'];
-const CATEGORIAS = ['Lançamento', 'Campanha', 'Preço/Promo', 'Faturamento', 'Expansão', 'Tendência', 'Estratégia', 'Marketing', 'Design', 'Moda'];
+const CATEGORIAS = ['Campanha', 'Estratégia', 'Best-seller', 'Lançamento', 'Preço/Promo', 'Marketing', 'Design', 'Moda', 'Faturamento', 'Expansão', 'Tendência'];
 const HOJE = new Date().toISOString().slice(0, 10);
 const REST = SUPABASE_URL + '/rest/v1';
 const sbHeaders = {
@@ -104,24 +104,32 @@ const SCHEMA = {
 
 function promptPesquisa(marca) {
   const ehMercado = marca === 'Mercado';
-  const alvo = ehMercado
-    ? 'tendências do setor de moda/bolsas/calçados no Brasil: formatos, cores, design, materiais, dados de varejo/faturamento, comportamento de consumo e promoções'
-    : 'a marca "' + marca + '" (moda/bolsas/calçados)';
-  return 'Você é um analista de inteligência de concorrência da Vessel (bolsas femininas). '
-    + 'Pesquise na web as notícias MAIS RECENTES (priorize os últimos 30 dias; depois o restante de 2026) sobre ' + alvo + '. '
-    + 'Cubra: estratégia, tendências, marketing, design, moda, lançamentos, campanhas, preços/promoções, faturamento e expansão. '
-    + 'Use a ferramenta de busca várias vezes com queries diferentes. Traga o MÁXIMO de matérias relevantes e recentes que encontrar. '
-    + 'NUNCA invente — use só fontes reais com URL verificável. Quando terminar de pesquisar, resuma o que achou.';
+  if (ehMercado) {
+    return 'Você é analista de inteligência competitiva da Vessel (bolsas femininas). '
+      + 'Pesquise as tendências MAIS RECENTES do setor de moda/bolsas/calçados no Brasil (priorize os últimos 30 dias): '
+      + 'formatos, cores, materiais, design, comportamento de consumo, dados de varejo/faturamento e promoções. '
+      + 'Use a busca várias vezes com queries diferentes. NUNCA invente — só fontes reais com URL. Ao terminar, resuma com detalhe.';
+  }
+  return 'Você é analista de inteligência competitiva da Vessel (bolsas femininas), investigando a marca "' + marca + '" (moda/bolsas/calçados). '
+    + 'FOCO PRIMÁRIO (o mais importante): o que a marca está fazendo AGORA no SITE OFICIAL e no INSTAGRAM OFICIAL (@' + marca.toLowerCase().replace(/[^a-z0-9]/g, '') + ' e variações). Investigue: '
+    + '(1) CAMPANHAS atuais e posicionamento/ESTRATÉGIA de marketing; '
+    + '(2) coleções/LANÇAMENTOS em destaque na home e no feed; '
+    + '(3) produtos BEST-SELLERS — os "mais vendidos"/"queridinhos"/mais desejados (procure a seção "mais vendidos" do e-commerce e o que ela mais empurra/repete). '
+    + 'FOCO SECUNDÁRIO: notícias gerais recentes (faturamento, expansão, tendências, imprensa). '
+    + 'Use a busca várias vezes (site oficial, instagram, "mais vendidos", "campanha 2026", imprensa). '
+    + 'NUNCA invente — só fontes reais com URL verificável (prefira o site/Instagram oficial da marca). '
+    + 'Ao terminar, RESUMA COM DETALHE o que a marca está fazendo: campanha, estratégia, lançamentos e best-sellers, com o insight competitivo para a Vessel.';
 }
 
 function promptEstrutura(marca, notas) {
   return 'Notas de pesquisa sobre "' + marca + '":\n\n' + notas + '\n\n'
-    + 'Com base APENAS nessas notas, gere a lista de notícias. '
-    + 'Para cada notícia: titulo (curto, sem aspas duplas), resumo (1-2 frases com o INSIGHT competitivo para a Vessel), '
-    + 'categoria (EXATAMENTE um de: ' + CATEGORIAS.join(', ') + '), url (link real da fonte), fonte (nome do veículo), '
+    + 'Com base APENAS nessas notas, gere a lista de itens. '
+    + 'Para cada item: titulo (curto, sem aspas duplas), '
+    + 'resumo DETALHADO (3 a 5 frases que deem um NORTE CLARO do que a marca está fazendo — descreva a campanha/estratégia/lançamento ou o best-seller concreto, e termine com o insight competitivo para a Vessel; não seja genérico), '
+    + 'categoria (EXATAMENTE um de: ' + CATEGORIAS.join(', ') + '), url (link real — PREFIRA o site/Instagram oficial da marca), fonte (nome da fonte/veículo ou "Site oficial"/"Instagram oficial"), '
     + 'data_publicacao (YYYY-MM-DD, a data real; se desconhecida, a mais provável), '
-    + 'destaque (true APENAS para a matéria mais importante/recente; false nas demais). '
-    + 'Inclua só matérias com fonte e URL reais. Se não houver nada relevante, retorne lista vazia.';
+    + 'destaque (true para os itens de FOCO PRIMÁRIO — site/Instagram oficial, campanha, estratégia, best-seller; false para as notícias gerais secundárias). '
+    + 'Priorize os itens de foco primário (campanha/estratégia/best-seller do site e IG). Inclua só itens com fonte e URL reais. Se não houver nada relevante, retorne lista vazia.';
 }
 
 // Fase 1: loop agêntico de pesquisa (web search). Fase 2: estrutura em JSON a
