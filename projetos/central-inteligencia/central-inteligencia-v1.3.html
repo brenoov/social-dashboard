@@ -8909,7 +8909,7 @@ function _gcLupaBtn(sku){return '<button class="gc-lupa" type="button" title="Ve
 // SKUs em parênteses no texto corrido (ex.: (LV102), (Lv1027-Caramelo), (LV108-Wara Palha))
 function _gcLupa(s){return String(s).replace(/\(([A-Za-z]{1,5}\d{2,4}[\p{L}\d .\/\-]*?)\)/gu,(m,sku)=>'('+sku+')'+_gcLupaBtn(sku));}
 // badge de matriz BCG quando a célula é a classificação
-function _gcBcgBadge(t){const s=String(t).replace(/[^\p{L}\s]/gu,'').trim().toLowerCase();
+function _gcBcgBadge(t){const s=String(t).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\p{L}\s]/gu,'').trim().toLowerCase();
   if(s==='estrela')return '<span class="gc-bcg estrela">Estrela</span>';
   if(s==='vaca leiteira'||s==='vaca')return '<span class="gc-bcg vaca">Vaca leiteira</span>';
   if(s==='interrogacao'||s==='ponto de interrogacao'||s==='duvida')return '<span class="gc-bcg interrogacao">Interrogação</span>';
