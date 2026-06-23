@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Inteligência RBV</title>
-<link rel="icon" type="image/png" href="https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/profile-pics/rbv-logo.png">
+<link rel="icon" type="image/png" href="/midia/logos/rbv-logo.png">
+<link rel="apple-touch-icon" href="/midia/logos/rbv-logo.png">
+<link rel="shortcut icon" href="/midia/logos/rbv-logo.png" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700&family=Oswald:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -927,7 +929,22 @@
     --c-marketing:#0e7c86;--c-design:#b5179e;--c-moda:#7b1e3b;--c-bestseller:#9c6b1e;--c-instagram:#c13584;--c-outro:#1a1a1a;
     background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',sans-serif;}
   #noticias-screen::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:5;opacity:.04;mix-blend-mode:multiply;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
-  .np-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 30px;border-bottom:1px solid var(--np-line);background:var(--paper);position:sticky;top:0;z-index:30;}
+  /* Tema escuro do Observatório (segue o tema do app) */
+  [data-theme="dark"] #noticias-screen{--ink:#ece7dc;--paper:#14130e;--paper2:#211d16;--np-line:#ece7dc;--np-muted:#9a9285;--np-rule:rgba(255,255,255,.13);}
+  [data-theme="dark"] .np-gallery{background:#1b1812;border-color:rgba(255,255,255,.10);}
+  [data-theme="dark"] .np-prod-imgwrap{background:#0c0b08;}
+  [data-theme="dark"] .np-art-resumo,[data-theme="dark"] .np-gallery-resumo{color:#cfc8ba;}
+  [data-theme="dark"] .np-prod-analise{color:#b4ac9d;}
+  [data-theme="dark"] .np-prod-img[poster],[data-theme="dark"] video.np-prod-img,[data-theme="dark"] .np-gallery--ig .np-prod-imgwrap{background:#000;}
+  [data-theme="dark"] .np-brandmenu-panel{background:#1b1812;}
+  [data-theme="dark"] .zoomctl{background:#211d16;border-color:rgba(255,255,255,.2);}
+  [data-theme="dark"] .zoomctl button{color:#ece7dc;}
+  [data-theme="dark"] .zoomctl button:hover{background:#2c2719;}
+  [data-theme="dark"] .zoomctl-val{color:#9a9285;}
+  /* Logo RBV nas topbars das ferramentas */
+  .np-tb-left,.gc-tb-left{display:flex;align-items:center;gap:14px;}
+  .np-topbar .rbv-logo,.gc-topbar .rbv-logo{height:26px;width:auto;}
+  .np-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 64px 16px 30px;border-bottom:1px solid var(--np-line);background:var(--paper);position:sticky;top:0;z-index:30;}
   .np-back{display:inline-flex;align-items:center;gap:7px;background:none;border:none;color:var(--ink);font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:2px;}
   .np-back:hover{opacity:.55;}
   .np-masthead-mini{font-family:'Playfair Display',serif;font-weight:800;font-size:19px;letter-spacing:.5px;font-style:italic;color:var(--ink);}
@@ -1056,23 +1073,21 @@
   }
   /* ── Gestão Comercial (briefing do agente) ── */
   #gestao-comercial-screen{display:none;flex-direction:column;min-height:100vh;background:var(--bg);}
-  .gc-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 26px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:20;}
+  .gc-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 64px 14px 26px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:20;}
   .gc-back{display:inline-flex;align-items:center;gap:7px;background:none;border:none;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:1.5px;}
   .gc-back:hover{color:var(--text);}
   .gc-title{font-family:'Oswald',sans-serif;font-size:15px;font-weight:500;letter-spacing:3px;text-transform:uppercase;color:var(--text);}
   .gc-edicao{display:flex;align-items:center;gap:8px;}
   .gc-edicao-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
   .gc-edicao select{font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--text);border:1px solid var(--border);border-radius:7px;padding:5px 9px;background:var(--surface);cursor:pointer;}
-  .gc-body{flex:1;max-width:min(96vw,1680px);margin:0 auto;width:100%;padding:clamp(22px,2.4vw,40px) clamp(20px,3.4vw,56px) 90px;}
-  .gc-main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:28px;align-items:start;}
-  .gc-aside{position:sticky;top:74px;display:flex;flex-direction:column;gap:16px;}
-  @media(max-width:980px){.gc-main{grid-template-columns:1fr;}.gc-aside{position:static;}}
+  .gc-body{flex:1;max-width:min(98vw,1960px);margin:0 auto;width:100%;padding:clamp(22px,2vw,34px) clamp(22px,3.2vw,60px) 96px;}
   .gc-head{margin-bottom:22px;}
   .gc-head-over{font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--accent);}
   .gc-head-title{font-family:'Playfair Display',serif;font-weight:800;font-size:clamp(26px,4vw,40px);line-height:1.05;margin:6px 0 4px;color:var(--text);}
   .gc-head-sub{font-size:12px;color:var(--muted);}
   .gc-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-bottom:26px;}
-  .gc-kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;border-top:4px solid var(--muted);position:relative;}
+  .gc-kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;border-top:4px solid var(--muted);position:relative;transition:transform .18s ease,box-shadow .18s ease;}
+  .gc-kpi:hover{transform:translateY(-3px);box-shadow:var(--shadow-md);}
   .gc-kpi.atrasado{border-top-color:var(--red);}
   .gc-kpi.adiantado{border-top-color:var(--green);}
   .gc-kpi-canal{font-family:'Oswald',sans-serif;font-size:12px;font-weight:500;letter-spacing:1px;text-transform:uppercase;color:var(--text);line-height:1.25;min-height:30px;}
@@ -1091,7 +1106,9 @@
   .gc-kpi.adiantado .gc-kpi-pill{background:rgba(26,110,69,.12);color:var(--green);}
   .gc-resumo{background:var(--accent-light);border:1px solid var(--accent);border-left-width:5px;border-radius:12px;padding:18px 22px;margin-bottom:26px;font-size:16px;line-height:1.6;color:var(--text);}
   .gc-resumo b{color:var(--accent);text-transform:uppercase;font-size:10px;font-weight:700;letter-spacing:1.8px;display:block;margin-bottom:7px;}
-  .gc-report{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:30px 36px 34px;}
+  .gc-report{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:clamp(24px,2.4vw,44px) clamp(26px,3.2vw,64px) 44px;column-width:34rem;column-gap:56px;}
+  .gc-report h2{column-span:all;}
+  .gc-report table,.gc-report h3,.gc-report ul,.gc-report ol{break-inside:avoid;}
   .gc-report h1{display:none;}
   .gc-report h2{font-family:'Oswald',sans-serif;font-size:19px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text);margin:32px 0 14px;padding-bottom:8px;border-bottom:2px solid var(--accent);display:inline-block;}
   .gc-report h2:first-child{margin-top:0;}
@@ -8868,6 +8885,7 @@ function _gcRender(b){
   let html='<div class="gc-head"><div class="gc-head-over">Briefing do Gestor Comercial · IA</div>'
     +'<div class="gc-head-title">'+_npEsc(b.periodo||'')+'</div>'
     +'<div class="gc-head-sub">'+(dj.diaDoMes?('Dia '+dj.diaDoMes+' de '+dj.diasNoMes+' · '):'')+(dj.totalPedidosMes!=null?dj.totalPedidosMes+' pedidos no mês':'')+'</div></div>';
+  if(b.resumo)html+='<div class="gc-resumo"><b>Resumo da semana</b>'+_gcInline(b.resumo)+'</div>';
   if(canais.length)html+='<div class="gc-kpis">'+canais.map(c=>{
     const st=c.status==='adiantado'?'adiantado':'atrasado';const pct=Math.max(0,Math.min(100,c.percentMeta||0));
     return '<div class="gc-kpi '+st+'"><span class="gc-kpi-pill">'+st+'</span>'
@@ -8878,9 +8896,7 @@ function _gcRender(b){
       +'<div class="gc-kpi-row"><span>Meta</span><b>'+_gcFmtR(c.metaValor)+'</b></div>'
       +'<div class="gc-kpi-row"><span>Projeção fech.</span><b>'+_gcFmtR(c.projecaoFechamento)+'</b></div></div>';
   }).join('')+'</div>';
-  const report='<div class="gc-report">'+_gcMarkdown(b.conteudo||'')+'</div>';
-  const aside=(b.resumo?'<aside class="gc-aside"><div class="gc-resumo"><b>Resumo da semana</b>'+_gcInline(b.resumo)+'</div></aside>':'');
-  html+=aside?('<div class="gc-main">'+report+aside+'</div>'):report;
+  html+='<div class="gc-report">'+_gcMarkdown(b.conteudo||'')+'</div>';
   document.getElementById('gc-body').innerHTML=html;
 }
 async function loadArquivos(){
@@ -9432,7 +9448,11 @@ function setHomeBgTheme(type){
 <!-- PORTAL DE NOTÍCIAS -->
 <div id="noticias-screen">
   <div class="np-topbar">
-    <button class="np-back" onclick="closeNoticias()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Central</button>
+    <div class="np-tb-left">
+      <button class="np-back" onclick="closeNoticias()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Central</button>
+      <img class="rbv-logo rbv-logo-light" src="midia/LOGOTIPOBRENOPRETO.png" alt="RBV">
+      <img class="rbv-logo rbv-logo-dark" src="midia/LOGOTIPOBRENOBRANCO.png" alt="RBV">
+    </div>
     <div class="np-masthead-mini">Observatório</div>
     <span class="np-meta" id="np-meta">—</span>
   </div>
@@ -9442,7 +9462,11 @@ function setHomeBgTheme(type){
 
 <div id="gestao-comercial-screen">
   <div class="gc-topbar">
-    <button class="gc-back" onclick="closeGestao()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Central</button>
+    <div class="gc-tb-left">
+      <button class="gc-back" onclick="closeGestao()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Central</button>
+      <img class="rbv-logo rbv-logo-light" src="midia/LOGOTIPOBRENOPRETO.png" alt="RBV">
+      <img class="rbv-logo rbv-logo-dark" src="midia/LOGOTIPOBRENOBRANCO.png" alt="RBV">
+    </div>
     <span class="gc-title">Gestão Comercial</span>
     <div class="gc-edicao"><span class="gc-edicao-lbl">Edição</span><select id="gc-select" onchange="_gcRenderIdx(this.value)"></select></div>
   </div>
