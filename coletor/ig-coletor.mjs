@@ -33,6 +33,8 @@ async function rest(method, path, body) {
 }
 const clean = s => String(s || '').replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim();
 const cut = (s, n) => Array.from(s).slice(0, n).join('');  // corta por code points (não parte emoji)
+// foco em BOLSAS: posts cuja legenda indica bolsa entram primeiro; sapato só se não houver bolsa
+const BAG_RE = /bolsa|\bbag\b|tiracolo|shopper|\bhobo\b|clutch|baguete|\btote\b|mochila|crossbody|carteira|matelass|shoulder ?bag|mini ?bag|maxi ?bag|bucket bag|necessaire/i;
 
 const accs = await (await fetch(URL_SB + '/rest/v1/accounts?select=access_token', { headers: sbHeaders })).json();
 const tok = (accs.find(a => a.access_token) || {}).access_token;
@@ -48,16 +50,20 @@ if (!igId) throw new Error('sem IG business account no token');
 
 await fetch(URL_SB + '/storage/v1/bucket', { method: 'POST', headers: { ...sbHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({ id: BUCKET, name: BUCKET, public: true }) }).catch(() => {});
 
-async function rehost(srcUrl, path) {
-  const r = await fetch(srcUrl, { signal: AbortSignal.timeout(20000) });
+async function rehost(srcUrl, path, contentType = 'image/jpeg', maxMB = 0) {
+  const r = await fetch(srcUrl, { signal: AbortSignal.timeout(maxMB ? 60000 : 20000) });
   if (!r.ok) return null;
+  const len = Number(r.headers.get('content-length') || 0);
+  if (maxMB && len && len > maxMB * 1024 * 1024) { console.log(`  ${path}: ${(len / 1e6).toFixed(1)}MB > ${maxMB}MB, pulado`); return null; }
   const buf = new Uint8Array(await r.arrayBuffer());
-  const up = await fetch(`${URL_SB}/storage/v1/object/${BUCKET}/${path}`, { method: 'POST', headers: { ...sbHeaders, 'Content-Type': 'image/jpeg', 'x-upsert': 'true' }, body: buf });
+  if (maxMB && buf.length > maxMB * 1024 * 1024) { console.log(`  ${path}: ${(buf.length / 1e6).toFixed(1)}MB, pulado`); return null; }
+  const up = await fetch(`${URL_SB}/storage/v1/object/${BUCKET}/${path}`, { method: 'POST', headers: { ...sbHeaders, 'Content-Type': contentType, 'x-upsert': 'true' }, body: buf });
   if (!up.ok) { console.log('  upload falhou', up.status, (await up.text()).slice(0, 100)); return null; }
   return `${URL_SB}/storage/v1/object/public/${BUCKET}/${path}`;
 }
 
-const MEDIA = 'media.limit(' + (NPOSTS + 4) + '){id,caption,like_count,comments_count,media_type,media_url,thumbnail_url,permalink,timestamp}';
+const MEDIA = 'media.limit(40){id,caption,like_count,comments_count,media_type,media_url,thumbnail_url,permalink,timestamp}';
+const eng = m => (Number(m.like_count) || 0) + (Number(m.comments_count) || 0);
 const rows = [];
 for (const [marca, handles] of Object.entries(HANDLES)) {
   let bd = null, handle = null, lastErr = '';
@@ -68,14 +74,17 @@ for (const [marca, handles] of Object.entries(HANDLES)) {
   }
   if (!bd) { console.log(`${marca}: handle não encontrado (${handles.join('/')}) — ${lastErr.slice(0, 130)}`); continue; }
   const media = (bd.media && bd.media.data) || [];
+  const ranked = media.slice().sort((a, b) => eng(b) - eng(a));      // mais engajados primeiro
+  const picks = ranked.filter(m => BAG_RE.test(m.caption || '')).slice(0, NPOSTS); // SÓ BOLSAS
+  if (!picks.length) { console.log(`${marca} (@${handle}): sem post de bolsa nos recentes — IG omitido`); continue; }
   const produtos = [];
-  for (const m of media) {
-    if (produtos.length >= NPOSTS) break;
-    const src = m.media_type === 'VIDEO' ? (m.thumbnail_url || m.media_url) : m.media_url;
-    if (!src) continue;
-    const pub = await rehost(src, `${handle}/${m.id}.jpg`);
-    if (!pub) continue;
-    produtos.push({ nome: cut(clean(m.caption), 110), img: pub, url: m.permalink, curtidas: m.like_count ?? null, comentarios: m.comments_count ?? null });
+  for (const m of picks) {
+    const isVid = m.media_type === 'VIDEO';
+    const poster = m.thumbnail_url || (isVid ? null : m.media_url);
+    const imgPub = poster ? await rehost(poster, `${handle}/${m.id}.jpg`) : null;
+    const vidPub = (isVid && m.media_url) ? await rehost(m.media_url, `${handle}/${m.id}.mp4`, 'video/mp4', 30) : null;
+    if (!imgPub && !vidPub) continue;
+    produtos.push({ nome: cut(clean(m.caption), 110), img: imgPub, video: vidPub, url: m.permalink, curtidas: m.like_count ?? null, comentarios: m.comments_count ?? null, tipo: isVid ? 'video' : 'imagem' });
   }
   if (!produtos.length) { console.log(`${marca} (@${handle}): 0 imagens re-hospedadas`); continue; }
   rows.push({
