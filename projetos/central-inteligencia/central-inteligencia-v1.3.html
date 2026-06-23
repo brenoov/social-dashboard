@@ -1145,10 +1145,37 @@
   .gc-report li{font-size:15px;line-height:1.68;color:var(--text);margin:7px 0;}
   .gc-report li::marker{color:var(--accent);}
   .gc-report strong{color:var(--text);font-weight:700;}
-  .gc-report table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13.5px;display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;}
-  .gc-report th{background:var(--surface2);text-align:left;padding:8px 10px;font-weight:600;border-bottom:2px solid var(--border);color:var(--text);}
-  .gc-report td{padding:7px 10px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;color:var(--muted);}
-  .gc-report tr:last-child td{border-bottom:none;}
+  .gc-tw{margin:18px 0;border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm);}
+  .gc-tw-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .gc-report table{width:100%;border-collapse:collapse;margin:0;font-size:13.5px;display:table;}
+  .gc-report thead th{background:linear-gradient(180deg,var(--accent-light),transparent);text-align:left;padding:14px 18px;font-family:'IBM Plex Sans',sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--accent);border-bottom:2px solid var(--accent-mid);white-space:nowrap;}
+  .gc-report tbody td{padding:13px 18px;border-bottom:1px solid var(--border);color:var(--text);font-variant-numeric:tabular-nums;vertical-align:middle;line-height:1.45;}
+  .gc-report tbody tr{transition:background .14s ease;}
+  .gc-report tbody tr:nth-child(even){background:rgba(125,125,135,.045);}
+  .gc-report tbody tr:hover{background:var(--accent-light);}
+  .gc-report tbody tr:last-child td{border-bottom:none;}
+  .gc-report tbody td:first-child{font-weight:600;}
+  .gc-bcg{display:inline-flex;align-items:center;gap:5px;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;padding:3px 9px 3px 7px;border-radius:20px;white-space:nowrap;}
+  .gc-bcg::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor;}
+  .gc-bcg.estrela{color:#b8860b;background:rgba(212,160,23,.14);}
+  .gc-bcg.vaca{color:var(--green);background:rgba(34,197,94,.13);}
+  .gc-bcg.interrogacao{color:var(--accent);background:var(--accent-light);}
+  .gc-bcg.abacaxi{color:var(--red);background:rgba(244,63,94,.12);}
+  .gc-lupa{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--accent);cursor:pointer;margin-left:6px;vertical-align:middle;padding:0;transition:background .15s,transform .15s;flex-shrink:0;}
+  .gc-lupa:hover{background:var(--accent-light);transform:scale(1.08);}
+  .gc-lupa svg{width:13px;height:13px;}
+  .gc-im{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:none;align-items:center;justify-content:center;padding:20px;animation:npfade .15s ease;}
+  .gc-im.open{display:flex;}
+  .gc-im-card{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);width:min(440px,94vw);overflow:hidden;}
+  .gc-im-x{position:absolute;top:10px;right:10px;width:30px;height:30px;border-radius:50%;border:none;background:rgba(0,0,0,.45);color:#fff;cursor:pointer;font-size:13px;z-index:2;display:flex;align-items:center;justify-content:center;}
+  .gc-im-img{width:100%;height:320px;background:var(--surface2);display:flex;align-items:center;justify-content:center;}
+  .gc-im-img img{width:100%;height:100%;object-fit:contain;}
+  .gc-im-img span{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1.5px;}
+  .gc-im-info{padding:18px 22px 24px;}
+  .gc-im-sku{font-family:'IBM Plex Sans',sans-serif;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);font-weight:700;}
+  .gc-im-nome{font-family:'Playfair Display',serif;font-size:21px;font-weight:700;color:var(--text);margin:6px 0;line-height:1.2;}
+  .gc-im-preco{font-family:'Oswald',sans-serif;font-size:23px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;}
+  .gc-im-ph{padding:54px 24px;text-align:center;color:var(--muted);font-size:14px;line-height:1.5;}
   .gc-empty{text-align:center;padding:60px 20px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;}
   .gc-empty h3{font-family:'Oswald',sans-serif;font-weight:500;letter-spacing:1px;color:var(--text);margin:0 0 6px;}
   @media(max-width:920px){#gestao-comercial-screen .gc-kpis{grid-template-columns:repeat(2,1fr);}}
@@ -8859,8 +8886,42 @@ function _npGalleryHtml(g){
 
 // ── Gestão Comercial (briefing do agente) ──
 let _gcData=[];
-function _gcInline(s){return _npEsc(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');}
+function _gcInline(s){return _gcLupa(_npEsc(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>'));}
 function _gcFmtR(v){return 'R$ '+Math.round(Number(v)||0).toLocaleString('pt-BR');}
+// lupa nos SKUs (ex.: (LV102), (Lv1027-Caramelo)) → abre modal com a imagem do Bling
+function _gcLupa(s){return String(s).replace(/\(([A-Za-z]{1,5}\d{2,4}[A-Za-z0-9\-]*)\)/g,(m,sku)=>{const k=String(sku).replace(/[^A-Za-z0-9\-]/g,'');return '('+sku+')<button class="gc-lupa" type="button" title="Ver '+k+'" onclick="gcAbrirItem(\''+k+'\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.65" y2="16.65"/></svg></button>';});}
+// badge de matriz BCG quando a célula é a classificação
+function _gcBcgBadge(t){const s=String(t).replace(/[^\p{L}\s]/gu,'').trim().toLowerCase();
+  if(s==='estrela')return '<span class="gc-bcg estrela">Estrela</span>';
+  if(s==='vaca leiteira'||s==='vaca')return '<span class="gc-bcg vaca">Vaca leiteira</span>';
+  if(s==='interrogacao'||s==='ponto de interrogacao'||s==='duvida')return '<span class="gc-bcg interrogacao">Interrogação</span>';
+  if(s==='abacaxi')return '<span class="gc-bcg abacaxi">Abacaxi</span>';
+  return '';}
+function _gcCell(c){return _gcBcgBadge(c)||_gcInline(c);}
+async function gcAbrirItem(sku){
+  let ov=document.getElementById('gc-item-modal');
+  if(!ov){ov=document.createElement('div');ov.id='gc-item-modal';ov.className='gc-im';ov.onclick=e=>{if(e.target===ov)ov.classList.remove('open');};document.body.appendChild(ov);}
+  ov.innerHTML='<div class="gc-im-card"><button class="gc-im-x" type="button" onclick="document.getElementById(\'gc-item-modal\').classList.remove(\'open\')">✕</button><div class="gc-im-body"><div class="gc-im-ph">Buscando <b>'+_npEsc(sku)+'</b> no Bling…</div></div></div>';
+  ov.classList.add('open');
+  try{
+    const r=await sbClient.functions.invoke('bling-proxy',{body:{endpoint:'produtos',params:{codigo:sku,limite:1}}});
+    const prod=r&&r.data&&r.data.data&&r.data.data[0];
+    if(!prod){_gcItemRender(ov,sku,null);return;}
+    let full=prod;
+    try{const d=await sbClient.functions.invoke('bling-proxy',{body:{endpoint:'produtos/'+prod.id}});if(d&&d.data&&d.data.data)full=d.data.data;}catch(e){}
+    _gcItemRender(ov,sku,full);
+  }catch(e){_gcItemRender(ov,sku,'erro');}
+}
+function _gcItemImg(p){if(!p||typeof p!=='object')return '';if(p.imagemURL)return p.imagemURL;const mi=p.midia&&p.midia.imagens;if(mi){const e=mi.externas&&mi.externas[0]&&mi.externas[0].link;const i=mi.internas&&mi.internas[0]&&mi.internas[0].link;return e||i||'';}return '';}
+function _gcItemRender(ov,sku,p){
+  let inner;
+  if(p===null)inner='<div class="gc-im-ph">Item <b>'+_npEsc(sku)+'</b> não encontrado no Bling.</div>';
+  else if(p==='erro')inner='<div class="gc-im-ph">Não consegui consultar o Bling agora. Tente de novo.</div>';
+  else{const img=_gcItemImg(p);const nome=p.nome||sku;const preco=(p.preco!=null&&p.preco!=='')?_gcFmtR(p.preco):'';
+    inner='<div class="gc-im-img">'+(img?'<img src="'+_npEsc(img)+'" alt="" onerror="this.parentNode.innerHTML=&#39;<span>sem imagem</span>&#39;">':'<span>sem imagem</span>')+'</div>'
+      +'<div class="gc-im-info"><div class="gc-im-sku">SKU '+_npEsc(p.codigo||sku)+'</div><div class="gc-im-nome">'+_npEsc(nome)+'</div>'+(preco?'<div class="gc-im-preco">'+preco+'</div>':'')+'</div>';}
+  const body=ov.querySelector('.gc-im-body');if(body)body.innerHTML=inner;
+}
 function _gcMarkdown(md){
   const lines=String(md||'').replace(/\r/g,'').split('\n');let html='',i=0;
   while(i<lines.length){
@@ -8872,8 +8933,8 @@ function _gcMarkdown(md){
     if(/^\s*\|.*\|\s*$/.test(ln)&&i+1<lines.length&&/^\s*\|[\s:|-]+\|\s*$/.test(lines[i+1])){
       const cells=r=>r.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
       const head=cells(ln);i+=2;let body='';
-      while(i<lines.length&&/^\s*\|.*\|\s*$/.test(lines[i])){body+='<tr>'+cells(lines[i]).map(c=>'<td>'+_gcInline(c)+'</td>').join('')+'</tr>';i++;}
-      html+='<table><thead><tr>'+head.map(h=>'<th>'+_gcInline(h)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table>';continue;
+      while(i<lines.length&&/^\s*\|.*\|\s*$/.test(lines[i])){body+='<tr>'+cells(lines[i]).map(c=>'<td>'+_gcCell(c)+'</td>').join('')+'</tr>';i++;}
+      html+='<div class="gc-tw"><div class="gc-tw-scroll"><table><thead><tr>'+head.map(h=>'<th>'+_gcInline(h)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div></div>';continue;
     }
     if(/^\s*[-*]\s+/.test(ln)){let it='';while(i<lines.length&&/^\s*[-*]\s+/.test(lines[i])){it+='<li>'+_gcInline(lines[i].replace(/^\s*[-*]\s+/,''))+'</li>';i++;}html+='<ul>'+it+'</ul>';continue;}
     if(/^\s*\d+\.\s+/.test(ln)){let it='';while(i<lines.length&&/^\s*\d+\.\s+/.test(lines[i])){it+='<li>'+_gcInline(lines[i].replace(/^\s*\d+\.\s+/,''))+'</li>';i++;}html+='<ol>'+it+'</ol>';continue;}
