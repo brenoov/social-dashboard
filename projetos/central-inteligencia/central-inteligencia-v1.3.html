@@ -1000,6 +1000,8 @@
   .np-gallery--ig .np-prod-img{object-fit:contain;}
   .np-prod-analise{font-family:'IBM Plex Sans',sans-serif;font-size:11px;line-height:1.45;color:#5a544c;margin-top:7px;border-top:1px dotted var(--np-rule);padding-top:6px;}
   .np-prod-analise::before{content:'Leitura · ';font-weight:700;color:var(--cat,#9c6b1e);letter-spacing:.3px;}
+  .np-tab-logo{width:18px;height:18px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:7px;background:#fff;}
+  .np-issue-logo{width:54px;height:54px;border-radius:50%;object-fit:cover;background:#fff;box-shadow:0 3px 10px rgba(0,0,0,.18);margin-bottom:12px;display:block;}
   .np-gallery .np-link{color:var(--cat,#1a1a1a);border-color:var(--cat,#1a1a1a);font-size:10px;}
   @media(min-width:720px){.np-prod-grid{grid-template-columns:repeat(3,1fr);}}
   @media(min-width:1040px){.np-prod-grid{grid-template-columns:repeat(4,1fr);}}
@@ -8620,6 +8622,8 @@ function closeNoticias(){
 let _npRod=null;
 const NP_CAT_COLOR={lancamento:'var(--c-lancamento)',campanha:'var(--c-campanha)',precopromo:'var(--c-precopromo)',faturamento:'var(--c-faturamento)',expansao:'var(--c-expansao)',tendencia:'var(--c-tendencia)',estrategia:'var(--c-estrategia)',marketing:'var(--c-marketing)',design:'var(--c-design)',moda:'var(--c-moda)',bestseller:'var(--c-bestseller)',instagram:'var(--c-instagram)',outro:'var(--c-outro)'};
 function _npCatColor(c){const s=String(c||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z]/g,'');return NP_CAT_COLOR[s]||'var(--c-outro)';}
+const NP_LOGOS={"Santa Lolla":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/santa_lolla.jpg","Arezzo&Co":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/arezzo.jpg","Schutz":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/schutzoficial.jpg","Anacapri":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/anacaprioficial.jpg","Capodarte":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/capodarte.jpg","Luz da Lua":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/luzdalua.jpg","Petite Jolie":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/petitejolie_.jpg","Jorge Bischoff":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/jorgebischoff.jpg","Dumond":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/dumondoficial.jpg","Carmen Steffens":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/carmensteffens.jpg"};
+function _npLogo(m){const u=NP_LOGOS[m];return (u&&/^https:\/\//.test(u))?u:'';}
 async function loadNoticias(){
   const body=document.getElementById('np-body');
   body.innerHTML='<div class="np-empty"><h3>Carregando…</h3></div>';
@@ -8645,7 +8649,7 @@ function _npRenderTabs(){
     const n=_npData.filter(x=>x.marca===m).length;
     const b=document.createElement('button');
     b.className='np-tab'+(m===_npTab?' active':'');
-    b.innerHTML=_npEsc(m)+'<span class="np-tab-count">'+n+'</span>';
+    b.innerHTML=(_npLogo(m)?'<img class="np-tab-logo" src="'+_npLogo(m)+'" alt="" onerror="this.remove()">':'')+_npEsc(m)+'<span class="np-tab-count">'+n+'</span>';
     b.onclick=()=>{_npTab=m;_npRenderTabs();const sc=document.getElementById('noticias-screen');if(sc)sc.scrollIntoView({block:'start'});window.scrollTo({top:0,behavior:'smooth'});};
     tabsEl.appendChild(b);
   });
@@ -8664,6 +8668,7 @@ function _npRenderBody(){
   const hero=normais.find(n=>n.destaque)||normais[0]||null;
   const rest=normais.filter(n=>n!==hero);
   let html='<div class="np-issue"><div class="np-issue-l">'
+    +(_npLogo(_npTab)?'<img class="np-issue-logo" src="'+_npLogo(_npTab)+'" alt="" onerror="this.remove()">':'')
     +'<span class="np-issue-over">Inteligência de Concorrência</span>'
     +'<h1 class="np-issue-title">'+_npEsc(_npTab)+'</h1></div>'
     +'<div class="np-issue-r"><b>Edição '+issueDate+'</b><br>'+items.length+' matéria'+(items.length!==1?'s':'')+'<br>RBV · Observatório</div></div>';
