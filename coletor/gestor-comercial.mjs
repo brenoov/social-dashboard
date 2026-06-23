@@ -274,6 +274,7 @@ function montarOportunidades(saldoPorDep, prodMap, giro, ultimaVenda, hoje, week
           parcela6x: Math.round((precoDesc / 6) * 100) / 100,
           estoqueLoja: it.saldo, estoquePulmao: saldoPulmao[it.pid] || 0,
           diasSemVender: _diasSemVender(ultimaVenda[it.pid], hoje),
+          giro: it.vendidoMes || 0,
         });
       }
     }
@@ -295,11 +296,16 @@ function _bcgClass(it) {
   return 'Abacaxi';
 }
 
+// Mix BCG ideal dentro dos 12 itens da vitrine por loja (âncora provada + apostas + liquidação controlada).
+const BCG_ALVO = { estrela: 2, vaca: 3, interrogacao: 4, abacaxi: 3 };
 function buildOportunidadesMd(opp) {
-  let md = '## 🛒 Oportunidades da Semana\n\n*Vitrine fixa de queima: 12 itens por loja (Tivoli e Dom Pedro, separados), priorizando bolsas/mochilas paradas. A coluna **Público**: "Amplo" = desconto menor, pra atrair o público geral; "Base" = desconto maior, pra girar o que está mais encalhado. Preço com desconto e parcela já calculados.*\n';
+  let md = '## 🛒 Oportunidades da Semana\n\n*Vitrine fixa de queima: 12 itens por loja (Tivoli e Dom Pedro, separados), priorizando bolsas/mochilas paradas. A coluna **Público**: "Amplo" = desconto menor, pra atrair o público geral; "Base" = desconto maior, pra girar o que está mais encalhado. A **Composição BCG** mostra o mix ideal da vitrine (âncoras que vendem + apostas + liquidação) vs. o que entrou. Preço com desconto e parcela já calculados.*\n';
   for (const loja of opp) {
     md += '\n### ' + loja.loja + '\n\n';
     if (!loja.itens.length) { md += '_Sem itens elegíveis com estoque esta semana._\n'; continue; }
+    const cnt = { 'Estrela': 0, 'Vaca leiteira': 0, 'Interrogação': 0, 'Abacaxi': 0 };
+    for (const it of loja.itens) cnt[_bcgClass(it)]++;
+    md += '::bcgmix e:' + cnt['Estrela'] + '/' + BCG_ALVO.estrela + ' v:' + cnt['Vaca leiteira'] + '/' + BCG_ALVO.vaca + ' i:' + cnt['Interrogação'] + '/' + BCG_ALVO.interrogacao + ' a:' + cnt['Abacaxi'] + '/' + BCG_ALVO.abacaxi + '::\n\n';
     md += '| SKU | Descrição | Categoria | BCG | Público | Preço orig. | % | Com desconto | 6x | Estoque (loja/pulmão) | Dias s/ vender |\n|---|---|---|---|---|---|---|---|---|---|---|\n';
     for (const it of loja.itens) {
       md += '| ' + it.sku + ' | ' + it.descricao + ' | ' + it.categoria + ' | ' + _bcgClass(it) + ' | ' + it.publico + ' | ' + _rOpp(it.precoOriginal) + ' | ' + it.pct + '% | ' + _rOpp(it.precoComDesconto) + ' | ' + _rOpp(it.parcela6x) + ' | ' + it.estoqueLoja + ' / ' + it.estoquePulmao + ' | ' + it.diasSemVender + ' |\n';
