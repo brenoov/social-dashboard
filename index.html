@@ -2821,21 +2821,35 @@ function periodDays(period){
   if(period==='sofar')return null;
   const n=Number(period);return (isFinite(n)&&n>0)?n:7;
 }
-// salva a meta no período editado e RECALCULA proporcional em todos os outros intervalos
+// salva a meta no período editado, RECALCULA proporcional em todos os outros intervalos,
+// grava no localStorage (instantâneo) E no Supabase (compartilhado entre usuários).
 function saveGoal(key,val){
   const num=parseFloat(String(val).replace(',','.'));if(isNaN(num))return;
   const anchor=currentPeriod===0?1:currentPeriod;
-  localStorage.setItem(goalStorageKey(key,anchor,currentAccountId),String(num));
+  const rows=[[anchor,num]];
   if(RATE_GOALS.includes(key)){ // taxa (ex.: custo por seguidor) — mesmo valor em todo período
-    PERIODS.forEach(P=>{const p=P.value===0?1:P.value;if(p!==anchor)localStorage.setItem(goalStorageKey(key,p,currentAccountId),String(num));});
-    return;
+    PERIODS.forEach(P=>{const p=P.value===0?1:P.value;if(p!==anchor)rows.push([p,num]);});
+  }else{
+    const aDays=periodDays(anchor);
+    if(aDays)PERIODS.forEach(P=>{const p=P.value===0?1:P.value;if(p===anchor)return;const d=periodDays(p);if(!d)return;rows.push([p,Math.max(1,Math.round(num*d/aDays))]);}); // 'sofar' mantém meta própria
   }
-  const aDays=periodDays(anchor);if(!aDays)return;
-  PERIODS.forEach(P=>{
-    const p=P.value===0?1:P.value;if(p===anchor)return;
-    const d=periodDays(p);if(!d)return;            // 'sofar' mantém meta própria
-    localStorage.setItem(goalStorageKey(key,p,currentAccountId),String(Math.max(1,Math.round(num*d/aDays))));
-  });
+  const seen={},final=[];
+  for(const r of rows){const pk=String(r[0]);if(seen[pk])continue;seen[pk]=1;final.push(r);localStorage.setItem(goalStorageKey(key,r[0],currentAccountId),String(r[1]));}
+  _metasUpsert(key,final);
+}
+function _metasUpsert(key,rows){
+  if(!currentAccountId||typeof sbClient==='undefined'||!sbClient)return;
+  const payload=rows.map(r=>({account_id:String(currentAccountId),periodo:String(r[0]),indicador:key,valor:r[1]}));
+  try{sbClient.from('social_metas').upsert(payload,{onConflict:'account_id,periodo,indicador'}).then(res=>{if(res&&res.error)console.warn('meta upsert:',res.error.message);}).catch(()=>{});}catch(e){}
+}
+async function metasFetchAll(accountId){
+  if(!accountId||typeof sbClient==='undefined'||!sbClient)return;
+  try{
+    const{data,error}=await sbClient.from('social_metas').select('periodo,indicador,valor').eq('account_id',String(accountId));
+    if(error||!data)return;
+    data.forEach(r=>localStorage.setItem(goalStorageKey(r.indicador,r.periodo,accountId),String(r.valor)));
+    updateGoalDisplays(currentPeriod);
+  }catch(e){}
 }
 function loadGoal(key,period,accountId){
   const pk=period===0?1:period;
@@ -3553,7 +3567,7 @@ async function buildProfiles(){
       document.querySelectorAll('.profile-btn').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       _acIdx=idx;
-      currentAccountId=acc.id;applyProfileTheme(acc.name);updateGoalDisplays(currentPeriod);loadCampaignFilterBadge();
+      currentAccountId=acc.id;applyProfileTheme(acc.name);updateGoalDisplays(currentPeriod);metasFetchAll(acc.id);loadCampaignFilterBadge();
       const wrapper=document.querySelector('.wrapper');
       _fadeSwap(wrapper,()=>refresh());
     });
@@ -3592,7 +3606,7 @@ function _acSwitchTo(idx){
     _acIdx=idx;
     const acc=_allAccounts[idx];
     document.querySelectorAll('.profile-btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
-    currentAccountId=acc.id;applyProfileTheme(acc.name);updateGoalDisplays(currentPeriod);refresh();loadCampaignFilterBadge();
+    currentAccountId=acc.id;applyProfileTheme(acc.name);updateGoalDisplays(currentPeriod);metasFetchAll(acc.id);refresh();loadCampaignFilterBadge();
     _acSecsLeft=AC_DURATION;
   });
 }
@@ -5121,7 +5135,7 @@ function openGestaoVista(){
   _gvAcIdx=0; // começa no ATÉ AGORA (índice 0 do ciclo)
   _gvCurrentPeriod='sofar';
   loadGestaoVistaData('sofar');
-  gvAutoStart();
+  if(localStorage.getItem('gv-autocycle')!=='0')gvAutoStart(); // respeita o desligar do usuário
 }
 let _gvSkuVersion=0;
 async function _gvBuildSkuSlide(pedidos,pedidosPrev){
@@ -5519,6 +5533,7 @@ function gvSelectPeriod(p){
 }
 function gvAutoStart(){
   if(_gvAcTimer)return;
+  try{localStorage.setItem('gv-autocycle','1');}catch(e){}
   const btn=document.getElementById('gv-ac-toggle');
   if(btn)btn.classList.add('running');
   const scheduleNext=()=>{
@@ -5533,6 +5548,7 @@ function gvAutoStart(){
 }
 function gvAutoStop(){
   clearTimeout(_gvAcTimer);_gvAcTimer=null;
+  try{localStorage.setItem('gv-autocycle','0');}catch(e){}
   const btn=document.getElementById('gv-ac-toggle');
   if(btn)btn.classList.remove('running');
 }
