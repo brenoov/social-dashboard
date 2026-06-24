@@ -8830,7 +8830,7 @@ function closeBanco(){
 
 // ===== Portal de Notícias =====
 let _npData=[], _npTab=null;
-const NP_ORDER=['Santa Lolla','Capodarte','Carmen Steffens','Dumond','Arezzo&Co','Chenson','SAAD','La Vessel','Mercado'];
+const NP_ORDER=['Santa Lolla','Capodarte','Carmen Steffens','Dumond','Arezzo&Co','Schutz','Victor Hugo','Luiza Barcelos','Isla',"L'Occitane",'Chenson','SAAD','La Vessel','Mercado'];
 // Controle de zoom reutilizável: aplica CSS zoom (reflow real) no container de conteúdo.
 function _rbvZoom(key, contentId){
   const content=document.getElementById(contentId); if(!content) return;
@@ -8862,7 +8862,7 @@ function closeNoticias(){
   showHome();
 }
 let _npRod=null;
-const NP_CAT_COLOR={lancamento:'var(--c-lancamento)',campanha:'var(--c-campanha)',precopromo:'var(--c-precopromo)',faturamento:'var(--c-faturamento)',expansao:'var(--c-expansao)',tendencia:'var(--c-tendencia)',estrategia:'var(--c-estrategia)',marketing:'var(--c-marketing)',design:'var(--c-design)',moda:'var(--c-moda)',bestseller:'var(--c-bestseller)',desenvolvimento:'var(--c-desenvolvimento)',instagram:'var(--c-instagram)',outro:'var(--c-outro)'};
+const NP_CAT_COLOR={lancamento:'var(--c-lancamento)',campanha:'var(--c-campanha)',precopromo:'var(--c-precopromo)',faturamento:'var(--c-faturamento)',expansao:'var(--c-expansao)',tendencia:'var(--c-tendencia)',estrategia:'var(--c-estrategia)',marketing:'var(--c-marketing)',design:'var(--c-design)',moda:'var(--c-moda)',bestseller:'var(--c-bestseller)',desenvolvimento:'var(--c-desenvolvimento)',instagram:'var(--c-instagram)',topviral:'var(--c-instagram)',ultimosposts:'var(--c-instagram)',reels:'var(--c-instagram)',outro:'var(--c-outro)'};
 function _npCatColor(c){const s=String(c||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z]/g,'');return NP_CAT_COLOR[s]||'var(--c-outro)';}
 let _npView='comercial';
 function _npNorm(c){return String(c||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z]/g,'');}
@@ -8890,7 +8890,7 @@ function _npModSumHtml(row){
     +'<h2 class="np-modsum-title">'+_npEsc(titulo)+'</h2>'
     +'<div class="np-modsum-body">'+body+'</div>'+tags+'</section>';
 }
-const NP_LOGOS={"Santa Lolla":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/santa_lolla.jpg","Arezzo&Co":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/arezzo.jpg","Schutz":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/schutzoficial.jpg","Anacapri":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/anacaprioficial.jpg","Capodarte":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/capodarte.jpg","Luz da Lua":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/luzdalua.jpg","Petite Jolie":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/petitejolie_.jpg","Jorge Bischoff":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/jorgebischoff.jpg","Dumond":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/dumondoficial.jpg","Carmen Steffens":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/carmensteffens.jpg"};
+const NP_LOGOS={"Santa Lolla":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/santa_lolla.jpg","Arezzo&Co":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/arezzo.jpg","Schutz":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/schutzoficial.jpg","Anacapri":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/anacaprioficial.jpg","Capodarte":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/capodarte.jpg","Luz da Lua":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/luzdalua.jpg","Petite Jolie":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/petitejolie_.jpg","Jorge Bischoff":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/jorgebischoff.jpg","Dumond":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/dumondoficial.jpg","Carmen Steffens":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/carmensteffens.jpg","Isla":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/isla_oficial.jpg","Luiza Barcelos":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/luizabarcelos.jpg","Victor Hugo":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/victorhugo_oficial.jpg","L'Occitane":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/loccitane.jpg"};
 function _npLogo(m){const u=NP_LOGOS[m];return (u&&/^https:\/\//.test(u))?u:'';}
 async function loadNoticias(){
   const body=document.getElementById('np-body');
