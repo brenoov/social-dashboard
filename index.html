@@ -8956,10 +8956,11 @@ const GC_INFO={
 <div class="ex"><b>Exemplo:</b> faturou R$ 12.000 em 23 dias → ritmo ~R$ 522/dia. Mês de 30 dias → projeção ≈ <b>R$ 15.660</b>.</div>
 <h4>Adiantado × atrasado</h4><p>Comparo o <b>realizado</b> com o <b>esperado até hoje</b> (a soma das metas diárias do mês, ou a meta dividida igual pelos dias). Acima = adiantado; abaixo = atrasado.</p>
 <p><small>A projeção assume ritmo constante — uma promoção, data comemorativa ou virada de coleção pode acelerar e mudar o número.</small></p>`},
-  publico:{titulo:'Amplo × Base — os dois públicos da vitrine',html:`<p>A vitrine de 12 itens é dividida <b>~50/50</b> entre dois públicos, cada um com desconto atrativo:</p>
-<h4>🛍️ Amplo — 30% OFF</h4><p>O <b>fluxo do shopping</b> (clientes novos, que passam na porta). Recebe a metade mais <b>desejável</b> da vitrine (campeãs e itens que vendem) com uma oferta de entrada que converte o impulso.</p>
-<h4>💜 Base — 45% OFF</h4><p>A <b>base que já comprou</b> (recompra/fidelidade). Desconto maior, que recompensa o cliente fiel e ao mesmo tempo <b>queima o estoque mais parado</b>.</p>
-<p><small>O <b>BCG</b> decide QUAIS itens entram (mix 2/3/4/3); o <b>Público</b> decide pra QUEM e com qual desconto.</small></p>`}
+  publico:{titulo:'Amplo × Base e a escada de desconto',html:`<p>A vitrine serve os <b>dois públicos ao mesmo tempo</b>, com a escada de desconto <b>15 / 20 / 25 / 30 / 35 / 40%</b>.</p>
+<h4>Como o desconto é definido</h4><p>Pelo <b>desejo do item</b>: a campeã (Estrela) leva o <b>menor</b> desconto (15% — ela vende sozinha) e o mais parado (Abacaxi) leva o <b>maior</b> (40% — pra queimar). Os níveis do meio seguem a escada.</p>
+<h4>Como divido os públicos</h4><p>A cada <b>par de itens do mesmo nível</b>, um vai pro <b>Amplo</b> e um pra <b>Base</b> — então os dois recebem um pouco de cada quadrante, <b>inclusive uma Estrela cada</b>, e ambos pegam a escada inteira.</p>
+<ul><li>🛍️ <b>Amplo</b> = fluxo do shopping (clientes novos que passam na porta)</li><li>💜 <b>Base</b> = quem já comprou (recompra / fidelidade)</li></ul>
+<p><small>O <b>BCG</b> decide QUAIS itens entram (mix 2/3/4/3); o desconto segue o desejo; o Público distribui pra QUEM.</small></p>`}
 };
 function gcInfo(key){
   const info=GC_INFO[key]; if(!info) return;
@@ -9066,7 +9067,7 @@ function _gcRenderIdx(idx){const b=_gcData[idx];if(b)_gcRender(b);}
 function _gcRender(b){
   const dj=b.dados_json||{};const canais=dj.canaisFoco||[];
   const diaPct=(dj.diaDoMes&&dj.diasNoMes)?Math.round(dj.diaDoMes/dj.diasNoMes*100):null;
-  const heroRing=diaPct!=null?_gcRing(96,42,diaPct,'gc-hero-ring',diaPct+'%','do mês'):'';
+  const heroRing=diaPct!=null?_gcRing(96,42,diaPct,'gc-hero-ring',(dj.diaDoMes+'/'+dj.diasNoMes),'dias do mês'):'';
   const sub=[(dj.diaDoMes?('Dia '+dj.diaDoMes+' de '+dj.diasNoMes):''),(dj.totalPedidosMes!=null?(dj.totalPedidosMes+' pedidos no mês'):'')].filter(Boolean).join('  ·  ');
   let html='<div class="gc-hero"><div class="gc-hero-l">'
     +'<div class="gc-hero-over">Briefing do Gestor Comercial · IA</div>'
