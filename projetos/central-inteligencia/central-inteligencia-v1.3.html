@@ -2811,20 +2811,45 @@ function pctDiff(curr,prev){if(!prev)return '+0.0%';const d=((curr-prev)/prev*10
 function perfColor(pct){return pct>=100?'green':pct>=75?'yellow':pct>=50?'orange':'red';}
 function goalStorageKey(key,period,accountId){return 'ig_goal_'+(accountId||'default')+'_'+period+'_'+key;}
 const RATE_GOALS=['cps'];
+// comprimento em dias de cada período (pro recálculo proporcional). null = comprimento variável (não escala).
+function periodDays(period){
+  if(period===0||period===1)return 1;
+  if(period===7||period===14||period===30)return period;
+  const now=new Date();
+  if(period==='monthfull')return new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  if(period==='lastmonth')return new Date(now.getFullYear(),now.getMonth(),0).getDate();
+  if(period==='sofar')return null;
+  const n=Number(period);return (isFinite(n)&&n>0)?n:7;
+}
+// salva a meta no período editado e RECALCULA proporcional em todos os outros intervalos
 function saveGoal(key,val){
-  const num=parseFloat(val);if(isNaN(num))return;
+  const num=parseFloat(String(val).replace(',','.'));if(isNaN(num))return;
   const anchor=currentPeriod===0?1:currentPeriod;
-  localStorage.setItem(goalStorageKey(key,anchor,currentAccountId),val);
-  if(RATE_GOALS.includes(key))return;
-  [1,7,14,30].forEach(p=>{
-    if(p===anchor)return;
-    const scaled=Math.ceil(num*p/anchor);
-    const stored=String(scaled);
-    localStorage.setItem(goalStorageKey(key,p,currentAccountId),stored);
+  localStorage.setItem(goalStorageKey(key,anchor,currentAccountId),String(num));
+  if(RATE_GOALS.includes(key)){ // taxa (ex.: custo por seguidor) — mesmo valor em todo período
+    PERIODS.forEach(P=>{const p=P.value===0?1:P.value;if(p!==anchor)localStorage.setItem(goalStorageKey(key,p,currentAccountId),String(num));});
+    return;
+  }
+  const aDays=periodDays(anchor);if(!aDays)return;
+  PERIODS.forEach(P=>{
+    const p=P.value===0?1:P.value;if(p===anchor)return;
+    const d=periodDays(p);if(!d)return;            // 'sofar' mantém meta própria
+    localStorage.setItem(goalStorageKey(key,p,currentAccountId),String(Math.max(1,Math.round(num*d/aDays))));
   });
 }
-function loadGoal(key,period,accountId){const p=period===0?1:period;const s=localStorage.getItem(goalStorageKey(key,p,accountId));return s!==null?s:String(GOALS[key]?.[p]??GOALS[key]?.[7]??0);}
-function getGoal(key){const p=currentPeriod===0?1:currentPeriod;return parseFloat(document.getElementById('goal-'+key).textContent)||(GOALS[key]?.[p]??0);}
+function loadGoal(key,period,accountId){
+  const pk=period===0?1:period;
+  const s=localStorage.getItem(goalStorageKey(key,pk,accountId));
+  if(s!==null&&s!==''&&s!=='NaN')return s;                       // valor salvo (ignora corrupção antiga)
+  const base=GOALS[key];if(!base)return '0';
+  if(base[pk]!=null)return String(base[pk]);                     // default exato do período
+  if(RATE_GOALS.includes(key))return String(base[7]??base[30]??0);
+  const refP=base[30]!=null?30:(base[7]!=null?7:1);              // default escalado a partir do 30/7
+  const d=periodDays(pk),rd=periodDays(refP);
+  if(!d||!rd)return String(base[refP]??base[7]??0);
+  return String(Math.max(1,Math.round((base[refP]||0)*d/rd)));
+}
+function getGoal(key){const el=document.getElementById('goal-'+key);const v=el?parseFloat(String(el.textContent).replace(',','.')):NaN;return isFinite(v)?v:(parseFloat(loadGoal(key,currentPeriod,currentAccountId))||0);}
 function getPrevLabel(period){
   const months=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const end=new Date();end.setDate(end.getDate()-30);
@@ -3679,8 +3704,8 @@ function restoreHeaderState(){
     if(btn)btn.querySelector('.ht-arrow').style.transform='rotate(180deg)';
   }
 }
-function updateGoalDisplays(period){const p=period===0?1:(typeof period==='string'?30:period);Object.keys(GOALS).forEach(k=>{const el=document.getElementById('goal-'+k);if(el)el.textContent=loadGoal(k,p,currentAccountId);});}
-function watchGoals(){document.querySelectorAll('.mc-goal-val').forEach(el=>{el.addEventListener('blur',()=>{const key=el.id.replace('goal-','');saveGoal(key,el.textContent.trim());refresh();});el.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();el.blur();}});});}
+function updateGoalDisplays(period){Object.keys(GOALS).forEach(k=>{const el=document.getElementById('goal-'+k);if(el)el.textContent=loadGoal(k,period,currentAccountId);});}
+function watchGoals(){document.querySelectorAll('.mc-goal-val').forEach(el=>{el.addEventListener('blur',()=>{const key=el.id.replace('goal-','');saveGoal(key,el.textContent.trim());updateGoalDisplays(currentPeriod);refresh();});el.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();el.blur();}});});}
 let _refreshId=0;
 async function refresh(){if(!currentAccountId)return;const myId=++_refreshId;const data=await fetchData(currentAccountId,currentPeriod,currentStartDate,currentEndDate);if(myId!==_refreshId)return;update(data,currentPeriod);}
 function toggleCustomRange(){const panel=document.getElementById('custom-range-panel');const btn=document.getElementById('custom-range-btn');const open=panel.style.display==='none'||panel.style.display==='';panel.style.display=open?'flex':'none';btn.classList.toggle('active',open);}
