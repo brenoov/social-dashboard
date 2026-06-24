@@ -18,6 +18,7 @@ jobs:
       SUPABASE_URL: https://kounqtdoioootxqegkij.supabase.co
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
       MODEL_SONNET: claude-sonnet-4-6
       MODEL_OPUS: claude-opus-4-8
       COLETOR_MODEL: claude-sonnet-4-6
@@ -33,14 +34,21 @@ jobs:
       - name: Definir rodada (data BR)
         run: echo "RODADA=$(TZ=America/Sao_Paulo date +%F)" >> "$GITHUB_ENV"
 
-      - name: 1/4 · Lojas (best-sellers + novidades)
+      - name: 1/6 · Lojas (best-sellers + novidades)
         run: node coletor/passo-lojas.mjs
 
-      - name: 2/4 · Instagram (Top Viral + Últimos Posts + Reels)
+      - name: 2/6 · Instagram (Top Viral + Últimos Posts + Reels)
         run: node coletor/ig-coletor.mjs
 
-      - name: 3/4 · Editorial (manchetes via web search · Sonnet)
+      - name: 3/6 · Editorial (manchetes via web search · Sonnet)
         run: node coletor/agente-noticias.mjs
 
-      - name: 4/4 · Enriquecimento (Desenvolvimento + análises Sonnet · resumos Opus)
+      - name: 4/6 · Enriquecimento (Desenvolvimento + análises Sonnet · resumos Opus)
         run: node coletor/passo-enriquece.mjs
+
+      - name: 5/6 · Faxina do storage (GC de mídia órfã)
+        run: node coletor/passo-faxina.mjs
+
+      - name: 6/6 · Guarda de completude (audita + alerta)
+        if: ${{ always() }}
+        run: node coletor/passo-verifica.mjs

@@ -7,6 +7,21 @@ const KEY = process.env.ANTHROPIC_API_KEY;
 const H = { 'x-api-key': KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+// ── medição de custo (USD por 1M tokens, aprox.) ──
+const PRICE = { sonnet: { in: 3, out: 15 }, opus: { in: 15, out: 75 } };
+const _u = { sonnet: { in: 0, out: 0, calls: 0 }, opus: { in: 0, out: 0, calls: 0 } };
+function _track(model, usage) {
+  const b = String(model).includes('opus') ? _u.opus : _u.sonnet;
+  b.in += usage?.input_tokens || 0; b.out += usage?.output_tokens || 0; b.calls++;
+}
+export function usageSummary() {
+  const cost = k => (_u[k].in / 1e6) * PRICE[k].in + (_u[k].out / 1e6) * PRICE[k].out;
+  const usd = cost('sonnet') + cost('opus');
+  const tin = _u.sonnet.in + _u.opus.in, tout = _u.sonnet.out + _u.opus.out;
+  const text = `Sonnet ${_u.sonnet.calls}ch ${_u.sonnet.in}+${_u.sonnet.out}tok · Opus ${_u.opus.calls}ch ${_u.opus.in}+${_u.opus.out}tok · ~US$${usd.toFixed(2)}`;
+  return { usd: Number(usd.toFixed(2)), tin, tout, calls: _u.sonnet.calls + _u.opus.calls, text };
+}
+
 // Retorna o input estruturado (objeto) que o modelo passou pro tool. Tenta N vezes em 429/5xx/rede.
 export async function structured({ model, system, user, schema, toolName = 'responder', maxTokens = 4096, tentativas = 6 }) {
   if (!KEY) throw new Error('falta ANTHROPIC_API_KEY');
@@ -26,6 +41,7 @@ export async function structured({ model, system, user, schema, toolName = 'resp
       const j = await r.json();
       const tu = (j.content || []).find(c => c.type === 'tool_use');
       if (!tu) { lastErr = 'sem tool_use'; await sleep(1500 * (t + 1)); continue; }
+      _track(model, j.usage);
       return tu.input;
     } catch (e) { lastErr = String(e).slice(0, 160); await sleep(1500 * (t + 1)); }
   }

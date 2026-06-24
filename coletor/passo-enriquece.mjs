@@ -2,7 +2,7 @@
 // A) Desenvolvimento + hero comercial (Sonnet)  B) análise por post (Sonnet)  C) resumos de módulo (Opus).
 // Lê o que os passos 1-3 já gravaram na rodada. Idempotente. RODADA = env ou hoje (BR).
 import fs from 'fs';
-import { structured, SONNET, OPUS } from './lib-llm.mjs';
+import { structured, SONNET, OPUS, usageSummary } from './lib-llm.mjs';
 
 const env = {};
 try { for (const l of fs.readFileSync(new URL('./.env', import.meta.url), 'utf8').split('\n')) { const m = l.match(/^([A-Z_]+)=(.*)$/); if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, ''); } } catch (e) {}
@@ -104,4 +104,9 @@ for (const marca of marcas) {
   } catch (e) { console.log(`  ✗ C ${marca}: ${String(e).slice(0, 120)}`); }
   console.log(`  ✓ ${marca}`);
 }
+const u = usageSummary();
 console.log(`Enriquecimento: A(hero) ${okA} · B(análises) ${okB} · C(resumos) ${okC} / ${marcas.length} marcas.`);
+console.log(`Custo LLM: ${u.text}`);
+try {
+  await rest('POST', 'coletor_log', [{ fase: 'enriquece-custo', encontradas: marcas.length, inseridas: okC, detalhe: `rodada ${RODADA} · A${okA} B${okB} C${okC} · ${u.text}` }]);
+} catch (e) { console.log('aviso: falha ao logar custo:', String(e).slice(0, 100)); }
