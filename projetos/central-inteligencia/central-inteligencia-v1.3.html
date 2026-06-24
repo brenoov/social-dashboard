@@ -1945,6 +1945,8 @@
   .gt-insight.atencao{background:rgba(245,158,11,.07);border-color:#d97706;}
   .gt-insight.oportunidade{background:rgba(22,163,74,.07);border-color:#16a34a;}
   .gt-insight.ok{background:rgba(99,102,241,.06);border-color:#6366f1;}
+  .gt-criteria{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);padding:1px 0 3px 13px;line-height:1.4;}
+  .gt-criteria b{opacity:.7;font-weight:700;}
   .gt-insight-text{font-family:'IBM Plex Sans',sans-serif;font-size:11px;line-height:1.5;flex:1;min-width:0;}
   .gt-insight.critico .gt-insight-text{color:#dc2626;}
   .gt-insight.atencao .gt-insight-text{color:#b45309;}
@@ -7383,123 +7385,105 @@ function _gtObjCategory(obj){
   if(o.includes('TRAFFIC')||o==='LINK_CLICKS')return'traffic';
   return'other';
 }
+// ── Critérios da Gestão de Tráfego (FONTE ÚNICA — o "?" lê daqui) · postura EQUILIBRADA ──
+const GT_CRIT={
+  minSpend:20,minImpr:1000,                 // gate de dados: abaixo disso não opina
+  freqSat:4,freqAtt:3.5,                     // saturação de público
+  lead:{pausSpend:80,pausImpr:4000,escCTR:2.0,escCPLf:0.85,monCTR:1.5,monSpend:50},
+  traffic:{pausCTR:0.5,pausSpend:40,pausImpr:2000,escCTR:2.0,escCPC:2.0,monCTR:1.0,monSpend:40},
+  engagement:{pausSpend:60,pausEng:10,pausImpr:2000,escEng:100,escCTR:1.0,monCTR:0.5,monSpend:30},
+  video:{monSpend:50,monViews:100,escViews:500,escCTR:0.8},
+};
+// Veredito como-se-ativa (puro, sem status) → {kind,priority,icon,label,text,criteria}.
+// kind: coletando | escalar | saudavel | monitorar | pausar
+function _gtVerdict(m){
+  const C=GT_CRIT,P=_maFmtPct,R=_maFmtR,N=_maFmt;
+  if(m.spend<C.minSpend||m.impr<C.minImpr)
+    return{kind:'coletando',priority:'ok',icon:'⏳',label:'Coletando dados',text:`Volume baixo (${R(m.spend)} · ${N(m.impr)} impressões) — sem recomendação confiável ainda.`,criteria:`exige ≥ ${R(C.minSpend)} de gasto e ≥ ${N(C.minImpr)} impressões pra opinar`};
+  if(m.freq>=C.freqSat)
+    return{kind:'pausar',priority:'critico',icon:'😴',label:'Público saturado',text:`Frequência ${N(m.freq,1)}× — o mesmo público já viu demais. Reduza o orçamento ou pause.`,criteria:`frequência ${N(m.freq,1)}× ≥ ${C.freqSat}× (saturação)`};
+  if(m.freq>=C.freqAtt)
+    return{kind:'monitorar',priority:'atencao',icon:'😴',label:'Atenção',text:`Frequência ${N(m.freq,1)}× — começando a saturar o público, monitorar.`,criteria:`frequência ${N(m.freq,1)}× entre ${C.freqAtt}× e ${C.freqSat}×`};
+  if(m.cat==='lead'||m.cat==='conversion'){
+    const c=C.lead;
+    if(m.leads===0&&m.spend>=c.pausSpend&&m.impr>=c.pausImpr)
+      return{kind:'pausar',priority:'critico',icon:'⛔',label:'Gasto sem conversão',text:`${R(m.spend)} gastos e 0 conversões. Pausar e revisar oferta/segmentação.`,criteria:`0 leads · gasto ${R(m.spend)} ≥ ${R(c.pausSpend)} · ${N(m.impr)} impr ≥ ${N(c.pausImpr)}`};
+    if(m.leads>0&&m.ctr>=c.escCTR&&(!m.avgCPL||m.cpl<=m.avgCPL*c.escCPLf))
+      return{kind:'escalar',priority:'oportunidade',icon:'🚀',label:'Escalar',text:`${N(m.leads)} leads · CPL ${R(m.cpl)} (abaixo da média) · CTR ${P(m.ctr)}. Forte — vale escalar.`,criteria:`leads>0 · CTR ${P(m.ctr)} ≥ ${c.escCTR}% · CPL ${R(m.cpl)} ≤ ${Math.round(c.escCPLf*100)}% da média da conta (${R(m.avgCPL||0)})`};
+    if(m.leads===0&&m.ctr>=c.monCTR&&m.spend>=c.monSpend)
+      return{kind:'monitorar',priority:'atencao',icon:'🔗',label:'Atenção',text:`CTR ${P(m.ctr)} bom, mas 0 conversões — provável gargalo na landing page ou na oferta.`,criteria:`0 leads · CTR ${P(m.ctr)} ≥ ${c.monCTR}% · gasto ≥ ${R(c.monSpend)}`};
+    if(m.leads>0)
+      return{kind:'saudavel',priority:'ok',icon:'✅',label:'Saudável',text:`${N(m.leads)} leads · CPL ${R(m.cpl)} · CTR ${P(m.ctr)}.`,criteria:`gerando leads com custo dentro do normal`};
+    return{kind:'monitorar',priority:'ok',icon:'📊',label:'Observando',text:`CTR ${P(m.ctr)} · ${R(m.spend)} — ainda sem conversão, mas dentro da margem.`,criteria:`abaixo do gatilho de pausa (${R(c.pausSpend)} / ${N(c.pausImpr)} impr)`};
+  }
+  if(m.cat==='traffic'){
+    const c=C.traffic;
+    if(m.ctr<c.pausCTR&&m.spend>=c.pausSpend&&m.impr>=c.pausImpr)
+      return{kind:'pausar',priority:'critico',icon:'⛔',label:'Tráfego ineficiente',text:`CTR ${P(m.ctr)} muito baixo com ${R(m.spend)} gastos — clique caro, desperdício.`,criteria:`CTR ${P(m.ctr)} < ${c.pausCTR}% · gasto ${R(m.spend)} ≥ ${R(c.pausSpend)} · ${N(m.impr)} impr ≥ ${N(c.pausImpr)}`};
+    if(m.ctr>=c.escCTR&&m.cpc>0&&m.cpc<=c.escCPC)
+      return{kind:'escalar',priority:'oportunidade',icon:'🚀',label:'Escalar',text:`CTR ${P(m.ctr)} · CPC ${R(m.cpc)} — clique barato e eficiente. Vale escalar.`,criteria:`CTR ${P(m.ctr)} ≥ ${c.escCTR}% · CPC ${R(m.cpc)} ≤ ${R(c.escCPC)}`};
+    if(m.ctr<c.monCTR&&m.spend>=c.monSpend)
+      return{kind:'monitorar',priority:'atencao',icon:'📉',label:'Atenção',text:`CTR ${P(m.ctr)} fraco para tráfego — testar criativo ou segmentação.`,criteria:`CTR ${P(m.ctr)} < ${c.monCTR}% · gasto ≥ ${R(c.monSpend)}`};
+    return{kind:'saudavel',priority:'ok',icon:'✅',label:'Saudável',text:`${N(m.clicks)} cliques · CTR ${P(m.ctr)} · CPC ${R(m.cpc)}.`,criteria:`tráfego dentro do esperado`};
+  }
+  if(m.cat==='engagement'){
+    const c=C.engagement;
+    if(m.spend>=c.pausSpend&&m.eng<c.pausEng&&m.impr>=c.pausImpr)
+      return{kind:'pausar',priority:'critico',icon:'⛔',label:'Criativo sem resposta',text:`${R(m.spend)} gastos e só ${N(m.eng)} engajamentos — o criativo não está conectando.`,criteria:`engaj. ${N(m.eng)} < ${c.pausEng} · gasto ${R(m.spend)} ≥ ${R(c.pausSpend)} · ${N(m.impr)} impr ≥ ${N(c.pausImpr)}`};
+    if(m.eng>=c.escEng&&m.ctr>=c.escCTR)
+      return{kind:'escalar',priority:'oportunidade',icon:'🚀',label:'Escalar',text:`${N(m.eng)} engajamentos · CTR ${P(m.ctr)} — boa tração. Considere escalar.`,criteria:`engaj. ${N(m.eng)} ≥ ${c.escEng} · CTR ${P(m.ctr)} ≥ ${c.escCTR}%`};
+    if(m.ctr<c.monCTR&&m.spend>=c.monSpend)
+      return{kind:'monitorar',priority:'atencao',icon:'📉',label:'Atenção',text:`CTR ${P(m.ctr)} baixo para engajamento — o criativo pode não estar conectando.`,criteria:`CTR ${P(m.ctr)} < ${c.monCTR}% · gasto ≥ ${R(c.monSpend)}`};
+    return{kind:'saudavel',priority:'ok',icon:'✅',label:'Saudável',text:`${N(m.eng)} engajamentos · CTR ${P(m.ctr)} · ${R(m.spend)}.`,criteria:`engajando dentro do esperado`};
+  }
+  if(m.cat==='video'){
+    const c=C.video;
+    if(m.spend>=c.monSpend&&m.views<c.monViews)
+      return{kind:'monitorar',priority:'atencao',icon:'📉',label:'Atenção',text:`Poucos plays (${N(m.views)}) com ${R(m.spend)} gastos — o hook do vídeo pode estar fraco.`,criteria:`plays ${N(m.views)} < ${c.monViews} · gasto ≥ ${R(c.monSpend)}`};
+    if(m.views>=c.escViews&&m.ctr>=c.escCTR)
+      return{kind:'escalar',priority:'oportunidade',icon:'🚀',label:'Escalar',text:`${N(m.views)} plays · CTR ${P(m.ctr)} — boa tração para o vídeo.`,criteria:`plays ${N(m.views)} ≥ ${c.escViews} · CTR ${P(m.ctr)} ≥ ${c.escCTR}%`};
+    return{kind:'saudavel',priority:'ok',icon:'✅',label:'Saudável',text:`${N(m.views)} plays · CTR ${P(m.ctr)} · ${R(m.spend)}.`,criteria:`vídeo dentro do esperado`};
+  }
+  if(m.cat==='awareness')
+    return{kind:'saudavel',priority:'ok',icon:'✅',label:'Alcance',text:`${N(m.reach)} alcance · Frequência ${N(m.freq,1)}× · ${R(m.spend)}.`,criteria:`objetivo de alcance — avaliado por frequência/CPM`};
+  return{kind:'saudavel',priority:'ok',icon:'📊',label:'Observando',text:`CTR ${P(m.ctr)} · ${R(m.spend)} gastos.`,criteria:`sem gatilho de ação`};
+}
 function _gtInlineSuggest(ins,camp,allInsights){
-  const ctr=parseFloat(ins.ctr||0);
-  const spend=parseFloat(ins.spend||0);
-  const impr=parseInt(ins.impressions||0);
-  const freq=parseFloat(ins.frequency||0);
   const status=camp?.effective_status||'';
-  const daily=camp?.daily_budget?parseFloat(camp.daily_budget)/100:null;
   const campId=ins.campaign_id;
-  const obj=ins.objective||camp?.objective||'';
-  const cat=_gtObjCategory(obj);
-  const plus=daily?{label:'📈 +25% Budget',cls:'primary',action:{type:'update_budget',id:campId,budget:Math.round(daily*1.25*100)}}:null;
-  const minus=daily?{label:'📉 -25% Budget',cls:'',action:{type:'update_budget',id:campId,budget:Math.round(daily*0.75*100)}}:null;
-  const pause={label:'⏸ Pausar',cls:'danger',action:{type:'pause_campaign',id:campId}};
-  const reativar={label:'▶ Reativar',cls:'success',action:{type:'activate_campaign',id:campId}};
+  const daily=camp?.daily_budget?parseFloat(camp.daily_budget)/100:null;
+  const nm=ins.campaign_name||camp?.name||'a campanha';
+  const m={
+    cat:_gtObjCategory(ins.objective||camp?.objective||''),
+    ctr:parseFloat(ins.ctr||0),spend:parseFloat(ins.spend||0),impr:parseInt(ins.impressions||0),
+    freq:parseFloat(ins.frequency||0),clicks:parseInt(ins.clicks||0),cpc:parseFloat(ins.cpc||0),
+    leads:_getActions(ins,'lead'),eng:(_getActions(ins,'post_engagement')||_getActions(ins,'page_engagement')),
+    views:parseInt(ins.video_play_actions?.[0]?.value||0),reach:parseInt(ins.reach||0),daily,
+  };
+  m.cpl=m.leads>0?m.spend/m.leads:null;
+  const totS=allInsights.reduce((s,i)=>s+parseFloat(i.spend||0),0),totL=allInsights.reduce((s,i)=>s+_getActions(i,'lead'),0);
+  m.avgCPL=totL>0?totS/totL:null;
+  const v=_gtVerdict(m);
+  const mkBudget=(f,lbl,cls)=>daily?{label:lbl,cls,action:{type:'update_budget',id:campId,budget:Math.round(daily*f*100),_t:(f>1?'Aumentar':'Reduzir')+' orçamento?',_d:`"${nm}": ${_maFmtR(daily)}/dia → ${_maFmtR(daily*f)}/dia (${f>1?'+':''}${Math.round((f-1)*100)}%).`}}:null;
+  const plus=mkBudget(1.25,'📈 +25% Budget','primary'),minus=mkBudget(0.75,'📉 -25% Budget','');
+  const pause={label:'⏸ Pausar',cls:'danger',action:{type:'pause_campaign',id:campId,_t:'Pausar campanha?',_d:`"${nm}" será PAUSADA na Meta agora.`}};
+  const reativar={label:'▶ Reativar',cls:'success',action:{type:'activate_campaign',id:campId,_t:'Reativar campanha?',_d:`"${nm}" voltará a ATIVA e a gastar na Meta.`}};
 
-  // ── PAUSED / ARCHIVED: evaluate quality, suggest reactivation ──
-  const isPaused=(status==='PAUSED'||status==='ARCHIVED');
-  if(isPaused){
-    // Engagement objective
-    if(cat==='engagement'){
-      const eng=_getActions(ins,'post_engagement')||_getActions(ins,'page_engagement');
-      if(eng>50||ctr>=0.5)
-        return{priority:'oportunidade',icon:'▶',text:`${eng>0?_maFmt(eng)+' engajamentos · ':''}CTR ${_maFmtPct(ctr)} — pausada com bom histórico. Reativar?`,actions:[reativar]};
-    }
-    // Lead / conversion
-    if(cat==='lead'||cat==='conversion'){
-      const leads=_getActions(ins,'lead');
-      if(leads>0||ctr>=1.0)
-        return{priority:'oportunidade',icon:'▶',text:`${leads>0?_maFmt(leads)+' lead'+( leads!==1?'s':'')+' · ':''}CTR ${_maFmtPct(ctr)} — pausada com resultado. Reativar?`,actions:[reativar]};
-    }
-    // Traffic
-    if(cat==='traffic'){
-      const clicks=parseInt(ins.clicks||0);
-      if(ctr>=0.8&&clicks>50)
-        return{priority:'oportunidade',icon:'▶',text:`${_maFmt(clicks)} cliques · CTR ${_maFmtPct(ctr)} — bom histórico de tráfego. Reativar?`,actions:[reativar]};
-    }
-    // Video
-    if(cat==='video'){
-      const views=parseInt(ins.video_play_actions?.[0]?.value||0);
-      if(views>200||ctr>=0.5)
-        return{priority:'oportunidade',icon:'▶',text:`${views>0?_maFmt(views)+' plays · ':''}CTR ${_maFmtPct(ctr)} — vídeo com engajamento. Reativar?`,actions:[reativar]};
-    }
-    // Generic: any meaningful spend + CTR
-    if(ctr>=0.8&&spend>20)
-      return{priority:'oportunidade',icon:'▶',text:`CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)} gastos — bom histórico. Reativar?`,actions:[reativar]};
-    return{priority:'ok',icon:'⏸',text:`${status==='ARCHIVED'?'Arquivada':'Pausada'} · CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)}.`,actions:[]};
+  if(status==='ACTIVE'){
+    let actions=[];
+    if(v.kind==='pausar')actions=(v.icon==='😴'?[minus,pause]:[pause]).filter(Boolean);
+    else if(v.kind==='escalar')actions=[plus].filter(Boolean);
+    return{...v,actions};
   }
-
-  // ── Unknown status: no actions ──
-  if(status!=='ACTIVE')
-    return{priority:'ok',icon:'📊',text:`CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)} gastos.`,actions:[]};
-
-  // ── ACTIVE: universal frequency check ──
-  if(freq>=4)
-    return{priority:'critico',icon:'😴',text:`Frequência ${_maFmt(freq,1)}× — público saturado. Reduzir orçamento ou pausar.`,actions:[minus,pause].filter(Boolean)};
-  if(freq>=3.5)
-    return{priority:'atencao',icon:'😴',text:`Frequência ${_maFmt(freq,1)}× — monitorar saturação do público.`,actions:[]};
-
-  // ── Por objetivo (active) ──
-  if(cat==='lead'||cat==='conversion'){
-    const leads=_getActions(ins,'lead');
-    const cpl=leads>0?spend/leads:null;
-    const totalSpend=allInsights.reduce((s,i)=>s+parseFloat(i.spend||0),0);
-    const totalLeads=allInsights.reduce((s,i)=>s+_getActions(i,'lead'),0);
-    const avgCPL=totalLeads>0?totalSpend/totalLeads:null;
-    if(spend>80&&leads===0&&impr>4000)
-      return{priority:'critico',icon:'⛔',text:`${_maFmtR(spend)} gastos e zero conversões. Pausar recomendado.`,actions:[pause]};
-    if(ctr>=2.5&&leads>0&&(!avgCPL||cpl<avgCPL*0.85)&&daily)
-      return{priority:'oportunidade',icon:'🚀',text:`CTR ${_maFmtPct(ctr)}, CPL ${_maFmtR(cpl||0)} — excelente. Oportunidade de escala.`,actions:[plus].filter(Boolean)};
-    if(ctr>=2&&leads===0&&impr>3000&&spend>50)
-      return{priority:'atencao',icon:'🔗',text:`CTR ${_maFmtPct(ctr)} mas zero conversões — verificar landing page e oferta.`,actions:[]};
-    if(leads>0)
-      return{priority:'ok',icon:'✅',text:`${_maFmt(leads)} lead${leads!==1?'s':''}, CPL ${_maFmtR(cpl||0)} · CTR ${_maFmtPct(ctr)}.`,actions:[]};
-    return{priority:'ok',icon:'📊',text:`CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)} gastos.`,actions:[]};
+  if(status==='PAUSED'){
+    // Reativar SÓ se, com os MESMOS dados, ela seria bem avaliada se estivesse ativa (acaba o flip-flop).
+    if(v.kind==='escalar'||v.kind==='saudavel')
+      return{priority:'oportunidade',icon:'▶',label:'Reativar?',text:`Pausada, mas o desempenho histórico é bom (${v.text.replace(/\.$/,'')}). Reativar?`,criteria:v.criteria,actions:[reativar]};
+    return{priority:'ok',icon:'⏸',label:'Pausada',text:`Pausada · CTR ${_maFmtPct(m.ctr)} · ${_maFmtR(m.spend)}.${(v.kind==='pausar'||v.kind==='monitorar')?' Histórico fraco — manter pausada.':''}`,criteria:v.criteria,actions:[]};
   }
-
-  if(cat==='engagement'){
-    const eng=_getActions(ins,'post_engagement')||_getActions(ins,'page_engagement');
-    if(spend>60&&eng<10&&impr>2000)
-      return{priority:'critico',icon:'⛔',text:`${_maFmtR(spend)} gastos e apenas ${_maFmt(eng)} engajamentos — criativo sem resposta.`,actions:[pause]};
-    if(ctr<0.5&&spend>30&&impr>1500)
-      return{priority:'atencao',icon:'📉',text:`CTR ${_maFmtPct(ctr)} baixo para engajamento — criativo pode não estar conectando.`,actions:[]};
-    if(eng>100&&ctr>=1&&daily)
-      return{priority:'oportunidade',icon:'🚀',text:`${_maFmt(eng)} engajamentos · CTR ${_maFmtPct(ctr)} — boa tração. Considere escalar.`,actions:[plus].filter(Boolean)};
-    if(eng>0)
-      return{priority:'ok',icon:'✅',text:`${_maFmt(eng)} engajamentos · CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)}.`,actions:[]};
-    return{priority:'ok',icon:'📊',text:`CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)} gastos.`,actions:[]};
-  }
-
-  if(cat==='traffic'){
-    const clicks=parseInt(ins.clicks||0);
-    const cpc=parseFloat(ins.cpc||0);
-    if(ctr<0.5&&spend>40&&impr>2000)
-      return{priority:'critico',icon:'⛔',text:`CTR ${_maFmtPct(ctr)} muito baixo — tráfego caro e ineficiente.`,actions:[pause]};
-    if(ctr>=2&&cpc<2&&daily)
-      return{priority:'oportunidade',icon:'🚀',text:`CTR ${_maFmtPct(ctr)} · CPC ${_maFmtR(cpc)} — excelente custo por clique.`,actions:[plus].filter(Boolean)};
-    return{priority:'ok',icon:'✅',text:`${_maFmt(clicks)} cliques · CTR ${_maFmtPct(ctr)} · CPC ${_maFmtR(cpc)}.`,actions:[]};
-  }
-
-  if(cat==='video'){
-    const views=parseInt(ins.video_play_actions?.[0]?.value||0);
-    if(spend>50&&views<100&&impr>2000)
-      return{priority:'atencao',icon:'📉',text:`Poucos plays (${_maFmt(views)}) com ${_maFmtR(spend)} gastos — hook do vídeo pode estar fraco.`,actions:[]};
-    if(views>500&&ctr>=0.8&&daily)
-      return{priority:'oportunidade',icon:'🚀',text:`${_maFmt(views)} plays · CTR ${_maFmtPct(ctr)} — boa tração para o vídeo.`,actions:[plus].filter(Boolean)};
-    return{priority:'ok',icon:'✅',text:`${_maFmt(views)} plays · ${_maFmtR(spend)}.`,actions:[]};
-  }
-
-  if(cat==='awareness'){
-    const reach=parseInt(ins.reach||0);
-    return{priority:'ok',icon:'✅',text:`${_maFmt(reach)} alcance · Frequência ${_maFmt(freq,1)}× · ${_maFmtR(spend)}.`,actions:[]};
-  }
-
-  // Fallback
-  if(ctr<0.5&&spend>50&&impr>2000)
-    return{priority:'atencao',icon:'📉',text:`CTR ${_maFmtPct(ctr)} abaixo do esperado para o gasto atual.`,actions:[]};
-  return{priority:'ok',icon:'📊',text:`CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)} gastos.`,actions:[]};
+  if(status==='ARCHIVED')
+    return{priority:'ok',icon:'🗄',label:'Arquivada',text:`Arquivada · CTR ${_maFmtPct(m.ctr)} · ${_maFmtR(m.spend)}.`,criteria:'arquivamento é intencional — sem ação',actions:[]};
+  return{priority:'ok',icon:'📊',label:'—',text:`CTR ${_maFmtPct(m.ctr)} · ${_maFmtR(m.spend)} gastos.`,criteria:'',actions:[]};
 }
 function _gtInlineSuggestAd(ad,allAds){
   const ctr=parseFloat(ad.ctr||0);
@@ -7509,8 +7493,9 @@ function _gtInlineSuggestAd(ad,allAds){
   const campAds=allAds.filter(a=>a.campaign_id===ad.campaign_id);
   const avgAdCTR=campAds.length>1?campAds.reduce((s,a)=>s+parseFloat(a.ctr||0),0)/campAds.length:0;
   const adSt=ad.effective_status||'';
-  const pause={label:'⏸ Pausar Anúncio',cls:'danger',action:{type:'pause_ad',id:ad.ad_id}};
-  const ativar={label:'▶ Ativar Anúncio',cls:'success',action:{type:'activate_ad',id:ad.ad_id}};
+  const _an=ad.ad_name||ad.adset_name||'o anúncio';
+  const pause={label:'⏸ Pausar Anúncio',cls:'danger',action:{type:'pause_ad',id:ad.ad_id,_t:'Pausar anúncio?',_d:`"${_an}" será PAUSADO na Meta agora.`}};
+  const ativar={label:'▶ Ativar Anúncio',cls:'success',action:{type:'activate_ad',id:ad.ad_id,_t:'Ativar anúncio?',_d:`"${_an}" voltará a ATIVO e a gastar na Meta.`}};
   if(adSt==='PAUSED'||adSt==='ARCHIVED')
     return{priority:'ok',icon:'⏸',text:`Anúncio pausado · ${_maFmtR(spend)} histórico.`,actions:adSt==='PAUSED'?[ativar]:[]};
   if(adSt!=='ACTIVE')
@@ -7548,6 +7533,9 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
   aiTag.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:20px;background:rgba(99,102,241,.1);color:#6366f1;text-transform:uppercase;';
   aiTag.textContent='✦ IA em tempo real';
   ttlWrap.appendChild(ttl);ttlWrap.appendChild(aiTag);
+  const helpBtn=document.createElement('button');helpBtn.textContent='?';helpBtn.title='Como a IA avalia as campanhas';
+  helpBtn.style.cssText='width:18px;height:18px;border-radius:50%;border:1px solid var(--border);background:none;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;line-height:1;flex-shrink:0;padding:0;';
+  helpBtn.onclick=()=>gtCriterios();ttlWrap.appendChild(helpBtn);
   const searchInp=document.createElement('input');
   searchInp.type='text';searchInp.placeholder='Buscar campanha…';
   searchInp.style.cssText='padding:6px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);color:var(--text);font-family:"IBM Plex Sans",sans-serif;font-size:11px;outline:none;width:180px;transition:border-color .15s;';
@@ -7630,7 +7618,9 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       const insightEl=document.createElement('div');insightEl.className=`gt-insight ${sug.priority}`;
       insightEl.innerHTML=`<span style="font-size:13px;flex-shrink:0;">${sug.icon}</span><span class="gt-insight-text">${sug.text}</span>`;
       const actBar=_gtRenderActions(sug.actions,row);
-      inner.appendChild(top);inner.appendChild(insightEl);if(actBar)inner.appendChild(actBar);
+      inner.appendChild(top);inner.appendChild(insightEl);
+      if(sug.criteria){const cr=document.createElement('div');cr.className='gt-criteria';cr.innerHTML='<b>Critério:</b> '+sug.criteria;inner.appendChild(cr);}
+      if(actBar)inner.appendChild(actBar);
       // Ads pane
       const adsPane=document.createElement('div');adsPane.className='gt-camp-row-ads';
       top.addEventListener('click',()=>{
@@ -7690,9 +7680,61 @@ async function metaPost(path,params,accountId){
   if(d&&d.error)throw new Error((d.error&&d.error.message)||d.error||'Meta API error');
   return d;
 }
+// Modal de confirmação/aviso. opts:{danger,okOnly,okLabel}. Resolve true (confirmar) / false (cancelar).
+function _gtConfirm(title,detailHtml,opts){
+  opts=opts||{};
+  return new Promise(resolve=>{
+    let ov=document.getElementById('gt-confirm-ov');
+    if(!ov){ov=document.createElement('div');ov.id='gt-confirm-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';document.body.appendChild(ov);}
+    ov.innerHTML='';ov.style.display='flex';
+    const box=document.createElement('div');
+    box.style.cssText='background:var(--surface,#fff);color:var(--text,#111);border-radius:14px;max-width:400px;width:100%;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.45);font-family:"IBM Plex Sans",sans-serif;';
+    box.innerHTML='<div style="font-size:16px;font-weight:800;margin-bottom:9px;">'+title+'</div><div style="font-size:13px;color:var(--muted,#666);line-height:1.55;margin-bottom:20px;">'+detailHtml+'</div>';
+    const bar=document.createElement('div');bar.style.cssText='display:flex;gap:10px;justify-content:flex-end;';
+    const close=v=>{ov.style.display='none';resolve(v);};
+    if(!opts.okOnly){const c=document.createElement('button');c.textContent='Cancelar';c.style.cssText='padding:9px 16px;border-radius:8px;border:1px solid var(--border,#ddd);background:none;color:var(--text,#111);font-weight:600;font-size:13px;cursor:pointer;';c.onclick=()=>close(false);bar.appendChild(c);}
+    const ok=document.createElement('button');ok.textContent=opts.okLabel||(opts.okOnly?'Entendi':'Confirmar');ok.style.cssText='padding:9px 18px;border-radius:8px;border:none;background:'+(opts.danger?'#dc2626':'var(--accent,#6366f1)')+';color:#fff;font-weight:700;font-size:13px;cursor:pointer;';ok.onclick=()=>close(true);bar.appendChild(ok);
+    box.appendChild(bar);ov.appendChild(box);
+    ov.onclick=e=>{if(e.target===ov)close(false);};
+  });
+}
+function gtCriterios(){
+  const C=GT_CRIT,R=_maFmtR,N=_maFmt;
+  const h=`<div style="max-height:62vh;overflow:auto;text-align:left;font-size:12px;line-height:1.55;">
+  <p style="margin:0 0 10px">As recomendações usam os dados do <b>período selecionado</b> e seguem uma régua fixa (postura <b>equilibrada</b>). Antes de opinar, exige <b>${R(C.minSpend)}</b> de gasto e <b>${N(C.minImpr)}</b> impressões — abaixo disso fica "coletando dados", sem recomendar nada.</p>
+  <p style="margin:0 0 10px"><b>😴 Saturação (qualquer objetivo):</b> frequência ≥ ${C.freqSat}× → reduzir orçamento ou pausar; ≥ ${C.freqAtt}× → monitorar.</p>
+  <p style="margin:0 0 5px"><b>🎯 Conversão / Leads</b></p>
+  <ul style="margin:0 0 10px;padding-left:18px">
+   <li><b>⛔ Pausar:</b> 0 leads + gasto ≥ ${R(C.lead.pausSpend)} + ≥ ${N(C.lead.pausImpr)} impressões.</li>
+   <li><b>🚀 Escalar:</b> leads > 0 + CTR ≥ ${C.lead.escCTR}% + CPL ≤ ${Math.round(C.lead.escCPLf*100)}% da média da conta.</li>
+   <li><b>🔗 Atenção:</b> 0 leads mas CTR ≥ ${C.lead.monCTR}% e gasto ≥ ${R(C.lead.monSpend)} → gargalo na landing/oferta.</li>
+  </ul>
+  <p style="margin:0 0 5px"><b>🔗 Tráfego</b></p>
+  <ul style="margin:0 0 10px;padding-left:18px">
+   <li><b>⛔ Pausar:</b> CTR < ${C.traffic.pausCTR}% + gasto ≥ ${R(C.traffic.pausSpend)} + ≥ ${N(C.traffic.pausImpr)} impressões.</li>
+   <li><b>🚀 Escalar:</b> CTR ≥ ${C.traffic.escCTR}% + CPC ≤ ${R(C.traffic.escCPC)}.</li>
+   <li><b>📉 Atenção:</b> CTR < ${C.traffic.monCTR}% + gasto ≥ ${R(C.traffic.monSpend)}.</li>
+  </ul>
+  <p style="margin:0 0 5px"><b>💬 Engajamento</b></p>
+  <ul style="margin:0 0 10px;padding-left:18px">
+   <li><b>⛔ Pausar:</b> engaj. < ${C.engagement.pausEng} + gasto ≥ ${R(C.engagement.pausSpend)} + ≥ ${N(C.engagement.pausImpr)} impressões.</li>
+   <li><b>🚀 Escalar:</b> engaj. ≥ ${C.engagement.escEng} + CTR ≥ ${C.engagement.escCTR}%.</li>
+  </ul>
+  <p style="margin:0 0 5px"><b>🎬 Vídeo</b></p>
+  <ul style="margin:0 0 12px;padding-left:18px">
+   <li><b>📉 Atenção:</b> plays < ${C.video.monViews} + gasto ≥ ${R(C.video.monSpend)} → hook fraco.</li>
+   <li><b>🚀 Escalar:</b> plays ≥ ${C.video.escViews} + CTR ≥ ${C.video.escCTR}%.</li>
+  </ul>
+  <p style="margin:0;padding-top:10px;border-top:1px solid var(--border);color:var(--muted)"><b>Campanhas pausadas:</b> só recomendo <b>reativar</b> se, com os mesmos dados, a campanha seria avaliada como <b>boa caso estivesse ativa</b>. Por isso a régua não fica pausando e reativando a mesma campanha (fim do vai-e-volta).</p>
+  </div>`;
+  _gtConfirm('Como a IA avalia as campanhas',h,{okOnly:true});
+}
 async function _gtApplyAction(action,btn,rowEl){
   const tok=_gtCurAcc?.id;
   if(!tok){alert('Sem conta selecionada.');return;}
+  const danger=action.type==='pause_campaign'||action.type==='pause_ad';
+  const ok=await _gtConfirm(action._t||'Confirmar ação?',action._d||'Esta ação será aplicada na Meta agora.',{danger});
+  if(!ok)return;
   const orig=btn.textContent;
   btn.disabled=true;btn.textContent='…';
   try{
@@ -7702,11 +7744,17 @@ async function _gtApplyAction(action,btn,rowEl){
       await metaPost('/'+action.id,{status:action.type==='pause_ad'?'PAUSED':'ACTIVE'},tok);
     else if(action.type==='update_budget')
       await metaPost('/'+action.id,{daily_budget:String(action.budget)},tok);
-    btn.textContent='✓';btn.style.background='#16a34a';btn.style.borderColor='#16a34a';btn.style.color='#fff';
+    btn.textContent='✓ Aplicado';btn.style.background='#16a34a';btn.style.borderColor='#16a34a';btn.style.color='#fff';
     setTimeout(()=>loadGtData(),1500);
   }catch(e){
-    btn.textContent='✗ Erro';btn.style.color='#dc2626';btn.style.borderColor='#dc2626';
-    setTimeout(()=>{btn.textContent=orig;btn.style.color='';btn.style.borderColor='';btn.disabled=false;},2000);
+    const msg=String((e&&e.message)||e||'');
+    const friendly=/ad ?set|adset|campaign level|budget.*level|set level/i.test(msg)
+      ?'O orçamento está no <b>conjunto de anúncios</b> (CBO). Ajuste no nível do conjunto, não da campanha.'
+      :/permiss|#200|#10\b|#272|OAuth|token|management/i.test(msg)
+      ?'O token desta conta <b>não tem permissão de gerenciar anúncios</b> (ads_management). Verifique o acesso na Meta.'
+      :('<b>Erro da Meta:</b> '+msg.slice(0,180));
+    btn.disabled=false;btn.textContent=orig;btn.style.color='';btn.style.borderColor='';
+    _gtConfirm('Não foi possível aplicar',friendly,{okOnly:true});
   }
 }
 
@@ -7792,19 +7840,26 @@ async function _gtRunAuto(){
         }
       }catch(e){}
     }));
-    // Execute all actions silently
-    for(const item of queue){
-      if(!_gtAutoActive)break;
-      try{
-        const a=item.action;
-        if(a.type==='pause_campaign'||a.type==='activate_campaign')
-          await metaPost('/'+a.id,{status:a.type==='pause_campaign'?'PAUSED':'ACTIVE'},item.tok);
-        else if(a.type==='update_budget')
-          await metaPost('/'+a.id,{daily_budget:String(a.budget)},item.tok);
-        await new Promise(r=>setTimeout(r,300));
-      }catch(e){}
+    // Confirmação em LOTE (modo AUTO mantido, mas só aplica após você revisar a lista)
+    if(!queue.length){
+      await _gtConfirm('Nada a aplicar','A IA varreu as campanhas e <b>não encontrou ação crítica ou de oportunidade</b> no período. Tudo dentro dos critérios.',{okOnly:true});
+    }else{
+      const lines=queue.map(it=>'• '+(it.action._d||it.action.type)).join('<br>');
+      const ok=await _gtConfirm('Aplicar '+queue.length+' aç'+(queue.length>1?'ões':'ão')+' em lote?','<div style="font-size:12px;color:var(--muted);margin-bottom:8px">A IA recomenda as ações abaixo (você pode revisar). Confirme para aplicar todas na Meta:</div><div style="max-height:44vh;overflow:auto;text-align:left;font-size:12px;line-height:1.7;color:var(--text)">'+lines+'</div>',{danger:true,okLabel:'Aplicar tudo'});
+      if(ok){
+        for(const item of queue){
+          try{
+            const a=item.action;
+            if(a.type==='pause_campaign'||a.type==='activate_campaign')await metaPost('/'+a.id,{status:a.type==='pause_campaign'?'PAUSED':'ACTIVE'},item.tok);
+            else if(a.type==='update_budget')await metaPost('/'+a.id,{daily_budget:String(a.budget)},item.tok);
+            await new Promise(r=>setTimeout(r,300));
+          }catch(e){}
+        }
+      }
     }
-    if(_gtAutoActive)setTimeout(()=>loadGtData(),800);
+    // depois de rodar, desliga o estado "running" (não fica reaplicando em loop)
+    _gtAutoActive=false;const _ab=document.getElementById('gt-auto-btn');if(_ab)_ab.classList.remove('active','running');const _al=document.getElementById('gt-auto-btn-lbl');if(_al)_al.textContent='AUTO';
+    setTimeout(()=>loadGtData(),800);
   }catch(e){}
   _gtAutoRunning=false;
   if(_gtAutoActive){
@@ -9815,7 +9870,7 @@ function setHomeBgTheme(type){
 </div>
 
 <!-- GT Auto floating tooltip (fixed-position, escapes stacking contexts) -->
-<div id="gt-auto-floating-tip">⚠️ Cuidado: quando ativado, o Agente IA aplica automaticamente pausas e ajustes de orçamento em todas as campanhas. Ative apenas se confiar nas análises.</div>
+<div id="gt-auto-floating-tip">A IA varre todas as campanhas e monta uma lista de ações recomendadas (pausar/escalar/ajustar budget). Você revisa e <b>confirma</b> antes de qualquer coisa ser aplicada na Meta — nada é feito automaticamente.</div>
 
 <!-- GT Auto Modal -->
 <div id="gt-auto-overlay" onclick="closeGtAutoModal()"></div>
