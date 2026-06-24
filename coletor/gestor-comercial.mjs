@@ -236,9 +236,8 @@ function _diasSemVender(ultima, hoje) {
 // com o degradê de % rotacionado pela semana. Só bolsas/mochilas, encalhados primeiro.
 // Alvo de composição BCG dos 12 (âncora provada + apostas + liquidação) e desconto por quadrante.
 const BCG_META = { 'Estrela': 2, 'Vaca leiteira': 3, 'Interrogação': 4, 'Abacaxi': 3 };
-// Público equilibrado: metade Amplo (fluxo do shopping / novos) + metade Base (já compraram / recompra), % atrativo pros dois.
-const PCT_AMPLO = 30;   // entrada atrativa pra converter o fluxo
-const PCT_BASE = 45;    // recompensa/recompra da base + queima mais pesada
+// Escada de desconto por nível de desejo (campeã leva menos, parada leva mais) — respeita 15/20/25/30/35/40.
+const LADDER = [15, 20, 25, 30, 35, 40];
 function montarOportunidades(saldoPorDep, prodMap, giro, ultimaVenda, hoje) {
   const saldoPulmao = saldoPorDep[DEP_PULMAO] || {};
   return LOJAS_VAREJO.map(L => {
@@ -268,11 +267,10 @@ function montarOportunidades(saldoPorDep, prodMap, giro, ultimaVenda, hoje) {
     const sel = escolhidos.slice(0, 12);
     const rankQ = { 'Estrela': 0, 'Vaca leiteira': 1, 'Interrogação': 2, 'Abacaxi': 3 };
     const desir = [...sel].sort((a, b) => rankQ[a.bcg] - rankQ[b.bcg] || b.giro - a.giro);
-    const ampSet = new Set(desir.slice(0, Math.ceil(sel.length / 2)).map(x => x.pid));  // metade mais desejável = Amplo (vitrine do fluxo); resto = Base (recompra)
-    const itens = sel.map(it => {
-      const isAmplo = ampSet.has(it.pid);
-      const publico = isAmplo ? 'Amplo' : 'Base';
-      const pct = isAmplo ? PCT_AMPLO : PCT_BASE;
+    // a cada PAR do mesmo nível de desejo: 1 vai pro Amplo e 1 pra Base (estrela nos dois!), com o mesmo degrau de desconto da escada
+    const itens = desir.map((it, idx) => {
+      const pct = LADDER[Math.min(Math.floor(idx / 2), LADDER.length - 1)];
+      const publico = (idx % 2 === 0) ? 'Amplo' : 'Base';
       const precoDesc = it.preco * (1 - pct / 100);
       return {
         sku: it.sku, descricao: it.nome, categoria: it.categoria, publico,
@@ -303,7 +301,7 @@ function _bcgClass(it) {
 // Mix BCG ideal dentro dos 12 itens da vitrine por loja (âncora provada + apostas + liquidação controlada).
 const BCG_ALVO = { estrela: 2, vaca: 3, interrogacao: 4, abacaxi: 3 };
 function buildOportunidadesMd(opp) {
-  let md = '## 🛒 Oportunidades da Semana\n\n*Vitrine fixa de queima: 12 itens por loja (Tivoli e Dom Pedro, separados), priorizando bolsas/mochilas paradas. A coluna **Público** divide a vitrine ao meio (equilíbrio): "Amplo" (' + PCT_AMPLO + '% OFF) = oferta de entrada pra converter o **fluxo do shopping** (clientes novos); "Base" (' + PCT_BASE + '% OFF) = desconto maior pra **recompra da base** que já comprou e queima do mais parado. A **Composição BCG** mostra o mix ideal da vitrine (âncoras que vendem + apostas + liquidação) vs. o que entrou. Preço com desconto e parcela já calculados.*\n';
+  let md = '## 🛒 Oportunidades da Semana\n\n*Vitrine fixa de queima: 12 itens por loja (Tivoli e Dom Pedro, separados), priorizando bolsas/mochilas paradas. A coluna **Público**: a cada par de itens do mesmo nível, um entra no **Amplo** (fluxo do shopping / clientes novos) e um na **Base** (base que já comprou / recompra) — os dois recebem um pouco de cada quadrante, inclusive uma Estrela. O **desconto** segue o desejo do item (campeã leva menos, parada leva mais), na escada 15/20/25/30/35/40. A **Composição BCG** mostra o mix ideal da vitrine (âncoras que vendem + apostas + liquidação) vs. o que entrou. Preço com desconto e parcela já calculados.*\n';
   for (const loja of opp) {
     md += '\n### ' + loja.loja + '\n\n';
     if (!loja.itens.length) { md += '_Sem itens elegíveis com estoque esta semana._\n'; continue; }
