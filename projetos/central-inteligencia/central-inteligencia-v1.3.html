@@ -1063,13 +1063,16 @@
     .np-grid .np-art:nth-child(2n){border-right:none;}
   }
   @media(max-width:600px){
+    #noticias-screen{overflow-x:clip;}
     .np-tabs{justify-content:flex-start;overflow-x:auto;}
     .np-grid{grid-template-columns:1fr;}
     .np-grid .np-art{border-right:none!important;}
     .np-issue-r{display:none;}
-    .np-body{padding:0 18px 60px;}
-    .np-topbar{padding:14px 18px;}
-    .np-hero-text{padding:28px 24px;}
+    .np-body{max-width:100%;padding:0 14px 56px;}
+    .np-gallery{padding:18px 14px 22px;}
+    .np-prod-name,.np-gallery-resumo,.np-art-resumo,.np-hero-resumo,.np-prod-analise{overflow-wrap:anywhere;word-break:break-word;}
+    .np-topbar{padding:14px 16px;gap:8px;}
+    .np-hero-text{padding:26px 20px;}
   }
   /* ── Gestão Comercial (briefing do agente) ── */
   #gestao-comercial-screen{display:none;flex-direction:column;min-height:100vh;background:var(--bg);}
@@ -1212,7 +1215,13 @@
   .gc-empty{text-align:center;padding:60px 20px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;}
   .gc-empty h3{font-family:'Oswald',sans-serif;font-weight:500;letter-spacing:1px;color:var(--text);margin:0 0 6px;}
   @media(max-width:920px){#gestao-comercial-screen .gc-kpis{grid-template-columns:repeat(2,1fr);}}
-  @media(max-width:560px){#gestao-comercial-screen .gc-kpis{grid-template-columns:1fr;}.gc-body{padding:18px 14px 50px;}.gc-report{padding:18px 16px;}.gc-topbar{padding:12px 14px;}}
+  @media(max-width:560px){#gestao-comercial-screen .gc-kpis{grid-template-columns:1fr;}.gc-body{padding:18px 12px 50px;}.gc-topbar{padding:12px 14px;}
+    .gc-sec{padding:18px 14px;}
+    .gc-report table{font-size:11px;}
+    .gc-report thead th{padding:8px 9px;font-size:9px;letter-spacing:.3px;}
+    .gc-report tbody td{padding:7px 9px;}
+    .gc-tw{border-radius:10px;}
+  }
   /* ── Controle de zoom (ferramentas com muito texto) ── */
   .zoomctl{position:fixed;right:20px;bottom:70px;z-index:9997;display:inline-flex;align-items:center;gap:2px;background:#ffffff;border:1px solid rgba(13,13,13,.14);border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:4px;}
   .zoomctl button{width:34px;height:34px;border:none;background:none;border-radius:50%;font-family:'IBM Plex Sans',sans-serif;font-size:14px;font-weight:700;color:#1a1a1a;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;}
