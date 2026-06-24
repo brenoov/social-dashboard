@@ -1,4 +1,4 @@
-name: Coletor de Notícias (concorrentes Vessel)
+name: Coletor de Notícias (Observatório Vessel)
 
 # Roda toda segunda às 09:00 UTC (06:00 Brasília). Também dá pra disparar à mão.
 on:
@@ -6,15 +6,21 @@ on:
     - cron: '0 9 * * 1'
   workflow_dispatch: {}
 
-# Evita rodadas sobrepostas se uma demorar
 concurrency:
   group: coletor-noticias
   cancel-in-progress: false
 
 jobs:
-  coletar:
+  rodada:
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 110
+    env:
+      SUPABASE_URL: https://kounqtdoioootxqegkij.supabase.co
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      MODEL_SONNET: claude-sonnet-4-6
+      MODEL_OPUS: claude-opus-4-8
+      COLETOR_MODEL: claude-sonnet-4-6
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,9 +30,17 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Rodar agente coletor
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          COLETOR_MODEL: claude-opus-4-8   # melhor motor da linha Opus
+      - name: Definir rodada (data BR)
+        run: echo "RODADA=$(TZ=America/Sao_Paulo date +%F)" >> "$GITHUB_ENV"
+
+      - name: 1/4 · Lojas (best-sellers + novidades)
+        run: node coletor/passo-lojas.mjs
+
+      - name: 2/4 · Instagram (Top Viral + Últimos Posts + Reels)
+        run: node coletor/ig-coletor.mjs
+
+      - name: 3/4 · Editorial (manchetes via web search · Sonnet)
         run: node coletor/agente-noticias.mjs
+
+      - name: 4/4 · Enriquecimento (Desenvolvimento + análises Sonnet · resumos Opus)
+        run: node coletor/passo-enriquece.mjs

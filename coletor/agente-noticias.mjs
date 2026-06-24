@@ -17,9 +17,9 @@ if (!ANTHROPIC_API_KEY || !SUPABASE_SERVICE_KEY) {
   process.exit(1);
 }
 
-const MARCAS = ['Santa Lolla', 'Capodarte', 'Carmen Steffens', 'Dumond', 'Arezzo&Co', 'Chenson', 'SAAD', 'La Vessel', 'Mercado'];
-const CATEGORIAS = ['Campanha', 'Estratégia', 'Best-seller', 'Lançamento', 'Preço/Promo', 'Marketing', 'Design', 'Moda', 'Faturamento', 'Expansão', 'Tendência'];
-const HOJE = new Date().toISOString().slice(0, 10);
+const MARCAS = ['Santa Lolla', 'Arezzo&Co', 'Schutz', 'Anacapri', 'Capodarte', 'Luz da Lua', 'Petite Jolie', 'Jorge Bischoff', 'Dumond', 'Carmen Steffens', 'Isla', 'Luiza Barcelos', 'Victor Hugo', "L'Occitane"];
+const CATEGORIAS = ['Campanha', 'Estratégia', 'Lançamento', 'Preço/Promo', 'Marketing', 'Design', 'Moda', 'Faturamento', 'Expansão', 'Tendência'];
+const HOJE = process.env.RODADA || new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 const REST = SUPABASE_URL + '/rest/v1';
 const sbHeaders = {
   apikey: SUPABASE_SERVICE_KEY,
