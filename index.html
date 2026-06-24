@@ -926,7 +926,7 @@
     --ink:#0d0d0d;--paper:#f6f3ee;--paper2:#efeae1;--np-line:#1a1a1a;--np-muted:#6b6258;--np-rule:rgba(13,13,13,.14);
     --c-lancamento:#d6336c;--c-campanha:#1c5d99;--c-precopromo:#c81d25;--c-faturamento:#146b3a;
     --c-expansao:#c2410c;--c-tendencia:#9a6700;--c-estrategia:#6d28d9;
-    --c-marketing:#0e7c86;--c-design:#b5179e;--c-moda:#7b1e3b;--c-bestseller:#9c6b1e;--c-instagram:#c13584;--c-outro:#1a1a1a;
+    --c-marketing:#0e7c86;--c-design:#b5179e;--c-moda:#7b1e3b;--c-bestseller:#9c6b1e;--c-desenvolvimento:#0f766e;--c-instagram:#c13584;--c-outro:#1a1a1a;
     background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',sans-serif;}
   #noticias-screen::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:5;opacity:.04;mix-blend-mode:multiply;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
   /* Tema escuro do Observatório (segue o tema do app) */
@@ -8862,13 +8862,14 @@ function closeNoticias(){
   showHome();
 }
 let _npRod=null;
-const NP_CAT_COLOR={lancamento:'var(--c-lancamento)',campanha:'var(--c-campanha)',precopromo:'var(--c-precopromo)',faturamento:'var(--c-faturamento)',expansao:'var(--c-expansao)',tendencia:'var(--c-tendencia)',estrategia:'var(--c-estrategia)',marketing:'var(--c-marketing)',design:'var(--c-design)',moda:'var(--c-moda)',bestseller:'var(--c-bestseller)',instagram:'var(--c-instagram)',outro:'var(--c-outro)'};
+const NP_CAT_COLOR={lancamento:'var(--c-lancamento)',campanha:'var(--c-campanha)',precopromo:'var(--c-precopromo)',faturamento:'var(--c-faturamento)',expansao:'var(--c-expansao)',tendencia:'var(--c-tendencia)',estrategia:'var(--c-estrategia)',marketing:'var(--c-marketing)',design:'var(--c-design)',moda:'var(--c-moda)',bestseller:'var(--c-bestseller)',desenvolvimento:'var(--c-desenvolvimento)',instagram:'var(--c-instagram)',outro:'var(--c-outro)'};
 function _npCatColor(c){const s=String(c||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z]/g,'');return NP_CAT_COLOR[s]||'var(--c-outro)';}
 let _npView='comercial';
 function _npNorm(c){return String(c||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z]/g,'');}
-// categoria → vista. Marketing = conteúdo/IG/colunas; o resto (produto/comercial) = Comercial & Desenvolvimento.
-const NP_MKT=['instagram','marketing','moda','tendencia','design','conteudo','viral','reels','reel','post'];
-function _npVista(cat){const s=_npNorm(cat);if(s.startsWith('resumo'))return s.includes('marketing')?'marketing':'comercial';return NP_MKT.some(k=>s.includes(k))?'marketing':'comercial';}
+// categoria → vista. Comercial & Desenvolvimento = SÓ desenvolvimento de bolsa (best-sellers, novidades,
+// apostas de modelo/cor/material). Todo o resto (campanha, faturamento, expansão, M&A, IG, colunas) = Marketing.
+const NP_COM=['bestseller','lancamento','desenvolvimento','produto','colecao','novidade'];
+function _npVista(cat){const s=_npNorm(cat);if(s.startsWith('resumo'))return s.includes('marketing')?'marketing':'comercial';return NP_COM.some(k=>s.includes(k))?'comercial':'marketing';}
 function _npIsResumo(cat){return _npNorm(cat).startsWith('resumo');}
 // nome chamativo + estrela só nas seções-vitrine
 const NP_SEC={bestseller:{nome:'As Mais Desejadas',star:1},lancamento:{nome:'Acabou de Chegar',star:0},instagram:{nome:'Bombou no Instagram',star:1},viral:{nome:'O Que Mais Viralizou',star:1},reels:{nome:'Reels do Momento',star:1},post:{nome:'Últimos Posts',star:0}};
@@ -8982,7 +8983,7 @@ function _npRenderBody(){
   }
   galerias.forEach(g=>{ html+=_npGalleryHtml(g); });
   if(rest.length){
-    const ruleLbl=_npView==='marketing'?'Colunas & manchetes':'Movimentos comerciais';
+    const ruleLbl=_npView==='marketing'?'Campanhas, manchetes & movimentos':'Desenvolvimento de produto';
     html+='<div class="np-sec-rule"><span>'+ruleLbl+' · '+_npEsc(_npTab)+'</span></div><div class="np-grid">';
     let i=2;
     rest.forEach(n=>{
