@@ -102,7 +102,14 @@ const SCHEMA = {
   additionalProperties: false,
 };
 
+const MKT_ONLY = { "L'Occitane": 'cosméticos/beleza' };  // referências de marketing (não concorrem em bolsa)
 function promptPesquisa(marca) {
+  if (MKT_ONLY[marca]) {
+    return 'Você é analista de inteligência competitiva da Vessel (bolsas femininas), estudando a "' + marca + '" como REFERÊNCIA DE MARKETING — ela é de ' + MKT_ONLY[marca] + ', NÃO concorre em bolsa. '
+      + 'Pesquise o que a marca está fazendo AGORA de MARKETING no site e Instagram oficiais (últimos ~60 dias): CAMPANHAS, EMBAIXADORES/celebridades, conceito e ESTRATÉGIA de conteúdo, ações de PROPÓSITO/experiência, lançamentos com forte apelo de marca. '
+      + 'NÃO procure "best-sellers" nem produtos de bolsa. Use a busca várias vezes. NUNCA invente — só fontes reais com URL (prefira site/Instagram oficial). '
+      + 'Ao terminar, resuma com detalhe a estratégia de marketing + o APRENDIZADO aplicável à Vessel.';
+  }
   const ehMercado = marca === 'Mercado';
   if (ehMercado) {
     return 'Você é analista de inteligência competitiva da Vessel (bolsas femininas). '
@@ -126,7 +133,7 @@ function promptEstrutura(marca, notas) {
     + 'Com base APENAS nessas notas, gere a lista de itens. '
     + 'Para cada item: titulo (curto, sem aspas duplas), '
     + 'resumo DETALHADO (3 a 5 frases que deem um NORTE CLARO do que a marca está fazendo — descreva a campanha/estratégia/lançamento ou o best-seller concreto, e termine com o insight competitivo para a Vessel; não seja genérico), '
-    + 'categoria (EXATAMENTE um de: ' + CATEGORIAS.join(', ') + '), url (link real — PREFIRA o site/Instagram oficial da marca), fonte (nome da fonte/veículo ou "Site oficial"/"Instagram oficial"), '
+    + 'categoria (EXATAMENTE um de: ' + CATEGORIAS.join(', ') + (MKT_ONLY[marca] ? '; como esta marca é referência de MARKETING, use só Campanha/Marketing/Estratégia/Tendência — NUNCA Lançamento' : '') + '), url (link real — PREFIRA o site/Instagram oficial da marca), fonte (nome da fonte/veículo ou "Site oficial"/"Instagram oficial"), '
     + 'data_publicacao (YYYY-MM-DD, a data real; se desconhecida, a mais provável), '
     + 'destaque (true para os itens de FOCO PRIMÁRIO — site/Instagram oficial, campanha, estratégia, best-seller; false para as notícias gerais secundárias). '
     + 'Priorize os itens de foco primário (campanha/estratégia/best-seller do site e IG). Inclua só itens com fonte e URL reais. Se não houver nada relevante, retorne lista vazia.';
@@ -180,6 +187,7 @@ async function coletarMarca(marca) {
   // Sanitiza + injeta marca/rodada (não confia no modelo p/ esses campos)
   const out = lista
     .filter(n => n && n.titulo && n.url && CATEGORIAS.includes(n.categoria))
+    .filter(n => !(MKT_ONLY[marca] && n.categoria === 'Lançamento'))  // marca só-marketing não vai p/ vista Comercial (escondida)
     .map(n => ({
       marca,
       titulo: String(n.titulo).slice(0, 300),
