@@ -2811,7 +2811,7 @@ function pctDiff(curr,prev){if(!prev)return '+0.0%';const d=((curr-prev)/prev*10
 function perfColor(pct){return pct>=100?'green':pct>=75?'yellow':pct>=50?'orange':'red';}
 // formatação condicional: pinta o NÚMERO do indicador conforme o desempenho vs meta
 const _PERF_VAR={green:'var(--green)',yellow:'var(--yellow)',orange:'var(--orange)',red:'var(--red)'};
-function _mcValColor(key,clr){const pe=document.getElementById('pct-'+key);const card=pe&&pe.closest('.card');const v=card&&card.querySelector('.mc-val');if(v)v.style.color=_PERF_VAR[clr]||'';}
+function _mcValColor(key,clr){const pe=document.getElementById('pct-'+key);const card=pe&&pe.closest('.card');const v=card&&card.querySelector('.mc-val');if(!v)return;const col=_PERF_VAR[clr]||'';if(col){v.style.setProperty('color',col,'important');v.style.setProperty('-webkit-text-fill-color',col,'important');}else{v.style.removeProperty('color');v.style.removeProperty('-webkit-text-fill-color');}}
 function goalStorageKey(key,period,accountId){return 'ig_goal_'+(accountId||'default')+'_'+period+'_'+key;}
 const RATE_GOALS=['cps'];
 // comprimento em dias de cada período (pro recálculo proporcional). null = comprimento variável (não escala).
