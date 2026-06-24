@@ -1912,9 +1912,13 @@
   .gt-camp-row:last-child{border-bottom:none;}
   /* Campaign inner block */
   .gt-camp-inner{padding:13px 22px 10px;}
-  .gt-camp-top{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;border-radius:6px;padding:4px 2px;margin:-4px -2px;transition:background .12s;}
+  .gt-camp-top{display:flex;flex-direction:column;gap:0;cursor:pointer;user-select:none;border-radius:8px;padding:7px 8px;margin:-5px -8px;transition:background .12s;}
   .gt-camp-top:hover{background:var(--surface2);}
   .gt-camp-top:hover .gt-name{color:var(--accent);}
+  .gt-camp-l1{display:flex;align-items:center;gap:10px;}
+  .gt-camp-l1 .gt-spend{margin-left:auto;}
+  .gt-camp-l2{display:flex;align-items:center;gap:14px;margin-top:7px;flex-wrap:wrap;}
+  .gt-camp-exp{margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0;}
   .gt-camp-row-ads{padding:0 18px 14px 22px;display:none;flex-direction:column;gap:0;background:var(--surface2);border-top:1px solid var(--border);position:relative;}
   .gt-camp-row-ads::before{content:'';position:absolute;left:36px;top:0;bottom:18px;width:2px;background:var(--border);border-radius:1px;opacity:.6;}
   .gt-camp-row-ads.open{display:flex;}
@@ -7452,7 +7456,7 @@ function _gtInlineSuggest(ins,camp,allInsights){
   const status=camp?.effective_status||'';
   const campId=ins.campaign_id;
   const daily=camp?.daily_budget?parseFloat(camp.daily_budget)/100:null;
-  const nm=ins.campaign_name||camp?.name||'a campanha';
+  const nm=_gtEsc(ins.campaign_name||camp?.name||'a campanha');
   const m={
     cat:_gtObjCategory(ins.objective||camp?.objective||''),
     ctr:parseFloat(ins.ctr||0),spend:parseFloat(ins.spend||0),impr:parseInt(ins.impressions||0),
@@ -7493,7 +7497,7 @@ function _gtInlineSuggestAd(ad,allAds){
   const campAds=allAds.filter(a=>a.campaign_id===ad.campaign_id);
   const avgAdCTR=campAds.length>1?campAds.reduce((s,a)=>s+parseFloat(a.ctr||0),0)/campAds.length:0;
   const adSt=ad.effective_status||'';
-  const _an=ad.ad_name||ad.adset_name||'o anúncio';
+  const _an=_gtEsc(ad.ad_name||ad.adset_name||'o anúncio');
   const pause={label:'⏸ Pausar Anúncio',cls:'danger',action:{type:'pause_ad',id:ad.ad_id,_t:'Pausar anúncio?',_d:`"${_an}" será PAUSADO na Meta agora.`}};
   const ativar={label:'▶ Ativar Anúncio',cls:'success',action:{type:'activate_ad',id:ad.ad_id,_t:'Ativar anúncio?',_d:`"${_an}" voltará a ATIVO e a gastar na Meta.`}};
   if(adSt==='PAUSED'||adSt==='ARCHIVED')
@@ -7599,8 +7603,8 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       const badgeLbl=status==='ACTIVE'?'Ativo':status==='PAUSED'?'Pausado':status==='ARCHIVED'?'Arquivado':'Inativo';
       badge.className=`gt-status-badge ${badgeCls}`;badge.textContent=badgeLbl;
       const nm=document.createElement('div');nm.className='gt-name';nm.title=ins.campaign_name||'';nm.textContent=ins.campaign_name||'—';
-      const chips=document.createElement('div');chips.style.cssText='display:flex;flex-direction:column;gap:2px;flex-shrink:0;';
-      chips.innerHTML=`<span class="ma-obj-chip" style="font-size:9px;">${_maObjLabel(ins.objective)}</span>${daily?`<span style="font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);">${_maFmtR(daily)}/dia</span>`:''}`;
+      const chips=document.createElement('div');chips.style.cssText='display:flex;align-items:center;gap:8px;flex-shrink:0;';
+      chips.innerHTML=`<span class="ma-obj-chip" style="font-size:9px;">${_maObjLabel(ins.objective)}</span>${daily?`<span style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;color:var(--muted);">${_maFmtR(daily)}/dia</span>`:''}`;
       const metrics=document.createElement('div');metrics.className='gt-metrics';
       // Show objective-relevant metric as third column
       let extraMetric='';
@@ -7613,7 +7617,12 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       const adCount=ads.length;
       const hint=document.createElement('span');hint.className='gt-expand-hint';hint.textContent=adCount>0?`${adCount} anúncio${adCount!==1?'s':''}  ▾`:'sem anúncios';
       const chev=document.createElement('svg');chev.setAttribute('class','gt-chevron');chev.setAttribute('width','12');chev.setAttribute('height','12');chev.setAttribute('viewBox','0 0 24 24');chev.setAttribute('fill','none');chev.setAttribute('stroke','currentColor');chev.setAttribute('stroke-width','2.5');chev.setAttribute('stroke-linecap','round');chev.setAttribute('stroke-linejoin','round');chev.innerHTML='<polyline points="9 18 15 12 9 6"/>';
-      top.appendChild(badge);top.appendChild(nm);top.appendChild(chips);top.appendChild(metrics);top.appendChild(spendEl);top.appendChild(hint);top.appendChild(chev);
+      const l1=document.createElement('div');l1.className='gt-camp-l1';
+      l1.appendChild(badge);l1.appendChild(nm);l1.appendChild(spendEl);
+      const l2=document.createElement('div');l2.className='gt-camp-l2';
+      const exp=document.createElement('div');exp.className='gt-camp-exp';exp.appendChild(hint);exp.appendChild(chev);
+      l2.appendChild(chips);l2.appendChild(metrics);l2.appendChild(exp);
+      top.appendChild(l1);top.appendChild(l2);
       // Insight row
       const insightEl=document.createElement('div');insightEl.className=`gt-insight ${sug.priority}`;
       insightEl.innerHTML=`<span style="font-size:13px;flex-shrink:0;">${sug.icon}</span><span class="gt-insight-text">${sug.text}</span>`;
@@ -7680,6 +7689,8 @@ async function metaPost(path,params,accountId){
   if(d&&d.error)throw new Error((d.error&&d.error.message)||d.error||'Meta API error');
   return d;
 }
+// escapa texto vindo da Meta (nome de campanha/anúncio, mensagem de erro) antes de ir p/ innerHTML
+function _gtEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 // Modal de confirmação/aviso. opts:{danger,okOnly,okLabel}. Resolve true (confirmar) / false (cancelar).
 function _gtConfirm(title,detailHtml,opts){
   opts=opts||{};
@@ -7752,7 +7763,7 @@ async function _gtApplyAction(action,btn,rowEl){
       ?'O orçamento está no <b>conjunto de anúncios</b> (CBO). Ajuste no nível do conjunto, não da campanha.'
       :/permiss|#200|#10\b|#272|OAuth|token|management/i.test(msg)
       ?'O token desta conta <b>não tem permissão de gerenciar anúncios</b> (ads_management). Verifique o acesso na Meta.'
-      :('<b>Erro da Meta:</b> '+msg.slice(0,180));
+      :('<b>Erro da Meta:</b> '+_gtEsc(msg.slice(0,180)));
     btn.disabled=false;btn.textContent=orig;btn.style.color='';btn.style.borderColor='';
     _gtConfirm('Não foi possível aplicar',friendly,{okOnly:true});
   }
