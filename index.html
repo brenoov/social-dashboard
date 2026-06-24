@@ -1042,7 +1042,39 @@
   .np-tab-logo{width:18px;height:18px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:7px;background:#fff;}
   .np-issue-logo{width:54px;height:54px;border-radius:50%;object-fit:cover;background:#fff;box-shadow:0 3px 10px rgba(0,0,0,.18);margin-bottom:12px;display:block;}
   .np-gallery .np-link{color:var(--cat,#1a1a1a);border-color:var(--cat,#1a1a1a);font-size:10px;}
-  @media(max-width:560px){.np-prod-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px 12px;}}
+  /* ── Vistas: Comercial & Desenvolvimento | Marketing ── */
+  .np-views{display:flex;gap:10px;margin:30px 0 4px;flex-wrap:wrap;}
+  .np-view{flex:1 1 250px;display:flex;align-items:center;justify-content:center;gap:11px;padding:16px 20px;border:1.5px solid var(--np-rule);border-radius:15px;background:transparent;color:var(--np-muted);font-family:'IBM Plex Sans',sans-serif;font-size:12.5px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;cursor:pointer;transition:all .22s cubic-bezier(.2,.7,.2,1);}
+  .np-view:hover{border-color:var(--ink);color:var(--ink);transform:translateY(-1px);}
+  .np-view.active{background:var(--ink);color:var(--paper);border-color:var(--ink);box-shadow:0 12px 28px -14px rgba(0,0,0,.55);}
+  .np-view .np-view-ic{font-size:17px;line-height:1;}
+  .np-view small{display:block;font-size:9px;letter-spacing:1px;opacity:.7;font-weight:600;margin-top:2px;text-transform:none;}
+  .np-view-txt{text-align:left;}
+  /* estrela animada — acento, usada só nas seções-vitrine */
+  .np-star{display:inline-block;color:#f5b301;margin-right:9px;animation:npStar 2.1s ease-in-out infinite;transform-origin:center;}
+  @keyframes npStar{0%,100%{transform:scale(1) rotate(0);filter:drop-shadow(0 0 0 rgba(245,179,1,0));}50%{transform:scale(1.22) rotate(16deg);filter:drop-shadow(0 0 7px rgba(245,179,1,.75));}}
+  /* ── Resumo do módulo (fecho animado de cada vista) ── */
+  .np-modsum{position:relative;overflow:hidden;margin:46px 0 14px;border-radius:20px;padding:36px 38px 34px;background:linear-gradient(135deg,#0e1118 0%,#1d2740 58%,#243456 100%);color:#fff;box-shadow:0 34px 70px -30px rgba(0,0,0,.62);animation:npRise .65s cubic-bezier(.2,.7,.2,1) both;}
+  .np-modsum::after{content:'';position:absolute;right:-90px;top:-90px;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(120,160,255,.30),transparent 70%);pointer-events:none;animation:npGlow 6s ease-in-out infinite;}
+  @keyframes npGlow{0%,100%{opacity:.7;transform:scale(1);}50%{opacity:1;transform:scale(1.12);}}
+  @keyframes npRise{from{opacity:0;transform:translateY(26px);}to{opacity:1;transform:none;}}
+  .np-modsum-over{position:relative;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:3.5px;text-transform:uppercase;color:rgba(255,255,255,.62);display:flex;align-items:center;gap:10px;}
+  .np-modsum-over .np-star{margin:0;color:#9db8ff;}
+  .np-modsum-title{font-family:'Playfair Display',serif;font-weight:800;font-size:clamp(25px,3.6vw,40px);line-height:1.04;margin:10px 0 18px;position:relative;}
+  .np-modsum-body{position:relative;font-size:15px;line-height:1.72;color:rgba(255,255,255,.93);}
+  .np-modsum-body p{margin:0 0 13px;}
+  .np-modsum-body h2,.np-modsum-body h3,.np-modsum-body h4{font-family:'Oswald',sans-serif;font-weight:600;font-size:15px;letter-spacing:.6px;text-transform:uppercase;color:#9db8ff;margin:22px 0 9px;}
+  .np-modsum-body strong{color:#fff;font-weight:700;}
+  .np-modsum-body ul{margin:9px 0 14px;padding-left:4px;list-style:none;}
+  .np-modsum-body li{position:relative;margin:8px 0;padding-left:26px;}
+  .np-modsum-body li::before{content:'';position:absolute;left:6px;top:9px;width:7px;height:7px;border-radius:50%;background:#9db8ff;box-shadow:0 0 0 4px rgba(157,184,255,.16);}
+  .np-modsum-tags{position:relative;display:flex;flex-wrap:wrap;gap:9px;margin-top:20px;}
+  .np-modsum-tag{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;padding:7px 13px;border-radius:30px;background:rgba(157,184,255,.14);border:1px solid rgba(157,184,255,.28);color:#cfe0ff;}
+  @media(max-width:560px){
+    .np-prod-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px 12px;}
+    .np-view{flex-basis:100%;padding:13px 16px;}
+    .np-modsum{padding:26px 20px;border-radius:16px;}
+  }
   .np-empty{text-align:center;padding:60px 20px;color:var(--np-muted);font-family:'IBM Plex Sans',sans-serif;}
   .np-empty h3{font-family:'Playfair Display',serif;font-weight:700;color:var(--ink);margin:0 0 6px;}
   @media(min-width:1500px){
@@ -8832,6 +8864,31 @@ function closeNoticias(){
 let _npRod=null;
 const NP_CAT_COLOR={lancamento:'var(--c-lancamento)',campanha:'var(--c-campanha)',precopromo:'var(--c-precopromo)',faturamento:'var(--c-faturamento)',expansao:'var(--c-expansao)',tendencia:'var(--c-tendencia)',estrategia:'var(--c-estrategia)',marketing:'var(--c-marketing)',design:'var(--c-design)',moda:'var(--c-moda)',bestseller:'var(--c-bestseller)',instagram:'var(--c-instagram)',outro:'var(--c-outro)'};
 function _npCatColor(c){const s=String(c||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z]/g,'');return NP_CAT_COLOR[s]||'var(--c-outro)';}
+let _npView='comercial';
+function _npNorm(c){return String(c||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z]/g,'');}
+// categoria → vista. Marketing = conteúdo/IG/colunas; o resto (produto/comercial) = Comercial & Desenvolvimento.
+const NP_MKT=['instagram','marketing','moda','tendencia','design','conteudo','viral','reels','reel','post'];
+function _npVista(cat){const s=_npNorm(cat);if(s.startsWith('resumo'))return s.includes('marketing')?'marketing':'comercial';return NP_MKT.some(k=>s.includes(k))?'marketing':'comercial';}
+function _npIsResumo(cat){return _npNorm(cat).startsWith('resumo');}
+// nome chamativo + estrela só nas seções-vitrine
+const NP_SEC={bestseller:{nome:'As Mais Desejadas',star:1},lancamento:{nome:'Acabou de Chegar',star:0},instagram:{nome:'Bombou no Instagram',star:1},viral:{nome:'O Que Mais Viralizou',star:1},reels:{nome:'Reels do Momento',star:1},post:{nome:'Últimos Posts',star:0}};
+function _npSecMeta(cat){const s=_npNorm(cat);for(const k in NP_SEC){if(s.includes(k))return NP_SEC[k];}return null;}
+function _npViewTabsHtml(){
+  const vs=[['comercial','📊','Comercial & Desenvolvimento','campanhas · lançamentos · best-sellers'],['marketing','🎯','Marketing','conteúdo · IG · o que viraliza']];
+  return '<div class="np-views">'+vs.map(([k,ic,lbl,sub])=>'<button class="np-view'+(k===_npView?' active':'')+'" onclick="_npSetView(\''+k+'\')"><span class="np-view-ic">'+ic+'</span><span class="np-view-txt">'+lbl+'<small>'+sub+'</small></span></button>').join('')+'</div>';
+}
+function _npSetView(v){_npView=v;_npRenderBody();const b=document.getElementById('np-body');if(b)b.scrollIntoView({behavior:'smooth',block:'start'});}
+function _npStar(){return '<span class="np-star">★</span>';}
+function _npModSumHtml(row){
+  const titulo=row.titulo||'Resumo do Módulo';
+  const body=(typeof _gcMarkdown==='function')?_gcMarkdown(String(row.resumo||'')):('<p>'+_npEsc(row.resumo||'')+'</p>');
+  let tags='';try{const t=_npProds(row);if(t.length&&t[0].nome)tags='<div class="np-modsum-tags">'+t.slice(0,8).map(x=>'<span class="np-modsum-tag">'+_npEsc(x.nome)+'</span>').join('')+'</div>';}catch(e){}
+  const over=_npView==='marketing'?'Leitura de Marketing':'Leitura Comercial & Desenvolvimento';
+  return '<section class="np-modsum">'
+    +'<div class="np-modsum-over">'+_npStar()+over+'</div>'
+    +'<h2 class="np-modsum-title">'+_npEsc(titulo)+'</h2>'
+    +'<div class="np-modsum-body">'+body+'</div>'+tags+'</section>';
+}
 const NP_LOGOS={"Santa Lolla":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/santa_lolla.jpg","Arezzo&Co":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/arezzo.jpg","Schutz":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/schutzoficial.jpg","Anacapri":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/anacaprioficial.jpg","Capodarte":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/capodarte.jpg","Luz da Lua":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/luzdalua.jpg","Petite Jolie":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/petitejolie_.jpg","Jorge Bischoff":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/jorgebischoff.jpg","Dumond":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/dumondoficial.jpg","Carmen Steffens":"https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/ig-cache/logo/carmensteffens.jpg"};
 function _npLogo(m){const u=NP_LOGOS[m];return (u&&/^https:\/\//.test(u))?u:'';}
 async function loadNoticias(){
@@ -8887,19 +8944,28 @@ function _npRenderBody(){
   const body=document.getElementById('np-body');
   const todas=_npData.filter(n=>n.marca===_npTab);
   const maxRod=todas.reduce((m,n)=>String(n.rodada||'')>m?String(n.rodada||''):m,'');
-  const items=maxRod?todas.filter(n=>String(n.rodada||'')===maxRod):todas;
-  if(!items.length){body.innerHTML='<div class="np-empty"><h3>Nenhuma notícia</h3><p>Esta marca ainda não tem registros.</p></div>';return;}
+  const all=maxRod?todas.filter(n=>String(n.rodada||'')===maxRod):todas;
+  if(!all.length){body.innerHTML='<div class="np-empty"><h3>Nenhuma notícia</h3><p>Esta marca ainda não tem registros.</p></div>';return;}
   const issueDate=maxRod?_npFmtDate(maxRod):(_npRod?_npFmtDate(_npRod):'');
+  // só o que pertence à vista atual (e que não seja o card-resumo)
+  const items=all.filter(n=>!_npIsResumo(n.categoria)&&_npVista(n.categoria)===_npView);
+  const resumo=all.find(n=>_npIsResumo(n.categoria)&&_npVista(n.categoria)===_npView);
   const sorted=[...items].sort((a,b)=>String(b.data_publicacao||'').localeCompare(String(a.data_publicacao||'')));
   const galerias=sorted.filter(n=>_npProds(n).length);
   const normais=sorted.filter(n=>!_npProds(n).length);
   const hero=normais.find(n=>n.destaque)||normais[0]||null;
   const rest=normais.filter(n=>n!==hero);
+  const issueMeta=_npView==='marketing'?'Marketing & Conteúdo':'Comercial & Desenvolvimento';
   let html='<div class="np-issue"><div class="np-issue-l">'
     +(_npLogo(_npTab)?'<img class="np-issue-logo" src="'+_npLogo(_npTab)+'" alt="" onerror="this.remove()">':'')
     +'<span class="np-issue-over">Inteligência de Concorrência</span>'
     +'<h1 class="np-issue-title">'+_npEsc(_npTab)+'</h1></div>'
-    +'<div class="np-issue-r"><b>Edição '+issueDate+'</b><br>'+items.length+' matéria'+(items.length!==1?'s':'')+'<br>RBV · Observatório</div></div>';
+    +'<div class="np-issue-r"><b>Edição '+issueDate+'</b><br>'+issueMeta+'<br>RBV · Observatório</div></div>';
+  html+=_npViewTabsHtml();
+  if(!items.length&&!resumo){
+    body.innerHTML=html+'<div class="np-empty"><h3>Sem registros nesta vista</h3><p>'+(_npView==='marketing'?'Ainda não coletamos conteúdo de marketing/Instagram desta marca nesta edição.':'Ainda não há análise comercial desta marca nesta edição.')+'</p></div>';
+    return;
+  }
   if(hero){
     const col=_npCatColor(hero.categoria);
     const hd=hero.data_publicacao?_npFmtDate(hero.data_publicacao):'';
@@ -8916,7 +8982,8 @@ function _npRenderBody(){
   }
   galerias.forEach(g=>{ html+=_npGalleryHtml(g); });
   if(rest.length){
-    html+='<div class="np-sec-rule"><span>Mais sobre '+_npEsc(_npTab)+'</span></div><div class="np-grid">';
+    const ruleLbl=_npView==='marketing'?'Colunas & manchetes':'Movimentos comerciais';
+    html+='<div class="np-sec-rule"><span>'+ruleLbl+' · '+_npEsc(_npTab)+'</span></div><div class="np-grid">';
     let i=2;
     rest.forEach(n=>{
       const col=_npCatColor(n.categoria);i++;
@@ -8933,6 +9000,7 @@ function _npRenderBody(){
     });
     html+='</div>';
   }
+  if(resumo){ html+=_npModSumHtml(resumo); }
   body.innerHTML=html;
 }
 function _npFmtDate(d){try{return new Date(d+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}).replace(/ de /g,'/').replace('.','');}catch(e){return d;}}
@@ -8946,9 +9014,12 @@ function _npGalleryHtml(g){
   const prods=_npProds(g);
   const link=g.url&&/^https?:\/\//.test(g.url)?'<a class="np-link" href="'+_npEsc(g.url)+'" target="_blank" rel="noopener noreferrer">Ver na loja ↗</a>':'';
   const ehIG=String(g.categoria||'').toLowerCase()==='instagram';
+  const sec=_npSecMeta(g.categoria);
+  const titulo=(sec&&sec.nome)?sec.nome:_npEsc(g.titulo);
+  const star=(sec&&sec.star)?_npStar():'';
   let h='<section class="np-gallery'+(ehIG?' np-gallery--ig':'')+'" style="--cat:'+col+'">'
     +'<div class="np-gallery-head"><div><div class="np-gallery-kicker">'+_npEsc(g.categoria||'Best-seller')+'</div>'
-    +'<h2 class="np-gallery-title">'+_npEsc(g.titulo)+'</h2></div>'
+    +'<h2 class="np-gallery-title">'+star+titulo+'</h2></div>'
     +'<span class="np-gallery-meta">'+prods.length+' '+(prods.length===1?'item':'itens')+' · '+_npEsc(g.fonte||'Loja oficial')+'</span></div>'
     +(g.resumo?'<p class="np-gallery-resumo">'+_npEsc(g.resumo)+'</p>':'')
     +'<div class="np-prod-grid">';
