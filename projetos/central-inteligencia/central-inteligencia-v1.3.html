@@ -2809,6 +2809,9 @@ function fmtN(n){return n>=1000?(n/1000).toFixed(1)+'K':String(n);}
 function fmtR(v){const p=v.toFixed(2).split('.');return 'R$ '+p[0].replace(/\B(?=(\d{3})+(?!\d))/g,'.')+','+p[1];}
 function pctDiff(curr,prev){if(!prev)return '+0.0%';const d=((curr-prev)/prev*100);return (d>=0?'+':'')+d.toFixed(1)+'%';}
 function perfColor(pct){return pct>=100?'green':pct>=75?'yellow':pct>=50?'orange':'red';}
+// formatação condicional: pinta o NÚMERO do indicador conforme o desempenho vs meta
+const _PERF_VAR={green:'var(--green)',yellow:'var(--yellow)',orange:'var(--orange)',red:'var(--red)'};
+function _mcValColor(key,clr){const pe=document.getElementById('pct-'+key);const card=pe&&pe.closest('.card');const v=card&&card.querySelector('.mc-val');if(v)v.style.color=_PERF_VAR[clr]||'';}
 function goalStorageKey(key,period,accountId){return 'ig_goal_'+(accountId||'default')+'_'+period+'_'+key;}
 const RATE_GOALS=['cps'];
 // comprimento em dias de cada período (pro recálculo proporcional). null = comprimento variável (não escala).
@@ -2895,6 +2898,7 @@ function setCompare(id,curr,prev,prefix,periodLabel,lowerIsBetter){
 /* ── METRIC GOAL ── */
 function applyMetric(key,curr,goal){
   const pct=Math.min((curr/goal)*100,150);const clr=perfColor(pct);const diff=curr-goal;
+  _mcValColor(key,clr);
   setTimeout(()=>{const p=document.getElementById('prog-'+key);p.style.width=Math.min(pct,100)+'%';p.className='mc-progress-fill bg-'+clr;},80);
   document.getElementById('pct-'+key).textContent=Math.round(pct)+'%';
   document.getElementById('pct-'+key).className='mc-pct c-'+clr;
@@ -2904,6 +2908,7 @@ function applyMetric(key,curr,goal){
 }
 function applyMetricInverse(key,curr,goal){
   const pct=(goal/curr)*100;const clr=perfColor(pct);const diff=curr-goal;
+  _mcValColor(key,clr);
   setTimeout(()=>{const p=document.getElementById('prog-'+key);p.style.width=Math.min(pct,100)+'%';p.className='mc-progress-fill bg-'+clr;},80);
   document.getElementById('pct-'+key).textContent=Math.round(pct)+'%';
   document.getElementById('pct-'+key).className='mc-pct c-'+clr;
@@ -2913,6 +2918,7 @@ function applyMetricInverse(key,curr,goal){
 }
 function applySpend(curr,budget){
   const pct=(curr/budget)*100;const clr=pct<=100?'green':pct<=120?'yellow':'red';const rem=budget-curr;
+  _mcValColor('spend',clr);
   setTimeout(()=>{const p=document.getElementById('prog-spend');p.style.width=Math.min(pct,100)+'%';p.className='mc-progress-fill bg-'+clr;},80);
   document.getElementById('pct-spend').textContent=Math.round(pct)+'% do budget';
   document.getElementById('pct-spend').className='mc-pct c-'+clr;
