@@ -8964,11 +8964,13 @@ function _npLogo(m){const u=NP_LOGOS[m];return (u&&/^https:\/\//.test(u))?u:'';}
 async function loadNoticias(){
   const body=document.getElementById('np-body');
   body.innerHTML='<div class="np-empty"><h3>Carregando…</h3></div>';
-  const{data,error}=await sbClient.from('noticias_concorrentes')
-    .select('*')
-    .order('rodada',{ascending:false})
-    .order('destaque',{ascending:false})
-    .order('created_at',{ascending:false});
+  // a tabela cresce 1 edição/semana — busca só as ~3 rodadas mais recentes (front usa maxRod por marca)
+  let recentes=[];
+  try{const rd=await sbClient.from('noticias_concorrentes').select('rodada').order('rodada',{ascending:false}).limit(1200);
+    recentes=[...new Set((rd.data||[]).map(r=>r.rodada).filter(Boolean))].slice(0,3);}catch(e){}
+  let q=sbClient.from('noticias_concorrentes').select('*').order('rodada',{ascending:false}).order('destaque',{ascending:false}).order('created_at',{ascending:false});
+  if(recentes.length)q=q.in('rodada',recentes);
+  const{data,error}=await q;
   if(error){body.innerHTML='<div class="np-empty"><h3>Erro ao carregar</h3><p>'+_npEsc(error.message)+'</p></div>';return;}
   _npData=data||[];
   const rodadas=[...new Set(_npData.map(n=>n.rodada))].filter(Boolean).sort().reverse();

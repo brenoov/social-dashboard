@@ -52,4 +52,16 @@ for (const h of handles) {
     if (r.ok) del++; else fail++;
   }
 }
-console.log(`Faxina: mantidas ${kept} · ${DRY ? 'a apagar' : 'apagadas'} ${del}${fail ? ' · falhas ' + fail : ''}.`);
+console.log(`Faxina storage: mantidas ${kept} · ${DRY ? 'a apagar' : 'apagadas'} ${del}${fail ? ' · falhas ' + fail : ''}.`);
+
+// 3) PRUNE do BANCO: mantém as N rodadas mais recentes (números p/ histórico), apaga as antigas.
+const KEEP_ROD = 8;
+const rods = [...new Set(rows.map(r => r.rodada).filter(Boolean))].sort().reverse();
+if (rods.length > KEEP_ROD) {
+  const cutoff = rods[KEEP_ROD - 1]; // a 8ª edição mais recente
+  if (DRY) console.log(`prune DB (DRY): apagaria rodadas < ${cutoff} (${rods.length - KEEP_ROD} edições antigas)`);
+  else {
+    const r = await fetch(`${URL_SB}/rest/v1/noticias_concorrentes?rodada=lt.${cutoff}`, { method: 'DELETE', headers: jh });
+    console.log(`prune DB: rodadas < ${cutoff} → ${r.ok ? 'apagadas' : 'falha ' + r.status}`);
+  }
+} else console.log(`prune DB: ${rods.length} edições (≤${KEEP_ROD}) — nada a apagar.`);
