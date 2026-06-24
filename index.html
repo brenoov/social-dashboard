@@ -1048,6 +1048,8 @@
   .np-gallery .np-link{color:var(--cat,#1a1a1a);border-color:var(--cat,#1a1a1a);font-size:10px;}
   /* ── Vistas: Comercial & Desenvolvimento | Marketing ── */
   .np-views{display:flex;gap:10px;margin:30px 0 4px;flex-wrap:wrap;}
+  .np-views--solo{justify-content:center;}
+  .np-views--solo .np-view{flex:0 1 440px;}
   .np-view{flex:1 1 250px;display:flex;align-items:center;justify-content:center;gap:11px;padding:16px 20px;border:1.5px solid var(--np-rule);border-radius:15px;background:transparent;color:var(--np-muted);font-family:'IBM Plex Sans',sans-serif;font-size:12.5px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;cursor:pointer;transition:all .22s cubic-bezier(.2,.7,.2,1);}
   .np-view:hover{border-color:var(--ink);color:var(--ink);transform:translateY(-1px);}
   .np-view.active{background:var(--ink);color:var(--paper);border-color:var(--ink);box-shadow:0 12px 28px -14px rgba(0,0,0,.55);}
@@ -8940,9 +8942,10 @@ function _npIsResumo(cat){return _npNorm(cat).startsWith('resumo');}
 // nome chamativo + estrela só nas seções-vitrine
 const NP_SEC={bestseller:{nome:'As Mais Desejadas',star:1},lancamento:{nome:'Acabou de Chegar',star:0},instagram:{nome:'Bombou no Instagram',star:1},viral:{nome:'O Que Mais Viralizou',star:1},reels:{nome:'Reels do Momento',star:1},post:{nome:'Últimos Posts',star:0}};
 function _npSecMeta(cat){const s=_npNorm(cat);for(const k in NP_SEC){if(s.includes(k))return NP_SEC[k];}return null;}
-function _npViewTabsHtml(){
-  const vs=[['comercial','📊','Comercial & Desenvolvimento','campanhas · lançamentos · best-sellers'],['marketing','🎯','Marketing','conteúdo · IG · o que viraliza']];
-  return '<div class="np-views">'+vs.map(([k,ic,lbl,sub])=>'<button class="np-view'+(k===_npView?' active':'')+'" onclick="_npSetView(\''+k+'\')"><span class="np-view-ic">'+ic+'</span><span class="np-view-txt">'+lbl+'<small>'+sub+'</small></span></button>').join('')+'</div>';
+function _npViewTabsHtml(mktOnly){
+  let vs=[['comercial','📊','Comercial & Desenvolvimento','campanhas · lançamentos · best-sellers'],['marketing','🎯','Marketing','conteúdo · IG · o que viraliza']];
+  if(mktOnly)vs=vs.filter(v=>v[0]==='marketing').map(v=>[v[0],v[1],v[2],'marca monitorada só em conteúdo']);
+  return '<div class="np-views'+(mktOnly?' np-views--solo':'')+'">'+vs.map(([k,ic,lbl,sub])=>'<button class="np-view'+(k===_npView?' active':'')+'" onclick="_npSetView(\''+k+'\')"><span class="np-view-ic">'+ic+'</span><span class="np-view-txt">'+lbl+'<small>'+sub+'</small></span></button>').join('')+'</div>';
 }
 function _npSetView(v){_npView=v;_npRenderBody();const b=document.getElementById('np-body');if(b)b.scrollIntoView({behavior:'smooth',block:'start'});}
 function _npStar(){return '<span class="np-star">★</span>';}
@@ -9014,6 +9017,9 @@ function _npRenderBody(){
   const all=maxRod?todas.filter(n=>String(n.rodada||'')===maxRod):todas;
   if(!all.length){body.innerHTML='<div class="np-empty"><h3>Nenhuma notícia</h3><p>Esta marca ainda não tem registros.</p></div>';return;}
   const issueDate=maxRod?_npFmtDate(maxRod):(_npRod?_npFmtDate(_npRod):'');
+  // marca só-marketing (ex.: L'Occitane): sem conteúdo comercial → esconde a aba e abre em Marketing
+  const mktOnly=!all.some(n=>!_npIsResumo(n.categoria)&&_npVista(n.categoria)==='comercial');
+  if(mktOnly&&_npView==='comercial')_npView='marketing';
   // só o que pertence à vista atual (e que não seja o card-resumo)
   const items=all.filter(n=>!_npIsResumo(n.categoria)&&_npVista(n.categoria)===_npView);
   const resumo=all.find(n=>_npIsResumo(n.categoria)&&_npVista(n.categoria)===_npView);
@@ -9028,7 +9034,7 @@ function _npRenderBody(){
     +'<span class="np-issue-over">Inteligência de Concorrência</span>'
     +'<h1 class="np-issue-title">'+_npEsc(_npTab)+'</h1></div>'
     +'<div class="np-issue-r"><b>Edição '+issueDate+'</b><br>'+issueMeta+'<br>RBV · Observatório</div></div>';
-  html+=_npViewTabsHtml();
+  html+=_npViewTabsHtml(mktOnly);
   if(!items.length&&!resumo){
     body.innerHTML=html+'<div class="np-empty"><h3>Sem registros nesta vista</h3><p>'+(_npView==='marketing'?'Ainda não coletamos conteúdo de marketing/Instagram desta marca nesta edição.':'Ainda não há análise comercial desta marca nesta edição.')+'</p></div>';
     return;

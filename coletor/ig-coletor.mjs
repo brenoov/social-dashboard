@@ -12,7 +12,7 @@ const G = 'https://graph.facebook.com/v22.0';
 const RODADA = process.env.RODADA || new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 const BUCKET = 'ig-cache';
 const N = 10;               // itens por galeria
-const VID_MAX_MB = 18;      // teto p/ re-hospedar vídeo (acima disso: fica poster + link p/ o IG)
+const VID_MAX_MB = 25;      // teto p/ re-hospedar vídeo (acima disso: fica poster + link p/ o IG)
 
 const HANDLES = {
   'Santa Lolla': ['santa_lolla', 'santalolla', 'santalollaoficial'],
