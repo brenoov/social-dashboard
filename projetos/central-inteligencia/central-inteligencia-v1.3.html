@@ -1832,6 +1832,8 @@
   .ma-kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
   .ma-kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;display:flex;flex-direction:column;gap:4px;}
   .ma-kpi-label{font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);}
+  .ma-kpi-q{margin-left:5px;width:14px;height:14px;border-radius:50%;border:1px solid var(--border);background:none;color:var(--muted);font-size:9px;font-weight:700;cursor:pointer;line-height:1;padding:0;vertical-align:middle;}
+  .ma-kpi-q:hover{border-color:var(--accent);color:var(--accent);}
   .ma-kpi-val{font-family:'Oswald',sans-serif;font-size:26px;font-weight:700;color:var(--text);line-height:1.1;}
   .ma-kpi-delta{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:500;display:flex;align-items:center;gap:4px;margin-top:2px;}
   .ma-delta-up{color:#16a34a;}.ma-delta-down{color:#dc2626;}.ma-delta-neu{color:var(--muted);}
@@ -8469,6 +8471,18 @@ function _openCampanhaFilter(insights,campaigns,onApply){
   document.body.appendChild(drawer);
 }
 
+const MA_KPI_HELP={
+ 'CTR':'<b>CTR — taxa de cliques</b> = cliques ÷ impressões. Mede o quanto o criativo e a segmentação atraem. Referência: <b>≥ 2%</b> ótimo · 0,8–2% ok · <b>&lt; 0,8%</b> fraco.',
+ 'CPC':'<b>CPC — custo por clique</b> = gasto ÷ cliques. Quanto você paga por cada clique. Quanto menor, mais eficiente o tráfego.',
+ 'CPM':'<b>CPM — custo por mil impressões</b> = gasto ÷ impressões × 1000. Quanto custa aparecer mil vezes. Sobe quando o leilão/público está caro ou saturado.',
+ 'Custo por Lead':'<b>CPL — custo por lead</b> = gasto ÷ leads (conversões). Quanto custa cada resultado. Compare com a <b>média da conta</b> e com a margem do produto.',
+ 'Gasto Total':'Total investido nas campanhas do <b>período selecionado</b>.',
+ 'Impressões':'Quantas vezes os anúncios foram exibidos. Uma mesma pessoa pode contar várias vezes (≠ alcance, que é gente única).',
+ 'Cliques':'Total de cliques nos anúncios no período.',
+ 'Saldo Atual':'Saldo disponível na conta de anúncios na Meta (independe do período).',
+};
+function _maKpiHelp(l){const h=MA_KPI_HELP[l];if(h&&typeof _gtConfirm==='function')_gtConfirm(l,h,{okOnly:true});}
+function _maKpiQ(l){return MA_KPI_HELP[l]?`<button class="ma-kpi-q" onclick="_maKpiHelp('${String(l).replace(/'/g,"\\'")}')" title="O que é ${l}">?</button>`:'';}
 function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily,prevDaily,adInsights,acctReach}){
   el.innerHTML='';
   let _activeInsights=insights;
@@ -8599,7 +8613,7 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily,prevDaily,a
      {l:'Saldo Atual',v:_maCurAcc?.balance!=null?_maFmtR(_maCurAcc.balance):'—',d:{pct:null,cls:'',sym:''},sub:'disponível na conta'},
     ].forEach(({l,v,d,sub})=>{
       const k=document.createElement('div');k.className='ma-kpi';
-      k.innerHTML=`<div class="ma-kpi-label">${l}</div><div class="ma-kpi-val">${v}</div>${d.pct!==null?`<div class="ma-kpi-delta ${d.cls}">${d.sym}</div>`:''}<div class="ma-kpi-sub">${sub}</div>`;
+      k.innerHTML=`<div class="ma-kpi-label">${l}${_maKpiQ(l)}</div><div class="ma-kpi-val">${v}</div>${d.pct!==null?`<div class="ma-kpi-delta ${d.cls}">${d.sym}</div>`:''}<div class="ma-kpi-sub">${sub}</div>`;
       kpi1.appendChild(k);
     });
     col.appendChild(kpi1);
@@ -8615,7 +8629,7 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily,prevDaily,a
       const k=document.createElement('div');k.className='ma-kpi';
       if(good)k.style.borderColor='rgba(22,163,74,.3)';
       if(bad)k.style.borderColor='rgba(220,38,38,.2)';
-      k.innerHTML=`<div class="ma-kpi-label">${l}</div><div class="ma-kpi-val" style="${good?'color:#16a34a':bad?'color:#dc2626':''}">${v}</div>${d.pct!==null?`<div class="ma-kpi-delta ${d.cls}">${d.sym}</div>`:''}<div class="ma-kpi-sub">${sub}</div>`;
+      k.innerHTML=`<div class="ma-kpi-label">${l}${_maKpiQ(l)}</div><div class="ma-kpi-val" style="${good?'color:#16a34a':bad?'color:#dc2626':''}">${v}</div>${d.pct!==null?`<div class="ma-kpi-delta ${d.cls}">${d.sym}</div>`:''}<div class="ma-kpi-sub">${sub}</div>`;
       kpi2.appendChild(k);
     });
     col.appendChild(kpi2);
