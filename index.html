@@ -9213,7 +9213,7 @@ async function _acRenderDispositivos(pessoaId){
     const m=_acDstMeta(d.status);
     return `<div class="ac-row">
       <div class="grow">
-        <div><strong>${_acEsc(_acTipoLabel(d.tipo))}</strong> — ${_acEsc(d.descricao)} <span class="ac-pill ${m[2]||'warn'}">${_acEsc(m[1])}</span></div>
+        <div><strong>${_acEsc(_acTipoLabel(d.tipo))}</strong> — ${_acEsc(d.descricao)} <span class="ac-pill ${m[2]}">${_acEsc(m[1])}</span></div>
         <div class="ac-muted">${d.identificador?'ID: '+_acEsc(d.identificador):'sem identificador'}${d.desde?' · desde '+_acEsc(d.desde):''}${d.observacao?' · '+_acEsc(d.observacao):''}</div>
       </div>
       <select class="ac-select" style="width:auto" onchange="_acSetDispStatus('${d.id}','${pessoaId}',this.value)">
@@ -9234,7 +9234,8 @@ async function _acAddDispositivo(pessoaId,id){
   let d={tipo:'celular',descricao:'',identificador:'',desde:'',observacao:''};
   if(id){const{data}=await sbClient.from('acessos_dispositivos').select('*').eq('id',id).single();if(data)d=data;}
   const wrap=document.getElementById('ac-disp-wrap');
-  const form=document.createElement('div');form.className='ac-card';
+  const old=wrap.querySelector('#acd-form');if(old)old.remove();
+  const form=document.createElement('div');form.className='ac-card';form.id='acd-form';
   form.innerHTML=`<h3 style="margin-top:0">${id?'Editar item':'Novo item'}</h3>
     <div class="ac-grid2">
       <label>Tipo<select class="ac-select" id="acd-tipo">${AC_TIPOS.map(t=>`<option value="${t[0]}" ${t[0]===d.tipo?'selected':''}>${t[1]}</option>`).join('')}</select></label>
