@@ -9197,6 +9197,17 @@ async function _acConectarZoho(){
   try{const r=await _acProxy('zoho.authUrl');if(r&&r.url)window.location.href=r.url;else adminToast('Falha ao iniciar conexão',false);}
   catch(e){adminToast('Erro: '+e.message,false);}
 }
+async function _acODStatus(){
+  const el=document.getElementById('ac-od-status');if(!el)return;
+  try{const s=await _acProxy('microsoft.status');
+    if(s&&s.connected){el.innerHTML='<span class="ac-pill ok">conectado</span>'+(s.conectado_em?' <span class="ac-muted">desde '+_acEsc(new Date(s.conectado_em).toLocaleDateString('pt-BR'))+'</span>':'');}
+    else{el.innerHTML='<span class="ac-pill neutral">não conectado</span>';}
+  }catch(e){el.innerHTML='<span class="ac-muted">status indisponível</span>';}
+}
+async function _acConectarOneDrive(){
+  try{const r=await _acProxy('microsoft.authUrl');if(r&&r.url)window.location.href=r.url;else adminToast('Falha ao iniciar conexão',false);}
+  catch(e){adminToast('Erro: '+e.message,false);}
+}
 async function _acImportarZoho(){
   if(!confirm('Importar os usuários do Zoho como colaboradores? (cria os novos e atualiza os já importados)'))return;
   adminToast('Importando do Zoho…');
@@ -9206,10 +9217,11 @@ async function _acImportarZoho(){
   }catch(e){adminToast('Erro: '+e.message,false);}
 }
 function _acHandleZohoReturn(){
-  const p=new URLSearchParams(location.search);const z=p.get('zoho');if(!z)return;
-  if(z==='ok')adminToast('Zoho conectado!');else adminToast('Falha ao conectar Zoho: '+(p.get('msg')||'erro'),false);
-  const u=new URL(location.href);u.searchParams.delete('zoho');u.searchParams.delete('msg');
-  history.replaceState({},'',u.pathname+u.search+u.hash);
+  const p=new URLSearchParams(location.search);
+  const z=p.get('zoho'); const o=p.get('onedrive');
+  if(z){ if(z==='ok')adminToast('Zoho conectado!'); else adminToast('Falha ao conectar Zoho: '+(p.get('msg')||'erro'),false); }
+  if(o){ if(o==='ok')adminToast('OneDrive conectado!'); else adminToast('Falha ao conectar OneDrive: '+(p.get('msg')||'erro'),false); } // ?onedrive=ok|erro
+  if(z||o){ const u=new URL(location.href); u.searchParams.delete('zoho'); u.searchParams.delete('onedrive'); u.searchParams.delete('msg'); history.replaceState({},'',u.pathname+u.search+u.hash); }
 }
 if(document.readyState!=='loading')_acHandleZohoReturn();else window.addEventListener('DOMContentLoaded',_acHandleZohoReturn);
 function openAcessos(){
@@ -9291,9 +9303,12 @@ function _acRenderConfiguracoes(){
         <button class="ac-btn ghost" onclick="_acConectarZoho()">Conectar</button>
         <button class="ac-btn" id="ac-zoho-import" style="display:none" onclick="_acImportarZoho()">Importar usuários</button>
       </div>
-      <div class="ac-row" style="opacity:.55">
-        <div class="grow"><div><strong>OneDrive</strong> <span class="ac-pill neutral">em breve</span></div>
-        <div class="ac-muted">Compartilhamento de pastas (próxima fase).</div></div>
+      <div class="ac-row">
+        <div class="grow">
+          <div><strong>OneDrive</strong> <span id="ac-od-status" class="ac-muted">verificando…</span></div>
+          <div class="ac-muted">Compartilhamento das pastas que você escolher controlar (conta pessoal).</div>
+        </div>
+        <button class="ac-btn ghost" onclick="_acConectarOneDrive()">Conectar</button>
       </div>
       <div class="ac-row" style="opacity:.55">
         <div class="grow"><div><strong>iCloud</strong> <span class="ac-pill neutral">manual</span></div>
@@ -9301,6 +9316,7 @@ function _acRenderConfiguracoes(){
       </div>
     </div>`;
   _acZohoStatus();
+  _acODStatus();
 }
 function _acOpenOrg(orgId){_acSelOrg=orgId;_acSelSetor=null;_acSel=null;_acRender();}
 async function _acAddOrg(){
