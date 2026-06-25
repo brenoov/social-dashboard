@@ -7394,15 +7394,36 @@ function _gtObjCategory(obj){
   if(o.includes('TRAFFIC')||o==='LINK_CLICKS')return'traffic';
   return'other';
 }
-// ── Critérios da Gestão de Tráfego (FONTE ÚNICA — o "?" lê daqui) · postura EQUILIBRADA ──
-const GT_CRIT={
-  minSpend:20,minImpr:1000,                 // gate de dados: abaixo disso não opina
-  freqSat:4,freqAtt:3.5,                     // saturação de público
-  lead:{pausSpend:80,pausImpr:4000,escCTR:2.0,escCPLf:0.85,monCTR:1.5,monSpend:50},
-  traffic:{pausCTR:0.5,pausSpend:40,pausImpr:2000,escCTR:2.0,escCPC:2.0,monCTR:1.0,monSpend:40},
-  engagement:{pausSpend:60,pausEng:10,pausImpr:2000,escEng:100,escCTR:1.0,monCTR:0.5,monSpend:30},
-  video:{monSpend:50,monViews:100,escViews:500,escCTR:0.8},
+// ── Critérios da Gestão de Tráfego (FONTE ÚNICA — o "?" lê do GT_CRIT ativo) ──
+// 3 posturas escalam toda a régua de uma vez. Conservadora = opina só em casos claros (espera mais
+// dados, pausa mais tarde, exige sinal forte p/ escalar). Agressiva = age cedo. Equilibrada = meio.
+const GT_PRESETS={
+  conservadora:{
+    minSpend:35,minImpr:1800, freqSat:4.5,freqAtt:4,
+    lead:{pausSpend:120,pausImpr:6000,escCTR:2.5,escCPLf:0.80,monCTR:2.0,monSpend:80},
+    traffic:{pausCTR:0.4,pausSpend:60,pausImpr:3000,escCTR:2.5,escCPC:1.6,monCTR:0.8,monSpend:60},
+    engagement:{pausSpend:90,pausEng:8,pausImpr:3000,escEng:150,escCTR:1.3,monCTR:0.4,monSpend:50},
+    video:{monSpend:80,monViews:80,escViews:700,escCTR:1.0},
+  },
+  equilibrada:{
+    minSpend:20,minImpr:1000, freqSat:4,freqAtt:3.5,
+    lead:{pausSpend:80,pausImpr:4000,escCTR:2.0,escCPLf:0.85,monCTR:1.5,monSpend:50},
+    traffic:{pausCTR:0.5,pausSpend:40,pausImpr:2000,escCTR:2.0,escCPC:2.0,monCTR:1.0,monSpend:40},
+    engagement:{pausSpend:60,pausEng:10,pausImpr:2000,escEng:100,escCTR:1.0,monCTR:0.5,monSpend:30},
+    video:{monSpend:50,monViews:100,escViews:500,escCTR:0.8},
+  },
+  agressiva:{
+    minSpend:12,minImpr:600, freqSat:3.5,freqAtt:3,
+    lead:{pausSpend:50,pausImpr:2500,escCTR:1.6,escCPLf:0.95,monCTR:1.2,monSpend:30},
+    traffic:{pausCTR:0.6,pausSpend:25,pausImpr:1200,escCTR:1.6,escCPC:2.5,monCTR:1.2,monSpend:25},
+    engagement:{pausSpend:40,pausEng:12,pausImpr:1200,escEng:70,escCTR:0.8,monCTR:0.6,monSpend:20},
+    video:{monSpend:35,monViews:120,escViews:350,escCTR:0.7},
+  },
 };
+const GT_POSTURAS=[['conservadora','Conservadora'],['equilibrada','Equilibrada'],['agressiva','Agressiva']];
+let _gtPostura=(()=>{try{const p=localStorage.getItem('gt-postura');return GT_PRESETS[p]?p:'equilibrada';}catch(e){return 'equilibrada';}})();
+let GT_CRIT=GT_PRESETS[_gtPostura];
+function _gtSetPostura(p){if(!GT_PRESETS[p])return;_gtPostura=p;GT_CRIT=GT_PRESETS[p];try{localStorage.setItem('gt-postura',p);}catch(e){}}
 // Veredito como-se-ativa (puro, sem status) → {kind,priority,icon,label,text,criteria}.
 // kind: coletando | escalar | saudavel | monitorar | pausar
 function _gtVerdict(m){
@@ -7571,8 +7592,18 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
     });
     filterBtns[fd.v]=fb;filterWrap.appendChild(fb);
   });
-  const hdrRight=document.createElement('div');hdrRight.style.cssText='display:flex;align-items:center;gap:8px;';
-  hdrRight.appendChild(filterWrap);hdrRight.appendChild(searchInp);
+  // Seletor de POSTURA (1 clique escala toda a régua) — fica salvo (localStorage)
+  const postBar=document.createElement('div');postBar.style.cssText='display:flex;border:1px solid var(--border);border-radius:7px;overflow:hidden;flex-shrink:0;';
+  postBar.title='Postura da análise — quão cedo a IA recomenda agir';
+  const postBtns={};
+  GT_POSTURAS.forEach(([k,l],i)=>{
+    const b=document.createElement('button');b.textContent=l;
+    b.style.cssText='font-family:\'IBM Plex Sans\',sans-serif;font-size:10px;font-weight:600;padding:5px 10px;cursor:pointer;border:none;'+(i>0?'border-left:1px solid var(--border);':'')+'background:'+(k===_gtPostura?'var(--accent)':'none')+';color:'+(k===_gtPostura?'#fff':'var(--muted)')+';transition:all .15s;white-space:nowrap;';
+    b.onclick=()=>{_gtSetPostura(k);Object.entries(postBtns).forEach(([kk,bb])=>{const on=kk===k;bb.style.background=on?'var(--accent)':'none';bb.style.color=on?'#fff':'var(--muted)';});renderList(searchInp.value);};
+    postBtns[k]=b;postBar.appendChild(b);
+  });
+  const hdrRight=document.createElement('div');hdrRight.style.cssText='display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
+  hdrRight.appendChild(postBar);hdrRight.appendChild(filterWrap);hdrRight.appendChild(searchInp);
   hdr.appendChild(ttlWrap);hdr.appendChild(hdrRight);
   card.appendChild(hdr);
   const list=document.createElement('div');list.className='gt-camp-list';card.appendChild(list);
@@ -7716,8 +7747,9 @@ function _gtConfirm(title,detailHtml,opts){
 }
 function gtCriterios(){
   const C=GT_CRIT,R=_maFmtR,N=_maFmt;
+  const postLbl=(GT_POSTURAS.find(p=>p[0]===_gtPostura)||[0,'Equilibrada'])[1];
   const h=`<div style="max-height:62vh;overflow:auto;text-align:left;font-size:12px;line-height:1.55;">
-  <p style="margin:0 0 10px">As recomendações usam os dados do <b>período selecionado</b> e seguem uma régua fixa (postura <b>equilibrada</b>). Antes de opinar, exige <b>${R(C.minSpend)}</b> de gasto e <b>${N(C.minImpr)}</b> impressões — abaixo disso fica "coletando dados", sem recomendar nada.</p>
+  <p style="margin:0 0 10px">As recomendações usam os dados do <b>período selecionado</b> e seguem a régua da postura <b>${postLbl}</b> (você troca no topo: Conservadora / Equilibrada / Agressiva — escala tudo de uma vez). Antes de opinar, exige <b>${R(C.minSpend)}</b> de gasto e <b>${N(C.minImpr)}</b> impressões — abaixo disso fica "coletando dados", sem recomendar nada.</p>
   <p style="margin:0 0 10px"><b>😴 Saturação (qualquer objetivo):</b> frequência ≥ ${C.freqSat}× → reduzir orçamento ou pausar; ≥ ${C.freqAtt}× → monitorar.</p>
   <p style="margin:0 0 5px"><b>🎯 Conversão / Leads</b></p>
   <ul style="margin:0 0 10px;padding-left:18px">
