@@ -116,9 +116,9 @@ async function freshAccessToken(row: {
 async function listZohoUsers(
   conn: any,
   access: string,
-): Promise<{ users: Array<{ accountId: string; name: string; email: string }>; rawCount: number }> {
+): Promise<{ users: Array<{ accountId: string; zuid: string | null; name: string; email: string }>; rawCount: number }> {
   const dc = dcSuffix(conn.data_center);
-  const out: Array<{ accountId: string; name: string; email: string }> = [];
+  const out: Array<{ accountId: string; zuid: string | null; name: string; email: string }> = [];
   let start = 0;
   const limit = 50;
   let rawCount = 0;
@@ -169,7 +169,7 @@ async function listZohoUsers(
           const primary = u.emailAddress.find((e: any) => e?.isPrimary) ?? u.emailAddress[0];
           email = primary?.mailId ?? primary?.emailAddress ?? "";
         }
-        out.push({ accountId: String(accountId), name: name || String(email), email: String(email) });
+        out.push({ accountId: String(accountId), zuid: u?.zuid != null ? String(u.zuid) : null, name: name || String(email), email: String(email) });
       } catch (e) {
         console.error("[acessos-proxy] falha ao normalizar usuario:", e, JSON.stringify(u).slice(0, 400));
       }
@@ -182,32 +182,30 @@ async function listZohoUsers(
 }
 
 // Best-effort fetch of a user's photo bytes. Returns null if unavailable / not an image.
+// Fetch a user's photo from the Zoho Contacts thumbnail endpoint, keyed by zuid.
+// CONFIRMED working: GET https://contacts.zoho<dc>/file?ID=<zuid>&fs=thumb  -> image/png
+// (the documented Mail /accounts/<id>/photo path 404s; this contacts path returns the avatar).
 async function fetchZohoPhoto(
   conn: any,
   access: string,
-  accountId: string,
+  zuid: string,
 ): Promise<{ bytes: Uint8Array; contentType: string } | null> {
   const dc = dcSuffix(conn.data_center);
-  // NOTE: photo endpoint is NOT documented; this is a best-effort probe (see header).
-  const url = `https://mail.zoho${dc}/api/accounts/${accountId}/photo`;
+  const url = `https://contacts.zoho${dc}/file?ID=${encodeURIComponent(zuid)}&fs=thumb`;
   try {
     const resp = await fetch(url, {
       headers: { Authorization: `Zoho-oauthtoken ${access}` },
     });
     const ct = resp.headers.get("content-type") || "";
-    if (!resp.ok) {
-      console.warn("[acessos-proxy] photo http", resp.status, "ct", ct, "acct", accountId);
-      return null;
-    }
-    if (!ct.toLowerCase().startsWith("image/")) {
-      console.warn("[acessos-proxy] photo nao-imagem ct", ct, "acct", accountId);
+    if (!resp.ok || !ct.toLowerCase().startsWith("image/")) {
+      console.warn("[acessos-proxy] photo skip", resp.status, "ct", ct, "zuid", zuid);
       return null;
     }
     const buf = new Uint8Array(await resp.arrayBuffer());
     if (buf.byteLength === 0) return null;
-    return { bytes: buf, contentType: ct };
+    return { bytes: buf, contentType: ct.split(";")[0].trim() };
   } catch (e) {
-    console.warn("[acessos-proxy] photo erro", accountId, e instanceof Error ? e.message : e);
+    console.warn("[acessos-proxy] photo erro", zuid, e instanceof Error ? e.message : e);
     return null;
   }
 }
@@ -318,11 +316,12 @@ async function actImport(sb: any, quem: string | null) {
         criados++;
       }
 
-      // Best-effort avatar.
+      // Best-effort avatar (Zoho contacts thumbnail, keyed by zuid).
       try {
-        const photo = await fetchZohoPhoto(conn, access, u.accountId);
+        const photo = u.zuid ? await fetchZohoPhoto(conn, access, u.zuid) : null;
         if (photo) {
-          const path = `${pessoaId}.jpg`;
+          const ext = photo.contentType.includes("png") ? "png" : "jpg";
+          const path = `${pessoaId}.${ext}`;
           const { error: stErr } = await sb.storage
             .from(AVATAR_BUCKET)
             .upload(path, photo.bytes, { contentType: photo.contentType, upsert: true });
