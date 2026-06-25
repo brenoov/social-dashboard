@@ -9298,15 +9298,22 @@ async function _acODBrowse(){
   let r;try{r=await _acProxy('microsoft.browse',cur?{itemId:cur.id}:{});}catch(e){body.innerHTML='<div class="ac-muted">Erro: '+_acEsc(e.message)+'</div>';return;}
   const fs=(r&&r.folders)||[];
   body.innerHTML=`
-    ${cur?`<div style="margin-bottom:8px;display:flex;gap:8px;flex-wrap:wrap"><button class="ac-btn ghost" onclick="_acODUp()">↑ Voltar</button><button class="ac-btn" onclick="_acODAdd('${cur.id}','${encodeURIComponent(cur.name)}')">+ Adicionar "${_acEsc(cur.name)}"</button></div>`:''}
+    ${cur?`<div style="margin-bottom:8px;display:flex;gap:8px;flex-wrap:wrap"><button class="ac-btn ghost" data-od="up">↑ Voltar</button><button class="ac-btn" data-od="add" data-id="${_acEsc(cur.id)}" data-name="${_acEsc(cur.name)}">+ Adicionar "${_acEsc(cur.name)}"</button></div>`:''}
     ${fs.length?fs.map(f=>`<div class="ac-row"><div class="grow">📁 ${_acEsc(f.name)}${f.childCount?' <span class="ac-muted">'+f.childCount+' itens</span>':''}</div>
-      <button class="ac-btn ghost" onclick="_acODOpen('${f.id}','${encodeURIComponent(f.name)}')">Abrir</button>
-      <button class="ac-btn" onclick="_acODAdd('${f.id}','${encodeURIComponent(f.name)}')">Adicionar</button></div>`).join(''):'<div class="ac-muted">Sem subpastas aqui.</div>'}`;
+      <button class="ac-btn ghost" data-od="open" data-id="${_acEsc(f.id)}" data-name="${_acEsc(f.name)}">Abrir</button>
+      <button class="ac-btn" data-od="add" data-id="${_acEsc(f.id)}" data-name="${_acEsc(f.name)}">Adicionar</button></div>`).join(''):'<div class="ac-muted">Sem subpastas aqui.</div>'}`;
+  body.querySelectorAll('button[data-od]').forEach(b=>{
+    const act=b.dataset.od;
+    b.addEventListener('click',()=>{
+      if(act==='up')return _acODUp();
+      if(act==='open')return _acODOpen(b.dataset.id,b.dataset.name);
+      if(act==='add')return _acODAdd(b.dataset.id,b.dataset.name);
+    });
+  });
 }
-function _acODOpen(id,encName){_acODStack.push({id,name:decodeURIComponent(encName)});_acODBrowse();}
+function _acODOpen(id,name){_acODStack.push({id,name});_acODBrowse();}
 function _acODUp(){_acODStack.pop();_acODBrowse();}
-async function _acODAdd(id,encName){
-  const name=decodeURIComponent(encName);
+async function _acODAdd(id,name){
   const caminho='OneDrive'+_acODStack.map(s=>'/'+s.name).join('')+(_acODStack.length&&_acODStack[_acODStack.length-1].id===id?'':'/'+name);
   try{await _acProxy('microsoft.addFolder',{itemId:id,name,caminho});
     adminToast('Pasta adicionada ao controle');
