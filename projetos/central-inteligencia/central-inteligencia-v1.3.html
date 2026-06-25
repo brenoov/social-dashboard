@@ -3978,6 +3978,7 @@ const PERMISSION_TREE=[
   ]},
   {key:'banco',label:'Banco de Arquivos',children:[]},
   {key:'gestor',label:'Gestão Comercial (IA)',children:[]},
+  {key:'acessos',label:'Controle de Acessos',children:[]},
 ];
 const SUPERADMIN_EMAIL='erick@rbvcompany.com';
 let _permUserId=null;
@@ -4723,7 +4724,7 @@ function showDashboard(user,role,features,avatarUrl){
   const adminCard=document.getElementById('home-card-admin');
   if(adminCard)adminCard.style.display=role==='admin'?'':'none';
   const isAdmin=role==='admin';
-  ['social','sales','meta','banco','noticias','gestor'].forEach(f=>{
+  ['social','sales','meta','banco','noticias','gestor','acessos'].forEach(f=>{
     const c=document.getElementById('home-card-'+f);
     if(c)c.style.display=(isAdmin||currentUserFeatures.includes(f))?'':'none';
   });
@@ -4739,6 +4740,7 @@ function showDashboard(user,role,features,avatarUrl){
     else if(screen==='gestao-vista'){openSalesDashboard();setTimeout(openGestaoVista,0);}
     else if(screen==='banco')openBanco(true);
     else if(screen==='noticias')openNoticias();
+    else if(screen==='acessos')openAcessos();
     else if(screen==='gestao-comercial')openGestao();
     else if(screen==='meta-ads')openMetaAds();
     else if(screen==='meta-ads-campanha'){openMetaAds();setTimeout(openMetaCampanha,0);}
