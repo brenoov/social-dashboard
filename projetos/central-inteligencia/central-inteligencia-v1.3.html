@@ -9340,6 +9340,86 @@ async function _acODAdd(id,name){
     _acODLoadFolders();
   }catch(e){adminToast('Erro: '+e.message,false);}
 }
+function _acOpenICloud(){_acTab='icloud';_acSel=null;_acSelSetor=null;_acSelOrg=null;_acRender();}
+async function _acRenderICloud(){
+  const body=document.getElementById('ac-body');
+  body.innerHTML=`
+    <button class="ac-btn ghost" onclick="_acSetTab('config')">← Configurações</button>
+    <div class="ac-card" style="margin-top:12px"><span class="ac-kicker">${_acLogo('apple')}iCloud — manual</span> <span class="ac-muted">A Apple não tem API. Aqui você controla quem DEVE ter acesso; o compartilhamento real é feito por você no iCloud, e você marca "feito".</span></div>
+    <div class="ac-section-h"><h3>Pastas do iCloud</h3><button class="ac-btn" style="margin-left:auto" onclick="_acICAddFolder()">+ Adicionar pasta</button></div>
+    <div id="ac-ic-list"><div class="ac-muted">Carregando…</div></div>`;
+  _acICLoadFolders();
+}
+async function _acICLoadFolders(){
+  const wrap=document.getElementById('ac-ic-list');if(!wrap)return;
+  const{data,error}=await sbClient.from('acessos_recursos').select('*').eq('tipo','icloud').order('nome');
+  if(error){wrap.innerHTML='<div class="ac-card">Erro: '+_acEsc(error.message)+'</div>';return;}
+  const fs=data||[];
+  wrap.innerHTML=fs.length?fs.map(f=>`
+    <div class="ac-card">
+      <div class="ac-section-h" style="border:none;margin:0;padding:0">
+        <div class="grow"><strong>${_acEsc(f.nome)}</strong></div>
+        <button class="ac-btn ghost" onclick="_acICToggleAcessos('${f.id}')">Acessos</button>
+        <button class="ac-btn danger" onclick="_acICRemoveFolder('${f.id}')">Remover</button>
+      </div>
+      <div id="ac-ic-ac-${f.id}" style="margin-top:10px;display:none"></div>
+    </div>`).join(''):'<div class="ac-muted">Nenhuma pasta do iCloud ainda. Clique em "+ Adicionar pasta".</div>';
+}
+async function _acICAddFolder(){
+  const nome=prompt('Nome da pasta do iCloud:');if(!nome||!nome.trim())return;
+  const{error}=await sbClient.from('acessos_recursos').insert({tipo:'icloud',provedor:'apple',nome:nome.trim()});
+  if(error){adminToast('Erro: '+error.message,false);return;}
+  await _acLog('icloud.pasta.criar','pasta:'+nome.trim(),'ok',null);adminToast('Pasta adicionada');_acICLoadFolders();
+}
+async function _acICRemoveFolder(id){
+  if(!confirm('Remover esta pasta do iCloud e seus acessos registrados? (não mexe no iCloud em si)'))return;
+  const{error}=await sbClient.from('acessos_recursos').delete().eq('id',id);
+  if(error){adminToast('Erro: '+error.message,false);return;}
+  await _acLog('icloud.pasta.excluir','pasta:'+id,'ok',null);adminToast('Pasta removida');_acICLoadFolders();
+}
+async function _acICToggleAcessos(recursoId){
+  const el=document.getElementById('ac-ic-ac-'+recursoId);if(!el)return;
+  if(el.style.display!=='none'){el.style.display='none';el.innerHTML='';return;}
+  el.style.display='';await _acICAcessos(recursoId);
+}
+async function _acICAcessos(recursoId){
+  const el=document.getElementById('ac-ic-ac-'+recursoId);if(!el)return;
+  el.innerHTML='<div class="ac-muted">Carregando…</div>';
+  const{data,error}=await sbClient.from('acessos_vinculos').select('*').eq('recurso_id',recursoId).order('criado_em');
+  if(error){el.innerHTML='<div class="ac-muted">Erro: '+_acEsc(error.message)+'</div>';return;}
+  const vs=data||[];
+  const pOf=pid=>(_acData.pessoas||[]).find(x=>x.id===pid)||{};
+  el.innerHTML=`
+    <div class="ac-kicker">Quem deve ter acesso</div>
+    ${vs.length?vs.map(v=>{const p=pOf(v.pessoa_id);return `<div class="ac-row"><div class="grow">${_acEsc(p.nome||'?')} ${p.conta_apple?('<span class="ac-muted">'+_acLogo('apple')+_acEsc(p.conta_apple)+'</span>'):'<span class="ac-pill bad">sem conta Apple</span>'} <span class="ac-pill ${v.papel==='edicao'?'warn':'ok'}">${v.papel==='edicao'?'edição':'leitura'}</span></div>
+      <button class="ac-btn ${v.estado==='feito'?'':'ghost'}" onclick="_acICToggleFeito('${v.id}','${recursoId}',${v.estado==='feito'?'false':'true'})">${v.estado==='feito'?'✓ feito':'marcar feito'}</button>
+      <button class="ac-btn danger" onclick="_acICRemoveAcesso('${v.id}','${recursoId}')">Remover</button></div>`;}).join(''):'<div class="ac-muted">Ninguém ainda.</div>'}
+    <div class="ac-row" style="margin-top:8px">
+      <select class="ac-select" id="ac-ic-cl-${recursoId}" style="flex:1;min-width:160px"><option value="">— colaborador —</option>${(_acData.pessoas||[]).filter(p=>p.status==='ativo').map(p=>`<option value="${p.id}">${_acEsc(p.nome)}${p.conta_apple?'':' (sem Apple)'}</option>`).join('')}</select>
+      <select class="ac-select" id="ac-ic-pp-${recursoId}" style="width:auto"><option value="leitura">Leitura</option><option value="edicao">Edição</option></select>
+      <button class="ac-btn" onclick="_acICAddAcesso('${recursoId}')">Dar acesso</button>
+    </div>`;
+}
+async function _acICAddAcesso(recursoId){
+  const pid=(document.getElementById('ac-ic-cl-'+recursoId)||{}).value;
+  const papel=(document.getElementById('ac-ic-pp-'+recursoId)||{}).value||'leitura';
+  if(!pid){adminToast('Escolha o colaborador',false);return;}
+  const{error}=await sbClient.from('acessos_vinculos').insert({recurso_id:recursoId,pessoa_id:pid,papel,estado:'pendente'});
+  if(error){adminToast('Erro: '+error.message,false);return;}
+  await _acLog('icloud.acesso.criar','vinculo','ok',papel);adminToast('Acesso registrado (pendente)');_acICAcessos(recursoId);
+}
+async function _acICToggleFeito(vinculoId,recursoId,feito){
+  const upd=feito?{estado:'feito',feito_em:new Date().toISOString()}:{estado:'pendente',feito_em:null};
+  const{error}=await sbClient.from('acessos_vinculos').update(upd).eq('id',vinculoId);
+  if(error){adminToast('Erro: '+error.message,false);return;}
+  await _acLog('icloud.acesso.estado','vinculo:'+vinculoId,'ok',feito?'feito':'pendente');_acICAcessos(recursoId);
+}
+async function _acICRemoveAcesso(vinculoId,recursoId){
+  if(!confirm('Remover este acesso registrado?'))return;
+  const{error}=await sbClient.from('acessos_vinculos').delete().eq('id',vinculoId);
+  if(error){adminToast('Erro: '+error.message,false);return;}
+  await _acLog('icloud.acesso.excluir','vinculo:'+vinculoId,'ok',null);_acICAcessos(recursoId);
+}
 async function _acImportarZoho(){
   if(!confirm('Importar os usuários do Zoho como colaboradores? (cria os novos e atualiza os já importados)'))return;
   adminToast('Importando do Zoho…');
@@ -9388,6 +9468,7 @@ function _acRender(){
   if(_acTab==='auditoria')return _acRenderAuditoria();
   if(_acTab==='config')return _acRenderConfiguracoes();
   if(_acTab==='onedrive')return _acRenderOneDrive();
+  if(_acTab==='icloud')return _acRenderICloud();
   if(_acSel)return _acRenderFicha(_acSel);
   if(_acSelSetor!==null)return _acRenderColaboradores(_acSelSetor);
   if(_acSelOrg!==null)return _acRenderSetores(_acSelOrg);
@@ -9444,9 +9525,10 @@ function _acRenderConfiguracoes(){
         <button class="ac-btn ghost" onclick="_acConectarOneDrive()">Conectar</button>
         <button class="ac-btn" id="ac-od-manage" style="display:none" onclick="_acOpenOneDrive()">Gerenciar pastas</button>
       </div>
-      <div class="ac-row" style="opacity:.55">
+      <div class="ac-row">
         <div class="grow"><div><strong>iCloud</strong> <span class="ac-pill neutral">manual</span></div>
-        <div class="ac-muted">Sem API — controle manual (próxima fase).</div></div>
+          <div class="ac-muted">Sem API — cadastre as pastas e os acessos; você compartilha na Apple e marca "feito".</div></div>
+        <button class="ac-btn" onclick="_acOpenICloud()">Gerenciar pastas</button>
       </div>
     </div>`;
   _acZohoStatus();
