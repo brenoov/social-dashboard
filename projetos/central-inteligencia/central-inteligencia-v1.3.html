@@ -9284,6 +9284,80 @@ async function _acDelDispositivo(id,pessoaId){
   await _acLog('dispositivo.excluir','disp:'+id,'ok',null);
   adminToast('Item excluído');_acRenderDispositivos(pessoaId);
 }
+const AC_TST=[['rascunho','Rascunho','warn'],['pendente','Pendente assinatura','warn'],['assinado','Assinado','ok'],['encerrado','Encerrado','']];
+function _acTstMeta(s){return AC_TST.find(x=>x[0]===s)||[s,s,''];}
+async function _acRenderTermos(pessoaId){
+  const wrap=document.getElementById('ac-termos-wrap');if(!wrap)return;
+  const[{data:disps},{data:termos,error}]=await Promise.all([
+    sbClient.from('acessos_dispositivos').select('id,tipo,descricao').eq('pessoa_id',pessoaId),
+    sbClient.from('acessos_termos').select('*').eq('pessoa_id',pessoaId).order('gerado_em',{ascending:false,nullsFirst:false})
+  ]);
+  if(error){wrap.innerHTML='<div class="ac-card">Erro termos: '+_acEsc(error.message)+'</div>';return;}
+  const dispOpts=(disps||[]).map(d=>`<label style="display:block"><input type="checkbox" class="ac-tdisp" value="${d.id}"> ${_acEsc(_acTipoLabel(d.tipo))} — ${_acEsc(d.descricao)}</label>`).join('')||'<div class="ac-muted">Cadastre dispositivos para gerar um termo.</div>';
+  const tlist=(termos||[]).map(t=>{
+    const m=_acTstMeta(t.status);const n=(t.dispositivo_ids||[]).length;
+    return `<div class="ac-row">
+      <div class="grow">
+        <div><strong>Termo</strong> <span class="ac-pill ${m[2]||'warn'}">${_acEsc(m[1])}</span> <span class="ac-muted">${n} item(ns)${t.gerado_em?' · gerado '+new Date(t.gerado_em).toLocaleDateString('pt-BR'):''}</span></div>
+      </div>
+      ${t.pdf_path?`<button class="ac-btn ghost" onclick="_acImprimirTermo('${t.id}')">Imprimir</button>`:''}
+      ${t.pdf_path?`<button class="ac-btn ghost" onclick="_acDownloadTermo('${t.id}','pdf_path')">Baixar gerado</button>`:''}
+      ${t.status==='pendente'?`<button class="ac-btn" onclick="document.getElementById('act-up-${t.id}').click()">Subir assinado</button><input id="act-up-${t.id}" type="file" accept="application/pdf" style="display:none" onchange="_acUploadAssinado('${t.id}','${pessoaId}',this.files[0])">`:''}
+      ${t.assinado_path?`<button class="ac-btn ghost" onclick="_acDownloadTermo('${t.id}','assinado_path')">Baixar assinado</button>`:''}
+      ${t.status!=='encerrado'?`<button class="ac-btn danger" onclick="_acEncerrarTermo('${t.id}','${pessoaId}')">Encerrar</button>`:''}
+    </div>`;}).join('');
+  wrap.innerHTML=`<div class="ac-card">
+    <h3 style="margin-top:0">Termo de responsabilidade</h3>
+    <div class="ac-card" style="background:rgba(255,255,255,.02)">
+      <div class="ac-muted" style="margin-bottom:6px">Selecione os itens cobertos e gere o termo:</div>
+      ${dispOpts}
+      <div style="margin-top:10px"><button class="ac-btn" onclick="_acGerarTermo('${pessoaId}')">Gerar termo</button></div>
+    </div>
+    <div style="margin-top:12px">${tlist||'<div class="ac-muted">Nenhum termo ainda.</div>'}</div>
+  </div>`;
+}
+function _acTermoHtml(pessoa,disps,config){
+  const itens=disps.map(d=>'- '+_acTipoLabel(d.tipo)+': '+(d.descricao||'')+(d.identificador?(' ('+d.identificador+')'):'')).join('\n');
+  const modelo=(config&&config.modelo_termo)||'';
+  const txt=modelo
+    .replace(/{{nome}}/g,pessoa.nome||'')
+    .replace(/{{cargo}}/g,pessoa.cargo||'')
+    .replace(/{{empresa}}/g,(config&&config.empresa)||'')
+    .replace(/{{itens}}/g,itens||'(nenhum item)')
+    .replace(/{{data}}/g,new Date().toLocaleDateString('pt-BR'));
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Termo</title>
+    <style>body{font-family:Georgia,serif;max-width:720px;margin:40px auto;padding:0 24px;color:#111;line-height:1.6}
+    pre{white-space:pre-wrap;font-family:inherit;font-size:15px}@media print{body{margin:0}}</style></head>
+    <body><pre>${_acEsc(txt)}</pre></body></html>`;
+}
+async function _acGerarTermo(pessoaId){
+  const ids=[...document.querySelectorAll('.ac-tdisp:checked')].map(c=>c.value);
+  if(!ids.length){adminToast('Selecione ao menos um item',false);return;}
+  const pessoa=_acData.pessoas.find(p=>p.id===pessoaId);
+  const{data:disps}=await sbClient.from('acessos_dispositivos').select('*').in('id',ids);
+  const{data:novo,error:e1}=await sbClient.from('acessos_termos')
+    .insert({pessoa_id:pessoaId,dispositivo_ids:ids,status:'pendente',modelo_versao:(_acData.config?.atualizado_em||null),gerado_em:new Date().toISOString()})
+    .select('id').single();
+  if(e1){adminToast('Erro: '+e1.message,false);return;}
+  const path=novo.id+'/termo.html';
+  const html=_acTermoHtml(pessoa,disps||[],_acData.config);
+  const blob=new Blob([html],{type:'text/html'});
+  const{error:e2}=await sbClient.storage.from('acessos-termos').upload(path,blob,{upsert:true,contentType:'text/html'});
+  if(e2){adminToast('Erro storage: '+e2.message,false);return;}
+  await sbClient.from('acessos_termos').update({pdf_path:path}).eq('id',novo.id);
+  await _acLog('termo.gerar','termo:'+novo.id,'ok',ids.length+' itens');
+  adminToast('Termo gerado');_acRenderTermos(pessoaId);
+}
+async function _acImprimirTermo(termoId){
+  const{data,error}=await sbClient.from('acessos_termos').select('pdf_path').eq('id',termoId).single();
+  if(error||!data?.pdf_path){adminToast('Termo gerado não encontrado',false);return;}
+  const{data:sg,error:e2}=await sbClient.storage.from('acessos-termos').createSignedUrl(data.pdf_path,120);
+  if(e2){adminToast('Erro URL: '+e2.message,false);return;}
+  let f=document.getElementById('ac-print-frame');
+  if(!f){f=document.createElement('iframe');f.id='ac-print-frame';f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0';document.body.appendChild(f);}
+  f.onload=()=>{try{f.contentWindow.focus();f.contentWindow.print();}catch(e){window.open(sg.signedUrl,'_blank');}};
+  f.src=sg.signedUrl;
+}
 function _acRenderConfig(){
   const c=_acData.config||{empresa:'',modelo_termo:''};
   document.getElementById('ac-body').innerHTML=`
