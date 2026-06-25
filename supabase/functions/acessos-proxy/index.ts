@@ -118,16 +118,18 @@ async function listZohoUsers(
   access: string,
 ): Promise<{ users: Array<{ accountId: string; name: string; email: string }>; rawCount: number }> {
   const dc = dcSuffix(conn.data_center);
-  const zoid = conn.org_id;
   const out: Array<{ accountId: string; name: string; email: string }> = [];
   let start = 0;
   const limit = 50;
   let rawCount = 0;
 
+  // The /api/organization/accounts endpoint (WITHOUT a zoid in the path) returns the
+  // CURRENT org's accounts and works with the ZohoMail.organization.accounts scope.
+  // (Getting the zoid itself requires the partner scope, which a regular org admin
+  // can't grant — and we don't need it: the zoid-less path is the current org.)
   // Page until a short page is returned.
-  // Defensive: stop after a sane number of pages.
   for (let page = 0; page < 200; page++) {
-    const url = `https://mail.zoho${dc}/api/organization/${zoid}/accounts?start=${start}&limit=${limit}`;
+    const url = `https://mail.zoho${dc}/api/organization/accounts?start=${start}&limit=${limit}`;
     const resp = await fetch(url, {
       headers: { Authorization: `Zoho-oauthtoken ${access}` },
     });
