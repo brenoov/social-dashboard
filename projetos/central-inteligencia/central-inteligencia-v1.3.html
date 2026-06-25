@@ -9159,11 +9159,12 @@ async function _acSavePessoa(id){
     atualizado_em:new Date().toISOString()
   };
   if(!rec.nome){adminToast('Nome é obrigatório',false);return;}
+  const isEdit=!!id;
   let err;
   if(id){({error:err}=await sbClient.from('acessos_pessoas').update(rec).eq('id',id));}
   else{const r=await sbClient.from('acessos_pessoas').insert(rec).select('id').single();err=r.error;id=r.data?.id;}
   if(err){adminToast('Erro: '+err.message,false);return;}
-  await _acLog(id?'pessoa.editar':'pessoa.criar','pessoa:'+rec.nome,'ok',null);
+  await _acLog(isEdit?'pessoa.editar':'pessoa.criar','pessoa:'+rec.nome,'ok',null);
   adminToast('Pessoa salva');
   await loadAcessos();_acOpenPessoa(id);
 }
