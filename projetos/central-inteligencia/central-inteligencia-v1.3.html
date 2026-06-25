@@ -982,6 +982,12 @@
 /* ===== Acessos — profundidade + tema claro/escuro via variáveis ===== */
 #acessos-screen{background:var(--surface2)}
 [data-theme="dark"] #acessos-screen{background:var(--bg)}
+/* ===== Acessos — lista de colaboradores premium ===== */
+#acessos-screen .ac-person{padding:13px 14px;gap:14px}
+#acessos-screen .ac-person .ac-avatar{box-shadow:var(--shadow-sm)}
+#acessos-screen .ac-person-name{font-family:'IBM Plex Sans',sans-serif;font-size:15.5px;font-weight:600;color:var(--text);letter-spacing:.2px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;line-height:1.2}
+#acessos-screen .ac-kicker{font-family:'IBM Plex Sans',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:var(--muted);margin-top:4px}
+#acessos-screen .ac-person-email{font-family:'IBM Plex Sans',sans-serif;font-size:12.5px;color:var(--muted);margin-top:3px}
 /* ===== Acessos — tipografia premium (Oswald + Playfair + IBM Plex, alinhado ao app) ===== */
 #acessos-screen .ac-title{font-family:'Oswald',sans-serif;font-weight:600;font-size:19px;letter-spacing:.8px;text-transform:uppercase;color:var(--text)}
 #acessos-screen .ac-tab{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase}
@@ -9355,13 +9361,14 @@ async function _acRenderColaboradores(setorId){
   const setor=setorId?_acData.setores.find(s=>s.id===setorId):null;
   const lista=_acData.pessoas.filter(x=>setorId?x.setor_id===setorId:!x.setor_id);
   const rows=lista.map(c=>`
-    <div class="ac-row">
-      ${_acAvatar(c,40)}
+    <div class="ac-row ac-person">
+      ${_acAvatar(c,46)}
       <div class="grow">
-        <div><strong>${_acEsc(c.nome)}</strong> ${c.status==='desligado'?'<span class="ac-pill neutral">desligado</span>':'<span class="ac-pill ok">ativo</span>'}</div>
-        <div class="ac-muted">${_acEsc(c.cargo||'—')}${c.email_corporativo?' · '+_acEsc(c.email_corporativo):''}</div>
+        <div class="ac-person-name">${_acEsc(c.nome)} ${c.status==='desligado'?'<span class="ac-pill neutral">desligado</span>':'<span class="ac-pill ok">ativo</span>'}</div>
+        ${c.cargo?`<div class="ac-kicker">${_acEsc(c.cargo)}</div>`:''}
+        ${c.email_corporativo?`<div class="ac-person-email">${_acEsc(c.email_corporativo)}</div>`:''}
       </div>
-      <button class="ac-btn ghost" onclick="_acOpenPessoa('${c.id}')">Abrir ficha</button>
+      <button class="ac-btn ghost" onclick="_acOpenPessoa('${c.id}')">Abrir ficha →</button>
     </div>`).join('');
   body.innerHTML=`
     <div class="ac-section-h">
