@@ -9201,6 +9201,88 @@ function _acRenderFicha(id){
   if(window._acRenderDispositivos)_acRenderDispositivos(id);
   if(window._acRenderTermos)_acRenderTermos(id);
 }
+const AC_TIPOS=[['celular','Celular'],['macbook','MacBook'],['notebook','Notebook'],['numero_celular','Número de linha'],['carro','Carro'],['outro','Outro']];
+const AC_DST=[['em_uso','Em uso','ok'],['a_devolver','A devolver','warn'],['devolvido','Devolvido',''],['perdido','Perdido','bad']];
+function _acTipoLabel(t){return (AC_TIPOS.find(x=>x[0]===t)||[t,t])[1];}
+function _acDstMeta(s){return AC_DST.find(x=>x[0]===s)||[s,s,''];}
+async function _acRenderDispositivos(pessoaId){
+  const wrap=document.getElementById('ac-disp-wrap');if(!wrap)return;
+  const{data,error}=await sbClient.from('acessos_dispositivos').select('*').eq('pessoa_id',pessoaId).order('atualizado_em',{ascending:false});
+  if(error){wrap.innerHTML='<div class="ac-card">Erro dispositivos: '+_acEsc(error.message)+'</div>';return;}
+  const list=(data||[]).map(d=>{
+    const m=_acDstMeta(d.status);
+    return `<div class="ac-row">
+      <div class="grow">
+        <div><strong>${_acEsc(_acTipoLabel(d.tipo))}</strong> — ${_acEsc(d.descricao)} <span class="ac-pill ${m[2]||'warn'}">${_acEsc(m[1])}</span></div>
+        <div class="ac-muted">${d.identificador?'ID: '+_acEsc(d.identificador):'sem identificador'}${d.desde?' · desde '+_acEsc(d.desde):''}${d.observacao?' · '+_acEsc(d.observacao):''}</div>
+      </div>
+      <select class="ac-select" style="width:auto" onchange="_acSetDispStatus('${d.id}','${pessoaId}',this.value)">
+        ${AC_DST.map(s=>`<option value="${s[0]}" ${s[0]===d.status?'selected':''}>${s[1]}</option>`).join('')}
+      </select>
+      <button class="ac-btn ghost" onclick="_acAddDispositivo('${pessoaId}','${d.id}')">Editar</button>
+      <button class="ac-btn danger" onclick="_acDelDispositivo('${d.id}','${pessoaId}')">Excluir</button>
+    </div>`;}).join('');
+  wrap.innerHTML=`<div class="ac-card">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+      <h3 style="margin:0">Dispositivos / patrimônio</h3>
+      <button class="ac-btn" style="margin-left:auto" onclick="_acAddDispositivo('${pessoaId}')">+ Adicionar</button>
+    </div>
+    ${list||'<div class="ac-muted">Nenhum item registrado.</div>'}
+  </div>`;
+}
+async function _acAddDispositivo(pessoaId,id){
+  let d={tipo:'celular',descricao:'',identificador:'',desde:'',observacao:''};
+  if(id){const{data}=await sbClient.from('acessos_dispositivos').select('*').eq('id',id).single();if(data)d=data;}
+  const wrap=document.getElementById('ac-disp-wrap');
+  const form=document.createElement('div');form.className='ac-card';
+  form.innerHTML=`<h3 style="margin-top:0">${id?'Editar item':'Novo item'}</h3>
+    <div class="ac-grid2">
+      <label>Tipo<select class="ac-select" id="acd-tipo">${AC_TIPOS.map(t=>`<option value="${t[0]}" ${t[0]===d.tipo?'selected':''}>${t[1]}</option>`).join('')}</select></label>
+      <label>Descrição / modelo<input class="ac-input" id="acd-desc" value="${_acEsc(d.descricao||'')}"></label>
+      <label>Identificador (serial/IMEI/placa/número)<input class="ac-input" id="acd-ident" value="${_acEsc(d.identificador||'')}"></label>
+      <label>Desde<input class="ac-input" id="acd-desde" type="date" value="${_acEsc(d.desde||'')}"></label>
+      <label style="grid-column:1/-1">Observação<input class="ac-input" id="acd-obs" value="${_acEsc(d.observacao||'')}"></label>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="ac-btn" id="acd-save">Salvar</button>
+      <button class="ac-btn ghost" id="acd-cancel">Cancelar</button>
+    </div>`;
+  wrap.prepend(form);
+  form.querySelector('#acd-cancel').onclick=()=>_acRenderDispositivos(pessoaId);
+  form.querySelector('#acd-save').onclick=()=>_acSaveDispositivo(pessoaId,id||null);
+}
+async function _acSaveDispositivo(pessoaId,id){
+  const rec={
+    pessoa_id:pessoaId,
+    tipo:document.getElementById('acd-tipo').value,
+    descricao:document.getElementById('acd-desc').value.trim(),
+    identificador:document.getElementById('acd-ident').value.trim()||null,
+    desde:document.getElementById('acd-desde').value||null,
+    observacao:document.getElementById('acd-obs').value.trim()||null,
+    atualizado_em:new Date().toISOString()
+  };
+  if(!rec.descricao){adminToast('Descrição é obrigatória',false);return;}
+  let err;
+  if(id){({error:err}=await sbClient.from('acessos_dispositivos').update(rec).eq('id',id));}
+  else{({error:err}=await sbClient.from('acessos_dispositivos').insert(rec));}
+  if(err){adminToast('Erro: '+err.message,false);return;}
+  await _acLog(id?'dispositivo.editar':'dispositivo.criar','disp:'+rec.descricao,'ok',rec.tipo);
+  adminToast('Item salvo');
+  _acRenderDispositivos(pessoaId);
+}
+async function _acSetDispStatus(id,pessoaId,status){
+  const{error}=await sbClient.from('acessos_dispositivos').update({status,atualizado_em:new Date().toISOString()}).eq('id',id);
+  if(error){adminToast('Erro: '+error.message,false);return;}
+  await _acLog('dispositivo.status','disp:'+id,'ok',status);
+  adminToast('Status atualizado');_acRenderDispositivos(pessoaId);
+}
+async function _acDelDispositivo(id,pessoaId){
+  if(!confirm('Excluir este item do inventário?'))return;
+  const{error}=await sbClient.from('acessos_dispositivos').delete().eq('id',id);
+  if(error){adminToast('Erro: '+error.message,false);return;}
+  await _acLog('dispositivo.excluir','disp:'+id,'ok',null);
+  adminToast('Item excluído');_acRenderDispositivos(pessoaId);
+}
 function _acRenderConfig(){document.getElementById('ac-body').innerHTML='<div class="ac-muted">Modelo (em construção)</div>';}
 function _acRenderAuditoria(){document.getElementById('ac-body').innerHTML='<div class="ac-muted">Auditoria (em construção)</div>';}
 let _npRod=null;
