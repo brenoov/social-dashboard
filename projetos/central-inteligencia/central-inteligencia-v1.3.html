@@ -9359,6 +9359,31 @@ async function _acImprimirTermo(termoId){
   f.onload=()=>{try{f.contentWindow.focus();f.contentWindow.print();}catch(e){window.open(sg.signedUrl,'_blank');}};
   f.src=sg.signedUrl;
 }
+async function _acUploadAssinado(termoId,pessoaId,file){
+  if(!file){return;}
+  if(file.type!=='application/pdf'){adminToast('Envie um PDF',false);return;}
+  const path=termoId+'/assinado.pdf';
+  const{error:e1}=await sbClient.storage.from('acessos-termos').upload(path,file,{upsert:true,contentType:'application/pdf'});
+  if(e1){adminToast('Erro upload: '+e1.message,false);return;}
+  const{error:e2}=await sbClient.from('acessos_termos').update({assinado_path:path,status:'assinado',assinado_em:new Date().toISOString()}).eq('id',termoId);
+  if(e2){adminToast('Erro: '+e2.message,false);return;}
+  await _acLog('termo.assinar','termo:'+termoId,'ok',null);
+  adminToast('Termo assinado anexado');_acRenderTermos(pessoaId);
+}
+async function _acDownloadTermo(termoId,col){
+  const{data,error}=await sbClient.from('acessos_termos').select(col).eq('id',termoId).single();
+  if(error||!data?.[col]){adminToast('Arquivo não encontrado',false);return;}
+  const{data:sg,error:e2}=await sbClient.storage.from('acessos-termos').createSignedUrl(data[col],120);
+  if(e2){adminToast('Erro URL: '+e2.message,false);return;}
+  window.open(sg.signedUrl,'_blank');
+}
+async function _acEncerrarTermo(termoId,pessoaId){
+  if(!confirm('Encerrar este termo? (use quando os itens forem devolvidos)'))return;
+  const{error}=await sbClient.from('acessos_termos').update({status:'encerrado',encerrado_em:new Date().toISOString()}).eq('id',termoId);
+  if(error){adminToast('Erro: '+error.message,false);return;}
+  await _acLog('termo.encerrar','termo:'+termoId,'ok',null);
+  adminToast('Termo encerrado');_acRenderTermos(pessoaId);
+}
 function _acRenderConfig(){
   const c=_acData.config||{empresa:'',modelo_termo:''};
   document.getElementById('ac-body').innerHTML=`
