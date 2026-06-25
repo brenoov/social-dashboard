@@ -9272,27 +9272,120 @@ async function _acTogglePessoa(id){
   adminToast('Status atualizado');
   await loadAcessos();_acOpenPessoa(id);
 }
+function _acFormColaborador(id,setorIdPre){
+  const c=id?_acData.pessoas.find(x=>x.id===id):{nome:'',cargo:'',setor_id:(setorIdPre||null),email_corporativo:'',numero_pessoal:'',numero_corporativo:'',data_inicio_contrato:''};
+  if(!c)return;
+  const opts=['<option value="">— Sem setor —</option>'].concat(_acData.setores.map(s=>`<option value="${s.id}" ${s.id===c.setor_id?'selected':''}>${_acEsc(s.nome)}</option>`)).join('');
+  document.getElementById('ac-body').innerHTML=`
+    <div class="ac-card" style="max-width:620px">
+      <h3 style="margin-top:0">${id?'Editar colaborador':'Novo colaborador'}</h3>
+      <div class="ac-grid2">
+        <label style="grid-column:1/-1">Nome completo<input class="ac-input" id="acc-nome" value="${_acEsc(c.nome||'')}"></label>
+        <label>Cargo<input class="ac-input" id="acc-cargo" value="${_acEsc(c.cargo||'')}"></label>
+        <label>Setor<select class="ac-select" id="acc-setor">${opts}</select></label>
+        <label>E-mail corporativo<input class="ac-input" id="acc-email" value="${_acEsc(c.email_corporativo||'')}"></label>
+        <label>Número pessoal<input class="ac-input" id="acc-npess" value="${_acEsc(c.numero_pessoal||'')}"></label>
+        <label>Número corporativo<input class="ac-input" id="acc-ncorp" value="${_acEsc(c.numero_corporativo||'')}"></label>
+        <label>Início de contrato<input class="ac-input" id="acc-inicio" type="date" value="${_acEsc(c.data_inicio_contrato||'')}"></label>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px">
+        <button class="ac-btn" onclick="_acSaveColaborador(${id?"'"+id+"'":'null'})">Salvar</button>
+        <button class="ac-btn ghost" onclick="${id?"_acOpenPessoa('"+id+"')":"_acRender()"}">Cancelar</button>
+      </div>
+    </div>`;
+}
+async function _acSaveColaborador(id){
+  const rec={
+    nome:document.getElementById('acc-nome').value.trim(),
+    cargo:document.getElementById('acc-cargo').value.trim()||null,
+    setor_id:document.getElementById('acc-setor').value||null,
+    email_corporativo:document.getElementById('acc-email').value.trim()||null,
+    numero_pessoal:document.getElementById('acc-npess').value.trim()||null,
+    numero_corporativo:document.getElementById('acc-ncorp').value.trim()||null,
+    data_inicio_contrato:document.getElementById('acc-inicio').value||null,
+    atualizado_em:new Date().toISOString()
+  };
+  if(!rec.nome){adminToast('Nome é obrigatório',false);return;}
+  const isEdit=!!id;
+  let err;
+  if(id){({error:err}=await sbClient.from('acessos_pessoas').update(rec).eq('id',id));}
+  else{const r=await sbClient.from('acessos_pessoas').insert(rec).select('id').single();err=r.error;id=r.data?.id;}
+  if(err){adminToast('Erro: '+err.message,false);return;}
+  await _acLog(isEdit?'colaborador.editar':'colaborador.criar','colab:'+rec.nome,'ok',null);
+  adminToast('Colaborador salvo');
+  await loadAcessos();_acOpenPessoa(id);
+}
 function _acRenderFicha(id){
-  const p=_acData.pessoas.find(x=>x.id===id);
-  if(!p){_acSel=null;return _acRenderPessoas();}
-  const body=document.getElementById('ac-body');
-  body.innerHTML=`
-    <button class="ac-btn ghost" onclick="_acSetTab('pessoas')">← Pessoas</button>
+  const c=_acData.pessoas.find(x=>x.id===id);
+  if(!c){_acSel=null;return _acRender();}
+  const setor=c.setor_id?(_acData.setores.find(s=>s.id===c.setor_id)||{}).nome:null;
+  const dt=v=>v?_acEsc(new Date(v+'T00:00:00').toLocaleDateString('pt-BR')):'—';
+  const linha=(rot,val)=>`<div><span class="ac-muted">${rot}:</span> ${val}</div>`;
+  document.getElementById('ac-body').innerHTML=`
+    <button class="ac-btn ghost" onclick="_acSel=null;_acRender()">← Voltar</button>
     <div class="ac-card" style="margin-top:12px">
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <h2 style="margin:0">${_acEsc(p.nome)}</h2>
-        ${p.status==='inativo'?'<span class="ac-pill bad">inativo</span>':'<span class="ac-pill ok">ativo</span>'}
+      <div class="ac-section-h">
+        <h2 style="margin:0">${_acEsc(c.nome)}</h2>
+        ${c.status==='desligado'?'<span class="ac-pill neutral">desligado</span>':'<span class="ac-pill ok">ativo</span>'}
         <div style="margin-left:auto;display:flex;gap:8px">
-          <button class="ac-btn ghost" onclick="_acFormPessoa('${p.id}')">Editar</button>
-          <button class="ac-btn ${p.status==='ativo'?'danger':''}" onclick="_acTogglePessoa('${p.id}')">${p.status==='ativo'?'Inativar':'Reativar'}</button>
+          <button class="ac-btn ghost" onclick="_acFormColaborador('${c.id}')">Editar</button>
+          ${c.status==='ativo'?`<button class="ac-btn danger" onclick="_acDesligar('${c.id}')">Desligar</button>`:`<button class="ac-btn" onclick="_acReativar('${c.id}')">Reativar</button>`}
         </div>
       </div>
-      <div class="ac-muted" style="margin-top:6px">${_acEsc(p.cargo||'—')}${p.email_pessoal?' · '+_acEsc(p.email_pessoal):''}${p.apple_id?' · Apple ID: '+_acEsc(p.apple_id):''}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;margin-top:4px">
+        ${linha('Cargo',_acEsc(c.cargo||'—'))}
+        ${linha('Setor',_acEsc(setor||'Sem setor'))}
+        ${linha('E-mail corporativo',_acEsc(c.email_corporativo||'—'))}
+        ${linha('Número pessoal',_acEsc(c.numero_pessoal||'—'))}
+        ${linha('Número corporativo',_acEsc(c.numero_corporativo||'—'))}
+        ${linha('Início de contrato',dt(c.data_inicio_contrato))}
+        ${c.status==='desligado'?linha('Fim de contrato',dt(c.data_fim_contrato)):''}
+        ${c.status==='desligado'?linha('Motivo do desligamento',_acEsc(c.motivo_saida||'—')):''}
+      </div>
     </div>
     <div id="ac-disp-wrap"></div>
+    <div id="ac-vei-wrap"></div>
     <div id="ac-termos-wrap"></div>`;
   if(window._acRenderDispositivos)_acRenderDispositivos(id);
+  if(window._acRenderVeiculos)_acRenderVeiculos(id);
   if(window._acRenderTermos)_acRenderTermos(id);
+}
+function _acDesligar(id){
+  const c=_acData.pessoas.find(x=>x.id===id);if(!c)return;
+  const hoje=new Date().toISOString().slice(0,10);
+  const ov=document.createElement('div');ov.className='ac-modal-ov open';ov.id='ac-dlg-ov';
+  ov.innerHTML=`<div class="ac-modal">
+    <h3 style="margin-top:0">Desligar ${_acEsc(c.nome)}</h3>
+    <label style="display:block">Motivo do desligamento
+      <textarea class="ac-textarea" id="ac-dlg-motivo" style="min-height:90px"></textarea></label>
+    <label style="display:block;margin-top:10px">Data de fim de contrato
+      <input class="ac-input" type="date" id="ac-dlg-data" value="${hoje}"></label>
+    <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+      <button class="ac-btn ghost" id="ac-dlg-cancel">Cancelar</button>
+      <button class="ac-btn danger" id="ac-dlg-ok">Confirmar desligamento</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close=()=>ov.remove();
+  ov.addEventListener('click',e=>{if(e.target===ov)close();});
+  ov.querySelector('#ac-dlg-cancel').onclick=close;
+  ov.querySelector('#ac-dlg-ok').onclick=async()=>{
+    const motivo=ov.querySelector('#ac-dlg-motivo').value.trim();
+    const data=ov.querySelector('#ac-dlg-data').value||null;
+    if(!motivo){adminToast('Informe o motivo',false);return;}
+    const{error}=await sbClient.from('acessos_pessoas').update({status:'desligado',motivo_saida:motivo,data_fim_contrato:data,atualizado_em:new Date().toISOString()}).eq('id',id);
+    if(error){adminToast('Erro: '+error.message,false);return;}
+    await _acLog('colaborador.desligar','colab:'+c.nome,'ok',data||null);
+    adminToast('Colaborador desligado');close();await loadAcessos();_acOpenPessoa(id);
+  };
+}
+async function _acReativar(id){
+  const c=_acData.pessoas.find(x=>x.id===id);if(!c)return;
+  if(!confirm(`Reativar "${c.nome}"?`))return;
+  const{error}=await sbClient.from('acessos_pessoas').update({status:'ativo',motivo_saida:null,data_fim_contrato:null,atualizado_em:new Date().toISOString()}).eq('id',id);
+  if(error){adminToast('Erro: '+error.message,false);return;}
+  await _acLog('colaborador.reativar','colab:'+c.nome,'ok',null);
+  adminToast('Colaborador reativado');await loadAcessos();_acOpenPessoa(id);
 }
 const AC_TIPOS=[['celular','Celular'],['macbook','MacBook'],['notebook','Notebook'],['numero_celular','Número de linha'],['carro','Carro'],['outro','Outro']];
 const AC_DST=[['em_uso','Em uso','ok'],['a_devolver','A devolver','warn'],['devolvido','Devolvido',''],['perdido','Perdido','bad']];
