@@ -21,6 +21,7 @@
 //   - microsoft.folders      -> lists managed acessos_recursos (tipo=onedrive)
 //   - microsoft.removeFolder -> deletes an acessos_recursos row
 //   - microsoft.shares       -> lists driveItem permissions normalized
+//   - microsoft.allShares    -> all managed folders x permissions (flat, for Auditoria)
 //   - microsoft.share        -> POST /invite (read|write)
 //   - microsoft.unshare      -> DELETE a permission
 //
@@ -661,6 +662,66 @@ async function msShare(
   return json({ ok: true });
 }
 
+async function actAllShares(sb: any) {
+  const conn = await readMsConn(sb);
+  if (!conn.refresh_token) return json({ error: "nao_conectado" });
+  const access = await freshMsToken(conn);
+
+  const { data: recursos } = await sb
+    .from("acessos_recursos")
+    .select("id, nome, external_id")
+    .eq("tipo", "onedrive");
+
+  const items: Array<{
+    recursoId: string;
+    pasta: string;
+    name: string;
+    email: string;
+    role: string;
+  }> = [];
+
+  for (const recurso of (recursos ?? [])) {
+    if (!recurso.external_id) continue;
+    try {
+      const r = await graphFetch(
+        access,
+        `/me/drive/items/${encodeURIComponent(recurso.external_id)}/permissions`,
+      );
+      if (!r.ok) {
+        console.warn(
+          "[acessos-proxy] allShares: falha ao ler permissoes da pasta",
+          recurso.nome,
+          r.status,
+          r.json,
+        );
+        continue;
+      }
+      const value: any[] = Array.isArray(r.json?.value) ? r.json.value : [];
+      for (const p of value) {
+        if (Array.isArray(p?.roles) && p.roles.includes("owner")) continue;
+        const ident = parsePermIdentity(p);
+        const role =
+          Array.isArray(p?.roles) && p.roles.includes("write") ? "edição" : "leitura";
+        items.push({
+          recursoId: String(recurso.id),
+          pasta: String(recurso.nome ?? ""),
+          name: ident.name,
+          email: (ident.email || "").toLowerCase(),
+          role,
+        });
+      }
+    } catch (e) {
+      console.warn(
+        "[acessos-proxy] allShares: erro ao processar pasta",
+        recurso.nome,
+        e instanceof Error ? e.message : e,
+      );
+    }
+  }
+
+  return json({ items });
+}
+
 async function msUnshare(sb: any, quem: string | null, itemId: string, permId: string) {
   if (!itemId || !permId) return json({ error: "sem_itemId_ou_permId" }, 400);
   const conn = await readMsConn(sb);
@@ -738,6 +799,8 @@ Deno.serve(async (req: Request) => {
         return await msRemoveFolder(sb, user.id, body?.recursoId);
       case "microsoft.shares":
         return await msShares(sb, body?.itemId);
+      case "microsoft.allShares":
+        return await actAllShares(sb);
       case "microsoft.share":
         return await msShare(sb, user.id, body?.itemId, body?.email, body?.role);
       case "microsoft.unshare":
