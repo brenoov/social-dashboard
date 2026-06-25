@@ -9156,7 +9156,7 @@ function _acRenderSetores(){
     </div>`;
   }).join('');
   const semSetor=_acData.pessoas.filter(x=>!x.setor_id).length;
-  const semCard=`<div class="ac-setor-card" style="animation-delay:${_acData.setores.length*40}ms;background:linear-gradient(155deg,rgba(148,163,184,.10),rgba(255,255,255,.02))" onclick="_acOpenSetor(null)">
+  const semCard=`<div class="ac-setor-card" style="animation-delay:${_acData.setores.length*40}ms;background:linear-gradient(155deg,rgba(148,163,184,.10),rgba(255,255,255,.02))" onclick="_acOpenSetor(false)">
       <div class="ac-setor-ico" style="background:linear-gradient(135deg,#475569,#64748b)">${_acSetorIco()}</div>
       <div class="ac-setor-nome">Sem setor</div>
       <div class="ac-setor-sub">${semSetor} colaborador(es)</div>
@@ -9261,7 +9261,7 @@ async function _acSavePessoa(id){
   adminToast('Pessoa salva');
   await loadAcessos();_acOpenPessoa(id);
 }
-function _acOpenPessoa(id){_acSel=id;_acTab='pessoas';_acRender();}
+function _acOpenPessoa(id){_acSel=id;_acTab='setores';_acRender();}
 async function _acTogglePessoa(id){
   const p=_acData.pessoas.find(x=>x.id===id);if(!p)return;
   const novo=p.status==='ativo'?'inativo':'ativo';
