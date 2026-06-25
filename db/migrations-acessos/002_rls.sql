@@ -31,3 +31,9 @@ drop policy if exists acessos_log_select on public.acessos_log;
 create policy acessos_log_select on public.acessos_log for select to authenticated using (public.is_acessos_admin());
 drop policy if exists acessos_log_insert on public.acessos_log;
 create policy acessos_log_insert on public.acessos_log for insert to authenticated with check (public.is_acessos_admin());
+
+-- restringe a execução da helper só a usuários autenticados (fecha o endpoint RPC p/ anon)
+-- Supabase concede explicitamente a anon além de PUBLIC, então revogar ambos
+revoke execute on function public.is_acessos_admin() from public;
+revoke execute on function public.is_acessos_admin() from anon;
+grant execute on function public.is_acessos_admin() to authenticated;
