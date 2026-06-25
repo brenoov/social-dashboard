@@ -13,6 +13,16 @@
 //   - zoho.authUrl  -> mints+stores random state, returns consent { url }
 //   - zoho.users    -> lists org accounts (normalized)
 //   - zoho.import   -> upserts acessos_pessoas + best-effort avatars
+//   Microsoft OneDrive (personal account, via Microsoft Graph):
+//   - microsoft.status       -> { connected, conectado_em }  (never leaks secrets)
+//   - microsoft.authUrl      -> mints+stores state, returns consumers consent { url }
+//   - microsoft.browse       -> folder picker: lists child FOLDERS of itemId|root
+//   - microsoft.addFolder    -> insert acessos_recursos (tipo=onedrive), dedup by external_id
+//   - microsoft.folders      -> lists managed acessos_recursos (tipo=onedrive)
+//   - microsoft.removeFolder -> deletes an acessos_recursos row
+//   - microsoft.shares       -> lists driveItem permissions normalized
+//   - microsoft.share        -> POST /invite (read|write)
+//   - microsoft.unshare      -> DELETE a permission
 //
 // ---------------------------------------------------------------------------
 // VERIFIED Zoho endpoints / fields (June 2026), with sources:
@@ -54,6 +64,19 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const AVATAR_BUCKET = "acessos-avatars";
 const CALLBACK_URI =
   "https://kounqtdoioootxqegkij.supabase.co/functions/v1/acessos-oauth/callback/zoho";
+// Microsoft OneDrive (personal/consumer account).
+// VERIFIED (Microsoft Learn — Microsoft identity platform v2 OAuth, June 2026:
+//   https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow ;
+//   https://learn.microsoft.com/en-us/graph/auth-v2-user ): the "/consumers" tenant
+// serves personal Microsoft accounts (MSA). Graph base + driveItem endpoints verified at
+//   https://learn.microsoft.com/en-us/graph/api/driveitem-invite
+//   https://learn.microsoft.com/en-us/graph/api/driveitem-list-permissions
+//   https://learn.microsoft.com/en-us/graph/api/driveitem-list-children
+const MS_CALLBACK_URI =
+  "https://kounqtdoioootxqegkij.supabase.co/functions/v1/acessos-oauth/callback/microsoft";
+const MS_AUTH_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize";
+const MS_TOKEN_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
+const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
 const ALLOW_ORIGIN = "https://socialdashboard.rbvcompany.com";
 const CORS = {
@@ -222,6 +245,130 @@ async function readZohoConn(sb: any) {
   return data;
 }
 
+// --- Microsoft OneDrive helpers ---
+
+async function readMsConn(sb: any) {
+  const { data, error } = await sb
+    .from("acessos_conexoes")
+    .select("client_id, client_secret, refresh_token, escopos, conectado_em")
+    .eq("provedor", "microsoft")
+    .single();
+  if (error || !data) throw new Error(error?.message || "conexao_microsoft_inexistente");
+  return data;
+}
+
+// Fresh Graph access token from the stored refresh_token. No caching.
+// VERIFIED form params (Microsoft Learn, v2 auth-code flow): client_id, scope,
+// refresh_token, grant_type=refresh_token, client_secret -> { access_token }.
+async function freshMsToken(conn: {
+  client_id: string;
+  client_secret: string;
+  refresh_token: string;
+  escopos?: string | null;
+}): Promise<string> {
+  const scope = (conn.escopos && String(conn.escopos).trim()) ||
+    "Files.ReadWrite offline_access User.Read";
+  const body = new URLSearchParams({
+    client_id: conn.client_id,
+    scope,
+    refresh_token: conn.refresh_token,
+    grant_type: "refresh_token",
+    client_secret: conn.client_secret,
+  });
+  const resp = await fetch(MS_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  const j: any = await resp.json().catch(() => ({}));
+  if (!resp.ok || !j?.access_token) {
+    throw new Error(`ms_token_refresh_falhou http ${resp.status} ${JSON.stringify(j)}`);
+  }
+  return j.access_token as string;
+}
+
+// Thin Graph fetch wrapper. Returns { ok, status, json } — never throws on HTTP errors,
+// so callers can translate to a clean { error:'graph_http_<status>', detalhe }.
+async function graphFetch(
+  access: string,
+  path: string,
+  init?: { method?: string; body?: unknown },
+): Promise<{ ok: boolean; status: number; json: any }> {
+  const headers: Record<string, string> = { Authorization: `Bearer ${access}` };
+  const opts: RequestInit = { method: init?.method || "GET", headers };
+  if (init?.body !== undefined) {
+    headers["Content-Type"] = "application/json";
+    opts.body = JSON.stringify(init.body);
+  }
+  const resp = await fetch(`${GRAPH_BASE}${path}`, opts);
+  // DELETE returns 204 with empty body.
+  let j: any = null;
+  const text = await resp.text();
+  if (text) {
+    try {
+      j = JSON.parse(text);
+    } catch {
+      j = { raw: text.slice(0, 800) };
+    }
+  }
+  return { ok: resp.ok, status: resp.status, json: j };
+}
+
+function graphErr(status: number, detalhe: unknown) {
+  return json({ error: `graph_http_${status}`, detalhe });
+}
+
+async function logMs(
+  sb: any,
+  quem: string | null,
+  acao: string,
+  alvo: string | null,
+  resultado: string,
+  detalhe: unknown,
+) {
+  try {
+    await sb.from("acessos_log").insert({
+      quem,
+      acao,
+      provedor: "microsoft",
+      alvo,
+      resultado,
+      detalhe: typeof detalhe === "string" ? detalhe : JSON.stringify(detalhe),
+    });
+  } catch (e) {
+    console.warn("[acessos-proxy] log microsoft falhou", acao, e instanceof Error ? e.message : e);
+  }
+}
+
+// Parse a Graph permission into { name, email } defensively across the shapes that
+// personal-account OneDrive returns: grantedToV2 (direct), grantedToIdentitiesV2[]
+// (link/invite targets), invitation.email, link (sharing link, no identity).
+function parsePermIdentity(p: any): { name: string; email: string } {
+  const fromIdentitySet = (idset: any): { name: string; email: string } | null => {
+    if (!idset) return null;
+    const u = idset.user || idset.siteUser || idset.group || idset.application;
+    if (u) {
+      return {
+        name: (u.displayName && String(u.displayName)) || "",
+        email: (u.email && String(u.email)) || (u.loginName && String(u.loginName)) || "",
+      };
+    }
+    return null;
+  };
+  let id = fromIdentitySet(p?.grantedToV2);
+  if (!id && Array.isArray(p?.grantedToIdentitiesV2) && p.grantedToIdentitiesV2.length) {
+    id = fromIdentitySet(p.grantedToIdentitiesV2[0]);
+  }
+  if (!id && p?.invitation?.email) {
+    id = { name: p.invitation.invitedBy?.user?.displayName || "", email: String(p.invitation.email) };
+  }
+  if (!id && p?.link) {
+    // Sharing link with no specific identity.
+    id = { name: p.link.scope ? `Link (${p.link.scope})` : "Link de compartilhamento", email: "" };
+  }
+  return id || { name: "", email: "" };
+}
+
 // ---- actions ----
 
 async function actStatus(sb: any) {
@@ -359,6 +506,179 @@ async function actImport(sb: any, quem: string | null) {
   return json(resumo);
 }
 
+// ---- Microsoft OneDrive actions ----
+
+async function msStatus(sb: any) {
+  const conn = await readMsConn(sb);
+  return json({
+    connected: !!conn.refresh_token,
+    conectado_em: conn.conectado_em ?? null,
+  });
+}
+
+async function msAuthUrl(sb: any) {
+  const conn = await readMsConn(sb);
+  const state = randomState();
+  const { error } = await sb
+    .from("acessos_conexoes")
+    .update({ oauth_state: state, oauth_state_em: new Date().toISOString() })
+    .eq("provedor", "microsoft");
+  if (error) return json({ error: "falha_ao_gravar_state", detalhe: error.message }, 500);
+
+  const scope = (conn.escopos && String(conn.escopos).trim()) ||
+    "Files.ReadWrite offline_access User.Read";
+  const params = new URLSearchParams({
+    client_id: conn.client_id,
+    response_type: "code",
+    redirect_uri: MS_CALLBACK_URI,
+    response_mode: "query",
+    scope,
+    state,
+  });
+  return json({ url: `${MS_AUTH_URL}?${params.toString()}` });
+}
+
+async function msBrowse(sb: any, itemId: string | null) {
+  const conn = await readMsConn(sb);
+  if (!conn.refresh_token) return json({ error: "nao_conectado" });
+  const access = await freshMsToken(conn);
+  const path = itemId
+    ? `/me/drive/items/${encodeURIComponent(itemId)}/children`
+    : `/me/drive/root/children`;
+  const r = await graphFetch(access, path);
+  if (!r.ok) return graphErr(r.status, r.json);
+  const value: any[] = Array.isArray(r.json?.value) ? r.json.value : [];
+  // FILTER to folders only (item.folder != null).
+  const folders = value
+    .filter((it) => it && it.folder != null)
+    .map((it) => ({
+      id: String(it.id),
+      name: String(it.name ?? ""),
+      childCount: it.folder?.childCount ?? 0,
+    }));
+  return json({ folders, parentId: itemId || null });
+}
+
+async function msAddFolder(
+  sb: any,
+  quem: string | null,
+  itemId: string,
+  name: string,
+  caminho: string | null,
+) {
+  if (!itemId) return json({ error: "sem_itemId" }, 400);
+  // Avoid duplicates: same external_id already managed -> return it.
+  const { data: existing } = await sb
+    .from("acessos_recursos")
+    .select("*")
+    .eq("external_id", itemId)
+    .maybeSingle();
+  if (existing) return json({ recurso: existing, jaExistia: true });
+
+  const { data: inserted, error: insErr } = await sb
+    .from("acessos_recursos")
+    .insert({
+      tipo: "onedrive",
+      provedor: "microsoft",
+      nome: name || "(sem nome)",
+      external_id: itemId,
+      caminho: caminho ?? null,
+    })
+    .select("*")
+    .single();
+  if (insErr) return json({ error: "falha_ao_inserir", detalhe: insErr.message }, 500);
+
+  await logMs(sb, quem, "onedrive.addFolder", inserted.id, "ok", { itemId, name });
+  return json({ recurso: inserted });
+}
+
+async function msFolders(sb: any) {
+  const { data, error } = await sb
+    .from("acessos_recursos")
+    .select("*")
+    .eq("tipo", "onedrive")
+    .order("nome", { ascending: true });
+  if (error) return json({ error: "falha_ao_listar", detalhe: error.message }, 500);
+  return json({ folders: data ?? [] });
+}
+
+async function msRemoveFolder(sb: any, quem: string | null, recursoId: string) {
+  if (!recursoId) return json({ error: "sem_recursoId" }, 400);
+  const { error } = await sb.from("acessos_recursos").delete().eq("id", recursoId);
+  if (error) return json({ error: "falha_ao_remover", detalhe: error.message }, 500);
+  await logMs(sb, quem, "onedrive.removeFolder", recursoId, "ok", { recursoId });
+  return json({ ok: true });
+}
+
+async function msShares(sb: any, itemId: string) {
+  if (!itemId) return json({ error: "sem_itemId" }, 400);
+  const conn = await readMsConn(sb);
+  if (!conn.refresh_token) return json({ error: "nao_conectado" });
+  const access = await freshMsToken(conn);
+  const r = await graphFetch(access, `/me/drive/items/${encodeURIComponent(itemId)}/permissions`);
+  if (!r.ok) return graphErr(r.status, r.json);
+  const value: any[] = Array.isArray(r.json?.value) ? r.json.value : [];
+  const shares = value
+    // Skip the owner permission (not a "share" to manage).
+    .filter((p) => !(Array.isArray(p?.roles) && p.roles.includes("owner")))
+    .map((p) => {
+      const roles: string[] = Array.isArray(p?.roles) ? p.roles : [];
+      const role = roles.includes("write") ? "edição" : "leitura";
+      const ident = parsePermIdentity(p);
+      return { permId: String(p.id), name: ident.name, email: ident.email, role };
+    });
+  return json({ shares });
+}
+
+async function msShare(
+  sb: any,
+  quem: string | null,
+  itemId: string,
+  email: string,
+  role: string,
+) {
+  if (!itemId || !email) return json({ error: "sem_itemId_ou_email" }, 400);
+  const conn = await readMsConn(sb);
+  if (!conn.refresh_token) return json({ error: "nao_conectado" });
+  const access = await freshMsToken(conn);
+  const graphRole = role === "edição" ? "write" : "read";
+  // VERIFIED invite body (Microsoft Learn driveItem:invite). sendInvitation:false so no
+  // email is sent (we manage access programmatically); requireSignIn:true forces auth.
+  const r = await graphFetch(access, `/me/drive/items/${encodeURIComponent(itemId)}/invite`, {
+    method: "POST",
+    body: {
+      recipients: [{ email }],
+      roles: [graphRole],
+      requireSignIn: true,
+      sendInvitation: false,
+    },
+  });
+  if (!r.ok) {
+    await logMs(sb, quem, "onedrive.share", itemId, "erro", { email, role, status: r.status, detalhe: r.json });
+    return json({ error: `graph_http_${r.status}`, detalhe: r.json });
+  }
+  await logMs(sb, quem, "onedrive.share", itemId, "ok", { email, role: graphRole });
+  return json({ ok: true });
+}
+
+async function msUnshare(sb: any, quem: string | null, itemId: string, permId: string) {
+  if (!itemId || !permId) return json({ error: "sem_itemId_ou_permId" }, 400);
+  const conn = await readMsConn(sb);
+  if (!conn.refresh_token) return json({ error: "nao_conectado" });
+  const access = await freshMsToken(conn);
+  const r = await graphFetch(
+    access,
+    `/me/drive/items/${encodeURIComponent(itemId)}/permissions/${encodeURIComponent(permId)}`,
+    { method: "DELETE" },
+  );
+  if (!r.ok) {
+    await logMs(sb, quem, "onedrive.unshare", itemId, "erro", { permId, status: r.status, detalhe: r.json });
+    return json({ error: `graph_http_${r.status}`, detalhe: r.json });
+  }
+  await logMs(sb, quem, "onedrive.unshare", itemId, "ok", { permId });
+  return json({ ok: true });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (req.method !== "POST") return json({ error: "metodo_invalido" }, 405);
@@ -404,6 +724,24 @@ Deno.serve(async (req: Request) => {
         return await actUsers(sb);
       case "zoho.import":
         return await actImport(sb, user.id);
+      case "microsoft.status":
+        return await msStatus(sb);
+      case "microsoft.authUrl":
+        return await msAuthUrl(sb);
+      case "microsoft.browse":
+        return await msBrowse(sb, body?.itemId ?? null);
+      case "microsoft.addFolder":
+        return await msAddFolder(sb, user.id, body?.itemId, body?.name, body?.caminho ?? null);
+      case "microsoft.folders":
+        return await msFolders(sb);
+      case "microsoft.removeFolder":
+        return await msRemoveFolder(sb, user.id, body?.recursoId);
+      case "microsoft.shares":
+        return await msShares(sb, body?.itemId);
+      case "microsoft.share":
+        return await msShare(sb, user.id, body?.itemId, body?.email, body?.role);
+      case "microsoft.unshare":
+        return await msUnshare(sb, user.id, body?.itemId, body?.permId);
       default:
         return json({ error: "acao_desconhecida", action: action ?? null }, 400);
     }

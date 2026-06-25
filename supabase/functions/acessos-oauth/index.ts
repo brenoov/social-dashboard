@@ -1,7 +1,10 @@
 // Supabase Edge Function: acessos-oauth
-// OAuth callback for the Zoho connect flow of "Controle de Acesso e Colaboradores".
+// OAuth callback for the Zoho AND Microsoft OneDrive connect flows of
+// "Controle de Acesso e Colaboradores".
 //
-// ONLY route: GET .../acessos-oauth/callback/zoho?code=...&state=...
+// Routes (both verify_jwt:false — state in acessos_conexoes is the CSRF guard):
+//   GET .../acessos-oauth/callback/zoho?code=...&state=...
+//   GET .../acessos-oauth/callback/microsoft?code=...&state=...
 //   The authorize URL (with `state`) is minted by the ADMIN-GATED proxy (acessos-proxy
 //   action `zoho.authUrl`), which stores the state in acessos_conexoes.oauth_state.
 //   This callback rejects any code whose `state` does not match the stored one (CSRF /
@@ -23,6 +26,13 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const APP_RETURN = "https://socialdashboard.rbvcompany.com/";
 const CALLBACK_URI =
   "https://kounqtdoioootxqegkij.supabase.co/functions/v1/acessos-oauth/callback/zoho";
+// Microsoft (personal/consumer account) — redirect URI registered in Azure.
+const MS_CALLBACK_URI =
+  "https://kounqtdoioootxqegkij.supabase.co/functions/v1/acessos-oauth/callback/microsoft";
+// VERIFIED (Microsoft Learn — Microsoft identity platform v2 OAuth, June 2026):
+//   https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow
+//   The "/consumers" tenant is for personal Microsoft accounts (MSA) only.
+const MS_TOKEN_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
 const STATE_TTL_MS = 10 * 60 * 1000;
 
 function admin() {
@@ -36,6 +46,10 @@ function redirect(location: string): Response {
 function fail(reason: string, detail?: unknown): Response {
   console.error("[acessos-oauth] erro:", reason, detail ?? "");
   return redirect(`${APP_RETURN}?zoho=erro&msg=${encodeURIComponent(reason)}`);
+}
+function failMs(reason: string, detail?: unknown): Response {
+  console.error("[acessos-oauth] microsoft erro:", reason, detail ?? "");
+  return redirect(`${APP_RETURN}?onedrive=erro&msg=${encodeURIComponent(reason)}`);
 }
 function dcSuffix(raw: unknown): string {
   let dc = (typeof raw === "string" ? raw : "").trim();
@@ -146,8 +160,87 @@ async function handleCallback(reqUrl: URL): Promise<Response> {
   return redirect(`${APP_RETURN}?zoho=ok`);
 }
 
+// ---------------------------------------------------------------------------
+// Microsoft OneDrive (personal account) callback.
+// Token exchange at the consumers endpoint — VERIFIED form params (Microsoft Learn,
+// v2 auth-code flow): client_id, scope, code, redirect_uri,
+// grant_type=authorization_code, client_secret -> { access_token, refresh_token,
+// expires_in }. Secrets stay server-side; never appear in any redirect.
+async function handleCallbackMicrosoft(reqUrl: URL): Promise<Response> {
+  const oauthErr = reqUrl.searchParams.get("error");
+  if (oauthErr) {
+    return failMs(oauthErr, reqUrl.searchParams.get("error_description"));
+  }
+  const code = reqUrl.searchParams.get("code");
+  const qState = reqUrl.searchParams.get("state");
+  if (!code) return failMs("sem_code");
+  if (!qState) return failMs("sem_state");
+
+  const sb = admin();
+  const { data: row, error: readErr } = await sb
+    .from("acessos_conexoes")
+    .select("client_id, client_secret, escopos, oauth_state, oauth_state_em")
+    .eq("provedor", "microsoft")
+    .single();
+  if (readErr || !row) return failMs("falha_ao_ler_credenciais", readErr?.message);
+
+  // Verify state (CSRF / connection-fixation): must match the one minted by the
+  // admin-gated proxy, constant-time, and be fresh (<=10 min).
+  if (!row.oauth_state || !ctEq(qState, row.oauth_state)) return failMs("state_invalido");
+  if (row.oauth_state_em && Date.now() - new Date(row.oauth_state_em).getTime() > STATE_TTL_MS) {
+    await sb.from("acessos_conexoes").update({ oauth_state: null }).eq("provedor", "microsoft");
+    return failMs("state_expirado");
+  }
+  // One-time use: clear the state immediately.
+  await sb.from("acessos_conexoes").update({ oauth_state: null }).eq("provedor", "microsoft");
+
+  // Exchange code -> tokens (form-urlencoded).
+  let tokenJson: any;
+  try {
+    const scope = (row.escopos && String(row.escopos).trim()) ||
+      "Files.ReadWrite offline_access User.Read";
+    const body = new URLSearchParams({
+      client_id: row.client_id,
+      scope,
+      code,
+      redirect_uri: MS_CALLBACK_URI,
+      grant_type: "authorization_code",
+      client_secret: row.client_secret,
+    });
+    const resp = await fetch(MS_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+    tokenJson = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      console.error("[acessos-oauth] microsoft token http", resp.status, tokenJson);
+      return failMs("falha_token", `http ${resp.status}`);
+    }
+  } catch (e) {
+    return failMs("falha_token", e instanceof Error ? e.message : e);
+  }
+  if (tokenJson?.error) return failMs("falha_token", tokenJson.error_description ?? tokenJson.error);
+
+  const refreshToken = tokenJson?.refresh_token;
+  if (!refreshToken) {
+    console.error("[acessos-oauth] microsoft sem refresh_token. resposta:", tokenJson);
+    return failMs("sem_refresh_token");
+  }
+
+  const nowIso = new Date().toISOString();
+  const { error: upErr } = await sb
+    .from("acessos_conexoes")
+    .update({ refresh_token: refreshToken, conectado_em: nowIso, atualizado_em: nowIso })
+    .eq("provedor", "microsoft");
+  if (upErr) return failMs("falha_ao_salvar", upErr.message);
+
+  return redirect(`${APP_RETURN}?onedrive=ok`);
+}
+
 Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
+  if (url.pathname.includes("/callback/microsoft")) return await handleCallbackMicrosoft(url);
   if (url.pathname.includes("/callback/zoho")) return await handleCallback(url);
   return new Response("not found", { status: 404 });
 });
