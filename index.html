@@ -985,7 +985,7 @@
 /* ===== Acessos — lista de colaboradores premium ===== */
 #acessos-screen .ac-person{padding:13px 14px;gap:14px}
 #acessos-screen .ac-person .ac-avatar{box-shadow:var(--shadow-sm)}
-#acessos-screen .ac-person-name{font-family:'IBM Plex Sans',sans-serif;font-size:15.5px;font-weight:600;color:var(--text);letter-spacing:.2px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;line-height:1.2}
+#acessos-screen .ac-person-name{font-family:'Playfair Display',serif;font-size:19px;font-weight:600;color:var(--text);letter-spacing:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;line-height:1.15}
 #acessos-screen .ac-kicker{font-family:'IBM Plex Sans',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:var(--muted);margin-top:4px}
 #acessos-screen .ac-person-email{font-family:'IBM Plex Sans',sans-serif;font-size:12.5px;color:var(--muted);margin-top:3px}
 /* ===== Acessos — tipografia premium (Oswald + Playfair + IBM Plex, alinhado ao app) ===== */
@@ -1040,6 +1040,8 @@
 #acessos-screen .ac-row{flex-wrap:wrap}
 #acessos-screen .ac-row .grow{min-width:0}
 #acessos-screen .ac-avatar{flex:0 0 auto}
+#acessos-screen .ac-navbar{display:flex;justify-content:center;gap:0;padding:14px 24px;border-bottom:1px solid var(--border)}
+#acessos-screen .ac-navbar .ac-tabs{margin-left:0;gap:8px}
   /* ===== /Controle de Acessos ===== */
   #noticias-screen::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:5;opacity:.04;mix-blend-mode:multiply;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
   /* Tema escuro do Observatório (segue o tema do app) */
@@ -10660,6 +10662,8 @@ function setHomeBgTheme(type){
   <div class="ac-topbar">
     <button class="ac-back" onclick="closeAcessos()">← Central</button>
     <div class="ac-title">Controle de Acesso e Colaboradores</div>
+  </div>
+  <div class="ac-navbar">
     <div class="ac-tabs">
       <button class="ac-tab" data-tab="org" onclick="_acSetTab('org')">Organizações</button>
       <button class="ac-tab" data-tab="auditoria" onclick="_acSetTab('auditoria')">Auditoria</button>
