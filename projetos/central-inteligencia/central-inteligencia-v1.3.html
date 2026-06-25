@@ -9405,7 +9405,38 @@ async function _acSaveConfig(){
   _acData.config=rec;await _acLog('config.salvar','modelo_termo','ok',null);
   adminToast('Modelo salvo');
 }
-function _acRenderAuditoria(){document.getElementById('ac-body').innerHTML='<div class="ac-muted">Auditoria (em construção)</div>';}
+async function _acRenderAuditoria(){
+  const body=document.getElementById('ac-body');
+  body.innerHTML='<div class="ac-muted">Carregando auditoria…</div>';
+  const[{data:pessoas},{data:disps},{data:termos}]=await Promise.all([
+    sbClient.from('acessos_pessoas').select('*').order('nome'),
+    sbClient.from('acessos_dispositivos').select('*'),
+    sbClient.from('acessos_termos').select('id,pessoa_id,dispositivo_ids,status')
+  ]);
+  const byPessoaDisp={},assinadoDisp=new Set();
+  (disps||[]).forEach(d=>{(byPessoaDisp[d.pessoa_id]=byPessoaDisp[d.pessoa_id]||[]).push(d);});
+  (termos||[]).forEach(t=>{if(t.status==='assinado')(t.dispositivo_ids||[]).forEach(id=>assinadoDisp.add(id));});
+  const flags=[];
+  (pessoas||[]).forEach(p=>{
+    const ds=byPessoaDisp[p.id]||[];
+    if(p.status==='inativo'){ds.filter(d=>d.status==='em_uso'||d.status==='a_devolver').forEach(d=>flags.push(`Pessoa inativa <strong>${_acEsc(p.nome)}</strong> ainda com item <em>${_acEsc(d.descricao)}</em> (${_acEsc(_acDstMeta(d.status)[1])})`));}
+    ds.filter(d=>d.status==='em_uso'&&!assinadoDisp.has(d.id)).forEach(d=>flags.push(`Item <em>${_acEsc(d.descricao)}</em> de <strong>${_acEsc(p.nome)}</strong> está em uso <strong>sem termo assinado</strong>`));
+  });
+  const linhas=(pessoas||[]).map(p=>{
+    const ds=byPessoaDisp[p.id]||[];
+    const itens=ds.length?ds.map(d=>`${_acEsc(_acTipoLabel(d.tipo))} (${_acEsc(_acDstMeta(d.status)[1])})`).join(', '):'<span class="ac-muted">sem itens</span>';
+    return `<div class="ac-row"><div class="grow"><strong>${_acEsc(p.nome)}</strong> ${p.status==='inativo'?'<span class="ac-pill bad">inativo</span>':''}<div class="ac-muted">${itens}</div></div></div>`;
+  }).join('');
+  body.innerHTML=`
+    <div class="ac-card">
+      <h3 style="margin-top:0">Divergências ${flags.length?`<span class="ac-pill bad">${flags.length}</span>`:'<span class="ac-pill ok">0</span>'}</h3>
+      ${flags.length?flags.map(f=>`<div class="ac-row" style="border-color:rgba(239,68,68,.4)">⚠️ ${f}</div>`).join(''):'<div class="ac-muted">Nenhuma divergência.</div>'}
+    </div>
+    <div class="ac-card">
+      <h3 style="margin-top:0">Quem tem o quê</h3>
+      ${linhas||'<div class="ac-muted">Sem pessoas.</div>'}
+    </div>`;
+}
 let _npRod=null;
 const NP_CAT_COLOR={lancamento:'var(--c-lancamento)',campanha:'var(--c-campanha)',precopromo:'var(--c-precopromo)',faturamento:'var(--c-faturamento)',expansao:'var(--c-expansao)',tendencia:'var(--c-tendencia)',estrategia:'var(--c-estrategia)',marketing:'var(--c-marketing)',design:'var(--c-design)',moda:'var(--c-moda)',bestseller:'var(--c-bestseller)',desenvolvimento:'var(--c-desenvolvimento)',instagram:'var(--c-instagram)',topviral:'var(--c-instagram)',ultimosposts:'var(--c-instagram)',reels:'var(--c-instagram)',outro:'var(--c-outro)'};
 function _npCatColor(c){const s=String(c||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z]/g,'');return NP_CAT_COLOR[s]||'var(--c-outro)';}
