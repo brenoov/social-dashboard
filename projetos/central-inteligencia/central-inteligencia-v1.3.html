@@ -9284,7 +9284,27 @@ async function _acDelDispositivo(id,pessoaId){
   await _acLog('dispositivo.excluir','disp:'+id,'ok',null);
   adminToast('Item excluído');_acRenderDispositivos(pessoaId);
 }
-function _acRenderConfig(){document.getElementById('ac-body').innerHTML='<div class="ac-muted">Modelo (em construção)</div>';}
+function _acRenderConfig(){
+  const c=_acData.config||{empresa:'',modelo_termo:''};
+  document.getElementById('ac-body').innerHTML=`
+    <div class="ac-card" style="max-width:760px">
+      <h3 style="margin-top:0">Modelo do termo de responsabilidade</h3>
+      <p class="ac-muted">Placeholders disponíveis: <code>{{nome}}</code> <code>{{cargo}}</code> <code>{{empresa}}</code> <code>{{itens}}</code> <code>{{data}}</code>.</p>
+      <label>Empresa<input class="ac-input" id="acc-empresa" value="${_acEsc(c.empresa||'')}"></label>
+      <label style="display:block;margin-top:10px">Texto do termo
+        <textarea class="ac-textarea" id="acc-modelo">${_acEsc(c.modelo_termo||'')}</textarea>
+      </label>
+      <div style="margin-top:12px"><button class="ac-btn" onclick="_acSaveConfig()">Salvar modelo</button></div>
+    </div>`;
+}
+async function _acSaveConfig(){
+  const rec={id:1,empresa:document.getElementById('acc-empresa').value.trim(),
+    modelo_termo:document.getElementById('acc-modelo').value,atualizado_em:new Date().toISOString()};
+  const{error}=await sbClient.from('acessos_config').upsert(rec,{onConflict:'id'});
+  if(error){adminToast('Erro: '+error.message,false);return;}
+  _acData.config=rec;await _acLog('config.salvar','modelo_termo','ok',null);
+  adminToast('Modelo salvo');
+}
 function _acRenderAuditoria(){document.getElementById('ac-body').innerHTML='<div class="ac-muted">Auditoria (em construção)</div>';}
 let _npRod=null;
 const NP_CAT_COLOR={lancamento:'var(--c-lancamento)',campanha:'var(--c-campanha)',precopromo:'var(--c-precopromo)',faturamento:'var(--c-faturamento)',expansao:'var(--c-expansao)',tendencia:'var(--c-tendencia)',estrategia:'var(--c-estrategia)',marketing:'var(--c-marketing)',design:'var(--c-design)',moda:'var(--c-moda)',bestseller:'var(--c-bestseller)',desenvolvimento:'var(--c-desenvolvimento)',instagram:'var(--c-instagram)',topviral:'var(--c-instagram)',ultimosposts:'var(--c-instagram)',reels:'var(--c-instagram)',outro:'var(--c-outro)'};
