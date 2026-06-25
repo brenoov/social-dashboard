@@ -952,6 +952,33 @@
   .ac-pill.warn{background:rgba(245,158,11,.18);color:#fbbf24}
   .ac-pill.bad{background:rgba(239,68,68,.18);color:#f87171}
   @media(max-width:640px){.ac-grid2{grid-template-columns:1fr}.ac-tabs{width:100%;margin-left:0}}
+  @keyframes acFadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  #acessos-screen .ac-card,#acessos-screen .ac-setor-card,#acessos-screen .ac-tile{animation:acFadeUp .32s ease both}
+  .ac-topbar{backdrop-filter:saturate(140%) blur(8px);background:linear-gradient(180deg,rgba(13,148,136,.10),transparent)}
+  .ac-card{transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,.01))}
+  .ac-card:hover{border-color:rgba(13,148,136,.35)}
+  .ac-btn{transition:transform .12s ease,filter .15s ease,box-shadow .15s ease;box-shadow:0 1px 0 rgba(0,0,0,.15)}
+  .ac-btn:hover{filter:brightness(1.08);transform:translateY(-1px)}
+  .ac-btn:active{transform:translateY(0)}
+  .ac-row{transition:border-color .15s ease,background .15s ease}
+  .ac-row:hover{border-color:rgba(13,148,136,.28);background:rgba(13,148,136,.04)}
+  .ac-setores-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+  .ac-setor-card{position:relative;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:18px;cursor:pointer;overflow:hidden;background:linear-gradient(155deg,rgba(13,148,136,.10),rgba(255,255,255,.02))}
+  .ac-setor-card::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 80% at 100% 0%,rgba(13,148,136,.18),transparent 60%);opacity:.7;pointer-events:none}
+  .ac-setor-card:hover{transform:translateY(-3px);border-color:rgba(13,148,136,.5);box-shadow:0 12px 28px -12px rgba(13,148,136,.5)}
+  .ac-setor-ico{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;margin-bottom:12px}
+  .ac-setor-nome{font-weight:700;font-size:15px;position:relative}
+  .ac-setor-sub{font-size:12px;opacity:.6;margin-top:2px;position:relative}
+  .ac-count{display:inline-flex;align-items:center;gap:5px;margin-top:12px;padding:3px 10px;border-radius:999px;background:rgba(13,148,136,.18);color:#2dd4bf;font-size:12px;font-weight:700;position:relative}
+  .ac-setor-del{position:absolute;top:10px;right:10px;width:26px;height:26px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.25);color:#f87171;cursor:pointer;opacity:0;transition:opacity .15s ease;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1}
+  .ac-setor-card:hover .ac-setor-del{opacity:1}
+  .ac-pill.neutral{background:rgba(148,163,184,.18);color:#cbd5e1}
+  .ac-chip{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);font-size:11px;margin:2px 4px 2px 0}
+  .ac-modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:60;padding:20px}
+  .ac-modal-ov.open{display:flex;animation:acFadeUp .2s ease both}
+  .ac-modal{background:#0f1720;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:22px;max-width:480px;width:100%;box-shadow:0 24px 60px -20px #000}
+  .ac-section-h{display:flex;align-items:center;gap:10px;margin:0 0 14px}
+  .ac-section-h h3{margin:0}
   /* ===== /Controle de Acessos ===== */
   #noticias-screen::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:5;opacity:.04;mix-blend-mode:multiply;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
   /* Tema escuro do Observatório (segue o tema do app) */
@@ -9073,9 +9100,10 @@ function closeNoticias(){
   showHome();
 }
 /* ===== Controle de Acessos (base manual) ===== */
-let _acData={pessoas:[],config:null};
+let _acData={setores:[],pessoas:[],config:null};
 let _acSel=null;      // id da pessoa aberta (ou null)
-let _acTab='pessoas';
+let _acSelSetor=null; // id do setor aberto (ou null, ou false para "sem setor")
+let _acTab='setores';
 function _acEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 async function _acLog(acao,alvo,resultado,detalhe){
   try{const{data:{session:s}}=await sbClient.auth.getSession();
@@ -9086,32 +9114,98 @@ function openAcessos(){
   document.getElementById('home-screen').style.display='none';
   document.getElementById('acessos-screen').style.display='flex';
   sessionStorage.setItem('rbv-screen','acessos');
-  _acTab='pessoas';_acSel=null;
+  _acTab='setores';_acSel=null;_acSelSetor=null;
   loadAcessos();
 }
 function closeAcessos(){
   document.getElementById('acessos-screen').style.display='none';
   showHome();
 }
-function _acSetTab(t){_acTab=t;_acSel=null;_acRender();}
+function _acSetTab(t){_acTab=t;_acSel=null;_acSelSetor=null;_acRender();}
 async function loadAcessos(){
   const body=document.getElementById('ac-body');
   body.innerHTML='<div class="ac-muted">Carregando…</div>';
-  const[p,c]=await Promise.all([
-    sbClient.from('acessos_pessoas').select('*').order('nome'),
-    sbClient.from('acessos_config').select('*').eq('id',1).maybeSingle()
+  const[se,p]=await Promise.all([
+    sbClient.from('acessos_setores').select('*').order('ordem').order('nome'),
+    sbClient.from('acessos_pessoas').select('*').order('nome')
   ]);
   if(p.error){body.innerHTML='<div class="ac-card">Erro: '+_acEsc(p.error.message)+'</div>';return;}
+  _acData.setores=se.data||[];
   _acData.pessoas=p.data||[];
-  _acData.config=c.data||{empresa:'',modelo_termo:''};
   _acRender();
 }
 function _acRender(){
   document.querySelectorAll('#acessos-screen .ac-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===_acTab));
-  if(_acTab==='config')return _acRenderConfig();
   if(_acTab==='auditoria')return _acRenderAuditoria();
   if(_acSel)return _acRenderFicha(_acSel);
-  return _acRenderPessoas();
+  if(_acSelSetor!==null)return _acRenderColaboradores(_acSelSetor);
+  return _acRenderSetores();
+}
+function _acSetorIco(){return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg>';}
+function _acRenderSetores(){
+  const body=document.getElementById('ac-body');
+  const cardsArr=_acData.setores.map((s,i)=>{
+    const n=_acData.pessoas.filter(x=>x.setor_id===s.id).length;
+    const na=_acData.pessoas.filter(x=>x.setor_id===s.id&&x.status==='ativo').length;
+    return `<div class="ac-setor-card" style="animation-delay:${i*40}ms" onclick="_acOpenSetor('${s.id}')">
+      <button class="ac-setor-del" title="Excluir setor" onclick="event.stopPropagation();_acDelSetor('${s.id}')">✕</button>
+      <div class="ac-setor-ico">${_acSetorIco()}</div>
+      <div class="ac-setor-nome">${_acEsc(s.nome)}</div>
+      <div class="ac-setor-sub">${n} colaborador(es)</div>
+      <span class="ac-count">● ${na} ativo(s)</span>
+    </div>`;
+  }).join('');
+  const semSetor=_acData.pessoas.filter(x=>!x.setor_id).length;
+  const semCard=`<div class="ac-setor-card" style="animation-delay:${_acData.setores.length*40}ms;background:linear-gradient(155deg,rgba(148,163,184,.10),rgba(255,255,255,.02))" onclick="_acOpenSetor(null)">
+      <div class="ac-setor-ico" style="background:linear-gradient(135deg,#475569,#64748b)">${_acSetorIco()}</div>
+      <div class="ac-setor-nome">Sem setor</div>
+      <div class="ac-setor-sub">${semSetor} colaborador(es)</div>
+    </div>`;
+  body.innerHTML=`
+    <div class="ac-section-h">
+      <h3>Setores</h3>
+      <button class="ac-btn" style="margin-left:auto" onclick="_acAddSetor()">+ Novo setor</button>
+    </div>
+    <div class="ac-setores-grid">${cardsArr}${semCard}</div>`;
+}
+async function _acAddSetor(){
+  const nome=prompt('Nome do novo setor:');
+  if(!nome||!nome.trim())return;
+  const ordem=(_acData.setores.reduce((mx,s)=>Math.max(mx,s.ordem||0),0))+1;
+  const{error}=await sbClient.from('acessos_setores').insert({nome:nome.trim(),ordem});
+  if(error){adminToast('Erro: '+error.message,false);return;}
+  await _acLog('setor.criar','setor:'+nome.trim(),'ok',null);
+  adminToast('Setor criado');await loadAcessos();
+}
+async function _acDelSetor(id){
+  const s=_acData.setores.find(x=>x.id===id);if(!s)return;
+  const n=_acData.pessoas.filter(x=>x.setor_id===id).length;
+  if(!confirm(`Excluir o setor "${s.nome}"?`+(n?` Os ${n} colaborador(es) ficarão sem setor.`:'')))return;
+  const{error}=await sbClient.from('acessos_setores').delete().eq('id',id);
+  if(error){adminToast('Erro: '+error.message,false);return;}
+  await _acLog('setor.excluir','setor:'+s.nome,'ok',null);
+  adminToast('Setor excluído');await loadAcessos();
+}
+function _acOpenSetor(setorId){_acSelSetor=setorId;_acSel=null;_acRender();}
+async function _acRenderColaboradores(setorId){
+  const body=document.getElementById('ac-body');
+  const setor=setorId?_acData.setores.find(s=>s.id===setorId):null;
+  const lista=_acData.pessoas.filter(x=>setorId?x.setor_id===setorId:!x.setor_id);
+  const rows=lista.map(c=>`
+    <div class="ac-row">
+      <div class="grow">
+        <div><strong>${_acEsc(c.nome)}</strong> ${c.status==='desligado'?'<span class="ac-pill neutral">desligado</span>':'<span class="ac-pill ok">ativo</span>'}</div>
+        <div class="ac-muted">${_acEsc(c.cargo||'—')}${c.email_corporativo?' · '+_acEsc(c.email_corporativo):''}</div>
+      </div>
+      <button class="ac-btn ghost" onclick="_acOpenPessoa('${c.id}')">Abrir ficha</button>
+    </div>`).join('');
+  body.innerHTML=`
+    <div class="ac-section-h">
+      <button class="ac-btn ghost" onclick="_acSetTab('setores')">← Setores</button>
+      <h3 style="margin-left:6px">${_acEsc(setor?setor.nome:'Sem setor')}</h3>
+      <button class="ac-btn" style="margin-left:auto" onclick="_acFormColaborador(null,'${setorId||''}')">+ Novo colaborador</button>
+    </div>
+    ${rows||'<div class="ac-muted">Nenhum colaborador neste setor.</div>'}`;
 }
 function _acRenderPessoas(){
   const body=document.getElementById('ac-body');
@@ -10389,9 +10483,8 @@ function setHomeBgTheme(type){
     <button class="ac-back" onclick="closeAcessos()">← Central</button>
     <div class="ac-title">Controle de Acessos</div>
     <div class="ac-tabs">
-      <button class="ac-tab" data-tab="pessoas" onclick="_acSetTab('pessoas')">Pessoas</button>
+      <button class="ac-tab" data-tab="setores" onclick="_acSetTab('setores')">Setores</button>
       <button class="ac-tab" data-tab="auditoria" onclick="_acSetTab('auditoria')">Auditoria</button>
-      <button class="ac-tab" data-tab="config" onclick="_acSetTab('config')">Modelo do termo</button>
     </div>
   </div>
   <div class="ac-body" id="ac-body"></div>
