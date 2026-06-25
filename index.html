@@ -9212,6 +9212,7 @@ async function loadAcessos(){
 function _acRender(){
   document.querySelectorAll('#acessos-screen .ac-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===_acTab));
   if(_acTab==='auditoria')return _acRenderAuditoria();
+  if(_acTab==='config')return _acRenderConfiguracoes();
   if(_acSel)return _acRenderFicha(_acSel);
   if(_acSelSetor!==null)return _acRenderColaboradores(_acSelSetor);
   if(_acSelOrg!==null)return _acRenderSetores(_acSelOrg);
@@ -9242,17 +9243,33 @@ function _acRenderOrganizacoes(){
       <div class="ac-setor-nome">Sem setor</div>
       <div class="ac-setor-sub">${semSet} colaborador(es)</div></div>`:'';
   body.innerHTML=`
-    <div class="ac-card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <strong>Zoho Mail</strong>
-      <span id="ac-zoho-status" class="ac-muted">verificando…</span>
-      <div style="margin-left:auto;display:flex;gap:8px">
-        <button class="ac-btn ghost" onclick="_acConectarZoho()">Conectar</button>
-        <button class="ac-btn" id="ac-zoho-import" style="display:none" onclick="_acImportarZoho()">Importar usuários</button>
-      </div>
-    </div>
     <div class="ac-section-h"><h3>Organizações</h3>
       <button class="ac-btn" style="margin-left:auto" onclick="_acAddOrg()">+ Nova organização</button></div>
     <div class="ac-setores-grid">${cards}${semOrg}${semSetor}</div>`;
+}
+function _acRenderConfiguracoes(){
+  const body=document.getElementById('ac-body');
+  body.innerHTML=`
+    <div class="ac-section-h"><h3>Configurações</h3></div>
+    <div class="ac-card">
+      <h3 style="margin-top:0">Contas de sincronização</h3>
+      <div class="ac-row">
+        <div class="grow">
+          <div><strong>Zoho Mail</strong> <span id="ac-zoho-status" class="ac-muted">verificando…</span></div>
+          <div class="ac-muted">Importa colaboradores (nome, e-mail corporativo e foto) da sua organização Zoho.</div>
+        </div>
+        <button class="ac-btn ghost" onclick="_acConectarZoho()">Conectar</button>
+        <button class="ac-btn" id="ac-zoho-import" style="display:none" onclick="_acImportarZoho()">Importar usuários</button>
+      </div>
+      <div class="ac-row" style="opacity:.55">
+        <div class="grow"><div><strong>OneDrive</strong> <span class="ac-pill neutral">em breve</span></div>
+        <div class="ac-muted">Compartilhamento de pastas (próxima fase).</div></div>
+      </div>
+      <div class="ac-row" style="opacity:.55">
+        <div class="grow"><div><strong>iCloud</strong> <span class="ac-pill neutral">manual</span></div>
+        <div class="ac-muted">Sem API — controle manual (próxima fase).</div></div>
+      </div>
+    </div>`;
   _acZohoStatus();
 }
 function _acOpenOrg(orgId){_acSelOrg=orgId;_acSelSetor=null;_acSel=null;_acRender();}
@@ -10591,6 +10608,7 @@ function setHomeBgTheme(type){
     <div class="ac-tabs">
       <button class="ac-tab" data-tab="org" onclick="_acSetTab('org')">Organizações</button>
       <button class="ac-tab" data-tab="auditoria" onclick="_acSetTab('auditoria')">Auditoria</button>
+      <button class="ac-tab" data-tab="config" onclick="_acSetTab('config')" title="Configurações" style="padding:6px 10px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </div>
   </div>
   <div class="ac-body" id="ac-body"></div>
