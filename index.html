@@ -9207,71 +9207,7 @@ async function _acRenderColaboradores(setorId){
     </div>
     ${rows||'<div class="ac-muted">Nenhum colaborador neste setor.</div>'}`;
 }
-function _acRenderPessoas(){
-  const body=document.getElementById('ac-body');
-  const rows=_acData.pessoas.map(p=>`
-    <div class="ac-row">
-      <div class="grow">
-        <div><strong>${_acEsc(p.nome)}</strong> ${p.status==='inativo'?'<span class="ac-pill bad">inativo</span>':'<span class="ac-pill ok">ativo</span>'}</div>
-        <div class="ac-muted">${_acEsc(p.cargo||'—')}${p.email_pessoal?' · '+_acEsc(p.email_pessoal):''}</div>
-      </div>
-      <button class="ac-btn ghost" onclick="_acOpenPessoa('${p.id}')">Abrir ficha</button>
-    </div>`).join('');
-  body.innerHTML=`
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-      <h3 style="margin:0">Pessoas <span class="ac-muted">(${_acData.pessoas.length})</span></h3>
-      <button class="ac-btn" style="margin-left:auto" onclick="_acFormPessoa()">+ Nova pessoa</button>
-    </div>
-    ${rows||'<div class="ac-muted">Nenhuma pessoa cadastrada ainda.</div>'}`;
-}
-function _acFormPessoa(id){
-  const p=id?_acData.pessoas.find(x=>x.id===id):{nome:'',cargo:'',email_pessoal:'',apple_id:'',status:'ativo'};
-  if(!p)return;
-  const body=document.getElementById('ac-body');
-  body.innerHTML=`
-    <div class="ac-card" style="max-width:560px">
-      <h3 style="margin-top:0">${id?'Editar pessoa':'Nova pessoa'}</h3>
-      <div class="ac-grid2">
-        <label>Nome<input class="ac-input" id="acf-nome" value="${_acEsc(p.nome)}"></label>
-        <label>Cargo<input class="ac-input" id="acf-cargo" value="${_acEsc(p.cargo||'')}"></label>
-        <label>E-mail pessoal<input class="ac-input" id="acf-email" value="${_acEsc(p.email_pessoal||'')}"></label>
-        <label>Apple ID<input class="ac-input" id="acf-apple" value="${_acEsc(p.apple_id||'')}"></label>
-      </div>
-      <div style="margin-top:14px;display:flex;gap:8px">
-        <button class="ac-btn" onclick="_acSavePessoa(${id?"'"+id+"'":'null'})">Salvar</button>
-        <button class="ac-btn ghost" onclick="${id?"_acOpenPessoa('"+id+"')":"_acSetTab('pessoas')"}">Cancelar</button>
-      </div>
-    </div>`;
-}
-async function _acSavePessoa(id){
-  const rec={
-    nome:document.getElementById('acf-nome').value.trim(),
-    cargo:document.getElementById('acf-cargo').value.trim()||null,
-    email_pessoal:document.getElementById('acf-email').value.trim()||null,
-    apple_id:document.getElementById('acf-apple').value.trim()||null,
-    atualizado_em:new Date().toISOString()
-  };
-  if(!rec.nome){adminToast('Nome é obrigatório',false);return;}
-  const isEdit=!!id;
-  let err;
-  if(id){({error:err}=await sbClient.from('acessos_pessoas').update(rec).eq('id',id));}
-  else{const r=await sbClient.from('acessos_pessoas').insert(rec).select('id').single();err=r.error;id=r.data?.id;}
-  if(err){adminToast('Erro: '+err.message,false);return;}
-  await _acLog(isEdit?'pessoa.editar':'pessoa.criar','pessoa:'+rec.nome,'ok',null);
-  adminToast('Pessoa salva');
-  await loadAcessos();_acOpenPessoa(id);
-}
 function _acOpenPessoa(id){_acSel=id;_acTab='setores';_acRender();}
-async function _acTogglePessoa(id){
-  const p=_acData.pessoas.find(x=>x.id===id);if(!p)return;
-  const novo=p.status==='ativo'?'inativo':'ativo';
-  if(!confirm(`Marcar "${p.nome}" como ${novo}?`))return;
-  const{error}=await sbClient.from('acessos_pessoas').update({status:novo,atualizado_em:new Date().toISOString()}).eq('id',id);
-  if(error){adminToast('Erro: '+error.message,false);return;}
-  await _acLog('pessoa.status','pessoa:'+p.nome,'ok',novo);
-  adminToast('Status atualizado');
-  await loadAcessos();_acOpenPessoa(id);
-}
 function _acFormColaborador(id,setorIdPre){
   const c=id?_acData.pessoas.find(x=>x.id===id):{nome:'',cargo:'',setor_id:(setorIdPre||null),email_corporativo:'',numero_pessoal:'',numero_corporativo:'',data_inicio_contrato:''};
   if(!c)return;
@@ -9387,9 +9323,7 @@ async function _acReativar(id){
   await _acLog('colaborador.reativar','colab:'+c.nome,'ok',null);
   adminToast('Colaborador reativado');await loadAcessos();_acOpenPessoa(id);
 }
-const AC_TIPOS=[['celular','Celular'],['macbook','MacBook'],['notebook','Notebook'],['numero_celular','Número de linha'],['carro','Carro'],['outro','Outro']];
 const AC_DST=[['em_uso','Em uso','ok'],['a_devolver','A devolver','warn'],['devolvido','Devolvido',''],['perdido','Perdido','bad']];
-function _acTipoLabel(t){return (AC_TIPOS.find(x=>x[0]===t)||[t,t])[1];}
 function _acDstMeta(s){return AC_DST.find(x=>x[0]===s)||[s,s,''];}
 const AC_DEV_TIPOS=[['celular','Celular'],['smartphone','Smartphone'],['notebook','Notebook'],['macbook','MacBook'],['desktop','Desktop'],['monitor','Monitor'],['tablet','Tablet'],['numero','Número/Linha'],['chip','Chip/eSIM'],['acessorio','Acessório'],['outro','Outro']];
 const AC_VEI_TIPOS=[['carro','Carro'],['moto','Moto'],['caminhonete','Caminhonete'],['outro','Outro']];
@@ -9488,62 +9422,6 @@ async function _acDelItem(id,pessoaId,categoria){
   await _acLog('item.excluir',categoria+':'+id,'ok',null);
   adminToast('Item excluído');_acRenderItens(pessoaId,categoria);
 }
-async function _acAddDispositivo(pessoaId,id){
-  let d={tipo:'celular',descricao:'',identificador:'',desde:'',observacao:''};
-  if(id){const{data}=await sbClient.from('acessos_dispositivos').select('*').eq('id',id).single();if(data)d=data;}
-  const wrap=document.getElementById('ac-disp-wrap');
-  const old=wrap.querySelector('#acd-form');if(old)old.remove();
-  const form=document.createElement('div');form.className='ac-card';form.id='acd-form';
-  form.innerHTML=`<h3 style="margin-top:0">${id?'Editar item':'Novo item'}</h3>
-    <div class="ac-grid2">
-      <label>Tipo<select class="ac-select" id="acd-tipo">${AC_TIPOS.map(t=>`<option value="${t[0]}" ${t[0]===d.tipo?'selected':''}>${t[1]}</option>`).join('')}</select></label>
-      <label>Descrição / modelo<input class="ac-input" id="acd-desc" value="${_acEsc(d.descricao||'')}"></label>
-      <label>Identificador (serial/IMEI/placa/número)<input class="ac-input" id="acd-ident" value="${_acEsc(d.identificador||'')}"></label>
-      <label>Desde<input class="ac-input" id="acd-desde" type="date" value="${_acEsc(d.desde||'')}"></label>
-      <label style="grid-column:1/-1">Observação<input class="ac-input" id="acd-obs" value="${_acEsc(d.observacao||'')}"></label>
-    </div>
-    <div style="margin-top:12px;display:flex;gap:8px">
-      <button class="ac-btn" id="acd-save">Salvar</button>
-      <button class="ac-btn ghost" id="acd-cancel">Cancelar</button>
-    </div>`;
-  wrap.prepend(form);
-  form.querySelector('#acd-cancel').onclick=()=>_acRenderDispositivos(pessoaId);
-  form.querySelector('#acd-save').onclick=()=>_acSaveDispositivo(pessoaId,id||null);
-}
-async function _acSaveDispositivo(pessoaId,id){
-  const rec={
-    pessoa_id:pessoaId,
-    tipo:document.getElementById('acd-tipo').value,
-    descricao:document.getElementById('acd-desc').value.trim(),
-    identificador:document.getElementById('acd-ident').value.trim()||null,
-    desde:document.getElementById('acd-desde').value||null,
-    observacao:document.getElementById('acd-obs').value.trim()||null,
-    atualizado_em:new Date().toISOString()
-  };
-  if(!rec.descricao){adminToast('Descrição é obrigatória',false);return;}
-  let err;
-  if(id){({error:err}=await sbClient.from('acessos_dispositivos').update(rec).eq('id',id));}
-  else{({error:err}=await sbClient.from('acessos_dispositivos').insert(rec));}
-  if(err){adminToast('Erro: '+err.message,false);return;}
-  await _acLog(id?'dispositivo.editar':'dispositivo.criar','disp:'+rec.descricao,'ok',rec.tipo);
-  adminToast('Item salvo');
-  _acRenderDispositivos(pessoaId);
-}
-async function _acSetDispStatus(id,pessoaId,status){
-  const{error}=await sbClient.from('acessos_dispositivos').update({status,atualizado_em:new Date().toISOString()}).eq('id',id);
-  if(error){adminToast('Erro: '+error.message,false);return;}
-  await _acLog('dispositivo.status','disp:'+id,'ok',status);
-  adminToast('Status atualizado');_acRenderDispositivos(pessoaId);
-}
-async function _acDelDispositivo(id,pessoaId){
-  if(!confirm('Excluir este item do inventário?'))return;
-  const{error}=await sbClient.from('acessos_dispositivos').delete().eq('id',id);
-  if(error){adminToast('Erro: '+error.message,false);return;}
-  await _acLog('dispositivo.excluir','disp:'+id,'ok',null);
-  adminToast('Item excluído');_acRenderDispositivos(pessoaId);
-}
-const AC_TST=[['rascunho','Rascunho','warn'],['pendente','Pendente assinatura','warn'],['assinado','Assinado','ok'],['encerrado','Encerrado','']];
-function _acTstMeta(s){return AC_TST.find(x=>x[0]===s)||[s,s,''];}
 function _acSanitizeName(n){return String(n||'arquivo').replace(/[^\w.\-]+/g,'_').slice(-80);}
 async function _acRenderTermos(pessoaId){
   const wrap=document.getElementById('ac-termos-wrap');if(!wrap)return;
@@ -9576,60 +9454,6 @@ async function _acUploadTermo(pessoaId,file){
   await _acLog('termo.enviar','termo:'+titulo,'ok',null);
   adminToast('Documento enviado');_acRenderTermos(pessoaId);
 }
-function _acTermoHtml(pessoa,disps,config){
-  const itens=disps.map(d=>'- '+_acTipoLabel(d.tipo)+': '+(d.descricao||'')+(d.identificador?(' ('+d.identificador+')'):'')).join('\n');
-  const modelo=(config&&config.modelo_termo)||'';
-  const txt=modelo
-    .replace(/{{nome}}/g,pessoa.nome||'')
-    .replace(/{{cargo}}/g,pessoa.cargo||'')
-    .replace(/{{empresa}}/g,(config&&config.empresa)||'')
-    .replace(/{{itens}}/g,itens||'(nenhum item)')
-    .replace(/{{data}}/g,new Date().toLocaleDateString('pt-BR'));
-  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Termo</title>
-    <style>body{font-family:Georgia,serif;max-width:720px;margin:40px auto;padding:0 24px;color:#111;line-height:1.6}
-    pre{white-space:pre-wrap;font-family:inherit;font-size:15px}@media print{body{margin:0}}</style></head>
-    <body><pre>${_acEsc(txt)}</pre></body></html>`;
-}
-async function _acGerarTermo(pessoaId){
-  const ids=[...document.querySelectorAll('.ac-tdisp:checked')].map(c=>c.value);
-  if(!ids.length){adminToast('Selecione ao menos um item',false);return;}
-  const pessoa=_acData.pessoas.find(p=>p.id===pessoaId);
-  const{data:disps}=await sbClient.from('acessos_dispositivos').select('*').in('id',ids);
-  const{data:novo,error:e1}=await sbClient.from('acessos_termos')
-    .insert({pessoa_id:pessoaId,dispositivo_ids:ids,status:'pendente',modelo_versao:(_acData.config?.atualizado_em||null),gerado_em:new Date().toISOString()})
-    .select('id').single();
-  if(e1){adminToast('Erro: '+e1.message,false);return;}
-  const path=novo.id+'/termo.html';
-  const html=_acTermoHtml(pessoa,disps||[],_acData.config);
-  const blob=new Blob([html],{type:'text/html'});
-  const{error:e2}=await sbClient.storage.from('acessos-termos').upload(path,blob,{upsert:true,contentType:'text/html'});
-  if(e2){await sbClient.from('acessos_termos').delete().eq('id',novo.id);adminToast('Erro storage: '+e2.message,false);return;}
-  const{error:e3}=await sbClient.from('acessos_termos').update({pdf_path:path}).eq('id',novo.id);
-  if(e3){adminToast('Erro: '+e3.message,false);return;}
-  await _acLog('termo.gerar','termo:'+novo.id,'ok',ids.length+' itens');
-  adminToast('Termo gerado');_acRenderTermos(pessoaId);
-}
-async function _acImprimirTermo(termoId){
-  const{data,error}=await sbClient.from('acessos_termos').select('pdf_path').eq('id',termoId).single();
-  if(error||!data?.pdf_path){adminToast('Termo gerado não encontrado',false);return;}
-  const{data:sg,error:e2}=await sbClient.storage.from('acessos-termos').createSignedUrl(data.pdf_path,120);
-  if(e2){adminToast('Erro URL: '+e2.message,false);return;}
-  let f=document.getElementById('ac-print-frame');
-  if(!f){f=document.createElement('iframe');f.id='ac-print-frame';f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0';document.body.appendChild(f);}
-  f.onload=()=>{try{f.contentWindow.focus();f.contentWindow.print();}catch(e){window.open(sg.signedUrl,'_blank');}};
-  f.src=sg.signedUrl;
-}
-async function _acUploadAssinado(termoId,pessoaId,file){
-  if(!file){return;}
-  if(file.type!=='application/pdf'){adminToast('Envie um PDF',false);return;}
-  const path=termoId+'/assinado.pdf';
-  const{error:e1}=await sbClient.storage.from('acessos-termos').upload(path,file,{upsert:true,contentType:'application/pdf'});
-  if(e1){adminToast('Erro upload: '+e1.message,false);return;}
-  const{error:e2}=await sbClient.from('acessos_termos').update({assinado_path:path,status:'assinado',assinado_em:new Date().toISOString()}).eq('id',termoId);
-  if(e2){adminToast('Erro: '+e2.message,false);return;}
-  await _acLog('termo.assinar','termo:'+termoId,'ok',null);
-  adminToast('Termo assinado anexado');_acRenderTermos(pessoaId);
-}
 async function _acDownloadTermo(termoId){
   const{data,error}=await sbClient.from('acessos_termos').select('arquivo_path').eq('id',termoId).single();
   if(error||!data?.arquivo_path){adminToast('Arquivo não encontrado',false);return;}
@@ -9646,65 +9470,45 @@ async function _acDelTermo(termoId,pessoaId){
   await _acLog('termo.excluir','termo:'+termoId,'ok',null);
   adminToast('Documento excluído');_acRenderTermos(pessoaId);
 }
-async function _acEncerrarTermo(termoId,pessoaId){
-  if(!confirm('Encerrar este termo? (use quando os itens forem devolvidos)'))return;
-  const{error}=await sbClient.from('acessos_termos').update({status:'encerrado',encerrado_em:new Date().toISOString()}).eq('id',termoId);
-  if(error){adminToast('Erro: '+error.message,false);return;}
-  await _acLog('termo.encerrar','termo:'+termoId,'ok',null);
-  adminToast('Termo encerrado');_acRenderTermos(pessoaId);
-}
-function _acRenderConfig(){
-  const c=_acData.config||{empresa:'',modelo_termo:''};
-  document.getElementById('ac-body').innerHTML=`
-    <div class="ac-card" style="max-width:760px">
-      <h3 style="margin-top:0">Modelo do termo de responsabilidade</h3>
-      <p class="ac-muted">Placeholders disponíveis: <code>{{nome}}</code> <code>{{cargo}}</code> <code>{{empresa}}</code> <code>{{itens}}</code> <code>{{data}}</code>.</p>
-      <label>Empresa<input class="ac-input" id="acc-empresa" value="${_acEsc(c.empresa||'')}"></label>
-      <label style="display:block;margin-top:10px">Texto do termo
-        <textarea class="ac-textarea" id="acc-modelo">${_acEsc(c.modelo_termo||'')}</textarea>
-      </label>
-      <div style="margin-top:12px"><button class="ac-btn" onclick="_acSaveConfig()">Salvar modelo</button></div>
-    </div>`;
-}
-async function _acSaveConfig(){
-  const rec={id:1,empresa:document.getElementById('acc-empresa').value.trim(),
-    modelo_termo:document.getElementById('acc-modelo').value,atualizado_em:new Date().toISOString()};
-  const{error}=await sbClient.from('acessos_config').upsert(rec,{onConflict:'id'});
-  if(error){adminToast('Erro: '+error.message,false);return;}
-  _acData.config=rec;await _acLog('config.salvar','modelo_termo','ok',null);
-  adminToast('Modelo salvo');
-}
 async function _acRenderAuditoria(){
   const body=document.getElementById('ac-body');
   body.innerHTML='<div class="ac-muted">Carregando auditoria…</div>';
-  const[{data:pessoas},{data:disps},{data:termos}]=await Promise.all([
+  const[{data:setores},{data:pessoas},{data:itens},{data:termos}]=await Promise.all([
+    sbClient.from('acessos_setores').select('*').order('ordem').order('nome'),
     sbClient.from('acessos_pessoas').select('*').order('nome'),
     sbClient.from('acessos_dispositivos').select('*'),
-    sbClient.from('acessos_termos').select('id,pessoa_id,dispositivo_ids,status')
+    sbClient.from('acessos_termos').select('pessoa_id')
   ]);
-  const byPessoaDisp={},assinadoDisp=new Set();
-  (disps||[]).forEach(d=>{(byPessoaDisp[d.pessoa_id]=byPessoaDisp[d.pessoa_id]||[]).push(d);});
-  (termos||[]).forEach(t=>{if(t.status==='assinado')(t.dispositivo_ids||[]).forEach(id=>assinadoDisp.add(id));});
+  const itensByP={},termosByP={};
+  (itens||[]).forEach(d=>{(itensByP[d.pessoa_id]=itensByP[d.pessoa_id]||[]).push(d);});
+  (termos||[]).forEach(t=>{termosByP[t.pessoa_id]=(termosByP[t.pessoa_id]||0)+1;});
   const flags=[];
   (pessoas||[]).forEach(p=>{
-    const ds=byPessoaDisp[p.id]||[];
-    if(p.status==='inativo'){ds.filter(d=>d.status==='em_uso'||d.status==='a_devolver').forEach(d=>flags.push(`Pessoa inativa <strong>${_acEsc(p.nome)}</strong> ainda com item <em>${_acEsc(d.descricao)}</em> (${_acEsc(_acDstMeta(d.status)[1])})`));}
-    ds.filter(d=>d.status==='em_uso'&&!assinadoDisp.has(d.id)).forEach(d=>flags.push(`Item <em>${_acEsc(d.descricao)}</em> de <strong>${_acEsc(p.nome)}</strong> está em uso <strong>sem termo assinado</strong>`));
+    const ds=itensByP[p.id]||[];
+    if(p.status==='desligado'){
+      ds.filter(d=>d.status==='em_uso'||d.status==='a_devolver').forEach(d=>flags.push(`Desligado <strong>${_acEsc(p.nome)}</strong> ainda com ${d.categoria==='veiculo'?'veículo':'dispositivo'} <em>${_acEsc(d.descricao)}</em> (${_acEsc(_acDstMeta(d.status)[1])})`));
+    }
+    if(p.status==='ativo'&&!termosByP[p.id]){flags.push(`Colaborador ativo <strong>${_acEsc(p.nome)}</strong> sem nenhum termo/documento enviado`);}
   });
-  const linhas=(pessoas||[]).map(p=>{
-    const ds=byPessoaDisp[p.id]||[];
-    const itens=ds.length?ds.map(d=>`${_acEsc(_acTipoLabel(d.tipo))} (${_acEsc(_acDstMeta(d.status)[1])})`).join(', '):'<span class="ac-muted">sem itens</span>';
-    return `<div class="ac-row"><div class="grow"><strong>${_acEsc(p.nome)}</strong> ${p.status==='inativo'?'<span class="ac-pill bad">inativo</span>':''}<div class="ac-muted">${itens}</div></div></div>`;
+  const grupos={};
+  (pessoas||[]).forEach(p=>{const k=p.setor_id||'__none__';(grupos[k]=grupos[k]||[]).push(p);});
+  const nomeSetor=id=>{const s=(setores||[]).find(x=>x.id===id);return s?s.nome:'Sem setor';};
+  const ordem=(setores||[]).map(s=>s.id).concat(['__none__']);
+  const blocos=ordem.filter(k=>grupos[k]&&grupos[k].length).map(k=>{
+    const linhas=grupos[k].map(p=>{
+      const ds=itensByP[p.id]||[];
+      const resumo=ds.length?ds.map(d=>`${_acEsc(_acItemTipoLabel(d.tipo))} (${_acEsc(_acDstMeta(d.status)[1])})`).join(', '):'<span class="ac-muted">sem itens</span>';
+      const nt=termosByP[p.id]||0;
+      return `<div class="ac-row"><div class="grow"><strong>${_acEsc(p.nome)}</strong> ${p.status==='desligado'?'<span class="ac-pill neutral">desligado</span>':''}<div class="ac-muted">${resumo} · ${nt} documento(s)</div></div></div>`;
+    }).join('');
+    return `<div class="ac-card"><div class="ac-section-h"><h3>${_acEsc(k==='__none__'?'Sem setor':nomeSetor(k))}</h3></div>${linhas}</div>`;
   }).join('');
   body.innerHTML=`
     <div class="ac-card">
       <h3 style="margin-top:0">Divergências ${flags.length?`<span class="ac-pill bad">${flags.length}</span>`:'<span class="ac-pill ok">0</span>'}</h3>
       ${flags.length?flags.map(f=>`<div class="ac-row" style="border-color:rgba(239,68,68,.4)">⚠️ ${f}</div>`).join(''):'<div class="ac-muted">Nenhuma divergência.</div>'}
     </div>
-    <div class="ac-card">
-      <h3 style="margin-top:0">Quem tem o quê</h3>
-      ${linhas||'<div class="ac-muted">Sem pessoas.</div>'}
-    </div>`;
+    ${blocos||'<div class="ac-muted">Sem colaboradores.</div>'}`;
 }
 let _npRod=null;
 const NP_CAT_COLOR={lancamento:'var(--c-lancamento)',campanha:'var(--c-campanha)',precopromo:'var(--c-precopromo)',faturamento:'var(--c-faturamento)',expansao:'var(--c-expansao)',tendencia:'var(--c-tendencia)',estrategia:'var(--c-estrategia)',marketing:'var(--c-marketing)',design:'var(--c-design)',moda:'var(--c-moda)',bestseller:'var(--c-bestseller)',desenvolvimento:'var(--c-desenvolvimento)',instagram:'var(--c-instagram)',topviral:'var(--c-instagram)',ultimosposts:'var(--c-instagram)',reels:'var(--c-instagram)',outro:'var(--c-outro)'};
