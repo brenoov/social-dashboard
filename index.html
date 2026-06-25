@@ -9100,9 +9100,10 @@ function closeNoticias(){
   showHome();
 }
 /* ===== Controle de Acessos (base manual) ===== */
-let _acData={setores:[],pessoas:[],config:null};
+let _acData={organizacoes:[],setores:[],pessoas:[],config:null};
 let _acSel=null;      // id da pessoa aberta (ou null)
 let _acSelSetor=null; // id do setor aberto (ou null, ou false para "sem setor")
+let _acSelOrg=null;
 let _acTab='setores';
 function _acEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 async function _acLog(acao,alvo,resultado,detalhe){
@@ -9114,22 +9115,24 @@ function openAcessos(){
   document.getElementById('home-screen').style.display='none';
   document.getElementById('acessos-screen').style.display='flex';
   sessionStorage.setItem('rbv-screen','acessos');
-  _acTab='setores';_acSel=null;_acSelSetor=null;
+  _acTab='org';_acSel=null;_acSelSetor=null;_acSelOrg=null;
   loadAcessos();
 }
 function closeAcessos(){
   document.getElementById('acessos-screen').style.display='none';
   showHome();
 }
-function _acSetTab(t){_acTab=t;_acSel=null;_acSelSetor=null;_acRender();}
+function _acSetTab(t){_acTab=t;_acSel=null;_acSelSetor=null;_acSelOrg=null;_acRender();}
 async function loadAcessos(){
   const body=document.getElementById('ac-body');
   body.innerHTML='<div class="ac-muted">Carregando…</div>';
-  const[se,p]=await Promise.all([
+  const[og,se,p]=await Promise.all([
+    sbClient.from('acessos_organizacoes').select('*').order('ordem').order('nome'),
     sbClient.from('acessos_setores').select('*').order('ordem').order('nome'),
     sbClient.from('acessos_pessoas').select('*').order('nome')
   ]);
   if(p.error){body.innerHTML='<div class="ac-card">Erro: '+_acEsc(p.error.message)+'</div>';return;}
+  _acData.organizacoes=og.data||[];
   _acData.setores=se.data||[];
   _acData.pessoas=p.data||[];
   _acRender();
@@ -9139,12 +9142,59 @@ function _acRender(){
   if(_acTab==='auditoria')return _acRenderAuditoria();
   if(_acSel)return _acRenderFicha(_acSel);
   if(_acSelSetor!==null)return _acRenderColaboradores(_acSelSetor);
-  return _acRenderSetores();
+  if(_acSelOrg!==null)return _acRenderSetores(_acSelOrg);
+  return _acRenderOrganizacoes();
 }
 function _acSetorIco(){return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg>';}
-function _acRenderSetores(){
+function _acOrgIco(){return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/><path d="M9 8h.01M9 12h.01M9 16h.01M15 8h.01M15 12h.01M15 16h.01"/></svg>';}
+function _acRenderOrganizacoes(){
   const body=document.getElementById('ac-body');
-  const cardsArr=_acData.setores.map((s,i)=>{
+  const orgs=_acData.organizacoes||[];
+  const cards=orgs.map((o,i)=>{
+    const ns=_acData.setores.filter(s=>s.organizacao_id===o.id).length;
+    return `<div class="ac-setor-card" style="animation-delay:${i*40}ms" onclick="_acOpenOrg('${o.id}')">
+      <button class="ac-setor-del" title="Excluir organização" onclick="event.stopPropagation();_acDelOrg('${o.id}')">✕</button>
+      <div class="ac-setor-ico">${_acOrgIco()}</div>
+      <div class="ac-setor-nome">${_acEsc(o.nome)}</div>
+      <div class="ac-setor-sub">${ns} setor(es)</div>
+    </div>`;
+  }).join('');
+  const orgless=_acData.setores.filter(s=>!s.organizacao_id).length;
+  const semOrg=orgless?`<div class="ac-setor-card" style="background:linear-gradient(155deg,rgba(148,163,184,.10),rgba(255,255,255,.02))" onclick="_acOpenOrg(false)">
+      <div class="ac-setor-ico" style="background:linear-gradient(135deg,#475569,#64748b)">${_acOrgIco()}</div>
+      <div class="ac-setor-nome">Sem organização</div>
+      <div class="ac-setor-sub">${orgless} setor(es)</div></div>`:'';
+  const semSet=_acData.pessoas.filter(p=>!p.setor_id).length;
+  const semSetor=semSet?`<div class="ac-setor-card" style="background:linear-gradient(155deg,rgba(148,163,184,.10),rgba(255,255,255,.02))" onclick="_acOpenSetor(false)">
+      <div class="ac-setor-ico" style="background:linear-gradient(135deg,#475569,#64748b)">${_acSetorIco()}</div>
+      <div class="ac-setor-nome">Sem setor</div>
+      <div class="ac-setor-sub">${semSet} colaborador(es)</div></div>`:'';
+  body.innerHTML=`
+    <div class="ac-section-h"><h3>Organizações</h3>
+      <button class="ac-btn" style="margin-left:auto" onclick="_acAddOrg()">+ Nova organização</button></div>
+    <div class="ac-setores-grid">${cards}${semOrg}${semSetor}</div>`;
+}
+function _acOpenOrg(orgId){_acSelOrg=orgId;_acSelSetor=null;_acSel=null;_acRender();}
+async function _acAddOrg(){
+  const nome=prompt('Nome da nova organização:');if(!nome||!nome.trim())return;
+  const ordem=((_acData.organizacoes||[]).reduce((mx,o)=>Math.max(mx,o.ordem||0),0))+1;
+  const{error}=await sbClient.from('acessos_organizacoes').insert({nome:nome.trim(),ordem});
+  if(error){adminToast('Erro: '+error.message,false);return;}
+  await _acLog('org.criar','org:'+nome.trim(),'ok',null);adminToast('Organização criada');await loadAcessos();
+}
+async function _acDelOrg(id){
+  const o=(_acData.organizacoes||[]).find(x=>x.id===id);if(!o)return;
+  const ns=_acData.setores.filter(s=>s.organizacao_id===id).length;
+  if(!confirm(`Excluir a organização "${o.nome}"?`+(ns?` Os ${ns} setor(es) ficarão sem organização.`:'')))return;
+  const{error}=await sbClient.from('acessos_organizacoes').delete().eq('id',id);
+  if(error){adminToast('Erro: '+error.message,false);return;}
+  await _acLog('org.excluir','org:'+o.nome,'ok',null);adminToast('Organização excluída');await loadAcessos();
+}
+function _acRenderSetores(orgId){
+  const body=document.getElementById('ac-body');
+  const org=orgId?(_acData.organizacoes||[]).find(o=>o.id===orgId):null;
+  const setores=_acData.setores.filter(s=>orgId?s.organizacao_id===orgId:!s.organizacao_id);
+  const cards=setores.map((s,i)=>{
     const n=_acData.pessoas.filter(x=>x.setor_id===s.id).length;
     const na=_acData.pessoas.filter(x=>x.setor_id===s.id&&x.status==='ativo').length;
     return `<div class="ac-setor-card" style="animation-delay:${i*40}ms" onclick="_acOpenSetor('${s.id}')">
@@ -9155,27 +9205,20 @@ function _acRenderSetores(){
       <span class="ac-count">● ${na} ativo(s)</span>
     </div>`;
   }).join('');
-  const semSetor=_acData.pessoas.filter(x=>!x.setor_id).length;
-  const semCard=`<div class="ac-setor-card" style="animation-delay:${_acData.setores.length*40}ms;background:linear-gradient(155deg,rgba(148,163,184,.10),rgba(255,255,255,.02))" onclick="_acOpenSetor(false)">
-      <div class="ac-setor-ico" style="background:linear-gradient(135deg,#475569,#64748b)">${_acSetorIco()}</div>
-      <div class="ac-setor-nome">Sem setor</div>
-      <div class="ac-setor-sub">${semSetor} colaborador(es)</div>
-    </div>`;
   body.innerHTML=`
     <div class="ac-section-h">
-      <h3>Setores</h3>
-      <button class="ac-btn" style="margin-left:auto" onclick="_acAddSetor()">+ Novo setor</button>
+      <button class="ac-btn ghost" onclick="_acSelOrg=null;_acRender()">← Organizações</button>
+      <h3 style="margin-left:6px">${_acEsc(org?org.nome:'Sem organização')}</h3>
+      <button class="ac-btn" style="margin-left:auto" onclick="_acAddSetor(${orgId?"'"+orgId+"'":'false'})">+ Novo setor</button>
     </div>
-    <div class="ac-setores-grid">${cardsArr}${semCard}</div>`;
+    <div class="ac-setores-grid">${cards||'<div class="ac-muted">Nenhum setor aqui ainda.</div>'}</div>`;
 }
-async function _acAddSetor(){
-  const nome=prompt('Nome do novo setor:');
-  if(!nome||!nome.trim())return;
+async function _acAddSetor(orgId){
+  const nome=prompt('Nome do novo setor:');if(!nome||!nome.trim())return;
   const ordem=(_acData.setores.reduce((mx,s)=>Math.max(mx,s.ordem||0),0))+1;
-  const{error}=await sbClient.from('acessos_setores').insert({nome:nome.trim(),ordem});
+  const{error}=await sbClient.from('acessos_setores').insert({nome:nome.trim(),ordem,organizacao_id:orgId||null});
   if(error){adminToast('Erro: '+error.message,false);return;}
-  await _acLog('setor.criar','setor:'+nome.trim(),'ok',null);
-  adminToast('Setor criado');await loadAcessos();
+  await _acLog('setor.criar','setor:'+nome.trim(),'ok',null);adminToast('Setor criado');await loadAcessos();
 }
 async function _acDelSetor(id){
   const s=_acData.setores.find(x=>x.id===id);if(!s)return;
@@ -9201,7 +9244,7 @@ async function _acRenderColaboradores(setorId){
     </div>`).join('');
   body.innerHTML=`
     <div class="ac-section-h">
-      <button class="ac-btn ghost" onclick="_acSetTab('setores')">← Setores</button>
+      <button class="ac-btn ghost" onclick="_acSelSetor=null;_acRender()">← Setores</button>
       <h3 style="margin-left:6px">${_acEsc(setor?setor.nome:'Sem setor')}</h3>
       <button class="ac-btn" style="margin-left:auto" onclick="_acFormColaborador(null,'${setorId||''}')">+ Novo colaborador</button>
     </div>
@@ -10463,7 +10506,7 @@ function setHomeBgTheme(type){
     <button class="ac-back" onclick="closeAcessos()">← Central</button>
     <div class="ac-title">Controle de Acessos</div>
     <div class="ac-tabs">
-      <button class="ac-tab" data-tab="setores" onclick="_acSetTab('setores')">Setores</button>
+      <button class="ac-tab" data-tab="org" onclick="_acSetTab('org')">Organizações</button>
       <button class="ac-tab" data-tab="auditoria" onclick="_acSetTab('auditoria')">Auditoria</button>
     </div>
   </div>
