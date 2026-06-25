@@ -2391,7 +2391,7 @@
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         </div>
         <div class="home-card-text">
-          <h3>Controle de Acesso<br>e Colaboradores</h3>
+          <h3>Colaboradores<br>e Acessos</h3>
           <p>Pessoas, dispositivos e termo de responsabilidade</p>
         </div>
         <span class="home-card-enter">→</span>
@@ -4103,7 +4103,7 @@ const PERMISSION_TREE=[
   ]},
   {key:'banco',label:'Banco de Arquivos',children:[]},
   {key:'gestor',label:'Gestão Comercial (IA)',children:[]},
-  {key:'acessos',label:'Controle de Acesso e Colaboradores',children:[]},
+  {key:'acessos',label:'Colaboradores e Acessos',children:[]},
 ];
 const SUPERADMIN_EMAIL='erick@rbvcompany.com';
 let _permUserId=null;
@@ -9235,10 +9235,12 @@ async function _acODLoadFolders(){
       <div class="ac-section-h" style="border:none;margin:0;padding:0">
         <div class="grow"><div><strong>${_acEsc(f.nome)}</strong></div>${f.caminho?`<div class="ac-muted">${_acEsc(f.caminho)}</div>`:''}</div>
         <button class="ac-btn ghost" onclick="_acODToggleShares('${f.id}','${encodeURIComponent(f.external_id)}')">Compartilhamento</button>
+        <button class="ac-btn ghost" data-odsub="1" data-extid="${_acEsc(f.external_id)}" data-name="${_acEsc(f.nome)}">Subpastas</button>
         <button class="ac-btn danger" onclick="_acODRemoveFolder('${f.id}')">Remover</button>
       </div>
       <div id="ac-od-sh-${f.id}" style="margin-top:10px;display:none"></div>
     </div>`).join(''):'<div class="ac-muted">Nenhuma pasta sob controle ainda. Clique em "+ Adicionar pasta".</div>';
+  wrap.querySelectorAll('button[data-odsub]').forEach(b=>b.addEventListener('click',()=>_acODPicker(b.dataset.extid,b.dataset.name)));
 }
 async function _acODRemoveFolder(recursoId){
   if(!confirm('Tirar esta pasta da lista de controle? (não apaga a pasta no OneDrive — só para de gerenciá-la aqui)'))return;
@@ -9260,10 +9262,18 @@ async function _acODShares(recursoId,encItemId){
     <div class="ac-kicker">Quem tem acesso</div>
     ${sh.length?sh.map(s=>`<div class="ac-row"><div class="grow">${_acEsc(s.name||s.email||'—')}${(s.email&&s.name)?' <span class="ac-muted">'+_acEsc(s.email)+'</span>':''} <span class="ac-pill ${s.role==='edição'?'warn':'ok'}">${_acEsc(s.role)}</span></div><button class="ac-btn danger" onclick="_acODUnshare('${recursoId}','${encItemId}','${encodeURIComponent(s.permId)}')">Remover</button></div>`).join(''):'<div class="ac-muted">Ninguém além do dono.</div>'}
     <div class="ac-row" style="margin-top:8px">
+      <select class="ac-select" id="ac-od-cl-${recursoId}" style="width:auto" onchange="_acODPickColab('${recursoId}',this.value)"><option value="">— puxar colaborador —</option>${(_acData.pessoas||[]).filter(p=>p.status==='ativo').map(p=>`<option value="${p.id}">${_acEsc(p.nome)}</option>`).join('')}</select>
       <input class="ac-input" id="ac-od-em-${recursoId}" placeholder="e-mail para dar acesso" style="flex:1;min-width:160px">
       <select class="ac-select" id="ac-od-rl-${recursoId}" style="width:auto"><option value="leitura">Leitura</option><option value="edição">Edição</option></select>
       <button class="ac-btn" onclick="_acODShare('${recursoId}','${encItemId}')">Compartilhar</button>
     </div>`;
+}
+function _acODPickColab(recursoId,pessoaId){
+  if(!pessoaId)return;
+  const c=(_acData.pessoas||[]).find(x=>x.id===pessoaId);if(!c)return;
+  const inp=document.getElementById('ac-od-em-'+recursoId);
+  if(!c.email_outlook){adminToast((c.nome||'Colaborador')+' não tem e-mail Outlook cadastrado',false);return;}
+  if(inp)inp.value=c.email_outlook;
 }
 async function _acODShare(recursoId,encItemId){
   const email=(document.getElementById('ac-od-em-'+recursoId)||{}).value?.trim();
@@ -9282,8 +9292,8 @@ async function _acODUnshare(recursoId,encItemId,encPermId){
   }catch(e){adminToast('Erro: '+e.message,false);}
 }
 // ---- picker (navega a árvore e marca) ----
-async function _acODPicker(){
-  _acODStack=[];
+async function _acODPicker(startId,startName){
+  _acODStack = startId ? [{ id: startId, name: startName || 'pasta' }] : [];
   let ov=document.getElementById('ac-od-pick');if(ov)ov.remove();
   ov=document.createElement('div');ov.className='ac-modal-ov open';ov.id='ac-od-pick';
   ov.innerHTML=`<div class="ac-modal" style="max-width:640px">
@@ -10804,7 +10814,7 @@ function setHomeBgTheme(type){
 <div id="acessos-screen">
   <div class="ac-topbar">
     <button class="ac-back" onclick="closeAcessos()">← Central</button>
-    <div class="ac-title">Controle de Acesso e Colaboradores</div>
+    <div class="ac-title">Colaboradores e Acessos</div>
   </div>
   <div class="ac-navbar">
     <div class="ac-tabs">
