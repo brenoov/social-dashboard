@@ -9199,14 +9199,120 @@ async function _acConectarZoho(){
 }
 async function _acODStatus(){
   const el=document.getElementById('ac-od-status');if(!el)return;
+  const mg=document.getElementById('ac-od-manage');
   try{const s=await _acProxy('microsoft.status');
-    if(s&&s.connected){el.innerHTML='<span class="ac-pill ok">conectado</span>'+(s.conectado_em?' <span class="ac-muted">desde '+_acEsc(new Date(s.conectado_em).toLocaleDateString('pt-BR'))+'</span>':'');}
-    else{el.innerHTML='<span class="ac-pill neutral">não conectado</span>';}
-  }catch(e){el.innerHTML='<span class="ac-muted">status indisponível</span>';}
+    if(s&&s.connected){el.innerHTML='<span class="ac-pill ok">conectado</span>'+(s.conectado_em?' <span class="ac-muted">desde '+_acEsc(new Date(s.conectado_em).toLocaleDateString('pt-BR'))+'</span>':'');if(mg)mg.style.display='';}
+    else{el.innerHTML='<span class="ac-pill neutral">não conectado</span>';if(mg)mg.style.display='none';}
+  }catch(e){el.innerHTML='<span class="ac-muted">status indisponível</span>';if(mg)mg.style.display='none';}
 }
 async function _acConectarOneDrive(){
   try{const r=await _acProxy('microsoft.authUrl');if(r&&r.url)window.location.href=r.url;else adminToast('Falha ao iniciar conexão',false);}
   catch(e){adminToast('Erro: '+e.message,false);}
+}
+let _acODStack=[];
+function _acOpenOneDrive(){_acTab='onedrive';_acSel=null;_acSelSetor=null;_acSelOrg=null;_acRender();}
+async function _acRenderOneDrive(){
+  const body=document.getElementById('ac-body');
+  body.innerHTML=`
+    <button class="ac-btn ghost" onclick="_acSetTab('config')">← Configurações</button>
+    <div class="ac-section-h" style="margin-top:12px"><h3>Pastas do OneDrive sob controle</h3>
+      <button class="ac-btn" style="margin-left:auto" onclick="_acODPicker()">+ Adicionar pasta</button></div>
+    <div id="ac-od-list"><div class="ac-muted">Carregando…</div></div>`;
+  _acODLoadFolders();
+}
+async function _acODLoadFolders(){
+  const wrap=document.getElementById('ac-od-list');if(!wrap)return;
+  let r;try{r=await _acProxy('microsoft.folders');}catch(e){wrap.innerHTML='<div class="ac-card">Erro: '+_acEsc(e.message)+'</div>';return;}
+  const fs=(r&&r.folders)||[];
+  wrap.innerHTML=fs.length?fs.map(f=>`
+    <div class="ac-card">
+      <div class="ac-section-h" style="border:none;margin:0;padding:0">
+        <div class="grow"><div><strong>${_acEsc(f.nome)}</strong></div>${f.caminho?`<div class="ac-muted">${_acEsc(f.caminho)}</div>`:''}</div>
+        <button class="ac-btn ghost" onclick="_acODToggleShares('${f.id}','${encodeURIComponent(f.external_id)}')">Compartilhamento</button>
+        <button class="ac-btn danger" onclick="_acODRemoveFolder('${f.id}')">Remover</button>
+      </div>
+      <div id="ac-od-sh-${f.id}" style="margin-top:10px;display:none"></div>
+    </div>`).join(''):'<div class="ac-muted">Nenhuma pasta sob controle ainda. Clique em "+ Adicionar pasta".</div>';
+}
+async function _acODRemoveFolder(recursoId){
+  if(!confirm('Tirar esta pasta da lista de controle? (não apaga a pasta no OneDrive — só para de gerenciá-la aqui)'))return;
+  try{await _acProxy('microsoft.removeFolder',{recursoId});adminToast('Pasta removida do controle');_acODLoadFolders();}
+  catch(e){adminToast('Erro: '+e.message,false);}
+}
+async function _acODToggleShares(recursoId,encItemId){
+  const el=document.getElementById('ac-od-sh-'+recursoId);if(!el)return;
+  if(el.style.display!=='none'){el.style.display='none';el.innerHTML='';return;}
+  el.style.display='';await _acODShares(recursoId,encItemId);
+}
+async function _acODShares(recursoId,encItemId){
+  const el=document.getElementById('ac-od-sh-'+recursoId);if(!el)return;
+  const itemId=decodeURIComponent(encItemId);
+  el.innerHTML='<div class="ac-muted">Carregando acessos…</div>';
+  let r;try{r=await _acProxy('microsoft.shares',{itemId});}catch(e){el.innerHTML='<div class="ac-muted">Erro: '+_acEsc(e.message)+'</div>';return;}
+  const sh=(r&&r.shares)||[];
+  el.innerHTML=`
+    <div class="ac-kicker">Quem tem acesso</div>
+    ${sh.length?sh.map(s=>`<div class="ac-row"><div class="grow">${_acEsc(s.name||s.email||'—')}${(s.email&&s.name)?' <span class="ac-muted">'+_acEsc(s.email)+'</span>':''} <span class="ac-pill ${s.role==='edição'?'warn':'ok'}">${_acEsc(s.role)}</span></div><button class="ac-btn danger" onclick="_acODUnshare('${recursoId}','${encItemId}','${encodeURIComponent(s.permId)}')">Remover</button></div>`).join(''):'<div class="ac-muted">Ninguém além do dono.</div>'}
+    <div class="ac-row" style="margin-top:8px">
+      <input class="ac-input" id="ac-od-em-${recursoId}" placeholder="e-mail para dar acesso" style="flex:1;min-width:160px">
+      <select class="ac-select" id="ac-od-rl-${recursoId}" style="width:auto"><option value="leitura">Leitura</option><option value="edição">Edição</option></select>
+      <button class="ac-btn" onclick="_acODShare('${recursoId}','${encItemId}')">Compartilhar</button>
+    </div>`;
+}
+async function _acODShare(recursoId,encItemId){
+  const email=(document.getElementById('ac-od-em-'+recursoId)||{}).value?.trim();
+  const role=(document.getElementById('ac-od-rl-'+recursoId)||{}).value;
+  if(!email){adminToast('Informe o e-mail',false);return;}
+  try{const r=await _acProxy('microsoft.share',{itemId:decodeURIComponent(encItemId),email,role});
+    if(r&&r.error){adminToast('Erro: '+_acEsc(r.detalhe||r.error),false);return;}
+    adminToast('Compartilhado');_acODShares(recursoId,encItemId);
+  }catch(e){adminToast('Erro: '+e.message,false);}
+}
+async function _acODUnshare(recursoId,encItemId,encPermId){
+  if(!confirm('Remover este acesso?'))return;
+  try{const r=await _acProxy('microsoft.unshare',{itemId:decodeURIComponent(encItemId),permId:decodeURIComponent(encPermId)});
+    if(r&&r.error){adminToast('Erro: '+_acEsc(r.detalhe||r.error),false);return;}
+    adminToast('Acesso removido');_acODShares(recursoId,encItemId);
+  }catch(e){adminToast('Erro: '+e.message,false);}
+}
+// ---- picker (navega a árvore e marca) ----
+async function _acODPicker(){
+  _acODStack=[];
+  let ov=document.getElementById('ac-od-pick');if(ov)ov.remove();
+  ov=document.createElement('div');ov.className='ac-modal-ov open';ov.id='ac-od-pick';
+  ov.innerHTML=`<div class="ac-modal" style="max-width:640px">
+    <div class="ac-section-h" style="border:none;margin:0 0 8px"><h3>Adicionar pasta</h3>
+      <button class="ac-btn ghost" style="margin-left:auto" id="ac-od-pick-x">Fechar</button></div>
+    <div id="ac-od-bc" class="ac-kicker" style="margin-bottom:10px"></div>
+    <div id="ac-od-pick-body"><div class="ac-muted">Carregando…</div></div></div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+  ov.querySelector('#ac-od-pick-x').onclick=()=>ov.remove();
+  _acODBrowse();
+}
+async function _acODBrowse(){
+  const body=document.getElementById('ac-od-pick-body');const bc=document.getElementById('ac-od-bc');if(!body)return;
+  const cur=_acODStack[_acODStack.length-1]||null;
+  bc.textContent='OneDrive'+_acODStack.map(s=>' / '+s.name).join('');
+  body.innerHTML='<div class="ac-muted">Carregando…</div>';
+  let r;try{r=await _acProxy('microsoft.browse',cur?{itemId:cur.id}:{});}catch(e){body.innerHTML='<div class="ac-muted">Erro: '+_acEsc(e.message)+'</div>';return;}
+  const fs=(r&&r.folders)||[];
+  body.innerHTML=`
+    ${cur?`<div style="margin-bottom:8px;display:flex;gap:8px;flex-wrap:wrap"><button class="ac-btn ghost" onclick="_acODUp()">↑ Voltar</button><button class="ac-btn" onclick="_acODAdd('${cur.id}','${encodeURIComponent(cur.name)}')">+ Adicionar "${_acEsc(cur.name)}"</button></div>`:''}
+    ${fs.length?fs.map(f=>`<div class="ac-row"><div class="grow">📁 ${_acEsc(f.name)}${f.childCount?' <span class="ac-muted">'+f.childCount+' itens</span>':''}</div>
+      <button class="ac-btn ghost" onclick="_acODOpen('${f.id}','${encodeURIComponent(f.name)}')">Abrir</button>
+      <button class="ac-btn" onclick="_acODAdd('${f.id}','${encodeURIComponent(f.name)}')">Adicionar</button></div>`).join(''):'<div class="ac-muted">Sem subpastas aqui.</div>'}`;
+}
+function _acODOpen(id,encName){_acODStack.push({id,name:decodeURIComponent(encName)});_acODBrowse();}
+function _acODUp(){_acODStack.pop();_acODBrowse();}
+async function _acODAdd(id,encName){
+  const name=decodeURIComponent(encName);
+  const caminho='OneDrive'+_acODStack.map(s=>'/'+s.name).join('')+(_acODStack.length&&_acODStack[_acODStack.length-1].id===id?'':'/'+name);
+  try{await _acProxy('microsoft.addFolder',{itemId:id,name,caminho});
+    adminToast('Pasta adicionada ao controle');
+    const ov=document.getElementById('ac-od-pick');if(ov)ov.remove();
+    _acODLoadFolders();
+  }catch(e){adminToast('Erro: '+e.message,false);}
 }
 async function _acImportarZoho(){
   if(!confirm('Importar os usuários do Zoho como colaboradores? (cria os novos e atualiza os já importados)'))return;
@@ -9255,6 +9361,7 @@ function _acRender(){
   document.querySelectorAll('#acessos-screen .ac-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===_acTab));
   if(_acTab==='auditoria')return _acRenderAuditoria();
   if(_acTab==='config')return _acRenderConfiguracoes();
+  if(_acTab==='onedrive')return _acRenderOneDrive();
   if(_acSel)return _acRenderFicha(_acSel);
   if(_acSelSetor!==null)return _acRenderColaboradores(_acSelSetor);
   if(_acSelOrg!==null)return _acRenderSetores(_acSelOrg);
@@ -9309,6 +9416,7 @@ function _acRenderConfiguracoes(){
           <div class="ac-muted">Compartilhamento das pastas que você escolher controlar (conta pessoal).</div>
         </div>
         <button class="ac-btn ghost" onclick="_acConectarOneDrive()">Conectar</button>
+        <button class="ac-btn" id="ac-od-manage" style="display:none" onclick="_acOpenOneDrive()">Gerenciar pastas</button>
       </div>
       <div class="ac-row" style="opacity:.55">
         <div class="grow"><div><strong>iCloud</strong> <span class="ac-pill neutral">manual</span></div>
