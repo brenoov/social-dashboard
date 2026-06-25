@@ -979,6 +979,37 @@
   .ac-modal{background:#0f1720;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:22px;max-width:480px;width:100%;box-shadow:0 24px 60px -20px #000}
   .ac-section-h{display:flex;align-items:center;gap:10px;margin:0 0 14px}
   .ac-section-h h3{margin:0}
+/* ===== Acessos — profundidade + tema claro/escuro via variáveis ===== */
+#acessos-screen{background:var(--bg)}
+#acessos-screen .ac-topbar{border-bottom:1px solid var(--border);background:var(--surface);box-shadow:var(--shadow-sm)}
+#acessos-screen .ac-title{color:var(--text)}
+#acessos-screen .ac-back,#acessos-screen .ac-tab,#acessos-screen .ac-btn.ghost{border:1px solid var(--border);color:var(--text);background:var(--surface)}
+#acessos-screen .ac-back:hover,#acessos-screen .ac-tab:hover,#acessos-screen .ac-btn.ghost:hover{border-color:var(--accent-mid);box-shadow:var(--shadow-sm)}
+#acessos-screen .ac-tab.active{background:#0d9488;border-color:#0d9488;color:#fff}
+#acessos-screen .ac-card{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-md);border-left:3px solid transparent}
+#acessos-screen .ac-card:hover{border-color:var(--accent-mid);box-shadow:var(--shadow-lg)}
+#acessos-screen .ac-row{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-sm)}
+#acessos-screen .ac-row:hover{border-color:rgba(13,148,136,.45);box-shadow:var(--shadow-md)}
+#acessos-screen .ac-muted{color:var(--muted)}
+#acessos-screen .ac-btn{background:#0d9488;color:#fff;box-shadow:var(--shadow-sm)}
+#acessos-screen .ac-btn:hover{filter:brightness(1.06);box-shadow:var(--shadow-md)}
+#acessos-screen .ac-btn.danger{background:var(--red);color:#fff}
+#acessos-screen .ac-input,#acessos-screen .ac-select,#acessos-screen .ac-textarea{background:var(--surface);border:1px solid var(--border);color:var(--text)}
+#acessos-screen .ac-input:focus,#acessos-screen .ac-select:focus,#acessos-screen .ac-textarea:focus{border-color:var(--accent-mid);outline:none;box-shadow:0 0 0 3px var(--accent-light)}
+#acessos-screen .ac-pill.ok{background:rgba(13,148,136,.16);color:#0a7e72}
+#acessos-screen .ac-pill.warn{background:rgba(234,179,8,.18);color:var(--yellow)}
+#acessos-screen .ac-pill.bad{background:rgba(244,63,94,.16);color:var(--red)}
+#acessos-screen .ac-pill.neutral{background:rgba(120,130,150,.18);color:var(--muted)}
+#acessos-screen .ac-setores-grid .ac-setor-card{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-md)}
+#acessos-screen .ac-setor-card:hover{border-color:rgba(13,148,136,.5);box-shadow:var(--shadow-lg)}
+#acessos-screen .ac-setor-nome{color:var(--text)}
+#acessos-screen .ac-setor-sub{color:var(--muted)}
+#acessos-screen .ac-count{background:#0d9488;color:#fff}
+#acessos-screen .ac-setor-del{background:var(--surface);border:1px solid var(--border);color:var(--red)}
+#acessos-screen .ac-chip{background:var(--surface2);border:1px solid var(--border);color:var(--text)}
+#acessos-screen .ac-section-h h3,#acessos-screen h2,#acessos-screen h3{color:var(--text)}
+#acessos-screen .ac-modal{background:var(--surface);border:1px solid var(--border);color:var(--text);box-shadow:var(--shadow-lg)}
+[data-theme="dark"] #acessos-screen .ac-pill.ok{color:#2dd4bf}
   /* ===== /Controle de Acessos ===== */
   #noticias-screen::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:5;opacity:.04;mix-blend-mode:multiply;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
   /* Tema escuro do Observatório (segue o tema do app) */
@@ -9250,7 +9281,7 @@ async function _acRenderColaboradores(setorId){
     </div>
     ${rows||'<div class="ac-muted">Nenhum colaborador neste setor.</div>'}`;
 }
-function _acOpenPessoa(id){_acSel=id;_acTab='setores';_acRender();}
+function _acOpenPessoa(id){_acSel=id;_acTab='org';_acRender();}
 function _acFormColaborador(id,setorIdPre){
   const c=id?_acData.pessoas.find(x=>x.id===id):{nome:'',cargo:'',setor_id:(setorIdPre||null),email_corporativo:'',numero_pessoal:'',numero_corporativo:'',data_inicio_contrato:''};
   if(!c)return;
