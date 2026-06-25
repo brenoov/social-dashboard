@@ -9391,30 +9391,102 @@ const AC_TIPOS=[['celular','Celular'],['macbook','MacBook'],['notebook','Noteboo
 const AC_DST=[['em_uso','Em uso','ok'],['a_devolver','A devolver','warn'],['devolvido','Devolvido',''],['perdido','Perdido','bad']];
 function _acTipoLabel(t){return (AC_TIPOS.find(x=>x[0]===t)||[t,t])[1];}
 function _acDstMeta(s){return AC_DST.find(x=>x[0]===s)||[s,s,''];}
-async function _acRenderDispositivos(pessoaId){
-  const wrap=document.getElementById('ac-disp-wrap');if(!wrap)return;
-  const{data,error}=await sbClient.from('acessos_dispositivos').select('*').eq('pessoa_id',pessoaId).order('atualizado_em',{ascending:false});
-  if(error){wrap.innerHTML='<div class="ac-card">Erro dispositivos: '+_acEsc(error.message)+'</div>';return;}
+const AC_DEV_TIPOS=[['celular','Celular'],['smartphone','Smartphone'],['notebook','Notebook'],['macbook','MacBook'],['desktop','Desktop'],['monitor','Monitor'],['tablet','Tablet'],['numero','Número/Linha'],['chip','Chip/eSIM'],['acessorio','Acessório'],['outro','Outro']];
+const AC_VEI_TIPOS=[['carro','Carro'],['moto','Moto'],['caminhonete','Caminhonete'],['outro','Outro']];
+const AC_COMB=['Gasolina','Etanol','Flex','Diesel','Elétrico','Híbrido','GNV'];
+const AC_FIELDDEFS={celular:[['modelo','Modelo'],['imei','IMEI'],['cor','Cor']],smartphone:[['modelo','Modelo'],['imei','IMEI'],['cor','Cor']],notebook:[['modelo','Modelo'],['serial','Nº de série'],['so','Sistema']],macbook:[['modelo','Modelo'],['serial','Nº de série']],desktop:[['modelo','Modelo'],['serial','Nº de série']],monitor:[['modelo','Modelo'],['serial','Nº de série'],['polegadas','Polegadas']],tablet:[['modelo','Modelo'],['serial','Nº de série'],['imei','IMEI']],numero:[['numero','Número'],['operadora','Operadora'],['plano','Plano']],chip:[['numero','Número'],['operadora','Operadora'],['iccid','ICCID']],acessorio:[['modelo','Modelo']],carro:[['modelo','Modelo'],['ano','Ano'],['placa','Placa'],['combustivel','Combustível'],['renavam','RENAVAM'],['cor','Cor']],moto:[['modelo','Modelo'],['ano','Ano'],['placa','Placa'],['combustivel','Combustível']],caminhonete:[['modelo','Modelo'],['ano','Ano'],['placa','Placa'],['combustivel','Combustível'],['renavam','RENAVAM']],outro:[]};
+function _acFieldsFor(t){return AC_FIELDDEFS[t]||[];}
+function _acTiposFor(categoria){return categoria==='veiculo'?AC_VEI_TIPOS:AC_DEV_TIPOS;}
+function _acItemTipoLabel(t){const a=AC_DEV_TIPOS.concat(AC_VEI_TIPOS).find(x=>x[0]===t);return a?a[1]:t;}
+function _acWrapId(categoria){return categoria==='veiculo'?'ac-vei-wrap':'ac-disp-wrap';}
+function _acCatTitulo(categoria){return categoria==='veiculo'?'Veículos':'Dispositivos';}
+async function _acRenderItens(pessoaId,categoria){
+  const wrap=document.getElementById(_acWrapId(categoria));if(!wrap)return;
+  const{data,error}=await sbClient.from('acessos_dispositivos').select('*').eq('pessoa_id',pessoaId).eq('categoria',categoria).order('atualizado_em',{ascending:false});
+  if(error){wrap.innerHTML='<div class="ac-card">Erro: '+_acEsc(error.message)+'</div>';return;}
   const list=(data||[]).map(d=>{
     const m=_acDstMeta(d.status);
+    const det=(d.detalhes&&typeof d.detalhes==='object')?d.detalhes:{};
+    const chips=_acFieldsFor(d.tipo).filter(f=>det[f[0]]).map(f=>`<span class="ac-chip">${_acEsc(f[1])}: ${_acEsc(det[f[0]])}</span>`).join('');
     return `<div class="ac-row">
       <div class="grow">
-        <div><strong>${_acEsc(_acTipoLabel(d.tipo))}</strong> — ${_acEsc(d.descricao)} <span class="ac-pill ${m[2]}">${_acEsc(m[1])}</span></div>
-        <div class="ac-muted">${d.identificador?'ID: '+_acEsc(d.identificador):'sem identificador'}${d.desde?' · desde '+_acEsc(d.desde):''}${d.observacao?' · '+_acEsc(d.observacao):''}</div>
+        <div><strong>${_acEsc(_acItemTipoLabel(d.tipo))}</strong> — ${_acEsc(d.descricao)} <span class="ac-pill ${m[2]}">${_acEsc(m[1])}</span></div>
+        <div style="margin-top:4px">${chips||'<span class="ac-muted">sem detalhes</span>'}</div>
+        ${d.observacao?'<div class="ac-muted" style="margin-top:3px">'+_acEsc(d.observacao)+'</div>':''}
       </div>
-      <select class="ac-select" style="width:auto" onchange="_acSetDispStatus('${d.id}','${pessoaId}',this.value)">
+      <select class="ac-select" style="width:auto" onchange="_acSetItemStatus('${d.id}','${pessoaId}','${categoria}',this.value)">
         ${AC_DST.map(s=>`<option value="${s[0]}" ${s[0]===d.status?'selected':''}>${s[1]}</option>`).join('')}
       </select>
-      <button class="ac-btn ghost" onclick="_acAddDispositivo('${pessoaId}','${d.id}')">Editar</button>
-      <button class="ac-btn danger" onclick="_acDelDispositivo('${d.id}','${pessoaId}')">Excluir</button>
+      <button class="ac-btn ghost" onclick="_acFormItem('${pessoaId}','${categoria}','${d.id}')">Editar</button>
+      <button class="ac-btn danger" onclick="_acDelItem('${d.id}','${pessoaId}','${categoria}')">Excluir</button>
     </div>`;}).join('');
   wrap.innerHTML=`<div class="ac-card">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-      <h3 style="margin:0">Dispositivos / patrimônio</h3>
-      <button class="ac-btn" style="margin-left:auto" onclick="_acAddDispositivo('${pessoaId}')">+ Adicionar</button>
-    </div>
-    ${list||'<div class="ac-muted">Nenhum item registrado.</div>'}
+    <div class="ac-section-h"><h3>${_acCatTitulo(categoria)}</h3>
+      <button class="ac-btn" style="margin-left:auto" onclick="_acFormItem('${pessoaId}','${categoria}')">+ Adicionar</button></div>
+    ${list||'<div class="ac-muted">Nenhum item.</div>'}
   </div>`;
+}
+function _acRenderVeiculos(pessoaId){return _acRenderItens(pessoaId,'veiculo');}
+function _acRenderDispositivos(pessoaId){return _acRenderItens(pessoaId,'dispositivo');}
+async function _acFormItem(pessoaId,categoria,id){
+  let d={tipo:(categoria==='veiculo'?'carro':'celular'),descricao:'',desde:'',observacao:'',detalhes:{}};
+  if(id){const{data}=await sbClient.from('acessos_dispositivos').select('*').eq('id',id).single();if(data){d=data;d.detalhes=(data.detalhes&&typeof data.detalhes==='object')?data.detalhes:{};}}
+  const wrap=document.getElementById(_acWrapId(categoria));
+  const oldf=wrap.querySelector('#ac-item-form');if(oldf)oldf.remove();
+  const tipos=_acTiposFor(categoria);
+  const form=document.createElement('div');form.className='ac-card';form.id='ac-item-form';
+  form.innerHTML=`<h3 style="margin-top:0">${id?'Editar':'Novo'} ${categoria==='veiculo'?'veículo':'dispositivo'}</h3>
+    <div class="ac-grid2">
+      <label>Tipo<select class="ac-select" id="aci-tipo">${tipos.map(t=>`<option value="${t[0]}" ${t[0]===d.tipo?'selected':''}>${t[1]}</option>`).join('')}</select></label>
+      <label>Identificação / descrição<input class="ac-input" id="aci-desc" value="${_acEsc(d.descricao||'')}"></label>
+      <label>Desde<input class="ac-input" id="aci-desde" type="date" value="${_acEsc(d.desde||'')}"></label>
+      <label style="grid-column:1/-1">Observação<input class="ac-input" id="aci-obs" value="${_acEsc(d.observacao||'')}"></label>
+    </div>
+    <div id="aci-dyn" class="ac-grid2" style="margin-top:10px"></div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="ac-btn" id="aci-save">Salvar</button>
+      <button class="ac-btn ghost" id="aci-cancel">Cancelar</button>
+    </div>`;
+  wrap.prepend(form);
+  const renderDyn=()=>{
+    const tipo=form.querySelector('#aci-tipo').value;
+    form.querySelector('#aci-dyn').innerHTML=_acFieldsFor(tipo).map(f=>{
+      const val=(d.tipo===tipo&&d.detalhes[f[0]])?d.detalhes[f[0]]:'';
+      if(f[0]==='combustivel')return `<label>${_acEsc(f[1])}<select class="ac-select" data-fk="${f[0]}"><option value="">—</option>${AC_COMB.map(o=>`<option ${o===val?'selected':''}>${o}</option>`).join('')}</select></label>`;
+      return `<label>${_acEsc(f[1])}<input class="ac-input" data-fk="${f[0]}" value="${_acEsc(val)}"></label>`;
+    }).join('');
+  };
+  renderDyn();
+  form.querySelector('#aci-tipo').onchange=renderDyn;
+  form.querySelector('#aci-cancel').onclick=()=>_acRenderItens(pessoaId,categoria);
+  form.querySelector('#aci-save').onclick=()=>_acSaveItem(pessoaId,categoria,id||null);
+}
+async function _acSaveItem(pessoaId,categoria,id){
+  const form=document.getElementById('ac-item-form');if(!form)return;
+  const tipo=form.querySelector('#aci-tipo').value;
+  const detalhes={};
+  form.querySelectorAll('#aci-dyn [data-fk]').forEach(el=>{const v=el.value.trim();if(v)detalhes[el.dataset.fk]=v;});
+  const rec={pessoa_id:pessoaId,categoria,tipo,descricao:form.querySelector('#aci-desc').value.trim(),desde:form.querySelector('#aci-desde').value||null,observacao:form.querySelector('#aci-obs').value.trim()||null,detalhes,atualizado_em:new Date().toISOString()};
+  if(!rec.descricao){adminToast('Identificação/descrição é obrigatória',false);return;}
+  let err;
+  if(id){({error:err}=await sbClient.from('acessos_dispositivos').update(rec).eq('id',id));}
+  else{({error:err}=await sbClient.from('acessos_dispositivos').insert(rec));}
+  if(err){adminToast('Erro: '+err.message,false);return;}
+  await _acLog(id?'item.editar':'item.criar',categoria+':'+rec.descricao,'ok',tipo);
+  adminToast('Item salvo');_acRenderItens(pessoaId,categoria);
+}
+async function _acSetItemStatus(id,pessoaId,categoria,status){
+  const{error}=await sbClient.from('acessos_dispositivos').update({status,atualizado_em:new Date().toISOString()}).eq('id',id);
+  if(error){adminToast('Erro: '+error.message,false);return;}
+  await _acLog('item.status',categoria+':'+id,'ok',status);
+  adminToast('Status atualizado');_acRenderItens(pessoaId,categoria);
+}
+async function _acDelItem(id,pessoaId,categoria){
+  if(!confirm('Excluir este item?'))return;
+  const{error}=await sbClient.from('acessos_dispositivos').delete().eq('id',id);
+  if(error){adminToast('Erro: '+error.message,false);return;}
+  await _acLog('item.excluir',categoria+':'+id,'ok',null);
+  adminToast('Item excluído');_acRenderItens(pessoaId,categoria);
 }
 async function _acAddDispositivo(pessoaId,id){
   let d={tipo:'celular',descricao:'',identificador:'',desde:'',observacao:''};
