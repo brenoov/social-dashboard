@@ -9432,7 +9432,7 @@ async function _acFormItem(pessoaId,categoria,id){
   let d={tipo:(categoria==='veiculo'?'carro':'celular'),descricao:'',desde:'',observacao:'',detalhes:{}};
   if(id){const{data}=await sbClient.from('acessos_dispositivos').select('*').eq('id',id).single();if(data){d=data;d.detalhes=(data.detalhes&&typeof data.detalhes==='object')?data.detalhes:{};}}
   const wrap=document.getElementById(_acWrapId(categoria));
-  const oldf=wrap.querySelector('#ac-item-form');if(oldf)oldf.remove();
+  const oldf=document.getElementById('ac-item-form');if(oldf)oldf.remove();
   const tipos=_acTiposFor(categoria);
   const form=document.createElement('div');form.className='ac-card';form.id='ac-item-form';
   form.innerHTML=`<h3 style="margin-top:0">${id?'Editar':'Novo'} ${categoria==='veiculo'?'veículo':'dispositivo'}</h3>
