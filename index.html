@@ -9148,6 +9148,40 @@ async function _acLog(acao,alvo,resultado,detalhe){
   try{const{data:{session:s}}=await sbClient.auth.getSession();
     await sbClient.from('acessos_log').insert({quem:s?.user?.id||null,acao,alvo:alvo||null,resultado:resultado||'ok',detalhe:detalhe||null});}catch(e){}
 }
+async function _acProxy(action,args){
+  const{data:{session:s}}=await sbClient.auth.getSession();
+  const tok=s?.access_token||SUPABASE_ANON_KEY;
+  const r=await fetch(SUPABASE_URL+'/functions/v1/acessos-proxy',{method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(Object.assign({action},args||{}))});
+  let j={};try{j=await r.json();}catch(e){}
+  if(!r.ok)throw new Error(j.error||('HTTP '+r.status));
+  return j;
+}
+async function _acZohoStatus(){
+  const el=document.getElementById('ac-zoho-status');const imp=document.getElementById('ac-zoho-import');if(!el)return;
+  try{const s=await _acProxy('zoho.status');
+    if(s&&s.connected){el.innerHTML='<span class="ac-pill ok">conectado</span>'+(s.conectado_em?' <span class="ac-muted">desde '+_acEsc(new Date(s.conectado_em).toLocaleDateString('pt-BR'))+'</span>':'');if(imp)imp.style.display='';}
+    else{el.innerHTML='<span class="ac-pill neutral">não conectado</span>';if(imp)imp.style.display='none';}
+  }catch(e){el.innerHTML='<span class="ac-muted">status indisponível</span>';if(imp)imp.style.display='none';}
+}
+async function _acConectarZoho(){
+  try{const r=await _acProxy('zoho.authUrl');if(r&&r.url)window.location.href=r.url;else adminToast('Falha ao iniciar conexão',false);}
+  catch(e){adminToast('Erro: '+e.message,false);}
+}
+async function _acImportarZoho(){
+  if(!confirm('Importar os usuários do Zoho como colaboradores? (cria os novos e atualiza os já importados)'))return;
+  adminToast('Importando do Zoho…');
+  try{const r=await _acProxy('zoho.import');
+    adminToast('Importação: '+(r.criados||0)+' novos, '+(r.atualizados||0)+' atualizados'+(r.com_foto!=null?(', '+r.com_foto+' c/ foto'):''));
+    await loadAcessos();
+  }catch(e){adminToast('Erro: '+e.message,false);}
+}
+function _acHandleZohoReturn(){
+  const p=new URLSearchParams(location.search);const z=p.get('zoho');if(!z)return;
+  if(z==='ok')adminToast('Zoho conectado!');else adminToast('Falha ao conectar Zoho: '+(p.get('msg')||'erro'),false);
+  const u=new URL(location.href);u.searchParams.delete('zoho');u.searchParams.delete('msg');
+  history.replaceState({},'',u.pathname+u.search+u.hash);
+}
+if(document.readyState!=='loading')_acHandleZohoReturn();else window.addEventListener('DOMContentLoaded',_acHandleZohoReturn);
 function openAcessos(){
   if(currentUserRole!=='admin'&&!(currentUserFeatures||[]).includes('acessos')){adminToast('Sem acesso',false);return;}
   document.getElementById('home-screen').style.display='none';
@@ -9208,9 +9242,18 @@ function _acRenderOrganizacoes(){
       <div class="ac-setor-nome">Sem setor</div>
       <div class="ac-setor-sub">${semSet} colaborador(es)</div></div>`:'';
   body.innerHTML=`
+    <div class="ac-card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <strong>Zoho Mail</strong>
+      <span id="ac-zoho-status" class="ac-muted">verificando…</span>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button class="ac-btn ghost" onclick="_acConectarZoho()">Conectar</button>
+        <button class="ac-btn" id="ac-zoho-import" style="display:none" onclick="_acImportarZoho()">Importar usuários</button>
+      </div>
+    </div>
     <div class="ac-section-h"><h3>Organizações</h3>
       <button class="ac-btn" style="margin-left:auto" onclick="_acAddOrg()">+ Nova organização</button></div>
     <div class="ac-setores-grid">${cards}${semOrg}${semSetor}</div>`;
+  _acZohoStatus();
 }
 function _acOpenOrg(orgId){_acSelOrg=orgId;_acSelSetor=null;_acSel=null;_acRender();}
 async function _acAddOrg(){
