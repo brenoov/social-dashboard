@@ -9298,7 +9298,7 @@ async function _acRenderTermos(pessoaId){
     const m=_acTstMeta(t.status);const n=(t.dispositivo_ids||[]).length;
     return `<div class="ac-row">
       <div class="grow">
-        <div><strong>Termo</strong> <span class="ac-pill ${m[2]||'warn'}">${_acEsc(m[1])}</span> <span class="ac-muted">${n} item(ns)${t.gerado_em?' · gerado '+new Date(t.gerado_em).toLocaleDateString('pt-BR'):''}</span></div>
+        <div><strong>Termo</strong> <span class="ac-pill ${m[2]}">${_acEsc(m[1])}</span> <span class="ac-muted">${n} item(ns)${t.gerado_em?' · gerado '+new Date(t.gerado_em).toLocaleDateString('pt-BR'):''}</span></div>
       </div>
       ${t.pdf_path?`<button class="ac-btn ghost" onclick="_acImprimirTermo('${t.id}')">Imprimir</button>`:''}
       ${t.pdf_path?`<button class="ac-btn ghost" onclick="_acDownloadTermo('${t.id}','pdf_path')">Baixar gerado</button>`:''}
@@ -9343,8 +9343,9 @@ async function _acGerarTermo(pessoaId){
   const html=_acTermoHtml(pessoa,disps||[],_acData.config);
   const blob=new Blob([html],{type:'text/html'});
   const{error:e2}=await sbClient.storage.from('acessos-termos').upload(path,blob,{upsert:true,contentType:'text/html'});
-  if(e2){adminToast('Erro storage: '+e2.message,false);return;}
-  await sbClient.from('acessos_termos').update({pdf_path:path}).eq('id',novo.id);
+  if(e2){await sbClient.from('acessos_termos').delete().eq('id',novo.id);adminToast('Erro storage: '+e2.message,false);return;}
+  const{error:e3}=await sbClient.from('acessos_termos').update({pdf_path:path}).eq('id',novo.id);
+  if(e3){adminToast('Erro: '+e3.message,false);return;}
   await _acLog('termo.gerar','termo:'+novo.id,'ok',ids.length+' itens');
   adminToast('Termo gerado');_acRenderTermos(pessoaId);
 }
