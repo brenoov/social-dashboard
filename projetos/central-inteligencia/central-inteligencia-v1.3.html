@@ -9544,35 +9544,37 @@ async function _acDelDispositivo(id,pessoaId){
 }
 const AC_TST=[['rascunho','Rascunho','warn'],['pendente','Pendente assinatura','warn'],['assinado','Assinado','ok'],['encerrado','Encerrado','']];
 function _acTstMeta(s){return AC_TST.find(x=>x[0]===s)||[s,s,''];}
+function _acSanitizeName(n){return String(n||'arquivo').replace(/[^\w.\-]+/g,'_').slice(-80);}
 async function _acRenderTermos(pessoaId){
   const wrap=document.getElementById('ac-termos-wrap');if(!wrap)return;
-  const[{data:disps},{data:termos,error}]=await Promise.all([
-    sbClient.from('acessos_dispositivos').select('id,tipo,descricao').eq('pessoa_id',pessoaId),
-    sbClient.from('acessos_termos').select('*').eq('pessoa_id',pessoaId).order('gerado_em',{ascending:false,nullsFirst:false})
-  ]);
+  const{data,error}=await sbClient.from('acessos_termos').select('*').eq('pessoa_id',pessoaId).order('enviado_em',{ascending:false});
   if(error){wrap.innerHTML='<div class="ac-card">Erro termos: '+_acEsc(error.message)+'</div>';return;}
-  const dispOpts=(disps||[]).map(d=>`<label style="display:block"><input type="checkbox" class="ac-tdisp" value="${d.id}"> ${_acEsc(_acTipoLabel(d.tipo))} — ${_acEsc(d.descricao)}</label>`).join('')||'<div class="ac-muted">Cadastre dispositivos para gerar um termo.</div>';
-  const tlist=(termos||[]).map(t=>{
-    const m=_acTstMeta(t.status);const n=(t.dispositivo_ids||[]).length;
-    return `<div class="ac-row">
+  const list=(data||[]).map(t=>`<div class="ac-row">
       <div class="grow">
-        <div><strong>Termo</strong> <span class="ac-pill ${m[2]}">${_acEsc(m[1])}</span> <span class="ac-muted">${n} item(ns)${t.gerado_em?' · gerado '+new Date(t.gerado_em).toLocaleDateString('pt-BR'):''}</span></div>
+        <div><strong>${_acEsc(t.titulo||'Documento')}</strong></div>
+        <div class="ac-muted">${t.enviado_em?_acEsc(new Date(t.enviado_em).toLocaleDateString('pt-BR')):''}${t.observacao?' · '+_acEsc(t.observacao):''}</div>
       </div>
-      ${t.pdf_path?`<button class="ac-btn ghost" onclick="_acImprimirTermo('${t.id}')">Imprimir</button>`:''}
-      ${t.pdf_path?`<button class="ac-btn ghost" onclick="_acDownloadTermo('${t.id}','pdf_path')">Baixar gerado</button>`:''}
-      ${t.status==='pendente'?`<button class="ac-btn" onclick="document.getElementById('act-up-${t.id}').click()">Subir assinado</button><input id="act-up-${t.id}" type="file" accept="application/pdf" style="display:none" onchange="_acUploadAssinado('${t.id}','${pessoaId}',this.files[0])">`:''}
-      ${t.assinado_path?`<button class="ac-btn ghost" onclick="_acDownloadTermo('${t.id}','assinado_path')">Baixar assinado</button>`:''}
-      ${t.status!=='encerrado'?`<button class="ac-btn danger" onclick="_acEncerrarTermo('${t.id}','${pessoaId}')">Encerrar</button>`:''}
-    </div>`;}).join('');
+      <button class="ac-btn ghost" onclick="_acDownloadTermo('${t.id}')">Baixar</button>
+      <button class="ac-btn danger" onclick="_acDelTermo('${t.id}','${pessoaId}')">Excluir</button>
+    </div>`).join('');
   wrap.innerHTML=`<div class="ac-card">
-    <h3 style="margin-top:0">Termo de responsabilidade</h3>
-    <div class="ac-card" style="background:rgba(255,255,255,.02)">
-      <div class="ac-muted" style="margin-bottom:6px">Selecione os itens cobertos e gere o termo:</div>
-      ${dispOpts}
-      <div style="margin-top:10px"><button class="ac-btn" onclick="_acGerarTermo('${pessoaId}')">Gerar termo</button></div>
+    <div class="ac-section-h"><h3>Termos / documentos</h3>
+      <button class="ac-btn" style="margin-left:auto" onclick="document.getElementById('ac-termo-file').click()">+ Enviar documento</button>
+      <input type="file" id="ac-termo-file" style="display:none" accept="application/pdf,image/*" onchange="_acUploadTermo('${pessoaId}',this.files[0])">
     </div>
-    <div style="margin-top:12px">${tlist||'<div class="ac-muted">Nenhum termo ainda.</div>'}</div>
+    ${list||'<div class="ac-muted">Nenhum documento enviado.</div>'}
   </div>`;
+}
+async function _acUploadTermo(pessoaId,file){
+  if(!file)return;
+  const titulo=(prompt('Título do documento (opcional):',file.name)||file.name);
+  const path=pessoaId+'/'+Date.now()+'-'+_acSanitizeName(file.name);
+  const{error:e1}=await sbClient.storage.from('acessos-termos').upload(path,file,{upsert:true,contentType:file.type||'application/octet-stream'});
+  if(e1){adminToast('Erro upload: '+e1.message,false);return;}
+  const{error:e2}=await sbClient.from('acessos_termos').insert({pessoa_id:pessoaId,titulo,arquivo_path:path});
+  if(e2){await sbClient.storage.from('acessos-termos').remove([path]);adminToast('Erro: '+e2.message,false);return;}
+  await _acLog('termo.enviar','termo:'+titulo,'ok',null);
+  adminToast('Documento enviado');_acRenderTermos(pessoaId);
 }
 function _acTermoHtml(pessoa,disps,config){
   const itens=disps.map(d=>'- '+_acTipoLabel(d.tipo)+': '+(d.descricao||'')+(d.identificador?(' ('+d.identificador+')'):'')).join('\n');
@@ -9628,12 +9630,21 @@ async function _acUploadAssinado(termoId,pessoaId,file){
   await _acLog('termo.assinar','termo:'+termoId,'ok',null);
   adminToast('Termo assinado anexado');_acRenderTermos(pessoaId);
 }
-async function _acDownloadTermo(termoId,col){
-  const{data,error}=await sbClient.from('acessos_termos').select(col).eq('id',termoId).single();
-  if(error||!data?.[col]){adminToast('Arquivo não encontrado',false);return;}
-  const{data:sg,error:e2}=await sbClient.storage.from('acessos-termos').createSignedUrl(data[col],120);
+async function _acDownloadTermo(termoId){
+  const{data,error}=await sbClient.from('acessos_termos').select('arquivo_path').eq('id',termoId).single();
+  if(error||!data?.arquivo_path){adminToast('Arquivo não encontrado',false);return;}
+  const{data:sg,error:e2}=await sbClient.storage.from('acessos-termos').createSignedUrl(data.arquivo_path,120);
   if(e2){adminToast('Erro URL: '+e2.message,false);return;}
   window.open(sg.signedUrl,'_blank');
+}
+async function _acDelTermo(termoId,pessoaId){
+  if(!confirm('Excluir este documento?'))return;
+  const{data:t}=await sbClient.from('acessos_termos').select('arquivo_path').eq('id',termoId).single();
+  if(t&&t.arquivo_path){await sbClient.storage.from('acessos-termos').remove([t.arquivo_path]);}
+  const{error}=await sbClient.from('acessos_termos').delete().eq('id',termoId);
+  if(error){adminToast('Erro: '+error.message,false);return;}
+  await _acLog('termo.excluir','termo:'+termoId,'ok',null);
+  adminToast('Documento excluído');_acRenderTermos(pessoaId);
 }
 async function _acEncerrarTermo(termoId,pessoaId){
   if(!confirm('Encerrar este termo? (use quando os itens forem devolvidos)'))return;
