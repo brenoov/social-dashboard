@@ -9531,17 +9531,24 @@ async function _acRenderColaboradores(setorId){
     ${rows||'<div class="ac-muted">Nenhum colaborador neste setor.</div>'}`;
 }
 function _acOpenPessoa(id){_acSel=id;_acTab='org';_acRender();}
+function _acFormSetorOpts(orgId,sel){
+  const list=(_acData.setores||[]).filter(s=>orgId?s.organizacao_id===orgId:!s.organizacao_id);
+  return ['<option value="">— Sem setor —</option>'].concat(list.map(s=>`<option value="${s.id}" ${s.id===sel?'selected':''}>${_acEsc(s.nome)}</option>`)).join('');
+}
 function _acFormColaborador(id,setorIdPre){
-  const c=id?_acData.pessoas.find(x=>x.id===id):{nome:'',cargo:'',setor_id:(setorIdPre||null),email_corporativo:'',email_outlook:'',conta_apple:'',numero_corporativo:'',numero_pessoal:'',data_inicio_contrato:''};
+  const c=id?_acData.pessoas.find(x=>x.id===id):{nome:'',cargo:'',organizacao_id:null,setor_id:(setorIdPre||null),email_corporativo:'',email_outlook:'',conta_apple:'',numero_corporativo:'',numero_pessoal:'',data_inicio_contrato:''};
   if(!c)return;
-  const opts=['<option value="">— Sem setor —</option>'].concat(_acData.setores.map(s=>`<option value="${s.id}" ${s.id===c.setor_id?'selected':''}>${_acEsc(s.nome)}</option>`)).join('');
+  const setorRow=(_acData.setores||[]).find(s=>s.id===c.setor_id);
+  const curOrg=c.organizacao_id||(setorRow&&setorRow.organizacao_id)||'';
+  const orgOpts=['<option value="">— Sem organização —</option>'].concat((_acData.organizacoes||[]).map(o=>`<option value="${o.id}" ${o.id===curOrg?'selected':''}>${_acEsc(o.nome)}</option>`)).join('');
   document.getElementById('ac-body').innerHTML=`
     <div class="ac-card" style="max-width:700px">
       <h3 style="margin-top:0">${id?'Editar colaborador':'Novo colaborador'}</h3>
       <div class="ac-grid2">
         <label style="grid-column:1/-1">Nome completo<input class="ac-input" id="acc-nome" value="${_acEsc(c.nome||'')}"></label>
         <label>Cargo<input class="ac-input" id="acc-cargo" value="${_acEsc(c.cargo||'')}"></label>
-        <label>Setor<select class="ac-select" id="acc-setor">${opts}</select></label>
+        <label>Organização<select class="ac-select" id="acc-org" onchange="document.getElementById('acc-setor').innerHTML=_acFormSetorOpts(this.value,null)">${orgOpts}</select></label>
+        <label>Setor<select class="ac-select" id="acc-setor">${_acFormSetorOpts(curOrg,c.setor_id)}</select></label>
         <label>${_acLogo('zoho')}E-mail corporativo (Zoho)<input class="ac-input" id="acc-email" value="${_acEsc(c.email_corporativo||'')}"></label>
         <label>${_acLogo('ms')}E-mail Outlook (OneDrive)<input class="ac-input" id="acc-outlook" value="${_acEsc(c.email_outlook||'')}"></label>
         <label>${_acLogo('apple')}Conta Apple (iCloud / MacBook)<input class="ac-input" id="acc-apple" value="${_acEsc(c.conta_apple||'')}"></label>
@@ -9560,6 +9567,7 @@ async function _acSaveColaborador(id){
     nome:document.getElementById('acc-nome').value.trim(),
     cargo:document.getElementById('acc-cargo').value.trim()||null,
     setor_id:document.getElementById('acc-setor').value||null,
+    organizacao_id:document.getElementById('acc-org').value||null,
     email_corporativo:document.getElementById('acc-email').value.trim()||null,
     email_outlook:document.getElementById('acc-outlook').value.trim()||null,
     conta_apple:document.getElementById('acc-apple').value.trim()||null,
@@ -9582,6 +9590,8 @@ function _acRenderFicha(id){
   const c=_acData.pessoas.find(x=>x.id===id);
   if(!c){_acSel=null;return _acRender();}
   const setor=c.setor_id?(_acData.setores.find(s=>s.id===c.setor_id)||{}).nome:null;
+  const _orgId=c.organizacao_id||(c.setor_id?(_acData.setores.find(s=>s.id===c.setor_id)||{}).organizacao_id:null);
+  const orgNome=_orgId?(_acData.organizacoes.find(o=>o.id===_orgId)||{}).nome:null;
   const dt=v=>v?_acEsc(new Date(v+'T00:00:00').toLocaleDateString('pt-BR')):'—';
   const linha=(rot,val)=>`<div><span class="ac-muted">${rot}:</span> ${val}</div>`;
   document.getElementById('ac-body').innerHTML=`
@@ -9601,6 +9611,7 @@ function _acRenderFicha(id){
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;margin-top:4px">
         ${linha('Cargo',_acEsc(c.cargo||'—'))}
+        ${linha('Organização',_acEsc(orgNome||'—'))}
         ${linha('Setor',_acEsc(setor||'Sem setor'))}
         ${linha(_acLogo('zoho')+'E-mail corporativo',_acEsc(c.email_corporativo||'—'))}
         ${linha(_acLogo('ms')+'E-mail Outlook',_acEsc(c.email_outlook||'—'))}
@@ -9843,7 +9854,7 @@ async function _acRenderAuditoria(){
   const tree={};
   (pessoas||[]).forEach(p=>{
     const s=p.setor_id?setorById[p.setor_id]:null;
-    const orgId=(s&&s.organizacao_id)?s.organizacao_id:'__none__';
+    const orgId=p.organizacao_id||(s&&s.organizacao_id)||'__none__';
     const orgN=orgId==='__none__'?'Sem organização':(orgName(orgId)||'Sem organização');
     const setorKey=p.setor_id||'__nosetor__';
     const setorN=s?s.nome:'Sem setor';
