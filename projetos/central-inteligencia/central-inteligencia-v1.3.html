@@ -1010,6 +1010,8 @@
 #acessos-screen .ac-section-h h3,#acessos-screen h2,#acessos-screen h3{color:var(--text)}
 #acessos-screen .ac-modal{background:var(--surface);border:1px solid var(--border);color:var(--text);box-shadow:var(--shadow-lg)}
 [data-theme="dark"] #acessos-screen .ac-pill.ok{color:#2dd4bf}
+#acessos-screen .ac-avatar{border-radius:50%;object-fit:cover;flex:none;border:1px solid var(--border);background:var(--surface2)}
+#acessos-screen .ac-avatar-fb{display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:#fff;background:linear-gradient(135deg,#0f766e,#0d9488)}
   /* ===== /Controle de Acessos ===== */
   #noticias-screen::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:5;opacity:.04;mix-blend-mode:multiply;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
   /* Tema escuro do Observatório (segue o tema do app) */
@@ -2359,7 +2361,7 @@
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         </div>
         <div class="home-card-text">
-          <h3>Controle de<br>Acessos</h3>
+          <h3>Controle de Acesso<br>e Colaboradores</h3>
           <p>Pessoas, dispositivos e termo de responsabilidade</p>
         </div>
         <span class="home-card-enter">→</span>
@@ -4071,7 +4073,7 @@ const PERMISSION_TREE=[
   ]},
   {key:'banco',label:'Banco de Arquivos',children:[]},
   {key:'gestor',label:'Gestão Comercial (IA)',children:[]},
-  {key:'acessos',label:'Controle de Acessos',children:[]},
+  {key:'acessos',label:'Controle de Acesso e Colaboradores',children:[]},
 ];
 const SUPERADMIN_EMAIL='erick@rbvcompany.com';
 let _permUserId=null;
@@ -9137,6 +9139,11 @@ let _acSelSetor=null; // id do setor aberto (ou null, ou false para "sem setor")
 let _acSelOrg=null;
 let _acTab='setores';
 function _acEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function _acAvatar(c,sz){sz=sz||40;
+  if(c&&c.avatar_url)return `<img class="ac-avatar" src="${_acEsc(c.avatar_url)}" alt="" style="width:${sz}px;height:${sz}px">`;
+  const ini=_acEsc(((c&&c.nome)||'?').trim().charAt(0).toUpperCase()||'?');
+  return `<div class="ac-avatar ac-avatar-fb" style="width:${sz}px;height:${sz}px;font-size:${Math.round(sz*0.42)}px">${ini}</div>`;
+}
 async function _acLog(acao,alvo,resultado,detalhe){
   try{const{data:{session:s}}=await sbClient.auth.getSession();
     await sbClient.from('acessos_log').insert({quem:s?.user?.id||null,acao,alvo:alvo||null,resultado:resultado||'ok',detalhe:detalhe||null});}catch(e){}
@@ -9267,6 +9274,7 @@ async function _acRenderColaboradores(setorId){
   const lista=_acData.pessoas.filter(x=>setorId?x.setor_id===setorId:!x.setor_id);
   const rows=lista.map(c=>`
     <div class="ac-row">
+      ${_acAvatar(c,40)}
       <div class="grow">
         <div><strong>${_acEsc(c.nome)}</strong> ${c.status==='desligado'?'<span class="ac-pill neutral">desligado</span>':'<span class="ac-pill ok">ativo</span>'}</div>
         <div class="ac-muted">${_acEsc(c.cargo||'—')}${c.email_corporativo?' · '+_acEsc(c.email_corporativo):''}</div>
@@ -9335,6 +9343,7 @@ function _acRenderFicha(id){
     <button class="ac-btn ghost" onclick="_acSel=null;_acRender()">← Voltar</button>
     <div class="ac-card" style="margin-top:12px">
       <div class="ac-section-h">
+        ${_acAvatar(c,52)}
         <h2 style="margin:0">${_acEsc(c.nome)}</h2>
         ${c.status==='desligado'?'<span class="ac-pill neutral">desligado</span>':'<span class="ac-pill ok">ativo</span>'}
         <div style="margin-left:auto;display:flex;gap:8px">
@@ -10535,7 +10544,7 @@ function setHomeBgTheme(type){
 <div id="acessos-screen">
   <div class="ac-topbar">
     <button class="ac-back" onclick="closeAcessos()">← Central</button>
-    <div class="ac-title">Controle de Acessos</div>
+    <div class="ac-title">Controle de Acesso e Colaboradores</div>
     <div class="ac-tabs">
       <button class="ac-tab" data-tab="org" onclick="_acSetTab('org')">Organizações</button>
       <button class="ac-tab" data-tab="auditoria" onclick="_acSetTab('auditoria')">Auditoria</button>
