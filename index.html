@@ -928,6 +928,31 @@
     --c-expansao:#c2410c;--c-tendencia:#9a6700;--c-estrategia:#6d28d9;
     --c-marketing:#0e7c86;--c-design:#b5179e;--c-moda:#7b1e3b;--c-bestseller:#9c6b1e;--c-desenvolvimento:#0f766e;--c-instagram:#c13584;--c-outro:#1a1a1a;
     background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',sans-serif;}
+  /* ===== Controle de Acessos ===== */
+  #acessos-screen{display:none;flex-direction:column;position:fixed;inset:0;background:var(--bg,#0b0f14);z-index:50;overflow:auto}
+  .ac-topbar{display:flex;align-items:center;gap:18px;padding:16px 24px;border-bottom:1px solid rgba(255,255,255,.08);position:sticky;top:0;background:inherit;flex-wrap:wrap}
+  .ac-back{background:none;border:1px solid rgba(255,255,255,.18);color:inherit;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px}
+  .ac-title{font-weight:700;font-size:18px}
+  .ac-tabs{display:flex;gap:6px;margin-left:auto}
+  .ac-tab{background:none;border:1px solid rgba(255,255,255,.14);color:inherit;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px}
+  .ac-tab.active{background:#0d9488;border-color:#0d9488;color:#fff}
+  .ac-body{padding:20px 24px;max-width:1100px;width:100%;margin:0 auto}
+  .ac-card{border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:16px;margin-bottom:14px}
+  .ac-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid rgba(255,255,255,.08);border-radius:10px;margin-bottom:8px;flex-wrap:wrap}
+  .ac-row .grow{flex:1;min-width:160px}
+  .ac-muted{opacity:.6;font-size:12px}
+  .ac-btn{background:#0d9488;border:none;color:#fff;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px}
+  .ac-btn.ghost{background:none;border:1px solid rgba(255,255,255,.18);color:inherit}
+  .ac-btn.danger{background:#991b1b}
+  .ac-input,.ac-select,.ac-textarea{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.16);color:inherit;border-radius:8px;padding:8px 10px;font-size:13px;width:100%}
+  .ac-textarea{min-height:160px;font-family:ui-monospace,monospace}
+  .ac-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .ac-pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600}
+  .ac-pill.ok{background:rgba(13,148,136,.2);color:#2dd4bf}
+  .ac-pill.warn{background:rgba(245,158,11,.18);color:#fbbf24}
+  .ac-pill.bad{background:rgba(239,68,68,.18);color:#f87171}
+  @media(max-width:640px){.ac-grid2{grid-template-columns:1fr}.ac-tabs{width:100%;margin-left:0}}
+  /* ===== /Controle de Acessos ===== */
   #noticias-screen::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:5;opacity:.04;mix-blend-mode:multiply;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
   /* Tema escuro do Observatório (segue o tema do app) */
   [data-theme="dark"] #noticias-screen{--ink:#ece7dc;--paper:#14130e;--paper2:#211d16;--np-line:#ece7dc;--np-muted:#9a9285;--np-rule:rgba(255,255,255,.13);}
@@ -2268,6 +2293,16 @@
         <div class="home-card-text">
           <h3>Gestão<br>Comercial</h3>
           <p>Briefing semanal do gestor de IA: metas, concorrência e estoque</p>
+        </div>
+        <span class="home-card-enter">→</span>
+      </div>
+      <div class="home-card" id="home-card-acessos" onclick="openAcessos()">
+        <div class="home-card-icon" style="background:linear-gradient(135deg,#0f766e 0%,#0d9488 100%)">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <div class="home-card-text">
+          <h3>Controle de<br>Acessos</h3>
+          <p>Pessoas, dispositivos e termo de responsabilidade</p>
         </div>
         <span class="home-card-enter">→</span>
       </div>
@@ -9037,6 +9072,52 @@ function closeNoticias(){
   document.getElementById('noticias-screen').style.display='none';
   showHome();
 }
+/* ===== Controle de Acessos (base manual) ===== */
+let _acData={pessoas:[],config:null};
+let _acSel=null;      // id da pessoa aberta (ou null)
+let _acTab='pessoas';
+function _acEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+async function _acLog(acao,alvo,resultado,detalhe){
+  try{const{data:{session:s}}=await sbClient.auth.getSession();
+    await sbClient.from('acessos_log').insert({quem:s?.user?.id||null,acao,alvo:alvo||null,resultado:resultado||'ok',detalhe:detalhe||null});}catch(e){}
+}
+function openAcessos(){
+  if(currentUserRole!=='admin'&&!(currentUserFeatures||[]).includes('acessos')){adminToast('Sem acesso',false);return;}
+  document.getElementById('home-screen').style.display='none';
+  document.getElementById('acessos-screen').style.display='flex';
+  sessionStorage.setItem('rbv-screen','acessos');
+  _acTab='pessoas';_acSel=null;
+  loadAcessos();
+}
+function closeAcessos(){
+  document.getElementById('acessos-screen').style.display='none';
+  showHome();
+}
+function _acSetTab(t){_acTab=t;_acSel=null;_acRender();}
+async function loadAcessos(){
+  const body=document.getElementById('ac-body');
+  body.innerHTML='<div class="ac-muted">Carregando…</div>';
+  const[p,c]=await Promise.all([
+    sbClient.from('acessos_pessoas').select('*').order('nome'),
+    sbClient.from('acessos_config').select('*').eq('id',1).maybeSingle()
+  ]);
+  if(p.error){body.innerHTML='<div class="ac-card">Erro: '+_acEsc(p.error.message)+'</div>';return;}
+  _acData.pessoas=p.data||[];
+  _acData.config=c.data||{empresa:'',modelo_termo:''};
+  _acRender();
+}
+function _acRender(){
+  document.querySelectorAll('#acessos-screen .ac-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===_acTab));
+  if(_acTab==='config')return _acRenderConfig();
+  if(_acTab==='auditoria')return _acRenderAuditoria();
+  if(_acSel)return _acRenderFicha(_acSel);
+  return _acRenderPessoas();
+}
+/* stubs temporários — substituídos nas próximas tasks */
+function _acRenderPessoas(){document.getElementById('ac-body').innerHTML='<div class="ac-muted">Pessoas (em construção)</div>';}
+function _acRenderFicha(id){document.getElementById('ac-body').innerHTML='<div class="ac-muted">Ficha (em construção)</div>';}
+function _acRenderConfig(){document.getElementById('ac-body').innerHTML='<div class="ac-muted">Modelo (em construção)</div>';}
+function _acRenderAuditoria(){document.getElementById('ac-body').innerHTML='<div class="ac-muted">Auditoria (em construção)</div>';}
 let _npRod=null;
 const NP_CAT_COLOR={lancamento:'var(--c-lancamento)',campanha:'var(--c-campanha)',precopromo:'var(--c-precopromo)',faturamento:'var(--c-faturamento)',expansao:'var(--c-expansao)',tendencia:'var(--c-tendencia)',estrategia:'var(--c-estrategia)',marketing:'var(--c-marketing)',design:'var(--c-design)',moda:'var(--c-moda)',bestseller:'var(--c-bestseller)',desenvolvimento:'var(--c-desenvolvimento)',instagram:'var(--c-instagram)',topviral:'var(--c-instagram)',ultimosposts:'var(--c-instagram)',reels:'var(--c-instagram)',outro:'var(--c-outro)'};
 function _npCatColor(c){const s=String(c||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z]/g,'');return NP_CAT_COLOR[s]||'var(--c-outro)';}
@@ -9983,6 +10064,19 @@ function setHomeBgTheme(type){
   </div>
   <div class="np-tabs" id="np-tabs"></div>
   <div class="np-body" id="np-body"></div>
+</div>
+
+<div id="acessos-screen">
+  <div class="ac-topbar">
+    <button class="ac-back" onclick="closeAcessos()">← Central</button>
+    <div class="ac-title">Controle de Acessos</div>
+    <div class="ac-tabs">
+      <button class="ac-tab" data-tab="pessoas" onclick="_acSetTab('pessoas')">Pessoas</button>
+      <button class="ac-tab" data-tab="auditoria" onclick="_acSetTab('auditoria')">Auditoria</button>
+      <button class="ac-tab" data-tab="config" onclick="_acSetTab('config')">Modelo do termo</button>
+    </div>
+  </div>
+  <div class="ac-body" id="ac-body"></div>
 </div>
 
 <div id="gestao-comercial-screen">
