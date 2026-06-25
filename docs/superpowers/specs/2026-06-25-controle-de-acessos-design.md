@@ -4,7 +4,8 @@
 A RBV usa três serviços externos cujos acessos hoje são gerenciados na mão, cada um no seu painel:
 **e-mail Zoho Mail**, **pastas no OneDrive (conta pessoal)** e **uma pasta no iCloud**. Falta um lugar
 único para (1) **dar e tirar acesso** de uma pessoa (onboarding/offboarding), (2) **auditar** quem tem
-acesso a quê e (3) **controlar o compartilhamento das pastas**. Este documento desenha uma nova
+acesso a quê, (3) **controlar o compartilhamento das pastas** e (4) **saber o patrimônio que a pessoa
+tem em mãos hoje** (celular, MacBook, notebook, número de linha, carro). Este documento desenha uma nova
 ferramenta — o módulo **Acessos** — dentro do dashboard iamundi (single-file HTML + Supabase + Edge
 Functions), seguindo os padrões já existentes (proxy de API em Edge Function com segredos no Supabase,
 módulo gated por permissão, confirmação antes de ações que escrevem).
@@ -31,6 +32,7 @@ na conta (navegando a árvore via Graph) e você marca quais quer controlar.
 - Zoho: listar/criar/suspender/reativar/resetar senha de caixas.
 - OneDrive: listar pastas reais, escolher quais controlar, ver/editar o compartilhamento de cada uma.
 - iCloud: checklist manual de "a fazer" por pessoa/pasta.
+- **Patrimônio/dispositivos por pessoa** (cadastro manual): o que ela tem em mãos hoje — celular, MacBook, notebook, número de linha, carro, etc.
 - Fluxos de onboarding/offboarding e painel de auditoria, com confirmação antes de escrever e log de tudo.
 
 **Fora do escopo:**
@@ -55,6 +57,8 @@ na conta (navegando a árvore via Graph) e você marca quais quer controlar.
   (No iCloud o estado fica 'pretendido' até você marcar como feito manualmente → vira 'aplicado'.)
 - **`acessos_zoho`** — a caixa Zoho de cada pessoa
   `id uuid pk · pessoa_id fk · zoho_account_id text · email text · status text ('ativa'|'suspensa') · sincronizado_em timestamptz`
+- **`acessos_dispositivos`** — patrimônio físico que a pessoa tem em mãos (100% manual, sem API)
+  `id uuid pk · pessoa_id fk · tipo text ('celular'|'macbook'|'notebook'|'numero_celular'|'carro'|'outro') · descricao text (modelo/apelido, ex. "MacBook Air M2") · identificador text (serial/IMEI/placa/número da linha) · status text ('em_uso'|'a_devolver'|'devolvido'|'perdido') · desde date · observacao text · atualizado_em timestamptz`
 - **`acessos_conexoes`** — conexões OAuth (SÓ service-role lê)
   `provedor text pk ('zoho'|'microsoft') · refresh_token text · org_id text (zoid do Zoho) · escopos text · data_center text (Zoho .com/.eu/.com.br) · conectado_por uuid · conectado_em timestamptz`
 - **`acessos_log`** — auditoria de toda ação
@@ -83,12 +87,17 @@ na conta (navegando a árvore via Graph) e você marca quais quer controlar.
 - Registrar o acesso pretendido (pessoa × pasta iCloud, papel).
 - A UI mostra um **"a fazer"** ("compartilhar pasta X com fulano@apple no iCloud") + checkbox "feito" que marca o vínculo como 'aplicado'. Nada é automático; deixar explícito na UI.
 
+**Patrimônio/dispositivos (cadastro manual — sem API):**
+- Na ficha da pessoa, uma lista do que ela tem em mãos: adicionar/editar/remover item (tipo + descrição + identificador + desde).
+- Marcar status: `em_uso` → `a_devolver` (no offboarding) → `devolvido` (quando recolhido) ou `perdido`.
+- Não fala com nenhum provedor; é registro nosso. Útil pra saber "o que recolher" quando alguém sai e pra inventário geral.
+
 > Nota: as formas exatas dos endpoints (corpo do `invite`, endpoints de suspender no Zoho, data center) serão confirmadas contra a doc/API ao vivo na implementação — APIs mudam.
 
 ## Fluxos (confirmação antes de toda escrita)
 - **Onboarding** (pessoa nova): cria a pessoa no cadastro → escolhe o que provisionar (criar caixa Zoho? adicionar em quais pastas OneDrive e com qual papel? marcar pendência iCloud?) → **modal de confirmação** listando exatamente o que vai acontecer → aplica item a item, grava estado/erros e loga.
-- **Offboarding** (saiu): botão **"Revogar tudo"** na ficha da pessoa → confirma → suspende a caixa Zoho + remove de todas as pastas OneDrive + marca pendências iCloud + `status='inativo'`. Aplica o que dá, mostra o resultado de cada item, loga.
-- **Auditoria:** painel **"quem tem o quê"** (pessoa × recursos + status da caixa Zoho) e o inverso **"pasta × quem acessa"**; destaca **divergências** (ex.: pessoa inativa ainda com acesso a pasta; caixa Zoho ativa sem pessoa no cadastro; vínculo OneDrive 'pretendido' nunca aplicado). Botão de **sincronizar** que relê Zoho + OneDrive e atualiza o espelho.
+- **Offboarding** (saiu): botão **"Revogar tudo"** na ficha da pessoa → confirma → suspende a caixa Zoho + remove de todas as pastas OneDrive + marca pendências iCloud + **marca todos os dispositivos `em_uso` como `a_devolver` (checklist de devolução)** + `status='inativo'`. Aplica o que dá nos provedores, mostra o resultado de cada item, loga. A devolução de cada dispositivo é confirmada manualmente depois (`a_devolver` → `devolvido`).
+- **Auditoria:** painel **"quem tem o quê"** (pessoa × recursos + status da caixa Zoho + **dispositivos em mãos**) e o inverso **"pasta × quem acessa"**; destaca **divergências** (ex.: pessoa inativa ainda com acesso a pasta; caixa Zoho ativa sem pessoa no cadastro; vínculo OneDrive 'pretendido' nunca aplicado; **dispositivo `a_devolver` há tempos / pessoa inativa ainda com item `em_uso`**). Botão de **sincronizar** que relê Zoho + OneDrive e atualiza o espelho (dispositivos são manuais, não sincronizam).
 
 ## Erros, bordas e pré-requisitos
 - **Confirmação + erro real:** toda ação de escrita confirma antes e, no erro, mostra a **mensagem real do provedor** (padrão do Meta Ads), tratando casos comuns (token sem escopo, e-mail já existe no Zoho, pessoa já compartilhada no OneDrive).
@@ -101,7 +110,7 @@ na conta (navegando a árvore via Graph) e você marca quais quer controlar.
   Sem isso, o OAuth não roda. Passo a passo será fornecido.
 
 ## Ordem de construção (mesmo no release "tudo de cara")
-1. Tabelas + permissão `acessos` + casca do módulo (cadastro de pessoas CRUD, sem provedores).
+1. Tabelas + permissão `acessos` + casca do módulo (cadastro de pessoas CRUD + **patrimônio/dispositivos por pessoa**, ambos manuais, sem provedores — já entrega valor sozinho).
 2. `acessos-oauth` + `acessos-conexoes` + botões Conectar (Zoho, OneDrive) e o `acessos-proxy` base.
 3. **Leitura** primeiro (de-risca): listar caixas Zoho + navegar/listar compartilhamento OneDrive → espelho + auditoria.
 4. **Escrita** Zoho (criar/suspender/reativar/resetar) com confirmação + log.
@@ -112,6 +121,7 @@ na conta (navegando a árvore via Graph) e você marca quais quer controlar.
 - Conectar Zoho e OneDrive sem o front ver token; reconectar quando expira.
 - Listar caixas Zoho e o compartilhamento de uma pasta OneDrive real (leitura) batendo com os painéis nativos.
 - Criar e suspender uma caixa Zoho de teste; compartilhar e remover uma pessoa numa pasta OneDrive de teste — ambos com confirmação e refletindo no provedor.
-- Onboarding/offboarding de uma pessoa-teste aplicando across providers (Zoho + OneDrive) + pendência iCloud manual; `acessos_log` registrando tudo.
-- Auditoria apontando uma divergência proposital (pessoa inativa com acesso).
+- Cadastrar dispositivos numa pessoa-teste (celular/MacBook/número/carro), editar e mudar status (`em_uso`→`a_devolver`→`devolvido`).
+- Onboarding/offboarding de uma pessoa-teste aplicando across providers (Zoho + OneDrive) + pendência iCloud manual + dispositivos marcados `a_devolver`; `acessos_log` registrando tudo.
+- Auditoria apontando uma divergência proposital (pessoa inativa com acesso ou com dispositivo `em_uso`).
 - Deploy do front idêntico em `index.html` e `central-inteligencia-v1.3.html`; checagem de sintaxe dos `<script>`; teste manual no deploy. **Nunca** testar criando/suspendendo caixa ou removendo acesso de pessoa real — usar conta/pasta descartável (regra: nunca semear/limpar/alterar dados de contas reais para testar).
