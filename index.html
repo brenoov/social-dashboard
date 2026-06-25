@@ -9922,17 +9922,19 @@ async function _acDelTermo(termoId,pessoaId){
 async function _acRenderAuditoria(){
   const body=document.getElementById('ac-body');
   body.innerHTML='<div class="ac-muted">Carregando auditoria…</div>';
-  const[{data:orgs},{data:setores},{data:pessoas},{data:itens}]=await Promise.all([
+  const[{data:orgs},{data:setores},{data:pessoas},{data:itens},{data:vincs}]=await Promise.all([
     sbClient.from('acessos_organizacoes').select('*').order('ordem').order('nome'),
     sbClient.from('acessos_setores').select('*').order('nome'),
     sbClient.from('acessos_pessoas').select('*').order('nome'),
-    sbClient.from('acessos_dispositivos').select('*')
+    sbClient.from('acessos_dispositivos').select('*'),
+    sbClient.from('acessos_vinculos').select('pessoa_id,papel,estado,acessos_recursos(nome,tipo)')
   ]);
   let odMap={};
   try{const r=await _acProxy('microsoft.allShares');((r&&r.items)||[]).forEach(it=>{const e=(it.email||'').toLowerCase();if(!e)return;(odMap[e]=odMap[e]||[]).push({pasta:it.pasta,role:it.role});});}catch(e){}
   const setorById={};(setores||[]).forEach(s=>setorById[s.id]=s);
   const orgName=id=>{const o=(orgs||[]).find(x=>x.id===id);return o?o.nome:null;};
   const itensByP={};(itens||[]).forEach(d=>{(itensByP[d.pessoa_id]=itensByP[d.pessoa_id]||[]).push(d);});
+  const iclMap={};(vincs||[]).forEach(v=>{const r=v.acessos_recursos;if(r&&r.tipo==='icloud'){(iclMap[v.pessoa_id]=iclMap[v.pessoa_id]||[]).push({pasta:r.nome,papel:v.papel,estado:v.estado});}});
   const tree={};
   (pessoas||[]).forEach(p=>{
     const s=p.setor_id?setorById[p.setor_id]:null;
@@ -9961,6 +9963,7 @@ async function _acRenderAuditoria(){
       </div>
       ${line(_acLogo('zoho'),'Zoho',_acEsc(p.email_corporativo||'—'))}
       ${line(_acLogo('ms'),'OneDrive',od.length?od.map(f=>_acEsc(f.pasta)+' <span class="ac-muted">('+_acEsc(f.role)+')</span>').join(', '):'<span class="ac-muted">sem pastas</span>')}
+      ${line(_acLogo('apple'),'iCloud',(iclMap[p.id]||[]).length?(iclMap[p.id]).map(f=>_acEsc(f.pasta)+' <span class="ac-muted">('+(f.papel==='edicao'?'edição':'leitura')+(f.estado==='pendente'?' · pendente':'')+')</span>').join(', '):'<span class="ac-muted">sem pastas</span>')}
       ${line(_acLogo('apple'),'Apple',_acEsc(p.conta_apple||'—'))}
       ${line('','Dispositivos',disp.length?disp.map(d=>_acEsc(_acItemTipoLabel(d.tipo))+(d.descricao?' '+_acEsc(d.descricao):'')).join(', '):'<span class="ac-muted">nenhum</span>')}
       ${line('','Veículos / patrimônio',veic.length?veic.map(d=>_acEsc(d.descricao||_acItemTipoLabel(d.tipo))).join(', '):'<span class="ac-muted">nenhum</span>')}
