@@ -722,6 +722,44 @@ async function msBrowse(sb: any, itemId: string | null) {
   return json({ folders, parentId: itemId || null });
 }
 
+// Recursive crawl of a brand root: returns ALL descendant folders (flattened) up to maxDepth,
+// each with its ancestor trail (folder names from the root down to its parent). One token refresh,
+// many Graph calls server-side. Bounded by depth, node cap and call cap to stay fast/safe.
+async function actMsTree(sb: any, rootId: string, maxDepth: unknown) {
+  if (!rootId) return json({ error: "sem_itemId" }, 400);
+  const conn = await readMsConn(sb);
+  if (!conn.refresh_token) return json({ error: "nao_conectado" });
+  const access = await freshMsToken(conn);
+  const depth = Math.max(1, Math.min(5, Number(maxDepth) || 2));
+  const NODE_CAP = 1500;
+  const CALL_CAP = 400;
+  const out: Array<{ id: string; name: string; depth: number; childCount: number; trail: string[] }> = [];
+  let calls = 0;
+  let truncated = false;
+  let frontier: Array<{ id: string; trail: string[] }> = [{ id: rootId, trail: [] }];
+  for (let d = 1; d <= depth && frontier.length; d++) {
+    const next: Array<{ id: string; trail: string[] }> = [];
+    for (const node of frontier) {
+      if (calls >= CALL_CAP || out.length >= NODE_CAP) { truncated = true; break; }
+      calls++;
+      const r = await graphFetch(
+        access,
+        `/me/drive/items/${encodeURIComponent(node.id)}/children?$top=200&$select=id,name,folder`,
+      );
+      if (!r.ok) continue;
+      const kids = (Array.isArray(r.json?.value) ? r.json.value : []).filter((it: any) => it && it.folder != null);
+      for (const k of kids) {
+        if (out.length >= NODE_CAP) { truncated = true; break; }
+        const childCount = k.folder?.childCount ?? 0;
+        out.push({ id: String(k.id), name: String(k.name ?? ""), depth: d, childCount, trail: node.trail });
+        if (d < depth && childCount) next.push({ id: String(k.id), trail: node.trail.concat(String(k.name ?? "")) });
+      }
+    }
+    frontier = next;
+  }
+  return json({ folders: out, truncated, depth, total: out.length });
+}
+
 async function msAddFolder(
   sb: any,
   quem: string | null,
@@ -1029,6 +1067,8 @@ Deno.serve(async (req: Request) => {
         return await msAuthUrl(sb);
       case "microsoft.browse":
         return await msBrowse(sb, body?.itemId ?? null);
+      case "microsoft.tree":
+        return await actMsTree(sb, body?.itemId, body?.depth);
       case "microsoft.addFolder":
         return await msAddFolder(sb, user.id, body?.itemId, body?.name, body?.caminho ?? null);
       case "microsoft.folders":

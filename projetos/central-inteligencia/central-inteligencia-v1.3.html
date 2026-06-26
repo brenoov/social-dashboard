@@ -1130,6 +1130,13 @@
 #acessos-screen .ac-pick{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;cursor:pointer}
 #acessos-screen .ac-pick:hover{background:rgba(13,148,136,.06)}
 #acessos-screen .ac-pick .grow{font-family:'IBM Plex Sans',sans-serif;font-size:13px;min-width:0}
+#acessos-screen .ac-secmod-toggle{cursor:pointer;user-select:none}
+#acessos-screen .ac-secchev{display:inline-block;transition:transform .18s ease;color:var(--muted);font-size:11px}
+#acessos-screen .ac-secchev.open{transform:rotate(90deg)}
+#acessos-screen .ac-depth{display:flex;align-items:center;gap:8px;margin-bottom:18px;flex-wrap:wrap;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted)}
+#acessos-screen .ac-depth-b{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:8px;width:30px;height:30px;cursor:pointer;font-weight:600;font-family:'Oswald',sans-serif}
+#acessos-screen .ac-depth-b.active{background:#0d9488;border-color:#0d9488;color:#fff}
+#acessos-screen .ac-folder-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:640px){#acessos-screen .ac-folder-grid{grid-template-columns:1fr}}
 /* ===== Acessos — Fase 1: conexões ===== */
 #acessos-screen .ac-conn-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
@@ -9596,9 +9603,8 @@ async function _acRenderDrive(){
   body.innerHTML='<div class="ac-muted">Carregando Drive…</div>';
   try{const{data}=await sbClient.from('acessos_drive_marcas').select('*').order('ordem').order('nome');_acDriveMarcas=data||[];}catch(e){_acDriveMarcas=[];}
   if((!_acDriveSel||!_acDriveMarcas.find(m=>m.id===_acDriveSel))&&_acDriveMarcas.length)_acDriveSel=_acDriveMarcas[0].id;
-  _acDriveStack=[];
   _acDrivePaintShell();
-  if(_acDriveMarcas.length)_acDriveBrowseCurrent();
+  if(_acDriveMarcas.length)_acDriveExplode();
 }
 function _acDrivePaintShell(){
   const body=document.getElementById('ac-body');
@@ -9611,39 +9617,40 @@ function _acDrivePaintShell(){
     ${_acDriveMarcas.length?`<div class="ac-brand-bar">${chips}</div>`:''}
     <div id="ac-drive-content">${_acDriveMarcas.length?'<div class="ac-muted">Carregando pastas…</div>':'<div class="ac-empty">Nenhuma marca ainda. Clique em "+ Adicionar marca" e escolha uma pasta-raiz (ex.: 21. RBV & Company).</div>'}</div>`;
 }
-function _acDriveSelectMarca(id){_acDriveSel=id;_acDriveStack=[];_acDrivePaintShell();_acDriveBrowseCurrent();}
-function _acDriveOpen(id,name){_acDriveStack.push({id,name});_acDriveBrowseCurrent();}
-function _acDriveGoRoot(){_acDriveStack=[];_acDriveBrowseCurrent();}
-function _acDriveGoTo(i){_acDriveStack=_acDriveStack.slice(0,i+1);_acDriveBrowseCurrent();}
+let _acDriveDepth=2,_acDriveSecOpen={};
+function _acDriveSelectMarca(id){_acDriveSel=id;_acDrivePaintShell();_acDriveExplode();}
+function _acDriveSectorOf(f){let s=_acDriveClassify(f.name);if(s.key==='outros'&&Array.isArray(f.trail)){for(let i=f.trail.length-1;i>=0;i--){const a=_acDriveClassify(f.trail[i]);if(a.key!=='outros'){s=a;break;}}}return s;}
 function _acDriveFolderCard(f){
+  const path=(f.trail&&f.trail.length)?f.trail.join(' / '):'raiz da marca';
   return `<div class="ac-folder">
-    <div class="ac-folder-top"><span class="ac-folder-ico">📁</span><div class="grow" style="min-width:0"><div class="ac-folder-name">${_acEsc(f.name)}</div><div class="ac-folder-sub">${f.childCount?(f.childCount+' item(ns)'):'vazia'}</div></div></div>
-    <div class="ac-folder-actions">
-      ${f.childCount?`<button class="ac-btn ghost" data-drv="open" data-id="${_acEsc(f.id)}" data-name="${_acEsc(f.name)}">Abrir</button>`:''}
-      <button class="ac-btn" data-drv="share" data-id="${_acEsc(f.id)}" data-name="${_acEsc(f.name)}">Compartilhar</button>
-    </div>
+    <div class="ac-folder-top"><span class="ac-folder-ico">📁</span><div class="grow" style="min-width:0"><div class="ac-folder-name">${_acEsc(f.name)}</div><div class="ac-folder-sub" title="${_acEsc(path)}">${_acEsc(path)}</div></div></div>
+    <div class="ac-folder-actions"><button class="ac-btn" data-drv="share" data-id="${_acEsc(f.id)}" data-name="${_acEsc(f.name)}">Compartilhar</button></div>
   </div>`;
 }
 function _acDriveWire(cont){
-  cont.querySelectorAll('button[data-drv]').forEach(b=>{const a=b.dataset.drv;b.addEventListener('click',()=>{if(a==='open')_acDriveOpen(b.dataset.id,b.dataset.name);else if(a==='share')_acDriveShare(b.dataset.id,b.dataset.name);});});
+  cont.querySelectorAll('button[data-drv]').forEach(b=>{const a=b.dataset.drv;b.addEventListener('click',()=>{if(a==='share')_acDriveShare(b.dataset.id,b.dataset.name);});});
 }
-async function _acDriveBrowseCurrent(){
+function _acDriveSetDepth(d){_acDriveDepth=d;_acDriveExplode();}
+function _acDriveToggleSec(k){_acDriveSecOpen[k]=(_acDriveSecOpen[k]===false);const el=document.querySelector('#acessos-screen .ac-secbody[data-sec="'+k+'"]');if(el){el.style.display=_acDriveSecOpen[k]!==false?'':'none';const ch=el.parentElement.querySelector('.ac-secchev');if(ch)ch.classList.toggle('open',_acDriveSecOpen[k]!==false);}}
+async function _acDriveExplode(){
   const cont=document.getElementById('ac-drive-content');if(!cont)return;
   const marca=_acDriveMarcas.find(m=>m.id===_acDriveSel);if(!marca)return;
-  const cur=_acDriveStack.length?_acDriveStack[_acDriveStack.length-1]:{id:marca.external_id,name:marca.nome};
-  cont.innerHTML='<div class="ac-muted">Carregando pastas…</div>';
-  let r;try{r=await _acProxy('microsoft.browse',{itemId:cur.id});}catch(e){cont.innerHTML='<div class="ac-card">Erro ao ler pastas: '+_acEsc(e.message)+'</div>';return;}
+  cont.innerHTML='<div class="ac-muted">Explodindo as pastas da marca em todas as camadas… (pode levar alguns segundos)</div>';
+  let r;try{r=await _acProxy('microsoft.tree',{itemId:marca.external_id,depth:_acDriveDepth});}catch(e){cont.innerHTML='<div class="ac-card">Erro ao varrer: '+_acEsc(e.message)+'</div>';return;}
   const folders=(r&&r.folders)||[];
-  const crumb=`<div class="ac-crumb"><button class="ac-crumb-b" onclick="_acDriveGoRoot()">${_acEsc(marca.nome)}</button>${_acDriveStack.map((s,i)=>'<span>/</span><button class="ac-crumb-b" onclick="_acDriveGoTo('+i+')">'+_acEsc(s.name)+'</button>').join('')}</div>`;
-  if(!_acDriveStack.length){
-    const buckets={};
-    folders.forEach(f=>{const s=_acDriveClassify(f.name);(buckets[s.key]=buckets[s.key]||{label:s.label,list:[]}).list.push(f);});
-    const order=_AC_SECTORS.map(s=>s.key).concat(['outros']);
-    const mods=order.filter(k=>buckets[k]).map(k=>{const b=buckets[k];return `<div class="ac-secmod"><div class="ac-secmod-h">${_acEsc(b.label)} <span class="ac-muted" style="text-transform:none;letter-spacing:0">(${b.list.length})</span></div><div class="ac-folder-grid">${b.list.map(_acDriveFolderCard).join('')}</div></div>`;}).join('');
-    cont.innerHTML=crumb+(mods||'<div class="ac-empty">Sem subpastas nesta marca.</div>');
-  }else{
-    cont.innerHTML=crumb+`<div class="ac-folder-grid">${folders.length?folders.map(_acDriveFolderCard).join(''):'<div class="ac-empty">Pasta sem subpastas.</div>'}</div>`;
-  }
+  const buckets={};
+  folders.forEach(f=>{const s=_acDriveSectorOf(f);(buckets[s.key]=buckets[s.key]||{label:s.label,list:[]}).list.push(f);});
+  Object.keys(buckets).forEach(k=>buckets[k].list.sort((a,b)=>a.name.localeCompare(b.name)));
+  const order=_AC_SECTORS.map(s=>s.key).concat(['outros']);
+  const depthCtl=`<div class="ac-depth"><span class="ac-muted">Camadas:</span>${[1,2,3,4].map(d=>'<button class="ac-depth-b '+(d===_acDriveDepth?'active':'')+'" onclick="_acDriveSetDepth('+d+')">'+d+'</button>').join('')}<span class="ac-muted" style="margin-left:auto">${folders.length} pasta(s)${r.truncated?' · limite atingido':''}</span></div>`;
+  const mods=order.filter(k=>buckets[k]).map(k=>{
+    const b=buckets[k],open=_acDriveSecOpen[k]!==false;
+    return `<div class="ac-secmod">
+      <div class="ac-secmod-h ac-secmod-toggle" onclick="_acDriveToggleSec('${k}')"><span class="ac-secchev ${open?'open':''}">▸</span>${_acEsc(b.label)} <span class="ac-muted" style="text-transform:none;letter-spacing:0">(${b.list.length})</span></div>
+      <div class="ac-folder-grid ac-secbody" data-sec="${k}" style="${open?'':'display:none'}">${b.list.map(_acDriveFolderCard).join('')}</div>
+    </div>`;
+  }).join('');
+  cont.innerHTML=depthCtl+(mods||'<div class="ac-empty">Nenhuma pasta encontrada nesta marca.</div>');
   _acDriveWire(cont);
 }
 async function _acDriveAddMarca(){
