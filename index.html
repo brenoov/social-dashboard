@@ -1118,9 +1118,30 @@
 #acessos-screen .ac-secmod{margin-bottom:26px}
 #acessos-screen .ac-secmod-h{font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;letter-spacing:1.4px;text-transform:uppercase;color:var(--text);margin:0 0 12px;display:flex;align-items:center;gap:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
 #acessos-screen .ac-move{width:auto;max-width:138px;padding:6px 8px;font-size:11px}
-#acessos-screen .ac-folder[draggable=true]{cursor:grab}
+#acessos-screen .ac-folder[draggable=true]{cursor:grab;-webkit-user-select:none;user-select:none}
 #acessos-screen .ac-folder[draggable=true]:active{cursor:grabbing}
+#acessos-screen .ac-folder.ac-dragging{opacity:.45;border-style:dashed}
+#acessos-screen .ac-secbody{min-height:10px}
+#acessos-screen .ac-move,#acessos-screen .ac-folder .ac-btn{cursor:pointer}
 #acessos-screen .ac-secmod.ac-drop-on{outline:2px dashed #0d9488;outline-offset:4px;border-radius:14px;background:rgba(13,148,136,.04)}
+#acessos-screen .ac-driveviews{display:flex;gap:6px;margin-bottom:14px}
+#acessos-screen .ac-tree{list-style:none;margin:0;padding-left:20px}
+#acessos-screen .ac-tnode{position:relative;padding-left:20px}
+#acessos-screen .ac-tnode::before{content:"";position:absolute;left:0;top:0;width:14px;height:20px;border-left:1px solid var(--border);border-bottom:1px solid var(--border);border-bottom-left-radius:7px}
+#acessos-screen .ac-tnode::after{content:"";position:absolute;left:0;top:20px;bottom:0;border-left:1px solid var(--border)}
+#acessos-screen .ac-tnode:last-child::after{display:none}
+#acessos-screen .ac-tree-root{padding-left:2px}
+#acessos-screen .ac-tree-root>.ac-tnode{padding-left:0}
+#acessos-screen .ac-tree-root>.ac-tnode::before,#acessos-screen .ac-tree-root>.ac-tnode::after{display:none}
+#acessos-screen .ac-tn-row{display:flex;align-items:center;gap:8px;padding:4px 0}
+#acessos-screen .ac-tn-tog{width:20px;height:20px;border:1px solid var(--border);background:var(--surface);color:var(--muted);border-radius:6px;cursor:pointer;font-size:10px;flex-shrink:0;transition:transform .15s ease;line-height:1}
+#acessos-screen .ac-tn-tog.open{transform:rotate(90deg)}
+#acessos-screen .ac-tn-dot{width:20px;flex-shrink:0}
+#acessos-screen .ac-tn-ico{font-size:15px;line-height:1}
+#acessos-screen .ac-tn-name{font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:600;color:var(--text);word-break:break-word}
+#acessos-screen .ac-tn-sec{font-family:'IBM Plex Sans',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#2dd4bf;background:rgba(13,148,136,.14);padding:2px 7px;border-radius:999px;white-space:nowrap}
+#acessos-screen .ac-tn-share{padding:3px 9px;font-size:11px;margin-left:auto;flex-shrink:0}
+@media(max-width:640px){#acessos-screen .ac-tn-sec{display:none}#acessos-screen .ac-tree{padding-left:14px}#acessos-screen .ac-tnode{padding-left:14px}}
 #acessos-screen .ac-folder-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
 #acessos-screen .ac-folder{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:10px;transition:border-color .15s,box-shadow .15s,transform .15s}
 #acessos-screen .ac-folder:hover{border-color:var(--accent-mid);box-shadow:var(--shadow-md);transform:translateY(-2px)}
@@ -9623,7 +9644,7 @@ function _acDrivePaintShell(){
     ${_acDriveMarcas.length?`<div class="ac-brand-bar">${chips}</div>`:''}
     <div id="ac-drive-content">${_acDriveMarcas.length?'<div class="ac-muted">Carregando pastas…</div>':'<div class="ac-empty">Nenhuma marca ainda. Clique em "+ Adicionar marca" e escolha uma pasta-raiz (ex.: 21. RBV & Company).</div>'}</div>`;
 }
-let _acDriveDepth=2,_acDriveSecOpen={},_acDriveDragId=null;
+let _acDriveDepth=2,_acDriveSecOpen={},_acDriveDragId=null,_acDriveView='setor';
 function _acDriveAllSectors(){return _AC_SECTORS.map(s=>({key:s.key,label:s.label})).concat(_acDriveCustomSecs.map(s=>({key:s.chave,label:s.label}))).concat([{key:'outros',label:'Outros'}]);}
 function _acDriveLabelOf(key){const a=_acDriveAllSectors().find(s=>s.key===key);return a?a.label:'Outros';}
 function _acDriveSelectMarca(id){_acDriveSel=id;_acDrivePaintShell();_acDriveExplode();}
@@ -9637,8 +9658,8 @@ function _acDriveFolderCard(f,secs){
   const path=(f.trail&&f.trail.length)?f.trail.join(' / '):'raiz da marca';
   const cur=_acDriveSectorOf(f).key;
   const opts=(secs||_acDriveAllSectors()).map(s=>`<option value="${s.key}" ${s.key===cur?'selected':''}>${_acEsc(s.label)}</option>`).join('');
-  return `<div class="ac-folder" draggable="true" data-id="${_acEsc(f.id)}" ondragstart="_acDriveDragStart(event,'${_acEsc(f.id)}')">
-    <div class="ac-folder-top"><span class="ac-folder-ico">📁</span><div class="grow" style="min-width:0"><div class="ac-folder-name">${_acEsc(f.name)}</div><div class="ac-folder-sub" title="${_acEsc(path)}">${_acEsc(path)}</div></div></div>
+  return `<div class="ac-folder" draggable="true" data-id="${_acEsc(f.id)}" ondragstart="_acDriveDragStart(event,'${_acEsc(f.id)}')" ondragend="_acDriveDragEnd(event)">
+    <div class="ac-folder-top"><span class="ac-folder-ico" style="cursor:grab" title="arraste para outro setor">⠿ 📁</span><div class="grow" style="min-width:0"><div class="ac-folder-name">${_acEsc(f.name)}</div><div class="ac-folder-sub" title="${_acEsc(path)}">${_acEsc(path)}</div></div></div>
     <div class="ac-folder-actions">
       <select class="ac-select ac-move" title="mover para setor" onclick="event.stopPropagation()" onchange="_acDriveMove('${_acEsc(f.id)}',this.value)">${opts}</select>
       <button class="ac-btn" data-drv="share" data-id="${_acEsc(f.id)}" data-name="${_acEsc(f.name)}">Compartilhar</button>
@@ -9651,9 +9672,10 @@ function _acDriveWire(cont){
 function _acDriveSetDepth(d){_acDriveDepth=d;_acDriveExplode();}
 function _acDriveToggleSec(k){_acDriveSecOpen[k]=(_acDriveSecOpen[k]===false);const el=document.querySelector('#acessos-screen .ac-secbody[data-sec="'+k+'"]');if(el){el.style.display=_acDriveSecOpen[k]!==false?'':'none';const ch=el.parentElement.querySelector('.ac-secchev');if(ch)ch.classList.toggle('open',_acDriveSecOpen[k]!==false);}}
 // drag & drop entre setores
-function _acDriveDragStart(e,id){_acDriveDragId=id;try{e.dataTransfer.setData('text/plain',id);e.dataTransfer.effectAllowed='move';}catch(_){}}
-function _acDriveDragOver(e){e.preventDefault();e.currentTarget.classList.add('ac-drop-on');try{e.dataTransfer.dropEffect='move';}catch(_){}}
-function _acDriveDragLeave(e){e.currentTarget.classList.remove('ac-drop-on');}
+function _acDriveDragStart(e,id){_acDriveDragId=id;try{e.dataTransfer.setData('text/plain',id);e.dataTransfer.effectAllowed='move';}catch(_){}if(e.currentTarget&&e.currentTarget.classList)e.currentTarget.classList.add('ac-dragging');}
+function _acDriveDragEnd(e){if(e.currentTarget&&e.currentTarget.classList)e.currentTarget.classList.remove('ac-dragging');document.querySelectorAll('#acessos-screen .ac-secmod.ac-drop-on').forEach(el=>el.classList.remove('ac-drop-on'));_acDriveDragId=null;}
+function _acDriveDragOver(e){e.preventDefault();if(e.dataTransfer)try{e.dataTransfer.dropEffect='move';}catch(_){}e.currentTarget.classList.add('ac-drop-on');}
+function _acDriveDragLeave(e){if(e.currentTarget.contains&&e.relatedTarget&&e.currentTarget.contains(e.relatedTarget))return;e.currentTarget.classList.remove('ac-drop-on');}
 function _acDriveDrop(e,key){e.preventDefault();e.currentTarget.classList.remove('ac-drop-on');const id=_acDriveDragId||(e.dataTransfer&&e.dataTransfer.getData('text/plain'));_acDriveDragId=null;if(id)_acDriveMove(id,key);}
 async function _acDriveMove(extId,key){
   const f=_acDriveTree.find(x=>x.id===extId);
@@ -9693,28 +9715,58 @@ async function _acDriveExplode(){
 function _acDriveRepaint(){
   const cont=document.getElementById('ac-drive-content');if(!cont)return;
   const folders=_acDriveTree;
-  const buckets={};
-  folders.forEach(f=>{const s=_acDriveSectorOf(f);(buckets[s.key]=buckets[s.key]||{label:s.label,list:[]}).list.push(f);});
-  Object.keys(buckets).forEach(k=>buckets[k].list.sort((a,b)=>a.name.localeCompare(b.name)));
   const secs=_acDriveAllSectors();
-  const topbar=`<div class="ac-depth"><span class="ac-muted">Camadas:</span>${[1,2,3,4].map(d=>'<button class="ac-depth-b '+(d===_acDriveDepth?'active':'')+'" onclick="_acDriveSetDepth('+d+')">'+d+'</button>').join('')}<button class="ac-btn ghost" onclick="_acDriveAddSetor()">+ Novo setor</button><span class="ac-muted" style="margin-left:auto">${folders.length} pasta(s)${_acDriveTreeTrunc?' · limite atingido':''}</span></div>
-  <div class="ac-muted" style="font-size:11px;margin:-8px 0 14px">Arraste uma pasta para outro setor, ou use o seletor no card. "Liberar setor" compartilha todas as pastas do setor.</div>`;
-  const mods=secs.filter(s=>buckets[s.key]).map(s=>{
-    const b=buckets[s.key],open=_acDriveSecOpen[s.key]!==false,custom=_acDriveCustomSecs.some(c=>c.chave===s.key);
-    return `<div class="ac-secmod" ondragover="_acDriveDragOver(event)" ondragleave="_acDriveDragLeave(event)" ondrop="_acDriveDrop(event,'${s.key}')">
-      <div class="ac-secmod-h">
-        <span style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="_acDriveToggleSec('${s.key}')"><span class="ac-secchev ${open?'open':''}">▸</span>${_acEsc(s.label)} <span class="ac-muted" style="text-transform:none;letter-spacing:0">(${b.list.length})</span></span>
-        <span style="margin-left:auto;display:flex;gap:6px">
-          <button class="ac-btn" onclick="_acDriveLiberarSetor('${s.key}')">Liberar setor</button>
-          ${custom?`<button class="ac-btn ghost" title="remover setor" onclick="_acDriveDelSetor('${s.key}')">✕</button>`:''}
-        </span>
-      </div>
-      <div class="ac-folder-grid ac-secbody" data-sec="${s.key}" style="${open?'':'display:none'}">${b.list.map(f=>_acDriveFolderCard(f,secs)).join('')}</div>
-    </div>`;
-  }).join('');
-  cont.innerHTML=topbar+(mods||'<div class="ac-empty">Nenhuma pasta encontrada nesta marca.</div>');
+  const viewToggle=`<div class="ac-driveviews"><button class="ac-tab ${_acDriveView==='setor'?'active':''}" onclick="_acDriveSetView('setor')">Por setor</button><button class="ac-tab ${_acDriveView==='arvore'?'active':''}" onclick="_acDriveSetView('arvore')">Árvore</button></div>`;
+  const depthCtl=`<div class="ac-depth"><span class="ac-muted">Camadas:</span>${[1,2,3,4].map(d=>'<button class="ac-depth-b '+(d===_acDriveDepth?'active':'')+'" onclick="_acDriveSetDepth('+d+')">'+d+'</button>').join('')}${_acDriveView==='setor'?'<button class="ac-btn ghost" onclick="_acDriveAddSetor()">+ Novo setor</button>':''}<span class="ac-muted" style="margin-left:auto">${folders.length} pasta(s)${_acDriveTreeTrunc?' · limite atingido':''}</span></div>`;
+  let bodyHtml;
+  if(_acDriveView==='arvore'){
+    const roots=_acDriveBuildTree();
+    bodyHtml=`<div class="ac-muted" style="font-size:11px;margin:0 0 14px">Cada pasta liga às suas subpastas. Clique no ▸ para abrir/fechar um ramo.</div><ul class="ac-tree ac-tree-root">${roots.length?roots.map(_acDriveTreeNode).join(''):'<li class="ac-empty">Sem pastas.</li>'}</ul>`;
+  }else{
+    const buckets={};
+    folders.forEach(f=>{const s=_acDriveSectorOf(f);(buckets[s.key]=buckets[s.key]||{label:s.label,list:[]}).list.push(f);});
+    Object.keys(buckets).forEach(k=>buckets[k].list.sort((a,b)=>a.name.localeCompare(b.name)));
+    const mods=secs.filter(s=>buckets[s.key]).map(s=>{
+      const b=buckets[s.key],open=_acDriveSecOpen[s.key]!==false,custom=_acDriveCustomSecs.some(c=>c.chave===s.key);
+      return `<div class="ac-secmod" ondragover="_acDriveDragOver(event)" ondragleave="_acDriveDragLeave(event)" ondrop="_acDriveDrop(event,'${s.key}')">
+        <div class="ac-secmod-h">
+          <span style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="_acDriveToggleSec('${s.key}')"><span class="ac-secchev ${open?'open':''}">▸</span>${_acEsc(s.label)} <span class="ac-muted" style="text-transform:none;letter-spacing:0">(${b.list.length})</span></span>
+          <span style="margin-left:auto;display:flex;gap:6px">
+            <button class="ac-btn" onclick="_acDriveLiberarSetor('${s.key}')">Liberar setor</button>
+            ${custom?`<button class="ac-btn ghost" title="remover setor" onclick="_acDriveDelSetor('${s.key}')">✕</button>`:''}
+          </span>
+        </div>
+        <div class="ac-folder-grid ac-secbody" data-sec="${s.key}" style="${open?'':'display:none'}">${b.list.map(f=>_acDriveFolderCard(f,secs)).join('')}</div>
+      </div>`;
+    }).join('');
+    bodyHtml=`<div class="ac-muted" style="font-size:11px;margin:0 0 14px">Arraste uma pasta para outro setor (ou use o seletor no card). "Liberar setor" compartilha todas as pastas do setor.</div>`+(mods||'<div class="ac-empty">Nenhuma pasta encontrada nesta marca.</div>');
+  }
+  cont.innerHTML=viewToggle+depthCtl+bodyHtml;
   _acDriveWire(cont);
 }
+function _acDriveSetView(v){_acDriveView=v;_acDriveRepaint();}
+function _acDriveBuildTree(){
+  const byId={};_acDriveTree.forEach(n=>{byId[n.id]={node:n,children:[]};});
+  const roots=[];
+  _acDriveTree.forEach(n=>{const p=n.parentId&&byId[n.parentId];if(p)p.children.push(byId[n.id]);else roots.push(byId[n.id]);});
+  const sortRec=arr=>{arr.sort((a,b)=>a.node.name.localeCompare(b.node.name));arr.forEach(c=>sortRec(c.children));};
+  sortRec(roots);
+  return roots;
+}
+function _acDriveTreeNode(t){
+  const n=t.node,hasKids=t.children&&t.children.length,sec=_acDriveSectorOf(n);
+  return `<li class="ac-tnode">
+    <div class="ac-tn-row">
+      ${hasKids?'<button class="ac-tn-tog" onclick="_acDriveTreeTog(this)">▸</button>':'<span class="ac-tn-dot"></span>'}
+      <span class="ac-tn-ico">📁</span>
+      <span class="ac-tn-name">${_acEsc(n.name)}</span>
+      <span class="ac-tn-sec">${_acEsc(sec.label)}</span>
+      <button class="ac-btn ghost ac-tn-share" data-drv="share" data-id="${_acEsc(n.id)}" data-name="${_acEsc(n.name)}">Compartilhar</button>
+    </div>
+    ${hasKids?`<ul class="ac-tree ac-tn-kids" style="display:none">${t.children.map(_acDriveTreeNode).join('')}</ul>`:''}
+  </li>`;
+}
+function _acDriveTreeTog(btn){const li=btn.closest('.ac-tnode');if(!li)return;const ul=li.querySelector(':scope > .ac-tn-kids');if(!ul)return;const open=ul.style.display!=='none';ul.style.display=open?'none':'';btn.classList.toggle('open',!open);}
 async function _acDriveLiberarSetor(key){
   const folders=_acDriveTree.filter(f=>_acDriveSectorOf(f).key===key);
   if(!folders.length){adminToast('Setor sem pastas',false);return;}

@@ -751,7 +751,7 @@ async function actMsTree(sb: any, rootId: string, maxDepth: unknown) {
       for (const k of kids) {
         if (out.length >= NODE_CAP) { truncated = true; break; }
         const childCount = k.folder?.childCount ?? 0;
-        out.push({ id: String(k.id), name: String(k.name ?? ""), depth: d, childCount, trail: node.trail });
+        out.push({ id: String(k.id), name: String(k.name ?? ""), depth: d, childCount, trail: node.trail, parentId: String(node.id) });
         if (d < depth && childCount) next.push({ id: String(k.id), trail: node.trail.concat(String(k.name ?? "")) });
       }
     }
