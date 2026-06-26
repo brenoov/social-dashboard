@@ -1098,6 +1098,15 @@
   #acessos-screen .ac-aud-kv{grid-template-columns:1fr;gap:3px 12px}
   #acessos-screen .ac-aud-k{margin-top:8px}
 }
+/* ===== Acessos — Fase 1: conexões ===== */
+#acessos-screen .ac-conn-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+#acessos-screen .ac-conn{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:var(--shadow-md);display:flex;flex-direction:column;gap:10px;transition:border-color .16s,box-shadow .16s}
+#acessos-screen .ac-conn:hover{border-color:var(--accent-mid);box-shadow:var(--shadow-lg)}
+#acessos-screen .ac-conn-top{display:flex;align-items:center;gap:10px}
+#acessos-screen .ac-conn-name{font-family:'Oswald',sans-serif;font-weight:600;font-size:16px;letter-spacing:.5px;text-transform:uppercase;color:var(--text)}
+#acessos-screen .ac-conn-desc{font-family:'IBM Plex Sans',sans-serif;font-size:12.5px;color:var(--muted);line-height:1.45;flex:1}
+#acessos-screen .ac-conn-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+@media(max-width:640px){#acessos-screen .ac-conn-actions .ac-btn{flex:1;min-width:120px;text-align:center}}
 #acessos-screen .ac-muted{color:var(--muted);opacity:1}
 #acessos-screen .ac-btn{background:#0d9488;color:#fff;box-shadow:var(--shadow-sm)}
 #acessos-screen .ac-btn:hover{filter:brightness(1.06);box-shadow:var(--shadow-md)}
@@ -9628,29 +9637,32 @@ function _acRenderOrganizacoes(){
 function _acRenderConfiguracoes(){
   const body=document.getElementById('ac-body');
   body.innerHTML=`
-    <div class="ac-section-h"><h3>Configurações</h3></div>
-    <div class="ac-card">
-      <h3 style="margin-top:0">Contas de sincronização</h3>
-      <div class="ac-row">
-        <div class="grow">
-          <div><strong>Zoho Mail</strong> <span id="ac-zoho-status" class="ac-muted">verificando…</span></div>
-          <div class="ac-muted">Importa colaboradores (nome, e-mail corporativo e foto) da sua organização Zoho.</div>
+    <div class="ac-hero">
+      <div><h2>Conexões</h2><div class="ac-sub">Estado das integrações que alimentam o módulo. Reconecte se algo aparecer como "não conectado".</div></div>
+    </div>
+    <div class="ac-conn-grid">
+      <div class="ac-conn">
+        <div class="ac-conn-top">${_acLogo('zoho')}<span class="ac-conn-name">Zoho Mail</span><span style="margin-left:auto" id="ac-zoho-status" class="ac-muted">verificando…</span></div>
+        <div class="ac-conn-desc">Importa colaboradores (nome, e-mail corporativo e foto) da sua organização Zoho, e cria/suspende caixas de e-mail.</div>
+        <div class="ac-conn-actions">
+          <button class="ac-btn ghost" onclick="_acConectarZoho()">Conectar / reconectar</button>
+          <button class="ac-btn" id="ac-zoho-import" style="display:none" onclick="_acImportarZoho()">Importar usuários</button>
         </div>
-        <button class="ac-btn ghost" onclick="_acConectarZoho()">Conectar</button>
-        <button class="ac-btn" id="ac-zoho-import" style="display:none" onclick="_acImportarZoho()">Importar usuários</button>
       </div>
-      <div class="ac-row">
-        <div class="grow">
-          <div><strong>OneDrive</strong> <span id="ac-od-status" class="ac-muted">verificando…</span></div>
-          <div class="ac-muted">Compartilhamento das pastas que você escolher controlar (conta pessoal).</div>
+      <div class="ac-conn">
+        <div class="ac-conn-top">${_acLogo('ms')}<span class="ac-conn-name">OneDrive</span><span style="margin-left:auto" id="ac-od-status" class="ac-muted">verificando…</span></div>
+        <div class="ac-conn-desc">Compartilhamento das pastas que você controla (conta Microsoft pessoal). A gestão de pastas fica na aba Drive.</div>
+        <div class="ac-conn-actions">
+          <button class="ac-btn ghost" onclick="_acConectarOneDrive()">Conectar / reconectar</button>
+          <button class="ac-btn" id="ac-od-manage" style="display:none" onclick="_acOpenOneDrive()">Gerenciar pastas</button>
         </div>
-        <button class="ac-btn ghost" onclick="_acConectarOneDrive()">Conectar</button>
-        <button class="ac-btn" id="ac-od-manage" style="display:none" onclick="_acOpenOneDrive()">Gerenciar pastas</button>
       </div>
-      <div class="ac-row">
-        <div class="grow"><div><strong>iCloud</strong> <span class="ac-pill neutral">manual</span></div>
-          <div class="ac-muted">Sem API — cadastre as pastas e os acessos; você compartilha na Apple e marca "feito".</div></div>
-        <button class="ac-btn" onclick="_acOpenICloud()">Gerenciar pastas</button>
+      <div class="ac-conn">
+        <div class="ac-conn-top">${_acLogo('apple')}<span class="ac-conn-name">iCloud</span><span style="margin-left:auto" class="ac-pill neutral">manual</span></div>
+        <div class="ac-conn-desc">Sem API — cadastre as pastas e os acessos; você compartilha na Apple e marca "feito".</div>
+        <div class="ac-conn-actions">
+          <button class="ac-btn ghost" onclick="_acOpenICloud()">Gerenciar pastas</button>
+        </div>
       </div>
     </div>`;
   _acZohoStatus();
