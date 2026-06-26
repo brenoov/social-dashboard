@@ -9719,10 +9719,13 @@ function _acDesligar(id){
   ov.innerHTML=`<div class="ac-modal">
     <h3 style="margin-top:0">Desligar ${_acEsc(c.nome)}</h3>
     <label style="display:block">Motivo do desligamento
-      <textarea class="ac-textarea" id="ac-dlg-motivo" style="min-height:90px"></textarea></label>
+      <textarea class="ac-textarea" id="ac-dlg-motivo" style="min-height:80px"></textarea></label>
     <label style="display:block;margin-top:10px">Data de fim de contrato
       <input class="ac-input" type="date" id="ac-dlg-data" value="${hoje}"></label>
-    <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+    <div class="ac-kicker" style="margin:14px 0 6px;display:block">Revogar acessos</div>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:6px"><input type="checkbox" id="ac-dlg-equip" checked> Marcar equipamentos em uso para devolução</label>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:6px"><input type="checkbox" id="ac-dlg-od" ${c.email_outlook?'checked':'disabled'}> Remover dos compartilhamentos do OneDrive${c.email_outlook?'':' <span class="ac-muted">(sem e-mail Outlook cadastrado)</span>'}</label>
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
       <button class="ac-btn ghost" id="ac-dlg-cancel">Cancelar</button>
       <button class="ac-btn danger" id="ac-dlg-ok">Confirmar desligamento</button>
     </div>
@@ -9735,10 +9738,26 @@ function _acDesligar(id){
     const motivo=ov.querySelector('#ac-dlg-motivo').value.trim();
     const data=ov.querySelector('#ac-dlg-data').value||null;
     if(!motivo){adminToast('Informe o motivo',false);return;}
+    const doEquip=ov.querySelector('#ac-dlg-equip').checked;
+    const doOd=ov.querySelector('#ac-dlg-od').checked&&!!c.email_outlook;
+    const okBtn=ov.querySelector('#ac-dlg-ok');okBtn.disabled=true;okBtn.textContent='Processando…';
     const{error}=await sbClient.from('acessos_pessoas').update({status:'desligado',motivo_saida:motivo,data_fim_contrato:data,atualizado_em:new Date().toISOString()}).eq('id',id);
-    if(error){adminToast('Erro: '+error.message,false);return;}
+    if(error){adminToast('Erro: '+error.message,false);okBtn.disabled=false;okBtn.textContent='Confirmar desligamento';return;}
+    let resumo='Desligado';
+    if(doEquip){
+      const{error:e2}=await sbClient.from('acessos_dispositivos').update({status:'a_devolver',atualizado_em:new Date().toISOString()}).eq('pessoa_id',id).eq('status','em_uso');
+      resumo+=e2?' · equip. falhou':' · equipamentos → devolução';
+    }
+    if(doOd){
+      try{const r=await _acProxy('microsoft.revokeForEmail',{email:c.email_outlook});resumo+=' · OneDrive: '+(r&&r.removed||0)+' removido(s)';}
+      catch(e){resumo+=' · OneDrive falhou';}
+    }
+    let iclNomes=[];
+    try{const{data:vs}=await sbClient.from('acessos_vinculos').select('acessos_recursos(nome,tipo)').eq('pessoa_id',id);(vs||[]).forEach(v=>{if(v.acessos_recursos&&v.acessos_recursos.tipo==='icloud')iclNomes.push(v.acessos_recursos.nome);});}catch(e){}
     await _acLog('colaborador.desligar','colab:'+c.nome,'ok',data||null);
-    adminToast('Colaborador desligado');close();await loadAcessos();_acOpenPessoa(id);
+    close();adminToast(resumo);
+    if(iclNomes.length){setTimeout(()=>adminToast('iCloud (manual): remova de '+iclNomes.join(', '),false),1300);}
+    await loadAcessos();_acOpenPessoa(id);
   };
 }
 async function _acReativar(id){
