@@ -1195,6 +1195,13 @@
 #acessos-screen .ac-pick{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;cursor:pointer}
 #acessos-screen .ac-pick:hover{background:rgba(13,148,136,.06)}
 #acessos-screen .ac-pick .grow{font-family:'IBM Plex Sans',sans-serif;font-size:13px;min-width:0}
+#acessos-screen .ac-pick-search{margin-bottom:8px}
+#acessos-screen .ac-pick-list{max-height:42vh;overflow:auto;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+#acessos-screen .ac-pick-grp-h{position:sticky;top:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:var(--surface2);border-bottom:1px solid var(--border);font-family:'Oswald',sans-serif;font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);z-index:1}
+#acessos-screen .ac-pick-all{border:1px solid var(--border);background:var(--surface);color:var(--accent-mid);border-radius:6px;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:3px 9px;cursor:pointer}
+#acessos-screen .ac-pick-all:hover{border-color:var(--accent-mid)}
+#acessos-screen .ac-pick-list .ac-pick{border-radius:0;border-bottom:1px solid var(--border);padding:8px 10px}
+#acessos-screen .ac-pick-grp:last-child .ac-pick:last-child{border-bottom:none}
 #acessos-screen .ac-secmod-toggle{cursor:pointer;user-select:none}
 #acessos-screen .ac-secchev{display:inline-block;transition:transform .18s ease;color:var(--muted);font-size:11px}
 #acessos-screen .ac-secchev.open{transform:rotate(90deg)}
@@ -9724,6 +9731,33 @@ function _acDriveFlowNode(t){
   </li>`;
 }
 function _acDriveFlowTog(id){_acDriveFlowOpen[id]=!_acDriveFlowOpen[id];_acDriveRepaint();}
+// Seletor de colaboradores AGRUPADO POR SETOR + busca (reusado nos modais de compartilhar).
+function _acColabPicker(cbClass){
+  const ativos=(_acData.pessoas||[]).filter(p=>p.status==='ativo'&&p.email_outlook);
+  if(!ativos.length)return '<div class="ac-muted" style="padding:10px">Nenhum colaborador ativo com e-mail Outlook.</div>';
+  const groups={};
+  ativos.forEach(p=>{const s=p.setor_id?(_acData.setores.find(x=>x.id===p.setor_id)||{}).nome:null;const key=s||'Sem setor';(groups[key]=groups[key]||[]).push(p);});
+  const order=Object.keys(groups).sort((a,b)=>a==='Sem setor'?1:(b==='Sem setor'?-1:a.localeCompare(b)));
+  return `<div class="ac-pickwrap">
+    <input class="ac-input ac-pick-search" placeholder="buscar colaborador…" oninput="_acPickFilter(this)">
+    <div class="ac-pick-list">
+    ${order.map(g=>`<div class="ac-pick-grp">
+      <div class="ac-pick-grp-h"><span>${_acEsc(g)} <span class="ac-muted" style="text-transform:none;letter-spacing:0">(${groups[g].length})</span></span><button type="button" class="ac-pick-all" onclick="_acPickAll(this,'${cbClass}')">todos</button></div>
+      ${groups[g].map(p=>`<label class="ac-pick" data-name="${_acEsc((p.nome||'').toLowerCase())}"><input type="checkbox" class="${cbClass}" data-email="${_acEsc(p.email_outlook)}"> ${_acAvatar(p,26)} <span class="grow">${_acEsc(p.nome)} <span class="ac-muted">${_acEsc(p.email_outlook)}</span></span></label>`).join('')}
+    </div>`).join('')}
+    </div></div>`;
+}
+function _acPickFilter(inp){
+  const q=(inp.value||'').toLowerCase().trim();const wrap=inp.closest('.ac-pickwrap');if(!wrap)return;
+  wrap.querySelectorAll('.ac-pick').forEach(l=>{l.style.display=(!q||(l.dataset.name||'').includes(q))?'':'none';});
+  wrap.querySelectorAll('.ac-pick-grp').forEach(g=>{const any=[...g.querySelectorAll('.ac-pick')].some(l=>l.style.display!=='none');g.style.display=any?'':'none';});
+}
+function _acPickAll(btn,cbClass){
+  const grp=btn.closest('.ac-pick-grp');if(!grp)return;
+  const cbs=[...grp.querySelectorAll('input.'+cbClass)].filter(c=>c.closest('.ac-pick').style.display!=='none');
+  const allOn=cbs.length&&cbs.every(c=>c.checked);cbs.forEach(c=>c.checked=!allOn);
+  btn.textContent=allOn?'todos':'limpar';
+}
 function _acDriveAllSectors(){return _AC_SECTORS.map(s=>({key:s.key,label:s.label})).concat(_acDriveCustomSecs.map(s=>({key:s.chave,label:s.label}))).concat([{key:'outros',label:'Outros'}]);}
 function _acDriveLabelOf(key){const a=_acDriveAllSectors().find(s=>s.key===key);return a?a.label:'Outros';}
 function _acDriveSelectMarca(id){_acDriveSel=id;_acDrivePaintShell();_acDriveExplode();}
@@ -9842,9 +9876,7 @@ async function _acDriveLiberarSetor(key){
   ov.innerHTML=`<div class="ac-modal" style="max-width:560px">
     <h3 style="margin-top:0">Liberar setor — ${_acEsc(label)}</h3>
     <p class="ac-muted" style="margin:.2em 0 1em">Compartilha as <b>${folders.length}</b> pasta(s) deste setor com os colaboradores escolhidos (vários de uma vez).</p>
-    <div style="max-height:38vh;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:6px">
-      ${ativos.length?ativos.map(p=>`<label class="ac-pick"><input type="checkbox" class="ac-lib-cb" data-email="${_acEsc(p.email_outlook)}"> ${_acAvatar(p,26)} <span class="grow">${_acEsc(p.nome)} <span class="ac-muted">${_acEsc(p.email_outlook)}</span></span></label>`).join(''):'<div class="ac-muted" style="padding:8px">Nenhum colaborador ativo com e-mail Outlook.</div>'}
-    </div>
+    ${_acColabPicker('ac-lib-cb')}
     <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
       <select class="ac-select" id="ac-lib-role" style="width:auto"><option value="leitura">Leitura</option><option value="edição">Edição</option></select>
       <input class="ac-input" id="ac-lib-extra" placeholder="ou e-mail avulso" style="flex:1;min-width:150px">
@@ -9903,10 +9935,8 @@ async function _acDriveShare(itemId,name){
     <h3 style="margin-top:0">Compartilhar — ${_acEsc(name)}</h3>
     <div class="ac-kicker" style="display:block;margin:8px 0 6px">Quem já tem acesso</div>
     <div>${shares.length?shares.map(s=>`<div class="ac-row"><div class="grow">${_acEsc(s.name||s.email||'—')}${(s.email&&s.name)?' <span class="ac-muted">'+_acEsc(s.email)+'</span>':''} <span class="ac-pill ${s.role==='edição'?'warn':'ok'}">${_acEsc(s.role)}</span></div><button class="ac-btn danger" data-uns data-perm="${_acEsc(s.permId)}">Remover</button></div>`).join(''):'<div class="ac-muted">Ninguém além do dono.</div>'}</div>
-    <div class="ac-kicker" style="display:block;margin:14px 0 6px">Adicionar colaboradores (selecione vários)</div>
-    <div style="max-height:34vh;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:6px">
-      ${ativos.length?ativos.map(p=>`<label class="ac-pick"><input type="checkbox" class="ac-drv-cb" data-email="${_acEsc(p.email_outlook)}"> ${_acAvatar(p,26)} <span class="grow">${_acEsc(p.nome)} <span class="ac-muted">${_acEsc(p.email_outlook)}</span></span></label>`).join(''):'<div class="ac-muted" style="padding:8px">Nenhum colaborador ativo com e-mail Outlook.</div>'}
-    </div>
+    <div class="ac-kicker" style="display:block;margin:14px 0 6px">Adicionar colaboradores (por setor — selecione vários)</div>
+    ${_acColabPicker('ac-drv-cb')}
     <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
       <select class="ac-select" id="ac-drv-role" style="width:auto"><option value="leitura">Leitura</option><option value="edição">Edição</option></select>
       <input class="ac-input" id="ac-drv-extra" placeholder="ou e-mail avulso" style="flex:1;min-width:150px">
