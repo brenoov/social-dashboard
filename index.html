@@ -1116,8 +1116,11 @@
 #acessos-screen .ac-crumb-b{background:none;border:none;color:var(--accent-mid);cursor:pointer;font:inherit;padding:2px 4px;border-radius:6px}
 #acessos-screen .ac-crumb-b:hover{background:rgba(13,148,136,.1)}
 #acessos-screen .ac-secmod{margin-bottom:26px}
-#acessos-screen .ac-secmod-h{font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;letter-spacing:1.4px;text-transform:uppercase;color:var(--text);margin:0 0 12px;display:flex;align-items:center;gap:10px}
-#acessos-screen .ac-secmod-h::after{content:"";flex:1;height:1px;background:var(--border)}
+#acessos-screen .ac-secmod-h{font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;letter-spacing:1.4px;text-transform:uppercase;color:var(--text);margin:0 0 12px;display:flex;align-items:center;gap:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+#acessos-screen .ac-move{width:auto;max-width:138px;padding:6px 8px;font-size:11px}
+#acessos-screen .ac-folder[draggable=true]{cursor:grab}
+#acessos-screen .ac-folder[draggable=true]:active{cursor:grabbing}
+#acessos-screen .ac-secmod.ac-drop-on{outline:2px dashed #0d9488;outline-offset:4px;border-radius:14px;background:rgba(13,148,136,.04)}
 #acessos-screen .ac-folder-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
 #acessos-screen .ac-folder{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:10px;transition:border-color .15s,box-shadow .15s,transform .15s}
 #acessos-screen .ac-folder:hover{border-color:var(--accent-mid);box-shadow:var(--shadow-md);transform:translateY(-2px)}
@@ -9582,15 +9585,16 @@ function closeAcessos(){
 }
 function _acSetTab(t){_acTab=t;_acSel=null;_acSelSetor=null;_acSelOrg=null;_acRender();}
 /* ===== Fase 2: aba Drive ===== */
-let _acDriveMarcas=[],_acDriveSel=null,_acDriveStack=[];
+let _acDriveMarcas=[],_acDriveSel=null,_acDriveStack=[],_acDriveTree=[],_acDriveTreeTrunc=false,_acDriveCustomSecs=[],_acDriveOverrides={};
 const _AC_SECTORS=[
   {key:'financeiro',label:'Financeiro',kw:['financ','dre','fluxo','caixa','cobran','contas a','tesour','boleto']},
   {key:'contabil',label:'Contabilidade & Fiscal',kw:['contab','fiscal','tribut','imposto','obrigac','societ']},
   {key:'rh',label:'RH & DP',kw:['rh','dp','recursos humanos','depart','pessoal','folha','funcion','colaborad']},
-  {key:'marketing',label:'Marketing',kw:['marketing','mkt','artes','design','social','midia','campanha','trafego']},
+  {key:'marketing',label:'Marketing',kw:['marketing','mkt','artes','design','social','midia','campanha','trafego','branding','marca','identidade','visual','conteudo','video','foto','criativ','post']},
   {key:'comercial',label:'Comercial & Contratos',kw:['comercial','vendas','contrato','clientes','cliente','propost','crm']},
+  {key:'suprimentos',label:'Suprimentos & Estoque',kw:['estoque','suprim','almoxar','compras','insumo','materiais','material','expedic','inventario']},
   {key:'juridico',label:'Jurídico',kw:['juridic','legal','process','advog']},
-  {key:'operacoes',label:'Operações & Documentos',kw:['operac','logist','estoque','frota','doc','documento','acompanh','semanal','moto','produc']},
+  {key:'operacoes',label:'Operações & Documentos',kw:['operac','logist','frota','doc','documento','acompanh','semanal','moto','produc']},
   {key:'diretoria',label:'Diretoria',kw:['diretor','institu','planejamento','estrateg']}
 ];
 function _acDriveClassify(name){
@@ -9602,6 +9606,8 @@ async function _acRenderDrive(){
   const body=document.getElementById('ac-body');
   body.innerHTML='<div class="ac-muted">Carregando Drive…</div>';
   try{const{data}=await sbClient.from('acessos_drive_marcas').select('*').order('ordem').order('nome');_acDriveMarcas=data||[];}catch(e){_acDriveMarcas=[];}
+  try{const{data:cs}=await sbClient.from('acessos_drive_setores').select('*').order('ordem').order('label');_acDriveCustomSecs=cs||[];}catch(e){_acDriveCustomSecs=[];}
+  try{const{data:ov}=await sbClient.from('acessos_drive_overrides').select('external_id,setor_chave');_acDriveOverrides={};(ov||[]).forEach(o=>{_acDriveOverrides[o.external_id]=o.setor_chave;});}catch(e){_acDriveOverrides={};}
   if((!_acDriveSel||!_acDriveMarcas.find(m=>m.id===_acDriveSel))&&_acDriveMarcas.length)_acDriveSel=_acDriveMarcas[0].id;
   _acDrivePaintShell();
   if(_acDriveMarcas.length)_acDriveExplode();
@@ -9617,14 +9623,26 @@ function _acDrivePaintShell(){
     ${_acDriveMarcas.length?`<div class="ac-brand-bar">${chips}</div>`:''}
     <div id="ac-drive-content">${_acDriveMarcas.length?'<div class="ac-muted">Carregando pastas…</div>':'<div class="ac-empty">Nenhuma marca ainda. Clique em "+ Adicionar marca" e escolha uma pasta-raiz (ex.: 21. RBV & Company).</div>'}</div>`;
 }
-let _acDriveDepth=2,_acDriveSecOpen={};
+let _acDriveDepth=2,_acDriveSecOpen={},_acDriveDragId=null;
+function _acDriveAllSectors(){return _AC_SECTORS.map(s=>({key:s.key,label:s.label})).concat(_acDriveCustomSecs.map(s=>({key:s.chave,label:s.label}))).concat([{key:'outros',label:'Outros'}]);}
+function _acDriveLabelOf(key){const a=_acDriveAllSectors().find(s=>s.key===key);return a?a.label:'Outros';}
 function _acDriveSelectMarca(id){_acDriveSel=id;_acDrivePaintShell();_acDriveExplode();}
-function _acDriveSectorOf(f){let s=_acDriveClassify(f.name);if(s.key==='outros'&&Array.isArray(f.trail)){for(let i=f.trail.length-1;i>=0;i--){const a=_acDriveClassify(f.trail[i]);if(a.key!=='outros'){s=a;break;}}}return s;}
-function _acDriveFolderCard(f){
+function _acDriveSectorOf(f){
+  if(_acDriveOverrides[f.id])return {key:_acDriveOverrides[f.id],label:_acDriveLabelOf(_acDriveOverrides[f.id])};
+  let s=_acDriveClassify(f.name);
+  if(s.key==='outros'&&Array.isArray(f.trail)){for(let i=f.trail.length-1;i>=0;i--){const a=_acDriveClassify(f.trail[i]);if(a.key!=='outros'){s=a;break;}}}
+  return s;
+}
+function _acDriveFolderCard(f,secs){
   const path=(f.trail&&f.trail.length)?f.trail.join(' / '):'raiz da marca';
-  return `<div class="ac-folder">
+  const cur=_acDriveSectorOf(f).key;
+  const opts=(secs||_acDriveAllSectors()).map(s=>`<option value="${s.key}" ${s.key===cur?'selected':''}>${_acEsc(s.label)}</option>`).join('');
+  return `<div class="ac-folder" draggable="true" data-id="${_acEsc(f.id)}" ondragstart="_acDriveDragStart(event,'${_acEsc(f.id)}')">
     <div class="ac-folder-top"><span class="ac-folder-ico">📁</span><div class="grow" style="min-width:0"><div class="ac-folder-name">${_acEsc(f.name)}</div><div class="ac-folder-sub" title="${_acEsc(path)}">${_acEsc(path)}</div></div></div>
-    <div class="ac-folder-actions"><button class="ac-btn" data-drv="share" data-id="${_acEsc(f.id)}" data-name="${_acEsc(f.name)}">Compartilhar</button></div>
+    <div class="ac-folder-actions">
+      <select class="ac-select ac-move" title="mover para setor" onclick="event.stopPropagation()" onchange="_acDriveMove('${_acEsc(f.id)}',this.value)">${opts}</select>
+      <button class="ac-btn" data-drv="share" data-id="${_acEsc(f.id)}" data-name="${_acEsc(f.name)}">Compartilhar</button>
+    </div>
   </div>`;
 }
 function _acDriveWire(cont){
@@ -9632,26 +9650,107 @@ function _acDriveWire(cont){
 }
 function _acDriveSetDepth(d){_acDriveDepth=d;_acDriveExplode();}
 function _acDriveToggleSec(k){_acDriveSecOpen[k]=(_acDriveSecOpen[k]===false);const el=document.querySelector('#acessos-screen .ac-secbody[data-sec="'+k+'"]');if(el){el.style.display=_acDriveSecOpen[k]!==false?'':'none';const ch=el.parentElement.querySelector('.ac-secchev');if(ch)ch.classList.toggle('open',_acDriveSecOpen[k]!==false);}}
+// drag & drop entre setores
+function _acDriveDragStart(e,id){_acDriveDragId=id;try{e.dataTransfer.setData('text/plain',id);e.dataTransfer.effectAllowed='move';}catch(_){}}
+function _acDriveDragOver(e){e.preventDefault();e.currentTarget.classList.add('ac-drop-on');try{e.dataTransfer.dropEffect='move';}catch(_){}}
+function _acDriveDragLeave(e){e.currentTarget.classList.remove('ac-drop-on');}
+function _acDriveDrop(e,key){e.preventDefault();e.currentTarget.classList.remove('ac-drop-on');const id=_acDriveDragId||(e.dataTransfer&&e.dataTransfer.getData('text/plain'));_acDriveDragId=null;if(id)_acDriveMove(id,key);}
+async function _acDriveMove(extId,key){
+  const f=_acDriveTree.find(x=>x.id===extId);
+  _acDriveOverrides[extId]=key;
+  try{await sbClient.from('acessos_drive_overrides').upsert({external_id:extId,setor_chave:key,nome:f?f.name:null,atualizado_em:new Date().toISOString()},{onConflict:'external_id'});}
+  catch(e){adminToast('Erro ao salvar: '+e.message,false);}
+  _acDriveRepaint();
+}
+async function _acDriveAddSetor(){
+  const label=prompt('Nome do novo setor:');if(!label||!label.trim())return;
+  const chave='c_'+label.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,28)+'_'+Math.floor(Math.random()*9000+1000);
+  const ordem=(_acDriveCustomSecs.reduce((mx,s)=>Math.max(mx,s.ordem||0),100))+1;
+  const{error}=await sbClient.from('acessos_drive_setores').insert({chave,label:label.trim(),ordem});
+  if(error){adminToast('Erro: '+error.message,false);return;}
+  await _acLog('drive.setor.add','setor:'+label.trim(),'ok',null);adminToast('Setor criado');
+  try{const{data:cs}=await sbClient.from('acessos_drive_setores').select('*').order('ordem').order('label');_acDriveCustomSecs=cs||[];}catch(e){}
+  _acDriveRepaint();
+}
+async function _acDriveDelSetor(chave){
+  const s=_acDriveCustomSecs.find(x=>x.chave===chave);if(!s)return;
+  if(!confirm('Remover o setor "'+s.label+'"? As pastas dele voltam à classificação automática.'))return;
+  const{error}=await sbClient.from('acessos_drive_setores').delete().eq('chave',chave);
+  if(error){adminToast('Erro: '+error.message,false);return;}
+  try{await sbClient.from('acessos_drive_overrides').delete().eq('setor_chave',chave);}catch(e){}
+  Object.keys(_acDriveOverrides).forEach(k=>{if(_acDriveOverrides[k]===chave)delete _acDriveOverrides[k];});
+  _acDriveCustomSecs=_acDriveCustomSecs.filter(x=>x.chave!==chave);
+  await _acLog('drive.setor.del','setor:'+s.label,'ok',null);adminToast('Setor removido');_acDriveRepaint();
+}
 async function _acDriveExplode(){
   const cont=document.getElementById('ac-drive-content');if(!cont)return;
   const marca=_acDriveMarcas.find(m=>m.id===_acDriveSel);if(!marca)return;
   cont.innerHTML='<div class="ac-muted">Explodindo as pastas da marca em todas as camadas… (pode levar alguns segundos)</div>';
   let r;try{r=await _acProxy('microsoft.tree',{itemId:marca.external_id,depth:_acDriveDepth});}catch(e){cont.innerHTML='<div class="ac-card">Erro ao varrer: '+_acEsc(e.message)+'</div>';return;}
-  const folders=(r&&r.folders)||[];
+  _acDriveTree=(r&&r.folders)||[];_acDriveTreeTrunc=!!(r&&r.truncated);
+  _acDriveRepaint();
+}
+function _acDriveRepaint(){
+  const cont=document.getElementById('ac-drive-content');if(!cont)return;
+  const folders=_acDriveTree;
   const buckets={};
   folders.forEach(f=>{const s=_acDriveSectorOf(f);(buckets[s.key]=buckets[s.key]||{label:s.label,list:[]}).list.push(f);});
   Object.keys(buckets).forEach(k=>buckets[k].list.sort((a,b)=>a.name.localeCompare(b.name)));
-  const order=_AC_SECTORS.map(s=>s.key).concat(['outros']);
-  const depthCtl=`<div class="ac-depth"><span class="ac-muted">Camadas:</span>${[1,2,3,4].map(d=>'<button class="ac-depth-b '+(d===_acDriveDepth?'active':'')+'" onclick="_acDriveSetDepth('+d+')">'+d+'</button>').join('')}<span class="ac-muted" style="margin-left:auto">${folders.length} pasta(s)${r.truncated?' · limite atingido':''}</span></div>`;
-  const mods=order.filter(k=>buckets[k]).map(k=>{
-    const b=buckets[k],open=_acDriveSecOpen[k]!==false;
-    return `<div class="ac-secmod">
-      <div class="ac-secmod-h ac-secmod-toggle" onclick="_acDriveToggleSec('${k}')"><span class="ac-secchev ${open?'open':''}">▸</span>${_acEsc(b.label)} <span class="ac-muted" style="text-transform:none;letter-spacing:0">(${b.list.length})</span></div>
-      <div class="ac-folder-grid ac-secbody" data-sec="${k}" style="${open?'':'display:none'}">${b.list.map(_acDriveFolderCard).join('')}</div>
+  const secs=_acDriveAllSectors();
+  const topbar=`<div class="ac-depth"><span class="ac-muted">Camadas:</span>${[1,2,3,4].map(d=>'<button class="ac-depth-b '+(d===_acDriveDepth?'active':'')+'" onclick="_acDriveSetDepth('+d+')">'+d+'</button>').join('')}<button class="ac-btn ghost" onclick="_acDriveAddSetor()">+ Novo setor</button><span class="ac-muted" style="margin-left:auto">${folders.length} pasta(s)${_acDriveTreeTrunc?' · limite atingido':''}</span></div>
+  <div class="ac-muted" style="font-size:11px;margin:-8px 0 14px">Arraste uma pasta para outro setor, ou use o seletor no card. "Liberar setor" compartilha todas as pastas do setor.</div>`;
+  const mods=secs.filter(s=>buckets[s.key]).map(s=>{
+    const b=buckets[s.key],open=_acDriveSecOpen[s.key]!==false,custom=_acDriveCustomSecs.some(c=>c.chave===s.key);
+    return `<div class="ac-secmod" ondragover="_acDriveDragOver(event)" ondragleave="_acDriveDragLeave(event)" ondrop="_acDriveDrop(event,'${s.key}')">
+      <div class="ac-secmod-h">
+        <span style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="_acDriveToggleSec('${s.key}')"><span class="ac-secchev ${open?'open':''}">▸</span>${_acEsc(s.label)} <span class="ac-muted" style="text-transform:none;letter-spacing:0">(${b.list.length})</span></span>
+        <span style="margin-left:auto;display:flex;gap:6px">
+          <button class="ac-btn" onclick="_acDriveLiberarSetor('${s.key}')">Liberar setor</button>
+          ${custom?`<button class="ac-btn ghost" title="remover setor" onclick="_acDriveDelSetor('${s.key}')">✕</button>`:''}
+        </span>
+      </div>
+      <div class="ac-folder-grid ac-secbody" data-sec="${s.key}" style="${open?'':'display:none'}">${b.list.map(f=>_acDriveFolderCard(f,secs)).join('')}</div>
     </div>`;
   }).join('');
-  cont.innerHTML=depthCtl+(mods||'<div class="ac-empty">Nenhuma pasta encontrada nesta marca.</div>');
+  cont.innerHTML=topbar+(mods||'<div class="ac-empty">Nenhuma pasta encontrada nesta marca.</div>');
   _acDriveWire(cont);
+}
+async function _acDriveLiberarSetor(key){
+  const folders=_acDriveTree.filter(f=>_acDriveSectorOf(f).key===key);
+  if(!folders.length){adminToast('Setor sem pastas',false);return;}
+  const label=_acDriveLabelOf(key);
+  const ativos=(_acData.pessoas||[]).filter(p=>p.status==='ativo'&&p.email_outlook);
+  const ov=document.createElement('div');ov.className='ac-modal-ov open';
+  ov.innerHTML=`<div class="ac-modal" style="max-width:560px">
+    <h3 style="margin-top:0">Liberar setor — ${_acEsc(label)}</h3>
+    <p class="ac-muted" style="margin:.2em 0 1em">Compartilha as <b>${folders.length}</b> pasta(s) deste setor com os colaboradores escolhidos (vários de uma vez).</p>
+    <div style="max-height:38vh;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:6px">
+      ${ativos.length?ativos.map(p=>`<label class="ac-pick"><input type="checkbox" class="ac-lib-cb" data-email="${_acEsc(p.email_outlook)}"> ${_acAvatar(p,26)} <span class="grow">${_acEsc(p.nome)} <span class="ac-muted">${_acEsc(p.email_outlook)}</span></span></label>`).join(''):'<div class="ac-muted" style="padding:8px">Nenhum colaborador ativo com e-mail Outlook.</div>'}
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+      <select class="ac-select" id="ac-lib-role" style="width:auto"><option value="leitura">Leitura</option><option value="edição">Edição</option></select>
+      <input class="ac-input" id="ac-lib-extra" placeholder="ou e-mail avulso" style="flex:1;min-width:150px">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+      <button class="ac-btn ghost" id="ac-lib-x">Cancelar</button>
+      <button class="ac-btn primary" id="ac-lib-go">Liberar ${folders.length} pasta(s)</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);const close=()=>ov.remove();
+  ov.addEventListener('click',e=>{if(e.target===ov)close();});
+  ov.querySelector('#ac-lib-x').onclick=close;
+  ov.querySelector('#ac-lib-go').onclick=async()=>{
+    const role=ov.querySelector('#ac-lib-role').value;
+    const emails=[...ov.querySelectorAll('.ac-lib-cb:checked')].map(c=>c.dataset.email);
+    const extra=ov.querySelector('#ac-lib-extra').value.trim();if(extra)emails.push(extra);
+    if(!emails.length){adminToast('Selecione ao menos um colaborador ou informe um e-mail',false);return;}
+    const btn=ov.querySelector('#ac-lib-go');btn.disabled=true;btn.textContent='Liberando…';
+    try{const r=await _acProxy('microsoft.shareMany',{items:folders.map(f=>f.id),emails,role});
+      await _acLog('drive.liberarSetor','setor:'+label,(r&&r.fail)?'parcial':'ok',((r&&r.ok)||0)+'/'+((r&&r.ops)||0));
+      adminToast('Liberado: '+((r&&r.ok)||0)+' compartilhamento(s)'+((r&&r.truncated)?' (limite atingido)':''));
+    }catch(e){adminToast('Erro: '+e.message,false);btn.disabled=false;btn.textContent='Liberar';return;}
+    close();
+  };
 }
 async function _acDriveAddMarca(){
   let r;try{r=await _acProxy('microsoft.browse',{});}catch(e){adminToast('Erro: '+e.message,false);return;}

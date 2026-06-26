@@ -865,6 +865,40 @@ async function msShare(
   return json({ ok: true });
 }
 
+// Share MANY folders to MANY recipients in one call (used by "Liberar setor"). One token
+// refresh, server-side loop, bounded by an op cap. Sends notification (sendInvitation:true).
+async function actShareMany(sb: any, quem: string | null, items: unknown, emails: unknown, role: string) {
+  const its = Array.isArray(items) ? items.filter((x) => typeof x === "string" && x) : [];
+  const ems = Array.isArray(emails) ? emails.filter((x) => typeof x === "string" && x) : [];
+  if (!its.length || !ems.length) return json({ error: "sem_items_ou_emails" }, 400);
+  const conn = await readMsConn(sb);
+  if (!conn.refresh_token) return json({ error: "nao_conectado" });
+  const access = await freshMsToken(conn);
+  const graphRole = role === "edição" ? "write" : "read";
+  const CAP = 600;
+  let ok = 0, fail = 0, ops = 0, truncated = false;
+  for (const itemId of its) {
+    if (ops >= CAP) { truncated = true; break; }
+    for (const email of ems) {
+      if (ops >= CAP) { truncated = true; break; }
+      ops++;
+      const r = await graphFetch(access, `/me/drive/items/${encodeURIComponent(itemId)}/invite`, {
+        method: "POST",
+        body: {
+          recipients: [{ email }],
+          roles: [graphRole],
+          requireSignIn: true,
+          sendInvitation: true,
+          message: "Você recebeu acesso a uma pasta compartilhada da RBV. Entre com sua conta Microsoft para acessar.",
+        },
+      });
+      if (r.ok) ok++; else fail++;
+    }
+  }
+  await logMs(sb, quem, "onedrive.shareMany", null, fail ? "parcial" : "ok", { items: its.length, emails: ems.length, ok, fail });
+  return json({ ok, fail, ops, truncated });
+}
+
 async function actAllShares(sb: any) {
   const conn = await readMsConn(sb);
   if (!conn.refresh_token) return json({ error: "nao_conectado" });
@@ -1069,6 +1103,8 @@ Deno.serve(async (req: Request) => {
         return await msBrowse(sb, body?.itemId ?? null);
       case "microsoft.tree":
         return await actMsTree(sb, body?.itemId, body?.depth);
+      case "microsoft.shareMany":
+        return await actShareMany(sb, user.id, body?.items, body?.emails, body?.role);
       case "microsoft.addFolder":
         return await msAddFolder(sb, user.id, body?.itemId, body?.name, body?.caminho ?? null);
       case "microsoft.folders":
