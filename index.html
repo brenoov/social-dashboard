@@ -9669,6 +9669,8 @@ async function _acSaveColaborador(id){
   await _acLog(isEdit?'colaborador.editar':'colaborador.criar','colab:'+rec.nome,'ok',null);
   adminToast('Colaborador salvo');
   await loadAcessos();_acOpenPessoa(id);
+  // Onboarding (opção B): colaborador NOVO → abre o provisionamento de acessos na sequência
+  if(!isEdit)setTimeout(()=>_acProvisionar(id),250);
 }
 function _acRenderFicha(id){
   const c=_acData.pessoas.find(x=>x.id===id);
