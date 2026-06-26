@@ -4105,10 +4105,12 @@ const PERMISSION_TREE=[
     {key:'meta.gestor',label:'Gestão de Tráfego'},
   ]},
   {key:'banco',label:'Banco de Arquivos',children:[]},
+  {key:'noticias',label:'Portal de Notícias',children:[]},
   {key:'gestor',label:'Gestão Comercial (IA)',children:[]},
   {key:'acessos',label:'Colaboradores e Acessos',children:[]},
 ];
-const SUPERADMIN_EMAIL='erick@rbvcompany.com';
+const SUPERADMIN_EMAILS=['erick@rbvcompany.com','gabriel.gertrudes@rbvcompany.com'];
+const SUPERADMIN_EMAIL=SUPERADMIN_EMAILS[0];
 let _permUserId=null;
 function openPermModal(u){
   _permUserId=u.id;
@@ -4188,8 +4190,8 @@ async function loadAdminUsers(){
   const currentEmail=document.getElementById('home-user-email').textContent.trim();
   users.forEach(u=>{
     const isSelf=u.email===currentEmail;
-    const isSuperAdmin=u.email===SUPERADMIN_EMAIL;
-    const canEdit=!isSuperAdmin||(currentEmail===SUPERADMIN_EMAIL);
+    const isSuperAdmin=SUPERADMIN_EMAILS.includes(u.email);
+    const canEdit=!isSuperAdmin||SUPERADMIN_EMAILS.includes(currentEmail);
     const row=mkEl('div','sr');row.style.cssText='justify-content:space-between;flex-wrap:wrap;gap:8px';if(u.disabled)row.style.opacity='.5';
     const avWrap=mkEl('div','av-wrap');avWrap.style.cssText='width:34px;height:34px;';
     const av=mkEl('div');av.style.cssText='width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);overflow:hidden;position:relative;';
