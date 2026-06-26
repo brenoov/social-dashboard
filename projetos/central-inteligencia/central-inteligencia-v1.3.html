@@ -1105,6 +1105,32 @@
   #acessos-screen .ac-input,#acessos-screen .ac-select,#acessos-screen .ac-textarea{font-size:16px}
   #acessos-screen .ac-modal .ac-input,#acessos-screen .ac-modal .ac-select,#acessos-screen .ac-modal .ac-textarea{font-size:16px}
 }
+/* ===== Acessos — Fase 2: Drive ===== */
+#acessos-screen .ac-brand-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+#acessos-screen .ac-brand-chip{position:relative;display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;transition:border-color .15s,box-shadow .15s,background .15s}
+#acessos-screen .ac-brand-chip:hover{border-color:var(--accent-mid)}
+#acessos-screen .ac-brand-chip.active{background:linear-gradient(135deg,#0f766e,#0d9488);border-color:#0d9488;color:#fff;box-shadow:0 6px 16px -8px rgba(13,148,136,.7)}
+#acessos-screen .ac-brand-x{opacity:.55;font-size:11px;line-height:1}
+#acessos-screen .ac-brand-x:hover{opacity:1}
+#acessos-screen .ac-crumb{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:16px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--muted)}
+#acessos-screen .ac-crumb-b{background:none;border:none;color:var(--accent-mid);cursor:pointer;font:inherit;padding:2px 4px;border-radius:6px}
+#acessos-screen .ac-crumb-b:hover{background:rgba(13,148,136,.1)}
+#acessos-screen .ac-secmod{margin-bottom:26px}
+#acessos-screen .ac-secmod-h{font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;letter-spacing:1.4px;text-transform:uppercase;color:var(--text);margin:0 0 12px;display:flex;align-items:center;gap:10px}
+#acessos-screen .ac-secmod-h::after{content:"";flex:1;height:1px;background:var(--border)}
+#acessos-screen .ac-folder-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+#acessos-screen .ac-folder{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:10px;transition:border-color .15s,box-shadow .15s,transform .15s}
+#acessos-screen .ac-folder:hover{border-color:var(--accent-mid);box-shadow:var(--shadow-md);transform:translateY(-2px)}
+#acessos-screen .ac-folder-top{display:flex;align-items:center;gap:10px}
+#acessos-screen .ac-folder-ico{font-size:20px;line-height:1}
+#acessos-screen .ac-folder-name{font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:13.5px;color:var(--text);word-break:break-word;line-height:1.25}
+#acessos-screen .ac-folder-sub{font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);margin-top:2px}
+#acessos-screen .ac-folder-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
+#acessos-screen .ac-folder-actions .ac-btn{padding:6px 12px;font-size:12px}
+#acessos-screen .ac-pick{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;cursor:pointer}
+#acessos-screen .ac-pick:hover{background:rgba(13,148,136,.06)}
+#acessos-screen .ac-pick .grow{font-family:'IBM Plex Sans',sans-serif;font-size:13px;min-width:0}
+@media(max-width:640px){#acessos-screen .ac-folder-grid{grid-template-columns:1fr}}
 /* ===== Acessos — Fase 1: conexões ===== */
 #acessos-screen .ac-conn-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
 #acessos-screen .ac-conn{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:var(--shadow-md);display:flex;flex-direction:column;gap:10px;transition:border-color .16s,box-shadow .16s}
@@ -9548,6 +9574,143 @@ function closeAcessos(){
   showHome();
 }
 function _acSetTab(t){_acTab=t;_acSel=null;_acSelSetor=null;_acSelOrg=null;_acRender();}
+/* ===== Fase 2: aba Drive ===== */
+let _acDriveMarcas=[],_acDriveSel=null,_acDriveStack=[];
+const _AC_SECTORS=[
+  {key:'financeiro',label:'Financeiro',kw:['financ','dre','fluxo','caixa','cobran','contas a','tesour','boleto']},
+  {key:'contabil',label:'Contabilidade & Fiscal',kw:['contab','fiscal','tribut','imposto','obrigac','societ']},
+  {key:'rh',label:'RH & DP',kw:['rh','dp','recursos humanos','depart','pessoal','folha','funcion','colaborad']},
+  {key:'marketing',label:'Marketing',kw:['marketing','mkt','artes','design','social','midia','campanha','trafego']},
+  {key:'comercial',label:'Comercial & Contratos',kw:['comercial','vendas','contrato','clientes','cliente','propost','crm']},
+  {key:'juridico',label:'Jurídico',kw:['juridic','legal','process','advog']},
+  {key:'operacoes',label:'Operações & Documentos',kw:['operac','logist','estoque','frota','doc','documento','acompanh','semanal','moto','produc']},
+  {key:'diretoria',label:'Diretoria',kw:['diretor','institu','planejamento','estrateg']}
+];
+function _acDriveClassify(name){
+  const n=String(name||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/^\s*\d+[.\-)\s]*/,'').trim();
+  for(const s of _AC_SECTORS){if(s.kw.some(k=>n.includes(k)))return s;}
+  return {key:'outros',label:'Outros'};
+}
+async function _acRenderDrive(){
+  const body=document.getElementById('ac-body');
+  body.innerHTML='<div class="ac-muted">Carregando Drive…</div>';
+  try{const{data}=await sbClient.from('acessos_drive_marcas').select('*').order('ordem').order('nome');_acDriveMarcas=data||[];}catch(e){_acDriveMarcas=[];}
+  if((!_acDriveSel||!_acDriveMarcas.find(m=>m.id===_acDriveSel))&&_acDriveMarcas.length)_acDriveSel=_acDriveMarcas[0].id;
+  _acDriveStack=[];
+  _acDrivePaintShell();
+  if(_acDriveMarcas.length)_acDriveBrowseCurrent();
+}
+function _acDrivePaintShell(){
+  const body=document.getElementById('ac-body');
+  const chips=_acDriveMarcas.map(m=>`<button class="ac-brand-chip ${m.id===_acDriveSel?'active':''}" onclick="_acDriveSelectMarca('${m.id}')">${_acEsc(m.nome)}<span class="ac-brand-x" title="remover marca" onclick="event.stopPropagation();_acDriveDelMarca('${m.id}')">✕</span></button>`).join('');
+  body.innerHTML=`
+    <div class="ac-hero">
+      <div><h2>Drive</h2><div class="ac-sub">Pastas das marcas agrupadas por setor. Compartilhe direto daqui, com vários colaboradores de uma vez.</div></div>
+      <div class="ac-hero-actions"><button class="ac-btn ghost lg" onclick="_acDriveAddMarca()">+ Adicionar marca</button></div>
+    </div>
+    ${_acDriveMarcas.length?`<div class="ac-brand-bar">${chips}</div>`:''}
+    <div id="ac-drive-content">${_acDriveMarcas.length?'<div class="ac-muted">Carregando pastas…</div>':'<div class="ac-empty">Nenhuma marca ainda. Clique em "+ Adicionar marca" e escolha uma pasta-raiz (ex.: 21. RBV & Company).</div>'}</div>`;
+}
+function _acDriveSelectMarca(id){_acDriveSel=id;_acDriveStack=[];_acDrivePaintShell();_acDriveBrowseCurrent();}
+function _acDriveOpen(id,name){_acDriveStack.push({id,name});_acDriveBrowseCurrent();}
+function _acDriveGoRoot(){_acDriveStack=[];_acDriveBrowseCurrent();}
+function _acDriveGoTo(i){_acDriveStack=_acDriveStack.slice(0,i+1);_acDriveBrowseCurrent();}
+function _acDriveFolderCard(f){
+  return `<div class="ac-folder">
+    <div class="ac-folder-top"><span class="ac-folder-ico">📁</span><div class="grow" style="min-width:0"><div class="ac-folder-name">${_acEsc(f.name)}</div><div class="ac-folder-sub">${f.childCount?(f.childCount+' item(ns)'):'vazia'}</div></div></div>
+    <div class="ac-folder-actions">
+      ${f.childCount?`<button class="ac-btn ghost" data-drv="open" data-id="${_acEsc(f.id)}" data-name="${_acEsc(f.name)}">Abrir</button>`:''}
+      <button class="ac-btn" data-drv="share" data-id="${_acEsc(f.id)}" data-name="${_acEsc(f.name)}">Compartilhar</button>
+    </div>
+  </div>`;
+}
+function _acDriveWire(cont){
+  cont.querySelectorAll('button[data-drv]').forEach(b=>{const a=b.dataset.drv;b.addEventListener('click',()=>{if(a==='open')_acDriveOpen(b.dataset.id,b.dataset.name);else if(a==='share')_acDriveShare(b.dataset.id,b.dataset.name);});});
+}
+async function _acDriveBrowseCurrent(){
+  const cont=document.getElementById('ac-drive-content');if(!cont)return;
+  const marca=_acDriveMarcas.find(m=>m.id===_acDriveSel);if(!marca)return;
+  const cur=_acDriveStack.length?_acDriveStack[_acDriveStack.length-1]:{id:marca.external_id,name:marca.nome};
+  cont.innerHTML='<div class="ac-muted">Carregando pastas…</div>';
+  let r;try{r=await _acProxy('microsoft.browse',{itemId:cur.id});}catch(e){cont.innerHTML='<div class="ac-card">Erro ao ler pastas: '+_acEsc(e.message)+'</div>';return;}
+  const folders=(r&&r.folders)||[];
+  const crumb=`<div class="ac-crumb"><button class="ac-crumb-b" onclick="_acDriveGoRoot()">${_acEsc(marca.nome)}</button>${_acDriveStack.map((s,i)=>'<span>/</span><button class="ac-crumb-b" onclick="_acDriveGoTo('+i+')">'+_acEsc(s.name)+'</button>').join('')}</div>`;
+  if(!_acDriveStack.length){
+    const buckets={};
+    folders.forEach(f=>{const s=_acDriveClassify(f.name);(buckets[s.key]=buckets[s.key]||{label:s.label,list:[]}).list.push(f);});
+    const order=_AC_SECTORS.map(s=>s.key).concat(['outros']);
+    const mods=order.filter(k=>buckets[k]).map(k=>{const b=buckets[k];return `<div class="ac-secmod"><div class="ac-secmod-h">${_acEsc(b.label)} <span class="ac-muted" style="text-transform:none;letter-spacing:0">(${b.list.length})</span></div><div class="ac-folder-grid">${b.list.map(_acDriveFolderCard).join('')}</div></div>`;}).join('');
+    cont.innerHTML=crumb+(mods||'<div class="ac-empty">Sem subpastas nesta marca.</div>');
+  }else{
+    cont.innerHTML=crumb+`<div class="ac-folder-grid">${folders.length?folders.map(_acDriveFolderCard).join(''):'<div class="ac-empty">Pasta sem subpastas.</div>'}</div>`;
+  }
+  _acDriveWire(cont);
+}
+async function _acDriveAddMarca(){
+  let r;try{r=await _acProxy('microsoft.browse',{});}catch(e){adminToast('Erro: '+e.message,false);return;}
+  const folders=(r&&r.folders)||[];
+  const ov=document.createElement('div');ov.className='ac-modal-ov open';
+  ov.innerHTML=`<div class="ac-modal" style="max-width:560px"><div class="ac-section-h" style="border:none"><h3 style="margin:0">Adicionar marca</h3><button class="ac-btn ghost" id="x" style="margin-left:auto">Fechar</button></div>
+    <p class="ac-muted" style="margin:.2em 0 1em">Escolha a pasta-raiz da marca no seu OneDrive.</p>
+    <div style="max-height:60vh;overflow:auto">${folders.map(f=>`<div class="ac-row"><div class="grow">📁 ${_acEsc(f.name)}${f.childCount?' <span class="ac-muted">('+f.childCount+')</span>':''}</div><button class="ac-btn" data-add data-id="${_acEsc(f.id)}" data-name="${_acEsc(f.name)}">Adicionar</button></div>`).join('')||'<div class="ac-muted">Nenhuma pasta na raiz.</div>'}</div></div>`;
+  document.body.appendChild(ov);const close=()=>ov.remove();
+  ov.addEventListener('click',e=>{if(e.target===ov)close();});
+  ov.querySelector('#x').onclick=close;
+  ov.querySelectorAll('button[data-add]').forEach(b=>b.addEventListener('click',async()=>{
+    const ordem=(_acDriveMarcas.reduce((mx,m)=>Math.max(mx,m.ordem||0),0))+1;
+    const{error}=await sbClient.from('acessos_drive_marcas').insert({nome:b.dataset.name,external_id:b.dataset.id,ordem});
+    if(error){adminToast('Erro: '+error.message,false);return;}
+    await _acLog('drive.marca.add','marca:'+b.dataset.name,'ok',null);adminToast('Marca adicionada');close();_acRenderDrive();
+  }));
+}
+async function _acDriveDelMarca(id){
+  const m=_acDriveMarcas.find(x=>x.id===id);if(!m)return;
+  if(!confirm('Remover a marca "'+m.nome+'" do Drive? (não apaga nada no OneDrive)'))return;
+  const{error}=await sbClient.from('acessos_drive_marcas').delete().eq('id',id);
+  if(error){adminToast('Erro: '+error.message,false);return;}
+  if(_acDriveSel===id)_acDriveSel=null;
+  await _acLog('drive.marca.del','marca:'+m.nome,'ok',null);adminToast('Marca removida');_acRenderDrive();
+}
+async function _acDriveShare(itemId,name){
+  let shares=[];try{const r=await _acProxy('microsoft.shares',{itemId});shares=(r&&r.shares)||[];}catch(e){}
+  const ativos=(_acData.pessoas||[]).filter(p=>p.status==='ativo'&&p.email_outlook);
+  const ov=document.createElement('div');ov.className='ac-modal-ov open';ov.id='ac-drv-share';
+  ov.innerHTML=`<div class="ac-modal" style="max-width:560px">
+    <h3 style="margin-top:0">Compartilhar — ${_acEsc(name)}</h3>
+    <div class="ac-kicker" style="display:block;margin:8px 0 6px">Quem já tem acesso</div>
+    <div>${shares.length?shares.map(s=>`<div class="ac-row"><div class="grow">${_acEsc(s.name||s.email||'—')}${(s.email&&s.name)?' <span class="ac-muted">'+_acEsc(s.email)+'</span>':''} <span class="ac-pill ${s.role==='edição'?'warn':'ok'}">${_acEsc(s.role)}</span></div><button class="ac-btn danger" data-uns data-perm="${_acEsc(s.permId)}">Remover</button></div>`).join(''):'<div class="ac-muted">Ninguém além do dono.</div>'}</div>
+    <div class="ac-kicker" style="display:block;margin:14px 0 6px">Adicionar colaboradores (selecione vários)</div>
+    <div style="max-height:34vh;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:6px">
+      ${ativos.length?ativos.map(p=>`<label class="ac-pick"><input type="checkbox" class="ac-drv-cb" data-email="${_acEsc(p.email_outlook)}"> ${_acAvatar(p,26)} <span class="grow">${_acEsc(p.nome)} <span class="ac-muted">${_acEsc(p.email_outlook)}</span></span></label>`).join(''):'<div class="ac-muted" style="padding:8px">Nenhum colaborador ativo com e-mail Outlook.</div>'}
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+      <select class="ac-select" id="ac-drv-role" style="width:auto"><option value="leitura">Leitura</option><option value="edição">Edição</option></select>
+      <input class="ac-input" id="ac-drv-extra" placeholder="ou e-mail avulso" style="flex:1;min-width:150px">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+      <button class="ac-btn ghost" id="ac-drv-x">Fechar</button>
+      <button class="ac-btn primary" id="ac-drv-go">Compartilhar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);const close=()=>ov.remove();
+  ov.addEventListener('click',e=>{if(e.target===ov)close();});
+  ov.querySelector('#ac-drv-x').onclick=close;
+  ov.querySelectorAll('button[data-uns]').forEach(b=>b.addEventListener('click',async()=>{
+    if(!confirm('Remover este acesso?'))return;
+    try{await _acProxy('microsoft.unshare',{itemId,permId:b.dataset.perm});adminToast('Acesso removido');close();_acDriveShare(itemId,name);}catch(e){adminToast('Erro: '+e.message,false);}
+  }));
+  ov.querySelector('#ac-drv-go').onclick=async()=>{
+    const role=ov.querySelector('#ac-drv-role').value;
+    const emails=[...ov.querySelectorAll('.ac-drv-cb:checked')].map(c=>c.dataset.email);
+    const extra=ov.querySelector('#ac-drv-extra').value.trim();if(extra)emails.push(extra);
+    if(!emails.length){adminToast('Selecione ao menos um colaborador ou informe um e-mail',false);return;}
+    const btn=ov.querySelector('#ac-drv-go');btn.disabled=true;btn.textContent='Compartilhando…';
+    try{await _acProxy('microsoft.addFolder',{itemId,name});}catch(e){}
+    let ok=0;for(const email of emails){try{const r=await _acProxy('microsoft.share',{itemId,email,role});if(r&&!r.error)ok++;}catch(e){}}
+    await _acLog('drive.share','pasta:'+name,ok===emails.length?'ok':'parcial',ok+'/'+emails.length);
+    adminToast('Compartilhado com '+ok+'/'+emails.length);close();_acDriveShare(itemId,name);
+  };
+}
 async function loadAcessos(){
   const body=document.getElementById('ac-body');
   body.innerHTML='<div class="ac-muted">Carregando…</div>';
@@ -9565,6 +9728,7 @@ async function loadAcessos(){
 function _acRender(){
   document.querySelectorAll('#acessos-screen .ac-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===_acTab));
   if(_acTab==='auditoria')return _acRenderAuditoria();
+  if(_acTab==='drive')return _acRenderDrive();
   if(_acTab==='config')return _acRenderConfiguracoes();
   if(_acTab==='onedrive')return _acRenderOneDrive();
   if(_acTab==='icloud')return _acRenderICloud();
@@ -11231,6 +11395,7 @@ function setHomeBgTheme(type){
   <div class="ac-navbar">
     <div class="ac-tabs">
       <button class="ac-tab" data-tab="org" onclick="_acSetTab('org')">Organizações</button>
+      <button class="ac-tab" data-tab="drive" onclick="_acSetTab('drive')">Drive</button>
       <button class="ac-tab" data-tab="auditoria" onclick="_acSetTab('auditoria')">Auditoria</button>
       <button class="ac-tab" data-tab="config" onclick="_acSetTab('config')" title="Configurações" style="padding:6px 10px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </div>
