@@ -1058,6 +1058,27 @@
   #acessos-screen .ac-modal{max-height:88vh;overflow:auto}
   #acessos-screen .ac-section-h{flex-wrap:wrap}
 }
+/* ===== Acessos — Fase 1: ficha do colaborador ===== */
+#acessos-screen .ac-ficha-hero{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+#acessos-screen .ac-ficha-hero .ac-avatar{box-shadow:0 10px 26px -12px rgba(0,0,0,.55),0 0 0 3px var(--surface)}
+#acessos-screen .ac-ficha-id{min-width:0;flex:1}
+#acessos-screen .ac-ficha-name{font-family:'Playfair Display',serif;font-weight:800;font-size:clamp(22px,3.4vw,30px);line-height:1.05;letter-spacing:-.01em;color:var(--text);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+#acessos-screen .ac-ficha-sub{font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--muted);margin-top:7px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#acessos-screen .ac-ficha-sub .dot{opacity:.4}
+#acessos-screen .ac-ficha-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
+#acessos-screen .ac-fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:14px;margin-top:18px}
+#acessos-screen .ac-fblock{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:6px 16px 10px}
+#acessos-screen .ac-fblock-h{font-family:'Oswald',sans-serif;font-weight:600;font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);margin:12px 0 4px}
+#acessos-screen .ac-field{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+#acessos-screen .ac-field:last-child{border-bottom:none}
+#acessos-screen .ac-field-l{font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap}
+#acessos-screen .ac-field-v{font-family:'IBM Plex Sans',sans-serif;font-size:13.5px;color:var(--text);margin-left:auto;text-align:right;word-break:break-word;font-weight:600}
+#acessos-screen .ac-field-v.empty{color:var(--muted);font-weight:400}
+@media(max-width:640px){
+  #acessos-screen .ac-ficha-actions{width:100%}
+  #acessos-screen .ac-ficha-actions .ac-btn{flex:1 1 calc(50% - 4px);min-width:0;text-align:center}
+  #acessos-screen .ac-fgrid{grid-template-columns:1fr}
+}
 #acessos-screen .ac-muted{color:var(--muted);opacity:1}
 #acessos-screen .ac-btn{background:#0d9488;color:#fff;box-shadow:var(--shadow-sm)}
 #acessos-screen .ac-btn:hover{filter:brightness(1.06);box-shadow:var(--shadow-md)}
@@ -9759,35 +9780,46 @@ function _acRenderFicha(id){
   const _orgId=c.organizacao_id||(c.setor_id?(_acData.setores.find(s=>s.id===c.setor_id)||{}).organizacao_id:null);
   const orgNome=_orgId?(_acData.organizacoes.find(o=>o.id===_orgId)||{}).nome:null;
   const dt=v=>v?_acEsc(new Date(v+'T00:00:00').toLocaleDateString('pt-BR')):'—';
-  const linha=(rot,val)=>`<div><span class="ac-muted">${rot}:</span> ${val}</div>`;
+  const statusPill=c.status==='desligado'?'<span class="ac-pill neutral">desligado</span>':'<span class="ac-pill ok">ativo</span>';
+  const fld=(label,val)=>`<div class="ac-field"><span class="ac-field-l">${label}</span><span class="ac-field-v ${(val&&val!=='—')?'':'empty'}">${val||'—'}</span></div>`;
+  const acct=(logo,label,val)=>`<div class="ac-field"><span class="ac-field-l">${logo}${label}</span><span class="ac-field-v ${val?'':'empty'}">${val?_acEsc(val):'<span class="ac-pill neutral" style="font-size:9px">não configurado</span>'}</span></div>`;
+  const subParts=[c.cargo?_acEsc(c.cargo):'',orgNome?_acEsc(orgNome):'',setor?_acEsc(setor):'Sem setor'].filter(Boolean);
   document.getElementById('ac-body').innerHTML=`
     <button class="ac-btn ghost" onclick="_acSel=null;_acRender()">← Voltar</button>
-    <div class="ac-card" style="margin-top:12px">
-      <div class="ac-section-h">
-        ${_acAvatar(c,52)}
-        <h2 style="margin:0">${_acEsc(c.nome)}</h2>
-        ${c.status==='desligado'?'<span class="ac-pill neutral">desligado</span>':'<span class="ac-pill ok">ativo</span>'}
-        <div style="margin-left:auto;display:flex;gap:8px">
-          <button class="ac-btn ghost" onclick="_acFormColaborador('${c.id}')">Editar</button>
-          ${c.status==='ativo'?`<button class="ac-btn" onclick="_acProvisionar('${c.id}')">Provisionar acessos</button>`:''}
-          ${c.status==='ativo'?`<button class="ac-btn danger" onclick="_acDesligar('${c.id}')">Desligar</button>`:`<button class="ac-btn" onclick="_acReativar('${c.id}')">Reativar</button>`}
-          <button class="ac-btn ghost" onclick="document.getElementById('ac-av-file').click()">Trocar foto</button>
-          <input id="ac-av-file" type="file" accept="image/*" style="display:none" onchange="_acUploadAvatar('${c.id}',this.files[0])">
-          ${currentUserRole==='admin'?`<button class="ac-btn danger" onclick="_acExcluirColaborador('${c.id}')">Excluir</button>`:''}
+    <div class="ac-card" style="margin-top:12px;padding:20px 22px">
+      <div class="ac-ficha-hero">
+        ${_acAvatar(c,72)}
+        <div class="ac-ficha-id">
+          <div class="ac-ficha-name">${_acEsc(c.nome)} ${statusPill}</div>
+          <div class="ac-ficha-sub">${subParts.map((p,i)=>(i?'<span class="dot">•</span>':'')+'<span>'+p+'</span>').join('')}</div>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;margin-top:4px">
-        ${linha('Cargo',_acEsc(c.cargo||'—'))}
-        ${linha('Organização',_acEsc(orgNome||'—'))}
-        ${linha('Setor',_acEsc(setor||'Sem setor'))}
-        ${linha(_acLogo('zoho')+'E-mail corporativo',_acEsc(c.email_corporativo||'—'))}
-        ${linha(_acLogo('ms')+'E-mail Outlook',_acEsc(c.email_outlook||'—'))}
-        ${linha(_acLogo('apple')+'Conta Apple',_acEsc(c.conta_apple||'—'))}
-        ${linha('Celular corporativo',_acEsc(c.numero_corporativo||'—'))}
-        ${linha('Celular pessoal',_acEsc(c.numero_pessoal||'—'))}
-        ${linha('Início de contrato',dt(c.data_inicio_contrato))}
-        ${c.status==='desligado'?linha('Fim de contrato',dt(c.data_fim_contrato)):''}
-        ${c.status==='desligado'?linha('Motivo do desligamento',_acEsc(c.motivo_saida||'—')):''}
+      <div class="ac-ficha-actions">
+        <button class="ac-btn ghost" onclick="_acFormColaborador('${c.id}')">Editar</button>
+        ${c.status==='ativo'?`<button class="ac-btn primary" onclick="_acProvisionar('${c.id}')">Provisionar acessos</button>`:''}
+        ${c.status==='ativo'?`<button class="ac-btn danger" onclick="_acDesligar('${c.id}')">Desligar</button>`:`<button class="ac-btn" onclick="_acReativar('${c.id}')">Reativar</button>`}
+        <button class="ac-btn ghost" onclick="document.getElementById('ac-av-file').click()">Trocar foto</button>
+        <input id="ac-av-file" type="file" accept="image/*" style="display:none" onchange="_acUploadAvatar('${c.id}',this.files[0])">
+        ${currentUserRole==='admin'?`<button class="ac-btn danger" onclick="_acExcluirColaborador('${c.id}')">Excluir</button>`:''}
+      </div>
+      <div class="ac-fgrid">
+        <div class="ac-fblock">
+          <div class="ac-fblock-h">Contas & Acessos</div>
+          ${acct(_acLogo('zoho'),'Corporativo',c.email_corporativo)}
+          ${acct(_acLogo('ms'),'Outlook',c.email_outlook)}
+          ${acct(_acLogo('apple'),'Apple',c.conta_apple)}
+        </div>
+        <div class="ac-fblock">
+          <div class="ac-fblock-h">Contato</div>
+          ${fld('Celular corporativo',c.numero_corporativo?_acEsc(c.numero_corporativo):'—')}
+          ${fld('Celular pessoal',c.numero_pessoal?_acEsc(c.numero_pessoal):'—')}
+        </div>
+        <div class="ac-fblock">
+          <div class="ac-fblock-h">Contrato</div>
+          ${fld('Início',dt(c.data_inicio_contrato))}
+          ${c.status==='desligado'?fld('Fim',dt(c.data_fim_contrato)):''}
+          ${c.status==='desligado'?fld('Motivo da saída',c.motivo_saida?_acEsc(c.motivo_saida):'—'):''}
+        </div>
       </div>
     </div>
     <div id="ac-disp-wrap"></div>
