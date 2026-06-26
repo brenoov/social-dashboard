@@ -508,6 +508,93 @@ async function actImport(sb: any, quem: string | null) {
   return json(resumo);
 }
 
+// Suspend / reactivate a Zoho mailbox by the person's email.
+// CONFIRMED live (June 2026): PUT https://mail.zoho<dc>/api/organization/accounts/<accountId>
+//   header Authorization: Zoho-oauthtoken <access>; body { mode:'disableUser'|'enableUser', zuid }
+//   -> 200 with { status:{ code:200, ... } } on success.
+// The accountId + zuid are resolved by listing the org accounts (zoid-less path) and
+// matching the email against primaryEmailAddress / mailboxAddress.
+async function actZohoSetUser(sb: any, email: string | null, mode: string) {
+  try {
+    if (!email) return json({ error: "sem_email" });
+    const conn = await readZohoConn(sb);
+    if (!conn.refresh_token) return json({ error: "nao_conectado" });
+    const access = await freshAccessToken(conn);
+    const dc = dcSuffix(conn.data_center);
+    const base = `https://mail.zoho${dc}/api/organization/accounts`;
+
+    // Find the account by email.
+    const listResp = await fetch(`${base}?limit=200`, {
+      headers: { Authorization: `Zoho-oauthtoken ${access}` },
+    });
+    const listRaw = await listResp.text();
+    if (!listResp.ok) {
+      console.error("[acessos-proxy] zoho.setUser list http", listResp.status, listRaw.slice(0, 800));
+      return json({ error: "zoho_" + mode + "_falhou", detalhe: `list http ${listResp.status}` });
+    }
+    let data: any;
+    try {
+      data = JSON.parse(listRaw);
+    } catch {
+      return json({ error: "zoho_" + mode + "_falhou", detalhe: "list parse" });
+    }
+    const target = email.toLowerCase();
+    const u = (data.data || []).find(
+      (x: any) =>
+        String(x.primaryEmailAddress || "").toLowerCase() === target ||
+        String(x.mailboxAddress || "").toLowerCase() === target,
+    );
+    if (!u) return json({ error: "usuario_zoho_nao_encontrado" });
+
+    const accountId = u.accountId;
+    const zuid = String(u.zuid);
+
+    const putResp = await fetch(`${base}/${accountId}`, {
+      method: "PUT",
+      headers: {
+        Authorization: "Zoho-oauthtoken " + access,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ mode, zuid }),
+    });
+    const putRaw = await putResp.text();
+    let parsed: any = null;
+    try {
+      parsed = putRaw ? JSON.parse(putRaw) : null;
+    } catch {
+      parsed = null;
+    }
+    const ok =
+      putResp.ok && (parsed?.status?.code === 200 || parsed?.status?.code === 201);
+    if (!ok) {
+      console.error("[acessos-proxy] zoho.setUser put falhou", mode, putResp.status, putRaw.slice(0, 800));
+      return json({
+        error: "zoho_" + mode + "_falhou",
+        detalhe: parsed?.status ?? `http ${putResp.status} ${putRaw.slice(0, 300)}`,
+      });
+    }
+
+    const acao = mode === "disableUser" ? "zoho.suspend" : "zoho.reactivate";
+    try {
+      await sb.from("acessos_log").insert({
+        quem: null,
+        acao,
+        provedor: "zoho",
+        alvo: email,
+        resultado: "ok",
+        detalhe: JSON.stringify({ accountId: String(accountId), zuid, mode }),
+      });
+    } catch (e) {
+      console.warn("[acessos-proxy] log " + acao + " falhou", e instanceof Error ? e.message : e);
+    }
+
+    return json({ ok: true, accao: mode });
+  } catch (e) {
+    console.error("[acessos-proxy] zoho.setUser erro", mode, e instanceof Error ? e.message : e);
+    return json({ error: "zoho_" + mode + "_falhou", detalhe: e instanceof Error ? e.message : String(e) });
+  }
+}
+
 // ---- Microsoft OneDrive actions ----
 
 async function msStatus(sb: any) {
@@ -853,6 +940,10 @@ Deno.serve(async (req: Request) => {
         return await actUsers(sb);
       case "zoho.import":
         return await actImport(sb, user.id);
+      case "zoho.suspend":
+        return await actZohoSetUser(sb, body.email, "disableUser");
+      case "zoho.reactivate":
+        return await actZohoSetUser(sb, body.email, "enableUser");
       case "microsoft.status":
         return await msStatus(sb);
       case "microsoft.authUrl":
