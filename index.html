@@ -9919,6 +9919,8 @@ async function _acDelTermo(termoId,pessoaId){
   await _acLog('termo.excluir','termo:'+termoId,'ok',null);
   adminToast('Documento excluído');_acRenderTermos(pessoaId);
 }
+let _acAudView=(typeof localStorage!=='undefined'&&localStorage.getItem('ac-aud-view'))||'cards';
+let _acAudData=null;
 async function _acRenderAuditoria(){
   const body=document.getElementById('ac-body');
   body.innerHTML='<div class="ac-muted">Carregando auditoria…</div>';
@@ -9932,11 +9934,18 @@ async function _acRenderAuditoria(){
   let odMap={};
   try{const r=await _acProxy('microsoft.allShares');((r&&r.items)||[]).forEach(it=>{const e=(it.email||'').toLowerCase();if(!e)return;(odMap[e]=odMap[e]||[]).push({pasta:it.pasta,role:it.role});});}catch(e){}
   const setorById={};(setores||[]).forEach(s=>setorById[s.id]=s);
-  const orgName=id=>{const o=(orgs||[]).find(x=>x.id===id);return o?o.nome:null;};
   const itensByP={};(itens||[]).forEach(d=>{(itensByP[d.pessoa_id]=itensByP[d.pessoa_id]||[]).push(d);});
   const iclMap={};(vincs||[]).forEach(v=>{const r=v.acessos_recursos;if(r&&r.tipo==='icloud'){(iclMap[v.pessoa_id]=iclMap[v.pessoa_id]||[]).push({pasta:r.nome,papel:v.papel,estado:v.estado});}});
+  _acAudData={orgs:orgs||[],setores:setores||[],pessoas:pessoas||[],setorById,itensByP,odMap,iclMap};
+  _acAudPaint();
+}
+function _acAudSetView(v){_acAudView=v;try{localStorage.setItem('ac-aud-view',v);}catch(e){}_acAudPaint();}
+function _acAudPaint(){
+  const body=document.getElementById('ac-body');if(!body||!_acAudData)return;
+  const {orgs,setores,pessoas,setorById,itensByP,odMap,iclMap}=_acAudData;
+  const orgName=id=>{const o=orgs.find(x=>x.id===id);return o?o.nome:null;};
   const tree={};
-  (pessoas||[]).forEach(p=>{
+  pessoas.forEach(p=>{
     const s=p.setor_id?setorById[p.setor_id]:null;
     const orgId=p.organizacao_id||(s&&s.organizacao_id)||'__none__';
     const orgN=orgId==='__none__'?'Sem organização':(orgName(orgId)||'Sem organização');
@@ -9947,38 +9956,54 @@ async function _acRenderAuditoria(){
     tree[orgId].setores[setorKey].list.push(p);
   });
   const line=(logo,rot,val)=>`<div class="ac-aud-line"><span class="ac-kicker">${logo||''}${rot}</span> <span>${val}</span></div>`;
+  const odOf=p=>(p.email_outlook?odMap[p.email_outlook.toLowerCase()]:null)||[];
+  const inPoss=d=>(d.status==='em_uso'||d.status==='a_devolver');
+  const dispOf=p=>(itensByP[p.id]||[]).filter(d=>d.categoria!=='veiculo'&&inPoss(d));
+  const veicOf=p=>(itensByP[p.id]||[]).filter(d=>d.categoria==='veiculo'&&inPoss(d));
+  const orgNomeOf=p=>{const s=p.setor_id?setorById[p.setor_id]:null;return p.organizacao_id?orgName(p.organizacao_id):(s&&s.organizacao_id?orgName(s.organizacao_id):null);};
   const card=p=>{
-    const ip=itensByP[p.id]||[];
-    const inPoss=d=>(d.status==='em_uso'||d.status==='a_devolver');
-    const disp=ip.filter(d=>d.categoria!=='veiculo'&&inPoss(d));
-    const veic=ip.filter(d=>d.categoria==='veiculo'&&inPoss(d));
-    const od=(p.email_outlook?odMap[p.email_outlook.toLowerCase()]:null)||[];
-    const setor=p.setor_id?setorById[p.setor_id]:null;
-    const orgN=(setor&&setor.organizacao_id)?orgName(setor.organizacao_id):null;
+    const od=odOf(p),icl=iclMap[p.id]||[],disp=dispOf(p),veic=veicOf(p),orgN=orgNomeOf(p);
     return `<div class="ac-card">
-      <div class="ac-section-h" style="border:none;margin:0;padding:0">
-        ${_acAvatar(p,44)}
+      <div class="ac-section-h" style="border:none;margin:0;padding:0">${_acAvatar(p,44)}
         <div class="grow"><div class="ac-person-name">${_acEsc(p.nome)} ${p.status==='desligado'?'<span class="ac-pill neutral">desligado</span>':''}</div>
-          <div class="ac-kicker">${_acEsc(p.cargo||'—')}${orgN?' · '+_acEsc(orgN):''}</div></div>
-      </div>
+          <div class="ac-kicker">${_acEsc(p.cargo||'—')}${orgN?' · '+_acEsc(orgN):''}</div></div></div>
       ${line(_acLogo('zoho'),'Zoho',_acEsc(p.email_corporativo||'—'))}
       ${line(_acLogo('ms'),'OneDrive',od.length?od.map(f=>_acEsc(f.pasta)+' <span class="ac-muted">('+_acEsc(f.role)+')</span>').join(', '):'<span class="ac-muted">sem pastas</span>')}
-      ${line(_acLogo('apple'),'iCloud',(iclMap[p.id]||[]).length?(iclMap[p.id]).map(f=>_acEsc(f.pasta)+' <span class="ac-muted">('+(f.papel==='edicao'?'edição':'leitura')+(f.estado==='pendente'?' · pendente':'')+')</span>').join(', '):'<span class="ac-muted">sem pastas</span>')}
-      ${line(_acLogo('apple'),'Apple',_acEsc(p.conta_apple||'—'))}
+      ${line(_acLogo('apple'),'iCloud',icl.length?icl.map(f=>_acEsc(f.pasta)+' <span class="ac-muted">('+(f.papel==='edicao'?'edição':'leitura')+(f.estado==='pendente'?' · pendente':'')+')</span>').join(', '):'<span class="ac-muted">sem pastas</span>')}
+      ${line(_acLogo('apple'),'Conta Apple',_acEsc(p.conta_apple||'—'))}
       ${line('','Dispositivos',disp.length?disp.map(d=>_acEsc(_acItemTipoLabel(d.tipo))+(d.descricao?' '+_acEsc(d.descricao):'')).join(', '):'<span class="ac-muted">nenhum</span>')}
       ${line('','Veículos / patrimônio',veic.length?veic.map(d=>_acEsc(d.descricao||_acItemTipoLabel(d.tipo))).join(', '):'<span class="ac-muted">nenhum</span>')}
     </div>`;
   };
-  const orgOrder=(orgs||[]).map(o=>o.id).concat(['__none__']);
+  const listRow=p=>{
+    const od=odOf(p),icl=iclMap[p.id]||[],disp=dispOf(p),veic=veicOf(p);
+    const chip=(logo,n)=>`<span class="ac-chip">${logo||''}${n}</span>`;
+    return `<div class="ac-row ac-person">${_acAvatar(p,40)}
+      <div class="grow"><div class="ac-person-name">${_acEsc(p.nome)} ${p.status==='desligado'?'<span class="ac-pill neutral">desligado</span>':''}</div>
+        <div class="ac-kicker">${_acEsc(p.cargo||'—')}</div>
+        <div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:4px">
+          ${p.email_corporativo?chip(_acLogo('zoho'),_acEsc(p.email_corporativo)):''}
+          ${chip(_acLogo('ms'),'OneDrive: '+od.length)}
+          ${chip(_acLogo('apple'),'iCloud: '+icl.length)}
+          ${p.conta_apple?chip(_acLogo('apple'),_acEsc(p.conta_apple)):''}
+          ${chip('','Disp.: '+disp.length)}
+          ${chip('','Veíc.: '+veic.length)}
+        </div></div>
+      <button class="ac-btn ghost" onclick="_acOpenPessoa('${p.id}')">Abrir →</button>
+    </div>`;
+  };
+  const orgOrder=orgs.map(o=>o.id).concat(['__none__']);
   const blocos=orgOrder.filter(k=>tree[k]).map(k=>{
     const org=tree[k];
     const setoresHtml=Object.keys(org.setores).map(sk=>{
       const st=org.setores[sk];
-      return `<div class="ac-kicker" style="margin:16px 0 8px;display:block">${_acEsc(st.nome)} <span class="ac-muted">(${st.list.length})</span></div><div class="ac-aud-grid">${st.list.map(card).join('')}</div>`;
+      const inner=_acAudView==='lista'?st.list.map(listRow).join(''):('<div class="ac-aud-grid">'+st.list.map(card).join('')+'</div>');
+      return `<div class="ac-kicker" style="margin:16px 0 8px;display:block">${_acEsc(st.nome)} <span class="ac-muted">(${st.list.length})</span></div>${inner}`;
     }).join('');
     return `<div style="margin-bottom:26px"><div class="ac-section-h"><h3>${_acEsc(org.nome)}</h3></div>${setoresHtml}</div>`;
   }).join('');
-  body.innerHTML=blocos||'<div class="ac-muted">Sem colaboradores.</div>';
+  const toggle=`<div class="ac-section-h"><h3>Auditoria</h3><div style="margin-left:auto;display:flex;gap:6px"><button class="ac-tab ${_acAudView==='cards'?'active':''}" onclick="_acAudSetView('cards')">Cards</button><button class="ac-tab ${_acAudView==='lista'?'active':''}" onclick="_acAudSetView('lista')">Lista</button></div></div>`;
+  body.innerHTML=toggle+(blocos||'<div class="ac-muted">Sem colaboradores.</div>');
 }
 let _npRod=null;
 const NP_CAT_COLOR={lancamento:'var(--c-lancamento)',campanha:'var(--c-campanha)',precopromo:'var(--c-precopromo)',faturamento:'var(--c-faturamento)',expansao:'var(--c-expansao)',tendencia:'var(--c-tendencia)',estrategia:'var(--c-estrategia)',marketing:'var(--c-marketing)',design:'var(--c-design)',moda:'var(--c-moda)',bestseller:'var(--c-bestseller)',desenvolvimento:'var(--c-desenvolvimento)',instagram:'var(--c-instagram)',topviral:'var(--c-instagram)',ultimosposts:'var(--c-instagram)',reels:'var(--c-instagram)',outro:'var(--c-outro)'};
