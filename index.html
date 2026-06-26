@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Inteligência RBV</title>
 <link rel="icon" type="image/png" href="/midia/logos/rbv-logo.png">
 <link rel="apple-touch-icon" href="/midia/logos/rbv-logo.png">
@@ -4130,7 +4130,7 @@ function openPermModal(u){
 }
 function _buildPermRow(key,label,isChild,isOn){
   const row=document.createElement('div');row.className='perm-row'+(isChild?' child':'');
-  const tog=document.createElement('label');tog.className='perm-toggle';
+  const tog=document.createElement('span');tog.className='perm-toggle';
   const inp=document.createElement('input');inp.type='checkbox';inp.checked=isOn;inp.dataset.key=key;
   inp.addEventListener('change',()=>{
     const node=PERMISSION_TREE.find(t=>t.key===key);
