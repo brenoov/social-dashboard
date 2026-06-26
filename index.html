@@ -9683,7 +9683,7 @@ function _acDriveLegend(){
   const secs=_acDriveAllSectors();
   const used=secs.filter(s=>_acDriveTree.some(f=>_acDriveSectorOf(f).key===s.key));
   if(!used.length)return '';
-  return `<div class="ac-legend">${used.map(s=>{const c=_acDriveSecColor(s.key),cnt=_acDriveTree.filter(f=>_acDriveSectorOf(f).key===s.key).length;return `<span class="ac-leg"><span class="ac-leg-dot" style="background:${c}"></span>${_acEsc(s.label)} <span class="ac-muted">(${cnt})</span><button class="ac-leg-go" onclick="_acDriveLiberarSetor('${s.key}')">Liberar setor</button></span>`;}).join('')}</div>`;
+  return `<div class="ac-legend">${used.map(s=>{const c=_acDriveSecColor(s.key),cnt=_acDriveTree.filter(f=>_acDriveSectorOf(f).key===s.key).length;return `<span class="ac-leg"><span class="ac-leg-dot" style="background:${c}"></span>${_acEsc(s.label)} <span class="ac-muted">(${cnt})</span><button class="ac-leg-go" data-lib="${_acEsc(s.key)}">Liberar setor</button></span>`;}).join('')}</div>`;
 }
 function _acDriveRenderFlow(){
   const marca=_acDriveMarcas.find(m=>m.id===_acDriveSel);
@@ -9704,7 +9704,7 @@ function _acDriveFlowNode(t){
         <div class="ac-fcard-sec" style="color:${col}">${_acEsc(sec.label)}</div>
         <div class="ac-fcard-acts">
           <button class="ac-fcard-share" data-drv="share" data-id="${_acEsc(n.id)}" data-name="${_acEsc(n.name)}" title="Compartilhar esta pasta">⤴</button>
-          ${hasKids?`<button class="ac-fcard-tog" onclick="_acDriveFlowTog('${_acEsc(n.id)}')" title="${open?'recolher':'expandir'}">${open?'−':'+'+t.children.length}</button>`:''}
+          ${hasKids?`<button class="ac-fcard-tog" data-ftog="${_acEsc(n.id)}" title="${open?'recolher':'expandir'}">${open?'−':'+'+t.children.length}</button>`:''}
         </div>
       </div>
     </div>
@@ -9735,6 +9735,8 @@ function _acDriveFolderCard(f,secs){
 }
 function _acDriveWire(cont){
   cont.querySelectorAll('button[data-drv]').forEach(b=>{const a=b.dataset.drv;b.addEventListener('click',()=>{if(a==='share')_acDriveShare(b.dataset.id,b.dataset.name);});});
+  cont.querySelectorAll('button[data-lib]').forEach(b=>b.addEventListener('click',()=>_acDriveLiberarSetor(b.dataset.lib)));
+  cont.querySelectorAll('button[data-ftog]').forEach(b=>b.addEventListener('click',()=>_acDriveFlowTog(b.dataset.ftog)));
 }
 function _acDriveSetDepth(d){_acDriveDepth=d;_acDriveExplode();}
 function _acDriveToggleSec(k){_acDriveSecOpen[k]=(_acDriveSecOpen[k]===false);const el=document.querySelector('#acessos-screen .ac-secbody[data-sec="'+k+'"]');if(el){el.style.display=_acDriveSecOpen[k]!==false?'':'none';const ch=el.parentElement.querySelector('.ac-secchev');if(ch)ch.classList.toggle('open',_acDriveSecOpen[k]!==false);}}
@@ -9801,7 +9803,7 @@ function _acDriveRepaint(){
         <div class="ac-secmod-h">
           <span style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="_acDriveToggleSec('${s.key}')"><span class="ac-secchev ${open?'open':''}">▸</span>${_acEsc(s.label)} <span class="ac-muted" style="text-transform:none;letter-spacing:0">(${b.list.length})</span></span>
           <span style="margin-left:auto;display:flex;gap:6px">
-            <button class="ac-btn" onclick="_acDriveLiberarSetor('${s.key}')">Liberar setor</button>
+            <button class="ac-btn" data-lib="${_acEsc(s.key)}">Liberar setor</button>
             ${custom?`<button class="ac-btn ghost" title="remover setor" onclick="_acDriveDelSetor('${s.key}')">✕</button>`:''}
           </span>
         </div>
