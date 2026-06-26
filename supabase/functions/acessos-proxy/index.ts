@@ -24,6 +24,7 @@
 //   - microsoft.allShares    -> all managed folders x permissions (flat, for Auditoria)
 //   - microsoft.share        -> POST /invite (read|write)
 //   - microsoft.unshare      -> DELETE a permission
+//   - microsoft.revokeForEmail -> offboarding: remove email from ALL managed OneDrive folders
 //
 // ---------------------------------------------------------------------------
 // VERIFIED Zoho endpoints / fields (June 2026), with sources:
@@ -722,6 +723,73 @@ async function actAllShares(sb: any) {
   return json({ items });
 }
 
+async function actRevokeForEmail(sb: any, email: string | null) {
+  if (!email) return json({ error: "sem_email" });
+  const conn = await readMsConn(sb);
+  if (!conn.refresh_token) return json({ error: "nao_conectado" });
+  const access = await freshMsToken(conn);
+
+  const { data: recursos } = await sb
+    .from("acessos_recursos")
+    .select("id, nome, external_id")
+    .eq("tipo", "onedrive");
+
+  const target = email.toLowerCase();
+  let removed = 0;
+  const folders: string[] = [];
+
+  for (const recurso of (recursos ?? [])) {
+    if (!recurso.external_id) continue;
+    try {
+      const r = await graphFetch(
+        access,
+        `/me/drive/items/${encodeURIComponent(recurso.external_id)}/permissions`,
+      );
+      if (!r.ok) {
+        console.warn(
+          "[acessos-proxy] revokeForEmail: falha ao ler permissoes da pasta",
+          recurso.nome,
+          r.status,
+          r.json,
+        );
+        continue;
+      }
+      const value: any[] = Array.isArray(r.json?.value) ? r.json.value : [];
+      for (const p of value) {
+        if (Array.isArray(p?.roles) && p.roles.includes("owner")) continue;
+        const ident = parsePermIdentity(p);
+        if ((ident.email || "").toLowerCase() !== target) continue;
+        const del = await graphFetch(
+          access,
+          `/me/drive/items/${encodeURIComponent(recurso.external_id)}/permissions/${encodeURIComponent(p.id)}`,
+          { method: "DELETE" },
+        );
+        if (del.ok) {
+          removed++;
+          folders.push(String(recurso.nome ?? ""));
+        } else {
+          console.warn(
+            "[acessos-proxy] revokeForEmail: DELETE falhou",
+            recurso.nome,
+            p.id,
+            del.status,
+            del.json,
+          );
+        }
+      }
+    } catch (e) {
+      console.warn(
+        "[acessos-proxy] revokeForEmail: erro ao processar pasta",
+        recurso.nome,
+        e instanceof Error ? e.message : e,
+      );
+    }
+  }
+
+  await logMs(sb, null, "onedrive.revoke", email, "ok", removed + " acessos");
+  return json({ removed, folders });
+}
+
 async function msUnshare(sb: any, quem: string | null, itemId: string, permId: string) {
   if (!itemId || !permId) return json({ error: "sem_itemId_ou_permId" }, 400);
   const conn = await readMsConn(sb);
@@ -805,6 +873,8 @@ Deno.serve(async (req: Request) => {
         return await msShare(sb, user.id, body?.itemId, body?.email, body?.role);
       case "microsoft.unshare":
         return await msUnshare(sb, user.id, body?.itemId, body?.permId);
+      case "microsoft.revokeForEmail":
+        return await actRevokeForEmail(sb, body?.email ?? null);
       default:
         return json({ error: "acao_desconhecida", action: action ?? null }, 400);
     }
