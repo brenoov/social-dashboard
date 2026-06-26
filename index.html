@@ -1142,6 +1142,35 @@
 #acessos-screen .ac-tn-sec{font-family:'IBM Plex Sans',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#2dd4bf;background:rgba(13,148,136,.14);padding:2px 7px;border-radius:999px;white-space:nowrap}
 #acessos-screen .ac-tn-share{padding:3px 9px;font-size:11px;margin-left:auto;flex-shrink:0}
 @media(max-width:640px){#acessos-screen .ac-tn-sec{display:none}#acessos-screen .ac-tree{padding-left:14px}#acessos-screen .ac-tnode{padding-left:14px}}
+/* ===== Drive: fluxograma (org-chart) ===== */
+#acessos-screen .ac-legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+#acessos-screen .ac-leg{display:inline-flex;align-items:center;gap:7px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:4px 6px 4px 11px}
+#acessos-screen .ac-leg-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+#acessos-screen .ac-leg-go{border:none;background:#0d9488;color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:4px 10px;cursor:pointer;text-transform:uppercase;letter-spacing:.4px}
+#acessos-screen .ac-leg-go:hover{filter:brightness(1.08)}
+#acessos-screen .ac-org-wrap{overflow:auto;padding:8px 4px 24px}
+#acessos-screen .ac-org,#acessos-screen .ac-org ul{display:flex;justify-content:center;padding-top:22px;position:relative;margin:0;list-style:none}
+#acessos-screen .ac-org li{position:relative;padding:22px 9px 0;display:flex;flex-direction:column;align-items:center}
+#acessos-screen .ac-org li::before,#acessos-screen .ac-org li::after{content:'';position:absolute;top:0;right:50%;border-top:2px solid var(--border);width:50%;height:22px}
+#acessos-screen .ac-org li::after{right:auto;left:50%;border-left:2px solid var(--border)}
+#acessos-screen .ac-org li:only-child::before,#acessos-screen .ac-org li:only-child::after{display:none}
+#acessos-screen .ac-org li:first-child::before,#acessos-screen .ac-org li:last-child::after{border:0 none}
+#acessos-screen .ac-org li:last-child::before{border-right:2px solid var(--border);border-radius:0 9px 0 0}
+#acessos-screen .ac-org li:first-child::after{border-radius:9px 0 0 0}
+#acessos-screen .ac-org ul::before{content:'';position:absolute;top:0;left:50%;border-left:2px solid var(--border);width:0;height:22px}
+#acessos-screen .ac-org>li{padding-top:0}
+#acessos-screen .ac-org>li::before,#acessos-screen .ac-org>li::after{display:none}
+#acessos-screen .ac-fcard{display:inline-flex;flex-direction:column;width:170px;background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--sc,#0d9488);border-radius:11px;box-shadow:var(--shadow-sm);transition:transform .14s ease,box-shadow .14s ease}
+#acessos-screen .ac-fcard:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+#acessos-screen .ac-fcard-root{border-top:3px solid #0d9488;background:linear-gradient(180deg,rgba(13,148,136,.14),var(--surface));width:200px}
+#acessos-screen .ac-fcard-body{padding:9px 11px}
+#acessos-screen .ac-fcard-name{font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;color:var(--text);line-height:1.25;max-height:3.1em;overflow:hidden}
+#acessos-screen .ac-fcard-root .ac-fcard-name{font-family:'Playfair Display',serif;font-size:15px;font-weight:700}
+#acessos-screen .ac-fcard-sec{font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-top:4px;color:var(--muted)}
+#acessos-screen .ac-fcard-acts{display:flex;gap:5px;margin-top:8px;justify-content:flex-end}
+#acessos-screen .ac-fcard-share,#acessos-screen .ac-fcard-tog{border:1px solid var(--border);background:var(--surface2);border-radius:7px;cursor:pointer;font-size:12px;padding:3px 8px;color:var(--text);min-width:26px;line-height:1.1}
+#acessos-screen .ac-fcard-share:hover,#acessos-screen .ac-fcard-tog:hover{border-color:var(--accent-mid);color:var(--accent-mid)}
+#acessos-screen .ac-fcard-tog{font-weight:700}
 #acessos-screen .ac-folder-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
 #acessos-screen .ac-folder{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:10px;transition:border-color .15s,box-shadow .15s,transform .15s}
 #acessos-screen .ac-folder:hover{border-color:var(--accent-mid);box-shadow:var(--shadow-md);transform:translateY(-2px)}
@@ -9644,7 +9673,45 @@ function _acDrivePaintShell(){
     ${_acDriveMarcas.length?`<div class="ac-brand-bar">${chips}</div>`:''}
     <div id="ac-drive-content">${_acDriveMarcas.length?'<div class="ac-muted">Carregando pastas…</div>':'<div class="ac-empty">Nenhuma marca ainda. Clique em "+ Adicionar marca" e escolha uma pasta-raiz (ex.: 21. RBV & Company).</div>'}</div>`;
 }
-let _acDriveDepth=2,_acDriveSecOpen={},_acDriveDragId=null,_acDriveView='setor';
+let _acDriveDepth=2,_acDriveSecOpen={},_acDriveDragId=null,_acDriveView='setor',_acDriveFlowOpen={};
+function _acDriveSecColor(key){
+  const m={financeiro:'#16a34a',contabil:'#0891b2',rh:'#7c3aed',marketing:'#db2777',comercial:'#ea580c',suprimentos:'#ca8a04',juridico:'#64748b',operacoes:'#0d9488',diretoria:'#9333ea',outros:'#94a3b8'};
+  if(m[key])return m[key];
+  let h=0;for(let i=0;i<key.length;i++)h=(h*31+key.charCodeAt(i))%360;return 'hsl('+h+',55%,46%)';
+}
+function _acDriveLegend(){
+  const secs=_acDriveAllSectors();
+  const used=secs.filter(s=>_acDriveTree.some(f=>_acDriveSectorOf(f).key===s.key));
+  if(!used.length)return '';
+  return `<div class="ac-legend">${used.map(s=>{const c=_acDriveSecColor(s.key),cnt=_acDriveTree.filter(f=>_acDriveSectorOf(f).key===s.key).length;return `<span class="ac-leg"><span class="ac-leg-dot" style="background:${c}"></span>${_acEsc(s.label)} <span class="ac-muted">(${cnt})</span><button class="ac-leg-go" onclick="_acDriveLiberarSetor('${s.key}')">Liberar setor</button></span>`;}).join('')}</div>`;
+}
+function _acDriveRenderFlow(){
+  const marca=_acDriveMarcas.find(m=>m.id===_acDriveSel);
+  const roots=_acDriveBuildTree();
+  const brandT={node:{id:'__brand__',name:marca?marca.nome:'Marca'},children:roots,_brand:true};
+  return `<div class="ac-org-wrap"><ul class="ac-org">${_acDriveFlowNode(brandT)}</ul></div>`;
+}
+function _acDriveFlowNode(t){
+  const n=t.node,hasKids=t.children&&t.children.length;
+  if(t._brand){
+    return `<li><div class="ac-fcard ac-fcard-root"><div class="ac-fcard-body"><div class="ac-fcard-name">${_acEsc(n.name)}</div><div class="ac-fcard-sec">marca</div></div></div>${hasKids?`<ul>${t.children.map(_acDriveFlowNode).join('')}</ul>`:''}</li>`;
+  }
+  const sec=_acDriveSectorOf(n),col=_acDriveSecColor(sec.key),open=_acDriveFlowOpen[n.id]===true;
+  return `<li>
+    <div class="ac-fcard" style="--sc:${col}" data-id="${_acEsc(n.id)}">
+      <div class="ac-fcard-body">
+        <div class="ac-fcard-name" title="${_acEsc(n.name)}">${_acEsc(n.name)}</div>
+        <div class="ac-fcard-sec" style="color:${col}">${_acEsc(sec.label)}</div>
+        <div class="ac-fcard-acts">
+          <button class="ac-fcard-share" data-drv="share" data-id="${_acEsc(n.id)}" data-name="${_acEsc(n.name)}" title="Compartilhar esta pasta">⤴</button>
+          ${hasKids?`<button class="ac-fcard-tog" onclick="_acDriveFlowTog('${_acEsc(n.id)}')" title="${open?'recolher':'expandir'}">${open?'−':'+'+t.children.length}</button>`:''}
+        </div>
+      </div>
+    </div>
+    ${hasKids&&open?`<ul>${t.children.map(_acDriveFlowNode).join('')}</ul>`:''}
+  </li>`;
+}
+function _acDriveFlowTog(id){_acDriveFlowOpen[id]=!_acDriveFlowOpen[id];_acDriveRepaint();}
 function _acDriveAllSectors(){return _AC_SECTORS.map(s=>({key:s.key,label:s.label})).concat(_acDriveCustomSecs.map(s=>({key:s.chave,label:s.label}))).concat([{key:'outros',label:'Outros'}]);}
 function _acDriveLabelOf(key){const a=_acDriveAllSectors().find(s=>s.key===key);return a?a.label:'Outros';}
 function _acDriveSelectMarca(id){_acDriveSel=id;_acDrivePaintShell();_acDriveExplode();}
@@ -9716,12 +9783,14 @@ function _acDriveRepaint(){
   const cont=document.getElementById('ac-drive-content');if(!cont)return;
   const folders=_acDriveTree;
   const secs=_acDriveAllSectors();
-  const viewToggle=`<div class="ac-driveviews"><button class="ac-tab ${_acDriveView==='setor'?'active':''}" onclick="_acDriveSetView('setor')">Por setor</button><button class="ac-tab ${_acDriveView==='arvore'?'active':''}" onclick="_acDriveSetView('arvore')">Árvore</button></div>`;
+  const viewToggle=`<div class="ac-driveviews"><button class="ac-tab ${_acDriveView==='setor'?'active':''}" onclick="_acDriveSetView('setor')">Por setor</button><button class="ac-tab ${_acDriveView==='arvore'?'active':''}" onclick="_acDriveSetView('arvore')">Árvore (fluxo)</button><button class="ac-tab ${_acDriveView==='lista'?'active':''}" onclick="_acDriveSetView('lista')">Lista</button></div>`;
   const depthCtl=`<div class="ac-depth"><span class="ac-muted">Camadas:</span>${[1,2,3,4].map(d=>'<button class="ac-depth-b '+(d===_acDriveDepth?'active':'')+'" onclick="_acDriveSetDepth('+d+')">'+d+'</button>').join('')}${_acDriveView==='setor'?'<button class="ac-btn ghost" onclick="_acDriveAddSetor()">+ Novo setor</button>':''}<span class="ac-muted" style="margin-left:auto">${folders.length} pasta(s)${_acDriveTreeTrunc?' · limite atingido':''}</span></div>`;
   let bodyHtml;
   if(_acDriveView==='arvore'){
+    bodyHtml=`<div class="ac-muted" style="font-size:11px;margin:0 0 12px">Fluxograma a partir da raiz da marca. Cores = setor. Clique no <b>+</b> de um card para abrir o ramo; <b>⤴</b> compartilha a pasta; "Liberar setor" libera tudo do setor.</div>`+_acDriveLegend()+_acDriveRenderFlow();
+  }else if(_acDriveView==='lista'){
     const roots=_acDriveBuildTree();
-    bodyHtml=`<div class="ac-muted" style="font-size:11px;margin:0 0 14px">Cada pasta liga às suas subpastas. Clique no ▸ para abrir/fechar um ramo.</div><ul class="ac-tree ac-tree-root">${roots.length?roots.map(_acDriveTreeNode).join(''):'<li class="ac-empty">Sem pastas.</li>'}</ul>`;
+    bodyHtml=`<div class="ac-muted" style="font-size:11px;margin:0 0 14px">Lista hierárquica recuada. Clique no ▸ para abrir/fechar um ramo.</div><ul class="ac-tree ac-tree-root">${roots.length?roots.map(_acDriveTreeNode).join(''):'<li class="ac-empty">Sem pastas.</li>'}</ul>`;
   }else{
     const buckets={};
     folders.forEach(f=>{const s=_acDriveSectorOf(f);(buckets[s.key]=buckets[s.key]||{label:s.label,list:[]}).list.push(f);});
