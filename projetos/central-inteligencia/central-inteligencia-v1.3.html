@@ -9724,7 +9724,8 @@ function _acDesligar(id){
       <input class="ac-input" type="date" id="ac-dlg-data" value="${hoje}"></label>
     <div class="ac-kicker" style="margin:14px 0 6px;display:block">Revogar acessos</div>
     <label style="display:flex;align-items:center;gap:8px;margin-top:6px"><input type="checkbox" id="ac-dlg-equip" checked> Marcar equipamentos em uso para devolução</label>
-    <label style="display:flex;align-items:center;gap:8px;margin-top:6px"><input type="checkbox" id="ac-dlg-od" ${c.email_outlook?'checked':'disabled'}> Remover dos compartilhamentos do OneDrive${c.email_outlook?'':' <span class="ac-muted">(sem e-mail Outlook cadastrado)</span>'}</label>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:6px"><input type="checkbox" id="ac-dlg-od" ${c.email_outlook?'checked':'disabled'}> Remover dos compartilhamentos do OneDrive${c.email_outlook?'':' <span class="ac-muted">(sem e-mail Outlook)</span>'}</label>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:6px"><input type="checkbox" id="ac-dlg-zoho" ${c.email_corporativo?'checked':'disabled'}> Suspender caixa de e-mail Zoho${c.email_corporativo?'':' <span class="ac-muted">(sem e-mail corporativo)</span>'}</label>
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
       <button class="ac-btn ghost" id="ac-dlg-cancel">Cancelar</button>
       <button class="ac-btn danger" id="ac-dlg-ok">Confirmar desligamento</button>
@@ -9740,6 +9741,7 @@ function _acDesligar(id){
     if(!motivo){adminToast('Informe o motivo',false);return;}
     const doEquip=ov.querySelector('#ac-dlg-equip').checked;
     const doOd=ov.querySelector('#ac-dlg-od').checked&&!!c.email_outlook;
+    const doZoho=ov.querySelector('#ac-dlg-zoho').checked&&!!c.email_corporativo;
     const okBtn=ov.querySelector('#ac-dlg-ok');okBtn.disabled=true;okBtn.textContent='Processando…';
     const{error}=await sbClient.from('acessos_pessoas').update({status:'desligado',motivo_saida:motivo,data_fim_contrato:data,atualizado_em:new Date().toISOString()}).eq('id',id);
     if(error){adminToast('Erro: '+error.message,false);okBtn.disabled=false;okBtn.textContent='Confirmar desligamento';return;}
@@ -9752,6 +9754,10 @@ function _acDesligar(id){
       try{const r=await _acProxy('microsoft.revokeForEmail',{email:c.email_outlook});resumo+=' · OneDrive: '+(r&&r.removed||0)+' removido(s)';}
       catch(e){resumo+=' · OneDrive falhou';}
     }
+    if(doZoho){
+      try{const r=await _acProxy('zoho.suspend',{email:c.email_corporativo});resumo+=(r&&r.ok)?' · Zoho suspenso':(' · Zoho falhou'+(r&&r.error?' ('+r.error+')':''));}
+      catch(e){resumo+=' · Zoho falhou';}
+    }
     let iclNomes=[];
     try{const{data:vs}=await sbClient.from('acessos_vinculos').select('acessos_recursos(nome,tipo)').eq('pessoa_id',id);(vs||[]).forEach(v=>{if(v.acessos_recursos&&v.acessos_recursos.tipo==='icloud')iclNomes.push(v.acessos_recursos.nome);});}catch(e){}
     await _acLog('colaborador.desligar','colab:'+c.nome,'ok',data||null);
@@ -9762,11 +9768,13 @@ function _acDesligar(id){
 }
 async function _acReativar(id){
   const c=_acData.pessoas.find(x=>x.id===id);if(!c)return;
-  if(!confirm(`Reativar "${c.nome}"?`))return;
+  if(!confirm(`Reativar "${c.nome}"?`+(c.email_corporativo?' (reativa também a caixa Zoho)':'')))return;
   const{error}=await sbClient.from('acessos_pessoas').update({status:'ativo',motivo_saida:null,data_fim_contrato:null,atualizado_em:new Date().toISOString()}).eq('id',id);
   if(error){adminToast('Erro: '+error.message,false);return;}
+  let extra='';
+  if(c.email_corporativo){try{const r=await _acProxy('zoho.reactivate',{email:c.email_corporativo});if(r&&r.ok)extra=' · Zoho reativado';}catch(e){}}
   await _acLog('colaborador.reativar','colab:'+c.nome,'ok',null);
-  adminToast('Colaborador reativado');await loadAcessos();_acOpenPessoa(id);
+  adminToast('Colaborador reativado'+extra);await loadAcessos();_acOpenPessoa(id);
 }
 async function _acUploadAvatar(pessoaId,file){
   if(!file)return;
