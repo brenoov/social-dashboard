@@ -868,13 +868,24 @@ async function msShare(
 // Share MANY folders to MANY recipients in one call (used by "Liberar setor"). One token
 // refresh, server-side loop, bounded by an op cap. Sends notification (sendInvitation:true).
 async function actShareMany(sb: any, quem: string | null, items: unknown, emails: unknown, role: string) {
-  const its = Array.isArray(items) ? items.filter((x) => typeof x === "string" && x) : [];
+  // items pode ser array de strings (ids) OU de {id,name}. Normaliza.
+  const norm = (Array.isArray(items) ? items : [])
+    .map((x: any) => typeof x === "string" ? { id: x, name: null } : (x && x.id ? { id: String(x.id), name: x.name ? String(x.name) : null } : null))
+    .filter((x: any) => x && x.id);
+  const its = norm.map((x: any) => x.id);
   const ems = Array.isArray(emails) ? emails.filter((x) => typeof x === "string" && x) : [];
   if (!its.length || !ems.length) return json({ error: "sem_items_ou_emails" }, 400);
   const conn = await readMsConn(sb);
   if (!conn.refresh_token) return json({ error: "nao_conectado" });
   const access = await freshMsToken(conn);
   const graphRole = role === "edição" ? "write" : "read";
+  // Registra as pastas em acessos_recursos (pra Auditoria refletir o que o Drive compartilhou).
+  for (const it of norm) {
+    try {
+      const { data: ex } = await sb.from("acessos_recursos").select("id").eq("external_id", it.id).maybeSingle();
+      if (!ex) await sb.from("acessos_recursos").insert({ tipo: "onedrive", provedor: "microsoft", nome: it.name || "(sem nome)", external_id: it.id });
+    } catch (_) { /* dedup best-effort */ }
+  }
   const CAP = 600;
   let ok = 0, fail = 0, ops = 0, truncated = false;
   for (const itemId of its) {
