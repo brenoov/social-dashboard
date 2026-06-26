@@ -1017,6 +1017,47 @@
 #acessos-screen .ac-card:hover{border-color:var(--accent-mid);box-shadow:var(--shadow-lg)}
 #acessos-screen .ac-row{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-sm)}
 #acessos-screen .ac-row:hover{border-color:rgba(13,148,136,.45);box-shadow:var(--shadow-md)}
+/* ===== Acessos — Fase 1: abertura expandida + mobile real ===== */
+#acessos-screen .ac-hero{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+#acessos-screen .ac-hero h2{font-family:'Playfair Display',serif;font-weight:800;font-size:clamp(24px,4vw,34px);line-height:1.02;letter-spacing:-.01em;color:var(--text);margin:0}
+#acessos-screen .ac-hero .ac-sub{font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--muted);margin-top:5px}
+#acessos-screen .ac-hero-actions{margin-left:auto;display:flex;gap:10px;flex-wrap:wrap}
+#acessos-screen .ac-btn.lg{padding:11px 18px;font-size:14px;border-radius:10px}
+#acessos-screen .ac-btn.primary{background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;border:none;box-shadow:0 6px 18px -8px rgba(13,148,136,.7)}
+#acessos-screen .ac-btn.primary:hover{border:none}
+#acessos-screen .ac-org-block{margin-bottom:18px;border:1px solid var(--border);border-radius:18px;background:var(--surface);box-shadow:var(--shadow-md);overflow:hidden;animation:acFadeUp .32s ease both}
+#acessos-screen .ac-org-head{display:flex;align-items:center;gap:14px;padding:16px 18px;cursor:pointer;border-bottom:1px solid transparent}
+#acessos-screen .ac-org-head:hover{background:rgba(13,148,136,.05)}
+#acessos-screen .ac-org-block.open .ac-org-head{border-bottom-color:var(--border)}
+#acessos-screen .ac-org-badge{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;flex-shrink:0}
+#acessos-screen .ac-org-name{font-family:'Playfair Display',serif;font-weight:700;font-size:21px;color:var(--text);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#acessos-screen .ac-org-meta{font-family:'IBM Plex Sans',sans-serif;font-size:10.5px;font-weight:600;letter-spacing:.6px;color:var(--muted);margin-top:3px;text-transform:uppercase}
+#acessos-screen .ac-org-chev{color:var(--muted);transition:transform .2s ease;flex-shrink:0}
+#acessos-screen .ac-org-block.open .ac-org-chev{transform:rotate(90deg)}
+#acessos-screen .ac-org-body{display:none;padding:16px 18px;gap:14px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+#acessos-screen .ac-org-block.open .ac-org-body{display:grid}
+#acessos-screen .ac-stcard{border:1px solid var(--border);border-radius:14px;padding:14px;background:var(--surface2);cursor:pointer;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
+#acessos-screen .ac-stcard:hover{transform:translateY(-2px);border-color:var(--accent-mid);box-shadow:var(--shadow-md)}
+#acessos-screen .ac-stcard-h{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#acessos-screen .ac-stcard-name{font-family:'Oswald',sans-serif;font-weight:600;font-size:15px;letter-spacing:.4px;text-transform:uppercase;color:var(--text)}
+#acessos-screen .ac-stcard-ct{font-family:'Oswald',sans-serif;font-size:12px;font-weight:500;color:#2dd4bf;background:rgba(13,148,136,.16);padding:2px 9px;border-radius:999px;white-space:nowrap}
+#acessos-screen .ac-ava-stack{display:flex;align-items:center;margin-top:12px;flex-wrap:wrap;row-gap:6px}
+#acessos-screen .ac-ava-stack .ac-avatar{box-shadow:0 0 0 2px var(--surface2);margin-left:-8px}
+#acessos-screen .ac-ava-stack .ac-avatar:first-child{margin-left:0}
+#acessos-screen .ac-ava-more{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;color:var(--muted);margin-left:8px}
+#acessos-screen .ac-empty{font-family:'IBM Plex Sans',sans-serif;color:var(--muted);font-size:13px;padding:8px 2px}
+@media(max-width:640px){
+  #acessos-screen .ac-body{padding:16px 14px}
+  #acessos-screen .ac-hero-actions{margin-left:0;width:100%}
+  #acessos-screen .ac-hero-actions .ac-btn{flex:1;min-width:140px;text-align:center}
+  #acessos-screen .ac-btn{padding:11px 14px;font-size:14px}
+  #acessos-screen .ac-org-body{grid-template-columns:1fr}
+  #acessos-screen .ac-org-name{font-size:18px;white-space:normal}
+  #acessos-screen .ac-tabs{width:100%;margin-left:0;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+  #acessos-screen .ac-tab{white-space:nowrap;flex-shrink:0}
+  #acessos-screen .ac-modal{max-height:88vh;overflow:auto}
+  #acessos-screen .ac-section-h{flex-wrap:wrap}
+}
 #acessos-screen .ac-muted{color:var(--muted);opacity:1}
 #acessos-screen .ac-btn{background:#0d9488;color:#fff;box-shadow:var(--shadow-sm)}
 #acessos-screen .ac-btn:hover{filter:brightness(1.06);box-shadow:var(--shadow-md)}
@@ -9478,32 +9519,71 @@ function _acRender(){
 }
 function _acSetorIco(){return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg>';}
 function _acOrgIco(){return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/><path d="M9 8h.01M9 12h.01M9 16h.01M15 8h.01M15 12h.01M15 16h.01"/></svg>';}
+var _acOrgOpen=_acOrgOpen||{};
+function _acToggleOrg(key){
+  _acOrgOpen[key]=(_acOrgOpen[key]===false);
+  const el=document.querySelector('#acessos-screen .ac-org-block[data-org="'+key+'"]');
+  if(el)el.classList.toggle('open',_acOrgOpen[key]!==false);
+}
 function _acRenderOrganizacoes(){
   const body=document.getElementById('ac-body');
-  const orgs=_acData.organizacoes||[];
-  const cards=orgs.map((o,i)=>{
-    const ns=_acData.setores.filter(s=>s.organizacao_id===o.id).length;
-    return `<div class="ac-setor-card" style="animation-delay:${i*40}ms" onclick="_acOpenOrg('${o.id}')">
-      <button class="ac-setor-del" title="Excluir organização" onclick="event.stopPropagation();_acDelOrg('${o.id}')">✕</button>
-      <div class="ac-setor-ico">${_acOrgIco()}</div>
-      <div class="ac-setor-nome">${_acEsc(o.nome)}</div>
-      <div class="ac-setor-sub">${ns} setor(es)</div>
+  const orgs=(_acData.organizacoes||[]);
+  const setorOrg=(p)=>{const st=_acData.setores.find(s=>s.id===p.setor_id);return p.organizacao_id||(st?st.organizacao_id:null)||null;};
+  const totalColab=_acData.pessoas.length;
+  const totalAtivos=_acData.pessoas.filter(p=>p.status==='ativo').length;
+  const bloco=(org)=>{
+    const oid=org?org.id:null,key=oid===null?'_none':oid;
+    const setores=_acData.setores.filter(s=>oid?s.organizacao_id===oid:!s.organizacao_id);
+    const colabsOrg=_acData.pessoas.filter(p=>setorOrg(p)===oid);
+    const open=_acOrgOpen[key]!==false;
+    // colaboradores sem setor dentro desta org
+    const semSetor=colabsOrg.filter(p=>!p.setor_id);
+    const stcards=setores.map(s=>{
+      const ppl=_acData.pessoas.filter(x=>x.setor_id===s.id);
+      const na=ppl.filter(x=>x.status==='ativo').length;
+      const avas=ppl.slice(0,5).map(p=>_acAvatar(p,28)).join('');
+      const more=ppl.length>5?`<span class="ac-ava-more">+${ppl.length-5}</span>`:'';
+      return `<div class="ac-stcard" onclick="_acOpenSetor('${s.id}')">
+        <div class="ac-stcard-h"><span class="ac-stcard-name">${_acEsc(s.nome)}</span><span class="ac-stcard-ct">${ppl.length}${(na<ppl.length)?(' · '+na+'✓'):''}</span></div>
+        ${ppl.length?`<div class="ac-ava-stack">${avas}${more}</div>`:'<div class="ac-empty" style="padding:8px 0 0">Sem colaboradores</div>'}
+      </div>`;
+    }).join('');
+    const semSetorCard=semSetor.length?`<div class="ac-stcard" onclick="_acOpenSetor(false)" style="border-style:dashed">
+        <div class="ac-stcard-h"><span class="ac-stcard-name" style="color:var(--muted)">Sem setor</span><span class="ac-stcard-ct" style="background:rgba(148,163,184,.18);color:#cbd5e1">${semSetor.length}</span></div>
+        <div class="ac-ava-stack">${semSetor.slice(0,5).map(p=>_acAvatar(p,28)).join('')}${semSetor.length>5?'<span class="ac-ava-more">+'+(semSetor.length-5)+'</span>':''}</div>
+      </div>`:'';
+    return `<div class="ac-org-block ${open?'open':''}" data-org="${key}">
+      <div class="ac-org-head" onclick="_acToggleOrg('${key}')">
+        <div class="ac-org-badge">${_acOrgIco()}</div>
+        <div style="min-width:0">
+          <div class="ac-org-name">${_acEsc(org?org.nome:'Sem organização')}</div>
+          <div class="ac-org-meta">${setores.length} setor(es) · ${colabsOrg.length} pessoa(s) · ${colabsOrg.filter(p=>p.status==='ativo').length} ativo(s)</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-left:auto" onclick="event.stopPropagation()">
+          <button class="ac-btn ghost" onclick="_acAddSetor(${oid?"'"+oid+"'":'false'})">+ Setor</button>
+          ${org?`<button class="ac-setor-del" style="position:static;opacity:.8" title="Excluir organização" onclick="_acDelOrg('${oid}')">✕</button>`:''}
+        </div>
+        <svg class="ac-org-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+      <div class="ac-org-body">${stcards}${semSetorCard}${(!setores.length&&!semSetor.length)?'<div class="ac-empty">Nenhum setor ainda. Use "+ Setor".</div>':''}</div>
     </div>`;
-  }).join('');
-  const orgless=_acData.setores.filter(s=>!s.organizacao_id).length;
-  const semOrg=orgless?`<div class="ac-setor-card" style="background:linear-gradient(155deg,rgba(148,163,184,.10),rgba(255,255,255,.02))" onclick="_acOpenOrg(false)">
-      <div class="ac-setor-ico" style="background:linear-gradient(135deg,#475569,#64748b)">${_acOrgIco()}</div>
-      <div class="ac-setor-nome">Sem organização</div>
-      <div class="ac-setor-sub">${orgless} setor(es)</div></div>`:'';
-  const semSet=_acData.pessoas.filter(p=>!p.setor_id).length;
-  const semSetor=semSet?`<div class="ac-setor-card" style="background:linear-gradient(155deg,rgba(148,163,184,.10),rgba(255,255,255,.02))" onclick="_acOpenSetor(false)">
-      <div class="ac-setor-ico" style="background:linear-gradient(135deg,#475569,#64748b)">${_acSetorIco()}</div>
-      <div class="ac-setor-nome">Sem setor</div>
-      <div class="ac-setor-sub">${semSet} colaborador(es)</div></div>`:'';
+  };
+  let html=orgs.map(bloco).join('');
+  const orglessSet=_acData.setores.filter(s=>!s.organizacao_id);
+  const orglessCol=_acData.pessoas.filter(p=>setorOrg(p)===null);
+  if(orglessSet.length||orglessCol.length) html+=bloco(null);
   body.innerHTML=`
-    <div class="ac-section-h"><h3>Organizações</h3>
-      <button class="ac-btn" style="margin-left:auto" onclick="_acAddOrg()">+ Nova organização</button></div>
-    <div class="ac-setores-grid">${cards}${semOrg}${semSetor}</div>`;
+    <div class="ac-hero">
+      <div>
+        <h2>Colaboradores & Acessos</h2>
+        <div class="ac-sub">${totalColab} colaborador(es) · ${totalAtivos} ativo(s) · ${orgs.length} organização(ões)</div>
+      </div>
+      <div class="ac-hero-actions">
+        <button class="ac-btn ghost lg" onclick="_acAddOrg()">+ Nova organização</button>
+        <button class="ac-btn primary lg" onclick="_acFormColaborador(null,'')">+ Novo colaborador</button>
+      </div>
+    </div>
+    ${html||'<div class="ac-empty">Nenhuma organização ainda. Crie uma para começar.</div>'}`;
 }
 function _acRenderConfiguracoes(){
   const body=document.getElementById('ac-body');
