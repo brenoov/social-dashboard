@@ -1171,6 +1171,18 @@
 #acessos-screen .ac-fcard-share,#acessos-screen .ac-fcard-tog{border:1px solid var(--border);background:var(--surface2);border-radius:7px;cursor:pointer;font-size:12px;padding:3px 8px;color:var(--text);min-width:26px;line-height:1.1}
 #acessos-screen .ac-fcard-share:hover,#acessos-screen .ac-fcard-tog:hover{border-color:var(--accent-mid);color:var(--accent-mid)}
 #acessos-screen .ac-fcard-tog{font-weight:700}
+/* ===== Drive: arvore vertical (cards coloridos, sem scroll lateral) ===== */
+#acessos-screen .ac-vcard{display:inline-flex;align-items:center;gap:9px;max-width:560px;background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--sc,#0d9488);border-radius:10px;padding:7px 11px;box-shadow:var(--shadow-sm);transition:box-shadow .14s ease,transform .14s ease}
+#acessos-screen .ac-vcard:hover{box-shadow:var(--shadow-md);transform:translateX(2px)}
+#acessos-screen .ac-vcard-root{border-left-color:#0d9488;background:linear-gradient(90deg,rgba(13,148,136,.16),var(--surface))}
+#acessos-screen .ac-vc-ico{font-size:15px;line-height:1;flex-shrink:0}
+#acessos-screen .ac-vc-name{font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:600;color:var(--text);min-width:0;overflow-wrap:anywhere;line-height:1.25}
+#acessos-screen .ac-vcard-root .ac-vc-name{font-family:'Playfair Display',serif;font-size:16px;font-weight:700}
+#acessos-screen .ac-vc-sec{font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;flex-shrink:0}
+#acessos-screen .ac-vc-count{font-family:'Oswald',sans-serif;font-size:11px;font-weight:600;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:1px 8px;flex-shrink:0}
+#acessos-screen .ac-vc-share{border:1px solid var(--border);background:var(--surface2);border-radius:7px;cursor:pointer;font-size:12px;padding:3px 8px;color:var(--text);flex-shrink:0;line-height:1.1}
+#acessos-screen .ac-vc-share:hover{border-color:var(--accent-mid);color:var(--accent-mid)}
+@media(max-width:640px){#acessos-screen .ac-vc-sec{display:none}#acessos-screen .ac-vcard{gap:7px;padding:6px 9px}}
 #acessos-screen .ac-folder-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
 #acessos-screen .ac-folder{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:10px;transition:border-color .15s,box-shadow .15s,transform .15s}
 #acessos-screen .ac-folder:hover{border-color:var(--accent-mid);box-shadow:var(--shadow-md);transform:translateY(-2px)}
@@ -9689,26 +9701,26 @@ function _acDriveRenderFlow(){
   const marca=_acDriveMarcas.find(m=>m.id===_acDriveSel);
   const roots=_acDriveBuildTree();
   const brandT={node:{id:'__brand__',name:marca?marca.nome:'Marca'},children:roots,_brand:true};
-  return `<div class="ac-org-wrap"><ul class="ac-org">${_acDriveFlowNode(brandT)}</ul></div>`;
+  return `<ul class="ac-tree ac-tree-root">${_acDriveFlowNode(brandT)}</ul>`;
 }
 function _acDriveFlowNode(t){
   const n=t.node,hasKids=t.children&&t.children.length;
   if(t._brand){
-    return `<li><div class="ac-fcard ac-fcard-root"><div class="ac-fcard-body"><div class="ac-fcard-name">${_acEsc(n.name)}</div><div class="ac-fcard-sec">marca</div></div></div>${hasKids?`<ul>${t.children.map(_acDriveFlowNode).join('')}</ul>`:''}</li>`;
+    return `<li class="ac-tnode"><div class="ac-tn-row"><span class="ac-tn-dot"></span><div class="ac-vcard ac-vcard-root"><span class="ac-vc-ico">🏠</span><span class="ac-vc-name">${_acEsc(n.name)}</span><span class="ac-vc-sec" style="color:#0d9488">marca</span></div></div>${hasKids?`<ul class="ac-tree">${t.children.map(_acDriveFlowNode).join('')}</ul>`:''}</li>`;
   }
   const sec=_acDriveSectorOf(n),col=_acDriveSecColor(sec.key),open=_acDriveFlowOpen[n.id]===true;
-  return `<li>
-    <div class="ac-fcard" style="--sc:${col}" data-id="${_acEsc(n.id)}">
-      <div class="ac-fcard-body">
-        <div class="ac-fcard-name" title="${_acEsc(n.name)}">${_acEsc(n.name)}</div>
-        <div class="ac-fcard-sec" style="color:${col}">${_acEsc(sec.label)}</div>
-        <div class="ac-fcard-acts">
-          <button class="ac-fcard-share" data-drv="share" data-id="${_acEsc(n.id)}" data-name="${_acEsc(n.name)}" title="Compartilhar esta pasta">⤴</button>
-          ${hasKids?`<button class="ac-fcard-tog" data-ftog="${_acEsc(n.id)}" title="${open?'recolher':'expandir'}">${open?'−':'+'+t.children.length}</button>`:''}
-        </div>
+  return `<li class="ac-tnode">
+    <div class="ac-tn-row">
+      ${hasKids?`<button class="ac-tn-tog ${open?'open':''}" data-ftog="${_acEsc(n.id)}" title="${open?'recolher':'expandir'}">▸</button>`:'<span class="ac-tn-dot"></span>'}
+      <div class="ac-vcard" style="--sc:${col}">
+        <span class="ac-vc-ico">📁</span>
+        <span class="ac-vc-name" title="${_acEsc(n.name)}">${_acEsc(n.name)}</span>
+        <span class="ac-vc-sec" style="color:${col}">${_acEsc(sec.label)}</span>
+        ${hasKids?`<span class="ac-vc-count">${t.children.length}</span>`:''}
+        <button class="ac-vc-share" data-drv="share" data-id="${_acEsc(n.id)}" data-name="${_acEsc(n.name)}" title="Compartilhar esta pasta">⤴</button>
       </div>
     </div>
-    ${hasKids&&open?`<ul>${t.children.map(_acDriveFlowNode).join('')}</ul>`:''}
+    ${hasKids&&open?`<ul class="ac-tree">${t.children.map(_acDriveFlowNode).join('')}</ul>`:''}
   </li>`;
 }
 function _acDriveFlowTog(id){_acDriveFlowOpen[id]=!_acDriveFlowOpen[id];_acDriveRepaint();}
