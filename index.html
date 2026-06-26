@@ -9687,6 +9687,7 @@ function _acRenderFicha(id){
         ${c.status==='desligado'?'<span class="ac-pill neutral">desligado</span>':'<span class="ac-pill ok">ativo</span>'}
         <div style="margin-left:auto;display:flex;gap:8px">
           <button class="ac-btn ghost" onclick="_acFormColaborador('${c.id}')">Editar</button>
+          ${c.status==='ativo'?`<button class="ac-btn" onclick="_acProvisionar('${c.id}')">Provisionar acessos</button>`:''}
           ${c.status==='ativo'?`<button class="ac-btn danger" onclick="_acDesligar('${c.id}')">Desligar</button>`:`<button class="ac-btn" onclick="_acReativar('${c.id}')">Reativar</button>`}
           <button class="ac-btn ghost" onclick="document.getElementById('ac-av-file').click()">Trocar foto</button>
           <input id="ac-av-file" type="file" accept="image/*" style="display:none" onchange="_acUploadAvatar('${c.id}',this.files[0])">
@@ -9777,6 +9778,99 @@ async function _acReativar(id){
   if(c.email_corporativo){try{const r=await _acProxy('zoho.reactivate',{email:c.email_corporativo});if(r&&r.ok)extra=' · Zoho reativado';}catch(e){}}
   await _acLog('colaborador.reativar','colab:'+c.nome,'ok',null);
   adminToast('Colaborador reativado'+extra);await loadAcessos();_acOpenPessoa(id);
+}
+async function _acProvisionar(id){
+  const c=_acData.pessoas.find(x=>x.id===id);if(!c)return;
+  const firstName=(c.nome||'').trim().split(/\s+/)[0]||'';
+  const _toks=(c.nome||'').trim().split(/\s+/);
+  const lastName=_toks.length>1?_toks.slice(1).join(' '):'';
+  const _slug=(c.nome||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim().split(/\s+/).filter(Boolean);
+  const emailSugg=_slug.length?_slug[0]+(_slug.length>1?'.'+_slug[_slug.length-1]:'')+'@rbvcompany.com':'';
+  const hasZoho=!!c.email_corporativo;
+  // carrega recursos geridos
+  let odFolders=[];try{const r=await _acProxy('microsoft.folders');odFolders=(r&&r.folders)||[];}catch(e){}
+  let icFolders=[];try{const{data}=await sbClient.from('acessos_recursos').select('id,nome').eq('tipo','icloud').order('nome');icFolders=data||[];}catch(e){}
+  const ov=document.createElement('div');ov.className='ac-modal-ov open';ov.id='ac-prov-ov';
+  ov.innerHTML=`<div class="ac-modal" style="max-width:560px">
+    <h3 style="margin-top:0">Provisionar acessos — ${_acEsc(c.nome)}</h3>
+    <p class="ac-muted" style="margin:.2em 0 1em">Conceda os acessos de entrada deste colaborador. Cada bloco é opcional.</p>
+
+    <div class="ac-kicker" style="display:block;margin-bottom:6px">${_acLogo('zoho')}Caixa de e-mail Zoho</div>
+    ${hasZoho
+      ? `<div class="ac-muted" style="margin-bottom:14px">Já possui: <b>${_acEsc(c.email_corporativo)}</b></div>`
+      : `<label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="ac-prov-zoho-on"> Criar caixa de e-mail</label>
+         <div id="ac-prov-zoho-fields" style="display:none;grid-template-columns:1fr;gap:8px;margin:8px 0 14px">
+           <label>E-mail<input class="ac-input" id="ac-prov-zoho-email" value="${_acEsc(emailSugg)}"></label>
+           <label>Senha inicial<input class="ac-input" type="text" id="ac-prov-zoho-pass" placeholder="senha temporária"></label>
+         </div>`}
+
+    <div class="ac-kicker" style="display:block;margin:6px 0">${_acLogo('ms')}Pastas do OneDrive</div>
+    ${c.email_outlook
+      ? (odFolders.length
+          ? odFolders.map(f=>`<label style="display:flex;align-items:center;gap:8px;margin-top:4px"><input type="checkbox" class="ac-prov-od" data-extid="${_acEsc(f.external_id||'')}" data-nome="${_acEsc(f.nome||'')}"> ${_acEsc(f.nome||'(sem nome)')}<select class="ac-select ac-prov-od-role" style="width:auto;margin-left:auto"><option value="leitura">Leitura</option><option value="edição">Edição</option></select></label>`).join('')
+          : '<div class="ac-muted">Nenhuma pasta sob controle.</div>')
+      : '<div class="ac-pill bad" style="display:inline-block">Sem e-mail Outlook — preencha na ficha para compartilhar.</div>'}
+
+    <div class="ac-kicker" style="display:block;margin:14px 0 6px">${_acLogo('apple')}Acessos iCloud <span class="ac-muted">(registro manual)</span></div>
+    ${c.conta_apple
+      ? (icFolders.length
+          ? icFolders.map(f=>`<label style="display:flex;align-items:center;gap:8px;margin-top:4px"><input type="checkbox" class="ac-prov-ic" data-id="${_acEsc(f.id)}" data-nome="${_acEsc(f.nome||'')}"> ${_acEsc(f.nome||'(sem nome)')}<select class="ac-select ac-prov-ic-role" style="width:auto;margin-left:auto"><option value="leitura">Leitura</option><option value="edicao">Edição</option></select></label>`).join('')
+          : '<div class="ac-muted">Nenhuma pasta iCloud cadastrada.</div>')
+      : '<div class="ac-pill bad" style="display:inline-block">Sem conta Apple — preencha na ficha.</div>'}
+
+    <div style="margin-top:18px;display:flex;gap:8px;justify-content:flex-end">
+      <button class="ac-btn ghost" id="ac-prov-cancel">Cancelar</button>
+      <button class="ac-btn" id="ac-prov-ok">Provisionar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close=()=>ov.remove();
+  ov.addEventListener('click',e=>{if(e.target===ov)close();});
+  ov.querySelector('#ac-prov-cancel').onclick=close;
+  const zohoChk=ov.querySelector('#ac-prov-zoho-on');
+  if(zohoChk)zohoChk.addEventListener('change',()=>{const f=ov.querySelector('#ac-prov-zoho-fields');if(f)f.style.display=zohoChk.checked?'grid':'none';});
+  ov.querySelector('#ac-prov-ok').onclick=async()=>{
+    const zohoOn=!hasZoho&&zohoChk&&zohoChk.checked;
+    const odBoxes=[...ov.querySelectorAll('.ac-prov-od:checked')];
+    const icBoxes=[...ov.querySelectorAll('.ac-prov-ic:checked')];
+    if(!zohoOn&&!odBoxes.length&&!icBoxes.length){adminToast('Selecione ao menos um acesso',false);return;}
+    const okBtn=ov.querySelector('#ac-prov-ok');okBtn.disabled=true;okBtn.textContent='Provisionando…';
+    const resumo=[];
+    if(zohoOn){
+      const email=(ov.querySelector('#ac-prov-zoho-email').value||'').trim();
+      const password=ov.querySelector('#ac-prov-zoho-pass').value||'';
+      if(!email||!password){adminToast('Preencha e-mail e senha da caixa Zoho',false);okBtn.disabled=false;okBtn.textContent='Provisionar';return;}
+      try{
+        const r=await _acProxy('zoho.create',{email,password,firstName,lastName});
+        if(r&&r.ok){
+          await sbClient.from('acessos_pessoas').update({email_corporativo:email,zoho_account_id:r.accountId||null,atualizado_em:new Date().toISOString()}).eq('id',id);
+          await _acLog('colaborador.provisionar.zoho','colab:'+c.nome,'ok',email);
+          resumo.push('Zoho criado: '+email);
+        }else{resumo.push('Zoho falhou'+(r&&(r.detalhe||r.error)?' ('+(r.detalhe||r.error)+')':''));}
+      }catch(e){
+        if(e.message==='acao_desconhecida'){resumo.push('Zoho: proxy v8 ainda não publicado — caixa NÃO criada');}
+        else{resumo.push('Zoho falhou ('+e.message+')');}
+      }
+    }
+    let odOk=0;
+    for(const b of odBoxes){
+      const itemId=b.dataset.extid;const rs=b.parentElement.querySelector('.ac-prov-od-role');const role=rs?rs.value:'leitura';
+      if(!itemId)continue;
+      try{const r=await _acProxy('microsoft.share',{itemId,email:c.email_outlook,role});if(r&&!r.error)odOk++;}catch(e){}
+    }
+    if(odBoxes.length){resumo.push('OneDrive: '+odOk+'/'+odBoxes.length+' pasta(s)');await _acLog('colaborador.provisionar.onedrive','colab:'+c.nome,odOk===odBoxes.length?'ok':'parcial',odOk+'/'+odBoxes.length);}
+    let icOk=0;const icNomes=[];
+    for(const b of icBoxes){
+      const recurso_id=b.dataset.id;const rs=b.parentElement.querySelector('.ac-prov-ic-role');const papel=rs?rs.value:'leitura';
+      if(!recurso_id)continue;
+      try{const{error}=await sbClient.from('acessos_vinculos').insert({recurso_id,pessoa_id:id,papel,estado:'pendente'});if(!error){icOk++;icNomes.push(b.dataset.nome||'');}}catch(e){}
+    }
+    if(icBoxes.length){resumo.push('iCloud: '+icOk+' acesso(s) registrado(s)');await _acLog('colaborador.provisionar.icloud','colab:'+c.nome,'ok',String(icOk));}
+    close();
+    adminToast('Provisionado — '+resumo.join(' · '));
+    if(icNomes.filter(Boolean).length){setTimeout(()=>adminToast('iCloud (manual): compartilhe na Apple → '+icNomes.filter(Boolean).join(', '),false),1300);}
+    await loadAcessos();_acOpenPessoa(id);
+  };
 }
 async function _acUploadAvatar(pessoaId,file){
   if(!file)return;

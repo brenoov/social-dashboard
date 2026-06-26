@@ -595,6 +595,80 @@ async function actZohoSetUser(sb: any, email: string | null, mode: string) {
   }
 }
 
+// Create a new Zoho mailbox (onboarding).
+// CONFIRMED live (June 2026): POST https://mail.zoho<dc>/api/organization/accounts (zoid-less)
+//   body { primaryEmailAddress, password, firstName, lastName, role:'member' }
+//   -> 200 with { status:{ code:201, description:'Created' }, data:{ accountId, zuid, ... } }
+async function actZohoCreate(sb: any, args: any) {
+  try {
+    const email = (args.email || "").trim();
+    const password = args.password || "";
+    if (!email || !password) return json({ error: "email_e_senha_obrigatorios" });
+
+    const conn = await readZohoConn(sb);
+    if (!conn.refresh_token) return json({ error: "nao_conectado" });
+
+    const access = await freshAccessToken(conn);
+    const dc = dcSuffix(conn.data_center);
+    const base = `https://mail.zoho${dc}/api/organization/accounts`;
+
+    const resp = await fetch(base, {
+      method: "POST",
+      headers: {
+        Authorization: "Zoho-oauthtoken " + access,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        primaryEmailAddress: email,
+        password,
+        firstName: args.firstName || "",
+        lastName: args.lastName || "",
+        role: "member",
+      }),
+    });
+
+    const raw = await resp.text();
+    let parsed: any = null;
+    try {
+      parsed = raw ? JSON.parse(raw) : null;
+    } catch {
+      parsed = null;
+    }
+
+    const ok = resp.ok && (parsed?.status?.code === 201 || parsed?.status?.code === 200);
+    if (ok) {
+      const d = parsed?.data || {};
+      try {
+        await sb.from("acessos_log").insert({
+          quem: null,
+          acao: "zoho.create",
+          provedor: "zoho",
+          alvo: email,
+          resultado: "ok",
+          detalhe: JSON.stringify({ accountId: d.accountId ? String(d.accountId) : null, zuid: d.zuid ? String(d.zuid) : null }),
+        });
+      } catch (e) {
+        console.warn("[acessos-proxy] log zoho.create falhou", e instanceof Error ? e.message : e);
+      }
+      return json({
+        ok: true,
+        email,
+        accountId: d.accountId ? String(d.accountId) : null,
+        zuid: d.zuid ? String(d.zuid) : null,
+      });
+    }
+
+    console.error("[acessos-proxy] zoho.create falhou", resp.status, raw.slice(0, 800));
+    return json({
+      error: "zoho_create_falhou",
+      detalhe: parsed?.data?.moreInfo || ("http " + resp.status),
+    });
+  } catch (e) {
+    console.error("[acessos-proxy] zoho.create erro", e instanceof Error ? e.message : e);
+    return json({ error: "zoho_create_falhou", detalhe: e instanceof Error ? e.message : String(e) });
+  }
+}
+
 // ---- Microsoft OneDrive actions ----
 
 async function msStatus(sb: any) {
@@ -944,6 +1018,8 @@ Deno.serve(async (req: Request) => {
         return await actZohoSetUser(sb, body.email, "disableUser");
       case "zoho.reactivate":
         return await actZohoSetUser(sb, body.email, "enableUser");
+      case "zoho.create":
+        return await actZohoCreate(sb, body);
       case "microsoft.status":
         return await msStatus(sb);
       case "microsoft.authUrl":
