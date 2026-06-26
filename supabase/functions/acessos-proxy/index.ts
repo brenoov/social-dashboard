@@ -805,15 +805,18 @@ async function msShare(
   if (!conn.refresh_token) return json({ error: "nao_conectado" });
   const access = await freshMsToken(conn);
   const graphRole = role === "edição" ? "write" : "read";
-  // VERIFIED invite body (Microsoft Learn driveItem:invite). sendInvitation:false so no
-  // email is sent (we manage access programmatically); requireSignIn:true forces auth.
+  // VERIFIED invite body (Microsoft Learn driveItem:invite). sendInvitation:TRUE so the
+  // recipient actually RECEIVES an email with a working link. (sendInvitation:false criava uma
+  // permissão de LINK sem URL entregue → a pessoa não recebia nada e não via em "Compartilhado
+  // comigo".) requireSignIn:true força login na conta convidada.
   const r = await graphFetch(access, `/me/drive/items/${encodeURIComponent(itemId)}/invite`, {
     method: "POST",
     body: {
       recipients: [{ email }],
       roles: [graphRole],
       requireSignIn: true,
-      sendInvitation: false,
+      sendInvitation: true,
+      message: "Você recebeu acesso a uma pasta compartilhada da RBV. Entre com sua conta Microsoft para acessar.",
     },
   });
   if (!r.ok) {
