@@ -364,6 +364,20 @@ function parsePermIdentity(p: any): { name: string; email: string } {
   if (!id && p?.invitation?.email) {
     id = { name: p.invitation.invitedBy?.user?.displayName || "", email: String(p.invitation.email) };
   }
+  // Consumer OneDrive: acessos DIRETOS (membership) vêm como permissão de "link" com
+  // grantedTo* VAZIO — o e-mail está codificado no id (base64 de "i:0#.f|membership|<email>").
+  // Sem isso a Auditoria perdia quem tem acesso direto.
+  if (!id || !id.email) {
+    try {
+      const dec = atob(String(p?.id || ""));
+      const k = "|membership|";
+      const i = dec.indexOf(k);
+      if (i >= 0) {
+        const email = dec.slice(i + k.length).trim();
+        if (email && email.includes("@")) id = { name: (id && id.name) || "", email };
+      }
+    } catch (_) { /* id não é base64 */ }
+  }
   if (!id && p?.link) {
     // Sharing link with no specific identity.
     id = { name: p.link.scope ? `Link (${p.link.scope})` : "Link de compartilhamento", email: "" };
