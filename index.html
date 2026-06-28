@@ -9750,10 +9750,11 @@ function _acDriveFlowNode(t){
 function _acDriveFlowTog(id){_acDriveFlowOpen[id]=!_acDriveFlowOpen[id];_acDriveRepaint();}
 // Seletor de colaboradores AGRUPADO POR SETOR + busca (reusado nos modais de compartilhar).
 function _acColabPicker(cbClass){
-  const ativos=(_acData.pessoas||[]).filter(p=>p.status==='ativo'&&p.email_outlook);
+  const D=_acData||{};
+  const ativos=(D.pessoas||[]).filter(p=>p&&p.status==='ativo'&&p.email_outlook);
   if(!ativos.length)return '<div class="ac-muted" style="padding:10px">Nenhum colaborador ativo com e-mail Outlook.</div>';
   const groups={};
-  ativos.forEach(p=>{const s=p.setor_id?(_acData.setores.find(x=>x.id===p.setor_id)||{}).nome:null;const key=s||'Sem setor';(groups[key]=groups[key]||[]).push(p);});
+  ativos.forEach(p=>{const s=p.setor_id?(((D.setores||[]).find(x=>x.id===p.setor_id))||{}).nome:null;const key=s||'Sem setor';(groups[key]=groups[key]||[]).push(p);});
   const order=Object.keys(groups).sort((a,b)=>a==='Sem setor'?1:(b==='Sem setor'?-1:a.localeCompare(b)));
   return `<div class="ac-pickwrap">
     <input class="ac-input ac-pick-search" placeholder="🔎 buscar colaborador…" oninput="_acPickFilter(this)">
@@ -9905,7 +9906,7 @@ async function _acDriveLiberarSetor(key){
       <button class="ac-btn primary" id="ac-lib-go">Liberar ${folders.length} pasta(s)</button>
     </div>
   </div>`;
-  document.body.appendChild(ov);const close=()=>ov.remove();
+  (document.getElementById('acessos-screen')||document.body).appendChild(ov);const close=()=>ov.remove();
   ov.addEventListener('click',e=>{if(e.target===ov)close();});
   ov.querySelector('#ac-lib-x').onclick=close;
   ov.querySelector('#ac-lib-go').onclick=async()=>{
@@ -9928,7 +9929,7 @@ async function _acDriveAddMarca(){
   ov.innerHTML=`<div class="ac-modal" style="max-width:560px"><div class="ac-section-h" style="border:none"><h3 style="margin:0">Adicionar marca</h3><button class="ac-btn ghost" id="x" style="margin-left:auto">Fechar</button></div>
     <p class="ac-muted" style="margin:.2em 0 1em">Escolha a pasta-raiz da marca no seu OneDrive.</p>
     <div style="max-height:60vh;overflow:auto">${folders.map(f=>`<div class="ac-row"><div class="grow">📁 ${_acEsc(f.name)}${f.childCount?' <span class="ac-muted">('+f.childCount+')</span>':''}</div><button class="ac-btn" data-add data-id="${_acEsc(f.id)}" data-name="${_acEsc(f.name)}">Adicionar</button></div>`).join('')||'<div class="ac-muted">Nenhuma pasta na raiz.</div>'}</div></div>`;
-  document.body.appendChild(ov);const close=()=>ov.remove();
+  (document.getElementById('acessos-screen')||document.body).appendChild(ov);const close=()=>ov.remove();
   ov.addEventListener('click',e=>{if(e.target===ov)close();});
   ov.querySelector('#x').onclick=close;
   ov.querySelectorAll('button[data-add]').forEach(b=>b.addEventListener('click',async()=>{
@@ -9949,12 +9950,13 @@ async function _acDriveDelMarca(id){
 async function _acDriveShare(itemId,name){
   let shares=[];try{const r=await _acProxy('microsoft.shares',{itemId});shares=(r&&r.shares)||[];}catch(e){}
   const ov=document.createElement('div');ov.className='ac-modal-ov open';ov.id='ac-drv-share';
+  let _picker;try{_picker=_acColabPicker('ac-drv-cb');}catch(err){console.error('[acessos] picker erro',err);adminToast('ERRO no painel: '+((err&&err.message)||err),false);_picker='<div class="ac-card" style="color:#f87171">Falha ao montar a lista de colaboradores: '+_acEsc((err&&err.message)||String(err))+'</div>';}
   ov.innerHTML=`<div class="ac-modal ac-modal-lg">
     <div class="ac-modal-head"><h3 style="margin:0">Compartilhar — ${_acEsc(name)}</h3><button class="ac-btn ghost" id="ac-drv-x">Fechar</button></div>
     <div class="ac-modal-body">
       ${shares.length?`<div class="ac-kicker" style="display:block;margin:0 0 6px">Quem já tem acesso</div><div style="margin-bottom:16px">${shares.map(s=>`<div class="ac-row"><div class="grow">${_acEsc(s.name||s.email||'—')}${(s.email&&s.name)?' <span class="ac-muted">'+_acEsc(s.email)+'</span>':''} <span class="ac-pill ${s.role==='edição'?'warn':'ok'}">${_acEsc(s.role)}</span></div><button class="ac-btn danger" data-uns data-perm="${_acEsc(s.permId)}">Remover</button></div>`).join('')}</div>`:''}
       <div class="ac-kicker" style="display:block;margin:0 0 6px">Adicionar colaboradores</div>
-      ${_acColabPicker('ac-drv-cb')}
+      ${_picker}
     </div>
     <div class="ac-modal-foot">
       <span class="ac-pick-count">0 selecionados</span>
@@ -9963,7 +9965,7 @@ async function _acDriveShare(itemId,name){
       <button class="ac-btn primary" id="ac-drv-go">Compartilhar</button>
     </div>
   </div>`;
-  document.body.appendChild(ov);const close=()=>ov.remove();
+  (document.getElementById('acessos-screen')||document.body).appendChild(ov);const close=()=>ov.remove();
   ov.addEventListener('click',e=>{if(e.target===ov)close();});
   ov.querySelector('#ac-drv-x').onclick=close;
   ov.querySelectorAll('button[data-uns]').forEach(b=>b.addEventListener('click',async()=>{
@@ -11661,7 +11663,7 @@ function setHomeBgTheme(type){
 <div id="acessos-screen">
   <div class="ac-topbar">
     <button class="ac-back" onclick="closeAcessos()">← Central</button>
-    <div class="ac-title">Colaboradores e Acessos <span style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:.5px;color:#0d9488;background:rgba(13,148,136,.14);padding:2px 8px;border-radius:999px;vertical-align:middle;margin-left:6px">build 0628·C</span></div>
+    <div class="ac-title">Colaboradores e Acessos <span style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:.5px;color:#0d9488;background:rgba(13,148,136,.14);padding:2px 8px;border-radius:999px;vertical-align:middle;margin-left:6px">build 0628·D</span></div>
   </div>
   <div class="ac-navbar">
     <div class="ac-tabs">
