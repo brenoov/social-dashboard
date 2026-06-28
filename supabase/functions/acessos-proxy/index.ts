@@ -924,6 +924,55 @@ async function actShareMany(sb: any, quem: string | null, items: unknown, emails
   return json({ ok, fail, ops, truncated });
 }
 
+// Varredura COMPLETA: percorre a árvore de CADA marca (acessos_drive_marcas) e coleta os
+// acessos DEFINIDOS (não herdados) em cada pasta — pega todo mundo, em qualquer marca/pasta,
+// sem depender de acessos_recursos. Bounded por profundidade + teto de chamadas.
+async function actAccessScan(sb: any, maxDepth: unknown) {
+  const conn = await readMsConn(sb);
+  if (!conn.refresh_token) return json({ error: "nao_conectado" });
+  const access = await freshMsToken(conn);
+  const depth = Math.max(1, Math.min(5, Number(maxDepth) || 2));
+  const CALL_CAP = 900;
+  let calls = 0;
+  let truncated = false;
+  const items: Array<{ email: string; name: string; role: string; marca: string; pasta: string }> = [];
+
+  const { data: marcas } = await sb.from("acessos_drive_marcas").select("nome, external_id").order("ordem");
+  for (const m of (marcas ?? [])) {
+    if (!m.external_id) continue;
+    let frontier: Array<{ id: string; name: string }> = [{ id: m.external_id, name: m.nome }];
+    for (let d = 0; d <= depth && frontier.length; d++) {
+      const next: Array<{ id: string; name: string }> = [];
+      for (const node of frontier) {
+        if (calls >= CALL_CAP) { truncated = true; break; }
+        calls++;
+        const pr = await graphFetch(access, `/me/drive/items/${encodeURIComponent(node.id)}/permissions`);
+        if (pr.ok) {
+          for (const p of (Array.isArray(pr.json?.value) ? pr.json.value : [])) {
+            if (Array.isArray(p?.roles) && p.roles.includes("owner")) continue;
+            if (p?.inheritedFrom) continue; // só o grant DEFINIDO aqui (evita duplicar herdados)
+            const ident = parsePermIdentity(p);
+            if (!ident.email) continue;
+            const role = (Array.isArray(p?.roles) && p.roles.includes("write")) ? "edição" : "leitura";
+            items.push({ email: ident.email.toLowerCase(), name: ident.name, role, marca: m.nome, pasta: node.name });
+          }
+        }
+        if (d < depth && calls < CALL_CAP) {
+          calls++;
+          const cr = await graphFetch(access, `/me/drive/items/${encodeURIComponent(node.id)}/children?$top=200&$select=id,name,folder`);
+          if (cr.ok) {
+            for (const k of (Array.isArray(cr.json?.value) ? cr.json.value : [])) {
+              if (k && k.folder != null) next.push({ id: String(k.id), name: String(k.name ?? "") });
+            }
+          }
+        }
+      }
+      frontier = next;
+    }
+  }
+  return json({ items, truncated, depth });
+}
+
 async function actAllShares(sb: any) {
   const conn = await readMsConn(sb);
   if (!conn.refresh_token) return json({ error: "nao_conectado" });
@@ -933,6 +982,21 @@ async function actAllShares(sb: any) {
     .from("acessos_recursos")
     .select("id, nome, external_id")
     .eq("tipo", "onedrive");
+  const { data: marcas } = await sb
+    .from("acessos_drive_marcas")
+    .select("id, nome, external_id");
+
+  // Varre as RAÍZES das marcas + as pastas registradas (dedup por external_id). Barato e cobre
+  // o acesso por pessoa concedido no topo de cada marca (ex.: Moto Easy Brasil) que não estava
+  // em acessos_recursos.
+  const folders: Array<{ id: string; nome: string; external_id: string }> = [];
+  const seen = new Set<string>();
+  for (const m of (marcas ?? [])) {
+    if (m.external_id && !seen.has(m.external_id)) { seen.add(m.external_id); folders.push({ id: String(m.id), nome: m.nome, external_id: m.external_id }); }
+  }
+  for (const r of (recursos ?? [])) {
+    if (r.external_id && !seen.has(r.external_id)) { seen.add(r.external_id); folders.push({ id: String(r.id), nome: r.nome, external_id: r.external_id }); }
+  }
 
   const items: Array<{
     recursoId: string;
@@ -942,7 +1006,7 @@ async function actAllShares(sb: any) {
     role: string;
   }> = [];
 
-  for (const recurso of (recursos ?? [])) {
+  for (const recurso of folders) {
     if (!recurso.external_id) continue;
     try {
       const r = await graphFetch(
@@ -1138,6 +1202,8 @@ Deno.serve(async (req: Request) => {
         return await msRemoveFolder(sb, user.id, body?.recursoId);
       case "microsoft.shares":
         return await msShares(sb, body?.itemId);
+      case "microsoft.accessScan":
+        return await actAccessScan(sb, body?.depth);
       case "microsoft.allShares":
         return await actAllShares(sb);
       case "microsoft.share":
