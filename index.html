@@ -1268,6 +1268,55 @@
   #noticias-screen::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:5;opacity:.04;mix-blend-mode:multiply;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
   /* Tema escuro do Observatório (segue o tema do app) */
   [data-theme="dark"] #noticias-screen{--ink:#ece7dc;--paper:#14130e;--paper2:#211d16;--np-line:#ece7dc;--np-muted:#9a9285;--np-rule:rgba(255,255,255,.13);}
+  /* ===== Panorama do Mercado ===== */
+  #noticias-screen .np-tab-pano{font-weight:800}
+  #noticias-screen .np-pcover{position:relative;border:1px solid var(--np-rule);border-radius:4px;padding:36px 24px;text-align:center;background:var(--paper2);margin-bottom:24px}
+  #noticias-screen .np-pcover-over{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--np-muted)}
+  #noticias-screen .np-pcover-title{font-family:'Playfair Display',serif;font-weight:900;font-size:clamp(30px,6vw,54px);line-height:1.02;color:var(--ink);margin:6px 0 4px;letter-spacing:-.02em}
+  #noticias-screen .np-pcover-sub{font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--np-muted);letter-spacing:.5px}
+  #noticias-screen .np-pstats{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:20px}
+  #noticias-screen .np-pstat{display:flex;flex-direction:column;align-items:center;min-width:82px;padding:10px 14px;border:1px solid var(--np-rule);border-radius:4px;background:var(--paper)}
+  #noticias-screen .np-pstat b{font-family:'Playfair Display',serif;font-size:24px;color:var(--ink);line-height:1}
+  #noticias-screen .np-pstat span{font-family:'IBM Plex Sans',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--np-muted);margin-top:4px}
+  #noticias-screen .np-prule{font-family:'Oswald',sans-serif;font-weight:600;font-size:14px;letter-spacing:2px;text-transform:uppercase;color:var(--ink);margin:30px 0 14px;padding-bottom:8px;border-bottom:2px solid var(--ink);display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  #noticias-screen .np-prule small{font-family:'IBM Plex Sans',sans-serif;font-weight:400;font-size:11px;letter-spacing:.3px;text-transform:none;color:var(--np-muted)}
+  #noticias-screen .np-pdest{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+  #noticias-screen .np-pcard{display:flex;flex-direction:column;text-align:left;border:1px solid var(--np-rule);border-radius:4px;overflow:hidden;background:var(--paper);cursor:pointer;padding:0;transition:transform .15s ease,box-shadow .15s ease}
+  #noticias-screen .np-pcard:hover{transform:translateY(-3px);box-shadow:0 14px 30px -16px rgba(0,0,0,.5)}
+  #noticias-screen .np-pcard-img{width:100%;height:148px;object-fit:cover;display:block;background:var(--paper2)}
+  #noticias-screen .np-pcard-noimg{background:linear-gradient(135deg,var(--paper2),var(--np-rule));min-height:148px}
+  #noticias-screen .np-pcard-body{padding:12px 14px;display:flex;flex-direction:column;gap:7px}
+  #noticias-screen .np-pcard-tag{align-self:flex-start;color:#fff;font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:3px 9px;border-radius:999px}
+  #noticias-screen .np-pcard-marca{display:flex;align-items:center;gap:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--np-muted)}
+  #noticias-screen .np-pcard-marca img{height:15px;width:auto;object-fit:contain}
+  #noticias-screen .np-pcard-title{font-family:'Playfair Display',serif;font-size:15px;font-weight:600;color:var(--ink);line-height:1.25}
+  #noticias-screen .np-ptrends{display:flex;flex-wrap:wrap;gap:9px}
+  #noticias-screen .np-ptrend{display:inline-flex;align-items:baseline;gap:7px;padding:7px 13px;border:1px solid var(--np-rule);border-radius:999px;background:var(--paper)}
+  #noticias-screen .np-ptrend b{font-family:'Playfair Display',serif;font-size:15px;color:var(--ink);text-transform:capitalize}
+  #noticias-screen .np-ptrend i{font-family:'IBM Plex Sans',sans-serif;font-style:normal;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#c2410c}
+  #noticias-screen .np-ptemas{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
+  #noticias-screen .np-ptema{border:1px solid var(--np-rule);border-radius:4px;background:var(--paper);overflow:hidden}
+  #noticias-screen .np-ptema-h{font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--ink);padding:12px 14px;border-bottom:1px solid var(--np-rule);display:flex;align-items:center;gap:8px}
+  #noticias-screen .np-ptema-h i{font-family:'IBM Plex Sans',sans-serif;font-style:normal;font-weight:400;font-size:10px;letter-spacing:.3px;text-transform:none;color:var(--np-muted);margin-left:auto}
+  #noticias-screen .np-ptema-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+  #noticias-screen .np-ptema-list{max-height:340px;overflow:auto}
+  #noticias-screen .np-prow{display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:9px 14px;border:none;border-bottom:1px solid var(--np-rule);background:none;cursor:pointer}
+  #noticias-screen .np-prow:last-child{border-bottom:none}
+  #noticias-screen .np-prow:hover{background:var(--paper2)}
+  #noticias-screen .np-prow-thumb{width:46px;height:46px;border-radius:3px;object-fit:cover;flex-shrink:0;background:var(--paper2)}
+  #noticias-screen .np-prow-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+  #noticias-screen .np-prow-txt b{font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--np-muted)}
+  #noticias-screen .np-prow-txt span{font-family:'Playfair Display',serif;font-size:13.5px;color:var(--ink);line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #noticias-screen .np-pmap{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+  #noticias-screen .np-pmapcard{text-align:left;border:1px solid var(--np-rule);border-radius:4px;background:var(--paper);padding:13px 14px;cursor:pointer;display:flex;flex-direction:column;gap:9px}
+  #noticias-screen .np-pmapcard:hover{border-color:var(--ink)}
+  #noticias-screen .np-pmap-h{display:flex;align-items:center;gap:8px}
+  #noticias-screen .np-pmap-h img{height:18px;width:auto;object-fit:contain}
+  #noticias-screen .np-pmap-h b{font-family:'Playfair Display',serif;font-size:15px;color:var(--ink)}
+  #noticias-screen .np-pmap-h i{font-family:'Oswald',sans-serif;font-style:normal;margin-left:auto;font-size:13px;color:var(--np-muted);font-variant-numeric:tabular-nums}
+  #noticias-screen .np-pmap-tags{display:flex;flex-wrap:wrap;gap:5px}
+  #noticias-screen .np-pmap-tag{font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;padding:2px 7px;border-radius:999px;color:var(--tc);border:1px solid var(--tc)}
+  @media(max-width:640px){#noticias-screen .np-pdest,#noticias-screen .np-ptemas,#noticias-screen .np-pmap{grid-template-columns:1fr}}
   [data-theme="dark"] .np-gallery{background:#1b1812;border-color:rgba(255,255,255,.10);}
   [data-theme="dark"] .np-prod-imgwrap{background:#0c0b08;}
   [data-theme="dark"] .np-art-resumo,[data-theme="dark"] .np-gallery-resumo{color:#cfc8ba;}
@@ -10764,9 +10813,14 @@ async function loadNoticias(){
 function _npRenderTabs(){
   const marcas=[...new Set(_npData.map(n=>n.marca))];
   marcas.sort((a,b)=>{const ia=NP_ORDER.indexOf(a),ib=NP_ORDER.indexOf(b);return(ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);});
-  if(!_npTab||!marcas.includes(_npTab))_npTab=marcas[0]||null;
+  if(!_npTab||(!marcas.includes(_npTab)&&_npTab!=='__pano__'))_npTab='__pano__';
   const tabsEl=document.getElementById('np-tabs');
   tabsEl.textContent='';
+  const pano=document.createElement('button');
+  pano.className='np-tab np-tab-pano'+(_npTab==='__pano__'?' active':'');
+  pano.innerHTML='★ Panorama do Mercado';
+  pano.onclick=()=>{_npTab='__pano__';_npRenderTabs();const sc=document.getElementById('noticias-screen');if(sc)sc.scrollIntoView({block:'start'});window.scrollTo({top:0,behavior:'smooth'});};
+  tabsEl.appendChild(pano);
   marcas.forEach(m=>{
     const n=_npData.filter(x=>x.marca===m).length;
     const b=document.createElement('button');
@@ -10795,8 +10849,63 @@ function _npToggleBrandMenu(marcas){
   m.querySelectorAll('.np-brandmenu-item').forEach(btn=>btn.onclick=()=>{_npTab=btn.getAttribute('data-m');m.classList.remove('open');_npRenderTabs();window.scrollTo({top:0,behavior:'smooth'});});
   m.classList.toggle('open');
 }
+function _npGoMarca(m){_npTab=m;_npRenderTabs();const sc=document.getElementById('noticias-screen');if(sc)sc.scrollIntoView({block:'start'});window.scrollTo({top:0,behavior:'smooth'});}
+function _npRenderPanorama(){
+  const body=document.getElementById('np-body');
+  const ed=_npData.filter(n=>n.rodada===_npRod&&!_npIsResumo(n.categoria));
+  if(!ed.length){body.innerHTML='<div class="np-empty"><h3>Sem dados nesta edição</h3></div>';return;}
+  const norm=_npNorm;
+  const marcas=[...new Set(ed.map(n=>n.marca))];
+  const has=(n,...ks)=>{const c=norm(n.categoria);return ks.some(k=>c.includes(k));};
+  const campanhas=ed.filter(n=>has(n,'campanha'));
+  const lancamentos=ed.filter(n=>has(n,'lancamento'));
+  const expansao=ed.filter(n=>has(n,'expansao'));
+  const promoRe=/(descont|promo|oferta|liquida|outlet|cupom|frete\s*gr|\bsale\b|black\s*fri|%|\boff\b|parcel)/i;
+  const promos=ed.filter(n=>promoRe.test((n.titulo||'')+' '+(n.resumo||'')));
+  const comImg=ed.filter(n=>_npImg(n.imagem_url));
+  const dest=(ed.filter(n=>n.destaque&&_npImg(n.imagem_url)).concat(comImg)).filter((v,i,a)=>a.indexOf(v)===i).slice(0,14);
+  // tendências em comum (termo -> nº de marcas distintas)
+  const brandWords=new Set(marcas.flatMap(m=>norm(m).split(/[^a-z0-9]+/)).filter(Boolean));
+  const stop=new Set('para com uma que dos das nos nas por sua seu suas seus mais como ano anos edicao colecao colecoes marca marcas loja lojas novo nova novos novas the and de da do em no na os as um uns sao esta estao entre sobre apos pela pelo este esta esse essa isso aqui produto produtos sapato sapatos calcado calcados moda fashion brasil brasileira semana mes dia dias cada todo toda todos todas ser ter mil www http https instagram reels post posts video videos foto fotos mais sem nova novo'.split(/\s+/));
+  const tm={};
+  ed.forEach(n=>{const t=(n.titulo+' '+(n.resumo||'')).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');t.split(/[^a-z0-9]+/).forEach(w=>{if(w.length<4||stop.has(w)||brandWords.has(w)||/^\d+$/.test(w))return;(tm[w]=tm[w]||new Set()).add(n.marca);});});
+  const tend=Object.entries(tm).map(([w,s])=>[w,s.size]).filter(x=>x[1]>=3).sort((a,b)=>b[1]-a[1]).slice(0,16);
+  const stat=(n,l)=>'<div class="np-pstat"><b>'+n+'</b><span>'+l+'</span></div>';
+  const card=n=>{const img=_npImg(n.imagem_url),col=_npCatColor(n.categoria);
+    return '<button class="np-pcard" data-pm="'+_npEsc(n.marca)+'">'
+      +(img?'<img class="np-pcard-img" src="'+img+'" alt="" loading="lazy" onerror="this.remove()">':'<span class="np-pcard-img np-pcard-noimg"></span>')
+      +'<span class="np-pcard-body"><span class="np-pcard-tag" style="background:'+col+'">'+_npEsc(n.categoria)+'</span>'
+      +'<span class="np-pcard-marca">'+(_npLogo(n.marca)?'<img src="'+_npLogo(n.marca)+'" alt="" onerror="this.remove()">':'')+_npEsc(n.marca)+'</span>'
+      +'<span class="np-pcard-title">'+_npEsc(n.titulo)+'</span></span></button>';};
+  const tema=(titulo,arr,cor)=>{if(!arr.length)return '';
+    const ms=[...new Set(arr.map(n=>n.marca))];
+    return '<div class="np-ptema"><div class="np-ptema-h"><span class="np-ptema-dot" style="background:'+cor+'"></span>'+_npEsc(titulo)+' <i>'+arr.length+' itens · '+ms.length+' marcas</i></div>'
+      +'<div class="np-ptema-list">'+arr.slice(0,18).map(n=>{const img=_npImg(n.imagem_url);
+        return '<button class="np-prow" data-pm="'+_npEsc(n.marca)+'">'
+          +(img?'<img class="np-prow-thumb" src="'+img+'" alt="" loading="lazy" onerror="this.remove()">':'<span class="np-prow-thumb np-pcard-noimg"></span>')
+          +'<span class="np-prow-txt"><b>'+_npEsc(n.marca)+'</b><span>'+_npEsc(n.titulo)+'</span></span></button>';}).join('')+'</div></div>';};
+  let html='<div class="np-pcover"><div class="np-pcover-over">Observatório de Mercado · RBV</div>'
+    +'<h1 class="np-pcover-title">Panorama do Mercado</h1>'
+    +'<div class="np-pcover-sub">'+marcas.length+' marcas observadas · Edição '+(_npRod?_npFmtDate(_npRod):'')+'</div>'
+    +'<div class="np-pstats">'+stat(campanhas.length,'campanhas')+stat(lancamentos.length,'lançamentos')+stat(promos.length,'ações promo.')+stat(expansao.length,'expansões')+stat(marcas.length,'marcas')+'</div></div>';
+  if(dest.length)html+='<div class="np-prule">Destaques da edição</div><div class="np-pdest">'+dest.map(card).join('')+'</div>';
+  if(tend.length)html+='<div class="np-prule">Tendências em comum <small>o que várias marcas estão fazendo ao mesmo tempo</small></div><div class="np-ptrends">'+tend.map(([w,c])=>'<span class="np-ptrend"><b>'+_npEsc(w)+'</b><i>'+c+' marcas</i></span>').join('')+'</div>';
+  html+='<div class="np-prule">O que está acontecendo, por tema</div><div class="np-ptemas">'
+    +tema('Campanhas no ar',campanhas,_npCatColor('campanha'))
+    +tema('Ações promocionais',promos,'#c81d25')
+    +tema('Lançamentos',lancamentos,_npCatColor('lancamento'))
+    +tema('Expansão',expansao,_npCatColor('expansao'))+'</div>';
+  html+='<div class="np-prule">Mapa por marca <small>clique para abrir</small></div><div class="np-pmap">'
+    +marcas.slice().sort((a,b)=>{const ia=NP_ORDER.indexOf(a),ib=NP_ORDER.indexOf(b);return(ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);}).map(m=>{
+      const mine=ed.filter(n=>n.marca===m);const tags=[...new Set(mine.map(n=>n.categoria))];
+      return '<button class="np-pmapcard" data-pm="'+_npEsc(m)+'"><span class="np-pmap-h">'+(_npLogo(m)?'<img src="'+_npLogo(m)+'" alt="" onerror="this.remove()">':'')+'<b>'+_npEsc(m)+'</b><i>'+mine.length+'</i></span>'
+        +'<span class="np-pmap-tags">'+tags.slice(0,6).map(t=>'<span class="np-pmap-tag" style="--tc:'+_npCatColor(t)+'">'+_npEsc(t)+'</span>').join('')+'</span></button>';}).join('')+'</div>';
+  body.innerHTML=html;
+  body.querySelectorAll('[data-pm]').forEach(el=>el.addEventListener('click',()=>_npGoMarca(el.getAttribute('data-pm'))));
+}
 function _npRenderBody(){
   const body=document.getElementById('np-body');
+  if(_npTab==='__pano__')return _npRenderPanorama();
   const todas=_npData.filter(n=>n.marca===_npTab);
   const maxRod=todas.reduce((m,n)=>String(n.rodada||'')>m?String(n.rodada||''):m,'');
   const all=maxRod?todas.filter(n=>String(n.rodada||'')===maxRod):todas;
