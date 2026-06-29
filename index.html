@@ -1125,6 +1125,10 @@
 #acessos-screen .ac-move,#acessos-screen .ac-folder .ac-btn{cursor:pointer}
 #acessos-screen .ac-secmod.ac-drop-on{outline:2px dashed #0d9488;outline-offset:4px;border-radius:14px;background:rgba(13,148,136,.04)}
 #acessos-screen .ac-driveviews{display:flex;gap:6px;margin-bottom:14px}
+#acessos-screen .ac-drive-marcabar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface2);margin-bottom:14px}
+#acessos-screen .ac-drive-marcabar .grow{flex:1;min-width:160px}
+#acessos-screen .ac-drive-marca-nome{font-family:'Playfair Display',serif;font-weight:700;font-size:17px;color:var(--text)}
+@media(max-width:640px){#acessos-screen .ac-drive-marcabar .ac-btn{width:100%}}
 #acessos-screen .ac-tree{list-style:none;margin:0;padding-left:20px}
 #acessos-screen .ac-tnode{position:relative;padding-left:20px}
 #acessos-screen .ac-tnode::before{content:"";position:absolute;left:0;top:0;width:14px;height:20px;border-left:1px solid var(--border);border-bottom:1px solid var(--border);border-bottom-left-radius:7px}
@@ -9904,6 +9908,8 @@ function _acDriveRepaint(){
   const cont=document.getElementById('ac-drive-content');if(!cont)return;
   const folders=_acDriveTree;
   const secs=_acDriveAllSectors();
+  const marca=_acDriveMarcas.find(m=>m.id===_acDriveSel);
+  const marcaBar=(marca&&marca.external_id)?`<div class="ac-drive-marcabar"><div class="grow"><span class="ac-drive-marca-nome">${_acEsc(marca.nome)}</span><span class="ac-muted" style="font-size:11px;display:block;margin-top:2px">Compartilhar a marca inteira dá acesso a TUDO dentro dela (a pessoa passa a ver toda a árvore).</span></div><button class="ac-btn primary" data-drv="share" data-id="${_acEsc(marca.external_id)}" data-name="${_acEsc(marca.nome)}">Compartilhar marca inteira</button></div>`:'';
   const viewToggle=`<div class="ac-driveviews"><button class="ac-tab ${_acDriveView==='setor'?'active':''}" onclick="_acDriveSetView('setor')">Por setor</button><button class="ac-tab ${_acDriveView==='arvore'?'active':''}" onclick="_acDriveSetView('arvore')">Árvore (fluxo)</button></div>`;
   const depthCtl=`<div class="ac-depth"><span class="ac-muted">Camadas:</span>${[1,2,3,4].map(d=>'<button class="ac-depth-b '+(d===_acDriveDepth?'active':'')+'" onclick="_acDriveSetDepth('+d+')">'+d+'</button>').join('')}${_acDriveView==='setor'?'<button class="ac-btn ghost" onclick="_acDriveAddSetor()">+ Novo setor</button>':''}<span class="ac-muted" style="margin-left:auto">${folders.length} pasta(s)${_acDriveTreeTrunc?' · limite atingido':''}</span></div>`;
   let bodyHtml;
@@ -9928,7 +9934,7 @@ function _acDriveRepaint(){
     }).join('');
     bodyHtml=`<div class="ac-muted" style="font-size:11px;margin:0 0 14px">Arraste uma pasta para outro setor (ou use o seletor no card). "Liberar setor" compartilha todas as pastas do setor.</div>`+(mods||'<div class="ac-empty">Nenhuma pasta encontrada nesta marca.</div>');
   }
-  cont.innerHTML=viewToggle+depthCtl+bodyHtml;
+  cont.innerHTML=viewToggle+marcaBar+depthCtl+bodyHtml;
   _acDriveWire(cont);
 }
 function _acDriveSetView(v){_acDriveView=v;_acDriveRepaint();}
