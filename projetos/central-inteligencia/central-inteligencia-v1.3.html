@@ -979,7 +979,7 @@
   .ac-chip{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);font-size:11px;margin:2px 4px 2px 0}
   .ac-modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:60;padding:20px}
   .ac-modal-ov.open{display:flex;animation:acFadeUp .2s ease both}
-  .ac-modal{background:#0f1720;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:22px;max-width:480px;width:100%;box-shadow:0 24px 60px -20px #000}
+  .ac-modal{background:var(--surface,#0f1720);color:var(--text,#e2e4f0);border:1px solid var(--border,rgba(255,255,255,.12));border-radius:16px;padding:22px;max-width:480px;width:100%;box-shadow:0 24px 60px -20px #000}
   .ac-section-h{display:flex;align-items:center;gap:10px;margin:0 0 14px}
   .ac-section-h h3{margin:0}
 /* ===== Acessos — profundidade + tema claro/escuro via variáveis ===== */
@@ -9611,7 +9611,7 @@ async function _acODPicker(startId,startName){
       <button class="ac-btn ghost" style="margin-left:auto" id="ac-od-pick-x">Fechar</button></div>
     <div id="ac-od-bc" class="ac-kicker" style="margin-bottom:10px"></div>
     <div id="ac-od-pick-body"><div class="ac-muted">Carregando…</div></div></div>`;
-  document.body.appendChild(ov);
+  (document.getElementById('acessos-screen')||document.body).appendChild(ov);
   ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
   ov.querySelector('#ac-od-pick-x').onclick=()=>ov.remove();
   _acODBrowse();
@@ -10411,7 +10411,7 @@ function _acDesligar(id){
       <button class="ac-btn danger" id="ac-dlg-ok">Confirmar desligamento</button>
     </div>
   </div>`;
-  document.body.appendChild(ov);
+  (document.getElementById('acessos-screen')||document.body).appendChild(ov);
   const close=()=>ov.remove();
   ov.addEventListener('click',e=>{if(e.target===ov)close();});
   ov.querySelector('#ac-dlg-cancel').onclick=close;
@@ -10500,7 +10500,7 @@ async function _acProvisionar(id){
       <button class="ac-btn" id="ac-prov-ok">Provisionar</button>
     </div>
   </div>`;
-  document.body.appendChild(ov);
+  (document.getElementById('acessos-screen')||document.body).appendChild(ov);
   const close=()=>ov.remove();
   ov.addEventListener('click',e=>{if(e.target===ov)close();});
   ov.querySelector('#ac-prov-cancel').onclick=close;
