@@ -55,9 +55,12 @@ async function anthropic(body, tentativas = 6) {
   for (let t = 0; t < tentativas; t++) {
     let r;
     try {
-      r = await fetch(ANTHROPIC_URL, { method: 'POST', headers: baseHeaders, body: JSON.stringify(body) });
+      // timeout explícito: web search pode demorar ~30-60s; 150s dá folga. Sem isso,
+      // uma conexão pendurada bloqueia ~4 min por tentativa (visto no runner) e o passo
+      // inteiro não fecha. Com timeout, a falha cicla rápido e o backoff assume.
+      r = await fetch(ANTHROPIC_URL, { method: 'POST', headers: baseHeaders, body: JSON.stringify(body), signal: AbortSignal.timeout(150000) });
     } catch (netErr) {
-      // erro de rede (fetch failed) → espera e tenta de novo
+      // erro de rede (fetch failed / timeout) → espera e tenta de novo
       console.log('    erro de rede (' + netErr.message + '); aguardando…');
       await sleep(Math.min(60, 8 * (t + 1)) * 1000);
       continue;
