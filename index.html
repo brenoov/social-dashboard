@@ -1278,6 +1278,27 @@
   #noticias-screen .np-pcover-over{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--np-muted)}
   #noticias-screen .np-pcover-title{font-family:'Playfair Display',serif;font-weight:900;font-size:clamp(30px,6vw,54px);line-height:1.02;color:var(--ink);margin:6px 0 4px;letter-spacing:-.02em}
   #noticias-screen .np-pcover-sub{font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--np-muted);letter-spacing:.5px}
+  #noticias-screen .np-pcover-lead{font-family:'IBM Plex Sans',sans-serif;font-size:14px;line-height:1.6;color:var(--np-muted);max-width:640px;margin:16px auto 0}
+  /* Resumão escrito (texto) — seções em cards numerados, estilo editorial */
+  #noticias-screen .np-pano{margin-top:6px}
+  #noticias-screen .np-sec{border:1px solid var(--np-rule);border-radius:5px;background:var(--paper);padding:22px 26px;margin-bottom:16px}
+  #noticias-screen .np-sec-h{display:flex;align-items:center;gap:14px;margin:0 0 12px;padding-bottom:12px;border-bottom:1px solid var(--np-rule)}
+  #noticias-screen .np-sec-n{font-family:'Playfair Display',serif;font-weight:900;font-size:30px;line-height:1;color:var(--np-muted);opacity:.5;min-width:42px}
+  #noticias-screen .np-sec-h h2{font-family:'Playfair Display',serif;font-weight:800;font-size:clamp(19px,3vw,26px);line-height:1.1;color:var(--ink);margin:0;letter-spacing:-.01em}
+  #noticias-screen .np-sec-b{font-family:'IBM Plex Sans',sans-serif}
+  #noticias-screen .np-sec-b p{font-size:15px;line-height:1.72;color:var(--ink);margin:0 0 13px}
+  #noticias-screen .np-sec-b p:last-child{margin-bottom:0}
+  #noticias-screen .np-sec-b strong{font-weight:700;color:var(--ink)}
+  #noticias-screen .np-sec-b em{font-style:italic}
+  #noticias-screen .np-sec-b h3{font-family:'Oswald',sans-serif;font-weight:600;font-size:15px;letter-spacing:1px;text-transform:uppercase;color:var(--ink);margin:20px 0 10px}
+  #noticias-screen .np-sec-b h4{font-family:'IBM Plex Sans',sans-serif;font-weight:700;font-size:14px;color:var(--ink);margin:16px 0 8px}
+  #noticias-screen .np-sec-b ul,#noticias-screen .np-sec-b ol{margin:4px 0 14px;padding-left:22px}
+  #noticias-screen .np-sec-b li{font-size:15px;line-height:1.62;color:var(--ink);margin-bottom:7px}
+  #noticias-screen .np-pano-meta{font-family:'IBM Plex Sans',sans-serif;font-size:11.5px;line-height:1.55;color:var(--np-muted);font-style:italic;margin-top:8px;padding:12px 14px;border-left:2px solid var(--np-rule)}
+  #noticias-screen .np-pano-pending{text-align:center;border:1px dashed var(--np-rule);border-radius:6px;background:var(--paper2);padding:40px 28px;margin-bottom:8px}
+  #noticias-screen .np-pano-pending-ic{color:var(--np-muted);opacity:.7;margin-bottom:8px}
+  #noticias-screen .np-pano-pending h3{font-family:'Playfair Display',serif;font-weight:800;font-size:22px;color:var(--ink);margin:0 0 8px}
+  #noticias-screen .np-pano-pending p{font-family:'IBM Plex Sans',sans-serif;font-size:14px;line-height:1.6;color:var(--np-muted);max-width:520px;margin:0 auto}
   #noticias-screen .np-pstats{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:20px}
   #noticias-screen .np-pstat{display:flex;flex-direction:column;align-items:center;min-width:82px;padding:10px 14px;border:1px solid var(--np-rule);border-radius:4px;background:var(--paper)}
   #noticias-screen .np-pstat b{font-family:'Playfair Display',serif;font-size:24px;color:var(--ink);line-height:1}
@@ -9407,7 +9428,7 @@ function closeBanco(){
 }
 
 // ===== Portal de Notícias =====
-let _npData=[], _npTab=null;
+let _npData=[], _npTab=null, _npPano=null;
 const NP_ORDER=['Santa Lolla','Capodarte','Carmen Steffens','Dumond','Arezzo&Co','Schutz','Victor Hugo','Luiza Barcelos','Isla',"L'Occitane"];
 // Controle de zoom reutilizável: aplica CSS zoom (reflow real) no container de conteúdo.
 function _rbvZoom(key, contentId){
@@ -10814,6 +10835,9 @@ async function loadNoticias(){
   const rodadas=[...new Set(_npData.map(n=>n.rodada))].filter(Boolean).sort().reverse();
   _npRod=rodadas[0]||null;
   document.getElementById('np-meta').textContent=_npRod?('Edição '+_npFmtDate(_npRod)):'Sem dados';
+  // resumão escrito do mercado (1 por edição) — pega o mais recente disponível
+  try{const pr=await sbClient.from('noticias_panorama').select('rodada,conteudo_md,modelo,created_at').order('rodada',{ascending:false}).limit(1);
+    _npPano=(pr.data&&pr.data[0])||null;}catch(e){_npPano=null;}
   _npRenderTabs();
 }
 function _npRenderTabs(){
@@ -10856,53 +10880,78 @@ function _npToggleBrandMenu(marcas){
   m.classList.toggle('open');
 }
 function _npGoMarca(m){_npTab=m;_npRenderTabs();const sc=document.getElementById('noticias-screen');if(sc)sc.scrollIntoView({block:'start'});window.scrollTo({top:0,behavior:'smooth'});}
+// Inline de markdown LIMPO p/ o Portal (negrito + itálico + escape) — sem lupa de SKU.
+function _npMdInline(s){return _npEsc(String(s))
+  .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+  .replace(/(^|[^*])\*(?!\s)([^*]+?)\*(?!\*)/g,'$1<em>$2</em>');}
+// Renderiza markdown editorial (##/###, listas, parágrafos). Sem tabelas/SKU.
+function _npMd(md){
+  const lines=String(md||'').replace(/\r/g,'').split('\n');let html='',i=0;
+  while(i<lines.length){
+    const ln=lines[i];
+    if(/^###\s+/.test(ln)){html+='<h4>'+_npMdInline(ln.replace(/^###\s+/,''))+'</h4>';i++;continue;}
+    if(/^##\s+/.test(ln)){html+='<h3>'+_npMdInline(ln.replace(/^##\s+/,''))+'</h3>';i++;continue;}
+    if(/^#\s+/.test(ln)){html+='<h3>'+_npMdInline(ln.replace(/^#\s+/,''))+'</h3>';i++;continue;}
+    if(/^\s*[-*]\s+/.test(ln)){let it='';while(i<lines.length&&/^\s*[-*]\s+/.test(lines[i])){it+='<li>'+_npMdInline(lines[i].replace(/^\s*[-*]\s+/,''))+'</li>';i++;}html+='<ul>'+it+'</ul>';continue;}
+    if(/^\s*\d+\.\s+/.test(ln)){let it='';while(i<lines.length&&/^\s*\d+\.\s+/.test(lines[i])){it+='<li>'+_npMdInline(lines[i].replace(/^\s*\d+\.\s+/,''))+'</li>';i++;}html+='<ol>'+it+'</ol>';continue;}
+    if(ln.trim()===''){i++;continue;}
+    html+='<p>'+_npMdInline(ln)+'</p>';i++;
+  }
+  return html;
+}
+// Quebra o resumão em CARDS por seção (## ), igual ao Gestor Comercial, com cabeçalho numerado.
+function _npPanoramaCards(md){
+  const lines=String(md||'').replace(/\r/g,'').split('\n');
+  const secs=[];let cur=null;
+  for(const ln of lines){
+    const h2=ln.match(/^##\s+(?!#)(.+)/);
+    if(h2){cur={title:h2[1].trim(),body:[]};secs.push(cur);continue;}
+    if(/^#\s+/.test(ln)||/^RESUMO:/.test(ln))continue;
+    if(!cur){cur={title:null,body:[]};secs.push(cur);}
+    cur.body.push(ln);
+  }
+  let n=0;
+  const html=secs.map(s=>{
+    const body=_npMd(s.body.join('\n'));
+    if(!s.title&&!body.replace(/<[^>]+>/g,'').trim())return '';
+    let head='';
+    if(s.title){n++;head='<div class="np-sec-h"><span class="np-sec-n">'+String(n).padStart(2,'0')+'</span><h2>'+_npMdInline(s.title)+'</h2></div>';}
+    return '<section class="np-sec">'+head+'<div class="np-sec-b">'+body+'</div></section>';
+  }).join('');
+  return html||_npMd(md);
+}
 function _npRenderPanorama(){
   const body=document.getElementById('np-body');
   const ed=_npData.filter(n=>n.rodada===_npRod&&!_npIsResumo(n.categoria));
-  if(!ed.length){body.innerHTML='<div class="np-empty"><h3>Sem dados nesta edição</h3></div>';return;}
-  const norm=_npNorm;
-  const marcas=[...new Set(ed.map(n=>n.marca))];
-  const has=(n,...ks)=>{const c=norm(n.categoria);return ks.some(k=>c.includes(k));};
-  const campanhas=ed.filter(n=>has(n,'campanha'));
-  const lancamentos=ed.filter(n=>has(n,'lancamento'));
-  const expansao=ed.filter(n=>has(n,'expansao'));
-  const promoRe=/(descont|promo|oferta|liquida|outlet|cupom|frete\s*gr|\bsale\b|black\s*fri|%|\boff\b|parcel)/i;
-  const promos=ed.filter(n=>promoRe.test((n.titulo||'')+' '+(n.resumo||'')));
-  const comImg=ed.filter(n=>_npImg(n.imagem_url));
-  const dest=(ed.filter(n=>n.destaque&&_npImg(n.imagem_url)).concat(comImg)).filter((v,i,a)=>a.indexOf(v)===i).slice(0,14);
-  // tendências em comum (termo -> nº de marcas distintas)
-  const brandWords=new Set(marcas.flatMap(m=>norm(m).split(/[^a-z0-9]+/)).filter(Boolean));
-  const stop=new Set('para com uma que dos das nos nas por sua seu suas seus mais como ano anos edicao colecao colecoes marca marcas loja lojas novo nova novos novas the and de da do em no na os as um uns sao esta estao entre sobre apos pela pelo este esta esse essa isso aqui produto produtos sapato sapatos calcado calcados moda fashion brasil brasileira semana mes dia dias cada todo toda todos todas ser ter mil www http https instagram reels post posts video videos foto fotos mais sem nova novo'.split(/\s+/));
-  const tm={};
-  ed.forEach(n=>{const t=(n.titulo+' '+(n.resumo||'')).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');t.split(/[^a-z0-9]+/).forEach(w=>{if(w.length<4||stop.has(w)||brandWords.has(w)||/^\d+$/.test(w))return;(tm[w]=tm[w]||new Set()).add(n.marca);});});
-  const tend=Object.entries(tm).map(([w,s])=>[w,s.size]).filter(x=>x[1]>=3).sort((a,b)=>b[1]-a[1]).slice(0,16);
-  const stat=(n,l)=>'<div class="np-pstat"><b>'+n+'</b><span>'+l+'</span></div>';
-  const card=n=>{const img=_npImg(n.imagem_url),col=_npCatColor(n.categoria);
-    return '<button class="np-pcard" data-pm="'+_npEsc(n.marca)+'">'
-      +(img?'<img class="np-pcard-img" src="'+img+'" alt="" loading="lazy" onerror="this.remove()">':'<span class="np-pcard-img np-pcard-noimg"></span>')
-      +'<span class="np-pcard-body"><span class="np-pcard-tag" style="background:'+col+'">'+_npEsc(n.categoria)+'</span>'
-      +'<span class="np-pcard-marca">'+(_npLogo(n.marca)?'<img src="'+_npLogo(n.marca)+'" alt="" onerror="this.remove()">':'')+_npEsc(n.marca)+'</span>'
-      +'<span class="np-pcard-title">'+_npEsc(n.titulo)+'</span></span></button>';};
-  const tema=(titulo,arr,cor)=>{if(!arr.length)return '';
-    const ms=[...new Set(arr.map(n=>n.marca))];
-    return '<div class="np-ptema"><div class="np-ptema-h"><span class="np-ptema-dot" style="background:'+cor+'"></span>'+_npEsc(titulo)+' <i>'+arr.length+' itens · '+ms.length+' marcas</i></div>'
-      +'<div class="np-ptema-list">'+arr.slice(0,18).map(n=>{const img=_npImg(n.imagem_url);
-        return '<button class="np-prow" data-pm="'+_npEsc(n.marca)+'">'
-          +(img?'<img class="np-prow-thumb" src="'+img+'" alt="" loading="lazy" onerror="this.remove()">':'<span class="np-prow-thumb np-pcard-noimg"></span>')
-          +'<span class="np-prow-txt"><b>'+_npEsc(n.marca)+'</b><span>'+_npEsc(n.titulo)+'</span></span></button>';}).join('')+'</div></div>';};
+  const marcas=[...new Set(ed.map(n=>n.marca))].sort((a,b)=>{const ia=NP_ORDER.indexOf(a),ib=NP_ORDER.indexOf(b);return(ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);});
+  const pano=_npPano;
+  const panoDate=pano&&pano.rodada?_npFmtDate(pano.rodada):(_npRod?_npFmtDate(_npRod):'');
   let html='<div class="np-pcover"><div class="np-pcover-over">Observatório de Mercado · RBV</div>'
     +'<h1 class="np-pcover-title">Panorama do Mercado</h1>'
-    +'<div class="np-pcover-sub">'+marcas.length+' marcas observadas · Edição '+(_npRod?_npFmtDate(_npRod):'')+'</div>'
-    +'<div class="np-pstats">'+stat(campanhas.length,'campanhas')+stat(lancamentos.length,'lançamentos')+stat(promos.length,'ações promo.')+stat(expansao.length,'expansões')+stat(marcas.length,'marcas')+'</div></div>';
-  if(dest.length)html+='<div class="np-prule">Destaques da edição</div><div class="np-pdest">'+dest.map(card).join('')+'</div>';
-  if(tend.length)html+='<div class="np-prule">Tendências em comum <small>o que várias marcas estão fazendo ao mesmo tempo</small></div><div class="np-ptrends">'+tend.map(([w,c])=>'<span class="np-ptrend"><b>'+_npEsc(w)+'</b><i>'+c+' marcas</i></span>').join('')+'</div>';
-  html+='<div class="np-prule">O que está acontecendo, por tema</div><div class="np-ptemas">'
-    +tema('Campanhas no ar',campanhas,_npCatColor('campanha'))
-    +tema('Ações promocionais',promos,'#c81d25')
-    +tema('Lançamentos',lancamentos,_npCatColor('lancamento'))
-    +tema('Expansão',expansao,_npCatColor('expansao'))+'</div>';
-  html+='<div class="np-prule">Mapa por marca <small>clique para abrir</small></div><div class="np-pmap">'
-    +marcas.slice().sort((a,b)=>{const ia=NP_ORDER.indexOf(a),ib=NP_ORDER.indexOf(b);return(ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b);}).map(m=>{
+    +'<div class="np-pcover-sub">'+marcas.length+' marcas observadas · '+(panoDate?('Edição '+panoDate):'')+'</div>'
+    +'<div class="np-pcover-lead">Leitura executiva da semana — campanhas de marketing, campanhas comerciais e ações promocionais do mercado de calçados e moda feminina premium.</div></div>';
+  if(pano&&pano.conteudo_md){
+    html+='<article class="np-pano">'+_npPanoramaCards(pano.conteudo_md)+'</article>';
+    // tira de destaques visuais (heroes com imagem), secundária ao texto
+    const dest=ed.filter(n=>n.destaque&&_npImg(n.imagem_url))
+      .filter((v,i,a)=>a.findIndex(x=>x.marca===v.marca)===i).slice(0,12);
+    if(dest.length){
+      html+='<div class="np-prule">Destaques em imagem <small>clique para abrir a marca</small></div><div class="np-pdest">'
+        +dest.map(n=>{const img=_npImg(n.imagem_url),col=_npCatColor(n.categoria);
+          return '<button class="np-pcard" data-pm="'+_npEsc(n.marca)+'">'
+            +'<img class="np-pcard-img" src="'+img+'" alt="" loading="lazy" onerror="this.remove()">'
+            +'<span class="np-pcard-body"><span class="np-pcard-tag" style="background:'+col+'">'+_npEsc(n.categoria)+'</span>'
+            +'<span class="np-pcard-marca">'+(_npLogo(n.marca)?'<img src="'+_npLogo(n.marca)+'" alt="" onerror="this.remove()">':'')+_npEsc(n.marca)+'</span>'
+            +'<span class="np-pcard-title">'+_npEsc(n.titulo)+'</span></span></button>';}).join('')+'</div>';
+    }
+    html+='<div class="np-pano-meta">Resumão gerado por IA'+(pano.modelo?(' · '+_npEsc(pano.modelo)):'')+(panoDate?(' · edição '+panoDate):'')+'. Baseado somente nas notícias coletadas — confira na aba de cada marca.</div>';
+  }else{
+    html+='<div class="np-pano-pending"><div class="np-pano-pending-ic"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>'
+      +'<h3>O resumão da edição está sendo preparado</h3>'
+      +'<p>Assim que a coleta da semana fecha, a IA escreve a leitura geral do mercado — campanhas, lançamentos e ações promocionais — aqui. Enquanto isso, escolha uma marca abaixo para ver os detalhes.</p></div>';
+  }
+  html+='<div class="np-prule">Marcas observadas <small>clique para abrir</small></div><div class="np-pmap">'
+    +marcas.map(m=>{
       const mine=ed.filter(n=>n.marca===m);const tags=[...new Set(mine.map(n=>n.categoria))];
       return '<button class="np-pmapcard" data-pm="'+_npEsc(m)+'"><span class="np-pmap-h">'+(_npLogo(m)?'<img src="'+_npLogo(m)+'" alt="" onerror="this.remove()">':'')+'<b>'+_npEsc(m)+'</b><i>'+mine.length+'</i></span>'
         +'<span class="np-pmap-tags">'+tags.slice(0,6).map(t=>'<span class="np-pmap-tag" style="--tc:'+_npCatColor(t)+'">'+_npEsc(t)+'</span>').join('')+'</span></button>';}).join('')+'</div>';
