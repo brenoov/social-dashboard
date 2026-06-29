@@ -1289,6 +1289,8 @@
   #noticias-screen .np-pcover-title{font-family:'Playfair Display',serif;font-weight:900;font-size:clamp(30px,6vw,54px);line-height:1.02;color:var(--ink);margin:6px 0 4px;letter-spacing:-.02em}
   #noticias-screen .np-pcover-sub{font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--np-muted);letter-spacing:.5px}
   #noticias-screen .np-pcover-lead{font-family:'IBM Plex Sans',sans-serif;font-size:14px;line-height:1.6;color:var(--np-muted);max-width:640px;margin:16px auto 0}
+  /* selo da edição (data) — modo consolidado */
+  #noticias-screen .np-edchip{display:inline-block;margin-left:8px;padding:2px 8px;border:1px solid var(--np-rule);border-radius:999px;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:none;color:var(--np-muted);vertical-align:middle;white-space:nowrap}
   /* Resumão escrito (texto) — seções em cards numerados, estilo editorial */
   #noticias-screen .np-pano{margin-top:6px}
   #noticias-screen .np-sec{border:1px solid var(--np-rule);border-radius:5px;background:var(--paper);padding:22px 26px;margin-bottom:16px}
@@ -10835,8 +10837,10 @@ async function loadNoticias(){
   body.innerHTML='<div class="np-empty"><h3>Carregando…</h3></div>';
   // a tabela cresce 1 edição/semana — busca só as ~3 rodadas mais recentes (front usa maxRod por marca)
   let recentes=[];
+  // consolidado por data: carrega as ~6 edições mais recentes (≈ mês atual + anterior) p/ poder
+  // puxar hero/resumo de edições passadas quando a nova vier magra
   try{const rd=await sbClient.from('noticias_concorrentes').select('rodada').order('rodada',{ascending:false}).limit(1200);
-    recentes=[...new Set((rd.data||[]).map(r=>r.rodada).filter(Boolean))].slice(0,3);}catch(e){}
+    recentes=[...new Set((rd.data||[]).map(r=>r.rodada).filter(Boolean))].slice(0,6);}catch(e){}
   let q=sbClient.from('noticias_concorrentes').select('*').order('rodada',{ascending:false}).order('destaque',{ascending:false}).order('created_at',{ascending:false});
   if(recentes.length)q=q.in('rodada',recentes);
   const{data,error}=await q;
@@ -10979,19 +10983,26 @@ function _npRenderBody(){
   const body=document.getElementById('np-body');
   if(_npTab==='__pano__')return _npRenderPanorama();
   const todas=_npData.filter(n=>n.marca===_npTab);
-  const maxRod=todas.reduce((m,n)=>String(n.rodada||'')>m?String(n.rodada||''):m,'');
-  const all=maxRod?todas.filter(n=>String(n.rodada||'')===maxRod):todas;
-  if(!all.length){body.innerHTML='<div class="np-empty"><h3>Nenhuma notícia</h3><p>Esta marca ainda não tem registros.</p></div>';return;}
+  if(!todas.length){body.innerHTML='<div class="np-empty"><h3>Nenhuma notícia</h3><p>Esta marca ainda não tem registros.</p></div>';return;}
+  // CONSOLIDADO POR DATA: usa TODAS as edições carregadas (não só a mais recente). Cada peça
+  // vem da edição mais recente que a tem — se a edição nova não traz hero/resumo, puxa da anterior.
+  const maxRod=[...new Set(todas.map(n=>String(n.rodada||'')).filter(Boolean))].sort().reverse()[0]||'';
   const issueDate=maxRod?_npFmtDate(maxRod):(_npRod?_npFmtDate(_npRod):'');
   // marca só-marketing (ex.: L'Occitane): sem conteúdo comercial → esconde a aba e abre em Marketing
-  const mktOnly=!all.some(n=>!_npIsResumo(n.categoria)&&_npVista(n.categoria)==='comercial');
+  const mktOnly=!todas.some(n=>!_npIsResumo(n.categoria)&&_npVista(n.categoria)==='comercial');
   if(mktOnly&&_npView==='comercial')_npView='marketing';
-  // só o que pertence à vista atual (e que não seja o card-resumo)
-  const items=all.filter(n=>!_npIsResumo(n.categoria)&&_npVista(n.categoria)===_npView);
-  const resumo=all.find(n=>_npIsResumo(n.categoria)&&_npVista(n.categoria)===_npView);
-  const sorted=[...items].sort((a,b)=>String(b.data_publicacao||'').localeCompare(String(a.data_publicacao||'')));
-  const galerias=sorted.filter(n=>_npProds(n).length);
-  const normais=sorted.filter(n=>!_npProds(n).length);
+  // recência = edição (rodada) desc, depois data de publicação desc
+  const byRec=(a,b)=>String(b.rodada||'').localeCompare(String(a.rodada||''))||String(b.data_publicacao||'').localeCompare(String(a.data_publicacao||''));
+  const vistaItems=todas.filter(n=>!_npIsResumo(n.categoria)&&_npVista(n.categoria)===_npView).sort(byRec);
+  // resumo: o mais recente disponível na vista
+  const resumo=todas.filter(n=>_npIsResumo(n.categoria)&&_npVista(n.categoria)===_npView).sort(byRec)[0]||null;
+  // galerias: a MAIS RECENTE de cada categoria (não repete best-seller/IG semana após semana)
+  const galSeen=new Set(),galerias=[];
+  vistaItems.filter(n=>_npProds(n).length).forEach(g=>{const k=String(g.categoria||'').toLowerCase();if(galSeen.has(k))return;galSeen.add(k);galerias.push(g);});
+  // normais (editorial/hero): dedupe por título, mantém a ocorrência mais recente
+  const seenT=new Set(),normais=[];
+  vistaItems.filter(n=>!_npProds(n).length).forEach(n=>{const k=(n.titulo||'').trim().toLowerCase();if(k&&seenT.has(k))return;if(k)seenT.add(k);normais.push(n);});
+  const items=vistaItems; // p/ a checagem de "vazio" abaixo
   const hero=normais.find(n=>n.destaque)||normais[0]||null;
   const rest=normais.filter(n=>n!==hero);
   const issueMeta=_npView==='marketing'?'Marketing & Conteúdo':'Comercial & Desenvolvimento';
@@ -10999,7 +11010,7 @@ function _npRenderBody(){
     +(_npLogo(_npTab)?'<img class="np-issue-logo" src="'+_npLogo(_npTab)+'" alt="" onerror="this.remove()">':'')
     +'<span class="np-issue-over">Inteligência de Concorrência</span>'
     +'<h1 class="np-issue-title">'+_npEsc(_npTab)+'</h1></div>'
-    +'<div class="np-issue-r"><b>Edição '+issueDate+'</b><br>'+issueMeta+'<br>RBV · Observatório</div></div>';
+    +'<div class="np-issue-r"><b>Consolidado · até '+issueDate+'</b><br>'+issueMeta+'<br>RBV · Observatório</div></div>';
   html+=_npViewTabsHtml(mktOnly);
   if(!items.length&&!resumo){
     body.innerHTML=html+'<div class="np-empty"><h3>Sem registros nesta vista</h3><p>'+(_npView==='marketing'?'Ainda não coletamos conteúdo de marketing/Instagram desta marca nesta edição.':'Ainda não há análise comercial desta marca nesta edição.')+'</p></div>';
@@ -11013,7 +11024,7 @@ function _npRenderBody(){
     html+='<article class="np-hero" style="--hero:'+col+'">'
       +(himg?'<img class="np-hero-img" src="'+himg+'" loading="lazy" alt="" onerror="this.style.display=&#39;none&#39;">':'<div class="np-hero-img"></div>')
       +'<div class="np-hero-text">'
-      +'<div class="np-hero-top"><div class="np-hero-kicker">'+_npEsc(hero.categoria||'Destaque')+'</div>'
+      +'<div class="np-hero-top"><div class="np-hero-kicker">'+_npEsc(hero.categoria||'Destaque')+_npEdChip(hero.rodada)+'</div>'
       +'<h2 class="np-hero-headline">'+_npEsc(hero.titulo)+'</h2></div>'
       +(hero.resumo?'<p class="np-hero-resumo">'+_npEsc(hero.resumo)+'</p>':'')
       +'<div class="np-hero-foot"><span class="np-hero-fonte">Fonte<b>'+_npEsc(hero.fonte||'—')+(hd?' · '+hd:'')+'</b></span>'+hlink+'</div>'
@@ -11031,7 +11042,7 @@ function _npRenderBody(){
       const nimg=_npImg(n.imagem_url);
       html+='<article class="np-art" style="--cat:'+col+'">'
         +(nimg?'<img class="np-art-img" src="'+nimg+'" loading="lazy" alt="" onerror="this.style.display=&#39;none&#39;">':'')
-        +'<div class="np-art-kicker">'+_npEsc(n.categoria||'—')+'</div>'
+        +'<div class="np-art-kicker">'+_npEsc(n.categoria||'—')+_npEdChip(n.rodada)+'</div>'
         +'<h3 class="np-art-headline">'+_npEsc(n.titulo)+'</h3>'
         +(n.resumo?'<p class="np-art-resumo">'+_npEsc(n.resumo)+'</p>':'')
         +'<div class="np-art-foot"><span class="np-art-fonte">'+_npEsc(n.fonte||'')+(date?' · '+date:'')+'</span>'+link+'</div>'
@@ -11043,6 +11054,9 @@ function _npRenderBody(){
   body.innerHTML=html;
 }
 function _npFmtDate(d){try{return new Date(d+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}).replace(/ de /g,'/').replace('.','');}catch(e){return d;}}
+function _npFmtEd(d){try{return new Date(d+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}).replace(/ de /g,'/').replace('.','');}catch(e){return d;}}
+// selo de qual EDIÇÃO (rodada) a peça veio — orienta por data no modo consolidado
+function _npEdChip(rod){rod=String(rod==null?'':rod);if(!rod)return '';return '<span class="np-edchip" title="Edição de '+_npEsc(_npFmtDate(rod))+'">'+_npEsc(_npFmtEd(rod))+'</span>';}
 function _npEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function _npImg(u){u=String(u==null?'':u);return /^https?:\/\/[^\s"'<>]+$/.test(u)?u:'';}
 function _npProds(n){const p=n&&n.produtos;if(Array.isArray(p))return p;if(typeof p==='string'){try{const a=JSON.parse(p);return Array.isArray(a)?a:[];}catch(e){return[];}}return[];}
@@ -11057,7 +11071,7 @@ function _npGalleryHtml(g){
   const titulo=(sec&&sec.nome)?sec.nome:_npEsc(g.titulo);
   const star=(sec&&sec.star)?_npStar():'';
   let h='<section class="np-gallery'+(ehIG?' np-gallery--ig':'')+'" style="--cat:'+col+'">'
-    +'<div class="np-gallery-head"><div><div class="np-gallery-kicker">'+_npEsc(g.categoria||'Best-seller')+'</div>'
+    +'<div class="np-gallery-head"><div><div class="np-gallery-kicker">'+_npEsc(g.categoria||'Best-seller')+_npEdChip(g.rodada)+'</div>'
     +'<h2 class="np-gallery-title">'+star+titulo+'</h2></div>'
     +'<span class="np-gallery-meta">'+prods.length+' '+(prods.length===1?'item':'itens')+' · '+_npEsc(g.fonte||'Loja oficial')+'</span></div>'
     +(g.resumo?'<p class="np-gallery-resumo">'+_npEsc(g.resumo)+'</p>':'')
