@@ -62,8 +62,8 @@ async function loginServico() {
 // Throttle global: o Bling limita ~3 req/seg → espaçamos ~380ms e retry em 429.
 let _lastBling = 0;
 async function blingProxy(token, endpoint, params) {
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const espera = 380 - (Date.now() - _lastBling);
+  for (let attempt = 0; attempt < 7; attempt++) {
+    const espera = 450 - (Date.now() - _lastBling);
     if (espera > 0) await sleep(espera);
     _lastBling = Date.now();
     const r = await fetch(SUPABASE_URL + '/functions/v1/bling-proxy', {
@@ -71,7 +71,7 @@ async function blingProxy(token, endpoint, params) {
       headers: { Authorization: 'Bearer ' + token, apikey: ANON_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({ endpoint, params: params || {} }),
     });
-    if (r.status === 429) { await sleep(1500); continue; }
+    if (r.status === 429) { await sleep(1200 * (attempt + 1)); continue; }
     if (r.status >= 500) { console.log('  bling-proxy ' + endpoint + ' -> ' + r.status + ' (gateway); aguardando…'); await sleep(2000 * (attempt + 1)); continue; }
     if (!r.ok) throw new Error('bling-proxy ' + endpoint + ' -> ' + r.status + ' ' + (await r.text()).slice(0, 200));
     return r.json();
@@ -108,7 +108,9 @@ const DEP_FOCO = [
 async function blingProdutos(token, maxPaginas = 20) {
   const prod = {};
   for (let pagina = 1; pagina <= maxPaginas; pagina++) {
-    const resp = await blingProxy(token, 'produtos', { pagina, limite: 100 });
+    let resp;
+    try { resp = await blingProxy(token, 'produtos', { pagina, limite: 100 }); }
+    catch (e) { console.warn('  produtos pág ' + pagina + ' falhou (segue com o que tem):', e.message); break; }
     const d = resp.data;
     if (!Array.isArray(d) || !d.length) break;
     for (const p of d) prod[String(p.id)] = { nome: (p.nome || '').slice(0, 60), codigo: p.codigo || '', preco: Number(p.preco) || 0 };
@@ -126,7 +128,9 @@ async function blingSaldoFoco(token, prodMap) {
     const batch = ids.slice(i, i + 40);
     const params = {};
     batch.forEach((id, k) => { params['idsProdutos[' + k + ']'] = id; });
-    const resp = await blingProxy(token, 'estoques/saldos', params);
+    let resp;
+    try { resp = await blingProxy(token, 'estoques/saldos', params); }
+    catch (e) { console.warn('  saldo lote ' + (i / 40 | 0) + ' falhou (segue):', e.message); continue; }
     for (const row of (resp.data || [])) {
       const pid = String(row.produto?.id || '');
       for (const dep of (row.depositos || [])) {
