@@ -1274,6 +1274,16 @@
   [data-theme="dark"] #noticias-screen{--ink:#ece7dc;--paper:#14130e;--paper2:#211d16;--np-line:#ece7dc;--np-muted:#9a9285;--np-rule:rgba(255,255,255,.13);}
   /* ===== Panorama do Mercado ===== */
   #noticias-screen .np-tab-pano{font-weight:800}
+  /* botão do Panorama fica SEMPRE visível (é o "voltar pro resumo") — as abas de marca é que viram dropdown */
+  #noticias-screen .np-tabs .np-tab.np-tab-pano{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--np-muted);border-radius:10px;padding:13px 18px;transition:background .15s,color .15s;}
+  #noticias-screen .np-tabs .np-tab.np-tab-pano:hover{background:var(--paper2);color:var(--ink);}
+  #noticias-screen .np-tabs .np-tab.np-tab-pano.active{color:var(--ink);}
+  #noticias-screen .np-tabs .np-tab.np-tab-pano.active::after{content:'';position:absolute;left:14px;right:14px;bottom:-2px;height:3px;background:var(--ink);border-radius:2px;}
+  #noticias-screen .np-tabsep{align-self:center;color:var(--np-rule);font-size:16px;opacity:.6;padding:0 2px;}
+  /* item "voltar ao resumo" no topo do dropdown de marcas */
+  #noticias-screen .np-brandmenu-back{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--paper2);border:1px solid var(--np-rule);border-radius:12px;padding:14px 16px;margin:0 0 14px;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;font-weight:800;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--ink);}
+  #noticias-screen .np-brandmenu-back:hover{background:var(--np-rule);}
+  #noticias-screen .np-brandmenu-back svg{flex:0 0 auto}
   #noticias-screen .np-pcover{position:relative;border:1px solid var(--np-rule);border-radius:4px;padding:36px 24px;text-align:center;background:var(--paper2);margin-bottom:24px}
   #noticias-screen .np-pcover-over{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--np-muted)}
   #noticias-screen .np-pcover-title{font-family:'Playfair Display',serif;font-weight:900;font-size:clamp(30px,6vw,54px);line-height:1.02;color:var(--ink);margin:6px 0 4px;letter-spacing:-.02em}
@@ -10859,10 +10869,14 @@ function _npRenderTabs(){
     b.onclick=()=>{_npTab=m;_npRenderTabs();const sc=document.getElementById('noticias-screen');if(sc)sc.scrollIntoView({block:'start'});window.scrollTo({top:0,behavior:'smooth'});};
     tabsEl.appendChild(b);
   });
-  // seletor mobile (botão que abre a caixa de seleção)
+  // separador visual entre o Panorama (sempre visível) e o seletor de marcas
+  const sep=document.createElement('span');sep.className='np-tabsep';sep.textContent='·';
+  tabsEl.appendChild(sep);
+  // seletor de marca = dropdown (em todas as telas). Em '__pano__' mostra rótulo neutro.
+  const onPano=_npTab==='__pano__';
   const sel=document.createElement('button');
   sel.className='np-brandsel';sel.type='button';
-  sel.innerHTML=(_npLogo(_npTab)?'<img src="'+_npLogo(_npTab)+'" alt="" onerror="this.remove()">':'')+'<span>'+_npEsc(_npTab||'Selecionar marca')+'</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+  sel.innerHTML=((!onPano&&_npLogo(_npTab))?'<img src="'+_npLogo(_npTab)+'" alt="" onerror="this.remove()">':'')+'<span>'+_npEsc(onPano?'Escolher marca':_npTab)+'</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
   sel.onclick=()=>_npToggleBrandMenu(marcas);
   tabsEl.appendChild(sel);
   _npRenderBody();
@@ -10872,10 +10886,13 @@ function _npToggleBrandMenu(marcas){
   if(!m){m=document.createElement('div');m.id='np-brandmenu';m.className='np-brandmenu';
     document.getElementById('noticias-screen').appendChild(m);
     m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');});}
-  m.innerHTML='<div class="np-brandmenu-panel"><div class="np-brandmenu-h">Marcas · Observatório</div><div class="np-brandmenu-grid">'+marcas.map(mk=>{
+  const backBtn='<button class="np-brandmenu-back" data-pano="1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>★ Resumo do Mercado</button>';
+  m.innerHTML='<div class="np-brandmenu-panel">'+backBtn+'<div class="np-brandmenu-h">Marcas · Observatório</div><div class="np-brandmenu-grid">'+marcas.map(mk=>{
     const n=_npData.filter(x=>x.marca===mk).length;
     return '<button class="np-brandmenu-item'+(mk===_npTab?' active':'')+'" data-m="'+_npEsc(mk)+'">'+(_npLogo(mk)?'<img src="'+_npLogo(mk)+'" alt="" onerror="this.style.visibility=&#39;hidden&#39;">':'<span class="np-bm-dot"></span>')+'<span class="np-bm-nome">'+_npEsc(mk)+'</span><b>'+n+'</b></button>';
   }).join('')+'</div></div>';
+  const backEl=m.querySelector('.np-brandmenu-back');
+  if(backEl)backEl.onclick=()=>{_npTab='__pano__';m.classList.remove('open');_npRenderTabs();window.scrollTo({top:0,behavior:'smooth'});};
   m.querySelectorAll('.np-brandmenu-item').forEach(btn=>btn.onclick=()=>{_npTab=btn.getAttribute('data-m');m.classList.remove('open');_npRenderTabs();window.scrollTo({top:0,behavior:'smooth'});});
   m.classList.toggle('open');
 }
