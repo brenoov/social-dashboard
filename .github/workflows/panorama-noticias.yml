@@ -1,0 +1,25 @@
+name: Panorama do Mercado (resumão escrito)
+
+# Gera só o resumão escrito (Panorama do Mercado) da edição mais recente do
+# Observatório, sem re-rodar toda a coleta. Útil para regerar o texto on-demand.
+on:
+  workflow_dispatch:
+
+jobs:
+  panorama:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: https://kounqtdoioootxqegkij.supabase.co
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Gerar Panorama do Mercado (Opus)
+        run: node coletor/panorama-mercado.mjs
