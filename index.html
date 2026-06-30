@@ -10019,11 +10019,12 @@ async function _acDriveLiberarSetor(key){
     // tela de resultado com os links das pastas (envio direto, sem depender do e-mail da Microsoft)
     const links=(r&&r.links)||[],okN=(r&&r.ok)||0;
     const mism=((r&&r.resolved)||[]).filter(x=>x.account&&x.account.toLowerCase()!==String(x.invited).toLowerCase());
+    const fixes=await _acFixAliases(mism); // auto-corrige o cadastro p/ a conta real
     const modal=ov.querySelector('.ac-modal');
     modal.innerHTML=`
       <div class="ac-modal-head"><div><h3 style="margin:0">Setor liberado — ${_acEsc(label)}</h3><div class="ac-muted" style="font-size:12px;margin-top:3px">✓ ${okN} compartilhamento(s)${(r&&r.fail)?(' · '+r.fail+' falha(s)'):''}${(r&&r.truncated)?' (limite atingido)':''}</div></div><button class="ac-btn ghost" id="ac-lib-x2">Fechar</button></div>
       <div class="ac-modal-body">
-        ${mism.length?`<div class="ac-note ac-note-warn">⚠️ <b>Apelido de e-mail detectado.</b> Estes e-mails são alias e o acesso foi para a <b>conta Microsoft real</b>:<br>${mism.map(m=>'• '+_acEsc(m.invited)+' → <b>'+_acEsc(m.account)+'</b>').join('<br>')}<br>Peça para a pessoa <b>acessar/logar com a conta da direita</b> (ou mande o link abaixo — abre direto).</div>`:''}
+        ${fixes.length?`<div class="ac-note ac-note-warn">✅ <b>Apelido corrigido automaticamente.</b> Estes e-mails eram alias; o acesso já caiu na <b>conta Microsoft real</b> e atualizei o cadastro pra ela (futuros compartilhamentos já miram a conta certa):<br>${fixes.map(f=>'• '+_acEsc(f.invited)+' → <b>'+_acEsc(f.account)+'</b>'+(f.nome?' — '+_acEsc(f.nome)+' atualizado':' — não cadastrado, avise pra acessar com essa conta')).join('<br>')}</div>`:''}
         <div class="ac-note">Acessos concedidos. <b>Envie os links abaixo ao colaborador</b> — é mais confiável que o e-mail automático da Microsoft (que pode cair em outro endereço ou no spam). Só quem foi convidado consegue abrir.</div>
         <div class="ac-linklist">${links.map(l=>`<div class="ac-row"><div class="grow" style="min-width:0"><b>${_acEsc(l.name||'(pasta)')}</b><div class="ac-linkurl">${l.link?_acEsc(l.link):'<span class="ac-muted">link indisponível</span>'}</div></div>${l.link?`<button class="ac-btn" data-copy1="${_acEsc(l.link)}">Copiar</button>`:''}</div>`).join('')||'<div class="ac-muted">Nenhum link disponível.</div>'}</div>
       </div>
@@ -10066,6 +10067,26 @@ function _acCopy(text,btn){
   else{_acCopyFallback(text);ok();}
 }
 function _acCopyFallback(text){try{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';(document.getElementById('acessos-screen')||document.body).appendChild(ta);ta.focus();ta.select();document.execCommand('copy');ta.remove();}catch(e){}}
+// Auto-correção de APELIDO: quando o e-mail convidado resolve p/ uma conta Microsoft diferente
+// (ex.: @outlook → @gmail), o acesso JÁ caiu na conta real. Aqui atualizamos o cadastro do
+// colaborador (email_outlook) p/ essa conta real, garantindo que futuros compartilhamentos /
+// auditoria / remoção apontem pra conta certa e o problema não se repita.
+async function _acFixAliases(mism){
+  const out=[];
+  for(const m of (mism||[])){
+    const inv=String(m.invited||'').toLowerCase(), acct=m.account;
+    if(!acct||acct.toLowerCase()===inv){continue;}
+    const p=(((_acData||{}).pessoas)||[]).find(x=>x&&String(x.email_outlook||'').toLowerCase()===inv);
+    let nome=null;
+    if(p){
+      try{const{error}=await sbClient.from('acessos_pessoas').update({email_outlook:acct,atualizado_em:new Date().toISOString()}).eq('id',p.id);
+        if(!error){p.email_outlook=acct;nome=p.nome;await _acLog('drive.corrigeAlias','colab:'+p.nome,'ok',m.invited+' → '+acct);}
+      }catch(e){}
+    }
+    out.push({invited:m.invited,account:acct,nome});
+  }
+  return out;
+}
 async function _acDriveShare(itemId,name){
   let shares=[],folderLink='';try{const r=await _acProxy('microsoft.shares',{itemId});shares=(r&&r.shares)||[];folderLink=(r&&r.link)||'';}catch(e){}
   const ov=document.createElement('div');ov.className='ac-modal-ov open';ov.id='ac-drv-share';
@@ -10100,9 +10121,10 @@ async function _acDriveShare(itemId,name){
     if(!emails.length){adminToast('Selecione ao menos um colaborador ou informe um e-mail',false);return;}
     const btn=ov.querySelector('#ac-drv-go');btn.disabled=true;btn.textContent='Compartilhando…';
     try{await _acProxy('microsoft.addFolder',{itemId,name});}catch(e){}
-    let ok=0,mism=[];for(const email of emails){try{const r=await _acProxy('microsoft.share',{itemId,email,role});if(r&&!r.error){ok++;if(r.account&&r.account.toLowerCase()!==email.toLowerCase())mism.push(email+' → '+r.account);}}catch(e){}}
+    let ok=0,mism=[];for(const email of emails){try{const r=await _acProxy('microsoft.share',{itemId,email,role});if(r&&!r.error){ok++;if(r.account&&r.account.toLowerCase()!==email.toLowerCase())mism.push({invited:email,account:r.account});}}catch(e){}}
     await _acLog('drive.share','pasta:'+name,ok===emails.length?'ok':'parcial',ok+'/'+emails.length);
-    if(mism.length)adminToast('⚠ Apelido: '+mism.join(' · ')+' — o acesso foi p/ a conta real; avise pra acessar/logar com esse e-mail',false);
+    const fixes=await _acFixAliases(mism);
+    if(fixes.length)adminToast('✅ Apelido corrigido: '+fixes.map(f=>(f.nome||f.invited)+' → '+f.account).join(' · ')+' — cadastro atualizado p/ a conta real; acesso garantido');
     else adminToast('Compartilhado com '+ok+'/'+emails.length);
     close();_acDriveShare(itemId,name);
   };
