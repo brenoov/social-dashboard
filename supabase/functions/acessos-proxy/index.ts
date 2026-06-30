@@ -1005,6 +1005,34 @@ async function actAccessScan(sb: any, maxDepth: unknown) {
   return json({ items, truncated, depth });
 }
 
+// Quem já tem acesso a um CONJUNTO de pastas (agregado por pessoa). Usado pelo modal
+// "Liberar setor" pra mostrar "quem já tem acesso" como nos outros modais.
+async function actSharesMany(sb: any, items: unknown) {
+  const its = (Array.isArray(items) ? items : [])
+    .map((x: any) => typeof x === "string" ? x : (x && x.id ? String(x.id) : null))
+    .filter((x: any) => x);
+  if (!its.length) return json({ shares: [], total: 0 });
+  const conn = await readMsConn(sb);
+  if (!conn.refresh_token) return json({ error: "nao_conectado" });
+  const access = await freshMsToken(conn);
+  const byPerson: Record<string, { name: string; email: string; role: string; folders: number }> = {};
+  for (const id of its) {
+    const r = await graphFetch(access, `/me/drive/items/${encodeURIComponent(id)}/permissions`);
+    if (!r.ok) continue;
+    const value: any[] = Array.isArray(r.json?.value) ? r.json.value : [];
+    for (const p of value) {
+      if (Array.isArray(p?.roles) && p.roles.includes("owner")) continue;
+      const ident = parsePermIdentity(p);
+      const key = (ident.email || ident.name || "").toLowerCase();
+      if (!key) continue;
+      const role = Array.isArray(p?.roles) && p.roles.includes("write") ? "edição" : "leitura";
+      if (!byPerson[key]) byPerson[key] = { name: ident.name, email: ident.email, role, folders: 0 };
+      byPerson[key].folders++;
+      if (role === "edição") byPerson[key].role = "edição";
+    }
+  }
+  return json({ shares: Object.values(byPerson).sort((a, b) => b.folders - a.folders), total: its.length });
+}
 async function actAllShares(sb: any) {
   const conn = await readMsConn(sb);
   if (!conn.refresh_token) return json({ error: "nao_conectado" });
@@ -1021,13 +1049,13 @@ async function actAllShares(sb: any) {
   // Varre as RAÍZES das marcas + as pastas registradas (dedup por external_id). Barato e cobre
   // o acesso por pessoa concedido no topo de cada marca (ex.: Moto Easy Brasil) que não estava
   // em acessos_recursos.
-  const folders: Array<{ id: string; nome: string; external_id: string }> = [];
+  const folders: Array<{ id: string; nome: string; external_id: string; isRoot: boolean; marca: string | null }> = [];
   const seen = new Set<string>();
   for (const m of (marcas ?? [])) {
-    if (m.external_id && !seen.has(m.external_id)) { seen.add(m.external_id); folders.push({ id: String(m.id), nome: m.nome, external_id: m.external_id }); }
+    if (m.external_id && !seen.has(m.external_id)) { seen.add(m.external_id); folders.push({ id: String(m.id), nome: m.nome, external_id: m.external_id, isRoot: true, marca: m.nome }); }
   }
   for (const r of (recursos ?? [])) {
-    if (r.external_id && !seen.has(r.external_id)) { seen.add(r.external_id); folders.push({ id: String(r.id), nome: r.nome, external_id: r.external_id }); }
+    if (r.external_id && !seen.has(r.external_id)) { seen.add(r.external_id); folders.push({ id: String(r.id), nome: r.nome, external_id: r.external_id, isRoot: false, marca: null }); }
   }
 
   const items: Array<{
@@ -1036,6 +1064,9 @@ async function actAllShares(sb: any) {
     name: string;
     email: string;
     role: string;
+    isRoot: boolean;
+    marca: string | null;
+    inherited: boolean;
   }> = [];
 
   for (const recurso of folders) {
@@ -1066,6 +1097,9 @@ async function actAllShares(sb: any) {
           name: ident.name,
           email: (ident.email || "").toLowerCase(),
           role,
+          isRoot: recurso.isRoot,
+          marca: recurso.marca,
+          inherited: !!p?.inheritedFrom,
         });
       }
     } catch (e) {
@@ -1234,6 +1268,8 @@ Deno.serve(async (req: Request) => {
         return await msRemoveFolder(sb, user.id, body?.recursoId);
       case "microsoft.shares":
         return await msShares(sb, body?.itemId);
+      case "microsoft.sharesMany":
+        return await actSharesMany(sb, body?.items);
       case "microsoft.accessScan":
         return await actAccessScan(sb, body?.depth);
       case "microsoft.allShares":
