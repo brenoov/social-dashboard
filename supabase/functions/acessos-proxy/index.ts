@@ -889,7 +889,10 @@ async function msShare(
   await logMs(sb, quem, "onedrive.share", itemId, "ok", { email, role: graphRole });
   // link da pasta p/ enviar direto ao colaborador (não depender do e-mail da Microsoft)
   const link = pickItemLink(Array.isArray(r.json?.value) ? r.json.value : []) || await msItemLink(access, itemId);
-  return json({ ok: true, link });
+  // conta Microsoft REAL p/ onde o convite resolveu (pode ser diferente do e-mail convidado = apelido/alias)
+  const v0 = Array.isArray(r.json?.value) ? r.json.value[0] : null;
+  const account = v0?.grantedToV2?.user?.email || v0?.grantedTo?.user?.email || v0?.grantedToV2?.siteUser?.email || null;
+  return json({ ok: true, link, invited: email, account });
 }
 
 // Share MANY folders to MANY recipients in one call (used by "Liberar setor"). One token
@@ -916,6 +919,7 @@ async function actShareMany(sb: any, quem: string | null, items: unknown, emails
   const CAP = 600;
   let ok = 0, fail = 0, ops = 0, truncated = false;
   const linkByItem: Record<string, string | null> = {};
+  const acctByEmail: Record<string, string | null> = {}; // conta real resolvida por e-mail convidado
   for (const itemId of its) {
     if (ops >= CAP) { truncated = true; break; }
     for (const email of ems) {
@@ -933,10 +937,13 @@ async function actShareMany(sb: any, quem: string | null, items: unknown, emails
       });
       if (r.ok) {
         ok++;
+        const v0 = Array.isArray(r.json?.value) ? r.json.value[0] : null;
         if (!(itemId in linkByItem)) linkByItem[itemId] = pickItemLink(Array.isArray(r.json?.value) ? r.json.value : []);
+        if (!(email in acctByEmail)) acctByEmail[email] = v0?.grantedToV2?.user?.email || v0?.grantedTo?.user?.email || v0?.grantedToV2?.siteUser?.email || null;
       } else fail++;
     }
   }
+  const resolved = ems.map((e) => ({ invited: e, account: acctByEmail[e] ?? null }));
   // link por pasta p/ enviar direto ao colaborador (fallback: lê das permissões se o invite não trouxe)
   const links: { id: string; name: string | null; link: string | null }[] = [];
   for (const it of norm) {
@@ -946,7 +953,7 @@ async function actShareMany(sb: any, quem: string | null, items: unknown, emails
     links.push({ id: it.id, name: it.name, link: lk });
   }
   await logMs(sb, quem, "onedrive.shareMany", null, fail ? "parcial" : "ok", { items: its.length, emails: ems.length, ok, fail });
-  return json({ ok, fail, ops, truncated, links });
+  return json({ ok, fail, ops, truncated, links, resolved });
 }
 
 // Varredura COMPLETA: percorre a árvore de CADA marca (acessos_drive_marcas) e coleta os

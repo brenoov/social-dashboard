@@ -1263,6 +1263,8 @@
 #acessos-screen .ac-linkbar{display:flex;align-items:center;gap:12px;padding:12px 14px;margin:0 0 16px;border:1px solid var(--accent-mid);background:var(--accent-light);border-radius:12px}
 #acessos-screen .ac-linkurl{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px;color:var(--text);opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #acessos-screen .ac-note{font-size:12.5px;line-height:1.55;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin:0 0 14px}
+#acessos-screen .ac-note-warn{color:var(--text);background:rgba(184,88,0,.12);border-color:var(--orange)}
+#acessos-screen .ac-note-warn b{color:var(--text)}
 #acessos-screen .ac-linklist{display:flex;flex-direction:column;gap:8px}
 #acessos-screen .ac-linklist .ac-row{align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface2)}
 #acessos-screen .ac-linklist .ac-row b{font-size:13px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -10016,10 +10018,12 @@ async function _acDriveLiberarSetor(key){
     }catch(e){adminToast('Erro: '+e.message,false);btn.disabled=false;btn.textContent='Liberar';return;}
     // tela de resultado com os links das pastas (envio direto, sem depender do e-mail da Microsoft)
     const links=(r&&r.links)||[],okN=(r&&r.ok)||0;
+    const mism=((r&&r.resolved)||[]).filter(x=>x.account&&x.account.toLowerCase()!==String(x.invited).toLowerCase());
     const modal=ov.querySelector('.ac-modal');
     modal.innerHTML=`
       <div class="ac-modal-head"><div><h3 style="margin:0">Setor liberado — ${_acEsc(label)}</h3><div class="ac-muted" style="font-size:12px;margin-top:3px">✓ ${okN} compartilhamento(s)${(r&&r.fail)?(' · '+r.fail+' falha(s)'):''}${(r&&r.truncated)?' (limite atingido)':''}</div></div><button class="ac-btn ghost" id="ac-lib-x2">Fechar</button></div>
       <div class="ac-modal-body">
+        ${mism.length?`<div class="ac-note ac-note-warn">⚠️ <b>Apelido de e-mail detectado.</b> Estes e-mails são alias e o acesso foi para a <b>conta Microsoft real</b>:<br>${mism.map(m=>'• '+_acEsc(m.invited)+' → <b>'+_acEsc(m.account)+'</b>').join('<br>')}<br>Peça para a pessoa <b>acessar/logar com a conta da direita</b> (ou mande o link abaixo — abre direto).</div>`:''}
         <div class="ac-note">Acessos concedidos. <b>Envie os links abaixo ao colaborador</b> — é mais confiável que o e-mail automático da Microsoft (que pode cair em outro endereço ou no spam). Só quem foi convidado consegue abrir.</div>
         <div class="ac-linklist">${links.map(l=>`<div class="ac-row"><div class="grow" style="min-width:0"><b>${_acEsc(l.name||'(pasta)')}</b><div class="ac-linkurl">${l.link?_acEsc(l.link):'<span class="ac-muted">link indisponível</span>'}</div></div>${l.link?`<button class="ac-btn" data-copy1="${_acEsc(l.link)}">Copiar</button>`:''}</div>`).join('')||'<div class="ac-muted">Nenhum link disponível.</div>'}</div>
       </div>
@@ -10096,9 +10100,11 @@ async function _acDriveShare(itemId,name){
     if(!emails.length){adminToast('Selecione ao menos um colaborador ou informe um e-mail',false);return;}
     const btn=ov.querySelector('#ac-drv-go');btn.disabled=true;btn.textContent='Compartilhando…';
     try{await _acProxy('microsoft.addFolder',{itemId,name});}catch(e){}
-    let ok=0;for(const email of emails){try{const r=await _acProxy('microsoft.share',{itemId,email,role});if(r&&!r.error)ok++;}catch(e){}}
+    let ok=0,mism=[];for(const email of emails){try{const r=await _acProxy('microsoft.share',{itemId,email,role});if(r&&!r.error){ok++;if(r.account&&r.account.toLowerCase()!==email.toLowerCase())mism.push(email+' → '+r.account);}}catch(e){}}
     await _acLog('drive.share','pasta:'+name,ok===emails.length?'ok':'parcial',ok+'/'+emails.length);
-    adminToast('Compartilhado com '+ok+'/'+emails.length);close();_acDriveShare(itemId,name);
+    if(mism.length)adminToast('⚠ Apelido: '+mism.join(' · ')+' — o acesso foi p/ a conta real; avise pra acessar/logar com esse e-mail',false);
+    else adminToast('Compartilhado com '+ok+'/'+emails.length);
+    close();_acDriveShare(itemId,name);
   };
 }
 async function loadAcessos(){
