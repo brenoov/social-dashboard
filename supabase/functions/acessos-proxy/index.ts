@@ -825,6 +825,17 @@ async function msRemoveFolder(sb: any, quem: string | null, recursoId: string) {
   return json({ ok: true });
 }
 
+// Link compartilhável da pasta (1drv.ms/...). É o link que respeita requireSignIn:
+// só quem tem grant (foi convidado) consegue abrir. Vem nas permissões da pasta.
+function pickItemLink(value: any[]): string | null {
+  const p = (Array.isArray(value) ? value : []).find((x: any) => x?.link?.webUrl);
+  return p?.link?.webUrl || null;
+}
+async function msItemLink(access: string, itemId: string): Promise<string | null> {
+  const r = await graphFetch(access, `/me/drive/items/${encodeURIComponent(itemId)}/permissions`);
+  if (!r.ok) return null;
+  return pickItemLink(Array.isArray(r.json?.value) ? r.json.value : []);
+}
 async function msShares(sb: any, itemId: string) {
   if (!itemId) return json({ error: "sem_itemId" }, 400);
   const conn = await readMsConn(sb);
@@ -842,7 +853,7 @@ async function msShares(sb: any, itemId: string) {
       const ident = parsePermIdentity(p);
       return { permId: String(p.id), name: ident.name, email: ident.email, role };
     });
-  return json({ shares });
+  return json({ shares, link: pickItemLink(value) });
 }
 
 async function msShare(
@@ -876,7 +887,9 @@ async function msShare(
     return json({ error: `graph_http_${r.status}`, detalhe: r.json });
   }
   await logMs(sb, quem, "onedrive.share", itemId, "ok", { email, role: graphRole });
-  return json({ ok: true });
+  // link da pasta p/ enviar direto ao colaborador (não depender do e-mail da Microsoft)
+  const link = pickItemLink(Array.isArray(r.json?.value) ? r.json.value : []) || await msItemLink(access, itemId);
+  return json({ ok: true, link });
 }
 
 // Share MANY folders to MANY recipients in one call (used by "Liberar setor"). One token
@@ -902,6 +915,7 @@ async function actShareMany(sb: any, quem: string | null, items: unknown, emails
   }
   const CAP = 600;
   let ok = 0, fail = 0, ops = 0, truncated = false;
+  const linkByItem: Record<string, string | null> = {};
   for (const itemId of its) {
     if (ops >= CAP) { truncated = true; break; }
     for (const email of ems) {
@@ -917,11 +931,22 @@ async function actShareMany(sb: any, quem: string | null, items: unknown, emails
           message: "Você recebeu acesso a uma pasta compartilhada da RBV. Entre com sua conta Microsoft para acessar.",
         },
       });
-      if (r.ok) ok++; else fail++;
+      if (r.ok) {
+        ok++;
+        if (!(itemId in linkByItem)) linkByItem[itemId] = pickItemLink(Array.isArray(r.json?.value) ? r.json.value : []);
+      } else fail++;
     }
   }
+  // link por pasta p/ enviar direto ao colaborador (fallback: lê das permissões se o invite não trouxe)
+  const links: { id: string; name: string | null; link: string | null }[] = [];
+  for (const it of norm) {
+    if (!(it.id in linkByItem)) continue; // pulou (truncado) → sem link
+    let lk = linkByItem[it.id];
+    if (!lk) lk = await msItemLink(access, it.id);
+    links.push({ id: it.id, name: it.name, link: lk });
+  }
   await logMs(sb, quem, "onedrive.shareMany", null, fail ? "parcial" : "ok", { items: its.length, emails: ems.length, ok, fail });
-  return json({ ok, fail, ops, truncated });
+  return json({ ok, fail, ops, truncated, links });
 }
 
 // Varredura COMPLETA: percorre a árvore de CADA marca (acessos_drive_marcas) e coleta os

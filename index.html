@@ -1259,6 +1259,13 @@
 #acessos-screen .ac-chip{background:var(--surface2);border:1px solid var(--border);color:var(--text)}
 #acessos-screen .ac-section-h h3,#acessos-screen h2,#acessos-screen h3{color:var(--text)}
 #acessos-screen .ac-modal{background:var(--surface);border:1px solid var(--border);color:var(--text);box-shadow:var(--shadow-lg)}
+/* Copiar link (Compartilhar + Liberar setor) */
+#acessos-screen .ac-linkbar{display:flex;align-items:center;gap:12px;padding:12px 14px;margin:0 0 16px;border:1px solid var(--accent-mid);background:var(--accent-light);border-radius:12px}
+#acessos-screen .ac-linkurl{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px;color:var(--text);opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#acessos-screen .ac-note{font-size:12.5px;line-height:1.55;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin:0 0 14px}
+#acessos-screen .ac-linklist{display:flex;flex-direction:column;gap:8px}
+#acessos-screen .ac-linklist .ac-row{align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface2)}
+#acessos-screen .ac-linklist .ac-row b{font-size:13px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 [data-theme="dark"] #acessos-screen .ac-pill.ok{color:#2dd4bf}
 #acessos-screen .ac-avatar{border-radius:50%;object-fit:cover;flex:none;border:1px solid var(--border);background:var(--surface2)}
 #acessos-screen .ac-avatar-fb{display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:#fff;background:linear-gradient(135deg,#0f766e,#0d9488)}
@@ -10003,11 +10010,24 @@ async function _acDriveLiberarSetor(key){
     const extra=ov.querySelector('#ac-lib-extra').value.trim();if(extra)emails.push(extra);
     if(!emails.length){adminToast('Selecione ao menos um colaborador ou informe um e-mail',false);return;}
     const btn=ov.querySelector('#ac-lib-go');btn.disabled=true;btn.textContent='Liberando…';
-    try{const r=await _acProxy('microsoft.shareMany',{items:folders.map(f=>({id:f.id,name:f.name})),emails,role});
+    let r;
+    try{r=await _acProxy('microsoft.shareMany',{items:folders.map(f=>({id:f.id,name:f.name})),emails,role});
       await _acLog('drive.liberarSetor','setor:'+label,(r&&r.fail)?'parcial':'ok',((r&&r.ok)||0)+'/'+((r&&r.ops)||0));
-      adminToast('Liberado: '+((r&&r.ok)||0)+' compartilhamento(s)'+((r&&r.truncated)?' (limite atingido)':''));
     }catch(e){adminToast('Erro: '+e.message,false);btn.disabled=false;btn.textContent='Liberar';return;}
-    close();
+    // tela de resultado com os links das pastas (envio direto, sem depender do e-mail da Microsoft)
+    const links=(r&&r.links)||[],okN=(r&&r.ok)||0;
+    const modal=ov.querySelector('.ac-modal');
+    modal.innerHTML=`
+      <div class="ac-modal-head"><div><h3 style="margin:0">Setor liberado — ${_acEsc(label)}</h3><div class="ac-muted" style="font-size:12px;margin-top:3px">✓ ${okN} compartilhamento(s)${(r&&r.fail)?(' · '+r.fail+' falha(s)'):''}${(r&&r.truncated)?' (limite atingido)':''}</div></div><button class="ac-btn ghost" id="ac-lib-x2">Fechar</button></div>
+      <div class="ac-modal-body">
+        <div class="ac-note">Acessos concedidos. <b>Envie os links abaixo ao colaborador</b> — é mais confiável que o e-mail automático da Microsoft (que pode cair em outro endereço ou no spam). Só quem foi convidado consegue abrir.</div>
+        <div class="ac-linklist">${links.map(l=>`<div class="ac-row"><div class="grow" style="min-width:0"><b>${_acEsc(l.name||'(pasta)')}</b><div class="ac-linkurl">${l.link?_acEsc(l.link):'<span class="ac-muted">link indisponível</span>'}</div></div>${l.link?`<button class="ac-btn" data-copy1="${_acEsc(l.link)}">Copiar</button>`:''}</div>`).join('')||'<div class="ac-muted">Nenhum link disponível.</div>'}</div>
+      </div>
+      <div class="ac-modal-foot"><span class="ac-muted" style="font-size:11px">${emails.length} colaborador(es)</span><button class="ac-btn primary" id="ac-lib-copyall">Copiar todos os links</button></div>`;
+    modal.querySelector('#ac-lib-x2').onclick=close;
+    modal.querySelectorAll('button[data-copy1]').forEach(b=>b.onclick=()=>_acCopy(b.dataset.copy1,b));
+    const allText='Acessos — '+label+' (RBV):\n'+links.filter(l=>l.link).map(l=>'• '+(l.name||'pasta')+': '+l.link).join('\n');
+    {const ca=modal.querySelector('#ac-lib-copyall');if(ca)ca.onclick=()=>_acCopy(allText,ca);}
   };
 }
 async function _acDriveAddMarca(){
@@ -10035,13 +10055,21 @@ async function _acDriveDelMarca(id){
   if(_acDriveSel===id)_acDriveSel=null;
   await _acLog('drive.marca.del','marca:'+m.nome,'ok',null);adminToast('Marca removida');_acRenderDrive();
 }
+function _acCopy(text,btn){
+  if(!text)return;
+  const ok=()=>{if(btn){const o=btn.dataset.lbl||btn.textContent;btn.dataset.lbl=o;btn.textContent='✓ Copiado';btn.disabled=true;setTimeout(()=>{btn.textContent=o;btn.disabled=false;},1400);}else adminToast('Link copiado');};
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(ok).catch(()=>{_acCopyFallback(text);ok();});}
+  else{_acCopyFallback(text);ok();}
+}
+function _acCopyFallback(text){try{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';(document.getElementById('acessos-screen')||document.body).appendChild(ta);ta.focus();ta.select();document.execCommand('copy');ta.remove();}catch(e){}}
 async function _acDriveShare(itemId,name){
-  let shares=[];try{const r=await _acProxy('microsoft.shares',{itemId});shares=(r&&r.shares)||[];}catch(e){}
+  let shares=[],folderLink='';try{const r=await _acProxy('microsoft.shares',{itemId});shares=(r&&r.shares)||[];folderLink=(r&&r.link)||'';}catch(e){}
   const ov=document.createElement('div');ov.className='ac-modal-ov open';ov.id='ac-drv-share';
   let _picker;try{_picker=_acColabPicker('ac-drv-cb');}catch(err){console.error('[acessos] picker erro',err);adminToast('ERRO no painel: '+((err&&err.message)||err),false);_picker='<div class="ac-card" style="color:#f87171">Falha ao montar a lista de colaboradores: '+_acEsc((err&&err.message)||String(err))+'</div>';}
   ov.innerHTML=`<div class="ac-modal ac-modal-lg">
     <div class="ac-modal-head"><h3 style="margin:0">Compartilhar — ${_acEsc(name)}</h3><button class="ac-btn ghost" id="ac-drv-x">Fechar</button></div>
     <div class="ac-modal-body">
+      ${folderLink?`<div class="ac-linkbar"><div class="grow" style="min-width:0"><div class="ac-kicker" style="display:block;margin:0 0 3px">Link da pasta — envie ao colaborador</div><div class="ac-linkurl">${_acEsc(folderLink)}</div></div><button class="ac-btn primary" id="ac-drv-copy">Copiar link</button></div>`:''}
       ${shares.length?`<div class="ac-kicker" style="display:block;margin:0 0 6px">Quem já tem acesso</div><div style="margin-bottom:16px">${shares.map(s=>`<div class="ac-row"><div class="grow">${_acEsc(s.name||s.email||'—')}${(s.email&&s.name)?' <span class="ac-muted">'+_acEsc(s.email)+'</span>':''} <span class="ac-pill ${s.role==='edição'?'warn':'ok'}">${_acEsc(s.role)}</span></div><button class="ac-btn danger" data-uns data-perm="${_acEsc(s.permId)}">Remover</button></div>`).join('')}</div>`:''}
       <div class="ac-kicker" style="display:block;margin:0 0 6px">Adicionar colaboradores</div>
       ${_picker}
@@ -10056,6 +10084,7 @@ async function _acDriveShare(itemId,name){
   (document.getElementById('acessos-screen')||document.body).appendChild(ov);const close=()=>ov.remove();
   ov.addEventListener('click',e=>{if(e.target===ov)close();});
   ov.querySelector('#ac-drv-x').onclick=close;
+  {const cb=ov.querySelector('#ac-drv-copy');if(cb)cb.onclick=()=>_acCopy(folderLink,cb);}
   ov.querySelectorAll('button[data-uns]').forEach(b=>b.addEventListener('click',async()=>{
     if(!confirm('Remover este acesso?'))return;
     try{await _acProxy('microsoft.unshare',{itemId,permId:b.dataset.perm});adminToast('Acesso removido');close();_acDriveShare(itemId,name);}catch(e){adminToast('Erro: '+e.message,false);}
