@@ -10800,13 +10800,31 @@ async function _acRenderAuditoria(){
     sbClient.from('acessos_dispositivos').select('*'),
     sbClient.from('acessos_vinculos').select('pessoa_id,papel,estado,acessos_recursos(nome,tipo)')
   ]);
-  let odMap={};
-  try{const r=await _acProxy('microsoft.allShares');((r&&r.items)||[]).forEach(it=>{const e=(it.email||'').toLowerCase();if(!e)return;(odMap[e]=odMap[e]||[]).push({pasta:it.pasta,role:it.role,isRoot:!!it.isRoot,marca:it.marca||null,inherited:!!it.inherited});});}catch(e){}
+  let odMap={},odByName={};
+  try{const r=await _acProxy('microsoft.allShares');((r&&r.items)||[]).forEach(it=>{
+    const e=(it.email||'').toLowerCase();
+    const entry={pasta:it.pasta,role:it.role,isRoot:!!it.isRoot,marca:it.marca||null,inherited:!!it.inherited};
+    if(e)(odMap[e]=odMap[e]||[]).push(entry);
+    // índice por NOME (displayName do grant) — fallback p/ quando o e-mail cadastrado é um apelido
+    // e o acesso caiu noutra conta (ex.: convidou @outlook, conta real @gmail).
+    const nm=_acNorm(it.name||'');
+    if(nm){if(!odByName[nm])odByName[nm]={email:e,folders:[]};odByName[nm].folders.push(entry);}
+  });}catch(e){}
   const setorById={};(setores||[]).forEach(s=>setorById[s.id]=s);
   const itensByP={};(itens||[]).forEach(d=>{(itensByP[d.pessoa_id]=itensByP[d.pessoa_id]||[]).push(d);});
   const iclMap={};(vincs||[]).forEach(v=>{const r=v.acessos_recursos;if(r&&r.tipo==='icloud'){(iclMap[v.pessoa_id]=iclMap[v.pessoa_id]||[]).push({pasta:r.nome,papel:v.papel,estado:v.estado});}});
-  _acAudData={orgs:orgs||[],setores:setores||[],pessoas:pessoas||[],setorById,itensByP,odMap,iclMap};
+  _acAudData={orgs:orgs||[],setores:setores||[],pessoas:pessoas||[],setorById,itensByP,odMap,odByName,iclMap};
   _acAudPaint();
+}
+function _acNorm(s){return String(s==null?'':s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();}
+// Reconcilia o e-mail do cadastro p/ a conta REAL do grant (quando casou por nome mas o
+// email_outlook era um apelido). Auto-cura registros antigos — não deixa o erro se repetir.
+async function _acReconcileEmail(p,email){
+  if(!p||!email||(p.email_outlook&&p.email_outlook.toLowerCase()===email.toLowerCase()))return;
+  const antigo=p.email_outlook||'(vazio)';
+  try{const{error}=await sbClient.from('acessos_pessoas').update({email_outlook:email,atualizado_em:new Date().toISOString()}).eq('id',p.id);
+    if(!error){p.email_outlook=email;await _acLog('drive.reconcilia','colab:'+p.nome,'ok',antigo+' → '+email);}
+  }catch(e){}
 }
 function _acAudSetView(v){_acAudView=v;try{localStorage.setItem('ac-aud-view',v);}catch(e){}_acAudPaint();}
 function _acAudTog(btn){const l=btn.parentElement.querySelector('.ac-detlist');if(!l)return;const open=l.style.display==='none';l.style.display=open?'block':'none';btn.textContent=open?'ocultar':'detalhar';}
@@ -10835,7 +10853,7 @@ function _acOdSummary(od){
 }
 function _acAudPaint(){
   const body=document.getElementById('ac-body');if(!body||!_acAudData)return;
-  const {orgs,setores,pessoas,setorById,itensByP,odMap,iclMap}=_acAudData;
+  const {orgs,setores,pessoas,setorById,itensByP,odMap,odByName,iclMap}=_acAudData;
   const orgName=id=>{const o=orgs.find(x=>x.id===id);return o?o.nome:null;};
   const tree={};
   pessoas.forEach(p=>{
@@ -10849,7 +10867,18 @@ function _acAudPaint(){
     tree[orgId].setores[setorKey].list.push(p);
   });
   const line=(logo,rot,val)=>`<div class="ac-aud-line"><span class="ac-kicker">${logo||''}${rot}</span> <span>${val}</span></div>`;
-  const odOf=p=>(p.email_outlook?odMap[p.email_outlook.toLowerCase()]:null)||[];
+  const odOf=p=>{
+    const byEmail=(p.email_outlook?odMap[p.email_outlook.toLowerCase()]:null);
+    if(byEmail&&byEmail.length)return byEmail;
+    // fallback por NOME: o acesso pode ter caído numa conta diferente do e-mail cadastrado (apelido)
+    const nm=_acNorm(p.nome||'');
+    const byName=nm&&odByName?odByName[nm]:null;
+    if(byName&&byName.folders.length){
+      if(byName.email)_acReconcileEmail(p,byName.email); // auto-cura o cadastro (assíncrono)
+      return byName.folders;
+    }
+    return [];
+  };
   const inPoss=d=>(d.status==='em_uso'||d.status==='a_devolver');
   const dispOf=p=>(itensByP[p.id]||[]).filter(d=>d.categoria!=='veiculo'&&inPoss(d));
   const veicOf=p=>(itensByP[p.id]||[]).filter(d=>d.categoria==='veiculo'&&inPoss(d));
