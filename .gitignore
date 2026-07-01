@@ -26,6 +26,8 @@
 .claude/
 .vercel/
 .superpowers/
+.serena/
+**/.temp/
 
 # node
 **/node_modules/
@@ -34,6 +36,10 @@
 coletor/np-poll.mjs
 coletor/np-watch.mjs
 coletor/bling-reauth.mjs
+# one-off TEMP com PII real (e-mails/IDs de share) — não versionar
+coletor/od-reinvite.mjs
+# arte pesada de origem (não é asset do app)
+midia/elementos/Modern AI Office With Focus and Lounge Areas.png
 gestor-briefings.json
 gestor-lab.html
 noticias-sample.json
