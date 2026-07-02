@@ -1,114 +1,98 @@
-# Budget Inteligente (IA) + Pausar campanhas/anúncios — Gestão de Tráfego
+# Budget Inteligente (IA) + pausar sempre + status vencido — Gestão de Tráfego
 
 **Data:** 2026-07-02
-**Status:** Design aprovado — aguardando revisão do spec
+**Status:** Design aprovado e RECONCILIADO com o código atual — aguardando plano
 **Autor:** brenoov (+ Claude)
 **Frente:** melhoria #3 do pacote de dashboards (incorpora parte da #4)
 
 ---
 
-## 1. Problema
+## 0. Reconciliação com o código atual (importante)
 
-Hoje a **Gestão de Tráfego** (`meta.gestor`) sugere ajuste de budget com um botão **fixo de +25% / −25%** (`_gtInlineSuggest` → `mkBudget(1.25)` / `mkBudget(0.75)`), igual pra toda campanha, sem olhar objetivo, performance ou histórico. Não há recomendação personalizada, nem estimativa de impacto, nem forma de digitar um budget na mão. Além disso, campanhas **concluídas aparecem como se estivessem ativas** (o app não filtra pelo status real do Meta), e não há como **pausar um anúncio individual** pela tela.
+Ao ler o código de verdade, descobri que a Gestão de Tráfego (`index.html`) **já é bem mais avançada** do que a memória registrava. O que **já existe e NÃO será refeito**:
 
-**Objetivo:** substituir o ±25% fixo por uma **recomendação de budget personalizada gerada por IA (Opus 4.8)**, com **veredito**, **justificativa** e **estimativa de impacto**; permitir **aplicar a sugestão** ou **digitar um budget manual**; e permitir **pausar/reativar campanhas e anúncios individuais** — tudo respeitando o **status real** das campanhas.
+- **Motor de recomendação client-side** (`_gtInlineSuggest` L8092 / `_gtInlineSuggestAd` L8129 / `_gtVerdict` / `GT_CRIT` / `GT_POSTURAS`): roda **a cada vez que a tela abre**, com vereditos (escalar/reduzir/pausar/saudável), **postura** (Conservadora/Equilibrada/Agressiva, salva em localStorage) e critérios explicados (`gtCriterios()`). **Isto é o "refino da semana"** — não precisa de robô no servidor.
+- **Escrita no Meta** já funciona: `_gtApplyAction` (L8384) → `metaPost` (L8320, via `meta-proxy`, com JWT do usuário), com modal de confirmação `_gtConfirm` (L8335). Já trata `update_budget`, `pause_campaign`, `activate_campaign`, **`pause_ad` e `activate_ad`**.
+- **Status real** (`effective_status`) já é buscado, exibido (selos Ativo/Pausado/Arquivado) e filtrado (Todas/Ativas/Inativas) em `loadGtData` (L7950) e `_renderGtCampaigns` (L8164).
+- **±25% de budget** existe (`mkBudget`, L8108).
 
-## 2. A jogada (visão geral)
+**Consequência:** o botão de pausar campanha/anúncio **já aparece — porém só quando o motor recomenda**. Campanha/anúncio "saudável" não tem botão. E a "IA" de hoje é **motor de regras**, não LLM.
 
-Dois "robôs" rodam no servidor, sem depender do note do usuário:
+⚠️ **Drift de repo:** o `meta-proxy` é chamado pelo app (`metaFetch`/`metaPost`) mas **não tem arquivo em `supabase/functions/`** — produção está à frente do repo. Não mexemos nele aqui; ficará o registro. (Os robôs de servidor **não** usam o meta-proxy — vão direto ao Graph, ver §4.)
 
-- **Robô de segunda (caro, esperto):** 1x/semana, **Opus 4.8 via API**, analisa a fundo **só as campanhas ativas de verdade** e gera a **base da semana** (budget sugerido + veredito + justificativa + impacto por campanha).
-- **Robô da semana (barato, automático):** roda diariamente **sem chamar a API** (custo zero); reajusta a base da segunda conforme a performance real muda ao longo da semana, usando o **motor de regras** que o app já tem.
+## 1. O que este projeto entrega (escopo real)
 
-A tela **lê** o que os robôs guardaram e mostra por campanha, mais os controles de pausar. A tela continua puxando os números **ao vivo** do Meta (via `metaFetchAll`/meta-proxy) — a novidade é ler também a tabela de sugestões e oferecer os botões de escrita.
+1. **IA de verdade (Opus 4.8, semanal):** um robô roda toda segunda no servidor (sem note aberto), analisa **só as campanhas em veiculação real**, e grava por campanha: **budget sugerido personalizado**, **veredito**, **justificativa** e **estimativa de impacto**. Substitui o ±25% fixo por um número pensado.
+2. **Tela lê essa base** e mostra a sugestão do Opus (com selo de frescor), a justificativa e o impacto; o **motor client-side existente** refina isso ao abrir. Botão **Aplicar** (reusa a escrita que já existe) + **campo de budget manual** (novo).
+3. **Botão de pausar/reativar SEMPRE disponível** por campanha e por anúncio (não só quando o motor sugere) — a execução já existe; falta só sempre oferecer o controle.
+4. **Status vencido (resto da #4):** campanha cujo `stop_time` já passou não conta como "ativa" (não vai pro Opus, e a tela marca "Encerrada").
+
+## 2. Fluxo
 
 ```
-┌─ Segunda (GitHub Actions, chave dedicada) ─────────────┐
-│ meta-proxy → campanhas ATIVAS (status real) + insights │
-│   → Opus 4.8 (1 chamada por campanha)                  │
-│   → grava base da semana em gt_budget_analises          │
-└────────────────────────────────────────────────────────┘
-        │ base válida até a próxima segunda
+┌─ Segunda de manhã (GitHub Actions, chave Anthropic dedicada) ─┐
+│ lê accounts.access_token (service role) → Graph DIRETO         │
+│   → campanhas em veiculação real (ACTIVE, stop_time no futuro) │
+│   → Opus 4.8 (1 chamada por campanha)                          │
+│   → grava base da semana em gt_budget_analises                 │
+└────────────────────────────────────────────────────────────────┘
+        │ base guardada, válida até a próxima segunda
         ▼
-┌─ Durante a semana (Edge Function via pg_cron, sem API) ─┐
-│ meta-proxy → números frescos                            │
-│   → motor de regras reajusta a base                     │
-│   → atualiza gt_budget_analises (refino)                │
-└────────────────────────────────────────────────────────┘
-        │
-        ▼
-┌─ Tela Gestão de Tráfego (ao vivo + lê a tabela) ────────┐
-│ por campanha: budget atual · sugerido · veredito ·      │
-│   justificativa · impacto · [Aplicar] · [Budget manual] │
-│   · [Pausar/Reativar campanha]                          │
-│ por anúncio: [Pausar/Reativar anúncio]                  │
-└─────────────────────────────────────────────────────────┘
+┌─ Tela Gestão de Tráfego (abre → ao vivo + lê a tabela) ───────┐
+│ motor client-side (JÁ EXISTE) refina com números frescos       │
+│ por campanha: budget atual · SUGERIDO (Opus) · veredito ·      │
+│   justificativa · impacto · [Aplicar] · [campo manual R$] ·    │
+│   [Pausar/Reativar] (sempre)                                    │
+│ por anúncio: [Pausar/Reativar anúncio] (sempre)                │
+│ campanha vencida (stop_time passado): selo "Encerrada"         │
+└────────────────────────────────────────────────────────────────┘
 ```
 
-## 3. Estado atual (o que já existe)
+Sem robô no servidor durante a semana: o motor client-side que já existe faz o refino no instante em que a tela abre.
 
-- **Escrita no Meta já existe** em `_gtInlineSuggest` (~`index.html:8092`): ações `update_budget` (`mkBudget`, L8108-8109), `pause_campaign` e `activate_campaign` (L8110-8111), todas com diálogo de confirmação. Falta: `pause_ad` / `activate_ad` (nível do anúncio).
-- **Botão "Analisar com Agente IA"** (`#gt-analyze-btn`) existe na tela, mas **hoje NÃO chama LLM nenhum** — vai ser reaproveitado/religado.
-- **Dados ao vivo:** `loadGtData` (~L7802) busca campanhas e anúncios com insights via meta-proxy; a query de campanhas já traz `effective_status,objective,daily_budget,lifetime_budget`. A #2 (KPIs por objetivo) já adicionou `action_values,purchase_roas`.
-- **meta-proxy** (Edge Function): token do Meta server-side; contas via `/me/adaccounts`. Reusado pelos robôs (não se cria credencial nova do Meta).
-- **pg_cron** já orquestra a Edge Function `coletar-dados` (4x/dia) — mesmo mecanismo será usado pelo robô da semana.
-- **Gestor Comercial**: já existe um agente semanal (GitHub Actions, Opus 4.8) — é o **padrão de referência** de infra, mas o robô de budget usa **conta e chave próprias** (decisão do Breno).
-- **Gate:** `hasPermission('module:meta:gestor')` (mapeia p/ feature `meta.gestor`; admin sempre tem). Toasts/modais: padrões do iamundi (`adminToast`, modais próprios) — não usar `alert` nativo.
+## 3. Robô de segunda (Opus 4.8, chave dedicada) — o núcleo novo
 
-## 4. Robô de segunda (Opus 4.8, chave dedicada)
-
-- **Onde roda:** GitHub Actions agendado (cron toda segunda de manhã, horário SP). Repositório/workflow próprio do budget (não o do Gestor Comercial).
-- **Credenciais (secrets do GitHub, o Claude nunca vê o valor):**
-  - `ANTHROPIC_KEY_BUDGET` — chave Anthropic **dedicada** a essa ferramenta (conta/crédito próprios, criada pelo Breno).
-  - `SUPABASE_SERVICE_ROLE` (ou equivalente já usado) — pra gravar em `gt_budget_analises`.
-  - Acesso ao Meta: **via meta-proxy** (o robô invoca a Edge Function), reusando o token que já existe. Sem token novo do Meta.
+- **Onde roda:** GitHub Actions agendado (cron toda segunda de manhã), espelhando `.github/workflows/gestor-comercial.yml` + `coletor/gestor-comercial.mjs`. Arquivos novos: `.github/workflows/budget-ia.yml` + `coletor/budget-ia.mjs`.
+- **Secrets (o Claude nunca vê o valor):**
+  - `ANTHROPIC_API_KEY_BUDGET` — chave Anthropic **dedicada** (conta/crédito próprios do Breno).
+  - `SUPABASE_SERVICE_KEY` — pra ler `accounts.access_token` e gravar em `gt_budget_analises` (mesmo secret já usado pelo gestor).
+- **Acesso ao Meta:** igual `coletar-dados` — lê `accounts.access_token` via service role e chama o **Graph direto** (`https://graph.facebook.com/v21.0`). **Não usa meta-proxy** (que exige JWT de usuário).
 - **Passos:**
-  1. Lista as campanhas cujo **`effective_status` é de veiculação real** (ver §8 — status real). Campanha concluída/arquivada/pausada não entra na análise cara.
-  2. Pra cada campanha ativa, monta um payload com: objetivo, budget atual (daily/lifetime), gasto, impressões, cliques, CTR, CPC, ROAS/valor de conversão, resultados do objetivo, e o histórico disponível.
-  3. Chama **Opus 4.8** (`claude-opus-4-8`) — 1 chamada por campanha — pedindo **saída estruturada** (JSON validado) com:
-     - `budget_sugerido_centavos` (inteiro)
-     - `veredito` ∈ `escalar | reduzir | manter | pausar`
-     - `justificativa` (texto curto, PT)
-     - `impacto_estimado` (texto curto, PT — ex.: "+30% budget → ~+25% em compras, ROAS estável")
-  4. Grava/atualiza a linha da campanha em `gt_budget_analises` com `modelo='opus-4-8'`, `gerado_em=now`, `valida_ate=próxima segunda`.
-- **Priorização da IA:** o prompt instrui a IA a **respeitar o objetivo da campanha** (Vendas → ROAS/CAC; Tráfego → CPC/CTR; etc.), evitar recomendações agressivas sem dado, e marcar `pausar` quando a performance não justifica o gasto.
-- **Resiliência:** se uma campanha falhar (timeout, refusal, erro), pula e registra; não derruba o lote inteiro. Reaproveita o padrão de resiliência do coletor.
-- **Custo:** ~1 chamada Opus por campanha ativa (~1.5k tokens entrada + ~0.5k saída ≈ US$0,02/campanha). ~20 ativas ≈ **US$0,40/semana** (~R$2-3). Prompt fixo pode usar **cache** pra baratear o lote.
+  1. Pra cada conta ativa, lista campanhas `effective_status=ACTIVE` **cujo `stop_time` é futuro ou vazio** (em veiculação real). Puxa insights por campanha (spend, impressões, cliques, CTR, CPC, ROAS/valor de conversão, resultados do objetivo, frequência, budget atual daily/lifetime).
+  2. 1 chamada **Opus 4.8** (`claude-opus-4-8`) por campanha, com **saída estruturada** (JSON): `{ budget_sugerido_centavos:int, veredito:'escalar'|'reduzir'|'manter'|'pausar', justificativa:string, impacto_estimado:string }`. Prompt fixo respeita o objetivo (Vendas→ROAS/CAC; Tráfego→CPC/CTR; etc.), evita agressividade sem dado, marca `pausar` quando o gasto não se justifica.
+  3. `upsert` em `gt_budget_analises` (por `campaign_id`): `modelo='opus-4-8'`, `gerado_em=now`, `valida_ate=próxima segunda`.
+- **Resiliência:** campanha que falhar (timeout/refusal/erro) é pulada e registrada; o lote continua (mesmo padrão de retry do `anthropic()` do gestor: 429/5xx com backoff).
+- **Custo:** ~1 chamada Opus/campanha ativa (~1,5k in + ~0,5k out ≈ US$0,02). ~20 ativas ≈ **US$0,40/semana** (~R$2-3). Cache do prompt fixo barateia o lote.
 
-## 5. Robô da semana (motor de regras, sem API)
+## 4. Refino da semana = motor client-side existente (sem construir nada novo)
 
-- **Onde roda:** Edge Function nova `refinar-budget`, agendada por **pg_cron** (ex.: 1x/dia; pode acompanhar o ritmo do coletor). **Não chama a Anthropic** — custo zero.
-- **Passos:**
-  1. Busca os números frescos do Meta (via meta-proxy) das campanhas que têm base da semana em `gt_budget_analises`.
-  2. Aplica o **motor de regras** (a mesma lógica de `_gtInlineSuggest`, portada pra TS na Edge Function) em cima da base do Opus: se a performance melhorou/piorou desde segunda, ajusta `budget_refinado_centavos` e/ou marca alerta; mantém o veredito do Opus como âncora.
-  3. Atualiza a linha com `budget_refinado_centavos`, `refinado_em`, e um `origem_refino` (ex.: "regra: ROAS caiu 20%").
-- **Risco conhecido:** duplicação da lógica do motor de regras (client em JS × Edge em TS). Mitigação: manter as regras num bloco claramente marcado e documentado nos dois lugares, com os mesmos limiares; um teste compara as duas saídas em casos-âncora.
+Nada de Edge Function nem pg_cron. O motor `_gtInlineSuggest`/`_gtInlineSuggestAd` **já roda a cada abertura** da tela com os números ao vivo. Ele passa a **combinar** com a base do Opus: a base do Opus é a âncora (budget sugerido + justificativa + impacto), e o motor de regras ajusta o veredito/urgência conforme a performance da semana. Se não houver base do Opus pra uma campanha (ex.: campanha nova entre segundas), a tela cai no comportamento atual do motor.
 
-## 6. A tela (Gestão de Tráfego)
+## 5. A tela (Gestão de Tráfego)
 
-No render de cada campanha (`_renderGtCampaigns`, ~L7841), no lugar dos botões fixos ±25%:
+No render de campanha (`_renderGtCampaigns` L8164, área de ação em L8269 via `_gtRenderActions`):
 
-- **Budget atual** (ao vivo) + **Budget sugerido** (da tabela), com selo de origem/frescor (ex.: "base 2ª feira · atualizado 3ª") e o **veredito** (escalar/reduzir/manter/pausar) com cor.
-- **Justificativa** e **estimativa de impacto** (com aviso "estimativa da IA").
-- **[Aplicar sugestão]** → chama `update_budget` (fluxo existente, com confirmação `adminToast`/modal).
-- **Campo de budget manual** → o usuário digita R$ e aplica direto (reusa `update_budget`).
-- **[Pausar/Reativar campanha]** → `pause_campaign` / `activate_campaign` (já existem), com confirmação.
+- **Budget atual** (ao vivo) + **Budget sugerido** vindo de `gt_budget_analises`, com selo de origem/frescor (ex.: "IA · 2ª feira") e o veredito.
+- **Justificativa** e **estimativa de impacto** (com rótulo "estimativa da IA").
+- **[Aplicar sugestão]** → `_gtApplyAction({type:'update_budget', id, budget:budget_sugerido_centavos, ...})` (fluxo existente, com confirmação).
+- **Campo de budget manual** (novo): input R$/dia → aplica via o mesmo `update_budget`.
+- **[Pausar]/[Reativar] SEMPRE** (novo comportamento): além dos botões contextuais do motor, sempre oferecer o toggle manual conforme o `effective_status` (ACTIVE→Pausar, PAUSED→Reativar). Reusa as ações `pause_campaign`/`activate_campaign` já existentes.
 
-Por **anúncio** (a tela já lista anúncios por campanha):
-- **[Pausar/Reativar anúncio]** → ações **novas** `pause_ad` / `activate_ad` no nível do anúncio (`POST /{ad_id}` com `status=PAUSED|ACTIVE` via meta-proxy), com confirmação.
+No render de anúncio (`_renderGtAds` L8291):
+- **[Pausar]/[Reativar] anúncio SEMPRE** conforme o status do anúncio (reusa `pause_ad`/`activate_ad`, já suportados por `_gtApplyAction`).
 
-Sem sugestão guardada (ex.: campanha nova entre segundas), a tela mostra "—" / "aguardando análise" e mantém o budget manual e o pausar funcionando.
+Sem sugestão do Opus guardada, a campanha mostra "—/aguardando análise de 2ª" e mantém o motor de regras, o budget manual e o pausar funcionando.
 
-## 7. Dados — tabela `gt_budget_analises`
+## 6. Dados — tabela `gt_budget_analises`
 
-Uma linha por campanha ativa (chave por `campaign_id`; histórico opcional por `gerado_em`).
+Uma linha por campanha (chave `campaign_id`).
 
 | Coluna | Tipo | Nota |
 |---|---|---|
 | `campaign_id` | text | PK |
-| `account_id` | text | conta de anúncio |
+| `account_id` | text | conta de anúncio (`accounts.id`) |
 | `objetivo` | text | objective do Meta |
-| `effective_status` | text | status real na hora da análise |
+| `effective_status` | text | status na hora da análise |
 | `budget_atual_centavos` | int | no momento da análise |
 | `budget_sugerido_centavos` | int | do Opus |
 | `veredito` | text | escalar/reduzir/manter/pausar |
@@ -117,50 +101,46 @@ Uma linha por campanha ativa (chave por `campaign_id`; histórico opcional por `
 | `modelo` | text | `opus-4-8` |
 | `gerado_em` | timestamptz | quando o Opus rodou |
 | `valida_ate` | timestamptz | próxima segunda |
-| `budget_refinado_centavos` | int | do robô da semana (nullable) |
-| `refinado_em` | timestamptz | nullable |
-| `origem_refino` | text | motivo do refino (nullable) |
 
-**RLS:** leitura liberada pra quem tem acesso à ferramenta (`role='admin' OR 'meta.gestor' = any(profiles.features)` — mesmo padrão da #2 `gt_config_metricas`); **escrita só pelos robôs** (service role). Nenhuma escrita pela tela.
+**RLS:** leitura pra quem tem a ferramenta (`p.role='admin' OR 'meta.gestor' = any(p.features)` — mesmo padrão de `gt_config_metricas`); **escrita só service role** (sem policy de write → deny; o robô usa service key que ignora RLS). A tela nunca escreve nessa tabela.
 
-## 8. Status real (pedaço da #4)
+## 7. Status vencido (resto da #4)
 
-- A query de campanhas já traz `effective_status`. Considera-se "ativa de verdade" o conjunto de status que o Meta trata como **em veiculação** (ex.: `ACTIVE`; e os pausados como `PAUSED`, concluídos/arquivados fora). A lista exata de status a incluir/excluir é fixada no código com base na documentação do Meta.
-- O **robô de segunda** analisa **só** as ativas de verdade (não gasta Opus com campanha concluída).
-- A **tela** passa a exibir o status real (badge) e usa isso pra habilitar Pausar (ativa) vs Reativar (pausada). O resto da #4 (ex.: pausar em massa, visão completa de todos os status) fica fora deste escopo.
+- O robô só analisa campanhas `ACTIVE` com `stop_time` futuro/vazio.
+- A tela: quando `effective_status==='ACTIVE'` mas `stop_time` já passou, mostra selo **"Encerrada"** (cor neutra) e **não** oferece pausar (já acabou) nem sugestão de escalar; só leitura. `daily_budget`/`stop_time` já vêm em `campFields`.
 
-## 9. Segurança
+## 8. Segurança
 
-- Chave Anthropic **dedicada**, só como *secret* no GitHub; o Claude **não** manipula o valor em texto.
+- Chave Anthropic **dedicada**, só como *secret* no GitHub; o Claude **não** manipula o valor.
 - A chave que o Breno colou no chat está **exposta → revogar e recriar** antes de configurar.
-- Escrita no Meta (budget, pausar) sempre com **confirmação** na tela; toasts/modais do iamundi (não `alert`).
-- Front é público (padrão do projeto) — nenhuma chave de IA ou do Meta vai pro client; toda escrita passa pelo meta-proxy.
-- Ações de pausar/aplicar budget são **reversíveis**; ainda assim exigem confirmação explícita.
+- Toda escrita no Meta passa pela confirmação `_gtConfirm` já existente; o budget manual também confirma antes de aplicar.
+- Front é público; nenhuma chave (IA/Meta) vai pro client. Robô lê token via service role no servidor.
+- Pausar/aplicar são reversíveis, mas exigem confirmação explícita.
 
-## 10. Fora de escopo
+## 9. Fora de escopo
 
 - Redesign visual do Meta Ads (#5).
-- Resto da #4: pausar em massa, painel completo de todos os status.
-- KPIs de custo na seção Meta Ads do **Dashboard Redes Sociais** (backlog separado).
-- Personalização da sugestão por usuário (a base é global).
+- Robô no servidor durante a semana / alertas automáticos (o motor client-side já refina ao abrir).
+- Pausar em massa; painel completo de todos os `effective_status` do Meta.
+- KPIs de custo na seção Meta Ads do Dashboard Redes Sociais (backlog separado).
+- Personalização da sugestão por usuário (base é global).
+- Consertar o drift do meta-proxy (registrar, não resolver aqui).
 
-## 11. Critérios de sucesso
+## 10. Critérios de sucesso
 
-1. Toda segunda, as campanhas **ativas de verdade** recebem budget sugerido + veredito + justificativa + impacto, guardados na tabela — sem note aberto.
-2. Durante a semana, a sugestão se **atualiza sozinha** conforme a performance muda, **sem gastar API**.
-3. A tela mostra, por campanha, a sugestão (com frescor/veredito), o impacto, o botão **Aplicar** e o **campo manual**, e aplica no Meta com confirmação.
-4. É possível **pausar/reativar** campanha e **anúncio individual** pela tela, com confirmação, refletindo o resultado.
-5. Campanhas concluídas **não** entram na análise cara nem aparecem como "ativas".
-6. Nenhuma chave sensível no client; escrita só via meta-proxy; leitura da tabela só pra quem tem a ferramenta.
+1. Toda segunda, campanhas em **veiculação real** ganham budget sugerido + veredito + justificativa + impacto em `gt_budget_analises`, sem note aberto.
+2. A tela mostra a sugestão do Opus (com selo de frescor), impacto, **[Aplicar]** e **campo manual**, aplicando no Meta com confirmação; o motor client-side refina ao abrir.
+3. Dá pra **pausar/reativar** qualquer campanha e qualquer anúncio pela tela (mesmo saudáveis), com confirmação.
+4. Campanha com `stop_time` no passado aparece como **"Encerrada"** e **não** entra na análise do Opus.
+5. Nenhuma chave sensível no client; leitura da tabela só pra quem tem a ferramenta; escrita só pelo robô.
 
-## 12. Riscos
+## 11. Riscos
 
 | Risco | Mitigação |
 |---|---|
-| meta-proxy não deixar o robô (server-side) invocar sem JWT de usuário | Definir no plano como o robô autentica (service role / chave de serviço); testar cedo. |
-| Duplicação do motor de regras (client × Edge) diverge | Bloco marcado nos dois lados, mesmos limiares, teste comparando saídas em casos-âncora. |
-| Opus recusar (`refusal`) ou dar timeout numa campanha | Pular e registrar; lote continua; não bloquear a base da semana. |
-| Saída do Opus fora do formato | Saída estruturada (JSON schema) + validação; se inválido, marca "sem sugestão". |
-| `pause_ad` exigir permissão/campo que o token atual não tem | Testar cedo no meta-proxy; se faltar escopo, ajustar. |
-| Estimativa de impacto ser lida como garantia | Rótulo explícito "estimativa da IA" na tela. |
-| Custo escalar se muitas campanhas ativas | 1x/semana + cache de prompt; monitorar nº de ativas. |
+| Saída do Opus fora do formato | Saída estruturada (JSON schema) + validação; inválido → não grava (fica "aguardando"). |
+| Opus recusar (`refusal`)/timeout numa campanha | Pular e registrar; lote continua; base da semana não trava. |
+| Combinar base do Opus + motor de regras confundir a UI | Selo claro de origem/frescor; motor só ajusta urgência, budget sugerido vem do Opus. |
+| Sempre mostrar pausar poluir a UI | Botão manual discreto, separado dos botões de recomendação do motor. |
+| `stop_time` ausente em algumas campanhas | Tratar vazio como "sem prazo" (não encerrada). |
+| Muitas campanhas ativas → custo | 1x/semana + cache de prompt; monitorar nº de ativas. |
