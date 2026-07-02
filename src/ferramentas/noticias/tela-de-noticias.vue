@@ -290,7 +290,7 @@ function _npRenderBody(){
   if(hero){
     const col=_npCatColor(hero.categoria);
     const hd=hero.data_publicacao?_npFmtDate(hero.data_publicacao):'';
-    const hlink=hero.url?'<a class="np-link" href="'+_npEsc(hero.url)+'" target="_blank" rel="noopener noreferrer">Ler matéria</a>':'';
+    const hlink=(hero.url&&/^https?:\/\//.test(String(hero.url)))?'<a class="np-link" href="'+_npEsc(hero.url)+'" target="_blank" rel="noopener noreferrer">Ler matéria</a>':'';
     const himg=_npImg(hero.imagem_url);
     html+='<article class="np-hero" style="--hero:'+col+'">'
       +(himg?'<img class="np-hero-img" src="'+himg+'" loading="lazy" alt="" onerror="this.style.display=&#39;none&#39;">':'<div class="np-hero-img"></div>')
@@ -309,7 +309,7 @@ function _npRenderBody(){
     rest.forEach(n=>{
       const col=_npCatColor(n.categoria);i++;
       const date=n.data_publicacao?_npFmtDate(n.data_publicacao):'';
-      const link=n.url?'<a class="np-link" href="'+_npEsc(n.url)+'" target="_blank" rel="noopener noreferrer">Fonte ↗</a>':'';
+      const link=(n.url&&/^https?:\/\//.test(String(n.url)))?'<a class="np-link" href="'+_npEsc(n.url)+'" target="_blank" rel="noopener noreferrer">Fonte ↗</a>':'';
       const nimg=_npImg(n.imagem_url);
       html+='<article class="np-art" style="--cat:'+col+'">'
         +(nimg?'<img class="np-art-img" src="'+nimg+'" loading="lazy" alt="" onerror="this.style.display=&#39;none&#39;">':'')
