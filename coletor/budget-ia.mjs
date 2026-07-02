@@ -175,7 +175,7 @@ async function main() {
       if (DRY) { console.log('  [dry] ' + (camp.name || camp.id)); continue; }
       let saida;
       try {
-        const resp = await anthropic({ model: MODEL, max_tokens: 1024, thinking: { type: 'adaptive' }, system, messages: [{ role: 'user', content: user }] });
+        const resp = await anthropic({ model: MODEL, max_tokens: 4096, thinking: { type: 'adaptive' }, system, messages: [{ role: 'user', content: user }] });
         saida = parsearSaida(textoDaResposta(resp));
       } catch (e) { console.log('  ✗ ' + (camp.name || camp.id) + ': ' + e.message); puladas++; continue; }
       if (!saida) { console.log('  ⚠ ' + (camp.name || camp.id) + ': sem sugestão válida'); puladas++; continue; }

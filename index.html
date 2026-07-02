@@ -8363,7 +8363,7 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
         inner.appendChild(iaEl);
         _gtWireBudgetControls(iaEl,ins,camp,iaRow);
       }
-      if(actBar)inner.appendChild(actBar);
+      if(!encerrada&&actBar)inner.appendChild(actBar);
       // Ads pane
       const adsPane=document.createElement('div');adsPane.className='gt-camp-row-ads';
       top.addEventListener('click',()=>{
