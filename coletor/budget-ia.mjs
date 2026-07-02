@@ -179,21 +179,27 @@ async function main() {
         saida = parsearSaida(textoDaResposta(resp));
       } catch (e) { console.log('  ✗ ' + (camp.name || camp.id) + ': ' + e.message); puladas++; continue; }
       if (!saida) { console.log('  ⚠ ' + (camp.name || camp.id) + ': sem sugestão válida'); puladas++; continue; }
-      await sbUpsert('/gt_budget_analises', [{
-        campaign_id: camp.id,
-        account_id: acc.id,
-        objetivo: camp.objective || null,
-        effective_status: camp.effective_status || null,
-        budget_atual_centavos: camp.daily_budget != null ? Number(camp.daily_budget) : null,
-        budget_sugerido_centavos: saida.budget_sugerido_centavos,
-        veredito: saida.veredito,
-        justificativa: saida.justificativa,
-        impacto_estimado: saida.impacto_estimado,
-        modelo: MODEL,
-        gerado_em: new Date().toISOString(),
-        valida_ate: proximaSegunda,
-      }]);
-      gravadas++;
+      try {
+        await sbUpsert('/gt_budget_analises', [{
+          campaign_id: camp.id,
+          account_id: acc.id,
+          objetivo: camp.objective || null,
+          effective_status: camp.effective_status || null,
+          budget_atual_centavos: camp.daily_budget != null ? Number(camp.daily_budget) : null,
+          budget_sugerido_centavos: saida.budget_sugerido_centavos,
+          veredito: saida.veredito,
+          justificativa: saida.justificativa,
+          impacto_estimado: saida.impacto_estimado,
+          modelo: MODEL,
+          gerado_em: new Date().toISOString(),
+          valida_ate: proximaSegunda,
+        }]);
+        gravadas++;
+      } catch (e) {
+        console.log('  ✗ gravar ' + (camp.name || camp.id) + ': ' + e.message);
+        puladas++;
+        continue;
+      }
     }
   }
   console.log(`Concluído: ${total} analisadas, ${gravadas} gravadas, ${puladas} puladas.`);
