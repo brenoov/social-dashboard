@@ -107,7 +107,7 @@ async function coletarEngajamentoConta(igId: string, token: string, dias: number
   if (dias === 0) { since = startOf(todayBR()); until = now; }                 // hoje (parcial)
   else if (dias === 1) { since = startOf(brDateMinus(1)); until = startOf(todayBR()); } // ontem
   else if (dias === 99) { since = startOf(`${todayBR().slice(0, 7)}-01`); until = now; } // mês-corrente (MTD)
-  else { since = now - dias * 86400; until = now; }                            // últimos N dias (≤30, limite da Meta)
+  else { since = startOf(brDateMinus(dias)); until = startOf(todayBR()); }      // últimos N dias COMPLETOS (fecha à meia-noite BRT, = "Últimos N dias" do Business Suite)
   try {
     const d = await apiGet(`${igId}/insights`, {
       metric: 'likes,comments,saves,shares,reach,views,total_interactions,accounts_engaged,profile_views', period: 'day', metric_type: 'total_value',
