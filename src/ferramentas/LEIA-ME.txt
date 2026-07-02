@@ -1,0 +1,14 @@
+PASTA: ferramentas
+==================
+Cada subpasta aqui é UMA ferramenta/tela do iamundi (um "componente").
+
+Regra de ouro para trabalhar em equipe sem conflito:
+- Cada pessoa mexe SÓ na pasta da ferramenta dela.
+- Duas pessoas em ferramentas diferentes nunca editam o mesmo arquivo,
+  então o Git nunca briga na hora de juntar o trabalho.
+
+O que é compartilhado por TODAS as telas fica em ../compartilhado
+(conexão com banco, dados, login) — só mexer ali combinando com o TI.
+
+Telas já migradas para o Vue: login, inicio (Central), noticias.
+As demais telas serão migradas uma por vez, cada uma virando sua pasta aqui.

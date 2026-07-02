@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/midia/:path*", "destination": "/projetos/central-inteligencia/midia/:path*" }
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
     {
