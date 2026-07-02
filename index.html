@@ -8185,7 +8185,34 @@ function _gtIABlocoHtml(row){
     </div>
     <div style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);margin-top:4px;line-height:1.45;">${_gtEsc(row.justificativa||'')}</div>
     ${row.impacto_estimado?`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);margin-top:3px;"><b>Impacto estimado (IA):</b> ${_gtEsc(row.impacto_estimado)}</div>`:''}
+    <div class="gt-ia-ctrls" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;">
+      <button data-gt-aplicar="1" class="gt-act-btn primary" style="font-size:11px;">Aplicar ${sug}/dia</button>
+      <span style="font-size:10px;color:var(--muted);">ou</span>
+      <input data-gt-manual="1" type="number" min="1" step="1" placeholder="R$/dia" style="width:80px;padding:5px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:11px;">
+      <button data-gt-manual-ok="1" class="gt-act-btn" style="font-size:11px;">Aplicar manual</button>
+    </div>
   </div>`;
+}
+function _gtWireBudgetControls(el,ins,camp,iaRow){
+  if(!el)return;
+  const nm=_gtEsc(ins.campaign_name||camp?.name||'a campanha');
+  const daily=camp?.daily_budget?parseFloat(camp.daily_budget)/100:null;
+  const bAplicar=el.querySelector('[data-gt-aplicar]');
+  if(bAplicar){
+    if(!iaRow||iaRow.budget_sugerido_centavos==null){bAplicar.disabled=true;bAplicar.style.opacity=.5;}
+    else bAplicar.addEventListener('click',ev=>{ev.stopPropagation();
+      const novo=iaRow.budget_sugerido_centavos;
+      _gtApplyAction({type:'update_budget',id:ins.campaign_id,budget:novo,_t:'Aplicar budget sugerido?',_d:`"${nm}": ${daily!=null?_maFmtR(daily)+'/dia':'orçamento atual'} → ${_maFmtR(novo/100)}/dia (sugestão da IA).`},bAplicar,el);
+    });
+  }
+  const inp=el.querySelector('[data-gt-manual]'),bMan=el.querySelector('[data-gt-manual-ok]');
+  if(bMan&&inp)bMan.addEventListener('click',ev=>{ev.stopPropagation();
+    const v=parseFloat(inp.value);
+    if(!Number.isFinite(v)||v<=0){inp.style.borderColor='#dc2626';return;}
+    inp.style.borderColor='';
+    const cent=Math.round(v*100);
+    _gtApplyAction({type:'update_budget',id:ins.campaign_id,budget:cent,_t:'Aplicar budget manual?',_d:`"${nm}": ${daily!=null?_maFmtR(daily)+'/dia':'orçamento atual'} → ${_maFmtR(v)}/dia.`},bMan,el);
+  });
 }
 function _renderGtCampaigns(col,campaigns,insights,adInsights){
   const campMap={};campaigns.forEach(c=>campMap[c.id]=c);
@@ -8298,7 +8325,11 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       iaBloco.innerHTML=_gtIABlocoHtml(iaRow);
       inner.appendChild(top);inner.appendChild(insightEl);
       if(sug.criteria){const cr=document.createElement('div');cr.className='gt-criteria';cr.innerHTML='<b>Critério:</b> '+sug.criteria;inner.appendChild(cr);}
-      if(iaRow)inner.appendChild(iaBloco.firstElementChild);
+      if(iaRow){
+        const iaEl=iaBloco.firstElementChild;
+        inner.appendChild(iaEl);
+        _gtWireBudgetControls(iaEl,ins,camp,iaRow);
+      }
       if(actBar)inner.appendChild(actBar);
       // Ads pane
       const adsPane=document.createElement('div');adsPane.className='gt-camp-row-ads';
