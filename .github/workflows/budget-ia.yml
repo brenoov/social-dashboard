@@ -21,6 +21,6 @@ jobs:
           node-version: '20'
       - name: Rodar análise de budget
         env:
-          ANTHROPIC_API_KEY_BUDGET: ${{ secrets.ANTHROPIC_API_KEY_BUDGET }}
+          ANTHROPIC_API_KEY_TRAFEGO: ${{ secrets.ANTHROPIC_API_KEY_TRAFEGO }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: node coletor/budget-ia.mjs

@@ -71,7 +71,7 @@ export function parsearSaida(text) {
 function num(v) { const n = parseFloat(v); return Number.isFinite(n) ? n : null; }
 
 // ---------- infra (rede) — só roda no main(), não é importado nos testes ----------
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY_BUDGET || process.env.ANTHROPIC_API_KEY;
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY_TRAFEGO || process.env.ANTHROPIC_API_KEY_BUDGET || process.env.ANTHROPIC_API_KEY;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
 const MODEL = process.env.BUDGET_MODEL || 'claude-opus-4-8';
@@ -138,7 +138,7 @@ function textoDaResposta(resp) {
 
 async function main() {
   if (!ANTHROPIC_API_KEY || !SERVICE_KEY) {
-    console.error('✗ Faltam segredos: ANTHROPIC_API_KEY_BUDGET, SUPABASE_SERVICE_KEY');
+    console.error('✗ Faltam segredos: ' + (!ANTHROPIC_API_KEY ? 'ANTHROPIC_API_KEY_TRAFEGO ' : '') + (!SERVICE_KEY ? 'SUPABASE_SERVICE_KEY' : ''));
     process.exit(1);
   }
   const agoraMs = Date.now();
