@@ -451,8 +451,6 @@
   .content-entering{animation:contentIn .32s cubic-bezier(.22,1,.36,1) both;}
   @keyframes numPop{0%{transform:scale(1)}45%{transform:scale(1.045)}100%{transform:scale(1)}}
 
-  /* AUTH SCREEN */
-  #auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--surface2);position:relative;z-index:1;}
   /* HOME SCREEN */
   #home-screen{min-height:100vh;display:none;flex-direction:column;background:transparent;position:relative;z-index:1;}
   #bg-shapes .ico{color:var(--accent);}
@@ -2146,7 +2144,6 @@
   body.dev-tv #gestao-vista-screen .gv-pbtn{font-size:21px;padding:8px 19px;border-radius:8px;}
   body.dev-tv #gestao-vista-screen #gv-ac-toggle{font-size:21px;padding:8px 17px;}
   /* ── AUTH CANVAS + DARK LOGIN ── */
-  #auth-screen{background:#07080f;}
   #auth-bg-canvas{position:absolute;inset:0;z-index:0;pointer-events:none;}
   .auth-card{position:relative;z-index:1;}
   .auth-link-row{display:flex;justify-content:space-between;margin-top:14px;}
