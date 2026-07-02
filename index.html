@@ -8170,6 +8170,28 @@ function _gtRenderActions(actions,rowEl){
   });
   return bar;
 }
+// Botão manual de pausar/reativar SEMPRE disponível, independente do veredito.
+// kind='campaign'|'ad'. Retorna o <button> ou null (para status sem toggle).
+function _gtManualToggleBtn(kind,id,status,nome){
+  const nm=_gtEsc(nome||(kind==='ad'?'o anúncio':'a campanha'));
+  let action=null;
+  if(status==='ACTIVE'){
+    action=kind==='ad'
+      ?{type:'pause_ad',id,_t:'Pausar anúncio?',_d:`"${nm}" será PAUSADO na Meta agora.`}
+      :{type:'pause_campaign',id,_t:'Pausar campanha?',_d:`"${nm}" será PAUSADA na Meta agora.`};
+  }else if(status==='PAUSED'){
+    action=kind==='ad'
+      ?{type:'activate_ad',id,_t:'Ativar anúncio?',_d:`"${nm}" voltará a ATIVO e a gastar na Meta.`}
+      :{type:'activate_campaign',id,_t:'Reativar campanha?',_d:`"${nm}" voltará a ATIVA e a gastar na Meta.`};
+  }
+  if(!action)return null; // ARCHIVED/encerrada: sem toggle
+  const b=document.createElement('button');
+  b.className='gt-act-btn '+(status==='ACTIVE'?'':'success');
+  b.textContent=status==='ACTIVE'?'⏸ Pausar':'▶ Reativar';
+  b.style.opacity='.9';
+  b.addEventListener('click',e=>{e.stopPropagation();_gtApplyAction(action,b,null);});
+  return b;
+}
 // Bloco visual da sugestão do Opus (ou '' se não houver). row = _gtBudgetIA[campId].
 function _gtIABlocoHtml(row){
   if(!row)return '';
@@ -8319,7 +8341,9 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       // Insight row
       const insightEl=document.createElement('div');insightEl.className=`gt-insight ${sug.priority}`;
       insightEl.innerHTML=`<span style="font-size:13px;flex-shrink:0;">${sug.icon}</span><span class="gt-insight-text">${sug.text}</span>`;
-      const actBar=_gtRenderActions(sug.actions,row);
+      let actBar=_gtRenderActions(sug.actions,row);
+      const tgl=_gtManualToggleBtn('campaign',ins.campaign_id,status,ins.campaign_name||camp?.name);
+      if(tgl){ if(!actBar){actBar=document.createElement('div');actBar.className='gt-action-row';} actBar.appendChild(tgl); }
       const iaRow=_gtBudgetIA[ins.campaign_id];
       const iaBloco=document.createElement('div');
       iaBloco.innerHTML=_gtIABlocoHtml(iaRow);
@@ -8373,7 +8397,9 @@ function _renderGtAds(pane,ads,allInsights,allAdInsights){
     top.appendChild(adBadge);top.appendChild(nameWrap);top.appendChild(metrics);
     const insightEl=document.createElement('div');insightEl.className=`gt-insight ${sug.priority}`;
     insightEl.innerHTML=`<span style="font-size:12px;flex-shrink:0;">${sug.icon}</span><span class="gt-insight-text">${sug.text}</span>`;
-    const actBar=_gtRenderActions(sug.actions,card);
+    let actBar=_gtRenderActions(sug.actions,card);
+    const adTgl=_gtManualToggleBtn('ad',ad.ad_id,adStatus,ad.ad_name||ad.adset_name);
+    if(adTgl){ if(!actBar){actBar=document.createElement('div');actBar.className='gt-action-row';} actBar.appendChild(adTgl); }
     card.appendChild(top);card.appendChild(insightEl);if(actBar)card.appendChild(actBar);
     pane.appendChild(card);
   });
