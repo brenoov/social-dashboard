@@ -2385,6 +2385,9 @@
   .gt-metrics{display:flex;align-items:center;gap:14px;flex-wrap:wrap;flex-shrink:0;}
   .gt-metric{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);white-space:nowrap;}
   .gt-metric span{font-weight:700;color:var(--text);}
+  .gt-kpi{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);white-space:nowrap;display:inline-flex;align-items:center;gap:3px;}
+  .gt-kpi-lbl{color:var(--muted);}
+  .gt-kpi-val{font-weight:700;color:var(--text);}
   .gt-spend{font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;color:var(--text);flex-shrink:0;min-width:65px;text-align:right;}
   /* Inline AI insight */
   .gt-insight{display:flex;align-items:flex-start;gap:6px;margin:7px 0 4px;padding:6px 10px;border-radius:6px;border-left:3px solid;}
@@ -7861,6 +7864,21 @@ function _gtMetricasDoBalde(balde){
   const c=_gtConfig[balde];
   return (Array.isArray(c)&&c.length) ? c : (GT_BALDE_PADRAO[balde]||GT_BALDE_PADRAO.padrao);
 }
+function _gtFmt(v, fmt){
+  if(v==null||!isFinite(v))return '—';
+  if(fmt==='money')return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  if(fmt==='pct')return v.toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
+  if(fmt==='x')return v.toLocaleString('pt-BR',{maximumFractionDigits:2})+'×';
+  if(fmt==='dec')return v.toLocaleString('pt-BR',{maximumFractionDigits:2});
+  return Math.round(v).toLocaleString('pt-BR'); // int
+}
+function _gtKpisHtml(row){
+  const balde=_gtBalde(row.objective);
+  const keys=_gtMetricasDoBalde(balde);
+  return keys.map(k=>{ const m=GT_METRIC_CATALOG[k]; if(!m)return ''; const val=_gtFmt(m.compute(row), m.fmt);
+    return `<div class="gt-kpi"><span class="gt-kpi-lbl">${m.label}</span><span class="gt-kpi-val">${val}</span></div>`;
+  }).join('');
+}
 async function _gtSaveConfig(balde,metricas){
   // escrita autenticada via sbClient (JWT do usuário) — gated no banco por RLS
   // (profiles.role='admin'), mesmo padrão de adminSaveSetting()/platform_settings
@@ -8155,13 +8173,11 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       const camp=campMap[ins.campaign_id];
       const status=camp?.effective_status||'';
       const statusColor=status==='ACTIVE'?'#16a34a':status==='PAUSED'?'#f59e0b':'#6b7280';
-      const ctr=parseFloat(ins.ctr||0);
       const spend=parseFloat(ins.spend||0);
       const daily=camp?.daily_budget?parseFloat(camp.daily_budget)/100:null;
-      const ctrColor=ctr>=2?'#16a34a':ctr<0.8?'#dc2626':'#d97706';
       const ads=adByCamp[ins.campaign_id]||[];
       const sug=_gtInlineSuggest(ins,camp,insights);
-      const objCat=_gtObjCategory(ins.objective||camp?.objective||'');
+      const kpiObjective=ins.objective||camp?.objective||'';
       const row=document.createElement('div');row.className='gt-camp-row';
       const inner=document.createElement('div');inner.className='gt-camp-inner';
       // Top line
@@ -8174,14 +8190,9 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       const nm=document.createElement('div');nm.className='gt-name';nm.title=ins.campaign_name||'';nm.textContent=ins.campaign_name||'—';
       const chips=document.createElement('div');chips.style.cssText='display:flex;align-items:center;gap:8px;flex-shrink:0;';
       chips.innerHTML=`<span class="ma-obj-chip" style="font-size:9px;">${_maObjLabel(ins.objective)}</span>${daily?`<span style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;color:var(--muted);">${_maFmtR(daily)}/dia</span>`:''}`;
+      // KPIs por objetivo (balde da campanha — ver GT_METRIC_CATALOG/_gtBalde)
       const metrics=document.createElement('div');metrics.className='gt-metrics';
-      // Show objective-relevant metric as third column
-      let extraMetric='';
-      if(objCat==='lead'||objCat==='conversion'){const l=_getActions(ins,'lead');if(l>0)extraMetric=`<div class="gt-metric">Leads <span>${_maFmt(l)}</span></div>`;}
-      else if(objCat==='engagement'){const e=_getActions(ins,'post_engagement')||_getActions(ins,'page_engagement');if(e>0)extraMetric=`<div class="gt-metric">Eng. <span>${_maFmt(e)}</span></div>`;}
-      else if(objCat==='video'){const v=parseInt(ins.video_play_actions?.[0]?.value||0);if(v>0)extraMetric=`<div class="gt-metric">Plays <span>${_maFmt(v)}</span></div>`;}
-      else if(objCat==='traffic'){const cl=parseInt(ins.clicks||0);if(cl>0)extraMetric=`<div class="gt-metric">Cliques <span>${_maFmt(cl)}</span></div>`;}
-      metrics.innerHTML=`<div class="gt-metric">CTR <span style="color:${ctrColor}">${_maFmtPct(ctr)}</span></div><div class="gt-metric">CPC <span>${_maFmtR(parseFloat(ins.cpc||0))}</span></div>${extraMetric}`;
+      metrics.innerHTML=_gtKpisHtml(Object.assign({},ins,{objective:kpiObjective}));
       const spendEl=document.createElement('div');spendEl.className='gt-spend';spendEl.textContent=_maFmtR(spend);
       const adCount=ads.length;
       const hint=document.createElement('span');hint.className='gt-expand-hint';hint.textContent=adCount>0?`${adCount} anúncio${adCount!==1?'s':''}  ▾`:'sem anúncios';
