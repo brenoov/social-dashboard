@@ -7878,6 +7878,14 @@ async function _gtLoadConfig(){
     (rows||[]).forEach(r=>{ if(Array.isArray(r.metricas)) _gtConfig[r.balde]=r.metricas; });
   }catch(e){ _gtConfig={}; }
 }
+let _gtBudgetIA={};
+async function _gtLoadBudgetIA(){
+  try{
+    const rows=await sb('gt_budget_analises?select=campaign_id,budget_sugerido_centavos,veredito,justificativa,impacto_estimado,gerado_em,budget_atual_centavos');
+    _gtBudgetIA={};
+    (rows||[]).forEach(r=>{ if(r&&r.campaign_id) _gtBudgetIA[r.campaign_id]=r; });
+  }catch(e){ _gtBudgetIA={}; }
+}
 function _gtMetricasDoBalde(balde){
   const c=_gtConfig[balde];
   return (Array.isArray(c)&&c.length) ? c : (GT_BALDE_PADRAO[balde]||GT_BALDE_PADRAO.padrao);
@@ -7957,6 +7965,7 @@ async function loadGtData(){
   if(sugs)sugs.innerHTML='';
   try{
     if(!_gtConfigLoaded){ await _gtLoadConfig(); _gtConfigLoaded=true; }
+    await _gtLoadBudgetIA();
     const acc=_gtCurAcc;
     const tok=acc.id;
     const adAccId=acc.ad_account_id;
@@ -8161,6 +8170,23 @@ function _gtRenderActions(actions,rowEl){
   });
   return bar;
 }
+// Bloco visual da sugestão do Opus (ou '' se não houver). row = _gtBudgetIA[campId].
+function _gtIABlocoHtml(row){
+  if(!row)return '';
+  const sug=row.budget_sugerido_centavos!=null?_maFmtR(row.budget_sugerido_centavos/100):'—';
+  const quando=row.gerado_em?new Date(row.gerado_em).toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'}):'';
+  const verMap={escalar:'#16a34a',reduzir:'#d97706',manter:'#6366f1',pausar:'#dc2626'};
+  const cor=verMap[row.veredito]||'#6366f1';
+  return `<div class="gt-ia-sug" style="margin-top:7px;padding:8px 10px;border:1px solid var(--border);border-left:3px solid ${cor};border-radius:8px;background:var(--surface2);">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <span style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:${cor};">✦ IA · ${_gtEsc(quando)}</span>
+      <span style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;color:var(--text);">Budget sugerido: ${sug}/dia</span>
+      <span style="font-size:10px;font-weight:700;color:${cor};text-transform:uppercase;">${_gtEsc(row.veredito||'')}</span>
+    </div>
+    <div style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);margin-top:4px;line-height:1.45;">${_gtEsc(row.justificativa||'')}</div>
+    ${row.impacto_estimado?`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);margin-top:3px;"><b>Impacto estimado (IA):</b> ${_gtEsc(row.impacto_estimado)}</div>`:''}
+  </div>`;
+}
 function _renderGtCampaigns(col,campaigns,insights,adInsights){
   const campMap={};campaigns.forEach(c=>campMap[c.id]=c);
   const adByCamp={};adInsights.forEach(a=>{if(!adByCamp[a.campaign_id])adByCamp[a.campaign_id]=[];adByCamp[a.campaign_id].push(a);});
@@ -8267,8 +8293,12 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       const insightEl=document.createElement('div');insightEl.className=`gt-insight ${sug.priority}`;
       insightEl.innerHTML=`<span style="font-size:13px;flex-shrink:0;">${sug.icon}</span><span class="gt-insight-text">${sug.text}</span>`;
       const actBar=_gtRenderActions(sug.actions,row);
+      const iaRow=_gtBudgetIA[ins.campaign_id];
+      const iaBloco=document.createElement('div');
+      iaBloco.innerHTML=_gtIABlocoHtml(iaRow);
       inner.appendChild(top);inner.appendChild(insightEl);
       if(sug.criteria){const cr=document.createElement('div');cr.className='gt-criteria';cr.innerHTML='<b>Critério:</b> '+sug.criteria;inner.appendChild(cr);}
+      if(iaRow)inner.appendChild(iaBloco.firstElementChild);
       if(actBar)inner.appendChild(actBar);
       // Ads pane
       const adsPane=document.createElement('div');adsPane.className='gt-camp-row-ads';
