@@ -55,6 +55,17 @@ async function apiGetAll(path: string, params: Record<string, string>): Promise<
   return all;
 }
 
+// Extrai a contagem de um tipo de ação do array `actions` do insight, tentando
+// aliases (o Meta varia os nomes). Retorna inteiro (0 se ausente).
+function actVal(actions: any, types: string[]): number {
+  if (!Array.isArray(actions)) return 0;
+  for (const t of types) {
+    const hit = actions.find((a: any) => a && a.action_type === t);
+    if (hit) return parseInt(hit.value ?? '0') || 0;
+  }
+  return 0;
+}
+
 async function renovarToken(token: string): Promise<string> {
   if (!APP_ID || !APP_SECRET) return token;
   try {
@@ -283,7 +294,7 @@ async function coletarAdsPorCampanha(sb: any, adAccountId: string, accountId: st
   const since = d.toLocaleDateString('en-CA');
   try {
     const items = await apiGetAll(`act_${adAccountId}/insights`, {
-      fields: 'campaign_id,spend,impressions,clicks,reach',
+      fields: 'campaign_id,spend,impressions,clicks,reach,actions',
       time_range: JSON.stringify({ since, until }),
       level: 'campaign', access_token: token,
     });
@@ -294,6 +305,11 @@ async function coletarAdsPorCampanha(sb: any, adAccountId: string, accountId: st
       impressions: parseInt(r.impressions ?? '0'),
       clicks: parseInt(r.clicks ?? '0'),
       reach: parseInt(r.reach ?? '0'),
+      post_engagement: actVal(r.actions, ['post_engagement']),
+      likes: actVal(r.actions, ['post_reaction', 'like']),
+      comments: actVal(r.actions, ['comment']),
+      shares: actVal(r.actions, ['post', 'share']),
+      saves: actVal(r.actions, ['onsite_conversion.post_save', 'post_save']),
     }));
     if (rows.length) await sb.from('campaign_insights').upsert(rows, { onConflict: 'campaign_id,account_id,captured_at,period_days' });
   } catch { /* sem dados de ads */ }
