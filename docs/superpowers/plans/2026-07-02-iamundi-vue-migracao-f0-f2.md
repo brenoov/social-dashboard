@@ -547,8 +547,10 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - Reference: `legacy/index.html` — HTML `#noticias-screen` (L11966); CSS `#noticias-screen ...` (a partir de L925 e L1287+); JS `openNoticias` (L9479), `closeNoticias` (L9486), `loadNoticias` (L10957) e helpers `np-*` que essas funções usam.
 
 **Interfaces:**
-- Consumes: `sb` (buscar-e-salvar-dados.js) e/ou `sbClient`; `estado`.
+- Consumes: `sbClient` (conectar-no-banco-de-dados.js) — o `loadNoticias` do legado usa `sbClient.from('noticias_concorrentes')` e `sbClient.from('noticias_panorama')` DIRETO (NÃO o helper `sb()`). Também `estado`.
 - Produces: rota `/noticias` renderiza a tela de Notícias idêntica à atual, carregando as notícias do banco.
+
+**Abordagem de port (piloto — fidelidade acima de idiomático):** o render da Notícias é imperativo (monta HTML via `getElementById`/`createElement`, com estados `_npData`/`_npRod`/`_npPano`/`_npTab`, constante `NP_ORDER`, e helpers `_np*`/`_ac*`). Portar praticamente VERBATIM para dentro do `<script setup>`: copiar `loadNoticias` + TODOS os helpers `_np*` que ele chama + os estados/constantes, e chamar `loadNoticias()` no `onMounted`. Manter os `id=` no template (`np-body`, `np-tabs`, `np-meta`, `noticias-screen`) para o `getElementById` continuar funcionando. NÃO reescrever para template reativo (arriscaria mudar o visual). Única troca obrigatória: se algum helper referenciar sessão global, usar `estado.currentSession`.
 
 - [ ] **Step 1: Extrair os pedaços da Notícias do legado**
 
@@ -570,17 +572,15 @@ Modify `src/ferramentas/noticias/tela-de-noticias.vue`:
 
 <script setup>
 import { onMounted } from 'vue'
-import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
+import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { estado } from '../../compartilhado/controle-de-login-e-usuario.js'
 
-// Portar aqui o corpo de loadNoticias() do legado, trocando as buscas
-// diretas ao Supabase por sb(...) e a manipulação de DOM (getElementById)
-// por refs/estado reativo do Vue.
-async function carregar() {
-  // ... conteúdo portado de loadNoticias (L10957) ...
-}
-
-onMounted(carregar)
+// Portar VERBATIM de legacy/index.html: os estados (_npData, _npRod, _npPano,
+// _npTab), a constante NP_ORDER, a função loadNoticias() (L10957) e TODOS os
+// helpers _np*/_ac* que ela chama (_npRenderTabs L10979, _npEsc, _npFmtDate,
+// _npLogo, e os render de corpo). Manter os getElementById (os ids existem no
+// template). Chamar loadNoticias no onMounted.
+onMounted(() => { loadNoticias() })
 </script>
 
 <style scoped>
@@ -598,7 +598,7 @@ FERRAMENTA: Notícias
 Portal de notícias (revista). Carrega as matérias do banco (Supabase)
 e mostra em formato de revista com abas.
 Arquivo principal: tela-de-noticias.vue
-- carregar(): busca as notícias no banco quando a tela abre.
+- loadNoticias(): busca as notícias no banco quando a tela abre.
 Para mexer só nesta tela, edite apenas esta pasta.
 ```
 
