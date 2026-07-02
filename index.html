@@ -7848,6 +7848,27 @@ const GT_BALDE_PADRAO={
 };
 function _gtBalde(objective){ return GT_OBJETIVO_BALDE[String(objective||'').toUpperCase()]||'padrao'; }
 function _gtMetricValue(key,row){ const m=GT_METRIC_CATALOG[key]; return m?m.compute(row):null; }
+let _gtConfig={};
+let _gtConfigLoaded=false;
+async function _gtLoadConfig(){
+  try{
+    const rows=await sb('gt_config_metricas?select=balde,metricas');
+    _gtConfig={};
+    (rows||[]).forEach(r=>{ if(Array.isArray(r.metricas)) _gtConfig[r.balde]=r.metricas; });
+  }catch(e){ _gtConfig={}; }
+}
+function _gtMetricasDoBalde(balde){
+  const c=_gtConfig[balde];
+  return (Array.isArray(c)&&c.length) ? c : (GT_BALDE_PADRAO[balde]||GT_BALDE_PADRAO.padrao);
+}
+async function _gtSaveConfig(balde,metricas){
+  // escrita autenticada via sbClient (JWT do usuário) — gated no banco por RLS
+  // (profiles.role='admin'), mesmo padrão de adminSaveSetting()/platform_settings
+  // e sr-btn de accounts.accent_color (ver docs/migrations/006_accounts_update_policy.sql).
+  const{error}=await sbClient.from('gt_config_metricas').upsert({balde,metricas,updated_at:new Date().toISOString()},{onConflict:'balde'});
+  if(error) throw error;
+  _gtConfig[balde]=metricas;
+}
 async function loadGtData(){
   const col=document.getElementById('gt-camp-col');
   if(!col)return;
@@ -7857,6 +7878,7 @@ async function loadGtData(){
   const sugs=document.getElementById('gt-suggestions');
   if(sugs)sugs.innerHTML='';
   try{
+    if(!_gtConfigLoaded){ await _gtLoadConfig(); _gtConfigLoaded=true; }
     const acc=_gtCurAcc;
     const tok=acc.id;
     const adAccId=acc.ad_account_id;
