@@ -2441,6 +2441,22 @@
   .gt-auto-result-row{display:flex;align-items:center;gap:8px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;padding:5px 0;border-bottom:1px solid var(--border);}
   .gt-auto-result-row:last-child{border-bottom:none;}
   .gt-empty{text-align:center;padding:32px 16px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);line-height:1.7;}
+  /* Config modal (editor admin — métricas por objetivo) */
+  #gt-cfg-btn{margin-right:4px;}
+  #gt-cfg-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1300;display:none;backdrop-filter:blur(2px);}
+  #gt-cfg-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1301;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(720px,94vw);max-height:84vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+  .gt-cfg-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  .gt-cfg-title{font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:700;color:var(--text);}
+  .gt-cfg-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0;line-height:1;}
+  .gt-cfg-body{padding:16px 20px;overflow-y:auto;flex:1;}
+  .gt-cfg-sec{margin-bottom:18px;}
+  .gt-cfg-sec:last-child{margin-bottom:0;}
+  .gt-cfg-obj{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+  .gt-cfg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px 10px;}
+  .gt-cfg-chk{display:flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--text);cursor:pointer;user-select:none;}
+  .gt-cfg-chk input{accent-color:var(--accent);cursor:pointer;}
+  .gt-cfg-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;gap:10px;}
+  @media(max-width:600px){.gt-cfg-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));}}
   @media(max-width:768px){.gt-body{padding:12px 14px;}.gt-camp-inner{padding:11px 14px 9px;}.gt-camp-row-ads{padding-left:14px;padding-right:14px;}}
   /* ── BANCO DE ARQUIVOS ── */
   #banco-screen{min-height:100vh;display:none;flex-direction:column;background:var(--bg);}
@@ -7685,6 +7701,8 @@ function openGestaoTrafego(){
   document.getElementById('meta-ads-hub-screen').style.display='none';
   document.getElementById('gestao-trafego-screen').style.display='flex';
   sessionStorage.setItem('rbv-screen','gestao-trafego');
+  const cfgBtn=document.getElementById('gt-cfg-btn');
+  if(cfgBtn)cfgBtn.style.display=currentUserRole==='admin'?'':'none';
   startGtClock();
   _initGestaoTrafego();
 }
@@ -7886,6 +7904,48 @@ async function _gtSaveConfig(balde,metricas){
   const{error}=await sbClient.from('gt_config_metricas').upsert({balde,metricas,updated_at:new Date().toISOString()},{onConflict:'balde'});
   if(error) throw error;
   _gtConfig[balde]=metricas;
+}
+function _gtCloseEditor(){
+  const ov=document.getElementById('gt-cfg-overlay'),md=document.getElementById('gt-cfg-modal');
+  if(ov)ov.style.display='none';
+  if(md)md.style.display='none';
+}
+async function _gtOpenEditor(){
+  if(currentUserRole!=='admin')return; // gate visual — escrita real é protegida por RLS (profiles.role='admin')
+  await _gtLoadConfig();
+  const baldes=Object.keys(GT_BALDE_PADRAO);
+  const catalogo=Object.entries(GT_METRIC_CATALOG).map(([k,m])=>({k,label:m.label}));
+  const body=baldes.map(b=>{
+    const sel=_gtMetricasDoBalde(b);
+    const chks=catalogo.map(c=>`<label class="gt-cfg-chk"><input type="checkbox" data-balde="${_gtEsc(b)}" value="${_gtEsc(c.k)}" ${sel.includes(c.k)?'checked':''}> ${_gtEsc(c.label)}</label>`).join('');
+    return `<div class="gt-cfg-sec"><div class="gt-cfg-obj">${_gtEsc(b)}</div><div class="gt-cfg-grid">${chks}</div></div>`;
+  }).join('');
+  const bodyEl=document.getElementById('gt-cfg-body');
+  if(bodyEl)bodyEl.innerHTML=body;
+  const ov=document.getElementById('gt-cfg-overlay'),md=document.getElementById('gt-cfg-modal');
+  if(ov)ov.style.display='block';
+  if(md)md.style.display='flex';
+}
+async function _gtSaveEditor(){
+  const btn=document.getElementById('gt-cfg-save-btn');
+  const orig=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='Salvando...';}
+  try{
+    const baldes=Object.keys(GT_BALDE_PADRAO);
+    const catalogOrder=Object.keys(GT_METRIC_CATALOG);
+    for(const b of baldes){
+      const checked=Array.from(document.querySelectorAll('#gt-cfg-body input[type=checkbox][data-balde="'+b+'"]:checked')).map(i=>i.value);
+      const keys=catalogOrder.filter(k=>checked.includes(k));
+      await _gtSaveConfig(b,keys);
+    }
+    _gtCloseEditor();
+    adminToast('Configuração de métricas salva');
+    await loadGtData();
+  }catch(e){
+    adminToast('Erro ao salvar: '+String((e&&e.message)||e||'erro desconhecido'),false);
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent=orig;}
+  }
 }
 async function loadGtData(){
   const col=document.getElementById('gt-camp-col');
@@ -11984,6 +12044,10 @@ function setHomeBgTheme(type){
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
       <span id="gt-auto-btn-lbl">AUTO</span>
     </button>
+    <button class="gt-auto-btn" id="gt-cfg-btn" style="display:none" onclick="_gtOpenEditor()" title="Configurar métricas por objetivo">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>KPIs</span>
+    </button>
     <div id="gt-account-picker" onclick="event.stopPropagation()" style="position:relative;display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
       <button id="gt-acc-trigger" style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:7px;padding:5px 12px;background:var(--surface2);cursor:pointer;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--text);white-space:nowrap;" onclick="event.stopPropagation();toggleGtAccPicker()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.6"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
@@ -12020,6 +12084,20 @@ function setHomeBgTheme(type){
   <div class="gt-auto-modal-footer" id="gt-auto-modal-footer">
     <button style="padding:7px 16px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);" onclick="closeGtAutoModal()">Cancelar</button>
     <button id="gt-auto-confirm-btn" style="padding:7px 18px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:none;background:#7c3aed;color:#fff;" onclick="_gtExecuteAuto()">Executar Tudo</button>
+  </div>
+</div>
+
+<!-- ── EDITOR DE MÉTRICAS POR OBJETIVO (ADMIN) ── -->
+<div id="gt-cfg-overlay" onclick="_gtCloseEditor()"></div>
+<div id="gt-cfg-modal">
+  <div class="gt-cfg-head">
+    <span class="gt-cfg-title">⚙️ Métricas por Objetivo</span>
+    <button class="gt-cfg-close" onclick="_gtCloseEditor()">✕</button>
+  </div>
+  <div class="gt-cfg-body" id="gt-cfg-body"></div>
+  <div class="gt-cfg-footer">
+    <button style="padding:7px 16px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);" onclick="_gtCloseEditor()">Cancelar</button>
+    <button id="gt-cfg-save-btn" style="padding:7px 18px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:none;background:var(--accent);color:#fff;" onclick="_gtSaveEditor()">Salvar</button>
   </div>
 </div>
 
