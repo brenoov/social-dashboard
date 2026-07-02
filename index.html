@@ -7702,7 +7702,7 @@ function openGestaoTrafego(){
   document.getElementById('gestao-trafego-screen').style.display='flex';
   sessionStorage.setItem('rbv-screen','gestao-trafego');
   const cfgBtn=document.getElementById('gt-cfg-btn');
-  if(cfgBtn)cfgBtn.style.display=currentUserRole==='admin'?'':'none';
+  if(cfgBtn)cfgBtn.style.display=hasPermission('module:meta:gestor')?'':'none';
   startGtClock();
   _initGestaoTrafego();
 }
@@ -7911,7 +7911,7 @@ function _gtCloseEditor(){
   if(md)md.style.display='none';
 }
 async function _gtOpenEditor(){
-  if(currentUserRole!=='admin')return; // gate visual — escrita real é protegida por RLS (profiles.role='admin')
+  if(!hasPermission('module:meta:gestor'))return; // gate = acesso à ferramenta; escrita protegida por RLS (admin OU meta.gestor)
   await _gtLoadConfig();
   const baldes=Object.keys(GT_BALDE_PADRAO);
   const catalogo=Object.entries(GT_METRIC_CATALOG).map(([k,m])=>({k,label:m.label}));
