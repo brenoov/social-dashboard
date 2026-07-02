@@ -3266,7 +3266,7 @@ const GOALS={
   'st-follows':{1:2,7:12,14:24,30:50},
 };
 
-let currentPeriod=7;
+let currentPeriod=(function(){try{const raw=localStorage.getItem('dash_period');if(raw==null)return 7;const m=PERIODS.find(p=>String(p.value)===raw);return m?m.value:7;}catch(e){return 7;}})();
 let currentAccountId=null;
 let currentStartDate=null;
 let currentEndDate=null;
@@ -4079,6 +4079,7 @@ async function buildProfiles(){
       document.querySelectorAll('.profile-btn').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       _acIdx=idx;
+      try{localStorage.setItem('dash_account',String(acc.id));}catch(e){}
       currentAccountId=acc.id;applyProfileTheme(acc.name);updateGoalDisplays(currentPeriod);metasFetchAll(acc.id);loadCampaignFilterBadge();
       const wrapper=document.querySelector('.wrapper');
       _fadeSwap(wrapper,()=>refresh());
@@ -4086,7 +4087,14 @@ async function buildProfiles(){
     wrap.appendChild(btn);
   });
   _allAccounts=accounts;
-  if(accounts.length>0){currentAccountId=accounts[0].id;applyProfileTheme(accounts[0].name);setTimeout(loadCampaignFilterBadge,100);}
+  if(accounts.length>0){
+    let selIdx=0;
+    try{const savedId=localStorage.getItem('dash_account');if(savedId!=null){const i=accounts.findIndex(a=>String(a.id)===savedId);if(i>=0)selIdx=i;}}catch(e){}
+    _acIdx=selIdx;
+    currentAccountId=accounts[selIdx].id;applyProfileTheme(accounts[selIdx].name);
+    document.querySelectorAll('.profile-btn').forEach((b,i)=>b.classList.toggle('active',i===selIdx));
+    setTimeout(loadCampaignFilterBadge,100);
+  }
   updateStoriesRings();
 }
 
@@ -4108,11 +4116,12 @@ let _acTimer=null;
 let _acCountdown=null;
 let _acInactivity=null;
 let _acSecsLeft=0;
-let _acEnabled=true;
+let _acEnabled=(localStorage.getItem('ac_enabled')!=='0');
 const AC_INACTIVITY=5;    // segundos sem mouse p/ ativar
 const AC_DURATION=40;     // segundos por perfil
 
 function _acSwitchTo(idx){
+  if(!_acEnabled){_acStopCycle();return;}
   const wrapper=document.querySelector('.wrapper');
   _fadeSwap(wrapper,()=>{
     _acIdx=idx;
@@ -4188,6 +4197,7 @@ function initAutoCycleToggle(){
     const track=document.getElementById('ac-toggle-track');
     if(btn)btn.classList.remove('on');
     if(track)track.classList.remove('on');
+    _acStopCycle();clearTimeout(_acInactivity);_acInactivity=null;
   }
 }
 
@@ -4201,12 +4211,12 @@ function buildPeriodTabs(){
   const wrap=document.getElementById('period-tabs');
   wrap.innerHTML='';
   PERIODS.forEach(p=>{
-    const btn=document.createElement('button');btn.className='ptab'+(p.value===7?' active':'');
+    const btn=document.createElement('button');btn.className='ptab'+(p.value===currentPeriod?' active':'');
     if(p.value===0){const dot=document.createElement('span');dot.style.cssText='display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite;vertical-align:middle;';btn.appendChild(dot);}
     btn.appendChild(document.createTextNode(p.label));
     btn.addEventListener('click',()=>{
       document.querySelectorAll('.ptab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
-      currentPeriod=p.value;currentStartDate=null;currentEndDate=null;
+      currentPeriod=p.value;try{localStorage.setItem('dash_period',String(p.value));}catch(e){}currentStartDate=null;currentEndDate=null;
       document.getElementById('custom-range-btn').classList.remove('active');document.getElementById('custom-range-panel').style.display='none';
       updateGoalDisplays(p.value);refresh();
       if(_hojeTimer){clearInterval(_hojeTimer);_hojeTimer=null;}
@@ -5486,7 +5496,7 @@ async function loadDashboard(session){
   const avatarUrl=profiles?.[0]?.avatar_url||null;
   showDashboard(session.user,role,features,avatarUrl);
   if(!dashboardReady){
-    buildPeriodTabs();updateGoalDisplays(7);watchGoals();
+    buildPeriodTabs();updateGoalDisplays(currentPeriod);watchGoals();
     dashboardReady=true;
   }
   await buildProfiles();restoreHeaderState();initAutoCycleToggle();startClock();await refresh();
