@@ -17,7 +17,8 @@
 - **Dados reais:** ao testar login/dados, usar uma conta descartável/de teste — nunca semear, limpar ou trocar senha de contas reais (Franciele, Erick, admin).
 - **Nomes de arquivos/pastas em PT literal (kebab-case):** nomes bem descritivos em português, ex.: `conectar-no-banco-de-dados.js`, `tela-de-noticias.vue`, `src/compartilhado/`. Só ficam com nome técnico os fixados pela ferramenta (`index.html`, `package.json`, `vite.config.js`) — e esses são explicados num `LEIA-ME.txt`. Identificadores dentro do código JS (funções/exports) seguem convenção normal (não podem ter hífen).
 - **LEIA-ME por pasta:** TODA pasta nova ganha `LEIA-ME.txt` em PT, linguagem de iniciante.
-- **CSS por tela é `scoped`:** só o que é realmente global (tokens, reset, topbar, fundo) vai para `src/estilos/estilos-globais.css`.
+- **CSS — estratégia incremental (parity-first):** o CSS do legado é um bloco único não organizado por tela; separá-lo perfeitamente agora é inviável e arriscado. Então a Task 4 copia o bloco `<style>` INTEIRO (verbatim) para `src/estilos/estilos-globais.css`, garantindo visual idêntico já. Depois, a cada tela migrada, as regras `#<tela>-screen ...` são MOVIDAS (descascadas) de `estilos-globais.css` para dentro do `<style scoped>` do componente da tela (sem duplicar). Estado final = cada tela com CSS scoped; caminho até lá = incremental.
+- **Topbar do dashboard é adiada:** a `.topbar` do legado é cheia de lógica (abas de período, auto-cycle, relógio, seletor de perfil, banner de frescor) ligada a funções globais do dashboard. NÃO copiar seu HTML para a moldura agora (chamaria funções inexistentes). Ela vira um componente próprio numa task futura, junto das ferramentas que ela controla. A moldura por enquanto é só fundo + `<router-view>`.
 
 ---
 
@@ -296,66 +297,84 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 **Files:**
 - Create: `src/estilos/estilos-globais.css`, `src/estilos/LEIA-ME.txt`
-- Modify: `src/moldura-do-aplicativo.vue`, `src/ponto-de-partida.js`
-- Reference: `legacy/index.html` (bloco `<style>` — `:root`, reset, `.topbar`, fundo)
+- Modify: `src/moldura-do-aplicativo.vue`, `src/ponto-de-partida.js`, `index.html`
+- Reference: `legacy/index.html` (bloco `<style>` L15-2506; `<link>` de fontes L10-11)
 
 **Interfaces:**
 - Consumes: `estado` de `src/compartilhado/controle-de-login-e-usuario.js`.
-- Produces: `moldura-do-aplicativo.vue` renderiza topbar/fundo + `<router-view>`; `estilos-globais.css` importado uma vez em `ponto-de-partida.js`.
+- Produces: `moldura-do-aplicativo.vue` renderiza fundo + `<router-view>` (SEM topbar por ora); `estilos-globais.css` importado uma vez em `ponto-de-partida.js`; fontes carregadas via `<link>` no `index.html`.
 
-- [ ] **Step 1: Extrair o CSS global**
+- [ ] **Step 1: Copiar o bloco `<style>` inteiro (verbatim)**
 
-De `legacy/index.html`, copiar para `src/estilos/estilos-globais.css` APENAS o que é global: variáveis `:root` (e `[data-theme="dark"]`), reset (`*`, `body`, fontes `@import`/`@font-face`), e as regras da topbar e do fundo. **NÃO** copiar regras que começam com `#...-screen` (essas vão para cada componente depois).
+Copiar TODO o conteúdo entre `<style>` (L14) e `</style>` (L2507) de `legacy/index.html` — ou seja, as linhas 15-2506 — para `src/estilos/estilos-globais.css`, SEM as tags `<style>`/`</style>`. É uma cópia fiel (parity-first); NÃO tentar separar global de por-tela agora. As regras `#<tela>-screen ...` serão descascadas para os componentes nas tasks de cada tela.
 
-- [ ] **Step 2: Importar o CSS global**
+- [ ] **Step 2: Trazer as fontes para o novo `index.html`**
+
+Modify `index.html` — adicionar no `<head>` (antes dos `<script>` das libs) os `<link>` de fonte copiados de `legacy/index.html` L10-11:
+```html
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700&family=Oswald:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+```
+
+- [ ] **Step 3: Importar o CSS global**
 
 Modify `src/ponto-de-partida.js` — adicionar no topo:
 ```js
 import './estilos/estilos-globais.css'
 ```
 
-- [ ] **Step 3: Montar a moldura**
+- [ ] **Step 4: Moldura mínima (fundo + router-view, SEM topbar)**
 
-De `legacy/index.html`, copiar o HTML da topbar (o cabeçalho fixo comum a todas as telas). Modify `src/moldura-do-aplicativo.vue`:
+Modify `src/moldura-do-aplicativo.vue`. NÃO copiar a topbar do legado (ela é stateful e será um componente futuro). Só um contêiner de fundo + o router-view:
 ```vue
 <template>
   <div class="moldura">
-    <!-- Copiar aqui o HTML da topbar do legacy/index.html -->
     <router-view />
   </div>
 </template>
 
 <script setup>
-import { estado } from './compartilhado/controle-de-login-e-usuario.js'
+// A topbar do dashboard (abas de período, auto-cycle, relógio, seletor de
+// perfil) será migrada como componente próprio numa task futura, junto das
+// ferramentas que ela controla.
 </script>
 ```
 
-- [ ] **Step 4: LEIA-ME dos estilos**
+- [ ] **Step 5: LEIA-ME dos estilos**
 
 Create `src/estilos/LEIA-ME.txt`:
 ```
 PASTA: estilos
 ==============
-estilos-globais.css → cores, fontes, a barra do topo (topbar) e o fundo.
-É o visual que aparece em TODAS as telas.
-O visual específico de cada tela fica DENTRO do arquivo da própria tela
-(na parte <style scoped>), para não misturar nem dar conflito.
+estilos-globais.css → por enquanto contém TODO o visual do sistema antigo
+(cores, fontes, topbar, fundo e o estilo de cada tela), copiado fielmente
+para o visual ficar idêntico ao de hoje.
+
+CONFORME CADA TELA MIGRA para o Vue, as regras daquela tela (as que começam
+com #alguma-coisa-screen) SAEM daqui e vão para dentro do arquivo da tela
+(na parte <style scoped>). Assim, no fim, cada tela terá seu próprio visual
+isolado e este arquivo ficará só com o que é realmente global.
 ```
 
-- [ ] **Step 5: Verificar em dev**
+- [ ] **Step 6: Verificar build + dev**
 
+Run:
+```bash
+npm run build
+```
+Expected: build sem erro (o CSS grande é aceito pelo Vite).
 Run:
 ```bash
 npm run dev
 ```
-Expected: a topbar aparece no topo com o visual atual; fundo correto; placeholders de Início/Notícias abaixo. Parar com Ctrl+C.
+Expected: o fundo/tipografia globais aplicam; placeholders de Início/Notícias aparecem estilizados com as fontes corretas. (Imagens de `midia/` podem não aparecer em dev — o caminho será resolvido no preview/Task 8; anotar, não bloquear.) Parar com Ctrl+C.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 Run:
 ```bash
 git add -A
-git commit -m "feat: CSS global + moldura (topbar/fundo)
+git commit -m "feat: CSS global (verbatim) + fontes + moldura minima (fundo + router-view)
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
@@ -691,4 +710,5 @@ O preview validado encerra este plano. As próximas ferramentas (Meta Ads, Gest�
 ## Próximos planos (fora deste)
 
 - **1 plano por ferramenta restante** (repetir Task 7): `meta-ads` (com `tela-meta-ads-hub.vue` + `tela-meta-ads-campanha.vue`), `gestao-comercial`, `gestao-trafego`, `gestao-vista`, `acessos`, `admin`, `banco`, `sales` (menu + análise + marca). Cada pasta em PT literal + `LEIA-ME.txt`.
-- **Plano de virada final:** merge `vue-migracao` → `main`, ajuste do `vercel.json`/config para servir o build (`dist/`) preservando rewrites de `/midia` e headers de segurança, e teste de rollback via `legacy/index.html`.
+- **Componente da topbar do dashboard:** migrar a `.topbar` stateful do legado (abas de período, auto-cycle, relógio, seletor de perfil, banner de frescor) como componente próprio, junto/depois das ferramentas de análise que ela controla.
+- **Plano de virada final:** merge `vue-migracao` → `main`, ajuste do `vercel.json`/config para servir o build (`dist/`) — incluindo o **rewrite SPA catch-all → `/index.html`** (necessário por causa do `createWebHistory`) e preservando os rewrites de `/midia` e os headers de segurança —, `npm audit fix`, e teste de rollback via `legacy/index.html`.
