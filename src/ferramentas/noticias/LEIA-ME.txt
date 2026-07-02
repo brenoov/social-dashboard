@@ -1,0 +1,27 @@
+FERRAMENTA: Notícias (Observatório / Portal de Notícias)
+========================================================
+Portal de notícias no formato "revista": mostra a inteligência de
+concorrência por marca (as edições coletadas toda semana) e um "Panorama
+do Mercado" com o resumão da semana.
+
+Arquivo principal: tela-de-noticias.vue
+
+Como funciona (resumido):
+- loadNoticias(): quando a tela abre, busca as notícias no banco (Supabase)
+  nas tabelas noticias_concorrentes e noticias_panorama.
+- A tela é montada de forma "imperativa" (o mesmo código do site antigo):
+  o JavaScript cria o HTML das matérias e coloca dentro dos <div> com
+  id np-tabs (as abas) e np-body (o conteúdo). Por isso o template mantém
+  esses id= — não mexa neles.
+- Botão "Central": volta para a tela inicial (usa o roteador do app).
+
+Detalhe técnico (piloto da migração para Vue):
+- Este componente é um PORTE FIEL (verbatim) do site antigo (legacy/index.html).
+  As funções _np* e as constantes NP_* foram copiadas iguais, sem reescrever
+  para "template reativo", para o visual ficar idêntico ao de produção.
+- O CSS desta tela (as 81 regras que começavam com #noticias-screen) foi
+  MOVIDO do arquivo global (src/estilos/estilos-globais.css) para dentro deste
+  componente (bloco <style scoped>). As demais regras .np-* (sem o prefixo
+  #noticias-screen) continuam no arquivo global.
+
+Para mexer só nesta tela, edite apenas esta pasta.
