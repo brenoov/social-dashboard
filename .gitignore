@@ -43,3 +43,6 @@ midia/elementos/Modern AI Office With Focus and Lounge Areas.png
 gestor-briefings.json
 gestor-lab.html
 noticias-sample.json
+
+node_modules
+dist
