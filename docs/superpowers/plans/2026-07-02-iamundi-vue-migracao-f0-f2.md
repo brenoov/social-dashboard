@@ -203,7 +203,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Interfaces:**
 - Produces:
   - `conectar-no-banco-de-dados.js` → `export const sbClient` (cliente Supabase criado com `window.supabase.createClient`), `export const SUPABASE_URL`, `export const SUPABASE_ANON_KEY`.
-  - `buscar-e-salvar-dados.js` → `export async function sbFetch(path, options)` (o mesmo fetch autenticado do legado, usando o token da sessão ou a anon key).
+  - `buscar-e-salvar-dados.js` → `export async function sb(path)` (o MESMO helper de leitura do legado — `legacy/index.html` L3277-3286: GET, devolve sempre um array, engole erros retornando `[]`). Mantém o nome `sb` para o código das telas funcionar sem alteração.
   - `controle-de-login-e-usuario.js` → `export const estado` (objeto `reactive` com `currentSession`, `user`, `permissoes`), `export function setSession(session)`.
 
 - [ ] **Step 1: Criar `conectar-no-banco-de-dados.js`**
@@ -235,26 +235,22 @@ export function setSession(session) {
 
 - [ ] **Step 3: Criar `buscar-e-salvar-dados.js`**
 
-Localizar o bloco "SUPABASE FETCH" em `legacy/index.html` (~linha 3276) e copiar a função de fetch, trocando a referência à sessão global por `estado.currentSession`. Create `src/compartilhado/buscar-e-salvar-dados.js`:
+Portar o helper `sb` EXATAMENTE como está no legado (`legacy/index.html` L3277-3286), mudando APENAS a referência de sessão: o legado usa a global `currentSession`; aqui use `estado.currentSession` (importado). NÃO inventar opções/method/throw — manter o mesmo comportamento (GET, devolve array, engole erro → `[]`). Create `src/compartilhado/buscar-e-salvar-dados.js`:
 ```js
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './conectar-no-banco-de-dados.js'
 import { estado } from './controle-de-login-e-usuario.js'
 
-// Fetch autenticado ao REST do Supabase (portado de legacy/index.html ~L3276).
-// Copiar o corpo/headers exatos do legado; abaixo o formato esperado:
-export async function sbFetch(path, options = {}) {
-  const token = estado.currentSession?.access_token || SUPABASE_ANON_KEY
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    ...options,
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  })
-  if (!r.ok) throw new Error(`Supabase ${r.status}: ${await r.text()}`)
-  return r.status === 204 ? null : r.json()
+// Helper de leitura ao REST do Supabase — portado VERBATIM de legacy/index.html
+// L3277-3286 (única mudança: currentSession -> estado.currentSession).
+export async function sb(path) {
+  try {
+    const token = estado.currentSession?.access_token || SUPABASE_ANON_KEY
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
+    })
+    const json = await r.json()
+    return Array.isArray(json) ? json : []
+  } catch (e) { return [] }
 }
 ```
 
@@ -532,7 +528,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - Reference: `legacy/index.html` — HTML `#noticias-screen` (L11966); CSS `#noticias-screen ...` (a partir de L925 e L1287+); JS `openNoticias` (L9479), `closeNoticias` (L9486), `loadNoticias` (L10957) e helpers `np-*` que essas funções usam.
 
 **Interfaces:**
-- Consumes: `sbFetch` (buscar-e-salvar-dados.js) e/ou `sbClient`; `estado`.
+- Consumes: `sb` (buscar-e-salvar-dados.js) e/ou `sbClient`; `estado`.
 - Produces: rota `/noticias` renderiza a tela de Notícias idêntica à atual, carregando as notícias do banco.
 
 - [ ] **Step 1: Extrair os pedaços da Notícias do legado**
@@ -555,11 +551,11 @@ Modify `src/ferramentas/noticias/tela-de-noticias.vue`:
 
 <script setup>
 import { onMounted } from 'vue'
-import { sbFetch } from '../../compartilhado/buscar-e-salvar-dados.js'
+import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { estado } from '../../compartilhado/controle-de-login-e-usuario.js'
 
 // Portar aqui o corpo de loadNoticias() do legado, trocando as buscas
-// diretas ao Supabase por sbFetch(...) e a manipulação de DOM (getElementById)
+// diretas ao Supabase por sb(...) e a manipulação de DOM (getElementById)
 // por refs/estado reativo do Vue.
 async function carregar() {
   // ... conteúdo portado de loadNoticias (L10957) ...
