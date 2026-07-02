@@ -147,26 +147,33 @@ async function main() {
   const since = iso(new Date(agoraMs - 7 * 86400000));
   const until = iso(new Date(agoraMs));
 
-  // Sem assumir coluna de "tool": pega todas e filtra as que têm ad_account_id + token
-  // (contas de anúncio do Meta têm ad_account_id; outras ficam de fora).
-  const contas = await sbGet('/accounts?select=id,ad_account_id,access_token');
+  // accounts guarda contas IG/página com access_token; a coluna ad_account_id é vazia.
+  // A(s) conta(s) de anúncio são descobertas em runtime via Graph /me/adaccounts (igual ao meta-proxy).
+  const contas = await sbGet('/accounts?select=id,access_token');
   let total = 0, gravadas = 0, puladas = 0;
 
+  const seenAdAcc = new Set();
+  const campFields = 'id,name,effective_status,objective,daily_budget,lifetime_budget,start_time,stop_time';
+  const insFields = 'campaign_id,impressions,clicks,spend,ctr,cpc,reach,frequency,actions,action_values,purchase_roas,objective';
   for (const acc of contas) {
-    if (!acc.ad_account_id || !acc.access_token) continue;
-    const adAcc = cleanAcc(acc.ad_account_id);
-    const campFields = 'id,name,effective_status,objective,daily_budget,lifetime_budget,start_time,stop_time';
-    const insFields = 'campaign_id,impressions,clicks,spend,ctr,cpc,reach,frequency,actions,action_values,purchase_roas,objective';
-    let camps, insights;
+    if (!acc.access_token) continue;
+    let adAccounts;
     try {
-      camps = (await graphGet(`/act_${adAcc}/campaigns`, { fields: campFields, effective_status: ['ACTIVE'], limit: 500 }, acc.access_token)).data || [];
-      insights = (await graphGet(`/act_${adAcc}/insights`, { level: 'campaign', fields: insFields, time_range: { since, until }, limit: 500 }, acc.access_token)).data || [];
-    } catch (e) { console.log('  conta ' + acc.id + ' falhou no Graph: ' + e.message); continue; }
-
-    const insByCamp = {};
-    insights.forEach((i) => { insByCamp[i.campaign_id] = i; });
-    const ativas = camps.filter((c) => campanhaEmVeiculacao(c, agoraMs));
-    console.log(`Conta ${acc.id}: ${ativas.length} campanhas em veiculação.`);
+      adAccounts = (await graphGet('/me/adaccounts', { fields: 'account_id', limit: 200 }, acc.access_token)).data || [];
+    } catch (e) { console.log('  conta ' + acc.id + ' falhou /me/adaccounts: ' + e.message); continue; }
+    for (const aa of adAccounts) {
+      const adAcc = cleanAcc(aa.account_id || aa.id);
+      if (!adAcc || seenAdAcc.has(adAcc)) continue;
+      seenAdAcc.add(adAcc);
+      let camps, insights;
+      try {
+        camps = (await graphGet(`/act_${adAcc}/campaigns`, { fields: campFields, effective_status: ['ACTIVE'], limit: 500 }, acc.access_token)).data || [];
+        insights = (await graphGet(`/act_${adAcc}/insights`, { level: 'campaign', fields: insFields, time_range: { since, until }, limit: 500 }, acc.access_token)).data || [];
+      } catch (e) { console.log('  act_' + adAcc + ' falhou no Graph: ' + e.message); continue; }
+      const insByCamp = {};
+      insights.forEach((i) => { insByCamp[i.campaign_id] = i; });
+      const ativas = camps.filter((c) => campanhaEmVeiculacao(c, agoraMs));
+      console.log(`Conta ${acc.id} / act_${adAcc}: ${ativas.length} campanhas em veiculação.`);
 
     for (const camp of ativas) {
       total++;
@@ -200,6 +207,7 @@ async function main() {
         puladas++;
         continue;
       }
+    }
     }
   }
   console.log(`Concluído: ${total} analisadas, ${gravadas} gravadas, ${puladas} puladas.`);
