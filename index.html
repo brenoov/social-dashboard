@@ -7753,7 +7753,7 @@ function _gtFontScale(){
   const K='rbv-gtfs';
   let z=parseFloat(localStorage.getItem(K));if(!(z>=0.9&&z<=2.5))z=1.3;
   let ctl=screen.querySelector(':scope > .zoomctl');
-  const apply=()=>{screen.style.setProperty('--gt-fs',String(z));try{localStorage.setItem(K,String(z));}catch(e){}const v=ctl&&ctl.querySelector('.zoomctl-val');if(v)v.textContent=Math.round(z*100)+'%';};
+  const apply=()=>{screen.style.setProperty('--gt-fs',String(z));document.documentElement.style.setProperty('--gt-fs',String(z));try{localStorage.setItem(K,String(z));}catch(e){}const v=ctl&&ctl.querySelector('.zoomctl-val');if(v)v.textContent=Math.round(z*100)+'%';};
   if(!ctl){
     ctl=document.createElement('div');ctl.className='zoomctl';
     const mk=(t,title,fn)=>{const b=document.createElement('button');b.type='button';b.textContent=t;b.title=title;b.onclick=fn;return b;};
@@ -7813,7 +7813,7 @@ function _buildGtDropdown(){
     item.style.cssText='padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;transition:background .12s;';
     item.addEventListener('mouseenter',()=>item.style.background='var(--surface2)');
     item.addEventListener('mouseleave',()=>item.style.background='');
-    item.innerHTML=`<span style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);min-width:18px;">${idx+1}</span><div style="flex:1;min-width:0;"><div style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${a.display_name||a.name||'Conta '+idx}</div><div style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);">${_maFmt(a.monthSpend||0,0)} gastos / mês</div></div><div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:${balColor};flex-shrink:0;">${bal!=null?_maFmtR(bal):'—'}</div>`;
+    item.innerHTML=`<span style="font-family:'IBM Plex Sans',sans-serif;font-size:calc(11px*var(--gt-fs,1.3));color:var(--muted);min-width:18px;">${idx+1}</span><div style="flex:1;min-width:0;"><div style="font-family:'IBM Plex Sans',sans-serif;font-size:calc(12px*var(--gt-fs,1.3));font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${a.display_name||a.name||'Conta '+idx}</div><div style="font-family:'IBM Plex Sans',sans-serif;font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);">${_maFmt(a.monthSpend||0,0)} gastos / mês</div></div><div style="font-family:'Oswald',sans-serif;font-size:calc(13px*var(--gt-fs,1.3));font-weight:700;color:${balColor};flex-shrink:0;">${bal!=null?_maFmtR(bal):'—'}</div>`;
     item.addEventListener('click',e=>{e.stopPropagation();_gtCurAcc=a;const nm=document.getElementById('gt-acc-name');if(nm)nm.textContent=a.display_name||a.name||'—';_gtPickerOpen=false;const d=document.getElementById('gt-acc-dropdown');if(d)d.style.display='none';loadGtData();});
     drop.appendChild(item);
   });
