@@ -8249,7 +8249,7 @@ function _gtRecBanner(iaRow,daily,encerrada,status){
   const ver=iaRow.veredito||'';
   // Pausada/concluída/arquivada: faixa neutra com a última análise apagada, sem ação.
   if(encerrada||status!=='ACTIVE'){
-    return `<div class="gt-rec-banner neutral"><div class="gt-rec-main"><div class="gt-rec-head"><span class="gt-rec-tag">✦ IA · ${_gtEsc(quando)}</span></div><div class="gt-rec-just">${just}</div></div></div>`;
+    return `<div class="gt-rec-banner neutral"><div class="gt-rec-main"><div class="gt-rec-head"><span class="gt-rec-tag">✦ IA</span></div><div class="gt-rec-just">${just}</div></div></div>`;
   }
   const varClass=ver==='pausar'?'pausar':ver==='reduzir'?'reduzir':'positivo';
   const sug=iaRow.budget_sugerido_centavos!=null?_maFmtR(iaRow.budget_sugerido_centavos/100):null;
@@ -8264,7 +8264,7 @@ function _gtRecBanner(iaRow,daily,encerrada,status){
   }
   return `<div class="gt-rec-banner ${varClass}">
     <div class="gt-rec-main">
-      <div class="gt-rec-head"><span class="gt-rec-verdict">${_gtEsc(ver)}</span><span class="gt-rec-tag">✦ IA · ${_gtEsc(quando)}</span></div>
+      <div class="gt-rec-head"><span class="gt-rec-verdict">${_gtEsc(ver)}</span><span class="gt-rec-tag">✦ IA</span></div>
       <div class="gt-rec-just">${just}</div>
       ${iaRow.impacto_estimado?`<div class="gt-rec-impact"><b>Impacto:</b> ${_gtEsc(iaRow.impacto_estimado)}</div>`:''}
     </div>
@@ -8402,7 +8402,7 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       const exp=document.createElement('div');exp.className='gt-camp-exp';exp.appendChild(hint);exp.appendChild(chev);
       l2.appendChild(chips);l2.appendChild(metrics);l2.appendChild(exp);
       top.appendChild(l1);top.appendChild(l2);
-      const iaRow=_gtBudgetIA[ins.campaign_id];
+      const iaRow=_gtBudgetIA[ins.campaign_id] || ((!encerrada&&status==='ACTIVE')?_gtRegraCampanha(camp,ins,insights):null);
       // 1) Faixa de recomendação (estrela) — no TOPO, antes do cabeçalho.
       const bannerWrap=document.createElement('div');
       bannerWrap.innerHTML=_gtRecBanner(iaRow,daily,encerrada,status);
@@ -8471,7 +8471,7 @@ function _renderGtAds(pane,ads,allInsights,allAdInsights,campNum){
     const spend=parseFloat(ad.spend||0);
     const adStatus=ad.effective_status||'';
     const ctrColor=ctr>=2?'var(--green)':ctr<0.8?'var(--red)':'var(--orange)';
-    const iaRow=_gtAdIA[ad.ad_id];
+    const iaRow=_gtAdIA[ad.ad_id] || ((ad.effective_status==='ACTIVE')?_gtRegraAnuncio(ad):null);
     const card=document.createElement('div');card.className='gt-ad-card';
     const top=document.createElement('div');top.className='gt-ad-top';
     // Selo: pílula do veredito da IA; se não houver análise, cai pro badge de status.
