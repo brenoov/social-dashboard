@@ -2464,6 +2464,12 @@
   .gt-cfg-chk{display:flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--text);cursor:pointer;user-select:none;}
   .gt-cfg-chk input{accent-color:var(--accent);cursor:pointer;}
   .gt-cfg-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;gap:10px;}
+  /* Modal "Ver criativo" */
+  #gt-cr-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1400;display:none;backdrop-filter:blur(2px);}
+  #gt-cr-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1401;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(420px,94vw);max-height:88vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4);overflow:hidden;}
+  .gt-cr-body{padding:14px;overflow:auto;flex:1;display:flex;justify-content:center;align-items:flex-start;}
+  .gt-cr-frame{width:100%;display:flex;justify-content:center;}
+  .gt-cr-frame iframe{max-width:100%;border:none;border-radius:8px;}
   @media(max-width:600px){.gt-cfg-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));}}
   @media(max-width:768px){.gt-body{padding:12px 14px;}.gt-camp-inner{padding:11px 14px 9px;}.gt-camp-row-ads{padding-left:14px;padding-right:14px;}}
   /* ── BANCO DE ARQUIVOS ── */
@@ -8278,6 +8284,23 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
   renderList('');
   col.innerHTML='';col.appendChild(card);
 }
+function _gtCloseCriativo(){const ov=document.getElementById('gt-cr-overlay'),md=document.getElementById('gt-cr-modal'),bd=document.getElementById('gt-cr-body');if(ov)ov.style.display='none';if(md)md.style.display='none';if(bd)bd.innerHTML='';}
+async function _gtVerCriativo(adId,accId,nome){
+  const ov=document.getElementById('gt-cr-overlay'),md=document.getElementById('gt-cr-modal'),bd=document.getElementById('gt-cr-body');
+  if(!ov||!md||!bd)return;
+  ov.style.display='block';md.style.display='flex';
+  bd.innerHTML='<div style="padding:40px 20px;text-align:center;color:var(--muted);font-family:\'IBM Plex Sans\',sans-serif;font-size:12px;">Carregando o criativo…</div>';
+  // Ordem de formatos confirmada na validação ao vivo (mais provável primeiro).
+  const formats=['INSTAGRAM_STANDARD','INSTAGRAM_REELS','INSTAGRAM_STORY','MOBILE_FEED_STANDARD','FACEBOOK_STORY_MOBILE'];
+  for(const fmt of formats){
+    try{
+      const r=await metaFetch('/'+adId+'/previews',{ad_format:fmt},accId);
+      const body=r&&r.data&&r.data[0]&&r.data[0].body;
+      if(body&&/<iframe/i.test(body)){ bd.innerHTML='<div class="gt-cr-frame">'+body+'</div>'; return; }
+    }catch(e){}
+  }
+  bd.innerHTML='<div style="padding:30px 20px;text-align:center;color:var(--muted);font-family:\'IBM Plex Sans\',sans-serif;font-size:12px;line-height:1.6;">Não consegui carregar o preview deste anúncio agora.<br>Pode ser um formato sem preview disponível.</div>';
+}
 function _renderGtAds(pane,ads,allInsights,allAdInsights){
   const lbl=document.createElement('div');lbl.className='gt-ads-section-lbl';lbl.textContent=`Anúncios (${ads.length})`;pane.appendChild(lbl);
   if(!ads.length){const empty=document.createElement('div');empty.style.cssText='font-family:\'IBM Plex Sans\',sans-serif;font-size:11px;color:var(--muted);padding:6px 0 6px 20px;';empty.textContent='Nenhum anúncio com gasto neste período';pane.appendChild(empty);return;}
@@ -8308,9 +8331,14 @@ function _renderGtAds(pane,ads,allInsights,allAdInsights){
     card.appendChild(top);
     // Porquê da IA (apoio).
     if(iaRow&&iaRow.justificativa){const why=document.createElement('div');why.className='gt-ad-why';why.textContent=iaRow.justificativa;card.appendChild(why);}
-    // Pausar/reativar manual.
+    // Ações do anúncio: ver criativo + pausar/reativar manual.
+    const actBar=document.createElement('div');actBar.className='gt-action-row';
+    const crBtn=document.createElement('button');crBtn.className='gt-act-btn';crBtn.textContent='👁 Ver criativo';
+    crBtn.addEventListener('click',e=>{e.stopPropagation();_gtVerCriativo(ad.ad_id,_gtCurAcc&&_gtCurAcc.id,ad.ad_name||ad.adset_name);});
+    actBar.appendChild(crBtn);
     const adTgl=_gtManualToggleBtn('ad',ad.ad_id,adStatus,ad.ad_name||ad.adset_name);
-    if(adTgl){const actBar=document.createElement('div');actBar.className='gt-action-row';actBar.appendChild(adTgl);card.appendChild(actBar);}
+    if(adTgl)actBar.appendChild(adTgl);
+    card.appendChild(actBar);
     pane.appendChild(card);
   });
 }
@@ -11935,6 +11963,12 @@ function setHomeBgTheme(type){
     <button style="padding:7px 16px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);" onclick="_gtCloseEditor()">Cancelar</button>
     <button id="gt-cfg-save-btn" style="padding:7px 18px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:none;background:var(--accent);color:#fff;" onclick="_gtSaveEditor()">Salvar</button>
   </div>
+</div>
+
+<div id="gt-cr-overlay" onclick="_gtCloseCriativo()"></div>
+<div id="gt-cr-modal">
+  <div class="gt-cfg-head"><span class="gt-cfg-title">Criativo do anúncio</span><button class="gt-cfg-close" onclick="_gtCloseCriativo()">✕</button></div>
+  <div class="gt-cr-body" id="gt-cr-body"></div>
 </div>
 
 <!-- ── BANCO DE ARQUIVOS ── -->
