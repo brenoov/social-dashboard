@@ -3135,18 +3135,47 @@
       <div class="calc-badge">⚡ Menor é melhor · investimento ÷ novos seguidores</div>
     </div>
     <div class="card">
-      <div class="mc-header"><div class="mc-icon">🤝</div></div>
+      <div class="mc-header">
+        <div class="mc-icon">🤝</div>
+        <div class="mc-goal-area">
+          <span class="mc-goal-lbl">META MÁX</span>
+          <span class="mc-goal-val" id="goal-cpi" contenteditable="true" spellcheck="false">0.15</span>
+          <span class="mc-edit-hint">✏</span>
+        </div>
+      </div>
       <div class="mc-lbl">CUSTO POR INTERAÇÃO</div>
       <div class="mc-val a-purple" id="ads-cpi-val">R$ —</div>
+      <div class="mc-compare" id="cmp-cpi"></div>
+      <div class="mc-divider"></div>
+      <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-cpi" style="width:0%"></div></div>
+      <div class="mc-bottom">
+        <span class="mc-pct" id="pct-cpi">0%</span>
+        <span class="mc-diff" id="diff-cpi"></span>
+      </div>
       <div class="calc-badge">⚡ Menor é melhor · investimento ÷ interações do anúncio</div>
     </div>
     <div class="card">
-      <div class="mc-header"><div class="mc-icon">❤️</div></div>
+      <div class="mc-header">
+        <div class="mc-icon">❤️</div>
+        <div class="mc-goal-area">
+          <span class="mc-goal-lbl">META MÁX</span>
+          <span class="mc-goal-val" id="goal-cpl" contenteditable="true" spellcheck="false">0.20</span>
+          <span class="mc-edit-hint">✏</span>
+        </div>
+      </div>
       <div class="mc-lbl">CUSTO POR CURTIDA</div>
       <div class="mc-val a-blue" id="ads-cpl-val">R$ —</div>
+      <div class="mc-compare" id="cmp-cpl"></div>
+      <div class="mc-divider"></div>
+      <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-cpl" style="width:0%"></div></div>
+      <div class="mc-bottom">
+        <span class="mc-pct" id="pct-cpl">0%</span>
+        <span class="mc-diff" id="diff-cpl"></span>
+      </div>
       <div class="calc-badge">⚡ Menor é melhor · investimento ÷ curtidas do anúncio</div>
     </div>
   </div>
+  <div class="mc-lbl" style="margin:0 0 8px;">EFICIÊNCIA DO INVESTIMENTO</div>
   <div class="sec-chips" id="chips-ads-custo" style="margin-bottom:40px;"></div>
 
   <!-- 03 ENGAJAMENTO -->
@@ -3293,6 +3322,8 @@ const GOALS={
   followers:{1:60,7:200,14:400,30:1500},
   spend:{1:100,7:600,14:1200,30:2500},
   cps:{1:2.0,7:2.0,14:2.0,30:2.0},
+  cpi:{1:0.15,7:0.15,14:0.15,30:0.15},
+  cpl:{1:0.20,7:0.20,14:0.20,30:0.20},
   likes:{1:400,7:1000,14:2000,30:12000},
   saves:{1:80,7:250,14:500,30:2500},
   shares:{1:60,7:200,14:400,30:2000},
@@ -3365,7 +3396,7 @@ function perfColor(pct){return pct>=100?'green':pct>=75?'yellow':pct>=50?'orange
 const _PERF_VAR={green:'var(--green)',yellow:'var(--yellow)',orange:'var(--orange)',red:'var(--red)'};
 function _mcValColor(key,clr){const pe=document.getElementById('pct-'+key);const card=pe&&pe.closest('.card');const v=card&&card.querySelector('.mc-val');if(!v)return;const col=_PERF_VAR[clr]||'';if(col){v.style.setProperty('color',col,'important');v.style.setProperty('-webkit-text-fill-color',col,'important');}else{v.style.removeProperty('color');v.style.removeProperty('-webkit-text-fill-color');}}
 function goalStorageKey(key,period,accountId){return 'ig_goal_'+(accountId||'default')+'_'+period+'_'+key;}
-const RATE_GOALS=['cps'];
+const RATE_GOALS=['cps','cpi','cpl'];
 // comprimento em dias de cada período (pro recálculo proporcional). null = comprimento variável (não escala).
 function periodDays(period){
   if(period===0||period===1)return 1;
