@@ -193,17 +193,30 @@ async function main() {
       } catch (e) { console.log('  act_' + adAcc + ' falhou no Graph: ' + e.message); continue; }
       const insByCamp = {};
       insights.forEach((i) => { insByCamp[i.campaign_id] = i; });
+      const adFields = 'ad_id,ad_name,adset_name,campaign_id,spend,impressions,clicks,ctr,cpc,reach,frequency';
+      let adIns = [], adObjs = [];
+      try {
+        adIns = (await graphGet(`/act_${adAcc}/insights`, { level: 'ad', fields: adFields, time_range: { since, until }, limit: 500 }, acc.access_token)).data || [];
+        adObjs = (await graphGet(`/act_${adAcc}/ads`, { fields: 'id,effective_status', limit: 500 }, acc.access_token)).data || [];
+      } catch (e) { console.log('  act_' + adAcc + ' falhou ads no Graph: ' + e.message); }
+      const adStatus = {};
+      adObjs.forEach((a) => { adStatus[a.id] = a.effective_status || ''; });
+      const adsAtivosPorCamp = {};
+      adIns.forEach((a) => {
+        if (adStatus[a.ad_id] !== 'ACTIVE') return; // só anúncios ativos
+        (adsAtivosPorCamp[a.campaign_id] = adsAtivosPorCamp[a.campaign_id] || []).push(a);
+      });
       const ativas = camps.filter((c) => campanhaEmVeiculacao(c, agoraMs));
       console.log(`Conta ${acc.id} / act_${adAcc}: ${ativas.length} campanhas em veiculação.`);
 
     for (const camp of ativas) {
       total++;
       const ins = insByCamp[camp.id] || {};
-      const { system, user } = montarMensagens(camp, ins);
+      const { system, user } = montarMensagens(camp, ins, adsAtivosPorCamp[camp.id] || []);
       if (DRY) { console.log('  [dry] ' + (camp.name || camp.id)); continue; }
       let saida;
       try {
-        const resp = await anthropic({ model: MODEL, max_tokens: 4096, thinking: { type: 'adaptive' }, system, messages: [{ role: 'user', content: user }] });
+        const resp = await anthropic({ model: MODEL, max_tokens: 8192, thinking: { type: 'adaptive' }, system, messages: [{ role: 'user', content: user }] });
         saida = parsearSaida(textoDaResposta(resp));
       } catch (e) { console.log('  ✗ ' + (camp.name || camp.id) + ': ' + e.message); puladas++; continue; }
       if (!saida) { console.log('  ⚠ ' + (camp.name || camp.id) + ': sem sugestão válida'); puladas++; continue; }
@@ -227,6 +240,21 @@ async function main() {
         console.log('  ✗ gravar ' + (camp.name || camp.id) + ': ' + e.message);
         puladas++;
         continue;
+      }
+      if (saida.anuncios && saida.anuncios.length) {
+        const adRows = saida.anuncios.map((a) => ({
+          ad_id: a.ad_id,
+          campaign_id: camp.id,
+          account_id: acc.id,
+          veredito: a.veredito,
+          justificativa: a.justificativa,
+          modelo: MODEL,
+          gerado_em: new Date().toISOString(),
+          valida_ate: proximaSegunda,
+        }));
+        try {
+          await sbUpsert('/gt_ad_analises', adRows);
+        } catch (e) { console.log('  ✗ gravar anúncios ' + (camp.name || camp.id) + ': ' + e.message); }
       }
     }
     }
