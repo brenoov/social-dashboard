@@ -9591,6 +9591,23 @@ function _npFontScale(){
   }
   apply();
 }
+function _gcFontScale(){
+  const screen=document.getElementById('gestao-comercial-screen');if(!screen)return;
+  const K='rbv-gcfs';
+  let z=parseFloat(localStorage.getItem(K));if(!(z>=0.7&&z<=2))z=1;
+  let ctl=screen.querySelector(':scope > .zoomctl');
+  const apply=()=>{screen.style.setProperty('--gc-fs',String(z));document.documentElement.style.setProperty('--gc-fs',String(z));try{localStorage.setItem(K,String(z));}catch(e){}const v=ctl&&ctl.querySelector('.zoomctl-val');if(v)v.textContent=Math.round(z*100)+'%';};
+  if(!ctl){
+    ctl=document.createElement('div');ctl.className='zoomctl';
+    const mk=(t,title,fn)=>{const b=document.createElement('button');b.type='button';b.textContent=t;b.title=title;b.onclick=fn;return b;};
+    ctl.appendChild(mk('A−','Diminuir texto',()=>{z=Math.max(0.7,Math.round((z-0.1)*10)/10);apply();}));
+    const val=document.createElement('span');val.className='zoomctl-val';val.title='Restaurar 100%';val.onclick=()=>{z=1;apply();};
+    ctl.appendChild(val);
+    ctl.appendChild(mk('A+','Aumentar texto',()=>{z=Math.min(2,Math.round((z+0.1)*10)/10);apply();}));
+    screen.appendChild(ctl);
+  }
+  apply();
+}
 function openNoticias(){
   document.getElementById('home-screen').style.display='none';
   document.getElementById('noticias-screen').style.display='flex';
@@ -11461,7 +11478,7 @@ function openGestao(){
   document.getElementById('gestao-comercial-screen').style.display='flex';
   sessionStorage.setItem('rbv-screen','gestao-comercial');
   loadGestao();
-  _rbvZoom('gestor','gc-body');
+  _gcFontScale();
 }
 function closeGestao(){
   document.getElementById('gestao-comercial-screen').style.display='none';
