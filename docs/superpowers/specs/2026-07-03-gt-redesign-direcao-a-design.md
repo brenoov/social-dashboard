@@ -33,15 +33,17 @@ Cada campanha é um cartão com **faixa de recomendação no topo** (a estrela) 
   - `reduzir` → **laranja** (`--orange`)
   - `pausar` → **vermelho** (`--red`)
 - Conteúdo à esquerda: **veredito** (palavra grande, fonte Oswald, na cor semântica) + selo `✦ IA · <data gerado_em>` + **justificativa** em 1 linha.
-- Conteúdo à direita = **área de ação, que muda conforme o veredito**:
-  - **escalar / reduzir:** orçamento atual **riscado** → **sugerido em número grande** (Oswald) + botão **`Aplicar R$X/dia`** (primário) + **`✎ outro valor`** (secundário discreto) que revela um campo compacto `R$__/dia` + `Aplicar manual`.
-  - **manter:** rótulo `Manter R$X/dia` (sem número novo grande, é o atual) + o **`✎ outro valor`** continua disponível (o Breno pode ajustar mesmo assim). Sem botão Aplicar destacado (não há mudança sugerida).
+- Conteúdo à direita = **área de ação da IA, que muda conforme o veredito** (é o caminho "aceitar a sugestão"):
+  - **escalar / reduzir:** orçamento atual **riscado** → **sugerido em número grande** (Oswald) + botão **`Aplicar R$X/dia`** (primário, aplica o valor sugerido).
+  - **manter:** rótulo `Manter R$X/dia` (é o atual; sem botão Aplicar destacado — não há mudança sugerida).
   - **pausar:** a ação-herói é **`⏸ Pausar campanha`** (botão vermelho) — sem bloco de budget. (O toggle manual da seção 3.2 cobre reativar.)
 - **Impacto estimado** (se houver) entra como linha fininha de apoio abaixo da justificativa, não compete com o veredito.
+- A **edição manual** do orçamento NÃO fica aqui (é independente da IA) — ver 3.2.
 
 ### 3.2 Corpo do cartão (apoio)
 - Linha com **badge de status real** (Ativo/Pausado/Concluído/Arquivado — reusa `_gtEncerrada` + effective_status) + **nome da campanha**.
 - **Métricas por objetivo** (as que já existem) em tamanho de apoio: rótulo pequeno em maiúsculas + número (Oswald). O número-chave do objetivo (ex.: CTR pra tráfego) pode ganhar a cor semântica (verde/vermelho) conforme já faz hoje.
+- **Edição manual de orçamento — SEMPRE disponível, independente da IA.** No corpo/rodapé do cartão, um controle discreto `Orçamento: R$X/dia · ✎ editar` que revela um campo compacto `R$__/dia` + `Aplicar`. Fica visível **em todos os casos** — inclusive quando a IA diz "manter", quando manda "pausar", e quando ainda não há análise — desde que a campanha use orçamento diário. É o caminho manual, separado da sugestão da IA (o Breno quer poder mexer no orçamento mesmo sem a IA sugerir mudança). Reusa `_gtApplyAction update_budget`.
 - **Pausar/reativar manual** (`_gtManualToggleBtn`) sempre disponível como botão discreto no rodapé do cartão (independente do veredito).
 
 ### 3.3 Estados especiais da faixa
@@ -80,7 +82,7 @@ Cabeçalho da lista: `Anúncios (N)` com um fio separando do corpo da campanha.
 
 1. Bater o olho num cartão e **já saber a ação recomendada** (veredito + cor) sem procurar.
 2. **Distinção clara** campanha × anúncio (o anúncio "parece filho": recuado, menor, conectado).
-3. A **edição manual de orçamento** existe mas não polui — fica no `✎ outro valor` revelável, ao lado do Aplicar.
+3. A **edição manual de orçamento** está **sempre disponível e independente da IA** (o Breno pode ajustar o orçamento mesmo quando a IA sugere "manter", "pausar" ou não tem análise) — num controle `✎ editar` revelável, sem poluir a faixa.
 4. Estados tratados sem quebrar: sem-análise, pausada, concluída, sem budget diário, anúncio sem avaliação.
 5. Nada de comportamento perdido: Aplicar (sugerido e manual), pausar/reativar campanha e anúncio, status real, métricas por objetivo — tudo segue funcionando.
 6. Fiel ao tema (claro/escuro), sem cores novas fora das semânticas, Oswald/IBM Plex.
