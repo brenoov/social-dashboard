@@ -8030,172 +8030,6 @@ async function loadGtData(){
     col.innerHTML=`<div class="gt-camp-card"><div class="gt-empty">Erro ao carregar dados:<br>${e.message}</div></div>`;
   }
 }
-function _gtObjCategory(obj){
-  const o=(obj||'').toUpperCase();
-  if(o.includes('LEAD'))return'lead';
-  if(o.includes('CONVERSION')||o.includes('SALE'))return'conversion';
-  if(o.includes('ENGAGEMENT')||o==='POST_ENGAGEMENT'||o==='PAGE_LIKES')return'engagement';
-  if(o.includes('VIDEO')||o==='VIDEO_VIEWS')return'video';
-  if(o.includes('AWARENESS')||o==='BRAND_AWARENESS'||o==='REACH')return'awareness';
-  if(o.includes('TRAFFIC')||o==='LINK_CLICKS')return'traffic';
-  return'other';
-}
-// ── Critérios da Gestão de Tráfego (FONTE ÚNICA — o "?" lê do GT_CRIT ativo) ──
-// 3 posturas escalam toda a régua de uma vez. Conservadora = opina só em casos claros (espera mais
-// dados, pausa mais tarde, exige sinal forte p/ escalar). Agressiva = age cedo. Equilibrada = meio.
-const GT_PRESETS={
-  conservadora:{
-    minSpend:35,minImpr:1800, freqSat:4.5,freqAtt:4,
-    lead:{pausSpend:120,pausImpr:6000,escCTR:2.5,escCPLf:0.80,monCTR:2.0,monSpend:80},
-    traffic:{pausCTR:0.4,pausSpend:60,pausImpr:3000,escCTR:2.5,escCPC:1.6,monCTR:0.8,monSpend:60},
-    engagement:{pausSpend:90,pausEng:8,pausImpr:3000,escEng:150,escCTR:1.3,monCTR:0.4,monSpend:50},
-    video:{monSpend:80,monViews:80,escViews:700,escCTR:1.0},
-  },
-  equilibrada:{
-    minSpend:20,minImpr:1000, freqSat:4,freqAtt:3.5,
-    lead:{pausSpend:80,pausImpr:4000,escCTR:2.0,escCPLf:0.85,monCTR:1.5,monSpend:50},
-    traffic:{pausCTR:0.5,pausSpend:40,pausImpr:2000,escCTR:2.0,escCPC:2.0,monCTR:1.0,monSpend:40},
-    engagement:{pausSpend:60,pausEng:10,pausImpr:2000,escEng:100,escCTR:1.0,monCTR:0.5,monSpend:30},
-    video:{monSpend:50,monViews:100,escViews:500,escCTR:0.8},
-  },
-  agressiva:{
-    minSpend:12,minImpr:600, freqSat:3.5,freqAtt:3,
-    lead:{pausSpend:50,pausImpr:2500,escCTR:1.6,escCPLf:0.95,monCTR:1.2,monSpend:30},
-    traffic:{pausCTR:0.6,pausSpend:25,pausImpr:1200,escCTR:1.6,escCPC:2.5,monCTR:1.2,monSpend:25},
-    engagement:{pausSpend:40,pausEng:12,pausImpr:1200,escEng:70,escCTR:0.8,monCTR:0.6,monSpend:20},
-    video:{monSpend:35,monViews:120,escViews:350,escCTR:0.7},
-  },
-};
-const GT_POSTURAS=[['conservadora','Conservadora'],['equilibrada','Equilibrada'],['agressiva','Agressiva']];
-let _gtPostura=(()=>{try{const p=localStorage.getItem('gt-postura');return GT_PRESETS[p]?p:'equilibrada';}catch(e){return 'equilibrada';}})();
-let GT_CRIT=GT_PRESETS[_gtPostura];
-function _gtSetPostura(p){if(!GT_PRESETS[p])return;_gtPostura=p;GT_CRIT=GT_PRESETS[p];try{localStorage.setItem('gt-postura',p);}catch(e){}}
-// Veredito como-se-ativa (puro, sem status) → {kind,priority,icon,label,text,criteria}.
-// kind: coletando | escalar | saudavel | monitorar | pausar
-function _gtVerdict(m){
-  const C=GT_CRIT,P=_maFmtPct,R=_maFmtR,N=_maFmt;
-  if(m.spend<C.minSpend||m.impr<C.minImpr)
-    return{kind:'coletando',priority:'ok',icon:'⏳',label:'Coletando dados',text:`Volume baixo (${R(m.spend)} · ${N(m.impr)} impressões) — sem recomendação confiável ainda.`,criteria:`exige ≥ ${R(C.minSpend)} de gasto e ≥ ${N(C.minImpr)} impressões pra opinar`};
-  if(m.freq>=C.freqSat)
-    return{kind:'pausar',priority:'critico',icon:'😴',label:'Público saturado',text:`Frequência ${N(m.freq,1)}× — o mesmo público já viu demais. Reduza o orçamento ou pause.`,criteria:`frequência ${N(m.freq,1)}× ≥ ${C.freqSat}× (saturação)`};
-  if(m.freq>=C.freqAtt)
-    return{kind:'monitorar',priority:'atencao',icon:'😴',label:'Atenção',text:`Frequência ${N(m.freq,1)}× — começando a saturar o público, monitorar.`,criteria:`frequência ${N(m.freq,1)}× entre ${C.freqAtt}× e ${C.freqSat}×`};
-  if(m.cat==='lead'||m.cat==='conversion'){
-    const c=C.lead;
-    if(m.leads===0&&m.spend>=c.pausSpend&&m.impr>=c.pausImpr)
-      return{kind:'pausar',priority:'critico',icon:'⛔',label:'Gasto sem conversão',text:`${R(m.spend)} gastos e 0 conversões. Pausar e revisar oferta/segmentação.`,criteria:`0 leads · gasto ${R(m.spend)} ≥ ${R(c.pausSpend)} · ${N(m.impr)} impr ≥ ${N(c.pausImpr)}`};
-    if(m.leads>0&&m.ctr>=c.escCTR&&(!m.avgCPL||m.cpl<=m.avgCPL*c.escCPLf))
-      return{kind:'escalar',priority:'oportunidade',icon:'🚀',label:'Escalar',text:`${N(m.leads)} leads · CPL ${R(m.cpl)} (abaixo da média) · CTR ${P(m.ctr)}. Forte — vale escalar.`,criteria:`leads>0 · CTR ${P(m.ctr)} ≥ ${c.escCTR}% · CPL ${R(m.cpl)} ≤ ${Math.round(c.escCPLf*100)}% da média da conta (${R(m.avgCPL||0)})`};
-    if(m.leads===0&&m.ctr>=c.monCTR&&m.spend>=c.monSpend)
-      return{kind:'monitorar',priority:'atencao',icon:'🔗',label:'Atenção',text:`CTR ${P(m.ctr)} bom, mas 0 conversões — provável gargalo na landing page ou na oferta.`,criteria:`0 leads · CTR ${P(m.ctr)} ≥ ${c.monCTR}% · gasto ≥ ${R(c.monSpend)}`};
-    if(m.leads>0)
-      return{kind:'saudavel',priority:'ok',icon:'✅',label:'Saudável',text:`${N(m.leads)} leads · CPL ${R(m.cpl)} · CTR ${P(m.ctr)}.`,criteria:`gerando leads com custo dentro do normal`};
-    return{kind:'monitorar',priority:'ok',icon:'📊',label:'Observando',text:`CTR ${P(m.ctr)} · ${R(m.spend)} — ainda sem conversão, mas dentro da margem.`,criteria:`abaixo do gatilho de pausa (${R(c.pausSpend)} / ${N(c.pausImpr)} impr)`};
-  }
-  if(m.cat==='traffic'){
-    const c=C.traffic;
-    if(m.ctr<c.pausCTR&&m.spend>=c.pausSpend&&m.impr>=c.pausImpr)
-      return{kind:'pausar',priority:'critico',icon:'⛔',label:'Tráfego ineficiente',text:`CTR ${P(m.ctr)} muito baixo com ${R(m.spend)} gastos — clique caro, desperdício.`,criteria:`CTR ${P(m.ctr)} < ${c.pausCTR}% · gasto ${R(m.spend)} ≥ ${R(c.pausSpend)} · ${N(m.impr)} impr ≥ ${N(c.pausImpr)}`};
-    if(m.ctr>=c.escCTR&&m.cpc>0&&m.cpc<=c.escCPC)
-      return{kind:'escalar',priority:'oportunidade',icon:'🚀',label:'Escalar',text:`CTR ${P(m.ctr)} · CPC ${R(m.cpc)} — clique barato e eficiente. Vale escalar.`,criteria:`CTR ${P(m.ctr)} ≥ ${c.escCTR}% · CPC ${R(m.cpc)} ≤ ${R(c.escCPC)}`};
-    if(m.ctr<c.monCTR&&m.spend>=c.monSpend)
-      return{kind:'monitorar',priority:'atencao',icon:'📉',label:'Atenção',text:`CTR ${P(m.ctr)} fraco para tráfego — testar criativo ou segmentação.`,criteria:`CTR ${P(m.ctr)} < ${c.monCTR}% · gasto ≥ ${R(c.monSpend)}`};
-    return{kind:'saudavel',priority:'ok',icon:'✅',label:'Saudável',text:`${N(m.clicks)} cliques · CTR ${P(m.ctr)} · CPC ${R(m.cpc)}.`,criteria:`tráfego dentro do esperado`};
-  }
-  if(m.cat==='engagement'){
-    const c=C.engagement;
-    if(m.spend>=c.pausSpend&&m.eng<c.pausEng&&m.impr>=c.pausImpr)
-      return{kind:'pausar',priority:'critico',icon:'⛔',label:'Criativo sem resposta',text:`${R(m.spend)} gastos e só ${N(m.eng)} engajamentos — o criativo não está conectando.`,criteria:`engaj. ${N(m.eng)} < ${c.pausEng} · gasto ${R(m.spend)} ≥ ${R(c.pausSpend)} · ${N(m.impr)} impr ≥ ${N(c.pausImpr)}`};
-    if(m.eng>=c.escEng&&m.ctr>=c.escCTR)
-      return{kind:'escalar',priority:'oportunidade',icon:'🚀',label:'Escalar',text:`${N(m.eng)} engajamentos · CTR ${P(m.ctr)} — boa tração. Considere escalar.`,criteria:`engaj. ${N(m.eng)} ≥ ${c.escEng} · CTR ${P(m.ctr)} ≥ ${c.escCTR}%`};
-    if(m.ctr<c.monCTR&&m.spend>=c.monSpend)
-      return{kind:'monitorar',priority:'atencao',icon:'📉',label:'Atenção',text:`CTR ${P(m.ctr)} baixo para engajamento — o criativo pode não estar conectando.`,criteria:`CTR ${P(m.ctr)} < ${c.monCTR}% · gasto ≥ ${R(c.monSpend)}`};
-    return{kind:'saudavel',priority:'ok',icon:'✅',label:'Saudável',text:`${N(m.eng)} engajamentos · CTR ${P(m.ctr)} · ${R(m.spend)}.`,criteria:`engajando dentro do esperado`};
-  }
-  if(m.cat==='video'){
-    const c=C.video;
-    if(m.spend>=c.monSpend&&m.views<c.monViews)
-      return{kind:'monitorar',priority:'atencao',icon:'📉',label:'Atenção',text:`Poucos plays (${N(m.views)}) com ${R(m.spend)} gastos — o hook do vídeo pode estar fraco.`,criteria:`plays ${N(m.views)} < ${c.monViews} · gasto ≥ ${R(c.monSpend)}`};
-    if(m.views>=c.escViews&&m.ctr>=c.escCTR)
-      return{kind:'escalar',priority:'oportunidade',icon:'🚀',label:'Escalar',text:`${N(m.views)} plays · CTR ${P(m.ctr)} — boa tração para o vídeo.`,criteria:`plays ${N(m.views)} ≥ ${c.escViews} · CTR ${P(m.ctr)} ≥ ${c.escCTR}%`};
-    return{kind:'saudavel',priority:'ok',icon:'✅',label:'Saudável',text:`${N(m.views)} plays · CTR ${P(m.ctr)} · ${R(m.spend)}.`,criteria:`vídeo dentro do esperado`};
-  }
-  if(m.cat==='awareness')
-    return{kind:'saudavel',priority:'ok',icon:'✅',label:'Alcance',text:`${N(m.reach)} alcance · Frequência ${N(m.freq,1)}× · ${R(m.spend)}.`,criteria:`objetivo de alcance — avaliado por frequência/CPM`};
-  return{kind:'saudavel',priority:'ok',icon:'📊',label:'Observando',text:`CTR ${P(m.ctr)} · ${R(m.spend)} gastos.`,criteria:`sem gatilho de ação`};
-}
-function _gtInlineSuggest(ins,camp,allInsights){
-  const status=camp?.effective_status||'';
-  const campId=ins.campaign_id;
-  const daily=camp?.daily_budget?parseFloat(camp.daily_budget)/100:null;
-  const nm=_gtEsc(ins.campaign_name||camp?.name||'a campanha');
-  const m={
-    cat:_gtObjCategory(ins.objective||camp?.objective||''),
-    ctr:parseFloat(ins.ctr||0),spend:parseFloat(ins.spend||0),impr:parseInt(ins.impressions||0),
-    freq:parseFloat(ins.frequency||0),clicks:parseInt(ins.clicks||0),cpc:parseFloat(ins.cpc||0),
-    leads:_getActions(ins,'lead'),eng:(_getActions(ins,'post_engagement')||_getActions(ins,'page_engagement')),
-    views:parseInt(ins.video_play_actions?.[0]?.value||0),reach:parseInt(ins.reach||0),daily,
-  };
-  m.cpl=m.leads>0?m.spend/m.leads:null;
-  const totS=allInsights.reduce((s,i)=>s+parseFloat(i.spend||0),0),totL=allInsights.reduce((s,i)=>s+_getActions(i,'lead'),0);
-  m.avgCPL=totL>0?totS/totL:null;
-  const v=_gtVerdict(m);
-  const mkBudget=(f,lbl,cls)=>daily?{label:lbl,cls,action:{type:'update_budget',id:campId,budget:Math.round(daily*f*100),_t:(f>1?'Aumentar':'Reduzir')+' orçamento?',_d:`"${nm}": ${_maFmtR(daily)}/dia → ${_maFmtR(daily*f)}/dia (${f>1?'+':''}${Math.round((f-1)*100)}%).`}}:null;
-  const plus=mkBudget(1.25,'📈 +25% Budget','primary'),minus=mkBudget(0.75,'📉 -25% Budget','');
-  const pause={label:'⏸ Pausar',cls:'danger',action:{type:'pause_campaign',id:campId,_t:'Pausar campanha?',_d:`"${nm}" será PAUSADA na Meta agora.`}};
-  const reativar={label:'▶ Reativar',cls:'success',action:{type:'activate_campaign',id:campId,_t:'Reativar campanha?',_d:`"${nm}" voltará a ATIVA e a gastar na Meta.`}};
-
-  if(status==='ACTIVE'){
-    let actions=[];
-    if(v.kind==='pausar')actions=(v.icon==='😴'?[minus,pause]:[pause]).filter(Boolean);
-    else if(v.kind==='escalar')actions=[plus].filter(Boolean);
-    return{...v,actions};
-  }
-  if(status==='PAUSED'){
-    // Reativar SÓ se, com os MESMOS dados, ela seria bem avaliada se estivesse ativa (acaba o flip-flop).
-    if(v.kind==='escalar'||v.kind==='saudavel')
-      return{priority:'oportunidade',icon:'▶',label:'Reativar?',text:`Pausada, mas o desempenho histórico é bom (${v.text.replace(/\.$/,'')}). Reativar?`,criteria:v.criteria,actions:[reativar]};
-    return{priority:'ok',icon:'⏸',label:'Pausada',text:`Pausada · CTR ${_maFmtPct(m.ctr)} · ${_maFmtR(m.spend)}.${(v.kind==='pausar'||v.kind==='monitorar')?' Histórico fraco — manter pausada.':''}`,criteria:v.criteria,actions:[]};
-  }
-  if(status==='ARCHIVED')
-    return{priority:'ok',icon:'🗄',label:'Arquivada',text:`Arquivada · CTR ${_maFmtPct(m.ctr)} · ${_maFmtR(m.spend)}.`,criteria:'arquivamento é intencional — sem ação',actions:[]};
-  return{priority:'ok',icon:'📊',label:'—',text:`CTR ${_maFmtPct(m.ctr)} · ${_maFmtR(m.spend)} gastos.`,criteria:'',actions:[]};
-}
-function _gtInlineSuggestAd(ad,allAds){
-  const ctr=parseFloat(ad.ctr||0);
-  const spend=parseFloat(ad.spend||0);
-  const impr=parseInt(ad.impressions||0);
-  const freq=parseFloat(ad.frequency||0);
-  const campAds=allAds.filter(a=>a.campaign_id===ad.campaign_id);
-  const avgAdCTR=campAds.length>1?campAds.reduce((s,a)=>s+parseFloat(a.ctr||0),0)/campAds.length:0;
-  const adSt=ad.effective_status||'';
-  const _an=_gtEsc(ad.ad_name||ad.adset_name||'o anúncio');
-  const pause={label:'⏸ Pausar Anúncio',cls:'danger',action:{type:'pause_ad',id:ad.ad_id,_t:'Pausar anúncio?',_d:`"${_an}" será PAUSADO na Meta agora.`}};
-  const ativar={label:'▶ Ativar Anúncio',cls:'success',action:{type:'activate_ad',id:ad.ad_id,_t:'Ativar anúncio?',_d:`"${_an}" voltará a ATIVO e a gastar na Meta.`}};
-  if(adSt==='PAUSED'||adSt==='ARCHIVED')
-    return{priority:'ok',icon:'⏸',text:`Anúncio pausado · ${_maFmtR(spend)} histórico.`,actions:adSt==='PAUSED'?[ativar]:[]};
-  if(adSt!=='ACTIVE')
-    return{priority:'ok',icon:'📊',text:`CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)}`,actions:[]};
-  if(freq>=4)
-    return{priority:'atencao',icon:'😴',text:`Frequência ${_maFmt(freq,1)}× — criativo com fadiga.`,actions:[pause]};
-  if(ctr<0.3&&spend>15&&impr>1000)
-    return{priority:'critico',icon:'⛔',text:`CTR crítico ${_maFmtPct(ctr)} com ${_maFmtR(spend)} gastos — desperdiçando budget.`,actions:[pause]};
-  if(ctr<0.5&&spend>30)
-    return{priority:'atencao',icon:'📉',text:`CTR ${_maFmtPct(ctr)} baixo — substituir ou pausar o criativo.`,actions:[pause]};
-  if(avgAdCTR>0&&ctr>avgAdCTR*1.8&&spend>10)
-    return{priority:'oportunidade',icon:'⭐',text:`Melhor anúncio do conjunto: CTR ${_maFmtPct(ctr)} (${Math.round(ctr/avgAdCTR)}× a média).`,actions:[]};
-  return{priority:'ok',icon:'✅',text:`CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)}`,actions:[]};
-}
-function _gtRenderActions(actions,rowEl){
-  if(!actions||!actions.length)return null;
-  const bar=document.createElement('div');bar.className='gt-action-row';
-  actions.forEach(a=>{
-    const b=document.createElement('button');b.className='gt-act-btn '+a.cls;b.textContent=a.label;
-    b.addEventListener('click',e=>{e.stopPropagation();_gtApplyAction(a.action,b,rowEl);});
-    bar.appendChild(b);
-  });
-  return bar;
-}
 // Botão manual de pausar/reativar SEMPRE disponível, independente do veredito.
 // kind='campaign'|'ad'. Retorna o <button> ou null (para status sem toggle).
 function _gtManualToggleBtn(kind,id,status,nome){
@@ -8281,9 +8115,6 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
   aiTag.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:20px;background:rgba(99,102,241,.1);color:#6366f1;text-transform:uppercase;';
   aiTag.textContent='✦ IA em tempo real';
   ttlWrap.appendChild(ttl);ttlWrap.appendChild(aiTag);
-  const helpBtn=document.createElement('button');helpBtn.textContent='?';helpBtn.title='Como a IA avalia as campanhas';
-  helpBtn.style.cssText='width:18px;height:18px;border-radius:50%;border:1px solid var(--border);background:none;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;line-height:1;flex-shrink:0;padding:0;';
-  helpBtn.onclick=()=>gtCriterios();ttlWrap.appendChild(helpBtn);
   const searchInp=document.createElement('input');
   searchInp.type='text';searchInp.placeholder='Buscar campanha…';
   searchInp.style.cssText='padding:6px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);color:var(--text);font-family:"IBM Plex Sans",sans-serif;font-size:11px;outline:none;width:180px;transition:border-color .15s;';
@@ -8310,18 +8141,8 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
     });
     filterBtns[fd.v]=fb;filterWrap.appendChild(fb);
   });
-  // Seletor de POSTURA (1 clique escala toda a régua) — fica salvo (localStorage)
-  const postBar=document.createElement('div');postBar.style.cssText='display:flex;border:1px solid var(--border);border-radius:7px;overflow:hidden;flex-shrink:0;';
-  postBar.title='Postura da análise — quão cedo a IA recomenda agir';
-  const postBtns={};
-  GT_POSTURAS.forEach(([k,l],i)=>{
-    const b=document.createElement('button');b.textContent=l;
-    b.style.cssText='font-family:\'IBM Plex Sans\',sans-serif;font-size:10px;font-weight:600;padding:5px 10px;cursor:pointer;border:none;'+(i>0?'border-left:1px solid var(--border);':'')+'background:'+(k===_gtPostura?'var(--accent)':'none')+';color:'+(k===_gtPostura?'#fff':'var(--muted)')+';transition:all .15s;white-space:nowrap;';
-    b.onclick=()=>{_gtSetPostura(k);Object.entries(postBtns).forEach(([kk,bb])=>{const on=kk===k;bb.style.background=on?'var(--accent)':'none';bb.style.color=on?'#fff':'var(--muted)';});renderList(searchInp.value);};
-    postBtns[k]=b;postBar.appendChild(b);
-  });
   const hdrRight=document.createElement('div');hdrRight.style.cssText='display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
-  hdrRight.appendChild(postBar);hdrRight.appendChild(filterWrap);hdrRight.appendChild(searchInp);
+  hdrRight.appendChild(filterWrap);hdrRight.appendChild(searchInp);
   hdr.appendChild(ttlWrap);hdr.appendChild(hdrRight);
   card.appendChild(hdr);
   const list=document.createElement('div');list.className='gt-camp-list';card.appendChild(list);
@@ -8344,7 +8165,6 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       const spend=parseFloat(ins.spend||0);
       const daily=camp?.daily_budget?parseFloat(camp.daily_budget)/100:null;
       const ads=adByCamp[ins.campaign_id]||[];
-      const sug=_gtInlineSuggest(ins,camp,insights);
       const kpiObjective=ins.objective||camp?.objective||'';
       const row=document.createElement('div');row.className='gt-camp-row';
       const inner=document.createElement('div');inner.className='gt-camp-inner';
@@ -8371,10 +8191,7 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       const exp=document.createElement('div');exp.className='gt-camp-exp';exp.appendChild(hint);exp.appendChild(chev);
       l2.appendChild(chips);l2.appendChild(metrics);l2.appendChild(exp);
       top.appendChild(l1);top.appendChild(l2);
-      // Insight row
-      const insightEl=document.createElement('div');insightEl.className=`gt-insight ${sug.priority}`;
-      insightEl.innerHTML=`<span style="font-size:13px;flex-shrink:0;">${sug.icon}</span><span class="gt-insight-text">${sug.text}</span>`;
-      let actBar=_gtRenderActions(sug.actions,row);
+      let actBar=null;
       if(!encerrada){
         const tgl=_gtManualToggleBtn('campaign',ins.campaign_id,status,ins.campaign_name||camp?.name);
         if(tgl){ if(!actBar){actBar=document.createElement('div');actBar.className='gt-action-row';} actBar.appendChild(tgl); }
@@ -8382,8 +8199,7 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       const iaRow=_gtBudgetIA[ins.campaign_id];
       const iaBloco=document.createElement('div');
       iaBloco.innerHTML=_gtIABlocoHtml(iaRow);
-      inner.appendChild(top);inner.appendChild(insightEl);
-      if(sug.criteria){const cr=document.createElement('div');cr.className='gt-criteria';cr.innerHTML='<b>Critério:</b> '+sug.criteria;inner.appendChild(cr);}
+      inner.appendChild(top);
       if(iaRow&&!encerrada){
         const iaEl=iaBloco.firstElementChild;
         inner.appendChild(iaEl);
@@ -8418,7 +8234,6 @@ function _renderGtAds(pane,ads,allInsights,allAdInsights){
     const adStatus=ad.effective_status||'';
     const statusColor=adStatus==='ACTIVE'?'#16a34a':adStatus==='PAUSED'?'#f59e0b':'#6b7280';
     const ctrColor=ctr>=2?'#16a34a':ctr<0.8?'#dc2626':'#d97706';
-    const sug=_gtInlineSuggestAd(ad,allAdInsights);
     const card=document.createElement('div');card.className='gt-ad-card';
     const top=document.createElement('div');top.className='gt-ad-top';
     const adBadge=document.createElement('div');
@@ -8430,12 +8245,10 @@ function _renderGtAds(pane,ads,allInsights,allAdInsights){
     const metrics=document.createElement('div');metrics.className='gt-metrics';
     metrics.innerHTML=`<div class="gt-metric">CTR <span style="color:${ctrColor}">${_maFmtPct(ctr)}</span></div><div class="gt-metric">CPC <span>${_maFmtR(parseFloat(ad.cpc||0))}</span></div><div class="gt-metric" style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;"><span>${_maFmtR(spend)}</span></div>`;
     top.appendChild(adBadge);top.appendChild(nameWrap);top.appendChild(metrics);
-    const insightEl=document.createElement('div');insightEl.className=`gt-insight ${sug.priority}`;
-    insightEl.innerHTML=`<span style="font-size:12px;flex-shrink:0;">${sug.icon}</span><span class="gt-insight-text">${sug.text}</span>`;
-    let actBar=_gtRenderActions(sug.actions,card);
+    let actBar=null;
     const adTgl=_gtManualToggleBtn('ad',ad.ad_id,adStatus,ad.ad_name||ad.adset_name);
     if(adTgl){ if(!actBar){actBar=document.createElement('div');actBar.className='gt-action-row';} actBar.appendChild(adTgl); }
-    card.appendChild(top);card.appendChild(insightEl);if(actBar)card.appendChild(actBar);
+    card.appendChild(top);if(actBar)card.appendChild(actBar);
     pane.appendChild(card);
   });
 }
@@ -8471,38 +8284,6 @@ function _gtConfirm(title,detailHtml,opts){
     ov.onclick=e=>{if(e.target===ov)close(false);};
   });
 }
-function gtCriterios(){
-  const C=GT_CRIT,R=_maFmtR,N=_maFmt;
-  const postLbl=(GT_POSTURAS.find(p=>p[0]===_gtPostura)||[0,'Equilibrada'])[1];
-  const h=`<div style="max-height:62vh;overflow:auto;text-align:left;font-size:12px;line-height:1.55;">
-  <p style="margin:0 0 10px">As recomendações usam os dados do <b>período selecionado</b> e seguem a régua da postura <b>${postLbl}</b> (você troca no topo: Conservadora / Equilibrada / Agressiva — escala tudo de uma vez). Antes de opinar, exige <b>${R(C.minSpend)}</b> de gasto e <b>${N(C.minImpr)}</b> impressões — abaixo disso fica "coletando dados", sem recomendar nada.</p>
-  <p style="margin:0 0 10px"><b>😴 Saturação (qualquer objetivo):</b> frequência ≥ ${C.freqSat}× → reduzir orçamento ou pausar; ≥ ${C.freqAtt}× → monitorar.</p>
-  <p style="margin:0 0 5px"><b>🎯 Conversão / Leads</b></p>
-  <ul style="margin:0 0 10px;padding-left:18px">
-   <li><b>⛔ Pausar:</b> 0 leads + gasto ≥ ${R(C.lead.pausSpend)} + ≥ ${N(C.lead.pausImpr)} impressões.</li>
-   <li><b>🚀 Escalar:</b> leads > 0 + CTR ≥ ${C.lead.escCTR}% + CPL ≤ ${Math.round(C.lead.escCPLf*100)}% da média da conta.</li>
-   <li><b>🔗 Atenção:</b> 0 leads mas CTR ≥ ${C.lead.monCTR}% e gasto ≥ ${R(C.lead.monSpend)} → gargalo na landing/oferta.</li>
-  </ul>
-  <p style="margin:0 0 5px"><b>🔗 Tráfego</b></p>
-  <ul style="margin:0 0 10px;padding-left:18px">
-   <li><b>⛔ Pausar:</b> CTR < ${C.traffic.pausCTR}% + gasto ≥ ${R(C.traffic.pausSpend)} + ≥ ${N(C.traffic.pausImpr)} impressões.</li>
-   <li><b>🚀 Escalar:</b> CTR ≥ ${C.traffic.escCTR}% + CPC ≤ ${R(C.traffic.escCPC)}.</li>
-   <li><b>📉 Atenção:</b> CTR < ${C.traffic.monCTR}% + gasto ≥ ${R(C.traffic.monSpend)}.</li>
-  </ul>
-  <p style="margin:0 0 5px"><b>💬 Engajamento</b></p>
-  <ul style="margin:0 0 10px;padding-left:18px">
-   <li><b>⛔ Pausar:</b> engaj. < ${C.engagement.pausEng} + gasto ≥ ${R(C.engagement.pausSpend)} + ≥ ${N(C.engagement.pausImpr)} impressões.</li>
-   <li><b>🚀 Escalar:</b> engaj. ≥ ${C.engagement.escEng} + CTR ≥ ${C.engagement.escCTR}%.</li>
-  </ul>
-  <p style="margin:0 0 5px"><b>🎬 Vídeo</b></p>
-  <ul style="margin:0 0 12px;padding-left:18px">
-   <li><b>📉 Atenção:</b> plays < ${C.video.monViews} + gasto ≥ ${R(C.video.monSpend)} → hook fraco.</li>
-   <li><b>🚀 Escalar:</b> plays ≥ ${C.video.escViews} + CTR ≥ ${C.video.escCTR}%.</li>
-  </ul>
-  <p style="margin:0;padding-top:10px;border-top:1px solid var(--border);color:var(--muted)"><b>Campanhas pausadas:</b> só recomendo <b>reativar</b> se, com os mesmos dados, a campanha seria avaliada como <b>boa caso estivesse ativa</b>. Por isso a régua não fica pausando e reativando a mesma campanha (fim do vai-e-volta).</p>
-  </div>`;
-  _gtConfirm('Como a IA avalia as campanhas',h,{okOnly:true});
-}
 async function _gtApplyAction(action,btn,rowEl){
   const tok=_gtCurAcc?.id;
   if(!tok){alert('Sem conta selecionada.');return;}
@@ -8532,116 +8313,11 @@ async function _gtApplyAction(action,btn,rowEl){
   }
 }
 
-// Auto mode — toggle: off=gray, on=purple, runs immediately without modal
-let _gtAutoActive=false;
-let _gtAutoRunning=false;
 let _gtStatusFilter='all';
 function closeGtAutoModal(){
   document.getElementById('gt-auto-overlay').style.display='none';
   document.getElementById('gt-auto-modal').style.display='none';
 }
-function _gtShowAutoTip(btn){
-  const tip=document.getElementById('gt-auto-floating-tip');
-  if(!tip)return;
-  const r=btn.getBoundingClientRect();
-  const tw=230;
-  // Horizontal: center on button, clamp to viewport
-  let left=r.left+r.width/2-tw/2;
-  if(left<8)left=8;
-  if(left+tw>window.innerWidth-8)left=window.innerWidth-tw-8;
-  tip.style.left=left+'px';
-  tip.style.transform='none';
-  // Always below the button (button is in sticky topbar at top of screen)
-  tip.style.top=(r.bottom+8)+'px';
-  tip.classList.add('visible');
-}
-function _gtHideAutoTip(){
-  const tip=document.getElementById('gt-auto-floating-tip');
-  if(tip)tip.classList.remove('visible');
-}
-function _gtToggleAuto(){
-  _gtAutoActive=!_gtAutoActive;
-  const btn=document.getElementById('gt-auto-btn');
-  const lbl=document.getElementById('gt-auto-btn-lbl');
-  if(_gtAutoActive){
-    btn.classList.add('active');
-    if(lbl)lbl.textContent='AUTO ON';
-    _gtRunAuto();
-  }else{
-    btn.classList.remove('active','running');
-    if(lbl)lbl.textContent='AUTO';
-  }
-}
-async function _gtRunAuto(){
-  if(!_gtAutoActive||_gtAutoRunning)return;
-  _gtAutoRunning=true;
-  const btn=document.getElementById('gt-auto-btn');
-  const lbl=document.getElementById('gt-auto-btn-lbl');
-  if(btn)btn.classList.add('running');
-  if(lbl)lbl.textContent='…';
-  try{
-    const accs=_maAccounts.length?_maAccounts:(_gtCurAcc?[_gtCurAcc]:[]);
-    if(!accs.length){_gtAutoRunning=false;return;}
-    const now=new Date();
-    let since,until;
-    const _gi=d=>d.toISOString().slice(0,10);
-    const _gy=now.getFullYear(),_gm=now.getMonth(),_gt=_gi(now);
-    if(_gtPreset==='today'){since=_gt;until=_gt;}
-    else if(_gtPreset==='1d'){since=until=_gi(new Date(now.getTime()-86400000));}
-    else if(_gtPreset==='lastmonth'){since=_gi(new Date(_gy,_gm-1,1));until=_gi(new Date(_gy,_gm,0));}
-    else if(_gtPreset==='monthfull'||_gtPreset==='sofar'){since=_gi(new Date(_gy,_gm,1));until=_gt;}
-    else{const n=parseInt(_gtPreset)||30;since=_gi(new Date(now.getTime()-n*86400000));until=_gt;}
-    const timeRange={since,until};
-    const queue=[];
-    await Promise.all(accs.map(async acc=>{
-      try{
-        const tok=acc.id;
-        const adAccId=acc.ad_account_id;
-        const campFields='id,name,effective_status,objective,daily_budget,lifetime_budget';
-        const fields='campaign_id,campaign_name,impressions,clicks,spend,ctr,cpc,reach,frequency,actions,objective,video_play_actions';
-        const [insights,campaigns]=await Promise.all([
-          metaFetchAll(`/act_${_maCleanAccId(adAccId)}/insights`,{level:'campaign',fields,filtering:JSON.stringify([{field:'spend',operator:'GREATER_THAN',value:'0'}]),time_range:timeRange},tok).catch(()=>[]),
-          metaFetchAll(`/act_${_maCleanAccId(adAccId)}/campaigns`,{fields:campFields,effective_status:JSON.stringify(['ACTIVE','PAUSED'])},tok).catch(()=>[]),
-        ]);
-        if(!insights||!campaigns)return;
-        const campMap={};campaigns.forEach(c=>campMap[c.id]=c);
-        for(const ins of insights){
-          const camp=campMap[ins.campaign_id];
-          const sug=_gtInlineSuggest(ins,camp,insights);
-          if((sug.priority==='critico'||sug.priority==='oportunidade')&&sug.actions&&sug.actions.length){
-            queue.push({action:{...sug.actions[0].action},tok});
-          }
-        }
-      }catch(e){}
-    }));
-    // Confirmação em LOTE (modo AUTO mantido, mas só aplica após você revisar a lista)
-    if(!queue.length){
-      await _gtConfirm('Nada a aplicar','A IA varreu as campanhas e <b>não encontrou ação crítica ou de oportunidade</b> no período. Tudo dentro dos critérios.',{okOnly:true});
-    }else{
-      const lines=queue.map(it=>'• '+(it.action._d||it.action.type)).join('<br>');
-      const ok=await _gtConfirm('Aplicar '+queue.length+' aç'+(queue.length>1?'ões':'ão')+' em lote?','<div style="font-size:12px;color:var(--muted);margin-bottom:8px">A IA recomenda as ações abaixo (você pode revisar). Confirme para aplicar todas na Meta:</div><div style="max-height:44vh;overflow:auto;text-align:left;font-size:12px;line-height:1.7;color:var(--text)">'+lines+'</div>',{danger:true,okLabel:'Aplicar tudo'});
-      if(ok){
-        for(const item of queue){
-          try{
-            const a=item.action;
-            if(a.type==='pause_campaign'||a.type==='activate_campaign')await metaPost('/'+a.id,{status:a.type==='pause_campaign'?'PAUSED':'ACTIVE'},item.tok);
-            else if(a.type==='update_budget')await metaPost('/'+a.id,{daily_budget:String(a.budget)},item.tok);
-            await new Promise(r=>setTimeout(r,300));
-          }catch(e){}
-        }
-      }
-    }
-    // depois de rodar, desliga o estado "running" (não fica reaplicando em loop)
-    _gtAutoActive=false;const _ab=document.getElementById('gt-auto-btn');if(_ab)_ab.classList.remove('active','running');const _al=document.getElementById('gt-auto-btn-lbl');if(_al)_al.textContent='AUTO';
-    setTimeout(()=>loadGtData(),800);
-  }catch(e){}
-  _gtAutoRunning=false;
-  if(_gtAutoActive){
-    if(btn)btn.classList.remove('running');btn.classList.add('active');
-    if(lbl)lbl.textContent='AUTO ON';
-  }
-}
-
 async function metaFetch(path,params,accountId){
   const{data:{session}}=await sbClient.auth.getSession();
   if(!session)throw new Error('Não autenticado');
@@ -12162,10 +11838,6 @@ function setHomeBgTheme(type){
       <button class="gv-pbtn active" data-preset="sofar" onclick="setGtPeriod(this)">ATÉ AGORA</button>
       <button class="gv-pbtn" onclick="loadGtData()" style="border-color:var(--accent);color:var(--accent)">↻</button>
     </div>
-    <button class="gt-auto-btn" id="gt-auto-btn" onclick="_gtToggleAuto()" onmouseenter="_gtShowAutoTip(this)" onmouseleave="_gtHideAutoTip()">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-      <span id="gt-auto-btn-lbl">AUTO</span>
-    </button>
     <button class="gt-auto-btn" id="gt-cfg-btn" style="display:none" onclick="_gtOpenEditor()" title="Configurar métricas por objetivo">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       <span>KPIs</span>
