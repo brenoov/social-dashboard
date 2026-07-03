@@ -1,0 +1,26 @@
+name: Budget IA (análise semanal)
+
+# Segunda 09:30 UTC (06:30 Brasília) + disparo manual.
+on:
+  schedule:
+    - cron: '30 9 * * 1'
+  workflow_dispatch: {}
+
+concurrency:
+  group: budget-ia
+  cancel-in-progress: false
+
+jobs:
+  analise:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Rodar análise de budget
+        env:
+          ANTHROPIC_API_KEY_TRAFEGO: ${{ secrets.ANTHROPIC_API_KEY_TRAFEGO }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: node coletor/budget-ia.mjs

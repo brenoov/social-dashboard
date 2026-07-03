@@ -3,6 +3,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 const GRAPH = 'https://graph.facebook.com/v21.0';
 const APP_ID = Deno.env.get('META_APP_ID') ?? '';
 const APP_SECRET = Deno.env.get('META_APP_SECRET') ?? '';
+const ALERT_WEBHOOK_URL = Deno.env.get('ALERT_WEBHOOK_URL') ?? '';
 
 const AD_ACCOUNTS: Record<string, string> = {
   '17841401847160442': '591630990582441',
@@ -13,6 +14,7 @@ const AD_ACCOUNTS: Record<string, string> = {
 };
 
 const PERIODS = [0, 1, 7, 14, 30];
+const ENG_KEYS = ['likes', 'comments', 'saves', 'shares', 'reach', 'views', 'total_interactions', 'accounts_engaged', 'profile_views'];
 
 function todayBR(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
@@ -22,11 +24,14 @@ function localDate(ts: string): string {
   return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
-// Data BRT de N dias atrás, no formato YYYY-MM-DD (ancorada ao meio-dia p/ não escorregar de fuso).
 function brDateMinus(daysAgo: number): string {
   const dt = new Date(`${todayBR()}T12:00:00-03:00`);
   dt.setDate(dt.getDate() - daysAgo);
   return dt.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+
+function periodLabel(dias: number): string {
+  return dias === 99 ? 'mês' : `${dias}d`;
 }
 
 async function apiGet(path: string, params: Record<string, string>): Promise<any> {
@@ -37,7 +42,6 @@ async function apiGet(path: string, params: Record<string, string>): Promise<any
   return r.json();
 }
 
-// Busca todas as páginas de um endpoint Meta e retorna todos os itens de data[]
 async function apiGetAll(path: string, params: Record<string, string>): Promise<any[]> {
   const all: any[] = [];
   let data = await apiGet(path, { ...params, limit: '500' });
@@ -49,6 +53,17 @@ async function apiGetAll(path: string, params: Record<string, string>): Promise<
     all.push(...(data.data ?? []));
   }
   return all;
+}
+
+// Extrai a contagem de um tipo de ação do array `actions` do insight, tentando
+// aliases (o Meta varia os nomes). Retorna inteiro (0 se ausente).
+function actVal(actions: any, types: string[]): number {
+  if (!Array.isArray(actions)) return 0;
+  for (const t of types) {
+    const hit = actions.find((a: any) => a && a.action_type === t);
+    if (hit) return parseInt(hit.value ?? '0') || 0;
+  }
+  return 0;
 }
 
 async function renovarToken(token: string): Promise<string> {
@@ -69,9 +84,6 @@ async function coletarSeguidores(igId: string, token: string): Promise<number> {
   return d.followers_count ?? 0;
 }
 
-// Follows/unfollows BRUTOS de um dia (métrica follows_and_unfollows) → { gained, lost } ou null.
-// A Meta finaliza essa métrica com atraso (e às vezes para de entregar) — por isso retornamos null
-// quando não há dado, e o dashboard cai na variação da contagem ("em consolidação").
 async function coletarFollowsDia(igId: string, dia: string, token: string): Promise<{ gained: number; lost: number } | null> {
   const since = Math.floor(new Date(`${dia}T00:00:00-03:00`).getTime() / 1000);
   const until = Math.floor(new Date(`${dia}T23:59:59-03:00`).getTime() / 1000);
@@ -97,17 +109,14 @@ async function coletarFollowsDia(igId: string, dia: string, token: string): Prom
   } catch { return null; }
 }
 
-// Engajamento NÍVEL-CONTA por período (likes/comments/saves/shares RECEBIDOS no período).
-// É o que o painel profissional do IG mostra — inclui reels e colabs, e conta interações em todo o
-// conteúdo (não só posts publicados na janela). Substitui a antiga soma por-post, que subcontava ~27x.
 async function coletarEngajamentoConta(igId: string, token: string, dias: number): Promise<Record<string, number> | null> {
   const now = Math.floor(Date.now() / 1000);
   const startOf = (dia: string) => Math.floor(new Date(`${dia}T00:00:00-03:00`).getTime() / 1000);
   let since: number, until: number;
-  if (dias === 0) { since = startOf(todayBR()); until = now; }                 // hoje (parcial)
-  else if (dias === 1) { since = startOf(brDateMinus(1)); until = startOf(todayBR()); } // ontem
-  else if (dias === 99) { since = startOf(`${todayBR().slice(0, 7)}-01`); until = now; } // mês-corrente (MTD)
-  else { since = now - dias * 86400; until = now; }                            // últimos N dias (≤30, limite da Meta)
+  if (dias === 0) { since = startOf(todayBR()); until = now; }
+  else if (dias === 1) { since = startOf(brDateMinus(1)); until = startOf(todayBR()); }
+  else if (dias === 99) { since = startOf(`${todayBR().slice(0, 7)}-01`); until = now; }
+  else { since = startOf(brDateMinus(dias)); until = startOf(todayBR()); } // últimos N dias COMPLETOS (fecha à meia-noite BRT, = "Últimos N dias" do Business Suite)
   try {
     const d = await apiGet(`${igId}/insights`, {
       metric: 'likes,comments,saves,shares,reach,views,total_interactions,accounts_engaged,profile_views', period: 'day', metric_type: 'total_value',
@@ -117,6 +126,80 @@ async function coletarEngajamentoConta(igId: string, token: string, dias: number
     for (const it of d.data ?? []) v[it.name] = it.total_value?.value ?? 0;
     return v;
   } catch { return null; }
+}
+
+function bdSum(v: Record<string, number> | null): number {
+  if (!v) return 0;
+  return (Number(v.likes) || 0) + (Number(v.comments) || 0) + (Number(v.saves) || 0) + (Number(v.shares) || 0);
+}
+function engOk(v: Record<string, number> | null): boolean {
+  if (!v) return false;
+  if (!((Number(v.reach) || 0) > 0)) return false;
+  if ((Number(v.total_interactions) || 0) > 0 && bdSum(v) === 0) return false;
+  return true;
+}
+function bdBroken(v: Record<string, number> | null): boolean {
+  return !!v && (Number(v.total_interactions) || 0) > 0 && bdSum(v) === 0;
+}
+
+async function coletarEngResiliente(igId: string, token: string, dias: number): Promise<{ eng: Record<string, number> | null; ok: boolean }> {
+  let last: Record<string, number> | null = null;
+  for (let i = 0; i < 5; i++) {
+    last = await coletarEngajamentoConta(igId, token, dias);
+    if (engOk(last)) return { eng: last, ok: true };
+    if (i < 4) await new Promise((r) => setTimeout(r, 350 * (i + 1)));
+  }
+  return { eng: last, ok: false };
+}
+
+async function carregarUltimoBom(sb: any, accountId: string, dias: number): Promise<Record<string, number> | null> {
+  const { data } = await sb.from('engagement_snapshots')
+    .select('likes,comments,saves,shares,reach,views,total_interactions,accounts_engaged,profile_views')
+    .eq('account_id', accountId).eq('period_days', dias).gt('reach', 0)
+    .order('captured_at', { ascending: false }).limit(8);
+  for (const row of (data ?? [])) { if (!bdBroken(row)) return row; }
+  return (data && data[0]) ?? null;
+}
+
+function engCols(v: Record<string, number> | null): Record<string, number> | null {
+  if (!v) return null;
+  const out: Record<string, number> = {};
+  for (const k of ENG_KEYS) if (k in v) out[k] = v[k] ?? 0;
+  return Object.keys(out).length ? out : null;
+}
+
+async function gravarEng(sb: any, accountId: string, hoje: string, dias: number, igId: string, token: string, name: string, degraded: string[]) {
+  if (dias === 0) {
+    let v: Record<string, number> | null = null;
+    for (let i = 0; i < 4; i++) {
+      v = await coletarEngajamentoConta(igId, token, dias);
+      if (!bdBroken(v)) break;
+      if (i < 3) await new Promise((r) => setTimeout(r, 300 * (i + 1)));
+    }
+    const engC0 = engCols(v);
+    if (engC0) await sb.from('engagement_snapshots').upsert(
+      { account_id: accountId, captured_at: hoje, period_days: dias, ...engC0 },
+      { onConflict: 'account_id,captured_at,period_days' }
+    );
+    return;
+  }
+  const { eng, ok } = await coletarEngResiliente(igId, token, dias);
+  let merged: Record<string, number> | null = eng ? { ...eng } : null;
+  if (!ok) {
+    const prev = await carregarUltimoBom(sb, accountId, dias);
+    if (prev) {
+      merged = merged || {};
+      for (const k of ENG_KEYS) if (!(Number(merged[k]) > 0)) merged[k] = prev[k] ?? 0;
+      degraded.push(`${name} ${periodLabel(dias)}`);
+    } else {
+      if (!merged || !(Number(merged.reach) > 0)) { degraded.push(`${name} ${periodLabel(dias)} (sem histórico)`); return; }
+    }
+  }
+  const engC = engCols(merged);
+  if (engC) await sb.from('engagement_snapshots').upsert(
+    { account_id: accountId, captured_at: hoje, period_days: dias, ...engC },
+    { onConflict: 'account_id,captured_at,period_days' }
+  );
 }
 
 async function coletarStoriesHoje(igId: string, token: string): Promise<Record<string, number>> {
@@ -141,7 +224,6 @@ async function coletarStoriesHoje(igId: string, token: string): Promise<Record<s
         }
       } catch { /* ignora erro por story */ }
       try {
-        // Quebra da navegação por tipo de ação (avançou/voltou/saiu/próximo) — agregado, nunca por pessoa.
         const nb = await apiGet(`${s.id}/insights`, { metric: 'navigation', breakdown: 'story_navigation_action_type', access_token: token });
         const results = nb.data?.[0]?.total_value?.breakdowns?.[0]?.results ?? [];
         for (const r of results) {
@@ -170,7 +252,6 @@ async function coletarMidias(igId: string, token: string, dias: number) {
     const d = new Date(hojeDate); d.setDate(d.getDate() - dias);
     fromDate = d.toLocaleDateString('en-CA');
   }
-  // Só CONTAGEM de posts/reels publicados na janela (o engajamento vem do nível-conta, ver coletarEngajamentoConta).
   let posts = 0, reels = 0;
   try {
     const d = await apiGet(`${igId}/media`, {
@@ -212,10 +293,8 @@ async function coletarAdsPorCampanha(sb: any, adAccountId: string, accountId: st
   const d = new Date(hoje + 'T12:00:00'); d.setDate(d.getDate() - dias);
   const since = d.toLocaleDateString('en-CA');
   try {
-    // Busca todas as páginas — sem paginação o Meta API trunca em 25 por padrão
-    // fazendo D30 < D14 quando há campanhas extras antigas fora da janela de 14 dias
     const items = await apiGetAll(`act_${adAccountId}/insights`, {
-      fields: 'campaign_id,spend,impressions,clicks,reach',
+      fields: 'campaign_id,spend,impressions,clicks,reach,actions',
       time_range: JSON.stringify({ since, until }),
       level: 'campaign', access_token: token,
     });
@@ -226,22 +305,17 @@ async function coletarAdsPorCampanha(sb: any, adAccountId: string, accountId: st
       impressions: parseInt(r.impressions ?? '0'),
       clicks: parseInt(r.clicks ?? '0'),
       reach: parseInt(r.reach ?? '0'),
+      post_engagement: actVal(r.actions, ['post_engagement']),
+      likes: actVal(r.actions, ['post_reaction', 'like']),
+      comments: actVal(r.actions, ['comment']),
+      shares: actVal(r.actions, ['post', 'share']),
+      saves: actVal(r.actions, ['onsite_conversion.post_save', 'post_save']),
     }));
     if (rows.length) await sb.from('campaign_insights').upsert(rows, { onConflict: 'campaign_id,account_id,captured_at,period_days' });
   } catch { /* sem dados de ads */ }
 }
 
-// Só grava as métricas REALMENTE presentes na resposta (a Meta às vezes omite algumas) — assim nunca
-// sobrescreve dado bom com 0. Retorna null se a resposta veio vazia → o caller PULA o upsert.
-function engCols(v: Record<string, number> | null): Record<string, number> | null {
-  if (!v) return null;
-  const KEYS = ['likes', 'comments', 'saves', 'shares', 'reach', 'views', 'total_interactions', 'accounts_engaged', 'profile_views'];
-  const out: Record<string, number> = {};
-  for (const k of KEYS) if (k in v) out[k] = v[k] ?? 0;
-  return Object.keys(out).length ? out : null;
-}
-
-async function processarConta(sb: any, acc: any) {
+async function processarConta(sb: any, acc: any, degraded: string[]) {
   const { id: accountId, instagram_id: igId, name, access_token: token } = acc;
   if (!token) { console.log(`⚠ Sem token: ${name}`); return null; }
   const hoje = todayBR();
@@ -253,9 +327,6 @@ async function processarConta(sb: any, acc: any) {
     { onConflict: 'account_id,captured_at' }
   );
 
-  // gained/lost (bruto follows_and_unfollows): re-coleta os últimos 3 dias a cada run, pois a métrica
-  // finaliza com atraso (e às vezes a Meta para de entregar). Quando vem, atualiza; quando não, o
-  // dashboard usa a variação da contagem ("em consolidação") e isso se auto-corrige quando a Meta volta.
   for (let dd = 0; dd < 3; dd++) {
     const dia = brDateMinus(dd);
     const fu = await coletarFollowsDia(igId, dia, token);
@@ -269,11 +340,7 @@ async function processarConta(sb: any, acc: any) {
 
   for (const dias of PERIODS) {
     const m = await coletarMidias(igId, token, dias);
-    const engC = engCols(await coletarEngajamentoConta(igId, token, dias));
-    if (engC) await sb.from('engagement_snapshots').upsert(
-      { account_id: accountId, captured_at: hoje, period_days: dias, ...engC },
-      { onConflict: 'account_id,captured_at,period_days' }
-    );
+    await gravarEng(sb, accountId, hoje, dias, igId, token, name, degraded);
     const row: any = { account_id: accountId, captured_at: hoje, period_days: dias, posts_count: m.posts, reels_count: m.reels };
     if (dias <= 1) {
       row.stories_count = stories.count; row.story_shares = stories.shares; row.story_replies = stories.replies;
@@ -284,12 +351,7 @@ async function processarConta(sb: any, acc: any) {
     await sb.from('content_snapshots').upsert(row, { onConflict: 'account_id,captured_at,period_days' });
   }
 
-  // Engajamento do mês-corrente (MTD, period_days=99) — visão "Mês / Até agora" do painel.
-  const engMesC = engCols(await coletarEngajamentoConta(igId, token, 99));
-  if (engMesC) await sb.from('engagement_snapshots').upsert(
-    { account_id: accountId, captured_at: hoje, period_days: 99, ...engMesC },
-    { onConflict: 'account_id,captured_at,period_days' }
-  );
+  await gravarEng(sb, accountId, hoje, 99, igId, token, name, degraded);
 
   const adAccountId = AD_ACCOUNTS[igId];
   if (adAccountId) {
@@ -305,23 +367,51 @@ async function processarConta(sb: any, acc: any) {
   return novoToken;
 }
 
-Deno.serve(async (req: Request) => {
+async function avisarSuperAdmin(sb: any, degraded: string[]) {
+  if (!degraded.length) return;
+  const lista = degraded.join(' · ');
+  const msg = `⚠️ Coleta IG: a Meta retornou métricas zeradas/inconsistentes (alcance 0 ou likes/comments/saves/shares zerados com interações>0) mesmo após 5 tentativas em: ${lista}. Mantive o valor mais recente válido (não zerei o painel). Verificar token/permissões da Meta.`;
+  try {
+    await sb.from('data_integrity_checks').insert({
+      checked_date: todayBR(), status: 'fail', check_name: 'coleta_zerada',
+      detail: msg.slice(0, 900),
+    });
+  } catch (e) { console.error('alerta DB:', e); }
+  if (ALERT_WEBHOOK_URL) {
+    try {
+      await fetch(ALERT_WEBHOOK_URL, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: msg, content: msg }),
+      });
+    } catch (e) { console.error('webhook:', e); }
+  }
+}
+
+async function rodarColeta() {
   const sb = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
+  const { data: accounts, error } = await sb.from('accounts').select('id,name,instagram_id,access_token');
+  if (error) throw error;
+  console.log(`Iniciando coleta — ${new Date().toISOString()} — ${accounts.length} contas`);
+  const degraded: string[] = [];
+  for (const acc of accounts) {
+    try { await processarConta(sb, acc, degraded); } catch (e) { console.error(`Erro ${acc.name}:`, e); }
+  }
+  await avisarSuperAdmin(sb, degraded);
+  return { contas: accounts.length, degradados: degraded };
+}
+
+// SINCRONO: aguarda a coleta inteira (~120s) e responde no fim. O invocador precisa segurar a
+// conexão — o cron usa net.http_post com timeout_milliseconds:=180000 (background não é confiável
+// aqui: EdgeRuntime.waitUntil foi morto pela reciclação da instância).
+Deno.serve(async (_req: Request) => {
   try {
-    const { data: accounts, error } = await sb.from('accounts').select('id,name,instagram_id,access_token');
-    if (error) throw error;
-    console.log(`Iniciando coleta — ${new Date().toISOString()} — ${accounts.length} contas`);
-    for (const acc of accounts) {
-      try { await processarConta(sb, acc); } catch (e) { console.error(`Erro ${acc.name}:`, e); }
-    }
-    return new Response(JSON.stringify({ ok: true, ts: new Date().toISOString(), contas: accounts.length }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const r = await rodarColeta();
+    return new Response(JSON.stringify({ ok: true, ts: new Date().toISOString(), ...r }), { headers: { 'Content-Type': 'application/json' } });
   } catch (e) {
     console.error(e);
-    return new Response(JSON.stringify({ ok: false, error: String(e) }), { status: 500 });
+    return new Response(JSON.stringify({ ok: false, error: String(e) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 });
