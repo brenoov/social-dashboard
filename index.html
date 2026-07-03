@@ -8121,16 +8121,6 @@ function _gtBudgetEditHtml(daily){
     </span>
   </div>`;
 }
-// Bloco da análise do Opus por anúncio (manter/pausar). row = _gtAdIA[ad_id].
-function _gtAdIABlocoHtml(row){
-  if(!row)return '';
-  const cor=row.veredito==='pausar'?'#dc2626':'#16a34a';
-  const quando=row.gerado_em?new Date(row.gerado_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}):'';
-  return `<div class="gt-ia-sug" style="margin-top:6px;padding:6px 9px;border:1px solid var(--border);border-left:3px solid ${cor};border-radius:7px;background:var(--surface2);">
-    <span style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:${cor};">✦ IA · ${_gtEsc(quando)} · ${_gtEsc(row.veredito||'')}</span>
-    <div style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);margin-top:3px;line-height:1.4;">${_gtEsc(row.justificativa||'')}</div>
-  </div>`;
-}
 function _gtWireBudgetControls(el,ins,camp,iaRow){
   if(!el)return;
   const nm=_gtEsc(ins.campaign_name||camp?.name||'a campanha');
@@ -8296,26 +8286,31 @@ function _renderGtAds(pane,ads,allInsights,allAdInsights){
     const ctr=parseFloat(ad.ctr||0);
     const spend=parseFloat(ad.spend||0);
     const adStatus=ad.effective_status||'';
-    const statusColor=adStatus==='ACTIVE'?'#16a34a':adStatus==='PAUSED'?'#f59e0b':'#6b7280';
-    const ctrColor=ctr>=2?'#16a34a':ctr<0.8?'#dc2626':'#d97706';
+    const ctrColor=ctr>=2?'var(--green)':ctr<0.8?'var(--red)':'var(--orange)';
+    const iaRow=_gtAdIA[ad.ad_id];
     const card=document.createElement('div');card.className='gt-ad-card';
     const top=document.createElement('div');top.className='gt-ad-top';
-    const adBadge=document.createElement('div');
-    const adBadgeCls=adStatus==='ACTIVE'?'active':adStatus==='PAUSED'?'paused':'inactive';
-    const adBadgeLbl=adStatus==='ACTIVE'?'Ativo':adStatus==='PAUSED'?'Pausado':adStatus==='ARCHIVED'?'Arquivado':'Inativo';
-    adBadge.className=`gt-status-badge ${adBadgeCls}`;adBadge.textContent=adBadgeLbl;
-    const nameWrap=document.createElement('div');nameWrap.style.cssText='flex:1;min-width:0;';
-    nameWrap.innerHTML=`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${ad.ad_name||ad.adset_name||'—'}</div>${ad.adset_name&&ad.ad_name?`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);">${ad.adset_name}</div>`:''}`;
+    // Selo: pílula do veredito da IA; se não houver análise, cai pro badge de status.
+    const seal=document.createElement('div');
+    if(iaRow){
+      seal.className='gt-ad-pill '+(iaRow.veredito==='pausar'?'pausar':'manter');
+      seal.textContent=iaRow.veredito==='pausar'?'Pausar':'Manter';
+    }else{
+      const cls=adStatus==='ACTIVE'?'active':adStatus==='PAUSED'?'paused':'inactive';
+      const lb=adStatus==='ACTIVE'?'Ativo':adStatus==='PAUSED'?'Pausado':adStatus==='ARCHIVED'?'Arquivado':'Inativo';
+      seal.className='gt-status-badge '+cls;seal.textContent=lb;
+    }
+    const nameWrap=document.createElement('div');nameWrap.className='gt-ad-name';
+    nameWrap.innerHTML=`<div class="gt-ad-nm">${_gtEsc(ad.ad_name||ad.adset_name||'—')}</div>${ad.adset_name&&ad.ad_name?`<div class="gt-ad-sub">${_gtEsc(ad.adset_name)}</div>`:''}`;
     const metrics=document.createElement('div');metrics.className='gt-metrics';
-    metrics.innerHTML=`<div class="gt-metric">CTR <span style="color:${ctrColor}">${_maFmtPct(ctr)}</span></div><div class="gt-metric">CPC <span>${_maFmtR(parseFloat(ad.cpc||0))}</span></div><div class="gt-metric" style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;"><span>${_maFmtR(spend)}</span></div>`;
-    top.appendChild(adBadge);top.appendChild(nameWrap);top.appendChild(metrics);
-    let actBar=null;
-    const adTgl=_gtManualToggleBtn('ad',ad.ad_id,adStatus,ad.ad_name||ad.adset_name);
-    if(adTgl){ if(!actBar){actBar=document.createElement('div');actBar.className='gt-action-row';} actBar.appendChild(adTgl); }
+    metrics.innerHTML=`<div class="gt-metric">CTR <span style="color:${ctrColor}">${_maFmtPct(ctr)}</span></div><div class="gt-metric" style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;"><span>${_maFmtR(spend)}</span></div>`;
+    top.appendChild(seal);top.appendChild(nameWrap);top.appendChild(metrics);
     card.appendChild(top);
-    const adIaRow=_gtAdIA[ad.ad_id];
-    if(adIaRow){ const adIaEl=document.createElement('div'); adIaEl.innerHTML=_gtAdIABlocoHtml(adIaRow); card.appendChild(adIaEl.firstElementChild); }
-    if(actBar)card.appendChild(actBar);
+    // Porquê da IA (apoio).
+    if(iaRow&&iaRow.justificativa){const why=document.createElement('div');why.className='gt-ad-why';why.textContent=iaRow.justificativa;card.appendChild(why);}
+    // Pausar/reativar manual.
+    const adTgl=_gtManualToggleBtn('ad',ad.ad_id,adStatus,ad.ad_name||ad.adset_name);
+    if(adTgl){const actBar=document.createElement('div');actBar.className='gt-action-row';actBar.appendChild(adTgl);card.appendChild(actBar);}
     pane.appendChild(card);
   });
 }
