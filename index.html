@@ -7912,6 +7912,14 @@ async function _gtLoadBudgetIA(){
     (rows||[]).forEach(r=>{ if(r&&r.campaign_id) _gtBudgetIA[r.campaign_id]=r; });
   }catch(e){ _gtBudgetIA={}; }
 }
+let _gtAdIA={};
+async function _gtLoadAdIA(){
+  try{
+    const rows=await sb('gt_ad_analises?select=ad_id,veredito,justificativa,gerado_em');
+    _gtAdIA={};
+    (rows||[]).forEach(r=>{ if(r&&r.ad_id) _gtAdIA[r.ad_id]=r; });
+  }catch(e){ _gtAdIA={}; }
+}
 function _gtMetricasDoBalde(balde){
   const c=_gtConfig[balde];
   return (Array.isArray(c)&&c.length) ? c : (GT_BALDE_PADRAO[balde]||GT_BALDE_PADRAO.padrao);
@@ -7992,6 +8000,7 @@ async function loadGtData(){
   try{
     if(!_gtConfigLoaded){ await _gtLoadConfig(); _gtConfigLoaded=true; }
     await _gtLoadBudgetIA();
+    await _gtLoadAdIA();
     const acc=_gtCurAcc;
     const tok=acc.id;
     const adAccId=acc.ad_account_id;
@@ -8079,6 +8088,16 @@ function _gtIABlocoHtml(row){
       <input data-gt-manual="1" type="number" min="1" step="1" placeholder="R$/dia" style="width:80px;padding:5px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:11px;">
       <button data-gt-manual-ok="1" class="gt-act-btn" style="font-size:11px;">Aplicar manual</button>
     </div>
+  </div>`;
+}
+// Bloco da análise do Opus por anúncio (manter/pausar). row = _gtAdIA[ad_id].
+function _gtAdIABlocoHtml(row){
+  if(!row)return '';
+  const cor=row.veredito==='pausar'?'#dc2626':'#16a34a';
+  const quando=row.gerado_em?new Date(row.gerado_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}):'';
+  return `<div class="gt-ia-sug" style="margin-top:6px;padding:6px 9px;border:1px solid var(--border);border-left:3px solid ${cor};border-radius:7px;background:var(--surface2);">
+    <span style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:${cor};">✦ IA · ${_gtEsc(quando)} · ${_gtEsc(row.veredito||'')}</span>
+    <div style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);margin-top:3px;line-height:1.4;">${_gtEsc(row.justificativa||'')}</div>
   </div>`;
 }
 function _gtWireBudgetControls(el,ins,camp,iaRow){
@@ -8173,7 +8192,7 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       // Status badge
       const badge=document.createElement('div');
       const badgeCls=encerrada?'inactive':(status==='ACTIVE'?'active':status==='PAUSED'?'paused':'inactive');
-      const badgeLbl=encerrada?'Encerrada':(status==='ACTIVE'?'Ativo':status==='PAUSED'?'Pausado':status==='ARCHIVED'?'Arquivado':'Inativo');
+      const badgeLbl=encerrada?'Concluído':(status==='ACTIVE'?'Ativo':status==='PAUSED'?'Pausado':status==='ARCHIVED'?'Arquivado':'Inativo');
       badge.className=`gt-status-badge ${badgeCls}`;badge.textContent=badgeLbl;
       const nm=document.createElement('div');nm.className='gt-name';nm.title=ins.campaign_name||'';nm.textContent=ins.campaign_name||'—';
       const chips=document.createElement('div');chips.style.cssText='display:flex;align-items:center;gap:8px;flex-shrink:0;';
@@ -8217,6 +8236,7 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
         }
       });
       row.appendChild(inner);row.appendChild(adsPane);
+      if(ads.length){ adsPane.classList.add('open'); chev.classList.add('open'); adsPane.dataset.loaded='1'; _renderGtAds(adsPane,ads,insights,adInsights); }
       list.appendChild(row);
     });
   }
@@ -8248,7 +8268,10 @@ function _renderGtAds(pane,ads,allInsights,allAdInsights){
     let actBar=null;
     const adTgl=_gtManualToggleBtn('ad',ad.ad_id,adStatus,ad.ad_name||ad.adset_name);
     if(adTgl){ if(!actBar){actBar=document.createElement('div');actBar.className='gt-action-row';} actBar.appendChild(adTgl); }
-    card.appendChild(top);if(actBar)card.appendChild(actBar);
+    card.appendChild(top);
+    const adIaRow=_gtAdIA[ad.ad_id];
+    if(adIaRow){ const adIaEl=document.createElement('div'); adIaEl.innerHTML=_gtAdIABlocoHtml(adIaRow); card.appendChild(adIaEl.firstElementChild); }
+    if(actBar)card.appendChild(actBar);
     pane.appendChild(card);
   });
 }
