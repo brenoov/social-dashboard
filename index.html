@@ -8339,11 +8339,14 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
   renderList('');
   col.innerHTML='';col.appendChild(card);
 }
-function _gtCloseCriativo(){const ov=document.getElementById('gt-cr-overlay'),md=document.getElementById('gt-cr-modal'),bd=document.getElementById('gt-cr-body');if(ov)ov.style.display='none';if(md)md.style.display='none';if(bd)bd.innerHTML='';}
+function _gtCrEsc(e){if(e.key==='Escape')_gtCloseCriativo();}
+function _gtCloseCriativo(){const ov=document.getElementById('gt-cr-overlay'),md=document.getElementById('gt-cr-modal'),bd=document.getElementById('gt-cr-body');if(ov)ov.style.display='none';if(md)md.style.display='none';if(bd)bd.innerHTML='';document.removeEventListener('keydown',_gtCrEsc);}
 async function _gtVerCriativo(adId,accId,nome){
   const ov=document.getElementById('gt-cr-overlay'),md=document.getElementById('gt-cr-modal'),bd=document.getElementById('gt-cr-body');
   if(!ov||!md||!bd)return;
   ov.style.display='block';md.style.display='flex';
+  const tt=document.getElementById('gt-cr-title');if(tt)tt.textContent=nome?('Criativo · '+nome):'Criativo do anúncio';
+  document.addEventListener('keydown',_gtCrEsc);
   bd.innerHTML='<div style="padding:40px 20px;text-align:center;color:var(--muted);font-family:\'IBM Plex Sans\',sans-serif;font-size:calc(12px*var(--gt-fs,1.3));">Carregando o criativo…</div>';
   // Ordem de formatos confirmada na validação ao vivo (mais provável primeiro).
   const formats=['INSTAGRAM_STANDARD','INSTAGRAM_REELS','INSTAGRAM_STORY','MOBILE_FEED_STANDARD','FACEBOOK_STORY_MOBILE'];
@@ -12022,7 +12025,7 @@ function setHomeBgTheme(type){
 
 <div id="gt-cr-overlay" onclick="_gtCloseCriativo()"></div>
 <div id="gt-cr-modal">
-  <div class="gt-cfg-head"><span class="gt-cfg-title">Criativo do anúncio</span><button class="gt-cfg-close" onclick="_gtCloseCriativo()">✕</button></div>
+  <div class="gt-cfg-head"><span class="gt-cfg-title" id="gt-cr-title">Criativo do anúncio</span><button class="gt-cfg-close" onclick="_gtCloseCriativo()">✕</button></div>
   <div class="gt-cr-body" id="gt-cr-body"></div>
 </div>
 
