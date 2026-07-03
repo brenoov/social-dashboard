@@ -3739,7 +3739,8 @@ async function fetchData(accountId,period,customStart,customEnd){
   // e não batem exatamente — por isso o saldo principal usa a contagem total (confiável/tempo real).
   const engTotal=eng.likes+eng.saves+eng.shares+(eng.comments||0);
   const prevEngTotal=(prevEng?.likes||0)+(prevEng?.saves||0)+(prevEng?.shares||0);
-  const engRate=latest>0?((engTotal/latest)*100).toFixed(1):'0.0';
+  // Taxa de engajamento POR ALCANCE (padrão IG): (curtidas+comentários+salvamentos+compartilhamentos) / alcance × 100.
+  const engRate=eng.reach>0?((engTotal/eng.reach)*100).toFixed(1):'0.0';
   const avgPerDay=effectivePeriod>0?(newFollowers/effectivePeriod).toFixed(1):'0.0';
   const pLabel=customStart&&customEnd?effectivePeriod+'D':_perShort(period,effectivePeriod);
   const followerDeltas=[{p:pLabel,v:(newFollowers>=0?'+':'')+fmtN(newFollowers),dir:newFollowers>=0?'up':'down'}];
