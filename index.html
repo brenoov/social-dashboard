@@ -9555,25 +9555,6 @@ function closeBanco(){
 // ===== Portal de Notícias =====
 let _npData=[], _npTab=null, _npPano=null;
 const NP_ORDER=['Santa Lolla','Capodarte','Carmen Steffens','Dumond','Arezzo&Co','Schutz','Victor Hugo','Luiza Barcelos','Isla',"L'Occitane"];
-// Controle de zoom reutilizável: aplica CSS zoom (reflow real) no container de conteúdo.
-function _rbvZoom(key, contentId){
-  const content=document.getElementById(contentId); if(!content) return;
-  const screen=content.closest('[id$="-screen"]')||document.body;
-  const K='rbv-zoom-'+key;
-  let z=parseFloat(localStorage.getItem(K)); if(!(z>=0.7&&z<=2)) z=1;
-  let ctl=screen.querySelector(':scope > .zoomctl');
-  const apply=()=>{content.style.zoom=String(z);try{localStorage.setItem(K,String(z));}catch(e){}const v=ctl&&ctl.querySelector('.zoomctl-val');if(v)v.textContent=Math.round(z*100)+'%';};
-  if(!ctl){
-    ctl=document.createElement('div');ctl.className='zoomctl';
-    const mk=(t,title,fn)=>{const b=document.createElement('button');b.type='button';b.textContent=t;b.title=title;b.onclick=fn;return b;};
-    ctl.appendChild(mk('A−','Diminuir texto',()=>{z=Math.max(0.7,Math.round((z-0.1)*10)/10);apply();}));
-    const val=document.createElement('span');val.className='zoomctl-val';val.title='Restaurar 100%';val.textContent='100%';val.onclick=()=>{z=1;apply();};
-    ctl.appendChild(val);
-    ctl.appendChild(mk('A+','Aumentar texto',()=>{z=Math.min(2,Math.round((z+0.1)*10)/10);apply();}));
-    screen.appendChild(ctl);
-  }
-  apply();
-}
 function _npFontScale(){
   const screen=document.getElementById('noticias-screen');if(!screen)return;
   const K='rbv-npfs';

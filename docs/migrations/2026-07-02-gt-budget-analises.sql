@@ -14,7 +14,7 @@ create table if not exists public.gt_budget_analises (
   veredito               text,
   justificativa          text,
   impacto_estimado       text,
-  modelo                 text not null default 'opus-4-8',
+  modelo                 text not null default 'claude-opus-4-8',
   gerado_em              timestamptz not null default now(),
   valida_ate             timestamptz
 );
