@@ -2361,6 +2361,7 @@
   .gt-camp-l1{display:flex;align-items:center;gap:10px;}
   .gt-camp-l1 .gt-spend{margin-left:auto;}
   .gt-camp-num{font-family:'Oswald',sans-serif;font-size:calc(14px*var(--gt-fs,1.3));font-weight:600;color:var(--accent);min-width:24px;text-align:center;flex-shrink:0;font-variant-numeric:tabular-nums;letter-spacing:.5px;}
+  .gt-ad-num{font-family:'Oswald',sans-serif;font-size:calc(11px*var(--gt-fs,1.3));font-weight:600;color:var(--accent);opacity:.85;flex-shrink:0;font-variant-numeric:tabular-nums;letter-spacing:.3px;}
   .gt-camp-l2{display:flex;align-items:center;gap:14px;margin-top:7px;flex-wrap:wrap;}
   .gt-camp-exp{margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0;}
   .gt-camp-row-ads{padding:0 18px 14px 22px;display:none;flex-direction:column;gap:0;background:var(--surface2);border-top:1px solid var(--border);position:relative;}
@@ -8329,11 +8330,11 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
         chev.classList.toggle('open',isOpen);
         if(isOpen&&!adsPane.dataset.loaded){
           adsPane.dataset.loaded='1';
-          _renderGtAds(adsPane,ads,insights,adInsights);
+          _renderGtAds(adsPane,ads,insights,adInsights,i+1);
         }
       });
       row.appendChild(inner);row.appendChild(adsPane);
-      if(ads.length){ adsPane.classList.add('open'); chev.classList.add('open'); adsPane.dataset.loaded='1'; _renderGtAds(adsPane,ads,insights,adInsights); }
+      if(ads.length){ adsPane.classList.add('open'); chev.classList.add('open'); adsPane.dataset.loaded='1'; _renderGtAds(adsPane,ads,insights,adInsights,i+1); }
       list.appendChild(row);
     });
   }
@@ -8361,11 +8362,11 @@ async function _gtVerCriativo(adId,accId,nome){
   }
   bd.innerHTML='<div style="padding:30px 20px;text-align:center;color:var(--muted);font-family:\'IBM Plex Sans\',sans-serif;font-size:calc(12px*var(--gt-fs,1.3));line-height:1.6;">Não consegui carregar o preview deste anúncio agora.<br>Pode ser um formato sem preview disponível.</div>';
 }
-function _renderGtAds(pane,ads,allInsights,allAdInsights){
+function _renderGtAds(pane,ads,allInsights,allAdInsights,campNum){
   const lbl=document.createElement('div');lbl.className='gt-ads-section-lbl';lbl.textContent=`Anúncios (${ads.length})`;pane.appendChild(lbl);
   if(!ads.length){const empty=document.createElement('div');empty.style.cssText='font-family:\'IBM Plex Sans\',sans-serif;font-size:calc(11px*var(--gt-fs,1.3));color:var(--muted);padding:6px 0 6px 20px;';empty.textContent='Nenhum anúncio com gasto neste período';pane.appendChild(empty);return;}
   const sorted=[...ads].sort((a,b)=>parseFloat(b.spend||0)-parseFloat(a.spend||0));
-  sorted.forEach(ad=>{
+  sorted.forEach((ad,ai)=>{
     const ctr=parseFloat(ad.ctr||0);
     const spend=parseFloat(ad.spend||0);
     const adStatus=ad.effective_status||'';
@@ -8387,7 +8388,8 @@ function _renderGtAds(pane,ads,allInsights,allAdInsights){
     nameWrap.innerHTML=`<div class="gt-ad-nm">${_gtEsc(ad.ad_name||ad.adset_name||'—')}</div>${ad.adset_name&&ad.ad_name?`<div class="gt-ad-sub">${_gtEsc(ad.adset_name)}</div>`:''}`;
     const metrics=document.createElement('div');metrics.className='gt-metrics';
     metrics.innerHTML=`<div class="gt-metric">CTR <span style="color:${ctrColor}">${_maFmtPct(ctr)}</span></div><div class="gt-metric" style="font-family:'Oswald',sans-serif;font-size:calc(13px*var(--gt-fs,1.3));font-weight:700;"><span>${_maFmtR(spend)}</span></div>`;
-    top.appendChild(seal);top.appendChild(nameWrap);top.appendChild(metrics);
+    const adNum=document.createElement('div');adNum.className='gt-ad-num';adNum.textContent=(campNum!=null?campNum+'.':'')+(ai+1);
+    top.appendChild(adNum);top.appendChild(seal);top.appendChild(nameWrap);top.appendChild(metrics);
     card.appendChild(top);
     // Porquê da IA (apoio).
     if(iaRow&&iaRow.justificativa){const why=document.createElement('div');why.className='gt-ad-why';why.textContent=iaRow.justificativa;card.appendChild(why);}
