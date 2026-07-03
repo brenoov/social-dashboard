@@ -3,6 +3,7 @@
 // de budget em gt_budget_analises. Roda via .github/workflows/budget-ia.yml.
 
 const VEREDITOS = new Set(['escalar', 'reduzir', 'manter', 'pausar']);
+const VEREDITOS_AD = new Set(['manter', 'pausar']);
 
 // Campanha "em veiculação real": ACTIVE e (sem stop_time OU stop_time no futuro).
 export function campanhaEmVeiculacao(camp, agoraMs) {
@@ -12,19 +13,21 @@ export function campanhaEmVeiculacao(camp, agoraMs) {
   return Number.isNaN(t) ? true : t > agoraMs;
 }
 
-// Monta as mensagens (system + user) pro Opus. Pede SOMENTE um JSON.
-export function montarMensagens(camp, ins) {
+// Monta as mensagens (system + user) pro Opus: analisa a campanha E os anúncios dela.
+export function montarMensagens(camp, ins, ads) {
   const system =
-    'Você é um gestor de tráfego pago sênior. Analise UMA campanha do Meta Ads e ' +
-    'recomende o orçamento diário ideal, respeitando o OBJETIVO da campanha ' +
-    '(Vendas: priorize ROAS/CAC; Tráfego: CPC/CTR; Reconhecimento: alcance/CPM; ' +
-    'Leads: custo por lead). Seja conservador quando faltar dado. Se o gasto não se ' +
-    'justifica pela performance, use veredito "pausar". ' +
+    'Você é um gestor de tráfego pago sênior. Analise UMA campanha do Meta Ads E os anúncios dela, e recomende: ' +
+    '(1) o orçamento diário ideal da CAMPANHA; (2) por ANÚNCIO, manter ou pausar o criativo. ' +
+    'Respeite o OBJETIVO da campanha (Vendas: ROAS/CAC; Tráfego: CPC/CTR; Reconhecimento: alcance/CPM; Leads: custo por lead; Engajamento: engajamento/CTR). ' +
+    'CONCEITOS (obrigatórios): performance RUIM nunca vira "escalar" — CTR muito abaixo do aceitável pro objetivo, CPC/CPL alto, ROAS baixo, ou frequência alta (fadiga) → "reduzir" ou "pausar", NUNCA "escalar". ' +
+    '"escalar" só com EVIDÊNCIA de eficiência (bom resultado a custo baixo) E volume/dado suficiente. Seja conservador quando faltar dado. ' +
+    'Por anúncio: "pausar" criativo com performance ruim ou fadiga; "manter" os que vão bem. ' +
     'Responda SOMENTE com um JSON válido, sem texto antes ou depois, no formato: ' +
-    '{"budget_sugerido_centavos": <inteiro, orçamento diário em centavos de R$>, ' +
+    '{"budget_sugerido_centavos": <inteiro, centavos de R$/dia>, ' +
     '"veredito": "escalar"|"reduzir"|"manter"|"pausar", ' +
-    '"justificativa": "<1-2 frases em PT-BR>", ' +
-    '"impacto_estimado": "<estimativa curta do efeito em PT-BR, ex.: +30% budget → ~+25% compras>"}';
+    '"justificativa": "<1-2 frases PT-BR>", ' +
+    '"impacto_estimado": "<estimativa curta PT-BR>", ' +
+    '"anuncios": [ {"ad_id": "<id>", "veredito": "manter"|"pausar", "justificativa": "<1 frase PT-BR>"} ]}';
   const dados = {
     nome: camp.name || '',
     objetivo: camp.objective || '',
@@ -40,14 +43,24 @@ export function montarMensagens(camp, ins) {
     roas: Array.isArray(ins.purchase_roas) && ins.purchase_roas[0] ? num(ins.purchase_roas[0].value) : null,
     acoes: ins.actions || null,
     valores_acao: ins.action_values || null,
+    anuncios: (ads || []).map((a) => ({
+      ad_id: a.ad_id || a.id || '',
+      nome: a.ad_name || a.adset_name || '',
+      gasto: num(a.spend),
+      ctr_pct: num(a.ctr),
+      cpc: num(a.cpc),
+      impressoes: num(a.impressions),
+      alcance: num(a.reach),
+      frequencia: num(a.frequency),
+    })),
   };
   const user =
-    'Dados da campanha (janela recente):\n' + JSON.stringify(dados) +
+    'Dados da campanha e dos anúncios (janela recente):\n' + JSON.stringify(dados) +
     '\nResponda apenas o JSON pedido.';
   return { system, user };
 }
 
-// Extrai e valida o JSON da resposta. Retorna o objeto validado ou null.
+// Extrai e valida o JSON da resposta. Retorna o objeto validado (com anuncios) ou null.
 export function parsearSaida(text) {
   if (!text || typeof text !== 'string') return null;
   const m = text.match(/\{[\s\S]*\}/);
@@ -60,11 +73,19 @@ export function parsearSaida(text) {
   if (!VEREDITOS.has(o.veredito)) return null;
   if (typeof o.justificativa !== 'string' || !o.justificativa.trim()) return null;
   if (typeof o.impacto_estimado !== 'string' || !o.impacto_estimado.trim()) return null;
+  const anuncios = Array.isArray(o.anuncios)
+    ? o.anuncios
+        .filter((a) => a && typeof a.ad_id === 'string' && a.ad_id.trim()
+          && VEREDITOS_AD.has(a.veredito)
+          && typeof a.justificativa === 'string' && a.justificativa.trim())
+        .map((a) => ({ ad_id: a.ad_id.trim(), veredito: a.veredito, justificativa: a.justificativa.trim() }))
+    : [];
   return {
     budget_sugerido_centavos: Math.round(b),
     veredito: o.veredito,
     justificativa: o.justificativa.trim(),
     impacto_estimado: o.impacto_estimado.trim(),
+    anuncios,
   };
 }
 

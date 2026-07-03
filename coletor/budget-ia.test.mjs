@@ -17,14 +17,18 @@ test('campanhaEmVeiculacao: PAUSED = fora', () => {
   assert.equal(campanhaEmVeiculacao({ effective_status: 'PAUSED' }, AGORA), false);
 });
 
-test('montarMensagens: inclui objetivo e budget no texto do usuário', () => {
+test('montarMensagens: inclui objetivo, budget e os anúncios no texto do usuário', () => {
   const { system, user } = montarMensagens(
     { name: 'C1', objective: 'OUTCOME_SALES', daily_budget: '5000' },
-    { spend: '120', ctr: '1.5', purchase_roas: [{ value: '3.2' }] }
+    { spend: '120', ctr: '1.5', purchase_roas: [{ value: '3.2' }] },
+    [{ ad_id: 'ad_9', ad_name: 'Criativo A', ctr: '0.15', spend: '80' }]
   );
   assert.match(system, /JSON/);
+  assert.match(system, /anuncios/);
+  assert.match(system, /escalar/);
   assert.match(user, /OUTCOME_SALES/);
   assert.match(user, /5000/);
+  assert.match(user, /ad_9/);
 });
 
 test('parsearSaida: JSON puro válido', () => {
@@ -44,4 +48,14 @@ test('parsearSaida: campo faltando = null', () => {
 });
 test('parsearSaida: lixo = null', () => {
   assert.equal(parsearSaida('sem json aqui'), null);
+});
+test('parsearSaida: anuncios válidos entram; inválidos são filtrados', () => {
+  const o = parsearSaida('{"budget_sugerido_centavos":6000,"veredito":"manter","justificativa":"ok","impacto_estimado":"estável","anuncios":[{"ad_id":"ad_1","veredito":"pausar","justificativa":"CTR baixo"},{"ad_id":"ad_2","veredito":"turbinar","justificativa":"x"},{"veredito":"manter","justificativa":"sem id"}]}');
+  assert.equal(o.anuncios.length, 1);
+  assert.equal(o.anuncios[0].ad_id, 'ad_1');
+  assert.equal(o.anuncios[0].veredito, 'pausar');
+});
+test('parsearSaida: sem anuncios = array vazio', () => {
+  const o = parsearSaida('{"budget_sugerido_centavos":6000,"veredito":"escalar","justificativa":"ROAS bom","impacto_estimado":"+20% compras"}');
+  assert.deepEqual(o.anuncios, []);
 });
