@@ -328,6 +328,15 @@ Mantém o `_gtManualToggleBtn('ad',...)`.
 
 Delete por completo: `_gtInlineSuggest`, `_gtInlineSuggestAd`, `_gtVerdict`, `gtCriterios`, `GT_PRESETS`, `GT_POSTURAS`, `_gtPostura`, `GT_CRIT`, `_gtSetPostura`, e `_gtRenderActions` (agora sem uso).
 
+- [ ] **Step 4b: Remover o modo AUTO (auto-pilot) — decisão do Breno: remover**
+
+O botão "AUTO" (`#gt-auto-btn`) roda `_gtRunAuto`, que é o 2º chamador de `_gtInlineSuggest` (varre campanhas e aplica ações em lote pelo motor de regras). Remover por completo:
+- Globais `let _gtAutoActive=false;` e `let _gtAutoRunning=false;` (~L8536-8537).
+- Funções `_gtToggleAuto` (~L8562-8574) e `_gtRunAuto` (~L8575-8643, a função inteira até o `}` de fechamento).
+- As funções de tooltip do AUTO `_gtShowAutoTip` e `_gtHideAutoTip` (perto de ~L8555-8561, e a global de tooltip que só elas usam) — **só** se um grep confirmar que nada além do botão AUTO as usa.
+- O HTML do botão AUTO: `<button ... id="gt-auto-btn" onclick="_gtToggleAuto()" ...>...</button>` incluindo o `<span id="gt-auto-btn-lbl">` (~L12165-12168). **MANTER o botão irmão `#gt-cfg-btn`** (~L12169) logo abaixo.
+- **NÃO remover a classe CSS `.gt-auto-btn` (L2417-2422)** — ela é COMPARTILHADA com `#gt-cfg-btn` (a engrenagem de config de KPIs). Só o botão `#gt-auto-btn` sai; a classe fica.
+
 - [ ] **Step 5: Remover helpers órfãos (só se ficaram sem uso)**
 
 Rode `grep -n "_getActions\|_gtObjCategory" index.html`. Se algum ficou **sem nenhuma referência** após as remoções, delete a definição dele. Se ainda houver uso em outro lugar, NÃO delete.
@@ -338,8 +347,11 @@ Rode `grep -n "_getActions\|_gtObjCategory" index.html`. Se algum ficou **sem ne
 node -e "const fs=require('fs');const h=fs.readFileSync('index.html','utf8');let i=0;for(const m of h.matchAll(/<script>([\s\S]*?)<\/script>/g)){fs.writeFileSync('/tmp/_v2chk'+i+'.js',m[1]);i++;}console.log(i)"
 for f in /tmp/_v2chk*.js; do node --check "$f" && echo OK; done
 ```
-Também: `grep -n "_gtInlineSuggest\|_gtVerdict\|GT_CRIT\|GT_POSTURAS\|_gtPostura\|gtCriterios\|_gtRenderActions\|postBar\|helpBtn" index.html` → **sem resultados** (tudo removido).
-Expected: todos os inline scripts OK; grep vazio. Visual DEFERIDO ao usuário. NÃO dar `git push`.
+Também rode estes greps → **sem resultados**:
+- `grep -n "_gtInlineSuggest\|_gtVerdict\|GT_CRIT\|GT_POSTURAS\|_gtPostura\|gtCriterios\|_gtRenderActions\|postBar\|helpBtn" index.html`
+- `grep -n "_gtAutoActive\|_gtAutoRunning\|_gtRunAuto\|_gtToggleAuto\|_gtShowAutoTip\|_gtHideAutoTip\|id=\"gt-auto-btn\"" index.html`
+E confirme que **`#gt-cfg-btn` continua presente** (`grep -n "gt-cfg-btn" index.html` → tem resultado) e que a classe CSS `.gt-auto-btn` continua (não apagar).
+Expected: os dois primeiros greps vazios; inline scripts todos `node --check` OK; `gt-cfg-btn` presente. Visual DEFERIDO ao usuário. NÃO dar `git push`.
 
 - [ ] **Step 7: Commit**
 ```bash
