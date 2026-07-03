@@ -3261,14 +3261,13 @@ const PROFILE_THEMES={
   'Motoeasy':        { accent:'#9B1C1C', light:'rgba(155,28,28,0.08)',   mid:'rgba(155,28,28,0.30)' },
 };
 function applyProfileTheme(name){
-  const t=PROFILE_THEMES[name]||PROFILE_THEMES['Breno Vale'];
-  document.documentElement.style.setProperty('--accent',t.accent);
-  document.documentElement.style.setProperty('--accent-light',t.light);
-  document.documentElement.style.setProperty('--accent-mid',t.mid);
-  const line=document.getElementById('chart-line');if(line)line.setAttribute('stroke',t.accent);
-  const dot=document.getElementById('dot-curr');if(dot)dot.setAttribute('fill',t.accent);
-  document.querySelectorAll('#chartGrad stop').forEach(s=>s.setAttribute('stop-color',t.accent));
-  const ll=document.getElementById('chart-legend-line');if(ll)ll.style.background=t.accent;
+  // Cor de destaque FIXA — NÃO muda por perfil (nem no modo vitrine, nem no clique manual).
+  // Usa o accent do tema atual (respeita claro/escuro); não sobrescreve --accent por perfil.
+  const acc=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#1D4ED8';
+  const line=document.getElementById('chart-line');if(line)line.setAttribute('stroke',acc);
+  const dot=document.getElementById('dot-curr');if(dot)dot.setAttribute('fill',acc);
+  document.querySelectorAll('#chartGrad stop').forEach(s=>s.setAttribute('stop-color',acc));
+  const ll=document.getElementById('chart-legend-line');if(ll)ll.style.background=acc;
   const apbName=document.getElementById('apb-name');if(apbName)apbName.textContent=name;
   const apbImg=document.getElementById('apb-img');
   const apbRingWrap2=document.getElementById('apb-ring-wrap');
