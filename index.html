@@ -2420,26 +2420,6 @@
   .gt-auto-btn.active:hover{background:rgba(124,58,237,.2);}
   .gt-auto-btn.running{border-color:#7c3aed;background:#7c3aed;color:#fff;animation:pulse 1.5s infinite;}
   .gt-auto-btn:disabled{opacity:.5;cursor:not-allowed;}
-  #gt-auto-floating-tip{position:fixed;background:rgba(220,38,38,.97);color:#fff;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;padding:8px 12px;border-radius:7px;white-space:normal;pointer-events:none;opacity:0;transition:opacity .18s;z-index:9999;max-width:230px;text-align:center;line-height:1.5;box-shadow:0 4px 18px rgba(0,0,0,.3);}
-  #gt-auto-floating-tip.visible{opacity:1;}
-  #gt-auto-floating-tip::after{content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-bottom-color:rgba(220,38,38,.97);}
-  /* Auto modal */
-  #gt-auto-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1200;display:none;backdrop-filter:blur(2px);}
-  #gt-auto-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1201;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(520px,92vw);max-height:80vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.35);}
-  .gt-auto-modal-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
-  .gt-auto-modal-title{font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:700;color:var(--text);}
-  .gt-auto-modal-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0;line-height:1;}
-  .gt-auto-modal-body{padding:16px 20px;overflow-y:auto;flex:1;}
-  .gt-auto-modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;gap:10px;}
-  .gt-auto-item{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;border-radius:7px;border:1px solid var(--border);margin-bottom:7px;background:var(--surface2);}
-  .gt-auto-item.critico{border-color:rgba(220,38,38,.3);}
-  .gt-auto-item.oportunidade{border-color:rgba(22,163,74,.3);}
-  .gt-auto-item-text{flex:1;min-width:0;}
-  .gt-auto-item-name{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;color:var(--text);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .gt-auto-item-action{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);}
-  .gt-auto-results{padding:8px 0;}
-  .gt-auto-result-row{display:flex;align-items:center;gap:8px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;padding:5px 0;border-bottom:1px solid var(--border);}
-  .gt-auto-result-row:last-child{border-bottom:none;}
   .gt-empty{text-align:center;padding:32px 16px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);line-height:1.7;}
   /* Config modal (editor admin — métricas por objetivo) */
   #gt-cfg-btn{margin-right:4px;}
@@ -8337,10 +8317,6 @@ async function _gtApplyAction(action,btn,rowEl){
 }
 
 let _gtStatusFilter='all';
-function closeGtAutoModal(){
-  document.getElementById('gt-auto-overlay').style.display='none';
-  document.getElementById('gt-auto-modal').style.display='none';
-}
 async function metaFetch(path,params,accountId){
   const{data:{session}}=await sbClient.auth.getSession();
   if(!session)throw new Error('Não autenticado');
@@ -11887,22 +11863,6 @@ function setHomeBgTheme(type){
   </div>
 </div>
 
-<!-- GT Auto floating tooltip (fixed-position, escapes stacking contexts) -->
-<div id="gt-auto-floating-tip">A IA varre todas as campanhas e monta uma lista de ações recomendadas (pausar/escalar/ajustar budget). Você revisa e <b>confirma</b> antes de qualquer coisa ser aplicada na Meta — nada é feito automaticamente.</div>
-
-<!-- GT Auto Modal -->
-<div id="gt-auto-overlay" onclick="closeGtAutoModal()"></div>
-<div id="gt-auto-modal">
-  <div class="gt-auto-modal-head">
-    <span class="gt-auto-modal-title">⚡ Agente IA · Execução Automática</span>
-    <button class="gt-auto-modal-close" onclick="closeGtAutoModal()">✕</button>
-  </div>
-  <div class="gt-auto-modal-body" id="gt-auto-modal-body"></div>
-  <div class="gt-auto-modal-footer" id="gt-auto-modal-footer">
-    <button style="padding:7px 16px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);" onclick="closeGtAutoModal()">Cancelar</button>
-    <button id="gt-auto-confirm-btn" style="padding:7px 18px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:none;background:#7c3aed;color:#fff;" onclick="_gtExecuteAuto()">Executar Tudo</button>
-  </div>
-</div>
 
 <!-- ── EDITOR DE MÉTRICAS POR OBJETIVO (ADMIN) ── -->
 <div id="gt-cfg-overlay" onclick="_gtCloseEditor()"></div>
