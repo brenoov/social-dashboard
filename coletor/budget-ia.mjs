@@ -163,6 +163,7 @@ async function main() {
     process.exit(1);
   }
   const agoraMs = Date.now();
+  let _totIn = 0, _totOut = 0, _chamadas = 0; // uso da API p/ calcular o custo da rodada
   const proximaSegunda = new Date(agoraMs + 7 * 86400000).toISOString();
   const iso = (d) => d.toISOString().slice(0, 10);
   const since = iso(new Date(agoraMs - 7 * 86400000));
@@ -217,6 +218,7 @@ async function main() {
       let saida;
       try {
         const resp = await anthropic({ model: MODEL, max_tokens: 8192, thinking: { type: 'adaptive' }, system, messages: [{ role: 'user', content: user }] });
+        _chamadas++; _totIn += (resp && resp.usage && resp.usage.input_tokens) || 0; _totOut += (resp && resp.usage && resp.usage.output_tokens) || 0;
         saida = parsearSaida(textoDaResposta(resp));
       } catch (e) { console.log('  ✗ ' + (camp.name || camp.id) + ': ' + e.message); puladas++; continue; }
       if (!saida) { console.log('  ⚠ ' + (camp.name || camp.id) + ': sem sugestão válida'); puladas++; continue; }
@@ -260,6 +262,8 @@ async function main() {
     }
   }
   console.log(`Concluído: ${total} analisadas, ${gravadas} gravadas, ${puladas} puladas.`);
+  const _usd = _totIn / 1e6 * 5 + _totOut / 1e6 * 25; // Opus 4.8: US$5/1M entrada, US$25/1M saída
+  console.log(`💰 Custo da rodada: ~US$ ${_usd.toFixed(2)} (~R$ ${(_usd * 5.5).toFixed(2)}) · ${_chamadas} chamadas · ${_totIn} tokens entrada + ${_totOut} saída (câmbio aprox. 5,5)`);
 }
 
 // Só roda main() quando executado como script (não quando importado nos testes).
