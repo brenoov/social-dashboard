@@ -8075,27 +8075,50 @@ function _gtEncerrada(camp,nowMs){
   const t=Date.parse(camp.stop_time);
   return !Number.isNaN(t)&&t<nowMs;
 }
-// Bloco visual da sugestão do Opus (ou '' se não houver). row = _gtBudgetIA[campId].
-function _gtIABlocoHtml(row){
-  if(!row)return '';
-  const sug=row.budget_sugerido_centavos!=null?_maFmtR(row.budget_sugerido_centavos/100):'—';
-  const quando=row.gerado_em?new Date(row.gerado_em).toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'}):'';
-  const verMap={escalar:'#16a34a',reduzir:'#d97706',manter:'#6366f1',pausar:'#dc2626'};
-  const cor=verMap[row.veredito]||'#6366f1';
-  return `<div class="gt-ia-sug" style="margin-top:7px;padding:8px 10px;border:1px solid var(--border);border-left:3px solid ${cor};border-radius:8px;background:var(--surface2);">
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-      <span style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:${cor};">✦ IA · ${_gtEsc(quando)}</span>
-      <span style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;color:var(--text);">Budget sugerido: ${sug}/dia</span>
-      <span style="font-size:10px;font-weight:700;color:${cor};text-transform:uppercase;">${_gtEsc(row.veredito||'')}</span>
+// Faixa de recomendação da IA (estrela do cartão). Trata todos os estados.
+function _gtRecBanner(iaRow,daily,encerrada,status){
+  const dfmt=daily!=null?_maFmtR(daily):null;
+  if(!iaRow){
+    return `<div class="gt-rec-banner neutral"><div class="gt-rec-main"><div class="gt-rec-head"><span class="gt-rec-verdict">Análise em breve</span></div><div class="gt-rec-just">O robô avalia as campanhas toda semana.</div></div></div>`;
+  }
+  const quando=iaRow.gerado_em?new Date(iaRow.gerado_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}):'';
+  const just=_gtEsc(iaRow.justificativa||'');
+  const ver=iaRow.veredito||'';
+  // Pausada/concluída/arquivada: faixa neutra com a última análise apagada, sem ação.
+  if(encerrada||status!=='ACTIVE'){
+    return `<div class="gt-rec-banner neutral"><div class="gt-rec-main"><div class="gt-rec-head"><span class="gt-rec-tag">✦ IA · ${_gtEsc(quando)}</span></div><div class="gt-rec-just">${just}</div></div></div>`;
+  }
+  const varClass=ver==='pausar'?'pausar':ver==='reduzir'?'reduzir':'positivo';
+  const sug=iaRow.budget_sugerido_centavos!=null?_maFmtR(iaRow.budget_sugerido_centavos/100):null;
+  let action='';
+  if(ver==='escalar'||ver==='reduzir'){
+    const fromTo=(dfmt&&sug)?`<span class="gt-rec-from">${dfmt}/dia</span><span class="gt-rec-arrow">→</span><span class="gt-rec-to">${sug}<small>/dia</small></span>`:'';
+    action=`<div class="gt-rec-action">${fromTo}${sug?`<button data-gt-aplicar="1" class="gt-act-btn primary">Aplicar ${sug}/dia</button>`:''}</div>`;
+  }else if(ver==='manter'){
+    action=`<div class="gt-rec-action"><span class="gt-rec-keep">Manter ${dfmt?dfmt+'/dia':'orçamento atual'}</span></div>`;
+  }else if(ver==='pausar'){
+    action=`<div class="gt-rec-action"><button data-gt-pausar="1" class="gt-act-btn danger">⏸ Pausar campanha</button></div>`;
+  }
+  return `<div class="gt-rec-banner ${varClass}">
+    <div class="gt-rec-main">
+      <div class="gt-rec-head"><span class="gt-rec-verdict">${_gtEsc(ver)}</span><span class="gt-rec-tag">✦ IA · ${_gtEsc(quando)}</span></div>
+      <div class="gt-rec-just">${just}</div>
+      ${iaRow.impacto_estimado?`<div class="gt-rec-impact"><b>Impacto:</b> ${_gtEsc(iaRow.impacto_estimado)}</div>`:''}
     </div>
-    <div style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);margin-top:4px;line-height:1.45;">${_gtEsc(row.justificativa||'')}</div>
-    ${row.impacto_estimado?`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);margin-top:3px;"><b>Impacto estimado (IA):</b> ${_gtEsc(row.impacto_estimado)}</div>`:''}
-    <div class="gt-ia-ctrls" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;">
-      <button data-gt-aplicar="1" class="gt-act-btn primary" style="font-size:11px;">Aplicar ${sug}/dia</button>
-      <span style="font-size:10px;color:var(--muted);">ou</span>
-      <input data-gt-manual="1" type="number" min="1" step="1" placeholder="R$/dia" style="width:80px;padding:5px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:11px;">
-      <button data-gt-manual-ok="1" class="gt-act-btn" style="font-size:11px;">Aplicar manual</button>
-    </div>
+    ${action}
+  </div>`;
+}
+
+// Controle de edição manual de orçamento — sempre disponível (independe da IA).
+function _gtBudgetEditHtml(daily){
+  if(daily==null)return '';
+  return `<div class="gt-budget-edit">
+    <span class="gt-be-cur">Orçamento: <b>${_maFmtR(daily)}/dia</b></span>
+    <button data-gt-edit-toggle="1" class="gt-be-link">✎ editar</button>
+    <span data-gt-edit-box="1" class="gt-be-box" hidden>
+      <input data-gt-manual="1" type="number" min="1" step="1" placeholder="R$/dia">
+      <button data-gt-manual-ok="1" class="gt-act-btn primary" style="font-size:10px;">Aplicar</button>
+    </span>
   </div>`;
 }
 // Bloco da análise do Opus por anúncio (manter/pausar). row = _gtAdIA[ad_id].
@@ -8113,17 +8136,24 @@ function _gtWireBudgetControls(el,ins,camp,iaRow){
   const nm=_gtEsc(ins.campaign_name||camp?.name||'a campanha');
   const daily=camp?.daily_budget?parseFloat(camp.daily_budget)/100:null;
   const bAplicar=el.querySelector('[data-gt-aplicar]');
-  if(bAplicar){
-    if(!iaRow||iaRow.budget_sugerido_centavos==null){bAplicar.disabled=true;bAplicar.style.opacity=.5;}
-    else bAplicar.addEventListener('click',ev=>{ev.stopPropagation();
+  if(bAplicar&&iaRow&&iaRow.budget_sugerido_centavos!=null){
+    bAplicar.addEventListener('click',ev=>{ev.stopPropagation();
       const novo=iaRow.budget_sugerido_centavos;
       _gtApplyAction({type:'update_budget',id:ins.campaign_id,budget:novo,_t:'Aplicar budget sugerido?',_d:`"${nm}": ${daily!=null?_maFmtR(daily)+'/dia':'orçamento atual'} → ${_maFmtR(novo/100)}/dia (sugestão da IA).`},bAplicar,el);
     });
   }
+  const bPausar=el.querySelector('[data-gt-pausar]');
+  if(bPausar){
+    bPausar.addEventListener('click',ev=>{ev.stopPropagation();
+      _gtApplyAction({type:'pause_campaign',id:ins.campaign_id,_t:'Pausar campanha?',_d:`"${nm}" será PAUSADA na Meta agora.`},bPausar,el);
+    });
+  }
+  const tgl=el.querySelector('[data-gt-edit-toggle]'),box=el.querySelector('[data-gt-edit-box]');
+  if(tgl&&box)tgl.addEventListener('click',ev=>{ev.stopPropagation();box.hidden=!box.hidden;if(!box.hidden){const i=box.querySelector('[data-gt-manual]');if(i)i.focus();}});
   const inp=el.querySelector('[data-gt-manual]'),bMan=el.querySelector('[data-gt-manual-ok]');
   if(bMan&&inp)bMan.addEventListener('click',ev=>{ev.stopPropagation();
     const v=parseFloat(inp.value);
-    if(!Number.isFinite(v)||v<=0){inp.style.borderColor='#dc2626';return;}
+    if(!Number.isFinite(v)||v<=0){inp.style.borderColor='var(--red)';return;}
     inp.style.borderColor='';
     const cent=Math.round(v*100);
     _gtApplyAction({type:'update_budget',id:ins.campaign_id,budget:cent,_t:'Aplicar budget manual?',_d:`"${nm}": ${daily!=null?_maFmtR(daily)+'/dia':'orçamento atual'} → ${_maFmtR(v)}/dia.`},bMan,el);
@@ -8218,21 +8248,27 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       const exp=document.createElement('div');exp.className='gt-camp-exp';exp.appendChild(hint);exp.appendChild(chev);
       l2.appendChild(chips);l2.appendChild(metrics);l2.appendChild(exp);
       top.appendChild(l1);top.appendChild(l2);
-      let actBar=null;
-      if(!encerrada){
-        const tgl=_gtManualToggleBtn('campaign',ins.campaign_id,status,ins.campaign_name||camp?.name);
-        if(tgl){ if(!actBar){actBar=document.createElement('div');actBar.className='gt-action-row';} actBar.appendChild(tgl); }
-      }
       const iaRow=_gtBudgetIA[ins.campaign_id];
-      const iaBloco=document.createElement('div');
-      iaBloco.innerHTML=_gtIABlocoHtml(iaRow);
+      // 1) Faixa de recomendação (estrela) — no TOPO, antes do cabeçalho.
+      const bannerWrap=document.createElement('div');
+      bannerWrap.innerHTML=_gtRecBanner(iaRow,daily,encerrada,status);
+      if(bannerWrap.firstElementChild)inner.appendChild(bannerWrap.firstElementChild);
+      // 2) Cabeçalho de apoio (clicável p/ expandir anúncios).
       inner.appendChild(top);
-      if(iaRow&&!encerrada){
-        const iaEl=iaBloco.firstElementChild;
-        inner.appendChild(iaEl);
-        _gtWireBudgetControls(iaEl,ins,camp,iaRow);
+      // 3) Edição manual de orçamento — sempre disponível (independe da IA), se houver orçamento diário e não estiver concluída.
+      if(daily!=null&&!encerrada){
+        const beWrap=document.createElement('div');
+        beWrap.innerHTML=_gtBudgetEditHtml(daily);
+        if(beWrap.firstElementChild)inner.appendChild(beWrap.firstElementChild);
       }
-      if(!encerrada&&actBar)inner.appendChild(actBar);
+      // 4) Rodapé: pausar/reativar manual. Pula o "Pausar" se a faixa já mostra Pausar (evita botão duplicado).
+      const bannerHasPause=!!iaRow&&iaRow.veredito==='pausar'&&!encerrada&&status==='ACTIVE';
+      if(!encerrada&&!bannerHasPause){
+        const tgl=_gtManualToggleBtn('campaign',ins.campaign_id,status,ins.campaign_name||camp?.name);
+        if(tgl){const actBar=document.createElement('div');actBar.className='gt-action-row';actBar.appendChild(tgl);inner.appendChild(actBar);}
+      }
+      // 5) Liga os controles (aplicar sugerido, pausar da faixa, editar manual).
+      _gtWireBudgetControls(inner,ins,camp,iaRow);
       // Ads pane
       const adsPane=document.createElement('div');adsPane.className='gt-camp-row-ads';
       top.addEventListener('click',()=>{
