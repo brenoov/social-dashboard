@@ -7746,6 +7746,24 @@ function openGestaoTrafego(){
   if(cfgBtn)cfgBtn.style.display=hasPermission('module:meta:gestor')?'':'none';
   startGtClock();
   _initGestaoTrafego();
+  _gtFontScale();
+}
+function _gtFontScale(){
+  const screen=document.getElementById('gestao-trafego-screen');if(!screen)return;
+  const K='rbv-gtfs';
+  let z=parseFloat(localStorage.getItem(K));if(!(z>=0.9&&z<=2.5))z=1.3;
+  let ctl=screen.querySelector(':scope > .zoomctl');
+  const apply=()=>{screen.style.setProperty('--gt-fs',String(z));try{localStorage.setItem(K,String(z));}catch(e){}const v=ctl&&ctl.querySelector('.zoomctl-val');if(v)v.textContent=Math.round(z*100)+'%';};
+  if(!ctl){
+    ctl=document.createElement('div');ctl.className='zoomctl';
+    const mk=(t,title,fn)=>{const b=document.createElement('button');b.type='button';b.textContent=t;b.title=title;b.onclick=fn;return b;};
+    ctl.appendChild(mk('A−','Diminuir fonte',()=>{z=Math.max(0.9,Math.round((z-0.1)*10)/10);apply();}));
+    const val=document.createElement('span');val.className='zoomctl-val';val.title='Restaurar padrão (130%)';val.onclick=()=>{z=1.3;apply();};
+    ctl.appendChild(val);
+    ctl.appendChild(mk('A+','Aumentar fonte',()=>{z=Math.min(2.5,Math.round((z+0.1)*10)/10);apply();}));
+    screen.appendChild(ctl);
+  }
+  apply();
 }
 function closeGestaoTrafego(){
   document.getElementById('gestao-trafego-screen').style.display='none';
