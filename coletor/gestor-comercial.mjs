@@ -492,6 +492,7 @@ async function main() {
   const df = hoje;
   console.log('== Gestor Comercial · ' + hoje + ' · ' + MODEL + ' ==');
   await logGestor('inicio', null, 'rodada ' + hoje + ' (' + MODEL + ')');
+  let _totIn = 0, _totOut = 0, _chamadas = 0; // uso da API p/ calcular o custo da rodada
 
   // 1) faturamento real por canal (mês corrente) via bling-proxy
   const token = await loginServico();
@@ -602,6 +603,7 @@ async function main() {
     return;
   } else {
     const resp = await anthropic({ model: MODEL, max_tokens: 16000, thinking: { type: 'adaptive' }, system: sys, messages: [{ role: 'user', content: user }] });
+    _chamadas++; _totIn += (resp && resp.usage && resp.usage.input_tokens) || 0; _totOut += (resp && resp.usage && resp.usage.output_tokens) || 0;
     bruto = resp.content.filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
   }
   // extrai e remove o bloco garimpo ANTES do RESUMO (que deve ficar no fim do texto limpo)
@@ -620,6 +622,8 @@ async function main() {
   // 6) grava o briefing
   await sbInsert('/gestao_comercial_briefings', [{ rodada: hoje, periodo, resumo, conteudo, dados_json: { ...dados, oportunidades, garimpo } }], 'return=minimal');
   console.log('briefing gravado. canais:', canaisResumo.map(c => `${c.canal}=${c.percentMeta}%`).join(', '));
+  const _usd = _totIn / 1e6 * 5 + _totOut / 1e6 * 25; // Opus 4.8: US$5/1M entrada, US$25/1M saída
+  console.log(`💰 Custo da rodada: ~US$ ${_usd.toFixed(2)} (~R$ ${(_usd * 5.5).toFixed(2)}) · ${_chamadas} chamadas · ${_totIn} tokens entrada + ${_totOut} saída (câmbio aprox. 5,5)`);
   await logGestor('fim', null, 'pedidos=' + pedidos.length + ' · ' + canaisResumo.map(c => `${c.canal}:${c.status}`).join(' · '));
 }
 
