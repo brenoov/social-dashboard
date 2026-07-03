@@ -3395,6 +3395,7 @@ function perfColor(pct){return pct>=100?'green':pct>=75?'yellow':pct>=50?'orange
 // formatação condicional: pinta o NÚMERO do indicador conforme o desempenho vs meta
 const _PERF_VAR={green:'var(--green)',yellow:'var(--yellow)',orange:'var(--orange)',red:'var(--red)'};
 function _mcValColor(key,clr){const pe=document.getElementById('pct-'+key);const card=pe&&pe.closest('.card');const v=card&&card.querySelector('.mc-val');if(!v)return;const col=_PERF_VAR[clr]||'';if(col){v.style.setProperty('color',col,'important');v.style.setProperty('-webkit-text-fill-color',col,'important');}else{v.style.removeProperty('color');v.style.removeProperty('-webkit-text-fill-color');}}
+function _mcBorderColor(key,clr){const pe=document.getElementById('pct-'+key);const card=pe&&pe.closest('.card');if(!card)return;card.style.borderLeftColor=clr?(_PERF_VAR[clr]||''):'';}
 function goalStorageKey(key,period,accountId){return 'ig_goal_'+(accountId||'default')+'_'+period+'_'+key;}
 const RATE_GOALS=['cps','cpi','cpl'];
 // comprimento em dias de cada período (pro recálculo proporcional). null = comprimento variável (não escala).
@@ -4084,15 +4085,19 @@ function update(d,period){
   setCompare('cmp-cps',d.cps,d.prevCps,'R$ ',pl,true);
   applySpend(d.spend,getGoal('spend'));
   if(d.cps>0)applyMetricInverse('cps',d.cps,getGoal('cps'));
+  if(d.cps>0){const gcps=getGoal('cps');_mcBorderColor('cps',perfColor((gcps/d.cps)*100));}else{_mcBorderColor('cps','');}
   const adsChips=[];
   if(d.impressions>0)adsChips.push(fmtN(d.impressions)+' impressões');
   if(d.clicks>0)adsChips.push(fmtN(d.clicks)+' cliques');
   if(d.reach>0)adsChips.push(fmtN(d.reach)+' alcance');
   if(!adsChips.length)adsChips.push('Sem dados de Ads no período');
   setChips('chips-ads',adsChips);
-  const _cpu=(n)=>n>0&&d.spend>0?fmtR(d.spend/n):'R$ —';
-  document.getElementById('ads-cpi-val').textContent=_cpu(d.adEngagement);
-  document.getElementById('ads-cpl-val').textContent=_cpu(d.adLikes);
+  const cpi=(d.adEngagement>0&&d.spend>0)?d.spend/d.adEngagement:0;
+  const cpl=(d.adLikes>0&&d.spend>0)?d.spend/d.adLikes:0;
+  document.getElementById('ads-cpi-val').textContent=cpi>0?fmtR(cpi):'R$ —';
+  document.getElementById('ads-cpl-val').textContent=cpl>0?fmtR(cpl):'R$ —';
+  if(cpi>0){const g=getGoal('cpi');applyMetricInverse('cpi',cpi,g);_mcBorderColor('cpi',perfColor((g/cpi)*100));}else{_mcBorderColor('cpi','');}
+  if(cpl>0){const g=getGoal('cpl');applyMetricInverse('cpl',cpl,g);_mcBorderColor('cpl',perfColor((g/cpl)*100));}else{_mcBorderColor('cpl','');}
   const custoChips=[];
   if(d.clicks>0&&d.spend>0)custoChips.push('CPC '+fmtR(d.spend/d.clicks));
   if(d.impressions>0&&d.spend>0)custoChips.push('CPM '+fmtR(d.spend/d.impressions*1000));
