@@ -2389,19 +2389,6 @@
   .gt-kpi-lbl{color:var(--muted);}
   .gt-kpi-val{font-weight:700;color:var(--text);}
   .gt-spend{font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;color:var(--text);flex-shrink:0;min-width:65px;text-align:right;}
-  /* Inline AI insight */
-  .gt-insight{display:flex;align-items:flex-start;gap:6px;margin:7px 0 4px;padding:6px 10px;border-radius:6px;border-left:3px solid;}
-  .gt-insight.critico{background:rgba(220,38,38,.07);border-color:#dc2626;}
-  .gt-insight.atencao{background:rgba(245,158,11,.07);border-color:#d97706;}
-  .gt-insight.oportunidade{background:rgba(22,163,74,.07);border-color:#16a34a;}
-  .gt-insight.ok{background:rgba(99,102,241,.06);border-color:#6366f1;}
-  .gt-criteria{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);padding:1px 0 3px 13px;line-height:1.4;}
-  .gt-criteria b{opacity:.7;font-weight:700;}
-  .gt-insight-text{font-family:'IBM Plex Sans',sans-serif;font-size:11px;line-height:1.5;flex:1;min-width:0;}
-  .gt-insight.critico .gt-insight-text{color:#dc2626;}
-  .gt-insight.atencao .gt-insight-text{color:#b45309;}
-  .gt-insight.oportunidade .gt-insight-text{color:#15803d;}
-  .gt-insight.ok .gt-insight-text{color:#4f46e5;}
   /* Action buttons */
   .gt-action-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:4px;}
   .gt-act-btn{padding:4px 11px;border-radius:20px;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;cursor:pointer;transition:all .15s;border:1px solid var(--border);background:none;color:var(--text);white-space:nowrap;display:flex;align-items:center;gap:4px;}
@@ -2413,6 +2400,47 @@
   .gt-act-btn.primary{border-color:var(--accent);color:var(--accent);}
   .gt-act-btn.primary:hover{background:var(--accent);color:#fff;}
   .gt-act-btn:disabled{opacity:.5;cursor:not-allowed;pointer-events:none;}
+  /* ===== Redesign direção A ===== */
+  /* Faixa de recomendação (estrela do cartão) */
+  .gt-rec-banner{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:11px 14px;margin:2px 0 10px;border-radius:10px;border-left:5px solid var(--border);background:var(--surface2);}
+  .gt-rec-banner.positivo{border-left-color:var(--green);background:color-mix(in srgb,var(--green) 9%,transparent);}
+  .gt-rec-banner.reduzir{border-left-color:var(--orange);background:color-mix(in srgb,var(--orange) 9%,transparent);}
+  .gt-rec-banner.pausar{border-left-color:var(--red);background:color-mix(in srgb,var(--red) 9%,transparent);}
+  .gt-rec-banner.neutral{border-left-color:var(--border);background:var(--surface2);}
+  .gt-rec-main{flex:1;min-width:200px;}
+  .gt-rec-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .gt-rec-verdict{font-family:'Oswald',sans-serif;font-weight:600;font-size:17px;text-transform:uppercase;letter-spacing:.02em;line-height:1;}
+  .gt-rec-banner.positivo .gt-rec-verdict{color:var(--green);}
+  .gt-rec-banner.reduzir .gt-rec-verdict{color:var(--orange);}
+  .gt-rec-banner.pausar .gt-rec-verdict{color:var(--red);}
+  .gt-rec-banner.neutral .gt-rec-verdict{color:var(--muted);font-size:14px;}
+  .gt-rec-tag{font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);}
+  .gt-rec-just{font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--text);margin-top:3px;line-height:1.4;}
+  .gt-rec-banner.neutral .gt-rec-just{color:var(--muted);}
+  .gt-rec-impact{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);margin-top:2px;}
+  .gt-rec-action{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0;}
+  .gt-rec-from{font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);text-decoration:line-through;}
+  .gt-rec-arrow{color:var(--muted);}
+  .gt-rec-to{font-family:'Oswald',sans-serif;font-size:22px;font-weight:600;color:var(--green);line-height:1;}
+  .gt-rec-to small{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:500;color:var(--muted);}
+  .gt-rec-banner.reduzir .gt-rec-to{color:var(--orange);}
+  .gt-rec-keep{font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;color:var(--green);}
+  /* Edição manual de orçamento (sempre disponível) */
+  .gt-budget-edit{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);}
+  .gt-be-cur b{color:var(--text);font-weight:700;}
+  .gt-be-link{background:none;border:none;color:var(--accent);font-size:11px;font-weight:600;cursor:pointer;padding:2px 4px;}
+  .gt-be-link:hover{text-decoration:underline;}
+  .gt-be-box{display:inline-flex;align-items:center;gap:6px;}
+  .gt-be-box[hidden]{display:none;}
+  .gt-be-box input{width:82px;padding:5px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:11px;}
+  /* Pílula de veredito do anúncio + nome/porquê */
+  .gt-ad-pill{font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:3px 9px;border-radius:999px;flex-shrink:0;}
+  .gt-ad-pill.manter{background:color-mix(in srgb,var(--green) 14%,transparent);color:var(--green);}
+  .gt-ad-pill.pausar{background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red);}
+  .gt-ad-name{flex:1;min-width:0;}
+  .gt-ad-nm{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .gt-ad-sub{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);}
+  .gt-ad-why{font-family:'IBM Plex Sans',sans-serif;font-size:10.5px;color:var(--muted);line-height:1.4;padding-left:2px;}
   /* Auto button */
   .gt-auto-btn{display:flex;align-items:center;gap:6px;padding:5px 14px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);letter-spacing:.3px;transition:all .2s;white-space:nowrap;position:relative;}
   .gt-auto-btn:hover{border-color:#9ca3af;color:var(--text);}
