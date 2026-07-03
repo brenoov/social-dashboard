@@ -8124,7 +8124,7 @@ function _gtBudgetEditHtml(daily){
     <button data-gt-edit-toggle="1" class="gt-be-link">✎ editar</button>
     <span data-gt-edit-box="1" class="gt-be-box" hidden>
       <input data-gt-manual="1" type="number" min="1" step="1" placeholder="R$/dia">
-      <button data-gt-manual-ok="1" class="gt-act-btn primary" style="font-size:10px;">Aplicar</button>
+      <button data-gt-manual-ok="1" class="gt-act-btn primary" style="font-size:calc(10px*var(--gt-fs,1.3));">Aplicar</button>
     </span>
   </div>`;
 }
@@ -8163,15 +8163,15 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
   const card=document.createElement('div');card.className='gt-camp-card';
   const hdr=document.createElement('div');hdr.className='gt-camp-hdr';
   const ttlWrap=document.createElement('div');ttlWrap.style.cssText='display:flex;align-items:center;gap:10px;';
-  const ttl=document.createElement('div');ttl.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text);';
+  const ttl=document.createElement('div');ttl.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:calc(12px*var(--gt-fs,1.3));font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text);';
   ttl.textContent=sorted.length+' Campanhas';
   const aiTag=document.createElement('div');
-  aiTag.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:20px;background:rgba(99,102,241,.1);color:#6366f1;text-transform:uppercase;';
+  aiTag.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:calc(9px*var(--gt-fs,1.3));font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:20px;background:rgba(99,102,241,.1);color:#6366f1;text-transform:uppercase;';
   aiTag.textContent='✦ IA em tempo real';
   ttlWrap.appendChild(ttl);ttlWrap.appendChild(aiTag);
   const searchInp=document.createElement('input');
   searchInp.type='text';searchInp.placeholder='Buscar campanha…';
-  searchInp.style.cssText='padding:6px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);color:var(--text);font-family:"IBM Plex Sans",sans-serif;font-size:11px;outline:none;width:180px;transition:border-color .15s;';
+  searchInp.style.cssText='padding:6px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);color:var(--text);font-family:"IBM Plex Sans",sans-serif;font-size:calc(11px*var(--gt-fs,1.3));outline:none;width:180px;transition:border-color .15s;';
   searchInp.addEventListener('focus',()=>searchInp.style.borderColor='var(--accent)');
   searchInp.addEventListener('blur',()=>searchInp.style.borderColor='var(--border)');
   // Status filter buttons
@@ -8182,7 +8182,7 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
     const fb=document.createElement('button');
     fb.textContent=fd.l;
     const isActive=_gtStatusFilter===fd.v;
-    fb.style.cssText=`font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;padding:4px 10px;border-radius:5px;cursor:pointer;transition:all .15s;letter-spacing:.3px;border:1px solid ${isActive?'var(--accent)':'var(--border)'};background:${isActive?'var(--accent-light)':'none'};color:${isActive?'var(--accent)':'var(--muted)'};`;
+    fb.style.cssText=`font-family:'IBM Plex Sans',sans-serif;font-size:calc(10px*var(--gt-fs,1.3));font-weight:600;padding:4px 10px;border-radius:5px;cursor:pointer;transition:all .15s;letter-spacing:.3px;border:1px solid ${isActive?'var(--accent)':'var(--border)'};background:${isActive?'var(--accent-light)':'none'};color:${isActive?'var(--accent)':'var(--muted)'};`;
     fb.addEventListener('click',()=>{
       _gtStatusFilter=fd.v;
       Object.entries(filterBtns).forEach(([k,b])=>{
@@ -8231,7 +8231,7 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       badge.className=`gt-status-badge ${badgeCls}`;badge.textContent=badgeLbl;
       const nm=document.createElement('div');nm.className='gt-name';nm.title=ins.campaign_name||'';nm.textContent=ins.campaign_name||'—';
       const chips=document.createElement('div');chips.style.cssText='display:flex;align-items:center;gap:8px;flex-shrink:0;';
-      chips.innerHTML=`<span class="ma-obj-chip" style="font-size:9px;">${_maObjLabel(ins.objective)}</span>${daily?`<span style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;color:var(--muted);">${_maFmtR(daily)}/dia</span>`:''}`;
+      chips.innerHTML=`<span class="ma-obj-chip" style="font-size:calc(9px*var(--gt-fs,1.3));">${_maObjLabel(ins.objective)}</span>${daily?`<span style="font-family:'IBM Plex Sans',sans-serif;font-size:calc(10px*var(--gt-fs,1.3));font-weight:600;color:var(--muted);">${_maFmtR(daily)}/dia</span>`:''}`;
       // KPIs por objetivo (balde da campanha — ver GT_METRIC_CATALOG/_gtBalde)
       const metrics=document.createElement('div');metrics.className='gt-metrics';
       metrics.innerHTML=_gtKpisHtml(Object.assign({},ins,{objective:kpiObjective}));
@@ -8290,7 +8290,7 @@ async function _gtVerCriativo(adId,accId,nome){
   const ov=document.getElementById('gt-cr-overlay'),md=document.getElementById('gt-cr-modal'),bd=document.getElementById('gt-cr-body');
   if(!ov||!md||!bd)return;
   ov.style.display='block';md.style.display='flex';
-  bd.innerHTML='<div style="padding:40px 20px;text-align:center;color:var(--muted);font-family:\'IBM Plex Sans\',sans-serif;font-size:12px;">Carregando o criativo…</div>';
+  bd.innerHTML='<div style="padding:40px 20px;text-align:center;color:var(--muted);font-family:\'IBM Plex Sans\',sans-serif;font-size:calc(12px*var(--gt-fs,1.3));">Carregando o criativo…</div>';
   // Ordem de formatos confirmada na validação ao vivo (mais provável primeiro).
   const formats=['INSTAGRAM_STANDARD','INSTAGRAM_REELS','INSTAGRAM_STORY','MOBILE_FEED_STANDARD','FACEBOOK_STORY_MOBILE'];
   for(const fmt of formats){
@@ -8300,11 +8300,11 @@ async function _gtVerCriativo(adId,accId,nome){
       if(body&&/<iframe/i.test(body)){ bd.innerHTML='<div class="gt-cr-frame">'+body+'</div>'; return; }
     }catch(e){}
   }
-  bd.innerHTML='<div style="padding:30px 20px;text-align:center;color:var(--muted);font-family:\'IBM Plex Sans\',sans-serif;font-size:12px;line-height:1.6;">Não consegui carregar o preview deste anúncio agora.<br>Pode ser um formato sem preview disponível.</div>';
+  bd.innerHTML='<div style="padding:30px 20px;text-align:center;color:var(--muted);font-family:\'IBM Plex Sans\',sans-serif;font-size:calc(12px*var(--gt-fs,1.3));line-height:1.6;">Não consegui carregar o preview deste anúncio agora.<br>Pode ser um formato sem preview disponível.</div>';
 }
 function _renderGtAds(pane,ads,allInsights,allAdInsights){
   const lbl=document.createElement('div');lbl.className='gt-ads-section-lbl';lbl.textContent=`Anúncios (${ads.length})`;pane.appendChild(lbl);
-  if(!ads.length){const empty=document.createElement('div');empty.style.cssText='font-family:\'IBM Plex Sans\',sans-serif;font-size:11px;color:var(--muted);padding:6px 0 6px 20px;';empty.textContent='Nenhum anúncio com gasto neste período';pane.appendChild(empty);return;}
+  if(!ads.length){const empty=document.createElement('div');empty.style.cssText='font-family:\'IBM Plex Sans\',sans-serif;font-size:calc(11px*var(--gt-fs,1.3));color:var(--muted);padding:6px 0 6px 20px;';empty.textContent='Nenhum anúncio com gasto neste período';pane.appendChild(empty);return;}
   const sorted=[...ads].sort((a,b)=>parseFloat(b.spend||0)-parseFloat(a.spend||0));
   sorted.forEach(ad=>{
     const ctr=parseFloat(ad.ctr||0);
@@ -8327,7 +8327,7 @@ function _renderGtAds(pane,ads,allInsights,allAdInsights){
     const nameWrap=document.createElement('div');nameWrap.className='gt-ad-name';
     nameWrap.innerHTML=`<div class="gt-ad-nm">${_gtEsc(ad.ad_name||ad.adset_name||'—')}</div>${ad.adset_name&&ad.ad_name?`<div class="gt-ad-sub">${_gtEsc(ad.adset_name)}</div>`:''}`;
     const metrics=document.createElement('div');metrics.className='gt-metrics';
-    metrics.innerHTML=`<div class="gt-metric">CTR <span style="color:${ctrColor}">${_maFmtPct(ctr)}</span></div><div class="gt-metric" style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;"><span>${_maFmtR(spend)}</span></div>`;
+    metrics.innerHTML=`<div class="gt-metric">CTR <span style="color:${ctrColor}">${_maFmtPct(ctr)}</span></div><div class="gt-metric" style="font-family:'Oswald',sans-serif;font-size:calc(13px*var(--gt-fs,1.3));font-weight:700;"><span>${_maFmtR(spend)}</span></div>`;
     top.appendChild(seal);top.appendChild(nameWrap);top.appendChild(metrics);
     card.appendChild(top);
     // Porquê da IA (apoio).
@@ -8366,11 +8366,11 @@ function _gtConfirm(title,detailHtml,opts){
     ov.innerHTML='';ov.style.display='flex';
     const box=document.createElement('div');
     box.style.cssText='background:var(--surface,#fff);color:var(--text,#111);border-radius:14px;max-width:400px;width:100%;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.45);font-family:"IBM Plex Sans",sans-serif;';
-    box.innerHTML='<div style="font-size:16px;font-weight:800;margin-bottom:9px;">'+title+'</div><div style="font-size:13px;color:var(--muted,#666);line-height:1.55;margin-bottom:20px;">'+detailHtml+'</div>';
+    box.innerHTML='<div style="font-size:calc(16px*var(--gt-fs,1.3));font-weight:800;margin-bottom:9px;">'+title+'</div><div style="font-size:calc(13px*var(--gt-fs,1.3));color:var(--muted,#666);line-height:1.55;margin-bottom:20px;">'+detailHtml+'</div>';
     const bar=document.createElement('div');bar.style.cssText='display:flex;gap:10px;justify-content:flex-end;';
     const close=v=>{ov.style.display='none';resolve(v);};
-    if(!opts.okOnly){const c=document.createElement('button');c.textContent='Cancelar';c.style.cssText='padding:9px 16px;border-radius:8px;border:1px solid var(--border,#ddd);background:none;color:var(--text,#111);font-weight:600;font-size:13px;cursor:pointer;';c.onclick=()=>close(false);bar.appendChild(c);}
-    const ok=document.createElement('button');ok.textContent=opts.okLabel||(opts.okOnly?'Entendi':'Confirmar');ok.style.cssText='padding:9px 18px;border-radius:8px;border:none;background:'+(opts.danger?'#dc2626':'var(--accent,#6366f1)')+';color:#fff;font-weight:700;font-size:13px;cursor:pointer;';ok.onclick=()=>close(true);bar.appendChild(ok);
+    if(!opts.okOnly){const c=document.createElement('button');c.textContent='Cancelar';c.style.cssText='padding:9px 16px;border-radius:8px;border:1px solid var(--border,#ddd);background:none;color:var(--text,#111);font-weight:600;font-size:calc(13px*var(--gt-fs,1.3));cursor:pointer;';c.onclick=()=>close(false);bar.appendChild(c);}
+    const ok=document.createElement('button');ok.textContent=opts.okLabel||(opts.okOnly?'Entendi':'Confirmar');ok.style.cssText='padding:9px 18px;border-radius:8px;border:none;background:'+(opts.danger?'#dc2626':'var(--accent,#6366f1)')+';color:#fff;font-weight:700;font-size:calc(13px*var(--gt-fs,1.3));cursor:pointer;';ok.onclick=()=>close(true);bar.appendChild(ok);
     box.appendChild(bar);ov.appendChild(box);
     ov.onclick=e=>{if(e.target===ov)close(false);};
   });
@@ -11910,8 +11910,8 @@ function setHomeBgTheme(type){
       <img class="rbv-logo rbv-logo-light" src="midia/LOGOTIPOBRENOPRETO.png" alt="RBV">
       <img class="rbv-logo rbv-logo-dark" src="midia/LOGOTIPOBRENOBRANCO.png" alt="RBV">
       <div style="display:flex;flex-direction:column;gap:2px">
-        <span class="gv-perf-tag" style="font-size:11px;letter-spacing:4px;">Gestão de Tráfego</span>
-        <span class="gv-brand-tag" style="font-size:9px;letter-spacing:2px;opacity:.5;">Agente IA · Meta Ads</span>
+        <span class="gv-perf-tag" style="font-size:calc(11px*var(--gt-fs,1.3));letter-spacing:4px;">Gestão de Tráfego</span>
+        <span class="gv-brand-tag" style="font-size:calc(9px*var(--gt-fs,1.3));letter-spacing:2px;opacity:.5;">Agente IA · Meta Ads</span>
       </div>
     </div>
     <div class="gv-period-btns" id="gt-period-btns">
@@ -11930,7 +11930,7 @@ function setHomeBgTheme(type){
       <span>KPIs</span>
     </button>
     <div id="gt-account-picker" onclick="event.stopPropagation()" style="position:relative;display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
-      <button id="gt-acc-trigger" style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:7px;padding:5px 12px;background:var(--surface2);cursor:pointer;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--text);white-space:nowrap;" onclick="event.stopPropagation();toggleGtAccPicker()">
+      <button id="gt-acc-trigger" style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:7px;padding:5px 12px;background:var(--surface2);cursor:pointer;font-family:'IBM Plex Sans',sans-serif;font-size:calc(12px*var(--gt-fs,1.3));color:var(--text);white-space:nowrap;" onclick="event.stopPropagation();toggleGtAccPicker()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.6"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
         <span id="gt-acc-name" style="font-weight:500;max-width:140px;overflow:hidden;text-overflow:ellipsis;">—</span>
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>
@@ -11961,8 +11961,8 @@ function setHomeBgTheme(type){
   </div>
   <div class="gt-cfg-body" id="gt-cfg-body"></div>
   <div class="gt-cfg-footer">
-    <button style="padding:7px 16px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);" onclick="_gtCloseEditor()">Cancelar</button>
-    <button id="gt-cfg-save-btn" style="padding:7px 18px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:none;background:var(--accent);color:#fff;" onclick="_gtSaveEditor()">Salvar</button>
+    <button style="padding:7px 16px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:calc(11px*var(--gt-fs,1.3));font-weight:600;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);" onclick="_gtCloseEditor()">Cancelar</button>
+    <button id="gt-cfg-save-btn" style="padding:7px 18px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;border:none;background:var(--accent);color:#fff;" onclick="_gtSaveEditor()">Salvar</button>
   </div>
 </div>
 
