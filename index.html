@@ -3307,7 +3307,7 @@ function animCount(el,target){
   function tick(now){
     const t=Math.min((now-start)/dur,1);
     const v=Math.round(target*(1-Math.pow(1-t,3)));
-    el.textContent=v>=1000?(v/1000).toFixed(1)+'K':String(v);
+    el.textContent=fmtN(v);
     if(t<1)requestAnimationFrame(tick);else popEl(el);
   }
   requestAnimationFrame(tick);
@@ -3322,7 +3322,7 @@ function animCountFull(el,target){
   }
   requestAnimationFrame(tick);
 }
-function fmtN(n){return n>=1000?(n/1000).toFixed(1)+'K':String(n);}
+function fmtN(n){n=Number(n)||0;const a=Math.abs(n);if(a>=1e6)return (n/1e6).toFixed(1).replace('.',',')+' mi';if(a>=1e3)return (n/1e3).toFixed(1).replace('.',',')+' mil';return String(n);}
 function fmtR(v){const p=v.toFixed(2).split('.');return 'R$ '+p[0].replace(/\B(?=(\d{3})+(?!\d))/g,'.')+','+p[1];}
 function pctDiff(curr,prev){if(!prev)return '+0.0%';const d=((curr-prev)/prev*100);return (d>=0?'+':'')+d.toFixed(1)+'%';}
 function perfColor(pct){return pct>=100?'green':pct>=75?'yellow':pct>=50?'orange':'red';}
@@ -3497,7 +3497,7 @@ function buildChart(chartData){
   document.getElementById('chart-fill').setAttribute('d','');
   document.getElementById('prev-line').setAttribute('points','');
   const labelsG=document.getElementById('chart-data-labels');labelsG.textContent='';
-  function fmtShort(v){const a=Math.abs(v);return a>=1000?(v/1000).toFixed(1)+'K':String(v);}
+  function fmtShort(v){return fmtN(v);}
   const many=n>10;
   // Rótulo do LÍQUIDO em TODOS os dias; elevação ALTERNADA (ímpares sobem + tracejado) p/ caber.
   net.forEach((v,i)=>{
