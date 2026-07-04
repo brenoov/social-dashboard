@@ -167,7 +167,7 @@ onMounted(()=>{
 </script>
 
 <style scoped>
-/* Porte das regras .banco-*/#banco-screen (legacy L2479). #banco-screen → .tela-banco
+/* Porte das regras .banco- e #banco-screen (legacy L2479). #banco-screen vira .tela-banco
    (sem display:none — a visibilidade é do router). Descendentes usam :deep() porque as
    linhas de arquivo e o estado vazio são criados via createElement (fora do template). */
 .tela-banco{min-height:100vh;display:flex;flex-direction:column;background:var(--bg);}
