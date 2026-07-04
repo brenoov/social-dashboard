@@ -5,7 +5,7 @@ Mostra seguidores, Meta Ads (investimento e custos), engajamento de posts e
 reels, engajamento de stories e conteúdo publicado, tudo comparado com uma
 meta e com o período anterior.
 
-Arquivo principal: tela-redes-sociais.vue
+Arquivo principal: tela-de-redes-sociais.vue
 
 Como funciona (resumido):
 - Botões de período no topo (HOJE, 1D, 7D, 14D, 30D, MÊS, MÊS PASS., ATÉ

@@ -10,7 +10,7 @@ Toda ação (pausar, reativar, mudar orçamento) sempre pede confirmação numa
 janela antes de ser aplicada — nunca é feita sozinha. Se você não tem
 certeza do que uma ação vai fazer, cancele e pergunte antes de confirmar.
 
-Arquivo principal: tela-gestao-trafego.vue
+Arquivo principal: tela-de-gestao-trafego.vue
 
 Como funciona (resumido):
 - Os dados vêm direto da Meta (Graph API) através de uma Edge Function do

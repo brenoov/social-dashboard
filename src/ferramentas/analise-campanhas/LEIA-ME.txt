@@ -6,7 +6,7 @@ um funil de conversão por objetivo (Tráfego, Leads, Vendas etc.) e a lista
 detalhada de campanhas e anúncios, com filtro por campanha e período
 personalizado.
 
-Arquivo principal: tela-analise-campanhas.vue
+Arquivo principal: tela-de-analise-campanhas.vue
 
 Como funciona (resumido):
 - Os dados vêm direto da Meta (Graph API) através de uma Edge Function do

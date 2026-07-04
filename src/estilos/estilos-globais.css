@@ -194,7 +194,7 @@
     /* Esconde logo e subtítulo no mobile */
     .topbar .rbv-logo{display:none!important;}
     /* .gv-perf-tag/.gv-brand-tag/.gv-back (Gestão à Vista) foram para
-       tela-gestao-a-vista.vue — o bloco ≤480px de lá já cobre esses 3 */
+       tela-de-gestao-a-vista.vue — o bloco ≤480px de lá já cobre esses 3 */
     /* Period tabs: sem background próprio, inline na faixa */
     .period-tabs{gap:3px;flex-shrink:0;}
     .ptab{padding:5px 10px;font-size:10px;letter-spacing:.5px;}
@@ -437,7 +437,7 @@
   /* CUSTOM DATE RANGE */
   /* .custom-range-btn/.custom-date-input (compartilhadas com Análise de
      Vendas/Admin, ainda não migradas) foram para
-     src/ferramentas/analise-campanhas/tela-analise-campanhas.vue — telas
+     src/ferramentas/analise-campanhas/tela-de-analise-campanhas.vue — telas
      ainda não migradas que também usam essas classes devem trazer sua
      própria cópia quando forem portadas, seguindo o mesmo padrão. */
   .custom-apply-btn{font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:11px;padding:5px 14px;border-radius:3px;background:var(--accent);color:#fff;border:none;cursor:pointer;letter-spacing:.5px;text-transform:uppercase;}
@@ -451,7 +451,7 @@
   @keyframes numPop{0%{transform:scale(1)}45%{transform:scale(1.045)}100%{transform:scale(1)}}
 
   /* HOME SCREEN — regra #home-screen movida para
-     src/ferramentas/inicio/tela-inicial.vue (<style scoped> .tela-inicio) */
+     src/ferramentas/inicio/tela-de-inicio.vue (<style scoped> .tela-inicio) */
   #bg-shapes .ico{color:var(--accent);}
   /* THEME PILL */
   #theme-pill{position:fixed;bottom:22px;right:22px;z-index:9998;display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--muted);box-shadow:var(--shadow-md);transition:color .2s,border-color .2s,background .2s,box-shadow .2s;padding:0;}
@@ -553,7 +553,7 @@
   /* Responsive admin */
   @media(max-width:768px){.admin-layout{grid-template-columns:1fr;}.admin-sidebar{display:flex;overflow-x:auto;border-right:none;border-bottom:1px solid var(--border);padding:8px;gap:4px;}.admin-nav-group-label{display:none;}.admin-content{padding:20px 16px;}}
 
-  /* ── RESPONSIVE: HOME (Menu de Vendas foi para tela-menu-vendas.vue) ── */
+  /* ── RESPONSIVE: HOME (Menu de Vendas foi para tela-de-menu-vendas.vue) ── */
   @media(max-width:640px){
     .home-header{padding:10px 14px;flex-wrap:wrap;gap:8px;}
     .home-main{padding:16px 14px;}
@@ -602,7 +602,7 @@
     .sa-canal-trigger{padding:4px 10px;font-size:10px;letter-spacing:.5px}
   }
 
-  /* ── RESPONSIVE: GESTÃO À VISTA — movida para tela-gestao-a-vista.vue (<style scoped>) ── */
+  /* ── RESPONSIVE: GESTÃO À VISTA — movida para tela-de-gestao-a-vista.vue (<style scoped>) ── */
   .auth-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:44px 40px;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.06);}
   .auth-logo{text-align:center;margin-bottom:32px;}
   .auth-logo .ig-icon{width:72px;height:72px;border-radius:4px;background:transparent;display:block;margin:0 auto 14px;}
@@ -709,7 +709,7 @@
   #insight-card.loading .insight-list{opacity:.4;}
 
   /* ── DASHBOARD DE VENDAS — regras .smenu-/#sales-menu-screen movidas para
-     src/ferramentas/vendas/tela-menu-vendas.vue (<style scoped>) ── */
+     src/ferramentas/vendas/tela-de-menu-vendas.vue (<style scoped>) ── */
 
   [data-theme="dark"] .np-gallery{background:#1b1812;border-color:rgba(255,255,255,.10);}
   [data-theme="dark"] .np-prod-imgwrap{background:#0c0b08;}
@@ -1077,7 +1077,7 @@
   .vs-ac-toggle{font-family:'IBM Plex Sans',sans-serif;font-size:10px;letter-spacing:.8px;text-transform:uppercase;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;margin-left:6px;}
   .vs-ac-toggle.running{border-color:var(--green);color:var(--green);}
   /* .gv-period-btns/.gv-pbtn (compartilhadas com Gestão à Vista) foram para
-     tela-gestao-a-vista.vue — telas ainda não migradas que também usam essas
+     tela-de-gestao-a-vista.vue — telas ainda não migradas que também usam essas
      classes (Análise de Vendas/Meta Ads/GT) devem trazer sua própria cópia
      quando forem portadas, seguindo o mesmo padrão. */
   .vsales-body{padding:20px 24px;max-width:1200px;margin:0 auto;width:100%;}
@@ -1324,7 +1324,7 @@
   body.dev-tv #sales-analysis-screen .sa-loading-lbl{font-size:16px;}
   /* GESTÃO À VISTA — TV BOARD: todo o bloco (inclusive keyframes gvRankUp/
      gvSpin/gvTickerBF/gvBgRise/gaugeShimmer/gaugeNeonPulse) foi para
-     tela-gestao-a-vista.vue (<style scoped>) ── */
+     tela-de-gestao-a-vista.vue (<style scoped>) ── */
 
   /* prefers-reduced-motion */
   @media(prefers-reduced-motion:reduce){
@@ -1424,14 +1424,14 @@
 
   /* ── META ADS — regras #meta-ads-campanha-screen e .ma- (Análise de
      Campanhas) movidas para
-     src/ferramentas/analise-campanhas/tela-analise-campanhas.vue
+     src/ferramentas/analise-campanhas/tela-de-analise-campanhas.vue
      (<style scoped> + um <style> global à parte, para .ma-filter-drawer,
      .ma-filter-bd e .custom-date-input, que são anexados a document.body por
      fora da árvore do componente). #meta-ads-hub-screen já tinha sido
      esvaziado antes (hub virou .tela-menu-meta-ads em
-     tela-menu-meta-ads.vue). Gestão de Tráfego (classes gt-, id
+     tela-de-menu-meta-ads.vue). Gestão de Tráfego (classes gt-, id
      #gestao-trafego-screen) também já foi portada, para
-     src/ferramentas/gestao-trafego/tela-gestao-trafego.vue (<style scoped>).
+     src/ferramentas/gestao-trafego/tela-de-gestao-trafego.vue (<style scoped>).
      Este bloco global de Gestão de Tráfego estava desatualizado em relação ao
      legacy/index.html (versão antiga, sem .gt-rec-banner/.gt-ad-pill/
      .gt-budget-edit/modais de config — o porte seguiu o legacy/index.html

@@ -6,7 +6,7 @@ comparado com a meta, além de rankings por canal de venda e por vendedor, e um
 "ticker" (faixa deslizante) com os últimos pedidos, itens mais vendidos e
 frases motivacionais.
 
-Arquivo principal: tela-gestao-a-vista.vue
+Arquivo principal: tela-de-gestao-a-vista.vue
 
 Como funciona (resumido):
 - Os dados vêm do Bling (sistema de vendas) através de uma Edge Function do

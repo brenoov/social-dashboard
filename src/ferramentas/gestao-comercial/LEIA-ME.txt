@@ -7,7 +7,7 @@ recomendações — classificação de produtos (matriz BCG: Estrela / Vaca
 leiteira / Interrogação / Abacaxi), sugestões de vitrine (público Amplo x
 Base) e mais.
 
-Arquivo principal: tela-gestao-comercial.vue
+Arquivo principal: tela-de-gestao-comercial.vue
 
 Como funciona (resumido):
 - Os briefings ficam guardados na tabela gestao_comercial_briefings do

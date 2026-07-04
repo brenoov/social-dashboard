@@ -3,7 +3,7 @@ FERRAMENTA: Meta Ads — Hub
 Tela pequena que aparece ao clicar em "Meta Ads" na Central. Mostra os módulos
 de tráfego pago disponíveis, em cards (ou lista).
 
-Arquivo principal: tela-menu-meta-ads.vue
+Arquivo principal: tela-de-menu-meta-ads.vue
 
 Como funciona (resumido):
 - 2 cards, os dois já migrados e abrindo de verdade: "Análise de Campanhas"

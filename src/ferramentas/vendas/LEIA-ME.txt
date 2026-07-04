@@ -3,7 +3,7 @@ FERRAMENTA: Menu de Vendas
 Tela pequena que aparece ao clicar em "Dashboard de Vendas" na Central. Mostra
 os modos de visualização de vendas disponíveis, em cards (ou lista).
 
-Arquivo principal: tela-menu-vendas.vue
+Arquivo principal: tela-de-menu-vendas.vue
 
 Como funciona (resumido):
 - 2 cards: "Gestão à Vista" (já migrada — abre de verdade) e "Análise de
