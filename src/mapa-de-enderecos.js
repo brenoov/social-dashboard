@@ -14,6 +14,7 @@ const rotas = [
   { path: '/gestao-comercial', name: 'gestao-comercial', component: () => import('./ferramentas/gestao-comercial/tela-de-gestao-comercial.vue') },
   { path: '/login', name: 'login', component: () => import('./ferramentas/login/tela-de-login.vue') },
   { path: '/redes-sociais', name: 'redes-sociais', component: () => import('./ferramentas/redes-sociais/tela-de-redes-sociais.vue') },
+  { path: '/admin', name: 'admin', component: () => import('./ferramentas/admin/tela-de-admin.vue') },
 ]
 
 export const roteador = createRouter({

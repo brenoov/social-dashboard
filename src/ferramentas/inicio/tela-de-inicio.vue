@@ -33,8 +33,8 @@
         </div>
       </div>
       <div class="home-cards" :class="{ 'view-list': visualizacao === 'list' }" id="home-cards">
-        <!-- Administração: rota ainda não existe (módulo admin não migrado). -->
-        <div class="home-card card-admin" id="home-card-admin" style="display:none" @click="aindaNaoMigrada('Administração')" @mouseenter="definirTemaFundo('admin')" @mouseleave="definirTemaFundo('default')">
+        <!-- Administração: rota já existe (src/ferramentas/admin/tela-de-admin.vue). -->
+        <div class="home-card card-admin" id="home-card-admin" style="display:none" @click="ir('admin')" @mouseenter="definirTemaFundo('admin')" @mouseleave="definirTemaFundo('default')">
           <div class="home-card-icon">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
           </div>

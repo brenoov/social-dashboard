@@ -502,30 +502,12 @@
   /* Botão home no dashboard */
   .home-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);cursor:pointer;transition:all .18s;letter-spacing:.5px;display:flex;align-items:center;gap:6px;}
   .home-btn:hover{border-color:var(--accent);color:var(--accent);}
-  /* ── ADMIN MODULE ── */
-  #admin-screen{min-height:100vh;display:none;flex-direction:column;background:var(--bg);}
-  .admin-topbar{display:flex;align-items:center;justify-content:space-between;padding:13px 24px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
-  .admin-topbar-back{display:flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;letter-spacing:.2px;}
-  .admin-topbar-title{font-family:'Oswald',sans-serif;font-size:15px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--text);}
-  .admin-layout{display:grid;grid-template-columns:210px 1fr;min-height:calc(100vh - 50px);}
-  .admin-sidebar{border-right:1px solid var(--border);padding:12px 8px;background:var(--surface2);overflow-y:auto;}
-  .admin-nav-group-label{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(10,10,18,.35);padding:14px 12px 4px;margin-top:4px;}
-  .admin-nav-group-label:first-child{margin-top:0;}
-  .admin-nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-md);cursor:pointer;transition:all .15s;font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--text);margin-bottom:1px;user-select:none;}
-  .admin-nav-item:hover{background:var(--surface);}
-  .admin-nav-item.active{background:var(--accent-light);color:var(--accent);}
-  .admin-nav-item svg{flex-shrink:0;opacity:.6;}
-  .admin-nav-item.active svg{opacity:1;}
-  .admin-content{padding:36px 44px;overflow-y:auto;max-height:calc(100vh - 50px);}
-  .admin-section{display:none;}
-  .admin-section.active{display:block;}
-  .admin-section-title{font-family:'Oswald',sans-serif;font-size:22px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);margin-bottom:3px;}
-  .admin-section-sub{font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);margin-bottom:28px;}
-  .admin-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:24px;}
-  .admin-stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;text-align:center;}
-  .admin-stat-val{font-family:'Oswald',sans-serif;font-size:30px;font-weight:500;color:var(--accent);}
-  .admin-stat-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-top:3px;}
-  .sg-label{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(10,10,18,.35);padding:0 4px 6px;margin-top:18px;display:block;}
+  /* ── ADMIN MODULE ──
+     Movido para src/ferramentas/admin/tela-de-admin.vue (<style scoped>) —
+     porte Vue do #admin-screen. CSS PEEL RULE: só saem daqui seletores
+     literalmente prefixados admin- ou #admin- (confirmado por grep: nenhum
+     outro componente já migrado usa essas classes). .sg-label (linha abaixo)
+     não tem esse prefixo, então continua aqui — usada por outras telas também. */
   .sg{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:4px;}
   .sr{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);transition:background .15s;}
   .sr:last-child{border-bottom:none;}
@@ -540,18 +522,11 @@
   .sr-btn:hover{background:var(--accent);color:#fff;}
   .sr-btn.danger{color:#dc2626;background:rgba(220,38,38,.08);}
   .sr-btn.danger:hover{background:#dc2626;color:#fff;}
-  .admin-role-chip{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:4px;font-weight:600;}
-  .admin-role-chip.admin{background:rgba(29,78,216,.1);color:var(--accent);}
-  .admin-role-chip.viewer{background:var(--surface2);color:var(--muted);}
-  .admin-input-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 16px;}
-  .admin-color-dot{width:18px;height:18px;border-radius:50%;flex-shrink:0;border:2px solid rgba(0,0,0,.08);}
   .online-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0;}
   /* Admin card on home */
   .card-admin .home-card-icon{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);}
   .card-admin{border-color:rgba(15,23,42,.1);}
   .card-admin:hover{border-color:#0f172a;box-shadow:0 10px 28px rgba(15,23,42,.15);}
-  /* Responsive admin */
-  @media(max-width:768px){.admin-layout{grid-template-columns:1fr;}.admin-sidebar{display:flex;overflow-x:auto;border-right:none;border-bottom:1px solid var(--border);padding:8px;gap:4px;}.admin-nav-group-label{display:none;}.admin-content{padding:20px 16px;}}
 
   /* ── RESPONSIVE: HOME (Menu de Vendas foi para tela-de-menu-vendas.vue) ── */
   @media(max-width:640px){
@@ -625,26 +600,12 @@
   .user-role-chip{font-family:'IBM Plex Sans',sans-serif;font-size:9px;padding:2px 8px;border-radius:2px;background:var(--accent);color:#fff;font-weight:600;letter-spacing:1px;text-transform:uppercase;}
   .logout-btn{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:5px 12px;cursor:pointer;transition:all .18s;text-transform:uppercase;letter-spacing:.8px;}
   .logout-btn:hover{border-color:var(--accent);color:var(--accent);}
-  .admin-btn{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:#fff;background:var(--accent);border:none;border-radius:3px;padding:5px 12px;cursor:pointer;letter-spacing:.8px;transition:opacity .18s;text-transform:uppercase;}
-  .admin-btn:hover{opacity:.85;}
-  .admin-btn-sm{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:#fff;background:var(--accent);border:none;border-radius:3px;padding:5px 10px;cursor:pointer;letter-spacing:.6px;white-space:nowrap;transition:opacity .18s;text-transform:uppercase;}
-  .admin-btn-sm:hover{opacity:.85;}
-
-  /* ADMIN PANEL */
-  #admin-panel{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:28px;margin-bottom:32px;animation:fadeUp .3s ease;}
-  .admin-title{font-family:'Oswald',sans-serif;font-size:20px;font-weight:500;letter-spacing:3px;text-transform:uppercase;margin-bottom:20px;display:flex;align-items:center;gap:10px;color:var(--text);}
-  .admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
-  @media(max-width:640px){.admin-grid{grid-template-columns:1fr;}}
-  .admin-section-title{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:12px;font-weight:600;}
-  .admin-input-row{display:flex;gap:8px;margin-bottom:10px;}
-  .admin-input{flex:1;padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:3px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;outline:none;transition:border-color .18s;}
-  .admin-input:focus{border-color:var(--accent);}
-  .admin-select{padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:3px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:12px;outline:none;cursor:pointer;}
-  .admin-action-btn{padding:9px 16px;background:var(--accent);color:#fff;border:none;border-radius:3px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;cursor:pointer;white-space:nowrap;transition:opacity .18s;font-weight:600;text-transform:uppercase;letter-spacing:.8px;}
-  .admin-action-btn:hover{opacity:.85;}.admin-action-btn:disabled{opacity:.5;}
-  .admin-msg{font-family:'IBM Plex Sans',sans-serif;font-size:11px;margin-top:8px;padding:7px 12px;border-radius:3px;display:none;}
-  .admin-msg.ok{background:rgba(26,110,69,.07);color:var(--green);}
-  .admin-msg.err{background:rgba(176,30,58,.06);color:var(--red);}
+  /* admin-btn, admin-btn-sm, admin-panel (id), admin-title, admin-grid,
+     admin-section-title, admin-input-row, admin-input, admin-select,
+     admin-action-btn, admin-msg removidos daqui (CSS PEEL RULE — só o que é
+     prefixado admin-). Redes Sociais já tem sua própria cópia scoped
+     independente (tela-de-redes-sociais.vue, painel embutido); admin-btn-sm
+     também foi duplicado em tela-de-admin.vue (usado lá). */
   .user-list{display:flex;flex-direction:column;gap:8px;}
   .user-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface2);border-radius:3px;border:1px solid var(--border);}
   .user-info{display:flex;flex-direction:column;gap:2px;}
@@ -1394,10 +1355,9 @@
   .home-header-user{padding-right:44px;}
   .user-bar{padding-right:44px;}
 
-  .admin-form-label{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px;font-weight:600;}
-  .admin-form-input{width:100%;padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:3px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;outline:none;transition:border-color .18s;box-sizing:border-box;}
-  .admin-form-input:focus{border-color:var(--accent);}
-  .admin-form-input::placeholder{color:var(--muted);opacity:.7;}
+  /* .admin-form-label/.admin-form-input removidos daqui (CSS PEEL RULE) —
+     movidos para tela-de-admin.vue (<style scoped>), único componente que os
+     usa (formulário de convite de usuário). */
 
   /* ── PERMISSIONS MODAL ── */
   .perm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
