@@ -110,8 +110,8 @@
           </div>
           <span class="home-card-enter">→</span>
         </div>
-        <!-- Colaboradores e Acessos: rota ainda não existe. -->
-        <div class="home-card" id="home-card-acessos" @click="aindaNaoMigrada('Colaboradores e Acessos')">
+        <!-- Colaboradores e Acessos: única ferramenta além de Notícias já migrada, navega de verdade. -->
+        <div class="home-card" id="home-card-acessos" @click="ir('acessos')">
           <div class="home-card-icon" style="background:linear-gradient(135deg,#0f766e 0%,#0d9488 100%)">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           </div>

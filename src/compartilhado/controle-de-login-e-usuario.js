@@ -39,7 +39,7 @@ export async function carregarPerfil(session) {
 export function hasPermission(resourceKey) {
   if (estado.role === 'admin') return true
   const keyMap = {
-    'tool:social': 'social', 'tool:sales': 'sales', 'tool:meta': 'meta',
+    'tool:social': 'social', 'tool:sales': 'sales', 'tool:meta': 'meta', 'tool:acessos': 'acessos',
     'module:sales:gestao-vista': 'sales.gestao', 'module:sales:analise-vendas': 'sales.analise',
     'module:meta:campanha': 'meta.campanha', 'module:meta:gestor': 'meta.gestor',
   }
