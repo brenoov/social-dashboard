@@ -13,6 +13,7 @@ const rotas = [
   { path: '/gestao-trafego', name: 'gestao-trafego', component: () => import('./ferramentas/gestao-trafego/tela-gestao-trafego.vue') },
   { path: '/gestao-comercial', name: 'gestao-comercial', component: () => import('./ferramentas/gestao-comercial/tela-gestao-comercial.vue') },
   { path: '/login', name: 'login', component: () => import('./ferramentas/login/tela-de-login.vue') },
+  { path: '/redes-sociais', name: 'redes-sociais', component: () => import('./ferramentas/redes-sociais/tela-redes-sociais.vue') },
 ]
 
 export const roteador = createRouter({
