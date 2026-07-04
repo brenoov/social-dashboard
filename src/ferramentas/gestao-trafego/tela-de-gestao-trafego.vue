@@ -1245,10 +1245,12 @@ Object.assign(window, {
   .tela-gestao-trafego :deep(.gv-clock-wrap){display:none;}
 }
 @media(max-width:640px){
+  .tela-gestao-trafego{--gt-fs:1;}   /* celular: a fonte volta pra 100% (para de inflar) */
   .tela-gestao-trafego :deep(.gv-topbar){padding:6px 10px;}
   .tela-gestao-trafego :deep(.gv-brand-tag){display:none;}
-  .tela-gestao-trafego :deep(.gv-period-btns){flex-wrap:wrap;gap:3px;}
-  .tela-gestao-trafego :deep(.gv-pbtn){font-size:9px;padding:3px 7px;border-radius:4px;}
+  /* filtros de período viram uma FAIXA ROLÁVEL (padrão da base) — não quebram em 3 linhas */
+  .tela-gestao-trafego :deep(.gv-period-btns){width:100%;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;gap:5px;padding-bottom:2px;}
+  .tela-gestao-trafego :deep(.gv-pbtn){font-size:10px;padding:4px 9px;border-radius:5px;flex-shrink:0;white-space:nowrap;}
   .tela-gestao-trafego :deep(.gv-update-status){display:none;}
 }
 @media(max-width:480px){
