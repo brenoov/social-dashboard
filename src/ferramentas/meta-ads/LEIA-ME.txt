@@ -1,0 +1,25 @@
+FERRAMENTA: Meta Ads — Hub
+==========================
+Tela pequena que aparece ao clicar em "Meta Ads" na Central. Mostra os módulos
+de tráfego pago disponíveis, em cards (ou lista).
+
+Arquivo principal: tela-menu-meta-ads.vue
+
+Como funciona (resumido):
+- 2 cards: "Análise de Campanhas" (já migrada — abre de verdade, leva para
+  /meta-campanhas) e "Gestão de Tráfego" (ainda não migrada — mostra um aviso
+  "ainda não migrada").
+- Cada card só aparece se a pessoa tiver a permissão daquele módulo liberada
+  (ou for admin) — módulos "meta.campanha" e "meta.gestor".
+- Botão de cards/lista no topo (canto direito) alterna a visualização — ao
+  contrário da tela de Vendas, essa escolha NÃO é lembrada (não salva em
+  localStorage), igual ao site antigo.
+- Botão "Central": volta para a tela inicial (usa o roteador do app).
+- Só abre para quem tem a permissão "meta" liberada (ou é admin).
+
+Detalhe técnico (porte para Vue): esta tela é 100% estática (nenhum HTML é
+montado via JavaScript), então segue o padrão mais simples de porte — igual
+ao Banco de Arquivos e ao Menu de Vendas: os cliques usam bindings @click do
+Vue, sem precisar expor nada em "window".
+
+Para mexer só nesta tela, edite apenas esta pasta.

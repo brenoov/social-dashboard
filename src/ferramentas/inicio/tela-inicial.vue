@@ -66,8 +66,8 @@
           </div>
           <span class="home-card-enter">→</span>
         </div>
-        <!-- Meta Ads: rota ainda não existe. -->
-        <div class="home-card" id="home-card-meta" @click="aindaNaoMigrada('Meta Ads')" @mouseenter="definirTemaFundo('meta')" @mouseleave="definirTemaFundo('default')">
+        <!-- Meta Ads: Menu + Análise de Campanhas já migrados. -->
+        <div class="home-card" id="home-card-meta" @click="ir('meta-ads')" @mouseenter="definirTemaFundo('meta')" @mouseleave="definirTemaFundo('default')">
           <div class="home-card-icon" style="background:linear-gradient(135deg,#1877F2 0%,#0062E0 100%)">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
           </div>

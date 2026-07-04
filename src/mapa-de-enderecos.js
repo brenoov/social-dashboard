@@ -8,6 +8,8 @@ const rotas = [
   { path: '/banco', name: 'banco', component: () => import('./ferramentas/banco/tela-de-banco.vue') },
   { path: '/vendas', name: 'vendas', component: () => import('./ferramentas/vendas/tela-menu-vendas.vue') },
   { path: '/gestao-vista', name: 'gestao-vista', component: () => import('./ferramentas/gestao-a-vista/tela-gestao-a-vista.vue') },
+  { path: '/meta-ads', name: 'meta-ads', component: () => import('./ferramentas/meta-ads/tela-menu-meta-ads.vue') },
+  { path: '/meta-campanhas', name: 'meta-campanhas', component: () => import('./ferramentas/analise-campanhas/tela-analise-campanhas.vue') },
   { path: '/login', name: 'login', component: () => import('./ferramentas/login/tela-de-login.vue') },
 ]
 
