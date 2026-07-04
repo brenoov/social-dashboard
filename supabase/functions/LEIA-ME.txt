@@ -1,0 +1,3 @@
+Cada subpasta aqui é uma Edge Function (um servidor pequeno/proxy que roda
+na nuvem do Supabase, não no navegador). O Supabase CLI exige que fiquem
+dentro desta pasta `functions` — não renomeá-la.

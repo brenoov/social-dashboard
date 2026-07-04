@@ -1,0 +1,4 @@
+Edge Function que recebe o callback do login OAuth (Zoho e Microsoft
+OneDrive) do módulo "Controle de Acesso e Colaboradores" — confere o
+`state` (proteção contra CSRF) e salva a conexão. Não tem rota pública de
+início; quem inicia é o `acessos-proxy` (gated para admin).

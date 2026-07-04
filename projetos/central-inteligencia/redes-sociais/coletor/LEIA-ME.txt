@@ -1,0 +1,3 @@
+Coletor legado (em Python) de redes sociais deste projeto. Referência
+histórica — o coletor atual do iamundi é o `coletor/` (Node), na raiz do
+repositório.

@@ -6,7 +6,8 @@ O que é este repositório?
 -------------------------
 É a "pasta-mãe" do painel de inteligência da RBV: um DASHBOARD que
 mostra dados de redes sociais (Instagram/Meta), anúncios (Meta Ads),
-vendas (Bling) e notícias de concorrentes, tudo num só lugar.
+vendas (Bling), notícias de concorrentes e Controle de Acessos, tudo
+num só lugar.
 
 Está publicado na Vercel no endereço:
    socialdashboard.rbvcompany.com   (domínio "Inteligência RBV")
@@ -17,19 +18,21 @@ A identidade do git aqui é a sua:  brenoov / breno@rbvcompany.com
 
 Como o site é montado? (importante de entender)
 -----------------------------------------------
-O dashboard é UM ÚNICO arquivo HTML gigante (tem ~600 KB!). Ele
-existe em duas cópias iguais:
+O app é um app Vue 3 moderno (não é mais um HTML gigante): cada tela
+é um componente em `src/ferramentas/<nome>/`, montado e otimizado
+pelo Vite (comando `npm run build`) na pasta `dist/`, que é o que a
+Vercel publica de verdade.
 
-  index.html
-     -> É O ARQUIVO QUE FICA NO AR. A Vercel publica este.
-        Hoje ele é uma cópia EXATA da versão v1.3 (veja abaixo).
-
-  projetos/central-inteligencia/central-inteligencia-v1.3.html
-     -> A "versão fonte" v1.3, guardada junto com as versões antigas
-        (v1.1, v1.2-preview) para histórico.
-
-Resumindo: você trabalha na versão dentro de projetos/, e a versão
-boa vira o index.html da raiz, que é o que o site exibe.
+  index.html   -> O "molde" raiz que o Vite usa para montar o app
+                  (só um <div id="app">, sem conteúdo da tela).
+  src/         -> O código do app (telas, roteador, estilos). Veja
+                  src/LEIA-ME.txt.
+  dist/        -> Gerado pelo build (`npm run build`); não editar à
+                  mão, nem versionar mudanças manuais nele.
+  legacy/      -> O iamundi ANTIGO (um único index.html gigante),
+                  guardado como botão de rollback e fonte de cópia
+                  enquanto as últimas telas são portadas. Veja
+                  legacy/LEIA-ME.txt.
 
 ATENÇÃO ao deploy: o git checa a identidade. Garanta que
 user.name/user.email NÃO estejam vazios, senão o build na Vercel
@@ -40,40 +43,65 @@ O que é cada pasta/arquivo da raiz?
 -----------------------------------
 (cada pasta também tem o seu próprio LEIA-ME.txt)
 
-  index.html   -> O dashboard publicado (cópia da v1.3). É o site.
+  src/         -> O app Vue (frente que roda no navegador).
+                  (veja src/LEIA-ME.txt)
 
-  projetos/    -> O "código-fonte" do dashboard e dos sub-projetos,
-                  com o histórico de versões. (veja projetos/LEIA-ME.txt)
+  public/      -> Arquivos servidos direto, sem passar pelo build
+                  (ex.: midia/, os logos). (veja public/LEIA-ME.txt)
 
-  coletor/     -> Os ROBÔS em Node.js: agente de notícias, gestor
-                  comercial e o aplicador de mudanças no banco
-                  (migrations). (veja coletor/LEIA-ME.txt)
+  supabase/    -> Config do Supabase e as Edge Functions (servidores
+                  pequenos na nuvem). (veja supabase/LEIA-ME.txt)
+
+  db/          -> Migrations do banco (mudanças de estrutura, .sql).
+                  (veja db/LEIA-ME.txt)
+
+  coletor/     -> Os ROBÔS em Node.js: notícias, gestor comercial,
+                  budget de tráfego e os aplicadores de migrations.
+                  (veja coletor/LEIA-ME.txt)
 
   .github/     -> Onde ficam as tarefas AUTOMÁTICAS (GitHub Actions):
-                  os robôs que rodam sozinhos em horário marcado.
-                  (veja .github/LEIA-ME.txt)
+                  os robôs do coletor/ rodando sozinhos em horário
+                  marcado. (veja .github/LEIA-ME.txt)
 
-  docs/        -> Documentação: migrations do banco (.sql) e os
-                  planos/specs de cada funcionalidade. (docs/LEIA-ME.txt)
+  docs/        -> Documentação: os planos/specs de cada
+                  funcionalidade. (veja docs/LEIA-ME.txt)
 
-  midia/       -> Imagens e logos compartilhados. (midia/LEIA-ME.txt)
+  legacy/      -> O sistema antigo (monólito pré-Vue), preservado
+                  para rollback/consulta. (veja legacy/LEIA-ME.txt)
 
-  vercel.json  -> Configuração do site na Vercel: redireciona
-                  "/midia/..." para a pasta de mídia certa e aplica
-                  cabeçalhos de SEGURANÇA (proíbe abrir o site dentro
-                  de iframe, força HTTPS, etc.).
+  projetos/    -> Mini-apps à parte (Escritório 3D dos agentes,
+                  coletor legado). Não faz parte do app Vue nem do
+                  seu build. (veja projetos/LEIA-ME.txt)
+
+  vercel.json  -> Configuração do site na Vercel: manda toda rota
+                  para /index.html (o app decide a tela por rota) e
+                  aplica cabeçalhos de SEGURANÇA (proíbe abrir o site
+                  dentro de iframe, força HTTPS, etc.).
+
+  vite.config.js -> Configuração do Vite (a ferramenta que monta o
+                  app Vue em `dist/`).
+
+  package.json -> Dependências do app (Vue, Vite) e os comandos `npm
+                  run dev`/`npm run build`/`npm run preview`.
 
   deploy-noticias.sh -> Script que VOCÊ roda na sua máquina para
                   publicar o módulo de Notícias com segurança.
 
   .gitignore   -> Lista do que o Git ignora (não envia ao GitHub):
-                  segredos (.env, chaves), logs, backups, node_modules.
+                  segredos (.env, chaves), logs, backups, node_modules,
+                  dist/.
 
   .env (oculto)-> Segredos/chaves. NUNCA vão para o GitHub.
 
-  .github / .vercel / .claude / .superpowers / .playwright-mcp
+  .github / .vercel / .claude / .superpowers / .serena
                -> Pastas de configuração de ferramentas (algumas
                   ignoradas pelo git). Não precisa mexer.
+
+
+Regra permanente
+----------------
+Toda pasta nova nasce com um `LEIA-ME.txt` (em português, linguagem
+de iniciante, 2-6 linhas dizendo o que a pasta é/faz).
 
 
 Conceitos rápidos (pra quem está aprendendo)
@@ -83,6 +111,8 @@ Conceitos rápidos (pra quem está aprendendo)
   - Meta API : de onde vêm os dados do Instagram/Facebook e Meta Ads.
   - Bling    : sistema de gestão de onde vêm as vendas/faturamento.
   - GitHub Actions: robôs que a GitHub roda sozinha em horário marcado.
+  - Vite     : ferramenta que "monta" o app Vue pronto pra publicar.
   - .mjs     : arquivo JavaScript que roda no Node.js (fora do navegador).
+  - .vue     : arquivo de um componente Vue (uma tela ou pedaço de tela).
 
 ==================================================================

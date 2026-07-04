@@ -1,0 +1,5 @@
+O app Vue (a frente que roda no navegador). Cada tela do sistema fica em
+uma subpasta de `ferramentas/<nome>/`, o miolo compartilhado (funções e
+componentes usados por várias telas) fica em `compartilhado/`, o roteador
+(quem decide qual tela mostrar por rota) é `mapa-de-enderecos.js`, e o
+arquivo que dá a partida no app é `ponto-de-partida.js`.

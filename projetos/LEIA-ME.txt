@@ -1,37 +1,27 @@
 ==================================================================
- PASTA: projetos/   —  O CÓDIGO-FONTE DO DASHBOARD (e sub-projetos)
+ PASTA: projetos/   —  MINI-APPS À PARTE (não são o app Vue)
 ==================================================================
 
 O que é esta pasta?
 -------------------
-Aqui mora o "código-fonte" do painel, com o histórico de versões e
-os sub-projetos. Hoje há UM projeto grande:
+Guarda projetos separados do app principal (que hoje vive em `src/`
+e é publicado via build do Vite/Vue — veja o LEIA-ME.txt da raiz).
+Hoje há um sub-projeto:
 
-  central-inteligencia/  -> O dashboard "Inteligência RBV" em si.
-                            É a versão de trabalho do painel. A versão
-                            boa (v1.3) é copiada para o index.html da
-                            raiz, que é o que vai para o ar.
+  central-inteligencia/  -> Snapshots antigos do dashboard (versões
+                            v1.1/v1.2/v1.3 em HTML único, de ANTES da
+                            migração para Vue) + o Escritório 3D dos
+                            agentes + um coletor legado em Python.
+                            Nada daqui entra no build do app Vue.
                             (veja central-inteligencia/LEIA-ME.txt)
 
 
-Como isso vira o site no ar?
-----------------------------
-Lembre da regra do repositório (veja o LEIA-ME.txt da raiz):
-  - Você trabalha no dashboard aqui dentro de central-inteligencia/.
-  - A versão aprovada (hoje a v1.3) é copiada para  /index.html
-    (na raiz), e é ESSA cópia que a Vercel publica.
-
-Dentro de central-inteligencia/ você verá várias versões do mesmo
-arquivo (v1.1, v1.2-preview, v1.3) guardadas para histórico, além de
-backups. É normal: como o dashboard é um arquivo único e gigante,
-guardar versões nomeadas é o jeito de não perder o trabalho antigo.
-
-
-Para iniciante: por que tantas cópias do mesmo HTML?
-----------------------------------------------------
-O dashboard é um único arquivo enorme. Em vez de depender só do
-histórico do Git, o projeto também salva "fotografias" do arquivo
-com nome de versão (v1.1, v1.2, v1.3) e backups com data. Assim dá
-para voltar a uma versão antiga rápido e comparar mudanças.
+Para iniciante: por que isso não é o site no ar?
+-------------------------------------------------
+O site publicado hoje é montado pelo Vite a partir de `src/` (comando
+`npm run build`, gera `dist/`). O que está aqui em `projetos/` é
+histórico (as versões antigas do painel, antes do Vue) e mini-apps
+independentes (o Escritório 3D, o coletor Python antigo) — nenhum dos
+dois passa pelo build nem é servido pela Vercel deste repositório.
 
 ==================================================================

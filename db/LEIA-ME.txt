@@ -1,0 +1,2 @@
+Banco de dados: `migrations/` guarda as mudanças de estrutura do banco
+(uma por arquivo `.sql`, em ordem), rodadas pelos scripts do `coletor/`.

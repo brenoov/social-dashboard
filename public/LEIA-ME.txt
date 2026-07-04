@@ -1,0 +1,2 @@
+Arquivos servidos direto (sem passar pelo build do Vite), no caminho raiz
+do site. Ex.: `midia/` (os logos usados no login e no topo das telas).

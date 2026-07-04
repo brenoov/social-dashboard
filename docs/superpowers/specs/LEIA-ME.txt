@@ -1,0 +1,2 @@
+Os desenhos/decisões (design docs) de cada funcionalidade: o problema, as
+opções pensadas e a decisão tomada, antes de programar.

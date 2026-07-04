@@ -6,10 +6,11 @@ os modos de visualização de vendas disponíveis, em cards (ou lista).
 Arquivo principal: tela-de-menu-vendas.vue
 
 Como funciona (resumido):
-- 2 cards: "Gestão à Vista" (já migrada — abre de verdade) e "Análise de
-  Vendas" (ainda não migrada — mostra um aviso "ainda não migrada").
+- 2 cards, os dois já migrados e abrindo de verdade: "Gestão à Vista" (leva
+  para /gestao-vista) e "Análise de Vendas" (leva para /analise-vendas-marca
+  — o seletor de marca, ver src/ferramentas/analise-vendas/).
 - Cada card só aparece se a pessoa tiver a permissão daquele módulo liberada
-  (ou for admin) — módulos "sales.gestao" e "sales.analise".
+  (ou for admin) — módulos "sales.gestao-vista" e "sales.analise-vendas".
 - Botão de cards/lista no topo (canto direito) alterna a visualização e
   lembra a escolha (localStorage), igual à tela inicial.
 - Botão "Central": volta para a tela inicial (usa o roteador do app).

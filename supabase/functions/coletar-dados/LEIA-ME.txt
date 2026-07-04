@@ -1,0 +1,3 @@
+Edge Function que busca os dados do Instagram/Meta Ads na API da Meta e
+grava no banco (snapshots diários por conta, para os dashboards e o
+gráfico histórico). É a função que os robôs do `coletor/` chamam.

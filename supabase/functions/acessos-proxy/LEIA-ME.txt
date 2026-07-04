@@ -1,0 +1,4 @@
+Edge Function que é a única porta de entrada para as integrações Zoho e
+Microsoft OneDrive do módulo "Controle de Acesso e Colaboradores" — só
+libera para usuários admin. Lista contas, importa pessoas, gerencia
+pastas/permissões do OneDrive, etc.

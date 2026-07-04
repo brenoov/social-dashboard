@@ -1,0 +1,3 @@
+Agendamentos (GitHub Actions) que disparam os robôs do `coletor/` em
+horários fixos (ex.: coletor de notícias, gestor comercial, budget de
+tráfego). O GitHub exige o nome `workflows` — não renomear.

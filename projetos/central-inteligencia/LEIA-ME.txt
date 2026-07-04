@@ -1,47 +1,37 @@
 ==================================================================
- PROJETO: central-inteligencia/   —  O DASHBOARD "Inteligência RBV"
+ PROJETO: central-inteligencia/   —  SNAPSHOTS ANTIGOS + MINI-APPS
 ==================================================================
 
 O que é este projeto?
 ---------------------
-É o painel de inteligência da RBV: um único arquivo HTML gigante que
-mostra, num só lugar, dados de Instagram/Meta, Meta Ads, vendas
-(Bling) e notícias de concorrentes. É o coração do repositório.
+NÃO é mais o app que está no ar. É onde ficam guardadas as versões
+ANTIGAS do painel (de antes da migração para Vue) e alguns mini-apps
+à parte. O app publicado hoje mora em `src/` (na raiz do repo) e é
+montado pelo Vite — veja o LEIA-ME.txt da raiz.
 
 
-As VERSÕES do dashboard (arquivos .html)
-----------------------------------------
-  central-inteligencia-v1.3.html
-     -> A versão ATUAL e boa. É a que vira o index.html da raiz (o
-        site no ar). Quando você melhora o painel, trabalha aqui.
-
-  central-inteligencia-v1.2-preview.html
-     -> Uma versão de prévia/intermediária (histórico).
-
-  central-inteligencia-v1.1.html
-     -> Versão antiga (histórico).
-
+As VERSÕES antigas do dashboard (arquivos .html, histórico)
+-------------------------------------------------------------
+  central-inteligencia-v1.3.html, v1.2-preview.html, v1.1.html,
   index.html
-     -> Uma cópia interna do dashboard (NÃO é a que vai pro ar; a do
-        ar é o index.html lá na RAIZ do repositório). Difere um pouco
-        da v1.3 — trate as versões "vX.Y" como a referência.
-
-Dica: o que está REALMENTE publicado é o /index.html da raiz, que
-hoje é igual à v1.3. Ao mexer, atualize a v1.3 e depois copie para
-a raiz (o script/processo de deploy cuida disso).
+     -> "Fotografias" congeladas do dashboard monolítico de antes do
+        Vue, guardadas como histórico. NENHUMA delas é publicada —
+        o que vai para o ar é o build de `src/` (na raiz do repo).
+        Não edite para adicionar funcionalidade nova.
 
 
 Subpastas
 ---------
-  midia/        -> Imagens/logos que ESTE dashboard usa. O site
-                   aponta "/midia/..." para cá (veja vercel.json da
-                   raiz). Ex.: LOGOTIPOBRENOBRANCO.png / ...PRETO.png.
+  escritorio-3d/ -> O "Escritório 3D" dos agentes: página estática à
+                   parte, em three.js. Não faz parte do app Vue nem
+                   do build dele. (veja escritorio-3d/LEIA-ME.txt)
 
   backup/       -> Cópias de segurança com data, feitas antes de
                    mudanças grandes (ex.: ...pre-noticias.bak.html) e
                    um backup.sh + backup.log. Servem para voltar atrás
                    se algo quebrar. (Os .bak.html e .log são ignorados
-                   pelo git — ficam só na sua máquina.)
+                   pelo git — ficam só na sua máquina.) (veja
+                   backup/LEIA-ME.txt)
 
   redes-sociais/-> Um SUB-PROJETO mais antigo, focado em redes
                    sociais, com o próprio coletor em Python e um
@@ -52,15 +42,13 @@ Arquivos
 --------
   vercel.json   -> Cabeçalhos de segurança específicos deste projeto
                    (proíbe iframe, evita "adivinhação" de tipo de
-                   arquivo, etc.). É um espelho menor do vercel.json
-                   da raiz.
+                   arquivo, etc.) — não é usado pelo deploy da raiz.
 
 
-Para iniciante: por onde começar?
----------------------------------
-O dashboard é um arquivo único e MUITO grande (~600 KB), com HTML,
-CSS e JavaScript tudo junto. Não tente ler de cima a baixo. Em vez
-disso, use a busca (Ctrl+F) pelo nome de uma seção que você vê na
-tela (ex.: "Meta Ads", "Notícias") para achar o trecho certo.
+Para iniciante
+--------------
+Estes arquivos .html são só referência histórica (arquivos únicos e
+MUITO grandes, com HTML/CSS/JavaScript tudo junto). Para entender o
+sistema que está no ar hoje, veja `src/` (na raiz do repositório).
 
 ==================================================================

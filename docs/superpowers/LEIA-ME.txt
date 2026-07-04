@@ -1,0 +1,3 @@
+Specs e planos de cada mudança feita no projeto — o registro de "o que a
+gente combinou e como". `specs/` = os desenhos/decisões de cada
+funcionalidade. `plans/` = o passo a passo de implementação.

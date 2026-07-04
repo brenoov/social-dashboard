@@ -1,0 +1,3 @@
+Migrations do módulo Controle de Acesso e Colaboradores. Rodadas uma a uma
+à mão, via `coletor/run-acessos-sql.mjs <arquivo>` (não são aplicadas em
+lote pelo runner geral).

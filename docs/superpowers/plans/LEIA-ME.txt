@@ -1,0 +1,2 @@
+Os passo a passo de implementação de cada funcionalidade: as tarefas na
+ordem em que foram (ou serão) feitas, com os comandos de verificação.

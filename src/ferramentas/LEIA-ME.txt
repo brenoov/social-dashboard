@@ -10,5 +10,7 @@ Regra de ouro para trabalhar em equipe sem conflito:
 O que é compartilhado por TODAS as telas fica em ../compartilhado
 (conexão com banco, dados, login) — só mexer ali combinando com o TI.
 
-Telas já migradas para o Vue: login, inicio (Central), noticias.
-As demais telas serão migradas uma por vez, cada uma virando sua pasta aqui.
+Todas as telas do iamundi já foram migradas para o Vue — uma pasta por
+ferramenta: login, inicio, noticias, redes-sociais, admin, banco,
+analise-campanhas, gestao-trafego, meta-ads, vendas, gestao-a-vista,
+analise-vendas, gestao-comercial, acessos.

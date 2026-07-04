@@ -4,6 +4,7 @@ Aqui ficam as peças que TODAS as ferramentas usam:
 - conectar-no-banco-de-dados.js  → conexão com o banco (Supabase)
 - buscar-e-salvar-dados.js       → função para buscar/salvar dados no banco
 - controle-de-login-e-usuario.js → quem está logado, usuário e permissões
+- avisos.js                      → aviso rápido (toast) no canto da tela
 
 REGRA IMPORTANTE
 ================

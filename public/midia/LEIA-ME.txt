@@ -1,0 +1,2 @@
+Imagens servidas em /midia/ (os logos RBV usados no login e no topo das
+telas). Para adicionar uma imagem estática nova ao site, coloque aqui.

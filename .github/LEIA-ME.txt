@@ -6,24 +6,36 @@ O que é esta pasta?
 -------------------
 É onde o GitHub procura por "workflows": instruções de tarefas que
 o próprio GitHub roda SOZINHO, em horários marcados (agendamento por
-"cron"). Aqui moram os 2 robôs do projeto. Eles ficam em:
+"cron"). Aqui moram os robôs do projeto. Eles ficam em:
    .github/workflows/
 
 O que é cada arquivo?
 ---------------------
   coletor-noticias.yml
-     -> Robô "Coletor de Notícias (concorrentes Vessel)".
-        Roda a cada 3 dias (cron: 0 11 */3 * *).
-        Ele chama o script coletor/agente-noticias.mjs, que usa a IA
-        (Claude) para pesquisar notícias na web, julgar relevância e
-        salvar resumos no banco.
+     -> Robô "Coletor de Notícias (Observatório Vessel)".
+        Roda toda segunda-feira (cron: 0 9 * * 1).
+        Chama vários passos do coletor/ (coletor/passo-lojas.mjs e
+        os demais "passo-*"/"insere-*") que usam a IA (Claude) para
+        pesquisar notícias na web, julgar relevância e salvar
+        resumos no banco.
+
+  panorama-noticias.yml
+     -> Robô "Panorama do Mercado (resumão escrito)".
+        Chama coletor/panorama-mercado.mjs, que usa a IA (Claude
+        Opus) para escrever o resumão semanal das notícias.
 
   gestor-comercial.yml
      -> Robô "Gestor Comercial (briefing semanal)".
-        Roda toda semana (cron: 0 11 * * 1 = segunda-feira).
-        Ele chama coletor/gestor-comercial.mjs, que junta faturamento
-        (Bling), metas e notícias, e a IA (Claude) escreve um briefing
-        comercial da semana.
+        Roda toda segunda-feira (cron: 10 9 * * 1).
+        Chama coletor/gestor-comercial.mjs, que junta faturamento
+        (Bling), metas e notícias, e a IA (Claude Opus) escreve um
+        briefing comercial da semana.
+
+  budget-ia.yml
+     -> Robô "Budget IA (análise semanal)".
+        Roda toda segunda-feira (cron: 30 9 * * 1).
+        Chama coletor/budget-ia.mjs, que analisa as campanhas de Meta
+        Ads e sugere budget/ação (manter, escalar, reduzir, pausar).
 
 
 Para iniciante: como ler um "cron"?
@@ -32,8 +44,8 @@ Cron é um jeito de dizer "que horas rodar", com 5 campos:
    minuto  hora  dia-do-mês  mês  dia-da-semana
 
 Exemplos usados aqui:
-   0 11 */3 * *   -> 11:00 (UTC), a cada 3 dias
-   0 11 * * 1     -> 11:00 (UTC), toda segunda-feira (1 = segunda)
+   0 9 * * 1    -> 9:00 (UTC), toda segunda-feira (1 = segunda)
+   30 9 * * 1   -> 9:30 (UTC), toda segunda-feira
 
 OBS: o horário é em UTC, então no Brasil cai algumas horas antes.
 

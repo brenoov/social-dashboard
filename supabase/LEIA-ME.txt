@@ -1,0 +1,3 @@
+Configuração do Supabase (o banco de dados + serviços de nuvem do projeto).
+`functions/` = as Edge Functions (servidores pequenos que rodam na nuvem,
+fora do navegador do usuário).

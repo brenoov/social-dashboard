@@ -1,0 +1,2 @@
+Peças compartilhadas pelos robôs do `coletor/` — código comum que mais de
+um robô usa (ex.: cálculo do ritmo de meta em `meta-pace.mjs`).

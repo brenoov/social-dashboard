@@ -25,12 +25,38 @@ O que é cada arquivo?
         as notícias dos concorrentes; a IA (Claude Opus) escreve um
         briefing comercial. Roda no GitHub Actions toda semana.
 
+  budget-ia.mjs
+     -> Robô que analisa as campanhas de Meta Ads e sugere
+        budget/ação (manter, escalar, reduzir, pausar). Roda no
+        GitHub Actions toda semana ("Budget IA").
+
+  panorama-mercado.mjs
+     -> Robô que escreve o "Panorama do Mercado": um resumão semanal
+        das notícias coletadas, com IA (Claude Opus). Roda no GitHub
+        Actions toda semana.
+
+  ig-coletor.mjs, lojas.mjs, od-reinvite.mjs, an-*.mjs, passo-*.mjs,
+  insere-*.mjs, piloto-lojas.mjs, enriquece-hero-comercial.mjs,
+  lib-llm.mjs
+     -> Scripts auxiliares do pipeline de Notícias/Gestor Comercial
+        (passos de coleta, enriquecimento e inserção no banco) e
+        utilitários pontuais (reenvio de convite OneDrive, chamada
+        de LLM). Rodados na mão ou por outro script desta pasta,
+        não direto pelo GitHub Actions.
+
   run-migrations.mjs
-     -> "Aplicador de mudanças no banco". Pega os arquivos .sql de
-        docs/migrations/ que ainda NÃO foram aplicados e roda em
+     -> "Aplicador de mudanças no banco". Pega os arquivos .sql do
+        NÍVEL DE CIMA de db/migrations/ que ainda NÃO foram aplicados
+        (não entra na subpasta db/migrations/acessos/) e roda em
         ordem, anotando numa tabela de controle (schema_migrations)
         para não rodar o mesmo duas vezes. (Conecta na porta 6543 do
         Supabase usando o certificado supabase-ca.crt.)
+
+  run-acessos-sql.mjs
+     -> Roda um arquivo .sql específico (passado por argumento) contra
+        o banco — usado pra aplicar as migrations de
+        db/migrations/acessos/ uma a uma, quando o MCP derruba o
+        socket em DDL.
 
   lib/                -> Pasta de "biblioteca" (código reutilizável):
      meta-pace.mjs        -> Cálculo puro do "ritmo de meta" (quanto
@@ -60,9 +86,11 @@ O que é cada arquivo?
 Para iniciante: o que é "migration"?
 ------------------------------------
 É uma mudança no banco salva como arquivo .sql, em ordem numerada
-(ficam em docs/migrations/). O run-migrations.mjs é quem APLICA
-essas mudanças no banco de verdade, uma vez cada. Assim qualquer
-pessoa monta o mesmo banco rodando os arquivos na sequência.
+(ficam em db/migrations/, gerais, e db/migrations/acessos/, do módulo
+de Colaboradores e Acessos). O run-migrations.mjs é quem APLICA as
+gerais no banco de verdade, uma vez cada; as de acessos/ são
+aplicadas uma a uma com run-acessos-sql.mjs. Assim qualquer pessoa
+monta o mesmo banco rodando os arquivos na sequência.
 
 ATENÇÃO: rodar migrations altera o banco DE VERDADE. Cuidado.
 

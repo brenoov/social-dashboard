@@ -1,0 +1,3 @@
+Edge Function que confere se os números guardados no banco batem com os
+números ao vivo da Meta (spot-check de curtidas/alcance) e roda checagens
+internas de sanidade, registrando o veredito (ok/warn/fail) por conta.

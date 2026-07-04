@@ -1,0 +1,3 @@
+Migrations gerais do banco (uma mudança por arquivo `.sql`, aplicadas em
+ordem alfabética). Rodadas por `coletor/run-migrations.mjs`. As migrations
+do módulo de Colaboradores e Acessos ficam à parte, em `acessos/`.

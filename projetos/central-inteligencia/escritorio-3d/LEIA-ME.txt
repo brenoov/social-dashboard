@@ -1,0 +1,3 @@
+O "Escritório 3D" dos agentes: uma página estática à parte, feita em
+three.js (não é Vue). Não faz parte do app principal nem do build dele —
+é acessada direto pelo próprio arquivo HTML desta pasta.
