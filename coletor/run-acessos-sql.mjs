@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Roda um arquivo .sql arbitrário (passado como argv[2]) contra o banco do iamundi,
 // usando DATABASE_URL de coletor/.env + a CA do Supabase. Útil quando o MCP está
-// derrubando o socket em DDL. Uso: node run-acessos-sql.mjs ../db/migrations-acessos/006_zoho.sql
+// derrubando o socket em DDL. Uso: node run-acessos-sql.mjs ../db/migrations/acessos/006_zoho.sql
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';

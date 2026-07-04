@@ -9,8 +9,8 @@ echo "==> Limpando lock antigo (se houver)"
 rm -f .git/index.lock 2>/dev/null || true
 
 echo "==> Commit + push"
-git add index.html docs/migrations/007_noticias_concorrentes.sql \
-        docs/migrations/008_noticias_seed_2026-06-11.sql coletor/.env.exemplo deploy-noticias.sh 2>/dev/null
+git add index.html db/migrations/007_noticias_concorrentes.sql \
+        db/migrations/008_noticias_seed_2026-06-11.sql coletor/.env.exemplo deploy-noticias.sh 2>/dev/null
 if git diff --cached --quiet; then
   echo "    (nada novo para commitar)"
 else
@@ -23,8 +23,8 @@ echo "==> Migrations no Supabase"
 # Pegue em: Supabase > Project Settings > Database > Connection string (URI).
 [ -f coletor/.env ] && set -a && . coletor/.env && set +a
 if [ -n "${DATABASE_URL:-}" ] && command -v psql >/dev/null 2>&1; then
-  psql "$DATABASE_URL" -f docs/migrations/007_noticias_concorrentes.sql && echo "    007 OK"
-  psql "$DATABASE_URL" -f docs/migrations/008_noticias_seed_2026-06-11.sql && echo "    008 OK (seed)"
+  psql "$DATABASE_URL" -f db/migrations/007_noticias_concorrentes.sql && echo "    007 OK"
+  psql "$DATABASE_URL" -f db/migrations/008_noticias_seed_2026-06-11.sql && echo "    008 OK (seed)"
 else
   echo "    PULADO. Para automatizar, adicione DATABASE_URL no coletor/.env e instale o psql."
   echo "    Ou rode os 2 arquivos .sql manualmente no SQL Editor do Supabase."

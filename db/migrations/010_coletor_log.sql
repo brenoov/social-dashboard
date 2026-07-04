@@ -1,4 +1,4 @@
--- docs/migrations/010_coletor_log.sql
+-- db/migrations/010_coletor_log.sql
 -- Diário de bordo do coletor de notícias na nuvem: o agente grava aqui o
 -- início e o fim de cada rodada (e erros), pra dar observabilidade remota
 -- sem depender do painel do claude.ai.

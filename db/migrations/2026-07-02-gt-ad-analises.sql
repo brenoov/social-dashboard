@@ -1,4 +1,4 @@
--- docs/migrations/2026-07-02-gt-ad-analises.sql
+-- db/migrations/2026-07-02-gt-ad-analises.sql
 -- Análise por anúncio gerada pelo robô semanal (Opus). Espelha o RLS de gt_budget_analises:
 -- leitura só admin/meta.gestor; escrita só service role (sem policy de write).
 create table if not exists public.gt_ad_analises (

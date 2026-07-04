@@ -1,4 +1,4 @@
--- docs/migrations/003_user_permissions.sql
+-- db/migrations/003_user_permissions.sql
 -- Colar no Supabase Dashboard → SQL Editor → New query → Run
 
 CREATE TABLE IF NOT EXISTS public.user_permissions (

@@ -1,4 +1,4 @@
--- docs/migrations/005_pedido_qtd_itens.sql
+-- db/migrations/005_pedido_qtd_itens.sql
 -- Adiciona quantidade de linhas de itens por pedido para cálculo de Média Itens e Vendas +1 Item
 -- Colar no Supabase Dashboard → SQL Editor → New query → Run
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Runner de migrations do iamundi.
-// Aplica os .sql de docs/migrations/ que ainda não rodaram, em ordem alfabética,
+// Aplica os .sql de db/migrations/ (nível de cima, sem entrar em acessos/) que ainda não rodaram, em ordem alfabética,
 // registrando cada um numa tabela de controle (public.schema_migrations).
 // Idempotente: rodar de novo não re-aplica o que já passou.
 //
@@ -16,7 +16,7 @@ import { dirname, join, resolve } from 'node:path';
 import pg from 'pg';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const MIGRATIONS_DIR = resolve(__dirname, '..', 'docs', 'migrations');
+const MIGRATIONS_DIR = resolve(__dirname, '..', 'db', 'migrations');
 const DRY = process.argv.includes('--dry');
 
 // ── carrega coletor/.env (parser simples, sem dependência) ──

@@ -1,4 +1,4 @@
--- docs/migrations/007_noticias_concorrentes.sql
+-- db/migrations/007_noticias_concorrentes.sql
 -- Portal de Notícias / Inteligência de Concorrentes
 -- Tabela que alimenta o módulo "Portal de Notícias" da Central.
 -- Escrita feita pela automação semanal (Cowork) usando a SERVICE ROLE key,

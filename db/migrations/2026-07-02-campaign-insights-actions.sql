@@ -1,4 +1,4 @@
--- docs/migrations/2026-07-02-campaign-insights-actions.sql
+-- db/migrations/2026-07-02-campaign-insights-actions.sql
 -- Contagens de interação por campanha × período (do array Meta `actions`), pro
 -- cálculo dos KPIs de custo (custo por interação/curtida/etc.) no dashboard social.
 -- Nullable: snapshots antigos ficam sem dado (forward-only). Sem mudança de RLS.

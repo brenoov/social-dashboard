@@ -1,4 +1,4 @@
--- docs/migrations/2026-07-02-gt-budget-analises.sql
+-- db/migrations/2026-07-02-gt-budget-analises.sql
 -- Sugestões de budget geradas pelo robô semanal (Opus 4.8) por campanha.
 -- Leitura liberada pra quem tem a ferramenta Gestão de Tráfego (espelha
 -- hasPermission('module:meta:gestor') -> feature 'meta.gestor'; admin sempre).

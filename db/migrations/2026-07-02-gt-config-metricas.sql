@@ -1,9 +1,9 @@
--- docs/migrations/2026-07-02-gt-config-metricas.sql
+-- db/migrations/2026-07-02-gt-config-metricas.sql
 -- Tabela de config global do módulo "Gestão de Tráfego": mapeia balde (objetivo)
 -- -> lista de métricas a exibir nos cards de KPI. Leitura pública (dado não sensível,
 -- usado pra renderizar a tela); escrita restrita a admin.
 --
--- Padrão de admin-write seguido (igual docs/migrations/006_accounts_update_policy.sql
+-- Padrão de admin-write seguido (igual db/migrations/006_accounts_update_policy.sql
 -- e a policy existente em platform_settings): RLS por role, checando
 -- public.profiles.role = 'admin' para auth.uid(). O client escreve via sbClient
 -- (supabase-js autenticado com o JWT do usuário logado), nunca com a service role

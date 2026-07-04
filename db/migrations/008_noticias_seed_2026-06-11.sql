@@ -1,4 +1,4 @@
--- docs/migrations/008_noticias_seed_2026-06-11.sql
+-- db/migrations/008_noticias_seed_2026-06-11.sql
 -- Seed inicial do Portal de Notícias — rodada de 11/06/2026.
 -- Rode DEPOIS da 007. Idempotente: ON CONFLICT não duplica.
 

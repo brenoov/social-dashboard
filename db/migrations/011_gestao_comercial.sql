@@ -1,4 +1,4 @@
--- docs/migrations/011_gestao_comercial.sql
+-- db/migrations/011_gestao_comercial.sql
 -- Agente Gestor Comercial: briefings semanais + log de bordo.
 
 CREATE TABLE IF NOT EXISTS public.gestao_comercial_briefings (

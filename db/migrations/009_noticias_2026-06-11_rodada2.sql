@@ -1,4 +1,4 @@
--- docs/migrations/009_noticias_2026-06-11_rodada2.sql
+-- db/migrations/009_noticias_2026-06-11_rodada2.sql
 -- Segunda rodada de notícias (11/06/2026): mais matérias por marca, recentes em
 -- primeiro plano, ampliando temas (Marketing, Design, Moda além de
 -- Estratégia/Tendência/Lançamento/Campanha/Preço/Faturamento/Expansão).
