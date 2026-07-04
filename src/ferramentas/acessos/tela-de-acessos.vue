@@ -330,6 +330,9 @@ function _acHandleZohoReturn(){
 }
 if(document.readyState!=='loading')_acHandleZohoReturn();else window.addEventListener('DOMContentLoaded',_acHandleZohoReturn);
 function _acSetTab(t){_acTab=t;_acSel=null;_acSelSetor=null;_acSelOrg=null;_acRender();}
+// Zera a seleção (pessoa/setor/org) e re-renderiza. Existe porque os botões "voltar"
+// são onclick inline (escopo global) e não podem atribuir direto às variáveis do módulo.
+function _acVoltarSel(nivel){if(nivel==='org')_acSelOrg=null;else if(nivel==='setor')_acSelSetor=null;else _acSel=null;_acRender();}
 /* ===== Fase 2: aba Drive ===== */
 let _acDriveMarcas=[],_acDriveSel=null,_acDriveStack=[],_acDriveTree=[],_acDriveTreeTrunc=false,_acDriveCustomSecs=[],_acDriveOverrides={};
 const _AC_SECTORS=[
@@ -861,7 +864,7 @@ function _acRenderSetores(orgId){
   }).join('');
   body.innerHTML=`
     <div class="ac-section-h">
-      <button class="ac-btn ghost" onclick="_acSelOrg=null;_acRender()">← Organizações</button>
+      <button class="ac-btn ghost" onclick="_acVoltarSel('org')">← Organizações</button>
       <h3 style="margin-left:6px">${_acEsc(org?org.nome:'Sem organização')}</h3>
       <button class="ac-btn" style="margin-left:auto" onclick="_acAddSetor(${orgId?"'"+orgId+"'":'false'})">+ Novo setor</button>
     </div>
@@ -900,7 +903,7 @@ async function _acRenderColaboradores(setorId){
     </div>`).join('');
   body.innerHTML=`
     <div class="ac-section-h">
-      <button class="ac-btn ghost" onclick="_acSelSetor=null;_acRender()">← Setores</button>
+      <button class="ac-btn ghost" onclick="_acVoltarSel('setor')">← Setores</button>
       <h3 style="margin-left:6px">${_acEsc(setor?setor.nome:'Sem setor')}</h3>
       <button class="ac-btn" style="margin-left:auto" onclick="_acFormColaborador(null,'${setorId||''}')">+ Novo colaborador</button>
     </div>
@@ -976,7 +979,7 @@ function _acRenderFicha(id){
   const acct=(logo,label,val)=>`<div class="ac-field"><span class="ac-field-l">${logo}${label}</span><span class="ac-field-v ${val?'':'empty'}">${val?_acEsc(val):'<span class="ac-pill neutral" style="font-size:9px">não configurado</span>'}</span></div>`;
   const subParts=[c.cargo?_acEsc(c.cargo):'',orgNome?_acEsc(orgNome):'',setor?_acEsc(setor):'Sem setor'].filter(Boolean);
   document.getElementById('ac-body').innerHTML=`
-    <button class="ac-btn ghost" onclick="_acSel=null;_acRender()">← Voltar</button>
+    <button class="ac-btn ghost" onclick="_acVoltarSel('pessoa')">← Voltar</button>
     <div class="ac-card" style="margin-top:12px;padding:20px 22px">
       <div class="ac-ficha-hero">
         ${_acAvatar(c,72)}
@@ -1500,7 +1503,7 @@ Object.assign(window, {
   _acOpenPessoa, _acOpenSetor, _acOrgIco, _acPickAll, _acPickCount, _acPickFilter, _acProvisionar, _acProxy,
   _acReativar, _acReconcileEmail, _acRender, _acRenderAuditoria, _acRenderColaboradores, _acRenderConfiguracoes, _acRenderDispositivos, _acRenderDrive,
   _acRenderFicha, _acRenderICloud, _acRenderItens, _acRenderOneDrive, _acRenderOrganizacoes, _acRenderSetores, _acRenderTermos, _acRenderVeiculos,
-  _acSanitizeName, _acSaveColaborador, _acSaveItem, _acSetItemStatus, _acSetorIco, _acSetTab, _acTiposFor, _acToggleOrg,
+  _acSanitizeName, _acSaveColaborador, _acSaveItem, _acSetItemStatus, _acSetorIco, _acSetTab, _acTiposFor, _acToggleOrg, _acVoltarSel,
   _acUploadAvatar, _acUploadTermo, _acWrapId, _acZohoStatus
 })
 
