@@ -38,7 +38,7 @@
           <div class="smenu-card-desc">Painel dinâmico para TVs — ranking em tempo real, metas e evolução do mês para manter o time focado em vendas.</div>
           <span class="smenu-card-enter">→</span>
         </div>
-        <div class="smenu-card" v-if="hasPermission('module:sales:analise-vendas')" @click="aindaNaoMigrada('Análise de Vendas')">
+        <div class="smenu-card" v-if="hasPermission('module:sales:analise-vendas')" @click="ir('analise-vendas-marca')">
           <span class="smenu-card-num">02</span>
           <div class="smenu-card-icon">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
@@ -68,13 +68,10 @@ function voltar() {
   router.push({ name: 'inicio' })
 }
 
-// Só existe rota de verdade para Gestão à Vista; Análise de Vendas ainda não foi
-// migrada (equivalente a openSalesBrandPicker() do legado).
+// Equivalente a openSalesBrandPicker()/router.push do legado — os dois cards
+// (Gestão à Vista e Análise de Vendas) já têm rota de verdade.
 function ir(nome) {
   router.push({ name: nome })
-}
-function aindaNaoMigrada(nome) {
-  adminToast(nome + ' ainda não migrada', false)
 }
 
 // Porte de setSMenuView (legacy/index.html L5727-5738), com persistência idêntica
