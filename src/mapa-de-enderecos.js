@@ -6,6 +6,8 @@ const rotas = [
   { path: '/noticias', name: 'noticias', component: () => import('./ferramentas/noticias/tela-de-noticias.vue') },
   { path: '/acessos', name: 'acessos', component: () => import('./ferramentas/acessos/tela-de-acessos.vue') },
   { path: '/banco', name: 'banco', component: () => import('./ferramentas/banco/tela-de-banco.vue') },
+  { path: '/vendas', name: 'vendas', component: () => import('./ferramentas/vendas/tela-menu-vendas.vue') },
+  { path: '/gestao-vista', name: 'gestao-vista', component: () => import('./ferramentas/gestao-a-vista/tela-gestao-a-vista.vue') },
   { path: '/login', name: 'login', component: () => import('./ferramentas/login/tela-de-login.vue') },
 ]
 

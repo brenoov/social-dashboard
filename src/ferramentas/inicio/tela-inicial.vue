@@ -55,8 +55,8 @@
           </div>
           <span class="home-card-enter">→</span>
         </div>
-        <!-- Dashboard de Vendas: rota ainda não existe. -->
-        <div class="home-card" id="home-card-sales" @click="aindaNaoMigrada('Dashboard de Vendas')" @mouseenter="definirTemaFundo('sales')" @mouseleave="definirTemaFundo('default')">
+        <!-- Dashboard de Vendas: Menu de Vendas + Gestão à Vista já migrados. -->
+        <div class="home-card" id="home-card-sales" @click="ir('vendas')" @mouseenter="definirTemaFundo('sales')" @mouseleave="definirTemaFundo('default')">
           <div class="home-card-icon" style="background:linear-gradient(135deg,#1d4ed8 0%,#2563eb 100%)">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
           </div>
@@ -161,8 +161,9 @@ function ir(nome) {
 }
 
 // Ferramentas cuja rota ainda não existe na versão Vue (equivalente aos
-// antigos openAdmin()/openDashboard()/openSalesDashboard()/openMetaAds()/
-// openBanco()/openGestao()/openAcessos()/openEscritorio3D() do legado).
+// antigos openAdmin()/openDashboard()/openMetaAds()/openEscritorio3D() do
+// legado — openSalesDashboard()/openBanco()/openAcessos() já viraram rotas
+// reais).
 // Quando cada uma ganhar sua rota própria em src/mapa-de-enderecos.js,
 // troque a chamada do card correspondente por router.push({ name: '...' })
 // (igual ao card de Notícias, que já é real).

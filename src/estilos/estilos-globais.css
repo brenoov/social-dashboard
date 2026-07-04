@@ -193,8 +193,8 @@
     }
     /* Esconde logo e subtítulo no mobile */
     .topbar .rbv-logo{display:none!important;}
-    .gv-perf-tag{font-size:9px!important;letter-spacing:2px!important;}
-    .gv-brand-tag{display:none!important;}
+    /* .gv-perf-tag/.gv-brand-tag/.gv-back (Gestão à Vista) foram para
+       tela-gestao-a-vista.vue — o bloco ≤480px de lá já cobre esses 3 */
     /* Period tabs: sem background próprio, inline na faixa */
     .period-tabs{gap:3px;flex-shrink:0;}
     .ptab{padding:5px 10px;font-size:10px;letter-spacing:.5px;}
@@ -204,8 +204,6 @@
     /* Auto toggle: só o switch, sem label */
     .ac-toggle-lbl{display:none;}
     .ac-toggle{flex-shrink:0;}
-    /* Back button */
-    .gv-back{font-size:11px;padding:5px 10px;}
 
     /* ── HEADER (seletor de perfis) ── */
     header{
@@ -554,7 +552,7 @@
   /* Responsive admin */
   @media(max-width:768px){.admin-layout{grid-template-columns:1fr;}.admin-sidebar{display:flex;overflow-x:auto;border-right:none;border-bottom:1px solid var(--border);padding:8px;gap:4px;}.admin-nav-group-label{display:none;}.admin-content{padding:20px 16px;}}
 
-  /* ── RESPONSIVE: HOME + SMENU ── */
+  /* ── RESPONSIVE: HOME (Menu de Vendas foi para tela-menu-vendas.vue) ── */
   @media(max-width:640px){
     .home-header{padding:10px 14px;flex-wrap:wrap;gap:8px;}
     .home-main{padding:16px 14px;}
@@ -562,12 +560,9 @@
     .home-card h3{font-size:12px;letter-spacing:1px;}
     .home-card p{display:none;}
     .home-cards.view-list .home-card{width:100%;}
-    .smenu-topbar{padding:8px 14px;flex-wrap:wrap;}
-    .smenu-card{width:calc(50% - 11px);min-width:130px;min-height:auto;padding:20px 14px 34px;}
   }
   @media(max-width:380px){
     .home-card{width:100%;}
-    .smenu-card{width:100%;}
   }
 
   /* ── RESPONSIVE: VESSEL SALES ── */
@@ -606,177 +601,7 @@
     .sa-canal-trigger{padding:4px 10px;font-size:10px;letter-spacing:.5px}
   }
 
-  /* ── RESPONSIVE: GESTÃO À VISTA ── */
-  @media(max-width:1024px){
-    #gestao-vista-screen{height:auto;min-height:100vh;max-height:none;overflow-y:auto;-webkit-overflow-scrolling:touch;}
-    #gv-bg-anim{display:none;}
-    /* Board: flex column instead of 2-col grid */
-    .gv-board{display:flex;flex-direction:column;gap:1px;background:var(--border);overflow:visible;min-height:0;padding:0;}
-    /* Left panel: stacks vertically, no overflow trap */
-    .gv-left{overflow:visible;flex:none;min-height:auto;padding:16px 20px;gap:12px;justify-content:flex-start;}
-    .gv-gauge-wrap{flex:none;min-height:0;height:260px;max-height:260px;}
-    /* Right panel: flex column instead of 2-row grid */
-    .gv-right{display:flex;flex-direction:column;gap:1px;background:var(--border);overflow:visible;min-height:0;}
-    .gv-canal-panel{overflow:visible;padding:12px 16px;}
-    .gv-canal-scroll{display:block;overflow:visible;flex:none;min-height:0;}
-    .gv-canal-grid{grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;}
-    .gv-canal-scroll-inner{animation:none!important;transform:none!important;}
-    /* Rankings: flex column instead of 2-col grid */
-    .gv-rankings{display:flex;flex-direction:column;gap:1px;background:var(--border);overflow:visible;min-height:0;}
-    .gv-rank-panel{overflow:visible;padding:12px 16px;}
-    .gv-rank-scroll{overflow:visible;flex:none;min-height:0;}
-    .gv-rank-scroll-inner{animation:none!important;transform:none!important;}
-    .gv-topbar{flex-wrap:wrap;padding:8px 14px;gap:6px;}
-    .gv-clock-wrap{display:none;}
-    #sales-analysis-screen .gv-clock-wrap,
-    #meta-ads-screen .gv-clock-wrap,
-    #gt-screen .gv-clock-wrap{display:block!important;}
-    .gv-ticker{height:auto;flex-shrink:0;padding:8px 12px;gap:6px;}
-    .gv-ticker-outer{flex:1;overflow-x:auto;}
-    .gv-ticker-inner{white-space:nowrap;}
-    .gv-ticker-inner.animate{animation:none;}
-  }
-  @media(max-width:640px){
-    /* TopBar */
-    .gv-topbar{padding:6px 10px;}
-    .gv-brand-tag{display:none;}
-    .gv-period-btns{flex-wrap:wrap;gap:3px;}
-    .gv-pbtn{font-size:9px;padding:3px 7px;border-radius:4px;}
-    #gv-ac-toggle{font-size:9px;padding:3px 7px;}
-    .gv-update-status{display:none;}
-    /* Left panel: gauge (esq) + KPIs (dir) na mesma linha */
-    .gv-left{display:grid!important;grid-template-columns:42% 1fr;grid-template-rows:auto 1fr;padding:8px 12px;gap:4px 10px;align-items:start;flex:none;}
-    .gv-kpi-period{grid-column:1/-1;margin-bottom:0;}
-    .gv-gauge-wrap{grid-column:1;grid-row:2;height:auto!important;max-height:none!important;align-self:center;}
-    .gv-gauge-inner{max-width:none;}
-    /* KPIs: lista vertical compacta à direita */
-    .gv-main-kpi{display:flex!important;grid-column:2;grid-row:2;flex-direction:column;align-items:flex-start;flex-wrap:nowrap;gap:5px;padding:4px 0;justify-content:center;border-top:none;border-bottom:none;}
-    .gv-main-kpi-item{display:flex!important;flex-direction:row;align-items:baseline;flex-wrap:wrap;gap:3px;row-gap:0;padding:2px 0;border-right:none;}
-    .gv-main-kpi-v{font-size:14px;}
-    .gv-main-kpi-l{font-size:8px;letter-spacing:.3px;}
-    .gv-main-kpi-d{font-size:8px;width:100%;}
-    /* Canais: 3 por linha */
-    .gv-canal-panel,.gv-rank-panel{padding:8px 12px;}
-    .gv-canal-grid{grid-template-columns:repeat(3,1fr);gap:6px;}
-    /* Rankings empilhados no mobile */
-    .gv-rankings{display:flex!important;flex-direction:column;}
-    /* Misc */
-    .gv-big-num{font-size:30px;}
-    .gv-ticker-lbl{font-size:9px;min-width:80px;}
-    .gv-ticker-item{font-size:11px;}
-  }
-
-  /* ── GESTÃO À VISTA · MOBILE (≤480px) ── */
-  /* Seletores com #gestao-vista-screen para especificidade (1,1,0)   */
-  /* que supera o CSS desktop (0,1,0) independente da ordem no arquivo */
-  @media(max-width:480px){
-
-    /* ─ Tela ─ */
-    #gestao-vista-screen{height:100svh!important;max-height:100svh!important;overflow-y:auto!important;overflow-x:hidden!important;-webkit-overflow-scrolling:touch;flex-direction:column;}
-
-    /* ─ Topbar ─ */
-    #gestao-vista-screen .gv-topbar,#meta-ads-campanha-screen .gv-topbar{flex-wrap:wrap;padding:0;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;position:sticky;top:0;z-index:10;background:var(--surface);}
-    #gestao-vista-screen .gv-topbar-brand{order:1;flex:1;min-width:0;display:flex;align-items:center;gap:8px;padding:10px 14px;}
-    #meta-ads-campanha-screen .gv-topbar-brand{order:1;display:flex;align-items:center;gap:10px;padding:10px 16px;}
-    #gestao-vista-screen .gv-topbar .rbv-logo{display:none;}
-    #gestao-vista-screen .gv-perf-tag{font-size:10px;letter-spacing:3px;}
-    #gestao-vista-screen .gv-brand-tag{display:none;}
-    #gestao-vista-screen .gv-clock-wrap{display:none;}
-    #gestao-vista-screen .gv-update-status{display:none;}
-    #gestao-vista-screen .gv-period-btns{order:2;width:100%;box-sizing:border-box;overflow-x:auto;-webkit-overflow-scrolling:touch;display:flex;flex-wrap:nowrap;gap:4px;padding:7px 14px 9px;border-top:1px solid var(--border);background:var(--surface);}
-    #gestao-vista-screen .gv-pbtn{font-size:10px;padding:5px 11px;flex-shrink:0;border-radius:4px;}
-    #gestao-vista-screen #gv-ac-toggle{flex-shrink:0;font-size:9px;padding:5px 10px;}
-
-    /* ─ Board ─ */
-    #gestao-vista-screen .gv-board{display:flex;flex-direction:column;gap:12px;background:var(--surface2);overflow:visible;height:auto;min-height:0;flex:none;padding:12px;}
-
-    /* ─ CARD 1: KPI principal ─ */
-    #gestao-vista-screen .gv-left{display:flex!important;flex-direction:column;align-items:center;padding:16px;gap:12px;overflow:visible;height:auto;background:var(--surface);border:1px solid var(--border);border-radius:6px;width:100%;box-sizing:border-box;flex:none;justify-content:flex-start;}
-    #gestao-vista-screen .gv-kpi-period{align-self:flex-start;grid-column:unset;grid-row:unset;margin:0;}
-    #gestao-vista-screen .gv-col-grid-label.gv-main-chart-title{align-self:flex-start;grid-column:unset;margin:0;border-bottom:none;padding-bottom:0;}
-    #gestao-vista-screen .gv-gauge-wrap{flex:none;grid-column:unset;grid-row:unset;height:auto;max-height:none;min-height:0;width:100%;max-width:196px;}
-    #gestao-vista-screen .gv-gauge-inner{width:100%;max-width:none;aspect-ratio:200/190;}
-    #gestao-vista-screen .gv-big-num{font-size:24px;letter-spacing:-0.5px;}
-
-    /* ─ KPI grid 2×2 ─ */
-    #gestao-vista-screen .gv-main-kpi{display:grid!important;grid-template-columns:repeat(2,1fr)!important;grid-column:unset;grid-row:unset;align-items:stretch;width:100%;border:1px solid var(--border);border-radius:4px;overflow:hidden;gap:0;padding:0;flex-wrap:unset;flex-shrink:0;}
-    #gestao-vista-screen .gv-main-kpi-item{display:flex!important;flex-direction:column!important;align-items:center;text-align:center;padding:12px 8px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);border-left:none;border-top:none;flex-wrap:unset;row-gap:unset;}
-    #gestao-vista-screen .gv-main-kpi-item:nth-child(2n){border-right:none;}
-    #gestao-vista-screen .gv-main-kpi-item:nth-child(n+3){border-bottom:none;}
-    #gestao-vista-screen .gv-main-kpi-v{font-size:16px;}
-    #gestao-vista-screen .gv-main-kpi-l{font-size:8px;letter-spacing:.5px;}
-    #gestao-vista-screen .gv-main-kpi-d{font-size:9px;width:auto;}
-
-    /* ─ Container direito ─ */
-    #gestao-vista-screen .gv-right{display:flex;flex-direction:column;gap:12px;background:transparent;overflow:visible;height:auto;min-height:0;}
-
-    /* ─ CARD 2: Canais ─ */
-    #gestao-vista-screen .gv-canal-panel{display:flex;flex-direction:column;gap:10px;overflow:visible;height:auto;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:6px;}
-    #gestao-vista-screen .gv-col-grid-label{border-bottom:none;padding-bottom:0;margin-bottom:0;}
-    #gestao-vista-screen .gv-canal-scroll{display:block;overflow:visible;flex:none;height:auto;min-height:0;}
-    #gestao-vista-screen .gv-canal-scroll-inner{animation:none;transform:none;}
-    #gestao-vista-screen .gv-canal-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
-    #gestao-vista-screen .gv-sm-item{display:flex!important;flex-direction:column!important;align-items:center;padding:12px 8px 8px;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;text-align:center;}
-    #gestao-vista-screen .gv-sm-item-lbl{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);width:100%;word-break:break-word;line-height:1.2;}
-    #gestao-vista-screen .gv-sm-item svg{width:100%!important;}
-    #gestao-vista-screen .gv-sm-item-val{display:none;}
-    #gestao-vista-screen .gv-sm-item-delta{display:none;}
-    #gestao-vista-screen .gv-sm-item-desvio{display:none;}
-
-    /* ─ Container rankings ─ */
-    #gestao-vista-screen .gv-rankings{display:flex;flex-direction:column;gap:12px;background:transparent;overflow:visible;height:auto;}
-
-    /* ─ CARDS 3 & 4: Rankings ─ */
-    #gestao-vista-screen .gv-rank-panel{display:flex;flex-direction:column;gap:10px;overflow:visible;height:auto;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:6px;}
-    #gestao-vista-screen .gv-rank-col-hdr{margin-bottom:0;font-size:8px;letter-spacing:4px;}
-    #gestao-vista-screen .gv-rank-scroll{overflow:visible;flex:none;height:auto;min-height:0;}
-    #gestao-vista-screen .gv-rank-scroll-inner{display:flex;flex-direction:column;animation:none;transform:none;}
-    #gestao-vista-screen .gv-rank-entry{margin-bottom:8px;padding-bottom:8px;gap:8px;}
-    #gestao-vista-screen .gv-rank-entry:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none;}
-    #gestao-vista-screen .gv-rank-num{font-size:11px;width:16px;}
-    #gestao-vista-screen .gv-rank-nm{font-size:12px;}
-    #gestao-vista-screen .gv-rank-v{font-size:13px;}
-    #gestao-vista-screen .gv-rank-hint{font-size:9px;}
-    #gestao-vista-screen .gv-rank-bar{height:3px;}
-    #gestao-vista-screen .gv-rank-delta{font-size:9px;}
-    #gestao-vista-screen .gv-rank-desvio{font-size:9px;}
-
-    /* ─ Ticker ─ */
-    #gestao-vista-screen .gv-ticker{height:auto;padding:8px 14px;gap:6px;flex-shrink:0;}
-    #gestao-vista-screen .gv-ticker-sep{display:none;}
-    #gestao-vista-screen .gv-ticker-outer{flex:1;overflow-x:auto;-webkit-overflow-scrolling:touch;}
-    #gestao-vista-screen .gv-ticker-inner{white-space:nowrap;animation:none;}
-    #gestao-vista-screen .gv-ticker-lbl{font-size:8px;min-width:72px;letter-spacing:2px;}
-    #gestao-vista-screen .gv-ticker-item{font-size:10px;}
-  }
-
-  /* ── GV DESKTOP RESPONSIVO (1025px–1600px) ── */
-  @media(min-width:1025px) and (max-width:1600px){
-    .gv-board{grid-template-columns:360px 1fr;}
-    .gv-gauge-wrap{max-height:min(42vh,340px);}
-    .gv-left{padding:6px 14px;}
-    .gv-main-kpi{gap:0;}
-    .gv-main-kpi-v{font-size:16px;}
-    .gv-main-kpi-l{font-size:8px;}
-    .gv-main-kpi-d{font-size:8px;}
-    .gv-canal-grid{grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:7px;}
-    .gv-sm-item-lbl{font-size:11px;}
-    .gv-rank-nm{font-size:12px;}
-    .gv-rank-v{font-size:14px;}
-    .gv-rank-hint{font-size:10px;}
-    .gv-rank-num{font-size:11px;}
-    .gv-rank-entry{margin-bottom:4px;}
-    .gv-col-grid-label{font-size:7px;}
-    .gv-kpi-period{font-size:7px;}
-  }
-  @media(min-width:1025px) and (max-width:1280px){
-    .gv-board{grid-template-columns:320px 1fr;}
-    .gv-gauge-wrap{max-height:min(38vh,300px);}
-    .gv-canal-grid{grid-template-columns:repeat(auto-fit,minmax(95px,1fr));gap:5px;}
-    .gv-sm-item-lbl{font-size:10px;}
-    .gv-rank-nm{font-size:11px;}
-    .gv-rank-v{font-size:13px;}
-  }
+  /* ── RESPONSIVE: GESTÃO À VISTA — movida para tela-gestao-a-vista.vue (<style scoped>) ── */
   .auth-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:44px 40px;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.06);}
   .auth-logo{text-align:center;margin-bottom:32px;}
   .auth-logo .ig-icon{width:72px;height:72px;border-radius:4px;background:transparent;display:block;margin:0 auto 14px;}
@@ -882,27 +707,8 @@
   .overall-bar-pct{font-family:'Oswald',sans-serif;font-size:13px;font-weight:500;white-space:nowrap;}
   #insight-card.loading .insight-list{opacity:.4;}
 
-  /* ── DASHBOARD DE VENDAS ── */
-  #sales-menu-screen{min-height:100vh;display:none;flex-direction:column;background:var(--bg);position:relative;z-index:1;}
-  .smenu-topbar{display:flex;align-items:center;justify-content:space-between;padding:13px 24px;border-bottom:1px solid var(--border);background:var(--surface);gap:16px;position:sticky;top:0;z-index:10;}
-  .smenu-back,.gv-back{font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);cursor:pointer;background:none;border:1px solid var(--accent-mid);border-radius:5px;padding:5px 10px;display:flex;align-items:center;gap:5px;transition:background .15s,opacity .15s;white-space:nowrap;}
-  .smenu-back:hover,.gv-back:hover{background:var(--accent-light);}
-  /* override the old gv-back block below */
-  .smenu-title{font-family:'Oswald',sans-serif;font-size:15px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--text);}
-  .smenu-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;gap:40px;}
-  .smenu-headline{text-align:center;}
-  .smenu-headline h2{font-family:'Oswald',sans-serif;font-size:26px;font-weight:500;letter-spacing:3px;text-transform:uppercase;color:var(--text);margin-bottom:6px;}
-  .smenu-headline p{font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);}
-  .smenu-cards{display:flex;gap:22px;flex-wrap:wrap;justify-content:center;}
-  .smenu-card{position:relative;width:270px;min-height:210px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:30px 24px 48px;cursor:pointer;transition:all .25s;display:flex;flex-direction:column;gap:14px;overflow:hidden;}
-  .smenu-card::before{content:'';position:absolute;inset:0;background:var(--accent);opacity:0;transition:opacity .2s;border-radius:18px;}
-  .smenu-card:hover::before{opacity:.05;}
-  .smenu-card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 8px 32px rgba(0,0,0,.1);}
-  .smenu-card-num{font-family:'IBM Plex Sans',sans-serif;font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;font-weight:600;}
-  .smenu-card-icon{width:48px;height:48px;background:var(--accent);border-radius:12px;display:flex;align-items:center;justify-content:center;}
-  .smenu-card-title{font-family:'Oswald',sans-serif;font-size:18px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);line-height:1.2;}
-  .smenu-card-desc{font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);line-height:1.7;}
-  .smenu-card-enter{position:absolute;bottom:16px;right:18px;font-size:18px;color:var(--muted);transition:all .2s;}
+  /* ── DASHBOARD DE VENDAS — regras .smenu-/#sales-menu-screen movidas para
+     src/ferramentas/vendas/tela-menu-vendas.vue (<style scoped>) ── */
 
   [data-theme="dark"] .np-gallery{background:#1b1812;border-color:rgba(255,255,255,.10);}
   [data-theme="dark"] .np-prod-imgwrap{background:#0c0b08;}
@@ -1238,14 +1044,6 @@
   .zoomctl button:hover{background:#f0ece4;}
   .zoomctl-val{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;color:#6b6258;min-width:40px;text-align:center;cursor:pointer;user-select:none;font-variant-numeric:tabular-nums;}
   @media(max-width:560px){.zoomctl{right:14px;bottom:64px;}}
-  .smenu-card:hover .smenu-card-enter{transform:translateX(4px);color:var(--accent);}
-  .smenu-cards.view-list{flex-direction:column;align-items:stretch;gap:8px;width:100%;max-width:640px;}
-  .smenu-cards.view-list .smenu-card{width:100%;min-height:unset;flex-direction:row;padding:14px 18px 14px 20px;gap:16px;align-items:center;}
-  .smenu-cards.view-list .smenu-card-num{display:none;}
-  .smenu-cards.view-list .smenu-card-icon{width:42px;height:42px;border-radius:9px;flex-shrink:0;}
-  .smenu-cards.view-list .smenu-card-title{font-size:14px;letter-spacing:1px;}
-  .smenu-cards.view-list .smenu-card-desc{font-size:11px;margin:0;}
-  .smenu-cards.view-list .smenu-card-enter{position:static;margin-left:auto;}
 
   /* Brand Picker */
   #sales-brand-screen{min-height:100vh;display:none;flex-direction:column;background:var(--bg);position:relative;z-index:1;}
@@ -1277,9 +1075,10 @@
   .vs-custom-wrap.open{display:flex;}
   .vs-ac-toggle{font-family:'IBM Plex Sans',sans-serif;font-size:10px;letter-spacing:.8px;text-transform:uppercase;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;margin-left:6px;}
   .vs-ac-toggle.running{border-color:var(--green);color:var(--green);}
-  .gv-period-btns{display:flex;align-items:center;gap:4px;}
-  .gv-pbtn{font-family:'IBM Plex Sans',sans-serif;font-size:10px;padding:4px 9px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
-  .gv-pbtn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  /* .gv-period-btns/.gv-pbtn (compartilhadas com Gestão à Vista) foram para
+     tela-gestao-a-vista.vue — telas ainda não migradas que também usam essas
+     classes (Análise de Vendas/Meta Ads/GT) devem trazer sua própria cópia
+     quando forem portadas, seguindo o mesmo padrão. */
   .vsales-body{padding:20px 24px;max-width:1200px;margin:0 auto;width:100%;}
   /* KPI CARDS */
   .vs2-kpis{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:22px;}
@@ -1522,125 +1321,9 @@
   body.dev-tv #sales-analysis-screen .sa-pos-cell{font-size:16px;padding:6px 10px;min-width:83px;}
   body.dev-tv #sales-analysis-screen .sa-pos-name{font-size:18px;padding:6px 13px;}
   body.dev-tv #sales-analysis-screen .sa-loading-lbl{font-size:16px;}
-  /* ── GESTÃO À VISTA — TV BOARD v2 ── */
-  #gestao-vista-screen{height:100vh;max-height:100vh;display:none;flex-direction:column;background:var(--bg);color:var(--text);overflow:hidden;position:relative;z-index:1;}
-  #gv-watermark{position:absolute;bottom:100px;right:32px;font-family:'Oswald',sans-serif;font-size:73px;font-weight:700;letter-spacing:8px;text-transform:uppercase;color:var(--text);opacity:.18;pointer-events:none;user-select:none;z-index:1;line-height:1;}
-  .gv-topbar{display:flex;align-items:center;justify-content:space-between;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
-  .gv-back{display:flex;align-items:center;gap:4px;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;transition:opacity .15s;letter-spacing:.3px;text-transform:uppercase;}
-  .gv-back:hover{opacity:.75;}
-  .gv-brand-tag{font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--text);opacity:.6;line-height:1;}
-  .gv-perf-tag{font-family:'IBM Plex Sans',sans-serif;font-size:13.5px;font-weight:700;letter-spacing:6px;text-transform:uppercase;color:var(--text);opacity:1;line-height:1.2;}
-  .gv-clock-wrap{text-align:right;}
-  .gv-clock-time{font-family:'Oswald',sans-serif;font-size:28px;font-weight:400;letter-spacing:3px;color:var(--text);line-height:1;}
-  .gv-clock-date{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:3px;}
-  .gv-update-status{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);opacity:.45;margin-top:4px;text-align:right;}
-  /* Board layout — 2-column grid: left=gauge panel, right=canal gauges + rankings */
-  .gv-board{flex:1;display:grid;grid-template-columns:480px 1fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;position:relative;z-index:2;backdrop-filter:none;}
-  .gv-left{background:var(--bg);display:flex;flex-direction:column;align-items:center;padding:8px 22px;gap:0;overflow:hidden;justify-content:space-between;}
-  .gv-gauge-wrap{flex:1;min-height:0;max-height:min(50vh,420px);width:100%;display:flex;align-items:center;justify-content:center;}
-  .gv-gauge-inner{width:100%;max-width:460px;aspect-ratio:1;}
-  .gv-right{display:grid;grid-template-rows:55fr 45fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;}
-  .gv-canal-panel{background:var(--bg);padding:7px 12px;display:flex;flex-direction:column;overflow:hidden;}
-  .gv-canal-scroll{flex:1;overflow:hidden;min-height:0;display:flex;align-items:center;justify-content:center;}
-  .gv-canal-scroll-inner{width:100%;}
-  .gv-canal-scroll-inner.scrolling{animation:gvRankUp var(--gv-scroll-dur,20s) ease-in-out infinite alternate;}
-  .gv-canal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;align-content:start;width:100%;}
-  .gv-sm-item{display:flex;flex-direction:column;align-items:center;gap:2px;}
-  .gv-sm-item-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:14px;font-weight:700;letter-spacing:.5px;color:var(--muted);text-align:center;line-height:1.3;overflow-wrap:break-word;word-break:break-word;max-width:100%;}
-  .gv-sm-item-val{font-family:'Oswald',sans-serif;font-size:13px;color:var(--text);}
-  .gv-sm-item-delta{font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;letter-spacing:.3px;text-align:center;}
-  .gv-sm-item-delta.up{color:#22c55e;}.gv-sm-item-delta.dn{color:#f43f5e;}
-  .gv-sm-item-desvio{font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);text-align:center;}
-  .gv-rank-delta{font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;flex-shrink:0;margin-right:2px;}
-  .gv-rank-delta.up{color:#22c55e;}.gv-rank-delta.dn{color:#f43f5e;}
-  .gv-rank-desvio{font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;flex-shrink:0;}
-  .gv-rank-desvio.pos{color:#22c55e;}.gv-rank-desvio.neg{color:#f43f5e;}
-  .gv-rankings{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;}
-  .gv-rank-panel{background:var(--bg);padding:7px 12px;display:flex;flex-direction:column;overflow:hidden;}
-  .gv-rank-scroll{flex:1;overflow:hidden;min-height:0;position:relative;}
-  .gv-rank-scroll-inner{display:flex;flex-direction:column;}
-  @keyframes gvRankUp{0%,8%{transform:translateY(0)}92%,100%{transform:translateY(var(--gv-scroll-h,0px))}}
-  .gv-rank-scroll-inner.scrolling{animation:gvRankUp var(--gv-scroll-dur,20s) ease-in-out infinite alternate;}
-  .gv-col-grid-label{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;padding-bottom:6px;flex-shrink:0;border-bottom:1px solid var(--border);}
-  .gv-main-kpi{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:.3px;text-transform:uppercase;color:var(--muted);display:grid;grid-template-columns:repeat(3,1fr);gap:0;flex-shrink:0;border:1px solid var(--border);width:100%;}
-  .gv-main-kpi-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:8px 6px;text-align:center;border-right:1px solid var(--border);border-bottom:1px solid var(--border);min-width:0;}
-  .gv-main-kpi-item:nth-child(3n){border-right:none;}
-  .gv-main-kpi-item:nth-child(n+4){border-bottom:none;}
-  .gv-main-kpi-v{font-family:'Oswald',sans-serif;font-size:20px;font-weight:500;color:var(--text);white-space:nowrap;max-width:100%;}
-  .gv-main-kpi-l{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);}
-  .gv-main-kpi-d{font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;letter-spacing:.2px;white-space:nowrap;}
-  .gv-loading-full{grid-column:1/-1;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:14px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);opacity:.4;}
-  @keyframes gvSpin{to{transform:rotate(360deg)}}
-  .gv-loading-screen{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;min-height:60vh;}
-  .gv-spinner{width:48px;height:48px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:gvSpin .9s linear infinite;}
-  .gv-loading-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);opacity:.6;}
-  /* KPI col */
-  .gv-kpi-period{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px;flex-shrink:0;}
-  .gv-big-num{font-family:'Oswald',sans-serif;font-size:58px;font-weight:600;letter-spacing:-2px;line-height:1;transition:color .6s,text-shadow .6s;font-variant-numeric:tabular-nums;}
-  .gv-big-num.c-white{color:var(--text);}
-  .gv-big-num.c-green{color:var(--green);text-shadow:0 0 50px rgba(34,197,94,.18);}
-  .gv-big-num.c-yellow{color:var(--yellow);text-shadow:0 0 50px rgba(245,158,11,.15);}
-  .gv-big-num.c-red{color:var(--red);text-shadow:0 0 50px rgba(239,68,68,.15);}
-  /* Progress ring */
-  .gv-ring-area{display:flex;align-items:center;gap:16px;margin:14px 0;}
-  .gv-ring-right{display:flex;flex-direction:column;gap:5px;}
-  .gv-ring-pct{font-family:'Oswald',sans-serif;font-size:40px;font-weight:600;line-height:1;}
-  .gv-ring-pct.c-green{color:var(--green);}
-  .gv-ring-pct.c-yellow{color:var(--yellow);}
-  .gv-ring-pct.c-red{color:var(--red);}
-  .gv-ring-pct.c-white{color:var(--text);}
-  .gv-ring-meta{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;}
-  .gv-ring-meta strong{color:var(--text);font-weight:500;}
-  /* Gauge liquid shimmer & neon glow */
-  @keyframes gaugeShimmer{0%{transform:translateX(-220px)}100%{transform:translateX(440px)}}
-  @keyframes gaugeNeonPulse{0%,100%{opacity:.7}50%{opacity:1}}
-  .gauge-shimmer{animation:gaugeShimmer 3.5s linear infinite;}
-  .gauge-neon-arc{animation:gaugeNeonPulse 1.8s ease-in-out infinite;}
-  /* Sub KPIs */
-  .gv-sub-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:auto;}
-  .gv-sub-box{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;}
-  .gv-sub-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
-  .gv-sub-val{font-family:'Oswald',sans-serif;font-size:20px;font-weight:500;color:var(--text);}
-  /* Rank cols */
-  .gv-rank-col-hdr{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:10px;}
-  .gv-rank-col-hdr::after{content:'';flex:1;height:1px;background:var(--border);}
-  .gv-rank-entry{display:flex;align-items:flex-start;gap:8px;padding-bottom:5px;margin-bottom:5px;border-bottom:1px solid var(--border);}
-  .gv-rank-entry:last-child{border-bottom:none;margin-bottom:0;}
-  .gv-rank-num{font-family:'Oswald',sans-serif;font-size:12px;font-weight:600;width:16px;text-align:center;flex-shrink:0;margin-top:1px;}
-  .gv-rank-num.gold{color:#f59e0b;}
-  .gv-rank-num.silver{color:#94a3b8;}
-  .gv-rank-num.bronze{color:#b87333;}
-  .gv-rank-num.rest{color:var(--muted);}
-  .gv-rank-body{flex:1;min-width:0;}
-  .gv-rank-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;}
-  .gv-rank-nm{font-family:'IBM Plex Sans',sans-serif;font-size:14px;font-weight:400;color:var(--text);overflow-wrap:break-word;word-break:break-word;line-height:1.3;}
-  .gv-rank-v{font-family:'Oswald',sans-serif;font-size:17px;font-weight:500;color:var(--text);flex-shrink:0;margin-left:6px;}
-  .gv-rank-bar{height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;}
-  .gv-rank-bar-fill{height:100%;border-radius:2px;transition:width 1.8s cubic-bezier(.4,0,.2,1);}
-  .gv-rank-bar-fill.gold{background:linear-gradient(90deg,#d97706,#fbbf24);}
-  .gv-rank-bar-fill.silver{background:linear-gradient(90deg,#475569,#94a3b8);}
-  .gv-rank-bar-fill.bronze{background:linear-gradient(90deg,#78350f,#b87333);}
-  .gv-rank-bar-fill.rest{background:linear-gradient(90deg,var(--accent-mid),var(--accent));}
-  .gv-rank-hint{font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);margin-top:1px;}
-  /* Ticker */
-  .gv-ticker{border-top:1px solid var(--border);padding:0 28px;display:flex;align-items:center;gap:16px;background:var(--surface2);flex-shrink:0;height:30px;overflow:hidden;position:relative;z-index:2;transition:opacity .35s ease;}
-  .gv-ticker-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:4px;text-transform:uppercase;color:var(--accent);flex-shrink:0;min-width:130px;}
-  .gv-ticker-sep{width:1px;height:14px;background:var(--border);flex-shrink:0;}
-  .gv-ticker-outer{flex:1;overflow:hidden;}
-  .gv-ticker-inner{display:flex;gap:48px;white-space:nowrap;}
-  .gv-ticker-inner.animate{animation:gvTickerBF var(--ticker-dur,14s) ease-in-out 2 alternate;}
-  @keyframes gvTickerBF{0%,4%{transform:translateX(0)}96%,100%{transform:translateX(var(--ticker-travel,0px))}}
-  .gv-ticker-item{font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);flex-shrink:0;}
-  .gv-ticker-item strong{color:var(--text);}
-  .gv-ticker-dot{display:inline-block;width:3px;height:3px;border-radius:50%;background:var(--accent);vertical-align:middle;margin:0 14px;}
-  .gv-refresh-tag{font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);opacity:.4;flex-shrink:0;}
-  /* GV animated background */
-  #gv-bg-anim{position:absolute;left:0;right:0;top:40px;bottom:30px;z-index:0;pointer-events:none;overflow:hidden;opacity:1;}
-  #gv-bg-anim svg{width:100%;height:100%;position:absolute;inset:0;}
-  @keyframes gvBgRise{0%{transform:translateY(90px)}100%{transform:translateY(-90px)}}
-  /* GV panels: semi-transparent so animated background shows through */
-  .gv-left,.gv-canal-panel,.gv-rank-panel{background:rgba(255,255,255,.60)!important;}
-  [data-theme="dark"] .gv-left,[data-theme="dark"] .gv-canal-panel,[data-theme="dark"] .gv-rank-panel{background:rgba(10,11,20,.60)!important;}
+  /* GESTÃO À VISTA — TV BOARD: todo o bloco (inclusive keyframes gvRankUp/
+     gvSpin/gvTickerBF/gvBgRise/gaugeShimmer/gaugeNeonPulse) foi para
+     tela-gestao-a-vista.vue (<style scoped>) ── */
 
   /* prefers-reduced-motion */
   @media(prefers-reduced-motion:reduce){
@@ -1648,51 +1331,8 @@
     .mc-progress-fill::after,.overall-bar-fill::after{animation:none!important;}
     #bg-shapes .orb,#bg-shapes .ring,#bg-shapes .ico{animation:none!important;}
     .av-ring-wrap::before,#apb-ring-wrap::before{animation:none!important;}
-    .gauge-shimmer{animation:none!important;}
     .live-dot::before{animation:none!important;}
   }
-  /* ── TV OVERRIDES (≥1920px) ── */
-  body.dev-tv #gestao-vista-screen .gv-board{grid-template-columns:1fr 2fr;}
-  body.dev-tv #gestao-vista-screen .gv-right{grid-template-rows:62fr 38fr;}
-  body.dev-tv #gestao-vista-screen .gv-left{padding:20px 36px;gap:0;}
-  body.dev-tv #gestao-vista-screen .gv-gauge-wrap{max-height:none;}
-  body.dev-tv #gestao-vista-screen .gv-gauge-inner{max-width:680px;}
-  body.dev-tv #gestao-vista-screen .gv-canal-panel{padding:18px 28px;}
-  body.dev-tv #gestao-vista-screen .gv-canal-grid{grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;}
-  body.dev-tv #gestao-vista-screen .gv-rank-panel{padding:18px 44px;}
-  body.dev-tv .gv-clock-time{font-size:72px;letter-spacing:5px;}
-  body.dev-tv .gv-clock-date{font-size:20px;}
-  body.dev-tv .gv-kpi-period{font-size:20px;letter-spacing:4px;}
-  body.dev-tv .gv-col-grid-label{font-size:20px;margin-bottom:14px;}
-  body.dev-tv .gv-main-kpi{grid-template-columns:repeat(3,1fr);}
-  body.dev-tv .gv-main-kpi-item{padding:16px 20px;}
-  body.dev-tv .gv-main-kpi-v{font-size:48px;}
-  body.dev-tv .gv-main-kpi-l{font-size:20px;}
-  body.dev-tv .gv-main-kpi-d{font-size:22px;}
-  body.dev-tv .gv-rank-col-hdr{font-size:20px;letter-spacing:5px;margin-bottom:20px;}
-  body.dev-tv .gv-rank-num{font-size:30px;width:36px;}
-  body.dev-tv .gv-rank-nm{font-size:30px;}
-  body.dev-tv .gv-rank-v{font-size:39px;}
-  body.dev-tv .gv-rank-hint{font-size:23px;}
-  body.dev-tv .gv-rank-entry{margin-bottom:20px;}
-  body.dev-tv .gv-rank-bar{height:9px;}
-  body.dev-tv .gv-sm-item-lbl{font-size:30px;}
-  body.dev-tv .gv-sm-item-val{font-size:24px;}
-  body.dev-tv .gv-sm-item-delta{font-size:18px;}
-  body.dev-tv .gv-sm-item-desvio{font-size:17px;}
-  body.dev-tv .gv-rank-delta{font-size:22px;}
-  body.dev-tv .gv-rank-desvio{font-size:20px;}
-  body.dev-tv .gv-ticker{height:70px;}
-  body.dev-tv .gv-ticker-lbl{font-size:20px;}
-  body.dev-tv .gv-ticker-item{font-size:30px;}
-  body.dev-tv .gv-ticker-dot{width:6px;height:6px;}
-  body.dev-tv #gestao-vista-screen .gv-topbar{padding:22px 56px;}
-  body.dev-tv .gv-back{font-size:18px;}
-  body.dev-tv .gv-brand-tag{font-size:16px;color:var(--text);}
-  body.dev-tv .gv-perf-tag{font-size:24px;color:var(--text);}
-  body.dev-tv .gv-main-chart-title{font-size:20px!important;font-weight:700!important;color:var(--text)!important;}
-  body.dev-tv #gestao-vista-screen .gv-pbtn{font-size:21px;padding:8px 19px;border-radius:8px;}
-  body.dev-tv #gestao-vista-screen #gv-ac-toggle{font-size:21px;padding:8px 17px;}
   /* ── AUTH CANVAS + DARK LOGIN ── */
   #auth-bg-canvas{position:absolute;inset:0;z-index:0;pointer-events:none;}
   .auth-card{position:relative;z-index:1;}
@@ -1745,13 +1385,13 @@
   .gub-action:hover{background:var(--surface2);}
   .gub-danger{color:var(--red)!important;}
   .gub-action svg{flex-shrink:0;opacity:.7;}
-  /* Shift GV clock and other right-side topbar elements so they don't hide behind the fixed button */
-  .gv-clock-wrap{padding-right:44px;}
-  body.dev-tv .gv-clock-wrap{padding-right:66px;}
-  body.dev-tv .gv-update-status{font-size:15px;}
+  /* Shift other right-side topbar elements so they don't hide behind the fixed
+     button (o próprio botão global #global-user-btn ainda não existe no Vue —
+     os deslocamentos do relógio da Gestão à Vista e do Menu de Vendas para
+     esse botão ficaram documentados como pendência dentro de cada componente,
+     em vez de ficarem aqui soltos sem o botão que os justifica). */
   .home-header-user{padding-right:44px;}
   .user-bar{padding-right:44px;}
-  .smenu-topbar .view-toggle:last-child,.smenu-topbar>span:last-child,.smenu-topbar>div:last-child{padding-right:44px;}
 
   .admin-form-label{font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px;font-weight:600;}
   .admin-form-input{width:100%;padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:3px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;outline:none;transition:border-color .18s;box-sizing:border-box;}
