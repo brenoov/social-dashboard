@@ -562,7 +562,10 @@ async function loadAdminUsers() {
     const avEditBtn = mkEl('button', 'av-edit-btn'); avEditBtn.title = 'Trocar foto'; avEditBtn.innerHTML = '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'
     avEditBtn.addEventListener('click', () => _triggerAvatarUpload(u.id, (url) => {
       av.innerHTML = ''; const img = mkEl('img', 'av-img'); img.src = url + '?t=' + Date.now(); img.alt = ''; av.appendChild(img)
-      if (u.id === estado.userId) _setGubAvatar(url)
+      // _setGubAvatar (botão de usuário global) ainda não existe no app Vue —
+      // o typeof evita o ReferenceError que fazia aparecer um toast de erro falso
+      // mesmo com o upload OK. Volta a funcionar sozinho se o botão global for portado.
+      if (u.id === estado.userId && typeof _setGubAvatar === 'function') _setGubAvatar(url)
       adminToast('Foto atualizada!')
     }))
     avWrap.appendChild(av); avWrap.appendChild(avEditBtn)
