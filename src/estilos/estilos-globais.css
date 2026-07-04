@@ -1430,102 +1430,12 @@
      fora da árvore do componente). #meta-ads-hub-screen já tinha sido
      esvaziado antes (hub virou .tela-menu-meta-ads em
      tela-menu-meta-ads.vue). Gestão de Tráfego (classes gt-, id
-     #gestao-trafego-screen, abaixo) ainda não foi portada ── */
-
-  /* ── GESTÃO DE TRÁFEGO ── */
-  #gestao-trafego-screen{min-height:100vh;display:none;flex-direction:column;background:var(--bg);}
-  .gt-body{flex:1;display:flex;flex-direction:column;overflow-y:auto;padding:20px 28px;gap:16px;}
-  .gt-camp-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;}
-  .gt-camp-hdr{padding:13px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
-  .gt-camp-list{display:flex;flex-direction:column;}
-  .gt-camp-row{border-bottom:1px solid var(--border);}
-  .gt-camp-row:last-child{border-bottom:none;}
-  /* Campaign inner block */
-  .gt-camp-inner{padding:13px 22px 10px;}
-  .gt-camp-top{display:flex;flex-direction:column;gap:0;cursor:pointer;user-select:none;border-radius:8px;padding:7px 8px;margin:-5px -8px;transition:background .12s;}
-  .gt-camp-top:hover{background:var(--surface2);}
-  .gt-camp-top:hover .gt-name{color:var(--accent);}
-  .gt-camp-l1{display:flex;align-items:center;gap:10px;}
-  .gt-camp-l1 .gt-spend{margin-left:auto;}
-  .gt-camp-l2{display:flex;align-items:center;gap:14px;margin-top:7px;flex-wrap:wrap;}
-  .gt-camp-exp{margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0;}
-  .gt-camp-row-ads{padding:0 18px 14px 22px;display:none;flex-direction:column;gap:0;background:var(--surface2);border-top:1px solid var(--border);position:relative;}
-  .gt-camp-row-ads::before{content:'';position:absolute;left:36px;top:0;bottom:18px;width:2px;background:var(--border);border-radius:1px;opacity:.6;}
-  .gt-camp-row-ads.open{display:flex;}
-  .gt-ads-section-lbl{font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 0 6px 20px;opacity:.7;}
-  .gt-ad-card{border-radius:8px;background:var(--surface);border:1px solid var(--border);padding:11px 14px;display:flex;flex-direction:column;gap:6px;margin-left:20px;margin-bottom:7px;box-shadow:0 2px 8px rgba(0,0,0,.07);position:relative;}
-  .gt-ad-card::before{content:'';position:absolute;left:-20px;top:18px;width:16px;height:2px;background:var(--border);opacity:.6;}
-  .gt-ad-top{display:flex;align-items:center;gap:8px;}
-  /* Status badge — replaces dot */
-  .gt-status-badge{display:inline-flex;align-items:center;gap:4px;font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;letter-spacing:.4px;padding:2px 8px;border-radius:20px;flex-shrink:0;text-transform:uppercase;}
-  .gt-status-badge.active{background:rgba(22,163,74,.12);color:#16a34a;}
-  .gt-status-badge.active::before{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:#16a34a;animation:pulse 2s infinite;flex-shrink:0;}
-  .gt-status-badge.paused{background:rgba(245,158,11,.12);color:#d97706;}
-  .gt-status-badge.paused::before{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:#f59e0b;flex-shrink:0;}
-  .gt-status-badge.inactive{background:rgba(107,114,128,.1);color:#6b7280;}
-  .gt-status-badge.inactive::before{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:#9ca3af;flex-shrink:0;}
-  .gt-chevron{flex-shrink:0;transition:transform .2s;color:var(--muted);opacity:.55;}
-  .gt-chevron.open{transform:rotate(90deg);}
-  .gt-expand-hint{font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);opacity:.7;white-space:nowrap;flex-shrink:0;transition:opacity .12s;}
-  .gt-camp-top:hover .gt-expand-hint{opacity:1;color:var(--accent);}
-  .gt-name{flex:1;min-width:0;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color .12s;}
-  .gt-metrics{display:flex;align-items:center;gap:14px;flex-wrap:wrap;flex-shrink:0;}
-  .gt-metric{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);white-space:nowrap;}
-  .gt-metric span{font-weight:700;color:var(--text);}
-  .gt-spend{font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;color:var(--text);flex-shrink:0;min-width:65px;text-align:right;}
-  /* Inline AI insight */
-  .gt-insight{display:flex;align-items:flex-start;gap:6px;margin:7px 0 4px;padding:6px 10px;border-radius:6px;border-left:3px solid;}
-  .gt-insight.critico{background:rgba(220,38,38,.07);border-color:#dc2626;}
-  .gt-insight.atencao{background:rgba(245,158,11,.07);border-color:#d97706;}
-  .gt-insight.oportunidade{background:rgba(22,163,74,.07);border-color:#16a34a;}
-  .gt-insight.ok{background:rgba(99,102,241,.06);border-color:#6366f1;}
-  .gt-criteria{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);padding:1px 0 3px 13px;line-height:1.4;}
-  .gt-criteria b{opacity:.7;font-weight:700;}
-  .gt-insight-text{font-family:'IBM Plex Sans',sans-serif;font-size:11px;line-height:1.5;flex:1;min-width:0;}
-  .gt-insight.critico .gt-insight-text{color:#dc2626;}
-  .gt-insight.atencao .gt-insight-text{color:#b45309;}
-  .gt-insight.oportunidade .gt-insight-text{color:#15803d;}
-  .gt-insight.ok .gt-insight-text{color:#4f46e5;}
-  /* Action buttons */
-  .gt-action-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:4px;}
-  .gt-act-btn{padding:4px 11px;border-radius:20px;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;cursor:pointer;transition:all .15s;border:1px solid var(--border);background:none;color:var(--text);white-space:nowrap;display:flex;align-items:center;gap:4px;}
-  .gt-act-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light);}
-  .gt-act-btn.danger{border-color:rgba(220,38,38,.3);color:#dc2626;}
-  .gt-act-btn.danger:hover{background:rgba(220,38,38,.08);border-color:#dc2626;}
-  .gt-act-btn.success{border-color:rgba(22,163,74,.3);color:#16a34a;}
-  .gt-act-btn.success:hover{background:rgba(22,163,74,.08);border-color:#16a34a;}
-  .gt-act-btn.primary{border-color:var(--accent);color:var(--accent);}
-  .gt-act-btn.primary:hover{background:var(--accent);color:#fff;}
-  .gt-act-btn:disabled{opacity:.5;cursor:not-allowed;pointer-events:none;}
-  /* Auto button */
-  .gt-auto-btn{display:flex;align-items:center;gap:6px;padding:5px 14px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);letter-spacing:.3px;transition:all .2s;white-space:nowrap;position:relative;}
-  .gt-auto-btn:hover{border-color:#9ca3af;color:var(--text);}
-  .gt-auto-btn.active{border-color:#7c3aed;background:rgba(124,58,237,.12);color:#7c3aed;}
-  .gt-auto-btn.active:hover{background:rgba(124,58,237,.2);}
-  .gt-auto-btn.running{border-color:#7c3aed;background:#7c3aed;color:#fff;animation:pulse 1.5s infinite;}
-  .gt-auto-btn:disabled{opacity:.5;cursor:not-allowed;}
-  #gt-auto-floating-tip{position:fixed;background:rgba(220,38,38,.97);color:#fff;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;padding:8px 12px;border-radius:7px;white-space:normal;pointer-events:none;opacity:0;transition:opacity .18s;z-index:9999;max-width:230px;text-align:center;line-height:1.5;box-shadow:0 4px 18px rgba(0,0,0,.3);}
-  #gt-auto-floating-tip.visible{opacity:1;}
-  #gt-auto-floating-tip::after{content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-bottom-color:rgba(220,38,38,.97);}
-  /* Auto modal */
-  #gt-auto-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1200;display:none;backdrop-filter:blur(2px);}
-  #gt-auto-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1201;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(520px,92vw);max-height:80vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.35);}
-  .gt-auto-modal-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
-  .gt-auto-modal-title{font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:700;color:var(--text);}
-  .gt-auto-modal-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0;line-height:1;}
-  .gt-auto-modal-body{padding:16px 20px;overflow-y:auto;flex:1;}
-  .gt-auto-modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;gap:10px;}
-  .gt-auto-item{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;border-radius:7px;border:1px solid var(--border);margin-bottom:7px;background:var(--surface2);}
-  .gt-auto-item.critico{border-color:rgba(220,38,38,.3);}
-  .gt-auto-item.oportunidade{border-color:rgba(22,163,74,.3);}
-  .gt-auto-item-text{flex:1;min-width:0;}
-  .gt-auto-item-name{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;color:var(--text);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .gt-auto-item-action{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);}
-  .gt-auto-results{padding:8px 0;}
-  .gt-auto-result-row{display:flex;align-items:center;gap:8px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;padding:5px 0;border-bottom:1px solid var(--border);}
-  .gt-auto-result-row:last-child{border-bottom:none;}
-  .gt-empty{text-align:center;padding:32px 16px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);line-height:1.7;}
-  @media(max-width:768px){.gt-body{padding:12px 14px;}.gt-camp-inner{padding:11px 14px 9px;}.gt-camp-row-ads{padding-left:14px;padding-right:14px;}}
+     #gestao-trafego-screen) também já foi portada, para
+     src/ferramentas/gestao-trafego/tela-gestao-trafego.vue (<style scoped>).
+     Este bloco global de Gestão de Tráfego estava desatualizado em relação ao
+     legacy/index.html (versão antiga, sem .gt-rec-banner/.gt-ad-pill/
+     .gt-budget-edit/modais de config — o porte seguiu o legacy/index.html
+     atual como fonte da verdade, não este arquivo) ── */
   /* ── BANCO DE ARQUIVOS ── */
   #banco-screen{min-height:100vh;display:none;flex-direction:column;background:var(--bg);}
   .banco-topbar{display:flex;align-items:center;justify-content:space-between;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}

@@ -1,0 +1,64 @@
+FERRAMENTA: Meta Ads — Gestão de Tráfego
+=========================================
+Painel de tráfego pago (Meta/Facebook Ads) com um "agente de IA": mostra as
+campanhas de uma conta de anúncios com KPIs por objetivo, uma recomendação
+(manter, escalar, reduzir ou pausar) e permite AGIR de verdade na conta —
+pausar/reativar campanha ou anúncio, e mudar o orçamento diário.
+
+ATENÇÃO: ESTA TELA MEXE EM CAMPANHAS DE VERDADE NA META.
+Toda ação (pausar, reativar, mudar orçamento) sempre pede confirmação numa
+janela antes de ser aplicada — nunca é feita sozinha. Se você não tem
+certeza do que uma ação vai fazer, cancele e pergunte antes de confirmar.
+
+Arquivo principal: tela-gestao-trafego.vue
+
+Como funciona (resumido):
+- Os dados vêm direto da Meta (Graph API) através de uma Edge Function do
+  Supabase chamada "meta-proxy" (funções metaFetch/metaFetchAll/metaPost), e
+  a lista de contas de anúncios vem do Supabase (tabela accounts) + descoberta
+  automática via "/me/adaccounts" na Meta — esta tela descobre sua PRÓPRIA
+  lista de contas (não depende da tela de Análise de Campanhas).
+- Cada campanha mostra uma "faixa de recomendação" (a estrela ✦ IA): vem de
+  uma análise semanal de um robô (tabelas gt_budget_analises/gt_ad_analises)
+  ou, se ainda não houver análise, de um motor de regras simples calculado na
+  hora (CTR, frequência, gasto, leads etc.).
+- Botões de período no topo (HOJE, 1D, 7D, 14D, 30D, MÊS...) trocam o período
+  (setGtPeriod); "↻" recarrega os dados na hora.
+- Botão "KPIs" (canto superior, só para quem tem a permissão liberada): abre
+  um editor de quais métricas aparecem por objetivo de campanha (tráfego,
+  vendas, leads etc.) — grava na tabela gt_config_metricas.
+- Cada campanha pode ser expandida para ver seus anúncios, cada um com botão
+  "Ver criativo" (mostra o preview do anúncio) e pausar/reativar manual.
+- Um controle de zoom de fonte (A−/A+, canto inferior direito) ajusta o
+  tamanho do texto da tela inteira e lembra a escolha (localStorage).
+- Botão "Meta Ads" (topo esquerdo): limpa os timers e volta para o Hub do
+  Meta Ads.
+- Só abre para quem tem a permissão "meta.gestor" liberada (ou é admin).
+
+Detalhe técnico (porte para Vue, seguindo o mesmo padrão da Gestão à Vista e
+da Análise de Campanhas):
+- Este componente é um PORTE FIEL (verbatim) do site antigo (legacy/index.html,
+  bloco de funções "gt"/"_gt" + #gestao-trafego-screen). As funções e
+  variáveis de estado foram copiadas iguais, sem reescrever para "template
+  reativo": o conteúdo inteiro (lista de campanhas, KPIs, faixa da IA,
+  anúncios) é montado via JavaScript puro (innerHTML/createElement) toda vez
+  que os dados chegam.
+- Por isso, boa parte das funções (setGtPeriod, toggleGtAccPicker, loadGtData,
+  _gtOpenEditor, _gtCloseEditor, _gtSaveEditor, _gtCloseCriativo) precisa
+  ficar acessível em "window" — são chamadas por atributos onclick="..."
+  dentro do HTML da própria tela.
+- O CSS desta tela (bloco "GESTÃO DE TRÁFEGO" que ficava em
+  src/estilos/estilos-globais.css) foi MOVIDO para dentro deste componente
+  (bloco <style scoped>), junto com o controle de zoom (.zoomctl/.zoomctl-val)
+  e o chip de objetivo (.ma-obj-chip) — cada tela que usa essas classes traz
+  sua própria cópia, mesmo padrão já usado na Análise de Campanhas.
+- Ao contrário da Análise de Campanhas (que guarda a lista de contas em
+  _maAccounts, no módulo dela), esta tela guarda sua própria lista em
+  _gtAccounts — os dois módulos são independentes, cada um descobre e mostra
+  suas contas de anúncios sozinho.
+- Ao sair da tela (botão Voltar ou navegação), TODOS os temporizadores são
+  desligados (relógio e status de atualização) e os listeners globais são
+  removidos (fechar o menu de contas ao clicar fora / tecla Esc do modal de
+  criativo).
+
+Para mexer só nesta tela, edite apenas esta pasta.

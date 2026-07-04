@@ -6,9 +6,9 @@ de tráfego pago disponíveis, em cards (ou lista).
 Arquivo principal: tela-menu-meta-ads.vue
 
 Como funciona (resumido):
-- 2 cards: "Análise de Campanhas" (já migrada — abre de verdade, leva para
-  /meta-campanhas) e "Gestão de Tráfego" (ainda não migrada — mostra um aviso
-  "ainda não migrada").
+- 2 cards, os dois já migrados e abrindo de verdade: "Análise de Campanhas"
+  (leva para /meta-campanhas) e "Gestão de Tráfego" (leva para
+  /gestao-trafego — agente de IA que sugere pausar/escalar/ajustar budget).
 - Cada card só aparece se a pessoa tiver a permissão daquele módulo liberada
   (ou for admin) — módulos "meta.campanha" e "meta.gestor".
 - Botão de cards/lista no topo (canto direito) alterna a visualização — ao

@@ -38,7 +38,7 @@
           <div class="smenu-card-desc">KPIs de performance, funil de conversão, CTR, CPC, CPM e breakdown completo por campanha e objetivo.</div>
           <span class="smenu-card-enter">→</span>
         </div>
-        <div class="smenu-card" v-if="hasPermission('module:meta:gestor')" @click="aindaNaoMigrada('Gestão de Tráfego')">
+        <div class="smenu-card" v-if="hasPermission('module:meta:gestor')" @click="ir('gestao-trafego')">
           <span class="smenu-card-num">02</span>
           <div class="smenu-card-icon" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
@@ -68,13 +68,10 @@ function voltar() {
   router.push({ name: 'inicio' })
 }
 
-// Só existe rota de verdade para Análise de Campanhas; Gestão de Tráfego ainda
-// não foi migrada (equivalente a openGestaoTrafego() do legado).
+// Os dois módulos (Análise de Campanhas e Gestão de Tráfego) já têm rota de
+// verdade (equivalente a openMetaCampanha()/openGestaoTrafego() do legado).
 function ir(nome) {
   router.push({ name: nome })
-}
-function aindaNaoMigrada(nome) {
-  adminToast(nome + ' ainda não migrada', false)
 }
 
 // Porte de setMaHubView (legacy/index.html L8626-8633). Ao contrário do

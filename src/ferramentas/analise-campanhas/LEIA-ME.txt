@@ -47,7 +47,7 @@ Detalhe técnico (porte para Vue, seguindo o mesmo padrão da Gestão à Vista):
 - Ao sair da tela (botão Voltar ou navegação), os temporizadores são
   desligados (relógio e status de atualização) e o listener que fecha o menu
   da conta ao clicar fora é removido.
-- Não portado: a "Gestão de Tráfego" (agente de IA que sugere ações nas
-  campanhas) é um módulo separado, ainda 100% no site antigo.
+- A "Gestão de Tráfego" (agente de IA que sugere ações nas campanhas) é um
+  módulo separado, já migrado também — ver src/ferramentas/gestao-trafego/.
 
 Para mexer só nesta tela, edite apenas esta pasta.
