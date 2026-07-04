@@ -78,7 +78,7 @@
           <span class="home-card-enter">→</span>
         </div>
         <!-- Banco de Arquivos: rota ainda não existe. -->
-        <div class="home-card" id="home-card-banco" @click="aindaNaoMigrada('Banco de Arquivos')">
+        <div class="home-card" id="home-card-banco" @click="ir('banco')">
           <div class="home-card-icon" style="background:linear-gradient(135deg,#0f4c81 0%,#1d4ed8 100%)">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
           </div>
