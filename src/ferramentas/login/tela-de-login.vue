@@ -81,7 +81,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
-import { setSession } from '../../compartilhado/controle-de-login-e-usuario.js'
+import { setSession, carregarPerfil } from '../../compartilhado/controle-de-login-e-usuario.js'
 
 const router = useRouter()
 
@@ -120,6 +120,7 @@ async function entrar() {
   // só de onAuthStateChange, que pertence à inicialização geral do app).
   if (data?.session) {
     setSession(data.session)
+    await carregarPerfil(data.session)
     router.push({ name: 'inicio' })
   }
 }
@@ -156,6 +157,7 @@ async function definirSenha() {
   const { data: { session } } = await sbClient.auth.getSession()
   if (session) {
     setSession(session)
+    await carregarPerfil(session)
     router.push({ name: 'inicio' })
   }
 }
