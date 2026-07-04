@@ -1,0 +1,12 @@
+FERRAMENTA: Banco de Arquivos
+=============================
+Downloads e uploads de materiais e recursos (logos, PDFs, vídeos, etc.).
+Os arquivos ficam no armazenamento do Supabase (bucket público "arquivos").
+
+Arquivo principal: tela-de-banco.vue
+- carrega a lista de arquivos quando a tela abre (loadArquivos);
+- arraste arquivos para a área de cima ou clique para enviar (upload);
+- busque pelo nome no campo "Buscar arquivo…";
+- o botão de EXCLUIR só aparece para administradores.
+
+Para mexer só nesta tela, edite apenas esta pasta.

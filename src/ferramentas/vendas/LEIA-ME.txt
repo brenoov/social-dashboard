@@ -1,0 +1,23 @@
+FERRAMENTA: Menu de Vendas
+==========================
+Tela pequena que aparece ao clicar em "Dashboard de Vendas" na Central. Mostra
+os modos de visualização de vendas disponíveis, em cards (ou lista).
+
+Arquivo principal: tela-de-menu-vendas.vue
+
+Como funciona (resumido):
+- 2 cards: "Gestão à Vista" (já migrada — abre de verdade) e "Análise de
+  Vendas" (ainda não migrada — mostra um aviso "ainda não migrada").
+- Cada card só aparece se a pessoa tiver a permissão daquele módulo liberada
+  (ou for admin) — módulos "sales.gestao" e "sales.analise".
+- Botão de cards/lista no topo (canto direito) alterna a visualização e
+  lembra a escolha (localStorage), igual à tela inicial.
+- Botão "Central": volta para a tela inicial (usa o roteador do app).
+- Só abre para quem tem a permissão "sales" liberada (ou é admin).
+
+Detalhe técnico (porte para Vue): esta tela é 100% estática (nenhum HTML é
+montado via JavaScript), então segue o padrão mais simples de porte — igual
+ao Banco de Arquivos: os cliques usam bindings @click do Vue, sem precisar
+expor nada em "window".
+
+Para mexer só nesta tela, edite apenas esta pasta.

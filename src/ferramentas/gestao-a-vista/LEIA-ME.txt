@@ -1,0 +1,47 @@
+FERRAMENTA: Gestão à Vista
+==========================
+Painel de vendas em tempo real, feito para ficar numa TV da loja/escritório:
+mostra o quanto já foi vendido no período escolhido (hoje, 7 dias, mês etc.),
+comparado com a meta, além de rankings por canal de venda e por vendedor, e um
+"ticker" (faixa deslizante) com os últimos pedidos, itens mais vendidos e
+frases motivacionais.
+
+Arquivo principal: tela-de-gestao-a-vista.vue
+
+Como funciona (resumido):
+- Os dados vêm do Bling (sistema de vendas) através de uma Edge Function do
+  Supabase chamada "bling-proxy" (funções blingCall/blingPages) — e de
+  algumas tabelas no Supabase (metas por loja, cache de vendedores, etc.).
+- Os botões de período no topo (HOJE, 1D, 7D, 14D, 30D, MÊS...) trocam o que
+  está sendo mostrado (gvSelectPeriod). O botão "AUTO" liga um ciclo automático
+  que troca de período sozinho a cada 60 segundos (gvAutoStart/gvAutoStop).
+- Os dados são recarregados sozinhos a cada 5 minutos enquanto a tela estiver
+  aberta.
+- Botão "Voltar": limpa todos os timers e volta para o Menu de Vendas.
+- Só abre para quem tem a permissão "sales.gestao" liberada (ou é admin).
+
+Detalhe técnico (porte para Vue, seguindo o mesmo padrão do Controle de
+Acessos):
+- Este componente é um PORTE FIEL (verbatim) do site antigo (legacy/index.html,
+  bloco de funções "gv"/"_gv" + #gestao-vista-screen). As funções e variáveis
+  de estado foram copiadas iguais, sem reescrever para "template reativo",
+  para o comportamento ficar idêntico ao de produção: o painel inteiro (gauges,
+  rankings, ticker) é montado via JavaScript puro (innerHTML/createElement)
+  toda vez que os dados chegam.
+- Por isso, boa parte das funções (gvSelectPeriod, gvToggleAuto, closeGestaoVista
+  etc.) precisa ficar acessível em "window" — são chamadas por atributos
+  onclick="..." dentro do HTML da própria tela.
+- O CSS desta tela (bloco "GESTÃO À VISTA — TV BOARD" que ficava em
+  src/estilos/estilos-globais.css) foi MOVIDO para dentro deste componente
+  (bloco <style scoped>), incluindo os ajustes para celular/tablet e o modo TV
+  (classe "body.dev-tv", ainda sem botão na interface para ligar/desligar —
+  era um recurso do menu de administração do site antigo).
+- Ao sair da tela (botão Voltar ou navegação), TODOS os temporizadores são
+  desligados: relógio, status de atualização, ciclo automático de período,
+  atualização a cada 5 minutos e o "ticker" deslizante. Isso evita que a tela
+  continue processando em segundo plano depois de fechada.
+- Não portado (dependem de recursos que ainda não existem no Vue): o botão
+  flutuante global de usuário (empurrava o relógio 44px para a esquerda) e o
+  fundo animado por "tema" da tela inicial (setHomeBgTheme).
+
+Para mexer só nesta tela, edite apenas esta pasta.

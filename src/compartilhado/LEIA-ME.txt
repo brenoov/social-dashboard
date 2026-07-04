@@ -1,0 +1,12 @@
+O QUE É ESTA PASTA (MIOLO COMPARTILHADO)
+========================================
+Aqui ficam as peças que TODAS as ferramentas usam:
+- conectar-no-banco-de-dados.js  → conexão com o banco (Supabase)
+- buscar-e-salvar-dados.js       → função para buscar/salvar dados no banco
+- controle-de-login-e-usuario.js → quem está logado, usuário e permissões
+
+REGRA IMPORTANTE
+================
+Estes arquivos são compartilhados. Mudanças aqui afetam TODO o sistema.
+Só altere combinando com o TI. As ferramentas do dia a dia ficam em
+../ferramentas/ — é lá que cada pessoa trabalha.

@@ -4,7 +4,7 @@
 
 **Goal:** Montar o esqueleto Vue+Vite do iamundi, migrar o miolo compartilhado (Supabase, estado, login, home) e a primeira ferramenta piloto (Notícias), tudo validado num preview da Vercel, sem tocar na produção.
 
-**Architecture:** Trabalhamos numa branch `vue-migracao`. O monólito `index.html` é movido para `legacy/index.html` (rollback e fonte de extração). Um projeto Vite+Vue 3 nasce na raiz: `App.vue` é a moldura (topbar/fundo) e `vue-router` substitui a navegação por classe `active`. O miolo compartilhado vive em `src/lib` (poucos arquivos, mudança combinada com o TI); cada tela vira um componente próprio em `src/ferramentas/<nome>/` com CSS `scoped`. Produção (branch `main`) fica intacta até a virada final (fora do escopo deste plano).
+**Architecture:** Trabalhamos numa branch `vue-migracao`. O monólito `index.html` é movido para `legacy/index.html` (rollback e fonte de extração). Um projeto Vite+Vue 3 nasce na raiz: `src/moldura-do-aplicativo.vue` é a moldura (topbar/fundo) e `vue-router` substitui a navegação por classe `active`. O miolo compartilhado vive em `src/compartilhado/` (poucos arquivos, mudança combinada com o TI); cada tela vira um componente próprio em `src/ferramentas/<nome>/` com CSS `scoped`. Produção (branch `main`) fica intacta até a virada final (fora do escopo deste plano).
 
 **Tech Stack:** Vue 3, Vite, vue-router. Libs já usadas mantidas via CDN no `<head>` (supabase-js, xlsx, chart.js, chartjs-plugin-datalabels).
 
@@ -15,8 +15,10 @@
 - **Produção intocada:** nada neste plano altera a branch `main`. Todo trabalho é na branch `vue-migracao` → valida em preview.
 - **Comportamento idêntico:** é reorganização técnica. Nenhuma tela muda de visual ou comportamento. Copiar o HTML/CSS/JS existente; adaptar só a navegação (router) e o empacotamento (componente).
 - **Dados reais:** ao testar login/dados, usar uma conta descartável/de teste — nunca semear, limpar ou trocar senha de contas reais (Franciele, Erick, admin).
-- **LEIA-ME por pasta:** toda pasta nova ganha `LEIA-ME.txt` em PT, linguagem de iniciante.
-- **CSS por tela é `scoped`:** só o que é realmente global (tokens, reset, topbar, fundo) vai para `src/estilos/global.css`.
+- **Nomes de arquivos/pastas em PT literal (kebab-case):** nomes bem descritivos em português, ex.: `conectar-no-banco-de-dados.js`, `tela-de-noticias.vue`, `src/compartilhado/`. Só ficam com nome técnico os fixados pela ferramenta (`index.html`, `package.json`, `vite.config.js`) — e esses são explicados num `LEIA-ME.txt`. Identificadores dentro do código JS (funções/exports) seguem convenção normal (não podem ter hífen).
+- **LEIA-ME por pasta:** TODA pasta nova ganha `LEIA-ME.txt` em PT, linguagem de iniciante.
+- **CSS — estratégia incremental (parity-first):** o CSS do legado é um bloco único não organizado por tela; separá-lo perfeitamente agora é inviável e arriscado. Então a Task 4 copia o bloco `<style>` INTEIRO (verbatim) para `src/estilos/estilos-globais.css`, garantindo visual idêntico já. Depois, a cada tela migrada, as regras `#<tela>-screen ...` são MOVIDAS (descascadas) de `estilos-globais.css` para dentro do `<style scoped>` do componente da tela (sem duplicar). Estado final = cada tela com CSS scoped; caminho até lá = incremental.
+- **Topbar do dashboard é adiada:** a `.topbar` do legado é cheia de lógica (abas de período, auto-cycle, relógio, seletor de perfil, banner de frescor) ligada a funções globais do dashboard. NÃO copiar seu HTML para a moldura agora (chamaria funções inexistentes). Ela vira um componente próprio numa task futura, junto das ferramentas que ela controla. A moldura por enquanto é só fundo + `<router-view>`.
 
 ---
 
@@ -29,63 +31,13 @@
 **Interfaces:**
 - Produces: `legacy/index.html` (monólito original preservado, fonte de extração das próximas tasks).
 
-- [ ] **Step 1: Confirmar branch e identidade**
+**STATUS: CONCLUÍDA** (commit 876e87c). Mantida aqui para referência.
 
-Run:
-```bash
-cd /Users/erickmartins/iamundi
-git checkout main && git pull
-git config user.name && git config user.email
-```
-Expected: branch `main` limpa; `brenoov` / `breno@rbvcompany.com`.
-
-- [ ] **Step 2: Criar a branch de trabalho**
-
-Run:
-```bash
-git checkout -b vue-migracao
-```
-Expected: "Switched to a new branch 'vue-migracao'".
-
-- [ ] **Step 3: Mover o monólito para legacy**
-
-Run:
-```bash
-mkdir -p legacy
-git mv index.html legacy/index.html
-```
-Expected: `git status` mostra rename `index.html -> legacy/index.html`.
-
-- [ ] **Step 4: Escrever o LEIA-ME do legacy**
-
-Create `legacy/LEIA-ME.txt`:
-```
-O QUE É ESTA PASTA
-==================
-Aqui está o iamundi ANTIGO, do jeito que era antes da migração para Vue:
-um único arquivo (index.html) com tudo dentro.
-
-PARA QUE SERVE
-==============
-1) Rollback (botão de emergência): se algo der muito errado no site novo,
-   dá para voltar a servir este arquivo.
-2) Fonte de cópia: enquanto migramos tela por tela para o Vue, copiamos o
-   HTML/CSS/JavaScript de cada tela a partir DESTE arquivo.
-
-NÃO EDITE ESTE ARQUIVO para adicionar funcionalidades novas.
-Ele é uma "foto congelada" do sistema antigo.
-```
-
-- [ ] **Step 5: Commit**
-
-Run:
-```bash
-git add -A
-git commit -m "chore: mover monólito para legacy/ e abrir branch de migração Vue
-
-Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
-```
-Expected: 1 arquivo renomeado + 1 criado.
+- [x] **Step 1: Confirmar branch e identidade** — `main` limpa, `brenoov`/`breno@rbvcompany.com`.
+- [x] **Step 2: Criar a branch** — `git checkout -b vue-migracao`.
+- [x] **Step 3: Mover o monólito** — `git mv index.html legacy/index.html`.
+- [x] **Step 4: LEIA-ME do legacy** — criado.
+- [x] **Step 5: Commit** — 876e87c.
 
 ---
 
@@ -94,10 +46,11 @@ Expected: 1 arquivo renomeado + 1 criado.
 **Files:**
 - Create: `package.json`, `vite.config.js`, `.gitignore` (append `node_modules`, `dist`)
 - Create: `index.html` (novo, entrada do Vite)
-- Create: `src/main.js`, `src/App.vue`, `src/router.js`
+- Create: `src/ponto-de-partida.js`, `src/moldura-do-aplicativo.vue`, `src/mapa-de-enderecos.js`
+- Create placeholders: `src/ferramentas/inicio/tela-inicial.vue`, `src/ferramentas/noticias/tela-de-noticias.vue`
 
 **Interfaces:**
-- Produces: app Vue montável (`#app`), `router` com rotas `home` e `noticias` (placeholders). Libs globais (`window.supabase`, `window.XLSX`, `window.Chart`) disponíveis via CDN no `index.html`.
+- Produces: app Vue montável (`#app`), roteador com rotas `inicio` e `noticias` (placeholders). Libs globais (`window.supabase`, `window.XLSX`, `window.Chart`) disponíveis via CDN no `index.html`.
 
 - [ ] **Step 1: Criar `package.json`**
 
@@ -137,7 +90,7 @@ export default defineConfig({
 
 - [ ] **Step 3: Criar o novo `index.html` (entrada do Vite)**
 
-Create `index.html` (mantém as libs CDN que o código legado usa via `window.*`):
+Create `index.html` (mantém as libs CDN que o código legado usa via `window.*`; o script aponta para o nosso ponto de partida):
 ```html
 <!doctype html>
 <html lang="pt-BR">
@@ -152,57 +105,57 @@ Create `index.html` (mantém as libs CDN que o código legado usa via `window.*`
 </head>
 <body>
   <div id="app"></div>
-  <script type="module" src="/src/main.js"></script>
+  <script type="module" src="/src/ponto-de-partida.js"></script>
 </body>
 </html>
 ```
 
-- [ ] **Step 4: Criar `src/router.js` com rotas placeholder**
+- [ ] **Step 4: Criar `src/mapa-de-enderecos.js` com rotas placeholder**
 
-Create `src/router.js`:
+Create `src/mapa-de-enderecos.js`:
 ```js
 import { createRouter, createWebHistory } from 'vue-router'
 
-const routes = [
-  { path: '/', name: 'home', component: () => import('./ferramentas/home/Home.vue') },
-  { path: '/noticias', name: 'noticias', component: () => import('./ferramentas/noticias/Noticias.vue') },
+const rotas = [
+  { path: '/', name: 'inicio', component: () => import('./ferramentas/inicio/tela-inicial.vue') },
+  { path: '/noticias', name: 'noticias', component: () => import('./ferramentas/noticias/tela-de-noticias.vue') },
 ]
 
-export const router = createRouter({
+export const roteador = createRouter({
   history: createWebHistory(),
-  routes,
+  routes: rotas,
 })
 ```
 
 - [ ] **Step 5: Criar componentes placeholder para as rotas**
 
-Create `src/ferramentas/home/Home.vue`:
+Create `src/ferramentas/inicio/tela-inicial.vue`:
 ```vue
-<template><div style="padding:40px">Home (placeholder)</div></template>
+<template><div style="padding:40px">Início (placeholder)</div></template>
 ```
-Create `src/ferramentas/noticias/Noticias.vue`:
+Create `src/ferramentas/noticias/tela-de-noticias.vue`:
 ```vue
 <template><div style="padding:40px">Notícias (placeholder)</div></template>
 ```
 
-- [ ] **Step 6: Criar `src/App.vue` (moldura mínima)**
+- [ ] **Step 6: Criar `src/moldura-do-aplicativo.vue` (moldura mínima)**
 
-Create `src/App.vue`:
+Create `src/moldura-do-aplicativo.vue`:
 ```vue
 <template>
   <router-view />
 </template>
 ```
 
-- [ ] **Step 7: Criar `src/main.js`**
+- [ ] **Step 7: Criar `src/ponto-de-partida.js`**
 
-Create `src/main.js`:
+Create `src/ponto-de-partida.js`:
 ```js
 import { createApp } from 'vue'
-import App from './App.vue'
-import { router } from './router.js'
+import Moldura from './moldura-do-aplicativo.vue'
+import { roteador } from './mapa-de-enderecos.js'
 
-createApp(App).use(router).mount('#app')
+createApp(Moldura).use(roteador).mount('#app')
 ```
 
 - [ ] **Step 8: Ignorar artefatos de build**
@@ -220,7 +173,7 @@ Run:
 npm install
 npm run dev
 ```
-Expected: Vite sobe (ex.: `http://localhost:5173`). Abrir no navegador: rota `/` mostra "Home (placeholder)"; `/noticias` mostra "Notícias (placeholder)". Parar com Ctrl+C.
+Expected: Vite sobe (ex.: `http://localhost:5173`). Abrir no navegador: rota `/` mostra "Início (placeholder)"; `/noticias` mostra "Notícias (placeholder)". Parar com Ctrl+C.
 
 - [ ] **Step 10: Verificar o build**
 
@@ -235,37 +188,37 @@ Expected: termina sem erro e gera a pasta `dist/`.
 Run:
 ```bash
 git add -A
-git commit -m "feat: esqueleto Vite + Vue 3 com router e libs CDN
+git commit -m "feat: esqueleto Vite + Vue 3 com roteador e libs CDN
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Task 3: Miolo compartilhado — `src/lib` (Fase 1)
+### Task 3: Miolo compartilhado — `src/compartilhado/` (Fase 1)
 
 **Files:**
-- Create: `src/lib/supabase.js`, `src/lib/api.js`, `src/lib/estado.js`, `src/lib/LEIA-ME.txt`
+- Create: `src/compartilhado/conectar-no-banco-de-dados.js`, `src/compartilhado/buscar-e-salvar-dados.js`, `src/compartilhado/controle-de-login-e-usuario.js`, `src/compartilhado/LEIA-ME.txt`
 - Reference: `legacy/index.html` (config Supabase ~linha 3208; helpers "SUPABASE FETCH" ~linha 3276)
 
 **Interfaces:**
 - Produces:
-  - `src/lib/supabase.js` → `export const sbClient` (cliente Supabase criado com `window.supabase.createClient`), `export const SUPABASE_URL`, `export const SUPABASE_ANON_KEY`.
-  - `src/lib/api.js` → `export async function sbFetch(path, options)` (o mesmo fetch autenticado do legado, usando o token da sessão ou a anon key).
-  - `src/lib/estado.js` → `export const estado` (objeto `reactive` com `currentSession`, `user`, `permissoes`), `export function setSession(session)`.
+  - `conectar-no-banco-de-dados.js` → `export const sbClient` (cliente Supabase criado com `window.supabase.createClient`), `export const SUPABASE_URL`, `export const SUPABASE_ANON_KEY`.
+  - `buscar-e-salvar-dados.js` → `export async function sb(path)` (o MESMO helper de leitura do legado — `legacy/index.html` L3277-3286: GET, devolve sempre um array, engole erros retornando `[]`). Mantém o nome `sb` para o código das telas funcionar sem alteração.
+  - `controle-de-login-e-usuario.js` → `export const estado` (objeto `reactive` com `currentSession`, `user`, `permissoes`), `export function setSession(session)`.
 
-- [ ] **Step 1: Criar `src/lib/supabase.js`**
+- [ ] **Step 1: Criar `conectar-no-banco-de-dados.js`**
 
-Copiar os valores de `SUPABASE_URL` e `SUPABASE_ANON_KEY` de `legacy/index.html` (~linha 3209-3210). Create `src/lib/supabase.js`:
+Copiar os valores de `SUPABASE_URL` e `SUPABASE_ANON_KEY` de `legacy/index.html` (~linha 3209-3210). Create `src/compartilhado/conectar-no-banco-de-dados.js`:
 ```js
 export const SUPABASE_URL = 'https://kounqtdoioootxqegkij.supabase.co'
 export const SUPABASE_ANON_KEY = '<COPIAR-A-ANON-KEY-DE-legacy/index.html-linha-3210>'
 export const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 ```
 
-- [ ] **Step 2: Criar `src/lib/estado.js`**
+- [ ] **Step 2: Criar `controle-de-login-e-usuario.js`**
 
-Create `src/lib/estado.js`:
+Create `src/compartilhado/controle-de-login-e-usuario.js`:
 ```js
 import { reactive } from 'vue'
 
@@ -281,41 +234,37 @@ export function setSession(session) {
 }
 ```
 
-- [ ] **Step 3: Criar `src/lib/api.js`**
+- [ ] **Step 3: Criar `buscar-e-salvar-dados.js`**
 
-Localizar o bloco "SUPABASE FETCH" em `legacy/index.html` (~linha 3276) e copiar a função de fetch, trocando a referência à sessão global por `estado.currentSession`. Create `src/lib/api.js`:
+Portar o helper `sb` EXATAMENTE como está no legado (`legacy/index.html` L3277-3286), mudando APENAS a referência de sessão: o legado usa a global `currentSession`; aqui use `estado.currentSession` (importado). NÃO inventar opções/method/throw — manter o mesmo comportamento (GET, devolve array, engole erro → `[]`). Create `src/compartilhado/buscar-e-salvar-dados.js`:
 ```js
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase.js'
-import { estado } from './estado.js'
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './conectar-no-banco-de-dados.js'
+import { estado } from './controle-de-login-e-usuario.js'
 
-// Fetch autenticado ao REST do Supabase (portado de legacy/index.html ~L3276).
-// Copiar o corpo/headers exatos do legado; abaixo o formato esperado:
-export async function sbFetch(path, options = {}) {
-  const token = estado.currentSession?.access_token || SUPABASE_ANON_KEY
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    ...options,
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  })
-  if (!r.ok) throw new Error(`Supabase ${r.status}: ${await r.text()}`)
-  return r.status === 204 ? null : r.json()
+// Helper de leitura ao REST do Supabase — portado VERBATIM de legacy/index.html
+// L3277-3286 (única mudança: currentSession -> estado.currentSession).
+export async function sb(path) {
+  try {
+    const token = estado.currentSession?.access_token || SUPABASE_ANON_KEY
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
+    })
+    const json = await r.json()
+    return Array.isArray(json) ? json : []
+  } catch (e) { return [] }
 }
 ```
 
 - [ ] **Step 4: LEIA-ME do miolo**
 
-Create `src/lib/LEIA-ME.txt`:
+Create `src/compartilhado/LEIA-ME.txt`:
 ```
 O QUE É ESTA PASTA (MIOLO COMPARTILHADO)
 ========================================
 Aqui ficam as peças que TODAS as ferramentas usam:
-- supabase.js  → conexão com o banco de dados (Supabase)
-- api.js       → função para buscar/salvar dados no banco
-- estado.js    → quem está logado, usuário e permissões
+- conectar-no-banco-de-dados.js  → conexão com o banco (Supabase)
+- buscar-e-salvar-dados.js       → função para buscar/salvar dados no banco
+- controle-de-login-e-usuario.js → quem está logado, usuário e permissões
 
 REGRA IMPORTANTE
 ================
@@ -337,93 +286,123 @@ Expected: build sem erro (imports resolvem).
 Run:
 ```bash
 git add -A
-git commit -m "feat: miolo compartilhado (supabase, api, estado) em src/lib
+git commit -m "feat: miolo compartilhado (banco, dados, login) em src/compartilhado
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Task 4: CSS global + moldura (topbar/fundo) no `App.vue`
+### Task 4: CSS global + moldura (topbar/fundo)
 
 **Files:**
-- Create: `src/estilos/global.css`
-- Modify: `src/App.vue`, `src/main.js`
-- Reference: `legacy/index.html` (bloco `<style>` — `:root`, reset, `.topbar`, fundo)
+- Create: `src/estilos/estilos-globais.css`, `src/estilos/LEIA-ME.txt`
+- Modify: `src/moldura-do-aplicativo.vue`, `src/ponto-de-partida.js`, `index.html`
+- Reference: `legacy/index.html` (bloco `<style>` L15-2506; `<link>` de fontes L10-11)
 
 **Interfaces:**
-- Consumes: `estado` de `src/lib/estado.js`.
-- Produces: `App.vue` renderiza topbar/fundo + `<router-view>`; `global.css` importado uma vez em `main.js`.
+- Consumes: `estado` de `src/compartilhado/controle-de-login-e-usuario.js`.
+- Produces: `moldura-do-aplicativo.vue` renderiza fundo + `<router-view>` (SEM topbar por ora); `estilos-globais.css` importado uma vez em `ponto-de-partida.js`; fontes carregadas via `<link>` no `index.html`.
 
-- [ ] **Step 1: Extrair o CSS global**
+- [ ] **Step 1: Copiar o bloco `<style>` inteiro (verbatim)**
 
-De `legacy/index.html`, copiar para `src/estilos/global.css` APENAS o que é global: variáveis `:root` (e `[data-theme="dark"]`), reset (`*`, `body`, fontes `@import`/`@font-face`), e as regras da topbar e do fundo. **NÃO** copiar regras que começam com `#...-screen` (essas vão para cada componente depois). Create `src/estilos/global.css` com esse conteúdo.
+Copiar TODO o conteúdo entre `<style>` (L14) e `</style>` (L2507) de `legacy/index.html` — ou seja, as linhas 15-2506 — para `src/estilos/estilos-globais.css`, SEM as tags `<style>`/`</style>`. É uma cópia fiel (parity-first); NÃO tentar separar global de por-tela agora. As regras `#<tela>-screen ...` serão descascadas para os componentes nas tasks de cada tela.
 
-- [ ] **Step 2: Importar o CSS global**
+- [ ] **Step 2: Trazer as fontes para o novo `index.html`**
 
-Modify `src/main.js` — adicionar no topo:
-```js
-import './estilos/global.css'
+Modify `index.html` — adicionar no `<head>` (antes dos `<script>` das libs) os `<link>` de fonte copiados de `legacy/index.html` L10-11:
+```html
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700&family=Oswald:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 ```
 
-- [ ] **Step 3: Montar a moldura em `App.vue`**
+- [ ] **Step 3: Importar o CSS global**
 
-De `legacy/index.html`, copiar o HTML da topbar (o cabeçalho fixo comum a todas as telas). Modify `src/App.vue`:
+Modify `src/ponto-de-partida.js` — adicionar no topo:
+```js
+import './estilos/estilos-globais.css'
+```
+
+- [ ] **Step 4: Moldura mínima (fundo + router-view, SEM topbar)**
+
+Modify `src/moldura-do-aplicativo.vue`. NÃO copiar a topbar do legado (ela é stateful e será um componente futuro). Só um contêiner de fundo + o router-view:
 ```vue
 <template>
-  <div class="app-shell">
-    <!-- Copiar aqui o HTML da topbar do legacy/index.html -->
+  <div class="moldura">
     <router-view />
   </div>
 </template>
 
 <script setup>
-import { estado } from './lib/estado.js'
+// A topbar do dashboard (abas de período, auto-cycle, relógio, seletor de
+// perfil) será migrada como componente próprio numa task futura, junto das
+// ferramentas que ela controla.
 </script>
 ```
 
-- [ ] **Step 4: Verificar em dev**
+- [ ] **Step 5: LEIA-ME dos estilos**
 
+Create `src/estilos/LEIA-ME.txt`:
+```
+PASTA: estilos
+==============
+estilos-globais.css → por enquanto contém TODO o visual do sistema antigo
+(cores, fontes, topbar, fundo e o estilo de cada tela), copiado fielmente
+para o visual ficar idêntico ao de hoje.
+
+CONFORME CADA TELA MIGRA para o Vue, as regras daquela tela (as que começam
+com #alguma-coisa-screen) SAEM daqui e vão para dentro do arquivo da tela
+(na parte <style scoped>). Assim, no fim, cada tela terá seu próprio visual
+isolado e este arquivo ficará só com o que é realmente global.
+```
+
+- [ ] **Step 6: Verificar build + dev**
+
+Run:
+```bash
+npm run build
+```
+Expected: build sem erro (o CSS grande é aceito pelo Vite).
 Run:
 ```bash
 npm run dev
 ```
-Expected: a topbar aparece no topo com o visual atual; fundo correto; placeholders de Home/Notícias abaixo. Parar com Ctrl+C.
+Expected: o fundo/tipografia globais aplicam; placeholders de Início/Notícias aparecem estilizados com as fontes corretas. (Imagens de `midia/` podem não aparecer em dev — o caminho será resolvido no preview/Task 8; anotar, não bloquear.) Parar com Ctrl+C.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 7: Commit**
 
 Run:
 ```bash
 git add -A
-git commit -m "feat: CSS global + moldura (topbar/fundo) em App.vue
+git commit -m "feat: CSS global (verbatim) + fontes + moldura minima (fundo + router-view)
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Task 5: Login (auth) como componente
+### Task 5: Login como componente
 
 **Files:**
-- Create: `src/ferramentas/auth/Auth.vue`, `src/ferramentas/auth/LEIA-ME.txt`
-- Modify: `src/router.js`, `src/App.vue`
+- Create: `src/ferramentas/login/tela-de-login.vue`, `src/ferramentas/login/LEIA-ME.txt`
+- Modify: `src/mapa-de-enderecos.js`
 - Reference: `legacy/index.html` (`#auth-screen` + funções de login/`sbClient.auth`)
 
 **Interfaces:**
-- Consumes: `sbClient` (supabase.js), `setSession` (estado.js).
-- Produces: rota `/login` (name `login`); ao autenticar, chama `setSession` e navega para `home`. Guarda de rota: rotas protegidas redirecionam para `/login` quando `estado.currentSession` é nulo.
+- Consumes: `sbClient` (conectar-no-banco-de-dados.js), `setSession` (controle-de-login-e-usuario.js).
+- Produces: rota `/login` (name `login`); ao autenticar, chama `setSession` e navega para `inicio`. Guarda de rota: rotas protegidas redirecionam para `/login` quando `estado.currentSession` é nulo.
 
 - [ ] **Step 1: Criar o componente de login**
 
-De `legacy/index.html`, copiar o HTML de `#auth-screen`, o CSS `#auth-screen ...` (para dentro de `<style scoped>`) e a lógica de login (chamadas a `sbClient.auth.signInWithPassword`/`getSession`). Create `src/ferramentas/auth/Auth.vue`:
+De `legacy/index.html`, copiar o HTML de `#auth-screen`, o CSS `#auth-screen ...` (para dentro de `<style scoped>`) e a lógica de login (chamadas a `sbClient.auth.signInWithPassword`/`getSession`). Create `src/ferramentas/login/tela-de-login.vue`:
 ```vue
 <template>
-  <div class="auth-screen"><!-- HTML de #auth-screen do legacy --></div>
+  <div class="tela-login"><!-- HTML de #auth-screen do legacy --></div>
 </template>
 
 <script setup>
-import { sbClient } from '../../lib/supabase.js'
-import { setSession } from '../../lib/estado.js'
+import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
+import { setSession } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { useRouter } from 'vue-router'
 const router = useRouter()
 
@@ -431,35 +410,35 @@ async function entrar(email, senha) {
   const { data, error } = await sbClient.auth.signInWithPassword({ email, password: senha })
   if (error) { /* mostrar erro como no legado */ return }
   setSession(data.session)
-  router.push({ name: 'home' })
+  router.push({ name: 'inicio' })
 }
 </script>
 
 <style scoped>
-/* Colar aqui as regras #auth-screen do legacy, trocando o seletor por .auth-screen */
+/* Colar aqui as regras #auth-screen do legacy, trocando o seletor por .tela-login */
 </style>
 ```
 
 - [ ] **Step 2: Registrar a rota e a guarda**
 
-Modify `src/router.js`: adicionar a rota de login e uma guarda global.
+Modify `src/mapa-de-enderecos.js`: adicionar a rota de login e uma guarda global.
 ```js
-{ path: '/login', name: 'login', component: () => import('./ferramentas/auth/Auth.vue') },
+{ path: '/login', name: 'login', component: () => import('./ferramentas/login/tela-de-login.vue') },
 ```
-E depois de criar o router:
+E depois de criar o roteador:
 ```js
-import { estado } from './lib/estado.js'
-router.beforeEach((to) => {
+import { estado } from './compartilhado/controle-de-login-e-usuario.js'
+roteador.beforeEach((to) => {
   if (to.name !== 'login' && !estado.currentSession) return { name: 'login' }
 })
 ```
 
 - [ ] **Step 3: Restaurar sessão ao abrir**
 
-Modify `src/main.js` — antes de montar, tentar recuperar a sessão salva:
+Modify `src/ponto-de-partida.js` — antes de montar, tentar recuperar a sessão salva:
 ```js
-import { sbClient } from './lib/supabase.js'
-import { setSession } from './lib/estado.js'
+import { sbClient } from './compartilhado/conectar-no-banco-de-dados.js'
+import { setSession } from './compartilhado/controle-de-login-e-usuario.js'
 const { data } = await sbClient.auth.getSession()
 if (data.session) setSession(data.session)
 ```
@@ -467,13 +446,13 @@ if (data.session) setSession(data.session)
 
 - [ ] **Step 4: LEIA-ME**
 
-Create `src/ferramentas/auth/LEIA-ME.txt`:
+Create `src/ferramentas/login/LEIA-ME.txt`:
 ```
-FERRAMENTA: Login (auth)
-========================
+FERRAMENTA: Login
+=================
 Tela de entrada do sistema. Pede e-mail e senha e valida no Supabase.
-Depois de logar, leva para a Home.
-Arquivo principal: Auth.vue
+Depois de logar, leva para a tela Início.
+Arquivo principal: tela-de-login.vue
 ```
 
 - [ ] **Step 5: Testar login em dev (conta descartável)**
@@ -482,62 +461,62 @@ Run:
 ```bash
 npm run dev
 ```
-Expected: `/login` aparece; ao entrar com uma **conta de teste descartável** (NÃO usar contas reais), navega para a Home (placeholder). Recarregar a página mantém logado. Parar com Ctrl+C.
+Expected: `/login` aparece; ao entrar com uma **conta de teste descartável** (NÃO usar contas reais), navega para Início (placeholder). Recarregar a página mantém logado. Parar com Ctrl+C.
 
 - [ ] **Step 6: Commit**
 
 Run:
 ```bash
 git add -A
-git commit -m "feat: tela de login (auth) como componente + guarda de rota
+git commit -m "feat: tela de login como componente + guarda de rota
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Task 6: Home como componente (navegação via router)
+### Task 6: Início (home) como componente
 
 **Files:**
-- Create: `src/ferramentas/home/LEIA-ME.txt`
-- Modify: `src/ferramentas/home/Home.vue`
+- Create: `src/ferramentas/inicio/LEIA-ME.txt`
+- Modify: `src/ferramentas/inicio/tela-inicial.vue`
 - Reference: `legacy/index.html` (`#home-screen` + funções `open*` chamadas pelos cards)
 
 **Interfaces:**
-- Consumes: `router` (vue-router), `estado`.
-- Produces: Home com os cards das ferramentas; cada card navega via `router.push({ name: '<ferramenta>' })` em vez de `classList.add('active')`.
+- Consumes: `roteador` (vue-router), `estado`.
+- Produces: Início com os cards das ferramentas; cada card navega via `router.push({ name: '<ferramenta>' })` em vez de `classList.add('active')`.
 
-- [ ] **Step 1: Portar a Home**
+- [ ] **Step 1: Portar a tela Início**
 
-De `legacy/index.html`, copiar o HTML de `#home-screen`, o CSS `#home-screen ...` (para `<style scoped>`) e a lógica dos cards. Trocar cada chamada de navegação (ex.: `openNoticias()`) por `router.push({ name: 'noticias' })`. Modify `src/ferramentas/home/Home.vue`:
+De `legacy/index.html`, copiar o HTML de `#home-screen`, o CSS `#home-screen ...` (para `<style scoped>`) e a lógica dos cards. Trocar cada chamada de navegação (ex.: `openNoticias()`) por `router.push({ name: 'noticias' })`. Modify `src/ferramentas/inicio/tela-inicial.vue`:
 ```vue
 <template>
-  <div class="home-screen"><!-- HTML de #home-screen; cada card com @click="ir('noticias')" --></div>
+  <div class="tela-inicio"><!-- HTML de #home-screen; cada card com @click="ir('noticias')" --></div>
 </template>
 
 <script setup>
 import { useRouter } from 'vue-router'
-import { estado } from '../../lib/estado.js'
+import { estado } from '../../compartilhado/controle-de-login-e-usuario.js'
 const router = useRouter()
 function ir(nome) { router.push({ name: nome }) }
 </script>
 
 <style scoped>
-/* regras #home-screen do legacy, seletor trocado para .home-screen */
+/* regras #home-screen do legacy, seletor trocado para .tela-inicio */
 </style>
 ```
 
 - [ ] **Step 2: LEIA-ME**
 
-Create `src/ferramentas/home/LEIA-ME.txt`:
+Create `src/ferramentas/inicio/LEIA-ME.txt`:
 ```
-FERRAMENTA: Home
-================
+FERRAMENTA: Início
+==================
 Tela inicial depois do login. Mostra os "cards" que levam a cada
 ferramenta (Notícias, Meta Ads, Gestão, etc.).
 Para adicionar um card novo: copie um card existente e troque o
 router.push({ name: '...' }) para o nome da rota da ferramenta.
-Arquivo principal: Home.vue
+Arquivo principal: tela-inicial.vue
 ```
 
 - [ ] **Step 3: Testar em dev**
@@ -546,14 +525,14 @@ Run:
 ```bash
 npm run dev
 ```
-Expected: após login, a Home mostra os cards com o visual atual; clicar no card de Notícias vai para `/noticias` (placeholder por enquanto). Parar com Ctrl+C.
+Expected: após login, a tela Início mostra os cards com o visual atual; clicar no card de Notícias vai para `/noticias` (placeholder por enquanto). Parar com Ctrl+C.
 
 - [ ] **Step 4: Commit**
 
 Run:
 ```bash
 git add -A
-git commit -m "feat: Home como componente, navegação via vue-router
+git commit -m "feat: tela Início como componente, navegação via vue-router
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
@@ -563,13 +542,15 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ### Task 7: Notícias — ferramenta piloto (Fase 2)
 
 **Files:**
-- Modify: `src/ferramentas/noticias/Noticias.vue`
+- Modify: `src/ferramentas/noticias/tela-de-noticias.vue`
 - Create: `src/ferramentas/noticias/LEIA-ME.txt`
 - Reference: `legacy/index.html` — HTML `#noticias-screen` (L11966); CSS `#noticias-screen ...` (a partir de L925 e L1287+); JS `openNoticias` (L9479), `closeNoticias` (L9486), `loadNoticias` (L10957) e helpers `np-*` que essas funções usam.
 
 **Interfaces:**
-- Consumes: `sbFetch` (api.js) e/ou `sbClient`; `estado`.
+- Consumes: `sbClient` (conectar-no-banco-de-dados.js) — o `loadNoticias` do legado usa `sbClient.from('noticias_concorrentes')` e `sbClient.from('noticias_panorama')` DIRETO (NÃO o helper `sb()`). Também `estado`.
 - Produces: rota `/noticias` renderiza a tela de Notícias idêntica à atual, carregando as notícias do banco.
+
+**Abordagem de port (piloto — fidelidade acima de idiomático):** o render da Notícias é imperativo (monta HTML via `getElementById`/`createElement`, com estados `_npData`/`_npRod`/`_npPano`/`_npTab`, constante `NP_ORDER`, e helpers `_np*`/`_ac*`). Portar praticamente VERBATIM para dentro do `<script setup>`: copiar `loadNoticias` + TODOS os helpers `_np*` que ele chama + os estados/constantes, e chamar `loadNoticias()` no `onMounted`. Manter os `id=` no template (`np-body`, `np-tabs`, `np-meta`, `noticias-screen`) para o `getElementById` continuar funcionando. NÃO reescrever para template reativo (arriscaria mudar o visual). Única troca obrigatória: se algum helper referenciar sessão global, usar `estado.currentSession`.
 
 - [ ] **Step 1: Extrair os pedaços da Notícias do legado**
 
@@ -578,36 +559,33 @@ Run (localizar limites exatos para copiar):
 cd /Users/erickmartins/iamundi
 grep -nE '#noticias-screen' legacy/index.html | head -40   # todas as regras CSS
 awk 'NR>=11966 && NR<=12032' legacy/index.html | head -80   # HTML da tela (ajustar fim no fechamento da div)
-awk 'NR>=10957 && /^}/{print NR": "$0; exit} NR>=10957' legacy/index.html | tail -1  # fim de loadNoticias
 ```
 Expected: identificar (a) o bloco `<div id="noticias-screen">…</div>`, (b) o conjunto de regras CSS `#noticias-screen …`, (c) o corpo de `openNoticias`, `closeNoticias`, `loadNoticias`.
 
 - [ ] **Step 2: Montar o componente**
 
-Modify `src/ferramentas/noticias/Noticias.vue`:
+Modify `src/ferramentas/noticias/tela-de-noticias.vue`:
 ```vue
 <template>
-  <div class="noticias-screen"><!-- HTML de #noticias-screen do legacy --></div>
+  <div class="tela-noticias"><!-- HTML de #noticias-screen do legacy --></div>
 </template>
 
 <script setup>
 import { onMounted } from 'vue'
-import { sbFetch } from '../../lib/api.js'
-import { estado } from '../../lib/estado.js'
+import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
+import { estado } from '../../compartilhado/controle-de-login-e-usuario.js'
 
-// Portar aqui o corpo de loadNoticias() do legado, trocando as buscas
-// diretas ao Supabase por sbFetch(...) e a manipulação de DOM (getElementById)
-// por refs/estado reativo do Vue.
-async function carregar() {
-  // ... conteúdo portado de loadNoticias (L10957) ...
-}
-
-onMounted(carregar)
+// Portar VERBATIM de legacy/index.html: os estados (_npData, _npRod, _npPano,
+// _npTab), a constante NP_ORDER, a função loadNoticias() (L10957) e TODOS os
+// helpers _np*/_ac* que ela chama (_npRenderTabs L10979, _npEsc, _npFmtDate,
+// _npLogo, e os render de corpo). Manter os getElementById (os ids existem no
+// template). Chamar loadNoticias no onMounted.
+onMounted(() => { loadNoticias() })
 </script>
 
 <style scoped>
 /* Colar TODAS as regras #noticias-screen do legacy, trocando o seletor
-   #noticias-screen por .noticias-screen (o scoped isola o resto). */
+   #noticias-screen por .tela-noticias (o scoped isola o resto). */
 </style>
 ```
 
@@ -619,8 +597,8 @@ FERRAMENTA: Notícias
 ====================
 Portal de notícias (revista). Carrega as matérias do banco (Supabase)
 e mostra em formato de revista com abas.
-Arquivo principal: Noticias.vue
-- carregar(): busca as notícias no banco quando a tela abre.
+Arquivo principal: tela-de-noticias.vue
+- loadNoticias(): busca as notícias no banco quando a tela abre.
 Para mexer só nesta tela, edite apenas esta pasta.
 ```
 
@@ -655,11 +633,11 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ### Task 8: Preview na Vercel + documentação da estrutura
 
 **Files:**
-- Create: `src/ferramentas/LEIA-ME.txt`, `LEIA-ME-DEV.txt` (raiz)
+- Create: `src/ferramentas/LEIA-ME.txt`, `LEIA-ME-COMO-RODAR.txt` (raiz)
 - Push: branch `vue-migracao`
 
 **Interfaces:**
-- Produces: URL de preview da Vercel com login → home → Notícias funcionando; documentação de como rodar/estruturar.
+- Produces: URL de preview da Vercel com login → início → Notícias funcionando; documentação de como rodar/estruturar.
 
 - [ ] **Step 1: LEIA-ME das ferramentas**
 
@@ -671,12 +649,12 @@ Cada subpasta aqui é UMA ferramenta/tela do iamundi (um "componente").
 Regra de ouro para trabalhar em equipe sem conflito:
 - Cada pessoa mexe SÓ na pasta da ferramenta dela.
 - Duas pessoas em ferramentas diferentes nunca editam o mesmo arquivo.
-O que é compartilhado por todas fica em ../lib (mexer só com o TI).
+O que é compartilhado por todas fica em ../compartilhado (mexer só com o TI).
 ```
 
 - [ ] **Step 2: Guia de desenvolvimento na raiz**
 
-Create `LEIA-ME-DEV.txt`:
+Create `LEIA-ME-COMO-RODAR.txt`:
 ```
 COMO RODAR O IAMUNDI (VERSÃO NOVA, EM VUE)
 ==========================================
@@ -686,10 +664,15 @@ COMO RODAR O IAMUNDI (VERSÃO NOVA, EM VUE)
 
 ONDE FICA CADA COISA
 ====================
-- src/ferramentas/<nome>/  → cada tela (é aqui que você trabalha)
-- src/lib/                 → conexão com banco/estado (mexer só com o TI)
-- src/estilos/global.css   → cores, fontes, topbar
-- legacy/index.html        → sistema ANTIGO (rollback e fonte de cópia)
+- src/ferramentas/<nome>/   → cada tela (é aqui que você trabalha)
+- src/compartilhado/        → conexão com banco/dados/login (mexer só com o TI)
+- src/estilos/estilos-globais.css → cores, fontes, topbar
+- legacy/index.html         → sistema ANTIGO (rollback e fonte de cópia)
+
+NOMES FIXOS (não renomear — a ferramenta exige):
+- index.html       → página de entrada
+- package.json     → lista de dependências
+- vite.config.js   → configuração do montador (Vite)
 
 IMPORTANTE
 ==========
@@ -713,7 +696,7 @@ Expected: push aceito na conta `brenoov`.
 
 A Vercel cria automaticamente um preview para a branch. Abrir a URL de preview e verificar:
 - Login com conta de teste funciona.
-- Home aparece com os cards.
+- Início aparece com os cards.
 - Notícias abre idêntica à produção e lista as matérias.
 
 Expected: build da Vercel verde e as três telas funcionando no preview. **Produção (main) permanece intocada.**
@@ -726,5 +709,6 @@ O preview validado encerra este plano. As próximas ferramentas (Meta Ads, Gest�
 
 ## Próximos planos (fora deste)
 
-- **1 plano por ferramenta restante** (repetir Task 7): `meta-ads` (Hub + Campanha), `gestao-comercial`, `gestao-trafego`, `gestao-vista`, `acessos`, `admin`, `banco`, `sales` (Menu + Análise + Marca).
-- **Plano de virada final:** merge `vue-migracao` → `main`, ajuste do `vercel.json`/config para servir o build (`dist/`) preservando rewrites de `/midia` e headers de segurança, e teste de rollback via `legacy/index.html`.
+- **1 plano por ferramenta restante** (repetir Task 7): `meta-ads` (com `tela-meta-ads-hub.vue` + `tela-meta-ads-campanha.vue`), `gestao-comercial`, `gestao-trafego`, `gestao-vista`, `acessos`, `admin`, `banco`, `sales` (menu + análise + marca). Cada pasta em PT literal + `LEIA-ME.txt`.
+- **Componente da topbar do dashboard:** migrar a `.topbar` stateful do legado (abas de período, auto-cycle, relógio, seletor de perfil, banner de frescor) como componente próprio, junto/depois das ferramentas de análise que ela controla.
+- **Plano de virada final:** merge `vue-migracao` → `main`, ajuste do `vercel.json`/config para servir o build (`dist/`) — incluindo o **rewrite SPA catch-all → `/index.html`** (necessário por causa do `createWebHistory`) e preservando os rewrites de `/midia` e os headers de segurança —, `npm audit fix`, e teste de rollback via `legacy/index.html`.

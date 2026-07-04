@@ -1,0 +1,72 @@
+FERRAMENTA: Administração
+=========================
+Painel de administração da Central de Inteligência: gerencia usuários
+(convidar/criar acesso, ativar/desativar, excluir), permissões de cada
+usuário, aparência/identidade visual da plataforma, dados & sincronização
+(coleta), informações do sistema, saúde dos dados (auditoria diária), metas
+de vendas (importação de planilha) e solicitações de acesso.
+
+ATENÇÃO: ESTA TELA CRIA E EXCLUI CONTAS DE USUÁRIO DE VERDADE, E MUDA
+PERMISSÕES REAIS QUE CONTROLAM O QUE CADA PESSOA PODE ACESSAR.
+- "Enviar convite" / "Criar com senha" (aba Usuários) cria acesso de verdade
+  à plataforma.
+- O botão "Excluir" de um usuário APAGA a conta e o perfil dele PARA SEMPRE
+  — sempre pede confirmação numa janela antes; se você não tiver certeza,
+  cancele.
+- O botão "Permissões" muda o que aquele usuário consegue ver e fazer no
+  sistema — errar aqui pode dar acesso a algo sensível, ou tirar acesso de
+  quem precisa.
+- Aprovar/Negar uma solicitação de acesso (aba Solicitações) também é uma
+  decisão real sobre quem entra na plataforma.
+Erros aqui têm consequência real para pessoas reais. Tenha cuidado extra
+antes de clicar em qualquer botão desta tela.
+
+Arquivo principal: tela-de-admin.vue
+
+Como funciona (resumido):
+- Usuários & Acessos: lista todo mundo cadastrado (com foto, nome editável,
+  papel viewer/admin, permissões e desativar/excluir) e um formulário para
+  convidar ou criar acesso novo.
+- Contas: perfis do Instagram conectados à plataforma (nome, username, cor
+  de destaque).
+- Solicitações: pedidos de acesso de gente de fora, para aprovar ou negar.
+- Metas: importa uma planilha (.xlsx/.xls/.csv) com as metas de vendas do mês
+  por canal/loja e por vendedora; tem botão de baixar o template pronto.
+- Aparência: nome da plataforma, frase de rodapé e cor de destaque por conta.
+- Dados: contadores gerais do banco + última coleta por conta + atalhos que
+  mostram o comando de terminal para rodar o coletor/atualizar fotos
+  manualmente (não executa nada sozinho, só mostra o comando a copiar).
+- Sistema: informações fixas de infraestrutura (banco, hospedagem, validade
+  dos tokens da Meta).
+- Saúde dos dados: painel de auditoria automática diária (23:30) — mostra o
+  que está ok/com aviso/com problema em cada perfil, com botão para rodar e
+  corrigir na hora.
+- Só abre para quem tem o papel "admin" — qualquer outra pessoa é redirecionada
+  de volta para a Central automaticamente.
+
+Detalhe técnico (porte para Vue, seguindo o mesmo padrão da Gestão de
+Tráfego e da Redes Sociais):
+- Este componente é um PORTE FIEL (verbatim) do site antigo (legacy/index.html,
+  bloco "/* ── ADMIN MODULE ── */" e o modal de permissões, que morava longe
+  dali no arquivo). As funções foram copiadas iguais, sem reescrever para
+  "template reativo": a lista de usuários, contas, metas etc. são montadas
+  via JavaScript puro (innerHTML/createElement) toda vez que a seção é aberta.
+- Por isso, boa parte das funções (loadAdminSection, adminInviteUser,
+  adminSaveSetting, adminShowRefetchInfo, adminShowColetorInfo,
+  downloadMetasTemplate, importMetasCSV, openPermModal, closePermModal,
+  savePermissions, handleRequest) precisa ficar acessível em "window" — são
+  chamadas por atributos onclick/onchange="..." dentro do HTML da própria
+  tela ou de HTML gerado dinamicamente.
+- O único confirm() que existia no site antigo para uma ação sensível deste
+  painel — excluir usuário — foi mantido EXATAMENTE igual (mesma mensagem,
+  mesmo lugar). Nenhum confirm() novo foi adicionado; nenhum foi removido.
+- O CSS desta tela (bloco "ADMIN MODULE" que ficava em
+  src/estilos/estilos-globais.css) foi MOVIDO para dentro deste componente
+  (bloco <style scoped>) — outras telas (como a Redes Sociais) têm seu
+  próprio painel de admin embutido, com nomes de classe parecidos mas cópia
+  independente; não foram afetadas por esta mudança.
+- O modal de "Permissões" (que no site antigo era um <div> solto no body,
+  longe do resto do painel de Admin) foi trazido para dentro deste
+  componente — mesma técnica já usada nos modais da Gestão de Tráfego.
+
+Para mexer só nesta tela, edite apenas esta pasta.

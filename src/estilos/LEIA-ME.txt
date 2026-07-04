@@ -1,0 +1,10 @@
+PASTA: estilos
+==============
+estilos-globais.css → por enquanto contém TODO o visual do sistema antigo
+(cores, fontes, topbar, fundo e o estilo de cada tela), copiado fielmente
+para o visual ficar idêntico ao de hoje.
+
+CONFORME CADA TELA MIGRA para o Vue, as regras daquela tela (as que começam
+com #alguma-coisa-screen) SAEM daqui e vão para dentro do arquivo da tela
+(na parte <style scoped>). Assim, no fim, cada tela terá seu próprio visual
+isolado e este arquivo ficará só com o que é realmente global.

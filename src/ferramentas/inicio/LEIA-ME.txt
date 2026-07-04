@@ -1,0 +1,7 @@
+FERRAMENTA: Início
+==================
+Tela inicial depois do login. Mostra os "cards" que levam a cada
+ferramenta (Notícias, Meta Ads, Gestão, etc.).
+Para adicionar um card novo: copie um card existente e troque o
+router.push({ name: '...' }) para o nome da rota da ferramenta.
+Arquivo principal: tela-de-inicio.vue

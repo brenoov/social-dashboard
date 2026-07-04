@@ -1,0 +1,14 @@
+O QUE É ESTA PASTA
+==================
+Aqui está o iamundi ANTIGO, do jeito que era antes da migração para Vue:
+um único arquivo (index.html) com tudo dentro.
+
+PARA QUE SERVE
+==============
+1) Rollback (botão de emergência): se algo der muito errado no site novo,
+   dá para voltar a servir este arquivo.
+2) Fonte de cópia: enquanto migramos tela por tela para o Vue, copiamos o
+   HTML/CSS/JavaScript de cada tela a partir DESTE arquivo.
+
+NÃO EDITE ESTE ARQUIVO para adicionar funcionalidades novas.
+Ele é uma "foto congelada" do sistema antigo.

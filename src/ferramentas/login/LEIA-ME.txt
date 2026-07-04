@@ -1,0 +1,5 @@
+FERRAMENTA: Login
+=================
+Tela de entrada do sistema. Pede e-mail e senha e valida no Supabase.
+Depois de logar, leva para a tela Início.
+Arquivo principal: tela-de-login.vue

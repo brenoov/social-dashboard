@@ -1,0 +1,27 @@
+COMO RODAR O IAMUNDI (VERSÃO NOVA, EM VUE)
+==========================================
+1) Instalar uma vez:   npm install
+2) Rodar no seu Mac:    npm run dev     (abre em http://localhost:5173)
+3) Testar o build:      npm run build
+
+ONDE FICA CADA COISA
+====================
+- src/ferramentas/<nome>/   -> cada tela (é aqui que você trabalha)
+- src/compartilhado/        -> conexão com banco/dados/login (mexer só com o TI)
+- src/estilos/estilos-globais.css -> cores, fontes, fundo (visual global)
+- public/midia/             -> imagens servidas em /midia/... (logos etc.)
+- legacy/index.html         -> sistema ANTIGO (rollback e fonte de cópia)
+
+NOMES FIXOS (não renomear — a ferramenta exige):
+- index.html       -> página de entrada
+- package.json     -> lista de dependências
+- vite.config.js   -> configuração do montador (Vite)
+
+IMPORTANTE
+==========
+- Sempre trabalhe na pasta da SUA ferramenta para evitar conflito.
+- A produção (site no ar) só muda na "virada final", quando TODAS as telas
+  estiverem migradas. Até lá, tudo é validado no PREVIEW da Vercel (branch
+  vue-migracao), sem tocar no site de produção.
+- Ao migrar uma tela nova, lembre de copiar as imagens que ela usa para
+  public/midia/ (as telas já migradas usam só os 2 logos que já estão lá).

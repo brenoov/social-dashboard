@@ -1,0 +1,44 @@
+FERRAMENTA: Dashboard Redes Sociais
+===================================
+Dashboard central de métricas do Instagram das marcas — a MAIOR tela do app.
+Mostra seguidores, Meta Ads (investimento e custos), engajamento de posts e
+reels, engajamento de stories e conteúdo publicado, tudo comparado com uma
+meta e com o período anterior.
+
+Arquivo principal: tela-de-redes-sociais.vue
+
+Como funciona (resumido):
+- Botões de período no topo (HOJE, 1D, 7D, 14D, 30D, MÊS, MÊS PASS., ATÉ
+  AGORA) trocam a janela de datas (a função é buildPeriodTabs/refresh); tem
+  também um seletor de datas personalizado (o botão 📅).
+- Os perfis (marcas) ficam logo abaixo da barra do topo — clique num perfil
+  pra trocar de conta. Tem um interruptor "AUTO" que fica passeando sozinho
+  entre os perfis quando ninguém mexe no mouse por alguns segundos (útil pra
+  deixar numa TV/monitor girando as marcas automaticamente).
+- "01 Seguidores": total de seguidores + quantos entraram no período (com um
+  selo "✓ confirmado pelo Instagram" ou "⏳ em consolidação" — explicado no
+  botão "?") + gráfico de seguidores ganhos/perdidos por dia (passe o mouse
+  pra ver o tooltip com o valor de cada dia).
+- "02 Meta Ads": quanto foi gasto em anúncios, custo por seguidor, por
+  interação e por curtida — só conta as campanhas marcadas no botão
+  "⚙ Filtrar campanhas".
+- "03/04/05": engajamento de posts/reels, engajamento de stories, e
+  quantidade de conteúdo publicado (stories/posts/reels).
+- Cada card tem uma "META" editável — clique no número da meta, digite o
+  novo valor e clique fora (ou aperte Enter): a barrinha de progresso do
+  card atualiza sozinha. A meta é salva por conta + período, tanto no
+  navegador quanto no banco (compartilhada entre quem usa o dashboard).
+- Painel de administração embutido (enviar convite por e-mail, listar
+  usuários): existe no código, mas hoje NENHUM botão do dashboard o abre —
+  isso já vinha assim do site antigo (não foi quebrado nesta migração).
+
+Dados vêm do Supabase (tabelas daily_snapshots, engagement_snapshots,
+content_snapshots, campaign_insights, account_insights, social_metas,
+campaign_filters) — alimentadas por um coletor automático (Edge Function
+"coletar-dados", ver memória "iamundi Coletor"). Se o coletor parar, aparece
+um aviso vermelho no topo avisando que os dados estão desatualizados.
+
+Esta tela é 100% independente das outras — não compartilha estado com
+Gestão de Tráfego, Gestão à Vista ou Análise de Campanhas (cada uma tem sua
+própria cópia dos pedacinhos de visual que se parecem, de propósito, pra não
+quebrar uma mexendo na outra).

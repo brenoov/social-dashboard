@@ -1,0 +1,42 @@
+FERRAMENTA: Colaboradores e Acessos
+===================================
+Cadastro de organizações, setores e colaboradores da empresa, com controle
+de quem tem acesso a quê: pastas do Drive (OneDrive/Microsoft), iCloud
+(manual, sem API), e-mail corporativo (Zoho), dispositivos/patrimônio,
+termos de responsabilidade e uma aba de Auditoria que resume tudo isso
+por colaborador.
+
+Arquivo principal: tela-de-acessos.vue
+
+Como funciona (resumido):
+- loadAcessos(): quando a tela abre, busca organizações, setores e
+  colaboradores no banco (Supabase), nas tabelas acessos_organizacoes,
+  acessos_setores e acessos_pessoas.
+- Abas (Organizações / Drive / Auditoria / Config): trocam de conteúdo
+  através de _acSetTab(), que decide o que _acRender() desenha.
+- A tela é montada de forma "imperativa" (o mesmo código do site antigo):
+  o JavaScript cria o HTML e coloca dentro do <div id="ac-body">. Por isso
+  o template mantém esse id= (e o id="acessos-screen" no elemento raiz)
+  — não mexa neles.
+- Integrações externas (Zoho e Microsoft/OneDrive) passam por uma Edge
+  Function do Supabase chamada "acessos-proxy" (função _acProxy). O iCloud
+  não tem API — é só um registro manual de "quem deveria ter acesso" que
+  você marca como "feito" depois de compartilhar você mesmo na Apple.
+- Botão "Central": volta para a tela inicial (usa o roteador do app).
+- Só abre para quem tem a permissão "acessos" liberada (ou é admin).
+
+Detalhe técnico (porte para Vue, seguindo o mesmo padrão do Portal de
+Notícias):
+- Este componente é um PORTE FIEL (verbatim) do site antigo (legacy/index.html,
+  bloco _ac* / #acessos-screen). As funções e variáveis de estado foram
+  copiadas iguais, sem reescrever para "template reativo", para o
+  comportamento ficar idêntico ao de produção.
+- O CSS desta tela (bloco "Controle de Acessos" que ficava em
+  src/estilos/estilos-globais.css) foi MOVIDO para dentro deste componente
+  (bloco <style scoped>).
+- Atenção: existe uma classe ".ac-toggle" em estilos-globais.css que NÃO
+  é desta ferramenta — é do "auto-cycle" de perfis do Dashboard de Redes
+  Sociais ("ac-" ali é abreviação de "auto-cycle", coincidência de prefixo
+  com "acessos"). Não mexa nela achando que é daqui.
+
+Para mexer só nesta tela, edite apenas esta pasta.

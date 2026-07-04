@@ -1,0 +1,53 @@
+FERRAMENTA: Meta Ads — Análise de Campanhas
+============================================
+Painel de tráfego pago (Meta/Facebook Ads): mostra os KPIs de performance das
+campanhas de uma conta de anúncios (gasto, impressões, cliques, CTR, CPC, CPM),
+um funil de conversão por objetivo (Tráfego, Leads, Vendas etc.) e a lista
+detalhada de campanhas e anúncios, com filtro por campanha e período
+personalizado.
+
+Arquivo principal: tela-de-analise-campanhas.vue
+
+Como funciona (resumido):
+- Os dados vêm direto da Meta (Graph API) através de uma Edge Function do
+  Supabase chamada "meta-proxy" (funções metaFetch/metaFetchAll), e a lista de
+  contas de anúncios vem do Supabase (tabela accounts) + descoberta automática
+  via "/me/adaccounts" na Meta.
+- Seletor de conta no canto superior direito (foto + saldo) troca qual conta de
+  anúncios está sendo mostrada.
+- Botões de período no topo (HOJE, 1D, 7D, 14D, 30D, MÊS...) trocam o período
+  (setMaPeriod); o botão de calendário (📅) abre um período personalizado
+  (datas de início/fim). O botão "↻" recarrega os dados na hora.
+- O funil de conversão detecta sozinho o objetivo da campanha quando só existe
+  um; quando há mais de um objetivo ativo, mostra botões para trocar entre eles.
+- A lista de campanhas tem busca, filtro por status (Ativas/Pausadas) e
+  ordenação por coluna; um botão "Filtrar Campanhas" abre uma gaveta lateral
+  para escolher manualmente quais campanhas entram nas contas.
+- Botão "Voltar" (topo esquerdo, "Meta Ads"): limpa os timers e volta para o
+  Hub do Meta Ads.
+- Só abre para quem tem a permissão "meta.campanha" liberada (ou é admin).
+
+Detalhe técnico (porte para Vue, seguindo o mesmo padrão da Gestão à Vista):
+- Este componente é um PORTE FIEL (verbatim) do site antigo (legacy/index.html,
+  bloco de funções "ma"/"_ma" + #meta-ads-campanha-screen). As funções e
+  variáveis de estado foram copiadas iguais, sem reescrever para "template
+  reativo": o conteúdo inteiro (KPIs, funil, tabelas) é montado via JavaScript
+  puro (innerHTML/createElement) toda vez que os dados chegam.
+- Por isso, boa parte das funções (setMaPeriod, toggleMaCustomRange, loadMaData,
+  toggleMaAccPicker etc.) precisa ficar acessível em "window" — são chamadas
+  por atributos onclick="..." dentro do HTML da própria tela.
+- O CSS desta tela (bloco "META ADS" que ficava em
+  src/estilos/estilos-globais.css) foi MOVIDO para dentro deste componente: a
+  maior parte em <style scoped>, mas a gaveta de filtro de campanhas
+  (.ma-filter-drawer/.ma-filter-bd) e o modal de período personalizado
+  (.custom-date-input) ficam num <style> global SEM "scoped" à parte — esses
+  dois elementos são criados via document.createElement e anexados direto no
+  "document.body" (fora da tela), então o CSS "escopado" do Vue não alcançaria
+  eles.
+- Ao sair da tela (botão Voltar ou navegação), os temporizadores são
+  desligados (relógio e status de atualização) e o listener que fecha o menu
+  da conta ao clicar fora é removido.
+- A "Gestão de Tráfego" (agente de IA que sugere ações nas campanhas) é um
+  módulo separado, já migrado também — ver src/ferramentas/gestao-trafego/.
+
+Para mexer só nesta tela, edite apenas esta pasta.
