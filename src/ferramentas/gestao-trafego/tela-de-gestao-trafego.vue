@@ -457,7 +457,7 @@ function _gtKpisHtml(row){
 async function _gtSaveConfig(balde,metricas){
   // escrita autenticada via sbClient (JWT do usuário) — gated no banco por RLS
   // (profiles.role='admin'), mesmo padrão de adminSaveSetting()/platform_settings
-  // e sr-btn de accounts.accent_color (ver docs/migrations/006_accounts_update_policy.sql).
+  // e sr-btn de accounts.accent_color (ver db/migrations/006_accounts_update_policy.sql).
   const{error}=await sbClient.from('gt_config_metricas').upsert({balde,metricas,updated_at:new Date().toISOString()},{onConflict:'balde'});
   if(error) throw error;
   _gtConfig[balde]=metricas;
