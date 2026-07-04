@@ -1,4 +1,9 @@
   :root {
+    /* ── Base de layout (espaçamento, container, cards) — ver docs/base-de-layout.md ── */
+    --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px; --sp-8:48px;
+    --gutter:16px;            /* margem lateral segura (cresce no desktop, ver @media no fim) */
+    --container-max:1280px;   /* largura máxima do conteúdo */
+    --card-radius:12px; --card-pad:var(--sp-4); --card-gap:var(--sp-3); --card-min:260px;
     --bg:#ffffff;--surface:#ffffff;--surface2:#f4f5f7;
     --border:rgba(0,0,0,0.09);
     --accent:#1D4ED8;--accent-light:rgba(29,78,216,0.08);--accent-mid:rgba(29,78,216,0.30);
@@ -1461,3 +1466,34 @@
   #cpm-save-btn:disabled{opacity:.5;cursor:not-allowed;}
   .cpm-cancel-btn{flex:1;padding:10px;border-radius:4px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);transition:border-color .18s,color .15s;}
   .cpm-cancel-btn:hover{border-color:var(--accent);color:var(--text);}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   BASE DE LAYOUT DO IAMUNDI (classes compartilhadas) — ver docs/base-de-layout.md
+   Toda tela nova usa .container-app / .grade-cards / .topbar-app + a escala --sp-*.
+   ───────────────────────────────────────────────────────────────────────── */
+html,body{max-width:100%;overflow-x:clip;}   /* body nunca rola na horizontal; clip (não hidden) p/ não quebrar position:sticky das topbars. box-sizing:border-box já é global. */
+img{max-width:100%;}
+
+.container-app{width:100%;max-width:var(--container-max);margin-inline:auto;padding-inline:var(--gutter);}
+.grade-cards{display:grid;gap:var(--sp-4);grid-template-columns:repeat(auto-fill,minmax(var(--card-min),1fr));}
+.card-base{background:var(--surface);border:1px solid var(--border);border-radius:var(--card-radius);padding:var(--card-pad);}
+.titulo-tela{font-family:'Oswald',sans-serif;font-size:clamp(18px,2.4vw,26px);font-weight:600;letter-spacing:1px;color:var(--text);}
+.rotulo-secao{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+.rolagem-x{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;}
+.rolagem-x::-webkit-scrollbar{height:5px;} .rolagem-x::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+/* Topbar padrão: [voltar] · [titulo] · [filtros] · [status] */
+.topbar-app{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--gutter);border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
+.topbar-app__titulo{flex:1;min-width:0;}
+.topbar-app__filtros{display:flex;align-items:center;gap:var(--sp-2);flex-shrink:0;}
+.topbar-app__status{flex-shrink:0;text-align:right;}
+
+/* Responsivo por breakpoint (padrão: celular ≤640 · tablet ≤1024 · desktop >1024) */
+@media(min-width:1025px){ :root{ --gutter:32px; } }
+@media(min-width:641px) and (max-width:1024px){ :root{ --gutter:24px; } }
+@media(max-width:640px){
+  :root{ --gutter:16px; --card-min:100%; }        /* cards viram 1 coluna no celular */
+  .topbar-app{flex-wrap:wrap;gap:var(--sp-2);}
+  .topbar-app__filtros{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;}
+  .topbar-app__status{display:none;}              /* relógio/status somem no celular */
+}
