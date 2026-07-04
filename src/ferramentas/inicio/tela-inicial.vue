@@ -99,8 +99,7 @@
           </div>
           <span class="home-card-enter">→</span>
         </div>
-        <!-- Gestão Comercial: rota ainda não existe. -->
-        <div class="home-card" id="home-card-gestor" @click="aindaNaoMigrada('Gestão Comercial')" @mouseenter="definirTemaFundo('default')" @mouseleave="definirTemaFundo('default')">
+        <div class="home-card" id="home-card-gestor" @click="ir('gestao-comercial')" @mouseenter="definirTemaFundo('default')" @mouseleave="definirTemaFundo('default')">
           <div class="home-card-icon" style="background:linear-gradient(135deg,#0f4c81 0%,#1d4ed8 100%)">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
           </div>

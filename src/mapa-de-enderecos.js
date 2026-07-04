@@ -11,6 +11,7 @@ const rotas = [
   { path: '/meta-ads', name: 'meta-ads', component: () => import('./ferramentas/meta-ads/tela-menu-meta-ads.vue') },
   { path: '/meta-campanhas', name: 'meta-campanhas', component: () => import('./ferramentas/analise-campanhas/tela-analise-campanhas.vue') },
   { path: '/gestao-trafego', name: 'gestao-trafego', component: () => import('./ferramentas/gestao-trafego/tela-gestao-trafego.vue') },
+  { path: '/gestao-comercial', name: 'gestao-comercial', component: () => import('./ferramentas/gestao-comercial/tela-gestao-comercial.vue') },
   { path: '/login', name: 'login', component: () => import('./ferramentas/login/tela-de-login.vue') },
 ]
 
