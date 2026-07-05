@@ -1256,6 +1256,15 @@ Object.assign(window, {
   .tela-gestao-trafego :deep(.gv-period-btns){order:3;width:100%;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;gap:6px;padding-bottom:2px;}
   .tela-gestao-trafego :deep(.gv-pbtn){font-size:10px;padding:5px 10px;border-radius:6px;flex-shrink:0;white-space:nowrap;}
   .tela-gestao-trafego :deep(.gv-clock-wrap),.tela-gestao-trafego :deep(.gv-update-status){display:none;}
+  /* CORPO DOS CARDS no celular: botões QUEBRAM o texto (não estouram) + busca ocupa a largura */
+  .tela-gestao-trafego :deep(.gt-act-btn){white-space:normal;max-width:100%;height:auto;text-align:center;}
+  .tela-gestao-trafego :deep(.gt-camp-hdr input){width:100% !important;flex:1 1 100%;box-sizing:border-box;}
+  .tela-gestao-trafego :deep(.gt-rec-banner){align-items:flex-start;}
+  .tela-gestao-trafego :deep(.gt-rec-banner .gt-act-btn){width:100%;justify-content:center;}
+  .tela-gestao-trafego :deep(.gt-action-row){width:100%;}
+  .tela-gestao-trafego :deep(.gt-action-row .gt-act-btn){flex:1 1 auto;}
+  /* nada dentro do card pode empurrar a largura pra fora */
+  .tela-gestao-trafego :deep(.gt-camp-inner),.tela-gestao-trafego :deep(.gt-camp-row){max-width:100%;overflow-x:clip;}
 }
 @media(max-width:480px){
   /* SEM inverter a ordem da marca (o order:1 antigo jogava a marca pro fim = bug) */
