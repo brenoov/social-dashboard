@@ -1245,16 +1245,21 @@ Object.assign(window, {
   .tela-gestao-trafego :deep(.gv-clock-wrap){display:none;}
 }
 @media(max-width:640px){
-  .tela-gestao-trafego{--gt-fs:1 !important;}   /* celular: fonte 100%. !important p/ vencer o inline que _gtFontScale grava (senão fica +30% no celular). */
-  .tela-gestao-trafego :deep(.gv-topbar){padding:6px 10px;}
+  .tela-gestao-trafego{--gt-fs:1 !important;}   /* celular: fonte 100%. !important p/ vencer o inline que _gtFontScale grava. */
+  /* Topbar do celular: LINHA 1 = marca (esquerda) + KPIs + conta (direita); LINHA 2 = filtros que rolam. */
+  .tela-gestao-trafego :deep(.gv-topbar){flex-wrap:wrap;align-items:center;padding:8px 12px;gap:8px;}
+  .tela-gestao-trafego :deep(.gv-topbar-brand){order:0;flex:1 1 auto;min-width:0;gap:8px;}
   .tela-gestao-trafego :deep(.gv-brand-tag){display:none;}
-  /* filtros de período viram uma FAIXA ROLÁVEL (padrão da base) — não quebram em 3 linhas */
-  .tela-gestao-trafego :deep(.gv-period-btns){width:100%;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;gap:5px;padding-bottom:2px;}
-  .tela-gestao-trafego :deep(.gv-pbtn){font-size:10px;padding:4px 9px;border-radius:5px;flex-shrink:0;white-space:nowrap;}
-  .tela-gestao-trafego :deep(.gv-update-status){display:none;}
+  .tela-gestao-trafego :deep(.gt-auto-btn){order:1;flex-shrink:0;}
+  .tela-gestao-trafego :deep(#gt-account-picker){order:2;flex-shrink:0;}
+  /* filtros de período: faixa própria (linha 2) que ROLA na horizontal — nunca quebram em 3 linhas */
+  .tela-gestao-trafego :deep(.gv-period-btns){order:3;width:100%;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;gap:6px;padding-bottom:2px;}
+  .tela-gestao-trafego :deep(.gv-pbtn){font-size:10px;padding:5px 10px;border-radius:6px;flex-shrink:0;white-space:nowrap;}
+  .tela-gestao-trafego :deep(.gv-clock-wrap),.tela-gestao-trafego :deep(.gv-update-status){display:none;}
 }
 @media(max-width:480px){
-  .tela-gestao-trafego :deep(.gv-topbar){flex-wrap:wrap;padding:0;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;position:sticky;top:0;z-index:10;background:var(--surface);}
-  .tela-gestao-trafego :deep(.gv-topbar-brand){order:1;display:flex;align-items:center;gap:10px;padding:10px 16px;}
+  /* SEM inverter a ordem da marca (o order:1 antigo jogava a marca pro fim = bug) */
+  .tela-gestao-trafego :deep(.gv-topbar){padding:8px 12px;gap:8px;}
+  .tela-gestao-trafego :deep(.gv-topbar-brand){gap:8px;}
 }
 </style>
