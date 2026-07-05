@@ -1245,7 +1245,7 @@ Object.assign(window, {
   .tela-gestao-trafego :deep(.gv-clock-wrap){display:none;}
 }
 @media(max-width:640px){
-  .tela-gestao-trafego{--gt-fs:1;}   /* celular: a fonte volta pra 100% (para de inflar) */
+  .tela-gestao-trafego{--gt-fs:1 !important;}   /* celular: fonte 100%. !important p/ vencer o inline que _gtFontScale grava (senão fica +30% no celular). */
   .tela-gestao-trafego :deep(.gv-topbar){padding:6px 10px;}
   .tela-gestao-trafego :deep(.gv-brand-tag){display:none;}
   /* filtros de período viram uma FAIXA ROLÁVEL (padrão da base) — não quebram em 3 linhas */
