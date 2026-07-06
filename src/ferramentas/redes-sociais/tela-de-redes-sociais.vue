@@ -1326,11 +1326,13 @@ function update(d, period) {
   const prevEngTotal = d.eng.prevLikes + d.eng.prevSaves + d.eng.prevShares + (d.eng.prevComments || 0)
   const _avgShown = (d.effectivePeriod > 0 ? (headlineVal / d.effectivePeriod) : headlineVal).toFixed(1)
   setChips('chips-followers', ['Média: +' + _avgShown + '/dia', 'Taxa de eng.: ' + d.engRate + '%', 'Engajamento total: ' + fmtN(engTotal)])
-  document.getElementById('ads-spend-val').textContent = d.spend > 0 ? fmtR(d.spend) : 'R$ —'
+  // Investimento AO VIVO = gasto de TODAS as campanhas da conta de anúncio do perfil (exato). null = perfil sem ads.
+  const _inv = (d.live && d.live.investimento != null) ? d.live.investimento : d.spend
+  document.getElementById('ads-spend-val').textContent = _inv > 0 ? fmtR(_inv) : 'R$ —'
   document.getElementById('ads-cps-val').textContent = d.cps > 0 ? fmtR(d.cps) : 'R$ —'
-  setCompare('cmp-spend', d.spend, d.prevSpend, 'R$ ', pl, true)
+  setCompare('cmp-spend', _inv, d.prevSpend, 'R$ ', pl, true)
   setCompare('cmp-cps', d.cps, d.prevCps, 'R$ ', pl, true)
-  applySpend(d.spend, getGoal('spend'))
+  applySpend(_inv, getGoal('spend'))
   if (d.cps > 0) applyMetricInverse('cps', d.cps, getGoal('cps'))
   if (d.cps > 0) { const gcps = getGoal('cps'); _mcBorderColor('cps', perfColor((gcps / d.cps) * 100)) } else { _mcBorderColor('cps', '') }
   const adsChips = []

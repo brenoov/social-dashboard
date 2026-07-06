@@ -34,11 +34,22 @@ Deno.serve(async (req) => {
     if (!podeSocial) return json({ meta_erro: 'sem acesso' }, 403)
 
     const { account_id, engSince, engUntil, folSince, folUntil } = await req.json()
-    const { data: acc } = await sb.from('accounts').select('instagram_id,access_token').eq('id', account_id).single()
+    const { data: acc } = await sb.from('accounts').select('instagram_id,access_token,ad_account_id').eq('id', account_id).single()
     if (!acc) return json({ meta_erro: 'conta não encontrada' }, 404)
     const ig = acc.instagram_id as string
     const token = acc.access_token as string
-    const out: any = { novos: {}, engajamento: {} }
+    const out: any = { novos: {}, engajamento: {}, investimento: null }
+
+    // INVESTIMENTO — gasto de TODAS as campanhas da conta de anúncio do perfil, na janela do período.
+    // Ads usam datas (não o offset de follows). eng-until é exclusivo → -1 dia = último dia inclusivo.
+    if (acc.ad_account_id) {
+      const dstr = (u: number) => new Date(u * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+      const adSince = dstr(Number(engSince)), adUntil = dstr(Number(engUntil) - 86400)
+      const ads = await apiGet(`act_${acc.ad_account_id}/insights`, {
+        fields: 'spend', level: 'account', time_range: JSON.stringify({ since: adSince, until: adUntil }),
+      }, token)
+      out.investimento = parseFloat(ads.data?.[0]?.spend ?? '0') || 0
+    }
 
     const f = await apiGet(`${ig}`, { fields: 'followers_count' }, token)
     out.followers_count = f.followers_count ?? null
