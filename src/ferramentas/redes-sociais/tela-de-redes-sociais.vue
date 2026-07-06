@@ -927,7 +927,7 @@ async function fetchData(accountId, period, customStart, customEnd) {
     sb(`content_snapshots?account_id=eq.${accountId}&period_days=eq.1&captured_at=gte.${prevStartStr}&captured_at=lte.${prevEndStr}&select=captured_at,story_shares,story_replies,stories_count,story_reach,story_interactions,story_navigation,story_nav_forward,story_nav_back,story_nav_exit,story_nav_next,story_profile_visits,story_follows`),
     // FRESCOR = saúde do coletor (global por perfil), NÃO o fim da janela escolhida.
     // Sem limite superior: pega a última coleta REAL, independente do período exibido.
-    sb(`daily_snapshots?account_id=eq.${accountId}&order=captured_at.desc&limit=1&select=captured_at`),
+    sb(`daily_snapshots?account_id=eq.${accountId}&order=captured_at.desc&limit=1&select=captured_at,followers_count`),
   ])
   const eng = engCurr[0] || { likes: 0, saves: 0, shares: 0, comments: 0 }
   const prevEng = engPrev[0] || null
@@ -1064,7 +1064,7 @@ async function fetchData(accountId, period, customStart, customEnd) {
   const _fd = d => d.getDate() + ' ' + _mm[d.getMonth()]
   const pl = effectivePeriod <= 1 ? _fd(prevRefDate) : (() => { const s = new Date(prevRefDate.getTime() - effectivePeriod * 86400000); return _fd(s) + ' – ' + _fd(prevRefDate) })()
   return {
-    followerTotal: latest, newFollowers, prevNewFollowers, avgPerDay, bestDay: '—', engRate, followerDeltas, effectivePeriod, impressions, clicks, reach,
+    followerTotal: (trueLastRows[0]?.followers_count ?? latest), newFollowers, prevNewFollowers, avgPerDay, bestDay: '—', engRate, followerDeltas, effectivePeriod, impressions, clicks, reach,
     chart: { gained: chartGained, lost: chartLost, labels: chartLabels, dates: chartDates },
     spend, prevSpend, cps, prevCps, adEngagement, adLikes, adComments, adShares, adSaves,
     eng: { likes: eng.likes, saves: eng.saves, shares: eng.shares, comments: eng.comments ?? 0, reach: eng.reach ?? 0, views: eng.views ?? 0, interactions: eng.total_interactions ?? 0, engaged: eng.accounts_engaged ?? 0, profileViews: eng.profile_views ?? 0, prevLikes: prevEng?.likes ?? null, prevSaves: prevEng?.saves ?? null, prevShares: prevEng?.shares ?? null, prevComments: prevEng?.comments ?? null, prevReach: prevEng?.reach ?? null, prevViews: prevEng?.views ?? null, prevInteractions: prevEng?.total_interactions ?? null, prevEngaged: prevEng?.accounts_engaged ?? null, prevProfileViews: prevEng?.profile_views ?? null },
