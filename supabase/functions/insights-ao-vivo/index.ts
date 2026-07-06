@@ -22,6 +22,12 @@ Deno.serve(async (req) => {
     const { data: { user } } = await sb.auth.getUser(jwt)
     if (!user) return Response.json({ meta_erro: 'não autorizado' }, { status: 401 })
 
+    // AUTORIZAÇÃO por permissão (não por dono — não há dono por conta neste app; contas são da org).
+    // Mesma regra da tela: hasPermission('tool:social') = role 'admin' OU features inclui 'social'.
+    const { data: perfil } = await sb.from('profiles').select('role,features').eq('id', user.id).single()
+    const podeSocial = !!perfil && (perfil.role === 'admin' || (perfil.features ?? []).includes('social'))
+    if (!podeSocial) return Response.json({ meta_erro: 'sem acesso' }, { status: 403 })
+
     const { account_id, engSince, engUntil, folSince, folUntil } = await req.json()
     const { data: acc } = await sb.from('accounts').select('instagram_id,access_token').eq('id', account_id).single()
     if (!acc) return Response.json({ meta_erro: 'conta não encontrada' }, { status: 404 })
