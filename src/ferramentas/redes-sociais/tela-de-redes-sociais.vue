@@ -545,6 +545,9 @@ function popEl(el) {
 }
 function animCount(el, target) {
   const dur = 800, start = performance.now()
+  // Tooltip universal: guarda o número INTEIRO (fmtN resume no texto) p/ revelar no hover/toque.
+  const cheio = (Number(target) || 0).toLocaleString('pt-BR')
+  try { el.title = cheio; el.dataset.full = cheio; el.classList.add('tem-tooltip') } catch (e) {}
   function tick(now) {
     const t = Math.min((now - start) / dur, 1)
     const v = Math.round(target * (1 - Math.pow(1 - t, 3)))
@@ -552,6 +555,12 @@ function animCount(el, target) {
     if (t < 1) requestAnimationFrame(tick); else popEl(el)
   }
   requestAnimationFrame(tick)
+}
+// Toque/clique num número resumido revela o inteiro (mobile); no desktop o :hover já mostra.
+function _onTooltipTap(e) {
+  const alvo = e.target.closest ? e.target.closest('.tem-tooltip') : null
+  document.querySelectorAll('.tela-redes-sociais .tem-tooltip.mostrar').forEach(el => { if (el !== alvo) el.classList.remove('mostrar') })
+  if (alvo) alvo.classList.toggle('mostrar')
 }
 function animCountFull(el, target) {
   const dur = 900, start = performance.now()
@@ -1784,7 +1793,7 @@ onMounted(async () => {
   document.addEventListener('click', _acResetInactivity, { passive: true })
   document.addEventListener('keydown', _acResetInactivity, { passive: true })
   document.addEventListener('touchstart', _acResetInactivity, { passive: true })
-
+  document.addEventListener('click', _onTooltipTap) // tooltip do número inteiro no toque
   // Pipeline de inicialização (mirror de loadDashboard, legacy L5586-5601,
   // menos a parte que já rodou na fundação de login — buscar role/features).
   buildPeriodTabs()
@@ -1803,10 +1812,22 @@ onMounted(async () => {
 // outra forma de sair, ex.: navegação direto pela URL).
 onUnmounted(() => {
   _pararTimersDashboard()
+  document.removeEventListener('click', _onTooltipTap)
 })
 </script>
 
 <style scoped>
+/* ── Tooltip universal do número inteiro (fmtN resume; hover no desktop / toque no mobile revela) ── */
+.tela-redes-sociais :deep(.tem-tooltip) { position: relative; }
+.tela-redes-sociais :deep(.tem-tooltip.mostrar)::after,
+.tela-redes-sociais :deep(.tem-tooltip:hover)::after {
+  content: attr(data-full);
+  position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%);
+  background: var(--text); color: var(--surface);
+  font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: .3px;
+  padding: 4px 8px; border-radius: 6px; white-space: nowrap; z-index: 60; pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0,0,0,.22);
+}
 /* Porte das regras do dashboard central de Redes Sociais (legacy/index.html,
    principalmente L34-386/389-470/683-709/815-870 — hoje ainda em
    src/estilos/estilos-globais.css, de onde NÃO foram removidas: ao contrário
