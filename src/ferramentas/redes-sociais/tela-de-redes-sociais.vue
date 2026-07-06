@@ -344,8 +344,6 @@
           <div class="mc-bottom"><span class="mc-pct" id="pct-story-replies">0%</span><span class="mc-diff" id="diff-story-replies"></span></div>
         </div>
         <div class="card"><div class="mc-header"><div class="mc-icon">👁</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-st-reach" contenteditable="true" spellcheck="false">3000</span><span class="mc-edit-hint">✏</span></div></div><div class="mc-lbl">ALCANCE (STORIES)</div><div class="mc-val a-blue" id="st-reach">0</div><div class="mc-compare" id="cmp-st-reach"></div><div class="mc-divider"></div><div class="mc-progress-track"><div class="mc-progress-fill" id="prog-st-reach" style="width:0%"></div></div><div class="mc-bottom"><span class="mc-pct" id="pct-st-reach">0%</span><span class="mc-diff" id="diff-st-reach"></span></div></div>
-        <div class="card"><div class="mc-header"><div class="mc-icon">🤝</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-st-interactions" contenteditable="true" spellcheck="false">150</span><span class="mc-edit-hint">✏</span></div></div><div class="mc-lbl">INTERAÇÕES (STORIES)</div><div class="mc-val a-pink" id="st-interactions">0</div><div class="mc-compare" id="cmp-st-interactions"></div><div class="mc-divider"></div><div class="mc-progress-track"><div class="mc-progress-fill" id="prog-st-interactions" style="width:0%"></div></div><div class="mc-bottom"><span class="mc-pct" id="pct-st-interactions">0%</span><span class="mc-diff" id="diff-st-interactions"></span></div></div>
-        <div class="card"><div class="mc-header"><div class="mc-icon">👆</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-st-navigation" contenteditable="true" spellcheck="false">1200</span><span class="mc-edit-hint">✏</span></div></div><div class="mc-lbl">NAVEGAÇÃO (STORIES)</div><div class="mc-val a-purple" id="st-navigation">0</div><div class="mc-compare" id="cmp-st-navigation"></div><div id="st-nav-breakdown" style="margin-top:8px;"></div><div class="mc-divider"></div><div class="mc-progress-track"><div class="mc-progress-fill" id="prog-st-navigation" style="width:0%"></div></div><div class="mc-bottom"><span class="mc-pct" id="pct-st-navigation">0%</span><span class="mc-diff" id="diff-st-navigation"></span></div></div>
       </div>
 
       <!-- 05 CONTEÚDO -->
@@ -481,7 +479,8 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 // ==========================================================================
 
 /* ── PERÍODOS / TEMAS DE PERFIL (legacy L3300-3321, verbatim) ── */
-const PERIODS = [{ label: 'HOJE', value: 0 }, { label: '1D', value: 1 }, { label: '7D', value: 7 }, { label: '14D', value: 14 }, { label: '30D', value: 30 }, { label: 'MÊS', value: 'monthfull' }, { label: 'MÊS PASS.', value: 'lastmonth' }, { label: 'ATÉ AGORA', value: 'sofar' }]
+// "Hoje" removido; "MÊS" (mês corrente) unifica o antigo MÊS + ATÉ AGORA (eram a mesma coisa).
+const PERIODS = [{ label: '1D', value: 1 }, { label: '7D', value: 7 }, { label: '14D', value: 14 }, { label: '30D', value: 30 }, { label: 'MÊS', value: 'monthfull' }, { label: 'MÊS PASS.', value: 'lastmonth' }]
 const ACCOUNT_PICS = {}
 const PROFILE_THEMES = {
   'Raíssa Herculano': { accent: '#BE185D', light: 'rgba(190,24,93,0.08)', mid: 'rgba(190,24,93,0.30)' },
@@ -1365,17 +1364,11 @@ function update(d, period) {
   setCompare('cmp-story-replies', d.storyEng.replies, d.storyEng.prevReplies, '', pl, false)
   applyMetric('story-replies', d.storyEng.replies, getGoal('story-replies'))
   // Cards novos de stories (alcance/interações/navegação/visitas/novos seguidores).
-  ;[['st-reach', 'reach', 'prevReach'], ['st-interactions', 'interactions', 'prevInteractions'], ['st-navigation', 'navigation', 'prevNavigation']].forEach(([id, k, pk]) => {
+  ;[['st-reach', 'reach', 'prevReach']].forEach(([id, k, pk]) => {
     animCount(document.getElementById(id), d.storyEng[k] || 0)
     setCompare('cmp-' + id, d.storyEng[k] || 0, d.storyEng[pk], '', pl, false)
     applyMetric(id, d.storyEng[k] || 0, getGoal(id))
   })
-  // Quebra da navegação em linhas (mesmo card, com separadores).
-  const _navBk = document.getElementById('st-nav-breakdown')
-  if (_navBk) {
-    const _its = [['Avançou', d.storyEng.navForward || 0], ['Voltou', d.storyEng.navBack || 0], ['Saiu', d.storyEng.navExit || 0], ['Próximo', d.storyEng.navNext || 0]]
-    _navBk.innerHTML = _its.map((it, i) => `<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:5px 0;${i > 0 ? 'border-top:1px solid var(--border);' : ''}"><span style="color:var(--text-muted);">${it[0]}</span><span style="font-weight:700;color:var(--text);">${fmtN(it[1])}</span></div>`).join('')
-  }
   setChips('chips-story-eng', ['Acumulado de snapshots diários', 'Stories expiram em 24h (API)'])
   animCount(document.getElementById('cnt-stories'), d.cnt.stories)
   setCompare('cmp-stories', d.cnt.stories, d.cnt.prevStories, '', pl, false); applyMetric('stories', d.cnt.stories, getGoal('stories'))
