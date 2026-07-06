@@ -134,8 +134,11 @@
                 <span class="mc-edit-hint">✏</span>
               </div>
             </div>
-            <div class="mc-val a-blue" id="new-followers-val">0</div>
-            <div id="gross-followers" style="display:none;gap:12px;align-items:center;font-family:'IBM Plex Sans',sans-serif;font-size:10.5px;font-weight:600;letter-spacing:.2px;margin-top:3px;"></div>
+            <div class="nf-linhas">
+              <div class="nf-linha"><span class="nf-lbl">Seguidores</span><span class="nf-val a-green" id="nf-gained">0</span></div>
+              <div class="nf-linha"><span class="nf-lbl">Deixaram de seguir</span><span class="nf-val a-red" id="nf-lost">0</span></div>
+              <div class="nf-linha"><span class="nf-lbl">Total</span><span class="nf-val a-blue" id="new-followers-val">0</span></div>
+            </div>
             <div class="mc-compare" id="cmp-followers"></div>
             <div id="previa-followers" style="display:none;margin-top:6px;"></div>
             <div class="mc-divider"></div>
@@ -1233,15 +1236,16 @@ function update(d, period) {
   // Senão (Meta atrasada/sem dado) → variação real da contagem, marcada "em consolidação". Nunca zera.
   const confirmado = d.confirmadoIG
   const headlineVal = confirmado ? d.newFollowers : (d.previaReal != null ? d.previaReal : d.newFollowers)
-  const newEl = document.getElementById('new-followers-val'); if (newEl) animCount(newEl, headlineVal)
-  // ▲seguiram ▼saíram (bruto/IG) — só quando o período está confirmado (senão o bruto está incompleto).
-  const grossEl = document.getElementById('gross-followers')
-  if (grossEl) {
-    if (confirmado) {
-      grossEl.style.display = 'flex'
-      grossEl.innerHTML = `<span style="color:#16a34a">▲ ${fmtN(d.grossGained)} seguiram</span>` +
-        `<span style="color:#ef4444">▼ ${fmtN(d.grossLost)} saíram</span>`
-    } else { grossEl.style.display = 'none' }
+  const newEl = document.getElementById('new-followers-val'); if (newEl) animCount(newEl, headlineVal) // Total (líquido)
+  // 3 linhas de fonte igual: Seguidores (bruto) · Deixaram de seguir (bruto) · Total (líquido).
+  // O bruto (seguiram/saíram) só existe quando o período está CONFIRMADO pelo IG — senão não inventa.
+  const gEl = document.getElementById('nf-gained'), lEl = document.getElementById('nf-lost')
+  if (confirmado) {
+    if (gEl) animCount(gEl, d.grossGained)
+    if (lEl) animCount(lEl, d.grossLost)
+  } else {
+    if (gEl) { gEl.textContent = '—'; gEl.removeAttribute('title'); gEl.classList.remove('tem-tooltip') }
+    if (lEl) { lEl.textContent = '—'; lEl.removeAttribute('title'); lEl.classList.remove('tem-tooltip') }
   }
   // Selo de status: ✓ confirmado pelo IG (verde) ou ⏳ em consolidação (âmbar — número é a contagem real).
   const prevEl = document.getElementById('previa-followers')
@@ -1828,6 +1832,14 @@ onUnmounted(() => {
   padding: 4px 8px; border-radius: 6px; white-space: nowrap; z-index: 60; pointer-events: none;
   box-shadow: 0 4px 14px rgba(0,0,0,.22);
 }
+/* ── Novos seguidores em 3 linhas de FONTE IGUAL (Seguidores / Deixaram de seguir / Total) ── */
+.tela-redes-sociais :deep(.nf-linhas){ display:flex; flex-direction:column; gap:6px; margin:4px 0 2px; }
+.tela-redes-sociais :deep(.nf-linha){ display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
+.tela-redes-sociais :deep(.nf-lbl){ font-family:'IBM Plex Sans',sans-serif; font-size:12px; font-weight:500; color:var(--muted); letter-spacing:.2px; }
+.tela-redes-sociais :deep(.nf-val){ font-family:'Oswald',sans-serif; font-size:22px; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums; line-height:1.1; }
+.tela-redes-sociais :deep(.nf-val.a-green){ color:#16a34a; }
+.tela-redes-sociais :deep(.nf-val.a-red){ color:#ef4444; }
+.tela-redes-sociais :deep(.nf-val.a-blue){ color:var(--accent); }
 /* Porte das regras do dashboard central de Redes Sociais (legacy/index.html,
    principalmente L34-386/389-470/683-709/815-870 — hoje ainda em
    src/estilos/estilos-globais.css, de onde NÃO foram removidas: ao contrário
