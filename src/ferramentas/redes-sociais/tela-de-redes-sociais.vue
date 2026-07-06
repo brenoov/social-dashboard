@@ -612,6 +612,21 @@ function janelasDoPeriodo(period, hoje = new Date()) {
   const folU = abertoAteAgora ? agora : menos1(engU)
   return { engSince: TS(engS), engUntil: TS(engU), folSince: TS(folS), folUntil: TS(folU) }
 }
+// KPIs AO VIVO (exatos da Meta) via edge function insights-ao-vivo. Token fica no servidor.
+// Cache leve por (conta+período) por 3min; null se a Meta falhar (a tela cai no coletado).
+const _kpiCache = {}
+async function buscarKpisAoVivo(accountId, period) {
+  const chave = accountId + '|' + String(period)
+  const agora = Date.now()
+  if (_kpiCache[chave] && (agora - _kpiCache[chave].t) < 180000) return _kpiCache[chave].v
+  try {
+    const jan = janelasDoPeriodo(period, new Date())
+    const { data, error } = await sbClient.functions.invoke('insights-ao-vivo', { body: { account_id: accountId, ...jan } })
+    if (error || !data || data.meta_erro || data.followers_count == null) return null
+    _kpiCache[chave] = { t: agora, v: data }
+    return data
+  } catch (e) { return null }
+}
 // salva a meta no período editado, RECALCULA proporcional em todos os outros intervalos,
 // grava no localStorage (instantâneo) E no Supabase (compartilhado entre usuários).
 function saveGoal(key, val) {
@@ -1248,16 +1263,19 @@ function openFollowersInfo() {
 function update(d, period) {
   const pl = d.pl
   applyFreshness(d.trueLastSnap) // frescor = última coleta REAL do coletor, igual em qualquer período
-  const totalEl = document.getElementById('total-followers'); if (totalEl) animCountFull(totalEl, d.followerTotal)
+  const totalEl = document.getElementById('total-followers'); if (totalEl) animCountFull(totalEl, (d.live ? d.live.followers_count : d.followerTotal))
   // RESILIENTE: se o período está confirmado pela Meta (bruto cobre a janela) → número oficial = IGUAL ao IG.
   // Senão (Meta atrasada/sem dado) → variação real da contagem, marcada "em consolidação". Nunca zera.
-  const confirmado = d.confirmadoIG
-  const headlineVal = confirmado ? d.newFollowers : (d.previaReal != null ? d.previaReal : d.newFollowers)
+  // AO VIVO (exato da Meta) quando disponível; senão cai na lógica de consolidação do coletado.
+  const confirmado = d.live ? true : d.confirmadoIG
+  const headlineVal = d.live ? d.live.novos.total : (confirmado ? d.newFollowers : (d.previaReal != null ? d.previaReal : d.newFollowers))
   const newEl = document.getElementById('new-followers-val'); if (newEl) animCount(newEl, headlineVal) // Total (líquido)
-  // 3 linhas de fonte igual: Seguidores (bruto) · Deixaram de seguir (bruto) · Total (líquido).
-  // O bruto (seguiram/saíram) só existe quando o período está CONFIRMADO pelo IG — senão não inventa.
+  // 3 linhas de fonte igual: Seguidores · Deixaram de seguir · Total.
   const gEl = document.getElementById('nf-gained'), lEl = document.getElementById('nf-lost')
-  if (confirmado) {
+  if (d.live) {
+    if (gEl) animCount(gEl, d.live.novos.seguiu)
+    if (lEl) animCount(lEl, d.live.novos.deixou)
+  } else if (confirmado) {
     if (gEl) animCount(gEl, d.grossGained)
     if (lEl) animCount(lEl, d.grossLost)
   } else {
@@ -1319,10 +1337,13 @@ function update(d, period) {
     setCompare('cmp-' + k, curr, prev, '', pl, false); applyMetric(k, curr, getGoal(k))
   })
   // Cards novos (alcance/visualizações/interações/contas engajadas/visitas) — sem meta/progresso.
+  // Alcance/Visualizações/Interações/Visitas: AO VIVO (exato) quando disponível; senão coletado.
+  const engLive = d.live ? { reach: d.live.engajamento.reach, views: d.live.engajamento.views, interactions: d.live.engajamento.interacoes, profileViews: d.live.engajamento.visitas } : null
   ;[['reach', 'reach', 'prevReach'], ['views', 'views', 'prevViews'], ['interactions', 'interactions', 'prevInteractions'], ['profile-views', 'profileViews', 'prevProfileViews']].forEach(([id, k, pk]) => {
-    animCount(document.getElementById('eng-' + id), d.eng[k] || 0)
-    setCompare('cmp-' + id, d.eng[k] || 0, d.eng[pk], '', pl, false)
-    applyMetric(id, d.eng[k] || 0, getGoal(id))
+    const val = engLive ? (engLive[k] || 0) : (d.eng[k] || 0)
+    animCount(document.getElementById('eng-' + id), val)
+    setCompare('cmp-' + id, val, d.eng[pk], '', pl, false)
+    applyMetric(id, val, getGoal(id))
   })
   const avgPerPost = d.cnt.posts > 0 ? Math.round(d.eng.likes / d.cnt.posts) : 0
   setChips('chips-eng', ['Taxa de eng.: ' + d.engRate + '%', 'Comentários: ' + fmtN(d.eng.comments || 0), 'Média curtidas/post: ' + fmtN(avgPerPost), prevEngTotal > 0 ? 'Total: ' + fmtN(engTotal) + ' vs ' + fmtN(prevEngTotal) + ' (' + pctDiff(engTotal, prevEngTotal) + ')' : 'Total engajamento: ' + fmtN(engTotal)])
@@ -1543,7 +1564,16 @@ function restoreHeaderState() {
 function updateGoalDisplays(period) { Object.keys(GOALS).forEach(k => { const el = document.getElementById('goal-' + k); if (el) el.textContent = loadGoal(k, period, currentAccountId) }) }
 function watchGoals() { document.querySelectorAll('.mc-goal-val').forEach(el => { el.addEventListener('blur', () => { const key = el.id.replace('goal-', ''); saveGoal(key, el.textContent.trim()); updateGoalDisplays(currentPeriod); refresh() }); el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); el.blur() } }) }) }
 let _refreshId = 0
-async function refresh() { if (!currentAccountId) return; const myId = ++_refreshId; const data = await fetchData(currentAccountId, currentPeriod, currentStartDate, currentEndDate); if (myId !== _refreshId) return; update(data, currentPeriod) }
+async function refresh() {
+  if (!currentAccountId) return
+  const myId = ++_refreshId
+  const data = await fetchData(currentAccountId, currentPeriod, currentStartDate, currentEndDate)
+  if (myId !== _refreshId) return
+  // KPIs exatos AO VIVO da Meta (janela exata do período). null → a tela cai no coletado.
+  data.live = await buscarKpisAoVivo(currentAccountId, currentPeriod)
+  if (myId !== _refreshId) return
+  update(data, currentPeriod)
+}
 function toggleCustomRange() { const panel = document.getElementById('custom-range-panel'); const btn = document.getElementById('custom-range-btn'); const open = panel.style.display === 'none' || panel.style.display === ''; panel.style.display = open ? 'flex' : 'none'; btn.classList.toggle('active', open) }
 function applyCustomRange() { const s = document.getElementById('custom-start').value; const e = document.getElementById('custom-end').value; if (!s || !e) { alert('Selecione data de início e fim.'); return } if (s > e) { alert('Data de início deve ser anterior à data de fim.'); return } currentStartDate = s; currentEndDate = e; document.querySelectorAll('.ptab').forEach(b => b.classList.remove('active')); refresh() }
 function clearCustomRange() { currentStartDate = null; currentEndDate = null; document.getElementById('custom-start').value = ''; document.getElementById('custom-end').value = ''; document.getElementById('custom-range-panel').style.display = 'none'; document.getElementById('custom-range-btn').classList.remove('active'); document.querySelectorAll('.ptab').forEach((b, i) => { if (i === 1) b.classList.add('active') }); currentPeriod = 7; updateGoalDisplays(7); refresh() }
