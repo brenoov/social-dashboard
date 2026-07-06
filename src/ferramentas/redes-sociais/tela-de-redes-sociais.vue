@@ -592,6 +592,26 @@ function periodDays(period) {
   if (period === 'sofar') return null
   const n = Number(period); return (isFinite(n) && n > 0) ? n : 7
 }
+// Janelas EXATAS por período (fuso BRT) para a busca AO VIVO dos KPIs (ver docs/superpowers/.../redes-hibrido).
+// Engajamento = faixa do período (mês-calendário no lastmonth/monthfull). Follows = a MESMA janela deslocada -1 dia
+// (a Meta bucketiza follows_and_unfollows 1 dia atrás — validado: mês passado follows = 31/05→30/06 = 1281/571).
+function janelasDoPeriodo(period, hoje = new Date()) {
+  const TS = (d) => String(Math.floor(d.getTime() / 1000))
+  const dia00 = (yy, mm1, dd) => new Date(`${yy}-${String(mm1).padStart(2, '0')}-${String(dd).padStart(2, '0')}T00:00:00-03:00`)
+  const menos1 = (d) => new Date(d.getTime() - 86400000)
+  const primeiro = (yy, mIdx) => { const d = new Date(yy, mIdx, 1); return dia00(d.getFullYear(), d.getMonth() + 1, 1) }
+  const y = hoje.getFullYear(), M = hoje.getMonth()
+  const agora = hoje
+  let engS, engU, abertoAteAgora = false
+  if (period === 'lastmonth') { engS = primeiro(y, M - 1); engU = primeiro(y, M) }
+  else if (period === 'monthfull' || period === 'sofar' || period === 'month') { engS = primeiro(y, M); engU = agora; abertoAteAgora = true }
+  else if (period === 0) { engS = dia00(y, M + 1, hoje.getDate()); engU = agora; abertoAteAgora = true }
+  else if (period === 1) { const ont = new Date(y, M, hoje.getDate() - 1); engS = dia00(ont.getFullYear(), ont.getMonth() + 1, ont.getDate()); engU = dia00(y, M + 1, hoje.getDate()) }
+  else { const n = Number(period) || 30; const a = new Date(y, M, hoje.getDate() - n); engS = dia00(a.getFullYear(), a.getMonth() + 1, a.getDate()); engU = dia00(y, M + 1, hoje.getDate()) }
+  const folS = menos1(engS)
+  const folU = abertoAteAgora ? agora : menos1(engU)
+  return { engSince: TS(engS), engUntil: TS(engU), folSince: TS(folS), folUntil: TS(folU) }
+}
 // salva a meta no período editado, RECALCULA proporcional em todos os outros intervalos,
 // grava no localStorage (instantâneo) E no Supabase (compartilhado entre usuários).
 function saveGoal(key, val) {
