@@ -50,6 +50,7 @@
           <div id="dash-clock">--:--:<span>--</span></div>
           <div class="gv-clock-date" id="dash-date"></div>
           <div class="gv-update-status" id="collection-status">—</div>
+          <div class="gv-update-status" id="live-status" style="margin-top:1px"></div>
         </div>
       </div>
 
@@ -1264,6 +1265,16 @@ function update(d, period) {
   const pl = d.pl
   applyFreshness(d.trueLastSnap) // frescor = última coleta REAL do coletor, igual em qualquer período
   const totalEl = document.getElementById('total-followers'); if (totalEl) animCountFull(totalEl, (d.live ? d.live.followers_count : d.followerTotal))
+  // Status ao vivo × fallback honesto (nunca esconde que é dado coletado quando a Meta falha).
+  const _lsu = document.getElementById('live-status')
+  if (_lsu) {
+    if (d.live) { _lsu.style.color = '#16a34a'; _lsu.textContent = '● ao vivo (Meta)' }
+    else {
+      let q = ''
+      try { q = new Date(d.trueLastSnap).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) } catch (e) {}
+      _lsu.style.color = '#b45309'; _lsu.textContent = '⚠ ao vivo indisponível — última coleta ' + q
+    }
+  }
   // RESILIENTE: se o período está confirmado pela Meta (bruto cobre a janela) → número oficial = IGUAL ao IG.
   // Senão (Meta atrasada/sem dado) → variação real da contagem, marcada "em consolidação". Nunca zera.
   // AO VIVO (exato da Meta) quando disponível; senão cai na lógica de consolidação do coletado.
@@ -1567,6 +1578,7 @@ let _refreshId = 0
 async function refresh() {
   if (!currentAccountId) return
   const myId = ++_refreshId
+  const _ls = document.getElementById('live-status'); if (_ls) _ls.innerHTML = '<span style="opacity:.7">⟳ atualizando ao vivo…</span>'
   const data = await fetchData(currentAccountId, currentPeriod, currentStartDate, currentEndDate)
   if (myId !== _refreshId) return
   // KPIs exatos AO VIVO da Meta (janela exata do período). null → a tela cai no coletado.
