@@ -51,25 +51,26 @@ const baseHeaders = {
   'content-type': 'application/json',
 };
 const sleep = (ms) => new Promise(res => setTimeout(res, ms));
-async function anthropic(body, tentativas = 6) {
+async function anthropic(body, tentativas = 3) {
+  // CUSTO: um timeout re-cobra a web search que o servidor JÁ fez → no máx. 1 retry de timeout.
+  // O retry cheio fica só p/ 429/529 (requisição rejeitada, não cobrada).
+  let netErros = 0;
   for (let t = 0; t < tentativas; t++) {
     let r;
     try {
-      // timeout explícito: web search pode demorar ~30-60s; 150s dá folga. Sem isso,
-      // uma conexão pendurada bloqueia ~4 min por tentativa (visto no runner) e o passo
-      // inteiro não fecha. Com timeout, a falha cicla rápido e o backoff assume.
-      r = await fetch(ANTHROPIC_URL, { method: 'POST', headers: baseHeaders, body: JSON.stringify(body), signal: AbortSignal.timeout(150000) });
+      r = await fetch(ANTHROPIC_URL, { method: 'POST', headers: baseHeaders, body: JSON.stringify(body), signal: AbortSignal.timeout(120000) });
     } catch (netErr) {
-      // erro de rede (fetch failed / timeout) → espera e tenta de novo
-      console.log('    erro de rede (' + netErr.message + '); aguardando…');
-      await sleep(Math.min(60, 8 * (t + 1)) * 1000);
+      netErros++;
+      if (netErros > 1) throw new Error('Anthropic: timeout repetido (conta lenta) — desisto p/ não re-cobrar a web search');
+      console.log('    erro de rede (' + netErr.message + '); 1 nova tentativa…');
+      await sleep(5000);
       continue;
     }
     if (r.ok) return r.json();
-    // 429 (rate limit) ou 529/500 (sobrecarga) → espera e tenta de novo
+    // 429 (rate limit) ou 529/500 (sobrecarga) → requisição rejeitada (não cobrada) → pode repetir
     if (r.status === 429 || r.status === 529 || r.status >= 500) {
       const ra = parseInt(r.headers.get('retry-after') || '0', 10);
-      const espera = (ra > 0 ? ra : Math.min(60, 8 * (t + 1))) * 1000;
+      const espera = (ra > 0 ? ra : Math.min(30, 8 * (t + 1))) * 1000;
       console.log('    rate limit/sobrecarga (' + r.status + '); aguardando ' + (espera / 1000) + 's…');
       await sleep(espera);
       continue;
@@ -77,7 +78,7 @@ async function anthropic(body, tentativas = 6) {
     const j = await r.json().catch(() => ({}));
     throw new Error('Anthropic ' + r.status + ' ' + JSON.stringify(j).slice(0, 300));
   }
-  throw new Error('Anthropic: esgotadas as tentativas após rate limit');
+  throw new Error('Anthropic: esgotadas as tentativas');
 }
 
 const SCHEMA = {
@@ -163,10 +164,10 @@ async function ogImage(url) {
 // e respeita o limite de TPM da conta).
 async function coletarMarca(marca) {
   const messages = [{ role: 'user', content: promptPesquisa(marca) }];
-  const tools = [{ type: 'web_search_20260209', name: 'web_search', max_uses: 3 }];
+  const tools = [{ type: 'web_search_20260209', name: 'web_search', max_uses: 2 }]; // 2 buscas/marca (web search = $10/1000; era 3)
 
   let notas = '';
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 4; i++) { // teto de turnos agênticos (busca→busca→responde cabe em ~3; era 6)
     const resp = await anthropic({ model: MODEL, max_tokens: 3000, tools, messages });
     messages.push({ role: 'assistant', content: resp.content });
     notas = resp.content.filter(b => b.type === 'text').map(b => b.text).join('\n');
@@ -211,9 +212,16 @@ async function main() {
   console.log('== Coletor de notícias · rodada ' + HOJE + ' · modelo ' + MODEL + ' ==');
   await logColetor({ fase: 'inicio', detalhe: 'rodada ' + HOJE + ' (' + MODEL + ')' });
 
+  const t0 = Date.now();
+  const ORCAMENTO_MIN = parseInt(process.env.COLETOR_ORCAMENTO_MIN || '30', 10); // teto de tempo p/ NÃO queimar crédito se a conta estiver lenta
   let encontradas = 0, inseridas = 0;
   const resumo = [];
   for (const marca of MARCAS) {
+    if ((Date.now() - t0) / 60000 > ORCAMENTO_MIN) {
+      console.log('  ⏱ teto de ' + ORCAMENTO_MIN + 'min atingido — encerrando a rodada (evita gasto excessivo)');
+      resumo.push('(interrompido: teto de tempo)');
+      break;
+    }
     try {
       const lista = await coletarMarca(marca);
       encontradas += lista.length;
