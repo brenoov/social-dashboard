@@ -9,6 +9,8 @@
 
 Corrigir a tela de **Redes Sociais** para que os números **batam fielmente** com os painéis da Meta (Painel Profissional, Business Suite Insights, Gerenciador de Anúncios), mais alguns ajustes de UI. **Vale para TODOS os perfis, sem exceção.** Princípio inegociável: **não exibir número que pareça certo mas não seja** — se a API não entregar um dado, avisamos e não inventamos.
 
+**Princípio de INTERVALO + FILTRO (crítico):** todas as métricas são **dinâmicas pelo período selecionado** (hoje/7d/30d/mês/mês passado/personalizado) e pelo filtro correto — **nada de chumbar os números do "mês passado"**. Os valores de referência da seção 2 são só a **régua de validação** do intervalo "mês passado"; a lógica deve puxar o dado certo para QUALQUER intervalo. Validação obrigatória: conferir em "mês passado" (bate com a régua) **E** em ao menos mais um intervalo (ex.: 7d/30d) pra garantir que flui dinâmico. Investimento soma **todas as campanhas** dentro do **período selecionado** (filtro não corta o gasto total).
+
 ## 2. Valores de referência (intervalo "mês passado" — usar pra validar)
 
 | Métrica | Fonte Meta | Valor esperado |
