@@ -51,6 +51,23 @@ Deno.serve(async (req) => {
     for (const it of (eng.data ?? [])) em[it.name] = it.total_value?.value ?? 0
     out.engajamento = { views: em.views ?? 0, reach: em.reach ?? 0, interacoes: em.total_interactions ?? 0, visitas: em.profile_views ?? 0 }
 
+    // Curtidas/Comentários/Salvamentos/Compart. por tipo de conteúdo → ORGÂNICO (POST+REEL+STORY) vs ANÚNCIO (AD).
+    // (o painel "por interação" mostra o orgânico; o número por conta somaria os anúncios, que aqui vão à parte.)
+    const bd = await apiGet(`${ig}/insights`, {
+      metric: 'likes,comments,saves,shares', period: 'day', metric_type: 'total_value', breakdown: 'media_product_type',
+      since: String(engSince), until: String(engUntil),
+    }, token)
+    const mapa: Record<string, string> = { likes: 'curtidas', comments: 'comentarios', saves: 'salvamentos', shares: 'compartilhamentos' }
+    const inter: Record<string, { org: number; ad: number }> = { curtidas: { org: 0, ad: 0 }, comentarios: { org: 0, ad: 0 }, salvamentos: { org: 0, ad: 0 }, compartilhamentos: { org: 0, ad: 0 } }
+    for (const it of (bd.data ?? [])) {
+      const dest = inter[mapa[it.name]]; if (!dest) continue
+      for (const r of (it.total_value?.breakdowns?.[0]?.results ?? [])) {
+        const t = (r.dimension_values ?? ['?'])[0]
+        if (t === 'AD') dest.ad += (r.value ?? 0); else dest.org += (r.value ?? 0)
+      }
+    }
+    out.interacoes = inter
+
     const fu = await apiGet(`${ig}/insights`, {
       metric: 'follows_and_unfollows', period: 'day', metric_type: 'total_value', breakdown: 'follow_type',
       since: String(folSince), until: String(folUntil),
