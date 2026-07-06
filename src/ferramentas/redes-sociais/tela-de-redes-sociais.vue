@@ -289,15 +289,27 @@
           <div class="mc-header"><div class="mc-icon">❤️</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-likes" contenteditable="true" spellcheck="false">1000</span><span class="mc-edit-hint">✏</span></div></div>
           <div class="mc-lbl">CURTIDAS</div>
           <div class="mc-val a-orange" id="eng-likes">0</div>
+          <div class="mc-ad-sub" id="eng-likes-ad"></div>
           <div class="mc-compare" id="cmp-likes"></div>
           <div class="mc-divider"></div>
           <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-likes" style="width:0%"></div></div>
           <div class="mc-bottom"><span class="mc-pct" id="pct-likes">0%</span><span class="mc-diff" id="diff-likes"></span></div>
         </div>
+        <div class="card" style="animation-delay:.075s">
+          <div class="mc-header"><div class="mc-icon">💬</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-comments" contenteditable="true" spellcheck="false">120</span><span class="mc-edit-hint">✏</span></div></div>
+          <div class="mc-lbl">COMENTÁRIOS</div>
+          <div class="mc-val a-blue" id="eng-comments">0</div>
+          <div class="mc-ad-sub" id="eng-comments-ad"></div>
+          <div class="mc-compare" id="cmp-comments"></div>
+          <div class="mc-divider"></div>
+          <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-comments" style="width:0%"></div></div>
+          <div class="mc-bottom"><span class="mc-pct" id="pct-comments">0%</span><span class="mc-diff" id="diff-comments"></span></div>
+        </div>
         <div class="card" style="animation-delay:.10s">
           <div class="mc-header"><div class="mc-icon">🔖</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-saves" contenteditable="true" spellcheck="false">250</span><span class="mc-edit-hint">✏</span></div></div>
           <div class="mc-lbl">SALVAMENTOS</div>
           <div class="mc-val a-pink" id="eng-saves">0</div>
+          <div class="mc-ad-sub" id="eng-saves-ad"></div>
           <div class="mc-compare" id="cmp-saves"></div>
           <div class="mc-divider"></div>
           <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-saves" style="width:0%"></div></div>
@@ -307,6 +319,7 @@
           <div class="mc-header"><div class="mc-icon">↗️</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-shares" contenteditable="true" spellcheck="false">200</span><span class="mc-edit-hint">✏</span></div></div>
           <div class="mc-lbl">COMPARTILHAMENTOS</div>
           <div class="mc-val a-purple" id="eng-shares">0</div>
+          <div class="mc-ad-sub" id="eng-shares-ad"></div>
           <div class="mc-compare" id="cmp-shares"></div>
           <div class="mc-divider"></div>
           <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-shares" style="width:0%"></div></div>
@@ -1341,10 +1354,17 @@ function update(d, period) {
   if (d.adShares > 0 && d.spend > 0) custoChips.push('Custo/compart. ' + fmtR(d.spend / d.adShares))
   if (!custoChips.length) custoChips.push('Sem custos no período')
   setChips('chips-ads-custo', custoChips)
-  ;['likes', 'saves', 'shares'].forEach(k => {
-    const curr = d.eng[k], prev = d.eng['prev' + k.charAt(0).toUpperCase() + k.slice(1)]
-    animCount(document.getElementById('eng-' + k), curr)
-    setCompare('cmp-' + k, curr, prev, '', pl, false); applyMetric(k, curr, getGoal(k))
+  // Curtidas/Comentários/Salvamentos/Compart.: AO VIVO = ORGÂNICO (posts+reels+stories, SEM anúncio);
+  // os anúncios aparecem no subtexto "+ X em anúncios". Fallback: valor coletado.
+  const _imap = { likes: 'curtidas', comments: 'comentarios', saves: 'salvamentos', shares: 'compartilhamentos' }
+  ;['likes', 'comments', 'saves', 'shares'].forEach(k => {
+    const io = d.live && d.live.interacoes ? d.live.interacoes[_imap[k]] : null
+    const val = io ? io.org : (d.eng[k] || 0)
+    const prev = d.eng['prev' + k.charAt(0).toUpperCase() + k.slice(1)]
+    animCount(document.getElementById('eng-' + k), val)
+    const _ad = document.getElementById('eng-' + k + '-ad')
+    if (_ad) _ad.textContent = (io && io.ad > 0) ? ('+ ' + fmtN(io.ad) + ' em anúncios') : ''
+    setCompare('cmp-' + k, val, prev, '', pl, false); applyMetric(k, val, getGoal(k))
   })
   // Cards novos (alcance/visualizações/interações/contas engajadas/visitas) — sem meta/progresso.
   // Alcance/Visualizações/Interações/Visitas: AO VIVO (exato) quando disponível; senão coletado.
@@ -1892,6 +1912,7 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.nf-val.a-green){ color:#16a34a; }
 .tela-redes-sociais :deep(.nf-val.a-red){ color:#ef4444; }
 .tela-redes-sociais :deep(.nf-val.a-blue){ color:var(--accent); }
+.tela-redes-sociais :deep(.mc-ad-sub){ font-family:'IBM Plex Sans',sans-serif; font-size:10.5px; font-weight:600; color:var(--muted); margin-top:2px; letter-spacing:.2px; }
 /* Porte das regras do dashboard central de Redes Sociais (legacy/index.html,
    principalmente L34-386/389-470/683-709/815-870 — hoje ainda em
    src/estilos/estilos-globais.css, de onde NÃO foram removidas: ao contrário
