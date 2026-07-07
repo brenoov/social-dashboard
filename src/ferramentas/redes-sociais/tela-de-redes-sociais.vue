@@ -135,7 +135,7 @@
             <div class="nf-linhas">
               <div class="nf-linha"><span class="nf-lbl">Seguidores</span><span class="nf-val a-green" id="nf-gained">0</span></div>
               <div class="nf-linha"><span class="nf-lbl">Deixaram de seguir</span><span class="nf-val a-red" id="nf-lost">0</span></div>
-              <div class="nf-linha"><span class="nf-lbl">Total</span><span class="nf-val a-blue" id="new-followers-val">0</span></div>
+              <div class="nf-linha"><span class="nf-lbl">Total</span><span class="nf-val nf-total a-blue" id="new-followers-val">0</span></div>
             </div>
             <div class="mc-compare" id="cmp-followers"></div>
             <div id="previa-followers" style="display:none;margin-top:6px;"></div>
@@ -379,7 +379,7 @@
           <div class="mc-header"><div class="mc-icon">🖼️</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-posts" contenteditable="true" spellcheck="false">6</span><span class="mc-edit-hint">✏</span></div></div>
           <div class="mc-lbl">POSTS</div>
           <div class="mc-val a-purple" id="cnt-posts">0</div>
-          <div class="mc-obs">ⓘ A API da Meta não contabiliza collabs (contam pra conta dona).</div>
+          <div class="mc-obs">ⓘ Inclui collabs entre perfis da RBV; collabs com contas externas não entram.</div>
           <div class="mc-compare" id="cmp-posts"></div>
           <div class="mc-divider"></div>
           <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-posts" style="width:0%"></div></div>
@@ -389,7 +389,7 @@
           <div class="mc-header"><div class="mc-icon">🎬</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-reels" contenteditable="true" spellcheck="false">6</span><span class="mc-edit-hint">✏</span></div></div>
           <div class="mc-lbl">REELS</div>
           <div class="mc-val a-orange" id="cnt-reels">0</div>
-          <div class="mc-obs">ⓘ A API da Meta não contabiliza collabs (contam pra conta dona).</div>
+          <div class="mc-obs">ⓘ Inclui collabs entre perfis da RBV; collabs com contas externas não entram.</div>
           <div class="mc-compare" id="cmp-reels"></div>
           <div class="mc-divider"></div>
           <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-reels" style="width:0%"></div></div>
@@ -669,6 +669,21 @@ async function buscarKpisAoVivo(accountId, period, customStart, customEnd) {
     if (error || !data || data.meta_erro || data.followers_count == null) return null
     _kpiCache[chave] = { t: agora, v: data }
     return data
+  } catch (e) { return null }
+}
+// Contagem de COLLABS (posts/reels em parceria que não vêm no /media do perfil). Varre os outros perfis RBV. Cache 3min.
+const _collabCache = {}
+async function buscarCollabs(accountId, period, customStart, customEnd) {
+  const chave = accountId + '|col|' + String(period) + '|' + (customStart || '') + '|' + (customEnd || '')
+  const agora = Date.now()
+  if (_collabCache[chave] && (agora - _collabCache[chave].t) < 180000) return _collabCache[chave].v
+  try {
+    const jan = janelasDoPeriodo(period, new Date(), customStart, customEnd)
+    const d = ts => new Date(Number(ts) * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+    const { data, error } = await sbClient.functions.invoke('contar-collabs', { body: { account_id: accountId, since: d(jan.engSince), until: d(Number(jan.engUntil) - 86400) } })
+    if (error || !data || data.erro) return null
+    _collabCache[chave] = { t: agora, v: data }
+    return data // { posts, reels }
   } catch (e) { return null }
 }
 // Série DIÁRIA exata de novos seguidores (para o gráfico bater com o painel). Cada dia = follows numa janela
@@ -1714,14 +1729,21 @@ async function refresh() {
   const myId = ++_refreshId
   const _ls = document.getElementById('live-status'); if (_ls) _ls.innerHTML = '<span style="opacity:.7">⟳ atualizando ao vivo…</span>'
   // PARALELO: coletado (gráficos/histórico) + KPIs ao vivo + série do gráfico — juntos, não em fila.
-  const [data, live, serie, seriePrev] = await Promise.all([
+  const [data, live, serie, seriePrev, collabs] = await Promise.all([
     fetchData(currentAccountId, currentPeriod, currentStartDate, currentEndDate),
     buscarKpisAoVivo(currentAccountId, currentPeriod, currentStartDate, currentEndDate),
     buscarSerieNovos(currentAccountId, currentPeriod, currentStartDate, currentEndDate),
     buscarSerieNovos(currentAccountId, currentPeriod, currentStartDate, currentEndDate, 1), // mesmos dias, mês anterior
+    buscarCollabs(currentAccountId, currentPeriod, currentStartDate, currentEndDate), // posts/reels em collab (não vêm no /media)
   ])
   if (myId !== _refreshId) return
   data.live = live // null → a tela cai no coletado
+  // Soma os COLLABS (posts/reels em parceria) na contagem de conteúdo.
+  if (collabs && data.cnt) {
+    data.cnt.posts = (data.cnt.posts || 0) + (collabs.posts || 0)
+    data.cnt.reels = (data.cnt.reels || 0) + (collabs.reels || 0)
+    data.cnt.collabs = (collabs.posts || 0) + (collabs.reels || 0)
+  }
   // GRÁFICO novos/dia AO VIVO exato: só sobrescreve quando o KPI ao vivo funcionou (consistência).
   if (live && serie && serie.length) {
     const _d3 = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'], _m3 = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
