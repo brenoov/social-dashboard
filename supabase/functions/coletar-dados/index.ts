@@ -190,9 +190,11 @@ async function gravarEng(sb: any, accountId: string, hoje: string, dias: number,
     if (prev) {
       merged = merged || {};
       for (const k of ENG_KEYS) if (!(Number(merged[k]) > 0)) merged[k] = prev[k] ?? 0;
-      degraded.push(`${name} ${periodLabel(dias)}`);
+      // Janela 1d não entra no alerta: o painel não mostra mais 1D (agora é 2D) e um dia
+      // quieto (reach 0 ontem) é normal — só gerava falso alarme. A coleta 1d segue (stories usam).
+      if (dias !== 1) degraded.push(`${name} ${periodLabel(dias)}`);
     } else {
-      if (!merged || !(Number(merged.reach) > 0)) { degraded.push(`${name} ${periodLabel(dias)} (sem histórico)`); return; }
+      if (!merged || !(Number(merged.reach) > 0)) { if (dias !== 1) degraded.push(`${name} ${periodLabel(dias)} (sem histórico)`); return; }
     }
   }
   const engC = engCols(merged);
