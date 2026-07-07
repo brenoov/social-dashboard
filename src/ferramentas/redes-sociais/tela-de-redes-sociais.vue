@@ -2129,10 +2129,10 @@ onUnmounted(() => {
 /* Chart */
 .tela-redes-sociais :deep(.chart-svg-wrap){position:relative;width:100%;margin-top:auto;}
 .tela-redes-sociais :deep(.chart-svg-wrap) svg{width:100%;height:150px;overflow:visible;cursor:crosshair;}
-.tela-redes-sociais :deep(#chart-data-labels){position:absolute;top:0;left:0;width:100%;height:120px;pointer-events:none;overflow:visible;}
+.tela-redes-sociais :deep(#chart-data-labels){position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;overflow:visible;}
 .tela-redes-sociais :deep(.cdl){position:absolute;transform:translate(-50%,calc(-100% - 3px));font-family:'Oswald',sans-serif;font-size:14px;font-weight:500;color:rgba(22,22,42,0.65);white-space:nowrap;letter-spacing:.3px;}
 [data-theme="dark"] .tela-redes-sociais :deep(.cdl){color:rgba(226,228,240,0.78);}
-.tela-redes-sociais :deep(.cdl-in){position:absolute;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;color:#fff;white-space:nowrap;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.28);}
+.tela-redes-sociais :deep(.cdl-in){position:absolute;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;line-height:1;color:#fff;white-space:nowrap;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.28);}
 .tela-redes-sociais :deep(.cdl-sm){font-size:10px;letter-spacing:0;}
 .tela-redes-sociais :deep(.cdl-hi){transform:translate(-50%,calc(-100% - 22px));}
 .tela-redes-sociais :deep(.cdl-hi)::after{content:'';position:absolute;left:50%;top:100%;width:0;height:20px;border-left:1px dashed currentColor;opacity:.4;}
