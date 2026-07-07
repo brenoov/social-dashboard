@@ -42,10 +42,7 @@
         <div class="admin-nav-group-label">Vendas</div>
         <div class="admin-nav-item" data-section="metas" onclick="loadAdminSection('metas')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Metas</span></div>
         <div class="admin-nav-group-label">Plataforma</div>
-        <div class="admin-nav-item" data-section="appearance" onclick="loadAdminSection('appearance')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg><span>Aparência</span></div>
         <div class="admin-nav-item" data-section="data" onclick="loadAdminSection('data')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><span>Dados</span></div>
-        <div class="admin-nav-group-label">Info</div>
-        <div class="admin-nav-item" data-section="system" onclick="loadAdminSection('system')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Sistema</span></div>
         <div class="admin-nav-item" data-section="saude" onclick="loadAdminSection('saude')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>Saúde dos dados</span></div>
       </nav>
       <div class="admin-content">
@@ -101,19 +98,6 @@
           <div class="admin-section-sub">Perfis do Instagram vinculados à plataforma</div>
           <div id="admin-accounts-list"></div>
         </div>
-        <!-- APARÊNCIA -->
-        <div class="admin-section" id="admin-section-appearance">
-          <div class="admin-section-title">Aparência</div>
-          <div class="admin-section-sub">Identidade visual da plataforma</div>
-          <span class="sg-label">Logo &amp; identidade</span>
-          <div class="sg">
-            <div class="sr" style="justify-content:space-between"><div class="sr-main"><div class="sr-label">Logo principal</div><div class="sr-sub">Header e tela de login</div></div><img src="https://kounqtdoioootxqegkij.supabase.co/storage/v1/object/public/profile-pics/rbv-logo.png" style="width:38px;height:38px;object-fit:contain;border-radius:6px"></div>
-            <div class="sr" style="justify-content:space-between;gap:12px"><div class="sr-main"><div class="sr-label">Nome da plataforma</div><div class="sr-sub">Exibido no header e login</div></div><div style="display:flex;align-items:center;gap:8px"><input id="adm-platform-name" class="admin-input" style="width:200px;padding:6px 10px;font-size:12px" placeholder="Inteligência RBV"><button class="admin-btn-sm" onclick="adminSaveSetting('platform_name','adm-platform-name')">Salvar</button></div></div>
-            <div class="sr" style="justify-content:space-between;gap:12px"><div class="sr-main"><div class="sr-label">Frase de rodapé</div><div class="sr-sub">Tela inicial</div></div><div style="display:flex;align-items:center;gap:8px"><input id="adm-footer-phrase" class="admin-input" style="width:200px;padding:6px 10px;font-size:12px" placeholder="Mentalidade Vencedora"><button class="admin-btn-sm" onclick="adminSaveSetting('footer_phrase','adm-footer-phrase')">Salvar</button></div></div>
-          </div>
-          <span class="sg-label">Paleta de cores por conta</span>
-          <div class="sg" id="admin-theme-list"></div>
-        </div>
         <!-- DADOS -->
         <div class="admin-section" id="admin-section-data">
           <div class="admin-section-title">Dados &amp; Sincronização</div>
@@ -127,29 +111,6 @@
             <div class="sr clickable" style="justify-content:space-between" onclick="adminShowColetorInfo()"><div class="sr-main"><div class="sr-label">Rodar coletor de dados</div><div class="sr-sub">Coleta métricas do Instagram para todos os perfis</div></div><span style="font-size:18px">⚡</span></div>
           </div>
           <div id="admin-action-info" style="display:none;margin-top:12px"></div>
-        </div>
-        <!-- SISTEMA -->
-        <div class="admin-section" id="admin-section-system">
-          <div class="admin-section-title">Sistema</div>
-          <div class="admin-section-sub">Informações técnicas da plataforma</div>
-          <span class="sg-label">Plataforma</span>
-          <div class="sg">
-            <div class="sr" style="justify-content:space-between"><div class="sr-label">Versão</div><span class="sr-val">Central de Inteligência v1.1</span></div>
-            <div class="sr" style="justify-content:space-between"><div class="sr-label">Ambiente</div><span class="sr-val" style="color:#16a34a;font-weight:600">● Produção</span></div>
-            <div class="sr" style="justify-content:space-between"><div class="sr-label">Domínio</div><span class="sr-val">socialdashboard.rbvcompany.com</span></div>
-          </div>
-          <span class="sg-label">Infraestrutura</span>
-          <div class="sg">
-            <div class="sr" style="justify-content:space-between"><div class="sr-main"><div class="sr-label">Banco de dados</div><div class="sr-sub">Supabase · sa-east-1 (Brasil)</div></div><span class="sr-val">PostgreSQL</span></div>
-            <div class="sr" style="justify-content:space-between"><div class="sr-main"><div class="sr-label">Hospedagem</div><div class="sr-sub">Deploy automático via GitHub</div></div><span class="sr-val">Vercel</span></div>
-            <div class="sr" style="justify-content:space-between"><div class="sr-main"><div class="sr-label">Dados em tempo real</div><div class="sr-sub">Meta Graph API v21.0</div></div><span class="sr-val">Instagram</span></div>
-          </div>
-          <span class="sg-label">Desenvolvimento</span>
-          <div class="sg">
-            <div class="sr" style="justify-content:space-between"><div class="sr-label">Empresa</div><span class="sr-val">RBV Company</span></div>
-            <div class="sr" style="justify-content:space-between"><div class="sr-label">Motor de IA</div><span class="sr-val">Claude AI · Anthropic</span></div>
-            <div class="sr" style="justify-content:space-between"><div class="sr-label">Tokens Meta API</div><span class="sr-val" id="sys-token-expiry" style="color:#f59e0b">Verificando...</span></div>
-          </div>
         </div>
         <!-- SAÚDE / METAS -->
         <div class="admin-section" id="admin-section-saude">
@@ -353,7 +314,7 @@ function loadAdminSection(name) {
   document.querySelectorAll('.admin-nav-item').forEach(el => el.classList.toggle('active', el.dataset.section === name))
   document.querySelectorAll('.admin-section').forEach(el => el.classList.remove('active'))
   const sec = document.getElementById('admin-section-' + name); if (sec) sec.classList.add('active')
-  const carregadores = { users: loadAdminUsers, accounts: loadAdminAccounts, appearance: loadAdminAppearance, data: loadAdminData, system: loadAdminSystem, metas: loadAdminMetas, requests: loadAdminRequests, saude: loadAdminSaude }
+  const carregadores = { users: loadAdminUsers, accounts: loadAdminAccounts, data: loadAdminData, metas: loadAdminMetas, requests: loadAdminRequests, saude: loadAdminSaude }
   carregadores[name]?.()
   updateSaudeBadge()
 }
@@ -695,43 +656,6 @@ async function loadAdminAccounts() {
 }
 
 /* ── APARÊNCIA (legacy L4762-4801, verbatim) ── */
-async function loadAdminAppearance() {
-  const settings = await adFetch('platform_settings?select=key,value').then(r => r.json()).catch(() => [])
-  const map = {}; (Array.isArray(settings) ? settings : []).forEach(s => map[s.key] = s.value)
-  const fp = document.getElementById('adm-footer-phrase'); if (fp) fp.value = map.footer_phrase || 'Mentalidade Vencedora'
-  const pn = document.getElementById('adm-platform-name'); if (pn) pn.value = map.platform_name || 'Inteligência RBV'
-  const accounts = await sb('accounts?order=name.asc&select=id,name,accent_color')
-  const list = document.getElementById('admin-theme-list'); list.innerHTML = ''
-  accounts.forEach(acc => {
-    const color = acc.accent_color || (PROFILE_THEMES[acc.name] || { accent: '#1A3A6B' }).accent
-    const row = mkEl('div', 'sr'); row.style.justifyContent = 'space-between'
-    row.appendChild(mkEl('div', 'sr-label', acc.name))
-    const right = mkEl('div'); right.style.cssText = 'display:flex;align-items:center;gap:10px'
-    const pick = mkEl('input'); pick.type = 'color'; pick.value = color; pick.style.cssText = 'width:36px;height:26px;border:none;border-radius:5px;cursor:pointer;padding:0'
-    const val = mkEl('span', 'sr-val', color)
-    pick.addEventListener('input', () => val.textContent = pick.value)
-    const saveColorBtn = mkEl('button', 'sr-btn'); saveColorBtn.textContent = 'Salvar'; saveColorBtn.style.cssText = 'background:var(--accent);color:#fff;font-size:11px;padding:5px 12px'
-    saveColorBtn.addEventListener('click', async () => {
-      saveColorBtn.textContent = 'Salvando...'; saveColorBtn.disabled = true
-      const { error } = await sbClient.from('accounts').update({ accent_color: pick.value }).eq('id', acc.id)
-      if (error) { saveColorBtn.textContent = 'Salvar'; saveColorBtn.disabled = false; adminToast('Erro ao salvar: ' + error.message, false); return }
-      if (PROFILE_THEMES[acc.name]) { const t = PROFILE_THEMES[acc.name]; t.accent = pick.value; t.light = pick.value + '1a'; t.mid = pick.value + '4d' }
-      else { PROFILE_THEMES[acc.name] = { accent: pick.value, light: pick.value + '1a', mid: pick.value + '4d' } }
-      saveColorBtn.textContent = 'Salvo ✓'; setTimeout(() => { saveColorBtn.textContent = 'Salvar'; saveColorBtn.disabled = false }, 1500)
-      adminToast('Cor de ' + acc.name + ' atualizada')
-    })
-    right.appendChild(pick); right.appendChild(val); right.appendChild(saveColorBtn); row.appendChild(right); list.appendChild(row)
-  })
-}
-async function adminSaveSetting(key, inputId) {
-  const val = document.getElementById(inputId)?.value?.trim(); if (!val) return
-  const { error } = await sbClient.from('platform_settings').upsert({ key, value: val, updated_at: new Date().toISOString() }, { onConflict: 'key' })
-  if (error) { adminToast('Erro ao salvar: ' + error.message, false); return }
-  if (key === 'footer_phrase') { const el = document.querySelector('.home-footer-phrase'); if (el) el.textContent = val }
-  if (key === 'platform_name') { ['apb-name', 'admin-topbar-title'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = val }) }
-  adminToast('Configuração salva')
-}
-
 /* ── DADOS (legacy L4804-4839, verbatim) ── */
 async function loadAdminData() {
   const accounts = await sb('accounts?order=name.asc&select=id,name')
@@ -769,15 +693,6 @@ function adminShowCmd(title, cmd) {
 }
 function adminShowRefetchInfo() { adminShowCmd('Atualizar fotos de perfil', 'cd ~/IAmundi/projetos/central-inteligencia/redes-sociais/coletor\npython3 fetch_profile_pics.py') }
 function adminShowColetorInfo() { adminShowCmd('Rodar coletor de dados', 'cd ~/IAmundi/projetos/central-inteligencia/redes-sociais/coletor\npython3 coletar.py') }
-
-/* ── SISTEMA (legacy L4842-4848, verbatim) ── */
-function loadAdminSystem() {
-  const expEl = document.getElementById('sys-token-expiry'); if (!expEl) return
-  const exp = new Date('2026-07-18'); const days = Math.ceil((exp - new Date()) / (864e5))
-  expEl.textContent = days > 0 ? `Expiram em ${days} dias (${exp.toLocaleDateString('pt-BR')})` : 'Tokens expirados — renovar agora!'
-  expEl.style.color = days > 30 ? '#16a34a' : days > 7 ? '#f59e0b' : '#dc2626'
-  const verEl = document.getElementById('sys-build-date'); if (verEl) verEl.textContent = new Date().toLocaleDateString('pt-BR')
-}
 
 /* ── METAS ADMIN (legacy L4853-5076, verbatim) ── */
 async function loadAdminMetas() {
@@ -1073,7 +988,6 @@ onUnmounted(() => {})
 Object.assign(window, {
   loadAdminSection,
   adminInviteUser,
-  adminSaveSetting,
   adminShowRefetchInfo,
   adminShowColetorInfo,
   downloadMetasTemplate,

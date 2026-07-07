@@ -1,7 +1,8 @@
 <template>
   <div class="moldura">
-    <!-- Fundo animado global (orbs/anéis/ícones flutuantes). CSS em estilos-globais.css (#bg-shapes). -->
-    <div id="bg-shapes" aria-hidden="true">
+    <!-- Fundo animado global (orbs/anéis/ícones flutuantes). CSS em estilos-globais.css (#bg-shapes).
+         Escondido em telas densas (ex.: admin) onde atrapalha a leitura. -->
+    <div id="bg-shapes" aria-hidden="true" v-show="mostrarFundo">
       <div class="orb o1"></div>
       <div class="orb o2"></div>
       <div class="orb o3"></div>
@@ -84,6 +85,9 @@ const route = useRoute()
 /* ── Perfil ── */
 const menuAberto = ref(false)
 const naTelaLogin = computed(() => route.name === 'login')
+// Fundo animado some em telas densas onde vira ruído visual (admin).
+const SEM_FUNDO = ['admin']
+const mostrarFundo = computed(() => !SEM_FUNDO.includes(route.name))
 const iniciais = computed(() => {
   const email = estado.user?.email || ''
   return (email.trim()[0] || '?').toUpperCase()
