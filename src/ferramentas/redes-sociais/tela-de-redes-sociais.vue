@@ -324,6 +324,15 @@
           <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-shares" style="width:0%"></div></div>
           <div class="mc-bottom"><span class="mc-pct" id="pct-shares">0%</span><span class="mc-diff" id="diff-shares"></span></div>
         </div>
+        <div class="card" id="card-replies" style="display:none;animation-delay:.2s">
+          <div class="mc-header"><div class="mc-icon">💬</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-replies" contenteditable="true" spellcheck="false">30</span><span class="mc-edit-hint">✏</span></div></div>
+          <div class="mc-lbl">RESPOSTAS</div>
+          <div class="mc-val a-green" id="eng-replies">0</div>
+          <div class="mc-compare" id="cmp-replies"></div>
+          <div class="mc-divider"></div>
+          <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-replies" style="width:0%"></div></div>
+          <div class="mc-bottom"><span class="mc-pct" id="pct-replies">0%</span><span class="mc-diff" id="diff-replies"></span></div>
+        </div>
         <div class="card"><div class="mc-header"><div class="mc-icon">👁</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-reach" contenteditable="true" spellcheck="false">30000</span><span class="mc-edit-hint">✏</span></div></div><div class="mc-lbl">ALCANCE</div><div class="mc-val a-blue" id="eng-reach">0</div><div class="mc-compare" id="cmp-reach"></div><div class="mc-divider"></div><div class="mc-progress-track"><div class="mc-progress-fill" id="prog-reach" style="width:0%"></div></div><div class="mc-bottom"><span class="mc-pct" id="pct-reach">0%</span><span class="mc-diff" id="diff-reach"></span></div></div>
         <div class="card"><div class="mc-header"><div class="mc-icon">▶️</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-views" contenteditable="true" spellcheck="false">50000</span><span class="mc-edit-hint">✏</span></div></div><div class="mc-lbl">VISUALIZAÇÕES</div><div class="mc-val a-orange" id="eng-views">0</div><div class="mc-compare" id="cmp-views"></div><div class="mc-divider"></div><div class="mc-progress-track"><div class="mc-progress-fill" id="prog-views" style="width:0%"></div></div><div class="mc-bottom"><span class="mc-pct" id="pct-views">0%</span><span class="mc-diff" id="diff-views"></span></div></div>
         <div class="card"><div class="mc-header"><div class="mc-icon">🤝</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-interactions" contenteditable="true" spellcheck="false">3000</span><span class="mc-edit-hint">✏</span></div></div><div class="mc-lbl">INTERAÇÕES TOTAIS</div><div class="mc-val a-pink" id="eng-interactions">0</div><div class="mc-compare" id="cmp-interactions"></div><div class="mc-divider"></div><div class="mc-progress-track"><div class="mc-progress-fill" id="prog-interactions" style="width:0%"></div></div><div class="mc-bottom"><span class="mc-pct" id="pct-interactions">0%</span><span class="mc-diff" id="diff-interactions"></span></div></div>
@@ -1307,7 +1316,15 @@ function setEngTab(tab) {
 function renderInteracoes() {
   const ctx = _engCtx; if (!ctx) return
   const tab = _engTab
+  const ehStory = tab === 'story'
+  // Aba STORIES = só Compartilhamentos + Respostas (stories não têm curtidas/comentários/salvamentos).
+  const _mostra = (id, show) => { const el = document.getElementById(id); const c = el ? el.closest('.card') : null; if (c) c.style.display = show ? '' : 'none' }
+  _mostra('eng-likes', !ehStory)
+  _mostra('eng-comments', !ehStory)
+  _mostra('eng-saves', !ehStory)
+  const cardRepl = document.getElementById('card-replies'); if (cardRepl) cardRepl.style.display = ehStory ? '' : 'none'
   ;['likes', 'comments', 'saves', 'shares'].forEach(k => {
+    if (ehStory && k !== 'shares') return // no story só renderiza compartilhamentos
     const key = _IMAP[k]
     const io = ctx.inter ? ctx.inter[key] : null
     // valor da aba: live tem por-tipo; sem live só a aba Geral (coletado).
@@ -1319,6 +1336,13 @@ function renderInteracoes() {
     setCompare('cmp-' + k, val, prev, '', ctx.pl, false)
     applyMetric(k, val, getGoal(k))
   })
+  // Respostas (só na aba Stories) — métrica de conta ao vivo.
+  if (ehStory) {
+    const val = ctx.respostas != null ? ctx.respostas : 0
+    animCount(document.getElementById('eng-replies'), val)
+    setCompare('cmp-replies', val, ctx.respostasAnt != null ? ctx.respostasAnt : null, '', ctx.pl, false)
+    applyMetric('replies', val, getGoal('replies'))
+  }
 }
 
 /* ── MAIN UPDATE (legacy L4045-4157, verbatim) ── */
@@ -1413,6 +1437,8 @@ function update(d, period) {
   _engCtx = {
     inter: (d.live && d.live.interacoes) ? d.live.interacoes : null,
     ant: (d.live && d.live.anterior && d.live.anterior.interacoes) ? d.live.anterior.interacoes : null,
+    respostas: (d.live && d.live.respostas != null) ? d.live.respostas : null,
+    respostasAnt: (d.live && d.live.anterior && d.live.anterior.respostas != null) ? d.live.anterior.respostas : null,
     eng: d.eng, pl,
   }
   renderInteracoes()

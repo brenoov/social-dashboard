@@ -56,6 +56,12 @@ async function gasto(adAccountId: string, eS: string, eU: string, token: string)
   return parseFloat(ads.data?.[0]?.spend ?? '0') || 0
 }
 
+// Respostas (replies) de stories — métrica de conta agregada (validado: 7D = 7).
+async function respostas(ig: string, eS: string, eU: string, token: string) {
+  const r = await apiGet(`${ig}/insights`, { metric: 'replies', period: 'day', metric_type: 'total_value', since: String(eS), until: String(eU) }, token)
+  return r.data?.[0]?.total_value?.value ?? 0
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   try {
@@ -74,16 +80,18 @@ Deno.serve(async (req) => {
     const wantPrev = !!(prevEngSince && prevEngUntil && prevFolSince && prevFolUntil)
 
     // TUDO EM PARALELO (atual + anterior) — a latência vira a da chamada mais lenta.
-    const [f, e, interAtual, nv, invAtual, pe, interPrev, pnv, invPrev] = await Promise.all([
+    const [f, e, interAtual, nv, invAtual, respAtual, pe, interPrev, pnv, invPrev, respPrev] = await Promise.all([
       apiGet(`${ig}`, { fields: 'followers_count' }, token),
       engaj(ig, engSince, engUntil, token),
       interacoes(ig, engSince, engUntil, token),
       novos(ig, folSince, folUntil, token),
       adAcc ? gasto(adAcc, engSince, engUntil, token) : Promise.resolve(null),
+      respostas(ig, engSince, engUntil, token),
       wantPrev ? engaj(ig, prevEngSince, prevEngUntil, token) : Promise.resolve(null),
       wantPrev ? interacoes(ig, prevEngSince, prevEngUntil, token) : Promise.resolve(null),
       wantPrev ? novos(ig, prevFolSince, prevFolUntil, token) : Promise.resolve(null),
       (wantPrev && adAcc) ? gasto(adAcc, prevEngSince, prevEngUntil, token) : Promise.resolve(null),
+      wantPrev ? respostas(ig, prevEngSince, prevEngUntil, token) : Promise.resolve(null),
     ])
 
     const out: any = {
@@ -92,8 +100,9 @@ Deno.serve(async (req) => {
       interacoes: interAtual,
       novos: { seguiu: nv.seguiu, deixou: nv.deixou, total: nv.total },
       investimento: invAtual,
+      respostas: respAtual,
     }
-    if (wantPrev) out.anterior = { engajamento: pe.obj, interacoes: interPrev, novos: { seguiu: pnv.seguiu, deixou: pnv.deixou, total: pnv.total }, investimento: invPrev }
+    if (wantPrev) out.anterior = { engajamento: pe.obj, interacoes: interPrev, novos: { seguiu: pnv.seguiu, deixou: pnv.deixou, total: pnv.total }, investimento: invPrev, respostas: respPrev }
     if (e.erro || nv.erro) out.meta_erro = 'meta_incompleto'
     return json(out)
   } catch (e) {
