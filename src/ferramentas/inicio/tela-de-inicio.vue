@@ -34,7 +34,7 @@
       </div>
       <div class="home-cards" :class="{ 'view-list': visualizacao === 'list' }" id="home-cards">
         <!-- Administração: rota já existe (src/ferramentas/admin/tela-de-admin.vue). -->
-        <div class="home-card card-admin" id="home-card-admin" style="display:none" @click="ir('admin')" @mouseenter="definirTemaFundo('admin')" @mouseleave="definirTemaFundo('default')">
+        <div class="home-card card-admin" id="home-card-admin" v-show="ehAdmin" @click="ir('admin')" @mouseenter="definirTemaFundo('admin')" @mouseleave="definirTemaFundo('default')">
           <div class="home-card-icon">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
           </div>
@@ -141,11 +141,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { estado } from '../../compartilhado/controle-de-login-e-usuario.js'
 
 const router = useRouter()
+
+// Card de Administração só aparece pra quem é admin (a rota /admin já existe).
+const ehAdmin = computed(() => estado.role === 'admin')
 
 // Caminho absoluto: servido em produção via rewrite do Vercel (/midia/:path*),
 // igual ao legado. Ligação dinâmica (:src) evita que o Vite tente resolver
