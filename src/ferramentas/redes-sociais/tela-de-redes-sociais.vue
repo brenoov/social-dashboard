@@ -1633,23 +1633,22 @@ async function refresh() {
   if (!currentAccountId) return
   const myId = ++_refreshId
   const _ls = document.getElementById('live-status'); if (_ls) _ls.innerHTML = '<span style="opacity:.7">⟳ atualizando ao vivo…</span>'
-  const data = await fetchData(currentAccountId, currentPeriod, currentStartDate, currentEndDate)
+  // PARALELO: coletado (gráficos/histórico) + KPIs ao vivo + série do gráfico — juntos, não em fila.
+  const [data, live, serie] = await Promise.all([
+    fetchData(currentAccountId, currentPeriod, currentStartDate, currentEndDate),
+    buscarKpisAoVivo(currentAccountId, currentPeriod, currentStartDate, currentEndDate),
+    buscarSerieNovos(currentAccountId, currentPeriod, currentStartDate, currentEndDate),
+  ])
   if (myId !== _refreshId) return
-  // KPIs exatos AO VIVO da Meta (janela exata do período). null → a tela cai no coletado.
-  data.live = await buscarKpisAoVivo(currentAccountId, currentPeriod, currentStartDate, currentEndDate)
-  if (myId !== _refreshId) return
-  // GRÁFICO novos/dia AO VIVO exato (bate com o painel): só quando o KPI ao vivo funcionou (consistência).
-  if (data.live) {
-    const serie = await buscarSerieNovos(currentAccountId, currentPeriod, currentStartDate, currentEndDate)
-    if (myId !== _refreshId) return
-    if (serie && serie.length) {
-      const _d3 = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'], _m3 = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-      const curto = serie.length <= 7
-      data.chart = {
-        gained: serie.map(s => s.seguiu), lost: serie.map(s => s.deixou),
-        labels: serie.map(s => { const dt = new Date(s.label + 'T12:00:00'); return curto ? _d3[dt.getDay()] : (dt.getDate() + '/' + (dt.getMonth() + 1)) }),
-        dates: serie.map(s => { const dt = new Date(s.label + 'T12:00:00'); return dt.getDate() + ' ' + _m3[dt.getMonth()] }),
-      }
+  data.live = live // null → a tela cai no coletado
+  // GRÁFICO novos/dia AO VIVO exato: só sobrescreve quando o KPI ao vivo funcionou (consistência).
+  if (live && serie && serie.length) {
+    const _d3 = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'], _m3 = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    const curto = serie.length <= 7
+    data.chart = {
+      gained: serie.map(s => s.seguiu), lost: serie.map(s => s.deixou),
+      labels: serie.map(s => { const dt = new Date(s.label + 'T12:00:00'); return curto ? _d3[dt.getDay()] : (dt.getDate() + '/' + (dt.getMonth() + 1)) }),
+      dates: serie.map(s => { const dt = new Date(s.label + 'T12:00:00'); return dt.getDate() + ' ' + _m3[dt.getMonth()] }),
     }
   }
   update(data, currentPeriod)

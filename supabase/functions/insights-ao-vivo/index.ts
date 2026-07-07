@@ -1,6 +1,6 @@
 // insights-ao-vivo — KPIs EXATOS da Meta. Token da conta lido no servidor, no header (nunca na URL nem retornado).
-// Exige USUÁRIO autenticado COM permissão social (mesma regra da tela). Trata CORS. verify_jwt=false (auth feita aqui).
-// Devolve a janela ATUAL + a ANTERIOR (quando enviada) para o comparativo ser exato.
+// Exige USUÁRIO autenticado COM permissão social. Trata CORS. verify_jwt=false (auth feita aqui). Atual + anterior.
+// Todas as chamadas à Meta rodam em PARALELO (Promise.all) — latência = a mais lenta, não a soma.
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
 const GRAPH = 'https://graph.facebook.com/v21.0'
@@ -18,7 +18,7 @@ async function apiGet(path: string, params: Record<string, string>, token: strin
   return await r.json()
 }
 
-// Novos seguidores: follows_and_unfollows na janela de FOLLOWS (já vem deslocada -1 dia do front).
+// Novos seguidores: follows_and_unfollows na janela de FOLLOWS (o front já decide o -1 dia via folShift).
 async function novos(ig: string, fS: string, fU: string, token: string) {
   const fu = await apiGet(`${ig}/insights`, { metric: 'follows_and_unfollows', period: 'day', metric_type: 'total_value', breakdown: 'follow_type', since: String(fS), until: String(fU) }, token)
   let s = 0, d = 0
@@ -33,8 +33,7 @@ async function engaj(ig: string, eS: string, eU: string, token: string) {
   return { obj: { views: em.views ?? 0, reach: em.reach ?? 0, interacoes: em.total_interactions ?? 0, visitas: em.profile_views ?? 0 }, erro: eng.error }
 }
 
-// Curtidas/Comentários/Salvamentos/Compart. por TIPO DE CONTEÚDO (pra as abas Geral/Reels/Posts/Stories/Anúncios).
-// geral = orgânico (post+reel+story). org = alias de geral (compat.). Cada aba lê sua chave.
+// Interações por TIPO DE CONTEÚDO (abas). geral = TUDO (post+reel+story+ad). org = orgânico (referência).
 async function interacoes(ig: string, eS: string, eU: string, token: string) {
   const bd = await apiGet(`${ig}/insights`, { metric: 'likes,comments,saves,shares', period: 'day', metric_type: 'total_value', breakdown: 'media_product_type', since: String(eS), until: String(eU) }, token)
   const mapa: Record<string, string> = { likes: 'curtidas', comments: 'comentarios', saves: 'salvamentos', shares: 'compartilhamentos' }
@@ -44,18 +43,13 @@ async function interacoes(ig: string, eS: string, eU: string, token: string) {
     const dest = inter[mapa[it.name]]; if (!dest) continue
     for (const r of (it.total_value?.breakdowns?.[0]?.results ?? [])) {
       const t = (r.dimension_values ?? ['?'])[0], v = r.value ?? 0
-      if (t === 'POST') dest.post += v
-      else if (t === 'REEL') dest.reel += v
-      else if (t === 'STORY') dest.story += v
-      else if (t === 'AD') dest.ad += v
-      dest.geral += v // Geral = TUDO (posts+reels+stories+anúncios)
-      if (t !== 'AD') dest.org += v // org = orgânico (referência)
+      if (t === 'POST') dest.post += v; else if (t === 'REEL') dest.reel += v; else if (t === 'STORY') dest.story += v; else if (t === 'AD') dest.ad += v
+      dest.geral += v; if (t !== 'AD') dest.org += v
     }
   }
   return inter
 }
 
-// Investimento: gasto de TODAS as campanhas da conta de anúncio. Ads usam datas; eng-until é exclusivo → -1 dia = último dia inclusivo.
 async function gasto(adAccountId: string, eS: string, eU: string, token: string) {
   const dstr = (u: number) => new Date(u * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
   const ads = await apiGet(`act_${adAccountId}/insights`, { fields: 'spend', level: 'account', time_range: JSON.stringify({ since: dstr(Number(eS)), until: dstr(Number(eU) - 86400) }) }, token)
@@ -77,29 +71,29 @@ Deno.serve(async (req) => {
     const { data: acc } = await sb.from('accounts').select('instagram_id,access_token,ad_account_id').eq('id', account_id).single()
     if (!acc) return json({ meta_erro: 'conta não encontrada' }, 404)
     const ig = acc.instagram_id as string, token = acc.access_token as string, adAcc = acc.ad_account_id as string | null
-    const out: any = { novos: {}, engajamento: {}, investimento: null }
+    const wantPrev = !!(prevEngSince && prevEngUntil && prevFolSince && prevFolUntil)
 
-    const f = await apiGet(`${ig}`, { fields: 'followers_count' }, token)
-    out.followers_count = f.followers_count ?? null
-    const e = await engaj(ig, engSince, engUntil, token)
-    out.engajamento = e.obj
-    out.interacoes = await interacoes(ig, engSince, engUntil, token)
-    const nv = await novos(ig, folSince, folUntil, token)
-    out.novos = { seguiu: nv.seguiu, deixou: nv.deixou, total: nv.total }
-    if (adAcc) out.investimento = await gasto(adAcc, engSince, engUntil, token)
+    // TUDO EM PARALELO (atual + anterior) — a latência vira a da chamada mais lenta.
+    const [f, e, interAtual, nv, invAtual, pe, interPrev, pnv, invPrev] = await Promise.all([
+      apiGet(`${ig}`, { fields: 'followers_count' }, token),
+      engaj(ig, engSince, engUntil, token),
+      interacoes(ig, engSince, engUntil, token),
+      novos(ig, folSince, folUntil, token),
+      adAcc ? gasto(adAcc, engSince, engUntil, token) : Promise.resolve(null),
+      wantPrev ? engaj(ig, prevEngSince, prevEngUntil, token) : Promise.resolve(null),
+      wantPrev ? interacoes(ig, prevEngSince, prevEngUntil, token) : Promise.resolve(null),
+      wantPrev ? novos(ig, prevFolSince, prevFolUntil, token) : Promise.resolve(null),
+      (wantPrev && adAcc) ? gasto(adAcc, prevEngSince, prevEngUntil, token) : Promise.resolve(null),
+    ])
 
-    // ANTERIOR (comparativo exato): mesmas métricas na janela do período anterior, quando enviada.
-    if (prevEngSince && prevEngUntil && prevFolSince && prevFolUntil) {
-      const pe = await engaj(ig, prevEngSince, prevEngUntil, token)
-      const pnv = await novos(ig, prevFolSince, prevFolUntil, token)
-      out.anterior = {
-        engajamento: pe.obj,
-        interacoes: await interacoes(ig, prevEngSince, prevEngUntil, token),
-        novos: { seguiu: pnv.seguiu, deixou: pnv.deixou, total: pnv.total },
-        investimento: adAcc ? await gasto(adAcc, prevEngSince, prevEngUntil, token) : null,
-      }
+    const out: any = {
+      followers_count: f.followers_count ?? null,
+      engajamento: e.obj,
+      interacoes: interAtual,
+      novos: { seguiu: nv.seguiu, deixou: nv.deixou, total: nv.total },
+      investimento: invAtual,
     }
-
+    if (wantPrev) out.anterior = { engajamento: pe.obj, interacoes: interPrev, novos: { seguiu: pnv.seguiu, deixou: pnv.deixou, total: pnv.total }, investimento: invPrev }
     if (e.erro || nv.erro) out.meta_erro = 'meta_incompleto'
     return json(out)
   } catch (e) {
