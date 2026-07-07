@@ -14,6 +14,12 @@ async function iniciar() {
     await carregarPerfil(data.session)
   }
 
+  // Mantém o estado com o token SEMPRE fresco: o SDK renova o access_token
+  // sozinho (~1h). Sem isso, estado.currentSession fica com o token do boot
+  // (velho) e as chamadas REST autenticadas por token explícito (ex.: o
+  // adFetch do admin) tomam 401 → listas de usuários/contas zeradas.
+  sbClient.auth.onAuthStateChange((_evento, session) => { setSession(session) })
+
   createApp(Moldura).use(roteador).mount('#app')
 }
 
