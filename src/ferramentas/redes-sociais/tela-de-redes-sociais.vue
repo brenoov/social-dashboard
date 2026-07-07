@@ -271,7 +271,6 @@
           <div class="calc-badge">⚡ Menor é melhor · investimento ÷ curtidas do anúncio</div>
         </div>
       </div>
-      <div class="mc-lbl" style="margin:0 0 8px;">EFICIÊNCIA DO INVESTIMENTO</div>
 
       <!-- 03 ENGAJAMENTO -->
       <div class="sec-header">
