@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!escritorio-3d).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
