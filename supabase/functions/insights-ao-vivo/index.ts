@@ -47,6 +47,7 @@ async function interacoes(ig: string, eS: string, eU: string, token: string) {
       dest.geral += v; if (t !== 'AD') dest.org += v
     }
   }
+  inter.curtidas.geral = inter.curtidas.org // Curtidas no Geral = SÓ orgânico (não conta curtidas de anúncio).
   return inter
 }
 
@@ -72,7 +73,7 @@ async function adAcoes(adAccountId: string, eS: string, eU: string, token: strin
 }
 // Sobrepõe o .ad (Ads Manager) e recalcula geral = orgânico + anúncio.
 function fundirAd(inter: any, aa: any) {
-  for (const m of ['curtidas', 'comentarios', 'salvamentos', 'compartilhamentos']) { inter[m].ad = aa[m]; inter[m].geral = inter[m].org + aa[m] }
+  for (const m of ['curtidas', 'comentarios', 'salvamentos', 'compartilhamentos']) { inter[m].ad = aa[m]; inter[m].geral = inter[m].org + (m === 'curtidas' ? 0 : aa[m]) } // curtidas Geral = só orgânico
   return inter
 }
 
