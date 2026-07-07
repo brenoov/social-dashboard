@@ -341,7 +341,7 @@
 
       <!-- 04 CONTEÚDO -->
       <div class="sec-header">
-        <div class="section-label">04 · Conteúdo</div>        <div class="sec-line"></div>
+        <div class="section-label">04 · Conteúdos criados/postados</div>        <div class="sec-line"></div>
       </div>
       <div class="sec4-grid">
         <div class="card" style="animation-delay:.05s">
@@ -354,14 +354,23 @@
           <div class="mc-bottom"><span class="mc-pct" id="pct-stories">0%</span><span class="mc-diff" id="diff-stories"></span></div>
         </div>
         <div class="card" style="animation-delay:.10s">
-          <div class="mc-header"><div class="mc-icon">🎬</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-posts-reels" contenteditable="true" spellcheck="false">12</span><span class="mc-edit-hint">✏</span></div></div>
-          <div class="mc-lbl">POSTS &amp; REELS</div>
-          <div class="mc-val a-purple" id="cnt-posts-reels">0</div>
-          <div class="mc-obs">ⓘ A API da Meta não contabiliza collabs (posts em parceria contam pra conta dona).</div>
-          <div class="mc-compare" id="cmp-posts-reels"></div>
+          <div class="mc-header"><div class="mc-icon">🖼️</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-posts" contenteditable="true" spellcheck="false">6</span><span class="mc-edit-hint">✏</span></div></div>
+          <div class="mc-lbl">POSTS</div>
+          <div class="mc-val a-purple" id="cnt-posts">0</div>
+          <div class="mc-compare" id="cmp-posts"></div>
           <div class="mc-divider"></div>
-          <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-posts-reels" style="width:0%"></div></div>
-          <div class="mc-bottom"><span class="mc-pct" id="pct-posts-reels">0%</span><span class="mc-diff" id="diff-posts-reels"></span></div>
+          <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-posts" style="width:0%"></div></div>
+          <div class="mc-bottom"><span class="mc-pct" id="pct-posts">0%</span><span class="mc-diff" id="diff-posts"></span></div>
+        </div>
+        <div class="card" style="animation-delay:.15s">
+          <div class="mc-header"><div class="mc-icon">🎬</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-reels" contenteditable="true" spellcheck="false">6</span><span class="mc-edit-hint">✏</span></div></div>
+          <div class="mc-lbl">REELS</div>
+          <div class="mc-val a-orange" id="cnt-reels">0</div>
+          <div class="mc-obs">ⓘ A API da Meta não contabiliza collabs (contam pra conta dona).</div>
+          <div class="mc-compare" id="cmp-reels"></div>
+          <div class="mc-divider"></div>
+          <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-reels" style="width:0%"></div></div>
+          <div class="mc-bottom"><span class="mc-pct" id="pct-reels">0%</span><span class="mc-diff" id="diff-reels"></span></div>
         </div>
       </div>
     </div><!-- /wrapper -->
@@ -501,6 +510,8 @@ const GOALS = {
   shares: { 1: 60, 7: 200, 14: 400, 30: 2000 },
   stories: { 1: 6, 7: 28, 14: 56, 30: 120 },
   'posts-reels': { 1: 3, 7: 12, 14: 24, 30: 50 },
+  posts: { 1: 3, 7: 6, 14: 12, 30: 25 },
+  reels: { 1: 3, 7: 6, 14: 12, 30: 25 },
   'story-shares': { 1: 30, 7: 200, 14: 400, 30: 900 },
   'story-replies': { 1: 8, 7: 50, 14: 100, 30: 220 },
   reach: { 1: 5000, 7: 30000, 14: 60000, 30: 120000 },
@@ -1112,7 +1123,7 @@ async function fetchData(accountId, period, customStart, customEnd) {
     chart: { gained: chartGained, lost: chartLost, labels: chartLabels, dates: chartDates },
     spend, prevSpend, cps, prevCps, adEngagement, adLikes, adComments, adShares, adSaves,
     eng: { likes: eng.likes, saves: eng.saves, shares: eng.shares, comments: eng.comments ?? 0, reach: eng.reach ?? 0, views: eng.views ?? 0, interactions: eng.total_interactions ?? 0, engaged: eng.accounts_engaged ?? 0, profileViews: eng.profile_views ?? 0, prevLikes: prevEng?.likes ?? null, prevSaves: prevEng?.saves ?? null, prevShares: prevEng?.shares ?? null, prevComments: prevEng?.comments ?? null, prevReach: prevEng?.reach ?? null, prevViews: prevEng?.views ?? null, prevInteractions: prevEng?.total_interactions ?? null, prevEngaged: prevEng?.accounts_engaged ?? null, prevProfileViews: prevEng?.profile_views ?? null },
-    cnt: { posts: cnt.posts_count, stories: storiesCount, reels: cnt.reels_count, postsReels: cnt.posts_count + cnt.reels_count, prevPostsReels: prevCnt != null ? prevCnt.posts_count + prevCnt.reels_count : null, prevStories: prevStoriesCount },
+    cnt: { posts: cnt.posts_count, stories: storiesCount, reels: cnt.reels_count, postsReels: cnt.posts_count + cnt.reels_count, prevPosts: prevCnt != null ? prevCnt.posts_count : null, prevReels: prevCnt != null ? prevCnt.reels_count : null, prevPostsReels: prevCnt != null ? prevCnt.posts_count + prevCnt.reels_count : null, prevStories: prevStoriesCount },
     storyEng: { shares: storyShares, replies: storyRep, prevShares: prevStoryShares, prevReplies: prevStoryRep, reach: storyReach, interactions: storyInter, navigation: storyNav, profileVisits: storyPV, follows: storyFol, navForward: storyNavF, navBack: storyNavB, navExit: storyNavE, navNext: storyNavN, prevReach: prevStoryReach, prevInteractions: prevStoryInter, prevNavigation: prevStoryNav, prevProfileVisits: prevStoryPV, prevFollows: prevStoryFol },
     pl,
     // Última coleta REAL do perfil (não o fim da janela) → frescor honesto em todo período.
@@ -1460,8 +1471,10 @@ function update(d, period) {
   // Engajamento de Stories agora é a aba "Stories" da seção 03 (Engajamento) — seção separada removida.
   animCount(document.getElementById('cnt-stories'), d.cnt.stories)
   setCompare('cmp-stories', d.cnt.stories, d.cnt.prevStories, '', pl, false); applyMetric('stories', d.cnt.stories, getGoal('stories'))
-  animCount(document.getElementById('cnt-posts-reels'), d.cnt.postsReels)
-  setCompare('cmp-posts-reels', d.cnt.postsReels, d.cnt.prevPostsReels, '', pl, false); applyMetric('posts-reels', d.cnt.postsReels, getGoal('posts-reels'))
+  animCount(document.getElementById('cnt-posts'), d.cnt.posts)
+  setCompare('cmp-posts', d.cnt.posts, d.cnt.prevPosts, '', pl, false); applyMetric('posts', d.cnt.posts, getGoal('posts'))
+  animCount(document.getElementById('cnt-reels'), d.cnt.reels)
+  setCompare('cmp-reels', d.cnt.reels, d.cnt.prevReels, '', pl, false); applyMetric('reels', d.cnt.reels, getGoal('reels'))
   const totalContent = d.cnt.postsReels + d.cnt.stories
   const ep = d.effectivePeriod || period
   setChips('chips-cnt', ['Total: ' + totalContent + ' publicações', 'Freq.: ' + (totalContent / ep).toFixed(1) + '/dia', d.cnt.prevPostsReels > 0 ? 'Posts+Reels ' + pctDiff(d.cnt.postsReels, d.cnt.prevPostsReels) + ' vs ' + pl : 'Posts+Reels no período: ' + d.cnt.postsReels])
@@ -1751,7 +1764,7 @@ function renderGoalBar(d) {
   const metrics = [
     { curr: d.newFollowers, goal: getGoal('followers') },
     { curr: d.eng.likes, goal: getGoal('likes') },
-    { curr: d.cnt.postsReels + d.cnt.stories, goal: getGoal('posts-reels') },
+    { curr: d.cnt.postsReels + d.cnt.stories, goal: getGoal('posts') + getGoal('reels') },
   ]
   const valid = metrics.filter(m => m.goal > 0)
   const pct = valid.length > 0
