@@ -180,8 +180,22 @@ function _gcItemRender(ov,sku,p){
       +'<div class="gc-im-info"><div class="gc-im-sku">SKU '+_npEsc(p.codigo||sku)+'</div><div class="gc-im-nome">'+_npEsc(nome)+'</div>'+(preco?'<div class="gc-im-preco">'+preco+'</div>':'')+'</div>';}
   const body=ov.querySelector('.gc-im-body');if(body)body.innerHTML=inner;
 }
+// Registro das tabelas (planilhas) do briefing renderizado, pra exportar em XLS.
+let _gcTabelas=[];
+// Texto cru pra exportação: tira marcações de markdown (negrito/itálico/código).
+function _gcPlain(c){return String(c==null?'':c).replace(/\*\*/g,'').replace(/[*`]/g,'').replace(/<[^>]+>/g,'').trim();}
+// Exporta a tabela `idx` do briefing atual em .xlsx (SheetJS global XLSX, igual ao admin).
+function exportarTabelaGc(idx){
+  const t=_gcTabelas[idx];if(!t||!window.XLSX)return;
+  const aoa=[t.head,...t.rows];
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Planilha');
+  const base=String((t.head&&t.head[0])||'tabela').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,30)||'tabela';
+  XLSX.writeFile(wb,'gestor-comercial-'+base+'.xlsx');
+}
 function _gcMarkdown(md){
-  const lines=String(md||'').replace(/\r/g,'').split('\n');let html='',i=0;
+  const lines=String(md||'').replace(/\r/g,'').split('\n');let html='',i=0;_gcTabelas=[];
   while(i<lines.length){
     const ln=lines[i];
     if(/^RESUMO:/.test(ln)){i++;continue;}
@@ -197,9 +211,10 @@ function _gcMarkdown(md){
     }
     if(/^\s*\|.*\|\s*$/.test(ln)&&i+1<lines.length&&/^\s*\|[\s:|-]+\|\s*$/.test(lines[i+1])){
       const cells=r=>r.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
-      const head=cells(ln);i+=2;let body='';
-      while(i<lines.length&&/^\s*\|.*\|\s*$/.test(lines[i])){body+='<tr>'+cells(lines[i]).map(c=>'<td>'+_gcCell(c)+'</td>').join('')+'</tr>';i++;}
-      html+='<div class="gc-tw"><div class="gc-tw-scroll"><table><thead><tr>'+head.map(h=>{const ht=String(h).trim();const ex=ht==='BCG'?_gcInfoBtn('bcg'):(ht==='Público'?_gcInfoBtn('publico'):'');return '<th>'+_gcInline(h)+ex+'</th>';}).join('')+'</tr></thead><tbody>'+body+'</tbody></table></div></div>';continue;
+      const head=cells(ln);i+=2;let body='';const rawRows=[];
+      while(i<lines.length&&/^\s*\|.*\|\s*$/.test(lines[i])){const cs=cells(lines[i]);rawRows.push(cs.map(_gcPlain));body+='<tr>'+cs.map(c=>'<td>'+_gcCell(c)+'</td>').join('')+'</tr>';i++;}
+      const idxTab=_gcTabelas.length;_gcTabelas.push({head:head.map(_gcPlain),rows:rawRows});
+      html+='<div class="gc-tw"><div class="gc-tw-bar"><button type="button" class="gc-xls-btn" onclick="exportarTabelaGc('+idxTab+')" title="Exportar esta planilha em Excel (.xlsx)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Exportar XLS</button></div><div class="gc-tw-scroll"><table><thead><tr>'+head.map(h=>{const ht=String(h).trim();const ex=ht==='BCG'?_gcInfoBtn('bcg'):(ht==='Público'?_gcInfoBtn('publico'):'');return '<th>'+_gcInline(h)+ex+'</th>';}).join('')+'</tr></thead><tbody>'+body+'</tbody></table></div></div>';continue;
     }
     if(/^\s*[-*]\s+/.test(ln)){let it='';while(i<lines.length&&/^\s*[-*]\s+/.test(lines[i])){it+='<li>'+_gcInline(lines[i].replace(/^\s*[-*]\s+/,''))+'</li>';i++;}html+='<ul>'+it+'</ul>';continue;}
     if(/^\s*\d+\.\s+/.test(ln)){let it='';while(i<lines.length&&/^\s*\d+\.\s+/.test(lines[i])){it+='<li>'+_gcInline(lines[i].replace(/^\s*\d+\.\s+/,''))+'</li>';i++;}html+='<ol>'+it+'</ol>';continue;}
@@ -288,6 +303,7 @@ Object.assign(window, {
   gcAbrirItem,
   gcInfo,
   _gcRenderIdx,
+  exportarTabelaGc,
 })
 
 // Equivalente ao openGestao() do legado, menos o toggle de tela por display
@@ -387,6 +403,10 @@ onMounted(() => {
 .tela-gestao-comercial :deep(.gc-report li::marker){color:var(--accent);}
 .tela-gestao-comercial :deep(.gc-report strong){color:var(--text);font-weight:700;}
 .tela-gestao-comercial :deep(.gc-tw){margin:18px 0;border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm);}
+.tela-gestao-comercial :deep(.gc-tw-bar){display:flex;justify-content:flex-end;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);}
+.tela-gestao-comercial :deep(.gc-xls-btn){display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:11.5px;font-weight:600;color:#15803d;background:rgba(34,197,94,.10);border:1px solid rgba(34,197,94,.35);border-radius:8px;padding:6px 12px;cursor:pointer;transition:all .15s ease;letter-spacing:.2px;}
+.tela-gestao-comercial :deep(.gc-xls-btn:hover){background:rgba(34,197,94,.18);border-color:rgba(34,197,94,.55);transform:translateY(-1px);}
+.tela-gestao-comercial :deep(.gc-xls-btn svg){flex-shrink:0;}
 .tela-gestao-comercial :deep(.gc-tw-scroll){overflow-x:auto;-webkit-overflow-scrolling:touch;}
 .tela-gestao-comercial :deep(.gc-report table){width:100%;border-collapse:collapse;margin:0;font-size:calc(13.5px*var(--gc-fs,1));display:table;}
 .tela-gestao-comercial :deep(.gc-report thead th){background:linear-gradient(180deg,var(--accent-light),transparent);text-align:left;padding:14px 18px;font-family:'IBM Plex Sans',sans-serif;font-size:calc(10.5px*var(--gc-fs,1));font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--accent);border-bottom:2px solid var(--accent-mid);white-space:nowrap;}
