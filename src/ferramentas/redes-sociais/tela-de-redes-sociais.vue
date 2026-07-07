@@ -595,6 +595,8 @@ function animCountFull(el, target) {
 function fmtN(n) { n = Number(n) || 0; const a = Math.abs(n); if (a >= 1e6) return (n / 1e6).toFixed(1).replace('.', ',') + ' mi'; if (a >= 1e3) return (n / 1e3).toFixed(1).replace('.', ',') + ' mil'; return String(n) }
 function fmtR(v) { const p = v.toFixed(2).split('.'); return 'R$ ' + p[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + p[1] }
 function pctDiff(curr, prev) { if (!prev) return '+0.0%'; const d = ((curr - prev) / prev * 100); return (d >= 0 ? '+' : '') + d.toFixed(1) + '%' }
+// Indicadores de engajamento nunca são negativos: valor negativo (glitch da Meta) vira 0.
+function naoNeg(v) { return Math.max(0, Number(v) || 0) }
 function perfColor(pct) { return pct >= 100 ? 'green' : pct >= 75 ? 'yellow' : pct >= 50 ? 'orange' : 'red' }
 // formatação condicional: pinta o NÚMERO do indicador conforme o desempenho vs meta
 const _PERF_VAR = { green: 'var(--green)', yellow: 'var(--yellow)', orange: 'var(--orange)', red: 'var(--red)' }
@@ -1397,12 +1399,13 @@ function renderInteracoes() {
     if (big) big.style.display = ehGeral ? 'none' : ''
     if (lin) lin.style.display = ehGeral ? '' : 'none'
     if (ehGeral && io) {
-      animCount(document.getElementById(k + '-org'), io.org)
-      animCount(document.getElementById(k + '-ad'), io.ad)
+      animCount(document.getElementById(k + '-org'), naoNeg(io.org))
+      animCount(document.getElementById(k + '-ad'), naoNeg(io.ad))
       const totEl = document.getElementById(k + '-total')
-      animCount(totEl, io.geral)
+      const geralNN = naoNeg(io.geral)
+      animCount(totEl, geralNN)
       // Total com a cor condicional de meta (verde/amarelo/laranja/vermelho conforme % da meta).
-      const g = getGoal(k), col = _PERF_VAR[perfColor(g > 0 ? (io.geral / g) * 100 : 0)] || ''
+      const g = getGoal(k), col = _PERF_VAR[perfColor(g > 0 ? (geralNN / g) * 100 : 0)] || ''
       if (totEl && col) { totEl.style.setProperty('color', col, 'important'); totEl.style.setProperty('-webkit-text-fill-color', col, 'important') }
     }
   })
@@ -1414,20 +1417,20 @@ function renderInteracoes() {
     if (ehStory && k !== 'shares') return // Stories: só compartilhamentos
     const key = _IMAP[k]
     const io = ctx.inter ? ctx.inter[key] : null
-    // valor da aba: live tem por-tipo; sem live só a aba Geral (coletado).
-    const val = io ? (io[tab] != null ? io[tab] : io.geral) : ((tab === 'geral') ? (ctx.eng[k] || 0) : 0)
+    // valor da aba: live tem por-tipo; sem live só a aba Geral (coletado). Negativo (glitch) → 0.
+    const val = naoNeg(io ? (io[tab] != null ? io[tab] : io.geral) : ((tab === 'geral') ? (ctx.eng[k] || 0) : 0))
     animCount(document.getElementById('eng-' + k), val)
     // comparativo: mesmo tipo na janela anterior.
     const ioAnt = ctx.ant ? ctx.ant[key] : null
     const prev = ioAnt ? (ioAnt[tab] != null ? ioAnt[tab] : ioAnt.geral) : ((tab === 'geral') ? ctx.eng['prev' + k.charAt(0).toUpperCase() + k.slice(1)] : null)
-    setCompare('cmp-' + k, val, prev, '', ctx.pl, false)
+    setCompare('cmp-' + k, val, prev != null ? naoNeg(prev) : null, '', ctx.pl, false)
     applyMetric(k, val, getGoal(k))
   })
   // Respostas (só na aba Stories) — métrica de conta ao vivo.
   if (ehStory) {
-    const val = ctx.respostas != null ? ctx.respostas : 0
+    const val = naoNeg(ctx.respostas != null ? ctx.respostas : 0)
     animCount(document.getElementById('eng-replies'), val)
-    setCompare('cmp-replies', val, ctx.respostasAnt != null ? ctx.respostasAnt : null, '', ctx.pl, false)
+    setCompare('cmp-replies', val, ctx.respostasAnt != null ? naoNeg(ctx.respostasAnt) : null, '', ctx.pl, false)
     applyMetric('replies', val, getGoal('replies'))
   }
 }
@@ -1534,9 +1537,10 @@ function update(d, period) {
   const engLive = d.live ? { reach: d.live.engajamento.reach, views: d.live.engajamento.views, interactions: d.live.engajamento.interacoes, profileViews: d.live.engajamento.visitas } : null
   const engAnt = (d.live && d.live.anterior) ? { reach: d.live.anterior.engajamento.reach, views: d.live.anterior.engajamento.views, interactions: d.live.anterior.engajamento.interacoes, profileViews: d.live.anterior.engajamento.visitas } : null
   ;[['reach', 'reach', 'prevReach'], ['views', 'views', 'prevViews'], ['interactions', 'interactions', 'prevInteractions'], ['profile-views', 'profileViews', 'prevProfileViews']].forEach(([id, k, pk]) => {
-    const val = engLive ? (engLive[k] || 0) : (d.eng[k] || 0)
+    const val = naoNeg(engLive ? (engLive[k] || 0) : (d.eng[k] || 0))
+    const prevAcc = engAnt ? engAnt[k] : d.eng[pk]
     animCount(document.getElementById('eng-' + id), val)
-    setCompare('cmp-' + id, val, engAnt ? engAnt[k] : d.eng[pk], '', pl, false)
+    setCompare('cmp-' + id, val, prevAcc != null ? naoNeg(prevAcc) : null, '', pl, false)
     applyMetric(id, val, getGoal(id))
   })
   const avgPerPost = d.cnt.posts > 0 ? Math.round(d.eng.likes / d.cnt.posts) : 0
