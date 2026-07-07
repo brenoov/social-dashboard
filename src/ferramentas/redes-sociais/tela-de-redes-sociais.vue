@@ -2128,7 +2128,7 @@ onUnmounted(() => {
 
 /* Chart */
 .tela-redes-sociais :deep(.chart-svg-wrap){position:relative;width:100%;margin-top:auto;}
-.tela-redes-sociais :deep(.chart-svg-wrap) svg{width:100%;height:150px;overflow:visible;cursor:crosshair;}
+.tela-redes-sociais :deep(.chart-svg-wrap) svg{width:100%;height:150px;overflow:visible;cursor:crosshair;display:block;}
 .tela-redes-sociais :deep(#chart-data-labels){position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;overflow:visible;}
 .tela-redes-sociais :deep(.cdl){position:absolute;transform:translate(-50%,calc(-100% - 3px));font-family:'Oswald',sans-serif;font-size:14px;font-weight:500;color:rgba(22,22,42,0.65);white-space:nowrap;letter-spacing:.3px;}
 [data-theme="dark"] .tela-redes-sociais :deep(.cdl){color:rgba(226,228,240,0.78);}
