@@ -357,6 +357,7 @@
           <div class="mc-header"><div class="mc-icon">🖼️</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-posts" contenteditable="true" spellcheck="false">6</span><span class="mc-edit-hint">✏</span></div></div>
           <div class="mc-lbl">POSTS</div>
           <div class="mc-val a-purple" id="cnt-posts">0</div>
+          <div class="mc-obs">ⓘ A API da Meta não contabiliza collabs (contam pra conta dona).</div>
           <div class="mc-compare" id="cmp-posts"></div>
           <div class="mc-divider"></div>
           <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-posts" style="width:0%"></div></div>
