@@ -153,8 +153,9 @@
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
             <div style="font-family:'Oswald',sans-serif;font-weight:400;font-size:11px;letter-spacing:1.5px;color:var(--muted)">NOVOS SEGUIDORES / DIA</div>
             <div class="chart-legend">
-              <div class="legend-item"><div class="legend-line" id="chart-legend-line" style="background:var(--accent)"></div><span>Atual</span></div>
-              <div class="legend-item"><div class="legend-dash"></div><span>Per. ant.</span></div>
+              <div class="legend-item"><div class="legend-dot" style="background:#16a34a"></div><span>Seguiram</span></div>
+              <div class="legend-item"><div class="legend-dot" style="background:#dc2626"></div><span>Deixaram</span></div>
+              <div class="legend-item"><span style="font-weight:700;color:var(--text)">n</span><span>= líquido</span></div>
             </div>
           </div>
           <div class="chart-svg-wrap">
@@ -472,7 +473,8 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 
 /* ── PERÍODOS / TEMAS DE PERFIL (legacy L3300-3321, verbatim) ── */
 // "Hoje" removido; "MÊS" (mês corrente) unifica o antigo MÊS + ATÉ AGORA (eram a mesma coisa).
-const PERIODS = [{ label: '1D', value: 1 }, { label: '7D', value: 7 }, { label: '14D', value: 14 }, { label: '30D', value: 30 }, { label: 'MÊS', value: 'monthfull' }, { label: 'MÊS PASS.', value: 'lastmonth' }]
+// 2D (não 1D): o follows de ONTEM ainda não consolidou na Meta (~2 dias); 2D já pega um dia consolidado.
+const PERIODS = [{ label: '2D', value: 2 }, { label: '7D', value: 7 }, { label: '14D', value: 14 }, { label: '30D', value: 30 }, { label: 'MÊS', value: 'monthfull' }, { label: 'MÊS PASS.', value: 'lastmonth' }]
 const ACCOUNT_PICS = {}
 const PROFILE_THEMES = {
   'Raíssa Herculano': { accent: '#BE185D', light: 'rgba(190,24,93,0.08)', mid: 'rgba(190,24,93,0.30)' },
@@ -789,63 +791,60 @@ function _animateChartLine(el, pts) {
   el.style.strokeDashoffset = '0'
 }
 function buildChart(chartData) {
-  // BARRAS DIVERGENTES: verde (novos) pra cima, vermelho (sairam) pra baixo, por dia.
+  // BARRAS EMPILHADAS por dia: VERDE (seguiu) embaixo + VERMELHO (deixou) em cima; LÍQUIDO rotulado no topo.
   let { gained, lost, labels, dates } = chartData
   gained = (gained || []).slice(); lost = (lost || []).slice(); labels = (labels || []).slice(); dates = (dates || []).slice()
   if (gained.length === 0) { gained = [0]; lost = [0]; labels = labels.length ? labels : ['']; dates = dates.length ? dates : [''] }
   const n = gained.length
   const net = gained.map((g, i) => g - (lost[i] || 0))
-  const W = 400, H = 110, pad = 6
-  const rawMax = Math.max(...gained, 1)
-  const rawMin = Math.min(...lost.map(v => -v), 0)
-  const span = Math.max(rawMax - rawMin, 1)
-  const max = rawMax + span * 0.18
-  const min = rawMin - (rawMin < 0 ? span * 0.18 : 0)
-  const range = max - min || 1
-  const px = i => n > 1 ? pad + (i / (n - 1)) * (W - pad * 2) : W / 2
-  const py = v => H - pad - ((v - min) / range) * (H - pad * 2)
-  const yZero = py(0)
-  activeChartData = { gained, lost, net, labels, dates, px, py, W, H, yZero, n }
-  const zl = document.getElementById('chart-zero'); if (zl) { zl.setAttribute('y1', yZero); zl.setAttribute('y2', yZero) }
-  const NS = 'http://www.w3.org/2000/svg'
-  const bars = document.getElementById('chart-bars'); bars.textContent = ''
-  const slot = (W - pad * 2) / Math.max(n, 1)
-  const bw = Math.max(1.5, Math.min(slot * 0.42, 9))
-  const _rect = (x, y, h, fill, op) => { const r = document.createElementNS(NS, 'rect'); r.setAttribute('x', (x - bw / 2).toFixed(2)); r.setAttribute('y', y.toFixed(2)); r.setAttribute('width', bw.toFixed(2)); r.setAttribute('height', Math.max(0, h).toFixed(2)); r.setAttribute('rx', '1'); r.setAttribute('fill', fill); r.setAttribute('opacity', op); bars.appendChild(r) }
-  for (let i = 0; i < n; i++) {
-    const x = px(i)
-    if (gained[i] > 0) { const yt = py(gained[i]); _rect(x, yt, yZero - yt, '#16a34a', '0.85') }
-    if (lost[i] > 0) { const yb = py(-lost[i]); _rect(x, yZero, yb - yZero, '#dc2626', '0.8') }
-  }
+  const totals = gained.map((g, i) => g + (lost[i] || 0))
+  const W = 400, H = 110, padX = 8, padTop = 18, padBot = 4
+  const maxTot = Math.max(...totals, 1)
+  const chartH = H - padTop - padBot, baseY = H - padBot
+  const hOf = v => (v / maxTot) * chartH
+  const px = i => n > 1 ? padX + (i / (n - 1)) * (W - padX * 2) : W / 2
+  const py = v => baseY - hOf(v)
+  activeChartData = { gained, lost, net, labels, dates, px, py, W, H, yZero: baseY, n }
+  // Elementos de linha/zero do gráfico antigo não são usados nas barras empilhadas.
+  const zl = document.getElementById('chart-zero'); if (zl) zl.setAttribute('display', 'none')
   document.getElementById('chart-line').setAttribute('points', '')
   document.getElementById('chart-fill').setAttribute('d', '')
   document.getElementById('prev-line').setAttribute('points', '')
-  const labelsG = document.getElementById('chart-data-labels'); labelsG.textContent = ''
-  function fmtShort(v) { return fmtN(v) }
-  const many = n > 10
-  // Rótulo do LÍQUIDO em TODOS os dias; elevação ALTERNADA (ímpares sobem + tracejado) p/ caber.
-  net.forEach((v, i) => {
-    const s = document.createElement('span')
-    s.className = 'cdl' + (many ? ' cdl-sm' : '') + (v > 0 ? ' cdl-up' : v < 0 ? ' cdl-down' : '')
-    s.textContent = (v > 0 ? '+' : '') + fmtShort(v)
-    const anchorPx = v > 0 ? py(gained[i]) : (v < 0 ? py(-lost[i]) : yZero)
-    s.style.left = ((px(i) / W) * 100) + '%'
-    s.style.top = ((anchorPx / H) * 100) + '%'
-    const raise = i % 2 === 1
-    if (v < 0) {
-      s.style.transform = raise ? 'translate(-50%, 15px)' : 'translate(-50%, 3px)'
-    } else {
-      if (raise) s.classList.add('cdl-hi')
-      else if (anchorPx < 14) s.style.transform = 'translate(-50%, 5px)'
+  const NS = 'http://www.w3.org/2000/svg'
+  const bars = document.getElementById('chart-bars'); bars.textContent = ''
+  const slot = (W - padX * 2) / Math.max(n, 1)
+  const bw = Math.max(4, Math.min(slot * 0.6, 22))
+  const _rect = (x, y, h, fill, rTop) => { const r = document.createElementNS(NS, 'rect'); r.setAttribute('x', (x - bw / 2).toFixed(2)); r.setAttribute('y', y.toFixed(2)); r.setAttribute('width', bw.toFixed(2)); r.setAttribute('height', Math.max(0, h).toFixed(2)); r.setAttribute('rx', rTop ? '2' : '0'); r.setAttribute('fill', fill); bars.appendChild(r) }
+  const _txt = (x, y, t, fill) => { const e = document.createElementNS(NS, 'text'); e.setAttribute('x', x.toFixed(2)); e.setAttribute('y', y.toFixed(2)); e.setAttribute('text-anchor', 'middle'); e.setAttribute('font-size', '6.5'); e.setAttribute('font-weight', '700'); e.setAttribute('fill', fill); e.textContent = t; bars.appendChild(e) }
+  const showInside = n <= 14 && bw >= 13
+  for (let i = 0; i < n; i++) {
+    const x = px(i), g = gained[i] || 0, l = lost[i] || 0
+    const gh = hOf(g), lh = hOf(l)
+    if (g > 0) _rect(x, baseY - gh, gh, '#16a34a', l === 0) // verde (seguiu) embaixo
+    if (l > 0) _rect(x, baseY - gh - lh, lh, '#dc2626', true) // vermelho (deixou) em cima
+    if (showInside) {
+      if (g > 0 && gh >= 9) _txt(x, baseY - gh / 2 + 2.3, String(g), '#fff')
+      if (l > 0 && lh >= 9) _txt(x, baseY - gh - lh / 2 + 2.3, String(l), '#fff')
     }
+  }
+  // LÍQUIDO em cima de cada barra.
+  const labelsG = document.getElementById('chart-data-labels'); labelsG.textContent = ''
+  net.forEach((v, i) => {
+    const topY = baseY - hOf(totals[i])
+    const s = document.createElement('span')
+    s.className = 'cdl' + (n > 12 ? ' cdl-sm' : '') + (v > 0 ? ' cdl-up' : v < 0 ? ' cdl-down' : '')
+    s.textContent = (v > 0 ? '+' : '') + fmtN(v)
+    s.style.left = ((px(i) / W) * 100) + '%'
+    s.style.top = ((topY / H) * 100) + '%'
+    s.style.transform = 'translate(-50%, -118%)'
     labelsG.appendChild(s)
   })
   const xlWrap = document.getElementById('chart-xlabels'); xlWrap.textContent = ''
-  const step = Math.max(1, Math.floor(n / 6))
+  const step = Math.max(1, Math.floor(n / 7))
   labels.forEach((l, i) => {
     if (i % step !== 0 && i !== n - 1) return
     const s = document.createElement('span'); s.className = 'x-label'; s.textContent = l
-    s.style.left = (((px(i) - pad) / (W - pad * 2)) * 100) + '%'
+    s.style.left = (((px(i) - padX) / (W - padX * 2)) * 100) + '%'
     xlWrap.appendChild(s)
   })
 }
@@ -2155,6 +2154,7 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.chart-legend){display:flex;gap:16px;margin-top:8px;margin-bottom:4px;}
 .tela-redes-sociais :deep(.legend-item){display:flex;align-items:center;gap:5px;font-family:'Oswald',sans-serif;font-size:10px;font-weight:400;color:var(--muted);letter-spacing:.5px;}
 .tela-redes-sociais :deep(.legend-line){width:20px;height:2px;border-radius:0;}
+.tela-redes-sociais :deep(.legend-dot){width:9px;height:9px;border-radius:2px;}
 .tela-redes-sociais :deep(.legend-dash){width:20px;height:2px;background:repeating-linear-gradient(90deg,rgba(0,0,0,.2)0,rgba(0,0,0,.2)4px,transparent 4px,transparent 7px);}
 .tela-redes-sociais :deep(.x-labels){position:relative;height:16px;overflow:visible;}
 .tela-redes-sociais :deep(.x-label){position:absolute;transform:translateX(-50%);font-family:'Oswald',sans-serif;font-weight:400;font-size:9px;color:var(--muted);white-space:nowrap;letter-spacing:.3px;}
