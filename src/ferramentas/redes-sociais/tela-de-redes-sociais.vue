@@ -636,7 +636,6 @@ function janelasDoPeriodo(period, hoje = new Date(), customStart = null, customE
   } else if (period === 'lastmonth') {
     engS = primeiro(y, M - 1); engU = primeiro(y, M)
     engSp = primeiro(y, M - 2); engUp = primeiro(y, M - 1)
-    folShift = true // mês passado fechado usa o -1 dia
   } else if (period === 'monthfull' || period === 'sofar' || period === 'month') {
     // MÊS = mês corrente ATÉ ONTEM (dias completos); comparativo = MESMO nº de dias no mês anterior.
     engS = primeiro(y, M); engU = hoje00
@@ -649,11 +648,25 @@ function janelasDoPeriodo(period, hoje = new Date(), customStart = null, customE
     const n = Number(period) || 30
     engU = hoje00; engS = menosDias(hoje00, n); engUp = engS; engSp = menosDias(engS, n)
   }
-  const w = (s, u) => ({ eS: TS(s), eU: TS(u), fS: TS(folShift ? menos1(s) : s), fU: TS(folShift ? menos1(u) : u) })
-  const c = w(engS, engU), p = w(engSp, engUp)
+  // FOLLOWS: a Meta consolida com ~1 dia de atraso (o painel profissional também). Duas regras
+  // validadas (Breno, hoje=07/07): 7D 319/130, 14D 638/262, 30D 1295/580, mês pass 1281/571:
+  //  • MÊS PASSADO (fechado): janela deslocada -1 dia nos DOIS lados — a Meta bucketiza o mês 1 dia
+  //    atrás, então "junho" = [31/05, 30/06).
+  //  • Rolantes / mês corrente / personalizado: follows termina no MÁXIMO em ontem 00:00 — exclui o
+  //    último dia (ontem) ainda assentando; o início fica igual ao engajamento.
+  const folCap = menos1(hoje00)
+  const capFol = (u) => new Date(Math.min(u.getTime(), folCap.getTime()))
+  const ehLastmonth = period === 'lastmonth'
+  const folS = ehLastmonth ? menos1(engS) : engS
+  const folU = ehLastmonth ? menos1(engU) : capFol(engU)
+  const folSp = ehLastmonth ? menos1(engSp) : engSp
+  const folUp = ehLastmonth ? menos1(engUp) : engUp
   return {
-    engSince: c.eS, engUntil: c.eU, folSince: c.fS, folUntil: c.fU,
-    prevEngSince: p.eS, prevEngUntil: p.eU, prevFolSince: p.fS, prevFolUntil: p.fU, folShift,
+    engSince: TS(engS), engUntil: TS(engU),
+    folSince: TS(folS), folUntil: TS(folU),
+    prevEngSince: TS(engSp), prevEngUntil: TS(engUp),
+    prevFolSince: TS(folSp), prevFolUntil: TS(folUp),
+    folShift: ehLastmonth,
   }
 }
 // KPIs AO VIVO (exatos da Meta) via edge function insights-ao-vivo. Token fica no servidor.
@@ -695,8 +708,10 @@ async function buscarSerieNovos(accountId, period, customStart, customEnd, shift
   if (_serieCache[chave] && (agora - _serieCache[chave].t) < 180000) return _serieCache[chave].v
   try {
     const jan = janelasDoPeriodo(period, new Date(), customStart, customEnd)
+    // Itera a janela de FOLLOWS (folSince→folUntil): assim o gráfico bate com o card (mesmo range,
+    // exclui o último dia ainda assentando). Cada barra = follows do dia (janela direta [dia, dia+1)).
     const DIA = 86400, dias = []
-    for (let d = Number(jan.engSince); d < Number(jan.engUntil); d += DIA) {
+    for (let d = Number(jan.folSince); d < Number(jan.folUntil); d += DIA) {
       let iso, ds = d // shiftMonths: mesmo dia N meses atrás (comparativo do mês anterior)
       if (shiftMonths) {
         const dt = new Date(d * 1000); dt.setMonth(dt.getMonth() - shiftMonths)
@@ -705,8 +720,8 @@ async function buscarSerieNovos(accountId, period, customStart, customEnd, shift
       } else {
         iso = new Date(d * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
       }
-      // follows do dia = janela do dia; deslocada -1 só quando o período usa folShift.
-      dias.push({ label: iso, since: jan.folShift ? (ds - DIA) : ds, until: jan.folShift ? ds : (ds + DIA) })
+      // follows do dia = janela direta do próprio dia [dia 00:00, dia+1 00:00).
+      dias.push({ label: iso, since: ds, until: ds + DIA })
     }
     if (!dias.length || dias.length > 93) return null // janela vazia ou muito longa → mantém coletado
     const { data, error } = await sbClient.functions.invoke('serie-novos-dia', { body: { account_id: accountId, dias } })
