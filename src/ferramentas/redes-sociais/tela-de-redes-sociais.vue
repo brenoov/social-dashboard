@@ -337,37 +337,9 @@
         <div class="card"><div class="mc-header"><div class="mc-icon">👤</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-profile-views" contenteditable="true" spellcheck="false">3000</span><span class="mc-edit-hint">✏</span></div></div><div class="mc-lbl">VISITAS AO PERFIL</div><div class="mc-val a-blue" id="eng-profile-views">0</div><div class="mc-compare" id="cmp-profile-views"></div><div class="mc-divider"></div><div class="mc-progress-track"><div class="mc-progress-fill" id="prog-profile-views" style="width:0%"></div></div><div class="mc-bottom"><span class="mc-pct" id="pct-profile-views">0%</span><span class="mc-diff" id="diff-profile-views"></span></div></div>
       </div>
 
-      <!-- 04 ENGAJAMENTO STORIES -->
+      <!-- 04 CONTEÚDO -->
       <div class="sec-header">
-        <div class="section-label">04 · Engajamento — Stories</div>
-        <div class="sec-chips" id="chips-story-eng"></div>
-        <div class="sec-line"></div>
-      </div>
-      <div class="sec4-grid mb40">
-        <div class="card" style="animation-delay:.05s">
-          <div class="mc-header"><div class="mc-icon">↗️</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-story-shares" contenteditable="true" spellcheck="false">200</span><span class="mc-edit-hint">✏</span></div></div>
-          <div class="mc-lbl">ENCAMINHAMENTOS (STORIES)</div>
-          <div class="mc-val a-orange" id="cnt-story-shares">0</div>
-          <div class="mc-compare" id="cmp-story-shares"></div>
-          <div class="mc-divider"></div>
-          <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-story-shares" style="width:0%"></div></div>
-          <div class="mc-bottom"><span class="mc-pct" id="pct-story-shares">0%</span><span class="mc-diff" id="diff-story-shares"></span></div>
-        </div>
-        <div class="card" style="animation-delay:.10s">
-          <div class="mc-header"><div class="mc-icon">💬</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-story-replies" contenteditable="true" spellcheck="false">50</span><span class="mc-edit-hint">✏</span></div></div>
-          <div class="mc-lbl">RESPOSTAS / DM (STORIES)</div>
-          <div class="mc-val a-pink" id="cnt-story-replies">0</div>
-          <div class="mc-compare" id="cmp-story-replies"></div>
-          <div class="mc-divider"></div>
-          <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-story-replies" style="width:0%"></div></div>
-          <div class="mc-bottom"><span class="mc-pct" id="pct-story-replies">0%</span><span class="mc-diff" id="diff-story-replies"></span></div>
-        </div>
-        <div class="card"><div class="mc-header"><div class="mc-icon">👁</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-st-reach" contenteditable="true" spellcheck="false">3000</span><span class="mc-edit-hint">✏</span></div></div><div class="mc-lbl">ALCANCE (STORIES)</div><div class="mc-val a-blue" id="st-reach">0</div><div class="mc-compare" id="cmp-st-reach"></div><div class="mc-divider"></div><div class="mc-progress-track"><div class="mc-progress-fill" id="prog-st-reach" style="width:0%"></div></div><div class="mc-bottom"><span class="mc-pct" id="pct-st-reach">0%</span><span class="mc-diff" id="diff-st-reach"></span></div></div>
-      </div>
-
-      <!-- 05 CONTEÚDO -->
-      <div class="sec-header">
-        <div class="section-label">05 · Conteúdo</div>
+        <div class="section-label">04 · Conteúdo</div>
         <div class="sec-chips" id="chips-cnt"></div>
         <div class="sec-line"></div>
       </div>
@@ -1458,19 +1430,7 @@ function update(d, period) {
   })
   const avgPerPost = d.cnt.posts > 0 ? Math.round(d.eng.likes / d.cnt.posts) : 0
   setChips('chips-eng', ['Taxa de eng.: ' + d.engRate + '%', 'Comentários: ' + fmtN(d.eng.comments || 0), 'Média curtidas/post: ' + fmtN(avgPerPost), prevEngTotal > 0 ? 'Total: ' + fmtN(engTotal) + ' vs ' + fmtN(prevEngTotal) + ' (' + pctDiff(engTotal, prevEngTotal) + ')' : 'Total engajamento: ' + fmtN(engTotal)])
-  animCount(document.getElementById('cnt-story-shares'), d.storyEng.shares)
-  setCompare('cmp-story-shares', d.storyEng.shares, d.storyEng.prevShares, '', pl, false)
-  applyMetric('story-shares', d.storyEng.shares, getGoal('story-shares'))
-  animCount(document.getElementById('cnt-story-replies'), d.storyEng.replies)
-  setCompare('cmp-story-replies', d.storyEng.replies, d.storyEng.prevReplies, '', pl, false)
-  applyMetric('story-replies', d.storyEng.replies, getGoal('story-replies'))
-  // Cards novos de stories (alcance/interações/navegação/visitas/novos seguidores).
-  ;[['st-reach', 'reach', 'prevReach']].forEach(([id, k, pk]) => {
-    animCount(document.getElementById(id), d.storyEng[k] || 0)
-    setCompare('cmp-' + id, d.storyEng[k] || 0, d.storyEng[pk], '', pl, false)
-    applyMetric(id, d.storyEng[k] || 0, getGoal(id))
-  })
-  setChips('chips-story-eng', ['Acumulado de snapshots diários', 'Stories expiram em 24h (API)'])
+  // Engajamento de Stories agora é a aba "Stories" da seção 03 (Engajamento) — seção separada removida.
   animCount(document.getElementById('cnt-stories'), d.cnt.stories)
   setCompare('cmp-stories', d.cnt.stories, d.cnt.prevStories, '', pl, false); applyMetric('stories', d.cnt.stories, getGoal('stories'))
   animCount(document.getElementById('cnt-posts-reels'), d.cnt.postsReels)
