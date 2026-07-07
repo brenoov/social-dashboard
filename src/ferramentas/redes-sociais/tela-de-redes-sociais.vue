@@ -362,18 +362,11 @@
          muda o layout visual) -->
     <div id="chart-tooltip">
       <div class="tt-date" id="tt-date"></div>
-      <div class="tt-row">
-        <div class="tt-dot curr"></div>
-        <div class="tt-label" id="tt-curr-label">Este período</div>
-        <div class="tt-val" id="tt-curr-val"></div>
-      </div>
-      <div class="tt-row">
-        <div class="tt-dot prev"></div>
-        <div class="tt-label" id="tt-prev-label">Mês anterior</div>
-        <div class="tt-val" id="tt-prev-val" style="color:var(--muted)"></div>
-      </div>
+      <div class="tt-row"><span class="tt-dot" style="background:#16a34a"></span><span class="tt-label">Seguiram</span><span class="tt-val" id="tt-seguiu"></span></div>
+      <div class="tt-row"><span class="tt-dot" style="background:#dc2626"></span><span class="tt-label">Deixaram</span><span class="tt-val" id="tt-deixou"></span></div>
       <div class="tt-sep"></div>
-      <div class="tt-delta" id="tt-delta"></div>
+      <div class="tt-row"><span class="tt-label" style="font-weight:700;color:var(--text)">Líquido</span><span class="tt-val" id="tt-liquido" style="font-weight:800"></span></div>
+      <div class="tt-cmp" id="tt-cmp"></div>
     </div>
 
     <!-- MODAL "Filtrar campanhas" (legacy L11754-11769 — mesmo motivo do tooltip
@@ -638,17 +631,24 @@ async function buscarKpisAoVivo(accountId, period, customStart, customEnd) {
 // Série DIÁRIA exata de novos seguidores (para o gráfico bater com o painel). Cada dia = follows numa janela
 // de 1 dia deslocada -1 dia (mesmo offset do agregado). Batch via edge serie-novos-dia. Cache 3min.
 const _serieCache = {}
-async function buscarSerieNovos(accountId, period, customStart, customEnd) {
-  const chave = accountId + '|serie|' + String(period) + '|' + (customStart || '') + '|' + (customEnd || '')
+async function buscarSerieNovos(accountId, period, customStart, customEnd, shiftMonths = 0) {
+  const chave = accountId + '|serie|' + String(period) + '|' + (customStart || '') + '|' + (customEnd || '') + '|m' + shiftMonths
   const agora = Date.now()
   if (_serieCache[chave] && (agora - _serieCache[chave].t) < 180000) return _serieCache[chave].v
   try {
     const jan = janelasDoPeriodo(period, new Date(), customStart, customEnd)
     const DIA = 86400, dias = []
     for (let d = Number(jan.engSince); d < Number(jan.engUntil); d += DIA) {
-      const iso = new Date(d * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-      // follows do dia = janela do dia; deslocada -1 só quando o período usa folShift (mês passado).
-      dias.push({ label: iso, since: jan.folShift ? (d - DIA) : d, until: jan.folShift ? d : (d + DIA) })
+      let iso, ds = d // shiftMonths: mesmo dia N meses atrás (comparativo do mês anterior)
+      if (shiftMonths) {
+        const dt = new Date(d * 1000); dt.setMonth(dt.getMonth() - shiftMonths)
+        iso = dt.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+        ds = Math.floor(new Date(iso + 'T00:00:00-03:00').getTime() / 1000)
+      } else {
+        iso = new Date(d * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+      }
+      // follows do dia = janela do dia; deslocada -1 só quando o período usa folShift.
+      dias.push({ label: iso, since: jan.folShift ? (ds - DIA) : ds, until: jan.folShift ? ds : (ds + DIA) })
     }
     if (!dias.length || dias.length > 93) return null // janela vazia ou muito longa → mantém coletado
     const { data, error } = await sbClient.functions.invoke('serie-novos-dia', { body: { account_id: accountId, dias } })
@@ -783,6 +783,7 @@ function _animateChartLine(el, pts) {
 function buildChart(chartData) {
   // BARRAS EMPILHADAS por dia: VERDE (seguiu) embaixo + VERMELHO (deixou) em cima; LÍQUIDO rotulado no topo.
   let { gained, lost, labels, dates } = chartData
+  const prevSeguiu = chartData.prevSeguiu, prevDeixou = chartData.prevDeixou, prevDates = chartData.prevDates
   gained = (gained || []).slice(); lost = (lost || []).slice(); labels = (labels || []).slice(); dates = (dates || []).slice()
   if (gained.length === 0) { gained = [0]; lost = [0]; labels = labels.length ? labels : ['']; dates = dates.length ? dates : [''] }
   const n = gained.length
@@ -794,7 +795,7 @@ function buildChart(chartData) {
   const hOf = v => (v / maxTot) * chartH
   const px = i => n > 1 ? padX + (i / (n - 1)) * (W - padX * 2) : W / 2
   const py = v => baseY - hOf(v)
-  activeChartData = { gained, lost, net, labels, dates, px, py, W, H, yZero: baseY, n }
+  activeChartData = { gained, lost, net, labels, dates, px, py, W, H, yZero: baseY, n, prevSeguiu, prevDeixou, prevDates }
   // Elementos de linha/zero do gráfico antigo não são usados nas barras empilhadas.
   const zl = document.getElementById('chart-zero'); if (zl) zl.setAttribute('display', 'none')
   document.getElementById('chart-line').setAttribute('points', '')
@@ -843,24 +844,35 @@ function buildChart(chartData) {
 let svgEl = null, chartOverlayEl = null, crosshairEl = null, dotCurrEl = null, dotPrevEl = null, tooltipEl = null
 function _onChartMouseMove(e) {
   if (!activeChartData || !activeChartData.n) return
-  const { gained, lost, net, dates, px, py, yZero, n } = activeChartData
+  const { gained, lost, net, dates, px, py, yZero, n, prevSeguiu, prevDeixou, prevDates } = activeChartData
   const rect = svgEl.getBoundingClientRect()
   const xPct = (e.clientX - rect.left) / rect.width
   const i = Math.max(0, Math.min(n - 1, Math.round(xPct * (n - 1))))
   const x = px(i)
+  const nf = v => (v || 0).toLocaleString('pt-BR')
   crosshairEl.setAttribute('x1', x); crosshairEl.setAttribute('x2', x); crosshairEl.removeAttribute('display')
   dotCurrEl.setAttribute('cx', x); dotCurrEl.setAttribute('cy', gained[i] > 0 ? py(gained[i]) : yZero); dotCurrEl.removeAttribute('display')
   dotPrevEl.setAttribute('display', 'none')
   document.getElementById('tt-date').textContent = dates[i] || ''
-  document.getElementById('tt-curr-val').textContent = (net[i] >= 0 ? '+' : '') + net[i].toLocaleString('pt-BR')
-  const _acc = net.slice(0, i + 1).reduce((a, b) => a + b, 0)
-  document.getElementById('tt-prev-label').textContent = 'Acumulado no período'
-  document.getElementById('tt-prev-val').textContent = (_acc >= 0 ? '+' : '') + _acc.toLocaleString('pt-BR')
-  const dEl = document.getElementById('tt-delta')
-  dEl.textContent = 'Líquido ' + (net[i] >= 0 ? '+' : '') + net[i].toLocaleString('pt-BR')
-  dEl.className = 'tt-delta ' + (net[i] >= 0 ? 'c-green' : 'c-red')
-  let tx = e.clientX + 16, ty = e.clientY - 60
-  if (tx + 200 > window.innerWidth) tx = e.clientX - 216; if (ty < 8) ty = 8
+  document.getElementById('tt-seguiu').textContent = '+' + nf(gained[i])
+  document.getElementById('tt-deixou').textContent = '−' + nf(lost[i])
+  const liq = net[i] || 0
+  const liqEl = document.getElementById('tt-liquido')
+  liqEl.textContent = (liq >= 0 ? '+' : '') + nf(liq)
+  liqEl.style.color = liq >= 0 ? '#16a34a' : '#dc2626'
+  // Comparativo: MESMO DIA do mês anterior.
+  const cmpEl = document.getElementById('tt-cmp')
+  if (prevSeguiu && prevSeguiu[i] != null) {
+    const pNet = (prevSeguiu[i] || 0) - (prevDeixou[i] || 0)
+    const dd = liq - pNet
+    const arrow = dd > 0 ? '▲' : dd < 0 ? '▼' : '•', col = dd > 0 ? '#16a34a' : dd < 0 ? '#dc2626' : 'var(--muted)'
+    cmpEl.innerHTML = `<div class="tt-cmp-lbl">vs. ${prevDates[i] || ''} (mês ant.)</div>`
+      + `<div class="tt-cmp-row"><span>Líquido ${(pNet >= 0 ? '+' : '') + nf(pNet)}</span>`
+      + `<span style="color:${col};font-weight:800">${arrow} ${(dd >= 0 ? '+' : '') + nf(dd)}</span></div>`
+    cmpEl.style.display = 'block'
+  } else cmpEl.style.display = 'none'
+  let tx = e.clientX + 16, ty = e.clientY - 72
+  if (tx + 210 > window.innerWidth) tx = e.clientX - 226; if (ty < 8) ty = 8
   tooltipEl.style.left = tx + 'px'; tooltipEl.style.top = ty + 'px'; tooltipEl.style.display = 'block'
 }
 function _onChartMouseLeave() {
@@ -1620,10 +1632,11 @@ async function refresh() {
   const myId = ++_refreshId
   const _ls = document.getElementById('live-status'); if (_ls) _ls.innerHTML = '<span style="opacity:.7">⟳ atualizando ao vivo…</span>'
   // PARALELO: coletado (gráficos/histórico) + KPIs ao vivo + série do gráfico — juntos, não em fila.
-  const [data, live, serie] = await Promise.all([
+  const [data, live, serie, seriePrev] = await Promise.all([
     fetchData(currentAccountId, currentPeriod, currentStartDate, currentEndDate),
     buscarKpisAoVivo(currentAccountId, currentPeriod, currentStartDate, currentEndDate),
     buscarSerieNovos(currentAccountId, currentPeriod, currentStartDate, currentEndDate),
+    buscarSerieNovos(currentAccountId, currentPeriod, currentStartDate, currentEndDate, 1), // mesmos dias, mês anterior
   ])
   if (myId !== _refreshId) return
   data.live = live // null → a tela cai no coletado
@@ -1631,10 +1644,15 @@ async function refresh() {
   if (live && serie && serie.length) {
     const _d3 = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'], _m3 = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
     const curto = serie.length <= 7
+    const _dfull = iso => { const dt = new Date(iso + 'T12:00:00'); return dt.getDate() + ' ' + _m3[dt.getMonth()] }
     data.chart = {
       gained: serie.map(s => s.seguiu), lost: serie.map(s => s.deixou),
       labels: serie.map(s => { const dt = new Date(s.label + 'T12:00:00'); return curto ? _d3[dt.getDay()] : (dt.getDate() + '/' + (dt.getMonth() + 1)) }),
-      dates: serie.map(s => { const dt = new Date(s.label + 'T12:00:00'); return dt.getDate() + ' ' + _m3[dt.getMonth()] }),
+      dates: serie.map(s => _dfull(s.label)),
+      // comparativo: mesmos dias do MÊS ANTERIOR (por dia).
+      prevSeguiu: seriePrev ? seriePrev.map(s => s.seguiu) : null,
+      prevDeixou: seriePrev ? seriePrev.map(s => s.deixou) : null,
+      prevDates: seriePrev ? seriePrev.map(s => _dfull(s.label)) : null,
     }
   }
   update(data, currentPeriod)
@@ -2158,6 +2176,9 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.tt-val){font-family:'Oswald',sans-serif;font-weight:500;font-size:17px;color:var(--text);font-variant-numeric:tabular-nums;}
 .tela-redes-sociais :deep(.tt-sep){height:1px;background:var(--border);margin:6px 0;}
 .tela-redes-sociais :deep(.tt-delta){font-family:'Oswald',sans-serif;font-size:11px;font-weight:400;margin-top:4px;}
+.tela-redes-sociais :deep(.tt-cmp){margin-top:9px;padding-top:8px;border-top:1px dashed var(--border);}
+.tela-redes-sociais :deep(.tt-cmp-lbl){font-family:'Oswald',sans-serif;font-size:8.5px;font-weight:400;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;}
+.tela-redes-sociais :deep(.tt-cmp-row){display:flex;align-items:center;justify-content:space-between;gap:14px;font-family:'Oswald',sans-serif;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;}
 
 /* Calc badge / seletor de período personalizado (compartilhado com Análise de Campanhas) */
 .tela-redes-sociais :deep(.calc-badge){display:inline-flex;align-items:center;gap:5px;font-family:'IBM Plex Sans',sans-serif;font-size:10px;background:var(--accent-light);color:var(--accent);padding:3px 10px;border-radius:2px;margin-top:8px;font-weight:500;letter-spacing:.3px;}
