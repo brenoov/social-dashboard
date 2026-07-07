@@ -1336,7 +1336,12 @@ function renderInteracoes() {
   _mostra('eng-comments', !ehStory)
   _mostra('eng-saves', !ehStory)
   const cardRepl = document.getElementById('card-replies'); if (cardRepl) cardRepl.style.display = ehStory ? '' : 'none'
-  const obsLikes = document.getElementById('obs-likes-ad'); if (obsLikes) obsLikes.style.display = ehAd ? '' : 'none' // nota da KPI de curtidas de anúncio
+  // Nota da API (curtidas de anúncio vêm direto da API): aparece na Geral e nos Anúncios.
+  const obsLikes = document.getElementById('obs-likes-ad'); if (obsLikes) obsLikes.style.display = (ehGeral || ehAd) ? '' : 'none'
+  // Na Geral, o card de Curtidas mostra a quebra orgânico/anúncios embaixo do total.
+  const _ioC = ctx.inter ? ctx.inter.curtidas : null
+  const _subLikes = document.getElementById('eng-likes-ad')
+  if (_subLikes) _subLikes.textContent = (ehGeral && _ioC) ? ('Orgânico ' + fmtN(_ioC.org) + ' · Anúncios ' + fmtN(_ioC.ad)) : ''
   // Alcance/Visualizações/Interações totais/Visitas ao perfil (nível conta) → só na aba Geral.
   ;['eng-reach', 'eng-views', 'eng-interactions', 'eng-profile-views'].forEach(id => _mostra(id, ehGeral))
   ;['likes', 'comments', 'saves', 'shares'].forEach(k => {
