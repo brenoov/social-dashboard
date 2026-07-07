@@ -612,18 +612,32 @@ function janelasDoPeriodo(period, hoje = new Date()) {
   const TS = (d) => String(Math.floor(d.getTime() / 1000))
   const dia00 = (yy, mm1, dd) => new Date(`${yy}-${String(mm1).padStart(2, '0')}-${String(dd).padStart(2, '0')}T00:00:00-03:00`)
   const menos1 = (d) => new Date(d.getTime() - 86400000)
+  const menosDias = (d, n) => new Date(d.getTime() - n * 86400000)
   const primeiro = (yy, mIdx) => { const d = new Date(yy, mIdx, 1); return dia00(d.getFullYear(), d.getMonth() + 1, 1) }
   const y = hoje.getFullYear(), M = hoje.getMonth()
-  const agora = hoje
-  let engS, engU, abertoAteAgora = false
-  if (period === 'lastmonth') { engS = primeiro(y, M - 1); engU = primeiro(y, M) }
-  else if (period === 'monthfull' || period === 'sofar' || period === 'month') { engS = primeiro(y, M); engU = agora; abertoAteAgora = true }
-  else if (period === 0) { engS = dia00(y, M + 1, hoje.getDate()); engU = agora; abertoAteAgora = true }
-  else if (period === 1) { const ont = new Date(y, M, hoje.getDate() - 1); engS = dia00(ont.getFullYear(), ont.getMonth() + 1, ont.getDate()); engU = dia00(y, M + 1, hoje.getDate()) }
-  else { const n = Number(period) || 30; const a = new Date(y, M, hoje.getDate() - n); engS = dia00(a.getFullYear(), a.getMonth() + 1, a.getDate()); engU = dia00(y, M + 1, hoje.getDate()) }
-  const folS = menos1(engS)
-  const folU = abertoAteAgora ? agora : menos1(engU)
-  return { engSince: TS(engS), engUntil: TS(engU), folSince: TS(folS), folUntil: TS(folU) }
+  const hoje00 = dia00(y, M + 1, hoje.getDate())
+  // engS/engU = janela ATUAL; engSp/engUp = janela do período ANTERIOR (pro comparativo).
+  let engS, engU, engSp, engUp
+  if (period === 'lastmonth') {
+    engS = primeiro(y, M - 1); engU = primeiro(y, M)
+    engSp = primeiro(y, M - 2); engUp = primeiro(y, M - 1)
+  } else if (period === 'monthfull' || period === 'sofar' || period === 'month') {
+    // MÊS = mês corrente ATÉ ONTEM (dias completos); comparativo = MESMO nº de dias no mês anterior.
+    engS = primeiro(y, M); engU = hoje00
+    const dias = Math.round((engU.getTime() - engS.getTime()) / 86400000)
+    engSp = primeiro(y, M - 1); engUp = new Date(engSp.getTime() + dias * 86400000)
+  } else if (period === 1) {
+    engU = hoje00; engS = menos1(hoje00); engUp = engS; engSp = menos1(engS)
+  } else {
+    const n = Number(period) || 30
+    engU = hoje00; engS = menosDias(hoje00, n); engUp = engS; engSp = menosDias(engS, n)
+  }
+  const w = (s, u) => ({ eS: TS(s), eU: TS(u), fS: TS(menos1(s)), fU: TS(menos1(u)) }) // follows = janela deslocada -1 dia
+  const c = w(engS, engU), p = w(engSp, engUp)
+  return {
+    engSince: c.eS, engUntil: c.eU, folSince: c.fS, folUntil: c.fU,
+    prevEngSince: p.eS, prevEngUntil: p.eU, prevFolSince: p.fS, prevFolUntil: p.fU,
+  }
 }
 // KPIs AO VIVO (exatos da Meta) via edge function insights-ao-vivo. Token fica no servidor.
 // Cache leve por (conta+período) por 3min; null se a Meta falhar (a tela cai no coletado).
@@ -1319,7 +1333,9 @@ function update(d, period) {
   buildChart(d.chart)
   // Comparação só quando confirmado (no período em consolidação o "anterior" do bruto distorceria).
   const cmpEl = document.getElementById('cmp-followers')
-  if (confirmado) setCompare('cmp-followers', d.newFollowers, d.prevNewFollowers, '', pl, false)
+  // AO VIVO: compara total atual vs total do período ANTERIOR (exato, mesma janela). Senão, coletado.
+  if (d.live) setCompare('cmp-followers', d.live.novos.total, d.live.anterior ? d.live.anterior.novos.total : null, '', pl, false)
+  else if (confirmado) setCompare('cmp-followers', d.newFollowers, d.prevNewFollowers, '', pl, false)
   else if (cmpEl) cmpEl.innerHTML = ''
   applyMetric('followers', headlineVal, getGoal('followers'))
   const engTotal = d.eng.likes + d.eng.saves + d.eng.shares + (d.eng.comments || 0)
@@ -1328,9 +1344,10 @@ function update(d, period) {
   setChips('chips-followers', ['Média: +' + _avgShown + '/dia', 'Taxa de eng.: ' + d.engRate + '%', 'Engajamento total: ' + fmtN(engTotal)])
   // Investimento AO VIVO = gasto de TODAS as campanhas da conta de anúncio do perfil (exato). null = perfil sem ads.
   const _inv = (d.live && d.live.investimento != null) ? d.live.investimento : d.spend
+  const _invAnt = (d.live && d.live.anterior) ? d.live.anterior.investimento : d.prevSpend
   document.getElementById('ads-spend-val').textContent = _inv > 0 ? fmtR(_inv) : 'R$ —'
   document.getElementById('ads-cps-val').textContent = d.cps > 0 ? fmtR(d.cps) : 'R$ —'
-  setCompare('cmp-spend', _inv, d.prevSpend, 'R$ ', pl, true)
+  setCompare('cmp-spend', _inv, _invAnt, 'R$ ', pl, true)
   setCompare('cmp-cps', d.cps, d.prevCps, 'R$ ', pl, true)
   applySpend(_inv, getGoal('spend'))
   if (d.cps > 0) applyMetricInverse('cps', d.cps, getGoal('cps'))
@@ -1362,7 +1379,8 @@ function update(d, period) {
   ;['likes', 'comments', 'saves', 'shares'].forEach(k => {
     const io = d.live && d.live.interacoes ? d.live.interacoes[_imap[k]] : null
     const val = io ? io.org : (d.eng[k] || 0)
-    const prev = d.eng['prev' + k.charAt(0).toUpperCase() + k.slice(1)]
+    const ioAnt = d.live && d.live.anterior && d.live.anterior.interacoes ? d.live.anterior.interacoes[_imap[k]] : null
+    const prev = ioAnt ? ioAnt.org : d.eng['prev' + k.charAt(0).toUpperCase() + k.slice(1)]
     animCount(document.getElementById('eng-' + k), val)
     const _ad = document.getElementById('eng-' + k + '-ad')
     if (_ad) _ad.textContent = (io && io.ad > 0) ? ('+ ' + fmtN(io.ad) + ' em anúncios') : ''
@@ -1371,10 +1389,11 @@ function update(d, period) {
   // Cards novos (alcance/visualizações/interações/contas engajadas/visitas) — sem meta/progresso.
   // Alcance/Visualizações/Interações/Visitas: AO VIVO (exato) quando disponível; senão coletado.
   const engLive = d.live ? { reach: d.live.engajamento.reach, views: d.live.engajamento.views, interactions: d.live.engajamento.interacoes, profileViews: d.live.engajamento.visitas } : null
+  const engAnt = (d.live && d.live.anterior) ? { reach: d.live.anterior.engajamento.reach, views: d.live.anterior.engajamento.views, interactions: d.live.anterior.engajamento.interacoes, profileViews: d.live.anterior.engajamento.visitas } : null
   ;[['reach', 'reach', 'prevReach'], ['views', 'views', 'prevViews'], ['interactions', 'interactions', 'prevInteractions'], ['profile-views', 'profileViews', 'prevProfileViews']].forEach(([id, k, pk]) => {
     const val = engLive ? (engLive[k] || 0) : (d.eng[k] || 0)
     animCount(document.getElementById('eng-' + id), val)
-    setCompare('cmp-' + id, val, d.eng[pk], '', pl, false)
+    setCompare('cmp-' + id, val, engAnt ? engAnt[k] : d.eng[pk], '', pl, false)
     applyMetric(id, val, getGoal(id))
   })
   const avgPerPost = d.cnt.posts > 0 ? Math.round(d.eng.likes / d.cnt.posts) : 0
