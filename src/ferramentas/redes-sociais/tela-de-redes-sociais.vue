@@ -279,9 +279,16 @@
 
       <!-- 03 ENGAJAMENTO -->
       <div class="sec-header">
-        <div class="section-label">03 · Engajamento — Posts &amp; Reels</div>
+        <div class="section-label">03 · Engajamento</div>
         <div class="sec-chips" id="chips-eng"></div>
         <div class="sec-line"></div>
+      </div>
+      <div class="eng-tabs" id="eng-tabs">
+        <button class="eng-tab active" data-tab="geral" onclick="setEngTab('geral')">Geral</button>
+        <button class="eng-tab" data-tab="reel" onclick="setEngTab('reel')">Reels</button>
+        <button class="eng-tab" data-tab="post" onclick="setEngTab('post')">Posts</button>
+        <button class="eng-tab" data-tab="story" onclick="setEngTab('story')">Stories</button>
+        <button class="eng-tab" data-tab="ad" onclick="setEngTab('ad')">Anúncios</button>
       </div>
       <div class="sec3-grid mb40">
         <div class="card" style="animation-delay:.05s">
@@ -1315,6 +1322,35 @@ function openFollowersInfo() {
   m.querySelector('#_fi_x').onclick = () => ov.remove()
 }
 
+// ── ABAS DE ENGAJAMENTO (Geral/Reels/Posts/Stories/Anúncios) ──
+let _engTab = 'geral'
+let _engCtx = null
+const _IMAP = { likes: 'curtidas', comments: 'comentarios', saves: 'salvamentos', shares: 'compartilhamentos' }
+function setEngTab(tab) {
+  _engTab = tab
+  document.querySelectorAll('#eng-tabs .eng-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab))
+  renderInteracoes()
+}
+function renderInteracoes() {
+  const ctx = _engCtx; if (!ctx) return
+  const tab = _engTab
+  ;['likes', 'comments', 'saves', 'shares'].forEach(k => {
+    const key = _IMAP[k]
+    const io = ctx.inter ? ctx.inter[key] : null
+    // valor da aba: live tem por-tipo; sem live só a aba Geral (coletado).
+    const val = io ? (io[tab] != null ? io[tab] : io.geral) : ((tab === 'geral') ? (ctx.eng[k] || 0) : 0)
+    animCount(document.getElementById('eng-' + k), val)
+    // subtexto "+X em anúncios" só na aba Geral.
+    const _ad = document.getElementById('eng-' + k + '-ad')
+    if (_ad) _ad.textContent = (tab === 'geral' && io && io.ad > 0) ? ('+ ' + fmtN(io.ad) + ' em anúncios') : ''
+    // comparativo: mesmo tipo na janela anterior.
+    const ioAnt = ctx.ant ? ctx.ant[key] : null
+    const prev = ioAnt ? (ioAnt[tab] != null ? ioAnt[tab] : ioAnt.geral) : ((tab === 'geral') ? ctx.eng['prev' + k.charAt(0).toUpperCase() + k.slice(1)] : null)
+    setCompare('cmp-' + k, val, prev, '', ctx.pl, false)
+    applyMetric(k, val, getGoal(k))
+  })
+}
+
 /* ── MAIN UPDATE (legacy L4045-4157, verbatim) ── */
 function update(d, period) {
   const pl = d.pl
@@ -1402,19 +1438,14 @@ function update(d, period) {
   if (d.adShares > 0 && d.spend > 0) custoChips.push('Custo/compart. ' + fmtR(d.spend / d.adShares))
   if (!custoChips.length) custoChips.push('Sem custos no período')
   setChips('chips-ads-custo', custoChips)
-  // Curtidas/Comentários/Salvamentos/Compart.: AO VIVO = ORGÂNICO (posts+reels+stories, SEM anúncio);
-  // os anúncios aparecem no subtexto "+ X em anúncios". Fallback: valor coletado.
-  const _imap = { likes: 'curtidas', comments: 'comentarios', saves: 'salvamentos', shares: 'compartilhamentos' }
-  ;['likes', 'comments', 'saves', 'shares'].forEach(k => {
-    const io = d.live && d.live.interacoes ? d.live.interacoes[_imap[k]] : null
-    const val = io ? io.org : (d.eng[k] || 0)
-    const ioAnt = d.live && d.live.anterior && d.live.anterior.interacoes ? d.live.anterior.interacoes[_imap[k]] : null
-    const prev = ioAnt ? ioAnt.org : d.eng['prev' + k.charAt(0).toUpperCase() + k.slice(1)]
-    animCount(document.getElementById('eng-' + k), val)
-    const _ad = document.getElementById('eng-' + k + '-ad')
-    if (_ad) _ad.textContent = (io && io.ad > 0) ? ('+ ' + fmtN(io.ad) + ' em anúncios') : ''
-    setCompare('cmp-' + k, val, prev, '', pl, false); applyMetric(k, val, getGoal(k))
-  })
+  // Curtidas/Comentários/Salvamentos/Compart. por ABA (Geral/Reels/Posts/Stories/Anúncios). Guarda o contexto
+  // e renderiza a aba ativa. AO VIVO tem o split por tipo; sem live, só a aba Geral (coletado).
+  _engCtx = {
+    inter: (d.live && d.live.interacoes) ? d.live.interacoes : null,
+    ant: (d.live && d.live.anterior && d.live.anterior.interacoes) ? d.live.anterior.interacoes : null,
+    eng: d.eng, pl,
+  }
+  renderInteracoes()
   // Cards novos (alcance/visualizações/interações/contas engajadas/visitas) — sem meta/progresso.
   // Alcance/Visualizações/Interações/Visitas: AO VIVO (exato) quando disponível; senão coletado.
   const engLive = d.live ? { reach: d.live.engajamento.reach, views: d.live.engajamento.views, interactions: d.live.engajamento.interacoes, profileViews: d.live.engajamento.visitas } : null
@@ -1916,6 +1947,7 @@ function fecharDashboard() {
 Object.assign(window, {
   onCustomDateChange,
   clearCustomRange,
+  setEngTab,
   toggleAutoCycle,
   toggleHeader,
   openFollowersInfo,
@@ -2187,6 +2219,10 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.custom-date-input):hover,.tela-redes-sociais :deep(.custom-date-input):focus{border-color:var(--accent);}
 .tela-redes-sociais :deep(.custom-range-inline){display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
 .tela-redes-sociais :deep(.custom-range-lbl){font-family:'DM Sans',sans-serif;font-size:11px;color:var(--muted);}
+.tela-redes-sociais :deep(.eng-tabs){display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;}
+.tela-redes-sociais :deep(.eng-tab){font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:11px;padding:6px 16px;border-radius:20px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap;}
+.tela-redes-sociais :deep(.eng-tab):hover{border-color:var(--accent);color:var(--accent);}
+.tela-redes-sociais :deep(.eng-tab.active){background:var(--accent);border-color:var(--accent);color:#fff;}
 .tela-redes-sociais :deep(.custom-date-input):focus{border-color:var(--accent);}
 .tela-redes-sociais :deep(.custom-apply-btn){font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:11px;padding:5px 14px;border-radius:3px;background:var(--accent);color:#fff;border:none;cursor:pointer;letter-spacing:.5px;text-transform:uppercase;}
 .tela-redes-sociais :deep(.custom-clear-btn){font-family:'IBM Plex Sans',sans-serif;font-size:11px;padding:5px 10px;border-radius:3px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;}

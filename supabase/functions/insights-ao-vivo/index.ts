@@ -33,12 +33,24 @@ async function engaj(ig: string, eS: string, eU: string, token: string) {
   return { obj: { views: em.views ?? 0, reach: em.reach ?? 0, interacoes: em.total_interactions ?? 0, visitas: em.profile_views ?? 0 }, erro: eng.error }
 }
 
-// Curtidas/Comentários/Salvamentos/Compart. por tipo de conteúdo → ORGÂNICO (POST+REEL+STORY) vs ANÚNCIO (AD).
+// Curtidas/Comentários/Salvamentos/Compart. por TIPO DE CONTEÚDO (pra as abas Geral/Reels/Posts/Stories/Anúncios).
+// geral = orgânico (post+reel+story). org = alias de geral (compat.). Cada aba lê sua chave.
 async function interacoes(ig: string, eS: string, eU: string, token: string) {
   const bd = await apiGet(`${ig}/insights`, { metric: 'likes,comments,saves,shares', period: 'day', metric_type: 'total_value', breakdown: 'media_product_type', since: String(eS), until: String(eU) }, token)
   const mapa: Record<string, string> = { likes: 'curtidas', comments: 'comentarios', saves: 'salvamentos', shares: 'compartilhamentos' }
-  const inter: Record<string, { org: number; ad: number }> = { curtidas: { org: 0, ad: 0 }, comentarios: { org: 0, ad: 0 }, salvamentos: { org: 0, ad: 0 }, compartilhamentos: { org: 0, ad: 0 } }
-  for (const it of (bd.data ?? [])) { const dest = inter[mapa[it.name]]; if (!dest) continue; for (const r of (it.total_value?.breakdowns?.[0]?.results ?? [])) { const t = (r.dimension_values ?? ['?'])[0]; if (t === 'AD') dest.ad += (r.value ?? 0); else dest.org += (r.value ?? 0) } }
+  const z = () => ({ post: 0, reel: 0, story: 0, ad: 0, geral: 0, org: 0 })
+  const inter: Record<string, any> = { curtidas: z(), comentarios: z(), salvamentos: z(), compartilhamentos: z() }
+  for (const it of (bd.data ?? [])) {
+    const dest = inter[mapa[it.name]]; if (!dest) continue
+    for (const r of (it.total_value?.breakdowns?.[0]?.results ?? [])) {
+      const t = (r.dimension_values ?? ['?'])[0], v = r.value ?? 0
+      if (t === 'POST') dest.post += v
+      else if (t === 'REEL') dest.reel += v
+      else if (t === 'STORY') dest.story += v
+      else if (t === 'AD') dest.ad += v
+      if (t !== 'AD') { dest.geral += v; dest.org += v } // orgânico = tudo menos anúncio
+    }
+  }
   return inter
 }
 
