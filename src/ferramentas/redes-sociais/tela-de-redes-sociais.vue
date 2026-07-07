@@ -306,6 +306,11 @@
           <div class="mc-lbl">COMENTÁRIOS</div>
           <div class="mc-val a-blue" id="eng-comments">0</div>
           <div class="mc-ad-sub" id="eng-comments-ad"></div>
+          <div class="nf-linhas" id="comments-linhas" style="display:none">
+            <div class="nf-linha"><span class="nf-lbl">Orgânico</span><span class="nf-val a-blue" id="comments-org">0</span></div>
+            <div class="nf-linha"><span class="nf-lbl">Anúncios</span><span class="nf-val a-purple" id="comments-ad">0</span></div>
+            <div class="nf-linha"><span class="nf-lbl">Total</span><span class="nf-val a-blue" id="comments-total">0</span></div>
+          </div>
           <div class="mc-compare" id="cmp-comments"></div>
           <div class="mc-divider"></div>
           <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-comments" style="width:0%"></div></div>
@@ -316,6 +321,11 @@
           <div class="mc-lbl">SALVAMENTOS</div>
           <div class="mc-val a-pink" id="eng-saves">0</div>
           <div class="mc-ad-sub" id="eng-saves-ad"></div>
+          <div class="nf-linhas" id="saves-linhas" style="display:none">
+            <div class="nf-linha"><span class="nf-lbl">Orgânico</span><span class="nf-val a-pink" id="saves-org">0</span></div>
+            <div class="nf-linha"><span class="nf-lbl">Anúncios</span><span class="nf-val a-purple" id="saves-ad">0</span></div>
+            <div class="nf-linha"><span class="nf-lbl">Total</span><span class="nf-val a-blue" id="saves-total">0</span></div>
+          </div>
           <div class="mc-compare" id="cmp-saves"></div>
           <div class="mc-divider"></div>
           <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-saves" style="width:0%"></div></div>
@@ -326,6 +336,11 @@
           <div class="mc-lbl">COMPARTILHAMENTOS</div>
           <div class="mc-val a-purple" id="eng-shares">0</div>
           <div class="mc-ad-sub" id="eng-shares-ad"></div>
+          <div class="nf-linhas" id="shares-linhas" style="display:none">
+            <div class="nf-linha"><span class="nf-lbl">Orgânico</span><span class="nf-val a-green" id="shares-org">0</span></div>
+            <div class="nf-linha"><span class="nf-lbl">Anúncios</span><span class="nf-val a-purple" id="shares-ad">0</span></div>
+            <div class="nf-linha"><span class="nf-lbl">Total</span><span class="nf-val a-blue" id="shares-total">0</span></div>
+          </div>
           <div class="mc-compare" id="cmp-shares"></div>
           <div class="mc-divider"></div>
           <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-shares" style="width:0%"></div></div>
@@ -1342,18 +1357,19 @@ function renderInteracoes() {
   _mostra('eng-comments', !ehStory)
   _mostra('eng-saves', !ehStory)
   const cardRepl = document.getElementById('card-replies'); if (cardRepl) cardRepl.style.display = ehStory ? '' : 'none'
-  // Curtidas na aba Geral: 3 linhas iguais (Orgânico/Anúncios/Total), nota na linha de Anúncios.
-  // Outras abas: número grande normal.
-  const _ioC = ctx.inter ? ctx.inter.curtidas : null
-  const _bigLikes = document.getElementById('eng-likes'), _linhas = document.getElementById('likes-linhas')
-  if (_bigLikes) _bigLikes.style.display = ehGeral ? 'none' : ''
-  if (_linhas) _linhas.style.display = ehGeral ? '' : 'none'
-  if (ehGeral && _ioC) {
-    animCount(document.getElementById('likes-org'), _ioC.org)
-    animCount(document.getElementById('likes-ad'), _ioC.ad)
-    animCount(document.getElementById('likes-total'), _ioC.geral)
-  }
-  // Nota separada (embaixo do número) só na aba Anúncios — na Geral a nota já está na linha de Anúncios.
+  // Na aba GERAL, os 4 cards de interação mostram 3 linhas iguais (Orgânico/Anúncios/Total); outras abas = número grande.
+  ;['likes', 'comments', 'saves', 'shares'].forEach(k => {
+    const io = ctx.inter ? ctx.inter[_IMAP[k]] : null
+    const big = document.getElementById('eng-' + k), lin = document.getElementById(k + '-linhas')
+    if (big) big.style.display = ehGeral ? 'none' : ''
+    if (lin) lin.style.display = ehGeral ? '' : 'none'
+    if (ehGeral && io) {
+      animCount(document.getElementById(k + '-org'), io.org)
+      animCount(document.getElementById(k + '-ad'), io.ad)
+      animCount(document.getElementById(k + '-total'), io.geral)
+    }
+  })
+  // Nota da API (só curtidas de anúncio não têm relatório): na Geral já está na linha de Anúncios; nos Anúncios mostra embaixo.
   const obsLikes = document.getElementById('obs-likes-ad'); if (obsLikes) obsLikes.style.display = ehAd ? '' : 'none'
   // Alcance/Visualizações/Interações totais/Visitas ao perfil (nível conta) → só na aba Geral.
   ;['eng-reach', 'eng-views', 'eng-interactions', 'eng-profile-views'].forEach(id => _mostra(id, ehGeral))
