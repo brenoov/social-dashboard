@@ -62,6 +62,20 @@ async function respostas(ig: string, eS: string, eU: string, token: string) {
   return r.data?.[0]?.total_value?.value ?? 0
 }
 
+// Interações de ANÚNCIO pelo Ads Manager (act/insights actions) — fonte correta (validado 7D: coment 72, salv 185, compart 338).
+async function adAcoes(adAccountId: string, eS: string, eU: string, token: string) {
+  const dstr = (u: number) => new Date(u * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  const ins = await apiGet(`act_${adAccountId}/insights`, { fields: 'actions', level: 'account', time_range: JSON.stringify({ since: dstr(Number(eS)), until: dstr(Number(eU) - 86400) }) }, token)
+  const a: Record<string, number> = {}
+  for (const x of (ins.data?.[0]?.actions ?? [])) a[x.action_type] = Number(x.value) || 0
+  return { curtidas: a['post_reaction'] || 0, comentarios: a['comment'] || 0, salvamentos: a['onsite_conversion.post_save'] || 0, compartilhamentos: a['post'] || 0 }
+}
+// Sobrepõe o .ad (Ads Manager) e recalcula geral = orgânico + anúncio.
+function fundirAd(inter: any, aa: any) {
+  for (const m of ['curtidas', 'comentarios', 'salvamentos', 'compartilhamentos']) { inter[m].ad = aa[m]; inter[m].geral = inter[m].org + aa[m] }
+  return inter
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   try {
@@ -80,19 +94,24 @@ Deno.serve(async (req) => {
     const wantPrev = !!(prevEngSince && prevEngUntil && prevFolSince && prevFolUntil)
 
     // TUDO EM PARALELO (atual + anterior) — a latência vira a da chamada mais lenta.
-    const [f, e, interAtual, nv, invAtual, respAtual, pe, interPrev, pnv, invPrev, respPrev] = await Promise.all([
+    const [f, e, interAtual, nv, invAtual, respAtual, adAtual, pe, interPrev, pnv, invPrev, respPrev, adPrev] = await Promise.all([
       apiGet(`${ig}`, { fields: 'followers_count' }, token),
       engaj(ig, engSince, engUntil, token),
       interacoes(ig, engSince, engUntil, token),
       novos(ig, folSince, folUntil, token),
       adAcc ? gasto(adAcc, engSince, engUntil, token) : Promise.resolve(null),
       respostas(ig, engSince, engUntil, token),
+      adAcc ? adAcoes(adAcc, engSince, engUntil, token) : Promise.resolve(null),
       wantPrev ? engaj(ig, prevEngSince, prevEngUntil, token) : Promise.resolve(null),
       wantPrev ? interacoes(ig, prevEngSince, prevEngUntil, token) : Promise.resolve(null),
       wantPrev ? novos(ig, prevFolSince, prevFolUntil, token) : Promise.resolve(null),
       (wantPrev && adAcc) ? gasto(adAcc, prevEngSince, prevEngUntil, token) : Promise.resolve(null),
       wantPrev ? respostas(ig, prevEngSince, prevEngUntil, token) : Promise.resolve(null),
+      (wantPrev && adAcc) ? adAcoes(adAcc, prevEngSince, prevEngUntil, token) : Promise.resolve(null),
     ])
+    // Interações de anúncio = Ads Manager (sobrepõe o breakdown do IG, que difere).
+    if (adAtual) fundirAd(interAtual, adAtual)
+    if (adPrev && interPrev) fundirAd(interPrev, adPrev)
 
     const out: any = {
       followers_count: f.followers_count ?? null,
