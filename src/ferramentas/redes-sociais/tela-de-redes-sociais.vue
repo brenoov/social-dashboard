@@ -32,13 +32,12 @@
         </div>
         <div class="topbar-center">
           <div class="period-tabs" id="period-tabs"></div>
-          <button class="custom-range-btn" id="custom-range-btn" onclick="toggleCustomRange()">📅</button>
-          <div id="custom-range-panel" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;">
-            <input type="date" id="custom-start" class="custom-date-input">
-            <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--muted)">até</span>
-            <input type="date" id="custom-end" class="custom-date-input">
-            <button class="custom-apply-btn" onclick="applyCustomRange()">Aplicar</button>
-            <button class="custom-clear-btn" onclick="clearCustomRange()">✕</button>
+          <div class="custom-range-inline" id="custom-range-panel">
+            <span class="custom-range-lbl">de</span>
+            <input type="date" id="custom-start" class="custom-date-input" onchange="onCustomDateChange()" title="Data inicial — clique para abrir o calendário">
+            <span class="custom-range-lbl">até</span>
+            <input type="date" id="custom-end" class="custom-date-input" onchange="onCustomDateChange()" title="Data final — clique para abrir o calendário">
+            <button class="custom-clear-btn" id="custom-clear-btn" onclick="clearCustomRange()" style="display:none" title="Limpar intervalo personalizado">✕</button>
           </div>
           <div class="ac-toggle on" id="ac-toggle-btn" onclick="toggleAutoCycle()" title="Rotação automática de perfis">
             <div class="ac-toggle-track on" id="ac-toggle-track"><div class="ac-toggle-thumb"></div></div>
@@ -608,7 +607,7 @@ function periodDays(period) {
 // Janelas EXATAS por período (fuso BRT) para a busca AO VIVO dos KPIs (ver docs/superpowers/.../redes-hibrido).
 // Engajamento = faixa do período (mês-calendário no lastmonth/monthfull). Follows = a MESMA janela deslocada -1 dia
 // (a Meta bucketiza follows_and_unfollows 1 dia atrás — validado: mês passado follows = 31/05→30/06 = 1281/571).
-function janelasDoPeriodo(period, hoje = new Date()) {
+function janelasDoPeriodo(period, hoje = new Date(), customStart = null, customEnd = null) {
   const TS = (d) => String(Math.floor(d.getTime() / 1000))
   const dia00 = (yy, mm1, dd) => new Date(`${yy}-${String(mm1).padStart(2, '0')}-${String(dd).padStart(2, '0')}T00:00:00-03:00`)
   const menos1 = (d) => new Date(d.getTime() - 86400000)
@@ -618,7 +617,13 @@ function janelasDoPeriodo(period, hoje = new Date()) {
   const hoje00 = dia00(y, M + 1, hoje.getDate())
   // engS/engU = janela ATUAL; engSp/engUp = janela do período ANTERIOR (pro comparativo).
   let engS, engU, engSp, engUp
-  if (period === 'lastmonth') {
+  if (customStart && customEnd) {
+    // Intervalo personalizado (faixa fechada): eng = [início 00:00, fim+1dia 00:00); anterior = mesma duração logo antes.
+    engS = new Date(`${customStart}T00:00:00-03:00`)
+    engU = new Date(new Date(`${customEnd}T00:00:00-03:00`).getTime() + 86400000)
+    const dias = Math.round((engU.getTime() - engS.getTime()) / 86400000)
+    engSp = menosDias(engS, dias); engUp = engS
+  } else if (period === 'lastmonth') {
     engS = primeiro(y, M - 1); engU = primeiro(y, M)
     engSp = primeiro(y, M - 2); engUp = primeiro(y, M - 1)
   } else if (period === 'monthfull' || period === 'sofar' || period === 'month') {
@@ -642,12 +647,12 @@ function janelasDoPeriodo(period, hoje = new Date()) {
 // KPIs AO VIVO (exatos da Meta) via edge function insights-ao-vivo. Token fica no servidor.
 // Cache leve por (conta+período) por 3min; null se a Meta falhar (a tela cai no coletado).
 const _kpiCache = {}
-async function buscarKpisAoVivo(accountId, period) {
-  const chave = accountId + '|' + String(period)
+async function buscarKpisAoVivo(accountId, period, customStart, customEnd) {
+  const chave = accountId + '|' + String(period) + '|' + (customStart || '') + '|' + (customEnd || '')
   const agora = Date.now()
   if (_kpiCache[chave] && (agora - _kpiCache[chave].t) < 180000) return _kpiCache[chave].v
   try {
-    const jan = janelasDoPeriodo(period, new Date())
+    const jan = janelasDoPeriodo(period, new Date(), customStart, customEnd)
     const { data, error } = await sbClient.functions.invoke('insights-ao-vivo', { body: { account_id: accountId, ...jan } })
     if (error || !data || data.meta_erro || data.followers_count == null) return null
     _kpiCache[chave] = { t: agora, v: data }
@@ -1583,7 +1588,7 @@ function buildPeriodTabs() {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.ptab').forEach(b => b.classList.remove('active')); btn.classList.add('active')
       currentPeriod = p.value; try { localStorage.setItem('dash_period', String(p.value)) } catch (e) {} currentStartDate = null; currentEndDate = null
-      document.getElementById('custom-range-btn').classList.remove('active'); document.getElementById('custom-range-panel').style.display = 'none'
+      document.getElementById('custom-start').value = ''; document.getElementById('custom-end').value = ''; document.getElementById('custom-clear-btn').style.display = 'none'
       updateGoalDisplays(p.value); refresh()
       if (_hojeTimer) { clearInterval(_hojeTimer); _hojeTimer = null }
       if (p.value === 0) { _hojeTimer = setInterval(refresh, 10 * 60 * 1000) }
@@ -1616,13 +1621,27 @@ async function refresh() {
   const data = await fetchData(currentAccountId, currentPeriod, currentStartDate, currentEndDate)
   if (myId !== _refreshId) return
   // KPIs exatos AO VIVO da Meta (janela exata do período). null → a tela cai no coletado.
-  data.live = await buscarKpisAoVivo(currentAccountId, currentPeriod)
+  data.live = await buscarKpisAoVivo(currentAccountId, currentPeriod, currentStartDate, currentEndDate)
   if (myId !== _refreshId) return
   update(data, currentPeriod)
 }
-function toggleCustomRange() { const panel = document.getElementById('custom-range-panel'); const btn = document.getElementById('custom-range-btn'); const open = panel.style.display === 'none' || panel.style.display === ''; panel.style.display = open ? 'flex' : 'none'; btn.classList.toggle('active', open) }
-function applyCustomRange() { const s = document.getElementById('custom-start').value; const e = document.getElementById('custom-end').value; if (!s || !e) { alert('Selecione data de início e fim.'); return } if (s > e) { alert('Data de início deve ser anterior à data de fim.'); return } currentStartDate = s; currentEndDate = e; document.querySelectorAll('.ptab').forEach(b => b.classList.remove('active')); refresh() }
-function clearCustomRange() { currentStartDate = null; currentEndDate = null; document.getElementById('custom-start').value = ''; document.getElementById('custom-end').value = ''; document.getElementById('custom-range-panel').style.display = 'none'; document.getElementById('custom-range-btn').classList.remove('active'); document.querySelectorAll('.ptab').forEach((b, i) => { if (i === 1) b.classList.add('active') }); currentPeriod = 7; updateGoalDisplays(7); refresh() }
+// Campos de data sempre visíveis: ao escolher AS DUAS datas, aplica sozinho (sem botão). O ✕ aparece pra limpar.
+function onCustomDateChange() {
+  const s = document.getElementById('custom-start').value, e = document.getElementById('custom-end').value
+  document.getElementById('custom-clear-btn').style.display = (s || e) ? 'inline-flex' : 'none'
+  if (!s || !e) return
+  if (s > e) { alert('A data inicial deve ser anterior à data final.'); return }
+  currentStartDate = s; currentEndDate = e
+  document.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'))
+  refresh()
+}
+function clearCustomRange() {
+  currentStartDate = null; currentEndDate = null
+  document.getElementById('custom-start').value = ''; document.getElementById('custom-end').value = ''
+  document.getElementById('custom-clear-btn').style.display = 'none'
+  document.querySelectorAll('.ptab').forEach((b, i) => { if (i === 1) b.classList.add('active') })
+  currentPeriod = 7; updateGoalDisplays(7); refresh()
+}
 
 /* ── FADE SWAP — fetch-first, then smooth out→swap→in (legacy L5410-5422, verbatim) ── */
 function _fadeSwap(el, swapFn) {
@@ -1857,8 +1876,7 @@ function fecharDashboard() {
 // função é chamada por onclick="..." literal — todas usam addEventListener,
 // então não precisam ser expostas em window.
 Object.assign(window, {
-  toggleCustomRange,
-  applyCustomRange,
+  onCustomDateChange,
   clearCustomRange,
   toggleAutoCycle,
   toggleHeader,
@@ -2128,6 +2146,9 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.custom-range-btn){font-family:'IBM Plex Sans',sans-serif;font-weight:500;font-size:11px;padding:5px 14px;border-radius:3px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap;}
 .tela-redes-sociais :deep(.custom-range-btn):hover,.tela-redes-sociais :deep(.custom-range-btn.active){border-color:var(--accent);color:var(--accent);}
 .tela-redes-sociais :deep(.custom-date-input){font-family:'IBM Plex Sans',sans-serif;font-weight:400;font-size:11px;padding:5px 10px;border-radius:3px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);outline:none;cursor:pointer;}
+.tela-redes-sociais :deep(.custom-date-input):hover,.tela-redes-sociais :deep(.custom-date-input):focus{border-color:var(--accent);}
+.tela-redes-sociais :deep(.custom-range-inline){display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.tela-redes-sociais :deep(.custom-range-lbl){font-family:'DM Sans',sans-serif;font-size:11px;color:var(--muted);}
 .tela-redes-sociais :deep(.custom-date-input):focus{border-color:var(--accent);}
 .tela-redes-sociais :deep(.custom-apply-btn){font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:11px;padding:5px 14px;border-radius:3px;background:var(--accent);color:#fff;border:none;cursor:pointer;letter-spacing:.5px;text-transform:uppercase;}
 .tela-redes-sociais :deep(.custom-clear-btn){font-family:'IBM Plex Sans',sans-serif;font-size:11px;padding:5px 10px;border-radius:3px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;}
