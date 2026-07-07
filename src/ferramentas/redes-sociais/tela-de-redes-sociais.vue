@@ -659,6 +659,27 @@ async function buscarKpisAoVivo(accountId, period, customStart, customEnd) {
     return data
   } catch (e) { return null }
 }
+// Série DIÁRIA exata de novos seguidores (para o gráfico bater com o painel). Cada dia = follows numa janela
+// de 1 dia deslocada -1 dia (mesmo offset do agregado). Batch via edge serie-novos-dia. Cache 3min.
+const _serieCache = {}
+async function buscarSerieNovos(accountId, period, customStart, customEnd) {
+  const chave = accountId + '|serie|' + String(period) + '|' + (customStart || '') + '|' + (customEnd || '')
+  const agora = Date.now()
+  if (_serieCache[chave] && (agora - _serieCache[chave].t) < 180000) return _serieCache[chave].v
+  try {
+    const jan = janelasDoPeriodo(period, new Date(), customStart, customEnd)
+    const DIA = 86400, dias = []
+    for (let d = Number(jan.engSince); d < Number(jan.engUntil); d += DIA) {
+      const iso = new Date(d * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+      dias.push({ label: iso, since: d - DIA, until: d }) // follows do dia = janela -1 dia
+    }
+    if (!dias.length || dias.length > 93) return null // janela vazia ou muito longa → mantém coletado
+    const { data, error } = await sbClient.functions.invoke('serie-novos-dia', { body: { account_id: accountId, dias } })
+    if (error || !data || !Array.isArray(data.serie) || !data.serie.length) return null
+    _serieCache[chave] = { t: agora, v: data.serie }
+    return data.serie
+  } catch (e) { return null }
+}
 // salva a meta no período editado, RECALCULA proporcional em todos os outros intervalos,
 // grava no localStorage (instantâneo) E no Supabase (compartilhado entre usuários).
 function saveGoal(key, val) {
@@ -1623,6 +1644,20 @@ async function refresh() {
   // KPIs exatos AO VIVO da Meta (janela exata do período). null → a tela cai no coletado.
   data.live = await buscarKpisAoVivo(currentAccountId, currentPeriod, currentStartDate, currentEndDate)
   if (myId !== _refreshId) return
+  // GRÁFICO novos/dia AO VIVO exato (bate com o painel): só quando o KPI ao vivo funcionou (consistência).
+  if (data.live) {
+    const serie = await buscarSerieNovos(currentAccountId, currentPeriod, currentStartDate, currentEndDate)
+    if (myId !== _refreshId) return
+    if (serie && serie.length) {
+      const _d3 = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'], _m3 = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+      const curto = serie.length <= 7
+      data.chart = {
+        gained: serie.map(s => s.seguiu), lost: serie.map(s => s.deixou),
+        labels: serie.map(s => { const dt = new Date(s.label + 'T12:00:00'); return curto ? _d3[dt.getDay()] : (dt.getDate() + '/' + (dt.getMonth() + 1)) }),
+        dates: serie.map(s => { const dt = new Date(s.label + 'T12:00:00'); return dt.getDate() + ' ' + _m3[dt.getMonth()] }),
+      }
+    }
+  }
   update(data, currentPeriod)
 }
 // Campos de data sempre visíveis: ao escolher AS DUAS datas, aplica sozinho (sem botão). O ✕ aparece pra limpar.
