@@ -8,6 +8,7 @@ export const estado = reactive({
   role: 'viewer',
   features: [],
   userId: null,
+  avatarUrl: null,
 })
 
 export function setSession(session) {
@@ -27,10 +28,12 @@ export async function carregarPerfil(session) {
     estado.role = profiles?.[0]?.role || 'viewer'
     estado.features = profiles?.[0]?.features || ['banco']
     estado.userId = session?.user?.id || null
+    estado.avatarUrl = profiles?.[0]?.avatar_url || null
   } catch (e) {
     estado.role = 'viewer'
     estado.features = ['banco']
     estado.userId = session?.user?.id || null
+    estado.avatarUrl = null
   }
 }
 

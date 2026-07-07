@@ -2150,7 +2150,7 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.profile-btn:hover:not(.active)){border-color:var(--accent);color:var(--text);background:var(--accent-light);}
 
 /* Topbar */
-.tela-redes-sociais :deep(.topbar){display:flex;align-items:center;justify-content:space-between;padding-bottom:6px;margin-bottom:6px;flex-wrap:nowrap;gap:10px;}
+.tela-redes-sociais :deep(.topbar){display:flex;align-items:center;justify-content:space-between;padding-bottom:6px;margin-bottom:6px;flex-wrap:nowrap;gap:10px;padding-right:58px;/* reserva espaço pro avatar de perfil (fixed no topo direito) */}
 .tela-redes-sociais :deep(.topbar-left){display:flex;align-items:center;gap:14px;min-width:0;flex-shrink:1;}
 .tela-redes-sociais :deep(.topbar-center){display:flex;align-items:center;gap:8px;flex-wrap:nowrap;flex:1 1 auto;min-width:0;justify-content:center;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
 .tela-redes-sociais :deep(.topbar-center)::-webkit-scrollbar{display:none;}
@@ -2383,7 +2383,7 @@ onUnmounted(() => {
 @media(max-width:480px){
   .tela-redes-sociais :deep(.wrapper){padding:0 0 24px;}
   .tela-redes-sociais :deep(.topbar){flex-wrap:wrap;gap:0;padding:0;margin-bottom:0;border-bottom:1px solid var(--border);}
-  .tela-redes-sociais :deep(.topbar-left){flex:1;min-width:0;gap:8px;padding:9px 12px;order:1;}
+  .tela-redes-sociais :deep(.topbar-left){flex:1;min-width:0;gap:8px;padding:9px 52px 9px 12px;order:1;/* espaço à direita pro avatar */}
   .tela-redes-sociais :deep(.topbar-right){gap:6px;padding:9px 12px;order:2;}
   .tela-redes-sociais :deep(.topbar-center){order:3;width:100%;padding:6px 12px 8px;border-top:1px solid var(--border);overflow-x:auto;-webkit-overflow-scrolling:touch;gap:6px;flex-wrap:nowrap;box-sizing:border-box;}
   .tela-redes-sociais :deep(.topbar) .rbv-logo{display:none!important;}
