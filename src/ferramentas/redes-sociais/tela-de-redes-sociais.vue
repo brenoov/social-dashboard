@@ -289,6 +289,7 @@
           <div class="mc-lbl">CURTIDAS</div>
           <div class="mc-val a-orange" id="eng-likes">0</div>
           <div class="mc-ad-sub" id="eng-likes-ad"></div>
+          <div class="mc-obs" id="obs-likes-ad" style="display:none">ⓘ Vem direto da API da Meta — não há relatório do Meta pra validar esse número.</div>
           <div class="mc-compare" id="cmp-likes"></div>
           <div class="mc-divider"></div>
           <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-likes" style="width:0%"></div></div>
@@ -1329,17 +1330,17 @@ function renderInteracoes() {
   const ctx = _engCtx; if (!ctx) return
   const tab = _engTab
   const ehStory = tab === 'story', ehAd = tab === 'ad', ehGeral = tab === 'geral'
-  // Visibilidade por aba: Stories = só Compart.+Respostas; Anúncios = sem curtidas; cards de conta só na Geral.
+  // Visibilidade por aba: Stories = só Compart.+Respostas; cards de conta só na Geral.
   const _mostra = (id, show) => { const el = document.getElementById(id); const c = el ? el.closest('.card') : null; if (c) c.style.display = show ? '' : 'none' }
-  _mostra('eng-likes', !ehStory && !ehAd) // sem curtidas em Stories e Anúncios
+  _mostra('eng-likes', !ehStory) // curtidas em todas menos Stories
   _mostra('eng-comments', !ehStory)
   _mostra('eng-saves', !ehStory)
   const cardRepl = document.getElementById('card-replies'); if (cardRepl) cardRepl.style.display = ehStory ? '' : 'none'
+  const obsLikes = document.getElementById('obs-likes-ad'); if (obsLikes) obsLikes.style.display = ehAd ? '' : 'none' // nota da KPI de curtidas de anúncio
   // Alcance/Visualizações/Interações totais/Visitas ao perfil (nível conta) → só na aba Geral.
   ;['eng-reach', 'eng-views', 'eng-interactions', 'eng-profile-views'].forEach(id => _mostra(id, ehGeral))
   ;['likes', 'comments', 'saves', 'shares'].forEach(k => {
     if (ehStory && k !== 'shares') return // Stories: só compartilhamentos
-    if (ehAd && k === 'likes') return // Anúncios: sem curtidas
     const key = _IMAP[k]
     const io = ctx.inter ? ctx.inter[key] : null
     // valor da aba: live tem por-tipo; sem live só a aba Geral (coletado).
