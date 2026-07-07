@@ -289,6 +289,12 @@
           <div class="mc-lbl">CURTIDAS</div>
           <div class="mc-val a-orange" id="eng-likes">0</div>
           <div class="mc-ad-sub" id="eng-likes-ad"></div>
+          <div class="nf-linhas" id="likes-linhas" style="display:none">
+            <div class="nf-linha"><span class="nf-lbl">Orgânico</span><span class="nf-val a-orange" id="likes-org">0</span></div>
+            <div class="nf-linha"><span class="nf-lbl">Anúncios</span><span class="nf-val a-purple" id="likes-ad">0</span></div>
+            <div class="mc-obs" style="margin-top:-1px">ⓘ Anúncios vem direto da API da Meta — sem relatório pra validar.</div>
+            <div class="nf-linha"><span class="nf-lbl">Total</span><span class="nf-val a-blue" id="likes-total">0</span></div>
+          </div>
           <div class="mc-obs" id="obs-likes-ad" style="display:none">ⓘ Vem direto da API da Meta — não há relatório do Meta pra validar esse número.</div>
           <div class="mc-compare" id="cmp-likes"></div>
           <div class="mc-divider"></div>
@@ -1336,12 +1342,19 @@ function renderInteracoes() {
   _mostra('eng-comments', !ehStory)
   _mostra('eng-saves', !ehStory)
   const cardRepl = document.getElementById('card-replies'); if (cardRepl) cardRepl.style.display = ehStory ? '' : 'none'
-  // Nota da API (curtidas de anúncio vêm direto da API): aparece na Geral e nos Anúncios.
-  const obsLikes = document.getElementById('obs-likes-ad'); if (obsLikes) obsLikes.style.display = (ehGeral || ehAd) ? '' : 'none'
-  // Na Geral, o card de Curtidas mostra a quebra orgânico/anúncios embaixo do total.
+  // Curtidas na aba Geral: 3 linhas iguais (Orgânico/Anúncios/Total), nota na linha de Anúncios.
+  // Outras abas: número grande normal.
   const _ioC = ctx.inter ? ctx.inter.curtidas : null
-  const _subLikes = document.getElementById('eng-likes-ad')
-  if (_subLikes) _subLikes.textContent = (ehGeral && _ioC) ? ('Orgânico ' + fmtN(_ioC.org) + ' · Anúncios ' + fmtN(_ioC.ad)) : ''
+  const _bigLikes = document.getElementById('eng-likes'), _linhas = document.getElementById('likes-linhas')
+  if (_bigLikes) _bigLikes.style.display = ehGeral ? 'none' : ''
+  if (_linhas) _linhas.style.display = ehGeral ? '' : 'none'
+  if (ehGeral && _ioC) {
+    animCount(document.getElementById('likes-org'), _ioC.org)
+    animCount(document.getElementById('likes-ad'), _ioC.ad)
+    animCount(document.getElementById('likes-total'), _ioC.geral)
+  }
+  // Nota separada (embaixo do número) só na aba Anúncios — na Geral a nota já está na linha de Anúncios.
+  const obsLikes = document.getElementById('obs-likes-ad'); if (obsLikes) obsLikes.style.display = ehAd ? '' : 'none'
   // Alcance/Visualizações/Interações totais/Visitas ao perfil (nível conta) → só na aba Geral.
   ;['eng-reach', 'eng-views', 'eng-interactions', 'eng-profile-views'].forEach(id => _mostra(id, ehGeral))
   ;['likes', 'comments', 'saves', 'shares'].forEach(k => {
