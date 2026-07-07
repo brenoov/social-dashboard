@@ -147,7 +147,7 @@
             </div>
           </div>
         </div>
-        <div class="card">
+        <div class="card" style="display:flex;flex-direction:column;justify-content:center;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
             <div style="font-family:'Oswald',sans-serif;font-weight:400;font-size:11px;letter-spacing:1.5px;color:var(--muted)">NOVOS SEGUIDORES / DIA</div>
             <div class="chart-legend">
