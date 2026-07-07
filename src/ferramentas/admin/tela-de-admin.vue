@@ -353,7 +353,8 @@ function loadAdminSection(name) {
   document.querySelectorAll('.admin-nav-item').forEach(el => el.classList.toggle('active', el.dataset.section === name))
   document.querySelectorAll('.admin-section').forEach(el => el.classList.remove('active'))
   const sec = document.getElementById('admin-section-' + name); if (sec) sec.classList.add('active')
-  ({ users: loadAdminUsers, accounts: loadAdminAccounts, appearance: loadAdminAppearance, data: loadAdminData, system: loadAdminSystem, metas: loadAdminMetas, requests: loadAdminRequests, saude: loadAdminSaude })[name]?.()
+  const carregadores = { users: loadAdminUsers, accounts: loadAdminAccounts, appearance: loadAdminAppearance, data: loadAdminData, system: loadAdminSystem, metas: loadAdminMetas, requests: loadAdminRequests, saude: loadAdminSaude }
+  carregadores[name]?.()
   updateSaudeBadge()
 }
 // Badge vermelho no item "Saúde dos dados" quando há ❌ no último run.
