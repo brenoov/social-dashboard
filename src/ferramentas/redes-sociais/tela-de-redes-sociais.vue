@@ -293,7 +293,7 @@
             <div class="nf-linha"><span class="nf-lbl">Orgânico</span><span class="nf-val a-orange" id="likes-org">0</span></div>
             <div class="nf-linha"><span class="nf-lbl">Anúncios</span><span class="nf-val a-purple" id="likes-ad">0</span></div>
             <div class="mc-obs" style="margin-top:-1px">ⓘ Anúncios vem direto da API da Meta — sem relatório pra validar.</div>
-            <div class="nf-linha"><span class="nf-lbl">Total</span><span class="nf-val a-blue" id="likes-total">0</span></div>
+            <div class="nf-linha"><span class="nf-lbl">Total</span><span class="nf-val nf-total" id="likes-total">0</span></div>
           </div>
           <div class="mc-obs" id="obs-likes-ad" style="display:none">ⓘ Vem direto da API da Meta — não há relatório do Meta pra validar esse número.</div>
           <div class="mc-compare" id="cmp-likes"></div>
@@ -309,7 +309,7 @@
           <div class="nf-linhas" id="comments-linhas" style="display:none">
             <div class="nf-linha"><span class="nf-lbl">Orgânico</span><span class="nf-val a-blue" id="comments-org">0</span></div>
             <div class="nf-linha"><span class="nf-lbl">Anúncios</span><span class="nf-val a-purple" id="comments-ad">0</span></div>
-            <div class="nf-linha"><span class="nf-lbl">Total</span><span class="nf-val a-blue" id="comments-total">0</span></div>
+            <div class="nf-linha"><span class="nf-lbl">Total</span><span class="nf-val nf-total" id="comments-total">0</span></div>
           </div>
           <div class="mc-compare" id="cmp-comments"></div>
           <div class="mc-divider"></div>
@@ -324,7 +324,7 @@
           <div class="nf-linhas" id="saves-linhas" style="display:none">
             <div class="nf-linha"><span class="nf-lbl">Orgânico</span><span class="nf-val a-pink" id="saves-org">0</span></div>
             <div class="nf-linha"><span class="nf-lbl">Anúncios</span><span class="nf-val a-purple" id="saves-ad">0</span></div>
-            <div class="nf-linha"><span class="nf-lbl">Total</span><span class="nf-val a-blue" id="saves-total">0</span></div>
+            <div class="nf-linha"><span class="nf-lbl">Total</span><span class="nf-val nf-total" id="saves-total">0</span></div>
           </div>
           <div class="mc-compare" id="cmp-saves"></div>
           <div class="mc-divider"></div>
@@ -339,7 +339,7 @@
           <div class="nf-linhas" id="shares-linhas" style="display:none">
             <div class="nf-linha"><span class="nf-lbl">Orgânico</span><span class="nf-val a-green" id="shares-org">0</span></div>
             <div class="nf-linha"><span class="nf-lbl">Anúncios</span><span class="nf-val a-purple" id="shares-ad">0</span></div>
-            <div class="nf-linha"><span class="nf-lbl">Total</span><span class="nf-val a-blue" id="shares-total">0</span></div>
+            <div class="nf-linha"><span class="nf-lbl">Total</span><span class="nf-val nf-total" id="shares-total">0</span></div>
           </div>
           <div class="mc-compare" id="cmp-shares"></div>
           <div class="mc-divider"></div>
@@ -1366,7 +1366,11 @@ function renderInteracoes() {
     if (ehGeral && io) {
       animCount(document.getElementById(k + '-org'), io.org)
       animCount(document.getElementById(k + '-ad'), io.ad)
-      animCount(document.getElementById(k + '-total'), io.geral)
+      const totEl = document.getElementById(k + '-total')
+      animCount(totEl, io.geral)
+      // Total com a cor condicional de meta (verde/amarelo/laranja/vermelho conforme % da meta).
+      const g = getGoal(k), col = _PERF_VAR[perfColor(g > 0 ? (io.geral / g) * 100 : 0)] || ''
+      if (totEl && col) { totEl.style.setProperty('color', col, 'important'); totEl.style.setProperty('-webkit-text-fill-color', col, 'important') }
     }
   })
   // Nota da API (só curtidas de anúncio não têm relatório): na Geral já está na linha de Anúncios; nos Anúncios mostra embaixo.
@@ -2059,6 +2063,7 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.nf-linha){ display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
 .tela-redes-sociais :deep(.nf-lbl){ font-family:'IBM Plex Sans',sans-serif; font-size:12px; font-weight:500; color:var(--muted); letter-spacing:.2px; }
 .tela-redes-sociais :deep(.nf-val){ font-family:'Oswald',sans-serif; font-size:22px; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums; line-height:1.1; }
+.tela-redes-sociais :deep(.nf-total){ font-size:32px; font-weight:700; }
 .tela-redes-sociais :deep(.nf-val.a-green){ color:#16a34a; }
 .tela-redes-sociais :deep(.nf-val.a-red){ color:#ef4444; }
 .tela-redes-sociais :deep(.nf-val.a-blue){ color:var(--accent); }
