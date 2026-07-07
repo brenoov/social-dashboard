@@ -48,7 +48,8 @@ async function interacoes(ig: string, eS: string, eU: string, token: string) {
       else if (t === 'REEL') dest.reel += v
       else if (t === 'STORY') dest.story += v
       else if (t === 'AD') dest.ad += v
-      if (t !== 'AD') { dest.geral += v; dest.org += v } // orgânico = tudo menos anúncio
+      dest.geral += v // Geral = TUDO (posts+reels+stories+anúncios)
+      if (t !== 'AD') dest.org += v // org = orgânico (referência)
     }
   }
   return inter

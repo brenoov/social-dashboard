@@ -357,6 +357,7 @@
           <div class="mc-header"><div class="mc-icon">🎬</div><div class="mc-goal-area"><span class="mc-goal-lbl">META</span><span class="mc-goal-val" id="goal-posts-reels" contenteditable="true" spellcheck="false">12</span><span class="mc-edit-hint">✏</span></div></div>
           <div class="mc-lbl">POSTS &amp; REELS</div>
           <div class="mc-val a-purple" id="cnt-posts-reels">0</div>
+          <div class="mc-obs">ⓘ A API da Meta não contabiliza collabs (posts em parceria contam pra conta dona).</div>
           <div class="mc-compare" id="cmp-posts-reels"></div>
           <div class="mc-divider"></div>
           <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-posts-reels" style="width:0%"></div></div>
@@ -595,7 +596,9 @@ function janelasDoPeriodo(period, hoje = new Date(), customStart = null, customE
   const y = hoje.getFullYear(), M = hoje.getMonth()
   const hoje00 = dia00(y, M + 1, hoje.getDate())
   // engS/engU = janela ATUAL; engSp/engUp = janela do período ANTERIOR (pro comparativo).
-  let engS, engU, engSp, engUp
+  // folShift = aplica o -1 dia nos follows? Só o MÊS PASSADO (fechado) precisa (validado 1281/571).
+  // Rolantes/mês corrente/personalizado usam a janela DIRETA (validado: 7D 30/06-06/07 = 319/130 exato).
+  let engS, engU, engSp, engUp, folShift = false
   if (customStart && customEnd) {
     // Intervalo personalizado (faixa fechada): eng = [início 00:00, fim+1dia 00:00); anterior = mesma duração logo antes.
     engS = new Date(`${customStart}T00:00:00-03:00`)
@@ -605,6 +608,7 @@ function janelasDoPeriodo(period, hoje = new Date(), customStart = null, customE
   } else if (period === 'lastmonth') {
     engS = primeiro(y, M - 1); engU = primeiro(y, M)
     engSp = primeiro(y, M - 2); engUp = primeiro(y, M - 1)
+    folShift = true // mês passado fechado usa o -1 dia
   } else if (period === 'monthfull' || period === 'sofar' || period === 'month') {
     // MÊS = mês corrente ATÉ ONTEM (dias completos); comparativo = MESMO nº de dias no mês anterior.
     engS = primeiro(y, M); engU = hoje00
@@ -613,17 +617,15 @@ function janelasDoPeriodo(period, hoje = new Date(), customStart = null, customE
   } else if (period === 1) {
     engU = hoje00; engS = menos1(hoje00); engUp = engS; engSp = menos1(engS)
   } else {
-    // Rolantes (7/14/30): fecham no ÚLTIMO DIA CONSOLIDADO. A Meta revisa os follows por ~2 dias, então
-    // engajamento termina ONTEM e os follows (janela -1 dia) terminam ANTEONTEM → bate com o painel e não oscila.
+    // Rolantes (7/14/30): janela DIRETA [hoje-N, hoje) — inclui ONTEM, SEM -1 dia (validado: 7D=319/130, 14D=638/262, 30D=1295/580).
     const n = Number(period) || 30
-    const fim = menos1(hoje00)
-    engU = fim; engS = menosDias(fim, n); engUp = engS; engSp = menosDias(engS, n)
+    engU = hoje00; engS = menosDias(hoje00, n); engUp = engS; engSp = menosDias(engS, n)
   }
-  const w = (s, u) => ({ eS: TS(s), eU: TS(u), fS: TS(menos1(s)), fU: TS(menos1(u)) }) // follows = janela deslocada -1 dia
+  const w = (s, u) => ({ eS: TS(s), eU: TS(u), fS: TS(folShift ? menos1(s) : s), fU: TS(folShift ? menos1(u) : u) })
   const c = w(engS, engU), p = w(engSp, engUp)
   return {
     engSince: c.eS, engUntil: c.eU, folSince: c.fS, folUntil: c.fU,
-    prevEngSince: p.eS, prevEngUntil: p.eU, prevFolSince: p.fS, prevFolUntil: p.fU,
+    prevEngSince: p.eS, prevEngUntil: p.eU, prevFolSince: p.fS, prevFolUntil: p.fU, folShift,
   }
 }
 // KPIs AO VIVO (exatos da Meta) via edge function insights-ao-vivo. Token fica no servidor.
@@ -653,7 +655,8 @@ async function buscarSerieNovos(accountId, period, customStart, customEnd) {
     const DIA = 86400, dias = []
     for (let d = Number(jan.engSince); d < Number(jan.engUntil); d += DIA) {
       const iso = new Date(d * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-      dias.push({ label: iso, since: d - DIA, until: d }) // follows do dia = janela -1 dia
+      // follows do dia = janela do dia; deslocada -1 só quando o período usa folShift (mês passado).
+      dias.push({ label: iso, since: jan.folShift ? (d - DIA) : d, until: jan.folShift ? d : (d + DIA) })
     }
     if (!dias.length || dias.length > 93) return null // janela vazia ou muito longa → mantém coletado
     const { data, error } = await sbClient.functions.invoke('serie-novos-dia', { body: { account_id: accountId, dias } })
@@ -1312,9 +1315,6 @@ function renderInteracoes() {
     // valor da aba: live tem por-tipo; sem live só a aba Geral (coletado).
     const val = io ? (io[tab] != null ? io[tab] : io.geral) : ((tab === 'geral') ? (ctx.eng[k] || 0) : 0)
     animCount(document.getElementById('eng-' + k), val)
-    // subtexto "+X em anúncios" só na aba Geral.
-    const _ad = document.getElementById('eng-' + k + '-ad')
-    if (_ad) _ad.textContent = (tab === 'geral' && io && io.ad > 0) ? ('+ ' + fmtN(io.ad) + ' em anúncios') : ''
     // comparativo: mesmo tipo na janela anterior.
     const ioAnt = ctx.ant ? ctx.ant[key] : null
     const prev = ioAnt ? (ioAnt[tab] != null ? ioAnt[tab] : ioAnt.geral) : ((tab === 'geral') ? ctx.eng['prev' + k.charAt(0).toUpperCase() + k.slice(1)] : null)
@@ -1982,6 +1982,7 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.nf-val.a-red){ color:#ef4444; }
 .tela-redes-sociais :deep(.nf-val.a-blue){ color:var(--accent); }
 .tela-redes-sociais :deep(.mc-ad-sub){ font-family:'IBM Plex Sans',sans-serif; font-size:10.5px; font-weight:600; color:var(--muted); margin-top:2px; letter-spacing:.2px; }
+.tela-redes-sociais :deep(.mc-obs){ font-family:'IBM Plex Sans',sans-serif; font-size:10px; font-weight:500; line-height:1.35; color:var(--muted); opacity:.85; margin-top:4px; }
 /* Porte das regras do dashboard central de Redes Sociais (legacy/index.html,
    principalmente L34-386/389-470/683-709/815-870 — hoje ainda em
    src/estilos/estilos-globais.css, de onde NÃO foram removidas: ao contrário
@@ -2179,10 +2180,11 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.custom-date-input):hover,.tela-redes-sociais :deep(.custom-date-input):focus{border-color:var(--accent);}
 .tela-redes-sociais :deep(.custom-range-inline){display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
 .tela-redes-sociais :deep(.custom-range-lbl){font-family:'DM Sans',sans-serif;font-size:11px;color:var(--muted);}
-.tela-redes-sociais :deep(.eng-tabs){display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;}
-.tela-redes-sociais :deep(.eng-tab){font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:11px;padding:6px 16px;border-radius:20px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap;}
-.tela-redes-sociais :deep(.eng-tab):hover{border-color:var(--accent);color:var(--accent);}
-.tela-redes-sociais :deep(.eng-tab.active){background:var(--accent);border-color:var(--accent);color:#fff;}
+.tela-redes-sociais :deep(.eng-tabs){display:inline-flex;gap:4px;flex-wrap:wrap;margin-bottom:22px;padding:4px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;}
+.tela-redes-sociais :deep(.eng-tab){font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:11.5px;letter-spacing:.2px;padding:7px 18px;border-radius:9px;background:transparent;border:none;color:var(--muted);cursor:pointer;transition:all .16s;white-space:nowrap;}
+.tela-redes-sociais :deep(.eng-tab):hover{color:var(--text);background:rgba(128,128,128,.10);}
+.tela-redes-sociais :deep(.eng-tab.active){background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.14);}
+.tela-redes-sociais :deep(.eng-tab.active):hover{background:var(--accent);color:#fff;}
 .tela-redes-sociais :deep(.custom-date-input):focus{border-color:var(--accent);}
 .tela-redes-sociais :deep(.custom-apply-btn){font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:11px;padding:5px 14px;border-radius:3px;background:var(--accent);color:#fff;border:none;cursor:pointer;letter-spacing:.5px;text-transform:uppercase;}
 .tela-redes-sociais :deep(.custom-clear-btn){font-family:'IBM Plex Sans',sans-serif;font-size:11px;padding:5px 10px;border-radius:3px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;}
