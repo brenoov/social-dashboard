@@ -2142,7 +2142,7 @@ onUnmounted(() => {
    o :deep() alcançá-los, mesma técnica dos modais da Gestão de Tráfego. */
 .tela-redes-sociais{min-height:100vh;position:relative;z-index:1;}
 
-.tela-redes-sociais :deep(.wrapper){max-width:1200px;margin:0 auto;padding:16px 24px;position:relative;z-index:1;transition:opacity .08s ease;}
+.tela-redes-sociais :deep(.wrapper){max-width:none;width:100%;margin:0;padding:16px 28px;box-sizing:border-box;position:relative;z-index:1;transition:opacity .08s ease;}
 .tela-redes-sociais :deep(.wrapper.fading){opacity:.4;}
 .tela-redes-sociais :deep(.wrapper.entering){animation:profileEnter .28s cubic-bezier(.22,1,.36,1) both;}
 .tela-redes-sociais :deep(#autocycle-progress){display:none!important;}
