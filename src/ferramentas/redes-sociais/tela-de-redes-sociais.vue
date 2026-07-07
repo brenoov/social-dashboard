@@ -708,10 +708,13 @@ async function buscarSerieNovos(accountId, period, customStart, customEnd, shift
   if (_serieCache[chave] && (agora - _serieCache[chave].t) < 180000) return _serieCache[chave].v
   try {
     const jan = janelasDoPeriodo(period, new Date(), customStart, customEnd)
-    // Itera a janela de FOLLOWS (folSince→folUntil): assim o gráfico bate com o card (mesmo range,
-    // exclui o último dia ainda assentando). Cada barra = follows do dia (janela direta [dia, dia+1)).
+    // Barras do gráfico:
+    //  • MÊS PASSADO: os dias do mês CALENDÁRIO (ex.: junho 01→30). Cada barra usa o follows deslocado
+    //    -1 dia (a Meta bucketiza o mês 1 dia atrás) → a SOMA bate com o card e os rótulos mostram o mês certo.
+    //  • Demais: dias de folSince→folUntil (exclui o último dia ainda assentando), janela direta por dia.
     const DIA = 86400, dias = []
-    for (let d = Number(jan.folSince); d < Number(jan.folUntil); d += DIA) {
+    const upTo = jan.folShift ? Number(jan.engUntil) : Number(jan.folUntil)
+    for (let d = Number(jan.engSince); d < upTo; d += DIA) {
       let iso, ds = d // shiftMonths: mesmo dia N meses atrás (comparativo do mês anterior)
       if (shiftMonths) {
         const dt = new Date(d * 1000); dt.setMonth(dt.getMonth() - shiftMonths)
@@ -720,8 +723,8 @@ async function buscarSerieNovos(accountId, period, customStart, customEnd, shift
       } else {
         iso = new Date(d * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
       }
-      // follows do dia = janela direta do próprio dia [dia 00:00, dia+1 00:00).
-      dias.push({ label: iso, since: ds, until: ds + DIA })
+      // follows do dia: mês passado usa a janela deslocada [dia-1, dia); demais usam a direta [dia, dia+1).
+      dias.push({ label: iso, since: jan.folShift ? (ds - DIA) : ds, until: jan.folShift ? ds : (ds + DIA) })
     }
     if (!dias.length || dias.length > 93) return null // janela vazia ou muito longa → mantém coletado
     const { data, error } = await sbClient.functions.invoke('serie-novos-dia', { body: { account_id: accountId, dias } })
