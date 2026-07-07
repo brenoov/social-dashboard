@@ -710,10 +710,11 @@ async function buscarSerieNovos(accountId, period, customStart, customEnd, shift
   if (_serieCache[chave] && (agora - _serieCache[chave].t) < 180000) return _serieCache[chave].v
   try {
     const jan = janelasDoPeriodo(period, new Date(), customStart, customEnd)
-    // Barras do gráfico:
-    //  • MÊS PASSADO: os dias do mês CALENDÁRIO (ex.: junho 01→30). Cada barra usa o follows deslocado
-    //    -1 dia (a Meta bucketiza o mês 1 dia atrás) → a SOMA bate com o card e os rótulos mostram o mês certo.
-    //  • Demais: dias de folSince→folUntil (exclui o último dia ainda assentando), janela direta por dia.
+    // Barras do gráfico (cada barra = follows REAL do próprio dia, janela direta):
+    //  • MÊS PASSADO: os dias do mês CALENDÁRIO (ex.: junho 01→30). O rótulo bate com o valor do dia.
+    //  • Demais (rolantes/mês corrente/custom): dias de folSince→folUntil (exclui o último dia assentando).
+    // Obs.: no mês passado a SOMA das barras pode diferir levemente do card, pois o card usa o agregado
+    // da Meta (bucketizado -1 dia), enquanto as barras mostram o valor real de cada dia — mesmo comportamento do painel profissional.
     const DIA = 86400, dias = []
     const upTo = jan.folShift ? Number(jan.engUntil) : Number(jan.folUntil)
     for (let d = Number(jan.engSince); d < upTo; d += DIA) {
@@ -725,8 +726,8 @@ async function buscarSerieNovos(accountId, period, customStart, customEnd, shift
       } else {
         iso = new Date(d * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
       }
-      // follows do dia: mês passado usa a janela deslocada [dia-1, dia); demais usam a direta [dia, dia+1).
-      dias.push({ label: iso, since: jan.folShift ? (ds - DIA) : ds, until: jan.folShift ? ds : (ds + DIA) })
+      // Cada barra = follows do PRÓPRIO dia (janela direta [dia 00:00, dia+1 00:00)) — o rótulo bate com o valor.
+      dias.push({ label: iso, since: ds, until: ds + DIA })
     }
     if (!dias.length || dias.length > 93) return null // janela vazia ou muito longa → mantém coletado
     const { data, error } = await sbClient.functions.invoke('serie-novos-dia', { body: { account_id: accountId, dias } })
