@@ -272,7 +272,6 @@
         </div>
       </div>
       <div class="mc-lbl" style="margin:0 0 8px;">EFICIÊNCIA DO INVESTIMENTO</div>
-      <div class="sec-chips" id="chips-ads-custo" style="margin-bottom:40px;"></div>
 
       <!-- 03 ENGAJAMENTO -->
       <div class="sec-header">
@@ -807,30 +806,27 @@ function buildChart(chartData) {
   const slot = (W - padX * 2) / Math.max(n, 1)
   const bw = Math.max(4, Math.min(slot * 0.6, 22))
   const _rect = (x, y, h, fill, rTop) => { const r = document.createElementNS(NS, 'rect'); r.setAttribute('x', (x - bw / 2).toFixed(2)); r.setAttribute('y', y.toFixed(2)); r.setAttribute('width', bw.toFixed(2)); r.setAttribute('height', Math.max(0, h).toFixed(2)); r.setAttribute('rx', rTop ? '2' : '0'); r.setAttribute('fill', fill); bars.appendChild(r) }
-  const _txt = (x, y, t, fill) => { const e = document.createElementNS(NS, 'text'); e.setAttribute('x', x.toFixed(2)); e.setAttribute('y', y.toFixed(2)); e.setAttribute('text-anchor', 'middle'); e.setAttribute('font-size', '6.5'); e.setAttribute('font-weight', '700'); e.setAttribute('fill', fill); e.textContent = t; bars.appendChild(e) }
-  const showInside = n <= 14 && bw >= 13
   for (let i = 0; i < n; i++) {
     const x = px(i), g = gained[i] || 0, l = lost[i] || 0
     const gh = hOf(g), lh = hOf(l)
     if (g > 0) _rect(x, baseY - gh, gh, '#16a34a', l === 0) // verde (seguiu) embaixo
     if (l > 0) _rect(x, baseY - gh - lh, lh, '#dc2626', true) // vermelho (deixou) em cima
-    if (showInside) {
-      if (g > 0 && gh >= 9) _txt(x, baseY - gh / 2 + 2.3, String(g), '#fff')
-      if (l > 0 && lh >= 9) _txt(x, baseY - gh - lh / 2 + 2.3, String(l), '#fff')
-    }
   }
-  // LÍQUIDO em cima de cada barra.
+  // Rótulos HTML SOBREPOSTOS (não distorcem como o <text> do SVG esticado): números dentro + líquido no topo.
   const labelsG = document.getElementById('chart-data-labels'); labelsG.textContent = ''
-  net.forEach((v, i) => {
-    const topY = baseY - hOf(totals[i])
-    const s = document.createElement('span')
-    s.className = 'cdl' + (n > 12 ? ' cdl-sm' : '') + (v > 0 ? ' cdl-up' : v < 0 ? ' cdl-down' : '')
-    s.textContent = (v > 0 ? '+' : '') + fmtN(v)
-    s.style.left = ((px(i) / W) * 100) + '%'
-    s.style.top = ((topY / H) * 100) + '%'
+  const _lab = (xPx, yPx, text, cls) => { const s = document.createElement('span'); s.className = cls; s.textContent = text; s.style.left = ((xPx / W) * 100) + '%'; s.style.top = ((yPx / H) * 100) + '%'; labelsG.appendChild(s); return s }
+  const showInside = n <= 14
+  for (let i = 0; i < n; i++) {
+    const x = px(i), g = gained[i] || 0, l = lost[i] || 0
+    const gh = hOf(g), lh = hOf(l)
+    if (showInside) {
+      if (g > 0 && gh >= 12) { const s = _lab(x, baseY - gh / 2, String(g), 'cdl-in'); s.style.transform = 'translate(-50%, -50%)' }
+      if (l > 0 && lh >= 12) { const s = _lab(x, baseY - gh - lh / 2, String(l), 'cdl-in'); s.style.transform = 'translate(-50%, -50%)' }
+    }
+    const v = net[i], topY = baseY - hOf(totals[i])
+    const s = _lab(x, topY, (v > 0 ? '+' : '') + fmtN(v), 'cdl' + (n > 12 ? ' cdl-sm' : '') + (v > 0 ? ' cdl-up' : v < 0 ? ' cdl-down' : ''))
     s.style.transform = 'translate(-50%, -118%)'
-    labelsG.appendChild(s)
-  })
+  }
   const xlWrap = document.getElementById('chart-xlabels'); xlWrap.textContent = ''
   const step = Math.max(1, Math.floor(n / 7))
   labels.forEach((l, i) => {
@@ -2136,6 +2132,7 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(#chart-data-labels){position:absolute;top:0;left:0;width:100%;height:120px;pointer-events:none;overflow:visible;}
 .tela-redes-sociais :deep(.cdl){position:absolute;transform:translate(-50%,calc(-100% - 3px));font-family:'Oswald',sans-serif;font-size:14px;font-weight:500;color:rgba(22,22,42,0.65);white-space:nowrap;letter-spacing:.3px;}
 [data-theme="dark"] .tela-redes-sociais :deep(.cdl){color:rgba(226,228,240,0.78);}
+.tela-redes-sociais :deep(.cdl-in){position:absolute;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;color:#fff;white-space:nowrap;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.28);}
 .tela-redes-sociais :deep(.cdl-sm){font-size:10px;letter-spacing:0;}
 .tela-redes-sociais :deep(.cdl-hi){transform:translate(-50%,calc(-100% - 22px));}
 .tela-redes-sociais :deep(.cdl-hi)::after{content:'';position:absolute;left:50%;top:100%;width:0;height:20px;border-left:1px dashed currentColor;opacity:.4;}
