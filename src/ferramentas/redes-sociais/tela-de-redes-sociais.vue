@@ -111,9 +111,7 @@
 
       <!-- 01 SEGUIDORES -->
       <div class="sec-header">
-        <div class="section-label">01 · Seguidores</div>
-        <div class="sec-chips" id="chips-followers"></div>
-        <div class="sec-line"></div>
+        <div class="section-label">01 · Seguidores</div>        <div class="sec-line"></div>
       </div>
       <div class="sec1-grid mb40">
         <div class="card" style="padding:0;overflow:hidden;">
@@ -184,9 +182,7 @@
 
       <!-- 02 META ADS -->
       <div class="sec-header">
-        <div class="section-label">02 · Meta Ads</div>
-        <div class="sec-chips" id="chips-ads"></div>
-        <div class="sec-line"></div>
+        <div class="section-label">02 · Meta Ads</div>        <div class="sec-line"></div>
       </div>
       <div class="camp-filter-bar">
         <span class="camp-filter-lbl">Campanhas consideradas no cálculo:</span>
@@ -280,9 +276,7 @@
 
       <!-- 03 ENGAJAMENTO -->
       <div class="sec-header">
-        <div class="section-label">03 · Engajamento</div>
-        <div class="sec-chips" id="chips-eng"></div>
-        <div class="sec-line"></div>
+        <div class="section-label">03 · Engajamento</div>        <div class="sec-line"></div>
       </div>
       <div class="eng-tabs" id="eng-tabs">
         <button class="eng-tab active" data-tab="geral" onclick="setEngTab('geral')">Geral</button>
@@ -340,9 +334,7 @@
 
       <!-- 04 CONTEÚDO -->
       <div class="sec-header">
-        <div class="section-label">04 · Conteúdo</div>
-        <div class="sec-chips" id="chips-cnt"></div>
-        <div class="sec-line"></div>
+        <div class="section-label">04 · Conteúdo</div>        <div class="sec-line"></div>
       </div>
       <div class="sec4-grid">
         <div class="card" style="animation-delay:.05s">
@@ -772,7 +764,7 @@ function applySpend(curr, budget) {
 
 /* ── SECTION CHIPS (legacy L3517-3520, verbatim) ── */
 function setChips(id, chips) {
-  const wrap = document.getElementById(id); wrap.textContent = ''
+  const wrap = document.getElementById(id); if (!wrap) return; wrap.textContent = ''
   chips.forEach(txt => { const c = document.createElement('div'); c.className = 'sec-chip'; c.textContent = txt; wrap.appendChild(c) })
 }
 
