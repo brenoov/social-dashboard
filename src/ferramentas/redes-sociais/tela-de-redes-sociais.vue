@@ -634,8 +634,11 @@ function janelasDoPeriodo(period, hoje = new Date(), customStart = null, customE
   } else if (period === 1) {
     engU = hoje00; engS = menos1(hoje00); engUp = engS; engSp = menos1(engS)
   } else {
+    // Rolantes (7/14/30): fecham no ÚLTIMO DIA CONSOLIDADO. A Meta revisa os follows por ~2 dias, então
+    // engajamento termina ONTEM e os follows (janela -1 dia) terminam ANTEONTEM → bate com o painel e não oscila.
     const n = Number(period) || 30
-    engU = hoje00; engS = menosDias(hoje00, n); engUp = engS; engSp = menosDias(engS, n)
+    const fim = menos1(hoje00)
+    engU = fim; engS = menosDias(fim, n); engUp = engS; engSp = menosDias(engS, n)
   }
   const w = (s, u) => ({ eS: TS(s), eU: TS(u), fS: TS(menos1(s)), fU: TS(menos1(u)) }) // follows = janela deslocada -1 dia
   const c = w(engS, engU), p = w(engSp, engUp)
