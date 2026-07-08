@@ -498,7 +498,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 /* ── PERÍODOS / TEMAS DE PERFIL (legacy L3300-3321, verbatim) ── */
 // "Hoje" removido; "MÊS" (mês corrente) unifica o antigo MÊS + ATÉ AGORA (eram a mesma coisa).
 // 2D (não 1D): o follows de ONTEM ainda não consolidou na Meta (~2 dias); 2D já pega um dia consolidado.
-const PERIODS = [{ label: '2D', value: 2 }, { label: '7D', value: 7 }, { label: '14D', value: 14 }, { label: '30D', value: 30 }, { label: 'MÊS', value: 'monthfull' }, { label: 'MÊS PASS.', value: 'lastmonth' }]
+const PERIODS = [{ label: 'Hoje', value: 0 }, { label: '1D', value: 1 }, { label: '3D', value: 3 }, { label: '7D', value: 7 }, { label: '14D', value: 14 }, { label: '30D', value: 30 }, { label: 'MÊS', value: 'monthfull' }, { label: 'MÊS PASS.', value: 'lastmonth' }]
 const ACCOUNT_PICS = {}
 const PROFILE_THEMES = {
   'Raíssa Herculano': { accent: '#BE185D', light: 'rgba(190,24,93,0.08)', mid: 'rgba(190,24,93,0.30)' },
@@ -647,6 +647,9 @@ function janelasDoPeriodo(period, hoje = new Date(), customStart = null, customE
     engS = primeiro(y, M); engU = hoje00
     const dias = Math.round((engU.getTime() - engS.getTime()) / 86400000)
     engSp = primeiro(y, M - 1); engUp = new Date(engSp.getTime() + dias * 86400000)
+  } else if (period === 0) {
+    // HOJE: engajamento do dia ATÉ AGORA [hoje 00:00, agora); comparativo = ONTEM (dia completo).
+    engS = hoje00; engU = hoje; engUp = hoje00; engSp = menos1(hoje00)
   } else if (period === 1) {
     engU = hoje00; engS = menos1(hoje00); engUp = engS; engSp = menos1(engS)
   } else {
@@ -660,11 +663,14 @@ function janelasDoPeriodo(period, hoje = new Date(), customStart = null, customE
   //    atrás, então "junho" = [31/05, 30/06).
   //  • Rolantes / mês corrente / personalizado: follows termina no MÁXIMO em ontem 00:00 — exclui o
   //    último dia (ontem) ainda assentando; o início fica igual ao engajamento.
+  //  • HOJE / 1D: janela CRUA (sem cortar ontem) — o follows desses intervalos é tratado no card com o
+  //    LÍQUIDO por delta da contagem total + selo "consolidando" (a quebra seguiu/deixou da Meta ainda assenta).
   const folCap = menos1(hoje00)
   const capFol = (u) => new Date(Math.min(u.getTime(), folCap.getTime()))
   const ehLastmonth = period === 'lastmonth'
+  const ehRecente = period === 0 || period === 1
   const folS = ehLastmonth ? menos1(engS) : engS
-  const folU = ehLastmonth ? menos1(engU) : capFol(engU)
+  const folU = ehLastmonth ? menos1(engU) : (ehRecente ? engU : capFol(engU))
   const folSp = ehLastmonth ? menos1(engSp) : engSp
   const folUp = ehLastmonth ? menos1(engUp) : engUp
   return {
@@ -690,7 +696,9 @@ function janelasDoPeriodo(period, hoje = new Date(), customStart = null, customE
 //   PARA MUDAR DE VERDADE: pegar os números exatos do Breno, revalidar na tela, e SÓ ENTÃO
 //   atualizar esta referência junto — nunca mexer na lógica sem atualizar a trava.
 const _TRAVA_JANELAS = [
-  { period: 2,           eS: '2026-07-05', eU: '2026-07-07', fS: '2026-07-05', fU: '2026-07-06' }, // 2D
+  { period: 0,           eS: '2026-07-07', eU: '2026-07-07', fS: '2026-07-07', fU: '2026-07-07' }, // HOJE (crua, sem corte)
+  { period: 1,           eS: '2026-07-06', eU: '2026-07-07', fS: '2026-07-06', fU: '2026-07-07' }, // 1D   (crua, sem corte)
+  { period: 3,           eS: '2026-07-04', eU: '2026-07-07', fS: '2026-07-04', fU: '2026-07-06' }, // 3D
   { period: 7,           eS: '2026-06-30', eU: '2026-07-07', fS: '2026-06-30', fU: '2026-07-06' }, // 7D  → novos 319/130
   { period: 14,          eS: '2026-06-23', eU: '2026-07-07', fS: '2026-06-23', fU: '2026-07-06' }, // 14D → novos 638/262
   { period: 30,          eS: '2026-06-07', eU: '2026-07-07', fS: '2026-06-07', fU: '2026-07-06' }, // 30D → novos 1295/580
@@ -1499,8 +1507,13 @@ function update(d, period) {
   // RESILIENTE: se o período está confirmado pela Meta (bruto cobre a janela) → número oficial = IGUAL ao IG.
   // Senão (Meta atrasada/sem dado) → variação real da contagem, marcada "em consolidação". Nunca zera.
   // AO VIVO (exato da Meta) quando disponível; senão cai na lógica de consolidação do coletado.
-  const confirmado = d.live ? true : d.confirmadoIG
-  const headlineVal = d.live ? d.live.novos.total : (confirmado ? d.newFollowers : (d.previaReal != null ? d.previaReal : d.newFollowers))
+  // EXCEÇÃO Hoje/1D: a quebra seguiu/deixou da Meta ainda assenta → total = LÍQUIDO real por delta da
+  // contagem (previaReal) + selo "consolidando". SÓ vale pra Hoje/1D; demais períodos seguem validados.
+  const ehRecenteLive = !!d.live && (period === 0 || period === 1)
+  const confirmado = ehRecenteLive ? false : (d.live ? true : d.confirmadoIG)
+  const headlineVal = ehRecenteLive
+    ? (d.previaReal != null ? d.previaReal : d.live.novos.total)
+    : (d.live ? d.live.novos.total : (confirmado ? d.newFollowers : (d.previaReal != null ? d.previaReal : d.newFollowers)))
   const newEl = document.getElementById('new-followers-val'); if (newEl) animCount(newEl, headlineVal) // Total (líquido)
   // 3 linhas de fonte igual: Seguidores · Deixaram de seguir · Total.
   const gEl = document.getElementById('nf-gained'), lEl = document.getElementById('nf-lost')
