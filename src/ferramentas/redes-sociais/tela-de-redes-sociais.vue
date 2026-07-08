@@ -2558,7 +2558,7 @@ onUnmounted(() => {
 
 /* TV / WIDESCREEN (≥ 1600px) */
 @media(min-width:1600px){
-  .tela-redes-sociais :deep(.wrapper){max-width:none;padding:24px 5vw;}
+  .tela-redes-sociais :deep(.wrapper){max-width:none;padding:20px 28px;} /* usa a largura toda (era 5vw = ~84px de margem no notebook) */
   .tela-redes-sociais :deep(header){margin-bottom:18px;padding-bottom:14px;}
   .tela-redes-sociais :deep(#apb-name){font-size:30px;}
   .tela-redes-sociais :deep(#apb-dot){width:11px;height:11px;}
