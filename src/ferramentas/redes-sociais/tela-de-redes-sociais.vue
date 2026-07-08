@@ -1512,8 +1512,10 @@ function update(d, period) {
   // contagem (previaReal) + selo "consolidando". SÓ vale pra Hoje/1D; demais períodos seguem validados.
   const ehRecenteLive = !!d.live && (period === 0 || period === 1)
   const confirmado = ehRecenteLive ? false : (d.live ? true : d.confirmadoIG)
+  // Hoje/1D: usa o líquido AO VIVO (mesma fonte do gráfico → card e gráfico batem); fallback previaReal.
+  const _netRec = d.netRecente ? (period === 0 ? d.netRecente.hoje : d.netRecente.ontem) : null
   const headlineVal = ehRecenteLive
-    ? (d.previaReal != null ? d.previaReal : d.live.novos.total)
+    ? (_netRec != null ? _netRec : (d.previaReal != null ? d.previaReal : d.live.novos.total))
     : (d.live ? d.live.novos.total : (confirmado ? d.newFollowers : (d.previaReal != null ? d.previaReal : d.newFollowers)))
   const newEl = document.getElementById('new-followers-val'); if (newEl) animCount(newEl, headlineVal) // Total (líquido)
   // 3 linhas de fonte igual: Seguidores · Deixaram de seguir · Total.
@@ -1848,6 +1850,8 @@ async function refresh() {
       const totHoje = live.followers_count != null ? live.followers_count : (totMap[hoje] ?? 0)
       const netOntem = (totMap[ontem] != null && totMap[anteontem] != null) ? (totMap[ontem] - totMap[anteontem]) : 0
       const netHoje = (totMap[ontem] != null) ? (totHoje - totMap[ontem]) : 0
+      // Guarda os líquidos AO VIVO (mesma fonte do gráfico) p/ o card usar — senão card (coletado) e gráfico (ao vivo) divergem.
+      data.netRecente = { hoje: netHoje, ontem: netOntem }
       const dias = [...serie7.map(s => ({ iso: s.label, g: s.seguiu, l: s.deixou, net: false })),
         { iso: ontem, g: netOntem >= 0 ? netOntem : 0, l: netOntem < 0 ? -netOntem : 0, net: true },
         { iso: hoje, g: netHoje >= 0 ? netHoje : 0, l: netHoje < 0 ? -netHoje : 0, net: true }]
