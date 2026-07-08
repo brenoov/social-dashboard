@@ -916,6 +916,7 @@ function buildChart(chartData) {
   // BARRAS EMPILHADAS por dia: VERDE (seguiu) embaixo + VERMELHO (deixou) em cima; LÍQUIDO rotulado no topo.
   let { gained, lost, labels, dates } = chartData
   const prevSeguiu = chartData.prevSeguiu, prevDeixou = chartData.prevDeixou, prevDates = chartData.prevDates
+  const netOnly = chartData.netOnly || [] // dias "líquidos" (hoje/ontem): barra única, só o nº líquido (sem seguiu/deixou dentro)
   gained = (gained || []).slice(); lost = (lost || []).slice(); labels = (labels || []).slice(); dates = (dates || []).slice()
   if (gained.length === 0) { gained = [0]; lost = [0]; labels = labels.length ? labels : ['']; dates = dates.length ? dates : [''] }
   const n = gained.length
@@ -951,7 +952,7 @@ function buildChart(chartData) {
   for (let i = 0; i < n; i++) {
     const x = px(i), g = gained[i] || 0, l = lost[i] || 0
     const gh = hOf(g), lh = hOf(l)
-    if (showInside) {
+    if (showInside && !netOnly[i]) { // barra líquida (hoje/ontem) não mostra número dentro — só o líquido no topo.
       if (g > 0 && gh >= 12) { const s = _lab(x, baseY - gh / 2, String(g), 'cdl-in'); s.style.transform = 'translate(-50%, -50%)' }
       if (l > 0 && lh >= 12) { const s = _lab(x, baseY - gh - lh / 2, String(l), 'cdl-in'); s.style.transform = 'translate(-50%, -50%)' }
     }
@@ -1832,16 +1833,40 @@ async function refresh() {
   // GRÁFICO novos/dia AO VIVO exato: só sobrescreve quando o KPI ao vivo funcionou (consistência).
   if (live && serie && serie.length) {
     const _d3 = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'], _m3 = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-    const curto = serie.length <= 7
     const _dfull = iso => { const dt = new Date(iso + 'T12:00:00'); return dt.getDate() + ' ' + _m3[dt.getMonth()] }
-    data.chart = {
-      gained: serie.map(s => s.seguiu), lost: serie.map(s => s.deixou),
-      labels: serie.map(s => { const dt = new Date(s.label + 'T12:00:00'); return curto ? _d3[dt.getDay()] : (dt.getDate() + '/' + (dt.getMonth() + 1)) }),
-      dates: serie.map(s => _dfull(s.label)),
-      // comparativo: mesmos dias do MÊS ANTERIOR (por dia).
-      prevSeguiu: seriePrev ? seriePrev.map(s => s.seguiu) : null,
-      prevDeixou: seriePrev ? seriePrev.map(s => s.deixou) : null,
-      prevDates: seriePrev ? seriePrev.map(s => _dfull(s.label)) : null,
+    const _lbl = iso => { const dt = new Date(iso + 'T12:00:00'); return dt.getDate() + '/' + (dt.getMonth() + 1) }
+    if (currentPeriod === 0 || currentPeriod === 1) {
+      // HOJE/1D: gráfico dos últimos 7 dias; HOJE e ONTEM viram BARRA LÍQUIDA (só o nº líquido, pois a Meta
+      // ainda não fechou a quebra seguiu/deixou). O líquido vem do delta da contagem total.
+      const serie7 = (await buscarSerieNovos(currentAccountId, 7, null, null)) || []
+      const { data: tots } = await sbClient.from('daily_snapshots').select('captured_at,followers_count').eq('account_id', currentAccountId).order('captured_at', { ascending: false }).limit(6)
+      if (myId !== _refreshId) return // trocou de período/perfil no meio → aborta este refresh
+      const totMap = {}; (tots || []).forEach(t => { totMap[t.captured_at] = Number(t.followers_count) || 0 })
+      const _brt = ms => new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+      const hoje = _brt(Date.now()), base = new Date(hoje + 'T12:00:00-03:00').getTime()
+      const ontem = _brt(base - 86400000), anteontem = _brt(base - 2 * 86400000)
+      const totHoje = live.followers_count != null ? live.followers_count : (totMap[hoje] ?? 0)
+      const netOntem = (totMap[ontem] != null && totMap[anteontem] != null) ? (totMap[ontem] - totMap[anteontem]) : 0
+      const netHoje = (totMap[ontem] != null) ? (totHoje - totMap[ontem]) : 0
+      const dias = [...serie7.map(s => ({ iso: s.label, g: s.seguiu, l: s.deixou, net: false })),
+        { iso: ontem, g: netOntem >= 0 ? netOntem : 0, l: netOntem < 0 ? -netOntem : 0, net: true },
+        { iso: hoje, g: netHoje >= 0 ? netHoje : 0, l: netHoje < 0 ? -netHoje : 0, net: true }]
+      data.chart = {
+        gained: dias.map(d => d.g), lost: dias.map(d => d.l), netOnly: dias.map(d => d.net),
+        labels: dias.map(d => _lbl(d.iso)), dates: dias.map(d => _dfull(d.iso)),
+        prevSeguiu: null, prevDeixou: null, prevDates: null,
+      }
+    } else {
+      const curto = serie.length <= 7
+      data.chart = {
+        gained: serie.map(s => s.seguiu), lost: serie.map(s => s.deixou),
+        labels: serie.map(s => { const dt = new Date(s.label + 'T12:00:00'); return curto ? _d3[dt.getDay()] : _lbl(s.label) }),
+        dates: serie.map(s => _dfull(s.label)),
+        // comparativo: mesmos dias do MÊS ANTERIOR (por dia).
+        prevSeguiu: seriePrev ? seriePrev.map(s => s.seguiu) : null,
+        prevDeixou: seriePrev ? seriePrev.map(s => s.deixou) : null,
+        prevDates: seriePrev ? seriePrev.map(s => _dfull(s.label)) : null,
+      }
     }
   }
   update(data, currentPeriod)
