@@ -1837,10 +1837,11 @@ async function refresh() {
     const _d3 = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'], _m3 = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
     const _dfull = iso => { const dt = new Date(iso + 'T12:00:00'); return dt.getDate() + ' ' + _m3[dt.getMonth()] }
     const _lbl = iso => { const dt = new Date(iso + 'T12:00:00'); return dt.getDate() + '/' + (dt.getMonth() + 1) }
-    if (currentPeriod === 0 || currentPeriod === 1) {
-      // HOJE/1D: gráfico dos últimos 7 dias; HOJE e ONTEM viram BARRA LÍQUIDA (só o nº líquido, pois a Meta
-      // ainda não fechou a quebra seguiu/deixou). O líquido vem do delta da contagem total.
-      const serie7 = (await buscarSerieNovos(currentAccountId, 7, null, null)) || []
+    const _mesAtual = currentPeriod === 'monthfull' || currentPeriod === 'sofar' || currentPeriod === 'month'
+    if (currentPeriod === 0 || currentPeriod === 1 || _mesAtual) {
+      // HOJE/1D e MÊS: o gráfico inclui HOJE e ONTEM como BARRA LÍQUIDA (só o nº líquido — a Meta ainda não
+      // fechou a quebra desses dias). Base: Hoje/1D = últimos 7 dias; MÊS = os dias do mês (o próprio serie).
+      const baseSerie = (currentPeriod === 0 || currentPeriod === 1) ? ((await buscarSerieNovos(currentAccountId, 7, null, null)) || []) : (serie || [])
       const { data: tots } = await sbClient.from('daily_snapshots').select('captured_at,followers_count').eq('account_id', currentAccountId).order('captured_at', { ascending: false }).limit(6)
       if (myId !== _refreshId) return // trocou de período/perfil no meio → aborta este refresh
       const totMap = {}; (tots || []).forEach(t => { totMap[t.captured_at] = Number(t.followers_count) || 0 })
@@ -1852,7 +1853,7 @@ async function refresh() {
       const netHoje = (totMap[ontem] != null) ? (totHoje - totMap[ontem]) : 0
       // Guarda os líquidos AO VIVO (mesma fonte do gráfico) p/ o card usar — senão card (coletado) e gráfico (ao vivo) divergem.
       data.netRecente = { hoje: netHoje, ontem: netOntem }
-      const dias = [...serie7.map(s => ({ iso: s.label, g: s.seguiu, l: s.deixou, net: false })),
+      const dias = [...baseSerie.map(s => ({ iso: s.label, g: s.seguiu, l: s.deixou, net: false })),
         { iso: ontem, g: netOntem >= 0 ? netOntem : 0, l: netOntem < 0 ? -netOntem : 0, net: true },
         { iso: hoje, g: netHoje >= 0 ? netHoje : 0, l: netHoje < 0 ? -netHoje : 0, net: true }]
       data.chart = {
