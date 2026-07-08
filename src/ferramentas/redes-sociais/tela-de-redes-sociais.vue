@@ -1441,9 +1441,9 @@ function renderInteracoes() {
   const ctx = _engCtx; if (!ctx) return
   const tab = _engTab
   const ehStory = tab === 'story', ehAd = tab === 'ad', ehGeral = tab === 'geral'
-  // Visibilidade por aba: Stories = só Compart.+Respostas; cards de conta só na Geral.
+  // Visibilidade por aba: Stories = Curtidas + Compart. + Respostas; cards de conta só na Geral.
   const _mostra = (id, show) => { const el = document.getElementById(id); const c = el ? el.closest('.card') : null; if (c) c.style.display = show ? '' : 'none' }
-  _mostra('eng-likes', !ehStory) // curtidas em todas menos Stories
+  _mostra('eng-likes', true) // curtidas em todas as abas (na Stories = curtidas de STORY, fatia media_product_type=STORY)
   _mostra('eng-comments', !ehStory)
   _mostra('eng-saves', !ehStory)
   const cardRepl = document.getElementById('card-replies'); if (cardRepl) cardRepl.style.display = ehStory ? '' : 'none'
@@ -1469,7 +1469,7 @@ function renderInteracoes() {
   // Alcance/Visualizações/Interações totais/Visitas ao perfil (nível conta) → só na aba Geral.
   ;['eng-reach', 'eng-views', 'eng-interactions', 'eng-profile-views'].forEach(id => _mostra(id, ehGeral))
   ;['likes', 'comments', 'saves', 'shares'].forEach(k => {
-    if (ehStory && k !== 'shares') return // Stories: só compartilhamentos
+    if (ehStory && k !== 'shares' && k !== 'likes') return // Stories: curtidas (de story) + compartilhamentos
     const key = _IMAP[k]
     const io = ctx.inter ? ctx.inter[key] : null
     // valor da aba: live tem por-tipo; sem live só a aba Geral (coletado). Negativo (glitch) → 0.
