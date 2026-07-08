@@ -52,7 +52,7 @@ async function interacoes(ig: string, eS: string, eU: string, token: string) {
 
 async function gasto(adAccountId: string, eS: string, eU: string, token: string) {
   const dstr = (u: number) => new Date(u * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-  const ads = await apiGet(`act_${adAccountId}/insights`, { fields: 'spend', level: 'account', time_range: JSON.stringify({ since: dstr(Number(eS)), until: dstr(Number(eU) - 86400) }) }, token)
+  const ads = await apiGet(`act_${adAccountId}/insights`, { fields: 'spend', level: 'account', time_range: JSON.stringify({ since: dstr(Number(eS)), until: dstr(Number(eU) - 1) }) }, token)
   return parseFloat(ads.data?.[0]?.spend ?? '0') || 0
 }
 
@@ -65,7 +65,7 @@ async function respostas(ig: string, eS: string, eU: string, token: string) {
 // Interações de ANÚNCIO pelo Ads Manager (act/insights actions) — fonte correta (validado 7D: coment 72, salv 185, compart 338).
 async function adAcoes(adAccountId: string, eS: string, eU: string, token: string) {
   const dstr = (u: number) => new Date(u * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-  const ins = await apiGet(`act_${adAccountId}/insights`, { fields: 'actions', level: 'account', time_range: JSON.stringify({ since: dstr(Number(eS)), until: dstr(Number(eU) - 86400) }) }, token)
+  const ins = await apiGet(`act_${adAccountId}/insights`, { fields: 'actions', level: 'account', time_range: JSON.stringify({ since: dstr(Number(eS)), until: dstr(Number(eU) - 1) }) }, token)
   const a: Record<string, number> = {}
   for (const x of (ins.data?.[0]?.actions ?? [])) a[x.action_type] = Number(x.value) || 0
   return { curtidas: a['post_reaction'] || 0, comentarios: a['comment'] || 0, salvamentos: a['onsite_conversion.post_save'] || 0, compartilhamentos: a['post'] || 0 }

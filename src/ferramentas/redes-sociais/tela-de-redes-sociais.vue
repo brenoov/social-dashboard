@@ -1517,6 +1517,10 @@ function update(d, period) {
   const newEl = document.getElementById('new-followers-val'); if (newEl) animCount(newEl, headlineVal) // Total (líquido)
   // 3 linhas de fonte igual: Seguidores · Deixaram de seguir · Total.
   const gEl = document.getElementById('nf-gained'), lEl = document.getElementById('nf-lost')
+  // Hoje/1D: a Meta ainda não fechou a quebra seguiu/deixou → esconde essas 2 linhas e mostra só o Total (líquido).
+  const gRow = gEl && gEl.closest('.nf-linha'), lRow = lEl && lEl.closest('.nf-linha')
+  if (gRow) gRow.style.display = ehRecenteLive ? 'none' : ''
+  if (lRow) lRow.style.display = ehRecenteLive ? 'none' : ''
   if (d.live) {
     if (gEl) animCount(gEl, d.live.novos.seguiu)
     if (lEl) animCount(lEl, d.live.novos.deixou)
