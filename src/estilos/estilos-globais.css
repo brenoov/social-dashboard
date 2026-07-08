@@ -37,7 +37,7 @@
   :focus{outline:none;}
   :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px;}
   body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-weight:400;min-height:100vh;}
-  .wrapper{max-width:1200px;margin:0 auto;padding:16px 24px;position:relative;z-index:1;}
+  .wrapper{max-width:none;width:100%;margin:0;padding:16px 28px;box-sizing:border-box;position:relative;z-index:1;}
 
   /* HEADER */
   header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:16px;padding-bottom:0;}
