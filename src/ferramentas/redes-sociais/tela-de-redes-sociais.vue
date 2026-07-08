@@ -677,6 +677,10 @@ function janelasDoPeriodo(period, hoje = new Date(), customStart = null, customE
 }
 
 // ══ TRAVA DE SEGURANÇA DAS JANELAS ══════════════════════════════════════════
+// VALE PARA TODOS OS PERFIS: `janelasDoPeriodo` é genérica (só depende do período + data de hoje,
+// NÃO recebe conta/perfil) — a mesma janela vai pro insights-ao-vivo de cada perfil. Logo esta trava
+// protege os 7 perfis de uma vez. REGRA: qualquer ajuste na lógica de janela/engajamento é SEMPRE
+// compartilhado por todos — nunca fazer gambiarra por perfil (senão quebra a paridade).
 // CAMADA EXTRA DE DECISÃO: os intervalos abaixo (engajamento E novos seguidores) estão
 // CONGELADOS numa referência validada com o painel profissional do Breno (07/07/2026).
 // Se `janelasDoPeriodo` for mexida e QUALQUER janela deixar de cair EXATAMENTE nestes
