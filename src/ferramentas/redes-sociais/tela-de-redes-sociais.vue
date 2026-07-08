@@ -617,9 +617,10 @@ function periodDays(period) {
 // Janelas EXATAS por período (fuso BRT) para a busca AO VIVO dos KPIs (ver docs/superpowers/.../redes-hibrido).
 // Engajamento = faixa do período (mês-calendário no lastmonth/monthfull). Follows = a MESMA janela deslocada -1 dia
 // (a Meta bucketiza follows_and_unfollows 1 dia atrás — validado: mês passado follows = 31/05→30/06 = 1281/571).
-// 🔒 TRAVA DE SEGURANÇA: os intervalos aqui estão VALIDADOS contra o painel profissional do Breno
-// (novos seguidores batendo exato). NÃO alterar à toa — se mexer, o auto-teste `verificarTravaJanelas()`
-// (roda no mount) GRITA no console. Só mudar com os números exatos do Breno em mãos e revalidando.
+// 🔒 TRAVA DE SEGURANÇA: os intervalos aqui (ENGAJAMENTO e NOVOS SEGUIDORES) estão VALIDADOS contra o
+// painel profissional do Breno (batendo exato). NÃO alterar à toa — se mexer, o auto-teste
+// `verificarTravaJanelas()` (roda no mount) GRITA no console. Camada extra de decisão: só mude com os
+// números exatos do Breno em mãos, revalidando na tela E atualizando a referência da trava junto.
 function janelasDoPeriodo(period, hoje = new Date(), customStart = null, customEnd = null) {
   const TS = (d) => String(Math.floor(d.getTime() / 1000))
   const dia00 = (yy, mm1, dd) => new Date(`${yy}-${String(mm1).padStart(2, '0')}-${String(dd).padStart(2, '0')}T00:00:00-03:00`)
@@ -676,15 +677,21 @@ function janelasDoPeriodo(period, hoje = new Date(), customStart = null, customE
 }
 
 // ══ TRAVA DE SEGURANÇA DAS JANELAS ══════════════════════════════════════════
-// Referência congelada (07/07/2026, validada com o painel profissional do Breno):
-// se `janelasDoPeriodo` for mexida e os follows deixarem de cair EXATAMENTE nestas
-// janelas, `verificarTravaJanelas()` (chamada no onMounted) dispara um erro vermelho
-// no console — é o alarme pra não subir uma calibragem quebrada sem querer.
+// CAMADA EXTRA DE DECISÃO: os intervalos abaixo (engajamento E novos seguidores) estão
+// CONGELADOS numa referência validada com o painel profissional do Breno (07/07/2026).
+// Se `janelasDoPeriodo` for mexida e QUALQUER janela deixar de cair EXATAMENTE nestes
+// valores, `verificarTravaJanelas()` (chamada no onMounted) dispara um erro vermelho no
+// console apontando o período e o que mudou. É o freio pra não quebrar os dados sem querer.
+//   Cada linha: eng = janela do ENGAJAMENTO (curtidas/alcance/interações); fol = janela dos FOLLOWS (novos seguidores).
+//   PARA MUDAR DE VERDADE: pegar os números exatos do Breno, revalidar na tela, e SÓ ENTÃO
+//   atualizar esta referência junto — nunca mexer na lógica sem atualizar a trava.
 const _TRAVA_JANELAS = [
-  { period: 7, fS: '2026-06-30', fU: '2026-07-06' },           // 7D  → 319/130
-  { period: 14, fS: '2026-06-23', fU: '2026-07-06' },          // 14D → 638/262
-  { period: 30, fS: '2026-06-07', fU: '2026-07-06' },          // 30D → 1295/580
-  { period: 'lastmonth', fS: '2026-05-31', fU: '2026-06-30' }, // mês pass → 1281/571
+  { period: 2,           eS: '2026-07-05', eU: '2026-07-07', fS: '2026-07-05', fU: '2026-07-06' }, // 2D
+  { period: 7,           eS: '2026-06-30', eU: '2026-07-07', fS: '2026-06-30', fU: '2026-07-06' }, // 7D  → novos 319/130
+  { period: 14,          eS: '2026-06-23', eU: '2026-07-07', fS: '2026-06-23', fU: '2026-07-06' }, // 14D → novos 638/262
+  { period: 30,          eS: '2026-06-07', eU: '2026-07-07', fS: '2026-06-07', fU: '2026-07-06' }, // 30D → novos 1295/580
+  { period: 'monthfull', eS: '2026-07-01', eU: '2026-07-07', fS: '2026-07-01', fU: '2026-07-06' }, // MÊS (corrente até ontem)
+  { period: 'lastmonth', eS: '2026-06-01', eU: '2026-07-01', fS: '2026-05-31', fU: '2026-06-30' }, // MÊS PASS → novos 1281/571
 ]
 function verificarTravaJanelas() {
   const ref = new Date('2026-07-07T12:00:00-03:00')
@@ -692,12 +699,15 @@ function verificarTravaJanelas() {
   const falhas = []
   for (const t of _TRAVA_JANELAS) {
     const j = janelasDoPeriodo(t.period, ref)
+    if (dstr(j.engSince) !== t.eS || dstr(j.engUntil) !== t.eU) {
+      falhas.push(`  • ${t.period} · ENGAJAMENTO: esperado [${t.eS} → ${t.eU}], veio [${dstr(j.engSince)} → ${dstr(j.engUntil)}]`)
+    }
     if (dstr(j.folSince) !== t.fS || dstr(j.folUntil) !== t.fU) {
-      falhas.push(`  • ${t.period}: esperado follows [${t.fS} → ${t.fU}], veio [${dstr(j.folSince)} → ${dstr(j.folUntil)}]`)
+      falhas.push(`  • ${t.period} · NOVOS SEGUIDORES: esperado [${t.fS} → ${t.fU}], veio [${dstr(j.folSince)} → ${dstr(j.folUntil)}]`)
     }
   }
   if (falhas.length) {
-    console.error('%c🔒⚠️ TRAVA DAS JANELAS DISPAROU — a lógica de intervalo dos NOVOS SEGUIDORES mudou e NÃO bate mais com o painel profissional:\n' + falhas.join('\n') + '\n→ Reverta janelasDoPeriodo OU revalide com os números exatos do Breno antes de subir.', 'color:#dc2626;font-weight:bold;font-size:13px')
+    console.error('%c🔒⚠️ TRAVA DAS JANELAS DISPAROU — a lógica de intervalo (engajamento e/ou novos seguidores) mudou e NÃO bate mais com o painel profissional:\n' + falhas.join('\n') + '\n→ Reverta janelasDoPeriodo OU revalide com os números exatos do Breno E atualize a referência da trava antes de subir.', 'color:#dc2626;font-weight:bold;font-size:13px')
     return false
   }
   return true
