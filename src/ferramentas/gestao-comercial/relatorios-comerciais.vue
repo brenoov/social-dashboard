@@ -20,32 +20,39 @@
         <label>De <input type="month" v-model="mesIni"></label>
         <label>Até <input type="month" v-model="mesFim"></label>
       </template>
+      <label>Tipo de bolsa
+        <select v-model="filtroCategoria">
+          <option value="todas">Todas</option>
+          <option v-for="c in categoriasDisponiveis" :key="c" :value="c">{{ c }}</option>
+        </select>
+      </label>
+      <label v-if="relatorio === 'bcg'">Quadrante
+        <select v-model="filtroQuadrante">
+          <option value="todos">Todos</option>
+          <option v-for="q in QUADRANTES" :key="q.id" :value="q.nome">{{ q.nome }}</option>
+        </select>
+      </label>
       <label v-if="!['categoria', 'menos', 'ruptura'].includes(relatorio)">Granularidade
         <select v-model="granularidade">
           <option value="sku">Por item (SKU)</option>
           <option value="categoria">Por categoria</option>
         </select>
       </label>
-      <label v-if="['mais', 'menos'].includes(relatorio)">Ordenar por
-        <select v-model="metricaMais">
-          <option value="faturamento">Faturamento</option>
-          <option value="unidades">Unidades</option>
-        </select>
-      </label>
       <div class="gc-rel-sel">
         <button v-for="r in RELATORIOS" :key="r.id" type="button"
-                :class="{ on: relatorio === r.id }" @click="relatorio = r.id">{{ r.nome }}</button>
+                :class="{ on: relatorio === r.id }" @click="selecionarRelatorio(r.id)">{{ r.nome }}</button>
       </div>
     </div>
 
     <div v-if="carregando" class="gc-rel-msg">Carregando…</div>
     <div v-else-if="erro" class="gc-rel-msg erro">{{ erro }}</div>
-    <div v-else-if="semDados" class="gc-rel-msg">Sem dados para o período/canal selecionado.</div>
+    <div v-else-if="semDados" class="gc-rel-msg">Sem dados para os filtros selecionados.</div>
 
     <template v-else>
       <div class="gc-rel-head">
         <span class="gc-rel-tot">{{ linhas.length }} {{ granularidade === 'sku' ? 'itens' : 'categorias' }}</span>
         <span class="gc-rel-tot">Faturamento: <b>{{ fmtR(totalFat) }}</b></span>
+        <span v-if="relatorio !== 'categoria'" class="gc-rel-hint">Clique num cabeçalho pra ordenar</span>
         <button v-if="podeExportar" type="button" class="gc-rel-exp" @click="exportar">↓ Exportar</button>
       </div>
 
@@ -53,12 +60,16 @@
       <div v-if="relatorio === 'abc'" class="gc-rel-tbwrap">
         <table class="gc-rel-tb">
           <thead><tr>
-            <th>Classe</th><th class="l">{{ rotuloChave }}</th>
-            <th class="l" v-if="granularidade === 'sku'">Categoria</th>
-            <th>Unid.</th><th>Faturamento</th><th>%</th><th>% acum.</th>
+            <th class="s" @click="ordenar('classe')">Classe{{ caret('classe') }}</th>
+            <th class="l s" @click="ordenar('produto')">{{ rotuloChave }}{{ caret('produto') }}</th>
+            <th class="l s" v-if="granularidade === 'sku'" @click="ordenar('categoria')">Categoria{{ caret('categoria') }}</th>
+            <th class="s" @click="ordenar('unidades')">Unid.{{ caret('unidades') }}</th>
+            <th class="s" @click="ordenar('faturamento')">Faturamento{{ caret('faturamento') }}</th>
+            <th class="s" @click="ordenar('pct')">%{{ caret('pct') }}</th>
+            <th class="s" @click="ordenar('pctAcum')">% acum.{{ caret('pctAcum') }}</th>
           </tr></thead>
           <tbody>
-            <tr v-for="l in abc" :key="l.chave">
+            <tr v-for="l in abcView" :key="l.chave">
               <td><span class="gc-badge" :class="'abc-' + l.classe">{{ l.classe }}</span></td>
               <td class="l">{{ l.produto }}</td>
               <td class="l" v-if="granularidade === 'sku'">{{ l.categoria }}</td>
@@ -75,26 +86,47 @@
       <div v-else-if="relatorio === 'bcg'" class="gc-rel-bcg">
         <div class="gc-bcg-scatter">
           <svg :viewBox="`0 0 ${SW} ${SH}`" preserveAspectRatio="xMidYMid meet">
+            <!-- fundos dos 4 quadrantes -->
+            <rect class="gc-bcg-q q-interrogacao" x="0" y="0" :width="sx(medPart)" :height="sy(medCresc)" />
+            <rect class="gc-bcg-q q-estrela" :x="sx(medPart)" y="0" :width="SW - sx(medPart)" :height="sy(medCresc)" />
+            <rect class="gc-bcg-q q-abacaxi" x="0" :y="sy(medCresc)" :width="sx(medPart)" :height="SH - sy(medCresc)" />
+            <rect class="gc-bcg-q q-vaca" :x="sx(medPart)" :y="sy(medCresc)" :width="SW - sx(medPart)" :height="SH - sy(medCresc)" />
+            <!-- linhas medianas -->
             <line :x1="sx(medPart)" y1="0" :x2="sx(medPart)" :y2="SH" class="gc-bcg-med" />
             <line x1="0" :y1="sy(medCresc)" :x2="SW" :y2="sy(medCresc)" class="gc-bcg-med" />
-            <text :x="SW - 4" :y="sy(medCresc) - 5" class="gc-bcg-axl r">participação →</text>
-            <text x="4" y="12" class="gc-bcg-axl">↑ crescimento</text>
-            <circle v-for="(p, i) in bcgPontos" :key="i" :cx="p.x" :cy="p.y" r="5" :class="'q-' + p.q" opacity="0.82">
+            <!-- rótulos dos quadrantes -->
+            <text x="8" y="18" class="gc-bcg-qlbl q-interrogacao">Interrogação</text>
+            <text :x="SW - 8" y="18" class="gc-bcg-qlbl q-estrela r">Estrela</text>
+            <text x="8" :y="SH - 8" class="gc-bcg-qlbl q-abacaxi">Abacaxi</text>
+            <text :x="SW - 8" :y="SH - 8" class="gc-bcg-qlbl q-vaca r">Vaca leiteira</text>
+            <!-- eixos -->
+            <text :x="SW - 8" :y="sy(medCresc) - 6" class="gc-bcg-axl r">participação no faturamento →</text>
+            <text x="8" y="32" class="gc-bcg-axl">↑ crescimento vs período anterior</text>
+            <!-- pontos -->
+            <circle v-for="(p, i) in bcgPontos" :key="i" :cx="p.x" :cy="p.y" r="5" :class="'q-' + p.q"
+                    :opacity="p.destaque ? 0.9 : 0.12">
               <title>{{ p.nome }} — {{ p.quadrante }} · Participação {{ fmtPct(p.participacao) }} · Crescimento {{ fmtPct(p.crescimento) }}</title>
             </circle>
           </svg>
           <div class="gc-bcg-leg">
-            <span v-for="q in QUADRANTES" :key="q.id"><i :class="'q-' + q.id"></i>{{ q.nome }} ({{ contagem[q.id] || 0 }})</span>
+            <button v-for="q in QUADRANTES" :key="q.id" type="button" class="gc-bcg-legbtn"
+                    :class="{ off: filtroQuadrante !== 'todos' && filtroQuadrante !== q.nome }"
+                    @click="filtroQuadrante = filtroQuadrante === q.nome ? 'todos' : q.nome">
+              <i :class="'q-' + q.id"></i>{{ q.nome }} ({{ contagem[q.id] || 0 }})
+            </button>
           </div>
         </div>
         <div class="gc-rel-tbwrap">
           <table class="gc-rel-tb">
             <thead><tr>
-              <th>Quadrante</th><th class="l">{{ rotuloChave }}</th>
-              <th>Faturamento</th><th>Participação</th><th>Crescimento</th>
+              <th class="s" @click="ordenar('quadrante')">Quadrante{{ caret('quadrante') }}</th>
+              <th class="l s" @click="ordenar('produto')">{{ rotuloChave }}{{ caret('produto') }}</th>
+              <th class="s" @click="ordenar('faturamento')">Faturamento{{ caret('faturamento') }}</th>
+              <th class="s" @click="ordenar('participacao')">Participação{{ caret('participacao') }}</th>
+              <th class="s" @click="ordenar('crescimento')">Crescimento{{ caret('crescimento') }}</th>
             </tr></thead>
             <tbody>
-              <tr v-for="l in bcg" :key="l.chave">
+              <tr v-for="l in bcgView" :key="l.chave">
                 <td><span class="gc-badge" :class="'q-' + quadKey(l.quadrante)">{{ l.quadrante }}</span></td>
                 <td class="l">{{ l.produto }}</td>
                 <td class="n">{{ fmtR(l.faturamento) }}</td>
@@ -110,11 +142,14 @@
       <div v-else-if="relatorio === 'mais'" class="gc-rel-tbwrap">
         <table class="gc-rel-tb">
           <thead><tr>
-            <th>#</th><th class="l">{{ rotuloChave }}</th><th class="l" v-if="granularidade === 'sku'">Categoria</th>
-            <th>Unid.</th><th>Faturamento</th>
+            <th>#</th>
+            <th class="l s" @click="ordenar('produto')">{{ rotuloChave }}{{ caret('produto') }}</th>
+            <th class="l s" v-if="granularidade === 'sku'" @click="ordenar('categoria')">Categoria{{ caret('categoria') }}</th>
+            <th class="s" @click="ordenar('unidades')">Unid.{{ caret('unidades') }}</th>
+            <th class="s" @click="ordenar('faturamento')">Faturamento{{ caret('faturamento') }}</th>
           </tr></thead>
           <tbody>
-            <tr v-for="(l, i) in mais" :key="l.chave">
+            <tr v-for="(l, i) in maisView" :key="l.chave">
               <td class="n">{{ i + 1 }}</td>
               <td class="l">{{ l.produto }}</td>
               <td class="l" v-if="granularidade === 'sku'">{{ l.categoria }}</td>
@@ -129,11 +164,15 @@
       <div v-else-if="relatorio === 'menos'" class="gc-rel-tbwrap">
         <table class="gc-rel-tb">
           <thead><tr>
-            <th class="l">Item</th><th class="l">Categoria</th><th>Unid. vendidas</th>
-            <th>Faturamento</th><th>Estoque</th><th>Situação</th>
+            <th class="l s" @click="ordenar('produto')">Item{{ caret('produto') }}</th>
+            <th class="l s" @click="ordenar('categoria')">Categoria{{ caret('categoria') }}</th>
+            <th class="s" @click="ordenar('unidades')">Unid. vendidas{{ caret('unidades') }}</th>
+            <th class="s" @click="ordenar('faturamento')">Faturamento{{ caret('faturamento') }}</th>
+            <th class="s" @click="ordenar('saldo')">Estoque{{ caret('saldo') }}</th>
+            <th>Situação</th>
           </tr></thead>
           <tbody>
-            <tr v-for="l in menos" :key="l.chave">
+            <tr v-for="l in menosView" :key="l.chave">
               <td class="l">{{ l.produto }}</td>
               <td class="l">{{ l.categoria }}</td>
               <td class="n">{{ l.unidades }}</td>
@@ -149,10 +188,12 @@
       <div v-else-if="relatorio === 'categoria'" class="gc-rel-tbwrap">
         <table class="gc-rel-tb">
           <thead><tr>
-            <th class="l">Categoria</th><th v-for="c in CANAIS" :key="c.id">{{ c.nome }}</th><th>Total</th>
+            <th class="l s" @click="ordenar('categoria')">Categoria{{ caret('categoria') }}</th>
+            <th v-for="c in CANAIS" :key="c.id">{{ c.nome }}</th>
+            <th class="s" @click="ordenar('total')">Total{{ caret('total') }}</th>
           </tr></thead>
           <tbody>
-            <tr v-for="row in pivot" :key="row.categoria">
+            <tr v-for="row in pivotView" :key="row.categoria">
               <td class="l">{{ row.categoria }}</td>
               <td class="n" v-for="c in CANAIS" :key="c.id">{{ fmtR(row.por[c.id] || 0) }}</td>
               <td class="n"><b>{{ fmtR(row.total) }}</b></td>
@@ -171,11 +212,16 @@
         <p class="gc-rel-nota">Itens que vendem (≥ {{ MIN_VENDENDO }} un. no período) com cobertura projetada baixa. Dias de cobertura = estoque ÷ (unidades ÷ {{ diasDecorridos }} dias).</p>
         <table class="gc-rel-tb">
           <thead><tr>
-            <th class="l">Item</th><th class="l">Categoria</th><th>Unid.</th><th>Estoque</th>
-            <th>Un./dia</th><th>Dias cobertura</th><th>Alerta</th>
+            <th class="l s" @click="ordenar('produto')">Item{{ caret('produto') }}</th>
+            <th class="l s" @click="ordenar('categoria')">Categoria{{ caret('categoria') }}</th>
+            <th class="s" @click="ordenar('unidades')">Unid.{{ caret('unidades') }}</th>
+            <th class="s" @click="ordenar('saldo')">Estoque{{ caret('saldo') }}</th>
+            <th class="s" @click="ordenar('porDia')">Un./dia{{ caret('porDia') }}</th>
+            <th class="s" @click="ordenar('diasCobertura')">Dias cobertura{{ caret('diasCobertura') }}</th>
+            <th>Alerta</th>
           </tr></thead>
           <tbody>
-            <tr v-for="l in ruptura" :key="l.chave">
+            <tr v-for="l in rupturaView" :key="l.chave">
               <td class="l">{{ l.produto }}</td>
               <td class="l">{{ l.categoria }}</td>
               <td class="n">{{ l.unidades }}</td>
@@ -201,7 +247,6 @@ const CANAIS = [
   { id: '205657609', nome: 'Dom Pedro' },
   { id: '205451611', nome: 'Atacado' },
 ]
-// canal (loja.id das vendas) → depósito (gc_estoque_item)
 const DEPS_POR_CANAL = { '205834140': '14888726315', '205657609': '14888617206', '205451611': '14888248253' }
 const RELATORIOS = [
   { id: 'abc', nome: 'Curva ABC' },
@@ -221,20 +266,41 @@ const canal = ref('0')
 const periodo = ref('mes-atual')
 const granularidade = ref('sku')
 const relatorio = ref('abc')
-const metricaMais = ref('faturamento')
+const filtroCategoria = ref('todas')
+const filtroQuadrante = ref('todos')
 const mesIni = ref('')
 const mesFim = ref('')
 const carregando = ref(false)
 const erro = ref('')
-const rowsAtuais = ref([])      // linhas de gc_vendas_item do período (TODOS os canais)
-const rowsAnteriores = ref([])  // idem, período anterior (p/ crescimento do BCG)
-const estoqueRaw = ref([])      // gc_estoque_item (todos os depósitos)
+const rowsAtuais = ref([])
+const rowsAnteriores = ref([])
+const estoqueRaw = ref([])
+const sortState = ref({ col: '', dir: 'desc' })
 
 const anoAtual = new Date().getUTCFullYear()
 const podeExportar = computed(() => hasPermission('gestor.relatorios', 'exportar'))
 const rotuloChave = computed(() => granularidade.value === 'sku' ? 'Item' : 'Categoria')
 
-// ── Helpers de mês (YYYY-MM) ──
+// ── Ordenação por coluna ──
+function ordenar(col) {
+  if (sortState.value.col === col) sortState.value = { col, dir: sortState.value.dir === 'asc' ? 'desc' : 'asc' }
+  else sortState.value = { col, dir: col === 'produto' || col === 'categoria' || col === 'classe' || col === 'quadrante' ? 'asc' : 'desc' }
+}
+function caret(col) { return sortState.value.col === col ? (sortState.value.dir === 'asc' ? ' ▲' : ' ▼') : '' }
+function ordenarArr(arr, padrao) {
+  const { col, dir } = sortState.value
+  const key = col || padrao
+  if (!key) return arr
+  const s = [...arr].sort((a, b) => {
+    const va = a[key], vb = b[key]
+    if (typeof va === 'number' && typeof vb === 'number') return va - vb
+    return String(va ?? '').localeCompare(String(vb ?? ''), 'pt-BR')
+  })
+  return (col ? dir : 'desc') === 'asc' ? s : s.reverse()
+}
+function selecionarRelatorio(id) { relatorio.value = id; sortState.value = { col: '', dir: 'desc' }; if (id !== 'bcg') filtroQuadrante.value = 'todos' }
+
+// ── Helpers de mês ──
 function ymDe(d) { return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') }
 function addMeses(ym, delta) { const [y, m] = ym.split('-').map(Number); return ymDe(new Date(Date.UTC(y, m - 1 + delta, 1))) }
 function rangeYM(ini, fim) { const out = []; let cur = ini; for (let g = 0; g < 240 && cur <= fim; g++) { out.push(cur); cur = addMeses(cur, 1) } return out }
@@ -256,7 +322,7 @@ function janelas() {
   return { atuais, anteriores }
 }
 
-// ── Carga ──
+// ── Carga (só quando muda o PERÍODO; canal/categoria/quadrante/ordenação são client-side) ──
 async function carregar() {
   const j = janelas()
   if (!j) { rowsAtuais.value = []; rowsAnteriores.value = []; return }
@@ -275,8 +341,6 @@ async function carregar() {
     carregando.value = false
   }
 }
-
-// Paginação (PostgREST corta em 1000 por página). Busca TODOS os canais.
 async function fetchVendas(meses) {
   const size = 1000, rows = []
   for (let from = 0; ; from += size) {
@@ -301,16 +365,25 @@ async function fetchEstoque() {
   return rows
 }
 
-// Linhas do período, filtradas pelo canal selecionado (consolidado = todos)
-const rowsAtuaisCanal = computed(() => canal.value === '0' ? rowsAtuais.value : rowsAtuais.value.filter(r => String(r.canal_loja_id) === canal.value))
-const rowsAnterioresCanal = computed(() => canal.value === '0' ? rowsAnteriores.value : rowsAnteriores.value.filter(r => String(r.canal_loja_id) === canal.value))
+// filtro de canal (client-side) + categoria (tipo de bolsa)
+const catDe = (r) => r.categoria || 'Outros'
+function porCanal(rows) { return canal.value === '0' ? rows : rows.filter(r => String(r.canal_loja_id) === canal.value) }
+function porCategoria(rows) { return filtroCategoria.value === 'todas' ? rows : rows.filter(r => catDe(r) === filtroCategoria.value) }
+const rowsAtuaisF = computed(() => porCategoria(porCanal(rowsAtuais.value)))
+const rowsAnterioresF = computed(() => porCategoria(porCanal(rowsAnteriores.value)))
+
+// lista de categorias disponíveis (respeitando só o canal, p/ não sumir opção ao filtrar)
+const categoriasDisponiveis = computed(() => {
+  const s = new Set(porCanal(rowsAtuais.value).map(catDe))
+  return [...s].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+})
 
 function agregar(rows, gran) {
   const m = new Map()
   for (const r of rows) {
-    const chave = gran === 'sku' ? r.sku : (r.categoria || 'Outros')
+    const chave = gran === 'sku' ? r.sku : catDe(r)
     let o = m.get(chave)
-    if (!o) { o = { chave, produto: gran === 'sku' ? (r.produto || r.sku) : chave, categoria: r.categoria || 'Outros', unidades: 0, faturamento: 0 }; m.set(chave, o) }
+    if (!o) { o = { chave, produto: gran === 'sku' ? (r.produto || r.sku) : chave, categoria: catDe(r), unidades: 0, faturamento: 0 }; m.set(chave, o) }
     o.unidades += Number(r.unidades) || 0
     o.faturamento += Number(r.faturamento) || 0
   }
@@ -318,11 +391,11 @@ function agregar(rows, gran) {
 }
 
 const linhas = computed(() => {
-  const cur = agregar(rowsAtuaisCanal.value, granularidade.value)
-  const ant = agregar(rowsAnterioresCanal.value, granularidade.value)
+  const cur = agregar(rowsAtuaisF.value, granularidade.value)
+  const ant = agregar(rowsAnterioresF.value, granularidade.value)
   return [...cur.values()].map(o => ({ ...o, fatAnterior: ant.get(o.chave)?.faturamento || 0 }))
 })
-const linhasSku = computed(() => [...agregar(rowsAtuaisCanal.value, 'sku').values()])
+const linhasSku = computed(() => [...agregar(rowsAtuaisF.value, 'sku').values()])
 const totalFat = computed(() => linhas.value.reduce((s, l) => s + l.faturamento, 0))
 const semDados = computed(() => {
   if (relatorio.value === 'categoria') return !pivot.value.length
@@ -330,20 +403,20 @@ const semDados = computed(() => {
   return !linhas.value.length
 })
 
-// Estoque por sku (somado nos depósitos do canal selecionado)
 const estoquePorSku = computed(() => {
   const m = new Map()
   const depAllow = canal.value === '0' ? null : DEPS_POR_CANAL[canal.value]
   for (const r of estoqueRaw.value) {
     if (depAllow && String(r.deposito_id) !== depAllow) continue
-    const o = m.get(r.sku) || { sku: r.sku, produto: r.produto, categoria: r.categoria || 'Outros', saldo: 0 }
+    if (filtroCategoria.value !== 'todas' && catDe(r) !== filtroCategoria.value) continue
+    const o = m.get(r.sku) || { sku: r.sku, produto: r.produto, categoria: catDe(r), saldo: 0 }
     o.saldo += Number(r.saldo) || 0
     m.set(r.sku, o)
   }
   return m
 })
 
-// ── Curva ABC ──
+// ── ABC ──
 function curvaABC(linhas) {
   const ord = [...linhas].sort((a, b) => b.faturamento - a.faturamento)
   const total = ord.reduce((s, l) => s + l.faturamento, 0) || 1
@@ -351,8 +424,9 @@ function curvaABC(linhas) {
   return ord.map(l => { acum += l.faturamento; const p = acum / total; return { ...l, pct: l.faturamento / total, pctAcum: p, classe: p <= 0.8 ? 'A' : p <= 0.95 ? 'B' : 'C' } })
 }
 const abc = computed(() => curvaABC(linhas.value))
+const abcView = computed(() => ordenarArr(abc.value, ''))
 
-// ── Matriz BCG ──
+// ── BCG ──
 function mediana(arr) { const s = [...arr].sort((a, b) => a - b); const n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : 0 }
 function matrizBCG(linhas) {
   const total = linhas.reduce((s, l) => s + l.faturamento, 0) || 1
@@ -362,30 +436,37 @@ function matrizBCG(linhas) {
   return { itens: q, medPart: mp, medCresc: mc }
 }
 const bcgAll = computed(() => matrizBCG(linhas.value))
-const bcg = computed(() => [...bcgAll.value.itens].sort((a, b) => b.faturamento - a.faturamento))
+const bcgFiltrado = computed(() => filtroQuadrante.value === 'todos' ? bcgAll.value.itens : bcgAll.value.itens.filter(i => i.quadrante === filtroQuadrante.value))
+const bcgView = computed(() => ordenarArr(bcgFiltrado.value, 'faturamento'))
 const medPart = computed(() => bcgAll.value.medPart)
 const medCresc = computed(() => bcgAll.value.medCresc)
 const contagem = computed(() => { const c = {}; for (const i of bcgAll.value.itens) c[quadKey(i.quadrante)] = (c[quadKey(i.quadrante)] || 0) + 1; return c })
 function quadKey(q) { return q === 'Estrela' ? 'estrela' : q === 'Vaca leiteira' ? 'vaca' : q === 'Interrogação' ? 'interrogacao' : 'abacaxi' }
 
 // ── Mais vendidos ──
-const mais = computed(() => [...linhas.value].sort((a, b) => b[metricaMais.value] - a[metricaMais.value]))
+const mais = computed(() => [...linhas.value].sort((a, b) => b.faturamento - a.faturamento))
+const maisView = computed(() => ordenarArr(mais.value, 'faturamento'))
 
-// ── Menos vendidos / encalhados ──
+// ── Encalhados ──
 const menos = computed(() => {
   const vendidos = new Set(linhasSku.value.map(l => l.chave))
   const out = linhasSku.value.map(l => ({ ...l, saldo: estoquePorSku.value.get(l.chave)?.saldo || 0 }))
   for (const [sku, est] of estoquePorSku.value) {
     if (!vendidos.has(sku) && est.saldo > 0) out.push({ chave: sku, produto: est.produto || sku, categoria: est.categoria || 'Outros', unidades: 0, faturamento: 0, saldo: est.saldo })
   }
-  return out.sort((a, b) => (a.faturamento - b.faturamento) || (b.saldo - a.saldo))
+  return out
+})
+const menosView = computed(() => {
+  if (sortState.value.col) return ordenarArr(menos.value, '')
+  return [...menos.value].sort((a, b) => (a.faturamento - b.faturamento) || (b.saldo - a.saldo))
 })
 
-// ── Faturamento por categoria × canal ──
+// ── Categoria × canal ──
 const pivot = computed(() => {
+  const base = porCategoria(rowsAtuais.value)
   const cats = new Map()
-  for (const r of rowsAtuais.value) {
-    const cat = r.categoria || 'Outros', canalId = String(r.canal_loja_id)
+  for (const r of base) {
+    const cat = catDe(r), canalId = String(r.canal_loja_id)
     const row = cats.get(cat) || { categoria: cat, por: {}, total: 0 }
     row.por[canalId] = (row.por[canalId] || 0) + (Number(r.faturamento) || 0)
     row.total += Number(r.faturamento) || 0
@@ -393,34 +474,33 @@ const pivot = computed(() => {
   }
   return [...cats.values()].sort((a, b) => b.total - a.total)
 })
+const pivotView = computed(() => ordenarArr(pivot.value, 'total'))
 const pivotTotais = computed(() => {
   const t = { por: {}, total: 0 }
   for (const row of pivot.value) { t.total += row.total; for (const c of CANAIS) t.por[c.id] = (t.por[c.id] || 0) + (row.por[c.id] || 0) }
   return t
 })
 
-// ── Ruptura / cobertura ──
+// ── Ruptura ──
 const diasDecorridos = computed(() => {
   const j = janelas(); if (!j) return 1
   const hoje = new Date(), hojeYM = ymDe(hoje)
   let d = 0
-  for (const ym of j.atuais) {
-    const [y, m] = ym.split('-').map(Number)
-    d += ym === hojeYM ? hoje.getUTCDate() : new Date(Date.UTC(y, m, 0)).getUTCDate()
-  }
+  for (const ym of j.atuais) { const [y, m] = ym.split('-').map(Number); d += ym === hojeYM ? hoje.getUTCDate() : new Date(Date.UTC(y, m, 0)).getUTCDate() }
   return Math.max(1, d)
 })
 const ruptura = computed(() => {
   const dias = diasDecorridos.value
-  return linhasSku.value
-    .filter(l => l.unidades >= MIN_VENDENDO)
-    .map(l => {
-      const saldo = estoquePorSku.value.get(l.chave)?.saldo || 0
-      const porDia = l.unidades / dias
-      const diasCobertura = porDia > 0 ? saldo / porDia : Infinity
-      return { ...l, saldo, porDia, diasCobertura, alerta: diasCobertura <= 20 }
-    })
-    .sort((a, b) => a.diasCobertura - b.diasCobertura)
+  return linhasSku.value.filter(l => l.unidades >= MIN_VENDENDO).map(l => {
+    const saldo = estoquePorSku.value.get(l.chave)?.saldo || 0
+    const porDia = l.unidades / dias
+    const diasCobertura = porDia > 0 ? saldo / porDia : Infinity
+    return { ...l, saldo, porDia, diasCobertura, alerta: diasCobertura <= 20 }
+  })
+})
+const rupturaView = computed(() => {
+  if (sortState.value.col) return ordenarArr(ruptura.value, '')
+  return [...ruptura.value].sort((a, b) => a.diasCobertura - b.diasCobertura)
 })
 
 // ── Scatter BCG ──
@@ -430,22 +510,26 @@ const crescMin = computed(() => Math.min(-0.2, ...bcgAll.value.itens.map(i => i.
 const crescMax = computed(() => Math.max(0.5, ...bcgAll.value.itens.map(i => i.crescimento)))
 function sx(part) { return PAD + (part / maxPart.value) * (SW - 2 * PAD) }
 function sy(cresc) { const t = (cresc - crescMin.value) / (crescMax.value - crescMin.value || 1); return SH - PAD - t * (SH - 2 * PAD) }
-const bcgPontos = computed(() => bcgAll.value.itens.map(i => ({ x: sx(i.participacao), y: sy(i.crescimento), q: quadKey(i.quadrante), nome: i.produto, quadrante: i.quadrante, participacao: i.participacao, crescimento: i.crescimento })))
+const bcgPontos = computed(() => bcgAll.value.itens.map(i => ({
+  x: sx(i.participacao), y: sy(i.crescimento), q: quadKey(i.quadrante), nome: i.produto, quadrante: i.quadrante,
+  participacao: i.participacao, crescimento: i.crescimento,
+  destaque: filtroQuadrante.value === 'todos' || filtroQuadrante.value === i.quadrante,
+})))
 
 // ── Formatação ──
 const fmtR = v => 'R$ ' + Math.round(Number(v) || 0).toLocaleString('pt-BR')
 const fmtPct = v => ((Number(v) || 0) * 100).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%'
 
-// ── Export (XLSX se disponível, senão CSV) ──
+// ── Export ──
 function tabelaAtiva() {
   const nomeCanal = canal.value === '0' ? 'consolidado' : (CANAIS.find(c => c.id === canal.value)?.nome || canal.value)
   const base = `relatorio-${relatorio.value}-${nomeCanal}-${periodo.value}`.toLowerCase().replace(/[^a-z0-9-]+/g, '-')
-  if (relatorio.value === 'abc') return { nome: base, head: ['Classe', rotuloChave.value, 'Categoria', 'Unidades', 'Faturamento', '%', '% acum.'], rows: abc.value.map(l => [l.classe, l.produto, l.categoria, l.unidades, l.faturamento, l.pct, l.pctAcum]) }
-  if (relatorio.value === 'bcg') return { nome: base, head: ['Quadrante', rotuloChave.value, 'Faturamento', 'Participação', 'Crescimento'], rows: bcg.value.map(l => [l.quadrante, l.produto, l.faturamento, l.participacao, l.crescimento]) }
-  if (relatorio.value === 'mais') return { nome: base, head: ['#', rotuloChave.value, 'Categoria', 'Unidades', 'Faturamento'], rows: mais.value.map((l, i) => [i + 1, l.produto, l.categoria, l.unidades, l.faturamento]) }
-  if (relatorio.value === 'menos') return { nome: base, head: ['Item', 'Categoria', 'Unidades', 'Faturamento', 'Estoque', 'Situação'], rows: menos.value.map(l => [l.produto, l.categoria, l.unidades, l.faturamento, l.saldo, l.unidades === 0 && l.saldo > 0 ? 'Encalhado' : '']) }
-  if (relatorio.value === 'categoria') return { nome: base, head: ['Categoria', ...CANAIS.map(c => c.nome), 'Total'], rows: [...pivot.value.map(r => [r.categoria, ...CANAIS.map(c => r.por[c.id] || 0), r.total]), ['Total', ...CANAIS.map(c => pivotTotais.value.por[c.id] || 0), pivotTotais.value.total]] }
-  if (relatorio.value === 'ruptura') return { nome: base, head: ['Item', 'Categoria', 'Unidades', 'Estoque', 'Un./dia', 'Dias cobertura', 'Alerta'], rows: ruptura.value.map(l => [l.produto, l.categoria, l.unidades, l.saldo, Number(l.porDia.toFixed(2)), l.diasCobertura === Infinity ? '' : Math.round(l.diasCobertura), l.alerta ? 'Repor' : '']) }
+  if (relatorio.value === 'abc') return { nome: base, head: ['Classe', rotuloChave.value, 'Categoria', 'Unidades', 'Faturamento', '%', '% acum.'], rows: abcView.value.map(l => [l.classe, l.produto, l.categoria, l.unidades, l.faturamento, l.pct, l.pctAcum]) }
+  if (relatorio.value === 'bcg') return { nome: base, head: ['Quadrante', rotuloChave.value, 'Faturamento', 'Participação', 'Crescimento'], rows: bcgView.value.map(l => [l.quadrante, l.produto, l.faturamento, l.participacao, l.crescimento]) }
+  if (relatorio.value === 'mais') return { nome: base, head: ['#', rotuloChave.value, 'Categoria', 'Unidades', 'Faturamento'], rows: maisView.value.map((l, i) => [i + 1, l.produto, l.categoria, l.unidades, l.faturamento]) }
+  if (relatorio.value === 'menos') return { nome: base, head: ['Item', 'Categoria', 'Unidades', 'Faturamento', 'Estoque', 'Situação'], rows: menosView.value.map(l => [l.produto, l.categoria, l.unidades, l.faturamento, l.saldo, l.unidades === 0 && l.saldo > 0 ? 'Encalhado' : '']) }
+  if (relatorio.value === 'categoria') return { nome: base, head: ['Categoria', ...CANAIS.map(c => c.nome), 'Total'], rows: [...pivotView.value.map(r => [r.categoria, ...CANAIS.map(c => r.por[c.id] || 0), r.total]), ['Total', ...CANAIS.map(c => pivotTotais.value.por[c.id] || 0), pivotTotais.value.total]] }
+  if (relatorio.value === 'ruptura') return { nome: base, head: ['Item', 'Categoria', 'Unidades', 'Estoque', 'Un./dia', 'Dias cobertura', 'Alerta'], rows: rupturaView.value.map(l => [l.produto, l.categoria, l.unidades, l.saldo, Number(l.porDia.toFixed(2)), l.diasCobertura === Infinity ? '' : Math.round(l.diasCobertura), l.alerta ? 'Repor' : '']) }
   return { nome: base, head: [], rows: [] }
 }
 function exportar() {
@@ -463,7 +547,8 @@ function exportar() {
   }
 }
 
-watch([canal, periodo, granularidade, mesIni, mesFim], carregar)
+// só o PERÍODO exige nova consulta; o resto é client-side
+watch([periodo, mesIni, mesFim], carregar)
 onMounted(() => {
   const hoje = ymDe(new Date())
   mesFim.value = hoje; mesIni.value = addMeses(hoje, -2)
@@ -482,8 +567,9 @@ onMounted(() => {
 .gc-rel-sel button.on{background:var(--accent);border-color:var(--accent);color:#fff;}
 .gc-rel-msg{padding:56px 0;text-align:center;color:var(--muted);font-size:calc(14px*var(--gc-fs,1));}
 .gc-rel-msg.erro{color:var(--red);}
-.gc-rel-head{display:flex;align-items:center;gap:24px;flex-wrap:wrap;margin-bottom:14px;font-size:calc(13px*var(--gc-fs,1));color:var(--muted);}
+.gc-rel-head{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-bottom:14px;font-size:calc(13px*var(--gc-fs,1));color:var(--muted);}
 .gc-rel-head b{color:var(--text);font-variant-numeric:tabular-nums;}
+.gc-rel-hint{font-size:calc(11px*var(--gc-fs,1));font-style:italic;opacity:.7;}
 .gc-rel-exp{margin-left:auto;appearance:none;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-family:'Oswald',sans-serif;font-size:calc(12px*var(--gc-fs,1));letter-spacing:.8px;text-transform:uppercase;color:var(--text);cursor:pointer;}
 .gc-rel-exp:hover{border-color:var(--accent);color:var(--accent);}
 .gc-rel-nota{font-size:calc(12px*var(--gc-fs,1));color:var(--muted);margin:0 0 12px;line-height:1.5;}
@@ -492,6 +578,8 @@ onMounted(() => {
 .gc-rel-tb th,.gc-rel-tb td{padding:9px 14px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
 .gc-rel-tb th.l,.gc-rel-tb td.l{text-align:left;white-space:normal;}
 .gc-rel-tb thead th{position:sticky;top:0;background:var(--surface2);color:var(--muted);font-family:'Oswald',sans-serif;font-weight:500;font-size:calc(11px*var(--gc-fs,1));text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border);}
+.gc-rel-tb thead th.s{cursor:pointer;user-select:none;}
+.gc-rel-tb thead th.s:hover{color:var(--accent);}
 .gc-rel-tb tbody tr:nth-child(even){background:var(--surface2);}
 .gc-rel-tb tbody tr:hover{background:var(--accent-light);}
 .gc-rel-tb tr.gc-rel-totrow{background:var(--surface2);border-top:2px solid var(--border);}
@@ -510,15 +598,28 @@ onMounted(() => {
 .gc-badge.alerta{background:#e11d48;}
 .gc-bcg-scatter{margin-bottom:18px;border:1px solid var(--border);border-radius:var(--radius-xl);background:var(--surface);padding:14px;}
 .gc-bcg-scatter svg{width:100%;height:auto;display:block;}
-.gc-bcg-med{stroke:var(--border);stroke-width:1;stroke-dasharray:4 4;}
+.gc-bcg-med{stroke:var(--border);stroke-width:1.5;stroke-dasharray:5 4;}
+.gc-bcg-q{opacity:.06;}
+.gc-bcg-q.q-estrela{fill:#f59e0b;}
+.gc-bcg-q.q-vaca{fill:#2563eb;}
+.gc-bcg-q.q-interrogacao{fill:#7c3aed;}
+.gc-bcg-q.q-abacaxi{fill:#e11d48;}
+.gc-bcg-qlbl{font-family:'Oswald',sans-serif;font-size:13px;font-weight:600;letter-spacing:.5px;opacity:.55;text-transform:uppercase;}
+.gc-bcg-qlbl.r{text-anchor:end;}
+.gc-bcg-qlbl.q-estrela{fill:#f59e0b;}
+.gc-bcg-qlbl.q-vaca{fill:#2563eb;}
+.gc-bcg-qlbl.q-interrogacao{fill:#7c3aed;}
+.gc-bcg-qlbl.q-abacaxi{fill:#e11d48;}
 .gc-bcg-axl{fill:var(--muted);font-size:10px;font-family:'IBM Plex Sans',sans-serif;}
 .gc-bcg-axl.r{text-anchor:end;}
 .gc-bcg-scatter circle.q-estrela{fill:#f59e0b;}
 .gc-bcg-scatter circle.q-vaca{fill:#2563eb;}
 .gc-bcg-scatter circle.q-interrogacao{fill:#7c3aed;}
 .gc-bcg-scatter circle.q-abacaxi{fill:#e11d48;}
-.gc-bcg-leg{display:flex;flex-wrap:wrap;gap:16px;margin-top:10px;font-size:calc(12px*var(--gc-fs,1));color:var(--muted);}
-.gc-bcg-leg span{display:inline-flex;align-items:center;gap:6px;}
+.gc-bcg-leg{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+.gc-bcg-legbtn{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:calc(12px*var(--gc-fs,1));color:var(--text);cursor:pointer;transition:all .15s ease;}
+.gc-bcg-legbtn:hover{border-color:var(--accent-mid);}
+.gc-bcg-legbtn.off{opacity:.4;}
 .gc-bcg-leg i{width:11px;height:11px;border-radius:50%;display:inline-block;}
 .gc-bcg-leg i.q-estrela{background:#f59e0b;}
 .gc-bcg-leg i.q-vaca{background:#2563eb;}
