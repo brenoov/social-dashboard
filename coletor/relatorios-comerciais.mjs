@@ -114,7 +114,7 @@ async function main() {
       const mapa = agregarVendas(detalhados, canal.loja_id);
       const rows = Object.values(mapa).map(x => ({
         mes, canal_loja_id: Number(canal.loja_id), sku: x.sku, produto: x.produto,
-        categoria: classificarItem(x.produto), unidades: x.unidades,
+        categoria: classificarItem(x.produto), unidades: Math.round(x.unidades),
         faturamento: Math.round(x.faturamento * 100) / 100,
       }));
       await upsert('gc_vendas_item', 'mes,canal_loja_id,sku', rows);
@@ -134,7 +134,7 @@ async function main() {
       const nome = meta.nome || '';
       return {
         deposito_id: Number(deposito_id), sku: String(meta.codigo || pid), produto: nome.slice(0, 120),
-        categoria: classificarItem(nome), saldo: Number(saldo) || 0,
+        categoria: classificarItem(nome), saldo: Math.round(Number(saldo) || 0),
       };
     });
     await upsert('gc_estoque_item', 'deposito_id,sku', rows);
