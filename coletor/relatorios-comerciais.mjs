@@ -10,29 +10,12 @@
 //
 // Sem deps externas — fetch nativo (Node 18+).
 
-import { readFileSync, existsSync } from 'node:fs';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { dirname, join } from 'node:path';
+import './lib/carregar-env.mjs';   // popula process.env do .env ANTES de importar a lib (que lê env no topo)
+import { pathToFileURL } from 'node:url';
 import {
   loginServico, blingProxy, blingPedidos, blingProdutos, blingSaldoFoco,
   classificarItem, DEP_FOCO,
 } from './lib/bling-comercial.mjs';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-// carrega coletor/.env quando rodando local (no CI as vars já vêm do ambiente)
-(function loadEnv() {
-  const p = join(__dirname, '.env');
-  if (!existsSync(p)) return;
-  for (const raw of readFileSync(p, 'utf8').split('\n')) {
-    const line = raw.trim();
-    if (!line || line.startsWith('#')) continue;
-    const eq = line.indexOf('='); if (eq === -1) continue;
-    const k = line.slice(0, eq).trim(); let v = line.slice(eq + 1).trim();
-    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
-    if (!(k in process.env)) process.env[k] = v;
-  }
-})();
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
