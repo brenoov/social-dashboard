@@ -435,7 +435,7 @@
 import { onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
-import { estado, hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
+import { estado, hasPermission, contasPermitidas } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 
@@ -1631,7 +1631,10 @@ function update(d, period) {
 
 /* ── BUILD UI (legacy L4160-4208, verbatim) ── */
 async function buildProfiles() {
-  const accounts = await sb('accounts?order=name.asc&select=id,name,username,picture_url,accent_color')
+  const _todas = await sb('accounts?order=name.asc&select=id,name,username,picture_url,accent_color')
+  // Escopo por perfil de rede: só mostra os perfis permitidos (null = todos).
+  const _perm = contasPermitidas()
+  const accounts = _perm ? _todas.filter(a => _perm.includes(a.id)) : _todas
   accounts.forEach(acc => {
     if (acc.picture_url) ACCOUNT_PICS[acc.name] = acc.picture_url
     if (acc.accent_color && PROFILE_THEMES[acc.name]) { PROFILE_THEMES[acc.name].accent = acc.accent_color; PROFILE_THEMES[acc.name].light = acc.accent_color + '1a'; PROFILE_THEMES[acc.name].mid = acc.accent_color + '4d' }

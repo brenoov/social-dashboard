@@ -73,7 +73,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { estado } from '../../compartilhado/controle-de-login-e-usuario.js'
+import { estado, hasPermission, contasPermitidas } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 
@@ -220,9 +220,10 @@ function exportar(tipo) {
 }
 
 onMounted(async () => {
-  if (estado.role !== 'admin') { adminToast('Sem acesso', false); router.push({ name: 'inicio' }); return }
+  if (!hasPermission('social.relatorio', 'ver')) { adminToast('Sem acesso', false); router.push({ name: 'inicio' }); return }
   const { data } = await sbClient.from('accounts').select('id,name').order('name')
-  contas.value = data || []
+  const permitidas = contasPermitidas() // null = todos
+  contas.value = (data || []).filter(c => !permitidas || permitidas.includes(c.id))
   if (contas.value.length) { contaId.value = contas.value[0].id; await carregar() }
 })
 
