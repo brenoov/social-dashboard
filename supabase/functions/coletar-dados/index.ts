@@ -317,6 +317,28 @@ async function coletarAdsPorCampanha(sb: any, adAccountId: string, accountId: st
   } catch { /* sem dados de ads */ }
 }
 
+// Re-coleta o gasto de UM dia isolado (time_range [dia,dia]) como period_days=0, por campanha.
+// A Meta re-atribui gasto por 1-2 dias e o pd=0 do dia era congelado na coleta das 23h → ficava
+// abaixo do final. O relatório usa pd=0, então recuperamos os dias recentes aqui.
+async function coletarAdsDia(sb: any, adAccountId: string, accountId: string, token: string, dia: string) {
+  try {
+    const items = await apiGetAll(`act_${adAccountId}/insights`, {
+      fields: 'campaign_id,spend,impressions,clicks,reach,actions',
+      time_range: JSON.stringify({ since: dia, until: dia }),
+      level: 'campaign', access_token: token,
+    });
+    const rows = items.map((r: any) => ({
+      campaign_id: r.campaign_id, account_id: accountId, captured_at: dia, period_days: 0,
+      spend: parseFloat(r.spend ?? '0'), impressions: parseInt(r.impressions ?? '0'),
+      clicks: parseInt(r.clicks ?? '0'), reach: parseInt(r.reach ?? '0'),
+      post_engagement: actVal(r.actions, ['post_engagement']),
+      likes: actVal(r.actions, ['post_reaction', 'like']), comments: actVal(r.actions, ['comment']),
+      shares: actVal(r.actions, ['post', 'share']), saves: actVal(r.actions, ['onsite_conversion.post_save', 'post_save']),
+    }));
+    if (rows.length) await sb.from('campaign_insights').upsert(rows, { onConflict: 'campaign_id,account_id,captured_at,period_days' });
+  } catch { /* sem dados de ads */ }
+}
+
 async function processarConta(sb: any, acc: any, degraded: string[]) {
   const { id: accountId, instagram_id: igId, name, access_token: token } = acc;
   if (!token) { console.log(`⚠ Sem token: ${name}`); return null; }
@@ -372,6 +394,9 @@ async function processarConta(sb: any, acc: any, degraded: string[]) {
   if (adAccountId) {
     await sincronizarCampanhas(sb, accountId, adAccountId, token);
     for (const dias of PERIODS) await coletarAdsPorCampanha(sb, adAccountId, accountId, token, dias, hoje);
+    // Re-coleta o gasto pd=0 dos últimos 7 dias (ontem→-7): captura a atribuição tardia da Meta,
+    // pra o relatório (que usa pd=0) bater com o valor final. Hoje já foi coletado no loop acima.
+    for (let dd = 1; dd <= 7; dd++) await coletarAdsDia(sb, adAccountId, accountId, token, brDateMinus(dd));
   }
 
   const novoToken = await renovarToken(token);
