@@ -1029,7 +1029,7 @@ onMounted(() => {
   }
   document.addEventListener('click', _gtDocClick)
   const cfgBtn = document.getElementById('gt-cfg-btn')
-  if (cfgBtn) cfgBtn.style.display = hasPermission('module:meta:gestor') ? '' : 'none'
+  if (cfgBtn) cfgBtn.style.display = hasPermission('meta.gestor', 'editar') ? '' : 'none' // editor de métricas = ação 'editar'
   startGtClock()
   _initGestaoTrafego()
   _gtFontScale()

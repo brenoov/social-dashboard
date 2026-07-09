@@ -30,7 +30,7 @@
           <button v-for="g in GRUPOS" :key="g.key" class="rel-chip" :class="{ ativo: grupos[g.key] }" @click="grupos[g.key] = !grupos[g.key]">{{ g.label }}</button>
         </div>
       </div>
-      <div class="rel-grupo-controle rel-grupo-export">
+      <div class="rel-grupo-controle rel-grupo-export" v-if="podeExportar">
         <label class="rel-lbl">Exportar</label>
         <div class="rel-export-btns">
           <button class="rel-export" @click="exportar('xls')">Excel</button>
@@ -116,6 +116,7 @@ const ordCol = ref('dia')
 const ordDir = ref('desc')
 
 const contaNome = computed(() => contas.value.find(c => c.id === contaId.value)?.name || '')
+const podeExportar = computed(() => hasPermission('social.relatorio', 'exportar'))
 const colunasVisiveis = computed(() => COLS.filter(c => c.grupo === 'base' || grupos[c.grupo]))
 const linhasFiltradas = computed(() => {
   const arr = [...linhas.value]
