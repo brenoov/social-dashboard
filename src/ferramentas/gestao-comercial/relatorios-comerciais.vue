@@ -52,8 +52,14 @@
       <div class="gc-rel-head">
         <span class="gc-rel-tot">{{ linhas.length }} {{ granularidade === 'sku' ? 'itens' : 'categorias' }}</span>
         <span class="gc-rel-tot">Faturamento: <b>{{ fmtR(totalFat) }}</b></span>
+        <button type="button" class="gc-info-btn" :class="{ on: ajuda }" title="Entenda este relatório" @click="ajuda = !ajuda">?</button>
         <span v-if="relatorio !== 'categoria'" class="gc-rel-hint">Clique num cabeçalho pra ordenar</span>
         <button v-if="podeExportar" type="button" class="gc-rel-exp" @click="exportar">↓ Exportar</button>
+      </div>
+
+      <div v-if="ajuda" class="gc-rel-ajuda">
+        <div class="gc-rel-ajuda-t">{{ ajudaAtual.t }}</div>
+        <ul><li v-for="(x, i) in ajudaAtual.p" :key="i" v-html="x"></li></ul>
       </div>
 
       <!-- Curva ABC -->
@@ -262,12 +268,48 @@ const QUADRANTES = [
 ]
 const MIN_VENDENDO = 2
 
+// Textos de ajuda por relatório (o "?" abre; explica termos p/ dono não-técnico)
+const GC_AJUDA = {
+  abc: { t: 'Curva ABC — o que é', p: [
+    'Ordena os itens do <b>maior pro menor faturamento</b> e vai somando o percentual acumulado.',
+    '<b>Classe A</b>: os itens que juntos somam até <b>80%</b> do faturamento — os que mais importam, foco de estoque e vitrine.',
+    '<b>Classe B</b>: os próximos, até 95%. <b>Classe C</b>: a cauda (últimos 5%), muitos itens de pouco peso.',
+    '<b>%</b> = quanto o item pesa no total. <b>% acum.</b> = a soma acumulada até aquele item.',
+  ] },
+  bcg: { t: 'Matriz BCG — o que é', p: [
+    'Cruza <b>participação no faturamento</b> (eixo horizontal → quanto o item pesa) com <b>crescimento</b> vs o período anterior (eixo vertical → se está subindo ou caindo).',
+    '<b>Estrela</b>: pesa <i>e</i> cresce — invista.',
+    '<b>Vaca leiteira</b>: pesa mas está estável/caindo — gera caixa, mantenha.',
+    '<b>Interrogação</b>: ainda leve mas crescendo — aposta a acompanhar.',
+    '<b>Abacaxi</b>: leve e caindo — candidato a promoção/saída.',
+    'A divisão entre os quadrantes usa a <b>mediana</b> de cada eixo. Clique numa cor da legenda pra filtrar só aquele quadrante.',
+  ] },
+  mais: { t: 'Mais vendidos — o que é', p: [
+    'Ranking dos itens que <b>mais venderam</b> no período (por faturamento).',
+    'Clique no cabeçalho <b>Unid.</b> pra ordenar por quantidade em vez de valor.',
+  ] },
+  menos: { t: 'Encalhados — o que é', p: [
+    'Itens que <b>menos venderam</b> no período, do pior pro melhor.',
+    'O selo <b>Encalhado</b> marca itens com <b>estoque parado e zero venda</b> no período — candidatos a queima/realocação.',
+  ] },
+  categoria: { t: 'Faturamento por categoria × canal — o que é', p: [
+    'Mostra <b>quanto cada tipo de bolsa faturou em cada canal</b> (Tivoli, Dom Pedro, Atacado), com totais por linha e por coluna.',
+    'Bom pra ver <b>qual categoria vende mais em qual loja</b>.',
+  ] },
+  ruptura: { t: 'Ruptura / cobertura — o que é', p: [
+    'Itens que estão <b>vendendo bem mas com pouco estoque</b>.',
+    '<b>Dias de cobertura</b> = quantos dias o estoque atual ainda dura, no ritmo de venda do período (estoque ÷ venda por dia).',
+    'O selo <b>Repor</b> aparece quando a cobertura é <b>≤ 20 dias</b> — hora de comprar/repor antes de faltar.',
+  ] },
+}
+
 const canal = ref('0')
 const periodo = ref('mes-atual')
 const granularidade = ref('sku')
 const relatorio = ref('abc')
 const filtroCategoria = ref('todas')
 const filtroQuadrante = ref('todos')
+const ajuda = ref(false)
 const mesIni = ref('')
 const mesFim = ref('')
 const carregando = ref(false)
@@ -280,6 +322,7 @@ const sortState = ref({ col: '', dir: 'desc' })
 const anoAtual = new Date().getUTCFullYear()
 const podeExportar = computed(() => hasPermission('gestor.relatorios', 'exportar'))
 const rotuloChave = computed(() => granularidade.value === 'sku' ? 'Item' : 'Categoria')
+const ajudaAtual = computed(() => GC_AJUDA[relatorio.value] || { t: '', p: [] })
 
 // ── Ordenação por coluna ──
 function ordenar(col) {
@@ -570,6 +613,12 @@ onMounted(() => {
 .gc-rel-head{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-bottom:14px;font-size:calc(13px*var(--gc-fs,1));color:var(--muted);}
 .gc-rel-head b{color:var(--text);font-variant-numeric:tabular-nums;}
 .gc-rel-hint{font-size:calc(11px*var(--gc-fs,1));font-style:italic;opacity:.7;}
+.gc-info-btn{width:20px;height:20px;flex-shrink:0;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:'IBM Plex Sans',sans-serif;font-weight:700;font-size:calc(11px*var(--gc-fs,1));line-height:1;cursor:pointer;transition:all .15s ease;}
+.gc-info-btn:hover,.gc-info-btn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.gc-rel-ajuda{background:linear-gradient(135deg,var(--accent-light),transparent 78%);border:1px solid var(--accent-mid);border-radius:var(--radius-xl);padding:16px 20px;margin-bottom:16px;font-size:calc(13px*var(--gc-fs,1));line-height:1.6;color:var(--text);}
+.gc-rel-ajuda-t{font-family:'Oswald',sans-serif;font-size:calc(13px*var(--gc-fs,1));font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+.gc-rel-ajuda ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px;}
+.gc-rel-ajuda :deep(b){color:var(--text);font-weight:700;}
 .gc-rel-exp{margin-left:auto;appearance:none;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-family:'Oswald',sans-serif;font-size:calc(12px*var(--gc-fs,1));letter-spacing:.8px;text-transform:uppercase;color:var(--text);cursor:pointer;}
 .gc-rel-exp:hover{border-color:var(--accent);color:var(--accent);}
 .gc-rel-nota{font-size:calc(12px*var(--gc-fs,1));color:var(--muted);margin:0 0 12px;line-height:1.5;}
