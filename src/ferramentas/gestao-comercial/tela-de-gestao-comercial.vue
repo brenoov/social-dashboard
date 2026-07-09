@@ -17,23 +17,38 @@
         <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
       </div>
       <span class="gc-title">Gestão Comercial</span>
-      <div class="gc-edicao"><span class="gc-edicao-lbl">Edição</span><select id="gc-select" @change="onSelectEdicao"></select></div>
+      <div class="gc-edicao" v-show="abaGc==='briefing'"><span class="gc-edicao-lbl">Edição</span><select id="gc-select" @change="onSelectEdicao"></select></div>
     </div>
-    <div class="gc-body" id="gc-body"></div>
+    <div class="gc-tabs" v-if="podeRelatorios" role="tablist">
+      <button type="button" role="tab" :class="{ on: abaGc==='briefing' }" @click="irPara('briefing')">Briefing Semanal</button>
+      <button type="button" role="tab" :class="{ on: abaGc==='relatorios' }" @click="irPara('relatorios')">Relatórios</button>
+    </div>
+    <div class="gc-body" id="gc-body" v-show="abaGc==='briefing'"></div>
+    <RelatoriosComerciais v-if="relMontada" v-show="abaGc==='relatorios'" />
   </div>
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
+import RelatoriosComerciais from './relatorios-comerciais.vue'
 
 const router = useRouter()
 
 const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
 const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
+
+// Abas: 'briefing' (o painel de IA) | 'relatorios' (o módulo novo, gateado).
+const abaGc = ref('briefing')
+const relMontada = ref(false)   // monta o filho só quando a aba abre pela 1ª vez
+const podeRelatorios = computed(() => hasPermission('gestor.relatorios', 'ver'))
+function irPara(aba) {
+  abaGc.value = aba
+  if (aba === 'relatorios') relMontada.value = true
+}
 
 // ==========================================================================
 // PORTE VERBATIM da Gestão Comercial (legacy/index.html — estado e funções
@@ -337,6 +352,11 @@ onMounted(() => {
 .tela-gestao-comercial :deep(.gc-edicao){display:flex;align-items:center;gap:8px;}
 .tela-gestao-comercial :deep(.gc-edicao-lbl){font-size:calc(10px*var(--gc-fs,1));color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
 .tela-gestao-comercial :deep(.gc-edicao select){font-family:'IBM Plex Sans',sans-serif;font-size:calc(11px*var(--gc-fs,1));color:var(--text);border:1px solid var(--border);border-radius:7px;padding:5px 9px;background:var(--surface);cursor:pointer;}
+/* Abas Briefing / Relatórios */
+.tela-gestao-comercial .gc-tabs{display:flex;gap:4px;max-width:min(98vw,1860px);margin:0 auto;width:100%;padding:14px clamp(20px,2.8vw,46px) 0;}
+.tela-gestao-comercial .gc-tabs button{appearance:none;background:none;border:none;border-bottom:2px solid transparent;padding:9px 16px;font-family:'Oswald',sans-serif;font-size:calc(13px*var(--gc-fs,1));font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);cursor:pointer;transition:color .15s ease,border-color .15s ease;}
+.tela-gestao-comercial .gc-tabs button:hover{color:var(--text);}
+.tela-gestao-comercial .gc-tabs button.on{color:var(--accent);border-bottom-color:var(--accent);}
 .tela-gestao-comercial :deep(.gc-body){flex:1;max-width:min(98vw,1860px);margin:0 auto;width:100%;padding:clamp(22px,2vw,34px) clamp(20px,2.8vw,46px) 96px;}
 /* Hero com gradiente + anel de progresso do mês */
 .tela-gestao-comercial :deep(.gc-hero){position:relative;overflow:hidden;border-radius:var(--radius-xl);padding:28px 34px;margin-bottom:26px;background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:24px;box-shadow:var(--shadow-md);}
