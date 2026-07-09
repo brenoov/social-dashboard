@@ -1,0 +1,38 @@
+name: Relatórios Comerciais
+
+# Diário 08:40 UTC (05:40 Brasília): re-agrega o mês corrente.
+# Disparo manual com input `backfill` (Nº de meses) p/ popular o histórico.
+on:
+  schedule:
+    - cron: '40 8 * * *'
+  workflow_dispatch:
+    inputs:
+      backfill:
+        description: 'Nº de meses p/ backfill (vazio = só o mês corrente)'
+        required: false
+        default: ''
+
+concurrency:
+  group: relatorios-comerciais
+  cancel-in-progress: false
+
+jobs:
+  agregar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Rodar job de relatórios comerciais
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
+          GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
+          BACKFILL: ${{ github.event.inputs.backfill }}
+        run: |
+          if [ -n "$BACKFILL" ] && ! printf '%s' "$BACKFILL" | grep -qE '^[0-9]+$'; then
+            echo "backfill inválido (esperado número): $BACKFILL"; exit 1
+          fi
+          node coletor/relatorios-comerciais.mjs --backfill="$BACKFILL"
