@@ -329,8 +329,21 @@ async function processarConta(sb: any, acc: any, degraded: string[]) {
     { onConflict: 'account_id,captured_at' }
   );
 
-  for (let dd = 0; dd < 3; dd++) {
+  // Re-coleta de follows resiliente + barata: SEMPRE os 3 dias recentes (a Meta consolida com atraso),
+  // MAIS qualquer dia dos últimos 14 que ainda esteja 0/0 (buraco de uma queda do coletor — antes, queda
+  // > 3 dias deixava buraco PERMANENTE porque saía da janela). Dias antigos já preenchidos não são
+  // re-buscados → rodada normal não fica mais lenta. Só atualiza quando a Meta devolve valor (fu != null).
+  const { data: recentes } = await sb.from('daily_snapshots')
+    .select('captured_at,gained,lost')
+    .eq('account_id', accountId).gte('captured_at', brDateMinus(14)).lte('captured_at', hoje);
+  const mapaDias: Record<string, any> = {};
+  for (const r of (recentes ?? [])) mapaDias[r.captured_at] = r;
+  for (let dd = 0; dd < 14; dd++) {
     const dia = brDateMinus(dd);
+    const row = mapaDias[dia];
+    const ehRecente = dd < 3;
+    const ehBuraco = row && (Number(row.gained) || 0) === 0 && (Number(row.lost) || 0) === 0;
+    if (!ehRecente && !ehBuraco) continue; // dia antigo já preenchido → não re-busca (economia)
     const fu = await coletarFollowsDia(igId, dia, token);
     if (fu) {
       await sb.from('daily_snapshots').update({ gained: fu.gained, lost: fu.lost })
