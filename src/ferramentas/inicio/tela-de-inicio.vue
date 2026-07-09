@@ -44,7 +44,7 @@
           </div>
           <span class="home-card-enter">→</span>
         </div>
-        <div class="home-card" id="home-card-social" @click="irRedes" @mouseenter="definirTemaFundo('social')" @mouseleave="definirTemaFundo('default')">
+        <div class="home-card" id="home-card-social" v-show="podeRedes" @click="irRedes" @mouseenter="definirTemaFundo('social')" @mouseleave="definirTemaFundo('default')">
           <div class="home-card-icon">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
           </div>
@@ -55,7 +55,7 @@
           <span class="home-card-enter">→</span>
         </div>
         <!-- Dashboard de Vendas: Menu de Vendas + Gestão à Vista já migrados. -->
-        <div class="home-card" id="home-card-sales" @click="ir('vendas')" @mouseenter="definirTemaFundo('sales')" @mouseleave="definirTemaFundo('default')">
+        <div class="home-card" id="home-card-sales" v-show="podeVendas" @click="ir('vendas')" @mouseenter="definirTemaFundo('sales')" @mouseleave="definirTemaFundo('default')">
           <div class="home-card-icon" style="background:linear-gradient(135deg,#1d4ed8 0%,#2563eb 100%)">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
           </div>
@@ -66,7 +66,7 @@
           <span class="home-card-enter">→</span>
         </div>
         <!-- Meta Ads: Menu + Análise de Campanhas já migrados. -->
-        <div class="home-card" id="home-card-meta" @click="ir('meta-ads')" @mouseenter="definirTemaFundo('meta')" @mouseleave="definirTemaFundo('default')">
+        <div class="home-card" id="home-card-meta" v-show="podeMeta" @click="ir('meta-ads')" @mouseenter="definirTemaFundo('meta')" @mouseleave="definirTemaFundo('default')">
           <div class="home-card-icon" style="background:linear-gradient(135deg,#1877F2 0%,#0062E0 100%)">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
           </div>
@@ -77,7 +77,7 @@
           <span class="home-card-enter">→</span>
         </div>
         <!-- Banco de Arquivos: rota ainda não existe. -->
-        <div class="home-card" id="home-card-banco" @click="ir('banco')">
+        <div class="home-card" id="home-card-banco" v-show="podeBanco" @click="ir('banco')">
           <div class="home-card-icon" style="background:linear-gradient(135deg,#0f4c81 0%,#1d4ed8 100%)">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
           </div>
@@ -88,7 +88,7 @@
           <span class="home-card-enter">→</span>
         </div>
         <!-- Portal de Notícias: única ferramenta já migrada, navega de verdade. -->
-        <div class="home-card" id="home-card-noticias" @click="ir('noticias')" @mouseenter="definirTemaFundo('default')" @mouseleave="definirTemaFundo('default')">
+        <div class="home-card" id="home-card-noticias" v-show="podeNoticias" @click="ir('noticias')" @mouseenter="definirTemaFundo('default')" @mouseleave="definirTemaFundo('default')">
           <div class="home-card-icon" style="background:linear-gradient(135deg,#0f4c81 0%,#1d4ed8 100%)">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v16a2 2 0 0 1-2 2 2 2 0 0 1-2-2V9a1 1 0 0 1 1-1h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8z"/></svg>
           </div>
@@ -98,7 +98,7 @@
           </div>
           <span class="home-card-enter">→</span>
         </div>
-        <div class="home-card" id="home-card-gestor" @click="ir('gestao-comercial')" @mouseenter="definirTemaFundo('default')" @mouseleave="definirTemaFundo('default')">
+        <div class="home-card" id="home-card-gestor" v-show="podeGestor" @click="ir('gestao-comercial')" @mouseenter="definirTemaFundo('default')" @mouseleave="definirTemaFundo('default')">
           <div class="home-card-icon" style="background:linear-gradient(135deg,#0f4c81 0%,#1d4ed8 100%)">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
           </div>
@@ -109,7 +109,7 @@
           <span class="home-card-enter">→</span>
         </div>
         <!-- Colaboradores e Acessos: única ferramenta além de Notícias já migrada, navega de verdade. -->
-        <div class="home-card" id="home-card-acessos" @click="ir('acessos')">
+        <div class="home-card" id="home-card-acessos" v-show="podeAcessos" @click="ir('acessos')">
           <div class="home-card-icon" style="background:linear-gradient(135deg,#0f766e 0%,#0d9488 100%)">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           </div>
@@ -143,12 +143,20 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { estado } from '../../compartilhado/controle-de-login-e-usuario.js'
+import { estado, hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 
 const router = useRouter()
 
 // Card de Administração só aparece pra quem é admin (a rota /admin já existe).
-const ehAdmin = computed(() => estado.role === 'admin')
+const ehAdmin = computed(() => estado.is_superadmin)
+// Cada card só aparece pra quem tem 'ver' no recurso (o de Admin é gateado por super-admin acima).
+const podeRedes = computed(() => hasPermission('social', 'ver') || hasPermission('social.relatorio', 'ver'))
+const podeVendas = computed(() => hasPermission('sales.gestao', 'ver') || hasPermission('sales.analise', 'ver'))
+const podeMeta = computed(() => hasPermission('meta.campanha', 'ver') || hasPermission('meta.gestor', 'ver'))
+const podeBanco = computed(() => hasPermission('banco', 'ver'))
+const podeNoticias = computed(() => hasPermission('noticias', 'ver'))
+const podeGestor = computed(() => hasPermission('gestor', 'ver'))
+const podeAcessos = computed(() => hasPermission('acessos', 'ver'))
 
 // Caminho absoluto: servido em produção via rewrite do Vercel (/midia/:path*),
 // igual ao legado. Ligação dinâmica (:src) evita que o Vite tente resolver
