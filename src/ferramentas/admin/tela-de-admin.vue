@@ -154,7 +154,7 @@
 import { onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
-import { estado, PERMISSION_TREE } from '../../compartilhado/controle-de-login-e-usuario.js'
+import { estado, PERMISSION_TREE, RECURSOS } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 
@@ -442,57 +442,112 @@ async function loadAdminSaude() {
   body.innerHTML = html; wire()
 }
 
-/* ── PERMISSÕES (legacy L4543-4594, verbatim) ── */
-let _permUserId = null
-function openPermModal(u) {
-  _permUserId = u.id
-  const feats = u.features || ['banco']
-  const sub = document.getElementById('perm-modal-user')
-  sub.textContent = ''
+/* ── PERMISSÕES (Fase 1: matriz recurso×ação + escopo por perfil + super-admin + duplicar) ── */
+let _permState = null       // { userId, permissions, allowed_accounts, is_superadmin }
+let _contasCache = null     // perfis de rede (accounts)
+let _usersCache = []        // lista de usuários (p/ o "duplicar")
+
+async function openPermModal(u) {
+  _permState = {
+    userId: u.id,
+    permissions: JSON.parse(JSON.stringify(u.permissions || {})),
+    allowed_accounts: u.allowed_accounts ?? null,
+    is_superadmin: !!u.is_superadmin,
+  }
+  const sub = document.getElementById('perm-modal-user'); sub.textContent = ''
   const strong = document.createElement('strong'); strong.textContent = u.name || u.email
-  const rest = document.createTextNode(' · ' + u.email)
-  sub.appendChild(strong); sub.appendChild(rest)
-  const body = document.getElementById('perm-modal-body'); body.replaceChildren()
-  PERMISSION_TREE.forEach(item => {
-    body.appendChild(_buildPermRow(item.key, item.label, false, feats.includes(item.key)))
-    item.children.forEach(child => body.appendChild(_buildPermRow(child.key, child.label, true, feats.includes(child.key))))
-    if (item.children.length) { const sep = document.createElement('div'); sep.className = 'perm-section-sep'; body.appendChild(sep) }
-  })
+  sub.appendChild(strong); sub.appendChild(document.createTextNode(' · ' + u.email))
+  if (!_contasCache) { try { const r = await adFetch('accounts?select=id,name&order=name'); _contasCache = await r.json() } catch { _contasCache = [] } }
+  _renderPermBody(u)
   document.getElementById('perm-modal-overlay').classList.add('open')
 }
-function _buildPermRow(key, label, isChild, isOn) {
-  const row = document.createElement('div'); row.className = 'perm-row' + (isChild ? ' child' : '')
-  const tog = document.createElement('span'); tog.className = 'perm-toggle'
-  const inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = isOn; inp.dataset.key = key
-  inp.addEventListener('change', () => {
-    const node = PERMISSION_TREE.find(t => t.key === key)
-    if (node) {
-      node.children.forEach(c => {
-        const ci = document.querySelector('#perm-modal-body input[data-key="' + c.key + '"]')
-        if (ci) ci.checked = inp.checked
-      })
-    }
+
+function _lbl10(txt, mt) { const d = document.createElement('div'); d.textContent = txt; d.style.cssText = `font-size:10px;letter-spacing:1.5px;color:var(--muted);font-weight:700;margin:${mt || 6}px 0 6px`; return d }
+
+function _renderPermBody(u) {
+  const body = document.getElementById('perm-modal-body'); body.replaceChildren()
+  // 1) Super-admin
+  const saRow = document.createElement('label'); saRow.style.cssText = 'display:flex;align-items:center;gap:8px;cursor:pointer;border-bottom:2px solid var(--border);padding-bottom:10px;margin-bottom:8px'
+  const saCb = document.createElement('input'); saCb.type = 'checkbox'; saCb.checked = _permState.is_superadmin
+  saCb.addEventListener('change', () => { _permState.is_superadmin = saCb.checked; _renderPermBody(u) })
+  const saTxt = document.createElement('span'); saTxt.textContent = 'Super-admin (vê tudo · gerencia permissões)'; saTxt.style.cssText = 'font-weight:700;font-size:13px'
+  saRow.appendChild(saCb); saRow.appendChild(saTxt); body.appendChild(saRow)
+  if (_permState.is_superadmin) {
+    const info = document.createElement('div'); info.textContent = 'Super-admin tem acesso total — permissões e perfis não se aplicam.'; info.style.cssText = 'font-size:12px;color:var(--muted);padding:6px 0'
+    body.appendChild(info); return
+  }
+  // 2) Matriz recurso × ação
+  body.appendChild(_lbl10('PERMISSÕES'))
+  RECURSOS.forEach(r => {
+    const row = document.createElement('div'); row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--border)'
+    const lbl = document.createElement('span'); lbl.textContent = r.label; lbl.style.cssText = 'font-size:12px;flex:1'
+    const acoesWrap = document.createElement('div'); acoesWrap.style.cssText = 'display:flex;gap:12px;flex-shrink:0'
+    r.acoes.forEach(acao => {
+      const w = document.createElement('label'); w.style.cssText = 'display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;color:var(--muted)'
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = (_permState.permissions[r.key] || []).includes(acao)
+      cb.addEventListener('change', () => { _togglePerm(r, acao, cb.checked); _renderPermBody(u) })
+      const t = document.createElement('span'); t.textContent = acao
+      w.appendChild(cb); w.appendChild(t); acoesWrap.appendChild(w)
+    })
+    row.appendChild(lbl); row.appendChild(acoesWrap); body.appendChild(row)
   })
-  const track = document.createElement('span'); track.className = 'perm-toggle-track'
-  tog.appendChild(inp); tog.appendChild(track)
-  const lbl = document.createElement('span'); lbl.className = 'perm-row-label'; lbl.textContent = label
-  row.addEventListener('click', e => { if (e.target !== inp) { inp.checked = !inp.checked; inp.dispatchEvent(new Event('change')) } })
-  row.appendChild(tog); row.appendChild(lbl)
-  return row
+  // 3) Perfis de rede social
+  body.appendChild(_lbl10('PERFIS DE REDE SOCIAL', 12))
+  const todos = document.createElement('label'); todos.style.cssText = 'display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:3px 0;font-weight:600'
+  const todosCb = document.createElement('input'); todosCb.type = 'checkbox'; todosCb.checked = _permState.allowed_accounts === null
+  todosCb.addEventListener('change', () => { _permState.allowed_accounts = todosCb.checked ? null : []; _renderPermBody(u) })
+  todos.appendChild(todosCb); todos.appendChild(document.createTextNode('Todos os perfis')); body.appendChild(todos)
+  if (_permState.allowed_accounts !== null) {
+    (_contasCache || []).forEach(c => {
+      const w = document.createElement('label'); w.style.cssText = 'display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:3px 0 3px 16px'
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = (_permState.allowed_accounts || []).includes(c.id)
+      cb.addEventListener('change', () => {
+        const arr = (_permState.allowed_accounts || []).slice()
+        if (cb.checked) { if (!arr.includes(c.id)) arr.push(c.id) } else { const i = arr.indexOf(c.id); if (i >= 0) arr.splice(i, 1) }
+        _permState.allowed_accounts = arr
+      })
+      w.appendChild(cb); w.appendChild(document.createTextNode(c.name)); body.appendChild(w)
+    })
+  }
+  // 4) Duplicar de outro usuário
+  body.appendChild(_lbl10('DUPLICAR PERMISSÕES DE', 12))
+  const dupRow = document.createElement('div'); dupRow.style.cssText = 'display:flex;gap:6px;align-items:center'
+  const dupSel = mkEl('select', 'admin-form-input'); dupSel.style.cssText = 'flex:1;font-size:12px;padding:5px'
+  dupSel.appendChild(new Option('— escolher usuário —', ''))
+  _usersCache.filter(x => x.id !== u.id).forEach(x => dupSel.appendChild(new Option(x.name || x.email, x.id)))
+  const dupBtn = mkEl('button', 'sr-btn'); dupBtn.textContent = 'Aplicar'; dupBtn.style.cssText = 'font-size:11px;padding:6px 12px'
+  dupBtn.addEventListener('click', () => {
+    const src = _usersCache.find(x => x.id === dupSel.value); if (!src) return
+    _permState.permissions = JSON.parse(JSON.stringify(src.permissions || {}))
+    _permState.allowed_accounts = src.allowed_accounts ?? null
+    _permState.is_superadmin = false
+    _renderPermBody(u); adminToast('Permissões copiadas — salve para aplicar')
+  })
+  dupRow.appendChild(dupSel); dupRow.appendChild(dupBtn); body.appendChild(dupRow)
 }
+
+// Marcar uma ação marca 'ver' junto; desmarcar 'ver' limpa o recurso. Mantém a ordem do catálogo.
+function _togglePerm(r, acao, on) {
+  const cur = new Set(_permState.permissions[r.key] || [])
+  if (on) { cur.add(acao); if (acao !== 'ver') cur.add('ver') }
+  else { cur.delete(acao); if (acao === 'ver') cur.clear() }
+  const arr = r.acoes.filter(a => cur.has(a))
+  if (arr.length) _permState.permissions[r.key] = arr; else delete _permState.permissions[r.key]
+}
+
 function closePermModal() {
   document.getElementById('perm-modal-overlay').classList.remove('open')
-  _permUserId = null
+  _permState = null
 }
-// SENSITIVE MUTATION — PATCH em profiles.features (permissões reais). Sem
-// confirm() no legado; nenhum foi adicionado aqui.
+
+// SENSITIVE MUTATION — PATCH em profiles.permissions/allowed_accounts/is_superadmin.
 async function savePermissions() {
-  const checkboxes = document.querySelectorAll('#perm-modal-body input[type=checkbox]')
-  const features = []
-  checkboxes.forEach(cb => { if (cb.checked) features.push(cb.dataset.key) })
-  const btn = document.getElementById('perm-save-btn')
-  btn.disabled = true; btn.textContent = 'Salvando...'
-  await adFetch('profiles?id=eq.' + _permUserId, { method: 'PATCH', body: JSON.stringify({ features }) })
+  if (!_permState) return
+  const btn = document.getElementById('perm-save-btn'); btn.disabled = true; btn.textContent = 'Salvando...'
+  await adFetch('profiles?id=eq.' + _permState.userId, {
+    method: 'PATCH',
+    body: JSON.stringify({ permissions: _permState.permissions, allowed_accounts: _permState.allowed_accounts, is_superadmin: _permState.is_superadmin }),
+  })
   btn.disabled = false; btn.textContent = 'Salvar'
   adminToast('Permissões atualizadas')
   closePermModal()
@@ -502,8 +557,9 @@ async function savePermissions() {
 /* ── USUÁRIOS (legacy L4609-4708, verbatim, exceto currentEmail — ver
    adaptação nº2 no comentário do topo) ── */
 async function loadAdminUsers() {
-  const res = await adFetch('profiles?order=created_at.asc&select=id,email,name,role,disabled,created_at,features,avatar_url')
+  const res = await adFetch('profiles?order=created_at.asc&select=id,email,name,role,disabled,created_at,features,avatar_url,permissions,allowed_accounts,is_superadmin')
   const users = await res.json(); if (!Array.isArray(users)) return
+  _usersCache = users // p/ o "duplicar permissões de outro usuário" no editor
   const active = users.filter(u => !u.disabled), admins = active.filter(u => u.role === 'admin').length
   const stats = document.getElementById('admin-stats-users'); stats.replaceChildren()
   ;[[users.length, 'Total'], [admins, 'Admins'], [active.length - admins, 'Viewers'], [users.filter(u => u.disabled).length, 'Inativos']].forEach(([v, l]) => {
@@ -513,8 +569,8 @@ async function loadAdminUsers() {
   const currentEmail = estado.user?.email || ''
   users.forEach(u => {
     const isSelf = u.email === currentEmail
-    const isSuperAdmin = SUPERADMIN_EMAILS.includes(u.email)
-    const canEdit = !isSuperAdmin || SUPERADMIN_EMAILS.includes(currentEmail)
+    const isSuperAdmin = !!u.is_superadmin
+    const canEdit = !isSuperAdmin || estado.is_superadmin // super-admin só é editável por outro super-admin
     const row = mkEl('div', 'sr'); row.style.cssText = 'justify-content:space-between;flex-wrap:wrap;gap:8px'; if (u.disabled) row.style.opacity = '.5'
     const avWrap = mkEl('div', 'av-wrap'); avWrap.style.cssText = 'width:34px;height:34px;'
     const av = mkEl('div'); av.style.cssText = 'width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);overflow:hidden;position:relative;'
