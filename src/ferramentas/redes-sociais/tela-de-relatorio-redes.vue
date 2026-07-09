@@ -143,27 +143,42 @@ async function carregar() {
     if (desde) s = s.gte('captured_at', desde)
     return s
   }
-  const [ds, eng, cont, ai, hist] = await Promise.all([
+  // Ads por DIA = campaign_insights com period_days=0 (o dia único), SOMADO por campanha. NÃO usar
+  // account_insights nem pd=1: o pd=1 coleta a janela [ontem, hoje] = 2 dias (time_range inclusivo) → infla.
+  let adsQ = sbClient.from('campaign_insights').select('captured_at,spend,impressions').eq('account_id', contaId.value).eq('period_days', 0)
+  if (desde) adsQ = adsQ.gte('captured_at', desde)
+  const [ds, eng, cont, ads, hist] = await Promise.all([
     q('daily_snapshots', 'captured_at,followers_count,gained,lost', false),
     q('engagement_snapshots', 'captured_at,reach,views,total_interactions,likes,comments,saves,shares,profile_views', true),
     q('content_snapshots', 'captured_at,posts_count,reels_count,stories_count', true),
-    q('account_insights', 'captured_at,impressions,spend', true),
+    adsQ,
     // histórico COMPLETO da contagem (sem filtro de período) p/ o líquido pela variação da contagem
     // nos dias que a Meta ainda não fechou o bruto (gained/lost = 0/0) — mesma lógica da dashboard.
     sbClient.from('daily_snapshots').select('captured_at,followers_count').eq('account_id', contaId.value).order('captured_at'),
   ])
+  // soma o gasto/impressões das campanhas por dia (o dia recente ainda acumula → prévia; dias fechados batem).
+  const adsPorDia = {}
+  for (const r of (ads.data || [])) {
+    const d = adsPorDia[r.captured_at] || { spend: 0, impressions: 0 }
+    d.spend += Number(r.spend) || 0; d.impressions += Number(r.impressions) || 0
+    adsPorDia[r.captured_at] = d
+  }
   // delta de contagem por dia = total do dia − total do dia anterior (a contagem é sempre exata).
   const deltaContagem = {}
   let ant = null
   for (const r of (hist.data || [])) { if (ant) deltaContagem[r.captured_at] = (Number(r.followers_count) || 0) - (Number(ant.followers_count) || 0); ant = r }
   const mapa = {}
   const juntar = (rows) => { for (const r of (rows || [])) mapa[r.captured_at] = { ...(mapa[r.captured_at] || {}), ...r } }
-  juntar(ds.data); juntar(eng.data); juntar(cont.data); juntar(ai.data)
+  juntar(ds.data); juntar(eng.data); juntar(cont.data)
   linhas.value = Object.values(mapa).map(r => {
     const temBruto = (Number(r.gained) || 0) !== 0 || (Number(r.lost) || 0) !== 0
     // dia consolidado → gained−lost (bate com Seguiram/Saíram); dia ainda 0/0 → variação da contagem (como a dashboard).
     const liquido = temBruto ? ((Number(r.gained) || 0) - (Number(r.lost) || 0)) : (deltaContagem[r.captured_at] ?? null)
-    return { ...r, dia: r.captured_at, liquido, liquidoContagem: !temBruto && liquido != null }
+    const ad = adsPorDia[r.captured_at]
+    return {
+      ...r, dia: r.captured_at, liquido, liquidoContagem: !temBruto && liquido != null,
+      spend: ad ? ad.spend : undefined, impressions: ad ? ad.impressions : undefined,
+    }
   })
   carregando.value = false
 }
