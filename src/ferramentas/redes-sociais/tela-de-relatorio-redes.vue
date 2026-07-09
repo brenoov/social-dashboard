@@ -58,7 +58,8 @@
         <tbody>
           <tr v-for="(r, i) in linhasFiltradas" :key="r.dia">
             <td v-for="col in colunasVisiveis" :key="col.key"
-                :class="[col.tipo, { 'col-forte': col.forte, 'net-up': col.tipo === 'net' && r.liquido > 0, 'net-down': col.tipo === 'net' && r.liquido < 0 }]">
+                :title="col.tipo === 'net' && r.liquidoContagem ? 'Líquido pela variação da contagem (a Meta ainda não fechou seguiu/saiu deste dia)' : null"
+                :class="[col.tipo, { 'col-forte': col.forte, 'net-up': col.tipo === 'net' && r.liquido > 0, 'net-down': col.tipo === 'net' && r.liquido < 0, 'net-contagem': col.tipo === 'net' && r.liquidoContagem }]">
               {{ fmt(col, col.key === 'dia' ? r.dia : r[col.key]) }}
             </td>
           </tr>
@@ -142,19 +143,28 @@ async function carregar() {
     if (desde) s = s.gte('captured_at', desde)
     return s
   }
-  const [ds, eng, cont, ai] = await Promise.all([
+  const [ds, eng, cont, ai, hist] = await Promise.all([
     q('daily_snapshots', 'captured_at,followers_count,gained,lost', false),
     q('engagement_snapshots', 'captured_at,reach,views,total_interactions,likes,comments,saves,shares,profile_views', true),
     q('content_snapshots', 'captured_at,posts_count,reels_count,stories_count', true),
     q('account_insights', 'captured_at,impressions,spend', true),
+    // histórico COMPLETO da contagem (sem filtro de período) p/ o líquido pela variação da contagem
+    // nos dias que a Meta ainda não fechou o bruto (gained/lost = 0/0) — mesma lógica da dashboard.
+    sbClient.from('daily_snapshots').select('captured_at,followers_count').eq('account_id', contaId.value).order('captured_at'),
   ])
+  // delta de contagem por dia = total do dia − total do dia anterior (a contagem é sempre exata).
+  const deltaContagem = {}
+  let ant = null
+  for (const r of (hist.data || [])) { if (ant) deltaContagem[r.captured_at] = (Number(r.followers_count) || 0) - (Number(ant.followers_count) || 0); ant = r }
   const mapa = {}
   const juntar = (rows) => { for (const r of (rows || [])) mapa[r.captured_at] = { ...(mapa[r.captured_at] || {}), ...r } }
   juntar(ds.data); juntar(eng.data); juntar(cont.data); juntar(ai.data)
-  linhas.value = Object.values(mapa).map(r => ({
-    ...r, dia: r.captured_at,
-    liquido: (r.gained != null || r.lost != null) ? ((Number(r.gained) || 0) - (Number(r.lost) || 0)) : null,
-  }))
+  linhas.value = Object.values(mapa).map(r => {
+    const temBruto = (Number(r.gained) || 0) !== 0 || (Number(r.lost) || 0) !== 0
+    // dia consolidado → gained−lost (bate com Seguiram/Saíram); dia ainda 0/0 → variação da contagem (como a dashboard).
+    const liquido = temBruto ? ((Number(r.gained) || 0) - (Number(r.lost) || 0)) : (deltaContagem[r.captured_at] ?? null)
+    return { ...r, dia: r.captured_at, liquido, liquidoContagem: !temBruto && liquido != null }
+  })
   carregando.value = false
 }
 
@@ -241,6 +251,7 @@ function voltar() { router.push({ name: 'redes' }) }
 .rel-tabela td.col-forte{font-weight:700;color:var(--accent);}
 .rel-tabela td.net-up{color:#16a34a;font-weight:600;}
 .rel-tabela td.net-down{color:#dc2626;font-weight:600;}
+.rel-tabela td.net-contagem{text-decoration:underline dotted;text-underline-offset:3px;cursor:help;}
 .rel-tabela tbody tr:nth-child(even) td{background:color-mix(in srgb, var(--surface) 45%, transparent);}
 .rel-tabela tbody tr:hover td{background:var(--accent-light);}
 .rel-vazio{text-align:center!important;color:var(--muted);padding:40px!important;font-style:italic;}
