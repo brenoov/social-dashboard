@@ -959,7 +959,8 @@ function closeAdmin() {
 }
 
 onMounted(() => {
-  if (estado.role !== 'admin') {
+  // Fase 1 permissões: só SUPER-ADMIN acessa a Administração (fim do "admin total").
+  if (!estado.is_superadmin) {
     adminToast('Sem acesso', false)
     router.push({ name: 'inicio' })
     return
