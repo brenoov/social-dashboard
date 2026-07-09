@@ -1838,9 +1838,11 @@ async function refresh() {
     const _dfull = iso => { const dt = new Date(iso + 'T12:00:00'); return dt.getDate() + ' ' + _m3[dt.getMonth()] }
     const _lbl = iso => { const dt = new Date(iso + 'T12:00:00'); return dt.getDate() + '/' + (dt.getMonth() + 1) }
     const _mesAtual = currentPeriod === 'monthfull' || currentPeriod === 'sofar' || currentPeriod === 'month'
-    if (currentPeriod === 0 || currentPeriod === 1 || _mesAtual) {
-      // HOJE/1D e MÊS: o gráfico inclui HOJE e ONTEM como BARRA LÍQUIDA (só o nº líquido — a Meta ainda não
-      // fechou a quebra desses dias). Base: Hoje/1D = últimos 7 dias; MÊS = os dias do mês (o próprio serie).
+    const _rolante = [0, 1, 3, 7, 14, 30].includes(currentPeriod)
+    if (_rolante || _mesAtual) {
+      // TODOS os intervalos atuais/rolantes (Hoje/1D/3D/7D/14D/30D) e MÊS incluem HOJE e ONTEM como
+      // BARRA LÍQUIDA no fim (só o nº líquido — a Meta ainda não fechou a quebra desses dias). MÊS PASS.
+      // (mês fechado) e personalizado NÃO. Base: Hoje/1D = últimos 7 dias; demais = o próprio serie do intervalo.
       const baseSerie = (currentPeriod === 0 || currentPeriod === 1) ? ((await buscarSerieNovos(currentAccountId, 7, null, null)) || []) : (serie || [])
       const { data: tots } = await sbClient.from('daily_snapshots').select('captured_at,followers_count').eq('account_id', currentAccountId).order('captured_at', { ascending: false }).limit(6)
       if (myId !== _refreshId) return // trocou de período/perfil no meio → aborta este refresh
