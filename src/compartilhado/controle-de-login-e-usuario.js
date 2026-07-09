@@ -61,6 +61,7 @@ export const RECURSOS = [
   { key: 'acessos', label: 'Colaboradores e Acessos', acoes: ['ver', 'criar', 'editar', 'excluir'] },
   { key: 'noticias', label: 'Portal de Notícias', acoes: ['ver'] },
   { key: 'gestor', label: 'Gestão Comercial (IA)', acoes: ['ver'] },
+  { key: 'gestor.relatorios', label: 'Relatórios Comerciais', acoes: ['ver', 'exportar'] },
 ]
 
 // Ponte: chaves antigas (call sites legados) → recurso novo. Assim nada quebra durante a migração.
