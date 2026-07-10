@@ -32,6 +32,7 @@ import { useRouter } from 'vue-router'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
+import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 
 const router = useRouter()
 const carregando = ref(true)
@@ -60,8 +61,15 @@ async function carregar() {
   carregando.value = false
 }
 
-// Placeholder — a persistência real entra na Task 6.
-function alternar(item, valor) { item.selecionado = valor }
+async function alternar(item, valor) {
+  const anterior = item.selecionado
+  item.selecionado = valor // otimista
+  const { error } = await sbClient.from('fabrica_candidatos').update({ selecionado: valor }).eq('id', item.id)
+  if (error) {
+    item.selecionado = anterior // desfaz
+    adminToast('Não foi possível salvar a seleção', false)
+  }
+}
 
 onMounted(() => {
   if (!hasPermission('module:meta:fabrica')) {
