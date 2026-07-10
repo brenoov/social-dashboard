@@ -30,6 +30,39 @@ async function sbGet(path) {
   return r.json();
 }
 
+async function sbPost(path, body, prefer) {
+  const r = await fetch(REST + path, { method: 'POST', headers: prefer ? { ...sbHeaders, Prefer: prefer } : sbHeaders, body: JSON.stringify(body) });
+  if (!r.ok && ![200, 201, 204].includes(r.status)) throw new Error('REST POST ' + path + ' -> ' + r.status + ' ' + (await r.text()).slice(0, 200));
+  return r;
+}
+
+// Lojas ativas (depósitos) lidas da tabela — respeita o toggle ativo/extensível.
+async function lojasAtivas() {
+  const rows = await sbGet('/fabrica_lojas?select=deposito_id,nome,ativo&ativo=eq.true&order=ordem');
+  return rows; // [{deposito_id, nome, ativo}]
+}
+
+// Regra de pré-seleção (default A): oportunidade/estrela/interrogacao/garimpo entram marcados.
+function preSelecionar(fonte) { return ['oportunidade', 'estrela', 'interrogacao', 'garimpo'].includes(fonte); }
+
+// Casa um candidato extraído com o produto do Bling (por código/SKU, depois por nome).
+function casarProduto(cand, prodPorCodigo, prodPorId) {
+  if (cand.sku) {
+    const chave = cand.sku.toUpperCase();
+    if (prodPorCodigo[chave]) return prodPorCodigo[chave];
+    // prefixo (SKU do briefing pode vir com sufixo de cor/variação)
+    const pref = Object.keys(prodPorCodigo).find(k => chave.startsWith(k) || k.startsWith(chave));
+    if (pref) return prodPorCodigo[pref];
+  }
+  // fallback por nome (contains, normalizado)
+  const alvo = cand.nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const hit = Object.values(prodPorId).find(p => {
+    const n = (p.nome || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    return n && (n.includes(alvo) || alvo.includes(n));
+  });
+  return hit || null;
+}
+
 // ── Último briefing do Gestor ──
 async function buscarUltimoBriefing() {
   const rows = await sbGet('/gestao_comercial_briefings?select=id,rodada,periodo,conteudo,dados_json&order=rodada.desc&limit=1');
@@ -95,7 +128,7 @@ async function extrairCandidatos(briefing) {
     .map(x => ({ sku: x.sku ? String(x.sku).trim() : null, nome: String(x.nome).trim(), fonte: normalizarFonte(x.fonte), angulo: (x.angulo || '').toString().trim() }));
 }
 
-// ── main (nesta task, só extração; enriquecimento/gravação vêm na Task 4) ──
+// ── main ──
 async function main() {
   const token = await loginServico();
   console.log('login serviço ok');
@@ -104,8 +137,61 @@ async function main() {
   const candidatos = await extrairCandidatos(briefing);
   console.log('candidatos extraídos:', candidatos.length);
   for (const c of candidatos) console.log(`  [${c.fonte}] ${c.nome} (sku=${c.sku || '—'}) :: ${c.angulo.slice(0, 60)}`);
-  if (DRY) { console.log('\n(--dry) parando antes de enriquecer/gravar.'); return; }
-  console.log('\n(TODO Task 4: enriquecer via Bling + gravar)');
+
+  // 1) catálogo Bling: id->{nome,codigo,preco} e índice por código (SKU)
+  const prodPorId = await blingProdutos(token);
+  const prodPorCodigo = {};
+  for (const [id, p] of Object.entries(prodPorId)) {
+    p.id = id;
+    if (p.codigo) prodPorCodigo[p.codigo.toUpperCase()] = p;
+  }
+  console.log('produtos Bling:', Object.keys(prodPorId).length);
+
+  // 2) saldo por depósito
+  const saldoPorDep = await blingSaldoFoco(token, prodPorId);
+
+  // 3) lojas ativas
+  const lojas = await lojasAtivas();
+  console.log('lojas ativas:', lojas.map(l => l.nome).join(', '));
+
+  // 4) monta linhas produto × loja (só onde há estoque)
+  const linhas = [];
+  const semMatch = [];
+  for (const c of candidatos) {
+    const prod = casarProduto(c, prodPorCodigo, prodPorId);
+    if (!prod) { semMatch.push(c.nome); continue; }
+    for (const loja of lojas) {
+      const saldo = (saldoPorDep[loja.deposito_id] || {})[prod.id] || 0;
+      if (saldo <= 0) continue;
+      linhas.push({
+        sku: prod.codigo || c.sku || null,
+        nome: prod.nome || c.nome,
+        categoria: classificarItem(prod.nome || c.nome),
+        fonte: c.fonte,
+        angulo: c.angulo,
+        preco: prod.preco || null,
+        deposito_id: loja.deposito_id,
+        loja_nome: loja.nome,
+        estoque: saldo,
+        selecionado: preSelecionar(c.fonte),
+      });
+    }
+  }
+  console.log('linhas produto×loja:', linhas.length, '| sem match no Bling:', semMatch.length, semMatch.slice(0, 8));
+
+  if (DRY) { console.log('\n(--dry) não gravou.'); return; }
+
+  // 5) grava rodada + candidatos
+  const rRod = await sbPost('/fabrica_rodadas',
+    [{ rodada: briefing.rodada, periodo: briefing.periodo, briefing_id: briefing.id, status: 'rascunho' }],
+    'return=representation');
+  const rodada = (await rRod.json())[0];
+  const comRodada = linhas.map(l => ({ ...l, rodada_id: rodada.id }));
+  // insere em lotes de 200
+  for (let i = 0; i < comRodada.length; i += 200) {
+    await sbPost('/fabrica_candidatos', comRodada.slice(i, i + 200), 'return=minimal');
+  }
+  console.log('gravado: rodada', rodada.id, 'com', comRodada.length, 'candidatos.');
 }
 
 main().catch(e => { console.error('FALHOU:', e.message); process.exit(1); });
