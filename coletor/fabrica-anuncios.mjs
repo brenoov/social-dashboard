@@ -50,9 +50,15 @@ function casarProduto(cand, prodPorCodigo, prodPorId) {
   if (cand.sku) {
     const chave = cand.sku.toUpperCase();
     if (prodPorCodigo[chave]) return prodPorCodigo[chave];
-    // prefixo (SKU do briefing pode vir com sufixo de cor/variação)
-    const pref = Object.keys(prodPorCodigo).find(k => chave.startsWith(k) || k.startsWith(chave));
-    if (pref) return prodPorCodigo[pref];
+    // prefixo (SKU do briefing vem com sufixo de cor/variação sobre o código
+    // base do catálogo — a chave extraída começa com o código, não o contrário).
+    // Exige tamanho mínimo de 4 no código do catálogo (sem matches genéricos
+    // ultracurtos) e prefere o mais específico (mais longo) entre os que batem.
+    let melhor = null;
+    for (const k of Object.keys(prodPorCodigo)) {
+      if (k.length >= 4 && chave.startsWith(k) && (!melhor || k.length > melhor.length)) melhor = k;
+    }
+    if (melhor) return prodPorCodigo[melhor];
   }
   // fallback por nome (contains, normalizado)
   const alvo = cand.nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -179,17 +185,48 @@ async function main() {
   }
   console.log('linhas produto×loja:', linhas.length, '| sem match no Bling:', semMatch.length, semMatch.slice(0, 8));
 
+  // dedupe (sku, deposito_id): a UNIQUE(rodada_id, sku, deposito_id) da tabela
+  // rejeitaria o batch inteiro se duas variações (ex.: cores) casarem com o
+  // mesmo produto do Bling na mesma loja. Mantém a 1ª ocorrência. Linhas com
+  // sku nulo são distintas sob a constraint (NULL != NULL) e ficam intactas.
+  const vistos = new Set();
+  const linhasDedup = [];
+  let duplicados = 0;
+  for (const l of linhas) {
+    if (l.sku) {
+      const chave = l.sku + '::' + l.deposito_id;
+      if (vistos.has(chave)) { duplicados++; continue; }
+      vistos.add(chave);
+    }
+    linhasDedup.push(l);
+  }
+  console.log('duplicados removidos:', duplicados);
+
   if (DRY) { console.log('\n(--dry) não gravou.'); return; }
 
-  // 5) grava rodada + candidatos
+  if (!linhasDedup.length) { console.log('nenhuma linha para gravar — rodada não criada.'); return; }
+
+  // 5) grava rodada + candidatos (a rodada precisa existir primeiro pro FK dos
+  // candidatos; se o insert dos candidatos falhar por qualquer motivo, apaga
+  // a rodada órfã pra não deixar a tela apontando pra uma rodada vazia).
   const rRod = await sbPost('/fabrica_rodadas',
     [{ rodada: briefing.rodada, periodo: briefing.periodo, briefing_id: briefing.id, status: 'rascunho' }],
     'return=representation');
   const rodada = (await rRod.json())[0];
-  const comRodada = linhas.map(l => ({ ...l, rodada_id: rodada.id }));
-  // insere em lotes de 200
-  for (let i = 0; i < comRodada.length; i += 200) {
-    await sbPost('/fabrica_candidatos', comRodada.slice(i, i + 200), 'return=minimal');
+  const comRodada = linhasDedup.map(l => ({ ...l, rodada_id: rodada.id }));
+  try {
+    // insere em lotes de 200
+    for (let i = 0; i < comRodada.length; i += 200) {
+      await sbPost('/fabrica_candidatos', comRodada.slice(i, i + 200), 'return=minimal');
+    }
+  } catch (e) {
+    console.error('falha ao gravar candidatos, removendo rodada órfã', rodada.id, ':', e.message);
+    try {
+      await fetch(REST + '/fabrica_rodadas?id=eq.' + rodada.id, { method: 'DELETE', headers: sbHeaders });
+    } catch (e2) {
+      console.error('falha ao remover rodada órfã', rodada.id, ':', e2.message);
+    }
+    throw e;
   }
   console.log('gravado: rodada', rodada.id, 'com', comRodada.length, 'candidatos.');
 }
