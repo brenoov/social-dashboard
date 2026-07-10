@@ -1,0 +1,93 @@
+#!/usr/bin/env node
+// coletor/gerar-criativos.mjs
+// F2a: gera criativos (produto De/Por + promo) da última rodada da F1 + campanha.
+// Uso: node gerar-criativos.mjs --pct 50 --nome "50% OFF - Sales" [--parcelas 10] [--dry]
+import './lib/carregar-env.mjs';
+import { loginServico } from './lib/bling-comercial.mjs';
+import { fotoDataUrl } from './lib/foto-produto.mjs';
+import { renderPNG, fecharRender } from './lib/render-criativo.mjs';
+import { TEMPLATES, DIM } from './templates-criativos/templates.mjs';
+import { variacoesProduto, variacoesPromo } from './lib/criativo-modelo.mjs';
+
+const arg = (f, d) => { const i = process.argv.indexOf(f); return i >= 0 ? process.argv[i + 1] : d; };
+const DRY = process.argv.includes('--dry');
+const PCT = Number(arg('--pct', '50'));
+const NOME = arg('--nome', PCT + '% OFF');
+const PARCELAS = Number(arg('--parcelas', '10'));
+
+const URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
+const SK = process.env.SUPABASE_SERVICE_KEY;
+const REST = URL + '/rest/v1';
+const H = { apikey: SK, Authorization: 'Bearer ' + SK, 'Content-Type': 'application/json' };
+const BUCKET = 'fabrica-criativos';
+
+async function sbGet(p) { const r = await fetch(REST + p, { headers: H }); if (!r.ok) throw new Error('GET ' + p + ' ' + r.status); return r.json(); }
+async function sbPost(p, body, prefer) { const r = await fetch(REST + p, { method: 'POST', headers: prefer ? { ...H, Prefer: prefer } : H, body: JSON.stringify(body) }); if (!r.ok && ![200,201,204].includes(r.status)) throw new Error('POST ' + p + ' ' + r.status + ' ' + (await r.text()).slice(0,200)); return r; }
+
+async function garantirBucket() {
+  await fetch(URL + '/storage/v1/bucket', { method: 'POST', headers: { apikey: SK, Authorization: 'Bearer ' + SK, 'Content-Type': 'application/json' }, body: JSON.stringify({ id: BUCKET, name: BUCKET, public: true }) }).catch(() => {});
+}
+async function subir(path, buf) {
+  const r = await fetch(`${URL}/storage/v1/object/${BUCKET}/${path}`, { method: 'POST', headers: { apikey: SK, Authorization: 'Bearer ' + SK, 'Content-Type': 'image/png', 'x-upsert': 'true' }, body: buf });
+  if (!r.ok) throw new Error('upload ' + path + ' ' + r.status + ' ' + (await r.text()).slice(0,160));
+  return `${URL}/storage/v1/object/public/${BUCKET}/${path}`;
+}
+
+async function main() {
+  const token = await loginServico();
+  const rod = await sbGet('/fabrica_rodadas?select=id,rodada&order=created_at.desc&limit=1');
+  if (!rod.length) throw new Error('sem rodada da F1');
+  const rodadaId = rod[0].id;
+  const cands = await sbGet(`/fabrica_candidatos?select=id,sku,nome,preco,selecionado&rodada_id=eq.${rodadaId}&selecionado=eq.true&order=loja_nome`);
+  console.log('rodada', rod[0].rodada, '| candidatos selecionados:', cands.length);
+
+  // campanha
+  let campanhaId = null;
+  if (!DRY) {
+    const c = await sbPost('/fabrica_campanhas', [{ nome: NOME, desconto_tipo: 'fixo', desconto_pct: PCT, parcelas: PARCELAS }], 'return=representation');
+    campanhaId = (await c.json())[0].id;
+    await garantirBucket();
+  }
+  const campanha = { desconto_tipo: 'fixo', desconto_pct: PCT, parcelas: PARCELAS };
+
+  let gerados = 0;
+  // dedup de foto por sku (produtos iguais em lojas diferentes)
+  const fotoCache = new Map();
+  const fotoDe = async (sku) => { if (!fotoCache.has(sku)) fotoCache.set(sku, await fotoDataUrl(token, sku)); return fotoCache.get(sku); };
+
+  // PRODUTO (dedup por sku: arte é por produto, não por loja)
+  const skusVistos = new Set();
+  for (const cand of cands) {
+    if (cand.sku && skusVistos.has(cand.sku)) continue;
+    if (cand.sku) skusVistos.add(cand.sku);
+    const foto = await fotoDe(cand.sku);
+    if (!foto) { console.warn('  sem foto:', cand.sku, cand.nome); continue; }
+    for (const v of variacoesProduto({ ...cand, fotoDataUrl: foto }, campanha)) {
+      const html = TEMPLATES[v.template].render(v.dados, v.formato);
+      const buf = await renderPNG(html, DIM[v.formato]);
+      gerados++;
+      if (DRY) { console.log('  [dry] produto', cand.sku, v.variante, v.formato, buf.length, 'bytes'); continue; }
+      const path = `${campanhaId}/produto/${cand.sku}-${v.variante}-${v.formato}.png`;
+      const url = await subir(path, buf);
+      await sbPost('/fabrica_criativos', [{ campanha_id: campanhaId, candidato_id: cand.id, arquetipo: 'produto', template: v.template, formato: v.formato, variante: v.variante, preco_de: v.preco_de, preco_por: v.preco_por, storage_path: path, url }], 'return=minimal');
+    }
+  }
+
+  // PROMO (usa a 1ª foto disponível como símbolo)
+  const primeiraFoto = [...fotoCache.values()].find(Boolean) || null;
+  if (primeiraFoto) {
+    for (const v of variacoesPromo(campanha, primeiraFoto, 'Coleção')) {
+      const html = TEMPLATES[v.template].render(v.dados, v.formato);
+      const buf = await renderPNG(html, DIM[v.formato]);
+      gerados++;
+      if (DRY) { console.log('  [dry] promo', v.variante, v.formato, buf.length, 'bytes'); continue; }
+      const path = `${campanhaId}/promo/${v.variante}-${v.formato}.png`;
+      const url = await subir(path, buf);
+      await sbPost('/fabrica_criativos', [{ campanha_id: campanhaId, arquetipo: 'promo', template: v.template, formato: v.formato, variante: v.variante, storage_path: path, url }], 'return=minimal');
+    }
+  }
+
+  await fecharRender();
+  console.log(DRY ? `\n(--dry) geraria ${gerados} criativos.` : `\ngerado: ${gerados} criativos | campanha ${campanhaId}`);
+}
+main().catch(async e => { await fecharRender(); console.error('FALHOU:', e.message); process.exit(1); });
