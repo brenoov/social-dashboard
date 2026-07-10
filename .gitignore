@@ -46,3 +46,6 @@ noticias-sample.json
 
 node_modules
 dist
+
+# fotos de produto baixadas do Bling (cache local p/ criativos F2)
+coletor/fotos-bling/

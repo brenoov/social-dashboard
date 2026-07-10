@@ -99,7 +99,7 @@ Alinhado ao padrão real do projeto: a lógica pesada (IA + integrações extern
 | Componente | Onde | Responsabilidade |
 |---|---|---|
 | `coletor/fabrica-anuncios.mjs` | coletor (Node) | IA lê briefing → lista SKUs + ângulo + fonte; enriquece via Bling (preço + estoque por loja); grava candidatos |
-| `bling-proxy` | edge (já existe) | preço + estoque por depósito (**foto NÃO — ver Riscos**) |
+| `bling-proxy` | edge (já existe) | preço + estoque por depósito + **foto** (endpoint `produtos/{id}` → `imagemURL`/`midia.imagens`; URLs S3 públicas baixáveis) |
 | Proxy Canva / job criativos | edge + coletor (F2) | Canva Autofill → variações × formatos |
 | Proxy Zoho | edge (F2) | salvar artes na pasta |
 | `meta-proxy` + job (F3) | edge (já existe) + coletor | cria campanha por loja |
@@ -150,7 +150,7 @@ Alinhado ao padrão real do projeto: a lógica pesada (IA + integrações extern
 
 ## 11. Riscos & questões abertas
 
-1. **⚠️ Bling não expõe foto de produto hoje** — confirmado: o `bling-proxy`/cliente atual devolve nome, SKU, preço e estoque por loja, mas **nenhuma imagem** (e o fonte do `bling-proxy` não está versionado no repo). Decisão de **F2**: (a) fazer o `bling-proxy` expor a mídia do produto do Bling v3, (b) buscar a foto do Zoho, ou (c) fallback (Canva gera arte sem foto real / pula item). **Não bloqueia a F1** (que não usa foto).
+1. **Foto do produto — RESOLVIDO (era falso alarme).** O `bling-proxy` **já expõe imagem**: o endpoint `produtos/{id}` traz `imagemURL` (https) e/ou `midia.imagens.externas/internas[].link`, hospedadas em `orgbling.s3.amazonaws.com` (URLs públicas). A tela de Gestão Comercial já usa isso (`_gcItemImg` em `tela-de-gestao-comercial.vue`, com fallback variação→produto-pai). Verificado com download real (2026-07-10): 8/8 SKUs de candidatos com foto, `200 image/jpeg`. **F2 reusa `_gcItemImg` + fallback no job e baixa a URL — sem tocar no `bling-proxy`, sem Zoho pra foto.** (O que confundiu antes: o helper `blingProdutos` do coletor descarta a imagem e guarda só nome/código/preço; a resposta crua tem tudo.)
 2. **Extração de SKU da prosa pode errar** — o briefing é markdown livre; a tela de aprovação humana cobre falsos positivos/negativos.
 3. **OAuth Canva/Zoho** — setup de app server-side é trabalho real de F2 (Zoho: verificar reaproveitamento).
 4. **Pasta do Zoho destino** — pendente definição do caminho.
