@@ -111,7 +111,7 @@
             <!-- pontos -->
             <circle v-for="(p, i) in bcgPontos" :key="i" :cx="p.x" :cy="p.y" r="5" :class="'q-' + p.q"
                     :opacity="p.destaque ? 0.9 : 0.12">
-              <title>{{ p.nome }} — {{ p.quadrante }} · Participação {{ fmtPct(p.participacao) }} · Crescimento {{ fmtPct(p.crescimento) }}</title>
+              <title>{{ p.nome }} — {{ p.quadrante }} · Participação {{ fmtPct(p.participacao) }} · {{ p.novo ? 'novo (sem base no período anterior)' : 'Crescimento ' + fmtPct(p.crescimento) }}</title>
             </circle>
           </svg>
           <div class="gc-bcg-leg">
@@ -121,6 +121,7 @@
               <i :class="'q-' + q.id"></i>{{ q.nome }} ({{ contagem[q.id] || 0 }})
             </button>
           </div>
+          <p v-if="bcgNovos" class="gc-bcg-nota">{{ bcgNovos }} {{ bcgNovos === 1 ? 'item sem venda' : 'itens sem venda' }} no período anterior aparece{{ bcgNovos === 1 ? '' : 'm' }} como <b>“novo”</b> (no topo) e não entra{{ bcgNovos === 1 ? '' : 'm' }} no cálculo da mediana de crescimento.</p>
         </div>
         <div class="gc-rel-tbwrap">
           <table class="gc-rel-tb">
@@ -137,7 +138,10 @@
                 <td class="l">{{ l.produto }}</td>
                 <td class="n">{{ fmtR(l.faturamento) }}</td>
                 <td class="n">{{ fmtPct(l.participacao) }}</td>
-                <td class="n" :class="l.crescimento < 0 ? 'neg' : 'pos'">{{ l.crescimento >= 0 ? '+' : '' }}{{ fmtPct(l.crescimento) }}</td>
+                <td class="n" :class="l.novo ? '' : (l.crescimento < 0 ? 'neg' : 'pos')">
+                  <span v-if="l.novo" class="gc-mut" title="Sem venda no período anterior">novo</span>
+                  <template v-else>{{ l.crescimento >= 0 ? '+' : '' }}{{ fmtPct(l.crescimento) }}</template>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -283,6 +287,8 @@ const GC_AJUDA = {
     '<b>Interrogação</b>: ainda leve mas crescendo — aposta a acompanhar.',
     '<b>Abacaxi</b>: leve e caindo — candidato a promoção/saída.',
     'A divisão entre os quadrantes usa a <b>mediana</b> de cada eixo. Clique numa cor da legenda pra filtrar só aquele quadrante.',
+    'Itens <b>sem venda no período anterior</b> aparecem como <b>“novo”</b> (não como “+100%”) e não distorcem a mediana.',
+    '<b>Dica:</b> o crescimento compara com o período anterior de mesmo tamanho. Se o período atual for o <b>mês corrente (ainda em andamento)</b>, a comparação com um mês cheio tende a parecer menor — pra leitura de tendência, prefira um período fechado (mês passado, ano ou personalizado).',
   ] },
   mais: { t: 'Mais vendidos — o que é', p: [
     'Ranking dos itens que <b>mais venderam</b> no período (por faturamento).',
@@ -473,10 +479,22 @@ const abcView = computed(() => ordenarArr(abc.value, ''))
 function mediana(arr) { const s = [...arr].sort((a, b) => a - b); const n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : 0 }
 function matrizBCG(linhas) {
   const total = linhas.reduce((s, l) => s + l.faturamento, 0) || 1
-  const itens = linhas.map(l => ({ ...l, participacao: l.faturamento / total, crescimento: l.fatAnterior > 0 ? (l.faturamento - l.fatAnterior) / l.fatAnterior : (l.faturamento > 0 ? 1 : 0) }))
-  const mp = mediana(itens.map(i => i.participacao)), mc = mediana(itens.map(i => i.crescimento))
-  const q = itens.map(i => ({ ...i, quadrante: i.participacao >= mp && i.crescimento >= mc ? 'Estrela' : i.participacao >= mp && i.crescimento < mc ? 'Vaca leiteira' : i.participacao < mp && i.crescimento >= mc ? 'Interrogação' : 'Abacaxi' }))
-  return { itens: q, medPart: mp, medCresc: mc }
+  const itens = linhas.map(l => {
+    const novo = !(l.fatAnterior > 0)   // sem venda no período anterior → crescimento indefinido
+    return { ...l, novo, participacao: l.faturamento / total, crescimento: novo ? Infinity : (l.faturamento - l.fatAnterior) / l.fatAnterior }
+  })
+  // mediana de crescimento SÓ sobre itens com base real (os "novos" não distorcem o corte)
+  const comBase = itens.filter(i => !i.novo)
+  const mp = mediana(itens.map(i => i.participacao))
+  const mc = comBase.length ? mediana(comBase.map(i => i.crescimento)) : 0
+  const q = itens.map(i => {
+    const alto = i.novo || i.crescimento >= mc   // novo conta como momentum alto
+    return { ...i, quadrante:
+      i.participacao >= mp && alto ? 'Estrela'
+        : i.participacao >= mp && !alto ? 'Vaca leiteira'
+          : i.participacao < mp && alto ? 'Interrogação' : 'Abacaxi' }
+  })
+  return { itens: q, medPart: mp, medCresc: mc, novos: itens.length - comBase.length }
 }
 const bcgAll = computed(() => matrizBCG(linhas.value))
 const bcgFiltrado = computed(() => filtroQuadrante.value === 'todos' ? bcgAll.value.itens : bcgAll.value.itens.filter(i => i.quadrante === filtroQuadrante.value))
@@ -484,6 +502,7 @@ const bcgView = computed(() => ordenarArr(bcgFiltrado.value, 'faturamento'))
 const medPart = computed(() => bcgAll.value.medPart)
 const medCresc = computed(() => bcgAll.value.medCresc)
 const contagem = computed(() => { const c = {}; for (const i of bcgAll.value.itens) c[quadKey(i.quadrante)] = (c[quadKey(i.quadrante)] || 0) + 1; return c })
+const bcgNovos = computed(() => bcgAll.value.novos || 0)
 function quadKey(q) { return q === 'Estrela' ? 'estrela' : q === 'Vaca leiteira' ? 'vaca' : q === 'Interrogação' ? 'interrogacao' : 'abacaxi' }
 
 // ── Mais vendidos ──
@@ -548,14 +567,15 @@ const rupturaView = computed(() => {
 
 // ── Scatter BCG ──
 const SW = 640, SH = 300, PAD = 24
+const crescFinitos = computed(() => bcgAll.value.itens.map(i => i.crescimento).filter(Number.isFinite))
 const maxPart = computed(() => Math.max(0.0001, ...bcgAll.value.itens.map(i => i.participacao)))
-const crescMin = computed(() => Math.min(-0.2, ...bcgAll.value.itens.map(i => i.crescimento)))
-const crescMax = computed(() => Math.max(0.5, ...bcgAll.value.itens.map(i => i.crescimento)))
+const crescMin = computed(() => Math.min(-0.2, ...crescFinitos.value))
+const crescMax = computed(() => Math.max(0.5, ...crescFinitos.value))
 function sx(part) { return PAD + (part / maxPart.value) * (SW - 2 * PAD) }
-function sy(cresc) { const t = (cresc - crescMin.value) / (crescMax.value - crescMin.value || 1); return SH - PAD - t * (SH - 2 * PAD) }
+function sy(cresc) { if (!Number.isFinite(cresc)) return PAD; const t = (cresc - crescMin.value) / (crescMax.value - crescMin.value || 1); return SH - PAD - t * (SH - 2 * PAD) }
 const bcgPontos = computed(() => bcgAll.value.itens.map(i => ({
   x: sx(i.participacao), y: sy(i.crescimento), q: quadKey(i.quadrante), nome: i.produto, quadrante: i.quadrante,
-  participacao: i.participacao, crescimento: i.crescimento,
+  participacao: i.participacao, crescimento: i.crescimento, novo: i.novo,
   destaque: filtroQuadrante.value === 'todos' || filtroQuadrante.value === i.quadrante,
 })))
 
@@ -674,6 +694,8 @@ onMounted(() => {
 .gc-bcg-leg i.q-vaca{background:#2563eb;}
 .gc-bcg-leg i.q-interrogacao{background:#7c3aed;}
 .gc-bcg-leg i.q-abacaxi{background:#e11d48;}
+.gc-bcg-nota{margin:10px 0 0;font-size:calc(11.5px*var(--gc-fs,1));color:var(--muted);line-height:1.5;}
+.gc-bcg-nota b{color:var(--text);}
 @media (max-width:640px){
   .gc-rel-filtros{gap:10px;}
   .gc-rel-sel{margin-left:0;width:100%;}
