@@ -3,10 +3,10 @@
 // viewport exato e devolve o PNG. Chromium headless via puppeteer.
 import puppeteer from 'puppeteer';
 
-let _browser = null;
+let _browserPromise = null;
 async function browser() {
-  if (!_browser) _browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-  return _browser;
+  if (!_browserPromise) _browserPromise = puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+  return _browserPromise;
 }
 
 export async function renderPNG(html, { width, height }) {
@@ -23,4 +23,4 @@ export async function renderPNG(html, { width, height }) {
   }
 }
 
-export async function fecharRender() { if (_browser) { await _browser.close(); _browser = null; } }
+export async function fecharRender() { if (_browserPromise) { const b = await _browserPromise; await b.close(); _browserPromise = null; } }
