@@ -83,22 +83,27 @@ Cada variação sai nos **2 formatos**: Feed **1:1** e Story/Reels **9:16**.
 
 **Templates:** parte já existe no Canva (a definir quais). O restante nós criamos: no mínimo um template-base de **produto** (com campos De/Por/riscado/parcelado como variáveis de Autofill) e um de **promo**.
 
+**Alternativa de motor de criativos (decisão de F2, em aberto):** em vez de Canva Autofill, o Claude pode **gerar a arte** (HTML/CSS → PNG via render próprio). Trade-off: Canva dá consistência de marca, reuso dos templates prontos e edição posterior no Canva; Claude dá muito mais variedade mas sem padrão rígido nem "abrir no Canva pra mexer". Inclinação atual: **Canva para produto** (marca consistente, preço/parcelado como campos) e **Claude como carta na manga para as promos abertas** (Sales 50%, Toda a loja), onde variedade vale mais que padrão. Cravar na F2.
+
 ---
 
 ## 6. Arquitetura & componentes
 
-- **Motor** = Edge Functions no Supabase (mesmas que um cron futuro pode chamar). Nada de lógica pesada no front.
-- **UI** = nova seção dentro do módulo **Meta Ads** (Vue), topbar padrão, **permissão própria** (`module:meta:fabrica`) gateada por admin — seguindo a regra "submódulo novo = permissão própria".
-- **IA de extração** = Opus, chave/segredo separado (padrão dos outros robôs do projeto).
+Alinhado ao padrão real do projeto: a lógica pesada (IA + integrações externas) vive em **jobs do coletor** (Node `.mjs`, GitHub Actions), que falam com APIs externas via **proxies edge** guardando os tokens. O front só lê/escreve tabelas.
 
-### Edge Functions
-| Função | Responsabilidade |
-|---|---|
-| `extrair-candidatos` | IA lê o briefing → lista estruturada de SKUs + ângulo + fonte |
-| `enriquecer-bling` | por SKU: preço De/Por + foto + estoque por loja (via `bling-proxy`) |
-| `gerar-criativos-canva` | Canva Autofill dos templates → variações × formatos |
-| `salvar-zoho` | sobe as artes escolhidas na pasta do Zoho |
-| `subir-meta` | cria campanha por loja no Meta (via `meta-proxy`) — detalhe = F3 |
+- **Motor** = jobs no `coletor/` (mesmo padrão do Gestor Comercial `coletor/gestor-comercial.mjs`), reusando os proxies edge (`bling-proxy`, `meta-proxy`) + novos proxies para Canva/Zoho. Um cron futuro dispara o mesmo job.
+- **UI** = nova seção dentro do módulo **Meta Ads** (Vue, padrão reativo do `tela-de-menu-meta-ads.vue`), **permissão própria** (`meta.fabrica` / `module:meta:fabrica`) gateada por admin — regra "submódulo novo = permissão própria".
+- **IA de extração** = Opus (`claude-opus-4-8`), secret separado (`ANTHROPIC_API_KEY_FABRICA`, fallback `ANTHROPIC_API_KEY_GESTOR`).
+
+### Componentes por camada
+| Componente | Onde | Responsabilidade |
+|---|---|---|
+| `coletor/fabrica-anuncios.mjs` | coletor (Node) | IA lê briefing → lista SKUs + ângulo + fonte; enriquece via Bling (preço + estoque por loja); grava candidatos |
+| `bling-proxy` | edge (já existe) | preço + estoque por depósito (**foto NÃO — ver Riscos**) |
+| Proxy Canva / job criativos | edge + coletor (F2) | Canva Autofill → variações × formatos |
+| Proxy Zoho | edge (F2) | salvar artes na pasta |
+| `meta-proxy` + job (F3) | edge (já existe) + coletor | cria campanha por loja |
+| Tela `tela-de-fabrica-de-anuncios.vue` | front (Vue) | seleção por loja + curadoria (lê/escreve tabelas `fabrica_*`) |
 
 ---
 
@@ -145,7 +150,7 @@ Cada variação sai nos **2 formatos**: Feed **1:1** e Story/Reels **9:16**.
 
 ## 11. Riscos & questões abertas
 
-1. **Produtos sem foto no Bling** — decidir fallback (Canva gera arte sem foto real, ou pula o item). Risco, não bloqueia.
+1. **⚠️ Bling não expõe foto de produto hoje** — confirmado: o `bling-proxy`/cliente atual devolve nome, SKU, preço e estoque por loja, mas **nenhuma imagem** (e o fonte do `bling-proxy` não está versionado no repo). Decisão de **F2**: (a) fazer o `bling-proxy` expor a mídia do produto do Bling v3, (b) buscar a foto do Zoho, ou (c) fallback (Canva gera arte sem foto real / pula item). **Não bloqueia a F1** (que não usa foto).
 2. **Extração de SKU da prosa pode errar** — o briefing é markdown livre; a tela de aprovação humana cobre falsos positivos/negativos.
 3. **OAuth Canva/Zoho** — setup de app server-side é trabalho real de F2 (Zoho: verificar reaproveitamento).
 4. **Pasta do Zoho destino** — pendente definição do caminho.
