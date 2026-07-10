@@ -57,6 +57,7 @@ export const RECURSOS = [
   { key: 'sales.metas', label: 'Metas de Vendas', acoes: ['ver', 'editar'] },
   { key: 'meta.campanha', label: 'Análise de Campanhas', acoes: ['ver', 'exportar'] },
   { key: 'meta.gestor', label: 'Gestão de Tráfego', acoes: ['ver', 'editar'] },
+  { key: 'meta.fabrica', label: 'Fábrica de Anúncios', acoes: ['ver', 'editar'] },
   { key: 'banco', label: 'Banco de Arquivos', acoes: ['ver', 'criar', 'excluir'] },
   { key: 'acessos', label: 'Colaboradores e Acessos', acoes: ['ver', 'criar', 'editar', 'excluir'] },
   { key: 'noticias', label: 'Portal de Notícias', acoes: ['ver'] },
@@ -68,7 +69,7 @@ export const RECURSOS = [
 const _legado = {
   'tool:social': 'social', 'tool:sales': 'sales', 'tool:meta': 'meta', 'tool:acessos': 'acessos',
   'module:sales:gestao-vista': 'sales.gestao', 'module:sales:analise-vendas': 'sales.analise',
-  'module:meta:campanha': 'meta.campanha', 'module:meta:gestor': 'meta.gestor',
+  'module:meta:campanha': 'meta.campanha', 'module:meta:gestor': 'meta.gestor', 'module:meta:fabrica': 'meta.fabrica',
 }
 
 // Libera/bloqueia por recurso E ação. Super-admin vê tudo. Retrocompatível com as chaves antigas.
@@ -77,7 +78,7 @@ export function hasPermission(recurso, acao = 'ver') {
   const key = _legado[recurso] || recurso
   // Pais 'sales'/'meta' (tool:*) = tem acesso se tiver QUALQUER filho do grupo.
   if (key === 'sales') return ['sales.gestao', 'sales.analise', 'sales.metas'].some(k => (estado.permissions[k] || []).includes('ver'))
-  if (key === 'meta') return ['meta.campanha', 'meta.gestor'].some(k => (estado.permissions[k] || []).includes('ver'))
+  if (key === 'meta') return ['meta.campanha', 'meta.gestor', 'meta.fabrica'].some(k => (estado.permissions[k] || []).includes('ver'))
   return (estado.permissions[key] || []).includes(acao)
 }
 
@@ -96,6 +97,7 @@ export const PERMISSION_TREE = [
   { key: 'meta', label: 'Meta Ads', children: [
     { key: 'meta.campanha', label: 'Análise de Campanhas' },
     { key: 'meta.gestor', label: 'Gestão de Tráfego' },
+    { key: 'meta.fabrica', label: 'Fábrica de Anúncios' },
   ] },
   { key: 'banco', label: 'Banco de Arquivos', children: [] },
   { key: 'noticias', label: 'Portal de Notícias', children: [] },
