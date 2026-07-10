@@ -111,7 +111,7 @@
             <!-- pontos -->
             <circle v-for="(p, i) in bcgPontos" :key="i" :cx="p.x" :cy="p.y" r="5" :class="'q-' + p.q"
                     :opacity="p.destaque ? 0.9 : 0.12">
-              <title>{{ p.nome }} — {{ p.quadrante }} · Participação {{ fmtPct(p.participacao) }} · {{ p.novo ? 'novo (sem base no período anterior)' : 'Crescimento ' + fmtPct(p.crescimento) }}</title>
+              <title>{{ p.nome }} — {{ p.quadrante }} · Participação {{ fmtPct(p.participacao) }} · {{ p.novo ? (p.tipoNovo === 'dormante' ? ('dormante — 1ª venda ' + (p.primeiraVenda || '?') + ', sem venda no período anterior') : 'novo — 1ª venda no período atual') : 'Crescimento ' + fmtPct(p.crescimento) }}</title>
             </circle>
           </svg>
           <div class="gc-bcg-leg">
@@ -121,7 +121,9 @@
               <i :class="'q-' + q.id"></i>{{ q.nome }} ({{ contagem[q.id] || 0 }})
             </button>
           </div>
-          <p v-if="bcgNovos" class="gc-bcg-nota">{{ bcgNovos }} {{ bcgNovos === 1 ? 'item sem venda' : 'itens sem venda' }} no período anterior aparece{{ bcgNovos === 1 ? '' : 'm' }} como <b>“novo”</b> (no topo) e não entra{{ bcgNovos === 1 ? '' : 'm' }} no cálculo da mediana de crescimento.</p>
+          <p v-if="bcgNovos || bcgDormantes" class="gc-bcg-nota">
+            No topo (sem base no período anterior): <b class="gc-tag novo">{{ bcgNovos }} novo{{ bcgNovos === 1 ? '' : 's' }}</b> (1ª venda no período) e <b class="gc-tag dorm">{{ bcgDormantes }} dormante{{ bcgDormantes === 1 ? '' : 's' }}</b> (já vendeu antes, ficou parado). Não entram no cálculo da mediana de crescimento.
+          </p>
         </div>
         <div class="gc-rel-tbwrap">
           <table class="gc-rel-tb">
@@ -139,7 +141,10 @@
                 <td class="n">{{ fmtR(l.faturamento) }}</td>
                 <td class="n">{{ fmtPct(l.participacao) }}</td>
                 <td class="n" :class="l.novo ? '' : (l.crescimento < 0 ? 'neg' : 'pos')">
-                  <span v-if="l.novo" class="gc-mut" title="Sem venda no período anterior">novo</span>
+                  <span v-if="l.novo" class="gc-tag" :class="l.tipoNovo === 'dormante' ? 'dorm' : 'novo'"
+                        :title="l.tipoNovo === 'dormante' ? ('Já vendeu antes (1ª venda ' + (l.primeiraVenda || '?') + '); ficou sem venda no período anterior') : 'Primeira venda no período atual'">
+                    {{ l.tipoNovo === 'dormante' ? 'dormante' : 'novo' }}
+                  </span>
                   <template v-else>{{ l.crescimento >= 0 ? '+' : '' }}{{ fmtPct(l.crescimento) }}</template>
                 </td>
               </tr>
@@ -287,7 +292,7 @@ const GC_AJUDA = {
     '<b>Interrogação</b>: ainda leve mas crescendo — aposta a acompanhar.',
     '<b>Abacaxi</b>: leve e caindo — candidato a promoção/saída.',
     'A divisão entre os quadrantes usa a <b>mediana</b> de cada eixo. Clique numa cor da legenda pra filtrar só aquele quadrante.',
-    'Itens <b>sem venda no período anterior</b> aparecem como <b>“novo”</b> (não como “+100%”) e não distorcem a mediana.',
+    'Itens <b>sem venda no período anterior</b> não viram “+100%”: aparecem como <b>“novo”</b> (a 1ª venda deles foi agora) ou <b>“dormante”</b> (já vendiam antes e ficaram parados), pela 1ª venda no histórico. Não distorcem a mediana.',
     '<b>Dica:</b> o crescimento compara com o período anterior de mesmo tamanho. Se o período atual for o <b>mês corrente (ainda em andamento)</b>, a comparação com um mês cheio tende a parecer menor — pra leitura de tendência, prefira um período fechado (mês passado, ano ou personalizado).',
   ] },
   mais: { t: 'Mais vendidos — o que é', p: [
@@ -323,6 +328,7 @@ const erro = ref('')
 const rowsAtuais = ref([])
 const rowsAnteriores = ref([])
 const estoqueRaw = ref([])
+const primeiraVendaPorSku = ref(new Map())   // sku → 1º mês com venda (histórico todo) — p/ novo × dormante
 const sortState = ref({ col: '', dir: 'desc' })
 
 const anoAtual = new Date().getUTCFullYear()
@@ -413,6 +419,17 @@ async function fetchEstoque() {
   }
   return rows
 }
+// 1ª venda de cada sku no histórico inteiro (leve: só sku,mes) — proxy de "cadastro"
+async function fetchPrimeiraVenda() {
+  const size = 1000, m = new Map()
+  for (let from = 0; ; from += size) {
+    const { data, error } = await sbClient.from('gc_vendas_item').select('sku,mes').range(from, from + size - 1)
+    if (error) { primeiraVendaPorSku.value = m; return }
+    for (const r of (data || [])) { const mes = String(r.mes).slice(0, 7); const cur = m.get(r.sku); if (!cur || mes < cur) m.set(r.sku, mes) }
+    if (!data || data.length < size) break
+  }
+  primeiraVendaPorSku.value = m
+}
 
 // filtro de canal (client-side) + categoria (tipo de bolsa)
 const catDe = (r) => r.categoria || 'Outros'
@@ -496,13 +513,23 @@ function matrizBCG(linhas) {
   })
   return { itens: q, medPart: mp, medCresc: mc, novos: itens.length - comBase.length }
 }
-const bcgAll = computed(() => matrizBCG(linhas.value))
+const bcgAll = computed(() => {
+  const r = matrizBCG(linhas.value)
+  const inicioAtual = janelas()?.atuais?.[0] || ''
+  const itens = r.itens.map(i => {
+    if (!i.novo) return { ...i, tipoNovo: null, primeiraVenda: null }
+    const pv = granularidade.value === 'sku' ? primeiraVendaPorSku.value.get(i.chave) : null
+    return { ...i, tipoNovo: (pv && pv < inicioAtual) ? 'dormante' : 'novo', primeiraVenda: pv || null }
+  })
+  return { ...r, itens }
+})
 const bcgFiltrado = computed(() => filtroQuadrante.value === 'todos' ? bcgAll.value.itens : bcgAll.value.itens.filter(i => i.quadrante === filtroQuadrante.value))
 const bcgView = computed(() => ordenarArr(bcgFiltrado.value, 'faturamento'))
 const medPart = computed(() => bcgAll.value.medPart)
 const medCresc = computed(() => bcgAll.value.medCresc)
 const contagem = computed(() => { const c = {}; for (const i of bcgAll.value.itens) c[quadKey(i.quadrante)] = (c[quadKey(i.quadrante)] || 0) + 1; return c })
-const bcgNovos = computed(() => bcgAll.value.novos || 0)
+const bcgNovos = computed(() => bcgAll.value.itens.filter(i => i.tipoNovo === 'novo').length)
+const bcgDormantes = computed(() => bcgAll.value.itens.filter(i => i.tipoNovo === 'dormante').length)
 function quadKey(q) { return q === 'Estrela' ? 'estrela' : q === 'Vaca leiteira' ? 'vaca' : q === 'Interrogação' ? 'interrogacao' : 'abacaxi' }
 
 // ── Mais vendidos ──
@@ -575,7 +602,7 @@ function sx(part) { return PAD + (part / maxPart.value) * (SW - 2 * PAD) }
 function sy(cresc) { if (!Number.isFinite(cresc)) return PAD; const t = (cresc - crescMin.value) / (crescMax.value - crescMin.value || 1); return SH - PAD - t * (SH - 2 * PAD) }
 const bcgPontos = computed(() => bcgAll.value.itens.map(i => ({
   x: sx(i.participacao), y: sy(i.crescimento), q: quadKey(i.quadrante), nome: i.produto, quadrante: i.quadrante,
-  participacao: i.participacao, crescimento: i.crescimento, novo: i.novo,
+  participacao: i.participacao, crescimento: i.crescimento, novo: i.novo, tipoNovo: i.tipoNovo, primeiraVenda: i.primeiraVenda,
   destaque: filtroQuadrante.value === 'todos' || filtroQuadrante.value === i.quadrante,
 })))
 
@@ -588,7 +615,7 @@ function tabelaAtiva() {
   const nomeCanal = canal.value === '0' ? 'consolidado' : (CANAIS.find(c => c.id === canal.value)?.nome || canal.value)
   const base = `relatorio-${relatorio.value}-${nomeCanal}-${periodo.value}`.toLowerCase().replace(/[^a-z0-9-]+/g, '-')
   if (relatorio.value === 'abc') return { nome: base, head: ['Classe', rotuloChave.value, 'Categoria', 'Unidades', 'Faturamento', '%', '% acum.'], rows: abcView.value.map(l => [l.classe, l.produto, l.categoria, l.unidades, l.faturamento, l.pct, l.pctAcum]) }
-  if (relatorio.value === 'bcg') return { nome: base, head: ['Quadrante', rotuloChave.value, 'Faturamento', 'Participação', 'Crescimento'], rows: bcgView.value.map(l => [l.quadrante, l.produto, l.faturamento, l.participacao, l.crescimento]) }
+  if (relatorio.value === 'bcg') return { nome: base, head: ['Quadrante', rotuloChave.value, 'Faturamento', 'Participação', 'Crescimento', '1ª venda'], rows: bcgView.value.map(l => [l.quadrante, l.produto, l.faturamento, l.participacao, l.novo ? (l.tipoNovo || 'novo') : l.crescimento, l.primeiraVenda || '']) }
   if (relatorio.value === 'mais') return { nome: base, head: ['#', rotuloChave.value, 'Categoria', 'Unidades', 'Faturamento'], rows: maisView.value.map((l, i) => [i + 1, l.produto, l.categoria, l.unidades, l.faturamento]) }
   if (relatorio.value === 'menos') return { nome: base, head: ['Item', 'Categoria', 'Unidades', 'Faturamento', 'Estoque', 'Situação'], rows: menosView.value.map(l => [l.produto, l.categoria, l.unidades, l.faturamento, l.saldo, l.unidades === 0 && l.saldo > 0 ? 'Encalhado' : '']) }
   if (relatorio.value === 'categoria') return { nome: base, head: ['Categoria', ...CANAIS.map(c => c.nome), 'Total'], rows: [...pivotView.value.map(r => [r.categoria, ...CANAIS.map(c => r.por[c.id] || 0), r.total]), ['Total', ...CANAIS.map(c => pivotTotais.value.por[c.id] || 0), pivotTotais.value.total]] }
@@ -615,6 +642,7 @@ watch([periodo, mesIni, mesFim], carregar)
 onMounted(() => {
   const hoje = ymDe(new Date())
   mesFim.value = hoje; mesIni.value = addMeses(hoje, -2)
+  fetchPrimeiraVenda()
   carregar()
 })
 </script>
@@ -694,8 +722,11 @@ onMounted(() => {
 .gc-bcg-leg i.q-vaca{background:#2563eb;}
 .gc-bcg-leg i.q-interrogacao{background:#7c3aed;}
 .gc-bcg-leg i.q-abacaxi{background:#e11d48;}
-.gc-bcg-nota{margin:10px 0 0;font-size:calc(11.5px*var(--gc-fs,1));color:var(--muted);line-height:1.5;}
+.gc-bcg-nota{margin:10px 0 0;font-size:calc(11.5px*var(--gc-fs,1));color:var(--muted);line-height:1.7;}
 .gc-bcg-nota b{color:var(--text);}
+.gc-tag{display:inline-block;padding:1px 8px;border-radius:20px;font-size:calc(10px*var(--gc-fs,1));font-weight:700;letter-spacing:.3px;}
+.gc-tag.novo{background:rgba(34,197,94,.15);color:var(--green);}
+.gc-tag.dorm{background:rgba(217,119,6,.18);color:#b45309;}
 @media (max-width:640px){
   .gc-rel-filtros{gap:10px;}
   .gc-rel-sel{margin-left:0;width:100%;}
