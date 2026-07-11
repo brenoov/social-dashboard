@@ -408,6 +408,69 @@ function produtoSplit(dados, formato) {
   return pagina(inner, formato);
 }
 
+// PRODUTO · Modelo (split: foto ORIGINAL da modelo com bolsa — com o fundo dela,
+// SEM recorte — à esquerda; oferta "50%"+"OFF" + nome + De/Por + CTA à direita
+// sobre fundo colorido. 4 variantes de cor do protótipo: sage (Sage Suede) /
+// pearl (Soft Pearl) / espresso (Dark Espresso, texto claro) — 'sage' é o default.)
+const VARIANTES_MODELO = {
+  sage:     { bgDireita: '#c2cfb4', monoPattern: MONO.cream, monoPatternOpacity: .13, corBorda: '#89a88b', lineColor: '#597a5c', saleColor: '#597a5c', offColor: '#597a5c', monoTopo: MONO.brown, textoCor: '#582f0a', nomeCor: '#582f0a', ofertaCor: '#582f0a', precoDeCor: '#8f7d64', precoPorCor: '#582f0a', copyCor: '#4f5c43', ctaBg: '#582f0a', ctaCor: '#f2f1ed', ctaSeta: '#f2f1ed' },
+  pearl:    { bgDireita: '#f2f1ed', monoPattern: MONO.olive, monoPatternOpacity: .06, corBorda: '#89a88b', lineColor: '#89a88b', saleColor: '#597a5c', offColor: '#597a5c', monoTopo: MONO.brown, textoCor: '#582f0a', nomeCor: '#582f0a', ofertaCor: '#582f0a', precoDeCor: '#8f7d64', precoPorCor: '#582f0a', copyCor: '#7a5a37', ctaBg: '#89a88b', ctaCor: '#f2f1ed', ctaSeta: '#f2f1ed' },
+  espresso: { bgDireita: '#43250a', monoPattern: MONO.cream, monoPatternOpacity: .05, corBorda: '#c9a54f', lineColor: '#c9a54f', saleColor: '#e0c893', offColor: '#e0c893', monoTopo: MONO.cream, textoCor: '#f3ecdd', nomeCor: '#f3ecdd', ofertaCor: '#fdf6e6', precoDeCor: '#c3a684', precoPorCor: '#fdf6e6', copyCor: '#e4e6d9', ctaBg: '#f3ecdd', ctaCor: '#43250a', ctaSeta: '#a98545' },
+};
+
+function produtoModelo(dados, formato) {
+  const d = DIM[formato];
+  const isStory = formato === '1080x1920';
+  const v = VARIANTES_MODELO[dados.varianteCor] || VARIANTES_MODELO.sage;
+  const leftWidth = isStory ? 640 : 600;
+  const pad = isStory ? '70px 40px 60px' : '56px 36px 52px';
+  const fMono = isStory ? 42 : 40;
+  const fBrand = isStory ? 38 : 36;
+  const lineW = isStory ? 34 : 30;
+  const fSale = isStory ? 23 : 21;
+  const fOferta = isStory ? 206 : 196;
+  const fOff = isStory ? 54 : 52;
+  const fNome = isStory ? 58 : 54;
+  const fDe = isStory ? 48 : 46;
+  const fPor = isStory ? 82 : 80;
+  const fCta = isStory ? 27 : 25;
+  const ctaPad = isStory ? '26px 60px' : '24px 56px';
+  const fSeta = isStory ? 24 : 25;
+  const objectPosition = dados.modeloObjectPosition || '50% 30%';
+  const inner = `
+  <div style="position:relative;width:${d.width}px;height:${d.height}px;background:${v.bgDireita};overflow:hidden;color:${v.textoCor};font-family:'Archivo',sans-serif;display:flex;">
+    <div style="position:relative;flex:0 0 ${leftWidth}px;height:100%;overflow:hidden;background:#eceae9;border-right:3px solid ${v.corBorda};">
+      <img src="${dados.modeloFotoUrl}" style="width:100%;height:100%;object-fit:cover;object-position:${objectPosition};">
+    </div>
+    <div style="position:relative;flex:1 1 auto;overflow:hidden;background:${v.bgDireita};">
+      <div style="position:absolute;inset:0;background-image:url('${v.monoPattern}');background-repeat:repeat;background-size:180px;opacity:${v.monoPatternOpacity};"></div>
+      <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column;align-items:center;text-align:center;padding:${pad};">
+        <img src="${v.monoTopo}" style="height:${fMono}px;width:auto;">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:${fBrand}px;font-weight:500;margin-top:8px;white-space:nowrap;color:${v.textoCor};">La <span style="font-style:italic;">vessel</span></div>
+        <div style="flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:18px;">
+          <div style="display:flex;align-items:center;gap:14px;">
+            <span style="width:${lineW}px;height:1px;background:${v.lineColor};"></span>
+            <span style="font-size:${fSale}px;letter-spacing:.46em;text-transform:uppercase;color:${v.saleColor};font-weight:600;padding-left:.46em;">${esc(dados.eyebrow || 'Sale')}</span>
+            <span style="width:${lineW}px;height:1px;background:${v.lineColor};"></span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:0;">
+            <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${fOferta}px;font-weight:500;line-height:.78;color:${v.ofertaCor};">${dados.oferta || '50%'}</span>
+            <span style="font-family:'Archivo',sans-serif;font-weight:700;font-size:${fOff}px;letter-spacing:.4em;color:${v.offColor};padding-left:.4em;margin-top:-8px;">OFF</span>
+          </div>
+          <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:${fNome}px;color:${v.nomeCor};line-height:1;">${esc(dados.nome)}</div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${fDe}px;font-weight:500;color:${v.precoDeCor};text-decoration:line-through;text-decoration-thickness:1.5px;white-space:nowrap;">R$ ${dados.precoDe}</span>
+            <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${fPor}px;font-weight:600;white-space:nowrap;color:${v.precoPorCor};">R$ ${dados.precoPor}</span>
+          </div>${dados.copyEfeito ? `
+          <div style="font-family:'Archivo',sans-serif;font-size:20px;letter-spacing:.14em;text-transform:uppercase;color:${v.copyCor};font-weight:600;">${esc(dados.copyEfeito)}</div>` : ''}
+        </div>
+        <div style="background:${v.ctaBg};color:${v.ctaCor};font-weight:600;font-size:${fCta}px;letter-spacing:.2em;text-transform:uppercase;padding:${ctaPad};padding-left:calc(${ctaPad.split(' ')[1]} + .2em);border-radius:999px;box-shadow:0 16px 34px rgba(0,0,0,.28);display:flex;align-items:center;gap:14px;white-space:nowrap;">${esc(dados.cta || 'Comprar agora')} <span style="font-size:${fSeta}px;line-height:1;color:${v.ctaSeta};">&#8594;</span></div>
+      </div>
+    </div>
+  </div>`;
+  return pagina(inner, formato);
+}
+
 export const TEMPLATES = {
   'promo-number-hero':   { arquetipo: 'promo', nome: 'Promo · Number Hero', render: promoNumberHero },
   'produto-heroi':       { arquetipo: 'produto', nome: 'Produto · Herói', render: produtoHeroi },
@@ -419,5 +482,6 @@ export const TEMPLATES = {
   'editorial-sale':      { arquetipo: 'produto', nome: 'Editorial · Sale', render: editorialSale },
   'editorial-v2':        { arquetipo: 'produto', nome: 'Editorial · V2', render: editorialV2 },
   'produto-split':       { arquetipo: 'produto', nome: 'Produto · Split', render: produtoSplit },
+  'produto-modelo':      { arquetipo: 'produto', nome: 'Produto · Modelo', render: produtoModelo },
 };
 export { DIM };
