@@ -12,6 +12,8 @@ const MONO = { brown: b64('monogram-brown.png'), cream: b64('monogram-cream.png'
 
 const DIM = { '1080x1920': { width: 1080, height: 1920 }, '1080x1350': { width: 1080, height: 1350 } };
 
+const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
 // wrapper autocontido: injeta fontes + normaliza body pro tamanho exato
 function pagina(inner, formato) {
   const d = DIM[formato];
@@ -42,9 +44,9 @@ function promoNumberHero(dados, formato) {
         <img src="${dados.fotoDataUrl}" style="width:${s(560)}px;height:${s(560)}px;object-fit:contain;">
       </div>
       <div style="display:flex;flex-direction:column;align-items:center;">
-        <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:${s(44)}px;">${dados.nome}</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:${s(44)}px;">${esc(dados.nome)}</div>
         <div style="font-size:${s(23)}px;letter-spacing:.14em;text-transform:uppercase;color:#e4e6d9;opacity:.8;margin-top:12px;">Preço que não volta</div>${dados.copyEfeito ? `
-        <div style="font-family:'Archivo',sans-serif;font-size:${s(22)}px;letter-spacing:.14em;text-transform:uppercase;color:#c2cfb4;font-weight:600;margin-top:10px;">${dados.copyEfeito}</div>` : ''}
+        <div style="font-family:'Archivo',sans-serif;font-size:${s(22)}px;letter-spacing:.14em;text-transform:uppercase;color:#c2cfb4;font-weight:600;margin-top:10px;">${esc(dados.copyEfeito)}</div>` : ''}
       </div>
       <div style="background:#89a88b;color:#f2f1ed;font-weight:600;font-size:${s(27)}px;letter-spacing:.2em;text-transform:uppercase;padding:${s(32)}px ${s(82)}px;border-radius:999px;box-shadow:0 18px 36px rgba(0,0,0,.3);display:flex;align-items:center;gap:18px;">${dados.cta || 'Compre já'} <span style="font-size:${s(30)}px;line-height:1;">&#8594;</span></div>
     </div>
@@ -74,9 +76,9 @@ function produtoHeroi(dados, formato) {
         <div style="display:flex;align-items:center;gap:20px;margin-top:20px;"><span style="width:46px;height:1px;background:#89a88b;"></span><span style="font-size:${s(22)}px;letter-spacing:.46em;text-transform:uppercase;color:#89a88b;font-weight:600;padding-left:.46em;">${dados.eyebrow || 'Oferta especial'}</span><span style="width:46px;height:1px;background:#89a88b;"></span></div>
       </div>
       <div style="display:flex;align-items:center;justify-content:center;width:${s(560)}px;height:${s(560)}px;border-radius:50%;background:#ffffff;box-shadow:0 30px 60px rgba(60,36,8,.14);overflow:hidden;"><img src="${dados.fotoDataUrl}" style="width:${s(520)}px;height:${s(520)}px;object-fit:contain;"></div>
-      <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:${s(56)}px;">${dados.nome}</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:${s(56)}px;">${esc(dados.nome)}</div>
       <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">${blocoPreco}</div>${dados.copyEfeito ? `
-      <div style="font-family:'Archivo',sans-serif;font-size:${s(22)}px;letter-spacing:.14em;text-transform:uppercase;color:#7a5a37;font-weight:600;">${dados.copyEfeito}</div>` : ''}
+      <div style="font-family:'Archivo',sans-serif;font-size:${s(22)}px;letter-spacing:.14em;text-transform:uppercase;color:#7a5a37;font-weight:600;">${esc(dados.copyEfeito)}</div>` : ''}
       <div style="background:#89a88b;color:#f2f1ed;font-weight:600;font-size:${s(30)}px;letter-spacing:.2em;text-transform:uppercase;padding:${s(30)}px ${s(84)}px;border-radius:999px;box-shadow:0 16px 34px rgba(88,47,10,.2);display:flex;align-items:center;gap:18px;">${dados.cta || 'Eu quero a minha'} <span style="font-size:${s(34)}px;line-height:1;">&#8594;</span></div>
     </div>
   </div>`;

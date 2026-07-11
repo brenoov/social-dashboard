@@ -30,8 +30,9 @@ async function anthropic(body, tentativas = 6) {
 // não preço puro.
 const SYS_PRODUTO = 'Você escreve microcopy de campanha para a La Vessel, marca de bolsas de luxo europeu suave, feminino, atemporal — a marca "sussurra sofisticação", nunca grita. Lema: "cada bolsa conta uma história". '
   + 'Esta rodada é uma campanha de SHOPPING (loja física em shopping físico): o tom precisa puxar URGÊNCIA + EMOÇÃO, não preço puro. '
-  + 'Regras invioláveis para cada linha: (1) português do Brasil; (2) CURTA, no máximo ~40 caracteres; (3) impactante, sem ser genérica; (4) NUNCA prometa algo falso ou exagerado (nada de "a melhor bolsa do mundo", "número 1", etc.); (5) SEM emoji; (6) SEM hashtag; (7) uma linha por produto, coerente com o nome/estilo daquele produto específico. '
-  + 'Responda APENAS com um bloco de código ```json contendo um objeto {"<sku>": "<linha>", ...} — uma chave por SKU recebido, nada fora do bloco.';
+  + 'Regras invioláveis para cada linha de impacto: (1) português do Brasil; (2) CURTA, no máximo ~40 caracteres; (3) impactante, sem ser genérica; (4) NUNCA prometa algo falso ou exagerado (nada de "a melhor bolsa do mundo", "número 1", etc.); (5) SEM emoji; (6) SEM hashtag; (7) uma linha por produto, coerente com o nome/estilo daquele produto específico. '
+  + 'Além da linha de impacto, gere também um NOME CURTO de exibição para cada produto: o nome completo do Bling (ex.: "Bolsa De Ombro Grande Viena Marinho") tem tipo/tamanho/cor misturados com uma palavra distintiva de CIDADE ou PAÍS (ex.: Viena, Belgrado, Genebra, Madrid). O nome curto deve ser SEMPRE no formato "Bolsa <Cidade/País>" — descarte tipo, tamanho e cor, mantenha só "Bolsa " + a cidade/país do nome original. '
+  + 'Responda APENAS com um bloco de código ```json contendo um objeto {"<sku>": {"copy": "<linha de impacto>", "nome": "Bolsa <Cidade>"}, ...} — uma chave por SKU recebido, nada fora do bloco.';
 
 const SYS_PROMO = 'Você escreve microcopy de campanha para a La Vessel, marca de bolsas de luxo europeu suave, feminino, atemporal — a marca "sussurra sofisticação", nunca grita. Lema: "cada bolsa conta uma história". '
   + 'Esta rodada é uma campanha de SHOPPING (loja física em shopping físico) para uma promoção guarda-chuva de desconto: o tom precisa puxar URGÊNCIA + EMOÇÃO, não preço puro. '
@@ -44,10 +45,13 @@ function parseJsonFence(texto) {
   return JSON.parse(raw);
 }
 
-// Gera uma linha de impacto por produto (batch, UMA chamada Anthropic).
+const nomeCurtoFallback = (nome) => String(nome || '').trim().split(/\s+/).slice(0, 3).join(' ');
+
+// Gera uma linha de impacto + nome curto de exibição por produto (batch, UMA
+// chamada Anthropic).
 // produtos: [{sku, nome}]; campanha: {desconto_pct}
-// Retorna Map<sku, string>. NUNCA lança — em qualquer falha, cai no fallback
-// padrão para todos os SKUs recebidos.
+// Retorna Map<sku, {copy, nome}>. NUNCA lança — em qualquer falha, cai no
+// fallback padrão para todos os SKUs recebidos.
 export async function gerarCopysProduto(produtos, campanha) {
   const out = new Map();
   try {
@@ -55,18 +59,20 @@ export async function gerarCopysProduto(produtos, campanha) {
     if (!Array.isArray(produtos) || !produtos.length) return out;
     const lista = produtos.map((p) => `- SKU ${p.sku}: ${p.nome}`).join('\n');
     const user = 'Campanha atual: desconto de ' + (campanha?.desconto_pct ?? '?') + '% (shopping, urgência+emoção).\n\n'
-      + 'Produtos (gere uma linha de impacto por SKU):\n' + lista;
+      + 'Produtos (gere uma linha de impacto + nome curto por SKU):\n' + lista;
     const resp = await anthropic({ model: MODEL, max_tokens: 2000, system: SYS_PRODUTO, messages: [{ role: 'user', content: user }] });
     const texto = (resp.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
     const obj = parseJsonFence(texto);
     for (const p of produtos) {
-      const linha = typeof obj?.[p.sku] === 'string' && obj[p.sku].trim() ? obj[p.sku].trim() : FALLBACK_PRODUTO;
-      out.set(p.sku, linha);
+      const item = obj?.[p.sku];
+      const copy = typeof item?.copy === 'string' && item.copy.trim() ? item.copy.trim() : FALLBACK_PRODUTO;
+      const nome = typeof item?.nome === 'string' && item.nome.trim() ? item.nome.trim() : nomeCurtoFallback(p.nome);
+      out.set(p.sku, { copy, nome });
     }
     return out;
   } catch (e) {
     console.error('aviso copy-efeito (produto):', e.message);
-    for (const p of (produtos || [])) out.set(p.sku, FALLBACK_PRODUTO);
+    for (const p of (produtos || [])) out.set(p.sku, { copy: FALLBACK_PRODUTO, nome: nomeCurtoFallback(p.nome) });
     return out;
   }
 }

@@ -5,7 +5,7 @@
 import './lib/carregar-env.mjs';
 import { loginServico } from './lib/bling-comercial.mjs';
 import { fotoDataUrl } from './lib/foto-produto.mjs';
-import { renderPNG, fecharRender } from './lib/render-criativo.mjs';
+import { renderPNG, fecharRender, ehFotoStudio } from './lib/render-criativo.mjs';
 import { TEMPLATES, DIM } from './templates-criativos/templates.mjs';
 import { variacoesProduto, variacoesPromo } from './lib/criativo-modelo.mjs';
 import { gerarCopysProduto, gerarCopyPromo } from './lib/copy-efeito.mjs';
@@ -22,6 +22,7 @@ const SK = process.env.SUPABASE_SERVICE_KEY;
 const REST = URL + '/rest/v1';
 const H = { apikey: SK, Authorization: 'Bearer ' + SK, 'Content-Type': 'application/json' };
 const BUCKET = 'fabrica-criativos';
+const sane = (s) => String(s).replace(/[^a-zA-Z0-9._-]+/g, '_');
 
 async function sbGet(p) { const r = await fetch(REST + p, { headers: H }); if (!r.ok) throw new Error('GET ' + p + ' ' + r.status); return r.json(); }
 async function sbPost(p, body, prefer) { const r = await fetch(REST + p, { method: 'POST', headers: prefer ? { ...H, Prefer: prefer } : H, body: JSON.stringify(body) }); if (!r.ok && ![200,201,204].includes(r.status)) throw new Error('POST ' + p + ' ' + r.status + ' ' + (await r.text()).slice(0,200)); return r; }
@@ -76,15 +77,19 @@ async function main() {
 
   // PRODUTO
   for (const cand of produtos) {
+    if (cand.preco == null) { console.log('  sem preço:', cand.sku); continue; }
     const foto = await fotoDe(cand.sku);
     if (!foto) { console.warn('  sem foto:', cand.sku, cand.nome); continue; }
+    if (!(await ehFotoStudio(foto))) { console.log('  foto amadora, pulado:', cand.sku); continue; }
+    const copyInfo = copys.get(cand.sku) || {};
     for (const v of variacoesProduto({ ...cand, fotoDataUrl: foto }, campanha)) {
-      v.dados.copyEfeito = copys.get(cand.sku);
+      v.dados.copyEfeito = copyInfo.copy;
+      v.dados.nome = copyInfo.nome;
       const html = TEMPLATES[v.template].render(v.dados, v.formato);
       const buf = await renderPNG(html, DIM[v.formato]);
       gerados++;
       if (DRY) { console.log('  [dry] produto', cand.sku, v.variante, v.formato, buf.length, 'bytes'); continue; }
-      const path = `${campanhaId}/produto/${cand.sku}-${v.variante}-${v.formato}.png`;
+      const path = `${campanhaId}/produto/${sane(cand.sku)}-${sane(v.variante)}-${v.formato}.png`;
       const url = await subir(path, buf);
       await sbPost('/fabrica_criativos', [{ campanha_id: campanhaId, candidato_id: cand.id, arquetipo: 'produto', template: v.template, formato: v.formato, variante: v.variante, preco_de: v.preco_de, preco_por: v.preco_por, storage_path: path, url }], 'return=minimal');
     }
@@ -99,7 +104,7 @@ async function main() {
       const buf = await renderPNG(html, DIM[v.formato]);
       gerados++;
       if (DRY) { console.log('  [dry] promo', v.variante, v.formato, buf.length, 'bytes'); continue; }
-      const path = `${campanhaId}/promo/${v.variante}-${v.formato}.png`;
+      const path = `${campanhaId}/promo/${sane(v.variante)}-${v.formato}.png`;
       const url = await subir(path, buf);
       await sbPost('/fabrica_criativos', [{ campanha_id: campanhaId, arquetipo: 'promo', template: v.template, formato: v.formato, variante: v.variante, storage_path: path, url }], 'return=minimal');
     }
