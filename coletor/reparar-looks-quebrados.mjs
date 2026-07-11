@@ -57,9 +57,16 @@ let TOKEN;
 // --- Supabase REST/Storage ---------------------------------------------------------------
 async function sbGet(p) { const r = await fetch(REST + p, { headers: H }); if (!r.ok) throw new Error('GET ' + p + ' ' + r.status + ' ' + (await r.text()).slice(0, 200)); return r.json(); }
 async function subirStorage(path, buf) {
-  const r = await fetch(`${URL}/storage/v1/object/${BUCKET}/${path}`, { method: 'POST', headers: { apikey: SK, Authorization: 'Bearer ' + SK, 'Content-Type': 'image/png', 'x-upsert': 'true' }, body: buf });
-  if (!r.ok) throw new Error('upload ' + path + ' ' + r.status + ' ' + (await r.text()).slice(0, 160));
-  return `${URL}/storage/v1/object/public/${BUCKET}/${path}`;
+  let ultimo;
+  for (let t = 1; t <= 10; t++) {
+    try {
+      const r = await fetch(`${URL}/storage/v1/object/${BUCKET}/${path}`, { method: 'POST', headers: { apikey: SK, Authorization: 'Bearer ' + SK, 'Content-Type': 'image/png', 'x-upsert': 'true' }, body: buf });
+      if (r.ok) return `${URL}/storage/v1/object/public/${BUCKET}/${path}`;
+      ultimo = new Error('upload ' + path + ' ' + r.status + ' ' + (await r.text()).slice(0, 120));
+    } catch (e) { ultimo = e; }
+    if (t < 10) { console.warn(`  [storage retry ${t}/9] ${path.split('/').pop()}: ${ultimo.message.slice(0, 60)}`); await sleep(Math.min(1500 * t, 8000)); }
+  }
+  throw ultimo;
 }
 
 // --- meta-proxy (com retry) --------------------------------------------------------------
@@ -156,7 +163,7 @@ async function fase1Regen(loja) {
   for (const r of alvo) { const sku = skuDe(r.storage_path, r.variante, r.formato); if (!porSku.has(sku)) porSku.set(sku, { sku, nome: candNome.get(r.candidato_id) || (await nomeProduto(sane(sku))) || sku }); }
   const copys = await gerarCopysProduto([...porSku.values()], { desconto_tipo: 'fixo', desconto_pct: 50, parcelas: 10 });
   const fotoCache = new Map();
-  let ok = 0, pulados = 0;
+  let ok = 0, pulados = 0, falhas = [];
   for (const r of alvo) {
     const sku = skuDe(r.storage_path, r.variante, r.formato);
     if (!fotoCache.has(sku)) fotoCache.set(sku, await fotoDataUrl(TOKEN, sku));
@@ -172,10 +179,18 @@ async function fase1Regen(loja) {
     if (!v) { console.warn(`  variante ${r.variante} não reproduzida p/ ${sku}, pulado`); pulados++; continue; }
     v.dados.nome = ci.nome || v.dados.nome; v.dados.copyEfeito = ci.copy;
     const buf = await renderPNG(TEMPLATES[v.template].render(v.dados, v.formato), DIM[v.formato]);
-    await subirStorage(r.storage_path, buf); // MESMO path → mesma URL, bytes corrigidos
-    ok++;
+    try { await subirStorage(r.storage_path, buf); ok++; } // MESMO path → mesma URL, bytes corrigidos
+    catch (e) { console.warn(`  [falha upload, na fila de mop-up] ${r.storage_path.split('/').pop()}`); falhas.push({ path: r.storage_path, buf }); }
   }
-  console.log(`  regenerados (sobrescritos in-place): ${ok} | pulados: ${pulados}`);
+  // mop-up: retenta uploads que falharam, em rodadas, até zerar ou esgotar
+  for (let rodada = 1; falhas.length && rodada <= 8; rodada++) {
+    console.log(`  mop-up rodada ${rodada}: ${falhas.length} pendentes`);
+    const aindaFalha = [];
+    for (const f of falhas) { try { await subirStorage(f.path, f.buf); ok++; } catch { aindaFalha.push(f); } }
+    falhas = aindaFalha;
+    if (falhas.length) await sleep(5000);
+  }
+  console.log(`  regenerados (sobrescritos in-place): ${ok} | pulados: ${pulados} | falhas persistentes: ${falhas.length}`);
 }
 
 async function fase2Subir(loja) {
