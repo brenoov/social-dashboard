@@ -8,12 +8,14 @@ import { fotoDataUrl } from './lib/foto-produto.mjs';
 import { renderPNG, fecharRender } from './lib/render-criativo.mjs';
 import { TEMPLATES, DIM } from './templates-criativos/templates.mjs';
 import { variacoesProduto, variacoesPromo } from './lib/criativo-modelo.mjs';
+import { gerarCopysProduto, gerarCopyPromo } from './lib/copy-efeito.mjs';
 
 const arg = (f, d) => { const i = process.argv.indexOf(f); return i >= 0 ? process.argv[i + 1] : d; };
 const DRY = process.argv.includes('--dry');
 const PCT = Number(arg('--pct', '50'));
 const NOME = arg('--nome', PCT + '% OFF');
 const PARCELAS = Number(arg('--parcelas', '10'));
+const LIMITE = process.argv.includes('--limite') ? Number(arg('--limite', '5')) : Infinity;
 
 const URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
 const SK = process.env.SUPABASE_SERVICE_KEY;
@@ -41,6 +43,8 @@ async function main() {
   const cands = await sbGet(`/fabrica_candidatos?select=id,sku,nome,preco,selecionado&rodada_id=eq.${rodadaId}&selecionado=eq.true&order=loja_nome`);
   console.log('rodada', rod[0].rodada, '| candidatos selecionados:', cands.length);
 
+  const campanha = { desconto_tipo: 'fixo', desconto_pct: PCT, parcelas: PARCELAS };
+
   // campanha
   let campanhaId = null;
   if (!DRY) {
@@ -48,21 +52,34 @@ async function main() {
     campanhaId = (await c.json())[0].id;
     await garantirBucket();
   }
-  const campanha = { desconto_tipo: 'fixo', desconto_pct: PCT, parcelas: PARCELAS };
+
+  // produtos únicos por sku (arte é por produto, não por loja), limitados por --limite
+  const vistos = new Set();
+  const produtosUnicos = [];
+  for (const c of cands) {
+    if (c.sku && vistos.has(c.sku)) continue;
+    if (c.sku) vistos.add(c.sku);
+    produtosUnicos.push(c);
+  }
+  const produtos = produtosUnicos.slice(0, LIMITE);
+  console.log('produtos únicos:', produtosUnicos.length, '| gerando para:', produtos.length);
+
+  // copy de efeito em lote (uma chamada pros produtos + uma pra promo)
+  const copys = await gerarCopysProduto(produtos.map(c => ({ sku: c.sku, nome: c.nome })), campanha);
+  const copyPromo = await gerarCopyPromo(campanha);
+  console.log('copy promo:', copyPromo);
 
   let gerados = 0;
   // dedup de foto por sku (produtos iguais em lojas diferentes)
   const fotoCache = new Map();
   const fotoDe = async (sku) => { if (!fotoCache.has(sku)) fotoCache.set(sku, await fotoDataUrl(token, sku)); return fotoCache.get(sku); };
 
-  // PRODUTO (dedup por sku: arte é por produto, não por loja)
-  const skusVistos = new Set();
-  for (const cand of cands) {
-    if (cand.sku && skusVistos.has(cand.sku)) continue;
-    if (cand.sku) skusVistos.add(cand.sku);
+  // PRODUTO
+  for (const cand of produtos) {
     const foto = await fotoDe(cand.sku);
     if (!foto) { console.warn('  sem foto:', cand.sku, cand.nome); continue; }
     for (const v of variacoesProduto({ ...cand, fotoDataUrl: foto }, campanha)) {
+      v.dados.copyEfeito = copys.get(cand.sku);
       const html = TEMPLATES[v.template].render(v.dados, v.formato);
       const buf = await renderPNG(html, DIM[v.formato]);
       gerados++;
@@ -77,6 +94,7 @@ async function main() {
   const primeiraFoto = [...fotoCache.values()].find(Boolean) || null;
   if (primeiraFoto) {
     for (const v of variacoesPromo(campanha, primeiraFoto, 'Coleção')) {
+      v.dados.copyEfeito = copyPromo;
       const html = TEMPLATES[v.template].render(v.dados, v.formato);
       const buf = await renderPNG(html, DIM[v.formato]);
       gerados++;
