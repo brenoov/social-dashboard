@@ -29,6 +29,16 @@ const ESTRELA_CANAL = arg('--estrela', null);
 const ESTRELA_DEPOSITO = arg('--deposito', null);
 const ESTRELA_LIMITE = process.argv.includes('--limite') ? Number(arg('--limite', '20')) : 20;
 
+// --looks produto-heroi,produto-sage-circulo  |  --modos avista,parcelado
+const LOOKS = process.argv.includes('--looks') ? arg('--looks', '').split(',').map(s => s.trim()).filter(Boolean) : null;
+const MODOS_MAP = { avista: false, parcelado: true };
+const MODOS = process.argv.includes('--modos')
+  ? arg('--modos', '').split(',').map(s => s.trim()).filter(Boolean).map(s => MODOS_MAP[s])
+  : null;
+const opts = {};
+if (LOOKS && LOOKS.length) opts.looks = LOOKS;
+if (MODOS && MODOS.length) opts.modos = MODOS;
+
 const URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
 const SK = process.env.SUPABASE_SERVICE_KEY;
 const REST = URL + '/rest/v1';
@@ -150,7 +160,7 @@ async function main() {
     if (!foto) { console.warn('  sem foto:', cand.sku, cand.nome); continue; }
     if (!(await ehFotoStudio(foto))) { console.log('  foto amadora, pulado:', cand.sku); continue; }
     const copyInfo = copys.get(cand.sku) || {};
-    for (const v of variacoesProduto({ ...cand, fotoDataUrl: foto }, campanha)) {
+    for (const v of variacoesProduto({ ...cand, fotoDataUrl: foto }, campanha, opts)) {
       v.dados.copyEfeito = copyInfo.copy;
       v.dados.nome = copyInfo.nome;
       const html = TEMPLATES[v.template].render(v.dados, v.formato);

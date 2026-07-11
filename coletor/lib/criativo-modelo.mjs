@@ -14,20 +14,25 @@ export function parcelado(porNum, n) { return money((Number(porNum) || 0) / (n |
 
 const FORMATOS = ['1080x1920', '1080x1350'];
 
-// PRODUTO: template 'produto-heroi' em 2 variantes (à vista x parcelado) × 2 formatos = 4.
-export function variacoesProduto(candidato, campanha) {
+// PRODUTO: N templates ("looks") × M modos (à vista x parcelado) × 2 formatos.
+// Por padrão preserva o comportamento anterior: 1 look ('produto-heroi') × 2 modos.
+export function variacoesProduto(candidato, campanha, opts = {}) {
+  const looks = opts.looks && opts.looks.length ? opts.looks : ['produto-heroi'];
+  const modos = opts.modos && opts.modos.length ? opts.modos : [false, true];
   const pct = descontoDe(candidato, campanha);
   const { de, por, porNum } = precoDePor(candidato.preco, pct);
   const parc = parcelado(porNum, campanha.parcelas);
   const out = [];
-  for (const formato of FORMATOS) {
-    for (const parceladoEmEvidencia of [false, true]) {
-      out.push({
-        arquetipo: 'produto', template: 'produto-heroi', formato,
-        variante: parceladoEmEvidencia ? 'parcelado' : 'avista',
-        preco_de: candidato.preco, preco_por: porNum,
-        dados: { nome: candidato.nome, fotoDataUrl: candidato.fotoDataUrl, precoDe: de, precoPor: por, parcelado: parc, parcelas: campanha.parcelas, parceladoEmEvidencia, eyebrow: 'Oferta especial' },
-      });
+  for (const template of looks) {
+    for (const parceladoEmEvidencia of modos) {
+      for (const formato of FORMATOS) {
+        out.push({
+          arquetipo: 'produto', template, formato,
+          variante: `${template}-${parceladoEmEvidencia ? 'parcelado' : 'avista'}`,
+          preco_de: candidato.preco, preco_por: porNum,
+          dados: { nome: candidato.nome, fotoDataUrl: candidato.fotoDataUrl, precoDe: de, precoPor: por, parcelado: parc, parcelas: campanha.parcelas, parceladoEmEvidencia, eyebrow: 'Oferta especial' },
+        });
+      }
     }
   }
   return out;
