@@ -119,7 +119,7 @@ function produtoPrecoTipografico(dados, formato) {
         <div style="display:flex;align-items:center;gap:20px;margin-top:20px;"><span style="width:46px;height:1px;background:#89a88b;"></span><span style="font-size:${s(22)}px;letter-spacing:.46em;text-transform:uppercase;color:#89a88b;font-weight:600;padding-left:.46em;">${dados.eyebrow || 'Oferta especial'}</span><span style="width:46px;height:1px;background:#89a88b;"></span></div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">${blocoPreco}</div>
-      <img src="${dados.fotoDataUrl}" style="width:${s(470)}px;height:auto;filter:drop-shadow(0 32px 40px rgba(60,36,8,.24));">
+      <img src="${dados.fotoDataUrl}" style="width:${s(560)}px;height:auto;filter:drop-shadow(0 32px 40px rgba(60,36,8,.24));">
       <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:${s(52)}px;">${esc(dados.nome)}</div>${dados.copyEfeito ? `
       <div style="font-family:'Archivo',sans-serif;font-size:${s(22)}px;letter-spacing:.14em;text-transform:uppercase;color:#7a5a37;font-weight:600;">${esc(dados.copyEfeito)}</div>` : ''}
       <div style="background:#89a88b;color:#f2f1ed;font-weight:600;font-size:${s(30)}px;letter-spacing:.2em;text-transform:uppercase;padding:${s(34)}px ${s(88)}px;border-radius:999px;box-shadow:0 16px 34px rgba(88,47,10,.2);display:flex;align-items:center;gap:18px;">${dados.cta || 'Eu quero a minha'} <span style="font-size:${s(34)}px;line-height:1;">&#8594;</span></div>
@@ -156,9 +156,9 @@ function produtoSageCirculo(dados, formato) {
         <div style="font-family:'Cormorant Garamond',serif;font-size:${s(54)}px;font-weight:500;margin-top:14px;">La <span style="font-style:italic;">vessel</span></div>
         <div style="display:flex;align-items:center;gap:20px;margin-top:20px;"><span style="width:46px;height:1px;background:#582f0a;opacity:.4;"></span><span style="font-size:${s(23)}px;letter-spacing:.46em;text-transform:uppercase;color:#582f0a;font-weight:600;padding-left:.46em;">${dados.eyebrow || 'Oferta especial'}</span><span style="width:46px;height:1px;background:#582f0a;opacity:.4;"></span></div>
       </div>
-      <div style="position:relative;width:${s(648)}px;height:${s(648)}px;display:flex;align-items:center;justify-content:center;">
+      <div style="position:relative;width:${s(716)}px;height:${s(716)}px;display:flex;align-items:center;justify-content:center;">
         <div style="position:absolute;inset:0;border-radius:50%;background:#f2f1ed;box-shadow:0 30px 60px rgba(60,36,8,.22);"></div>
-        <img src="${dados.fotoDataUrl}" style="position:relative;width:${s(472)}px;height:auto;max-height:${s(472)}px;object-fit:contain;filter:drop-shadow(0 22px 28px rgba(60,36,8,.28));">
+        <img src="${dados.fotoDataUrl}" style="position:relative;width:${s(532)}px;height:auto;max-height:${s(532)}px;object-fit:contain;filter:drop-shadow(0 22px 28px rgba(60,36,8,.28));">
       </div>
       <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:${s(58)}px;">${esc(dados.nome)}</div>
       <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">${blocoPreco}</div>${dados.copyEfeito ? `
@@ -348,15 +348,14 @@ function editorialV2(dados, formato) {
           <span style="font-size:${s(22)}px;letter-spacing:.5em;text-transform:uppercase;color:#89a88b;font-weight:600;padding-left:.5em;">${dados.eyebrow || 'Sale'}</span>
           <span style="width:44px;height:1px;background:#89a88b;"></span>
         </div>
-        <div style="display:flex;align-items:flex-start;gap:24px;">
-          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(210)}px;font-weight:500;line-height:.8;">${dados.oferta || '50%'}</span>
-          <span style="font-family:'Archivo',sans-serif;font-weight:700;font-size:${s(56)}px;letter-spacing:.14em;color:#89a88b;padding-top:${s(22)}px;padding-left:.14em;">OFF</span>
+        <div style="display:flex;align-items:flex-start;gap:${s(24)}px;">
+          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(258)}px;font-weight:500;line-height:.8;">${dados.oferta || '50%'}</span>
+          <span style="font-family:'Archivo',sans-serif;font-weight:700;font-size:${s(66)}px;letter-spacing:.14em;color:#89a88b;padding-top:${s(28)}px;padding-left:.14em;">OFF</span>
         </div>
         <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:${s(58)}px;line-height:1;">${esc(dados.nome)}</div>
-        <div style="display:flex;align-items:baseline;gap:22px;">
-          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(50)}px;font-weight:500;color:#a08f77;text-decoration:line-through;text-decoration-thickness:1.5px;">R$ ${dados.precoDe}</span>
-          <span style="width:7px;height:7px;border-radius:50%;background:#89a88b;align-self:center;"></span>
-          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(78)}px;font-weight:600;">R$ ${dados.precoPor}</span>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:${s(2)}px;">
+          <div style="display:flex;align-items:baseline;gap:${s(12)}px;"><span style="font-family:'Archivo',sans-serif;font-size:${s(26)}px;letter-spacing:.3em;font-weight:600;color:#a08f77;">DE</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(52)}px;font-weight:500;color:#a08f77;text-decoration:line-through;text-decoration-thickness:2px;">R$ ${dados.precoDe}</span></div>
+          <div style="display:flex;align-items:baseline;gap:${s(16)}px;"><span style="font-family:'Archivo',sans-serif;font-size:${s(32)}px;letter-spacing:.3em;font-weight:700;color:#89a88b;">POR</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(116)}px;font-weight:600;line-height:1;">R$ ${dados.precoPor}</span></div>
         </div>${dados.copyEfeito ? `
         <div style="font-family:'Archivo',sans-serif;font-size:${s(20)}px;letter-spacing:.14em;text-transform:uppercase;color:#3a2408;font-weight:600;">${esc(dados.copyEfeito)}</div>` : ''}
         <div style="margin-top:${s(8)}px;background:#89a88b;color:#f2f1ed;font-weight:600;font-size:${s(26)}px;letter-spacing:.2em;text-transform:uppercase;padding:${s(26)}px ${s(74)}px;border-radius:999px;box-shadow:0 16px 34px rgba(88,47,10,.22);display:flex;align-items:center;gap:16px;white-space:nowrap;">${dados.cta || 'Comprar agora'} <span style="font-size:${s(26)}px;line-height:1;">&#8594;</span></div>
@@ -431,11 +430,11 @@ function produtoModelo(dados, formato) {
   const fBrand = isStory ? 38 : 36;
   const lineW = isStory ? 34 : 30;
   const fSale = isStory ? 23 : 21;
-  const fOferta = isStory ? 206 : 196;
-  const fOff = isStory ? 54 : 52;
+  const fOferta = isStory ? 232 : 218;
+  const fOff = isStory ? 62 : 58;
   const fNome = isStory ? 58 : 54;
-  const fDe = isStory ? 48 : 46;
-  const fPor = isStory ? 82 : 80;
+  const fDe = isStory ? 50 : 48;
+  const fPor = isStory ? 96 : 90;
   const fCta = isStory ? 27 : 25;
   const ctaPad = isStory ? '26px 60px' : '24px 56px';
   const fSeta = isStory ? 24 : 25;
