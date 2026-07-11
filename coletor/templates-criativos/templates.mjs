@@ -85,8 +85,90 @@ function produtoHeroi(dados, formato) {
   return pagina(inner, formato);
 }
 
+// PRODUTO · Preço Tipográfico (fundo Soft Pearl, preço grande ANTES da bolsa, De riscado + Por apenas gigante OU parcelado)
+function produtoPrecoTipografico(dados, formato) {
+  const d = DIM[formato];
+  const escala = formato === '1080x1350' ? 0.76 : 1;
+  const s = (n) => Math.round(n * escala);
+  const destaqueParcelado = !!dados.parceladoEmEvidencia;
+  // o preço grande é tipográfico e ocupa a largura toda sozinho: o protótipo
+  // usava número redondo de 3 dígitos ("R$ 449"); preço real do Bling costuma
+  // vir com centavos ("R$ 194,95"), bem mais largo — encolhe a fonte pelo
+  // comprimento do texto final pra nunca quebrar linha.
+  const fontParaTexto = (texto, base) => Math.min(base, Math.round(1480 / texto.length));
+  const fPor = s(fontParaTexto(`R$ ${dados.precoPor}`, 232));
+  const fParcelado = s(fontParaTexto(`${dados.parcelas}× R$ ${dados.parcelado}`, 150));
+  const blocoPreco = destaqueParcelado
+    ? `<div style="display:flex;align-items:baseline;gap:16px;"><span style="font-size:${s(24)}px;letter-spacing:.3em;text-transform:uppercase;font-weight:600;color:#b0a596;padding-left:.3em;">De</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(54)}px;font-weight:500;color:#b0a596;text-decoration:line-through;text-decoration-thickness:2px;">R$ ${dados.precoDe}</span></div>
+       <span style="font-size:${s(26)}px;letter-spacing:.36em;text-transform:uppercase;font-weight:700;color:#89a88b;padding-left:.36em;">Em até</span>
+       <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${fParcelado}px;font-weight:500;line-height:1;color:#582f0a;white-space:nowrap;">${dados.parcelas}× R$ ${dados.parcelado}</span>`
+    : `<div style="display:flex;align-items:baseline;gap:16px;"><span style="font-size:${s(26)}px;letter-spacing:.3em;text-transform:uppercase;font-weight:600;color:#b0a596;padding-left:.3em;">De</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(64)}px;font-weight:500;color:#b0a596;text-decoration:line-through;text-decoration-thickness:2px;">R$ ${dados.precoDe}</span></div>
+       <span style="font-size:${s(30)}px;letter-spacing:.4em;text-transform:uppercase;font-weight:700;color:#89a88b;padding-left:.4em;">Por apenas</span>
+       <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${fPor}px;font-weight:500;line-height:.96;color:#582f0a;white-space:nowrap;">R$ ${dados.precoPor}</span>`;
+  const inner = `
+  <div style="position:relative;width:${d.width}px;height:${d.height}px;background:#f2f1ed;overflow:hidden;color:#582f0a;font-family:'Archivo',sans-serif;">
+    <div style="position:absolute;inset:0;background-image:url('${MONO.olive}');background-repeat:repeat;background-size:230px;opacity:.045;"></div>
+    <div style="position:relative;z-index:1;height:${d.height}px;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:center;gap:${s(40)}px;padding:${s(110)}px ${s(90)}px;">
+      <div style="display:flex;flex-direction:column;align-items:center;">
+        <img src="${MONO.brown}" style="height:${s(64)}px;width:auto;">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:${s(52)}px;font-weight:500;margin-top:14px;">La <span style="font-style:italic;">vessel</span></div>
+        <div style="display:flex;align-items:center;gap:20px;margin-top:20px;"><span style="width:46px;height:1px;background:#89a88b;"></span><span style="font-size:${s(22)}px;letter-spacing:.46em;text-transform:uppercase;color:#89a88b;font-weight:600;padding-left:.46em;">${dados.eyebrow || 'Oferta especial'}</span><span style="width:46px;height:1px;background:#89a88b;"></span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">${blocoPreco}</div>
+      <img src="${dados.fotoDataUrl}" style="width:${s(470)}px;height:auto;filter:drop-shadow(0 32px 40px rgba(60,36,8,.24));">
+      <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:${s(52)}px;">${esc(dados.nome)}</div>${dados.copyEfeito ? `
+      <div style="font-family:'Archivo',sans-serif;font-size:${s(22)}px;letter-spacing:.14em;text-transform:uppercase;color:#7a5a37;font-weight:600;">${esc(dados.copyEfeito)}</div>` : ''}
+      <div style="background:#89a88b;color:#f2f1ed;font-weight:600;font-size:${s(30)}px;letter-spacing:.2em;text-transform:uppercase;padding:${s(34)}px ${s(88)}px;border-radius:999px;box-shadow:0 16px 34px rgba(88,47,10,.2);display:flex;align-items:center;gap:18px;">${dados.cta || 'Eu quero a minha'} <span style="font-size:${s(34)}px;line-height:1;">&#8594;</span></div>
+    </div>
+  </div>`;
+  return pagina(inner, formato);
+}
+
+// PRODUTO · Sage Círculo (fundo Sage Suede, bolsa em círculo pérola, De riscado + Por grande OU parcelado, CTA Burnt Wood)
+function produtoSageCirculo(dados, formato) {
+  const d = DIM[formato];
+  const escala = formato === '1080x1350' ? 0.76 : 1;
+  const s = (n) => Math.round(n * escala);
+  const destaqueParcelado = !!dados.parceladoEmEvidencia;
+  // mesmo cuidado do preco-tipo: preço real do Bling (com centavos) é bem mais
+  // largo que o "R$ 449" redondo do protótipo — encolhe pelo comprimento do
+  // texto pra nunca quebrar linha (o "Por"/"Em até" fica na mesma linha, por
+  // isso a base é mais conservadora aqui do que na direção tipográfica).
+  const fontParaTexto = (texto, base, k) => Math.min(base, Math.round(k / texto.length));
+  const fPor = s(fontParaTexto(`R$ ${dados.precoPor}`, 158, 1300));
+  const fParcelado = s(fontParaTexto(`${dados.parcelas}× R$ ${dados.parcelado}`, 140, 1480));
+  const blocoPreco = destaqueParcelado
+    ? `<div style="display:flex;align-items:baseline;gap:16px;"><span style="font-size:${s(24)}px;letter-spacing:.3em;text-transform:uppercase;font-weight:600;color:#6f6a5d;padding-left:.3em;">De</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(54)}px;font-weight:500;color:#6f6a5d;text-decoration:line-through;text-decoration-thickness:2px;">R$ ${dados.precoDe}</span></div>
+       <span style="font-size:${s(24)}px;letter-spacing:.32em;text-transform:uppercase;font-weight:700;color:#582f0a;padding-left:.32em;">Em até</span>
+       <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${fParcelado}px;font-weight:500;line-height:1;color:#582f0a;white-space:nowrap;">${dados.parcelas}× R$ ${dados.parcelado}</span>`
+    : `<div style="display:flex;align-items:baseline;gap:16px;"><span style="font-size:${s(26)}px;letter-spacing:.3em;text-transform:uppercase;font-weight:600;color:#6f6a5d;padding-left:.3em;">De</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(60)}px;font-weight:500;color:#6f6a5d;text-decoration:line-through;text-decoration-thickness:2px;">R$ ${dados.precoDe}</span></div>
+       <div style="display:flex;align-items:baseline;gap:20px;white-space:nowrap;"><span style="font-size:${s(30)}px;letter-spacing:.32em;text-transform:uppercase;font-weight:700;color:#582f0a;padding-left:.32em;">Por</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${fPor}px;font-weight:500;line-height:1;color:#582f0a;">R$ ${dados.precoPor}</span></div>`;
+  const inner = `
+  <div style="position:relative;width:${d.width}px;height:${d.height}px;background:#c2cfb4;overflow:hidden;color:#582f0a;font-family:'Archivo',sans-serif;">
+    <div style="position:absolute;inset:0;background-image:url('${MONO.olive}');background-repeat:repeat;background-size:230px;opacity:.08;"></div>
+    <div style="position:relative;z-index:1;height:${d.height}px;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:center;gap:${s(44)}px;padding:${s(104)}px ${s(90)}px;">
+      <div style="display:flex;flex-direction:column;align-items:center;">
+        <img src="${MONO.brown}" style="height:${s(64)}px;width:auto;">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:${s(54)}px;font-weight:500;margin-top:14px;">La <span style="font-style:italic;">vessel</span></div>
+        <div style="display:flex;align-items:center;gap:20px;margin-top:20px;"><span style="width:46px;height:1px;background:#582f0a;opacity:.4;"></span><span style="font-size:${s(23)}px;letter-spacing:.46em;text-transform:uppercase;color:#582f0a;font-weight:600;padding-left:.46em;">${dados.eyebrow || 'Oferta especial'}</span><span style="width:46px;height:1px;background:#582f0a;opacity:.4;"></span></div>
+      </div>
+      <div style="position:relative;width:${s(648)}px;height:${s(648)}px;display:flex;align-items:center;justify-content:center;">
+        <div style="position:absolute;inset:0;border-radius:50%;background:#f2f1ed;box-shadow:0 30px 60px rgba(60,36,8,.22);"></div>
+        <img src="${dados.fotoDataUrl}" style="position:relative;width:${s(472)}px;height:${s(472)}px;object-fit:contain;">
+      </div>
+      <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:${s(58)}px;">${esc(dados.nome)}</div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">${blocoPreco}</div>${dados.copyEfeito ? `
+      <div style="font-family:'Archivo',sans-serif;font-size:${s(22)}px;letter-spacing:.14em;text-transform:uppercase;color:#3a2408;font-weight:600;">${esc(dados.copyEfeito)}</div>` : ''}
+      <div style="background:#582f0a;color:#f2f1ed;font-weight:600;font-size:${s(29)}px;letter-spacing:.2em;text-transform:uppercase;padding:${s(32)}px ${s(84)}px;border-radius:999px;box-shadow:0 16px 34px rgba(60,36,8,.28);display:flex;align-items:center;gap:18px;white-space:nowrap;">${dados.cta || 'Aproveite já'} <span style="font-size:${s(32)}px;line-height:1;">&#8594;</span></div>
+    </div>
+  </div>`;
+  return pagina(inner, formato);
+}
+
 export const TEMPLATES = {
-  'promo-number-hero': { arquetipo: 'promo', nome: 'Promo · Number Hero', render: promoNumberHero },
-  'produto-heroi':     { arquetipo: 'produto', nome: 'Produto · Herói', render: produtoHeroi },
+  'promo-number-hero':   { arquetipo: 'promo', nome: 'Promo · Number Hero', render: promoNumberHero },
+  'produto-heroi':       { arquetipo: 'produto', nome: 'Produto · Herói', render: produtoHeroi },
+  'produto-preco-tipo':  { arquetipo: 'produto', nome: 'Produto · Preço Tipográfico', render: produtoPrecoTipografico },
+  'produto-sage-circulo':{ arquetipo: 'produto', nome: 'Produto · Sage Círculo', render: produtoSageCirculo },
 };
 export { DIM };
