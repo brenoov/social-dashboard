@@ -6,6 +6,7 @@
 //    cai pra foto crua original (nunca quebra o pipeline).
 import { blingProxy } from './bling-comercial.mjs';
 import { cutout } from './cutout.mjs';
+import { avaliarStudioRaw } from './render-criativo.mjs';
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -14,10 +15,18 @@ const CACHE = join(dirname(fileURLToPath(import.meta.url)), '..', 'fotos-bling')
 const BAIXADAS = join(dirname(fileURLToPath(import.meta.url)), '..', 'fotos-baixadas');
 const nomeCache = (sku) => String(sku || '').replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 80);
 
+// veredito "estúdio vs amador" avaliado na foto CRUA (pré-cutout), cacheado por sku. O
+// generator consulta via fotoEhStudio(sku) DEPOIS de fotoDataUrl(). Default true (não
+// bloqueia por falta de dado). Ver avaliarStudioRaw() em render-criativo.mjs.
+const _studioRaw = new Map();
+export function fotoEhStudio(sku) { const v = _studioRaw.get(sku); return v === undefined ? true : v; }
+
 // aplica o recorte de fundo a um arquivo local e devolve o data URL do
 // resultado; em qualquer falha, devolve o data URL da foto crua (fallback).
-async function comCutout(localPath, mimeRaw) {
+// Também avalia a foto CRUA (antes do recorte) e guarda o veredito estúdio/amador.
+async function comCutout(localPath, mimeRaw, sku) {
   const raw = 'data:' + mimeRaw + ';base64,' + readFileSync(localPath).toString('base64');
+  if (sku != null) { try { const v = await avaliarStudioRaw(raw); _studioRaw.set(sku, !!v.studio); } catch (e) { /* falha na avaliação não bloqueia */ } }
   try {
     const outPath = await cutout(localPath);
     return 'data:image/png;base64,' + readFileSync(outPath).toString('base64');
@@ -44,7 +53,7 @@ export async function fotoDataUrl(token, sku) {
     const local = join(CACHE, baseNome + '.' + ext);
     if (existsSync(local)) {
       const mime = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : 'image/jpeg');
-      return comCutout(local, mime);
+      return comCutout(local, mime, sku);
     }
   }
   // 2) Bling

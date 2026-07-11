@@ -11,8 +11,8 @@
 //        --estrela 205834140 --deposito 14888726315 [--limite 20] [--dry]
 import './lib/carregar-env.mjs';
 import { loginServico, blingProdutos } from './lib/bling-comercial.mjs';
-import { fotoDataUrl } from './lib/foto-produto.mjs';
-import { renderPNG, fecharRender, ehFotoStudio } from './lib/render-criativo.mjs';
+import { fotoDataUrl, fotoEhStudio } from './lib/foto-produto.mjs';
+import { renderPNG, fecharRender } from './lib/render-criativo.mjs';
 import { TEMPLATES, DIM } from './templates-criativos/templates.mjs';
 import { variacoesProduto, variacoesPromo } from './lib/criativo-modelo.mjs';
 import { gerarCopysProduto, gerarCopyPromo } from './lib/copy-efeito.mjs';
@@ -158,7 +158,7 @@ async function main() {
     if (cand.preco == null) { console.log('  sem preço:', cand.sku); continue; }
     const foto = await fotoDe(cand.sku);
     if (!foto) { console.warn('  sem foto:', cand.sku, cand.nome); continue; }
-    if (!(await ehFotoStudio(foto))) { console.log('  foto amadora, pulado:', cand.sku); continue; }
+    if (!fotoEhStudio(cand.sku)) { console.log('  foto amadora (avaliada na foto crua), pulado:', cand.sku); continue; }
     const copyInfo = copys.get(cand.sku) || {};
     for (const v of variacoesProduto({ ...cand, fotoDataUrl: foto }, campanha, opts)) {
       v.dados.copyEfeito = copyInfo.copy;
