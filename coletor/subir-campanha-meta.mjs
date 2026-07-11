@@ -8,17 +8,29 @@
 //     └ AdSet "De x Por"       → 1 ad por PRODUTO (SKU), look ROTATIVO, Story 1080x1920
 //
 // DECISÃO desta rodada (substitui o look fixo produto-heroi de tentativas anteriores):
-// 1 ad por produto, mas o LOOK varia produto a produto — índice do SKU (ordem estável) % 3:
-// 0=produto-heroi, 1=produto-sage-circulo, 2=produto-preco-tipo. Isso evita que a campanha
-// inteira pareça uma "cópia colada" do mesmo template — ver buscarProdutosRotacaoLook().
-// Só o formato Story (1080x1920) sobe nesta rodada; os formatos Post (1080x1350) continuam
-// ignorados de propósito. Caption limpa e genérica (o PNG já mostra nome do produto + preço,
-// não precisa repetir o nome longo do Bling na legenda) — ver CAPTION_PADRAO.
+// 1 ad por produto, mas o LOOK varia produto a produto — índice de rotação (só entre os
+// produtos SEM foto de modelo, ordem estável) % 6: produto-heroi, produto-sage-circulo,
+// produto-preco-tipo, produto-split, editorial-sale, editorial-v2 (ver LOOKS). Isso evita que
+// a campanha inteira pareça uma "cópia colada" do mesmo template — ver
+// buscarProdutosRotacaoLook(). Só o formato Story (1080x1920) sobe nesta rodada; os formatos
+// Post (1080x1350) continuam ignorados de propósito. Caption limpa e genérica (o PNG já mostra
+// nome do produto + preço, não precisa repetir o nome longo do Bling na legenda) — ver
+// CAPTION_PADRAO.
 //
-// Fallback de look: nem todo SKU tem uma linha pro look sorteado (ex.: produto-preco-tipo não
-// existe nos lotes atuais — só heroi/sage-circulo). Se o look sorteado não tiver linha
-// 1080x1920 pro SKU, usa QUALQUER linha 1080x1920 daquele produto (não pula o produto só por
-// causa do look — ver buscarProdutosRotacaoLook()).
+// Fallback de look: nem todo SKU tem uma linha pro look sorteado (o pool de 6 looks só existe
+// completo depois de uma regen — nas rodadas de transição, alguns looks ainda não têm linha
+// pro SKU sorteado). Se o look sorteado não tiver linha 1080x1920 pro SKU, usa QUALQUER linha
+// 1080x1920 daquele produto (não pula o produto só por causa do look — ver
+// buscarProdutosRotacaoLook()).
+//
+// MODELO (foto de pessoa) — SKUs com foto de modelo NÃO entram na rotação: pra eles usamos o
+// criativo "produto-modelo" (lifestyle, com pessoa) da campanha [IA] Modelo (--modelo-campanha,
+// default 199723e1-d0a6-4aaa-b718-a083844512ec), Story 1080x1920, storage_path com o SKU. A
+// LISTA de SKUs "modelo" vem de --modelo-map (default ./fotos-modelo-map.json, sku → url da
+// foto — só usamos as CHAVES pra decidir quem é modelo; a imagem de fato sobe é a do criativo
+// produto-modelo, não a foto crua do mapa). Isso deixa ~7 SKUs (os que têm foto de pessoa) com
+// o ad lifestyle, e o resto rotacionando os 6 looks normalmente — ver
+// buscarProdutosRotacaoLook() / buscarCreativosModelo().
 //
 // Mecanismo de imagem (validado ao vivo, reaproveitado das tentativas anteriores): POST
 // /adimages por BYTES via meta-proxy (`imageFromUrl` — o meta-proxy baixa a imagem no
@@ -43,11 +55,18 @@
 //
 // Uso:
 //   node --import ./lib/curl-fetch.mjs subir-campanha-meta.mjs --dry [--tivoli <campanhaId>] [--dompedro <campanhaId>]
+//                                            [--modelo-campanha <id>] [--modelo-map <path>]
 //                                            # plano completo (2 campanhas/4 conjuntos/~ads), SEM chamar o Graph
 //   node --import ./lib/curl-fetch.mjs subir-campanha-meta.mjs [--tivoli <id> --dompedro <id>]
 //                                            # subida REAL completa (2 lojas, ~20 ads/campanha, tudo PAUSED)
 // --tivoli/--dompedro sobrescrevem o campanhaId (fabrica_campanhas) de origem dos criativos
 // por loja — default são os lotes isnet da Config desta task (b5a4bdd0.../730b9e0a...).
+// --modelo-campanha sobrescreve a campanha [IA] Modelo (default 199723e1-...) e --modelo-map
+// sobrescreve o caminho do JSON sku→foto (default ./fotos-modelo-map.json, ao lado deste
+// arquivo) — ver bloco MODELO acima.
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve as resolvePath } from 'node:path';
 import './lib/carregar-env.mjs';
 import tls from 'node:tls';
 import { loginServico } from './lib/bling-comercial.mjs';
@@ -67,6 +86,10 @@ function argVal(flag) {
 }
 const CLI_TIVOLI = argVal('--tivoli');
 const CLI_DOMPEDRO = argVal('--dompedro');
+const CLI_MODELO_CAMPANHA = argVal('--modelo-campanha');
+const CLI_MODELO_MAP = argVal('--modelo-map');
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
 // Fallback = anon key pública do projeto (mesmo default hardcoded em lib/bling-comercial.mjs).
@@ -85,12 +108,32 @@ const CFG = {
   IG: '17841462952561833',
   DAILY_BUDGET: 5000, // centavos = R$50/dia por conjunto (ABO)
   DATA_CAMPANHA: '11-07-2026',
+  // Campanha [IA] Modelo (fabrica_campanhas) — fonte do criativo lifestyle (produto-modelo,
+  // Story 1080x1920) pros SKUs com foto de pessoa. Ver --modelo-campanha e bloco MODELO no
+  // cabeçalho do arquivo.
+  MODELO_CAMPANHA: CLI_MODELO_CAMPANHA || '199723e1-d0a6-4aaa-b718-a083844512ec',
 };
 
 // Caption limpa e genérica — o PNG (qualquer look) já mostra nome do produto + preço, não
 // precisa repetir o nome longo do Bling na legenda. Usada em TODOS os ads (produto e
 // promo), pra manter a coerência visual/textual da campanha.
 const CAPTION_PADRAO = '50% OFF em bolsas La Vessel · chame no WhatsApp 💬';
+
+// --- MODELO_SKUS: SKUs com foto de pessoa (não rotacionam — usam o criativo produto-modelo,
+// ver buscarCreativosModelo()) --------------------------------------------------------------
+// --modelo-map aponta pro JSON sku→url da foto crua (default ./fotos-modelo-map.json, ao lado
+// deste arquivo); usamos só as CHAVES pra decidir quem é "modelo" — a imagem que de fato sobe
+// pro ad é o criativo produto-modelo da campanha [IA] Modelo (CFG.MODELO_CAMPANHA), não a foto
+// crua do mapa. Se o arquivo não existir/estiver malformado, avisa e segue com o Set vazio
+// (nenhum SKU vira "modelo" — todos rotacionam os 6 looks normalmente; não trava a subida).
+const MODELO_MAP_PATH = resolvePath(__dirname, CLI_MODELO_MAP || './fotos-modelo-map.json');
+let MODELO_MAP = {};
+try {
+  MODELO_MAP = JSON.parse(readFileSync(MODELO_MAP_PATH, 'utf8'));
+} catch (e) {
+  console.warn(`aviso: não consegui ler --modelo-map (${MODELO_MAP_PATH}): ${e.message} — nenhum SKU será tratado como "modelo"`);
+}
+const MODELO_SKUS = new Set(Object.keys(MODELO_MAP));
 
 // Lojas: campanhaId = lote isnet (F3, cutout corrigido) que contém os criativos `produto`
 // (looks produto-heroi + produto-sage-circulo, à-vista, 2 formatos por SKU) E `promo` (Geral,
@@ -218,21 +261,51 @@ async function nomeProduto(skuSane) {
   return nome;
 }
 
-// --- LOOKS: ordem de rotação (índice do SKU, ordem estável, % 3) --------------------------
-// 0=produto-heroi, 1=produto-sage-circulo, 2=produto-preco-tipo. "produto-preco-tipo" ainda
-// não existe nos lotes atuais (só heroi/sage-circulo) — cai sempre no fallback abaixo, o que é
-// esperado (não é bug: o requisito é "não pular produto por falta de look", não "só rotacionar
+// --- LOOKS: ordem de rotação (índice de rotação, só entre produtos SEM foto de modelo, % 6) -
+// 0=produto-heroi, 1=produto-sage-circulo, 2=produto-preco-tipo, 3=produto-split,
+// 4=editorial-sale, 5=editorial-v2. O pool completo de 6 looks só existe depois de uma regen —
+// em rodadas de transição, alguns looks ainda não têm linha pro SKU sorteado e caem no fallback
+// abaixo (não é bug: o requisito é "não pular produto por falta de look", não "só rotacionar
 // entre looks existentes").
-const LOOKS = ['heroi', 'sage-circulo', 'preco-tipo'];
+const LOOKS = ['produto-heroi', 'produto-sage-circulo', 'produto-preco-tipo', 'produto-split', 'editorial-sale', 'editorial-v2'];
 
-// --- buscarProdutosRotacaoLook(): DECISÃO desta rodada — 1 ad por PRODUTO (SKU distinto), com
-// o LOOK rotacionando produto a produto (índice do SKU em ordem estável % 3 → LOOKS acima), só
+// --- buscarCreativosModelo(): busca (1x, cacheado) todas as linhas produto/1080x1920 da
+// campanha [IA] Modelo (CFG.MODELO_CAMPANHA) e devolve um Map sku -> linha. O storage_path de
+// lá é `<campanha>/produto-modelo/<sku>-<formato>.png` (SEM repetir a variante no nome do
+// arquivo, diferente das lojas normais) — por isso o sku é extraído tirando só o sufixo
+// `-<formato>.png`, não reaproveita skuDe().
+let _modeloRowsPromise;
+async function buscarCreativosModelo() {
+  if (MODELO_SKUS.size === 0) return new Map(); // sem --modelo-map válido: não busca à toa
+  const rows = await sbGet(
+    `/fabrica_criativos?select=*&campanha_id=eq.${CFG.MODELO_CAMPANHA}&arquetipo=eq.produto&formato=eq.1080x1920&order=storage_path`
+  );
+  const porSku = new Map();
+  for (const r of rows) {
+    const file = (r.storage_path || '').split('/').pop() || '';
+    const sufixo = `-${r.formato}.png`;
+    const sku = file.endsWith(sufixo) ? file.slice(0, -sufixo.length) : file.replace(/\.png$/, '');
+    if (!porSku.has(sku)) porSku.set(sku, r); // 1ª linha por sku (não deve haver duplicata)
+  }
+  return porSku;
+}
+function getCreativosModelo() {
+  if (!_modeloRowsPromise) _modeloRowsPromise = buscarCreativosModelo();
+  return _modeloRowsPromise;
+}
+
+// --- buscarProdutosRotacaoLook(): DECISÃO desta rodada — 1 ad por PRODUTO (SKU distinto), só
 // no formato Story (1080x1920). Os formatos Post (1080x1350) continuam ignorados de propósito.
 // Busca todas as linhas 1080x1920/produto da loja numa query só (evita N+1), agrupa por SKU
 // (ordem de 1ª aparição em `order=storage_path` = ordem estável e determinística) e, pra cada
-// SKU, tenta achar a linha do look sorteado; se não achar (ex.: produto-preco-tipo ainda não
-// existe), cai pra QUALQUER linha 1080x1920 daquele SKU — nenhum produto é pulado só por causa
-// do look.
+// SKU:
+//   - se o SKU está em MODELO_SKUS (chaves de --modelo-map) E existe criativo produto-modelo
+//     pra ele na campanha [IA] Modelo → usa esse criativo (look "modelo"), NÃO entra na
+//     rotação (não consome nem avança o contador de rotação);
+//   - senão, rotaciona: look = LOOKS[contador de rotação % 6], contador avança só nos produtos
+//     que rotacionam (mantém o ciclo 0..5 "limpo", sem buracos pelos SKUs modelo espalhados no
+//     meio da lista). Se o look sorteado não tiver linha 1080x1920 pro SKU, cai pra QUALQUER
+//     linha 1080x1920 daquele SKU — nenhum produto é pulado só por causa do look.
 async function buscarProdutosRotacaoLook(loja) {
   const rows = await sbGet(
     `/fabrica_criativos?select=*&campanha_id=eq.${loja.campanhaId}&arquetipo=eq.produto&formato=eq.1080x1920&order=storage_path`
@@ -244,9 +317,20 @@ async function buscarProdutosRotacaoLook(loja) {
     if (!porSku.has(sku)) { porSku.set(sku, []); ordemSkus.push(sku); }
     porSku.get(sku).push(r);
   }
-  return ordemSkus.map((sku, i) => {
+  const modeloRows = await getCreativosModelo();
+
+  let rotIdx = 0; // contador de rotação — só avança pra SKUs que NÃO usam o criativo modelo
+  return ordemSkus.map((sku) => {
     const candidatas = porSku.get(sku);
-    const lookAlvo = LOOKS[i % 3];
+    if (MODELO_SKUS.has(sku)) {
+      const modeloRow = modeloRows.get(sku);
+      if (modeloRow) {
+        return { sku, variante: modeloRow.variante, look: 'modelo', precoDe: modeloRow.preco_de, precoPor: modeloRow.preco_por, url: modeloRow.url };
+      }
+      console.warn(`  aviso: SKU ${sku} está no --modelo-map mas sem criativo produto-modelo (Story) na campanha ${CFG.MODELO_CAMPANHA} — caindo pra rotação normal`);
+    }
+    const lookAlvo = LOOKS[rotIdx % LOOKS.length];
+    rotIdx++;
     let row = candidatas.find((r) => r.variante && r.variante.includes(lookAlvo));
     if (!row) {
       row = candidatas[0]; // fallback: nenhuma linha do look sorteado — usa qualquer 1080x1920 do SKU
@@ -410,7 +494,15 @@ async function subirLoja(loja) {
     meta_campaign_id: campaignId,
     adset_ids: [geral.adsetId, dePor.adsetId],
     ad_ids: [...geral.adIds, ...dePor.adIds],
-    payload: { geoCities: loja.geoCities, whatsapp: loja.whatsapp, criativos: { promo: geral.count, produto: dePor.count }, looks: 'rotativo (heroi/sage-circulo/preco-tipo, %3 por SKU)', looksUsados: dePor.looksUsados, formato: '1080x1920', caption: CAPTION_PADRAO },
+    payload: {
+      geoCities: loja.geoCities,
+      whatsapp: loja.whatsapp,
+      criativos: { promo: geral.count, produto: dePor.count },
+      looks: `rotativo (${LOOKS.join('/')}, %${LOOKS.length} entre SKUs sem foto de modelo) + "modelo" pros SKUs de --modelo-map`,
+      looksUsados: dePor.looksUsados,
+      formato: '1080x1920',
+      caption: CAPTION_PADRAO,
+    },
     status: 'criado',
   };
   if (!DRY) await sbPost('/fabrica_meta_jobs', [job], 'return=minimal');
