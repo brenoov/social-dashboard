@@ -16,6 +16,8 @@ const PCT = Number(arg('--pct', '50'));
 const NOME = arg('--nome', PCT + '% OFF');
 const PARCELAS = Number(arg('--parcelas', '10'));
 const LIMITE = process.argv.includes('--limite') ? Number(arg('--limite', '5')) : Infinity;
+const LOJA = arg('--loja', null);
+const FONTE = arg('--fonte', null);
 
 const URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
 const SK = process.env.SUPABASE_SERVICE_KEY;
@@ -41,7 +43,11 @@ async function main() {
   const rod = await sbGet('/fabrica_rodadas?select=id,rodada&order=created_at.desc&limit=1');
   if (!rod.length) throw new Error('sem rodada da F1');
   const rodadaId = rod[0].id;
-  const cands = await sbGet(`/fabrica_candidatos?select=id,sku,nome,preco,selecionado&rodada_id=eq.${rodadaId}&selecionado=eq.true&order=loja_nome`);
+  let q = `/fabrica_candidatos?select=id,sku,nome,preco,selecionado,deposito_id,fonte&rodada_id=eq.${rodadaId}&selecionado=eq.true`;
+  if (LOJA) q += `&deposito_id=eq.${LOJA}`;
+  if (FONTE) q += `&fonte=eq.${FONTE}`;
+  q += `&order=loja_nome`;
+  const cands = await sbGet(q);
   console.log('rodada', rod[0].rodada, '| candidatos selecionados:', cands.length);
 
   const campanha = { desconto_tipo: 'fixo', desconto_pct: PCT, parcelas: PARCELAS };
