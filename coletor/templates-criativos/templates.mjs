@@ -363,6 +363,51 @@ function editorialV2(dados, formato) {
   return pagina(inner, formato);
 }
 
+// PRODUTO · Split (Soft Pearl à esquerda com texto/oferta, painel Sage à direita com a bolsa
+// flutuando; "50%"+"OFF" hero na coluna de texto + De/Por opcional como suporte)
+function produtoSplit(dados, formato) {
+  const d = DIM[formato];
+  // o design nasceu no Post 1080x1350 (split lado a lado, largura já é 1080 nos dois
+  // formatos) — a coluna de texto fica fixa em 540px (metade do canvas) nos dois formatos;
+  // o que muda de um formato pro outro é só a altura do canvas, e o justify-content:
+  // space-between da coluna de texto absorve a folga extra da Story automaticamente, sem
+  // precisar reescalar nada.
+  const bagWidth = formato === '1080x1920' ? 520 : 496;
+  const destaquePreco = !!(dados.precoDe && dados.precoPor);
+  const blocoSuporte = destaquePreco
+    ? `<div style="display:flex;align-items:baseline;gap:16px;margin-top:32px;"><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:30px;font-weight:500;color:#a08f77;text-decoration:line-through;text-decoration-thickness:2px;">R$ ${dados.precoDe}</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:44px;font-weight:600;color:#582f0a;">R$ ${dados.precoPor}</span></div>`
+    : `<div style="font-size:23px;letter-spacing:.06em;color:#7a5a37;margin-top:36px;line-height:1.5;font-weight:400;">Seleção especial de bolsas<br>por tempo limitado</div>`;
+  const linhaCopy = dados.copyEfeito
+    ? `<div style="font-family:'Archivo',sans-serif;font-size:20px;letter-spacing:.14em;text-transform:uppercase;color:#7a5a37;font-weight:600;margin-top:14px;">${esc(dados.copyEfeito)}</div>`
+    : '';
+  const inner = `
+  <div style="position:relative;width:${d.width}px;height:${d.height}px;background:#f2f1ed;overflow:hidden;color:#582f0a;font-family:'Archivo',sans-serif;display:flex;">
+    <div style="position:absolute;inset:0;background-image:url('${MONO.olive}');background-repeat:repeat;background-size:210px;opacity:.045;"></div>
+    <div style="position:relative;z-index:2;width:540px;flex:0 0 auto;padding:92px 56px 92px 84px;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;">
+      <div style="display:flex;flex-direction:column;align-items:flex-start;">
+        <img src="${MONO.brown}" style="height:60px;width:auto;">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:46px;font-weight:500;margin-top:16px;color:#582f0a;">La <span style="font-style:italic;">vessel</span></div>
+        <div style="display:flex;align-items:center;gap:16px;margin-top:22px;"><span style="width:40px;height:1px;background:#89a88b;"></span><span style="font-size:19px;letter-spacing:.44em;text-transform:uppercase;color:#89a88b;font-weight:600;padding-left:.44em;">${dados.eyebrow || 'Season Sale'}</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-start;">
+        <div style="font-size:18px;letter-spacing:.42em;text-transform:uppercase;color:#89a88b;font-weight:600;padding-left:.42em;">Bolsa</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:46px;color:#582f0a;margin-top:4px;margin-bottom:10px;">${esc(dados.nome)}</div>
+        <div style="display:flex;flex-direction:column;align-items:flex-start;">
+          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:256px;font-weight:500;line-height:1;color:#582f0a;">${dados.oferta}</span>
+          <span style="font-family:'Archivo',sans-serif;font-size:78px;letter-spacing:.16em;font-weight:700;color:#89a88b;margin-top:-4px;padding-left:.16em;">OFF</span>
+        </div>${blocoSuporte}${linhaCopy}
+      </div>
+      <div style="background:#89a88b;color:#f2f1ed;font-weight:600;font-size:24px;letter-spacing:.18em;text-transform:uppercase;padding:26px 62px;border-radius:999px;box-shadow:0 16px 32px rgba(88,47,10,.2);display:flex;align-items:center;gap:14px;white-space:nowrap;">${dados.cta || 'Aproveite já'} <span style="font-size:27px;line-height:1;">&#8594;</span></div>
+    </div>
+    <div style="position:relative;z-index:1;flex:1 1 auto;background:#c2cfb4;overflow:hidden;border-left:1px solid rgba(137,168,139,.6);">
+      <div style="position:absolute;inset:0;background-image:url('${MONO.cream}');background-repeat:repeat;background-size:160px;opacity:.14;"></div>
+      <img src="${dados.fotoDataUrl}" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${bagWidth}px;height:auto;filter:drop-shadow(0 28px 34px rgba(88,47,10,.32));">
+      <img src="${MONO.brown}" style="position:absolute;bottom:46px;right:46px;height:64px;width:auto;opacity:.4;">
+    </div>
+  </div>`;
+  return pagina(inner, formato);
+}
+
 export const TEMPLATES = {
   'promo-number-hero':   { arquetipo: 'promo', nome: 'Promo · Number Hero', render: promoNumberHero },
   'produto-heroi':       { arquetipo: 'produto', nome: 'Produto · Herói', render: produtoHeroi },
@@ -373,5 +418,6 @@ export const TEMPLATES = {
   'promo-burnt-wood':    { arquetipo: 'promo', nome: 'Promo · Burnt Wood', render: promoBurntWood },
   'editorial-sale':      { arquetipo: 'produto', nome: 'Editorial · Sale', render: editorialSale },
   'editorial-v2':        { arquetipo: 'produto', nome: 'Editorial · V2', render: editorialV2 },
+  'produto-split':       { arquetipo: 'produto', nome: 'Produto · Split', render: produtoSplit },
 };
 export { DIM };
