@@ -296,7 +296,7 @@ function editorialSale(dados, formato) {
       </div>
       <div style="position:relative;z-index:3;flex:1;display:flex;align-items:center;justify-content:center;">
         <div style="position:absolute;left:50%;bottom:${s(20)}px;transform:translateX(-50%);width:${s(470)}px;height:${s(60)}px;background:radial-gradient(ellipse at center, rgba(88,47,10,.30) 0%, rgba(88,47,10,0) 72%);filter:blur(11px);"></div>
-        <img src="${dados.fotoDataUrl}" style="position:relative;width:${s(560)}px;height:auto;max-height:100%;object-fit:contain;filter:drop-shadow(0 34px 40px rgba(88,47,10,.32));">
+        <img src="${dados.fotoDataUrl}" style="position:relative;width:${s(600)}px;height:auto;max-height:100%;object-fit:contain;filter:drop-shadow(0 34px 40px rgba(88,47,10,.32));">
       </div>
     </div>
     <div style="position:relative;flex:0 0 42%;background:#f2f1ed;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:${s(56)}px ${s(90)}px;gap:${s(20)}px;">
@@ -306,15 +306,14 @@ function editorialSale(dados, formato) {
         <span style="font-size:${s(22)}px;letter-spacing:.5em;text-transform:uppercase;color:#89a88b;font-weight:600;padding-left:.5em;">${dados.eyebrow || 'Sale'}</span>
         <span style="width:44px;height:1px;background:#89a88b;"></span>
       </div>
-      <div style="position:relative;z-index:1;display:flex;align-items:flex-start;gap:26px;">
-        <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(220)}px;font-weight:500;line-height:.8;color:#582f0a;">${dados.oferta || '50%'}</span>
-        <span style="font-family:'Archivo',sans-serif;font-weight:700;font-size:${s(56)}px;letter-spacing:.14em;color:#89a88b;padding-top:${s(26)}px;padding-left:.14em;">OFF</span>
+      <div style="position:relative;z-index:1;display:flex;align-items:flex-start;gap:${s(26)}px;">
+        <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(272)}px;font-weight:500;line-height:.8;color:#582f0a;">${dados.oferta || '50%'}</span>
+        <span style="font-family:'Archivo',sans-serif;font-weight:700;font-size:${s(70)}px;letter-spacing:.14em;color:#89a88b;padding-top:${s(30)}px;padding-left:.14em;">OFF</span>
       </div>
-      <div style="position:relative;z-index:1;font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:${s(58)}px;color:#582f0a;line-height:1;">${esc(dados.nome)}</div>
-      <div style="position:relative;z-index:1;display:flex;align-items:baseline;gap:24px;">
-        <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(50)}px;font-weight:500;color:#a08f77;text-decoration:line-through;text-decoration-thickness:1.5px;">R$ ${dados.precoDe}</span>
-        <span style="width:7px;height:7px;border-radius:50%;background:#89a88b;align-self:center;"></span>
-        <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(78)}px;font-weight:600;color:#582f0a;">R$ ${dados.precoPor}</span>
+      <div style="position:relative;z-index:1;font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:${s(60)}px;color:#582f0a;line-height:1;">${esc(dados.nome)}</div>
+      <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:${s(2)}px;">
+        <div style="display:flex;align-items:baseline;gap:${s(12)}px;"><span style="font-family:'Archivo',sans-serif;font-size:${s(26)}px;letter-spacing:.3em;font-weight:600;color:#a08f77;">DE</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(52)}px;font-weight:500;color:#a08f77;text-decoration:line-through;text-decoration-thickness:2px;">R$ ${dados.precoDe}</span></div>
+        <div style="display:flex;align-items:baseline;gap:${s(16)}px;"><span style="font-family:'Archivo',sans-serif;font-size:${s(32)}px;letter-spacing:.3em;font-weight:700;color:#89a88b;">POR</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(118)}px;font-weight:600;color:#582f0a;line-height:1;">R$ ${dados.precoPor}</span></div>
       </div>${dados.copyEfeito ? `
       <div style="position:relative;z-index:1;font-family:'Archivo',sans-serif;font-size:${s(20)}px;letter-spacing:.14em;text-transform:uppercase;color:#7a5a37;font-weight:600;">${esc(dados.copyEfeito)}</div>` : ''}
       <div style="position:relative;z-index:1;margin-top:${s(12)}px;background:#89a88b;color:#f2f1ed;font-weight:600;font-size:${s(26)}px;letter-spacing:.2em;text-transform:uppercase;padding:${s(26)}px ${s(74)}px;border-radius:999px;box-shadow:0 16px 34px rgba(88,47,10,.22);display:flex;align-items:center;gap:16px;white-space:nowrap;">${dados.cta || 'Comprar agora'} <span style="font-size:${s(27)}px;line-height:1;">&#8594;</span></div>
@@ -379,7 +378,7 @@ function produtoSplit(dados, formato) {
   const bagWidth = formato === '1080x1920' ? 520 : 496;
   const destaquePreco = !!(dados.precoDe && dados.precoPor);
   const blocoSuporte = destaquePreco
-    ? `<div style="display:flex;align-items:baseline;gap:18px;margin-top:36px;flex-wrap:wrap;"><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:36px;font-weight:500;color:#a08f77;text-decoration:line-through;text-decoration-thickness:2px;">R$ ${dados.precoDe}</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:56px;font-weight:600;color:#582f0a;line-height:1;">R$ ${dados.precoPor}</span></div>`
+    ? `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin-top:32px;"><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:44px;font-weight:500;color:#a08f77;text-decoration:line-through;text-decoration-thickness:2px;white-space:nowrap;">R$ ${dados.precoDe}</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:82px;font-weight:600;color:#582f0a;line-height:1;white-space:nowrap;">R$ ${dados.precoPor}</span></div>`
     : `<div style="font-size:26px;letter-spacing:.06em;color:#7a5a37;margin-top:40px;line-height:1.5;font-weight:400;">Seleção especial de bolsas<br>por tempo limitado</div>`;
   const linhaCopy = dados.copyEfeito
     ? `<div style="font-family:'Archivo',sans-serif;font-size:23px;letter-spacing:.14em;text-transform:uppercase;color:#7a5a37;font-weight:600;margin-top:16px;">${esc(dados.copyEfeito)}</div>`
