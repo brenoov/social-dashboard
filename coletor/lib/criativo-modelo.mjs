@@ -30,7 +30,7 @@ export function variacoesProduto(candidato, campanha, opts = {}) {
           arquetipo: 'produto', template, formato,
           variante: `${template}-${parceladoEmEvidencia ? 'parcelado' : 'avista'}`,
           preco_de: candidato.preco, preco_por: porNum,
-          dados: { nome: candidato.nome, fotoDataUrl: candidato.fotoDataUrl, precoDe: de, precoPor: por, parcelado: parc, parcelas: campanha.parcelas, parceladoEmEvidencia, eyebrow: 'Oferta especial' },
+          dados: { nome: candidato.nome, fotoDataUrl: candidato.fotoDataUrl, oferta: `${Math.round(pct)}%`, precoDe: de, precoPor: por, parcelado: parc, parcelas: campanha.parcelas, parceladoEmEvidencia, eyebrow: 'Oferta especial' },
         });
       }
     }

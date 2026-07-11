@@ -37,7 +37,7 @@ function promoNumberHero(dados, formato) {
         <div style="display:flex;align-items:center;gap:18px;margin-top:20px;"><span style="width:44px;height:1px;background:#c2cfb4;opacity:.55;"></span><span style="font-size:${s(20)}px;letter-spacing:.46em;text-transform:uppercase;color:#c2cfb4;font-weight:500;padding-left:.46em;">${dados.eyebrow || 'Season Sale'}</span><span style="width:44px;height:1px;background:#c2cfb4;opacity:.55;"></span></div>
       </div>
       <div style="display:flex;align-items:baseline;gap:${s(28)}px;">
-        <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(308)}px;font-weight:500;line-height:1;">${dados.oferta}</span>
+        <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(308)}px;font-weight:500;line-height:1;">${dados.oferta || '50%'}</span>
         <span style="font-family:'Archivo',sans-serif;font-size:${s(88)}px;letter-spacing:.14em;font-weight:700;color:#c2cfb4;">OFF</span>
       </div>
       <div style="display:flex;align-items:center;justify-content:center;width:${s(600)}px;height:${s(600)}px;border-radius:50%;background:#f2f1ed;box-shadow:0 34px 70px rgba(0,0,0,.34);overflow:hidden;">
@@ -185,7 +185,7 @@ function promoSage(dados, formato) {
       <div style="display:flex;flex-direction:column;align-items:center;">
         <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:${s(48)}px;margin-bottom:18px;">${esc(dados.nome)}</div>
         <div style="display:flex;align-items:baseline;gap:26px;">
-          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(300)}px;font-weight:500;line-height:1;">${dados.oferta}</span>
+          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(300)}px;font-weight:500;line-height:1;">${dados.oferta || '50%'}</span>
           <span style="font-family:'Archivo',sans-serif;font-size:${s(78)}px;letter-spacing:.14em;font-weight:700;">OFF</span>
         </div>
         <div style="display:flex;align-items:baseline;gap:22px;margin-top:${s(30)}px;">
@@ -220,7 +220,7 @@ function promoMinimalPearl(dados, formato) {
       <div style="display:flex;flex-direction:column;align-items:center;">
         <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:${s(48)}px;margin-bottom:18px;">${esc(dados.nome)}</div>
         <div style="display:flex;align-items:baseline;gap:26px;">
-          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(300)}px;font-weight:500;line-height:1;">${dados.oferta}</span>
+          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(300)}px;font-weight:500;line-height:1;">${dados.oferta || '50%'}</span>
           <span style="font-family:'Archivo',sans-serif;font-size:${s(78)}px;letter-spacing:.14em;font-weight:700;color:#89a88b;">OFF</span>
         </div>
         <div style="display:flex;align-items:baseline;gap:22px;margin-top:${s(30)}px;">
@@ -261,7 +261,7 @@ function promoBurntWood(dados, formato) {
       <div style="display:flex;flex-direction:column;align-items:center;">
         <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:${s(56)}px;margin-bottom:20px;">${esc(dados.nome)}</div>
         <div style="display:flex;align-items:baseline;gap:30px;">
-          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(308)}px;font-weight:500;line-height:1;">${dados.oferta}</span>
+          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(308)}px;font-weight:500;line-height:1;">${dados.oferta || '50%'}</span>
           <span style="font-family:'Archivo',sans-serif;font-size:${s(82)}px;letter-spacing:.12em;font-weight:700;color:#c2cfb4;">OFF</span>
         </div>
         <div style="display:flex;align-items:baseline;gap:24px;margin-top:${s(36)}px;">
@@ -303,7 +303,7 @@ function editorialSale(dados, formato) {
         <span style="width:44px;height:1px;background:#89a88b;"></span>
       </div>
       <div style="position:relative;z-index:1;display:flex;align-items:flex-start;gap:26px;">
-        <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(220)}px;font-weight:500;line-height:.8;color:#582f0a;">${dados.oferta}</span>
+        <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(220)}px;font-weight:500;line-height:.8;color:#582f0a;">${dados.oferta || '50%'}</span>
         <span style="font-family:'Archivo',sans-serif;font-weight:700;font-size:${s(56)}px;letter-spacing:.14em;color:#89a88b;padding-top:${s(26)}px;padding-left:.14em;">OFF</span>
       </div>
       <div style="position:relative;z-index:1;font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:${s(58)}px;color:#582f0a;line-height:1;">${esc(dados.nome)}</div>
@@ -346,7 +346,7 @@ function editorialV2(dados, formato) {
           <span style="width:44px;height:1px;background:#89a88b;"></span>
         </div>
         <div style="display:flex;align-items:flex-start;gap:24px;">
-          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(210)}px;font-weight:500;line-height:.8;">${dados.oferta}</span>
+          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(210)}px;font-weight:500;line-height:.8;">${dados.oferta || '50%'}</span>
           <span style="font-family:'Archivo',sans-serif;font-weight:700;font-size:${s(56)}px;letter-spacing:.14em;color:#89a88b;padding-top:${s(22)}px;padding-left:.14em;">OFF</span>
         </div>
         <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:${s(58)}px;line-height:1;">${esc(dados.nome)}</div>
@@ -393,7 +393,7 @@ function produtoSplit(dados, formato) {
         <div style="font-size:18px;letter-spacing:.42em;text-transform:uppercase;color:#89a88b;font-weight:600;padding-left:.42em;">Bolsa</div>
         <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:46px;color:#582f0a;margin-top:4px;margin-bottom:10px;">${esc(dados.nome)}</div>
         <div style="display:flex;flex-direction:column;align-items:flex-start;">
-          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:256px;font-weight:500;line-height:1;color:#582f0a;">${dados.oferta}</span>
+          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:256px;font-weight:500;line-height:1;color:#582f0a;">${dados.oferta || '50%'}</span>
           <span style="font-family:'Archivo',sans-serif;font-size:78px;letter-spacing:.16em;font-weight:700;color:#89a88b;margin-top:-4px;padding-left:.16em;">OFF</span>
         </div>${blocoSuporte}${linhaCopy}
       </div>
