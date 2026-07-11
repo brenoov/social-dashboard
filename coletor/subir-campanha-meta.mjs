@@ -276,10 +276,10 @@ const waLink = (loja) => 'https://wa.me/' + String(loja.whatsapp).replace(/\D/g,
 // arquivo), refaz sem IG e avisa no log.
 async function criarAdCreative(params) {
   let r = await meta(`/${CFG.ACT}/adcreatives`, params, 'POST');
-  if (r.status !== 200 && /instagram_actor_id must be a valid Instagram account id/.test(JSON.stringify(r.d))) {
-    console.warn('  aviso: instagram_actor_id rejeitado — refazendo SEM Instagram (ad roda só no Facebook)');
+  if (r.status !== 200 && /instagram_(user|actor)_id/i.test(JSON.stringify(r.d))) {
+    console.warn('  aviso: instagram_user_id rejeitado — refazendo SEM Instagram (ad roda só no Facebook)');
     const semIG = JSON.parse(JSON.stringify(params));
-    if (semIG.object_story_spec) delete semIG.object_story_spec.instagram_actor_id;
+    if (semIG.object_story_spec) { delete semIG.object_story_spec.instagram_user_id; delete semIG.object_story_spec.instagram_actor_id; }
     r = await meta(`/${CFG.ACT}/adcreatives`, semIG, 'POST');
     params = semIG;
   }
@@ -296,7 +296,7 @@ function payloadImagemUnica({ hash, waLinkUrl, mensagem }) {
   return {
     object_story_spec: {
       page_id: CFG.PAGE,
-      instagram_actor_id: CFG.IG,
+      instagram_user_id: CFG.IG,
       link_data: {
         image_hash: hash,
         link: waLinkUrl,
