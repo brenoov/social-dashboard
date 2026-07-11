@@ -60,26 +60,30 @@ function produtoHeroi(dados, formato) {
   const escala = formato === '1080x1350' ? 0.76 : 1;
   const s = (n) => Math.round(n * escala);
   const destaqueParcelado = !!dados.parceladoEmEvidencia;
-  const blocoPreco = destaqueParcelado
-    ? `<div style="display:flex;align-items:baseline;gap:14px;"><span style="font-size:${s(24)}px;letter-spacing:.3em;text-transform:uppercase;font-weight:600;color:#b0a596;">De</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(50)}px;font-weight:500;color:#b0a596;text-decoration:line-through;text-decoration-thickness:2px;">R$ ${dados.precoDe}</span></div>
-       <span style="font-size:${s(26)}px;letter-spacing:.32em;text-transform:uppercase;font-weight:700;color:#89a88b;">Em até</span>
-       <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(150)}px;font-weight:500;line-height:1;color:#582f0a;">${dados.parcelas}× R$ ${dados.parcelado}</span>`
-    : `<div style="display:flex;align-items:baseline;gap:16px;"><span style="font-size:${s(26)}px;letter-spacing:.3em;text-transform:uppercase;font-weight:600;color:#b0a596;">De</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(60)}px;font-weight:500;color:#b0a596;text-decoration:line-through;text-decoration-thickness:2px;">R$ ${dados.precoDe}</span></div>
-       <div style="display:flex;align-items:baseline;gap:22px;"><span style="font-size:${s(32)}px;letter-spacing:.32em;text-transform:uppercase;font-weight:700;color:#89a88b;">Por</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(168)}px;font-weight:500;line-height:1;color:#582f0a;">R$ ${dados.precoPor}</span></div>`;
+  const pct = (dados.oferta || '50%').replace('%', ''); // "50%" -> "50" (o % é renderizado menor)
+  const cormNum = "font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;";
+  // VALORES em evidência: "DE R$ x" riscado + linha grande ("POR R$ y" gigante, ou "EM ATÉ 10× R$ z")
+  const linhaDe = `<div style="display:flex;align-items:baseline;gap:${s(14)}px;"><span style="font-size:${s(30)}px;letter-spacing:.3em;font-weight:600;color:#b0a596;">DE</span><span style="${cormNum}font-size:${s(60)}px;font-weight:500;color:#b0a596;text-decoration:line-through;text-decoration-thickness:3px;">R$ ${dados.precoDe}</span></div>`;
+  const linhaPor = destaqueParcelado
+    ? `<div style="display:flex;align-items:baseline;gap:${s(18)}px;"><span style="font-size:${s(36)}px;letter-spacing:.3em;font-weight:700;color:#89a88b;">EM ATÉ</span><span style="${cormNum}font-size:${s(150)}px;font-weight:600;line-height:1;color:#582f0a;">${dados.parcelas}× R$ ${dados.parcelado}</span></div>`
+    : `<div style="display:flex;align-items:baseline;gap:${s(18)}px;"><span style="font-size:${s(38)}px;letter-spacing:.3em;font-weight:700;color:#89a88b;">POR</span><span style="${cormNum}font-size:${s(178)}px;font-weight:600;line-height:1;color:#582f0a;">R$ ${dados.precoPor}</span></div>`;
   const inner = `
   <div style="position:relative;width:${d.width}px;height:${d.height}px;background:#f2f1ed;overflow:hidden;color:#582f0a;font-family:'Archivo',sans-serif;">
     <div style="position:absolute;inset:0;background-image:url('${MONO.olive}');background-repeat:repeat;background-size:230px;opacity:.045;"></div>
-    <div style="position:relative;z-index:1;height:${d.height}px;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:center;gap:${s(40)}px;padding:${s(104)}px ${s(90)}px;">
+    <div style="position:relative;z-index:1;height:${d.height}px;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:space-between;padding:${s(66)}px ${s(60)}px ${s(60)}px;">
       <div style="display:flex;flex-direction:column;align-items:center;">
-        <img src="${MONO.brown}" style="height:${s(60)}px;width:auto;">
-        <div style="font-family:'Cormorant Garamond',serif;font-size:${s(52)}px;font-weight:500;margin-top:14px;">La <span style="font-style:italic;">vessel</span></div>
-        <div style="display:flex;align-items:center;gap:20px;margin-top:20px;"><span style="width:46px;height:1px;background:#89a88b;"></span><span style="font-size:${s(22)}px;letter-spacing:.46em;text-transform:uppercase;color:#89a88b;font-weight:600;padding-left:.46em;">${dados.eyebrow || 'Oferta especial'}</span><span style="width:46px;height:1px;background:#89a88b;"></span></div>
+        <img src="${MONO.brown}" style="height:${s(48)}px;width:auto;">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:${s(44)}px;font-weight:500;margin-top:${s(6)}px;">La <span style="font-style:italic;">vessel</span></div>
+        <div style="display:flex;align-items:center;gap:${s(16)}px;margin-top:${s(12)}px;"><span style="width:${s(40)}px;height:1px;background:#89a88b;"></span><span style="font-size:${s(20)}px;letter-spacing:.44em;text-transform:uppercase;color:#89a88b;font-weight:600;padding-left:.44em;">${dados.eyebrow || 'Oferta especial'}</span><span style="width:${s(40)}px;height:1px;background:#89a88b;"></span></div>
       </div>
-      <img src="${dados.fotoDataUrl}" style="width:${s(604)}px;height:auto;object-fit:contain;filter:drop-shadow(0 36px 44px rgba(60,36,8,.26));">
-      <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:${s(56)}px;">${esc(dados.nome)}</div>
-      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">${blocoPreco}</div>${dados.copyEfeito ? `
-      <div style="font-family:'Archivo',sans-serif;font-size:${s(22)}px;letter-spacing:.14em;text-transform:uppercase;color:#7a5a37;font-weight:600;">${esc(dados.copyEfeito)}</div>` : ''}
-      <div style="background:#89a88b;color:#f2f1ed;font-weight:600;font-size:${s(30)}px;letter-spacing:.2em;text-transform:uppercase;padding:${s(30)}px ${s(84)}px;border-radius:999px;box-shadow:0 16px 34px rgba(88,47,10,.2);display:flex;align-items:center;gap:18px;">${dados.cta || 'Eu quero a minha'} <span style="font-size:${s(34)}px;line-height:1;">&#8594;</span></div>
+      <img src="${dados.fotoDataUrl}" style="width:${s(660)}px;height:auto;object-fit:contain;filter:drop-shadow(0 ${s(40)}px ${s(46)}px rgba(60,36,8,.30));">
+      <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:${s(66)}px;">${esc(dados.nome)}</div>
+      <div style="display:flex;align-items:flex-start;gap:${s(12)}px;line-height:.8;">
+        <span style="${cormNum}font-size:${s(320)}px;font-weight:600;">${pct}<span style="font-size:${s(150)}px;">%</span></span>
+        <span style="font-family:'Archivo',sans-serif;font-size:${s(104)}px;font-weight:700;letter-spacing:.04em;color:#89a88b;align-self:center;">OFF</span>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:${s(2)}px;">${linhaDe}${linhaPor}</div>
+      <div style="background:#89a88b;color:#f2f1ed;font-weight:700;font-size:${s(32)}px;letter-spacing:.18em;text-transform:uppercase;padding:${s(32)}px ${s(84)}px;border-radius:999px;box-shadow:0 16px 34px rgba(88,47,10,.2);display:flex;align-items:center;gap:${s(18)}px;">${dados.cta || 'Eu quero a minha'} <span style="font-size:${s(36)}px;line-height:1;">&#8594;</span></div>
     </div>
   </div>`;
   return pagina(inner, formato);
