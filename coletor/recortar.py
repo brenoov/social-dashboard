@@ -39,12 +39,12 @@ def _cut_birefnet(img):
     m = m[0, 0]
     m = (m - m.min()) / (m.max() - m.min() + 1e-8)
     if TOL > 0:                             # tolerância: boost gamma (<1 levanta valores baixos)
-        m = np.power(m, 1.0 - 0.45 * TOL)
+        m = np.power(m, 1.0 - 0.4 * TOL)    # recupera partes finas INTERNAS da bolsa
+    # anti-franja: zera o alpha baixo (resíduo de fundo semitransparente que virava halo branco).
+    # NÃO dilatamos a máscara (dilatar crescia pra dentro do fundo → franja clara na borda).
+    m[m < 0.12] = 0.0
     mask = Image.fromarray((m * 255).astype(np.uint8)).resize((W, H), Image.BILINEAR)
-    if TOL > 0:                             # dilatação leve pra recuperar bordas finas cortadas
-        raio = int(round(1 + 4 * TOL)) | 1  # ímpar (MaxFilter exige): TOL=0.6 -> 3
-        if raio >= 3:
-            mask = mask.filter(ImageFilter.MaxFilter(raio))
+    mask = mask.filter(ImageFilter.GaussianBlur(0.6))  # feather leve p/ borda limpa (anti-serrilhado)
     out = img.convert('RGBA')
     out.putalpha(mask)
     return out
