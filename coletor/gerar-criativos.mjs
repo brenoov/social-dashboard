@@ -2,10 +2,17 @@
 // coletor/gerar-criativos.mjs
 // F2a: gera criativos (produto De/Por + promo) da última rodada da F1 + campanha.
 // Uso: node gerar-criativos.mjs --pct 50 --nome "50% OFF - Sales" [--parcelas 10] [--dry]
+//
+// Modo "estrela" (F3 task 3b): em vez de ler fabrica_candidatos (F1, tag
+// vazia), monta a lista de produtos a partir dos dados REAIS do Gestor
+// Comercial (curva ABC/BCG): top faturamento (gc_vendas_item) que TEM
+// estoque no depósito da loja (gc_estoque_item). Preço vem do Bling.
+// Uso: node gerar-criativos.mjs --pct 50 --nome "Tivoli Estrela" \
+//        --estrela 205834140 --deposito 14888726315 [--limite 20] [--dry]
 import './lib/carregar-env.mjs';
-import { loginServico } from './lib/bling-comercial.mjs';
-import { fotoDataUrl } from './lib/foto-produto.mjs';
-import { renderPNG, fecharRender, ehFotoStudio } from './lib/render-criativo.mjs';
+import { loginServico, blingProdutos } from './lib/bling-comercial.mjs';
+import { fotoDataUrl, fotoEhStudio } from './lib/foto-produto.mjs';
+import { renderPNG, fecharRender } from './lib/render-criativo.mjs';
 import { TEMPLATES, DIM } from './templates-criativos/templates.mjs';
 import { variacoesProduto, variacoesPromo } from './lib/criativo-modelo.mjs';
 import { gerarCopysProduto, gerarCopyPromo } from './lib/copy-efeito.mjs';
@@ -16,6 +23,21 @@ const PCT = Number(arg('--pct', '50'));
 const NOME = arg('--nome', PCT + '% OFF');
 const PARCELAS = Number(arg('--parcelas', '10'));
 const LIMITE = process.argv.includes('--limite') ? Number(arg('--limite', '5')) : Infinity;
+const LOJA = arg('--loja', null);
+const FONTE = arg('--fonte', null);
+const ESTRELA_CANAL = arg('--estrela', null);
+const ESTRELA_DEPOSITO = arg('--deposito', null);
+const ESTRELA_LIMITE = process.argv.includes('--limite') ? Number(arg('--limite', '20')) : 20;
+
+// --looks produto-heroi,produto-sage-circulo  |  --modos avista,parcelado
+const LOOKS = process.argv.includes('--looks') ? arg('--looks', '').split(',').map(s => s.trim()).filter(Boolean) : null;
+const MODOS_MAP = { avista: false, parcelado: true };
+const MODOS = process.argv.includes('--modos')
+  ? arg('--modos', '').split(',').map(s => s.trim()).filter(Boolean).map(s => MODOS_MAP[s])
+  : null;
+const opts = {};
+if (LOOKS && LOOKS.length) opts.looks = LOOKS;
+if (MODOS && MODOS.length) opts.modos = MODOS;
 
 const URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
 const SK = process.env.SUPABASE_SERVICE_KEY;
@@ -36,13 +58,69 @@ async function subir(path, buf) {
   return `${URL}/storage/v1/object/public/${BUCKET}/${path}`;
 }
 
+// Modo estrela: top faturamento (gc_vendas_item) do canal, cruzado com
+// estoque>0 (gc_estoque_item) do depósito, com preço resolvido no Bling.
+async function candidatosEstrela(token, canalLojaId, depositoId, limite) {
+  const vendas = await sbGet(`/gc_vendas_item?select=sku,produto,faturamento&canal_loja_id=eq.${canalLojaId}`);
+  const fatPorSku = new Map();
+  const nomePorSku = new Map();
+  for (const v of vendas) {
+    if (!v.sku) continue;
+    const fat = Number(v.faturamento) || 0;
+    fatPorSku.set(v.sku, (fatPorSku.get(v.sku) || 0) + fat);
+    if (!nomePorSku.has(v.sku)) nomePorSku.set(v.sku, v.produto);
+  }
+
+  const estoque = await sbGet(`/gc_estoque_item?select=sku,saldo&deposito_id=eq.${depositoId}`);
+  const saldoPorSku = new Map();
+  for (const e of estoque) {
+    if (!e.sku) continue;
+    const saldo = Number(e.saldo) || 0;
+    saldoPorSku.set(e.sku, (saldoPorSku.get(e.sku) || 0) + saldo);
+  }
+
+  const ranked = [...fatPorSku.entries()]
+    .filter(([sku, fat]) => fat > 0 && (saldoPorSku.get(sku) || 0) > 0)
+    .sort((a, b) => b[1] - a[1]);
+
+  console.log('estrela:', ranked.length, 'SKUs com faturamento + estoque no canal/depósito');
+
+  const prodMap = await blingProdutos(token);
+  const precoPorCodigo = new Map();
+  for (const p of Object.values(prodMap)) {
+    if (p.codigo) precoPorCodigo.set(String(p.codigo).toUpperCase(), p.preco);
+  }
+
+  const out = [];
+  for (const [sku, fat] of ranked) {
+    if (out.length >= limite) break;
+    const preco = precoPorCodigo.get(String(sku).toUpperCase());
+    if (preco == null || !(preco > 0)) { console.log('  sem preço no Bling, pulado:', sku); continue; }
+    out.push({ id: null, sku, nome: nomePorSku.get(sku) || sku, preco, deposito_id: depositoId, faturamento: fat });
+  }
+  return out;
+}
+
 async function main() {
   const token = await loginServico();
-  const rod = await sbGet('/fabrica_rodadas?select=id,rodada&order=created_at.desc&limit=1');
-  if (!rod.length) throw new Error('sem rodada da F1');
-  const rodadaId = rod[0].id;
-  const cands = await sbGet(`/fabrica_candidatos?select=id,sku,nome,preco,selecionado&rodada_id=eq.${rodadaId}&selecionado=eq.true&order=loja_nome`);
-  console.log('rodada', rod[0].rodada, '| candidatos selecionados:', cands.length);
+
+  let cands;
+  if (ESTRELA_CANAL) {
+    if (!ESTRELA_DEPOSITO) throw new Error('--estrela requer --deposito');
+    cands = await candidatosEstrela(token, ESTRELA_CANAL, ESTRELA_DEPOSITO, ESTRELA_LIMITE);
+    console.log('estrela | candidatos (top faturamento c/ estoque):', cands.length);
+    for (const c of cands) console.log('  ', c.sku, '| R$', c.preco, '| fat R$', c.faturamento.toFixed(2), '|', c.nome);
+  } else {
+    const rod = await sbGet('/fabrica_rodadas?select=id,rodada&order=created_at.desc&limit=1');
+    if (!rod.length) throw new Error('sem rodada da F1');
+    const rodadaId = rod[0].id;
+    let q = `/fabrica_candidatos?select=id,sku,nome,preco,selecionado,deposito_id,fonte&rodada_id=eq.${rodadaId}&selecionado=eq.true`;
+    if (LOJA) q += `&deposito_id=eq.${LOJA}`;
+    if (FONTE) q += `&fonte=eq.${FONTE}`;
+    q += `&order=loja_nome`;
+    cands = await sbGet(q);
+    console.log('rodada', rod[0].rodada, '| candidatos selecionados:', cands.length);
+  }
 
   const campanha = { desconto_tipo: 'fixo', desconto_pct: PCT, parcelas: PARCELAS };
 
@@ -80,9 +158,9 @@ async function main() {
     if (cand.preco == null) { console.log('  sem preço:', cand.sku); continue; }
     const foto = await fotoDe(cand.sku);
     if (!foto) { console.warn('  sem foto:', cand.sku, cand.nome); continue; }
-    if (!(await ehFotoStudio(foto))) { console.log('  foto amadora, pulado:', cand.sku); continue; }
+    if (!fotoEhStudio(cand.sku)) { console.log('  foto amadora (avaliada na foto crua), pulado:', cand.sku); continue; }
     const copyInfo = copys.get(cand.sku) || {};
-    for (const v of variacoesProduto({ ...cand, fotoDataUrl: foto }, campanha)) {
+    for (const v of variacoesProduto({ ...cand, fotoDataUrl: foto }, campanha, opts)) {
       v.dados.copyEfeito = copyInfo.copy;
       v.dados.nome = copyInfo.nome;
       const html = TEMPLATES[v.template].render(v.dados, v.formato);

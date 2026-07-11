@@ -49,3 +49,6 @@ dist
 
 # fotos de produto baixadas do Bling (cache local p/ criativos F2)
 coletor/fotos-bling/
+# cache de recortes (rembg) e fotos baixadas do Bling p/ recorte (F3 task 8)
+coletor/fotos-cutout/
+coletor/fotos-baixadas/
