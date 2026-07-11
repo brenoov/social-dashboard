@@ -1,17 +1,24 @@
 #!/usr/bin/env node
-// coletor/subir-campanha-meta.mjs — F3 launch limpo (1 ad por produto, produto-heroi,
+// coletor/subir-campanha-meta.mjs — F3 launch limpo (1 ad por produto, LOOK ROTATIVO,
 // Story 1080x1920, IG, WhatsApp). WhatsApp (PAUSED) pra conta Vessel.
 //
 // Estrutura por loja:
 //   Campaign "[IA] <Loja> · WhatsApp · 11-07-2026"
 //     └ AdSet "Geral (Promo)"  → 1 ad (o criativo promo, Story 1080x1920)
-//     └ AdSet "De x Por"       → 1 ad por PRODUTO (SKU), look produto-heroi, Story 1080x1920
+//     └ AdSet "De x Por"       → 1 ad por PRODUTO (SKU), look ROTATIVO, Story 1080x1920
 //
-// DECISÃO desta rodada (substitui o multi-look/dual-formato de tentativas anteriores):
-// 1 ad por produto (não por look, não dual-formato) — só o look produto-heroi, só o formato
-// Story (1080x1920). As linhas sage-circulo e os formatos Post (1080x1350) são ignoradas de
-// propósito (ver buscarProduto()). Caption limpa e genérica (o PNG já mostra nome do produto
-// + preço, não precisa repetir o nome longo do Bling na legenda) — ver CAPTION_PADRAO.
+// DECISÃO desta rodada (substitui o look fixo produto-heroi de tentativas anteriores):
+// 1 ad por produto, mas o LOOK varia produto a produto — índice do SKU (ordem estável) % 3:
+// 0=produto-heroi, 1=produto-sage-circulo, 2=produto-preco-tipo. Isso evita que a campanha
+// inteira pareça uma "cópia colada" do mesmo template — ver buscarProdutosRotacaoLook().
+// Só o formato Story (1080x1920) sobe nesta rodada; os formatos Post (1080x1350) continuam
+// ignorados de propósito. Caption limpa e genérica (o PNG já mostra nome do produto + preço,
+// não precisa repetir o nome longo do Bling na legenda) — ver CAPTION_PADRAO.
+//
+// Fallback de look: nem todo SKU tem uma linha pro look sorteado (ex.: produto-preco-tipo não
+// existe nos lotes atuais — só heroi/sage-circulo). Se o look sorteado não tiver linha
+// 1080x1920 pro SKU, usa QUALQUER linha 1080x1920 daquele produto (não pula o produto só por
+// causa do look — ver buscarProdutosRotacaoLook()).
 //
 // Mecanismo de imagem (validado ao vivo, reaproveitado das tentativas anteriores): POST
 // /adimages por BYTES via meta-proxy (`imageFromUrl` — o meta-proxy baixa a imagem no
@@ -80,16 +87,16 @@ const CFG = {
   DATA_CAMPANHA: '11-07-2026',
 };
 
-// Caption limpa e genérica — o PNG (look produto-heroi) já mostra nome do produto + preço,
-// não precisa repetir o nome longo do Bling na legenda. Usada em TODOS os ads (produto e
+// Caption limpa e genérica — o PNG (qualquer look) já mostra nome do produto + preço, não
+// precisa repetir o nome longo do Bling na legenda. Usada em TODOS os ads (produto e
 // promo), pra manter a coerência visual/textual da campanha.
 const CAPTION_PADRAO = '50% OFF em bolsas La Vessel · chame no WhatsApp 💬';
 
 // Lojas: campanhaId = lote isnet (F3, cutout corrigido) que contém os criativos `produto`
-// (look produto-heroi + produto-sage-circulo, à-vista, 2 formatos por SKU) E `promo` (Geral,
-// 1 par dual-formato) daquela loja. Só produto-heroi + Story (1080x1920) sobe nesta rodada
-// (ver buscarProduto()). canalLojaId usado só pra enriquecer o nome do produto via
-// gc_vendas_item (não vai pro Graph).
+// (looks produto-heroi + produto-sage-circulo, à-vista, 2 formatos por SKU) E `promo` (Geral,
+// 1 par dual-formato) daquela loja. Só Story (1080x1920) sobe nesta rodada, com o look
+// rotacionando por produto (ver buscarProdutosRotacaoLook()). canalLojaId usado só pra
+// enriquecer o nome do produto via gc_vendas_item (não vai pro Graph).
 const LOJAS = [
   {
     nome: 'Tivoli',
@@ -211,21 +218,49 @@ async function nomeProduto(skuSane) {
   return nome;
 }
 
-// --- buscarProdutosHeroiStory(): DECISÃO desta rodada — 1 ad por PRODUTO (SKU distinto), só
-// o look `produto-heroi` (variante *-heroi-avista), só o formato Story (1080x1920). As linhas
-// sage-circulo e os formatos Post (1080x1350) são ignoradas de propósito (não é "grupo
-// incompleto" — é filtro deliberado, não gera aviso).
-async function buscarProdutosHeroiStory(loja) {
+// --- LOOKS: ordem de rotação (índice do SKU, ordem estável, % 3) --------------------------
+// 0=produto-heroi, 1=produto-sage-circulo, 2=produto-preco-tipo. "produto-preco-tipo" ainda
+// não existe nos lotes atuais (só heroi/sage-circulo) — cai sempre no fallback abaixo, o que é
+// esperado (não é bug: o requisito é "não pular produto por falta de look", não "só rotacionar
+// entre looks existentes").
+const LOOKS = ['heroi', 'sage-circulo', 'preco-tipo'];
+
+// --- buscarProdutosRotacaoLook(): DECISÃO desta rodada — 1 ad por PRODUTO (SKU distinto), com
+// o LOOK rotacionando produto a produto (índice do SKU em ordem estável % 3 → LOOKS acima), só
+// no formato Story (1080x1920). Os formatos Post (1080x1350) continuam ignorados de propósito.
+// Busca todas as linhas 1080x1920/produto da loja numa query só (evita N+1), agrupa por SKU
+// (ordem de 1ª aparição em `order=storage_path` = ordem estável e determinística) e, pra cada
+// SKU, tenta achar a linha do look sorteado; se não achar (ex.: produto-preco-tipo ainda não
+// existe), cai pra QUALQUER linha 1080x1920 daquele SKU — nenhum produto é pulado só por causa
+// do look.
+async function buscarProdutosRotacaoLook(loja) {
   const rows = await sbGet(
-    `/fabrica_criativos?select=*&campanha_id=eq.${loja.campanhaId}&arquetipo=eq.produto&formato=eq.1080x1920&variante=like.*heroi*&order=storage_path`
+    `/fabrica_criativos?select=*&campanha_id=eq.${loja.campanhaId}&arquetipo=eq.produto&formato=eq.1080x1920&order=storage_path`
   );
-  return rows.map((r) => ({
-    sku: skuDe(r.storage_path, r.variante, r.formato),
-    variante: r.variante,
-    precoDe: r.preco_de,
-    precoPor: r.preco_por,
-    url: r.url,
-  }));
+  const porSku = new Map(); // sku -> linhas 1080x1920 (todas as variantes) daquele SKU
+  const ordemSkus = [];
+  for (const r of rows) {
+    const sku = skuDe(r.storage_path, r.variante, r.formato);
+    if (!porSku.has(sku)) { porSku.set(sku, []); ordemSkus.push(sku); }
+    porSku.get(sku).push(r);
+  }
+  return ordemSkus.map((sku, i) => {
+    const candidatas = porSku.get(sku);
+    const lookAlvo = LOOKS[i % 3];
+    let row = candidatas.find((r) => r.variante && r.variante.includes(lookAlvo));
+    if (!row) {
+      row = candidatas[0]; // fallback: nenhuma linha do look sorteado — usa qualquer 1080x1920 do SKU
+      console.warn(`  aviso: SKU ${sku} sem look "${lookAlvo}" (Story) — fallback pra "${row.variante}"`);
+    }
+    return {
+      sku,
+      variante: row.variante,
+      look: row.variante.includes(lookAlvo) ? lookAlvo : row.variante,
+      precoDe: row.preco_de,
+      precoPor: row.preco_por,
+      url: row.url,
+    };
+  });
 }
 
 async function buscarPromoStory(loja) {
@@ -334,16 +369,18 @@ async function criarAdSet(loja, campaignId, nomeConjunto) {
 // --- subida completa (2 lojas, PAUSED) ----------------------------------------------------
 // 1 ad por produto (De x Por) + 1 ad promo (Geral) — ver DECISÃO no cabeçalho do arquivo.
 async function subirConjuntoProduto(loja, campaignId) {
-  const produtos = await buscarProdutosHeroiStory(loja);
+  const produtos = await buscarProdutosRotacaoLook(loja);
   const adsetId = await criarAdSet(loja, campaignId, 'De x Por');
   const adIds = [];
+  const looksUsados = [];
   for (const p of produtos) {
     const nomeReal = await nomeProduto(p.sku);
-    const nome = `${p.sku} · ${nomeReal || p.sku}`;
+    const nome = `${p.sku} · ${nomeReal || p.sku} · [${p.look}]`;
     const { adId } = await criarAdDeImagem(loja, { adsetId, nome, storyUrl: p.url });
     adIds.push(adId);
+    looksUsados.push(p.look);
   }
-  return { adsetId, adIds, count: produtos.length };
+  return { adsetId, adIds, count: produtos.length, looksUsados };
 }
 
 async function subirConjuntoPromo(loja, campaignId) {
@@ -373,7 +410,7 @@ async function subirLoja(loja) {
     meta_campaign_id: campaignId,
     adset_ids: [geral.adsetId, dePor.adsetId],
     ad_ids: [...geral.adIds, ...dePor.adIds],
-    payload: { geoCities: loja.geoCities, whatsapp: loja.whatsapp, criativos: { promo: geral.count, produto: dePor.count }, look: 'produto-heroi', formato: '1080x1920', caption: CAPTION_PADRAO },
+    payload: { geoCities: loja.geoCities, whatsapp: loja.whatsapp, criativos: { promo: geral.count, produto: dePor.count }, looks: 'rotativo (heroi/sage-circulo/preco-tipo, %3 por SKU)', looksUsados: dePor.looksUsados, formato: '1080x1920', caption: CAPTION_PADRAO },
     status: 'criado',
   };
   if (!DRY) await sbPost('/fabrica_meta_jobs', [job], 'return=minimal');
