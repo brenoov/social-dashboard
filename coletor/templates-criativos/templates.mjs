@@ -375,10 +375,10 @@ function produtoSplit(dados, formato) {
   const bagWidth = formato === '1080x1920' ? 520 : 496;
   const destaquePreco = !!(dados.precoDe && dados.precoPor);
   const blocoSuporte = destaquePreco
-    ? `<div style="display:flex;align-items:baseline;gap:16px;margin-top:32px;"><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:30px;font-weight:500;color:#a08f77;text-decoration:line-through;text-decoration-thickness:2px;">R$ ${dados.precoDe}</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:44px;font-weight:600;color:#582f0a;">R$ ${dados.precoPor}</span></div>`
-    : `<div style="font-size:23px;letter-spacing:.06em;color:#7a5a37;margin-top:36px;line-height:1.5;font-weight:400;">Seleção especial de bolsas<br>por tempo limitado</div>`;
+    ? `<div style="display:flex;align-items:baseline;gap:18px;margin-top:36px;flex-wrap:wrap;"><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:36px;font-weight:500;color:#a08f77;text-decoration:line-through;text-decoration-thickness:2px;">R$ ${dados.precoDe}</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:56px;font-weight:600;color:#582f0a;line-height:1;">R$ ${dados.precoPor}</span></div>`
+    : `<div style="font-size:26px;letter-spacing:.06em;color:#7a5a37;margin-top:40px;line-height:1.5;font-weight:400;">Seleção especial de bolsas<br>por tempo limitado</div>`;
   const linhaCopy = dados.copyEfeito
-    ? `<div style="font-family:'Archivo',sans-serif;font-size:20px;letter-spacing:.14em;text-transform:uppercase;color:#7a5a37;font-weight:600;margin-top:14px;">${esc(dados.copyEfeito)}</div>`
+    ? `<div style="font-family:'Archivo',sans-serif;font-size:23px;letter-spacing:.14em;text-transform:uppercase;color:#7a5a37;font-weight:600;margin-top:16px;">${esc(dados.copyEfeito)}</div>`
     : '';
   const inner = `
   <div style="position:relative;width:${d.width}px;height:${d.height}px;background:#f2f1ed;overflow:hidden;color:#582f0a;font-family:'Archivo',sans-serif;display:flex;">
@@ -386,18 +386,18 @@ function produtoSplit(dados, formato) {
     <div style="position:relative;z-index:2;width:540px;flex:0 0 auto;padding:92px 56px 92px 84px;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;">
       <div style="display:flex;flex-direction:column;align-items:flex-start;">
         <img src="${MONO.brown}" style="height:60px;width:auto;">
-        <div style="font-family:'Cormorant Garamond',serif;font-size:46px;font-weight:500;margin-top:16px;color:#582f0a;">La <span style="font-style:italic;">vessel</span></div>
-        <div style="display:flex;align-items:center;gap:16px;margin-top:22px;"><span style="width:40px;height:1px;background:#89a88b;"></span><span style="font-size:19px;letter-spacing:.44em;text-transform:uppercase;color:#89a88b;font-weight:600;padding-left:.44em;">${dados.eyebrow || 'Season Sale'}</span></div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:52px;font-weight:500;margin-top:16px;color:#582f0a;">La <span style="font-style:italic;">vessel</span></div>
+        <div style="display:flex;align-items:center;gap:16px;margin-top:22px;"><span style="width:40px;height:1px;background:#89a88b;"></span><span style="font-size:21px;letter-spacing:.44em;text-transform:uppercase;color:#89a88b;font-weight:600;padding-left:.44em;">${dados.eyebrow || 'Season Sale'}</span></div>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-start;">
-        <div style="font-size:18px;letter-spacing:.42em;text-transform:uppercase;color:#89a88b;font-weight:600;padding-left:.42em;">Bolsa</div>
-        <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:46px;color:#582f0a;margin-top:4px;margin-bottom:10px;">${esc(dados.nome)}</div>
+      <div style="display:flex;flex-direction:column;align-items:flex-start;max-width:400px;">
+        <div style="font-size:21px;letter-spacing:.42em;text-transform:uppercase;color:#89a88b;font-weight:600;padding-left:.42em;">Bolsa</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:54px;line-height:1.06;color:#582f0a;margin-top:6px;margin-bottom:12px;max-width:400px;overflow-wrap:break-word;">${esc((dados.nome || '').replace(/^bolsa\s+/i, ''))}</div>
         <div style="display:flex;flex-direction:column;align-items:flex-start;">
-          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:256px;font-weight:500;line-height:1;color:#582f0a;">${dados.oferta || '50%'}</span>
-          <span style="font-family:'Archivo',sans-serif;font-size:78px;letter-spacing:.16em;font-weight:700;color:#89a88b;margin-top:-4px;padding-left:.16em;">OFF</span>
+          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:264px;font-weight:500;line-height:.92;color:#582f0a;">${dados.oferta || '50%'}</span>
+          <span style="font-family:'Archivo',sans-serif;font-size:88px;letter-spacing:.16em;font-weight:700;color:#89a88b;margin-top:2px;padding-left:.16em;line-height:1;">OFF</span>
         </div>${blocoSuporte}${linhaCopy}
       </div>
-      <div style="background:#89a88b;color:#f2f1ed;font-weight:600;font-size:24px;letter-spacing:.18em;text-transform:uppercase;padding:26px 62px;border-radius:999px;box-shadow:0 16px 32px rgba(88,47,10,.2);display:flex;align-items:center;gap:14px;white-space:nowrap;">${dados.cta || 'Aproveite já'} <span style="font-size:27px;line-height:1;">&#8594;</span></div>
+      <div style="background:#89a88b;color:#f2f1ed;font-weight:600;font-size:27px;letter-spacing:.18em;text-transform:uppercase;padding:30px 64px;border-radius:999px;box-shadow:0 16px 32px rgba(88,47,10,.2);display:flex;align-items:center;gap:14px;white-space:nowrap;">${dados.cta || 'Aproveite já'} <span style="font-size:30px;line-height:1;">&#8594;</span></div>
     </div>
     <div style="position:relative;z-index:1;flex:1 1 auto;background:#c2cfb4;overflow:hidden;border-left:1px solid rgba(137,168,139,.6);">
       <div style="position:absolute;inset:0;background-image:url('${MONO.cream}');background-repeat:repeat;background-size:160px;opacity:.14;"></div>
