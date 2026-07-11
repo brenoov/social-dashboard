@@ -75,7 +75,7 @@ function produtoHeroi(dados, formato) {
         <div style="font-family:'Cormorant Garamond',serif;font-size:${s(52)}px;font-weight:500;margin-top:14px;">La <span style="font-style:italic;">vessel</span></div>
         <div style="display:flex;align-items:center;gap:20px;margin-top:20px;"><span style="width:46px;height:1px;background:#89a88b;"></span><span style="font-size:${s(22)}px;letter-spacing:.46em;text-transform:uppercase;color:#89a88b;font-weight:600;padding-left:.46em;">${dados.eyebrow || 'Oferta especial'}</span><span style="width:46px;height:1px;background:#89a88b;"></span></div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:center;width:${s(560)}px;height:${s(560)}px;border-radius:50%;background:#ffffff;box-shadow:0 30px 60px rgba(60,36,8,.14);overflow:hidden;"><img src="${dados.fotoDataUrl}" style="width:${s(520)}px;height:${s(520)}px;object-fit:contain;"></div>
+      <img src="${dados.fotoDataUrl}" style="width:${s(604)}px;height:auto;object-fit:contain;filter:drop-shadow(0 36px 44px rgba(60,36,8,.26));">
       <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:${s(56)}px;">${esc(dados.nome)}</div>
       <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">${blocoPreco}</div>${dados.copyEfeito ? `
       <div style="font-family:'Archivo',sans-serif;font-size:${s(22)}px;letter-spacing:.14em;text-transform:uppercase;color:#7a5a37;font-weight:600;">${esc(dados.copyEfeito)}</div>` : ''}
@@ -154,7 +154,7 @@ function produtoSageCirculo(dados, formato) {
       </div>
       <div style="position:relative;width:${s(648)}px;height:${s(648)}px;display:flex;align-items:center;justify-content:center;">
         <div style="position:absolute;inset:0;border-radius:50%;background:#f2f1ed;box-shadow:0 30px 60px rgba(60,36,8,.22);"></div>
-        <img src="${dados.fotoDataUrl}" style="position:relative;width:${s(472)}px;height:${s(472)}px;object-fit:contain;">
+        <img src="${dados.fotoDataUrl}" style="position:relative;width:${s(472)}px;height:auto;max-height:${s(472)}px;object-fit:contain;filter:drop-shadow(0 22px 28px rgba(60,36,8,.28));">
       </div>
       <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:${s(58)}px;">${esc(dados.nome)}</div>
       <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">${blocoPreco}</div>${dados.copyEfeito ? `

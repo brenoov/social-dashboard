@@ -28,6 +28,10 @@ export async function fecharRender() { if (_browserPromise) { const b = await _b
 // Detecta foto "de estúdio" (fundo limpo/branco) vs. foto amadora (porta de
 // madeira, fundo bagunçado) checando as bordas/cantos da imagem numa mini
 // tela 100x100. Nunca lança — em erro, assume estúdio (não bloqueia).
+// Também aceita cantos TRANSPARENTES (alfa baixo): fotoDataUrl() agora
+// devolve o recorte (rembg) sem fundo, então um canto limpo vem como
+// transparente, não branco — e isso já é o sinal mais forte possível de que
+// o recorte teve fundo limpo pra remover (foto de estúdio).
 export async function ehFotoStudio(dataUrl) {
   const b = await browser(); const page = await b.newPage();
   try {
@@ -40,10 +44,11 @@ export async function ehFotoStudio(dataUrl) {
       let brancas = 0;
       for (const [x,y] of regioes) {
         const d = ctx.getImageData(x, y, 10, 10).data;
-        let r=0,g=0,bl=0,n=0;
-        for (let i=0;i<d.length;i+=4){ r+=d[i]; g+=d[i+1]; bl+=d[i+2]; n++; }
-        r/=n; g/=n; bl/=n;
+        let r=0,g=0,bl=0,a=0,n=0;
+        for (let i=0;i<d.length;i+=4){ r+=d[i]; g+=d[i+1]; bl+=d[i+2]; a+=d[i+3]; n++; }
+        r/=n; g/=n; bl/=n; a/=n;
         const bright=(r+g+bl)/3, sat=Math.max(r,g,bl)-Math.min(r,g,bl);
+        if (a < 12) { brancas++; continue; } // canto transparente = recorte limpo
         if (bright>232 && sat<14) brancas++;
       }
       return brancas >= 6;
