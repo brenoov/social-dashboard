@@ -192,10 +192,9 @@ function promoSage(dados, formato) {
           <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(300)}px;font-weight:500;line-height:1;">${dados.oferta || '50%'}</span>
           <span style="font-family:'Archivo',sans-serif;font-size:${s(78)}px;letter-spacing:.14em;font-weight:700;">OFF</span>
         </div>
-        <div style="display:flex;align-items:baseline;gap:22px;margin-top:${s(30)}px;">
-          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(40)}px;font-weight:500;color:#6f6a5d;text-decoration:line-through;text-decoration-thickness:2px;">R$ ${dados.precoDe}</span>
-          <span style="width:7px;height:7px;border-radius:50%;background:#4f5c43;"></span>
-          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(60)}px;font-weight:600;color:#582f0a;">R$ ${dados.precoPor}</span>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:${s(2)}px;margin-top:${s(26)}px;">
+          <div style="display:flex;align-items:baseline;gap:${s(12)}px;"><span style="font-family:'Archivo',sans-serif;font-size:${s(26)}px;letter-spacing:.3em;font-weight:600;color:#6f6a5d;">DE</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(46)}px;font-weight:500;color:#6f6a5d;text-decoration:line-through;text-decoration-thickness:2px;">R$ ${dados.precoDe}</span></div>
+          <div style="display:flex;align-items:baseline;gap:${s(16)}px;"><span style="font-family:'Archivo',sans-serif;font-size:${s(30)}px;letter-spacing:.3em;font-weight:700;color:#4f5c43;">POR</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(104)}px;font-weight:600;color:#582f0a;line-height:1;">R$ ${dados.precoPor}</span></div>
         </div>${dados.copyEfeito ? `
         <div style="font-family:'Archivo',sans-serif;font-size:${s(22)}px;letter-spacing:.14em;text-transform:uppercase;color:#4f5c43;font-weight:600;margin-top:16px;">${esc(dados.copyEfeito)}</div>` : ''}
       </div>
@@ -227,10 +226,9 @@ function promoMinimalPearl(dados, formato) {
           <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(300)}px;font-weight:500;line-height:1;">${dados.oferta || '50%'}</span>
           <span style="font-family:'Archivo',sans-serif;font-size:${s(78)}px;letter-spacing:.14em;font-weight:700;color:#89a88b;">OFF</span>
         </div>
-        ${dados.precoDe && dados.precoPor ? `<div style="display:flex;align-items:baseline;gap:22px;margin-top:${s(30)}px;">
-          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(40)}px;font-weight:500;color:#a08f77;text-decoration:line-through;text-decoration-thickness:2px;">R$ ${dados.precoDe}</span>
-          <span style="width:7px;height:7px;border-radius:50%;background:#89a88b;"></span>
-          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(60)}px;font-weight:600;color:#582f0a;">R$ ${dados.precoPor}</span>
+        ${dados.precoDe && dados.precoPor ? `<div style="display:flex;flex-direction:column;align-items:center;gap:${s(2)}px;margin-top:${s(26)}px;">
+          <div style="display:flex;align-items:baseline;gap:${s(12)}px;"><span style="font-family:'Archivo',sans-serif;font-size:${s(26)}px;letter-spacing:.3em;font-weight:600;color:#a08f77;">DE</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(46)}px;font-weight:500;color:#a08f77;text-decoration:line-through;text-decoration-thickness:2px;">R$ ${dados.precoDe}</span></div>
+          <div style="display:flex;align-items:baseline;gap:${s(16)}px;"><span style="font-family:'Archivo',sans-serif;font-size:${s(30)}px;letter-spacing:.3em;font-weight:700;color:#89a88b;">POR</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(104)}px;font-weight:600;color:#582f0a;line-height:1;">R$ ${dados.precoPor}</span></div>
         </div>` : ''}${dados.copyEfeito ? `
         <div style="font-family:'Archivo',sans-serif;font-size:${s(22)}px;letter-spacing:.14em;text-transform:uppercase;color:#7a5a37;font-weight:600;margin-top:16px;">${esc(dados.copyEfeito)}</div>` : ''}
       </div>
@@ -268,10 +266,9 @@ function promoBurntWood(dados, formato) {
           <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(308)}px;font-weight:500;line-height:1;">${dados.oferta || '50%'}</span>
           <span style="font-family:'Archivo',sans-serif;font-size:${s(82)}px;letter-spacing:.12em;font-weight:700;color:#c2cfb4;">OFF</span>
         </div>
-        <div style="display:flex;align-items:baseline;gap:24px;margin-top:${s(36)}px;">
-          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(38)}px;font-weight:500;color:#d8cdb8;text-decoration:line-through;text-decoration-thickness:2px;">R$ ${dados.precoDe}</span>
-          <span style="width:7px;height:7px;border-radius:50%;background:#c2cfb4;"></span>
-          <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(58)}px;font-weight:600;">R$ ${dados.precoPor}</span>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:${s(2)}px;margin-top:${s(30)}px;">
+          <div style="display:flex;align-items:baseline;gap:${s(12)}px;"><span style="font-family:'Archivo',sans-serif;font-size:${s(26)}px;letter-spacing:.3em;font-weight:600;color:#d8cdb8;">DE</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(46)}px;font-weight:500;color:#d8cdb8;text-decoration:line-through;text-decoration-thickness:2px;">R$ ${dados.precoDe}</span></div>
+          <div style="display:flex;align-items:baseline;gap:${s(16)}px;"><span style="font-family:'Archivo',sans-serif;font-size:${s(30)}px;letter-spacing:.3em;font-weight:700;color:#c2cfb4;">POR</span><span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(104)}px;font-weight:600;">R$ ${dados.precoPor}</span></div>
         </div>${dados.copyEfeito ? `
         <div style="font-family:'Archivo',sans-serif;font-size:${s(22)}px;letter-spacing:.14em;text-transform:uppercase;color:#e4e6d9;opacity:.82;font-weight:600;margin-top:${s(20)}px;">${esc(dados.copyEfeito)}</div>` : ''}
       </div>
