@@ -13,12 +13,17 @@
 import os
 import sys
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 IN, OUT = sys.argv[1], sys.argv[2]
 MODEL = os.path.expanduser('~/.u2net/birefnet-general-lite.onnx')
 _MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 _STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+# CUTOUT_TOLERANCIA (0=nenhuma .. 1=máxima): quanto maior, mais o recorte PRESERVA partes
+# finas/limítrofes da bolsa (correntes, alças, cantos de baixo contraste) que a máscara
+# tenderia a cortar. Faz isso via boost gamma na máscara (levanta valores baixos) + leve
+# dilatação (cresce a borda pra fora). Default 0.6 = generoso sem criar halo de fundo.
+TOL = max(0.0, min(1.0, float(os.environ.get('CUTOUT_TOLERANCIA', '0.6'))))
 
 
 def _cut_birefnet(img):
@@ -33,7 +38,13 @@ def _cut_birefnet(img):
     m = 1.0 / (1.0 + np.exp(-m))            # sigmoid
     m = m[0, 0]
     m = (m - m.min()) / (m.max() - m.min() + 1e-8)
+    if TOL > 0:                             # tolerância: boost gamma (<1 levanta valores baixos)
+        m = np.power(m, 1.0 - 0.45 * TOL)
     mask = Image.fromarray((m * 255).astype(np.uint8)).resize((W, H), Image.BILINEAR)
+    if TOL > 0:                             # dilatação leve pra recuperar bordas finas cortadas
+        raio = int(round(1 + 4 * TOL)) | 1  # ímpar (MaxFilter exige): TOL=0.6 -> 3
+        if raio >= 3:
+            mask = mask.filter(ImageFilter.MaxFilter(raio))
     out = img.convert('RGBA')
     out.putalpha(mask)
     return out
