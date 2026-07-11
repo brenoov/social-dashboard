@@ -223,11 +223,11 @@ function promoMinimalPearl(dados, formato) {
           <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(300)}px;font-weight:500;line-height:1;">${dados.oferta || '50%'}</span>
           <span style="font-family:'Archivo',sans-serif;font-size:${s(78)}px;letter-spacing:.14em;font-weight:700;color:#89a88b;">OFF</span>
         </div>
-        <div style="display:flex;align-items:baseline;gap:22px;margin-top:${s(30)}px;">
+        ${dados.precoDe && dados.precoPor ? `<div style="display:flex;align-items:baseline;gap:22px;margin-top:${s(30)}px;">
           <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(40)}px;font-weight:500;color:#a08f77;text-decoration:line-through;text-decoration-thickness:2px;">R$ ${dados.precoDe}</span>
           <span style="width:7px;height:7px;border-radius:50%;background:#89a88b;"></span>
           <span style="font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:${s(60)}px;font-weight:600;color:#582f0a;">R$ ${dados.precoPor}</span>
-        </div>${dados.copyEfeito ? `
+        </div>` : ''}${dados.copyEfeito ? `
         <div style="font-family:'Archivo',sans-serif;font-size:${s(22)}px;letter-spacing:.14em;text-transform:uppercase;color:#7a5a37;font-weight:600;margin-top:16px;">${esc(dados.copyEfeito)}</div>` : ''}
       </div>
       <div style="background:#89a88b;color:#f2f1ed;font-weight:600;font-size:${s(27)}px;letter-spacing:.2em;text-transform:uppercase;padding:${s(32)}px ${s(82)}px;border-radius:999px;box-shadow:0 16px 32px rgba(88,47,10,.2);display:flex;align-items:center;gap:18px;white-space:nowrap;">${dados.cta || 'Eu quero a minha'} <span style="font-size:${s(30)}px;line-height:1;">&#8594;</span></div>
