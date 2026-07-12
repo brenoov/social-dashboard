@@ -39,6 +39,10 @@ Hoje os cards do grid do Curar cortam a imagem (thumbnail). Duas mudanças em `p
 - **(b) Lightbox ao clicar:** clicar num card abre um overlay `.fest` com o criativo em tamanho grande + o toggle marcar/desmarcar ali dentro (mesma ação do card). Fechar com clique no fundo ou tecla ESC. Respeitar `prefers-reduced-motion`. O criativo com `purgado_em` mostra o placeholder (não abre lightbox de imagem inexistente).
 - Implementar o lightbox como um pequeno componente próprio `src/ferramentas/meta-ads/visor-criativo.vue` (recebe o criativo + estado escolhido, emite toggle/close) OU inline no painel-curar — o que ficar mais limpo; se virar mais que ~40 linhas, extrair o componente.
 
+## 5. Tema claro no Estúdio (adicionado durante a execução)
+
+O app tem um toggle global de tema (`data-theme="dark"|"light"` no `<html>`, `moldura-do-aplicativo.vue`), mas o `.fest` do Estúdio é cravado no escuro — o botão de tema não afeta a tela. Fix: um override dos tokens `.fest` (mesmos nomes, valores claros) sob `:root[data-theme="light"] .fest`, mais desligar o glow de fundo no claro. Só `estudio.css`; os componentes adaptam via `var(--...)`. Paleta clara: fundo cool light, painéis brancos, texto escuro, âmbar/ciano/go/hold/abort ajustados pra contraste sobre claro.
+
 ## Arquivos
 
 - Modify: `src/ferramentas/meta-ads/tela-de-fabrica-estudio.vue` (chrome + botão Central), `src/ferramentas/meta-ads/painel-gerar.vue` (marcar todos), `src/ferramentas/meta-ads/painel-curar.vue` (marcar todos + card inteiro + lightbox), `src/ferramentas/meta-ads/estudio.css` (grid/card/lightbox/botão).
