@@ -1,0 +1,35 @@
+name: Fábrica de Anúncios (Estúdio)
+on:
+  workflow_dispatch:
+    inputs:
+      job_id: { description: 'fabrica_jobs.id', required: true }
+concurrency: { group: fabrica-estudio, cancel-in-progress: false }
+jobs:
+  rodar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Cache BiRefNet + deps
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.u2net
+            coletor/node_modules
+            ~/.cache/pip
+          key: fabrica-${{ runner.os }}-${{ hashFiles('coletor/package-lock.json') }}
+      - name: Instalar deps
+        run: |
+          cd coletor && npm ci
+          pip install rembg onnxruntime pillow numpy
+      - name: Rodar job
+        env:
+          FABRICA_JOB_ID: ${{ github.event.inputs.job_id }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_TRAFEGO }}
+        run: cd coletor && node --import ./lib/curl-fetch.mjs fabrica-job-runner.mjs
