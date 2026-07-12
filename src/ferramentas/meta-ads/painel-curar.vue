@@ -5,6 +5,8 @@ import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 const props = defineProps({ campanhaId: String })
 const itens = ref([])
 const visor = ref(null)
+const statusCampanha = ref(null)
+let poll = null
 async function carregar() {
   if (!props.campanhaId) return
   itens.value = await sb(`fabrica_criativos?select=id,url,arquetipo,formato,escolhido,purgado_em&campanha_id=eq.${props.campanhaId}&order=created_at`)
@@ -28,9 +30,23 @@ async function alternarTodos() {
 function abrirVisor(it) { if (!it.purgado_em) visor.value = it }
 function fecharVisor() { visor.value = null }
 function onKey(e) { if (e.key === 'Escape') fecharVisor() }
+async function lerStatus() {
+  if (!props.campanhaId) return
+  const r = await sb(`fabrica_campanhas?select=status&id=eq.${props.campanhaId}`)
+  statusCampanha.value = r[0]?.status || null
+  if (statusCampanha.value !== 'gerando' && poll) { clearInterval(poll); poll = null }
+}
+async function tickStreaming() { await carregar(); await lerStatus() }
+async function iniciar() {
+  await carregar(); await lerStatus()
+  if (statusCampanha.value === 'gerando' && !poll) poll = setInterval(tickStreaming, 4000)
+}
 onMounted(() => window.addEventListener('keydown', onKey))
-onUnmounted(() => window.removeEventListener('keydown', onKey))
-watch(() => props.campanhaId, carregar, { immediate: true })
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKey)
+  if (poll) clearInterval(poll)
+})
+watch(() => props.campanhaId, iniciar, { immediate: true })
 </script>
 <template>
   <section class="stage">
@@ -53,6 +69,8 @@ watch(() => props.campanhaId, carregar, { immediate: true })
           <span class="eyebrow muted">toque para escolher</span>
         </span>
       </div>
+      <p v-if="statusCampanha === 'gerando'" class="js-run"><i class="led run"></i> Ainda gerando… os criativos vão aparecendo aqui. Pode ir marcando os que gostar.</p>
+      <p v-else-if="statusCampanha === 'erro'" class="js-err">A geração falhou. Volte à Fábrica e tente uma nova campanha.</p>
       <div v-if="itens.length" class="cg">
         <div v-for="it in itens" :key="it.id" class="tile" :class="{ ok: it.escolhido, subido: it.purgado_em }">
           <img v-if="!it.purgado_em" class="art" :src="it.url" loading="lazy" @click="abrirVisor(it)">
