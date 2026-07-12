@@ -12,17 +12,31 @@
 import './lib/carregar-env.mjs';
 import tls from 'node:tls';
 import { loginServico } from './lib/bling-comercial.mjs';
+import { carregarMarcasELojas } from './lib/config-lojas.mjs';
 
 // Fix TLS1.2 (ECONNRESET determinístico atrás do Cloudflare/*.supabase.co nesta máquina) — mesmo
 // motivo do subir-estudio.mjs.
 tls.DEFAULT_MAX_VERSION = 'TLSv1.2';
 
-const CFG = { ACCOUNT_ID: 'b6883e82-07cb-4f21-9fd7-ea7626786174' };
-
 const URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
 const ANON = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtvdW5xdGRvaW9vb3R4cWVna2lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMDMwMDUsImV4cCI6MjA5NDc3OTAwNX0.MVXa6jngjKXkH3eZ7as_j_k8Eb7lJKcFmO4kCKAnuHM';
+const SK = process.env.SUPABASE_SERVICE_KEY;
+const REST = URL + '/rest/v1';
+const H = { apikey: SK, Authorization: 'Bearer ' + SK };
+
+// --- Supabase REST (leitura service-role de fabrica_marcas/fabrica_lojas) ----------------------
+async function sbGet(p) {
+  const r = await fetch(REST + p, { headers: H });
+  if (!r.ok) throw new Error('GET ' + p + ' ' + r.status + ' ' + (await r.text()).slice(0, 200));
+  return r.json();
+}
 
 let TOKEN;
+// accountId da marca ativa (fabrica_marcas.account_id) — resolvido em run(), consumido por meta().
+// Não é passado explicitamente pra run() (ela só recebe adIds/adsetIds/campaign), então usamos a
+// marca ativa da tabela em vez de CFG.ACCOUNT_ID hardcoded (mesma lacuna: este job não carrega
+// contexto de loja/marca por chamada, só ids de ads já criados por subir-estudio.mjs).
+let ACCOUNT_ID;
 
 // --- meta-proxy: GET/POST com retry em rede/429/5xx/rate-limit (mesmo padrão do subir-estudio) --
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
@@ -63,7 +77,7 @@ async function chamarProxy(body) {
 }
 
 async function meta(path, params = {}, method = 'GET') {
-  const r = await chamarProxy({ accountId: CFG.ACCOUNT_ID, path, params, method });
+  const r = await chamarProxy({ accountId: ACCOUNT_ID, path, params, method });
   if (method === 'POST' && r.status !== 200 && ehRateLimit(r.status, r.d)) {
     throw new Error(`meta ${method} ${path} rate limit / code ${r.d?.error?.code}: ${JSON.stringify(r.d).slice(0, 200)}`);
   }
@@ -87,7 +101,12 @@ export async function run({ adIds, adsetIds, metaCampaignId, criouCampanha, dry 
   if (dry) return { ativados: 0, total: 0, falhas: [] };
 
   const chamarMeta = metaInjetado || meta;
-  if (!metaInjetado) TOKEN = await loginServico();
+  if (!metaInjetado) {
+    TOKEN = await loginServico();
+    const { marcaAtiva } = await carregarMarcasELojas(sbGet);
+    if (!marcaAtiva) throw new Error('nenhuma marca ativa configurada (fabrica_marcas.ativo)');
+    ACCOUNT_ID = marcaAtiva.accountId;
+  }
 
   let ativados = 0;
   const falhas = [];
