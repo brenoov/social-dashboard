@@ -27,6 +27,14 @@ const H = { apikey: SK, Authorization: 'Bearer ' + SK, 'Content-Type': 'applicat
 const BUCKET = 'fabrica-criativos';
 const sane = (s) => String(s).replace(/[^a-zA-Z0-9._-]+/g, '_');
 
+// SP-3: o loop de promo usa 'promo-number-hero' (hardcoded em variacoesPromo). Só gera promo
+// quando o objetivo permite esse look (ou quando não há objetivo — CLI legado).
+export function objetivoPermitePromo(objetivo) {
+  if (!objetivo) return true;
+  const objs = objetivosDoTemplate('promo-number-hero');
+  return objs.length === 0 || objs.includes(objetivo);
+}
+
 async function sbGet(p) { const r = await fetch(REST + p, { headers: H }); if (!r.ok) throw new Error('GET ' + p + ' ' + r.status); return r.json(); }
 async function sbPost(p, body, prefer) { const r = await fetch(REST + p, { method: 'POST', headers: prefer ? { ...H, Prefer: prefer } : H, body: JSON.stringify(body) }); if (!r.ok && ![200,201,204].includes(r.status)) throw new Error('POST ' + p + ' ' + r.status + ' ' + (await r.text()).slice(0,200)); return r; }
 
@@ -234,7 +242,7 @@ export async function run({
 
   // PROMO (usa a 1ª foto disponível como símbolo)
   const primeiraFoto = [...fotoCache.values()].find(Boolean) || null;
-  if (primeiraFoto) {
+  if (primeiraFoto && objetivoPermitePromo(objetivo)) {
     for (const v of variacoesPromo(campanha, primeiraFoto, 'Coleção')) {
       v.dados.copyEfeito = copyPromo;
       const html = TEMPLATES[v.template].render(v.dados, v.formato);
