@@ -55,6 +55,16 @@
 .fest .brand{margin-right:auto}
 .fest .brand .t{font-size:15px; letter-spacing:.16em; text-transform:uppercase; color:var(--amber)}
 .fest .brand .s{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-dim); margin-top:2px}
+.fest .voltar-central{
+  appearance:none; cursor:pointer; font:inherit; align-self:center;
+  display:inline-flex; align-items:center; gap:6px;
+  padding:6px 12px; margin-right:4px;
+  background:var(--panel-2); color:var(--ink-dim);
+  border:1px solid var(--edge); border-radius:6px;
+  font-size:12px; letter-spacing:.04em; white-space:nowrap;
+  transition:border-color .15s, color .15s;
+}
+.fest .voltar-central:hover{ border-color:var(--cyan); color:var(--ink); }
 .fest .sys{display:flex; gap:16px; flex-wrap:wrap}
 .fest .sig{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-dim)}
 .fest .led{width:9px; height:9px; border-radius:50%; background:var(--idle); flex:none; display:inline-block}

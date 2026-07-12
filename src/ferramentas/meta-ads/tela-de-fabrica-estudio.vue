@@ -8,6 +8,7 @@ import PainelSubir from './painel-subir.vue'
 import PainelConferir from './painel-conferir.vue'
 import './estudio.css'
 const router = useRouter()
+function voltarCentral() { router.push({ name: 'inicio' }) }
 const passo = ref('gerar'); const campanhaId = ref(null); const subirResultado = ref(null)
 onMounted(() => { if (!hasPermission('module:meta:fabrica')) router.push({ name: 'meta-ads' }) })
 function aoGerar(id) { campanhaId.value = id; passo.value = 'curar' }
@@ -32,9 +33,10 @@ onUnmounted(() => { if (_clockTimer) clearInterval(_clockTimer) })
     <div class="shell">
       <!-- BARRA DE STATUS -->
       <header class="topbar">
+        <button class="voltar-central" @click="voltarCentral" aria-label="Voltar para a Central">← Central</button>
         <div class="brand">
           <div class="t">Fábrica de Anúncios</div>
-          <div class="s">Estúdio de Criativos · La Vessel</div>
+          <div class="s">Estúdio de Criativos</div>
         </div>
         <div class="sys">
           <span class="sig"><i class="led go"></i>Banco de dados</span>
@@ -87,7 +89,7 @@ onUnmounted(() => { if (_clockTimer) clearInterval(_clockTimer) })
       </div>
 
       <div class="foot">
-        <span>Estúdio de Criativos · La Vessel</span>
+        <span>Estúdio de Criativos</span>
         <span>Passo {{ idxAtual + 1 }} de 4</span>
       </div>
     </div>
