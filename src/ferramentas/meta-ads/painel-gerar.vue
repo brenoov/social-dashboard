@@ -44,6 +44,13 @@ watch(() => sel.fonte, (f) => {
 })
 
 const totalMarcados = computed(() => candidatos.value.filter((c) => marcados.value[c.sku]).length)
+const todosMarcados = computed(() => candidatos.value.length > 0 && candidatos.value.every((c) => marcados.value[c.sku]))
+function alternarTodos() {
+  const novo = !todosMarcados.value
+  const m = {}
+  for (const c of candidatos.value) m[c.sku] = novo
+  marcados.value = m
+}
 function nomeLoja(dep) { return lojas.value.find((l) => l.deposito_id === dep)?.nome || dep }
 
 async function carregarLista() {
@@ -150,7 +157,13 @@ watch(job, (j) => { if (j?.status === 'concluido' && j.resultado?.campanhaId) em
     </div>
 
     <div class="panel" v-if="buscou">
-      <div class="ph"><span class="eyebrow">Produtos</span><span class="eyebrow muted">{{ totalMarcados }} de {{ candidatos.length }} marcados</span></div>
+      <div class="ph">
+        <span class="eyebrow">Produtos</span>
+        <span class="ph-right">
+          <button v-if="candidatos.length" class="marcar-todos" @click="alternarTodos">{{ todosMarcados ? 'Desmarcar todos' : 'Marcar todos' }}</button>
+          <span class="eyebrow muted">{{ totalMarcados }} de {{ candidatos.length }} marcados</span>
+        </span>
+      </div>
 
       <p v-if="carregando" class="empty">Carregando…</p>
       <template v-else-if="candidatos.length">

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 const props = defineProps({ campanhaId: String })
@@ -12,6 +12,17 @@ async function alternar(it) {
   const novo = !it.escolhido; it.escolhido = novo // otimista
   const { error } = await sbClient.from('fabrica_criativos').update({ escolhido: novo }).eq('id', it.id)
   if (error) { it.escolhido = !novo; alert('Falha ao salvar') }
+}
+const visiveis = computed(() => itens.value.filter((i) => !i.purgado_em))
+const todosEscolhidos = computed(() => visiveis.value.length > 0 && visiveis.value.every((i) => i.escolhido))
+async function alternarTodos() {
+  const alvo = visiveis.value
+  if (!alvo.length) return
+  const novo = !todosEscolhidos.value
+  const antes = alvo.map((i) => [i, i.escolhido])
+  alvo.forEach((i) => { i.escolhido = novo })                 // otimista
+  const { error } = await sbClient.from('fabrica_criativos').update({ escolhido: novo }).in('id', alvo.map((i) => i.id))
+  if (error) { antes.forEach(([i, v]) => { i.escolhido = v }); alert('Falha ao salvar') }
 }
 watch(() => props.campanhaId, carregar, { immediate: true })
 </script>
@@ -29,7 +40,13 @@ watch(() => props.campanhaId, carregar, { immediate: true })
     </div>
 
     <div class="panel">
-      <div class="ph"><span class="eyebrow">Criativos</span><span class="eyebrow muted">toque para escolher</span></div>
+      <div class="ph">
+        <span class="eyebrow">Criativos</span>
+        <span class="ph-right">
+          <button v-if="visiveis.length" class="marcar-todos" @click="alternarTodos">{{ todosEscolhidos ? 'Desmarcar todos' : 'Marcar todos' }}</button>
+          <span class="eyebrow muted">toque para escolher</span>
+        </span>
+      </div>
       <div v-if="itens.length" class="cg">
         <div v-for="it in itens" :key="it.id" class="tile" :class="{ ok: it.escolhido, subido: it.purgado_em }" @click="!it.purgado_em && alternar(it)">
           <img v-if="!it.purgado_em" class="art" :src="it.url" loading="lazy">
