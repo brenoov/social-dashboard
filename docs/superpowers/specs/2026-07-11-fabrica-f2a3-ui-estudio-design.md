@@ -93,6 +93,20 @@ Gate `hasPermission('module:meta:fabrica')`. Leitura via `sb()`/PostgREST, escri
 - Escada de desconto por quadrante BCG (job usa % fixo).
 - Sync dos PNGs pro Zoho.
 
+## Adendo (2026-07-11): 4º passo "Conferir" + Ativar
+
+Decidido pelo Breno durante a execução. Mesmo tudo subindo **PAUSED**, o fluxo ganha um **4º passo "Conferir"** depois do Subir, com **duas saídas**:
+- **Manter pausado** (default): não faz nada no Meta — o Breno ativa manualmente no Gerenciador (comportamento atual).
+- **Ativar tudo** (botão): liga o que subimos, **sempre com popup de confirmação de verba** (`uiConfirm`, "isso começa a gastar"). Escopo: liga os **ads** criados na rodada; **se o destino foi campanha NOVA**, liga também o **conjunto + campanha** (senão não veicula); se foi campanha **existente** (já ativa), só os ads.
+
+Backend:
+- `subir-estudio.mjs` passa a registrar no resultado / `fabrica_meta_jobs` o escopo pra ativação: `meta_campaign_id`, `adset_ids`, `ad_ids` (já grava) **+ `criou_campanha` (bool)** — pra a ativação saber se liga conjunto/campanha ou só ads.
+- Novo `coletor/ativar-estudio.mjs` `run({ campanhaId })`: lê os `fabrica_meta_jobs` da rodada, faz `POST` no meta-proxy com `status:'ACTIVE'` em cada ad (e no adset/campaign se `criou_campanha`). Setar ACTIVE no que já está ativo é no-op (idempotente).
+- Novo tipo de job **`ativar`** no `fabrica-job-runner.mjs` (além de gerar/subir), disparado pela mesma Edge `fabrica-trigger` (whitelist `tipo ∈ {gerar,subir,ativar}`) e acompanhado por `useJobStatus`.
+
+Frontend:
+- `painel-conferir.vue` (o 4º passo): mostra o resultado do subir (N ads PAUSED + link pro Gerenciador) e os botões **[Manter pausado]** / **[Ativar tudo]**. "Ativar tudo" → `uiConfirm` de gasto → `fabrica-trigger` tipo `ativar` → polling. `tela-de-fabrica-estudio.vue` passa a ter 4 passos (gerar→curar→subir→conferir).
+
 ## Referências
 
 - Motor atual: `coletor/gerar-criativos.mjs`, `coletor/subir-campanha-meta.mjs`, `coletor/adicionar-looks-favoritos.mjs`, `coletor/templates-criativos/templates.mjs`.

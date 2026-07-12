@@ -56,6 +56,15 @@
           <div class="smenu-card-desc">Do briefing do Gestor aos criativos e campanhas: selecione produtos por loja e aprove antes de subir.</div>
           <span class="smenu-card-enter">→</span>
         </div>
+        <div class="smenu-card" v-if="hasPermission('module:meta:fabrica')" @click="ir('fabrica-estudio')">
+          <span class="smenu-card-num">04</span>
+          <div class="smenu-card-icon" style="background:linear-gradient(135deg,#0891b2,#4338ca)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.2H22l-6 4.4 2.3 7.1L12 16.3 5.7 20.7 8 13.6l-6-4.4h7.6z"/></svg>
+          </div>
+          <div class="smenu-card-title">Estúdio de Criativos</div>
+          <div class="smenu-card-desc">Fluxo guiado em 4 passos: gerar, curar, subir e conferir os criativos de uma campanha.</div>
+          <span class="smenu-card-enter">→</span>
+        </div>
       </div>
     </div>
   </div>

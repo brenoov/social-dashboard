@@ -32,6 +32,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { loginServico } from './lib/bling-comercial.mjs';
+import { nomeAd, payloadCriativa } from './lib/meta-subir.mjs';
 
 // Mesmo fix TLS1.2 do script original (ECONNRESET determinístico atrás do Cloudflare/supabase.co
 // nesta máquina). Precisa vir antes de qualquer fetch.
@@ -177,17 +178,11 @@ async function uploadImagemBytes(url, field) {
   return hash;
 }
 
-const soDigitos = (numero) => String(numero).replace(/\D/g, '');
-
-// Os conjuntos SALE do Breno são MULTI-DESTINO (destination_type
-// MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP = Instagram Direct + Messenger + WhatsApp). Um ad
-// nesses conjuntos NÃO pode ser WhatsApp-puro (link wa.me + CTA WHATSAPP_MESSAGE) — a Meta exige
-// asset_feed_spec com optimization_type DOF_MESSAGING_DESTINATION e um call_to_action por destino
-// (senão: subcode 2446493 "degrees_of_freedom ausente" / destino inválido). Página e Instagram são
-// os mesmos das 2 lojas; só o número de WhatsApp muda por loja.
-const DOF_FEATURES = ["adapt_to_placement","add_text_overlay","ads_with_benefits","advantage_plus_creative","app_highlights","audio","auto_promotion_tag","biz_ai","carousel_to_video","catalog_feed_tag","creative_stickers","customize_product_recommendation","cv_transformation","description_automation","dha_optimization","dynamic_cta_text","dynamic_partner_content","enable_ncs_testimonials","enhance_cta","fb_feed_tag","fb_reels_tag","fb_story_tag","feed_caption_optimization","generate_cta","hide_price","hyperlink_formatting","ig_feed_tag","ig_glados_feed","ig_reels_tag","ig_stream_tag","ig_video_native_subtitle","image_animation","image_auto_crop","image_background_gen","image_banner","image_brightness_and_contrast","image_end_card","image_enhancement","image_templates","image_text_translation","image_touchups","image_uncrop","inline_comment","local_store_extension","media_liquidity_animated_image","media_order","media_type_automation","multi_creative_post_carousel","multi_photo_to_video","music_generation","pac_genai_recomposition","pac_recomposition","pac_relaxation","product_browsing","product_extensions","product_metadata_automation","product_tags","profile_card","profile_extension","replace_media_text","reveal_details_over_time","show_destination_blurbs","show_summary","site_extensions","standard_enhancements_catalog","text_extraction_for_headline","text_extraction_for_tap_target","text_formatting_optimization","text_generation","text_optimizations","text_overlay_translation","text_translation","translate_voiceover","video_auto_crop","video_filtering","video_highlight","video_highlights","video_to_image","video_uncrop","video_uncrop_9x16_to_9x18","wa_mm_image_filtering","wa_mm_text_truncation_length"];
-// Todas OPT_OUT: mantém o PNG do Genspark EXATO (sem touch-up/overlay/crop/filtro automático).
-const DOF_SPEC = { creative_features_spec: Object.fromEntries(DOF_FEATURES.map((f) => [f, { enroll_status: 'OPT_OUT' }])) };
+// soDigitos, DOF_SPEC (as 82 features OPT_OUT) e payloadCriativa (multi-destino Messenger+WhatsApp+
+// Instagram — os conjuntos SALE do Breno usam destination_type
+// MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP) agora vêm de ./lib/meta-subir.mjs (extraído pra
+// ser reusado pelo estúdio de anúncios). Página e Instagram são os mesmos das 2 lojas; só o número
+// de WhatsApp muda por loja.
 
 // --- achar campanha da loja + listar conjuntos ------------------------------------------------
 async function acharCampanha(loja) {
@@ -233,35 +228,6 @@ async function criarAdCreative(params) {
   return { creativeId: r.d.id, payload: params };
 }
 
-// Criativa MULTI-DESTINO (Messenger + WhatsApp + Instagram Direct). `waNumero` = número WhatsApp
-// da loja (só dígitos, ex.: 5519971690502). Página/IG vêm do CFG (iguais nas 2 lojas).
-function payloadMultiDestino({ hash, waNumero, mensagem }) {
-  const mLink = `https://m.me/${CFG.PAGE}`;
-  const waUrl = `https://api.whatsapp.com/send?phone=${waNumero}`;
-  return {
-    object_story_spec: {
-      page_id: CFG.PAGE,
-      instagram_user_id: CFG.IG,
-      link_data: {
-        image_hash: hash,
-        link: mLink,
-        message: mensagem,
-        call_to_action: { type: 'MESSAGE_PAGE', value: { app_destination: 'MESSENGER' } },
-      },
-    },
-    // um CTA por destino do conjunto — a Meta escolhe o app onde o usuário responde melhor
-    asset_feed_spec: {
-      optimization_type: 'DOF_MESSAGING_DESTINATION',
-      call_to_actions: [
-        { type: 'MESSAGE_PAGE', value: { app_destination: 'MESSENGER', link: mLink } },
-        { type: 'WHATSAPP_MESSAGE', value: { app_destination: 'WHATSAPP', link: waUrl } },
-        { type: 'INSTAGRAM_MESSAGE', value: { app_destination: 'INSTAGRAM_DIRECT', link: 'https://www.instagram.com' } },
-      ],
-    },
-    degrees_of_freedom_spec: DOF_SPEC,
-  };
-}
-
 async function criarAd({ adsetId, name, creativeId }) {
   const ad = await meta(`/${CFG.ACT}/ads`, {
     name,
@@ -300,7 +266,9 @@ async function subirLoja(loja) {
 
   // Idempotência: nomes de ad são determinísticos, então buscamos os que JÁ existem na campanha
   // e pulamos — permite re-rodar após um blip de rede sem duplicar (e ignora os do teste).
-  const nomeAd = (loja, file, adsetName) => `Genspark · ${loja.nome} · ${file.replace(/\.png$/i, '')} · ${adsetName}`.slice(0, 200);
+  // prefixo `Genspark · ${loja.nome}` reproduz EXATAMENTE o nome que o script já vinha gerando
+  // antes da extração pra lib/meta-subir.mjs (não quebra a idempotência com ads já criados).
+  const prefixo = `Genspark · ${loja.nome}`;
   const existentes = DRY ? [] : await metaTodos(`/${campanha.id}/ads`, { fields: 'name,adset_id', limit: 500 });
   const jaTem = new Set(existentes.map((a) => `${a.adset_id}::${a.name}`));
   if (jaTem.size) console.log(`(idempotência) ${jaTem.size} ads já existem na campanha — serão pulados`);
@@ -310,7 +278,7 @@ async function subirLoja(loja) {
   let idx = 0;
   for (const item of itens) {
     // pula o PNG inteiro se TODOS os conjuntos já têm o ad dele (evita Storage+hash à toa)
-    const faltam = adsets.filter((a) => !jaTem.has(`${a.id}::${nomeAd(loja, item.file, a.name)}`));
+    const faltam = adsets.filter((a) => !jaTem.has(`${a.id}::${nomeAd(prefixo, item.file, a.name)}`));
     if (faltam.length === 0) { pulados += adsets.length; idx++; continue; }
     // 1x por PNG: Storage + image_hash (hash é da conta, vale pra todos os conjuntos)
     const objPath = `genspark/${loja.pasta}/${CFG.DATA_CAMPANHA}/${item.file}`;
@@ -318,10 +286,13 @@ async function subirLoja(loja) {
     const hash = await uploadImagemBytes(url, `img${idx}`);
     idx++;
     for (const a of adsets) {
-      const nome = nomeAd(loja, item.file, a.name);
+      const nome = nomeAd(prefixo, item.file, a.name);
       if (jaTem.has(`${a.id}::${nome}`)) { pulados++; continue; }
-      const numero = soDigitos(a.whatsapp || loja.whatsapp);
-      const params = payloadMultiDestino({ hash, waNumero: numero, mensagem: CAPTION_PADRAO });
+      const numero = a.whatsapp || loja.whatsapp;
+      // Conjuntos SALE são sempre multi-destino (ver comentário acima de acharCampanha) — o
+      // listarAdsets não busca destination_type, então forçamos o valor que ativa o ramo
+      // multi-destino de payloadCriativa (mesmo comportamento de antes da extração).
+      const params = payloadCriativa({ hash, adsetDestinationType: 'MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP', waNumero: numero, page: CFG.PAGE, ig: CFG.IG, mensagem: CAPTION_PADRAO });
       const { creativeId } = await criarAdCreative(params);
       const adId = await criarAd({ adsetId: a.id, name: nome, creativeId });
       feitos++;
