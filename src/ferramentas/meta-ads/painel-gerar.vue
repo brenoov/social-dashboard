@@ -14,11 +14,40 @@ async function gerar() {
 watch(job, (j) => { if (j?.status === 'concluido' && j.resultado?.campanhaId) emit('gerado', j.resultado.campanhaId) })
 </script>
 <template>
-  <div class="painel">
-    <label>Desconto %<input type="number" v-model.number="form.pct"></label>
-    <label>Limite<input type="number" v-model.number="form.limite"></label>
-    <label>Looks (vazio = favoritos)<input v-model="form.looks" placeholder="ex.: 4,5,7,10"></label>
-    <button :disabled="job && ['enfileirado','rodando'].includes(job.status)" @click="gerar">Gerar</button>
-    <p v-if="job">Status: {{ job.status }} <span v-if="job.erro">— {{ job.erro }}</span></p>
-  </div>
+  <section class="stage">
+    <div class="stagehead">
+      <span class="badge"><i class="led hold"></i>Passo 1 · Gerar</span>
+      <h2>Gerar os criativos</h2>
+      <p class="lead">Escolha o desconto e quantos criativos criar. O robô monta as artes a partir das bolsas selecionadas.</p>
+    </div>
+
+    <div class="panel">
+      <div class="ph"><span class="eyebrow">Configuração</span></div>
+      <div class="fields">
+        <label class="field">
+          <span class="fl">Desconto (%)</span>
+          <input class="fi num" type="number" v-model.number="form.pct">
+        </label>
+        <label class="field">
+          <span class="fl">Quantos criativos</span>
+          <input class="fi num" type="number" v-model.number="form.limite">
+        </label>
+        <label class="field wide">
+          <span class="fl">Looks (vazio = favoritos)</span>
+          <input class="fi" v-model="form.looks" placeholder="ex.: 4,5,7,10">
+        </label>
+      </div>
+
+      <div class="cmdrow">
+        <button class="cmd amber" :disabled="job && ['enfileirado','rodando'].includes(job.status)" @click="gerar">
+          <span class="ci">▶</span> Gerar criativos
+        </button>
+        <div v-if="job" class="jobstat">
+          <i class="led" :class="job.status==='concluido' ? 'go' : job.status==='erro' ? 'abort' : ['enfileirado','rodando'].includes(job.status) ? 'run' : 'idle'"></i>
+          <span>{{ ({ enfileirado:'Na fila…', rodando:'Gerando criativos…', concluido:'Pronto! Criativos gerados.', erro:'Deu erro ao gerar.' })[job.status] || job.status }}</span>
+          <span v-if="job.erro" class="js-err">— {{ job.erro }}</span>
+        </div>
+      </div>
+    </div>
+  </section>
 </template>

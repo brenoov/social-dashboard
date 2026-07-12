@@ -16,13 +16,42 @@ async function ativarTudo() {
 }
 </script>
 <template>
-  <div class="painel">
-    <p>{{ n }} anúncios subidos — <strong>PAUSED</strong>.</p>
-    <div class="acoes">
-      <a :href="gerenciador" target="_blank" class="btn">Manter pausado (ativo manual no Gerenciador)</a>
-      <button :disabled="job && ['enfileirado','rodando'].includes(job.status)" @click="ativarTudo">Ativar tudo</button>
+  <section class="stage">
+    <div class="stagehead">
+      <span class="badge"><i class="led hold"></i>Passo 4 · Conferir</span>
+      <h2>Confira antes de publicar</h2>
+      <p class="lead"><b>{{ n }} anúncios</b> foram criados e estão <b>pausados</b>. Enquanto ficarem pausados, ninguém vê e <b>não gastam nada</b>. Você decide como publicar.</p>
     </div>
-    <p v-if="job">Ativação: {{ job.status }} <span v-if="job.erro">— {{ job.erro }}</span></p>
-    <p v-if="job?.status==='concluido'">✅ Ativado. {{ job.resultado?.ativados }} objetos ACTIVE.</p>
-  </div>
+
+    <div class="readout">
+      <div class="c"><div class="k">Anúncios criados</div><div class="v mono amber">{{ n }}</div></div>
+      <div class="c"><div class="k">Situação</div><div class="v hold">Pausado</div></div>
+    </div>
+
+    <section class="launch">
+      <h3>Como você quer publicar?</h3>
+      <p class="sh">Escolha uma opção:</p>
+      <div class="opts">
+        <a :href="gerenciador" target="_blank" class="opt manter">
+          <span class="oh"><span class="oi">⏸</span> Manter pausados <span class="rec">recomendado</span></span>
+          <span class="od">Deixa tudo como está. Você liga cada anúncio na hora que quiser, direto no Gerenciador da Meta. Nada gasta até você ligar.</span>
+        </a>
+        <button class="opt ativar" :disabled="job && ['enfileirado','rodando'].includes(job.status)" @click="ativarTudo">
+          <span class="oh"><span class="oi">▶</span> Ativar todos agora</span>
+          <span class="od">Liga os {{ n }} anúncios de uma vez. Eles começam a aparecer para as pessoas — e a gastar verba — na hora.</span>
+        </button>
+      </div>
+      <div class="aviso">
+        <span>⚠️</span>
+        <span><b>Ativar todos</b> começa a gastar dinheiro imediatamente. Antes de executar, o sistema pergunta “tem certeza?” pra evitar clique sem querer.</span>
+      </div>
+
+      <div v-if="job" class="jobstat launchstat">
+        <i class="led" :class="job.status==='concluido' ? 'go' : job.status==='erro' ? 'abort' : ['enfileirado','rodando'].includes(job.status) ? 'run' : 'idle'"></i>
+        <span>{{ ({ enfileirado:'Na fila…', rodando:'Ativando anúncios…', concluido:'Anúncios ativados.', erro:'Deu erro ao ativar.' })[job.status] || job.status }}</span>
+        <span v-if="job.erro" class="js-err">— {{ job.erro }}</span>
+      </div>
+      <p v-if="job?.status==='concluido'" class="okline">✅ Ativado. {{ job.resultado?.ativados }} anúncios agora estão no ar.</p>
+    </section>
+  </section>
 </template>
