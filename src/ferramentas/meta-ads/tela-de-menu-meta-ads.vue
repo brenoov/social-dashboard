@@ -47,17 +47,8 @@
           <div class="smenu-card-desc">Agente IA analisa campanhas e sugere ações: pausar, escalar, ajustar budget e testar criativos.</div>
           <span class="smenu-card-enter">→</span>
         </div>
-        <div class="smenu-card" v-if="hasPermission('module:meta:fabrica')" @click="ir('fabrica-anuncios')">
-          <span class="smenu-card-num">03</span>
-          <div class="smenu-card-icon" style="background:linear-gradient(135deg,#ea580c,#db2777)">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-          </div>
-          <div class="smenu-card-title">Fábrica de Anúncios</div>
-          <div class="smenu-card-desc">Do briefing do Gestor aos criativos e campanhas: selecione produtos por loja e aprove antes de subir.</div>
-          <span class="smenu-card-enter">→</span>
-        </div>
         <div class="smenu-card" v-if="hasPermission('module:meta:fabrica')" @click="ir('fabrica-estudio')">
-          <span class="smenu-card-num">04</span>
+          <span class="smenu-card-num">03</span>
           <div class="smenu-card-icon" style="background:linear-gradient(135deg,#0891b2,#4338ca)">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.2H22l-6 4.4 2.3 7.1L12 16.3 5.7 20.7 8 13.6l-6-4.4h7.6z"/></svg>
           </div>

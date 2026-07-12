@@ -193,7 +193,10 @@ export async function run({
       if (DRY) { console.log('  [dry] produto', cand.sku, v.variante, v.formato, buf.length, 'bytes'); continue; }
       const path = `${campanhaId}/produto/${sane(cand.sku)}-${sane(v.variante)}-${v.formato}.png`;
       const url = await subir(path, buf);
-      await sbPost('/fabrica_criativos', [{ campanha_id: campanhaId, candidato_id: cand.id, arquetipo: 'produto', template: v.template, formato: v.formato, variante: v.variante, preco_de: v.preco_de, preco_por: v.preco_por, storage_path: path, url }], 'return=minimal');
+      // candidato_id foi removido de fabrica_criativos na migration 019 (F1 aposentada — cand.id
+      // já vinha sempre null no modo lista/estrela, que são os únicos caminhos vivos). Mandar essa
+      // chave pro PostgREST com a coluna inexistente quebraria o insert em TODO job de verdade.
+      await sbPost('/fabrica_criativos', [{ campanha_id: campanhaId, arquetipo: 'produto', template: v.template, formato: v.formato, variante: v.variante, preco_de: v.preco_de, preco_por: v.preco_por, storage_path: path, url }], 'return=minimal');
     }
   }
 
