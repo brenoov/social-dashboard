@@ -80,7 +80,7 @@ export async function subirCriativos({ meta, act, page, ig, itens, adsets, prefi
     for (const a of faltam) {
       const nome = nomeAd(prefixo, item.chave, a.name);
       try {
-        const params = payloadCriativa({ hash, adsetDestinationType: a.destinationType, waNumero: a.whatsapp, page, ig, mensagem });
+        const params = payloadCriativa({ hash, adsetDestinationType: a.destinationType, waNumero: a.whatsapp, page, ig, mensagem: item.mensagem ?? mensagem });
         const cr = await criarAdCreativeComFallbackIG(meta, act, params);
         const ad = await meta(`/${act}/ads`, { name: nome, adset_id: a.id, creative: { creative_id: cr.id }, status: 'PAUSED' }, 'POST');
         if (ad.status !== 200 || !ad.d?.id) throw new Error('ad ' + JSON.stringify(ad.d).slice(0, 200));

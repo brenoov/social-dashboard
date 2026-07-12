@@ -98,6 +98,38 @@ test('subirCriativos: pula o ITEM inteiro (sem upload) se todos os adsets já ex
   assert.equal(uploads, 0); // getHash NÃO chamado — item pulado antes do upload
 });
 
+test('subirCriativos: item.mensagem (legenda por produto) vira link_data.message', async () => {
+  const posts = [];
+  const meta = async (path, params) => {
+    if (path.endsWith('/adcreatives')) { posts.push(params); return { status: 200, d: { id: 'cr' } }; }
+    return { status: 200, d: { id: 'ad' } };
+  };
+  const res = await subirCriativos(baseArgs({
+    meta,
+    itens: [{ chave: 'c1', getHash: async () => 'h1', mensagem: 'LEGENDA POR PRODUTO' }],
+    adsets: [adset()],
+    jaTem: new Set(),
+  }));
+  assert.equal(res.criados, 1);
+  assert.equal(posts[0].object_story_spec.link_data.message, 'LEGENDA POR PRODUTO');
+});
+
+test('subirCriativos: item sem mensagem cai na mensagem global (fallback de marca)', async () => {
+  const posts = [];
+  const meta = async (path, params) => {
+    if (path.endsWith('/adcreatives')) { posts.push(params); return { status: 200, d: { id: 'cr' } }; }
+    return { status: 200, d: { id: 'ad' } };
+  };
+  await subirCriativos(baseArgs({
+    meta,
+    itens: [item('c1', async () => 'h1')], // sem mensagem
+    adsets: [adset()],
+    jaTem: new Set(),
+    mensagem: 'LEGENDA DE MARCA',
+  }));
+  assert.equal(posts[0].object_story_spec.link_data.message, 'LEGENDA DE MARCA');
+});
+
 test('subirCriativos: fallback de Instagram — refaz adcreative SEM instagram_user_id', async () => {
   const posts = [];
   const meta = async (path, params) => {
