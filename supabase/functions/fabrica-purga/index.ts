@@ -22,11 +22,22 @@ async function purgar() {
   }
   return { rodadas_purgadas: purgadas, objetos_apagados: objetos };
 }
+// role(tok): decodifica o payload do JWT (SEM verificar assinatura — o gateway já verificou, pois a
+// função roda com verify_jwt=true) e devolve o claim `role`. Usado só pra distinguir service_role de
+// anon; a autenticidade vem do verify_jwt do gateway.
+function roleDoJwt(tok: string): string | null {
+  try {
+    const p = tok.split(".")[1];
+    const json = JSON.parse(atob(p.replace(/-/g, "+").replace(/_/g, "/")));
+    return json.role ?? null;
+  } catch { return null; }
+}
 Deno.serve(async (req) => {
-  // Guard em código: mesmo se deployado com verify_jwt=false (necessário pro pg_cron chamar via
-  // net.http_post), só aceita o service-role key — endpoint deleta Storage, não pode ficar público.
-  const auth = req.headers.get("Authorization");
-  if (auth !== `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`) {
+  // Endpoint deleta Storage — só service_role. verify_jwt=true (gateway valida a assinatura) +
+  // checagem do claim role aqui garante que anon (público) ou token forjado não passam.
+  const auth = req.headers.get("Authorization") || "";
+  const tok = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (roleDoJwt(tok) !== "service_role") {
     return new Response(JSON.stringify({ error: "nao_autorizado" }), { status: 401, headers: { "Content-Type": "application/json" } });
   }
   try { return new Response(JSON.stringify({ ok: true, ...(await purgar()) }), { headers: { "Content-Type": "application/json" } }); }

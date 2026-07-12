@@ -9,10 +9,16 @@
 -- deploy. Este arquivo existe só para ficar versionado e revisável — não é executado
 -- automaticamente por nenhum script.
 --
--- Antes de aplicar: trocar <SERVICE_ROLE_KEY> pela service-role key real do projeto (NUNCA
--- commitar a key real neste arquivo — só o placeholder). A Edge Function fabrica-purga exige
--- esse header (Authorization: Bearer <service-role key>) mesmo com verify_jwt=false, então o
--- pg_cron precisa mandar exatamente esse Authorization pra não cair no 401 do guard em código.
+-- Antes de aplicar: trocar <SERVICE_ROLE_KEY> por UMA service-role key válida do projeto (NUNCA
+-- commitar a key real neste arquivo — só o placeholder). A Edge fabrica-purga roda com
+-- verify_jwt=true: o gateway do Supabase valida a ASSINATURA do JWT e, no código, a função exige
+-- que o claim `role` seja 'service_role' (decodifica o payload). Ou seja: qualquer service-role key
+-- legítima do projeto passa (não precisa bater byte-a-byte com a SUPABASE_SERVICE_ROLE_KEY injetada);
+-- anon e token forjado são barrados. Não usa segredo dedicado.
+--
+-- STATUS: JÁ APLICADO em 2026-07-11 (job 'fabrica-purga-diaria', jobid 11, active) usando a
+-- SUPABASE_SERVICE_KEY do coletor/.env. Testado: service key -> 200; anon/sem auth -> 401.
+-- Re-aplicar só se precisar recriar/rotacionar (cron.unschedule antes, pra não duplicar).
 
 select cron.schedule(
   'fabrica-purga-diaria',
