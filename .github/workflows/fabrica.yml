@@ -32,4 +32,8 @@ jobs:
           GITHUB_RUN_ID: ${{ github.run_id }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_TRAFEGO }}
+          # loginServico() (usado por gerar/subir/ativar) autentica como usuário de serviço —
+          # precisa do email/senha do gestor, senão dá "missing email or phone" (400).
+          GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
+          GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
         run: cd coletor && node --import ./lib/curl-fetch.mjs fabrica-job-runner.mjs
