@@ -866,10 +866,11 @@ Create `src/ferramentas/meta-ads/painel-subir.vue`:
 
 ```vue
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { useJobStatus } from './use-job-status.js'
 const props = defineProps({ campanhaId: String })
+const emit = defineEmits(['subido'])
 const ACCOUNT_ID = 'b6883e82-07cb-4f21-9fd7-ea7626786174', ACT = 'act_1197997517858139'
 const campanhas = ref([]); const destino = reactive({ tipo: 'nova', loja: 'tivoli', campaignId: '' })
 const { job, start } = useJobStatus()
@@ -881,8 +882,11 @@ async function subir() {
   const params = { campanhaId: props.campanhaId, destino: destino.tipo === 'existente' ? { tipo: 'existente', campaignId: destino.campaignId } : { tipo: 'nova', loja: destino.loja } }
   const { data, error } = await sbClient.functions.invoke('fabrica-trigger', { body: { tipo: 'subir', params } })
   if (error) return alert('Falha: ' + error.message)
+  if (!data?.job_id) return alert('Sem job_id na resposta')
   start(data.job_id)
 }
+// ao concluir a subida, entrega o resultado (adIds/adsetIds/metaCampaignId/criouCampanha) pro passo Conferir
+watch(job, (j) => { if (j?.status === 'concluido' && j.resultado) emit('subido', j.resultado) })
 </script>
 <template>
   <div class="painel">
@@ -934,19 +938,23 @@ import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.j
 import PainelGerar from './painel-gerar.vue'
 import PainelCurar from './painel-curar.vue'
 import PainelSubir from './painel-subir.vue'
+import PainelConferir from './painel-conferir.vue'
 const router = useRouter()
-const passo = ref('gerar'); const campanhaId = ref(null)
+const passo = ref('gerar'); const campanhaId = ref(null); const subirResultado = ref(null)
 onMounted(() => { if (!hasPermission('module:meta:fabrica')) router.push({ name: 'meta-ads' }) })
 function aoGerar(id) { campanhaId.value = id; passo.value = 'curar' }
+function aoSubir(res) { subirResultado.value = res; passo.value = 'conferir' }
 </script>
 <template>
   <div class="estudio">
     <nav><button :class="{on:passo==='gerar'}" @click="passo='gerar'">1. Gerar</button>
       <button :class="{on:passo==='curar'}" :disabled="!campanhaId" @click="passo='curar'">2. Curar</button>
-      <button :class="{on:passo==='subir'}" :disabled="!campanhaId" @click="passo='subir'">3. Subir</button></nav>
+      <button :class="{on:passo==='subir'}" :disabled="!campanhaId" @click="passo='subir'">3. Subir</button>
+      <button :class="{on:passo==='conferir'}" :disabled="!subirResultado" @click="passo='conferir'">4. Conferir</button></nav>
     <PainelGerar v-if="passo==='gerar'" @gerado="aoGerar" />
     <PainelCurar v-else-if="passo==='curar'" :campanha-id="campanhaId" />
-    <PainelSubir v-else :campanha-id="campanhaId" />
+    <PainelSubir v-else-if="passo==='subir'" :campanha-id="campanhaId" @subido="aoSubir" />
+    <PainelConferir v-else :subir-resultado="subirResultado" />
   </div>
 </template>
 ```
@@ -978,6 +986,103 @@ git push origin main
 ```
 
 ---
+
+## Task 14: Backend "ativar" (ativar-estudio + runner/trigger)
+
+**Files:**
+- Modify: `coletor/subir-estudio.mjs` (retornar `adsetIds` + `criouCampanha`)
+- Create: `coletor/ativar-estudio.mjs`, `coletor/ativar-estudio.test.mjs`
+- Modify: `coletor/fabrica-job-runner.mjs` (tipo `ativar`), `supabase/functions/fabrica-trigger/index.ts` (whitelist)
+
+**Interfaces:**
+- `subir-estudio.mjs run()` passa a retornar `{ adIds, adsetIds, metaCampaignId, criouCampanha, pendentes }` (`criouCampanha = destino.tipo==='nova'`; `adsetIds` = ids dos conjuntos usados).
+- `ativar-estudio.mjs`: `export async function run({ adIds, adsetIds, metaCampaignId, criouCampanha, dry })` → pra cada `adId`: meta-proxy `POST /<adId> { status:'ACTIVE' }`; se `criouCampanha`: também `POST /<adsetId> {status:'ACTIVE'}` (cada) e `POST /<metaCampaignId> {status:'ACTIVE'}`. Setar ACTIVE no que já está ativo é no-op. `dry:true` → não chama o Graph, retorna `{ ativados:0 }`. Retorna `{ ativados }`.
+- `fabrica-job-runner`: `tipo==='ativar'` → `ativarRun(job.params)`, PATCH `concluido`+`resultado` (não mexe em `fechada_em`).
+
+- [ ] **Step 1: Teste do ativar-estudio (dry guard + escopo)**
+
+`coletor/ativar-estudio.test.mjs`:
+```js
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { run, alvos } from './ativar-estudio.mjs';
+test('run() exportada', () => { assert.equal(typeof run, 'function'); });
+test('run({dry:true}) não ativa', async () => {
+  const r = await run({ adIds: ['a'], adsetIds: ['s'], metaCampaignId: 'c', criouCampanha: true, dry: true });
+  assert.equal(r.ativados, 0);
+});
+test('alvos(): existente = só ads; nova = ads+adsets+campaign', () => {
+  assert.deepEqual(alvos({ adIds:['a1','a2'], adsetIds:['s1'], metaCampaignId:'c', criouCampanha:false }), ['a1','a2']);
+  assert.deepEqual(alvos({ adIds:['a1'], adsetIds:['s1'], metaCampaignId:'c', criouCampanha:true }), ['a1','s1','c']);
+});
+```
+
+- [ ] **Step 2: Rodar e ver falhar** — `cd coletor && node --test ativar-estudio.test.mjs` → FAIL (módulo não existe).
+
+- [ ] **Step 3: Implementar `ativar-estudio.mjs`** — reusar o padrão de proxy de `subir-estudio.mjs` (`carregar-env`, TLS1.2, `loginServico`, `meta`/`chamarProxy`). `alvos(p)` (pura, exportada) = `criouCampanha ? [...adIds, ...adsetIds, metaCampaignId] : [...adIds]`. `run()`: se `dry` retorna `{ativados:0}`; senão TOKEN + pra cada id em `alvos(...)`: `meta('/'+id, {status:'ACTIVE'}, 'POST')`; conta sucessos; CLI wrapper opcional. Modificar `subir-estudio.mjs` pra incluir `adsetIds` (ids dos adsets) e `criouCampanha` no retorno (sem alterar a lógica de subida).
+
+- [ ] **Step 4: Wire runner + trigger** — em `fabrica-job-runner.mjs` adicionar o ramo `ativar` (import `run as ativarRun` de `./ativar-estudio.mjs`; PATCH concluido+resultado). Em `supabase/functions/fabrica-trigger/index.ts` trocar a whitelist `["gerar","subir"]` por `["gerar","subir","ativar"]`.
+
+- [ ] **Step 5: Rodar testes** — `cd coletor && node --test ativar-estudio.test.mjs subir-estudio.test.mjs fabrica-job-runner.test.mjs` → PASS. (Edge não deploya aqui.)
+
+- [ ] **Step 6: Commit**
+```bash
+cd /Users/erickmartins/iamundi
+git add coletor/ativar-estudio.mjs coletor/ativar-estudio.test.mjs coletor/subir-estudio.mjs coletor/fabrica-job-runner.mjs supabase/functions/fabrica-trigger/index.ts
+git commit -m "feat(fabrica): job ativar (liga ads + conj/camp se nova) via meta-proxy + whitelist trigger"
+```
+
+---
+
+## Task 15: `painel-conferir.vue` (4º passo)
+
+**Files:**
+- Create: `src/ferramentas/meta-ads/painel-conferir.vue`
+
+**Interfaces:**
+- `<PainelConferir :subir-resultado="obj" />` onde `subir-resultado` = `{ adIds, adsetIds, metaCampaignId, criouCampanha }` (vindo do `painel-subir` via evento). Mostra "N ads subidos (PAUSED)" + link pro Gerenciador; botões **[Manter pausado]** (só fecha/informa) e **[Ativar tudo]** → confirmação de gasto → `fabrica-trigger` tipo `ativar` → status via `useJobStatus`.
+
+- [ ] **Step 1: Implementar**
+
+```vue
+<script setup>
+import { computed } from 'vue'
+import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
+import { useJobStatus } from './use-job-status.js'
+const props = defineProps({ subirResultado: Object })
+const n = computed(() => props.subirResultado?.adIds?.length || 0)
+const { job, start } = useJobStatus()
+const gerenciador = 'https://adsmanager.facebook.com/adsmanager/'
+async function ativarTudo() {
+  if (!confirm(`Ativar ${n.value} anúncios? Isso COMEÇA A GASTAR verba imediatamente.`)) return
+  const { adIds, adsetIds, metaCampaignId, criouCampanha } = props.subirResultado
+  const { data, error } = await sbClient.functions.invoke('fabrica-trigger', { body: { tipo: 'ativar', params: { adIds, adsetIds, metaCampaignId, criouCampanha } } })
+  if (error) return alert('Falha: ' + error.message)
+  if (!data?.job_id) return alert('Sem job_id na resposta')
+  start(data.job_id)
+}
+</script>
+<template>
+  <div class="painel">
+    <p>{{ n }} anúncios subidos — <strong>PAUSED</strong>.</p>
+    <div class="acoes">
+      <a :href="gerenciador" target="_blank" class="btn">Manter pausado (ativo manual no Gerenciador)</a>
+      <button :disabled="job && ['enfileirado','rodando'].includes(job.status)" @click="ativarTudo">Ativar tudo</button>
+    </div>
+    <p v-if="job">Ativação: {{ job.status }} <span v-if="job.erro">— {{ job.erro }}</span></p>
+    <p v-if="job?.status==='concluido'">✅ Ativado. {{ job.resultado?.ativados }} objetos ACTIVE.</p>
+  </div>
+</template>
+```
+
+- [ ] **Step 2: Build** — `cd /Users/erickmartins/iamundi && npx vite build 2>&1 | tail -6` → ok.
+
+- [ ] **Step 3: Commit**
+```bash
+cd /Users/erickmartins/iamundi
+git add src/ferramentas/meta-ads/painel-conferir.vue
+git commit -m "feat(fabrica): painel-conferir (4º passo — manter pausado / ativar tudo c/ confirmação)"
+```
 
 ## Testes (resumo por camada)
 
