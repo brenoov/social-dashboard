@@ -15,8 +15,8 @@
 // campanha e pula os que já estão lá (permite re-disparar após um blip/rate-limit sem duplicar).
 // Em rate limit (Meta code 17) subirCriativos para e devolve pendentes>0 — o chamador re-dispara.
 //
-// TUDO PAUSED — a ativação é manual no Gerenciador. Só o chamador (Task 5) fecha a rodada
-// (fabrica_campanhas.fechada_em); aqui só sobe.
+// TUDO PAUSED — a ativação agora está disponível via o job 'ativar' (ativar-estudio.mjs), disparado
+// à parte pela UI. Só o chamador (Task 5) fecha a rodada (fabrica_campanhas.fechada_em); aqui só sobe.
 //
 // Uso:
 //   node --import ./lib/curl-fetch.mjs subir-estudio.mjs --campanha <uuid> --campaign <metaCampaignId>

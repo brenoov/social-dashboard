@@ -17,7 +17,7 @@ import { loginServico } from './lib/bling-comercial.mjs';
 // motivo do subir-estudio.mjs.
 tls.DEFAULT_MAX_VERSION = 'TLSv1.2';
 
-const CFG = { ACT: 'act_1197997517858139', ACCOUNT_ID: 'b6883e82-07cb-4f21-9fd7-ea7626786174' };
+const CFG = { ACCOUNT_ID: 'b6883e82-07cb-4f21-9fd7-ea7626786174' };
 
 const URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
 const ANON = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtvdW5xdGRvaW9vb3R4cWVna2lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMDMwMDUsImV4cCI6MjA5NDc3OTAwNX0.MVXa6jngjKXkH3eZ7as_j_k8Eb7lJKcFmO4kCKAnuHM';
@@ -78,17 +78,25 @@ export function alvos({ adIds, adsetIds, metaCampaignId, criouCampanha }) {
 }
 
 // --- run(): API pública do módulo -------------------------------------------------------------
-export async function run({ adIds, adsetIds, metaCampaignId, criouCampanha, dry = false }) {
-  if (dry) return { ativados: 0 };
+// `meta` (2º arg opcional, nomeado pra não colidir com a função meta() do módulo) é uma seam de
+// injeção pros testes (mesmo padrão do `meta` injetado em subirCriativos/meta-subir.mjs) — quando
+// injetado, pula o loginServico() (sem rede) e usa o stub direto.
+export async function run({ adIds, adsetIds, metaCampaignId, criouCampanha, dry = false, meta: metaInjetado } = {}) {
+  const ids = alvos({ adIds, adsetIds, metaCampaignId, criouCampanha });
+  const total = ids.length;
+  if (dry) return { ativados: 0, total: 0, falhas: [] };
 
-  TOKEN = await loginServico();
+  const chamarMeta = metaInjetado || meta;
+  if (!metaInjetado) TOKEN = await loginServico();
 
   let ativados = 0;
-  for (const id of alvos({ adIds, adsetIds, metaCampaignId, criouCampanha })) {
-    const r = await meta('/' + id, { status: 'ACTIVE' }, 'POST');
+  const falhas = [];
+  for (const id of ids) {
+    const r = await chamarMeta('/' + id, { status: 'ACTIVE' }, 'POST');
     if (r.status === 200) ativados++;
+    else falhas.push(id);
   }
-  return { ativados };
+  return { ativados, total, falhas };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

@@ -41,6 +41,16 @@ export function estadoTerminalSubir(res) {
   return { status: 'concluido', fecha: true };
 }
 
+// --- estadoTerminalAtivar(): função pura — mapeia o resultado de ativar-estudio.mjs.run() pro
+// estado terminal do job. Ativação parcial (algum POST não voltou 200) tem que virar 'erro' — senão
+// a UI reporta sucesso limpo com ads ainda PAUSED no Gerenciador (money-path). ---
+export function estadoTerminalAtivar(res) {
+  if (res.falhas?.length || res.ativados < res.total) {
+    return { status: 'erro', erro: `Ativou ${res.ativados} de ${res.total} — ${res.falhas?.length || 0} falharam. Tente de novo.` };
+  }
+  return { status: 'concluido' };
+}
+
 async function main() {
   const jobId = process.env.FABRICA_JOB_ID || (process.argv.includes('--job') ? process.argv[process.argv.indexOf('--job') + 1] : null);
   if (!jobId) throw new Error('FABRICA_JOB_ID ausente (env FABRICA_JOB_ID ou --job <uuid>)');
@@ -67,7 +77,8 @@ async function main() {
       }
     } else if (job.tipo === 'ativar') {
       const r = await ativarRun(job.params || {});
-      await sbPatch(`/fabrica_jobs?id=eq.${jobId}`, { status: 'concluido', resultado: r, updated_at: new Date().toISOString() });
+      const t = estadoTerminalAtivar(r);
+      await sbPatch(`/fabrica_jobs?id=eq.${jobId}`, { status: t.status, resultado: r, erro: t.erro || null, updated_at: new Date().toISOString() });
     } else {
       throw new Error('tipo inválido: ' + job.tipo);
     }
