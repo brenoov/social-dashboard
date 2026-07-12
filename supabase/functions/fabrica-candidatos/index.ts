@@ -16,8 +16,8 @@ Deno.serve(async (req) => {
     const uc = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: req.headers.get("Authorization") || "" } } });
     const { data: ud } = await uc.auth.getUser();
     if (!ud?.user) return json({ error: "nao_autenticado" }, 401);
-    const { data: prof } = await sb.from("profiles").select("role, permissions").eq("id", ud.user.id).single();
-    if (!(prof && (prof.role === "admin" || (prof.permissions && Object.prototype.hasOwnProperty.call(prof.permissions, "meta.fabrica"))))) return json({ error: "sem_permissao" }, 403);
+    const { data: prof } = await sb.from("profiles").select("role, permissions, is_superadmin").eq("id", ud.user.id).single();
+    if (!(prof && (prof.role === "admin" || prof.is_superadmin === true || (prof.permissions && Object.prototype.hasOwnProperty.call(prof.permissions, "meta.fabrica"))))) return json({ error: "sem_permissao" }, 403);
 
     const { lojas = [], fonte, filtros = {} } = await req.json();
     // fabrica_lojas: deposito -> {nome, canal_loja_id}
@@ -52,6 +52,10 @@ Deno.serve(async (req) => {
         arr = arr.map((i) => { acc += i.faturamento; const p = acc / total; return { ...i, faixa: p <= 0.8 ? "A" : p <= 0.95 ? "B" : "C" }; });
         if (filtros.faixa) arr = arr.filter((i) => i.faixa === filtros.faixa);
       } else { // bcg: quadrante por loja (usa estoque da loja + unidades como giro proxy)
+        // Nota: gc_vendas_item/gc_estoque_item não têm data da última venda, então diasSemVender
+        // não pode ser calculado aqui (passamos 0) -> `recente` é sempre true -> o quadrante
+        // "Abacaxi" nunca é produzido por esta Edge. Aceitável: o painel Gerar oferece só
+        // Estrela / Vaca leiteira / Interrogação (Abacaxi fora de escopo, conforme spec).
         const quads: string[] = filtros.quadrantes || ["Estrela", "Vaca leiteira", "Interrogação"];
         arr = arr.filter((i) => lojas.some((d: string) => quads.includes(bcgClass(estByDepSku[d + "|" + i.sku] || 0, i.unidades || 0, 0))));
         if (filtros.categoria) arr = arr.filter((i) => (i.categoria || "").toLowerCase().includes(String(filtros.categoria).toLowerCase()));
@@ -60,7 +64,9 @@ Deno.serve(async (req) => {
     } else if (fonte === "manual") {
       const termo = String(filtros.termo || "").toLowerCase();
       const { data: vendas } = await sb.from("gc_vendas_item").select("sku, produto, categoria").in("canal_loja_id", lojas.map((d: string) => cfgByDep[d]?.canal_loja_id).filter(Boolean));
-      const uniq: Record<string, any> = {}; for (const v of vendas || []) if (!termo || (v.produto || "").toLowerCase().includes(termo) || (v.sku || "").toLowerCase().includes(termo)) uniq[v.sku] ??= { sku: v.sku, nome: v.produto, categoria: v.categoria, porLoja: {} };
+      const { data: estoque } = await sb.from("gc_estoque_item").select("sku, saldo, deposito_id").in("deposito_id", lojas);
+      const estByDepSku: Record<string, number> = {}; for (const e of estoque || []) estByDepSku[e.deposito_id + "|" + e.sku] = e.saldo;
+      const uniq: Record<string, any> = {}; for (const v of vendas || []) if (!termo || (v.produto || "").toLowerCase().includes(termo) || (v.sku || "").toLowerCase().includes(termo)) uniq[v.sku] ??= { sku: v.sku, nome: v.produto, categoria: v.categoria, porLoja: Object.fromEntries(lojas.map((d: string) => [d, { preco: null, pctPrevisto: null, precoComDesconto: null, estoque: estByDepSku[d + "|" + v.sku] || 0 }])) };
       candidatos = Object.values(uniq);
     } else return json({ error: "fonte_invalida" }, 400);
 
