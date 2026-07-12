@@ -13,12 +13,12 @@ Deno.serve(async (req) => {
 
     const { campanhaId } = await req.json();
     if (!campanhaId) return json({ error: "campanhaId_obrigatorio" }, 400);
-    const { data: camp } = await sb.from("fabrica_campanhas").select("id, job_id, status").eq("id", campanhaId).single();
+    const { data: camp } = await sb.from("fabrica_campanhas").select("id, job_id, status").eq("id", campanhaId).maybeSingle();
     if (!camp) return json({ ok: true }); // idempotente
 
     // best-effort: cancela o Actions run se ainda gerando
     if (camp.status === "gerando" && camp.job_id) {
-      const { data: job } = await sb.from("fabrica_jobs").select("github_run_id").eq("id", camp.job_id).single();
+      const { data: job } = await sb.from("fabrica_jobs").select("github_run_id").eq("id", camp.job_id).maybeSingle();
       const runId = job?.github_run_id;
       if (runId) {
         try {
