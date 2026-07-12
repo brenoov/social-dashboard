@@ -135,15 +135,9 @@ export async function run({
     console.log('estrela | candidatos (top faturamento c/ estoque):', cands.length);
     for (const c of cands) console.log('  ', c.sku, '| R$', c.preco, '| fat R$', c.faturamento.toFixed(2), '|', c.nome);
   } else {
-    const rod = await sbGet('/fabrica_rodadas?select=id,rodada&order=created_at.desc&limit=1');
-    if (!rod.length) throw new Error('sem rodada da F1');
-    const rodadaId = rod[0].id;
-    let q = `/fabrica_candidatos?select=id,sku,nome,preco,selecionado,deposito_id,fonte&rodada_id=eq.${rodadaId}&selecionado=eq.true`;
-    if (LOJA) q += `&deposito_id=eq.${LOJA}`;
-    if (FONTE) q += `&fonte=eq.${FONTE}`;
-    q += `&order=loja_nome`;
-    cands = await sbGet(q);
-    console.log('rodada', rod[0].rodada, '| candidatos selecionados:', cands.length);
+    // F1 aposentada — fabrica_rodadas/fabrica_candidatos foram dropadas na
+    // migration 019. Os únicos caminhos vivos são itens (Estúdio) e --estrela.
+    throw new Error('gerar-criativos: forneça itens (modo Estúdio) ou --estrela <canal> --deposito <dep>');
   }
 
   const campanha = { desconto_tipo: 'fixo', desconto_pct: PCT, parcelas: PARCELAS };
