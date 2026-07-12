@@ -37,14 +37,32 @@ test('run(): um id falha (status não-200) -> reportado em falhas, ativados < to
   assert.deepEqual(r.falhas, ['a2']);
 });
 
+// --- run(): meta() injetado que THROWS (ex.: rate-limit esgotou as 5 retries do meta() real) não
+// pode abortar o loop — ads já ativados antes do throw já estão gastando (money-path); o id que
+// throwou vira falha contada e o loop continua pros ids seguintes. -----------------------------
+test('run(): um id lança erro (rate-limit esgotado) -> não propaga, id vai pra falhas, resto segue', async () => {
+  const chamadas = [];
+  const meta = async (path) => {
+    chamadas.push(path);
+    if (path === '/a2') throw new Error('code 17 request limit');
+    return { status: 200, d: { id: path } };
+  };
+  const r = await run({ adIds: ['a1', 'a2', 'a3'], adsetIds: [], metaCampaignId: 'c', criouCampanha: false, meta });
+  assert.equal(r.ativados, 2);
+  assert.equal(r.total, 3);
+  assert.deepEqual(r.falhas, ['a2']);
+  assert.deepEqual(chamadas, ['/a1', '/a2', '/a3']);
+});
+
 // --- estadoTerminalAtivar(): mapeia o resultado de run() pro estado terminal do job -------------
 test('estadoTerminalAtivar(): 100% ativado -> concluido', () => {
   assert.deepEqual(estadoTerminalAtivar({ ativados: 3, total: 3, falhas: [] }), { status: 'concluido' });
 });
 
-test('estadoTerminalAtivar(): ativação parcial -> erro, com contagem na mensagem', () => {
+test('estadoTerminalAtivar(): ativação parcial -> erro, com contagem e aviso de já-ativos na mensagem', () => {
   const r = estadoTerminalAtivar({ ativados: 2, total: 3, falhas: ['a2'] });
   assert.equal(r.status, 'erro');
   assert.match(r.erro, /2 de 3/);
-  assert.match(r.erro, /1 falha/);
+  assert.match(r.erro, /1 não ativaram/);
+  assert.match(r.erro, /já estar ativos/);
 });

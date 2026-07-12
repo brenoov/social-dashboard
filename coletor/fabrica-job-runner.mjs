@@ -46,7 +46,7 @@ export function estadoTerminalSubir(res) {
 // a UI reporta sucesso limpo com ads ainda PAUSED no Gerenciador (money-path). ---
 export function estadoTerminalAtivar(res) {
   if (res.falhas?.length || res.ativados < res.total) {
-    return { status: 'erro', erro: `Ativou ${res.ativados} de ${res.total} — ${res.falhas?.length || 0} falharam. Tente de novo.` };
+    return { status: 'erro', erro: `Ativou ${res.ativados} de ${res.total}. ${res.falhas?.length || 0} não ativaram — alguns anúncios podem já estar ativos; confira no Gerenciador.` };
   }
   return { status: 'concluido' };
 }

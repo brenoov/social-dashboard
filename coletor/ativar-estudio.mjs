@@ -92,9 +92,16 @@ export async function run({ adIds, adsetIds, metaCampaignId, criouCampanha, dry 
   let ativados = 0;
   const falhas = [];
   for (const id of ids) {
-    const r = await chamarMeta('/' + id, { status: 'ACTIVE' }, 'POST');
-    if (r.status === 200) ativados++;
-    else falhas.push(id);
+    // Cada id é isolado: um throw (ex.: rate-limit que esgotou as retries do meta()) não pode
+    // abortar o loop — ads já ativados antes disso já estão gastando (money-path), então a
+    // ativação segue tentando o resto e só reporta o id problemático em `falhas`.
+    try {
+      const r = await chamarMeta('/' + id, { status: 'ACTIVE' }, 'POST');
+      if (r.status === 200) ativados++;
+      else falhas.push(id);
+    } catch {
+      falhas.push(id);
+    }
   }
   return { ativados, total, falhas };
 }

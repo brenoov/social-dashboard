@@ -22,7 +22,13 @@ async function purgar() {
   }
   return { rodadas_purgadas: purgadas, objetos_apagados: objetos };
 }
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  // Guard em código: mesmo se deployado com verify_jwt=false (necessário pro pg_cron chamar via
+  // net.http_post), só aceita o service-role key — endpoint deleta Storage, não pode ficar público.
+  const auth = req.headers.get("Authorization");
+  if (auth !== `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`) {
+    return new Response(JSON.stringify({ error: "nao_autorizado" }), { status: 401, headers: { "Content-Type": "application/json" } });
+  }
   try { return new Response(JSON.stringify({ ok: true, ...(await purgar()) }), { headers: { "Content-Type": "application/json" } }); }
   catch (e) { return new Response(JSON.stringify({ ok: false, error: String(e) }), { status: 500, headers: { "Content-Type": "application/json" } }); }
 });
