@@ -470,17 +470,72 @@ function produtoModelo(dados, formato) {
   return pagina(inner, formato);
 }
 
+// MARCA · Lifestyle (fundo Soft Pearl, foto do produto com respiro generoso,
+// nome da marca em destaque tipográfico + frase de assinatura curta. SEM
+// preço/oferta — pensado pro objetivo "branding".)
+function marcaLifestyle(dados, formato) {
+  const d = DIM[formato];
+  const escala = formato === '1080x1350' ? 0.76 : 1;
+  const s = (n) => Math.round(n * escala);
+  const inner = `
+  <div style="position:relative;width:${d.width}px;height:${d.height}px;background:#f2f1ed;overflow:hidden;color:#582f0a;font-family:'Archivo',sans-serif;">
+    <div style="position:absolute;inset:0;background-image:url('${MONO.olive}');background-repeat:repeat;background-size:230px;opacity:.045;"></div>
+    <div style="position:relative;z-index:1;height:${d.height}px;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:space-between;padding:${s(96)}px ${s(90)}px ${s(96)}px;">
+      <div style="display:flex;flex-direction:column;align-items:center;">
+        <img src="${MONO.brown}" style="height:${s(58)}px;width:auto;">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:${s(72)}px;font-weight:500;margin-top:${s(14)}px;">${esc(dados.marca || 'La vessel')}</div>
+        <div style="display:flex;align-items:center;gap:${s(18)}px;margin-top:${s(24)}px;"><span style="width:${s(44)}px;height:1px;background:#89a88b;"></span><span style="font-size:${s(20)}px;letter-spacing:.46em;text-transform:uppercase;color:#89a88b;font-weight:600;padding-left:.46em;">${esc(dados.eyebrow || 'Nossa marca')}</span><span style="width:${s(44)}px;height:1px;background:#89a88b;"></span></div>
+      </div>
+      <img src="${dados.fotoDataUrl}" style="width:${s(620)}px;height:auto;object-fit:contain;filter:drop-shadow(0 ${s(38)}px ${s(44)}px rgba(88,47,10,.26));">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:${s(10)}px;">
+        <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:${s(48)}px;">${esc(dados.nome)}</div>
+        <div style="font-family:'Archivo',sans-serif;font-size:${s(26)}px;letter-spacing:.04em;color:#7a5a37;font-weight:400;max-width:${s(680)}px;">${esc(dados.fraseMarca || 'Peças que ficam com você.')}</div>
+      </div>
+    </div>
+  </div>`;
+  return pagina(inner, formato);
+}
+
+// MARCA · Editorial (layout revista: foto grande ocupando quase o quadro
+// inteiro, assinatura da marca no rodapé em painel Burnt Wood. SEM preço.)
+function marcaEditorial(dados, formato) {
+  const d = DIM[formato];
+  const escala = formato === '1080x1350' ? 0.76 : 1;
+  const s = (n) => Math.round(n * escala);
+  const inner = `
+  <div style="position:relative;width:${d.width}px;height:${d.height}px;background:#c2cfb4;overflow:hidden;color:#f2f1ed;font-family:'Archivo',sans-serif;display:flex;flex-direction:column;">
+    <div style="position:relative;flex:1 1 auto;background:#c2cfb4;overflow:hidden;display:flex;align-items:center;justify-content:center;">
+      <div style="position:absolute;inset:0;background-image:url('${MONO.cream}');background-repeat:repeat;background-size:190px;opacity:.13;"></div>
+      <div style="position:absolute;left:0;right:0;bottom:${s(60)}px;margin:0 auto;width:${s(520)}px;height:${s(64)}px;background:radial-gradient(ellipse at center, rgba(88,47,10,.26) 0%, rgba(88,47,10,0) 72%);filter:blur(11px);"></div>
+      <img src="${dados.fotoDataUrl}" style="position:relative;width:${s(760)}px;height:auto;max-height:88%;object-fit:contain;filter:drop-shadow(0 ${s(34)}px ${s(40)}px rgba(88,47,10,.32));">
+    </div>
+    <div style="position:relative;flex:0 0 auto;background:#582f0a;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:${s(48)}px ${s(70)}px;gap:${s(10)}px;">
+      <div style="position:absolute;inset:0;background-image:url('${MONO.cream}');background-repeat:repeat;background-size:200px;opacity:.05;"></div>
+      <img src="${MONO.cream}" style="position:relative;z-index:1;height:${s(46)}px;width:auto;">
+      <div style="position:relative;z-index:1;font-family:'Cormorant Garamond',serif;font-size:${s(52)}px;font-weight:500;">${esc(dados.marca || 'La vessel')}</div>
+      <div style="position:relative;z-index:1;font-family:'Archivo',sans-serif;font-size:${s(20)}px;letter-spacing:.14em;text-transform:uppercase;color:#c2cfb4;font-weight:500;">${esc(dados.fraseMarca || 'Peças que ficam com você.')}</div>
+    </div>
+  </div>`;
+  return pagina(inner, formato);
+}
+
 export const TEMPLATES = {
-  'promo-number-hero':   { arquetipo: 'promo', nome: 'Promo · Number Hero', render: promoNumberHero },
-  'produto-heroi':       { arquetipo: 'produto', nome: 'Produto · Herói', render: produtoHeroi },
-  'produto-preco-tipo':  { arquetipo: 'produto', nome: 'Produto · Preço Tipográfico', render: produtoPrecoTipografico },
-  'produto-sage-circulo':{ arquetipo: 'produto', nome: 'Produto · Sage Círculo', render: produtoSageCirculo },
-  'promo-sage':          { arquetipo: 'promo', nome: 'Promo · Sage', render: promoSage },
-  'promo-minimal-pearl': { arquetipo: 'promo', nome: 'Promo · Minimal Pearl', render: promoMinimalPearl },
-  'promo-burnt-wood':    { arquetipo: 'promo', nome: 'Promo · Burnt Wood', render: promoBurntWood },
-  'editorial-sale':      { arquetipo: 'produto', nome: 'Editorial · Sale', render: editorialSale },
-  'editorial-v2':        { arquetipo: 'produto', nome: 'Editorial · V2', render: editorialV2 },
-  'produto-split':       { arquetipo: 'produto', nome: 'Produto · Split', render: produtoSplit },
-  'produto-modelo':      { arquetipo: 'produto', nome: 'Produto · Modelo', render: produtoModelo },
+  'promo-number-hero':   { arquetipo: 'promo', nome: 'Promo · Number Hero', render: promoNumberHero, objetivos: ['engajamento','conversao','trafego'] },
+  'produto-heroi':       { arquetipo: 'produto', nome: 'Produto · Herói', render: produtoHeroi, objetivos: ['engajamento','conversao','trafego'] },
+  'produto-preco-tipo':  { arquetipo: 'produto', nome: 'Produto · Preço Tipográfico', render: produtoPrecoTipografico, objetivos: ['engajamento','conversao','trafego'] },
+  'produto-sage-circulo':{ arquetipo: 'produto', nome: 'Produto · Sage Círculo', render: produtoSageCirculo, objetivos: ['engajamento','conversao','trafego'] },
+  'promo-sage':          { arquetipo: 'promo', nome: 'Promo · Sage', render: promoSage, objetivos: ['engajamento','conversao','trafego'] },
+  'promo-minimal-pearl': { arquetipo: 'promo', nome: 'Promo · Minimal Pearl', render: promoMinimalPearl, objetivos: ['engajamento','conversao','trafego'] },
+  'promo-burnt-wood':    { arquetipo: 'promo', nome: 'Promo · Burnt Wood', render: promoBurntWood, objetivos: ['engajamento','conversao','trafego'] },
+  'editorial-sale':      { arquetipo: 'produto', nome: 'Editorial · Sale', render: editorialSale, objetivos: ['engajamento','conversao','trafego'] },
+  'editorial-v2':        { arquetipo: 'produto', nome: 'Editorial · V2', render: editorialV2, objetivos: ['engajamento','conversao','trafego'] },
+  'produto-split':       { arquetipo: 'produto', nome: 'Produto · Split', render: produtoSplit, objetivos: ['engajamento','conversao','trafego'] },
+  'produto-modelo':      { arquetipo: 'produto', nome: 'Produto · Modelo', render: produtoModelo, objetivos: ['engajamento','conversao','trafego'] },
+  'marca-lifestyle':     { arquetipo: 'produto', nome: 'Marca · Lifestyle', render: marcaLifestyle, objetivos: ['branding'] },
+  'marca-editorial':     { arquetipo: 'produto', nome: 'Marca · Editorial', render: marcaEditorial, objetivos: ['branding'] },
 };
 export { DIM };
+
+export function objetivosDoTemplate(chave) {
+  return TEMPLATES[chave]?.objetivos ?? [];
+}

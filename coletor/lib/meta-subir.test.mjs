@@ -21,6 +21,20 @@ test('payloadCriativa: conjunto WhatsApp-puro usa link_data+WHATSAPP_MESSAGE, se
   assert.ok(p.degrees_of_freedom_spec);
 });
 
+test('payloadCriativa: branding (sem destination_type) usa link p/ IG + LEARN_MORE, sem asset_feed_spec', () => {
+  const p = payloadCriativa({ hash: 'h', adsetDestinationType: null, waNumero: '5519999', page: 'P', ig: 'I', mensagem: 'm' });
+  assert.equal(p.object_story_spec.link_data.link, 'https://www.instagram.com/');
+  assert.equal(p.object_story_spec.link_data.call_to_action.type, 'LEARN_MORE');
+  assert.equal(p.object_story_spec.instagram_user_id, 'I');
+  assert.equal(p.asset_feed_spec, undefined);
+  assert.ok(p.degrees_of_freedom_spec);
+});
+
+test('payloadCriativa: branding com destination_type="none" (string) idem', () => {
+  const p = payloadCriativa({ hash: 'h', adsetDestinationType: 'none', waNumero: '5519999', page: 'P', ig: 'I', mensagem: 'm' });
+  assert.equal(p.object_story_spec.link_data.call_to_action.type, 'LEARN_MORE');
+});
+
 test('payloadCriativa: conjunto multi-destino usa asset_feed_spec com 3 CTAs', () => {
   const p = payloadCriativa({ hash: 'h', adsetDestinationType: 'MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP', waNumero: '5519999', page: 'P', ig: 'I', mensagem: 'm' });
   assert.equal(p.asset_feed_spec.optimization_type, 'DOF_MESSAGING_DESTINATION');

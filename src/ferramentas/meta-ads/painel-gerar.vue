@@ -21,14 +21,20 @@ const FONTES = [
 const QUADRANTES = ['Estrela', 'Vaca leiteira', 'Interrogação']
 
 const lojas = ref([])                 // fabrica_lojas ativas: [{deposito_id, nome}]
-const sel = reactive({ lojas: [], fonte: 'oportunidades', filtros: {}, descontoModo: 'previsto', pctManual: 50 })
+const objetivos = ref([])             // fabrica_objetivos ativos: [{chave, rotulo, descricao, pede_desconto}]
+const sel = reactive({ lojas: [], fonte: 'oportunidades', filtros: {}, descontoModo: 'previsto', pctManual: 50, objetivo: 'engajamento' })
 const { candidatos, carregando, erro, buscar } = useCandidatos()
 const marcados = ref({})              // sku -> bool
 const buscou = ref(false)             // já clicou "Ver produtos" ao menos 1x (controla a seção de resultado)
 
 onMounted(async () => {
   lojas.value = await sb('fabrica_lojas?select=deposito_id,nome&ativo=eq.true&order=ordem')
+  objetivos.value = await sb('fabrica_objetivos?select=chave,rotulo,descricao,pede_desconto&ativo=eq.true&order=ordem')
+  if (objetivos.value.length) sel.objetivo = objetivos.value[0].chave
 })
+
+const objetivoAtual = computed(() => objetivos.value.find((o) => o.chave === sel.objetivo))
+const pedeDesconto = computed(() => objetivoAtual.value?.pede_desconto !== false)
 
 // desconto previsto do Gestor só existe nos blocos do briefing (oportunidades/garimpo);
 // bcg/abc/manual vêm de vendas+estoque puros, sem % sugerido — sempre manual ali.
@@ -67,9 +73,11 @@ function itensEscolhidos() {
     for (const dep of sel.lojas) {
       const info = c.porLoja[dep]
       if (!info) continue // produto não existe/sem dado nessa loja: não manda item pra ela
-      const pct = (sel.descontoModo === 'previsto' && previstoDisponivel.value && info.pctPrevisto != null)
-        ? info.pctPrevisto
-        : sel.pctManual
+      const pct = !pedeDesconto.value
+        ? 0
+        : (sel.descontoModo === 'previsto' && previstoDisponivel.value && info.pctPrevisto != null)
+          ? info.pctPrevisto
+          : sel.pctManual
       out.push({ sku: c.sku, deposito: dep, pct })
     }
   }
@@ -80,7 +88,7 @@ async function gerar() {
   const itens = itensEscolhidos()
   if (!itens.length) return alert('Marque ao menos um produto (com estoque numa loja selecionada) antes de gerar.')
   const nome = 'Rodada · ' + FONTES.find(f => f.v === sel.fonte)?.l + ' · ' + new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-  const { data, error } = await sbClient.functions.invoke('fabrica-trigger', { body: { tipo: 'gerar', params: { itens, nome } } })
+  const { data, error } = await sbClient.functions.invoke('fabrica-trigger', { body: { tipo: 'gerar', params: { itens, nome, objetivo: sel.objetivo } } })
   if (error) return alert('Falha ao disparar: ' + error.message)
   if (!data?.campanha_id) return alert('Sem campanha na resposta')
   emit('gerado', data.campanha_id)
@@ -92,6 +100,18 @@ async function gerar() {
       <span class="badge"><i class="led hold"></i>Passo 1 · Gerar</span>
       <h2>Gerar os criativos</h2>
       <p class="lead">Escolha a(s) loja(s), de onde vêm os produtos e o desconto. Você aprova a lista antes de mandar gerar.</p>
+    </div>
+
+    <div class="panel">
+      <div class="ph"><span class="eyebrow">Objetivo</span></div>
+      <div class="choices">
+        <label v-for="o in objetivos" :key="o.chave" class="choice" :class="{ sel: sel.objetivo === o.chave }">
+          <input type="radio" :value="o.chave" v-model="sel.objetivo">
+          <span class="ch-nm">{{ o.rotulo }}</span>
+          <span v-if="o.descricao" class="ch-nm" style="font-weight:400;color:var(--ink-dim);flex-basis:100%">{{ o.descricao }}</span>
+        </label>
+        <p v-if="!objetivos.length" class="empty">Nenhum objetivo ativo cadastrado.</p>
+      </div>
     </div>
 
     <div class="panel">
@@ -165,7 +185,7 @@ async function gerar() {
 
       <p v-if="carregando" class="empty">Carregando…</p>
       <template v-else-if="candidatos.length">
-        <div class="choices">
+        <div class="choices" v-if="pedeDesconto">
           <label v-if="previstoDisponivel" class="choice" :class="{ sel: sel.descontoModo === 'previsto' }">
             <input type="radio" value="previsto" v-model="sel.descontoModo">
             <span class="ch-nm">Usar desconto previsto do Gestor</span>

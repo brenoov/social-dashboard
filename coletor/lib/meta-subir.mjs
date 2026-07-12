@@ -23,6 +23,19 @@ export const nomeAd = (prefixo, chave, adsetName) => `${prefixo} · ${String(cha
 // multi-destino quando contém WHATSAPP E (MESSENGER ou INSTAGRAM); senão WhatsApp-puro (wa.me).
 export function payloadCriativa({ hash, adsetDestinationType, waNumero, page, ig, mensagem }) {
   const dt = String(adsetDestinationType || '').toUpperCase();
+  // branding: sem messaging (destination_type ausente/none). Liga ao perfil IG da marca (só temos o
+  // instagram_user_id numérico, não o @handle — então o link é o instagram.com genérico e o
+  // instagram_user_id amarra o anúncio à conta certa). CTA LEARN_MORE, sem asset_feed_spec.
+  if (!dt || dt === 'NONE') {
+    return {
+      object_story_spec: {
+        page_id: page,
+        instagram_user_id: ig,
+        link_data: { image_hash: hash, link: 'https://www.instagram.com/', message: mensagem, call_to_action: { type: 'LEARN_MORE' } },
+      },
+      degrees_of_freedom_spec: DOF_SPEC,
+    };
+  }
   const multi = dt.includes('WHATSAPP') && (dt.includes('MESSENGER') || dt.includes('INSTAGRAM'));
   if (!multi) {
     return {
