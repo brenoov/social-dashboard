@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS public.fabrica_marcas (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   nome text NOT NULL,
-  caption_template text NOT NULL DEFAULT '{desconto} em bolsas {marca} · chame a gente 💬',
+  caption_template text NOT NULL DEFAULT 'Ofertas {marca} · chame a gente no WhatsApp 💬',
   ad_account text NOT NULL,
   page_id text NOT NULL,
   ig_id text NOT NULL,

@@ -43,8 +43,9 @@ const CFG_ADSET = { DAILY_BUDGET: 5000, DATA_CAMPANHA: '11-07-2026' };
 // Aliases antigos de slug (CLI --loja tivoli|dp|dompedro) pro `nome` real das lojas na tabela
 // fabrica_lojas (que não tem coluna de slug — só deposito_id/nome). Ver Task 3 do plano.
 const ALIAS_LOJA = { tivoli: 'tivoli', dp: 'dom pedro', dompedro: 'dom pedro' };
-function resolverLoja(lojas, slug) {
-  const alvo = ALIAS_LOJA[String(slug || '').toLowerCase()] || String(slug || '').toLowerCase();
+export function resolverLoja(lojas, slug) {
+  if (!slug) return undefined;   // slug vazio/undefined -> não casa nada (o chamador lança "loja inválida")
+  const alvo = ALIAS_LOJA[String(slug).toLowerCase()] || String(slug).toLowerCase();
   return lojas.find((l) => l.ativo && l.nome.toLowerCase().includes(alvo));
 }
 
