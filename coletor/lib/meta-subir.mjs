@@ -72,15 +72,17 @@ export function payloadCriativa({ hash, adsetDestinationType, waNumero, page, ig
 export async function subirCriativos({ meta, act, page, ig, itens, adsets, prefixo, mensagem, jaTem, onAd }) {
   let criados = 0, pendentes = 0;
   for (const item of itens) {
+    // Pula o ITEM inteiro (antes do getHash/upload) se TODOS os adsets já têm o ad dele — evita
+    // subir a imagem à toa numa re-rodada idempotente (portado do subir-campanha-genspark.mjs).
+    const faltam = adsets.filter((a) => !jaTem.has(`${a.id}::${nomeAd(prefixo, item.chave, a.name)}`));
+    if (faltam.length === 0) continue;
     const hash = await item.getHash();
-    for (const a of adsets) {
+    for (const a of faltam) {
       const nome = nomeAd(prefixo, item.chave, a.name);
-      if (jaTem.has(`${a.id}::${nome}`)) continue;
       try {
         const params = payloadCriativa({ hash, adsetDestinationType: a.destinationType, waNumero: a.whatsapp, page, ig, mensagem });
-        const cr = await meta(`/${act}/adcreatives`, params, 'POST');
-        if (cr.status !== 200 || !cr.d?.id) throw new Error('adcreative ' + JSON.stringify(cr.d).slice(0, 200));
-        const ad = await meta(`/${act}/ads`, { name: nome, adset_id: a.id, creative: { creative_id: cr.d.id }, status: 'PAUSED' }, 'POST');
+        const cr = await criarAdCreativeComFallbackIG(meta, act, params);
+        const ad = await meta(`/${act}/ads`, { name: nome, adset_id: a.id, creative: { creative_id: cr.id }, status: 'PAUSED' }, 'POST');
         if (ad.status !== 200 || !ad.d?.id) throw new Error('ad ' + JSON.stringify(ad.d).slice(0, 200));
         criados++;
         if (onAd) onAd({ adId: ad.d.id, item, adset: a });
@@ -91,4 +93,19 @@ export async function subirCriativos({ meta, act, page, ig, itens, adsets, prefi
     }
   }
   return { criados, pendentes };
+}
+
+// POST /adcreatives com fallback automático de Instagram: se a Meta rejeitar por
+// instagram_user_id/instagram_actor_id (gotcha de BM — a conta IG às vezes não está atribuída como
+// asset do token), refaz UMA vez SEM esses campos (o ad roda só no Facebook). Espelha o
+// criarAdCreative() do subir-campanha-genspark.mjs/subir-campanha-meta.mjs.
+async function criarAdCreativeComFallbackIG(meta, act, params) {
+  let r = await meta(`/${act}/adcreatives`, params, 'POST');
+  if (r.status !== 200 && /instagram_(user|actor)_id/i.test(JSON.stringify(r.d))) {
+    const semIG = JSON.parse(JSON.stringify(params));
+    if (semIG.object_story_spec) { delete semIG.object_story_spec.instagram_user_id; delete semIG.object_story_spec.instagram_actor_id; }
+    r = await meta(`/${act}/adcreatives`, semIG, 'POST');
+  }
+  if (r.status !== 200 || !r.d?.id) throw new Error('adcreative ' + JSON.stringify(r.d).slice(0, 200));
+  return { id: r.d.id };
 }
