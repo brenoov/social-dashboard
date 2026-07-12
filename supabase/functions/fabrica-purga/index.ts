@@ -14,8 +14,10 @@ async function purgar() {
     const paths = (crs || []).map((c) => c.storage_path).filter(Boolean);
     if (paths.length) { const { error } = await sb.storage.from(BUCKET).remove(paths); if (error) throw error; objetos += paths.length; }
     const agora = new Date().toISOString();
-    await sb.from("fabrica_criativos").update({ purgado_em: agora }).eq("campanha_id", r.id).is("purgado_em", null);
-    await sb.from("fabrica_campanhas").update({ purgado_em: agora }).eq("id", r.id);
+    const { error: e1 } = await sb.from("fabrica_criativos").update({ purgado_em: agora }).eq("campanha_id", r.id).is("purgado_em", null);
+    if (e1) throw e1;
+    const { error: e2 } = await sb.from("fabrica_campanhas").update({ purgado_em: agora }).eq("id", r.id);
+    if (e2) throw e2;
     purgadas++;
   }
   return { rodadas_purgadas: purgadas, objetos_apagados: objetos };
