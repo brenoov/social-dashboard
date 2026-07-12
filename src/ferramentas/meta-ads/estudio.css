@@ -42,6 +42,18 @@
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='120' height='120' filter='url(%23n)'/></svg>");
 }
 
+
+/* ===== tema claro (respeita o data-theme='light' do <html>, setado por moldura-do-aplicativo.vue) ===== */
+:root[data-theme="light"] .fest{
+  --void:#e9eff5; --panel:#ffffff; --panel-2:#f2f6fa; --grid-l:#d5dfe9;
+  --edge:#cbd7e3; --edge-hot:#93a8bd;
+  --ink:#17232f; --ink-dim:#4c5e6e; --ink-faint:#7c8ea0;
+  --amber:#c47f10; --amber-soft:#e2a542; --cyan:#0f9b8e;
+  --go:#1f9d5a; --hold:#c8920f; --abort:#e23b28; --idle:#93a3b3;
+}
+/* glows quentes/frios do fundo escuro somem no claro (ficariam sujos sobre branco) */
+:root[data-theme="light"] .fest{ background-image:none; }
+
 .fest .num{font-family:var(--mono); font-variant-numeric:tabular-nums}
 .fest .shell{position:relative; z-index:1; width:100%; padding:16px clamp(16px,2.4vw,44px) 40px}
 .fest h1,.fest h2,.fest h3{margin:0; font-weight:600; text-wrap:balance; color:var(--ink)}
