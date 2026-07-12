@@ -11,16 +11,38 @@ Deno.serve(async (req) => {
     const { data: prof } = await sb.from("profiles").select("role, permissions, is_superadmin").eq("id", ud.user.id).single();
     const ok = prof && (prof.role === "admin" || prof.is_superadmin === true || (prof.permissions && Object.prototype.hasOwnProperty.call(prof.permissions, "meta.fabrica")));
     if (!ok) return json({ error: "sem_permissao" }, 403);
-    const { tipo, params } = await req.json();
+    const body = await req.json();
+    const tipo = body.tipo;
+    let params = body.params || {};
     if (!["gerar", "subir", "ativar"].includes(tipo)) return json({ error: "tipo_invalido" }, 400);
-    const { data: job, error } = await sb.from("fabrica_jobs").insert({ tipo, params: params || {}, status: "enfileirado", criado_por: ud.user.id }).select("id").single();
+
+    // SP-2: no 'gerar', a rodada é criada AGORA (aparece na Home 'em criação' na hora).
+    let campanhaId = (params && params.campanhaId) || null;
+    if (tipo === "gerar" && !campanhaId) {
+      const nome = (params && params.nome) || ("Rodada · " + new Date().toISOString().slice(0, 16).replace("T", " "));
+      const { data: camp, error: ec } = await sb.from("fabrica_campanhas")
+        .insert({ nome, status: "gerando", criado_por: ud.user.id }).select("id").single();
+      if (ec) return json({ error: "campanha_insert_falhou", detail: ec.message }, 500);
+      campanhaId = camp.id;
+      params.campanhaId = campanhaId;   // vai pro job.params → gerar-criativos usa
+    }
+
+    const { data: job, error } = await sb.from("fabrica_jobs").insert({ tipo, params, status: "enfileirado", criado_por: ud.user.id }).select("id").single();
     if (error) return json({ error: "insert_falhou", detail: error.message }, 500);
+
+    // Ligar a campanha ao job (se gerar)
+    if (tipo === "gerar" && campanhaId) await sb.from("fabrica_campanhas").update({ job_id: job.id }).eq("id", campanhaId);
+
     const repo = Deno.env.get("GITHUB_REPO")!; // "brenoov/social-dashboard"
     const gh = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/fabrica.yml/dispatches`, {
       method: "POST", headers: { Authorization: `Bearer ${Deno.env.get("GITHUB_PAT_FABRICA")!}`, Accept: "application/vnd.github+json", "User-Agent": "fabrica-trigger" },
       body: JSON.stringify({ ref: "main", inputs: { job_id: job.id } }),
     });
-    if (!gh.ok) { await sb.from("fabrica_jobs").update({ status: "erro", erro: "dispatch_falhou " + gh.status }).eq("id", job.id); return json({ error: "dispatch_falhou", detail: await gh.text() }, 502); }
-    return json({ job_id: job.id });
+    if (!gh.ok) {
+      await sb.from("fabrica_jobs").update({ status: "erro", erro: "dispatch_falhou " + gh.status }).eq("id", job.id);
+      if (campanhaId) await sb.from("fabrica_campanhas").update({ status: "erro" }).eq("id", campanhaId);
+      return json({ error: "dispatch_falhou", detail: await gh.text() }, 502);
+    }
+    return json({ job_id: job.id, campanha_id: campanhaId });
   } catch (e) { return json({ error: String(e) }, 500); }
 });
