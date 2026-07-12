@@ -179,13 +179,14 @@ async function criarCampanhaNova(loja) {
 
 // --- run(): API pública do módulo -------------------------------------------------------------
 export async function run({ campanhaId, destino, dry = false }) {
-  if (dry) return { adIds: [], pendentes: 0, metaCampaignId: null };
+  const criouCampanha = destino?.tipo === 'nova';
+  if (dry) return { adIds: [], pendentes: 0, metaCampaignId: null, adsetIds: [], criouCampanha };
 
   TOKEN = await loginServico();
 
   // 1) criativos escolhidos (não-purgados) da rodada
   const escolhidos = await sbGet(`/fabrica_criativos?select=id,url,storage_path&campanha_id=eq.${campanhaId}&escolhido=eq.true&purgado_em=is.null`);
-  if (escolhidos.length === 0) return { adIds: [], pendentes: 0, metaCampaignId: null };
+  if (escolhidos.length === 0) return { adIds: [], pendentes: 0, metaCampaignId: null, adsetIds: [], criouCampanha };
 
   // 2) resolve metaCampaignId + adsets conforme o destino
   let metaCampaignId, adsets;
@@ -233,7 +234,7 @@ export async function run({ campanhaId, destino, dry = false }) {
     console.warn(`aviso: não gravou fabrica_meta_jobs (${e.message}) — subida seguiu normal`);
   }
 
-  return { adIds, pendentes: res.pendentes, metaCampaignId };
+  return { adIds, pendentes: res.pendentes, metaCampaignId, adsetIds: adsets.map((a) => a.id), criouCampanha };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

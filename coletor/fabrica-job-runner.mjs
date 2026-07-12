@@ -12,6 +12,7 @@
 import './lib/carregar-env.mjs';
 import { run as gerarRun } from './gerar-criativos.mjs';
 import { run as subirRun } from './subir-estudio.mjs';
+import { run as ativarRun } from './ativar-estudio.mjs';
 
 const URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
 const SK = process.env.SUPABASE_SERVICE_KEY;
@@ -64,6 +65,9 @@ async function main() {
       if (t.fecha && job.params?.campanhaId) {
         await sbPatch(`/fabrica_campanhas?id=eq.${job.params.campanhaId}`, { fechada_em: new Date().toISOString() });
       }
+    } else if (job.tipo === 'ativar') {
+      const r = await ativarRun(job.params || {});
+      await sbPatch(`/fabrica_jobs?id=eq.${jobId}`, { status: 'concluido', resultado: r, updated_at: new Date().toISOString() });
     } else {
       throw new Error('tipo inválido: ' + job.tipo);
     }

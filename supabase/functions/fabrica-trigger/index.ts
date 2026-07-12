@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
     const ok = prof && (prof.role === "admin" || (prof.permissions && Object.prototype.hasOwnProperty.call(prof.permissions, "meta.fabrica")));
     if (!ok) return json({ error: "sem_permissao" }, 403);
     const { tipo, params } = await req.json();
-    if (!["gerar", "subir"].includes(tipo)) return json({ error: "tipo_invalido" }, 400);
+    if (!["gerar", "subir", "ativar"].includes(tipo)) return json({ error: "tipo_invalido" }, 400);
     const { data: job, error } = await sb.from("fabrica_jobs").insert({ tipo, params: params || {}, status: "enfileirado", criado_por: ud.user.id }).select("id").single();
     if (error) return json({ error: "insert_falhou", detail: error.message }, 500);
     const repo = Deno.env.get("GITHUB_REPO")!; // "brenoov/social-dashboard"
