@@ -20,11 +20,13 @@ Deno.serve(async (req) => {
     let campanhaId = (params && params.campanhaId) || null;
     if (tipo === "gerar" && !campanhaId) {
       const nome = (params && params.nome) || ("Rodada · " + new Date().toISOString().slice(0, 16).replace("T", " "));
+      const objetivo = (params && params.objetivo) || "engajamento";
       const { data: camp, error: ec } = await sb.from("fabrica_campanhas")
-        .insert({ nome, status: "gerando", criado_por: ud.user.id }).select("id").single();
+        .insert({ nome, status: "gerando", criado_por: ud.user.id, objetivo }).select("id").single();
       if (ec) return json({ error: "campanha_insert_falhou", detail: ec.message }, 500);
       campanhaId = camp.id;
       params.campanhaId = campanhaId;   // vai pro job.params → gerar-criativos usa
+      params.objetivo = objetivo;       // garante que objetivo vai pro job
     }
 
     const { data: job, error } = await sb.from("fabrica_jobs").insert({ tipo, params, status: "enfileirado", criado_por: ud.user.id }).select("id").single();
