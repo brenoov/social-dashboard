@@ -8,6 +8,7 @@
 import { metaPace } from './lib/meta-pace.mjs';
 import fs from 'fs';
 import { loginServico, blingProxy, blingPedidos, blingProdutos, blingSaldoFoco, classificarItem, DEP_FOCO } from './lib/bling-comercial.mjs';
+import { bcgClass } from './lib/classificacao-comercial.mjs';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY_GESTOR || process.env.ANTHROPIC_API_KEY;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -133,7 +134,7 @@ function montarOportunidades(saldoPorDep, prodMap, giro, ultimaVenda, hoje) {
       if (!cat || !CAT_OFERTA.includes(cat)) continue;
       if (saldo < 2 || (Number(meta.preco) || 0) <= 0) continue;
       const it = { pid, sku: meta.codigo || pid, nome: meta.nome, categoria: cat, preco: Number(meta.preco), estoqueLoja: saldo, estoquePulmao: saldoPulmao[pid] || 0, giro: giro[pid] || 0, diasSemVender: _diasSemVender(ultimaVenda[pid], hoje) };
-      it.bcg = _bcgClass(it);
+      it.bcg = bcgClass(it);
       cands.push(it);
     }
     if (!cands.length) return { loja: L.loja, itens: [] };
@@ -168,19 +169,7 @@ function montarOportunidades(saldoPorDep, prodMap, giro, ultimaVenda, hoje) {
 }
 function _rOpp(v) { return 'R$ ' + (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 // Matriz BCG por item (determinístico): participação (sell-through) x crescimento (recência de venda).
-// Estrela = vende e gira; Vaca leiteira = vende muito mas com estoque alto; Interrogação = parado mas
-// se mexeu recentemente (potencial); Abacaxi = parado e sem girar (liquidar pesado).
-function _bcgClass(it) {
-  const estoque = Number(it.estoqueLoja) || 0;       // participação = venda x estoque DA LOJA (pulmão não penaliza a vitrine)
-  const giro = Number(it.giro) || 0;
-  const diasN = parseInt(it.diasSemVender, 10);
-  const recente = Number.isFinite(diasN) && diasN <= 21;   // vendeu nas últimas ~3 semanas
-  const st = giro / Math.max(1, giro + estoque);     // sell-through proxy
-  if (giro > 0 && st >= 0.5) return 'Estrela';        // vende rápido, pouco estoque
-  if (giro > 0 && st >= 0.25) return 'Vaca leiteira'; // vende firme, mais estoque
-  if (recente || giro > 0) return 'Interrogação';     // mexe pouco, mas tem sinal de vida
-  return 'Abacaxi';                                   // parado, sem girar
-}
+// bcgClass vem de ./lib/classificacao-comercial.mjs (extraída daqui, lógica idêntica).
 
 // Mix BCG ideal dentro dos 12 itens da vitrine por loja (âncora provada + apostas + liquidação controlada).
 const BCG_ALVO = { estrela: 2, vaca: 3, interrogacao: 4, abacaxi: 3 };
@@ -190,11 +179,11 @@ function buildOportunidadesMd(opp) {
     md += '\n### ' + loja.loja + '\n\n';
     if (!loja.itens.length) { md += '_Sem itens elegíveis com estoque esta semana._\n'; continue; }
     const cnt = { 'Estrela': 0, 'Vaca leiteira': 0, 'Interrogação': 0, 'Abacaxi': 0 };
-    for (const it of loja.itens) cnt[_bcgClass(it)]++;
+    for (const it of loja.itens) cnt[bcgClass(it)]++;
     md += '::bcgmix e:' + cnt['Estrela'] + '/' + BCG_ALVO.estrela + ' v:' + cnt['Vaca leiteira'] + '/' + BCG_ALVO.vaca + ' i:' + cnt['Interrogação'] + '/' + BCG_ALVO.interrogacao + ' a:' + cnt['Abacaxi'] + '/' + BCG_ALVO.abacaxi + '::\n\n';
     md += '| SKU | Descrição | Categoria | BCG | Público | Preço orig. | % | Com desconto | 6x | Estoque (loja/pulmão) | Dias s/ vender |\n|---|---|---|---|---|---|---|---|---|---|---|\n';
     for (const it of loja.itens) {
-      md += '| ' + it.sku + ' | ' + it.descricao + ' | ' + it.categoria + ' | ' + _bcgClass(it) + ' | ' + it.publico + ' | ' + _rOpp(it.precoOriginal) + ' | ' + it.pct + '% | ' + _rOpp(it.precoComDesconto) + ' | ' + _rOpp(it.parcela6x) + ' | ' + it.estoqueLoja + ' / ' + it.estoquePulmao + ' | ' + it.diasSemVender + ' |\n';
+      md += '| ' + it.sku + ' | ' + it.descricao + ' | ' + it.categoria + ' | ' + bcgClass(it) + ' | ' + it.publico + ' | ' + _rOpp(it.precoOriginal) + ' | ' + it.pct + '% | ' + _rOpp(it.precoComDesconto) + ' | ' + _rOpp(it.parcela6x) + ' | ' + it.estoqueLoja + ' / ' + it.estoquePulmao + ' | ' + it.diasSemVender + ' |\n';
     }
   }
   return md;
@@ -300,7 +289,7 @@ function buildGarimpoMd(garimpo) {
     if (!loja.itens.length) { md += '_Sem apostas esta semana._\n'; continue; }
     md += '| SKU | Descrição | Categoria | BCG | Preço orig. | % | Com desconto | 6x | Estoque (loja/pulmão) | Dias s/ vender | Por quê |\n|---|---|---|---|---|---|---|---|---|---|---|\n';
     for (const it of loja.itens) {
-      md += '| ' + it.sku + ' | ' + it.descricao + ' | ' + it.categoria + ' | ' + _bcgClass(it) + ' | ' + _rOpp(it.precoOriginal) + ' | ' + it.pct + '% | ' + _rOpp(it.precoComDesconto) + ' | ' + _rOpp(it.parcela6x) + ' | ' + it.estoqueLoja + ' / ' + it.estoquePulmao + ' | ' + it.diasSemVender + ' | ' + it.motivo + ' |\n';
+      md += '| ' + it.sku + ' | ' + it.descricao + ' | ' + it.categoria + ' | ' + bcgClass(it) + ' | ' + _rOpp(it.precoOriginal) + ' | ' + it.pct + '% | ' + _rOpp(it.precoComDesconto) + ' | ' + _rOpp(it.parcela6x) + ' | ' + it.estoqueLoja + ' / ' + it.estoquePulmao + ' | ' + it.diasSemVender + ' | ' + it.motivo + ' |\n';
     }
   }
   return md;
