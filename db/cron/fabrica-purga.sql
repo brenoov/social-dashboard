@@ -4,20 +4,20 @@
 -- (limpa Storage + fecha rodadas antigas da Fábrica de Anúncios / Estúdio).
 --
 -- NÃO é rodado pelo runner de migrations (coletor/) — pg_cron.schedule() não é idempotente
--- da mesma forma que uma migration normal (rodar de novo cria um job duplicado com outro
--- jobid), então este statement é aplicado MANUALMENTE, uma única vez, via execute_sql no
--- deploy. Este arquivo existe só para ficar versionado e revisável — não é executado
--- automaticamente por nenhum script.
+-- (rodar de novo cria job duplicado com outro jobid). Aplicado MANUALMENTE via SQL no deploy.
+-- Este arquivo existe só para ficar versionado e revisável.
 --
--- Antes de aplicar: trocar <SERVICE_ROLE_KEY> por UMA service-role key válida do projeto (NUNCA
--- commitar a key real neste arquivo — só o placeholder). A Edge fabrica-purga roda com
--- verify_jwt=true: o gateway do Supabase valida a ASSINATURA do JWT e, no código, a função exige
--- que o claim `role` seja 'service_role' (decodifica o payload). Ou seja: qualquer service-role key
--- legítima do projeto passa (não precisa bater byte-a-byte com a SUPABASE_SERVICE_ROLE_KEY injetada);
--- anon e token forjado são barrados. Não usa segredo dedicado.
+-- AUTENTICAÇÃO (importante): a Edge fabrica-purga deleta Storage, então roda com verify_jwt=FALSE
+-- e faz a auth SELF-CONTAINED no código: exige o header Authorization = 'Bearer <FABRICA_PURGA_SECRET>'
+-- comparado em TEMPO CONSTANTE. `FABRICA_PURGA_SECRET` é um segredo dedicado (openssl rand -hex 32),
+-- setado como secret da Edge Function (Supabase → Edge Functions → Secrets). NÃO depende do toggle
+-- verify_jwt do gateway, e NÃO reusa a service-role key. Fail-closed: se o secret não estiver setado,
+-- toda chamada é 401. Trocar <FABRICA_PURGA_SECRET> abaixo pelo MESMO valor setado na Edge (NUNCA
+-- commitar o valor real — só o placeholder).
 --
--- STATUS: JÁ APLICADO em 2026-07-11 (job 'fabrica-purga-diaria', jobid 11, active) usando a
--- SUPABASE_SERVICE_KEY do coletor/.env. Testado: service key -> 200; anon/sem auth -> 401.
+-- STATUS: agendado em 2026-07-11 (job 'fabrica-purga-diaria', schedule 17 4 * * *, active). Positivo
+-- passa a funcionar quando o secret FABRICA_PURGA_SECRET for setado na Edge; até lá o cron dá 401
+-- (inofensivo — nada é purgado, tenta de novo no dia seguinte).
 -- Re-aplicar só se precisar recriar/rotacionar (cron.unschedule antes, pra não duplicar).
 
 select cron.schedule(
@@ -27,7 +27,7 @@ select cron.schedule(
   select net.http_post(
     url := 'https://kounqtdoioootxqegkij.supabase.co/functions/v1/fabrica-purga',
     headers := jsonb_build_object(
-      'Authorization', 'Bearer <SERVICE_ROLE_KEY>',
+      'Authorization', 'Bearer <FABRICA_PURGA_SECRET>',
       'Content-Type', 'application/json'
     ),
     timeout_milliseconds := 120000
