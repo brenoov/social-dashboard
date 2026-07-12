@@ -8,6 +8,7 @@ const { job, start } = useJobStatus()
 async function gerar() {
   const { data, error } = await sbClient.functions.invoke('fabrica-trigger', { body: { tipo: 'gerar', params: { pct: form.pct, limite: form.limite, looks: form.looks || null } } })
   if (error) return alert('Falha ao disparar: ' + error.message)
+  if (!data?.job_id) return alert('Sem job_id na resposta')
   start(data.job_id)
 }
 watch(job, (j) => { if (j?.status === 'concluido' && j.resultado?.campanhaId) emit('gerado', j.resultado.campanhaId) })
