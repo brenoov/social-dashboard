@@ -1,12 +1,12 @@
-# Estúdio de Criativos — Fontes de produto no "Gerar" + consolidação da Fábrica + multi-loja
+# Estúdio de Criativos — Fontes de produto no "Gerar" + consolidação da Fábrica + fundação multi-marca/multi-loja
 
 **Data:** 2026-07-12
-**Status:** aprovado no brainstorm, aguardando revisão do spec
+**Status:** aprovado no brainstorm (amendado com dimensão marca), aguardando revisão do spec
 **Relação:** evolui a feature já no ar (specs `2026-07-11-fabrica-f2a3-ui-estudio-design.md` + adendo Conferir/Ativar, e `2026-07-11-fabrica-storage-lifecycle-design.md`).
 
 ## Objetivo
 
-Ter **uma única ferramenta** (Estúdio de Criativos) e enriquecer o passo **Gerar** com escolha de **fonte dos produtos** e de **desconto**, lendo direto os dados do Gestor Comercial (fonte de verdade, com desconto previsto). Ao mesmo tempo, **preparar para mais lojas/canais**: tudo que hoje é fixo no código vira dado.
+Ter **uma única ferramenta** (Estúdio de Criativos) e enriquecer o passo **Gerar** com escolha de **fonte dos produtos** e de **desconto**, lendo direto os dados do Gestor Comercial (fonte de verdade, com desconto previsto). Ao mesmo tempo, **preparar para mais marcas e mais lojas/canais**: tudo que hoje é fixo no código (nome da marca nas legendas, conta de anúncios, página, IG, WhatsApp, geo) vira **dado**. Hoje só existe uma marca (a atual), mas o modelo já nasce multi-marca: adicionar marca = inserir uma linha + suas lojas; a UI segue com a marca atual implícita (seletor de marca é fase futura, quando houver a 2ª).
 
 Motivação: hoje existem DUAS telas redundantes — a "Fábrica de Anúncios" (F1, `tela-de-fabrica-de-anuncios.vue`, curadoria de candidatos) e o "Estúdio de Criativos" (wizard 4 passos). A F1 é alimentada por um robô que **re-extrai** candidatos da prosa do briefing via IA, perdendo o quadrante BCG e o desconto por item. O Gestor já produz esses dados **estruturados** (`gestao_comercial_briefings.dados_json` tem `oportunidades`/`garimpo` por loja, cada item com `pct`/`precoComDesconto`), e o BCG/ABC são deriváveis de `gc_vendas_item`/`gc_estoque_item`. Logo: ler o Gestor direto, aposentar a F1.
 
@@ -51,24 +51,31 @@ Os passos seguintes do wizard não mudam: **Curar** (escolher entre os criativos
 - Não gera imagem; responde em segundos.
 
 ### `gerar-criativos.mjs` — modo lista explícita
-- `run(opts)` passa a aceitar `opts.itens = [{ sku, deposito, pct }]` (loja = `deposito`; `pct` = o desconto resolvido pelo painel — previsto ou manual). Quando `itens` vem, ignora a leitura de `fabrica_candidatos` e gera exatamente esses (produto × loja).
+- `run(opts)` passa a aceitar `opts.itens = [{ sku, deposito, pct }]` (loja = `deposito`; `pct` = o desconto resolvido pelo painel — previsto ou manual, por item). Quando `itens` vem, adiciona um 3º ramo (antes do ramo estrela) que monta `cands` no mesmo shape dos ramos existentes (`{ id:null, sku, nome, preco, deposito_id }`), resolvendo `nome`/`preco` via Bling (`blingProdutos`, como `candidatosEstrela` já faz) — ignora `fabrica_rodadas`/`fabrica_candidatos`.
+- **pct por item** (refinamento da exploração): hoje o `pct` é único por campanha (`campanha.desconto_pct`, usado em `variacoesProduto(cand, campanha, opts)`). Como o "desconto previsto" varia por item, `variacoesProduto` passa a receber o `pct` **do item** (fallback pro pct global quando não vier por item). É a única mudança de lógica além de injetar a lista.
 - Modos antigos (`--fonte`/`--estrela` lendo tabelas) permanecem só para o CLI/retrocompatibilidade; o Estúdio usa `itens`.
-- `job.params` (jsonb em `fabrica_jobs`) carrega `itens` (a Edge `fabrica-trigger` já repassa `params` cru; o job-runner idem).
+- `job.params` (jsonb em `fabrica_jobs`) carrega `itens` — **a Edge `fabrica-trigger` e o job-runner NÃO mudam** (repassam `params` cru; confirmado na exploração).
 
 ### `coletor/lib/classificacao-comercial.mjs` (novo, compartilhado)
 - Extrai de `coletor/gestor-comercial.mjs`: `_bcgClass(item)` (Estrela/Vaca/Interrogação/Abacaxi) e o ranking ABC por faturamento. O Gestor passa a importar daqui (sem mudar comportamento), garantindo que Estúdio e Gestor classifiquem igual.
 
-## Loja/canal como dado (fundação multi-loja)
+## Marca + Loja/canal como dado (fundação multi-marca/multi-loja)
 
-- Migration: adicionar a `fabrica_lojas` as colunas de config hoje hardcoded: `whatsapp text`, `geo_cities jsonb`, `page_id text`, `ig_id text`, `ad_account text`, `canal_loja_id text` (`deposito_id` e `ativo` já existem). Seed com os valores atuais de Tivoli/Dom Pedro (extraídos de `subir-campanha-*.mjs`/`subir-estudio.mjs`/`ativar-estudio.mjs`).
-- `gerar-estudio`/`subir-estudio`/`ativar-estudio` passam a **ler a config da loja de `fabrica_lojas`** (por `deposito_id`), em vez das constantes `CFG`/`LOJAS` no código. `ACCOUNT_ID` do meta-proxy também vira coluna (ou fica global se único).
-- Efeito: adicionar loja/canal = inserir uma linha ativa em `fabrica_lojas` (o seletor do Gerar já a mostra; subir/ativar já a respeitam).
+A config hoje hardcoded se divide em dois níveis (confirmado na exploração: ACT/PAGE/IG/ACCOUNT_ID são **idênticos** nas duas lojas → são da marca; whatsapp/geo/canal variam → são da loja):
+
+- **Nova tabela `fabrica_marcas`** (config de marca):
+  - `id uuid pk`, `nome text` (ex.: a marca atual — usada nas legendas), `caption_template text` (ex.: `'{desconto} em bolsas {marca} · chame a gente 💬'`, ou legenda pronta), `ad_account text` (o `ACT`, ex.: `act_1197997517858139`), `page_id text` (`324679337390168`), `ig_id text` (`17841462952561833`), `account_id text` (accountId do meta-proxy, `b6883e82-07cb-4f21-9fd7-ea7626786174`), `ativo boolean default true`, `created_at`.
+  - Seed: 1 linha com a marca atual + os IDs reais acima. **O nome de marca nas legendas vem daqui — zero "La Vessel" hardcoded no código** (a UI/título do app é neutra, sem marca).
+- **`fabrica_lojas`** ganha (hoje só tem `deposito_id/nome/ativo/ordem`):
+  - `marca_id uuid references fabrica_marcas(id)`, `whatsapp text`, `geo_cities jsonb` (array de city keys), `canal_loja_id text`. Seed: Tivoli (`deposito_id 14888726315`, whatsapp `+5519971690502`, geo `[267873,241913]`, canal `205834140`) e Dom Pedro (`14888617206`, `+5519999545112`, `[247071]`, `205657609`), ambas apontando pra marca atual.
+- **`gerar`/`subir`/`ativar`** passam a **ler marca + loja de `fabrica_marcas`/`fabrica_lojas`** (loja por `deposito_id`, marca via `loja.marca_id`), em vez das constantes `CFG`/`LOJAS`/`CAPTION_PADRAO` no código.
+- Efeito: adicionar marca = inserir linha em `fabrica_marcas` (com sua conta/página/IG/legenda) + suas lojas em `fabrica_lojas`. Nenhum código muda. O seletor de loja do Gerar lista as lojas ativas; o seletor de marca é fase futura (hoje resolve a única marca ativa).
 
 ## Remoção limpa da F1
 
 - Front: remover `src/ferramentas/meta-ads/tela-de-fabrica-de-anuncios.vue`, a rota `/fabrica-anuncios` em `src/mapa-de-enderecos.js`, e o card no `tela-de-menu-meta-ads.vue`. O nome que sobrevive é **"Estúdio de Criativos"** (decisão do Breno: migrar tudo pro Estúdio) — fica só um card, apontando pra `/fabrica-estudio`.
 - Coletor: remover `coletor/fabrica-anuncios.mjs`.
-- Banco: migration que **dropa** `fabrica_candidatos` e `fabrica_rodadas` (após grep confirmar que nada mais lê — `gerar-criativos` modo-lista não lê). Manter `fabrica_lojas`/`fabrica_campanhas`/`fabrica_criativos`/`fabrica_jobs`.
+- Banco: migration que **dropa** `fabrica_candidatos` e `fabrica_rodadas`. **Atenção (exploração):** `fabrica_criativos.candidato_id` tem FK → `fabrica_candidatos`; a migration precisa **dropar essa coluna/constraint** de `fabrica_criativos` antes (o modo-lista grava `candidato_id: null` / deixa de gravar). Manter `fabrica_marcas`/`fabrica_lojas`/`fabrica_campanhas`/`fabrica_criativos`/`fabrica_jobs`.
 - Permissão `meta.fabrica` permanece (agora só o Estúdio).
 
 ## Segurança / cuidados
@@ -83,17 +90,17 @@ Os passos seguintes do wizard não mudam: **Curar** (escolher entre os criativos
 - **Edge `fabrica-candidatos`**: cada fonte devolve o shape certo; `oportunidades`/`garimpo` trazem `pctPrevisto`; `bcg` filtra pelos quadrantes pedidos e bate com `_bcgClass`; `abc` corta na faixa certa; `manual` busca por termo; preço/estoque por loja corretos; gate 401/403.
 - **`classificacao-comercial.mjs`**: `_bcgClass` cobre os 4 quadrantes; ranking ABC ordena por faturamento; Gestor importando dá o mesmo resultado de antes.
 - **`gerar-criativos` modo lista**: `itens=[{sku,deposito,pct}]` gera item×loja com o `pct` certo; previsto vs manual.
-- **Config de loja por tabela**: inserir loja fake ativa → aparece no seletor; `subir/ativar` leem whatsapp/geo/ids da tabela (não do código).
+- **Config de marca/loja por tabela**: `subir/ativar` leem ACT/PAGE/IG/legenda da `fabrica_marcas` e whatsapp/geo da `fabrica_lojas` (não do código); a legenda gerada usa o nome de marca da tabela (não "La Vessel" fixo); inserir loja fake ativa → aparece no seletor.
 - **Remoção F1**: build limpo sem a tela/rota/card; nenhuma referência pendente a `fabrica_candidatos`/`fabrica_rodadas`.
 
 ## Sequência de implementação (para o plano)
 
-1. **Fundação multi-loja**: colunas em `fabrica_lojas` + seed + `subir/ativar/gerar` lendo da tabela. (Não muda comportamento; destrava escala.)
-2. **`classificacao-comercial.mjs`** compartilhado (extrai do Gestor).
+1. **Fundação multi-marca/multi-loja**: tabela `fabrica_marcas` + colunas em `fabrica_lojas` (`marca_id`/whatsapp/geo/canal) + seed + `subir/ativar/gerar` lendo marca+loja da tabela (legenda/ACT/PAGE/IG da marca; whatsapp/geo da loja). (Não muda comportamento observável; destrava escala e tira "La Vessel" do código.)
+2. **`classificacao-comercial.mjs`** compartilhado (extrai `_bcgClass` + ranking ABC do Gestor).
 3. **Edge `fabrica-candidatos`** (lista viva).
-4. **`gerar-criativos` modo lista explícita** + `fabrica-trigger` aceitando `itens`.
+4. **`gerar-criativos` modo lista explícita** (`opts.itens` + pct por item). (Trigger/runner inalterados.)
 5. **Painel Gerar 2.0** (loja/fonte/filtros/lista/curadoria/desconto).
-6. **Remoção da F1** (tela/rota/card/robô/tabelas) + nome definitivo.
+6. **Remoção da F1** (tela/rota/card/robô + migration drop tabelas + FK candidato_id).
 
 ## Fora de escopo (por ora)
 
