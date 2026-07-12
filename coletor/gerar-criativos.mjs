@@ -17,6 +17,8 @@ import { TEMPLATES, DIM } from './templates-criativos/templates.mjs';
 import { variacoesProduto, variacoesPromo } from './lib/criativo-modelo.mjs';
 import { gerarCopysProduto, gerarCopyPromo } from './lib/copy-efeito.mjs';
 import { carregarMarcasELojas } from './lib/config-lojas.mjs';
+import { carregarObjetivos, mapaObjetivo, looksDoObjetivo } from './lib/objetivos.mjs';
+import { objetivosDoTemplate } from './templates-criativos/templates.mjs';
 
 const URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
 const SK = process.env.SUPABASE_SERVICE_KEY;
@@ -93,6 +95,7 @@ export function candsDeItens(itens, precoPorCodigo) {
 export async function run({
   pct = 50, nome = null, parcelas = 10, limite = null, dry = false,
   loja = null, fonte = null, estrela = null, deposito = null, looks = null, modos = null, itens = null, campanhaId = null,
+  objetivo = null,
 } = {}) {
   const PCT = Number(pct);
   const NOME = nome || (PCT + '% OFF');
@@ -120,6 +123,25 @@ export async function run({
   if (LOOKS && LOOKS.length) opts.looks = LOOKS;
   if (MODOS && MODOS.length) opts.modos = MODOS;
 
+  // SP-3: filtra os looks pelo objetivo (lido de fabrica_objetivos). --looks
+  // explícito (CLI ou programático) sempre vence — só filtra por objetivo
+  // quando o chamador não decidiu os looks na mão. Soft-fail: se a leitura do
+  // objetivo falhar (tabela ausente, rede), segue sem filtro (não quebra o gerar).
+  if (objetivo && !(LOOKS && LOOKS.length)) {
+    try {
+      const { porChave } = await carregarObjetivos(sbGet);
+      const row = mapaObjetivo(porChave, objetivo);
+      const looksDisponiveis = Object.keys(TEMPLATES).filter((k) => {
+        const objs = objetivosDoTemplate(k);
+        return objs.length === 0 || objs.includes(objetivo);
+      });
+      const permitidos = looksDoObjetivo(row, looksDisponiveis);
+      if (permitidos.length) opts.looks = permitidos;
+    } catch (e) {
+      console.warn('aviso: filtro de looks por objetivo não resolvido (segue sem filtro):', e.message);
+    }
+  }
+
   const token = await loginServico();
 
   let cands;
@@ -141,7 +163,9 @@ export async function run({
     throw new Error('gerar-criativos: forneça itens (modo Estúdio) ou --estrela <canal> --deposito <dep>');
   }
 
-  const campanha = { desconto_tipo: 'fixo', desconto_pct: PCT, parcelas: PARCELAS };
+  // objetivo vira contexto de tom pra gerarCopysProduto/gerarCopyPromo (copy-efeito);
+  // sem mudança obrigatória lá — o campo existe no objeto, uso é best-effort.
+  const campanha = { desconto_tipo: 'fixo', desconto_pct: PCT, parcelas: PARCELAS, objetivo };
 
   // Marca ativa (fabrica_marcas.ativo) — parametriza o prompt do copy/legenda. O dedup dos
   // criativos é por sku (1 arte por produto, não por loja), então a marca aqui é a marca ativa
