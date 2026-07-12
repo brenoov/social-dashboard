@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import PainelGerar from './painel-gerar.vue'
@@ -13,6 +13,11 @@ function voltarHome() { router.push({ name: 'fabrica-estudio' }) }
 const campanhaId = ref(route.params.id || null)
 const passo = ref(campanhaId.value ? 'curar' : 'gerar')
 const subirResultado = ref(null)
+watch(() => route.params.id, (id) => {
+  campanhaId.value = id || null
+  subirResultado.value = null
+  passo.value = id ? 'curar' : 'gerar'
+})
 onMounted(() => { if (!hasPermission('module:meta:fabrica')) router.push({ name: 'meta-ads' }) })
 // nova campanha: ao disparar, navega pra /:id (a tela recarrega já como campanha, no Curar)
 function aoGerar(id) { router.push({ name: 'fabrica-campanha', params: { id } }) }
