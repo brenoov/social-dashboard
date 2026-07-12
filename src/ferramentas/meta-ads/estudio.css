@@ -162,6 +162,31 @@
 .fest .cmd .ci{font-size:14px}
 .fest .cmd:not(:disabled):hover{transform:translateY(-1px); box-shadow:0 10px 26px -14px rgba(255,178,58,.7)}
 .fest .cmd:disabled{opacity:.5; cursor:not-allowed}
+.fest .cmd.cyan{color:#062521; border-color:var(--cyan); background:linear-gradient(180deg,#7cf0e4,var(--cyan))}
+.fest .cmd.cyan:not(:disabled):hover{box-shadow:0 10px 26px -14px rgba(72,230,214,.7)}
+
+/* ===== seletor de lojas / quadrantes (chips de checkbox) ===== */
+.fest .lojas{display:flex; flex-wrap:wrap; gap:10px}
+.fest .loja-chip{display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13.5px; color:var(--ink);
+  border:1px solid var(--edge); border-radius:var(--r); background:var(--panel-2); padding:9px 13px;
+  transition:border-color .16s, background .16s}
+.fest .loja-chip:hover{border-color:var(--edge-hot)}
+.fest .loja-chip.sel{border-color:var(--amber); background:linear-gradient(180deg,rgba(255,178,58,.08),transparent)}
+.fest .loja-chip input{accent-color:var(--amber); width:15px; height:15px}
+
+/* ===== tabela de candidatos (lista viva) ===== */
+.fest .tbl-wrap{overflow-x:auto; border:1px solid var(--edge); border-radius:var(--r); margin-top:14px}
+.fest .tbl{width:100%; border-collapse:collapse; font-size:13px}
+.fest .tbl th{text-align:left; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint);
+  background:var(--panel-2); padding:9px 12px; border-bottom:1px solid var(--edge); white-space:nowrap}
+.fest .tbl td{padding:9px 12px; border-bottom:1px solid var(--grid-l); color:var(--ink); vertical-align:top; white-space:nowrap}
+.fest .tbl tr:last-child td{border-bottom:0}
+.fest .tbl tr.marcado{background:rgba(255,178,58,.05)}
+.fest .tbl input[type=checkbox]{accent-color:var(--amber); width:15px; height:15px}
+.fest .tbl .nm{font-weight:600; display:block; white-space:normal}
+.fest .tbl .cat{color:var(--ink-faint); font-size:11.5px; display:block; margin-top:1px}
+.fest .tbl .semloja{color:var(--ink-faint)}
+.fest .tbl .pct{color:var(--amber); font-family:var(--mono)}
 
 .fest .jobstat{display:inline-flex; align-items:center; gap:9px; font-size:13.5px; color:var(--ink-dim)}
 .fest .jobstat .js-err{color:var(--abort)}

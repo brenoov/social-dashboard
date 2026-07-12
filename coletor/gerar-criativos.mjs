@@ -79,9 +79,19 @@ async function candidatosEstrela(token, canalLojaId, depositoId, limite) {
   return out;
 }
 
+// Modo lista explícita (Estúdio): resolve nome/preço via mapa Bling (codigo.toUpperCase()->preco),
+// carregando o pct e o deposito de cada item. id=null (não há candidato). Pula sem preço.
+export function candsDeItens(itens, precoPorCodigo) {
+  return (itens || []).map((it) => {
+    const preco = precoPorCodigo[String(it.sku).toUpperCase()];
+    if (preco == null) return null;
+    return { id: null, sku: it.sku, nome: it.sku, preco, deposito_id: it.deposito, pct: it.pct };
+  }).filter(Boolean);
+}
+
 export async function run({
   pct = 50, nome = null, parcelas = 10, limite = null, dry = false,
-  loja = null, fonte = null, estrela = null, deposito = null, looks = null, modos = null,
+  loja = null, fonte = null, estrela = null, deposito = null, looks = null, modos = null, itens = null,
 } = {}) {
   const PCT = Number(pct);
   const NOME = nome || (PCT + '% OFF');
@@ -112,21 +122,22 @@ export async function run({
   const token = await loginServico();
 
   let cands;
-  if (ESTRELA_CANAL) {
+  if (itens?.length) {
+    const prodMap = await blingProdutos(token);          // id -> {nome, codigo, preco}
+    const precoPorCodigo = {};
+    for (const p of Object.values(prodMap)) if (p.codigo) precoPorCodigo[String(p.codigo).toUpperCase()] = p.preco;
+    cands = candsDeItens(itens, precoPorCodigo);
+    console.log('itens | candidatos (lista explícita):', cands.length);
+    for (const c of cands) console.log('  ', c.sku, '| R$', c.preco, '| pct', c.pct, '|', c.deposito_id);
+  } else if (ESTRELA_CANAL) {
     if (!ESTRELA_DEPOSITO) throw new Error('--estrela requer --deposito');
     cands = await candidatosEstrela(token, ESTRELA_CANAL, ESTRELA_DEPOSITO, ESTRELA_LIMITE);
     console.log('estrela | candidatos (top faturamento c/ estoque):', cands.length);
     for (const c of cands) console.log('  ', c.sku, '| R$', c.preco, '| fat R$', c.faturamento.toFixed(2), '|', c.nome);
   } else {
-    const rod = await sbGet('/fabrica_rodadas?select=id,rodada&order=created_at.desc&limit=1');
-    if (!rod.length) throw new Error('sem rodada da F1');
-    const rodadaId = rod[0].id;
-    let q = `/fabrica_candidatos?select=id,sku,nome,preco,selecionado,deposito_id,fonte&rodada_id=eq.${rodadaId}&selecionado=eq.true`;
-    if (LOJA) q += `&deposito_id=eq.${LOJA}`;
-    if (FONTE) q += `&fonte=eq.${FONTE}`;
-    q += `&order=loja_nome`;
-    cands = await sbGet(q);
-    console.log('rodada', rod[0].rodada, '| candidatos selecionados:', cands.length);
+    // F1 aposentada — fabrica_rodadas/fabrica_candidatos foram dropadas na
+    // migration 019. Os únicos caminhos vivos são itens (Estúdio) e --estrela.
+    throw new Error('gerar-criativos: forneça itens (modo Estúdio) ou --estrela <canal> --deposito <dep>');
   }
 
   const campanha = { desconto_tipo: 'fixo', desconto_pct: PCT, parcelas: PARCELAS };
@@ -167,7 +178,7 @@ export async function run({
     if (!foto) { console.warn('  sem foto:', cand.sku, cand.nome); continue; }
     if (!fotoEhStudio(cand.sku)) { console.log('  foto amadora (avaliada na foto crua), pulado:', cand.sku); continue; }
     const copyInfo = copys.get(cand.sku) || {};
-    for (const v of variacoesProduto({ ...cand, fotoDataUrl: foto }, campanha, opts)) {
+    for (const v of variacoesProduto({ ...cand, fotoDataUrl: foto }, campanha, opts, cand.pct ?? campanha.desconto_pct)) {
       v.dados.copyEfeito = copyInfo.copy;
       v.dados.nome = copyInfo.nome;
       const html = TEMPLATES[v.template].render(v.dados, v.formato);
@@ -176,7 +187,10 @@ export async function run({
       if (DRY) { console.log('  [dry] produto', cand.sku, v.variante, v.formato, buf.length, 'bytes'); continue; }
       const path = `${campanhaId}/produto/${sane(cand.sku)}-${sane(v.variante)}-${v.formato}.png`;
       const url = await subir(path, buf);
-      await sbPost('/fabrica_criativos', [{ campanha_id: campanhaId, candidato_id: cand.id, arquetipo: 'produto', template: v.template, formato: v.formato, variante: v.variante, preco_de: v.preco_de, preco_por: v.preco_por, storage_path: path, url }], 'return=minimal');
+      // candidato_id foi removido de fabrica_criativos na migration 019 (F1 aposentada — cand.id
+      // já vinha sempre null no modo lista/estrela, que são os únicos caminhos vivos). Mandar essa
+      // chave pro PostgREST com a coluna inexistente quebraria o insert em TODO job de verdade.
+      await sbPost('/fabrica_criativos', [{ campanha_id: campanhaId, arquetipo: 'produto', template: v.template, formato: v.formato, variante: v.variante, preco_de: v.preco_de, preco_por: v.preco_por, storage_path: path, url }], 'return=minimal');
     }
   }
 

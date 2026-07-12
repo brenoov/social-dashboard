@@ -26,14 +26,11 @@ import './lib/carregar-env.mjs';
 import tls from 'node:tls';
 import { loginServico } from './lib/bling-comercial.mjs';
 import { subirCriativos } from './lib/meta-subir.mjs';
+import { carregarMarcasELojas, montarLegenda } from './lib/config-lojas.mjs';
 
 // Fix TLS1.2 (ECONNRESET determinístico atrás do Cloudflare/*.supabase.co nesta máquina). Antes de
 // qualquer fetch — inclusive o de dentro do loginServico().
 tls.DEFAULT_MAX_VERSION = 'TLSv1.2';
-
-// --- CFG: valores REAIS (conta Vessel, app Live) — idênticos ao subir-campanha-genspark.mjs ---
-const CFG = { ACT: 'act_1197997517858139', PAGE: '324679337390168', IG: '17841462952561833', ACCOUNT_ID: 'b6883e82-07cb-4f21-9fd7-ea7626786174' };
-const CAPTION_PADRAO = '50% OFF em bolsas La Vessel · chame a gente 💬';
 
 const URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
 const ANON = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtvdW5xdGRvaW9vb3R4cWVna2lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMDMwMDUsImV4cCI6MjA5NDc3OTAwNX0.MVXa6jngjKXkH3eZ7as_j_k8Eb7lJKcFmO4kCKAnuHM';
@@ -41,15 +38,19 @@ const SK = process.env.SUPABASE_SERVICE_KEY;
 const REST = URL + '/rest/v1';
 const H = { apikey: SK, Authorization: 'Bearer ' + SK, 'Content-Type': 'application/json' };
 
-// Lojas p/ destino 'nova' (mesma config do subir-campanha-meta.mjs): whatsapp + geoCities.
-const LOJAS = {
-  tivoli: { nome: 'Tivoli', whatsapp: '+5519971690502', geoCities: [267873, 241913] },
-  dp: { nome: 'Dom Pedro', whatsapp: '+5519999545112', geoCities: [247071] },
-  dompedro: { nome: 'Dom Pedro', whatsapp: '+5519999545112', geoCities: [247071] },
-};
 const CFG_ADSET = { DAILY_BUDGET: 5000, DATA_CAMPANHA: '11-07-2026' };
 
+// Aliases antigos de slug (CLI --loja tivoli|dp|dompedro) pro `nome` real das lojas na tabela
+// fabrica_lojas (que não tem coluna de slug — só deposito_id/nome). Ver Task 3 do plano.
+const ALIAS_LOJA = { tivoli: 'tivoli', dp: 'dom pedro', dompedro: 'dom pedro' };
+export function resolverLoja(lojas, slug) {
+  if (!slug) return undefined;   // slug vazio/undefined -> não casa nada (o chamador lança "loja inválida")
+  const alvo = ALIAS_LOJA[String(slug).toLowerCase()] || String(slug).toLowerCase();
+  return lojas.find((l) => l.ativo && l.nome.toLowerCase().includes(alvo));
+}
+
 let TOKEN;
+let MARCA; // marca (ad account/page/ig/caption) resolvida em run(), consumida pelas funções abaixo
 
 // --- Supabase REST (leitura service-role dos criativos escolhidos) ----------------------------
 async function sbGet(p) {
@@ -102,7 +103,7 @@ async function chamarProxy(body) {
 }
 
 async function meta(path, params = {}, method = 'GET') {
-  const r = await chamarProxy({ accountId: CFG.ACCOUNT_ID, path, params, method });
+  const r = await chamarProxy({ accountId: MARCA.accountId, path, params, method });
   // subirCriativos detecta rate limit pela mensagem do throw (regex code 17 / request limit).
   if ((method === 'POST') && r.status !== 200 && ehRateLimit(r.status, r.d)) {
     throw new Error(`meta ${method} ${path} rate limit / code ${r.d?.error?.code}: ${JSON.stringify(r.d).slice(0, 200)}`);
@@ -127,7 +128,7 @@ async function metaTodos(path, params = {}) {
 // Upload da imagem pública (fabrica_criativos.url) pro /adimages via imageFromUrl → image_hash real
 // (nível da conta, reusado em todos os conjuntos). Igual ao uploadImagemBytes do genspark.
 async function uploadImagemBytes(url, field) {
-  const r = await chamarProxy({ accountId: CFG.ACCOUNT_ID, path: `/${CFG.ACT}/adimages`, method: 'POST', imageFromUrl: url, imageField: field });
+  const r = await chamarProxy({ accountId: MARCA.accountId, path: `/${MARCA.adAccount}/adimages`, method: 'POST', imageFromUrl: url, imageField: field });
   if (r.status !== 200 || !r.d?.images) {
     if (ehRateLimit(r.status, r.d)) throw new Error(`/adimages rate limit / code ${r.d?.error?.code}`);
     throw new Error(`POST /adimages (field=${field}) falhou (status ${r.status}): ${JSON.stringify(r.d).slice(0, 500)}`);
@@ -150,7 +151,7 @@ async function adsetsDaCampanha(campaignId) {
 
 // --- destino 'nova': cria campanha WhatsApp (OUTCOME_ENGAGEMENT, PAUSED) + 1 conjunto ---------
 async function criarCampanhaNova(loja) {
-  const campaign = await meta(`/${CFG.ACT}/campaigns`, {
+  const campaign = await meta(`/${MARCA.adAccount}/campaigns`, {
     name: `[Estudio] ${loja.nome} · WhatsApp · ${CFG_ADSET.DATA_CAMPANHA}`,
     objective: 'OUTCOME_ENGAGEMENT',
     status: 'PAUSED',
@@ -160,7 +161,7 @@ async function criarCampanhaNova(loja) {
   if (campaign.status !== 200 || !campaign.d?.id) throw new Error(`POST /campaigns falhou (status ${campaign.status}): ${JSON.stringify(campaign.d).slice(0, 500)}`);
   const campaignId = campaign.d.id;
 
-  const adset = await meta(`/${CFG.ACT}/adsets`, {
+  const adset = await meta(`/${MARCA.adAccount}/adsets`, {
     name: 'Estudio · Geral',
     campaign_id: campaignId,
     daily_budget: CFG_ADSET.DAILY_BUDGET,
@@ -168,7 +169,7 @@ async function criarCampanhaNova(loja) {
     optimization_goal: 'CONVERSATIONS',
     bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
     destination_type: 'WHATSAPP',
-    promoted_object: { page_id: CFG.PAGE, whatsapp_phone_number: loja.whatsapp },
+    promoted_object: { page_id: MARCA.pageId, whatsapp_phone_number: loja.whatsapp },
     targeting: { geo_locations: { cities: loja.geoCities.map((key) => ({ key })) } },
     status: 'PAUSED',
   }, 'POST');
@@ -184,19 +185,25 @@ export async function run({ campanhaId, destino, dry = false }) {
 
   TOKEN = await loginServico();
 
+  // 0) marca+lojas da tabela (fabrica_marcas/fabrica_lojas) — substitui CFG/LOJAS hardcoded.
+  const { lojas, marcaAtiva } = await carregarMarcasELojas(sbGet);
+  if (!marcaAtiva) throw new Error('nenhuma marca ativa configurada (fabrica_marcas.ativo)');
+  MARCA = marcaAtiva; // conta usada p/ upload de imagem e (destino 'existente') pros conjuntos já existentes
+
   // 1) criativos escolhidos (não-purgados) da rodada
   const escolhidos = await sbGet(`/fabrica_criativos?select=id,url,storage_path&campanha_id=eq.${campanhaId}&escolhido=eq.true&purgado_em=is.null`);
   if (escolhidos.length === 0) return { adIds: [], pendentes: 0, metaCampaignId: null, adsetIds: [], criouCampanha };
 
   // 2) resolve metaCampaignId + adsets conforme o destino
-  let metaCampaignId, adsets;
+  let metaCampaignId, adsets, lojaNova;
   if (destino?.tipo === 'existente') {
     metaCampaignId = destino.campaignId;
     adsets = await adsetsDaCampanha(metaCampaignId);
   } else if (destino?.tipo === 'nova') {
-    const loja = LOJAS[String(destino.loja || '').toLowerCase()];
-    if (!loja) throw new Error(`loja inválida p/ destino 'nova': ${destino.loja} (use tivoli|dp)`);
-    ({ campaignId: metaCampaignId, adsets } = await criarCampanhaNova(loja));
+    lojaNova = resolverLoja(lojas, destino.loja);
+    if (!lojaNova || !lojaNova.marca) throw new Error(`loja inválida p/ destino 'nova': ${destino.loja} (use tivoli|dp)`);
+    MARCA = lojaNova.marca; // a loja pode pertencer a uma marca diferente da marcaAtiva global
+    ({ campaignId: metaCampaignId, adsets } = await criarCampanhaNova(lojaNova));
   } else {
     throw new Error(`destino inválido: ${JSON.stringify(destino)} (use {tipo:'existente',campaignId} ou {tipo:'nova',loja})`);
   }
@@ -209,24 +216,29 @@ export async function run({ campanhaId, destino, dry = false }) {
   // 4) itens: cada criativo escolhido vira 1 item; getHash sobe a URL pública 1x (hash da conta)
   const itens = escolhidos.map((c, i) => ({ chave: c.id, url: c.url, getHash: () => uploadImagemBytes(c.url, 'img' + i) }));
 
+  // Legenda a partir do template da marca (fabrica_marcas.caption_template). Este fluxo não tem um
+  // desconto_pct já resolvido (fica em fabrica_campanhas, não em fabrica_criativos) — sem inventar
+  // número aqui, monta só com {marca} e deixa {desconto} vazio (trim tira o espaço sobrando).
+  const legenda = montarLegenda(MARCA.captionTemplate, { marca: MARCA.nome }).trim();
+
   // 5) sobe (item × adset), PAUSED, idempotente; onAd coleta os adIds pro rastro
   const adIds = [];
   const res = await subirCriativos({
-    meta, act: CFG.ACT, page: CFG.PAGE, ig: CFG.IG,
-    itens, adsets, prefixo: 'Estudio', mensagem: CAPTION_PADRAO, jaTem,
+    meta, act: MARCA.adAccount, page: MARCA.pageId, ig: MARCA.igId,
+    itens, adsets, prefixo: 'Estudio', mensagem: legenda, jaTem,
     onAd: ({ adId }) => adIds.push(adId),
   });
 
   // 6) rastro em fabrica_meta_jobs (uma linha por rodada; ad_ids/adset_ids são jsonb — migration 016)
   try {
     await sbPost('/fabrica_meta_jobs', [{
-      ad_account_id: CFG.ACT,
-      loja: destino?.tipo === 'nova' ? (LOJAS[String(destino.loja).toLowerCase()]?.nome || destino.loja) : null,
+      ad_account_id: MARCA.adAccount,
+      loja: destino?.tipo === 'nova' ? (lojaNova?.nome || destino.loja) : null,
       tipo: 'estudio',
       meta_campaign_id: metaCampaignId,
       adset_ids: adsets.map((a) => a.id),
       ad_ids: adIds,
-      payload: { campanhaId, destino, escolhidos: escolhidos.length, caption: CAPTION_PADRAO },
+      payload: { campanhaId, destino, escolhidos: escolhidos.length, caption: legenda },
       status: res.pendentes ? 'parcial' : 'criado',
       erro: res.rateLimited ? `rate limit — ${res.pendentes} pendente(s)` : null,
     }], 'return=minimal');

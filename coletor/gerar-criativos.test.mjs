@@ -6,8 +6,9 @@ test('run() é exportada e aceita opts', () => {
   assert.equal(typeof run, 'function');
 });
 
-test('run({dry:true, limite:0}) não lança e retorna shape', async () => {
-  const r = await run({ dry: true, limite: 0 });
-  assert.ok(r && typeof r === 'object');
-  assert.ok('criativos' in r);
+test('run({dry:true, limite:0}) sem itens/--estrela falha rápido (fabrica_rodadas/candidatos foram dropadas na migration 019)', async () => {
+  await assert.rejects(
+    () => run({ dry: true, limite: 0 }),
+    /forneça itens \(modo Estúdio\) ou --estrela/
+  );
 });
