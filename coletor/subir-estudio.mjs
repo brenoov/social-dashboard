@@ -191,7 +191,7 @@ export async function run({ campanhaId, destino, dry = false }) {
   MARCA = marcaAtiva; // conta usada p/ upload de imagem e (destino 'existente') pros conjuntos já existentes
 
   // 1) criativos escolhidos (não-purgados) da rodada
-  const escolhidos = await sbGet(`/fabrica_criativos?select=id,url,storage_path&campanha_id=eq.${campanhaId}&escolhido=eq.true&purgado_em=is.null`);
+  const escolhidos = await sbGet(`/fabrica_criativos?select=id,url,storage_path,legenda&campanha_id=eq.${campanhaId}&escolhido=eq.true&purgado_em=is.null`);
   if (escolhidos.length === 0) return { adIds: [], pendentes: 0, metaCampaignId: null, adsetIds: [], criouCampanha };
 
   // 2) resolve metaCampaignId + adsets conforme o destino
@@ -213,19 +213,21 @@ export async function run({ campanhaId, destino, dry = false }) {
   const existentes = await metaTodos(`/${metaCampaignId}/ads`, { fields: 'name,adset_id', limit: 500 });
   const jaTem = new Set(existentes.map((a) => `${a.adset_id}::${a.name}`));
 
-  // 4) itens: cada criativo escolhido vira 1 item; getHash sobe a URL pública 1x (hash da conta)
-  const itens = escolhidos.map((c, i) => ({ chave: c.id, url: c.url, getHash: () => uploadImagemBytes(c.url, 'img' + i) }));
-
-  // Legenda a partir do template da marca (fabrica_marcas.caption_template). Este fluxo não tem um
+  // Legenda de MARCA a partir do template (fabrica_marcas.caption_template). Este fluxo não tem um
   // desconto_pct já resolvido (fica em fabrica_campanhas, não em fabrica_criativos) — sem inventar
-  // número aqui, monta só com {marca} e deixa {desconto} vazio (trim tira o espaço sobrando).
-  const legenda = montarLegenda(MARCA.captionTemplate, { marca: MARCA.nome }).trim();
+  // número aqui, monta só com {marca} e deixa {desconto} vazio (trim tira o espaço sobrando). É o
+  // FALLBACK duplo: por item (quando c.legenda é null) e como mensagem global do subirCriativos.
+  const legendaMarca = montarLegenda(MARCA.captionTemplate, { marca: MARCA.nome }).trim();
+
+  // 4) itens: cada criativo escolhido vira 1 item; getHash sobe a URL pública 1x (hash da conta).
+  // mensagem por item = legenda persuasiva por produto (gerada no gerar) ou a legenda de marca.
+  const itens = escolhidos.map((c, i) => ({ chave: c.id, url: c.url, mensagem: c.legenda || legendaMarca, getHash: () => uploadImagemBytes(c.url, 'img' + i) }));
 
   // 5) sobe (item × adset), PAUSED, idempotente; onAd coleta os adIds pro rastro
   const adIds = [];
   const res = await subirCriativos({
     meta, act: MARCA.adAccount, page: MARCA.pageId, ig: MARCA.igId,
-    itens, adsets, prefixo: 'Estudio', mensagem: legenda, jaTem,
+    itens, adsets, prefixo: 'Estudio', mensagem: legendaMarca, jaTem,
     onAd: ({ adId }) => adIds.push(adId),
   });
 
@@ -238,7 +240,7 @@ export async function run({ campanhaId, destino, dry = false }) {
       meta_campaign_id: metaCampaignId,
       adset_ids: adsets.map((a) => a.id),
       ad_ids: adIds,
-      payload: { campanhaId, destino, escolhidos: escolhidos.length, caption: legenda },
+      payload: { campanhaId, destino, escolhidos: escolhidos.length, caption: legendaMarca },
       status: res.pendentes ? 'parcial' : 'criado',
       erro: res.rateLimited ? `rate limit — ${res.pendentes} pendente(s)` : null,
     }], 'return=minimal');

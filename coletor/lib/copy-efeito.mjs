@@ -24,17 +24,23 @@ async function anthropic(body, tentativas = 6) {
   throw new Error('Anthropic: tentativas esgotadas');
 }
 
-// Voz de marca La Vessel: luxo europeu suave, feminino, atemporal, "sussurra
-// sofisticação", lema "cada bolsa conta uma história". Contexto desta rodada:
-// campanha de shopping (loja física em shopping) — tom puxa URGÊNCIA + EMOÇÃO,
-// não preço puro.
-const SYS_PRODUTO = 'Você escreve microcopy de campanha para a La Vessel, marca de bolsas de luxo europeu suave, feminino, atemporal — a marca "sussurra sofisticação", nunca grita. Lema: "cada bolsa conta uma história". '
-  + 'Esta rodada é uma campanha de SHOPPING (loja física em shopping físico): o tom precisa puxar URGÊNCIA + EMOÇÃO, não preço puro. '
-  + 'Regras invioláveis para cada linha de impacto: (1) português do Brasil; (2) CURTA, no máximo ~40 caracteres; (3) impactante, sem ser genérica; (4) NUNCA prometa algo falso ou exagerado (nada de "a melhor bolsa do mundo", "número 1", etc.); (5) SEM emoji; (6) SEM hashtag; (7) uma linha por produto, coerente com o nome/estilo daquele produto específico. '
-  + 'Além da linha de impacto, gere também um NOME CURTO de exibição para cada produto: o nome completo do Bling (ex.: "Bolsa De Ombro Grande Viena Marinho") tem tipo/tamanho/cor misturados com uma palavra distintiva de CIDADE ou PAÍS (ex.: Viena, Belgrado, Genebra, Madrid). O nome curto deve ser SEMPRE no formato "Bolsa <Cidade/País>" — descarte tipo, tamanho e cor, mantenha só "Bolsa " + a cidade/país do nome original. '
-  + 'Responda APENAS com um bloco de código ```json contendo um objeto {"<sku>": {"copy": "<linha de impacto>", "nome": "Bolsa <Cidade>"}, ...} — uma chave por SKU recebido, nada fora do bloco.';
+// Marca default quando campanha.marca não vem resolvida (mantém o prompt válido
+// e multi-marca sem quebrar — não hardcoda mais "La Vessel").
+const MARCA_DEFAULT = 'a marca';
 
-const SYS_PROMO = 'Você escreve microcopy de campanha para a La Vessel, marca de bolsas de luxo europeu suave, feminino, atemporal — a marca "sussurra sofisticação", nunca grita. Lema: "cada bolsa conta uma história". '
+// Voz de marca (ex.: La Vessel): luxo europeu suave, feminino, atemporal,
+// "sussurra sofisticação", lema "cada bolsa conta uma história". Contexto desta
+// rodada: campanha de shopping (loja física em shopping) — tom puxa URGÊNCIA +
+// EMOÇÃO, não preço puro. O nome da marca é parametrizado por campanha.marca.
+const sysProduto = (marca) => 'Você escreve microcopy de campanha para ' + (marca || MARCA_DEFAULT) + ', marca de bolsas de luxo europeu suave, feminino, atemporal — a marca "sussurra sofisticação", nunca grita. Lema: "cada bolsa conta uma história". '
+  + 'Esta rodada é uma campanha de SHOPPING (loja física em shopping físico), com o objetivo de gerar CONVERSAS no WhatsApp: o tom precisa puxar URGÊNCIA + EMOÇÃO, não preço puro. '
+  + 'Para cada produto, gere TRÊS coisas: '
+  + '(A) COPY — a linha de impacto da ARTE (texto sobre a imagem). Regras invioláveis: (1) português do Brasil; (2) CURTA, no máximo ~40 caracteres; (3) impactante, sem ser genérica; (4) NUNCA prometa algo falso ou exagerado (nada de "a melhor bolsa do mundo", "número 1", etc.); (5) SEM emoji; (6) SEM hashtag; (7) coerente com o nome/estilo daquele produto específico. '
+  + '(B) NOME — um NOME CURTO de exibição: o nome completo do Bling (ex.: "Bolsa De Ombro Grande Viena Marinho") tem tipo/tamanho/cor misturados com uma palavra distintiva de CIDADE ou PAÍS (ex.: Viena, Belgrado, Genebra, Madrid). O nome curto deve ser SEMPRE no formato "Bolsa <Cidade/País>" — descarte tipo, tamanho e cor, mantenha só "Bolsa " + a cidade/país do nome original. '
+  + '(C) LEGENDA — o texto do ANÚNCIO (o "message" que acompanha a imagem no feed do Meta), que é DIFERENTE e mais longo que a copy da arte. Regras invioláveis: (1) português do Brasil; (2) persuasiva e vendedora, com respiro criativo — de 1 a 2 frases (nunca uma palavra só); (3) mencione o produto (pelo nome curto/cidade) E o desconto da campanha; (4) termine com uma chamada de ação de WhatsApp (ex.: "Chame no WhatsApp", "Fale com a gente no WhatsApp", "Garanta a sua no WhatsApp"); (5) pode usar NO MÁXIMO 1 emoji, com elegância (ou nenhum); (6) SEM hashtag; (7) NUNCA prometa algo falso ou exagerado. '
+  + 'Responda APENAS com um bloco de código ```json contendo um objeto {"<sku>": {"copy": "<linha de impacto>", "nome": "Bolsa <Cidade>", "legenda": "<texto persuasivo do anúncio com CTA de WhatsApp>"}, ...} — uma chave por SKU recebido, nada fora do bloco.';
+
+const sysPromo = (marca) => 'Você escreve microcopy de campanha para ' + (marca || MARCA_DEFAULT) + ', marca de bolsas de luxo europeu suave, feminino, atemporal — a marca "sussurra sofisticação", nunca grita. Lema: "cada bolsa conta uma história". '
   + 'Esta rodada é uma campanha de SHOPPING (loja física em shopping físico) para uma promoção guarda-chuva de desconto: o tom precisa puxar URGÊNCIA + EMOÇÃO, não preço puro. '
   + 'Escreva UMA única linha de impacto para a promoção inteira. Regras invioláveis: (1) português do Brasil; (2) CURTA, no máximo ~40 caracteres; (3) impactante; (4) NUNCA prometa algo falso ou exagerado; (5) SEM emoji; (6) SEM hashtag. '
   + 'Responda APENAS com a linha, sem aspas, sem explicação, sem markdown.';
@@ -47,32 +53,36 @@ function parseJsonFence(texto) {
 
 const nomeCurtoFallback = (nome) => String(nome || '').trim().split(/\s+/).slice(0, 3).join(' ');
 
-// Gera uma linha de impacto + nome curto de exibição por produto (batch, UMA
-// chamada Anthropic).
-// produtos: [{sku, nome}]; campanha: {desconto_pct}
-// Retorna Map<sku, {copy, nome}>. NUNCA lança — em qualquer falha, cai no
-// fallback padrão para todos os SKUs recebidos.
+// Gera, por produto (batch, UMA chamada Anthropic): a linha de impacto da arte
+// (copy), o nome curto de exibição (nome) e a LEGENDA persuasiva do anúncio
+// (legenda — o "message" do Meta, com CTA de WhatsApp).
+// produtos: [{sku, nome}]; campanha: {desconto_pct, marca}
+// Retorna Map<sku, {copy, nome, legenda}>. `legenda` é null quando o modelo não
+// devolve uma (o gerar/subir caem na legenda de marca como fallback).
+// NUNCA lança — em qualquer falha, cai no fallback padrão (legenda: null) para
+// todos os SKUs recebidos.
 export async function gerarCopysProduto(produtos, campanha) {
   const out = new Map();
   try {
     if (!ANTHROPIC_API_KEY) throw new Error('sem ANTHROPIC_API_KEY_FABRICA/ANTHROPIC_API_KEY_GESTOR');
     if (!Array.isArray(produtos) || !produtos.length) return out;
     const lista = produtos.map((p) => `- SKU ${p.sku}: ${p.nome}`).join('\n');
-    const user = 'Campanha atual: desconto de ' + (campanha?.desconto_pct ?? '?') + '% (shopping, urgência+emoção).\n\n'
-      + 'Produtos (gere uma linha de impacto + nome curto por SKU):\n' + lista;
-    const resp = await anthropic({ model: MODEL, max_tokens: 2000, system: SYS_PRODUTO, messages: [{ role: 'user', content: user }] });
+    const user = 'Campanha atual: desconto de ' + (campanha?.desconto_pct ?? '?') + '% (shopping, urgência+emoção, conversas no WhatsApp).\n\n'
+      + 'Produtos (gere copy + nome curto + legenda de anúncio por SKU):\n' + lista;
+    const resp = await anthropic({ model: MODEL, max_tokens: 3000, system: sysProduto(campanha?.marca), messages: [{ role: 'user', content: user }] });
     const texto = (resp.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
     const obj = parseJsonFence(texto);
     for (const p of produtos) {
       const item = obj?.[p.sku];
       const copy = typeof item?.copy === 'string' && item.copy.trim() ? item.copy.trim() : FALLBACK_PRODUTO;
       const nome = typeof item?.nome === 'string' && item.nome.trim() ? item.nome.trim() : nomeCurtoFallback(p.nome);
-      out.set(p.sku, { copy, nome });
+      const legenda = typeof item?.legenda === 'string' && item.legenda.trim() ? item.legenda.trim() : null;
+      out.set(p.sku, { copy, nome, legenda });
     }
     return out;
   } catch (e) {
     console.error('aviso copy-efeito (produto):', e.message);
-    for (const p of (produtos || [])) out.set(p.sku, { copy: FALLBACK_PRODUTO, nome: nomeCurtoFallback(p.nome) });
+    for (const p of (produtos || [])) out.set(p.sku, { copy: FALLBACK_PRODUTO, nome: nomeCurtoFallback(p.nome), legenda: null });
     return out;
   }
 }
@@ -83,7 +93,7 @@ export async function gerarCopyPromo(campanha) {
   try {
     if (!ANTHROPIC_API_KEY) throw new Error('sem ANTHROPIC_API_KEY_FABRICA/ANTHROPIC_API_KEY_GESTOR');
     const user = 'Campanha: desconto de ' + (campanha?.desconto_pct ?? '?') + '% em toda a loja (shopping, urgência+emoção). Escreva a linha de impacto.';
-    const resp = await anthropic({ model: MODEL, max_tokens: 200, system: SYS_PROMO, messages: [{ role: 'user', content: user }] });
+    const resp = await anthropic({ model: MODEL, max_tokens: 200, system: sysPromo(campanha?.marca), messages: [{ role: 'user', content: user }] });
     const texto = (resp.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
     const linha = texto.replace(/^["'“]|["'”]$/g, '').trim();
     return linha || FALLBACK_PROMO;

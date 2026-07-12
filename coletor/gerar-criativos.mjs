@@ -16,6 +16,7 @@ import { renderPNG, fecharRender } from './lib/render-criativo.mjs';
 import { TEMPLATES, DIM } from './templates-criativos/templates.mjs';
 import { variacoesProduto, variacoesPromo } from './lib/criativo-modelo.mjs';
 import { gerarCopysProduto, gerarCopyPromo } from './lib/copy-efeito.mjs';
+import { carregarMarcasELojas } from './lib/config-lojas.mjs';
 
 const URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
 const SK = process.env.SUPABASE_SERVICE_KEY;
@@ -142,6 +143,18 @@ export async function run({
 
   const campanha = { desconto_tipo: 'fixo', desconto_pct: PCT, parcelas: PARCELAS };
 
+  // Marca ativa (fabrica_marcas.ativo) — parametriza o prompt do copy/legenda. O dedup dos
+  // criativos é por sku (1 arte por produto, não por loja), então a marca aqui é a marca ativa
+  // do momento (há 1 hoje), não a marca de um depósito específico. Resolvida em soft-fail: se
+  // não vier, gerarCopysProduto cai no default ("a marca") — não quebra o gerar.
+  try {
+    const { marcaAtiva } = await carregarMarcasELojas(sbGet);
+    campanha.marca = marcaAtiva?.nome || null;
+  } catch (e) {
+    console.warn('aviso: marca não resolvida (segue com default):', e.message);
+    campanha.marca = null;
+  }
+
   // campanha
   let campanhaId = null;
   if (!DRY) {
@@ -190,7 +203,7 @@ export async function run({
       // candidato_id foi removido de fabrica_criativos na migration 019 (F1 aposentada — cand.id
       // já vinha sempre null no modo lista/estrela, que são os únicos caminhos vivos). Mandar essa
       // chave pro PostgREST com a coluna inexistente quebraria o insert em TODO job de verdade.
-      await sbPost('/fabrica_criativos', [{ campanha_id: campanhaId, arquetipo: 'produto', template: v.template, formato: v.formato, variante: v.variante, preco_de: v.preco_de, preco_por: v.preco_por, storage_path: path, url }], 'return=minimal');
+      await sbPost('/fabrica_criativos', [{ campanha_id: campanhaId, arquetipo: 'produto', template: v.template, formato: v.formato, variante: v.variante, preco_de: v.preco_de, preco_por: v.preco_por, storage_path: path, url, legenda: copyInfo.legenda || null }], 'return=minimal');
     }
   }
 
@@ -205,7 +218,9 @@ export async function run({
       if (DRY) { console.log('  [dry] promo', v.variante, v.formato, buf.length, 'bytes'); continue; }
       const path = `${campanhaId}/promo/${sane(v.variante)}-${v.formato}.png`;
       const url = await subir(path, buf);
-      await sbPost('/fabrica_criativos', [{ campanha_id: campanhaId, arquetipo: 'promo', template: v.template, formato: v.formato, variante: v.variante, storage_path: path, url }], 'return=minimal');
+      // promo: copyPromo é a linha CURTA da arte (~40 chars), não um texto de anúncio persuasivo —
+      // deixa legenda null pra o subir cair na legenda de marca (fallback) nesse criativo.
+      await sbPost('/fabrica_criativos', [{ campanha_id: campanhaId, arquetipo: 'promo', template: v.template, formato: v.formato, variante: v.variante, storage_path: path, url, legenda: null }], 'return=minimal');
     }
   }
 
