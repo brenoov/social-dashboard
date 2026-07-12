@@ -7,7 +7,6 @@
 import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
-import { useJobStatus } from './use-job-status.js'
 import { useCandidatos } from './use-candidatos.js'
 
 const emit = defineEmits(['gerado'])
@@ -26,7 +25,6 @@ const sel = reactive({ lojas: [], fonte: 'oportunidades', filtros: {}, descontoM
 const { candidatos, carregando, erro, buscar } = useCandidatos()
 const marcados = ref({})              // sku -> bool
 const buscou = ref(false)             // já clicou "Ver produtos" ao menos 1x (controla a seção de resultado)
-const { job, start } = useJobStatus()
 
 onMounted(async () => {
   lojas.value = await sb('fabrica_lojas?select=deposito_id,nome&ativo=eq.true&order=ordem')
@@ -81,12 +79,12 @@ function itensEscolhidos() {
 async function gerar() {
   const itens = itensEscolhidos()
   if (!itens.length) return alert('Marque ao menos um produto (com estoque numa loja selecionada) antes de gerar.')
-  const { data, error } = await sbClient.functions.invoke('fabrica-trigger', { body: { tipo: 'gerar', params: { itens } } })
+  const nome = 'Rodada · ' + FONTES.find(f => f.v === sel.fonte)?.l + ' · ' + new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+  const { data, error } = await sbClient.functions.invoke('fabrica-trigger', { body: { tipo: 'gerar', params: { itens, nome } } })
   if (error) return alert('Falha ao disparar: ' + error.message)
-  if (!data?.job_id) return alert('Sem job_id na resposta')
-  start(data.job_id)
+  if (!data?.campanha_id) return alert('Sem campanha na resposta')
+  emit('gerado', data.campanha_id)
 }
-watch(job, (j) => { if (j?.status === 'concluido' && j.resultado?.campanhaId) emit('gerado', j.resultado.campanhaId) })
 </script>
 <template>
   <section class="stage">
@@ -209,14 +207,9 @@ watch(job, (j) => { if (j?.status === 'concluido' && j.resultado?.campanhaId) em
       <p v-else class="empty">Nenhum produto encontrado para essa fonte/filtro. Ajuste e tente de novo.</p>
 
       <div class="cmdrow">
-        <button class="cmd amber" :disabled="!totalMarcados || (job && ['enfileirado','rodando'].includes(job.status))" @click="gerar">
+        <button class="cmd amber" :disabled="!totalMarcados" @click="gerar">
           <span class="ci">▶</span> Gerar criativos
         </button>
-        <div v-if="job" class="jobstat">
-          <i class="led" :class="job.status==='concluido' ? 'go' : job.status==='erro' ? 'abort' : ['enfileirado','rodando'].includes(job.status) ? 'run' : 'idle'"></i>
-          <span>{{ ({ enfileirado:'Na fila…', rodando:'Gerando criativos…', concluido:'Pronto! Criativos gerados.', erro:'Deu erro ao gerar.' })[job.status] || job.status }}</span>
-          <span v-if="job.erro" class="js-err">— {{ job.erro }}</span>
-        </div>
       </div>
     </div>
   </section>

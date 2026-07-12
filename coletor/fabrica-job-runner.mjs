@@ -32,6 +32,10 @@ async function sbPatch(p, body) {
   return r;
 }
 
+// --- statusCampanhaGerar(): função pura — mapeia o resultado do gerar pro status da campanha.
+// Sucesso (true) → 'pronta', Falha (false) → 'erro'. ---
+export function statusCampanhaGerar(ok) { return ok ? 'pronta' : 'erro'; }
+
 // --- estadoTerminalSubir(): função pura — mapeia o resultado de subir-estudio.mjs.run() pro
 // estado terminal do job. Só fecha a rodada (fecha:true) quando NADA ficou pendente (100% subiu);
 // rate limit (pendentes>0) vira 'erro' pra UI oferecer "re-disparar" (subir-estudio é idempotente,
@@ -68,6 +72,7 @@ async function main() {
     if (job.tipo === 'gerar') {
       const r = await gerarRun(job.params || {});
       await sbPatch(`/fabrica_jobs?id=eq.${jobId}`, { status: 'concluido', resultado: r, updated_at: new Date().toISOString() });
+      if (job.params?.campanhaId) await sbPatch(`/fabrica_campanhas?id=eq.${job.params.campanhaId}`, { status: statusCampanhaGerar(true) });
     } else if (job.tipo === 'subir') {
       const r = await subirRun(job.params || {});
       const t = estadoTerminalSubir(r);
@@ -84,6 +89,7 @@ async function main() {
     }
   } catch (e) {
     await sbPatch(`/fabrica_jobs?id=eq.${jobId}`, { status: 'erro', erro: String(e.message).slice(0, 500), updated_at: new Date().toISOString() });
+    if (job?.tipo === 'gerar' && job?.params?.campanhaId) await sbPatch(`/fabrica_campanhas?id=eq.${job.params.campanhaId}`, { status: statusCampanhaGerar(false) });
     throw e;
   }
 }

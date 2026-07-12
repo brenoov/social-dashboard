@@ -1,17 +1,26 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import PainelGerar from './painel-gerar.vue'
 import PainelCurar from './painel-curar.vue'
 import PainelSubir from './painel-subir.vue'
 import PainelConferir from './painel-conferir.vue'
 import './estudio.css'
-const router = useRouter()
+const route = useRoute(); const router = useRouter()
 function voltarCentral() { router.push({ name: 'inicio' }) }
-const passo = ref('gerar'); const campanhaId = ref(null); const subirResultado = ref(null)
+function voltarHome() { router.push({ name: 'fabrica-estudio' }) }
+const campanhaId = ref(route.params.id || null)
+const passo = ref(campanhaId.value ? 'curar' : 'gerar')
+const subirResultado = ref(null)
+watch(() => route.params.id, (id) => {
+  campanhaId.value = id || null
+  subirResultado.value = null
+  passo.value = id ? 'curar' : 'gerar'
+})
 onMounted(() => { if (!hasPermission('module:meta:fabrica')) router.push({ name: 'meta-ads' }) })
-function aoGerar(id) { campanhaId.value = id; passo.value = 'curar' }
+// nova campanha: ao disparar, navega pra /:id (a tela recarrega já como campanha, no Curar)
+function aoGerar(id) { router.push({ name: 'fabrica-campanha', params: { id } }) }
 function aoSubir(res) { subirResultado.value = res; passo.value = 'conferir' }
 
 // --- extras de apresentação (não interferem na lógica acima) ---
@@ -34,6 +43,7 @@ onUnmounted(() => { if (_clockTimer) clearInterval(_clockTimer) })
       <!-- BARRA DE STATUS -->
       <header class="topbar">
         <button class="voltar-central" @click="voltarCentral" aria-label="Voltar para a Central">← Central</button>
+        <button class="voltar-central" @click="voltarHome" aria-label="Voltar para a Fábrica">← Fábrica</button>
         <div class="brand">
           <div class="t">Fábrica de Anúncios</div>
           <div class="s">Estúdio de Criativos</div>
