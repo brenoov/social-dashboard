@@ -16,10 +16,10 @@ const FORMATOS = ['1080x1920', '1080x1350'];
 
 // PRODUTO: N templates ("looks") × M modos (à vista x parcelado) × 2 formatos.
 // Por padrão preserva o comportamento anterior: 1 look ('produto-heroi') × 2 modos.
-export function variacoesProduto(candidato, campanha, opts = {}) {
+export function variacoesProduto(candidato, campanha, opts = {}, pctEfetivo) {
   const looks = opts.looks && opts.looks.length ? opts.looks : ['produto-heroi'];
   const modos = opts.modos && opts.modos.length ? opts.modos : [false, true];
-  const pct = descontoDe(candidato, campanha);
+  const pct = pctEfetivo != null ? Number(pctEfetivo) : descontoDe(candidato, campanha);
   const { de, por, porNum } = precoDePor(candidato.preco, pct);
   const parc = parcelado(porNum, campanha.parcelas);
   const out = [];

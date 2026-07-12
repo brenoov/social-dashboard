@@ -79,9 +79,19 @@ async function candidatosEstrela(token, canalLojaId, depositoId, limite) {
   return out;
 }
 
+// Modo lista explícita (Estúdio): resolve nome/preço via mapa Bling (codigo.toUpperCase()->preco),
+// carregando o pct e o deposito de cada item. id=null (não há candidato). Pula sem preço.
+export function candsDeItens(itens, precoPorCodigo) {
+  return (itens || []).map((it) => {
+    const preco = precoPorCodigo[String(it.sku).toUpperCase()];
+    if (preco == null) return null;
+    return { id: null, sku: it.sku, nome: it.sku, preco, deposito_id: it.deposito, pct: it.pct };
+  }).filter(Boolean);
+}
+
 export async function run({
   pct = 50, nome = null, parcelas = 10, limite = null, dry = false,
-  loja = null, fonte = null, estrela = null, deposito = null, looks = null, modos = null,
+  loja = null, fonte = null, estrela = null, deposito = null, looks = null, modos = null, itens = null,
 } = {}) {
   const PCT = Number(pct);
   const NOME = nome || (PCT + '% OFF');
@@ -112,7 +122,14 @@ export async function run({
   const token = await loginServico();
 
   let cands;
-  if (ESTRELA_CANAL) {
+  if (itens?.length) {
+    const prodMap = await blingProdutos(token);          // id -> {nome, codigo, preco}
+    const precoPorCodigo = {};
+    for (const p of Object.values(prodMap)) if (p.codigo) precoPorCodigo[String(p.codigo).toUpperCase()] = p.preco;
+    cands = candsDeItens(itens, precoPorCodigo);
+    console.log('itens | candidatos (lista explícita):', cands.length);
+    for (const c of cands) console.log('  ', c.sku, '| R$', c.preco, '| pct', c.pct, '|', c.deposito_id);
+  } else if (ESTRELA_CANAL) {
     if (!ESTRELA_DEPOSITO) throw new Error('--estrela requer --deposito');
     cands = await candidatosEstrela(token, ESTRELA_CANAL, ESTRELA_DEPOSITO, ESTRELA_LIMITE);
     console.log('estrela | candidatos (top faturamento c/ estoque):', cands.length);
@@ -167,7 +184,7 @@ export async function run({
     if (!foto) { console.warn('  sem foto:', cand.sku, cand.nome); continue; }
     if (!fotoEhStudio(cand.sku)) { console.log('  foto amadora (avaliada na foto crua), pulado:', cand.sku); continue; }
     const copyInfo = copys.get(cand.sku) || {};
-    for (const v of variacoesProduto({ ...cand, fotoDataUrl: foto }, campanha, opts)) {
+    for (const v of variacoesProduto({ ...cand, fotoDataUrl: foto }, campanha, opts, cand.pct ?? campanha.desconto_pct)) {
       v.dados.copyEfeito = copyInfo.copy;
       v.dados.nome = copyInfo.nome;
       const html = TEMPLATES[v.template].render(v.dados, v.formato);
