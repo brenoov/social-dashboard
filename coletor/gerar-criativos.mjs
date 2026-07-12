@@ -92,7 +92,7 @@ export function candsDeItens(itens, precoPorCodigo) {
 
 export async function run({
   pct = 50, nome = null, parcelas = 10, limite = null, dry = false,
-  loja = null, fonte = null, estrela = null, deposito = null, looks = null, modos = null, itens = null,
+  loja = null, fonte = null, estrela = null, deposito = null, looks = null, modos = null, itens = null, campanhaId = null,
 } = {}) {
   const PCT = Number(pct);
   const NOME = nome || (PCT + '% OFF');
@@ -155,11 +155,12 @@ export async function run({
     campanha.marca = null;
   }
 
-  // campanha
-  let campanhaId = null;
+  // campanha: quando o trigger já criou a rodada (SP-2), usa ela; senão cria (CLI legado).
   if (!DRY) {
-    const c = await sbPost('/fabrica_campanhas', [{ nome: NOME, desconto_tipo: 'fixo', desconto_pct: PCT, parcelas: PARCELAS }], 'return=representation');
-    campanhaId = (await c.json())[0].id;
+    if (!campanhaId) {
+      const c = await sbPost('/fabrica_campanhas', [{ nome: NOME, desconto_tipo: 'fixo', desconto_pct: PCT, parcelas: PARCELAS }], 'return=representation');
+      campanhaId = (await c.json())[0].id;
+    }
     await garantirBucket();
   }
 
