@@ -8,8 +8,8 @@ Deno.serve(async (req) => {
     const uc = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: req.headers.get("Authorization") || "" } } });
     const { data: ud } = await uc.auth.getUser();
     if (!ud?.user) return json({ error: "nao_autenticado" }, 401);
-    const { data: prof } = await sb.from("profiles").select("role, permissions").eq("id", ud.user.id).single();
-    const ok = prof && (prof.role === "admin" || (prof.permissions && Object.prototype.hasOwnProperty.call(prof.permissions, "meta.fabrica")));
+    const { data: prof } = await sb.from("profiles").select("role, permissions, is_superadmin").eq("id", ud.user.id).single();
+    const ok = prof && (prof.role === "admin" || prof.is_superadmin === true || (prof.permissions && Object.prototype.hasOwnProperty.call(prof.permissions, "meta.fabrica")));
     if (!ok) return json({ error: "sem_permissao" }, 403);
     const { tipo, params } = await req.json();
     if (!["gerar", "subir", "ativar"].includes(tipo)) return json({ error: "tipo_invalido" }, 400);

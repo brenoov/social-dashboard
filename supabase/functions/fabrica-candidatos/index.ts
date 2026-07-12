@@ -60,13 +60,17 @@ Deno.serve(async (req) => {
         arr = arr.filter((i) => lojas.some((d: string) => quads.includes(bcgClass(estByDepSku[d + "|" + i.sku] || 0, i.unidades || 0, 0))));
         if (filtros.categoria) arr = arr.filter((i) => (i.categoria || "").toLowerCase().includes(String(filtros.categoria).toLowerCase()));
       }
-      candidatos = arr.map((i) => ({ sku: i.sku, nome: i.nome, categoria: i.categoria, porLoja: Object.fromEntries(lojas.map((d: string) => [d, { preco: null, pctPrevisto: null, precoComDesconto: null, estoque: estByDepSku[d + "|" + i.sku] || 0 }])) }));
+      candidatos = arr.map((i) => ({ sku: i.sku, nome: i.nome, categoria: i.categoria, porLoja: Object.fromEntries(lojas
+        .map((d: string) => [d, { preco: null, pctPrevisto: null, precoComDesconto: null, estoque: estByDepSku[d + "|" + i.sku] || 0 }])
+        .filter(([, info]: [string, any]) => info.estoque > 0)) }));
     } else if (fonte === "manual") {
       const termo = String(filtros.termo || "").toLowerCase();
       const { data: vendas } = await sb.from("gc_vendas_item").select("sku, produto, categoria").in("canal_loja_id", lojas.map((d: string) => cfgByDep[d]?.canal_loja_id).filter(Boolean));
       const { data: estoque } = await sb.from("gc_estoque_item").select("sku, saldo, deposito_id").in("deposito_id", lojas);
       const estByDepSku: Record<string, number> = {}; for (const e of estoque || []) estByDepSku[e.deposito_id + "|" + e.sku] = e.saldo;
-      const uniq: Record<string, any> = {}; for (const v of vendas || []) if (!termo || (v.produto || "").toLowerCase().includes(termo) || (v.sku || "").toLowerCase().includes(termo)) uniq[v.sku] ??= { sku: v.sku, nome: v.produto, categoria: v.categoria, porLoja: Object.fromEntries(lojas.map((d: string) => [d, { preco: null, pctPrevisto: null, precoComDesconto: null, estoque: estByDepSku[d + "|" + v.sku] || 0 }])) };
+      const uniq: Record<string, any> = {}; for (const v of vendas || []) if (!termo || (v.produto || "").toLowerCase().includes(termo) || (v.sku || "").toLowerCase().includes(termo)) uniq[v.sku] ??= { sku: v.sku, nome: v.produto, categoria: v.categoria, porLoja: Object.fromEntries(lojas
+        .map((d: string) => [d, { preco: null, pctPrevisto: null, precoComDesconto: null, estoque: estByDepSku[d + "|" + v.sku] || 0 }])
+        .filter(([, info]: [string, any]) => info.estoque > 0)) };
       candidatos = Object.values(uniq);
     } else return json({ error: "fonte_invalida" }, 400);
 
