@@ -154,13 +154,9 @@ async function fase1Regen(loja) {
   const looksRegen = REGEN_LOOKS || BROKEN;
   const alvo = rows.filter((r) => looksRegen.some((b) => (r.variante || '').includes(b)));
   console.log(`  linhas 1080x1920 nos 3 looks quebrados: ${alvo.length}`);
-  // candidatos (nome real de origem) por candidato_id
-  const ids = [...new Set(alvo.map((r) => r.candidato_id).filter(Boolean))];
-  const candNome = new Map();
-  if (ids.length) { const cs = await sbGet(`/fabrica_candidatos?select=id,sku,nome&id=in.(${ids.join(',')})`); for (const c of cs) candNome.set(c.id, c.nome); }
-  // copy (nome curto "Bolsa Cidade" + copyEfeito) por sku
+  // Nome do produto por sku via gc_vendas_item (fabrica_candidatos foi aposentada na migration 019).
   const porSku = new Map();
-  for (const r of alvo) { const sku = skuDe(r.storage_path, r.variante, r.formato); if (!porSku.has(sku)) porSku.set(sku, { sku, nome: candNome.get(r.candidato_id) || (await nomeProduto(sane(sku))) || sku }); }
+  for (const r of alvo) { const sku = skuDe(r.storage_path, r.variante, r.formato); if (!porSku.has(sku)) porSku.set(sku, { sku, nome: (await nomeProduto(sane(sku))) || sku }); }
   const copys = await gerarCopysProduto([...porSku.values()], { desconto_tipo: 'fixo', desconto_pct: 50, parcelas: 10 });
   const fotoCache = new Map();
   let ok = 0, pulados = 0, falhas = [];

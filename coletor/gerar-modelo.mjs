@@ -6,7 +6,7 @@
 //
 // Reaproveita De/Por já gerado numa rodada de produto anterior (fabrica_criativos,
 // por storage_path contendo o SKU) — não recalcula desconto. Nome completo do
-// Bling vem de fabrica_candidatos ou gc_vendas_item (mesma fonte usada no
+// Nome do Bling vem de gc_vendas_item (mesma fonte usada no
 // Gestor Comercial); o nome curto "Bolsa <Cidade>" + a linha de impacto vêm do
 // gerarCopysProduto (Opus), igual ao fluxo de gerar-criativos.mjs.
 //
@@ -50,18 +50,17 @@ async function subir(path, buf) {
 // recente cujo storage_path contenha o SKU (dedup por preço, todas as linhas
 // de um mesmo SKU numa mesma rodada têm o mesmo De/Por).
 async function dePorDe(sku) {
-  const rows = await sbGet(`/fabrica_criativos?select=preco_de,preco_por,candidato_id&storage_path=ilike.*${encodeURIComponent(sku)}*&order=created_at.desc&limit=1`);
+  const rows = await sbGet(`/fabrica_criativos?select=preco_de,preco_por&storage_path=ilike.*${encodeURIComponent(sku)}*&order=created_at.desc&limit=1`);
   if (!rows.length) return null;
-  return { precoDe: rows[0].preco_de, precoPor: rows[0].preco_por, candidatoId: rows[0].candidato_id };
+  return { precoDe: rows[0].preco_de, precoPor: rows[0].preco_por };
 }
 
-// Nome completo do Bling: tenta fabrica_candidatos (match exato do SKU) e cai
-// pra gc_vendas_item (match exato, depois variações de espaço/underscore/caixa
-// — o SKU do Bling às vezes vem "LV1072-CG Preto" com espaço onde o mapa de
-// fotos usa underscore).
+// Nome completo do Bling a partir de gc_vendas_item (match exato, depois variações
+// de espaço/underscore/caixa — o SKU do Bling às vezes vem "LV1072-CG Preto" com
+// espaço onde o mapa de fotos usa underscore). (fabrica_candidatos foi aposentada
+// na migration 019 — F1 removida; gc_vendas_item é a fonte de nome.)
 async function nomeCompletoDe(sku) {
-  let rows = await sbGet(`/fabrica_candidatos?select=nome&sku=eq.${encodeURIComponent(sku)}&limit=1`);
-  if (rows.length) return rows[0].nome;
+  let rows;
   const variantes = [sku, sku.replace(/_/g, ' ')];
   for (const v of variantes) {
     rows = await sbGet(`/gc_vendas_item?select=produto&sku=eq.${encodeURIComponent(v)}&limit=1`);
@@ -128,7 +127,7 @@ async function main() {
       if (DRY) { console.log('  [dry] modelo', sku, varianteCor, formato, buf.length, 'bytes'); continue; }
       const path = `${campanhaId}/produto-modelo/${sane(sku)}-${formato}.png`;
       const url = await subir(path, buf);
-      await sbPost('/fabrica_criativos', [{ campanha_id: campanhaId, candidato_id: dados0.candidatoId || null, arquetipo: 'produto', template: 'produto-modelo', formato, variante: 'produto-modelo', preco_de: dados0.precoDe, preco_por: dados0.precoPor, storage_path: path, url }], 'return=minimal');
+      await sbPost('/fabrica_criativos', [{ campanha_id: campanhaId, arquetipo: 'produto', template: 'produto-modelo', formato, variante: 'produto-modelo', preco_de: dados0.precoDe, preco_por: dados0.precoPor, storage_path: path, url }], 'return=minimal');
       console.log('  gerado:', sku, varianteCor, formato);
     }
   }
