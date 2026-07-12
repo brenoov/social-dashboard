@@ -303,6 +303,50 @@ git commit -m "feat(fabrica): Curar mostra criativo inteiro + lightbox (checkbox
 
 ---
 
+## Task 4: Tema claro no Estúdio (respeitar o toggle global)
+
+**Files:**
+- Modify: `src/ferramentas/meta-ads/estudio.css`
+
+**Contexto:** o app troca tema setando **`data-theme="dark"|"light"` no `<html>`** (`src/moldura-do-aplicativo.vue:146`, persiste em localStorage). O `.fest` define seus tokens escuros em `estudio.css:7-15` (`.fest{ --void; --panel; --ink; ... }`) e todos os componentes usam `var(--...)`, mas nunca reagem ao tema → o Estúdio fica sempre escuro (o botão de tema não faz efeito nele). Fix: um único bloco de override dos tokens quando `data-theme="light"`.
+
+- [ ] **Step 1: Adicionar o override de tema claro**
+
+Em `src/ferramentas/meta-ads/estudio.css`, logo APÓS o bloco `.fest{...}` (que termina na linha ~16), adicionar:
+
+```css
+/* ===== tema claro (respeita o data-theme='light' do <html>, setado por moldura-do-aplicativo.vue) ===== */
+:root[data-theme="light"] .fest{
+  --void:#e9eff5; --panel:#ffffff; --panel-2:#f2f6fa; --grid-l:#d5dfe9;
+  --edge:#cbd7e3; --edge-hot:#93a8bd;
+  --ink:#17232f; --ink-dim:#4c5e6e; --ink-faint:#7c8ea0;
+  --amber:#c47f10; --amber-soft:#e2a542; --cyan:#0f9b8e;
+  --go:#1f9d5a; --hold:#c8920f; --abort:#e23b28; --idle:#93a3b3;
+}
+/* glows quentes/frios do fundo escuro somem no claro (ficariam sujos sobre branco) */
+:root[data-theme="light"] .fest{ background-image:none; }
+```
+
+> Nota: os tokens são os MESMOS nomes do bloco escuro (`estudio.css:8-12`) — só os valores mudam, então todos os componentes (`.topbar/.panel/.tile/.cmd/.lightbox/.voltar-central/.marcar-todos` etc.) adaptam sozinhos via `var(--...)`. Não tocar em nenhum `.vue`.
+
+- [ ] **Step 2: Build + smoke (os dois temas)**
+
+Run: `cd /Users/erickmartins/iamundi && npm run build 2>&1 | tail -6` → limpo.
+Smoke: abrir `/fabrica-estudio`, clicar no botão de tema (canto do app):
+- **Claro:** fundo claro, texto escuro legível, painéis brancos, LEDs/acentos (âmbar/ciano/go/hold/abort) visíveis e com contraste; a grade de fundo aparece sutil (linha clara), sem o brilho quente/frio sujando o branco.
+- **Escuro:** idêntico ao de hoje (nada regrediu).
+- Recarregar mantém o tema (localStorage). O contraste do texto no claro está confortável (nada âmbar-claro ilegível sobre branco).
+
+- [ ] **Step 3: Commit**
+
+```bash
+cd /Users/erickmartins/iamundi
+git add src/ferramentas/meta-ads/estudio.css
+git commit -m "feat(fabrica): Estúdio respeita o tema claro (override de tokens .fest sob data-theme=light)"
+```
+
+---
+
 ## Testes (resumo)
 
 - Sem harness de front no repo → cada task fecha com `npm run build` limpo + o smoke manual descrito.

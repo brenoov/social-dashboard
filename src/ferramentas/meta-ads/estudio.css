@@ -42,6 +42,18 @@
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='120' height='120' filter='url(%23n)'/></svg>");
 }
 
+
+/* ===== tema claro (respeita o data-theme='light' do <html>, setado por moldura-do-aplicativo.vue) ===== */
+:root[data-theme="light"] .fest{
+  --void:#e9eff5; --panel:#ffffff; --panel-2:#f2f6fa; --grid-l:#d5dfe9;
+  --edge:#cbd7e3; --edge-hot:#93a8bd;
+  --ink:#17232f; --ink-dim:#4c5e6e; --ink-faint:#7c8ea0;
+  --amber:#c47f10; --amber-soft:#e2a542; --cyan:#0f9b8e;
+  --go:#1f9d5a; --hold:#c8920f; --abort:#e23b28; --idle:#93a3b3;
+}
+/* glows quentes/frios do fundo escuro somem no claro (ficariam sujos sobre branco) */
+:root[data-theme="light"] .fest{ background-image:none; }
+
 .fest .num{font-family:var(--mono); font-variant-numeric:tabular-nums}
 .fest .shell{position:relative; z-index:1; width:100%; padding:16px clamp(16px,2.4vw,44px) 40px}
 .fest h1,.fest h2,.fest h3{margin:0; font-weight:600; text-wrap:balance; color:var(--ink)}
@@ -55,6 +67,16 @@
 .fest .brand{margin-right:auto}
 .fest .brand .t{font-size:15px; letter-spacing:.16em; text-transform:uppercase; color:var(--amber)}
 .fest .brand .s{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-dim); margin-top:2px}
+.fest .voltar-central{
+  appearance:none; cursor:pointer; font:inherit; align-self:center;
+  display:inline-flex; align-items:center; gap:6px;
+  padding:6px 12px; margin-right:4px;
+  background:var(--panel-2); color:var(--ink-dim);
+  border:1px solid var(--edge); border-radius:6px;
+  font-size:12px; letter-spacing:.04em; white-space:nowrap;
+  transition:border-color .15s, color .15s;
+}
+.fest .voltar-central:hover{ border-color:var(--cyan); color:var(--ink); }
 .fest .sys{display:flex; gap:16px; flex-wrap:wrap}
 .fest .sig{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-dim)}
 .fest .led{width:9px; height:9px; border-radius:50%; background:var(--idle); flex:none; display:inline-block}
@@ -77,6 +99,14 @@
 .fest .panel::before{top:-1px; left:-1px; border-right:0; border-bottom:0}
 .fest .panel::after{bottom:-1px; right:-1px; border-left:0; border-top:0}
 .fest .panel > .ph{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; gap:10px}
+.fest .ph-right{ display:inline-flex; align-items:center; gap:12px; }
+.fest .marcar-todos{
+  appearance:none; cursor:pointer; font:inherit;
+  padding:4px 10px; background:var(--panel-2); color:var(--ink-dim);
+  border:1px solid var(--edge); border-radius:5px; font-size:11.5px;
+  transition:border-color .15s, color .15s;
+}
+.fest .marcar-todos:hover{ border-color:var(--amber); color:var(--ink); }
 
 /* ===== trilho de passos (01–04) ===== */
 .fest .seq{display:flex; flex-direction:column; gap:8px}
@@ -221,7 +251,7 @@
 /* ===== grade de criativos (prévia / escolha) ===== */
 .fest .cg{display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:9px; margin-top:4px}
 .fest .tile{position:relative; aspect-ratio:4/5; border:1px solid var(--edge); border-radius:2px; overflow:hidden; cursor:pointer}
-.fest .tile .art{position:absolute; inset:0; width:100%; height:100%; object-fit:cover}
+.fest .tile .art{position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:var(--panel-2)}
 .fest .tile .art.placeholder{display:grid; place-items:center; text-align:center; padding:8px; font-size:11px;
   color:var(--ink-faint); background:var(--panel-2)}
 .fest .tile .cap{position:absolute; left:0; right:0; bottom:0; padding:6px 7px; font-size:10.5px; color:#dfe7ef;
@@ -230,6 +260,21 @@
 .fest .tile.ok{border-color:var(--amber)}
 .fest .tile.ok::after{content:"escolhido"; position:absolute; top:6px; left:6px; font-size:9.5px; font-weight:700;
   text-transform:uppercase; color:#241606; background:var(--amber); padding:2px 7px; border-radius:2px; z-index:1}
+
+.fest .tile .art{cursor:zoom-in}
+.fest .tile .pick{position:absolute; top:5px; right:5px; z-index:2; background:rgba(5,10,15,.6); border-radius:4px; padding:2px 3px; line-height:0}
+.fest .tile .pick input{cursor:pointer; width:16px; height:16px}
+
+.fest .lightbox{position:fixed; inset:0; z-index:50; display:grid; place-items:center; padding:20px;
+  background:rgba(2,6,10,.86); backdrop-filter:blur(2px)}
+.fest .lb-inner{position:relative; max-width:min(92vw,720px); max-height:92vh; display:flex; flex-direction:column; gap:10px}
+.fest .lb-img{max-width:100%; max-height:78vh; object-fit:contain; border:1px solid var(--edge); border-radius:4px; background:var(--panel-2)}
+.fest .lb-bar{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+  font-size:12.5px; color:var(--ink-dim)}
+.fest .lb-close{position:absolute; top:-12px; right:-12px; width:32px; height:32px; border-radius:50%;
+  background:var(--panel); color:var(--ink); border:1px solid var(--edge); cursor:pointer; font-size:14px}
+.fest .lb-close:hover{border-color:var(--abort); color:var(--abort)}
+@media(max-width:560px){ .fest .lb-close{top:0; right:0} }
 
 /* ===== rodapé ===== */
 .fest .foot{margin-top:16px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;
