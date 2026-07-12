@@ -223,6 +223,19 @@
 .fest .okline{margin-top:12px; font-size:13.5px; color:var(--go)}
 .fest .empty{color:var(--ink-faint); font-size:13.5px; padding:10px 0}
 
+/* ===== Home da Fábrica ===== */
+.fest .home-list{display:flex; flex-direction:column; gap:8px}
+.fest .home-card{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+  border:1px solid var(--edge); border-radius:var(--r); background:var(--panel-2); padding:12px 14px}
+.fest .home-card.erro{border-color:#5a231c}
+.fest .hc-nome{font-weight:600}
+.fest .hc-status{display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-dim); margin-top:3px}
+.fest .hc-acoes{display:flex; align-items:center; gap:8px}
+.fest .hc-apagar{appearance:none; cursor:pointer; background:var(--panel); border:1px solid var(--edge); border-radius:6px;
+  color:var(--ink-dim); font-size:14px; padding:6px 9px}
+.fest .hc-apagar:hover{border-color:var(--abort); color:var(--abort)}
+.fest .home-soon{opacity:.7}
+
 /* ===== console de lançamento (Conferir) ===== */
 .fest .launch{position:relative; border:1px solid var(--edge); border-radius:var(--r); padding:18px;
   background:repeating-linear-gradient(45deg,rgba(255,90,69,.05) 0 12px,transparent 12px 24px),var(--panel-2)}
