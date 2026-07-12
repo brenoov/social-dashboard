@@ -27,6 +27,7 @@ import tls from 'node:tls';
 import { loginServico } from './lib/bling-comercial.mjs';
 import { subirCriativos } from './lib/meta-subir.mjs';
 import { carregarMarcasELojas, montarLegenda } from './lib/config-lojas.mjs';
+import { carregarObjetivos, mapaObjetivo, montaPromotedObject } from './lib/objetivos.mjs';
 
 // Fix TLS1.2 (ECONNRESET determinístico atrás do Cloudflare/*.supabase.co nesta máquina). Antes de
 // qualquer fetch — inclusive o de dentro do loginServico().
@@ -149,33 +150,47 @@ async function adsetsDaCampanha(campaignId) {
   }));
 }
 
-// --- destino 'nova': cria campanha WhatsApp (OUTCOME_ENGAGEMENT, PAUSED) + 1 conjunto ---------
-async function criarCampanhaNova(loja) {
-  const campaign = await meta(`/${MARCA.adAccount}/campaigns`, {
-    name: `[Estudio] ${loja.nome} · WhatsApp · ${CFG_ADSET.DATA_CAMPANHA}`,
-    objective: 'OUTCOME_ENGAGEMENT',
+// --- payload puro (sem Graph) de campaign+adset a partir da linha de fabrica_objetivos --------
+// row = linha de fabrica_objetivos (mapaObjetivo); cfg = { DAILY_BUDGET, DATA }. destination_type só
+// entra se a linha tiver (branding não tem => omitido); promoted_object só entra se
+// montaPromotedObject(...) devolver objeto (branding='none' => undefined => omitido).
+export function payloadCampanhaAdset(row, marca, loja, cfg) {
+  const campaign = {
+    name: `[Estudio] ${loja.nome} · ${row.chave} · ${cfg.DATA}`,
+    objective: row.meta_objective,
     status: 'PAUSED',
     special_ad_categories: [],
     is_adset_budget_sharing_enabled: false,
-  }, 'POST');
+  };
+  const adset = {
+    name: 'Estudio · Geral',
+    daily_budget: cfg.DAILY_BUDGET,
+    billing_event: row.billing_event || 'IMPRESSIONS',
+    optimization_goal: row.optimization_goal,
+    bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+    status: 'PAUSED',
+    targeting: { geo_locations: { cities: (loja.geoCities || []).map((key) => ({ key })) } },
+  };
+  if (row.destination_type) adset.destination_type = row.destination_type;
+  const po = montaPromotedObject(row.promoted_object_tipo, marca, loja);
+  if (po) adset.promoted_object = po;
+  return { campaign, adset };
+}
+
+// --- destino 'nova': cria campanha + 1 conjunto a partir do objetivo da rodada -----------------
+async function criarCampanhaNova(loja, objetivoRow) {
+  const { campaign: campaignPayload, adset: adsetPayload } = payloadCampanhaAdset(
+    objetivoRow, MARCA, loja, { DAILY_BUDGET: CFG_ADSET.DAILY_BUDGET, DATA: CFG_ADSET.DATA_CAMPANHA },
+  );
+
+  const campaign = await meta(`/${MARCA.adAccount}/campaigns`, campaignPayload, 'POST');
   if (campaign.status !== 200 || !campaign.d?.id) throw new Error(`POST /campaigns falhou (status ${campaign.status}): ${JSON.stringify(campaign.d).slice(0, 500)}`);
   const campaignId = campaign.d.id;
 
-  const adset = await meta(`/${MARCA.adAccount}/adsets`, {
-    name: 'Estudio · Geral',
-    campaign_id: campaignId,
-    daily_budget: CFG_ADSET.DAILY_BUDGET,
-    billing_event: 'IMPRESSIONS',
-    optimization_goal: 'CONVERSATIONS',
-    bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
-    destination_type: 'WHATSAPP',
-    promoted_object: { page_id: MARCA.pageId, whatsapp_phone_number: loja.whatsapp },
-    targeting: { geo_locations: { cities: loja.geoCities.map((key) => ({ key })) } },
-    status: 'PAUSED',
-  }, 'POST');
+  const adset = await meta(`/${MARCA.adAccount}/adsets`, { ...adsetPayload, campaign_id: campaignId }, 'POST');
   if (adset.status !== 200 || !adset.d?.id) throw new Error(`POST /adsets falhou (status ${adset.status}): ${JSON.stringify(adset.d).slice(0, 500)}`);
 
-  return { campaignId, adsets: [{ id: adset.d.id, name: 'Estudio · Geral', destinationType: 'WHATSAPP', whatsapp: loja.whatsapp }] };
+  return { campaignId, adsets: [{ id: adset.d.id, name: 'Estudio · Geral', destinationType: objetivoRow.destination_type, whatsapp: loja.whatsapp }] };
 }
 
 // --- run(): API pública do módulo -------------------------------------------------------------
@@ -203,7 +218,11 @@ export async function run({ campanhaId, destino, dry = false }) {
     lojaNova = resolverLoja(lojas, destino.loja);
     if (!lojaNova || !lojaNova.marca) throw new Error(`loja inválida p/ destino 'nova': ${destino.loja} (use tivoli|dp)`);
     MARCA = lojaNova.marca; // a loja pode pertencer a uma marca diferente da marcaAtiva global
-    ({ campaignId: metaCampaignId, adsets } = await criarCampanhaNova(lojaNova));
+    // objetivo da rodada (fabrica_campanhas.objetivo) -> linha de fabrica_objetivos (fallback 'engajamento')
+    const campanha = (await sbGet(`/fabrica_campanhas?select=objetivo&id=eq.${campanhaId}`))[0];
+    const { porChave } = await carregarObjetivos(sbGet);
+    const objetivoRow = mapaObjetivo(porChave, campanha?.objetivo || 'engajamento');
+    ({ campaignId: metaCampaignId, adsets } = await criarCampanhaNova(lojaNova, objetivoRow));
   } else {
     throw new Error(`destino inválido: ${JSON.stringify(destino)} (use {tipo:'existente',campaignId} ou {tipo:'nova',loja})`);
   }
