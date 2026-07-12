@@ -17,28 +17,6 @@ import { TEMPLATES, DIM } from './templates-criativos/templates.mjs';
 import { variacoesProduto, variacoesPromo } from './lib/criativo-modelo.mjs';
 import { gerarCopysProduto, gerarCopyPromo } from './lib/copy-efeito.mjs';
 
-const arg = (f, d) => { const i = process.argv.indexOf(f); return i >= 0 ? process.argv[i + 1] : d; };
-const DRY = process.argv.includes('--dry');
-const PCT = Number(arg('--pct', '50'));
-const NOME = arg('--nome', PCT + '% OFF');
-const PARCELAS = Number(arg('--parcelas', '10'));
-const LIMITE = process.argv.includes('--limite') ? Number(arg('--limite', '5')) : Infinity;
-const LOJA = arg('--loja', null);
-const FONTE = arg('--fonte', null);
-const ESTRELA_CANAL = arg('--estrela', null);
-const ESTRELA_DEPOSITO = arg('--deposito', null);
-const ESTRELA_LIMITE = process.argv.includes('--limite') ? Number(arg('--limite', '20')) : 20;
-
-// --looks produto-heroi,produto-sage-circulo  |  --modos avista,parcelado
-const LOOKS = process.argv.includes('--looks') ? arg('--looks', '').split(',').map(s => s.trim()).filter(Boolean) : null;
-const MODOS_MAP = { avista: false, parcelado: true };
-const MODOS = process.argv.includes('--modos')
-  ? arg('--modos', '').split(',').map(s => s.trim()).filter(Boolean).map(s => MODOS_MAP[s])
-  : null;
-const opts = {};
-if (LOOKS && LOOKS.length) opts.looks = LOOKS;
-if (MODOS && MODOS.length) opts.modos = MODOS;
-
 const URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
 const SK = process.env.SUPABASE_SERVICE_KEY;
 const REST = URL + '/rest/v1';
@@ -101,7 +79,36 @@ async function candidatosEstrela(token, canalLojaId, depositoId, limite) {
   return out;
 }
 
-async function main() {
+export async function run({
+  pct = 50, nome = null, parcelas = 10, limite = null, dry = false,
+  loja = null, fonte = null, estrela = null, deposito = null, looks = null, modos = null,
+} = {}) {
+  const PCT = Number(pct);
+  const NOME = nome || (PCT + '% OFF');
+  const PARCELAS = Number(parcelas);
+  const DRY = !!dry;
+  const LOJA = loja;
+  const FONTE = fonte;
+  const ESTRELA_CANAL = estrela;
+  const ESTRELA_DEPOSITO = deposito;
+  // sem --limite (limite null): Infinity no modo normal, 20 candidatos no modo estrela
+  const LIMITE = limite == null ? Infinity : Number(limite);
+  const ESTRELA_LIMITE = limite == null ? 20 : Number(limite);
+
+  // --looks produto-heroi,produto-sage-circulo  |  --modos avista,parcelado
+  // (opts.looks/opts.modos podem chegar como string "a,b" via CLI, ou já
+  // como array quando run() é chamado programaticamente)
+  const LOOKS = looks == null ? null
+    : Array.isArray(looks) ? looks
+    : String(looks).split(',').map(s => s.trim()).filter(Boolean);
+  const MODOS_MAP = { avista: false, parcelado: true };
+  const MODOS = modos == null ? null
+    : Array.isArray(modos) ? modos.map(m => typeof m === 'boolean' ? m : MODOS_MAP[m])
+    : String(modos).split(',').map(s => s.trim()).filter(Boolean).map(s => MODOS_MAP[s]);
+  const opts = {};
+  if (LOOKS && LOOKS.length) opts.looks = LOOKS;
+  if (MODOS && MODOS.length) opts.modos = MODOS;
+
   const token = await loginServico();
 
   let cands;
@@ -190,5 +197,16 @@ async function main() {
 
   await fecharRender();
   console.log(DRY ? `\n(--dry) geraria ${gerados} criativos.` : `\ngerado: ${gerados} criativos | campanha ${campanhaId}`);
+  return { campanhaId, criativos: gerados };
 }
-main().catch(async e => { await fecharRender(); console.error('FALHOU:', e.message); process.exit(1); });
+
+function flag(f, d) { const i = process.argv.indexOf(f); return i >= 0 ? process.argv[i + 1] : d; }
+if (import.meta.url === `file://${process.argv[1]}`) {
+  run({
+    pct: Number(flag('--pct', 50)), nome: flag('--nome', null),
+    parcelas: Number(flag('--parcelas', 10)), limite: flag('--limite') ? Number(flag('--limite')) : null,
+    dry: process.argv.includes('--dry'), loja: flag('--loja', null), fonte: flag('--fonte', null),
+    estrela: flag('--estrela', null), deposito: flag('--deposito', null),
+    looks: flag('--looks', null), modos: flag('--modos', null),
+  }).then((r) => console.log('gerar concluído:', r)).catch(async (e) => { await fecharRender(); console.error('FALHOU:', e.message); process.exit(1); });
+}
