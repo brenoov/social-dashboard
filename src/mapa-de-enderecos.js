@@ -15,6 +15,7 @@ const rotas = [
   { path: '/gestao-trafego', name: 'gestao-trafego', component: () => import('./ferramentas/gestao-trafego/tela-de-gestao-trafego.vue') },
   { path: '/fabrica-estudio', name: 'fabrica-estudio', component: () => import('./ferramentas/meta-ads/tela-de-fabrica-home.vue') },
   { path: '/fabrica-estudio/nova', name: 'fabrica-nova', component: () => import('./ferramentas/meta-ads/tela-de-fabrica-estudio.vue') },
+  { path: '/fabrica-estudio/looks', name: 'fabrica-looks', component: () => import('./ferramentas/meta-ads/tela-de-fabrica-looks.vue') },
   { path: '/fabrica-estudio/:id', name: 'fabrica-campanha', component: () => import('./ferramentas/meta-ads/tela-de-fabrica-estudio.vue'), props: true },
   { path: '/gestao-comercial', name: 'gestao-comercial', component: () => import('./ferramentas/gestao-comercial/tela-de-gestao-comercial.vue') },
   { path: '/login', name: 'login', component: () => import('./ferramentas/login/tela-de-login.vue') },
