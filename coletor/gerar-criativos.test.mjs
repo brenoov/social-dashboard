@@ -31,3 +31,8 @@ test('objetivoPermitePromo: branding não permite promo; engajamento sim; null s
   assert.equal(objetivoPermitePromo('trafego'), true);
   assert.equal(objetivoPermitePromo(null), true);
 });
+
+test('gerar importa looksAtivosOrdenados (integra fabrica_looks)', async () => {
+  const looks = await import('./lib/looks.mjs');
+  assert.equal(typeof looks.looksAtivosOrdenados, 'function');
+});
