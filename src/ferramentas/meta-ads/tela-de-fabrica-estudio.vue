@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
+import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import PainelGerar from './painel-gerar.vue'
 import PainelCurar from './painel-curar.vue'
 import PainelSubir from './painel-subir.vue'
@@ -13,12 +14,28 @@ function voltarHome() { router.push({ name: 'fabrica-estudio' }) }
 const campanhaId = ref(route.params.id || null)
 const passo = ref(campanhaId.value ? 'curar' : 'gerar')
 const subirResultado = ref(null)
+// Resume: o subir cria as campanhas num job (fabrica_jobs, ~2 min). Se o usuário sai e volta,
+// o subirResultado (só em memória) se perdia e o Conferir sumia — mesmo com as campanhas já
+// criadas. Ao (re)entrar numa campanha, busca o ÚLTIMO subir dela; se concluído, restaura o
+// resultado (destrava o Conferir). Se ainda rodando, deixa o Subir (o painel resume o polling).
+async function resumirSubir(id) {
+  subirResultado.value = null
+  if (!id) return
+  try {
+    const jobs = await sb(`fabrica_jobs?select=status,resultado&tipo=eq.subir&params->>campanhaId=eq.${id}&order=created_at.desc&limit=1`)
+    const j = jobs?.[0]
+    if (j?.status === 'concluido' && j.resultado?.adIds?.length) { subirResultado.value = j.resultado; passo.value = 'conferir' }
+  } catch (e) { /* resume é best-effort — não trava a tela */ }
+}
 watch(() => route.params.id, (id) => {
   campanhaId.value = id || null
-  subirResultado.value = null
   passo.value = id ? 'curar' : 'gerar'
+  resumirSubir(id)
 })
-onMounted(() => { if (!hasPermission('module:meta:fabrica')) router.push({ name: 'meta-ads' }) })
+onMounted(() => {
+  if (!hasPermission('module:meta:fabrica')) { router.push({ name: 'meta-ads' }); return }
+  resumirSubir(campanhaId.value)
+})
 // nova campanha: ao disparar, navega pra /:id (a tela recarrega já como campanha, no Curar)
 function aoGerar(id) { router.push({ name: 'fabrica-campanha', params: { id } }) }
 function aoSubir(res) { subirResultado.value = res; passo.value = 'conferir' }
