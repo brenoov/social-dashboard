@@ -19,6 +19,7 @@ import { gerarCopysProduto, gerarCopyPromo } from './lib/copy-efeito.mjs';
 import { carregarMarcasELojas } from './lib/config-lojas.mjs';
 import { carregarObjetivos, mapaObjetivo, looksDoObjetivo } from './lib/objetivos.mjs';
 import { objetivosDoTemplate } from './templates-criativos/templates.mjs';
+import { looksAtivosOrdenados } from './lib/looks.mjs';
 
 const URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
 const SK = process.env.SUPABASE_SERVICE_KEY;
@@ -131,22 +132,28 @@ export async function run({
   if (LOOKS && LOOKS.length) opts.looks = LOOKS;
   if (MODOS && MODOS.length) opts.modos = MODOS;
 
-  // SP-3: filtra os looks pelo objetivo (lido de fabrica_objetivos). --looks
-  // explícito (CLI ou programático) sempre vence — só filtra por objetivo
-  // quando o chamador não decidiu os looks na mão. Soft-fail: se a leitura do
-  // objetivo falhar (tabela ausente, rede), segue sem filtro (não quebra o gerar).
-  if (objetivo && !(LOOKS && LOOKS.length)) {
+  // SP-5A: os looks vêm de fabrica_looks (ativos, curados). Só filtra por objetivo quando o
+  // chamador não passou --looks explícito. Soft-fail: sem tabela/sem match, cai no fallback SP-3.
+  if (!(LOOKS && LOOKS.length)) {
+    let usouTabela = false;
     try {
-      const { porChave } = await carregarObjetivos(sbGet);
-      const row = mapaObjetivo(porChave, objetivo);
-      const looksDisponiveis = Object.keys(TEMPLATES).filter((k) => {
-        const objs = objetivosDoTemplate(k);
-        return objs.length === 0 || objs.includes(objetivo);
-      });
-      const permitidos = looksDoObjetivo(row, looksDisponiveis);
-      if (permitidos.length) opts.looks = permitidos;
+      const fabricaLooks = await sbGet('/fabrica_looks?select=chave,objetivos,ativo,ordem,tipo&order=ordem');
+      const ativos = looksAtivosOrdenados(fabricaLooks, objetivo).filter((k) => TEMPLATES[k]); // só code-looks conhecidos
+      if (ativos.length) { opts.looks = ativos; usouTabela = true; }
     } catch (e) {
-      console.warn('aviso: filtro de looks por objetivo não resolvido (segue sem filtro):', e.message);
+      console.warn('aviso: fabrica_looks indisponível, fallback SP-3:', e.message);
+    }
+    if (!usouTabela && objetivo) {
+      try {
+        // fallback SP-3: registry + objetivosDoTemplate
+        const { porChave } = await carregarObjetivos(sbGet);
+        const row = mapaObjetivo(porChave, objetivo);
+        const looksDisponiveis = Object.keys(TEMPLATES).filter((k) => { const o = objetivosDoTemplate(k); return o.length === 0 || o.includes(objetivo); });
+        const permitidos = looksDoObjetivo(row, looksDisponiveis);
+        if (permitidos.length) opts.looks = permitidos;
+      } catch (e) {
+        console.warn('aviso: fallback SP-3 (fabrica_objetivos) indisponível, sem filtro por objetivo:', e.message);
+      }
     }
   }
 
@@ -242,7 +249,8 @@ export async function run({
 
   // PROMO (usa a 1ª foto disponível como símbolo)
   const primeiraFoto = [...fotoCache.values()].find(Boolean) || null;
-  if (primeiraFoto && objetivoPermitePromo(objetivo)) {
+  const promoAtivo = !opts.looks || opts.looks.includes('promo-number-hero');
+  if (primeiraFoto && objetivoPermitePromo(objetivo) && promoAtivo) {
     for (const v of variacoesPromo(campanha, primeiraFoto, 'Coleção')) {
       v.dados.copyEfeito = copyPromo;
       const html = TEMPLATES[v.template].render(v.dados, v.formato);

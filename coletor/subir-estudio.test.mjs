@@ -32,7 +32,8 @@ test('payloadCampanhaAdset aplica o publico no targeting (cidades+raio+interesse
   const loja = { nome: 'Tivoli', whatsapp: '55', geoCities: ['1058'] };
   const publico = { geo: { cities: [{ key: '1058', radius: 15, distance_unit: 'kilometer' }] }, interesses: [{ id: '6003', name: 'Moda' }], generos: [2], idade_min: 25, idade_max: 45 };
   const { adset } = payloadCampanhaAdset(row, marca, loja, { DAILY_BUDGET: 5000, DATA: 'X' }, publico);
-  assert.deepEqual(adset.targeting.geo_locations.cities, [{ key: '1058', radius: 15, distance_unit: 'kilometer' }]);
+  // SP-4 fix: montarTargeting faz clamp do raio pro mínimo do Meta (15 -> 17km)
+  assert.deepEqual(adset.targeting.geo_locations.cities, [{ key: '1058', radius: 17, distance_unit: 'kilometer' }]);
   assert.deepEqual(adset.targeting.flexible_spec, [{ interests: [{ id: '6003', name: 'Moda' }] }]);
   assert.equal(adset.targeting.age_min, 25);
 });

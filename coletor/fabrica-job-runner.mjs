@@ -13,6 +13,7 @@ import './lib/carregar-env.mjs';
 import { run as gerarRun } from './gerar-criativos.mjs';
 import { run as subirRun } from './subir-estudio.mjs';
 import { run as ativarRun } from './ativar-estudio.mjs';
+import { run as previewRun } from './gerar-previews.mjs';
 
 const URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
 const SK = process.env.SUPABASE_SERVICE_KEY;
@@ -84,6 +85,10 @@ async function main() {
       const r = await ativarRun(job.params || {});
       const t = estadoTerminalAtivar(r);
       await sbPatch(`/fabrica_jobs?id=eq.${jobId}`, { status: t.status, resultado: r, erro: t.erro || null, updated_at: new Date().toISOString() });
+    } else if (job.tipo === 'preview') {
+      // gera a galeria de preview dos looks (dados de amostra) — não toca campanha/objetivo.
+      const r = await previewRun();
+      await sbPatch(`/fabrica_jobs?id=eq.${jobId}`, { status: 'concluido', resultado: r, updated_at: new Date().toISOString() });
     } else {
       throw new Error('tipo inválido: ' + job.tipo);
     }

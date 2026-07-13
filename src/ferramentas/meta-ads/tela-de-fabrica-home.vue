@@ -29,6 +29,7 @@ const temGerando = computed(() => emCriacao.value.some((c) => c.status === 'gera
 function statusLabel(c) { return c.status === 'gerando' ? `Gerando… ${c.qtd} criativos` : c.status === 'pronta' ? 'Pronta pra curar' : 'Deu erro ao gerar' }
 function abrir(c) { router.push({ name: 'fabrica-campanha', params: { id: c.id } }) }
 function nova() { router.push({ name: 'fabrica-nova' }) }
+function abrirLooks() { router.push({ name: 'fabrica-looks' }) }
 function voltarCentral() { router.push({ name: 'inicio' }) }
 const GERENCIADOR = 'https://adsmanager.facebook.com/adsmanager/'
 async function apagar(c) {
@@ -87,10 +88,18 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
         <p v-else class="empty">Nada publicado ainda.</p>
       </div>
 
-      <!-- atalho templates (SP-5) -->
-      <div class="panel home-soon">
-        <div class="ph"><span class="eyebrow">Looks & Templates</span><span class="eyebrow muted">em breve</span></div>
-        <p class="empty">Gerenciar e criar novos looks/templates chega no próximo passo da fábrica.</p>
+      <!-- atalho templates (SP-5A) -->
+      <div class="panel">
+        <div class="ph"><span class="eyebrow">Looks & Templates</span></div>
+        <div class="home-list">
+          <div class="home-card">
+            <div class="hc-main">
+              <div class="hc-nome">Galeria de looks</div>
+              <div class="hc-status">Gerencie, ative/desative e reordene os looks usados na geração</div>
+            </div>
+            <button class="cmd cyan" @click="abrirLooks">Abrir</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
