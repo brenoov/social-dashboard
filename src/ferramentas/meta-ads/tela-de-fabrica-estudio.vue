@@ -14,17 +14,23 @@ function voltarHome() { router.push({ name: 'fabrica-estudio' }) }
 const campanhaId = ref(route.params.id || null)
 const passo = ref(campanhaId.value ? 'curar' : 'gerar')
 const subirResultado = ref(null)
-// Resume: o subir cria as campanhas num job (fabrica_jobs, ~2 min). Se o usuário sai e volta,
+const retomarSubirJobId = ref(null)
+// Resume: o subir cria as campanhas num job (fabrica_jobs, alguns min). Se o usuário sai e volta,
 // o subirResultado (só em memória) se perdia e o Conferir sumia — mesmo com as campanhas já
-// criadas. Ao (re)entrar numa campanha, busca o ÚLTIMO subir dela; se concluído, restaura o
-// resultado (destrava o Conferir). Se ainda rodando, deixa o Subir (o painel resume o polling).
+// criadas. Ao (re)entrar numa campanha, busca o ÚLTIMO subir dela:
+//   • concluído com anúncios → restaura o resultado e vai pro Conferir (destrava ativar/revisar);
+//   • ainda rodando/na fila → volta pro Subir e RETOMA o banner/polling (passa o jobId pro painel),
+//     travando re-clique (senão criava campanha duplicada) e auto-avançando pro Conferir ao concluir.
 async function resumirSubir(id) {
   subirResultado.value = null
+  retomarSubirJobId.value = null
   if (!id) return
   try {
-    const jobs = await sb(`fabrica_jobs?select=status,resultado&tipo=eq.subir&params->>campanhaId=eq.${id}&order=created_at.desc&limit=1`)
+    const jobs = await sb(`fabrica_jobs?select=id,status,resultado&tipo=eq.subir&params->>campanhaId=eq.${id}&order=created_at.desc&limit=1`)
     const j = jobs?.[0]
-    if (j?.status === 'concluido' && j.resultado?.adIds?.length) { subirResultado.value = j.resultado; passo.value = 'conferir' }
+    if (!j) return
+    if (j.status === 'concluido' && j.resultado?.adIds?.length) { subirResultado.value = j.resultado; passo.value = 'conferir' }
+    else if (['enfileirado', 'rodando'].includes(j.status)) { retomarSubirJobId.value = j.id; passo.value = 'subir' }
   } catch (e) { /* resume é best-effort — não trava a tela */ }
 }
 watch(() => route.params.id, (id) => {
@@ -120,7 +126,7 @@ onUnmounted(() => { if (_clockTimer) clearInterval(_clockTimer) })
         <main class="stage-wrap">
           <PainelGerar v-if="passo==='gerar'" @gerado="aoGerar" />
           <PainelCurar v-else-if="passo==='curar'" :campanha-id="campanhaId" />
-          <PainelSubir v-else-if="passo==='subir'" :campanha-id="campanhaId" @subido="aoSubir" />
+          <PainelSubir v-else-if="passo==='subir'" :campanha-id="campanhaId" :retomar-job-id="retomarSubirJobId" @subido="aoSubir" />
           <PainelConferir v-else :subir-resultado="subirResultado" />
         </main>
       </div>

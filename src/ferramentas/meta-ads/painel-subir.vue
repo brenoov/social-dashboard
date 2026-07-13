@@ -4,7 +4,7 @@ import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { useJobStatus } from './use-job-status.js'
 import AjudaTooltip from './ajuda-tooltip.vue'
-const props = defineProps({ campanhaId: String })
+const props = defineProps({ campanhaId: String, retomarJobId: String })
 const emit = defineEmits(['subido'])
 const ACCOUNT_ID = 'b6883e82-07cb-4f21-9fd7-ea7626786174', ACT = 'act_1197997517858139'
 const campanhas = ref([]); const destino = reactive({ tipo: 'nova', lojas: ['tivoli'], campaignId: '' })
@@ -136,6 +136,8 @@ onMounted(async () => {
   campanhas.value = data?.data || []
   await carregarPresets()
   listarAudiences() // auto-carrega os públicos (audiences) já existentes no Meta — não bloqueia o mount
+  // Retoma um subir em andamento (usuário saiu e voltou): reata o banner/polling e trava re-clique.
+  if (props.retomarJobId) start(props.retomarJobId)
 })
 async function subir() {
   if (destino.tipo === 'nova' && !destino.lojas.length) return alert('Selecione ao menos uma loja.')
