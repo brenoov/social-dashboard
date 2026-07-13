@@ -263,8 +263,8 @@
 .fest .fab-selall{display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-dim); cursor:pointer; white-space:nowrap}
 .fest .fab-card.sel{border-color:var(--cyan); background:linear-gradient(180deg,rgba(72,230,214,.06),transparent)}
 .fest .ph-right{flex-wrap:wrap}
-.fest .cmd.danger{border-color:var(--abort); color:var(--abort)}
-.fest .cmd.danger:hover:not(:disabled){background:rgba(255,90,69,.12)}
+.fest .cmd.danger{border-color:var(--abort); color:var(--abort); background:rgba(255,90,69,.12)}
+.fest .cmd.danger:not(:disabled):hover{background:rgba(255,90,69,.22); box-shadow:0 10px 26px -14px rgba(255,90,69,.6)}
 .fest .cmd:disabled{opacity:.45; cursor:default}
 
 /* ===== looks & templates (galeria/curadoria) ===== */
@@ -336,6 +336,8 @@
 .fest .opt.ativar .oi{background:#3a1612; color:var(--abort)}
 .fest .opt.ativar:not(:disabled):hover{border-color:var(--abort); box-shadow:0 0 0 1px var(--abort),0 10px 30px -12px rgba(255,90,69,.5)}
 .fest .aviso{display:flex; gap:11px; align-items:flex-start; border-left:2px solid var(--abort); padding:2px 0 2px 12px; margin-top:16px}
+.fest .perigo{display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-top:18px; padding:13px 15px; border:1px dashed rgba(255,90,69,.4); border-radius:12px}
+.fest .perigo-txt{font-size:13px; color:var(--ink-dim); line-height:1.5; max-width:62ch}
 .fest .aviso b{color:#ffd9d2}
 .fest .aviso span:last-child{color:#f0b7ae; font-size:13.5px}
 .fest .launchstat{margin-top:16px}

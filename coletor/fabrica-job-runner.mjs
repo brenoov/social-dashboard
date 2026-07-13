@@ -14,6 +14,7 @@ import { registrarExecucao } from './registrar-execucao.mjs';
 import { run as gerarRun } from './gerar-criativos.mjs';
 import { run as subirRun } from './subir-estudio.mjs';
 import { run as ativarRun } from './ativar-estudio.mjs';
+import { run as excluirRun } from './excluir-estudio.mjs';
 import { run as previewRun } from './gerar-previews.mjs';
 
 const URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
@@ -57,6 +58,15 @@ export function estadoTerminalAtivar(res) {
   return { status: 'concluido' };
 }
 
+// --- estadoTerminalExcluir(): função pura — exclusão parcial (algum DELETE não voltou 200) vira
+// 'erro' pra UI avisar; senão 'concluido'. ---
+export function estadoTerminalExcluir(res) {
+  if (res.falhas?.length || res.excluidos < res.total) {
+    return { status: 'erro', erro: `Excluiu ${res.excluidos} de ${res.total}. ${res.falhas?.length || 0} não saíram — confira no Gerenciador.` };
+  }
+  return { status: 'concluido' };
+}
+
 async function main() {
   const jobId = process.env.FABRICA_JOB_ID || (process.argv.includes('--job') ? process.argv[process.argv.indexOf('--job') + 1] : null);
   if (!jobId) throw new Error('FABRICA_JOB_ID ausente (env FABRICA_JOB_ID ou --job <uuid>)');
@@ -73,8 +83,8 @@ async function main() {
   // Telemetria do Painel de Status do Claude. A Fábrica não chama a API de texto
   // da Anthropic aqui → custo zero (usd=0); registramos tempo e volume produzido.
   const _t0 = Date.now();
-  const _robo = { gerar: 'fabrica-gerar', subir: 'fabrica-subir', ativar: 'fabrica-ativar', preview: 'fabrica-preview' };
-  const _acao = { gerar: 'gerar criativos', subir: 'subir campanha', ativar: 'ativar anúncios', preview: 'gerar previews' };
+  const _robo = { gerar: 'fabrica-gerar', subir: 'fabrica-subir', ativar: 'fabrica-ativar', excluir: 'fabrica-excluir', preview: 'fabrica-preview' };
+  const _acao = { gerar: 'gerar criativos', subir: 'subir campanha', ativar: 'ativar anúncios', excluir: 'excluir remessa', preview: 'gerar previews' };
   const reg = (itens, unidade, status, detalhe) => registrarExecucao({
     robo: _robo[job.tipo] || 'fabrica', acao: _acao[job.tipo] || job.tipo, modelo: null, usd: 0,
     duracaoMs: Date.now() - _t0, itens, unidade, status, detalhe,
@@ -101,6 +111,11 @@ async function main() {
       const t = estadoTerminalAtivar(r);
       await sbPatch(`/fabrica_jobs?id=eq.${jobId}`, { status: t.status, resultado: r, erro: t.erro || null, updated_at: new Date().toISOString() });
       await reg(r?.ativados ?? null, 'anúncios', t.status === 'concluido' ? 'ok' : 'parcial', t.erro || 'custo zero');
+    } else if (job.tipo === 'excluir') {
+      const r = await excluirRun(job.params || {});
+      const t = estadoTerminalExcluir(r);
+      await sbPatch(`/fabrica_jobs?id=eq.${jobId}`, { status: t.status, resultado: r, erro: t.erro || null, updated_at: new Date().toISOString() });
+      await reg(r?.excluidos ?? null, 'campanhas', t.status === 'concluido' ? 'ok' : 'parcial', t.erro || 'custo zero');
     } else if (job.tipo === 'preview') {
       // gera a galeria de preview dos looks (dados de amostra) — não toca campanha/objetivo.
       const r = await previewRun();

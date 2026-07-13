@@ -6,7 +6,16 @@ import AjudaTooltip from './ajuda-tooltip.vue'
 const props = defineProps({ subirResultado: Object })
 const n = computed(() => props.subirResultado?.adIds?.length || 0)
 const { job, start } = useJobStatus()
+const { job: jobExc, start: startExc } = useJobStatus() // job separado da exclusão
 const gerenciador = 'https://adsmanager.facebook.com/adsmanager/'
+// quantas campanhas esta remessa criou (só relevante quando criou campanha nova)
+const nCampanhas = computed(() => {
+  const r = props.subirResultado || {}
+  if (!r.criouCampanha) return 0
+  return (r.metaCampaignIds?.length) || (r.metaCampaignId ? 1 : 0)
+})
+const excluido = computed(() => jobExc.value?.status === 'concluido')
+const ocupado = computed(() => [job.value, jobExc.value].some((j) => j && ['enfileirado', 'rodando'].includes(j.status)))
 async function ativarTudo() {
   if (!confirm(`Ativar ${n.value} anúncios? Isso COMEÇA A GASTAR verba imediatamente.`)) return
   const { adIds, adsetIds, metaCampaignId, metaCampaignIds, criouCampanha } = props.subirResultado
@@ -14,6 +23,20 @@ async function ativarTudo() {
   if (error) return alert('Falha: ' + error.message)
   if (!data?.job_id) return alert('Sem job_id na resposta')
   start(data.job_id)
+}
+// Excluir SÓ o que esta remessa criou: campanha nova → apaga a(s) campanha(s) (cascateia conjuntos/
+// anúncios); campanha existente → apaga só os anúncios adicionados. Não toca em nada de fora.
+async function excluirRemessa() {
+  const r = props.subirResultado || {}
+  const alvo = r.criouCampanha
+    ? `${nCampanhas.value} campanha(s) desta remessa (com todos os conjuntos e anúncios dela)`
+    : `os ${n.value} anúncios que esta remessa adicionou à campanha`
+  if (!confirm(`Excluir ${alvo} na Meta?\n\nIsso APAGA DE VEZ — não dá pra desfazer. Campanhas e anúncios de FORA desta remessa não são tocados.`)) return
+  const { adIds, adsetIds, metaCampaignId, metaCampaignIds, criouCampanha } = r
+  const { data, error } = await sbClient.functions.invoke('fabrica-trigger', { body: { tipo: 'excluir', params: { adIds, adsetIds, metaCampaignId, metaCampaignIds, criouCampanha } } })
+  if (error) return alert('Falha: ' + error.message)
+  if (!data?.job_id) return alert('Sem job_id na resposta')
+  startExc(data.job_id)
 }
 </script>
 <template>
@@ -29,7 +52,7 @@ async function ativarTudo() {
       <div class="c"><div class="k">Situação</div><div class="v hold">Pausado</div></div>
     </div>
 
-    <section class="launch">
+    <section class="launch" v-if="!excluido">
       <h3>Como você quer publicar?</h3>
       <p class="sh">Escolha uma opção:</p>
       <div class="opts">
@@ -53,6 +76,29 @@ async function ativarTudo() {
         <span v-if="job.erro" class="js-err">— {{ job.erro }}</span>
       </div>
       <p v-if="job?.status==='concluido'" class="okline">✅ Ativado. {{ job.resultado?.ativados }} anúncios agora estão no ar.</p>
+
+      <!-- Zona de perigo: apaga SÓ o que esta remessa criou (nada de fora é tocado) -->
+      <div class="perigo">
+        <div class="perigo-txt">
+          <b>Não era isso?</b>
+          <template v-if="subirResultado?.criouCampanha"> Você pode apagar {{ nCampanhas }} campanha(s) desta remessa (com todos os conjuntos e anúncios delas).</template>
+          <template v-else> Você pode apagar os {{ n }} anúncios que esta remessa adicionou.</template>
+          Só o que subiu agora — nada mais.
+        </div>
+        <button class="cmd danger" type="button" :disabled="ocupado" @click="excluirRemessa">🗑 Excluir esta remessa</button>
+      </div>
+      <div v-if="jobExc && ['enfileirado','rodando','erro'].includes(jobExc.status)" class="jobstat launchstat">
+        <i class="led" :class="jobExc.status==='erro' ? 'abort' : 'run'"></i>
+        <span>{{ ({ enfileirado:'Na fila…', rodando:'Excluindo na Meta…', erro:'Deu erro ao excluir.' })[jobExc.status] || jobExc.status }}</span>
+        <span v-if="jobExc.erro" class="js-err">— {{ jobExc.erro }}</span>
+      </div>
+    </section>
+
+    <section class="launch" v-else>
+      <div class="subir-banner concluido"><div class="sb-body">
+        <span class="sb-ic">🗑</span>
+        <div><b>Remessa excluída na Meta.</b><div class="sb-sub">{{ jobExc.resultado?.excluidos }} item(ns) removido(s). Nada de fora desta remessa foi tocado — pode gerar/subir uma nova quando quiser.</div></div>
+      </div></div>
     </section>
   </section>
 </template>
