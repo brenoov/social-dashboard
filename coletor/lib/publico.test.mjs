@@ -8,9 +8,24 @@ test('sem publico = amplo: só as cidades da loja', () => {
   assert.deepEqual(montarTargeting(null, LOJA), { geo_locations: { cities: [{ key: '1058' }, { key: '2777' }] } });
 });
 
-test('cidades com raio + unidade', () => {
+test('cidades com raio: clamp pro mínimo do Meta (17km / 10mi); acima do mínimo mantém', () => {
+  // 15km < 17 → clamp p/ 17 (Meta rejeita <17km com code 1487110)
   const t = montarTargeting({ geo: { cities: [{ key: '1058', radius: 15, distance_unit: 'kilometer' }] } }, LOJA);
-  assert.deepEqual(t.geo_locations.cities, [{ key: '1058', radius: 15, distance_unit: 'kilometer' }]);
+  assert.deepEqual(t.geo_locations.cities, [{ key: '1058', radius: 17, distance_unit: 'kilometer' }]);
+  // 25km >= 17 → mantém
+  const t2 = montarTargeting({ geo: { cities: [{ key: '1058', radius: 25, distance_unit: 'kilometer' }] } }, LOJA);
+  assert.deepEqual(t2.geo_locations.cities, [{ key: '1058', radius: 25, distance_unit: 'kilometer' }]);
+  // 5mi < 10 → clamp p/ 10
+  const t3 = montarTargeting({ geo: { cities: [{ key: '1058', radius: 5, distance_unit: 'mile' }] } }, LOJA);
+  assert.deepEqual(t3.geo_locations.cities, [{ key: '1058', radius: 10, distance_unit: 'mile' }]);
+});
+
+test('targeting_automation opt-out do Advantage+ só quando há público manual', () => {
+  const t = montarTargeting({ generos: [2] }, LOJA);
+  assert.deepEqual(t.targeting_automation, { advantage_audience: 0 });
+  // amplo (sem publico) não opta por sair — mantém Advantage+ ligado
+  const amplo = montarTargeting(null, LOJA);
+  assert.ok(!('targeting_automation' in amplo));
 });
 
 test('geo.cities vazio cai pras cidades da loja', () => {

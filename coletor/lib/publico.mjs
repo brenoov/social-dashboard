@@ -7,7 +7,14 @@ export function montarTargeting(publico, loja) {
   const t = {};
   const cities = (publico.geo?.cities || []).map((c) => {
     const o = { key: c.key };
-    if (c.radius) { o.radius = c.radius; o.distance_unit = c.distance_unit || 'kilometer'; }
+    if (c.radius) {
+      // Meta rejeita raio de cidade abaixo do mínimo (~17 km / 10 mi) com code 1487110 —
+      // clamp defensivo pra subida nunca falhar por raio curto (validado ao vivo 2026-07-12).
+      const unit = c.distance_unit || 'kilometer';
+      const min = unit === 'mile' ? 10 : 17;
+      o.radius = c.radius < min ? min : c.radius;
+      o.distance_unit = unit;
+    }
     return o;
   });
   t.geo_locations = { cities: cities.length ? cities : cidadesLoja };
@@ -27,5 +34,9 @@ export function montarTargeting(publico, loja) {
   if (publico.generos?.length) t.genders = publico.generos;
   if (publico.interesses?.length) t.flexible_spec = [{ interests: publico.interesses.map((i) => ({ id: i.id, name: i.name })) }];
   if (publico.custom_audiences?.length) t.custom_audiences = publico.custom_audiences.map((a) => ({ id: a.id }));
+  // Meta liga o Advantage+ Audience por padrão e aí REJEITA segmentação manual de idade/gênero/
+  // interesses (code 1870227). Como aqui o usuário definiu um público à mão, opta por sair —
+  // as restrições viram limites de verdade (validado ao vivo 2026-07-12).
+  t.targeting_automation = { advantage_audience: 0 };
   return t;
 }

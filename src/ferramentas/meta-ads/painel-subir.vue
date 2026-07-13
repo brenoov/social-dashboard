@@ -25,7 +25,7 @@ async function buscarCidades() {
   const { data } = await sbClient.functions.invoke('meta-proxy', { body: { accountId: ACCOUNT_ID, path: '/search', params: { type: 'adgeolocation', location_types: JSON.stringify(['city']), q: buscaCidade.value, limit: 10 }, method: 'GET' } })
   cidadesAchadas.value = data?.data || []
 }
-function addCidade(c) { if (!publico.geo.cities.some((x) => x.key === c.key)) publico.geo.cities.push({ key: c.key, nome: `${c.name}${c.region ? ' · ' + c.region : ''}`, radius: 15, distance_unit: 'kilometer' }); cidadesAchadas.value = []; buscaCidade.value = '' }
+function addCidade(c) { if (!publico.geo.cities.some((x) => x.key === c.key)) publico.geo.cities.push({ key: c.key, nome: `${c.name}${c.region ? ' · ' + c.region : ''}`, radius: 20, distance_unit: 'kilometer' }); cidadesAchadas.value = []; buscaCidade.value = '' }
 function rmCidade(key) { publico.geo.cities = publico.geo.cities.filter((x) => x.key !== key) }
 function excluirCidade(c) { if (!publico.geo.excluded.some((x) => x.key === c.key)) publico.geo.excluded.push({ key: c.key, nome: c.name, type: 'city' }); cidadesAchadas.value = []; buscaCidade.value = '' }
 function rmExcluida(key) { publico.geo.excluded = publico.geo.excluded.filter((x) => x.key !== key) }
