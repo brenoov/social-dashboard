@@ -34,7 +34,7 @@ const MARCA_DEFAULT = 'a marca';
 
 // Regra de MATERIAL: as bolsas são de tecido/canvas — a IA cravava "couro" (falso).
 // Proíbe couro e comparações não comprováveis; permite valorizar o têxtil com elegância.
-const REGRA_MATERIAL = 'MATERIAL (regra crítica): estas bolsas são de TECIDO/CANVAS (com poucos detalhes em metal/ferragem) — NUNCA descreva o produto como "couro" nem "leather" (seria FALSO). Você PODE valorizar o material têxtil com elegância quando couber (leveza, textura, caimento, praticidade do dia a dia), mas NUNCA faça comparações falsas ou não comprováveis (ex.: "mais durável que couro", "melhor que couro"). ';
+const REGRA_MATERIAL = 'MATERIAL (regra crítica): estas bolsas são de tecido CANVAS (com poucos detalhes em metal/ferragem) — NUNCA descreva o produto como "couro" nem "leather" (seria FALSO). Quando a copy mencionar o material, chame-o pelo nome real: "Canvas" (ex.: "em canvas", "o canvas"). Pode valorizar o canvas com elegância quando couber (leveza, textura, caimento, praticidade do dia a dia), sem comparações falsas ou não comprováveis. ';
 
 // Voz de marca (ex.: La Vessel): luxo europeu suave, feminino, atemporal,
 // "sussurra sofisticação", lema "cada bolsa conta uma história". Contexto desta

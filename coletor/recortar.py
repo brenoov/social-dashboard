@@ -70,9 +70,12 @@ def _cut_floodfill(img):
     from PIL import ImageFilter
     WHITE_MIN = int(os.environ.get('FLOODFILL_WHITE_MIN', '200'))
     SPREAD = int(os.environ.get('FLOODFILL_SPREAD', '28'))
-    # tapa só buraco < 0.1% da imagem (reflexo do logo/ferragem dentro do couro);
+    # tapa só buraco < 0.1% da imagem (reflexo do logo/ferragem no produto);
     # vazados grandes (vão entre alça e bolsa, buraco da alça transversal) ficam TRANSPARENTES.
     FILL_MAX = float(os.environ.get('FLOODFILL_FILL_MAX', '0.001'))
+    # piso de cobertura: se o flood-fill removeu DEMAIS (bolsa muito clara comida junto com o
+    # fundo), cai no fallback BiRefNet em vez de entregar um recorte esburacado.
+    MIN_COV = float(os.environ.get('FLOODFILL_MIN_COV', '0.12'))
     a = np.asarray(img.convert('RGB')).astype(np.int32)
     mx = a.max(2); mn = a.min(2)
     whiteish = (mn >= WHITE_MIN) & ((mx - mn) <= SPREAD)   # branco + cinza-claro de fundo/sombra
@@ -84,7 +87,7 @@ def _cut_floodfill(img):
     if nf > 1:                                  # maior componente (descarta ilhas de ruído)
         fg = lf == (np.argmax(np.bincount(lf.ravel())[1:]) + 1)
     cobertura = float(fg.mean())
-    if cobertura > 0.92:                         # removeu quase nada -> foto não é fundo branco
+    if cobertura > 0.92 or cobertura < MIN_COV:  # removeu quase nada (foto não-branca) OU demais (bolsa clara comida) -> fallback
         return None
     filled = ndimage.binary_fill_holes(fg)
     holes = filled & ~fg                         # buracos cercados pelo primeiro-plano
