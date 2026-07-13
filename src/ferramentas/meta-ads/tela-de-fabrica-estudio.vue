@@ -26,6 +26,16 @@ function aoSubir(res) { subirResultado.value = res; passo.value = 'conferir' }
 // --- extras de apresentação (não interferem na lógica acima) ---
 const ordem = ['gerar', 'curar', 'subir', 'conferir']
 const idxAtual = computed(() => ordem.indexOf(passo.value))
+// Botão "Avançar" por etapa (Gerar já avança ao gerar; Conferir é o último).
+const podeAvancar = computed(() => {
+  if (passo.value === 'curar') return !!campanhaId.value
+  if (passo.value === 'subir') return !!subirResultado.value // habilita depois que a subida rodou
+  return false
+})
+function avancar() {
+  if (passo.value === 'curar') passo.value = 'subir'
+  else if (passo.value === 'subir') passo.value = 'conferir'
+}
 const relogio = ref('--:--:--')
 let _clockTimer = null
 onMounted(() => {
@@ -101,6 +111,10 @@ onUnmounted(() => { if (_clockTimer) clearInterval(_clockTimer) })
       <div class="foot">
         <span>Estúdio de Criativos</span>
         <span>Passo {{ idxAtual + 1 }} de 4</span>
+        <button v-if="passo==='curar' || passo==='subir'" class="cmd cyan" :disabled="!podeAvancar" @click="avancar"
+          :title="passo==='subir' && !podeAvancar ? 'Suba os anúncios primeiro' : ''">
+          Avançar → {{ passo==='curar' ? 'Subir' : 'Conferir' }}
+        </button>
       </div>
     </div>
   </div>
