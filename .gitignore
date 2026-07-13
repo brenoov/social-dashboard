@@ -52,3 +52,6 @@ coletor/fotos-bling/
 # cache de recortes (rembg) e fotos baixadas do Bling p/ recorte (F3 task 8)
 coletor/fotos-cutout/
 coletor/fotos-baixadas/
+# acervo local de fotos das bolsas COM MODELO (organizado por SKU) usado p/ montar o
+# fotos-modelo-map.json dos criativos; ~1GB, fica local (fábrica lê por URL, não daqui)
+coletor/fotos_por_sku/
