@@ -14,7 +14,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const tipo = body.tipo;
     let params = body.params || {};
-    if (!["gerar", "subir", "ativar"].includes(tipo)) return json({ error: "tipo_invalido" }, 400);
+    if (!["gerar", "subir", "ativar", "preview"].includes(tipo)) return json({ error: "tipo_invalido" }, 400);
 
     // SP-2: no 'gerar', a rodada é criada AGORA (aparece na Home 'em criação' na hora).
     let campanhaId = (params && params.campanhaId) || null;
