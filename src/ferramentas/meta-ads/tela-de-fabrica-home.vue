@@ -35,6 +35,8 @@ async function carregar() {
     c.qtd = count || 0
   }
   emCriacao.value = camp
+  // remove da seleção o que não está mais em criação
+  if (selecionadas.value.size) selecionadas.value = new Set(camp.filter((c) => selecionadas.value.has(c.id)).map((c) => c.id))
   publicadas.value = await sb("fabrica_campanhas?select=id,nome,fechada_em&fechada_em=not.is.null&order=fechada_em.desc&limit=8")
   const { count: totCri } = await sbClient.from('fabrica_criativos').select('id', { count: 'exact', head: true })
   nums.value = { criando: camp.length, criativos: totCri || 0, publicadas: publicadas.value.length }
@@ -50,6 +52,32 @@ async function apagar(c) {
   if (!confirm(`Apagar a campanha "${c.nome}"? ${c.status === 'gerando' ? 'A geração em andamento será cancelada. ' : ''}Isso remove os criativos e não dá pra desfazer.`)) return
   const { error } = await sbClient.functions.invoke('fabrica-apagar', { body: { campanhaId: c.id } })
   if (error) return alert('Falha ao apagar: ' + error.message)
+  carregar()
+}
+
+/* ── seleção múltipla (apagar em massa das em criação) ── */
+const selecionadas = ref(new Set())
+const apagandoMassa = ref(false)
+function selecionada(id) { return selecionadas.value.has(id) }
+function alternarSel(id) { const s = new Set(selecionadas.value); s.has(id) ? s.delete(id) : s.add(id); selecionadas.value = s }
+const todasSel = computed(() => emCriacao.value.length > 0 && emCriacao.value.every((c) => selecionadas.value.has(c.id)))
+function alternarTodas() {
+  selecionadas.value = todasSel.value ? new Set() : new Set(emCriacao.value.map((c) => c.id))
+}
+async function apagarSelecionadas() {
+  const alvos = emCriacao.value.filter((c) => selecionadas.value.has(c.id))
+  if (!alvos.length) return
+  const temGerando = alvos.some((c) => c.status === 'gerando')
+  if (!confirm(`Apagar ${alvos.length} campanha${alvos.length > 1 ? 's' : ''}? ${temGerando ? 'As gerações em andamento serão canceladas. ' : ''}Isso remove os criativos e não dá pra desfazer.`)) return
+  apagandoMassa.value = true
+  const falhas = []
+  for (const c of alvos) {
+    const { error } = await sbClient.functions.invoke('fabrica-apagar', { body: { campanhaId: c.id } })
+    if (error) falhas.push(c.nome)
+  }
+  apagandoMassa.value = false
+  selecionadas.value = new Set()
+  if (falhas.length) alert(`Não deu pra apagar ${falhas.length} de ${alvos.length}: ${falhas.join(', ')}`)
   carregar()
 }
 onMounted(() => {
@@ -93,9 +121,17 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 
       <!-- em criação -->
       <div class="panel" data-tour="em-criacao">
-        <div class="ph"><span class="eyebrow">Campanhas em criação</span></div>
+        <div class="ph"><span class="eyebrow">Campanhas em criação</span>
+          <div v-if="emCriacao.length" class="ph-right">
+            <label class="fab-selall"><input type="checkbox" :checked="todasSel" @change="alternarTodas"> Selecionar todas</label>
+            <button class="cmd danger" :disabled="!selecionadas.size || apagandoMassa" @click="apagarSelecionadas">
+              {{ apagandoMassa ? 'Apagando…' : (selecionadas.size ? `Apagar selecionadas (${selecionadas.size})` : 'Apagar selecionadas') }}
+            </button>
+          </div>
+        </div>
         <div v-if="emCriacao.length" class="home-list">
-          <div v-for="c in emCriacao" :key="c.id" class="fab-card" :class="c.status">
+          <div v-for="c in emCriacao" :key="c.id" class="fab-card" :class="[c.status, { sel: selecionada(c.id) }]">
+            <label class="fab-check"><input type="checkbox" :checked="selecionada(c.id)" @change="alternarSel(c.id)" :aria-label="`Selecionar ${c.nome}`"></label>
             <div class="hc-main">
               <div class="hc-nome">{{ c.nome }}</div>
               <div class="hc-status"><i class="led" :class="c.status==='pronta' ? 'go' : c.status==='erro' ? 'abort' : 'run'"></i>{{ statusLabel(c) }}</div>

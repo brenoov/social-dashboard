@@ -256,6 +256,16 @@
   color:var(--ink-dim); font-size:14px; padding:6px 9px}
 .fest .hc-apagar:hover{border-color:var(--abort); color:var(--abort)}
 .fest .home-soon{opacity:.7}
+/* seleção múltipla (apagar em massa) */
+.fest .fab-card > .hc-main{flex:1 1 auto; min-width:120px}
+.fest .fab-check{display:inline-flex; align-items:center; flex:none}
+.fest .fab-check input, .fest .fab-selall input{width:16px; height:16px; accent-color:var(--cyan); cursor:pointer; margin:0}
+.fest .fab-selall{display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-dim); cursor:pointer; white-space:nowrap}
+.fest .fab-card.sel{border-color:var(--cyan); background:linear-gradient(180deg,rgba(72,230,214,.06),transparent)}
+.fest .ph-right{flex-wrap:wrap}
+.fest .cmd.danger{border-color:var(--abort); color:var(--abort)}
+.fest .cmd.danger:hover:not(:disabled){background:rgba(255,90,69,.12)}
+.fest .cmd:disabled{opacity:.45; cursor:default}
 
 /* ===== looks & templates (galeria/curadoria) ===== */
 .fest .looks-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px}
