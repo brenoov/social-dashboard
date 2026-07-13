@@ -43,30 +43,38 @@ async function subir(path, buf) {
 }
 
 // run(): pra cada code-look do registry TEMPLATES, gera a variante certa (produto via
-// variacoesProduto, promo via variacoesPromo filtrado pro template) com os dados de
+// variacoesProduto, promo usa dados da 1ª variante mas renderiza com o chave atual) com os dados de
 // amostra, renderiza nos 2 formatos, sobe pro Storage e grava preview_url (do formato
 // feed 1080x1350) em fabrica_looks. Não toca campanha/objetivo — é só ilustrativo.
 export async function run() {
   const { cand, campanha, fotoDataUrl } = dadosAmostra();
   let n = 0;
-  for (const chave of Object.keys(TEMPLATES)) {
-    const arq = TEMPLATES[chave].arquetipo;
-    const variants = arq === 'promo'
-      ? variacoesPromo(campanha, fotoDataUrl, 'Coleção').filter((v) => v.template === chave)
-      : variacoesProduto({ ...cand, fotoDataUrl }, campanha, { looks: [chave] }, 50);
-    const v = variants[0];
-    if (!v) { console.warn('sem variante p/', chave); continue; }
-    let feedUrl = null;
-    for (const formato of Object.keys(DIM)) {
-      const html = TEMPLATES[chave].render(v.dados, formato);
-      const buf = await renderPNG(html, DIM[formato]);
-      const url = await subir(`_previews/${chave}-${formato}.png`, buf);
-      if (formato === '1080x1350') feedUrl = url;
+  try {
+    for (const chave of Object.keys(TEMPLATES)) {
+      const arq = TEMPLATES[chave].arquetipo;
+      let v;
+      if (arq === 'promo') {
+        // promo: pega dados da 1ª variante mas renderiza com o chave atual
+        const base = variacoesPromo(campanha, fotoDataUrl, 'Coleção')[0];
+        v = base ? { template: chave, formato: base.formato, dados: base.dados } : null;
+      } else {
+        const variants = variacoesProduto({ ...cand, fotoDataUrl }, campanha, { looks: [chave] }, 50);
+        v = variants[0];
+      }
+      if (!v) { console.warn('sem variante p/', chave); continue; }
+      let feedUrl = null;
+      for (const formato of Object.keys(DIM)) {
+        const html = TEMPLATES[chave].render(v.dados, formato);
+        const buf = await renderPNG(html, DIM[formato]);
+        const url = await subir(`_previews/${chave}-${formato}.png`, buf);
+        if (formato === '1080x1350') feedUrl = url;
+      }
+      if (feedUrl) await sbPatch(`/fabrica_looks?chave=eq.${chave}`, { preview_url: feedUrl });
+      n++;
     }
-    if (feedUrl) await sbPatch(`/fabrica_looks?chave=eq.${chave}`, { preview_url: feedUrl });
-    n++;
+  } finally {
+    await fecharRender();
   }
-  await fecharRender();
   console.log(`previews gerados: ${n} looks`);
   return { previews: n };
 }
