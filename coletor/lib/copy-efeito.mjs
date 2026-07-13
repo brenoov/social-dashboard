@@ -32,12 +32,17 @@ async function anthropic(body, tentativas = 6) {
 // e multi-marca sem quebrar — não hardcoda mais "La Vessel").
 const MARCA_DEFAULT = 'a marca';
 
+// Regra de MATERIAL: as bolsas são de tecido/canvas — a IA cravava "couro" (falso).
+// Proíbe couro e comparações não comprováveis; permite valorizar o têxtil com elegância.
+const REGRA_MATERIAL = 'MATERIAL (regra crítica): estas bolsas são de TECIDO/CANVAS (com poucos detalhes em metal/ferragem) — NUNCA descreva o produto como "couro" nem "leather" (seria FALSO). Você PODE valorizar o material têxtil com elegância quando couber (leveza, textura, caimento, praticidade do dia a dia), mas NUNCA faça comparações falsas ou não comprováveis (ex.: "mais durável que couro", "melhor que couro"). ';
+
 // Voz de marca (ex.: La Vessel): luxo europeu suave, feminino, atemporal,
 // "sussurra sofisticação", lema "cada bolsa conta uma história". Contexto desta
 // rodada: campanha de shopping (loja física em shopping) — tom puxa URGÊNCIA +
 // EMOÇÃO, não preço puro. O nome da marca é parametrizado por campanha.marca.
 const sysProduto = (marca) => 'Você escreve microcopy de campanha para ' + (marca || MARCA_DEFAULT) + ', marca de bolsas de luxo europeu suave, feminino, atemporal — a marca "sussurra sofisticação", nunca grita. Lema: "cada bolsa conta uma história". '
   + 'Esta rodada é uma campanha de SHOPPING (loja física em shopping físico), com o objetivo de gerar CONVERSAS no WhatsApp: o tom precisa puxar URGÊNCIA + EMOÇÃO, não preço puro. '
+  + REGRA_MATERIAL
   + 'Para cada produto, gere TRÊS coisas: '
   + '(A) COPY — a linha de impacto da ARTE (texto sobre a imagem). Regras invioláveis: (1) português do Brasil; (2) CURTA, no máximo ~40 caracteres; (3) impactante, sem ser genérica; (4) NUNCA prometa algo falso ou exagerado (nada de "a melhor bolsa do mundo", "número 1", etc.); (5) SEM emoji; (6) SEM hashtag; (7) coerente com o nome/estilo daquele produto específico. '
   + '(B) NOME — um NOME CURTO de exibição: o nome completo do Bling (ex.: "Bolsa De Ombro Grande Viena Marinho") tem tipo/tamanho/cor misturados com uma palavra distintiva de CIDADE ou PAÍS (ex.: Viena, Belgrado, Genebra, Madrid). O nome curto deve ser SEMPRE no formato "Bolsa <Cidade/País>" — descarte tipo, tamanho e cor, mantenha só "Bolsa " + a cidade/país do nome original. '
@@ -46,6 +51,7 @@ const sysProduto = (marca) => 'Você escreve microcopy de campanha para ' + (mar
 
 const sysPromo = (marca) => 'Você escreve microcopy de campanha para ' + (marca || MARCA_DEFAULT) + ', marca de bolsas de luxo europeu suave, feminino, atemporal — a marca "sussurra sofisticação", nunca grita. Lema: "cada bolsa conta uma história". '
   + 'Esta rodada é uma campanha de SHOPPING (loja física em shopping físico) para uma promoção guarda-chuva de desconto: o tom precisa puxar URGÊNCIA + EMOÇÃO, não preço puro. '
+  + REGRA_MATERIAL
   + 'Escreva UMA única linha de impacto para a promoção inteira. Regras invioláveis: (1) português do Brasil; (2) CURTA, no máximo ~40 caracteres; (3) impactante; (4) NUNCA prometa algo falso ou exagerado; (5) SEM emoji; (6) SEM hashtag. '
   + 'Responda APENAS com a linha, sem aspas, sem explicação, sem markdown.';
 
