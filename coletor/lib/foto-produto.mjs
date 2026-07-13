@@ -36,13 +36,19 @@ async function comCutout(localPath, mimeRaw, sku) {
   }
 }
 
-function itemImg(p) {
+// Só imagens de PRODUTO reais (imagemURL / midia.imagens). NÃO raspa a descrição HTML:
+// lá ficam banners de marketing (modelo + texto, ex.: Colmar/LV1105) que passavam no filtro
+// de estúdio (fundo branco) e viravam "foto do produto". Sem imagem real -> '' (SKU pulado).
+export function itemImg(p) {
   if (!p || typeof p !== 'object') return '';
   if (p.imagemURL && /^https?:/.test(p.imagemURL)) return p.imagemURL;
-  const mi = p.midia && p.midia.imagens;
-  if (mi) { const e = mi.externas && mi.externas[0] && mi.externas[0].link; const i = mi.internas && mi.internas[0] && mi.internas[0].link; if (e || i) return e || i; }
-  try { const m = JSON.stringify(p).match(/https?:\/\/[^"'\\]+\.(?:jpg|jpeg|png|webp)/i); if (m) return m[0]; } catch (e) {}
-  return '';
+  const mi = (p.midia && p.midia.imagens) || {};
+  const cand = [
+    ...(mi.externas || []).map((e) => e && e.link),
+    ...(mi.internas || []).map((e) => e && e.link),
+    ...(mi.imagensURL || []),
+  ].find((u) => typeof u === 'string' && /^https?:/.test(u));
+  return cand || '';
 }
 const mimeDe = (u) => /\.png(\?|$)/i.test(u) ? 'image/png' : (/\.webp(\?|$)/i.test(u) ? 'image/webp' : 'image/jpeg');
 
