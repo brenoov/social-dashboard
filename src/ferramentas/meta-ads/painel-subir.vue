@@ -38,7 +38,7 @@ function addInteresse(i) { if (!publico.interesses.some((x) => x.id === i.id)) p
 function rmInteresse(id) { publico.interesses = publico.interesses.filter((x) => x.id !== id) }
 function toggleGenero(g) { const i = publico.generos.indexOf(g); i > -1 ? publico.generos.splice(i, 1) : publico.generos.push(g) }
 function publicoParaEnvio() {
-  return { geo: { cities: publico.geo.cities.map((c) => ({ key: c.key, radius: c.radius, distance_unit: c.distance_unit })), excluded: publico.geo.excluded.map((e) => ({ key: e.key, type: e.type })) }, idade_min: publico.idade_min, idade_max: publico.idade_max, generos: [...publico.generos], interesses: publico.interesses.map((i) => ({ id: i.id, name: i.name })), custom_audiences: publico.custom_audiences.map((a) => ({ id: a.id, name: a.name, subtype: a.subtype })) }
+  return { geo: { cities: publico.geo.cities.map((c) => ({ key: c.key, nome: c.nome, radius: c.radius, distance_unit: c.distance_unit })), excluded: publico.geo.excluded.map((e) => ({ key: e.key, nome: e.nome, type: e.type })) }, idade_min: publico.idade_min, idade_max: publico.idade_max, generos: [...publico.generos], interesses: publico.interesses.map((i) => ({ id: i.id, name: i.name })), custom_audiences: publico.custom_audiences.map((a) => ({ id: a.id, name: a.name, subtype: a.subtype })) }
 }
 async function salvarPreset() {
   const nome = prompt('Nome do preset:', publico.nome || ''); if (!nome) return
