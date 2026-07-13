@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, nextTick, onUnmounted } from 'vue'
+import { ref, watch, nextTick, onUnmounted, onMounted } from 'vue'
 const props = defineProps({ passos: { type: Array, required: true }, modelValue: Boolean })
 const emit = defineEmits(['update:modelValue'])
 const idx = ref(0)
@@ -29,18 +29,28 @@ function fechar() { emit('update:modelValue', false) }
 function onKey(e) { if (e.key === 'Escape') fechar(); else if (e.key === 'ArrowRight') proximo(); else if (e.key === 'ArrowLeft') anterior() }
 function reMedir() { if (props.modelValue) medir() }
 
-watch(() => props.modelValue, async (v) => {
-  if (v) {
-    idx.value = 0
-    window.addEventListener('keydown', onKey)
-    window.addEventListener('resize', reMedir); window.addEventListener('scroll', reMedir, true)
-    await nextTick(); irPara(0)
-  } else {
-    window.removeEventListener('keydown', onKey)
-    window.removeEventListener('resize', reMedir); window.removeEventListener('scroll', reMedir, true)
-  }
+async function abrir() {
+  idx.value = 0
+  window.addEventListener('keydown', onKey)
+  window.addEventListener('resize', reMedir); window.addEventListener('scroll', reMedir, true)
+  await nextTick(); irPara(0)
+}
+
+function limpar() {
+  window.removeEventListener('keydown', onKey)
+  window.removeEventListener('resize', reMedir); window.removeEventListener('scroll', reMedir, true)
+}
+
+watch(() => props.modelValue, (v) => {
+  if (v) abrir()
+  else limpar()
 })
-onUnmounted(() => { window.removeEventListener('keydown', onKey); window.removeEventListener('resize', reMedir); window.removeEventListener('scroll', reMedir, true) })
+
+onMounted(() => {
+  if (props.modelValue) abrir()
+})
+
+onUnmounted(() => { limpar() })
 
 const estiloRealce = () => rect.value ? { top: rect.value.top - 6 + 'px', left: rect.value.left - 6 + 'px', width: rect.value.width + 12 + 'px', height: rect.value.height + 12 + 'px' } : {}
 const estiloBalao = () => {
