@@ -3,7 +3,11 @@
 // chuva, via Claude (Opus). Chamador já carregou o .env (não importar
 // carregar-env.mjs aqui — este lib fica em coletor/lib/, quem entra primeiro
 // é o script/CLI que roda no topo).
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY_FABRICA || process.env.ANTHROPIC_API_KEY_GESTOR;
+// Aceita ANTHROPIC_API_KEY (o nome que o workflow fabrica.yml injeta, vindo do
+// secret ANTHROPIC_API_KEY_TRAFEGO) além das chaves dedicadas. Sem isto, no CI a
+// chave não era encontrada e TODO copy/nome/legenda caía no fallback genérico
+// (nome virava "Bolsa Executiva Grande" em vez de "Bolsa Pisa").
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY_FABRICA || process.env.ANTHROPIC_API_KEY_GESTOR || process.env.ANTHROPIC_API_KEY;
 const MODEL = process.env.FABRICA_MODEL || 'claude-opus-4-8';
 
 const FALLBACK_PRODUTO = 'Últimas peças · leve a sua hoje';
