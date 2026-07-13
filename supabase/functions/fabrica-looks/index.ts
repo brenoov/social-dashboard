@@ -40,6 +40,15 @@ Deno.serve(async (req) => {
       if (faltam.length) { const { error } = await sb.from("fabrica_looks").insert(faltam); if (error) return json({ error: "sync_falhou", detail: error.message }, 500); }
       return json({ inseridos: faltam.length });
     }
+    if (acao === "excluir") {
+      // Excluir (sumir da galeria) OU restaurar. excluido default true; passe excluido:false p/ restaurar.
+      const chave = body.chave;
+      if (!chave) return json({ error: "chave_obrigatoria" }, 400);
+      const excluido = body.excluido !== false;
+      const { error } = await sb.from("fabrica_looks").update({ excluido }).eq("chave", chave);
+      if (error) return json({ error: "excluir_falhou", detail: error.message }, 500);
+      return json({ ok: true, excluido });
+    }
     return json({ error: "acao_invalida" }, 400);
   } catch (e) { return json({ error: String(e) }, 500); }
 });

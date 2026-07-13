@@ -185,7 +185,7 @@ export async function run({
     // gerar em silêncio o que foi desligado. SP-3 só vale p/ tabela genuinamente VAZIA (fresh install).
     let fabricaLooks = null, leu = false;
     for (let t = 1; t <= 4 && !leu; t++) {
-      try { fabricaLooks = await sbGet('/fabrica_looks?select=chave,objetivos,ativo,ordem,tipo&order=ordem'); leu = true; }
+      try { fabricaLooks = await sbGet('/fabrica_looks?select=chave,objetivos,ativo,excluido,ordem,tipo&order=ordem'); leu = true; }
       catch (e) {
         if (t === 4) throw new Error('fabrica_looks indisponível após 4 tentativas — abortando p/ NÃO gerar looks desativados (curadoria não confirmada): ' + e.message);
         console.warn(`  [fabrica_looks retry ${t}/3] ${String(e.message).slice(0, 60)}`);

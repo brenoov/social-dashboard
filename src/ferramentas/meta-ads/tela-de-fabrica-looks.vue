@@ -10,6 +10,7 @@ const router = useRouter()
 const OBJETIVOS = ['engajamento', 'conversao', 'branding', 'trafego']
 const looks = ref([])
 const gerandoPreview = ref(false)
+const mostrarExcluidos = ref(false)
 async function carregar() {
   if (!hasPermission('module:meta:fabrica')) { router.push({ name: 'meta-ads' }); return }
   looks.value = await sb('fabrica_looks?select=*&order=ordem')
@@ -29,6 +30,17 @@ async function mover(l, dir) {
   await sbClient.functions.invoke('fabrica-looks', { body: { acao: 'ordenar', ordem } })
 }
 async function renomear(l) { const nome = prompt('Nome do look:', l.nome); if (nome && nome !== l.nome) { l.nome = nome; salvar(l) } }
+async function excluir(l) {
+  if (!confirm(`Excluir o look "${l.nome}" da galeria? Ele some daqui e não gera mais criativos. Dá pra restaurar em "Mostrar excluídos".`)) return
+  l.excluido = true // otimista
+  const { error } = await sbClient.functions.invoke('fabrica-looks', { body: { acao: 'excluir', chave: l.chave, excluido: true } })
+  if (error) { l.excluido = false; alert('Falha ao excluir: ' + error.message) }
+}
+async function restaurar(l) {
+  l.excluido = false // otimista
+  const { error } = await sbClient.functions.invoke('fabrica-looks', { body: { acao: 'excluir', chave: l.chave, excluido: false } })
+  if (error) { l.excluido = true; alert('Falha ao restaurar: ' + error.message) }
+}
 async function gerarPreviews() {
   gerandoPreview.value = true
   const { error } = await sbClient.functions.invoke('fabrica-trigger', { body: { tipo: 'preview', params: {} } })
@@ -49,9 +61,15 @@ onMounted(carregar)
       <button class="cmd cyan" :disabled="gerandoPreview" @click="gerarPreviews">Gerar previews</button>
     </header>
     <div class="panel">
-      <div class="ph"><span class="eyebrow">Looks</span><span class="eyebrow muted">{{ looks.length }} · {{ looks.filter(l=>l.ativo).length }} ativos</span></div>
+      <div class="ph">
+        <span class="eyebrow">Looks</span>
+        <span class="ph-right">
+          <label class="loja-chip" :class="{ sel: mostrarExcluidos }"><input type="checkbox" v-model="mostrarExcluidos"> Mostrar excluídos<span v-if="looks.filter(l=>l.excluido).length"> ({{ looks.filter(l=>l.excluido).length }})</span></label>
+          <span class="eyebrow muted">{{ looks.filter(l=>!l.excluido).length }} na galeria · {{ looks.filter(l=>l.ativo && !l.excluido).length }} ativos</span>
+        </span>
+      </div>
       <div class="looks-grid">
-        <div v-for="(l, i) in looks" :key="l.chave" class="look-card" :class="{ off: !l.ativo }">
+        <div v-for="(l, i) in looks" :key="l.chave" v-show="mostrarExcluidos || !l.excluido" class="look-card" :class="{ off: !l.ativo, excluido: l.excluido }">
           <img v-if="l.preview_url" :src="l.preview_url" class="look-prev" loading="lazy">
           <div v-else class="look-prev ph-vazio">sem preview</div>
           <div class="look-nome">{{ l.nome }} <span class="cat">{{ l.arquetipo }}</span></div>
@@ -61,10 +79,14 @@ onMounted(carregar)
             </label>
           </div>
           <div class="look-acoes">
-            <button class="mini" @click="toggleAtivo(l)">{{ l.ativo ? 'Desativar' : 'Ativar' }}</button>
-            <button class="mini" @click="renomear(l)">Renomear</button>
-            <button class="mini" :disabled="i===0" @click="mover(l, -1)">↑</button>
-            <button class="mini" :disabled="i===looks.length-1" @click="mover(l, 1)">↓</button>
+            <template v-if="!l.excluido">
+              <button class="mini" @click="toggleAtivo(l)">{{ l.ativo ? 'Desativar' : 'Ativar' }}</button>
+              <button class="mini" @click="renomear(l)">Renomear</button>
+              <button class="mini" :disabled="i===0" @click="mover(l, -1)">↑</button>
+              <button class="mini" :disabled="i===looks.length-1" @click="mover(l, 1)">↓</button>
+              <button class="mini danger" @click="excluir(l)">Excluir</button>
+            </template>
+            <button v-else class="mini" @click="restaurar(l)">Restaurar</button>
           </div>
         </div>
       </div>

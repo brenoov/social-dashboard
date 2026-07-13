@@ -271,6 +271,9 @@
 .fest .looks-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px}
 .fest .look-card{border:1px solid var(--edge); border-radius:var(--r); background:var(--panel-2); padding:10px; display:flex; flex-direction:column; gap:8px}
 .fest .look-card.off{opacity:.5}
+.fest .look-card.excluido{opacity:.55; border-style:dashed}
+.fest .mini.danger{border-color:var(--abort); color:var(--abort)}
+.fest .mini.danger:hover:not(:disabled){background:rgba(255,90,69,.12)}
 .fest .look-prev{width:100%; aspect-ratio:4/5; object-fit:cover; border-radius:8px; background:var(--panel); border:1px solid var(--edge)}
 .fest .look-prev.ph-vazio{display:flex; align-items:center; justify-content:center; color:var(--ink-faint); font-size:12px}
 .fest .look-nome{font-weight:600; font-size:13px} .fest .look-nome .cat{color:var(--ink-dim); font-weight:400; font-size:11px}

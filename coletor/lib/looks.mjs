@@ -9,6 +9,7 @@ export function sincronizarLooks(registryEntries, existentes) {
 export function looksAtivosOrdenados(fabricaLooks, objetivo) {
   return (fabricaLooks || [])
     .filter((l) => l.ativo !== false)
+    .filter((l) => !l.excluido)   // excluído da galeria nunca gera (mesmo se ativo)
     .filter((l) => !objetivo || !(l.objetivos && l.objetivos.length) || l.objetivos.includes(objetivo))
     .slice()
     .sort((a, b) => (a.ordem || 0) - (b.ordem || 0))

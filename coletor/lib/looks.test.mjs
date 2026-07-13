@@ -21,3 +21,12 @@ test('looksAtivosOrdenados: ativo + objetivo + ordem', () => {
   // sem objetivo = todos os ativos por ordem
   assert.deepEqual(looksAtivosOrdenados(looks, null), ['a', 'z', 'e']);
 });
+
+test('looksAtivosOrdenados: excluído nunca gera (mesmo ativo)', () => {
+  const looks = [
+    { chave: 'a', ativo: true, objetivos: [], ordem: 1 },
+    { chave: 'b', ativo: true, excluido: true, objetivos: [], ordem: 2 }, // excluído da galeria
+    { chave: 'c', ativo: true, objetivos: [], ordem: 3 },
+  ];
+  assert.deepEqual(looksAtivosOrdenados(looks, null), ['a', 'c']);
+});
