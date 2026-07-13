@@ -64,28 +64,36 @@ def _cut_birefnet(img):
 
 
 def _cut_floodfill(img):
-    # Remoção de fundo branco de estúdio por flood-fill de borda. Determinístico
-    # (numpy/scipy) — mesmo resultado em Linux e macOS, ao contrário do BiRefNet.
+    # Remoção de fundo branco de estúdio (numpy/scipy) — determinístico, mesmo
+    # resultado em Linux e macOS, ao contrário do BiRefNet.
     from scipy import ndimage
     from PIL import ImageFilter
     WHITE_MIN = int(os.environ.get('FLOODFILL_WHITE_MIN', '200'))
     SPREAD = int(os.environ.get('FLOODFILL_SPREAD', '28'))
-    a0 = np.asarray(img.convert('RGB')).astype(np.int32)
-    a = np.pad(a0, ((1, 1), (1, 1), (0, 0)), constant_values=255)  # moldura branca 1px
+    # tapa só buraco < 0.1% da imagem (reflexo do logo/ferragem dentro do couro);
+    # vazados grandes (vão entre alça e bolsa, buraco da alça transversal) ficam TRANSPARENTES.
+    FILL_MAX = float(os.environ.get('FLOODFILL_FILL_MAX', '0.001'))
+    a = np.asarray(img.convert('RGB')).astype(np.int32)
     mx = a.max(2); mn = a.min(2)
     whiteish = (mn >= WHITE_MIN) & ((mx - mn) <= SPREAD)   # branco + cinza-claro de fundo/sombra
-    lbl, _ = ndimage.label(whiteish)
-    borda = set(lbl[0, :]) | set(lbl[-1, :]) | set(lbl[:, 0]) | set(lbl[:, -1])
-    borda.discard(0)
-    fg = ~np.isin(lbl, list(borda))            # fundo = whiteish conectado à borda
-    fg = ndimage.binary_fill_holes(fg)         # tapa reflexo branco interno
+    # Remove TODO whiteish (não só o conectado à borda) — assim os vazados internos, que são
+    # branco puro cercado pela bolsa, também somem. O creme do corpo tem min-canal < 200
+    # (ex.: ~193 na Panacota) → NÃO é whiteish → sobrevive; couro/ferragem/cor também.
+    fg = ~whiteish
     lf, nf = ndimage.label(fg)
-    if nf > 1:                                  # mantém só o maior componente
+    if nf > 1:                                  # maior componente (descarta ilhas de ruído)
         fg = lf == (np.argmax(np.bincount(lf.ravel())[1:]) + 1)
-    fg = fg[1:-1, 1:-1]                          # remove a moldura
     cobertura = float(fg.mean())
-    if cobertura > 0.92:                         # flood removeu quase nada -> foto não é fundo branco
+    if cobertura > 0.92:                         # removeu quase nada -> foto não é fundo branco
         return None
+    filled = ndimage.binary_fill_holes(fg)
+    holes = filled & ~fg                         # buracos cercados pelo primeiro-plano
+    if holes.any():
+        lblh, nh = ndimage.label(holes)
+        sizes = np.bincount(lblh.ravel())
+        limiar = fg.size * FILL_MAX
+        pequenos = np.isin(lblh, [i for i in range(1, nh + 1) if sizes[i] < limiar])
+        fg = fg | pequenos                       # só os pequenos voltam opacos
     mask = Image.fromarray((fg * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.8))
     out = img.convert('RGBA'); out.putalpha(mask)
     return out

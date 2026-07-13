@@ -7,7 +7,7 @@ import { join } from 'node:path';
 
 const temPy = spawnSync('python3', ['-c', 'import scipy,numpy,PIL']).status === 0;
 
-test('recorte flood-fill: corpo claro opaco + fundo transparente', { skip: temPy ? false : 'python3+scipy indisponível' }, () => {
+test('recorte flood-fill: corpo opaco, fundo E vazado interno transparentes', { skip: temPy ? false : 'python3+scipy indisponível' }, () => {
   const out = join(mkdtempSync(join(tmpdir(), 'rec-')), 'o.png');
   const r = spawnSync('python3', ['recortar.py', 'lib/__fixtures__/bolsa-clara-estudio.jpg', out], { cwd: process.cwd() });
   assert.equal(r.status, 0, r.stderr?.toString());
@@ -19,7 +19,9 @@ test('recorte flood-fill: corpo claro opaco + fundo transparente', { skip: temPy
     'H,W=a.shape',
     'body=a[int(0.42*H):int(0.62*H),int(0.32*W):int(0.68*W)].mean()',
     'corner=a[:int(0.06*H),:int(0.06*W)].mean()',
-    'sys.exit(0 if (body>0.9 and corner<0.1) else 1)',
+    // vazado entre as alças (fundo cercado pela bolsa) tem de ficar transparente
+    'gap=a[int(0.15*H):int(0.24*H),int(0.46*W):int(0.54*W)].mean()',
+    'sys.exit(0 if (body>0.9 and corner<0.1 and gap<0.2) else 1)',
   ].join('\n')]);
-  assert.equal(chk.status, 0, 'corpo opaco (>0.9) e canto transparente (<0.1)');
+  assert.equal(chk.status, 0, 'corpo opaco (>0.9), canto (<0.1) e vazado entre alças (<0.2) transparentes');
 });
