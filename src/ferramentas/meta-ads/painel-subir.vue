@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, onMounted, watch, computed } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { useJobStatus } from './use-job-status.js'
@@ -16,7 +16,8 @@ const buscaCidade = ref(''); const cidadesAchadas = ref([])
 const buscaInteresse = ref(''); const interessesAchados = ref([])
 async function carregarPresets() { presets.value = await sb('fabrica_publicos?select=*&ativo=eq.true&order=created_at.desc') }
 function aplicarPreset() {
-  const p = presets.value.find((x) => x.id === publico.presetId); if (!p) return
+  const p = presets.value.find((x) => x.id === publico.presetId)
+  if (!p) { Object.assign(publico, { nome: '', geo: { cities: [], excluded: [] }, idade_min: 18, idade_max: 65, generos: [], interesses: [], custom_audiences: [] }); return }
   Object.assign(publico, { nome: p.nome, geo: p.geo || { cities: [], excluded: [] }, idade_min: p.idade_min, idade_max: p.idade_max, generos: p.generos || [], interesses: p.interesses || [], custom_audiences: p.custom_audiences || [] })
 }
 async function buscarCidades() {
@@ -41,7 +42,9 @@ function publicoParaEnvio() {
 }
 async function salvarPreset() {
   const nome = prompt('Nome do preset:', publico.nome || ''); if (!nome) return
-  const { data, error } = await sbClient.functions.invoke('fabrica-publicos', { body: { acao: 'salvar', preset: { ...publicoParaEnvio(), nome } } })
+  const preset = { ...publicoParaEnvio(), nome }
+  if (publico.presetId) preset.id = publico.presetId
+  const { data, error } = await sbClient.functions.invoke('fabrica-publicos', { body: { acao: 'salvar', preset } })
   if (error) return alert('Falha ao salvar: ' + error.message)
   publico.nome = nome; await carregarPresets(); if (data?.id) publico.presetId = data.id
 }
@@ -50,6 +53,33 @@ async function apagarPreset() {
   const { error } = await sbClient.functions.invoke('fabrica-publicos', { body: { acao: 'apagar', id: publico.presetId } })
   if (error) return alert('Falha ao apagar: ' + error.message)
   publico.presetId = ''; await carregarPresets()
+}
+
+// ===== Públicos salvos (audiences do Meta: engajamento/lookalike) =====
+const audiences = ref([]); const carregandoAud = ref(false)
+const IG_ID = '17841462952561833', PAGE_ID = '324679337390168' // marca única hoje; futuro = da tabela de marcas
+async function listarAudiences() {
+  carregandoAud.value = true
+  const { data } = await sbClient.functions.invoke('meta-proxy', { body: { accountId: ACCOUNT_ID, path: `/${ACT}/customaudiences`, params: { fields: 'id,name,subtype,approximate_count', limit: 50 }, method: 'GET' } })
+  audiences.value = data?.data || []; carregandoAud.value = false
+}
+function toggleAudiencia(a) {
+  const i = publico.custom_audiences.findIndex((x) => x.id === a.id)
+  i > -1 ? publico.custom_audiences.splice(i, 1) : publico.custom_audiences.push({ id: a.id, name: a.name, subtype: a.subtype })
+}
+async function criarEngajamento() {
+  const nome = prompt('Nome do público de engajamento:', 'Engajou IG 365d'); if (!nome) return
+  const rule = { engagement_specs: [{ object_id: IG_ID, event_types: ['ig_business_profile_all'], retention_days: 365 }] } // regra de engajamento IG
+  const { data, error } = await sbClient.functions.invoke('meta-proxy', { body: { accountId: ACCOUNT_ID, path: `/${ACT}/customaudiences`, method: 'POST', params: { name: nome, subtype: 'ENGAGEMENT', rule: JSON.stringify(rule) } } })
+  if (error || !data?.id) return alert('Falha ao criar engajamento: ' + (error?.message || JSON.stringify(data)))
+  publico.custom_audiences.push({ id: data.id, name: nome, subtype: 'ENGAGEMENT' }); await listarAudiences()
+}
+async function criarLookalike(origem) {
+  const nome = prompt('Nome do lookalike:', 'Lookalike 1%'); if (!nome) return
+  const spec = { country: 'BR', ratio: 0.01, type: 'similarity' }
+  const { data, error } = await sbClient.functions.invoke('meta-proxy', { body: { accountId: ACCOUNT_ID, path: `/${ACT}/customaudiences`, method: 'POST', params: { name: nome, subtype: 'LOOKALIKE', origin_audience_id: origem, lookalike_spec: JSON.stringify(spec) } } })
+  if (error || !data?.id) return alert('Falha ao criar lookalike: ' + (error?.message || JSON.stringify(data)))
+  publico.custom_audiences.push({ id: data.id, name: nome, subtype: 'LOOKALIKE' }); await listarAudiences()
 }
 
 onMounted(async () => {
@@ -204,6 +234,32 @@ watch(job, (j) => { if (j?.status === 'concluido' && j.resultado) emit('subido',
       <div class="cmdrow">
         <button class="cmd cyan" type="button" @click="salvarPreset">Salvar preset</button>
         <button class="cmd cyan" type="button" :disabled="!publico.presetId" @click="apagarPreset">Apagar preset</button>
+      </div>
+
+      <div class="ph" style="margin-top:16px"><span class="eyebrow">Públicos salvos</span></div>
+
+      <div class="cmdrow">
+        <button class="cmd cyan" type="button" @click="listarAudiences">{{ carregandoAud ? 'Carregando…' : 'Carregar públicos' }}</button>
+        <button class="cmd cyan" type="button" @click="criarEngajamento">Criar engajamento</button>
+      </div>
+
+      <ul v-if="audiences.length" class="resultlist">
+        <li v-for="a in audiences" :key="a.id">
+          <label class="ch-nm" style="font-weight:400;display:flex;align-items:center;gap:8px">
+            <input type="checkbox" :checked="publico.custom_audiences.some((x) => x.id === a.id)" @change="toggleAudiencia(a)">
+            {{ a.name }} <span style="color:var(--ink-dim)">· {{ a.subtype }}<span v-if="a.approximate_count != null"> · ~{{ a.approximate_count }}</span></span>
+          </label>
+          <span class="resultacoes">
+            <button class="marcar-todos" type="button" @click="criarLookalike(a.id)">Criar lookalike desta</button>
+          </span>
+        </li>
+      </ul>
+
+      <div class="chips" v-if="publico.custom_audiences.length">
+        <span class="chip" v-for="a in publico.custom_audiences" :key="a.id">
+          {{ a.name }} <span style="color:var(--ink-dim)">· {{ a.subtype }}</span>
+          <button class="chip-x" type="button" @click="toggleAudiencia(a)">×</button>
+        </span>
       </div>
     </div>
   </section>
