@@ -61,7 +61,6 @@ const estiloBalao = () => {
 </script>
 <template>
   <div v-if="modelValue" class="tour-overlay">
-    <div class="tour-back" @click="fechar"></div>
     <div v-if="rect" class="tour-realce" :style="estiloRealce()"></div>
     <div class="tour-balao" :style="estiloBalao()" role="dialog">
       <div class="tour-tit">{{ passo?.titulo }}</div>
