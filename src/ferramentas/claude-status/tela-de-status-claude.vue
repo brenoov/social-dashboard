@@ -535,11 +535,12 @@ onUnmounted(() => {
 .csc-robo.st-erro { border-top-color: var(--red); }
 .csc-robo.st-parcial { border-top-color: var(--orange); }
 .csc-robo-head { display: flex; align-items: flex-start; gap: 10px; }
+.csc-robo-head > div { flex: 1; min-width: 0; }
 .csc-robo-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex-shrink: 0; margin-top: 5px; }
 .csc-robo.st-ok .csc-robo-dot { background: var(--green); }
 .csc-robo.st-erro .csc-robo-dot { background: var(--red); }
 .csc-robo.st-parcial .csc-robo-dot { background: var(--orange); }
-.csc-robo-nome { font-size: 15px; font-weight: 600; color: var(--text); line-height: 1.2; }
+.csc-robo-nome { font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.25; letter-spacing: -.2px; }
 .csc-robo-faz { font-size: 12.5px; color: var(--muted); line-height: 1.45; margin-top: 3px; }
 .csc-robo-corpo { display: flex; flex-direction: column; gap: 10px; }
 .csc-robo-frase { font-size: 15px; color: var(--text); line-height: 1.35; }
