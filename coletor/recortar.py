@@ -40,6 +40,19 @@ def _cut_birefnet(img):
     m = (m - m.min()) / (m.max() - m.min() + 1e-8)
     if TOL > 0:                             # tolerância: boost gamma (<1 levanta valores baixos)
         m = np.power(m, 1.0 - 0.4 * TOL)    # recupera partes finas INTERNAS da bolsa
+    # tapa-buracos: no runner Linux o BiRefNet zera o corpo de baixo contraste (bolsa
+    # CLARA sobre fundo branco) → buraco interno na máscara (a "parte branca" some do
+    # recorte). Buraco 100% cercado por primeiro-plano (vivo/aba/ferragem) = erro de
+    # segmentação: restauramos opaco. O fundo externo (inclusive o vão entre as alças)
+    # fica conectado à borda da imagem → binary_fill_holes NÃO o enche. Só ADICIONA
+    # alpha (nunca remove). Best-effort: sem scipy, segue sem tapar.
+    try:
+        from scipy import ndimage
+        solid = m > 0.5                                  # núcleo de primeiro-plano
+        interior = ndimage.binary_fill_holes(solid) & ~solid  # buracos internos cercados
+        m[interior] = 1.0                                # corpo comido volta opaco
+    except Exception as e:
+        sys.stderr.write('tapa-buracos indisponivel (%s)\n' % str(e)[:100])
     # anti-franja: zera o alpha baixo (resíduo de fundo semitransparente que virava halo branco).
     # NÃO dilatamos a máscara (dilatar crescia pra dentro do fundo → franja clara na borda).
     m[m < 0.12] = 0.0
