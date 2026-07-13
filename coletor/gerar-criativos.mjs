@@ -144,12 +144,16 @@ export async function run({
       console.warn('aviso: fabrica_looks indisponível, fallback SP-3:', e.message);
     }
     if (!usouTabela && objetivo) {
-      // fallback SP-3: registry + objetivosDoTemplate
-      const { porChave } = await carregarObjetivos(sbGet);
-      const row = mapaObjetivo(porChave, objetivo);
-      const looksDisponiveis = Object.keys(TEMPLATES).filter((k) => { const o = objetivosDoTemplate(k); return o.length === 0 || o.includes(objetivo); });
-      const permitidos = looksDoObjetivo(row, looksDisponiveis);
-      if (permitidos.length) opts.looks = permitidos;
+      try {
+        // fallback SP-3: registry + objetivosDoTemplate
+        const { porChave } = await carregarObjetivos(sbGet);
+        const row = mapaObjetivo(porChave, objetivo);
+        const looksDisponiveis = Object.keys(TEMPLATES).filter((k) => { const o = objetivosDoTemplate(k); return o.length === 0 || o.includes(objetivo); });
+        const permitidos = looksDoObjetivo(row, looksDisponiveis);
+        if (permitidos.length) opts.looks = permitidos;
+      } catch (e) {
+        console.warn('aviso: fallback SP-3 (fabrica_objetivos) indisponível, sem filtro por objetivo:', e.message);
+      }
     }
   }
 
