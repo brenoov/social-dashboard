@@ -67,18 +67,26 @@ function toggleAudiencia(a) {
   const i = publico.custom_audiences.findIndex((x) => x.id === a.id)
   i > -1 ? publico.custom_audiences.splice(i, 1) : publico.custom_audiences.push({ id: a.id, name: a.name, subtype: a.subtype })
 }
+// Regra no formato flexible-rule documentado do Meta (v22): inclusions>rules>event_sources +
+// retention_seconds + filter{field:'event',operator:'eq',value:'ig_business_profile_all'}. Passa o
+// objeto direto (o meta-proxy faz JSON.stringify). OBS (validado ao vivo 2026-07-12): a CRIAÇÃO de
+// custom audience via API está bloqueada nesta conta/versão (o Graph recusa o rule mesmo com o valor
+// canônico, ex.: 'page_engaged' → code 2654) — provável restrição de elegibilidade da fonte/transporte
+// do proxy (params vão por query string). O caminho que FUNCIONA é "Carregar públicos" (selecionar os
+// que já existem no Gerenciador). Estas funções ficam no formato certo p/ quando o bloqueio sair.
+const ERRO_AUD = 'A criação de público via API está bloqueada nesta conta pelo Meta. Crie o público no Gerenciador de Anúncios e use "Carregar públicos" pra selecioná-lo aqui.'
 async function criarEngajamento() {
   const nome = prompt('Nome do público de engajamento:', 'Engajou IG 365d'); if (!nome) return
-  const rule = { engagement_specs: [{ object_id: IG_ID, event_types: ['ig_business_profile_all'], retention_days: 365 }] } // regra de engajamento IG
-  const { data, error } = await sbClient.functions.invoke('meta-proxy', { body: { accountId: ACCOUNT_ID, path: `/${ACT}/customaudiences`, method: 'POST', params: { name: nome, subtype: 'ENGAGEMENT', rule: JSON.stringify(rule) } } })
-  if (error || !data?.id) return alert('Falha ao criar engajamento: ' + (error?.message || JSON.stringify(data)))
+  const rule = { inclusions: { operator: 'or', rules: [{ event_sources: [{ type: 'ig_business', id: IG_ID }], retention_seconds: 31536000, filter: { operator: 'or', filters: [{ field: 'event', operator: 'eq', value: 'ig_business_profile_all' }] } }] } }
+  const { data, error } = await sbClient.functions.invoke('meta-proxy', { body: { accountId: ACCOUNT_ID, path: `/${ACT}/customaudiences`, method: 'POST', params: { name: nome, subtype: 'ENGAGEMENT', rule } } })
+  if (error || !data?.id) return alert(ERRO_AUD + '\n\n(' + (error?.message || (data?.error?.message) || JSON.stringify(data)) + ')')
   publico.custom_audiences.push({ id: data.id, name: nome, subtype: 'ENGAGEMENT' }); await listarAudiences()
 }
 async function criarLookalike(origem) {
   const nome = prompt('Nome do lookalike:', 'Lookalike 1%'); if (!nome) return
-  const spec = { country: 'BR', ratio: 0.01, type: 'similarity' }
-  const { data, error } = await sbClient.functions.invoke('meta-proxy', { body: { accountId: ACCOUNT_ID, path: `/${ACT}/customaudiences`, method: 'POST', params: { name: nome, subtype: 'LOOKALIKE', origin_audience_id: origem, lookalike_spec: JSON.stringify(spec) } } })
-  if (error || !data?.id) return alert('Falha ao criar lookalike: ' + (error?.message || JSON.stringify(data)))
+  const lookalike_spec = { country: 'BR', ratio: 0.01, type: 'similarity' }
+  const { data, error } = await sbClient.functions.invoke('meta-proxy', { body: { accountId: ACCOUNT_ID, path: `/${ACT}/customaudiences`, method: 'POST', params: { name: nome, subtype: 'LOOKALIKE', origin_audience_id: origem, lookalike_spec } } })
+  if (error || !data?.id) return alert(ERRO_AUD + '\n\n(' + (error?.message || (data?.error?.message) || JSON.stringify(data)) + ')')
   publico.custom_audiences.push({ id: data.id, name: nome, subtype: 'LOOKALIKE' }); await listarAudiences()
 }
 
