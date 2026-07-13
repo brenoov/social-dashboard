@@ -15,6 +15,13 @@ test('alvos(): existente = só ads; nova = ads+adsets+campaign', () => {
   assert.deepEqual(alvos({ adIds: ['a1'], adsetIds: ['s1'], metaCampaignId: 'c', criouCampanha: true }), ['a1', 's1', 'c']);
 });
 
+test('alvos(): multi-loja ativa ads + TODOS os adsets + TODAS as campanhas', () => {
+  assert.deepEqual(
+    alvos({ adIds: ['a1', 'a2'], adsetIds: ['s1', 's2'], metaCampaignIds: ['c1', 'c2'], metaCampaignId: 'c1', criouCampanha: true }),
+    ['a1', 'a2', 's1', 's2', 'c1', 'c2'],
+  );
+});
+
 // --- run(): happy path e falha parcial, com `meta` injetado (mesma seam de subirCriativos) -----
 test('run(): todos ativam com sucesso -> ativados===total, falhas vazio', async () => {
   const chamadas = [];

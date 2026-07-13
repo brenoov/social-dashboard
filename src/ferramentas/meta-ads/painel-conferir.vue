@@ -9,8 +9,8 @@ const { job, start } = useJobStatus()
 const gerenciador = 'https://adsmanager.facebook.com/adsmanager/'
 async function ativarTudo() {
   if (!confirm(`Ativar ${n.value} anúncios? Isso COMEÇA A GASTAR verba imediatamente.`)) return
-  const { adIds, adsetIds, metaCampaignId, criouCampanha } = props.subirResultado
-  const { data, error } = await sbClient.functions.invoke('fabrica-trigger', { body: { tipo: 'ativar', params: { adIds, adsetIds, metaCampaignId, criouCampanha } } })
+  const { adIds, adsetIds, metaCampaignId, metaCampaignIds, criouCampanha } = props.subirResultado
+  const { data, error } = await sbClient.functions.invoke('fabrica-trigger', { body: { tipo: 'ativar', params: { adIds, adsetIds, metaCampaignId, metaCampaignIds, criouCampanha } } })
   if (error) return alert('Falha: ' + error.message)
   if (!data?.job_id) return alert('Sem job_id na resposta')
   start(data.job_id)

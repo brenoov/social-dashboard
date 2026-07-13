@@ -1,6 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { run, resolverLoja, payloadCampanhaAdset } from './subir-estudio.mjs';
+import { run, resolverLoja, payloadCampanhaAdset, lojasDoDestino } from './subir-estudio.mjs';
+
+test('lojasDoDestino: lojas[] tem prioridade; senão loja único; senão vazio', () => {
+  assert.deepEqual(lojasDoDestino({ lojas: ['tivoli', 'dp'] }), ['tivoli', 'dp']);
+  assert.deepEqual(lojasDoDestino({ loja: 'tivoli' }), ['tivoli']);
+  assert.deepEqual(lojasDoDestino({ lojas: [], loja: 'dp' }), ['dp']);
+  assert.deepEqual(lojasDoDestino({}), []);
+  assert.deepEqual(lojasDoDestino(null), []);
+});
 
 const MARCA = { adAccount: 'act_1', pageId: 'P', igId: 'IG' };
 const LOJA = { nome: 'Tivoli', whatsapp: '5519...', geoCities: ['1058'] };

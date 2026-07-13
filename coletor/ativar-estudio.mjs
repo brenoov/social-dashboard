@@ -87,16 +87,20 @@ async function meta(path, params = {}, method = 'GET') {
 // --- alvos(): função pura — resolve quais ids do Graph precisam virar ACTIVE. Numa campanha já
 // existente só os ads mudam (conjunto/campanha já estavam ativos); numa campanha nova (criada
 // pelo subir-estudio.mjs, tudo PAUSED) também precisa ativar o conjunto e a campanha. ---
-export function alvos({ adIds, adsetIds, metaCampaignId, criouCampanha }) {
-  return criouCampanha ? [...adIds, ...adsetIds, metaCampaignId] : [...adIds];
+export function alvos({ adIds, adsetIds, metaCampaignId, metaCampaignIds, criouCampanha }) {
+  if (!criouCampanha) return [...adIds];
+  // campanhas novas (subir-estudio, tudo PAUSED): ativa ads + conjuntos + TODAS as campanhas.
+  // metaCampaignIds[] (multi-loja) tem prioridade; senão metaCampaignId (single, retrocompat).
+  const camps = (metaCampaignIds && metaCampaignIds.length) ? metaCampaignIds : (metaCampaignId ? [metaCampaignId] : []);
+  return [...adIds, ...adsetIds, ...camps];
 }
 
 // --- run(): API pública do módulo -------------------------------------------------------------
 // `meta` (2º arg opcional, nomeado pra não colidir com a função meta() do módulo) é uma seam de
 // injeção pros testes (mesmo padrão do `meta` injetado em subirCriativos/meta-subir.mjs) — quando
 // injetado, pula o loginServico() (sem rede) e usa o stub direto.
-export async function run({ adIds, adsetIds, metaCampaignId, criouCampanha, dry = false, meta: metaInjetado } = {}) {
-  const ids = alvos({ adIds, adsetIds, metaCampaignId, criouCampanha });
+export async function run({ adIds, adsetIds, metaCampaignId, metaCampaignIds, criouCampanha, dry = false, meta: metaInjetado } = {}) {
+  const ids = alvos({ adIds, adsetIds, metaCampaignId, metaCampaignIds, criouCampanha });
   const total = ids.length;
   if (dry) return { ativados: 0, total: 0, falhas: [] };
 

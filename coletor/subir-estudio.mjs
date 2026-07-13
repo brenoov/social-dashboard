@@ -194,6 +194,42 @@ async function criarCampanhaNova(loja, objetivoRow, publico = null) {
   return { campaignId, adsets: [{ id: adset.d.id, name: 'Estudio · Geral', destinationType: objetivoRow.destination_type, whatsapp: loja.whatsapp }] };
 }
 
+// destino.lojas (array) tem prioridade; senão destino.loja (single, retrocompat). Pura p/ teste.
+export function lojasDoDestino(destino) {
+  if (destino?.lojas && destino.lojas.length) return destino.lojas;
+  return destino?.loja ? [destino.loja] : [];
+}
+
+// Sobe os criativos escolhidos NUMA campanha do Meta (idempotência + itens + subir + rastro).
+// MARCA já deve estar setada pro contexto da campanha (loja). Retorna { adIds, pendentes,
+// metaCampaignId, adsetIds }.
+async function subirNumaCampanha({ metaCampaignId, adsets, escolhidos, destino, campanhaId, lojaNome }) {
+  if (!adsets.length) throw new Error(`campanha ${metaCampaignId} não tem conjuntos — nada onde subir`);
+  const existentes = await metaTodos(`/${metaCampaignId}/ads`, { fields: 'name,adset_id', limit: 500 });
+  const jaTem = new Set(existentes.map((a) => `${a.adset_id}::${a.name}`));
+  const legendaMarca = montarLegenda(MARCA.captionTemplate, { marca: MARCA.nome }).trim();
+  const itens = escolhidos.map((c, i) => ({ chave: c.id, url: c.url, mensagem: c.legenda || legendaMarca, getHash: () => uploadImagemBytes(c.url, 'img' + i) }));
+  const adIds = [];
+  const res = await subirCriativos({
+    meta, act: MARCA.adAccount, page: MARCA.pageId, ig: MARCA.igId,
+    itens, adsets, prefixo: 'Estudio', mensagem: legendaMarca, jaTem,
+    onAd: ({ adId }) => adIds.push(adId),
+  });
+  const adsetIds = adsets.map((a) => a.id);
+  try {
+    await sbPost('/fabrica_meta_jobs', [{
+      ad_account_id: MARCA.adAccount, loja: lojaNome || null, tipo: 'estudio',
+      meta_campaign_id: metaCampaignId, adset_ids: adsetIds, ad_ids: adIds,
+      payload: { campanhaId, destino, escolhidos: escolhidos.length, caption: legendaMarca },
+      status: res.pendentes ? 'parcial' : 'criado',
+      erro: res.rateLimited ? `rate limit — ${res.pendentes} pendente(s)` : null,
+    }], 'return=minimal');
+  } catch (e) {
+    console.warn(`aviso: não gravou fabrica_meta_jobs (${e.message}) — subida seguiu normal`);
+  }
+  return { adIds, pendentes: res.pendentes, metaCampaignId, adsetIds };
+}
+
 // --- run(): API pública do módulo -------------------------------------------------------------
 export async function run({ campanhaId, destino, dry = false }) {
   const criouCampanha = destino?.tipo === 'nova';
@@ -210,66 +246,42 @@ export async function run({ campanhaId, destino, dry = false }) {
   const escolhidos = await sbGet(`/fabrica_criativos?select=id,url,storage_path,legenda&campanha_id=eq.${campanhaId}&escolhido=eq.true&purgado_em=is.null`);
   if (escolhidos.length === 0) return { adIds: [], pendentes: 0, metaCampaignId: null, adsetIds: [], criouCampanha };
 
-  // 2) resolve metaCampaignId + adsets conforme o destino
-  let metaCampaignId, adsets, lojaNova;
+  // 2) resolve destino -> sobe em 1 (existente / 1 loja) ou N campanhas (uma por loja). Cada
+  //    campanha usa os MESMOS criativos escolhidos; o público é o mesmo (montarTargeting cai nas
+  //    cidades da própria loja como fallback de geo). Sequencial (money-path).
+  const resultados = [];
   if (destino?.tipo === 'existente') {
-    metaCampaignId = destino.campaignId;
-    adsets = await adsetsDaCampanha(metaCampaignId);
+    MARCA = marcaAtiva;
+    const adsets = await adsetsDaCampanha(destino.campaignId);
+    resultados.push(await subirNumaCampanha({ metaCampaignId: destino.campaignId, adsets, escolhidos, destino, campanhaId, lojaNome: null }));
   } else if (destino?.tipo === 'nova') {
-    lojaNova = resolverLoja(lojas, destino.loja);
-    if (!lojaNova || !lojaNova.marca) throw new Error(`loja inválida p/ destino 'nova': ${destino.loja} (use tivoli|dp)`);
-    MARCA = lojaNova.marca; // a loja pode pertencer a uma marca diferente da marcaAtiva global
+    const slugs = lojasDoDestino(destino);
+    if (!slugs.length) throw new Error(`destino 'nova' sem loja(s) — use destino.loja ou destino.lojas`);
     // objetivo da rodada (fabrica_campanhas.objetivo) -> linha de fabrica_objetivos (fallback 'engajamento')
     const campanha = (await sbGet(`/fabrica_campanhas?select=objetivo&id=eq.${campanhaId}`))[0];
     const { porChave } = await carregarObjetivos(sbGet);
     const objetivoRow = mapaObjetivo(porChave, campanha?.objetivo || 'engajamento');
     const publico = destino.publico || null;
-    ({ campaignId: metaCampaignId, adsets } = await criarCampanhaNova(lojaNova, objetivoRow, publico));
+    for (const slug of slugs) {
+      const loja = resolverLoja(lojas, slug);
+      if (!loja || !loja.marca) throw new Error(`loja inválida p/ destino 'nova': ${slug} (use tivoli|dp)`);
+      MARCA = loja.marca; // a loja pode pertencer a uma marca diferente da marcaAtiva global
+      const { campaignId: metaCampaignId, adsets } = await criarCampanhaNova(loja, objetivoRow, publico);
+      resultados.push(await subirNumaCampanha({ metaCampaignId, adsets, escolhidos, destino, campanhaId, lojaNome: loja.nome }));
+    }
   } else {
-    throw new Error(`destino inválido: ${JSON.stringify(destino)} (use {tipo:'existente',campaignId} ou {tipo:'nova',loja})`);
-  }
-  if (!adsets.length) throw new Error(`campanha ${metaCampaignId} não tem conjuntos — nada onde subir`);
-
-  // 3) idempotência: ads já existentes na campanha (nome determinístico via nomeAd)
-  const existentes = await metaTodos(`/${metaCampaignId}/ads`, { fields: 'name,adset_id', limit: 500 });
-  const jaTem = new Set(existentes.map((a) => `${a.adset_id}::${a.name}`));
-
-  // Legenda de MARCA a partir do template (fabrica_marcas.caption_template). Este fluxo não tem um
-  // desconto_pct já resolvido (fica em fabrica_campanhas, não em fabrica_criativos) — sem inventar
-  // número aqui, monta só com {marca} e deixa {desconto} vazio (trim tira o espaço sobrando). É o
-  // FALLBACK duplo: por item (quando c.legenda é null) e como mensagem global do subirCriativos.
-  const legendaMarca = montarLegenda(MARCA.captionTemplate, { marca: MARCA.nome }).trim();
-
-  // 4) itens: cada criativo escolhido vira 1 item; getHash sobe a URL pública 1x (hash da conta).
-  // mensagem por item = legenda persuasiva por produto (gerada no gerar) ou a legenda de marca.
-  const itens = escolhidos.map((c, i) => ({ chave: c.id, url: c.url, mensagem: c.legenda || legendaMarca, getHash: () => uploadImagemBytes(c.url, 'img' + i) }));
-
-  // 5) sobe (item × adset), PAUSED, idempotente; onAd coleta os adIds pro rastro
-  const adIds = [];
-  const res = await subirCriativos({
-    meta, act: MARCA.adAccount, page: MARCA.pageId, ig: MARCA.igId,
-    itens, adsets, prefixo: 'Estudio', mensagem: legendaMarca, jaTem,
-    onAd: ({ adId }) => adIds.push(adId),
-  });
-
-  // 6) rastro em fabrica_meta_jobs (uma linha por rodada; ad_ids/adset_ids são jsonb — migration 016)
-  try {
-    await sbPost('/fabrica_meta_jobs', [{
-      ad_account_id: MARCA.adAccount,
-      loja: destino?.tipo === 'nova' ? (lojaNova?.nome || destino.loja) : null,
-      tipo: 'estudio',
-      meta_campaign_id: metaCampaignId,
-      adset_ids: adsets.map((a) => a.id),
-      ad_ids: adIds,
-      payload: { campanhaId, destino, escolhidos: escolhidos.length, caption: legendaMarca },
-      status: res.pendentes ? 'parcial' : 'criado',
-      erro: res.rateLimited ? `rate limit — ${res.pendentes} pendente(s)` : null,
-    }], 'return=minimal');
-  } catch (e) {
-    console.warn(`aviso: não gravou fabrica_meta_jobs (${e.message}) — subida seguiu normal`);
+    throw new Error(`destino inválido: ${JSON.stringify(destino)} (use {tipo:'existente',campaignId} ou {tipo:'nova',loja|lojas})`);
   }
 
-  return { adIds, pendentes: res.pendentes, metaCampaignId, adsetIds: adsets.map((a) => a.id), criouCampanha };
+  const adIds = resultados.flatMap((r) => r.adIds);
+  const pendentes = resultados.reduce((a, r) => a + r.pendentes, 0);
+  return {
+    adIds, pendentes, criouCampanha,
+    adsetIds: resultados.flatMap((r) => r.adsetIds),             // TODOS os adsets (agregado) — p/ ativar
+    metaCampaignId: resultados[0]?.metaCampaignId || null,       // compat (1ª campanha)
+    metaCampaignIds: resultados.map((r) => r.metaCampaignId),    // TODAS as campanhas — p/ ativar todas
+    campanhas: resultados.map((r) => ({ metaCampaignId: r.metaCampaignId, adsetIds: r.adsetIds, ads: r.adIds.length })),
+  };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

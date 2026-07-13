@@ -7,7 +7,9 @@ import AjudaTooltip from './ajuda-tooltip.vue'
 const props = defineProps({ campanhaId: String })
 const emit = defineEmits(['subido'])
 const ACCOUNT_ID = 'b6883e82-07cb-4f21-9fd7-ea7626786174', ACT = 'act_1197997517858139'
-const campanhas = ref([]); const destino = reactive({ tipo: 'nova', loja: 'tivoli', campaignId: '' })
+const campanhas = ref([]); const destino = reactive({ tipo: 'nova', lojas: ['tivoli'], campaignId: '' })
+const LOJAS = [{ slug: 'tivoli', nome: 'Tivoli' }, { slug: 'dp', nome: 'Dom Pedro' }]
+function toggleLoja(slug) { const i = destino.lojas.indexOf(slug); i > -1 ? destino.lojas.splice(i, 1) : destino.lojas.push(slug) }
 const { job, start } = useJobStatus()
 
 // ===== Localização + Público (só quando destino.tipo === 'nova') =====
@@ -98,9 +100,10 @@ onMounted(async () => {
   listarAudiences() // auto-carrega os públicos (audiences) já existentes no Meta — não bloqueia o mount
 })
 async function subir() {
+  if (destino.tipo === 'nova' && !destino.lojas.length) return alert('Selecione ao menos uma loja.')
   const params = { campanhaId: props.campanhaId, destino: destino.tipo === 'existente'
     ? { tipo: 'existente', campaignId: destino.campaignId }
-    : { tipo: 'nova', loja: destino.loja, publico: publicoParaEnvio() } }
+    : { tipo: 'nova', lojas: [...destino.lojas], publico: publicoParaEnvio() } }
   const { data, error } = await sbClient.functions.invoke('fabrica-trigger', { body: { tipo: 'subir', params } })
   if (error) return alert('Falha: ' + error.message)
   if (!data?.job_id) return alert('Sem job_id na resposta')
@@ -123,7 +126,9 @@ watch(job, (j) => { if (j?.status === 'concluido' && j.resultado) emit('subido',
         <label class="choice" :class="{ sel: destino.tipo==='nova' }">
           <input type="radio" value="nova" v-model="destino.tipo">
           <span class="ch-nm">Nova campanha por loja</span>
-          <select v-if="destino.tipo==='nova'" v-model="destino.loja"><option value="tivoli">Tivoli</option><option value="dp">Dom Pedro</option></select>
+          <span v-if="destino.tipo==='nova'" class="lojas" @click.stop>
+            <button type="button" v-for="l in LOJAS" :key="l.slug" class="loja-chip" :class="{ sel: destino.lojas.includes(l.slug) }" @click.prevent="toggleLoja(l.slug)">{{ l.nome }}</button>
+          </span>
         </label>
         <label class="choice" :class="{ sel: destino.tipo==='existente' }">
           <input type="radio" value="existente" v-model="destino.tipo">
