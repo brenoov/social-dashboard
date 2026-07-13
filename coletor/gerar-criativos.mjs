@@ -96,13 +96,17 @@ async function candidatosEstrela(token, canalLojaId, depositoId, limite) {
   return out;
 }
 
-// Modo lista explícita (Estúdio): resolve nome/preço via mapa Bling (codigo.toUpperCase()->preco),
-// carregando o pct e o deposito de cada item. id=null (não há candidato). Pula sem preço.
-export function candsDeItens(itens, precoPorCodigo) {
+// Modo lista explícita (Estúdio): resolve nome/preço via mapas Bling
+// (codigo.toUpperCase()->preco e ->nome descritivo). O NOME descritivo é essencial:
+// gerarCopysProduto extrai a cidade dele ("Bolsa Executiva Grande Pisa Panacota" -> "Bolsa Pisa").
+// Sem ele (fallback pro SKU), o criativo saía com "LV1159-Panacota" no lugar do nome. id=null
+// (não há candidato). Pula sem preço.
+export function candsDeItens(itens, precoPorCodigo, nomePorCodigo = {}) {
   return (itens || []).map((it) => {
-    const preco = precoPorCodigo[String(it.sku).toUpperCase()];
+    const cod = String(it.sku).toUpperCase();
+    const preco = precoPorCodigo[cod];
     if (preco == null) return null;
-    return { id: null, sku: it.sku, nome: it.sku, preco, deposito_id: it.deposito, pct: it.pct };
+    return { id: null, sku: it.sku, nome: nomePorCodigo[cod] || it.sku, preco, deposito_id: it.deposito, pct: it.pct };
   }).filter(Boolean);
 }
 
@@ -178,8 +182,13 @@ export async function run({
   if (itens?.length) {
     const prodMap = await blingProdutos(token);          // id -> {nome, codigo, preco}
     const precoPorCodigo = {};
-    for (const p of Object.values(prodMap)) if (p.codigo) precoPorCodigo[String(p.codigo).toUpperCase()] = p.preco;
-    cands = candsDeItens(itens, precoPorCodigo);
+    const nomePorCodigo = {};
+    for (const p of Object.values(prodMap)) if (p.codigo) {
+      const cod = String(p.codigo).toUpperCase();
+      precoPorCodigo[cod] = p.preco;
+      if (p.nome) nomePorCodigo[cod] = p.nome;
+    }
+    cands = candsDeItens(itens, precoPorCodigo, nomePorCodigo);
     console.log('itens | candidatos (lista explícita):', cands.length);
     for (const c of cands) console.log('  ', c.sku, '| R$', c.preco, '| pct', c.pct, '|', c.deposito_id);
   } else if (ESTRELA_CANAL) {

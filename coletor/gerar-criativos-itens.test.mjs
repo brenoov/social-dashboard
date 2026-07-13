@@ -14,3 +14,16 @@ test('candsDeItens resolve preço via mapa e mantém pct/deposito por item', () 
 test('candsDeItens pula item sem preço', () => {
   assert.equal(candsDeItens([{ sku: 'NOPE', deposito: 'd1', pct: 10 }], {}).length, 0);
 });
+
+test('candsDeItens usa o nome descritivo do Bling (p/ a IA extrair a cidade), não o SKU', () => {
+  const r = candsDeItens(
+    [{ sku: 'LV1159-Panacota', deposito: 'd1', pct: 20 }],
+    { 'LV1159-PANACOTA': 449.9 },
+    { 'LV1159-PANACOTA': 'Bolsa Executiva Grande Pisa Panacota' });
+  assert.equal(r[0].nome, 'Bolsa Executiva Grande Pisa Panacota');
+});
+
+test('candsDeItens cai no SKU quando não há nome no mapa (fallback seguro)', () => {
+  const r = candsDeItens([{ sku: 'ABC', deposito: 'd1', pct: 30 }], { ABC: 10 }, {});
+  assert.equal(r[0].nome, 'ABC');
+});
