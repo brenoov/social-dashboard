@@ -155,16 +155,23 @@ async function adsetsDaCampanha(campaignId) {
 // row = linha de fabrica_objetivos (mapaObjetivo); cfg = { DAILY_BUDGET, DATA }. destination_type só
 // entra se a linha tiver (branding não tem => omitido); promoted_object só entra se
 // montaPromotedObject(...) devolver objeto (branding='none' => undefined => omitido).
+// Nomes legíveis no Gerenciador da Meta (o "[Estudio]"/chave técnica confundia):
+//   campanha = "Bolsas · <loja> · <objetivo> · <dd/mm/aaaa>", conjunto = "<loja> · <objetivo>".
+// Objetivo pelo rótulo humano (fabrica_objetivos.rotulo), data com barras.
+export function rotuloObjetivo(row) { return row?.rotulo || row?.chave || 'Anúncios'; }
+export function nomeCampanha(loja, row, cfg) { return `Bolsas · ${loja.nome} · ${rotuloObjetivo(row)} · ${String(cfg.DATA || '').replace(/-/g, '/')}`.slice(0, 200); }
+export function nomeConjunto(loja, row) { return `${loja.nome} · ${rotuloObjetivo(row)}`.slice(0, 200); }
+
 export function payloadCampanhaAdset(row, marca, loja, cfg, publico = null) {
   const campaign = {
-    name: `[Estudio] ${loja.nome} · ${row.chave} · ${cfg.DATA}`,
+    name: nomeCampanha(loja, row, cfg),
     objective: row.meta_objective,
     status: 'PAUSED',
     special_ad_categories: [],
     is_adset_budget_sharing_enabled: false,
   };
   const adset = {
-    name: 'Estudio · Geral',
+    name: nomeConjunto(loja, row),
     daily_budget: cfg.DAILY_BUDGET,
     billing_event: row.billing_event || 'IMPRESSIONS',
     optimization_goal: row.optimization_goal,
@@ -191,7 +198,7 @@ async function criarCampanhaNova(loja, objetivoRow, publico = null) {
   const adset = await meta(`/${MARCA.adAccount}/adsets`, { ...adsetPayload, campaign_id: campaignId }, 'POST');
   if (adset.status !== 200 || !adset.d?.id) throw new Error(`POST /adsets falhou (status ${adset.status}): ${JSON.stringify(adset.d).slice(0, 500)}`);
 
-  return { campaignId, adsets: [{ id: adset.d.id, name: 'Estudio · Geral', destinationType: objetivoRow.destination_type, whatsapp: loja.whatsapp }] };
+  return { campaignId, adsets: [{ id: adset.d.id, name: adsetPayload.name, destinationType: objetivoRow.destination_type, whatsapp: loja.whatsapp }] };
 }
 
 // Normaliza o destino p/ [{ slug, publico }] — público POR loja. destino.lojas pode vir como
@@ -212,11 +219,13 @@ async function subirNumaCampanha({ metaCampaignId, adsets, escolhidos, destino, 
   const existentes = await metaTodos(`/${metaCampaignId}/ads`, { fields: 'name,adset_id', limit: 500 });
   const jaTem = new Set(existentes.map((a) => `${a.adset_id}::${a.name}`));
   const legendaMarca = montarLegenda(MARCA.captionTemplate, { marca: MARCA.nome }).trim();
-  const itens = escolhidos.map((c, i) => ({ chave: c.id, url: c.url, mensagem: c.legenda || legendaMarca, getHash: () => uploadImagemBytes(c.url, 'img' + i) }));
+  const itens = escolhidos.map((c, i) => ({ chave: c.id, produto: c.sku || String(c.id).slice(0, 8), url: c.url, mensagem: c.legenda || legendaMarca, getHash: () => uploadImagemBytes(c.url, 'img' + i) }));
   const adIds = [];
+  // Nome do anúncio legível: "Bolsa <sku> · <loja>" (sem UUID). lojaNome=null (campanha existente) cai na marca.
+  const nomear = (item) => `Bolsa ${item.produto} · ${lojaNome || MARCA.nome || 'Loja'}`.slice(0, 200);
   const res = await subirCriativos({
     meta, act: MARCA.adAccount, page: MARCA.pageId, ig: MARCA.igId,
-    itens, adsets, prefixo: 'Estudio', mensagem: legendaMarca, jaTem,
+    itens, adsets, prefixo: 'Estudio', mensagem: legendaMarca, jaTem, nomear,
     onAd: ({ adId }) => adIds.push(adId),
   });
   const adsetIds = adsets.map((a) => a.id);
@@ -247,7 +256,7 @@ export async function run({ campanhaId, destino, dry = false }) {
   MARCA = marcaAtiva; // conta usada p/ upload de imagem e (destino 'existente') pros conjuntos já existentes
 
   // 1) criativos escolhidos (não-purgados) da rodada
-  const escolhidos = await sbGet(`/fabrica_criativos?select=id,url,storage_path,legenda&campanha_id=eq.${campanhaId}&escolhido=eq.true&purgado_em=is.null`);
+  const escolhidos = await sbGet(`/fabrica_criativos?select=id,url,storage_path,legenda,sku&campanha_id=eq.${campanhaId}&escolhido=eq.true&purgado_em=is.null`);
   if (escolhidos.length === 0) return { adIds: [], pendentes: 0, metaCampaignId: null, adsetIds: [], criouCampanha };
 
   // 2) resolve destino -> sobe em 1 (existente / 1 loja) ou N campanhas (uma por loja). Cada

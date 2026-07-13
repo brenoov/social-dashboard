@@ -19,6 +19,16 @@ const MARCA = { adAccount: 'act_1', pageId: 'P', igId: 'IG' };
 const LOJA = { nome: 'Tivoli', whatsapp: '5519...', geoCities: ['1058'] };
 const CFG = { DAILY_BUDGET: 5000, DATA: '11-07-2026' };
 
+test('nomes legíveis: campanha "Bolsas · loja · objetivo · dd/mm/aaaa", conjunto "loja · objetivo"', () => {
+  const row = { chave: 'engajamento', rotulo: 'Engajamento (WhatsApp)', meta_objective: 'OUTCOME_ENGAGEMENT', optimization_goal: 'CONVERSATIONS', billing_event: 'IMPRESSIONS', destination_type: 'WHATSAPP', promoted_object_tipo: 'whatsapp' };
+  const { campaign, adset } = payloadCampanhaAdset(row, MARCA, LOJA, { DAILY_BUDGET: 5000, DATA: '11-07-2026' });
+  assert.equal(campaign.name, 'Bolsas · Tivoli · Engajamento (WhatsApp) · 11/07/2026');
+  assert.equal(adset.name, 'Tivoli · Engajamento (WhatsApp)');
+  // sem rótulo cai na chave (retrocompat)
+  const { campaign: c2 } = payloadCampanhaAdset({ ...row, rotulo: null }, MARCA, LOJA, { DAILY_BUDGET: 5000, DATA: '01-01-2026' });
+  assert.equal(c2.name, 'Bolsas · Tivoli · engajamento · 01/01/2026');
+});
+
 test('payloadCampanhaAdset: engajamento -> OUTCOME_ENGAGEMENT + CONVERSATIONS + WHATSAPP + promoted whatsapp', () => {
   const row = { chave: 'engajamento', meta_objective: 'OUTCOME_ENGAGEMENT', optimization_goal: 'CONVERSATIONS', billing_event: 'IMPRESSIONS', destination_type: 'WHATSAPP', promoted_object_tipo: 'whatsapp' };
   const { campaign, adset } = payloadCampanhaAdset(row, MARCA, LOJA, CFG);

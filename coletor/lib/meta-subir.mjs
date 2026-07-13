@@ -82,16 +82,19 @@ export function payloadCriativa({ hash, adsetDestinationType, waNumero, page, ig
 // (Set de `${adsetId}::${nome}`). `item.getHash()` sobe a imagem 1x por item (hash é da conta,
 // reusado em todos os adsets). Em rate limit (Meta code 17 / "request limit") para e devolve
 // pendentes>0 + rateLimited:true — o chamador pode re-disparar pra retomar de onde parou.
-export async function subirCriativos({ meta, act, page, ig, itens, adsets, prefixo, mensagem, jaTem, onAd }) {
+export async function subirCriativos({ meta, act, page, ig, itens, adsets, prefixo, mensagem, jaTem, onAd, nomear }) {
+  // nomear(item, adset) opcional monta o nome do anúncio (default: nomeAd legado). O Estúdio passa
+  // um builder legível ("Bolsa <sku> · <loja>"); o dedup (jaTem) usa o MESMO builder p/ bater.
+  const construirNome = (typeof nomear === 'function') ? nomear : ((item, a) => nomeAd(prefixo, item.chave, a.name));
   let criados = 0, pendentes = 0;
   for (const item of itens) {
     // Pula o ITEM inteiro (antes do getHash/upload) se TODOS os adsets já têm o ad dele — evita
     // subir a imagem à toa numa re-rodada idempotente (portado do subir-campanha-genspark.mjs).
-    const faltam = adsets.filter((a) => !jaTem.has(`${a.id}::${nomeAd(prefixo, item.chave, a.name)}`));
+    const faltam = adsets.filter((a) => !jaTem.has(`${a.id}::${construirNome(item, a)}`));
     if (faltam.length === 0) continue;
     const hash = await item.getHash();
     for (const a of faltam) {
-      const nome = nomeAd(prefixo, item.chave, a.name);
+      const nome = construirNome(item, a);
       try {
         const params = payloadCriativa({ hash, adsetDestinationType: a.destinationType, waNumero: a.whatsapp, page, ig, mensagem: item.mensagem ?? mensagem });
         const cr = await criarAdCreativeComFallbackIG(meta, act, params);
