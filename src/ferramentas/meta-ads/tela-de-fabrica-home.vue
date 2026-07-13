@@ -95,7 +95,7 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
       <div class="panel" data-tour="em-criacao">
         <div class="ph"><span class="eyebrow">Campanhas em criação</span></div>
         <div v-if="emCriacao.length" class="home-list">
-          <div v-for="c in emCriacao" :key="c.id" class="home-card" :class="c.status">
+          <div v-for="c in emCriacao" :key="c.id" class="fab-card" :class="c.status">
             <div class="hc-main">
               <div class="hc-nome">{{ c.nome }}</div>
               <div class="hc-status"><i class="led" :class="c.status==='pronta' ? 'go' : c.status==='erro' ? 'abort' : 'run'"></i>{{ statusLabel(c) }}</div>
@@ -113,7 +113,7 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
       <div class="panel" data-tour="publicadas">
         <div class="ph"><span class="eyebrow">Publicadas recentes</span></div>
         <div v-if="publicadas.length" class="home-list">
-          <div v-for="c in publicadas" :key="c.id" class="home-card">
+          <div v-for="c in publicadas" :key="c.id" class="fab-card">
             <div class="hc-main"><div class="hc-nome">{{ c.nome }}</div></div>
             <a class="cmd" :href="GERENCIADOR" target="_blank">Ver no Gerenciador ↗</a>
           </div>
@@ -125,7 +125,7 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
       <div class="panel" data-tour="looks-card">
         <div class="ph"><span class="eyebrow">Looks & Templates</span></div>
         <div class="home-list">
-          <div class="home-card">
+          <div class="fab-card">
             <div class="hc-main">
               <div class="hc-nome">Galeria de looks</div>
               <div class="hc-status">Gerencie, ative/desative e reordene os looks usados na geração</div>

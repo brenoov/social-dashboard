@@ -246,9 +246,9 @@
 
 /* ===== Home da Fábrica ===== */
 .fest .home-list{display:flex; flex-direction:column; gap:8px}
-.fest .home-card{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+.fest .fab-card{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
   border:1px solid var(--edge); border-radius:var(--r); background:var(--panel-2); padding:12px 14px}
-.fest .home-card.erro{border-color:#5a231c}
+.fest .fab-card.erro{border-color:#5a231c}
 .fest .hc-nome{font-weight:600}
 .fest .hc-status{display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-dim); margin-top:3px}
 .fest .hc-acoes{display:flex; align-items:center; gap:8px}
