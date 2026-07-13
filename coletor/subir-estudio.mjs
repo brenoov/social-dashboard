@@ -28,6 +28,7 @@ import { loginServico } from './lib/bling-comercial.mjs';
 import { subirCriativos } from './lib/meta-subir.mjs';
 import { carregarMarcasELojas, montarLegenda } from './lib/config-lojas.mjs';
 import { carregarObjetivos, mapaObjetivo, montaPromotedObject } from './lib/objetivos.mjs';
+import { montarTargeting } from './lib/publico.mjs';
 
 // Fix TLS1.2 (ECONNRESET determinístico atrás do Cloudflare/*.supabase.co nesta máquina). Antes de
 // qualquer fetch — inclusive o de dentro do loginServico().
@@ -154,7 +155,7 @@ async function adsetsDaCampanha(campaignId) {
 // row = linha de fabrica_objetivos (mapaObjetivo); cfg = { DAILY_BUDGET, DATA }. destination_type só
 // entra se a linha tiver (branding não tem => omitido); promoted_object só entra se
 // montaPromotedObject(...) devolver objeto (branding='none' => undefined => omitido).
-export function payloadCampanhaAdset(row, marca, loja, cfg) {
+export function payloadCampanhaAdset(row, marca, loja, cfg, publico = null) {
   const campaign = {
     name: `[Estudio] ${loja.nome} · ${row.chave} · ${cfg.DATA}`,
     objective: row.meta_objective,
@@ -169,7 +170,7 @@ export function payloadCampanhaAdset(row, marca, loja, cfg) {
     optimization_goal: row.optimization_goal,
     bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
     status: 'PAUSED',
-    targeting: { geo_locations: { cities: (loja.geoCities || []).map((key) => ({ key })) } },
+    targeting: montarTargeting(publico, loja),
   };
   if (row.destination_type) adset.destination_type = row.destination_type;
   const po = montaPromotedObject(row.promoted_object_tipo, marca, loja);
@@ -178,9 +179,9 @@ export function payloadCampanhaAdset(row, marca, loja, cfg) {
 }
 
 // --- destino 'nova': cria campanha + 1 conjunto a partir do objetivo da rodada -----------------
-async function criarCampanhaNova(loja, objetivoRow) {
+async function criarCampanhaNova(loja, objetivoRow, publico = null) {
   const { campaign: campaignPayload, adset: adsetPayload } = payloadCampanhaAdset(
-    objetivoRow, MARCA, loja, { DAILY_BUDGET: CFG_ADSET.DAILY_BUDGET, DATA: CFG_ADSET.DATA_CAMPANHA },
+    objetivoRow, MARCA, loja, { DAILY_BUDGET: CFG_ADSET.DAILY_BUDGET, DATA: CFG_ADSET.DATA_CAMPANHA }, publico,
   );
 
   const campaign = await meta(`/${MARCA.adAccount}/campaigns`, campaignPayload, 'POST');
@@ -222,7 +223,8 @@ export async function run({ campanhaId, destino, dry = false }) {
     const campanha = (await sbGet(`/fabrica_campanhas?select=objetivo&id=eq.${campanhaId}`))[0];
     const { porChave } = await carregarObjetivos(sbGet);
     const objetivoRow = mapaObjetivo(porChave, campanha?.objetivo || 'engajamento');
-    ({ campaignId: metaCampaignId, adsets } = await criarCampanhaNova(lojaNova, objetivoRow));
+    const publico = destino.publico || null;
+    ({ campaignId: metaCampaignId, adsets } = await criarCampanhaNova(lojaNova, objetivoRow, publico));
   } else {
     throw new Error(`destino inválido: ${JSON.stringify(destino)} (use {tipo:'existente',campaignId} ou {tipo:'nova',loja})`);
   }
