@@ -1046,11 +1046,14 @@ onUnmounted(() => {
 /* Board layout — 2-column grid: left=gauge panel, right=canal gauges + rankings */
 .tela-gestao-a-vista :deep(.gv-board){flex:1;display:grid;grid-template-columns:480px 1fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;position:relative;z-index:2;backdrop-filter:none;}
 .tela-gestao-a-vista :deep(.gv-left){background:var(--bg);display:flex;flex-direction:column;align-items:center;padding:8px 22px;gap:0;overflow:hidden;justify-content:space-between;}
-.tela-gestao-a-vista :deep(.gv-gauge-wrap){flex:1;min-height:0;max-height:min(50vh,420px);width:100%;display:flex;align-items:center;justify-content:center;}
+/* align-items:safe center — quando o conteúdo é mais alto que a área (telão/dev-tv com
+   muitos canais), 'safe' alinha pelo TOPO em vez de centralizar e cortar o topo do
+   velocímetro/rótulo (o overflow:hidden cortava o topo). Ao caber, se comporta como center. */
+.tela-gestao-a-vista :deep(.gv-gauge-wrap){flex:1;min-height:0;max-height:min(50vh,420px);width:100%;display:flex;align-items:safe center;justify-content:center;}
 .tela-gestao-a-vista :deep(.gv-gauge-inner){width:100%;max-width:460px;aspect-ratio:1;}
 .tela-gestao-a-vista :deep(.gv-right){display:grid;grid-template-rows:55fr 45fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;}
 .tela-gestao-a-vista :deep(.gv-canal-panel){background:var(--bg);padding:7px 12px;display:flex;flex-direction:column;overflow:hidden;}
-.tela-gestao-a-vista :deep(.gv-canal-scroll){flex:1;overflow:hidden;min-height:0;display:flex;align-items:center;justify-content:center;}
+.tela-gestao-a-vista :deep(.gv-canal-scroll){flex:1;overflow:hidden;min-height:0;display:flex;align-items:safe center;justify-content:center;}
 .tela-gestao-a-vista :deep(.gv-canal-scroll-inner){width:100%;}
 .tela-gestao-a-vista :deep(.gv-canal-scroll-inner.scrolling){animation:gvRankUp var(--gv-scroll-dur,20s) ease-in-out infinite alternate;}
 .tela-gestao-a-vista :deep(.gv-canal-grid){display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;align-content:start;width:100%;}
