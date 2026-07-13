@@ -278,7 +278,8 @@ export async function run({
   console.log('produtos únicos:', produtosUnicos.length, '| gerando para:', produtos.length);
 
   // copy de efeito em lote (uma chamada pros produtos + uma pra promo)
-  const copys = await gerarCopysProduto(produtos.map(c => ({ sku: c.sku, nome: c.nome })), campanha);
+  // passa o pct POR ITEM (cand.pct) — a legenda usa o desconto do próprio SKU, igual à arte
+  const copys = await gerarCopysProduto(produtos.map(c => ({ sku: c.sku, nome: c.nome, pct: c.pct ?? campanha.desconto_pct })), campanha);
   const copyPromo = await gerarCopyPromo(campanha);
   console.log('copy promo:', copyPromo);
 

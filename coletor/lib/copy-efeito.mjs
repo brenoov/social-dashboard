@@ -46,7 +46,7 @@ const sysProduto = (marca) => 'Você escreve microcopy de campanha para ' + (mar
   + 'Para cada produto, gere TRÊS coisas: '
   + '(A) COPY — a linha de impacto da ARTE (texto sobre a imagem). Regras invioláveis: (1) português do Brasil; (2) CURTA, no máximo ~40 caracteres; (3) impactante, sem ser genérica; (4) NUNCA prometa algo falso ou exagerado (nada de "a melhor bolsa do mundo", "número 1", etc.); (5) SEM emoji; (6) SEM hashtag; (7) coerente com o nome/estilo daquele produto específico. '
   + '(B) NOME — um NOME CURTO de exibição: o nome completo do Bling (ex.: "Bolsa De Ombro Grande Viena Marinho") tem tipo/tamanho/cor misturados com uma palavra distintiva de CIDADE ou PAÍS (ex.: Viena, Belgrado, Genebra, Madrid). O nome curto deve ser SEMPRE no formato "Bolsa <Cidade/País>" — descarte tipo, tamanho e cor, mantenha só "Bolsa " + a cidade/país do nome original. '
-  + '(C) LEGENDA — o texto do ANÚNCIO (o "message" que acompanha a imagem no feed do Meta), que é DIFERENTE e mais longo que a copy da arte. Regras invioláveis: (1) português do Brasil; (2) persuasiva e vendedora, com respiro criativo — de 1 a 2 frases (nunca uma palavra só); (3) mencione o produto (pelo nome curto/cidade) E o desconto da campanha; (4) termine com uma chamada de ação de WhatsApp (ex.: "Chame no WhatsApp", "Fale com a gente no WhatsApp", "Garanta a sua no WhatsApp"); (5) pode usar NO MÁXIMO 1 emoji, com elegância (ou nenhum); (6) SEM hashtag; (7) NUNCA prometa algo falso ou exagerado. '
+  + '(C) LEGENDA — o texto do ANÚNCIO (o "message" que acompanha a imagem no feed do Meta), que é DIFERENTE e mais longo que a copy da arte. Regras invioláveis: (1) português do Brasil; (2) persuasiva e vendedora, com respiro criativo — de 1 a 2 frases (nunca uma palavra só); (3) mencione o produto (pelo nome curto/cidade) E o desconto informado para AQUELE SKU (não invente outro número); (4) termine com uma chamada de ação de WhatsApp (ex.: "Chame no WhatsApp", "Fale com a gente no WhatsApp", "Garanta a sua no WhatsApp"); (5) pode usar NO MÁXIMO 1 emoji, com elegância (ou nenhum); (6) SEM hashtag; (7) NUNCA prometa algo falso ou exagerado. '
   + 'Responda APENAS com um bloco de código ```json contendo um objeto {"<sku>": {"copy": "<linha de impacto>", "nome": "Bolsa <Cidade>", "legenda": "<texto persuasivo do anúncio com CTA de WhatsApp>"}, ...} — uma chave por SKU recebido, nada fora do bloco.';
 
 const sysPromo = (marca) => 'Você escreve microcopy de campanha para ' + (marca || MARCA_DEFAULT) + ', marca de bolsas de luxo europeu suave, feminino, atemporal — a marca "sussurra sofisticação", nunca grita. Lema: "cada bolsa conta uma história". '
@@ -76,8 +76,14 @@ export async function gerarCopysProduto(produtos, campanha) {
   try {
     if (!ANTHROPIC_API_KEY) throw new Error('sem ANTHROPIC_API_KEY_FABRICA/ANTHROPIC_API_KEY_GESTOR');
     if (!Array.isArray(produtos) || !produtos.length) return out;
-    const lista = produtos.map((p) => `- SKU ${p.sku}: ${p.nome}`).join('\n');
-    const user = 'Campanha atual: desconto de ' + (campanha?.desconto_pct ?? '?') + '% (shopping, urgência+emoção, conversas no WhatsApp).\n\n'
+    // Cada produto tem seu PRÓPRIO desconto (pct por item) — a legenda tem de usar o desconto
+    // DAQUELE SKU (a arte usa o mesmo), senão a legenda dizia o desconto da campanha e divergia.
+    const lista = produtos.map((p) => {
+      const pct = p.pct != null ? Math.round(Number(p.pct)) : (campanha?.desconto_pct != null ? Math.round(Number(campanha.desconto_pct)) : null);
+      return `- SKU ${p.sku}: ${p.nome}${pct != null ? ` — desconto ${pct}%` : ''}`;
+    }).join('\n');
+    const user = 'Campanha de shopping (loja física, urgência+emoção, conversas no WhatsApp). '
+      + 'Cada produto tem SEU PRÓPRIO desconto, informado por SKU abaixo — na legenda de cada um use o desconto DAQUELE SKU (não um desconto único da campanha).\n\n'
       + 'Produtos (gere copy + nome curto + legenda de anúncio por SKU):\n' + lista;
     const resp = await anthropic({ model: MODEL, max_tokens: 3000, system: sysProduto(campanha?.marca), messages: [{ role: 'user', content: user }] });
     const texto = (resp.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
