@@ -3,6 +3,7 @@ import { ref, reactive, onMounted, watch } from 'vue'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { useJobStatus } from './use-job-status.js'
+import AjudaTooltip from './ajuda-tooltip.vue'
 const props = defineProps({ campanhaId: String })
 const emit = defineEmits(['subido'])
 const ACCOUNT_ID = 'b6883e82-07cb-4f21-9fd7-ea7626786174', ACT = 'act_1197997517858139'
@@ -111,7 +112,7 @@ watch(job, (j) => { if (j?.status === 'concluido' && j.resultado) emit('subido',
   <section class="stage">
     <div class="stagehead">
       <span class="badge"><i class="led hold"></i>Passo 3 · Subir</span>
-      <h2>Publicar na Meta</h2>
+      <h2>Publicar na Meta <AjudaTooltip chave="subir" /></h2>
       <p class="lead">Os anúncios sobem <b>pausados</b> — ninguém vê e não gastam nada até você ativar. Escolha onde publicar.</p>
     </div>
 

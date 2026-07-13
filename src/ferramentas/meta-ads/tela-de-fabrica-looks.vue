@@ -5,6 +5,7 @@ import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.j
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import './estudio.css'
+import AjudaTooltip from './ajuda-tooltip.vue'
 const router = useRouter()
 const OBJETIVOS = ['engajamento', 'conversao', 'branding', 'trafego']
 const looks = ref([])
@@ -43,7 +44,7 @@ onMounted(carregar)
     <header class="topbar">
       <button class="voltar-central" @click="voltarCentral">← Central</button>
       <button class="voltar-central" @click="voltarFabrica">← Fábrica</button>
-      <div class="brand"><div class="t">Looks & Templates</div><div class="s">Curadoria</div></div>
+      <div class="brand"><div class="t">Looks & Templates <AjudaTooltip chave="looks" /></div><div class="s">Curadoria</div></div>
       <div class="divider"></div>
       <button class="cmd cyan" :disabled="gerandoPreview" @click="gerarPreviews">Gerar previews</button>
     </header>

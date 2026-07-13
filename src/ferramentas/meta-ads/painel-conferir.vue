@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { useJobStatus } from './use-job-status.js'
+import AjudaTooltip from './ajuda-tooltip.vue'
 const props = defineProps({ subirResultado: Object })
 const n = computed(() => props.subirResultado?.adIds?.length || 0)
 const { job, start } = useJobStatus()
@@ -19,7 +20,7 @@ async function ativarTudo() {
   <section class="stage">
     <div class="stagehead">
       <span class="badge"><i class="led hold"></i>Passo 4 · Conferir</span>
-      <h2>Confira antes de publicar</h2>
+      <h2>Confira antes de publicar <AjudaTooltip chave="conferir" /></h2>
       <p class="lead"><b>{{ n }} anúncios</b> foram criados e estão <b>pausados</b>. Enquanto ficarem pausados, ninguém vê e <b>não gastam nada</b>. Você decide como publicar.</p>
     </div>
 
