@@ -17,10 +17,23 @@ const { job, start } = useJobStatus()
 // cidade(s) de origem dela (fabrica_lojas.geo_cities).
 const presets = ref([])
 const lojasCfg = ref([]) // fabrica_lojas: {nome, geo_cities}
+const cidadeNomes = reactive({}) // key(string) -> nome real da cidade (resolvido no Meta)
 function cidadesDaLoja(slug) {
   const alias = slug === 'dp' ? 'dom pedro' : slug
   const row = lojasCfg.value.find((l) => (l.nome || '').toLowerCase().includes(alias))
-  return (row?.geo_cities || []).map((key) => ({ key: String(key), nome: row.nome || 'Cidade da loja', radius: 20, distance_unit: 'kilometer' }))
+  // raio 0 = cidade inteira (montarTargeting omite o raio quando 0). Nome real da cidade quando já
+  // resolvido; senão o nome da loja (fallback) — evita mostrar 2 cidades como a loja repetida.
+  return (row?.geo_cities || []).map((key) => ({ key: String(key), nome: cidadeNomes[String(key)] || row.nome || 'Cidade da loja', radius: 0, distance_unit: 'kilometer' }))
+}
+// Resolve chaves de cidade (fabrica_lojas.geo_cities) pros NOMES reais. Sem isso, as cidades default
+// saíam todas com o nome da loja — ex.: as 2 cidades do Tivoli (Santa Bárbara d'Oeste + Americana)
+// viravam "Tivoli" 2x, parecendo duplicata. Meta: type=adgeolocationmeta & cities=[keys].
+async function resolverNomesCidades(keys) {
+  const faltam = [...new Set((keys || []).map(String))].filter((k) => k && !cidadeNomes[k])
+  if (!faltam.length) return
+  const { data } = await sbClient.functions.invoke('meta-proxy', { body: { accountId: ACCOUNT_ID, path: '/search', params: { type: 'adgeolocationmeta', cities: JSON.stringify(faltam) }, method: 'GET' } })
+  const cidades = data?.data?.cities || {}
+  for (const k of Object.keys(cidades)) cidadeNomes[k] = cidades[k].region ? `${cidades[k].name} · ${cidades[k].region}` : cidades[k].name
 }
 function publicoBase(slug) {
   return { presetId: '', nome: '', geo: { cities: cidadesDaLoja(slug), excluded: [] }, idade_min: 18, idade_max: 65, generos: [], interesses: [], custom_audiences: [] }
@@ -51,12 +64,17 @@ function aplicarPreset() {
   if (!p) { Object.assign(publico, { nome: '', geo: { cities: [], excluded: [] }, idade_min: 18, idade_max: 65, generos: [], interesses: [], custom_audiences: [] }); return }
   Object.assign(publico, { nome: p.nome, geo: p.geo || { cities: [], excluded: [] }, idade_min: p.idade_min, idade_max: p.idade_max, generos: p.generos || [], interesses: p.interesses || [], custom_audiences: p.custom_audiences || [] })
 }
+const erroCidade = ref('')
 async function buscarCidades() {
   if (!buscaCidade.value.trim()) return
-  const { data } = await sbClient.functions.invoke('meta-proxy', { body: { accountId: ACCOUNT_ID, path: '/search', params: { type: 'adgeolocation', location_types: JSON.stringify(['city']), q: buscaCidade.value, limit: 10 }, method: 'GET' } })
+  erroCidade.value = ''
+  // surfaça o erro (antes engolia só lendo `data` — busca falhava em silêncio = "não inclui nada")
+  const { data, error } = await sbClient.functions.invoke('meta-proxy', { body: { accountId: ACCOUNT_ID, path: '/search', params: { type: 'adgeolocation', location_types: JSON.stringify(['city']), q: buscaCidade.value, limit: 15 }, method: 'GET' } })
+  if (error || data?.error) { erroCidade.value = (data?.error?.message || error?.message || 'Falha na busca de cidade'); cidadesAchadas.value = []; return }
   cidadesAchadas.value = data?.data || []
+  if (!cidadesAchadas.value.length) erroCidade.value = 'Nenhuma cidade encontrada pra essa busca.'
 }
-function addCidade(c) { if (!publico.geo.cities.some((x) => x.key === c.key)) publico.geo.cities.push({ key: c.key, nome: `${c.name}${c.region ? ' · ' + c.region : ''}`, radius: 20, distance_unit: 'kilometer' }); cidadesAchadas.value = []; buscaCidade.value = '' }
+function addCidade(c) { if (!publico.geo.cities.some((x) => x.key === c.key)) publico.geo.cities.push({ key: c.key, nome: `${c.name}${c.region ? ' · ' + c.region : ''}`, radius: 0, distance_unit: 'kilometer' }); cidadesAchadas.value = []; buscaCidade.value = ''; erroCidade.value = '' }
 function rmCidade(key) { publico.geo.cities = publico.geo.cities.filter((x) => x.key !== key) }
 function excluirCidade(c) { if (!publico.geo.excluded.some((x) => x.key === c.key)) publico.geo.excluded.push({ key: c.key, nome: c.name, type: 'city' }); cidadesAchadas.value = []; buscaCidade.value = '' }
 function rmExcluida(key) { publico.geo.excluded = publico.geo.excluded.filter((x) => x.key !== key) }
@@ -128,7 +146,9 @@ async function criarLookalike(origem) {
 
 onMounted(async () => {
   lojasCfg.value = await sb('fabrica_lojas?select=nome,geo_cities')
-  // (re)inicializa o público de cada loja já selecionada com a cidade de origem dela
+  // resolve os nomes reais das cidades default (todas as lojas) ANTES de montar os públicos
+  await resolverNomesCidades(lojasCfg.value.flatMap((l) => l.geo_cities || []))
+  // (re)inicializa o público de cada loja já selecionada com a(s) cidade(s) de origem dela
   for (const slug of destino.lojas) publicoPorLoja[slug] = publicoBase(slug)
   lojaAtiva.value = destino.lojas[0] || 'tivoli'
   carregarLoja(lojaAtiva.value)
@@ -237,9 +257,11 @@ watch(job, (j) => { if (j?.status === 'concluido' && j.resultado) emit('subido',
         </label>
       </div>
 
+      <p v-if="erroCidade" style="color:var(--abort);font-size:13px;margin:4px 0">{{ erroCidade }}</p>
+
       <ul v-if="cidadesAchadas.length" class="resultlist">
         <li v-for="c in cidadesAchadas" :key="c.key">
-          <span>{{ c.name }}<span v-if="c.region"> · {{ c.region }}</span></span>
+          <span>{{ c.name }}<span v-if="c.region"> · {{ c.region }}</span><span v-if="c.type && c.type!=='city'" style="color:var(--ink-dim)"> · {{ c.type }}</span></span>
           <span class="resultacoes">
             <button class="marcar-todos" type="button" @click="addCidade(c)">Incluir</button>
             <button class="marcar-todos" type="button" @click="excluirCidade(c)">Excluir</button>
@@ -250,7 +272,7 @@ watch(job, (j) => { if (j?.status === 'concluido' && j.resultado) emit('subido',
       <div class="chips" v-if="publico.geo.cities.length">
         <span class="chip" v-for="c in publico.geo.cities" :key="c.key">
           {{ c.nome }}
-          <input class="fi num chip-radius" type="number" min="1" max="80" v-model.number="c.radius">
+          <input class="fi num chip-radius" type="number" min="0" max="80" v-model.number="c.radius" title="0 = cidade inteira; acima disso o Meta usa mínimo de 17 km">
           <select class="chip-unit" v-model="c.distance_unit">
             <option value="kilometer">km</option>
             <option value="mile">mi</option>
