@@ -24,6 +24,7 @@ import { subirStorageResiliente } from './lib/storage-upload.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 
 const URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
 const SK = process.env.SUPABASE_SERVICE_KEY;
@@ -178,20 +179,27 @@ export async function run({
   // tudo": não gera nada em vez de regerar os desativados via fallback). Ver follow-up do review final.
   let semLooks = false;
   if (!(LOOKS && LOOKS.length)) {
-    let usouTabela = false;
-    try {
-      const fabricaLooks = await sbGet('/fabrica_looks?select=chave,objetivos,ativo,ordem,tipo&order=ordem');
-      usouTabela = Array.isArray(fabricaLooks) && fabricaLooks.length > 0; // tabela povoada (não unseeded)
+    // Leitura RESILIENTE da curadoria. Uma falha de rede transitória NÃO pode cair no fallback
+    // SP-3 (que ignora `ativo` e geraria os looks DESATIVADOS) — era assim que looks desligados
+    // vazavam pra geração. Retry; se ainda falhar, ABORTA o job (o usuário re-dispara) em vez de
+    // gerar em silêncio o que foi desligado. SP-3 só vale p/ tabela genuinamente VAZIA (fresh install).
+    let fabricaLooks = null, leu = false;
+    for (let t = 1; t <= 4 && !leu; t++) {
+      try { fabricaLooks = await sbGet('/fabrica_looks?select=chave,objetivos,ativo,ordem,tipo&order=ordem'); leu = true; }
+      catch (e) {
+        if (t === 4) throw new Error('fabrica_looks indisponível após 4 tentativas — abortando p/ NÃO gerar looks desativados (curadoria não confirmada): ' + e.message);
+        console.warn(`  [fabrica_looks retry ${t}/3] ${String(e.message).slice(0, 60)}`);
+        await sleep(Math.min(600 * t, 4000));
+      }
+    }
+    const povoada = Array.isArray(fabricaLooks) && fabricaLooks.length > 0;
+    if (povoada) {
       const ativos = looksAtivosOrdenados(fabricaLooks, objetivo).filter((k) => TEMPLATES[k]); // só code-looks conhecidos
       if (ativos.length) opts.looks = ativos;
-      else if (usouTabela) semLooks = true; // povoada, nada ativo p/ este objetivo -> não gera
-    } catch (e) {
-      usouTabela = false;
-      console.warn('aviso: fabrica_looks indisponível, fallback SP-3:', e.message);
-    }
-    if (!usouTabela && !semLooks && objetivo) {
+      else semLooks = true; // povoada, nada ativo p/ este objetivo -> não gera (respeita "desligar tudo")
+    } else if (objetivo) {
+      // Tabela genuinamente VAZIA (leitura OK, 0 linhas = unseeded/fresh install): fallback SP-3.
       try {
-        // fallback SP-3: registry + objetivosDoTemplate
         const { porChave } = await carregarObjetivos(sbGet);
         const row = mapaObjetivo(porChave, objetivo);
         const looksDisponiveis = Object.keys(TEMPLATES).filter((k) => { const o = objetivosDoTemplate(k); return o.length === 0 || o.includes(objetivo); });
