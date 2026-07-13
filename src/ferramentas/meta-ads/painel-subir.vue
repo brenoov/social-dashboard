@@ -61,10 +61,15 @@ async function apagarPreset() {
 // ===== Públicos salvos (audiences do Meta: engajamento/lookalike) =====
 const audiences = ref([]); const carregandoAud = ref(false)
 const IG_ID = '17841462952561833', PAGE_ID = '324679337390168' // marca única hoje; futuro = da tabela de marcas
+const erroAud = ref('')
 async function listarAudiences() {
-  carregandoAud.value = true
-  const { data } = await sbClient.functions.invoke('meta-proxy', { body: { accountId: ACCOUNT_ID, path: `/${ACT}/customaudiences`, params: { fields: 'id,name,subtype,approximate_count', limit: 50 }, method: 'GET' } })
-  audiences.value = data?.data || []; carregandoAud.value = false
+  carregandoAud.value = true; erroAud.value = ''
+  // approximate_count foi removido na Graph v22 (dava #100 e a chamada falhava em silêncio) —
+  // usa approximate_count_upper_bound. E surfaça erro (Meta ou meta-proxy) em vez de engolir.
+  const { data, error } = await sbClient.functions.invoke('meta-proxy', { body: { accountId: ACCOUNT_ID, path: `/${ACT}/customaudiences`, params: { fields: 'id,name,subtype,approximate_count_lower_bound,approximate_count_upper_bound', limit: 100 }, method: 'GET' } })
+  carregandoAud.value = false
+  if (error || data?.error) { erroAud.value = (data?.error?.message || error?.message || 'Falha ao carregar públicos'); audiences.value = []; return }
+  audiences.value = (data?.data || []).map((a) => ({ ...a, aprox: a.approximate_count_upper_bound }))
 }
 function toggleAudiencia(a) {
   const i = publico.custom_audiences.findIndex((x) => x.id === a.id)
@@ -257,12 +262,13 @@ watch(job, (j) => { if (j?.status === 'concluido' && j.resultado) emit('subido',
         <button class="cmd cyan" type="button" @click="listarAudiences">{{ carregandoAud ? 'Carregando…' : 'Carregar públicos' }}</button>
         <button class="cmd cyan" type="button" @click="criarEngajamento">Criar engajamento</button>
       </div>
+      <p v-if="erroAud" style="color:var(--abort);font-size:13px;margin:4px 0">{{ erroAud }}</p>
 
       <ul v-if="audiences.length" class="resultlist">
         <li v-for="a in audiences" :key="a.id">
           <label class="ch-nm" style="font-weight:400;display:flex;align-items:center;gap:8px">
             <input type="checkbox" :checked="publico.custom_audiences.some((x) => x.id === a.id)" @change="toggleAudiencia(a)">
-            {{ a.name }} <span style="color:var(--ink-dim)">· {{ a.subtype }}<span v-if="a.approximate_count != null"> · ~{{ a.approximate_count }}</span></span>
+            {{ a.name }} <span style="color:var(--ink-dim)">· {{ a.subtype }}<span v-if="a.aprox != null"> · ~{{ a.aprox }}</span></span>
           </label>
           <span class="resultacoes">
             <button class="marcar-todos" type="button" @click="criarLookalike(a.id)">Criar lookalike desta</button>
