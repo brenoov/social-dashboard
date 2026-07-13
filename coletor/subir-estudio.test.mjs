@@ -26,6 +26,23 @@ test('payloadCampanhaAdset: branding -> OUTCOME_AWARENESS + REACH + sem destinat
   assert.ok(!('promoted_object' in adset) || adset.promoted_object === undefined);
 });
 
+test('payloadCampanhaAdset aplica o publico no targeting (cidades+raio+interesses)', () => {
+  const row = { chave: 'engajamento', meta_objective: 'OUTCOME_ENGAGEMENT', optimization_goal: 'CONVERSATIONS', billing_event: 'IMPRESSIONS', destination_type: 'WHATSAPP', promoted_object_tipo: 'whatsapp' };
+  const marca = { adAccount: 'act_1', pageId: 'P', igId: 'IG' };
+  const loja = { nome: 'Tivoli', whatsapp: '55', geoCities: ['1058'] };
+  const publico = { geo: { cities: [{ key: '1058', radius: 15, distance_unit: 'kilometer' }] }, interesses: [{ id: '6003', name: 'Moda' }], generos: [2], idade_min: 25, idade_max: 45 };
+  const { adset } = payloadCampanhaAdset(row, marca, loja, { DAILY_BUDGET: 5000, DATA: 'X' }, publico);
+  assert.deepEqual(adset.targeting.geo_locations.cities, [{ key: '1058', radius: 15, distance_unit: 'kilometer' }]);
+  assert.deepEqual(adset.targeting.flexible_spec, [{ interests: [{ id: '6003', name: 'Moda' }] }]);
+  assert.equal(adset.targeting.age_min, 25);
+});
+
+test('payloadCampanhaAdset sem publico mantém geo da loja (retrocompat)', () => {
+  const row = { chave: 'engajamento', meta_objective: 'OUTCOME_ENGAGEMENT', optimization_goal: 'CONVERSATIONS', billing_event: 'IMPRESSIONS', destination_type: 'WHATSAPP', promoted_object_tipo: 'whatsapp' };
+  const { adset } = payloadCampanhaAdset(row, { adAccount: 'act_1', pageId: 'P' }, { nome: 'T', whatsapp: '55', geoCities: ['1058'] }, { DAILY_BUDGET: 5000, DATA: 'X' });
+  assert.deepEqual(adset.targeting, { geo_locations: { cities: [{ key: '1058' }] } });
+});
+
 test('run() exportada', () => { assert.equal(typeof run, 'function'); });
 
 test('resolverLoja com slug vazio/undefined não casa nenhuma loja (evita fallback silencioso pra 1ª ativa)', () => {
