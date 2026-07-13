@@ -119,6 +119,16 @@
           </div>
           <span class="home-card-enter">→</span>
         </div>
+        <div class="home-card" id="home-card-claude-status" v-show="podeClaudeStatus" @click="ir('claude-status')" @mouseenter="definirTemaFundo('default')" @mouseleave="definirTemaFundo('default')">
+          <div class="home-card-icon" style="background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 100%)">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          </div>
+          <div class="home-card-text">
+            <h3>Painel de Status<br>do Claude</h3>
+            <p>Robôs de IA, custo por ação e status dos projetos em desenvolvimento</p>
+          </div>
+          <span class="home-card-enter">→</span>
+        </div>
         <!-- Escritório 3D dos Agentes: rota ainda não existe. -->
         <div class="home-card" id="home-card-hq3d" @click="abrirEscritorio3D" @mouseenter="definirTemaFundo('default')" @mouseleave="definirTemaFundo('default')">
           <div class="home-card-icon" style="background:linear-gradient(135deg,#0d9488 0%,#16a89a 100%)">
@@ -157,6 +167,7 @@ const podeBanco = computed(() => hasPermission('banco', 'ver'))
 const podeNoticias = computed(() => hasPermission('noticias', 'ver'))
 const podeGestor = computed(() => hasPermission('gestor', 'ver'))
 const podeAcessos = computed(() => hasPermission('acessos', 'ver'))
+const podeClaudeStatus = computed(() => hasPermission('claude.status', 'ver'))
 
 // Caminho absoluto: servido em produção via rewrite do Vercel (/midia/:path*),
 // igual ao legado. Ligação dinâmica (:src) evita que o Vite tente resolver

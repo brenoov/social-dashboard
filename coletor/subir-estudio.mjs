@@ -194,10 +194,14 @@ async function criarCampanhaNova(loja, objetivoRow, publico = null) {
   return { campaignId, adsets: [{ id: adset.d.id, name: 'Estudio · Geral', destinationType: objetivoRow.destination_type, whatsapp: loja.whatsapp }] };
 }
 
-// destino.lojas (array) tem prioridade; senão destino.loja (single, retrocompat). Pura p/ teste.
+// Normaliza o destino p/ [{ slug, publico }] — público POR loja. destino.lojas pode vir como
+// array de slugs (retrocompat: público único = destino.publico) OU array de {slug, publico}.
+// Fallback single: destino.loja. Pura p/ teste.
 export function lojasDoDestino(destino) {
-  if (destino?.lojas && destino.lojas.length) return destino.lojas;
-  return destino?.loja ? [destino.loja] : [];
+  const arr = (destino?.lojas && destino.lojas.length) ? destino.lojas : (destino?.loja ? [destino.loja] : []);
+  return arr.map((l) => (typeof l === 'string')
+    ? { slug: l, publico: destino?.publico ?? null }
+    : { slug: l.slug, publico: (l.publico !== undefined ? l.publico : (destino?.publico ?? null)) });
 }
 
 // Sobe os criativos escolhidos NUMA campanha do Meta (idempotência + itens + subir + rastro).
@@ -255,14 +259,13 @@ export async function run({ campanhaId, destino, dry = false }) {
     const adsets = await adsetsDaCampanha(destino.campaignId);
     resultados.push(await subirNumaCampanha({ metaCampaignId: destino.campaignId, adsets, escolhidos, destino, campanhaId, lojaNome: null }));
   } else if (destino?.tipo === 'nova') {
-    const slugs = lojasDoDestino(destino);
-    if (!slugs.length) throw new Error(`destino 'nova' sem loja(s) — use destino.loja ou destino.lojas`);
+    const alvosLoja = lojasDoDestino(destino); // [{ slug, publico }] — público POR loja
+    if (!alvosLoja.length) throw new Error(`destino 'nova' sem loja(s) — use destino.loja ou destino.lojas`);
     // objetivo da rodada (fabrica_campanhas.objetivo) -> linha de fabrica_objetivos (fallback 'engajamento')
     const campanha = (await sbGet(`/fabrica_campanhas?select=objetivo&id=eq.${campanhaId}`))[0];
     const { porChave } = await carregarObjetivos(sbGet);
     const objetivoRow = mapaObjetivo(porChave, campanha?.objetivo || 'engajamento');
-    const publico = destino.publico || null;
-    for (const slug of slugs) {
+    for (const { slug, publico } of alvosLoja) {
       const loja = resolverLoja(lojas, slug);
       if (!loja || !loja.marca) throw new Error(`loja inválida p/ destino 'nova': ${slug} (use tivoli|dp)`);
       MARCA = loja.marca; // a loja pode pertencer a uma marca diferente da marcaAtiva global

@@ -8,7 +8,8 @@ const H = { 'x-api-key': KEY, 'anthropic-version': '2023-06-01', 'content-type':
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // ── medição de custo (USD por 1M tokens, aprox.) ──
-const PRICE = { sonnet: { in: 3, out: 15 }, opus: { in: 15, out: 75 } };
+// Preço oficial US$/1M tokens. Opus 4.8: 5/25; Sonnet 4.6: 3/15.
+const PRICE = { sonnet: { in: 3, out: 15 }, opus: { in: 5, out: 25 } };
 const _u = { sonnet: { in: 0, out: 0, calls: 0 }, opus: { in: 0, out: 0, calls: 0 } };
 function _track(model, usage) {
   const b = String(model).includes('opus') ? _u.opus : _u.sonnet;

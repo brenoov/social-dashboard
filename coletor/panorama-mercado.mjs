@@ -29,6 +29,8 @@ const H = { apikey: SERVICE, Authorization: 'Bearer ' + SERVICE, 'Content-Type':
 const rest = (p) => SUPABASE_URL + '/rest/v1' + p;
 
 const { structured, OPUS, usageSummary } = await import('./lib-llm.mjs');
+const { registrarExecucao } = await import('./registrar-execucao.mjs');
+const _t0 = Date.now();
 
 // 1) edição mais recente
 const ultR = await fetch(rest('/noticias_concorrentes?select=rodada&order=rodada.desc&limit=1'), { headers: H }).then(r => r.json());
@@ -75,3 +77,10 @@ const r = await fetch(rest('/noticias_panorama?on_conflict=rodada'), {
 });
 if (!r.ok) { console.error('✗ falha ao gravar', r.status, await r.text()); process.exit(1); }
 console.log('✓ panorama gravado para', rodada, '·', md.length, 'chars ·', uso);
+const _u = usageSummary();
+await registrarExecucao({
+  robo: 'panorama', acao: 'panorama do mercado', modelo: OPUS,
+  inputTokens: _u.tin, outputTokens: _u.tout, chamadas: _u.calls, usd: _u.usd,
+  duracaoMs: Date.now() - _t0, itens: 1, unidade: 'panoramas',
+  status: 'ok', detalhe: `rodada ${rodada} · ${md.length} chars`,
+});

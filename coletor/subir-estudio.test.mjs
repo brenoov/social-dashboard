@@ -2,10 +2,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { run, resolverLoja, payloadCampanhaAdset, lojasDoDestino } from './subir-estudio.mjs';
 
-test('lojasDoDestino: lojas[] tem prioridade; senão loja único; senão vazio', () => {
-  assert.deepEqual(lojasDoDestino({ lojas: ['tivoli', 'dp'] }), ['tivoli', 'dp']);
-  assert.deepEqual(lojasDoDestino({ loja: 'tivoli' }), ['tivoli']);
-  assert.deepEqual(lojasDoDestino({ lojas: [], loja: 'dp' }), ['dp']);
+test('lojasDoDestino: normaliza p/ [{slug, publico}] (público por loja)', () => {
+  // slugs (retrocompat) + público único da campanha
+  assert.deepEqual(lojasDoDestino({ lojas: ['tivoli', 'dp'], publico: { g: 1 } }),
+    [{ slug: 'tivoli', publico: { g: 1 } }, { slug: 'dp', publico: { g: 1 } }]);
+  // público POR loja
+  assert.deepEqual(lojasDoDestino({ lojas: [{ slug: 'tivoli', publico: { a: 1 } }, { slug: 'dp', publico: { b: 2 } }] }),
+    [{ slug: 'tivoli', publico: { a: 1 } }, { slug: 'dp', publico: { b: 2 } }]);
+  // single retrocompat
+  assert.deepEqual(lojasDoDestino({ loja: 'tivoli' }), [{ slug: 'tivoli', publico: null }]);
   assert.deepEqual(lojasDoDestino({}), []);
   assert.deepEqual(lojasDoDestino(null), []);
 });

@@ -92,6 +92,7 @@ export function parsearSaida(text) {
 function num(v) { const n = parseFloat(v); return Number.isFinite(n) ? n : null; }
 
 // ---------- infra (rede) — só roda no main(), não é importado nos testes ----------
+import { registrarExecucao } from './registrar-execucao.mjs';
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY_TRAFEGO || process.env.ANTHROPIC_API_KEY_BUDGET || process.env.ANTHROPIC_API_KEY;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
@@ -264,9 +265,19 @@ async function main() {
   console.log(`Concluído: ${total} analisadas, ${gravadas} gravadas, ${puladas} puladas.`);
   const _usd = _totIn / 1e6 * 5 + _totOut / 1e6 * 25; // Opus 4.8: US$5/1M entrada, US$25/1M saída
   console.log(`💰 Custo da rodada: ~US$ ${_usd.toFixed(2)} (~R$ ${(_usd * 5.5).toFixed(2)}) · ${_chamadas} chamadas · ${_totIn} tokens entrada + ${_totOut} saída (câmbio aprox. 5,5)`);
+  await registrarExecucao({
+    robo: 'budget-ia', acao: 'análise de budget', modelo: MODEL,
+    inputTokens: _totIn, outputTokens: _totOut, chamadas: _chamadas,
+    duracaoMs: Date.now() - agoraMs, itens: total, unidade: 'campanhas',
+    status: 'ok', detalhe: `${total} analisadas, ${gravadas} com sugestão, ${puladas} puladas`,
+  });
 }
 
 // Só roda main() quando executado como script (não quando importado nos testes).
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch((e) => { console.error(e); process.exit(1); });
+  main().catch(async (e) => {
+    console.error(e);
+    await registrarExecucao({ robo: 'budget-ia', acao: 'análise de budget', modelo: MODEL, status: 'erro', detalhe: String(e && e.message || e).slice(0, 500) });
+    process.exit(1);
+  });
 }

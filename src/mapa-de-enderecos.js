@@ -23,6 +23,7 @@ const rotas = [
   { path: '/redes-sociais', name: 'redes-sociais', component: () => import('./ferramentas/redes-sociais/tela-de-redes-sociais.vue') },
   { path: '/redes-relatorio', name: 'redes-relatorio', component: () => import('./ferramentas/redes-sociais/tela-de-relatorio-redes.vue') },
   { path: '/admin', name: 'admin', component: () => import('./ferramentas/admin/tela-de-admin.vue') },
+  { path: '/claude-status', name: 'claude-status', component: () => import('./ferramentas/claude-status/tela-de-status-claude.vue') },
 ]
 
 export const roteador = createRouter({

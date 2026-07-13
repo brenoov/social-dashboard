@@ -10,6 +10,7 @@
 //   FABRICA_JOB_ID=<uuid> node --import ./lib/curl-fetch.mjs fabrica-job-runner.mjs
 //   node fabrica-job-runner.mjs --job <uuid>
 import './lib/carregar-env.mjs';
+import { registrarExecucao } from './registrar-execucao.mjs';
 import { run as gerarRun } from './gerar-criativos.mjs';
 import { run as subirRun } from './subir-estudio.mjs';
 import { run as ativarRun } from './ativar-estudio.mjs';
@@ -69,11 +70,24 @@ async function main() {
     updated_at: new Date().toISOString(),
   });
 
+  // Telemetria do Painel de Status do Claude. A Fábrica não chama a API de texto
+  // da Anthropic aqui → custo zero (usd=0); registramos tempo e volume produzido.
+  const _t0 = Date.now();
+  const _robo = { gerar: 'fabrica-gerar', subir: 'fabrica-subir', ativar: 'fabrica-ativar', preview: 'fabrica-preview' };
+  const _acao = { gerar: 'gerar criativos', subir: 'subir campanha', ativar: 'ativar anúncios', preview: 'gerar previews' };
+  const reg = (itens, unidade, status, detalhe) => registrarExecucao({
+    robo: _robo[job.tipo] || 'fabrica', acao: _acao[job.tipo] || job.tipo, modelo: null, usd: 0,
+    duracaoMs: Date.now() - _t0, itens, unidade, status, detalhe,
+  });
+
   try {
     if (job.tipo === 'gerar') {
       const r = await gerarRun(job.params || {});
       await sbPatch(`/fabrica_jobs?id=eq.${jobId}`, { status: 'concluido', resultado: r, updated_at: new Date().toISOString() });
       if (job.params?.campanhaId) await sbPatch(`/fabrica_campanhas?id=eq.${job.params.campanhaId}`, { status: statusCampanhaGerar(true) });
+      let itens = null;
+      try { if (job.params?.campanhaId) itens = (await sbGet(`/fabrica_criativos?select=id&campanha_id=eq.${job.params.campanhaId}`)).length; } catch (_) {}
+      await reg(itens, 'criativos', 'ok', 'custo zero');
     } else if (job.tipo === 'subir') {
       const r = await subirRun(job.params || {});
       const t = estadoTerminalSubir(r);
@@ -81,20 +95,24 @@ async function main() {
       if (t.fecha && job.params?.campanhaId) {
         await sbPatch(`/fabrica_campanhas?id=eq.${job.params.campanhaId}`, { fechada_em: new Date().toISOString() });
       }
+      await reg(r?.subidos ?? r?.criados ?? r?.total ?? null, 'anúncios', t.status === 'concluido' ? 'ok' : 'parcial', t.erro || 'custo zero');
     } else if (job.tipo === 'ativar') {
       const r = await ativarRun(job.params || {});
       const t = estadoTerminalAtivar(r);
       await sbPatch(`/fabrica_jobs?id=eq.${jobId}`, { status: t.status, resultado: r, erro: t.erro || null, updated_at: new Date().toISOString() });
+      await reg(r?.ativados ?? null, 'anúncios', t.status === 'concluido' ? 'ok' : 'parcial', t.erro || 'custo zero');
     } else if (job.tipo === 'preview') {
       // gera a galeria de preview dos looks (dados de amostra) — não toca campanha/objetivo.
       const r = await previewRun();
       await sbPatch(`/fabrica_jobs?id=eq.${jobId}`, { status: 'concluido', resultado: r, updated_at: new Date().toISOString() });
+      await reg(null, 'previews', 'ok', 'custo zero');
     } else {
       throw new Error('tipo inválido: ' + job.tipo);
     }
   } catch (e) {
     await sbPatch(`/fabrica_jobs?id=eq.${jobId}`, { status: 'erro', erro: String(e.message).slice(0, 500), updated_at: new Date().toISOString() });
     if (job?.tipo === 'gerar' && job?.params?.campanhaId) await sbPatch(`/fabrica_campanhas?id=eq.${job.params.campanhaId}`, { status: statusCampanhaGerar(false) });
+    await reg(null, null, 'erro', String(e.message).slice(0, 500));
     throw e;
   }
 }

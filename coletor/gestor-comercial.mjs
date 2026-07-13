@@ -9,6 +9,9 @@ import { metaPace } from './lib/meta-pace.mjs';
 import fs from 'fs';
 import { loginServico, blingProxy, blingPedidos, blingProdutos, blingSaldoFoco, classificarItem, DEP_FOCO } from './lib/bling-comercial.mjs';
 import { bcgClass } from './lib/classificacao-comercial.mjs';
+import { registrarExecucao } from './registrar-execucao.mjs';
+
+const _t0 = Date.now(); // início da rodada (para medir duração no painel de status)
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY_GESTOR || process.env.ANTHROPIC_API_KEY;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -494,6 +497,17 @@ async function main() {
   const _usd = _totIn / 1e6 * 5 + _totOut / 1e6 * 25; // Opus 4.8: US$5/1M entrada, US$25/1M saída
   console.log(`💰 Custo da rodada: ~US$ ${_usd.toFixed(2)} (~R$ ${(_usd * 5.5).toFixed(2)}) · ${_chamadas} chamadas · ${_totIn} tokens entrada + ${_totOut} saída (câmbio aprox. 5,5)`);
   await logGestor('fim', null, 'pedidos=' + pedidos.length + ' · ' + canaisResumo.map(c => `${c.canal}:${c.status}`).join(' · '));
+  await registrarExecucao({
+    robo: 'gestor-comercial', acao: 'briefing semanal', modelo: MODEL,
+    inputTokens: _totIn, outputTokens: _totOut, chamadas: _chamadas,
+    duracaoMs: Date.now() - _t0, itens: 1, unidade: 'briefings',
+    status: 'ok', detalhe: periodo,
+  });
 }
 
-main().catch(async (e) => { console.error('FALHA:', e.message); await logGestor('fim', e.message.slice(0, 500), 'falha geral'); process.exit(1); });
+main().catch(async (e) => {
+  console.error('FALHA:', e.message);
+  await logGestor('fim', e.message.slice(0, 500), 'falha geral');
+  await registrarExecucao({ robo: 'gestor-comercial', acao: 'briefing semanal', modelo: MODEL, duracaoMs: Date.now() - _t0, status: 'erro', detalhe: e.message.slice(0, 500) });
+  process.exit(1);
+});

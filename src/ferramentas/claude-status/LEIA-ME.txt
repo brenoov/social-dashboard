@@ -1,0 +1,40 @@
+PASTA: src/ferramentas/claude-status
+===================================
+
+O QUE É
+-------
+A tela "Painel de Status do Claude" — um mission control que mostra, num só lugar:
+  1) os ROBÔS de IA em produção (Coletor de Notícias, Gestor Comercial, Budget IA,
+     Fábrica de Anúncios): quando rodaram, se deu certo, quanto custaram e quanto
+     produziram (ex.: "200 anúncios em 15 min", "100 criativos — custo zero");
+  2) o STATUS DOS PROJETOS em desenvolvimento (em que etapa está cada um), derivado
+     automaticamente dos planos em docs/superpowers/plans.
+
+ARQUIVOS
+--------
+- tela-de-status-claude.vue  → a tela em si. Lê duas tabelas do Supabase:
+    * ia_execucoes    (diário de bordo de custo/tempo/volume de cada execução de IA)
+    * projetos_status (status dos projetos, alimentado pelo robô status-projetos)
+  Atualiza sozinha a cada 60s. Só quem tem a permissão "claude.status" (ver) enxerga
+  o card na home; admin vê sempre.
+
+DE ONDE VÊM OS DADOS
+--------------------
+- ia_execucoes: os robôs em coletor/*.mjs gravam 1 linha ao terminar, usando o
+  helper coletor/registrar-execucao.mjs (custo calculado com o preço oficial:
+  Opus 4.8 = US$5/US$25 por 1M tokens; Sonnet 4.6 = US$3/US$15).
+- projetos_status: o robô coletor/status-projetos.mjs lê os planos markdown e deriva
+  projeto/etapa/progresso. Roda no workflow .github/workflows/status-projetos.yml
+  (a cada push nos planos) ou à mão: SUPABASE_SERVICE_KEY=... node coletor/status-projetos.mjs
+
+MIGRATIONS
+----------
+- db/migrations/025_ia_execucoes.sql
+- db/migrations/026_projetos_status.sql
+- db/migrations/027_grant_claude_status.sql (pré-concede a permissão ao superadmin)
+
+OBSERVAÇÃO
+----------
+Enquanto os robôs não rodam de novo, dá pra ter linhas de demonstração marcadas
+com detalhe começando em "[SEED]". Para limpar quando quiser dados 100% reais:
+  DELETE FROM public.ia_execucoes WHERE detalhe LIKE '[SEED]%';

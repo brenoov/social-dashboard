@@ -3,6 +3,8 @@
 // Lê o que os passos 1-3 já gravaram na rodada. Idempotente. RODADA = env ou hoje (BR).
 import fs from 'fs';
 import { structured, SONNET, OPUS, usageSummary } from './lib-llm.mjs';
+import { registrarExecucao } from './registrar-execucao.mjs';
+const _t0 = Date.now();
 
 const env = {};
 try { for (const l of fs.readFileSync(new URL('./.env', import.meta.url), 'utf8').split('\n')) { const m = l.match(/^([A-Z_]+)=(.*)$/); if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, ''); } } catch (e) {}
@@ -110,3 +112,10 @@ console.log(`Custo LLM: ${u.text}`);
 try {
   await rest('POST', 'coletor_log', [{ fase: 'enriquece-custo', encontradas: marcas.length, inseridas: okC, detalhe: `rodada ${RODADA} · A${okA} B${okB} C${okC} · ${u.text}` }]);
 } catch (e) { console.log('aviso: falha ao logar custo:', String(e).slice(0, 100)); }
+if (!process.env.SUPABASE_SERVICE_KEY && KEY) process.env.SUPABASE_SERVICE_KEY = KEY;
+await registrarExecucao({
+  robo: 'coletor-noticias', acao: 'enriquecimento', modelo: `${SONNET}+${OPUS}`,
+  inputTokens: u.tin, outputTokens: u.tout, chamadas: u.calls, usd: u.usd,
+  duracaoMs: Date.now() - _t0, itens: okC, unidade: 'notícias',
+  status: 'ok', detalhe: `rodada ${RODADA} · A${okA} B${okB} C${okC}`,
+});

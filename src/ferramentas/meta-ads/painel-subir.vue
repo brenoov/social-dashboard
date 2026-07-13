@@ -9,12 +9,40 @@ const emit = defineEmits(['subido'])
 const ACCOUNT_ID = 'b6883e82-07cb-4f21-9fd7-ea7626786174', ACT = 'act_1197997517858139'
 const campanhas = ref([]); const destino = reactive({ tipo: 'nova', lojas: ['tivoli'], campaignId: '' })
 const LOJAS = [{ slug: 'tivoli', nome: 'Tivoli' }, { slug: 'dp', nome: 'Dom Pedro' }]
-function toggleLoja(slug) { const i = destino.lojas.indexOf(slug); i > -1 ? destino.lojas.splice(i, 1) : destino.lojas.push(slug) }
 const { job, start } = useJobStatus()
 
-// ===== Localização + Público (só quando destino.tipo === 'nova') =====
+// ===== Localização + Público POR LOJA (abas; só quando destino.tipo === 'nova') =====
+// `publico` = config da loja ATIVA (reactive estável); publicoPorLoja[slug] guarda o snapshot de
+// cada loja. Ao trocar de aba, salva a atual e carrega a outra. Default de cada loja = a(s)
+// cidade(s) de origem dela (fabrica_lojas.geo_cities).
 const presets = ref([])
-const publico = reactive({ presetId: '', nome: '', geo: { cities: [], excluded: [] }, idade_min: 18, idade_max: 65, generos: [], interesses: [], custom_audiences: [] })
+const lojasCfg = ref([]) // fabrica_lojas: {nome, geo_cities}
+function cidadesDaLoja(slug) {
+  const alias = slug === 'dp' ? 'dom pedro' : slug
+  const row = lojasCfg.value.find((l) => (l.nome || '').toLowerCase().includes(alias))
+  return (row?.geo_cities || []).map((key) => ({ key: String(key), nome: row.nome || 'Cidade da loja', radius: 20, distance_unit: 'kilometer' }))
+}
+function publicoBase(slug) {
+  return { presetId: '', nome: '', geo: { cities: cidadesDaLoja(slug), excluded: [] }, idade_min: 18, idade_max: 65, generos: [], interesses: [], custom_audiences: [] }
+}
+const publico = reactive(publicoBase('tivoli'))
+const publicoPorLoja = reactive({})   // slug -> snapshot do público daquela loja
+const lojaAtiva = ref('tivoli')
+const clone = (o) => JSON.parse(JSON.stringify(o))
+function salvarAtiva() { if (lojaAtiva.value) publicoPorLoja[lojaAtiva.value] = clone(publico) }
+function carregarLoja(slug) { Object.assign(publico, clone(publicoPorLoja[slug] || publicoBase(slug))) }
+function trocarAba(slug) { if (slug === lojaAtiva.value) return; salvarAtiva(); lojaAtiva.value = slug; carregarLoja(slug) }
+function toggleLoja(slug) {
+  const i = destino.lojas.indexOf(slug)
+  if (i > -1) {
+    destino.lojas.splice(i, 1); delete publicoPorLoja[slug]
+    if (lojaAtiva.value === slug) { lojaAtiva.value = destino.lojas[0] || ''; if (lojaAtiva.value) carregarLoja(lojaAtiva.value) }
+  } else {
+    salvarAtiva(); destino.lojas.push(slug)
+    if (!publicoPorLoja[slug]) publicoPorLoja[slug] = publicoBase(slug)
+    lojaAtiva.value = slug; carregarLoja(slug)
+  }
+}
 const buscaCidade = ref(''); const cidadesAchadas = ref([])
 const buscaInteresse = ref(''); const interessesAchados = ref([])
 async function carregarPresets() { presets.value = await sb('fabrica_publicos?select=*&ativo=eq.true&order=created_at.desc') }
@@ -40,8 +68,8 @@ async function buscarInteresses() {
 function addInteresse(i) { if (!publico.interesses.some((x) => x.id === i.id)) publico.interesses.push({ id: i.id, name: i.name }); interessesAchados.value = []; buscaInteresse.value = '' }
 function rmInteresse(id) { publico.interesses = publico.interesses.filter((x) => x.id !== id) }
 function toggleGenero(g) { const i = publico.generos.indexOf(g); i > -1 ? publico.generos.splice(i, 1) : publico.generos.push(g) }
-function publicoParaEnvio() {
-  return { geo: { cities: publico.geo.cities.map((c) => ({ key: c.key, nome: c.nome, radius: c.radius, distance_unit: c.distance_unit })), excluded: publico.geo.excluded.map((e) => ({ key: e.key, nome: e.nome, type: e.type })) }, idade_min: publico.idade_min, idade_max: publico.idade_max, generos: [...publico.generos], interesses: publico.interesses.map((i) => ({ id: i.id, name: i.name })), custom_audiences: publico.custom_audiences.map((a) => ({ id: a.id, name: a.name, subtype: a.subtype })) }
+function publicoParaEnvio(p = publico) {
+  return { geo: { cities: p.geo.cities.map((c) => ({ key: c.key, nome: c.nome, radius: c.radius, distance_unit: c.distance_unit })), excluded: p.geo.excluded.map((e) => ({ key: e.key, nome: e.nome, type: e.type })) }, idade_min: p.idade_min, idade_max: p.idade_max, generos: [...p.generos], interesses: p.interesses.map((i) => ({ id: i.id, name: i.name })), custom_audiences: p.custom_audiences.map((a) => ({ id: a.id, name: a.name, subtype: a.subtype })) }
 }
 async function salvarPreset() {
   const nome = prompt('Nome do preset:', publico.nome || ''); if (!nome) return
@@ -99,6 +127,11 @@ async function criarLookalike(origem) {
 }
 
 onMounted(async () => {
+  lojasCfg.value = await sb('fabrica_lojas?select=nome,geo_cities')
+  // (re)inicializa o público de cada loja já selecionada com a cidade de origem dela
+  for (const slug of destino.lojas) publicoPorLoja[slug] = publicoBase(slug)
+  lojaAtiva.value = destino.lojas[0] || 'tivoli'
+  carregarLoja(lojaAtiva.value)
   const { data } = await sbClient.functions.invoke('meta-proxy', { body: { accountId: ACCOUNT_ID, path: `/${ACT}/campaigns`, params: { fields: 'id,name', limit: 200 }, method: 'GET' } })
   campanhas.value = data?.data || []
   await carregarPresets()
@@ -106,9 +139,10 @@ onMounted(async () => {
 })
 async function subir() {
   if (destino.tipo === 'nova' && !destino.lojas.length) return alert('Selecione ao menos uma loja.')
+  salvarAtiva() // persiste a aba atual antes de montar o payload
   const params = { campanhaId: props.campanhaId, destino: destino.tipo === 'existente'
     ? { tipo: 'existente', campaignId: destino.campaignId }
-    : { tipo: 'nova', lojas: [...destino.lojas], publico: publicoParaEnvio() } }
+    : { tipo: 'nova', lojas: destino.lojas.map((slug) => ({ slug, publico: publicoParaEnvio(publicoPorLoja[slug] || publico) })) } }
   const { data, error } = await sbClient.functions.invoke('fabrica-trigger', { body: { tipo: 'subir', params } })
   if (error) return alert('Falha: ' + error.message)
   if (!data?.job_id) return alert('Sem job_id na resposta')
@@ -157,7 +191,17 @@ watch(job, (j) => { if (j?.status === 'concluido' && j.resultado) emit('subido',
     </div>
 
     <div class="panel" v-if="destino.tipo==='nova'">
-      <div class="ph"><span class="eyebrow">Localização + Público</span></div>
+      <div class="ph">
+        <span class="eyebrow">Localização + Público</span>
+        <span class="eyebrow muted">por loja</span>
+      </div>
+      <!-- abas por loja: cada loja tem seu próprio público (default = cidade de origem) -->
+      <div v-if="destino.lojas.length > 1" class="lojas" style="margin-bottom:12px">
+        <button type="button" v-for="slug in destino.lojas" :key="slug" class="loja-chip" :class="{ sel: lojaAtiva===slug }" @click="trocarAba(slug)">
+          {{ LOJAS.find(l=>l.slug===slug)?.nome || slug }}
+        </button>
+      </div>
+      <p v-if="destino.lojas.length > 1" class="eyebrow muted" style="margin:-4px 0 10px">Editando o público de <b>{{ LOJAS.find(l=>l.slug===lojaAtiva)?.nome || lojaAtiva }}</b>.</p>
 
       <div class="fields">
         <label class="field wide">

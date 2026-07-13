@@ -86,7 +86,7 @@ const route = useRoute()
 const menuAberto = ref(false)
 const naTelaLogin = computed(() => route.name === 'login')
 // Fundo animado some em telas densas onde vira ruído visual (admin).
-const SEM_FUNDO = ['admin']
+const SEM_FUNDO = ['admin', 'claude-status']
 const mostrarFundo = computed(() => !SEM_FUNDO.includes(route.name))
 const iniciais = computed(() => {
   const email = estado.user?.email || ''

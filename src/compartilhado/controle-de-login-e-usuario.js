@@ -63,6 +63,7 @@ export const RECURSOS = [
   { key: 'noticias', label: 'Portal de Notícias', acoes: ['ver'] },
   { key: 'gestor', label: 'Gestão Comercial (IA)', acoes: ['ver'] },
   { key: 'gestor.relatorios', label: 'Relatórios Comerciais', acoes: ['ver', 'exportar'] },
+  { key: 'claude.status', label: 'Painel de Status do Claude', acoes: ['ver'] },
 ]
 
 // Ponte: chaves antigas (call sites legados) → recurso novo. Assim nada quebra durante a migração.
@@ -103,4 +104,5 @@ export const PERMISSION_TREE = [
   { key: 'noticias', label: 'Portal de Notícias', children: [] },
   { key: 'gestor', label: 'Gestão Comercial (IA)', children: [] },
   { key: 'acessos', label: 'Colaboradores e Acessos', children: [] },
+  { key: 'claude.status', label: 'Painel de Status do Claude', children: [] },
 ]
