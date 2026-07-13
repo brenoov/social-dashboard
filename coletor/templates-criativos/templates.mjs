@@ -23,6 +23,12 @@ export function safeAreaCss(formato) {
   const s = SAFE[formato] || SAFE['1080x1350'];
   return `${s.top}px ${s.right}px ${s.bottom}px ${s.left}px`;
 }
+// Só o recuo do TOPO — pros looks de painel dividido cujo painel de imagem no topo
+// tem conteúdo próprio (ex.: o monograma do editorial-sale) que precisa sair de baixo
+// da faixa de perfil da Meta no story, sem receber o safeAreaCss inteiro do painel.
+export function safeAreaTop(formato) {
+  return (SAFE[formato] || SAFE['1080x1350']).top;
+}
 
 const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
@@ -299,7 +305,7 @@ function editorialSale(dados, formato) {
   <div style="position:relative;width:${d.width}px;height:${d.height}px;background:#f2f1ed;overflow:hidden;color:#582f0a;font-family:'Archivo',sans-serif;display:flex;flex-direction:column;">
     <div style="position:relative;flex:0 0 58%;background:#c2cfb4;overflow:hidden;border-bottom:1px solid rgba(137,168,139,.6);display:flex;flex-direction:column;">
       <div style="position:absolute;inset:0;background-image:url('${MONO.cream}');background-repeat:repeat;background-size:180px;opacity:.14;"></div>
-      <div style="position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;padding-top:${s(78)}px;">
+      <div style="position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;padding-top:${Math.max(safeAreaTop(formato), s(78))}px;">
         <img src="${MONO.brown}" style="height:${s(54)}px;width:auto;">
         <div style="font-family:'Cormorant Garamond',serif;font-size:${s(50)}px;font-weight:500;margin-top:12px;">La <span style="font-style:italic;">vessel</span></div>
       </div>
