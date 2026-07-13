@@ -178,16 +178,28 @@ watch(job, (j) => { if (j?.status === 'concluido' && j.resultado) emit('subido',
 
       <div class="cmdrow">
         <button class="cmd amber" :disabled="job && ['enfileirado','rodando'].includes(job.status)" @click="subir">
-          <span class="ci">▶</span> Publicar (pausado)
+          <span class="ci">▶</span> {{ (job && ['enfileirado','rodando'].includes(job.status)) ? 'Publicando…' : 'Publicar (pausado)' }}
         </button>
-        <div v-if="job" class="jobstat">
-          <i class="led" :class="job.status==='concluido' ? 'go' : job.status==='erro' ? 'abort' : ['enfileirado','rodando'].includes(job.status) ? 'run' : 'idle'"></i>
-          <span>{{ ({ enfileirado:'Na fila…', rodando:'Publicando na Meta…', concluido:'Publicado (pausado).', erro:'Deu erro ao publicar.' })[job.status] || job.status }}</span>
-          <span v-if="job.erro" class="js-err">— {{ job.erro }}</span>
-        </div>
       </div>
 
-      <p v-if="job?.resultado?.adIds" class="okline">{{ job.resultado.adIds.length }} anúncios criados e pausados. Confira e decida no passo seguinte.</p>
+      <!-- BANNER de progresso do subir (chamativo) -->
+      <div v-if="job" class="subir-banner" :class="job.status">
+        <div v-if="['enfileirado','rodando'].includes(job.status)" class="sb-body">
+          <span class="sb-spin"></span>
+          <div>
+            <b>Publicando na Meta…</b>
+            <div class="sb-sub">Criando as campanhas e anúncios (pausados). Pode levar ~2 min — <b>pode aguardar aqui</b>, não feche a tela. Se sair, ao voltar você retoma no Conferir.</div>
+          </div>
+        </div>
+        <div v-else-if="job.status==='concluido'" class="sb-body">
+          <span class="sb-ic">✅</span>
+          <div><b>Publicado (pausado)!</b><div class="sb-sub">{{ job.resultado?.adIds?.length || 0 }} anúncios criados. Indo para o Conferir…</div></div>
+        </div>
+        <div v-else-if="job.status==='erro'" class="sb-body">
+          <span class="sb-ic">⚠️</span>
+          <div><b>Deu erro ao publicar.</b><div class="sb-sub js-err">{{ job.erro }}</div></div>
+        </div>
+      </div>
     </div>
 
     <div class="panel" v-if="destino.tipo==='nova'">
