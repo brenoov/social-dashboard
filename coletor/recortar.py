@@ -63,17 +63,53 @@ def _cut_birefnet(img):
     return out
 
 
+def _cut_floodfill(img):
+    # Remoção de fundo branco de estúdio por flood-fill de borda. Determinístico
+    # (numpy/scipy) — mesmo resultado em Linux e macOS, ao contrário do BiRefNet.
+    from scipy import ndimage
+    from PIL import ImageFilter
+    WHITE_MIN = int(os.environ.get('FLOODFILL_WHITE_MIN', '200'))
+    SPREAD = int(os.environ.get('FLOODFILL_SPREAD', '28'))
+    a0 = np.asarray(img.convert('RGB')).astype(np.int32)
+    a = np.pad(a0, ((1, 1), (1, 1), (0, 0)), constant_values=255)  # moldura branca 1px
+    mx = a.max(2); mn = a.min(2)
+    whiteish = (mn >= WHITE_MIN) & ((mx - mn) <= SPREAD)   # branco + cinza-claro de fundo/sombra
+    lbl, _ = ndimage.label(whiteish)
+    borda = set(lbl[0, :]) | set(lbl[-1, :]) | set(lbl[:, 0]) | set(lbl[:, -1])
+    borda.discard(0)
+    fg = ~np.isin(lbl, list(borda))            # fundo = whiteish conectado à borda
+    fg = ndimage.binary_fill_holes(fg)         # tapa reflexo branco interno
+    lf, nf = ndimage.label(fg)
+    if nf > 1:                                  # mantém só o maior componente
+        fg = lf == (np.argmax(np.bincount(lf.ravel())[1:]) + 1)
+    fg = fg[1:-1, 1:-1]                          # remove a moldura
+    cobertura = float(fg.mean())
+    if cobertura > 0.92:                         # flood removeu quase nada -> foto não é fundo branco
+        return None
+    mask = Image.fromarray((fg * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.8))
+    out = img.convert('RGBA'); out.putalpha(mask)
+    return out
+
+
 def _cut_isnet(img):
     from rembg import remove, new_session
     return remove(img, session=new_session('isnet-general-use'))
 
 
 src = Image.open(IN)
+out = None
 try:
-    if not os.path.exists(MODEL):
-        raise FileNotFoundError('modelo BiRefNet ausente: ' + MODEL)
-    out = _cut_birefnet(src)
+    out = _cut_floodfill(src)                    # primário: determinístico
+    if out is None:
+        sys.stderr.write('floodfill: cobertura alta (nao e fundo branco) — fallback BiRefNet\n')
 except Exception as e:
-    sys.stderr.write('BiRefNet indisponivel (%s) — fallback isnet\n' % str(e)[:160])
-    out = _cut_isnet(src)
+    sys.stderr.write('floodfill falhou (%s) — fallback BiRefNet\n' % str(e)[:120])
+if out is None:
+    try:
+        if not os.path.exists(MODEL):
+            raise FileNotFoundError('modelo BiRefNet ausente: ' + MODEL)
+        out = _cut_birefnet(src)
+    except Exception as e:
+        sys.stderr.write('BiRefNet indisponivel (%s) — fallback isnet\n' % str(e)[:160])
+        out = _cut_isnet(src)
 out.save(OUT)

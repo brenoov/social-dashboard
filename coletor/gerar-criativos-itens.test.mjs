@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { candsDeItens } from './gerar-criativos.mjs';
+import { candsDeItens, linhaCriativoProduto } from './gerar-criativos.mjs';
 
 test('candsDeItens resolve preço via mapa e mantém pct/deposito por item', () => {
   const r = candsDeItens(
@@ -26,4 +26,18 @@ test('candsDeItens usa o nome descritivo do Bling (p/ a IA extrair a cidade), n�
 test('candsDeItens cai no SKU quando não há nome no mapa (fallback seguro)', () => {
   const r = candsDeItens([{ sku: 'ABC', deposito: 'd1', pct: 30 }], { ABC: 10 }, {});
   assert.equal(r[0].nome, 'ABC');
+});
+
+test('linhaCriativoProduto inclui o sku do candidato', () => {
+  const row = linhaCriativoProduto({
+    campanhaId: 'c1',
+    cand: { sku: 'LV1159-Panacota' },
+    v: { template: 'produto-heroi', formato: '1080x1350', variante: 'produto-heroi-avista', preco_de: 449.9, preco_por: 359.92 },
+    url: 'https://x/y.png',
+    legenda: 'compre',
+  });
+  assert.equal(row.sku, 'LV1159-Panacota');
+  assert.equal(row.campanha_id, 'c1');
+  assert.equal(row.template, 'produto-heroi');
+  assert.equal(row.storage_path, undefined); // storage_path é montado no run(), não aqui
 });

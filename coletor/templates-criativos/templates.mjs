@@ -12,6 +12,18 @@ const MONO = { brown: b64('monogram-brown.png'), cream: b64('monogram-cream.png'
 
 const DIM = { '1080x1920': { width: 1080, height: 1920 }, '1080x1350': { width: 1080, height: 1350 } };
 
+// Área segura (recuo mínimo do conteúdo às bordas do canvas), por formato. Story 9:16
+// recua topo ~14% (faixa do perfil da Meta) e base ~20% (botão/CTA); feed 4:5 uniforme ~7%.
+// Valores em px do canvas final (NÃO passam pela escala s() — são sobre a borda real).
+export const SAFE = {
+  '1080x1350': { top: 95, right: 76, bottom: 95, left: 76 },
+  '1080x1920': { top: 270, right: 70, bottom: 390, left: 70 },
+};
+export function safeAreaCss(formato) {
+  const s = SAFE[formato] || SAFE['1080x1350'];
+  return `${s.top}px ${s.right}px ${s.bottom}px ${s.left}px`;
+}
+
 const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
 // wrapper autocontido: injeta fontes + normaliza body pro tamanho exato
@@ -30,7 +42,7 @@ function promoNumberHero(dados, formato) {
   const inner = `
   <div style="position:relative;width:${d.width}px;height:${d.height}px;background:radial-gradient(130% 75% at 50% 44%, #6a3c14 0%, #4f2908 100%);overflow:hidden;color:#f2f1ed;font-family:'Archivo',sans-serif;">
     <div style="position:absolute;inset:0;background-image:url('${MONO.cream}');background-repeat:repeat;background-size:230px;opacity:.045;"></div>
-    <div style="position:relative;z-index:1;height:${d.height}px;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:center;gap:${s(56)}px;padding:${s(96)}px ${s(80)}px;">
+    <div style="position:relative;z-index:1;height:${d.height}px;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:center;gap:${s(56)}px;padding:${safeAreaCss(formato)};">
       <div style="display:flex;flex-direction:column;align-items:center;">
         <img src="${MONO.cream}" style="height:${s(60)}px;width:auto;">
         <div style="font-family:'Cormorant Garamond',serif;font-size:${s(46)}px;font-weight:500;margin-top:16px;">La <span style="font-style:italic;">vessel</span></div>
@@ -70,7 +82,7 @@ function produtoHeroi(dados, formato) {
   const inner = `
   <div style="position:relative;width:${d.width}px;height:${d.height}px;background:#f2f1ed;overflow:hidden;color:#582f0a;font-family:'Archivo',sans-serif;">
     <div style="position:absolute;inset:0;background-image:url('${MONO.olive}');background-repeat:repeat;background-size:230px;opacity:.045;"></div>
-    <div style="position:relative;z-index:1;height:${d.height}px;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:space-between;padding:${s(66)}px ${s(60)}px ${s(60)}px;">
+    <div style="position:relative;z-index:1;height:${d.height}px;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:space-between;padding:${safeAreaCss(formato)};">
       <div style="display:flex;flex-direction:column;align-items:center;">
         <img src="${MONO.brown}" style="height:${s(48)}px;width:auto;">
         <div style="font-family:'Cormorant Garamond',serif;font-size:${s(44)}px;font-weight:500;margin-top:${s(6)}px;">La <span style="font-style:italic;">vessel</span></div>
@@ -112,7 +124,7 @@ function produtoPrecoTipografico(dados, formato) {
   const inner = `
   <div style="position:relative;width:${d.width}px;height:${d.height}px;background:#f2f1ed;overflow:hidden;color:#582f0a;font-family:'Archivo',sans-serif;">
     <div style="position:absolute;inset:0;background-image:url('${MONO.olive}');background-repeat:repeat;background-size:230px;opacity:.045;"></div>
-    <div style="position:relative;z-index:1;height:${d.height}px;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:center;gap:${s(40)}px;padding:${s(110)}px ${s(90)}px;">
+    <div style="position:relative;z-index:1;height:${d.height}px;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:center;gap:${s(40)}px;padding:${safeAreaCss(formato)};">
       <div style="display:flex;flex-direction:column;align-items:center;">
         <img src="${MONO.brown}" style="height:${s(64)}px;width:auto;">
         <div style="font-family:'Cormorant Garamond',serif;font-size:${s(52)}px;font-weight:500;margin-top:14px;">La <span style="font-style:italic;">vessel</span></div>
@@ -150,7 +162,7 @@ function produtoSageCirculo(dados, formato) {
   const inner = `
   <div style="position:relative;width:${d.width}px;height:${d.height}px;background:#c2cfb4;overflow:hidden;color:#582f0a;font-family:'Archivo',sans-serif;">
     <div style="position:absolute;inset:0;background-image:url('${MONO.olive}');background-repeat:repeat;background-size:230px;opacity:.08;"></div>
-    <div style="position:relative;z-index:1;height:${d.height}px;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:center;gap:${s(44)}px;padding:${s(104)}px ${s(90)}px;">
+    <div style="position:relative;z-index:1;height:${d.height}px;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:center;gap:${s(44)}px;padding:${safeAreaCss(formato)};">
       <div style="display:flex;flex-direction:column;align-items:center;">
         <img src="${MONO.brown}" style="height:${s(64)}px;width:auto;">
         <div style="font-family:'Cormorant Garamond',serif;font-size:${s(54)}px;font-weight:500;margin-top:14px;">La <span style="font-style:italic;">vessel</span></div>
@@ -177,7 +189,7 @@ function promoSage(dados, formato) {
   const inner = `
   <div style="position:relative;width:${d.width}px;height:${d.height}px;background:radial-gradient(125% 80% at 50% 40%, #ccd7be 0%, #b4c4a2 100%);overflow:hidden;color:#582f0a;font-family:'Archivo',sans-serif;">
     <div style="position:absolute;inset:0;background-image:url('${MONO.brown}');background-repeat:repeat;background-size:230px;opacity:.05;"></div>
-    <div style="position:relative;z-index:1;height:${d.height}px;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:center;gap:${s(54)}px;padding:${s(96)}px ${s(100)}px;">
+    <div style="position:relative;z-index:1;height:${d.height}px;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:center;gap:${s(54)}px;padding:${safeAreaCss(formato)};">
       <div style="display:flex;flex-direction:column;align-items:center;">
         <img src="${MONO.brown}" style="height:${s(64)}px;width:auto;">
         <div style="font-family:'Cormorant Garamond',serif;font-size:${s(50)}px;font-weight:500;margin-top:18px;">La <span style="font-style:italic;">vessel</span></div>
@@ -213,7 +225,7 @@ function promoMinimalPearl(dados, formato) {
   <div style="position:relative;width:${d.width}px;height:${d.height}px;background:#f2f1ed;overflow:hidden;color:#582f0a;font-family:'Archivo',sans-serif;">
     <div style="position:absolute;inset:0;background-image:url('${MONO.olive}');background-repeat:repeat;background-size:220px;opacity:.05;"></div>
     <div style="position:absolute;inset:${s(40)}px;border:1px solid rgba(137,168,139,.55);"></div>
-    <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:space-between;padding:${s(132)}px ${s(104)}px ${s(120)}px;">
+    <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:space-between;padding:${safeAreaCss(formato)};">
       <div style="display:flex;flex-direction:column;align-items:center;">
         <img src="${MONO.brown}" style="height:${s(64)}px;width:auto;">
         <div style="font-family:'Cormorant Garamond',serif;font-size:${s(50)}px;font-weight:500;margin-top:18px;">La <span style="font-style:italic;">vessel</span></div>
@@ -247,7 +259,7 @@ function promoBurntWood(dados, formato) {
   <div style="position:relative;width:${d.width}px;height:${d.height}px;background:#582f0a;overflow:hidden;color:#f2f1ed;font-family:'Archivo',sans-serif;">
     <div style="position:absolute;inset:0;background-image:url('${MONO.cream}');background-repeat:repeat;background-size:230px;opacity:.04;"></div>
     <div style="position:absolute;inset:0;background:radial-gradient(115% 60% at 50% 34%, rgba(137,168,139,.15), transparent 62%);"></div>
-    <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:space-between;text-align:center;padding:${s(118)}px ${s(96)}px ${s(106)}px;">
+    <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:space-between;text-align:center;padding:${safeAreaCss(formato)};">
       <div style="display:flex;flex-direction:column;align-items:center;">
         <img src="${MONO.cream}" style="height:${s(70)}px;width:auto;">
         <div style="font-family:'Cormorant Garamond',serif;font-size:${s(52)}px;font-weight:500;margin-top:20px;">La <span style="font-style:italic;">vessel</span></div>
@@ -296,7 +308,7 @@ function editorialSale(dados, formato) {
         <img src="${dados.fotoDataUrl}" style="position:relative;width:${s(600)}px;height:auto;max-height:100%;object-fit:contain;filter:drop-shadow(0 34px 40px rgba(88,47,10,.32));">
       </div>
     </div>
-    <div style="position:relative;flex:0 0 42%;background:#f2f1ed;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:${s(56)}px ${s(90)}px;gap:${s(20)}px;">
+    <div style="position:relative;flex:0 0 42%;background:#f2f1ed;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:${safeAreaCss(formato)};gap:${s(20)}px;">
       <div style="position:absolute;inset:0;background-image:url('${MONO.olive}');background-repeat:repeat;background-size:200px;opacity:.05;"></div>
       <div style="position:relative;z-index:1;display:flex;align-items:center;gap:16px;">
         <span style="width:44px;height:1px;background:#89a88b;"></span>
@@ -327,7 +339,7 @@ function editorialV2(dados, formato) {
   const inner = `
   <div style="position:relative;width:${d.width}px;height:${d.height}px;background:#c2cfb4;overflow:hidden;color:#582f0a;font-family:'Archivo',sans-serif;">
     <div style="position:absolute;inset:0;background-image:url('${MONO.cream}');background-repeat:repeat;background-size:190px;opacity:.13;"></div>
-    <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column;align-items:center;text-align:center;padding:${s(96)}px ${s(80)}px ${s(64)}px;">
+    <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column;align-items:center;text-align:center;padding:${safeAreaCss(formato)};">
       <div style="display:flex;flex-direction:column;align-items:center;">
         <img src="${MONO.brown}" style="height:${s(54)}px;width:auto;">
         <div style="font-family:'Cormorant Garamond',serif;font-size:${s(50)}px;font-weight:500;margin-top:12px;">La <span style="font-style:italic;">vessel</span></div>
@@ -382,7 +394,7 @@ function produtoSplit(dados, formato) {
   const inner = `
   <div style="position:relative;width:${d.width}px;height:${d.height}px;background:#f2f1ed;overflow:hidden;color:#582f0a;font-family:'Archivo',sans-serif;display:flex;">
     <div style="position:absolute;inset:0;background-image:url('${MONO.olive}');background-repeat:repeat;background-size:210px;opacity:.045;"></div>
-    <div style="position:relative;z-index:2;width:540px;flex:0 0 auto;padding:92px 56px 92px 84px;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;">
+    <div style="position:relative;z-index:2;width:540px;flex:0 0 auto;padding:${safeAreaCss(formato)};display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;">
       <div style="display:flex;flex-direction:column;align-items:flex-start;">
         <img src="${MONO.brown}" style="height:60px;width:auto;">
         <div style="font-family:'Cormorant Garamond',serif;font-size:52px;font-weight:500;margin-top:16px;color:#582f0a;">La <span style="font-style:italic;">vessel</span></div>
@@ -422,7 +434,6 @@ function produtoModelo(dados, formato) {
   const isStory = formato === '1080x1920';
   const v = VARIANTES_MODELO[dados.varianteCor] || VARIANTES_MODELO.sage;
   const leftWidth = isStory ? 640 : 600;
-  const pad = isStory ? '70px 40px 60px' : '56px 36px 52px';
   const fMono = isStory ? 42 : 40;
   const fBrand = isStory ? 38 : 36;
   const lineW = isStory ? 34 : 30;
@@ -443,7 +454,7 @@ function produtoModelo(dados, formato) {
     </div>
     <div style="position:relative;flex:1 1 auto;overflow:hidden;background:${v.bgDireita};">
       <div style="position:absolute;inset:0;background-image:url('${v.monoPattern}');background-repeat:repeat;background-size:180px;opacity:${v.monoPatternOpacity};"></div>
-      <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column;align-items:center;text-align:center;padding:${pad};">
+      <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column;align-items:center;text-align:center;padding:${safeAreaCss(formato)};">
         <img src="${v.monoTopo}" style="height:${fMono}px;width:auto;">
         <div style="font-family:'Cormorant Garamond',serif;font-size:${fBrand}px;font-weight:500;margin-top:8px;white-space:nowrap;color:${v.textoCor};">La <span style="font-style:italic;">vessel</span></div>
         <div style="flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:18px;">
@@ -480,7 +491,7 @@ function marcaLifestyle(dados, formato) {
   const inner = `
   <div style="position:relative;width:${d.width}px;height:${d.height}px;background:#f2f1ed;overflow:hidden;color:#582f0a;font-family:'Archivo',sans-serif;">
     <div style="position:absolute;inset:0;background-image:url('${MONO.olive}');background-repeat:repeat;background-size:230px;opacity:.045;"></div>
-    <div style="position:relative;z-index:1;height:${d.height}px;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:space-between;padding:${s(96)}px ${s(90)}px ${s(96)}px;">
+    <div style="position:relative;z-index:1;height:${d.height}px;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:space-between;padding:${safeAreaCss(formato)};">
       <div style="display:flex;flex-direction:column;align-items:center;">
         <img src="${MONO.brown}" style="height:${s(58)}px;width:auto;">
         <div style="font-family:'Cormorant Garamond',serif;font-size:${s(72)}px;font-weight:500;margin-top:${s(14)}px;">${esc(dados.marca || 'La vessel')}</div>
@@ -509,7 +520,7 @@ function marcaEditorial(dados, formato) {
       <div style="position:absolute;left:0;right:0;bottom:${s(60)}px;margin:0 auto;width:${s(520)}px;height:${s(64)}px;background:radial-gradient(ellipse at center, rgba(88,47,10,.26) 0%, rgba(88,47,10,0) 72%);filter:blur(11px);"></div>
       <img src="${dados.fotoDataUrl}" style="position:relative;width:${s(760)}px;height:auto;max-height:88%;object-fit:contain;filter:drop-shadow(0 ${s(34)}px ${s(40)}px rgba(88,47,10,.32));">
     </div>
-    <div style="position:relative;flex:0 0 auto;background:#582f0a;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:${s(48)}px ${s(70)}px;gap:${s(10)}px;">
+    <div style="position:relative;flex:0 0 auto;background:#582f0a;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:${safeAreaCss(formato)};gap:${s(10)}px;">
       <div style="position:absolute;inset:0;background-image:url('${MONO.cream}');background-repeat:repeat;background-size:200px;opacity:.05;"></div>
       <img src="${MONO.cream}" style="position:relative;z-index:1;height:${s(46)}px;width:auto;">
       <div style="position:relative;z-index:1;font-family:'Cormorant Garamond',serif;font-size:${s(52)}px;font-weight:500;">${esc(dados.marca || 'La vessel')}</div>

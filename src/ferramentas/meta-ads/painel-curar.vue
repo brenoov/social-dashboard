@@ -3,14 +3,26 @@ import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import AjudaTooltip from './ajuda-tooltip.vue'
+import { agruparPorLojaEPares } from './curar-agrupar.js'
 const props = defineProps({ campanhaId: String })
 const itens = ref([])
+const itensCampanha = ref([])
+const lojas = ref([])
 const visor = ref(null)
 const statusCampanha = ref(null)
 let poll = null
 async function carregar() {
   if (!props.campanhaId) return
-  itens.value = await sb(`fabrica_criativos?select=id,url,arquetipo,formato,escolhido,purgado_em&campanha_id=eq.${props.campanhaId}&order=created_at`)
+  itens.value = await sb(`fabrica_criativos?select=id,url,sku,variante,arquetipo,formato,escolhido,purgado_em&campanha_id=eq.${props.campanhaId}&order=created_at`)
+  if (!lojas.value.length) lojas.value = await sb(`fabrica_lojas?select=deposito_id,nome&order=ordem`)
+  if (!itensCampanha.value.length) {
+    const camp = await sb(`fabrica_campanhas?select=job_id&id=eq.${props.campanhaId}`)
+    const jobId = camp[0]?.job_id
+    if (jobId) {
+      const jobs = await sb(`fabrica_jobs?select=params&id=eq.${jobId}`)
+      itensCampanha.value = jobs[0]?.params?.itens || []
+    }
+  }
 }
 async function alternar(it) {
   const novo = !it.escolhido; it.escolhido = novo // otimista
@@ -19,6 +31,10 @@ async function alternar(it) {
 }
 const visiveis = computed(() => itens.value.filter((i) => !i.purgado_em))
 const todosEscolhidos = computed(() => visiveis.value.length > 0 && visiveis.value.every((i) => i.escolhido))
+const secoes = computed(() =>
+  agruparPorLojaEPares(itens.value.filter((i) => !i.purgado_em), itensCampanha.value, lojas.value))
+const colapsadas = ref({})
+function alternarSecao(loja) { colapsadas.value[loja] = !colapsadas.value[loja] }
 async function alternarTodos() {
   const alvo = visiveis.value
   if (!alvo.length) return
@@ -72,15 +88,26 @@ watch(() => props.campanhaId, iniciar, { immediate: true })
       </div>
       <p v-if="statusCampanha === 'gerando'" class="js-run"><i class="led run"></i> Ainda gerando… os criativos vão aparecendo aqui. Pode ir marcando os que gostar.</p>
       <p v-else-if="statusCampanha === 'erro'" class="js-err">A geração falhou. Volte à Fábrica e tente uma nova campanha.</p>
-      <div v-if="itens.length" class="cg">
-        <div v-for="it in itens" :key="it.id" class="tile" :class="{ ok: it.escolhido, subido: it.purgado_em }">
-          <img v-if="!it.purgado_em" class="art" :src="it.url" loading="lazy" @click="abrirVisor(it)">
-          <div v-else class="art placeholder">subido — ver no Gerenciador</div>
-          <label v-if="!it.purgado_em" class="pick" @click.stop>
-            <input type="checkbox" :checked="it.escolhido" @change="alternar(it)">
-          </label>
-          <span class="cap">{{ it.arquetipo }} · {{ it.formato }}</span>
-        </div>
+      <div v-if="itens.length" class="curagrid">
+        <section v-for="sec in secoes" :key="sec.loja" class="loja-sec">
+          <button class="loja-head" @click="alternarSecao(sec.loja)">
+            <span class="chev">{{ colapsadas[sec.loja] ? '▸' : '▾' }}</span>
+            🏬 {{ sec.loja }} <span class="loja-n">{{ sec.pares.length }} looks</span>
+          </button>
+          <div v-show="!colapsadas[sec.loja]" class="cg">
+            <template v-for="par in sec.pares" :key="par.sku + par.variante">
+              <div v-for="prop in [['feed', par.feed], ['story', par.story]].filter(p => p[1])" :key="prop[0]"
+                   class="tile" :class="{ ok: prop[1].escolhido, subido: prop[1].purgado_em }">
+                <img v-if="!prop[1].purgado_em" class="art" :src="prop[1].url" loading="lazy" @click="abrirVisor(prop[1])">
+                <div v-else class="art placeholder">subido — ver no Gerenciador</div>
+                <label v-if="!prop[1].purgado_em" class="pick" @click.stop>
+                  <input type="checkbox" :checked="prop[1].escolhido" @change="alternar(prop[1])">
+                </label>
+                <span class="cap">{{ prop[0] === 'feed' ? 'Feed 4:5' : 'Story 9:16' }} · {{ par.variante }}</span>
+              </div>
+            </template>
+          </div>
+        </section>
       </div>
       <p v-else class="empty">Nenhum criativo por aqui ainda. Volte ao passo Gerar.</p>
     </div>

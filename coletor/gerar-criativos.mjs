@@ -110,6 +110,17 @@ export function candsDeItens(itens, precoPorCodigo, nomePorCodigo = {}) {
   }).filter(Boolean);
 }
 
+// Monta a linha de fabrica_criativos de um criativo de produto. Pura (sem I/O) p/ teste.
+// storage_path/url são acrescentados no run() (dependem do upload).
+export function linhaCriativoProduto({ campanhaId, cand, v, url, storagePath, legenda }) {
+  return {
+    campanha_id: campanhaId, sku: cand.sku, arquetipo: 'produto',
+    template: v.template, formato: v.formato, variante: v.variante,
+    preco_de: v.preco_de, preco_por: v.preco_por,
+    storage_path: storagePath, url, legenda: legenda || null,
+  };
+}
+
 export async function run({
   pct = 50, nome = null, parcelas = 10, limite = null, dry = false,
   loja = null, fonte = null, estrela = null, deposito = null, looks = null, modos = null, itens = null, campanhaId = null,
@@ -268,7 +279,9 @@ export async function run({
       // candidato_id foi removido de fabrica_criativos na migration 019 (F1 aposentada — cand.id
       // já vinha sempre null no modo lista/estrela, que são os únicos caminhos vivos). Mandar essa
       // chave pro PostgREST com a coluna inexistente quebraria o insert em TODO job de verdade.
-      await sbPost('/fabrica_criativos', [{ campanha_id: campanhaId, arquetipo: 'produto', template: v.template, formato: v.formato, variante: v.variante, preco_de: v.preco_de, preco_por: v.preco_por, storage_path: path, url, legenda: copyInfo.legenda || null }], 'return=minimal');
+      await sbPost('/fabrica_criativos', [linhaCriativoProduto({
+        campanhaId, cand, v, url, storagePath: path, legenda: copyInfo.legenda,
+      })], 'return=minimal');
     }
   }
 
