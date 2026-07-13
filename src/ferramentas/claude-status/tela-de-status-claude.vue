@@ -273,8 +273,10 @@ function tempoRel(iso) {
   return d === 1 ? 'ontem' : `há ${d} dias`
 }
 // Frase do custo, em reais e explicando o "custo zero".
+// Compacto (cabe numa linha nos cards). A explicação completa do "custo zero"
+// (não usou API paga, só a assinatura) fica na legenda do topo.
 function custoFrase(usd) {
-  return Number(usd) === 0 ? 'R$ 0 — não usou API paga, somente a assinatura' : `${fmtBRL(Number(usd) * CAMBIO)} (${fmtUsd(usd)})`
+  return Number(usd) === 0 ? 'R$ 0 · sem API paga' : `${fmtBRL(Number(usd) * CAMBIO)} · ${fmtUsd(usd)}`
 }
 // Coloca a unidade no singular quando a quantidade é 1 ("1 relatório", não "1 relatórios").
 function unid(n, u) {
