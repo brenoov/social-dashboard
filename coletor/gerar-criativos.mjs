@@ -21,6 +21,9 @@ import { carregarObjetivos, mapaObjetivo, looksDoObjetivo } from './lib/objetivo
 import { objetivosDoTemplate } from './templates-criativos/templates.mjs';
 import { looksAtivosOrdenados } from './lib/looks.mjs';
 import { subirStorageResiliente } from './lib/storage-upload.mjs';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
 const URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
 const SK = process.env.SUPABASE_SERVICE_KEY;
@@ -119,6 +122,23 @@ export function linhaCriativoProduto({ campanhaId, cand, v, url, storagePath, le
     preco_de: v.preco_de, preco_por: v.preco_por,
     storage_path: storagePath, url, legenda: legenda || null,
   };
+}
+
+// Looks que EXIGEM uma foto de modelo/humana (usam dados.modeloFotoUrl, não o recorte
+// do produto). Sem foto de modelo real, o look sai com <img src="undefined"> (um criativo
+// "de modelo" sem modelo). Enquanto não há IA generativa pra criar a foto, esses looks são
+// pulados quando o SKU não tem foto de modelo. Ver fotos-modelo-map.json.
+export const MODEL_LOOKS = ['produto-modelo'];
+export function filtraLooksModelo(looks, temFotoModelo) {
+  if (temFotoModelo) return looks;
+  return (looks || []).filter((l) => !MODEL_LOOKS.includes(l));
+}
+// Mapa SKU -> URL da foto de modelo (fotos-modelo-map.json ao lado deste arquivo).
+function carregarMapaModelo() {
+  try {
+    const p = join(dirname(fileURLToPath(import.meta.url)), 'fotos-modelo-map.json');
+    return JSON.parse(readFileSync(p, 'utf8'));
+  } catch (e) { console.warn('aviso: fotos-modelo-map.json indisponível:', e.message); return {}; }
 }
 
 export async function run({
@@ -259,6 +279,9 @@ export async function run({
   const fotoCache = new Map();
   const fotoDe = async (sku) => { if (!fotoCache.has(sku)) fotoCache.set(sku, await fotoDataUrl(token, sku)); return fotoCache.get(sku); };
 
+  const mapaModelo = carregarMapaModelo();
+  const looksBase = opts.looks && opts.looks.length ? opts.looks : ['produto-heroi'];
+
   // PRODUTO (pulado inteiro se nenhum look ativo p/ o objetivo — respeita a curadoria)
   for (const cand of produtos) {
     if (semLooks) { console.log('  nenhum look ativo p/ o objetivo — nada gerado'); break; }
@@ -266,10 +289,16 @@ export async function run({
     const foto = await fotoDe(cand.sku);
     if (!foto) { console.warn('  sem foto:', cand.sku, cand.nome); continue; }
     if (!fotoEhStudio(cand.sku)) { console.log('  foto amadora (avaliada na foto crua), pulado:', cand.sku); continue; }
+    // Sem foto de modelo real p/ este SKU, pula os looks que exigem modelo (produto-modelo)
+    // — senão sairia um criativo "de modelo" sem modelo. Ver filtraLooksModelo/MODEL_LOOKS.
+    const modeloUrl = mapaModelo[cand.sku] || null;
+    const looksCand = filtraLooksModelo(looksBase, !!modeloUrl);
+    if (!looksCand.length) { console.log('  só look de modelo, mas sem foto de modelo — pulado:', cand.sku); continue; }
     const copyInfo = copys.get(cand.sku) || {};
-    for (const v of variacoesProduto({ ...cand, fotoDataUrl: foto }, campanha, opts, cand.pct ?? campanha.desconto_pct)) {
+    for (const v of variacoesProduto({ ...cand, fotoDataUrl: foto }, campanha, { ...opts, looks: looksCand }, cand.pct ?? campanha.desconto_pct)) {
       v.dados.copyEfeito = copyInfo.copy;
       v.dados.nome = copyInfo.nome;
+      if (v.template === 'produto-modelo') { v.dados.modeloFotoUrl = modeloUrl; v.dados.varianteCor = v.dados.varianteCor || 'sage'; }
       const html = TEMPLATES[v.template].render(v.dados, v.formato);
       const buf = await renderPNG(html, DIM[v.formato]);
       gerados++;

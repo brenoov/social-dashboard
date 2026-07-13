@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { candsDeItens, linhaCriativoProduto } from './gerar-criativos.mjs';
+import { candsDeItens, linhaCriativoProduto, filtraLooksModelo } from './gerar-criativos.mjs';
 
 test('candsDeItens resolve preço via mapa e mantém pct/deposito por item', () => {
   const r = candsDeItens(
@@ -26,6 +26,12 @@ test('candsDeItens usa o nome descritivo do Bling (p/ a IA extrair a cidade), n�
 test('candsDeItens cai no SKU quando não há nome no mapa (fallback seguro)', () => {
   const r = candsDeItens([{ sku: 'ABC', deposito: 'd1', pct: 30 }], { ABC: 10 }, {});
   assert.equal(r[0].nome, 'ABC');
+});
+
+test('filtraLooksModelo: sem foto de modelo remove produto-modelo; com foto mantém tudo', () => {
+  const looks = ['produto-heroi', 'produto-modelo', 'produto-split'];
+  assert.deepEqual(filtraLooksModelo(looks, false), ['produto-heroi', 'produto-split']);
+  assert.deepEqual(filtraLooksModelo(looks, true), looks);
 });
 
 test('linhaCriativoProduto inclui o sku do candidato', () => {
