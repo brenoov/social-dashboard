@@ -542,10 +542,11 @@ onUnmounted(() => {
 .csc-robo-corpo { display: flex; flex-direction: column; gap: 10px; }
 .csc-robo-frase { font-size: 15px; color: var(--text); line-height: 1.35; }
 .csc-robo-frase b { font-weight: 600; }
-.csc-robo-detalhes { list-style: none; display: flex; flex-direction: column; gap: 5px; }
-.csc-robo-detalhes li { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 13px; }
+.csc-robo-detalhes { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.csc-robo-detalhes li { font-size: 13px; line-height: 1.5; color: var(--text); }
 .csc-di-lbl { color: var(--muted); }
-.csc-di-val { color: var(--text); font-weight: 600; text-align: right; }
+.csc-di-lbl::after { content: ': '; }
+.csc-di-val { color: var(--text); font-weight: 600; }
 .csc-di-val.csc-zero, .csc-zero { color: var(--green); }
 .csc-robo-vazio { font-size: 13px; color: var(--muted); font-style: italic; }
 .csc-robo-foot { margin-top: auto; font-size: 11px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 9px; }
