@@ -163,6 +163,10 @@ export async function run({
     }
   }
 
+  // Curadoria "desligou tudo" p/ este objetivo: nada a renderizar. Curto-circuita ANTES de
+  // loginServico/Bling/gerarCopysProduto (que faz chamada LLM por produto) — não queima IA à toa.
+  if (semLooks) { console.log('nenhum look ativo p/ o objetivo — nada gerado'); return { campanhaId, criativos: 0 }; }
+
   const token = await loginServico();
 
   let cands;
