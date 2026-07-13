@@ -133,17 +133,23 @@ export async function run({
   if (MODOS && MODOS.length) opts.modos = MODOS;
 
   // SP-5A: os looks vêm de fabrica_looks (ativos, curados). Só filtra por objetivo quando o
-  // chamador não passou --looks explícito. Soft-fail: sem tabela/sem match, cai no fallback SP-3.
+  // chamador não passou --looks explícito. Soft-fail: tabela indisponível/vazia (unseeded) cai no
+  // fallback SP-3; tabela POVOADA mas sem look ativo p/ o objetivo => semLooks (respeita "desligar
+  // tudo": não gera nada em vez de regerar os desativados via fallback). Ver follow-up do review final.
+  let semLooks = false;
   if (!(LOOKS && LOOKS.length)) {
     let usouTabela = false;
     try {
       const fabricaLooks = await sbGet('/fabrica_looks?select=chave,objetivos,ativo,ordem,tipo&order=ordem');
+      usouTabela = Array.isArray(fabricaLooks) && fabricaLooks.length > 0; // tabela povoada (não unseeded)
       const ativos = looksAtivosOrdenados(fabricaLooks, objetivo).filter((k) => TEMPLATES[k]); // só code-looks conhecidos
-      if (ativos.length) { opts.looks = ativos; usouTabela = true; }
+      if (ativos.length) opts.looks = ativos;
+      else if (usouTabela) semLooks = true; // povoada, nada ativo p/ este objetivo -> não gera
     } catch (e) {
+      usouTabela = false;
       console.warn('aviso: fabrica_looks indisponível, fallback SP-3:', e.message);
     }
-    if (!usouTabela && objetivo) {
+    if (!usouTabela && !semLooks && objetivo) {
       try {
         // fallback SP-3: registry + objetivosDoTemplate
         const { porChave } = await carregarObjetivos(sbGet);
@@ -224,8 +230,9 @@ export async function run({
   const fotoCache = new Map();
   const fotoDe = async (sku) => { if (!fotoCache.has(sku)) fotoCache.set(sku, await fotoDataUrl(token, sku)); return fotoCache.get(sku); };
 
-  // PRODUTO
+  // PRODUTO (pulado inteiro se nenhum look ativo p/ o objetivo — respeita a curadoria)
   for (const cand of produtos) {
+    if (semLooks) { console.log('  nenhum look ativo p/ o objetivo — nada gerado'); break; }
     if (cand.preco == null) { console.log('  sem preço:', cand.sku); continue; }
     const foto = await fotoDe(cand.sku);
     if (!foto) { console.warn('  sem foto:', cand.sku, cand.nome); continue; }
@@ -249,7 +256,7 @@ export async function run({
 
   // PROMO (usa a 1ª foto disponível como símbolo)
   const primeiraFoto = [...fotoCache.values()].find(Boolean) || null;
-  const promoAtivo = !opts.looks || opts.looks.includes('promo-number-hero');
+  const promoAtivo = !semLooks && (!opts.looks || opts.looks.includes('promo-number-hero'));
   if (primeiraFoto && objetivoPermitePromo(objetivo) && promoAtivo) {
     for (const v of variacoesPromo(campanha, primeiraFoto, 'Coleção')) {
       v.dados.copyEfeito = copyPromo;
