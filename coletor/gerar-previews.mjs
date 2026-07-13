@@ -8,6 +8,7 @@ import './lib/carregar-env.mjs';
 import { renderPNG, fecharRender } from './lib/render-criativo.mjs';
 import { TEMPLATES, DIM } from './templates-criativos/templates.mjs';
 import { variacoesProduto, variacoesPromo } from './lib/criativo-modelo.mjs';
+import { subirStorageResiliente } from './lib/storage-upload.mjs';
 
 const URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
 const SK = process.env.SUPABASE_SERVICE_KEY;
@@ -33,13 +34,12 @@ async function sbPatch(p, body) {
 }
 
 async function subir(path, buf) {
-  const up = await fetch(`${URL}/storage/v1/object/${BUCKET}/${path}`, {
-    method: 'POST',
-    headers: { apikey: SK, Authorization: 'Bearer ' + SK, 'Content-Type': 'image/png', 'x-upsert': 'true' },
-    body: buf,
+  // Retry com backoff — mesmo motivo de gerar-criativos (proxy do Storage
+  // devolve 400/5xx transitório em lote). Ver lib/storage-upload.mjs.
+  return subirStorageResiliente({
+    url: URL, sk: SK, bucket: BUCKET, path, buf,
+    onRetry: (t, e) => console.warn(`  [storage retry ${t}/9] ${path.split('/').pop()}: ${e.message.slice(0, 60)}`),
   });
-  if (!up.ok && up.status !== 200) throw new Error('storage ' + up.status + ' ' + (await up.text()).slice(0, 120));
-  return `${URL}/storage/v1/object/public/${BUCKET}/${path}`;
 }
 
 // run(): pra cada code-look do registry TEMPLATES, gera a variante certa (produto via

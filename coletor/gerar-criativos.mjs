@@ -20,6 +20,7 @@ import { carregarMarcasELojas } from './lib/config-lojas.mjs';
 import { carregarObjetivos, mapaObjetivo, looksDoObjetivo } from './lib/objetivos.mjs';
 import { objetivosDoTemplate } from './templates-criativos/templates.mjs';
 import { looksAtivosOrdenados } from './lib/looks.mjs';
+import { subirStorageResiliente } from './lib/storage-upload.mjs';
 
 const URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
 const SK = process.env.SUPABASE_SERVICE_KEY;
@@ -43,9 +44,13 @@ async function garantirBucket() {
   await fetch(URL + '/storage/v1/bucket', { method: 'POST', headers: { apikey: SK, Authorization: 'Bearer ' + SK, 'Content-Type': 'application/json' }, body: JSON.stringify({ id: BUCKET, name: BUCKET, public: true }) }).catch(() => {});
 }
 async function subir(path, buf) {
-  const r = await fetch(`${URL}/storage/v1/object/${BUCKET}/${path}`, { method: 'POST', headers: { apikey: SK, Authorization: 'Bearer ' + SK, 'Content-Type': 'image/png', 'x-upsert': 'true' }, body: buf });
-  if (!r.ok) throw new Error('upload ' + path + ' ' + r.status + ' ' + (await r.text()).slice(0,160));
-  return `${URL}/storage/v1/object/public/${BUCKET}/${path}`;
+  // Retry com backoff: o proxy do Storage devolve nginx 400/5xx transitório no
+  // meio de lotes grandes; sem retry, 1 blip matava o job inteiro (perdendo até
+  // os criativos já subidos). Ver lib/storage-upload.mjs.
+  return subirStorageResiliente({
+    url: URL, sk: SK, bucket: BUCKET, path, buf,
+    onRetry: (t, e) => console.warn(`  [storage retry ${t}/9] ${path.split('/').pop()}: ${e.message.slice(0, 60)}`),
+  });
 }
 
 // Modo estrela: top faturamento (gc_vendas_item) do canal, cruzado com
