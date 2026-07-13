@@ -299,8 +299,11 @@ function _gvUpdateVendRanking(){
 }
 function _gvFitCanalGrid(){
   const isTV=document.body.classList.contains('dev-tv');
-  const isDesktop=document.body.classList.contains('dev-desktop');
-  if(!isTV&&!isDesktop)return;
+  // Auto-ajuste dos velocímetros roda em TODO layout de painel fixo (TV, desktop e
+  // notebook >1024, que é 100vh/overflow:hidden). Antes só rodava em dev-tv/dev-desktop,
+  // então no notebook normal os gauges NÃO se ajustavam e estouravam o card. No layout
+  // responsivo empilhado (≤1024, a tela vira scrollável) o ajuste não se aplica.
+  if(window.innerWidth<=1024)return;
   const panel=document.querySelector('#gestao-vista-screen .gv-canal-panel');
   const scroll=document.getElementById('gv-canal-scroll');
   const inner=document.getElementById('gv-canal-inner');
