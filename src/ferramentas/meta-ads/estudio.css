@@ -342,6 +342,13 @@
 .fest .tile .pick{position:absolute; top:5px; right:5px; z-index:2; background:rgba(5,10,15,.6); border-radius:4px; padding:2px 3px; line-height:0}
 .fest .tile .pick input{cursor:pointer; width:16px; height:16px}
 
+/* ===== curar: seções por loja com pares feed/story ===== */
+.fest .loja-sec{margin-bottom:18px}
+.fest .loja-head{display:flex; align-items:center; gap:10px; width:100%; background:transparent; border:0;
+  color:inherit; font-weight:700; font-size:15px; padding:8px 4px; cursor:pointer; text-align:left}
+.fest .loja-head .chev{opacity:.7}
+.fest .loja-head .loja-n{opacity:.55; font-weight:500; font-size:13px; margin-left:auto}
+
 .fest .lightbox{position:fixed; inset:0; z-index:50; display:grid; place-items:center; padding:20px;
   background:rgba(2,6,10,.86); backdrop-filter:blur(2px)}
 .fest .lb-inner{position:relative; max-width:min(92vw,720px); max-height:92vh; display:flex; flex-direction:column; gap:10px}
