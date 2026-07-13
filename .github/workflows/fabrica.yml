@@ -42,3 +42,12 @@ jobs:
           GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
           GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
         run: cd coletor && node --import ./lib/curl-fetch.mjs fabrica-job-runner.mjs
+      # DEBUG temporário: sobe os cutouts crus (fotos-cutout/) p/ inspecionar o matte
+      # do BiRefNet no Linux (furo do corpo claro). REMOVER depois do diagnóstico.
+      - name: DEBUG cutouts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cutouts-debug
+          path: coletor/fotos-cutout/
+          if-no-files-found: ignore
