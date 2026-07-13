@@ -2,6 +2,7 @@
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
+import AjudaTooltip from './ajuda-tooltip.vue'
 const props = defineProps({ campanhaId: String })
 const itens = ref([])
 const visor = ref(null)
@@ -52,7 +53,7 @@ watch(() => props.campanhaId, iniciar, { immediate: true })
   <section class="stage">
     <div class="stagehead">
       <span class="badge"><i class="led hold"></i>Passo 2 · Curar</span>
-      <h2>Escolha os melhores</h2>
+      <h2>Escolha os melhores <AjudaTooltip chave="curar" /></h2>
       <p class="lead">Toque para marcar os criativos que vão virar anúncio. Os escolhidos ficam com a borda âmbar.</p>
     </div>
 

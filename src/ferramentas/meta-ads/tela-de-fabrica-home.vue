@@ -4,8 +4,22 @@ import { useRouter } from 'vue-router'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
+import TourCoachmark from './tour-coachmark.vue'
+import { CHECKLIST, COACH } from './tutorial-fabrica.js'
 import './estudio.css'
 const router = useRouter()
+const CHK_KEY = 'fabrica_checklist_v1', TOUR_KEY = 'fabrica_tour_v1'
+const tourAberto = ref(false)
+const feitos = ref((localStorage.getItem(CHK_KEY) || '').split(',').filter(Boolean))
+const mostrarChecklist = ref(localStorage.getItem('fabrica_checklist_hide_v1') !== '1')
+function feito(id) { return feitos.value.includes(id) || (id === 'publicar' && publicadas.value.length > 0) }
+function irChecklist(item) {
+  if (!feitos.value.includes(item.id)) { feitos.value.push(item.id); localStorage.setItem(CHK_KEY, feitos.value.join(',')) }
+  router.push({ name: item.rota })
+}
+function ocultarChecklist() { mostrarChecklist.value = false; localStorage.setItem('fabrica_checklist_hide_v1', '1') }
+function mostrarChecklistDeNovo() { mostrarChecklist.value = true; localStorage.removeItem('fabrica_checklist_hide_v1') }
+function reverTour() { tourAberto.value = true }
 const emCriacao = ref([])       // fabrica_campanhas em criação (com contagem de criativos)
 const publicadas = ref([])
 const nums = ref({ criando: 0, criativos: 0, publicadas: 0 })
@@ -38,7 +52,11 @@ async function apagar(c) {
   if (error) return alert('Falha ao apagar: ' + error.message)
   carregar()
 }
-onMounted(() => { carregar(); timer = setInterval(() => { if (temGerando.value) carregar() }, 4000) })
+onMounted(() => {
+  carregar()
+  timer = setInterval(() => { if (temGerando.value) carregar() }, 4000)
+  if (localStorage.getItem(TOUR_KEY) !== '1') { localStorage.setItem(TOUR_KEY, '1'); setTimeout(() => { tourAberto.value = true }, 600) }
+})
 onUnmounted(() => { if (timer) clearInterval(timer) })
 </script>
 <template>
@@ -48,18 +66,33 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
         <button class="voltar-central" @click="voltarCentral" aria-label="Voltar para a Central">← Central</button>
         <div class="brand"><div class="t">Fábrica de Anúncios</div><div class="s">Painel</div></div>
         <div class="divider"></div>
-        <button class="cmd amber" @click="nova"><span class="ci">▶</span> Nova campanha</button>
+        <button class="voltar-central" @click="reverTour">Rever tour</button>
+        <button class="cmd amber" data-tour="nova-campanha" @click="nova"><span class="ci">▶</span> Nova campanha</button>
       </header>
 
       <!-- números -->
-      <div class="readout">
+      <div class="readout" data-tour="numeros">
         <div class="c"><div class="k">Em criação</div><div class="v mono">{{ nums.criando }}</div></div>
         <div class="c"><div class="k">Criativos gerados</div><div class="v mono">{{ nums.criativos }}</div></div>
         <div class="c"><div class="k">Publicadas</div><div class="v mono">{{ nums.publicadas }}</div></div>
       </div>
 
+      <!-- primeiros passos -->
+      <div v-if="mostrarChecklist" class="panel">
+        <div class="ph"><span class="eyebrow">Primeiros passos</span>
+          <button class="mini" @click="ocultarChecklist">Ocultar</button></div>
+        <div class="chk-list">
+          <div v-for="item in CHECKLIST" :key="item.id" class="chk-item" :class="{ ok: feito(item.id) }">
+            <span class="chk-mark">{{ feito(item.id) ? '✓' : '' }}</span>
+            <div class="chk-body"><div class="chk-tit">{{ item.titulo }}</div><div class="chk-txt">{{ item.texto }}</div></div>
+            <button class="mini" @click="irChecklist(item)">ir</button>
+          </div>
+        </div>
+      </div>
+      <p v-else class="empty"><a href="#" @click.prevent="mostrarChecklistDeNovo">mostrar primeiros passos</a></p>
+
       <!-- em criação -->
-      <div class="panel">
+      <div class="panel" data-tour="em-criacao">
         <div class="ph"><span class="eyebrow">Campanhas em criação</span></div>
         <div v-if="emCriacao.length" class="home-list">
           <div v-for="c in emCriacao" :key="c.id" class="home-card" :class="c.status">
@@ -77,7 +110,7 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
       </div>
 
       <!-- publicadas -->
-      <div class="panel">
+      <div class="panel" data-tour="publicadas">
         <div class="ph"><span class="eyebrow">Publicadas recentes</span></div>
         <div v-if="publicadas.length" class="home-list">
           <div v-for="c in publicadas" :key="c.id" class="home-card">
@@ -89,7 +122,7 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
       </div>
 
       <!-- atalho templates (SP-5A) -->
-      <div class="panel">
+      <div class="panel" data-tour="looks-card">
         <div class="ph"><span class="eyebrow">Looks & Templates</span></div>
         <div class="home-list">
           <div class="home-card">
@@ -101,6 +134,7 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
           </div>
         </div>
       </div>
+      <TourCoachmark :passos="COACH" v-model="tourAberto" />
     </div>
   </div>
 </template>

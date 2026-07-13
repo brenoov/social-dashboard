@@ -8,6 +8,7 @@ import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { useCandidatos } from './use-candidatos.js'
+import AjudaTooltip from './ajuda-tooltip.vue'
 
 const emit = defineEmits(['gerado'])
 
@@ -98,7 +99,7 @@ async function gerar() {
   <section class="stage">
     <div class="stagehead">
       <span class="badge"><i class="led hold"></i>Passo 1 · Gerar</span>
-      <h2>Gerar os criativos</h2>
+      <h2>Gerar os criativos <AjudaTooltip chave="gerar" /></h2>
       <p class="lead">Escolha a(s) loja(s), de onde vêm os produtos e o desconto. Você aprova a lista antes de mandar gerar.</p>
     </div>
 
