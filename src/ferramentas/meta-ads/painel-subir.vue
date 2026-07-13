@@ -95,6 +95,7 @@ onMounted(async () => {
   const { data } = await sbClient.functions.invoke('meta-proxy', { body: { accountId: ACCOUNT_ID, path: `/${ACT}/campaigns`, params: { fields: 'id,name', limit: 200 }, method: 'GET' } })
   campanhas.value = data?.data || []
   await carregarPresets()
+  listarAudiences() // auto-carrega os públicos (audiences) já existentes no Meta — não bloqueia o mount
 })
 async function subir() {
   const params = { campanhaId: props.campanhaId, destino: destino.tipo === 'existente'
