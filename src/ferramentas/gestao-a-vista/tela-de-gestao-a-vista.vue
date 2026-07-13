@@ -314,7 +314,9 @@ function _gvFitCanalGrid(){
   const W=scroll.clientWidth;
   const H_card=panel.clientHeight;
   if(!W||!H_card)return;
-  const H_max=Math.floor(H_card*0.85);
+  const H_max=Math.floor(H_card*0.95); // usa quase toda a altura do painel (folga mínima) —
+  // 0.85 deixava os velocímetros pequenos com muito espaço vazio embaixo. 0.95 aumenta o
+  // tamanho limite (gauges maiores, preenchem o card) sem estourar.
   const gap=isTV?20:10;
   const labelH=isTV?46:20;
   const vbAR=1.33;
