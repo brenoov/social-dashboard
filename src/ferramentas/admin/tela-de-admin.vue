@@ -155,6 +155,7 @@ import { onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { estado, PERMISSION_TREE, RECURSOS } from '../../compartilhado/controle-de-login-e-usuario.js'
+import { derivarFeatures } from '../../compartilhado/derivar-features.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 
@@ -173,7 +174,8 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 // CONTAS DE USUÁRIO DE VERDADE (adminInviteUser → edge function
 // "invite-user"; exclusão → mesma edge function com {deleteUserId}, dentro de
 // loadAdminUsers) e muda PERMISSÕES REAIS que controlam o que cada pessoa
-// pode acessar (savePermissions → PATCH em profiles.features; handleRequest
+// pode acessar (savePermissions → PATCH em profiles.permissions + features,
+// os dois juntos — ver o comentário em savePermissions; handleRequest
 // → aprova/nega solicitação de acesso). Erros aqui têm consequência real
 // para pessoas reais. O único confirm() que existia no legado para essas
 // ações — o de excluir usuário, dentro de loadAdminUsers — foi preservado
@@ -540,13 +542,27 @@ function closePermModal() {
   _permState = null
 }
 
-// SENSITIVE MUTATION — PATCH em profiles.permissions/allowed_accounts/is_superadmin.
+// SENSITIVE MUTATION — PATCH em profiles.permissions/features/allowed_accounts/is_superadmin.
+//
+// `features` vai junto de propósito, derivado de `permissions` pela mesma
+// regra que corrigiu os usuários já afetados no banco (ver derivar-features.js).
+// Motivo: o FRONT lê `permissions{}` e as EDGE FUNCTIONS leem `features[]`.
+// Gravar só um dos dois desincroniza os dois lados — era exatamente esse o bug
+// ("sem permissão" na Análise de Campanhas, "nenhuma campanha encontrada" na
+// Gestão de Tráfego). Enquanto a Onda 3 (função SQL tem_permissao(), fonte
+// única — docs/superpowers/specs/2026-07-16-seguranca-e-dados-design.md) não
+// existir, os dois campos TÊM de ser escritos na mesma operação.
 async function savePermissions() {
   if (!_permState) return
   const btn = document.getElementById('perm-save-btn'); btn.disabled = true; btn.textContent = 'Salvando...'
   await adFetch('profiles?id=eq.' + _permState.userId, {
     method: 'PATCH',
-    body: JSON.stringify({ permissions: _permState.permissions, allowed_accounts: _permState.allowed_accounts, is_superadmin: _permState.is_superadmin }),
+    body: JSON.stringify({
+      permissions: _permState.permissions,
+      features: derivarFeatures(_permState.permissions),
+      allowed_accounts: _permState.allowed_accounts,
+      is_superadmin: _permState.is_superadmin,
+    }),
   })
   btn.disabled = false; btn.textContent = 'Salvar'
   adminToast('Permissões atualizadas')
