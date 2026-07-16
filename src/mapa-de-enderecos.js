@@ -1,9 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { estado } from './compartilhado/controle-de-login-e-usuario.js'
+import { estado, hasPermission } from './compartilhado/controle-de-login-e-usuario.js'
+import { podeEntrar } from './guarda-de-rotas.js'
 
 const rotas = [
   { path: '/', name: 'inicio', component: () => import('./ferramentas/inicio/tela-de-inicio.vue') },
-  { path: '/noticias', name: 'noticias', component: () => import('./ferramentas/noticias/tela-de-noticias.vue') },
+  { path: '/noticias', name: 'noticias', component: () => import('./ferramentas/noticias/tela-de-noticias.vue'), meta: { recurso: 'noticias' } },
   { path: '/acessos', name: 'acessos', component: () => import('./ferramentas/acessos/tela-de-acessos.vue') },
   { path: '/banco', name: 'banco', component: () => import('./ferramentas/banco/tela-de-banco.vue') },
   { path: '/vendas', name: 'vendas', component: () => import('./ferramentas/vendas/tela-de-menu-vendas.vue') },
@@ -23,7 +24,11 @@ const rotas = [
   { path: '/redes-sociais', name: 'redes-sociais', component: () => import('./ferramentas/redes-sociais/tela-de-redes-sociais.vue') },
   { path: '/redes-relatorio', name: 'redes-relatorio', component: () => import('./ferramentas/redes-sociais/tela-de-relatorio-redes.vue') },
   { path: '/admin', name: 'admin', component: () => import('./ferramentas/admin/tela-de-admin.vue') },
-  { path: '/claude-status', name: 'claude-status', component: () => import('./ferramentas/claude-status/tela-de-status-claude.vue') },
+  { path: '/claude-status', name: 'claude-status', component: () => import('./ferramentas/claude-status/tela-de-status-claude.vue'), meta: { recurso: 'claude.status' } },
+  // Catch-all — precisa ser a ÚLTIMA rota. Sem ela, uma URL/bookmark que não
+  // existe mais dá tela branca (o vercel.json reescreve tudo pra index.html,
+  // mas o vue-router não acha rota nenhuma pra montar).
+  { path: '/:pathMatch(.*)*', name: 'nao-encontrada', redirect: { name: 'inicio' } },
 ]
 
 export const roteador = createRouter({
@@ -31,7 +36,15 @@ export const roteador = createRouter({
   routes: rotas,
 })
 
-// Guarda global: qualquer rota que não seja o login exige sessão ativa.
+export { podeEntrar }
+
+// Guarda global. A permissão por rota mora no meta.recurso — assim o gate não
+// depende de cada tela lembrar de checar (foi o que deixou /claude-status e
+// /noticias abertas para qualquer usuário logado, mesmo sem a permissão certa).
+//
+// Isto NÃO é segurança: o front é público. É só aparência — quem manda de
+// verdade é o RLS do banco e as Edge Functions.
 roteador.beforeEach((to) => {
-  if (to.name !== 'login' && !estado.currentSession) return { name: 'login' }
+  const r = podeEntrar(to, !!estado.currentSession, (recurso) => hasPermission(recurso, 'ver'))
+  return r === true ? true : r
 })
