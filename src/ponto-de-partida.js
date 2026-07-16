@@ -4,8 +4,13 @@ import Moldura from './moldura-do-aplicativo.vue'
 import { roteador } from './mapa-de-enderecos.js'
 import { sbClient } from './compartilhado/conectar-no-banco-de-dados.js'
 import { setSession, carregarPerfil, limparEstado, estado } from './compartilhado/controle-de-login-e-usuario.js'
+import { detectarFluxoDeSenha } from './ferramentas/login/detectar-fluxo-de-senha.js'
 
 async function iniciar() {
+  // Guardado ANTES de qualquer await: o SDK consome e apaga o #access_token do
+  // hash de forma assíncrona. Lido depois, o hash já sumiu e a detecção falha.
+  window.__fluxoDeSenha = detectarFluxoDeSenha(location.hash, location.search)
+
   // Recupera sessão salva (se houver) antes de montar, para que um usuário
   // já logado não seja redirecionado ao /login ao recarregar a página.
   const { data } = await sbClient.auth.getSession()
@@ -42,6 +47,15 @@ async function iniciar() {
       await carregarPerfil(session)
     }
   })
+
+  // Veio de link de reset/convite: a sessão existe, mas a pessoa PRECISA definir
+  // a senha antes de usar o sistema — senão fica trancada quando a sessão
+  // expirar. A guarda deixa /login passar mesmo com sessão, então o destino
+  // gruda. O await é necessário: sem ele, a navegação inicial que o roteador
+  // dispara ao ser instalado corre junto e pode ganhar, levando ao Início.
+  if (window.__fluxoDeSenha) {
+    await roteador.replace({ name: 'login' })
+  }
 
   createApp(Moldura).use(roteador).mount('#app')
 }

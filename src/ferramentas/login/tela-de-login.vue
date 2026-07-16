@@ -29,7 +29,7 @@
 
       <!-- Set password (invite flow) -->
       <div v-show="view === 'set-pass'">
-        <p class="auth-info" style="margin-bottom:20px">Você foi convidado! Crie sua senha para acessar o dashboard.</p>
+        <p class="auth-info" style="margin-bottom:20px">{{ textoSetPass }}</p>
         <div class="auth-field">
           <label class="auth-label">Nova senha</label>
           <input type="password" v-model="novaSenha" class="auth-input" placeholder="mínimo 6 caracteres">
@@ -93,7 +93,10 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 
 // Alterna entre login / set-pass (convite) / forgot / request-access —
 // equivalente a showAuthView() no legado.
-const view = ref('login')
+//
+// Abre direto no formulário de senha nova quando a pessoa chegou por link de
+// recuperação ou convite (o boot detectou e guardou em window.__fluxoDeSenha).
+const view = ref(window.__fluxoDeSenha ? 'set-pass' : 'login')
 
 /* ── Login (doLogin) ── */
 const email = ref('')
@@ -126,10 +129,11 @@ async function entrar() {
 }
 
 /* ── Definir senha / convite (doSetPassword) ──
-   Nota: o gatilho automático que abre esta view a partir do link de convite
-   (leitura de ?type=invite/recovery na URL + onAuthStateChange) pertence à
-   inicialização geral do app e será portado em outra tarefa. Aqui a view
-   fica disponível e funcional, só não é aberta automaticamente ainda. */
+   Aberta automaticamente quando o boot detecta type=recovery/invite na URL
+   (ver detectar-fluxo-de-senha.js). */
+const textoSetPass = window.__fluxoDeSenha === 'recovery'
+  ? 'Crie uma senha nova para voltar a acessar o painel.'
+  : 'Você foi convidado! Crie sua senha para acessar o painel.'
 const novaSenha = ref('')
 const confirmarSenha = ref('')
 const setPassErro = ref('')
@@ -153,7 +157,16 @@ async function definirSenha() {
     setPassErro.value = error.message
     return
   }
-  history.replaceState(null, '', location.pathname + location.search)
+  // Limpa a URL: tira o #access_token e também os parâmetros do link de
+  // recuperação/convite. Sem tirar da query, um F5 reabriria este formulário,
+  // porque o boot leria type=recovery de novo e remarcaria o fluxo.
+  const limpa = new URLSearchParams(location.search)
+  limpa.delete('type')
+  limpa.delete('code')
+  const busca = limpa.toString()
+  history.replaceState(null, '', location.pathname + (busca ? '?' + busca : ''))
+  // Senha definida: o fluxo acabou, não deve reabrir na próxima navegação.
+  window.__fluxoDeSenha = null
   const { data: { session } } = await sbClient.auth.getSession()
   if (session) {
     setSession(session)
