@@ -10,6 +10,35 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// De onde o `imageFromUrl` pode vir.
+//
+// Por que existe: o `imageFromUrl` chegava do corpo da requisição e ia direto num
+// fetch(), sem nenhuma validação. Isso é SSRF — quem chama escolhe o que ESTE
+// servidor vai buscar. Um atacante autenticado apontava para 169.254.169.254
+// (metadados da cloud), para 127.0.0.1 ou para qualquer coisa dentro da rede, e o
+// conteúdo voltava a ele (o proxy reenvia os bytes pro Meta e devolve a resposta).
+//
+// Na prática essa URL é SEMPRE um criativo do Storage deste projeto: 116 de 116
+// linhas de `fabrica_criativos.url` apontam para o mesmo host. Então a lista é
+// exatamente esse host, e nada mais. Fechar por lista de permitidos é melhor que
+// tentar bloquear faixas de IP: com allow-list, o que não foi previsto é negado.
+//
+// Se um dia os criativos passarem a vir de outro lugar (CDN próprio, etc.),
+// acrescente o host AQUI — senão o upload devolve 400.
+const HOSTS_DE_IMAGEM_PERMITIDOS = [
+  new URL(SUPABASE_URL).host, // o Storage deste projeto
+];
+
+// Devolve a URL validada, ou null se não for aceitável.
+function urlDeImagemPermitida(bruta: unknown): URL | null {
+  if (typeof bruta !== 'string' || !bruta) return null;
+  let u: URL;
+  try { u = new URL(bruta); } catch { return null; }
+  if (u.protocol !== 'https:') return null;                 // sem http:, file:, data:, gopher:
+  if (!HOSTS_DE_IMAGEM_PERMITIDOS.includes(u.host)) return null;
+  return u;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   const json = (body: unknown, status = 200) =>
@@ -39,7 +68,12 @@ Deno.serve(async (req: Request) => {
     // Usado pra /act_<id>/adimages sem estourar a query string. Retrocompativel:
     // so dispara quando imageFromUrl vem no body.
     if (imageFromUrl) {
-      const imgResp = await fetch(String(imageFromUrl));
+      // Só busca de host da lista. Ver HOSTS_DE_IMAGEM_PERMITIDOS lá em cima.
+      const urlDaImagem = urlDeImagemPermitida(imageFromUrl);
+      if (!urlDaImagem) return json({ error: 'origem da imagem nao permitida' }, 400);
+      // redirect:'error' fecha o desvio óbvio: um host permitido que responda 302
+      // apontando pra rede interna reabriria o SSRF que a lista acabou de fechar.
+      const imgResp = await fetch(urlDaImagem.toString(), { redirect: 'error' });
       if (!imgResp.ok) return json({ error: 'falha ao baixar imagem: ' + imgResp.status }, 400);
       const blob = await imgResp.blob();
       const field = (typeof imageField === 'string' && imageField) ? imageField : 'img0';
