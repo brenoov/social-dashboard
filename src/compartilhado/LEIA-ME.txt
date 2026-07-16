@@ -5,6 +5,7 @@ Aqui ficam as peças que TODAS as ferramentas usam:
 - buscar-e-salvar-dados.js       → função para buscar/salvar dados no banco
 - controle-de-login-e-usuario.js → quem está logado, usuário e permissões
 - avisos.js                      → aviso rápido (toast) no canto da tela
+- datas.js                       → régua única de datas em BRT (fix: das 21h à meia-noite o painel pedia data errada)
 
 REGRA IMPORTANTE
 ================
