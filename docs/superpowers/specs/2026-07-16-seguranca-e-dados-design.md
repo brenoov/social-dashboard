@@ -28,23 +28,62 @@ Dessa discordância saem quase todos os furos: o front esconde o botão, a Edge 
 | Recursos órfãos | Derivar do módulo-pai |
 | Entrega | Três ondas, deploy entre elas |
 
-## Pré-requisitos (bloqueiam a Onda 1)
+## Verificado em produção (2026-07-16)
 
-1. **Acesso ao Supabase do iamundi** (`kounqtdoioootxqegkij`). O MCP está autenticado na conta do Acólitos e só enxerga `fttjgsotuosjfrasttds`. Sem isso não dá para rodar `get_edge_function` — e a memória do projeto registra que o repo **já esteve atrás da produção** (v15 do coletor existia no ar e não no git). Editar a partir do repo e deployar pode sobrescrever código não versionado.
-2. **Confirmar exposição do `accounts.access_token`:**
-   ```sql
-   select policyname, roles::text, cmd, qual::text from pg_policies
-   where schemaname='public' and tablename='accounts' and cmd in ('SELECT','ALL');
-   ```
-   Se houver SELECT para `authenticated`, o token do Meta vaza para qualquer funcionário logado (RLS é row-level, não column-level: a policy que libera `id,name` libera `access_token`).
-3. **Dump anônimo dos perfis** (bloqueia só a Onda 2):
+Acesso ao Supabase `kounqtdoioootxqegkij` obtido. Os itens abaixo saíram de suposição para **fato**.
+
+### 1. `accounts.access_token` está exposto — CONFIRMADO
+
+```
+policyname          | papeis   | cmd    | condicao
+auth_read_accounts  | {public} | SELECT | (auth.role() = 'authenticated')
+admin_update_accounts| {public}| UPDATE | (profiles.role = 'admin')
+```
+
+- A tabela tem coluna `access_token`; **7 contas, todas com token preenchido**.
+- RLS ligada, mas a policy de leitura não recorta coluna, e há grants de coluna para `authenticated`.
+- **Qualquer usuário logado na Central** roda `sbClient.from('accounts').select('access_token')` no console e leva os 7 tokens do Meta.
+- **Não** é exposição pública: a policy exige `authenticated`, então a chave anon sozinha não abre. É exposição a quem tem login.
+
+**Correção (Onda 3):** mover o token para tabela própria sem policy (só service role), ou expor `accounts` ao front por view sem a coluna. Considerar rotação dos 7 tokens após fechar.
+
+### 2. `auditar-dados` é pior do que a auditoria supôs — CONFIRMADO
+
+A auditoria assumiu `verify_jwt: true` e argumentou que a anon key pública o derrotava. A produção mostra **`verify_jwt: false`**, e o código é `Deno.serve(async () => {...})` — ignora o request. **Não precisa de token algum**: é um endpoint aberto na internet que apaga a trilha de auditoria do dia, gasta cota da Graph API das 7 contas e dispara o `ALERT_WEBHOOK_URL`.
+
+É o módulo "saúde dos dados" (grava em `data_integrity_checks`) — qualquer um pode floodar o canal de alerta com falsos "🚨 Saúde dos dados".
+
+`coletar-dados` está com `verify_jwt: true`, exploitável com a anon key pública, como a auditoria descreveu.
+
+### 3. Drift das Edge Functions — resolvido, é por ausência
+
+Produção tem **18** funções; o repo tem **13**. As 13 versionadas estão **em sincronia** (o `coletar-dados` v24 foi conferido marcador a marcador: `coletarAdsDia`, re-coleta de atribuição tardia, preenchimento de buracos de 14d, `coletarEngResiliente` — tudo presente; `auditar-dados` idêntico).
+
+**Nunca foram versionadas:** `invite-user`, `bling-proxy`, `meta-proxy`, `comparar-metricas`, `probe-fidelidade`. O `meta-proxy` é o que guarda o token da Meta e não pôde ser auditado.
+
+**Ação:** versionar as 5 (`get_edge_function` → commit) antes de qualquer deploy. Editar `coletar-dados`/`auditar-dados` a partir do repo é seguro.
+
+### 4. `pg_cron` — o gotcha está confirmado
+
+| job | horário (UTC) | alvo | manda Authorization? |
+|---|---|---|---|
+| 1-4 | 10, 15, 21, 2 | `coletar-dados` | Sim, `Bearer <token>` |
+| 6 | 2:30 | `auditar-dados` | **Não — nenhum header de auth** |
+| 12 | 4:17 | `fabrica-purga` | Sim, `Bearer <token>` |
+
+Ligar a checagem no `auditar-dados` **obriga** a alterar o jobid 6 na mesma mudança. Se não, o "saúde dos dados" para de rodar — e, pelo `catch` do próprio código, pararia em silêncio.
+
+## Pré-requisitos restantes
+
+1. **Dump anônimo dos perfis** (bloqueia só a Onda 2):
    ```sql
    select id, role, is_superadmin, features,
           (select jsonb_object_agg(k, v) from jsonb_each(permissions) as t(k,v)) as permissions,
           allowed_accounts is null as ve_todas_as_contas
    from profiles order by is_superadmin desc, role;
    ```
-4. **Confirmar o horário dos relatos** de "Meta Ads sem dados" (se vêm do fim da noite, confirma a hipótese do fuso).
+   (Agora obtenível pelo MCP — não depende mais do dono.)
+2. **Confirmar o horário dos relatos** de "Meta Ads sem dados" (se vêm do fim da noite, confirma a hipótese do fuso). **Só o dono responde isto.**
 
 ---
 
@@ -215,7 +254,8 @@ Cada onda recebe **seu próprio plano de implementação** e seu próprio deploy
 
 ### Onda 1 — risco zero de usuário (é a instrumentação das outras)
 
-- Auth self-contained em `coletar-dados` e `auditar-dados` + atualização do `pg_cron` (juntas).
+- **Versionar as 5 funções órfãs** (`invite-user`, `bling-proxy`, `meta-proxy`, `comparar-metricas`, `probe-fidelidade`) — `get_edge_function` → commit, sem alterar comportamento. Precisa vir **antes** de qualquer deploy, senão um deploy futuro as perde. Auditar o `meta-proxy` depois de versionado (é o guardião do token da Meta e ficou fora da auditoria).
+- Auth self-contained em `coletar-dados` e `auditar-dados` + alteração do `pg_cron` jobid 6 (juntas, mesma mudança).
 - `datas.js` + os 4 sítios de fuso.
 - `sb()` com `.erro` + `classificar-erro.js` + `faixa-de-erro.vue`; ligar em Claude Status, Meta Ads das redes, Gestão de Tráfego.
 - `carregarPerfil()` e `onAuthStateChange` parando de engolir/deixar estado velho.
