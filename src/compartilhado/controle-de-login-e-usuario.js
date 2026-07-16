@@ -1,5 +1,6 @@
 import { reactive } from 'vue'
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './conectar-no-banco-de-dados.js'
+import { classificarErro, ERRO_DE_REDE } from './classificar-erro.js'
 
 export const estado = reactive({
   currentSession: null,
@@ -13,6 +14,9 @@ export const estado = reactive({
   permissions: {},
   allowed_accounts: null, // null = todos os perfis
   is_superadmin: false,
+  // Falha ao carregar o perfil (objeto do classificar-erro) ou null quando deu certo.
+  // Separa "é viewer mesmo" de "não consegui carregar" — antes os dois eram iguais.
+  erroPerfil: null,
 })
 
 export function setSession(session) {
@@ -20,31 +24,54 @@ export function setSession(session) {
   estado.user = session?.user ?? null
 }
 
-// Carrega o perfil (papel + módulos liberados) da tabela `profiles`.
-// Porte de loadDashboard (legacy/index.html L5586). Nunca lança: em erro usa os padrões.
+// Zera TUDO. Antes, sair só limpava a sessão e deixava role/permissions/is_superadmin
+// do usuário anterior — a aba ficava com o token de um e as flags de outro.
+export function limparEstado() {
+  estado.currentSession = null
+  estado.user = null
+  estado.permissoes = null
+  estado.role = 'viewer'
+  estado.features = []
+  estado.userId = null
+  estado.avatarUrl = null
+  estado.permissions = {}
+  estado.allowed_accounts = null
+  estado.is_superadmin = false
+  estado.erroPerfil = null
+}
+
+// Carrega o perfil (papel + permissões) da tabela `profiles`.
+// Antes engolia qualquer falha e produzia role='viewer', permissions={} — idêntico
+// ao caminho de sucesso com perfil vazio. Resultado: o super-admin dava F5 num blip
+// de rede e via a Central sem nenhum card, sem mensagem, achando que perdeu acesso.
+// Agora "é viewer" e "não consegui carregar" são estados distintos.
+// Nunca lança: devolve { ok, erro } e quem chama decide o que mostrar.
 export async function carregarPerfil(session) {
+  estado.erroPerfil = null
+  estado.userId = session?.user?.id || null
   try {
     const tok = session?.access_token || SUPABASE_ANON_KEY
     const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${session.user.id}&select=role,features,avatar_url,permissions,allowed_accounts,is_superadmin`, {
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${tok}` },
     })
-    const profiles = await r.json()
-    const p = profiles?.[0] || {}
+    const corpo = await r.json().catch(() => null)
+    // Em erro NÃO escrevemos role/permissions/is_superadmin: deixar o valor
+    // anterior é melhor que rebaixar. Quem lê decide pelo erroPerfil.
+    if (!r.ok || !Array.isArray(corpo)) {
+      estado.erroPerfil = classificarErro(r.status, corpo)
+      return { ok: false, erro: estado.erroPerfil }
+    }
+    const p = corpo[0] || {}
     estado.role = p.role || 'viewer'
     estado.features = p.features || ['banco']
     estado.permissions = p.permissions || {}
     estado.allowed_accounts = p.allowed_accounts ?? null
     estado.is_superadmin = !!p.is_superadmin
-    estado.userId = session?.user?.id || null
     estado.avatarUrl = p.avatar_url || null
+    return { ok: true, erro: null }
   } catch (e) {
-    estado.role = 'viewer'
-    estado.features = ['banco']
-    estado.permissions = {}
-    estado.allowed_accounts = null
-    estado.is_superadmin = false
-    estado.userId = session?.user?.id || null
-    estado.avatarUrl = null
+    estado.erroPerfil = ERRO_DE_REDE
+    return { ok: false, erro: ERRO_DE_REDE }
   }
 }
 
