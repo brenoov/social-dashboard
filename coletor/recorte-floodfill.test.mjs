@@ -9,7 +9,9 @@ const temPy = spawnSync('python3', ['-c', 'import scipy,numpy,PIL']).status === 
 
 test('recorte flood-fill: corpo opaco, fundo E vazado interno transparentes', { skip: temPy ? false : 'python3+scipy indisponível' }, () => {
   const out = join(mkdtempSync(join(tmpdir(), 'rec-')), 'o.png');
-  const r = spawnSync('python3', ['recortar.py', 'lib/__fixtures__/bolsa-clara-estudio.jpg', out], { cwd: process.cwd() });
+  // Ancora no diretório DESTE arquivo (coletor/), não no de quem chamou: assim o
+  // teste passa tanto de `cd coletor && node --test` quanto do `npm test` da raiz.
+  const r = spawnSync('python3', ['recortar.py', 'lib/__fixtures__/bolsa-clara-estudio.jpg', out], { cwd: import.meta.dirname });
   assert.equal(r.status, 0, r.stderr?.toString());
   assert.ok(existsSync(out), 'gerou o PNG');
   const chk = spawnSync('python3', ['-c', [
