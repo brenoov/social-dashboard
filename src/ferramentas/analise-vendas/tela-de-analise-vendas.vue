@@ -62,6 +62,7 @@ import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
+import { hojeLocal, diasAtras } from '../../compartilhado/datas.js'
 
 const router = useRouter()
 
@@ -1027,9 +1028,12 @@ function renderSALojaSection({loja,pedidos,pedidosPrev,vendedoresArr,pvMap,metas
 }
 
 function renderSALojaTable({loja,pedidos,vendedoresArr,pvMap,metasArr,now,y,m}){
-  const hoje=now.toISOString().slice(0,10);
-  const ontem=new Date(now-864e5).toISOString().slice(0,10);
-  const diaSem=new Date(now-6*864e5).toISOString().slice(0,10);
+  // BRT explícito: o toISOString() daqui reconvertia para UTC e somava 3h, então às
+  // 22h a coluna "Hoje" zerava para todas as vendedoras e "Ontem" mostrava hoje.
+  // (O comentário da linha 307 deste mesmo arquivo já avisava contra isso.)
+  const hoje=hojeLocal();
+  const ontem=diasAtras(1);
+  const diaSem=diasAtras(6);
 
   const metaLoja=metasArr.find(r=>r.loja_id===loja.id)||null;
   const dg=metaLoja?.daily_goals||null;

@@ -29,6 +29,7 @@ import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
+import { hojeLocal } from '../../compartilhado/datas.js'
 
 const router = useRouter()
 
@@ -1025,7 +1026,7 @@ function _acRenderFicha(id){
 }
 function _acDesligar(id){
   const c=_acData.pessoas.find(x=>x.id===id);if(!c)return;
-  const hoje=new Date().toISOString().slice(0,10);
+  const hoje=hojeLocal(); // BRT: às 22h o default vinha com a data de amanhã
   const ov=document.createElement('div');ov.className='ac-modal-ov open';ov.id='ac-dlg-ov';
   ov.innerHTML=`<div class="ac-modal">
     <h3 style="margin-top:0">Desligar ${_acEsc(c.nome)}</h3>

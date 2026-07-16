@@ -97,6 +97,7 @@ import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/c
 import { estado, hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
+import { hojeLocal, diasAtras, primeiroDiaDoMes, ultimoDiaDoMes } from '../../compartilhado/datas.js'
 
 const router = useRouter()
 
@@ -519,16 +520,16 @@ async function loadGtData(){
     const acc=_gtCurAcc;
     const tok=acc.id;
     const adAccId=acc.ad_account_id;
-    // Date range
-    const now=new Date();
+    // Janela de datas — sempre em BRT (ver src/compartilhado/datas.js).
+    // Antes usava toISOString() (UTC): das 21h à meia-noite "HOJE" pedia a data de
+    // amanhã e o board vinha vazio, como se ninguém tivesse gasto nada.
     let since,until;
-    const _gi=d=>d.toISOString().slice(0,10);
-    const _gy=now.getFullYear(),_gm=now.getMonth(),_gt=_gi(now);
+    const _gt=hojeLocal();
     if(_gtPreset==='today'){since=_gt;until=_gt;}
-    else if(_gtPreset==='1d'){since=until=_gi(new Date(now.getTime()-86400000));}
-    else if(_gtPreset==='lastmonth'){since=_gi(new Date(_gy,_gm-1,1));until=_gi(new Date(_gy,_gm,0));}
-    else if(_gtPreset==='monthfull'||_gtPreset==='sofar'){since=_gi(new Date(_gy,_gm,1));until=_gt;}
-    else{const n=parseInt(_gtPreset)||30;since=_gi(new Date(now.getTime()-n*86400000));until=_gt;}
+    else if(_gtPreset==='1d'){since=until=diasAtras(1);}
+    else if(_gtPreset==='lastmonth'){since=primeiroDiaDoMes(-1);until=ultimoDiaDoMes(-1);}
+    else if(_gtPreset==='monthfull'||_gtPreset==='sofar'){since=primeiroDiaDoMes();until=_gt;}
+    else{const n=parseInt(_gtPreset)||30;since=diasAtras(n);until=_gt;}
     const fields='campaign_id,campaign_name,impressions,clicks,spend,ctr,cpc,reach,frequency,actions,action_values,purchase_roas,objective,video_play_actions';
     const adFields='campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,impressions,clicks,spend,ctr,cpc,reach,frequency,actions,objective';
     const campFields='id,name,effective_status,objective,daily_budget,lifetime_budget,start_time,stop_time,bid_strategy';

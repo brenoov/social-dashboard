@@ -438,6 +438,7 @@ import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/c
 import { estado, hasPermission, contasPermitidas } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
+import { hojeLocal } from '../../compartilhado/datas.js'
 
 const router = useRouter()
 
@@ -1674,7 +1675,9 @@ async function buildProfiles() {
 
 async function updateStoriesRings() {
   try {
-    const today = new Date().toISOString().slice(0, 10)
+    // BRT: com toISOString() (UTC), das 21h à meia-noite a query pedia um dia que em
+    // Brasília nem tinha começado → zero linhas → o anel sumia de TODOS os perfis.
+    const today = hojeLocal()
     const rows = await sb(`content_snapshots?captured_at=eq.${today}&period_days=lte.1&select=account_id,stories_count&order=period_days.asc`)
     const hasStories = new Set((rows || []).filter(r => (r.stories_count || 0) > 0).map(r => String(r.account_id)))
     document.querySelectorAll('.av-ring-wrap[data-account-id]').forEach(wrap => {
