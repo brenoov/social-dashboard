@@ -1,9 +1,15 @@
 name: Coletor de Notícias (Observatório Vessel)
 
-# Roda toda segunda às 09:00 UTC (06:00 Brasília). Também dá pra disparar à mão.
+# Roda toda segunda de manhã (Brasília). Também dá pra disparar à mão.
+#
+# Por que 09:07 e não 09:00: agendamento na HORA CHEIA cai no pico de carga do
+# GitHub Actions e atrasa muito (ou é descartado). Medido neste repo: pedimos
+# 09:00 e a rodada de 13/07 começou às 11:47 — 2h47 de atraso. Minuto quebrado
+# sai do pico. O atraso não some (agendamento no Actions nunca é pontual), mas
+# encolhe.
 on:
   schedule:
-    - cron: '0 9 * * 1'
+    - cron: '7 9 * * 1'
   workflow_dispatch: {}
 
 concurrency:
@@ -13,7 +19,16 @@ concurrency:
 jobs:
   rodada:
     runs-on: ubuntu-latest
-    timeout-minutes: 110
+    # Teto do job = soma dos tetos dos passos (145) + folga. Fica FROUXO de
+    # propósito: quem tem que cortar é o timeout de cada passo, não este. Se este
+    # apertasse, ele mataria a rodada inteira de novo e os passos seguintes seriam
+    # pulados — o problema que estamos consertando.
+    #
+    # Minuto de runner é de graça em repo público; o custo real é a API da
+    # Anthropic, e ela é limitada dentro dos robôs (max_uses, ORCAMENTO_MIN, e o
+    # agente-noticias não re-cobra web search em timeout). Então afrouxar aqui não
+    # gasta mais dinheiro — só dá espaço pra rodada terminar.
+    timeout-minutes: 160
     env:
       SUPABASE_URL: https://kounqtdoioootxqegkij.supabase.co
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -34,22 +49,47 @@ jobs:
       - name: Definir rodada (data BR)
         run: echo "RODADA=$(TZ=America/Sao_Paulo date +%F)" >> "$GITHUB_ENV"
 
+      # TIMEOUT POR PASSO — cada um tem o seu, de propósito.
+      #
+      # Antes só havia o timeout do JOB (110 min) cobrindo os 7 passos somados.
+      # Quando um passo travava, ele comia o orçamento inteiro e os seguintes eram
+      # PULADOS. Aconteceu de verdade em 06/07 e 29/06: o passo 3 rodou até os 110
+      # minutos, e o enriquecimento, o panorama e a faxina não rodaram — uma semana
+      # de conteúdo perdida por causa de um passo.
+      #
+      # Com timeout por passo, um passo lento morre sozinho e os outros seguem: a
+      # rodada sai incompleta em vez de não sair. O passo 7 audita e avisa o que
+      # faltou (ele já roda com if:always()).
+      #
+      # O agente-noticias (3/7) tem um teto próprio de 30 min (COLETOR_ORCAMENTO_MIN),
+      # mas ele só é checado ENTRE marcas — uma única marca lenta passa por cima.
+      # Os 40 aqui são a rede de segurança que o teto interno não dá.
+
       - name: 1/7 · Lojas (best-sellers + novidades)
+        timeout-minutes: 20
         run: node coletor/passo-lojas.mjs
 
       - name: 2/7 · Instagram (Top Viral + Últimos Posts + Reels)
+        timeout-minutes: 20
         run: node coletor/ig-coletor.mjs
 
       - name: 3/7 · Editorial (manchetes via web search · Sonnet)
+        timeout-minutes: 40
         run: node coletor/agente-noticias.mjs
 
       - name: 4/7 · Enriquecimento (Desenvolvimento + análises Sonnet · resumos Opus)
+        if: ${{ !cancelled() }}
+        timeout-minutes: 35
         run: node coletor/passo-enriquece.mjs
 
       - name: 5/7 · Panorama do Mercado (resumão escrito · Opus)
+        if: ${{ !cancelled() }}
+        timeout-minutes: 20
         run: node coletor/panorama-mercado.mjs
 
       - name: 6/7 · Faxina do storage (GC de mídia órfã)
+        if: ${{ !cancelled() }}
+        timeout-minutes: 10
         run: node coletor/passo-faxina.mjs
 
       - name: 7/7 · Guarda de completude (audita + alerta)

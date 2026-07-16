@@ -1,10 +1,14 @@
 name: Relatórios Comerciais
 
-# Diário 08:40 UTC (05:40 Brasília): re-agrega o mês corrente.
+# Diário 08:52 UTC (05:52 Brasília): re-agrega o mês corrente.
+#
+# Minuto quebrado de propósito: agendamento na hora cheia (ou na meia) cai no pico
+# de carga do GitHub Actions e atrasa. Medido neste repo: pedimos 08:40 e as
+# rodadas saíram entre 10:22 e 11:41 — 2 a 3h de atraso.
 # Disparo manual com input `backfill` (Nº de meses) p/ popular o histórico.
 on:
   schedule:
-    - cron: '40 8 * * *'
+    - cron: '52 8 * * *'
   workflow_dispatch:
     inputs:
       backfill:
