@@ -32,6 +32,12 @@
           </button>
         </div>
       </div>
+      <!-- Estado vazio: nunca deixar a tela em branco. Ver semNenhumaFerramenta. -->
+      <div v-if="semNenhumaFerramenta" class="inicio-vazio">
+        <div class="inicio-vazio-icone" aria-hidden="true">🔒</div>
+        <p class="inicio-vazio-t">Você ainda não tem acesso a nenhuma ferramenta.</p>
+        <p class="inicio-vazio-d">Fale com o administrador para liberar o que você precisa usar.</p>
+      </div>
       <div class="home-cards" :class="{ 'view-list': visualizacao === 'list' }" id="home-cards">
         <!-- Administração: rota já existe (src/ferramentas/admin/tela-de-admin.vue). -->
         <div class="home-card card-admin" id="home-card-admin" v-show="ehAdmin" @click="ir('admin')" @mouseenter="definirTemaFundo('admin')" @mouseleave="definirTemaFundo('default')">
@@ -169,6 +175,16 @@ const podeGestor = computed(() => hasPermission('gestor', 'ver'))
 const podeAcessos = computed(() => hasPermission('acessos', 'ver'))
 const podeClaudeStatus = computed(() => hasPermission('claude.status', 'ver'))
 
+// Nenhuma ferramenta liberada? Sem isto, os 9 cards somem um a um e sobra a barra
+// de topo numa página em branco — o usuário lê como "o sistema quebrou" e reporta
+// como bug. Aconteceu de verdade: gente sem permissão (e gente cujo perfil falhou
+// ao carregar) via a tela vazia e não tinha como saber que o problema era acesso.
+const semNenhumaFerramenta = computed(() =>
+  !ehAdmin.value && !podeRedes.value && !podeVendas.value && !podeMeta.value &&
+  !podeBanco.value && !podeNoticias.value && !podeGestor.value &&
+  !podeAcessos.value && !podeClaudeStatus.value
+)
+
 // Caminho absoluto: servido em produção via rewrite do Vercel (/midia/:path*),
 // igual ao legado. Ligação dinâmica (:src) evita que o Vite tente resolver
 // o caminho como módulo em tempo de build (mesmo padrão de tela-de-login.vue).
@@ -235,6 +251,19 @@ onMounted(() => {
    removido porque no Vue quem controla a visibilidade é o vue-router
    (o componente só existe no DOM quando a rota está ativa). */
 .tela-inicio{min-height:100vh;display:flex;flex-direction:column;background:transparent;position:relative;z-index:1;}
+
+/* Estado vazio — nomes prefixados com inicio-vazio- de propósito: o
+   estilos-globais.css tem classes genéricas e este projeto já teve bug de
+   colisão entre global e tela scoped (o caso home-card → fab-card). */
+.inicio-vazio{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:64px 24px;text-align:center;}
+.inicio-vazio-icone{font-size:34px;line-height:1;opacity:.55;margin-bottom:4px;}
+.inicio-vazio-t{font-family:'Sora',sans-serif;font-size:15px;font-weight:600;color:var(--text);margin:0;}
+.inicio-vazio-d{font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--muted);margin:0;max-width:38ch;}
+@media (max-width:640px){
+  .inicio-vazio{padding:40px 18px;}
+  .inicio-vazio-t{font-size:14px;}
+  .inicio-vazio-d{font-size:12px;}
+}
 
 .tela-inicio-aviso{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);font-family:'IBM Plex Sans',sans-serif;font-size:12.5px;padding:10px 18px;border-radius:8px;box-shadow:var(--shadow-lg);z-index:9999;}
 </style>

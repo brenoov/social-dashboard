@@ -596,7 +596,15 @@
   [data-theme="dark"] .auth-input.error{border-color:rgba(244,63,94,.5);}
   .auth-btn{width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:4px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .18s;margin-top:6px;letter-spacing:1.5px;text-transform:uppercase;}
   .auth-btn:hover{opacity:.88;}.auth-btn:disabled{opacity:.5;cursor:not-allowed;}
-  .auth-error{font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--red);margin-top:10px;padding:8px 12px;background:rgba(176,30,58,.06);border-radius:3px;display:none;}
+  /* SEM display:none aqui, de propósito. No monólito antigo esta classe nascia
+     escondida e o JavaScript fazia style.display='block' pra mostrar. A versão Vue
+     usa v-if: o elemento só existe no DOM quando há mensagem — quem controla a
+     visibilidade é o v-if, não o CSS. Com o display:none herdado do legado, as
+     QUATRO mensagens da tela de login ficavam invisíveis mesmo estando escritas no
+     DOM: "Email ou senha incorretos", o erro de definir senha, "Link enviado!" e
+     "Solicitação enviada!". Quem errava a senha não via nada; quem pedia reset
+     achava que não funcionou e clicava de novo. */
+  .auth-error{font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--red);margin-top:10px;padding:8px 12px;background:rgba(176,30,58,.06);border-radius:3px;}
   .auth-info{font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);margin-top:10px;text-align:center;line-height:1.5;}
 
   /* USER BAR */
