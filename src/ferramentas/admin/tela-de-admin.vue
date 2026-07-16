@@ -552,17 +552,24 @@ function closePermModal() {
 // Gestão de Tráfego). Enquanto a Onda 3 (função SQL tem_permissao(), fonte
 // única — docs/superpowers/specs/2026-07-16-seguranca-e-dados-design.md) não
 // existir, os dois campos TÊM de ser escritos na mesma operação.
+//
+// derivarFeatures() devolve null para super-admin = "não mexa no features[]".
+// Nesse caso o campo fica FORA do PATCH e o valor do banco é preservado — a
+// razão está explicada em derivar-features.js e não é redundância: derivar do
+// `permissions` vazio de um super-admin daria [] e TIRARIA o acesso dele.
 async function savePermissions() {
   if (!_permState) return
   const btn = document.getElementById('perm-save-btn'); btn.disabled = true; btn.textContent = 'Salvando...'
+  const features = derivarFeatures(_permState.permissions, { ehSuperadmin: _permState.is_superadmin })
+  const payload = {
+    permissions: _permState.permissions,
+    allowed_accounts: _permState.allowed_accounts,
+    is_superadmin: _permState.is_superadmin,
+  }
+  if (features !== null) payload.features = features
   await adFetch('profiles?id=eq.' + _permState.userId, {
     method: 'PATCH',
-    body: JSON.stringify({
-      permissions: _permState.permissions,
-      features: derivarFeatures(_permState.permissions),
-      allowed_accounts: _permState.allowed_accounts,
-      is_superadmin: _permState.is_superadmin,
-    }),
+    body: JSON.stringify(payload),
   })
   btn.disabled = false; btn.textContent = 'Salvar'
   adminToast('Permissões atualizadas')

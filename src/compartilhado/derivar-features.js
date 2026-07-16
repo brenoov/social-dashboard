@@ -49,11 +49,30 @@ const PAIS_QUE_NAO_EXISTEM = ['claude']
  *   { "meta.gestor": ["ver","editar"], "social": ["ver"], "claude.status": ["ver"] }
  *   → ['claude.status', 'meta', 'meta.gestor', 'social']
  *
+ * SUPER-ADMIN: devolve `null`, que quer dizer "NÃO MEXA no features[] deste
+ * usuário" — quem chama deve deixar o valor que já está no banco intacto.
+ * Isso NÃO é redundância nem excesso de cuidado, não remova:
+ *   - quando super-admin está ligado, o editor de permissões retorna cedo e o
+ *     `permissions{}` fica vazio DE PROPÓSITO — o bypass do super-admin já
+ *     libera tudo no front (hasPermission() devolve true de saída);
+ *   - derivar de um `permissions` vazio daria `[]`, ou seja, o save
+ *     REMOVERIA acesso em vez de refletir intenção;
+ *   - nas 6 Edge Functions do modelo antigo o super-admin passa por
+ *     `role === 'admin'`, não por `features` — elas nem conhecem
+ *     `is_superadmin`. Hoje os 3 super-admins têm role='admin' e por isso o
+ *     problema não aparece; marcar super-admin num usuário com role='viewer'
+ *     tiraria o acesso dele silenciosamente no primeiro save.
+ *
  * @param {Object<string, string[]>} permissions objeto recurso→ações.
- * @returns {string[]} lista de features, sem repetição e em ordem alfabética
- *                     (ordenada só para o resultado ser sempre o mesmo).
+ * @param {{ ehSuperadmin?: boolean }} [opcoes] contexto do usuário sendo salvo.
+ * @returns {string[]|null} lista de features, sem repetição e em ordem
+ *                          alfabética (ordenada só para o resultado ser sempre
+ *                          o mesmo); ou `null` para super-admin = não gravar.
  */
-export function derivarFeatures(permissions) {
+export function derivarFeatures(permissions, opcoes = {}) {
+  // Super-admin: não há o que derivar — sinaliza "deixe o features como está".
+  if (opcoes?.ehSuperadmin) return null
+
   const features = new Set()
 
   for (const [chave, acoes] of Object.entries(permissions || {})) {
