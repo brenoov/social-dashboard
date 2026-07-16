@@ -1,3 +1,26 @@
 Cada subpasta aqui é uma Edge Function (um servidor pequeno/proxy que roda
 na nuvem do Supabase, não no navegador). O Supabase CLI exige que fiquem
 dentro desta pasta `functions` — não renomeá-la.
+
+invite-user: convida, cria e exclui contas de usuário (login) do painel.
+Só deixa continuar se quem chamou for admin. É chamada pela tela de Admin
+(gestão de usuários) e pela tela de Redes Sociais.
+
+bling-proxy: repassa pedidos pra API do Bling (o sistema de gestão/ERP da
+empresa), renovando sozinho o token de acesso guardado no banco quando ele
+vence. É chamada pelas telas de Gestão à Vista, Análise de Vendas e Gestão
+Comercial.
+
+meta-proxy: repassa pedidos pra API do Facebook/Instagram (Meta Graph API),
+usando o token de acesso de cada conta de anúncio guardado no banco. Só
+deixa passar quem é admin ou tem a permissão "meta". Guarda o token da
+Meta — por isso é sensível. É chamada pelas telas de Análise de Campanhas,
+Gestão de Tráfego e pelo painel de subir anúncios (Fábrica de Anúncios).
+
+comparar-metricas: função de diagnóstico temporária, já desativada — hoje
+só devolve um erro dizendo que foi desligada. Foi usada uma vez pra validar
+a janela de métricas de 7/14/30 dias e não é mais chamada por nenhuma tela.
+
+probe-fidelidade: função de diagnóstico/backfill temporária, também já
+desligada — só devolve um aviso de que está desativada. Não é mais chamada
+por nenhuma tela.
