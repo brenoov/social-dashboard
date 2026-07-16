@@ -1,6 +1,11 @@
 // coletor/budget-ia.mjs
-// Robô semanal: analisa campanhas em veiculação com Opus 4.8 e grava sugestões
-// de budget em gt_budget_analises. Roda via .github/workflows/budget-ia.yml.
+// Robô diário: analisa campanhas com Opus 4.8 e grava sugestões de budget em
+// gt_budget_analises. Roda via .github/workflows/budget-ia.yml.
+//
+// Escopo por dia (ver decidirEscopo):
+//   - todo dia    → modo 'ativas': só as campanhas em veiculação AGORA;
+//   - segunda-feira → modo 'amplo': as de cima MAIS as que veicularam em algum
+//     momento nos últimos 7 dias (inclusive as que já estão pausadas hoje).
 
 const VEREDITOS = new Set(['escalar', 'reduzir', 'manter', 'pausar']);
 const VEREDITOS_AD = new Set(['manter', 'pausar']);
@@ -11,6 +16,52 @@ export function campanhaEmVeiculacao(camp, agoraMs) {
   if (!camp.stop_time) return true;
   const t = Date.parse(camp.stop_time);
   return Number.isNaN(t) ? true : t > agoraMs;
+}
+
+// ---------- escopo da rodada ----------
+
+const TZ = 'America/Sao_Paulo';
+const ESCOPOS = new Set(['ativas', 'amplo']);
+
+// Dia da semana (0=domingo, 1=segunda ... 6=sábado) no fuso de BRASÍLIA.
+// Nunca use new Date().getDay(): isso devolve o dia do fuso da máquina, e o
+// runner do GitHub Actions roda em UTC — das 21h à meia-noite BRT já é o dia
+// seguinte lá. Ancoramos ao meio-dia BRT, longe das duas bordas do dia.
+export function diaDaSemanaBR(agoraMs) {
+  const diaISO = new Date(agoraMs).toLocaleDateString('en-CA', { timeZone: TZ });
+  return new Date(`${diaISO}T12:00:00-03:00`).getUTCDay();
+}
+
+// Decide o escopo da rodada: 'amplo' na segunda, 'ativas' nos outros dias.
+// `override` (env BUDGET_ESCOPO, ou o input do workflow) força o modo, pra dar
+// pra testar sem esperar a segunda-feira chegar. Valor inválido é ignorado —
+// nunca queremos que um typo no input mude o escopo sem querer.
+export function decidirEscopo(agoraMs, override) {
+  const forcado = String(override || '').trim().toLowerCase();
+  if (ESCOPOS.has(forcado)) return { modo: forcado, motivo: 'forçado por BUDGET_ESCOPO=' + forcado };
+  const dia = diaDaSemanaBR(agoraMs);
+  return dia === 1
+    ? { modo: 'amplo', motivo: 'segunda-feira (BRT): inclui quem veiculou nos últimos 7 dias' }
+    : { modo: 'ativas', motivo: 'dia comum (BRT): só as campanhas em veiculação agora' };
+}
+
+// "Esteve ativa nos últimos 7 dias" não existe como filtro na API do Meta.
+// A tradução prática é: TEVE VEICULAÇÃO na janela — ou seja, gastou ou entregou
+// impressões. Os insights de 7 dias já são buscados, então a resposta sai de graça.
+export function veiculouNaJanela(ins) {
+  if (!ins) return false;
+  return num(ins.spend) > 0 || num(ins.impressions) > 0;
+}
+
+// Seleciona as campanhas que serão analisadas na rodada.
+// 'amplo' é SUPERCONJUNTO de 'ativas': quem veicula agora entra sempre (mesmo
+// sem gasto na janela — campanha que acabou de subir), e no modo amplo entra
+// também quem veiculou na janela, ainda que esteja pausada/encerrada hoje.
+export function selecionarCampanhas(camps, insByCamp, modo, agoraMs) {
+  const lista = Array.isArray(camps) ? camps : [];
+  const ins = insByCamp || {};
+  return lista.filter((c) => campanhaEmVeiculacao(c, agoraMs)
+    || (modo === 'amplo' && veiculouNaJanela(ins[c.id])));
 }
 
 // Monta as mensagens (system + user) pro Opus: analisa a campanha E os anúncios dela.
@@ -165,7 +216,11 @@ async function main() {
   }
   const agoraMs = Date.now();
   let _totIn = 0, _totOut = 0, _chamadas = 0; // uso da API p/ calcular o custo da rodada
-  const proximaSegunda = new Date(agoraMs + 7 * 86400000).toISOString();
+  const { modo, motivo } = decidirEscopo(agoraMs, process.env.BUDGET_ESCOPO);
+  console.log(`Escopo da rodada: ${modo} — ${motivo}`);
+  // A análise é refeita todo dia, então ela vale até a próxima rodada + folga
+  // (48h cobrem uma rodada que falhe). Antes era +7 dias, quando o robô era semanal.
+  const validaAte = new Date(agoraMs + 2 * 86400000).toISOString();
   const iso = (d) => d.toISOString().slice(0, 10);
   const since = iso(new Date(agoraMs - 7 * 86400000));
   const until = iso(new Date(agoraMs));
@@ -176,7 +231,11 @@ async function main() {
   let total = 0, gravadas = 0, puladas = 0;
 
   const seenAdAcc = new Set();
-  const campFields = 'id,name,effective_status,objective,daily_budget,lifetime_budget,start_time,stop_time';
+  // effective_status pedido ao Graph em cada modo. No campo `campaigns` os valores
+  // possíveis são ACTIVE/PAUSED/DELETED/ARCHIVED/IN_PROCESS/WITH_ISSUES.
+  const STATUS_ATIVAS = ['ACTIVE'];
+  const STATUS_AMPLO = ['ACTIVE', 'PAUSED', 'IN_PROCESS', 'WITH_ISSUES'];
+  const campFields ='id,name,effective_status,objective,daily_budget,lifetime_budget,start_time,stop_time';
   const insFields = 'campaign_id,impressions,clicks,spend,ctr,cpc,reach,frequency,actions,action_values,purchase_roas,objective';
   for (const acc of contas) {
     if (!acc.access_token) continue;
@@ -190,7 +249,11 @@ async function main() {
       seenAdAcc.add(adAcc);
       let camps, insights;
       try {
-        camps = (await graphGet(`/act_${adAcc}/campaigns`, { fields: campFields, effective_status: ['ACTIVE'], limit: 500 }, acc.access_token)).data || [];
+        // No modo amplo pedimos também as pausadas/com-problema — a peneira do que
+        // realmente veiculou nos últimos 7 dias é feita depois, com os insights.
+        // ARCHIVED/DELETED ficam de fora nos dois modos (campanha morta não recebe sugestão).
+        const statusPedidos = modo === 'amplo' ? STATUS_AMPLO : STATUS_ATIVAS;
+        camps = (await graphGet(`/act_${adAcc}/campaigns`, { fields: campFields, effective_status: statusPedidos, limit: 500 }, acc.access_token)).data || [];
         insights = (await graphGet(`/act_${adAcc}/insights`, { level: 'campaign', fields: insFields, time_range: { since, until }, limit: 500 }, acc.access_token)).data || [];
       } catch (e) { console.log('  act_' + adAcc + ' falhou no Graph: ' + e.message); continue; }
       const insByCamp = {};
@@ -208,10 +271,10 @@ async function main() {
         if (adStatus[a.ad_id] !== 'ACTIVE') return; // só anúncios ativos
         (adsAtivosPorCamp[a.campaign_id] = adsAtivosPorCamp[a.campaign_id] || []).push(a);
       });
-      const ativas = camps.filter((c) => campanhaEmVeiculacao(c, agoraMs));
-      console.log(`Conta ${acc.id} / act_${adAcc}: ${ativas.length} campanhas em veiculação.`);
+      const selecionadas = selecionarCampanhas(camps, insByCamp, modo, agoraMs);
+      console.log(`Conta ${acc.id} / act_${adAcc}: ${selecionadas.length} campanhas a analisar (modo ${modo}).`);
 
-    for (const camp of ativas) {
+    for (const camp of selecionadas) {
       total++;
       const ins = insByCamp[camp.id] || {};
       const { system, user } = montarMensagens(camp, ins, adsAtivosPorCamp[camp.id] || []);
@@ -236,7 +299,7 @@ async function main() {
           impacto_estimado: saida.impacto_estimado,
           modelo: MODEL,
           gerado_em: new Date().toISOString(),
-          valida_ate: proximaSegunda,
+          valida_ate: validaAte,
         }]);
         gravadas++;
       } catch (e) {
@@ -253,7 +316,7 @@ async function main() {
           justificativa: a.justificativa,
           modelo: MODEL,
           gerado_em: new Date().toISOString(),
-          valida_ate: proximaSegunda,
+          valida_ate: validaAte,
         }));
         try {
           await sbUpsert('/gt_ad_analises', adRows);

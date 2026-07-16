@@ -1,10 +1,23 @@
-name: Budget IA (análise semanal)
+name: Budget IA (análise diária)
 
-# Segunda 09:30 UTC (06:30 Brasília) + disparo manual.
+# Todo dia 09:41 UTC (06:41 Brasília) + disparo manual.
+# Minuto quebrado e fora da hora cheia de propósito: agendamento na hora cheia
+# entra na fila do Actions e atrasa 2-3h (já medido neste repo).
+#
+# O escopo muda conforme o dia (decidido dentro do robô, no fuso de Brasília):
+#   - todo dia: só as campanhas em veiculação agora;
+#   - segunda:  também as que veicularam em algum momento nos últimos 7 dias.
 on:
   schedule:
-    - cron: '30 9 * * 1'
-  workflow_dispatch: {}
+    - cron: '41 9 * * *'
+  workflow_dispatch:
+    inputs:
+      escopo:
+        description: 'Escopo da rodada (auto = decide pelo dia da semana)'
+        required: false
+        default: 'auto'
+        type: choice
+        options: ['auto', 'ativas', 'amplo']
 
 concurrency:
   group: budget-ia
@@ -23,4 +36,5 @@ jobs:
         env:
           ANTHROPIC_API_KEY_TRAFEGO: ${{ secrets.ANTHROPIC_API_KEY_TRAFEGO }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          BUDGET_ESCOPO: ${{ inputs.escopo }}
         run: node coletor/budget-ia.mjs
