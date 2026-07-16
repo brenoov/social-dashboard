@@ -744,8 +744,32 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     const C=2*Math.PI*R,sweep=240/360*C,gap=C-sweep;
     const fill=p!==null?Math.min(Math.max(p,0),100)/100*sweep:0;
     const rot=150;
-    const deltaY=canalNm?135:123;
-    const vbH=deltaStr?(canalNm?145:133):canalNm?133:desvioStr?121:metaStr?109:vendidoStr?97:62;
+    // As linhas abaixo do arco EMPILHAM: cada uma só ocupa espaço se existir.
+    //
+    // Antes cada linha tinha um y fixo (86, 99, 111, 123, 135) e o viewBox tinha
+    // altura fixa. Quando o canal não tem meta, as três do meio (vendido, meta,
+    // desvio) não renderizam — mas o delta continuava cravado lá embaixo e a altura
+    // continuava reservada, deixando um vão enorme entre o valor e a última linha.
+    // Era o caso mais comum na tela, porque a maioria dos canais não tem meta.
+    //
+    // O `vao` de cada linha é a distância até a PRÓXIMA. Os valores preservam o
+    // espaçamento original de quando todas as 5 aparecem — só o caso incompleto muda.
+    const linhas=[
+      vendidoStr&&{t:vendidoStr,tam:15, peso:500,fonte:'Oswald,sans-serif',      cor:'var(--text)',            vao:13},
+      metaStr   &&{t:metaStr,   tam:9,  peso:400,fonte:'IBM Plex Sans,sans-serif',cor:'var(--muted)',          vao:12},
+      desvioStr &&{t:desvioStr, tam:7.5,peso:700,fonte:'IBM Plex Sans,sans-serif',cor:desvioCol||'var(--muted)',vao:12},
+      canalNm   &&{t:canalNm,   tam:5.4,peso:400,fonte:'IBM Plex Sans,sans-serif',cor:'var(--muted)',          vao:12},
+      deltaStr  &&{t:deltaStr,  tam:7.5,peso:700,fonte:'IBM Plex Sans,sans-serif',cor:deltaCol||'var(--muted)', vao:0},
+    ].filter(Boolean);
+    let _y=86; // primeira linha logo abaixo do arco (que termina em y≈78)
+    const linhasSvg=linhas.map(l=>{
+      const svg=`<text x="50" y="${_y}" text-anchor="middle" font-family="${l.fonte}" font-size="${l.tam}" font-weight="${l.peso}" fill="${l.cor}">${l.t}</text>`;
+      _y+=l.vao;
+      return svg;
+    }).join('');
+    // Altura sob medida: sobra só o respiro da última linha. Sem linha nenhuma, 62
+    // (só o arco), como era antes.
+    const vbH=linhas.length?_y+10:62;
     const isGoal=p!==null&&p>=100;
     const gid=`sgliq_${uid}`;
     const neonFilter=isGoal?`drop-shadow(0 0 4px ${hexColor}) drop-shadow(0 0 12px ${hexColor}99)`:`drop-shadow(0 0 4px ${hexColor}88)`;
@@ -771,11 +795,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
         style="transition:stroke-dasharray 2s cubic-bezier(.4,0,.2,1);filter:${neonFilter}"
         ${isGoal?`class="gauge-neon-arc"`:''}/>
       <text x="50" y="51" text-anchor="middle" font-family="Oswald,sans-serif" font-size="22" font-weight="600" fill="${hexColor}">${topText}</text>
-      ${vendidoStr?`<text x="50" y="86" text-anchor="middle" font-family="Oswald,sans-serif" font-size="15" font-weight="500" fill="var(--text)">${vendidoStr}</text>`:''}
-      ${metaStr?`<text x="50" y="99" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="9" fill="var(--muted)">${metaStr}</text>`:''}
-      ${desvioStr?`<text x="50" y="111" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="7.5" font-weight="700" fill="${desvioCol||'var(--muted)'}">${desvioStr}</text>`:''}
-      ${canalNm?`<text x="50" y="123" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="5.4" fill="var(--muted)">${canalNm}</text>`:''}
-      ${deltaStr?`<text x="50" y="${deltaY}" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="7.5" font-weight="700" fill="${deltaCol||'var(--muted)'}">${deltaStr}</text>`:''}
+      ${linhasSvg}
     </svg>`;
   }
 
