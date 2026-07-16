@@ -1032,8 +1032,29 @@ function desenharGraficoDiario(hostId, serie, opcoes) {
   if (meta > 0) {
     const y = baseY - hOf(meta)
     svg.appendChild(comTitulo(el('line', { class: 'gmad-meta', x1: padX, x2: W - padX, y1: y.toFixed(2), y2: y.toFixed(2) }), opcoes.rotuloMeta + ': ' + fmtR(meta)))
-    const tag = el('text', { class: 'gmad-meta-txt', x: W - padX, y: (y - 3).toFixed(2), 'text-anchor': 'end' })
-    tag.textContent = opcoes.rotuloMeta + ' ' + fmtR(meta)
+
+    // O rótulo ganha uma tarja atrás de propósito. Ele fica sobre a área das barras
+    // (não há canto vazio garantido — barra alta pode existir em qualquer dia), e
+    // sem fundo o texto se misturava com a barra e virava sujeira.
+    const txt = opcoes.rotuloMeta + ' ' + fmtR(meta)
+    const larguraTxt = txt.length * 4.4 + 8 // ~4.4px por caractere no corpo 8
+    const alturaTarja = 11
+    // Acima da linha; se a linha estiver colada no topo, desce a tarja pra ela não
+    // sair do quadro.
+    const acimaCabe = y - alturaTarja - 2 >= 0
+    const tarjaY = acimaCabe ? y - alturaTarja - 2 : y + 2
+    svg.appendChild(el('rect', {
+      class: 'gmad-meta-tarja',
+      x: (W - padX - larguraTxt).toFixed(2), y: tarjaY.toFixed(2),
+      width: larguraTxt.toFixed(2), height: alturaTarja, rx: 2.5,
+    }))
+    const tag = el('text', {
+      class: 'gmad-meta-txt',
+      x: (W - padX - 4).toFixed(2),
+      y: (tarjaY + 8).toFixed(2),
+      'text-anchor': 'end',
+    })
+    tag.textContent = txt
     svg.appendChild(tag)
   }
   // Datas embaixo (afina automático quando o período é longo)
@@ -2470,6 +2491,8 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.gmad-base){stroke:var(--border);stroke-width:1;}
 .tela-redes-sociais :deep(.gmad-meta){stroke:var(--orange);stroke-width:1.5;stroke-dasharray:4 3;}
 .tela-redes-sociais :deep(.gmad-meta-txt){font-family:'IBM Plex Sans',sans-serif;font-size:8px;font-weight:600;fill:var(--orange);}
+/* Tarja atrás do rótulo da meta: ele fica sobre as barras e sem fundo virava sujeira. */
+.tela-redes-sociais :deep(.gmad-meta-tarja){fill:var(--surface);stroke:var(--orange);stroke-width:.5;opacity:.94;}
 .tela-redes-sociais :deep(.gmad-xlabel){font-family:'IBM Plex Sans',sans-serif;font-size:8px;fill:var(--muted);}
 .tela-redes-sociais :deep(.gmad-legenda){font-family:'IBM Plex Sans',sans-serif;font-size:10px;line-height:1.4;color:var(--muted);margin-top:6px;}
 .tela-redes-sociais :deep(.gmad-vazio){font-family:'IBM Plex Sans',sans-serif;font-size:11px;line-height:1.4;color:var(--muted);padding:10px 0;}
