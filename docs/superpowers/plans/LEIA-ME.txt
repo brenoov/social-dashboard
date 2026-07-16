@@ -1,2 +1,51 @@
 Os passo a passo de implementação de cada funcionalidade: as tarefas na
 ordem em que foram (ou serão) feitas, com os comandos de verificação.
+
+
+COMO DIZER EM QUE PÉ O PLANO ESTÁ
+=================================
+
+O Painel de Status do Claude (aba "Detalhado") monta o quadro de projetos lendo
+estes arquivos sozinho — não há ninguém atualizando aquilo à mão. Ele decide a
+coluna assim, nesta ordem:
+
+  1. A linha "**Status:**" no cabeçalho, se existir. Ganha de tudo.
+  2. Os checkboxes ( - [x] feitos de - [ ] totais ), se não houver a linha.
+  3. Sem os dois: "ainda não começou".
+
+Então, se você entregou o plano e não marcou as caixinhas — o que é o normal, na
+prática ninguém volta pra marcar —, escreva uma linha logo abaixo do título:
+
+    # Plano da Coisa X
+    **Status:** no ar
+
+Valores que ele entende:
+
+    **Status:** no ar            -> coluna "3 · Pronto e no ar"
+    **Status:** em andamento     -> coluna "2 · Sendo construído"
+    **Status:** parado — motivo  -> coluna "⏸ Parado" (escreva o motivo, ajuda)
+    **Status:** planejado        -> coluna "1 · Ainda não começou"
+
+Se escrever um valor que ele não reconhece, ele ignora a linha e conta os
+checkboxes. O "% pronto" do card SEMPRE vem dos checkboxes, mesmo com a
+declaração — ou seja, dá pra ter "no ar" com "0% pronto", e isso é honesto: quer
+dizer "entreguei, mas não marquei os passos".
+
+
+POR QUE ISSO EXISTE
+===================
+
+Até 16/07/2026 o robô procurava "NO AR" e "CONCLUÍD" em QUALQUER lugar do
+documento. Resultado medido: 17 dos 42 planos apareciam no painel como "Pronto e
+no ar" com ZERO passos feitos. O card dizia "no ar" e "0% pronto" ao mesmo tempo.
+
+O que enganava:
+  - "validar NO AR", "vs v1 (já NO AR)" escritos no corpo do plano
+  - console.log('gerar concluído:', r) DENTRO de um bloco de código de exemplo
+  - "CONCLUÍD" casando dentro de "NÃO CONCLUÍDO"
+
+Agora o corpo não é lido pra isso. Só o cabeçalho, onde a declaração é
+deliberada.
+
+A regra vive em coletor/status-projetos.mjs (analisarConteudo/statusDeclarado) e
+tem teste em coletor/status-projetos.test.mjs — os três casos acima estão lá.
