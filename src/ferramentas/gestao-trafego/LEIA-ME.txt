@@ -11,6 +11,34 @@ janela antes de ser aplicada — nunca é feita sozinha. Se você não tem
 certeza do que uma ação vai fazer, cancele e pergunte antes de confirmar.
 
 Arquivo principal: tela-de-gestao-trafego.vue
+Arquivo de apoio:  orcamento-hierarquia.js (+ orcamento-hierarquia.test.mjs)
+
+ONDE FICA O ORÇAMENTO: ABO x CBO (leia antes de mexer)
+------------------------------------------------------
+Uma campanha do Meta guarda o orçamento em UM dos dois lugares, nunca nos
+dois — e só dá pra editar no lugar certo:
+
+  CBO (Campaign Budget Optimization) = orçamento NA CAMPANHA. Você põe um
+      valor só e o Meta reparte entre os conjuntos. O conjunto NÃO aceita
+      edição de orçamento.
+  ABO (Ad Set Budget Optimization)   = orçamento NO CONJUNTO de anúncios.
+      Cada conjunto tem o seu. A CAMPANHA NÃO aceita edição de orçamento.
+
+CUIDADO: as duas siglas já apareceram trocadas nesta tela (dizia "é CBO"
+quando era ABO) e isso confundiu de verdade. ABO = conjunto. CBO = campanha.
+
+Como a tela descobre qual é: campanha COM orçamento próprio = CBO; campanha
+SEM orçamento próprio e com conjuntos que têm o seu = ABO; nenhum dos dois
+(ou os conjuntos não carregaram) = "não identificado", e aí a tela não
+oferece edição nenhuma em vez de prometer algo que a Meta vai recusar. Essa
+decisão está em orcamento-hierarquia.js — um arquivo PURO (sem tela, sem
+banco): recebe a campanha e os conjuntos e responde. Por ser puro, ele é
+testado de verdade (npm test roda orcamento-hierarquia.test.mjs). Se for
+mexer nessa regra, mexa lá e no teste, não no meio do desenho da tela.
+
+A tela mostra a hierarquia completa: campanha → conjuntos de anúncios →
+anúncios. O botão "⊟ Recolher tudo / ⊞ Expandir tudo" (no cabeçalho da lista)
+fecha ou abre de uma vez os conjuntos e os anúncios de todas as campanhas.
 
 Como funciona (resumido):
 - Os dados vêm direto da Meta (Graph API) através de uma Edge Function do
@@ -27,8 +55,11 @@ Como funciona (resumido):
 - Botão "KPIs" (canto superior, só para quem tem a permissão liberada): abre
   um editor de quais métricas aparecem por objetivo de campanha (tráfego,
   vendas, leads etc.) — grava na tabela gt_config_metricas.
-- Cada campanha pode ser expandida para ver seus anúncios, cada um com botão
+- Cada campanha pode ser expandida para ver seus CONJUNTOS DE ANÚNCIOS, e cada
+  conjunto pode ser expandido para ver seus anúncios, cada um com botão
   "Ver criativo" (mostra o preview do anúncio) e pausar/reativar manual.
+  O orçamento aparece (e só fica editável) no nível certo: na campanha quando
+  é CBO, em cada conjunto quando é ABO — ver o bloco ABO x CBO acima.
 - Um controle de zoom de fonte (A−/A+, canto inferior direito) ajusta o
   tamanho do texto da tela inteira e lembra a escolha (localStorage).
 - Botão "Meta Ads" (topo esquerdo): limpa os timers e volta para o Hub do

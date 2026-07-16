@@ -98,6 +98,10 @@ import { estado, hasPermission } from '../../compartilhado/controle-de-login-e-u
 import { adminToast } from '../../compartilhado/avisos.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { hojeLocal, diasAtras, primeiroDiaDoMes, ultimoDiaDoMes } from '../../compartilhado/datas.js'
+// Decisão "o orçamento é da campanha (CBO) ou dos conjuntos (ABO)?" e o
+// agrupamento campanha → conjuntos → anúncios moram num módulo puro, testado
+// em orcamento-hierarquia.test.mjs. Aqui só se desenha o resultado.
+import { orcamentoDe, detectarNivelOrcamento, podeEditarOrcamentoDaCampanha, podeEditarOrcamentoDoConjunto, montarHierarquia } from './orcamento-hierarquia.js'
 
 const router = useRouter()
 
@@ -223,6 +227,8 @@ let _gtPickerOpen=false;
 let _gtCampaigns=[];
 let _gtInsights=[];
 let _gtAdInsights=[];
+let _gtAdsets=[];        // conjuntos de anúncios da conta (Graph /adsets), com o orçamento de cada um
+let _gtRecolhido=false;  // botão "recolher/expandir tudo": estado padrão dos painéis ao (re)desenhar
 let _gtStatusFilter='all';
 
 /* ── Zoom de fonte (legacy L7789-7805, verbatim) ── */
@@ -533,21 +539,26 @@ async function loadGtData(){
     const fields='campaign_id,campaign_name,impressions,clicks,spend,ctr,cpc,reach,frequency,actions,action_values,purchase_roas,objective,video_play_actions';
     const adFields='campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,impressions,clicks,spend,ctr,cpc,reach,frequency,actions,objective';
     const campFields='id,name,effective_status,objective,daily_budget,lifetime_budget,start_time,stop_time,bid_strategy';
+    // Conjuntos de anúncios (ad sets): é aqui que mora o orçamento quando a
+    // campanha é ABO. Sem isto não dá pra saber se é ABO ou CBO nem editar o
+    // orçamento no nível certo.
+    const setFields='id,name,effective_status,daily_budget,lifetime_budget,campaign_id';
     const timeRange={since,until};
-    const [insights,campaigns,adInsights,adObjs]=await Promise.all([
+    const [insights,campaigns,adInsights,adObjs,adsets]=await Promise.all([
       metaFetchAll(`/act_${_maCleanAccId(adAccId)}/insights`,{level:'campaign',fields,filtering:JSON.stringify([{field:'spend',operator:'GREATER_THAN',value:'0'}]),time_range:timeRange},tok).catch(()=>[]),
       metaFetchAll(`/act_${_maCleanAccId(adAccId)}/campaigns`,{fields:campFields,effective_status:JSON.stringify(['ACTIVE','PAUSED','ARCHIVED'])},tok).catch(()=>[]),
       metaFetchAll(`/act_${_maCleanAccId(adAccId)}/insights`,{level:'ad',fields:adFields,filtering:JSON.stringify([{field:'spend',operator:'GREATER_THAN',value:'0'}]),time_range:timeRange},tok).catch(()=>[]),
       metaFetchAll(`/act_${_maCleanAccId(adAccId)}/ads`,{fields:'id,effective_status'},tok).catch(()=>[]),
+      metaFetchAll(`/act_${_maCleanAccId(adAccId)}/adsets`,{fields:setFields,effective_status:JSON.stringify(['ACTIVE','PAUSED','ARCHIVED'])},tok).catch(()=>[]),
     ]);
     // Attach real effective_status to each ad insight (insights endpoint doesn't return status)
     const adStatusMap={};adObjs.forEach(a=>{adStatusMap[a.id]=a.effective_status||'';});
     adInsights.forEach(a=>{a.effective_status=adStatusMap[a.ad_id]||'';});
-    _gtCampaigns=campaigns;_gtInsights=insights;_gtAdInsights=adInsights;
+    _gtCampaigns=campaigns;_gtInsights=insights;_gtAdInsights=adInsights;_gtAdsets=adsets;
     _gtLastLoadTime=new Date();updateGtUpdateStatus();
     if(_gtStatusTimer)clearInterval(_gtStatusTimer);
     _gtStatusTimer=setInterval(updateGtUpdateStatus,60000);
-    _renderGtCampaigns(col,campaigns,insights,adInsights);
+    _renderGtCampaigns(col,campaigns,insights,adInsights,adsets);
     // Reset AI analyze button
     const btn=document.getElementById('gt-analyze-btn');
     if(btn){btn.disabled=false;btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Analisar com Agente IA';}
@@ -717,24 +728,59 @@ function _gtRecBanner(iaRow,daily,encerrada,status){
   </div>`;
 }
 
-// Controle de edição manual de orçamento — sempre disponível (independe da IA).
-function _gtBudgetEditHtml(daily){
-  if(daily==null)return '';
-  return `<div class="gt-budget-edit">
-    <span class="gt-be-cur">Orçamento: <b>${_maFmtR(daily)}/dia</b></span>
-    <button data-gt-edit-toggle="1" class="gt-be-link">✎ editar</button>
-    <span data-gt-edit-box="1" class="gt-be-box" hidden>
-      <input data-gt-manual="1" type="number" min="1" step="1" placeholder="R$/dia">
-      <button data-gt-manual-ok="1" class="gt-act-btn primary" style="font-size:calc(10px*var(--gt-fs,1.3));">Aplicar</button>
-    </span>
-  </div>`;
+// Controle de edição manual de orçamento — serve tanto pra CAMPANHA (CBO)
+// quanto pra CONJUNTO de anúncios (ABO). Quem decide se é editável é o módulo
+// puro (podeEditarOrcamentoDa*); aqui só se desenha o veredito dele.
+// perm: {editavel,motivo}; orc: orcamentoDe(entidade) ou null.
+function _gtBudgetEditHtml(perm,orc){
+  const valor=orc
+    ?(orc.tipo==='diario'?`<b>${_maFmtR(orc.reais)}/dia</b>`:`<b>${_maFmtR(orc.reais)}</b> no total`)
+    :null;
+  if(perm&&perm.editavel){
+    return `<div class="gt-budget-edit">
+      <span class="gt-be-cur">Orçamento: ${valor}</span>
+      <button data-gt-edit-toggle="1" class="gt-be-link">✎ editar</button>
+      <span data-gt-edit-box="1" class="gt-be-box" hidden>
+        <input data-gt-manual="1" type="number" min="1" step="1" placeholder="R$/dia">
+        <button data-gt-manual-ok="1" class="gt-act-btn primary" style="font-size:calc(10px*var(--gt-fs,1.3));">Aplicar</button>
+      </span>
+    </div>`;
+  }
+  const nota=perm&&perm.motivo?`<span class="gt-be-nota">${_gtEsc(perm.motivo)}</span>`:'';
+  if(!valor&&!nota)return '';
+  return `<div class="gt-budget-edit">${valor?`<span class="gt-be-cur">Orçamento: ${valor}</span>`:''}${nota}</div>`;
 }
-function _gtWireBudgetControls(el,ins,camp,iaRow){
+// Liga o par "✎ editar" + "Aplicar" dentro de `el`. Vale pra campanha e pra
+// conjunto — muda só o id do alvo e o texto da confirmação.
+// alvo: {id, nome, atualReais, nivelLbl:'da campanha'|'do conjunto', nivelNome:'Campanha'|'Conjunto'}
+function _gtWireBudgetManual(el,alvo){
+  if(!el||!alvo)return;
+  const tgl=el.querySelector('[data-gt-edit-toggle]'),box=el.querySelector('[data-gt-edit-box]');
+  if(tgl&&box)tgl.addEventListener('click',ev=>{ev.stopPropagation();box.hidden=!box.hidden;if(!box.hidden){const i=box.querySelector('[data-gt-manual]');if(i)i.focus();}});
+  const inp=el.querySelector('[data-gt-manual]'),bMan=el.querySelector('[data-gt-manual-ok]');
+  if(!bMan||!inp)return;
+  bMan.addEventListener('click',ev=>{ev.stopPropagation();
+    const v=parseFloat(inp.value);
+    if(!Number.isFinite(v)||v<=0){inp.style.borderColor='var(--red)';return;}
+    inp.style.borderColor='';
+    const cent=Math.round(v*100);
+    const antes=alvo.atualReais!=null?_maFmtR(alvo.atualReais)+'/dia':'orçamento atual';
+    // ANTES → DEPOIS explícito: é dinheiro real saindo da conta do dono.
+    _gtApplyAction({type:'update_budget',id:alvo.id,budget:cent,
+      _t:`Aplicar orçamento ${alvo.nivelLbl}?`,
+      _d:`${alvo.nivelNome} "${_gtEsc(alvo.nome)}":<br><b>${antes}</b> → <b>${_maFmtR(v)}/dia</b>`},bMan,el);
+  });
+}
+function _gtWireBudgetControls(el,ins,camp,iaRow,permCamp){
   if(!el)return;
   const nm=_gtEsc(ins.campaign_name||camp?.name||'a campanha');
   const daily=camp?.daily_budget?parseFloat(camp.daily_budget)/100:null;
   const bAplicar=el.querySelector('[data-gt-aplicar]');
-  if(bAplicar&&iaRow&&iaRow.budget_sugerido_centavos!=null){
+  // Sendo ABO, o orçamento não é da campanha: aplicar a sugestão da IA aqui
+  // levaria recusa da Meta. Some com o botão em vez de oferecer um caminho
+  // que não funciona — a nota abaixo do cabeçalho manda pro conjunto certo.
+  if(bAplicar&&permCamp&&!permCamp.editavel){bAplicar.remove();}
+  else if(bAplicar&&iaRow&&iaRow.budget_sugerido_centavos!=null){
     bAplicar.addEventListener('click',ev=>{ev.stopPropagation();
       const novo=iaRow.budget_sugerido_centavos;
       _gtApplyAction({type:'update_budget',id:ins.campaign_id,budget:novo,_t:'Aplicar budget sugerido?',_d:`"${nm}": ${daily!=null?_maFmtR(daily)+'/dia':'orçamento atual'} → ${_maFmtR(novo/100)}/dia (sugestão da IA).`},bAplicar,el);
@@ -746,20 +792,15 @@ function _gtWireBudgetControls(el,ins,camp,iaRow){
       _gtApplyAction({type:'pause_campaign',id:ins.campaign_id,_t:'Pausar campanha?',_d:`"${nm}" será PAUSADA na Meta agora.`},bPausar,el);
     });
   }
-  const tgl=el.querySelector('[data-gt-edit-toggle]'),box=el.querySelector('[data-gt-edit-box]');
-  if(tgl&&box)tgl.addEventListener('click',ev=>{ev.stopPropagation();box.hidden=!box.hidden;if(!box.hidden){const i=box.querySelector('[data-gt-manual]');if(i)i.focus();}});
-  const inp=el.querySelector('[data-gt-manual]'),bMan=el.querySelector('[data-gt-manual-ok]');
-  if(bMan&&inp)bMan.addEventListener('click',ev=>{ev.stopPropagation();
-    const v=parseFloat(inp.value);
-    if(!Number.isFinite(v)||v<=0){inp.style.borderColor='var(--red)';return;}
-    inp.style.borderColor='';
-    const cent=Math.round(v*100);
-    _gtApplyAction({type:'update_budget',id:ins.campaign_id,budget:cent,_t:'Aplicar budget manual?',_d:`"${nm}": ${daily!=null?_maFmtR(daily)+'/dia':'orçamento atual'} → ${_maFmtR(v)}/dia.`},bMan,el);
-  });
+  // Edição manual da campanha: mesma mecânica do conjunto (helper compartilhado).
+  _gtWireBudgetManual(el,{id:ins.campaign_id,nome:ins.campaign_name||camp?.name||'a campanha',atualReais:daily,nivelLbl:'da campanha',nivelNome:'Campanha'});
 }
-function _renderGtCampaigns(col,campaigns,insights,adInsights){
+function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
   const campMap={};campaigns.forEach(c=>campMap[c.id]=c);
   const adByCamp={};adInsights.forEach(a=>{if(!adByCamp[a.campaign_id])adByCamp[a.campaign_id]=[];adByCamp[a.campaign_id].push(a);});
+  // Conjuntos por campanha — é o que permite saber se o orçamento é da
+  // campanha (CBO) ou dos conjuntos (ABO) e mostrar a camada do meio.
+  const setsByCamp={};(adsets||[]).forEach(s=>{const k=String(s.campaign_id||'');if(!setsByCamp[k])setsByCamp[k]=[];setsByCamp[k].push(s);});
   const sorted=[...insights].sort((a,b)=>parseFloat(b.spend||0)-parseFloat(a.spend||0));
   const card=document.createElement('div');card.className='gt-camp-card';
   const hdr=document.createElement('div');hdr.className='gt-camp-hdr';
@@ -796,8 +837,31 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
     });
     filterBtns[fd.v]=fb;filterWrap.appendChild(fb);
   });
+  // Recolher/expandir TUDO (conjuntos e anúncios de todas as campanhas).
+  // _gtRecolhido é lembrado entre redesenhos: quem recolheu tudo não vê
+  // tudo abrir de novo a cada ↻ ou troca de filtro.
+  const collapseBtn=document.createElement('button');
+  collapseBtn.className='gt-collapse-all';
+  collapseBtn.type='button';
+  const pintaCollapse=()=>{
+    collapseBtn.textContent=_gtRecolhido?'⊞ Expandir tudo':'⊟ Recolher tudo';
+    collapseBtn.title=_gtRecolhido
+      ?'Abrir os conjuntos de anúncios e os anúncios de todas as campanhas'
+      :'Fechar os conjuntos de anúncios e os anúncios de todas as campanhas';
+  };
+  pintaCollapse();
+  collapseBtn.addEventListener('click',()=>{
+    _gtRecolhido=!_gtRecolhido;
+    pintaCollapse();
+    // Aplica no que já está na tela, sem refazer as chamadas à Meta.
+    card.querySelectorAll('.gt-camp-row-ads,.gt-set-pane').forEach(p=>{
+      p.classList.toggle('open',!_gtRecolhido);
+      if(!_gtRecolhido&&!p.dataset.loaded&&p.__gtRender){p.dataset.loaded='1';p.__gtRender();}
+    });
+    card.querySelectorAll('.gt-chevron,.gt-set-chevron').forEach(c=>c.classList.toggle('open',!_gtRecolhido));
+  });
   const hdrRight=document.createElement('div');hdrRight.style.cssText='display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
-  hdrRight.appendChild(filterWrap);hdrRight.appendChild(searchInp);
+  hdrRight.appendChild(collapseBtn);hdrRight.appendChild(filterWrap);hdrRight.appendChild(searchInp);
   hdr.appendChild(ttlWrap);hdr.appendChild(hdrRight);
   card.appendChild(hdr);
   const list=document.createElement('div');list.className='gt-camp-list';card.appendChild(list);
@@ -820,6 +884,10 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       const spend=parseFloat(ins.spend||0);
       const daily=camp?.daily_budget?parseFloat(camp.daily_budget)/100:null;
       const ads=adByCamp[ins.campaign_id]||[];
+      // Onde mora o orçamento desta campanha? (módulo puro, testado)
+      const conjuntos=setsByCamp[String(ins.campaign_id)]||[];
+      const nivelOrc=detectarNivelOrcamento(camp,conjuntos);
+      const hier=montarHierarquia(conjuntos,ads);
       const kpiObjective=ins.objective||camp?.objective||'';
       const row=document.createElement('div');row.className='gt-camp-row';
       const inner=document.createElement('div');inner.className='gt-camp-inner';
@@ -832,13 +900,22 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       badge.className=`gt-status-badge ${badgeCls}`;badge.textContent=badgeLbl;
       const nm=document.createElement('div');nm.className='gt-name';nm.title=ins.campaign_name||'';nm.textContent=ins.campaign_name||'—';
       const chips=document.createElement('div');chips.style.cssText='display:flex;align-items:center;gap:8px;flex-shrink:0;';
-      chips.innerHTML=`<span class="ma-obj-chip" style="font-size:calc(9px*var(--gt-fs,1.3));">${_maObjLabel(ins.objective)}</span>${daily?`<span style="font-family:'IBM Plex Sans',sans-serif;font-size:calc(10px*var(--gt-fs,1.3));font-weight:600;color:var(--muted);">${_maFmtR(daily)}/dia</span>`:''}`;
+      // Selo de ONDE fica o orçamento — em português, com a sigla entre parênteses.
+      const selo=nivelOrc.sigla
+        ?`<span class="gt-nivel-chip ${nivelOrc.sigla==='CBO'?'cbo':'abo'}" title="${_gtEsc(nivelOrc.explicacao)}">${nivelOrc.sigla==='CBO'?'Orçamento na campanha (CBO)':'Orçamento nos conjuntos (ABO)'}</span>`
+        :'';
+      chips.innerHTML=`<span class="ma-obj-chip" style="font-size:calc(9px*var(--gt-fs,1.3));">${_maObjLabel(ins.objective)}</span>${selo}${daily?`<span style="font-family:'IBM Plex Sans',sans-serif;font-size:calc(10px*var(--gt-fs,1.3));font-weight:600;color:var(--muted);">${_maFmtR(daily)}/dia</span>`:''}`;
       // KPIs por objetivo (balde da campanha — ver GT_METRIC_CATALOG/_gtBalde)
       const metrics=document.createElement('div');metrics.className='gt-metrics';
       metrics.innerHTML=_gtKpisHtml(Object.assign({},ins,{objective:kpiObjective}));
       const spendEl=document.createElement('div');spendEl.className='gt-spend';spendEl.textContent=_maFmtR(spend);
       const adCount=ads.length;
-      const hint=document.createElement('span');hint.className='gt-expand-hint';hint.textContent=adCount>0?`${adCount} anúncio${adCount!==1?'s':''}  ▾`:'sem anúncios';
+      const setCount=hier.length;
+      const hint=document.createElement('span');hint.className='gt-expand-hint';
+      // Agora a expansão mostra CONJUNTOS → anúncios, então o rótulo conta os dois.
+      hint.textContent=setCount>0
+        ?`${setCount} conjunto${setCount!==1?'s':''} · ${adCount} anúncio${adCount!==1?'s':''}  ▾`
+        :'sem conjuntos';
       const chev=document.createElement('svg');chev.setAttribute('class','gt-chevron');chev.setAttribute('width','12');chev.setAttribute('height','12');chev.setAttribute('viewBox','0 0 24 24');chev.setAttribute('fill','none');chev.setAttribute('stroke','currentColor');chev.setAttribute('stroke-width','2.5');chev.setAttribute('stroke-linecap','round');chev.setAttribute('stroke-linejoin','round');chev.innerHTML='<polyline points="9 18 15 12 9 6"/>';
       const l1=document.createElement('div');l1.className='gt-camp-l1';
       const numEl=document.createElement('div');numEl.className='gt-camp-num';numEl.textContent=String(i+1).padStart(2,'0');
@@ -854,10 +931,14 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
       if(bannerWrap.firstElementChild)inner.appendChild(bannerWrap.firstElementChild);
       // 2) Cabeçalho de apoio (clicável p/ expandir anúncios).
       inner.appendChild(top);
-      // 3) Edição manual de orçamento — sempre disponível (independe da IA), se houver orçamento diário e não estiver concluída.
-      if(daily!=null&&!encerrada){
+      // 3) Orçamento da campanha. Só oferece edição quando o orçamento é MESMO
+      // da campanha (CBO). Sendo ABO, mostra por que não dá e manda pro
+      // conjunto — antes a tela oferecia o campo, o Meta recusava e o dono
+      // ficava sem saber onde mexer.
+      const permCamp=podeEditarOrcamentoDaCampanha(camp,conjuntos);
+      if(!encerrada){
         const beWrap=document.createElement('div');
-        beWrap.innerHTML=_gtBudgetEditHtml(daily);
+        beWrap.innerHTML=_gtBudgetEditHtml(permCamp,orcamentoDe(camp));
         if(beWrap.firstElementChild)inner.appendChild(beWrap.firstElementChild);
       }
       // 4) Rodapé: pausar/reativar manual. Pula o "Pausar" se a faixa já mostra Pausar (evita botão duplicado).
@@ -867,19 +948,21 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights){
         if(tgl){const actBar=document.createElement('div');actBar.className='gt-action-row';actBar.appendChild(tgl);inner.appendChild(actBar);}
       }
       // 5) Liga os controles (aplicar sugerido, pausar da faixa, editar manual).
-      _gtWireBudgetControls(inner,ins,camp,iaRow);
-      // Ads pane
+      _gtWireBudgetControls(inner,ins,camp,iaRow,permCamp);
+      // Painel dos CONJUNTOS (que por sua vez trazem os anúncios dentro).
       const adsPane=document.createElement('div');adsPane.className='gt-camp-row-ads';
+      adsPane.__gtRender=()=>_renderGtConjuntos(adsPane,hier,camp,conjuntos,nivelOrc,i+1);
       top.addEventListener('click',()=>{
         const isOpen=adsPane.classList.toggle('open');
         chev.classList.toggle('open',isOpen);
         if(isOpen&&!adsPane.dataset.loaded){
           adsPane.dataset.loaded='1';
-          _renderGtAds(adsPane,ads,insights,adInsights,i+1);
+          adsPane.__gtRender();
         }
       });
       row.appendChild(inner);row.appendChild(adsPane);
-      if(ads.length){ adsPane.classList.add('open'); chev.classList.add('open'); adsPane.dataset.loaded='1'; _renderGtAds(adsPane,ads,insights,adInsights,i+1); }
+      // Aberto por padrão (como já era), a menos que o dono tenha recolhido tudo.
+      if(hier.length&&!_gtRecolhido){ adsPane.classList.add('open'); chev.classList.add('open'); adsPane.dataset.loaded='1'; adsPane.__gtRender(); }
       list.appendChild(row);
     });
   }
@@ -906,6 +989,75 @@ async function _gtVerCriativo(adId,accId,nome){
     }catch(e){}
   }
   bd.innerHTML='<div style="padding:30px 20px;text-align:center;color:var(--muted);font-family:\'IBM Plex Sans\',sans-serif;font-size:calc(12px*var(--gt-fs,1.3));line-height:1.6;">Não consegui carregar o preview deste anúncio agora.<br>Pode ser um formato sem preview disponível.</div>';
+}
+// Camada do meio: campanha → CONJUNTOS DE ANÚNCIOS → anúncios.
+// É aqui que se edita o orçamento quando a campanha é ABO (orçamento no
+// conjunto). hier vem do módulo puro (montarHierarquia).
+function _renderGtConjuntos(pane,hier,camp,conjuntos,nivelOrc,campNum){
+  const lbl=document.createElement('div');lbl.className='gt-ads-section-lbl';
+  lbl.textContent=`Conjuntos de anúncios (${hier.length})`;
+  pane.appendChild(lbl);
+  if(!hier.length){
+    const empty=document.createElement('div');empty.className='gt-set-empty';
+    empty.textContent='Nenhum conjunto de anúncios com gasto neste período';
+    pane.appendChild(empty);return;
+  }
+  // Explica por que os conjuntos não têm campo de orçamento (CBO ou
+  // desconhecido). Sendo ABO cada conjunto já mostra o seu, e o cabeçalho da
+  // campanha já apontou pra cá — a nota aqui seria repetição.
+  if(nivelOrc.nivel!=='conjunto'){
+    const nota=document.createElement('div');nota.className='gt-set-nivel-nota';
+    nota.textContent=nivelOrc.explicacao;
+    pane.appendChild(nota);
+  }
+  hier.forEach((g,si)=>{
+    const num=(campNum!=null?campNum+'.':'')+(si+1);
+    const cj=g.conjunto;
+    const status=(cj&&cj.effective_status)||'';
+    const card=document.createElement('div');card.className='gt-set-card';
+    const top=document.createElement('div');top.className='gt-set-top';
+    const numEl=document.createElement('div');numEl.className='gt-set-num';numEl.textContent=num;
+    const badge=document.createElement('div');
+    const cls=status==='ACTIVE'?'active':status==='PAUSED'?'paused':'inactive';
+    const bl=status==='ACTIVE'?'Ativo':status==='PAUSED'?'Pausado':status==='ARCHIVED'?'Arquivado':'—';
+    badge.className='gt-status-badge '+cls;badge.textContent=bl;
+    const nmEl=document.createElement('div');nmEl.className='gt-set-nm';
+    nmEl.textContent=g.nome||'—';nmEl.title=g.nome||'';
+    const gastoEl=document.createElement('div');gastoEl.className='gt-set-spend';gastoEl.textContent=_maFmtR(g.gasto);
+    const qtd=document.createElement('span');qtd.className='gt-expand-hint';
+    qtd.textContent=g.anuncios.length?`${g.anuncios.length} anúncio${g.anuncios.length!==1?'s':''}  ▾`:'sem anúncios';
+    const chev=document.createElement('svg');chev.setAttribute('class','gt-set-chevron');chev.setAttribute('width','11');chev.setAttribute('height','11');chev.setAttribute('viewBox','0 0 24 24');chev.setAttribute('fill','none');chev.setAttribute('stroke','currentColor');chev.setAttribute('stroke-width','2.5');chev.setAttribute('stroke-linecap','round');chev.setAttribute('stroke-linejoin','round');chev.innerHTML='<polyline points="9 18 15 12 9 6"/>';
+    const exp=document.createElement('div');exp.className='gt-set-exp';exp.appendChild(qtd);exp.appendChild(chev);
+    top.appendChild(numEl);top.appendChild(badge);top.appendChild(nmEl);top.appendChild(gastoEl);top.appendChild(exp);
+    card.appendChild(top);
+    // Orçamento DO CONJUNTO — editável só quando é ABO (o módulo puro decide).
+    // Só desenha a linha se este conjunto TEM orçamento próprio. Sendo CBO,
+    // nenhum conjunto tem, e a nota do painel já explicou que o orçamento é
+    // da campanha — repetir isso em cada conjunto seria só barulho.
+    const orc=cj?orcamentoDe(cj):null;
+    if(orc){
+      const perm=podeEditarOrcamentoDoConjunto(camp,cj,conjuntos);
+      const beWrap=document.createElement('div');
+      beWrap.innerHTML=_gtBudgetEditHtml(perm,orc);
+      if(beWrap.firstElementChild){
+        const be=beWrap.firstElementChild;
+        card.appendChild(be);
+        if(perm.editavel)_gtWireBudgetManual(be,{id:g.id,nome:g.nome,atualReais:perm.atualReais,nivelLbl:'do conjunto',nivelNome:'Conjunto'});
+      }
+    }
+    // Anúncios do conjunto.
+    const adsPane=document.createElement('div');adsPane.className='gt-set-pane';
+    adsPane.__gtRender=()=>_renderGtAds(adsPane,g.anuncios,null,null,num);
+    top.addEventListener('click',e=>{
+      e.stopPropagation(); // não deixa fechar a campanha inteira ao clicar no conjunto
+      const isOpen=adsPane.classList.toggle('open');
+      chev.classList.toggle('open',isOpen);
+      if(isOpen&&!adsPane.dataset.loaded){adsPane.dataset.loaded='1';adsPane.__gtRender();}
+    });
+    card.appendChild(adsPane);
+    if(g.anuncios.length&&!_gtRecolhido){adsPane.classList.add('open');chev.classList.add('open');adsPane.dataset.loaded='1';adsPane.__gtRender();}
+    pane.appendChild(card);
+  });
 }
 function _renderGtAds(pane,ads,allInsights,allAdInsights,campNum){
   const lbl=document.createElement('div');lbl.className='gt-ads-section-lbl';lbl.textContent=`Anúncios (${ads.length})`;pane.appendChild(lbl);
@@ -993,8 +1145,14 @@ async function _gtApplyAction(action,btn,rowEl){
     setTimeout(()=>loadGtData(),1500);
   }catch(e){
     const msg=String((e&&e.message)||e||'');
-    const friendly=/ad ?set|adset|campaign level|budget.*level|set level/i.test(msg)
-      ?'O orçamento está no <b>conjunto de anúncios</b> (CBO). Ajuste no nível do conjunto, não da campanha.'
+    // ATENÇÃO ÀS SIGLAS (já foram trocadas aqui uma vez e confundiram o dono):
+    // ABO = orçamento NO CONJUNTO de anúncios. CBO = orçamento NA CAMPANHA.
+    // "campanha" é testado ANTES: /budget.*level/ casaria com "campaign budget
+    // level" e daria a resposta trocada.
+    const friendly=/campaign level|campaign budget/i.test(msg)
+      ?'O orçamento está na <b>campanha</b> (CBO). Ajuste no nível da campanha, não do conjunto.'
+      :/ad ?set|adset|budget.*level|set level/i.test(msg)
+      ?'O orçamento está no <b>conjunto de anúncios</b> (ABO). Ajuste no nível do conjunto, não da campanha — abra a campanha e edite no conjunto.'
       :/permiss|#200|#10\b|#272|OAuth|token|management/i.test(msg)
       ?'O token desta conta <b>não tem permissão de gerenciar anúncios</b> (ads_management). Verifique o acesso na Meta.'
       :('<b>Erro da Meta:</b> '+_gtEsc(msg.slice(0,180)));
@@ -1114,6 +1272,30 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-camp-row-ads){padding:0 18px 14px 22px;display:none;flex-direction:column;gap:0;background:var(--surface2);border-top:1px solid var(--border);position:relative;overflow:hidden;}
 .tela-gestao-trafego :deep(.gt-camp-row-ads.open){display:flex;}
 .tela-gestao-trafego :deep(.gt-ads-section-lbl){font-family:'IBM Plex Sans',sans-serif;font-size:calc(9px*var(--gt-fs,1.3));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 0 6px 20px;opacity:.7;}
+/* ── Conjuntos de anúncios (camada entre a campanha e os anúncios) ── */
+.tela-gestao-trafego :deep(.gt-set-card){border-radius:9px;background:var(--surface);border:1px solid var(--border);padding:10px 12px;display:flex;flex-direction:column;gap:6px;margin-left:8px;margin-bottom:9px;box-shadow:0 2px 10px rgba(0,0,0,.06);}
+.tela-gestao-trafego :deep(.gt-set-top){display:flex;align-items:center;gap:9px;cursor:pointer;min-width:0;}
+.tela-gestao-trafego :deep(.gt-set-num){font-family:'Oswald',sans-serif;font-size:calc(11px*var(--gt-fs,1.3));font-weight:600;color:var(--accent);opacity:.85;flex-shrink:0;font-variant-numeric:tabular-nums;letter-spacing:.3px;}
+.tela-gestao-trafego :deep(.gt-set-nm){flex:1;min-width:0;font-family:'IBM Plex Sans',sans-serif;font-size:calc(11.5px*var(--gt-fs,1.3));font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tela-gestao-trafego :deep(.gt-set-spend){font-family:'Oswald',sans-serif;font-size:calc(13px*var(--gt-fs,1.3));font-weight:700;color:var(--text);flex-shrink:0;font-variant-numeric:tabular-nums;}
+.tela-gestao-trafego :deep(.gt-set-exp){display:flex;align-items:center;gap:5px;flex-shrink:0;}
+.tela-gestao-trafego :deep(.gt-set-top:hover .gt-expand-hint){opacity:1;color:var(--accent);}
+.tela-gestao-trafego :deep(.gt-set-chevron){flex-shrink:0;transition:transform .2s;color:var(--muted);opacity:.55;}
+.tela-gestao-trafego :deep(.gt-set-chevron.open){transform:rotate(90deg);}
+.tela-gestao-trafego :deep(.gt-set-pane){display:none;flex-direction:column;gap:0;margin-top:2px;}
+.tela-gestao-trafego :deep(.gt-set-pane.open){display:flex;}
+.tela-gestao-trafego :deep(.gt-set-empty),.tela-gestao-trafego :deep(.gt-set-nivel-nota){font-family:'IBM Plex Sans',sans-serif;font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;}
+.tela-gestao-trafego :deep(.gt-set-empty){padding:6px 0 6px 20px;}
+.tela-gestao-trafego :deep(.gt-set-nivel-nota){padding:0 0 9px 8px;opacity:.85;}
+/* Selo de onde fica o orçamento: campanha (CBO) x conjuntos (ABO) */
+.tela-gestao-trafego :deep(.gt-nivel-chip){font-family:'IBM Plex Sans',sans-serif;font-size:calc(9px*var(--gt-fs,1.3));font-weight:700;letter-spacing:.3px;padding:2px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0;cursor:help;}
+.tela-gestao-trafego :deep(.gt-nivel-chip.cbo){background:rgba(99,102,241,.12);color:#6366f1;}
+.tela-gestao-trafego :deep(.gt-nivel-chip.abo){background:rgba(217,119,6,.12);color:#d97706;}
+/* Botão recolher/expandir tudo */
+.tela-gestao-trafego :deep(.gt-collapse-all){font-family:'IBM Plex Sans',sans-serif;font-size:calc(10px*var(--gt-fs,1.3));font-weight:600;letter-spacing:.3px;padding:4px 10px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;}
+.tela-gestao-trafego :deep(.gt-collapse-all:hover){border-color:var(--accent);color:var(--accent);}
+/* Aviso de "não dá pra editar aqui" (ex.: é ABO, edite no conjunto) */
+.tela-gestao-trafego :deep(.gt-be-nota){font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--muted);opacity:.9;line-height:1.5;}
 .tela-gestao-trafego :deep(.gt-ad-card){border-radius:8px;background:var(--surface);border:1px solid var(--border);padding:11px 14px;display:flex;flex-direction:column;gap:6px;margin-left:20px;margin-bottom:7px;box-shadow:0 2px 8px rgba(0,0,0,.07);position:relative;}
 .tela-gestao-trafego :deep(.gt-ad-card::before){content:'';position:absolute;left:-8px;top:calc(-130% + 13px);width:14px;height:calc(130% + 7px);border-left:2px solid var(--accent);border-bottom:2px solid var(--accent);border-bottom-left-radius:11px;opacity:.6;}
 .tela-gestao-trafego :deep(.gt-ad-card:first-child::before){top:-60px;height:80px;}
@@ -1266,6 +1448,17 @@ Object.assign(window, {
   .tela-gestao-trafego :deep(.gt-action-row .gt-act-btn){flex:1 1 auto;}
   /* nada dentro do card pode empurrar a largura pra fora */
   .tela-gestao-trafego :deep(.gt-camp-inner),.tela-gestao-trafego :deep(.gt-camp-row){max-width:100%;overflow-x:clip;}
+  /* Conjuntos no celular: cabeçalho quebra em 2 linhas em vez de estourar a tela */
+  .tela-gestao-trafego :deep(.gt-camp-row-ads){padding:0 10px 12px 10px;}
+  .tela-gestao-trafego :deep(.gt-set-card){margin-left:0;max-width:100%;overflow-x:clip;}
+  .tela-gestao-trafego :deep(.gt-set-top){flex-wrap:wrap;gap:6px;}
+  .tela-gestao-trafego :deep(.gt-set-nm){flex:1 1 100%;order:3;white-space:normal;}
+  .tela-gestao-trafego :deep(.gt-set-exp){order:4;margin-left:auto;}
+  .tela-gestao-trafego :deep(.gt-ad-card){margin-left:10px;}
+  .tela-gestao-trafego :deep(.gt-ad-card::before){display:none;} /* a guia em L não cabe no estreito */
+  .tela-gestao-trafego :deep(.gt-collapse-all){flex:1 1 auto;}
+  .tela-gestao-trafego :deep(.gt-be-box){flex:1 1 100%;}
+  .tela-gestao-trafego :deep(.gt-be-box input){flex:1 1 auto;width:auto;min-width:0;}
 }
 @media(max-width:480px){
   /* SEM inverter a ordem da marca (o order:1 antigo jogava a marca pro fim = bug) */
