@@ -1,4 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { exigirSegredoDeCron } from '../_shared/segredo-de-cron.ts';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 
@@ -11,7 +12,14 @@ function verdict(stored: number | null | undefined, meta: number | null): [strin
   return ['ok', `painel=${stored} vs Meta=${meta}`];
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req: Request) => {
+  // Só o pg_cron entra. Antes: verify_jwt=false E nenhuma checagem aqui dentro =
+  // endpoint aberto na internet. Qualquer um apagava a trilha de auditoria do dia
+  // (o DELETE logo abaixo), gastava a cota da Graph API das contas e disparava o
+  // ALERT_WEBHOOK_URL com "🚨 Saúde dos dados" falso.
+  const negado = await exigirSegredoDeCron(req, 'auditar-dados');
+  if (negado) return negado;
+
   const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
   // 1) Checks internos + sanidade (função SQL)

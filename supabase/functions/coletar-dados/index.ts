@@ -1,4 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { exigirSegredoDeCron } from '../_shared/segredo-de-cron.ts';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 const APP_ID = Deno.env.get('META_APP_ID') ?? '';
@@ -446,7 +447,15 @@ async function rodarColeta() {
 // SINCRONO: aguarda a coleta inteira (~120s) e responde no fim. O invocador precisa segurar a
 // conexão — o cron usa net.http_post com timeout_milliseconds:=180000 (background não é confiável
 // aqui: EdgeRuntime.waitUntil foi morto pela reciclação da instância).
-Deno.serve(async (_req: Request) => {
+Deno.serve(async (req: Request) => {
+  // Só o pg_cron entra. Antes: verify_jwt=true, o que NÃO protegia — a anon key é
+  // um JWT válido do projeto e está no bundle público do site. Tanto que o próprio
+  // cron mandava a anon key. Sem isto, qualquer visitante dispara a coleta em loop:
+  // queima a cota da Graph API das contas e força a rotação do token da Meta
+  // (renovarToken → UPDATE em accounts.access_token) a cada rodada.
+  const negado = await exigirSegredoDeCron(req, 'coletar-dados');
+  if (negado) return negado;
+
   try {
     const r = await rodarColeta();
     return new Response(JSON.stringify({ ok: true, ts: new Date().toISOString(), ...r }), { headers: { 'Content-Type': 'application/json' } });
