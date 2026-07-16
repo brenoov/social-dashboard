@@ -32,8 +32,19 @@
           </button>
         </div>
       </div>
-      <!-- Estado vazio: nunca deixar a tela em branco. Ver semNenhumaFerramenta. -->
-      <div v-if="semNenhumaFerramenta" class="inicio-vazio">
+      <!-- Estado vazio: nunca deixar a tela em branco. Ver semNenhumaFerramenta.
+           Dois motivos MUITO diferentes levam à tela sem cards, e dizer o motivo
+           errado é pior que não dizer nada: "você não tem acesso" para quem só teve
+           uma falha de rede é mentira, e manda a pessoa cobrar o admin à toa. -->
+      <div v-if="falhouAoCarregarPerfil" class="inicio-vazio">
+        <div class="inicio-vazio-icone" aria-hidden="true">⚠</div>
+        <p class="inicio-vazio-t">Não consegui carregar seus acessos.</p>
+        <p class="inicio-vazio-d">{{ estado.erroPerfil.mensagem }}</p>
+        <button class="inicio-vazio-btn" @click="tentarDeNovo">
+          {{ estado.erroPerfil.acao === 'entrar' ? 'Entrar de novo' : 'Tentar de novo' }}
+        </button>
+      </div>
+      <div v-else-if="semNenhumaFerramenta" class="inicio-vazio">
         <div class="inicio-vazio-icone" aria-hidden="true">🔒</div>
         <p class="inicio-vazio-t">Você ainda não tem acesso a nenhuma ferramenta.</p>
         <p class="inicio-vazio-d">Fale com o administrador para liberar o que você precisa usar.</p>
@@ -159,7 +170,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { estado, hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
+import { estado, hasPermission, carregarPerfil } from '../../compartilhado/controle-de-login-e-usuario.js'
 
 const router = useRouter()
 
@@ -184,6 +195,17 @@ const semNenhumaFerramenta = computed(() =>
   !podeBanco.value && !podeNoticias.value && !podeGestor.value &&
   !podeAcessos.value && !podeClaudeStatus.value
 )
+
+// O perfil não carregou (rede, sessão expirada, servidor). É DIFERENTE de "não tem
+// permissão", e tem precedência: num login a frio com a rede caindo não há valor
+// anterior a preservar, então permissions fica {} e a pessoa cairia no aviso errado
+// — iria cobrar acesso do admin quando o problema era um blip de rede.
+const falhouAoCarregarPerfil = computed(() => !!estado.erroPerfil)
+
+async function tentarDeNovo() {
+  if (estado.erroPerfil?.acao === 'entrar') { router.push({ name: 'login' }); return }
+  if (estado.currentSession) await carregarPerfil(estado.currentSession)
+}
 
 // Caminho absoluto: servido em produção via rewrite do Vercel (/midia/:path*),
 // igual ao legado. Ligação dinâmica (:src) evita que o Vite tente resolver
@@ -259,6 +281,8 @@ onMounted(() => {
 .inicio-vazio-icone{font-size:34px;line-height:1;opacity:.55;margin-bottom:4px;}
 .inicio-vazio-t{font-family:'Sora',sans-serif;font-size:15px;font-weight:600;color:var(--text);margin:0;}
 .inicio-vazio-d{font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--muted);margin:0;max-width:38ch;}
+.inicio-vazio-btn{margin-top:14px;padding:8px 18px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:background .15s;}
+.inicio-vazio-btn:hover{background:var(--surface2);}
 @media (max-width:640px){
   .inicio-vazio{padding:40px 18px;}
   .inicio-vazio-t{font-size:14px;}
