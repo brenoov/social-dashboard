@@ -6,14 +6,19 @@ const APP_ID = Deno.env.get('META_APP_ID') ?? '';
 const APP_SECRET = Deno.env.get('META_APP_SECRET') ?? '';
 const ALERT_WEBHOOK_URL = Deno.env.get('ALERT_WEBHOOK_URL') ?? '';
 
-const AD_ACCOUNTS: Record<string, string> = {
-  '17841401847160442': '591630990582441',
-  '17841401284454639': '1523458001735386',
-  '17841406451230767': '786453150398609',
-  '17841462952561833': '1197997517858139',
-  '17841464138609037': '803642218253857',
-};
-
+// A conta de anúncios de cada perfil vem da coluna `accounts.ad_account_id`, NÃO
+// de uma lista escrita aqui.
+//
+// Existia um mapa fixo instagram_id → ad_account_id neste arquivo. Ele saiu de
+// sincronia com o banco: o da Mantova Móveis dizia '786453150398609' enquanto a
+// coluna dizia '1449585576442706'. A Meta não devolve nada para a conta errada, o
+// erro morria num catch vazio, e a Mantova ficou com ZERO linha em
+// campaign_insights desde sempre — enquanto os 4 perfis cujos números batiam
+// tinham de 805 a 5.280 linhas. As telas sempre leram a coluna; só o coletor não.
+//
+// Não recrie o mapa. Perfil novo com anúncios = preencher ad_account_id no banco,
+// e o coletor pega sozinho. É a regra do projeto: lógica genérica, sem gambiarra
+// por perfil.
 const PERIODS = [0, 1, 7, 14, 30];
 const ENG_KEYS = ['likes', 'comments', 'saves', 'shares', 'reach', 'views', 'total_interactions', 'accounts_engaged', 'profile_views'];
 
@@ -341,7 +346,7 @@ async function coletarAdsDia(sb: any, adAccountId: string, accountId: string, to
 }
 
 async function processarConta(sb: any, acc: any, degraded: string[]) {
-  const { id: accountId, instagram_id: igId, name, access_token: token } = acc;
+  const { id: accountId, instagram_id: igId, name, access_token: token, ad_account_id: adAccountId } = acc;
   if (!token) { console.log(`⚠ Sem token: ${name}`); return null; }
   const hoje = todayBR();
   console.log(`▶ ${name}`);
@@ -391,7 +396,7 @@ async function processarConta(sb: any, acc: any, degraded: string[]) {
 
   await gravarEng(sb, accountId, hoje, 99, igId, token, name, degraded);
 
-  const adAccountId = AD_ACCOUNTS[igId];
+  // Perfil sem ad_account_id preenchido não tem anúncios — pula, sem erro.
   if (adAccountId) {
     await sincronizarCampanhas(sb, accountId, adAccountId, token);
     for (const dias of PERIODS) await coletarAdsPorCampanha(sb, adAccountId, accountId, token, dias, hoje);
@@ -433,7 +438,9 @@ async function rodarColeta() {
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
-  const { data: accounts, error } = await sb.from('accounts').select('id,name,instagram_id,access_token');
+  // ad_account_id vem daqui — antes o coletor nem selecionava a coluna e usava um
+  // mapa fixo no código, que estava errado para a Mantova Móveis.
+  const { data: accounts, error } = await sb.from('accounts').select('id,name,instagram_id,access_token,ad_account_id');
   if (error) throw error;
   console.log(`Iniciando coleta — ${new Date().toISOString()} — ${accounts.length} contas`);
   const degraded: string[] = [];
