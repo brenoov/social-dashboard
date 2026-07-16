@@ -32,20 +32,33 @@ Dessa discordância saem quase todos os furos: o front esconde o botão, a Edge 
 
 Acesso ao Supabase `kounqtdoioootxqegkij` obtido. Os itens abaixo saíram de suposição para **fato**.
 
-### 1. `accounts.access_token` está exposto — CONFIRMADO
+### 1. `accounts.access_token` — FALSO POSITIVO, RETRATADO
+
+**A auditoria afirmou que o token estava exposto. Está errado, e a "confirmação" inicial deste documento também estava.** Retratado no mesmo dia, após teste real.
 
 ```
-policyname          | papeis   | cmd    | condicao
-auth_read_accounts  | {public} | SELECT | (auth.role() = 'authenticated')
-admin_update_accounts| {public}| UPDATE | (profiles.role = 'admin')
+policyname           | papeis   | cmd    | condicao
+auth_read_accounts   | {public} | SELECT | (auth.role() = 'authenticated')
+admin_update_accounts| {public} | UPDATE | (profiles.role = 'admin')
 ```
 
-- A tabela tem coluna `access_token`; **7 contas, todas com token preenchido**.
-- RLS ligada, mas a policy de leitura não recorta coluna, e há grants de coluna para `authenticated`.
-- **Qualquer usuário logado na Central** roda `sbClient.from('accounts').select('access_token')` no console e leva os 7 tokens do Meta.
-- **Não** é exposição pública: a policy exige `authenticated`, então a chave anon sozinha não abre. É exposição a quem tem login.
+A policy é permissiva mesmo — **e ainda assim o token não sai**. Teste com JWT de usuário real:
 
-**Correção (Onda 3):** mover o token para tabela própria sem policy (só service role), ou expor `accounts` ao front por view sem a coluna. Considerar rotação dos 7 tokens após fechar.
+| Requisição | Resultado |
+|---|---|
+| `GET /rest/v1/accounts?select=access_token` | **42501 permission denied** |
+| `GET /rest/v1/accounts?select=*` | **42501 permission denied** |
+| `GET /rest/v1/accounts?select=id,name` | 200 OK |
+
+**Por que enganou:** o argumento "RLS é row-level, não column-level, logo a policy que libera `id,name` libera `access_token`" está **correto sobre RLS** — e é por isso que soou convincente. Mas o Postgres tem **duas** camadas de autorização, e a outra já estava aplicada: existe um `GRANT SELECT` por **coluna** (10 das 11; `access_token` de fora), independente do RLS.
+
+**O erro de confirmação:** contamos linhas em `information_schema.column_privileges` para `access_token`, achamos 6, e demos como prova de exposição. As 6 são `INSERT`, `REFERENCES` e `UPDATE` (3 privilégios × 2 papéis). `SELECT` nunca esteve entre elas. Contamos em vez de ler o `privilege_type`.
+
+**Regra que fica:** exposição de coluna se testa com um JWT real contra o PostgREST. `pg_policies` sozinho não conta a história, e contagem de grant sem ler o tipo é pior que não checar — dá falsa confiança.
+
+**Resta um detalhe menor:** `authenticated` tem `UPDATE` em `access_token`, mas a policy `admin_update_accounts` restringe a `role='admin'`. Dá para sobrescrever o token, não para lê-lo. Não é vazamento; é integridade, e vale endereçar na Onda 3 junto do `admin_update_profiles`.
+
+**Nenhuma ação de rotação é necessária.** (O dono decidiu não rotacionar nada em 2026-07-16 — o token da Meta nunca saiu, e a decisão sobre o Bling é dele.)
 
 ### 2. `auditar-dados` é pior do que a auditoria supôs — CONFIRMADO
 
@@ -290,7 +303,7 @@ Nota: `sales.metas` declara `['ver','editar']` e `social.relatorio`/`gestor.rela
 - `_shared/autorizar.ts` nas 5 funções da Fábrica (hoje `hasOwnProperty` = usuário "somente ver" apaga campanhas).
 - `allowed_accounts` verificado em `insights-ao-vivo`, `contar-collabs`, `serie-novos-dia` (hoje só filtra o seletor no front; trocar `account_id` no request lê investimento em R$ de outro perfil).
 - Checagem de ação `editar` nas mutações do Gestor de Tráfego (hoje pausar/orçamento não checam nada; `_gtOpenEditor`/`_gtSaveEditor` estão expostos em `window`).
-- `accounts.access_token` conforme o resultado do SQL de pré-requisito: mover para tabela própria sem policy, ou expor `accounts` ao front via view sem a coluna.
+- ~~`accounts.access_token`~~ — **removido do escopo: falso positivo, ver retratação acima.** O token já está protegido por `GRANT SELECT` de coluna. Sobra só o `UPDATE` (admin pode sobrescrever, não ler) — endereçar junto do `admin_update_profiles`.
 - Confirmar RLS de UPDATE em `profiles` restringindo `is_superadmin`/`role` a superadmins (a auditoria não conseguiu ler as policies; sem isso, `role='admin'` se autopromove por REST).
 - Teste de RLS com usuário descartável.
 
