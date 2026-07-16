@@ -83,22 +83,43 @@
       <div class="csc-sec csc-sec-proj">
         <div>
           <h2 class="csc-sec-t">Projetos em construção</h2>
-          <p class="csc-sec-d">Em que pé está cada coisa. Atualiza sozinho pelos planos — e você pode <b>arrastar os cards</b> entre as colunas, ou usar o lápis pra editar.</p>
+          <p class="csc-sec-d">Em que pé está cada coisa. Da esquerda pra direita é o caminho: <b>ainda não começou → sendo construído → pronto e no ar</b>. Você pode <b>arrastar os cards</b> entre as colunas, ou usar o lápis pra editar.</p>
         </div>
         <button class="csc-add-btn" @click="abrirNovo('em-andamento')">+ Novo projeto</button>
       </div>
+
+      <!-- Alterna entre o quadro curado e o quadro completo -->
+      <div class="csc-quadro-abas">
+        <button class="csc-quadro-aba" :class="{ ativa: quadro === 'simples' }" @click="quadro = 'simples'">
+          Acompanhamento
+          <span class="csc-quadro-cont">{{ projetosSimples.length }}</span>
+        </button>
+        <button class="csc-quadro-aba" :class="{ ativa: quadro === 'tecnico' }" @click="quadro = 'tecnico'">
+          Detalhado (automático)
+          <span class="csc-quadro-cont">{{ projetosTecnicos.length }}</span>
+        </button>
+      </div>
+      <p class="csc-quadro-desc">
+        <template v-if="quadro === 'simples'">
+          Só o que foi adicionado à mão — a lista curta do que vale acompanhar.
+        </template>
+        <template v-else>
+          Lido sozinho dos planos, sem ninguém tocar. Mostra tudo, inclusive o que só interessa a quem constrói.
+        </template>
+      </p>
+
       <div class="csc-kanban">
         <div v-for="col in colunas" :key="col.key" class="csc-col" :class="{ 'is-over': arrastando }" @dragover.prevent @dragenter.prevent @drop="onDropCol(col.key)">
           <div class="csc-col-head" :class="'sit-' + col.key">
             <span class="csc-col-nome">{{ col.label }}</span>
             <span class="csc-col-acoes">
-              <span class="csc-col-cont">{{ (projetosPorSit[col.key] || []).length }}</span>
+              <span class="csc-col-cont">{{ (porSitAtivo[col.key] || []).length }}</span>
               <button class="csc-col-add" title="Adicionar aqui" @click="abrirNovo(col.key)">+</button>
             </span>
           </div>
           <p class="csc-col-desc">{{ col.desc }}</p>
           <div class="csc-col-body">
-            <div v-for="p in (projetosPorSit[col.key] || [])" :key="p.projeto" class="csc-proj" draggable="true" @dragstart="onDrag(p)" @dragend="arrastando = null">
+            <div v-for="p in (porSitAtivo[col.key] || [])" :key="p.projeto" class="csc-proj" draggable="true" @dragstart="onDrag(p)" @dragend="arrastando = null">
               <div class="csc-proj-top">
                 <span class="csc-proj-titulo">{{ p.titulo }}</span>
                 <span class="csc-proj-tags">
@@ -116,7 +137,7 @@
                 <button title="Remover" @click="excluir(p)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
               </div>
             </div>
-            <div v-if="!(projetosPorSit[col.key] || []).length" class="csc-col-vazio">Nada por aqui. Arraste um card ou clique no +.</div>
+            <div v-if="!(porSitAtivo[col.key] || []).length" class="csc-col-vazio">{{ quadro === 'simples' ? 'Nada por aqui. Arraste um card ou clique no +.' : 'Nenhum plano nesta etapa.' }}</div>
           </div>
         </div>
       </div>
@@ -240,11 +261,18 @@ const META = Object.fromEntries(ROBOS.map(r => [r.slug, r]))
 const nomeRobo = (slug) => (META[slug]?.label) || slug
 
 // Colunas do kanban, em linguagem bem literal.
+// A ORDEM aqui é o caminho que um projeto percorre: começa, é construído, e fica
+// pronto. Antes "Fazendo agora" vinha ANTES de "Ainda não começou" — o meio antes
+// do início — e por isso o quadro não se lia como algo caminhando.
+//
+// "Parado" fica por último de propósito: não é uma etapa do caminho, é o desvio.
+// Projeto parado saiu da esteira; deixá-lo no meio dava a impressão de que todo
+// mundo passa por ali.
 const colunas = [
-  { key: 'em-andamento', label: 'Fazendo agora',      desc: 'Está sendo construído neste momento.' },
-  { key: 'planejado',    label: 'Ainda não começou',  desc: 'Está planejado, mas o trabalho não começou.' },
-  { key: 'pausado',      label: 'Parado',             desc: 'Começou mas travou, esperando alguma coisa.' },
-  { key: 'no-ar',        label: 'Pronto e no ar',     desc: 'Terminado e já funcionando de verdade.' },
+  { key: 'planejado',    label: '1 · Ainda não começou', desc: 'Está na fila. O trabalho ainda não foi iniciado.' },
+  { key: 'em-andamento', label: '2 · Sendo construído',  desc: 'Alguém está trabalhando nisso agora.' },
+  { key: 'no-ar',        label: '3 · Pronto e no ar',    desc: 'Terminado e funcionando de verdade, em produção.' },
+  { key: 'pausado',      label: '⏸ Parado',              desc: 'Começou e travou. Está esperando alguma coisa pra destravar.' },
 ]
 
 const execucoes = ref([])
@@ -321,11 +349,31 @@ const robosView = computed(() => {
   })
 })
 
-const projetosPorSit = computed(() => {
+// Dois quadros, duas origens.
+//
+// O TÉCNICO é lido sozinho dos planos em docs/superpowers/plans/ (robô
+// status-projetos). É detalhado e mostra tudo — inclusive coisa que só interessa
+// a quem constrói. É o quadro que "atualiza sozinho".
+//
+// O SIMPLIFICADO tem só o que foi posto à mão. É a lista curta e curada: o que
+// alguém decidiu que merece ser acompanhado, sem o ruído dos 31 planos.
+//
+// A separação é por origem (`manual`), não por conteúdo — é o mesmo card, no
+// quadro certo.
+function _agruparPorSituacao(lista) {
   const g = {}
-  for (const p of projetos.value) (g[p.situacao] = g[p.situacao] || []).push(p)
+  for (const p of lista) (g[p.situacao] = g[p.situacao] || []).push(p)
   return g
-})
+}
+const projetosTecnicos = computed(() => projetos.value.filter(p => !p.manual))
+const projetosSimples  = computed(() => projetos.value.filter(p => !!p.manual))
+const porSitTecnico = computed(() => _agruparPorSituacao(projetosTecnicos.value))
+const porSitSimples = computed(() => _agruparPorSituacao(projetosSimples.value))
+
+// Qual quadro está na tela. Começa no curado: é a lista curta, a que responde
+// "em que pé estamos" sem os 31 planos no meio.
+const quadro = ref('simples')
+const porSitAtivo = computed(() => quadro.value === 'simples' ? porSitSimples.value : porSitTecnico.value)
 
 // ── extrato de gastos ──
 const aba = ref('visao')
@@ -622,6 +670,21 @@ onUnmounted(() => {
 
 /* Abas + extrato */
 .csc-wrap { display: contents; }
+/* Abas dos dois quadros de projeto (curado × automático). Prefixo csc- como o
+   resto do arquivo — o estilos-globais.css tem classes genéricas e este projeto
+   já teve bug de colisão entre global e tela scoped. */
+.csc-quadro-abas { display: flex; gap: 4px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 4px; width: fit-content; margin: 4px 0 0; }
+.csc-quadro-aba { display: flex; align-items: center; gap: 7px; border: none; background: none; color: var(--muted); font-family: inherit; font-size: 12.5px; font-weight: 600; padding: 7px 14px; border-radius: var(--radius-sm); cursor: pointer; transition: background .15s, color .15s; }
+.csc-quadro-aba.ativa { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+.csc-quadro-cont { font-size: 11px; font-weight: 700; min-width: 18px; padding: 1px 5px; border-radius: 9px; background: var(--border); color: var(--muted); }
+.csc-quadro-aba.ativa .csc-quadro-cont { background: var(--text); color: var(--surface); }
+.csc-quadro-desc { font-family: 'IBM Plex Sans', sans-serif; font-size: 12.5px; color: var(--muted); margin: 8px 0 14px; max-width: 70ch; }
+@media (max-width: 640px) {
+  .csc-quadro-abas { width: 100%; }
+  .csc-quadro-aba { flex: 1; justify-content: center; padding: 8px 8px; font-size: 11.5px; }
+  .csc-quadro-desc { font-size: 11.5px; }
+}
+
 .csc-tabs { display: flex; gap: 4px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 4px; width: fit-content; }
 .csc-tabs button { border: none; background: none; color: var(--muted); font-family: inherit; font-size: 13.5px; font-weight: 600; padding: 8px 18px; border-radius: var(--radius-sm); cursor: pointer; transition: background .15s, color .15s; }
 .csc-tabs button.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
