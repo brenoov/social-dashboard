@@ -181,6 +181,7 @@
       </div>
 
       <!-- 02 META ADS -->
+      <faixa-de-erro :erro="erroAds" @tentar-de-novo="refresh" />
       <div class="sec-header">
         <div class="section-label">02 · Meta Ads</div>        <div class="sec-line"></div>
       </div>
@@ -432,8 +433,9 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import FaixaDeErro from '../../compartilhado/faixa-de-erro.vue'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { estado, hasPermission, contasPermitidas } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
@@ -441,6 +443,9 @@ import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { hojeLocal } from '../../compartilhado/datas.js'
 
 const router = useRouter()
+
+// Falha das buscas de campaign_insights (seção 02 · Meta Ads). Nulo = deu certo.
+const erroAds = ref(null)
 
 const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
 const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
@@ -1196,11 +1201,16 @@ async function fetchData(accountId, period, customStart, customEnd) {
   let _adsPd = storedPeriod, _adsCur = `captured_at=lte.${refDateStr}&order=captured_at.desc`, _adsPrev = `captured_at=lte.${prevRefDateStr}&order=captured_at.desc`
   if (isHoje) { _adsPd = 0; _adsCur = `captured_at=eq.${_hojeBRT}`; _adsPrev = `captured_at=eq.${_ontemBRT}` }
   else if (period === 1) { const _anteBRT = localDate(new Date(new Date(_ontemBRT + 'T00:00:00').getTime() - 86400000)); _adsPd = 0; _adsCur = `captured_at=eq.${_ontemBRT}`; _adsPrev = `captured_at=eq.${_anteBRT}` }
+  erroAds.value = null
   if (!noneSelected) {
     const [ciCurr, ciPrev] = await Promise.all([
       sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.${_adsPd}&${_adsCur}&limit=200&select=campaign_id,spend,impressions,clicks,reach,post_engagement,likes,comments,shares,saves,captured_at${idFilter}`),
       sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.${_adsPd}&${_adsPrev}&limit=200&select=campaign_id,spend,impressions,clicks,reach,post_engagement,likes,comments,shares,saves,captured_at${idFilter}`),
     ])
+    // Captura o .erro AQUI, colado no await: o .erro é uma propriedade do array
+    // que o sb() devolveu — .filter()/.map() (o aggCi abaixo) criam array novo e
+    // deixam o .erro para trás.
+    erroAds.value = ciCurr.erro || ciPrev.erro || null
     const adsAgg = aggCi(ciCurr); const prevAdsAgg = aggCi(ciPrev)
     spend = adsAgg?.spend || 0; impressions = adsAgg?.impressions || 0; clicks = adsAgg?.clicks || 0; reach = adsAgg?.reach || 0
     adEngagement = adsAgg?.adEngagement || 0; adLikes = adsAgg?.adLikes || 0; adComments = adsAgg?.adComments || 0; adShares = adsAgg?.adShares || 0; adSaves = adsAgg?.adSaves || 0

@@ -77,6 +77,8 @@
         </article>
       </div>
 
+      <faixa-de-erro :erro="erroCarregar" @tentar-de-novo="carregar" />
+
       <!-- PROJETOS -->
       <div class="csc-sec csc-sec-proj">
         <div>
@@ -214,6 +216,7 @@ import { useRouter } from 'vue-router'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { adminToast } from '../../compartilhado/avisos.js'
+import FaixaDeErro from '../../compartilhado/faixa-de-erro.vue'
 
 const router = useRouter()
 const voltar = () => router.push({ name: 'inicio' })
@@ -379,13 +382,20 @@ function fraseAcaoMaiuscula(e) {
 }
 
 // ── carga ──
+const erroCarregar = ref(null)
+
 async function carregar() {
   const [ex, pr] = await Promise.all([
     sb('ia_execucoes?select=*&order=run_at.desc&limit=200'),
     sb('projetos_status?select=*&arquivado=is.false&order=ordem.desc'),
   ])
-  execucoes.value = ex
-  projetos.value = pr
+  // Antes: falha virava [] e a tela dizia "0 execuções, R$ 0" como se fosse
+  // verdade. Só sobrescreve os dados bons quando a busca deu certo — assim um
+  // blip de rede no refresh de 60s não apaga o que já estava na tela.
+  erroCarregar.value = ex.erro || pr.erro || null
+  if (!ex.erro) execucoes.value = ex
+  if (!pr.erro) projetos.value = pr
+  if (erroCarregar.value) return
   const hh = new Date()
   statusCarga.value = 'atualizado às ' + hh.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
