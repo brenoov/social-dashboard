@@ -210,6 +210,7 @@
             <span class="mc-diff" id="diff-spend"></span>
           </div>
           <div class="calc-badge">⚡ Menor gasto com mais resultado = ideal</div>
+          <div class="gmad-bloco" id="gmad-spend"></div>
         </div>
         <div class="card">
           <div class="mc-header">
@@ -230,6 +231,7 @@
             <span class="mc-diff" id="diff-cps"></span>
           </div>
           <div class="calc-badge">⚡ Menor é melhor · investimento ÷ novos seguidores</div>
+          <div class="gmad-bloco" id="gmad-cps"></div>
         </div>
         <div class="card">
           <div class="mc-header">
@@ -441,6 +443,7 @@ import { estado, hasPermission, contasPermitidas } from '../../compartilhado/con
 import { adminToast } from '../../compartilhado/avisos.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { hojeLocal } from '../../compartilhado/datas.js'
+import { montarSerieDeInvestimento, montarSerieDeCustoPorSeguidor } from './series-diarias-de-meta-ads.js'
 
 const router = useRouter()
 
@@ -976,6 +979,82 @@ function buildChart(chartData) {
   })
 }
 
+/* ── GRÁFICOS DIÁRIOS DA SEÇÃO 02 · META ADS ──
+   Barras = o valor de cada dia · linha tracejada = a meta daquele dia.
+   SVG puro no mesmo estilo do buildChart acima — sem biblioteca externa, sem CDN.
+   Aqui o SVG escala uniforme (sem preserveAspectRatio="none"), então o texto pode ficar
+   dentro do próprio SVG: não estica nem distorce como no gráfico de seguidores.
+   Genérico: os dois gráficos usam ESTA função, sem nenhuma regra por perfil. */
+function _gmadDiaCurto(iso) { const p = String(iso).split('-'); return p.length === 3 ? Number(p[2]) + '/' + Number(p[1]) : String(iso) }
+const _GMAD_MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+function _gmadDiaLongo(iso) { const d = new Date(iso + 'T12:00:00'); return isNaN(d.getTime()) ? String(iso) : d.getDate() + ' ' + _GMAD_MESES[d.getMonth()] }
+function desenharGraficoDiario(hostId, serie, opcoes) {
+  const host = document.getElementById(hostId); if (!host) return
+  host.textContent = ''
+  const titulo = document.createElement('div'); titulo.className = 'gmad-titulo'; titulo.textContent = opcoes.titulo
+  host.appendChild(titulo)
+  const pontos = (serie && serie.pontos) || []
+  if (!serie || !serie.temDado) {
+    const v = document.createElement('div'); v.className = 'gmad-vazio'; v.textContent = opcoes.textoVazio
+    host.appendChild(v); return
+  }
+  const NS = 'http://www.w3.org/2000/svg'
+  const el = (tag, attrs) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, String(attrs[k])); return e }
+  const comTitulo = (node, texto) => { const t = document.createElementNS(NS, 'title'); t.textContent = texto; node.appendChild(t); return node }
+  const W = 400, H = 136, padX = 10, padTop = 14, padBot = 24
+  const meta = serie.meta > 0 ? serie.meta : 0
+  const valores = pontos.filter(p => !p.semDado).map(p => p.valor)
+  // A meta entra na escala pra linha NUNCA sair do gráfico (uma linha invisível mentiria).
+  const maxVal = Math.max(...valores, meta, 0.01)
+  const n = pontos.length
+  const chartH = H - padTop - padBot, baseY = H - padBot
+  const hOf = v => (Math.max(0, v) / maxVal) * chartH
+  const px = i => n > 1 ? padX + (i / (n - 1)) * (W - padX * 2) : W / 2
+  const svg = el('svg', { class: 'gmad-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opcoes.titulo })
+  // linha de base
+  svg.appendChild(el('line', { class: 'gmad-base', x1: padX, x2: W - padX, y1: baseY, y2: baseY }))
+  const slot = (W - padX * 2) / Math.max(n, 1)
+  const bw = Math.max(3, Math.min(slot * 0.6, 22))
+  for (let i = 0; i < n; i++) {
+    const p = pontos[i], x = px(i)
+    if (p.semDado) {
+      // Buraco honesto: dia sem número não vira barra zerada (isso seria mentira).
+      const marca = el('rect', { class: 'gmad-buraco', x: (x - bw / 2).toFixed(2), y: (baseY - 3).toFixed(2), width: bw.toFixed(2), height: 3, rx: 1 })
+      svg.appendChild(comTitulo(marca, _gmadDiaLongo(p.data) + ' · ' + (opcoes.textoSemDado[p.motivo] || 'sem informação neste dia')))
+      continue
+    }
+    const h = hOf(p.valor)
+    const acima = meta > 0 && p.valor > meta
+    const r = el('rect', { class: 'gmad-barra' + (acima ? ' gmad-barra-acima' : ''), x: (x - bw / 2).toFixed(2), y: (baseY - h).toFixed(2), width: bw.toFixed(2), height: Math.max(1, h).toFixed(2), rx: 2 })
+    svg.appendChild(comTitulo(r, _gmadDiaLongo(p.data) + ' · ' + opcoes.rotuloValor + ': ' + fmtR(p.valor) + (meta > 0 ? ' · ' + opcoes.rotuloMeta + ': ' + fmtR(meta) : '')))
+  }
+  // Linha da meta por cima das barras
+  if (meta > 0) {
+    const y = baseY - hOf(meta)
+    svg.appendChild(comTitulo(el('line', { class: 'gmad-meta', x1: padX, x2: W - padX, y1: y.toFixed(2), y2: y.toFixed(2) }), opcoes.rotuloMeta + ': ' + fmtR(meta)))
+    const tag = el('text', { class: 'gmad-meta-txt', x: W - padX, y: (y - 3).toFixed(2), 'text-anchor': 'end' })
+    tag.textContent = opcoes.rotuloMeta + ' ' + fmtR(meta)
+    svg.appendChild(tag)
+  }
+  // Datas embaixo (afina automático quando o período é longo)
+  const step = Math.max(1, Math.ceil(n / 8))
+  for (let i = 0; i < n; i++) {
+    if (i % step !== 0 && i !== n - 1) continue
+    const t = el('text', { class: 'gmad-xlabel', x: px(i).toFixed(2), y: baseY + 12, 'text-anchor': 'middle' })
+    t.textContent = _gmadDiaCurto(pontos[i].data)
+    svg.appendChild(t)
+  }
+  host.appendChild(svg)
+  const legenda = document.createElement('div'); legenda.className = 'gmad-legenda'
+  const semColeta = pontos.filter(p => p.semDado && p.motivo === 'sem-coleta').length
+  const semSeguidor = pontos.filter(p => p.semDado && p.motivo === 'sem-seguidor').length
+  const partes = [opcoes.legendaBase]
+  if (semColeta > 0) partes.push(semColeta === 1 ? '1 dia sem informação coletada' : semColeta + ' dias sem informação coletada')
+  if (semSeguidor > 0) partes.push(semSeguidor === 1 ? '1 dia sem seguidor novo (não dá pra calcular o custo)' : semSeguidor + ' dias sem seguidor novo (não dá pra calcular o custo)')
+  legenda.textContent = partes.join(' · ')
+  host.appendChild(legenda)
+}
+
 /* ── CHART INTERACTIVITY (legacy L3599-3629 — no legado rodava solto no
    escopo global do <script>; aqui a wiring (getElementById dos elementos e
    addEventListener) foi movida pro onMounted/onUnmounted, já que o DOM do
@@ -1222,6 +1301,21 @@ async function fetchData(accountId, period, customStart, customEnd) {
       if (aiCurr && aiCurr.length && aiCurr[0].reach != null) reach = parseInt(aiCurr[0].reach)
     }
   }
+  // ── GRÁFICOS DIÁRIOS DA SEÇÃO 02 (barras por dia + linha de meta) ──
+  // period_days = 0 guarda o gasto do DIA isolado (uma linha por campanha por dia). O agregado dos
+  // cards acima NÃO é tocado — isto aqui é leitura à parte, só pro gráfico. O recorte é sempre a
+  // janela exibida (followStart..followEnd), igual pra todo perfil e todo período.
+  let gastoDiarioRows = []
+  if (!noneSelected) {
+    const ciDia = await sb(`campaign_insights?account_id=eq.${accountId}&period_days=eq.0&captured_at=gte.${followStart}&captured_at=lte.${followEnd}&order=captured_at.asc&limit=5000&select=captured_at,spend${idFilter}`)
+    // .erro lido AQUI, colado no await: ele mora no array que o sb() devolveu e o .map() abaixo
+    // cria um array novo, deixando o .erro pra trás.
+    if (ciDia.erro && !erroAds.value) erroAds.value = ciDia.erro
+    if (!ciDia.erro) gastoDiarioRows = ciDia.map(r => ({ captured_at: r.captured_at, spend: r.spend }))
+  }
+  // Novos seguidores por dia: MESMA série resiliente que o gráfico da seção 01 desenha
+  // (bruto quando a Meta consolidou; senão a variação da contagem) — os dois nunca divergem.
+  const seguidoresDiarioRows = chartSrc.map((row, i) => ({ data: row.captured_at, novos: chartGained[i], saiu: chartLost[i] }))
   // Custo por seguidor = gasto ÷ seguidores ganhos. Usa o MESMO número resiliente que o card exibe
   // (bruto quando confirmado; senão a variação da contagem) — o bruto sozinho zera durante a falha da Meta.
   const _cpsFollowers = confirmadoIG ? newFollowers : (previaReal != null ? previaReal : newFollowers)
@@ -1246,6 +1340,7 @@ async function fetchData(accountId, period, customStart, customEnd) {
     followerTotal: (trueLastRows[0]?.followers_count ?? latest), newFollowers, prevNewFollowers, avgPerDay, bestDay: '—', engRate, followerDeltas, effectivePeriod, impressions, clicks, reach,
     chart: { gained: chartGained, lost: chartLost, labels: chartLabels, dates: chartDates },
     spend, prevSpend, cps, prevCps, adEngagement, adLikes, adComments, adShares, adSaves,
+    adsDiario: { inicio: followStart, fim: followEnd, linhasDeGasto: gastoDiarioRows, linhasDeSeguidores: seguidoresDiarioRows },
     eng: { likes: eng.likes, saves: eng.saves, shares: eng.shares, comments: eng.comments ?? 0, reach: eng.reach ?? 0, views: eng.views ?? 0, interactions: eng.total_interactions ?? 0, engaged: eng.accounts_engaged ?? 0, profileViews: eng.profile_views ?? 0, prevLikes: prevEng?.likes ?? null, prevSaves: prevEng?.saves ?? null, prevShares: prevEng?.shares ?? null, prevComments: prevEng?.comments ?? null, prevReach: prevEng?.reach ?? null, prevViews: prevEng?.views ?? null, prevInteractions: prevEng?.total_interactions ?? null, prevEngaged: prevEng?.accounts_engaged ?? null, prevProfileViews: prevEng?.profile_views ?? null },
     cnt: { posts: cnt.posts_count, stories: storiesCount, reels: cnt.reels_count, postsReels: cnt.posts_count + cnt.reels_count, prevPosts: prevCnt != null ? prevCnt.posts_count : null, prevReels: prevCnt != null ? prevCnt.reels_count : null, prevPostsReels: prevCnt != null ? prevCnt.posts_count + prevCnt.reels_count : null, prevStories: prevStoriesCount },
     storyEng: { shares: storyShares, replies: storyRep, prevShares: prevStoryShares, prevReplies: prevStoryRep, reach: storyReach, interactions: storyInter, navigation: storyNav, profileVisits: storyPV, follows: storyFol, navForward: storyNavF, navBack: storyNavB, navExit: storyNavE, navNext: storyNavN, prevReach: prevStoryReach, prevInteractions: prevStoryInter, prevNavigation: prevStoryNav, prevProfileVisits: prevStoryPV, prevFollows: prevStoryFol },
@@ -1578,6 +1673,29 @@ function update(d, period) {
   applySpend(_inv, getGoal('spend'))
   if (d.cps > 0) applyMetricInverse('cps', d.cps, getGoal('cps'))
   if (d.cps > 0) { const gcps = getGoal('cps'); _mcBorderColor('cps', perfColor((gcps / d.cps) * 100)) } else { _mcBorderColor('cps', '') }
+  // ── Gráficos diários (abaixo de cada card). As metas são lidas AQUI, na hora de desenhar,
+  // porque o dono edita o BUDGET/META MÁX direto na tela (contenteditable). ──
+  const _diario = d.adsDiario || { inicio: null, fim: null, linhasDeGasto: [], linhasDeSeguidores: [] }
+  desenharGraficoDiario('gmad-spend', montarSerieDeInvestimento({
+    inicio: _diario.inicio, fim: _diario.fim, linhasDeGasto: _diario.linhasDeGasto, budgetDoPeriodo: getGoal('spend'),
+  }), {
+    titulo: 'Quanto foi investido em cada dia',
+    rotuloValor: 'Investido no dia',
+    rotuloMeta: 'Meta do dia',
+    legendaBase: 'Cada barra é um dia · a linha é o budget dividido pelos dias do período · barra vermelha = passou do budget do dia',
+    textoVazio: 'Nenhum investimento registrado nos dias deste período.',
+    textoSemDado: { 'sem-coleta': 'sem informação coletada neste dia' },
+  })
+  desenharGraficoDiario('gmad-cps', montarSerieDeCustoPorSeguidor({
+    inicio: _diario.inicio, fim: _diario.fim, linhasDeGasto: _diario.linhasDeGasto, linhasDeSeguidores: _diario.linhasDeSeguidores, metaDeCustoPorSeguidor: getGoal('cps'),
+  }), {
+    titulo: 'Quanto custou cada seguidor novo, dia a dia',
+    rotuloValor: 'Custo por seguidor no dia',
+    rotuloMeta: 'Meta máxima',
+    legendaBase: 'Cada barra é um dia (investido no dia ÷ seguidores novos do dia) · a linha é a meta máxima · barra vermelha = custou mais caro que a meta',
+    textoVazio: 'Nenhum dia deste período teve investimento e seguidor novo ao mesmo tempo — sem custo por seguidor pra mostrar.',
+    textoSemDado: { 'sem-coleta': 'sem informação coletada neste dia', 'sem-seguidor': 'nenhum seguidor novo neste dia — sem como calcular o custo' },
+  })
   const adsChips = []
   if (d.impressions > 0) adsChips.push(fmtN(d.impressions) + ' impressões')
   if (d.clicks > 0) adsChips.push(fmtN(d.clicks) + ' cliques')
@@ -2338,6 +2456,23 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.card){background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:22px 24px;border-left:3px solid transparent;animation:fadeUp .55s cubic-bezier(.22,1,.36,1) both;transition:border-color .22s,box-shadow .22s;will-change:transform,opacity;cursor:default;}
 .tela-redes-sociais :deep(.card):hover{border-left-color:var(--accent);border-color:var(--accent-mid);box-shadow:var(--shadow-md);}
 [data-theme="dark"] .tela-redes-sociais :deep(.card){box-shadow:none;}
+
+/* ── Gráficos diários da seção 02 · Meta Ads ──
+   Prefixo gmad- (gráfico meta ads diário): nomes EXCLUSIVOS desta tela, pra não colidir com
+   nenhuma classe genérica do estilos-globais.css. Como o SVG é criado por JS (não pelo template),
+   ele não recebe o atributo de escopo do Vue — por isso :deep(), igual ao resto do arquivo. */
+.tela-redes-sociais :deep(.gmad-bloco){margin-top:14px;padding-top:12px;border-top:1px solid var(--border);}
+.tela-redes-sociais :deep(.gmad-titulo){font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+.tela-redes-sociais :deep(.gmad-svg){display:block;width:100%;height:auto;max-width:100%;overflow:visible;}
+.tela-redes-sociais :deep(.gmad-barra){fill:var(--accent);}
+.tela-redes-sociais :deep(.gmad-barra-acima){fill:var(--red);}
+.tela-redes-sociais :deep(.gmad-buraco){fill:var(--border);}
+.tela-redes-sociais :deep(.gmad-base){stroke:var(--border);stroke-width:1;}
+.tela-redes-sociais :deep(.gmad-meta){stroke:var(--orange);stroke-width:1.5;stroke-dasharray:4 3;}
+.tela-redes-sociais :deep(.gmad-meta-txt){font-family:'IBM Plex Sans',sans-serif;font-size:8px;font-weight:600;fill:var(--orange);}
+.tela-redes-sociais :deep(.gmad-xlabel){font-family:'IBM Plex Sans',sans-serif;font-size:8px;fill:var(--muted);}
+.tela-redes-sociais :deep(.gmad-legenda){font-family:'IBM Plex Sans',sans-serif;font-size:10px;line-height:1.4;color:var(--muted);margin-top:6px;}
+.tela-redes-sociais :deep(.gmad-vazio){font-family:'IBM Plex Sans',sans-serif;font-size:11px;line-height:1.4;color:var(--muted);padding:10px 0;}
 
 /* Metric card */
 .tela-redes-sociais :deep(.mc-header){display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;}
