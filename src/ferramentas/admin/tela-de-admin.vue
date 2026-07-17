@@ -1288,11 +1288,14 @@ Object.assign(window, {
 /* A rolagem horizontal vive DENTRO do card: no celular a grade desliza aqui e
    o modal nunca ganha barra horizontal. */
 .tela-admin :deep(.perm-grade-scroll){overflow-x:auto;}
-.tela-admin :deep(.perm-grade){min-width:340px;}
+.tela-admin :deep(.perm-grade){min-width:415px;}
 
 /* O alinhamento das colunas depende deste template ser IDÊNTICO no cabeçalho e
-   em toda linha — é o conserto do "ver" que caía num x diferente por linha. */
-.tela-admin :deep(.perm-linha){display:grid;grid-template-columns:minmax(130px,1fr) repeat(5,42px);align-items:center;padding:0 12px;border-bottom:1px solid var(--border);}
+   em toda linha — é o conserto do "ver" que caía num x diferente por linha.
+   As colunas têm 57px porque "EXPORTAR" em maiúsculas com letter-spacing não cabe
+   em menos: com 42px os cabeçalhos EXCLUIR e EXPORTAR transbordavam e se colavam
+   ("EXCLUIREXPORTAR"). Mexeu na fonte do cabeçalho? Confira a largura de novo. */
+.tela-admin :deep(.perm-linha){display:grid;grid-template-columns:minmax(130px,1fr) repeat(5,57px);align-items:center;padding:0 12px;border-bottom:1px solid var(--border);}
 .tela-admin :deep(.perm-linha:last-child){border-bottom:none;}
 .tela-admin :deep(.perm-linha:not(.perm-linha-cab):hover){background:var(--surface2);}
 .tela-admin :deep(.perm-linha-cab){border-bottom:1px solid var(--border);background:transparent;}
