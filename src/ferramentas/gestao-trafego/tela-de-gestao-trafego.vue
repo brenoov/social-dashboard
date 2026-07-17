@@ -1297,8 +1297,24 @@ Object.assign(window, {
 /* Aviso de "não dá pra editar aqui" (ex.: é ABO, edite no conjunto) */
 .tela-gestao-trafego :deep(.gt-be-nota){font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--muted);opacity:.9;line-height:1.5;}
 .tela-gestao-trafego :deep(.gt-ad-card){border-radius:8px;background:var(--surface);border:1px solid var(--border);padding:11px 14px;display:flex;flex-direction:column;gap:6px;margin-left:20px;margin-bottom:7px;box-shadow:0 2px 8px rgba(0,0,0,.07);position:relative;}
-.tela-gestao-trafego :deep(.gt-ad-card::before){content:'';position:absolute;left:-8px;top:calc(-130% + 13px);width:14px;height:calc(130% + 7px);border-left:2px solid var(--accent);border-bottom:2px solid var(--accent);border-bottom-left-radius:11px;opacity:.6;}
-.tela-gestao-trafego :deep(.gt-ad-card:first-child::before){top:-60px;height:80px;}
+/* GUIA EM ÁRVORE (o fluxograma azul que liga conjunto → anúncios).
+ *
+ * A versão antiga desenhava um "L" por anúncio com `top: calc(-130%)` e
+ * `height: calc(130% + 7px)` — porcentagem da altura do PRÓPRIO card, tentando
+ * alcançar a campanha lá em cima. Funcionava por coincidência, enquanto o anúncio
+ * ficava direto embaixo da campanha. Quando os CONJUNTOS entraram no meio da
+ * hierarquia, a guia passou a subir 130% da própria altura por cima dos cards de
+ * conjunto: o fluxograma virou risco atravessado na tela.
+ *
+ * Agora são duas peças, sem porcentagem e sem atravessar nível:
+ *   1. o trilho vertical vive no CONTAINER dos anúncios (gt-set-pane)
+ *   2. cada anúncio tem só um "L" curto, de tamanho fixo, que encosta no trilho
+ * Assim a guia liga o anúncio ao SEU conjunto — que é a relação real — e nada
+ * depende da altura dos cards.
+ */
+.tela-gestao-trafego :deep(.gt-set-pane){position:relative;}
+.tela-gestao-trafego :deep(.gt-set-pane)::before{content:'';position:absolute;left:12px;top:0;bottom:18px;border-left:2px solid var(--accent);opacity:.28;pointer-events:none;}
+.tela-gestao-trafego :deep(.gt-ad-card::before){content:'';position:absolute;left:-8px;top:-9px;width:9px;height:24px;border-left:2px solid var(--accent);border-bottom:2px solid var(--accent);border-bottom-left-radius:9px;opacity:.55;pointer-events:none;}
 .tela-gestao-trafego :deep(.gt-ad-top){display:flex;align-items:center;gap:8px;}
 /* Status badge — replaces dot */
 .tela-gestao-trafego :deep(.gt-status-badge){display:inline-flex;align-items:center;gap:4px;font-family:'IBM Plex Sans',sans-serif;font-size:calc(9px*var(--gt-fs,1.3));font-weight:700;letter-spacing:.4px;padding:2px 8px;border-radius:20px;flex-shrink:0;text-transform:uppercase;}
@@ -1455,7 +1471,10 @@ Object.assign(window, {
   .tela-gestao-trafego :deep(.gt-set-nm){flex:1 1 100%;order:3;white-space:normal;}
   .tela-gestao-trafego :deep(.gt-set-exp){order:4;margin-left:auto;}
   .tela-gestao-trafego :deep(.gt-ad-card){margin-left:10px;}
-  .tela-gestao-trafego :deep(.gt-ad-card::before){display:none;} /* a guia em L não cabe no estreito */
+  /* No estreito a árvore não cabe: some com as DUAS peças da guia (o L do anúncio
+     e o trilho do conjunto). Esconder só uma deixaria a linha vertical solta. */
+  .tela-gestao-trafego :deep(.gt-ad-card::before){display:none;}
+  .tela-gestao-trafego :deep(.gt-set-pane)::before{display:none;}
   .tela-gestao-trafego :deep(.gt-collapse-all){flex:1 1 auto;}
   .tela-gestao-trafego :deep(.gt-be-box){flex:1 1 100%;}
   .tela-gestao-trafego :deep(.gt-be-box input){flex:1 1 auto;width:auto;min-width:0;}
