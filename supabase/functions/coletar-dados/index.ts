@@ -90,6 +90,70 @@ async function coletarSeguidores(igId: string, token: string): Promise<number> {
   return d.followers_count ?? 0;
 }
 
+const BUCKET_FOTOS = 'profile-pics';
+
+// Atualiza a foto do perfil (avatar) quando ela muda no Instagram.
+//
+// POR QUE ISTO EXISTE: ninguém atualizava. As fotos de `accounts.picture_url` foram
+// postas uma vez e ficaram congeladas — não é que a atualização quebrou, é que nunca
+// existiu. (O ig-coletor.mjs re-hospeda fotos, mas das marcas CONCORRENTES, pro
+// Portal de Notícias; ele só lê `accounts` pra pegar um token.)
+//
+// DUAS ARMADILHAS que o desenho resolve:
+//
+// 1. A URL da Meta EXPIRA. `profile_picture_url` aponta pro fbcdn com assinatura
+//    temporária — guardar essa URL dá foto quebrada depois. Por isso re-hospedamos
+//    a imagem no nosso Storage e guardamos a NOSSA URL.
+//
+// 2. O caminho é fixo por conta (`{igId}.jpg`), então sobrescrever o arquivo NÃO
+//    muda a URL — e o navegador/CDN continuariam servindo a foto velha do cache.
+//    (A URL atual no banco termina com um `?` solto: alguém começou o cache-busting
+//    e não terminou.) Por isso a URL leva `?v={hash da imagem}`: conteúdo novo =
+//    URL nova = cache furado. E como o hash está NA URL, ele também é o registro de
+//    "qual foto está publicada" — não precisa de coluna nova.
+//
+// Só sobe quando a imagem muda de verdade (o hash é dos BYTES, não da URL — a URL
+// do fbcdn muda a cada chamada por causa da assinatura, então comparar URL não
+// serviria).
+async function atualizarFotoDoPerfil(sb: any, accountId: string, igId: string, token: string, urlAtual: string | null, name: string) {
+  try {
+    const d = await apiGet(igId, { fields: 'profile_picture_url', access_token: token });
+    const urlMeta = d?.profile_picture_url;
+    if (!urlMeta) return;
+
+    const r = await fetch(urlMeta);
+    if (!r.ok) return;
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    if (!bytes.length) return;
+
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    const hash = Array.from(new Uint8Array(digest)).slice(0, 6).map((b) => b.toString(16).padStart(2, '0')).join('');
+
+    // Já é esta foto? Não faz nada (o hash vive na própria URL).
+    if (urlAtual && urlAtual.includes('v=' + hash)) return;
+
+    const caminho = `${BUCKET_FOTOS}/${igId}.jpg`;
+    const up = await fetch(`${Deno.env.get('SUPABASE_URL')}/storage/v1/object/${caminho}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        'Content-Type': r.headers.get('content-type') || 'image/jpeg',
+        'x-upsert': 'true',
+      },
+      body: bytes,
+    });
+    if (!up.ok) { console.error(`foto ${name}: upload falhou ${up.status}`); return; }
+
+    const publica = `${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/${caminho}?v=${hash}`;
+    await sb.from('accounts').update({ picture_url: publica, profile_picture_url: urlMeta }).eq('id', accountId);
+    console.log(`  🖼 foto atualizada: ${name}`);
+  } catch (e) {
+    // Foto é cosmética: se falhar, a coleta de métricas segue. Mas LOGA — silêncio
+    // aqui foi o que deixou isso passar despercebido por meses.
+    console.error(`foto ${name}: ${e}`);
+  }
+}
+
 async function coletarFollowsDia(igId: string, dia: string, token: string): Promise<{ gained: number; lost: number } | null> {
   const since = Math.floor(new Date(`${dia}T00:00:00-03:00`).getTime() / 1000);
   const until = Math.floor(new Date(`${dia}T23:59:59-03:00`).getTime() / 1000);
@@ -346,7 +410,7 @@ async function coletarAdsDia(sb: any, adAccountId: string, accountId: string, to
 }
 
 async function processarConta(sb: any, acc: any, degraded: string[]) {
-  const { id: accountId, instagram_id: igId, name, access_token: token, ad_account_id: adAccountId } = acc;
+  const { id: accountId, instagram_id: igId, name, access_token: token, ad_account_id: adAccountId, picture_url: fotoAtual } = acc;
   if (!token) { console.log(`⚠ Sem token: ${name}`); return null; }
   const hoje = todayBR();
   console.log(`▶ ${name}`);
@@ -356,6 +420,20 @@ async function processarConta(sb: any, acc: any, degraded: string[]) {
     { account_id: accountId, captured_at: hoje, followers_count: seguidores },
     { onConflict: 'account_id,captured_at' }
   );
+
+  // Cada leitura da contagem vira uma linha própria, append-only.
+  //
+  // O daily_snapshots guarda UMA linha por dia e sobrescreve a cada rodada — então o
+  // movimento DENTRO do dia era jogado fora 4x por dia. Sem isso não dá pra dizer "a
+  // contagem chegou a 24.351 às 18h e caiu pra 24.349 às 22h": só sobra o último
+  // valor. Aqui a leitura é guardada com a hora, e o histórico se acumula.
+  //
+  // Não substitui o bruto da Meta (seguiram/saíram), que ela só publica no dia
+  // seguinte — a contagem só revela o LÍQUIDO. Mas mostra que houve movimento, que
+  // é o que hoje se perde.
+  await sb.from('followers_leituras').insert({ account_id: accountId, followers_count: seguidores });
+
+  await atualizarFotoDoPerfil(sb, accountId, igId, token, fotoAtual, name);
 
   // Re-coleta de follows resiliente + barata: SEMPRE os 3 dias recentes (a Meta consolida com atraso),
   // MAIS qualquer dia dos últimos 14 que ainda esteja 0/0 (buraco de uma queda do coletor — antes, queda
@@ -440,7 +518,7 @@ async function rodarColeta() {
   );
   // ad_account_id vem daqui — antes o coletor nem selecionava a coluna e usava um
   // mapa fixo no código, que estava errado para a Mantova Móveis.
-  const { data: accounts, error } = await sb.from('accounts').select('id,name,instagram_id,access_token,ad_account_id');
+  const { data: accounts, error } = await sb.from('accounts').select('id,name,instagram_id,access_token,ad_account_id,picture_url');
   if (error) throw error;
   console.log(`Iniciando coleta — ${new Date().toISOString()} — ${accounts.length} contas`);
   const degraded: string[] = [];
