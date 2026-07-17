@@ -135,7 +135,7 @@
             <div class="nf-linhas">
               <div class="nf-linha"><span class="nf-lbl">Seguidores</span><span class="nf-val a-green" id="nf-gained">0</span></div>
               <div class="nf-linha"><span class="nf-lbl">Deixaram de seguir</span><span class="nf-val a-red" id="nf-lost">0</span></div>
-              <div class="nf-linha"><span class="nf-lbl">Total</span><span class="nf-val nf-total a-blue" id="new-followers-val">0</span></div>
+              <div class="nf-linha"><span class="nf-lbl">Total</span><span class="nf-val nf-total a-blue" id="new-followers-val">0</span><span class="nf-provisorio" id="nf-provisorio" hidden>parcial</span></div>
             </div>
             <div class="mc-compare" id="cmp-followers"></div>
             <div id="previa-followers" style="display:none;margin-top:6px;"></div>
@@ -880,6 +880,29 @@ function applyMetric(key, curr, goal) {
   if (diff >= 0) { diffEl.textContent = '✓ +' + fmtN(diff) + ' acima da meta'; diffEl.className = 'mc-diff c-green' }
   else { diffEl.textContent = '↓ ' + fmtN(Math.abs(diff)) + ' abaixo da meta'; diffEl.className = 'mc-diff c-' + clr }
 }
+// Igual ao applyMetric, mas SEM o veredito: mostra o progresso e cala a nota.
+//
+// Existe porque o dia em consolidação tem um número parcial. Mostrar a barra ajuda
+// (dá noção de onde está); pintar de vermelho e escrever "270 abaixo da meta" não —
+// isso é uma conclusão, e o Instagram ainda não fechou o dado pra concluir. No fim
+// do dia o número fecha e o applyMetric normal volta a valer.
+// Usa 'orange' (que existe em _PERF_VAR e no estilos-globais como c-orange/bg-orange).
+// NÃO existe 'amber' na paleta — c-amber/bg-amber seriam classes mortas, sem cor.
+function aplicarMetaEmConsolidacao(key, curr, goal) {
+  const pct = goal > 0 ? Math.min((curr / goal) * 100, 150) : 0
+  setTimeout(() => {
+    const p = document.getElementById('prog-' + key)
+    if (p) { p.style.width = Math.min(pct, 100) + '%'; p.className = 'mc-progress-fill bg-orange' }
+  }, 80)
+  const pctEl = document.getElementById('pct-' + key)
+  if (pctEl) { pctEl.textContent = Math.round(pct) + '%'; pctEl.className = 'mc-pct c-orange' }
+  const diffEl = document.getElementById('diff-' + key)
+  if (diffEl) {
+    diffEl.textContent = 'parcial — a meta é medida quando o dia fechar'
+    diffEl.className = 'mc-diff c-orange'
+  }
+}
+
 function applyMetricInverse(key, curr, goal) {
   const pct = (goal / curr) * 100; const clr = perfColor(pct); const diff = curr - goal
   _mcValColor(key, clr)
@@ -1645,6 +1668,15 @@ function update(d, period) {
     ? (_netRec != null ? _netRec : (d.previaReal != null ? d.previaReal : d.live.novos.total))
     : (d.live ? d.live.novos.total : (confirmado ? d.newFollowers : (d.previaReal != null ? d.previaReal : d.newFollowers)))
   const newEl = document.getElementById('new-followers-val'); if (newEl) animCount(newEl, headlineVal) // Total (líquido)
+  // O NÚMERO precisa PARECER provisório quando é provisório.
+  //
+  // O selo "em consolidação" existia e o dono, com razão, achou discreto: o número
+  // saía no MESMO azul confiante do "total de seguidores" (que é final), e o olho lê
+  // os dois como fatos da mesma natureza. Quando o Instagram ainda não fechou o dia,
+  // o número muda de cor e ganha o rótulo "parcial" colado nele — a ressalva chega
+  // junto com o número, não seis linhas abaixo.
+  if (newEl) newEl.classList.toggle('nf-em-consolidacao', ehRecenteLive)
+  const provEl = document.getElementById('nf-provisorio'); if (provEl) provEl.hidden = !ehRecenteLive
   // 3 linhas de fonte igual: Seguidores · Deixaram de seguir · Total.
   const gEl = document.getElementById('nf-gained'), lEl = document.getElementById('nf-lost')
   // Hoje/1D: a Meta ainda não fechou a quebra seguiu/deixou → esconde essas 2 linhas e mostra só o Total (líquido).
@@ -1679,7 +1711,15 @@ function update(d, period) {
   if (d.live) setCompare('cmp-followers', d.live.novos.total, d.live.anterior ? d.live.anterior.novos.total : null, '', pl, false)
   else if (confirmado) setCompare('cmp-followers', d.newFollowers, d.prevNewFollowers, '', pl, false)
   else if (cmpEl) cmpEl.innerHTML = ''
-  applyMetric('followers', headlineVal, getGoal('followers'))
+  // Nota de desempenho SÓ com número fechado.
+  //
+  // O applyMetric pintava "0% ↓ 270 abaixo da meta" em vermelho de alarme mesmo com
+  // o dia em consolidação — ou seja, o card afirmava um fracasso com base num número
+  // que ele PRÓPRIO diz não estar fechado (o selo "em consolidação" está logo acima).
+  // Dar nota assim é pior que não dar: o vermelho é uma conclusão, e não havia dado
+  // pra concluir.
+  if (ehRecenteLive) aplicarMetaEmConsolidacao('followers', headlineVal, getGoal('followers'))
+  else applyMetric('followers', headlineVal, getGoal('followers'))
   const engTotal = d.eng.likes + d.eng.saves + d.eng.shares + (d.eng.comments || 0)
   const prevEngTotal = d.eng.prevLikes + d.eng.prevSaves + d.eng.prevShares + (d.eng.prevComments || 0)
   const _avgShown = (d.effectivePeriod > 0 ? (headlineVal / d.effectivePeriod) : headlineVal).toFixed(1)
@@ -2362,6 +2402,18 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.nf-val.a-green){ color:#16a34a; }
 .tela-redes-sociais :deep(.nf-val.a-red){ color:#ef4444; }
 .tela-redes-sociais :deep(.nf-val.a-blue){ color:var(--accent); }
+/* NÚMERO PARCIAL — quando o Instagram ainda não fechou o dia.
+   O !important vence o .a-blue do template: sem isso o total sairia no mesmo azul
+   confiante do "total de seguidores" (que É final), e o olho leria os dois como
+   fatos da mesma natureza. O selo "em consolidação" já existia logo abaixo e o dono
+   achou discreto — com razão: a ressalva chegava depois da conclusão. */
+/* Precisa declarar -webkit-text-fill-color TAMBÉM, não só color: a regra .a-blue
+   (linha ~2583 / estilos-globais:153) define as DUAS com !important, e é o
+   text-fill que pinta o texto de verdade. Só com `color` o getComputedStyle().color
+   já diz laranja e o pixel continua azul — foi o que aconteceu na 1ª tentativa. */
+.tela-redes-sociais :deep(.nf-val.nf-em-consolidacao){ color:var(--orange)!important; -webkit-text-fill-color:var(--orange)!important; }
+.tela-redes-sociais :deep(.nf-provisorio){ font-family:'IBM Plex Sans',sans-serif; font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:var(--orange); border:1px solid var(--orange); border-radius:4px; padding:1px 5px; margin-left:7px; opacity:.95; white-space:nowrap; }
+.tela-redes-sociais :deep(.nf-linha:has(.nf-provisorio:not([hidden]))){ align-items:center; }
 .tela-redes-sociais :deep(.mc-ad-sub){ font-family:'IBM Plex Sans',sans-serif; font-size:10.5px; font-weight:600; color:var(--muted); margin-top:2px; letter-spacing:.2px; }
 .tela-redes-sociais :deep(.mc-obs){ font-family:'IBM Plex Sans',sans-serif; font-size:10px; font-weight:500; line-height:1.35; color:var(--muted); opacity:.85; margin-top:4px; }
 /* Porte das regras do dashboard central de Redes Sociais (legacy/index.html,
