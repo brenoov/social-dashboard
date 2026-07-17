@@ -115,16 +115,16 @@ const BUCKET_FOTOS = 'profile-pics';
 // Só sobe quando a imagem muda de verdade (o hash é dos BYTES, não da URL — a URL
 // do fbcdn muda a cada chamada por causa da assinatura, então comparar URL não
 // serviria).
-async function atualizarFotoDoPerfil(sb: any, accountId: string, igId: string, token: string, urlAtual: string | null, name: string) {
+async function atualizarFotoDoPerfil(sb: any, accountId: string, igId: string, token: string, urlAtual: string | null, name: string, degraded: string[]) {
   try {
     const d = await apiGet(igId, { fields: 'profile_picture_url', access_token: token });
     const urlMeta = d?.profile_picture_url;
-    if (!urlMeta) return;
+    if (!urlMeta) { degraded.push(`foto ${name}: a Meta não devolveu profile_picture_url`); return; }
 
     const r = await fetch(urlMeta);
-    if (!r.ok) return;
+    if (!r.ok) { degraded.push(`foto ${name}: baixar a imagem deu ${r.status}`); return; }
     const bytes = new Uint8Array(await r.arrayBuffer());
-    if (!bytes.length) return;
+    if (!bytes.length) { degraded.push(`foto ${name}: imagem vazia`); return; }
 
     const digest = await crypto.subtle.digest('SHA-256', bytes);
     const hash = Array.from(new Uint8Array(digest)).slice(0, 6).map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -142,15 +142,20 @@ async function atualizarFotoDoPerfil(sb: any, accountId: string, igId: string, t
       },
       body: bytes,
     });
-    if (!up.ok) { console.error(`foto ${name}: upload falhou ${up.status}`); return; }
+    if (!up.ok) { degraded.push(`foto ${name}: upload falhou ${up.status} ${(await up.text()).slice(0, 90)}`); return; }
 
     const publica = `${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/${caminho}?v=${hash}`;
-    await sb.from('accounts').update({ picture_url: publica, profile_picture_url: urlMeta }).eq('id', accountId);
+    const { error: errUp } = await sb.from('accounts').update({ picture_url: publica, profile_picture_url: urlMeta }).eq('id', accountId);
+    if (errUp) { degraded.push(`foto ${name}: update falhou ${errUp.message}`); return; }
     console.log(`  🖼 foto atualizada: ${name}`);
   } catch (e) {
-    // Foto é cosmética: se falhar, a coleta de métricas segue. Mas LOGA — silêncio
-    // aqui foi o que deixou isso passar despercebido por meses.
-    console.error(`foto ${name}: ${e}`);
+    // A foto é cosmética: se falhar, a coleta de métricas segue. Mas NÃO em silêncio.
+    //
+    // O motivo de reportar em `degraded` (e não só console.error) é que console.error
+    // não aparece em lugar nenhum que alguém olhe: o `degraded` volta na resposta do
+    // cron e vira alerta. Foi exatamente o silêncio que deixou as fotos congeladas
+    // desde 21/05 sem ninguém perceber.
+    degraded.push(`foto ${name}: ${String(e).slice(0, 120)}`);
   }
 }
 
@@ -433,7 +438,7 @@ async function processarConta(sb: any, acc: any, degraded: string[]) {
   // é o que hoje se perde.
   await sb.from('followers_leituras').insert({ account_id: accountId, followers_count: seguidores });
 
-  await atualizarFotoDoPerfil(sb, accountId, igId, token, fotoAtual, name);
+  await atualizarFotoDoPerfil(sb, accountId, igId, token, fotoAtual, name, degraded);
 
   // Re-coleta de follows resiliente + barata: SEMPRE os 3 dias recentes (a Meta consolida com atraso),
   // MAIS qualquer dia dos últimos 14 que ainda esteja 0/0 (buraco de uma queda do coletor — antes, queda
