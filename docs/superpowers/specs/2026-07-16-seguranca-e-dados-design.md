@@ -135,13 +135,19 @@ revoke execute on function public.tem_permissao(text,text) from public, anon;
 
 **Gotcha obrigatório:** ligar a checagem exige atualizar os jobs do `pg_cron` para enviarem o segredo no header, **na mesma mudança**. Se a checagem entrar e o cron não, o coletor para de coletar — e, pelo `catch` vazio existente, pararia em silêncio.
 
-### Catálogo reconciliado
+### Catálogo — RETRATADO (2026-07-16)
 
-`RECURSOS` (14 entradas) e `PERMISSION_TREE` (11 entradas) divergem. Faltam no editor de admin: `social.relatorio`, `sales.metas`, `gestor.relatorios`. **Ninguém além de superadmin pode ter essas chaves**, porque não há UI que as conceda.
+**Afirmei que 3 permissões não podiam ser concedidas pela interface. Está errado.**
 
-Risco concreto: a auditoria indica que `gc_vendas_item` deveria ser gateada por `gestor.relatorios`. Ligar a policy sem corrigir isso faz **todo não-superadmin perder os Relatórios Comerciais**.
+O que eu disse: `RECURSOS` tem 14 entradas, `PERMISSION_TREE` tem 11, e por isso `social.relatorio`, `sales.metas` e `gestor.relatorios` não teriam como ser concedidas — o que derrubaria os Relatórios Comerciais na Onda 3.
 
-**Correção:** `RECURSOS` vira fonte única; `PERMISSION_TREE` passa a ser derivado dele, não escrito à mão em paralelo. Recurso novo aparece no editor automaticamente — atende a regra do projeto de "todo submódulo nasce como permissão própria gateada".
+O que é verdade: **o modal de permissões usa `RECURSOS.forEach`** (`tela-de-admin.vue:483`), não o `PERMISSION_TREE`. As 14 aparecem no editor e são concedíveis. Verificado no navegador: o modal lista "Redes — Relatório", "Metas de Vendas" e "Relatórios Comerciais".
+
+Meu erro: comparei dois catálogos sem checar qual deles a tela consome.
+
+**O que sobra de real:** o `PERMISSION_TREE` é **código morto** — importado em `tela-de-admin.vue:157` e nunca usado; a única outra menção é um comentário em `tela-de-gestao-comercial.vue:63`. Dois catálogos, um deles fantasma, é convite para alguém "corrigir" o errado. **Ação:** apagar o `PERMISSION_TREE` e deixar `RECURSOS` como fonte única de fato — não porque falta algo nele, mas porque o segundo catálogo só serve para enganar quem ler.
+
+**Regra que fica:** antes de afirmar que a UI não oferece algo, abrir a UI.
 
 ---
 

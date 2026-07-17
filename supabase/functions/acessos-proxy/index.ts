@@ -13,6 +13,11 @@
 //   - zoho.authUrl  -> mints+stores random state, returns consent { url }
 //   - zoho.users    -> lists org accounts (normalized)
 //   - zoho.import   -> upserts acessos_pessoas + best-effort avatars
+//   Zoho WorkDrive (pastas):
+//   - zoho.pastas         -> lista as pastas do WorkDrive ao vivo, marcando o que já
+//                            foi importado. NÃO grava nada.
+//   - zoho.importarPastas -> grava em acessos_recursos (tipo=workdrive, provedor=zoho)
+//                            o que ainda não está lá. Idempotente por external_id.
 //   Microsoft OneDrive (personal account, via Microsoft Graph):
 //   - microsoft.status       -> { connected, conectado_em }  (never leaks secrets)
 //   - microsoft.authUrl      -> mints+stores state, returns consumers consent { url }
@@ -59,6 +64,14 @@
 // ---------------------------------------------------------------------------
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Lógica pura de tradução da resposta do WorkDrive -> linhas de acessos_recursos.
+// Fica num arquivo separado porque é a parte testável com `node --test` (ver
+// src/ferramentas/acessos/normalizar-pastas-do-workdrive.test.mjs).
+import {
+  normalizarPastasDoWorkdrive,
+  montarLinhasDeRecursos,
+  separarNovasDasExistentes,
+} from "./normalizar-pastas-do-workdrive.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -1199,6 +1212,182 @@ async function msUnshare(sb: any, quem: string | null, itemId: string, permId: s
   return json({ ok: true });
 }
 
+// --- Zoho WorkDrive: listar e importar pastas ---
+//
+// Endpoints CONFIRMADOS CONTRA A API REAL em 2026-07-17 (conta RBV & Company),
+// não copiados da documentação — a doc oficial é uma página JavaScript e não
+// responde a fetch. Cada um foi chamado de verdade e o status anotado:
+//
+//   1) GET {WD_BASE}/users/me                          -> 200
+//      Dá o "org_id" em attributes.last_viewed_org_info.org_id. Esse org_id é o
+//      que os endpoints de equipe chamam de teamId.
+//   2) GET {WD_BASE}/teams/<org_id>/teamfolders        -> 200  (type: "teamfolders")
+//   3) GET {WD_BASE}/teamfolders/<tf_id>/folders       -> 200  (só pastas filhas)
+//
+// TENTADO E REJEITADO pelo próprio Zoho (não usar — deixa registrado pra ninguém
+// tentar de novo achando que é o caminho certo):
+//   - GET /users/<zuid>/teams        -> 500 {"errors":[{"id":"F7007","title":"Invalid OAuth scope."}]}
+//   - GET /teams/<org_id>/workspaces -> 500 idem
+//   Esses dois são o caminho que as bibliotecas de terceiro usam, mas exigem escopo
+//   que esta conexão não tem (temos WorkDrive.teamfolders.ALL + WorkDrive.files.ALL).
+//   Por isso o org_id vem do /users/me, e não do /users/<zuid>/teams.
+//
+// O header Accept: application/vnd.api+json é OBRIGATÓRIO: sem ele o Zoho responde
+// vazio. A autorização é "Zoho-oauthtoken <token>" (o mesmo esquema do Mail).
+const WD_BASE = "https://www.zohoapis.com/workdrive/api/v1";
+
+async function wdFetch(
+  access: string,
+  path: string,
+): Promise<{ ok: boolean; status: number; json: any; raw: string }> {
+  const resp = await fetch(WD_BASE + path, {
+    headers: {
+      Authorization: `Zoho-oauthtoken ${access}`,
+      Accept: "application/vnd.api+json",
+    },
+  });
+  const raw = await resp.text();
+  let parsed: any = null;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    parsed = null;
+  }
+  if (!resp.ok) {
+    // O corpo de erro do Zoho é { errors:[{id,title}] } — não tem segredo, é seguro logar.
+    console.error("[acessos-proxy] workdrive http", resp.status, path, raw.slice(0, 500));
+  }
+  return { ok: resp.ok, status: resp.status, json: parsed, raw };
+}
+
+// Descobre o id da equipe (org). Vem do /users/me — ver o bloco acima.
+async function wdOrgId(access: string): Promise<string> {
+  const r = await wdFetch(access, "/users/me");
+  if (!r.ok) throw new Error(`workdrive_users_me_http_${r.status}`);
+  const attrs = r.json?.data?.attributes ?? {};
+  const orgId = attrs?.last_viewed_org_info?.org_id ?? attrs?.preferred_org_info?.org_id ?? null;
+  if (!orgId) throw new Error("workdrive_sem_org_id");
+  return String(orgId);
+}
+
+// Varre a árvore: cada pasta de equipe + as pastas de dentro dela.
+// Só um nível pra dentro de propósito: a pasta de equipe da RBV tem ~2000 pastas
+// no fundo dela. Descer tudo seria centenas de chamadas e um catálogo ilegível.
+// O nível de cima é o que interessa pra dar acesso a alguém (uma pasta por cliente).
+async function wdColetarPastas(access: string) {
+  const orgId = await wdOrgId(access);
+  const rTf = await wdFetch(access, `/teams/${encodeURIComponent(orgId)}/teamfolders`);
+  if (!rTf.ok) throw new Error(`workdrive_teamfolders_http_${rTf.status}`);
+
+  const pastasDeEquipe = normalizarPastasDoWorkdrive(rTf.json);
+  const linhas: any[] = [];
+
+  for (const tf of pastasDeEquipe) {
+    // A própria pasta de equipe entra no catálogo: ela é o espaço raiz do cliente.
+    linhas.push(
+      ...montarLinhasDeRecursos([tf], { driveId: tf.externalId, prefixoDoCaminho: null }),
+    );
+    const rFilhas = await wdFetch(
+      access,
+      `/teamfolders/${encodeURIComponent(tf.externalId)}/folders`,
+    );
+    if (!rFilhas.ok) {
+      // Uma pasta de equipe que falha não pode derrubar a listagem inteira.
+      console.warn("[acessos-proxy] workdrive: filhas falharam", tf.nome, rFilhas.status);
+      continue;
+    }
+    const filhas = normalizarPastasDoWorkdrive(rFilhas.json);
+    linhas.push(
+      ...montarLinhasDeRecursos(filhas, { driveId: tf.externalId, prefixoDoCaminho: tf.nome }),
+    );
+  }
+  return { orgId, linhas, totalPastasDeEquipe: pastasDeEquipe.length };
+}
+
+async function wdExternalIdsJaGravados(sb: any): Promise<string[]> {
+  const { data, error } = await sb
+    .from("acessos_recursos")
+    .select("external_id")
+    .eq("tipo", "workdrive");
+  if (error) throw new Error("falha_ao_ler_recursos: " + error.message);
+  return (data ?? []).map((r: any) => String(r.external_id)).filter(Boolean);
+}
+
+// zoho.pastas -> lista o que existe no WorkDrive AGORA, dizendo o que já foi importado.
+// Não grava nada. É o "olhar antes de importar".
+async function actZohoPastas(sb: any) {
+  const conn = await readZohoConn(sb);
+  if (!conn.refresh_token) return json({ error: "nao_conectado" });
+  const access = await freshAccessToken(conn);
+  const { linhas, totalPastasDeEquipe } = await wdColetarPastas(access);
+  const jaGravados = await wdExternalIdsJaGravados(sb);
+  const { novas } = separarNovasDasExistentes(linhas, jaGravados);
+  const idsNovas = new Set(novas.map((l: any) => l.external_id));
+
+  return json({
+    pastasDeEquipe: totalPastasDeEquipe,
+    total: linhas.length,
+    novas: novas.length,
+    jaImportadas: linhas.length - novas.length,
+    pastas: linhas.map((l: any) => ({
+      nome: l.nome,
+      caminho: l.caminho,
+      external_id: l.external_id,
+      drive_id: l.drive_id,
+      jaImportada: !idsNovas.has(l.external_id),
+    })),
+  });
+}
+
+// zoho.importarPastas -> grava em acessos_recursos o que ainda não está lá.
+// Rodar duas vezes não duplica: a chave é o external_id (e o banco tem índice único
+// pra garantir isso mesmo se dois cliques chegarem juntos).
+async function actZohoImportarPastas(sb: any, quem: string | null) {
+  const conn = await readZohoConn(sb);
+  if (!conn.refresh_token) return json({ error: "nao_conectado" });
+  const access = await freshAccessToken(conn);
+  const { linhas } = await wdColetarPastas(access);
+  const jaGravados = await wdExternalIdsJaGravados(sb);
+  const { novas, existentes } = separarNovasDasExistentes(linhas, jaGravados);
+
+  let criadas = 0;
+  let erros = 0;
+  if (novas.length > 0) {
+    const { data, error } = await sb.from("acessos_recursos").insert(novas).select("id");
+    if (error) {
+      erros = novas.length;
+      console.error("[acessos-proxy] workdrive: insert falhou", error.message);
+      await logZohoPastas(sb, quem, "erro", { detalhe: error.message, tentadas: novas.length });
+      return json({ error: "falha_ao_inserir", detalhe: error.message }, 500);
+    }
+    criadas = (data ?? []).length;
+  }
+
+  const resumo = {
+    criadas,
+    jaExistiam: existentes.length,
+    total: linhas.length,
+    erros,
+  };
+  await logZohoPastas(sb, quem, "ok", resumo);
+  return json(resumo);
+}
+
+async function logZohoPastas(sb: any, quem: string | null, resultado: string, detalhe: unknown) {
+  try {
+    await sb.from("acessos_log").insert({
+      quem,
+      acao: "zoho.importarPastas",
+      provedor: "zoho",
+      alvo: "acessos_recursos",
+      resultado,
+      detalhe: typeof detalhe === "string" ? detalhe : JSON.stringify(detalhe),
+    });
+  } catch (e) {
+    console.warn("[acessos-proxy] log importarPastas falhou", e instanceof Error ? e.message : e);
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (req.method !== "POST") return json({ error: "metodo_invalido" }, 405);
@@ -1250,6 +1439,10 @@ Deno.serve(async (req: Request) => {
         return await actZohoSetUser(sb, body.email, "enableUser");
       case "zoho.create":
         return await actZohoCreate(sb, body);
+      case "zoho.pastas":
+        return await actZohoPastas(sb);
+      case "zoho.importarPastas":
+        return await actZohoImportarPastas(sb, user.id);
       case "microsoft.status":
         return await msStatus(sb);
       case "microsoft.authUrl":
