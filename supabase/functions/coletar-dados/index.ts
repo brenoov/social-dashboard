@@ -121,7 +121,11 @@ async function atualizarFotoDoPerfil(sb: any, accountId: string, igId: string, t
     const urlMeta = d?.profile_picture_url;
     if (!urlMeta) { degraded.push(`foto ${name}: a Meta não devolveu profile_picture_url`); return; }
 
-    const r = await fetch(urlMeta);
+    // TIMEOUT OBRIGATÓRIO. Sem ele, um download pendurado do CDN da Meta trava a
+    // coleta INTEIRA — que roda 4x/dia e alimenta o painel todo. A foto é cosmética;
+    // ela não tem o direito de derrubar as métricas. (Aprendido na marca: a primeira
+    // versão disto, sem timeout, fez a rodada parar de responder.)
+    const r = await fetch(urlMeta, { signal: AbortSignal.timeout(12000) });
     if (!r.ok) { degraded.push(`foto ${name}: baixar a imagem deu ${r.status}`); return; }
     const bytes = new Uint8Array(await r.arrayBuffer());
     if (!bytes.length) { degraded.push(`foto ${name}: imagem vazia`); return; }
@@ -137,10 +141,12 @@ async function atualizarFotoDoPerfil(sb: any, accountId: string, igId: string, t
       method: 'POST',
       headers: {
         Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        apikey: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
         'Content-Type': r.headers.get('content-type') || 'image/jpeg',
         'x-upsert': 'true',
       },
       body: bytes,
+      signal: AbortSignal.timeout(15000), // mesma razão do download: não travar a coleta
     });
     if (!up.ok) { degraded.push(`foto ${name}: upload falhou ${up.status} ${(await up.text()).slice(0, 90)}`); return; }
 
