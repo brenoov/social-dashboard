@@ -1451,9 +1451,13 @@ async function _acDelTermo(termoId,pessoaId){
 }
 let _acAudView=(typeof localStorage!=='undefined'&&localStorage.getItem('ac-aud-view'))||'cards';
 let _acAudData=null;
+// Recado de "não consegui ver tudo". Fica fora de _acAudData porque é preenchido
+// mesmo quando a consulta falha e _acAudData nem chega a existir.
+let _acAudAviso=null;
 async function _acRenderAuditoria(){
   const body=document.getElementById('ac-body');
   body.innerHTML='<div class="ac-muted">Carregando auditoria…</div>';
+  _acAudAviso=null; // recomeça limpo: aviso de carga velha não pode sobrar na nova.
   const[{data:orgs},{data:setores},{data:pessoas},{data:itens},{data:vincs}]=await Promise.all([
     sbClient.from('acessos_organizacoes').select('*').order('ordem').order('nome'),
     sbClient.from('acessos_setores').select('*').order('nome'),
@@ -1470,7 +1474,18 @@ async function _acRenderAuditoria(){
     // e o acesso caiu noutra conta (ex.: convidou @outlook, conta real @gmail).
     const nm=_acNorm(it.name||'');
     if(nm){if(!odByName[nm])odByName[nm]={email:e,folders:[]};odByName[nm].folders.push(entry);}
-  });}catch(e){}
+  });
+  // Pasta que o proxy não conseguiu ler vira aviso na tela, não silêncio.
+  if(r&&Array.isArray(r.falhas)&&r.falhas.length){
+    _acAudAviso='Não consegui ler o acesso de '+r.falhas.length+' pasta(s) do OneDrive: '+r.falhas.map(f=>f.pasta).join(', ')+'. O que aparece abaixo está incompleto.';
+  }
+  }catch(e){
+  // Este catch era vazio. Quando a chamada inteira falhava, a Auditoria pintava a
+  // lista sem NENHUM acesso do OneDrive — igualzinho a "essas pessoas não têm acesso
+  // a nada". Quem olhasse ia embora achando que estava tudo limpo. Agora a tela diz
+  // que não conseguiu olhar, que é a verdade.
+  _acAudAviso='Não consegui consultar os acessos do OneDrive agora ('+(e&&e.message?e.message:'falha na conexão')+'). A coluna do OneDrive abaixo está VAZIA por causa disso — não porque as pessoas não tenham acesso.';
+  }
   const setorById={};(setores||[]).forEach(s=>setorById[s.id]=s);
   const itensByP={};(itens||[]).forEach(d=>{(itensByP[d.pessoa_id]=itensByP[d.pessoa_id]||[]).push(d);});
   // Pasta arquivada não conta na Auditoria: ela saiu de uso, então mostrar que
@@ -1584,7 +1599,10 @@ function _acAudPaint(){
     return `<div style="margin-bottom:26px"><div class="ac-section-h"><h3>${_acEsc(org.nome)}</h3></div>${setoresHtml}</div>`;
   }).join('');
   const toggle=`<div class="ac-section-h"><h3>Auditoria</h3><div style="margin-left:auto;display:flex;gap:6px"><button class="ac-tab ${_acAudView==='cards'?'active':''}" onclick="_acAudSetView('cards')">Cards</button><button class="ac-tab ${_acAudView==='lista'?'active':''}" onclick="_acAudSetView('lista')">Lista</button></div></div>`;
-  body.innerHTML=toggle+(blocos||'<div class="ac-muted">Sem colaboradores.</div>');
+  // O aviso vem ANTES da lista de propósito: se o quadro está incompleto, quem lê
+  // precisa saber disso antes de tirar conclusão do que está abaixo.
+  const aviso=_acAudAviso?'<div class="ac-aviso-incompleto">⚠ '+_acEsc(_acAudAviso)+'</div>':'';
+  body.innerHTML=aviso+toggle+(blocos||'<div class="ac-muted">Sem colaboradores.</div>');
 }
 
 // Estas funções manipulam o DOM diretamente (innerHTML/onclick strings), então
@@ -1663,6 +1681,17 @@ onMounted(() => {
 .tela-acessos :deep(.ac-row){display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid rgba(255,255,255,.08);border-radius:10px;margin-bottom:8px;flex-wrap:wrap}
 .tela-acessos :deep(.ac-row .grow){flex:1;min-width:160px}
 .tela-acessos :deep(.ac-muted){opacity:.6;font-size:12px}
+/* Aviso de "o quadro abaixo está incompleto".
+   Usa var(--orange) e não cor cravada porque o painel tem tema claro E escuro:
+   cor fixa ficaria ilegível num dos dois. Precisa de :deep() porque a Auditoria
+   é desenhada com innerHTML, e CSS scoped não alcança elemento injetado assim. */
+.tela-acessos :deep(.ac-aviso-incompleto){
+  margin:0 0 var(--sp-3);padding:10px 14px;
+  border:1px solid var(--orange);border-left-width:4px;
+  border-radius:var(--radius-md);
+  background:color-mix(in srgb, var(--orange) 8%, transparent);
+  color:var(--orange);font-size:13px;line-height:1.45;font-weight:600;
+}
 .tela-acessos :deep(.ac-btn){background:#0d9488;border:none;color:#fff;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px}
 .tela-acessos :deep(.ac-btn.ghost){background:none;border:1px solid rgba(255,255,255,.18);color:inherit}
 .tela-acessos :deep(.ac-btn.danger){background:#991b1b}

@@ -1061,10 +1061,18 @@ async function actAllShares(sb: any) {
   const { data: recursos } = await sb
     .from("acessos_recursos")
     .select("id, nome, external_id")
-    .eq("tipo", "onedrive")
-    // Pasta arquivada sai da varredura: não faz sentido gastar chamada de API
-    // lendo permissão de pasta que o painel não mostra mais.
-    .is("arquivado_em", null);
+    .eq("tipo", "onedrive");
+  // DE PROPÓSITO sem filtro de arquivado_em, ao contrário das listagens.
+  //
+  // Arquivar é decisão de ORGANIZAÇÃO (some do painel); não tira o acesso real de
+  // ninguém no OneDrive. A Auditoria existe justamente pra mostrar quem tem acesso
+  // DE VERDADE. Se ela pulasse a pasta arquivada, o dia em que alguém arquivasse o
+  // OneDrive a tela passaria a dizer "ninguém tem acesso" enquanto as pessoas
+  // continuariam entrando nas pastas — ponto cego de segurança, não economia.
+  //
+  // Medido em 2026-07-17: 370 compartilhamentos ativos, 15 pessoas. Nada disso sai
+  // do ar por arquivar. Pasta arquivada com acesso vivo é EXATAMENTE o que a
+  // Auditoria precisa gritar.
   const { data: marcas } = await sb
     .from("acessos_drive_marcas")
     .select("id, nome, external_id");
@@ -1091,6 +1099,8 @@ async function actAllShares(sb: any) {
     marca: string | null;
     inherited: boolean;
   }> = [];
+  // Pastas que não deu pra ler. Vai na resposta junto com os acessos.
+  const falhas: Array<{ pasta: string; motivo: string }> = [];
 
   for (const recurso of folders) {
     if (!recurso.external_id) continue;
@@ -1100,12 +1110,13 @@ async function actAllShares(sb: any) {
         `/me/drive/items/${encodeURIComponent(recurso.external_id)}/permissions`,
       );
       if (!r.ok) {
-        console.warn(
-          "[acessos-proxy] allShares: falha ao ler permissoes da pasta",
-          recurso.nome,
-          r.status,
-          r.json,
-        );
+        // A pasta que falhou vai na resposta, não só no log.
+        //
+        // Antes isto era um console.warn + continue: a pasta sumia da contagem e quem
+        // chamava recebia uma lista a menos SEM SABER. Se falhasse em todas, a resposta
+        // era uma lista vazia — idêntica a "ninguém tem acesso". Falha silenciosa que
+        // devolve zero é pior que erro: o zero é lido como fato.
+        falhas.push({ pasta: String(recurso.nome ?? ""), motivo: `HTTP ${r.status}` });
         continue;
       }
       const value: any[] = Array.isArray(r.json?.value) ? r.json.value : [];
@@ -1126,15 +1137,17 @@ async function actAllShares(sb: any) {
         });
       }
     } catch (e) {
-      console.warn(
-        "[acessos-proxy] allShares: erro ao processar pasta",
-        recurso.nome,
-        e instanceof Error ? e.message : e,
-      );
+      falhas.push({
+        pasta: String(recurso.nome ?? ""),
+        motivo: e instanceof Error ? e.message : String(e),
+      });
     }
   }
 
-  return json({ items });
+  // "falhas" sempre vai junto. Quem lê a Auditoria precisa saber se está vendo o
+  // quadro inteiro ou um pedaço: 0 acessos com 0 falhas é "ninguém tem acesso";
+  // 0 acessos com 32 falhas é "não consegui olhar". São coisas opostas.
+  return json({ items, falhas });
 }
 
 async function actRevokeForEmail(sb: any, email: string | null) {
