@@ -30,6 +30,7 @@ import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/c
 import { adminToast } from '../../compartilhado/avisos.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { hojeLocal } from '../../compartilhado/datas.js'
+import { montarArvoreDePastas } from './montar-arvore-de-pastas.js'
 
 const router = useRouter()
 
@@ -246,7 +247,9 @@ async function _acRenderICloud(){
 }
 async function _acICLoadFolders(){
   const wrap=document.getElementById('ac-ic-list');if(!wrap)return;
-  const{data,error}=await sbClient.from('acessos_recursos').select('*').eq('tipo','icloud').order('nome');
+  // arquivado_em nulo = pasta ativa. Pasta arquivada não aparece na tela (a
+  // linha continua no banco, só sai de vista — dá pra desarquivar pelo banco).
+  const{data,error}=await sbClient.from('acessos_recursos').select('*').eq('tipo','icloud').is('arquivado_em',null).order('nome');
   if(error){wrap.innerHTML='<div class="ac-card">Erro: '+_acEsc(error.message)+'</div>';return;}
   const fs=data||[];
   wrap.innerHTML=fs.length?fs.map(f=>`
@@ -352,7 +355,95 @@ function _acDriveClassify(name){
   for(const s of _AC_SECTORS){if(s.kw.some(k=>n.includes(k)))return s;}
   return {key:'outros',label:'Outros'};
 }
+// Qual provedor a aba Drive está mostrando. A empresa está saindo do OneDrive
+// pro Zoho WorkDrive, então os dois convivem aqui até o OneDrive ser arquivado.
+let _acDriveProvedor='onedrive'; // 'onedrive' | 'workdrive'
+function _acDriveSetProvedor(p){if(p===_acDriveProvedor)return;_acDriveProvedor=p;_acRenderDrive();}
+// Barra que troca de provedor. Fica no topo dos DOIS lados, pra o caminho de
+// volta existir sempre.
+function _acDriveProvedorBar(){
+  return `<div class="ac-driveviews">
+    <button class="ac-tab ${_acDriveProvedor==='onedrive'?'active':''}" onclick="_acDriveSetProvedor('onedrive')">${_acLogo('ms')}OneDrive</button>
+    <button class="ac-tab ${_acDriveProvedor==='workdrive'?'active':''}" onclick="_acDriveSetProvedor('workdrive')">${_acLogo('zoho')}Zoho WorkDrive</button>
+  </div>`;
+}
+/* ===== Zoho WorkDrive (dentro da aba Drive) ===== */
+// Pastas do WorkDrive já importadas, como vieram do banco (lista achatada).
+let _acWdPastas=[];
+// Quais ramos estão fechados. Ausente = aberto (começa tudo aberto: são poucas
+// pastas e o dono quer bater o olho e ver a estrutura inteira).
+let _acWdAberto={};
+async function _acRenderWorkdrive(){
+  const body=document.getElementById('ac-body');
+  body.innerHTML=_acDriveProvedorBar()+`
+    <div class="ac-hero">
+      <div><h2>Zoho WorkDrive</h2><div class="ac-sub">As pastas do WorkDrive sob controle, na mesma hierarquia que elas têm no Zoho. É pra cá que a empresa está migrando.</div></div>
+      <div class="ac-hero-actions"><button class="ac-btn ghost lg" id="ac-wd-importar" onclick="_acWdImportar()">Buscar pastas novas</button></div>
+    </div>
+    <div id="ac-wd-content"><div class="ac-muted">Carregando pastas…</div></div>`;
+  _acWdCarregarPastas();
+}
+async function _acWdCarregarPastas(){
+  const cont=document.getElementById('ac-wd-content');if(!cont)return;
+  // Lê DIRETO do banco (e não pelo proxy): a tela só quer mostrar o que já foi
+  // importado. Passar pelo Zoho a cada abertura deixaria a tela lenta e a
+  // deixaria refém da API estar no ar. Buscar no Zoho é só no botão.
+  const{data,error}=await sbClient.from('acessos_recursos').select('*').eq('tipo','workdrive').is('arquivado_em',null).order('caminho');
+  if(error){cont.innerHTML='<div class="ac-card">Erro ao ler as pastas: '+_acEsc(error.message)+'</div>';return;}
+  _acWdPastas=data||[];
+  _acWdRepaint();
+}
+function _acWdRepaint(){
+  const cont=document.getElementById('ac-wd-content');if(!cont)return;
+  if(!_acWdPastas.length){cont.innerHTML='<div class="ac-empty">Nenhuma pasta do WorkDrive por aqui ainda. Clique em "Buscar pastas novas" para trazer as pastas do Zoho.</div>';return;}
+  // A hierarquia não vem pronta do banco: ela está escondida no texto do campo
+  // `caminho` ("mãe/filha"). Quem desdobra isso em árvore é o módulo testado.
+  const raizes=montarArvoreDePastas(_acWdPastas);
+  // O invólucro com rolagem própria existe pro celular: um ramo fundo é largo,
+  // e sem ele a árvore empurraria a PÁGINA inteira pro lado. Assim quem rola é
+  // só a árvore.
+  cont.innerHTML=`<div class="ac-muted" style="font-size:11px;margin:0 0 12px">${_acWdPastas.length} pasta(s) sob controle. Clique no <b>▸</b> para abrir ou fechar um ramo.</div>
+    <div class="ac-wd-arvore"><ul class="ac-tree ac-tree-root">${raizes.map(_acWdNo).join('')}</ul></div>`;
+}
+// Desenha uma pasta e, embaixo dela, as filhas — chamando a si mesma. É a
+// recursão que dá o aninhamento; a indentação em si é do CSS (.ac-tree).
+function _acWdNo(no){
+  const temFilhas=no.filhas.length>0;
+  const aberto=_acWdAberto[no.id]!==false;
+  return `<li class="ac-tnode">
+    <div class="ac-tn-row">
+      ${temFilhas?`<button class="ac-tn-tog ${aberto?'open':''}" onclick="_acWdAlternar('${_acEsc(no.id)}')" title="${aberto?'recolher':'expandir'}">▸</button>`:'<span class="ac-tn-dot"></span>'}
+      <div class="ac-vcard ${no.nivel===0?'ac-vcard-root':''}" style="--sc:#e1251b">
+        <span class="ac-vc-ico">${no.nivel===0?'🏢':'📁'}</span>
+        <span class="ac-vc-name" title="${_acEsc(no.caminho)}">${_acEsc(no.nome)}</span>
+        ${temFilhas?`<span class="ac-vc-count">${no.filhas.length}</span>`:''}
+      </div>
+    </div>
+    ${temFilhas&&aberto?`<ul class="ac-tree">${no.filhas.map(_acWdNo).join('')}</ul>`:''}
+  </li>`;
+}
+function _acWdAlternar(id){_acWdAberto[id]=(_acWdAberto[id]===false);_acWdRepaint();}
+async function _acWdImportar(){
+  const b=document.getElementById('ac-wd-importar');
+  if(b){b.disabled=true;b.textContent='Buscando…';}
+  try{
+    // Sem parâmetro nenhum de propósito: a ação importa tudo que for novo e é
+    // idempotente — clicar duas vezes não duplica pasta (a chave é o
+    // external_id, e o banco tem índice único garantindo isso).
+    const r=await _acProxy('zoho.importarPastas');
+    const criadas=(r&&r.criadas)||0;
+    adminToast(criadas?(criadas+' pasta(s) nova(s) importada(s)'):'Nenhuma pasta nova — já estava tudo aqui');
+    await _acWdCarregarPastas();
+  }catch(e){
+    // "nao_conectado" é o caso comum e tem conserto claro; o resto é erro mesmo.
+    adminToast(e.message==='nao_conectado'?'Conecte o Zoho em Configurações antes de importar':('Erro ao importar: '+e.message),false);
+  }finally{
+    const b2=document.getElementById('ac-wd-importar');
+    if(b2){b2.disabled=false;b2.textContent='Buscar pastas novas';}
+  }
+}
 async function _acRenderDrive(){
+  if(_acDriveProvedor==='workdrive')return _acRenderWorkdrive();
   const body=document.getElementById('ac-body');
   body.innerHTML='<div class="ac-muted">Carregando Drive…</div>';
   try{const{data}=await sbClient.from('acessos_drive_marcas').select('*').order('ordem').order('nome');_acDriveMarcas=data||[];}catch(e){_acDriveMarcas=[];}
@@ -365,7 +456,7 @@ async function _acRenderDrive(){
 function _acDrivePaintShell(){
   const body=document.getElementById('ac-body');
   const chips=_acDriveMarcas.map(m=>`<button class="ac-brand-chip ${m.id===_acDriveSel?'active':''}" onclick="_acDriveSelectMarca('${m.id}')">${_acEsc(m.nome)}<span class="ac-brand-x" title="remover marca" onclick="event.stopPropagation();_acDriveDelMarca('${m.id}')">✕</span></button>`).join('');
-  body.innerHTML=`
+  body.innerHTML=_acDriveProvedorBar()+`
     <div class="ac-hero">
       <div><h2>Drive</h2><div class="ac-sub">Pastas das marcas agrupadas por setor. Compartilhe direto daqui, com vários colaboradores de uma vez.</div></div>
       <div class="ac-hero-actions"><button class="ac-btn ghost lg" onclick="_acDriveAddMarca()">+ Adicionar marca</button></div>
@@ -1071,7 +1162,12 @@ function _acDesligar(id){
       catch(e){resumo+=' · Zoho falhou';}
     }
     let iclNomes=[];
-    try{const{data:vs}=await sbClient.from('acessos_vinculos').select('acessos_recursos(nome,tipo)').eq('pessoa_id',id);(vs||[]).forEach(v=>{if(v.acessos_recursos&&v.acessos_recursos.tipo==='icloud')iclNomes.push(v.acessos_recursos.nome);});}catch(e){}
+    // O filtro de arquivado_em é feito aqui no JS (e não na query) de propósito:
+    // filtrar campo de tabela ligada no PostgREST muda o jeito que a junção
+    // funciona e poderia sumir com VÍNCULO, não só com pasta arquivada. Aqui a
+    // consulta continua trazendo o que sempre trouxe; só a pasta arquivada é
+    // pulada na hora de montar o aviso.
+    try{const{data:vs}=await sbClient.from('acessos_vinculos').select('acessos_recursos(nome,tipo,arquivado_em)').eq('pessoa_id',id);(vs||[]).forEach(v=>{const r=v.acessos_recursos;if(r&&r.tipo==='icloud'&&!r.arquivado_em)iclNomes.push(r.nome);});}catch(e){}
     await _acLog('colaborador.desligar','colab:'+c.nome,'ok',data||null);
     close();adminToast(resumo);
     if(iclNomes.length){setTimeout(()=>adminToast('iCloud (manual): remova de '+iclNomes.join(', '),false),1300);}
@@ -1098,7 +1194,9 @@ async function _acProvisionar(id){
   const hasZoho=!!c.email_corporativo;
   // carrega recursos geridos
   let odFolders=[];try{const r=await _acProxy('microsoft.folders');odFolders=(r&&r.folders)||[];}catch(e){}
-  let icFolders=[];try{const{data}=await sbClient.from('acessos_recursos').select('id,nome').eq('tipo','icloud').order('nome');icFolders=data||[];}catch(e){}
+  // Só pasta ativa pode ser concedida a alguém: não faz sentido oferecer pasta
+  // arquivada no provisionamento de um colaborador novo.
+  let icFolders=[];try{const{data}=await sbClient.from('acessos_recursos').select('id,nome').eq('tipo','icloud').is('arquivado_em',null).order('nome');icFolders=data||[];}catch(e){}
   const ov=document.createElement('div');ov.className='ac-modal-ov open';ov.id='ac-prov-ov';
   ov.innerHTML=`<div class="ac-modal" style="max-width:560px">
     <h3 style="margin-top:0">Provisionar acessos — ${_acEsc(c.nome)}</h3>
@@ -1361,7 +1459,7 @@ async function _acRenderAuditoria(){
     sbClient.from('acessos_setores').select('*').order('nome'),
     sbClient.from('acessos_pessoas').select('*').order('nome'),
     sbClient.from('acessos_dispositivos').select('*'),
-    sbClient.from('acessos_vinculos').select('pessoa_id,papel,estado,acessos_recursos(nome,tipo)')
+    sbClient.from('acessos_vinculos').select('pessoa_id,papel,estado,acessos_recursos(nome,tipo,arquivado_em)')
   ]);
   let odMap={},odByName={};
   try{const r=await _acProxy('microsoft.allShares');((r&&r.items)||[]).forEach(it=>{
@@ -1375,7 +1473,10 @@ async function _acRenderAuditoria(){
   });}catch(e){}
   const setorById={};(setores||[]).forEach(s=>setorById[s.id]=s);
   const itensByP={};(itens||[]).forEach(d=>{(itensByP[d.pessoa_id]=itensByP[d.pessoa_id]||[]).push(d);});
-  const iclMap={};(vincs||[]).forEach(v=>{const r=v.acessos_recursos;if(r&&r.tipo==='icloud'){(iclMap[v.pessoa_id]=iclMap[v.pessoa_id]||[]).push({pasta:r.nome,papel:v.papel,estado:v.estado});}});
+  // Pasta arquivada não conta na Auditoria: ela saiu de uso, então mostrar que
+  // "fulano tem acesso" a ela só geraria cobrança de um acesso que não importa
+  // mais. O vínculo em si continua no banco (nada foi apagado).
+  const iclMap={};(vincs||[]).forEach(v=>{const r=v.acessos_recursos;if(r&&r.tipo==='icloud'&&!r.arquivado_em){(iclMap[v.pessoa_id]=iclMap[v.pessoa_id]||[]).push({pasta:r.nome,papel:v.papel,estado:v.estado});}});
   _acAudData={orgs:orgs||[],setores:setores||[],pessoas:pessoas||[],setorById,itensByP,odMap,odByName,iclMap};
   _acAudPaint();
 }
@@ -1505,7 +1606,9 @@ Object.assign(window, {
   _acReativar, _acReconcileEmail, _acRender, _acRenderAuditoria, _acRenderColaboradores, _acRenderConfiguracoes, _acRenderDispositivos, _acRenderDrive,
   _acRenderFicha, _acRenderICloud, _acRenderItens, _acRenderOneDrive, _acRenderOrganizacoes, _acRenderSetores, _acRenderTermos, _acRenderVeiculos,
   _acSanitizeName, _acSaveColaborador, _acSaveItem, _acSetItemStatus, _acSetorIco, _acSetTab, _acTiposFor, _acToggleOrg, _acVoltarSel,
-  _acUploadAvatar, _acUploadTermo, _acWrapId, _acZohoStatus
+  _acUploadAvatar, _acUploadTermo, _acWrapId, _acZohoStatus,
+  _acDriveSetProvedor, _acDriveProvedorBar, _acRenderWorkdrive, _acWdCarregarPastas, _acWdRepaint,
+  _acWdNo, _acWdAlternar, _acWdImportar
 })
 
 // Equivalente ao openAcessos() do legado, menos o display:flex (o router faz)
@@ -1740,7 +1843,13 @@ onMounted(() => {
 .tela-acessos :deep(.ac-secbody){min-height:10px}
 .tela-acessos :deep(.ac-move), .tela-acessos :deep(.ac-folder .ac-btn){cursor:pointer}
 .tela-acessos :deep(.ac-secmod.ac-drop-on){outline:2px dashed #0d9488;outline-offset:4px;border-radius:14px;background:rgba(13,148,136,.04)}
-.tela-acessos :deep(.ac-driveviews){display:flex;gap:6px;margin-bottom:14px}
+.tela-acessos :deep(.ac-driveviews){display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+/* Árvore do WorkDrive: ocupa toda a largura disponível e, se o ramo for muito
+   fundo pro celular, quem rola de lado é esta caixa — nunca a página. */
+.tela-acessos :deep(.ac-wd-arvore){width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+/* No celular o card da pasta deixa de ter teto de largura: aproveita a tela toda
+   em vez de sobrar faixa vazia à direita. */
+@media(max-width:640px){.tela-acessos :deep(.ac-wd-arvore .ac-vcard){max-width:none}}
 .tela-acessos :deep(.ac-drive-marcabar){display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface2);margin-bottom:14px}
 .tela-acessos :deep(.ac-drive-marcabar .grow){flex:1;min-width:160px}
 .tela-acessos :deep(.ac-drive-marca-nome){font-family:'Playfair Display',serif;font-weight:700;font-size:17px;color:var(--text)}

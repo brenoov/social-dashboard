@@ -796,6 +796,8 @@ async function msAddFolder(
 ) {
   if (!itemId) return json({ error: "sem_itemId" }, 400);
   // Avoid duplicates: same external_id already managed -> return it.
+  // Sem filtro de arquivado_em de propósito: é checagem de duplicata, não
+  // listagem. Pasta arquivada já está gravada e tem que contar como existente.
   const { data: existing } = await sb
     .from("acessos_recursos")
     .select("*")
@@ -825,6 +827,10 @@ async function msFolders(sb: any) {
     .from("acessos_recursos")
     .select("*")
     .eq("tipo", "onedrive")
+    // Pasta arquivada não aparece: arquivado_em preenchido = fora de uso.
+    // NULL = ativa. Arquivar não apaga nada, só some da tela (é reversível
+    // limpando a coluna no banco).
+    .is("arquivado_em", null)
     .order("nome", { ascending: true });
   if (error) return json({ error: "falha_ao_listar", detalhe: error.message }, 500);
   return json({ folders: data ?? [] });
@@ -925,6 +931,7 @@ async function actShareMany(sb: any, quem: string | null, items: unknown, emails
   // Registra as pastas em acessos_recursos (pra Auditoria refletir o que o Drive compartilhou).
   for (const it of norm) {
     try {
+      // Sem filtro de arquivado_em: checagem de duplicata, não listagem.
       const { data: ex } = await sb.from("acessos_recursos").select("id").eq("external_id", it.id).maybeSingle();
       if (!ex) await sb.from("acessos_recursos").insert({ tipo: "onedrive", provedor: "microsoft", nome: it.name || "(sem nome)", external_id: it.id });
     } catch (_) { /* dedup best-effort */ }
@@ -1054,7 +1061,10 @@ async function actAllShares(sb: any) {
   const { data: recursos } = await sb
     .from("acessos_recursos")
     .select("id, nome, external_id")
-    .eq("tipo", "onedrive");
+    .eq("tipo", "onedrive")
+    // Pasta arquivada sai da varredura: não faz sentido gastar chamada de API
+    // lendo permissão de pasta que o painel não mostra mais.
+    .is("arquivado_em", null);
   const { data: marcas } = await sb
     .from("acessos_drive_marcas")
     .select("id, nome, external_id");
@@ -1133,6 +1143,12 @@ async function actRevokeForEmail(sb: any, email: string | null) {
   if (!conn.refresh_token) return json({ error: "nao_conectado" });
   const access = await freshMsToken(conn);
 
+  // DE PROPÓSITO sem filtro de arquivado_em (diferente das listagens acima).
+  // Aqui não estamos MOSTRANDO pasta, estamos TIRANDO acesso de uma pessoa.
+  // Arquivar é uma decisão do painel; não apaga a pasta no OneDrive nem o
+  // acesso real que a pessoa tem nela. Se filtrássemos, alguém desligado
+  // continuaria enxergando a pasta arquivada de verdade — buraco de segurança.
+  // Revogar tem que varrer tudo.
   const { data: recursos } = await sb
     .from("acessos_recursos")
     .select("id, nome, external_id")
@@ -1305,6 +1321,12 @@ async function wdColetarPastas(access: string) {
 }
 
 async function wdExternalIdsJaGravados(sb: any): Promise<string[]> {
+  // DE PROPÓSITO sem filtro de arquivado_em. Esta consulta não é uma listagem
+  // pra tela: é a checagem "já importei esta pasta?". Uma pasta arquivada
+  // CONTINUA gravada, então ela tem que contar como "já existe" — senão a
+  // importação tentaria inserir de novo, esbarraria no índice único do
+  // external_id e a importação inteira quebraria. Filtrar aqui mataria a
+  // idempotência (rodar 2x não pode duplicar).
   const { data, error } = await sb
     .from("acessos_recursos")
     .select("external_id")
