@@ -155,6 +155,7 @@ import { onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { estado, PERMISSION_TREE, RECURSOS } from '../../compartilhado/controle-de-login-e-usuario.js'
+import { ACOES_MATRIZ, agruparRecursos, contarAcoes, estadoDaSelecao, marcarTudo } from './agrupar-permissoes.js'
 import { derivarFeatures } from '../../compartilhado/derivar-features.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
@@ -464,7 +465,33 @@ async function openPermModal(u) {
   document.getElementById('perm-modal-overlay').classList.add('open')
 }
 
-function _lbl10(txt, mt) { const d = document.createElement('div'); d.textContent = txt; d.style.cssText = `font-size:10px;letter-spacing:1.5px;color:var(--muted);font-weight:700;margin:${mt || 6}px 0 6px`; return d }
+// `??` e não `||`: com `||`, passar mt=0 caía no default 6 — o topo da matriz
+// pede margem 0 de verdade.
+function _lbl10(txt, mt) { const d = document.createElement('div'); d.textContent = txt; d.style.cssText = `font-size:10px;letter-spacing:1.5px;color:var(--muted);font-weight:700;margin:${mt ?? 6}px 0 6px`; return d }
+
+// Checkbox "marcar/desmarcar tudo" de uma lista de recursos. O MESMO builder
+// serve o global (recebe RECURSOS inteiro) e o de cada card (recebe só os
+// recursos daquela ferramenta) — quem define o escopo é o parâmetro, então não
+// existe uma segunda regra de "marcar tudo" pra sair de sincronia.
+//
+// Parcial vira indeterminate (o tracinho): 'cheio' e 'vazio' já são checked/
+// unchecked, mas sem o indeterminate um grupo meio marcado mentiria dizendo
+// "desmarcado". Clicar num parcial LIGA tudo (só desliga a partir do cheio).
+function _mkMarcarTudo(texto, recursos, u) {
+  const estadoSel = estadoDaSelecao(recursos, _permState.permissions)
+  const w = document.createElement('label'); w.className = 'perm-marcar-tudo'
+  const cb = document.createElement('input'); cb.type = 'checkbox'
+  cb.checked = estadoSel === 'cheio'
+  cb.indeterminate = estadoSel === 'parcial'
+  cb.setAttribute('aria-label', `${texto} (${recursos.length} ${recursos.length === 1 ? 'recurso' : 'recursos'})`)
+  cb.addEventListener('change', () => {
+    _permState.permissions = marcarTudo(_permState.permissions, recursos, estadoSel !== 'cheio')
+    _renderPermBody(u)
+  })
+  const t = document.createElement('span'); t.textContent = texto
+  w.appendChild(cb); w.appendChild(t)
+  return w
+}
 
 function _renderPermBody(u) {
   const body = document.getElementById('perm-modal-body'); body.replaceChildren()
@@ -478,20 +505,68 @@ function _renderPermBody(u) {
     const info = document.createElement('div'); info.textContent = 'Super-admin tem acesso total — permissões e perfis não se aplicam.'; info.style.cssText = 'font-size:12px;color:var(--muted);padding:6px 0'
     body.appendChild(info); return
   }
-  // 2) Matriz recurso × ação
-  body.appendChild(_lbl10('PERMISSÕES'))
-  RECURSOS.forEach(r => {
-    const row = document.createElement('div'); row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--border)'
-    const lbl = document.createElement('span'); lbl.textContent = r.label; lbl.style.cssText = 'font-size:12px;flex:1'
-    const acoesWrap = document.createElement('div'); acoesWrap.style.cssText = 'display:flex;gap:12px;flex-shrink:0'
-    r.acoes.forEach(acao => {
-      const w = document.createElement('label'); w.style.cssText = 'display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;color:var(--muted)'
-      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = (_permState.permissions[r.key] || []).includes(acao)
-      cb.addEventListener('change', () => { _togglePerm(r, acao, cb.checked); _renderPermBody(u) })
-      const t = document.createElement('span'); t.textContent = acao
-      w.appendChild(cb); w.appendChild(t); acoesWrap.appendChild(w)
+  // 2) Matriz recurso × ação, agrupada por ferramenta (um card por ferramenta).
+  //
+  // As COLUNAS SÃO FIXAS (ACOES_MATRIZ) e valem para todos os cards: recurso que
+  // não tem uma ação mostra a célula vazia, NÃO pula a coluna. Antes as ações
+  // eram empilhadas por recurso, então "ver" caía num x diferente em cada linha
+  // e não dava pra varrer uma coluna com o olho — era a causa do "horrível".
+  //
+  // Os grupos saem de agruparRecursos(RECURSOS, PERMISSION_TREE): derivados da
+  // chave ('social.relatorio' → ferramenta 'social'). Nenhuma lista de grupos
+  // escrita à mão aqui — catálogo paralelo é dívida que este projeto já paga.
+  const grupos = agruparRecursos(RECURSOS, PERMISSION_TREE)
+
+  const topo = document.createElement('div'); topo.className = 'perm-matriz-topo'
+  topo.appendChild(_lbl10('PERMISSÕES', 0))
+  topo.appendChild(_mkMarcarTudo('Marcar tudo', RECURSOS, u))
+  body.appendChild(topo)
+
+  grupos.forEach(g => {
+    const card = document.createElement('section'); card.className = 'perm-card'
+
+    const hdr = document.createElement('div'); hdr.className = 'perm-card-hdr'
+    const titulo = document.createElement('span'); titulo.className = 'perm-card-titulo'; titulo.textContent = g.label
+    const { total, marcadas } = contarAcoes(g.recursos, _permState.permissions)
+    const contagem = document.createElement('span'); contagem.className = 'perm-card-contagem'
+    contagem.textContent = `${marcadas} de ${total}`
+    hdr.appendChild(titulo); hdr.appendChild(contagem)
+    hdr.appendChild(_mkMarcarTudo('Tudo', g.recursos, u))
+    card.appendChild(hdr)
+
+    // Rolagem horizontal só do card: no celular a matriz desliza dentro dele em
+    // vez de estourar a tela (e o modal continua rolando na vertical).
+    const scroll = document.createElement('div'); scroll.className = 'perm-grade-scroll'
+    const grade = document.createElement('div'); grade.className = 'perm-grade'
+
+    const cab = document.createElement('div'); cab.className = 'perm-linha perm-linha-cab'
+    cab.appendChild(document.createElement('span')) // canto vazio, sobre a coluna dos rótulos
+    ACOES_MATRIZ.forEach(a => { const c = document.createElement('span'); c.className = 'perm-cab-acao'; c.textContent = a; cab.appendChild(c) })
+    grade.appendChild(cab)
+
+    g.recursos.forEach(r => {
+      const linha = document.createElement('div'); linha.className = 'perm-linha'
+      const lbl = document.createElement('span'); lbl.className = 'perm-linha-nome'; lbl.textContent = r.label; lbl.title = r.label
+      linha.appendChild(lbl)
+      ACOES_MATRIZ.forEach(acao => {
+        if (!r.acoes.includes(acao)) {
+          // Célula vazia: traço discreto. Segura a coluna no lugar — é o que
+          // mantém "ver" alinhado de cima a baixo.
+          const vazia = document.createElement('span'); vazia.className = 'perm-cel perm-cel-vazia'; vazia.textContent = '–'
+          vazia.title = `${r.label} não tem a ação "${acao}"`
+          linha.appendChild(vazia); return
+        }
+        const cel = document.createElement('label'); cel.className = 'perm-cel'
+        const cb = document.createElement('input'); cb.type = 'checkbox'
+        cb.checked = (_permState.permissions[r.key] || []).includes(acao)
+        cb.setAttribute('aria-label', `${r.label} — ${acao}`)
+        cb.title = `${r.label} — ${acao}`
+        cb.addEventListener('change', () => { _togglePerm(r, acao, cb.checked); _renderPermBody(u) })
+        cel.appendChild(cb); linha.appendChild(cel)
+      })
+      grade.appendChild(linha)
     })
-    row.appendChild(lbl); row.appendChild(acoesWrap); body.appendChild(row)
+    scroll.appendChild(grade); card.appendChild(scroll); body.appendChild(card)
   })
   // 3) Perfis de rede social
   body.appendChild(_lbl10('PERFIS DE REDE SOCIAL', 12))
@@ -1173,7 +1248,9 @@ Object.assign(window, {
    dentro da raiz deste componente. ── */
 .tela-admin :deep(.perm-overlay){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
 .tela-admin :deep(.perm-overlay.open){display:flex;}
-.tela-admin :deep(.perm-modal){background:var(--surface);border-radius:8px;width:420px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden;}
+/* 420 → 760: a matriz tem 5 colunas fixas de ação + a coluna de nomes; em 420
+   ela nasceria rolando na horizontal já no desktop. 95vw segura o celular. */
+.tela-admin :deep(.perm-modal){background:var(--surface);border-radius:8px;width:760px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden;}
 .tela-admin :deep(.perm-modal-hdr){padding:20px 22px 14px;border-bottom:1px solid var(--border);}
 .tela-admin :deep(.perm-modal-title){font-family:'Oswald',sans-serif;font-size:17px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--text);}
 .tela-admin :deep(.perm-modal-user){font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);margin-top:3px;}
@@ -1192,4 +1269,45 @@ Object.assign(window, {
 .tela-admin :deep(.perm-toggle-track::after){content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
 .tela-admin :deep(.perm-toggle input:checked ~ .perm-toggle-track::after){transform:translateX(16px);}
 .tela-admin :deep(.perm-modal-ftr){padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;}
+
+/* ── Matriz de permissões (recurso × ação), agrupada em cards por ferramenta.
+   TODAS as classes daqui usam o prefixo `perm-` e são NOVAS (não existem no
+   estilos-globais.css): o projeto já quebrou uma tela reusando um nome global
+   (`home-card` → `fab-card`), então nada de nome genérico tipo .card/.grade. ── */
+.tela-admin :deep(.perm-matriz-topo){display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 0 8px;}
+
+.tela-admin :deep(.perm-marcar-tudo){display:flex;align-items:center;gap:5px;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;color:var(--muted);user-select:none;flex-shrink:0;white-space:nowrap;}
+.tela-admin :deep(.perm-marcar-tudo:hover){color:var(--text);}
+.tela-admin :deep(.perm-marcar-tudo input){cursor:pointer;margin:0;}
+
+.tela-admin :deep(.perm-card){border:1px solid var(--border);border-radius:7px;background:var(--surface);overflow:hidden;margin-bottom:10px;}
+.tela-admin :deep(.perm-card-hdr){display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border-bottom:1px solid var(--border);}
+.tela-admin :deep(.perm-card-titulo){font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:700;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tela-admin :deep(.perm-card-contagem){font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);flex-shrink:0;font-variant-numeric:tabular-nums;}
+
+/* A rolagem horizontal vive DENTRO do card: no celular a grade desliza aqui e
+   o modal nunca ganha barra horizontal. */
+.tela-admin :deep(.perm-grade-scroll){overflow-x:auto;}
+.tela-admin :deep(.perm-grade){min-width:340px;}
+
+/* O alinhamento das colunas depende deste template ser IDÊNTICO no cabeçalho e
+   em toda linha — é o conserto do "ver" que caía num x diferente por linha. */
+.tela-admin :deep(.perm-linha){display:grid;grid-template-columns:minmax(130px,1fr) repeat(5,42px);align-items:center;padding:0 12px;border-bottom:1px solid var(--border);}
+.tela-admin :deep(.perm-linha:last-child){border-bottom:none;}
+.tela-admin :deep(.perm-linha:not(.perm-linha-cab):hover){background:var(--surface2);}
+.tela-admin :deep(.perm-linha-cab){border-bottom:1px solid var(--border);background:transparent;}
+.tela-admin :deep(.perm-cab-acao){font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:700;text-align:center;padding:6px 0;}
+.tela-admin :deep(.perm-linha-nome){font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--text);padding:7px 8px 7px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tela-admin :deep(.perm-cel){display:flex;align-items:center;justify-content:center;padding:7px 0;cursor:pointer;}
+.tela-admin :deep(.perm-cel input){cursor:pointer;margin:0;}
+/* Célula vazia = recurso não tem essa ação. Ocupa a coluna (segura o
+   alinhamento) sem fingir que é um checkbox desmarcado. */
+.tela-admin :deep(.perm-cel-vazia){color:var(--border);cursor:default;font-size:11px;user-select:none;}
+
+@media (max-width:640px){
+  .tela-admin :deep(.perm-linha){grid-template-columns:minmax(110px,1fr) repeat(5,38px);padding:0 8px;}
+  .tela-admin :deep(.perm-linha-nome){font-size:11px;}
+  .tela-admin :deep(.perm-modal-body){padding:12px 14px;}
+  .tela-admin :deep(.perm-card-hdr){padding:7px 8px;}
+}
 </style>
