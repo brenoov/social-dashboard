@@ -1348,6 +1348,110 @@ async function wdExternalIdsJaGravados(sb: any): Promise<string[]> {
   return (data ?? []).map((r: any) => String(r.external_id)).filter(Boolean);
 }
 
+// Traduz o "type" de uma permissão do WorkDrive pra algo que uma pessoa entende.
+// Descoberto na sondagem real de 2026-07-17: os valores que aparecem na conta da RBV
+// são "workspace" (todo o time), "everyone" (qualquer um do time) e "user" (uma pessoa).
+// Deixo o cru junto (campo "escopo") pra nunca esconder um valor novo que apareça depois.
+function wdTraduzirEscopo(tipo: string): string {
+  if (tipo === "user") return "Pessoa específica";
+  if (tipo === "workspace") return "Todo o time (workspace)";
+  if (tipo === "everyone") return "Qualquer um do time";
+  if (tipo === "team") return "Equipe";
+  // Valor que a Zoho devolveu e a gente ainda não mapeou (ex.: "folder", visto na sondagem).
+  // Mostra o cru rotulado como "Outro" — honesto: não invento um sentido que não confirmei,
+  // e fica claro que é caso não previsto, não um bug de tela em branco.
+  return tipo ? `Outro (${tipo})` : "?";
+}
+
+// zoho.acessoDaPasta -> LÊ (não muda nada) quem tem acesso a UMA pasta e os links dela.
+// Funciona com os escopos de hoje — provado na sondagem. É a base da auditoria do WorkDrive.
+async function actZohoAcessoDaPasta(sb: any, resourceId: unknown) {
+  const conn = await readZohoConn(sb);
+  if (!conn.refresh_token) return json({ error: "nao_conectado" });
+  const rid = typeof resourceId === "string" && resourceId ? resourceId : null;
+  if (!rid) return json({ error: "faltou_resourceId" }, 400);
+  const access = await freshAccessToken(conn);
+
+  // Duas leituras independentes: quem tem acesso, e quais links existem. Uma pode falhar
+  // sem derrubar a outra — e a falha vai na resposta (campo "falhas"), nunca em silêncio.
+  const falhas: Array<{ o_que: string; status: number }> = [];
+
+  let pessoas: any[] = [];
+  const rp = await wdFetch(access, `/files/${encodeURIComponent(rid)}/permissions`);
+  if (rp.ok) {
+    pessoas = (Array.isArray(rp.json?.data) ? rp.json.data : []).map((p: any) => {
+      const a = p?.attributes ?? {};
+      const info = a?.share_to_entity_info ?? {};
+      return {
+        nome: info.display_name || a.shared_by || a.email_id || "?",
+        email: (info.email_id || a.email_id || "").toLowerCase(),
+        escopo: wdTraduzirEscopo(String(a.type ?? "")),
+        escopo_cru: a.type ?? null,
+        compartilhado_por: a.shared_by ?? null,
+        expira_em_millis: a.expiry_in_millis ?? 0,
+      };
+    });
+  } else {
+    falhas.push({ o_que: "quem tem acesso", status: rp.status });
+  }
+
+  let links: any[] = [];
+  const rl = await wdFetch(access, `/files/${encodeURIComponent(rid)}/links`);
+  if (rl.ok) {
+    links = (Array.isArray(rl.json?.data) ? rl.json.data : []).map((l: any) => {
+      const a = l?.attributes ?? {};
+      return {
+        id: l?.id ?? null,
+        url: a.link ?? a.download_url ?? null,
+        nome: a.link_name ?? null,
+        permite_download: a.allow_download ?? null,
+        tem_senha: !!(a.is_password_protected ?? a.password_protected),
+        expira_em: a.expiration_date || null,
+      };
+    });
+  } else {
+    falhas.push({ o_que: "links da pasta", status: rl.status });
+  }
+
+  return json({ resourceId: rid, pessoas, links, falhas });
+}
+
+// zoho.diagnosticarSharing -> SONDAGEM só-leitura. Não compartilha nada, não cria link,
+// não muda permissão. Só faz GET nos endpoints candidatos de "quem tem acesso" e lê o
+// que a Zoho responde. Quando o token não tem o escopo certo, a Zoho devolve um erro que
+// NOMEIA o escopo que falta — é assim que a gente descobre o nome exato sem chutar e sem
+// mandar o dono reautorizar às cegas. Temporário: sai quando a gestão de acesso estiver pronta.
+async function actZohoDiagnosticarSharing(sb: any, resourceId: unknown) {
+  const conn = await readZohoConn(sb);
+  if (!conn.refresh_token) return json({ error: "nao_conectado" });
+  const rid = typeof resourceId === "string" && resourceId ? resourceId : null;
+  if (!rid) return json({ error: "faltou_resourceId" }, 400);
+  const access = await freshAccessToken(conn);
+
+  // Cada candidato é um GET diferente pra "listar quem tem acesso". Não sei qual existe;
+  // por isso tento vários e reporto o status cru de cada um. 200 = existe e funciona;
+  // 401/403 com F7007 = existe mas falta escopo (e o corpo diz qual); 404 = não é esse.
+  const candidatos = [
+    `/files/${rid}/permissions`,
+    `/permissions?resource_id=${rid}`,
+    `/files/${rid}/sharedwith`,
+    `/files/${rid}/links`,
+    `/links?resource_id=${rid}`,
+  ];
+  const resultados: any[] = [];
+  for (const path of candidatos) {
+    try {
+      const r = await wdFetch(access, path);
+      // O corpo de erro do Zoho é { errors:[{ id, title }] } — id tipo "F7007", title com o
+      // nome do escopo. Sem segredo nenhum. Corto em 400 char pra não vazar payload gigante.
+      resultados.push({ path, status: r.status, ok: r.ok, corpo: (r.raw || "").slice(0, 400) });
+    } catch (e) {
+      resultados.push({ path, status: 0, ok: false, corpo: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  return json({ resourceId: rid, resultados });
+}
+
 // zoho.pastas -> lista o que existe no WorkDrive AGORA, dizendo o que já foi importado.
 // Não grava nada. É o "olhar antes de importar".
 async function actZohoPastas(sb: any) {
@@ -1478,6 +1582,10 @@ Deno.serve(async (req: Request) => {
         return await actZohoPastas(sb);
       case "zoho.importarPastas":
         return await actZohoImportarPastas(sb, user.id);
+      case "zoho.acessoDaPasta":
+        return await actZohoAcessoDaPasta(sb, body?.resourceId);
+      case "zoho.diagnosticarSharing":
+        return await actZohoDiagnosticarSharing(sb, body?.resourceId);
       case "microsoft.status":
         return await msStatus(sb);
       case "microsoft.authUrl":
