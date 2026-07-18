@@ -1,11 +1,21 @@
 // coletor/lib/render-criativo.mjs
 // Renderiza um HTML AUTOCONTIDO (fontes/imagens já inline como data URL) num
 // viewport exato e devolve o PNG. Chromium headless via puppeteer.
-import puppeteer from 'puppeteer';
+//
+// O puppeteer é importado de forma LAZY (import dinâmico dentro da função que lança o
+// navegador), não no topo. Motivo: só quem RENDERIZA precisa dele, e o puppeteer mora no
+// coletor/package.json — não na raiz. O CI instala só as deps da raiz (npm ci), então um
+// `import puppeteer` no topo quebrava a CARGA deste módulo e, por tabela, derrubava os
+// testes de lógica pura que importam esta cadeia (ativar-estudio.test.mjs). Com o import
+// lazy, o módulo carrega sem puppeteer presente; ele só é exigido na hora real de renderizar
+// (onde o coletor tem a dependência instalada).
 
 let _browserPromise = null;
 async function browser() {
-  if (!_browserPromise) _browserPromise = puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+  if (!_browserPromise) {
+    const { default: puppeteer } = await import('puppeteer');
+    _browserPromise = puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+  }
   return _browserPromise;
 }
 
