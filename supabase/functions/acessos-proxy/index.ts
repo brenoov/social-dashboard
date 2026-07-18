@@ -1437,6 +1437,76 @@ async function actZohoAcessoDaPasta(sb: any, resourceId: unknown) {
   return json({ resourceId: rid, pessoas, links, falhas });
 }
 
+// wdWrite: POST/DELETE no WorkDrive. Usado SÓ pela sondagem de escrita (abaixo). Igual ao
+// wdFetch mas com método e corpo. Não loga como erro (a sondagem ESPERA erro de escopo).
+async function wdWrite(
+  access: string,
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<{ ok: boolean; status: number; json: any; raw: string }> {
+  const resp = await fetch(WD_BASE + path, {
+    method,
+    headers: {
+      Authorization: `Zoho-oauthtoken ${access}`,
+      Accept: "application/vnd.api+json",
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const raw = await resp.text();
+  let parsed: any = null;
+  try { parsed = JSON.parse(raw); } catch { parsed = null; }
+  return { ok: resp.ok, status: resp.status, json: parsed, raw };
+}
+
+// zoho.sondarEscrita -> descobre o ESCOPO exato que a escrita precisa, SEM mandar o dono
+// reautorizar às cegas. Tenta criar um link numa pasta e:
+//   - se falhar com erro de escopo (F7007) -> lê o nome do escopo que falta. Efeito ZERO.
+//   - se CONSEGUIR criar -> apaga o link IMEDIATAMENTE (auto-limpante). Não deixa lixo.
+// É temporária, sai quando a escrita estiver pronta. Auth-gated como todo o resto.
+async function actZohoSondarEscrita(sb: any, resourceId: unknown) {
+  const conn = await readZohoConn(sb);
+  if (!conn.refresh_token) return json({ error: "nao_conectado" });
+  const rid = typeof resourceId === "string" && resourceId ? resourceId : null;
+  if (!rid) return json({ error: "faltou_resourceId" }, 400);
+  const access = await freshAccessToken(conn);
+
+  // Corpo mínimo de criar link (formato JSON:API do WorkDrive, role_id 6 = view).
+  const corpo = {
+    data: {
+      attributes: { resource_id: rid, role_id: "6", link_name: "sonda-escopo-temporaria" },
+      type: "links",
+    },
+  };
+  const r = await wdWrite(access, "POST", "/links", corpo);
+
+  let apagado = false;
+  let idCriado: string | null = null;
+  if (r.ok) {
+    // Conseguiu criar (então o escopo JÁ dá conta). Apaga na hora pra não deixar link vivo.
+    idCriado = r.json?.data?.id ?? null;
+    if (idCriado) {
+      const del = await wdWrite(access, "DELETE", `/links/${encodeURIComponent(idCriado)}`);
+      apagado = del.ok;
+    }
+  }
+
+  return json({
+    resourceId: rid,
+    criarLink: {
+      status: r.status,
+      ok: r.ok,
+      // corpo do erro nomeia o escopo (ex.: F7007 + "WorkDrive.teamfolders.sharing.CREATE").
+      corpo: (r.raw || "").slice(0, 500),
+      linkCriado: idCriado,
+      linkApagado: apagado,
+    },
+    // Leitura: escrita FUNCIONA com o token de hoje? (ok=true) ou precisa reautorizar? (403/F7007)
+    escritaJaFunciona: r.ok,
+  });
+}
+
 // zoho.diagnosticarSharing -> SONDAGEM só-leitura. Não compartilha nada, não cria link,
 // não muda permissão. Só faz GET nos endpoints candidatos de "quem tem acesso" e lê o
 // que a Zoho responde. Quando o token não tem o escopo certo, a Zoho devolve um erro que
@@ -1607,6 +1677,8 @@ Deno.serve(async (req: Request) => {
         return await actZohoAcessoDaPasta(sb, body?.resourceId);
       case "zoho.diagnosticarSharing":
         return await actZohoDiagnosticarSharing(sb, body?.resourceId);
+      case "zoho.sondarEscrita":
+        return await actZohoSondarEscrita(sb, body?.resourceId);
       case "microsoft.status":
         return await msStatus(sb);
       case "microsoft.authUrl":
