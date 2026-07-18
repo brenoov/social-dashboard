@@ -1577,6 +1577,31 @@ async function actZohoSondarPermissao(sb: any, resourceId: unknown, email: unkno
   return json({ resourceId: rid, email: mail, tentativas, criados, revogados });
 }
 
+// zoho.sondarLivre -> sonda FLEXÍVEL: recebe método, caminho e corpo prontos e devolve o
+// resultado cru. Serve pra achar o formato certo de um request por tentativa e erro SEM
+// redeployar a cada tentativa (o deploy é caro/instável). Temporária, auth-gated. Só faz o
+// que for mandado — quem chama é sempre o admin logado. Auto-revoga se criar permissão/link.
+async function actZohoSondarLivre(sb: any, metodo: unknown, caminho: unknown, corpo: unknown) {
+  const conn = await readZohoConn(sb);
+  if (!conn.refresh_token) return json({ error: "nao_conectado" });
+  const m = typeof metodo === "string" && metodo ? metodo.toUpperCase() : "POST";
+  const p = typeof caminho === "string" && caminho ? caminho : null;
+  if (!p || !p.startsWith("/")) return json({ error: "caminho_invalido" }, 400);
+  const access = await freshAccessToken(conn);
+  const r = await wdWrite(access, m, p, corpo ?? undefined);
+
+  // Se criou algo com id (permissão/link), apaga na hora pra não deixar acesso/lixo.
+  let autoLimpeza: any = null;
+  const idCriado = r.ok ? (r.json?.data?.id ?? null) : null;
+  if (idCriado) {
+    // Deduz o recurso a apagar pelo caminho usado (/permissions ou /links).
+    const base = p.split("?")[0].replace(/\/$/, "");
+    const del = await wdWrite(access, "DELETE", `${base}/${encodeURIComponent(String(idCriado))}`);
+    autoLimpeza = { id: idCriado, status: del.status, ok: del.ok };
+  }
+  return json({ metodo: m, caminho: p, status: r.status, ok: r.ok, corpo: (r.raw || "").slice(0, 600), autoLimpeza });
+}
+
 // zoho.diagnosticarSharing -> SONDAGEM só-leitura. Não compartilha nada, não cria link,
 // não muda permissão. Só faz GET nos endpoints candidatos de "quem tem acesso" e lê o
 // que a Zoho responde. Quando o token não tem o escopo certo, a Zoho devolve um erro que
@@ -1753,6 +1778,8 @@ Deno.serve(async (req: Request) => {
         return await actZohoApagarLinkTeste(sb, body?.linkId);
       case "zoho.sondarPermissao":
         return await actZohoSondarPermissao(sb, body?.resourceId, body?.email);
+      case "zoho.sondarLivre":
+        return await actZohoSondarLivre(sb, body?.metodo, body?.caminho, body?.corpo);
       case "microsoft.status":
         return await msStatus(sb);
       case "microsoft.authUrl":
