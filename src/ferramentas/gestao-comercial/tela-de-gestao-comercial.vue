@@ -346,15 +346,15 @@ onMounted(() => {
    estilos-globais.css (o toggle de fonte só anexa a div, o CSS já existe). */
 .tela-gestao-comercial{display:flex;flex-direction:column;min-height:100vh;background:var(--bg);--gc-fs:1;}
 .tela-gestao-comercial :deep(.gc-topbar){display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 64px 14px 26px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:20;}
-.tela-gestao-comercial :deep(.gc-back){display:inline-flex;align-items:center;gap:7px;background:none;border:none;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;font-size:calc(11px*var(--gc-fs,1));font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:1.5px;}
+.tela-gestao-comercial :deep(.gc-back){display:inline-flex;align-items:center;gap:7px;background:none;border:none;color:var(--muted);font-family:var(--fonte-principal);font-size:calc(11px*var(--gc-fs,1));font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:1.5px;}
 .tela-gestao-comercial :deep(.gc-back:hover){color:var(--text);}
-.tela-gestao-comercial :deep(.gc-title){font-family:'Oswald',sans-serif;font-size:calc(15px*var(--gc-fs,1));font-weight:500;letter-spacing:3px;text-transform:uppercase;color:var(--text);}
+.tela-gestao-comercial :deep(.gc-title){font-family:var(--fonte-principal);font-size:calc(15px*var(--gc-fs,1));font-weight:500;letter-spacing:3px;text-transform:uppercase;color:var(--text);}
 .tela-gestao-comercial :deep(.gc-edicao){display:flex;align-items:center;gap:8px;}
 .tela-gestao-comercial :deep(.gc-edicao-lbl){font-size:calc(10px*var(--gc-fs,1));color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
-.tela-gestao-comercial :deep(.gc-edicao select){font-family:'IBM Plex Sans',sans-serif;font-size:calc(11px*var(--gc-fs,1));color:var(--text);border:1px solid var(--border);border-radius:7px;padding:5px 9px;background:var(--surface);cursor:pointer;}
+.tela-gestao-comercial :deep(.gc-edicao select){font-family:var(--fonte-principal);font-size:calc(11px*var(--gc-fs,1));color:var(--text);border:1px solid var(--border);border-radius:7px;padding:5px 9px;background:var(--surface);cursor:pointer;}
 /* Abas Briefing / Relatórios */
 .tela-gestao-comercial .gc-tabs{display:flex;gap:4px;max-width:min(98vw,1860px);margin:0 auto;width:100%;padding:14px clamp(20px,2.8vw,46px) 0;}
-.tela-gestao-comercial .gc-tabs button{appearance:none;background:none;border:none;border-bottom:2px solid transparent;padding:9px 16px;font-family:'Oswald',sans-serif;font-size:calc(13px*var(--gc-fs,1));font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);cursor:pointer;transition:color .15s ease,border-color .15s ease;}
+.tela-gestao-comercial .gc-tabs button{appearance:none;background:none;border:none;border-bottom:2px solid transparent;padding:9px 16px;font-family:var(--fonte-principal);font-size:calc(13px*var(--gc-fs,1));font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);cursor:pointer;transition:color .15s ease,border-color .15s ease;}
 .tela-gestao-comercial .gc-tabs button:hover{color:var(--text);}
 .tela-gestao-comercial .gc-tabs button.on{color:var(--accent);border-bottom-color:var(--accent);}
 .tela-gestao-comercial :deep(.gc-body){flex:1;max-width:min(98vw,1860px);margin:0 auto;width:100%;padding:clamp(22px,2vw,34px) clamp(20px,2.8vw,46px) 96px;}
@@ -362,15 +362,15 @@ onMounted(() => {
 .tela-gestao-comercial :deep(.gc-hero){position:relative;overflow:hidden;border-radius:var(--radius-xl);padding:28px 34px;margin-bottom:26px;background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:24px;box-shadow:var(--shadow-md);}
 .tela-gestao-comercial :deep(.gc-hero::after){content:'';position:absolute;right:-70px;top:-70px;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(79,124,255,.35),transparent 70%);pointer-events:none;}
 .tela-gestao-comercial :deep(.gc-hero-l){position:relative;z-index:1;}
-.tela-gestao-comercial :deep(.gc-hero-over){font-family:'IBM Plex Sans',sans-serif;font-size:calc(10px*var(--gc-fs,1));font-weight:700;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.62);}
-.tela-gestao-comercial :deep(.gc-hero-title){font-family:'Playfair Display',serif;font-weight:800;font-size:calc(clamp(26px,3.6vw,42px)*var(--gc-fs,1));line-height:1.04;margin:8px 0 7px;}
+.tela-gestao-comercial :deep(.gc-hero-over){font-family:var(--fonte-principal);font-size:calc(10px*var(--gc-fs,1));font-weight:700;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.62);}
+.tela-gestao-comercial :deep(.gc-hero-title){font-family:var(--fonte-principal);font-weight:800;font-size:calc(clamp(26px,3.6vw,42px)*var(--gc-fs,1));line-height:1.04;margin:8px 0 7px;}
 .tela-gestao-comercial :deep(.gc-hero-sub){font-size:calc(13px*var(--gc-fs,1));color:rgba(255,255,255,.80);font-variant-numeric:tabular-nums;}
 .tela-gestao-comercial :deep(.gc-hero-ring){position:relative;z-index:1;flex-shrink:0;width:96px;height:96px;}
 .tela-gestao-comercial :deep(.gc-hero-ring svg){width:96px;height:96px;transform:rotate(-90deg);}
 .tela-gestao-comercial :deep(.gc-hero-ring .trk){fill:none;stroke:rgba(255,255,255,.16);stroke-width:9;}
 .tela-gestao-comercial :deep(.gc-hero-ring .prg){fill:none;stroke:#5b8cff;stroke-width:9;stroke-linecap:round;}
 .tela-gestao-comercial :deep(.gc-hero-ring-c){position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-.tela-gestao-comercial :deep(.gc-hero-ring-c b){font-family:'Oswald',sans-serif;font-size:calc(23px*var(--gc-fs,1));font-weight:600;line-height:1;}
+.tela-gestao-comercial :deep(.gc-hero-ring-c b){font-family:var(--fonte-dados);font-size:calc(23px*var(--gc-fs,1));font-weight:600;line-height:1;}
 .tela-gestao-comercial :deep(.gc-hero-ring-c span){font-size:calc(8px*var(--gc-fs,1));letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.6);margin-top:3px;}
 /* Resumo executivo */
 .tela-gestao-comercial :deep(.gc-resumo){position:relative;background:linear-gradient(135deg,var(--accent-light),transparent 72%);border:1px solid var(--accent-mid);border-radius:var(--radius-xl);padding:20px 24px;margin-bottom:28px;font-size:calc(16px*var(--gc-fs,1));line-height:1.62;color:var(--text);}
@@ -383,7 +383,7 @@ onMounted(() => {
 .tela-gestao-comercial :deep(.gck.atrasado::before){background:linear-gradient(180deg,#f43f5e,#e11d48);}
 .tela-gestao-comercial :deep(.gck:hover){transform:translateY(-4px);box-shadow:var(--shadow-lg);border-color:var(--accent-mid);}
 .tela-gestao-comercial :deep(.gck-top){display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px;}
-.tela-gestao-comercial :deep(.gck-canal){font-family:'Oswald',sans-serif;font-size:calc(13.5px*var(--gc-fs,1));font-weight:500;letter-spacing:.8px;text-transform:uppercase;color:var(--text);line-height:1.25;}
+.tela-gestao-comercial :deep(.gck-canal){font-family:var(--fonte-principal);font-size:calc(13.5px*var(--gc-fs,1));font-weight:500;letter-spacing:.8px;text-transform:uppercase;color:var(--text);line-height:1.25;}
 .tela-gestao-comercial :deep(.gck-pill){flex-shrink:0;font-size:calc(9px*var(--gc-fs,1));font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:3px 9px;border-radius:20px;background:var(--surface2);color:var(--muted);}
 .tela-gestao-comercial :deep(.gck.atrasado .gck-pill){background:rgba(244,63,94,.12);color:var(--red);}
 .tela-gestao-comercial :deep(.gck.adiantado .gck-pill){background:rgba(34,197,94,.14);color:var(--green);}
@@ -395,11 +395,11 @@ onMounted(() => {
 .tela-gestao-comercial :deep(.gck.adiantado .gck-ring .prg){stroke:var(--green);}
 .tela-gestao-comercial :deep(.gck.atrasado .gck-ring .prg){stroke:var(--red);}
 .tela-gestao-comercial :deep(.gck-ring-c){position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-.tela-gestao-comercial :deep(.gck-ring-c b){font-family:'Oswald',sans-serif;font-size:calc(21px*var(--gc-fs,1));font-weight:600;line-height:1;color:var(--text);font-variant-numeric:tabular-nums;}
+.tela-gestao-comercial :deep(.gck-ring-c b){font-family:var(--fonte-dados);font-size:calc(21px*var(--gc-fs,1));font-weight:600;line-height:1;color:var(--text);font-variant-numeric:tabular-nums;}
 .tela-gestao-comercial :deep(.gck-ring-c span){font-size:calc(7.5px*var(--gc-fs,1));letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-top:2px;}
 .tela-gestao-comercial :deep(.gck-proj){flex:1;min-width:0;}
 .tela-gestao-comercial :deep(.gck-proj-l){font-size:calc(9px*var(--gc-fs,1));letter-spacing:1px;text-transform:uppercase;color:var(--muted);line-height:1.3;}
-.tela-gestao-comercial :deep(.gck-proj-v){font-family:'Oswald',sans-serif;font-size:calc(20px*var(--gc-fs,1));font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;line-height:1.1;margin-top:3px;}
+.tela-gestao-comercial :deep(.gck-proj-v){font-family:var(--fonte-dados);font-size:calc(20px*var(--gc-fs,1));font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;line-height:1.1;margin-top:3px;}
 .tela-gestao-comercial :deep(.gck-rows){border-top:1px solid var(--border);padding-top:11px;}
 .tela-gestao-comercial :deep(.gck-row){display:flex;justify-content:space-between;align-items:center;font-size:calc(12px*var(--gc-fs,1));color:var(--muted);margin-top:6px;}
 .tela-gestao-comercial :deep(.gck-row:first-child){margin-top:0;}
@@ -409,14 +409,14 @@ onMounted(() => {
 .tela-gestao-comercial :deep(.gc-sec){background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:clamp(22px,2vw,32px) clamp(24px,2.6vw,44px) clamp(22px,2vw,34px);box-shadow:var(--shadow-sm);transition:box-shadow .18s ease,border-color .18s ease;}
 .tela-gestao-comercial :deep(.gc-sec:hover){box-shadow:var(--shadow-md);border-color:var(--accent-mid);}
 .tela-gestao-comercial :deep(.gc-sec-h){display:flex;align-items:center;gap:14px;margin-bottom:18px;padding-bottom:15px;border-bottom:1px solid var(--border);}
-.tela-gestao-comercial :deep(.gc-sec-n){font-family:'Oswald',sans-serif;font-size:calc(14px*var(--gc-fs,1));font-weight:600;color:#fff;background:linear-gradient(135deg,var(--accent),#2563eb);min-width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 3px 10px var(--accent-mid);}
-.tela-gestao-comercial :deep(.gc-report .gc-sec-h h2){font-family:'Oswald',sans-serif;font-size:calc(clamp(16px,1.7vw,20px)*var(--gc-fs,1));font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--text);margin:0;border:none;padding:0;display:block;}
+.tela-gestao-comercial :deep(.gc-sec-n){font-family:var(--fonte-dados);font-size:calc(14px*var(--gc-fs,1));font-weight:600;color:#fff;background:linear-gradient(135deg,var(--accent),#2563eb);min-width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 3px 10px var(--accent-mid);}
+.tela-gestao-comercial :deep(.gc-report .gc-sec-h h2){font-family:var(--fonte-principal);font-size:calc(clamp(16px,1.7vw,20px)*var(--gc-fs,1));font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--text);margin:0;border:none;padding:0;display:block;}
 .tela-gestao-comercial :deep(.gc-sec-b>*:first-child){margin-top:0;}
 .tela-gestao-comercial :deep(.gc-sec-b>*:last-child){margin-bottom:0;}
 .tela-gestao-comercial :deep(.gc-report h1){display:none;}
-.tela-gestao-comercial :deep(.gc-report h2){font-family:'Oswald',sans-serif;font-size:calc(19px*var(--gc-fs,1));font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text);margin:32px 0 14px;padding-bottom:8px;border-bottom:2px solid var(--accent);display:inline-block;}
+.tela-gestao-comercial :deep(.gc-report h2){font-family:var(--fonte-principal);font-size:calc(19px*var(--gc-fs,1));font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text);margin:32px 0 14px;padding-bottom:8px;border-bottom:2px solid var(--accent);display:inline-block;}
 .tela-gestao-comercial :deep(.gc-report h2:first-child){margin-top:0;}
-.tela-gestao-comercial :deep(.gc-report h3){font-family:'IBM Plex Sans',sans-serif;font-size:calc(15.5px*var(--gc-fs,1));font-weight:700;color:var(--text);margin:20px 0 7px;}
+.tela-gestao-comercial :deep(.gc-report h3){font-family:var(--fonte-principal);font-size:calc(15.5px*var(--gc-fs,1));font-weight:700;color:var(--text);margin:20px 0 7px;}
 .tela-gestao-comercial :deep(.gc-report p){font-size:calc(15px*var(--gc-fs,1));line-height:1.72;color:var(--text);margin:11px 0;}
 .tela-gestao-comercial :deep(.gc-report ul),.tela-gestao-comercial :deep(.gc-report ol){margin:10px 0 14px 2px;padding-left:22px;}
 .tela-gestao-comercial :deep(.gc-report li){font-size:calc(15px*var(--gc-fs,1));line-height:1.68;color:var(--text);margin:7px 0;}
@@ -424,19 +424,19 @@ onMounted(() => {
 .tela-gestao-comercial :deep(.gc-report strong){color:var(--text);font-weight:700;}
 .tela-gestao-comercial :deep(.gc-tw){margin:18px 0;border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm);}
 .tela-gestao-comercial :deep(.gc-tw-bar){display:flex;justify-content:flex-end;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);}
-.tela-gestao-comercial :deep(.gc-xls-btn){display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:11.5px;font-weight:600;color:#15803d;background:rgba(34,197,94,.10);border:1px solid rgba(34,197,94,.35);border-radius:8px;padding:6px 12px;cursor:pointer;transition:all .15s ease;letter-spacing:.2px;}
+.tela-gestao-comercial :deep(.gc-xls-btn){display:inline-flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:11.5px;font-weight:600;color:#15803d;background:rgba(34,197,94,.10);border:1px solid rgba(34,197,94,.35);border-radius:8px;padding:6px 12px;cursor:pointer;transition:all .15s ease;letter-spacing:.2px;}
 .tela-gestao-comercial :deep(.gc-xls-btn:hover){background:rgba(34,197,94,.18);border-color:rgba(34,197,94,.55);transform:translateY(-1px);}
 .tela-gestao-comercial :deep(.gc-xls-btn svg){flex-shrink:0;}
 .tela-gestao-comercial :deep(.gc-tw-scroll){overflow-x:auto;-webkit-overflow-scrolling:touch;}
 .tela-gestao-comercial :deep(.gc-report table){width:100%;border-collapse:collapse;margin:0;font-size:calc(13.5px*var(--gc-fs,1));display:table;}
-.tela-gestao-comercial :deep(.gc-report thead th){background:linear-gradient(180deg,var(--accent-light),transparent);text-align:left;padding:14px 18px;font-family:'IBM Plex Sans',sans-serif;font-size:calc(10.5px*var(--gc-fs,1));font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--accent);border-bottom:2px solid var(--accent-mid);white-space:nowrap;}
+.tela-gestao-comercial :deep(.gc-report thead th){background:linear-gradient(180deg,var(--accent-light),transparent);text-align:left;padding:14px 18px;font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gc-fs,1));font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--accent);border-bottom:2px solid var(--accent-mid);white-space:nowrap;}
 .tela-gestao-comercial :deep(.gc-report tbody td){padding:13px 18px;border-bottom:1px solid var(--border);color:var(--text);font-variant-numeric:tabular-nums;vertical-align:middle;line-height:1.45;white-space:nowrap;}
 .tela-gestao-comercial :deep(.gc-report tbody tr){transition:background .14s ease;}
 .tela-gestao-comercial :deep(.gc-report tbody tr:nth-child(even)){background:rgba(125,125,135,.045);}
 .tela-gestao-comercial :deep(.gc-report tbody tr:hover){background:var(--accent-light);}
 .tela-gestao-comercial :deep(.gc-report tbody tr:last-child td){border-bottom:none;}
 .tela-gestao-comercial :deep(.gc-report tbody td:first-child){font-weight:600;}
-.tela-gestao-comercial :deep(.gc-bcg){display:inline-flex;align-items:center;gap:5px;font-family:'IBM Plex Sans',sans-serif;font-size:calc(10px*var(--gc-fs,1));font-weight:700;letter-spacing:.3px;text-transform:uppercase;padding:3px 9px 3px 7px;border-radius:20px;white-space:nowrap;}
+.tela-gestao-comercial :deep(.gc-bcg){display:inline-flex;align-items:center;gap:5px;font-family:var(--fonte-principal);font-size:calc(10px*var(--gc-fs,1));font-weight:700;letter-spacing:.3px;text-transform:uppercase;padding:3px 9px 3px 7px;border-radius:20px;white-space:nowrap;}
 .tela-gestao-comercial :deep(.gc-bcg::before){content:'';width:7px;height:7px;border-radius:50%;background:currentColor;}
 .tela-gestao-comercial :deep(.gc-bcg.estrela){color:#b8860b;background:rgba(212,160,23,.14);}
 .tela-gestao-comercial :deep(.gc-bcg.vaca){color:var(--green);background:rgba(34,197,94,.13);}
@@ -453,12 +453,12 @@ onMounted(() => {
 .tela-gestao-comercial :deep(.gc-im-img img){width:100%;height:100%;object-fit:contain;}
 .tela-gestao-comercial :deep(.gc-im-img span){color:var(--muted);font-size:calc(11px*var(--gc-fs,1));text-transform:uppercase;letter-spacing:1.5px;}
 .tela-gestao-comercial :deep(.gc-im-info){padding:18px 22px 24px;}
-.tela-gestao-comercial :deep(.gc-im-sku){font-family:'IBM Plex Sans',sans-serif;font-size:calc(10px*var(--gc-fs,1));letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);font-weight:700;}
-.tela-gestao-comercial :deep(.gc-im-nome){font-family:'Playfair Display',serif;font-size:calc(21px*var(--gc-fs,1));font-weight:700;color:var(--text);margin:6px 0;line-height:1.2;}
-.tela-gestao-comercial :deep(.gc-im-preco){font-family:'Oswald',sans-serif;font-size:calc(23px*var(--gc-fs,1));font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;}
+.tela-gestao-comercial :deep(.gc-im-sku){font-family:var(--fonte-principal);font-size:calc(10px*var(--gc-fs,1));letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);font-weight:700;}
+.tela-gestao-comercial :deep(.gc-im-nome){font-family:var(--fonte-principal);font-size:calc(21px*var(--gc-fs,1));font-weight:700;color:var(--text);margin:6px 0;line-height:1.2;}
+.tela-gestao-comercial :deep(.gc-im-preco){font-family:var(--fonte-dados);font-size:calc(23px*var(--gc-fs,1));font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;}
 .tela-gestao-comercial :deep(.gc-im-ph){padding:54px 24px;text-align:center;color:var(--muted);font-size:calc(14px*var(--gc-fs,1));line-height:1.5;}
 .tela-gestao-comercial :deep(.gc-mix){background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin:4px 0 18px;box-shadow:var(--shadow-sm);}
-.tela-gestao-comercial :deep(.gc-mix-h){font-family:'IBM Plex Sans',sans-serif;font-size:calc(10px*var(--gc-fs,1));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);margin-bottom:11px;}
+.tela-gestao-comercial :deep(.gc-mix-h){font-family:var(--fonte-principal);font-size:calc(10px*var(--gc-fs,1));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);margin-bottom:11px;}
 .tela-gestao-comercial :deep(.gc-mix-h span){color:var(--muted);font-weight:600;letter-spacing:.5px;}
 .tela-gestao-comercial :deep(.gc-mix-row){display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px;}
 .tela-gestao-comercial :deep(.gc-mix-chip){display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 13px 10px 15px;border-radius:11px;border:1px solid var(--border);background:var(--surface2);position:relative;overflow:hidden;}
@@ -467,20 +467,20 @@ onMounted(() => {
 .tela-gestao-comercial :deep(.gc-mix-chip.vaca){color:var(--green);}
 .tela-gestao-comercial :deep(.gc-mix-chip.interrogacao){color:var(--accent);}
 .tela-gestao-comercial :deep(.gc-mix-chip.abacaxi){color:var(--red);}
-.tela-gestao-comercial :deep(.gc-mix-l){font-family:'IBM Plex Sans',sans-serif;font-size:calc(11px*var(--gc-fs,1));font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:var(--text);}
-.tela-gestao-comercial :deep(.gc-mix-n){font-family:'Oswald',sans-serif;font-variant-numeric:tabular-nums;color:currentColor;white-space:nowrap;}
+.tela-gestao-comercial :deep(.gc-mix-l){font-family:var(--fonte-principal);font-size:calc(11px*var(--gc-fs,1));font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:var(--text);}
+.tela-gestao-comercial :deep(.gc-mix-n){font-family:var(--fonte-dados);font-variant-numeric:tabular-nums;color:currentColor;white-space:nowrap;}
 .tela-gestao-comercial :deep(.gc-mix-n b){font-size:calc(19px*var(--gc-fs,1));font-weight:600;}
 .tela-gestao-comercial :deep(.gc-mix-n i){font-style:normal;color:var(--muted);font-size:calc(13px*var(--gc-fs,1));}
 .tela-gestao-comercial :deep(.gc-mix-chip.off){box-shadow:inset 0 0 0 1px currentColor;}
 .tela-gestao-comercial :deep(.gc-mix-chip.off .gc-mix-l::after){content:' ⚠';}
-.tela-gestao-comercial :deep(.gc-info){display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;border:none;background:var(--accent-light);color:var(--accent);font-family:'IBM Plex Sans',sans-serif;font-size:calc(11px*var(--gc-fs,1));font-weight:800;cursor:pointer;margin-left:6px;vertical-align:middle;padding:0;line-height:1;transition:background .15s,transform .15s;flex-shrink:0;}
+.tela-gestao-comercial :deep(.gc-info){display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;border:none;background:var(--accent-light);color:var(--accent);font-family:var(--fonte-principal);font-size:calc(11px*var(--gc-fs,1));font-weight:800;cursor:pointer;margin-left:6px;vertical-align:middle;padding:0;line-height:1;transition:background .15s,transform .15s;flex-shrink:0;}
 .tela-gestao-comercial :deep(.gc-info:hover){background:var(--accent);color:#fff;transform:scale(1.12);}
 .tela-gestao-comercial :deep(.gc-infomodal){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:none;align-items:center;justify-content:center;padding:20px;animation:npfade .15s ease;}
 .tela-gestao-comercial :deep(.gc-infomodal.open){display:flex;}
 .tela-gestao-comercial :deep(.gc-infomodal-card){position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);width:min(620px,96vw);max-height:88vh;overflow:auto;}
 .tela-gestao-comercial :deep(.gc-infomodal-body){padding:26px 30px 30px;}
-.tela-gestao-comercial :deep(.gc-infomodal-h){font-family:'Playfair Display',serif;font-size:calc(23px*var(--gc-fs,1));font-weight:800;color:var(--text);margin:0 0 14px;line-height:1.15;padding-right:30px;}
-.tela-gestao-comercial :deep(.gc-infomodal-body h4){font-family:'IBM Plex Sans',sans-serif;font-size:calc(12px*var(--gc-fs,1));font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--accent);margin:18px 0 7px;}
+.tela-gestao-comercial :deep(.gc-infomodal-h){font-family:var(--fonte-principal);font-size:calc(23px*var(--gc-fs,1));font-weight:800;color:var(--text);margin:0 0 14px;line-height:1.15;padding-right:30px;}
+.tela-gestao-comercial :deep(.gc-infomodal-body h4){font-family:var(--fonte-principal);font-size:calc(12px*var(--gc-fs,1));font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--accent);margin:18px 0 7px;}
 .tela-gestao-comercial :deep(.gc-infomodal-body p){font-size:calc(14px*var(--gc-fs,1));line-height:1.62;color:var(--text);margin:9px 0;}
 .tela-gestao-comercial :deep(.gc-infomodal-body ul){margin:8px 0;padding-left:20px;}
 .tela-gestao-comercial :deep(.gc-infomodal-body li){font-size:calc(14px*var(--gc-fs,1));line-height:1.55;color:var(--text);margin:5px 0;}
@@ -490,8 +490,8 @@ onMounted(() => {
 .tela-gestao-comercial :deep(.gc-infomodal-body td){padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top;}
 .tela-gestao-comercial :deep(.gc-infomodal-body .ex){background:var(--accent-light);border-left:3px solid var(--accent);border-radius:8px;padding:11px 14px;font-size:calc(13px*var(--gc-fs,1));margin:13px 0;color:var(--text);line-height:1.55;}
 .tela-gestao-comercial :deep(.gc-infomodal-body small){color:var(--muted);font-size:calc(12px*var(--gc-fs,1));}
-.tela-gestao-comercial :deep(.gc-empty){text-align:center;padding:60px 20px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;}
-.tela-gestao-comercial :deep(.gc-empty h3){font-family:'Oswald',sans-serif;font-weight:500;letter-spacing:1px;color:var(--text);margin:0 0 6px;}
+.tela-gestao-comercial :deep(.gc-empty){text-align:center;padding:60px 20px;color:var(--muted);font-family:var(--fonte-principal);}
+.tela-gestao-comercial :deep(.gc-empty h3){font-family:var(--fonte-principal);font-weight:500;letter-spacing:1px;color:var(--text);margin:0 0 6px;}
 @media(max-width:920px){.tela-gestao-comercial :deep(.gc-kpis){grid-template-columns:repeat(2,1fr);}}
 @media(max-width:560px){
   .tela-gestao-comercial :deep(.gc-kpis){grid-template-columns:1fr;}

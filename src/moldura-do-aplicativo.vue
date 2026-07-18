@@ -168,7 +168,7 @@ onMounted(() => {
 .perfil-avatar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .perfil-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .perfil-avatar-ph {
-  font-family: 'Oswald', sans-serif; font-size: 17px; font-weight: 600;
+  font-family: var(--fonte-principal); font-size: 17px; font-weight: 600;
   color: #fff; background: var(--accent); width: 100%; height: 100%;
   display: flex; align-items: center; justify-content: center;
 }
@@ -176,7 +176,7 @@ onMounted(() => {
 .perfil-dropdown {
   position: absolute; top: 48px; right: 0; z-index: 9999; min-width: 210px;
   background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-  box-shadow: var(--shadow-lg); padding: 8px; font-family: 'IBM Plex Sans', sans-serif;
+  box-shadow: var(--shadow-lg); padding: 8px; font-family: var(--fonte-principal);
 }
 .perfil-dropdown-email { font-size: 12.5px; color: var(--text); font-weight: 600; padding: 6px 8px 2px; word-break: break-all; }
 .perfil-dropdown-role { font-size: 10.5px; color: var(--accent); text-transform: uppercase; letter-spacing: .6px; padding: 0 8px 4px; }
@@ -199,7 +199,7 @@ onMounted(() => {
 .perfil-modal {
   background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
   box-shadow: var(--shadow-lg); padding: 22px; width: 100%; max-width: 340px;
-  font-family: 'IBM Plex Sans', sans-serif; display: flex; flex-direction: column; gap: 12px;
+  font-family: var(--fonte-principal); display: flex; flex-direction: column; gap: 12px;
 }
 .perfil-modal-titulo { font-size: 16px; font-weight: 700; color: var(--text); }
 .perfil-modal-input {

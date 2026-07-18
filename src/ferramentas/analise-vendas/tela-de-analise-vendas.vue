@@ -291,7 +291,7 @@ async function loadSalesAnalysisData(period){
   body.appendChild(loading);
   try{
     if(typeof ChartDataLabels!=='undefined')Chart.register(ChartDataLabels);
-    Chart.defaults.font.family="'IBM Plex Sans',sans-serif";
+    Chart.defaults.font.family="var(--fonte-principal)";
     Chart.defaults.font.size=11;
     Chart.defaults.animation.duration=800;
     Chart.defaults.animation.easing='easeOutQuart';
@@ -789,7 +789,7 @@ function renderSADesconto({pedidos,lojas,lojaMap,di,df}){
   const mkStat=(label,val1,val2,color)=>{
     const b=document.createElement('div');
     b.style.cssText=`flex:1;min-width:150px;background:var(--card);border:1px solid var(--border);border-left:3px solid ${color};border-radius:8px;padding:10px 14px`;
-    b.innerHTML=`<div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:4px">${label}</div><div style="font-size:18px;font-weight:700;font-family:'Oswald',sans-serif;color:var(--text);letter-spacing:1px">${val1}</div>${val2?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${val2}</div>`:''}`;
+    b.innerHTML=`<div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:4px">${label}</div><div style="font-size:18px;font-weight:700;font-family:var(--fonte-dados);color:var(--text);letter-spacing:1px">${val1}</div>${val2?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${val2}</div>`:''}`;
     return b;
   };
   stats.appendChild(mkStat('Com Desconto',fmtR(totalCom),`${comDesc.length} pedidos · ${pctCom}%`,'rgba(239,68,68,0.8)'));
@@ -811,7 +811,7 @@ function renderSADesconto({pedidos,lojas,lojaMap,di,df}){
   window._saCharts.descontoDonut=new Chart(canvasD,{
     type:'doughnut',
     data:{labels:['Com Desconto','Sem Desconto'],datasets:[{data:[comDesc.length,semDesc.length],backgroundColor:['rgba(239,68,68,0.85)','rgba(34,197,94,0.85)'],hoverBackgroundColor:['rgba(239,68,68,1)','rgba(34,197,94,1)'],hoverOffset:6,borderWidth:0}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',animation:{animateRotate:true,animateScale:true,duration:900,easing:'easeOutQuart'},plugins:{legend:{position:'bottom',labels:{boxWidth:10,usePointStyle:true,pointStyle:'circle',font:{size:_saFsz(11)},padding:16,color:tc}},tooltip:{backgroundColor:'rgba(10,10,20,0.88)',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.85)',titleFont:{size:_saFsz(12),weight:'700'},bodyFont:{size:_saFsz(11)},padding:12,cornerRadius:8,callbacks:{label:ctx=>{const n=ctx.raw;const tot=pedidos.length;const val=ctx.dataIndex===0?totalCom:totalSem;const pct=tot>0?(n/tot*100).toFixed(1):'0';const lines=[` ${n} pedidos — ${pct}% dos cupons`,` Faturamento: ${fmtR(val)}`];if(ctx.dataIndex===0&&totalDescCom>0)lines.push(` Desconto aplicado: ${fmtR(totalDescCom)}`);return lines;}}},datalabels:{display:ctx=>ctx.dataset.data[ctx.dataIndex]>0,formatter:(v,ctx)=>{const data=ctx.chart.data.datasets[0].data;const tot=data.reduce((a,b)=>a+b,0);return tot>0?(v/tot*100).toFixed(1)+'%':'';},color:tc,font:{size:_saFsz(12),weight:'700',family:"'IBM Plex Sans',sans-serif"}}}}
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',animation:{animateRotate:true,animateScale:true,duration:900,easing:'easeOutQuart'},plugins:{legend:{position:'bottom',labels:{boxWidth:10,usePointStyle:true,pointStyle:'circle',font:{size:_saFsz(11)},padding:16,color:tc}},tooltip:{backgroundColor:'rgba(10,10,20,0.88)',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.85)',titleFont:{size:_saFsz(12),weight:'700'},bodyFont:{size:_saFsz(11)},padding:12,cornerRadius:8,callbacks:{label:ctx=>{const n=ctx.raw;const tot=pedidos.length;const val=ctx.dataIndex===0?totalCom:totalSem;const pct=tot>0?(n/tot*100).toFixed(1):'0';const lines=[` ${n} pedidos — ${pct}% dos cupons`,` Faturamento: ${fmtR(val)}`];if(ctx.dataIndex===0&&totalDescCom>0)lines.push(` Desconto aplicado: ${fmtR(totalDescCom)}`);return lines;}}},datalabels:{display:ctx=>ctx.dataset.data[ctx.dataIndex]>0,formatter:(v,ctx)=>{const data=ctx.chart.data.datasets[0].data;const tot=data.reduce((a,b)=>a+b,0);return tot>0?(v/tot*100).toFixed(1)+'%':'';},color:tc,font:{size:_saFsz(12),weight:'700',family:"'Sora',sans-serif"}}}}
   });
 
   const dias=[];{const d=new Date(di+'T00:00:00');const end=new Date(df+'T00:00:00');while(d<=end){dias.push(d.toISOString().slice(0,10));d.setDate(d.getDate()+1);}}
@@ -828,7 +828,7 @@ function renderSADesconto({pedidos,lojas,lojaMap,di,df}){
       ctx.save();
       ctx.textAlign='center';
       ctx.textBaseline='bottom';
-      ctx.font=`700 ${_saFsz(9)}px 'IBM Plex Sans',sans-serif`;
+      ctx.font=`700 ${_saFsz(9)}px 'Sora',sans-serif`;
       meta.data.forEach((bar,i)=>{
         const tot=comB[i]+semB[i];
         if(!tot)return;
@@ -1223,29 +1223,29 @@ onUnmounted(() => {
 
 /* ── Topbar (compartilhado com Gestão à Vista/Gestão de Tráfego — cada tela traz sua cópia) ── */
 .tela-analise-vendas :deep(.gv-topbar){display:flex;align-items:center;justify-content:space-between;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
-.tela-analise-vendas :deep(.gv-back){display:flex;align-items:center;gap:4px;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;transition:opacity .15s;letter-spacing:.3px;text-transform:uppercase;}
+.tela-analise-vendas :deep(.gv-back){display:flex;align-items:center;gap:4px;font-family:var(--fonte-principal);font-size:10px;font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;transition:opacity .15s;letter-spacing:.3px;text-transform:uppercase;}
 .tela-analise-vendas :deep(.gv-back:hover){opacity:.75;}
-.tela-analise-vendas :deep(.gv-brand-tag){font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--text);opacity:.6;line-height:1;}
-.tela-analise-vendas :deep(.gv-perf-tag){font-family:'IBM Plex Sans',sans-serif;font-size:13.5px;font-weight:700;letter-spacing:6px;text-transform:uppercase;color:var(--text);opacity:1;line-height:1.2;}
+.tela-analise-vendas :deep(.gv-brand-tag){font-family:var(--fonte-principal);font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--text);opacity:.6;line-height:1;}
+.tela-analise-vendas :deep(.gv-perf-tag){font-family:var(--fonte-principal);font-size:13.5px;font-weight:700;letter-spacing:6px;text-transform:uppercase;color:var(--text);opacity:1;line-height:1.2;}
 .tela-analise-vendas :deep(.gv-clock-wrap){text-align:right;}
-.tela-analise-vendas :deep(.gv-clock-time){font-family:'Oswald',sans-serif;font-size:28px;font-weight:400;letter-spacing:3px;color:var(--text);line-height:1;}
-.tela-analise-vendas :deep(.gv-clock-date){font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:3px;}
-.tela-analise-vendas :deep(.gv-update-status){font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);opacity:.45;margin-top:4px;text-align:right;}
+.tela-analise-vendas :deep(.gv-clock-time){font-family:var(--fonte-dados);font-size:28px;font-weight:400;letter-spacing:3px;color:var(--text);line-height:1;}
+.tela-analise-vendas :deep(.gv-clock-date){font-family:var(--fonte-principal);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:3px;}
+.tela-analise-vendas :deep(.gv-update-status){font-family:var(--fonte-principal);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);opacity:.45;margin-top:4px;text-align:right;}
 .tela-analise-vendas :deep(.gv-period-btns){display:flex;align-items:center;gap:4px;}
-.tela-analise-vendas :deep(.gv-pbtn){font-family:'IBM Plex Sans',sans-serif;font-size:10px;padding:4px 9px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
+.tela-analise-vendas :deep(.gv-pbtn){font-family:var(--fonte-principal);font-size:10px;padding:4px 9px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
 .tela-analise-vendas :deep(.gv-pbtn.active){background:var(--accent);color:#fff;border-color:var(--accent);}
-.tela-analise-vendas :deep(.vs-ac-toggle){font-family:'IBM Plex Sans',sans-serif;font-size:10px;letter-spacing:.8px;text-transform:uppercase;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;margin-left:6px;}
+.tela-analise-vendas :deep(.vs-ac-toggle){font-family:var(--fonte-principal);font-size:10px;letter-spacing:.8px;text-transform:uppercase;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;margin-left:6px;}
 .tela-analise-vendas :deep(.vs-ac-toggle.running){border-color:var(--green);color:var(--green);}
 
 /* ── Loading (compartilhado com Gestão à Vista/Gestão de Tráfego — cada tela traz sua cópia) ── */
 .tela-analise-vendas :deep(.gv-loading-screen){grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;min-height:60vh;}
 @keyframes saSpin{to{transform:rotate(360deg)}}
 .tela-analise-vendas :deep(.gv-spinner){width:48px;height:48px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:saSpin .9s linear infinite;}
-.tela-analise-vendas :deep(.gv-loading-lbl){font-family:'IBM Plex Sans',sans-serif;font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);opacity:.6;}
+.tela-analise-vendas :deep(.gv-loading-lbl){font-family:var(--fonte-principal);font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);opacity:.6;}
 
 /* ── Dropdown de canais (legacy L1855-1861, próprio desta tela) ── */
 .tela-analise-vendas :deep(.sa-canal-wrap){position:relative;}
-.tela-analise-vendas :deep(.sa-canal-trigger){background:none;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius-sm);padding:5px 16px;font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;white-space:nowrap;transition:background .2s,color .15s,border-color .15s;}
+.tela-analise-vendas :deep(.sa-canal-trigger){background:none;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius-sm);padding:5px 16px;font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-family:var(--fonte-principal);cursor:pointer;white-space:nowrap;transition:background .2s,color .15s,border-color .15s;}
 .tela-analise-vendas :deep(.sa-canal-trigger:hover){border-color:var(--accent);color:var(--accent);}
 .tela-analise-vendas :deep(.sa-canal-drop){position:absolute;top:calc(100% + 6px);right:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 6px;min-width:190px;z-index:9999;display:none;flex-direction:column;gap:2px;box-shadow:var(--shadow-lg);}
 .tela-analise-vendas :deep(.sa-canal-drop.open){display:flex;}
@@ -1259,11 +1259,11 @@ onUnmounted(() => {
 /* ── Corpo (#sa-body, montado via innerHTML/createElement — legacy L1866-1911) ── */
 .tela-analise-vendas :deep(#sa-body){flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px;position:relative;z-index:1;}
 .tela-analise-vendas :deep(.sa-loading){display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;min-height:60vh;}
-.tela-analise-vendas :deep(.sa-loading-lbl){font-family:'IBM Plex Sans',sans-serif;font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);opacity:.6;}
+.tela-analise-vendas :deep(.sa-loading-lbl){font-family:var(--fonte-principal);font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);opacity:.6;}
 .tela-analise-vendas :deep(#sa-bg-canvas){position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;}
 .tela-analise-vendas :deep(.sa-kpis){display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;}
 .tela-analise-vendas :deep(.sa-kpi){background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;}
-.tela-analise-vendas :deep(.sa-kpi-label){font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:2px;}
+.tela-analise-vendas :deep(.sa-kpi-label){font-family:var(--fonte-principal);font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:2px;}
 .tela-analise-vendas :deep(.sa-kpi-val){font-size:18px;font-weight:800;color:var(--text);}
 .tela-analise-vendas :deep(.sa-kpi-sub){font-size:11px;font-weight:500;color:var(--muted);}
 .tela-analise-vendas :deep(.sa-kpi-delta){font-size:11px;font-weight:700;}
@@ -1271,12 +1271,12 @@ onUnmounted(() => {
 .tela-analise-vendas :deep(.sa-kpi-delta.warn){color:#f59e0b;}
 .tela-analise-vendas :deep(.sa-kpi-delta.bad){color:#ef4444;}
 .tela-analise-vendas :deep(.sa-section){background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;}
-.tela-analise-vendas :deep(.sa-section-title){font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;}
+.tela-analise-vendas :deep(.sa-section-title){font-family:var(--fonte-principal);font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;}
 .tela-analise-vendas :deep(.sa-chart-wrap){position:relative;width:100%;height:220px;}
 .tela-analise-vendas :deep(.sa-chart-row){display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .tela-analise-vendas :deep(.sa-chart-row .sa-chart-wrap){height:200px;}
 .tela-analise-vendas :deep(.sa-tab-row){display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
-.tela-analise-vendas :deep(.sa-tab){background:none;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius-sm);padding:5px 16px;font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;transition:background .2s cubic-bezier(.4,0,.2,1),color .15s ease,border-color .15s ease,box-shadow .2s ease;}
+.tela-analise-vendas :deep(.sa-tab){background:none;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius-sm);padding:5px 16px;font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-family:var(--fonte-principal);cursor:pointer;transition:background .2s cubic-bezier(.4,0,.2,1),color .15s ease,border-color .15s ease,box-shadow .2s ease;}
 .tela-analise-vendas :deep(.sa-tab.active){background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 2px 8px rgba(29,78,216,.25);}
 .tela-analise-vendas :deep(.sa-summary-card){background:var(--accent-light);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--muted);margin-top:10px;display:flex;flex-wrap:wrap;gap:12px;}
 .tela-analise-vendas :deep(.sa-summary-card span){color:var(--text);font-weight:600;}
@@ -1284,8 +1284,8 @@ onUnmounted(() => {
 .tela-analise-vendas :deep(.sa-loja-title){font-size:13px;font-weight:700;color:var(--text);}
 .tela-analise-vendas :deep(.sa-loja-summary){display:flex;flex-wrap:wrap;gap:8px;padding:8px 0;}
 .tela-analise-vendas :deep(.sa-loja-summary-item){background:var(--surface2);border-radius:6px;padding:6px 12px;display:flex;flex-direction:column;gap:2px;min-width:100px;}
-.tela-analise-vendas :deep(.sa-loja-summary-label){font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;}
-.tela-analise-vendas :deep(.sa-loja-summary-val){font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:800;color:var(--text);}
+.tela-analise-vendas :deep(.sa-loja-summary-label){font-family:var(--fonte-principal);font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;}
+.tela-analise-vendas :deep(.sa-loja-summary-val){font-family:var(--fonte-principal);font-size:13px;font-weight:800;color:var(--text);}
 .tela-analise-vendas :deep(.sa-loja-table){width:100%;border-collapse:collapse;font-size:12px;}
 .tela-analise-vendas :deep(.sa-loja-table th){color:var(--muted);font-weight:700;text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);}
 .tela-analise-vendas :deep(.sa-loja-table td){padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top;font-weight:500;}

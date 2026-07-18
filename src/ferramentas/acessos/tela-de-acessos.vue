@@ -2671,7 +2671,7 @@ onMounted(() => {
 .tela-acessos .ac-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:18px}
 .tela-acessos .ac-hero-brand{display:flex;align-items:center;gap:12px;min-width:0}
 .tela-acessos .ac-hero-mark{width:38px;height:38px;border-radius:10px;flex:none;display:grid;place-items:center;color:#fff;font-weight:800;font-size:16px;letter-spacing:.5px;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 72%,#000));box-shadow:var(--shadow-sm)}
-.tela-acessos .ac-hero-h1{margin:0;font-family:'Oswald',sans-serif;font-size:clamp(19px,2.3vw,25px);font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text);line-height:1.05}
+.tela-acessos .ac-hero-h1{margin:0;font-family:var(--fonte-principal);font-size:clamp(19px,2.3vw,25px);font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text);line-height:1.05}
 .tela-acessos .ac-hero-sub{color:var(--muted);font-size:12.5px;margin-top:3px;line-height:1.35}
 .tela-acessos .ac-hero-provs{display:flex;gap:8px;flex-wrap:wrap}
 .tela-acessos .ac-hero-prov{display:flex;align-items:center;gap:7px;padding:7px 12px;border:1px solid var(--border);border-radius:999px;background:var(--surface);font-size:12.5px;font-weight:600;color:var(--text);box-shadow:var(--shadow-sm)}
@@ -2689,7 +2689,7 @@ onMounted(() => {
 .tela-acessos .ac-kpi.k3 .ac-kpi-rail{background:var(--orange)}
 .tela-acessos .ac-kpi.k4 .ac-kpi-rail{background:var(--muted)}
 .tela-acessos .ac-kpi-lab{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
-.tela-acessos .ac-kpi-val{font-family:'Oswald',sans-serif;font-size:32px;font-weight:600;letter-spacing:.5px;line-height:1;margin-top:7px;color:var(--text);font-variant-numeric:tabular-nums}
+.tela-acessos .ac-kpi-val{font-family:var(--fonte-dados);font-size:32px;font-weight:600;letter-spacing:.5px;line-height:1;margin-top:7px;color:var(--text);font-variant-numeric:tabular-nums}
 .tela-acessos .ac-kpi-fine{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.35}
 /* No celular os 4 KPIs viram 2 colunas (não estoura a tela) e o cabeçalho
    empilha marca em cima, pills embaixo. */
@@ -2873,26 +2873,26 @@ onMounted(() => {
 /* ===== Acessos — lista de colaboradores premium ===== */
 .tela-acessos :deep(.ac-person){padding:13px 14px;gap:14px}
 .tela-acessos :deep(.ac-person .ac-avatar){box-shadow:var(--shadow-sm)}
-.tela-acessos :deep(.ac-person-name){font-family:'Playfair Display',serif;font-size:19px;font-weight:600;color:var(--text);letter-spacing:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;line-height:1.15}
-.tela-acessos :deep(.ac-kicker){font-family:'IBM Plex Sans',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:var(--muted);margin-top:4px}
-.tela-acessos :deep(.ac-person-email){font-family:'IBM Plex Sans',sans-serif;font-size:12.5px;color:var(--muted);margin-top:3px}
-/* ===== Acessos — tipografia premium (Oswald + Playfair + IBM Plex, alinhado ao app) ===== */
-.tela-acessos :deep(.ac-title){font-family:'Oswald',sans-serif;font-weight:600;font-size:19px;letter-spacing:.8px;text-transform:uppercase;color:var(--text)}
-.tela-acessos :deep(.ac-tab){font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase}
+.tela-acessos :deep(.ac-person-name){font-family:var(--fonte-principal);font-size:19px;font-weight:600;color:var(--text);letter-spacing:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;line-height:1.15}
+.tela-acessos :deep(.ac-kicker){font-family:var(--fonte-principal);font-size:9.5px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.tela-acessos :deep(.ac-person-email){font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);margin-top:3px}
+/* ===== Acessos — tipografia (Sora principal + IBM Plex Mono nos números, alinhado ao app) ===== */
+.tela-acessos :deep(.ac-title){font-family:var(--fonte-principal);font-weight:600;font-size:19px;letter-spacing:.8px;text-transform:uppercase;color:var(--text)}
+.tela-acessos :deep(.ac-tab){font-family:var(--fonte-principal);font-size:11px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase}
 .tela-acessos :deep(.ac-section-h){align-items:center;gap:12px;margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid var(--border)}
-.tela-acessos :deep(.ac-section-h h3){font-family:'Oswald',sans-serif;font-weight:600;font-size:16px;letter-spacing:.7px;text-transform:uppercase;color:var(--text)}
-.tela-acessos :deep(.ac-section-h h2){font-family:'Playfair Display',serif;font-weight:800;font-size:clamp(22px,3vw,30px);letter-spacing:-.01em;line-height:1.05;text-transform:none;color:var(--text)}
-.tela-acessos :deep(.ac-card h3){font-family:'Oswald',sans-serif;font-weight:600;font-size:15px;letter-spacing:.6px;text-transform:uppercase;color:var(--text)}
+.tela-acessos :deep(.ac-section-h h3){font-family:var(--fonte-principal);font-weight:600;font-size:16px;letter-spacing:.7px;text-transform:uppercase;color:var(--text)}
+.tela-acessos :deep(.ac-section-h h2){font-family:var(--fonte-principal);font-weight:800;font-size:clamp(22px,3vw,30px);letter-spacing:-.01em;line-height:1.05;text-transform:none;color:var(--text)}
+.tela-acessos :deep(.ac-card h3){font-family:var(--fonte-principal);font-weight:600;font-size:15px;letter-spacing:.6px;text-transform:uppercase;color:var(--text)}
 .tela-acessos :deep(.ac-card){border-left:3px solid transparent;border-radius:14px;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
 .tela-acessos :deep(.ac-card:hover){border-left-color:#0d9488}
-.tela-acessos :deep(.ac-setor-nome){font-family:'Oswald',sans-serif;font-weight:600;font-size:18px;letter-spacing:.5px;text-transform:uppercase;color:var(--text)}
-.tela-acessos :deep(.ac-setor-sub){font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);margin-top:5px}
-.tela-acessos :deep(.ac-count){font-family:'Oswald',sans-serif;font-size:13px;font-weight:500;letter-spacing:.6px;font-variant-numeric:tabular-nums}
+.tela-acessos :deep(.ac-setor-nome){font-family:var(--fonte-principal);font-weight:600;font-size:18px;letter-spacing:.5px;text-transform:uppercase;color:var(--text)}
+.tela-acessos :deep(.ac-setor-sub){font-family:var(--fonte-principal);font-size:10px;font-weight:600;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);margin-top:5px}
+.tela-acessos :deep(.ac-count){font-family:var(--fonte-dados);font-size:13px;font-weight:500;letter-spacing:.6px;font-variant-numeric:tabular-nums}
 .tela-acessos :deep(.ac-row strong){font-weight:600;letter-spacing:.2px}
-.tela-acessos :deep(.ac-pill){font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase}
-.tela-acessos :deep(.ac-chip){font-family:'IBM Plex Sans',sans-serif;letter-spacing:.2px}
-.tela-acessos :deep(.ac-btn){font-family:'IBM Plex Sans',sans-serif;font-weight:600;letter-spacing:.3px}
-.tela-acessos :deep(.ac-input), .tela-acessos :deep(.ac-select), .tela-acessos :deep(.ac-textarea){font-family:'IBM Plex Sans',sans-serif}
+.tela-acessos :deep(.ac-pill){font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase}
+.tela-acessos :deep(.ac-chip){font-family:var(--fonte-principal);letter-spacing:.2px}
+.tela-acessos :deep(.ac-btn){font-family:var(--fonte-principal);font-weight:600;letter-spacing:.3px}
+.tela-acessos :deep(.ac-input), .tela-acessos :deep(.ac-select), .tela-acessos :deep(.ac-textarea){font-family:var(--fonte-principal)}
 .tela-acessos :deep(.ac-topbar){border-bottom:1px solid var(--border);background:var(--surface);box-shadow:var(--shadow-sm)}
 .tela-acessos :deep(.ac-title){color:var(--text)}
 .tela-acessos :deep(.ac-back), .tela-acessos :deep(.ac-tab), .tela-acessos :deep(.ac-btn.ghost){border:1px solid var(--border);color:var(--text);background:var(--surface)}
@@ -2904,8 +2904,8 @@ onMounted(() => {
 .tela-acessos :deep(.ac-row:hover){border-color:rgba(13,148,136,.45);box-shadow:var(--shadow-md)}
 /* ===== Acessos — Fase 1: abertura expandida + mobile real ===== */
 .tela-acessos :deep(.ac-hero){display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:22px}
-.tela-acessos :deep(.ac-hero h2){font-family:'Playfair Display',serif;font-weight:800;font-size:clamp(24px,4vw,34px);line-height:1.02;letter-spacing:-.01em;color:var(--text);margin:0}
-.tela-acessos :deep(.ac-hero .ac-sub){font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--muted);margin-top:5px}
+.tela-acessos :deep(.ac-hero h2){font-family:var(--fonte-principal);font-weight:800;font-size:clamp(24px,4vw,34px);line-height:1.02;letter-spacing:-.01em;color:var(--text);margin:0}
+.tela-acessos :deep(.ac-hero .ac-sub){font-family:var(--fonte-principal);font-size:13px;color:var(--muted);margin-top:5px}
 .tela-acessos :deep(.ac-hero-actions){margin-left:auto;display:flex;gap:10px;flex-wrap:wrap}
 .tela-acessos :deep(.ac-btn.lg){padding:11px 18px;font-size:14px;border-radius:10px}
 .tela-acessos :deep(.ac-btn.primary){background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;border:none;box-shadow:0 6px 18px -8px rgba(13,148,136,.7)}
@@ -2915,8 +2915,8 @@ onMounted(() => {
 .tela-acessos :deep(.ac-org-head:hover){background:rgba(13,148,136,.05)}
 .tela-acessos :deep(.ac-org-block.open .ac-org-head){border-bottom-color:var(--border)}
 .tela-acessos :deep(.ac-org-badge){width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;flex-shrink:0}
-.tela-acessos :deep(.ac-org-name){font-family:'Playfair Display',serif;font-weight:700;font-size:21px;color:var(--text);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tela-acessos :deep(.ac-org-meta){font-family:'IBM Plex Sans',sans-serif;font-size:10.5px;font-weight:600;letter-spacing:.6px;color:var(--muted);margin-top:3px;text-transform:uppercase}
+.tela-acessos :deep(.ac-org-name){font-family:var(--fonte-principal);font-weight:700;font-size:21px;color:var(--text);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tela-acessos :deep(.ac-org-meta){font-family:var(--fonte-principal);font-size:10.5px;font-weight:600;letter-spacing:.6px;color:var(--muted);margin-top:3px;text-transform:uppercase}
 .tela-acessos :deep(.ac-org-chev){color:var(--muted);transition:transform .2s ease;flex-shrink:0}
 .tela-acessos :deep(.ac-org-block.open .ac-org-chev){transform:rotate(90deg)}
 .tela-acessos :deep(.ac-org-body){display:none;padding:16px 18px;gap:14px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
@@ -2924,13 +2924,13 @@ onMounted(() => {
 .tela-acessos :deep(.ac-stcard){border:1px solid var(--border);border-radius:14px;padding:14px;background:var(--surface2);cursor:pointer;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
 .tela-acessos :deep(.ac-stcard:hover){transform:translateY(-2px);border-color:var(--accent-mid);box-shadow:var(--shadow-md)}
 .tela-acessos :deep(.ac-stcard-h){display:flex;align-items:center;justify-content:space-between;gap:8px}
-.tela-acessos :deep(.ac-stcard-name){font-family:'Oswald',sans-serif;font-weight:600;font-size:15px;letter-spacing:.4px;text-transform:uppercase;color:var(--text)}
-.tela-acessos :deep(.ac-stcard-ct){font-family:'Oswald',sans-serif;font-size:12px;font-weight:500;color:#2dd4bf;background:rgba(13,148,136,.16);padding:2px 9px;border-radius:999px;white-space:nowrap}
+.tela-acessos :deep(.ac-stcard-name){font-family:var(--fonte-principal);font-weight:600;font-size:15px;letter-spacing:.4px;text-transform:uppercase;color:var(--text)}
+.tela-acessos :deep(.ac-stcard-ct){font-family:var(--fonte-dados);font-size:12px;font-weight:500;color:#2dd4bf;background:rgba(13,148,136,.16);padding:2px 9px;border-radius:999px;white-space:nowrap}
 .tela-acessos :deep(.ac-ava-stack){display:flex;align-items:center;margin-top:12px;flex-wrap:wrap;row-gap:6px}
 .tela-acessos :deep(.ac-ava-stack .ac-avatar){box-shadow:0 0 0 2px var(--surface2);margin-left:-8px}
 .tela-acessos :deep(.ac-ava-stack .ac-avatar:first-child){margin-left:0}
-.tela-acessos :deep(.ac-ava-more){font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;color:var(--muted);margin-left:8px}
-.tela-acessos :deep(.ac-empty){font-family:'IBM Plex Sans',sans-serif;color:var(--muted);font-size:13px;padding:8px 2px}
+.tela-acessos :deep(.ac-ava-more){font-family:var(--fonte-principal);font-size:11px;font-weight:700;color:var(--muted);margin-left:8px}
+.tela-acessos :deep(.ac-empty){font-family:var(--fonte-principal);color:var(--muted);font-size:13px;padding:8px 2px}
 @media(max-width:640px){
 .tela-acessos :deep(.ac-body){padding:16px 14px}
 .tela-acessos :deep(.ac-hero-actions){margin-left:0;width:100%}
@@ -2948,17 +2948,17 @@ onMounted(() => {
 .tela-acessos :deep(.ac-ficha-hero){display:flex;align-items:center;gap:18px;flex-wrap:wrap}
 .tela-acessos :deep(.ac-ficha-hero .ac-avatar){box-shadow:0 10px 26px -12px rgba(0,0,0,.55),0 0 0 3px var(--surface)}
 .tela-acessos :deep(.ac-ficha-id){min-width:0;flex:1}
-.tela-acessos :deep(.ac-ficha-name){font-family:'Playfair Display',serif;font-weight:800;font-size:clamp(22px,3.4vw,30px);line-height:1.05;letter-spacing:-.01em;color:var(--text);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.tela-acessos :deep(.ac-ficha-sub){font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--muted);margin-top:7px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tela-acessos :deep(.ac-ficha-name){font-family:var(--fonte-principal);font-weight:800;font-size:clamp(22px,3.4vw,30px);line-height:1.05;letter-spacing:-.01em;color:var(--text);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.tela-acessos :deep(.ac-ficha-sub){font-family:var(--fonte-principal);font-size:13px;color:var(--muted);margin-top:7px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .tela-acessos :deep(.ac-ficha-sub .dot){opacity:.4}
 .tela-acessos :deep(.ac-ficha-actions){display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
 .tela-acessos :deep(.ac-fgrid){display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:14px;margin-top:18px}
 .tela-acessos :deep(.ac-fblock){background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:6px 16px 10px}
-.tela-acessos :deep(.ac-fblock-h){font-family:'Oswald',sans-serif;font-weight:600;font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);margin:12px 0 4px}
+.tela-acessos :deep(.ac-fblock-h){font-family:var(--fonte-principal);font-weight:600;font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);margin:12px 0 4px}
 .tela-acessos :deep(.ac-field){display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
 .tela-acessos :deep(.ac-field:last-child){border-bottom:none}
-.tela-acessos :deep(.ac-field-l){font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap}
-.tela-acessos :deep(.ac-field-v){font-family:'IBM Plex Sans',sans-serif;font-size:13.5px;color:var(--text);margin-left:auto;text-align:right;word-break:break-word;font-weight:600}
+.tela-acessos :deep(.ac-field-l){font-family:var(--fonte-principal);font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap}
+.tela-acessos :deep(.ac-field-v){font-family:var(--fonte-principal);font-size:13.5px;color:var(--text);margin-left:auto;text-align:right;word-break:break-word;font-weight:600}
 .tela-acessos :deep(.ac-field-v.empty){color:var(--muted);font-weight:400}
 @media(max-width:640px){
 .tela-acessos :deep(.ac-ficha-actions){width:100%}
@@ -2975,32 +2975,32 @@ onMounted(() => {
 .tela-acessos :deep(.ac-fx-ficha){display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start}
 .tela-acessos :deep(.ac-fx-idcol){position:sticky;top:16px}
 .tela-acessos :deep(.ac-fx-hero){padding:22px 20px 18px;text-align:center;border-bottom:1px solid var(--border)}
-.tela-acessos :deep(.ac-fx-av){width:76px;height:76px;border-radius:20px;margin:0 auto 14px;display:grid;place-items:center;color:#fff;font-family:'Oswald',sans-serif;font-weight:600;font-size:26px;letter-spacing:1px;object-fit:cover;box-shadow:var(--shadow-md)}
+.tela-acessos :deep(.ac-fx-av){width:76px;height:76px;border-radius:20px;margin:0 auto 14px;display:grid;place-items:center;color:#fff;font-family:var(--fonte-principal);font-weight:600;font-size:26px;letter-spacing:1px;object-fit:cover;box-shadow:var(--shadow-md)}
 .tela-acessos :deep(.ac-fx-av-fb){text-transform:uppercase}
-.tela-acessos :deep(.ac-fx-name){font-family:'Playfair Display',serif;font-size:22px;font-weight:800;letter-spacing:-.01em;color:var(--text);line-height:1.1}
-.tela-acessos :deep(.ac-fx-role){font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--muted);margin-top:4px}
+.tela-acessos :deep(.ac-fx-name){font-family:var(--fonte-principal);font-size:22px;font-weight:800;letter-spacing:-.01em;color:var(--text);line-height:1.1}
+.tela-acessos :deep(.ac-fx-role){font-family:var(--fonte-principal);font-size:13px;color:var(--muted);margin-top:4px}
 .tela-acessos :deep(.ac-fx-pills){display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin-top:13px}
-.tela-acessos :deep(.ac-fx-stpill){display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:11.5px;font-weight:600;padding:5px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface2);color:var(--text)}
+.tela-acessos :deep(.ac-fx-stpill){display:inline-flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:11.5px;font-weight:600;padding:5px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface2);color:var(--text)}
 .tela-acessos :deep(.ac-fx-stpill.on){color:var(--green);background:color-mix(in srgb,var(--green) 13%,transparent);border-color:transparent}
 .tela-acessos :deep(.ac-fx-quick){display:grid;grid-template-columns:repeat(3,1fr);padding:8px 6px;gap:2px}
 .tela-acessos :deep(.ac-fx-qa){text-align:center;padding:12px 4px;border-radius:var(--radius-md)}
-.tela-acessos :deep(.ac-fx-qn){display:block;font-family:'Oswald',sans-serif;font-size:24px;font-weight:600;letter-spacing:.5px;color:var(--text);line-height:1;font-variant-numeric:tabular-nums}
-.tela-acessos :deep(.ac-fx-ql){font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);font-weight:500;letter-spacing:.2px}
+.tela-acessos :deep(.ac-fx-qn){display:block;font-family:var(--fonte-dados);font-size:24px;font-weight:600;letter-spacing:.5px;color:var(--text);line-height:1;font-variant-numeric:tabular-nums}
+.tela-acessos :deep(.ac-fx-ql){font-family:var(--fonte-principal);font-size:11px;color:var(--muted);font-weight:500;letter-spacing:.2px}
 .tela-acessos :deep(.ac-fx-actions){display:flex;gap:8px;flex-wrap:wrap;padding:14px 16px;border-top:1px solid var(--border)}
 .tela-acessos :deep(.ac-fx-data){display:flex;flex-direction:column;gap:16px;min-width:0}
 /* linhas de campo (Contatos & contas) */
 .tela-acessos :deep(.ac-fx-fields){padding:6px 16px 12px}
 .tela-acessos :deep(.ac-fx-fld){display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 2px;min-height:44px}
 .tela-acessos :deep(.ac-fx-fld+.ac-fx-fld){border-top:1px solid var(--border)}
-.tela-acessos :deep(.ac-fx-fld-l){font-family:'IBM Plex Sans',sans-serif;font-size:12.5px;color:var(--muted);font-weight:500;display:flex;align-items:center;gap:5px;min-width:0}
+.tela-acessos :deep(.ac-fx-fld-l){font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);font-weight:500;display:flex;align-items:center;gap:5px;min-width:0}
 .tela-acessos :deep(.ac-fx-fld.vazio .ac-fx-fld-l){color:var(--faint,var(--muted));opacity:.85}
-.tela-acessos :deep(.ac-fx-fld-v){font-family:'IBM Plex Sans',sans-serif;font-size:13.5px;font-weight:600;color:var(--text);text-align:right;word-break:break-word;background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:var(--radius-sm);max-width:62%}
+.tela-acessos :deep(.ac-fx-fld-v){font-family:var(--fonte-principal);font-size:13.5px;font-weight:600;color:var(--text);text-align:right;word-break:break-word;background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:var(--radius-sm);max-width:62%}
 .tela-acessos :deep(.ac-fx-fld-v:hover){background:var(--surface2);color:var(--accent)}
-.tela-acessos :deep(.ac-fx-fld-add){font-family:'IBM Plex Sans',sans-serif;border:1px dashed var(--accent-mid);background:transparent;color:var(--accent);font-size:12.5px;font-weight:600;padding:5px 12px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.tela-acessos :deep(.ac-fx-fld-add){font-family:var(--fonte-principal);border:1px dashed var(--accent-mid);background:transparent;color:var(--accent);font-size:12.5px;font-weight:600;padding:5px 12px;border-radius:999px;cursor:pointer;white-space:nowrap}
 .tela-acessos :deep(.ac-fx-fld-add:hover){background:var(--accent-light)}
 /* ganchos (dispositivos / termos): estado vazio pontilhado do mockup */
 .tela-acessos :deep(.ac-fx-wrap){padding:14px 16px}
-.tela-acessos :deep(.ac-fx-empty){display:flex;align-items:center;gap:11px;padding:16px;border:1px dashed var(--border);border-radius:var(--radius-md);background:var(--surface2);color:var(--muted);font-family:'IBM Plex Sans',sans-serif;font-size:12.5px;line-height:1.45}
+.tela-acessos :deep(.ac-fx-empty){display:flex;align-items:center;gap:11px;padding:16px;border:1px dashed var(--border);border-radius:var(--radius-md);background:var(--surface2);color:var(--muted);font-family:var(--fonte-principal);font-size:12.5px;line-height:1.45}
 .tela-acessos :deep(.ac-fx-empty svg){width:20px;height:20px;flex:none;opacity:.65}
 /* ===== Patrimônio (Tarefa 5): lista na ficha, histórico e aba consolidada ===== */
 .tela-acessos :deep(.ac-pat-list){display:flex;flex-direction:column;gap:10px}
@@ -3008,20 +3008,20 @@ onMounted(() => {
 .tela-acessos :deep(.ac-pat-item:hover){border-color:var(--accent-mid)}
 .tela-acessos :deep(.ac-pat-main){flex:1;min-width:180px}
 .tela-acessos :deep(.ac-pat-top){display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px}
-.tela-acessos :deep(.ac-pat-desc){font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:14px;color:var(--text);line-height:1.3}
-.tela-acessos :deep(.ac-pat-meta){display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:5px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted)}
+.tela-acessos :deep(.ac-pat-desc){font-family:var(--fonte-principal);font-weight:600;font-size:14px;color:var(--text);line-height:1.3}
+.tela-acessos :deep(.ac-pat-meta){display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:5px;font-family:var(--fonte-principal);font-size:12px;color:var(--muted)}
 .tela-acessos :deep(.ac-pat-acts){display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .tela-acessos :deep(.ac-pat-acts .ac-btn){padding:6px 11px;font-size:12px}
-.tela-acessos :deep(.ac-pat-total){margin-top:12px;text-align:right;font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--muted)}
-.tela-acessos :deep(.ac-pat-total strong){font-family:'Oswald',sans-serif;font-size:16px;color:var(--text);margin-left:6px;font-variant-numeric:tabular-nums}
+.tela-acessos :deep(.ac-pat-total){margin-top:12px;text-align:right;font-family:var(--fonte-principal);font-size:13px;color:var(--muted)}
+.tela-acessos :deep(.ac-pat-total strong){font-family:var(--fonte-dados);font-size:16px;color:var(--text);margin-left:6px;font-variant-numeric:tabular-nums}
 .tela-acessos :deep(.ac-pat-hist){display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto}
-.tela-acessos :deep(.ac-pat-histrow){padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface2);font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--text);line-height:1.4}
+.tela-acessos :deep(.ac-pat-histrow){padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface2);font-family:var(--fonte-principal);font-size:13px;color:var(--text);line-height:1.4}
 .tela-acessos :deep(.ac-pat-filtros){display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
 .tela-acessos :deep(.ac-pat-filtros .ac-select){width:auto;min-width:180px;flex:1 1 200px}
-.tela-acessos :deep(.ac-pat-kpi){margin-left:auto;font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--muted)}
-.tela-acessos :deep(.ac-pat-kpi strong){font-family:'Oswald',sans-serif;font-size:17px;color:var(--text);margin-left:4px;font-variant-numeric:tabular-nums}
+.tela-acessos :deep(.ac-pat-kpi){margin-left:auto;font-family:var(--fonte-principal);font-size:13px;color:var(--muted)}
+.tela-acessos :deep(.ac-pat-kpi strong){font-family:var(--fonte-dados);font-size:17px;color:var(--text);margin-left:4px;font-variant-numeric:tabular-nums}
 .tela-acessos :deep(.ac-pat-tablewrap){width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface)}
-.tela-acessos :deep(.ac-pat-table){width:100%;border-collapse:collapse;font-family:'IBM Plex Sans',sans-serif;font-size:13px}
+.tela-acessos :deep(.ac-pat-table){width:100%;border-collapse:collapse;font-family:var(--fonte-principal);font-size:13px}
 .tela-acessos :deep(.ac-pat-table th){text-align:left;padding:11px 14px;font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap}
 .tela-acessos :deep(.ac-pat-table td){padding:11px 14px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
 .tela-acessos :deep(.ac-pat-table tbody tr){cursor:pointer;transition:background .15s ease}
@@ -3041,9 +3041,9 @@ onMounted(() => {
 .tela-acessos :deep(.ac-fx-accrow.ac-fx-muted){opacity:.62}
 .tela-acessos :deep(.ac-fx-accrow .ac-glyph){width:30px;height:30px;border-radius:8px}
 .tela-acessos :deep(.ac-fx-accmeta){flex:1;min-width:0}
-.tela-acessos :deep(.ac-fx-accname){font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:13.5px;color:var(--text)}
-.tela-acessos :deep(.ac-fx-accfine){font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);line-height:1.35;overflow-wrap:anywhere}
-.tela-acessos :deep(.ac-fx-acccnt){font-family:'Oswald',sans-serif;font-size:18px;font-weight:600;letter-spacing:.4px;color:var(--text);flex:none;font-variant-numeric:tabular-nums}
+.tela-acessos :deep(.ac-fx-accname){font-family:var(--fonte-principal);font-weight:600;font-size:13.5px;color:var(--text)}
+.tela-acessos :deep(.ac-fx-accfine){font-family:var(--fonte-principal);font-size:12px;color:var(--muted);line-height:1.35;overflow-wrap:anywhere}
+.tela-acessos :deep(.ac-fx-acccnt){font-family:var(--fonte-dados);font-size:18px;font-weight:600;letter-spacing:.4px;color:var(--text);flex:none;font-variant-numeric:tabular-nums}
 
 /* ===== Termos / documentos (Tarefa 7): lista limpa dentro do painel da ficha ===== */
 .tela-acessos :deep(.ac-termo-list){display:flex;flex-direction:column;gap:10px}
@@ -3052,8 +3052,8 @@ onMounted(() => {
 .tela-acessos :deep(.ac-g-doc){width:30px;height:30px;border-radius:8px;background:var(--accent-light);color:var(--accent)}
 .tela-acessos :deep(.ac-g-doc svg){width:16px;height:16px}
 .tela-acessos :deep(.ac-termo-main){flex:1;min-width:160px}
-.tela-acessos :deep(.ac-termo-name){font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:14px;color:var(--text);line-height:1.3;overflow-wrap:anywhere}
-.tela-acessos :deep(.ac-termo-meta){font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);margin-top:3px}
+.tela-acessos :deep(.ac-termo-name){font-family:var(--fonte-principal);font-weight:600;font-size:14px;color:var(--text);line-height:1.3;overflow-wrap:anywhere}
+.tela-acessos :deep(.ac-termo-meta){font-family:var(--fonte-principal);font-size:12px;color:var(--muted);margin-top:3px}
 .tela-acessos :deep(.ac-termo-acts){display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .tela-acessos :deep(.ac-termo-acts .ac-btn){padding:6px 11px;font-size:12px}
 @media(max-width:640px){
@@ -3064,7 +3064,7 @@ onMounted(() => {
 /* ===== Auditoria (Tarefa 6): destaque de quem tem acesso a MUITAS pastas ===== */
 /* Selo âmbar ao lado do nome + realce do contador/borda. É sinal de atenção
    (possível permissão demais), não de erro — por isso âmbar, não vermelho. */
-.tela-acessos :deep(.ac-badge-muitas){display:inline-flex;align-items:center;gap:4px;margin-left:6px;padding:2px 9px;border-radius:999px;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--orange);background:color-mix(in srgb,var(--orange) 14%,transparent);border:1px solid color-mix(in srgb,var(--orange) 34%,transparent);vertical-align:middle;white-space:nowrap}
+.tela-acessos :deep(.ac-badge-muitas){display:inline-flex;align-items:center;gap:4px;margin-left:6px;padding:2px 9px;border-radius:999px;font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--orange);background:color-mix(in srgb,var(--orange) 14%,transparent);border:1px solid color-mix(in srgb,var(--orange) 34%,transparent);vertical-align:middle;white-space:nowrap}
 .tela-acessos :deep(.ac-cnt.ac-cnt-hot){color:var(--orange);border-color:color-mix(in srgb,var(--orange) 42%,transparent);background:color-mix(in srgb,var(--orange) 12%,transparent);font-weight:700}
 .tela-acessos :deep(.ac-audcard-hot){border-color:color-mix(in srgb,var(--orange) 40%,var(--border))}
 .tela-acessos :deep(.ac-audrow-hot){border-left:3px solid var(--orange)}
@@ -3084,15 +3084,15 @@ onMounted(() => {
 .tela-acessos :deep(.ac-aud-hd){display:flex;align-items:center;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:2px}
 .tela-acessos :deep(.ac-aud-item){padding:9px 0;border-bottom:1px solid var(--border);display:grid;grid-template-columns:104px 1fr;gap:12px;align-items:baseline}
 .tela-acessos :deep(.ac-aud-item:last-child){border-bottom:none}
-.tela-acessos :deep(.ac-aud-k){font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:5px}
-.tela-acessos :deep(.ac-aud-v){font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--text);word-break:break-word;line-height:1.45}
+.tela-acessos :deep(.ac-aud-k){font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:5px}
+.tela-acessos :deep(.ac-aud-v){font-family:var(--fonte-principal);font-size:13px;color:var(--text);word-break:break-word;line-height:1.45}
 .tela-acessos :deep(.ac-audrow){display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-sm);margin-bottom:8px;transition:border-color .15s,box-shadow .15s}
 .tela-acessos :deep(.ac-audrow:hover){border-color:rgba(13,148,136,.45);box-shadow:var(--shadow-md)}
 .tela-acessos :deep(.ac-audrow .grow){flex:1;min-width:140px}
 .tela-acessos :deep(.ac-audrow-counts){display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
-.tela-acessos :deep(.ac-cnt){display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;color:var(--text);white-space:nowrap}
+.tela-acessos :deep(.ac-cnt){display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);font-family:var(--fonte-principal);font-size:11px;font-weight:600;color:var(--text);white-space:nowrap}
 .tela-acessos :deep(.ac-cnt.zero){color:var(--muted);opacity:.65}
-.tela-acessos :deep(.ac-aud-setor){font-family:'Oswald',sans-serif;font-weight:600;font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--text);margin:18px 0 10px;display:flex;align-items:center;gap:8px}
+.tela-acessos :deep(.ac-aud-setor){font-family:var(--fonte-principal);font-weight:600;font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--text);margin:18px 0 10px;display:flex;align-items:center;gap:8px}
 .tela-acessos :deep(.ac-aud-setor::after){content:"";flex:1;height:1px;background:var(--border)}
 @media(max-width:640px){
 .tela-acessos :deep(.ac-audrow-counts){width:100%;margin-left:0;order:3}
@@ -3107,16 +3107,16 @@ onMounted(() => {
 }
 /* ===== Acessos — Fase 2: Drive ===== */
 .tela-acessos :deep(.ac-brand-bar){display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
-.tela-acessos :deep(.ac-brand-chip){position:relative;display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;transition:border-color .15s,box-shadow .15s,background .15s}
+.tela-acessos :deep(.ac-brand-chip){position:relative;display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:var(--fonte-principal);font-weight:600;font-size:13px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;transition:border-color .15s,box-shadow .15s,background .15s}
 .tela-acessos :deep(.ac-brand-chip:hover){border-color:var(--accent-mid)}
 .tela-acessos :deep(.ac-brand-chip.active){background:linear-gradient(135deg,#0f766e,#0d9488);border-color:#0d9488;color:#fff;box-shadow:0 6px 16px -8px rgba(13,148,136,.7)}
 .tela-acessos :deep(.ac-brand-x){opacity:.55;font-size:11px;line-height:1}
 .tela-acessos :deep(.ac-brand-x:hover){opacity:1}
-.tela-acessos :deep(.ac-crumb){display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:16px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--muted)}
+.tela-acessos :deep(.ac-crumb){display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:16px;font-family:var(--fonte-principal);font-size:13px;color:var(--muted)}
 .tela-acessos :deep(.ac-crumb-b){background:none;border:none;color:var(--accent-mid);cursor:pointer;font:inherit;padding:2px 4px;border-radius:6px}
 .tela-acessos :deep(.ac-crumb-b:hover){background:rgba(13,148,136,.1)}
 .tela-acessos :deep(.ac-secmod){margin-bottom:26px}
-.tela-acessos :deep(.ac-secmod-h){font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;letter-spacing:1.4px;text-transform:uppercase;color:var(--text);margin:0 0 12px;display:flex;align-items:center;gap:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.tela-acessos :deep(.ac-secmod-h){font-family:var(--fonte-principal);font-weight:600;font-size:13px;letter-spacing:1.4px;text-transform:uppercase;color:var(--text);margin:0 0 12px;display:flex;align-items:center;gap:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
 .tela-acessos :deep(.ac-move){width:auto;max-width:138px;padding:6px 8px;font-size:11px}
 .tela-acessos :deep(.ac-folder[draggable=true]){cursor:grab;-webkit-user-select:none;user-select:none}
 .tela-acessos :deep(.ac-folder[draggable=true]:active){cursor:grabbing}
@@ -3133,7 +3133,7 @@ onMounted(() => {
 @media(max-width:640px){.tela-acessos :deep(.ac-wd-arvore .ac-vcard){max-width:none}}
 .tela-acessos :deep(.ac-drive-marcabar){display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface2);margin-bottom:14px}
 .tela-acessos :deep(.ac-drive-marcabar .grow){flex:1;min-width:160px}
-.tela-acessos :deep(.ac-drive-marca-nome){font-family:'Playfair Display',serif;font-weight:700;font-size:17px;color:var(--text)}
+.tela-acessos :deep(.ac-drive-marca-nome){font-family:var(--fonte-principal);font-weight:700;font-size:17px;color:var(--text)}
 @media(max-width:640px){.tela-acessos :deep(.ac-drive-marcabar .ac-btn){width:100%}}
 .tela-acessos :deep(.ac-tree){list-style:none;margin:0;padding-left:20px}
 .tela-acessos :deep(.ac-tnode){position:relative;padding-left:20px}
@@ -3148,13 +3148,13 @@ onMounted(() => {
 .tela-acessos :deep(.ac-tn-tog.open){transform:rotate(90deg)}
 .tela-acessos :deep(.ac-tn-dot){width:20px;flex-shrink:0}
 .tela-acessos :deep(.ac-tn-ico){font-size:15px;line-height:1}
-.tela-acessos :deep(.ac-tn-name){font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:600;color:var(--text);word-break:break-word}
-.tela-acessos :deep(.ac-tn-sec){font-family:'IBM Plex Sans',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#2dd4bf;background:rgba(13,148,136,.14);padding:2px 7px;border-radius:999px;white-space:nowrap}
+.tela-acessos :deep(.ac-tn-name){font-family:var(--fonte-principal);font-size:13px;font-weight:600;color:var(--text);word-break:break-word}
+.tela-acessos :deep(.ac-tn-sec){font-family:var(--fonte-principal);font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#2dd4bf;background:rgba(13,148,136,.14);padding:2px 7px;border-radius:999px;white-space:nowrap}
 .tela-acessos :deep(.ac-tn-share){padding:3px 9px;font-size:11px;margin-left:auto;flex-shrink:0}
 @media(max-width:640px){.tela-acessos :deep(.ac-tn-sec){display:none}.tela-acessos :deep(.ac-tree){padding-left:14px}.tela-acessos :deep(.ac-tnode){padding-left:14px}}
 /* ===== Drive: fluxograma (org-chart) ===== */
 .tela-acessos :deep(.ac-legend){display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
-.tela-acessos :deep(.ac-leg){display:inline-flex;align-items:center;gap:7px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:4px 6px 4px 11px}
+.tela-acessos :deep(.ac-leg){display:inline-flex;align-items:center;gap:7px;font-family:var(--fonte-principal);font-size:12px;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:4px 6px 4px 11px}
 .tela-acessos :deep(.ac-leg-dot){width:11px;height:11px;border-radius:50%;flex-shrink:0}
 .tela-acessos :deep(.ac-leg-go){border:none;background:#0d9488;color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:4px 10px;cursor:pointer;text-transform:uppercase;letter-spacing:.4px}
 .tela-acessos :deep(.ac-leg-go:hover){filter:brightness(1.08)}
@@ -3174,9 +3174,9 @@ onMounted(() => {
 .tela-acessos :deep(.ac-fcard:hover){transform:translateY(-2px);box-shadow:var(--shadow-md)}
 .tela-acessos :deep(.ac-fcard-root){border-top:3px solid #0d9488;background:linear-gradient(180deg,rgba(13,148,136,.14),var(--surface));width:200px}
 .tela-acessos :deep(.ac-fcard-body){padding:9px 11px}
-.tela-acessos :deep(.ac-fcard-name){font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;color:var(--text);line-height:1.25;max-height:3.1em;overflow:hidden}
-.tela-acessos :deep(.ac-fcard-root .ac-fcard-name){font-family:'Playfair Display',serif;font-size:15px;font-weight:700}
-.tela-acessos :deep(.ac-fcard-sec){font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-top:4px;color:var(--muted)}
+.tela-acessos :deep(.ac-fcard-name){font-family:var(--fonte-principal);font-size:12px;font-weight:600;color:var(--text);line-height:1.25;max-height:3.1em;overflow:hidden}
+.tela-acessos :deep(.ac-fcard-root .ac-fcard-name){font-family:var(--fonte-principal);font-size:15px;font-weight:700}
+.tela-acessos :deep(.ac-fcard-sec){font-family:var(--fonte-principal);font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-top:4px;color:var(--muted)}
 .tela-acessos :deep(.ac-fcard-acts){display:flex;gap:5px;margin-top:8px;justify-content:flex-end}
 .tela-acessos :deep(.ac-fcard-share), .tela-acessos :deep(.ac-fcard-tog){border:1px solid var(--border);background:var(--surface2);border-radius:7px;cursor:pointer;font-size:12px;padding:3px 8px;color:var(--text);min-width:26px;line-height:1.1}
 .tela-acessos :deep(.ac-fcard-share:hover), .tela-acessos :deep(.ac-fcard-tog:hover){border-color:var(--accent-mid);color:var(--accent-mid)}
@@ -3186,10 +3186,10 @@ onMounted(() => {
 .tela-acessos :deep(.ac-vcard:hover){box-shadow:var(--shadow-md);transform:translateX(2px)}
 .tela-acessos :deep(.ac-vcard-root){border-left-color:#0d9488;background:linear-gradient(90deg,rgba(13,148,136,.16),var(--surface))}
 .tela-acessos :deep(.ac-vc-ico){font-size:15px;line-height:1;flex-shrink:0}
-.tela-acessos :deep(.ac-vc-name){font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:600;color:var(--text);min-width:0;overflow-wrap:anywhere;line-height:1.25}
-.tela-acessos :deep(.ac-vcard-root .ac-vc-name){font-family:'Playfair Display',serif;font-size:16px;font-weight:700}
-.tela-acessos :deep(.ac-vc-sec){font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;flex-shrink:0}
-.tela-acessos :deep(.ac-vc-count){font-family:'Oswald',sans-serif;font-size:11px;font-weight:600;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:1px 8px;flex-shrink:0}
+.tela-acessos :deep(.ac-vc-name){font-family:var(--fonte-principal);font-size:13px;font-weight:600;color:var(--text);min-width:0;overflow-wrap:anywhere;line-height:1.25}
+.tela-acessos :deep(.ac-vcard-root .ac-vc-name){font-family:var(--fonte-principal);font-size:16px;font-weight:700}
+.tela-acessos :deep(.ac-vc-sec){font-family:var(--fonte-principal);font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;flex-shrink:0}
+.tela-acessos :deep(.ac-vc-count){font-family:var(--fonte-dados);font-size:11px;font-weight:600;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:1px 8px;flex-shrink:0}
 .tela-acessos :deep(.ac-vc-share){border:1px solid var(--border);background:var(--surface2);border-radius:7px;cursor:pointer;font-size:12px;padding:3px 8px;color:var(--text);flex-shrink:0;line-height:1.1}
 .tela-acessos :deep(.ac-vc-share:hover){border-color:var(--accent-mid);color:var(--accent-mid)}
 @media(max-width:640px){.tela-acessos :deep(.ac-vc-sec){display:none}.tela-acessos :deep(.ac-vcard){gap:7px;padding:6px 9px}}
@@ -3198,30 +3198,30 @@ onMounted(() => {
 .tela-acessos :deep(.ac-folder:hover){border-color:var(--accent-mid);box-shadow:var(--shadow-md);transform:translateY(-2px)}
 .tela-acessos :deep(.ac-folder-top){display:flex;align-items:center;gap:10px}
 .tela-acessos :deep(.ac-folder-ico){font-size:20px;line-height:1}
-.tela-acessos :deep(.ac-folder-name){font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:13.5px;color:var(--text);word-break:break-word;line-height:1.25}
-.tela-acessos :deep(.ac-folder-sub){font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);margin-top:2px}
+.tela-acessos :deep(.ac-folder-name){font-family:var(--fonte-principal);font-weight:600;font-size:13.5px;color:var(--text);word-break:break-word;line-height:1.25}
+.tela-acessos :deep(.ac-folder-sub){font-family:var(--fonte-principal);font-size:11px;color:var(--muted);margin-top:2px}
 .tela-acessos :deep(.ac-folder-actions){display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
 .tela-acessos :deep(.ac-folder-actions .ac-btn){padding:6px 12px;font-size:12px}
 .tela-acessos :deep(.ac-pick){display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;cursor:pointer}
 .tela-acessos :deep(.ac-pick:hover){background:rgba(13,148,136,.06)}
-.tela-acessos :deep(.ac-pick .grow){font-family:'IBM Plex Sans',sans-serif;font-size:13px;min-width:0}
+.tela-acessos :deep(.ac-pick .grow){font-family:var(--fonte-principal);font-size:13px;min-width:0}
 .tela-acessos :deep(.ac-pick-search){margin-bottom:8px}
 .tela-acessos :deep(.ac-pick-list){max-height:42vh;overflow:auto;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
-.tela-acessos :deep(.ac-pick-grp-h){position:sticky;top:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:var(--surface2);border-bottom:1px solid var(--border);font-family:'Oswald',sans-serif;font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);z-index:1}
-.tela-acessos :deep(.ac-pick-all){border:1px solid var(--border);background:var(--surface);color:var(--accent-mid);border-radius:6px;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:3px 9px;cursor:pointer}
+.tela-acessos :deep(.ac-pick-grp-h){position:sticky;top:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:var(--surface2);border-bottom:1px solid var(--border);font-family:var(--fonte-principal);font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);z-index:1}
+.tela-acessos :deep(.ac-pick-all){border:1px solid var(--border);background:var(--surface);color:var(--accent-mid);border-radius:6px;font-family:var(--fonte-principal);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:3px 9px;cursor:pointer}
 .tela-acessos :deep(.ac-pick-all:hover){border-color:var(--accent-mid)}
 .tela-acessos :deep(.ac-pick-list .ac-pick){border-radius:0;border-bottom:1px solid var(--border);padding:8px 10px}
 .tela-acessos :deep(.ac-pick-grp:last-child .ac-pick:last-child){border-bottom:none}
 .tela-acessos :deep(.ac-pick .grow){display:flex;flex-direction:column;min-width:0}
-.tela-acessos :deep(.ac-pick-name){font-family:'IBM Plex Sans',sans-serif;font-size:13.5px;font-weight:600;color:var(--text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tela-acessos :deep(.ac-pick-meta){font-family:'IBM Plex Sans',sans-serif;font-size:11.5px;color:var(--muted);line-height:1.2;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tela-acessos :deep(.ac-pick-name){font-family:var(--fonte-principal);font-size:13.5px;font-weight:600;color:var(--text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tela-acessos :deep(.ac-pick-meta){font-family:var(--fonte-principal);font-size:11.5px;color:var(--muted);line-height:1.2;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* painel grande de compartilhar */
 .tela-acessos :deep(.ac-modal-lg){max-width:720px;width:100%;max-height:90vh;display:flex;flex-direction:column;padding:0;overflow:hidden}
 .tela-acessos :deep(.ac-modal-head){display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 22px;border-bottom:1px solid var(--border)}
-.tela-acessos :deep(.ac-modal-head h3){font-family:'Oswald',sans-serif;font-weight:600;letter-spacing:.5px;font-size:18px}
+.tela-acessos :deep(.ac-modal-head h3){font-family:var(--fonte-principal);font-weight:600;letter-spacing:.5px;font-size:18px}
 .tela-acessos :deep(.ac-modal-body){flex:1;min-height:0;overflow:auto;padding:18px 22px}
 .tela-acessos :deep(.ac-modal-foot){display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 22px;border-top:1px solid var(--border);background:var(--surface2)}
-.tela-acessos :deep(.ac-pick-count){font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
+.tela-acessos :deep(.ac-pick-count){font-family:var(--fonte-principal);font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
 .tela-acessos :deep(.ac-pick-count.on){color:var(--accent-mid)}
 .tela-acessos :deep(.ac-modal-lg .ac-pick-list){max-height:none;border:1px solid var(--border)}
 @media(max-width:640px){
@@ -3232,8 +3232,8 @@ onMounted(() => {
 .tela-acessos :deep(.ac-secmod-toggle){cursor:pointer;user-select:none}
 .tela-acessos :deep(.ac-secchev){display:inline-block;transition:transform .18s ease;color:var(--muted);font-size:11px}
 .tela-acessos :deep(.ac-secchev.open){transform:rotate(90deg)}
-.tela-acessos :deep(.ac-depth){display:flex;align-items:center;gap:8px;margin-bottom:18px;flex-wrap:wrap;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted)}
-.tela-acessos :deep(.ac-depth-b){border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:8px;width:30px;height:30px;cursor:pointer;font-weight:600;font-family:'Oswald',sans-serif}
+.tela-acessos :deep(.ac-depth){display:flex;align-items:center;gap:8px;margin-bottom:18px;flex-wrap:wrap;font-family:var(--fonte-principal);font-size:12px;color:var(--muted)}
+.tela-acessos :deep(.ac-depth-b){border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:8px;width:30px;height:30px;cursor:pointer;font-weight:600;font-family:var(--fonte-principal)}
 .tela-acessos :deep(.ac-depth-b.active){background:#0d9488;border-color:#0d9488;color:#fff}
 .tela-acessos :deep(.ac-folder-sub){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:640px){.tela-acessos :deep(.ac-folder-grid){grid-template-columns:1fr}}
@@ -3242,8 +3242,8 @@ onMounted(() => {
 .tela-acessos :deep(.ac-conn){background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:var(--shadow-md);display:flex;flex-direction:column;gap:10px;transition:border-color .16s,box-shadow .16s}
 .tela-acessos :deep(.ac-conn:hover){border-color:var(--accent-mid);box-shadow:var(--shadow-lg)}
 .tela-acessos :deep(.ac-conn-top){display:flex;align-items:center;gap:10px}
-.tela-acessos :deep(.ac-conn-name){font-family:'Oswald',sans-serif;font-weight:600;font-size:16px;letter-spacing:.5px;text-transform:uppercase;color:var(--text)}
-.tela-acessos :deep(.ac-conn-desc){font-family:'IBM Plex Sans',sans-serif;font-size:12.5px;color:var(--muted);line-height:1.45;flex:1}
+.tela-acessos :deep(.ac-conn-name){font-family:var(--fonte-principal);font-weight:600;font-size:16px;letter-spacing:.5px;text-transform:uppercase;color:var(--text)}
+.tela-acessos :deep(.ac-conn-desc){font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);line-height:1.45;flex:1}
 .tela-acessos :deep(.ac-conn-actions){display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
 @media(max-width:640px){.tela-acessos :deep(.ac-conn-actions .ac-btn){flex:1;min-width:120px;text-align:center}}
 .tela-acessos :deep(.ac-muted){color:var(--muted);opacity:1}
@@ -3267,7 +3267,7 @@ onMounted(() => {
 .tela-acessos :deep(.ac-modal){background:var(--surface);border:1px solid var(--border);color:var(--text);box-shadow:var(--shadow-lg)}
 /* Copiar link (Compartilhar + Liberar setor) */
 .tela-acessos :deep(.ac-linkbar){display:flex;align-items:center;gap:12px;padding:12px 14px;margin:0 0 16px;border:1px solid var(--accent-mid);background:var(--accent-light);border-radius:12px}
-.tela-acessos :deep(.ac-linkurl){font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px;color:var(--text);opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tela-acessos :deep(.ac-linkurl){font-family:var(--fonte-dados);font-size:11.5px;color:var(--text);opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tela-acessos :deep(.ac-note){font-size:12.5px;line-height:1.55;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin:0 0 14px}
 .tela-acessos :deep(.ac-note-warn){color:var(--text);background:rgba(184,88,0,.12);border-color:var(--orange)}
 .tela-acessos :deep(.ac-note-warn b){color:var(--text)}

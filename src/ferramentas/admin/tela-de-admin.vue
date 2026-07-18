@@ -31,7 +31,7 @@
            em vez de um getElementById cross-tela (que quebraria), lemos
            direto do estado reativo compartilhado — mesmo dado, sem
            dependência de DOM alheio. -->
-      <span id="admin-topbar-user" style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted)">{{ estado.user?.email }}</span>
+      <span id="admin-topbar-user" style="font-family:var(--fonte-principal);font-size:11px;color:var(--muted)">{{ estado.user?.email }}</span>
     </div>
     <div class="admin-layout">
       <nav class="admin-sidebar">
@@ -73,12 +73,12 @@
                 <select id="adm-role" class="admin-form-input" style="width:100%;box-sizing:border-box;cursor:pointer;"><option value="viewer">Visualizador</option><option value="admin">Administrador</option></select>
               </div>
             </div>
-            <div style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);margin-top:12px;display:flex;align-items:center;gap:6px;">
+            <div style="font-family:var(--fonte-principal);font-size:11px;color:var(--muted);margin-top:12px;display:flex;align-items:center;gap:6px;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.6"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               Se a senha for deixada em branco, um link de primeiro acesso será enviado para o email.
             </div>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
-              <div id="adm-invite-msg" style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);flex:1"></div>
+              <div id="adm-invite-msg" style="font-family:var(--fonte-principal);font-size:12px;color:var(--muted);flex:1"></div>
               <div style="display:flex;gap:8px;flex-shrink:0">
                 <button class="sr-btn" onclick="adminInviteUser('invite')" style="font-size:11px;padding:7px 14px;gap:5px;display:flex;align-items:center;">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -674,7 +674,7 @@ async function loadAdminUsers() {
     const av = mkEl('div'); av.style.cssText = 'width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);overflow:hidden;position:relative;'
     av.style.background = u.role === 'admin' ? 'var(--accent)' : 'var(--surface2)'
     if (u.avatar_url) { const img = mkEl('img', 'av-img'); img.src = u.avatar_url + '?t=' + Date.now(); img.alt = ''; av.appendChild(img) }
-    else { const avTxt = mkEl('span'); avTxt.style.cssText = 'font-family:\'Oswald\',sans-serif;font-size:14px;font-weight:600'; avTxt.style.color = u.role === 'admin' ? '#fff' : 'var(--muted)'; avTxt.textContent = (u.name || u.email).charAt(0).toUpperCase(); av.appendChild(avTxt) }
+    else { const avTxt = mkEl('span'); avTxt.style.cssText = 'font-family:var(--fonte-principal);font-size:14px;font-weight:600'; avTxt.style.color = u.role === 'admin' ? '#fff' : 'var(--muted)'; avTxt.textContent = (u.name || u.email).charAt(0).toUpperCase(); av.appendChild(avTxt) }
     const avEditBtn = mkEl('button', 'av-edit-btn'); avEditBtn.title = 'Trocar foto'; avEditBtn.innerHTML = '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'
     avEditBtn.addEventListener('click', () => _triggerAvatarUpload(u.id, (url) => {
       av.innerHTML = ''; const img = mkEl('img', 'av-img'); img.src = url + '?t=' + Date.now(); img.alt = ''; av.appendChild(img)
@@ -688,7 +688,7 @@ async function loadAdminUsers() {
     const main = mkEl('div', 'sr-main'); main.style.marginLeft = '10px'
     const nameWrap = mkEl('div'); nameWrap.style.cssText = 'display:flex;align-items:center;gap:6px'
     const nameInp = mkEl('input'); nameInp.value = u.name || ''; nameInp.placeholder = 'Nome'
-    nameInp.style.cssText = 'font-family:"IBM Plex Sans",sans-serif;font-size:13px;font-weight:500;color:var(--text);background:transparent;border:none;border-bottom:1px solid transparent;outline:none;width:140px;padding:1px 0;transition:border-color .15s'
+    nameInp.style.cssText = 'font-family:var(--fonte-principal);font-size:13px;font-weight:500;color:var(--text);background:transparent;border:none;border-bottom:1px solid transparent;outline:none;width:140px;padding:1px 0;transition:border-color .15s'
     nameInp.addEventListener('focus', () => nameInp.style.borderBottomColor = 'var(--accent)')
     nameInp.addEventListener('blur', async () => { nameInp.style.borderBottomColor = 'transparent'; if (nameInp.value.trim() === (u.name || '')) return; await adFetch('profiles?id=eq.' + u.id, { method: 'PATCH', body: JSON.stringify({ name: nameInp.value.trim() }) }); adminToast('Nome atualizado') })
     nameWrap.appendChild(nameInp)
@@ -778,7 +778,7 @@ async function loadAdminAccounts() {
     const hMain = mkEl('div', 'sr-main'); hMain.style.marginLeft = '12px'
     hMain.appendChild(mkEl('div', 'sr-label', acc.name))
     hMain.appendChild(mkEl('div', 'sr-sub', acc.instagram_id))
-    const connBadge = mkEl('span'); connBadge.style.cssText = 'display:flex;align-items:center;gap:5px;font-family:"IBM Plex Sans",sans-serif;font-size:11px;color:#16a34a'
+    const connBadge = mkEl('span'); connBadge.style.cssText = 'display:flex;align-items:center;gap:5px;font-family:var(--fonte-principal);font-size:11px;color:#16a34a'
     const dot = mkEl('span', 'online-dot'); connBadge.appendChild(dot); connBadge.appendChild(document.createTextNode('Conectada'))
     head.appendChild(av); head.appendChild(hMain); head.appendChild(connBadge); card.appendChild(head)
     const nameRow = mkEl('div', 'sr'); nameRow.style.justifyContent = 'space-between'; nameRow.appendChild(mkEl('div', 'sr-sub', 'Nome da conta'))
@@ -1169,13 +1169,13 @@ Object.assign(window, {
    .av-edit-btn/.av-img e o modal de permissões .perm-*. */
 .tela-admin{min-height:100vh;display:flex;flex-direction:column;background:var(--bg);}
 .tela-admin :deep(.admin-topbar){display:flex;align-items:center;justify-content:space-between;padding:13px 24px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
-.tela-admin :deep(.admin-topbar-back){display:flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;letter-spacing:.2px;}
-.tela-admin :deep(.admin-topbar-title){font-family:'Oswald',sans-serif;font-size:15px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--text);}
+.tela-admin :deep(.admin-topbar-back){display:flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:13px;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;letter-spacing:.2px;}
+.tela-admin :deep(.admin-topbar-title){font-family:var(--fonte-principal);font-size:15px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--text);}
 .tela-admin :deep(.admin-layout){display:grid;grid-template-columns:210px 1fr;min-height:calc(100vh - 50px);}
 .tela-admin :deep(.admin-sidebar){border-right:1px solid var(--border);padding:12px 8px;background:var(--surface2);overflow-y:auto;}
-.tela-admin :deep(.admin-nav-group-label){font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(10,10,18,.35);padding:14px 12px 4px;margin-top:4px;}
+.tela-admin :deep(.admin-nav-group-label){font-family:var(--fonte-principal);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(10,10,18,.35);padding:14px 12px 4px;margin-top:4px;}
 .tela-admin :deep(.admin-nav-group-label:first-child){margin-top:0;}
-.tela-admin :deep(.admin-nav-item){display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-md);cursor:pointer;transition:all .15s;font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--text);margin-bottom:1px;user-select:none;}
+.tela-admin :deep(.admin-nav-item){display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-md);cursor:pointer;transition:all .15s;font-family:var(--fonte-principal);font-size:13px;color:var(--text);margin-bottom:1px;user-select:none;}
 .tela-admin :deep(.admin-nav-item:hover){background:var(--surface);}
 .tela-admin :deep(.admin-nav-item.active){background:var(--accent-light);color:var(--accent);}
 .tela-admin :deep(.admin-nav-item svg){flex-shrink:0;opacity:.6;}
@@ -1183,36 +1183,36 @@ Object.assign(window, {
 .tela-admin :deep(.admin-content){padding:36px 44px;overflow-y:auto;max-height:calc(100vh - 50px);}
 .tela-admin :deep(.admin-section){display:none;}
 .tela-admin :deep(.admin-section.active){display:block;}
-.tela-admin :deep(.admin-section-title){font-family:'Oswald',sans-serif;font-size:22px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);margin-bottom:3px;}
-.tela-admin :deep(.admin-section-sub){font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);margin-bottom:28px;}
+.tela-admin :deep(.admin-section-title){font-family:var(--fonte-principal);font-size:22px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);margin-bottom:3px;}
+.tela-admin :deep(.admin-section-sub){font-family:var(--fonte-principal);font-size:12px;color:var(--muted);margin-bottom:28px;}
 .tela-admin :deep(.admin-stats){display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:24px;}
 .tela-admin :deep(.admin-stat){background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;text-align:center;}
-.tela-admin :deep(.admin-stat-val){font-family:'Oswald',sans-serif;font-size:30px;font-weight:500;color:var(--accent);}
-.tela-admin :deep(.admin-stat-lbl){font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-top:3px;}
+.tela-admin :deep(.admin-stat-val){font-family:var(--fonte-dados);font-size:30px;font-weight:500;color:var(--accent);}
+.tela-admin :deep(.admin-stat-lbl){font-family:var(--fonte-principal);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-top:3px;}
 @media(max-width:768px){
   .tela-admin :deep(.admin-layout){grid-template-columns:1fr;}
   .tela-admin :deep(.admin-sidebar){display:flex;overflow-x:auto;border-right:none;border-bottom:1px solid var(--border);padding:8px;gap:4px;}
   .tela-admin :deep(.admin-nav-group-label){display:none;}
   .tela-admin :deep(.admin-content){padding:20px 16px;}
 }
-.tela-admin :deep(.admin-btn-sm){font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:#fff;background:var(--accent);border:none;border-radius:3px;padding:5px 10px;cursor:pointer;letter-spacing:.6px;white-space:nowrap;transition:opacity .18s;text-transform:uppercase;}
+.tela-admin :deep(.admin-btn-sm){font-family:var(--fonte-principal);font-size:10px;color:#fff;background:var(--accent);border:none;border-radius:3px;padding:5px 10px;cursor:pointer;letter-spacing:.6px;white-space:nowrap;transition:opacity .18s;text-transform:uppercase;}
 .tela-admin :deep(.admin-btn-sm:hover){opacity:.85;}
 /* .admin-input-row aparecia DUAS vezes no CSS global (grid, depois flex) — a
    segunda definição vencia a cascata; reproduzimos a mesma ordem aqui para o
    resultado visual ficar idêntico. */
 .tela-admin :deep(.admin-input-row){display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 16px;}
 .tela-admin :deep(.admin-input-row){display:flex;gap:8px;margin-bottom:10px;}
-.tela-admin :deep(.admin-input){flex:1;padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:3px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;outline:none;transition:border-color .18s;}
+.tela-admin :deep(.admin-input){flex:1;padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--fonte-principal);font-size:13px;outline:none;transition:border-color .18s;}
 .tela-admin :deep(.admin-input:focus){border-color:var(--accent);}
-.tela-admin :deep(.admin-form-label){font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px;font-weight:600;}
-.tela-admin :deep(.admin-form-input){width:100%;padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:3px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;outline:none;transition:border-color .18s;box-sizing:border-box;}
+.tela-admin :deep(.admin-form-label){font-family:var(--fonte-principal);font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px;font-weight:600;}
+.tela-admin :deep(.admin-form-input){width:100%;padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--fonte-principal);font-size:13px;outline:none;transition:border-color .18s;box-sizing:border-box;}
 .tela-admin :deep(.admin-form-input:focus){border-color:var(--accent);}
 .tela-admin :deep(.admin-form-input::placeholder){color:var(--muted);opacity:.7;}
 
 /* ── Design system de linhas/grupos (.sr/.sg*, legacy L528-542) — genérico,
    usado por várias telas; cada uma traz sua própria cópia, MANTIDO no
    global também (não é .admin-*). ── */
-.tela-admin :deep(.sg-label){font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(10,10,18,.35);padding:0 4px 6px;margin-top:18px;display:block;}
+.tela-admin :deep(.sg-label){font-family:var(--fonte-principal);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(10,10,18,.35);padding:0 4px 6px;margin-top:18px;display:block;}
 .tela-admin :deep(.sg){background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:4px;}
 .tela-admin :deep(.sr){display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);transition:background .15s;}
 .tela-admin :deep(.sr:last-child){border-bottom:none;}
@@ -1220,10 +1220,10 @@ Object.assign(window, {
 .tela-admin :deep(.sr.clickable:hover){background:var(--surface2);}
 .tela-admin :deep(.sr-icon){width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .tela-admin :deep(.sr-main){flex:1;}
-.tela-admin :deep(.sr-label){font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--text);font-weight:500;}
-.tela-admin :deep(.sr-sub){font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);margin-top:1px;}
-.tela-admin :deep(.sr-val){font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);white-space:nowrap;}
-.tela-admin :deep(.sr-btn){font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--accent);cursor:pointer;background:var(--accent-light);border:none;padding:5px 12px;border-radius:5px;transition:all .15s;white-space:nowrap;}
+.tela-admin :deep(.sr-label){font-family:var(--fonte-principal);font-size:13px;color:var(--text);font-weight:500;}
+.tela-admin :deep(.sr-sub){font-family:var(--fonte-principal);font-size:11px;color:var(--muted);margin-top:1px;}
+.tela-admin :deep(.sr-val){font-family:var(--fonte-principal);font-size:12px;color:var(--muted);white-space:nowrap;}
+.tela-admin :deep(.sr-btn){font-family:var(--fonte-principal);font-size:11px;color:var(--accent);cursor:pointer;background:var(--accent-light);border:none;padding:5px 12px;border-radius:5px;transition:all .15s;white-space:nowrap;}
 .tela-admin :deep(.sr-btn:hover){background:var(--accent);color:#fff;}
 .tela-admin :deep(.sr-btn.danger){color:#dc2626;background:rgba(220,38,38,.08);}
 .tela-admin :deep(.sr-btn.danger:hover){background:#dc2626;color:#fff;}
@@ -1232,8 +1232,8 @@ Object.assign(window, {
 /* ── Tabela de metas/saúde (.metas-tbl, legacy L1358-1361) — genérico,
    MANTIDO no global também. ── */
 .tela-admin :deep(.metas-tbl){width:100%;border-collapse:collapse;}
-.tela-admin :deep(.metas-tbl th){font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:7px 10px;text-align:left;border-bottom:1px solid var(--border);}
-.tela-admin :deep(.metas-tbl td){font-family:'IBM Plex Sans',sans-serif;font-size:12px;padding:8px 10px;border-bottom:1px solid var(--border);}
+.tela-admin :deep(.metas-tbl th){font-family:var(--fonte-principal);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:7px 10px;text-align:left;border-bottom:1px solid var(--border);}
+.tela-admin :deep(.metas-tbl td){font-family:var(--fonte-principal);font-size:12px;padding:8px 10px;border-bottom:1px solid var(--border);}
 .tela-admin :deep(.metas-tbl tr:last-child td){border-bottom:none;}
 
 /* ── Avatar editável na lista de usuários (.av-*, legacy L1377-1380) —
@@ -1252,14 +1252,14 @@ Object.assign(window, {
    ela nasceria rolando na horizontal já no desktop. 95vw segura o celular. */
 .tela-admin :deep(.perm-modal){background:var(--surface);border-radius:8px;width:760px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden;}
 .tela-admin :deep(.perm-modal-hdr){padding:20px 22px 14px;border-bottom:1px solid var(--border);}
-.tela-admin :deep(.perm-modal-title){font-family:'Oswald',sans-serif;font-size:17px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--text);}
-.tela-admin :deep(.perm-modal-user){font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);margin-top:3px;}
+.tela-admin :deep(.perm-modal-title){font-family:var(--fonte-principal);font-size:17px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--text);}
+.tela-admin :deep(.perm-modal-user){font-family:var(--fonte-principal);font-size:12px;color:var(--muted);margin-top:3px;}
 .tela-admin :deep(.perm-modal-body){flex:1;overflow-y:auto;padding:14px 22px;}
 .tela-admin :deep(.perm-section){margin-bottom:2px;}
 .tela-admin :deep(.perm-row){display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:5px;transition:background .12s;cursor:pointer;}
 .tela-admin :deep(.perm-row:hover){background:var(--surface2);}
 .tela-admin :deep(.perm-row.child){padding-left:36px;}
-.tela-admin :deep(.perm-row-label){font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--text);flex:1;user-select:none;}
+.tela-admin :deep(.perm-row-label){font-family:var(--fonte-principal);font-size:13px;color:var(--text);flex:1;user-select:none;}
 .tela-admin :deep(.perm-row.child .perm-row-label){font-size:12px;color:var(--muted);}
 .tela-admin :deep(.perm-section-sep){height:6px;}
 .tela-admin :deep(.perm-toggle){position:relative;width:36px;height:20px;flex-shrink:0;}
@@ -1276,14 +1276,14 @@ Object.assign(window, {
    (`home-card` → `fab-card`), então nada de nome genérico tipo .card/.grade. ── */
 .tela-admin :deep(.perm-matriz-topo){display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 0 8px;}
 
-.tela-admin :deep(.perm-marcar-tudo){display:flex;align-items:center;gap:5px;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;color:var(--muted);user-select:none;flex-shrink:0;white-space:nowrap;}
+.tela-admin :deep(.perm-marcar-tudo){display:flex;align-items:center;gap:5px;cursor:pointer;font-family:var(--fonte-principal);font-size:11px;font-weight:600;color:var(--muted);user-select:none;flex-shrink:0;white-space:nowrap;}
 .tela-admin :deep(.perm-marcar-tudo:hover){color:var(--text);}
 .tela-admin :deep(.perm-marcar-tudo input){cursor:pointer;margin:0;}
 
 .tela-admin :deep(.perm-card){border:1px solid var(--border);border-radius:7px;background:var(--surface);overflow:hidden;margin-bottom:10px;}
 .tela-admin :deep(.perm-card-hdr){display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border-bottom:1px solid var(--border);}
-.tela-admin :deep(.perm-card-titulo){font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:700;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.tela-admin :deep(.perm-card-contagem){font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);flex-shrink:0;font-variant-numeric:tabular-nums;}
+.tela-admin :deep(.perm-card-titulo){font-family:var(--fonte-principal);font-size:12px;font-weight:700;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tela-admin :deep(.perm-card-contagem){font-family:var(--fonte-principal);font-size:10px;color:var(--muted);flex-shrink:0;font-variant-numeric:tabular-nums;}
 
 /* A rolagem horizontal vive DENTRO do card: no celular a grade desliza aqui e
    o modal nunca ganha barra horizontal. */
@@ -1299,8 +1299,8 @@ Object.assign(window, {
 .tela-admin :deep(.perm-linha:last-child){border-bottom:none;}
 .tela-admin :deep(.perm-linha:not(.perm-linha-cab):hover){background:var(--surface2);}
 .tela-admin :deep(.perm-linha-cab){border-bottom:1px solid var(--border);background:transparent;}
-.tela-admin :deep(.perm-cab-acao){font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:700;text-align:center;padding:6px 0;}
-.tela-admin :deep(.perm-linha-nome){font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--text);padding:7px 8px 7px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tela-admin :deep(.perm-cab-acao){font-family:var(--fonte-principal);font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:700;text-align:center;padding:6px 0;}
+.tela-admin :deep(.perm-linha-nome){font-family:var(--fonte-principal);font-size:12px;color:var(--text);padding:7px 8px 7px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .tela-admin :deep(.perm-cel){display:flex;align-items:center;justify-content:center;padding:7px 0;cursor:pointer;}
 .tela-admin :deep(.perm-cel input){cursor:pointer;margin:0;}
 /* Célula vazia = recurso não tem essa ação. Ocupa a coluna (segura o

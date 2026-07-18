@@ -31,7 +31,7 @@ function irParaLogin() {
 <style scoped>
 /* Nomes prefixados com faixa-erro- de proposito: o estilos-globais.css tem classes
    genericas (.card, .chip) e ja houve bug de colisao entre global e tela scoped. */
-.faixa-erro{display:flex;align-items:center;gap:10px;padding:10px 14px;margin:0 0 12px;border:1px solid #b45309;border-radius:8px;background:rgba(180,83,9,.12);font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:#fbbf24;}
+.faixa-erro{display:flex;align-items:center;gap:10px;padding:10px 14px;margin:0 0 12px;border:1px solid #b45309;border-radius:8px;background:rgba(180,83,9,.12);font-family:var(--fonte-principal);font-size:13px;color:#fbbf24;}
 .faixa-erro-icone{font-size:15px;line-height:1;flex-shrink:0;}
 .faixa-erro-msg{flex:1;min-width:0;}
 .faixa-erro-btn{flex-shrink:0;padding:5px 12px;border:1px solid #b45309;border-radius:6px;background:transparent;color:#fbbf24;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;transition:background .15s;}

@@ -37,9 +37,9 @@
         <button class="gv-pbtn" id="ma-refresh-btn" onclick="loadMaData()" style="border-color:var(--accent);color:var(--accent)">↻</button>
       </div>
       <div id="ma-account-picker" onclick="event.stopPropagation()" style="position:relative;display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
-        <button id="ma-acc-trigger" style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:7px;padding:5px 12px;background:var(--surface2);cursor:pointer;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--text);white-space:nowrap;" onclick="event.stopPropagation();toggleMaAccPicker()">
+        <button id="ma-acc-trigger" style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:7px;padding:5px 12px;background:var(--surface2);cursor:pointer;font-family:var(--fonte-principal);font-size:12px;color:var(--text);white-space:nowrap;" onclick="event.stopPropagation();toggleMaAccPicker()">
           <img id="ma-acc-img" style="width:22px;height:22px;border-radius:50%;object-fit:cover;display:none;flex-shrink:0;" alt="">
-          <span id="ma-acc-av" style="width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;"></span>
+          <span id="ma-acc-av" style="width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--fonte-principal);font-size:11px;font-weight:700;color:#fff;flex-shrink:0;"></span>
           <span id="ma-acc-name" style="font-weight:500;max-width:130px;overflow:hidden;text-overflow:ellipsis;">—</span>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
@@ -290,14 +290,14 @@ function _buildMaDropdown(drop){
     const balStr=bal!=null?_maFmtR(bal):'—';
     const spendTxt=a.monthSpend>0?`R$ ${a.monthSpend.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})} este mês`:'';
     row.innerHTML=`
-      <div style="width:20px;flex-shrink:0;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;color:var(--muted);text-align:right;">${idx+1}</div>
+      <div style="width:20px;flex-shrink:0;font-family:var(--fonte-principal);font-size:11px;font-weight:700;color:var(--muted);text-align:right;">${idx+1}</div>
       <div style="flex:1;min-width:0;">
-        <div style="font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${lbl}</div>
-        ${spendTxt?`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);margin-top:1px;">${spendTxt} gasto</div>`:''}
+        <div style="font-family:var(--fonte-principal);font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${lbl}</div>
+        ${spendTxt?`<div style="font-family:var(--fonte-principal);font-size:10px;color:var(--muted);margin-top:1px;">${spendTxt} gasto</div>`:''}
       </div>
       <div style="text-align:right;flex-shrink:0;">
-        <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;color:${balColor};line-height:1;">${balStr}</div>
-        <div style="font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);margin-top:2px;letter-spacing:.3px;text-transform:uppercase;">saldo</div>
+        <div style="font-family:var(--fonte-dados);font-size:16px;font-weight:700;color:${balColor};line-height:1;">${balStr}</div>
+        <div style="font-family:var(--fonte-principal);font-size:9px;color:var(--muted);margin-top:2px;letter-spacing:.3px;text-transform:uppercase;">saldo</div>
       </div>
     `;
     row.addEventListener('click',()=>{_maCurAcc=a;_setMaCurAccUI(a);toggleMaAccPicker();loadMaData();});
@@ -340,24 +340,24 @@ function toggleMaCustomRange(){
   modal.innerHTML=`
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
       <div>
-        <div style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">Período Personalizado</div>
-        <div style="font-family:'Oswald',sans-serif;font-size:20px;font-weight:700;color:var(--text);line-height:1;">Selecionar Datas</div>
+        <div style="font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">Período Personalizado</div>
+        <div style="font-family:var(--fonte-principal);font-size:20px;font-weight:700;color:var(--text);line-height:1;">Selecionar Datas</div>
       </div>
       <button id="ma-modal-close" style="background:none;border:1px solid var(--border);border-radius:7px;width:32px;height:32px;cursor:pointer;color:var(--muted);font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:12px;">
       <div style="display:flex;flex-direction:column;gap:5px;">
-        <label style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);">Início</label>
+        <label style="font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);">Início</label>
         <input type="date" id="ma-custom-start" value="${startVal}" class="custom-date-input" style="width:100%;box-sizing:border-box;font-size:13px;padding:8px 12px;">
       </div>
       <div style="display:flex;flex-direction:column;gap:5px;">
-        <label style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);">Fim</label>
+        <label style="font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);">Fim</label>
         <input type="date" id="ma-custom-end" value="${endVal}" class="custom-date-input" style="width:100%;box-sizing:border-box;font-size:13px;padding:8px 12px;">
       </div>
     </div>
     <div style="display:flex;gap:8px;">
-      <button id="ma-modal-clear" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;color:var(--muted);background:none;cursor:pointer;">Limpar</button>
-      <button id="ma-modal-apply" style="flex:2;padding:10px;border:none;border-radius:8px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;color:#fff;background:var(--accent);cursor:pointer;">Aplicar</button>
+      <button id="ma-modal-clear" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:var(--fonte-principal);font-size:11px;font-weight:700;color:var(--muted);background:none;cursor:pointer;">Limpar</button>
+      <button id="ma-modal-apply" style="flex:2;padding:10px;border:none;border-radius:8px;font-family:var(--fonte-principal);font-size:11px;font-weight:700;color:#fff;background:var(--accent);cursor:pointer;">Aplicar</button>
     </div>
   `;
 
@@ -576,7 +576,7 @@ function _renderFunnel(el,insArr,objective){
     if(i>0){
       const conn=document.createElement('div');
       conn.style.cssText='display:flex;flex-direction:column;align-items:center;gap:0;padding:3px 0;width:100%;';
-      conn.innerHTML=`<div style="width:2px;height:8px;background:var(--border);"></div><div style="font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);padding:2px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);white-space:nowrap;">↓ ${convRate!==null?convRate.toFixed(1)+'%':'—'} chegam aqui</div><div style="width:2px;height:8px;background:var(--border);"></div>`;
+      conn.innerHTML=`<div style="width:2px;height:8px;background:var(--border);"></div><div style="font-family:var(--fonte-principal);font-size:9px;color:var(--muted);padding:2px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);white-space:nowrap;">↓ ${convRate!==null?convRate.toFixed(1)+'%':'—'} chegam aqui</div><div style="width:2px;height:8px;background:var(--border);"></div>`;
       wrap.appendChild(conn);
     }
     // step wrapper
@@ -593,7 +593,7 @@ function _renderFunnel(el,insArr,objective){
     // info row — always full width, always readable
     const info=document.createElement('div');
     info.className='ma-funnel-info';
-    info.innerHTML=`<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:18px;">${step.icon}</span><div><div style="font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);">${step.label}</div><div style="font-family:'Oswald',sans-serif;font-size:22px;font-weight:700;color:var(--text);line-height:1.1;">${valFmt}</div></div></div><div style="text-align:right;"><div style="font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;">${step.costLabel}</div><div style="font-family:'Oswald',sans-serif;font-size:18px;font-weight:700;color:${step.color};">${cost>0?_maFmtR(cost):'—'}</div></div>`;
+    info.innerHTML=`<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:18px;">${step.icon}</span><div><div style="font-family:var(--fonte-principal);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);">${step.label}</div><div style="font-family:var(--fonte-dados);font-size:22px;font-weight:700;color:var(--text);line-height:1.1;">${valFmt}</div></div></div><div style="text-align:right;"><div style="font-family:var(--fonte-principal);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;">${step.costLabel}</div><div style="font-family:var(--fonte-dados);font-size:18px;font-weight:700;color:${step.color};">${cost>0?_maFmtR(cost):'—'}</div></div>`;
     stepDiv.appendChild(info);
     wrap.appendChild(stepDiv);
   });
@@ -612,7 +612,7 @@ function _openCampanhaFilter(insights,campaigns,onApply){
   // Header
   const hdr=document.createElement('div');
   hdr.style.cssText='padding:20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;';
-  hdr.innerHTML=`<div><div style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);">Filtrar Campanhas</div><div style="font-family:'Oswald',sans-serif;font-size:20px;font-weight:700;color:var(--text);margin-top:2px;">${insights.length} campanhas</div></div><button onclick="document.getElementById('ma-filter-drawer')?.remove();document.getElementById('ma-filter-bd')?.remove();" style="background:none;border:1px solid var(--border);border-radius:7px;width:32px;height:32px;cursor:pointer;color:var(--muted);font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>`;
+  hdr.innerHTML=`<div><div style="font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);">Filtrar Campanhas</div><div style="font-family:var(--fonte-dados);font-size:20px;font-weight:700;color:var(--text);margin-top:2px;">${insights.length} campanhas</div></div><button onclick="document.getElementById('ma-filter-drawer')?.remove();document.getElementById('ma-filter-bd')?.remove();" style="background:none;border:1px solid var(--border);border-radius:7px;width:32px;height:32px;cursor:pointer;color:var(--muted);font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>`;
   drawer.appendChild(hdr);
 
   // Body
@@ -632,10 +632,10 @@ function _openCampanhaFilter(insights,campaigns,onApply){
     grpChkWrap.appendChild(grpChk);
     ghdr.appendChild(grpChkWrap);
     const grpInfo=document.createElement('div');grpInfo.style.cssText='flex:1;min-width:0;cursor:pointer;';
-    grpInfo.innerHTML=`<div style="display:flex;align-items:center;gap:6px;"><span style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);">${label}</span><span style="font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);">${camps.length} camp.</span></div>`;
+    grpInfo.innerHTML=`<div style="display:flex;align-items:center;gap:6px;"><span style="font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);">${label}</span><span style="font-family:var(--fonte-principal);font-size:10px;color:var(--muted);">${camps.length} camp.</span></div>`;
     ghdr.appendChild(grpInfo);
     const ghdrRight=document.createElement('div');ghdrRight.style.cssText='display:flex;align-items:center;gap:8px;flex-shrink:0;';
-    ghdrRight.innerHTML=`<span style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--text);font-weight:600;">${_maFmtR(totalSpend)}</span><span id="garw_${obj}" style="font-size:10px;color:var(--muted);transition:transform .2s;display:inline-block;">▼</span>`;
+    ghdrRight.innerHTML=`<span style="font-family:var(--fonte-principal);font-size:12px;color:var(--text);font-weight:600;">${_maFmtR(totalSpend)}</span><span id="garw_${obj}" style="font-size:10px;color:var(--muted);transition:transform .2s;display:inline-block;">▼</span>`;
     ghdr.appendChild(ghdrRight);
 
     const gbody=document.createElement('div');gbody.style.cssText='display:flex;flex-direction:column;';
@@ -669,7 +669,7 @@ function _openCampanhaFilter(insights,campaigns,onApply){
       chk.addEventListener('change',()=>{if(chk.checked)selected.add(ins.campaign_id);else selected.delete(ins.campaign_id);updateGrpChk();});
       rowChks.push(chk);
       const info=document.createElement('div');info.style.cssText='flex:1;min-width:0;';
-      info.innerHTML=`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(ins.campaign_name||'').replace(/"/g,'&quot;')}">${ins.campaign_name||'—'}</div><div style="display:flex;gap:8px;margin-top:3px;flex-wrap:wrap;align-items:center;"><span style="font-size:10px;color:${statusColor};font-family:'IBM Plex Sans',sans-serif;font-weight:600;">● ${status==='ACTIVE'?'Ativa':status==='PAUSED'?'Pausada':status}</span><span style="font-size:10px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;">${_maFmtR(ins.spend)}</span><span style="font-size:10px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;">CTR ${ctr.toFixed(2)}%</span><span style="font-size:10px;color:var(--muted);font-family:'IBM Plex Sans',sans-serif;">${db}</span></div>`;
+      info.innerHTML=`<div style="font-family:var(--fonte-principal);font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(ins.campaign_name||'').replace(/"/g,'&quot;')}">${ins.campaign_name||'—'}</div><div style="display:flex;gap:8px;margin-top:3px;flex-wrap:wrap;align-items:center;"><span style="font-size:10px;color:${statusColor};font-family:var(--fonte-principal);font-weight:600;">● ${status==='ACTIVE'?'Ativa':status==='PAUSED'?'Pausada':status}</span><span style="font-size:10px;color:var(--muted);font-family:var(--fonte-principal);">${_maFmtR(ins.spend)}</span><span style="font-size:10px;color:var(--muted);font-family:var(--fonte-principal);">CTR ${ctr.toFixed(2)}%</span><span style="font-size:10px;color:var(--muted);font-family:var(--fonte-principal);">${db}</span></div>`;
       row.appendChild(chk);row.appendChild(info);gbody.appendChild(row);
     });
     grp.appendChild(ghdr);grp.appendChild(gbody);body.appendChild(grp);
@@ -679,11 +679,11 @@ function _openCampanhaFilter(insights,campaigns,onApply){
   // Footer
   const ftr=document.createElement('div');ftr.style.cssText='padding:16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0;';
   const verBtn=document.createElement('button');
-  verBtn.style.cssText='flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:"IBM Plex Sans",sans-serif;font-size:11px;font-weight:700;color:var(--muted);background:none;cursor:pointer;';
+  verBtn.style.cssText='flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:var(--fonte-principal);font-size:11px;font-weight:700;color:var(--muted);background:none;cursor:pointer;';
   verBtn.textContent='Ver Tudo';
   verBtn.addEventListener('click',()=>{onApply(insights,null);drawer.remove();document.getElementById('ma-filter-bd')?.remove();});
   const applyBtn=document.createElement('button');
-  applyBtn.style.cssText='flex:2;padding:10px;border:none;border-radius:8px;font-family:"IBM Plex Sans",sans-serif;font-size:11px;font-weight:700;color:#fff;background:var(--accent);cursor:pointer;';
+  applyBtn.style.cssText='flex:2;padding:10px;border:none;border-radius:8px;font-family:var(--fonte-principal);font-size:11px;font-weight:700;color:#fff;background:var(--accent);cursor:pointer;';
   applyBtn.textContent='Aplicar Filtro';
   applyBtn.addEventListener('click',()=>{
     const filtered=insights.filter(i=>selected.has(i.campaign_id));
@@ -777,7 +777,7 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily,prevDaily,a
     hdr.appendChild(ttlW);
     if(uniqueObjs.length===1){
       const autoLbl=document.createElement('div');
-      autoLbl.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:10px;color:var(--muted);';
+      autoLbl.style.cssText='font-family:var(--fonte-principal);font-size:10px;color:var(--muted);';
       autoLbl.textContent=(MA_FUNNEL_DEF[uniqueObjs[0]]?.label||uniqueObjs[0])+' · único objetivo ativo';
       hdr.appendChild(autoLbl);
     }
@@ -788,13 +788,13 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily,prevDaily,a
       const selectorBar=document.createElement('div');
       selectorBar.style.cssText='display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:16px;padding:10px 14px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);';
       const lbl=document.createElement('span');
-      lbl.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:10px;font-weight:600;letter-spacing:.6px;color:var(--muted);text-transform:uppercase;margin-right:6px;white-space:nowrap;flex-shrink:0;';
+      lbl.style.cssText='font-family:var(--fonte-principal);font-size:10px;font-weight:600;letter-spacing:.6px;color:var(--muted);text-transform:uppercase;margin-right:6px;white-space:nowrap;flex-shrink:0;';
       lbl.textContent='Objetivo da campanha:';
       selectorBar.appendChild(lbl);
       uniqueObjs.forEach(o=>{
         const btn=document.createElement('button');
         const isActive=o===resolvedObj;
-        btn.style.cssText=`padding:7px 18px;border-radius:20px;font-family:"IBM Plex Sans",sans-serif;font-size:12px;font-weight:600;letter-spacing:.3px;cursor:pointer;transition:all .15s;border:1px solid ${isActive?'var(--accent)':'var(--border)'};background:${isActive?'var(--accent)':'none'};color:${isActive?'#fff':'var(--text)'};white-space:nowrap;`;
+        btn.style.cssText=`padding:7px 18px;border-radius:20px;font-family:var(--fonte-principal);font-size:12px;font-weight:600;letter-spacing:.3px;cursor:pointer;transition:all .15s;border:1px solid ${isActive?'var(--accent)':'var(--border)'};background:${isActive?'var(--accent)':'none'};color:${isActive?'#fff':'var(--text)'};white-space:nowrap;`;
         btn.textContent=MA_FUNNEL_DEF[o]?.label||o;
         btn.addEventListener('mouseenter',()=>{if(o!==resolvedObj){btn.style.background='var(--accent)';btn.style.borderColor='var(--accent)';btn.style.color='#fff';}});
         btn.addEventListener('mouseleave',()=>{if(o!==resolvedObj){btn.style.background='none';btn.style.borderColor='var(--border)';btn.style.color='var(--text)';}});
@@ -815,7 +815,7 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily,prevDaily,a
       const icon=document.createElement('div');
       icon.innerHTML=`<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:.4"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`;
       const msg=document.createElement('div');
-      msg.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:12px;color:var(--muted);text-align:center;';
+      msg.style.cssText='font-family:var(--fonte-principal);font-size:12px;color:var(--muted);text-align:center;';
       msg.textContent='Selecione um objetivo acima para visualizar o funil';
       prompt.appendChild(icon);prompt.appendChild(msg);
       body.appendChild(prompt);
@@ -848,7 +848,7 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily,prevDaily,a
     const topBar=document.createElement('div');
     topBar.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:12px;';
     const topInfo=document.createElement('div');
-    topInfo.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:11px;color:var(--muted);';
+    topInfo.style.cssText='font-family:var(--fonte-principal);font-size:11px;color:var(--muted);';
     const activeCount=insArr.length;
     const totalCount=insights.length;
     topInfo.textContent=activeCount===totalCount?`${totalCount} campanhas`:`${activeCount} de ${totalCount} campanhas`+(obj?` · ${MA_FUNNEL_DEF[obj]?.label||obj}`:'');
@@ -971,7 +971,7 @@ function _buildMaTabCard(insArr,campaigns,prevCampMap,adInsights){
 
   const tabBtns=tabs.map(t=>{
     const btn=document.createElement('button');
-    btn.style.cssText='display:flex;align-items:center;gap:6px;padding:9px 16px;background:none;border:none;border-bottom:2px solid transparent;font-family:"IBM Plex Sans",sans-serif;font-size:11px;cursor:pointer;transition:all .15s;color:var(--muted);font-weight:500;white-space:nowrap;';
+    btn.style.cssText='display:flex;align-items:center;gap:6px;padding:9px 16px;background:none;border:none;border-bottom:2px solid transparent;font-family:var(--fonte-principal);font-size:11px;cursor:pointer;transition:all .15s;color:var(--muted);font-weight:500;white-space:nowrap;';
     const badgeEl=document.createElement('span');
     badgeEl.style.cssText='display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--border);color:var(--text);font-size:9px;font-weight:700;';
     badgeEl.textContent=t.badge;
@@ -1018,7 +1018,7 @@ function _buildMaCampaignSection(insights,campaigns,prevCampMap){
   const ttl=document.createElement('div');ttl.className='ma-section-title';ttl.style.marginBottom='0';ttl.textContent='Campanhas';
   const qb=document.createElement('button');qb.className='ma-kpi-q';qb.textContent='?';qb.title='Como ler a tabela';qb.onclick=()=>_maTableHelp();
   ttlWrap.appendChild(ttl);ttlWrap.appendChild(qb);
-  const cntLbl=document.createElement('div');cntLbl.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:11px;color:var(--muted);';
+  const cntLbl=document.createElement('div');cntLbl.style.cssText='font-family:var(--fonte-principal);font-size:11px;color:var(--muted);';
   cntLbl.textContent=allSorted.length+' campanhas';
   hdr.appendChild(ttlWrap);hdr.appendChild(cntLbl);sec.appendChild(hdr);
 
@@ -1032,7 +1032,7 @@ function _buildMaCampaignSection(insights,campaigns,prevCampMap){
   searchWrap.innerHTML=searchIcon;
   const searchInp=document.createElement('input');
   searchInp.type='text';searchInp.placeholder='Buscar campanha…';
-  searchInp.style.cssText='width:100%;padding:7px 10px 7px 30px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);color:var(--text);font-family:"IBM Plex Sans",sans-serif;font-size:11px;outline:none;transition:border-color .15s;';
+  searchInp.style.cssText='width:100%;padding:7px 10px 7px 30px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);color:var(--text);font-family:var(--fonte-principal);font-size:11px;outline:none;transition:border-color .15s;';
   searchInp.addEventListener('focus',()=>searchInp.style.borderColor='var(--accent)');
   searchInp.addEventListener('blur',()=>searchInp.style.borderColor='var(--border)');
   searchWrap.appendChild(searchInp);filterBar.appendChild(searchWrap);
@@ -1042,7 +1042,7 @@ function _buildMaCampaignSection(insights,campaigns,prevCampMap){
   let activeStatus='todos';
   const chips=statuses.map(([val,lbl])=>{
     const chip=document.createElement('button');
-    chip.style.cssText='padding:5px 11px;border-radius:20px;font-family:"IBM Plex Sans",sans-serif;font-size:10px;font-weight:600;letter-spacing:.4px;cursor:pointer;transition:all .15s;border:1px solid var(--border);background:none;color:var(--muted);white-space:nowrap;';
+    chip.style.cssText='padding:5px 11px;border-radius:20px;font-family:var(--fonte-principal);font-size:10px;font-weight:600;letter-spacing:.4px;cursor:pointer;transition:all .15s;border:1px solid var(--border);background:none;color:var(--muted);white-space:nowrap;';
     chip.textContent=lbl;
     if(val==='todos'){chip.style.background='var(--accent)';chip.style.color='#fff';chip.style.borderColor='var(--accent)';}
     chip.addEventListener('click',()=>{
@@ -1070,7 +1070,7 @@ function _buildMaCampaignSection(insights,campaigns,prevCampMap){
       return statusMatch&&nameMatch;
     });
     cntLbl.textContent=(filtered.length===allSorted.length?allSorted.length:(filtered.length+' de '+allSorted.length))+' campanhas';
-    if(!filtered.length){listDiv.innerHTML='<div style="text-align:center;padding:28px;font-family:\'IBM Plex Sans\',sans-serif;font-size:12px;color:var(--muted);">Nenhuma campanha encontrada</div>';return;}
+    if(!filtered.length){listDiv.innerHTML='<div style="text-align:center;padding:28px;font-family:var(--fonte-principal);font-size:12px;color:var(--muted);">Nenhuma campanha encontrada</div>';return;}
     const rows=filtered.slice().sort((a,b)=>(_v(a,sortKey)-_v(b,sortKey))*sortDir);
     const arrow=k=>sortKey===k?(sortDir<0?' ▾':' ▴'):'';
     const numCols=[['spend','Gasto'],['ctr','CTR'],['cpc','CPC'],['impressions','Impr.'],['clicks','Cliques']];
@@ -1127,7 +1127,7 @@ function _buildMaAdSection(adInsights,campInsights){
   const sec=document.createElement('div');sec.className='ma-section';sec.style.padding='18px 20px';
   const hdr=document.createElement('div');hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;';
   const ttl=document.createElement('div');ttl.className='ma-section-title';ttl.style.marginBottom='0';ttl.textContent='Anúncios';
-  const cnt=document.createElement('div');cnt.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:11px;color:var(--muted);';cnt.textContent=adInsights.length+' anúncios';
+  const cnt=document.createElement('div');cnt.style.cssText='font-family:var(--fonte-principal);font-size:11px;color:var(--muted);';cnt.textContent=adInsights.length+' anúncios';
   hdr.appendChild(ttl);hdr.appendChild(cnt);sec.appendChild(hdr);
 
   groups.forEach(grp=>{
@@ -1140,10 +1140,10 @@ function _buildMaAdSection(adInsights,campInsights){
     grpHdr.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface2);cursor:pointer;user-select:none;';
     const grpTitleWrap=document.createElement('div');grpTitleWrap.style.cssText='display:flex;align-items:center;gap:8px;min-width:0;flex:1;';
     const grpArrow=document.createElement('span');grpArrow.style.cssText='font-size:10px;color:var(--muted);transition:transform .2s;display:inline-block;';grpArrow.textContent='▼';
-    const grpName=document.createElement('div');grpName.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';grpName.textContent=grp.name;
-    const grpCnt=document.createElement('span');grpCnt.style.cssText='font-family:"IBM Plex Sans",sans-serif;font-size:9px;color:var(--muted);flex-shrink:0;';grpCnt.textContent=grp.ads.length+' anúncios';
+    const grpName=document.createElement('div');grpName.style.cssText='font-family:var(--fonte-principal);font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';grpName.textContent=grp.name;
+    const grpCnt=document.createElement('span');grpCnt.style.cssText='font-family:var(--fonte-principal);font-size:9px;color:var(--muted);flex-shrink:0;';grpCnt.textContent=grp.ads.length+' anúncios';
     grpTitleWrap.appendChild(grpArrow);grpTitleWrap.appendChild(grpName);grpTitleWrap.appendChild(grpCnt);
-    const grpSpendLbl=document.createElement('div');grpSpendLbl.style.cssText='font-family:"Oswald",sans-serif;font-size:14px;font-weight:700;color:var(--text);flex-shrink:0;margin-left:12px;';grpSpendLbl.textContent=_maFmtR(grpSpend);
+    const grpSpendLbl=document.createElement('div');grpSpendLbl.style.cssText='font-family:var(--fonte-dados);font-size:14px;font-weight:700;color:var(--text);flex-shrink:0;margin-left:12px;';grpSpendLbl.textContent=_maFmtR(grpSpend);
     grpHdr.appendChild(grpTitleWrap);grpHdr.appendChild(grpSpendLbl);
 
     const grpBody=document.createElement('div');grpBody.style.cssText='display:flex;flex-direction:column;';
@@ -1238,26 +1238,26 @@ Object.assign(window, {
 
 /* ── Topbar (compartilhado com Gestão à Vista — cada tela traz sua cópia) ── */
 .tela-analise-campanhas :deep(.gv-topbar){display:flex;align-items:center;justify-content:space-between;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
-.tela-analise-campanhas :deep(.gv-back){display:flex;align-items:center;gap:4px;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;transition:opacity .15s;letter-spacing:.3px;text-transform:uppercase;}
+.tela-analise-campanhas :deep(.gv-back){display:flex;align-items:center;gap:4px;font-family:var(--fonte-principal);font-size:10px;font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;transition:opacity .15s;letter-spacing:.3px;text-transform:uppercase;}
 .tela-analise-campanhas :deep(.gv-back:hover){opacity:.75;}
-.tela-analise-campanhas :deep(.gv-brand-tag){font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--text);opacity:.6;line-height:1;}
-.tela-analise-campanhas :deep(.gv-perf-tag){font-family:'IBM Plex Sans',sans-serif;font-size:13.5px;font-weight:700;letter-spacing:6px;text-transform:uppercase;color:var(--text);opacity:1;line-height:1.2;}
+.tela-analise-campanhas :deep(.gv-brand-tag){font-family:var(--fonte-principal);font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--text);opacity:.6;line-height:1;}
+.tela-analise-campanhas :deep(.gv-perf-tag){font-family:var(--fonte-principal);font-size:13.5px;font-weight:700;letter-spacing:6px;text-transform:uppercase;color:var(--text);opacity:1;line-height:1.2;}
 .tela-analise-campanhas :deep(.gv-clock-wrap){text-align:right;}
-.tela-analise-campanhas :deep(.gv-clock-time){font-family:'Oswald',sans-serif;font-size:28px;font-weight:400;letter-spacing:3px;color:var(--text);line-height:1;}
-.tela-analise-campanhas :deep(.gv-clock-date){font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:3px;}
-.tela-analise-campanhas :deep(.gv-update-status){font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);opacity:.45;margin-top:4px;text-align:right;}
+.tela-analise-campanhas :deep(.gv-clock-time){font-family:var(--fonte-dados);font-size:28px;font-weight:400;letter-spacing:3px;color:var(--text);line-height:1;}
+.tela-analise-campanhas :deep(.gv-clock-date){font-family:var(--fonte-principal);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:3px;}
+.tela-analise-campanhas :deep(.gv-update-status){font-family:var(--fonte-principal);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);opacity:.45;margin-top:4px;text-align:right;}
 .tela-analise-campanhas :deep(.gv-period-btns){display:flex;align-items:center;gap:4px;}
-.tela-analise-campanhas :deep(.gv-pbtn){font-family:'IBM Plex Sans',sans-serif;font-size:10px;padding:4px 9px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
+.tela-analise-campanhas :deep(.gv-pbtn){font-family:var(--fonte-principal);font-size:10px;padding:4px 9px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
 .tela-analise-campanhas :deep(.gv-pbtn.active){background:var(--accent);color:#fff;border-color:var(--accent);}
-.tela-analise-campanhas :deep(.custom-range-btn){font-family:'IBM Plex Sans',sans-serif;font-weight:500;font-size:11px;padding:5px 14px;border-radius:3px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap;}
+.tela-analise-campanhas :deep(.custom-range-btn){font-family:var(--fonte-principal);font-weight:500;font-size:11px;padding:5px 14px;border-radius:3px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap;}
 .tela-analise-campanhas :deep(.custom-range-btn:hover),.tela-analise-campanhas :deep(.custom-range-btn.active){border-color:var(--accent);color:var(--accent);}
 
 /* ── Loading state (compartilhado com Gestão à Vista — cada tela traz sua cópia) ── */
-.tela-analise-campanhas :deep(.gv-loading-full){grid-column:1/-1;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:14px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);opacity:.4;}
+.tela-analise-campanhas :deep(.gv-loading-full){grid-column:1/-1;display:flex;align-items:center;justify-content:center;font-family:var(--fonte-principal);font-size:14px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);opacity:.4;}
 @keyframes maSpin{to{transform:rotate(360deg)}}
 .tela-analise-campanhas :deep(.gv-loading-screen){grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;min-height:60vh;}
 .tela-analise-campanhas :deep(.gv-spinner){width:48px;height:48px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:maSpin .9s linear infinite;}
-.tela-analise-campanhas :deep(.gv-loading-lbl){font-family:'IBM Plex Sans',sans-serif;font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);opacity:.6;}
+.tela-analise-campanhas :deep(.gv-loading-lbl){font-family:var(--fonte-principal);font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);opacity:.6;}
 
 /* ── Meta Ads — Análise de Campanhas (legacy/estilos-globais.css, bloco
      "── META ADS ──"; movido para cá na íntegra. Vários seletores abaixo,
@@ -1269,36 +1269,36 @@ Object.assign(window, {
      legado, sem risco: simplesmente não casam com nada. ── */
 .tela-analise-campanhas :deep(.ma-topbar){display:flex;align-items:center;justify-content:space-between;padding:10px 24px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;gap:12px;flex-wrap:wrap;}
 .tela-analise-campanhas :deep(.ma-topbar-left){display:flex;align-items:center;gap:12px;}
-.tela-analise-campanhas :deep(.ma-back){display:flex;align-items:center;gap:5px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;letter-spacing:.5px;text-transform:uppercase;}
-.tela-analise-campanhas :deep(.ma-topbar-title){font-family:'Oswald',sans-serif;font-size:15px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--text);}
+.tela-analise-campanhas :deep(.ma-back){display:flex;align-items:center;gap:5px;font-family:var(--fonte-principal);font-size:11px;font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;letter-spacing:.5px;text-transform:uppercase;}
+.tela-analise-campanhas :deep(.ma-topbar-title){font-family:var(--fonte-principal);font-size:15px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--text);}
 .tela-analise-campanhas :deep(.ma-topbar-sep){width:1px;height:18px;background:var(--border);}
-.tela-analise-campanhas :deep(.ma-account-sel){font-family:'IBM Plex Sans',sans-serif;font-size:12px;border:1px solid var(--border);border-radius:6px;padding:5px 10px;background:var(--surface2);color:var(--text);cursor:pointer;outline:none;}
+.tela-analise-campanhas :deep(.ma-account-sel){font-family:var(--fonte-principal);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:5px 10px;background:var(--surface2);color:var(--text);cursor:pointer;outline:none;}
 .tela-analise-campanhas :deep(.ma-period-row){display:flex;align-items:center;gap:4px;}
-.tela-analise-campanhas :deep(.ma-period-btn){font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:500;padding:4px 10px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;letter-spacing:.3px;}
+.tela-analise-campanhas :deep(.ma-period-btn){font-family:var(--fonte-principal);font-size:11px;font-weight:500;padding:4px 10px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;letter-spacing:.3px;}
 .tela-analise-campanhas :deep(.ma-period-btn.active){background:var(--accent);color:#fff;border-color:var(--accent);}
-.tela-analise-campanhas :deep(.ma-refresh-btn){display:flex;align-items:center;gap:5px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;border:1px solid var(--border);border-radius:5px;padding:4px 10px;background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
+.tela-analise-campanhas :deep(.ma-refresh-btn){display:flex;align-items:center;gap:5px;font-family:var(--fonte-principal);font-size:11px;border:1px solid var(--border);border-radius:5px;padding:4px 10px;background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
 .tela-analise-campanhas :deep(.ma-refresh-btn:hover){border-color:var(--accent);color:var(--accent);}
 .tela-analise-campanhas :deep(.ma-body){padding:24px;display:flex;flex-direction:column;gap:20px;max-width:1400px;margin:0 auto;width:100%;}
 .tela-analise-campanhas :deep(.ma-module-tabs){display:flex;gap:6px;border-bottom:2px solid var(--border);padding-bottom:0;}
-.tela-analise-campanhas :deep(.ma-module-tab){font-family:'Oswald',sans-serif;font-size:12px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;padding:8px 16px;border:none;background:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;}
+.tela-analise-campanhas :deep(.ma-module-tab){font-family:var(--fonte-principal);font-size:12px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;padding:8px 16px;border:none;background:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;}
 .tela-analise-campanhas :deep(.ma-module-tab.active){color:var(--accent);border-bottom-color:var(--accent);}
 .tela-analise-campanhas :deep(.ma-module-tab:disabled){opacity:.35;cursor:not-allowed;}
 .tela-analise-campanhas :deep(.ma-kpi-row){display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
 .tela-analise-campanhas :deep(.ma-kpi){background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;display:flex;flex-direction:column;gap:4px;}
-.tela-analise-campanhas :deep(.ma-kpi-label){font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);}
+.tela-analise-campanhas :deep(.ma-kpi-label){font-family:var(--fonte-principal);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);}
 .tela-analise-campanhas :deep(.ma-kpi-q){margin-left:5px;width:14px;height:14px;border-radius:50%;border:1px solid var(--border);background:none;color:var(--muted);font-size:9px;font-weight:700;cursor:pointer;line-height:1;padding:0;vertical-align:middle;}
 .tela-analise-campanhas :deep(.ma-kpi-q:hover){border-color:var(--accent);color:var(--accent);}
-.tela-analise-campanhas :deep(.ma-kpi-val){font-family:'Oswald',sans-serif;font-size:26px;font-weight:700;color:var(--text);line-height:1.1;}
-.tela-analise-campanhas :deep(.ma-kpi-delta){font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:500;display:flex;align-items:center;gap:4px;margin-top:2px;}
+.tela-analise-campanhas :deep(.ma-kpi-val){font-family:var(--fonte-dados);font-size:26px;font-weight:700;color:var(--text);line-height:1.1;}
+.tela-analise-campanhas :deep(.ma-kpi-delta){font-family:var(--fonte-principal);font-size:11px;font-weight:500;display:flex;align-items:center;gap:4px;margin-top:2px;}
 .tela-analise-campanhas :deep(.ma-delta-up){color:#16a34a;}
 .tela-analise-campanhas :deep(.ma-delta-down){color:#dc2626;}
 .tela-analise-campanhas :deep(.ma-delta-neu){color:var(--muted);}
-.tela-analise-campanhas :deep(.ma-kpi-sub){font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);margin-top:1px;}
+.tela-analise-campanhas :deep(.ma-kpi-sub){font-family:var(--fonte-principal);font-size:10px;color:var(--muted);margin-top:1px;}
 .tela-analise-campanhas :deep(.ma-section){background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;}
-.tela-analise-campanhas :deep(.ma-section-title){font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:14px;}
+.tela-analise-campanhas :deep(.ma-section-title){font-family:var(--fonte-principal);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:14px;}
 .tela-analise-campanhas :deep(.ma-two-col){display:grid;grid-template-columns:1fr 1fr;gap:16px;}
 .tela-analise-campanhas :deep(.ma-chart-wrap){position:relative;}
-.tela-analise-campanhas :deep(.ma-table){width:100%;border-collapse:collapse;font-family:'IBM Plex Sans',sans-serif;font-size:12px;}
+.tela-analise-campanhas :deep(.ma-table){width:100%;border-collapse:collapse;font-family:var(--fonte-principal);font-size:12px;}
 .tela-analise-campanhas :deep(.ma-table th){font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);padding:6px 10px;text-align:left;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap;}
 .tela-analise-campanhas :deep(.ma-table th:hover){color:var(--accent);}
 .tela-analise-campanhas :deep(.ma-table td){padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle;color:var(--text);}
@@ -1316,32 +1316,32 @@ Object.assign(window, {
 .tela-analise-campanhas :deep(.ma-score-good){background:#16a34a;}
 .tela-analise-campanhas :deep(.ma-score-mid){background:#d97706;}
 .tela-analise-campanhas :deep(.ma-score-bad){background:#dc2626;}
-.tela-analise-campanhas :deep(.ma-obj-chip){font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:600;letter-spacing:.5px;padding:2px 6px;border-radius:3px;background:var(--surface2);color:var(--muted);text-transform:uppercase;}
+.tela-analise-campanhas :deep(.ma-obj-chip){font-family:var(--fonte-principal);font-size:9px;font-weight:600;letter-spacing:.5px;padding:2px 6px;border-radius:3px;background:var(--surface2);color:var(--muted);text-transform:uppercase;}
 .tela-analise-campanhas :deep(.ma-setup){display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:320px;gap:14px;text-align:center;}
 .tela-analise-campanhas :deep(.ma-setup-icon){width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#1877F2,#0062E0);display:flex;align-items:center;justify-content:center;}
-.tela-analise-campanhas :deep(.ma-setup-title){font-family:'Oswald',sans-serif;font-size:18px;font-weight:500;letter-spacing:1.5px;color:var(--text);}
-.tela-analise-campanhas :deep(.ma-setup-sub){font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);max-width:320px;line-height:1.6;}
-.tela-analise-campanhas :deep(.ma-setup-btn){background:linear-gradient(135deg,#1877F2,#0062E0);color:#fff;border:none;border-radius:7px;padding:10px 22px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.3px;}
+.tela-analise-campanhas :deep(.ma-setup-title){font-family:var(--fonte-principal);font-size:18px;font-weight:500;letter-spacing:1.5px;color:var(--text);}
+.tela-analise-campanhas :deep(.ma-setup-sub){font-family:var(--fonte-principal);font-size:12px;color:var(--muted);max-width:320px;line-height:1.6;}
+.tela-analise-campanhas :deep(.ma-setup-btn){background:linear-gradient(135deg,#1877F2,#0062E0);color:#fff;border:none;border-radius:7px;padding:10px 22px;font-family:var(--fonte-principal);font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.3px;}
 .tela-analise-campanhas :deep(.ma-adacc-list){display:flex;flex-direction:column;gap:6px;margin-top:8px;max-height:260px;overflow-y:auto;}
 .tela-analise-campanhas :deep(.ma-adacc-row){display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:1px solid var(--border);border-radius:7px;cursor:pointer;transition:all .15s;background:var(--surface2);}
 .tela-analise-campanhas :deep(.ma-adacc-row:hover){border-color:var(--accent);background:var(--accent-light);}
-.tela-analise-campanhas :deep(.ma-adacc-name){font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:500;color:var(--text);}
-.tela-analise-campanhas :deep(.ma-adacc-id){font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);}
-.tela-analise-campanhas :deep(.ma-loading){display:flex;align-items:center;justify-content:center;min-height:280px;gap:10px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--muted);}
+.tela-analise-campanhas :deep(.ma-adacc-name){font-family:var(--fonte-principal);font-size:13px;font-weight:500;color:var(--text);}
+.tela-analise-campanhas :deep(.ma-adacc-id){font-family:var(--fonte-principal);font-size:10px;color:var(--muted);}
+.tela-analise-campanhas :deep(.ma-loading){display:flex;align-items:center;justify-content:center;min-height:280px;gap:10px;font-family:var(--fonte-principal);font-size:13px;color:var(--muted);}
 .tela-analise-campanhas :deep(.ma-spinner){width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:maSpin .7s linear infinite;}
 .tela-analise-campanhas :deep(.ma-funnel-v2){display:flex;flex-direction:column;align-items:center;gap:0;padding:4px 0;width:100%;}
 .tela-analise-campanhas :deep(.ma-funnel-v2-bar){border-radius:7px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:52px;transition:width .5s ease;}
 .tela-analise-campanhas :deep(.ma-funnel-v2-conn){display:flex;flex-direction:column;align-items:center;gap:0;padding:2px 0;width:100%;}
 .tela-analise-campanhas :deep(.ma-funnel-v2-conn-line){width:2px;height:9px;background:var(--border);}
-.tela-analise-campanhas :deep(.ma-funnel-v2-conn-tag){font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--muted);padding:1px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;white-space:nowrap;letter-spacing:.2px;}
+.tela-analise-campanhas :deep(.ma-funnel-v2-conn-tag){font-family:var(--fonte-principal);font-size:9px;color:var(--muted);padding:1px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;white-space:nowrap;letter-spacing:.2px;}
 .tela-analise-campanhas :deep(.ma-funnel-arrow){color:var(--muted);font-size:14px;text-align:center;line-height:1;}
 .tela-analise-campanhas :deep(.ma-obj-group){border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:8px;}
 .tela-analise-campanhas :deep(.ma-obj-group-hdr){display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface2);cursor:pointer;user-select:none;}
-.tela-analise-campanhas :deep(.ma-obj-group-title){font-family:'Oswald',sans-serif;font-size:12px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);}
+.tela-analise-campanhas :deep(.ma-obj-group-title){font-family:var(--fonte-principal);font-size:12px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);}
 .tela-analise-campanhas :deep(.ma-obj-group-body){padding:10px 14px;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--border);}
-.tela-analise-campanhas :deep(.ma-camp-chk-row){display:flex;align-items:center;gap:8px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--text);cursor:pointer;}
+.tela-analise-campanhas :deep(.ma-camp-chk-row){display:flex;align-items:center;gap:8px;font-family:var(--fonte-principal);font-size:12px;color:var(--text);cursor:pointer;}
 .tela-analise-campanhas :deep(.ma-camp-chk-row input[type=checkbox]){accent-color:var(--accent);}
-.tela-analise-campanhas :deep(.ma-apply-btn){width:100%;padding:9px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;margin-top:8px;letter-spacing:.3px;}
+.tela-analise-campanhas :deep(.ma-apply-btn){width:100%;padding:9px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-family:var(--fonte-principal);font-size:12px;font-weight:600;cursor:pointer;margin-top:8px;letter-spacing:.3px;}
 @media(max-width:900px){
   .tela-analise-campanhas :deep(.ma-kpi-row){grid-template-columns:repeat(2,1fr);}
   .tela-analise-campanhas :deep(.ma-two-col){grid-template-columns:1fr;}
@@ -1351,7 +1351,7 @@ Object.assign(window, {
   .tela-analise-campanhas :deep(.ma-kpi-val){font-size:20px;}
   .tela-analise-campanhas :deep(.ma-topbar){padding:8px 14px;}
 }
-.tela-analise-campanhas :deep(.ma-filter-btn){display:flex;align-items:center;gap:7px;padding:8px 16px;border:1px solid var(--accent);border-radius:8px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--accent);background:var(--accent-light);cursor:pointer;transition:background .15s;}
+.tela-analise-campanhas :deep(.ma-filter-btn){display:flex;align-items:center;gap:7px;padding:8px 16px;border:1px solid var(--accent);border-radius:8px;font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--accent);background:var(--accent-light);cursor:pointer;transition:background .15s;}
 .tela-analise-campanhas :deep(.ma-filter-btn:hover){background:rgba(24,119,242,.15);}
 .tela-analise-campanhas :deep(.ma-funnel-bar-row){display:flex;justify-content:center;width:100%;}
 .tela-analise-campanhas :deep(.ma-funnel-bar){border-radius:8px;transition:width .5s ease;}
@@ -1385,7 +1385,7 @@ Object.assign(window, {
    ficam FORA da árvore do componente no DOM, então o atributo de escopo do
    Vue (data-v-*) nunca chega até eles e nenhum :deep() no bloco acima
    alcança esses elementos. Precisam de CSS global de verdade. */
-.custom-date-input{font-family:'IBM Plex Sans',sans-serif;font-weight:400;font-size:11px;padding:5px 10px;border-radius:3px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);outline:none;cursor:pointer;}
+.custom-date-input{font-family:var(--fonte-principal);font-weight:400;font-size:11px;padding:5px 10px;border-radius:3px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);outline:none;cursor:pointer;}
 .custom-date-input:focus{border-color:var(--accent);}
 @keyframes slideInRight{from{transform:translateX(100%);opacity:0;}to{transform:translateX(0);opacity:1;}}
 @keyframes fadeInBd{from{opacity:0;}to{opacity:1;}}

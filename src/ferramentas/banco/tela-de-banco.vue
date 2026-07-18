@@ -172,29 +172,29 @@ onMounted(()=>{
    linhas de arquivo e o estado vazio são criados via createElement (fora do template). */
 .tela-banco{min-height:100vh;display:flex;flex-direction:column;background:var(--bg);}
 .tela-banco :deep(.banco-topbar){display:flex;align-items:center;justify-content:space-between;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
-.tela-banco :deep(.banco-back){display:flex;align-items:center;gap:4px;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;letter-spacing:.3px;text-transform:uppercase;}
-.tela-banco :deep(.banco-topbar-title){font-family:'Oswald',sans-serif;font-size:15px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--text);}
+.tela-banco :deep(.banco-back){display:flex;align-items:center;gap:4px;font-family:var(--fonte-principal);font-size:10px;font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;letter-spacing:.3px;text-transform:uppercase;}
+.tela-banco :deep(.banco-topbar-title){font-family:var(--fonte-principal);font-size:15px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--text);}
 .tela-banco :deep(.banco-body){max-width:860px;margin:0 auto;width:100%;padding:32px 24px;}
 .tela-banco :deep(.banco-upload-zone){border:2px dashed var(--accent-mid);border-radius:var(--radius-lg);background:var(--accent-light);padding:28px 24px 22px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:28px;}
 .tela-banco :deep(.banco-upload-zone.drag-over){border-color:var(--accent);background:rgba(29,78,216,.14);transform:scale(1.01);}
 .tela-banco :deep(.banco-upload-zone:hover){border-color:var(--accent);}
 .tela-banco :deep(.banco-upload-icon){color:var(--accent);opacity:.65;margin-bottom:8px;}
-.tela-banco :deep(.banco-upload-text){font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--muted);line-height:1.7;}
+.tela-banco :deep(.banco-upload-text){font-family:var(--fonte-principal);font-size:13px;color:var(--muted);line-height:1.7;}
 .tela-banco :deep(.banco-upload-text em){color:var(--accent);font-style:normal;font-weight:600;cursor:pointer;}
 .tela-banco :deep(.banco-upload-text em:hover){text-decoration:underline;}
-.tela-banco :deep(.banco-upload-limit){font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:var(--muted);letter-spacing:.5px;margin-top:4px;opacity:.7;}
+.tela-banco :deep(.banco-upload-limit){font-family:var(--fonte-principal);font-size:10px;color:var(--muted);letter-spacing:.5px;margin-top:4px;opacity:.7;}
 .tela-banco :deep(.banco-progress-wrap){margin-top:14px;text-align:left;display:none;}
-.tela-banco :deep(.banco-progress-lbl){font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tela-banco :deep(.banco-progress-lbl){font-family:var(--fonte-principal);font-size:11px;color:var(--muted);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .tela-banco :deep(.banco-progress-bar){height:3px;background:var(--border);border-radius:2px;overflow:hidden;}
 .tela-banco :deep(.banco-progress-fill){height:100%;background:var(--accent);border-radius:2px;transition:width .25s ease;}
 .tela-banco :deep(.banco-toolbar){display:flex;align-items:center;gap:10px;margin-bottom:14px;}
-.tela-banco :deep(.banco-search){flex:1;padding:9px 13px;border-radius:var(--radius-md);border:1.5px solid var(--border);background:var(--surface);font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--text);outline:none;transition:border-color .18s;}
+.tela-banco :deep(.banco-search){flex:1;padding:9px 13px;border-radius:var(--radius-md);border:1.5px solid var(--border);background:var(--surface);font-family:var(--fonte-principal);font-size:13px;color:var(--text);outline:none;transition:border-color .18s;}
 .tela-banco :deep(.banco-search:focus){border-color:var(--accent);}
-.tela-banco :deep(.banco-stats-lbl){font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);white-space:nowrap;flex-shrink:0;}
+.tela-banco :deep(.banco-stats-lbl){font-family:var(--fonte-principal);font-size:11px;color:var(--muted);white-space:nowrap;flex-shrink:0;}
 .tela-banco :deep(.banco-file-list){display:flex;flex-direction:column;gap:4px;}
 .tela-banco :deep(.banco-file-row){display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:var(--radius-md);background:var(--surface);border:1px solid var(--border);transition:border-color .15s,box-shadow .15s;}
 .tela-banco :deep(.banco-file-row:hover){border-color:var(--accent);box-shadow:var(--shadow-sm);}
-.tela-banco :deep(.banco-file-icon){width:34px;height:34px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'IBM Plex Sans',sans-serif;font-size:8.5px;font-weight:700;letter-spacing:.3px;}
+.tela-banco :deep(.banco-file-icon){width:34px;height:34px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--fonte-principal);font-size:8.5px;font-weight:700;letter-spacing:.3px;}
 .tela-banco :deep(.bfi-img){background:rgba(29,78,216,.1);color:var(--accent);}
 .tela-banco :deep(.bfi-pdf){background:rgba(176,30,58,.1);color:var(--red);}
 .tela-banco :deep(.bfi-vid){background:rgba(0,0,0,.07);color:var(--text);}
@@ -202,17 +202,17 @@ onMounted(()=>{
 .tela-banco :deep(.bfi-doc){background:rgba(26,110,69,.1);color:var(--green);}
 .tela-banco :deep(.bfi-oth){background:var(--surface2);color:var(--muted);}
 .tela-banco :deep(.banco-file-meta){flex:1;min-width:0;}
-.tela-banco :deep(.banco-file-name){font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.tela-banco :deep(.banco-file-details){font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);margin-top:1px;}
+.tela-banco :deep(.banco-file-name){font-family:var(--fonte-principal);font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tela-banco :deep(.banco-file-details){font-family:var(--fonte-principal);font-size:11px;color:var(--muted);margin-top:1px;}
 .tela-banco :deep(.banco-file-acts){display:flex;gap:5px;flex-shrink:0;}
-.tela-banco :deep(.banco-dl-btn){display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:500;cursor:pointer;transition:all .15s;text-decoration:none;white-space:nowrap;}
+.tela-banco :deep(.banco-dl-btn){display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--fonte-principal);font-size:11px;font-weight:500;cursor:pointer;transition:all .15s;text-decoration:none;white-space:nowrap;}
 .tela-banco :deep(.banco-dl-btn:hover){border-color:var(--accent);color:var(--accent);background:var(--accent-light);}
 .tela-banco :deep(.banco-del-btn){display:flex;align-items:center;padding:6px 8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
 .tela-banco :deep(.banco-del-btn:hover){border-color:var(--red);color:var(--red);background:rgba(176,30,58,.06);}
 .tela-banco :deep(.banco-empty){text-align:center;padding:64px 24px;color:var(--muted);}
 .tela-banco :deep(.banco-empty svg){margin:0 auto 14px;display:block;opacity:.2;}
-.tela-banco :deep(.banco-empty-text){font-family:'IBM Plex Sans',sans-serif;font-size:14px;color:var(--text);margin-bottom:5px;}
-.tela-banco :deep(.banco-empty-sub){font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);}
+.tela-banco :deep(.banco-empty-text){font-family:var(--fonte-principal);font-size:14px;color:var(--text);margin-bottom:5px;}
+.tela-banco :deep(.banco-empty-sub){font-family:var(--fonte-principal);font-size:12px;color:var(--muted);}
 @media(max-width:600px){
   .tela-banco :deep(.banco-body){padding:16px 12px;}
   .tela-banco :deep(.banco-file-details){display:none;}
