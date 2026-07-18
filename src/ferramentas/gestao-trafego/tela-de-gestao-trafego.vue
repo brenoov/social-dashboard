@@ -297,12 +297,15 @@ function _buildGtDropdown(){
   drop.innerHTML='';
   _gtAccounts.forEach((a,idx)=>{
     const bal=a.balance;
-    const balColor=bal==null?'var(--muted)':bal>=1000?'#16a34a':bal>=500?'#f59e0b':'#dc2626';
+    // "sem limite" (spend_cap=0) mostra texto neutro, não número. Com limite: verde=folgado,
+    // âmbar=apertando, vermelho=quase no teto.
+    const balTxt=a.semLimite?'sem limite':(bal!=null?_maFmtR(bal):'—');
+    const balColor=a.semLimite?'var(--muted)':bal==null?'var(--muted)':bal>=1000?'#16a34a':bal>=500?'#f59e0b':'#dc2626';
     const item=document.createElement('div');
     item.style.cssText='padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;transition:background .12s;';
     item.addEventListener('mouseenter',()=>item.style.background='var(--surface2)');
     item.addEventListener('mouseleave',()=>item.style.background='');
-    item.innerHTML=`<span style="font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));color:var(--muted);min-width:18px;">${idx+1}</span><div style="flex:1;min-width:0;"><div style="font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${a.display_name||a.name||'Conta '+idx}</div><div style="font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);">${_maFmt(a.monthSpend||0,0)} gastos / mês</div></div><div style="font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:700;color:${balColor};flex-shrink:0;">${bal!=null?_maFmtR(bal):'—'}</div>`;
+    item.innerHTML=`<span style="font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));color:var(--muted);min-width:18px;">${idx+1}</span><div style="flex:1;min-width:0;"><div style="font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${a.display_name||a.name||'Conta '+idx}</div><div style="font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);">${_maFmt(a.monthSpend||0,0)} gastos / mês</div></div><div style="font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:700;color:${balColor};flex-shrink:0;">${balTxt}</div>`;
     item.addEventListener('click',e=>{e.stopPropagation();_gtCurAcc=a;const nm=document.getElementById('gt-acc-name');if(nm)nm.textContent=a.display_name||a.name||'—';_gtPickerOpen=false;const d=document.getElementById('gt-acc-dropdown');if(d)d.style.display='none';loadGtData();});
     drop.appendChild(item);
   });
@@ -346,11 +349,20 @@ async function _initGestaoTrafego(){
     await Promise.all(accs.map(async a=>{
       try{
         const [d,sp]=await Promise.all([
-          metaFetch(`/act_${a.ad_account_id}`,{fields:'name,balance,currency'},a.id),
+          metaFetch(`/act_${a.ad_account_id}`,{fields:'name,balance,currency,spend_cap,amount_spent'},a.id),
           metaFetch(`/act_${a.ad_account_id}/insights`,{fields:'spend',date_preset:'this_month'},a.id).catch(()=>null),
         ]);
         if(d?.name)a.display_name=d.name;
-        if(d?.balance!==undefined)a.balance=parseFloat(d.balance)/100;
+        // SALDO = "quanto ainda posso gastar" = limite da conta (spend_cap) MENOS o gasto
+        // (amount_spent). Antes o painel mostrava o campo `balance` do Meta, que NÃO é saldo
+        // disponível — é o gasto ainda não faturado (um número pequeno e enganoso, ex.: R$550
+        // na La Vessel I quando o saldo real é ~R$6 mil).
+        // spend_cap = 0 no Meta significa "SEM limite de gastos". Nesses casos não existe
+        // "quanto sobra" (é ilimitado), então marcamos semLimite e não mostramos número — antes
+        // isso virava um negativo gigante (limite 0 − gasto = -251 mil na Raissa), puro lixo.
+        const cap=parseFloat(d?.spend_cap||0), gastoTotal=parseFloat(d?.amount_spent||0);
+        a.semLimite=!(cap>0);
+        a.balance=cap>0?(cap-gastoTotal)/100:null;
         if(d?.currency)a.currency=d.currency;
         a.monthSpend=parseFloat(sp?.data?.[0]?.spend||0);
       }catch(e){a.monthSpend=0;}
