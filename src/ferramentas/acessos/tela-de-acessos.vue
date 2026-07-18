@@ -334,7 +334,10 @@ async function _acImportarZoho(){
   if(!confirm('Importar os usuários do Zoho como colaboradores? (cria os novos e atualiza os já importados)'))return;
   adminToast('Importando do Zoho…');
   try{const r=await _acProxy('zoho.import');
-    adminToast('Importação: '+(r.criados||0)+' novos, '+(r.atualizados||0)+' atualizados'+(r.com_foto!=null?(', '+r.com_foto+' c/ foto'):''));
+    // fotos_falhas vai no aviso: "0 c/ foto" com 12 falhas seria lido como "ninguém tem
+    // foto" quando na verdade não deu pra buscar. Mostrar o nº de falhas desfaz o engano.
+    const falhasFoto=(r.fotos_falhas!=null&&r.fotos_falhas>0)?(' — '+r.fotos_falhas+' foto(s) não vieram'):'';
+    adminToast('Importação: '+(r.criados||0)+' novos, '+(r.atualizados||0)+' atualizados'+(r.com_foto!=null?(', '+r.com_foto+' c/ foto'):'')+falhasFoto);
     await loadAcessos();
   }catch(e){adminToast('Erro: '+e.message,false);}
 }
