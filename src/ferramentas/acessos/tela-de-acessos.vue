@@ -102,6 +102,7 @@ import { hojeLocal } from '../../compartilhado/datas.js'
 import { montarArvoreDePastas } from './montar-arvore-de-pastas.js'
 import { montarDetalhePastas } from './montar-textos-do-topo.js'
 import { decidirEstadoAcesso, mensagemEstadoVazio, agruparPorEscopo, corDeAvatar, inicialDe } from './acesso-da-pasta.js'
+import { montarEmailsDeSelecao } from './onedrive-escrita.js'
 
 const router = useRouter()
 
@@ -185,81 +186,10 @@ async function _acConectarOneDrive(){
   catch(e){adminToast('Erro: '+e.message,false);}
 }
 let _acODStack=[];
-function _acOpenOneDrive(){_acTab='onedrive';_acSel=null;_acSelSetor=null;_acSelOrg=null;_acRender();}
-async function _acRenderOneDrive(){
-  const body=document.getElementById('ac-body');
-  body.innerHTML=`
-    <button class="ac-btn ghost" onclick="_acSetTab('config')">← Configurações</button>
-    <div class="ac-section-h" style="margin-top:12px"><h3>Pastas do OneDrive sob controle</h3>
-      <button class="ac-btn" style="margin-left:auto" onclick="_acODPicker()">+ Adicionar pasta</button></div>
-    <div id="ac-od-list"><div class="ac-muted">Carregando…</div></div>`;
-  _acODLoadFolders();
-}
-async function _acODLoadFolders(){
-  const wrap=document.getElementById('ac-od-list');if(!wrap)return;
-  let r;try{r=await _acProxy('microsoft.folders');}catch(e){wrap.innerHTML='<div class="ac-card">Erro: '+_acEsc(e.message)+'</div>';return;}
-  const fs=(r&&r.folders)||[];
-  wrap.innerHTML=fs.length?fs.map(f=>`
-    <div class="ac-card">
-      <div class="ac-section-h" style="border:none;margin:0;padding:0">
-        <div class="grow"><div><strong>${_acEsc(f.nome)}</strong></div>${f.caminho?`<div class="ac-muted">${_acEsc(f.caminho)}</div>`:''}</div>
-        <button class="ac-btn ghost" onclick="_acODToggleShares('${f.id}','${encodeURIComponent(f.external_id)}')">Compartilhamento</button>
-        <button class="ac-btn ghost" data-odsub="1" data-extid="${_acEsc(f.external_id)}" data-name="${_acEsc(f.nome)}">Subpastas</button>
-        <button class="ac-btn danger" onclick="_acODRemoveFolder('${f.id}')">Remover</button>
-      </div>
-      <div id="ac-od-sh-${f.id}" style="margin-top:10px;display:none"></div>
-    </div>`).join(''):'<div class="ac-muted">Nenhuma pasta sob controle ainda. Clique em "+ Adicionar pasta".</div>';
-  wrap.querySelectorAll('button[data-odsub]').forEach(b=>b.addEventListener('click',()=>_acODPicker(b.dataset.extid,b.dataset.name)));
-}
-async function _acODRemoveFolder(recursoId){
-  if(!confirm('Tirar esta pasta da lista de controle? (não apaga a pasta no OneDrive — só para de gerenciá-la aqui)'))return;
-  try{await _acProxy('microsoft.removeFolder',{recursoId});adminToast('Pasta removida do controle');_acODLoadFolders();}
-  catch(e){adminToast('Erro: '+e.message,false);}
-}
-async function _acODToggleShares(recursoId,encItemId){
-  const el=document.getElementById('ac-od-sh-'+recursoId);if(!el)return;
-  if(el.style.display!=='none'){el.style.display='none';el.innerHTML='';return;}
-  el.style.display='';await _acODShares(recursoId,encItemId);
-}
-async function _acODShares(recursoId,encItemId){
-  const el=document.getElementById('ac-od-sh-'+recursoId);if(!el)return;
-  const itemId=decodeURIComponent(encItemId);
-  el.innerHTML='<div class="ac-muted">Carregando acessos…</div>';
-  let r;try{r=await _acProxy('microsoft.shares',{itemId});}catch(e){el.innerHTML='<div class="ac-muted">Erro: '+_acEsc(e.message)+'</div>';return;}
-  const sh=(r&&r.shares)||[];
-  el.innerHTML=`
-    <div class="ac-kicker">Quem tem acesso</div>
-    ${sh.length?sh.map(s=>`<div class="ac-row"><div class="grow">${_acEsc(s.name||s.email||'—')}${(s.email&&s.name)?' <span class="ac-muted">'+_acEsc(s.email)+'</span>':''} <span class="ac-pill ${s.role==='edição'?'warn':'ok'}">${_acEsc(s.role)}</span></div><button class="ac-btn danger" onclick="_acODUnshare('${recursoId}','${encItemId}','${encodeURIComponent(s.permId)}')">Remover</button></div>`).join(''):'<div class="ac-muted">Ninguém além do dono.</div>'}
-    <div class="ac-row" style="margin-top:8px">
-      <select class="ac-select" id="ac-od-cl-${recursoId}" style="width:auto" onchange="_acODPickColab('${recursoId}',this.value)"><option value="">— puxar colaborador —</option>${(_acData.pessoas||[]).filter(p=>p.status==='ativo').map(p=>`<option value="${p.id}">${_acEsc(p.nome)}</option>`).join('')}</select>
-      <input class="ac-input" id="ac-od-em-${recursoId}" placeholder="e-mail para dar acesso" style="flex:1;min-width:160px">
-      <select class="ac-select" id="ac-od-rl-${recursoId}" style="width:auto"><option value="leitura">Leitura</option><option value="edição">Edição</option></select>
-      <button class="ac-btn" onclick="_acODShare('${recursoId}','${encItemId}')">Compartilhar</button>
-    </div>`;
-}
-function _acODPickColab(recursoId,pessoaId){
-  if(!pessoaId)return;
-  const c=(_acData.pessoas||[]).find(x=>x.id===pessoaId);if(!c)return;
-  const inp=document.getElementById('ac-od-em-'+recursoId);
-  if(!c.email_outlook){adminToast((c.nome||'Colaborador')+' não tem e-mail Outlook cadastrado',false);return;}
-  if(inp)inp.value=c.email_outlook;
-}
-async function _acODShare(recursoId,encItemId){
-  const email=(document.getElementById('ac-od-em-'+recursoId)||{}).value?.trim();
-  const role=(document.getElementById('ac-od-rl-'+recursoId)||{}).value;
-  if(!email){adminToast('Informe o e-mail',false);return;}
-  try{const r=await _acProxy('microsoft.share',{itemId:decodeURIComponent(encItemId),email,role});
-    if(r&&r.error){adminToast('Erro: '+_acEsc(r.detalhe||r.error),false);return;}
-    adminToast('Compartilhado');_acODShares(recursoId,encItemId);
-  }catch(e){adminToast('Erro: '+e.message,false);}
-}
-async function _acODUnshare(recursoId,encItemId,encPermId){
-  if(!confirm('Remover este acesso?'))return;
-  try{const r=await _acProxy('microsoft.unshare',{itemId:decodeURIComponent(encItemId),permId:decodeURIComponent(encPermId)});
-    if(r&&r.error){adminToast('Erro: '+_acEsc(r.detalhe||r.error),false);return;}
-    adminToast('Acesso removido');_acODShares(recursoId,encItemId);
-  }catch(e){adminToast('Erro: '+e.message,false);}
-}
+// A antiga aba "OneDrive" (lista própria de pastas com compartilhar/remover embutidos)
+// foi REMOVIDA: essa capacidade agora vive no visual novo (aba Pastas & Acessos →
+// provedor OneDrive), sem dois fluxos concorrentes. O que sobrou aqui é só o PICKER
+// de pastas (browse), reusado pelo botão "+ Adicionar pasta" do visual novo.
 // ---- picker (navega a árvore e marca) ----
 async function _acODPicker(startId,startName){
   _acODStack = startId ? [{ id: startId, name: startName || 'pasta' }] : [];
@@ -303,7 +233,7 @@ async function _acODAdd(id,name){
   try{await _acProxy('microsoft.addFolder',{itemId:id,name,caminho});
     adminToast('Pasta adicionada ao controle');
     const ov=document.getElementById('ac-od-pick');if(ov)ov.remove();
-    _acODLoadFolders();
+    _acPaRefreshOnedrive(id);   // atualiza a lista do visual novo e abre a pasta recém-adicionada
   }catch(e){adminToast('Erro: '+e.message,false);}
 }
 function _acOpenICloud(){_acTab='icloud';_acSel=null;_acSelSetor=null;_acSelOrg=null;_acRender();}
@@ -549,7 +479,7 @@ async function _acRenderDrive(){
         <div class="ac-rail-list" id="ac-pa-rail"></div>
       </div>
       <div class="ac-panel">
-        <div class="ac-phead"><h2 id="ac-pa-list-title">Pastas</h2><span class="ac-cnt tnum" id="ac-pa-list-cnt"></span></div>
+        <div class="ac-phead"><h2 id="ac-pa-list-title">Pastas</h2><div class="ac-phead-r"><span class="ac-cnt tnum" id="ac-pa-list-cnt"></span><span id="ac-pa-list-actions"></span></div></div>
         <div id="ac-pa-list"><div class="ac-muted" style="padding:14px 16px">Carregando…</div></div>
       </div>
       <div class="ac-panel ac-pa-detpanel" id="ac-pa-detail">${_acPaDetalhePlaceholder()}</div>
@@ -641,6 +571,15 @@ function _acPaPintaLista(){
   const roots=_acPaFolders[_acPaProv]||[];
   const total=_acPaContaPastas(roots);
   const cntEl=document.getElementById('ac-pa-list-cnt');if(cntEl)cntEl.textContent=total+' pasta'+(total===1?'':'s');
+  // Só o OneDrive tem escrita: aparece o "+ Adicionar pasta" (registra uma pasta pra
+  // gerir aqui). WorkDrive/iCloud não mostram o botão (a lista vem de outra fonte).
+  const actEl=document.getElementById('ac-pa-list-actions');
+  if(actEl){
+    if(_acPaProv==='onedrive'){
+      actEl.innerHTML='<button class="ac-btn-mini" id="ac-pa-add">+ Adicionar pasta</button>';
+      const b=document.getElementById('ac-pa-add');if(b)b.addEventListener('click',()=>_acODPicker());
+    }else actEl.innerHTML='';
+  }
   if(!total){listEl.innerHTML='<div class="ac-empty" style="margin:14px 16px">'+_acEsc(_acPaVazioLista())+'</div>';return;}
   if(_acPaProv==='workdrive'){
     listEl.innerHTML='<ul class="ac-flist ac-flist-root">'+roots.map(_acPaNoLista).join('')+'</ul>';
@@ -730,7 +669,9 @@ async function _acPaDetOnedrive(f){
   try{r=await _acProxy('microsoft.shares',{itemId:f.external_id});}
   catch(e){return _acPaPintaAcesso({pessoas:[],links:[],falhas:[{erro:e.message||String(e)}]},f,{origem:'onedrive'});}
   const shares=(r&&r.shares)||[];
-  const pessoas=shares.map(s=>({nome:s.name,email:s.email,escopo:_acPaPapelOnedrive(s.role),escopo_cru:s.role}));
+  // permId vai junto: é o que o botão "Remover" de cada pessoa precisa pra tirar
+  // o acesso dela (microsoft.unshare) sem reabrir modal nenhum.
+  const pessoas=shares.map(s=>({nome:s.name,email:s.email,escopo:_acPaPapelOnedrive(s.role),escopo_cru:s.role,permId:s.permId}));
   const links=(r&&r.link)?[{url:r.link,rotulo:'Link de compartilhamento da pasta'}]:[];
   _acPaPintaAcesso({pessoas,links,falhas:[]},f,{origem:'onedrive'});
 }
@@ -748,14 +689,18 @@ async function _acPaDetICloud(f){
   _acPaPintaAcesso({pessoas,links:[],falhas:[]},f,{origem:'icloud'});
 }
 // Uma linha de pessoa no detalhe: inicial colorida + nome + e-mail + escopo/papel.
-function _acPaPessoaRow(p){
+// Quando `podeRemover` é true e a pessoa tem permId (só OneDrive tem), aparece um
+// botão "Remover" que tira o acesso dela direto (sem abrir modal).
+function _acPaPessoaRow(p,podeRemover){
   const nome=p.nome||p.email||'—';
   const cor=corDeAvatar(p.email||p.nome);
   const ini=inicialDe(p.nome,p.email);
+  const btn=(podeRemover&&p.permId)?`<button class="ac-prow-rem" data-uns="${_acEsc(p.permId)}" title="Remover o acesso desta pessoa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>`:'';
   return `<div class="ac-prow">
     <div class="ac-av" style="background:${cor}">${_acEsc(ini)}</div>
     <div class="ac-pmeta"><div class="ac-pname">${_acEsc(nome)}</div>${p.email?`<div class="ac-pmail">${_acEsc(p.email)}</div>`:''}</div>
     ${p.escopo?`<span class="ac-role">${_acEsc(p.escopo)}</span>`:''}
+    ${btn}
   </div>`;
 }
 // Renderizador COMUM do detalhe (WorkDrive/OneDrive/iCloud caem todos aqui, no
@@ -785,9 +730,10 @@ function _acPaPintaAcesso(resp,f,opts){
   if(estado.incompleto){
     html+=`<div class="ac-aviso-incompleto" style="margin:12px 18px 0">⚠️ Este quadro pode estar incompleto: não foi possível ler tudo. O que aparece abaixo é só o que deu pra ler agora.</div>`;
   }
+  const ehOnedrive=(f.tipo==='onedrive');
   html+=`<div class="ac-sec-lab">Quem tem acesso</div>`;
   if(estado.tipo==='ok'){
-    html+=`<div class="ac-people">`+pessoas.map(_acPaPessoaRow).join('')+`</div>`;
+    html+=`<div class="ac-people">`+pessoas.map(p=>_acPaPessoaRow(p,ehOnedrive)).join('')+`</div>`;
   }else{
     html+=`<div class="ac-empty" style="margin:8px 18px 4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg>${_acEsc(mensagemEstadoVazio(estado))}</div>`;
   }
@@ -797,16 +743,115 @@ function _acPaPintaAcesso(resp,f,opts){
   }else{
     html+=`<div class="ac-empty" style="margin:8px 18px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Nenhum link público criado nesta pasta.</div>`;
   }
-  // Botões de ESCRITA: presentes mas desabilitados (a escrita vem noutra leva).
-  const t=(f.tipo==='workdrive')
-    ?'Reconecte o Zoho concedendo compartilhamento para habilitar'
-    :'Dar acesso e criar link chegam numa próxima etapa.';
-  html+=`<div class="ac-actbar">
-    <button class="ac-btn-lock" disabled title="${_acEsc(t)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Dar acesso a alguém</button>
-    <button class="ac-btn-lock" disabled title="${_acEsc(t)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Criar link</button>
-  </div>`;
+  // Barra de ações. Só o OneDrive tem ESCRITA ligada hoje (a empresa gerencia acesso
+  // por lá). WorkDrive e iCloud seguem com botões travados + explicação no hover.
+  if(ehOnedrive){
+    html+=`<div class="ac-actbar">
+      <button class="ac-btn-do primary" data-acao="dar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Dar acesso a alguém</button>
+      <button class="ac-btn-do" data-acao="setor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M17 8.5a3 3 0 0 1 0 5.8M18.5 20a6 6 0 0 0-3-5"/></svg>Liberar setor</button>
+      <button class="ac-btn-do danger" data-acao="remover" title="Tira esta pasta do controle daqui (não apaga nada no OneDrive)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Remover do controle</button>
+    </div>`;
+  }else{
+    const t=(f.tipo==='workdrive')
+      ?'Reconecte o Zoho concedendo compartilhamento para habilitar'
+      :'iCloud não tem API — o acesso é registrado manualmente nas Conexões.';
+    html+=`<div class="ac-actbar">
+      <button class="ac-btn-lock" disabled title="${_acEsc(t)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Dar acesso a alguém</button>
+      <button class="ac-btn-lock" disabled title="${_acEsc(t)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Criar link</button>
+    </div>`;
+  }
   body.innerHTML=html;
   body.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',()=>_acCopy(b.dataset.copy,b)));
+  // Escrita do OneDrive: liga os botões da barra + o "Remover" de cada pessoa.
+  if(ehOnedrive){
+    body.querySelectorAll('[data-uns]').forEach(b=>b.addEventListener('click',()=>_acPaUnshare(f,b.dataset.uns)));
+    body.querySelectorAll('[data-acao]').forEach(b=>b.addEventListener('click',()=>{
+      const a=b.dataset.acao;
+      if(a==='dar')return _acPaDarAcesso(f);
+      if(a==='setor')return _acPaLiberarSetor(f);
+      if(a==='remover')return _acPaRemoverPasta(f);
+    }));
+  }
+}
+// ---------------------------------------------------------------------------
+// ESCRITA do OneDrive dentro do visual novo (aba Pastas & Acessos). Tudo abaixo
+// REUSA a lógica já provada (proxy microsoft.*, seletor de colaboradores, correção
+// de apelido) — só troca a "roupa" pro layout master-detail. NENHUMA função aqui
+// usa confirm/alert/prompt nativos: os avisos e confirmações são modais próprios
+// (ac-modal-ov), o mesmo mecanismo dos modais de compartilhar.
+// ---------------------------------------------------------------------------
+// Confirmação em modal próprio (substitui o confirm() nativo). Resolve a promessa
+// com true/false. `perigo` deixa o botão de confirmar em vermelho.
+function _acConfirmar(msg,opts){
+  opts=opts||{};
+  return new Promise(resolve=>{
+    const ov=document.createElement('div');ov.className='ac-modal-ov open';
+    ov.innerHTML=`<div class="ac-modal" style="max-width:440px">
+      <div class="ac-modal-body" style="padding-top:18px"><div style="font-size:14px;line-height:1.5">${_acEsc(msg)}</div></div>
+      <div class="ac-modal-foot" style="justify-content:flex-end">
+        <button class="ac-btn ghost" data-c="0">${_acEsc(opts.cancelar||'Cancelar')}</button>
+        <button class="ac-btn ${opts.perigo?'danger':'primary'}" data-c="1">${_acEsc(opts.ok||'Confirmar')}</button>
+      </div></div>`;
+    (document.getElementById('acessos-screen')||document.body).appendChild(ov);
+    const fim=v=>{ov.remove();resolve(v);};
+    ov.addEventListener('click',e=>{if(e.target===ov)fim(false);});
+    ov.querySelectorAll('[data-c]').forEach(b=>b.addEventListener('click',()=>fim(b.dataset.c==='1')));
+  });
+}
+// Recarrega a lista de pastas do OneDrive (some do cache pra buscar de novo no proxy)
+// e, se possível, reabre o detalhe da pasta que estava aberta. Usada depois de
+// adicionar/remover pasta ou mudar acesso, pra a tela refletir o novo estado.
+async function _acPaRefreshOnedrive(reabrirId){
+  _acPaFolders.onedrive=null;
+  if(_acPaProv!=='onedrive'){await _acPaMostrarProvedor('onedrive',{forcar:true});return;}
+  try{_acPaFolders.onedrive=await _acPaCarregarPastas('onedrive');}catch(e){_acPaFolders.onedrive=[];}
+  _acPaContagens();               // as contagens do rail podem ter mudado
+  _acPaPintaLista();
+  const alvo=reabrirId||_acPaSel;
+  // reabre por id do recurso OU por external_id (o "+ Adicionar pasta" só conhece o external_id).
+  const f=alvo?(_acPaAcharPasta(alvo)||(_acPaFolders.onedrive||[]).find(x=>x&&x.external_id===alvo)):null;
+  if(f){_acPaSel=f.id;_acPaPintaLista();_acPaDetalhe(f);}
+  else{const det=document.getElementById('ac-pa-detail');if(det)det.innerHTML=_acPaDetalhePlaceholder();}
+}
+// "Dar acesso a alguém" — reusa o modal provado _acDriveShare (seletor de colaboradores
+// agrupado por setor, e-mail avulso, papel, correção de apelido). Ao fechar, o detalhe
+// no visual novo se atualiza sozinho.
+function _acPaDarAcesso(f){_acDriveShare(f.external_id,f.nome,()=>_acPaDetOnedrive(f));}
+// Remove o acesso de UMA pessoa (o "Remover" ao lado dela). Confirma em modal próprio.
+async function _acPaUnshare(f,permId){
+  if(!permId)return;
+  const ok=await _acConfirmar('Remover o acesso desta pessoa à pasta "'+f.nome+'"?',{ok:'Remover acesso',perigo:true});
+  if(!ok)return;
+  try{const r=await _acProxy('microsoft.unshare',{itemId:f.external_id,permId});
+    if(r&&r.error){adminToast('Erro: '+_acEsc(r.detalhe||r.error),false);return;}
+    await _acLog('drive.unshare','pasta:'+f.nome,'ok',null);
+    adminToast('Acesso removido');_acPaDetOnedrive(f);
+  }catch(e){adminToast('Erro: '+e.message,false);}
+}
+// "Remover do controle" — tira a pasta da lista gerida aqui (microsoft.removeFolder).
+// NÃO apaga nada no OneDrive; só para de gerenciá-la por esta tela.
+async function _acPaRemoverPasta(f){
+  const ok=await _acConfirmar('Tirar a pasta "'+f.nome+'" da lista de controle? Não apaga nada no OneDrive — só para de gerenciá-la aqui.',{ok:'Remover do controle',perigo:true});
+  if(!ok)return;
+  try{const r=await _acProxy('microsoft.removeFolder',{recursoId:f.id});
+    if(r&&r.error){adminToast('Erro: '+_acEsc(r.detalhe||r.error),false);return;}
+    await _acLog('drive.removeFolder','pasta:'+f.nome,'ok',null);
+    adminToast('Pasta removida do controle');
+    if(_acPaSel===f.id)_acPaSel=null;
+    _acPaRefreshOnedrive();
+  }catch(e){adminToast('Erro: '+e.message,false);}
+}
+// "Liberar setor" — solta ESTA pasta pro setor (departamento) inteiro de uma vez.
+// Reusa o mesmo modal de liberação em massa da aba Drive (_acAbrirLiberacaoEmMassa),
+// só que com uma pasta só. O seletor já vem agrupado por setor com botão "todos",
+// então liberar um departamento inteiro é um clique.
+function _acPaLiberarSetor(f){
+  _acAbrirLiberacaoEmMassa(
+    [{id:f.external_id,name:f.nome}],
+    'Liberar setor — '+f.nome,
+    'Escolha um setor (ou pessoas) e compartilhe esta pasta com todo mundo de uma vez.',
+    ()=>_acPaDetOnedrive(f),
+  );
 }
 function _acDrivePaintShell(){
   const body=document.getElementById('ac-body');
@@ -1003,14 +1048,27 @@ function _acDriveBuildTree(){
   sortRec(roots);
   return roots;
 }
+// Liberação em massa por SETOR de classificação (aba Drive antiga, por marca). Continua
+// aqui como fonte de lógica: monta a lista de pastas do setor e delega pro modal genérico.
 async function _acDriveLiberarSetor(key){
-  const folders=_acDriveTree.filter(f=>_acDriveSectorOf(f).key===key);
+  const folders=_acDriveTree.filter(f=>_acDriveSectorOf(f).key===key).map(f=>({id:f.id,name:f.name}));
   if(!folders.length){adminToast('Setor sem pastas',false);return;}
   const label=_acDriveLabelOf(key);
+  _acAbrirLiberacaoEmMassa(folders,'Liberar setor — '+label,'Compartilha as '+folders.length+' pasta(s) deste setor de uma vez.');
+}
+// Modal GENÉRICO de liberação em massa (compartilhar N pastas com N pessoas de uma vez).
+// É o coração do "Liberar setor": o seletor de colaboradores já vem agrupado por setor
+// (departamento) com botão "todos", então soltar uma pasta pro time inteiro é um clique.
+//   folders  : [{id,name}] pastas a compartilhar (uma só, no caso do visual novo)
+//   titulo   : cabeçalho do modal
+//   subtitulo: linha de apoio embaixo do título
+//   onDone   : callback opcional chamado após liberar (o visual novo usa pra atualizar)
+function _acAbrirLiberacaoEmMassa(folders,titulo,subtitulo,onDone){
+  if(!folders||!folders.length){adminToast('Nenhuma pasta para liberar',false);return;}
   const ov=document.createElement('div');ov.className='ac-modal-ov open';
   ov.innerHTML=`<div class="ac-modal ac-modal-lg">
-    <div class="ac-modal-head"><div><h3 style="margin:0">Liberar setor — ${_acEsc(label)}</h3><div class="ac-muted" style="font-size:12px;margin-top:3px">Compartilha as <b>${folders.length}</b> pasta(s) deste setor</div></div><button class="ac-btn ghost" id="ac-lib-x">Fechar</button></div>
-    <div class="ac-modal-body"><div id="ac-lib-has"><div class="ac-muted" style="font-size:12px;padding:0 0 12px">Carregando quem já tem acesso…</div></div><div class="ac-kicker" style="display:block;margin:0 0 6px">Adicionar colaboradores</div>${_acColabPicker('ac-lib-cb')}</div>
+    <div class="ac-modal-head"><div><h3 style="margin:0">${_acEsc(titulo)}</h3><div class="ac-muted" style="font-size:12px;margin-top:3px">${_acEsc(subtitulo||'')}</div></div><button class="ac-btn ghost" id="ac-lib-x">Fechar</button></div>
+    <div class="ac-modal-body"><div id="ac-lib-has"><div class="ac-muted" style="font-size:12px;padding:0 0 12px">Carregando quem já tem acesso…</div></div><div class="ac-kicker" style="display:block;margin:0 0 6px">Escolha um setor inteiro (botão "todos") ou pessoas avulsas</div>${_acColabPicker('ac-lib-cb')}</div>
     <div class="ac-modal-foot">
       <span class="ac-pick-count">0 selecionados</span>
       <input class="ac-input" id="ac-lib-extra" placeholder="ou e-mail avulso" style="flex:1;min-width:120px">
@@ -1021,29 +1079,31 @@ async function _acDriveLiberarSetor(key){
   (document.getElementById('acessos-screen')||document.body).appendChild(ov);const close=()=>ov.remove();
   ov.addEventListener('click',e=>{if(e.target===ov)close();});
   ov.querySelector('#ac-lib-x').onclick=close;
-  // quem já tem acesso às pastas do setor (agregado) — consistente com o modal de pasta única
+  // quem já tem acesso às pastas (agregado) — consistente com o modal de pasta única
   (async()=>{const box=ov.querySelector('#ac-lib-has');if(!box)return;
     let sh=[];try{const r=await _acProxy('microsoft.sharesMany',{items:folders.map(f=>f.id)});sh=(r&&r.shares)||[];}catch(e){}
     if(!sh.length){box.innerHTML='<div class="ac-muted" style="font-size:12px;padding:0 0 12px">Ninguém tem acesso a estas pastas ainda.</div>';return;}
-    box.innerHTML='<div class="ac-kicker" style="display:block;margin:0 0 6px">Quem já tem acesso <span class="ac-muted" style="text-transform:none;letter-spacing:0">('+folders.length+' pasta(s) no setor)</span></div><div style="margin-bottom:16px">'+sh.map(s=>'<div class="ac-row"><div class="grow">'+_acEsc(s.name||s.email||'—')+((s.email&&s.name)?' <span class="ac-muted">'+_acEsc(s.email)+'</span>':'')+' <span class="ac-pill '+(s.role==='edição'?'warn':'ok')+'">'+_acEsc(s.role)+'</span> <span class="ac-muted" style="font-size:11px">'+s.folders+'/'+folders.length+' pastas</span></div></div>').join('')+'</div>';
+    box.innerHTML='<div class="ac-kicker" style="display:block;margin:0 0 6px">Quem já tem acesso <span class="ac-muted" style="text-transform:none;letter-spacing:0">('+folders.length+' pasta(s))</span></div><div style="margin-bottom:16px">'+sh.map(s=>'<div class="ac-row"><div class="grow">'+_acEsc(s.name||s.email||'—')+((s.email&&s.name)?' <span class="ac-muted">'+_acEsc(s.email)+'</span>':'')+' <span class="ac-pill '+(s.role==='edição'?'warn':'ok')+'">'+_acEsc(s.role)+'</span> <span class="ac-muted" style="font-size:11px">'+s.folders+'/'+folders.length+' pastas</span></div></div>').join('')+'</div>';
   })();
   ov.querySelector('#ac-lib-go').onclick=async()=>{
     const role=ov.querySelector('#ac-lib-role').value;
-    const emails=[...ov.querySelectorAll('.ac-lib-cb:checked')].map(c=>c.dataset.email);
-    const extra=ov.querySelector('#ac-lib-extra').value.trim();if(extra)emails.push(extra);
+    // montarEmailsDeSelecao junta os marcados + o e-mail avulso e tira duplicados/vazios.
+    const marcados=[...ov.querySelectorAll('.ac-lib-cb:checked')].map(c=>c.dataset.email);
+    const emails=montarEmailsDeSelecao(marcados,ov.querySelector('#ac-lib-extra').value);
     if(!emails.length){adminToast('Selecione ao menos um colaborador ou informe um e-mail',false);return;}
     const btn=ov.querySelector('#ac-lib-go');btn.disabled=true;btn.textContent='Liberando…';
     let r;
-    try{r=await _acProxy('microsoft.shareMany',{items:folders.map(f=>({id:f.id,name:f.name})),emails,role});
-      await _acLog('drive.liberarSetor','setor:'+label,(r&&r.fail)?'parcial':'ok',((r&&r.ok)||0)+'/'+((r&&r.ops)||0));
+    try{r=await _acProxy('microsoft.shareMany',{items:folders,emails,role});
+      await _acLog('drive.liberarSetor',titulo,(r&&r.fail)?'parcial':'ok',((r&&r.ok)||0)+'/'+((r&&r.ops)||0));
     }catch(e){adminToast('Erro: '+e.message,false);btn.disabled=false;btn.textContent='Liberar';return;}
+    if(onDone)try{onDone();}catch(_){}
     // tela de resultado com os links das pastas (envio direto, sem depender do e-mail da Microsoft)
     const links=(r&&r.links)||[],okN=(r&&r.ok)||0;
     const mism=((r&&r.resolved)||[]).filter(x=>x.account&&x.account.toLowerCase()!==String(x.invited).toLowerCase());
     const fixes=await _acFixAliases(mism); // auto-corrige o cadastro p/ a conta real
     const modal=ov.querySelector('.ac-modal');
     modal.innerHTML=`
-      <div class="ac-modal-head"><div><h3 style="margin:0">Setor liberado — ${_acEsc(label)}</h3><div class="ac-muted" style="font-size:12px;margin-top:3px">✓ ${okN} compartilhamento(s)${(r&&r.fail)?(' · '+r.fail+' falha(s)'):''}${(r&&r.truncated)?' (limite atingido)':''}</div></div><button class="ac-btn ghost" id="ac-lib-x2">Fechar</button></div>
+      <div class="ac-modal-head"><div><h3 style="margin:0">Liberado ✓</h3><div class="ac-muted" style="font-size:12px;margin-top:3px">✓ ${okN} compartilhamento(s)${(r&&r.fail)?(' · '+r.fail+' falha(s)'):''}${(r&&r.truncated)?' (limite atingido)':''}</div></div><button class="ac-btn ghost" id="ac-lib-x2">Fechar</button></div>
       <div class="ac-modal-body">
         ${fixes.length?`<div class="ac-note ac-note-warn">✅ <b>Apelido corrigido automaticamente.</b> Estes e-mails eram alias; o acesso já caiu na <b>conta Microsoft real</b> e atualizei o cadastro pra ela (futuros compartilhamentos já miram a conta certa):<br>${fixes.map(f=>'• '+_acEsc(f.invited)+' → <b>'+_acEsc(f.account)+'</b>'+(f.nome?' — '+_acEsc(f.nome)+' atualizado':' — não cadastrado, avise pra acessar com essa conta')).join('<br>')}</div>`:''}
         <div class="ac-note">Acessos concedidos. <b>Envie os links abaixo ao colaborador</b> — é mais confiável que o e-mail automático da Microsoft (que pode cair em outro endereço ou no spam). Só quem foi convidado consegue abrir.</div>
@@ -1052,7 +1112,7 @@ async function _acDriveLiberarSetor(key){
       <div class="ac-modal-foot"><span class="ac-muted" style="font-size:11px">${emails.length} colaborador(es)</span><button class="ac-btn primary" id="ac-lib-copyall">Copiar todos os links</button></div>`;
     modal.querySelector('#ac-lib-x2').onclick=close;
     modal.querySelectorAll('button[data-copy1]').forEach(b=>b.onclick=()=>_acCopy(b.dataset.copy1,b));
-    const allText='Acessos — '+label+' (RBV):\n'+links.filter(l=>l.link).map(l=>'• '+(l.name||'pasta')+': '+l.link).join('\n');
+    const allText='Acessos (RBV):\n'+links.filter(l=>l.link).map(l=>'• '+(l.name||'pasta')+': '+l.link).join('\n');
     {const ca=modal.querySelector('#ac-lib-copyall');if(ca)ca.onclick=()=>_acCopy(allText,ca);}
   };
 }
@@ -1108,7 +1168,10 @@ async function _acFixAliases(mism){
   }
   return out;
 }
-async function _acDriveShare(itemId,name){
+// Modal "Compartilhar / Dar acesso" de UMA pasta do OneDrive. `onDone` (opcional) é
+// chamado sempre que o conjunto de acessos muda (compartilhar ou remover), pra quem
+// abriu o modal — ex.: o visual novo — atualizar o detalhe por baixo.
+async function _acDriveShare(itemId,name,onDone){
   let shares=[],folderLink='';try{const r=await _acProxy('microsoft.shares',{itemId});shares=(r&&r.shares)||[];folderLink=(r&&r.link)||'';}catch(e){}
   const ov=document.createElement('div');ov.className='ac-modal-ov open';ov.id='ac-drv-share';
   let _picker;try{_picker=_acColabPicker('ac-drv-cb');}catch(err){console.error('[acessos] picker erro',err);adminToast('ERRO no painel: '+((err&&err.message)||err),false);_picker='<div class="ac-card" style="color:#f87171">Falha ao montar a lista de colaboradores: '+_acEsc((err&&err.message)||String(err))+'</div>';}
@@ -1132,13 +1195,15 @@ async function _acDriveShare(itemId,name){
   ov.querySelector('#ac-drv-x').onclick=close;
   {const cb=ov.querySelector('#ac-drv-copy');if(cb)cb.onclick=()=>_acCopy(folderLink,cb);}
   ov.querySelectorAll('button[data-uns]').forEach(b=>b.addEventListener('click',async()=>{
-    if(!confirm('Remover este acesso?'))return;
-    try{await _acProxy('microsoft.unshare',{itemId,permId:b.dataset.perm});adminToast('Acesso removido');close();_acDriveShare(itemId,name);}catch(e){adminToast('Erro: '+e.message,false);}
+    // Confirma em modal próprio (nada de confirm() nativo).
+    if(!await _acConfirmar('Remover este acesso?',{ok:'Remover',perigo:true}))return;
+    try{await _acProxy('microsoft.unshare',{itemId,permId:b.dataset.perm});adminToast('Acesso removido');if(onDone)try{onDone();}catch(_){}close();_acDriveShare(itemId,name,onDone);}catch(e){adminToast('Erro: '+e.message,false);}
   }));
   ov.querySelector('#ac-drv-go').onclick=async()=>{
     const role=ov.querySelector('#ac-drv-role').value;
-    const emails=[...ov.querySelectorAll('.ac-drv-cb:checked')].map(c=>c.dataset.email);
-    const extra=ov.querySelector('#ac-drv-extra').value.trim();if(extra)emails.push(extra);
+    // montarEmailsDeSelecao junta os marcados + o e-mail avulso e tira duplicados/vazios.
+    const marcados=[...ov.querySelectorAll('.ac-drv-cb:checked')].map(c=>c.dataset.email);
+    const emails=montarEmailsDeSelecao(marcados,ov.querySelector('#ac-drv-extra').value);
     if(!emails.length){adminToast('Selecione ao menos um colaborador ou informe um e-mail',false);return;}
     const btn=ov.querySelector('#ac-drv-go');btn.disabled=true;btn.textContent='Compartilhando…';
     try{await _acProxy('microsoft.addFolder',{itemId,name});}catch(e){}
@@ -1147,7 +1212,8 @@ async function _acDriveShare(itemId,name){
     const fixes=await _acFixAliases(mism);
     if(fixes.length)adminToast('✅ Apelido corrigido: '+fixes.map(f=>(f.nome||f.invited)+' → '+f.account).join(' · ')+' — cadastro atualizado p/ a conta real; acesso garantido');
     else adminToast('Compartilhado com '+ok+'/'+emails.length);
-    close();_acDriveShare(itemId,name);
+    if(onDone)try{onDone();}catch(_){}
+    close();_acDriveShare(itemId,name,onDone);
   };
 }
 async function loadAcessos(){
@@ -1169,7 +1235,6 @@ function _acRender(){
   if(_acTab==='auditoria')return _acRenderAuditoria();
   if(_acTab==='drive')return _acRenderDrive();
   if(_acTab==='config')return _acRenderConfiguracoes();
-  if(_acTab==='onedrive')return _acRenderOneDrive();
   if(_acTab==='icloud')return _acRenderICloud();
   if(_acSel)return _acRenderFicha(_acSel);
   if(_acSelSetor!==null)return _acRenderColaboradores(_acSelSetor);
@@ -1973,11 +2038,11 @@ Object.assign(window, {
   _acDriveWire, _acDstMeta, _acEsc, _acExcluirColaborador, _acFieldsFor, _acFixAliases, _acFormColaborador, _acFormItem,
   _acFormSetorOpts, _acHandleZohoReturn, _acICAcessos, _acICAddAcesso, _acICAddFolder, _acICLoadFolders, _acICRemoveAcesso, _acICRemoveFolder,
   _acICToggleAcessos, _acICToggleFeito, _acImportarZoho, _acItemTipoLabel, _acLog, _acLogo, _acNorm, _acODAdd,
-  _acODBrowse, _acODLoadFolders, _acODOpen, _acODPickColab, _acODPicker, _acODRemoveFolder, _acODShare, _acODShares,
-  _acODStatus, _acOdSummary, _acODToggleShares, _acODUnshare, _acODUp, _acOpenICloud, _acOpenOneDrive, _acOpenOrg,
+  _acODBrowse, _acODOpen, _acODPicker, _acODUp,
+  _acODStatus, _acOdSummary, _acOpenICloud, _acOpenOrg,
   _acOpenPessoa, _acOpenSetor, _acOrgIco, _acPickAll, _acPickCount, _acPickFilter, _acProvisionar, _acProxy,
   _acReativar, _acReconcileEmail, _acRender, _acRenderAuditoria, _acRenderColaboradores, _acRenderConfiguracoes, _acRenderDispositivos, _acRenderDrive,
-  _acRenderFicha, _acRenderICloud, _acRenderItens, _acRenderOneDrive, _acRenderOrganizacoes, _acRenderSetores, _acRenderTermos, _acRenderVeiculos,
+  _acRenderFicha, _acRenderICloud, _acRenderItens, _acRenderOrganizacoes, _acRenderSetores, _acRenderTermos, _acRenderVeiculos,
   _acSanitizeName, _acSaveColaborador, _acSaveItem, _acSetItemStatus, _acSetorIco, _acSetTab, _acTiposFor, _acToggleOrg, _acVoltarSel,
   _acUploadAvatar, _acUploadTermo, _acWrapId, _acZohoStatus,
   _acDriveSetProvedor, _acDriveProvedorBar, _acRenderWorkdrive, _acWdCarregarPastas, _acWdRepaint,
@@ -2244,6 +2309,22 @@ onMounted(() => {
 .tela-acessos :deep(.ac-actbar){padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:9px;flex-wrap:wrap}
 .tela-acessos :deep(.ac-btn-lock){display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;padding:9px 15px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:not-allowed;opacity:.8}
 .tela-acessos :deep(.ac-btn-lock svg){width:15px;height:15px}
+/* Botões de ESCRITA do OneDrive na barra de ações (a versão "ligada" do ac-btn-lock). */
+.tela-acessos :deep(.ac-btn-do){display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:640;padding:9px 15px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;transition:background .12s ease,filter .12s ease}
+.tela-acessos :deep(.ac-btn-do svg){width:15px;height:15px}
+.tela-acessos :deep(.ac-btn-do:hover){background:var(--surface2)}
+.tela-acessos :deep(.ac-btn-do.primary){background:var(--accent);border-color:var(--accent);color:#fff}
+.tela-acessos :deep(.ac-btn-do.primary:hover){filter:brightness(1.06)}
+.tela-acessos :deep(.ac-btn-do.danger){color:var(--red);border-color:var(--border)}
+.tela-acessos :deep(.ac-btn-do.danger:hover){background:color-mix(in srgb,var(--red) 12%,transparent)}
+/* "x" que remove o acesso de uma pessoa, à direita da linha dela. */
+.tela-acessos :deep(.ac-prow-rem){flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;transition:background .12s ease,color .12s ease}
+.tela-acessos :deep(.ac-prow-rem svg){width:14px;height:14px}
+.tela-acessos :deep(.ac-prow-rem:hover){background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red);border-color:transparent}
+/* botãozinho "+ Adicionar pasta" no cabeçalho da lista + o agrupador à direita. */
+.tela-acessos :deep(.ac-phead-r){display:flex;align-items:center;gap:8px}
+.tela-acessos :deep(.ac-btn-mini){font-size:12px;font-weight:640;padding:5px 11px;border-radius:999px;border:1px solid var(--accent-mid);background:var(--accent-light);color:var(--accent);cursor:pointer;white-space:nowrap}
+.tela-acessos :deep(.ac-btn-mini:hover){filter:brightness(1.04)}
 /* mobile: as 3 colunas empilham; o rail vira faixa rolável no topo */
 @media(max-width:1080px){
   .tela-acessos :deep(.ac-console){grid-template-columns:200px 1fr}
