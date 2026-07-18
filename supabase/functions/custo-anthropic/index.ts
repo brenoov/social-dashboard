@@ -61,6 +61,81 @@ async function buscarCusto(chave: string, inicioISO: string, fimISO: string) {
   return { dias, totalUsd };
 }
 
+// Extrato REAL por categoria (modelo + tipo de token + busca web). group_by=description.
+// É o mais fino que a Anthropic dá — "pra onde o dinheiro foi", não "chamada por chamada".
+async function buscarPorCategoria(chave: string, inicioISO: string, fimISO: string) {
+  const acc: Record<string, number> = {};
+  let page: string | null = null, guarda = 0;
+  do {
+    const url = new URL('https://api.anthropic.com/v1/organizations/cost_report');
+    url.searchParams.set('starting_at', inicioISO);
+    url.searchParams.set('ending_at', fimISO);
+    url.searchParams.set('bucket_width', '1d');
+    url.searchParams.set('limit', '31');
+    url.searchParams.append('group_by[]', 'description');
+    if (page) url.searchParams.set('page', page);
+    const r = await fetch(url, { headers: { 'x-api-key': chave, 'anthropic-version': '2023-06-01' } });
+    if (!r.ok) return []; // não derruba o resto; a UI mostra o que tiver
+    const j = await r.json();
+    for (const b of (j.data ?? [])) {
+      for (const x of (b.results ?? [])) {
+        const nome = x.description || `${x.model ?? '?'} / ${x.token_type ?? '?'}`;
+        acc[nome] = (acc[nome] ?? 0) + Number(x.amount ?? 0) / 100;
+      }
+    }
+    page = j.has_more ? j.next_page : null;
+  } while (page && ++guarda < 50);
+  return Object.entries(acc).map(([item, usd]) => ({ item, usd })).filter((c) => c.usd > 0).sort((a, b) => b.usd - a.usd);
+}
+
+// Uso por CHAVE de API (= por robô), com nome real, e o custo real RATEADO pelo uso.
+// A Anthropic não dá custo por chave (tudo cai num workspace só); então a gente distribui o
+// custo REAL total proporcional ao uso de cada chave, pesando saída 5x a entrada (razão de
+// preço do Opus, 5/25). É estimativa RATEADA (não fatura por chave), e a UI diz isso.
+async function buscarPorChave(chave: string, inicioISO: string, fimISO: string, totalUsd: number) {
+  // nomes das chaves
+  const nomes: Record<string, string> = {};
+  try {
+    const rk = await fetch('https://api.anthropic.com/v1/organizations/api_keys?limit=100',
+      { headers: { 'x-api-key': chave, 'anthropic-version': '2023-06-01' } });
+    if (rk.ok) { const jk = await rk.json(); for (const k of (jk.data ?? [])) nomes[k.id] = k.name || k.id; }
+  } catch { /* segue sem nome */ }
+
+  // uso por chave (tokens)
+  const uso: Record<string, { i: number; o: number }> = {};
+  let page: string | null = null, guarda = 0;
+  do {
+    const url = new URL('https://api.anthropic.com/v1/organizations/usage_report/messages');
+    url.searchParams.set('starting_at', inicioISO);
+    url.searchParams.set('ending_at', fimISO);
+    url.searchParams.set('bucket_width', '1d');
+    url.searchParams.set('limit', '31');
+    url.searchParams.append('group_by[]', 'api_key_id');
+    if (page) url.searchParams.set('page', page);
+    const r = await fetch(url, { headers: { 'x-api-key': chave, 'anthropic-version': '2023-06-01' } });
+    if (!r.ok) return []; // sem uso, sem atribuição — a UI segue com o resto
+    const j = await r.json();
+    for (const b of (j.data ?? [])) {
+      for (const x of (b.results ?? [])) {
+        const id = x.api_key_id || 'desconhecida';
+        const inp = Number(x.uncached_input_tokens ?? 0) + Number(x.cache_read_input_tokens ?? 0) + Number(x.cache_creation_input_tokens ?? 0);
+        const out = Number(x.output_tokens ?? 0);
+        (uso[id] ??= { i: 0, o: 0 }).i += inp;
+        uso[id].o += out;
+      }
+    }
+    page = j.has_more ? j.next_page : null;
+  } while (page && ++guarda < 50);
+
+  // peso de custo por chave: entrada×1 + saída×5 (saída é ~5x mais cara). Rateia o custo real.
+  const linhas = Object.entries(uso).map(([id, t]) => ({ id, nome: nomes[id] || id, tokensIn: t.i, tokensOut: t.o, peso: t.i + t.o * 5 }));
+  const somaPeso = linhas.reduce((s, l) => s + l.peso, 0) || 1;
+  return linhas
+    .map((l) => ({ nome: l.nome, tokensIn: l.tokensIn, tokensOut: l.tokensOut, usdEstimado: Number((totalUsd * l.peso / somaPeso).toFixed(4)) }))
+    .filter((l) => l.tokensIn + l.tokensOut > 0)
+    .sort((a, b) => b.usdEstimado - a.usdEstimado);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   try {
@@ -92,6 +167,11 @@ Deno.serve(async (req) => {
 
     const chave = await lerChaveAdmin(sb);
     const { dias: buckets, totalUsd } = await buscarCusto(chave, inicioISO, fimISO);
+    // Extrato por categoria e por chave/robô — em paralelo, e sem derrubar o total se falharem.
+    const [porCategoria, porChave] = await Promise.all([
+      buscarPorCategoria(chave, inicioISO, fimISO),
+      buscarPorChave(chave, inicioISO, fimISO, totalUsd),
+    ]);
 
     return json({
       desde: inicioISO.slice(0, 10),
@@ -100,6 +180,8 @@ Deno.serve(async (req) => {
       totalUsd: Number(totalUsd.toFixed(4)),
       totalBrl: Number((totalUsd * CAMBIO).toFixed(2)),
       dias: buckets,
+      porCategoria, // [{item, usd}] — real, "pra onde foi"
+      porChave,     // [{nome, tokensIn, tokensOut, usdEstimado}] — rateado por uso
     });
   } catch (e) {
     return json({ error: 'falha', detalhe: e instanceof Error ? e.message : String(e) }, 500);
