@@ -1404,6 +1404,10 @@ async function actZohoAcessoDaPasta(sb: any, resourceId: unknown) {
       const a = p?.attributes ?? {};
       const info = a?.share_to_entity_info ?? {};
       return {
+        // id da PERMISSÃO (recurso JSON:API tem id no topo, igual aos links). É o
+        // que a UI precisa pra revogar o acesso do time (zoho.revogarWorkspace).
+        // Sem ele, o botão "Remover" de uma permissão de workspace não teria alvo.
+        id: p?.id ?? null,
         nome: info.display_name || a.shared_by || a.email_id || "?",
         email: (info.email_id || a.email_id || "").toLowerCase(),
         escopo: wdTraduzirEscopo(String(a.type ?? "")),

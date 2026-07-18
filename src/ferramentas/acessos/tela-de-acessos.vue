@@ -670,16 +670,19 @@ async function _acPaDetalhe(f){
 }
 // WorkDrive: pergunta ao Zoho quem tem acesso. Se a chamada falhar, marcamos como
 // FALHA (não "ninguém") — o renderizador cuida de dizer isso honestamente.
-async function _acPaDetWorkdrive(f){
+async function _acPaDetWorkdrive(f,extra){
+  // `extra` deixa uma reabertura pós-escrita ligar o aviso de "atualizando…"
+  // (opts.avisoAtraso), porque a listagem do Zoho ATRASA depois de uma mudança.
+  const op=k=>Object.assign({origem:'workdrive'},extra||{},k||{});
   let r;
   try{r=await _acProxy('zoho.acessoDaPasta',{resourceId:f.external_id});}
-  catch(e){return _acPaPintaAcesso({pessoas:[],links:[],falhas:[{erro:e.message||String(e)}]},f,{origem:'workdrive'});}
+  catch(e){return _acPaPintaAcesso({pessoas:[],links:[],falhas:[{erro:e.message||String(e)}]},f,op());}
   // O proxy responde 200 com {error} em vários casos (ex.: token expirado). _acProxy
   // só lança em HTTP não-2xx, então esse erro chega aqui SEM ter lançado. Se a gente
   // ignorar, a pasta apareceria como "ninguém tem acesso" — a mentira que essa tela
   // toda foi feita pra não contar. Vira FALHA, não vazio.
-  if(r&&r.error){return _acPaPintaAcesso({pessoas:[],links:[],falhas:[{erro:r.error}]},f,{origem:'workdrive'});}
-  _acPaPintaAcesso(r,f,{origem:'workdrive'});
+  if(r&&r.error){return _acPaPintaAcesso({pessoas:[],links:[],falhas:[{erro:r.error}]},f,op());}
+  _acPaPintaAcesso(r,f,op());
 }
 // OneDrive: microsoft.shares devolve {shares:[{permId,name,email,role}], link}.
 // Normaliza pro mesmo shape do WorkDrive (pessoas/links/falhas). role vira o
@@ -712,13 +715,21 @@ async function _acPaDetICloud(f){
   _acPaPintaAcesso({pessoas,links:[],falhas:[]},f,{origem:'icloud'});
 }
 // Uma linha de pessoa no detalhe: inicial colorida + nome + e-mail + escopo/papel.
-// Quando `podeRemover` é true e a pessoa tem permId (só OneDrive tem), aparece um
-// botão "Remover" que tira o acesso dela direto (sem abrir modal).
-function _acPaPessoaRow(p,podeRemover){
+// `opts.onedrive` (com p.permId) mostra o "x" que tira o acesso da pessoa direto.
+// `opts.workdrive` mostra o "x" SÓ quando a linha é uma permissão de TIME
+// (workspace/everyone) com id — é o único acesso do WorkDrive que dá pra revogar
+// por aqui (acesso de pessoa específica ainda não é gerenciável). iCloud não tem "x".
+function _acPaPessoaRow(p,opts){
+  opts=opts||{};
   const nome=p.nome||p.email||'—';
   const cor=corDeAvatar(p.email||p.nome);
   const ini=inicialDe(p.nome,p.email);
-  const btn=(podeRemover&&p.permId)?`<button class="ac-prow-rem" data-uns="${_acEsc(p.permId)}" title="Remover o acesso desta pessoa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>`:'';
+  let btn='';
+  if(opts.onedrive&&p.permId){
+    btn=`<button class="ac-prow-rem" data-uns="${_acEsc(p.permId)}" title="Remover o acesso desta pessoa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>`;
+  }else if(opts.workdrive&&(p.escopo_cru==='workspace'||p.escopo_cru==='everyone')&&p.id){
+    btn=`<button class="ac-prow-rem" data-wdrevoke="${_acEsc(p.id)}" title="Tirar o acesso do time inteiro a esta pasta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>`;
+  }
   return `<div class="ac-prow">
     <div class="ac-av" style="background:${cor}">${_acEsc(ini)}</div>
     <div class="ac-pmeta"><div class="ac-pname">${_acEsc(nome)}</div>${p.email?`<div class="ac-pmail">${_acEsc(p.email)}</div>`:''}</div>
@@ -750,19 +761,32 @@ function _acPaPintaAcesso(resp,f,opts){
     chipsEl.innerHTML=chips;
   }
   let html='';
+  // Aviso de ATRASO: aceso só quando reabrimos o detalhe logo depois de uma escrita
+  // no WorkDrive. A listagem do Zoho demora alguns segundos pra refletir a mudança,
+  // então a lista abaixo pode ainda mostrar o estado VELHO — a verdade é o {ok} da
+  // ação (já confirmado por toast), não esta listagem.
+  if(opts.avisoAtraso){
+    html+=`<div class="ac-aviso-atraso" style="margin:12px 18px 0">Atualizando… a lista do Zoho pode levar alguns segundos para refletir a última mudança. Se algo ainda aparecer aqui como antes, aguarde e reabra a pasta.</div>`;
+  }
   if(estado.incompleto){
     html+=`<div class="ac-aviso-incompleto" style="margin:12px 18px 0">⚠️ Este quadro pode estar incompleto: não foi possível ler tudo. O que aparece abaixo é só o que deu pra ler agora.</div>`;
   }
   const ehOnedrive=(f.tipo==='onedrive');
+  const ehWorkdrive=(f.tipo==='workdrive');
   html+=`<div class="ac-sec-lab">Quem tem acesso</div>`;
   if(estado.tipo==='ok'){
-    html+=`<div class="ac-people">`+pessoas.map(p=>_acPaPessoaRow(p,ehOnedrive)).join('')+`</div>`;
+    html+=`<div class="ac-people">`+pessoas.map(p=>_acPaPessoaRow(p,{onedrive:ehOnedrive,workdrive:ehWorkdrive})).join('')+`</div>`;
   }else{
     html+=`<div class="ac-empty" style="margin:8px 18px 4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg>${_acEsc(mensagemEstadoVazio(estado))}</div>`;
   }
   html+=`<div class="ac-sec-lab">Links</div>`;
   if(links.length){
-    html+=`<div class="ac-people">`+links.map(l=>`<div class="ac-linkrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg><div class="grow" style="min-width:0"><div class="ac-linkurl">${_acEsc(l.url)}</div>${l.rotulo?`<div class="ac-muted">${_acEsc(l.rotulo)}</div>`:''}</div><button class="ac-btn2" data-copy="${_acEsc(l.url)}">Copiar</button></div>`).join('')+`</div>`;
+    html+=`<div class="ac-people">`+links.map(l=>{
+      // WorkDrive traz o id do link (dá pra apagar) e usa `nome`; OneDrive usa `rotulo`.
+      const rotulo=l.rotulo||l.nome||'';
+      const remBtn=(ehWorkdrive&&l.id)?`<button class="ac-prow-rem" data-wdlink="${_acEsc(l.id)}" title="Remover este link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>`:'';
+      return `<div class="ac-linkrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg><div class="grow" style="min-width:0"><div class="ac-linkurl">${_acEsc(l.url)}</div>${rotulo?`<div class="ac-muted">${_acEsc(rotulo)}</div>`:''}</div><button class="ac-btn2" data-copy="${_acEsc(l.url)}">Copiar</button>${remBtn}</div>`;
+    }).join('')+`</div>`;
   }else{
     html+=`<div class="ac-empty" style="margin:8px 18px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Nenhum link público criado nesta pasta.</div>`;
   }
@@ -774,10 +798,26 @@ function _acPaPintaAcesso(resp,f,opts){
       <button class="ac-btn-do" data-acao="setor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M17 8.5a3 3 0 0 1 0 5.8M18.5 20a6 6 0 0 0-3-5"/></svg>Liberar setor</button>
       <button class="ac-btn-do danger" data-acao="remover" title="Tira esta pasta do controle daqui (não apaga nada no OneDrive)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Remover do controle</button>
     </div>`;
+  }else if(ehWorkdrive){
+    // WorkDrive tem ESCRITA ligada: criar link e liberar o time inteiro. O "papel"
+    // (leitura/edição) vale pras duas ações — default leitura, o mais seguro.
+    // "Dar acesso a uma pessoa específica" segue TRAVADO de propósito: o formato
+    // dessa chamada ainda não foi confirmado no proxy.
+    html+=`<div class="ac-actbar">
+      <label class="ac-wd-papel-wrap" title="Nível de acesso das ações abaixo">
+        <span>Acesso:</span>
+        <select id="ac-wd-papel" class="ac-wd-papel">
+          <option value="leitura">Só leitura</option>
+          <option value="edicao">Edição</option>
+        </select>
+      </label>
+      <button class="ac-btn-do" data-acao="wd-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Criar link</button>
+      <button class="ac-btn-do primary" data-acao="wd-workspace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M17 8.5a3 3 0 0 1 0 5.8M18.5 20a6 6 0 0 0-3-5"/></svg>Compartilhar com o time</button>
+      <button class="ac-btn-lock" disabled title="Em breve — dar acesso a uma pessoa específica pelo WorkDrive ainda está em finalização"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Dar acesso a uma pessoa</button>
+    </div>`;
   }else{
-    const t=(f.tipo==='workdrive')
-      ?'Reconecte o Zoho concedendo compartilhamento para habilitar'
-      :'iCloud não tem API — o acesso é registrado manualmente nas Conexões.';
+    // iCloud: sem API — segue travado, com explicação no hover.
+    const t='iCloud não tem API — o acesso é registrado manualmente nas Conexões.';
     html+=`<div class="ac-actbar">
       <button class="ac-btn-lock" disabled title="${_acEsc(t)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Dar acesso a alguém</button>
       <button class="ac-btn-lock" disabled title="${_acEsc(t)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Criar link</button>
@@ -794,6 +834,18 @@ function _acPaPintaAcesso(resp,f,opts){
       if(a==='setor')return _acPaLiberarSetor(f);
       if(a==='remover')return _acPaRemoverPasta(f);
     }));
+  }
+  // Escrita do WorkDrive: link (criar/apagar) + time (compartilhar/revogar). O papel
+  // é lido na HORA do clique, do <select>, pra sempre pegar o valor atual.
+  if(ehWorkdrive){
+    const papelDe=()=>{const s=body.querySelector('#ac-wd-papel');return (s&&s.value)||'leitura';};
+    body.querySelectorAll('[data-acao]').forEach(b=>b.addEventListener('click',()=>{
+      const a=b.dataset.acao;
+      if(a==='wd-link')return _acPaWdCriarLink(f,papelDe());
+      if(a==='wd-workspace')return _acPaWdCompartilharWorkspace(f,papelDe());
+    }));
+    body.querySelectorAll('[data-wdlink]').forEach(b=>b.addEventListener('click',()=>_acPaWdApagarLink(f,b.dataset.wdlink)));
+    body.querySelectorAll('[data-wdrevoke]').forEach(b=>b.addEventListener('click',()=>_acPaWdRevogarWorkspace(f,b.dataset.wdrevoke)));
   }
 }
 // ---------------------------------------------------------------------------
@@ -863,6 +915,87 @@ async function _acPaRemoverPasta(f){
     if(_acPaSel===f.id)_acPaSel=null;
     _acPaRefreshOnedrive();
   }catch(e){adminToast('Erro: '+e.message,false);}
+}
+// ---------------------------------------------------------------------------
+// ESCRITA do WorkDrive (Zoho) na aba Pastas & Acessos. Espelha o padrão do
+// OneDrive: proxy CONSTRANGIDO (zoho.criarLink/apagarLink/compartilharWorkspace/
+// revogarWorkspace) + modais próprios (nada de confirm/alert/prompt nativos).
+//
+// GOTCHA vivo (confirmado ao vivo): depois de criar/apagar link ou compartilhar/
+// revogar, a listagem do Zoho ATRASA alguns segundos. Então a UI CONFIA no
+// {ok:true} da ação (é a verdade) e mostra o sucesso por toast; ao reabrir o
+// detalhe, liga o aviso "atualizando…" — nunca trata a listagem imediata como
+// fato (não diz "removido" só porque sumiu, nem "ainda existe" só porque aparece).
+// ---------------------------------------------------------------------------
+// Reabre o detalhe do WorkDrive após uma escrita, com o aviso de atraso ligado.
+function _acPaRefreshWorkdrive(f){return _acPaDetWorkdrive(f,{avisoAtraso:true});}
+// Mostra a URL do link recém-criado num modal próprio, com botão de copiar (reusa
+// _acCopy). É a forma da pessoa pegar o link — a listagem pode ainda não mostrá-lo.
+function _acPaWdMostrarLink(url){
+  const ov=document.createElement('div');ov.className='ac-modal-ov open';
+  ov.innerHTML=`<div class="ac-modal" style="max-width:520px">
+    <div class="ac-modal-body" style="padding-top:18px">
+      <div style="font-size:14px;font-weight:640;margin-bottom:8px">Link criado ✓</div>
+      <div class="ac-muted" style="font-size:12.5px;margin-bottom:12px">Copie e compartilhe. A lista de links da pasta pode levar alguns segundos para mostrar este link.</div>
+      <div class="ac-linkrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg><div class="grow" style="min-width:0"><div class="ac-linkurl">${_acEsc(url||'')}</div></div><button class="ac-btn2" id="ac-wd-copylink">Copiar</button></div>
+    </div>
+    <div class="ac-modal-foot" style="justify-content:flex-end"><button class="ac-btn primary" data-x>Fechar</button></div></div>`;
+  (document.getElementById('acessos-screen')||document.body).appendChild(ov);
+  const close=()=>ov.remove();
+  ov.addEventListener('click',e=>{if(e.target===ov)close();});
+  ov.querySelector('[data-x]').addEventListener('click',close);
+  const cb=ov.querySelector('#ac-wd-copylink');if(cb)cb.addEventListener('click',()=>_acCopy(url||'',cb));
+}
+// "Criar link" — cria um link de compartilhamento da pasta no WorkDrive. Mostra a
+// URL num modal e reabre o detalhe com o aviso de atraso.
+async function _acPaWdCriarLink(f,papel){
+  try{const r=await _acProxy('zoho.criarLink',{resourceId:f.external_id,papel:papel||'leitura'});
+    if(r&&r.error){adminToast('Erro ao criar link: '+(r.detalhe||r.error),false);return;}
+    if(!(r&&r.ok)){adminToast('Não deu pra confirmar a criação do link.',false);return;}
+    await _acLog('workdrive.criarLink','pasta:'+f.nome+' ('+(papel||'leitura')+')','ok',null);
+    adminToast('Link criado');
+    if(r.url)_acPaWdMostrarLink(r.url);
+    _acPaRefreshWorkdrive(f);
+  }catch(e){adminToast('Erro ao criar link: '+e.message,false);}
+}
+// "Compartilhar com o time" — dá acesso à pasta pra TODO o workspace. Confirma antes.
+async function _acPaWdCompartilharWorkspace(f,papel){
+  const nivel=(papel==='edicao')?'edição':'leitura';
+  const ok=await _acConfirmar('Dar acesso de '+nivel+' à pasta "'+f.nome+'" para TODO o time (workspace)?',{ok:'Compartilhar com o time'});
+  if(!ok)return;
+  try{const r=await _acProxy('zoho.compartilharWorkspace',{resourceId:f.external_id,papel:papel||'leitura'});
+    if(r&&r.error){adminToast('Erro ao compartilhar: '+(r.detalhe||r.error),false);return;}
+    if(!(r&&r.ok)){adminToast('Não deu pra confirmar o compartilhamento.',false);return;}
+    await _acLog('workdrive.compartilharWorkspace','pasta:'+f.nome+' ('+(papel||'leitura')+')','ok',null);
+    adminToast('Time liberado nesta pasta');
+    _acPaRefreshWorkdrive(f);
+  }catch(e){adminToast('Erro ao compartilhar: '+e.message,false);}
+}
+// Remove um link de compartilhamento da pasta (revoga o acesso público por ele).
+async function _acPaWdApagarLink(f,linkId){
+  if(!linkId)return;
+  const ok=await _acConfirmar('Remover este link de compartilhamento? Quem tiver o link perde o acesso por ele.',{ok:'Remover link',perigo:true});
+  if(!ok)return;
+  try{const r=await _acProxy('zoho.apagarLink',{linkId});
+    if(r&&r.error){adminToast('Erro ao remover link: '+(r.detalhe||r.error),false);return;}
+    if(!(r&&r.ok)){adminToast('Não deu pra confirmar a remoção do link.',false);return;}
+    await _acLog('workdrive.apagarLink','pasta:'+f.nome,'ok',null);
+    adminToast('Link removido');
+    _acPaRefreshWorkdrive(f);
+  }catch(e){adminToast('Erro ao remover link: '+e.message,false);}
+}
+// Revoga o acesso do TIME (permissão workspace/everyone) à pasta.
+async function _acPaWdRevogarWorkspace(f,permissaoId){
+  if(!permissaoId)return;
+  const ok=await _acConfirmar('Tirar o acesso do time inteiro à pasta "'+f.nome+'"?',{ok:'Remover acesso do time',perigo:true});
+  if(!ok)return;
+  try{const r=await _acProxy('zoho.revogarWorkspace',{permissaoId});
+    if(r&&r.error){adminToast('Erro ao remover acesso: '+(r.detalhe||r.error),false);return;}
+    if(!(r&&r.ok)){adminToast('Não deu pra confirmar a remoção.',false);return;}
+    await _acLog('workdrive.revogarWorkspace','pasta:'+f.nome,'ok',null);
+    adminToast('Acesso do time removido');
+    _acPaRefreshWorkdrive(f);
+  }catch(e){adminToast('Erro ao remover acesso: '+e.message,false);}
 }
 // "Liberar setor" — solta ESTA pasta pro setor (departamento) inteiro de uma vez.
 // Reusa o mesmo modal de liberação em massa da aba Drive (_acAbrirLiberacaoEmMassa),
@@ -2819,6 +2952,18 @@ onMounted(() => {
   background:color-mix(in srgb, var(--orange) 8%, transparent);
   color:var(--orange);font-size:13px;line-height:1.45;font-weight:600;
 }
+/* Aviso "atualizando…" após uma escrita no WorkDrive (informativo, não alarme):
+   usa o tom de acento, não o laranja de erro. Tokens de tema (claro E escuro). */
+.tela-acessos :deep(.ac-aviso-atraso){
+  padding:10px 14px;
+  border:1px solid var(--accent-mid);border-left-width:4px;
+  border-radius:var(--radius-md);
+  background:var(--accent-light);
+  color:var(--accent);font-size:12.5px;line-height:1.45;font-weight:600;
+}
+/* Seletor leitura/edição da barra de ações do WorkDrive. */
+.tela-acessos :deep(.ac-wd-papel-wrap){display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:640;color:var(--muted)}
+.tela-acessos :deep(.ac-wd-papel){font-size:13px;font-weight:600;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer}
 .tela-acessos :deep(.ac-btn){background:#0d9488;border:none;color:#fff;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px}
 .tela-acessos :deep(.ac-btn.ghost){background:none;border:1px solid rgba(255,255,255,.18);color:inherit}
 .tela-acessos :deep(.ac-btn.danger){background:#991b1b}
