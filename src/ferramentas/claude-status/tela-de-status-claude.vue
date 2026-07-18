@@ -38,9 +38,13 @@
           </p>
         </div>
         <div class="csc-hero-gasto">
-          <span class="csc-hero-gasto-lbl">Custo no mês</span>
-          <span class="csc-hero-gasto-val">{{ fmtBRL(kpis.usdMes * CAMBIO) }}</span>
-          <span class="csc-hero-gasto-sub">equivale a {{ fmtUsd(kpis.usdMes) }} · hoje: {{ fmtBRL(kpis.usdHoje * CAMBIO) }}</span>
+          <span class="csc-hero-gasto-lbl">Gasto real da Anthropic · últimos 30 dias</span>
+          <span v-if="gastoRealMesCarregando" class="csc-hero-gasto-val csc-carregando">…</span>
+          <span v-else-if="gastoRealMes" class="csc-hero-gasto-val">{{ fmtBRL(gastoRealMes.totalBrl) }}</span>
+          <span v-else class="csc-hero-gasto-val csc-hero-gasto-indisp">indisponível</span>
+          <span v-if="gastoRealMes && !gastoRealMesCarregando" class="csc-hero-gasto-sub">valor de verdade cobrado — inclui <b>tudo</b>: os robôs, as buscas na web e as sessões de desenvolvimento com IA.</span>
+          <span v-else-if="gastoRealMesErro && !gastoRealMesCarregando" class="csc-hero-gasto-erro">Não consegui puxar o gasto real da Anthropic agora. Tente recarregar a página em instantes.</span>
+          <span class="csc-hero-gasto-est">Estimativa só dos robôs deste painel: <b>{{ fmtBRL(kpis.usdMes * CAMBIO) }}</b>. O número real acima costuma ser maior porque inclui muito mais que os robôs.</span>
         </div>
       </section>
 
@@ -175,8 +179,21 @@
           </div>
         </div>
 
+        <!-- GASTO REAL: o número que realmente importa (a fatura da Anthropic). -->
+        <div class="csc-real">
+          <div class="csc-real-main">
+            <span class="csc-real-lbl">Gasto real cobrado pela Anthropic · {{ periodoLabel }}</span>
+            <span v-if="gastoRealCarregando" class="csc-real-val csc-carregando">…</span>
+            <span v-else-if="gastoReal" class="csc-real-val">{{ fmtBRL(gastoReal.totalBrl) }}</span>
+            <span v-else class="csc-real-val csc-real-indisp">indisponível</span>
+            <span v-if="gastoReal && !gastoRealCarregando" class="csc-real-sub">equivale a {{ fmtUsd(gastoReal.totalUsd) }} · de {{ fmtDataCurta(gastoReal.desde) }} a {{ fmtDataCurta(gastoReal.ate) }}</span>
+          </div>
+          <p class="csc-real-exp">Este é o <b>valor de verdade</b> que a Anthropic cobrou no período. Inclui <b>tudo</b>: os robôs deste painel, as buscas na web, o cache e, principalmente, as <b>sessões de desenvolvimento com IA</b> (quando alguém programa junto com o Claude). Por isso costuma ser bem maior que a estimativa dos robôs logo abaixo.</p>
+          <p v-if="gastoRealErro && !gastoRealCarregando" class="csc-real-erro-box">Não consegui puxar o gasto real da Anthropic agora — tente recarregar em instantes. Os números abaixo são só a <b>estimativa dos robôs</b>, não o total cobrado.</p>
+        </div>
+
         <div class="csc-kpis">
-          <div class="csc-kpi"><span class="csc-kpi-lbl">Total gasto no período</span><span class="csc-kpi-val">{{ fmtBRL(exResumo.usd * CAMBIO) }}</span><span class="csc-kpi-sub">equivale a {{ fmtUsd(exResumo.usd) }}</span></div>
+          <div class="csc-kpi"><span class="csc-kpi-lbl">Estimativa dos robôs no período</span><span class="csc-kpi-val">{{ fmtBRL(exResumo.usd * CAMBIO) }}</span><span class="csc-kpi-sub">só as tarefas dos robôs abaixo — o real acima é maior</span></div>
           <div class="csc-kpi"><span class="csc-kpi-lbl">Tarefas que custaram</span><span class="csc-kpi-val">{{ exResumo.pagas }}</span><span class="csc-kpi-sub">de {{ exResumo.total }} no total</span></div>
           <div class="csc-kpi"><span class="csc-kpi-lbl">Tarefas de custo zero</span><span class="csc-kpi-val">{{ exResumo.zero }}</span><span class="csc-kpi-sub">não usaram API paga</span></div>
           <div class="csc-kpi"><span class="csc-kpi-lbl">Média por tarefa paga</span><span class="csc-kpi-val">{{ fmtBRL(exResumo.mediaPaga * CAMBIO) }}</span><span class="csc-kpi-sub">no período</span></div>
@@ -204,7 +221,7 @@
             <span class="csc-ex-oque">{{ fraseAcaoMaiuscula(e) }}</span>
             <span class="csc-ex-v" :class="{ 'csc-zero': Number(e.usd) === 0 }">{{ Number(e.usd) === 0 ? 'R$ 0' : fmtBRL(e.usd * CAMBIO) }}</span>
           </div>
-          <div v-if="execucoesPeriodo.length" class="csc-ex-row csc-ex-tot"><span></span><span></span><span>Total do período</span><span class="csc-ex-v">{{ fmtBRL(exResumo.usd * CAMBIO) }}</span></div>
+          <div v-if="execucoesPeriodo.length" class="csc-ex-row csc-ex-tot"><span></span><span></span><span>Total estimado (só robôs)</span><span class="csc-ex-v">{{ fmtBRL(exResumo.usd * CAMBIO) }}</span></div>
           <div v-if="!execucoesPeriodo.length" class="csc-fi-vazio">Nenhuma tarefa nesse período.</div>
         </div>
       </div><!-- fim aba extrato -->
@@ -232,7 +249,7 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref, reactive, computed } from 'vue'
+import { onMounted, onUnmounted, ref, reactive, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
@@ -379,6 +396,68 @@ const porSitAtivo = computed(() => quadro.value === 'simples' ? porSitSimples.va
 const aba = ref('visao')
 const periodos = [{ d: 7, label: '7 dias' }, { d: 14, label: '14 dias' }, { d: 30, label: '30 dias' }, { d: 3650, label: 'Tudo' }]
 const periodo = ref(30)
+const periodoLabel = computed(() => {
+  if (periodo.value >= 3650) return 'últimos 90 dias'
+  const p = periodos.find((x) => x.d === periodo.value)
+  return p ? p.label : `${periodo.value} dias`
+})
+
+// ── GASTO REAL da Anthropic (a fatura de verdade) ──────────────────────────
+// O total que a tela calcula (soma do campo `usd` que os robôs anotaram) é só
+// uma ESTIMATIVA PARCIAL: conta apenas as tarefas dos robôs deste painel. A
+// Anthropic cobra bem mais — a fatura real inclui também as sessões de
+// desenvolvimento com IA (Claude Code), as buscas na web e o cache. A edge
+// function `custo-anthropic` devolve esse número real (só admin tem acesso).
+// Nunca inventamos um número: se a busca falhar, mostramos o erro, nunca R$ 0.
+async function _buscarCustoReal(dias) {
+  try {
+    const { data, error } = await sbClient.functions.invoke('custo-anthropic', { body: { dias } })
+    if (error) return { erro: error.message || 'não consegui falar com o servidor' }
+    if (data && data.error) return { erro: data.detalhe || data.error }
+    if (!data || typeof data.totalBrl !== 'number') return { erro: 'resposta sem valor' }
+    return { dados: data }
+  } catch (e) {
+    return { erro: (e && e.message) || 'falha inesperada' }
+  }
+}
+
+// Hero (visão geral): sempre 30 dias, pra casar com a frase "nos últimos 30 dias".
+const gastoRealMes = ref(null)
+const gastoRealMesCarregando = ref(false)
+const gastoRealMesErro = ref(null)
+async function carregarGastoRealMes() {
+  gastoRealMesCarregando.value = true
+  gastoRealMesErro.value = null
+  const r = await _buscarCustoReal(30)
+  gastoRealMesCarregando.value = false
+  if (r.erro) { gastoRealMesErro.value = r.erro; gastoRealMes.value = null }
+  else gastoRealMes.value = r.dados
+}
+
+// Extrato: segue o período escolhido (7/14/30 dias; "Tudo" → 90, o teto da função).
+const gastoReal = ref(null)
+const gastoRealCarregando = ref(false)
+const gastoRealErro = ref(null)
+let _gastoRealSeq = 0 // ignora respostas antigas se o período mudar durante a busca
+async function carregarGastoReal() {
+  const dias = periodo.value >= 3650 ? 90 : periodo.value
+  const seq = ++_gastoRealSeq
+  gastoRealCarregando.value = true
+  gastoRealErro.value = null
+  const r = await _buscarCustoReal(dias)
+  if (seq !== _gastoRealSeq) return // chegou uma resposta mais nova; descarta esta
+  gastoRealCarregando.value = false
+  if (r.erro) { gastoRealErro.value = r.erro; gastoReal.value = null }
+  else gastoReal.value = r.dados
+}
+// Ao trocar o período, rebusca o gasto real daquela janela.
+watch(periodo, () => { carregarGastoReal() })
+
+function fmtDataCurta(iso) {
+  if (!iso) return ''
+  const p = String(iso).split('-')
+  return p.length === 3 ? `${p[2]}/${p[1]}` : String(iso)
+}
 
 // Cada robô pertence a uma "área" (o que o usuário chama de projeto) — pra consolidar o gasto.
 const AREA = {
@@ -511,7 +590,9 @@ onMounted(() => {
   tickRelogio()
   _clockTimer = setInterval(tickRelogio, 1000)
   carregar()
-  _refreshTimer = setInterval(carregar, 60000)
+  carregarGastoRealMes()
+  carregarGastoReal()
+  _refreshTimer = setInterval(() => { carregar(); carregarGastoRealMes(); carregarGastoReal() }, 60000)
 })
 onUnmounted(() => {
   if (_clockTimer) clearInterval(_clockTimer)
@@ -562,7 +643,28 @@ onUnmounted(() => {
 .csc-hero-gasto { flex: 0 0 auto; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 4px 4px 4px 26px; border-left: 1px solid var(--border); }
 .csc-hero-gasto-lbl { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
 .csc-hero-gasto-val { font-family: var(--fm); font-size: clamp(32px, 5.2vw, 56px); font-weight: 600; color: var(--text); line-height: 1; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
-.csc-hero-gasto-sub { font-size: 12px; color: var(--muted); font-family: var(--fm); }
+.csc-hero-gasto-sub { font-size: 12px; color: var(--muted); line-height: 1.5; max-width: 300px; }
+.csc-hero-gasto-sub b { color: var(--text); font-weight: 600; }
+.csc-hero-gasto-indisp { font-size: clamp(20px, 3vw, 28px); color: var(--red); }
+.csc-hero-gasto-erro { font-size: 12.5px; color: var(--red); line-height: 1.5; max-width: 300px; font-weight: 500; }
+.csc-hero-gasto-est { margin-top: 8px; font-size: 11.5px; color: var(--muted); line-height: 1.5; max-width: 300px; padding-top: 8px; border-top: 1px dashed var(--border); }
+.csc-hero-gasto-est b { color: var(--text); font-weight: 600; }
+.csc-carregando { color: var(--muted); }
+
+/* GASTO REAL (extrato): bloco de destaque com a fatura de verdade da Anthropic */
+.csc-real { border-radius: 18px; border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); padding: clamp(18px, 2.4vw, 26px); display: flex; flex-direction: column; gap: 12px; box-shadow: var(--shadow-md); animation: cscUp .5s cubic-bezier(.22,1,.36,1) both; background:
+    radial-gradient(90% 130% at 100% 0%, color-mix(in srgb, var(--accent) 16%, transparent) 0%, transparent 60%),
+    radial-gradient(70% 120% at 0% 100%, color-mix(in srgb, var(--violet) 12%, transparent) 0%, transparent 55%),
+    var(--surface); }
+.csc-real-main { display: flex; flex-direction: column; gap: 4px; }
+.csc-real-lbl { font-size: 11.5px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--accent); }
+.csc-real-val { font-family: var(--fm); font-size: clamp(34px, 6vw, 60px); font-weight: 600; color: var(--text); line-height: 1; letter-spacing: -1.5px; font-variant-numeric: tabular-nums; }
+.csc-real-indisp { color: var(--red); letter-spacing: -.5px; font-size: clamp(24px, 3.4vw, 34px); }
+.csc-real-sub { font-size: 12.5px; color: var(--muted); }
+.csc-real-exp { font-size: 13px; line-height: 1.6; color: var(--muted); max-width: 78ch; }
+.csc-real-exp b { color: var(--text); font-weight: 600; }
+.csc-real-erro-box { font-size: 12.5px; line-height: 1.55; color: var(--red); background: color-mix(in srgb, var(--red) 8%, transparent); border: 1px solid color-mix(in srgb, var(--red) 28%, transparent); border-radius: var(--radius-md); padding: 10px 13px; }
+.csc-real-erro-box b { font-weight: 700; }
 
 /* LEGENDA */
 .csc-legenda { display: flex; align-items: center; gap: 14px; padding: 13px 18px; border-radius: var(--radius-md); border: 1px dashed var(--border); background: var(--surface2); }
