@@ -192,6 +192,48 @@
           <p v-if="gastoRealErro && !gastoRealCarregando" class="csc-real-erro-box">Não consegui puxar o gasto real da Anthropic agora — tente recarregar em instantes. Os números abaixo são só a <b>estimativa dos robôs</b>, não o total cobrado.</p>
         </div>
 
+        <!-- DETALHAMENTO 1 — "Para onde o dinheiro foi" (por categoria): é o valor REAL
+             cobrado pela Anthropic, quebrado por modelo e tipo de uso. Mesmo período do
+             gasto real acima. Se a função devolver a lista vazia, mostramos "indisponível"
+             — nunca inventamos um valor. -->
+        <div class="csc-det">
+          <div class="csc-det-head">
+            <h2 class="csc-sec-t">Para onde o dinheiro foi</h2>
+            <span class="csc-det-selo csc-det-selo-real">valor real</span>
+          </div>
+          <p class="csc-sec-d">É o valor <b>real</b> cobrado pela Anthropic, quebrado por modelo e tipo de uso (texto que entra, resposta que sai, cache…). A Anthropic não detalha chamada por chamada — <b>isto é o mais fino que existe</b>.</p>
+          <div v-if="gastoRealCarregando" class="csc-det-vazio">Carregando…</div>
+          <div v-else-if="detCategoria.length" class="csc-det-lista">
+            <div v-for="(c, i) in detCategoria" :key="'cat' + i" class="csc-det-linha">
+              <span class="csc-det-nome">{{ traduzCategoria(c.item) }}</span>
+              <span class="csc-det-val">{{ fmtBRL(Number(c.usd) * CAMBIO) }}</span>
+            </div>
+          </div>
+          <div v-else class="csc-det-vazio">Detalhamento por categoria indisponível agora.</div>
+        </div>
+
+        <!-- DETALHAMENTO 2 — "Quem gastou" (por robô): a Anthropic NÃO cobra separado por
+             robô. Este valor é o custo real RATEADO pelo uso de cada chave — estimativa de
+             atribuição, não fatura por robô. Deixamos isso explícito, sem esconder. -->
+        <div class="csc-det">
+          <div class="csc-det-head">
+            <h2 class="csc-sec-t">Quem gastou</h2>
+            <span class="csc-det-selo csc-det-selo-rateado">rateado por uso</span>
+          </div>
+          <p class="csc-sec-d">A Anthropic <b>não</b> cobra separado por robô. Este valor é o custo real <b>rateado</b> pelo uso de cada chave (quanto cada uma consumiu) — é uma <b>estimativa de atribuição, não uma fatura por robô</b>.</p>
+          <div v-if="gastoRealCarregando" class="csc-det-vazio">Carregando…</div>
+          <div v-else-if="detChave.length" class="csc-det-lista">
+            <div v-for="(k, i) in detChave" :key="'chave' + i" class="csc-det-linha">
+              <div class="csc-det-nome-wrap">
+                <span class="csc-det-nome">{{ traduzChave(k.nome) }}</span>
+                <span class="csc-det-tokens">{{ fmtNum(k.tokensIn) }} tokens enviados · {{ fmtNum(k.tokensOut) }} gerados</span>
+              </div>
+              <span class="csc-det-val">{{ fmtBRL(Number(k.usdEstimado) * CAMBIO) }}</span>
+            </div>
+          </div>
+          <div v-else class="csc-det-vazio">Detalhamento por robô indisponível agora.</div>
+        </div>
+
         <div class="csc-kpis">
           <div class="csc-kpi"><span class="csc-kpi-lbl">Estimativa dos robôs no período</span><span class="csc-kpi-val">{{ fmtBRL(exResumo.usd * CAMBIO) }}</span><span class="csc-kpi-sub">só as tarefas dos robôs abaixo — o real acima é maior</span></div>
           <div class="csc-kpi"><span class="csc-kpi-lbl">Tarefas que custaram</span><span class="csc-kpi-val">{{ exResumo.pagas }}</span><span class="csc-kpi-sub">de {{ exResumo.total }} no total</span></div>
@@ -459,6 +501,46 @@ function fmtDataCurta(iso) {
   return p.length === 3 ? `${p[2]}/${p[1]}` : String(iso)
 }
 
+// ── DETALHAMENTO do gasto real (por categoria + por robô) ───────────────────
+// Ambas as listas já vêm na MESMA resposta da função custo-anthropic (no ref
+// gastoReal) — não fazemos uma segunda chamada, só lemos os campos.
+//   • porCategoria → valor REAL cobrado, quebrado por modelo e tipo de token.
+//   • porChave     → custo real RATEADO pelo uso de cada chave (atribuição, não fatura).
+// Se a sub-chamada da função falhar, o campo vem como [] — a tela mostra
+// "indisponível", nunca inventa número.
+const detCategoria = computed(() => Array.isArray(gastoReal.value?.porCategoria) ? gastoReal.value.porCategoria : [])
+const detChave = computed(() => Array.isArray(gastoReal.value?.porChave) ? gastoReal.value.porChave : [])
+
+// Traduz o nome técnico da categoria da Anthropic pra algo que o dono entende.
+// Nomes não reconhecidos voltam como vieram (nunca inventamos rótulo).
+function traduzCategoria(item) {
+  const raw = String(item || '').trim()
+  const low = raw.toLowerCase()
+  if (low.includes('web search')) return 'Buscas na web'
+  if (low.includes('code execution')) return 'Execução de código'
+  // Modelo, ex.: "Claude Opus 4.8" / "Claude Sonnet 4.6" / "Claude Haiku 4.5"
+  const mMod = raw.match(/Claude\s+(Opus|Sonnet|Haiku)\s+[\d.]+/i)
+  const modelo = mMod ? mMod[0].replace(/^Claude\s+/i, '') : ''
+  let tipo = ''
+  if (low.includes('cache write') || low.includes('cache creation')) tipo = 'gravação de cache'
+  else if (low.includes('cache hit') || low.includes('cache read')) tipo = 'cache reaproveitado (mais barato)'
+  else if (low.includes('output')) tipo = 'respostas geradas (saída)'
+  else if (low.includes('input')) tipo = 'texto enviado (entrada)'
+  if (modelo && tipo) return `${modelo} · ${tipo}`
+  if (modelo) return modelo
+  return raw
+}
+
+// Traduz o nome da chave (robô) pra um rótulo amigável. Chave desconhecida
+// aparece como veio.
+const ROBO_CHAVE = {
+  desenvolvimentopilotos: 'Desenvolvimento & pilotos (sessões de IA, ex.: este trabalho)',
+  spyconcorrente: 'Espião de concorrentes',
+  gestortrafego: 'Gestor de Tráfego',
+  gestorcomercial: 'Gestor Comercial',
+}
+const traduzChave = (nome) => ROBO_CHAVE[String(nome || '').toLowerCase()] || nome || '—'
+
 // Cada robô pertence a uma "área" (o que o usuário chama de projeto) — pra consolidar o gasto.
 const AREA = {
   'gestor-comercial': 'Gestão Comercial',
@@ -665,6 +747,21 @@ onUnmounted(() => {
 .csc-real-exp b { color: var(--text); font-weight: 600; }
 .csc-real-erro-box { font-size: 12.5px; line-height: 1.55; color: var(--red); background: color-mix(in srgb, var(--red) 8%, transparent); border: 1px solid color-mix(in srgb, var(--red) 28%, transparent); border-radius: var(--radius-md); padding: 10px 13px; }
 .csc-real-erro-box b { font-weight: 700; }
+
+/* DETALHAMENTO do gasto real: por categoria (real) e por robô (rateado) */
+.csc-det { display: flex; flex-direction: column; gap: 10px; }
+.csc-det-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.csc-det-selo { font-size: 10px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; padding: 3px 10px; border-radius: 20px; flex-shrink: 0; }
+.csc-det-selo-real { color: var(--green); background: color-mix(in srgb, var(--green) 12%, transparent); border: 1px solid color-mix(in srgb, var(--green) 32%, transparent); }
+.csc-det-selo-rateado { color: var(--yellow); background: color-mix(in srgb, var(--yellow) 14%, transparent); border: 1px solid color-mix(in srgb, var(--yellow) 34%, transparent); }
+.csc-det-lista { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); }
+.csc-det-linha { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 18px; border-bottom: 1px solid var(--border); }
+.csc-det-linha:last-child { border-bottom: none; }
+.csc-det-nome-wrap { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.csc-det-nome { font-size: 13.5px; color: var(--text); font-weight: 500; line-height: 1.35; }
+.csc-det-tokens { font-size: 11px; color: var(--muted); font-family: var(--fm); font-variant-numeric: tabular-nums; }
+.csc-det-val { font-family: var(--fm); font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -.3px; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+.csc-det-vazio { background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius-md); padding: 18px; text-align: center; color: var(--muted); font-size: 13px; font-style: italic; }
 
 /* LEGENDA */
 .csc-legenda { display: flex; align-items: center; gap: 14px; padding: 13px 18px; border-radius: var(--radius-md); border: 1px dashed var(--border); background: var(--surface2); }
