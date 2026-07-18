@@ -1475,7 +1475,13 @@ async function actZohoSondarEscrita(sb: any, resourceId: unknown) {
   // Corpo mínimo de criar link (formato JSON:API do WorkDrive, role_id 6 = view).
   const corpo = {
     data: {
-      attributes: { resource_id: rid, role_id: "6", link_name: "sonda-escopo-temporaria" },
+      attributes: {
+        resource_id: rid,
+        role_id: "6",
+        link_name: "sonda-escopo-temporaria",
+        allow_download: true,
+        request_user_data: false,
+      },
       type: "links",
     },
   };
