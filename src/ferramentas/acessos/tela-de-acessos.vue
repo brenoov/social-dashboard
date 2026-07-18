@@ -9,8 +9,77 @@
   <div id="acessos-screen" class="tela-acessos">
     <div class="ac-topbar">
       <button class="ac-back" @click="voltar">← Central</button>
-      <div class="ac-title">Colaboradores e Acessos</div>
     </div>
+
+    <!-- ============================================================
+         TOPO NOVO (Tarefa 2 do redesign): cabeçalho comum + faixa de
+         4 KPIs, acima das abas. Fica como markup ESTÁTICO aqui no
+         <template> (não montado por innerHTML), então o CSS scoped
+         normal já alcança — não precisa de :deep pra esta parte.
+         Os valores que mudam (bolinhas de status e números dos KPIs)
+         têm id e são preenchidos por JS no onMounted, atualizando só
+         o texto/classe dos elementos que já existem aqui.
+         ============================================================ -->
+    <div class="ac-topo">
+      <!-- Cabeçalho: marca RB + título + subtítulo + pills de provedor -->
+      <div class="ac-hero">
+        <div class="ac-hero-brand">
+          <div class="ac-hero-mark">RB</div>
+          <div>
+            <h1 class="ac-hero-h1">Colaboradores &amp; Acessos</h1>
+            <div class="ac-hero-sub">Central de controle de pastas, pessoas e permissões — RBV&nbsp;Company</div>
+          </div>
+        </div>
+        <div class="ac-hero-provs">
+          <!-- Zoho e Microsoft têm status REAL (consultado no acessos-proxy).
+               A bolinha começa cinza ("verificando") e o JS pinta verde
+               (conectado) ou âmbar (não conectado); se a consulta falhar,
+               fica cinza com "status indisponível" — nunca em silêncio. -->
+          <div class="ac-hero-prov" id="ac-prov-zoho-pill" title="Verificando conexão…">
+            <span class="ac-hero-dot" id="ac-prov-zoho"></span>Zoho WorkDrive<span class="ac-hero-prov-note" id="ac-prov-zoho-note">verificando…</span>
+          </div>
+          <div class="ac-hero-prov" id="ac-prov-ms-pill" title="Verificando conexão…">
+            <span class="ac-hero-dot" id="ac-prov-ms"></span>Microsoft&nbsp;365<span class="ac-hero-prov-note" id="ac-prov-ms-note">verificando…</span>
+          </div>
+          <!-- iCloud é provedor legado/manual: não tem API de status pra
+               consultar, então fica sempre âmbar ("legado"), fixo. -->
+          <div class="ac-hero-prov" title="Provedor legado (controle manual, sem conexão automática)">
+            <span class="ac-hero-dot leg"></span>iCloud
+          </div>
+        </div>
+      </div>
+
+      <!-- Faixa de 4 KPIs. Números começam com "…" e o JS troca pelos
+           reais; se algum não der pra calcular de forma barata/confiável,
+           o JS mostra "—" com um title explicando (honestidade > número). -->
+      <div class="ac-kpis">
+        <div class="ac-kpi k1">
+          <div class="ac-kpi-rail"></div>
+          <div class="ac-kpi-lab">Pastas geridas</div>
+          <div class="ac-kpi-val tnum" id="ac-kpi-pastas">…</div>
+          <div class="ac-kpi-fine" id="ac-kpi-pastas-fine">carregando…</div>
+        </div>
+        <div class="ac-kpi k2">
+          <div class="ac-kpi-rail"></div>
+          <div class="ac-kpi-lab">Pessoas com acesso</div>
+          <div class="ac-kpi-val tnum" id="ac-kpi-pessoas">…</div>
+          <div class="ac-kpi-fine">colaboradores ativos</div>
+        </div>
+        <div class="ac-kpi k3">
+          <div class="ac-kpi-rail"></div>
+          <div class="ac-kpi-lab">Compartilhamentos</div>
+          <div class="ac-kpi-val tnum" id="ac-kpi-shares">…</div>
+          <div class="ac-kpi-fine" id="ac-kpi-shares-fine">vínculos pessoa–pasta registrados</div>
+        </div>
+        <div class="ac-kpi k4">
+          <div class="ac-kpi-rail"></div>
+          <div class="ac-kpi-lab">Provedores</div>
+          <div class="ac-kpi-val tnum">3</div>
+          <div class="ac-kpi-fine">1 ativo · 2 legado</div>
+        </div>
+      </div>
+    </div>
+
     <div class="ac-navbar">
       <div class="ac-tabs">
         <button class="ac-tab" data-tab="org" onclick="_acSetTab('org')">Organizações</button>
@@ -31,6 +100,7 @@ import { adminToast } from '../../compartilhado/avisos.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { hojeLocal } from '../../compartilhado/datas.js'
 import { montarArvoreDePastas } from './montar-arvore-de-pastas.js'
+import { montarDetalhePastas } from './montar-textos-do-topo.js'
 
 const router = useRouter()
 
@@ -1629,6 +1699,93 @@ Object.assign(window, {
   _acWdNo, _acWdAlternar, _acWdImportar
 })
 
+// ==========================================================================
+// TOPO (Tarefa 2 do redesign): preencher status dos provedores + números dos
+// KPIs. Estas funções mexem em elementos que já existem no <template> (têm id),
+// só trocando texto/classe — por isso NÃO precisam ir pra window (ninguém as
+// chama de dentro de string HTML; quem chama é o onMounted, aqui do escopo).
+// Tudo é "à prova de erro": se uma consulta falhar, mostra um aviso honesto no
+// próprio lugar em vez de derrubar a tela.
+// ==========================================================================
+
+// Pinta a bolinha de status de UM provedor que tem status real (Zoho ou
+// Microsoft). Verde = conectado, âmbar = não conectado, cinza = deu erro ao
+// perguntar (aí escreve "status indisponível", nunca fica mudo).
+async function _acTopoStatusProvedor(action, dotId, noteId, pillId) {
+  const dot = document.getElementById(dotId)
+  if (!dot) return
+  const note = noteId ? document.getElementById(noteId) : null
+  const pill = pillId ? document.getElementById(pillId) : null
+  try {
+    const s = await _acProxy(action)
+    const conectado = !!(s && s.connected)
+    dot.className = 'ac-hero-dot ' + (conectado ? 'on' : 'leg')
+    if (note) note.textContent = conectado ? 'conectado' : 'não conectado'
+    if (pill) pill.title = conectado ? 'Conectado' : 'Não conectado — reconecte nas Configurações'
+  } catch (e) {
+    dot.className = 'ac-hero-dot off'
+    if (note) note.textContent = 'status indisponível'
+    if (pill) pill.title = 'Não foi possível verificar a conexão agora'
+  }
+}
+
+// Preenche a faixa de 4 KPIs com números REAIS do banco. Cada KPI é
+// independente: se um falhar, os outros ainda aparecem, e o que falhou mostra
+// "—" com um title explicando — melhor um traço honesto que um número errado.
+async function _acTopoKpis() {
+  const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v }
+  const setTitle = (id, t) => { const el = document.getElementById(id); if (el && t != null) el.title = t }
+
+  // KPI 1 — Pastas geridas: quantas pastas ATIVAS (arquivado_em vazio) estão
+  // sob controle, separadas por provedor. Uma consulta só, trazendo apenas a
+  // coluna "tipo" (barato), e a conta é feita aqui no navegador.
+  try {
+    const { data, error } = await sbClient
+      .from('acessos_recursos')
+      .select('tipo')
+      .is('arquivado_em', null)
+    if (error) throw error
+    const linhas = data || []
+    const c = { workdrive: 0, onedrive: 0, icloud: 0 }
+    linhas.forEach(r => { if (c[r.tipo] != null) c[r.tipo]++ })
+    setText('ac-kpi-pastas', String(linhas.length))
+    setText('ac-kpi-pastas-fine', montarDetalhePastas(c))
+  } catch (e) {
+    setText('ac-kpi-pastas', '—')
+    setText('ac-kpi-pastas-fine', 'não foi possível contar as pastas agora')
+  }
+
+  // KPI 2 — Pessoas com acesso: colaboradores com status "ativo". COUNT no
+  // banco (head:true = só o número, não traz as linhas).
+  try {
+    const { count, error } = await sbClient
+      .from('acessos_pessoas')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'ativo')
+    if (error) throw error
+    setText('ac-kpi-pessoas', String(count != null ? count : 0))
+  } catch (e) {
+    setText('ac-kpi-pessoas', '—')
+  }
+
+  // KPI 3 — Compartilhamentos: NÃO recontamos os ~370 acessos do OneDrive aqui
+  // (isso exige várias chamadas ao Microsoft Graph, é caro e lento). Em vez
+  // disso mostramos algo barato e honesto: quantos vínculos pessoa–pasta estão
+  // registrados no nosso próprio banco (um COUNT só). O texto embaixo já diz o
+  // que esse número significa, pra ninguém confundir com os 370 do OneDrive.
+  try {
+    const { count, error } = await sbClient
+      .from('acessos_vinculos')
+      .select('*', { count: 'exact', head: true })
+    if (error) throw error
+    setText('ac-kpi-shares', String(count != null ? count : 0))
+  } catch (e) {
+    setText('ac-kpi-shares', '—')
+    setText('ac-kpi-shares-fine', 'contagem indisponível agora')
+    setTitle('ac-kpi-shares', 'Não foi possível contar os vínculos registrados agora')
+  }
+}
+
 // Equivalente ao openAcessos() do legado, menos o display:flex (o router faz)
 // e a checagem de tela home: guarda de permissão + reset de estado + carga.
 onMounted(() => {
@@ -1639,6 +1796,11 @@ onMounted(() => {
   }
   _acTab = 'org'; _acSel = null; _acSelSetor = null; _acSelOrg = null
   loadAcessos()
+  // O topo carrega em paralelo, sem travar o corpo da tela. Cada chamada já
+  // trata o próprio erro por dentro, então não precisa de try/catch aqui.
+  _acTopoStatusProvedor('zoho.status', 'ac-prov-zoho', 'ac-prov-zoho-note', 'ac-prov-zoho-pill')
+  _acTopoStatusProvedor('microsoft.status', 'ac-prov-ms', 'ac-prov-ms-note', 'ac-prov-ms-pill')
+  _acTopoKpis()
 })
 </script>
 
@@ -1669,11 +1831,52 @@ onMounted(() => {
 .tela-acessos{display:flex;flex-direction:column;min-height:100vh;position:relative;z-index:1;background:var(--bg,#0b0f14)}
 .tela-acessos :deep(.ac-topbar){display:flex;align-items:center;gap:18px;padding:16px 24px;border-bottom:1px solid rgba(255,255,255,.08);position:sticky;top:0;background:inherit;flex-wrap:wrap}
 .tela-acessos :deep(.ac-back){background:none;border:1px solid rgba(255,255,255,.18);color:inherit;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px}
-.tela-acessos :deep(.ac-title){font-weight:700;font-size:18px}
 .tela-acessos :deep(.ac-tabs){display:flex;gap:6px;margin-left:auto}
 .tela-acessos :deep(.ac-tab){background:none;border:1px solid rgba(255,255,255,.14);color:inherit;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px}
 .tela-acessos :deep(.ac-tab.active){background:#0d9488;border-color:#0d9488;color:#fff}
 .tela-acessos :deep(.ac-body){padding:20px clamp(14px,2.4vw,44px);width:100%}
+
+/* ===== TOPO do redesign (Tarefa 2): cabeçalho + faixa de KPIs =====
+   Estes elementos são markup ESTÁTICO do <template> (não montados por
+   innerHTML), então o CSS scoped normal já os alcança — por isso aqui NÃO
+   usamos :deep (diferente do resto do arquivo, que estiliza DOM criado em
+   runtime). Toda cor sai de var(--...) de estilos-globais.css pra funcionar
+   igual no tema claro E no escuro; o mockup tinha as cores cravadas, aqui
+   estão traduzidas pros tokens. */
+.tela-acessos .ac-topo{padding:clamp(16px,2.2vw,26px) clamp(14px,2.4vw,44px) 0;width:100%}
+.tela-acessos .ac-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:18px}
+.tela-acessos .ac-hero-brand{display:flex;align-items:center;gap:12px;min-width:0}
+.tela-acessos .ac-hero-mark{width:38px;height:38px;border-radius:10px;flex:none;display:grid;place-items:center;color:#fff;font-weight:800;font-size:16px;letter-spacing:.5px;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 72%,#000));box-shadow:var(--shadow-sm)}
+.tela-acessos .ac-hero-h1{margin:0;font-family:'Oswald',sans-serif;font-size:clamp(19px,2.3vw,25px);font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text);line-height:1.05}
+.tela-acessos .ac-hero-sub{color:var(--muted);font-size:12.5px;margin-top:3px;line-height:1.35}
+.tela-acessos .ac-hero-provs{display:flex;gap:8px;flex-wrap:wrap}
+.tela-acessos .ac-hero-prov{display:flex;align-items:center;gap:7px;padding:7px 12px;border:1px solid var(--border);border-radius:999px;background:var(--surface);font-size:12.5px;font-weight:600;color:var(--text);box-shadow:var(--shadow-sm)}
+.tela-acessos .ac-hero-prov-note{color:var(--muted);font-weight:500;font-size:11.5px}
+.tela-acessos .ac-hero-prov-note:empty{display:none}
+.tela-acessos .ac-hero-dot{width:8px;height:8px;border-radius:999px;flex:none;background:var(--muted)}
+.tela-acessos .ac-hero-dot.on{background:var(--green);box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 20%,transparent)}
+.tela-acessos .ac-hero-dot.leg{background:var(--orange);box-shadow:0 0 0 3px color-mix(in srgb,var(--orange) 20%,transparent)}
+.tela-acessos .ac-hero-dot.off{background:var(--muted);box-shadow:0 0 0 3px color-mix(in srgb,var(--muted) 18%,transparent)}
+.tela-acessos .ac-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:4px}
+.tela-acessos .ac-kpi{position:relative;overflow:hidden;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;box-shadow:var(--shadow-sm)}
+.tela-acessos .ac-kpi-rail{position:absolute;left:0;top:0;bottom:0;width:3px}
+.tela-acessos .ac-kpi.k1 .ac-kpi-rail{background:var(--accent)}
+.tela-acessos .ac-kpi.k2 .ac-kpi-rail{background:var(--green)}
+.tela-acessos .ac-kpi.k3 .ac-kpi-rail{background:var(--orange)}
+.tela-acessos .ac-kpi.k4 .ac-kpi-rail{background:var(--muted)}
+.tela-acessos .ac-kpi-lab{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.tela-acessos .ac-kpi-val{font-family:'Oswald',sans-serif;font-size:32px;font-weight:600;letter-spacing:.5px;line-height:1;margin-top:7px;color:var(--text);font-variant-numeric:tabular-nums}
+.tela-acessos .ac-kpi-fine{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.35}
+/* No celular os 4 KPIs viram 2 colunas (não estoura a tela) e o cabeçalho
+   empilha marca em cima, pills embaixo. */
+@media(max-width:720px){
+  .tela-acessos .ac-kpis{grid-template-columns:repeat(2,1fr)}
+  .tela-acessos .ac-hero{align-items:flex-start}
+  .tela-acessos .ac-hero-provs{width:100%}
+}
+@media(max-width:420px){
+  .tela-acessos .ac-kpi-val{font-size:27px}
+}
 .tela-acessos :deep(.ac-aud-grid){display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
 .tela-acessos :deep(.ac-aud-line){margin-top:5px;font-size:13px}
 .tela-acessos :deep(.ac-aud-line .ac-kicker){display:inline}
