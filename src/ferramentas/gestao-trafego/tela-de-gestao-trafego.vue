@@ -297,10 +297,10 @@ function _buildGtDropdown(){
   drop.innerHTML='';
   _gtAccounts.forEach((a,idx)=>{
     const bal=a.balance;
-    // "sem limite" (spend_cap=0) mostra texto neutro, não número. Com limite: verde=folgado,
-    // âmbar=apertando, vermelho=quase no teto.
-    const balTxt=a.semLimite?'sem limite':(bal!=null?_maFmtR(bal):'—');
-    const balColor=a.semLimite?'var(--muted)':bal==null?'var(--muted)':bal>=1000?'#16a34a':bal>=500?'#f59e0b':'#dc2626';
+    // Pré-pago: mostra o saldo (verde=folgado, âmbar=apertando, vermelho=baixo). Sem pré-pago
+    // (cartão): mostra a nota, não um número.
+    const balTxt=bal!=null?_maFmtR(bal):(a.notaSaldo||'—');
+    const balColor=bal==null?'var(--muted)':bal>=1000?'#16a34a':bal>=500?'#f59e0b':'#dc2626';
     const item=document.createElement('div');
     item.style.cssText='padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;transition:background .12s;';
     item.addEventListener('mouseenter',()=>item.style.background='var(--surface2)');
@@ -349,20 +349,21 @@ async function _initGestaoTrafego(){
     await Promise.all(accs.map(async a=>{
       try{
         const [d,sp]=await Promise.all([
-          metaFetch(`/act_${a.ad_account_id}`,{fields:'name,balance,currency,spend_cap,amount_spent'},a.id),
+          metaFetch(`/act_${a.ad_account_id}`,{fields:'name,currency,funding_source_details{type,display_string}'},a.id),
           metaFetch(`/act_${a.ad_account_id}/insights`,{fields:'spend',date_preset:'this_month'},a.id).catch(()=>null),
         ]);
         if(d?.name)a.display_name=d.name;
-        // SALDO = "quanto ainda posso gastar" = limite da conta (spend_cap) MENOS o gasto
-        // (amount_spent). Antes o painel mostrava o campo `balance` do Meta, que NÃO é saldo
-        // disponível — é o gasto ainda não faturado (um número pequeno e enganoso, ex.: R$550
-        // na La Vessel I quando o saldo real é ~R$6 mil).
-        // spend_cap = 0 no Meta significa "SEM limite de gastos". Nesses casos não existe
-        // "quanto sobra" (é ilimitado), então marcamos semLimite e não mostramos número — antes
-        // isso virava um negativo gigante (limite 0 − gasto = -251 mil na Raissa), puro lixo.
-        const cap=parseFloat(d?.spend_cap||0), gastoTotal=parseFloat(d?.amount_spent||0);
-        a.semLimite=!(cap>0);
-        a.balance=cap>0?(cap-gastoTotal)/100:null;
+        // SALDO = quanto de dinheiro a conta ainda TEM pra gastar. O número real vem do
+        // "Saldo disponível" do meio de pagamento (funding_source_details.display_string),
+        // ex.: "Saldo disponível (R$6.345,70 BRL)". NÃO é o campo `balance` (esse é gasto não
+        // faturado, dava R$550 enganoso) nem limite−gasto (dava aproximado errado).
+        // Só contas PRÉ-PAGAS têm saldo. Cartão de crédito (pós-pago) não tem — mostra a forma
+        // de pagamento em vez de um número.
+        const fsd=d?.funding_source_details||{};
+        const ds=fsd.display_string||'';
+        const m=ds.match(/R\$\s*([\d.]+,\d{2})/); // formato BR: 6.345,70
+        if(m){ a.balance=parseFloat(m[1].replace(/\./g,'').replace(',','.')); a.notaSaldo=null; }
+        else { a.balance=null; a.notaSaldo=ds?('via '+ds):'sem saldo pré-pago'; } // cartão/sem pré-pago
         if(d?.currency)a.currency=d.currency;
         a.monthSpend=parseFloat(sp?.data?.[0]?.spend||0);
       }catch(e){a.monthSpend=0;}
