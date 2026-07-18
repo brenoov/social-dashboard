@@ -1553,27 +1553,19 @@ async function actZohoSondarPermissao(sb: any, resourceId: unknown, email: unkno
   const tentativas: any[] = [];
   const criados: string[] = [];
 
-  // Candidato A: POST /permissions com email dentro de attributes.
-  const cA = {
-    data: {
-      attributes: { resource_id: rid, shared_type: "individual", email_id: mail, role_id: "6", send_mail: false },
-      type: "permissions",
-    },
-  };
-  const rA = await wdWrite(access, "POST", "/permissions", cA);
-  tentativas.push({ via: "POST /permissions individual", status: rA.status, ok: rA.ok, corpo: (rA.raw || "").slice(0, 300) });
-  if (rA.ok && rA.json?.data?.id) criados.push(String(rA.json.data.id));
-
-  // Candidato B: POST /permissions com bloco "permissions" array (formato alternativo visto).
-  const cB = {
-    data: {
-      attributes: { resource_id: rid, permissions: [{ email_id: mail, role_id: "6" }], send_mail: false },
-      type: "permissions",
-    },
-  };
-  const rB = await wdWrite(access, "POST", "/permissions", cB);
-  tentativas.push({ via: "POST /permissions array", status: rB.status, ok: rB.ok, corpo: (rB.raw || "").slice(0, 300) });
-  if (rB.ok && rB.json?.data?.id) criados.push(String(rB.json.data.id));
+  // "EXTRA_KEY_FOUND_IN_JSON" dizia que sobrava chave. Tento formatos cada vez mais enxutos,
+  // espelhando o que a LEITURA de /permissions devolve (email_id, role_id, shared_type).
+  const candidatos: Array<{ nome: string; corpo: any }> = [
+    { nome: "individual sem send_mail", corpo: { data: { attributes: { resource_id: rid, shared_type: "individual", email_id: mail, role_id: "6" }, type: "permissions" } } },
+    { nome: "user sem send_mail", corpo: { data: { attributes: { resource_id: rid, shared_type: "user", email_id: mail, role_id: "6" }, type: "permissions" } } },
+    { nome: "minimo email+role", corpo: { data: { attributes: { resource_id: rid, email_id: mail, role_id: "6" }, type: "permissions" } } },
+    { nome: "shared_type only email", corpo: { data: { attributes: { resource_id: rid, shared_type: mail, role_id: "6" }, type: "permissions" } } },
+  ];
+  for (const c of candidatos) {
+    const r = await wdWrite(access, "POST", "/permissions", c.corpo);
+    tentativas.push({ via: c.nome, status: r.status, ok: r.ok, corpo: (r.raw || "").slice(0, 300) });
+    if (r.ok && r.json?.data?.id) { criados.push(String(r.json.data.id)); break; } // parou no primeiro que funcionou
+  }
 
   // Se criou permissão, revoga na hora (DELETE /permissions/{id}).
   const revogados: any[] = [];
