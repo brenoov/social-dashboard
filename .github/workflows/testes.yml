@@ -14,4 +14,9 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci
-      - run: npm test
+      # test:ci roda só os testes PUROS do app (src/**), que não dependem de rede nem de
+      # credenciais. Os testes do coletor misturam integração (chamam Supabase/Anthropic ao
+      # vivo) e por isso não rodam aqui — eles rodam localmente (npm test) e nos workflows
+      # dos próprios robôs, que têm as credenciais. Rodar integração aqui daria 401 e
+      # e-mail de falha a cada push.
+      - run: npm run test:ci
