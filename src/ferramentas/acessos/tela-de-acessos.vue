@@ -86,7 +86,9 @@
         <button class="ac-tab" data-tab="drive" onclick="_acSetTab('drive')">Drive</button>
         <button class="ac-tab" data-tab="auditoria" onclick="_acSetTab('auditoria')">Auditoria</button>
         <button class="ac-tab" data-tab="patrimonio" onclick="_acSetTab('patrimonio')">Patrimônio</button>
-        <button class="ac-tab" data-tab="config" onclick="_acSetTab('config')" title="Configurações" style="padding:6px 10px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+        <!-- Aba Configurações: antes era só a engrenagem, sem rótulo — o dono não achava.
+             Agora tem ícone + texto, igual às outras abas (Tarefa 8). -->
+        <button class="ac-tab ac-tab-config" data-tab="config" onclick="_acSetTab('config')" title="Configurações"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Configurações</button>
       </div>
     </div>
     <div class="ac-body" id="ac-body"></div>
@@ -109,6 +111,8 @@ import { contarAcessosOneDrive, resumoAcessosOneDrive, statusWorkdrive, campoPre
 import { formatarValor, parsearValor, CATEGORIAS_PATRIMONIO, fecharEAbrirHistorico } from './patrimonio.js'
 // Lógica pura da lista/consolidado de patrimônio (somar, filtrar, formatar data, histórico)
 import { somarCentavos, filtrarItens, formatarDataBR, textoLinhaHistorico, donoAtualNome } from './patrimonio-lista.js'
+// Auditoria (Tarefa 6): classificação pura do volume de acesso ao OneDrive (destaque de "muitas pastas")
+import { volumeDeAcesso } from './auditoria-volume.js'
 
 const router = useRouter()
 
@@ -171,8 +175,9 @@ async function _acProxy(action,args){
 async function _acZohoStatus(){
   const el=document.getElementById('ac-zoho-status');const imp=document.getElementById('ac-zoho-import');if(!el)return;
   try{const s=await _acProxy('zoho.status');
-    if(s&&s.connected){el.innerHTML='<span class="ac-pill ok">conectado</span>'+(s.conectado_em?' <span class="ac-muted">desde '+_acEsc(new Date(s.conectado_em).toLocaleDateString('pt-BR'))+'</span>':'');if(imp)imp.style.display='';}
-    else{el.innerHTML='<span class="ac-pill neutral">não conectado</span>';if(imp)imp.style.display='none';}
+    if(s&&s.connected){el.innerHTML='<span class="ac-pill ok">● conectado</span>'+(s.conectado_em?' <span class="ac-muted">desde '+_acEsc(new Date(s.conectado_em).toLocaleDateString('pt-BR'))+'</span>':'');if(imp)imp.style.display='';}
+    // Não conectado é âmbar (warn), não cinza: é um alerta de "reconecte", não um estado neutro.
+    else{el.innerHTML='<span class="ac-pill warn">● reconecte</span>';if(imp)imp.style.display='none';}
   }catch(e){el.innerHTML='<span class="ac-muted">status indisponível</span>';if(imp)imp.style.display='none';}
 }
 async function _acConectarZoho(){
@@ -183,8 +188,9 @@ async function _acODStatus(){
   const el=document.getElementById('ac-od-status');if(!el)return;
   const mg=document.getElementById('ac-od-manage');
   try{const s=await _acProxy('microsoft.status');
-    if(s&&s.connected){el.innerHTML='<span class="ac-pill ok">conectado</span>'+(s.conectado_em?' <span class="ac-muted">desde '+_acEsc(new Date(s.conectado_em).toLocaleDateString('pt-BR'))+'</span>':'');if(mg)mg.style.display='';}
-    else{el.innerHTML='<span class="ac-pill neutral">não conectado</span>';if(mg)mg.style.display='none';}
+    if(s&&s.connected){el.innerHTML='<span class="ac-pill ok">● conectado</span>'+(s.conectado_em?' <span class="ac-muted">desde '+_acEsc(new Date(s.conectado_em).toLocaleDateString('pt-BR'))+'</span>':'');if(mg)mg.style.display='';}
+    // Idem OneDrive: sem conexão é âmbar de "reconecte", não cinza neutro.
+    else{el.innerHTML='<span class="ac-pill warn">● reconecte</span>';if(mg)mg.style.display='none';}
   }catch(e){el.innerHTML='<span class="ac-muted">status indisponível</span>';if(mg)mg.style.display='none';}
 }
 async function _acConectarOneDrive(){
@@ -1654,6 +1660,7 @@ function _acRenderFicha(id){
   _acFichaCarregarAcessos(id);
   _acFichaCarregarContadores(id);
   _acRenderPatItens(id); // preenche o painel "Dispositivos & patrimônio" (CRUD da Tarefa 5)
+  _acRenderTermos(id);   // preenche o painel "Termo de responsabilidade" (CRUD da Tarefa 7)
 }
 // Editor de UM campo da ficha, em modal PRÓPRIO (nada de prompt nativo). Salva
 // direto em acessos_pessoas e recarrega a ficha. Campo vazio grava NULL (some do
@@ -2244,24 +2251,41 @@ function _acPatPaint(){
 function _acPatSetFiltro(k,v){_acPatFiltro[k]=v;_acPatPaint();}
 
 function _acSanitizeName(n){return String(n||'arquivo').replace(/[^\w.\-]+/g,'_').slice(-80);}
+// Ícone de documento (mesmo traço do vazio da ficha) pra cada termo da lista.
+const AC_TERMO_ICO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
+// Pinta a LISTA de termos DENTRO do painel que já existe na ficha (Tarefa 7).
+// O cabeçalho ("Termo de responsabilidade" + "+ Enviar PDF") e o <input file>
+// já estão montados na ficha — aqui só entra o conteúdo do #ac-termos-wrap, igual
+// ao _acRenderPatItens faz com os dispositivos. Não redesenha card nem botão.
 async function _acRenderTermos(pessoaId){
   const wrap=document.getElementById('ac-termos-wrap');if(!wrap)return;
   const{data,error}=await sbClient.from('acessos_termos').select('*').eq('pessoa_id',pessoaId).order('enviado_em',{ascending:false});
-  if(error){wrap.innerHTML='<div class="ac-card">Erro termos: '+_acEsc(error.message)+'</div>';return;}
-  const list=(data||[]).map(t=>`<div class="ac-row">
-      <div class="grow">
-        <div><strong>${_acEsc(t.titulo||'Documento')}</strong></div>
-        <div class="ac-muted">${t.enviado_em?_acEsc(new Date(t.enviado_em).toLocaleDateString('pt-BR')):''}${t.observacao?' · '+_acEsc(t.observacao):''}</div>
-      </div>
-      <button class="ac-btn ghost" onclick="_acDownloadTermo('${t.id}')">Baixar</button>
-      <button class="ac-btn danger" onclick="_acDelTermo('${t.id}','${pessoaId}')">Excluir</button>
-    </div>`).join('');
-  wrap.innerHTML=`<div class="ac-card">
-    <div class="ac-section-h"><h3>Termos / documentos</h3>
-      <button class="ac-btn" style="margin-left:auto" onclick="document.getElementById('ac-termo-file').click()">+ Enviar documento</button>
-      <input type="file" id="ac-termo-file" style="display:none" accept="application/pdf,image/*" onchange="_acUploadTermo('${pessoaId}',this.files[0])">
+  if(_acSel!==pessoaId)return; // trocou de pessoa nesse meio-tempo: não escreve em ficha velha
+  if(error){wrap.innerHTML='<div class="ac-fx-empty">Não consegui carregar os termos: '+_acEsc(error.message)+'</div>';return;}
+  const itens=data||[];
+  if(!itens.length){
+    wrap.innerHTML=`<div class="ac-fx-empty">
+      ${AC_TERMO_ICO}
+      Nenhum termo assinado enviado. Anexe o PDF assinado para deixar registrado.
+    </div>`;return;
+  }
+  wrap.innerHTML=`<div class="ac-termo-list">${itens.map(t=>_acTermoRow(pessoaId,t)).join('')}</div>`;
+}
+// Uma linha limpa de termo: ícone de doc, título, data de envio (e observação), e
+// os botões de abrir/baixar e excluir. Data via toLocaleDateString (hora local),
+// mesmo cálculo de antes — só a roupa mudou.
+function _acTermoRow(pessoaId,t){
+  const data=t.enviado_em?new Date(t.enviado_em).toLocaleDateString('pt-BR'):'—';
+  return `<div class="ac-termo-item">
+    <span class="ac-glyph ac-g-doc">${AC_TERMO_ICO}</span>
+    <div class="ac-termo-main">
+      <div class="ac-termo-name">${_acEsc(t.titulo||'Documento')}</div>
+      <div class="ac-termo-meta">Enviado em ${_acEsc(data)}${t.observacao?' · '+_acEsc(t.observacao):''}</div>
     </div>
-    ${list||'<div class="ac-muted">Nenhum documento enviado.</div>'}
+    <div class="ac-termo-acts">
+      <button class="ac-btn ghost" onclick="_acDownloadTermo('${t.id}')">Baixar / abrir</button>
+      <button class="ac-btn danger" onclick="_acDelTermo('${t.id}','${pessoaId}')">Excluir</button>
+    </div>
   </div>`;
 }
 async function _acUploadTermo(pessoaId,file){
@@ -2283,7 +2307,7 @@ async function _acDownloadTermo(termoId){
   window.open(sg.signedUrl,'_blank');
 }
 async function _acDelTermo(termoId,pessoaId){
-  if(!confirm('Excluir este documento?'))return;
+  if(!await _acConfirmar('Excluir este termo? O arquivo enviado também será apagado.',{ok:'Excluir',perigo:true}))return;
   const{data:t}=await sbClient.from('acessos_termos').select('arquivo_path').eq('id',termoId).single();
   if(t&&t.arquivo_path){await sbClient.storage.from('acessos-termos').remove([t.arquivo_path]);}
   const{error}=await sbClient.from('acessos_termos').delete().eq('id',termoId);
@@ -2407,11 +2431,14 @@ function _acAudPaint(){
   const veicOf=p=>(itensByP[p.id]||[]).filter(d=>d.categoria==='Veículos'&&inPoss(d));
   const orgNomeOf=p=>{const s=p.setor_id?setorById[p.setor_id]:null;return p.organizacao_id?orgName(p.organizacao_id):(s&&s.organizacao_id?orgName(s.organizacao_id):null);};
   const item=(logo,k,v)=>`<div class="ac-aud-item"><div class="ac-aud-k">${logo||''}${k}</div><div class="ac-aud-v">${v}</div></div>`;
+  // Selo de "muitas pastas": destaque honesto pra quem acumulou acesso ao OneDrive
+  // (sinal de possível permissão demais). O nível vem da lógica pura testada.
+  const badgeMuitas=od=>{const v=volumeDeAcesso(od.length);return v.muitas?`<span class="ac-badge-muitas" title="Acesso a muitas pastas do OneDrive — vale revisar">${v.quantidade} pastas</span>`:'';};
   const card=p=>{
     const od=odOf(p),icl=iclMap[p.id]||[],disp=dispOf(p),veic=veicOf(p),orgN=orgNomeOf(p);
-    return `<div class="ac-card ac-audcard">
+    return `<div class="ac-card ac-audcard${volumeDeAcesso(od.length).muitas?' ac-audcard-hot':''}">
       <div class="ac-aud-hd">${_acAvatar(p,44)}
-        <div class="grow" style="min-width:0"><div class="ac-person-name">${_acEsc(p.nome)} ${p.status==='desligado'?'<span class="ac-pill neutral">desligado</span>':''}</div>
+        <div class="grow" style="min-width:0"><div class="ac-person-name">${_acEsc(p.nome)} ${p.status==='desligado'?'<span class="ac-pill neutral">desligado</span>':''}${badgeMuitas(od)}</div>
           <div class="ac-kicker">${_acEsc(p.cargo||'—')}${orgN?' · '+_acEsc(orgN):''}</div></div></div>
       ${item(_acLogo('zoho'),'Zoho',p.email_corporativo?_acEsc(p.email_corporativo):'<span class="ac-muted">—</span>')}
       ${item(_acLogo('ms'),'OneDrive',_acOdSummary(od))}
@@ -2423,12 +2450,14 @@ function _acAudPaint(){
   };
   const listRow=p=>{
     const od=odOf(p),icl=iclMap[p.id]||[],disp=dispOf(p),veic=veicOf(p),orgN=orgNomeOf(p);
-    const cnt=(logo,n,v)=>`<span class="ac-cnt ${v?'':'zero'}">${logo||''}${n} ${v}</span>`;
-    return `<div class="ac-audrow">${_acAvatar(p,40)}
-      <div class="grow" style="min-width:0"><div class="ac-person-name">${_acEsc(p.nome)} ${p.status==='desligado'?'<span class="ac-pill neutral">desligado</span>':''}</div>
+    // 'hot' realça o contador do OneDrive quando são muitas pastas (mesmo critério do card).
+    const cnt=(logo,n,v,hot)=>`<span class="ac-cnt ${v?'':'zero'}${hot?' ac-cnt-hot':''}">${logo||''}${n} ${v}</span>`;
+    const odMuitas=volumeDeAcesso(od.length).muitas;
+    return `<div class="ac-audrow${odMuitas?' ac-audrow-hot':''}">${_acAvatar(p,40)}
+      <div class="grow" style="min-width:0"><div class="ac-person-name">${_acEsc(p.nome)} ${p.status==='desligado'?'<span class="ac-pill neutral">desligado</span>':''}${odMuitas?`<span class="ac-badge-muitas" title="Acesso a muitas pastas do OneDrive — vale revisar">${od.length} pastas</span>`:''}</div>
         <div class="ac-kicker">${_acEsc(p.cargo||'—')}${orgN?' · '+_acEsc(orgN):''}</div>
         ${p.email_corporativo?`<div class="ac-person-email">${_acEsc(p.email_corporativo)}</div>`:''}</div>
-      <div class="ac-audrow-counts">${cnt(_acLogo('ms'),'OneDrive',od.length)}${cnt(_acLogo('apple'),'iCloud',icl.length)}${cnt('','Disp',disp.length)}${cnt('','Patrim',veic.length)}</div>
+      <div class="ac-audrow-counts">${cnt(_acLogo('ms'),'OneDrive',od.length,odMuitas)}${cnt(_acLogo('apple'),'iCloud',icl.length)}${cnt('','Disp',disp.length)}${cnt('','Patrim',veic.length)}</div>
       <button class="ac-btn ghost" onclick="_acOpenPessoa('${p.id}')">Abrir →</button>
     </div>`;
   };
@@ -2997,6 +3026,31 @@ onMounted(() => {
 .tela-acessos :deep(.ac-fx-accname){font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:13.5px;color:var(--text)}
 .tela-acessos :deep(.ac-fx-accfine){font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);line-height:1.35;overflow-wrap:anywhere}
 .tela-acessos :deep(.ac-fx-acccnt){font-family:'Oswald',sans-serif;font-size:18px;font-weight:600;letter-spacing:.4px;color:var(--text);flex:none;font-variant-numeric:tabular-nums}
+
+/* ===== Termos / documentos (Tarefa 7): lista limpa dentro do painel da ficha ===== */
+.tela-acessos :deep(.ac-termo-list){display:flex;flex-direction:column;gap:10px}
+.tela-acessos :deep(.ac-termo-item){display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface2);transition:border-color .15s ease}
+.tela-acessos :deep(.ac-termo-item:hover){border-color:var(--accent-mid)}
+.tela-acessos :deep(.ac-g-doc){width:30px;height:30px;border-radius:8px;background:var(--accent-light);color:var(--accent)}
+.tela-acessos :deep(.ac-g-doc svg){width:16px;height:16px}
+.tela-acessos :deep(.ac-termo-main){flex:1;min-width:160px}
+.tela-acessos :deep(.ac-termo-name){font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:14px;color:var(--text);line-height:1.3;overflow-wrap:anywhere}
+.tela-acessos :deep(.ac-termo-meta){font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);margin-top:3px}
+.tela-acessos :deep(.ac-termo-acts){display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.tela-acessos :deep(.ac-termo-acts .ac-btn){padding:6px 11px;font-size:12px}
+@media(max-width:640px){
+  .tela-acessos :deep(.ac-termo-acts){width:100%}
+  .tela-acessos :deep(.ac-termo-acts .ac-btn){flex:1 1 calc(50% - 3px);text-align:center;justify-content:center}
+}
+
+/* ===== Auditoria (Tarefa 6): destaque de quem tem acesso a MUITAS pastas ===== */
+/* Selo âmbar ao lado do nome + realce do contador/borda. É sinal de atenção
+   (possível permissão demais), não de erro — por isso âmbar, não vermelho. */
+.tela-acessos :deep(.ac-badge-muitas){display:inline-flex;align-items:center;gap:4px;margin-left:6px;padding:2px 9px;border-radius:999px;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--orange);background:color-mix(in srgb,var(--orange) 14%,transparent);border:1px solid color-mix(in srgb,var(--orange) 34%,transparent);vertical-align:middle;white-space:nowrap}
+.tela-acessos :deep(.ac-cnt.ac-cnt-hot){color:var(--orange);border-color:color-mix(in srgb,var(--orange) 42%,transparent);background:color-mix(in srgb,var(--orange) 12%,transparent);font-weight:700}
+.tela-acessos :deep(.ac-audcard-hot){border-color:color-mix(in srgb,var(--orange) 40%,var(--border))}
+.tela-acessos :deep(.ac-audrow-hot){border-left:3px solid var(--orange)}
+
 /* mobile: a ficha vira coluna única e a identidade deixa de ser sticky */
 @media(max-width:900px){
   .tela-acessos :deep(.ac-fx-ficha){grid-template-columns:1fr}
