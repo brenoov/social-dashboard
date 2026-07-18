@@ -1437,6 +1437,99 @@ async function actZohoAcessoDaPasta(sb: any, resourceId: unknown) {
   return json({ resourceId: rid, pessoas, links, falhas });
 }
 
+// ---------------------------------------------------------------------------
+// ESCRITA do WorkDrive. Ações CONSTRANGIDAS: cada uma faz UMA coisa específica com entrada
+// validada. NÃO é relay genérico (aquilo era sonda temporária, já removida). O escopo de
+// escrita foi provado em 2026-07-18: LINK e WORKSPACE funcionam. "Dar acesso a pessoa
+// específica" fica de fora por ora (formato do corpo ainda não confirmado).
+//
+// role_id do WorkDrive p/ PASTA: 6 = leitura (view), 5 = edição. Traduzido de "papel".
+function wdRoleId(papel: unknown): string {
+  return papel === "edicao" || papel === "edição" ? "5" : "6";
+}
+
+// wdEscrever: POST/DELETE no WorkDrive, só pras ações de escrita abaixo. Corpo opcional.
+async function wdEscrever(access: string, metodo: string, path: string, corpo?: unknown) {
+  const resp = await fetch(WD_BASE + path, {
+    method: metodo,
+    headers: {
+      Authorization: `Zoho-oauthtoken ${access}`,
+      Accept: "application/vnd.api+json",
+      ...(corpo ? { "Content-Type": "application/json" } : {}),
+    },
+    ...(corpo ? { body: JSON.stringify(corpo) } : {}),
+  });
+  const raw = await resp.text();
+  let parsed: any = null;
+  try { parsed = JSON.parse(raw); } catch { parsed = null; }
+  return { ok: resp.ok, status: resp.status, json: parsed, raw };
+}
+
+// zoho.criarLink -> cria um link de compartilhamento da pasta. Corpo COMPLETO de propósito
+// (corpo mínimo dá 500 — descoberto na sondagem). Devolve a URL e o id (pra poder apagar).
+async function actZohoCriarLink(sb: any, resourceId: unknown, papel: unknown) {
+  const conn = await readZohoConn(sb);
+  if (!conn.refresh_token) return json({ error: "nao_conectado" });
+  const rid = typeof resourceId === "string" && resourceId ? resourceId : null;
+  if (!rid) return json({ error: "faltou_resourceId" }, 400);
+  const access = await freshAccessToken(conn);
+  const corpo = {
+    data: {
+      attributes: {
+        resource_id: rid,
+        role_id: wdRoleId(papel),
+        link_name: "Link de compartilhamento",
+        allow_download: true,
+        request_user_data: false,
+      },
+      type: "links",
+    },
+  };
+  const r = await wdEscrever(access, "POST", "/links", corpo);
+  if (!r.ok) return json({ error: "falha_ao_criar_link", status: r.status, detalhe: (r.raw || "").slice(0, 300) }, 502);
+  return json({ ok: true, id: r.json?.data?.id ?? null, url: r.json?.data?.attributes?.link ?? null });
+}
+
+// zoho.apagarLink -> tira um link de compartilhamento (revoga o acesso público por ele).
+async function actZohoApagarLink(sb: any, linkId: unknown) {
+  const conn = await readZohoConn(sb);
+  if (!conn.refresh_token) return json({ error: "nao_conectado" });
+  const lid = typeof linkId === "string" && linkId ? linkId : null;
+  if (!lid) return json({ error: "faltou_linkId" }, 400);
+  const access = await freshAccessToken(conn);
+  const r = await wdEscrever(access, "DELETE", `/links/${encodeURIComponent(lid)}`);
+  // A listagem do Zoho fica desatualizada por um tempo depois de apagar (visto na sondagem):
+  // a UI deve confiar neste ok, não na listagem imediata.
+  if (!r.ok) return json({ error: "falha_ao_apagar_link", status: r.status, detalhe: (r.raw || "").slice(0, 300) }, 502);
+  return json({ ok: true });
+}
+
+// zoho.compartilharWorkspace -> dá acesso à pasta pra TODO o time (workspace). Confirmado 201.
+async function actZohoCompartilharWorkspace(sb: any, resourceId: unknown, papel: unknown) {
+  const conn = await readZohoConn(sb);
+  if (!conn.refresh_token) return json({ error: "nao_conectado" });
+  const rid = typeof resourceId === "string" && resourceId ? resourceId : null;
+  if (!rid) return json({ error: "faltou_resourceId" }, 400);
+  const access = await freshAccessToken(conn);
+  const corpo = {
+    data: { attributes: { resource_id: rid, shared_type: "everyone", role_id: wdRoleId(papel) }, type: "permissions" },
+  };
+  const r = await wdEscrever(access, "POST", "/permissions", corpo);
+  if (!r.ok) return json({ error: "falha_ao_compartilhar", status: r.status, detalhe: (r.raw || "").slice(0, 300) }, 502);
+  return json({ ok: true, id: r.json?.data?.id ?? null });
+}
+
+// zoho.revogarWorkspace -> tira o acesso do time (apaga a permissão "everyone").
+async function actZohoRevogarWorkspace(sb: any, permissaoId: unknown) {
+  const conn = await readZohoConn(sb);
+  if (!conn.refresh_token) return json({ error: "nao_conectado" });
+  const pid = typeof permissaoId === "string" && permissaoId ? permissaoId : null;
+  if (!pid) return json({ error: "faltou_permissaoId" }, 400);
+  const access = await freshAccessToken(conn);
+  const r = await wdEscrever(access, "DELETE", `/permissions/${encodeURIComponent(pid)}`);
+  if (!r.ok) return json({ error: "falha_ao_revogar", status: r.status, detalhe: (r.raw || "").slice(0, 300) }, 502);
+  return json({ ok: true });
+}
 
 // zoho.pastas -> lista o que existe no WorkDrive AGORA, dizendo o que já foi importado.
 // Não grava nada. É o "olhar antes de importar".
@@ -1570,6 +1663,14 @@ Deno.serve(async (req: Request) => {
         return await actZohoImportarPastas(sb, user.id);
       case "zoho.acessoDaPasta":
         return await actZohoAcessoDaPasta(sb, body?.resourceId);
+      case "zoho.criarLink":
+        return await actZohoCriarLink(sb, body?.resourceId, body?.papel);
+      case "zoho.apagarLink":
+        return await actZohoApagarLink(sb, body?.linkId);
+      case "zoho.compartilharWorkspace":
+        return await actZohoCompartilharWorkspace(sb, body?.resourceId, body?.papel);
+      case "zoho.revogarWorkspace":
+        return await actZohoRevogarWorkspace(sb, body?.permissaoId);
       case "microsoft.status":
         return await msStatus(sb);
       case "microsoft.authUrl":
