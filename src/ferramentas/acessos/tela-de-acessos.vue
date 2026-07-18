@@ -659,6 +659,11 @@ async function _acPaDetWorkdrive(f){
   let r;
   try{r=await _acProxy('zoho.acessoDaPasta',{resourceId:f.external_id});}
   catch(e){return _acPaPintaAcesso({pessoas:[],links:[],falhas:[{erro:e.message||String(e)}]},f,{origem:'workdrive'});}
+  // O proxy responde 200 com {error} em vários casos (ex.: token expirado). _acProxy
+  // só lança em HTTP não-2xx, então esse erro chega aqui SEM ter lançado. Se a gente
+  // ignorar, a pasta apareceria como "ninguém tem acesso" — a mentira que essa tela
+  // toda foi feita pra não contar. Vira FALHA, não vazio.
+  if(r&&r.error){return _acPaPintaAcesso({pessoas:[],links:[],falhas:[{erro:r.error}]},f,{origem:'workdrive'});}
   _acPaPintaAcesso(r,f,{origem:'workdrive'});
 }
 // OneDrive: microsoft.shares devolve {shares:[{permId,name,email,role}], link}.
@@ -668,6 +673,9 @@ async function _acPaDetOnedrive(f){
   let r;
   try{r=await _acProxy('microsoft.shares',{itemId:f.external_id});}
   catch(e){return _acPaPintaAcesso({pessoas:[],links:[],falhas:[{erro:e.message||String(e)}]},f,{origem:'onedrive'});}
+  // Mesmo cuidado do WorkDrive: 200 com {error} não lança em _acProxy. Se ignorar,
+  // "ninguém tem acesso" mentiria quando na verdade a leitura falhou.
+  if(r&&r.error){return _acPaPintaAcesso({pessoas:[],links:[],falhas:[{erro:r.error}]},f,{origem:'onedrive'});}
   const shares=(r&&r.shares)||[];
   // permId vai junto: é o que o botão "Remover" de cada pessoa precisa pra tirar
   // o acesso dela (microsoft.unshare) sem reabrir modal nenhum.
