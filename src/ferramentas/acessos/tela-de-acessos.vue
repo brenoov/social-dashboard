@@ -1768,21 +1768,31 @@ async function _acTopoKpis() {
     setText('ac-kpi-pessoas', '—')
   }
 
-  // KPI 3 — Compartilhamentos: NÃO recontamos os ~370 acessos do OneDrive aqui
-  // (isso exige várias chamadas ao Microsoft Graph, é caro e lento). Em vez
-  // disso mostramos algo barato e honesto: quantos vínculos pessoa–pasta estão
-  // registrados no nosso próprio banco (um COUNT só). O texto embaixo já diz o
-  // que esse número significa, pra ninguém confundir com os 370 do OneDrive.
+  // KPI 3 — Compartilhamentos: mostra o número REAL de acessos ativos no OneDrive.
+  //
+  // A tentação seria contar acessos_vinculos (1 COUNT barato no nosso banco), mas
+  // essa tabela só tem 1 linha (medido) — mostraria "1" onde a verdade são ~370.
+  // Um card de KPI se lê como manchete: número errado ali é mentira, não economia.
+  // Então buscamos o número verdadeiro ao vivo (a mesma consulta que a Auditoria já
+  // faz). Custa alguns segundos, então é PREGUIÇOSO: o card já apareceu com "…" e a
+  // gente troca pelo número quando ele chega, sem travar o resto da tela.
   try {
-    const { count, error } = await sbClient
-      .from('acessos_vinculos')
-      .select('*', { count: 'exact', head: true })
-    if (error) throw error
-    setText('ac-kpi-shares', String(count != null ? count : 0))
+    const r = await _acProxy('microsoft.allShares')
+    const itens = (r && Array.isArray(r.items)) ? r.items : null
+    if (itens == null) throw new Error('resposta_sem_items')
+    setText('ac-kpi-shares', String(itens.length))
+    // Se alguma pasta não pôde ser lida, o número é PARCIAL — dizer isso, não fingir total.
+    const falhas = (r && Array.isArray(r.falhas)) ? r.falhas.length : 0
+    if (falhas > 0) {
+      setText('ac-kpi-shares-fine', `acessos no OneDrive (parcial: ${falhas} pasta(s) não lida(s))`)
+      setTitle('ac-kpi-shares', 'Faltou ler ' + falhas + ' pasta(s); o número está incompleto')
+    } else {
+      setText('ac-kpi-shares-fine', 'acessos ativos no OneDrive (ao vivo)')
+    }
   } catch (e) {
     setText('ac-kpi-shares', '—')
-    setText('ac-kpi-shares-fine', 'contagem indisponível agora')
-    setTitle('ac-kpi-shares', 'Não foi possível contar os vínculos registrados agora')
+    setText('ac-kpi-shares-fine', 'não foi possível consultar o OneDrive agora')
+    setTitle('ac-kpi-shares', 'A consulta ao OneDrive falhou; o número não é zero, é desconhecido')
   }
 }
 
