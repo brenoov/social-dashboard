@@ -77,8 +77,13 @@ Deno.serve(async (req) => {
     const { data: prof } = await sb.from('profiles').select('role').eq('id', user.id).single();
     if (!prof || prof.role !== 'admin') return json({ error: 'sem_permissao' }, 403);
 
-    // 3) janela: ?dias=N (padrão 30, teto 90)
-    const dias = Math.min(90, Math.max(1, Number(new URL(req.url).searchParams.get('dias') || '30')));
+    // 3) janela: dias vem do corpo (sbClient.functions.invoke manda POST) OU da query.
+    // Padrão 30, teto 90 (a Cost API pagina de 31 em 31; 90 já cobre bem o painel).
+    let diasRaw = new URL(req.url).searchParams.get('dias');
+    if (!diasRaw) {
+      try { const body = await req.json(); if (body && body.dias != null) diasRaw = String(body.dias); } catch { /* sem corpo */ }
+    }
+    const dias = Math.min(90, Math.max(1, Number(diasRaw || '30')));
     const agora = new Date();
     const fim = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate() + 1)); // até amanhã 00:00 UTC (inclui hoje)
     const inicio = new Date(fim.getTime() - dias * 86400000);
