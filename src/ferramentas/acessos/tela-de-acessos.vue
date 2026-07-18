@@ -101,6 +101,7 @@ import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-u
 import { hojeLocal } from '../../compartilhado/datas.js'
 import { montarArvoreDePastas } from './montar-arvore-de-pastas.js'
 import { montarDetalhePastas } from './montar-textos-do-topo.js'
+import { decidirEstadoAcesso, mensagemEstadoVazio, agruparPorEscopo, corDeAvatar, inicialDe } from './acesso-da-pasta.js'
 
 const router = useRouter()
 
@@ -512,16 +513,300 @@ async function _acWdImportar(){
     if(b2){b2.disabled=false;b2.textContent='Buscar pastas novas';}
   }
 }
+// ===================================================================
+// Aba "Pastas & Acessos" (Tarefa 3 do redesign) — master-detail de 3
+// colunas: RAIL de provedores | LISTA de pastas | DETALHE (quem tem
+// acesso + links). Tudo é montado por innerHTML (o padrão desta tela),
+// então o CSS correspondente vai com :deep(...) lá embaixo. Por
+// enquanto é SÓ LEITURA: os botões de escrita ("Dar acesso"/"Criar
+// link") aparecem, mas desabilitados — a escrita vem numa próxima leva.
+//
+// OBS de arquitetura: o fluxo ANTIGO da aba Drive (marcas do OneDrive,
+// classificação por setor, arrastar-e-soltar, "liberar setor",
+// compartilhar/descompartilhar inline, e a árvore antiga do WorkDrive)
+// continua definido logo acima (funções _acDrive*/_acRenderWorkdrive/
+// _acWd*), mas NÃO é mais chamado a partir daqui. Foi preservado de
+// propósito (nada apagado em silêncio) — decidir se remove fica pra um
+// follow-up, junto do dono. Ver relatório da Tarefa 3.
+// ===================================================================
+const _AC_PA_PROVS=[
+  {key:'workdrive',nome:'Zoho WorkDrive',glyph:'Z',gcls:'ac-g-zoho',tagCls:'ativo',tag:'Ativo'},
+  {key:'onedrive', nome:'OneDrive',      glyph:'M',gcls:'ac-g-ms',  tagCls:'legado',tag:'Legado'},
+  {key:'icloud',   nome:'iCloud',        glyph:'i',gcls:'ac-g-ap',  tagCls:'legado',tag:'Legado'},
+];
+let _acPaProv='workdrive';          // provedor selecionado no rail
+let _acPaFolders={workdrive:null,onedrive:null,icloud:null}; // cache das listas já carregadas
+let _acPaCounts={workdrive:null,onedrive:null,icloud:null};  // contagem por provedor (null = ainda não sei)
+let _acPaSel=null;                  // id da pasta selecionada
+let _acPaAberto={};                 // ramos abertos/fechados da árvore (por id da pasta)
+
 async function _acRenderDrive(){
-  if(_acDriveProvedor==='workdrive')return _acRenderWorkdrive();
   const body=document.getElementById('ac-body');
-  body.innerHTML='<div class="ac-muted">Carregando Drive…</div>';
-  try{const{data}=await sbClient.from('acessos_drive_marcas').select('*').order('ordem').order('nome');_acDriveMarcas=data||[];}catch(e){_acDriveMarcas=[];}
-  try{const{data:cs}=await sbClient.from('acessos_drive_setores').select('*').order('ordem').order('label');_acDriveCustomSecs=cs||[];}catch(e){_acDriveCustomSecs=[];}
-  try{const{data:ov}=await sbClient.from('acessos_drive_overrides').select('external_id,setor_chave');_acDriveOverrides={};(ov||[]).forEach(o=>{_acDriveOverrides[o.external_id]=o.setor_chave;});}catch(e){_acDriveOverrides={};}
-  if((!_acDriveSel||!_acDriveMarcas.find(m=>m.id===_acDriveSel))&&_acDriveMarcas.length)_acDriveSel=_acDriveMarcas[0].id;
-  _acDrivePaintShell();
-  if(_acDriveMarcas.length)_acDriveExplode();
+  body.innerHTML=`
+    <div class="ac-console">
+      <div class="ac-panel">
+        <div class="ac-phead"><h2>Provedores</h2></div>
+        <div class="ac-rail-list" id="ac-pa-rail"></div>
+      </div>
+      <div class="ac-panel">
+        <div class="ac-phead"><h2 id="ac-pa-list-title">Pastas</h2><span class="ac-cnt tnum" id="ac-pa-list-cnt"></span></div>
+        <div id="ac-pa-list"><div class="ac-muted" style="padding:14px 16px">Carregando…</div></div>
+      </div>
+      <div class="ac-panel ac-pa-detpanel" id="ac-pa-detail">${_acPaDetalhePlaceholder()}</div>
+    </div>`;
+  _acPaPintaRail();
+  _acPaContagens();                          // preenche as contagens do rail (assíncrono)
+  _acPaMostrarProvedor(_acPaProv,{forcar:true}); // carrega a lista do provedor atual
+}
+function _acPaDetalhePlaceholder(){
+  return `<div class="ac-det-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><div>Escolha uma pasta na lista ao lado para ver quem tem acesso.</div></div>`;
+}
+function _acPaFolderIco(){return '<svg class="ac-fic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';}
+// Pinta o rail de provedores (com o selo Ativo/Legado e a contagem de pastas).
+function _acPaPintaRail(){
+  const el=document.getElementById('ac-pa-rail');if(!el)return;
+  el.innerHTML=_AC_PA_PROVS.map(p=>{
+    const c=_acPaCounts[p.key];
+    const cnt=(c==null)?'<span class="ac-muted">contando…</span>':(c+' pasta'+(c===1?'':'s'));
+    return `<div class="ac-rail-item ${p.key===_acPaProv?'sel':''}" data-prov="${p.key}">
+      <div class="ac-rail-name"><span class="ac-glyph ${p.gcls}">${p.glyph}</span>${_acEsc(p.nome)}</div>
+      <div class="ac-rail-meta"><span class="ac-tag ${p.tagCls}">${_acEsc(p.tag)}</span><span>${cnt}</span></div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.ac-rail-item').forEach(it=>it.addEventListener('click',()=>_acPaMostrarProvedor(it.dataset.prov)));
+}
+// Conta as pastas dos 3 provedores DIRETO no banco (workdrive/onedrive/icloud
+// moram todos em acessos_recursos). É barato e não depende do proxy/API estar no
+// ar — se uma contagem falhar, fica em null ("—" seria confundido com zero).
+async function _acPaContagens(){
+  const contar=async tipo=>{
+    try{const{count,error}=await sbClient.from('acessos_recursos').select('id',{count:'exact',head:true}).eq('tipo',tipo).is('arquivado_em',null);
+      return error?null:(count==null?null:count);}catch(e){return null;}
+  };
+  const[w,o,i]=await Promise.all([contar('workdrive'),contar('onedrive'),contar('icloud')]);
+  _acPaCounts={workdrive:w,onedrive:o,icloud:i};
+  _acPaPintaRail();
+}
+// Troca o provedor mostrado na lista do meio. Usa cache quando já carregou antes.
+async function _acPaMostrarProvedor(prov,opts){
+  opts=opts||{};
+  if(prov!==_acPaProv||opts.forcar){_acPaProv=prov;_acPaSel=null;}
+  _acPaPintaRail();
+  const det=document.getElementById('ac-pa-detail');if(det)det.innerHTML=_acPaDetalhePlaceholder();
+  const P=_AC_PA_PROVS.find(x=>x.key===prov)||{};
+  const titEl=document.getElementById('ac-pa-list-title');if(titEl)titEl.textContent='Pastas · '+(P.nome||'');
+  const listEl=document.getElementById('ac-pa-list');if(listEl)listEl.innerHTML='<div class="ac-muted" style="padding:14px 16px">Carregando pastas…</div>';
+  if(_acPaFolders[prov]){_acPaPintaLista();return;}
+  try{_acPaFolders[prov]=await _acPaCarregarPastas(prov);}
+  catch(e){if(listEl)listEl.innerHTML='<div class="ac-muted" style="padding:14px 16px">Não foi possível carregar as pastas: '+_acEsc(e.message||String(e))+'</div>';return;}
+  _acPaPintaLista();
+}
+// Carrega a lista de pastas de um provedor e devolve num shape comum:
+//   {id, nome, external_id, tipo, nivel, temMae, caminho, filhas}
+// WorkDrive é HIERÁRQUICO (reusa o módulo testado montarArvoreDePastas); OneDrive
+// e iCloud são listas achatadas.
+async function _acPaCarregarPastas(prov){
+  if(prov==='onedrive'){
+    // Pastas do OneDrive vêm pelo proxy (o caminho sancionado); o banco não guarda
+    // hierarquia aqui, então a lista é achatada.
+    const r=await _acProxy('microsoft.folders');
+    const fs=(r&&r.folders)||[];
+    return fs.map(f=>({id:f.id,nome:f.nome,external_id:f.external_id,tipo:'onedrive',nivel:0,temMae:false,caminho:f.caminho||null,filhas:null}));
+  }
+  const tipo=(prov==='icloud')?'icloud':'workdrive';
+  const{data,error}=await sbClient.from('acessos_recursos').select('*').eq('tipo',tipo).is('arquivado_em',null).order('caminho').order('nome');
+  if(error)throw new Error(error.message);
+  const rows=data||[];
+  if(prov==='icloud'){
+    return rows.map(r=>({id:r.id,nome:r.nome,external_id:r.external_id,tipo:'icloud',nivel:0,temMae:false,caminho:r.caminho||r.nome,filhas:null}));
+  }
+  // WorkDrive: monta a árvore de verdade e converte cada nó pro shape comum,
+  // preservando o aninhamento (a lista do meio expande/recolhe).
+  return montarArvoreDePastas(rows).map(_acPaNoWd);
+}
+function _acPaNoWd(no){
+  const r=no.recurso||{};
+  return {id:no.id,nome:no.nome,external_id:r.external_id,tipo:'workdrive',
+    nivel:no.nivel,temMae:no.nivel>0,caminho:no.caminho,filhas:(no.filhas||[]).map(_acPaNoWd)};
+}
+// Conta pastas contando as filhas (a árvore do WorkDrive é aninhada).
+function _acPaContaPastas(nos){let n=0;(nos||[]).forEach(x=>{n++;if(x.filhas)n+=_acPaContaPastas(x.filhas);});return n;}
+function _acPaVazioLista(){
+  if(_acPaProv==='workdrive')return 'Nenhuma pasta do WorkDrive importada ainda.';
+  if(_acPaProv==='onedrive')return 'Nenhuma pasta do OneDrive sob controle.';
+  return 'Nenhuma pasta do iCloud cadastrada.';
+}
+function _acPaPintaLista(){
+  const listEl=document.getElementById('ac-pa-list');if(!listEl)return;
+  const roots=_acPaFolders[_acPaProv]||[];
+  const total=_acPaContaPastas(roots);
+  const cntEl=document.getElementById('ac-pa-list-cnt');if(cntEl)cntEl.textContent=total+' pasta'+(total===1?'':'s');
+  if(!total){listEl.innerHTML='<div class="ac-empty" style="margin:14px 16px">'+_acEsc(_acPaVazioLista())+'</div>';return;}
+  if(_acPaProv==='workdrive'){
+    listEl.innerHTML='<ul class="ac-flist ac-flist-root">'+roots.map(_acPaNoLista).join('')+'</ul>';
+  }else{
+    listEl.innerHTML=roots.map(_acPaFolderRow).join('');
+  }
+  _acPaWireLista(listEl);
+}
+// Um nó da árvore (WorkDrive), recursivo. A indentação é por nível (padding-left).
+function _acPaNoLista(no){
+  const temFilhas=no.filhas&&no.filhas.length>0;
+  const aberto=_acPaAberto[no.id]!==false; // começa aberto (são poucas pastas)
+  const sel=no.id===_acPaSel;
+  return `<li class="ac-fnode">
+    <div class="ac-frow ${sel?'sel':''}" data-fid="${_acEsc(no.id)}" style="padding-left:${8+no.nivel*16}px">
+      ${temFilhas?`<button class="ac-ftog ${aberto?'open':''}" data-ftog="${_acEsc(no.id)}" title="${aberto?'recolher':'expandir'}">▸</button>`:'<span class="ac-fdot"></span>'}
+      ${_acPaFolderIco()}
+      <span class="ac-fname" title="${_acEsc(no.caminho||no.nome)}">${_acEsc(no.nome)}</span>
+    </div>
+    ${temFilhas&&aberto?`<ul class="ac-flist">${no.filhas.map(_acPaNoLista).join('')}</ul>`:''}
+  </li>`;
+}
+// Uma linha achatada (OneDrive/iCloud).
+function _acPaFolderRow(f){
+  const sel=f.id===_acPaSel;
+  return `<div class="ac-frow ${sel?'sel':''}" data-fid="${_acEsc(f.id)}" style="padding-left:12px">
+    ${_acPaFolderIco()}
+    <span class="ac-fname" title="${_acEsc(f.caminho||f.nome)}">${_acEsc(f.nome)}</span>
+  </div>`;
+}
+function _acPaWireLista(listEl){
+  listEl.querySelectorAll('[data-ftog]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();_acPaAlternar(b.dataset.ftog);}));
+  listEl.querySelectorAll('.ac-frow').forEach(r=>r.addEventListener('click',()=>_acPaSelecionar(r.dataset.fid)));
+}
+function _acPaAlternar(id){_acPaAberto[id]=(_acPaAberto[id]===false);_acPaPintaLista();}
+// Acha uma pasta pelo id (procura recursivo na árvore do provedor atual).
+function _acPaAcharPasta(id){
+  const busca=nos=>{for(const n of (nos||[])){if(n.id===id)return n;if(n.filhas){const r=busca(n.filhas);if(r)return r;}}return null;};
+  return busca(_acPaFolders[_acPaProv]||[]);
+}
+function _acPaSelecionar(id){
+  _acPaSel=id;
+  _acPaPintaLista();               // re-pinta pra marcar a linha selecionada
+  const f=_acPaAcharPasta(id);
+  if(f)_acPaDetalhe(f);
+}
+// Descobre o caminho da pasta-MÃE a partir do `caminho` ("mãe/filha"). Corta pelo
+// tamanho do nome (não por split), pra nome com "/" não ser partido no meio.
+function _acPaCaminhoMae(f){
+  const caminho=String(f.caminho||''),nome=String(f.nome||'');
+  if(!caminho||caminho===nome)return null;
+  const suf='/'+nome;
+  if(nome&&caminho.endsWith(suf))return caminho.slice(0,caminho.length-suf.length)||null;
+  const i=caminho.lastIndexOf('/');
+  return i>0?caminho.slice(0,i):null;
+}
+function _acPaPapelOnedrive(role){role=String(role||'');if(role==='edição'||role==='edicao')return 'Edição';if(role==='leitura')return 'Leitura';return role||'Acesso';}
+// Monta o cabeçalho do detalhe e dispara a leitura de "quem tem acesso".
+async function _acPaDetalhe(f){
+  const det=document.getElementById('ac-pa-detail');if(!det)return;
+  const P=_AC_PA_PROVS.find(x=>x.key===f.tipo)||{};
+  const crumbMae=_acPaCaminhoMae(f);
+  det.innerHTML=`
+    <div class="ac-det-hero">
+      <div class="ac-det-crumb">${_acEsc(P.nome||'')}${crumbMae?' · '+_acEsc(crumbMae):''}</div>
+      <div class="ac-det-title"><span class="ac-det-big ${P.gcls||''}">${_acPaFolderIco()}</span><h3>${_acEsc(f.nome)}</h3></div>
+      <div class="ac-det-chips" id="ac-pa-chips"></div>
+    </div>
+    <div id="ac-pa-detbody"><div class="ac-muted" style="padding:16px 18px">Carregando quem tem acesso…</div></div>`;
+  if(f.tipo==='workdrive')return _acPaDetWorkdrive(f);
+  if(f.tipo==='onedrive')return _acPaDetOnedrive(f);
+  return _acPaDetICloud(f);
+}
+// WorkDrive: pergunta ao Zoho quem tem acesso. Se a chamada falhar, marcamos como
+// FALHA (não "ninguém") — o renderizador cuida de dizer isso honestamente.
+async function _acPaDetWorkdrive(f){
+  let r;
+  try{r=await _acProxy('zoho.acessoDaPasta',{resourceId:f.external_id});}
+  catch(e){return _acPaPintaAcesso({pessoas:[],links:[],falhas:[{erro:e.message||String(e)}]},f,{origem:'workdrive'});}
+  _acPaPintaAcesso(r,f,{origem:'workdrive'});
+}
+// OneDrive: microsoft.shares devolve {shares:[{permId,name,email,role}], link}.
+// Normaliza pro mesmo shape do WorkDrive (pessoas/links/falhas). role vira o
+// "escopo" da pessoa (Edição/Leitura). Falha da chamada = FALHA, não "ninguém".
+async function _acPaDetOnedrive(f){
+  let r;
+  try{r=await _acProxy('microsoft.shares',{itemId:f.external_id});}
+  catch(e){return _acPaPintaAcesso({pessoas:[],links:[],falhas:[{erro:e.message||String(e)}]},f,{origem:'onedrive'});}
+  const shares=(r&&r.shares)||[];
+  const pessoas=shares.map(s=>({nome:s.name,email:s.email,escopo:_acPaPapelOnedrive(s.role),escopo_cru:s.role}));
+  const links=(r&&r.link)?[{url:r.link,rotulo:'Link de compartilhamento da pasta'}]:[];
+  _acPaPintaAcesso({pessoas,links,falhas:[]},f,{origem:'onedrive'});
+}
+// iCloud é controle MANUAL (a Apple não tem API). "Quem tem acesso" sai de
+// acessos_vinculos: quem DEVERIA ter, com o estado (feito/pendente). Deixamos
+// explícito que é registro humano (chip "controle manual").
+async function _acPaDetICloud(f){
+  let vs=[];
+  try{const{data,error}=await sbClient.from('acessos_vinculos').select('*').eq('recurso_id',f.id).order('criado_em');if(error)throw error;vs=data||[];}
+  catch(e){return _acPaPintaAcesso({pessoas:[],links:[],falhas:[{erro:'leitura'}]},f,{origem:'icloud'});}
+  const pOf=pid=>(_acData.pessoas||[]).find(x=>x.id===pid)||{};
+  const pessoas=vs.map(v=>{const p=pOf(v.pessoa_id);
+    return {nome:p.nome||'(colaborador)',email:p.conta_apple||p.email_corporativo||'',
+      escopo:(v.papel==='edicao'?'Edição':'Leitura')+(v.estado==='feito'?' · feito':' · pendente')};});
+  _acPaPintaAcesso({pessoas,links:[],falhas:[]},f,{origem:'icloud'});
+}
+// Uma linha de pessoa no detalhe: inicial colorida + nome + e-mail + escopo/papel.
+function _acPaPessoaRow(p){
+  const nome=p.nome||p.email||'—';
+  const cor=corDeAvatar(p.email||p.nome);
+  const ini=inicialDe(p.nome,p.email);
+  return `<div class="ac-prow">
+    <div class="ac-av" style="background:${cor}">${_acEsc(ini)}</div>
+    <div class="ac-pmeta"><div class="ac-pname">${_acEsc(nome)}</div>${p.email?`<div class="ac-pmail">${_acEsc(p.email)}</div>`:''}</div>
+    ${p.escopo?`<span class="ac-role">${_acEsc(p.escopo)}</span>`:''}
+  </div>`;
+}
+// Renderizador COMUM do detalhe (WorkDrive/OneDrive/iCloud caem todos aqui, no
+// mesmo shape). É onde mora a HONESTIDADE de estado: 0 pessoas pode ser herança,
+// falha de leitura ou vazio de verdade — cada caso com texto próprio.
+function _acPaPintaAcesso(resp,f,opts){
+  opts=opts||{};
+  const body=document.getElementById('ac-pa-detbody');
+  const chipsEl=document.getElementById('ac-pa-chips');
+  if(!body)return;
+  const pessoas=(resp&&resp.pessoas)||[];
+  const links=(resp&&resp.links)||[];
+  const estado=decidirEstadoAcesso(resp,{temMae:f.temMae});
+  // Chips-resumo no topo do detalhe.
+  if(chipsEl){
+    let chips='';
+    if(opts.origem==='icloud')chips+='<span class="ac-chip">Controle manual (Apple sem API)</span>';
+    if(estado.tipo==='ok'){
+      const grupos=agruparPorEscopo(pessoas);
+      chips+=grupos.map(g=>`<span class="ac-chip"><svg class="ac-ci" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg>${_acEsc(g.escopo)}${grupos.length>1?' ('+g.quantidade+')':''}</span>`).join('');
+      chips+=`<span class="ac-chip">${pessoas.length} pessoa${pessoas.length===1?'':'s'} com acesso</span>`;
+    }
+    chips+=`<span class="ac-chip">${links.length?(links.length+' link'+(links.length===1?'':'s')):'Sem link público'}</span>`;
+    chipsEl.innerHTML=chips;
+  }
+  let html='';
+  if(estado.incompleto){
+    html+=`<div class="ac-aviso-incompleto" style="margin:12px 18px 0">⚠️ Este quadro pode estar incompleto: não foi possível ler tudo. O que aparece abaixo é só o que deu pra ler agora.</div>`;
+  }
+  html+=`<div class="ac-sec-lab">Quem tem acesso</div>`;
+  if(estado.tipo==='ok'){
+    html+=`<div class="ac-people">`+pessoas.map(_acPaPessoaRow).join('')+`</div>`;
+  }else{
+    html+=`<div class="ac-empty" style="margin:8px 18px 4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg>${_acEsc(mensagemEstadoVazio(estado))}</div>`;
+  }
+  html+=`<div class="ac-sec-lab">Links</div>`;
+  if(links.length){
+    html+=`<div class="ac-people">`+links.map(l=>`<div class="ac-linkrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg><div class="grow" style="min-width:0"><div class="ac-linkurl">${_acEsc(l.url)}</div>${l.rotulo?`<div class="ac-muted">${_acEsc(l.rotulo)}</div>`:''}</div><button class="ac-btn2" data-copy="${_acEsc(l.url)}">Copiar</button></div>`).join('')+`</div>`;
+  }else{
+    html+=`<div class="ac-empty" style="margin:8px 18px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Nenhum link público criado nesta pasta.</div>`;
+  }
+  // Botões de ESCRITA: presentes mas desabilitados (a escrita vem noutra leva).
+  const t=(f.tipo==='workdrive')
+    ?'Reconecte o Zoho concedendo compartilhamento para habilitar'
+    :'Dar acesso e criar link chegam numa próxima etapa.';
+  html+=`<div class="ac-actbar">
+    <button class="ac-btn-lock" disabled title="${_acEsc(t)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Dar acesso a alguém</button>
+    <button class="ac-btn-lock" disabled title="${_acEsc(t)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Criar link</button>
+  </div>`;
+  body.innerHTML=html;
+  body.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',()=>_acCopy(b.dataset.copy,b)));
 }
 function _acDrivePaintShell(){
   const body=document.getElementById('ac-body');
@@ -1887,6 +2172,90 @@ onMounted(() => {
 @media(max-width:420px){
   .tela-acessos .ac-kpi-val{font-size:27px}
 }
+
+/* ===== Aba "Pastas & Acessos" (Tarefa 3): master-detail 3 colunas =====
+   Tudo é montado por innerHTML, então precisa de :deep(...). TODA cor sai de
+   var(--...) de estilos-globais.css pra funcionar no tema claro E no escuro
+   (o mockup tinha as cores cravadas; aqui viraram tokens). As únicas cores
+   fixas são as dos glifos de provedor e das iniciais de avatar — identidade de
+   marca/pessoa (tipo logo), não chrome de UI. */
+.tela-acessos :deep(.ac-console){display:grid;grid-template-columns:230px 1.15fr 1fr;gap:16px;align-items:start}
+.tela-acessos :deep(.ac-panel){background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);overflow:hidden}
+.tela-acessos :deep(.ac-phead){padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tela-acessos :deep(.ac-phead h2){font-size:13px;margin:0;font-weight:700;letter-spacing:-.01em;color:var(--text)}
+.tela-acessos :deep(.ac-cnt){font-size:12px;color:var(--muted);font-weight:600}
+.tela-acessos :deep(.tnum){font-variant-numeric:tabular-nums}
+/* rail de provedores */
+.tela-acessos :deep(.ac-rail-list){padding:8px}
+.tela-acessos :deep(.ac-rail-item){display:flex;flex-direction:column;gap:6px;padding:12px 13px;border-radius:var(--radius-md);cursor:pointer;border:1px solid transparent}
+.tela-acessos :deep(.ac-rail-item+.ac-rail-item){margin-top:4px}
+.tela-acessos :deep(.ac-rail-item:hover){background:var(--surface2)}
+.tela-acessos :deep(.ac-rail-item.sel){background:var(--accent-light);border-color:var(--accent-mid)}
+.tela-acessos :deep(.ac-rail-name){display:flex;align-items:center;gap:8px;font-weight:650;font-size:13.5px;color:var(--text)}
+.tela-acessos :deep(.ac-glyph){width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:800;flex:none}
+.tela-acessos :deep(.ac-g-zoho){background:#2c8a3d}
+.tela-acessos :deep(.ac-g-ms){background:#2b6fd6}
+.tela-acessos :deep(.ac-g-ap){background:#586172}
+.tela-acessos :deep(.ac-rail-meta){display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);padding-left:30px;flex-wrap:wrap}
+.tela-acessos :deep(.ac-tag){display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:999px}
+.tela-acessos :deep(.ac-tag.ativo){color:var(--green);background:color-mix(in srgb,var(--green) 14%,transparent)}
+.tela-acessos :deep(.ac-tag.legado){color:var(--orange);background:color-mix(in srgb,var(--orange) 14%,transparent)}
+/* lista de pastas */
+.tela-acessos :deep(.ac-flist){list-style:none;margin:0;padding:0}
+.tela-acessos :deep(.ac-flist-root){padding:6px 0}
+.tela-acessos :deep(.ac-fnode){margin:0}
+.tela-acessos :deep(.ac-frow){display:flex;align-items:center;gap:9px;padding:10px 12px;cursor:pointer;border-left:2px solid transparent}
+.tela-acessos :deep(.ac-frow:hover){background:var(--surface2)}
+.tela-acessos :deep(.ac-frow.sel){background:var(--accent-light);border-left-color:var(--accent)}
+.tela-acessos :deep(.ac-ftog){background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;line-height:1;padding:2px;flex:none;transition:transform .15s ease;transform:rotate(0deg)}
+.tela-acessos :deep(.ac-ftog.open){transform:rotate(90deg)}
+.tela-acessos :deep(.ac-fdot){width:5px;height:5px;border-radius:999px;background:var(--border);flex:none;margin:0 6px}
+.tela-acessos :deep(.ac-fic){width:16px;height:16px;flex:none;color:var(--muted)}
+.tela-acessos :deep(.ac-fname){font-weight:600;font-size:13.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+/* detalhe */
+.tela-acessos :deep(.ac-pa-detpanel){min-height:220px}
+.tela-acessos :deep(.ac-det-empty){padding:40px 24px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;color:var(--muted);font-size:13px}
+.tela-acessos :deep(.ac-det-empty svg){width:34px;height:34px;opacity:.5}
+.tela-acessos :deep(.ac-det-hero){padding:18px 18px 16px;border-bottom:1px solid var(--border)}
+.tela-acessos :deep(.ac-det-crumb){font-size:11.5px;color:var(--muted);font-weight:600;margin-bottom:7px}
+.tela-acessos :deep(.ac-det-title){display:flex;align-items:center;gap:11px}
+.tela-acessos :deep(.ac-det-big){width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:#fff;flex:none}
+.tela-acessos :deep(.ac-det-big .ac-fic){width:18px;height:18px;color:#fff}
+.tela-acessos :deep(.ac-det-title h3){margin:0;font-size:17px;font-weight:700;letter-spacing:-.02em;color:var(--text)}
+.tela-acessos :deep(.ac-det-chips){display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.tela-acessos :deep(.ac-chip){display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:5px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface2);color:var(--text)}
+.tela-acessos :deep(.ac-ci){width:13px;height:13px;color:var(--muted)}
+.tela-acessos :deep(.ac-sec-lab){padding:15px 18px 4px;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
+.tela-acessos :deep(.ac-people){padding:6px 10px 12px}
+.tela-acessos :deep(.ac-prow){display:flex;align-items:center;gap:12px;padding:9px 8px;border-radius:var(--radius-sm)}
+.tela-acessos :deep(.ac-prow:hover){background:var(--surface2)}
+.tela-acessos :deep(.ac-av){width:34px;height:34px;border-radius:999px;flex:none;display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px}
+.tela-acessos :deep(.ac-pmeta){flex:1;min-width:0}
+.tela-acessos :deep(.ac-pname){font-weight:650;font-size:13.5px;color:var(--text)}
+.tela-acessos :deep(.ac-pmail){font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tela-acessos :deep(.ac-role){font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:999px;flex:none;color:var(--accent);background:var(--accent-light);white-space:nowrap}
+.tela-acessos :deep(.ac-linkrow){display:flex;align-items:center;gap:11px;padding:10px 8px;border-radius:var(--radius-sm)}
+.tela-acessos :deep(.ac-linkrow svg){width:18px;height:18px;flex:none;color:var(--muted)}
+.tela-acessos :deep(.ac-linkurl){font-size:12.5px;color:var(--text);word-break:break-all;line-height:1.35}
+.tela-acessos :deep(.ac-btn2){flex:none;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:7px 13px;font-size:12.5px;font-weight:600;cursor:pointer}
+.tela-acessos :deep(.ac-btn2:hover){background:var(--surface2)}
+.tela-acessos :deep(.ac-pa-detpanel .ac-empty){display:flex;align-items:center;gap:10px;padding:14px 16px;border:1px dashed var(--border);border-radius:var(--radius-md);color:var(--muted);font-size:13px;background:var(--surface2)}
+.tela-acessos :deep(.ac-pa-detpanel .ac-empty svg){width:18px;height:18px;flex:none;opacity:.7}
+.tela-acessos :deep(.ac-actbar){padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:9px;flex-wrap:wrap}
+.tela-acessos :deep(.ac-btn-lock){display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;padding:9px 15px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:not-allowed;opacity:.8}
+.tela-acessos :deep(.ac-btn-lock svg){width:15px;height:15px}
+/* mobile: as 3 colunas empilham; o rail vira faixa rolável no topo */
+@media(max-width:1080px){
+  .tela-acessos :deep(.ac-console){grid-template-columns:200px 1fr}
+  .tela-acessos :deep(.ac-pa-detpanel){grid-column:1 / -1}
+}
+@media(max-width:720px){
+  .tela-acessos :deep(.ac-console){grid-template-columns:1fr}
+  .tela-acessos :deep(.ac-rail-list){display:flex;gap:8px;overflow-x:auto}
+  .tela-acessos :deep(.ac-rail-item){min-width:190px}
+  .tela-acessos :deep(.ac-rail-item+.ac-rail-item){margin-top:0}
+}
+
 .tela-acessos :deep(.ac-aud-grid){display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
 .tela-acessos :deep(.ac-aud-line){margin-top:5px;font-size:13px}
 .tela-acessos :deep(.ac-aud-line .ac-kicker){display:inline}
