@@ -85,6 +85,7 @@
         <button class="ac-tab" data-tab="org" onclick="_acSetTab('org')">Organizações</button>
         <button class="ac-tab" data-tab="drive" onclick="_acSetTab('drive')">Drive</button>
         <button class="ac-tab" data-tab="auditoria" onclick="_acSetTab('auditoria')">Auditoria</button>
+        <button class="ac-tab" data-tab="patrimonio" onclick="_acSetTab('patrimonio')">Patrimônio</button>
         <button class="ac-tab" data-tab="config" onclick="_acSetTab('config')" title="Configurações" style="padding:6px 10px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
       </div>
     </div>
@@ -104,6 +105,10 @@ import { montarDetalhePastas } from './montar-textos-do-topo.js'
 import { decidirEstadoAcesso, mensagemEstadoVazio, agruparPorEscopo, corDeAvatar, inicialDe } from './acesso-da-pasta.js'
 import { montarEmailsDeSelecao } from './onedrive-escrita.js'
 import { contarAcessosOneDrive, resumoAcessosOneDrive, statusWorkdrive, campoPreenchido, resumoDaFicha } from './ficha-do-colaborador.js'
+// Patrimônio (Tarefa 5): dinheiro em centavos + histórico de posse (módulo já testado)
+import { formatarValor, parsearValor, CATEGORIAS_PATRIMONIO, fecharEAbrirHistorico } from './patrimonio.js'
+// Lógica pura da lista/consolidado de patrimônio (somar, filtrar, formatar data, histórico)
+import { somarCentavos, filtrarItens, formatarDataBR, textoLinhaHistorico, donoAtualNome } from './patrimonio-lista.js'
 
 const router = useRouter()
 
@@ -1244,6 +1249,7 @@ function _acRender(){
   if(_acTab==='auditoria')return _acRenderAuditoria();
   if(_acTab==='drive')return _acRenderDrive();
   if(_acTab==='config')return _acRenderConfiguracoes();
+  if(_acTab==='patrimonio')return _acRenderPatrimonio();
   if(_acTab==='icloud')return _acRenderICloud();
   if(_acSel)return _acRenderFicha(_acSel);
   if(_acSelSetor!==null)return _acRenderColaboradores(_acSelSetor);
@@ -1603,7 +1609,7 @@ function _acRenderFicha(id){
         <!-- Dispositivos & patrimônio (GANCHO — o CRUD completo é a Tarefa 5) -->
         <div class="ac-panel">
           <div class="ac-phead"><h2>Dispositivos &amp; patrimônio</h2>
-            <button class="ac-btn-mini" onclick="_acFormItem('${c.id}','dispositivo')">+ Registrar</button></div>
+            <button class="ac-btn-mini" onclick="_acPatForm('${c.id}')">+ Registrar</button></div>
           <div id="ac-disp-wrap" class="ac-fx-wrap">
             <div class="ac-fx-empty">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>
@@ -1647,6 +1653,7 @@ function _acRenderFicha(id){
   // sem travar a ficha. Cada um trata o próprio erro e é HONESTO (não vira 0).
   _acFichaCarregarAcessos(id);
   _acFichaCarregarContadores(id);
+  _acRenderPatItens(id); // preenche o painel "Dispositivos & patrimônio" (CRUD da Tarefa 5)
 }
 // Editor de UM campo da ficha, em modal PRÓPRIO (nada de prompt nativo). Salva
 // direto em acessos_pessoas e recarrega a ficha. Campo vazio grava NULL (some do
@@ -2000,6 +2007,242 @@ async function _acDelItem(id,pessoaId,categoria){
   await _acLog('item.excluir',categoria+':'+id,'ok',null);
   adminToast('Item excluído');_acRenderItens(pessoaId,categoria);
 }
+// ==========================================================================
+// PATRIMÔNIO (Tarefa 5 do redesign): CRUD na ficha + histórico de posse + aba
+// consolidada. Dinheiro SEMPRE em centavos inteiros (parsearValor na entrada,
+// formatarValor na saída — módulo patrimonio.js). Categorias novas em
+// CATEGORIAS_PATRIMONIO. Absorve a categoria "Veículos" (o painel _acRenderVeiculos
+// da ficha saiu na Tarefa 4): vira um item com campo de placa no jsonb "detalhes".
+// As funções antigas _acRenderItens/_acFormItem/_acSaveItem/_acSetItemStatus/_acDelItem
+// ficam preservadas acima (não são mais chamadas), conforme combinado no brief.
+// ==========================================================================
+
+// Pill de situação do item (reusa AC_DST, a mesma tabela de status do CRUD antigo).
+function _acPatStatusPill(status){const m=_acDstMeta(status);return `<span class="ac-pill ${m[2]}">${_acEsc(m[1])}</span>`;}
+
+// Lista os itens de patrimônio de UMA pessoa no painel da ficha (#ac-disp-wrap).
+// Se não houver nada, mostra o mesmo estado vazio pontilhado do mockup.
+async function _acRenderPatItens(pessoaId){
+  const wrap=document.getElementById('ac-disp-wrap');if(!wrap)return;
+  const{data,error}=await sbClient.from('acessos_dispositivos').select('*').eq('pessoa_id',pessoaId).order('atualizado_em',{ascending:false});
+  if(_acSel!==pessoaId)return; // trocou de pessoa nesse meio-tempo: não escreve em ficha velha
+  if(error){wrap.innerHTML='<div class="ac-fx-empty">Não consegui carregar o patrimônio: '+_acEsc(error.message)+'</div>';return;}
+  const itens=data||[];
+  if(!itens.length){
+    wrap.innerHTML=`<div class="ac-fx-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>
+      Nenhum notebook, celular ou equipamento registrado nesta pessoa. Registre para saber o que está sob a responsabilidade dela.
+    </div>`;return;
+  }
+  const total=somarCentavos(itens);
+  wrap.innerHTML=`<div class="ac-pat-list">${itens.map(d=>_acPatRow(pessoaId,d)).join('')}</div>
+    <div class="ac-pat-total">Total do patrimônio desta pessoa <strong>${_acEsc(formatarValor(total))}</strong></div>`;
+}
+// Uma linha de item na ficha: categoria + situação, descrição e metadados, botões.
+function _acPatRow(pessoaId,d){
+  const desde=d.desde?formatarDataBR(d.desde):'—';
+  const placa=(d.detalhes&&typeof d.detalhes==='object'&&d.detalhes.placa)?d.detalhes.placa:'';
+  return `<div class="ac-pat-item">
+    <div class="ac-pat-main">
+      <div class="ac-pat-top"><span class="ac-chip">${_acEsc(d.categoria||'—')}</span> ${_acPatStatusPill(d.status)}</div>
+      <div class="ac-pat-desc">${_acEsc(d.descricao||'(sem descrição)')}</div>
+      <div class="ac-pat-meta">
+        ${d.identificador?'<span>Nº série: '+_acEsc(d.identificador)+'</span>':''}
+        ${placa?'<span>Placa: '+_acEsc(placa)+'</span>':''}
+        <span>Valor: ${_acEsc(formatarValor(d.valor_centavos))}</span>
+        <span>Desde: ${_acEsc(desde)}</span>
+        ${d.observacao?'<span>'+_acEsc(d.observacao)+'</span>':''}
+      </div>
+    </div>
+    <div class="ac-pat-acts">
+      <button class="ac-btn ghost" onclick="_acPatForm('${pessoaId}','${d.id}')">Editar</button>
+      <button class="ac-btn ghost" onclick="_acPatTrocarDono('${d.id}','${pessoaId}')">Trocar dono</button>
+      <button class="ac-btn ghost" onclick="_acPatHistorico('${d.id}')">Histórico</button>
+      <button class="ac-btn danger" onclick="_acPatDel('${d.id}','${pessoaId}')">Remover</button>
+    </div>
+  </div>`;
+}
+// Modal de adicionar/editar item. Sem id = novo. Grava em acessos_dispositivos.
+async function _acPatForm(pessoaId,id){
+  let d={categoria:'TI',status:'em_uso',descricao:'',identificador:'',valor_centavos:null,desde:hojeLocal(),observacao:'',detalhes:{}};
+  if(id){const{data}=await sbClient.from('acessos_dispositivos').select('*').eq('id',id).single();if(data){d=data;d.detalhes=(data.detalhes&&typeof data.detalhes==='object')?data.detalhes:{};}}
+  // valor vem em centavos: mostra sem o "R$ " pra facilitar editar (parsearValor aceita de volta)
+  const valorTxt=(d.valor_centavos!=null)?formatarValor(d.valor_centavos).replace('R$ ',''):'';
+  const ov=document.createElement('div');ov.className='ac-modal-ov open';
+  ov.innerHTML=`<div class="ac-modal" style="max-width:540px">
+    <h3 style="margin-top:0">${id?'Editar item':'Registrar item'} de patrimônio</h3>
+    <div class="ac-grid2">
+      <label>Categoria<select class="ac-select" id="ac-pat-cat">${CATEGORIAS_PATRIMONIO.map(c=>`<option ${c===d.categoria?'selected':''}>${_acEsc(c)}</option>`).join('')}</select></label>
+      <label>Situação<select class="ac-select" id="ac-pat-status">${AC_DST.map(s=>`<option value="${s[0]}" ${s[0]===(d.status||'em_uso')?'selected':''}>${_acEsc(s[1])}</option>`).join('')}</select></label>
+      <label style="grid-column:1/-1">Descrição<input class="ac-input" id="ac-pat-desc" value="${_acEsc(d.descricao||'')}" placeholder="Ex.: Notebook Dell Latitude 5440"></label>
+      <label>Nº de série / identificação<input class="ac-input" id="ac-pat-ident" value="${_acEsc(d.identificador||'')}"></label>
+      <label>Valor (R$)<input class="ac-input" id="ac-pat-valor" inputmode="decimal" value="${_acEsc(valorTxt)}" placeholder="Ex.: 3.500,00"></label>
+      <label>Desde<input class="ac-input" type="date" id="ac-pat-desde" value="${_acEsc(d.desde||'')}"></label>
+      <label id="ac-pat-placa-wrap" style="${d.categoria==='Veículos'?'':'display:none'}">Placa (veículo)<input class="ac-input" id="ac-pat-placa" value="${_acEsc((d.detalhes&&d.detalhes.placa)||'')}"></label>
+      <label style="grid-column:1/-1">Observação<input class="ac-input" id="ac-pat-obs" value="${_acEsc(d.observacao||'')}"></label>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+      <button class="ac-btn ghost" data-x="0">Cancelar</button>
+      <button class="ac-btn primary" data-x="1">Salvar</button>
+    </div>
+  </div>`;
+  (document.getElementById('acessos-screen')||document.body).appendChild(ov);
+  const close=()=>ov.remove();
+  ov.addEventListener('click',e=>{if(e.target===ov)close();});
+  ov.querySelector('[data-x="0"]').onclick=close;
+  // o campo de placa só aparece pra categoria Veículos (absorve o antigo painel de veículos)
+  ov.querySelector('#ac-pat-cat').onchange=e=>{ov.querySelector('#ac-pat-placa-wrap').style.display=e.target.value==='Veículos'?'':'none';};
+  ov.querySelector('[data-x="1"]').onclick=async()=>{
+    const desc=(ov.querySelector('#ac-pat-desc').value||'').trim();
+    if(!desc){adminToast('A descrição é obrigatória',false);return;}
+    const valorRaw=(ov.querySelector('#ac-pat-valor').value||'').trim();
+    let valor_centavos=null;
+    if(valorRaw){valor_centavos=parsearValor(valorRaw);if(valor_centavos===null){adminToast('Valor inválido — use algo como 3.500,00',false);return;}}
+    const categoria=ov.querySelector('#ac-pat-cat').value;
+    const detalhes=Object.assign({},(d.detalhes&&typeof d.detalhes==='object')?d.detalhes:{});
+    const placaEl=ov.querySelector('#ac-pat-placa');const placa=placaEl?placaEl.value.trim():'';
+    if(categoria==='Veículos'&&placa)detalhes.placa=placa;else delete detalhes.placa;
+    const desde=ov.querySelector('#ac-pat-desde').value||null;
+    const rec={pessoa_id:pessoaId,categoria,status:ov.querySelector('#ac-pat-status').value,descricao:desc,identificador:(ov.querySelector('#ac-pat-ident').value||'').trim()||null,valor_centavos,desde,observacao:(ov.querySelector('#ac-pat-obs').value||'').trim()||null,detalhes,atualizado_em:new Date().toISOString()};
+    const btn=ov.querySelector('[data-x="1"]');btn.disabled=true;btn.textContent='Salvando…';
+    if(id){
+      const{error}=await sbClient.from('acessos_dispositivos').update(rec).eq('id',id);
+      if(error){adminToast('Erro: '+error.message,false);btn.disabled=false;btn.textContent='Salvar';return;}
+      await _acLog('patrimonio.editar',categoria+':'+desc,'ok',null);
+    }else{
+      const{data:novo,error}=await sbClient.from('acessos_dispositivos').insert(rec).select('id').single();
+      if(error){adminToast('Erro: '+error.message,false);btn.disabled=false;btn.textContent='Salvar';return;}
+      // Abre o histórico de posse do PRIMEIRO dono — assim "trocar dono" depois tem
+      // um registro aberto pra fechar (senão o período do dono inicial se perde).
+      const pessoa=(_acData.pessoas||[]).find(p=>p.id===pessoaId);
+      await sbClient.from('acessos_patrimonio_historico').insert({dispositivo_id:novo.id,pessoa_id:pessoaId,pessoa_nome:pessoa?pessoa.nome:null,de:desde||hojeLocal(),ate:null,motivo:'Registro inicial'});
+      await _acLog('patrimonio.criar',categoria+':'+desc,'ok',null);
+    }
+    close();adminToast('Item salvo');
+    _acRenderPatItens(pessoaId);_acFichaCarregarContadores(pessoaId);
+  };
+}
+// Trocar o dono de um item: escolhe outra pessoa; fecha o histórico do dono anterior
+// e abre o do novo (fecharEAbrirHistorico), e atualiza pessoa_id no próprio item.
+async function _acPatTrocarDono(id,pessoaAtualId){
+  const{data:item}=await sbClient.from('acessos_dispositivos').select('descricao,pessoa_id').eq('id',id).single();
+  const pessoas=(_acData.pessoas||[]).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+  const ov=document.createElement('div');ov.className='ac-modal-ov open';
+  ov.innerHTML=`<div class="ac-modal" style="max-width:460px">
+    <h3 style="margin-top:0">Trocar dono</h3>
+    <div class="ac-muted" style="font-size:13px;margin-bottom:12px">${_acEsc(item?item.descricao:'Item')}</div>
+    <label style="display:block">Novo dono
+      <select class="ac-select" id="ac-pat-novodono">${pessoas.map(p=>`<option value="${p.id}" ${p.id===(item&&item.pessoa_id)?'selected':''}>${_acEsc(p.nome)}${p.status==='desligado'?' (desligado)':''}</option>`).join('')}</select></label>
+    <label style="display:block;margin-top:10px">Motivo (opcional)
+      <input class="ac-input" id="ac-pat-motivo" placeholder="Ex.: passou para o setor de vendas"></label>
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+      <button class="ac-btn ghost" data-x="0">Cancelar</button>
+      <button class="ac-btn primary" data-x="1">Trocar</button>
+    </div>
+  </div>`;
+  (document.getElementById('acessos-screen')||document.body).appendChild(ov);
+  const close=()=>ov.remove();
+  ov.addEventListener('click',e=>{if(e.target===ov)close();});
+  ov.querySelector('[data-x="0"]').onclick=close;
+  ov.querySelector('[data-x="1"]').onclick=async()=>{
+    const novoDonoId=ov.querySelector('#ac-pat-novodono').value;
+    const motivo=(ov.querySelector('#ac-pat-motivo').value||'').trim();
+    const novo=(_acData.pessoas||[]).find(p=>p.id===novoDonoId);
+    const hoje=hojeLocal();
+    const btn=ov.querySelector('[data-x="1"]');btn.disabled=true;btn.textContent='Trocando…';
+    // Histórico atual do item pra decidir o que fechar (a lógica é pura e testada).
+    const{data:hist}=await sbClient.from('acessos_patrimonio_historico').select('*').eq('dispositivo_id',id);
+    const plano=fecharEAbrirHistorico({historicoAtual:hist||[],novoDonoId,novoDonoNome:novo?novo.nome:null,hoje});
+    if(!plano.aAbrir){adminToast('Este item já é dessa pessoa',false);btn.disabled=false;btn.textContent='Trocar';return;}
+    // Fecha o dono anterior (se havia registro aberto).
+    if(plano.aFechar){const{error:eF}=await sbClient.from('acessos_patrimonio_historico').update({ate:plano.aFechar.ate}).eq('id',plano.aFechar.id);if(eF){adminToast('Erro ao fechar histórico: '+eF.message,false);btn.disabled=false;btn.textContent='Trocar';return;}}
+    // Abre o registro do novo dono (o motivo do usuário entra aqui).
+    const{error:eA}=await sbClient.from('acessos_patrimonio_historico').insert({dispositivo_id:id,pessoa_id:plano.aAbrir.pessoa_id,pessoa_nome:plano.aAbrir.pessoa_nome,de:plano.aAbrir.de,ate:plano.aAbrir.ate,motivo:motivo||null});
+    if(eA){adminToast('Erro ao abrir histórico: '+eA.message,false);btn.disabled=false;btn.textContent='Trocar';return;}
+    // Muda o dono no próprio item.
+    const{error:eU}=await sbClient.from('acessos_dispositivos').update({pessoa_id:novoDonoId,atualizado_em:new Date().toISOString()}).eq('id',id);
+    if(eU){adminToast('Erro ao atualizar item: '+eU.message,false);btn.disabled=false;btn.textContent='Trocar';return;}
+    await _acLog('patrimonio.trocar_dono','item:'+id,'ok',(novo?novo.nome:'')+(motivo?' · '+motivo:''));
+    close();adminToast('Dono atualizado');
+    // O item pode ter saído desta ficha (foi pra outra pessoa): re-render da ficha atual.
+    _acRenderPatItens(pessoaAtualId);_acFichaCarregarContadores(pessoaAtualId);
+    if(_acTab==='patrimonio')_acRenderPatrimonio();
+  };
+}
+// Ver o histórico de posse de um item (quem teve, de–até, motivo).
+async function _acPatHistorico(id){
+  const{data,error}=await sbClient.from('acessos_patrimonio_historico').select('*').eq('dispositivo_id',id).order('de',{ascending:false});
+  let corpo;
+  if(error)corpo='<div class="ac-fx-empty">Erro ao carregar: '+_acEsc(error.message)+'</div>';
+  else if(!data||!data.length)corpo='<div class="ac-fx-empty">Sem histórico de posse ainda.</div>';
+  else corpo=data.map(r=>`<div class="ac-pat-histrow">${_acEsc(textoLinhaHistorico(r))}</div>`).join('');
+  const ov=document.createElement('div');ov.className='ac-modal-ov open';
+  ov.innerHTML=`<div class="ac-modal" style="max-width:480px">
+    <h3 style="margin-top:0">Histórico de posse</h3>
+    <div class="ac-pat-hist">${corpo}</div>
+    <div style="margin-top:16px;display:flex;justify-content:flex-end"><button class="ac-btn primary" data-x="0">Fechar</button></div>
+  </div>`;
+  (document.getElementById('acessos-screen')||document.body).appendChild(ov);
+  const close=()=>ov.remove();
+  ov.addEventListener('click',e=>{if(e.target===ov)close();});
+  ov.querySelector('[data-x="0"]').onclick=close;
+}
+// Remover um item (o histórico dele some junto — FK on delete cascade). Confirma em modal próprio.
+async function _acPatDel(id,pessoaId){
+  const ok=await _acConfirmar('Remover este item do patrimônio? O histórico de posse dele também será apagado.',{ok:'Remover',perigo:true});
+  if(!ok)return;
+  const{error}=await sbClient.from('acessos_dispositivos').delete().eq('id',id);
+  if(error){adminToast('Erro: '+error.message,false);return;}
+  await _acLog('patrimonio.remover','item:'+id,'ok',null);
+  adminToast('Item removido');
+  _acRenderPatItens(pessoaId);_acFichaCarregarContadores(pessoaId);
+  if(_acTab==='patrimonio')_acRenderPatrimonio();
+}
+
+// ---- Aba consolidada "Patrimônio": todos os bens de todas as pessoas ----
+let _acPatFiltro={categoria:'',pessoaId:'',status:''};
+let _acPatCache=null;
+async function _acRenderPatrimonio(){
+  const body=document.getElementById('ac-body');
+  body.innerHTML='<div class="ac-muted">Carregando patrimônio…</div>';
+  const[{data:itens,error:eI},{data:pessoas}]=await Promise.all([
+    sbClient.from('acessos_dispositivos').select('*').order('atualizado_em',{ascending:false}),
+    sbClient.from('acessos_pessoas').select('id,nome,status').order('nome'),
+  ]);
+  if(eI){body.innerHTML='<div class="ac-fx-empty">Não consegui carregar o patrimônio: '+_acEsc(eI.message)+'</div>';return;}
+  _acPatCache={itens:itens||[],pessoas:pessoas||[]};
+  _acPatPaint();
+}
+function _acPatPaint(){
+  const body=document.getElementById('ac-body');if(!body||!_acPatCache)return;
+  const{itens,pessoas}=_acPatCache;
+  const pById={};pessoas.forEach(p=>{pById[p.id]=p;});
+  const filtrados=filtrarItens(itens,_acPatFiltro);
+  const total=somarCentavos(filtrados);
+  const opt=(v,label,sel)=>`<option value="${_acEsc(v)}" ${v===sel?'selected':''}>${_acEsc(label)}</option>`;
+  const filtros=`<div class="ac-pat-filtros">
+    <select class="ac-select" onchange="_acPatSetFiltro('categoria',this.value)"><option value="">Todas as categorias</option>${CATEGORIAS_PATRIMONIO.map(c=>opt(c,c,_acPatFiltro.categoria)).join('')}</select>
+    <select class="ac-select" onchange="_acPatSetFiltro('pessoaId',this.value)"><option value="">Todas as pessoas</option>${pessoas.map(p=>opt(p.id,p.nome,_acPatFiltro.pessoaId)).join('')}</select>
+    <select class="ac-select" onchange="_acPatSetFiltro('status',this.value)"><option value="">Todas as situações</option>${AC_DST.map(s=>opt(s[0],s[1],_acPatFiltro.status)).join('')}</select>
+  </div>`;
+  const linhas=filtrados.length?filtrados.map(d=>`<tr onclick="_acPatHistorico('${d.id}')">
+      <td>${_acEsc(d.descricao||'—')}</td>
+      <td><span class="ac-chip">${_acEsc(d.categoria||'—')}</span></td>
+      <td>${_acEsc(donoAtualNome(d,pById))}</td>
+      <td>${_acPatStatusPill(d.status)}</td>
+      <td class="ac-pat-r">${_acEsc(formatarValor(d.valor_centavos))}</td>
+      <td>${_acEsc(d.desde?formatarDataBR(d.desde):'—')}</td>
+    </tr>`).join(''):'<tr><td colspan="6" class="ac-muted" style="padding:18px;text-align:center">Nenhum item para esses filtros.</td></tr>';
+  body.innerHTML=`<div class="ac-section-h"><h3>Patrimônio</h3><div class="ac-pat-kpi">${filtrados.length} item(ns) · total <strong>${_acEsc(formatarValor(total))}</strong></div></div>
+    ${filtros}
+    <div class="ac-pat-tablewrap"><table class="ac-pat-table">
+      <thead><tr><th>Item</th><th>Categoria</th><th>Dono atual</th><th>Situação</th><th class="ac-pat-r">Valor</th><th>Desde</th></tr></thead>
+      <tbody>${linhas}</tbody>
+    </table></div>
+    <div class="ac-muted" style="margin-top:10px;font-size:12px">Clique numa linha para ver o histórico de posse do item.</div>`;
+}
+function _acPatSetFiltro(k,v){_acPatFiltro[k]=v;_acPatPaint();}
+
 function _acSanitizeName(n){return String(n||'arquivo').replace(/[^\w.\-]+/g,'_').slice(-80);}
 async function _acRenderTermos(pessoaId){
   const wrap=document.getElementById('ac-termos-wrap');if(!wrap)return;
@@ -2158,8 +2401,10 @@ function _acAudPaint(){
     return [];
   };
   const inPoss=d=>(d.status==='em_uso'||d.status==='a_devolver');
-  const dispOf=p=>(itensByP[p.id]||[]).filter(d=>d.categoria!=='veiculo'&&inPoss(d));
-  const veicOf=p=>(itensByP[p.id]||[]).filter(d=>d.categoria==='veiculo'&&inPoss(d));
+  // Taxonomia nova de patrimônio (Tarefa 5): a categoria "Veículos" vai pra linha
+  // "Patrimônio"; todo o resto (TI, Móveis, Telefonia, Outro) cai em "Dispositivos".
+  const dispOf=p=>(itensByP[p.id]||[]).filter(d=>d.categoria!=='Veículos'&&inPoss(d));
+  const veicOf=p=>(itensByP[p.id]||[]).filter(d=>d.categoria==='Veículos'&&inPoss(d));
   const orgNomeOf=p=>{const s=p.setor_id?setorById[p.setor_id]:null;return p.organizacao_id?orgName(p.organizacao_id):(s&&s.organizacao_id?orgName(s.organizacao_id):null);};
   const item=(logo,k,v)=>`<div class="ac-aud-item"><div class="ac-aud-k">${logo||''}${k}</div><div class="ac-aud-v">${v}</div></div>`;
   const card=p=>{
@@ -2172,7 +2417,7 @@ function _acAudPaint(){
       ${item(_acLogo('ms'),'OneDrive',_acOdSummary(od))}
       ${item(_acLogo('apple'),'iCloud',icl.length?icl.map(f=>_acEsc(f.pasta)+' <span class="ac-muted">('+(f.papel==='edicao'?'edição':'leitura')+(f.estado==='pendente'?' · pendente':'')+')</span>').join(', '):'<span class="ac-muted">sem pastas</span>')}
       ${item(_acLogo('apple'),'Apple',p.conta_apple?_acEsc(p.conta_apple):'<span class="ac-muted">—</span>')}
-      ${item('','Dispositivos',disp.length?disp.map(d=>_acEsc(_acItemTipoLabel(d.tipo))+(d.descricao?' '+_acEsc(d.descricao):'')).join(', '):'<span class="ac-muted">nenhum</span>')}
+      ${item('','Dispositivos',disp.length?disp.map(d=>_acEsc(d.descricao||_acItemTipoLabel(d.tipo))).join(', '):'<span class="ac-muted">nenhum</span>')}
       ${item('','Patrimônio',veic.length?veic.map(d=>_acEsc(d.descricao||_acItemTipoLabel(d.tipo))).join(', '):'<span class="ac-muted">nenhum</span>')}
     </div>`;
   };
@@ -2226,7 +2471,10 @@ Object.assign(window, {
   _acSanitizeName, _acSaveColaborador, _acSaveItem, _acSetItemStatus, _acSetorIco, _acSetTab, _acTiposFor, _acToggleOrg, _acVoltarSel,
   _acUploadAvatar, _acUploadTermo, _acWrapId, _acZohoStatus,
   _acDriveSetProvedor, _acDriveProvedorBar, _acRenderWorkdrive, _acWdCarregarPastas, _acWdRepaint,
-  _acWdNo, _acWdAlternar, _acWdImportar
+  _acWdNo, _acWdAlternar, _acWdImportar,
+  // Patrimônio (Tarefa 5): CRUD na ficha, histórico de posse e aba consolidada.
+  _acPatStatusPill, _acRenderPatItens, _acPatRow, _acPatForm, _acPatTrocarDono, _acPatHistorico,
+  _acPatDel, _acRenderPatrimonio, _acPatPaint, _acPatSetFiltro
 })
 
 // ==========================================================================
@@ -2707,6 +2955,37 @@ onMounted(() => {
 .tela-acessos :deep(.ac-fx-wrap){padding:14px 16px}
 .tela-acessos :deep(.ac-fx-empty){display:flex;align-items:center;gap:11px;padding:16px;border:1px dashed var(--border);border-radius:var(--radius-md);background:var(--surface2);color:var(--muted);font-family:'IBM Plex Sans',sans-serif;font-size:12.5px;line-height:1.45}
 .tela-acessos :deep(.ac-fx-empty svg){width:20px;height:20px;flex:none;opacity:.65}
+/* ===== Patrimônio (Tarefa 5): lista na ficha, histórico e aba consolidada ===== */
+.tela-acessos :deep(.ac-pat-list){display:flex;flex-direction:column;gap:10px}
+.tela-acessos :deep(.ac-pat-item){display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface2);transition:border-color .15s ease}
+.tela-acessos :deep(.ac-pat-item:hover){border-color:var(--accent-mid)}
+.tela-acessos :deep(.ac-pat-main){flex:1;min-width:180px}
+.tela-acessos :deep(.ac-pat-top){display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px}
+.tela-acessos :deep(.ac-pat-desc){font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:14px;color:var(--text);line-height:1.3}
+.tela-acessos :deep(.ac-pat-meta){display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:5px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted)}
+.tela-acessos :deep(.ac-pat-acts){display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.tela-acessos :deep(.ac-pat-acts .ac-btn){padding:6px 11px;font-size:12px}
+.tela-acessos :deep(.ac-pat-total){margin-top:12px;text-align:right;font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--muted)}
+.tela-acessos :deep(.ac-pat-total strong){font-family:'Oswald',sans-serif;font-size:16px;color:var(--text);margin-left:6px;font-variant-numeric:tabular-nums}
+.tela-acessos :deep(.ac-pat-hist){display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto}
+.tela-acessos :deep(.ac-pat-histrow){padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface2);font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--text);line-height:1.4}
+.tela-acessos :deep(.ac-pat-filtros){display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.tela-acessos :deep(.ac-pat-filtros .ac-select){width:auto;min-width:180px;flex:1 1 200px}
+.tela-acessos :deep(.ac-pat-kpi){margin-left:auto;font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--muted)}
+.tela-acessos :deep(.ac-pat-kpi strong){font-family:'Oswald',sans-serif;font-size:17px;color:var(--text);margin-left:4px;font-variant-numeric:tabular-nums}
+.tela-acessos :deep(.ac-pat-tablewrap){width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface)}
+.tela-acessos :deep(.ac-pat-table){width:100%;border-collapse:collapse;font-family:'IBM Plex Sans',sans-serif;font-size:13px}
+.tela-acessos :deep(.ac-pat-table th){text-align:left;padding:11px 14px;font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap}
+.tela-acessos :deep(.ac-pat-table td){padding:11px 14px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.tela-acessos :deep(.ac-pat-table tbody tr){cursor:pointer;transition:background .15s ease}
+.tela-acessos :deep(.ac-pat-table tbody tr:hover){background:var(--surface2)}
+.tela-acessos :deep(.ac-pat-table tbody tr:last-child td){border-bottom:none}
+.tela-acessos :deep(.ac-pat-r){text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+@media(max-width:640px){
+  .tela-acessos :deep(.ac-pat-acts){width:100%}
+  .tela-acessos :deep(.ac-pat-acts .ac-btn){flex:1 1 calc(50% - 3px);text-align:center;justify-content:center}
+  .tela-acessos :deep(.ac-pat-kpi){width:100%;margin-left:0;margin-top:4px}
+}
 /* acessos desta pessoa */
 .tela-acessos :deep(.ac-fx-accrows){padding:10px}
 .tela-acessos :deep(.ac-fx-accrow){display:flex;align-items:center;gap:12px;padding:12px;border-radius:var(--radius-md)}
