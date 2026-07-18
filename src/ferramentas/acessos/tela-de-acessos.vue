@@ -103,6 +103,7 @@ import { montarArvoreDePastas } from './montar-arvore-de-pastas.js'
 import { montarDetalhePastas } from './montar-textos-do-topo.js'
 import { decidirEstadoAcesso, mensagemEstadoVazio, agruparPorEscopo, corDeAvatar, inicialDe } from './acesso-da-pasta.js'
 import { montarEmailsDeSelecao } from './onedrive-escrita.js'
+import { contarAcessosOneDrive, resumoAcessosOneDrive, statusWorkdrive, campoPreenchido, resumoDaFicha } from './ficha-do-colaborador.js'
 
 const router = useRouter()
 
@@ -1411,6 +1412,10 @@ async function _acRenderColaboradores(setorId){
   const body=document.getElementById('ac-body');
   const setor=setorId?_acData.setores.find(s=>s.id===setorId):null;
   const lista=_acData.pessoas.filter(x=>setorId?x.setor_id===setorId:!x.setor_id);
+  // Ponto colorido do setor (usa a cor cadastrada do setor; é IDENTIDADE do
+  // setor, não chrome — por isso pode ser cor cravada do banco). Sem cor, some.
+  const corSetor=setor&&setor.cor?setor.cor:null;
+  const dotSetor=corSetor?`<span style="display:inline-block;width:11px;height:11px;border-radius:999px;background:${_acEsc(corSetor)};margin-right:8px;vertical-align:-1px"></span>`:'';
   const rows=lista.map(c=>`
     <div class="ac-row ac-person">
       ${_acAvatar(c,46)}
@@ -1419,15 +1424,34 @@ async function _acRenderColaboradores(setorId){
         ${c.cargo?`<div class="ac-kicker">${_acEsc(c.cargo)}</div>`:''}
         ${c.email_corporativo?`<div class="ac-person-email">${_acEsc(c.email_corporativo)}</div>`:''}
       </div>
+      <span class="ac-cnt tnum" id="ac-colcnt-${c.id}" title="Pastas do OneDrive desta pessoa">…</span>
       <button class="ac-btn ghost" onclick="_acOpenPessoa('${c.id}')">Abrir ficha →</button>
     </div>`).join('');
   body.innerHTML=`
     <div class="ac-section-h">
       <button class="ac-btn ghost" onclick="_acVoltarSel('setor')">← Setores</button>
-      <h3 style="margin-left:6px">${_acEsc(setor?setor.nome:'Sem setor')}</h3>
+      <h3 style="margin-left:6px">${dotSetor}${_acEsc(setor?setor.nome:'Sem setor')}</h3>
       <button class="ac-btn" style="margin-left:auto" onclick="_acFormColaborador(null,'${setorId||''}')">+ Novo colaborador</button>
     </div>
     ${rows||'<div class="ac-muted">Nenhum colaborador neste setor.</div>'}`;
+  if(lista.length)_acColabContagens(setorId,lista);
+}
+// Preenche o selo de "N pastas OneDrive" de cada pessoa da lista, com UMA
+// consulta ao vivo (allShares) reaproveitada pra todo mundo. Honesto: se a
+// consulta falhar mostra "?", e se a pessoa não tem e-mail Outlook mostra "—".
+// Guarda contra troca de tela: se saiu deste setor, não escreve em nada velho.
+async function _acColabContagens(setorId,lista){
+  let resp=null;
+  try{resp=await _acProxy('microsoft.allShares');}catch(e){resp=null;}
+  if(_acSel!==null||_acSelSetor!==setorId)return; // navegou pra ficha/outro setor
+  lista.forEach(c=>{
+    const el=document.getElementById('ac-colcnt-'+c.id);if(!el)return;
+    const r=contarAcessosOneDrive(c,resp);
+    if(r.indisponivel){el.textContent='?';el.title='OneDrive indisponível agora — não é zero, é desconhecido';return;}
+    if(r.semEmail){el.textContent='—';el.title='Sem e-mail Outlook cadastrado';return;}
+    el.textContent=(r.parcial?'≥':'')+r.total+' 📁';
+    el.title=r.parcial?('Leitura parcial: pelo menos '+r.total+' pasta(s)'):(r.total+' pasta(s) no OneDrive');
+  });
 }
 function _acOpenPessoa(id){_acSel=id;_acTab='org';_acRender();}
 function _acFormSetorOpts(orgId,sel){
@@ -1487,61 +1511,208 @@ async function _acSaveColaborador(id){
   // Onboarding (opção B): colaborador NOVO → abre o provisionamento de acessos na sequência
   if(!isEdit)setTimeout(()=>_acProvisionar(id),250);
 }
+// Campos editáveis da ficha (coluna DB -> rótulo + tipo do input). Fica no
+// escopo do módulo pra o render e o editor (_acFichaEditarCampo) compartilharem
+// a MESMA verdade — assim não dá pra o rótulo/tipo divergir entre os dois.
+const AC_FICHA_CAMPOS={
+  email_corporativo:{label:'E-mail corporativo',tipo:'email'},
+  email_outlook:{label:'Conta Microsoft (Outlook)',tipo:'email'},
+  conta_apple:{label:'Conta Apple (iCloud)',tipo:'email'},
+  numero_corporativo:{label:'Telefone corporativo',tipo:'tel'},
+  numero_pessoal:{label:'Telefone pessoal',tipo:'tel'},
+  data_inicio_contrato:{label:'Início de contrato',tipo:'date'},
+  data_fim_contrato:{label:'Fim de contrato',tipo:'date'},
+  motivo_saida:{label:'Motivo da saída',tipo:'text'},
+};
+// Avatar GRANDE da identidade (mockup: quadrado arredondado 76px). Se tem foto,
+// usa a foto; senão, iniciais coloridas de forma determinística (mesma pessoa =
+// mesma cor sempre, igual à bolinha de app de mensagem). corDeAvatar/inicialDe
+// são a mesma lógica pura reusada no resto da tela.
+function _acFichaAvatarGrande(c){
+  if(c&&c.avatar_url)return `<img class="ac-fx-av" src="${_acEsc(c.avatar_url)}" alt="">`;
+  const toks=String((c&&c.nome)||'').trim().split(/\s+/).filter(Boolean);
+  const ini=(inicialDe(c&&c.nome,c&&c.email_corporativo)+(toks[1]?toks[1].charAt(0).toUpperCase():'')).slice(0,2);
+  const cor=corDeAvatar((c&&c.email_corporativo)||(c&&c.nome)||'');
+  return `<div class="ac-fx-av ac-fx-av-fb" style="background:linear-gradient(135deg,${cor},color-mix(in srgb,${cor} 68%,#000))">${_acEsc(ini)}</div>`;
+}
 function _acRenderFicha(id){
   const c=_acData.pessoas.find(x=>x.id===id);
   if(!c){_acSel=null;return _acRender();}
-  const setor=c.setor_id?(_acData.setores.find(s=>s.id===c.setor_id)||{}).nome:null;
-  const _orgId=c.organizacao_id||(c.setor_id?(_acData.setores.find(s=>s.id===c.setor_id)||{}).organizacao_id:null);
+  const setorRow=c.setor_id?(_acData.setores.find(s=>s.id===c.setor_id)||null):null;
+  const setor=setorRow?setorRow.nome:null;
+  const _orgId=c.organizacao_id||(setorRow?setorRow.organizacao_id:null);
   const orgNome=_orgId?(_acData.organizacoes.find(o=>o.id===_orgId)||{}).nome:null;
-  const dt=v=>v?_acEsc(new Date(v+'T00:00:00').toLocaleDateString('pt-BR')):'—';
-  const statusPill=c.status==='desligado'?'<span class="ac-pill neutral">desligado</span>':'<span class="ac-pill ok">ativo</span>';
-  const fld=(label,val)=>`<div class="ac-field"><span class="ac-field-l">${label}</span><span class="ac-field-v ${(val&&val!=='—')?'':'empty'}">${val||'—'}</span></div>`;
-  const acct=(logo,label,val)=>`<div class="ac-field"><span class="ac-field-l">${logo}${label}</span><span class="ac-field-v ${val?'':'empty'}">${val?_acEsc(val):'<span class="ac-pill neutral" style="font-size:9px">não configurado</span>'}</span></div>`;
-  const subParts=[c.cargo?_acEsc(c.cargo):'',orgNome?_acEsc(orgNome):'',setor?_acEsc(setor):'Sem setor'].filter(Boolean);
+  const dt=v=>v?new Date(v+'T00:00:00').toLocaleDateString('pt-BR'):'';
+  const ativo=c.status!=='desligado';
+  // Subtítulo "cargo · setor" — se não tem cargo, mostra só o setor (ou "Sem setor").
+  const roleParts=[c.cargo,setor||'Sem setor'].filter(Boolean).map(_acEsc);
+  // Uma linha de campo editável. Cheio = mostra o valor (clicar edita); vazio =
+  // vira "+ adicionar" (nunca fica em branco morto, convida a preencher).
+  const fld=(col,logo)=>{
+    const cfg=AC_FICHA_CAMPOS[col];const raw=c[col];const cheio=campoPreenchido(raw);
+    const disp=cheio?(cfg.tipo==='date'?dt(raw):raw):'';
+    return `<div class="ac-fx-fld ${cheio?'':'vazio'}">
+      <span class="ac-fx-fld-l">${logo||''}${_acEsc(cfg.label)}</span>
+      ${cheio
+        ? `<button class="ac-fx-fld-v" title="Editar" onclick="_acFichaEditarCampo('${c.id}','${col}')">${_acEsc(disp)}</button>`
+        : `<button class="ac-fx-fld-add" onclick="_acFichaEditarCampo('${c.id}','${col}')">+ adicionar</button>`}
+    </div>`;
+  };
+  const contatoCampos=['email_corporativo','email_outlook','conta_apple','numero_corporativo','numero_pessoal','data_inicio_contrato']
+    .concat(ativo?[]:['data_fim_contrato','motivo_saida']);
+  const logoDe={email_corporativo:_acLogo('zoho'),email_outlook:_acLogo('ms'),conta_apple:_acLogo('apple')};
   document.getElementById('ac-body').innerHTML=`
-    <button class="ac-btn ghost" onclick="_acVoltarSel('pessoa')">← Voltar</button>
-    <div class="ac-card" style="margin-top:12px;padding:20px 22px">
-      <div class="ac-ficha-hero">
-        ${_acAvatar(c,72)}
-        <div class="ac-ficha-id">
-          <div class="ac-ficha-name">${_acEsc(c.nome)} ${statusPill}</div>
-          <div class="ac-ficha-sub">${subParts.map((p,i)=>(i?'<span class="dot">•</span>':'')+'<span>'+p+'</span>').join('')}</div>
+    <button class="ac-btn ghost" onclick="_acVoltarSel('pessoa')" style="margin-bottom:14px">← Voltar</button>
+    <div class="ac-fx-ficha">
+      <!-- COLUNA IDENTIDADE -->
+      <div class="ac-panel ac-fx-idcol">
+        <div class="ac-fx-hero">
+          ${_acFichaAvatarGrande(c)}
+          <div class="ac-fx-name">${_acEsc(c.nome)}</div>
+          <div class="ac-fx-role">${roleParts.join(' · ')||'Sem cargo'}</div>
+          <div class="ac-fx-pills">
+            <span class="ac-fx-stpill ${ativo?'on':''}"><span class="ac-hero-dot ${ativo?'on':'off'}"></span>${ativo?'Ativo':'Desligado'}</span>
+            ${orgNome?`<span class="ac-fx-stpill">${_acEsc(orgNome)}</span>`:''}
+          </div>
+        </div>
+        <div class="ac-fx-quick">
+          <div class="ac-fx-qa"><span class="ac-fx-qn tnum" id="ac-fx-qn-pastas">…</span><span class="ac-fx-ql">pastas</span></div>
+          <div class="ac-fx-qa"><span class="ac-fx-qn tnum" id="ac-fx-qn-equip">…</span><span class="ac-fx-ql">equipamentos</span></div>
+          <div class="ac-fx-qa"><span class="ac-fx-qn tnum" id="ac-fx-qn-termos">…</span><span class="ac-fx-ql">termos</span></div>
+        </div>
+        <div class="ac-fx-actions">
+          <button class="ac-btn primary" style="flex:1;justify-content:center" onclick="_acFormColaborador('${c.id}')">Editar ficha</button>
+          ${ativo?`<button class="ac-btn ghost" onclick="_acProvisionar('${c.id}')">Provisionar</button>`:''}
+          ${ativo?`<button class="ac-btn danger" onclick="_acDesligar('${c.id}')">Desligar</button>`:`<button class="ac-btn" onclick="_acReativar('${c.id}')">Reativar</button>`}
+          <button class="ac-btn ghost" onclick="document.getElementById('ac-av-file').click()">Trocar foto</button>
+          <input id="ac-av-file" type="file" accept="image/*" style="display:none" onchange="_acUploadAvatar('${c.id}',this.files[0])">
+          ${estado.role==='admin'?`<button class="ac-btn danger" onclick="_acExcluirColaborador('${c.id}')">Excluir</button>`:''}
         </div>
       </div>
-      <div class="ac-ficha-actions">
-        <button class="ac-btn ghost" onclick="_acFormColaborador('${c.id}')">Editar</button>
-        ${c.status==='ativo'?`<button class="ac-btn primary" onclick="_acProvisionar('${c.id}')">Provisionar acessos</button>`:''}
-        ${c.status==='ativo'?`<button class="ac-btn danger" onclick="_acDesligar('${c.id}')">Desligar</button>`:`<button class="ac-btn" onclick="_acReativar('${c.id}')">Reativar</button>`}
-        <button class="ac-btn ghost" onclick="document.getElementById('ac-av-file').click()">Trocar foto</button>
-        <input id="ac-av-file" type="file" accept="image/*" style="display:none" onchange="_acUploadAvatar('${c.id}',this.files[0])">
-        ${estado.role==='admin'?`<button class="ac-btn danger" onclick="_acExcluirColaborador('${c.id}')">Excluir</button>`:''}
+
+      <!-- COLUNA DADOS -->
+      <div class="ac-fx-data">
+        <!-- Contatos & contas -->
+        <div class="ac-panel">
+          <div class="ac-phead"><h2>Contatos &amp; contas</h2></div>
+          <div class="ac-fx-fields">
+            ${contatoCampos.map(col=>fld(col,logoDe[col]||'')).join('')}
+          </div>
+        </div>
+
+        <!-- Dispositivos & patrimônio (GANCHO — o CRUD completo é a Tarefa 5) -->
+        <div class="ac-panel">
+          <div class="ac-phead"><h2>Dispositivos &amp; patrimônio</h2>
+            <button class="ac-btn-mini" onclick="_acFormItem('${c.id}','dispositivo')">+ Registrar</button></div>
+          <div id="ac-disp-wrap" class="ac-fx-wrap">
+            <div class="ac-fx-empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>
+              Nenhum notebook, celular ou equipamento registrado nesta pessoa. Registre para saber o que está sob a responsabilidade dela.
+            </div>
+          </div>
+        </div>
+
+        <!-- Termo de responsabilidade (GANCHO — o CRUD completo é a Tarefa 7) -->
+        <div class="ac-panel">
+          <div class="ac-phead"><h2>Termo de responsabilidade</h2>
+            <button class="ac-btn-mini" onclick="document.getElementById('ac-termo-file').click()">+ Enviar PDF</button>
+            <input type="file" id="ac-termo-file" style="display:none" accept="application/pdf,image/*" onchange="_acUploadTermo('${c.id}',this.files[0])"></div>
+          <div id="ac-termos-wrap" class="ac-fx-wrap">
+            <div class="ac-fx-empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+              Nenhum termo assinado enviado. Anexe o PDF assinado para deixar registrado.
+            </div>
+          </div>
+        </div>
+
+        <!-- Acessos desta pessoa (OneDrive ao vivo + WorkDrive por time) -->
+        <div class="ac-panel">
+          <div class="ac-phead"><h2>Acessos desta pessoa</h2><span class="ac-cnt tnum" id="ac-fx-acc-cnt">…</span></div>
+          <div class="ac-fx-accrows">
+            <div class="ac-fx-accrow">
+              <span class="ac-glyph ac-g-ms">M</span>
+              <div class="ac-fx-accmeta"><div class="ac-fx-accname">Microsoft OneDrive</div><div class="ac-fx-accfine" id="ac-fx-od-det">consultando ao vivo…</div></div>
+              <span class="ac-fx-acccnt tnum" id="ac-fx-od-cnt">…</span>
+            </div>
+            <div class="ac-fx-accrow ${statusWorkdrive(c).migrada?'':'ac-fx-muted'}">
+              <span class="ac-glyph ac-g-zoho">Z</span>
+              <div class="ac-fx-accmeta"><div class="ac-fx-accname">Zoho WorkDrive</div><div class="ac-fx-accfine">${_acEsc(statusWorkdrive(c).texto)}</div></div>
+              <span class="ac-fx-acccnt">${statusWorkdrive(c).migrada?'✓':'—'}</span>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="ac-fgrid">
-        <div class="ac-fblock">
-          <div class="ac-fblock-h">Contas & Acessos</div>
-          ${acct(_acLogo('zoho'),'Corporativo',c.email_corporativo)}
-          ${acct(_acLogo('ms'),'Outlook',c.email_outlook)}
-          ${acct(_acLogo('apple'),'Apple',c.conta_apple)}
-        </div>
-        <div class="ac-fblock">
-          <div class="ac-fblock-h">Contato</div>
-          ${fld('Celular corporativo',c.numero_corporativo?_acEsc(c.numero_corporativo):'—')}
-          ${fld('Celular pessoal',c.numero_pessoal?_acEsc(c.numero_pessoal):'—')}
-        </div>
-        <div class="ac-fblock">
-          <div class="ac-fblock-h">Contrato</div>
-          ${fld('Início',dt(c.data_inicio_contrato))}
-          ${c.status==='desligado'?fld('Fim',dt(c.data_fim_contrato)):''}
-          ${c.status==='desligado'?fld('Motivo da saída',c.motivo_saida?_acEsc(c.motivo_saida):'—'):''}
-        </div>
-      </div>
+    </div>`;
+  // OneDrive é ao vivo (proxy) e os contadores vêm do banco: carrega em paralelo,
+  // sem travar a ficha. Cada um trata o próprio erro e é HONESTO (não vira 0).
+  _acFichaCarregarAcessos(id);
+  _acFichaCarregarContadores(id);
+}
+// Editor de UM campo da ficha, em modal PRÓPRIO (nada de prompt nativo). Salva
+// direto em acessos_pessoas e recarrega a ficha. Campo vazio grava NULL (some do
+// "preenchido" e volta a ser "+ adicionar").
+function _acFichaEditarCampo(id,col){
+  const c=_acData.pessoas.find(x=>x.id===id);if(!c)return;
+  const cfg=AC_FICHA_CAMPOS[col];if(!cfg)return;
+  const atual=c[col]||'';
+  const inputType=cfg.tipo==='date'?'date':(cfg.tipo==='tel'?'tel':(cfg.tipo==='email'?'email':'text'));
+  const ov=document.createElement('div');ov.className='ac-modal-ov open';
+  ov.innerHTML=`<div class="ac-modal" style="max-width:440px">
+    <h3 style="margin-top:0">${_acEsc(cfg.label)}</h3>
+    <input class="ac-input" id="ac-fx-edit-inp" type="${inputType}" value="${_acEsc(atual)}" placeholder="${_acEsc(cfg.label)}">
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+      <button class="ac-btn ghost" data-x="0">Cancelar</button>
+      <button class="ac-btn primary" data-x="1">Salvar</button>
     </div>
-    <div id="ac-disp-wrap"></div>
-    <div id="ac-vei-wrap"></div>
-    <div id="ac-termos-wrap"></div>`;
-  if(window._acRenderDispositivos)_acRenderDispositivos(id);
-  if(window._acRenderVeiculos)_acRenderVeiculos(id);
-  if(window._acRenderTermos)_acRenderTermos(id);
+  </div>`;
+  (document.getElementById('acessos-screen')||document.body).appendChild(ov);
+  const close=()=>ov.remove();
+  ov.addEventListener('click',e=>{if(e.target===ov)close();});
+  ov.querySelector('[data-x="0"]').onclick=close;
+  const inp=ov.querySelector('#ac-fx-edit-inp');setTimeout(()=>inp.focus(),30);
+  const salvar=async()=>{
+    const val=(inp.value||'').trim();
+    const btn=ov.querySelector('[data-x="1"]');btn.disabled=true;btn.textContent='Salvando…';
+    const{error}=await sbClient.from('acessos_pessoas').update({[col]:val||null,atualizado_em:new Date().toISOString()}).eq('id',id);
+    if(error){adminToast('Erro: '+error.message,false);btn.disabled=false;btn.textContent='Salvar';return;}
+    await _acLog('colaborador.editar.campo','colab:'+c.nome,'ok',col);
+    close();adminToast('Salvo');
+    await loadAcessos();_acOpenPessoa(id);
+  };
+  ov.querySelector('[data-x="1"]').onclick=salvar;
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&cfg.tipo!=='text'){e.preventDefault();salvar();}});
+}
+// Preenche a linha "Acessos desta pessoa" + o quadradinho "pastas" com o número
+// REAL do OneDrive (mesma consulta ao vivo que a Auditoria/KPI usam). Se a
+// consulta falhar, mostra "?" e diz que não deu — NUNCA 0 como fato. Guarda
+// contra troca de tela: se a pessoa aberta mudou, não escreve em elemento velho.
+async function _acFichaCarregarAcessos(id){
+  const pessoa=_acData.pessoas.find(x=>x.id===id);if(!pessoa)return;
+  let resp=null;
+  try{resp=await _acProxy('microsoft.allShares');}catch(e){resp=null;}
+  if(_acSel!==id)return; // usuário navegou pra outra pessoa/aba nesse meio-tempo
+  const r=contarAcessosOneDrive(pessoa,resp);
+  const s=resumoAcessosOneDrive(r);
+  const set=(elId,txt,title)=>{const el=document.getElementById(elId);if(el){el.textContent=txt;if(title!=null)el.title=title;}};
+  set('ac-fx-od-det',s.detalhe);
+  set('ac-fx-od-cnt',s.valor, s.incerto?'Número incompleto/indisponível — veja o detalhe':'');
+  set('ac-fx-qn-pastas', r.indisponivel?'?':String(r.total), r.indisponivel?'Não foi possível consultar o OneDrive agora — não é zero, é desconhecido':(r.parcial?'Leitura parcial: pelo menos '+r.total:''));
+  // Contagem no cabeçalho do painel de acessos (pastas do OneDrive).
+  set('ac-fx-acc-cnt', r.indisponivel?'—':((r.parcial?'≥':'')+r.total+' pasta'+(r.total===1?'':'s')));
+}
+// Conta equipamentos e termos da pessoa (do banco) pros quadradinhos do topo.
+// Barato e honesto: se falhar, mostra "—" no lugar, não fake 0.
+async function _acFichaCarregarContadores(id){
+  const set=(elId,txt)=>{const el=document.getElementById(elId);if(el)el.textContent=txt;};
+  try{
+    const[d,t]=await Promise.all([
+      sbClient.from('acessos_dispositivos').select('*',{count:'exact',head:true}).eq('pessoa_id',id),
+      sbClient.from('acessos_termos').select('*',{count:'exact',head:true}).eq('pessoa_id',id),
+    ]);
+    if(_acSel!==id)return;
+    set('ac-fx-qn-equip', d.error?'—':String(d.count||0));
+    set('ac-fx-qn-termos', t.error?'—':String(t.count||0));
+  }catch(e){ if(_acSel!==id)return; set('ac-fx-qn-equip','—');set('ac-fx-qn-termos','—'); }
 }
 function _acDesligar(id){
   const c=_acData.pessoas.find(x=>x.id===id);if(!c)return;
@@ -2044,6 +2215,7 @@ Object.assign(window, {
   _acDriveFlowTog, _acDriveFolderCard, _acDriveLabelOf, _acDriveLegend, _acDriveLiberarSetor, _acDriveMove, _acDrivePaintShell, _acDriveRenderFlow,
   _acDriveRepaint, _acDriveSecColor, _acDriveSectorOf, _acDriveSelectMarca, _acDriveSetDepth, _acDriveSetView, _acDriveShare, _acDriveToggleSec,
   _acDriveWire, _acDstMeta, _acEsc, _acExcluirColaborador, _acFieldsFor, _acFixAliases, _acFormColaborador, _acFormItem,
+  _acFichaEditarCampo, _acFichaCarregarAcessos, _acFichaCarregarContadores, _acFichaAvatarGrande,
   _acFormSetorOpts, _acHandleZohoReturn, _acICAcessos, _acICAddAcesso, _acICAddFolder, _acICLoadFolders, _acICRemoveAcesso, _acICRemoveFolder,
   _acICToggleAcessos, _acICToggleFeito, _acImportarZoho, _acItemTipoLabel, _acLog, _acLogo, _acNorm, _acODAdd,
   _acODBrowse, _acODOpen, _acODPicker, _acODUp,
@@ -2497,6 +2669,64 @@ onMounted(() => {
 .tela-acessos :deep(.ac-ficha-actions){width:100%}
 .tela-acessos :deep(.ac-ficha-actions .ac-btn){flex:1 1 calc(50% - 4px);min-width:0;text-align:center}
 .tela-acessos :deep(.ac-fgrid){grid-template-columns:1fr}
+}
+/* ===== Acessos — Tarefa 4: Ficha do colaborador (redesign) =====
+   Layout de 2 colunas (identidade fixa à esquerda + dados à direita), montado
+   por innerHTML => precisa de :deep(). TODA cor sai de var(--...) pra funcionar
+   no tema claro E no escuro (o mockup tinha cor cravada; aqui viraram tokens).
+   As únicas cores fixas são as iniciais coloridas do avatar (identidade da
+   pessoa, tipo logo — não chrome de UI). Prefixo ac-fx- (fx = ficha) pra não
+   colidir com nenhuma classe global/existente. */
+.tela-acessos :deep(.ac-fx-ficha){display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start}
+.tela-acessos :deep(.ac-fx-idcol){position:sticky;top:16px}
+.tela-acessos :deep(.ac-fx-hero){padding:22px 20px 18px;text-align:center;border-bottom:1px solid var(--border)}
+.tela-acessos :deep(.ac-fx-av){width:76px;height:76px;border-radius:20px;margin:0 auto 14px;display:grid;place-items:center;color:#fff;font-family:'Oswald',sans-serif;font-weight:600;font-size:26px;letter-spacing:1px;object-fit:cover;box-shadow:var(--shadow-md)}
+.tela-acessos :deep(.ac-fx-av-fb){text-transform:uppercase}
+.tela-acessos :deep(.ac-fx-name){font-family:'Playfair Display',serif;font-size:22px;font-weight:800;letter-spacing:-.01em;color:var(--text);line-height:1.1}
+.tela-acessos :deep(.ac-fx-role){font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--muted);margin-top:4px}
+.tela-acessos :deep(.ac-fx-pills){display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin-top:13px}
+.tela-acessos :deep(.ac-fx-stpill){display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:11.5px;font-weight:600;padding:5px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface2);color:var(--text)}
+.tela-acessos :deep(.ac-fx-stpill.on){color:var(--green);background:color-mix(in srgb,var(--green) 13%,transparent);border-color:transparent}
+.tela-acessos :deep(.ac-fx-quick){display:grid;grid-template-columns:repeat(3,1fr);padding:8px 6px;gap:2px}
+.tela-acessos :deep(.ac-fx-qa){text-align:center;padding:12px 4px;border-radius:var(--radius-md)}
+.tela-acessos :deep(.ac-fx-qn){display:block;font-family:'Oswald',sans-serif;font-size:24px;font-weight:600;letter-spacing:.5px;color:var(--text);line-height:1;font-variant-numeric:tabular-nums}
+.tela-acessos :deep(.ac-fx-ql){font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);font-weight:500;letter-spacing:.2px}
+.tela-acessos :deep(.ac-fx-actions){display:flex;gap:8px;flex-wrap:wrap;padding:14px 16px;border-top:1px solid var(--border)}
+.tela-acessos :deep(.ac-fx-data){display:flex;flex-direction:column;gap:16px;min-width:0}
+/* linhas de campo (Contatos & contas) */
+.tela-acessos :deep(.ac-fx-fields){padding:6px 16px 12px}
+.tela-acessos :deep(.ac-fx-fld){display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 2px;min-height:44px}
+.tela-acessos :deep(.ac-fx-fld+.ac-fx-fld){border-top:1px solid var(--border)}
+.tela-acessos :deep(.ac-fx-fld-l){font-family:'IBM Plex Sans',sans-serif;font-size:12.5px;color:var(--muted);font-weight:500;display:flex;align-items:center;gap:5px;min-width:0}
+.tela-acessos :deep(.ac-fx-fld.vazio .ac-fx-fld-l){color:var(--faint,var(--muted));opacity:.85}
+.tela-acessos :deep(.ac-fx-fld-v){font-family:'IBM Plex Sans',sans-serif;font-size:13.5px;font-weight:600;color:var(--text);text-align:right;word-break:break-word;background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:var(--radius-sm);max-width:62%}
+.tela-acessos :deep(.ac-fx-fld-v:hover){background:var(--surface2);color:var(--accent)}
+.tela-acessos :deep(.ac-fx-fld-add){font-family:'IBM Plex Sans',sans-serif;border:1px dashed var(--accent-mid);background:transparent;color:var(--accent);font-size:12.5px;font-weight:600;padding:5px 12px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.tela-acessos :deep(.ac-fx-fld-add:hover){background:var(--accent-light)}
+/* ganchos (dispositivos / termos): estado vazio pontilhado do mockup */
+.tela-acessos :deep(.ac-fx-wrap){padding:14px 16px}
+.tela-acessos :deep(.ac-fx-empty){display:flex;align-items:center;gap:11px;padding:16px;border:1px dashed var(--border);border-radius:var(--radius-md);background:var(--surface2);color:var(--muted);font-family:'IBM Plex Sans',sans-serif;font-size:12.5px;line-height:1.45}
+.tela-acessos :deep(.ac-fx-empty svg){width:20px;height:20px;flex:none;opacity:.65}
+/* acessos desta pessoa */
+.tela-acessos :deep(.ac-fx-accrows){padding:10px}
+.tela-acessos :deep(.ac-fx-accrow){display:flex;align-items:center;gap:12px;padding:12px;border-radius:var(--radius-md)}
+.tela-acessos :deep(.ac-fx-accrow+.ac-fx-accrow){margin-top:4px}
+.tela-acessos :deep(.ac-fx-accrow:hover){background:var(--surface2)}
+.tela-acessos :deep(.ac-fx-accrow.ac-fx-muted){opacity:.62}
+.tela-acessos :deep(.ac-fx-accrow .ac-glyph){width:30px;height:30px;border-radius:8px}
+.tela-acessos :deep(.ac-fx-accmeta){flex:1;min-width:0}
+.tela-acessos :deep(.ac-fx-accname){font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:13.5px;color:var(--text)}
+.tela-acessos :deep(.ac-fx-accfine){font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);line-height:1.35;overflow-wrap:anywhere}
+.tela-acessos :deep(.ac-fx-acccnt){font-family:'Oswald',sans-serif;font-size:18px;font-weight:600;letter-spacing:.4px;color:var(--text);flex:none;font-variant-numeric:tabular-nums}
+/* mobile: a ficha vira coluna única e a identidade deixa de ser sticky */
+@media(max-width:900px){
+  .tela-acessos :deep(.ac-fx-ficha){grid-template-columns:1fr}
+  .tela-acessos :deep(.ac-fx-idcol){position:static}
+}
+@media(max-width:640px){
+  .tela-acessos :deep(.ac-fx-actions){padding:12px}
+  .tela-acessos :deep(.ac-fx-actions .ac-btn){flex:1 1 calc(50% - 4px);min-width:0;text-align:center;justify-content:center}
+  .tela-acessos :deep(.ac-fx-fld-v){max-width:70%}
 }
 /* ===== Acessos — Fase 1: auditoria ===== */
 .tela-acessos :deep(.ac-audcard){padding:16px 18px;display:flex;flex-direction:column}
