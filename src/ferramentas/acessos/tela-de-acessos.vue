@@ -1323,7 +1323,11 @@ function _acRenderOrganizacoes(){
   body.innerHTML=`
     <div class="ac-hero">
       <div>
-        <h2>Colaboradores & Acessos</h2>
+        <!-- Título da SEÇÃO (aba Organizações). Antes era "Colaboradores & Acessos",
+             igual ao <h1> fixo do topo da tela (ac-hero-h1) — o dono via o mesmo nome
+             DUAS vezes. Agora nomeia a própria aba (como "Drive", "Conexões" etc.),
+             deixando o h1 do topo como único título grande da ferramenta. -->
+        <h2>Organizações</h2>
         <div class="ac-sub">${totalColab} colaborador(es) · ${totalAtivos} ativo(s) · ${orgs.length} organização(ões)</div>
       </div>
       <div class="ac-hero-actions">
@@ -2848,9 +2852,19 @@ onMounted(() => {
 .tela-acessos :deep(.ac-setor-card:hover .ac-setor-del){opacity:1}
 .tela-acessos :deep(.ac-pill.neutral){background:rgba(148,163,184,.18);color:#cbd5e1}
 .tela-acessos :deep(.ac-chip){display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);font-size:11px;margin:2px 4px 2px 0}
-.tela-acessos :deep(.ac-modal-ov){position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:60;padding:20px}
+/* overflow-y:auto no overlay = cinto de segurança: em telas MUITO baixas
+   (paisagem no celular), se o modal + respiro ainda passar da janela, o
+   próprio overlay rola em vez de cortar o conteúdo. */
+.tela-acessos :deep(.ac-modal-ov){position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:60;padding:20px;overflow-y:auto}
 .tela-acessos :deep(.ac-modal-ov.open){display:flex;animation:acFadeUp .2s ease both}
-.tela-acessos :deep(.ac-modal){background:var(--surface,#0f1720);color:var(--text,#e2e4f0);border:1px solid var(--border,rgba(255,255,255,.12));border-radius:16px;padding:22px;max-width:480px;width:100%;box-shadow:0 24px 60px -20px #000}
+/* max-height + overflow no modal BASE (antes só existia dentro do @media
+   mobile lá embaixo, então no desktop os modais altos — registrar patrimônio,
+   dar acesso, provedor — cresciam sem limite, ficavam centralizados e
+   "sangravam" pra cima/baixo sem rolar). Agora TODO modal cabe na janela e
+   rola por dentro. dvh depois de vh = usa dvh onde há suporte (some a barra
+   do navegador no celular), com vh de reserva nos navegadores antigos.
+   .ac-modal-lg mantém suas próprias regras (vem depois no CSS e vence). */
+.tela-acessos :deep(.ac-modal){background:var(--surface,#0f1720);color:var(--text,#e2e4f0);border:1px solid var(--border,rgba(255,255,255,.12));border-radius:16px;padding:22px;max-width:480px;width:100%;box-shadow:0 24px 60px -20px #000;max-height:90vh;max-height:90dvh;overflow-y:auto}
 .tela-acessos :deep(.ac-section-h){display:flex;align-items:center;gap:10px;margin:0 0 14px}
 .tela-acessos :deep(.ac-section-h h3){margin:0}
 /* ===== Acessos — profundidade + tema claro/escuro via variáveis ===== */
@@ -2926,7 +2940,8 @@ onMounted(() => {
 .tela-acessos :deep(.ac-org-name){font-size:18px;white-space:normal}
 .tela-acessos :deep(.ac-tabs){width:100%;margin-left:0;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
 .tela-acessos :deep(.ac-tab){white-space:nowrap;flex-shrink:0}
-.tela-acessos :deep(.ac-modal){max-height:88vh;overflow:auto}
+/* (o max-height/overflow do .ac-modal agora está na regra base, valendo
+   pra todas as larguras — não precisa mais repetir só no mobile aqui) */
 .tela-acessos :deep(.ac-section-h){flex-wrap:wrap}
 }
 /* ===== Acessos — Fase 1: ficha do colaborador ===== */
