@@ -1513,6 +1513,31 @@ async function actZohoSondarEscrita(sb: any, resourceId: unknown) {
   });
 }
 
+// zoho.apagarLinkTeste -> apaga um link do WorkDrive de verdade. A sonda anterior criou um
+// link mas o DELETE /links/{id} devolveu ok SEM apagar (mentira do endpoint). Aqui tento
+// várias formas e reporto o status CRU de cada uma, pra achar a que funciona e limpar o lixo.
+async function actZohoApagarLinkTeste(sb: any, linkId: unknown) {
+  const conn = await readZohoConn(sb);
+  if (!conn.refresh_token) return json({ error: "nao_conectado" });
+  const lid = typeof linkId === "string" && linkId ? linkId : null;
+  if (!lid) return json({ error: "faltou_linkId" }, 400);
+  const access = await freshAccessToken(conn);
+  const enc = encodeURIComponent(lid);
+
+  const tentativas: any[] = [];
+  // 1) DELETE simples (o que a sonda tentou).
+  const t1 = await wdWrite(access, "DELETE", `/links/${enc}`);
+  tentativas.push({ via: "DELETE /links/{id}", status: t1.status, ok: t1.ok, corpo: (t1.raw || "").slice(0, 200) });
+  // 2) DELETE com corpo JSON:API (alguns servidores JSON:API exigem).
+  const t2 = await wdWrite(access, "DELETE", `/links/${enc}`, { data: { id: lid, type: "links" } });
+  tentativas.push({ via: "DELETE /links/{id} +body", status: t2.status, ok: t2.ok, corpo: (t2.raw || "").slice(0, 200) });
+  // 3) PATCH status=deleted (às vezes o "apagar" é uma mudança de estado).
+  const t3 = await wdWrite(access, "PATCH", `/links/${enc}`, { data: { id: lid, type: "links", attributes: { status: "deleted" } } });
+  tentativas.push({ via: "PATCH status=deleted", status: t3.status, ok: t3.ok, corpo: (t3.raw || "").slice(0, 200) });
+
+  return json({ linkId: lid, tentativas });
+}
+
 // zoho.diagnosticarSharing -> SONDAGEM só-leitura. Não compartilha nada, não cria link,
 // não muda permissão. Só faz GET nos endpoints candidatos de "quem tem acesso" e lê o
 // que a Zoho responde. Quando o token não tem o escopo certo, a Zoho devolve um erro que
@@ -1685,6 +1710,8 @@ Deno.serve(async (req: Request) => {
         return await actZohoDiagnosticarSharing(sb, body?.resourceId);
       case "zoho.sondarEscrita":
         return await actZohoSondarEscrita(sb, body?.resourceId);
+      case "zoho.apagarLinkTeste":
+        return await actZohoApagarLinkTeste(sb, body?.linkId);
       case "microsoft.status":
         return await msStatus(sb);
       case "microsoft.authUrl":
