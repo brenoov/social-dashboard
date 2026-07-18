@@ -77,6 +77,19 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const AVATAR_BUCKET = "acessos-avatars";
+
+// Hash curto e determinístico dos bytes de uma imagem (FNV-1a). Serve só de "impressão
+// digital" pra cache-busting da URL da foto — não é criptografia. Mesmos bytes -> mesmo
+// hash (URL estável, não rebusca à toa); bytes diferentes -> hash diferente (foto nova
+// aparece). Síncrono e sem dependência, de propósito.
+function hashDeBytes(bytes: Uint8Array): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < bytes.length; i++) {
+    h ^= bytes[i];
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, "0");
+}
 const CALLBACK_URI =
   "https://kounqtdoioootxqegkij.supabase.co/functions/v1/acessos-oauth/callback/zoho";
 // Microsoft OneDrive (personal/consumer account).
@@ -450,6 +463,7 @@ async function actImport(sb: any, quem: string | null) {
   let criados = 0;
   let atualizados = 0;
   let com_foto = 0;
+  let fotos_falhas = 0;
   let erros = 0;
 
   for (const u of users) {
@@ -502,15 +516,22 @@ async function actImport(sb: any, quem: string | null) {
             .from(AVATAR_BUCKET)
             .upload(path, photo.bytes, { contentType: photo.contentType, upsert: true });
           if (stErr) {
-            console.warn("[acessos-proxy] upload avatar falhou", pessoaId, stErr.message);
+            fotos_falhas++;
           } else {
-            const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${AVATAR_BUCKET}/${path}`;
+            // ?v={hash dos bytes} é o que FAZ a foto atualizar de verdade. O caminho no
+            // bucket é fixo (pessoaId.jpg), então sem isto a URL nunca muda e o navegador/
+            // CDN servem a foto VELHA em cache pra sempre — foi exatamente a queixa (perfil
+            // congelado). Hash dos bytes: foto trocou -> URL nova -> o navegador rebusca.
+            const v = hashDeBytes(photo.bytes);
+            const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${AVATAR_BUCKET}/${path}?v=${v}`;
             await sb.from("acessos_pessoas").update({ avatar_url: publicUrl }).eq("id", pessoaId);
             com_foto++;
           }
         }
       } catch (e) {
-        console.warn("[acessos-proxy] avatar erro", u.accountId, e instanceof Error ? e.message : e);
+        // Falha de foto vira número no resumo (fotos_falhas), não console.warn invisível:
+        // "0 fotos" com 0 falhas é "ninguém tem foto"; com 12 falhas é "não consegui buscar".
+        fotos_falhas++;
       }
     } catch (e) {
       erros++;
@@ -518,7 +539,7 @@ async function actImport(sb: any, quem: string | null) {
     }
   }
 
-  const resumo = { criados, atualizados, com_foto, erros, total: users.length };
+  const resumo = { criados, atualizados, com_foto, fotos_falhas, erros, total: users.length };
   try {
     await sb.from("acessos_log").insert({
       quem,
