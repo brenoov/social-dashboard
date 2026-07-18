@@ -1538,6 +1538,53 @@ async function actZohoApagarLinkTeste(sb: any, linkId: unknown) {
   return json({ linkId: lid, tentativas });
 }
 
+// zoho.sondarPermissao -> descobre o request EXATO pra dar acesso a uma PESSOA por e-mail
+// (não é link — é convite). Tenta os formatos candidatos, reporta o status cru de cada um,
+// e se algum criar, revoga. Alvo seguro: e-mail interno que JÁ tem acesso via workspace, então
+// não expõe nada novo. Temporária. Só roda com email+resource passados (nunca automático).
+async function actZohoSondarPermissao(sb: any, resourceId: unknown, email: unknown) {
+  const conn = await readZohoConn(sb);
+  if (!conn.refresh_token) return json({ error: "nao_conectado" });
+  const rid = typeof resourceId === "string" && resourceId ? resourceId : null;
+  const mail = typeof email === "string" && email ? email : null;
+  if (!rid || !mail) return json({ error: "faltou_resourceId_ou_email" }, 400);
+  const access = await freshAccessToken(conn);
+
+  const tentativas: any[] = [];
+  const criados: string[] = [];
+
+  // Candidato A: POST /permissions com email dentro de attributes.
+  const cA = {
+    data: {
+      attributes: { resource_id: rid, shared_type: "individual", email_id: mail, role_id: "6", send_mail: false },
+      type: "permissions",
+    },
+  };
+  const rA = await wdWrite(access, "POST", "/permissions", cA);
+  tentativas.push({ via: "POST /permissions individual", status: rA.status, ok: rA.ok, corpo: (rA.raw || "").slice(0, 300) });
+  if (rA.ok && rA.json?.data?.id) criados.push(String(rA.json.data.id));
+
+  // Candidato B: POST /permissions com bloco "permissions" array (formato alternativo visto).
+  const cB = {
+    data: {
+      attributes: { resource_id: rid, permissions: [{ email_id: mail, role_id: "6" }], send_mail: false },
+      type: "permissions",
+    },
+  };
+  const rB = await wdWrite(access, "POST", "/permissions", cB);
+  tentativas.push({ via: "POST /permissions array", status: rB.status, ok: rB.ok, corpo: (rB.raw || "").slice(0, 300) });
+  if (rB.ok && rB.json?.data?.id) criados.push(String(rB.json.data.id));
+
+  // Se criou permissão, revoga na hora (DELETE /permissions/{id}).
+  const revogados: any[] = [];
+  for (const pid of criados) {
+    const del = await wdWrite(access, "DELETE", `/permissions/${encodeURIComponent(pid)}`);
+    revogados.push({ id: pid, status: del.status, ok: del.ok });
+  }
+
+  return json({ resourceId: rid, email: mail, tentativas, criados, revogados });
+}
+
 // zoho.diagnosticarSharing -> SONDAGEM só-leitura. Não compartilha nada, não cria link,
 // não muda permissão. Só faz GET nos endpoints candidatos de "quem tem acesso" e lê o
 // que a Zoho responde. Quando o token não tem o escopo certo, a Zoho devolve um erro que
@@ -1712,6 +1759,8 @@ Deno.serve(async (req: Request) => {
         return await actZohoSondarEscrita(sb, body?.resourceId);
       case "zoho.apagarLinkTeste":
         return await actZohoApagarLinkTeste(sb, body?.linkId);
+      case "zoho.sondarPermissao":
+        return await actZohoSondarPermissao(sb, body?.resourceId, body?.email);
       case "microsoft.status":
         return await msStatus(sb);
       case "microsoft.authUrl":
