@@ -351,6 +351,33 @@ function _gvFitKpiText(){
     }
   });
 }
+// Impede QUALQUER <text> dos velocímetros de estourar a largura do medidor. A estimativa
+// no HTML (fitAttr) é um primeiro palpite; aqui a gente MEDE de verdade (getComputedTextLength,
+// já com o SVG no DOM) e, se o texto passar de 92% da largura do viewBox, espreme com
+// textLength. Cobre TODOS os textos (valor grande, vendido, e o rótulo de baixo line4 que
+// antes escapava), independente de fonte/tamanho. Roda após render e no resize.
+function _gvFitGaugeValues(){
+  document.querySelectorAll('#gestao-vista-screen svg').forEach(svg=>{
+    const vb=svg.viewBox&&svg.viewBox.baseVal;
+    if(!vb||!vb.width)return;
+    const maxW=vb.width*0.92; // 8% de folga total
+    svg.querySelectorAll('text').forEach(t=>{
+      // tira um ajuste anterior pra medir a largura NATURAL, senão getComputedTextLength
+      // devolveria o próprio textLength já aplicado.
+      t.removeAttribute('textLength');
+      t.removeAttribute('lengthAdjust');
+      let len;
+      try{ len=t.getComputedTextLength(); }catch(e){ return; }
+      if(len>maxW){
+        t.setAttribute('textLength',maxW.toFixed(0));
+        t.setAttribute('lengthAdjust','spacingAndGlyphs');
+      }
+    });
+  });
+}
+// Handler único do resize: refaz o grid E o ajuste dos valores (precisa ser função nomeada
+// pra dar removeEventListener sem vazar listener).
+function _gvFitReflow(){ _gvFitCanalGrid(); _gvFitGaugeValues(); }
 const _GV_QUOTES=[
   {q:'A imaginação é mais importante que o conhecimento.',a:'Albert Einstein'},
   {q:'A vida é o que acontece enquanto você está ocupado fazendo outros planos.',a:'John Lennon'},
@@ -435,7 +462,7 @@ function _gvStopAllTimers(){
   if(_gvStatusTimer){clearInterval(_gvStatusTimer);_gvStatusTimer=null;}
   if(window._gvTimer){clearInterval(window._gvTimer);window._gvTimer=null;}
   if(window._gvClockTimer){clearInterval(window._gvClockTimer);window._gvClockTimer=null;}
-  window.removeEventListener('resize',_gvFitCanalGrid);
+  window.removeEventListener('resize',_gvFitReflow);
 }
 function closeGestaoVista(){
   _gvStopAllTimers();
@@ -943,7 +970,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     </div>
   `;
   // Ajusta grid de canais antes do board aparecer (board ainda opacity:0 — sem flash)
-  requestAnimationFrame(()=>{_gvFitCanalGrid();_gvFitKpiText();});
+  requestAnimationFrame(()=>{_gvFitCanalGrid();_gvFitKpiText();_gvFitGaugeValues();});
 
   // Ticker — slide 1: últimos pedidos
   const recent=[...pedidos].sort((a,b)=>new Date(b.data||0)-new Date(a.data||0)).slice(0,10);
@@ -1000,9 +1027,11 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     _gvFitCanalGrid();
     // Auto-fit KPI values font size
     _gvFitKpiText();
+    // Impede o valor dos velocímetros de estourar (medição real)
+    _gvFitGaugeValues();
   },300);
-  window.removeEventListener('resize',_gvFitCanalGrid);
-  window.addEventListener('resize',_gvFitCanalGrid,{passive:true});
+  window.removeEventListener('resize',_gvFitReflow);
+  window.addEventListener('resize',_gvFitReflow,{passive:true});
 }
 
 Object.assign(window, {

@@ -43,6 +43,11 @@
      viewport (user-scalable=no, no index.html). Inputs mantêm font-size >=16px em outro
      ponto pra o iOS não dar zoom-ao-focar. */
   html{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+  /* iPhone com entalhe/ilha: como o app usa viewport-fit=cover (fundo vai até a borda),
+     o conteúdo colava no entalhe. Empurra tudo pra baixo da área segura do topo. Em
+     aparelho sem entalhe, env() = 0, nada muda. Vale pro app todo (a .moldura envolve
+     todas as telas). O padding-bottom cuida da barra de gestos (home indicator). */
+  .moldura{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);}
   :focus{outline:none;}
   :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px;}
   body{background:var(--bg);color:var(--text);font-family:var(--fonte-principal);font-weight:400;min-height:100vh;}
