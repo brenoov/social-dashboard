@@ -701,6 +701,15 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   const prevLbl=fmtPrevLbl(diPrev,dfPrev);
   const todayPrevLbl=fmtPrevLbl(dfPrev,dfPrev);  // sempre só o dia equivalente do mês anterior
 
+  // Encolhe o texto do medidor SÓ quando ele passaria da largura (senão estoura o card).
+  // A Sora/Mono é mais larga que a Oswald antiga, então valores grandes de "vendido"
+  // vazavam. textLength força o texto a caber em maxW; lengthAdjust espreme letra+espaço.
+  // Só aplica quando a largura estimada excede maxW — texto curto fica no tamanho natural.
+  function fitAttr(txt,fs,maxW,mono){
+    const charW=fs*(mono?0.62:0.56); // largura média por caractere
+    const estW=String(txt==null?'':txt).length*charW;
+    return estW>maxW?` textLength="${maxW}" lengthAdjust="spacingAndGlyphs"`:'';
+  }
   function bigGauge(p,hexColor,uid,line1,line2,line3,line4parts){
     const R=78,cx=100,cy=98;
     const C=2*Math.PI*R,sweep=240/360*C,gap=C-sweep;
@@ -733,9 +742,9 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
         data-fill="${fill.toFixed(1)}" data-c="${C.toFixed(1)}"
         style="transition:stroke-dasharray 2s cubic-bezier(.4,0,.2,1);filter:${neonFilter}"
         ${isGoal?`class="gauge-neon-arc"`:''}/>
-      <text x="100" y="86" text-anchor="middle" font-family="IBM Plex Mono,ui-monospace,monospace" font-size="42" font-weight="600" fill="${hexColor}">${line1}</text>
-      <text x="100" y="109" text-anchor="middle" font-family="Sora,sans-serif" font-size="10" fill="var(--muted)" letter-spacing="2">${line2}</text>
-      <text x="100" y="138" text-anchor="middle" font-family="IBM Plex Mono,ui-monospace,monospace" font-size="22" font-weight="500" fill="var(--text)">${line3}</text>
+      <text x="100" y="86" text-anchor="middle" font-family="IBM Plex Mono,ui-monospace,monospace" font-size="42" font-weight="600" fill="${hexColor}"${fitAttr(line1,42,184,true)}>${line1}</text>
+      <text x="100" y="109" text-anchor="middle" font-family="Sora,sans-serif" font-size="10" fill="var(--muted)" letter-spacing="2"${fitAttr(line2,10,184,false)}>${line2}</text>
+      <text x="100" y="138" text-anchor="middle" font-family="IBM Plex Mono,ui-monospace,monospace" font-size="22" font-weight="500" fill="var(--text)"${fitAttr(line3,22,184,true)}>${line3}</text>
       ${line4svg}
     </svg>`;
   }
@@ -763,7 +772,8 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     ].filter(Boolean);
     let _y=86; // primeira linha logo abaixo do arco (que termina em y≈78)
     const linhasSvg=linhas.map(l=>{
-      const svg=`<text x="50" y="${_y}" text-anchor="middle" font-family="${l.fonte}" font-size="${l.tam}" font-weight="${l.peso}" fill="${l.cor}">${l.t}</text>`;
+      const mono=/Mono/.test(l.fonte);
+      const svg=`<text x="50" y="${_y}" text-anchor="middle" font-family="${l.fonte}" font-size="${l.tam}" font-weight="${l.peso}" fill="${l.cor}"${fitAttr(l.t,l.tam,92,mono)}>${l.t}</text>`;
       _y+=l.vao;
       return svg;
     }).join('');
