@@ -2831,6 +2831,14 @@ onMounted(() => {
   .tela-acessos .ac-hero{align-items:flex-start}
   .tela-acessos .ac-hero-provs{width:100%}
 }
+/* Topo compacto no celular: faixa "Voltar" e cabeçalho com menos respiro,
+   subtítulo escondido — o topo deixa de comer meia tela. */
+@media(max-width:640px){
+  .tela-acessos :deep(.ac-topbar){padding:9px 14px}
+  .tela-acessos .ac-topo{padding:12px 14px 0}
+  .tela-acessos .ac-hero{margin-bottom:12px;gap:10px}
+  .tela-acessos .ac-hero-sub{display:none}
+}
 @media(max-width:420px){
   .tela-acessos .ac-kpi-val{font-size:27px}
 }

@@ -274,6 +274,9 @@ function voltar() { router.push({ name: 'redes' }) }
 .rel-vazio{text-align:center!important;color:var(--muted);padding:40px!important;font-style:italic;}
 
 @media(max-width:640px){
+  /* Topbar mais baixa no celular: menos padding e título menor */
+  .rel-topbar{padding:8px 14px;}
+  .rel-title{font-size:12px;letter-spacing:1.5px;}
   .rel-controles{padding:14px 16px;gap:14px;}
   .rel-tabela-scroll{padding:10px 12px 30px;}
   .rel-select{min-width:150px;}

@@ -937,7 +937,8 @@ onUnmounted(() => {
 
 /* Mobile: nada estoura a tela */
 @media (max-width: 680px) {
-  .csc-title { font-size: 15px; letter-spacing: 1px; }
+  .csc-topbar { padding: 9px 16px; gap: 10px; }   /* topbar mais baixa no celular */
+  .csc-title { font-size: 13px; letter-spacing: 1px; }
   .csc-tb-right { gap: 8px; }
   .csc-clock { font-size: 14px; }
   .csc-upd { display: none; }

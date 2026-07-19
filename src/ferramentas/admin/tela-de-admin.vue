@@ -1308,6 +1308,12 @@ Object.assign(window, {
 .tela-admin :deep(.perm-cel-vazia){color:var(--border);cursor:default;font-size:11px;user-select:none;}
 
 @media (max-width:640px){
+  /* Topbar compacto no celular: menos padding, logo e e-mail do usuário somem
+     (não são essenciais na barra) — sobra Voltar + título, ocupando menos altura. */
+  .tela-admin :deep(.admin-topbar){padding:8px 14px;gap:10px;}
+  .tela-admin :deep(.admin-topbar-title){font-size:12px;letter-spacing:1.5px;}
+  .tela-admin :deep(.admin-topbar .rbv-logo){display:none;}
+  .tela-admin :deep(#admin-topbar-user){display:none;}
   .tela-admin :deep(.perm-linha){grid-template-columns:minmax(110px,1fr) repeat(5,38px);padding:0 8px;}
   .tela-admin :deep(.perm-linha-nome){font-size:11px;}
   .tela-admin :deep(.perm-modal-body){padding:12px 14px;}
