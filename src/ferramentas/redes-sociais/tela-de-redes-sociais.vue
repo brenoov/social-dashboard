@@ -224,6 +224,7 @@
           </div>
           <div class="mc-lbl">CUSTO POR SEGUIDOR</div>
           <div class="mc-val a-blue" id="ads-cps-val">R$ 0</div>
+          <div id="previa-cps" style="display:none;margin-top:5px;"></div>
           <div class="mc-compare" id="cmp-cps"></div>
           <div class="mc-divider"></div>
           <div class="mc-progress-track"><div class="mc-progress-fill" id="prog-cps" style="width:0%"></div></div>
@@ -1397,11 +1398,18 @@ async function fetchData(accountId, period, customStart, customEnd) {
   // Novos seguidores por dia: MESMA série resiliente que o gráfico da seção 01 desenha
   // (bruto quando a Meta consolidou; senão a variação da contagem) — os dois nunca divergem.
   const seguidoresDiarioRows = chartSrc.map((row, i) => ({ data: row.captured_at, novos: chartGained[i], saiu: chartLost[i] }))
-  // Custo por seguidor = gasto ÷ seguidores ganhos. Usa o MESMO número resiliente que o card exibe
-  // (bruto quando confirmado; senão a variação da contagem) — o bruto sozinho zera durante a falha da Meta.
-  const _cpsFollowers = confirmadoIG ? newFollowers : (previaReal != null ? previaReal : newFollowers)
-  const cps = spend > 0 && _cpsFollowers > 0 ? spend / _cpsFollowers : 0
-  const prevCps = prevSpend && prevNewFollowers > 0 ? prevSpend / prevNewFollowers : null
+  // Custo por seguidor = investimento ÷ NOVOS seguidores BRUTOS (soma de gained) do período.
+  // NUNCA usa o líquido: mesmo com saldo negativo, sabemos quantos ENTRARAM (gained). Isso cobre
+  // 7d/30d, onde a maioria dos dias já consolidou. Quando a soma de gained é 0 SÓ porque os dias
+  // recentes ainda não consolidaram na Meta (gained/lost não publicados, mas a contagem mexeu),
+  // o card mostra "consolidando" em vez de R$0 — nunca R$0, número negativo, nem valor por líquido.
+  const cps = spend > 0 && grossGained > 0 ? spend / grossGained : 0
+  // "consolidando" (custo ainda não calculável): a janela não fechou nenhum novo seguidor bruto,
+  // mas há dia recente sem bruto publicado (grossPartial) E a contagem se moveu → é atraso da Meta,
+  // não ausência real de movimento. Caso típico do período curto (hoje/ontem).
+  const _countMoved = chartSrc.some(s => _netCountOf(s) !== 0)
+  const cpsConsolidando = grossGained === 0 && grossPartial && _countMoved
+  const prevCps = prevSpend && _prevGained > 0 ? prevSpend / _prevGained : null
   const storyShares = storyDailyCurr.reduce((s, r) => s + (r.story_shares || 0), 0)
   const storyRep = storyDailyCurr.reduce((s, r) => s + (r.story_replies || 0), 0)
   const prevStoryShares = storyDailyPrev.length ? storyDailyPrev.reduce((s, r) => s + (r.story_shares || 0), 0) : null
@@ -1420,7 +1428,7 @@ async function fetchData(accountId, period, customStart, customEnd) {
   return {
     followerTotal: (trueLastRows[0]?.followers_count ?? latest), newFollowers, prevNewFollowers, avgPerDay, bestDay: '—', engRate, followerDeltas, effectivePeriod, impressions, clicks, reach,
     chart: { gained: chartGained, lost: chartLost, labels: chartLabels, dates: chartDates },
-    spend, prevSpend, cps, prevCps, adEngagement, adLikes, adComments, adShares, adSaves,
+    spend, prevSpend, cps, prevCps, cpsConsolidando, adEngagement, adLikes, adComments, adShares, adSaves,
     adsDiario: { inicio: followStart, fim: followEnd, linhasDeGasto: gastoDiarioRows, linhasDeSeguidores: seguidoresDiarioRows },
     eng: { likes: eng.likes, saves: eng.saves, shares: eng.shares, comments: eng.comments ?? 0, reach: eng.reach ?? 0, views: eng.views ?? 0, interactions: eng.total_interactions ?? 0, engaged: eng.accounts_engaged ?? 0, profileViews: eng.profile_views ?? 0, prevLikes: prevEng?.likes ?? null, prevSaves: prevEng?.saves ?? null, prevShares: prevEng?.shares ?? null, prevComments: prevEng?.comments ?? null, prevReach: prevEng?.reach ?? null, prevViews: prevEng?.views ?? null, prevInteractions: prevEng?.total_interactions ?? null, prevEngaged: prevEng?.accounts_engaged ?? null, prevProfileViews: prevEng?.profile_views ?? null },
     cnt: { posts: cnt.posts_count, stories: storiesCount, reels: cnt.reels_count, postsReels: cnt.posts_count + cnt.reels_count, prevPosts: prevCnt != null ? prevCnt.posts_count : null, prevReels: prevCnt != null ? prevCnt.reels_count : null, prevPostsReels: prevCnt != null ? prevCnt.posts_count + prevCnt.reels_count : null, prevStories: prevStoriesCount },
@@ -1765,12 +1773,39 @@ function update(d, period) {
   const _inv = (d.live && d.live.investimento != null) ? d.live.investimento : d.spend
   const _invAnt = (d.live && d.live.anterior) ? d.live.anterior.investimento : d.prevSpend
   document.getElementById('ads-spend-val').textContent = _inv > 0 ? fmtR(_inv) : 'R$ —'
-  document.getElementById('ads-cps-val').textContent = d.cps > 0 ? fmtR(d.cps) : 'R$ —'
   setCompare('cmp-spend', _inv, _invAnt, 'R$ ', pl, true)
-  setCompare('cmp-cps', d.cps, d.prevCps, 'R$ ', pl, true)
   applySpend(_inv, getGoal('spend'))
-  if (d.cps > 0) applyMetricInverse('cps', d.cps, getGoal('cps'))
-  if (d.cps > 0) { const gcps = getGoal('cps'); _mcBorderColor('cps', perfColor((gcps / d.cps) * 100)) } else { _mcBorderColor('cps', '') }
+  // ── CUSTO POR SEGUIDOR: investimento ÷ NOVOS seguidores BRUTOS (soma de gained) do período. ──
+  // Nunca usa o líquido. Quando dá pra calcular (soma de gained > 0, caso normal em 7d/30d) → custo
+  // real, sem selo. Quando a soma de gained é 0 SÓ porque os dias recentes ainda não consolidaram na
+  // Meta (contagem mexeu, mas "quem seguiu" não publicou) → "consolidando" em vez de R$0. Nunca
+  // R$0, número negativo, nem valor por líquido.
+  const _cpsVal = document.getElementById('ads-cps-val')
+  const _cpsPrev = document.getElementById('previa-cps')
+  const _temInv = (d.spend > 0) || (_inv > 0) // só faz sentido falar de custo se houve investimento
+  const _cpsConsolidando = !!d.cpsConsolidando && _temInv
+  if (_cpsConsolidando) {
+    // Sem novos seguidores brutos ainda (dias recentes não fecharam) → não inventa custo, avisa.
+    if (_cpsVal) _cpsVal.textContent = '—'
+    _mcValColor('cps', 'orange')
+    if (_cpsPrev) {
+      _cpsPrev.style.display = 'block'
+      _cpsPrev.innerHTML = '<span class="previa-selo">⏳ consolidando</span>' +
+        '<div class="previa-nota">O custo por seguidor aparece assim que o Instagram publicar quantas pessoas novas seguiram nos dias mais recentes — costuma sair em cerca de 1 dia. Até lá, esses dias ainda não fecharam o número de novos seguidores.</div>'
+    }
+    const _c = document.getElementById('cmp-cps'); if (_c) _c.innerHTML = '' // "anterior" não ajuda enquanto não fecha
+    const _pg = document.getElementById('prog-cps'); if (_pg) { _pg.style.width = '0%'; _pg.className = 'mc-progress-fill' }
+    const _pc = document.getElementById('pct-cps'); if (_pc) { _pc.textContent = 'consolidando'; _pc.className = 'mc-pct c-orange' }
+    const _df = document.getElementById('diff-cps'); if (_df) { _df.textContent = 'aguardando o Instagram publicar os novos seguidores'; _df.className = 'mc-diff c-orange' }
+    _mcBorderColor('cps', 'orange')
+  } else {
+    if (_cpsVal) _cpsVal.textContent = d.cps > 0 ? fmtR(d.cps) : 'R$ —'
+    if (_cpsPrev) { _cpsPrev.style.display = 'none'; _cpsPrev.innerHTML = '' }
+    setCompare('cmp-cps', d.cps, d.prevCps, 'R$ ', pl, true)
+    if (d.cps > 0) {
+      applyMetricInverse('cps', d.cps, getGoal('cps')); const gcps = getGoal('cps'); _mcBorderColor('cps', perfColor((gcps / d.cps) * 100))
+    } else { _mcValColor('cps', ''); _mcBorderColor('cps', '') }
+  }
   // ── Gráficos diários (abaixo de cada card). As metas são lidas AQUI, na hora de desenhar,
   // porque o dono edita o BUDGET/META MÁX direto na tela (contenteditable). ──
   const _diario = d.adsDiario || { inicio: null, fim: null, linhasDeGasto: [], linhasDeSeguidores: [] }
@@ -2451,6 +2486,11 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.nf-val.nf-em-consolidacao){ color:var(--orange)!important; -webkit-text-fill-color:var(--orange)!important; }
 .tela-redes-sociais :deep(.nf-provisorio){ font-family:'IBM Plex Sans',sans-serif; font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:var(--orange); border:1px solid var(--orange); border-radius:4px; padding:1px 5px; margin-left:7px; opacity:.95; white-space:nowrap; }
 .tela-redes-sociais :deep(.nf-linha:has(.nf-provisorio:not([hidden]))){ align-items:center; }
+/* PRÉVIA do CUSTO POR SEGUIDOR — quando o Instagram ainda não publicou o bruto (seguiu/deixou)
+   dos dias recentes e o custo sai pelo saldo líquido. Mesma cor âmbar da consolidação dos seguidores,
+   via tokens de tema (claro E escuro). Não usa cores fixas pra não quebrar no modo escuro. */
+.tela-redes-sociais :deep(.previa-selo){ display:inline-flex; align-items:center; gap:5px; font-family:'IBM Plex Sans',sans-serif; font-size:10.5px; font-weight:800; letter-spacing:.3px; color:var(--orange); border:1px solid var(--orange); border-radius:6px; padding:2px 8px; white-space:nowrap; }
+.tela-redes-sociais :deep(.previa-nota){ font-family:'IBM Plex Sans',sans-serif; font-size:9.5px; line-height:1.35; font-weight:500; color:var(--muted); margin-top:3px; }
 .tela-redes-sociais :deep(.mc-ad-sub){ font-family:'IBM Plex Sans',sans-serif; font-size:10.5px; font-weight:600; color:var(--muted); margin-top:2px; letter-spacing:.2px; }
 .tela-redes-sociais :deep(.mc-obs){ font-family:'IBM Plex Sans',sans-serif; font-size:10px; font-weight:500; line-height:1.35; color:var(--muted); opacity:.85; margin-top:4px; }
 /* Porte das regras do dashboard central de Redes Sociais (legacy/index.html,
