@@ -1403,12 +1403,19 @@ async function fetchData(accountId, period, customStart, customEnd) {
   // 7d/30d, onde a maioria dos dias já consolidou. Quando a soma de gained é 0 SÓ porque os dias
   // recentes ainda não consolidaram na Meta (gained/lost não publicados, mas a contagem mexeu),
   // o card mostra "consolidando" em vez de R$0 — nunca R$0, número negativo, nem valor por líquido.
-  const cps = spend > 0 && grossGained > 0 ? spend / grossGained : 0
-  // "consolidando" (custo ainda não calculável): a janela não fechou nenhum novo seguidor bruto,
-  // mas há dia recente sem bruto publicado (grossPartial) E a contagem se moveu → é atraso da Meta,
-  // não ausência real de movimento. Caso típico do período curto (hoje/ontem).
+  // "novos seguidores" pro custo: usa o BRUTO quando a Meta consolidou. Quando o bruto ainda
+  // NÃO saiu (dia recente) mas a contagem SUBIU, usa esse ganho de contagem (chartGained já traz
+  // o +N dos dias sem bruto) como PRÉVIA — senão um custo que existe (ex.: R$40 investidos hoje,
+  // +5 seguidores) apareceria zerado. É o número que já dá pra ver hoje.
+  const chartGainedSum = chartGained.reduce((a, b) => a + (b || 0), 0)
+  const _divSeguidores = grossGained > 0 ? grossGained : chartGainedSum
+  const cps = spend > 0 && _divSeguidores > 0 ? spend / _divSeguidores : 0
+  // prévia = está usando o ganho de contagem (não o bruto oficial) porque a Meta ainda não fechou.
+  const cpsPrevia = grossGained === 0 && chartGainedSum > 0
+  // "consolidando" (custo NÃO calculável): bruto não fechou E a contagem não subiu (net ≤ 0) —
+  // aí não dá pra dividir. Só então mostra "consolidando" em vez de um número.
   const _countMoved = chartSrc.some(s => _netCountOf(s) !== 0)
-  const cpsConsolidando = grossGained === 0 && grossPartial && _countMoved
+  const cpsConsolidando = grossGained === 0 && grossPartial && _countMoved && chartGainedSum <= 0
   const prevCps = prevSpend && _prevGained > 0 ? prevSpend / _prevGained : null
   const storyShares = storyDailyCurr.reduce((s, r) => s + (r.story_shares || 0), 0)
   const storyRep = storyDailyCurr.reduce((s, r) => s + (r.story_replies || 0), 0)
@@ -1428,7 +1435,7 @@ async function fetchData(accountId, period, customStart, customEnd) {
   return {
     followerTotal: (trueLastRows[0]?.followers_count ?? latest), newFollowers, prevNewFollowers, avgPerDay, bestDay: '—', engRate, followerDeltas, effectivePeriod, impressions, clicks, reach,
     chart: { gained: chartGained, lost: chartLost, labels: chartLabels, dates: chartDates },
-    spend, prevSpend, cps, prevCps, cpsConsolidando, adEngagement, adLikes, adComments, adShares, adSaves,
+    spend, prevSpend, cps, prevCps, cpsConsolidando, cpsPrevia, adEngagement, adLikes, adComments, adShares, adSaves,
     adsDiario: { inicio: followStart, fim: followEnd, linhasDeGasto: gastoDiarioRows, linhasDeSeguidores: seguidoresDiarioRows },
     eng: { likes: eng.likes, saves: eng.saves, shares: eng.shares, comments: eng.comments ?? 0, reach: eng.reach ?? 0, views: eng.views ?? 0, interactions: eng.total_interactions ?? 0, engaged: eng.accounts_engaged ?? 0, profileViews: eng.profile_views ?? 0, prevLikes: prevEng?.likes ?? null, prevSaves: prevEng?.saves ?? null, prevShares: prevEng?.shares ?? null, prevComments: prevEng?.comments ?? null, prevReach: prevEng?.reach ?? null, prevViews: prevEng?.views ?? null, prevInteractions: prevEng?.total_interactions ?? null, prevEngaged: prevEng?.accounts_engaged ?? null, prevProfileViews: prevEng?.profile_views ?? null },
     cnt: { posts: cnt.posts_count, stories: storiesCount, reels: cnt.reels_count, postsReels: cnt.posts_count + cnt.reels_count, prevPosts: prevCnt != null ? prevCnt.posts_count : null, prevReels: prevCnt != null ? prevCnt.reels_count : null, prevPostsReels: prevCnt != null ? prevCnt.posts_count + prevCnt.reels_count : null, prevStories: prevStoriesCount },
@@ -1798,6 +1805,20 @@ function update(d, period) {
     const _pc = document.getElementById('pct-cps'); if (_pc) { _pc.textContent = 'consolidando'; _pc.className = 'mc-pct c-orange' }
     const _df = document.getElementById('diff-cps'); if (_df) { _df.textContent = 'aguardando o Instagram publicar os novos seguidores'; _df.className = 'mc-diff c-orange' }
     _mcBorderColor('cps', 'orange')
+  } else if (d.cpsPrevia && d.cps > 0) {
+    // PRÉVIA: o custo foi calculado pelo crescimento da CONTAGEM de hoje (a Meta ainda não
+    // publicou o bruto oficial de "quem seguiu"). Mostra o número (não zera!) mas avisa que é
+    // prévia e pode ajustar quando fechar. Ex.: R$40 investidos ÷ +5 seguidores hoje = R$8.
+    if (_cpsVal) _cpsVal.textContent = fmtR(d.cps)
+    _mcValColor('cps', 'orange')
+    if (_cpsPrev) {
+      _cpsPrev.style.display = 'block'
+      _cpsPrev.innerHTML = '<span class="previa-selo">⏳ prévia</span>' +
+        '<div class="previa-nota">Prévia: calculado pelo crescimento da contagem de seguidores (o Instagram ainda não publicou o número oficial de quem seguiu nos dias recentes — costuma sair em ~1 dia). O valor pode ajustar quando fechar.</div>'
+    }
+    const _c = document.getElementById('cmp-cps'); if (_c) _c.innerHTML = '' // "anterior" não compara com prévia
+    _mcBorderColor('cps', 'orange')
+    const _pc = document.getElementById('pct-cps'); if (_pc) { _pc.textContent = 'prévia'; _pc.className = 'mc-pct c-orange' }
   } else {
     if (_cpsVal) _cpsVal.textContent = d.cps > 0 ? fmtR(d.cps) : 'R$ —'
     if (_cpsPrev) { _cpsPrev.style.display = 'none'; _cpsPrev.innerHTML = '' }
