@@ -44,7 +44,17 @@
   /* Blindagem: as telas de redes sociais NÃO mudam de fonte. Como o body agora é Sora,
      reafirmamos aqui (no CSS global, sem tocar nos arquivos de redes-sociais) a fonte
      original delas para que o texto sem fonte explícita não herde a Sora. */
-  .tela-redes-sociais,.tela-menu-redes,.tela-relatorio{font-family:'IBM Plex Sans',sans-serif;}
+  /* Redes NÃO muda de fonte (regra do dono). A troca global pra Sora/Mono vazou pro redes
+     por classes globais com fonte explícita (.mc-val, .num, .tt-val… eram Oswald e viraram
+     Mono, estourando os números). Em vez de caçar classe por classe, redefinimos os TOKENS
+     dentro do escopo do redes: aí toda classe que usa var(--fonte-*) volta ao original SÓ
+     no redes. Seguro porque o redes nunca usou Mono de verdade (números eram Oswald). */
+  .tela-redes-sociais,.tela-menu-redes,.tela-relatorio{
+    font-family:'IBM Plex Sans',sans-serif;
+    --fonte-principal:'IBM Plex Sans',sans-serif;
+    --fonte-dados:'Oswald',sans-serif;
+    --fonte-marca:'Oswald',sans-serif;
+  }
   .wrapper{max-width:none;width:100%;margin:0;padding:16px 28px;box-sizing:border-box;position:relative;z-index:1;}
 
   /* HEADER */
