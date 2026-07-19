@@ -1,0 +1,32 @@
+name: Cards Comercial (números diários, sem IA)
+
+# Atualiza SÓ os números dos cards de canais do Gestor Comercial todo dia.
+# Robô LEVE, sem IA (não usa a chave da Anthropic) — custo ~zero.
+#
+# Diário 09:40 UTC (06:40 Brasília) + disparo manual. Minuto quebrado de
+# propósito (mesma lógica do gestor-comercial.yml): a hora cheia/meia cai no
+# pico do GitHub Actions e atrasa. Fica ~17min depois do gestor semanal.
+on:
+  schedule:
+    - cron: '40 9 * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: cards-comercial-diario
+  cancel-in-progress: false
+
+jobs:
+  atualizar-cards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Atualizar números dos cards (sem IA)
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
+          GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
+        run: node coletor/atualizar-cards-comercial.mjs

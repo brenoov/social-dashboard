@@ -5,9 +5,9 @@
 // briefing; grava em gestao_comercial_briefings. Log em gestor_log.
 // Sem deps externas — fetch nativo (Node 18+).
 
-import { metaPace } from './lib/meta-pace.mjs';
 import fs from 'fs';
 import { loginServico, blingProxy, blingPedidos, blingProdutos, blingSaldoFoco, classificarItem, DEP_FOCO } from './lib/bling-comercial.mjs';
+import { CANAIS, realPorCanalDe, canaisFocoDe } from './lib/comercial-canais.mjs';
 import { bcgClass } from './lib/classificacao-comercial.mjs';
 import { registrarExecucao } from './registrar-execucao.mjs';
 
@@ -26,11 +26,8 @@ if (!ANTHROPIC_API_KEY || !SERVICE_KEY || !GESTOR_EMAIL || !GESTOR_PASS) {
   process.exit(1);
 }
 
-const CANAIS = [
-  { nome: 'Shopping Tivoli (Santa Bárbara)', loja_id: '205834140' },
-  { nome: 'Shopping Dom Pedro',              loja_id: '205657609' },
-  { nome: 'Atacado Nuvem Shop',             loja_id: '205451611' },
-];
+// CANAIS foco vive em ./lib/comercial-canais.mjs (fonte única, reusada pelo
+// atualizador diário dos cards). Comportamento idêntico ao antigo const local.
 const REST = SUPABASE_URL + '/rest/v1';
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
@@ -369,12 +366,7 @@ async function main() {
   // 1) faturamento real por canal (mês corrente) via bling-proxy
   const token = await loginServico();
   const pedidos = await blingPedidos(token, di, df);
-  const realPorCanal = {};
-  for (const c of CANAIS) realPorCanal[c.loja_id] = 0;
-  for (const p of pedidos) {
-    const lid = String(p.loja?.id || '');
-    if (lid in realPorCanal) realPorCanal[lid] += parseFloat(p.total || 0);
-  }
+  const realPorCanal = realPorCanalDe(pedidos);
 
   // 2) metas do mês (todas as lojas; casa pelos canais foco quando houver)
   const metas = await sbGet(`/bling_metas?year=eq.${y}&month=eq.${m}&select=loja_id,loja_nome,meta_valor,daily_goals`);
@@ -432,11 +424,7 @@ async function main() {
   } catch (e) { console.error('aviso comparativo:', e.message); }
 
   // 4) monta o pacote de números (com ritmo de meta por canal foco)
-  const canaisResumo = CANAIS.map(c => {
-    const meta = metas.find(mm => String(mm.loja_id) === c.loja_id);
-    const pace = metaPace({ metaValor: meta?.meta_valor, dailyGoals: meta?.daily_goals, diaDoMes: d, diasNoMes, realizado: realPorCanal[c.loja_id] });
-    return { canal: c.nome, ...pace };
-  });
+  const canaisResumo = canaisFocoDe({ metas, realPorCanal, diaDoMes: d, diasNoMes });
   const calendario = proximasDatasComerciais(hoje);
   const dados = { rodada: hoje, mesReferencia: `${y}-${String(m).padStart(2, '0')}`, diaDoMes: d, diasNoMes, canaisFoco: canaisResumo, totalPedidosMes: pedidos.length, comparativo, estoque, calendario };
 
