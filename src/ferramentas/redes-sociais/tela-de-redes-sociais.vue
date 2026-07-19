@@ -169,6 +169,7 @@
               <g id="chart-bars"></g>
               <polyline id="prev-line" fill="none" stroke="rgba(0,0,0,0.15)" stroke-width="1.5" stroke-dasharray="4,3" stroke-linecap="round"/>
               <polyline id="chart-line" fill="none" stroke="#1D4ED8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <line id="chart-meta" x1="0" y1="0" x2="400" y2="0" display="none"/>
               <line id="crosshair" x1="0" y1="0" x2="0" y2="110" stroke="rgba(0,0,0,0.15)" stroke-width="1" display="none"/>
               <circle id="dot-curr" r="4" fill="#1D4ED8" stroke="#f4f5fa" stroke-width="2" display="none"/>
               <circle id="dot-prev" r="3.5" fill="rgba(0,0,0,0.2)" stroke="#f4f5fa" stroke-width="2" display="none"/>
@@ -1000,6 +1001,24 @@ function buildChart(chartData) {
     s.style.left = (((px(i) - padX) / (W - padX * 2)) * 100) + '%'
     xlWrap.appendChild(s)
   })
+  // ── Linha de META de seguidores/dia (referência discreta) ──
+  // A meta é a MESMA do card de seguidores (getGoal('followers') = meta do período),
+  // virada em meta POR DIA dividindo pelos dias mostrados no gráfico. Não existe meta
+  // diária separada no banco, então usamos meta-do-período ÷ dias (genérico, sem regra
+  // por perfil). Desenhamos na escala das barras; se a meta/dia passar do dia mais alto,
+  // a linha encosta no topo (clamp) pra nunca sumir do quadro.
+  const metaEl = document.getElementById('chart-meta')
+  if (metaEl) {
+    const metaPeriodo = getGoal('followers')
+    const metaDia = (metaPeriodo > 0 && n > 0) ? metaPeriodo / n : 0
+    if (metaDia > 0) {
+      const my = py(Math.min(metaDia, maxTot))
+      metaEl.setAttribute('y1', my.toFixed(2)); metaEl.setAttribute('y2', my.toFixed(2))
+      metaEl.removeAttribute('display')
+      const lab = _lab(W, my, 'Meta ' + fmtN(Math.round(metaDia)) + '/dia', 'cdl-meta')
+      lab.style.transform = 'translate(-100%, -118%)'
+    } else metaEl.setAttribute('display', 'none')
+  }
 }
 
 /* ── GRÁFICOS DIÁRIOS DA SEÇÃO 02 · META ADS ──
@@ -1050,6 +1069,24 @@ function desenharGraficoDiario(hostId, serie, opcoes) {
     const acima = meta > 0 && p.valor > meta
     const r = el('rect', { class: 'gmad-barra' + (acima ? ' gmad-barra-acima' : ''), x: (x - bw / 2).toFixed(2), y: (baseY - h).toFixed(2), width: bw.toFixed(2), height: Math.max(1, h).toFixed(2), rx: 2 })
     svg.appendChild(comTitulo(r, _gmadDiaLongo(p.data) + ' · ' + opcoes.rotuloValor + ': ' + fmtR(p.valor) + (meta > 0 ? ' · ' + opcoes.rotuloMeta + ': ' + fmtR(meta) : '')))
+  }
+  // ── Rótulo de dados: o valor (R$) em cima de cada barra ──
+  // Quando o período é longo, muitos rótulos de moeda viram sujeira; então mostramos
+  // SALTEADO (no máx. ~10 no gráfico) e garantimos SEMPRE o dia mais alto e o último dia.
+  // Sem regra por perfil: vale pros dois gráficos que usam esta função.
+  const idxComDado = pontos.map((p, i) => (p.semDado ? -1 : i)).filter(i => i >= 0)
+  if (idxComDado.length) {
+    const passoRot = Math.max(1, Math.ceil(idxComDado.length / 10))
+    let idxTopo = idxComDado[0]
+    idxComDado.forEach(i => { if (pontos[i].valor > pontos[idxTopo].valor) idxTopo = i })
+    const ultimoComDado = idxComDado[idxComDado.length - 1]
+    idxComDado.forEach((i, ordem) => {
+      if (ordem % passoRot !== 0 && i !== idxTopo && i !== ultimoComDado) return
+      const h = hOf(pontos[i].valor)
+      const t = el('text', { class: 'gmad-valor', x: px(i).toFixed(2), y: Math.max(7, baseY - h - 3).toFixed(2), 'text-anchor': 'middle' })
+      t.textContent = fmtR(pontos[i].valor)
+      svg.appendChild(t)
+    })
   }
   // Linha da meta por cima das barras
   if (meta > 0) {
@@ -2541,8 +2578,11 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.gmad-barra-acima){fill:var(--red);}
 .tela-redes-sociais :deep(.gmad-buraco){fill:var(--border);}
 .tela-redes-sociais :deep(.gmad-base){stroke:var(--border);stroke-width:1;}
-.tela-redes-sociais :deep(.gmad-meta){stroke:var(--orange);stroke-width:1.5;stroke-dasharray:4 3;}
+/* Meta = referência discreta: linha propositalmente translúcida pra não competir com as barras. */
+.tela-redes-sociais :deep(.gmad-meta){stroke:var(--orange);stroke-width:1.5;stroke-dasharray:4 3;opacity:.5;}
 .tela-redes-sociais :deep(.gmad-meta-txt){font-family:'IBM Plex Sans',sans-serif;font-size:8px;font-weight:600;fill:var(--orange);}
+/* Rótulo de dados (valor R$) em cima de cada barra dos gráficos diários. */
+.tela-redes-sociais :deep(.gmad-valor){font-family:'IBM Plex Sans',sans-serif;font-size:7.5px;font-weight:700;fill:var(--text);}
 /* Tarja atrás do rótulo da meta: ele fica sobre as barras e sem fundo virava sujeira. */
 .tela-redes-sociais :deep(.gmad-meta-tarja){fill:var(--surface);stroke:var(--orange);stroke-width:.5;opacity:.94;}
 .tela-redes-sociais :deep(.gmad-xlabel){font-family:'IBM Plex Sans',sans-serif;font-size:8px;fill:var(--muted);}
@@ -2596,6 +2636,9 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.chart-svg-wrap){position:relative;width:100%;margin-top:auto;}
 .tela-redes-sociais :deep(.chart-svg-wrap) svg{width:100%;height:150px;overflow:visible;cursor:crosshair;display:block;}
 .tela-redes-sociais :deep(#chart-data-labels){position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;overflow:visible;}
+/* Linha de meta de seguidores/dia: laranja tracejado e translúcido, igual às outras metas. */
+.tela-redes-sociais :deep(#chart-meta){stroke:var(--orange);stroke-width:1.2;stroke-dasharray:4 3;opacity:.5;vector-effect:non-scaling-stroke;}
+.tela-redes-sociais :deep(.cdl-meta){position:absolute;font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;color:var(--orange);opacity:.75;white-space:nowrap;pointer-events:none;}
 .tela-redes-sociais :deep(.cdl){position:absolute;transform:translate(-50%,calc(-100% - 3px));font-family:'Oswald',sans-serif;font-size:14px;font-weight:500;color:rgba(22,22,42,0.65);white-space:nowrap;letter-spacing:.3px;}
 [data-theme="dark"] .tela-redes-sociais :deep(.cdl){color:rgba(226,228,240,0.78);}
 .tela-redes-sociais :deep(.cdl-in){position:absolute;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;line-height:1;color:#fff;white-space:nowrap;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.28);}
