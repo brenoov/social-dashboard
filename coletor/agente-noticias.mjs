@@ -58,7 +58,10 @@ async function anthropic(body, tentativas = 3) {
   for (let t = 0; t < tentativas; t++) {
     let r;
     try {
-      r = await fetch(ANTHROPIC_URL, { method: 'POST', headers: baseHeaders, body: JSON.stringify(body), signal: AbortSignal.timeout(120000) });
+      // 300s (era 120s): a busca web da Anthropic às vezes demora quando a conta está lenta.
+      // Dar mais tempo pra ela COMPLETAR é melhor até pro custo — um abort por timeout desperdiça
+      // a busca que o servidor já cobrou e ainda força um retry (cobra de novo). Esperar mais cobra 1x.
+      r = await fetch(ANTHROPIC_URL, { method: 'POST', headers: baseHeaders, body: JSON.stringify(body), signal: AbortSignal.timeout(300000) });
     } catch (netErr) {
       netErros++;
       if (netErros > 1) throw new Error('Anthropic: timeout repetido (conta lenta) — desisto p/ não re-cobrar a web search');

@@ -43,8 +43,17 @@ for (const marca of ESPERADAS) {
   else if (igN < 3) warn.push(`${marca}: só ${igN}/3 galerias de Instagram`);
 }
 
+// Quantas MARCAS (não quantos problemas) ficaram incompletas.
+const marcasComFalha = new Set(fail.map(s => s.split(':')[0]));
 const okN = ESPERADAS.length - new Set([...fail, ...warn].map(s => s.split(':')[0])).size;
-const status = fail.length ? 'FALHA' : warn.length ? 'AVISO' : 'OK';
+// TOLERÂNCIA: uma ou duas marcas incompletas (de 12) NÃO derrubam a rodada. Motivo: a causa
+// mais comum é timeout transitório da API da Anthropic numa marca ou outra (conta lenta no
+// momento), e a PRÓXIMA rodada recolhe. Falhar o job inteiro por 1 marca enche o dono de
+// e-mail de falha à toa. Só é FALHA de verdade se muitas marcas caírem (3+) — aí é sistêmico
+// (API fora, crédito acabou, lojas quebradas), que merece alerta.
+const TOLERANCIA_MARCAS = 2;
+const rodadaFalhou = marcasComFalha.size > TOLERANCIA_MARCAS;
+const status = rodadaFalhou ? 'FALHA' : (fail.length ? 'PARCIAL' : warn.length ? 'AVISO' : 'OK');
 const resumo = `Rodada ${RODADA} · ${status} · ${okN}/${ESPERADAS.length} marcas completas · ❌${fail.length} ⚠️${warn.length}`;
 const detalhe = [resumo, ...fail.map(s => '❌ ' + s), ...warn.map(s => '⚠️ ' + s)].join('\n');
 console.log(detalhe);
@@ -54,9 +63,12 @@ try {
 } catch (e) { console.log('aviso: falha ao logar verificação:', String(e).slice(0, 100)); }
 
 if (fail.length && WEBHOOK) {
-  const msg = `⚠️ Observatório (Vessel) — rodada ${RODADA} saiu INCOMPLETA:\n${fail.map(s => '• ' + s).join('\n')}${warn.length ? '\n(avisos: ' + warn.length + ')' : ''}\nRe-disparar o workflow ou checar lojas/Meta/crédito da API.`;
+  const msg = rodadaFalhou
+    ? `❌ Observatório (Vessel) — rodada ${RODADA} FALHOU (${marcasComFalha.size} marcas incompletas):\n${fail.map(s => '• ' + s).join('\n')}\nChecar lojas/Meta/crédito da API e re-disparar.`
+    : `⚠️ Observatório (Vessel) — rodada ${RODADA} saiu PARCIAL (${marcasComFalha.size} marca(s) ficaram para a próxima, portal seguiu no ar):\n${fail.map(s => '• ' + s).join('\n')}`;
   try { await fetch(WEBHOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: msg, content: msg }) }); } catch (e) {}
 }
 
-if (fail.length) { console.error(`\n✗ Rodada incompleta — ${fail.length} problemas críticos.`); process.exit(1); }
-console.log('\n✓ Rodada completa.');
+if (rodadaFalhou) { console.error(`\n✗ Rodada com falha sistêmica — ${marcasComFalha.size} marcas incompletas (acima da tolerância de ${TOLERANCIA_MARCAS}).`); process.exit(1); }
+if (fail.length) { console.log(`\n✓ Rodada parcial — ${marcasComFalha.size} marca(s) ficaram para a próxima (dentro da tolerância). Portal segue no ar.`); }
+else { console.log('\n✓ Rodada completa.'); }
