@@ -42,6 +42,21 @@ for (const marca of marcas) {
   const igPosts = igUnique(igRows);
   const ehProduto = best.length > 0;
 
+  // RETOMÁVEL / ANTI-DESPERDÍCIO: se a marca JÁ está completa nesta rodada (tem os resumos que
+  // a verificação exige), pula a marca INTEIRA — não re-chama Sonnet nem Opus, não re-cobra a
+  // busca web. É o que faz um RE-DISPARO custar só a(s) marca(s) que faltou (ex.: só a Victor
+  // Hugo que deu timeout), e não as 12 de novo. Critério "completa" = igual ao passo-verifica:
+  // Resumo Marketing (todas) + Resumo Comercial (só as marcas com loja/produto).
+  // Forçar refazer tudo: rodar com REFAZER_RESUMOS=1.
+  if (!process.env.REFAZER_RESUMOS) {
+    const temM = rs.some(r => r.categoria === 'Resumo Marketing');
+    const temC = rs.some(r => r.categoria === 'Resumo Comercial');
+    if (temM && (!ehProduto || temC)) {
+      console.log(`  ⏭ ${marca}: já enriquecida nesta rodada — pulando (economiza a busca web/Opus)`);
+      continue;
+    }
+  }
+
   // ── A) Desenvolvimento + hero comercial (Sonnet) — só p/ marcas com loja ──
   if (ehProduto) {
     try {
