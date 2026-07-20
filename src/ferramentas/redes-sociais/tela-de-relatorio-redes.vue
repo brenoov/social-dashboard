@@ -44,6 +44,11 @@
       <span v-else>{{ linhasFiltradas.length }} dias · {{ contaNome }}</span>
     </div>
 
+    <div class="rel-nota" v-if="temHoje && !carregando">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <span>O dia de <b>hoje</b> ainda está em andamento — a linha só fecha com a leitura das <b>23h59</b>. Até lá os números são parciais.</span>
+    </div>
+
     <div class="rel-tabela-scroll">
       <table class="rel-tabela">
         <thead>
@@ -127,6 +132,11 @@ const linhasFiltradas = computed(() => {
   })
   return arr
 })
+
+// A linha do dia corrente é sempre parcial: o coletor só grava o fechamento na rodada das 23h59 BRT
+// (o upsert sobrescreve, então a última rodada do dia = valor final). Avisa quando "hoje" está na tabela.
+const hojeBR = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+const temHoje = computed(() => linhas.value.some(r => r.dia === hojeBR))
 
 function dataMenos(dias) {
   const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
@@ -254,6 +264,9 @@ function voltar() { router.push({ name: 'redes' }) }
 .rel-export:hover{background:var(--accent);color:#fff;}
 
 .rel-info{font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);padding:10px 28px 0;}
+.rel-nota{display:flex;align-items:center;gap:8px;margin:8px 28px 0;padding:8px 12px;border-radius:8px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.22);color:var(--muted);font-family:'IBM Plex Sans',sans-serif;font-size:11.5px;line-height:1.35;}
+.rel-nota svg{flex-shrink:0;color:#3b82f6;}
+.rel-nota b{color:var(--fg,#e5e7eb);font-weight:600;}
 
 .rel-tabela-scroll{flex:1;overflow:auto;padding:14px 28px 40px;}
 .rel-tabela{border-collapse:separate;border-spacing:0;width:100%;font-family:'IBM Plex Sans',sans-serif;font-variant-numeric:tabular-nums;}
