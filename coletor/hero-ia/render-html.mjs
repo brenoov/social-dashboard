@@ -19,7 +19,7 @@ const cormNum = "font-family:'Cormorant Garamond',serif;font-variant-numeric:lin
 export const FMT = {
   feed_1x1:     { w: 1080, h: 1080, pos: 'left', pad: '96px',                   colW: 520, big: 118, name: 46 },
   fb_4x5:       { w: 1080, h: 1350, pos: 'left', pad: '96px',                   colW: 540, big: 128, name: 50 },
-  stories_9x16: { w: 1080, h: 1920, pos: 'top',  pad: '270px 90px 390px 90px',  colW: 900, big: 132, name: 56 },
+  stories_9x16: { w: 1080, h: 1920, pos: 'top',  pad: '270px 90px 390px 90px',  colW: 600, big: 120, name: 52 },
   youtube_16x9: { w: 1920, h: 1080, pos: 'left', pad: '70px 96px 90px 96px',    colW: 820, big: 118, name: 50 },
 };
 export const DIM = { feed_1x1: '1080x1080', fb_4x5: '1080x1350', stories_9x16: '1080x1920', youtube_16x9: '1920x1080' };
