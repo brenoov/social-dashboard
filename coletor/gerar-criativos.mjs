@@ -157,6 +157,7 @@ export async function run({
   const FONTE = fonte;
   const ESTRELA_CANAL = estrela;
   const ESTRELA_DEPOSITO = deposito;
+  let heroIaLigado = heroIa;   // liga por --hero-ia/params.heroIa OU pelo look 'hero-ia' ativo (curadoria)
   // sem --limite (limite null): Infinity no modo normal, 20 candidatos no modo estrela
   const LIMITE = limite == null ? Infinity : Number(limite);
   const ESTRELA_LIMITE = limite == null ? 20 : Number(limite);
@@ -196,7 +197,9 @@ export async function run({
     }
     const povoada = Array.isArray(fabricaLooks) && fabricaLooks.length > 0;
     if (povoada) {
-      const ativos = looksAtivosOrdenados(fabricaLooks, objetivo).filter((k) => TEMPLATES[k]); // só code-looks conhecidos
+      const ativosTodos = looksAtivosOrdenados(fabricaLooks, objetivo);
+      if (ativosTodos.includes('hero-ia')) heroIaLigado = true;   // look 'hero-ia' curado (galeria)
+      const ativos = ativosTodos.filter((k) => TEMPLATES[k]); // só code-looks conhecidos
       if (ativos.length) opts.looks = ativos;
       else semLooks = true; // povoada, nada ativo p/ este objetivo -> não gera (respeita "desligar tudo")
     } else if (objetivo) {
@@ -215,7 +218,7 @@ export async function run({
 
   // Curadoria "desligou tudo" p/ este objetivo: nada a renderizar. Curto-circuita ANTES de
   // loginServico/Bling/gerarCopysProduto (que faz chamada LLM por produto) — não queima IA à toa.
-  if (semLooks) { console.log('nenhum look ativo p/ o objetivo — nada gerado'); return { campanhaId, criativos: 0 }; }
+  if (semLooks && !heroIaLigado) { console.log('nenhum look ativo p/ o objetivo — nada gerado'); return { campanhaId, criativos: 0 }; }
 
   const token = await loginServico();
 
@@ -295,18 +298,19 @@ export async function run({
 
   // PRODUTO (pulado inteiro se nenhum look ativo p/ o objetivo — respeita a curadoria)
   for (const cand of produtos) {
-    if (semLooks) { console.log('  nenhum look ativo p/ o objetivo — nada gerado'); break; }
+    if (semLooks && !heroIaLigado) { console.log('  nenhum look ativo p/ o objetivo — nada gerado'); break; }
     if (cand.preco == null) { console.log('  sem preço:', cand.sku); continue; }
     const foto = await fotoDe(cand.sku);
     if (!foto) { console.warn('  sem foto:', cand.sku, cand.nome); continue; }
     if (!fotoEhStudio(cand.sku)) { console.log('  foto amadora (avaliada na foto crua), pulado:', cand.sku); continue; }
-    // Sem foto de modelo real p/ este SKU, pula os looks que exigem modelo (produto-modelo)
-    // — senão sairia um criativo "de modelo" sem modelo. Ver filtraLooksModelo/MODEL_LOOKS.
-    const modeloUrl = mapaModelo[cand.sku] || null;
-    const looksCand = filtraLooksModelo(looksBase, !!modeloUrl);
-    if (!looksCand.length) { console.log('  só look de modelo, mas sem foto de modelo — pulado:', cand.sku); continue; }
     const copyInfo = copys.get(cand.sku) || {};
-    for (const v of variacoesProduto({ ...cand, fotoDataUrl: foto }, campanha, { ...opts, looks: looksCand }, cand.pct ?? campanha.desconto_pct)) {
+    // LOOKS DE CÓDIGO — só quando há look de código ativo. hero-ia roda à parte (abaixo).
+    if (!semLooks) {
+      // Sem foto de modelo real p/ este SKU, pula os looks que exigem modelo (produto-modelo).
+      const modeloUrl = mapaModelo[cand.sku] || null;
+      const looksCand = filtraLooksModelo(looksBase, !!modeloUrl);
+      if (!looksCand.length) console.log('  só look de modelo, mas sem foto de modelo — pulado:', cand.sku);
+      else for (const v of variacoesProduto({ ...cand, fotoDataUrl: foto }, campanha, { ...opts, looks: looksCand }, cand.pct ?? campanha.desconto_pct)) {
       v.dados.copyEfeito = copyInfo.copy;
       v.dados.nome = copyInfo.nome;
       if (v.template === 'produto-modelo') { v.dados.modeloFotoUrl = modeloUrl; v.dados.varianteCor = v.dados.varianteCor || 'sage'; }
@@ -322,11 +326,12 @@ export async function run({
       await sbPost('/fabrica_criativos', [linhaCriativoProduto({
         campanhaId, cand, v, url, storagePath: path, legenda: copyInfo.legenda,
       })], 'return=minimal');
+      }
     }
 
-    // Motor Hero-IA (fonte ADITIVA, opt-in via --hero-ia): gpt-image-2 + motor HTML.
-    // Não toca nos looks; preço vem do MESMO `dados` (Bling). Publica com template:'hero-ia'.
-    if (heroIa && !DRY && foto) {
+    // Motor Hero-IA (fonte ADITIVA): liga pelo look 'hero-ia' ativo (galeria) OU --hero-ia/params.heroIa.
+    // Não toca nos looks de código; preço vem do MESMO `dados` (Bling). Publica com template:'hero-ia'.
+    if (heroIaLigado && !DRY && foto) {
       try {
         const pct = cand.pct ?? campanha.desconto_pct ?? 0;
         const pp = precoDePor(cand.preco, pct);
