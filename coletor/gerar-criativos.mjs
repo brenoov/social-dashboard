@@ -14,7 +14,8 @@ import { loginServico, blingProdutos } from './lib/bling-comercial.mjs';
 import { fotoDataUrl, fotoEhStudio } from './lib/foto-produto.mjs';
 import { renderPNG, fecharRender } from './lib/render-criativo.mjs';
 import { TEMPLATES, DIM } from './templates-criativos/templates.mjs';
-import { variacoesProduto, variacoesPromo } from './lib/criativo-modelo.mjs';
+import { variacoesProduto, variacoesPromo, precoDePor, parcelado } from './lib/criativo-modelo.mjs';
+import { gerarHeroIASku } from './hero-ia/hero-ia.mjs';
 import { gerarCopysProduto, gerarCopyPromo } from './lib/copy-efeito.mjs';
 import { carregarMarcasELojas } from './lib/config-lojas.mjs';
 import { carregarObjetivos, mapaObjetivo, looksDoObjetivo } from './lib/objetivos.mjs';
@@ -145,6 +146,7 @@ function carregarMapaModelo() {
 export async function run({
   pct = 50, nome = null, parcelas = 10, limite = null, dry = false,
   loja = null, fonte = null, estrela = null, deposito = null, looks = null, modos = null, itens = null, campanhaId = null,
+  heroIa = false,
   objetivo = null,
 } = {}) {
   const PCT = Number(pct);
@@ -321,6 +323,25 @@ export async function run({
         campanhaId, cand, v, url, storagePath: path, legenda: copyInfo.legenda,
       })], 'return=minimal');
     }
+
+    // Motor Hero-IA (fonte ADITIVA, opt-in via --hero-ia): gpt-image-2 + motor HTML.
+    // Não toca nos looks; preço vem do MESMO `dados` (Bling). Publica com template:'hero-ia'.
+    if (heroIa && !DRY && foto) {
+      try {
+        const pct = cand.pct ?? campanha.desconto_pct ?? 0;
+        const pp = precoDePor(cand.preco, pct);
+        const dados = {
+          name: String(copyInfo.nome || cand.nome || cand.sku).toUpperCase(),
+          camp: 'NOVA COLEÇÃO',
+          precoDe: pp.de, precoPor: pp.por, parcelado: parcelado(pp.porNum, campanha.parcelas),
+          parcelas: campanha.parcelas, pct: Math.round(pct), bagDataUrl: foto,
+          preco_de: cand.preco, preco_por: pp.porNum,
+        };
+        const r = await gerarHeroIASku({ sku: sane(cand.sku), campanhaId, dados, subir,
+          inserirLinhas: (rows) => sbPost('/fabrica_criativos', rows, 'return=minimal') });
+        gerados += r.ok;
+      } catch (e) { console.warn('  hero-ia falhou p/', cand.sku, e.message); }
+    }
   }
 
   // PROMO (usa a 1ª foto disponível como símbolo)
@@ -354,5 +375,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     dry: process.argv.includes('--dry'), loja: flag('--loja', null), fonte: flag('--fonte', null),
     estrela: flag('--estrela', null), deposito: flag('--deposito', null),
     looks: flag('--looks', null), modos: flag('--modos', null),
+    heroIa: process.argv.includes('--hero-ia'),
   }).then((r) => console.log('gerar concluído:', r)).catch(async (e) => { await fecharRender(); console.error('FALHOU:', e.message); process.exit(1); });
 }

@@ -41,4 +41,7 @@ jobs:
           # precisa do email/senha do gestor, senão dá "missing email or phone" (400).
           GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
           GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
+          # Motor Hero-IA (opt-in via params.heroIa): gpt-image-2 (OpenAI) gera o hero fotorreal
+          # com medalhão/placa fiel. Sem este secret, hero-ia é pulado (não quebra o job).
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: cd coletor && node --import ./lib/curl-fetch.mjs fabrica-job-runner.mjs
