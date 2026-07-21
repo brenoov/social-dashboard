@@ -14,7 +14,8 @@ import { loginServico, blingProdutos } from './lib/bling-comercial.mjs';
 import { fotoDataUrl, fotoEhStudio } from './lib/foto-produto.mjs';
 import { renderPNG, fecharRender } from './lib/render-criativo.mjs';
 import { TEMPLATES, DIM } from './templates-criativos/templates.mjs';
-import { variacoesProduto, variacoesPromo } from './lib/criativo-modelo.mjs';
+import { variacoesProduto, variacoesPromo, precoDePor, parcelado } from './lib/criativo-modelo.mjs';
+import { gerarLookIA, IA_LOOKS } from './hero-ia/hero-ia.mjs';
 import { gerarCopysProduto, gerarCopyPromo } from './lib/copy-efeito.mjs';
 import { carregarMarcasELojas } from './lib/config-lojas.mjs';
 import { carregarObjetivos, mapaObjetivo, looksDoObjetivo } from './lib/objetivos.mjs';
@@ -145,6 +146,7 @@ function carregarMapaModelo() {
 export async function run({
   pct = 50, nome = null, parcelas = 10, limite = null, dry = false,
   loja = null, fonte = null, estrela = null, deposito = null, looks = null, modos = null, itens = null, campanhaId = null,
+  heroIa = false,
   objetivo = null,
 } = {}) {
   const PCT = Number(pct);
@@ -155,6 +157,7 @@ export async function run({
   const FONTE = fonte;
   const ESTRELA_CANAL = estrela;
   const ESTRELA_DEPOSITO = deposito;
+  let heroIaLooks = heroIa ? ['hero-ia'] : [];   // looks IA a rodar: --hero-ia/params.heroIa + looks IA ativos (curadoria)
   // sem --limite (limite null): Infinity no modo normal, 20 candidatos no modo estrela
   const LIMITE = limite == null ? Infinity : Number(limite);
   const ESTRELA_LIMITE = limite == null ? 20 : Number(limite);
@@ -194,7 +197,9 @@ export async function run({
     }
     const povoada = Array.isArray(fabricaLooks) && fabricaLooks.length > 0;
     if (povoada) {
-      const ativos = looksAtivosOrdenados(fabricaLooks, objetivo).filter((k) => TEMPLATES[k]); // só code-looks conhecidos
+      const ativosTodos = looksAtivosOrdenados(fabricaLooks, objetivo);
+      heroIaLooks = [...new Set([...heroIaLooks, ...ativosTodos.filter((k) => IA_LOOKS[k])])];   // looks IA curados (galeria)
+      const ativos = ativosTodos.filter((k) => TEMPLATES[k]); // só code-looks conhecidos
       if (ativos.length) opts.looks = ativos;
       else semLooks = true; // povoada, nada ativo p/ este objetivo -> não gera (respeita "desligar tudo")
     } else if (objetivo) {
@@ -213,7 +218,7 @@ export async function run({
 
   // Curadoria "desligou tudo" p/ este objetivo: nada a renderizar. Curto-circuita ANTES de
   // loginServico/Bling/gerarCopysProduto (que faz chamada LLM por produto) — não queima IA à toa.
-  if (semLooks) { console.log('nenhum look ativo p/ o objetivo — nada gerado'); return { campanhaId, criativos: 0 }; }
+  if (semLooks && !heroIaLooks.length) { console.log('nenhum look ativo p/ o objetivo — nada gerado'); return { campanhaId, criativos: 0 }; }
 
   const token = await loginServico();
 
@@ -293,18 +298,19 @@ export async function run({
 
   // PRODUTO (pulado inteiro se nenhum look ativo p/ o objetivo — respeita a curadoria)
   for (const cand of produtos) {
-    if (semLooks) { console.log('  nenhum look ativo p/ o objetivo — nada gerado'); break; }
+    if (semLooks && !heroIaLooks.length) { console.log('  nenhum look ativo p/ o objetivo — nada gerado'); break; }
     if (cand.preco == null) { console.log('  sem preço:', cand.sku); continue; }
     const foto = await fotoDe(cand.sku);
     if (!foto) { console.warn('  sem foto:', cand.sku, cand.nome); continue; }
     if (!fotoEhStudio(cand.sku)) { console.log('  foto amadora (avaliada na foto crua), pulado:', cand.sku); continue; }
-    // Sem foto de modelo real p/ este SKU, pula os looks que exigem modelo (produto-modelo)
-    // — senão sairia um criativo "de modelo" sem modelo. Ver filtraLooksModelo/MODEL_LOOKS.
-    const modeloUrl = mapaModelo[cand.sku] || null;
-    const looksCand = filtraLooksModelo(looksBase, !!modeloUrl);
-    if (!looksCand.length) { console.log('  só look de modelo, mas sem foto de modelo — pulado:', cand.sku); continue; }
     const copyInfo = copys.get(cand.sku) || {};
-    for (const v of variacoesProduto({ ...cand, fotoDataUrl: foto }, campanha, { ...opts, looks: looksCand }, cand.pct ?? campanha.desconto_pct)) {
+    // LOOKS DE CÓDIGO — só quando há look de código ativo. hero-ia roda à parte (abaixo).
+    if (!semLooks) {
+      // Sem foto de modelo real p/ este SKU, pula os looks que exigem modelo (produto-modelo).
+      const modeloUrl = mapaModelo[cand.sku] || null;
+      const looksCand = filtraLooksModelo(looksBase, !!modeloUrl);
+      if (!looksCand.length) console.log('  só look de modelo, mas sem foto de modelo — pulado:', cand.sku);
+      else for (const v of variacoesProduto({ ...cand, fotoDataUrl: foto }, campanha, { ...opts, looks: looksCand }, cand.pct ?? campanha.desconto_pct)) {
       v.dados.copyEfeito = copyInfo.copy;
       v.dados.nome = copyInfo.nome;
       if (v.template === 'produto-modelo') { v.dados.modeloFotoUrl = modeloUrl; v.dados.varianteCor = v.dados.varianteCor || 'sage'; }
@@ -320,6 +326,28 @@ export async function run({
       await sbPost('/fabrica_criativos', [linhaCriativoProduto({
         campanhaId, cand, v, url, storagePath: path, legenda: copyInfo.legenda,
       })], 'return=minimal');
+      }
+    }
+
+    // Motor Hero-IA (fonte ADITIVA): roda cada look IA ativo (galeria) e/ou 'hero-ia' via --hero-ia/params.heroIa.
+    // Não toca nos looks de código; preço vem do MESMO `dados` (Bling). Publica com template = a chave do look IA.
+    if (heroIaLooks.length && !DRY && foto) {
+      const pct = cand.pct ?? campanha.desconto_pct ?? 0;
+      const pp = precoDePor(cand.preco, pct);
+      const dados = {
+        name: String(copyInfo.nome || cand.nome || cand.sku).toUpperCase(),
+        camp: 'NOVA COLEÇÃO', tagline: 'ELEGÂNCIA ATEMPORAL',
+        precoDe: pp.de, precoPor: pp.por, parcelado: parcelado(pp.porNum, campanha.parcelas),
+        parcelas: campanha.parcelas, pct: Math.round(pct), bagDataUrl: foto,
+        preco_de: cand.preco, preco_por: pp.porNum,
+      };
+      for (const lk of heroIaLooks) {
+        try {
+          const r = await gerarLookIA(lk, { sku: sane(cand.sku), campanhaId, dados, subir,
+            inserirLinhas: (rows) => sbPost('/fabrica_criativos', rows, 'return=minimal') });
+          gerados += r.ok;
+        } catch (e) { console.warn('  ' + lk + ' falhou p/', cand.sku, e.message); }
+      }
     }
   }
 
@@ -354,5 +382,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     dry: process.argv.includes('--dry'), loja: flag('--loja', null), fonte: flag('--fonte', null),
     estrela: flag('--estrela', null), deposito: flag('--deposito', null),
     looks: flag('--looks', null), modos: flag('--modos', null),
+    heroIa: process.argv.includes('--hero-ia'),
   }).then((r) => console.log('gerar concluído:', r)).catch(async (e) => { await fecharRender(); console.error('FALHOU:', e.message); process.exit(1); });
 }
