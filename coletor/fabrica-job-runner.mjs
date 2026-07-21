@@ -34,6 +34,33 @@ async function sbPatch(p, body) {
   if (!r.ok) throw new Error('PATCH ' + p + ' ' + r.status + ' ' + (await r.text()).slice(0, 200));
   return r;
 }
+async function sbPost(p, body, prefer) {
+  const r = await fetch(REST + p, { method: 'POST', headers: prefer ? { ...H, Prefer: prefer } : H, body: JSON.stringify(body) });
+  if (!r.ok && ![200, 201, 204].includes(r.status)) throw new Error('POST ' + p + ' ' + r.status + ' ' + (await r.text()).slice(0, 200));
+  return r;
+}
+
+// GERAÇÃO EM LOTES QUE SE AUTO-ENCADEIAM: quando um lote termina com trabalho restante (o teto
+// HERO_IA_MAX foi atingido), cria o job do PRÓXIMO lote (mesma campanha/params) e dispara o próprio
+// Action via GITHUB_TOKEN (workflow_dispatch é permitido pra ele). A idempotência do gerar-criativos
+// (pula os criativos já existentes) faz cada lote continuar de onde parou — do início ao fim, sem
+// travar (cada lote é curto, bem abaixo do timeout). Guard de segurança: para em 300 lotes.
+async function encadearProximoLote(params) {
+  const continuacao = (params.continuacao || 0) + 1;
+  if (continuacao > 300) { console.warn('encadeamento: limite de 300 lotes atingido — parando por segurança'); return; }
+  const prox = { ...params, continuacao };
+  const novo = await sbPost('/fabrica_jobs', [{ tipo: 'gerar', params: prox, status: 'enfileirado' }], 'return=representation');
+  const novoId = (await novo.json())[0].id;
+  if (prox.campanhaId) await sbPatch(`/fabrica_campanhas?id=eq.${prox.campanhaId}`, { job_id: novoId });
+  const repo = process.env.GITHUB_REPO, token = process.env.GH_TOKEN;
+  if (!repo || !token) { console.warn('sem GH_TOKEN/GITHUB_REPO — próximo lote (job ' + novoId + ') ficou enfileirado; dispare manualmente'); return; }
+  const gh = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/fabrica.yml/dispatches`, {
+    method: 'POST', headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'User-Agent': 'fabrica-runner' },
+    body: JSON.stringify({ ref: 'main', inputs: { job_id: novoId } }),
+  });
+  if (!gh.ok) console.warn('encadeamento dispatch falhou ' + gh.status + ' ' + (await gh.text()).slice(0, 150));
+  else console.log('lote ' + continuacao + ' encadeado: job ' + novoId);
+}
 
 // --- statusCampanhaGerar(): função pura — mapeia o resultado do gerar pro status da campanha.
 // Sucesso (true) → 'pronta', Falha (false) → 'erro'. ---
@@ -94,10 +121,17 @@ async function main() {
     if (job.tipo === 'gerar') {
       const r = await gerarRun(job.params || {});
       await sbPatch(`/fabrica_jobs?id=eq.${jobId}`, { status: 'concluido', resultado: r, updated_at: new Date().toISOString() });
-      if (job.params?.campanhaId) await sbPatch(`/fabrica_campanhas?id=eq.${job.params.campanhaId}`, { status: statusCampanhaGerar(true) });
-      let itens = null;
-      try { if (job.params?.campanhaId) itens = (await sbGet(`/fabrica_criativos?select=id&campanha_id=eq.${job.params.campanhaId}`)).length; } catch (_) {}
-      await reg(itens, 'criativos', 'ok', 'custo zero');
+      if (r.incompleto && r.novas > 0) {
+        // lote parcial: encadeia o próximo automaticamente; campanha segue 'gerando' (não marca pronta)
+        await encadearProximoLote(job.params || {});
+        await reg(r.criativos, 'criativos', 'ok', 'lote ' + ((job.params?.continuacao || 0) + 1) + ' (+' + r.novas + ')');
+      } else {
+        // completo (ou nada novo progrediu -> encerra pra não loopar): marca campanha pronta
+        if (job.params?.campanhaId) await sbPatch(`/fabrica_campanhas?id=eq.${job.params.campanhaId}`, { status: statusCampanhaGerar(true) });
+        let itens = null;
+        try { if (job.params?.campanhaId) itens = (await sbGet(`/fabrica_criativos?select=id&campanha_id=eq.${job.params.campanhaId}`)).length; } catch (_) {}
+        await reg(itens, 'criativos', 'ok', r.incompleto ? 'encerrado (sem progresso)' : 'completo');
+      }
     } else if (job.tipo === 'subir') {
       const r = await subirRun(job.params || {});
       const t = estadoTerminalSubir(r);

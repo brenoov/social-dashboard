@@ -124,7 +124,7 @@ async function gerarHero(cena, fmt, ctx, apiKey, { tentativas = 3, log = console
 // fonte 'ia' -> cena de bolsa (fundo mestre + recorte da bolsa). fonte 'modelo-ia' -> foto REAL da modelo
 // (dados.modeloFotoUrl) como referência; sem essa foto o look é PULADO (só saem os de bolsa). Ambas
 // consomem `orcamento` (teto de gerações gpt por job).
-export async function gerarLookIA(chave, { sku, campanhaId, dados, subir, inserirLinhas, formatos = null, orcamento = null, log = console.log }) {
+export async function gerarLookIA(chave, { sku, campanhaId, dados, subir, inserirLinhas, formatos = null, orcamento = null, existentes = null, log = console.log }) {
   const look = IA_LOOKS[chave];
   if (!look) { log('  look IA desconhecido: ' + chave); return { ok: 0 }; }
   const usaModelo = look.fonte === 'modelo-ia';
@@ -140,26 +140,32 @@ export async function gerarLookIA(chave, { sku, campanhaId, dados, subir, inseri
   }
   const variants = look.modo === 'branding' ? ['branding'] : ['parcelamento', 'avista', 'desconto'];
   const fmts = ((formatos && formatos.length) ? formatos : look.formatos).filter((f) => FMTGEN[f] && look.formatos.includes(f));
-  const rows = []; let ok = 0;
+  const pathDe = (fmt, variant) => `${campanhaId}/produto/${sku}-${chave}-${VARIANTES[variant] || variant}-${DIM[fmt]}.png`;
+  const rows = []; let ok = 0, cortou = false, novas = 0;
   for (const fmt of fmts) {
-    if (orcamento && orcamento.restante <= 0) { log('  ' + chave + ' ' + sku + ': teto de gerações IA atingido — pulando ' + fmt + ' (e demais)'); break; }
+    // idempotência: se este formato já foi gerado (path da 1ª variante existe), pula SEM gastar gpt (retomada em lotes)
+    if (existentes && existentes.has(pathDe(fmt, variants[0]))) { continue; }
+    // teto do LOTE: para aqui com trabalho restante -> o runner encadeia o próximo lote (idempotência retoma)
+    if (orcamento && orcamento.restante <= 0) { cortou = true; log('  ' + chave + ' ' + sku + ': teto do lote atingido — ' + fmt + ' (e demais) fica p/ o próximo lote'); break; }
     let heroUrl;
     try { heroUrl = await gerarHero(look.cena, fmt, ctx, apiKey, { log }); }
     catch (e) { log('  ' + chave + ' ' + sku + ' ' + fmt + ' FALHOU: ' + e.message); continue; }
     if (orcamento) orcamento.restante -= 1;
+    novas++;
     for (const variant of variants) {
       const buf = await renderCriativo(fmt, variant, heroUrl, dados);
       const variante = chave + '-' + (VARIANTES[variant] || variant);
-      const path = `${campanhaId}/produto/${sku}-${variante}-${DIM[fmt]}.png`;
+      const path = pathDe(fmt, variant);
       const url = await subir(path, buf);
       rows.push({ campanha_id: campanhaId, sku, arquetipo: 'produto', template: chave, formato: DIM[fmt],
         variante, preco_de: dados.preco_de ?? null, preco_por: dados.preco_por ?? null, storage_path: path, url, legenda: null });
+      if (existentes) existentes.add(path);
       ok++;
     }
     log('  ' + chave + ' ' + sku + ' ' + fmt + ': ' + variants.length + ' variação(ões) OK');
   }
   if (rows.length) await inserirLinhas(rows);
-  return { ok };
+  return { ok, cortou, novas };
 }
 
 // compat: 'hero-ia' direto

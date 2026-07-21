@@ -8,6 +8,11 @@ jobs:
   rodar:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # actions:write -> o runner pode disparar o próximo LOTE via GITHUB_TOKEN (workflow_dispatch é
+    # permitido pra o token automático), encadeando a geração em lotes até o fim.
+    permissions:
+      contents: read
+      actions: write
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
@@ -44,4 +49,7 @@ jobs:
           # Motor Hero-IA (opt-in via params.heroIa): gpt-image-2 (OpenAI) gera o hero fotorreal
           # com medalhão/placa fiel. Sem este secret, hero-ia é pulado (não quebra o job).
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # encadeamento automático dos lotes (o runner dispara o próximo lote via workflow_dispatch)
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPO: ${{ github.repository }}
         run: cd coletor && node --import ./lib/curl-fetch.mjs fabrica-job-runner.mjs
