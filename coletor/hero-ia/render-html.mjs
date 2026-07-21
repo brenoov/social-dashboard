@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { renderPNG } from '../lib/render-criativo.mjs';
+import { renderPNG, renderMotion } from '../lib/render-criativo.mjs';
 
 const DIR = dirname(fileURLToPath(import.meta.url));
 const FONTS_CSS = readFileSync(join(DIR, '../templates-criativos/assets/fonts.css'), 'utf8');
@@ -47,7 +47,8 @@ function priceBlock(variant, s, big, d) {
     <span style="display:inline-block;font-size:${s(40)}px;letter-spacing:.06em;font-weight:800;color:${CHAMP};background:rgba(195,163,106,.14);padding:${s(6)}px ${s(18)}px;border-radius:${s(8)}px;width:fit-content;">${esc(d.pct)}% OFF</span>`;
 }
 
-export function buildHtml(fmt, variant, heroDataUrl, d) {
+export function buildHtml(fmt, variant, heroDataUrl, d, opts = {}) {
+  const motion = !!opts.motion; // true -> injeta animação (zoom na foto + entrada escalonada do texto) p/ MP4
   const f = FMT[fmt]; const s = (n) => Math.round(n);
   const align = f.pos === 'top' ? 'justify-content:flex-start;' : 'justify-content:center;';
   const branding = variant === 'branding';
@@ -72,10 +73,10 @@ export function buildHtml(fmt, variant, heroDataUrl, d) {
           <span style="display:flex;align-items:center;justify-content:center;width:${s(38)}px;height:${s(38)}px;border-radius:50%;background:${ESP};color:${IVORY};font-size:${s(20)}px;flex:0 0 auto;">&#8594;</span></div>`;
   const inner = `
   <div style="position:relative;width:${f.w}px;height:${f.h}px;overflow:hidden;font-family:'Archivo',sans-serif;">
-    <img src="${heroDataUrl}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
+    <img class="hero" src="${heroDataUrl}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
     <div style="position:absolute;inset:0;background:${grad};"></div>
     <div style="position:absolute;inset:0;padding:${f.pad};display:flex;flex-direction:column;align-items:flex-start;${align}box-sizing:border-box;">
-      <div style="width:${f.colW}px;max-width:${f.colW}px;display:flex;flex-direction:column;gap:${s(28)}px;">
+      <div class="col" style="width:${f.colW}px;max-width:${f.colW}px;display:flex;flex-direction:column;gap:${s(28)}px;">
         <img src="${logo}" style="width:${s(280)}px;height:auto;">
         <div style="display:flex;flex-direction:column;gap:${s(8)}px;">
           <span style="font-size:${s(f.name)}px;letter-spacing:.12em;font-weight:400;color:${txt};text-transform:uppercase;line-height:1.05;white-space:nowrap;">${esc(d.name)}</span>
@@ -85,8 +86,18 @@ export function buildHtml(fmt, variant, heroDataUrl, d) {
       </div>
     </div>
   </div>`;
+  // Animação (motion): foto com zoom lento (Ken Burns) + coluna de texto entrando escalonada.
+  // Faithful: só move os MESMOS elementos da arte estática — bolsa/logo/preço não mudam.
+  const animCss = motion ? `
+    .hero{transform-origin:50% 50%;animation:kb 10s ease-out both;}
+    @keyframes kb{from{transform:scale(1.05)}to{transform:scale(1.15)}}
+    .col>*{opacity:0;animation:fu .85s cubic-bezier(.2,.7,.2,1) forwards;}
+    .col>*:nth-child(1){animation-delay:.25s}.col>*:nth-child(2){animation-delay:.55s}
+    .col>*:nth-child(3){animation-delay:.9s}.col>*:nth-child(4){animation-delay:1.25s}
+    .col>*:nth-child(5){animation-delay:1.6s}
+    @keyframes fu{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:translateY(0)}}` : '';
   return `<!doctype html><html><head><meta charset="utf-8"><style>${FONTS_CSS}
-    *{margin:0;padding:0;box-sizing:border-box}html,body{width:${f.w}px;height:${f.h}px;overflow:hidden}</style></head><body>${inner}</body></html>`;
+    *{margin:0;padding:0;box-sizing:border-box}html,body{width:${f.w}px;height:${f.h}px;overflow:hidden}${animCss}</style></head><body>${inner}</body></html>`;
 }
 
 // Renderiza um criativo (formato+variante) -> Buffer PNG
@@ -94,4 +105,11 @@ export async function renderCriativo(fmt, variant, heroDataUrl, dados) {
   const f = FMT[fmt];
   const html = buildHtml(fmt, variant, heroDataUrl, dados);
   return renderPNG(html, { width: f.w, height: f.h });
+}
+
+// Renderiza o MP4 animado (motion) de um criativo -> Buffer. Usado no widescreen 16:9 (Google Ads).
+export async function renderCriativoMotion(fmt, variant, heroDataUrl, dados) {
+  const f = FMT[fmt];
+  const html = buildHtml(fmt, variant, heroDataUrl, dados, { motion: true });
+  return renderMotion(html, { width: f.w, height: f.h });
 }

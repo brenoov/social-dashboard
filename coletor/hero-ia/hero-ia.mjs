@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { DIM, VARIANTES, renderCriativo } from './render-html.mjs';
+import { DIM, VARIANTES, renderCriativo, renderCriativoMotion } from './render-html.mjs';
 
 const DIR = dirname(fileURLToPath(import.meta.url));
 const asset = (f) => readFileSync(join(DIR, 'assets', f));
@@ -162,6 +162,15 @@ export async function gerarLookIA(chave, { sku, campanhaId, dados, subir, inseri
         variante, preco_de: dados.preco_de ?? null, preco_por: dados.preco_por ?? null, storage_path: path, url, legenda: null });
       if (existentes) existentes.add(path);
       ok++;
+      // WIDESCREEN 16:9 -> gera o MP4 (motion) junto, no mesmo caminho com .mp4 (pro Google Ads).
+      // Best-effort: falha de ffmpeg/motion NUNCA quebra a campanha. Desligável via HERO_IA_MOTION=0.
+      if (fmt === 'youtube_16x9' && process.env.HERO_IA_MOTION !== '0') {
+        try {
+          const mp4 = await renderCriativoMotion(fmt, variant, heroUrl, dados);
+          await subir(path.replace(/\.png$/, '.mp4'), mp4);
+          log('  ' + chave + ' ' + sku + ' ' + variant + ' 16:9: mp4 (motion) OK');
+        } catch (e) { log('  ' + chave + ' ' + sku + ' ' + variant + ' motion FALHOU: ' + e.message); }
+      }
     }
     log('  ' + chave + ' ' + sku + ' ' + fmt + ': ' + variants.length + ' variação(ões) OK');
   }

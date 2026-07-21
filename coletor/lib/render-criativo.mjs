@@ -10,6 +10,13 @@
 // lazy, o módulo carrega sem puppeteer presente; ele só é exigido na hora real de renderizar
 // (onde o coletor tem a dependência instalada).
 
+import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+const execFileP = promisify(execFile);
+
 let _browserPromise = null;
 async function browser() {
   if (!_browserPromise) {
@@ -34,6 +41,34 @@ export async function renderPNG(html, { width, height }) {
 }
 
 export async function fecharRender() { if (_browserPromise) { const b = await _browserPromise; await b.close(); _browserPromise = null; } }
+
+// Renderiza um HTML COM ANIMAÇÃO (buildHtml({motion:true})) num MP4 (h264). Pausa as animações
+// e passeia o currentTime quadro a quadro (determinístico) -> screenshots -> ffmpeg. Precisa do
+// ffmpeg no PATH (runners ubuntu do CI têm; local via brew). Reusa o navegador compartilhado.
+export async function renderMotion(html, { width, height, fps = 24, dur = 8 } = {}) {
+  const b = await browser();
+  const page = await b.newPage();
+  const dir = await mkdtemp(join(tmpdir(), 'motion-'));
+  try {
+    await page.setViewport({ width, height, deviceScaleFactor: 1 });
+    await page.setContent(html, { waitUntil: 'load' });
+    await page.evaluate(async () => { if (document.fonts && document.fonts.ready) await document.fonts.ready; });
+    await page.evaluate(() => document.getAnimations().forEach((a) => a.pause()));
+    const N = Math.round(fps * dur);
+    for (let i = 0; i < N; i++) {
+      const t = (i / fps) * 1000;
+      await page.evaluate((t) => document.getAnimations().forEach((a) => { a.currentTime = t; }), t);
+      await page.screenshot({ path: join(dir, `f_${String(i).padStart(4, '0')}.png`), clip: { x: 0, y: 0, width, height } });
+    }
+    const out = join(dir, 'out.mp4');
+    await execFileP('ffmpeg', ['-y', '-framerate', String(fps), '-i', join(dir, 'f_%04d.png'),
+      '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out], { timeout: 120000 });
+    return await readFile(out);
+  } finally {
+    await page.close().catch(() => {});
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
 
 // Detecta foto "de estúdio" (fundo limpo/branco) vs. foto amadora (porta de
 // madeira, fundo bagunçado) checando as bordas/cantos da imagem numa mini

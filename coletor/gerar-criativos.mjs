@@ -54,6 +54,7 @@ async function subir(path, buf) {
   // os criativos já subidos). Ver lib/storage-upload.mjs.
   return subirStorageResiliente({
     url: URL, sk: SK, bucket: BUCKET, path, buf,
+    contentType: path.endsWith('.mp4') ? 'video/mp4' : 'image/png',   // mp4 (motion) sobe com o tipo certo
     onRetry: (t, e) => console.warn(`  [storage retry ${t}/9] ${path.split('/').pop()}: ${e.message.slice(0, 60)}`),
   });
 }

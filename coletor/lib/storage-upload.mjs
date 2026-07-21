@@ -12,6 +12,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 
 export async function subirStorageResiliente({
   url, sk, bucket, path, buf,
+  contentType = 'image/png',
   tentativas = 10,
   fetchImpl = fetch,
   sleepImpl = sleep,
@@ -22,7 +23,7 @@ export async function subirStorageResiliente({
     try {
       const r = await fetchImpl(`${url}/storage/v1/object/${bucket}/${path}`, {
         method: 'POST',
-        headers: { apikey: sk, Authorization: 'Bearer ' + sk, 'Content-Type': 'image/png', 'x-upsert': 'true' },
+        headers: { apikey: sk, Authorization: 'Bearer ' + sk, 'Content-Type': contentType, 'x-upsert': 'true' },
         body: buf,
       });
       if (r.ok) return `${url}/storage/v1/object/public/${bucket}/${path}`;
