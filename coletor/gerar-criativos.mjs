@@ -158,9 +158,10 @@ export async function run({
   const ESTRELA_CANAL = estrela;
   const ESTRELA_DEPOSITO = deposito;
   let heroIaLooks = heroIa ? ['hero-ia'] : [];   // looks IA a rodar: --hero-ia/params.heroIa + looks IA ativos (curadoria)
-  // Teto de GERAÇÕES gpt-image por job (só cenas de bolsa; foto-modelo não conta). Bounda o tempo p/
-  // caber no timeout do CI (45min). ~3min/geração -> 12 ≈ 36min de folga. Ajuste via HERO_IA_MAX/param.
-  const orcamentoIA = { restante: Number(heroIaMax ?? process.env.HERO_IA_MAX ?? 12) };
+  // Teto de GERAÇÕES gpt-image por LOTE (job). ~3min/geração -> 10 ≈ 30min, folga confortável no
+  // timeout de 45min do Action. Ao atingir o teto com trabalho restante, o runner encadeia o próximo
+  // lote automaticamente (idempotência retoma). Ajuste via HERO_IA_MAX/param heroIaMax.
+  const orcamentoIA = { restante: Number(heroIaMax ?? process.env.HERO_IA_MAX ?? 10) };
   // sem --limite (limite null): Infinity no modo normal, 20 candidatos no modo estrela
   const LIMITE = limite == null ? Infinity : Number(limite);
   const ESTRELA_LIMITE = limite == null ? 20 : Number(limite);
@@ -221,7 +222,7 @@ export async function run({
 
   // Curadoria "desligou tudo" p/ este objetivo: nada a renderizar. Curto-circuita ANTES de
   // loginServico/Bling/gerarCopysProduto (que faz chamada LLM por produto) — não queima IA à toa.
-  if (semLooks && !heroIaLooks.length) { console.log('nenhum look ativo p/ o objetivo — nada gerado'); return { campanhaId, criativos: 0 }; }
+  if (semLooks && !heroIaLooks.length) { console.log('nenhum look ativo p/ o objetivo — nada gerado'); return { campanhaId, criativos: 0, novas: 0, incompleto: false }; }
 
   const token = await loginServico();
 
@@ -292,6 +293,15 @@ export async function run({
   console.log('copy promo:', copyPromo);
 
   let gerados = 0;
+  // Idempotência p/ geração em LOTES (auto-encadeada): storage_paths já gerados nesta campanha. Cada
+  // lote pula o que já existe (não regenera nem gasta gpt) e faz o próximo pedaço — retoma do zero
+  // sem duplicar. `incompletoIA` sinaliza que o teto do lote foi atingido com trabalho restante.
+  const existentesIA = new Set();
+  if (!DRY && campanhaId) {
+    try { for (const r of await sbGet(`/fabrica_criativos?select=storage_path&campanha_id=eq.${campanhaId}`)) if (r.storage_path) existentesIA.add(r.storage_path); }
+    catch (e) { console.warn('aviso: não listou existentes p/ idempotência:', e.message); }
+  }
+  let incompletoIA = false, novasIA = 0;
   // dedup de foto por sku (produtos iguais em lojas diferentes)
   const fotoCache = new Map();
   const fotoDe = async (sku) => { if (!fotoCache.has(sku)) fotoCache.set(sku, await fotoDataUrl(token, sku)); return fotoCache.get(sku); };
@@ -348,9 +358,9 @@ export async function run({
       };
       for (const lk of heroIaLooks) {
         try {
-          const r = await gerarLookIA(lk, { sku: sane(cand.sku), campanhaId, dados, subir, orcamento: orcamentoIA,
+          const r = await gerarLookIA(lk, { sku: sane(cand.sku), campanhaId, dados, subir, orcamento: orcamentoIA, existentes: existentesIA,
             inserirLinhas: (rows) => sbPost('/fabrica_criativos', rows, 'return=minimal') });
-          gerados += r.ok;
+          gerados += r.ok; novasIA += r.novas || 0; if (r.cortou) incompletoIA = true;
         } catch (e) { console.warn('  ' + lk + ' falhou p/', cand.sku, e.message); }
       }
     }
@@ -375,8 +385,8 @@ export async function run({
   }
 
   await fecharRender();
-  console.log(DRY ? `\n(--dry) geraria ${gerados} criativos.` : `\ngerado: ${gerados} criativos | campanha ${campanhaId}`);
-  return { campanhaId, criativos: gerados };
+  console.log(DRY ? `\n(--dry) geraria ${gerados} criativos.` : `\ngerado: ${gerados} criativos | campanha ${campanhaId}` + (incompletoIA ? ` | LOTE PARCIAL (+${novasIA} gpt) — encadeia próximo` : ''));
+  return { campanhaId, criativos: gerados, novas: novasIA, incompleto: incompletoIA };
 }
 
 function flag(f, d) { const i = process.argv.indexOf(f); return i >= 0 ? process.argv[i + 1] : d; }
