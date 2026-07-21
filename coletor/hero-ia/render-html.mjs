@@ -10,6 +10,7 @@ import { renderPNG } from '../lib/render-criativo.mjs';
 const DIR = dirname(fileURLToPath(import.meta.url));
 const FONTS_CSS = readFileSync(join(DIR, '../templates-criativos/assets/fonts.css'), 'utf8');
 const LOGO = 'data:image/png;base64,' + readFileSync(join(DIR, 'assets/logo-cream.png')).toString('base64');
+const LOGO_DARK = 'data:image/png;base64,' + readFileSync(join(DIR, 'assets/logo-espresso.png')).toString('base64');
 
 const LIGHT = '#F2EFE6', CHAMP = '#C3A36A', IVORY = '#F4F0E7', ESP = '#29211C', MUTED = '#B7AA9A';
 const cormNum = "font-family:'Cormorant Garamond',serif;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;";
@@ -49,27 +50,38 @@ function priceBlock(variant, s, big, d) {
 export function buildHtml(fmt, variant, heroDataUrl, d) {
   const f = FMT[fmt]; const s = (n) => Math.round(n);
   const align = f.pos === 'top' ? 'justify-content:flex-start;' : 'justify-content:center;';
-  const grad = f.pos === 'top'
-    ? 'linear-gradient(180deg, rgba(20,26,18,.80) 0%, rgba(20,26,18,.45) 40%, rgba(20,26,18,0) 64%)'
-    : 'linear-gradient(90deg, rgba(20,26,18,.80) 0%, rgba(20,26,18,.45) 40%, rgba(20,26,18,0) 64%)';
+  const branding = variant === 'branding';
+  const logo = branding ? LOGO_DARK : LOGO;
+  const txt = branding ? ESP : LIGHT;
+  const dir = f.pos === 'top' ? '180deg' : '90deg';
+  const grad = branding
+    ? `linear-gradient(${dir}, rgba(244,240,231,.78) 0%, rgba(244,240,231,.40) 42%, rgba(244,240,231,0) 66%)`
+    : `linear-gradient(${dir}, rgba(20,26,18,.80) 0%, rgba(20,26,18,.45) 40%, rgba(20,26,18,0) 64%)`;
+  const bloco = branding ? `
+        <div style="font-size:${s(30)}px;letter-spacing:.30em;font-weight:600;color:${CHAMP};text-transform:uppercase;line-height:1.4;">${esc(d.tagline || 'ELEGÂNCIA ATEMPORAL')}</div>
+        <div style="width:${s(64)}px;height:2px;background:${CHAMP};"></div>
+        <div style="display:inline-flex;align-items:center;gap:${s(14)}px;margin-top:${s(8)}px;white-space:nowrap;">
+          <span style="font-size:${s(26)}px;letter-spacing:.14em;font-weight:600;color:${ESP};text-transform:uppercase;">Conheça a coleção</span>
+          <span style="font-size:${s(30)}px;color:${CHAMP};line-height:1;">&#8594;</span></div>`
+    : `<div style="display:flex;flex-direction:column;gap:${s(10)}px;">${priceBlock(variant, s, f.big, d)}</div>
+        <div style="display:inline-flex;align-items:center;gap:${s(12)}px;border:2px solid ${CHAMP};border-radius:999px;padding:${s(11)}px ${s(24)}px;width:fit-content;white-space:nowrap;">
+          <svg width="${s(26)}" height="${s(26)}" viewBox="0 0 24 24" fill="none" stroke="${CHAMP}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L20 5 V11 C20 16 16 19.5 12 22 C8 19.5 4 16 4 11 V5 Z"/><path d="M8.5 12 l2.5 2.5 l4.5-5"/></svg>
+          <span style="font-size:${s(27)}px;font-weight:500;color:${LIGHT};">2 anos de garantia</span></div>
+        <div style="display:inline-flex;align-items:center;gap:${s(18)}px;background:${IVORY};border-radius:999px;padding:${s(18)}px ${s(26)}px;width:fit-content;box-shadow:0 16px 34px rgba(0,0,0,.32);white-space:nowrap;">
+          <span style="font-size:${s(26)}px;font-weight:700;color:${ESP};">Converse com nossas vendedoras</span>
+          <span style="display:flex;align-items:center;justify-content:center;width:${s(50)}px;height:${s(50)}px;border-radius:50%;background:${ESP};color:${IVORY};font-size:${s(26)}px;flex:0 0 auto;">&#8594;</span></div>`;
   const inner = `
   <div style="position:relative;width:${f.w}px;height:${f.h}px;overflow:hidden;font-family:'Archivo',sans-serif;">
     <img src="${heroDataUrl}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
     <div style="position:absolute;inset:0;background:${grad};"></div>
     <div style="position:absolute;inset:0;padding:${f.pad};display:flex;flex-direction:column;align-items:flex-start;${align}box-sizing:border-box;">
       <div style="width:${f.colW}px;max-width:${f.colW}px;display:flex;flex-direction:column;gap:${s(28)}px;">
-        <img src="${LOGO}" style="width:${s(280)}px;height:auto;">
+        <img src="${logo}" style="width:${s(280)}px;height:auto;">
         <div style="display:flex;flex-direction:column;gap:${s(8)}px;">
-          <span style="font-size:${s(f.name)}px;letter-spacing:.12em;font-weight:400;color:${LIGHT};text-transform:uppercase;line-height:1.05;white-space:nowrap;">${esc(d.name)}</span>
+          <span style="font-size:${s(f.name)}px;letter-spacing:.12em;font-weight:400;color:${txt};text-transform:uppercase;line-height:1.05;white-space:nowrap;">${esc(d.name)}</span>
           <span style="font-size:${s(24)}px;letter-spacing:.22em;font-weight:700;color:${CHAMP};text-transform:uppercase;">${esc(d.camp)}</span>
         </div>
-        <div style="display:flex;flex-direction:column;gap:${s(10)}px;">${priceBlock(variant, s, f.big, d)}</div>
-        <div style="display:inline-flex;align-items:center;gap:${s(12)}px;border:2px solid ${CHAMP};border-radius:999px;padding:${s(11)}px ${s(24)}px;width:fit-content;white-space:nowrap;">
-          <svg width="${s(26)}" height="${s(26)}" viewBox="0 0 24 24" fill="none" stroke="${CHAMP}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L20 5 V11 C20 16 16 19.5 12 22 C8 19.5 4 16 4 11 V5 Z"/><path d="M8.5 12 l2.5 2.5 l4.5-5"/></svg>
-          <span style="font-size:${s(27)}px;font-weight:500;color:${LIGHT};">2 anos de garantia</span></div>
-        <div style="display:inline-flex;align-items:center;gap:${s(18)}px;background:${IVORY};border-radius:999px;padding:${s(18)}px ${s(26)}px;width:fit-content;box-shadow:0 16px 34px rgba(0,0,0,.32);white-space:nowrap;">
-          <span style="font-size:${s(26)}px;font-weight:700;color:${ESP};">Converse com nossas vendedoras</span>
-          <span style="display:flex;align-items:center;justify-content:center;width:${s(50)}px;height:${s(50)}px;border-radius:50%;background:${ESP};color:${IVORY};font-size:${s(26)}px;flex:0 0 auto;">&#8594;</span></div>
+        ${bloco}
       </div>
     </div>
   </div>`;
