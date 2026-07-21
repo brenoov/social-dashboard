@@ -109,7 +109,9 @@ async function curlFetch(url, opts = {}) {
   try {
     if (reqBodyFile) await writeFile(reqBodyFile, bodyBuf);
 
-    const args = ['-sS', '-L', '--max-time', '120', '-D', headerFile, '-o', outFile, '-X', method];
+    // timeout padrão 120s; caller pode pedir mais via opts.curlMaxTime (ex.: gpt-image-2 leva 2-4min)
+    const maxTime = String(opts.curlMaxTime || 120);
+    const args = ['-sS', '-L', '--max-time', maxTime, '-D', headerFile, '-o', outFile, '-X', method];
     for (const [k, v] of Object.entries(headers)) {
       if (v === undefined || v === null) continue;
       args.push('-H', `${k}: ${v}`);

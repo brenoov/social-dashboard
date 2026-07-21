@@ -7,6 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { DIM, VARIANTES, renderCriativo } from './render-html.mjs';
 
 const DIR = dirname(fileURLToPath(import.meta.url));
@@ -62,26 +63,56 @@ async function fotoUrlToDataUrl(url) {
   return 'data:' + mime + ';base64,' + buf.toString('base64');
 }
 
-async function gerarHero(cena, fmt, bagBuf, apiKey) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Monta multipart/form-data como Buffer (não usa FormData/Blob). Motivo: no CI o `fetch` é o shim
+// curl-fetch (lib/curl-fetch.mjs), que só serializa body texto/binário/Buffer — NÃO entende FormData
+// (viraria "[object FormData]" e o OpenAI recusaria). Buffer manual funciona no fetch nativo E no shim.
+function montarMultipart(parts) {
+  const boundary = '----vessel' + randomUUID().replace(/-/g, '');
+  const chunks = [];
+  const txt = (s) => chunks.push(Buffer.from(s, 'utf8'));
+  for (const p of parts) {
+    txt(`--${boundary}\r\n`);
+    if (p.buf != null) {
+      txt(`Content-Disposition: form-data; name="${p.name}"; filename="${p.filename}"\r\nContent-Type: ${p.mime}\r\n\r\n`);
+      chunks.push(p.buf); txt('\r\n');
+    } else {
+      txt(`Content-Disposition: form-data; name="${p.name}"\r\n\r\n${p.value}\r\n`);
+    }
+  }
+  txt(`--${boundary}--\r\n`);
+  return { body: Buffer.concat(chunks), contentType: `multipart/form-data; boundary=${boundary}` };
+}
+
+// gpt-image-2 é lento e ocasionalmente devolve 429/5xx transitório — retry com backoff pra o
+// blip não dropar o formato inteiro. 4xx que não 429 (prompt/entrada) é permanente: falha na hora.
+async function gerarHero(cena, fmt, bagBuf, apiKey, { tentativas = 3, log = console.log } = {}) {
   const spec = cenaSpec(cena, fmt, bagBuf);
-  const fd = new FormData();
-  fd.append('model', 'gpt-image-2');
-  for (const [name, buf, mime] of spec.imgs) fd.append('image[]', new Blob([buf], { type: mime }), name);
-  fd.append('prompt', spec.prompt);
-  fd.append('size', FMTGEN[fmt].size);
-  fd.append('quality', 'high');
-  fd.append('n', '1');
-  const r = await fetch(OPENAI_URL, { method: 'POST', headers: { Authorization: 'Bearer ' + apiKey }, body: fd });
-  if (!r.ok) throw new Error('gpt-image-2 ' + cena + '/' + fmt + ' -> ' + r.status + ' ' + (await r.text()).slice(0, 150));
-  const j = await r.json();
-  return 'data:image/png;base64,' + j.data[0].b64_json;
+  const parts = [{ name: 'model', value: 'gpt-image-2' }];
+  for (const [name, buf, mime] of spec.imgs) parts.push({ name: 'image[]', filename: name, mime, buf });
+  parts.push({ name: 'prompt', value: spec.prompt }, { name: 'size', value: FMTGEN[fmt].size }, { name: 'quality', value: 'high' }, { name: 'n', value: '1' });
+  const { body, contentType } = montarMultipart(parts);
+  let ultimo;
+  for (let t = 1; t <= tentativas; t++) {
+    try {
+      // curlMaxTime: gpt-image-2 leva 2-4min; sobe o timeout do shim curl-fetch (fetch nativo ignora o campo)
+      const r = await fetch(OPENAI_URL, { method: 'POST', headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': contentType }, body, curlMaxTime: 300 });
+      if (r.ok) { const j = await r.json(); return 'data:image/png;base64,' + j.data[0].b64_json; }
+      const corpo = (await r.text()).slice(0, 150);
+      if (r.status !== 429 && r.status < 500) throw new Error('gpt-image-2 ' + cena + '/' + fmt + ' -> ' + r.status + ' ' + corpo); // permanente
+      ultimo = new Error('gpt-image-2 ' + cena + '/' + fmt + ' -> ' + r.status + ' ' + corpo); // transitório
+    } catch (e) { if (/-> 4\d\d /.test(e.message) && !/-> 429 /.test(e.message)) throw e; ultimo = e; }
+    if (t < tentativas) { const espera = 4000 * t; log('    [gpt retry ' + t + '/' + (tentativas - 1) + '] ' + cena + '/' + fmt + ' em ' + (espera / 1000) + 's'); await sleep(espera); }
+  }
+  throw ultimo;
 }
 
 // Gera + publica um LOOK IA de um SKU. `dados`: {name,camp,precoDe,precoPor,parcelado,parcelas,pct,bagDataUrl,tagline?,modeloFotoUrl?}
 // fonte 'ia'  -> cena da bolsa gerada por gpt-image-2 (produto fiel). fonte 'foto-modelo' -> FOTO REAL da
 // modelo+bolsa (dados.modeloFotoUrl), SEM IA; sem essa foto o look é PULADO (a imagem da modelo não pode
 // ser gerada por IA — licenciamento; nesses casos só saem os criativos de bolsa).
-export async function gerarLookIA(chave, { sku, campanhaId, dados, subir, inserirLinhas, formatos = null, log = console.log }) {
+export async function gerarLookIA(chave, { sku, campanhaId, dados, subir, inserirLinhas, formatos = null, orcamento = null, log = console.log }) {
   const look = IA_LOOKS[chave];
   if (!look) { log('  look IA desconhecido: ' + chave); return { ok: 0 }; }
   const usaFotoReal = look.fonte === 'foto-modelo';
@@ -100,10 +131,13 @@ export async function gerarLookIA(chave, { sku, campanhaId, dados, subir, inseri
   const rows = []; let ok = 0;
   for (const fmt of fmts) {
     let heroUrl;
-    if (usaFotoReal) { heroUrl = fotoModeloHero; }
+    if (usaFotoReal) { heroUrl = fotoModeloHero; } // foto real: não gasta orçamento nem chama gpt
     else {
-      try { heroUrl = await gerarHero(look.cena, fmt, bagBuf, apiKey); }
+      // teto de gerações IA por job (respeita o timeout do CI); loga o que foi cortado (sem truncar mudo)
+      if (orcamento && orcamento.restante <= 0) { log('  ' + chave + ' ' + sku + ': teto de gerações IA atingido — pulando ' + fmt + ' (e demais)'); break; }
+      try { heroUrl = await gerarHero(look.cena, fmt, bagBuf, apiKey, { log }); }
       catch (e) { log('  ' + chave + ' ' + sku + ' ' + fmt + ' FALHOU: ' + e.message); continue; }
+      if (orcamento) orcamento.restante -= 1;
     }
     for (const variant of variants) {
       const buf = await renderCriativo(fmt, variant, heroUrl, dados);

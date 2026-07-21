@@ -146,7 +146,7 @@ function carregarMapaModelo() {
 export async function run({
   pct = 50, nome = null, parcelas = 10, limite = null, dry = false,
   loja = null, fonte = null, estrela = null, deposito = null, looks = null, modos = null, itens = null, campanhaId = null,
-  heroIa = false,
+  heroIa = false, heroIaMax = null,
   objetivo = null,
 } = {}) {
   const PCT = Number(pct);
@@ -158,6 +158,9 @@ export async function run({
   const ESTRELA_CANAL = estrela;
   const ESTRELA_DEPOSITO = deposito;
   let heroIaLooks = heroIa ? ['hero-ia'] : [];   // looks IA a rodar: --hero-ia/params.heroIa + looks IA ativos (curadoria)
+  // Teto de GERAÇÕES gpt-image por job (só cenas de bolsa; foto-modelo não conta). Bounda o tempo p/
+  // caber no timeout do CI (45min). ~3min/geração -> 12 ≈ 36min de folga. Ajuste via HERO_IA_MAX/param.
+  const orcamentoIA = { restante: Number(heroIaMax ?? process.env.HERO_IA_MAX ?? 12) };
   // sem --limite (limite null): Infinity no modo normal, 20 candidatos no modo estrela
   const LIMITE = limite == null ? Infinity : Number(limite);
   const ESTRELA_LIMITE = limite == null ? 20 : Number(limite);
@@ -345,7 +348,7 @@ export async function run({
       };
       for (const lk of heroIaLooks) {
         try {
-          const r = await gerarLookIA(lk, { sku: sane(cand.sku), campanhaId, dados, subir,
+          const r = await gerarLookIA(lk, { sku: sane(cand.sku), campanhaId, dados, subir, orcamento: orcamentoIA,
             inserirLinhas: (rows) => sbPost('/fabrica_criativos', rows, 'return=minimal') });
           gerados += r.ok;
         } catch (e) { console.warn('  ' + lk + ' falhou p/', cand.sku, e.message); }
@@ -384,6 +387,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     dry: process.argv.includes('--dry'), loja: flag('--loja', null), fonte: flag('--fonte', null),
     estrela: flag('--estrela', null), deposito: flag('--deposito', null),
     looks: flag('--looks', null), modos: flag('--modos', null),
-    heroIa: process.argv.includes('--hero-ia'),
+    heroIa: process.argv.includes('--hero-ia'), heroIaMax: flag('--hero-ia-max') ? Number(flag('--hero-ia-max')) : null,
   }).then((r) => console.log('gerar concluído:', r)).catch(async (e) => { await fecharRender(); console.error('FALHOU:', e.message); process.exit(1); });
 }
