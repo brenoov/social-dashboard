@@ -30,6 +30,7 @@ const FMTGEN = {
 export const IA_LOOKS = {
   'hero-ia':         { nome: 'Hero · IA (bolsa)',      arquetipo: 'produto', objetivos: ['conversao','engajamento','trafego'], fonte: 'ia',        modo: 'conversao', cena: 'pedestal',     formatos: ['feed_1x1','fb_4x5','stories_9x16','youtube_16x9'] },
   'ia-promo-marrom': { nome: 'Promo · Bolsa Caramelo', arquetipo: 'produto', objetivos: ['conversao','engajamento','trafego'], fonte: 'ia',        modo: 'conversao', cena: 'marrom',       formatos: ['feed_1x1','fb_4x5','stories_9x16','youtube_16x9'] },
+  'ia-promo-claro':  { nome: 'Promo · Bolsa Clara',    arquetipo: 'produto', objetivos: ['conversao','engajamento','trafego'], fonte: 'ia',        modo: 'conversao', cena: 'claro',        formatos: ['feed_1x1','fb_4x5','stories_9x16','youtube_16x9'] },
   'ia-promo-modelo': { nome: 'Promo · Modelo',         arquetipo: 'produto', objetivos: ['conversao','engajamento','trafego'], fonte: 'modelo-ia', modo: 'conversao', cena: 'modelo',       formatos: ['fb_4x5','stories_9x16'] },
   'ia-brand-bolsa':  { nome: 'Branding · Bolsa',       arquetipo: 'produto', objetivos: ['branding'],                          fonte: 'ia',        modo: 'branding',  cena: 'claro',        formatos: ['feed_1x1','fb_4x5','stories_9x16','youtube_16x9'] },
   'ia-brand-modelo': { nome: 'Branding · Modelo',      arquetipo: 'produto', objetivos: ['branding'],                          fonte: 'modelo-ia', modo: 'branding',  cena: 'modelo-claro', formatos: ['fb_4x5','stories_9x16'] },
