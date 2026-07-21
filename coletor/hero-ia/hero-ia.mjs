@@ -21,36 +21,46 @@ const FMTGEN = {
   stories_9x16: { fundo: 'fundo-9x16.png', size: '1024x1536', layout: 'bottom' },
 };
 
-// REGISTRO dos looks IA. cena = como o hero é gerado; modo = texto (conversao|branding); objetivos = curadoria.
+// REGISTRO dos looks IA. `fonte`: 'ia' = cena da bolsa GERADA por gpt-image-2 (produto é fiel, ok);
+// 'foto-modelo' = usa a FOTO REAL da modelo+bolsa do acervo (fotos-modelo-map.json), SEM IA — a imagem
+// da modelo NÃO pode ser usada p/ geração por IA (licenciamento). Sem foto real -> look pulado (só bolsa).
+// modo = texto (conversao com preço | branding sem preço); objetivos = curadoria.
 export const IA_LOOKS = {
-  'hero-ia':         { nome: 'Hero · IA (bolsa)',      arquetipo: 'produto', objetivos: ['conversao','engajamento','trafego'], modo: 'conversao', cena: 'pedestal',     formatos: ['feed_1x1','fb_4x5','stories_9x16','youtube_16x9'] },
-  'ia-promo-marrom': { nome: 'Promo · Bolsa Caramelo', arquetipo: 'produto', objetivos: ['conversao','engajamento','trafego'], modo: 'conversao', cena: 'marrom',       formatos: ['feed_1x1','fb_4x5','stories_9x16','youtube_16x9'] },
-  'ia-promo-modelo': { nome: 'Promo · Modelo',         arquetipo: 'produto', objetivos: ['conversao','engajamento','trafego'], modo: 'conversao', cena: 'modelo',       formatos: ['fb_4x5','stories_9x16'] },
-  'ia-brand-bolsa':  { nome: 'Branding · Bolsa',       arquetipo: 'produto', objetivos: ['branding'],                          modo: 'branding',  cena: 'claro',        formatos: ['feed_1x1','fb_4x5','stories_9x16','youtube_16x9'] },
-  'ia-brand-modelo': { nome: 'Branding · Modelo',      arquetipo: 'produto', objetivos: ['branding'],                          modo: 'branding',  cena: 'modelo-claro', formatos: ['fb_4x5','stories_9x16'] },
+  'hero-ia':         { nome: 'Hero · IA (bolsa)',      arquetipo: 'produto', objetivos: ['conversao','engajamento','trafego'], fonte: 'ia',          modo: 'conversao', cena: 'pedestal', formatos: ['feed_1x1','fb_4x5','stories_9x16','youtube_16x9'] },
+  'ia-promo-marrom': { nome: 'Promo · Bolsa Caramelo', arquetipo: 'produto', objetivos: ['conversao','engajamento','trafego'], fonte: 'ia',          modo: 'conversao', cena: 'marrom',   formatos: ['feed_1x1','fb_4x5','stories_9x16','youtube_16x9'] },
+  'ia-promo-modelo': { nome: 'Promo · Modelo',         arquetipo: 'produto', objetivos: ['conversao','engajamento','trafego'], fonte: 'foto-modelo', modo: 'conversao', cena: null,       formatos: ['fb_4x5','stories_9x16'] },
+  'ia-brand-bolsa':  { nome: 'Branding · Bolsa',       arquetipo: 'produto', objetivos: ['branding'],                          fonte: 'ia',          modo: 'branding',  cena: 'claro',    formatos: ['feed_1x1','fb_4x5','stories_9x16','youtube_16x9'] },
+  'ia-brand-modelo': { nome: 'Branding · Modelo',      arquetipo: 'produto', objetivos: ['branding'],                          fonte: 'foto-modelo', modo: 'branding',  cena: null,       formatos: ['fb_4x5','stories_9x16'] },
 };
+// Looks IA que EXIGEM foto real da modelo (fonte 'foto-modelo'). gerar-criativos os pula sem foto.
+export const IA_MODEL_LOOKS = Object.keys(IA_LOOKS).filter((k) => IA_LOOKS[k].fonte === 'foto-modelo');
 
 const FOCO = 'The HANDBAG is the clear FOCAL POINT: sharp, crisp, prominent, well-lit; everything else softer. ';
-const PATREF = 'The wall behind must show the EXACT tone-on-tone monogram pattern from the LAST image (official flowing interlocking-S motif) — subtle, low-contrast, realistic to the wall lighting/perspective; do NOT invent a different pattern. ';
 
-// devolve { imgs:[[filename,buf,mime]...], prompt } por cena+formato
+// devolve { imgs:[[filename,buf,mime]...], prompt } por CENA DE BOLSA (só fonte 'ia'). A cena da bolsa é
+// gerada por IA porque o produto é reproduzido fielmente; a modelo nunca é gerada (ver fonte 'foto-modelo').
 function cenaSpec(cena, fmt, bagBuf) {
   const g = FMTGEN[fmt];
   const posBag = g.layout === 'bottom'
     ? 'standing upright, centered on the cream marble pedestal in the BOTTOM THIRD; the entire UPPER 60% is empty wall for text'
     : 'on the cream marble pedestal in the RIGHT HALF; the ENTIRE LEFT HALF empty for text; bag and chain must NOT cross the vertical center';
-  const posModel = 'Position the WOMAN clearly to the RIGHT, leaving the ENTIRE LEFT HALF empty for text; she presents the handbag forward (the focal point)';
   const fundo = [['scene.png', asset(g.fundo), 'image/png'], ['bag.png', bagBuf, 'image/png']];
-  const modelRefs = [['model.jpg', asset('modelo.jpg'), 'image/jpeg'], ['bag.png', bagBuf, 'image/png'], ['pat.png', asset('pattern-oficial.png'), 'image/png']];
   if (cena === 'pedestal') return { imgs: fundo, prompt: FOCO + `Place the exact handbag from the SECOND image ${posBag} in the FIRST image, oriented at the pedestal's three-quarter angle. Keep the dark olive-green S-pattern wall, warm beam and marble pedestal. Preserve the bag exactly. Photoreal, warm light, soft contact shadow.` };
   if (cena === 'marrom') return { imgs: fundo, prompt: FOCO + `Place the exact handbag from the SECOND image ${posBag} in the FIRST image, but RECOLOR the studio to a warm CHOCOLATE-BROWN/caramel tone (keep the tone-on-tone S-pattern wall and the cream marble pedestal, warm golden rim light from upper right). Preserve the bag exactly. Photoreal luxury product photography.` };
   if (cena === 'claro')  return { imgs: fundo, prompt: FOCO + `Place the exact handbag from the SECOND image ${posBag} in the FIRST image, but as a minimalist LIGHT editorial set: soft warm CREAM/beige wall KEEPING the subtle tone-on-tone S-pattern, a pale travertine pedestal, diffused daylight, generous negative space. Preserve the bag exactly. High-end aspirational branding, airy.` };
-  if (cena === 'modelo') return { imgs: modelRefs, prompt: FOCO + `Editorial studio photo of the EXACT blonde woman from the FIRST image (same face/hair/styling) holding the EXACT handbag from the SECOND image, against a dark olive-green wall. ${posModel}. ${PATREF}Preserve her identity AND the bag exactly. Photoreal fashion campaign, warm light.` };
-  if (cena === 'modelo-claro') return { imgs: modelRefs, prompt: FOCO + `Aspirational branding photo of the EXACT blonde woman from the FIRST image (same face/hair) carrying the EXACT handbag from the SECOND image in a bright airy LIGHT editorial setting. ${posModel}. ${PATREF}Preserve her identity and the bag exactly. Photoreal high-fashion campaign.` };
-  throw new Error('cena desconhecida: ' + cena);
+  throw new Error('cena de bolsa desconhecida: ' + cena);
 }
 
 function dataUrlToBuf(dataUrl) { const i = dataUrl.indexOf('base64,'); return Buffer.from(dataUrl.slice(i + 7), 'base64'); }
+
+// baixa a foto real da modelo (URL pública) -> data URL, p/ virar o hero do render (sem IA)
+async function fotoUrlToDataUrl(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('foto modelo -> ' + r.status);
+  const buf = Buffer.from(await r.arrayBuffer());
+  const mime = url.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
+  return 'data:' + mime + ';base64,' + buf.toString('base64');
+}
 
 async function gerarHero(cena, fmt, bagBuf, apiKey) {
   const spec = cenaSpec(cena, fmt, bagBuf);
@@ -67,20 +77,34 @@ async function gerarHero(cena, fmt, bagBuf, apiKey) {
   return 'data:image/png;base64,' + j.data[0].b64_json;
 }
 
-// Gera + publica um LOOK IA de um SKU. `dados`: {name,camp,precoDe,precoPor,parcelado,parcelas,pct,bagDataUrl,tagline?}
+// Gera + publica um LOOK IA de um SKU. `dados`: {name,camp,precoDe,precoPor,parcelado,parcelas,pct,bagDataUrl,tagline?,modeloFotoUrl?}
+// fonte 'ia'  -> cena da bolsa gerada por gpt-image-2 (produto fiel). fonte 'foto-modelo' -> FOTO REAL da
+// modelo+bolsa (dados.modeloFotoUrl), SEM IA; sem essa foto o look é PULADO (a imagem da modelo não pode
+// ser gerada por IA — licenciamento; nesses casos só saem os criativos de bolsa).
 export async function gerarLookIA(chave, { sku, campanhaId, dados, subir, inserirLinhas, formatos = null, log = console.log }) {
   const look = IA_LOOKS[chave];
   if (!look) { log('  look IA desconhecido: ' + chave); return { ok: 0 }; }
+  const usaFotoReal = look.fonte === 'foto-modelo';
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) { log('  ' + chave + ': sem OPENAI_API_KEY — pulado (' + sku + ')'); return { ok: 0 }; }
-  const bagBuf = dataUrlToBuf(dados.bagDataUrl);
+  if (!usaFotoReal && !apiKey) { log('  ' + chave + ': sem OPENAI_API_KEY — pulado (' + sku + ')'); return { ok: 0 }; }
+  if (usaFotoReal && !dados.modeloFotoUrl) { log('  ' + chave + ': sem foto real da modelo p/ ' + sku + ' — pulado (só bolsa)'); return { ok: 0 }; }
+  // foto real da modelo: baixa 1x e reusa em todos os formatos (object-fit cover recorta). SEM gpt.
+  let fotoModeloHero = null;
+  if (usaFotoReal) {
+    try { fotoModeloHero = await fotoUrlToDataUrl(dados.modeloFotoUrl); }
+    catch (e) { log('  ' + chave + ' ' + sku + ': falha na foto da modelo (' + e.message + ') — pulado'); return { ok: 0 }; }
+  }
+  const bagBuf = usaFotoReal ? null : dataUrlToBuf(dados.bagDataUrl);
   const variants = look.modo === 'branding' ? ['branding'] : ['parcelamento', 'avista', 'desconto'];
   const fmts = ((formatos && formatos.length) ? formatos : look.formatos).filter((f) => FMTGEN[f] && look.formatos.includes(f));
   const rows = []; let ok = 0;
   for (const fmt of fmts) {
     let heroUrl;
-    try { heroUrl = await gerarHero(look.cena, fmt, bagBuf, apiKey); }
-    catch (e) { log('  ' + chave + ' ' + sku + ' ' + fmt + ' FALHOU: ' + e.message); continue; }
+    if (usaFotoReal) { heroUrl = fotoModeloHero; }
+    else {
+      try { heroUrl = await gerarHero(look.cena, fmt, bagBuf, apiKey); }
+      catch (e) { log('  ' + chave + ' ' + sku + ' ' + fmt + ' FALHOU: ' + e.message); continue; }
+    }
     for (const variant of variants) {
       const buf = await renderCriativo(fmt, variant, heroUrl, dados);
       const variante = chave + '-' + (VARIANTES[variant] || variant);
