@@ -96,14 +96,14 @@ watch(() => props.campanhaId, iniciar, { immediate: true })
           </button>
           <div v-show="!colapsadas[sec.loja]" class="cg">
             <template v-for="par in sec.pares" :key="par.sku + par.variante">
-              <div v-for="prop in [['feed', par.feed], ['story', par.story]].filter(p => p[1])" :key="prop[0]"
-                   class="tile" :class="{ ok: prop[1].escolhido, subido: prop[1].purgado_em }">
-                <img v-if="!prop[1].purgado_em" class="art" :src="prop[1].url" loading="lazy" @click="abrirVisor(prop[1])">
+              <div v-for="it in par.itens" :key="it.c.id"
+                   class="tile" :class="{ ok: it.c.escolhido, subido: it.c.purgado_em }">
+                <img v-if="!it.c.purgado_em" class="art" :src="it.c.url" loading="lazy" @click="abrirVisor(it.c)">
                 <div v-else class="art placeholder">subido — ver no Gerenciador</div>
-                <label v-if="!prop[1].purgado_em" class="pick" @click.stop>
-                  <input type="checkbox" :checked="prop[1].escolhido" @change="alternar(prop[1])">
+                <label v-if="!it.c.purgado_em" class="pick" @click.stop>
+                  <input type="checkbox" :checked="it.c.escolhido" @change="alternar(it.c)">
                 </label>
-                <span class="cap">{{ prop[0] === 'feed' ? 'Feed 4:5' : 'Story 9:16' }} · {{ par.variante }}</span>
+                <span class="cap">{{ it.label }} · {{ par.variante }}</span>
               </div>
             </template>
           </div>
