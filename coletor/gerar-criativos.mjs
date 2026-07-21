@@ -340,6 +340,8 @@ export async function run({
         precoDe: pp.de, precoPor: pp.por, parcelado: parcelado(pp.porNum, campanha.parcelas),
         parcelas: campanha.parcelas, pct: Math.round(pct), bagDataUrl: foto,
         preco_de: cand.preco, preco_por: pp.porNum,
+        modeloFotoUrl: mapaModelo[cand.sku] || null, // foto REAL da modelo+bolsa (acervo); looks de modelo
+        // IA só rodam com ela — a imagem da modelo não pode ser gerada por IA. Sem ela: só looks de bolsa.
       };
       for (const lk of heroIaLooks) {
         try {
