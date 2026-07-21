@@ -255,8 +255,11 @@ export async function run({ campanhaId, destino, dry = false }) {
   if (!marcaAtiva) throw new Error('nenhuma marca ativa configurada (fabrica_marcas.ativo)');
   MARCA = marcaAtiva; // conta usada p/ upload de imagem e (destino 'existente') pros conjuntos já existentes
 
-  // 1) criativos escolhidos (não-purgados) da rodada
-  const escolhidos = await sbGet(`/fabrica_criativos?select=id,url,storage_path,legenda,sku&campanha_id=eq.${campanhaId}&escolhido=eq.true&purgado_em=is.null`);
+  // 1) criativos escolhidos (não-purgados) da rodada.
+  //    REGRA (cliente): o formato WIDESCREEN 16:9 (1920x1080) NÃO sobe pro Meta — é reservado pro
+  //    Google Ads (YouTube), a conectar depois. Ele segue sendo gerado e curável, só não é veiculado
+  //    aqui. Quando entrar o Google Ads, criar o subir-google.mjs que sobe justamente o 1920x1080.
+  const escolhidos = await sbGet(`/fabrica_criativos?select=id,url,storage_path,legenda,sku&campanha_id=eq.${campanhaId}&escolhido=eq.true&purgado_em=is.null&formato=neq.1920x1080`);
   if (escolhidos.length === 0) return { adIds: [], pendentes: 0, metaCampaignId: null, adsetIds: [], criouCampanha };
 
   // 2) resolve destino -> sobe em 1 (existente / 1 loja) ou N campanhas (uma por loja). Cada
