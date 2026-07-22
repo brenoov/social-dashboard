@@ -12,6 +12,7 @@
 import './lib/carregar-env.mjs';
 import { registrarExecucao } from './registrar-execucao.mjs';
 import { run as gerarRun } from './gerar-criativos.mjs';
+import { exportarCampanhaZoho } from './exportar-zoho.mjs';
 import { run as subirRun } from './subir-estudio.mjs';
 import { run as ativarRun } from './ativar-estudio.mjs';
 import { run as excluirRun } from './excluir-estudio.mjs';
@@ -140,6 +141,11 @@ async function main() {
         } else {
           if (job.params?.campanhaId) await sbPatch(`/fabrica_campanhas?id=eq.${job.params.campanhaId}`, { status: statusCampanhaGerar(true) });
           await reg(itens, 'criativos', 'ok', r.incompleto ? 'encerrado (sem progresso)' : 'completo');
+          // campanha completa -> exporta os finais pro Zoho WorkDrive (nuvem), por loja -> data. Best-effort.
+          if (job.params?.campanhaId) {
+            try { await exportarCampanhaZoho({ campanhaId: job.params.campanhaId, sbGet }); }
+            catch (e) { console.warn('zoho export falhou:', String(e.message).slice(0, 120)); }
+          }
         }
       }
     } else if (job.tipo === 'subir') {
