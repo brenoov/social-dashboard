@@ -50,6 +50,32 @@ export const AJUDA = {
   ] },
 };
 
+// TOURS INTERATIVOS por passo (spotlight campo a campo, via tour-coachmark.vue). Cada item aponta
+// pra um elemento com data-tour="<selector>". O tour é resiliente: pula alvos que não estão na tela.
+export const TOUR_GERAR = [
+  { selector: '[data-tour="gerar-objetivo"]', titulo: 'Objetivo da campanha', texto: 'Comece aqui. O objetivo decide os looks: venda/conversão usa promoção (com preço); marca usa branding (sem preço).' },
+  { selector: '[data-tour="gerar-lojas"]', titulo: 'Escolha a(s) loja(s)', texto: 'Marque as lojas. Os criativos são organizados por loja no final.' },
+  { selector: '[data-tour="gerar-fonte"]', titulo: 'De onde vêm os produtos', texto: 'Oportunidades da semana, garimpo, grade BCG, curva ABC ou busca manual.' },
+  { selector: '[data-tour="gerar-ver"]', titulo: 'Trazer os produtos', texto: 'Clique pra listar os produtos elegíveis da fonte escolhida.' },
+  { selector: '[data-tour="gerar-desconto"]', titulo: 'Desconto', texto: 'Use o previsto do Gestor ou um % manual. Em branding não há desconto.' },
+  { selector: '[data-tour="gerar-produtos"]', titulo: 'Escolha os produtos', texto: 'Marque quais entram. Atenção: produto sem foto no Bling não gera criativo.' },
+  { selector: '[data-tour="gerar-botao"]', titulo: 'Gerar', texto: 'Manda gerar! Com muitos produtos, roda em lotes automáticos — a tela fica "gerando" um tempo, é normal.' },
+];
+export const TOUR_CURAR = [
+  { selector: '[data-tour="curar-grid"]', titulo: 'Seus criativos', texto: 'Aqui aparecem todos os criativos gerados, em 4 formatos (1:1, 4:5, Stories 9:16 e Widescreen 16:9).' },
+  { selector: '[data-tour="curar-tile"]', titulo: 'Escolher', texto: 'Toque num criativo pra marcá-lo — vira anúncio e ganha a borda âmbar. Clique na imagem pra ver em tamanho grande.' },
+  { selector: '[data-tour="curar-todos"]', titulo: 'Marcar todos', texto: 'Atalho pra marcar/desmarcar tudo de uma vez.' },
+];
+export const TOUR_SUBIR = [
+  { selector: '[data-tour="subir-destino"]', titulo: 'Destino', texto: 'Criar uma campanha nova por loja (a ferramenta monta) ou injetar numa campanha existente.' },
+  { selector: '[data-tour="subir-local"]', titulo: 'Localização e público', texto: 'Por loja: cidades + raio (já começa pela região da loja), idade, gênero, interesses e públicos salvos.' },
+  { selector: '[data-tour="subir-botao"]', titulo: 'Subir pausado', texto: 'Sobe tudo PAUSADO — ninguém vê e não gasta nada. Só Feed e Stories vão pro Meta (16:9 fica pro Google Ads).' },
+];
+export const TOUR_CONFERIR = [
+  { selector: '[data-tour="conferir-resumo"]', titulo: 'Revisar', texto: 'Veja quantos anúncios foram criados (pausados) antes de ativar.' },
+  { selector: '[data-tour="conferir-ativar"]', titulo: 'Ativar', texto: 'Ativa com uma confirmação de gasto. Enquanto não ativar, nada roda.' },
+];
+
 export function proximoPassoPendente(feito, checklist) {
   const set = new Set(feito || []);
   return (checklist || []).find((i) => !set.has(i.id)) || null;

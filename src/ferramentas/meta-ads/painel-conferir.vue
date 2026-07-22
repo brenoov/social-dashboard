@@ -1,8 +1,11 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { useJobStatus } from './use-job-status.js'
 import AjudaTooltip from './ajuda-tooltip.vue'
+import TourCoachmark from './tour-coachmark.vue'
+import { TOUR_CONFERIR } from './tutorial-fabrica.js'
+const tourAberto = ref(false)
 const props = defineProps({ subirResultado: Object })
 const n = computed(() => props.subirResultado?.adIds?.length || 0)
 const { job, start } = useJobStatus()
@@ -41,13 +44,14 @@ async function excluirRemessa() {
 </script>
 <template>
   <section class="stage">
+    <TourCoachmark :passos="TOUR_CONFERIR" v-model="tourAberto" />
     <div class="stagehead">
       <span class="badge"><i class="led hold"></i>Passo 4 · Conferir</span>
-      <h2>Confira antes de publicar <AjudaTooltip chave="conferir" /></h2>
+      <h2>Confira antes de publicar <AjudaTooltip chave="conferir" /> <button class="mini" type="button" @click="tourAberto = true">Tutorial ▶</button></h2>
       <p class="lead"><b>{{ n }} anúncios</b> foram criados e estão <b>pausados</b>. Enquanto ficarem pausados, ninguém vê e <b>não gastam nada</b>. Você decide como publicar.</p>
     </div>
 
-    <div class="readout">
+    <div class="readout" data-tour="conferir-resumo">
       <div class="c"><div class="k">Anúncios criados</div><div class="v mono amber">{{ n }}</div></div>
       <div class="c"><div class="k">Situação</div><div class="v hold">Pausado</div></div>
     </div>
@@ -60,7 +64,7 @@ async function excluirRemessa() {
           <span class="oh"><span class="oi">⏸</span> Manter pausados <span class="rec">recomendado</span></span>
           <span class="od">Deixa tudo como está. Você liga cada anúncio na hora que quiser, direto no Gerenciador da Meta. Nada gasta até você ligar.</span>
         </a>
-        <button class="opt ativar" :disabled="job && ['enfileirado','rodando'].includes(job.status)" @click="ativarTudo">
+        <button class="opt ativar" data-tour="conferir-ativar" :disabled="job && ['enfileirado','rodando'].includes(job.status)" @click="ativarTudo">
           <span class="oh"><span class="oi">▶</span> Ativar todos agora</span>
           <span class="od">Liga os {{ n }} anúncios de uma vez. Eles começam a aparecer para as pessoas — e a gastar verba — na hora.</span>
         </button>
