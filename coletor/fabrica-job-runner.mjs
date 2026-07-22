@@ -126,11 +126,21 @@ async function main() {
         await encadearProximoLote(job.params || {});
         await reg(r.criativos, 'criativos', 'ok', 'lote ' + ((job.params?.continuacao || 0) + 1) + ' (+' + r.novas + ')');
       } else {
-        // completo (ou nada novo progrediu -> encerra pra não loopar): marca campanha pronta
-        if (job.params?.campanhaId) await sbPatch(`/fabrica_campanhas?id=eq.${job.params.campanhaId}`, { status: statusCampanhaGerar(true) });
-        let itens = null;
+        // completo (ou nada novo progrediu). Conta o TOTAL da campanha: se 0, NÃO diz "pronto pra curar"
+        // — marca 'erro' com o motivo (SKU sem foto/preço, ou nenhum look ativo) pra o front avisar.
+        let itens = 0;
         try { if (job.params?.campanhaId) itens = (await sbGet(`/fabrica_criativos?select=id&campanha_id=eq.${job.params.campanhaId}`)).length; } catch (_) {}
-        await reg(itens, 'criativos', 'ok', r.incompleto ? 'encerrado (sem progresso)' : 'completo');
+        if (job.params?.campanhaId && itens === 0) {
+          const motivo = (r.pulados && r.pulados.length)
+            ? 'Nenhum criativo gerado — ' + r.pulados.map((p) => `${p.sku}: ${p.motivo}`).join('; ')
+            : 'Nenhum criativo gerado. Verifique se o produto tem foto no Bling e se há looks ativos p/ o objetivo.';
+          await sbPatch(`/fabrica_campanhas?id=eq.${job.params.campanhaId}`, { status: statusCampanhaGerar(false) });
+          await sbPatch(`/fabrica_jobs?id=eq.${jobId}`, { erro: motivo.slice(0, 500) });
+          await reg(0, 'criativos', 'erro', motivo.slice(0, 120));
+        } else {
+          if (job.params?.campanhaId) await sbPatch(`/fabrica_campanhas?id=eq.${job.params.campanhaId}`, { status: statusCampanhaGerar(true) });
+          await reg(itens, 'criativos', 'ok', r.incompleto ? 'encerrado (sem progresso)' : 'completo');
+        }
       }
     } else if (job.tipo === 'subir') {
       const r = await subirRun(job.params || {});

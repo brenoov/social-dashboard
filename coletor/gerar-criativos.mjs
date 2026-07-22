@@ -303,6 +303,7 @@ export async function run({
     catch (e) { console.warn('aviso: não listou existentes p/ idempotência:', e.message); }
   }
   let incompletoIA = false, novasIA = 0;
+  const pulados = []; // SKUs pulados + motivo (p/ o runner avisar quando 0 criativos)
   // dedup de foto por sku (produtos iguais em lojas diferentes)
   const fotoCache = new Map();
   const fotoDe = async (sku) => { if (!fotoCache.has(sku)) fotoCache.set(sku, await fotoDataUrl(token, sku)); return fotoCache.get(sku); };
@@ -313,10 +314,10 @@ export async function run({
   // PRODUTO (pulado inteiro se nenhum look ativo p/ o objetivo — respeita a curadoria)
   for (const cand of produtos) {
     if (semLooks && !heroIaLooks.length) { console.log('  nenhum look ativo p/ o objetivo — nada gerado'); break; }
-    if (cand.preco == null) { console.log('  sem preço:', cand.sku); continue; }
+    if (cand.preco == null) { console.log('  sem preço:', cand.sku); pulados.push({ sku: cand.sku, motivo: 'sem preço no Bling' }); continue; }
     const foto = await fotoDe(cand.sku);
-    if (!foto) { console.warn('  sem foto:', cand.sku, cand.nome); continue; }
-    if (!fotoEhStudio(cand.sku)) { console.log('  foto amadora (avaliada na foto crua), pulado:', cand.sku); continue; }
+    if (!foto) { console.warn('  sem foto:', cand.sku, cand.nome); pulados.push({ sku: cand.sku, motivo: 'sem foto no Bling' }); continue; }
+    if (!fotoEhStudio(cand.sku)) { console.log('  foto amadora (avaliada na foto crua), pulado:', cand.sku); pulados.push({ sku: cand.sku, motivo: 'foto amadora (não é de estúdio)' }); continue; }
     const copyInfo = copys.get(cand.sku) || {};
     // LOOKS DE CÓDIGO — só quando há look de código ativo. hero-ia roda à parte (abaixo).
     if (!semLooks) {
@@ -387,7 +388,7 @@ export async function run({
 
   await fecharRender();
   console.log(DRY ? `\n(--dry) geraria ${gerados} criativos.` : `\ngerado: ${gerados} criativos | campanha ${campanhaId}` + (incompletoIA ? ` | LOTE PARCIAL (+${novasIA} gpt) — encadeia próximo` : ''));
-  return { campanhaId, criativos: gerados, novas: novasIA, incompleto: incompletoIA };
+  return { campanhaId, criativos: gerados, novas: novasIA, incompleto: incompletoIA, pulados };
 }
 
 function flag(f, d) { const i = process.argv.indexOf(f); return i >= 0 ? process.argv[i + 1] : d; }
