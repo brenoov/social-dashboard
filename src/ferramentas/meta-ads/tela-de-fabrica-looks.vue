@@ -47,15 +47,17 @@ async function gerarPreviews() {
   gerandoPreview.value = false
   alert(error ? 'Falha: ' + error.message : 'Gerando previews — recarregue em ~1 min pra ver as imagens.')
 }
-function voltarCentral() { router.push({ name: 'inicio' }) }
 function voltarFabrica() { router.push({ name: 'fabrica-estudio' }) }
+const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
+const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 onMounted(carregar)
 </script>
 <template>
   <div class="fest"><div class="shell">
     <header class="topbar">
-      <button class="voltar-central" @click="voltarCentral">← Central</button>
       <button class="voltar-central" @click="voltarFabrica">← Fábrica</button>
+      <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
+      <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
       <div class="brand"><div class="t">Looks & Templates <AjudaTooltip chave="looks" /></div><div class="s">Curadoria</div></div>
       <div class="divider"></div>
       <button class="cmd cyan" :disabled="gerandoPreview" @click="gerarPreviews">Gerar previews</button>

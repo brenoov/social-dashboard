@@ -9,8 +9,9 @@ import PainelSubir from './painel-subir.vue'
 import PainelConferir from './painel-conferir.vue'
 import './estudio.css'
 const route = useRoute(); const router = useRouter()
-function voltarCentral() { router.push({ name: 'inicio' }) }
 function voltarHome() { router.push({ name: 'fabrica-estudio' }) }
+const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
+const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 const campanhaId = ref(route.params.id || null)
 const passo = ref(campanhaId.value ? 'curar' : 'gerar')
 const subirResultado = ref(null)
@@ -75,8 +76,9 @@ onUnmounted(() => { if (_clockTimer) clearInterval(_clockTimer) })
     <div class="shell">
       <!-- BARRA DE STATUS -->
       <header class="topbar">
-        <button class="voltar-central" @click="voltarCentral" aria-label="Voltar para a Central">← Central</button>
         <button class="voltar-central" @click="voltarHome" aria-label="Voltar para a Fábrica">← Fábrica</button>
+        <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
+        <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
         <div class="brand">
           <div class="t">Fábrica de Anúncios</div>
           <div class="s">Estúdio de Criativos</div>
