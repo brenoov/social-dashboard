@@ -159,10 +159,11 @@ export async function run({
   const ESTRELA_CANAL = estrela;
   const ESTRELA_DEPOSITO = deposito;
   let heroIaLooks = heroIa ? ['hero-ia'] : [];   // looks IA a rodar: --hero-ia/params.heroIa + looks IA ativos (curadoria)
-  // Teto de GERAÇÕES gpt-image por LOTE (job). ~3min/geração -> 10 ≈ 30min, folga confortável no
-  // timeout de 45min do Action. Ao atingir o teto com trabalho restante, o runner encadeia o próximo
-  // lote automaticamente (idempotência retoma). Ajuste via HERO_IA_MAX/param heroIaMax.
-  const orcamentoIA = { restante: Number(heroIaMax ?? process.env.HERO_IA_MAX ?? 10) };
+  // Teto de GERAÇÕES gpt-image por LOTE (job). Medido: ~4,5min/geração + o MP4 (motion) do 16:9.
+  // 6 gerações ≈ 27min + motion + deps ≈ 38min, folga segura no timeout de 45min do Action (com 10 o
+  // lote chegou a 43min — perto demais). Ao atingir o teto, o runner encadeia o próximo lote sozinho
+  // (idempotência retoma). Ajuste via HERO_IA_MAX/param heroIaMax.
+  const orcamentoIA = { restante: Number(heroIaMax ?? process.env.HERO_IA_MAX ?? 6) };
   // sem --limite (limite null): Infinity no modo normal, 20 candidatos no modo estrela
   const LIMITE = limite == null ? Infinity : Number(limite);
   const ESTRELA_LIMITE = limite == null ? 20 : Number(limite);
