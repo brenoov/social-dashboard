@@ -304,7 +304,7 @@
 /* overlay NÃO bloqueia a página (pointer-events:none): o usuário clica nos botões da tela normalmente
    durante o tour; só o balão (com seus botões) captura clique. Fecha por Pular/Concluir/ESC. */
 .fest .tour-overlay{position:fixed; inset:0; z-index:50; pointer-events:none}
-.fest .tour-realce{position:absolute; border:2px solid var(--cyan); border-radius:10px; box-shadow:0 0 0 9999px rgba(3,6,10,.55); pointer-events:none; transition:all .15s ease}
+.fest .tour-realce{position:absolute; border:2px solid var(--cyan); border-radius:10px; box-shadow:0 0 0 9999px rgba(3,6,10,.55); pointer-events:none; transition:top .15s ease, left .15s ease, width .15s ease, height .15s ease}
 @media (prefers-reduced-motion: reduce){ .fest .tour-realce{ transition:none } }
 .fest .tour-balao{position:absolute; z-index:51; pointer-events:auto; width:min(320px,86vw); background:var(--panel); border:1px solid var(--edge-hot); border-radius:var(--r); padding:14px 16px; box-shadow:0 12px 34px rgba(0,0,0,.4)}
 .fest .tour-tit{font-weight:700; font-size:14px}

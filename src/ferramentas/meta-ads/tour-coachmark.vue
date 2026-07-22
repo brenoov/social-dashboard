@@ -11,17 +11,19 @@ function medir() {
   passo.value = p || null
   if (!p) return
   const el = document.querySelector(p.selector)
-  if (!el) { rect.value = null; return }
-  el.scrollIntoView({ block: 'center', behavior: 'auto' })
+  if (!el) { rect.value = null; return }   // alvo ausente -> sem spotlight, balão centralizado (mostra o texto)
   const r = el.getBoundingClientRect()
   rect.value = { top: r.top, left: r.left, width: r.width, height: r.height }
 }
 async function irPara(i) {
-  // pula passos cujo elemento não existe (resiliente a mudanças de UI)
-  let n = i
-  while (n >= 0 && n < props.passos.length && !document.querySelector(props.passos[n].selector)) n += (i >= idx.value ? 1 : -1)
-  if (n < 0 || n >= props.passos.length) { fechar(); return }
-  idx.value = n; await nextTick(); medir()
+  const n = Math.max(0, Math.min(i, props.passos.length - 1))
+  idx.value = n
+  await nextTick()
+  // scroll UMA vez ao trocar de passo — NUNCA dentro de medir(): o listener de 'scroll'
+  // chama medir, e medir chamando scrollIntoView disparava scroll de novo = loop que trava a tela.
+  const el = document.querySelector(props.passos[n].selector)
+  if (el) el.scrollIntoView({ block: 'center', behavior: 'auto' })
+  medir()
 }
 function proximo() { irPara(idx.value + 1) }
 function anterior() { irPara(idx.value - 1) }
