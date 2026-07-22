@@ -219,10 +219,26 @@ async function subirNumaCampanha({ metaCampaignId, adsets, escolhidos, destino, 
   const existentes = await metaTodos(`/${metaCampaignId}/ads`, { fields: 'name,adset_id', limit: 500 });
   const jaTem = new Set(existentes.map((a) => `${a.adset_id}::${a.name}`));
   const legendaMarca = montarLegenda(MARCA.captionTemplate, { marca: MARCA.nome }).trim();
-  const itens = escolhidos.map((c, i) => ({ chave: c.id, produto: c.sku || String(c.id).slice(0, 8), url: c.url, mensagem: c.legenda || legendaMarca, getHash: () => uploadImagemBytes(c.url, 'img' + i) }));
+  // 1 ANÚNCIO = 1 (sku, variante): as PROPORÇÕES (formatos) do mesmo look+preço viram placements de um
+  // único anúncio (não 1 ad por imagem). Agrupa os escolhidos por (sku, variante).
+  const grupos = new Map();
+  for (const c of escolhidos) {
+    const k = `${c.sku}|${c.variante}`;
+    if (!grupos.has(k)) grupos.set(k, { sku: c.sku, variante: c.variante, mensagem: c.legenda || legendaMarca, imagens: [] });
+    grupos.get(k).imagens.push({ formato: c.formato, url: c.url });
+  }
+  let _gi = 0;
+  const itens = [...grupos.values()].map((g) => {
+    const idx = _gi++;
+    return {
+      chave: `${g.sku}-${g.variante}`, produto: g.sku, variante: g.variante, mensagem: g.mensagem,
+      // sobe cada proporção 1x (hash da conta) -> [{formato,hash}] p/ o payloadPlacements montar 1 creative
+      getImagens: async () => Promise.all(g.imagens.map((im, j) => uploadImagemBytes(im.url, `img${idx}_${j}`).then((hash) => ({ formato: im.formato, hash })))),
+    };
+  });
   const adIds = [];
-  // Nome do anúncio legível: "Bolsa <sku> · <loja>" (sem UUID). lojaNome=null (campanha existente) cai na marca.
-  const nomear = (item) => `Bolsa ${item.produto} · ${lojaNome || MARCA.nome || 'Loja'}`.slice(0, 200);
+  // Nome do anúncio (único por look+preço, senão a idempotência colide): "Bolsa <sku> · <variante> · <loja>".
+  const nomear = (item) => `Bolsa ${item.produto} · ${item.variante} · ${lojaNome || MARCA.nome || 'Loja'}`.slice(0, 200);
   const res = await subirCriativos({
     meta, act: MARCA.adAccount, page: MARCA.pageId, ig: MARCA.igId,
     itens, adsets, prefixo: 'Estudio', mensagem: legendaMarca, jaTem, nomear,
@@ -259,7 +275,7 @@ export async function run({ campanhaId, destino, dry = false }) {
   //    REGRA (cliente): o formato WIDESCREEN 16:9 (1920x1080) NÃO sobe pro Meta — é reservado pro
   //    Google Ads (YouTube), a conectar depois. Ele segue sendo gerado e curável, só não é veiculado
   //    aqui. Quando entrar o Google Ads, criar o subir-google.mjs que sobe justamente o 1920x1080.
-  const escolhidos = await sbGet(`/fabrica_criativos?select=id,url,storage_path,legenda,sku&campanha_id=eq.${campanhaId}&escolhido=eq.true&purgado_em=is.null&formato=neq.1920x1080`);
+  const escolhidos = await sbGet(`/fabrica_criativos?select=id,url,storage_path,legenda,sku,variante,formato&campanha_id=eq.${campanhaId}&escolhido=eq.true&purgado_em=is.null&formato=neq.1920x1080`);
   if (escolhidos.length === 0) return { adIds: [], pendentes: 0, metaCampaignId: null, adsetIds: [], criouCampanha };
 
   // 2) resolve destino -> sobe em 1 (existente / 1 loja) ou N campanhas (uma por loja). Cada
