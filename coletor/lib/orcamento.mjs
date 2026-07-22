@@ -27,5 +27,8 @@ export function orcamentoMeta(orcamento, defaultDaily = 5000) {
   } else {
     alvo.daily_budget = o.valor;
   }
+  // bid_strategy mora ONDE o orçamento mora: CBO=campanha, ABO=conjunto. Ter bid_strategy no
+  // conjunto sob CBO é rejeitado pelo Meta (code 100/1815857 "Invalid parameter") — validado ao vivo.
+  alvo.bid_strategy = 'LOWEST_COST_WITHOUT_CAP';
   return { campaign, adset };
 }

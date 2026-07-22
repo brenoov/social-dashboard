@@ -175,7 +175,6 @@ export function payloadCampanhaAdset(row, marca, loja, cfg, publico = null, orca
     name: nomeConjunto(loja, row),
     billing_event: row.billing_event || 'IMPRESSIONS',
     optimization_goal: row.optimization_goal,
-    bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
     status: 'PAUSED',
     targeting: montarTargeting(publico, loja),
   };
