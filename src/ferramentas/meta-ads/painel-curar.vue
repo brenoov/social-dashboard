@@ -10,6 +10,7 @@ const itensCampanha = ref([])
 const lojas = ref([])
 const visor = ref(null)
 const statusCampanha = ref(null)
+const motivoErro = ref(null)
 let poll = null
 async function carregar() {
   if (!props.campanhaId) return
@@ -49,8 +50,12 @@ function fecharVisor() { visor.value = null }
 function onKey(e) { if (e.key === 'Escape') fecharVisor() }
 async function lerStatus() {
   if (!props.campanhaId) return
-  const r = await sb(`fabrica_campanhas?select=status&id=eq.${props.campanhaId}`)
+  const r = await sb(`fabrica_campanhas?select=status,job_id&id=eq.${props.campanhaId}`)
   statusCampanha.value = r[0]?.status || null
+  if (statusCampanha.value === 'erro' && r[0]?.job_id) {
+    const j = await sb(`fabrica_jobs?select=erro&id=eq.${r[0].job_id}`)
+    motivoErro.value = j[0]?.erro || null
+  }
   if (statusCampanha.value !== 'gerando' && poll) { clearInterval(poll); poll = null }
 }
 async function tickStreaming() { await carregar(); await lerStatus() }
@@ -87,7 +92,7 @@ watch(() => props.campanhaId, iniciar, { immediate: true })
         </span>
       </div>
       <p v-if="statusCampanha === 'gerando'" class="js-run"><i class="led run"></i> Ainda gerando… os criativos vão aparecendo aqui. Pode ir marcando os que gostar.</p>
-      <p v-else-if="statusCampanha === 'erro'" class="js-err">A geração falhou. Volte à Fábrica e tente uma nova campanha.</p>
+      <p v-else-if="statusCampanha === 'erro'" class="js-err">{{ motivoErro || 'A geração falhou. Volte à Fábrica e tente uma nova campanha.' }}</p>
       <div v-if="itens.length" class="curagrid">
         <section v-for="sec in secoes" :key="sec.loja" class="loja-sec">
           <button class="loja-head" @click="alternarSecao(sec.loja)">
