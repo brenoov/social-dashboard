@@ -78,6 +78,39 @@ export function payloadCriativa({ hash, adsetDestinationType, waNumero, page, ig
   };
 }
 
+// PLACEMENT ASSET CUSTOMIZATION: 1 anúncio = 1 (sku, variante) com VÁRIAS proporções, cada uma no
+// seu placement (não 1 ad por imagem). formato -> label -> posicionamentos da Meta.
+const LABEL_FMT = { '1080x1350': 'feed', '1080x1080': 'square', '1080x1920': 'story' };
+function regrasPlacement(labels) {
+  const has = (l) => labels.includes(l);
+  const regras = [];
+  if (has('story')) regras.push({ customization_spec: { publisher_platforms: ['facebook', 'instagram'], facebook_positions: ['story', 'facebook_reels'], instagram_positions: ['story', 'reels'] }, image_label: { name: 'story' } });
+  if (has('feed')) regras.push({ customization_spec: { publisher_platforms: ['facebook', 'instagram'], facebook_positions: ['feed'], instagram_positions: ['stream'] }, image_label: { name: 'feed' } });
+  // regra DEFAULT (pega o resto): 1:1 se houver, senão 4:5, senão 9:16
+  const def = has('square') ? 'square' : (has('feed') ? 'feed' : 'story');
+  regras.push({ customization_spec: { publisher_platforms: ['facebook', 'instagram', 'audience_network', 'messenger'] }, image_label: { name: def }, is_default: true });
+  return regras;
+}
+// Monta o creative de 1 anúncio a partir de VÁRIAS imagens (proporções). `imagens`=[{formato,hash}].
+export function payloadPlacements({ imagens, adsetDestinationType, waNumero, page, ig, mensagem }) {
+  const dt = String(adsetDestinationType || '').toUpperCase();
+  const images = imagens.map(({ formato, hash }) => ({ hash, adlabels: [{ name: LABEL_FMT[formato] || formato }] }));
+  const labels = images.map((i) => i.adlabels[0].name);
+  const afs = { images, bodies: [{ text: mensagem }], ad_formats: ['SINGLE_IMAGE'], asset_customization_rules: regrasPlacement(labels) };
+  const base = { object_story_spec: { page_id: page, instagram_user_id: ig }, asset_feed_spec: afs, degrees_of_freedom_spec: DOF_SPEC };
+  if (!dt || dt === 'NONE') { afs.link_urls = [{ website_url: 'https://www.instagram.com/' }]; afs.call_to_action_types = ['LEARN_MORE']; return base; }
+  const multi = dt.includes('WHATSAPP') && (dt.includes('MESSENGER') || dt.includes('INSTAGRAM'));
+  if (!multi) { afs.link_urls = [{ website_url: 'https://wa.me/' + soDigitos(waNumero) }]; afs.call_to_action_types = ['WHATSAPP_MESSAGE']; return base; }
+  const mLink = `https://m.me/${page}`, waUrl = `https://api.whatsapp.com/send?phone=${soDigitos(waNumero)}`;
+  afs.optimization_type = 'DOF_MESSAGING_DESTINATION';
+  afs.call_to_actions = [
+    { type: 'MESSAGE_PAGE', value: { app_destination: 'MESSENGER', link: mLink } },
+    { type: 'WHATSAPP_MESSAGE', value: { app_destination: 'WHATSAPP', link: waUrl } },
+    { type: 'INSTAGRAM_MESSAGE', value: { app_destination: 'INSTAGRAM_DIRECT', link: 'https://www.instagram.com' } },
+  ];
+  return base;
+}
+
 // Cria adcreative+ad PAUSED por (item × adset), pulando o que já existe em `jaTem`
 // (Set de `${adsetId}::${nome}`). `item.getHash()` sobe a imagem 1x por item (hash é da conta,
 // reusado em todos os adsets). Em rate limit (Meta code 17 / "request limit") para e devolve
@@ -92,11 +125,16 @@ export async function subirCriativos({ meta, act, page, ig, itens, adsets, prefi
     // subir a imagem à toa numa re-rodada idempotente (portado do subir-campanha-genspark.mjs).
     const faltam = adsets.filter((a) => !jaTem.has(`${a.id}::${construirNome(item, a)}`));
     if (faltam.length === 0) continue;
-    const hash = await item.getHash();
+    // AGRUPADO: item.getImagens() devolve [{formato,hash}] -> 1 ad com as proporções nos placements.
+    // LEGADO: item.getHash() (1 imagem por ad).
+    const imagens = item.getImagens ? await item.getImagens() : null;
+    const hash = imagens ? null : await item.getHash();
     for (const a of faltam) {
       const nome = construirNome(item, a);
       try {
-        const params = payloadCriativa({ hash, adsetDestinationType: a.destinationType, waNumero: a.whatsapp, page, ig, mensagem: item.mensagem ?? mensagem });
+        const params = imagens
+          ? payloadPlacements({ imagens, adsetDestinationType: a.destinationType, waNumero: a.whatsapp, page, ig, mensagem: item.mensagem ?? mensagem })
+          : payloadCriativa({ hash, adsetDestinationType: a.destinationType, waNumero: a.whatsapp, page, ig, mensagem: item.mensagem ?? mensagem });
         const cr = await criarAdCreativeComFallbackIG(meta, act, params);
         const ad = await meta(`/${act}/ads`, { name: nome, adset_id: a.id, creative: { creative_id: cr.id }, status: 'PAUSED' }, 'POST');
         if (ad.status !== 200 || !ad.d?.id) throw new Error('ad ' + JSON.stringify(ad.d).slice(0, 200));
