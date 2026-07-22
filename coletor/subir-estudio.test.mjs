@@ -2,15 +2,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { run, resolverLoja, payloadCampanhaAdset, lojasDoDestino } from './subir-estudio.mjs';
 
-test('lojasDoDestino: normaliza p/ [{slug, publico}] (público por loja)', () => {
+test('lojasDoDestino: normaliza p/ [{slug, publico, orcamento}] (público por loja)', () => {
   // slugs (retrocompat) + público único da campanha
   assert.deepEqual(lojasDoDestino({ lojas: ['tivoli', 'dp'], publico: { g: 1 } }),
-    [{ slug: 'tivoli', publico: { g: 1 } }, { slug: 'dp', publico: { g: 1 } }]);
+    [{ slug: 'tivoli', publico: { g: 1 }, orcamento: null }, { slug: 'dp', publico: { g: 1 }, orcamento: null }]);
   // público POR loja
   assert.deepEqual(lojasDoDestino({ lojas: [{ slug: 'tivoli', publico: { a: 1 } }, { slug: 'dp', publico: { b: 2 } }] }),
-    [{ slug: 'tivoli', publico: { a: 1 } }, { slug: 'dp', publico: { b: 2 } }]);
+    [{ slug: 'tivoli', publico: { a: 1 }, orcamento: null }, { slug: 'dp', publico: { b: 2 }, orcamento: null }]);
   // single retrocompat
-  assert.deepEqual(lojasDoDestino({ loja: 'tivoli' }), [{ slug: 'tivoli', publico: null }]);
+  assert.deepEqual(lojasDoDestino({ loja: 'tivoli' }), [{ slug: 'tivoli', publico: null, orcamento: null }]);
   assert.deepEqual(lojasDoDestino({}), []);
   assert.deepEqual(lojasDoDestino(null), []);
 });
@@ -86,4 +86,38 @@ test('run({dry:true}) sem escolhidos retorna adIds vazio', async () => {
   assert.deepEqual(r.adIds, []);
   assert.equal(r.pendentes, 0);
   assert.equal(r.metaCampaignId, null);
+});
+
+test('lojasDoDestino inclui orcamento por loja (default null)', () => {
+  assert.deepEqual(
+    lojasDoDestino({ lojas: [{ slug: 'tivoli', publico: { a: 1 }, orcamento: { modo: 'CBO', tipo: 'diario', valor: 9000 } }] }),
+    [{ slug: 'tivoli', publico: { a: 1 }, orcamento: { modo: 'CBO', tipo: 'diario', valor: 9000 } }]);
+  // slugs (retrocompat): orcamento null
+  assert.deepEqual(lojasDoDestino({ lojas: ['dp'] }), [{ slug: 'dp', publico: null, orcamento: null }]);
+});
+
+test('payloadCampanhaAdset sem orcamento = ABO diario DAILY_BUDGET (retrocompat byte-idêntico)', () => {
+  const row = { chave: 'engajamento', meta_objective: 'OUTCOME_ENGAGEMENT', optimization_goal: 'CONVERSATIONS', billing_event: 'IMPRESSIONS', destination_type: 'WHATSAPP', promoted_object_tipo: 'whatsapp' };
+  const { campaign, adset } = payloadCampanhaAdset(row, MARCA, LOJA, CFG);
+  assert.equal(adset.daily_budget, 5000);
+  assert.ok(!('lifetime_budget' in adset));
+  assert.ok(!('daily_budget' in campaign));
+  assert.equal(campaign.is_adset_budget_sharing_enabled, false);
+});
+
+test('payloadCampanhaAdset CBO diario -> budget na campanha, adset sem budget', () => {
+  const row = { chave: 'engajamento', meta_objective: 'OUTCOME_ENGAGEMENT', optimization_goal: 'CONVERSATIONS', billing_event: 'IMPRESSIONS', destination_type: 'WHATSAPP', promoted_object_tipo: 'whatsapp' };
+  const { campaign, adset } = payloadCampanhaAdset(row, MARCA, LOJA, CFG, null, { modo: 'CBO', tipo: 'diario', valor: 12000 });
+  assert.equal(campaign.daily_budget, 12000);
+  assert.ok(!('daily_budget' in adset));
+});
+
+test('payloadCampanhaAdset ABO total -> lifetime + datas no adset', () => {
+  const row = { chave: 'engajamento', meta_objective: 'OUTCOME_ENGAGEMENT', optimization_goal: 'CONVERSATIONS', billing_event: 'IMPRESSIONS', destination_type: 'WHATSAPP', promoted_object_tipo: 'whatsapp' };
+  const { campaign, adset } = payloadCampanhaAdset(row, MARCA, LOJA, CFG, null, { modo: 'ABO', tipo: 'total', valor: 30000, inicio: 'I', fim: 'F' });
+  assert.equal(adset.lifetime_budget, 30000);
+  assert.equal(adset.start_time, 'I');
+  assert.equal(adset.end_time, 'F');
+  assert.ok(!('daily_budget' in adset));
+  assert.ok(!('lifetime_budget' in campaign));
 });

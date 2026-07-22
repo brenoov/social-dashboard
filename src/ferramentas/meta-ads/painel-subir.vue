@@ -6,6 +6,7 @@ import { useJobStatus } from './use-job-status.js'
 import AjudaTooltip from './ajuda-tooltip.vue'
 import TourCoachmark from './tour-coachmark.vue'
 import { TOUR_SUBIR } from './tutorial-fabrica.js'
+import { orcamentoBase, validarOrcamento, orcamentoParaEnvio } from './orcamento-form.js'
 const tourAberto = ref(false)
 const props = defineProps({ campanhaId: String, retomarJobId: String })
 const emit = defineEmits(['subido'])
@@ -43,19 +44,29 @@ function publicoBase(slug) {
 }
 const publico = reactive(publicoBase('tivoli'))
 const publicoPorLoja = reactive({})   // slug -> snapshot do público daquela loja
+const orcamento = reactive(orcamentoBase())          // config da loja ATIVA
+const orcamentoPorLoja = reactive({})                // slug -> snapshot do orçamento
 const lojaAtiva = ref('tivoli')
 const clone = (o) => JSON.parse(JSON.stringify(o))
-function salvarAtiva() { if (lojaAtiva.value) publicoPorLoja[lojaAtiva.value] = clone(publico) }
-function carregarLoja(slug) { Object.assign(publico, clone(publicoPorLoja[slug] || publicoBase(slug))) }
+function salvarAtiva() {
+  if (!lojaAtiva.value) return
+  publicoPorLoja[lojaAtiva.value] = clone(publico)
+  orcamentoPorLoja[lojaAtiva.value] = clone(orcamento)
+}
+function carregarLoja(slug) {
+  Object.assign(publico, clone(publicoPorLoja[slug] || publicoBase(slug)))
+  Object.assign(orcamento, clone(orcamentoPorLoja[slug] || orcamentoBase()))
+}
 function trocarAba(slug) { if (slug === lojaAtiva.value) return; salvarAtiva(); lojaAtiva.value = slug; carregarLoja(slug) }
 function toggleLoja(slug) {
   const i = destino.lojas.indexOf(slug)
   if (i > -1) {
-    destino.lojas.splice(i, 1); delete publicoPorLoja[slug]
+    destino.lojas.splice(i, 1); delete publicoPorLoja[slug]; delete orcamentoPorLoja[slug]
     if (lojaAtiva.value === slug) { lojaAtiva.value = destino.lojas[0] || ''; if (lojaAtiva.value) carregarLoja(lojaAtiva.value) }
   } else {
     salvarAtiva(); destino.lojas.push(slug)
     if (!publicoPorLoja[slug]) publicoPorLoja[slug] = publicoBase(slug)
+    if (!orcamentoPorLoja[slug]) orcamentoPorLoja[slug] = orcamentoBase()
     lojaAtiva.value = slug; carregarLoja(slug)
   }
 }
@@ -152,7 +163,7 @@ onMounted(async () => {
   // resolve os nomes reais das cidades default (todas as lojas) ANTES de montar os públicos
   await resolverNomesCidades(lojasCfg.value.flatMap((l) => l.geo_cities || []))
   // (re)inicializa o público de cada loja já selecionada com a(s) cidade(s) de origem dela
-  for (const slug of destino.lojas) publicoPorLoja[slug] = publicoBase(slug)
+  for (const slug of destino.lojas) { publicoPorLoja[slug] = publicoBase(slug); orcamentoPorLoja[slug] = orcamentoBase() }
   lojaAtiva.value = destino.lojas[0] || 'tivoli'
   carregarLoja(lojaAtiva.value)
   const { data } = await sbClient.functions.invoke('meta-proxy', { body: { accountId: ACCOUNT_ID, path: `/${ACT}/campaigns`, params: { fields: 'id,name', limit: 200 }, method: 'GET' } })
@@ -165,9 +176,19 @@ onMounted(async () => {
 async function subir() {
   if (destino.tipo === 'nova' && !destino.lojas.length) return alert('Selecione ao menos uma loja.')
   salvarAtiva() // persiste a aba atual antes de montar o payload
+  if (destino.tipo === 'nova') {
+    for (const slug of destino.lojas) {
+      const v = validarOrcamento(orcamentoPorLoja[slug] || orcamento)
+      if (!v.ok) return alert(`Orçamento da loja ${LOJAS.find(l=>l.slug===slug)?.nome || slug}: ${v.erro}`)
+    }
+  }
   const params = { campanhaId: props.campanhaId, destino: destino.tipo === 'existente'
     ? { tipo: 'existente', campaignId: destino.campaignId }
-    : { tipo: 'nova', lojas: destino.lojas.map((slug) => ({ slug, publico: publicoParaEnvio(publicoPorLoja[slug] || publico) })) } }
+    : { tipo: 'nova', lojas: destino.lojas.map((slug) => ({
+        slug,
+        publico: publicoParaEnvio(publicoPorLoja[slug] || publico),
+        orcamento: orcamentoParaEnvio(orcamentoPorLoja[slug] || orcamento),
+      })) } }
   const { data, error } = await sbClient.functions.invoke('fabrica-trigger', { body: { tipo: 'subir', params } })
   if (error) return alert('Falha: ' + error.message)
   if (!data?.job_id) return alert('Sem job_id na resposta')
@@ -240,6 +261,42 @@ watch(job, (j) => { if (j?.status === 'concluido' && j.resultado) emit('subido',
         </button>
       </div>
       <p v-if="destino.lojas.length > 1" class="eyebrow muted" style="margin:-4px 0 10px">Editando o público de <b>{{ LOJAS.find(l=>l.slug===lojaAtiva)?.nome || lojaAtiva }}</b>.</p>
+
+      <div class="orc-bloco" style="margin:8px 0 18px; padding:14px; border:1px solid var(--linha,#2a2a2a); border-radius:12px">
+        <p class="eyebrow" style="margin:0 0 10px"><b>Orçamento</b> desta loja</p>
+
+        <div class="orc-linha" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px">
+          <button type="button" class="loja-chip" :class="{ sel: orcamento.modo==='ABO' }" @click="orcamento.modo='ABO'">ABO — no conjunto</button>
+          <button type="button" class="loja-chip" :class="{ sel: orcamento.modo==='CBO' }" @click="orcamento.modo='CBO'">CBO — na campanha</button>
+        </div>
+        <p class="muted" style="font-size:12px; margin:-4px 0 12px">
+          {{ orcamento.modo==='CBO' ? 'CBO: você dá um orçamento único e a Meta divide entre os conjuntos, otimizando sozinha.' : 'ABO: o orçamento fica fixo neste conjunto de anúncios.' }}
+        </p>
+
+        <div class="orc-linha" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px">
+          <button type="button" class="loja-chip" :class="{ sel: orcamento.tipo==='diario' }" @click="orcamento.tipo='diario'">Diário</button>
+          <button type="button" class="loja-chip" :class="{ sel: orcamento.tipo==='total' }" @click="orcamento.tipo='total'">Total (período)</button>
+        </div>
+
+        <label class="campo" style="display:block; margin-bottom:12px">
+          <span class="eyebrow muted">Valor {{ orcamento.tipo==='diario' ? 'por dia' : 'total do período' }} (R$)</span>
+          <input type="text" inputmode="decimal" v-model="orcamento.valorReais" placeholder="50,00" style="width:100%">
+        </label>
+
+        <div v-if="orcamento.tipo==='total'" style="display:flex; flex-wrap:wrap; gap:12px">
+          <label class="campo" style="flex:1 1 160px">
+            <span class="eyebrow muted">Início</span>
+            <input type="date" v-model="orcamento.inicio" style="width:100%">
+          </label>
+          <label class="campo" style="flex:1 1 160px">
+            <span class="eyebrow muted">Fim</span>
+            <input type="date" v-model="orcamento.fim" style="width:100%">
+          </label>
+        </div>
+        <p v-if="orcamento.tipo==='total'" class="muted" style="font-size:12px; margin:8px 0 0">
+          A campanha sobe pausada; se a data de início já tiver passado quando você ativar, a Meta ajusta pra ativação.
+        </p>
+      </div>
 
       <div class="fields">
         <label class="field wide">
