@@ -84,11 +84,13 @@ const LABEL_FMT = { '1080x1350': 'feed', '1080x1080': 'square', '1080x1920': 'st
 function regrasPlacement(labels) {
   const has = (l) => labels.includes(l);
   const regras = [];
-  if (has('story')) regras.push({ customization_spec: { publisher_platforms: ['facebook', 'instagram'], facebook_positions: ['story', 'facebook_reels'], instagram_positions: ['story', 'reels'] }, image_label: { name: 'story' } });
-  if (has('feed')) regras.push({ customization_spec: { publisher_platforms: ['facebook', 'instagram'], facebook_positions: ['feed'], instagram_positions: ['stream'] }, image_label: { name: 'feed' } });
-  // regra DEFAULT (pega o resto): 1:1 se houver, senão 4:5, senão 9:16
+  // regra DEFAULT (prioridade 0 = mais baixa = fallback): pega tudo que não casar nas específicas.
+  // Meta EXIGE a default com a menor priority (subcode 1885923 sem ela). 1:1 se houver, senão 4:5, senão 9:16.
   const def = has('square') ? 'square' : (has('feed') ? 'feed' : 'story');
-  regras.push({ customization_spec: { publisher_platforms: ['facebook', 'instagram', 'audience_network', 'messenger'] }, image_label: { name: def }, is_default: true });
+  regras.push({ customization_spec: { publisher_platforms: ['facebook', 'instagram', 'audience_network', 'messenger'] }, image_label: { name: def }, priority: 0 });
+  let p = 1;
+  if (has('feed')) regras.push({ customization_spec: { publisher_platforms: ['facebook', 'instagram'], facebook_positions: ['feed'], instagram_positions: ['stream'] }, image_label: { name: 'feed' }, priority: p++ });
+  if (has('story')) regras.push({ customization_spec: { publisher_platforms: ['facebook', 'instagram'], facebook_positions: ['story', 'facebook_reels'], instagram_positions: ['story', 'reels'] }, image_label: { name: 'story' }, priority: p++ });
   return regras;
 }
 // Monta o creative de 1 anúncio a partir de VÁRIAS imagens (proporções). `imagens`=[{formato,hash}].
