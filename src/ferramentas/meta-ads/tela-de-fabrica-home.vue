@@ -1,9 +1,9 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
-import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
+import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import TourCoachmark from './tour-coachmark.vue'
 import { CHECKLIST, COACH } from './tutorial-fabrica.js'
 import './estudio.css'
@@ -40,6 +40,7 @@ async function carregar() {
   publicadas.value = await sb("fabrica_campanhas?select=id,nome,fechada_em&fechada_em=not.is.null&order=fechada_em.desc&limit=8")
   const { count: totCri } = await sbClient.from('fabrica_criativos').select('id', { count: 'exact', head: true })
   nums.value = { criando: camp.length, criativos: totCri || 0, publicadas: publicadas.value.length }
+  carregarStatusPublicadas()   // em 2º plano: pinta os badges quando o Meta responde
 }
 const temGerando = computed(() => emCriacao.value.some((c) => c.status === 'gerando'))
 function statusLabel(c) { return c.status === 'gerando' ? `Gerando… ${c.qtd} criativos` : c.status === 'pronta' ? 'Pronta pra curar' : 'Deu erro ao gerar' }
@@ -50,6 +51,55 @@ function voltarCentral() { router.push({ name: 'inicio' }) }
 const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
 const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 const GERENCIADOR = 'https://adsmanager.facebook.com/adsmanager/'
+const ACCOUNT_ID = 'b6883e82-07cb-4f21-9fd7-ea7626786174'
+// Status real de cada campanha publicada no Meta -> badge (Ativa/Pausada/Arquivada/Excluída).
+const statusPub = reactive({})   // campanhaId -> { estado, metaId }
+const RANK = { ativa: 4, pausada: 3, arquivada: 2, excluida: 1 }
+const BADGE = {
+  ativa: { txt: 'Ativa', cls: 'ok' }, pausada: { txt: 'Pausada', cls: 'warn' },
+  arquivada: { txt: 'Arquivada', cls: 'mute' }, excluida: { txt: 'Excluída', cls: 'bad' },
+}
+function badgeDe(id) { return BADGE[statusPub[id]?.estado] || null }
+function linkGerenciador(id) { const mid = statusPub[id]?.metaId; return mid ? `${GERENCIADOR}manage/campaigns?selected_campaign_ids=${mid}` : GERENCIADOR }
+function estadoDoStatus(eff) {
+  const s = String(eff || '').toUpperCase()
+  if (s === 'ACTIVE' || s === 'WITH_ISSUES') return 'ativa'
+  if (s.includes('PAUSED')) return 'pausada'
+  if (s === 'ARCHIVED') return 'arquivada'
+  if (s === 'DELETED') return 'excluida'
+  return 'pausada'
+}
+// Excluída = o Graph nega o GET (code 100 / "does not exist"). Erro transitório -> '?' (não afirma excluída).
+async function statusCampanhaMeta(metaId) {
+  try {
+    const { data: { session } } = await sbClient.auth.getSession()
+    const r = await fetch(SUPABASE_URL + '/functions/v1/meta-proxy', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + (session?.access_token || SUPABASE_ANON_KEY), apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accountId: ACCOUNT_ID, path: '/' + metaId, params: { fields: 'effective_status' }, method: 'GET' }),
+    })
+    const d = await r.json().catch(() => null)
+    if (d && d.effective_status) return estadoDoStatus(d.effective_status)
+    const msg = String((d && d.error && (d.error.message || d.error)) || '')
+    if ((d && d.error && d.error.code === 100) || /does not exist|Unsupported get|nonexisting/i.test(msg)) return 'excluida'
+    return '?'
+  } catch { return '?' }
+}
+async function carregarStatusPublicadas() {
+  const ids = publicadas.value.map((c) => c.id)
+  if (!ids.length) return
+  let jobs = []
+  try { jobs = await sb(`fabrica_meta_jobs?select=meta_campaign_id,payload&meta_campaign_id=not.is.null&payload->>campanhaId=in.(${ids.join(',')})`) } catch { jobs = [] }
+  const porCamp = {}
+  for (const j of (jobs || [])) { const cid = j.payload?.campanhaId; if (!cid || !j.meta_campaign_id) continue; (porCamp[cid] ||= new Set()).add(j.meta_campaign_id) }
+  await Promise.all(publicadas.value.map(async (c) => {
+    const metaIds = [...(porCamp[c.id] || [])]
+    if (!metaIds.length) { statusPub[c.id] = { estado: '?', metaId: null }; return }
+    const estados = (await Promise.all(metaIds.map(statusCampanhaMeta))).filter((e) => e !== '?')
+    const estado = estados.length ? estados.sort((a, b) => RANK[b] - RANK[a])[0] : '?'
+    statusPub[c.id] = { estado, metaId: metaIds[0] }
+  }))
+}
 async function apagar(c) {
   if (!confirm(`Apagar a campanha "${c.nome}"? ${c.status === 'gerando' ? 'A geração em andamento será cancelada. ' : ''}Isso remove os criativos e não dá pra desfazer.`)) return
   const { error } = await sbClient.functions.invoke('fabrica-apagar', { body: { campanhaId: c.id } })
@@ -154,8 +204,8 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
         <div class="ph"><span class="eyebrow">Publicadas recentes</span></div>
         <div v-if="publicadas.length" class="home-list">
           <div v-for="c in publicadas" :key="c.id" class="fab-card">
-            <div class="hc-main"><div class="hc-nome">{{ c.nome }}</div></div>
-            <a class="cmd" :href="GERENCIADOR" target="_blank">Ver no Gerenciador ↗</a>
+            <div class="hc-main"><div class="hc-nome">{{ c.nome }}<span v-if="badgeDe(c.id)" class="pub-badge" :class="badgeDe(c.id).cls">{{ badgeDe(c.id).txt }}</span><span v-else class="pub-badge mute">…</span></div></div>
+            <a class="cmd" :href="linkGerenciador(c.id)" target="_blank">Ver no Gerenciador ↗</a>
           </div>
         </div>
         <p v-else class="empty">Nada publicado ainda.</p>
