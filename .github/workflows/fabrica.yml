@@ -54,4 +54,10 @@ jobs:
           # encadeamento automático dos lotes (o runner dispara o próximo lote via workflow_dispatch)
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPO: ${{ github.repository }}
+          # Zoho WorkDrive: export dos finais pra nuvem (por loja -> data) quando a campanha fica pronta.
+          # Sem estes secrets, o export é pulado (não quebra o job).
+          ZOHO_CLIENT_ID: ${{ secrets.ZOHO_CLIENT_ID }}
+          ZOHO_CLIENT_SECRET: ${{ secrets.ZOHO_CLIENT_SECRET }}
+          ZOHO_REFRESH_TOKEN: ${{ secrets.ZOHO_REFRESH_TOKEN }}
+          ZOHO_DC: ${{ secrets.ZOHO_DC }}
         run: cd coletor && node --import ./lib/curl-fetch.mjs fabrica-job-runner.mjs
