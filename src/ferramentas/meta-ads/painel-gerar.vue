@@ -9,8 +9,11 @@ import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { useCandidatos } from './use-candidatos.js'
 import AjudaTooltip from './ajuda-tooltip.vue'
+import TourCoachmark from './tour-coachmark.vue'
+import { TOUR_GERAR } from './tutorial-fabrica.js'
 
 const emit = defineEmits(['gerado'])
+const tourAberto = ref(false)
 
 const FONTES = [
   { v: 'oportunidades', l: 'Oportunidades da semana' },
@@ -97,13 +100,14 @@ async function gerar() {
 </script>
 <template>
   <section class="stage">
+    <TourCoachmark :passos="TOUR_GERAR" v-model="tourAberto" />
     <div class="stagehead">
       <span class="badge"><i class="led hold"></i>Passo 1 · Gerar</span>
-      <h2>Gerar os criativos <AjudaTooltip chave="gerar" /></h2>
+      <h2>Gerar os criativos <AjudaTooltip chave="gerar" /> <button class="mini" type="button" @click="tourAberto = true">Tutorial ▶</button></h2>
       <p class="lead">Escolha a(s) loja(s), de onde vêm os produtos e o desconto. Você aprova a lista antes de mandar gerar.</p>
     </div>
 
-    <div class="panel">
+    <div class="panel" data-tour="gerar-objetivo">
       <div class="ph"><span class="eyebrow">Objetivo</span></div>
       <div class="choices">
         <label v-for="o in objetivos" :key="o.chave" class="choice" :class="{ sel: sel.objetivo === o.chave }">
@@ -115,7 +119,7 @@ async function gerar() {
       </div>
     </div>
 
-    <div class="panel">
+    <div class="panel" data-tour="gerar-lojas">
       <div class="ph"><span class="eyebrow">Lojas</span><span class="eyebrow muted">{{ sel.lojas.length }} selecionada(s)</span></div>
       <div class="lojas">
         <label v-for="l in lojas" :key="l.deposito_id" class="loja-chip" :class="{ sel: sel.lojas.includes(l.deposito_id) }">
@@ -126,7 +130,7 @@ async function gerar() {
       </div>
     </div>
 
-    <div class="panel">
+    <div class="panel" data-tour="gerar-fonte">
       <div class="ph"><span class="eyebrow">Fonte dos produtos</span></div>
       <div class="fields">
         <label class="field wide">
@@ -168,14 +172,14 @@ async function gerar() {
       </div>
 
       <div class="cmdrow">
-        <button class="cmd cyan" :disabled="!sel.lojas.length || carregando" @click="carregarLista">
+        <button class="cmd cyan" data-tour="gerar-ver" :disabled="!sel.lojas.length || carregando" @click="carregarLista">
           <span class="ci">🔍</span> {{ carregando ? 'Buscando…' : 'Ver produtos' }}
         </button>
         <span v-if="erro" class="js-err">— {{ erro }}</span>
       </div>
     </div>
 
-    <div class="panel" v-if="buscou">
+    <div class="panel" v-if="buscou" data-tour="gerar-produtos">
       <div class="ph">
         <span class="eyebrow">Produtos</span>
         <span class="ph-right">
@@ -186,7 +190,7 @@ async function gerar() {
 
       <p v-if="carregando" class="empty">Carregando…</p>
       <template v-else-if="candidatos.length">
-        <div class="choices" v-if="pedeDesconto">
+        <div class="choices" v-if="pedeDesconto" data-tour="gerar-desconto">
           <label v-if="previstoDisponivel" class="choice" :class="{ sel: sel.descontoModo === 'previsto' }">
             <input type="radio" value="previsto" v-model="sel.descontoModo">
             <span class="ch-nm">Usar desconto previsto do Gestor</span>
@@ -228,7 +232,7 @@ async function gerar() {
       <p v-else class="empty">Nenhum produto encontrado para essa fonte/filtro. Ajuste e tente de novo.</p>
 
       <div class="cmdrow">
-        <button class="cmd amber" :disabled="!totalMarcados" @click="gerar">
+        <button class="cmd amber" data-tour="gerar-botao" :disabled="!totalMarcados" @click="gerar">
           <span class="ci">▶</span> Gerar criativos
         </button>
       </div>

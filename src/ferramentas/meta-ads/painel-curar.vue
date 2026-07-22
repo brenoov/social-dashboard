@@ -3,8 +3,11 @@ import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import AjudaTooltip from './ajuda-tooltip.vue'
+import TourCoachmark from './tour-coachmark.vue'
+import { TOUR_CURAR } from './tutorial-fabrica.js'
 import { agruparPorLojaEPares } from './curar-agrupar.js'
 const props = defineProps({ campanhaId: String })
+const tourAberto = ref(false)
 const itens = ref([])
 const itensCampanha = ref([])
 const lojas = ref([])
@@ -72,9 +75,10 @@ watch(() => props.campanhaId, iniciar, { immediate: true })
 </script>
 <template>
   <section class="stage">
+    <TourCoachmark :passos="TOUR_CURAR" v-model="tourAberto" />
     <div class="stagehead">
       <span class="badge"><i class="led hold"></i>Passo 2 · Curar</span>
-      <h2>Escolha os melhores <AjudaTooltip chave="curar" /></h2>
+      <h2>Escolha os melhores <AjudaTooltip chave="curar" /> <button class="mini" type="button" @click="tourAberto = true">Tutorial ▶</button></h2>
       <p class="lead">Toque para marcar os criativos que vão virar anúncio. Os escolhidos ficam com a borda âmbar.</p>
     </div>
 
@@ -87,13 +91,13 @@ watch(() => props.campanhaId, iniciar, { immediate: true })
       <div class="ph">
         <span class="eyebrow">Criativos</span>
         <span class="ph-right">
-          <button v-if="visiveis.length" class="marcar-todos" @click="alternarTodos">{{ todosEscolhidos ? 'Desmarcar todos' : 'Marcar todos' }}</button>
+          <button v-if="visiveis.length" class="marcar-todos" data-tour="curar-todos" @click="alternarTodos">{{ todosEscolhidos ? 'Desmarcar todos' : 'Marcar todos' }}</button>
           <span class="eyebrow muted">toque para escolher</span>
         </span>
       </div>
       <p v-if="statusCampanha === 'gerando'" class="js-run"><i class="led run"></i> Ainda gerando… os criativos vão aparecendo aqui. Pode ir marcando os que gostar.</p>
       <p v-else-if="statusCampanha === 'erro'" class="js-err">{{ motivoErro || 'A geração falhou. Volte à Fábrica e tente uma nova campanha.' }}</p>
-      <div v-if="itens.length" class="curagrid">
+      <div v-if="itens.length" class="curagrid" data-tour="curar-grid">
         <section v-for="sec in secoes" :key="sec.loja" class="loja-sec">
           <button class="loja-head" @click="alternarSecao(sec.loja)">
             <span class="chev">{{ colapsadas[sec.loja] ? '▸' : '▾' }}</span>
@@ -101,7 +105,7 @@ watch(() => props.campanhaId, iniciar, { immediate: true })
           </button>
           <div v-show="!colapsadas[sec.loja]" class="cg">
             <template v-for="par in sec.pares" :key="par.sku + par.variante">
-              <div v-for="it in par.itens" :key="it.c.id"
+              <div v-for="it in par.itens" :key="it.c.id" data-tour="curar-tile"
                    class="tile" :class="{ ok: it.c.escolhido, subido: it.c.purgado_em }">
                 <img v-if="!it.c.purgado_em" class="art" :src="it.c.url" loading="lazy" @click="abrirVisor(it.c)">
                 <div v-else class="art placeholder">subido — ver no Gerenciador</div>
