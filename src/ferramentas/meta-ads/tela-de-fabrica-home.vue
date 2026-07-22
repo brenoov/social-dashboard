@@ -47,6 +47,8 @@ function abrir(c) { router.push({ name: 'fabrica-campanha', params: { id: c.id }
 function nova() { router.push({ name: 'fabrica-nova' }) }
 function abrirLooks() { router.push({ name: 'fabrica-looks' }) }
 function voltarCentral() { router.push({ name: 'inicio' }) }
+const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
+const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 const GERENCIADOR = 'https://adsmanager.facebook.com/adsmanager/'
 async function apagar(c) {
   if (!confirm(`Apagar a campanha "${c.nome}"? ${c.status === 'gerando' ? 'A geração em andamento será cancelada. ' : ''}Isso remove os criativos e não dá pra desfazer.`)) return
@@ -92,6 +94,8 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
     <div class="shell">
       <header class="topbar">
         <button class="voltar-central" @click="voltarCentral" aria-label="Voltar para a Central">← Central</button>
+        <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
+        <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
         <div class="brand"><div class="t">Fábrica de Anúncios</div><div class="s">Painel</div></div>
         <div class="divider"></div>
         <button class="voltar-central" @click="reverTour">Rever tour</button>
