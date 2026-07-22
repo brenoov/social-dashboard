@@ -80,11 +80,28 @@ function resumoErro(d) {
 async function apagar(acct, criadas) {
   if (!criadas.length) return;
   console.log(`\n--- apagando ${criadas.length} campanha(s) de teste ---`);
+  const falharam = []; // {chave, campaignId} — não conseguiu apagar (rejeitado OU exceção); cada item
+  // tenta isolado num try/catch pra uma falha (ex.: rede caiu no meio) nunca abortar as demais.
   for (const c of criadas) {
-    // proxy é POST-orientado: apaga setando status=DELETED (equivalente ao DELETE /{id}).
-    const rd = await chamarProxy({ accountId: acct, path: `/${c.campaignId}`, method: 'POST', params: { status: 'DELETED' } });
-    const ok = rd.status === 200 && (rd.d?.success || rd.d?.id);
-    console.log(`  ${ok ? '🗑 apagada' : '⚠ NÃO apagou — apague manualmente no Gerenciador (' + resumoErro(rd.d) + ')'} — ${c.chave} ${c.campaignId}`);
+    try {
+      // proxy é POST-orientado: apaga setando status=DELETED (equivalente ao DELETE /{id}).
+      const rd = await chamarProxy({ accountId: acct, path: `/${c.campaignId}`, method: 'POST', params: { status: 'DELETED' } });
+      const ok = rd.status === 200 && (rd.d?.success || rd.d?.id);
+      if (ok) {
+        console.log(`  🗑 apagada — ${c.chave} ${c.campaignId}`);
+      } else {
+        console.log(`  ⚠ NÃO apagou — apague manualmente no Gerenciador (${resumoErro(rd.d)}) — ${c.chave} ${c.campaignId}`);
+        falharam.push(c);
+      }
+    } catch (e) {
+      console.log(`  ⚠ NÃO apagou — exceção (${String(e.message || e).slice(0, 200)}) — ${c.chave} ${c.campaignId}`);
+      falharam.push(c);
+    }
+  }
+  if (falharam.length) {
+    console.log(`\n⚠️ NÃO consegui apagar ${falharam.length} campanha(s) — apague na mão no Gerenciador: ${falharam.map((c) => c.campaignId).join(', ')}`);
+  } else {
+    console.log(`\n🗑 todas as ${criadas.length} campanha(s) de teste apagadas.`);
   }
 }
 
