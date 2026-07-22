@@ -21,7 +21,9 @@ import { payloadCampanhaAdset, resolverLoja } from './subir-estudio.mjs';
 tls.DEFAULT_MAX_VERSION = 'TLSv1.2';
 
 const URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
-const ANON = process.env.SUPABASE_ANON_KEY;
+// mesmo fallback público do loginServico (bling-comercial.mjs): a anon key é pública (vai no
+// bundle do front). Sem isso o meta-proxy recusa a chamada quando SUPABASE_ANON_KEY não está no env.
+const ANON = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtvdW5xdGRvaW9vb3R4cWVna2lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMDMwMDUsImV4cCI6MjA5NDc3OTAwNX0.MVXa6jngjKXkH3eZ7as_j_k8Eb7lJKcFmO4kCKAnuHM';
 const SK = process.env.SUPABASE_SERVICE_KEY;
 const REST = URL + '/rest/v1';
 const H = { apikey: SK, Authorization: 'Bearer ' + SK, 'Content-Type': 'application/json' };
