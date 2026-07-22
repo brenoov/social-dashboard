@@ -29,6 +29,7 @@ import { subirCriativos } from './lib/meta-subir.mjs';
 import { carregarMarcasELojas, montarLegenda } from './lib/config-lojas.mjs';
 import { carregarObjetivos, mapaObjetivo, montaPromotedObject } from './lib/objetivos.mjs';
 import { montarTargeting } from './lib/publico.mjs';
+import { orcamentoMeta } from './lib/orcamento.mjs';
 
 // Fix TLS1.2 (ECONNRESET determinístico atrás do Cloudflare/*.supabase.co nesta máquina). Antes de
 // qualquer fetch — inclusive o de dentro do loginServico().
@@ -162,7 +163,7 @@ export function rotuloObjetivo(row) { return row?.rotulo || row?.chave || 'Anún
 export function nomeCampanha(loja, row, cfg) { return `Bolsas · ${loja.nome} · ${rotuloObjetivo(row)} · ${String(cfg.DATA || '').replace(/-/g, '/')}`.slice(0, 200); }
 export function nomeConjunto(loja, row) { return `${loja.nome} · ${rotuloObjetivo(row)}`.slice(0, 200); }
 
-export function payloadCampanhaAdset(row, marca, loja, cfg, publico = null) {
+export function payloadCampanhaAdset(row, marca, loja, cfg, publico = null, orcamento = null) {
   const campaign = {
     name: nomeCampanha(loja, row, cfg),
     objective: row.meta_objective,
@@ -172,13 +173,15 @@ export function payloadCampanhaAdset(row, marca, loja, cfg, publico = null) {
   };
   const adset = {
     name: nomeConjunto(loja, row),
-    daily_budget: cfg.DAILY_BUDGET,
     billing_event: row.billing_event || 'IMPRESSIONS',
     optimization_goal: row.optimization_goal,
     bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
     status: 'PAUSED',
     targeting: montarTargeting(publico, loja),
   };
+  const orc = orcamentoMeta(orcamento, cfg.DAILY_BUDGET);
+  Object.assign(campaign, orc.campaign);
+  Object.assign(adset, orc.adset);
   if (row.destination_type) adset.destination_type = row.destination_type;
   const po = montaPromotedObject(row.promoted_object_tipo, marca, loja);
   if (po) adset.promoted_object = po;
@@ -186,9 +189,9 @@ export function payloadCampanhaAdset(row, marca, loja, cfg, publico = null) {
 }
 
 // --- destino 'nova': cria campanha + 1 conjunto a partir do objetivo da rodada -----------------
-async function criarCampanhaNova(loja, objetivoRow, publico = null) {
+async function criarCampanhaNova(loja, objetivoRow, publico = null, orcamento = null) {
   const { campaign: campaignPayload, adset: adsetPayload } = payloadCampanhaAdset(
-    objetivoRow, MARCA, loja, { DAILY_BUDGET: CFG_ADSET.DAILY_BUDGET, DATA: CFG_ADSET.DATA_CAMPANHA }, publico,
+    objetivoRow, MARCA, loja, { DAILY_BUDGET: CFG_ADSET.DAILY_BUDGET, DATA: CFG_ADSET.DATA_CAMPANHA }, publico, orcamento,
   );
 
   const campaign = await meta(`/${MARCA.adAccount}/campaigns`, campaignPayload, 'POST');
@@ -201,14 +204,14 @@ async function criarCampanhaNova(loja, objetivoRow, publico = null) {
   return { campaignId, adsets: [{ id: adset.d.id, name: adsetPayload.name, destinationType: objetivoRow.destination_type, whatsapp: loja.whatsapp }] };
 }
 
-// Normaliza o destino p/ [{ slug, publico }] — público POR loja. destino.lojas pode vir como
-// array de slugs (retrocompat: público único = destino.publico) OU array de {slug, publico}.
-// Fallback single: destino.loja. Pura p/ teste.
+// Normaliza o destino p/ [{ slug, publico, orcamento }] — público e orçamento POR loja. destino.lojas
+// pode vir como array de slugs (retrocompat: público único = destino.publico, orcamento=null) OU
+// array de {slug, publico, orcamento}. Fallback single: destino.loja. Pura p/ teste.
 export function lojasDoDestino(destino) {
   const arr = (destino?.lojas && destino.lojas.length) ? destino.lojas : (destino?.loja ? [destino.loja] : []);
   return arr.map((l) => (typeof l === 'string')
-    ? { slug: l, publico: destino?.publico ?? null }
-    : { slug: l.slug, publico: (l.publico !== undefined ? l.publico : (destino?.publico ?? null)) });
+    ? { slug: l, publico: destino?.publico ?? null, orcamento: null }
+    : { slug: l.slug, publico: (l.publico !== undefined ? l.publico : (destino?.publico ?? null)), orcamento: (l.orcamento ?? null) });
 }
 
 // Sobe os criativos escolhidos NUMA campanha do Meta (idempotência + itens + subir + rastro).
@@ -287,17 +290,17 @@ export async function run({ campanhaId, destino, dry = false }) {
     const adsets = await adsetsDaCampanha(destino.campaignId);
     resultados.push(await subirNumaCampanha({ metaCampaignId: destino.campaignId, adsets, escolhidos, destino, campanhaId, lojaNome: null }));
   } else if (destino?.tipo === 'nova') {
-    const alvosLoja = lojasDoDestino(destino); // [{ slug, publico }] — público POR loja
+    const alvosLoja = lojasDoDestino(destino); // [{ slug, publico, orcamento }] — público e orçamento POR loja
     if (!alvosLoja.length) throw new Error(`destino 'nova' sem loja(s) — use destino.loja ou destino.lojas`);
     // objetivo da rodada (fabrica_campanhas.objetivo) -> linha de fabrica_objetivos (fallback 'engajamento')
     const campanha = (await sbGet(`/fabrica_campanhas?select=objetivo&id=eq.${campanhaId}`))[0];
     const { porChave } = await carregarObjetivos(sbGet);
     const objetivoRow = mapaObjetivo(porChave, campanha?.objetivo || 'engajamento');
-    for (const { slug, publico } of alvosLoja) {
+    for (const { slug, publico, orcamento } of alvosLoja) {
       const loja = resolverLoja(lojas, slug);
       if (!loja || !loja.marca) throw new Error(`loja inválida p/ destino 'nova': ${slug} (use tivoli|dp)`);
       MARCA = loja.marca; // a loja pode pertencer a uma marca diferente da marcaAtiva global
-      const { campaignId: metaCampaignId, adsets } = await criarCampanhaNova(loja, objetivoRow, publico);
+      const { campaignId: metaCampaignId, adsets } = await criarCampanhaNova(loja, objetivoRow, publico, orcamento);
       resultados.push(await subirNumaCampanha({ metaCampaignId, adsets, escolhidos, destino, campanhaId, lojaNome: loja.nome }));
     }
   } else {
