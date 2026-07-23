@@ -22,7 +22,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: profile } = await anonClient
       .from('profiles')
-      .select('role')
+      .select('role, is_superadmin')
       .eq('id', user.id)
       .single()
 
@@ -35,7 +35,18 @@ Deno.serve(async (req: Request) => {
     )
 
     const body = await req.json()
-    const { email, name, role, password, deleteUserId } = body
+    const { email, name, role, password, deleteUserId, resetPasswordUserId } = body
+
+    // --- Trocar senha de qualquer usuário (SÓ superadmin) ---
+    if (resetPasswordUserId) {
+      if (!profile?.is_superadmin) throw new Error('Apenas superadmin pode trocar a senha de usuários')
+      if (!password || password.length < 6) throw new Error('A senha precisa de no mínimo 6 caracteres')
+      const { error: pwErr } = await adminClient.auth.admin.updateUserById(resetPasswordUserId, { password })
+      if (pwErr) throw pwErr
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...cors, 'Content-Type': 'application/json' }
+      })
+    }
 
     // --- Excluir usuário ---
     if (deleteUserId) {
