@@ -38,7 +38,13 @@ Hoje **não existe** tabela de estoque que a tela leia. O estoque vem do Bling v
 **depósito foco** por produto. Depósitos (DEP_FOCO):
 - Shopping Tivoli (Santa Bárbara) — `14888726315`
 - Shopping Dom Pedro — `14888617206`
-- Atacado Nuvem Shop (Estoque Pulmão) — `14888248253`
+- **Estoque Pulmão** (= "Atacado Nuvem Shop (Estoque Pulmão)") — `14888248253` — é o **backstock central**.
+
+**Decisão do dono (2026-07-23):** o **Pulmão SEMPRE aparece** na seção de estoque (é o estoque central
+que abastece todos os canais). Ao filtrar uma loja específica (ex.: Tivoli), a seção mostra **aquela
+loja + o Pulmão**. Em "Todos", mostra as 3 (Tivoli, Dom Pedro, Pulmão). Usar o **nome REAL do depósito**
+(como vier do Bling/`bling_lojas`; o Pulmão pode aparecer como "Estoque Pulmão" — confirmar o rótulo real
+na coleta, não inventar).
 
 **Abordagem (padrão do projeto: coletor → Supabase → front):**
 1. **Migration** — nova tabela `bling_estoque` (ou `estoque_canal`): `deposito_id text, canal text,
