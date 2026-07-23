@@ -10,13 +10,17 @@ test('statusSaldo: limiares default (crit<=3, low<=8)', () => {
 });
 
 test('depositosVisiveis: Pulmão sempre; canal casado mostra loja+Pulmão; todos=3', () => {
-  assert.deepEqual(depositosVisiveis('').map(d=>d.id), [14888726315,14888617206,14888248253]);
-  assert.deepEqual(depositosVisiveis('Shopping Tivoli').map(d=>d.id), [14888726315,14888248253]);
+  assert.deepEqual(depositosVisiveis([]).map(d=>d.id), [14888726315,14888617206,14888248253]);
+  assert.deepEqual(depositosVisiveis(['Shopping Tivoli']).map(d=>d.id), [14888726315,14888248253]);
   // canal sem depósito casável -> só o Pulmão
-  assert.deepEqual(depositosVisiveis('Loja Online').map(d=>d.id), [14888248253]);
+  assert.deepEqual(depositosVisiveis(['Loja Online']).map(d=>d.id), [14888248253]);
   // regressão: canal "atacado/pulmão" não deve casar a loja Tivoli por engano
-  assert.deepEqual(depositosVisiveis('Atacado Nuvem Shop').map(d=>d.id), [14888248253]);
-  assert.deepEqual(depositosVisiveis('Shopping Dom Pedro').map(d=>d.id), [14888617206,14888248253]);
+  assert.deepEqual(depositosVisiveis(['Atacado Nuvem Shop']).map(d=>d.id), [14888248253]);
+  assert.deepEqual(depositosVisiveis(['Shopping Dom Pedro']).map(d=>d.id), [14888617206,14888248253]);
+  // multi-select: união de dois canais casados -> Tivoli, Dom Pedro, Pulmão (ordem DEPOSITOS)
+  assert.deepEqual(depositosVisiveis(['Shopping Tivoli','Shopping Dom Pedro']).map(d=>d.id), [14888726315,14888617206,14888248253]);
+  // conjunto vazio explícito -> os 3
+  assert.deepEqual(depositosVisiveis(new Set()).map(d=>d.id), [14888726315,14888617206,14888248253]);
 });
 
 test('prepararEstoque: busca + status + ordena + limita', () => {
@@ -38,5 +42,11 @@ test('prepararEstoque: busca + status + ordena + limita', () => {
 test('filtrarPedidosPorCanal', () => {
   const peds=[{loja:{id:1}},{loja:{id:2}},{loja:{id:1}}];
   assert.equal(filtrarPedidosPorCanal(peds, null).length, 3);
-  assert.equal(filtrarPedidosPorCanal(peds, 1).length, 2);
+  assert.equal(filtrarPedidosPorCanal(peds, []).length, 3);
+  assert.equal(filtrarPedidosPorCanal(peds, [1]).length, 2);
+  // multi-select: união de dois canais
+  assert.equal(filtrarPedidosPorCanal(peds, [1,2]).length, 3);
+  assert.deepEqual(filtrarPedidosPorCanal(peds, [2]).map(p=>p.loja.id), [2]);
+  // aceita Set também
+  assert.equal(filtrarPedidosPorCanal(peds, new Set([1,2])).length, 3);
 });

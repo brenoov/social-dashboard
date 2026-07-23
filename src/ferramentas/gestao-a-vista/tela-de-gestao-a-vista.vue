@@ -67,7 +67,7 @@ import { filtrarPedidosPorCanal, depositosVisiveis, prepararEstoque, statusSaldo
 
 const router = useRouter()
 
-let _gvCanalSel = null // loja.id selecionada no filtro por canal; null = Todos
+let _gvCanaisSel = new Set() // loja.ids selecionadas no filtro por canal; vazio = Todos
 
 const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
 const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
@@ -605,10 +605,10 @@ async function loadGestaoVistaData(period){
     _fadeSwap(board,()=>{
       renderGestaoVista(pedidos,canais,metasMap,df,diasMes,diaAtual,di,period,totalPrev,pedidosPrev.length,pedidosPrev,diPrev,dfPrev,vendedoresMap,dailyGoalsMap,brtToday);
       _gvMontaChips();
-      // se um canal já estava selecionado (ex.: trocou de período com filtro ativo),
-      // reaplica pra não deixar o chip marcado divergindo do board (que acabou de
+      // se algum canal já estava selecionado (ex.: trocou de período com filtro ativo),
+      // reaplica pra não deixar os chips marcados divergindo do board (que acabou de
       // renderizar SEM filtro acima).
-      if(_gvCanalSel!=null)_gvAplicaFiltro();
+      if(_gvCanaisSel.size>0)_gvAplicaFiltro();
     });
     if(window._gvTimer)clearInterval(window._gvTimer);
     window._gvTimer=setInterval(()=>loadGestaoVistaData(_gvCurrentPeriod),5*60*1000);
@@ -631,20 +631,28 @@ function _gvMontaChips(){
   const ctx=window._gvRenderCtx; if(!ctx)return;
   const ids=[...new Set(ctx.pedidos.map(p=>p.loja&&p.loja.id).filter(Boolean))];
   const chips=document.getElementById('gv-cf-chips'); if(!chips)return;
-  const mk=(id,nome)=>`<button class="gv-cf-chip${(_gvCanalSel===id||(id===null&&_gvCanalSel===null))?' active':''}" data-id="${id===null?'':id}">${escHtml(nome)}</button>`;
+  const mk=(id,nome)=>`<button class="gv-cf-chip${(id===null?_gvCanaisSel.size===0:_gvCanaisSel.has(id))?' active':''}" data-id="${id===null?'':id}">${escHtml(nome)}</button>`;
   chips.innerHTML=mk(null,'Todos')+ids.map(id=>mk(id,ctx.canais[id]||('Canal #'+String(id).slice(-4)))).join('');
   chips.querySelectorAll('.gv-cf-chip').forEach(b=>{
-    b.onclick=()=>{_gvCanalSel=b.dataset.id?parseInt(b.dataset.id,10):null;_gvAplicaFiltro();};
+    b.onclick=()=>{
+      if(!b.dataset.id){_gvCanaisSel.clear();}
+      else{
+        const id=parseInt(b.dataset.id,10);
+        if(_gvCanaisSel.has(id))_gvCanaisSel.delete(id);else _gvCanaisSel.add(id);
+      }
+      _gvAplicaFiltro();
+    };
   });
 }
-// Refiltra pedidos/pedidosPrev por canal e re-renderiza o board com os MESMOS
-// args guardados no load (metasMap/vendedoresMap/etc não são recomputados —
-// só totalPrev/cntPrev, que são somas baratas e precisam refletir o canal
-// filtrado pra a comparação com o período anterior fazer sentido).
+// Refiltra pedidos/pedidosPrev pela UNIÃO dos canais selecionados e re-renderiza
+// o board com os MESMOS args guardados no load (metasMap/vendedoresMap/etc não
+// são recomputados — só totalPrev/cntPrev, que são somas baratas e precisam
+// refletir os canais filtrados pra a comparação com o período anterior fazer sentido).
 function _gvAplicaFiltro(){
   const ctx=window._gvRenderCtx; if(!ctx)return;
-  const peds=filtrarPedidosPorCanal(ctx.pedidos,_gvCanalSel);
-  const pedsPrev=filtrarPedidosPorCanal(ctx.pedidosPrev,_gvCanalSel);
+  const ids=[..._gvCanaisSel];
+  const peds=filtrarPedidosPorCanal(ctx.pedidos,ids);
+  const pedsPrev=filtrarPedidosPorCanal(ctx.pedidosPrev,ids);
   const totalPrevF=pedsPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
   renderGestaoVista(peds,ctx.canais,ctx.metasMap,ctx.hoje,ctx.diasMes,ctx.diaAtual,ctx.di,ctx.period,totalPrevF,pedsPrev.length,pedsPrev,ctx.diPrev,ctx.dfPrev,ctx.vendedoresMap,ctx.dailyGoalsMap,ctx.actualToday);
   _gvMontaChips();           // reflete o estado ativo
@@ -1102,7 +1110,7 @@ onMounted(() => {
   window._gvVendedoresCache = {}
   window._gvPedidoVendorMap = {}
   window._gvRenderCtx = null
-  _gvCanalSel = null
+  _gvCanaisSel = new Set()
   if (window._gvTickerTimer) { clearTimeout(window._gvTickerTimer); window._gvTickerTimer = null }
   if (_gvStatusTimer) { clearInterval(_gvStatusTimer); _gvStatusTimer = null }
   _gvLastLoadTime = null
