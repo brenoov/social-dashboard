@@ -1,7 +1,7 @@
 // src/ferramentas/gestao-a-vista/estoque-gv.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEPOSITOS, statusSaldo, depositosVisiveis, prepararEstoque, filtrarPedidosPorCanal } from './estoque-gv.js';
+import { DEPOSITOS, statusSaldo, depositosVisiveis, prepararEstoque, filtrarPedidosPorCanal, ehMateriaPrima, categoriasDisponiveis } from './estoque-gv.js';
 
 test('statusSaldo: limiares default (crit<=3, low<=8)', () => {
   assert.equal(statusSaldo(0), 'crit'); assert.equal(statusSaldo(3), 'crit');
@@ -25,8 +25,8 @@ test('depositosVisiveis: Pulmão sempre; canal casado mostra loja+Pulmão; todos
 
 test('prepararEstoque: busca + status + ordena + limita', () => {
   const itens = [
-    {sku:'LV1',produto:'Bolsa Foggia',saldo:2},{sku:'LV2',produto:'Bolsa Porto',saldo:15},
-    {sku:'LV3',produto:'Bolsa Pisa',saldo:6},{sku:'LV4',produto:'Bolsa Siena',saldo:20},
+    {sku:'LV1',produto:'Bolsa Foggia',saldo:2,categoria:'Bolsa (outros)'},{sku:'LV2',produto:'Bolsa Porto',saldo:15,categoria:'Bolsa (outros)'},
+    {sku:'LV3',produto:'Bolsa Pisa',saldo:6,categoria:'Bolsa (outros)'},{sku:'LV4',produto:'Bolsa Siena',saldo:20,categoria:'Bolsa (outros)'},
   ];
   // status crítico + ordena estoque asc
   let r = prepararEstoque(itens, {busca:'', status:'crit', sort:'qasc', limit:'all'});
@@ -37,6 +37,45 @@ test('prepararEstoque: busca + status + ordena + limita', () => {
   // limite corta e full guarda o total
   r = prepararEstoque(itens, {busca:'', status:'todos', sort:'qasc', limit:2});
   assert.deepEqual(r.rows.map(x=>x.saldo), [2,6]); assert.equal(r.full, 4);
+});
+
+test('ehMateriaPrima: categoria vazia/nula/whitespace = insumo; categoria real = produto', () => {
+  assert.equal(ehMateriaPrima({sku:'X',categoria:null}), true);
+  assert.equal(ehMateriaPrima({sku:'X'}), true);              // sem a chave
+  assert.equal(ehMateriaPrima({sku:'X',categoria:''}), true);
+  assert.equal(ehMateriaPrima({sku:'X',categoria:'   '}), true);
+  assert.equal(ehMateriaPrima(null), true);
+  assert.equal(ehMateriaPrima({sku:'X',categoria:'Cinto'}), false);
+});
+
+test('prepararEstoque: oculta matéria-prima (categoria vazia) por regra fixa', () => {
+  const itens = [
+    {sku:'LV1',produto:'Cinto Astana',saldo:5,categoria:'Cinto'},
+    {sku:'EMB1',produto:'Bobina Papel Embalagem',saldo:99,categoria:null}, // insumo
+    {sku:'AV1',produto:'Fivela a granel',saldo:99,categoria:''},           // insumo
+  ];
+  const r = prepararEstoque(itens, {status:'todos', limit:'all'});
+  assert.deepEqual(r.rows.map(x=>x.sku), ['LV1']); assert.equal(r.full, 1);
+});
+
+test('prepararEstoque: filtro por categoria única', () => {
+  const itens = [
+    {sku:'A',produto:'Cinto A',saldo:5,categoria:'Cinto'},
+    {sku:'B',produto:'Bolsa B',saldo:5,categoria:'Tote'},
+    {sku:'C',produto:'Cinto C',saldo:5,categoria:'Cinto'},
+  ];
+  let r = prepararEstoque(itens, {categoria:'Cinto', limit:'all'});
+  assert.deepEqual(r.rows.map(x=>x.sku).sort(), ['A','C']);
+  r = prepararEstoque(itens, {categoria:'todas', limit:'all'});
+  assert.equal(r.full, 3);
+});
+
+test('categoriasDisponiveis: únicas, sem matéria-prima, ordenadas pt-BR', () => {
+  const itens = [
+    {sku:'A',categoria:'Óculos'},{sku:'B',categoria:'Cinto'},{sku:'C',categoria:'Cinto'},
+    {sku:'D',categoria:null},{sku:'E',categoria:'Bolsa de ombro'},
+  ];
+  assert.deepEqual(categoriasDisponiveis(itens), ['Bolsa de ombro','Cinto','Óculos']);
 });
 
 test('filtrarPedidosPorCanal', () => {

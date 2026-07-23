@@ -40,7 +40,15 @@
     </div>
     <div class="gv-cf-bar" id="gv-cf-bar" aria-label="Filtro por canal">
       <span class="gv-cf-lbl">Canal</span>
-      <div class="gv-cf-chips" id="gv-cf-chips"></div>
+      <div class="gv-cf-dd" id="gv-cf-dd">
+        <button class="gv-cf-trigger" id="gv-cf-trigger" type="button" aria-expanded="false" aria-haspopup="true">
+          <span class="gv-cf-trigger-txt" id="gv-cf-trigger-txt">Todos os canais</span>
+          <svg class="gv-cf-caret" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="gv-cf-menu" id="gv-cf-menu" hidden>
+          <div class="gv-cf-chips" id="gv-cf-chips"></div>
+        </div>
+      </div>
     </div>
     <div class="gv-board" id="gv-board">
       <div class="gv-loading-screen">
@@ -56,6 +64,7 @@
       <div class="gv-est-body" id="gv-est-body" hidden>
         <div class="gv-est-controls">
           <input class="gv-est-search" id="gv-est-search" placeholder="Buscar SKU ou produto…">
+          <select class="gv-est-sel" id="gv-est-cat"><option value="todas">Todas as categorias</option></select>
           <select class="gv-est-sel" id="gv-est-status"><option value="todos">Todos</option><option value="baixocrit">Baixo + crítico</option><option value="crit">Só crítico</option></select>
           <select class="gv-est-sel" id="gv-est-sort"><option value="qasc">Estoque ↑</option><option value="qdesc">Estoque ↓</option><option value="sku">SKU</option><option value="nome">Nome</option></select>
           <select class="gv-est-sel" id="gv-est-limit"><option value="10">10</option><option value="20">20</option><option value="50">50</option><option value="100">100</option><option value="all">Todos</option></select>
@@ -79,11 +88,12 @@ import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
-import { filtrarPedidosPorCanal, depositosVisiveis, prepararEstoque, statusSaldo, DEPOSITOS } from './estoque-gv.js'
+import { filtrarPedidosPorCanal, depositosVisiveis, prepararEstoque, statusSaldo, categoriasDisponiveis, DEPOSITOS } from './estoque-gv.js'
 
 const router = useRouter()
 
 let _gvCanaisSel = new Set() // loja.ids selecionadas no filtro por canal; vazio = Todos
+let _gvCanalDocClick = null   // handler de clique-fora do dropdown de canal (removido no unmount)
 
 const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
 const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
@@ -322,46 +332,50 @@ function _gvUpdateVendRanking(){
   }).join('');
 }
 function _gvFitCanalGrid(){
-  const isTV=document.body.classList.contains('dev-tv');
-  // Auto-ajuste dos velocímetros roda em TODO layout de painel fixo (TV, desktop e
-  // notebook >1024, que é 100vh/overflow:hidden). Antes só rodava em dev-tv/dev-desktop,
-  // então no notebook normal os gauges NÃO se ajustavam e estouravam o card. No layout
-  // responsivo empilhado (≤1024, a tela vira scrollável) o ajuste não se aplica.
-  if(window.innerWidth<=1024)return;
   const panel=document.querySelector('#gestao-vista-screen .gv-canal-panel');
   const scroll=document.getElementById('gv-canal-scroll');
-  const inner=document.getElementById('gv-canal-inner');
   const grid=scroll?.querySelector('.gv-canal-grid');
-  if(!panel||!scroll||!inner||!grid)return;
+  if(!panel||!scroll||!grid)return;
+  // Layout responsivo empilhado (≤1024, a tela vira scrollável): o CSS cuida do grid.
+  // Limpa qualquer estilo inline do layout de painel fixo pra não sobrepor as media queries.
+  if(window.innerWidth<=1024){
+    grid.style.gridAutoFlow='';grid.style.gridTemplateRows='';grid.style.gridAutoColumns='';
+    grid.style.gridTemplateColumns='';scroll.style.justifyContent='';
+    return;
+  }
   const n=grid.children.length;
   if(!n)return;
   const W=scroll.clientWidth;
   const H_card=panel.clientHeight;
   if(!W||!H_card)return;
-  const H_max=Math.floor(H_card*0.95); // usa quase toda a altura do painel (folga mínima) —
-  // 0.85 deixava os velocímetros pequenos com muito espaço vazio embaixo. 0.95 aumenta o
-  // tamanho limite (gauges maiores, preenchem o card) sem estourar.
-  const gap=isTV?20:10;
-  const labelH=isTV?46:20;
-  const vbAR=1.33;
-  // Encontra menor nº de colunas cujo totalH cabe em H_max
-  let bestCols=n;
-  for(let c=1;c<=n;c++){
-    const itemW=(W-(c-1)*gap)/c;
-    const rows=Math.ceil(n/c);
-    const totalH=rows*(labelH+itemW*vbAR)+(rows-1)*gap;
-    if(totalH<=H_max){bestCols=c;break;}
+  const isTV=document.body.classList.contains('dev-tv');
+  const gap=isTV?18:10;
+  const labelH=isTV?40:18;
+  // Largura FIXA por velocímetro (normalizada) — sempre MENOR que o gauge GERAL
+  // (que chega a 460px). Assim 1–2 canais não incham a ponto de ficar do tamanho do
+  // geral, e muitos canais não encolhem: passam a rolar na horizontal (todos do mesmo
+  // tamanho). Os gauges já vêm ordenados por faturamento desc (quem vendeu mais primeiro).
+  const Wt=isTV?190:140;
+  const svgAR=0.98; // altura/largura conservadora (gauge com meta é mais alto que sem)
+  const rowH=labelH+Wt*svgAR;
+  const H_max=Math.floor(H_card*0.96);
+  // nº de linhas que cabem na altura do painel; nunca mais linhas que itens
+  let rows=Math.max(1,Math.min(n,Math.floor((H_max+gap)/(rowH+gap))));
+  grid.style.gridAutoFlow='column';
+  grid.style.gridTemplateColumns='';
+  grid.style.gridAutoColumns=`${Wt}px`;
+  grid.style.justifyContent='';
+  grid.style.gridTemplateRows=`repeat(${rows},min-content)`;
+  // Gauges têm alturas diferentes (com/sem meta); mede de verdade e reduz linhas até
+  // caber na altura do painel (evita cortar a linha de baixo no overflow:hidden do card).
+  for(let guard=0;guard<12&&rows>1&&grid.scrollHeight>H_max;guard++){
+    rows--;
+    grid.style.gridTemplateRows=`repeat(${rows},min-content)`;
   }
-  // Fallback: se nem 1 linha cabe, limita largura de cada item
-  const itemW_n=(W-(n-1)*gap)/n;
-  if(labelH+itemW_n*vbAR>H_max){
-    const maxW=Math.max(60,Math.floor((H_max-labelH)/vbAR));
-    grid.style.gridTemplateColumns=`repeat(${n},${maxW}px)`;
-    grid.style.justifyContent='center';
-  }else{
-    grid.style.gridTemplateColumns=`repeat(${bestCols},1fr)`;
-    grid.style.justifyContent='';
-  }
+  const cols=Math.ceil(n/rows);
+  const contentW=cols*Wt+(cols-1)*gap;
+  // centraliza quando cabe; alinha à esquerda (rolagem a partir do início) quando estoura
+  scroll.style.justifyContent=(contentW<=W)?'center':'flex-start';
 }
 function _gvFitKpiText(){
   document.querySelectorAll('#gestao-vista-screen .gv-main-kpi-v').forEach(el=>{
@@ -487,6 +501,7 @@ function _gvStopAllTimers(){
   if(window._gvTimer){clearInterval(window._gvTimer);window._gvTimer=null;}
   if(window._gvClockTimer){clearInterval(window._gvClockTimer);window._gvClockTimer=null;}
   window.removeEventListener('resize',_gvFitReflow);
+  if(_gvCanalDocClick){document.removeEventListener('click',_gvCanalDocClick);_gvCanalDocClick=null;}
 }
 function closeGestaoVista(){
   _gvStopAllTimers();
@@ -649,13 +664,27 @@ async function loadGestaoVistaData(period){
 // Monta a barra de chips [Todos] + um por canal CADASTRADO (ctx.canais, vindo
 // de bling_lojas) — TODOS os canais aparecem, mesmo sem pedido no período,
 // pra o filtro sempre oferecer o conjunto completo (não só quem vendeu).
+// Atualiza o texto do gatilho do dropdown de canal conforme a seleção:
+// nenhum = "Todos os canais"; um = o nome do canal; vários = "N canais".
+function _gvUpdateCanalTrigger(){
+  const t=document.getElementById('gv-cf-trigger-txt'); if(!t)return;
+  const ctx=window._gvRenderCtx;
+  const n=_gvCanaisSel.size;
+  if(n===0){t.textContent='Todos os canais';return;}
+  if(n===1){
+    const id=[..._gvCanaisSel][0];
+    t.textContent=(ctx&&ctx.canais&&ctx.canais[id])||('Canal #'+String(id).slice(-4));
+    return;
+  }
+  t.textContent=n+' canais';
+}
 function _gvMontaChips(){
   const ctx=window._gvRenderCtx; if(!ctx)return;
   const ids=Object.keys(ctx.canais||{}).map(id=>parseInt(id,10)).filter(id=>!isNaN(id))
     .sort((a,b)=>String(ctx.canais[a]||'').localeCompare(String(ctx.canais[b]||''),'pt-BR'));
   const chips=document.getElementById('gv-cf-chips'); if(!chips)return;
-  const mk=(id,nome)=>`<button class="gv-cf-chip${(id===null?_gvCanaisSel.size===0:_gvCanaisSel.has(id))?' active':''}" data-id="${id===null?'':id}">${escHtml(nome)}</button>`;
-  chips.innerHTML=mk(null,'Todos')+ids.map(id=>mk(id,ctx.canais[id]||('Canal #'+String(id).slice(-4)))).join('');
+  const mk=(id,nome)=>`<button class="gv-cf-chip${(id===null?_gvCanaisSel.size===0:_gvCanaisSel.has(id))?' active':''}" data-id="${id===null?'':id}"><svg class="gv-cf-check" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>${escHtml(nome)}</span></button>`;
+  chips.innerHTML=mk(null,'Todos os canais')+ids.map(id=>mk(id,ctx.canais[id]||('Canal #'+String(id).slice(-4)))).join('');
   chips.querySelectorAll('.gv-cf-chip').forEach(b=>{
     b.onclick=()=>{
       if(!b.dataset.id){_gvCanaisSel.clear();}
@@ -666,6 +695,7 @@ function _gvMontaChips(){
       _gvAplicaFiltro();
     };
   });
+  _gvUpdateCanalTrigger();
 }
 // Refiltra pedidos/pedidosPrev pela UNIÃO dos canais selecionados e re-renderiza
 // o board com os MESMOS args guardados no load (metasMap/vendedoresMap/etc não
@@ -694,7 +724,7 @@ async function _gvCarregaEstoque(){
   const size=1000, rows=[];
   try{
     for(let from=0;;from+=size){
-      const { data, error }=await sbClient.from('gc_estoque_item').select('deposito_id,sku,produto,saldo').in('deposito_id',ids).range(from,from+size-1);
+      const { data, error }=await sbClient.from('gc_estoque_item').select('deposito_id,sku,produto,saldo,categoria').in('deposito_id',ids).range(from,from+size-1);
       if(error)throw error;
       rows.push(...(data||[]));
       if(!data||data.length<size)break;
@@ -712,10 +742,17 @@ async function _gvRenderEstoque(){
   const ctx=window._gvRenderCtx;
   const canaisNomes=[..._gvCanaisSel].map(id=>ctx&&ctx.canais&&ctx.canais[id]).filter(Boolean);
   const deps=depositosVisiveis(canaisNomes);
+  // Popula o seletor de categoria uma vez (categorias reais, já sem matéria-prima).
+  const catSel=document.getElementById('gv-est-cat');
+  if(catSel&&catSel.options.length<=1){
+    const cats=categoriasDisponiveis(itens);
+    catSel.insertAdjacentHTML('beforeend',cats.map(c=>`<option value="${escHtml(c)}">${escHtml(c)}</option>`).join(''));
+  }
   const opts={
     busca:document.getElementById('gv-est-search').value,
     status:document.getElementById('gv-est-status').value,
     sort:document.getElementById('gv-est-sort').value,
+    categoria:catSel?catSel.value:'todas',
   };
   const limitSel=document.getElementById('gv-est-limit').value;
   const lim=limitSel==='all'?'all':parseInt(limitSel,10);
@@ -1187,9 +1224,31 @@ function _gvInitEstoqueUI(){
     document.getElementById('gv-est-sub').textContent=b.hidden?'clique para mostrar':'';
     _gvRenderEstoque();
   };
-  ['gv-est-search','gv-est-status','gv-est-sort','gv-est-limit'].forEach(id=>{
+  ['gv-est-search','gv-est-cat','gv-est-status','gv-est-sort','gv-est-limit'].forEach(id=>{
     document.getElementById(id).addEventListener('input',_gvRenderEstoque);
   });
+  _gvInitCanalDropdown();
+}
+
+// Liga o dropdown do filtro por canal: abre/fecha no gatilho e fecha ao clicar
+// fora. A seleção em si continua sendo tratada em _gvMontaChips (multi-seleção —
+// o menu permanece aberto ao marcar/desmarcar canais).
+function _gvInitCanalDropdown(){
+  const trigger=document.getElementById('gv-cf-trigger');
+  const menu=document.getElementById('gv-cf-menu');
+  const dd=document.getElementById('gv-cf-dd');
+  if(!trigger||!menu||!dd)return;
+  const fechar=()=>{menu.hidden=true;trigger.setAttribute('aria-expanded','false');dd.classList.remove('open');};
+  trigger.onclick=(e)=>{
+    e.stopPropagation();
+    const abrir=menu.hidden;
+    menu.hidden=!abrir;
+    trigger.setAttribute('aria-expanded',String(abrir));
+    dd.classList.toggle('open',abrir);
+  };
+  if(_gvCanalDocClick)document.removeEventListener('click',_gvCanalDocClick);
+  _gvCanalDocClick=(e)=>{ if(!dd.contains(e.target))fechar(); };
+  document.addEventListener('click',_gvCanalDocClick);
 }
 
 Object.assign(window, {
@@ -1275,9 +1334,22 @@ onUnmounted(() => {
 .tela-gestao-a-vista :deep(.gv-update-status){font-family:var(--fonte-principal);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);opacity:.45;margin-top:4px;text-align:right;}
 .tela-gestao-a-vista :deep(.gv-cf-bar){display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:relative;z-index:9;}
 .tela-gestao-a-vista :deep(.gv-cf-lbl){font-family:var(--fonte-principal);font-size:8px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);}
-.tela-gestao-a-vista :deep(.gv-cf-chips){display:flex;gap:6px;flex-wrap:wrap;}
-.tela-gestao-a-vista :deep(.gv-cf-chip){font-family:var(--fonte-principal);font-size:11px;padding:5px 12px;border-radius:999px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
-.tela-gestao-a-vista :deep(.gv-cf-chip.active){background:var(--accent);color:#fff;border-color:var(--accent);}
+.tela-gestao-a-vista :deep(.gv-cf-dd){position:relative;}
+.tela-gestao-a-vista :deep(.gv-cf-trigger){font-family:var(--fonte-principal);font-size:11px;letter-spacing:.3px;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:10px;min-width:170px;justify-content:space-between;transition:border-color .12s ease,background .12s ease;}
+.tela-gestao-a-vista :deep(.gv-cf-trigger:hover){border-color:var(--accent);}
+.tela-gestao-a-vista :deep(.gv-cf-dd.open .gv-cf-trigger){border-color:var(--accent);background:var(--surface);}
+.tela-gestao-a-vista :deep(.gv-cf-trigger-txt){font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tela-gestao-a-vista :deep(.gv-cf-caret){color:var(--muted);flex-shrink:0;transition:transform .15s ease;}
+.tela-gestao-a-vista :deep(.gv-cf-dd.open .gv-cf-caret){transform:rotate(180deg);}
+.tela-gestao-a-vista :deep(.gv-cf-menu){position:absolute;top:calc(100% + 6px);left:0;z-index:40;min-width:230px;max-height:min(60vh,360px);overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 14px 34px rgba(0,0,0,.30);padding:6px;}
+.tela-gestao-a-vista :deep(.gv-cf-menu[hidden]){display:none;}
+.tela-gestao-a-vista :deep(.gv-cf-chips){display:flex;flex-direction:column;gap:2px;}
+.tela-gestao-a-vista :deep(.gv-cf-chip){font-family:var(--fonte-principal);font-size:12px;padding:8px 10px;border-radius:7px;border:1px solid transparent;background:none;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:9px;text-align:left;width:100%;transition:background .1s ease;}
+.tela-gestao-a-vista :deep(.gv-cf-chip:hover){background:color-mix(in srgb,var(--accent) 13%,transparent);}
+.tela-gestao-a-vista :deep(.gv-cf-check){opacity:0;color:var(--accent);flex-shrink:0;}
+.tela-gestao-a-vista :deep(.gv-cf-chip.active){color:var(--accent);font-weight:700;}
+.tela-gestao-a-vista :deep(.gv-cf-chip.active .gv-cf-check){opacity:1;}
+.tela-gestao-a-vista :deep(.gv-cf-chip span){overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 /* Board layout — 2-column grid: left=gauge panel, right=canal gauges + rankings */
 .tela-gestao-a-vista :deep(.gv-board){flex:1;display:grid;grid-template-columns:480px 1fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;position:relative;z-index:2;backdrop-filter:none;}
 .tela-gestao-a-vista :deep(.gv-left){background:var(--bg);display:flex;flex-direction:column;align-items:center;padding:8px 22px;gap:0;overflow:hidden;justify-content:space-between;}
@@ -1288,10 +1360,11 @@ onUnmounted(() => {
 .tela-gestao-a-vista :deep(.gv-gauge-inner){width:100%;max-width:460px;aspect-ratio:1;}
 .tela-gestao-a-vista :deep(.gv-right){display:grid;grid-template-rows:55fr 45fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;}
 .tela-gestao-a-vista :deep(.gv-canal-panel){background:var(--bg);padding:7px 12px;display:flex;flex-direction:column;overflow:hidden;}
-.tela-gestao-a-vista :deep(.gv-canal-scroll){flex:1;overflow:hidden;min-height:0;display:flex;align-items:safe center;justify-content:center;}
-.tela-gestao-a-vista :deep(.gv-canal-scroll-inner){width:100%;}
-.tela-gestao-a-vista :deep(.gv-canal-scroll-inner.scrolling){animation:gvRankUp var(--gv-scroll-dur,20s) ease-in-out infinite alternate;}
-.tela-gestao-a-vista :deep(.gv-canal-grid){display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;align-content:start;width:100%;}
+.tela-gestao-a-vista :deep(.gv-canal-scroll){flex:1;overflow-x:auto;overflow-y:hidden;min-height:0;display:flex;align-items:safe center;justify-content:center;scrollbar-width:thin;}
+.tela-gestao-a-vista :deep(.gv-canal-scroll::-webkit-scrollbar){height:8px;}
+.tela-gestao-a-vista :deep(.gv-canal-scroll::-webkit-scrollbar-thumb){background:var(--border);border-radius:8px;}
+.tela-gestao-a-vista :deep(.gv-canal-scroll-inner){width:max-content;flex:0 0 auto;}
+.tela-gestao-a-vista :deep(.gv-canal-grid){display:grid;gap:10px;align-content:start;}
 .tela-gestao-a-vista :deep(.gv-sm-item){display:flex;flex-direction:column;align-items:center;gap:2px;}
 .tela-gestao-a-vista :deep(.gv-sm-item-lbl){font-family:var(--fonte-principal);font-size:14px;font-weight:700;letter-spacing:.5px;color:var(--muted);text-align:center;line-height:1.3;overflow-wrap:break-word;word-break:break-word;max-width:100%;}
 .tela-gestao-a-vista :deep(.gv-sm-item-val){font-family:var(--fonte-dados);font-size:13px;color:var(--text);}
@@ -1415,7 +1488,7 @@ onUnmounted(() => {
   .tela-gestao-a-vista :deep(.gv-canal-panel){overflow:visible;padding:12px 16px;}
   .tela-gestao-a-vista :deep(.gv-canal-scroll){display:block;overflow:visible;flex:none;min-height:0;}
   .tela-gestao-a-vista :deep(.gv-canal-grid){grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;}
-  .tela-gestao-a-vista :deep(.gv-canal-scroll-inner){animation:none!important;transform:none!important;}
+  .tela-gestao-a-vista :deep(.gv-canal-scroll-inner){animation:none!important;transform:none!important;width:100%!important;}
   .tela-gestao-a-vista :deep(.gv-rankings){display:flex;flex-direction:column;gap:1px;background:var(--border);overflow:visible;min-height:0;}
   .tela-gestao-a-vista :deep(.gv-rank-panel){overflow:visible;padding:12px 16px;}
   .tela-gestao-a-vista :deep(.gv-rank-scroll){overflow:visible;flex:none;min-height:0;}
@@ -1483,7 +1556,7 @@ onUnmounted(() => {
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-canal-panel){display:flex;flex-direction:column;gap:10px;overflow:visible;height:auto;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:6px;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-col-grid-label){border-bottom:none;padding-bottom:0;margin-bottom:0;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-canal-scroll){display:block;overflow:visible;flex:none;height:auto;min-height:0;}
-  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-canal-scroll-inner){animation:none;transform:none;}
+  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-canal-scroll-inner){animation:none;transform:none;width:100%!important;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-canal-grid){display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-sm-item){display:flex!important;flex-direction:column!important;align-items:center;padding:12px 8px 8px;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;text-align:center;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-sm-item-lbl){font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);width:100%;word-break:break-word;line-height:1.2;}
@@ -1585,7 +1658,7 @@ body.dev-tv .tela-gestao-a-vista :deep(#gv-ac-toggle){font-size:21px;padding:8px
 
 /* ── Estoque por canal (Task 3) — prefixo gv-est-* pra não colidir com nada
    global; segue os mesmos tokens de tema da tela (funciona claro/escuro). */
-.tela-gestao-a-vista :deep(.gv-est){border-top:1px solid var(--border);background:var(--surface);flex-shrink:0;position:relative;z-index:2;}
+.tela-gestao-a-vista :deep(.gv-est){border-top:1px solid var(--border);background:transparent;flex-shrink:0;position:relative;z-index:2;}
 .tela-gestao-a-vista :deep(.gv-est-head){width:100%;display:flex;align-items:center;gap:10px;padding:6px 28px;background:none;border:none;cursor:pointer;font-family:var(--fonte-principal);text-align:left;}
 .tela-gestao-a-vista :deep(.gv-est-caret){font-size:9px;color:var(--accent);transition:transform .15s ease;display:inline-block;}
 .tela-gestao-a-vista :deep(.gv-est.open .gv-est-caret){transform:rotate(90deg);}
@@ -1598,8 +1671,10 @@ body.dev-tv .tela-gestao-a-vista :deep(#gv-ac-toggle){font-size:21px;padding:8px
 .tela-gestao-a-vista :deep(.gv-est-search::placeholder){color:var(--muted);}
 .tela-gestao-a-vista :deep(.gv-est-sel){background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-family:var(--fonte-principal);font-size:11px;}
 .tela-gestao-a-vista :deep(.gv-est-count){font-size:10px;color:var(--muted);letter-spacing:.3px;margin-left:auto;white-space:nowrap;}
-.tela-gestao-a-vista :deep(.gv-est-cols){display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;}
-.tela-gestao-a-vista :deep(.gv-est-col){border:1px solid var(--border);border-radius:8px;background:var(--bg);overflow:hidden;}
+.tela-gestao-a-vista :deep(.gv-est-cols){display:flex;align-items:flex-start;gap:12px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin;}
+.tela-gestao-a-vista :deep(.gv-est-cols::-webkit-scrollbar){height:8px;}
+.tela-gestao-a-vista :deep(.gv-est-cols::-webkit-scrollbar-thumb){background:var(--border);border-radius:8px;}
+.tela-gestao-a-vista :deep(.gv-est-col){flex:0 0 clamp(240px,24vw,300px);border:1px solid var(--border);border-radius:8px;background:var(--bg);overflow:hidden;}
 .tela-gestao-a-vista :deep(.gv-est-colh){display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:10px;letter-spacing:.5px;color:var(--text);font-weight:600;}
 .tela-gestao-a-vista :deep(.gv-est-tot){font-family:var(--fonte-dados);font-size:10px;color:var(--muted);font-weight:400;}
 .tela-gestao-a-vista :deep(.gv-est-row){display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border);}
@@ -1618,6 +1693,7 @@ body.dev-tv .tela-gestao-a-vista :deep(#gv-ac-toggle){font-size:21px;padding:8px
   .tela-gestao-a-vista :deep(.gv-est-head){padding:6px 14px;}
   .tela-gestao-a-vista :deep(.gv-est-body){padding:0 14px 12px;}
   .tela-gestao-a-vista :deep(.gv-est-count){margin-left:0;width:100%;}
-  .tela-gestao-a-vista :deep(.gv-est-cols){grid-template-columns:1fr;}
+  .tela-gestao-a-vista :deep(.gv-est-cols){flex-direction:column;overflow-x:visible;}
+  .tela-gestao-a-vista :deep(.gv-est-col){flex:1 1 auto;width:100%;}
 }
 </style>

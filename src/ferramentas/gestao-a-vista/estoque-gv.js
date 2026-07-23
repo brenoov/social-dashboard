@@ -31,9 +31,28 @@ export function depositosVisiveis(canaisNomes) {
   return DEPOSITOS.filter((d) => d.pulmao || lojasCasadas.has(d.id));
 }
 
-export function prepararEstoque(itens, { busca = '', status = 'todos', sort = 'qasc', limit = 'all' } = {}) {
+// Matéria-prima / insumo entra no banco com categoria VAZIA (o coletor classifica
+// embalagem, aviamento, fivela a granel, tinta, forro, zíper etc. como categoria=null).
+// Produto de verdade sempre tem categoria. Esta função reconhece o item que NÃO deve
+// aparecer no estoque (regra fixa, não é um filtro que o usuário liga/desliga).
+export function ehMateriaPrima(it) {
+  return it == null || it.categoria == null || String(it.categoria).trim() === '';
+}
+
+// Lista as categorias reais (sem matéria-prima), únicas e ordenadas em pt-BR — pra
+// montar o seletor de categoria da seção de estoque.
+export function categoriasDisponiveis(itens) {
+  const set = new Set();
+  (itens || []).forEach((it) => { if (!ehMateriaPrima(it)) set.add(String(it.categoria)); });
+  return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+}
+
+export function prepararEstoque(itens, { busca = '', status = 'todos', sort = 'qasc', limit = 'all', categoria = 'todas' } = {}) {
   const b = String(busca).trim().toLowerCase();
   let rows = (itens || []).filter((it) => {
+    // Regra fixa: matéria-prima/insumo (categoria vazia) nunca aparece no estoque.
+    if (ehMateriaPrima(it)) return false;
+    if (categoria !== 'todas' && String(it.categoria) !== String(categoria)) return false;
     if (b && !(String(it.sku).toLowerCase().includes(b) || String(it.produto || '').toLowerCase().includes(b))) return false;
     const s = statusSaldo(it.saldo);
     return status === 'todos' || (status === 'crit' && s === 'crit') || (status === 'baixocrit' && (s === 'crit' || s === 'low'));
