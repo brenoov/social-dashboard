@@ -46,18 +46,19 @@ loja + o Pulmão**. Em "Todos", mostra as 3 (Tivoli, Dom Pedro, Pulmão). Usar o
 (como vier do Bling/`bling_lojas`; o Pulmão pode aparecer como "Estoque Pulmão" — confirmar o rótulo real
 na coleta, não inventar).
 
-**Abordagem (padrão do projeto: coletor → Supabase → front):**
-1. **Migration** — nova tabela `bling_estoque` (ou `estoque_canal`): `deposito_id text, canal text,
-   sku text, produto_nome text, saldo int, atualizado_em timestamptz`. RLS: SELECT `authenticated`.
-   PK/único por (deposito_id, sku).
-2. **Coletor** — um passo (no coletor comercial que já roda por pg_cron) que chama `blingSaldoFoco`
-   pros SKUs do catálogo e faz **upsert** na tabela (saldo por depósito + nome). Rodar junto da coleta
-   de produtos/pedidos que já existe (mesma frequência).
-3. **Front** — a tela lê `bling_estoque` (como já lê `bling_lojas`/`bling_metas`/pedidos), agrupa por
-   depósito e monta as colunas. **Mapear depósito → canal de venda** (o filtro é por canal/loja_id, o
-   estoque é por deposito_id): resolver por um mapa canal↔depósito (as 3 lojas físicas têm depósito;
-   se um canal não tiver depósito, não aparece na seção de estoque). Confirmar o mapa loja_id↔deposito_id
-   (bling_lojas x DEP_FOCO) na implementação.
+**✅ BACKEND JÁ EXISTE — feature é SÓ DE FRONT.** A tabela **`gc_estoque_item`** (migration 012,
+`deposito_id bigint, sku text, produto text, categoria text, saldo int, atualizado_em`, PK
+(deposito_id, sku), RLS SELECT `authenticated`) **já é coletada** pelo coletor
+`coletor/relatorios-comerciais.mjs` (cron diário) e já é lida pela tela de Relatórios Comerciais.
+Dados frescos verificados (2026-07-23): Pulmão `14888248253` = 672 SKUs/652.686 un;
+Tivoli `14888726315` = 443/2.464; Dom Pedro `14888617206` = 366/688 (coleta de 21–22/07).
+
+Então **NÃO precisa migration nem mexer no coletor**: o front lê `gc_estoque_item` (como já lê
+`bling_lojas`/`bling_metas` via `sbClient.from`) e monta as colunas.
+- **Mapa depósito → canal:** o filtro é por canal de venda (`loja.id` dos pedidos), o estoque é por
+  `deposito_id`. Montar um mapa fixo dos 3 depósitos (DEP_FOCO: 14888726315→Tivoli, 14888617206→Dom
+  Pedro, 14888248253→Estoque Pulmão) com o **nome real**. Casar o canal selecionado ao seu depósito
+  (por nome/loja); canal sem depósito → mostra só o Pulmão.
 
 ## UI (na `tela-de-gestao-a-vista.vue`)
 
@@ -83,11 +84,11 @@ estilo pra não destoar:
 
 ## Testes
 
-- Front: lógica pura extraível (filtro por canal, sort/filter/limit do estoque) em módulo testável
-  (`node:test`), como já se fez na Fábrica.
-- Coletor: teste do passo de upsert de estoque (mock do blingSaldoFoco + sbGet).
+- Front: lógica pura extraível (filtro por canal, sort/filter/limit do estoque, mapa depósito→canal)
+  em módulo testável (`node:test`), como já se fez na Fábrica.
+- SEM teste de coletor (não muda o coletor — `gc_estoque_item` já é coletada).
 - Validação visual no telão (repro/Playwright): filtro re-filtra tudo; estoque abre/fecha no fim;
-  busca/status/ordenar/mostrar combinam; responsivo.
+  busca/status/ordenar/mostrar combinam; Pulmão sempre visível; responsivo.
 
 ## Ligações
 
