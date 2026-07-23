@@ -47,12 +47,15 @@ export function categoriasDisponiveis(itens) {
   return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 }
 
-export function prepararEstoque(itens, { busca = '', status = 'todos', sort = 'qasc', limit = 'all', categoria = 'todas' } = {}) {
+export function prepararEstoque(itens, { busca = '', status = 'todos', sort = 'qasc', limit = 'all', categorias = null } = {}) {
   const b = String(busca).trim().toLowerCase();
+  // categorias: array/Set de categorias selecionadas (multi). Vazio/null = todas.
+  const cats = categorias == null ? [] : Array.from(categorias).filter((c) => c && c !== 'todas');
+  const catSet = cats.length ? new Set(cats.map(String)) : null;
   let rows = (itens || []).filter((it) => {
     // Regra fixa: matéria-prima/insumo (categoria vazia) nunca aparece no estoque.
     if (ehMateriaPrima(it)) return false;
-    if (categoria !== 'todas' && String(it.categoria) !== String(categoria)) return false;
+    if (catSet && !catSet.has(String(it.categoria))) return false;
     if (b && !(String(it.sku).toLowerCase().includes(b) || String(it.produto || '').toLowerCase().includes(b))) return false;
     const s = statusSaldo(it.saldo);
     return status === 'todos' || (status === 'crit' && s === 'crit') || (status === 'baixocrit' && (s === 'crit' || s === 'low'));

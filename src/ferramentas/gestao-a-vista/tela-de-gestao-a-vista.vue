@@ -64,7 +64,15 @@
       <div class="gv-est-body" id="gv-est-body" hidden>
         <div class="gv-est-controls">
           <input class="gv-est-search" id="gv-est-search" placeholder="Buscar SKU ou produto…">
-          <select class="gv-est-sel" id="gv-est-cat"><option value="todas">Todas as categorias</option></select>
+          <div class="gv-cf-dd gv-est-cat-dd" id="gv-est-cat-dd">
+            <button class="gv-cf-trigger" id="gv-est-cat-trigger" type="button" aria-expanded="false" aria-haspopup="true">
+              <span class="gv-cf-trigger-txt" id="gv-est-cat-txt">Todas as categorias</span>
+              <svg class="gv-cf-caret" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="gv-cf-menu" id="gv-est-cat-menu" hidden>
+              <div class="gv-cf-chips" id="gv-est-cat-chips"></div>
+            </div>
+          </div>
           <select class="gv-est-sel" id="gv-est-status"><option value="todos">Todos</option><option value="baixocrit">Baixo + crítico</option><option value="crit">Só crítico</option></select>
           <select class="gv-est-sel" id="gv-est-sort"><option value="qasc">Estoque ↑</option><option value="qdesc">Estoque ↓</option><option value="sku">SKU</option><option value="nome">Nome</option></select>
           <select class="gv-est-sel" id="gv-est-limit"><option value="10">10</option><option value="20">20</option><option value="50">50</option><option value="100">100</option><option value="all">Todos</option></select>
@@ -95,6 +103,8 @@ const router = useRouter()
 let _gvCanaisSel = new Set() // loja.ids selecionadas no filtro por canal; vazio = Todos
 let _gvCanalDocClick = null   // handler de clique-fora do dropdown de canal (removido no unmount)
 let _gvCanalExpandido = false // false = linha de até 5 velocímetros; true = grade de 5 colunas ("Ver mais")
+let _gvEstCatsSel = new Set()  // categorias selecionadas no filtro do estoque (multi); vazio = todas
+let _gvEstCatDocClick = null   // handler de clique-fora do dropdown de categoria (removido no unmount)
 
 const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
 const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
@@ -477,6 +487,7 @@ function _gvStopAllTimers(){
   if(window._gvClockTimer){clearInterval(window._gvClockTimer);window._gvClockTimer=null;}
   window.removeEventListener('resize',_gvFitReflow);
   if(_gvCanalDocClick){document.removeEventListener('click',_gvCanalDocClick);_gvCanalDocClick=null;}
+  if(_gvEstCatDocClick){document.removeEventListener('click',_gvEstCatDocClick);_gvEstCatDocClick=null;}
 }
 function closeGestaoVista(){
   _gvStopAllTimers();
@@ -726,6 +737,55 @@ async function _gvCarregaEstoque(){
   }
   return _gvEstoqueCache;
 }
+// ── Filtro de categoria do estoque (multi-seleção) ────────────────────────
+// Mesmo padrão do dropdown de canal: gatilho + menu de chips selecionáveis. Vazio = todas.
+function _gvUpdateCatTrigger(){
+  const t=document.getElementById('gv-est-cat-txt'); if(!t)return;
+  const n=_gvEstCatsSel.size;
+  t.textContent=n===0?'Todas as categorias':n===1?[..._gvEstCatsSel][0]:n+' categorias';
+}
+function _gvSyncCatChips(){
+  const chips=document.getElementById('gv-est-cat-chips'); if(!chips)return;
+  chips.querySelectorAll('.gv-cf-chip').forEach(b=>{
+    const ativo=b.dataset.cat?_gvEstCatsSel.has(b.dataset.cat):_gvEstCatsSel.size===0;
+    b.classList.toggle('active',ativo);
+  });
+}
+// Monta os chips a partir das categorias reais (chamado uma vez, quando o cache chega).
+// Marcar/desmarcar NÃO fecha o menu (multi-seleção); fecha só no clique-fora.
+function _gvMontaCatChips(cats){
+  const chips=document.getElementById('gv-est-cat-chips'); if(!chips)return;
+  const mk=(cat,todas)=>`<button class="gv-cf-chip${(todas?_gvEstCatsSel.size===0:_gvEstCatsSel.has(cat))?' active':''}" data-cat="${todas?'':escHtml(cat)}"><svg class="gv-cf-check" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>${escHtml(todas?'Todas as categorias':cat)}</span></button>`;
+  chips.innerHTML=mk(null,true)+cats.map(c=>mk(c,false)).join('');
+  chips.querySelectorAll('.gv-cf-chip').forEach(b=>{
+    b.onclick=(e)=>{
+      e.stopPropagation();
+      if(!b.dataset.cat){_gvEstCatsSel.clear();}
+      else{ if(_gvEstCatsSel.has(b.dataset.cat))_gvEstCatsSel.delete(b.dataset.cat);else _gvEstCatsSel.add(b.dataset.cat); }
+      _gvSyncCatChips();
+      _gvUpdateCatTrigger();
+      _gvRenderEstoque();
+    };
+  });
+  _gvUpdateCatTrigger();
+}
+function _gvInitEstCatDropdown(){
+  const trigger=document.getElementById('gv-est-cat-trigger');
+  const menu=document.getElementById('gv-est-cat-menu');
+  const dd=document.getElementById('gv-est-cat-dd');
+  if(!trigger||!menu||!dd)return;
+  const fechar=()=>{menu.hidden=true;trigger.setAttribute('aria-expanded','false');dd.classList.remove('open');};
+  trigger.onclick=(e)=>{
+    e.stopPropagation();
+    const abrir=menu.hidden;
+    menu.hidden=!abrir;
+    trigger.setAttribute('aria-expanded',String(abrir));
+    dd.classList.toggle('open',abrir);
+  };
+  if(_gvEstCatDocClick)document.removeEventListener('click',_gvEstCatDocClick);
+  _gvEstCatDocClick=(e)=>{ if(!dd.contains(e.target))fechar(); };
+  document.addEventListener('click',_gvEstCatDocClick);
+}
 async function _gvRenderEstoque(){
   const body=document.getElementById('gv-est-body');
   if(!body||body.hidden)return; // fechada — não faz trabalho à toa
@@ -733,17 +793,16 @@ async function _gvRenderEstoque(){
   const ctx=window._gvRenderCtx;
   const canaisNomes=[..._gvCanaisSel].map(id=>ctx&&ctx.canais&&ctx.canais[id]).filter(Boolean);
   const deps=depositosVisiveis(canaisNomes);
-  // Popula o seletor de categoria uma vez (categorias reais, já sem matéria-prima).
-  const catSel=document.getElementById('gv-est-cat');
-  if(catSel&&catSel.options.length<=1){
-    const cats=categoriasDisponiveis(itens);
-    catSel.insertAdjacentHTML('beforeend',cats.map(c=>`<option value="${escHtml(c)}">${escHtml(c)}</option>`).join(''));
+  // Popula as categorias no dropdown uma vez (categorias reais, já sem matéria-prima).
+  const catChips=document.getElementById('gv-est-cat-chips');
+  if(catChips&&catChips.childElementCount===0){
+    _gvMontaCatChips(categoriasDisponiveis(itens));
   }
   const opts={
     busca:document.getElementById('gv-est-search').value,
     status:document.getElementById('gv-est-status').value,
     sort:document.getElementById('gv-est-sort').value,
-    categoria:catSel?catSel.value:'todas',
+    categorias:[..._gvEstCatsSel],
   };
   const limitSel=document.getElementById('gv-est-limit').value;
   const lim=limitSel==='all'?'all':parseInt(limitSel,10);
@@ -1227,10 +1286,11 @@ function _gvInitEstoqueUI(){
     document.getElementById('gv-est-sub').textContent=b.hidden?'clique para mostrar':'';
     _gvRenderEstoque();
   };
-  ['gv-est-search','gv-est-cat','gv-est-status','gv-est-sort','gv-est-limit'].forEach(id=>{
+  ['gv-est-search','gv-est-status','gv-est-sort','gv-est-limit'].forEach(id=>{
     document.getElementById(id).addEventListener('input',_gvRenderEstoque);
   });
   _gvInitCanalDropdown();
+  _gvInitEstCatDropdown();
 }
 
 // Liga o dropdown do filtro por canal: abre/fecha no gatilho e fecha ao clicar
