@@ -1217,6 +1217,17 @@ function _gvInitEstoqueUI(){
   if(!toggle)return;
   toggle.onclick=()=>{
     const b=document.getElementById('gv-est-body');
+    const board=document.getElementById('gv-board');
+    const abrindo=b.hidden; // true = está abrindo agora
+    // Ao abrir, a tela vira rolável (.is-est-open troca 100vh/overflow:hidden por
+    // height:auto). Sem travar, o board (flex:1) deixa de ter altura limitada pelo
+    // viewport e ESTICA até a altura natural do conteúdo (gauges + ranking). Então
+    // fixamos a altura atual do board (viewport cheio) ANTES de trocar as classes —
+    // ele fica do mesmo tamanho e o estoque aparece ABAIXO, com a página rolando.
+    if(board){
+      if(abrindo){ board.style.height=board.offsetHeight+'px'; board.style.flex='0 0 auto'; }
+      else{ board.style.height=''; board.style.flex=''; }
+    }
     b.hidden=!b.hidden;
     document.getElementById('gv-est').classList.toggle('open',!b.hidden);
     document.querySelector('.tela-gestao-a-vista')?.classList.toggle('is-est-open',!b.hidden);
@@ -1665,7 +1676,10 @@ body.dev-tv .tela-gestao-a-vista :deep(#gv-ac-toggle){font-size:21px;padding:8px
 .tela-gestao-a-vista :deep(.gv-est-t){font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--text);font-weight:600;}
 .tela-gestao-a-vista :deep(.gv-est-sub){font-size:9px;letter-spacing:1px;color:var(--muted);opacity:.7;}
 .tela-gestao-a-vista :deep(.gv-est-body[hidden]){display:none;}
-.tela-gestao-a-vista :deep(.gv-est-body){padding:0 28px 14px;max-height:38vh;overflow-y:auto;}
+/* Sem teto de altura: com a tela rolável (.is-est-open) o estoque cresce à vontade e
+   quem rola é a PÁGINA. O nº de linhas por depósito é controlado pelo seletor "mostrar"
+   (10/20/50/100/todos); a largura (muitos depósitos) rola na horizontal em .gv-est-cols. */
+.tela-gestao-a-vista :deep(.gv-est-body){padding:0 28px 14px;}
 .tela-gestao-a-vista :deep(.gv-est-controls){display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
 .tela-gestao-a-vista :deep(.gv-est-search){flex:1;min-width:160px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 10px;font-family:var(--fonte-principal);font-size:11px;}
 .tela-gestao-a-vista :deep(.gv-est-search::placeholder){color:var(--muted);}
