@@ -1172,6 +1172,7 @@ function _gvInitEstoqueUI(){
     const b=document.getElementById('gv-est-body');
     b.hidden=!b.hidden;
     document.getElementById('gv-est').classList.toggle('open',!b.hidden);
+    document.querySelector('.tela-gestao-a-vista')?.classList.toggle('is-est-open',!b.hidden);
     toggle.setAttribute('aria-expanded',String(!b.hidden));
     document.getElementById('gv-est-sub').textContent=b.hidden?'clique para mostrar':'';
     _gvRenderEstoque();
@@ -1247,6 +1248,11 @@ onUnmounted(() => {
    .gv-back de raspão — o bloco dedicado da Gestão à Vista (≤480px, abaixo) já
    cobre esses mesmos elementos com valores praticamente iguais. */
 .tela-gestao-a-vista{height:100vh;max-height:100vh;display:flex;flex-direction:column;background:var(--bg);color:var(--text);overflow:hidden;position:relative;z-index:1;}
+/* Task 4: quando a seção de estoque (gv-est) abre, o conteúdo pode passar da
+   viewport — deixa a tela crescer e rolar em vez de cortar. Classe alternada
+   no toggle de _gvInitEstoqueUI. Não mexe no telão fechado nem no ≤1024px
+   (que já é overflow-y:auto por conta própria). */
+.tela-gestao-a-vista.is-est-open{height:auto;min-height:100vh;max-height:none;overflow-y:auto;}
 .tela-gestao-a-vista :deep(#gv-watermark){position:absolute;bottom:100px;right:32px;font-family:var(--fonte-principal);font-size:73px;font-weight:700;letter-spacing:8px;text-transform:uppercase;color:var(--text);opacity:.18;pointer-events:none;user-select:none;z-index:1;line-height:1;}
 .tela-gestao-a-vista :deep(.gv-topbar){display:flex;align-items:center;justify-content:space-between;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
 .tela-gestao-a-vista :deep(.gv-back){display:flex;align-items:center;gap:4px;font-family:var(--fonte-principal);font-size:10px;font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;transition:opacity .15s;letter-spacing:.3px;text-transform:uppercase;}
