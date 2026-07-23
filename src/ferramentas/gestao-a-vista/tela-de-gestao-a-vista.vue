@@ -48,6 +48,22 @@
         <span class="gv-loading-lbl">Carregando dados</span>
       </div>
     </div>
+    <div class="gv-est" id="gv-est">
+      <button class="gv-est-head" id="gv-est-toggle" aria-expanded="false">
+        <span class="gv-est-caret">▶</span><span class="gv-est-t">Estoque por canal</span>
+        <span class="gv-est-sub" id="gv-est-sub">clique para mostrar</span>
+      </button>
+      <div class="gv-est-body" id="gv-est-body" hidden>
+        <div class="gv-est-controls">
+          <input class="gv-est-search" id="gv-est-search" placeholder="Buscar SKU ou produto…">
+          <select class="gv-est-sel" id="gv-est-status"><option value="todos">Todos</option><option value="baixocrit">Baixo + crítico</option><option value="crit">Só crítico</option></select>
+          <select class="gv-est-sel" id="gv-est-sort"><option value="qasc">Estoque ↑</option><option value="qdesc">Estoque ↓</option><option value="sku">SKU</option><option value="nome">Nome</option></select>
+          <select class="gv-est-sel" id="gv-est-limit"><option value="10">10</option><option value="20">20</option><option value="50">50</option><option value="100">100</option><option value="all">Todos</option></select>
+          <span class="gv-est-count" id="gv-est-count"></span>
+        </div>
+        <div class="gv-est-cols" id="gv-est-cols"></div>
+      </div>
+    </div>
     <div class="gv-ticker" id="gv-ticker">
       <span class="gv-ticker-lbl" id="gv-ticker-lbl">Últimos pedidos</span>
       <div class="gv-ticker-sep"></div>
@@ -663,7 +679,50 @@ function _gvAplicaFiltro(){
   ctx.pedidosView=peds; // board atual = filtrado; _gvUpdateVendRanking lê daqui, não de ctx.pedidos (cheio)
   renderGestaoVista(peds,ctx.canais,ctx.metasMap,ctx.hoje,ctx.diasMes,ctx.diaAtual,ctx.di,ctx.period,totalPrevF,pedsPrev.length,pedsPrev,ctx.diPrev,ctx.dfPrev,ctx.vendedoresMap,ctx.dailyGoalsMap,ctx.actualToday);
   _gvMontaChips();           // reflete o estado ativo
-  if(typeof _gvRenderEstoque==='function')_gvRenderEstoque(); // Task 3 (não existe ainda)
+  if(typeof _gvRenderEstoque==='function')_gvRenderEstoque();
+}
+
+// ── Estoque por canal (Task 3) ───────────────────────────────────────────
+// Seção colapsável (fechada por padrão) que lê gc_estoque_item uma vez (cache)
+// e mostra uma coluna por depósito visível ao(s) canal(is) selecionado(s) no
+// filtro de canal (_gvCanaisSel), com busca/status/ordenação/limite próprios.
+let _gvEstoqueCache=null; // [{deposito_id,sku,produto,saldo}]
+async function _gvCarregaEstoque(){
+  if(_gvEstoqueCache)return _gvEstoqueCache;
+  const ids=DEPOSITOS.map(d=>d.id);
+  const { data }=await sbClient.from('gc_estoque_item').select('deposito_id,sku,produto,saldo').in('deposito_id',ids);
+  _gvEstoqueCache=data||[];
+  return _gvEstoqueCache;
+}
+async function _gvRenderEstoque(){
+  const body=document.getElementById('gv-est-body');
+  if(!body||body.hidden)return; // fechada — não faz trabalho à toa
+  const itens=await _gvCarregaEstoque();
+  const ctx=window._gvRenderCtx;
+  const canaisNomes=[..._gvCanaisSel].map(id=>ctx&&ctx.canais&&ctx.canais[id]).filter(Boolean);
+  const deps=depositosVisiveis(canaisNomes);
+  const opts={
+    busca:document.getElementById('gv-est-search').value,
+    status:document.getElementById('gv-est-status').value,
+    sort:document.getElementById('gv-est-sort').value,
+  };
+  const limitSel=document.getElementById('gv-est-limit').value;
+  const lim=limitSel==='all'?'all':parseInt(limitSel,10);
+  let mostrado=0,filtrado=0;
+  document.getElementById('gv-est-cols').innerHTML=deps.map(dep=>{
+    const itensDep=itens.filter(it=>it.deposito_id===dep.id);
+    const { rows, full }=prepararEstoque(itensDep,{...opts,limit:lim});
+    mostrado+=rows.length; filtrado+=full;
+    const tot=rows.reduce((a,b)=>a+(Number(b.saldo)||0),0);
+    const more=(lim!=='all'&&full>rows.length)?`<div class="gv-est-more">+ ${full-rows.length} ocultos · ${rows.length} de ${full}</div>`:'';
+    const linhas=rows.length?rows.map(r=>{
+      const s=statusSaldo(r.saldo);
+      const lbl=s==='crit'?'Crítico':s==='low'?'Baixo':'OK';
+      return `<div class="gv-est-row"><div class="gv-est-info"><span class="gv-est-sku">${escHtml(r.sku)}</span><span class="gv-est-nm">${escHtml(r.produto||'')}</span></div><span class="gv-est-pill gv-est-pill-${s}">${lbl}</span><span class="gv-est-q">${r.saldo}</span></div>`;
+    }).join(''):'<div class="gv-est-empty">Nada com esse filtro.</div>';
+    return `<div class="gv-est-col"><div class="gv-est-colh"><span>${escHtml(dep.nome)}${dep.pulmao?' · pulmão':''}</span><span class="gv-est-tot">${tot} un.</span></div>${linhas}${more}</div>`;
+  }).join('');
+  document.getElementById('gv-est-count').textContent=`mostrando ${mostrado} de ${filtrado} itens · ${deps.length} depósito(s)`;
 }
 
 function initGvBgAnim(){
@@ -1094,6 +1153,25 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   window.addEventListener('resize',_gvFitReflow,{passive:true});
 }
 
+// Liga o toggle (abre/fecha) e os 4 controles da seção de estoque. Chamado uma
+// vez no onMounted — os elementos já existem no template (não são recriados
+// por innerHTML como o board/ticker).
+function _gvInitEstoqueUI(){
+  const toggle=document.getElementById('gv-est-toggle');
+  if(!toggle)return;
+  toggle.onclick=()=>{
+    const b=document.getElementById('gv-est-body');
+    b.hidden=!b.hidden;
+    document.getElementById('gv-est').classList.toggle('open',!b.hidden);
+    toggle.setAttribute('aria-expanded',String(!b.hidden));
+    document.getElementById('gv-est-sub').textContent=b.hidden?'clique para mostrar':'';
+    _gvRenderEstoque();
+  };
+  ['gv-est-search','gv-est-status','gv-est-sort','gv-est-limit'].forEach(id=>{
+    document.getElementById(id).addEventListener('input',_gvRenderEstoque);
+  });
+}
+
 Object.assign(window, {
   gvSelectPeriod, gvToggleAuto, gvAutoStart, gvAutoStop, closeGestaoVista,
   _gvBuildSkuSlide, _gvUpdateVendRanking, _gvFitCanalGrid, _gvFitKpiText, _gvPickQuote,
@@ -1118,6 +1196,8 @@ onMounted(() => {
   window._gvPedidoVendorMap = {}
   window._gvRenderCtx = null
   _gvCanaisSel = new Set()
+  _gvEstoqueCache = null
+  _gvInitEstoqueUI()
   if (window._gvTickerTimer) { clearTimeout(window._gvTickerTimer); window._gvTickerTimer = null }
   if (_gvStatusTimer) { clearInterval(_gvStatusTimer); _gvStatusTimer = null }
   _gvLastLoadTime = null
@@ -1477,4 +1557,42 @@ body.dev-tv .tela-gestao-a-vista :deep(.gv-perf-tag){font-size:24px;color:var(--
 body.dev-tv .tela-gestao-a-vista :deep(.gv-main-chart-title){font-size:20px!important;font-weight:700!important;color:var(--text)!important;}
 body.dev-tv .tela-gestao-a-vista :deep(.gv-pbtn){font-size:21px;padding:8px 19px;border-radius:8px;}
 body.dev-tv .tela-gestao-a-vista :deep(#gv-ac-toggle){font-size:21px;padding:8px 17px;}
+
+/* ── Estoque por canal (Task 3) — prefixo gv-est-* pra não colidir com nada
+   global; segue os mesmos tokens de tema da tela (funciona claro/escuro). */
+.tela-gestao-a-vista :deep(.gv-est){border-top:1px solid var(--border);background:var(--surface);flex-shrink:0;position:relative;z-index:2;}
+.tela-gestao-a-vista :deep(.gv-est-head){width:100%;display:flex;align-items:center;gap:10px;padding:6px 28px;background:none;border:none;cursor:pointer;font-family:var(--fonte-principal);text-align:left;}
+.tela-gestao-a-vista :deep(.gv-est-caret){font-size:9px;color:var(--accent);transition:transform .15s ease;display:inline-block;}
+.tela-gestao-a-vista :deep(.gv-est.open .gv-est-caret){transform:rotate(90deg);}
+.tela-gestao-a-vista :deep(.gv-est-t){font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--text);font-weight:600;}
+.tela-gestao-a-vista :deep(.gv-est-sub){font-size:9px;letter-spacing:1px;color:var(--muted);opacity:.7;}
+.tela-gestao-a-vista :deep(.gv-est-body[hidden]){display:none;}
+.tela-gestao-a-vista :deep(.gv-est-body){padding:0 28px 14px;max-height:38vh;overflow-y:auto;}
+.tela-gestao-a-vista :deep(.gv-est-controls){display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.tela-gestao-a-vista :deep(.gv-est-search){flex:1;min-width:160px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 10px;font-family:var(--fonte-principal);font-size:11px;}
+.tela-gestao-a-vista :deep(.gv-est-search::placeholder){color:var(--muted);}
+.tela-gestao-a-vista :deep(.gv-est-sel){background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-family:var(--fonte-principal);font-size:11px;}
+.tela-gestao-a-vista :deep(.gv-est-count){font-size:10px;color:var(--muted);letter-spacing:.3px;margin-left:auto;white-space:nowrap;}
+.tela-gestao-a-vista :deep(.gv-est-cols){display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;}
+.tela-gestao-a-vista :deep(.gv-est-col){border:1px solid var(--border);border-radius:8px;background:var(--bg);overflow:hidden;}
+.tela-gestao-a-vista :deep(.gv-est-colh){display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:10px;letter-spacing:.5px;color:var(--text);font-weight:600;}
+.tela-gestao-a-vista :deep(.gv-est-tot){font-family:var(--fonte-dados);font-size:10px;color:var(--muted);font-weight:400;}
+.tela-gestao-a-vista :deep(.gv-est-row){display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border);}
+.tela-gestao-a-vista :deep(.gv-est-row:last-child){border-bottom:none;}
+.tela-gestao-a-vista :deep(.gv-est-info){display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;}
+.tela-gestao-a-vista :deep(.gv-est-sku){font-family:var(--fonte-dados);font-size:11px;color:var(--accent);font-weight:600;}
+.tela-gestao-a-vista :deep(.gv-est-nm){font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tela-gestao-a-vista :deep(.gv-est-pill){font-size:8px;letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:999px;flex-shrink:0;font-weight:600;}
+.tela-gestao-a-vista :deep(.gv-est-pill-ok){background:color-mix(in srgb, var(--green) 18%, transparent);color:var(--green);}
+.tela-gestao-a-vista :deep(.gv-est-pill-low){background:color-mix(in srgb, var(--yellow) 20%, transparent);color:var(--yellow);}
+.tela-gestao-a-vista :deep(.gv-est-pill-crit){background:color-mix(in srgb, var(--red) 20%, transparent);color:var(--red);}
+.tela-gestao-a-vista :deep(.gv-est-q){font-family:var(--fonte-dados);font-size:12px;color:var(--text);font-weight:600;min-width:28px;text-align:right;flex-shrink:0;}
+.tela-gestao-a-vista :deep(.gv-est-more){padding:6px 10px;font-size:9px;color:var(--muted);text-align:center;}
+.tela-gestao-a-vista :deep(.gv-est-empty){padding:12px 10px;font-size:10px;color:var(--muted);text-align:center;}
+@media (max-width:768px){
+  .tela-gestao-a-vista :deep(.gv-est-head){padding:6px 14px;}
+  .tela-gestao-a-vista :deep(.gv-est-body){padding:0 14px 12px;}
+  .tela-gestao-a-vista :deep(.gv-est-count){margin-left:0;width:100%;}
+  .tela-gestao-a-vista :deep(.gv-est-cols){grid-template-columns:1fr;}
+}
 </style>
