@@ -20,34 +20,34 @@
           <span class="gv-brand-tag">Vessel Brasil · Gestão à Vista</span>
         </div>
       </div>
-      <div class="gv-period-btns" id="gv-period-btns">
-        <button class="gv-pbtn active" data-period="today" onclick="gvSelectPeriod('today')"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite;vertical-align:middle;flex-shrink:0;"></span>HOJE</button>
-        <button class="gv-pbtn" data-period="1d" onclick="gvSelectPeriod('1d')">1D</button>
-        <button class="gv-pbtn" data-period="7d" onclick="gvSelectPeriod('7d')">7D</button>
-        <button class="gv-pbtn" data-period="14d" onclick="gvSelectPeriod('14d')">14D</button>
-        <button class="gv-pbtn" data-period="30d" onclick="gvSelectPeriod('30d')">30D</button>
-        <button class="gv-pbtn" data-period="monthfull" onclick="gvSelectPeriod('monthfull')">MÊS</button>
-        <button class="gv-pbtn" data-period="lastmonth" onclick="gvSelectPeriod('lastmonth')">MÊS PASS.</button>
-        <button class="gv-pbtn" data-period="sofar" onclick="gvSelectPeriod('sofar')">ATÉ AGORA</button>
-        <button class="vs-ac-toggle" id="gv-ac-toggle" onclick="gvToggleAuto()" title="Auto-ciclo de períodos">▶ AUTO</button>
+      <div class="gv-topbar-controls">
+        <div class="gv-period-btns" id="gv-period-btns">
+          <button class="gv-pbtn active" data-period="today" onclick="gvSelectPeriod('today')"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite;vertical-align:middle;flex-shrink:0;"></span>HOJE</button>
+          <button class="gv-pbtn" data-period="1d" onclick="gvSelectPeriod('1d')">1D</button>
+          <button class="gv-pbtn" data-period="7d" onclick="gvSelectPeriod('7d')">7D</button>
+          <button class="gv-pbtn" data-period="14d" onclick="gvSelectPeriod('14d')">14D</button>
+          <button class="gv-pbtn" data-period="30d" onclick="gvSelectPeriod('30d')">30D</button>
+          <button class="gv-pbtn" data-period="monthfull" onclick="gvSelectPeriod('monthfull')">MÊS</button>
+          <button class="gv-pbtn" data-period="lastmonth" onclick="gvSelectPeriod('lastmonth')">MÊS PASS.</button>
+          <button class="gv-pbtn" data-period="sofar" onclick="gvSelectPeriod('sofar')">ATÉ AGORA</button>
+          <button class="vs-ac-toggle" id="gv-ac-toggle" onclick="gvToggleAuto()" title="Auto-ciclo de períodos">▶ AUTO</button>
+        </div>
+        <span class="gv-cf-lbl">Canal</span>
+        <div class="gv-cf-dd" id="gv-cf-dd" aria-label="Filtro por canal">
+          <button class="gv-cf-trigger" id="gv-cf-trigger" type="button" aria-expanded="false" aria-haspopup="true">
+            <span class="gv-cf-trigger-txt" id="gv-cf-trigger-txt">Todos os canais</span>
+            <svg class="gv-cf-caret" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="gv-cf-menu" id="gv-cf-menu" hidden>
+            <div class="gv-cf-chips" id="gv-cf-chips"></div>
+          </div>
+        </div>
       </div>
       <div class="gv-clock-wrap">
         <span class="live-dot" style="margin-bottom:4px">Tempo Real</span>
         <div class="gv-clock-time" id="gv-clock">--:--:--</div>
         <div class="gv-clock-date" id="gv-date"></div>
         <div class="gv-update-status" id="gv-update-status">—</div>
-      </div>
-    </div>
-    <div class="gv-cf-bar" id="gv-cf-bar" aria-label="Filtro por canal">
-      <span class="gv-cf-lbl">Canal</span>
-      <div class="gv-cf-dd" id="gv-cf-dd">
-        <button class="gv-cf-trigger" id="gv-cf-trigger" type="button" aria-expanded="false" aria-haspopup="true">
-          <span class="gv-cf-trigger-txt" id="gv-cf-trigger-txt">Todos os canais</span>
-          <svg class="gv-cf-caret" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        <div class="gv-cf-menu" id="gv-cf-menu" hidden>
-          <div class="gv-cf-chips" id="gv-cf-chips"></div>
-        </div>
       </div>
     </div>
     <div class="gv-board" id="gv-board">
@@ -94,6 +94,7 @@ const router = useRouter()
 
 let _gvCanaisSel = new Set() // loja.ids selecionadas no filtro por canal; vazio = Todos
 let _gvCanalDocClick = null   // handler de clique-fora do dropdown de canal (removido no unmount)
+let _gvCanalExpandido = false // false = linha de até 5 velocímetros; true = grade de 5 colunas ("Ver mais")
 
 const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
 const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
@@ -331,51 +332,25 @@ function _gvUpdateVendRanking(){
     </div>`;
   }).join('');
 }
+// Layout dos velocímetros por canal virou 100% CSS: linha horizontal de ATÉ 5 canais
+// (colapsado) e grade de 5 colunas com rolagem vertical quando "Ver mais". Não há mais
+// cálculo de colunas aqui; a função só limpa estilos inline antigos (de versões que
+// mexiam no grid) pra não brigar com o CSS. Mantida porque é chamada no render/resize.
 function _gvFitCanalGrid(){
+  const grid=document.getElementById('gv-canal-grid');
+  if(!grid)return;
+  grid.style.gridAutoFlow='';grid.style.gridTemplateRows='';grid.style.gridAutoColumns='';grid.style.gridTemplateColumns='';
+}
+// Alterna entre a linha de até 5 velocímetros e a grade de 5 colunas ("Ver mais"/"Ver menos").
+// Só troca a classe do painel (o CSS faz o resto) — estado guardado em _gvCanalExpandido pra
+// sobreviver aos re-renders do board (troca de período / filtro / atualização automática).
+function gvToggleCanais(){
+  _gvCanalExpandido=!_gvCanalExpandido;
   const panel=document.querySelector('#gestao-vista-screen .gv-canal-panel');
-  const scroll=document.getElementById('gv-canal-scroll');
-  const grid=scroll?.querySelector('.gv-canal-grid');
-  if(!panel||!scroll||!grid)return;
-  // Layout responsivo empilhado (≤1024, a tela vira scrollável): o CSS cuida do grid.
-  // Limpa qualquer estilo inline do layout de painel fixo pra não sobrepor as media queries.
-  if(window.innerWidth<=1024){
-    grid.style.gridAutoFlow='';grid.style.gridTemplateRows='';grid.style.gridAutoColumns='';
-    grid.style.gridTemplateColumns='';scroll.style.justifyContent='';
-    return;
-  }
-  const n=grid.children.length;
-  if(!n)return;
-  const W=scroll.clientWidth;
-  const H_card=panel.clientHeight;
-  if(!W||!H_card)return;
-  const isTV=document.body.classList.contains('dev-tv');
-  const gap=isTV?18:10;
-  const labelH=isTV?40:18;
-  // Largura FIXA por velocímetro (normalizada) — sempre MENOR que o gauge GERAL
-  // (que chega a 460px). Assim 1–2 canais não incham a ponto de ficar do tamanho do
-  // geral, e muitos canais não encolhem: passam a rolar na horizontal (todos do mesmo
-  // tamanho). Os gauges já vêm ordenados por faturamento desc (quem vendeu mais primeiro).
-  const Wt=isTV?190:140;
-  const svgAR=0.98; // altura/largura conservadora (gauge com meta é mais alto que sem)
-  const rowH=labelH+Wt*svgAR;
-  const H_max=Math.floor(H_card*0.96);
-  // nº de linhas que cabem na altura do painel; nunca mais linhas que itens
-  let rows=Math.max(1,Math.min(n,Math.floor((H_max+gap)/(rowH+gap))));
-  grid.style.gridAutoFlow='column';
-  grid.style.gridTemplateColumns='';
-  grid.style.gridAutoColumns=`${Wt}px`;
-  grid.style.justifyContent='';
-  grid.style.gridTemplateRows=`repeat(${rows},min-content)`;
-  // Gauges têm alturas diferentes (com/sem meta); mede de verdade e reduz linhas até
-  // caber na altura do painel (evita cortar a linha de baixo no overflow:hidden do card).
-  for(let guard=0;guard<12&&rows>1&&grid.scrollHeight>H_max;guard++){
-    rows--;
-    grid.style.gridTemplateRows=`repeat(${rows},min-content)`;
-  }
-  const cols=Math.ceil(n/rows);
-  const contentW=cols*Wt+(cols-1)*gap;
-  // centraliza quando cabe; alinha à esquerda (rolagem a partir do início) quando estoura
-  scroll.style.justifyContent=(contentW<=W)?'center':'flex-start';
+  if(panel)panel.classList.toggle('gv-canal-expandido',_gvCanalExpandido);
+  const btn=document.querySelector('#gestao-vista-screen .gv-canal-vermais');
+  if(btn){const n=panel?panel.querySelectorAll('.gv-sm-item').length:0;btn.textContent=_gvCanalExpandido?'Ver menos':('Ver mais ('+n+')');}
+  requestAnimationFrame(()=>{if(typeof _gvFitGaugeValues==='function')_gvFitGaugeValues();});
 }
 function _gvFitKpiText(){
   document.querySelectorAll('#gestao-vista-screen .gv-main-kpi-v').forEach(el=>{
@@ -686,22 +661,36 @@ function _gvMontaChips(){
   const mk=(id,nome)=>`<button class="gv-cf-chip${(id===null?_gvCanaisSel.size===0:_gvCanaisSel.has(id))?' active':''}" data-id="${id===null?'':id}"><svg class="gv-cf-check" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>${escHtml(nome)}</span></button>`;
   chips.innerHTML=mk(null,'Todos os canais')+ids.map(id=>mk(id,ctx.canais[id]||('Canal #'+String(id).slice(-4)))).join('');
   chips.querySelectorAll('.gv-cf-chip').forEach(b=>{
-    b.onclick=()=>{
+    b.onclick=(e)=>{
+      // não deixa o clique borbulhar pro handler de clique-fora (senão o menu fecharia
+      // a cada seleção). O menu SÓ fecha quando o usuário clica fora dele.
+      e.stopPropagation();
       if(!b.dataset.id){_gvCanaisSel.clear();}
       else{
         const id=parseInt(b.dataset.id,10);
         if(_gvCanaisSel.has(id))_gvCanaisSel.delete(id);else _gvCanaisSel.add(id);
       }
-      _gvAplicaFiltro();
+      _gvSyncChipStates();     // atualiza ✓/ativos SEM recriar os chips (menu fica estável e aberto)
+      _gvUpdateCanalTrigger();
+      _gvAplicaFiltro({rebuildChips:false});
     };
   });
   _gvUpdateCanalTrigger();
+}
+// Atualiza o estado visual (ativo/✓) dos chips já existentes, sem recriar o DOM do menu —
+// deixa a multi-seleção fluida (o menu não pisca nem perde a rolagem a cada clique).
+function _gvSyncChipStates(){
+  const chips=document.getElementById('gv-cf-chips'); if(!chips)return;
+  chips.querySelectorAll('.gv-cf-chip').forEach(b=>{
+    const ativo=b.dataset.id?_gvCanaisSel.has(parseInt(b.dataset.id,10)):_gvCanaisSel.size===0;
+    b.classList.toggle('active',ativo);
+  });
 }
 // Refiltra pedidos/pedidosPrev pela UNIÃO dos canais selecionados e re-renderiza
 // o board com os MESMOS args guardados no load (metasMap/vendedoresMap/etc não
 // são recomputados — só totalPrev/cntPrev, que são somas baratas e precisam
 // refletir os canais filtrados pra a comparação com o período anterior fazer sentido).
-function _gvAplicaFiltro(){
+function _gvAplicaFiltro(opts){
   const ctx=window._gvRenderCtx; if(!ctx)return;
   const ids=[..._gvCanaisSel];
   const peds=filtrarPedidosPorCanal(ctx.pedidos,ids);
@@ -709,7 +698,9 @@ function _gvAplicaFiltro(){
   const totalPrevF=pedsPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
   ctx.pedidosView=peds; // board atual = filtrado; _gvUpdateVendRanking lê daqui, não de ctx.pedidos (cheio)
   renderGestaoVista(peds,ctx.canais,ctx.metasMap,ctx.hoje,ctx.diasMes,ctx.diaAtual,ctx.di,ctx.period,totalPrevF,pedsPrev.length,pedsPrev,ctx.diPrev,ctx.dfPrev,ctx.vendedoresMap,ctx.dailyGoalsMap,ctx.actualToday);
-  _gvMontaChips();           // reflete o estado ativo
+  // Ao clicar num chip a lista já foi sincronizada in-place (rebuildChips:false), pra não
+  // recriar o menu e fechá-lo. Nas outras chamadas (troca de período etc.) recria normalmente.
+  if(!opts||opts.rebuildChips!==false)_gvMontaChips();
   if(typeof _gvRenderEstoque==='function')_gvRenderEstoque();
 }
 
@@ -1124,12 +1115,13 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
       </div>
     </div>
     <div class="gv-right">
-      <div class="gv-canal-panel">
-        <div class="gv-col-grid-label">Venda por canal</div>
+      <div class="gv-canal-panel${_gvCanalExpandido?' gv-canal-expandido':''}">
+        <div class="gv-canal-head">
+          <div class="gv-col-grid-label">Venda por canal</div>
+          ${(canaisArr.length>5||_gvCanalExpandido)?`<button class="gv-canal-vermais" onclick="gvToggleCanais()">${_gvCanalExpandido?'Ver menos':('Ver mais ('+canaisArr.length+')')}</button>`:''}
+        </div>
         <div class="gv-canal-scroll" id="gv-canal-scroll">
-          <div class="gv-canal-scroll-inner" id="gv-canal-inner">
-            <div class="gv-canal-grid">${smGaugesHtml}</div>
-          </div>
+          <div class="gv-canal-grid" id="gv-canal-grid">${smGaugesHtml}</div>
         </div>
       </div>
       <div class="gv-rankings">
@@ -1252,7 +1244,7 @@ function _gvInitCanalDropdown(){
 }
 
 Object.assign(window, {
-  gvSelectPeriod, gvToggleAuto, gvAutoStart, gvAutoStop, closeGestaoVista,
+  gvSelectPeriod, gvToggleAuto, gvAutoStart, gvAutoStop, gvToggleCanais, closeGestaoVista,
   _gvBuildSkuSlide, _gvUpdateVendRanking, _gvFitCanalGrid, _gvFitKpiText, _gvPickQuote,
   _gvRenderTickerSlide, _gvNextTickerSlide, startGVClock, updateGvUpdateStatus,
   loadGestaoVistaData, initGvBgAnim, renderGestaoVista,
@@ -1332,7 +1324,6 @@ onUnmounted(() => {
 .tela-gestao-a-vista :deep(.gv-clock-time){font-family:var(--fonte-dados);font-size:28px;font-weight:400;letter-spacing:3px;color:var(--text);line-height:1;}
 .tela-gestao-a-vista :deep(.gv-clock-date){font-family:var(--fonte-principal);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:3px;}
 .tela-gestao-a-vista :deep(.gv-update-status){font-family:var(--fonte-principal);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);opacity:.45;margin-top:4px;text-align:right;}
-.tela-gestao-a-vista :deep(.gv-cf-bar){display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:relative;z-index:9;}
 .tela-gestao-a-vista :deep(.gv-cf-lbl){font-family:var(--fonte-principal);font-size:8px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);}
 .tela-gestao-a-vista :deep(.gv-cf-dd){position:relative;}
 .tela-gestao-a-vista :deep(.gv-cf-trigger){font-family:var(--fonte-principal);font-size:11px;letter-spacing:.3px;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:10px;min-width:170px;justify-content:space-between;transition:border-color .12s ease,background .12s ease;}
@@ -1350,6 +1341,8 @@ onUnmounted(() => {
 .tela-gestao-a-vista :deep(.gv-cf-chip.active){color:var(--accent);font-weight:700;}
 .tela-gestao-a-vista :deep(.gv-cf-chip.active .gv-cf-check){opacity:1;}
 .tela-gestao-a-vista :deep(.gv-cf-chip span){overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* Bloco central do topbar: seletor de intervalos + botão de canais logo à direita */
+.tela-gestao-a-vista :deep(.gv-topbar-controls){display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
 /* Board layout — 2-column grid: left=gauge panel, right=canal gauges + rankings */
 .tela-gestao-a-vista :deep(.gv-board){flex:1;display:grid;grid-template-columns:480px 1fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;position:relative;z-index:2;backdrop-filter:none;}
 .tela-gestao-a-vista :deep(.gv-left){background:var(--bg);display:flex;flex-direction:column;align-items:center;padding:8px 22px;gap:0;overflow:hidden;justify-content:space-between;}
@@ -1360,11 +1353,21 @@ onUnmounted(() => {
 .tela-gestao-a-vista :deep(.gv-gauge-inner){width:100%;max-width:460px;aspect-ratio:1;}
 .tela-gestao-a-vista :deep(.gv-right){display:grid;grid-template-rows:55fr 45fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;}
 .tela-gestao-a-vista :deep(.gv-canal-panel){background:var(--bg);padding:7px 12px;display:flex;flex-direction:column;overflow:hidden;}
-.tela-gestao-a-vista :deep(.gv-canal-scroll){flex:1;overflow-x:auto;overflow-y:hidden;min-height:0;display:flex;align-items:safe center;justify-content:center;scrollbar-width:thin;}
-.tela-gestao-a-vista :deep(.gv-canal-scroll::-webkit-scrollbar){height:8px;}
+.tela-gestao-a-vista :deep(.gv-canal-head){display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;}
+.tela-gestao-a-vista :deep(.gv-canal-vermais){font-family:var(--fonte-principal);font-size:10px;font-weight:600;letter-spacing:.3px;padding:4px 11px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--accent);cursor:pointer;flex-shrink:0;white-space:nowrap;transition:border-color .12s ease;}
+.tela-gestao-a-vista :deep(.gv-canal-vermais:hover){border-color:var(--accent);}
+/* Colapsado: uma linha horizontal de ATÉ 5 velocímetros (largura fixa = 1/5, normalizada) */
+.tela-gestao-a-vista :deep(.gv-canal-scroll){flex:1;min-height:0;overflow:hidden;display:flex;align-items:safe center;scrollbar-width:thin;}
+.tela-gestao-a-vista :deep(.gv-canal-scroll::-webkit-scrollbar){width:8px;height:8px;}
 .tela-gestao-a-vista :deep(.gv-canal-scroll::-webkit-scrollbar-thumb){background:var(--border);border-radius:8px;}
-.tela-gestao-a-vista :deep(.gv-canal-scroll-inner){width:max-content;flex:0 0 auto;}
-.tela-gestao-a-vista :deep(.gv-canal-grid){display:grid;gap:10px;align-content:start;}
+.tela-gestao-a-vista :deep(.gv-canal-grid){display:flex;gap:10px;align-items:flex-start;width:100%;}
+.tela-gestao-a-vista :deep(.gv-canal-grid > .gv-sm-item){flex:0 0 calc((100% - 40px)/5);max-width:calc((100% - 40px)/5);}
+.tela-gestao-a-vista :deep(.gv-canal-grid > .gv-sm-item:nth-child(n+6)){display:none;}
+/* "Ver mais": grade de 5 colunas, rola na vertical (grade 5×5, o resto rola) */
+.tela-gestao-a-vista :deep(.gv-canal-panel.gv-canal-expandido .gv-canal-scroll){overflow-y:auto;overflow-x:hidden;align-items:flex-start;}
+.tela-gestao-a-vista :deep(.gv-canal-panel.gv-canal-expandido .gv-canal-grid){display:grid;grid-template-columns:repeat(5,1fr);gap:12px 10px;align-content:start;}
+.tela-gestao-a-vista :deep(.gv-canal-panel.gv-canal-expandido .gv-canal-grid > .gv-sm-item){flex:none;max-width:none;}
+.tela-gestao-a-vista :deep(.gv-canal-panel.gv-canal-expandido .gv-canal-grid > .gv-sm-item:nth-child(n+6)){display:flex;}
 .tela-gestao-a-vista :deep(.gv-sm-item){display:flex;flex-direction:column;align-items:center;gap:2px;}
 .tela-gestao-a-vista :deep(.gv-sm-item-lbl){font-family:var(--fonte-principal);font-size:14px;font-weight:700;letter-spacing:.5px;color:var(--muted);text-align:center;line-height:1.3;overflow-wrap:break-word;word-break:break-word;max-width:100%;}
 .tela-gestao-a-vista :deep(.gv-sm-item-val){font-family:var(--fonte-dados);font-size:13px;color:var(--text);}
@@ -1487,8 +1490,11 @@ onUnmounted(() => {
   .tela-gestao-a-vista :deep(.gv-right){display:flex;flex-direction:column;gap:1px;background:var(--border);overflow:visible;min-height:0;}
   .tela-gestao-a-vista :deep(.gv-canal-panel){overflow:visible;padding:12px 16px;}
   .tela-gestao-a-vista :deep(.gv-canal-scroll){display:block;overflow:visible;flex:none;min-height:0;}
-  .tela-gestao-a-vista :deep(.gv-canal-grid){grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;}
-  .tela-gestao-a-vista :deep(.gv-canal-scroll-inner){animation:none!important;transform:none!important;width:100%!important;}
+  /* No mobile a tela rola verticalmente: mostra TODOS os canais em grade (sem "ver mais") */
+  .tela-gestao-a-vista :deep(.gv-canal-grid){display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;}
+  .tela-gestao-a-vista :deep(.gv-canal-grid > .gv-sm-item){flex:none;max-width:none;}
+  .tela-gestao-a-vista :deep(.gv-canal-grid > .gv-sm-item:nth-child(n+6)){display:flex;}
+  .tela-gestao-a-vista :deep(.gv-canal-vermais){display:none;}
   .tela-gestao-a-vista :deep(.gv-rankings){display:flex;flex-direction:column;gap:1px;background:var(--border);overflow:visible;min-height:0;}
   .tela-gestao-a-vista :deep(.gv-rank-panel){overflow:visible;padding:12px 16px;}
   .tela-gestao-a-vista :deep(.gv-rank-scroll){overflow:visible;flex:none;min-height:0;}
@@ -1535,7 +1541,13 @@ onUnmounted(() => {
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-brand-tag){display:none;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-clock-wrap){display:none;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-update-status){display:none;}
+  /* controls "desaparece" do layout p/ período e canal virarem filhos diretos do topbar (ordem/linhas) */
+  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-topbar-controls){display:contents;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-period-btns){order:2;width:100%;box-sizing:border-box;overflow-x:auto;-webkit-overflow-scrolling:touch;display:flex;flex-wrap:nowrap;gap:4px;padding:7px 14px 9px;border-top:1px solid var(--border);background:var(--surface);}
+  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-cf-lbl){display:none;}
+  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-cf-dd){order:3;width:100%;box-sizing:border-box;padding:0 14px 9px;background:var(--surface);}
+  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-cf-trigger){width:100%;}
+  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-cf-menu){left:14px;right:14px;min-width:0;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-pbtn){font-size:10px;padding:5px 11px;flex-shrink:0;border-radius:4px;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(#gv-ac-toggle){flex-shrink:0;font-size:9px;padding:5px 10px;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-board){display:flex;flex-direction:column;gap:12px;background:var(--surface2);overflow:visible;height:auto;min-height:0;flex:none;padding:12px;}
@@ -1556,7 +1568,6 @@ onUnmounted(() => {
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-canal-panel){display:flex;flex-direction:column;gap:10px;overflow:visible;height:auto;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:6px;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-col-grid-label){border-bottom:none;padding-bottom:0;margin-bottom:0;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-canal-scroll){display:block;overflow:visible;flex:none;height:auto;min-height:0;}
-  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-canal-scroll-inner){animation:none;transform:none;width:100%!important;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-canal-grid){display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-sm-item){display:flex!important;flex-direction:column!important;align-items:center;padding:12px 8px 8px;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;text-align:center;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-sm-item-lbl){font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);width:100%;word-break:break-word;line-height:1.2;}
@@ -1594,7 +1605,7 @@ onUnmounted(() => {
   .tela-gestao-a-vista :deep(.gv-main-kpi-v){font-size:16px;}
   .tela-gestao-a-vista :deep(.gv-main-kpi-l){font-size:8px;}
   .tela-gestao-a-vista :deep(.gv-main-kpi-d){font-size:8px;}
-  .tela-gestao-a-vista :deep(.gv-canal-grid){grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:7px;}
+  .tela-gestao-a-vista :deep(.gv-canal-grid){gap:10px;}
   .tela-gestao-a-vista :deep(.gv-sm-item-lbl){font-size:11px;}
   .tela-gestao-a-vista :deep(.gv-rank-nm){font-size:12px;}
   .tela-gestao-a-vista :deep(.gv-rank-v){font-size:14px;}
@@ -1607,7 +1618,7 @@ onUnmounted(() => {
 @media(min-width:1025px) and (max-width:1280px){
   .tela-gestao-a-vista :deep(.gv-board){grid-template-columns:320px 1fr;}
   .tela-gestao-a-vista :deep(.gv-gauge-wrap){max-height:min(38vh,300px);}
-  .tela-gestao-a-vista :deep(.gv-canal-grid){grid-template-columns:repeat(auto-fit,minmax(95px,1fr));gap:5px;}
+  .tela-gestao-a-vista :deep(.gv-canal-grid){gap:10px;}
   .tela-gestao-a-vista :deep(.gv-sm-item-lbl){font-size:10px;}
   .tela-gestao-a-vista :deep(.gv-rank-nm){font-size:11px;}
   .tela-gestao-a-vista :deep(.gv-rank-v){font-size:13px;}
@@ -1620,7 +1631,7 @@ body.dev-tv .tela-gestao-a-vista :deep(.gv-left){padding:20px 36px;gap:0;}
 body.dev-tv .tela-gestao-a-vista :deep(.gv-gauge-wrap){max-height:none;}
 body.dev-tv .tela-gestao-a-vista :deep(.gv-gauge-inner){max-width:680px;}
 body.dev-tv .tela-gestao-a-vista :deep(.gv-canal-panel){padding:18px 28px;}
-body.dev-tv .tela-gestao-a-vista :deep(.gv-canal-grid){grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;}
+body.dev-tv .tela-gestao-a-vista :deep(.gv-canal-grid){gap:10px;}
 body.dev-tv .tela-gestao-a-vista :deep(.gv-rank-panel){padding:18px 44px;}
 body.dev-tv .tela-gestao-a-vista :deep(.gv-clock-time){font-size:72px;letter-spacing:5px;}
 body.dev-tv .tela-gestao-a-vista :deep(.gv-clock-date){font-size:20px;}
