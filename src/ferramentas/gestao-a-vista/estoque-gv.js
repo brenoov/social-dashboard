@@ -18,8 +18,7 @@ export function depositosVisiveis(canalNome) {
   const n = String(canalNome).toLowerCase();
   const loja = DEPOSITOS.find((d) => !d.pulmao && (
     (d.nome.toLowerCase().includes('tivoli') && n.includes('tivoli')) ||
-    (d.nome.toLowerCase().includes('dom pedro') && n.includes('dom pedro')) ||
-    (n.includes('pulmão') || n.includes('pulmao') || n.includes('atacado'))
+    (d.nome.toLowerCase().includes('dom pedro') && n.includes('dom pedro'))
   ));
   // pulmão sempre; se casou uma loja, ela vem antes
   return loja ? [loja, PULMAO] : [PULMAO];

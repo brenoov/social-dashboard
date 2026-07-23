@@ -14,6 +14,9 @@ test('depositosVisiveis: Pulmão sempre; canal casado mostra loja+Pulmão; todos
   assert.deepEqual(depositosVisiveis('Shopping Tivoli').map(d=>d.id), [14888726315,14888248253]);
   // canal sem depósito casável -> só o Pulmão
   assert.deepEqual(depositosVisiveis('Loja Online').map(d=>d.id), [14888248253]);
+  // regressão: canal "atacado/pulmão" não deve casar a loja Tivoli por engano
+  assert.deepEqual(depositosVisiveis('Atacado Nuvem Shop').map(d=>d.id), [14888248253]);
+  assert.deepEqual(depositosVisiveis('Shopping Dom Pedro').map(d=>d.id), [14888617206,14888248253]);
 });
 
 test('prepararEstoque: busca + status + ordena + limita', () => {
