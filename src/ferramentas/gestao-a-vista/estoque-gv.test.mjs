@@ -58,16 +58,25 @@ test('prepararEstoque: oculta matéria-prima (categoria vazia) por regra fixa', 
   assert.deepEqual(r.rows.map(x=>x.sku), ['LV1']); assert.equal(r.full, 1);
 });
 
-test('prepararEstoque: filtro por categoria única', () => {
+test('prepararEstoque: filtro por categoria (multi-seleção)', () => {
   const itens = [
     {sku:'A',produto:'Cinto A',saldo:5,categoria:'Cinto'},
     {sku:'B',produto:'Bolsa B',saldo:5,categoria:'Tote'},
     {sku:'C',produto:'Cinto C',saldo:5,categoria:'Cinto'},
+    {sku:'D',produto:'Óculos D',saldo:5,categoria:'Óculos'},
   ];
-  let r = prepararEstoque(itens, {categoria:'Cinto', limit:'all'});
+  // uma categoria
+  let r = prepararEstoque(itens, {categorias:['Cinto'], limit:'all'});
   assert.deepEqual(r.rows.map(x=>x.sku).sort(), ['A','C']);
-  r = prepararEstoque(itens, {categoria:'todas', limit:'all'});
-  assert.equal(r.full, 3);
+  // várias categorias (união)
+  r = prepararEstoque(itens, {categorias:['Cinto','Óculos'], limit:'all'});
+  assert.deepEqual(r.rows.map(x=>x.sku).sort(), ['A','C','D']);
+  // aceita Set
+  r = prepararEstoque(itens, {categorias:new Set(['Tote']), limit:'all'});
+  assert.deepEqual(r.rows.map(x=>x.sku), ['B']);
+  // vazio/null = todas
+  assert.equal(prepararEstoque(itens, {categorias:[], limit:'all'}).full, 4);
+  assert.equal(prepararEstoque(itens, {limit:'all'}).full, 4);
 });
 
 test('categoriasDisponiveis: únicas, sem matéria-prima, ordenadas pt-BR', () => {
