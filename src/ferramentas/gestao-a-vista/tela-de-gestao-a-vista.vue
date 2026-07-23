@@ -691,8 +691,18 @@ let _gvEstoqueCache=null; // [{deposito_id,sku,produto,saldo}]
 async function _gvCarregaEstoque(){
   if(_gvEstoqueCache)return _gvEstoqueCache;
   const ids=DEPOSITOS.map(d=>d.id);
-  const { data }=await sbClient.from('gc_estoque_item').select('deposito_id,sku,produto,saldo').in('deposito_id',ids);
-  _gvEstoqueCache=data||[];
+  const size=1000, rows=[];
+  try{
+    for(let from=0;;from+=size){
+      const { data, error }=await sbClient.from('gc_estoque_item').select('deposito_id,sku,produto,saldo').in('deposito_id',ids).range(from,from+size-1);
+      if(error)throw error;
+      rows.push(...(data||[]));
+      if(!data||data.length<size)break;
+    }
+    _gvEstoqueCache=rows;
+  }catch(e){
+    _gvEstoqueCache=[];
+  }
   return _gvEstoqueCache;
 }
 async function _gvRenderEstoque(){
