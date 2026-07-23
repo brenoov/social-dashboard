@@ -646,12 +646,13 @@ async function loadGestaoVistaData(period){
 }
 
 // ── Filtro por canal (Task 2) ────────────────────────────────────────────
-// Monta a barra de chips [Todos] + um por canal com pedido no período carregado
-// (window._gvRenderCtx.pedidos — sempre o conjunto CHEIO do período, não o
-// filtrado, senão depois de filtrar só sobraria o próprio chip selecionado).
+// Monta a barra de chips [Todos] + um por canal CADASTRADO (ctx.canais, vindo
+// de bling_lojas) — TODOS os canais aparecem, mesmo sem pedido no período,
+// pra o filtro sempre oferecer o conjunto completo (não só quem vendeu).
 function _gvMontaChips(){
   const ctx=window._gvRenderCtx; if(!ctx)return;
-  const ids=[...new Set(ctx.pedidos.map(p=>p.loja&&p.loja.id).filter(Boolean))];
+  const ids=Object.keys(ctx.canais||{}).map(id=>parseInt(id,10)).filter(id=>!isNaN(id))
+    .sort((a,b)=>String(ctx.canais[a]||'').localeCompare(String(ctx.canais[b]||''),'pt-BR'));
   const chips=document.getElementById('gv-cf-chips'); if(!chips)return;
   const mk=(id,nome)=>`<button class="gv-cf-chip${(id===null?_gvCanaisSel.size===0:_gvCanaisSel.has(id))?' active':''}" data-id="${id===null?'':id}">${escHtml(nome)}</button>`;
   chips.innerHTML=mk(null,'Todos')+ids.map(id=>mk(id,ctx.canais[id]||('Canal #'+String(id).slice(-4)))).join('');
@@ -810,7 +811,15 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   pedidos.forEach(p=>{const id=p.loja?.id||0;porCanal[id]=(porCanal[id]||0)+parseFloat(p.total||0);cntCanal[id]=(cntCanal[id]||0)+1;});
   const porCanalPrev={};
   (pedidosPrev||[]).forEach(p=>{const id=p.loja?.id||0;porCanalPrev[id]=(porCanalPrev[id]||0)+parseFloat(p.total||0);});
-  const canaisArr=Object.entries(porCanal).map(([id,v])=>({id:parseInt(id),nm:canais[id]||(id?'Canal #'+String(id).slice(-4):'Outros'),v,cnt:cntCanal[id]})).sort((a,b)=>b.v-a.v);
+  // Canais em EXIBIÇÃO (velocímetros + rankings): os SELECIONADOS no filtro
+  // (_gvCanaisSel, estado de módulo do filtro por canal) ou, sem seleção
+  // ("Todos"), a união de TODOS os canais cadastrados (`canais`, bling_lojas)
+  // com os que aparecem em `porCanal` (cobre id fora do cadastro, ex.: 0/"Outros").
+  // Canal sem venda no período entra com v=0/cnt=0 — R$ 0,00, não some da tela.
+  const universo=[...new Set([...Object.keys(canais),...Object.keys(porCanal)])]
+    .map(id=>parseInt(id,10)).filter(id=>!isNaN(id));
+  const displayIds=(_gvCanaisSel&&_gvCanaisSel.size)?[..._gvCanaisSel]:universo;
+  const canaisArr=displayIds.map(id=>({id,nm:canais[id]||(id?'Canal #'+String(id).slice(-4):'Outros'),v:porCanal[id]||0,cnt:cntCanal[id]||0})).sort((a,b)=>b.v-a.v);
   const maxC=canaisArr[0]?.v||1;
 
   // Per vendedor — usa mapa pedido→vendedor preenchido em background pelo _gvBuildSkuSlide
@@ -967,9 +976,9 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   if(desvioStr)line4parts.push({text:desvioStr,color:desvioMeta>=0?'#22c55e':'#f43f5e'});
   if(deltaStr)line4parts.push({text:deltaStr,color:deltaPct>=0?'#22c55e':'#f43f5e'});
 
-  // ── SMALL GAUGES (per canal) ──
-  const canaisComMeta=canaisArr.filter(c=>metasMap[c.id]);
-  const smGaugesHtml=(canaisComMeta.length>0?canaisComMeta:canaisArr.slice(0,14)).map((c,i)=>{
+  // ── SMALL GAUGES (per canal) ── um gauge por canal em EXIBIÇÃO (canaisArr já
+  // é o universo completo — ver comentário acima), incluindo os com R$ 0,00.
+  const smGaugesHtml=canaisArr.map((c,i)=>{
     const hasMeta=!!metasMap[c.id];
     const cMetaP=hasMeta?_calcMetaPeriodo(c.id,metasMap[c.id]/diasMes*diasTotMeta):null;
     const cPct=cMetaP?Math.round(c.v/cMetaP*100):null;
