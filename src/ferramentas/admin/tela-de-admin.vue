@@ -158,6 +158,7 @@ import { estado, PERMISSION_TREE, RECURSOS } from '../../compartilhado/controle-
 import { ACOES_MATRIZ, agruparRecursos, contarAcoes, estadoDaSelecao, marcarTudo } from './agrupar-permissoes.js'
 import { derivarFeatures } from '../../compartilhado/derivar-features.js'
 import { adminToast } from '../../compartilhado/avisos.js'
+import { gerarSenhaForte } from './senha.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 
 const router = useRouter()
@@ -705,6 +706,12 @@ async function loadAdminUsers() {
     if (!isSelf && canEdit) sel.addEventListener('change', async () => { await adFetch('profiles?id=eq.' + u.id, { method: 'PATCH', body: JSON.stringify({ role: sel.value }) }); adminToast('Role atualizado'); setTimeout(loadAdminUsers, 800) })
     else sel.disabled = true
     ctrl.appendChild(sel)
+    // Trocar senha (só superadmin) — pode resetar a senha de QUALQUER usuário que esqueceu a dele.
+    if (estado.is_superadmin) {
+      const pwBtn = mkEl('button', 'sr-btn'); pwBtn.textContent = 'Trocar senha'; pwBtn.title = 'Definir uma nova senha para este usuário'
+      pwBtn.addEventListener('click', () => _abrirTrocaSenha(u, row))
+      ctrl.appendChild(pwBtn)
+    }
     if (!isSelf && canEdit) {
       const permBtn = mkEl('button', 'sr-btn'); permBtn.textContent = 'Permissões'
       permBtn.addEventListener('click', () => openPermModal(u))
@@ -736,6 +743,49 @@ async function loadAdminUsers() {
     }
     row.appendChild(avWrap); row.appendChild(main); row.appendChild(ctrl); list.appendChild(row)
   })
+}
+
+// Mini-form de troca de senha (só superadmin). Abre inline na linha do usuário; digita OU gera.
+// A troca em si roda na Edge invite-user ({resetPasswordUserId,password}), que confere superadmin
+// no servidor e usa auth.admin.updateUserById (service_role nunca vai pro front).
+function _abrirTrocaSenha(u, row) {
+  const existente = row.querySelector('.sr-pwform')
+  if (existente) { existente.remove(); return }   // clique de novo fecha
+  const form = mkEl('div', 'sr-pwform')
+  form.style.cssText = 'flex-basis:100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)'
+  const lbl = mkEl('span'); lbl.textContent = 'Nova senha de ' + (u.name || u.email) + ':'
+  lbl.style.cssText = 'font-size:11px;color:var(--muted);letter-spacing:.3px'
+  const inp = mkEl('input', 'admin-form-input'); inp.type = 'text'; inp.placeholder = 'digite ou gere (mín. 6)'
+  inp.style.cssText = 'max-width:240px;font-size:13px;font-family:var(--fonte-dados)'
+  const gerar = mkEl('button', 'sr-btn'); gerar.textContent = 'Gerar'; gerar.type = 'button'
+  gerar.addEventListener('click', () => { inp.value = gerarSenhaForte(14); inp.focus(); inp.select() })
+  const salvar = mkEl('button', 'sr-btn'); salvar.textContent = 'Salvar senha'; salvar.style.cssText = 'background:var(--accent);color:#fff'
+  const cancelar = mkEl('button', 'sr-btn'); cancelar.textContent = 'Cancelar'
+  cancelar.addEventListener('click', () => form.remove())
+  const hint = mkEl('span'); hint.style.cssText = 'font-size:11px;color:var(--muted)'; hint.textContent = 'Anote e passe pro usuário.'
+  salvar.addEventListener('click', async () => {
+    const pw = inp.value.trim()
+    if (pw.length < 6) { alert('A senha precisa de no mínimo 6 caracteres.'); inp.focus(); return }
+    salvar.disabled = true; salvar.textContent = 'Salvando…'
+    try {
+      const { data: { session: s } } = await sbClient.auth.getSession()
+      const tok = s?.access_token || SUPABASE_ANON_KEY
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/invite-user`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resetPasswordUserId: u.id, password: pw }),
+      })
+      const res = await r.json()
+      if (res.error) throw new Error(res.error)
+      adminToast('Senha de ' + u.email + ' alterada')
+      form.remove()
+    } catch (e) {
+      alert('Erro ao trocar senha: ' + (e.message || e))
+      salvar.disabled = false; salvar.textContent = 'Salvar senha'
+    }
+  })
+  ;[lbl, inp, gerar, salvar, cancelar, hint].forEach((el) => form.appendChild(el))
+  row.appendChild(form); inp.focus()
 }
 // SENSITIVE MUTATION — cria/convida usuário DE VERDADE (edge function
 // invite-user). Sem confirm() no legado; nenhum foi adicionado aqui.
