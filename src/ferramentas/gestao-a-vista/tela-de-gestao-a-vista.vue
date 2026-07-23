@@ -38,6 +38,10 @@
         <div class="gv-update-status" id="gv-update-status">—</div>
       </div>
     </div>
+    <div class="gv-cf-bar" id="gv-cf-bar" aria-label="Filtro por canal">
+      <span class="gv-cf-lbl">Canal</span>
+      <div class="gv-cf-chips" id="gv-cf-chips"></div>
+    </div>
     <div class="gv-board" id="gv-board">
       <div class="gv-loading-screen">
         <div class="gv-spinner"></div>
@@ -59,8 +63,11 @@ import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
+import { filtrarPedidosPorCanal, depositosVisiveis, prepararEstoque, statusSaldo, DEPOSITOS } from './estoque-gv.js'
 
 const router = useRouter()
+
+let _gvCanalSel = null // loja.id selecionada no filtro por canal; null = Todos
 
 const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
 const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
@@ -587,11 +594,21 @@ async function loadGestaoVistaData(period){
     if(myLoad!==_gvLoadId)return;
     // Renderiza imediatamente com o cache do Supabase — fetches pendentes vão para background
     const vendedoresMap={};
-    window._gvRenderCtx={pedidos,pedidosPrev,canais,diPrev,dfPrev};
+    window._gvRenderCtx={
+      pedidos,pedidosPrev,canais,diPrev,dfPrev,
+      // demais args de renderGestaoVista (Task 2 — filtro por canal), guardados
+      // pra _gvAplicaFiltro repassar sem re-fetch nem recomputar Bling/Supabase:
+      metasMap,hoje:df,diasMes,diaAtual,di,period,vendedoresMap,dailyGoalsMap,actualToday:brtToday,
+    };
     if(myLoad!==_gvLoadId)return; // troca de período enquanto carregava — descarta silenciosamente
     const totalPrev=pedidosPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
     _fadeSwap(board,()=>{
       renderGestaoVista(pedidos,canais,metasMap,df,diasMes,diaAtual,di,period,totalPrev,pedidosPrev.length,pedidosPrev,diPrev,dfPrev,vendedoresMap,dailyGoalsMap,brtToday);
+      _gvMontaChips();
+      // se um canal já estava selecionado (ex.: trocou de período com filtro ativo),
+      // reaplica pra não deixar o chip marcado divergindo do board (que acabou de
+      // renderizar SEM filtro acima).
+      if(_gvCanalSel!=null)_gvAplicaFiltro();
     });
     if(window._gvTimer)clearInterval(window._gvTimer);
     window._gvTimer=setInterval(()=>loadGestaoVistaData(_gvCurrentPeriod),5*60*1000);
@@ -604,6 +621,34 @@ async function loadGestaoVistaData(period){
     if(myLoad!==_gvLoadId)return;
     board.innerHTML=`<div class="gv-loading-full">Erro ao carregar — ${escHtml(e.message)}</div>`;
   }
+}
+
+// ── Filtro por canal (Task 2) ────────────────────────────────────────────
+// Monta a barra de chips [Todos] + um por canal com pedido no período carregado
+// (window._gvRenderCtx.pedidos — sempre o conjunto CHEIO do período, não o
+// filtrado, senão depois de filtrar só sobraria o próprio chip selecionado).
+function _gvMontaChips(){
+  const ctx=window._gvRenderCtx; if(!ctx)return;
+  const ids=[...new Set(ctx.pedidos.map(p=>p.loja&&p.loja.id).filter(Boolean))];
+  const chips=document.getElementById('gv-cf-chips'); if(!chips)return;
+  const mk=(id,nome)=>`<button class="gv-cf-chip${(_gvCanalSel===id||(id===null&&_gvCanalSel===null))?' active':''}" data-id="${id===null?'':id}">${escHtml(nome)}</button>`;
+  chips.innerHTML=mk(null,'Todos')+ids.map(id=>mk(id,ctx.canais[id]||('Canal #'+String(id).slice(-4)))).join('');
+  chips.querySelectorAll('.gv-cf-chip').forEach(b=>{
+    b.onclick=()=>{_gvCanalSel=b.dataset.id?parseInt(b.dataset.id,10):null;_gvAplicaFiltro();};
+  });
+}
+// Refiltra pedidos/pedidosPrev por canal e re-renderiza o board com os MESMOS
+// args guardados no load (metasMap/vendedoresMap/etc não são recomputados —
+// só totalPrev/cntPrev, que são somas baratas e precisam refletir o canal
+// filtrado pra a comparação com o período anterior fazer sentido).
+function _gvAplicaFiltro(){
+  const ctx=window._gvRenderCtx; if(!ctx)return;
+  const peds=filtrarPedidosPorCanal(ctx.pedidos,_gvCanalSel);
+  const pedsPrev=filtrarPedidosPorCanal(ctx.pedidosPrev,_gvCanalSel);
+  const totalPrevF=pedsPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
+  renderGestaoVista(peds,ctx.canais,ctx.metasMap,ctx.hoje,ctx.diasMes,ctx.diaAtual,ctx.di,ctx.period,totalPrevF,pedsPrev.length,pedsPrev,ctx.diPrev,ctx.dfPrev,ctx.vendedoresMap,ctx.dailyGoalsMap,ctx.actualToday);
+  _gvMontaChips();           // reflete o estado ativo
+  if(typeof _gvRenderEstoque==='function')_gvRenderEstoque(); // Task 3 (não existe ainda)
 }
 
 function initGvBgAnim(){
@@ -1057,6 +1102,7 @@ onMounted(() => {
   window._gvVendedoresCache = {}
   window._gvPedidoVendorMap = {}
   window._gvRenderCtx = null
+  _gvCanalSel = null
   if (window._gvTickerTimer) { clearTimeout(window._gvTickerTimer); window._gvTickerTimer = null }
   if (_gvStatusTimer) { clearInterval(_gvStatusTimer); _gvStatusTimer = null }
   _gvLastLoadTime = null
@@ -1107,6 +1153,11 @@ onUnmounted(() => {
 .tela-gestao-a-vista :deep(.gv-clock-time){font-family:var(--fonte-dados);font-size:28px;font-weight:400;letter-spacing:3px;color:var(--text);line-height:1;}
 .tela-gestao-a-vista :deep(.gv-clock-date){font-family:var(--fonte-principal);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:3px;}
 .tela-gestao-a-vista :deep(.gv-update-status){font-family:var(--fonte-principal);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);opacity:.45;margin-top:4px;text-align:right;}
+.tela-gestao-a-vista :deep(.gv-cf-bar){display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:relative;z-index:9;}
+.tela-gestao-a-vista :deep(.gv-cf-lbl){font-family:var(--fonte-principal);font-size:8px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);}
+.tela-gestao-a-vista :deep(.gv-cf-chips){display:flex;gap:6px;flex-wrap:wrap;}
+.tela-gestao-a-vista :deep(.gv-cf-chip){font-family:var(--fonte-principal);font-size:11px;padding:5px 12px;border-radius:999px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+.tela-gestao-a-vista :deep(.gv-cf-chip.active){background:var(--accent);color:#fff;border-color:var(--accent);}
 /* Board layout — 2-column grid: left=gauge panel, right=canal gauges + rankings */
 .tela-gestao-a-vista :deep(.gv-board){flex:1;display:grid;grid-template-columns:480px 1fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;position:relative;z-index:2;backdrop-filter:none;}
 .tela-gestao-a-vista :deep(.gv-left){background:var(--bg);display:flex;flex-direction:column;align-items:center;padding:8px 22px;gap:0;overflow:hidden;justify-content:space-between;}
