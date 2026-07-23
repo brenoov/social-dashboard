@@ -13,6 +13,7 @@
     <div class="gv-topbar">
       <div class="gv-topbar-brand" style="display:flex;align-items:center;gap:14px">
         <button class="gv-back" @click="closeGestaoVista"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Voltar</button>
+        <button class="gv-tut-btn" type="button" @click="reverTour" title="Ver o tutorial da tela"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Tutorial</button>
         <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
         <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
         <div style="display:flex;flex-direction:column;gap:2px">
@@ -21,7 +22,7 @@
         </div>
       </div>
       <div class="gv-topbar-controls">
-        <div class="gv-period-btns" id="gv-period-btns">
+        <div class="gv-period-btns" id="gv-period-btns" data-tour="gv-periodo">
           <button class="gv-pbtn active" data-period="today" onclick="gvSelectPeriod('today')"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite;vertical-align:middle;flex-shrink:0;"></span>HOJE</button>
           <button class="gv-pbtn" data-period="1d" onclick="gvSelectPeriod('1d')">1D</button>
           <button class="gv-pbtn" data-period="7d" onclick="gvSelectPeriod('7d')">7D</button>
@@ -33,7 +34,7 @@
           <button class="vs-ac-toggle" id="gv-ac-toggle" onclick="gvToggleAuto()" title="Auto-ciclo de períodos">▶ AUTO</button>
         </div>
         <span class="gv-cf-lbl">Canal</span>
-        <div class="gv-cf-dd" id="gv-cf-dd" aria-label="Filtro por canal">
+        <div class="gv-cf-dd" id="gv-cf-dd" aria-label="Filtro por canal" data-tour="gv-canal">
           <button class="gv-cf-trigger" id="gv-cf-trigger" type="button" aria-expanded="false" aria-haspopup="true">
             <span class="gv-cf-trigger-txt" id="gv-cf-trigger-txt">Todos os canais</span>
             <svg class="gv-cf-caret" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
@@ -57,7 +58,7 @@
       </div>
     </div>
     <div class="gv-est" id="gv-est">
-      <button class="gv-est-head" id="gv-est-toggle" aria-expanded="false">
+      <button class="gv-est-head" id="gv-est-toggle" aria-expanded="false" data-tour="gv-estoque">
         <span class="gv-est-caret">▶</span><span class="gv-est-t">Estoque por canal</span>
         <span class="gv-est-sub" id="gv-est-sub">clique para mostrar</span>
       </button>
@@ -87,12 +88,15 @@
       <div class="gv-ticker-outer"><div class="gv-ticker-inner" id="gv-ticker-inner">—</div></div>
       <span class="gv-refresh-tag" id="gv-refresh-tag">—</span>
     </div>
+    <TourCoachmark :passos="TOUR_GV" v-model="tourAberto" />
   </div>
 </template>
 
 <script setup>
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import TourCoachmark from '../meta-ads/tour-coachmark.vue'
+import { TOUR_GV } from './tutorial-gv.js'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
@@ -105,6 +109,13 @@ let _gvCanalDocClick = null   // handler de clique-fora do dropdown de canal (re
 let _gvCanalExpandido = false // false = linha de até 5 velocímetros; true = grade de 5 colunas ("Ver mais")
 let _gvEstCatsSel = new Set()  // categorias selecionadas no filtro do estoque (multi); vazio = todas
 let _gvEstCatDocClick = null   // handler de clique-fora do dropdown de categoria (removido no unmount)
+
+// Tour interativo (coach-marks) — v-model do TourCoachmark. Mostra automaticamente na
+// PRIMEIRA vez (flag em localStorage) e pode ser reaberto pelo botão "Tutorial".
+const GV_TOUR_KEY = 'gv_tour_v1'
+const tourAberto = ref(false)
+let _gvTourChecado = false      // garante o auto-start só uma vez, no 1º render do board
+function reverTour(){ tourAberto.value = true }
 
 const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
 const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
@@ -1143,12 +1154,12 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     <div class="gv-left">
       <div class="gv-kpi-period">${period&&period!=='today'&&di?di.split('-').reverse().join('/')+' → '+(period==='monthfull'?`${String(diasMes).padStart(2,'0')}/${hoje.slice(5,7)}/${hoje.slice(0,4)}`:hoje.split('-').reverse().join('/')):'Dia '+diaAtual+' de '+diasMes+' · '+hoje.split('-').reverse().join('/')}</div>
       <div class="gv-col-grid-label gv-main-chart-title" style="margin-bottom:2px;margin-top:4px;font-size:11.2px;font-weight:700;color:var(--text)">Vendas Geral</div>
-      <div class="gv-gauge-wrap">
+      <div class="gv-gauge-wrap" data-tour="gv-geral">
         <div class="gv-gauge-inner">
           ${bigGauge(pct,mainHex,'gv-g-main',mainLine1,mainLine2,mainLine3,line4parts)}
         </div>
       </div>
-      <div class="gv-main-kpi">
+      <div class="gv-main-kpi" data-tour="gv-kpis">
         <div class="gv-main-kpi-item">
           <div class="gv-main-kpi-v">${fmtR0(totalHoje)}</div>
           <div class="gv-main-kpi-l">${period==='1d'?'Ontem':'Hoje'}</div>
@@ -1174,7 +1185,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
       </div>
     </div>
     <div class="gv-right">
-      <div class="gv-canal-panel${_gvCanalExpandido?' gv-canal-expandido':''}">
+      <div class="gv-canal-panel${_gvCanalExpandido?' gv-canal-expandido':''}" data-tour="gv-canais">
         <div class="gv-canal-head">
           <div class="gv-col-grid-label">Venda por canal</div>
           ${(canaisArr.length>5||_gvCanalExpandido)?`<button class="gv-canal-vermais" onclick="gvToggleCanais()">${_gvCanalExpandido?'Ver menos':('Ver mais ('+canaisArr.length+')')}</button>`:''}
@@ -1183,7 +1194,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
           <div class="gv-canal-grid" id="gv-canal-grid">${smGaugesHtml}</div>
         </div>
       </div>
-      <div class="gv-rankings">
+      <div class="gv-rankings" data-tour="gv-rankings">
         <div class="gv-rank-panel">
           <div class="gv-rank-col-hdr">Ranking por Canal</div>
           <div class="gv-rank-scroll" id="gv-rank-scroll-c"><div class="gv-rank-scroll-inner" id="gv-rank-inner-c">${canaisRank}</div></div>
@@ -1197,6 +1208,16 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   `;
   // Ajusta grid de canais antes do board aparecer (board ainda opacity:0 — sem flash)
   requestAnimationFrame(()=>{_gvFitCanalGrid();_gvFitKpiText();_gvFitGaugeValues();});
+
+  // Tour na PRIMEIRA visita: só depois deste 1º render (os alvos data-tour do board já
+  // existem no DOM). Marca a flag pra não repetir; o botão "Tutorial" reabre quando quiser.
+  if(!_gvTourChecado){
+    _gvTourChecado=true;
+    if(localStorage.getItem(GV_TOUR_KEY)!=='1'){
+      localStorage.setItem(GV_TOUR_KEY,'1');
+      setTimeout(()=>{ tourAberto.value=true; },500);
+    }
+  }
 
   // Ticker — slide 1: últimos pedidos
   const recent=[...pedidos].sort((a,b)=>new Date(b.data||0)-new Date(a.data||0)).slice(0,10);
@@ -1389,6 +1410,21 @@ onUnmounted(() => {
 .tela-gestao-a-vista :deep(.gv-topbar){display:flex;align-items:center;justify-content:space-between;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
 .tela-gestao-a-vista :deep(.gv-back){display:flex;align-items:center;gap:4px;font-family:var(--fonte-principal);font-size:10px;font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;transition:opacity .15s;letter-spacing:.3px;text-transform:uppercase;}
 .tela-gestao-a-vista :deep(.gv-back:hover){opacity:.75;}
+.tela-gestao-a-vista :deep(.gv-tut-btn){display:flex;align-items:center;gap:5px;font-family:var(--fonte-principal);font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--accent);cursor:pointer;background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:4px 10px;transition:border-color .12s,background .12s;}
+.tela-gestao-a-vista :deep(.gv-tut-btn:hover){border-color:var(--accent);}
+/* ── Tour interativo (coach-marks) — reusa ../meta-ads/tour-coachmark.vue; estilizado
+   aqui com os tokens da GV via :deep() (o estudio.css é .fest-scoped e não vale aqui). */
+.tela-gestao-a-vista :deep(.tour-overlay){position:fixed;inset:0;z-index:9998;pointer-events:none;}
+.tela-gestao-a-vista :deep(.tour-realce){position:absolute;border:2px solid var(--accent);border-radius:10px;box-shadow:0 0 0 9999px rgba(3,6,10,.55);pointer-events:none;transition:top .15s ease,left .15s ease,width .15s ease,height .15s ease;}
+.tela-gestao-a-vista :deep(.tour-balao){position:absolute;z-index:9999;pointer-events:auto;width:min(320px,86vw);background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;box-shadow:0 16px 40px rgba(0,0,0,.42);color:var(--text);}
+.tela-gestao-a-vista :deep(.tour-tit){font-family:var(--fonte-principal);font-weight:700;font-size:14px;color:var(--text);}
+.tela-gestao-a-vista :deep(.tour-txt){font-family:var(--fonte-principal);font-size:13px;line-height:1.45;color:var(--muted);margin:6px 0 12px;}
+.tela-gestao-a-vista :deep(.tour-acoes){display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.tela-gestao-a-vista :deep(.tour-passo){font-family:var(--fonte-dados);font-size:11px;color:var(--muted);margin-right:auto;}
+.tela-gestao-a-vista :deep(.tour-balao .mini){font-family:var(--fonte-principal);font-size:12px;padding:6px 11px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;}
+.tela-gestao-a-vista :deep(.tour-balao .mini:disabled){opacity:.4;cursor:default;}
+.tela-gestao-a-vista :deep(.tour-balao .cmd){font-family:var(--fonte-principal);font-size:12px;font-weight:600;padding:6px 14px;border-radius:7px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;}
+@media (prefers-reduced-motion:reduce){ .tela-gestao-a-vista :deep(.tour-realce){transition:none;} }
 .tela-gestao-a-vista :deep(.gv-brand-tag){font-family:var(--fonte-principal);font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--text);opacity:.6;line-height:1;}
 .tela-gestao-a-vista :deep(.gv-perf-tag){font-family:var(--fonte-principal);font-size:13.5px;font-weight:700;letter-spacing:6px;text-transform:uppercase;color:var(--text);opacity:1;line-height:1.2;}
 .tela-gestao-a-vista :deep(.gv-clock-wrap){text-align:right;}
