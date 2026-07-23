@@ -1501,11 +1501,11 @@ onUnmounted(() => {
   .tela-gestao-a-vista :deep(.gv-right){display:flex;flex-direction:column;gap:1px;background:var(--border);overflow:visible;min-height:0;}
   .tela-gestao-a-vista :deep(.gv-canal-panel){overflow:visible;padding:12px 16px;}
   .tela-gestao-a-vista :deep(.gv-canal-scroll){display:block;overflow:visible;flex:none;min-height:0;}
-  /* No mobile a tela rola verticalmente: mostra TODOS os canais em grade (sem "ver mais") */
+  /* Mobile em grade; o "ver mais" também vale aqui (colapsado = 5, expandido = todos).
+     A base .gv-sm-item:nth-child(n+6){display:none} esconde os extras; a classe
+     .gv-canal-expandido mostra todos. Sem forçar display nos itens. */
   .tela-gestao-a-vista :deep(.gv-canal-grid){display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;}
   .tela-gestao-a-vista :deep(.gv-canal-grid > .gv-sm-item){flex:none;max-width:none;}
-  .tela-gestao-a-vista :deep(.gv-canal-grid > .gv-sm-item:nth-child(n+6)){display:flex;}
-  .tela-gestao-a-vista :deep(.gv-canal-vermais){display:none;}
   .tela-gestao-a-vista :deep(.gv-rankings){display:flex;flex-direction:column;gap:1px;background:var(--border);overflow:visible;min-height:0;}
   .tela-gestao-a-vista :deep(.gv-rank-panel){overflow:visible;padding:12px 16px;}
   .tela-gestao-a-vista :deep(.gv-rank-scroll){overflow:visible;flex:none;min-height:0;}
@@ -1544,7 +1544,11 @@ onUnmounted(() => {
    igual ao legado (comentário original: "supera o CSS desktop independente
    da ordem no arquivo") ── */
 @media(max-width:480px){
-  #gestao-vista-screen.tela-gestao-a-vista{height:100svh!important;max-height:100svh!important;overflow-y:auto!important;overflow-x:hidden!important;-webkit-overflow-scrolling:touch;flex-direction:column;}
+  /* No celular a tela ROLA COM O DOCUMENTO (não é mais um scroller interno de 100svh —
+     isso travava a rolagem: com a barra do navegador some/aparece, o 100svh não batia e
+     era preciso arrastar várias vezes pra chegar no fim). height:auto + overflow:visible
+     deixa o body rolar nativo (momentum/esconder barra); o horizontal já é cortado no body. */
+  #gestao-vista-screen.tela-gestao-a-vista{height:auto!important;min-height:100svh!important;max-height:none!important;overflow:visible!important;flex-direction:column;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-topbar){flex-wrap:wrap;padding:0;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;position:sticky;top:0;z-index:10;background:var(--surface);}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-topbar-brand){order:1;flex:1;min-width:0;display:flex;align-items:center;gap:8px;padding:10px 14px;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-topbar .rbv-logo){display:none;}
@@ -1581,6 +1585,9 @@ onUnmounted(() => {
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-canal-scroll){display:block;overflow:visible;flex:none;height:auto;min-height:0;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-canal-grid){display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-sm-item){display:flex!important;flex-direction:column!important;align-items:center;padding:12px 8px 8px;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;text-align:center;}
+  /* "Ver mais" no celular: colapsado esconde do 6º em diante (precisa de id + !important
+     pra vencer o display:flex!important do .gv-sm-item acima); expandido mostra todos. */
+  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-canal-panel:not(.gv-canal-expandido) .gv-canal-grid > .gv-sm-item:nth-child(n+6)){display:none!important;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-sm-item-lbl){font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);width:100%;word-break:break-word;line-height:1.2;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-sm-item svg){width:100%!important;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-sm-item-val){display:none;}
