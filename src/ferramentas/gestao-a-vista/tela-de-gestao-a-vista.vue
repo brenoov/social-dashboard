@@ -257,7 +257,8 @@ function _gvUpdateVendRanking(){
   if(!ctx)return;
   const el=document.getElementById('gv-rank-inner-v');
   if(!el)return;
-  const {pedidos,pedidosPrev,canais,diPrev,dfPrev}=ctx;
+  const pedidos=ctx.pedidosView||ctx.pedidos; // filtrado (vista atual do board), não o cheio de ctx.pedidos
+  const {pedidosPrev,canais,diPrev,dfPrev}=ctx;
   const vm=window._gvVendedoresCache||{};
   const pm=window._gvPedidoVendorMap||{};
   const porVendObj={};
@@ -599,6 +600,11 @@ async function loadGestaoVistaData(period){
       // demais args de renderGestaoVista (Task 2 — filtro por canal), guardados
       // pra _gvAplicaFiltro repassar sem re-fetch nem recomputar Bling/Supabase:
       metasMap,hoje:df,diasMes,diaAtual,di,period,vendedoresMap,dailyGoalsMap,actualToday:brtToday,
+      // pedidosView = conjunto REALMENTE renderizado no board agora (igual a
+      // `pedidos` até que um filtro de canal seja aplicado); _gvUpdateVendRanking
+      // usa isso, não `pedidos` (que fica sempre CHEIO pra _gvMontaChips listar
+      // todos os canais) — senão o ranking de vendedores reaparece sem filtro.
+      pedidosView:pedidos,
     };
     if(myLoad!==_gvLoadId)return; // troca de período enquanto carregava — descarta silenciosamente
     const totalPrev=pedidosPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
@@ -654,6 +660,7 @@ function _gvAplicaFiltro(){
   const peds=filtrarPedidosPorCanal(ctx.pedidos,ids);
   const pedsPrev=filtrarPedidosPorCanal(ctx.pedidosPrev,ids);
   const totalPrevF=pedsPrev.reduce((s,p)=>s+parseFloat(p.total||0),0);
+  ctx.pedidosView=peds; // board atual = filtrado; _gvUpdateVendRanking lê daqui, não de ctx.pedidos (cheio)
   renderGestaoVista(peds,ctx.canais,ctx.metasMap,ctx.hoje,ctx.diasMes,ctx.diaAtual,ctx.di,ctx.period,totalPrevF,pedsPrev.length,pedsPrev,ctx.diPrev,ctx.dfPrev,ctx.vendedoresMap,ctx.dailyGoalsMap,ctx.actualToday);
   _gvMontaChips();           // reflete o estado ativo
   if(typeof _gvRenderEstoque==='function')_gvRenderEstoque(); // Task 3 (não existe ainda)
