@@ -31,6 +31,12 @@
           <div class="perfil-dropdown-email">{{ estado.user.email }}</div>
           <div class="perfil-dropdown-role" v-if="estado.role === 'admin'">Administrador</div>
           <div class="perfil-dropdown-sep"></div>
+          <!-- Ativar notificações: só aparece enquanto NÃO ativou. Ativação é só
+               de ida — depois de ativar, o item some (sem opção de desativar). -->
+          <button v-if="pushSuportado() && !pushAtivo" class="perfil-dropdown-item" type="button" @click="ativarPush">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            Ativar notificações
+          </button>
           <button class="perfil-dropdown-item" type="button" @click="abrirTrocarSenha">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             Trocar senha
@@ -69,20 +75,9 @@
       <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
     </button>
 
-    <!-- Notificações (Web Push) — global, só logado e se o navegador suporta.
-         Opt-in genérico de propósito: hoje é o aviso de vendas das 22h, mas virão
-         outros tipos. Ativar aqui = receber as notificações do sistema. -->
-    <button
-      v-if="estado.user && !naTelaLogin && pushSuportado()"
-      class="np-btn"
-      :class="{ 'np-on': pushAtivo }"
-      type="button"
-      @click="ativarPush"
-      :title="pushAtivo ? 'Notificações ativas' : 'Ativar notificações'"
-      aria-label="Ativar notificações"
-    >🔔</button>
-
-    <!-- Modal insistente de opt-in (só botão Ativar agora; some ao ativar/negar). -->
+    <!-- Modal insistente de opt-in (só botão Ativar agora; some ao ativar/negar).
+         O controle permanente de ativar fica no menu do avatar, só enquanto não
+         ativou — ativação é só de ida (sem desativar). -->
     <div v-if="mostrarModalPush" class="np-modal-fundo">
       <div class="np-modal">
         <div class="np-modal-emoji">🔔</div>
@@ -176,6 +171,7 @@ async function avaliarPush() {
 }
 
 async function ativarPush() {
+  menuAberto.value = false // fecha o menu do avatar se veio de lá
   const ok = await inscrever(estado.user?.id)
   pushAtivo.value = ok
   // Some ao ativar OU quando o navegador nega (nesta sessão). Se a pessoa só
@@ -285,18 +281,7 @@ watch(() => estado.user?.id, avaliarPush)
 .btn-tema:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); color: var(--accent); }
 .btn-tema:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-/* ── Notificações de vendas (Web Push) — prefixo np- único (evita colisão CSS global) ── */
-.np-btn {
-  position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 70px); right: 20px; z-index: 9998;
-  width: 42px; height: 42px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--surface); border: 1px solid var(--border);
-  box-shadow: var(--shadow-md); cursor: pointer; font-size: 19px;
-  opacity: .6; transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease;
-}
-.np-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); opacity: 1; }
-.np-btn.np-on { opacity: 1; border-color: var(--accent); }
-.np-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* ── Modal de notificações (Web Push) — prefixo np- único (evita colisão CSS global) ── */
 .np-modal-fundo {
   position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 10001;
   display: flex; align-items: center; justify-content: center; padding: 20px;
