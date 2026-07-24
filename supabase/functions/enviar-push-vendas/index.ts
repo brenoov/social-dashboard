@@ -17,19 +17,15 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3';
 import { agregarVendasPorCanal, montarCorpo } from '../_shared/vendas-do-dia.js';
+import { exigirSegredoDeCron } from '../_shared/segredo-de-cron.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const VAPID_PUBLIC = Deno.env.get('VAPID_PUBLIC_KEY')!;
-const VAPID_PRIVATE = Deno.env.get('VAPID_PRIVATE_KEY')!;
-const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') || 'mailto:breno@rbvcompany.com';
 const BLING_BASE = 'https://api.bling.com.br/Api/v3';
 
 // Orçamento p/ a fase de detalhamento de itens (garantia de não estourar o tempo).
 const ITENS_BUDGET_MS = 90_000;   // teto de tempo total buscando detalhes
 const ITENS_CONCORRENCIA = 6;     // chamadas simultâneas ao Bling
-
-webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -103,11 +99,20 @@ async function comOrcamento<T>(itens: T[], limite: number, budgetMs: number, fn:
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
-  // Gate: exige o service key no Authorization (o pg_cron manda esse header).
-  const auth = req.headers.get('Authorization') || '';
-  if (!SERVICE_KEY || !auth.includes(SERVICE_KEY)) return json({ error: 'nao_autorizado' }, 401);
+  // Auth self-contained (não depende do verify_jwt do gateway): o pg_cron manda
+  // `Authorization: Bearer <segredo>` lido da tabela segredos_de_cron. Fail-closed.
+  const negado = await exigirSegredoDeCron(req, 'enviar-push-vendas');
+  if (negado) return negado;
 
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
+
+  // VAPID também vem de segredos_de_cron (service role) — nada de env/secret manual.
+  const { data: segr } = await sb.from('segredos_de_cron').select('nome, segredo')
+    .in('nome', ['vapid_public_key', 'vapid_private_key', 'vapid_subject']);
+  const seg = Object.fromEntries((segr || []).map((r: any) => [r.nome, r.segredo]));
+  if (!seg.vapid_public_key || !seg.vapid_private_key) return json({ error: 'vapid_nao_configurado' }, 500);
+  webpush.setVapidDetails(seg.vapid_subject || 'mailto:breno@rbvcompany.com', seg.vapid_public_key, seg.vapid_private_key);
+
   const { hoje, ontem } = brtDatas();
 
   let parcial = false;
