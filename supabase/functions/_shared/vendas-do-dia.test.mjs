@@ -1,0 +1,68 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { variacao, agregarVendasPorCanal, montarCorpo } from './vendas-do-dia.js';
+
+test('variacao: fração normal e ontem=0 vira null', () => {
+  assert.equal(variacao(120, 100), 0.2);
+  assert.equal(variacao(80, 100), -0.2);
+  assert.equal(variacao(50, 0), null);
+  assert.equal(variacao(0, 0), null);
+});
+
+const lojas = [{ loja_id: 1, nome: 'Tivoli' }, { loja_id: 2, nome: 'Dom Pedro' }, { loja_id: 3, nome: 'Shopee' }];
+
+test('agrega por canal: total, contagem, itens e % vs ontem', () => {
+  const pedidosHoje = [
+    { loja_id: 1, total: 3000, itens: 30 }, { loja_id: 1, total: 1200, itens: 10 },
+    { loja_id: 2, total: 2100, itens: 22 },
+  ];
+  const pedidosOntem = [
+    { loja_id: 1, total: 3750, itens: 41 },
+    { loja_id: 2, total: 2283, itens: 20 },
+  ];
+  const agg = agregarVendasPorCanal({ pedidosHoje, pedidosOntem, lojas });
+  assert.equal(agg.total.valor, 6300);
+  assert.equal(agg.total.vendas, 3);
+  assert.equal(agg.total.itens, 62);
+  const tiv = agg.canais.find(c => c.loja_id === 1);
+  assert.equal(tiv.valor, 4200);
+  assert.equal(tiv.vendas, 2);
+  assert.equal(tiv.itens, 40);
+  assert.equal(tiv.pct.valor, 0.12); // (4200-3750)/3750
+});
+
+test('canal sem venda hoje aparece com zero; ontem=0 => pct null (novo)', () => {
+  const agg = agregarVendasPorCanal({
+    pedidosHoje: [{ loja_id: 3, total: 900, itens: 14 }],
+    pedidosOntem: [],
+    lojas,
+  });
+  const shopee = agg.canais.find(c => c.loja_id === 3);
+  assert.equal(shopee.valor, 900);
+  assert.equal(shopee.pct.valor, null); // ontem=0
+  const domPedro = agg.canais.find(c => c.loja_id === 2);
+  assert.equal(domPedro.valor, 0);
+  assert.equal(domPedro.vendas, 0);
+});
+
+test('canais ordenados por faturamento desc', () => {
+  const agg = agregarVendasPorCanal({
+    pedidosHoje: [{ loja_id: 2, total: 100, itens: 1 }, { loja_id: 1, total: 500, itens: 1 }],
+    pedidosOntem: [], lojas,
+  });
+  assert.deepEqual(agg.canais.map(c => c.loja_id), [1, 2, 3]);
+});
+
+test('montarCorpo: título com total; corpo com quebra; parcial vira aviso', () => {
+  const agg = agregarVendasPorCanal({
+    pedidosHoje: [{ loja_id: 1, total: 4200, itens: 40 }],
+    pedidosOntem: [{ loja_id: 1, total: 3750, itens: 41 }], lojas,
+  });
+  const n = montarCorpo(agg, { parcial: false });
+  assert.match(n.title, /Vendas de hoje/);
+  assert.match(n.title, /R\$/);
+  assert.match(n.body, /Tivoli/);
+  assert.equal(n.url, '/gestao-a-vista');
+  const p = montarCorpo(agg, { parcial: true });
+  assert.match(p.body, /parciais/i);
+});
