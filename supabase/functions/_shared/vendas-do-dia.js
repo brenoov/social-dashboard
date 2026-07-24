@@ -54,20 +54,29 @@ export function agregarVendasPorCanal({ pedidosHoje, pedidosOntem, lojas }) {
 function brl(n) {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 }
-function pctStr(p) {
-  if (p === null || p === undefined) return 'novo';
+// Variação como seta + %: 📈 sobe, 📉 cai, ➡️ estável, 🆕 quando ontem foi zero.
+function seta(p) {
+  if (p === null || p === undefined) return '🆕';
   const s = Math.round(p * 100);
-  return (s > 0 ? '+' : '') + s + '%';
+  if (s > 0) return `📈 ${s}%`;
+  if (s < 0) return `📉 ${Math.abs(s)}%`;
+  return '➡️ 0%';
 }
+const plural = (n, sing, plur) => `${n} ${n === 1 ? sing : plur}`;
 
 export function montarCorpo(agg, { parcial } = {}) {
   const t = agg.total;
-  const title = `Vendas de hoje · ${brl(t.valor)} (${pctStr(t.pct.valor)})`;
+  const title = `🛍️ Vendas de hoje · ${brl(t.valor)}`;
+  // Só os canais que tiveram movimento HOJE (venda > 0). Canal parado não entra.
+  const movers = agg.canais.filter((c) => c.vendas > 0);
   const linhas = [
-    `${t.vendas} vendas (${pctStr(t.pct.vendas)}) · ${t.itens} itens (${pctStr(t.pct.itens)})`,
-    '──────────────',
-    ...agg.canais.map((c) => `${c.nome}  ${brl(c.valor)} (${pctStr(c.pct.valor)})`),
+    `${seta(t.pct.valor)} vs ontem · ${plural(t.vendas, 'venda', 'vendas')} · ${plural(t.itens, 'item', 'itens')}`,
   ];
+  if (movers.length) {
+    for (const c of movers) linhas.push(`${c.nome} · ${brl(c.valor)} · ${seta(c.pct.valor)}`);
+  } else {
+    linhas.push('Nenhuma venda registrada hoje ainda.');
+  }
   if (parcial) linhas.push('⚠️ dados parciais (Bling instável às 22h)');
   // rota real da Gestão à Vista é /gestao-vista (ver src/mapa-de-enderecos.js)
   return { title, body: linhas.join('\n'), url: '/gestao-vista', tag: 'vendas-do-dia' };
