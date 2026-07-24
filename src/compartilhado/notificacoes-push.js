@@ -2,7 +2,7 @@ import { sbClient } from './conectar-no-banco-de-dados.js';
 
 // VAPID pública (pode ficar no front; a privada vive só nos secrets do Supabase).
 // TROCAR pelo valor real gerado na Task 6 antes do deploy.
-export const VAPID_PUBLIC_KEY = '__VAPID_PUBLIC_PLACEHOLDER__';
+export const VAPID_PUBLIC_KEY = 'BEsOWWqBquun-DMnYz5T-QktDlHhlxfzroM08dIFq1-bpz2JBcyPFk-ITSfLjwgTedXLQqhB-R0ihTCOxcLew1c';
 
 export function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
