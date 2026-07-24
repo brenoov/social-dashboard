@@ -69,23 +69,25 @@
       <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
     </button>
 
-    <!-- Notificações de vendas (Web Push) — global, só logado e se o navegador suporta. -->
+    <!-- Notificações (Web Push) — global, só logado e se o navegador suporta.
+         Opt-in genérico de propósito: hoje é o aviso de vendas das 22h, mas virão
+         outros tipos. Ativar aqui = receber as notificações do sistema. -->
     <button
       v-if="estado.user && !naTelaLogin && pushSuportado()"
       class="np-btn"
       :class="{ 'np-on': pushAtivo }"
       type="button"
       @click="ativarPush"
-      :title="pushAtivo ? 'Notificações de vendas ativas' : 'Ativar notificações de vendas'"
-      aria-label="Ativar notificações de vendas"
+      :title="pushAtivo ? 'Notificações ativas' : 'Ativar notificações'"
+      aria-label="Ativar notificações"
     >🔔</button>
 
     <!-- Modal insistente de opt-in (só botão Ativar agora; some ao ativar/negar). -->
     <div v-if="mostrarModalPush" class="np-modal-fundo">
       <div class="np-modal">
         <div class="np-modal-emoji">🔔</div>
-        <h3>Ativar notificação de vendas</h3>
-        <p>Todo dia às 22h você recebe o resultado de vendas por canal, direto no celular.</p>
+        <h3>Ativar notificações</h3>
+        <p>Receba avisos importantes da Central direto no seu celular.</p>
         <button class="np-modal-ativar" type="button" @click="ativarPush">Ativar agora</button>
       </div>
     </div>
