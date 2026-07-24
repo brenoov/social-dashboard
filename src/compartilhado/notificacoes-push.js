@@ -14,8 +14,14 @@ export function urlBase64ToUint8Array(base64String) {
 }
 
 export function pushSuportado() {
-  return typeof window !== 'undefined' &&
-    'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  if (typeof window === 'undefined') return false;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return false;
+  // iOS só entrega push com o app na Tela de Início (standalone). Em aba do Safari
+  // o PushManager existe mas o subscribe falha — não oferecemos o opt-in ali.
+  const ehIOS = /iP(hone|ad|od)/.test(navigator.userAgent || '');
+  const standalone = window.navigator.standalone === true ||
+    (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches);
+  return !(ehIOS && !standalone);
 }
 
 export function permissaoAtual() {
@@ -37,22 +43,27 @@ export async function jaInscrito() {
 
 export async function inscrever(userId) {
   if (!pushSuportado()) return false;
-  const perm = await Notification.requestPermission();
-  if (perm !== 'granted') return false;
-  const reg = await registrarSW();
-  await navigator.serviceWorker.ready;
-  const sub = await reg.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-  });
-  const j = sub.toJSON();
-  const { error } = await sbClient.from('push_subs').upsert({
-    endpoint: j.endpoint,
-    p256dh: j.keys.p256dh,
-    auth: j.keys.auth,
-    user_id: userId,
-  }, { onConflict: 'endpoint' });
-  return !error;
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') return false;
+    const reg = await registrarSW();
+    await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
+    const j = sub.toJSON();
+    const { error } = await sbClient.from('push_subs').upsert({
+      endpoint: j.endpoint,
+      p256dh: j.keys.p256dh,
+      auth: j.keys.auth,
+      user_id: userId,
+    }, { onConflict: 'endpoint' });
+    return !error;
+  } catch (_e) {
+    // permissão negada no prompt, subscribe rejeitado (iOS aba), rede caída, etc.
+    return false;
+  }
 }
 
 export async function desinscrever() {

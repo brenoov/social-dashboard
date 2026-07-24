@@ -14,14 +14,14 @@ self.addEventListener('push', (event) => {
     renotify: true,
     icon: '/midia/app-icon-192.png',
     badge: '/midia/app-icon-192.png',
-    data: { url: d.url || '/gestao-a-vista' },
+    data: { url: d.url || '/gestao-vista' },
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || '/gestao-a-vista';
+  const url = (event.notification.data && event.notification.data.url) || '/gestao-vista';
   event.waitUntil((async () => {
     const clientsArr = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const c of clientsArr) {

@@ -53,6 +53,20 @@ test('canais ordenados por faturamento desc', () => {
   assert.deepEqual(agg.canais.map(c => c.loja_id), [1, 2, 3]);
 });
 
+test('total soma TODOS os pedidos (inclui loja fora de bling_lojas); hoje simétrico a ontem', () => {
+  const agg = agregarVendasPorCanal({
+    // loja 99 NÃO está em `lojas` (órfã) — tem que entrar no total, mas não na quebra
+    pedidosHoje: [{ loja_id: 1, total: 500, itens: 5 }, { loja_id: 99, total: 300, itens: 3 }],
+    pedidosOntem: [{ loja_id: 99, total: 200, itens: 2 }],
+    lojas,
+  });
+  assert.equal(agg.total.valor, 800);      // 500 + 300 (inclui a órfã)
+  assert.equal(agg.total.vendas, 2);
+  assert.equal(agg.total.itens, 8);
+  assert.equal(agg.total.pct.valor, 3);    // (800 - 200) / 200
+  assert.ok(!agg.canais.find((c) => c.loja_id === 99)); // órfã não aparece na quebra
+});
+
 test('montarCorpo: título com total; corpo com quebra; parcial vira aviso', () => {
   const agg = agregarVendasPorCanal({
     pedidosHoje: [{ loja_id: 1, total: 4200, itens: 40 }],
@@ -62,7 +76,7 @@ test('montarCorpo: título com total; corpo com quebra; parcial vira aviso', () 
   assert.match(n.title, /Vendas de hoje/);
   assert.match(n.title, /R\$/);
   assert.match(n.body, /Tivoli/);
-  assert.equal(n.url, '/gestao-a-vista');
+  assert.equal(n.url, '/gestao-vista');
   const p = montarCorpo(agg, { parcial: true });
   assert.match(p.body, /parciais/i);
 });

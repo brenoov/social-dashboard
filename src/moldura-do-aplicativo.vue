@@ -101,7 +101,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { estado } from './compartilhado/controle-de-login-e-usuario.js'
 import { sbClient } from './compartilhado/conectar-no-banco-de-dados.js'
-import { inscrever, jaInscrito, permissaoAtual, pushSuportado } from './compartilhado/notificacoes-push.js'
+import { inscrever, jaInscrito, permissaoAtual, pushSuportado, registrarSW } from './compartilhado/notificacoes-push.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -178,7 +178,10 @@ async function avaliarPush() {
 async function ativarPush() {
   const ok = await inscrever(estado.user?.id)
   pushAtivo.value = ok
-  if (ok) mostrarModalPush.value = false
+  // Some ao ativar OU quando o navegador nega (nesta sessão). Se a pessoa só
+  // fechar o prompt sem decidir (permissão segue 'default'), o modal reaparece
+  // na próxima abertura — o "insistente" pedido pelo dono.
+  mostrarModalPush.value = false
 }
 
 /* ── Tema claro/escuro (global, persiste) ── */
@@ -194,6 +197,9 @@ function alternarTema() {
 
 onMounted(() => {
   aplicarTema(localStorage.getItem('tema') === 'dark')
+  // Registra o SW de push já no boot (não depende de opt-in) pra a entrega
+  // funcionar de cara pra quem já ativou noutra sessão.
+  if (pushSuportado()) registrarSW().catch(() => {})
   avaliarPush()
 })
 // estado.user pode chegar depois do boot (sessão assíncrona) -> reavaliar.

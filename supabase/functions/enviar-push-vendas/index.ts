@@ -9,7 +9,7 @@
 //    salva em `bling_pedido_vendedor.qtd_itens` (cache que a Gestão à Vista popula)
 //    e só buscamos o detalhe `pedidos/vendas/{id}` dos pedidos SEM cache — com
 //    concorrência e ORÇAMENTO DE TEMPO, pra nunca estourar o limite da função.
-//    O que buscamos é regravado no cache (auto-aquece p/ as próximas noites).
+//    Só LEMOS o cache: a Gestão à Vista é a dona de bling_pedido_vendedor.
 //
 // Auth do Bling: lemos `bling_tokens` direto (service role), SÓ LEITURA — não
 // fazemos refresh aqui pra não competir com o bling-proxy (refresh token é
@@ -144,18 +144,18 @@ Deno.serve(async (req) => {
   }
 
   const faltantes = token ? todos.filter((p) => !cache.has(parseInt(p.id))) : [];
-  const novos: { pedido_id: number; qtd_itens: number }[] = [];
+  let detalhados = 0;
   if (faltantes.length && token) {
     const { estourou } = await comOrcamento(faltantes, ITENS_CONCORRENCIA, ITENS_BUDGET_MS, async (p) => {
       const det = await blingGet(token, `pedidos/vendas/${p.id}`);
       const qtd = Array.isArray(det?.data?.itens) ? det.data.itens.length : 0;
-      const pid = parseInt(p.id);
-      cache.set(pid, qtd);
-      novos.push({ pedido_id: pid, qtd_itens: qtd });
+      cache.set(parseInt(p.id), qtd);
+      detalhados++;
     });
     if (estourou) parcial = true; // não deu tempo de detalhar tudo -> marca parcial
-    // regrava o que buscou (auto-aquece o cache pras próximas noites)
-    if (novos.length) await sb.from('bling_pedido_vendedor').upsert(novos, { onConflict: 'pedido_id' });
+    // NÃO regravamos em bling_pedido_vendedor: a Gestão à Vista é a dona dessa
+    // tabela (e vendor_id é NOT NULL). A Edge só LÊ o cache; o que faltar é
+    // contado em memória só para esta execução.
   }
 
   const normalizar = (p: any) => ({
@@ -191,5 +191,5 @@ Deno.serve(async (req) => {
     }
   }
 
-  return json({ ok: true, parcial, hoje, ontem, pedidos: todos.length, detalhados: novos.length, enviados, podados, total: agg.total });
+  return json({ ok: true, parcial, hoje, ontem, pedidos: todos.length, detalhados, enviados, podados, total: agg.total });
 });

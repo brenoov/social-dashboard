@@ -42,13 +42,12 @@ export function agregarVendasPorCanal({ pedidosHoje, pedidosOntem, lojas }) {
     return { loja_id: l.loja_id, nome: l.nome, ...comPct(h, o) };
   }).sort((a, b) => b.valor - a.valor);
 
-  const soma = (arr, campo) => arr.reduce((s, x) => s + x[campo], 0);
-  const totH = { valor: soma(canais, 'valor'), vendas: soma(canais, 'vendas'), itens: soma(canais, 'itens') };
-  const totO = {
-    valor: [...ontem.values()].reduce((s, x) => s + x.valor, 0),
-    vendas: [...ontem.values()].reduce((s, x) => s + x.vendas, 0),
-    itens: [...ontem.values()].reduce((s, x) => s + x.itens, 0),
-  };
+  // Totais somam TODOS os pedidos do dia (inclusive de loja não cadastrada em
+  // bling_lojas), simétrico entre hoje e ontem — senão o % fica distorcido. A
+  // QUEBRA por canal (canais) fica restrita às lojas cadastradas, de propósito.
+  const somaMapa = (m, campo) => [...m.values()].reduce((s, x) => s + x[campo], 0);
+  const totH = { valor: somaMapa(hoje, 'valor'), vendas: somaMapa(hoje, 'vendas'), itens: somaMapa(hoje, 'itens') };
+  const totO = { valor: somaMapa(ontem, 'valor'), vendas: somaMapa(ontem, 'vendas'), itens: somaMapa(ontem, 'itens') };
   return { total: comPct(totH, totO), canais };
 }
 
@@ -70,5 +69,6 @@ export function montarCorpo(agg, { parcial } = {}) {
     ...agg.canais.map((c) => `${c.nome}  ${brl(c.valor)} (${pctStr(c.pct.valor)})`),
   ];
   if (parcial) linhas.push('⚠️ dados parciais (Bling instável às 22h)');
-  return { title, body: linhas.join('\n'), url: '/gestao-a-vista', tag: 'vendas-do-dia' };
+  // rota real da Gestão à Vista é /gestao-vista (ver src/mapa-de-enderecos.js)
+  return { title, body: linhas.join('\n'), url: '/gestao-vista', tag: 'vendas-do-dia' };
 }
