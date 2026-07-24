@@ -80,3 +80,16 @@ test('montarCorpo: título com total; corpo com quebra; parcial vira aviso', () 
   const p = montarCorpo(agg, { parcial: true });
   assert.match(p.body, /parciais/i);
 });
+
+test('montarCorpo: só entram canais com movimento HOJE (venda > 0)', () => {
+  const agg = agregarVendasPorCanal({
+    pedidosHoje: [{ loja_id: 1, total: 500, itens: 5 }],   // só Tivoli vendeu hoje
+    pedidosOntem: [{ loja_id: 2, total: 900, itens: 9 }],  // Dom Pedro só vendeu ontem
+    lojas,
+  });
+  const n = montarCorpo(agg, {});
+  assert.match(n.body, /Tivoli/);
+  assert.ok(!n.body.includes('Dom Pedro')); // parado hoje -> fora da notificação
+  assert.ok(!n.body.includes('Shopee'));    // nunca vendeu -> fora
+  assert.match(n.body, /vs ontem/);
+});

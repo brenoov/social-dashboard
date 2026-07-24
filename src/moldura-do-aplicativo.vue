@@ -208,7 +208,9 @@ watch(() => estado.user?.id, avaliarPush)
 
 <style scoped>
 /* ── Perfil ── */
-.perfil-menu { position: fixed; top: 16px; right: 18px; z-index: 9999; }
+/* top respeita a área segura do iOS (notch / Dynamic Island) — senão o avatar
+   fica embaixo do entalhe no iPhone com o app na Tela de Início. */
+.perfil-menu { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 14px); right: 18px; z-index: 9999; }
 .perfil-avatar {
   width: 40px; height: 40px; border-radius: 50%; padding: 0; overflow: hidden;
   border: 2px solid var(--border); background: var(--surface2); cursor: pointer;
@@ -273,7 +275,7 @@ watch(() => estado.user?.id, avaliarPush)
 
 /* ── Toggle de tema ── */
 .btn-tema {
-  position: fixed; bottom: 20px; right: 20px; z-index: 9998;
+  position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); right: 20px; z-index: 9998;
   width: 42px; height: 42px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   background: var(--surface); color: var(--text); border: 1px solid var(--border);
@@ -285,7 +287,7 @@ watch(() => estado.user?.id, avaliarPush)
 
 /* ── Notificações de vendas (Web Push) — prefixo np- único (evita colisão CSS global) ── */
 .np-btn {
-  position: fixed; bottom: 70px; right: 20px; z-index: 9998;
+  position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 70px); right: 20px; z-index: 9998;
   width: 42px; height: 42px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   background: var(--surface); border: 1px solid var(--border);
