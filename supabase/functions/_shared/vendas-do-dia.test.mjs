@@ -80,6 +80,17 @@ test('montarCorpo: título com total, quebra por canal e link da GV', () => {
   assert.ok(!/parciais/i.test(n.body)); // nunca manda "parcial": ou é exato, ou nem envia
 });
 
+test('montarCorpo: rótulos configuráveis (recap da manhã = ontem vs anteontem)', () => {
+  const agg = agregarVendasPorCanal({
+    pedidosHoje: [{ loja_id: 1, total: 500, itens: 5 }],  // "referência" = ontem
+    pedidosOntem: [{ loja_id: 1, total: 400, itens: 4 }], // "comparação" = anteontem
+    lojas,
+  });
+  const n = montarCorpo(agg, { refLabel: 'ontem', cmpLabel: 'anteontem' });
+  assert.match(n.title, /Vendas de ontem/);
+  assert.match(n.body, /vs anteontem/);
+});
+
 test('montarCorpo: só entram canais com movimento HOJE (venda > 0)', () => {
   const agg = agregarVendasPorCanal({
     pedidosHoje: [{ loja_id: 1, total: 500, itens: 5 }],   // só Tivoli vendeu hoje

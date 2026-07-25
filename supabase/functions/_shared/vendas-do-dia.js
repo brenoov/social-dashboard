@@ -66,18 +66,21 @@ const plural = (n, sing, plur) => `${n} ${n === 1 ? sing : plur}`;
 
 // A Edge só chama isto quando o dado está EXATO (senão nem envia). Por isso aqui
 // não existe mais "dados parciais": toda notificação enviada é fiel.
-export function montarCorpo(agg) {
+// refLabel/cmpLabel deixam a MESMA notificação servir dois horários:
+//   22h -> 'hoje'  vs 'ontem'    (fechamento do dia)
+//   07h -> 'ontem' vs 'anteontem'(recap da manhã)
+export function montarCorpo(agg, { refLabel = 'hoje', cmpLabel = 'ontem' } = {}) {
   const t = agg.total;
-  const title = `🛍️ Vendas de hoje · ${brl(t.valor)}`;
-  // Só os canais que tiveram movimento HOJE (venda > 0). Canal parado não entra.
+  const title = `🛍️ Vendas de ${refLabel} · ${brl(t.valor)}`;
+  // Só os canais que tiveram movimento (venda > 0) no dia de referência.
   const movers = agg.canais.filter((c) => c.vendas > 0);
   const linhas = [
-    `${seta(t.pct.valor)} vs ontem · ${plural(t.vendas, 'venda', 'vendas')} · ${plural(t.itens, 'item', 'itens')}`,
+    `${seta(t.pct.valor)} vs ${cmpLabel} · ${plural(t.vendas, 'venda', 'vendas')} · ${plural(t.itens, 'item', 'itens')}`,
   ];
   if (movers.length) {
     for (const c of movers) linhas.push(`${c.nome} · ${brl(c.valor)} · ${seta(c.pct.valor)}`);
   } else {
-    linhas.push('Nenhuma venda registrada hoje ainda.');
+    linhas.push(`Nenhuma venda registrada ${refLabel}${refLabel === 'hoje' ? ' ainda' : ''}.`);
   }
   // rota real da Gestão à Vista é /gestao-vista (ver src/mapa-de-enderecos.js)
   return { title, body: linhas.join('\n'), url: '/gestao-vista', tag: 'vendas-do-dia' };
