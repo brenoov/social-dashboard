@@ -1,19 +1,20 @@
 // supabase/functions/enviar-push-vendas/index.ts
 // Cron 22h BRT: agrega vendas do dia (hoje vs ontem) por canal e envia UM push
-// consolidado a todas as inscrições push_subs. Envia "parcial" se o Bling falhar.
+// consolidado a todas as inscrições push_subs.
+//
+// EXATIDÃO EM PRIMEIRO LUGAR: só envia se conseguir o dado 100% íntegro. Se faltar
+// token do Bling, o Bling estiver fora (mesmo após retentativas), ou não der pra
+// contar TODOS os itens, a função NÃO envia nada (melhor silêncio do que um número
+// errado/zerado). Retenta as chamadas do Bling pra absorver soluços passageiros.
 //
 // Dados do Bling:
-//  - Lista `pedidos/vendas` (barata) -> faturamento (R$) e nº de vendas, EXATOS,
-//    com loja.id por pedido.
-//  - Itens por pedido: o endpoint de lista NÃO traz itens. Lemos a contagem já
-//    salva em `bling_pedido_vendedor.qtd_itens` (cache que a Gestão à Vista popula)
-//    e só buscamos o detalhe `pedidos/vendas/{id}` dos pedidos SEM cache — com
-//    concorrência e ORÇAMENTO DE TEMPO, pra nunca estourar o limite da função.
-//    Só LEMOS o cache: a Gestão à Vista é a dona de bling_pedido_vendedor.
+//  - Lista `pedidos/vendas` (situação 9) -> faturamento (R$) e nº de vendas, exatos.
+//  - Itens por pedido: não vêm na lista. Lemos do cache `bling_pedido_vendedor`
+//    (que a Gestão à Vista popula) e buscamos o detalhe só do que falta. Se algum
+//    detalhe falhar ou estourar o tempo, os itens não estariam exatos -> não envia.
 //
-// Auth do Bling: lemos `bling_tokens` direto (service role), SÓ LEITURA — não
-// fazemos refresh aqui pra não competir com o bling-proxy (refresh token é
-// single-use). Se o token estiver vencido às 22h, mandamos "dados parciais".
+// Auth do Bling: lemos `bling_tokens` direto (service role), SÓ LEITURA — sem
+// refresh (pra não competir com o bling-proxy; refresh token é single-use).
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3';
 import { agregarVendasPorCanal, montarCorpo } from '../_shared/vendas-do-dia.js';
@@ -23,9 +24,9 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const BLING_BASE = 'https://api.bling.com.br/Api/v3';
 
-// Orçamento p/ a fase de detalhamento de itens (garantia de não estourar o tempo).
-const ITENS_BUDGET_MS = 90_000;   // teto de tempo total buscando detalhes
-const ITENS_CONCORRENCIA = 6;     // chamadas simultâneas ao Bling
+const ITENS_BUDGET_MS = 90_000;   // teto de tempo pra detalhar itens
+const ITENS_CONCORRENCIA = 8;     // chamadas simultâneas ao Bling
+const BLING_TENTATIVAS = 3;       // retentativas por chamada (absorve rate-limit)
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -43,7 +44,6 @@ function brtDatas(): { hoje: string; ontem: string } {
   return { hoje: iso(nowBrt), ontem: iso(ontem) };
 }
 
-// Lê o token do Bling do banco. SÓ LEITURA (sem refresh). Retorna null se vencido.
 async function lerTokenBling(sb: ReturnType<typeof createClient>): Promise<string | null> {
   const { data } = await sb.from('bling_tokens').select('access_token, expires_at')
     .order('id', { ascending: false }).limit(1).single();
@@ -64,11 +64,22 @@ async function blingGet(token: string, endpoint: string, params: Record<string, 
   return r.json();
 }
 
+// blingGet com retentativas + backoff — absorve rate-limit/soluço passageiro.
+async function blingGetRetry(token: string, endpoint: string, params: Record<string, unknown> = {}) {
+  let ultimoErro: unknown;
+  for (let t = 0; t < BLING_TENTATIVAS; t++) {
+    try { return await blingGet(token, endpoint, params); }
+    catch (e) { ultimoErro = e; await new Promise((r) => setTimeout(r, 600 * (t + 1))); }
+  }
+  throw ultimoErro;
+}
+
 // Lista pedidos de vendas (situação 9 = atendido/finalizado) num dia, paginando.
+// Lança se o Bling falhar (mesmo após retentativas) — quem chama decide não enviar.
 async function listarPedidos(token: string, dia: string) {
   const all: any[] = [];
   for (let page = 1; page <= 10; page++) {
-    const resp = await blingGet(token, 'pedidos/vendas', {
+    const resp = await blingGetRetry(token, 'pedidos/vendas', {
       dataInicial: dia, dataFinal: dia, 'idsSituacoes[]': 9, pagina: page, limite: 100,
     });
     const d = resp?.data;
@@ -79,34 +90,14 @@ async function listarPedidos(token: string, dia: string) {
   return all;
 }
 
-// Roda `tarefas` com concorrência limitada e um orçamento de tempo global.
-// Retorna { ok: resultados[], estourou: boolean } — estourou=true se o tempo
-// acabou antes de terminar tudo.
-async function comOrcamento<T>(itens: T[], limite: number, budgetMs: number, fn: (t: T) => Promise<void>) {
-  const inicio = Date.now();
-  let i = 0;
-  let estourou = false;
-  async function worker() {
-    while (i < itens.length) {
-      if (Date.now() - inicio > budgetMs) { estourou = true; return; }
-      const idx = i++;
-      try { await fn(itens[idx]); } catch { /* pedido isolado falhou; segue */ }
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(limite, itens.length) }, worker));
-  return { estourou };
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
-  // Auth self-contained (não depende do verify_jwt do gateway): o pg_cron manda
-  // `Authorization: Bearer <segredo>` lido da tabela segredos_de_cron. Fail-closed.
   const negado = await exigirSegredoDeCron(req, 'enviar-push-vendas');
   if (negado) return negado;
 
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
-  // VAPID também vem de segredos_de_cron (service role) — nada de env/secret manual.
+  // VAPID vem de segredos_de_cron (service role) — nada de env/secret manual.
   const { data: segr } = await sb.from('segredos_de_cron').select('nome, segredo')
     .in('nome', ['vapid_public_key', 'vapid_private_key', 'vapid_subject']);
   const seg = Object.fromEntries((segr || []).map((r: any) => [r.nome, r.segredo]));
@@ -115,49 +106,49 @@ Deno.serve(async (req) => {
 
   const { hoje, ontem } = brtDatas();
 
-  let parcial = false;
+  // 1) Token do Bling. Sem token válido -> NÃO envia.
   const token = await lerTokenBling(sb);
-  let pedHoje: any[] = [];
-  let pedOntem: any[] = [];
-  if (!token) {
-    parcial = true; // sem token válido -> manda o que der (tudo zero) marcando parcial
-  } else {
-    try {
-      [pedHoje, pedOntem] = await Promise.all([listarPedidos(token, hoje), listarPedidos(token, ontem)]);
-    } catch (_e) {
-      parcial = true;
-    }
+  if (!token) return json({ ok: true, enviado: false, motivo: 'sem_token_bling' });
+
+  // 2) Pedidos de hoje e ontem (com retentativas). Se o Bling falhar -> NÃO envia.
+  let pedHoje: any[], pedOntem: any[];
+  try {
+    [pedHoje, pedOntem] = await Promise.all([listarPedidos(token, hoje), listarPedidos(token, ontem)]);
+  } catch (e) {
+    return json({ ok: true, enviado: false, motivo: 'bling_indisponivel', erro: String(e) });
   }
 
-  // ── Contagem de itens por pedido: cache no banco + detalhe só do que falta ──
+  // 3) Itens por pedido: cache + detalhe do que falta. Se não der pra contar TODOS
+  //    (falha ou estouro de tempo), os itens não seriam exatos -> NÃO envia.
   const todos = [...pedHoje, ...pedOntem];
   const ids = todos.map((p) => parseInt(p.id)).filter(Boolean);
   const cache = new Map<number, number>();
-  if (ids.length) {
-    // lê em blocos pra não estourar o tamanho do IN
-    for (let i = 0; i < ids.length; i += 500) {
-      const bloco = ids.slice(i, i + 500);
-      const { data } = await sb.from('bling_pedido_vendedor')
-        .select('pedido_id, qtd_itens').in('pedido_id', bloco);
-      for (const r of (data || [])) if (r.qtd_itens != null) cache.set(r.pedido_id, r.qtd_itens);
-    }
+  for (let i = 0; i < ids.length; i += 500) {
+    const bloco = ids.slice(i, i + 500);
+    const { data } = await sb.from('bling_pedido_vendedor').select('pedido_id, qtd_itens').in('pedido_id', bloco);
+    for (const r of (data || [])) if (r.qtd_itens != null) cache.set(r.pedido_id, r.qtd_itens);
   }
 
-  const faltantes = token ? todos.filter((p) => !cache.has(parseInt(p.id))) : [];
-  let detalhados = 0;
-  if (faltantes.length && token) {
-    const { estourou } = await comOrcamento(faltantes, ITENS_CONCORRENCIA, ITENS_BUDGET_MS, async (p) => {
-      const det = await blingGet(token, `pedidos/vendas/${p.id}`);
-      const qtd = Array.isArray(det?.data?.itens) ? det.data.itens.length : 0;
-      cache.set(parseInt(p.id), qtd);
-      detalhados++;
-    });
-    if (estourou) parcial = true; // não deu tempo de detalhar tudo -> marca parcial
-    // NÃO regravamos em bling_pedido_vendedor: a Gestão à Vista é a dona dessa
-    // tabela (e vendor_id é NOT NULL). A Edge só LÊ o cache; o que faltar é
-    // contado em memória só para esta execução.
+  const faltantes = todos.filter((p) => !cache.has(parseInt(p.id)));
+  if (faltantes.length) {
+    const inicio = Date.now();
+    let i = 0;
+    let itensOk = true;
+    const worker = async () => {
+      while (i < faltantes.length && itensOk) {
+        if (Date.now() - inicio > ITENS_BUDGET_MS) { itensOk = false; return; }
+        const p = faltantes[i++];
+        try {
+          const det = await blingGetRetry(token, `pedidos/vendas/${p.id}`);
+          cache.set(parseInt(p.id), Array.isArray(det?.data?.itens) ? det.data.itens.length : 0);
+        } catch { itensOk = false; return; }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(ITENS_CONCORRENCIA, faltantes.length) }, worker));
+    if (!itensOk) return json({ ok: true, enviado: false, motivo: 'itens_incompletos' });
   }
 
+  // 4) Agrega (tudo exato agora) e envia.
   const normalizar = (p: any) => ({
     loja_id: p.loja?.id ?? p.loja_id ?? null,
     total: Number(p.total) || 0,
@@ -171,9 +162,8 @@ Deno.serve(async (req) => {
     pedidosOntem: pedOntem.map(normalizar),
     lojas: lojasNorm,
   });
-  const payload = JSON.stringify(montarCorpo(agg, { parcial }));
+  const payload = JSON.stringify(montarCorpo(agg));
 
-  // ── Envio a todas as inscrições, podando as mortas (410/404) ──
   const { data: subs } = await sb.from('push_subs').select('*');
   let enviados = 0, podados = 0;
   for (const s of (subs || [])) {
@@ -191,5 +181,5 @@ Deno.serve(async (req) => {
     }
   }
 
-  return json({ ok: true, parcial, hoje, ontem, pedidos: todos.length, detalhados, enviados, podados, total: agg.total });
+  return json({ ok: true, enviado: true, hoje, ontem, pedidos: todos.length, enviados, podados, total: agg.total });
 });

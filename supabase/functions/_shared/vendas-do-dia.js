@@ -64,7 +64,9 @@ function seta(p) {
 }
 const plural = (n, sing, plur) => `${n} ${n === 1 ? sing : plur}`;
 
-export function montarCorpo(agg, { parcial } = {}) {
+// A Edge só chama isto quando o dado está EXATO (senão nem envia). Por isso aqui
+// não existe mais "dados parciais": toda notificação enviada é fiel.
+export function montarCorpo(agg) {
   const t = agg.total;
   const title = `🛍️ Vendas de hoje · ${brl(t.valor)}`;
   // Só os canais que tiveram movimento HOJE (venda > 0). Canal parado não entra.
@@ -77,7 +79,6 @@ export function montarCorpo(agg, { parcial } = {}) {
   } else {
     linhas.push('Nenhuma venda registrada hoje ainda.');
   }
-  if (parcial) linhas.push('⚠️ dados parciais (Bling instável às 22h)');
   // rota real da Gestão à Vista é /gestao-vista (ver src/mapa-de-enderecos.js)
   return { title, body: linhas.join('\n'), url: '/gestao-vista', tag: 'vendas-do-dia' };
 }

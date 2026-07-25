@@ -67,18 +67,17 @@ test('total soma TODOS os pedidos (inclui loja fora de bling_lojas); hoje simét
   assert.ok(!agg.canais.find((c) => c.loja_id === 99)); // órfã não aparece na quebra
 });
 
-test('montarCorpo: título com total; corpo com quebra; parcial vira aviso', () => {
+test('montarCorpo: título com total, quebra por canal e link da GV', () => {
   const agg = agregarVendasPorCanal({
     pedidosHoje: [{ loja_id: 1, total: 4200, itens: 40 }],
     pedidosOntem: [{ loja_id: 1, total: 3750, itens: 41 }], lojas,
   });
-  const n = montarCorpo(agg, { parcial: false });
+  const n = montarCorpo(agg);
   assert.match(n.title, /Vendas de hoje/);
   assert.match(n.title, /R\$/);
   assert.match(n.body, /Tivoli/);
   assert.equal(n.url, '/gestao-vista');
-  const p = montarCorpo(agg, { parcial: true });
-  assert.match(p.body, /parciais/i);
+  assert.ok(!/parciais/i.test(n.body)); // nunca manda "parcial": ou é exato, ou nem envia
 });
 
 test('montarCorpo: só entram canais com movimento HOJE (venda > 0)', () => {
