@@ -36,12 +36,14 @@ const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...cors, 'Content-Type': 'application/json' } });
 
 // Datas em BRT (UTC-3, o Brasil não tem mais horário de verão) como YYYY-MM-DD.
-function brtDatas(): { hoje: string; ontem: string } {
+function brtDatas(): { hoje: string; ontem: string; anteontem: string } {
   const nowBrt = new Date(Date.now() - 3 * 3600 * 1000);
   const iso = (x: Date) => x.toISOString().slice(0, 10);
   const ontem = new Date(nowBrt);
   ontem.setUTCDate(ontem.getUTCDate() - 1);
-  return { hoje: iso(nowBrt), ontem: iso(ontem) };
+  const anteontem = new Date(nowBrt);
+  anteontem.setUTCDate(anteontem.getUTCDate() - 2);
+  return { hoje: iso(nowBrt), ontem: iso(ontem), anteontem: iso(anteontem) };
 }
 
 async function lerTokenBling(sb: ReturnType<typeof createClient>): Promise<string | null> {
@@ -104,23 +106,33 @@ Deno.serve(async (req) => {
   if (!seg.vapid_public_key || !seg.vapid_private_key) return json({ error: 'vapid_nao_configurado' }, 500);
   webpush.setVapidDetails(seg.vapid_subject || 'mailto:breno@rbvcompany.com', seg.vapid_public_key, seg.vapid_private_key);
 
-  const { hoje, ontem } = brtDatas();
+  const { hoje, ontem, anteontem } = brtDatas();
+
+  // Modo do disparo: 22h -> 'hoje' (padrão, fechamento do dia); 07h -> 'ontem'
+  // (recap da manhã: mostra o dia que acabou vs anteontem).
+  let modo = 'hoje';
+  try { const corpo = await req.json(); if (corpo?.modo === 'ontem') modo = 'ontem'; } catch { /* sem corpo -> hoje */ }
+  const diaRef = modo === 'ontem' ? ontem : hoje;
+  const diaCmp = modo === 'ontem' ? anteontem : ontem;
+  const refLabel = modo === 'ontem' ? 'ontem' : 'hoje';
+  const cmpLabel = modo === 'ontem' ? 'anteontem' : 'ontem';
 
   // 1) Token do Bling. Sem token válido -> NÃO envia.
   const token = await lerTokenBling(sb);
   if (!token) return json({ ok: true, enviado: false, motivo: 'sem_token_bling' });
 
-  // 2) Pedidos de hoje e ontem (com retentativas). Se o Bling falhar -> NÃO envia.
-  let pedHoje: any[], pedOntem: any[];
+  // 2) Pedidos do dia de referência e de comparação (com retentativas). Se o Bling
+  //    falhar -> NÃO envia.
+  let pedRef: any[], pedCmp: any[];
   try {
-    [pedHoje, pedOntem] = await Promise.all([listarPedidos(token, hoje), listarPedidos(token, ontem)]);
+    [pedRef, pedCmp] = await Promise.all([listarPedidos(token, diaRef), listarPedidos(token, diaCmp)]);
   } catch (e) {
     return json({ ok: true, enviado: false, motivo: 'bling_indisponivel', erro: String(e) });
   }
 
   // 3) Itens por pedido: cache + detalhe do que falta. Se não der pra contar TODOS
   //    (falha ou estouro de tempo), os itens não seriam exatos -> NÃO envia.
-  const todos = [...pedHoje, ...pedOntem];
+  const todos = [...pedRef, ...pedCmp];
   const ids = todos.map((p) => parseInt(p.id)).filter(Boolean);
   const cache = new Map<number, number>();
   for (let i = 0; i < ids.length; i += 500) {
@@ -158,11 +170,11 @@ Deno.serve(async (req) => {
   const { data: lojas } = await sb.from('bling_lojas').select('loja_id,nome');
   const lojasNorm = (lojas || []).map((l: any) => ({ loja_id: l.loja_id, nome: l.nome }));
   const agg = agregarVendasPorCanal({
-    pedidosHoje: pedHoje.map(normalizar),
-    pedidosOntem: pedOntem.map(normalizar),
+    pedidosHoje: pedRef.map(normalizar),   // "referência" = diaRef (hoje ou ontem)
+    pedidosOntem: pedCmp.map(normalizar),  // "comparação" = diaCmp (ontem ou anteontem)
     lojas: lojasNorm,
   });
-  const payload = JSON.stringify(montarCorpo(agg));
+  const payload = JSON.stringify(montarCorpo(agg, { refLabel, cmpLabel }));
 
   const { data: subs } = await sb.from('push_subs').select('*');
   let enviados = 0, podados = 0;
@@ -181,5 +193,5 @@ Deno.serve(async (req) => {
     }
   }
 
-  return json({ ok: true, enviado: true, hoje, ontem, pedidos: todos.length, enviados, podados, total: agg.total });
+  return json({ ok: true, enviado: true, modo, diaRef, diaCmp, pedidos: todos.length, enviados, podados, total: agg.total });
 });
