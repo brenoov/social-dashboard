@@ -230,6 +230,13 @@ let _gtAdInsights=[];
 let _gtAdsets=[];        // conjuntos de anúncios da conta (Graph /adsets), com o orçamento de cada um
 let _gtRecolhido=false;  // botão "recolher/expandir tudo": estado padrão dos painéis ao (re)desenhar
 let _gtStatusFilter='all';
+// Seleção múltipla para PAUSAR EM MASSA. Mora FORA do render de propósito: a
+// lista é redesenhada a cada busca/filtro/recolher, e uma seleção guardada
+// dentro do render sumiria sozinha no meio do trabalho.
+// Chave 'campaign:<id>' | 'ad:<id>' -> { kind, id, nome }.
+// Só entra aqui o que está ATIVO: a ação em massa só FREIA (decisão do dono,
+// 2026-07-27) — reativar continua sendo um a um, com confirmação individual.
+let _gtSelecao=new Map();
 
 /* ── Zoom de fonte (legacy L7789-7805, verbatim) ── */
 function _gtFontScale(){
@@ -558,6 +565,12 @@ async function _gtSaveEditor(){
 async function loadGtData(){
   const col=document.getElementById('gt-camp-col');
   if(!col)return;
+  // Zera a seleção de "pausar em massa" a cada recarga. É de segurança: recarregar
+  // acontece ao TROCAR DE CONTA de anúncios, e uma seleção sobrevivente carregaria
+  // ids da conta anterior pra dentro da conta nova. Não atrapalha o uso normal —
+  // não existe recarga automática por tempo aqui (o timer só repinta o "atualizado
+  // há X"), então a lista só se refaz quando o próprio usuário pede.
+  _gtLimparSelecao();
   if(!_gtCurAcc){col.innerHTML='<div class="gt-camp-card"><div class="gt-empty">Nenhuma conta selecionada.</div></div>';return;}
   col.innerHTML='<div class="gv-loading-screen"><div class="gv-spinner"></div><span class="gv-loading-lbl">Carregando campanhas</span></div>';
   // Reset AI suggestions
@@ -631,6 +644,88 @@ function _gtManualToggleBtn(kind,id,status,nome){
   b.style.opacity='.9';
   b.addEventListener('click',e=>{e.stopPropagation();_gtApplyAction(action,b,null);});
   return b;
+}
+// ── Pausar em massa ────────────────────────────────────────────────────────
+// Caixa de seleção da campanha/anúncio. Devolve null quando o item NÃO pode ser
+// selecionado (só ATIVO entra — pausar o que já está pausado não faz nada).
+function _gtSelCaixa(kind,id,nome,podeSelecionar){
+  if(!podeSelecionar)return null;
+  const chave=kind+':'+id;
+  const cb=document.createElement('input');
+  cb.type='checkbox';cb.className='gt-sel-cb';
+  cb.checked=_gtSelecao.has(chave);
+  cb.title='Marcar para pausar junto com os outros';
+  // O clique na linha da campanha ABRE/FECHA os anúncios; sem isto, marcar a
+  // caixa também expandia o painel.
+  cb.addEventListener('click',e=>e.stopPropagation());
+  cb.addEventListener('change',()=>{
+    if(cb.checked)_gtSelecao.set(chave,{kind,id,nome:nome||(kind==='ad'?'anúncio sem nome':'campanha sem nome')});
+    else _gtSelecao.delete(chave);
+    _gtPintarBarraSelecao();
+  });
+  return cb;
+}
+// Barra flutuante que aparece só quando há algo marcado. Vai pendurada na RAIZ
+// da tela (não no body) por dois motivos: o CSS daqui é scoped, e assim ela some
+// sozinha quando o usuário troca de tela.
+function _gtPintarBarraSelecao(){
+  const raiz=document.querySelector('.tela-gestao-trafego');
+  let bar=document.getElementById('gt-massa-bar');
+  if(!_gtSelecao.size||!raiz){if(bar)bar.remove();return;}
+  if(!bar){bar=document.createElement('div');bar.id='gt-massa-bar';bar.className='gt-massa-bar';raiz.appendChild(bar);}
+  const itens=[..._gtSelecao.values()];
+  const nc=itens.filter(x=>x.kind==='campaign').length,na=itens.length-nc;
+  const partes=[];
+  if(nc)partes.push(nc+(nc===1?' campanha':' campanhas'));
+  if(na)partes.push(na+(na===1?' anúncio':' anúncios'));
+  bar.innerHTML='';
+  const txt=document.createElement('div');txt.className='gt-massa-txt';
+  txt.textContent='Selecionado: '+partes.join(' e ');
+  const bPausar=document.createElement('button');
+  bPausar.className='gt-massa-btn danger';bPausar.textContent='⏸ Pausar selecionados';
+  bPausar.addEventListener('click',()=>_gtPausarSelecionados(bPausar));
+  const bLimpar=document.createElement('button');
+  bLimpar.className='gt-massa-btn';bLimpar.textContent='Limpar';
+  bLimpar.addEventListener('click',()=>_gtLimparSelecao());
+  bar.appendChild(txt);bar.appendChild(bLimpar);bar.appendChild(bPausar);
+}
+function _gtLimparSelecao(){
+  _gtSelecao.clear();
+  document.querySelectorAll('.gt-sel-cb').forEach(c=>{c.checked=false;});
+  _gtPintarBarraSelecao();
+}
+// AÇÃO REAL EM MASSA. Mesma regra do resto da tela: confirmação ANTES de
+// qualquer mutação, e aqui a confirmação LISTA nome por nome o que vai parar.
+// As chamadas vão UMA DE CADA VEZ de propósito — disparar tudo junto já tomou
+// rate-limit da Meta neste projeto.
+async function _gtPausarSelecionados(btn){
+  const tok=_gtCurAcc?.id;
+  if(!tok){await _gtConfirm('Sem conta selecionada','Escolha uma conta de anúncios antes de pausar.',{okOnly:true});return;}
+  const itens=[..._gtSelecao.values()];
+  if(!itens.length)return;
+  const lista=itens.map(it=>'<li>'+(it.kind==='campaign'?'Campanha':'Anúncio')+': <b>'+_gtEsc(it.nome)+'</b></li>').join('');
+  const ok=await _gtConfirm(
+    'Pausar '+itens.length+(itens.length===1?' item?':' itens de uma vez?'),
+    'Vai ser PAUSADO na Meta agora:<ul style="margin:8px 0 0 18px;padding:0;">'+lista+'</ul>'
+      +'<div style="margin-top:10px;">Pausar não apaga nada: para de gastar e dá pra reativar depois, um a um.</div>',
+    {danger:true,okLabel:'Pausar tudo'});
+  if(!ok)return;
+  btn.disabled=true;
+  const falhas=[];let feitos=0;
+  for(const it of itens){
+    btn.textContent='Pausando… '+(feitos+falhas.length+1)+'/'+itens.length;
+    try{await metaPost('/'+it.id,{status:'PAUSED'},tok);feitos++;}
+    catch(e){falhas.push({nome:it.nome,msg:String((e&&e.message)||e||'').slice(0,140)});}
+  }
+  _gtLimparSelecao();
+  if(falhas.length){
+    await _gtConfirm(
+      'Pausados '+feitos+' de '+itens.length,
+      'Não deu certo em '+falhas.length+':<ul style="margin:8px 0 0 18px;padding:0;">'
+        +falhas.map(f=>'<li><b>'+_gtEsc(f.nome)+'</b> — '+_gtEsc(f.msg)+'</li>').join('')+'</ul>',
+      {okOnly:true});
+  }
+  loadGtData();
 }
 // Campanha "encerrada": ACTIVE no Meta mas com stop_time já no passado.
 function _gtEncerrada(camp,nowMs){
@@ -963,6 +1058,10 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       const chev=document.createElement('svg');chev.setAttribute('class','gt-chevron');chev.setAttribute('width','12');chev.setAttribute('height','12');chev.setAttribute('viewBox','0 0 24 24');chev.setAttribute('fill','none');chev.setAttribute('stroke','currentColor');chev.setAttribute('stroke-width','2.5');chev.setAttribute('stroke-linecap','round');chev.setAttribute('stroke-linejoin','round');chev.innerHTML='<polyline points="9 18 15 12 9 6"/>';
       const l1=document.createElement('div');l1.className='gt-camp-l1';
       const numEl=document.createElement('div');numEl.className='gt-camp-num';numEl.textContent=String(i+1).padStart(2,'0');
+      // Caixa de "pausar em massa": só para campanha ATIVA e não encerrada — é
+      // exatamente o mesmo critério do botão ⏸ Pausar individual.
+      const selCb=_gtSelCaixa('campaign',ins.campaign_id,ins.campaign_name||camp?.name,status==='ACTIVE'&&!encerrada);
+      if(selCb)l1.appendChild(selCb);
       l1.appendChild(numEl);l1.appendChild(badge);l1.appendChild(nm);l1.appendChild(spendEl);
       const l2=document.createElement('div');l2.className='gt-camp-l2';
       const exp=document.createElement('div');exp.className='gt-camp-exp';exp.appendChild(hint);exp.appendChild(chev);
@@ -1130,6 +1229,8 @@ function _renderGtAds(pane,ads,allInsights,allAdInsights,campNum){
     const metrics=document.createElement('div');metrics.className='gt-metrics';
     metrics.innerHTML=`<div class="gt-metric">CTR <span style="color:${ctrColor}">${_maFmtPct(ctr)}</span></div><div class="gt-metric" style="font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:700;"><span>${_maFmtR(spend)}</span></div>`;
     const adNum=document.createElement('div');adNum.className='gt-ad-num';adNum.textContent=(campNum!=null?campNum+'.':'')+(ai+1);
+    const adSelCb=_gtSelCaixa('ad',ad.ad_id,ad.ad_name||ad.adset_name,adStatus==='ACTIVE');
+    if(adSelCb)top.appendChild(adSelCb);
     top.appendChild(adNum);top.appendChild(seal);top.appendChild(nameWrap);top.appendChild(metrics);
     card.appendChild(top);
     // Porquê da IA (apoio).
@@ -1212,6 +1313,8 @@ function _gtStopAllTimers(){
   if(_gtClockTimer){clearInterval(_gtClockTimer);_gtClockTimer=null;}
   if(_gtStatusTimer){clearInterval(_gtStatusTimer);_gtStatusTimer=null;}
   _gtLastLoadTime=null;
+  _gtSelecao.clear();
+  const barra=document.getElementById('gt-massa-bar');if(barra)barra.remove();
   document.removeEventListener('click',_gtDocClick);
   document.removeEventListener('keydown',_gtCrEsc);
 }
@@ -1381,6 +1484,21 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-kpi-val){font-weight:700;color:var(--text);}
 .tela-gestao-trafego :deep(.gt-spend){font-family:var(--fonte-dados);font-size:calc(16px*var(--gt-fs,1.3));font-weight:700;color:var(--text);flex-shrink:0;min-width:65px;text-align:right;}
 /* Action buttons */
+/* Pausar em massa: caixa de seleção + barra flutuante.
+   A barra fica pendurada na RAIZ da tela (não no body) — o CSS aqui é scoped e,
+   de quebra, ela some sozinha quando a tela é desmontada. */
+.tela-gestao-trafego :deep(.gt-sel-cb){width:16px;height:16px;flex:0 0 auto;margin:0;cursor:pointer;accent-color:#dc2626;}
+.tela-gestao-trafego :deep(.gt-massa-bar){position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:9998;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;max-width:calc(100vw - 24px);padding:10px 14px;border-radius:14px;background:var(--surface);border:1px solid var(--border);box-shadow:0 16px 40px rgba(0,0,0,.28);font-family:var(--fonte-principal);}
+.tela-gestao-trafego :deep(.gt-massa-txt){font-size:calc(12px*var(--gt-fs,1.3));font-weight:700;color:var(--text);}
+.tela-gestao-trafego :deep(.gt-massa-btn){padding:7px 14px;border-radius:20px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;border:1px solid var(--border);background:none;color:var(--text);white-space:nowrap;transition:all .15s;}
+.tela-gestao-trafego :deep(.gt-massa-btn:hover){border-color:var(--accent);color:var(--accent);background:var(--accent-light);}
+.tela-gestao-trafego :deep(.gt-massa-btn.danger){border-color:#dc2626;background:#dc2626;color:#fff;}
+.tela-gestao-trafego :deep(.gt-massa-btn.danger:hover){background:#b91c1c;border-color:#b91c1c;color:#fff;}
+.tela-gestao-trafego :deep(.gt-massa-btn:disabled){opacity:.65;cursor:default;}
+@media (max-width:640px){
+  /* No celular a barra vira faixa de ponta a ponta — não pode estourar a tela. */
+  .tela-gestao-trafego :deep(.gt-massa-bar){left:12px;right:12px;transform:none;max-width:none;justify-content:space-between;}
+}
 .tela-gestao-trafego :deep(.gt-action-row){display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:4px;}
 .tela-gestao-trafego :deep(.gt-act-btn){padding:4px 11px;border-radius:20px;font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));font-weight:600;cursor:pointer;transition:all .15s;border:1px solid var(--border);background:none;color:var(--text);white-space:nowrap;display:flex;align-items:center;gap:4px;}
 .tela-gestao-trafego :deep(.gt-act-btn:hover){border-color:var(--accent);color:var(--accent);background:var(--accent-light);}
