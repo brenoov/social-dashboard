@@ -45,11 +45,15 @@ export function quantidadesDoInsight(linha) {
   return { curtidas: q.curtidas, comentarios: q.comentarios, salvamentos: q.salvamentos, compartilhamentos: q.compartilhamentos, gasto: q.gasto };
 }
 
-function faixaDoIndice(indice, limiares) {
+// Exportada porque TODOS os baldes usam este mesmo semáforo (ver alvos.js).
+// Copiar a regra em outro arquivo faria uma mudança futura valer só pra metade
+// da ferramenta.
+export function faixaDoIndice(indice, limiares) {
+  const l = { ...LIMIARES_PADRAO, ...(limiares || {}) };
   if (indice == null) return 'sem-dados';
-  if (indice <= limiares.escalarForte) return 'escalar-forte';
-  if (indice <= limiares.dentroMeta) return 'dentro-da-meta';
-  if (indice <= limiares.manter) return 'manter';
+  if (indice <= l.escalarForte) return 'escalar-forte';
+  if (indice <= l.dentroMeta) return 'dentro-da-meta';
+  if (indice <= l.manter) return 'manter';
   return 'otimizar';
 }
 
