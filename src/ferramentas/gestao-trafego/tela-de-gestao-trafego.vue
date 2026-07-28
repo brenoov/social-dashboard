@@ -659,37 +659,44 @@ async function _gtSalvarRegua(nova, botao) {
 // "ALVO DO OBJETIVO" acima) — inclusive o desvio de campanha-de-mensagem —
 // senão o exemplo vivo ensina a conta errada pro dono (C1 do review final,
 // 2026-07-28: nesta conta, a campanha de maior gasto é de WhatsApp).
-function _gtExemploParaRegua() {
-  const linha = [..._gtInsights].sort((a, b) => Number(b.spend || 0) - Number(a.spend || 0))[0];
-  if (!linha) return null;
-  const baldeBruto = _gtBalde(linha.objective);
-  const temMensagem = baldeBruto === 'engajamento' && (
-    _gtActionVal(linha, _GT_MSG) != null
-    || _gtActionVal(linha, _GT_MSG_CONN) != null
-    || _gtActionVal(linha, _GT_MSG_REPLY) != null
-  );
-  const balde = temMensagem ? 'mensagens' : baldeBruto;
-  const alvo = alvoDoBalde(balde);
-  // Custo pronto (não depende dos pesos/limiares editáveis nesta aba) pra todo
-  // balde que NÃO é a ponderada — painel-regua.js recalcula ao vivo só o caso
-  // 'ponderada' (engajamento), a partir de `quantidades`.
-  const custo = (alvo && alvo.metrica !== 'ponderada') ? _gtMetricValue(alvo.metrica, linha) : null;
-  // DETALHE do exemplo: os números que fazem sentido PRA ESTE objetivo. Mostrar
-  // curtida e salvamento numa campanha de lead não diz nada sobre o que ela
-  // comprou — foi a confusão que o dono apontou. Engajamento fica com `null`
-  // porque lá o detalhe é a própria quebra das interações, que o painel desenha
-  // e recalcula ao vivo conforme os pesos.
-  const detalhe = (alvo && alvo.resultado)
-    ? [{ rotulo: GT_METRIC_CATALOG[alvo.resultado]?.label || alvo.resultado,
-         valor: _gtMetricValue(alvo.resultado, linha) }]
-    : null;
-  return {
-    nome: linha.campaign_name || 'sua campanha',
-    balde,
-    quantidades: quantidadesDoInsight(linha),
-    custo,
-    detalhe,
-  };
+// UM exemplo por OBJETIVO que a conta realmente roda — não só a campanha de maior
+// gasto. O dono pediu isso depois de olhar a régua: ele precisa ver como cada tipo
+// de campanha será julgado, não só o tipo da campanha mais cara. De cada balde vai
+// a campanha de MAIOR GASTO, que é a mais representativa do dinheiro dele.
+function _gtExemplosParaRegua() {
+  const porBalde = {};
+  for (const linha of _gtInsights) {
+    const baldeBruto = _gtBalde(linha.objective);
+    // Mesma correção do cartão: campanha de WhatsApp chega como OUTCOME_ENGAGEMENT.
+    const temMensagem = baldeBruto === 'engajamento' && (
+      _gtActionVal(linha, _GT_MSG) != null
+      || _gtActionVal(linha, _GT_MSG_CONN) != null
+      || _gtActionVal(linha, _GT_MSG_REPLY) != null
+    );
+    const balde = temMensagem ? 'mensagens' : baldeBruto;
+    if (!alvoDoBalde(balde)) continue;                       // balde sem alvo não vira exemplo
+    const atual = porBalde[balde];
+    if (!atual || Number(linha.spend || 0) > Number(atual.spend || 0)) porBalde[balde] = linha;
+  }
+  const exemplos = [];
+  for (const [balde, linha] of Object.entries(porBalde)) {
+    const alvo = alvoDoBalde(balde);
+    exemplos.push({
+      nome: linha.campaign_name || 'sua campanha',
+      balde,
+      quantidades: quantidadesDoInsight(linha),
+      // Custo pronto p/ todo balde que NÃO é a ponderada — o painel recalcula ao
+      // vivo só o caso 'ponderada' (engajamento), a partir de `quantidades`.
+      custo: alvo.metrica !== 'ponderada' ? _gtMetricValue(alvo.metrica, linha) : null,
+      detalhe: alvo.resultado
+        ? [{ rotulo: GT_METRIC_CATALOG[alvo.resultado]?.label || alvo.resultado,
+             valor: _gtMetricValue(alvo.resultado, linha) }]
+        : null,
+    });
+  }
+  // Ordem de leitura: onde há mais dinheiro primeiro.
+  exemplos.sort((a, b) => Number(b.quantidades.gasto || 0) - Number(a.quantidades.gasto || 0));
+  return exemplos;
 }
 
 function _gtCloseEditor(){
@@ -789,6 +796,10 @@ async function loadGtData(){
     if(_gtStatusTimer)clearInterval(_gtStatusTimer);
     _gtStatusTimer=setInterval(updateGtUpdateStatus,60000);
     _renderGtCampaigns(col,campaigns,insights,adInsights,adsets);
+    // A aba da régua vive de campanhas reais no exemplo. Sem isto, trocar de conta
+    // de anúncios (ou abrir a régua antes de os dados chegarem) deixava o exemplo
+    // velho ou vazio, e o dono precisava passar pela aba Campanhas primeiro.
+    if(_gtAbaAtiva==='regua') _gtTrocarAba('regua');
     // Reset AI analyze button
     const btn=document.getElementById('gt-analyze-btn');
     if(btn){btn.disabled=false;btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Analisar com Agente IA';}
@@ -1415,7 +1426,7 @@ function _gtTrocarAba(nome) {
       // (ou se falhou), o painel mostra os campos mas trava o "Salvar" — nunca
       // deixa gravar um valor que pode não ser o real (ver C3 do review final).
       carregouOk: _gtReguaCarregada,
-      exemplo: _gtExemploParaRegua(),
+      exemplos: _gtExemplosParaRegua(),
       aoSalvar: _gtSalvarRegua,
     });
   }
@@ -1709,10 +1720,13 @@ Object.assign(window, {
    botões soltos com borda cada. Dois botões contornados lado a lado brigavam com as
    pílulas de período e de status logo acima — o trilho deixa claro que é uma escolha
    entre duas telas, não mais um filtro. */
-.tela-gestao-trafego :deep(.pnd-abas){display:inline-flex;gap:2px;padding:4px;margin:0 4px 18px;border-radius:13px;background:var(--surface2);border:1px solid var(--border);}
-.tela-gestao-trafego :deep(.pnd-aba){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:600;letter-spacing:.3px;padding:8px 20px;border-radius:9px;cursor:pointer;border:none;background:none;color:var(--muted);transition:color .18s,background .18s;white-space:nowrap;}
+/* Abas no MESMO padrão da Gestão Comercial (.gc-tabs): sublinhado, maiúsculas,
+   sem caixa nem pílula. O dono já aprovou aquele lá; ter dois desenhos de aba na
+   mesma casa é o que fazia esta parecer mais um filtro. */
+.tela-gestao-trafego :deep(.pnd-abas){display:flex;gap:4px;padding:2px 4px 0;margin-bottom:16px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.tela-gestao-trafego :deep(.pnd-aba){appearance:none;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;padding:9px 16px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);cursor:pointer;transition:color .15s ease,border-color .15s ease;}
 .tela-gestao-trafego :deep(.pnd-aba:hover){color:var(--text);}
-.tela-gestao-trafego :deep(.pnd-aba.ativa){background:var(--surface);color:var(--accent);box-shadow:0 1px 2px rgba(0,0,0,.06),0 4px 12px rgba(0,0,0,.05);}
+.tela-gestao-trafego :deep(.pnd-aba.ativa){color:var(--accent);border-bottom-color:var(--accent);}
 
 /* Aba "A régua" (ver painel-regua.js).
    Composição: os três cartões de ajuste ocupam a área principal e fluem de 1 a 3
@@ -1759,31 +1773,32 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.pnd-salvar:disabled){opacity:.65;cursor:default;}
 
 /* Exemplo vivo: o resultado vem em manchete, não escondido numa linha de tabela. */
-.tela-gestao-trafego :deep(.pnd-exemplo){position:sticky;top:14px;background:var(--surface);border:1px solid var(--accent-mid);border-radius:14px;overflow:hidden;padding:0;}
-.tela-gestao-trafego :deep(.pnd-ex-topo){padding:16px 18px 14px;background:var(--accent-light);border-bottom:1px solid var(--border);}
-.tela-gestao-trafego :deep(.pnd-ex-rot){font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
-.tela-gestao-trafego :deep(.pnd-ex-nome){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:600;color:var(--text);line-height:1.4;margin-bottom:14px;}
-.tela-gestao-trafego :deep(.pnd-ex-num){font-family:var(--fonte-dados);font-size:calc(30px*var(--gt-fs,1.3));font-weight:600;line-height:1;letter-spacing:-1px;color:var(--text);}
+/* Exemplo vivo: UM bloco por objetivo que a conta roda. A faixa gruda no topo e
+   rola por dentro quando passa da altura da tela — são até 6 blocos. */
+.tela-gestao-trafego :deep(.pnd-exemplo){position:sticky;top:14px;max-height:calc(100vh - 28px);overflow-y:auto;display:flex;flex-direction:column;gap:12px;}
+.tela-gestao-trafego :deep(.pnd-ex-cab){padding:0 2px;}
+.tela-gestao-trafego :deep(.pnd-ex-cab-tit){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--accent);}
+.tela-gestao-trafego :deep(.pnd-ex-cab-sub){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;margin-top:4px;}
+.tela-gestao-trafego :deep(.pnd-ex-bloco){background:var(--surface);border:1px solid var(--accent-mid);border-radius:14px;overflow:hidden;flex:0 0 auto;}
+.tela-gestao-trafego :deep(.pnd-ex-topo){padding:14px 16px 13px;background:var(--accent-light);border-bottom:1px solid var(--border);}
+.tela-gestao-trafego :deep(.pnd-ex-rot){font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+.tela-gestao-trafego :deep(.pnd-ex-nome){font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));font-weight:600;color:var(--text);line-height:1.4;margin-bottom:10px;}
+.tela-gestao-trafego :deep(.pnd-ex-num){font-family:var(--fonte-dados);font-size:calc(26px*var(--gt-fs,1.3));font-weight:600;line-height:1;letter-spacing:-1px;color:var(--text);}
 .tela-gestao-trafego :deep(.pnd-ex-leg){font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);margin-top:5px;}
-.tela-gestao-trafego :deep(.pnd-ex-selo){display:inline-block;margin-top:12px;padding:5px 13px;border-radius:20px;font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));font-weight:700;}
+.tela-gestao-trafego :deep(.pnd-ex-selo){display:inline-block;margin-top:10px;padding:4px 12px;border-radius:20px;font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));font-weight:700;}
 .tela-gestao-trafego :deep(.pnd-ex-selo.bom){background:rgba(22,163,74,.13);color:var(--green);}
 .tela-gestao-trafego :deep(.pnd-ex-selo.meio){background:rgba(245,158,11,.15);color:var(--orange);}
 .tela-gestao-trafego :deep(.pnd-ex-selo.ruim){background:rgba(220,38,38,.12);color:var(--red);}
 .tela-gestao-trafego :deep(.pnd-ex-selo.neutro){background:var(--surface2);color:var(--muted);}
-/* "Onde a cor vira": os limiares saíram da EDIÇÃO, não da vista. Em reais, porque
-   multiplicador (0,8 / 1,0 / 1,3) é abstrato e o valor em reais é a mesma
-   informação de um jeito que se lê. */
-.tela-gestao-trafego :deep(.pnd-ex-regua){margin-top:14px;padding-top:12px;border-top:1px solid var(--border);}
-.tela-gestao-trafego :deep(.pnd-ex-regua-tit){font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);margin-bottom:7px;}
-.tela-gestao-trafego :deep(.pnd-ex-corte){display:flex;align-items:center;gap:7px;font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--text);line-height:1.9;}
+/* "Onde a cor vira" em REAIS: multiplicador (0,8/1,0/1,3) é abstrato; o valor se lê. */
+.tela-gestao-trafego :deep(.pnd-ex-regua){margin-top:12px;padding-top:10px;border-top:1px solid var(--border);}
+.tela-gestao-trafego :deep(.pnd-ex-corte){display:flex;align-items:center;gap:7px;font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--text);line-height:1.85;}
 .tela-gestao-trafego :deep(.pnd-ponto){width:7px;height:7px;border-radius:50%;flex:0 0 auto;}
 .tela-gestao-trafego :deep(.pnd-ponto.bom){background:var(--green);}
 .tela-gestao-trafego :deep(.pnd-ponto.meio){background:var(--orange);}
 .tela-gestao-trafego :deep(.pnd-ponto.ruim){background:var(--red);}
-.tela-gestao-trafego :deep(.pnd-ex-corpo){padding:14px 18px 16px;}
-/* Cores explícitas: no tema escuro as linhas herdavam um tom de baixo contraste
-   e a tabela do exemplo ficava quase ilegível. Rótulo apagado, valor forte. */
-.tela-gestao-trafego :deep(.pnd-ex-corpo .pnd-tabela td){font-size:calc(10.5px*var(--gt-fs,1.3));padding:6px 0;color:var(--muted);}
+.tela-gestao-trafego :deep(.pnd-ex-corpo){padding:12px 16px 14px;}
+.tela-gestao-trafego :deep(.pnd-ex-corpo .pnd-tabela td){font-size:calc(10px*var(--gt-fs,1.3));padding:5px 0;color:var(--muted);}
 .tela-gestao-trafego :deep(.pnd-ex-corpo .pnd-tabela td:last-child){font-family:var(--fonte-dados);font-weight:600;color:var(--text);}
 .tela-gestao-trafego :deep(.pnd-ex-corpo .pnd-tabela tr.forte td){font-weight:700;color:var(--text);}
 @media (max-width:900px){
