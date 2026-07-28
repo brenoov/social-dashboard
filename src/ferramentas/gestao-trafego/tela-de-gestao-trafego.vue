@@ -126,6 +126,9 @@ import { montarPainelRegua } from './painel-regua.js'
 import { normalizarRegua, metaDoBalde } from './regua.js'
 import { quantidadesDoInsight, calcularPonderada } from './ponderada.js'
 import { decidirVeredito } from './veredito.js'
+// Alvo de cada tipo de campanha (custo por lead/conversa/venda/visita/mil
+// pessoas, ou por ponto no caso de engajamento) — ver alvos.js.
+import { alvoDoBalde, avaliarAlvo } from './alvos.js'
 
 const router = useRouter()
 
@@ -1228,6 +1231,21 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       const metaPnd = temMensagem ? 0 : metaDoBalde(_gtRegua, _gtBalde(kpiObjective));
       const pnd = calcularPonderada(qtdsPnd, { pesos: _gtRegua.pesos, limiares: _gtRegua.limiares, meta: metaPnd });
 
+      // ALVO DO OBJETIVO: cada tipo de campanha é medido pelo resultado que ele
+      // compra (lead, conversa, venda, visita, mil impressões) — e engajamento
+      // pelo ponto da ponderada. A conta de cada um já existe no catálogo
+      // (GT_METRIC_CATALOG). Campanha com resultado de mensagem entra como
+      // 'mensagens' mesmo chegando com objetivo de engajamento — mesma correção
+      // de sempre (ver comentário de temMensagem acima), só que agora em vez de
+      // simplesmente cair fora da conta, ela ganha o alvo certo: custo por conversa.
+      const baldeCamp = _gtBalde(kpiObjective);
+      const alvo = temMensagem ? alvoDoBalde('mensagens') : alvoDoBalde(baldeCamp);
+      const metaAlvo = metaDoBalde(_gtRegua, temMensagem ? 'mensagens' : baldeCamp);
+      const custoAlvo = !alvo ? null
+        : alvo.metrica === 'ponderada' ? pnd.custoPorPonto
+        : _gtMetricValue(alvo.metrica, ins);
+      const aval = avaliarAlvo({ custo: custoAlvo, meta: metaAlvo, limiares: _gtRegua.limiares });
+
       // VEREDITO ÚNICO (ver veredito.js): saúde veta > Opus > ponderada.
       // _gtRegraCampanha continua sendo a leitura de SAÚDE (frequência, CTR).
       const saudePnd = (!encerrada && status === 'ACTIVE') ? _gtRegraCampanha(camp, ins, insights) : null;
@@ -1235,7 +1253,11 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       const decisao = decidirVeredito({
         saude: saudePnd,
         opus: opusPnd,
-        ponderada: { ...pnd, meta: metaPnd },
+        // O veredito agora vem do ALVO do objetivo da campanha (custo por lead,
+        // por conversa, por venda, por visita, por mil pessoas — ou por ponto,
+        // no caso de engajamento), não mais sempre da ponderada. decidirVeredito
+        // não muda: ele só lê faixa/custoPorPonto/meta, quaisquer que sejam.
+        ponderada: { faixa: aval.faixa, custoPorPonto: custoAlvo, meta: metaAlvo },
       });
 
       // A faixa continua recebendo o formato que ela já espera hoje.
