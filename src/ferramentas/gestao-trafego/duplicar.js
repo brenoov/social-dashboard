@@ -150,3 +150,32 @@ export async function executarPlano(plano, opts = {}) {
   }
   return relatorio;
 }
+
+// A Meta reclamou de excesso de chamadas? Copiar uma campanha com 7 anúncios
+// são 9 chamadas seguidas — bater no limite é o caso normal, não a exceção.
+export function ehPedidoDeCalma(erro) {
+  const m = String((erro && erro.message) || erro || '');
+  return /\(#17\)|\(#4\)|\(#80004\)|rate limit|too many calls|request limit reached|reduce the amount/i.test(m);
+}
+
+// Envolve a função que fala com a Meta para ela mesma esperar e repetir
+// quando levar pedido de calma. `esperar` entra por fora para que os testes
+// não durmam de verdade.
+//
+// SÓ o limite de chamadas é repetido. Erro de permissão repetido 4 vezes
+// continua sendo erro de permissão — insistir só demora pra dar a má notícia.
+export function comEspera(enviar, opts = {}) {
+  const tentativas = opts.tentativas || 4;
+  const baseMs = opts.baseMs || 2000;
+  const esperar = opts.esperar || ((ms) => new Promise((r) => setTimeout(r, ms)));
+  return async function (caminho, params) {
+    for (let i = 0; i < tentativas; i++) {
+      try {
+        return await enviar(caminho, params);
+      } catch (e) {
+        if (!ehPedidoDeCalma(e) || i === tentativas - 1) throw e;
+        await esperar(baseMs * Math.pow(2, i));
+      }
+    }
+  };
+}

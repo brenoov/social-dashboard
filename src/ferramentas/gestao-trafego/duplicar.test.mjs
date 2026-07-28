@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { planoDeCopia, SUFIXO_PADRAO, executarPlano } from './duplicar.js';
+import { planoDeCopia, SUFIXO_PADRAO, executarPlano, comEspera, ehPedidoDeCalma } from './duplicar.js';
 
 const CAMPANHA = { id: '100', name: 'Bolsas · Tivoli · Vendas' };
 const CONJUNTOS = [{ id: '200', name: 'Tivoli · Vendas' }, { id: '201', name: 'Tivoli · Remarketing' }];
@@ -175,4 +175,52 @@ test('plano vazio nao chama a Meta nenhuma vez', async () => {
   assert.equal(meta.chamadas.length, 0);
   assert.equal(rel.falhou, null);
   assert.deepEqual(rel.concluidos, []);
+});
+
+test('reconhece o pedido de calma da Meta e ignora os outros erros', () => {
+  assert.equal(ehPedidoDeCalma(new Error('(#17) User request limit reached')), true);
+  assert.equal(ehPedidoDeCalma(new Error('(#4) Too many calls')), true);
+  assert.equal(ehPedidoDeCalma(new Error('please reduce the amount of data')), true);
+  assert.equal(ehPedidoDeCalma(new Error('(#200) Permissions error')), false);
+  assert.equal(ehPedidoDeCalma(new Error('qualquer outra coisa')), false);
+  assert.equal(ehPedidoDeCalma(null), false);
+});
+
+test('repete no limite de chamadas e devolve o sucesso da tentativa seguinte', async () => {
+  let n = 0;
+  const esperas = [];
+  const enviar = comEspera(async () => {
+    n += 1;
+    if (n < 3) throw new Error('(#17) User request limit reached');
+    return { copied_ad_id: 'ok' };
+  }, { esperar: async (ms) => { esperas.push(ms); } });
+
+  const r = await enviar('/1/copies', {});
+  assert.deepEqual(r, { copied_ad_id: 'ok' });
+  assert.equal(n, 3, 'devia ter tentado 3 vezes');
+  assert.deepEqual(esperas, [2000, 4000], 'a espera precisa crescer entre as tentativas');
+});
+
+test('NAO repete erro que nao e de limite — nao adianta insistir em permissao', async () => {
+  let n = 0;
+  const enviar = comEspera(async () => { n += 1; throw new Error('(#200) Permissions error'); },
+    { esperar: async () => {} });
+  await assert.rejects(() => enviar('/1/copies', {}), /Permissions/);
+  assert.equal(n, 1, 'insistir so demoraria pra dar a ma noticia');
+});
+
+test('desiste depois das tentativas e propaga o erro da Meta', async () => {
+  let n = 0;
+  const enviar = comEspera(async () => { n += 1; throw new Error('(#17) User request limit reached'); },
+    { tentativas: 3, esperar: async () => {} });
+  await assert.rejects(() => enviar('/1/copies', {}), /#17/);
+  assert.equal(n, 3);
+});
+
+test('a espera envolvida continua repassando caminho e parametros intactos', async () => {
+  const vistas = [];
+  const enviar = comEspera(async (caminho, params) => { vistas.push({ caminho, params }); return { copied_ad_id: '1' }; },
+    { esperar: async () => {} });
+  await enviar('/300/copies', { status_option: 'PAUSED', adset_id: '9' });
+  assert.deepEqual(vistas, [{ caminho: '/300/copies', params: { status_option: 'PAUSED', adset_id: '9' } }]);
 });
