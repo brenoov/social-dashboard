@@ -3,7 +3,11 @@
 //   1. saúde manda pausar -> PAUSA, por mais barato que esteja (frequência alta
 //      queima audiência; barato não conserta isso);
 //   2. saúde ok e há análise do Opus -> vale o Opus (precedência que já existia);
-//   3. saúde ok e sem Opus -> vale a ponderada.
+//   3. saúde ok e sem Opus -> vale a ponderada;
+//   4. ponderada sem faixa aproveitável (ex.: volume baixo demais) e há uma
+//      leitura de saúde com veredito -> vale a saúde, com a explicação dela
+//      (é o caso de campanha de baixo gasto: a ponderada não tem dado
+//      suficiente, mas a saúde ainda sabe dizer algo específico).
 // Quando quem decide é o Opus, o veredito dele passa direto, sem filtro nem validação
 // aqui — o robô Opus emite valores próprios que vão ALÉM do conjunto deste módulo
 // (ex.: 'reduzir', que já é real hoje e a tela já sabe tratar). Não restrinja essa lista.
@@ -59,6 +63,12 @@ export function decidirVeredito(entrada) {
   }
   if (ponderada && VEREDITO_POR_FAIXA[ponderada.faixa]) {
     return { veredito: VEREDITO_POR_FAIXA[ponderada.faixa], origem: 'ponderada', porque: porqueDaPonderada(ponderada) };
+  }
+  // Ponderada não teve faixa aproveitável (ex.: 'sem-dados' por volume baixo).
+  // Antes de desistir, ainda vale a leitura de saúde — ela já tem, hoje, uma
+  // frase específica pra volume baixo ("sem recomendação confiável ainda").
+  if (saude && saude.veredito) {
+    return { veredito: saude.veredito, origem: 'saude', porque: saude.justificativa || 'Sinal de saúde da campanha.' };
   }
   return { veredito: 'sem-dados', origem: 'nenhuma', porque: 'Ainda não há dado suficiente para recomendar.' };
 }

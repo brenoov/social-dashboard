@@ -936,7 +936,9 @@ function _gtRecBanner(iaRow,daily,encerrada,status){
   if(encerrada||status!=='ACTIVE'){
     return `<div class="gt-rec-banner neutral"><div class="gt-rec-main"><div class="gt-rec-head"><span class="gt-rec-tag">✦ IA</span></div><div class="gt-rec-just">${just}</div></div></div>`;
   }
-  const varClass=ver==='pausar'?'pausar':ver==='reduzir'?'reduzir':'positivo';
+  // 'otimizar' é caro por ponto: é aviso, não boa notícia — entra na mesma
+  // família visual (laranja) que 'reduzir', nunca no verde de 'positivo'.
+  const varClass=ver==='pausar'?'pausar':(ver==='reduzir'||ver==='otimizar')?'reduzir':'positivo';
   const sug=iaRow.budget_sugerido_centavos!=null?_maFmtR(iaRow.budget_sugerido_centavos/100):null;
   let action='';
   if(ver==='escalar'||ver==='reduzir'){
@@ -944,6 +946,10 @@ function _gtRecBanner(iaRow,daily,encerrada,status){
     action=`<div class="gt-rec-action">${fromTo}${sug?`<button data-gt-aplicar="1" class="gt-act-btn primary">Aplicar ${sug}/dia</button>`:''}</div>`;
   }else if(ver==='manter'){
     action=`<div class="gt-rec-action"><span class="gt-rec-keep">Manter ${dfmt?dfmt+'/dia':'orçamento atual'}</span></div>`;
+  }else if(ver==='otimizar'){
+    // Sem número sugerido (nunca se inventa um) e sem ação automática — mas
+    // não fica muda feito 'sem-dados': avisa que é o dono quem revisa.
+    action=`<div class="gt-rec-action"><span class="gt-rec-keep">Sem orçamento sugerido — revisar manualmente</span></div>`;
   }else if(ver==='pausar'){
     action=`<div class="gt-rec-action"><button data-gt-pausar="1" class="gt-act-btn danger">⏸ Pausar campanha</button></div>`;
   }
@@ -1173,10 +1179,16 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       });
 
       // A faixa continua recebendo o formato que ela já espera hoje.
+      // O orçamento sugerido só pode vir de quem REALMENTE decidiu o veredito
+      // (decisao.origem) — nunca da fonte que perdeu a disputa. Se foi a
+      // ponderada ou a saúde que decidiram, não existe número confiável pra
+      // sugerir (a ponderada nunca inventa um valor multiplicando o atual; a
+      // saúde só decide no veto de pausa ou emprestando o veredito quando não
+      // há mais nada — nenhum dos dois casos tem orçamento pra aplicar).
       const iaRow = decisao.veredito === 'sem-dados' ? null : {
         veredito: decisao.veredito,
         justificativa: decisao.porque,
-        budget_sugerido_centavos: (opusPnd && opusPnd.budget_sugerido_centavos) || (saudePnd && saudePnd.budget_sugerido_centavos) || null,
+        budget_sugerido_centavos: decisao.origem === 'opus' ? ((opusPnd && opusPnd.budget_sugerido_centavos) || null) : null,
       };
       // Custo por ponto aparece SEMPRE, independente de quem deu o veredito:
       // é informação, não decisão.
@@ -1702,6 +1714,7 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-rec-to small){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:500;color:var(--muted);}
 .tela-gestao-trafego :deep(.gt-rec-banner.reduzir .gt-rec-to){color:var(--orange);}
 .tela-gestao-trafego :deep(.gt-rec-keep){font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));font-weight:600;color:var(--green);}
+.tela-gestao-trafego :deep(.gt-rec-banner.reduzir .gt-rec-keep){color:var(--orange);}
 /* Edição manual de orçamento (sempre disponível) */
 .tela-gestao-trafego :deep(.gt-budget-edit){display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));color:var(--muted);}
 .tela-gestao-trafego :deep(.gt-be-cur b){color:var(--text);font-weight:700;}

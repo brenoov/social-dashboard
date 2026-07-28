@@ -53,6 +53,23 @@ test('ponderada ausente por completo tambem da sem-dados', () => {
   assert.equal(decidirVeredito({}).veredito, 'sem-dados');
 });
 
+test('ponderada sem-dados mas saude presente com veredito: vale a saude (volume baixo)', () => {
+  const r = decidirVeredito({
+    saude: { veredito: 'manter', justificativa: 'Volume baixo, sem recomendação confiável ainda.' },
+    opus: null,
+    ponderada: { faixa: 'sem-dados' },
+  });
+  assert.equal(r.veredito, 'manter');
+  assert.equal(r.origem, 'saude');
+  assert.match(r.porque, /Volume baixo/);
+});
+
+test('nada em lugar nenhum (nem ponderada, nem saude, nem opus): sem-dados/nenhuma', () => {
+  const r = decidirVeredito({ saude: null, opus: null, ponderada: null });
+  assert.equal(r.veredito, 'sem-dados');
+  assert.equal(r.origem, 'nenhuma');
+});
+
 test('faixa reconhecida mas custoPorPonto ausente: nunca mostra R$ NaN', () => {
   const r = decidirVeredito({
     saude: null,
