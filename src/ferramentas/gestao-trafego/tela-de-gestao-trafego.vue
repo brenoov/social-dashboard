@@ -129,6 +129,11 @@ import { decidirVeredito } from './veredito.js'
 // Alvo de cada tipo de campanha (custo por lead/conversa/venda/visita/mil
 // pessoas, ou por ponto no caso de engajamento) — ver alvos.js.
 import { alvoDoBalde, avaliarAlvo } from './alvos.js'
+// Fase 3 — objetivo por interação: o dono DECLARA, campanha a campanha (ou
+// anúncio a anúncio) de engajamento, qual interação aquilo está comprando
+// (curtida/comentário/salvamento/compartilhamento). Sem declarar, nada muda —
+// continua no ponto ponderado, exatamente como hoje. Ver interacoes.js.
+import { INTERACOES, custoDaInteracao } from './interacoes.js'
 
 const router = useRouter()
 
@@ -265,6 +270,11 @@ let _gtAbaAtiva='campanhas';
 // Só entra aqui o que está ATIVO: a ação em massa só FREIA (decisão do dono,
 // 2026-07-27) — reativar continua sendo um a um, com confirmação individual.
 let _gtSelecao=new Map();
+// Objetivo por interação (Fase 3): mapa alvo_id (campanha OU anúncio) ->
+// interação declarada ('curtidas'|'comentarios'|'salvamentos'|'compartilhamentos').
+// Sem entrada = não declarou = continua no ponto ponderado. Carregado uma vez
+// por loadGtData() (ver _gtCarregarObjetivos), igual à régua e ao Opus IA.
+let _gtObjetivoInteracao={};
 
 /* ── Zoom de fonte (legacy L7789-7805, verbatim) ── */
 function _gtFontScale(){
@@ -532,6 +542,30 @@ async function _gtLoadAdIA(){
     (rows||[]).forEach(r=>{ if(r&&r.ad_id) _gtAdIA[r.ad_id]=r; });
   }catch(e){ _gtAdIA={}; }
 }
+// Declarações de objetivo por interação (Fase 3). sb() NUNCA lança — devolve
+// [] com .erro em qualquer falha (rede, sessão, RLS); aqui basta checar
+// linhas.erro antes de usar (mesmo padrão de _gtCarregarRegua/_gtLoadConfig).
+async function _gtCarregarObjetivos(){
+  const linhas=await sb('gt_objetivo_interacao?select=alvo_id,interacao');
+  _gtObjetivoInteracao={};
+  if(linhas&&!linhas.erro) for(const l of linhas) _gtObjetivoInteracao[String(l.alvo_id)]=l.interacao;
+}
+// Grava (ou apaga, se interacao=null/undefined) a declaração de UMA campanha ou
+// UM anúncio. Escrita autenticada por sbClient (RLS: admin OU feature
+// 'meta.gestor', igual à régua) — nunca por sb(), que é só leitura.
+async function _gtSalvarObjetivo(alvoId,nivel,interacao){
+  const{error}=interacao
+    ?await sbClient.from('gt_objetivo_interacao').upsert({
+        alvo_id:String(alvoId),nivel,interacao,
+        conta_id:_gtCurAcc?.id||null,updated_by:estado.userId||null,
+        updated_at:new Date().toISOString(),
+      },{onConflict:'alvo_id'})
+    :await sbClient.from('gt_objetivo_interacao').delete().eq('alvo_id',String(alvoId));
+  if(error){adminToast('Não consegui salvar o objetivo: '+error.message,false);return;}
+  if(interacao)_gtObjetivoInteracao[String(alvoId)]=interacao;
+  else delete _gtObjetivoInteracao[String(alvoId)];
+  await loadGtData();
+}
 function _gtMetricasDoBalde(balde){
   const c=_gtConfig[balde];
   return (Array.isArray(c)&&c.length) ? c : (GT_BALDE_PADRAO[balde]||GT_BALDE_PADRAO.padrao);
@@ -760,6 +794,7 @@ async function loadGtData(){
     await _gtCarregarRegua();
     await _gtLoadBudgetIA();
     await _gtLoadAdIA();
+    await _gtCarregarObjetivos();
     const acc=_gtCurAcc;
     const tok=acc.id;
     const adAccId=acc.ad_account_id;
@@ -1124,6 +1159,50 @@ function _gtWireBudgetControls(el,ins,camp,iaRow,permCamp){
   // Edição manual da campanha: mesma mecânica do conjunto (helper compartilhado).
   _gtWireBudgetManual(el,{id:ins.campaign_id,nome:ins.campaign_name||camp?.name||'a campanha',atualReais:daily,nivelLbl:'da campanha',nivelNome:'Campanha'});
 }
+// ── Selo de OBJETIVO POR INTERAÇÃO (Fase 3) ─────────────────────────────────
+// Só aparece em campanha/anúncio de engajamento que NÃO seja de mensagem (o
+// mesmo recorte do custo por ponto: WhatsApp já tem o resultado dele — conversa
+// — e não faz sentido perguntar qual interação ele compra). Sem declaração,
+// selo neutro "Objetivo: ponderado"; declarado, mostra o rótulo da interação.
+// Clicar abre um menu com as quatro interações + "Voltar ao ponderado" — mesma
+// linguagem visual do chip CBO/ABO (gt-nivel-chip), só que clicável.
+let _gtMenuObjAberto=null;
+function _gtFecharMenuObjetivo(){ if(_gtMenuObjAberto){_gtMenuObjAberto.remove();_gtMenuObjAberto=null;} }
+function _gtAbrirMenuObjetivo(chip,alvoId,nivel){
+  const jaAberto=_gtMenuObjAberto&&_gtMenuObjAberto.parentElement===chip;
+  _gtFecharMenuObjetivo();
+  if(jaAberto)return; // clicar de novo no mesmo selo fecha o menu
+  const menu=document.createElement('div');menu.className='pnd-obj-menu';
+  menu.addEventListener('click',e=>e.stopPropagation());
+  const linhas=Object.keys(INTERACOES).map(k=>
+    `<button type="button" class="pnd-obj-opt" data-int="${_gtEsc(k)}">${_gtEsc(INTERACOES[k].rotulo)}</button>`).join('');
+  menu.innerHTML=linhas+`<button type="button" class="pnd-obj-opt pnd-obj-limpar" data-int="">Voltar ao ponderado</button>`;
+  menu.querySelectorAll('.pnd-obj-opt').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      _gtFecharMenuObjetivo();
+      _gtSalvarObjetivo(alvoId,nivel,btn.dataset.int||null);
+    });
+  });
+  chip.appendChild(menu);
+  _gtMenuObjAberto=menu;
+  // Fecha ao clicar fora — mesmo padrão do dropdown de contas (_gtDocClick).
+  setTimeout(()=>document.addEventListener('click',_gtFecharMenuObjetivo,{once:true}),0);
+}
+// Devolve o <span> do selo, ou null quando este balde não é elegível (não é
+// engajamento, ou é engajamento mas de mensagem). `alvoId` é o id da campanha
+// OU do anúncio na Meta; `nivel` é 'campanha'|'anuncio' (grava em
+// gt_objetivo_interacao.nivel).
+function _gtSeloObjetivoEl(alvoId,nivel,elegivel){
+  if(!elegivel)return null;
+  const decl=_gtObjetivoInteracao[String(alvoId)];
+  const chip=document.createElement('span');
+  chip.className='pnd-obj-chip'+(decl?' declarado':'');
+  chip.textContent=decl?('Objetivo: '+(INTERACOES[decl]?.rotulo||decl)):'Objetivo: ponderado';
+  chip.title='Declarar qual interação '+(nivel==='campanha'?'esta campanha':'este anúncio')+' está comprando';
+  chip.addEventListener('click',e=>{e.stopPropagation();_gtAbrirMenuObjetivo(chip,alvoId,nivel);});
+  return chip;
+}
 function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
   const campMap={};campaigns.forEach(c=>campMap[c.id]=c);
   const adByCamp={};adInsights.forEach(a=>{if(!adByCamp[a.campaign_id])adByCamp[a.campaign_id]=[];adByCamp[a.campaign_id].push(a);});
@@ -1286,6 +1365,12 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
         || _gtActionVal(ins, _GT_MSG_CONN) != null
         || _gtActionVal(ins, _GT_MSG_REPLY) != null
       );
+      // Selo de objetivo por interação (Fase 3): só campanha de engajamento que
+      // NÃO seja de mensagem pode declarar qual interação está comprando —
+      // mesmo recorte do custo por ponto logo abaixo.
+      const elegivelSeloObj = baldeCamp === 'engajamento' && !temMensagem;
+      const seloObjEl = _gtSeloObjetivoEl(ins.campaign_id, 'campanha', elegivelSeloObj);
+      if (seloObjEl) chips.appendChild(seloObjEl);
       // O índice "custo por ponto" só existe pra engajamento — é o único balde
       // cujo resultado É o ponto da ponderada. Fora dele, dividir R$/ponto por
       // uma meta de outra unidade (R$/visita, R$/lead...) seria comparar
@@ -1305,10 +1390,25 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       // de sempre (ver comentário de temMensagem acima), só que agora em vez de
       // simplesmente cair fora da conta, ela ganha o alvo certo: custo por conversa.
       const alvo = temMensagem ? alvoDoBalde('mensagens') : alvoDoBalde(baldeCamp);
-      const metaAlvo = metaDoBalde(_gtRegua, temMensagem ? 'mensagens' : baldeCamp);
-      const custoAlvo = !alvo ? null
+      let metaAlvo = metaDoBalde(_gtRegua, temMensagem ? 'mensagens' : baldeCamp);
+      let custoAlvo = !alvo ? null
         : alvo.metrica === 'ponderada' ? pnd.custoPorPonto
         : _gtMetricValue(alvo.metrica, ins);
+      let rotuloAlvo = alvo;
+      // OBJETIVO DECLARADO (Fase 3, Task 4): se o dono declarou, NESTA
+      // campanha, qual interação ela compra, o veredito passa a julgar por
+      // ESSE mercado — custo da interação declarada (custoDaInteracao, que
+      // NUNCA inventa número: quantidade zero devolve null, não R$ 0,00)
+      // contra a meta DAQUELA interação (metaDoBalde) — em vez do ponto
+      // ponderado, que é 83% curtida em volume. Sem declaração
+      // (_gtObjetivoInteracao vazio para este id), objDeclarado é null e nada
+      // muda: segue com o alvo/meta/custo de sempre, calculados acima.
+      const objDeclarado = elegivelSeloObj ? _gtObjetivoInteracao[String(ins.campaign_id)] : null;
+      if (objDeclarado) {
+        custoAlvo = custoDaInteracao(qtdsPnd, objDeclarado);
+        metaAlvo = metaDoBalde(_gtRegua, objDeclarado);
+        rotuloAlvo = { rotulo: INTERACOES[objDeclarado].rotuloCusto };
+      }
       const aval = avaliarAlvo({ custo: custoAlvo, meta: metaAlvo, limiares: _gtRegua.limiares });
 
       // VEREDITO ÚNICO (ver veredito.js): saúde veta > Opus > ponderada.
@@ -1325,7 +1425,7 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
         // `rotulo` é novo (I3 do review final, 2026-07-28): a unidade certa pra
         // frase do veredito ("Caro por conversa iniciada", não sempre "por
         // ponto") — vem do mesmo ALVOS[balde].rotulo que a régua já usa.
-        ponderada: { faixa: aval.faixa, custoPorPonto: custoAlvo, meta: metaAlvo, rotulo: _gtRotuloPorUnidade(alvo) },
+        ponderada: { faixa: aval.faixa, custoPorPonto: custoAlvo, meta: metaAlvo, rotulo: _gtRotuloPorUnidade(rotuloAlvo) },
       });
 
       // A faixa continua recebendo o formato que ela já espera hoje.
@@ -1542,6 +1642,23 @@ function _renderGtAds(pane,ads,allInsights,allAdInsights,campNum){
     }
     const nameWrap=document.createElement('div');nameWrap.className='gt-ad-name';
     nameWrap.innerHTML=`<div class="gt-ad-nm">${_gtEsc(ad.ad_name||ad.adset_name||'—')}</div>${ad.adset_name&&ad.ad_name?`<div class="gt-ad-sub">${_gtEsc(ad.adset_name)}</div>`:''}`;
+    // Selo de objetivo por interação (Fase 3, Task 4): mesmo recorte da
+    // campanha — só anúncio de engajamento que NÃO seja de mensagem pode
+    // declarar. Nota: hoje o anúncio NÃO tem um veredito por custo-vs-meta
+    // (o selo do topo acima é a regra de saúde CTR/frequência, _gtRegraAnuncio,
+    // ou o Opus — nenhum dos dois é "custo por resultado"), então declarar
+    // aqui grava a preferência e pinta o selo, mas não existe, hoje, um
+    // veredito de custo do anúncio para redirecionar — só a campanha tem essa
+    // peça (ver _gtSeloObjetivoEl acima e o bloco "OBJETIVO DECLARADO" em
+    // _renderGtCampaigns).
+    const baldeAd = _gtBalde(ad.objective || '');
+    const temMensagemAd = baldeAd === 'engajamento' && (
+      _gtActionVal(ad, _GT_MSG) != null
+      || _gtActionVal(ad, _GT_MSG_CONN) != null
+      || _gtActionVal(ad, _GT_MSG_REPLY) != null
+    );
+    const seloObjAd = _gtSeloObjetivoEl(ad.ad_id, 'anuncio', baldeAd === 'engajamento' && !temMensagemAd);
+    if (seloObjAd) nameWrap.appendChild(seloObjAd);
     const metrics=document.createElement('div');metrics.className='gt-metrics';
     metrics.innerHTML=`<div class="gt-metric">CTR <span style="color:${ctrColor}">${_maFmtPct(ctr)}</span></div><div class="gt-metric" style="font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:700;"><span>${_maFmtR(spend)}</span></div>`;
     const adNum=document.createElement('div');adNum.className='gt-ad-num';adNum.textContent=(campNum!=null?campNum+'.':'')+(ai+1);
@@ -1867,6 +1984,16 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-nivel-chip){font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));font-weight:700;letter-spacing:.3px;padding:2px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0;cursor:help;}
 .tela-gestao-trafego :deep(.gt-nivel-chip.cbo){background:rgba(99,102,241,.12);color:#6366f1;}
 .tela-gestao-trafego :deep(.gt-nivel-chip.abo){background:rgba(217,119,6,.12);color:#d97706;}
+/* Selo de OBJETIVO POR INTERAÇÃO (Fase 3): mesma linguagem visual do chip
+   CBO/ABO acima, só que clicável (abre o menu de escolha) — position:relative
+   pra segurar o menu suspenso ancorado nele. */
+.tela-gestao-trafego :deep(.pnd-obj-chip){position:relative;display:inline-block;margin-top:3px;font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));font-weight:700;letter-spacing:.3px;padding:2px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0;cursor:pointer;background:var(--surface2);color:var(--muted);border:1px solid var(--border);transition:filter .15s;}
+.tela-gestao-trafego :deep(.pnd-obj-chip:hover){filter:brightness(1.08);}
+.tela-gestao-trafego :deep(.pnd-obj-chip.declarado){background:var(--accent-light);color:var(--accent);border-color:transparent;}
+.tela-gestao-trafego :deep(.pnd-obj-menu){position:absolute;top:calc(100% + 5px);left:0;min-width:170px;background:var(--surface);border:1px solid var(--border);border-radius:9px;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:60;overflow:hidden;display:flex;flex-direction:column;cursor:default;}
+.tela-gestao-trafego :deep(.pnd-obj-opt){appearance:none;border:none;background:none;text-align:left;padding:8px 12px;font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));font-weight:600;letter-spacing:.2px;color:var(--text);cursor:pointer;white-space:nowrap;}
+.tela-gestao-trafego :deep(.pnd-obj-opt:hover){background:var(--surface2);}
+.tela-gestao-trafego :deep(.pnd-obj-opt.pnd-obj-limpar){border-top:1px solid var(--border);color:var(--muted);}
 /* Botão recolher/expandir tudo */
 .tela-gestao-trafego :deep(.gt-collapse-all){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));font-weight:600;letter-spacing:.3px;padding:4px 10px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;}
 .tela-gestao-trafego :deep(.gt-collapse-all:hover){border-color:var(--accent);color:var(--accent);}
