@@ -1080,6 +1080,16 @@ function _gtWireBudgetManual(el,alvo){
       _d:`${alvo.nivelNome} "${_gtEsc(alvo.nome)}":<br><b>${antes}</b> → <b>${_maFmtR(v)}/dia</b>`},bMan,el);
   });
 }
+// Botão "⧉ Duplicar". Só existe para quem tem permissão de EDITAR nesta
+// ferramenta — mesmo critério do orçamento. Duplicar cria objeto novo na
+// conta, então fica no portão mais rígido que a tela já usa.
+function _gtBotaoDuplicar(alvo){
+  if(!hasPermission('meta.gestor','editar'))return null;
+  const b=document.createElement('button');
+  b.className='gt-btn-dup';b.textContent='⧉ Duplicar';b.title='Criar uma cópia pausada';
+  b.addEventListener('click',ev=>{ev.stopPropagation();_gtAbrirDuplicar(alvo);});
+  return b;
+}
 function _gtWireBudgetControls(el,ins,camp,iaRow,permCamp){
   if(!el)return;
   const nm=_gtEsc(ins.campaign_name||camp?.name||'a campanha');
@@ -1356,6 +1366,21 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
         const tgl=_gtManualToggleBtn('campaign',ins.campaign_id,status,ins.campaign_name||camp?.name);
         if(tgl){const actBar=document.createElement('div');actBar.className='gt-action-row';actBar.appendChild(tgl);inner.appendChild(actBar);}
       }
+      // 4b) Duplicar a campanha inteira. `conjuntos` e `ads` já estão em escopo
+      // aqui (linhas ~1194/1196) — é por isso que o botão nasce neste ponto e
+      // não dentro de _gtWireBudgetControls, que não recebe essas listas.
+      const bDupCamp=_gtBotaoDuplicar({
+        nivel:'campanha',
+        campanha:{id:ins.campaign_id,name:ins.campaign_name||camp?.name||''},
+        conjuntos:conjuntos.map(c=>({id:c.id,name:c.name})),
+        anuncios:ads.map(a=>({id:a.ad_id,name:a.ad_name,adset_id:a.adset_id})),
+      });
+      if(bDupCamp){
+        // Reaproveita a linha de ações do pausar, se ela existir; senão cria.
+        let barraDup=inner.querySelector('.gt-action-row');
+        if(!barraDup){barraDup=document.createElement('div');barraDup.className='gt-action-row';inner.appendChild(barraDup);}
+        barraDup.appendChild(bDupCamp);
+      }
       // 5) Liga os controles (aplicar sugerido, pausar da faixa, editar manual).
       _gtWireBudgetControls(inner,ins,camp,iaRow,permCamp);
       // Painel dos CONJUNTOS (que por sua vez trazem os anúncios dentro).
@@ -1484,6 +1509,17 @@ function _renderGtConjuntos(pane,hier,camp,conjuntos,nivelOrc,campNum){
         if(perm.editavel)_gtWireBudgetManual(be,{id:g.id,nome:g.nome,atualReais:perm.atualReais,nivelLbl:'do conjunto',nivelNome:'Conjunto'});
       }
     }
+    // `g` vem de montarHierarquia: g.id, g.nome e g.anuncios (os anúncios do
+    // conjunto, já vindos dos insights — daí ad_id/ad_name).
+    const bDupCj=_gtBotaoDuplicar({
+      nivel:'conjunto',
+      conjuntos:[{id:g.id,name:g.nome}],
+      anuncios:(g.anuncios||[]).map(a=>({id:a.ad_id,name:a.ad_name,adset_id:g.id})),
+    });
+    if(bDupCj){
+      const barraCj=document.createElement('div');barraCj.className='gt-action-row';
+      barraCj.appendChild(bDupCj);card.appendChild(barraCj);
+    }
     // Anúncios do conjunto.
     const adsPane=document.createElement('div');adsPane.className='gt-set-pane';
     adsPane.__gtRender=()=>_renderGtAds(adsPane,g.anuncios,null,null,num);
@@ -1538,6 +1574,8 @@ function _renderGtAds(pane,ads,allInsights,allAdInsights,campNum){
     actBar.appendChild(crBtn);
     const adTgl=_gtManualToggleBtn('ad',ad.ad_id,adStatus,ad.ad_name||ad.adset_name);
     if(adTgl)actBar.appendChild(adTgl);
+    const bDupAd=_gtBotaoDuplicar({nivel:'anuncio',anuncios:[{id:ad.ad_id,name:ad.ad_name||ad.adset_name||''}]});
+    if(bDupAd)actBar.appendChild(bDupAd);
     card.appendChild(actBar);
     pane.appendChild(card);
   });
@@ -2085,6 +2123,12 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-act-btn.primary){border-color:var(--accent);color:var(--accent);}
 .tela-gestao-trafego :deep(.gt-act-btn.primary:hover){background:var(--accent);color:#fff;}
 .tela-gestao-trafego :deep(.gt-act-btn:disabled){opacity:.5;cursor:not-allowed;pointer-events:none;}
+.tela-gestao-trafego :deep(.gt-btn-dup){
+  padding:6px 11px;border-radius:7px;border:1px solid var(--border,#ddd);
+  background:none;color:var(--text,#111);font-weight:600;
+  font-size:calc(12px*var(--gt-fs,1.3));cursor:pointer;white-space:nowrap;
+}
+.tela-gestao-trafego :deep(.gt-btn-dup:hover){background:var(--surface-2,rgba(0,0,0,.05));}
 /* ===== Redesign direção A ===== */
 /* Faixa de recomendação (estrela do cartão) */
 .tela-gestao-trafego :deep(.gt-rec-banner){display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:11px 14px;margin:2px 0 10px;border-radius:10px;border-left:5px solid var(--border);background:var(--surface2);}
