@@ -24,15 +24,31 @@ create table if not exists public.gt_ponderada_config_log (
 alter table public.gt_ponderada_config enable row level security;
 alter table public.gt_ponderada_config_log enable row level security;
 
+-- Os `drop policy if exists` existem porque o Postgres NÃO tem
+-- "create policy if not exists": sem eles, rodar este arquivo uma segunda vez
+-- quebraria com "policy já existe". E neste projeto migration é reaplicada à mão
+-- com frequência (o schema versionado está incompleto), então replay tem que ser
+-- seguro.
+
 -- Leitura: qualquer usuário logado (a tela inteira depende da régua pra calcular).
+drop policy if exists ponderada_config_leitura on public.gt_ponderada_config;
 create policy ponderada_config_leitura on public.gt_ponderada_config
   for select to authenticated using (true);
+drop policy if exists ponderada_log_leitura on public.gt_ponderada_config_log;
 create policy ponderada_log_leitura on public.gt_ponderada_config_log
   for select to authenticated using (true);
 
--- Escrita: só admin. Mexer num peso muda a recomendação de todo mundo.
--- Mesmo padrão de gt_config_metricas.
+-- Escrita: SÓ admin. Mexer num peso muda a recomendação de todo mundo.
+-- (É de propósito mais restrito que gt_config_metricas, que também aceita quem
+-- tem a permissão 'meta.gestor'. Aqui a régua governa dinheiro em todas as contas.)
+drop policy if exists ponderada_config_escrita on public.gt_ponderada_config;
 create policy ponderada_config_escrita on public.gt_ponderada_config
   for update to authenticated using (get_my_role() = 'admin') with check (get_my_role() = 'admin');
+drop policy if exists ponderada_log_escrita on public.gt_ponderada_config_log;
 create policy ponderada_log_escrita on public.gt_ponderada_config_log
   for insert to authenticated with check (get_my_role() = 'admin');
+
+-- NOTA de desenho: a config NÃO tem policy de INSERT nem DELETE, e o log não tem
+-- UPDATE nem DELETE. Isso é intencional: com RLS ligada, comando sem policy é
+-- negado. Resultado — ninguém cria uma segunda linha de régua nem apaga a que
+-- existe, e o histórico só aceita acréscimo, nunca reescrita.
