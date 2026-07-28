@@ -114,6 +114,11 @@ import { hojeLocal, diasAtras, primeiroDiaDoMes, ultimoDiaDoMes } from '../../co
 // agrupamento campanha → conjuntos → anúncios moram num módulo puro, testado
 // em orcamento-hierarquia.test.mjs. Aqui só se desenha o resultado.
 import { orcamentoDe, detectarNivelOrcamento, podeEditarOrcamentoDaCampanha, podeEditarOrcamentoDoConjunto, montarHierarquia } from './orcamento-hierarquia.js'
+// Aba "A régua" (métrica ponderada): painel puro + os módulos que leem/normalizam
+// a régua vinda do banco (ver painel-regua.js, ponderada.js, regua.js).
+import { montarPainelRegua } from './painel-regua.js'
+import { normalizarRegua, metaDoBalde } from './regua.js'
+import { quantidadesDoInsight } from './ponderada.js'
 
 const router = useRouter()
 
@@ -533,6 +538,52 @@ async function _gtSaveConfig(balde,metricas){
   if(error) throw error;
   _gtConfig[balde]=metricas;
 }
+
+// ── A régua (métrica ponderada): pesos, metas de custo por balde e limiares
+// do veredito. Lida por qualquer usuário logado (RLS aberta pra leitura);
+// escrita gated a admin no banco — a tela só ESCONDE os campos pra quem não
+// pode editar, não é ela quem tranca (ver painel-regua.js).
+let _gtRegua = normalizarRegua(null);   // começa no padrão; o banco sobrescreve
+
+async function _gtCarregarRegua() {
+  try {
+    const linhas = await sb('gt_ponderada_config?select=pesos,metas,limiares&id=eq.1');
+    _gtRegua = normalizarRegua((linhas || [])[0]);
+  } catch (e) { _gtRegua = normalizarRegua(null); }
+}
+
+async function _gtSalvarRegua(nova, botao) {
+  const orig = botao ? botao.textContent : '';
+  if (botao) { botao.disabled = true; botao.textContent = 'Salvando...'; }
+  try {
+    const antes = _gtRegua;
+    const { error } = await sbClient.from('gt_ponderada_config')
+      .update({ pesos: nova.pesos, metas: nova.metas, limiares: nova.limiares, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+    if (error) throw error;
+    // histórico: guarda o antes e o depois inteiros (falha aqui NÃO desfaz o save)
+    await sbClient.from('gt_ponderada_config_log').insert({ antes, depois: nova });
+    _gtRegua = nova;
+    adminToast('Régua salva');
+    await loadGtData();           // a lista inteira recalcula com os pesos novos
+  } catch (e) {
+    adminToast('Erro ao salvar a régua: ' + String((e && e.message) || e || 'erro desconhecido'), false);
+  } finally {
+    if (botao) { botao.disabled = false; botao.textContent = orig; }
+  }
+}
+
+// Campanha de maior gasto na tela, usada como exemplo vivo da aba da régua.
+function _gtExemploParaRegua() {
+  const linha = [..._gtInsights].sort((a, b) => Number(b.spend || 0) - Number(a.spend || 0))[0];
+  if (!linha) return null;
+  return {
+    nome: linha.campaign_name || 'sua campanha',
+    balde: _gtBalde(linha.objective),
+    quantidades: quantidadesDoInsight(linha),
+  };
+}
+
 function _gtCloseEditor(){
   const ov=document.getElementById('gt-cfg-overlay'),md=document.getElementById('gt-cfg-modal');
   if(ov)ov.style.display='none';
@@ -591,6 +642,7 @@ async function loadGtData(){
   if(sugs)sugs.innerHTML='';
   try{
     if(!_gtConfigLoaded){ await _gtLoadConfig(); _gtConfigLoaded=true; }
+    await _gtCarregarRegua();
     await _gtLoadBudgetIA();
     await _gtLoadAdIA();
     const acc=_gtCurAcc;
@@ -1138,6 +1190,15 @@ function _gtTrocarAba(nome) {
     if (painel) painel.style.display = (n === nome) ? '' : 'none';
     if (aba) aba.classList.toggle('ativa', n === nome);
   }
+  if (nome === 'regua') {
+    const alvo = document.getElementById('gt-painel-regua');
+    if (alvo) montarPainelRegua(alvo, {
+      regua: _gtRegua,
+      editavel: hasPermission('meta.gestor', 'editar'),
+      exemplo: _gtExemploParaRegua(),
+      aoSalvar: _gtSalvarRegua,
+    });
+  }
 }
 async function _gtVerCriativo(adId,accId,nome){
   const ov=document.getElementById('gt-cr-overlay'),md=document.getElementById('gt-cr-modal'),bd=document.getElementById('gt-cr-body');
@@ -1421,6 +1482,22 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.pnd-aba){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;letter-spacing:.4px;padding:7px 16px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);transition:all .15s;}
 .tela-gestao-trafego :deep(.pnd-aba:hover){color:var(--accent);border-color:var(--accent);}
 .tela-gestao-trafego :deep(.pnd-aba.ativa){background:var(--accent-light);border-color:var(--accent);color:var(--accent);}
+
+/* Aba "A régua": tabelas editáveis + exemplo vivo ao lado (ver painel-regua.js). */
+.tela-gestao-trafego :deep(.pnd-regua){display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;align-items:start;}
+.tela-gestao-trafego :deep(.pnd-col){display:flex;flex-direction:column;gap:16px;min-width:0;}
+.tela-gestao-trafego :deep(.pnd-bloco){background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;}
+.tela-gestao-trafego :deep(.pnd-titulo){font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:800;color:var(--text);margin:0 0 4px;}
+.tela-gestao-trafego :deep(.pnd-ajuda){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));color:var(--muted);margin:0 0 12px;line-height:1.5;}
+.tela-gestao-trafego :deep(.pnd-tabela){width:100%;border-collapse:collapse;}
+.tela-gestao-trafego :deep(.pnd-tabela td){padding:7px 0;border-bottom:1px solid var(--border);font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));color:var(--text);}
+.tela-gestao-trafego :deep(.pnd-tabela td:last-child){text-align:right;white-space:nowrap;}
+.tela-gestao-trafego :deep(.pnd-destaque td){font-weight:800;}
+.tela-gestao-trafego :deep(.pnd-input){width:96px;padding:5px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);color:var(--text);font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));text-align:right;}
+.tela-gestao-trafego :deep(.pnd-input:focus){outline:none;border-color:var(--accent);}
+.tela-gestao-trafego :deep(.pnd-valor){font-weight:700;}
+.tela-gestao-trafego :deep(.pnd-salvar){align-self:flex-start;padding:9px 20px;border-radius:20px;border:none;background:var(--accent);color:#fff;font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;}
+.tela-gestao-trafego :deep(.pnd-salvar:disabled){opacity:.65;cursor:default;}
 
 /* ── Loading state (compartilhado com Gestão à Vista/Análise de Campanhas — cada tela traz sua cópia) ── */
 .tela-gestao-trafego :deep(.gv-loading-screen){grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;min-height:60vh;}
