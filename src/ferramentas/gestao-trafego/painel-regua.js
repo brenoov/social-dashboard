@@ -56,7 +56,7 @@ export function montarPainelRegua(alvo, opcoes) {
   // real quando a leitura falhava em silêncio (ver C3 do review final, 2026-07-28).
   const carregouOk = o.carregouOk === true;
   const podeSalvar = editavel && carregouOk;
-  const exemplo = o.exemplo || null;
+  const exemplos = o.exemplos || null;
 
   const linhasPeso = Object.keys(PESOS_PADRAO).map((k) =>
     `<tr><td>${ROTULO_PESO[k]}</td><td>${campo('pnd-peso-' + k, regua.pesos[k], '1', editavel)}</td></tr>`).join('');
@@ -135,93 +135,81 @@ export function montarPainelRegua(alvo, opcoes) {
     return { pesos, metas, limiares };
   }
 
-  // EXEMPLO VIVO: recalcula com uma campanha real a cada tecla.
-  function pintarExemplo() {
-    const caixa = document.getElementById('pnd-exemplo');
-    if (!caixa) return;
-    if (!exemplo) {
-      caixa.innerHTML = `
-        <div class="pnd-ex-topo">
-          <div class="pnd-ex-rot">Como fica na prática</div>
-          <div class="pnd-ex-nome">Abra a aba Campanhas primeiro, para eu usar uma campanha sua de verdade aqui.</div>
-        </div>`;
-      return;
-    }
-    const r = reguaDaTela();
-    // MESMO CAMINHO do cartão da campanha (ver tela-de-gestao-trafego.vue,
-    // bloco "ALVO DO OBJETIVO"): alvoDoBalde + avaliarAlvo, nunca sempre
-    // "custo por ponto". Antes este exemplo calculava só a ponderada e pintava
-    // o selo com a meta do balde da campanha (ex.: WhatsApp, balde 'mensagens'),
-    // então uma campanha de conversa aparecia com "R$ X por ponto" comparado
-    // contra a meta de R$ 20,00 por CONVERSA — comparação entre unidades
-    // diferentes, o exato erro que esta fase eliminou em todo o resto da tela
-    // (C1 do review final, 2026-07-28). `exemplo.balde` já vem resolvido pela
-    // tela (considerando se a campanha tem resultado de mensagem).
-    // `alvoObj` (não `alvo` — esse nome já é o parâmetro/elemento DOM da função
-    // de fora) é a definição do alvos.js pro balde desta campanha-exemplo.
-    const alvoObj = alvoDoBalde(exemplo.balde);
-    const meta = metaDoBalde(r, exemplo.balde);
-    // Só quando o alvo do balde É a ponderada (hoje, só engajamento) o custo
-    // depende dos pesos que o dono está editando agora nesta mesma aba; para
-    // os demais baldes, o custo já veio pronto de uma campanha real e não muda
-    // com peso/limiar (eles não fazem parte da conta daquele objetivo).
+  // EXEMPLO VIVO: um bloco por OBJETIVO que a conta roda, com campanha real.
+  // O dono pediu depois de olhar a régua: ele precisa ver como CADA tipo de
+  // campanha vai ser julgado, não só o tipo da mais cara.
+  function blocoDeExemplo(ex, r) {
+    const alvoObj = alvoDoBalde(ex.balde);
+    const meta = metaDoBalde(r, ex.balde);
+    // Só quando o alvo É a ponderada (engajamento) o custo depende dos pesos que
+    // o dono está editando agora; nos demais o custo já veio pronto da campanha.
     const ehPonderada = !!alvoObj && alvoObj.metrica === 'ponderada';
-    const c = calcularPonderada(exemplo.quantidades, { pesos: r.pesos, limiares: r.limiares, meta: ehPonderada ? meta : 0 });
-    const custo = !alvoObj ? null : ehPonderada ? c.custoPorPonto : exemplo.custo;
+    const c = calcularPonderada(ex.quantidades, { pesos: r.pesos, limiares: r.limiares, meta: ehPonderada ? meta : 0 });
+    const custo = !alvoObj ? null : ehPonderada ? c.custoPorPonto : ex.custo;
     const aval = avaliarAlvo({ custo, meta, limiares: r.limiares });
     const faixa = FAIXA[aval.faixa] || FAIXA['sem-dados'];
-    // O rótulo vem do PRÓPRIO alvo (alvos.js) — nunca mais "por ponto" fixo.
-    // Sem alvo definido pro balde (objetivo que a tela não mapeia), mostra um
-    // rótulo genérico e cai em 'sem-dados': nunca um selo colorido nascido da
-    // meta de outro balde.
     const rotulo = alvoObj ? alvoObj.rotulo : 'Custo por resultado';
-    // O RESULTADO vem em manchete (número grande + selo colorido), não
-    // escondido na última linha de uma tabela: é ele que responde "e daí?" a cada
-    // tecla digitada. O detalhe fica embaixo, menor, pra quem quiser conferir a conta.
-    const legenda = meta > 0
-      ? `${rotulo} · sua meta é ${reais(meta)}`
-      : `${rotulo} · este tipo de campanha não tem meta aqui`;
-    // ONDE A COR VIRA, em REAIS. Os limiares saíram da edição (ninguém calibra
-    // semáforo antes de entender a régua), mas escondê-los por completo foi longe
-    // demais: sem isso o dono vê o selo e não sabe por que aquela cor. Multiplicador
-    // (0,8 / 1,0 / 1,3) é abstrato; o valor em reais é a mesma informação legível.
-    const reguaDeCores = meta > 0 ? `
+    // Detalhe: engajamento mostra a quebra das interações (que muda ao vivo com os
+    // pesos); os demais mostram a QUANTIDADE do resultado que compraram — mostrar
+    // curtida numa campanha de lead não diz nada sobre o que ela comprou.
+    const detalhe = ehPonderada
+      ? `<tr><td>Curtidas</td><td>${inteiro(ex.quantidades.curtidas)}</td></tr>
+         <tr><td>Comentários</td><td>${inteiro(ex.quantidades.comentarios)}</td></tr>
+         <tr><td>Salvamentos</td><td>${inteiro(ex.quantidades.salvamentos)}</td></tr>
+         <tr><td>Compartilhamentos</td><td>${inteiro(ex.quantidades.compartilhamentos)}</td></tr>
+         <tr class="forte"><td>Pontos</td><td>${inteiro(c.pontos)}</td></tr>`
+      : (ex.detalhe || []).map((d) => `<tr class="forte"><td>${esc(d.rotulo)}</td><td>${d.valor == null ? '\u2014' : inteiro(d.valor)}</td></tr>`).join('');
+    // Onde a cor vira, em REAIS: multiplicador é abstrato, valor se lê.
+    const cortes = meta > 0 ? `
         <div class="pnd-ex-regua">
-          <div class="pnd-ex-regua-tit">Onde a cor vira</div>
           <div class="pnd-ex-corte"><span class="pnd-ponto bom"></span>até ${reais(meta * r.limiares.escalarForte)} — escalar forte</div>
           <div class="pnd-ex-corte"><span class="pnd-ponto bom"></span>até ${reais(meta * r.limiares.dentroMeta)} — dentro da meta</div>
           <div class="pnd-ex-corte"><span class="pnd-ponto meio"></span>até ${reais(meta * r.limiares.manter)} — manter e observar</div>
           <div class="pnd-ex-corte"><span class="pnd-ponto ruim"></span>acima disso — otimizar ou pausar</div>
         </div>` : '';
-
-    // DETALHE: para engajamento é a quebra das interações (que muda ao vivo com
-    // os pesos); para os demais objetivos é a QUANTIDADE do resultado que aquele
-    // objetivo compra — lead, conversa, venda, visita, impressão. Mostrar curtida
-    // numa campanha de lead não diz nada sobre o que ela comprou.
-    const linhasDetalhe = ehPonderada
-      ? `<tr><td>Curtidas</td><td>${inteiro(exemplo.quantidades.curtidas)}</td></tr>
-          <tr><td>Comentários</td><td>${inteiro(exemplo.quantidades.comentarios)}</td></tr>
-          <tr><td>Salvamentos</td><td>${inteiro(exemplo.quantidades.salvamentos)}</td></tr>
-          <tr><td>Compartilhamentos</td><td>${inteiro(exemplo.quantidades.compartilhamentos)}</td></tr>
-          <tr class="forte"><td>Pontos</td><td>${inteiro(c.pontos)}</td></tr>`
-      : (exemplo.detalhe || []).map((d) => `<tr class="forte"><td>${esc(d.rotulo)}</td><td>${d.valor == null ? '\u2014' : inteiro(d.valor)}</td></tr>`).join('');
-
-    caixa.innerHTML = `
-      <div class="pnd-ex-topo">
-        <div class="pnd-ex-rot">Como fica na prática</div>
-        <div class="pnd-ex-nome">${esc(exemplo.nome)}</div>
-        <div class="pnd-ex-num">${reais(custo)}</div>
-        <div class="pnd-ex-leg">${esc(legenda)}</div>
-        <span class="pnd-ex-selo ${faixa.cor}">${faixa.texto}</span>
-        ${reguaDeCores}
-      </div>
-      <div class="pnd-ex-corpo">
-        <table class="pnd-tabela"><tbody>
-          <tr><td>Gasto</td><td>${reais(exemplo.quantidades.gasto)}</td></tr>
-          ${linhasDetalhe}
-        </tbody></table>
+    const legenda = meta > 0
+      ? `${rotulo} · sua meta é ${reais(meta)}`
+      : `${rotulo} · este tipo ainda não tem meta`;
+    return `
+      <div class="pnd-ex-bloco">
+        <div class="pnd-ex-topo">
+          <div class="pnd-ex-rot">${esc(ROTULO_BALDE[ex.balde] || ex.balde)}</div>
+          <div class="pnd-ex-nome">${esc(ex.nome)}</div>
+          <div class="pnd-ex-num">${reais(custo)}</div>
+          <div class="pnd-ex-leg">${esc(legenda)}</div>
+          <span class="pnd-ex-selo ${faixa.cor}">${faixa.texto}</span>
+          ${cortes}
+        </div>
+        <div class="pnd-ex-corpo">
+          <table class="pnd-tabela"><tbody>
+            <tr><td>Gasto</td><td>${reais(ex.quantidades.gasto)}</td></tr>
+            ${detalhe}
+          </tbody></table>
+        </div>
       </div>`;
   }
+
+  function pintarExemplo() {
+    const caixa = document.getElementById('pnd-exemplo');
+    if (!caixa) return;
+    const lista = exemplos || [];
+    if (!lista.length) {
+      caixa.innerHTML = `
+        <div class="pnd-ex-bloco"><div class="pnd-ex-topo">
+          <div class="pnd-ex-rot">Como fica na prática</div>
+          <div class="pnd-ex-nome">Ainda estou carregando suas campanhas. Assim que chegarem, mostro aqui um exemplo real de cada tipo que você roda.</div>
+        </div></div>`;
+      return;
+    }
+    const r = reguaDaTela();
+    caixa.innerHTML = `
+      <div class="pnd-ex-cab">
+        <div class="pnd-ex-cab-tit">Como fica na prática</div>
+        <div class="pnd-ex-cab-sub">Um exemplo real de cada tipo de campanha que você roda. Mexa nos campos ao lado e veja mudar.</div>
+      </div>
+      ${lista.map((ex) => blocoDeExemplo(ex, r)).join('')}`;
+  }
+
 
   if (editavel) {
     alvo.querySelectorAll('.pnd-input').forEach((el) => el.addEventListener('input', pintarExemplo));
