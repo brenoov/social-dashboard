@@ -120,6 +120,7 @@ import { hojeLocal, diasAtras, primeiroDiaDoMes, ultimoDiaDoMes } from '../../co
 // agrupamento campanha → conjuntos → anúncios moram num módulo puro, testado
 // em orcamento-hierarquia.test.mjs. Aqui só se desenha o resultado.
 import { orcamentoDe, detectarNivelOrcamento, podeEditarOrcamentoDaCampanha, podeEditarOrcamentoDoConjunto, montarHierarquia } from './orcamento-hierarquia.js'
+import { planoDeCopia, executarPlano, comEspera, retomar, SUFIXO_PADRAO } from './duplicar.js'
 // Aba "A régua" (métrica ponderada): painel puro + os módulos que leem/normalizam
 // a régua vinda do banco (ver painel-regua.js, ponderada.js, regua.js).
 import { montarPainelRegua } from './painel-regua.js'
@@ -1562,6 +1563,146 @@ function _gtConfirm(title,detailHtml,opts){
     box.appendChild(bar);ov.appendChild(box);
     ov.onclick=e=>{if(e.target===ov)close(false);};
   });
+}
+// Janela do DUPLICAR. Não usa _gtConfirm porque aquele modal só devolve
+// sim/não — aqui precisamos de quantas cópias e do sufixo do nome. Mesmo
+// visual, função separada, para não mexer no portão compartilhado de todas
+// as outras ações.
+function _gtDuplicarModal(resumo){
+  return new Promise(resolve=>{
+    let ov=document.getElementById('gt-dup-ov');
+    if(!ov){ov=document.createElement('div');ov.id='gt-dup-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';document.body.appendChild(ov);}
+    ov.innerHTML='';ov.style.display='flex';
+    const box=document.createElement('div');
+    box.style.cssText='background:var(--surface,#fff);color:var(--text,#111);border-radius:14px;max-width:440px;width:100%;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.45);font-family:var(--fonte-principal);';
+    box.innerHTML=
+      '<div style="font-size:calc(16px*var(--gt-fs,1.3));font-weight:800;margin-bottom:9px;">Duplicar</div>'+
+      '<div style="font-size:calc(13px*var(--gt-fs,1.3));color:var(--muted,#666);line-height:1.55;margin-bottom:16px;">'+resumo+'</div>'+
+      '<label style="display:block;font-size:calc(12px*var(--gt-fs,1.3));font-weight:700;margin-bottom:5px;">Quantas cópias</label>'+
+      '<select data-dup-qtd style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--border,#ddd);background:var(--surface,#fff);color:var(--text,#111);font-size:calc(13px*var(--gt-fs,1.3));margin-bottom:14px;">'+
+        [1,2,3,4,5].map(n=>'<option value="'+n+'">'+n+(n===1?' cópia':' cópias')+'</option>').join('')+
+      '</select>'+
+      '<label style="display:block;font-size:calc(12px*var(--gt-fs,1.3));font-weight:700;margin-bottom:5px;">O que acrescentar no nome</label>'+
+      '<input data-dup-sufixo value="'+_gtEsc(SUFIXO_PADRAO)+'" style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--border,#ddd);background:var(--surface,#fff);color:var(--text,#111);font-size:calc(13px*var(--gt-fs,1.3));margin-bottom:16px;">'+
+      '<div style="background:rgba(22,163,74,.12);border:1px solid rgba(22,163,74,.35);border-radius:8px;padding:11px 13px;font-size:calc(12px*var(--gt-fs,1.3));line-height:1.5;margin-bottom:18px;"><b>A cópia nasce PAUSADA.</b> Nada vai gastar até você ativar.</div>';
+    const bar=document.createElement('div');bar.style.cssText='display:flex;gap:10px;justify-content:flex-end;';
+    const close=v=>{ov.style.display='none';resolve(v);};
+    const c=document.createElement('button');c.textContent='Cancelar';
+    c.style.cssText='padding:9px 16px;border-radius:8px;border:1px solid var(--border,#ddd);background:none;color:var(--text,#111);font-weight:600;font-size:calc(13px*var(--gt-fs,1.3));cursor:pointer;';
+    c.onclick=()=>close(null);bar.appendChild(c);
+    const ok=document.createElement('button');ok.textContent='Duplicar';
+    ok.style.cssText='padding:9px 18px;border-radius:8px;border:none;background:var(--accent,#6366f1);color:#fff;font-weight:700;font-size:calc(13px*var(--gt-fs,1.3));cursor:pointer;';
+    ok.onclick=()=>close({
+      quantidade:parseInt(box.querySelector('[data-dup-qtd]').value,10)||1,
+      sufixo:box.querySelector('[data-dup-sufixo]').value,
+    });
+    bar.appendChild(ok);
+    box.appendChild(bar);ov.appendChild(box);
+    ov.onclick=e=>{if(e.target===ov)close(null);};
+  });
+}
+
+// Caixa de progresso/resultado da cópia. Reusa o visual do _gtConfirm.
+function _gtDupStatus(html,acoes){
+  let ov=document.getElementById('gt-dup-ov');
+  if(!ov)return;
+  ov.innerHTML='';ov.style.display='flex';
+  const box=document.createElement('div');
+  box.style.cssText='background:var(--surface,#fff);color:var(--text,#111);border-radius:14px;max-width:440px;width:100%;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.45);font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));line-height:1.6;';
+  box.innerHTML=html;
+  if(acoes&&acoes.length){
+    const bar=document.createElement('div');bar.style.cssText='display:flex;gap:10px;justify-content:flex-end;margin-top:18px;';
+    for(const a of acoes){
+      const b=document.createElement('button');b.textContent=a.texto;
+      b.style.cssText='padding:9px 16px;border-radius:8px;border:'+(a.primario?'none':'1px solid var(--border,#ddd)')+';background:'+(a.primario?'var(--accent,#6366f1)':'none')+';color:'+(a.primario?'#fff':'var(--text,#111)')+';font-weight:700;font-size:calc(13px*var(--gt-fs,1.3));cursor:pointer;';
+      b.onclick=a.aoClicar;bar.appendChild(b);
+    }
+    box.appendChild(bar);
+  }
+  ov.appendChild(box);
+}
+function _gtDupFechar(){const ov=document.getElementById('gt-dup-ov');if(ov)ov.style.display='none';}
+
+const _GT_DUP_ROTULO={campanha:'campanha',conjunto:'conjunto de anúncios',anuncio:'anúncio'};
+
+// AÇÃO REAL na Meta: cria cópias. Sempre PAUSADAS, sempre após confirmação.
+async function _gtAbrirDuplicar(alvo){
+  const tok=_gtCurAcc?.id;
+  if(!tok){await _gtConfirm('Sem conta selecionada','Escolha uma conta de anúncios antes de duplicar.',{okOnly:true});return;}
+
+  const nome=alvo.nivel==='campanha'?alvo.campanha?.name
+    :alvo.nivel==='conjunto'?alvo.conjuntos?.[0]?.name
+    :alvo.anuncios?.[0]?.name;
+  const nCj=alvo.nivel==='campanha'?(alvo.conjuntos||[]).length:0;
+  const nAd=alvo.nivel==='anuncio'?0:(alvo.anuncios||[]).length;
+  const filhos=[nCj?nCj+(nCj===1?' conjunto':' conjuntos'):'',nAd?nAd+(nAd===1?' anúncio':' anúncios'):'']
+    .filter(Boolean).join(' e ');
+  // AVISO NECESSÁRIO: a lista de anúncios da tela vem dos insights do período
+  // escolhido — anúncio sem gasto no período NÃO está nela e portanto NÃO
+  // será copiado. Copiar de menos calado seria o pior desfecho possível aqui,
+  // então isso vai escrito na janela, não num comentário de código.
+  const resumo='Vai copiar '+(_GT_DUP_ROTULO[alvo.nivel]||'item')+' <b>«'+_gtEsc(nome||'sem nome')+'»</b>'
+    +(filhos?', com '+filhos+'.':'.')
+    +(nAd?'<br><span style="color:var(--orange,#d97706)">Só entram os anúncios com gasto no período que está selecionado.</span>':'');
+
+  const escolha=await _gtDuplicarModal(resumo);
+  if(!escolha)return;
+
+  const plano=planoDeCopia(alvo,escolha);
+  if(!plano.length){
+    _gtDupStatus('<b>Não há o que copiar.</b><br>Abra a campanha para carregar os conjuntos e anúncios antes de duplicar.',
+      [{texto:'Entendi',primario:true,aoClicar:_gtDupFechar}]);
+    return;
+  }
+
+  // comEspera: se a Meta pedir calma no meio da cascata, ela mesma espera e
+  // repete, sem devolver o problema pro dono.
+  const enviar=comEspera((caminho,params)=>metaPost(caminho,params,tok));
+  const passoTxt=p=>_GT_DUP_ROTULO[p.passo.nivel]+' «'+_gtEsc(p.passo.origemNome)+'»';
+  const aoProgredir=p=>_gtDupStatus('<b>Copiando…</b><br>'+p.feitos+' de '+p.total+' — '+passoTxt(p));
+
+  _gtDupStatus('<b>Copiando…</b><br>0 de '+plano.length);
+  const rel=await executarPlano(plano,{enviar,aoProgredir});
+  _gtDupRelatar(plano,rel,enviar);
+}
+
+// Mostra o desfecho. Falhou no meio: NADA é desfeito — o que ficou está
+// pausado, e o dono escolhe continuar ou deixar assim.
+function _gtDupRelatar(plano,rel,enviar){
+  if(!rel.falhou){
+    _gtDupStatus('<b>Pronto.</b><br>'+rel.concluidos.length+' '+(rel.concluidos.length===1?'item copiado':'itens copiados')+
+      ', tudo <b>pausado</b>. Ative quando quiser, e ajuste o orçamento no botão «✎ editar».',
+      [{texto:'Fechar',primario:true,aoClicar:()=>{_gtDupFechar();loadGtData();}}]);
+    return;
+  }
+  const motivo=_gtDupTraduzir(rel.falhou.motivo);
+  const feitos=rel.concluidos.length;
+  _gtDupStatus(
+    '<b>Parei no meio.</b><br>'+motivo+
+    '<br><br>Copiei '+feitos+' de '+plano.length+' '+(plano.length===1?'item':'itens')+'. '+
+    (feitos?'O que já foi criado está <b>pausado</b> e não vai gastar. Não apaguei nada.':'Nada foi criado.'),
+    [
+      {texto:'Deixar assim',aoClicar:()=>{_gtDupFechar();loadGtData();}},
+      {texto:'Tentar continuar',primario:true,aoClicar:async()=>{
+        _gtDupStatus('<b>Continuando…</b>');
+        const novo=await retomar(plano,rel,{enviar,
+          aoProgredir:p=>_gtDupStatus('<b>Continuando…</b><br>'+p.feitos+' de '+p.total)});
+        _gtDupRelatar(plano,novo,enviar);
+      }},
+    ]);
+}
+
+// Traduz o erro da Meta. Mesmo espírito do tradutor de _gtApplyAction: o dono
+// não precisa ver jargão técnico, precisa saber o que fazer.
+function _gtDupTraduzir(msg){
+  const m=String(msg||'');
+  if(/permiss|#200|#10\b|#272|OAuth|token|management/i.test(m))
+    return 'O acesso desta conta <b>não tem permissão de gerenciar anúncios</b>. Verifique na Meta.';
+  if(/#17|rate|limit|too many|reduce the amount/i.test(m))
+    return 'A Meta pediu para <b>diminuir o ritmo</b> (limite de chamadas). Espere alguns minutos e tente continuar.';
+  if(/não devolveu/i.test(m))
+    return 'A Meta aceitou o pedido mas <b>não informou o número da cópia</b>, então parei para não criar item solto.';
+  return '<b>A Meta recusou:</b> '+_gtEsc(m.slice(0,180));
 }
 // AÇÃO REAL na Meta (pausar/reativar campanha ou anúncio, mudar orçamento).
 // Toda chamada de metaPost() aqui é precedida por await _gtConfirm(...) — o
