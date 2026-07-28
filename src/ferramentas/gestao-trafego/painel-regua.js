@@ -170,19 +170,24 @@ export function montarPainelRegua(alvo, opcoes) {
   // O dono pediu depois de olhar a régua: ele precisa ver como CADA tipo de
   // campanha vai ser julgado, não só o tipo da mais cara.
   function blocoDeExemplo(ex, r) {
-    const alvoObj = alvoDoBalde(ex.balde);
-    const meta = metaDoBalde(r, ex.balde);
-    // Só quando o alvo É a ponderada (engajamento) o custo depende dos pesos que
-    // o dono está editando agora; nos demais o custo já veio pronto da campanha.
+    // Dois tipos de exemplo, porque a régua tem dois tipos de meta:
+    //  - 'objetivo'  -> meta do balde (custo por lead, conversa, venda, visita…)
+    //  - 'interacao' -> meta por curtida/comentário/salvamento/compartilhamento
+    // A chave de cada um é a MESMA usada em `metas`, então metaDoBalde serve pros
+    // dois sem função nova. Só o caso da ponderada (engajamento) recalcula ao vivo
+    // com os pesos que o dono está editando agora; nos demais o custo já veio pronto.
+    const chave = ex.chave || ex.balde;
+    const meta = metaDoBalde(r, chave);
+    const alvoObj = ex.tipo === 'interacao' ? null : alvoDoBalde(chave);
     const ehPonderada = !!alvoObj && alvoObj.metrica === 'ponderada';
     const c = calcularPonderada(ex.quantidades, { pesos: r.pesos, limiares: r.limiares, meta: ehPonderada ? meta : 0 });
-    const custo = !alvoObj ? null : ehPonderada ? c.custoPorPonto : ex.custo;
+    const custo = ehPonderada ? c.custoPorPonto : (ex.custo != null ? ex.custo : null);
     const aval = avaliarAlvo({ custo, meta, limiares: r.limiares });
     const faixa = FAIXA[aval.faixa] || FAIXA['sem-dados'];
-    const rotulo = alvoObj ? alvoObj.rotulo : 'Custo por resultado';
+    const rotulo = ex.rotulo || (alvoObj ? alvoObj.rotulo : 'Custo por resultado');
+    const titulo = ex.titulo || ROTULO_BALDE[chave] || chave;
     // Detalhe: engajamento mostra a quebra das interações (que muda ao vivo com os
-    // pesos); os demais mostram a QUANTIDADE do resultado que compraram — mostrar
-    // curtida numa campanha de lead não diz nada sobre o que ela comprou.
+    // pesos); os demais mostram a quantidade do resultado que compraram.
     const detalhe = ehPonderada
       ? `<tr><td>Curtidas</td><td>${inteiro(ex.quantidades.curtidas)}</td></tr>
          <tr><td>Comentários</td><td>${inteiro(ex.quantidades.comentarios)}</td></tr>
@@ -190,7 +195,6 @@ export function montarPainelRegua(alvo, opcoes) {
          <tr><td>Compartilhamentos</td><td>${inteiro(ex.quantidades.compartilhamentos)}</td></tr>
          <tr class="forte"><td>Pontos</td><td>${inteiro(c.pontos)}</td></tr>`
       : (ex.detalhe || []).map((d) => `<tr class="forte"><td>${esc(d.rotulo)}</td><td>${d.valor == null ? '\u2014' : inteiro(d.valor)}</td></tr>`).join('');
-    // Onde a cor vira, em REAIS: multiplicador é abstrato, valor se lê.
     const cortes = meta > 0 ? `
         <div class="pnd-ex-regua">
           <div class="pnd-ex-corte"><span class="pnd-ponto bom"></span>até ${reais(meta * r.limiares.escalarForte)} — escalar forte</div>
@@ -200,11 +204,11 @@ export function montarPainelRegua(alvo, opcoes) {
         </div>` : '';
     const legenda = meta > 0
       ? `${rotulo} · sua meta é ${reais(meta)}`
-      : `${rotulo} · este tipo ainda não tem meta`;
+      : `${rotulo} · sem meta definida aqui`;
     return `
-      <div class="pnd-ex-bloco">
+      <div class="pnd-ex-bloco${ex.tipo === 'interacao' ? ' interacao' : ''}">
         <div class="pnd-ex-topo">
-          <div class="pnd-ex-rot">${esc(ROTULO_BALDE[ex.balde] || ex.balde)}</div>
+          <div class="pnd-ex-rot">${esc(titulo)}</div>
           <div class="pnd-ex-nome">${esc(ex.nome)}</div>
           <div class="pnd-ex-num">${reais(custo)}</div>
           <div class="pnd-ex-leg">${esc(legenda)}</div>
@@ -219,6 +223,7 @@ export function montarPainelRegua(alvo, opcoes) {
         </div>
       </div>`;
   }
+
 
   function pintarExemplo() {
     const caixa = document.getElementById('pnd-exemplo');
