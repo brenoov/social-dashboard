@@ -101,10 +101,12 @@ export function montarPainelRegua(alvo, opcoes) {
   alvo.innerHTML = `
     <div class="pnd-intro">
       <h2 class="pnd-intro-tit">O que é esta aba</h2>
+        <div class="pnd-intro-corpo">
       <p>Aqui você diz <b>quanto aceita pagar por cada resultado</b>. É esse número que faz o cartão da campanha acender verde, amarelo ou vermelho lá na aba Campanhas.</p>
       <p>Cada tipo de campanha é medido pelo resultado que ele realmente compra: campanha de lead pelo <b>custo por lead</b>, de WhatsApp pelo <b>custo por conversa</b>, de venda pelo <b>custo por venda</b>.</p>
       <p>A exceção é <b>engajamento</b>, que não compra uma ação só. Aí somamos as interações dando peso a cada uma — curtir vale 1, salvar vale 30, porque quem salva quer voltar naquilo. A soma chama-se <b>ponto</b>, e a meta é o preço do ponto.</p>
     </div>
+      </div>
     <div class="pnd-regua">
       <div>
         <div class="pnd-cards">
