@@ -52,3 +52,29 @@ test('nada decidivel: sem-dados, nunca um palpite', () => {
 test('ponderada ausente por completo tambem da sem-dados', () => {
   assert.equal(decidirVeredito({}).veredito, 'sem-dados');
 });
+
+test('faixa reconhecida mas custoPorPonto ausente: nunca mostra R$ NaN', () => {
+  const r = decidirVeredito({
+    saude: null,
+    opus: null,
+    ponderada: { faixa: 'escalar-forte', meta: 0.2 },
+  });
+  assert.equal(r.veredito, 'escalar');
+  assert.equal(r.origem, 'ponderada');
+  assert.doesNotMatch(r.porque, /NaN/);
+  assert.doesNotMatch(r.porque, /undefined/);
+  assert.match(r.porque, /Barato por ponto/);
+});
+
+test('faixa reconhecida mas meta ausente: nunca mostra R$ NaN', () => {
+  const r = decidirVeredito({
+    saude: null,
+    opus: null,
+    ponderada: { faixa: 'manter', custoPorPonto: 0.3 },
+  });
+  assert.equal(r.veredito, 'manter');
+  assert.equal(r.origem, 'ponderada');
+  assert.doesNotMatch(r.porque, /NaN/);
+  assert.doesNotMatch(r.porque, /undefined/);
+  assert.match(r.porque, /acima da meta/);
+});
