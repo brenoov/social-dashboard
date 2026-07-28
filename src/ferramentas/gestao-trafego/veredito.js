@@ -1,8 +1,11 @@
 // Veredito único do cartão. NÃO existem dois selos disputando: existe UM veredito,
 // decidido em ordem fixa de precedência (decisão do dono, 2026-07-28):
-//   1. saúde manda pausar -> PAUSA, por mais barato que esteja (frequência alta
-//      queima audiência; barato não conserta isso);
-//   2. saúde ok e há análise do Opus -> vale o Opus (precedência que já existia);
+//   1. saúde manda pausar OU reduzir -> vale a leitura de saúde, por mais barato
+//      que a ponderada esteja mostrando (frequência alta queima audiência; barato
+//      não conserta isso). O veredito devolvido é o da PRÓPRIA saúde ('pausar' ou
+//      'reduzir') — não existe conversão automática pra 'pausar' aqui;
+//   2. saúde ok (nem pausar, nem reduzir) e há análise do Opus -> vale o Opus
+//      (precedência que já existia);
 //   3. saúde ok e sem Opus -> vale a ponderada;
 //   4. ponderada sem faixa aproveitável (ex.: volume baixo demais) e há uma
 //      leitura de saúde com veredito -> vale a saúde, com a explicação dela
@@ -55,8 +58,11 @@ export function decidirVeredito(entrada) {
   const e = entrada || {};
   const saude = e.saude, opus = e.opus, ponderada = e.ponderada;
 
-  if (saude && saude.veredito === 'pausar') {
-    return { veredito: 'pausar', origem: 'saude', porque: saude.justificativa || 'Sinal de saúde ruim na campanha.' };
+  // Veto de saúde: pausar OU reduzir vetam a ponderada e o Opus. 'reduzir' é o
+  // caso da frequência alta (audiência saturada) — barato por ponto não conserta
+  // isso, então a ponderada nunca pode sobrepor esse sinal com um "escalar" verde.
+  if (saude && (saude.veredito === 'pausar' || saude.veredito === 'reduzir')) {
+    return { veredito: saude.veredito, origem: 'saude', porque: saude.justificativa || 'Sinal de saúde ruim na campanha.' };
   }
   if (opus && opus.veredito) {
     return { veredito: opus.veredito, origem: 'opus', porque: opus.justificativa || 'Análise da IA.' };

@@ -39,6 +39,12 @@ export function montarPainelRegua(alvo, opcoes) {
   const o = opcoes || {};
   const regua = o.regua;
   const editavel = !!o.editavel;
+  // Se quem chamou não informar, assume que carregou (não quebra quem ainda não
+  // passa essa opção). Quando informado false, a leitura do banco falhou ou ainda
+  // não terminou — os campos abaixo podem não ser o valor real, então o botão de
+  // salvar fica bloqueado até uma leitura bem-sucedida (ver C3 do review final).
+  const carregouOk = o.carregouOk !== false;
+  const podeSalvar = editavel && carregouOk;
   const exemplo = o.exemplo || null;
 
   const linhasPeso = Object.keys(PESOS_PADRAO).map((k) =>
@@ -68,7 +74,11 @@ export function montarPainelRegua(alvo, opcoes) {
           <p class="pnd-ajuda">Multiplicadores da meta. 0,8 significa "custando 80% da meta ou menos".</p>
           <table class="pnd-tabela"><tbody>${linhasLimiar}</tbody></table>
         </div>
-        ${editavel ? '<button class="pnd-salvar" id="pnd-salvar">Salvar a régua</button>' : '<p class="pnd-ajuda">Você não tem permissão para editar a régua.</p>'}
+        ${editavel ? (
+          podeSalvar
+            ? '<button class="pnd-salvar" id="pnd-salvar">Salvar a régua</button>'
+            : '<button class="pnd-salvar" id="pnd-salvar" disabled>Salvar a régua</button><p class="pnd-ajuda">Ainda não consegui confirmar a régua que está salva no banco. Recarregue a página antes de editar — salvar agora arriscaria apagar a meta de verdade.</p>'
+        ) : '<p class="pnd-ajuda">Você não tem permissão para editar a régua.</p>'}
       </div>
       <div class="pnd-col">
         <div class="pnd-bloco pnd-exemplo" id="pnd-exemplo"></div>
@@ -122,7 +132,9 @@ export function montarPainelRegua(alvo, opcoes) {
   if (editavel) {
     alvo.querySelectorAll('.pnd-input').forEach((el) => el.addEventListener('input', pintarExemplo));
     const botao = document.getElementById('pnd-salvar');
-    if (botao) botao.addEventListener('click', () => o.aoSalvar && o.aoSalvar(reguaDaTela(), botao));
+    // Além do atributo `disabled` no HTML, nem liga o listener quando a leitura do
+    // banco não foi confirmada — dupla trava contra salvar em cima de dado errado.
+    if (botao && podeSalvar) botao.addEventListener('click', () => o.aoSalvar && o.aoSalvar(reguaDaTela(), botao));
   }
   pintarExemplo();
 }

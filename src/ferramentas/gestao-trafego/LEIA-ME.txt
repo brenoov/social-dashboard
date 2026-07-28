@@ -111,9 +111,11 @@ Arquivos:
 Os três primeiros têm teste ao lado (.test.mjs) e rodam com `npm test`.
 
 O VEREDITO É UM SÓ, decidido nesta ordem (não existem dois selos disputando):
-  1. Saúde manda pausar -> PAUSA, por mais barato que esteja. Frequência alta
-     queima a audiência, e preço baixo não conserta isso.
-  2. Saúde ok e há análise do Opus -> vale o Opus.
+  1. Saúde manda pausar OU reduzir -> vale a saúde, por mais barato que a
+     ponderada esteja mostrando. Frequência alta (audiência saturada) vira
+     'reduzir', e preço baixo por ponto não conserta isso — por isso a
+     ponderada nunca pode transformar essa campanha num "escalar" verde.
+  2. Saúde ok (nem pausar, nem reduzir) e há análise do Opus -> vale o Opus.
   3. Saúde ok e sem Opus -> vale a ponderada.
   4. Ponderada sem faixa aproveitável (ex.: volume baixo demais) e há uma
      leitura de saúde com veredito -> vale a saúde, com a explicação dela
@@ -122,10 +124,12 @@ O VEREDITO É UM SÓ, decidido nesta ordem (não existem dois selos disputando):
 Se nenhuma dessas quatro situações se aplicar, o cartão fica sem-dados.
 
 O custo por ponto aparece SEMPRE, independente de quem deu o veredito: ele é
-informação, não decisão. Mas o orçamento sugerido vem SÓ de quem decidiu o cartão:
-quando é a ponderada que manda ('otimizar', 'manter', etc.), não há número
-sugerido — nunca se inventa um. Quando quem decide é o Opus ou a saúde, eles têm
-seu número próprio.
+informação, não decisão. Já o orçamento sugerido ("Aplicar R$ X/dia") só aparece
+quando quem decidiu o cartão foi a IA semanal (Opus) — só ela tem um número
+próprio pra sugerir. Em TODOS os outros casos (ponderada decidindo, ou a leitura
+de saúde vetando com 'pausar'/'reduzir'), não existe botão de aplicar valor: o
+dono edita o orçamento manualmente (botão "✎ editar" no orçamento da campanha/
+conjunto) — porque inventar um número aqui seria pior do que não sugerir nada.
 
 MÉTRICAS LÍQUIDAS: quando a Meta oferece a versão líquida (que já desconta quem
 descurtiu ou dessalvou), ela vence a bruta. Líquida valendo ZERO é zero mesmo —

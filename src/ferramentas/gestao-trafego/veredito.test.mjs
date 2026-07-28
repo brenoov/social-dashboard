@@ -13,6 +13,47 @@ test('saude mandando pausar VETA tudo, por mais barato que esteja', () => {
   assert.match(r.porque, /fadiga/);
 });
 
+test('saude mandando "reduzir" VETA a ponderada verde, e o veredito e o da saude (nao "pausar")', () => {
+  const r = decidirVeredito({
+    saude: { veredito: 'reduzir', justificativa: 'Frequência 4,5× — o mesmo público já viu demais. Vale reduzir o orçamento.' },
+    opus: null,
+    ponderada: { faixa: 'escalar-forte', custoPorPonto: 0.05, meta: 0.2 },
+  });
+  assert.equal(r.veredito, 'reduzir');
+  assert.equal(r.origem, 'saude');
+  assert.match(r.porque, /Frequência/);
+});
+
+test('saude "reduzir" veta ate com Opus presente (o veto de saude vem antes do Opus)', () => {
+  const r = decidirVeredito({
+    saude: { veredito: 'reduzir', justificativa: 'Frequência alta — audiência saturada.' },
+    opus: { veredito: 'escalar', justificativa: 'performance boa' },
+    ponderada: { faixa: 'escalar-forte', custoPorPonto: 0.05, meta: 0.2 },
+  });
+  assert.equal(r.veredito, 'reduzir');
+  assert.equal(r.origem, 'saude');
+});
+
+test('saude "pausar" continua vencendo tudo, mesmo com "reduzir" tambem sendo um veto valido', () => {
+  const r = decidirVeredito({
+    saude: { veredito: 'pausar', justificativa: 'Frequência 6× — fadiga total do criativo.' },
+    opus: { veredito: 'escalar', justificativa: 'performance boa' },
+    ponderada: { faixa: 'escalar-forte', custoPorPonto: 0.05, meta: 0.2 },
+  });
+  assert.equal(r.veredito, 'pausar');
+  assert.equal(r.origem, 'saude');
+});
+
+test('saude "manter" NAO veta: a ponderada continua decidindo normalmente', () => {
+  const r = decidirVeredito({
+    saude: { veredito: 'manter', justificativa: 'sem sinal de fadiga' },
+    opus: null,
+    ponderada: { faixa: 'escalar-forte', custoPorPonto: 0.05, meta: 0.2 },
+  });
+  assert.equal(r.veredito, 'escalar');
+  assert.equal(r.origem, 'ponderada');
+});
+
 test('saude ok e Opus presente: vale o Opus', () => {
   const r = decidirVeredito({
     saude: { veredito: 'manter', justificativa: 'sem sinal de fadiga' },

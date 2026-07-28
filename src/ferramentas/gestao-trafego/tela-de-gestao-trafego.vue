@@ -70,32 +70,38 @@
       <button class="pnd-aba" id="pnd-aba-regua" role="tab" onclick="_gtTrocarAba('regua')">A régua</button>
     </div>
 
+    <!-- #gt-painel-campanhas é "display:contents" (ver <style> abaixo): ele só
+         existe pra o toggle de aba (_gtTrocarAba liga/desliga com style.display),
+         mas NÃO pode virar uma caixa de verdade no layout — .gt-body é quem é o
+         item flex real (flex:1 + overflow-y:auto) dentro de .tela-gestao-trafego.
+         Um <div> comum aqui quebraria essa conta (flex:1 de .gt-body deixaria de
+         valer, e a lista de campanhas perderia o scroll contido). -->
     <div id="gt-painel-campanhas">
-    <div class="gt-body">
-      <div id="gt-camp-col">
-        <div class="gt-camp-card"><div class="gt-empty">Carregando…</div></div>
+      <div class="gt-body">
+        <div id="gt-camp-col">
+          <div class="gt-camp-card"><div class="gt-empty">Carregando…</div></div>
+        </div>
       </div>
-    </div>
 
-    <!-- ── EDITOR DE MÉTRICAS POR OBJETIVO (ADMIN) ── -->
-    <div id="gt-cfg-overlay" onclick="_gtCloseEditor()"></div>
-    <div id="gt-cfg-modal">
-      <div class="gt-cfg-head">
-        <span class="gt-cfg-title">⚙️ Métricas por Objetivo</span>
-        <button class="gt-cfg-close" onclick="_gtCloseEditor()">✕</button>
+      <!-- ── EDITOR DE MÉTRICAS POR OBJETIVO (ADMIN) ── -->
+      <div id="gt-cfg-overlay" onclick="_gtCloseEditor()"></div>
+      <div id="gt-cfg-modal">
+        <div class="gt-cfg-head">
+          <span class="gt-cfg-title">⚙️ Métricas por Objetivo</span>
+          <button class="gt-cfg-close" onclick="_gtCloseEditor()">✕</button>
+        </div>
+        <div class="gt-cfg-body" id="gt-cfg-body"></div>
+        <div class="gt-cfg-footer">
+          <button style="padding:7px 16px;border-radius:7px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:600;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);" onclick="_gtCloseEditor()">Cancelar</button>
+          <button id="gt-cfg-save-btn" style="padding:7px 18px;border-radius:7px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;border:none;background:var(--accent);color:#fff;" onclick="_gtSaveEditor()">Salvar</button>
+        </div>
       </div>
-      <div class="gt-cfg-body" id="gt-cfg-body"></div>
-      <div class="gt-cfg-footer">
-        <button style="padding:7px 16px;border-radius:7px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:600;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);" onclick="_gtCloseEditor()">Cancelar</button>
-        <button id="gt-cfg-save-btn" style="padding:7px 18px;border-radius:7px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;border:none;background:var(--accent);color:#fff;" onclick="_gtSaveEditor()">Salvar</button>
-      </div>
-    </div>
 
-    <div id="gt-cr-overlay" onclick="_gtCloseCriativo()"></div>
-    <div id="gt-cr-modal">
-      <div class="gt-cfg-head"><span class="gt-cfg-title" id="gt-cr-title">Criativo do anúncio</span><button class="gt-cfg-close" onclick="_gtCloseCriativo()">✕</button></div>
-      <div class="gt-cr-body" id="gt-cr-body"></div>
-    </div>
+      <div id="gt-cr-overlay" onclick="_gtCloseCriativo()"></div>
+      <div id="gt-cr-modal">
+        <div class="gt-cfg-head"><span class="gt-cfg-title" id="gt-cr-title">Criativo do anúncio</span><button class="gt-cfg-close" onclick="_gtCloseCriativo()">✕</button></div>
+        <div class="gt-cr-body" id="gt-cr-body"></div>
+      </div>
     </div>
 
     <div id="gt-painel-regua" style="display:none"></div>
@@ -547,12 +553,26 @@ async function _gtSaveConfig(balde,metricas){
 // editáveis, senão o dono via campo editável que não consegue mesmo salvar
 // (ver painel-regua.js e o call site em _gtTrocarAba).
 let _gtRegua = normalizarRegua(null);   // começa no padrão; o banco sobrescreve
+// Só fica true quando a leitura do banco realmente funcionou. Enquanto for false,
+// a aba "A régua" NÃO pode deixar salvar: _gtRegua ainda é o padrão de fábrica
+// (ou o valor de uma leitura anterior), nunca a meta real das cinco contas — e
+// salvar isso sobrescreveria a linha única de verdade. Ver _gtTrocarAba e C3 do
+// review final (2026-07-28).
+let _gtReguaCarregada = false;
 
 async function _gtCarregarRegua() {
   try {
     const linhas = await sb('gt_ponderada_config?select=pesos,metas,limiares&id=eq.1');
     _gtRegua = normalizarRegua((linhas || [])[0]);
-  } catch (e) { _gtRegua = normalizarRegua(null); }
+    _gtReguaCarregada = true;
+  } catch (e) {
+    // NUNCA engolir em silêncio: sem isso, a aba abre com o padrão de fábrica e
+    // parece a régua real. O detalhe técnico vai pro console; o dono só precisa
+    // saber, na tela, que o campo pode não estar confiável (ver montarPainelRegua).
+    console.error('[GT] falha ao carregar a régua da métrica ponderada:', e);
+    _gtRegua = normalizarRegua(null);
+    _gtReguaCarregada = false;
+  }
 }
 
 // Reconhece uma rejeição de permissão/RLS do Postgres (código 42501 ou texto
@@ -569,8 +589,11 @@ async function _gtSalvarRegua(nova, botao) {
   if (botao) { botao.disabled = true; botao.textContent = 'Salvando...'; }
   try {
     const antes = _gtRegua;
+    // QUEM mexeu: estado.userId é o mesmo id já usado no resto da tela (ver
+    // _setGubAvatar em tela-de-admin.vue) — sem isto, updated_by/mudou_quem
+    // ficavam sempre nulos e o histórico não dizia quem alterou.
     const { error } = await sbClient.from('gt_ponderada_config')
-      .update({ pesos: nova.pesos, metas: nova.metas, limiares: nova.limiares, updated_at: new Date().toISOString() })
+      .update({ pesos: nova.pesos, metas: nova.metas, limiares: nova.limiares, updated_at: new Date().toISOString(), updated_by: estado.userId })
       .eq('id', 1);
     if (error) throw error;
     _gtRegua = nova;
@@ -578,14 +601,18 @@ async function _gtSalvarRegua(nova, botao) {
     // save (a régua já está salva) — mas o dono precisa saber que o histórico
     // dessa alteração não ficou registrado, senão a auditoria fica com buraco
     // em silêncio.
-    const { error: erroHistorico } = await sbClient.from('gt_ponderada_config_log').insert({ antes, depois: nova });
+    const { error: erroHistorico } = await sbClient.from('gt_ponderada_config_log').insert({ antes, depois: nova, mudou_quem: estado.userId });
     if (erroHistorico) {
       console.error('[GT] falha ao gravar o histórico da régua:', erroHistorico);
       adminToast('Régua salva, mas não consegui gravar o histórico dessa alteração.', false);
     } else {
       adminToast('Régua salva');
     }
-    await loadGtData();           // a lista inteira recalcula com os pesos novos
+    await loadGtData();           // a lista inteira recalcula com os pesos novos (e a régua é relida do banco)
+    // Remonta a aba com o estado fresco pós-salvar. Sem isto, limpar um campo e
+    // salvar de novo cairia no valor de ANTES do primeiro save (o `regua` que o
+    // painel guardava em memória), não no valor que está no banco agora.
+    _gtTrocarAba('regua');
   } catch (e) {
     if (_gtEhErroDePermissao(e)) {
       adminToast('Só um administrador pode alterar a régua.', false);
@@ -1189,6 +1216,9 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
         veredito: decisao.veredito,
         justificativa: decisao.porque,
         budget_sugerido_centavos: decisao.origem === 'opus' ? ((opusPnd && opusPnd.budget_sugerido_centavos) || null) : null,
+        // "Impacto:" no cartão também só faz sentido quando foi o Opus quem decidiu
+        // (é a estimativa da análise semanal dele) — mesma regra do budget acima.
+        impacto_estimado: decisao.origem === 'opus' ? ((opusPnd && opusPnd.impacto_estimado) || null) : null,
       };
       // Custo por ponto aparece SEMPRE, independente de quem deu o veredito:
       // é informação, não decisão.
@@ -1266,6 +1296,10 @@ function _gtTrocarAba(nome) {
       // não só ter a permissão 'meta.gestor' — senão os campos aparecem editáveis
       // pra quem não consegue salvar de fato.
       editavel: estado.role === 'admin',
+      // Só true quando _gtCarregarRegua() leu o banco com sucesso. Se ainda não
+      // (ou se falhou), o painel mostra os campos mas trava o "Salvar" — nunca
+      // deixa gravar um valor que pode não ser o real (ver C3 do review final).
+      carregouOk: _gtReguaCarregada,
       exemplo: _gtExemploParaRegua(),
       aoSalvar: _gtSalvarRegua,
     });
@@ -1493,6 +1527,13 @@ onMounted(() => {
   const cfgBtn = document.getElementById('gt-cfg-btn')
   if (cfgBtn) cfgBtn.style.display = hasPermission('meta.gestor', 'editar') ? '' : 'none' // editor de métricas = ação 'editar'
   startGtClock()
+  // A régua (gt_ponderada_config) é UMA linha única, sem relação com qual conta de
+  // anúncios está selecionada — por isso carrega aqui, já no mount, e não só dentro
+  // de loadGtData() (que devolve cedo sem conta selecionada). Sem isto, a aba "A
+  // régua" é clicável desde o primeiro instante mas fica com o padrão de fábrica
+  // até uma conta ser escolhida — e "Salvar" ali gravaria esse padrão por cima da
+  // régua real das cinco contas (ver C3 do review final, 2026-07-28).
+  _gtCarregarRegua()
   _initGestaoTrafego()
   _gtFontScale()
 })
@@ -1580,6 +1621,15 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.ma-obj-chip){font-family:var(--fonte-principal);font-size:9px;font-weight:600;letter-spacing:.5px;padding:2px 6px;border-radius:3px;background:var(--surface2);color:var(--muted);text-transform:uppercase;}
 
 /* ── GESTÃO DE TRÁFEGO — CSS próprio (legacy/index.html L2350-2477, íntegro) ── */
+/* #gt-painel-campanhas é só o alvo do toggle de aba — "display:contents" tira ele
+   da árvore de layout (some como caixa, mas os filhos continuam no DOM), então
+   .gt-body é quem vira o item flex de verdade dentro de .tela-gestao-trafego e
+   mantém seu flex:1 + overflow-y:auto (ver I3 do review final, 2026-07-28). */
+.tela-gestao-trafego :deep(#gt-painel-campanhas){display:contents;}
+/* A aba "A régua" é irmã de #gt-painel-campanhas no mesmo flex column, então
+   precisa da MESMA mecânica de preencher e rolar sozinha — e do mesmo padding
+   lateral que .gt-body usa, senão o conteúdo cola na borda da tela (ver M1). */
+.tela-gestao-trafego :deep(#gt-painel-regua){flex:1;overflow-y:auto;padding:20px 28px;}
 .tela-gestao-trafego :deep(.gt-body){flex:1;display:flex;flex-direction:column;overflow-y:auto;padding:20px 28px;gap:16px;}
 .tela-gestao-trafego :deep(.gt-camp-card){background:none;border:none;border-radius:0;overflow:visible;}
 .tela-gestao-trafego :deep(.gt-camp-hdr){padding:2px 4px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
@@ -1763,6 +1813,7 @@ Object.assign(window, {
 @media(max-width:600px){.tela-gestao-trafego :deep(.gt-cfg-grid){grid-template-columns:repeat(auto-fill,minmax(140px,1fr));}}
 @media(max-width:768px){
   .tela-gestao-trafego :deep(.gt-body){padding:12px 14px;}
+  .tela-gestao-trafego :deep(#gt-painel-regua){padding:12px 14px;}
   .tela-gestao-trafego :deep(.gt-camp-inner){padding:11px 14px 9px;}
   .tela-gestao-trafego :deep(.gt-camp-row-ads){padding-left:14px;padding-right:14px;}
 }

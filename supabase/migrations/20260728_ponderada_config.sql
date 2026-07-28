@@ -1,9 +1,26 @@
 -- A RÉGUA da métrica ponderada: pesos, metas por objetivo e limiares do semáforo.
 -- Linha ÚNICA (id = 1): é uma configuração da casa, não uma por usuário.
+-- IMPORTANTE sobre `metas`: os pontos (curtida/comentário/salvamento/compartilhamento)
+-- só existem porque a pessoa ENGAJOU com o post. Isso é um sinal legítimo para
+-- campanhas de engajamento e reconhecimento de marca — mas não diz NADA sobre venda,
+-- lead ou mensagem gerada. Uma campanha de vendas com zero vendas e curtidas baratas
+-- não deveria acender um "escalar" verde só porque o custo por ponto está bom.
+-- Por isso a régua só nasce com meta pros dois baldes onde a métrica ponderada É a
+-- métrica certa: engajamento e reconhecimento. Os demais baldes (trafego, mensagens,
+-- leads, vendas) e o "padrao" ficam DE PROPÓSITO sem meta: sem meta, metaDoBalde()
+-- (regua.js) devolve 0, calcularPonderada() devolve faixa 'sem-dados', e o veredito
+-- (veredito.js) cai pra leitura de saúde específica do objetivo daquela campanha —
+-- que é o comportamento correto para quem não vive de curtida.
+-- NÃO reintroduza "padrao" nem os outros baldes aqui "pra completar a tabela": isso
+-- faria a ponderada voltar a decidir vereditos de campanhas de venda/lead/mensagem
+-- pelo preço da curtida, que foi exatamente o bug corrigido nesta migration.
+-- O custo por ponto continua aparecendo no cartão de TODAS as campanhas, sempre —
+-- isso não muda; só o VEREDITO deixa de ser guiado por ele fora de engajamento/
+-- reconhecimento.
 create table if not exists public.gt_ponderada_config (
   id          int primary key default 1 check (id = 1),
   pesos       jsonb not null default '{"curtidas":1,"comentarios":10,"salvamentos":30,"compartilhamentos":20}'::jsonb,
-  metas       jsonb not null default '{"engajamento":0.20,"trafego":0.20,"reconhecimento":0.20,"mensagens":0.20,"leads":0.20,"vendas":0.20,"padrao":0.20}'::jsonb,
+  metas       jsonb not null default '{"engajamento":0.20,"reconhecimento":0.20}'::jsonb,
   limiares    jsonb not null default '{"escalarForte":0.8,"dentroMeta":1.0,"manter":1.3}'::jsonb,
   updated_at  timestamptz not null default now(),
   updated_by  uuid
