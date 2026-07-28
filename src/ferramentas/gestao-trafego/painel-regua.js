@@ -21,13 +21,6 @@ const ROTULO_BALDE = {
 // (ver M do review final, 2026-07-28): a tela não pode convidar o admin a
 // preencher um número que não mede o que aquele balde realmente decide.
 const BALDES_COM_META = ['engajamento', 'reconhecimento'];
-// O "× a meta" saiu do rótulo e virou prefixo dentro do campo — o rótulo ficava
-// comprido demais e quebrava em três linhas na coluna estreita.
-const ROTULO_LIMIAR = {
-  escalarForte: 'Escalar forte até',
-  dentroMeta: 'Dentro da meta até',
-  manter: 'Manter e observar até',
-};
 // Cada faixa com o texto e a cor do selo. Sem emoji: a tela usa cor e forma,
 // não figurinha (é a regra da casa em elemento visual).
 const FAIXA = {
@@ -83,8 +76,6 @@ export function montarPainelRegua(alvo, opcoes) {
     .filter((b) => !BALDES_COM_META.includes(b) && b !== 'padrao')
     .map((b) => ROTULO_BALDE[b]).join(', ');
 
-  const linhasLimiar = Object.keys(LIMIARES_PADRAO).map((k) =>
-    `<tr><td>${ROTULO_LIMIAR[k]}</td><td>${campo('pnd-limiar-' + k, regua.limiares[k], '0.05', editavel, 'multiplicador')}</td></tr>`).join('');
 
   // Ordem dos cartões: o que vale → quanto pagar → quando acende. A cor depende da
   // meta, então ela precisa ser lida antes.
@@ -102,11 +93,6 @@ export function montarPainelRegua(alvo, opcoes) {
             <p class="pnd-ajuda">Seu custo-alvo por ponto. É ele que dispara a decisão de verba.</p>
             <table class="pnd-tabela"><tbody>${linhasMeta}</tbody></table>
             <p class="pnd-nota">${esc(semMeta)} não têm meta aqui: são julgadas pela regra do próprio objetivo (clique, conversa, cadastro, venda), porque curtida e salvamento não dizem se isso aconteceu.</p>
-          </div>
-          <div class="pnd-bloco">
-            <div class="pnd-cab"><h3 class="pnd-titulo">Quando cada cor acende</h3></div>
-            <p class="pnd-ajuda">Multiplicadores da meta. 0,8 quer dizer "custando 80% da meta ou menos".</p>
-            <table class="pnd-tabela"><tbody>${linhasLimiar}</tbody></table>
           </div>
         </div>
         ${editavel ? (
@@ -137,7 +123,10 @@ export function montarPainelRegua(alvo, opcoes) {
     // o que é o comportamento certo — essas metas nunca deveriam existir (ver M
     // do review final, 2026-07-28).
     for (const b of Object.keys(ROTULO_BALDE)) { const v = ler('pnd-meta-' + b, 0); if (v > 0) metas[b] = v; }
-    for (const k of Object.keys(LIMIARES_PADRAO)) limiares[k] = ler('pnd-limiar-' + k, regua.limiares[k]);
+    // Os limiares saíram da tela (decisão do dono, 2026-07-28): continuam valendo
+    // no cálculo e no banco, mas não são mais editáveis aqui. Devolver os que já
+    // estavam evita que salvar apague o que existe.
+    for (const k of Object.keys(regua.limiares)) limiares[k] = regua.limiares[k];
     return { pesos, metas, limiares };
   }
 
