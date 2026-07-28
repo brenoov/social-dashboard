@@ -12,6 +12,16 @@ const ROTULO_BALDE = {
   engajamento: 'Engajamento', trafego: 'Tráfego', reconhecimento: 'Reconhecimento',
   mensagens: 'Mensagens', leads: 'Leads', vendas: 'Vendas', padrao: 'Padrão (usado quando não há regra própria)',
 };
+// Só engajamento e reconhecimento nascem de curtida/comentário/salvamento/
+// compartilhamento — é a única situação em que "custo por ponto" é a régua
+// certa. Tráfego, mensagens, leads e vendas têm objetivo próprio (clique,
+// conversa, cadastro, venda) que a métrica ponderada não enxerga; e "padrão"
+// é o fallback que vale pra QUALQUER balde sem regra própria — dar uma meta
+// a ele é reabrir a mesma porta. Por isso só esses dois ganham campo editável
+// (ver M do review final, 2026-07-28): a tela não pode convidar o admin a
+// preencher um número que não mede o que aquele balde realmente decide.
+const BALDES_COM_META = ['engajamento', 'reconhecimento'];
+const EXPLICACAO_SEM_META = 'Sem meta aqui de propósito: quem julga esse tipo de campanha é a regra do próprio objetivo (clique, conversa, cadastro, venda) — curtida, comentário, salvamento e compartilhamento não dizem se isso aconteceu.';
 const ROTULO_LIMIAR = {
   escalarForte: 'Escalar forte quando o custo for até (× a meta)',
   dentroMeta: 'Dentro da meta quando for até (× a meta)',
@@ -39,19 +49,26 @@ export function montarPainelRegua(alvo, opcoes) {
   const o = opcoes || {};
   const regua = o.regua;
   const editavel = !!o.editavel;
-  // Se quem chamou não informar, assume que carregou (não quebra quem ainda não
-  // passa essa opção). Quando informado false, a leitura do banco falhou ou ainda
-  // não terminou — os campos abaixo podem não ser o valor real, então o botão de
-  // salvar fica bloqueado até uma leitura bem-sucedida (ver C3 do review final).
-  const carregouOk = o.carregouOk !== false;
+  // Fail-CLOSED de propósito: só conta como "carregou" quando quem chamou passar
+  // `true` explicitamente. Isto controla um botão que grava valores de verba
+  // reais em cima da linha única de produção — se quem chamou esquecer de
+  // passar a opção (ou passar undefined), o padrão tem que ser "não confio",
+  // nunca "confio". Antes o padrão era o oposto (fail-OPEN: `!== false`), e é
+  // exatamente essa lacuna que permitia salvar `metas: {}` por cima da régua
+  // real quando a leitura falhava em silêncio (ver C3 do review final, 2026-07-28).
+  const carregouOk = o.carregouOk === true;
   const podeSalvar = editavel && carregouOk;
   const exemplo = o.exemplo || null;
 
   const linhasPeso = Object.keys(PESOS_PADRAO).map((k) =>
     `<tr><td>${ROTULO_PESO[k]}</td><td>${campo('pnd-peso-' + k, regua.pesos[k], '1', editavel)}</td></tr>`).join('');
 
-  const linhasMeta = Object.keys(ROTULO_BALDE).map((b) =>
-    `<tr><td>${ROTULO_BALDE[b]}</td><td>${campo('pnd-meta-' + b, regua.metas[b] != null ? regua.metas[b] : '', '0.01', editavel, 'dinheiro')}</td></tr>`).join('');
+  const linhasMeta = Object.keys(ROTULO_BALDE).map((b) => {
+    if (BALDES_COM_META.includes(b)) {
+      return `<tr><td>${ROTULO_BALDE[b]}</td><td>${campo('pnd-meta-' + b, regua.metas[b] != null ? regua.metas[b] : '', '0.01', editavel, 'dinheiro')}</td></tr>`;
+    }
+    return `<tr><td>${ROTULO_BALDE[b]}</td><td class="pnd-sem-meta">${esc(EXPLICACAO_SEM_META)}</td></tr>`;
+  }).join('');
 
   const linhasLimiar = Object.keys(LIMIARES_PADRAO).map((k) =>
     `<tr><td>${ROTULO_LIMIAR[k]}</td><td>${campo('pnd-limiar-' + k, regua.limiares[k], '0.05', editavel)}</td></tr>`).join('');
@@ -66,7 +83,7 @@ export function montarPainelRegua(alvo, opcoes) {
         </div>
         <div class="pnd-bloco">
           <h3 class="pnd-titulo">Quanto você aceita pagar</h3>
-          <p class="pnd-ajuda">Seu custo-alvo por ponto, em reais, para cada tipo de campanha. É o que dispara a decisão de verba.</p>
+          <p class="pnd-ajuda">Seu custo-alvo por ponto, em reais — só para Engajamento e Reconhecimento, que são julgados por curtida/comentário/salvamento/compartilhamento. As demais campanhas têm objetivo próprio e são julgadas pela regra dele, não por este preço.</p>
           <table class="pnd-tabela"><tbody>${linhasMeta}</tbody></table>
         </div>
         <div class="pnd-bloco">
@@ -97,6 +114,12 @@ export function montarPainelRegua(alvo, opcoes) {
     // Se o dono apagar um campo sem querer, o valor volta pro que a régua JÁ TINHA
     // (não pro padrão de fábrica) — senão um peso 50 customizado vira 30 no silêncio.
     for (const k of Object.keys(PESOS_PADRAO)) pesos[k] = ler('pnd-peso-' + k, regua.pesos[k]);
+    // Baldes fora de BALDES_COM_META não têm <input> na tela (ver linhasMeta) —
+    // 'pnd-meta-<balde>' não existe no DOM, `ler` devolve o padrão 0, e a linha
+    // abaixo não grava a chave. Resultado: salvar a régua também limpa qualquer
+    // meta antiga guardada por engano num balde sem target (ex.: 'padrao'),
+    // o que é o comportamento certo — essas metas nunca deveriam existir (ver M
+    // do review final, 2026-07-28).
     for (const b of Object.keys(ROTULO_BALDE)) { const v = ler('pnd-meta-' + b, 0); if (v > 0) metas[b] = v; }
     for (const k of Object.keys(LIMIARES_PADRAO)) limiares[k] = ler('pnd-limiar-' + k, regua.limiares[k]);
     return { pesos, metas, limiares };

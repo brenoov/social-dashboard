@@ -142,6 +142,15 @@ Quem tem permissão de ADMINISTRADOR pode editar os três conjuntos:
   • Quanto você aceita pagar (meta por objetivo de campanha — em reais).
   • Quando cada cor acende (limiares — multiplicadores da meta).
 
+SÓ Engajamento e Reconhecimento ganham meta em reais nessa tabela — de
+propósito. Tráfego, Mensagens, Leads, Vendas e o "Padrão" (usado quando um
+balde não tem regra própria) NÃO têm campo pra preencher: essas campanhas têm
+objetivo próprio (clique, conversa, cadastro, venda), e curtida/comentário/
+salvamento/compartilhamento não dizem se esse objetivo foi cumprido — julgar
+uma venda pelo preço de uma curtida é o exato bug que essa régua já causou
+uma vez. Quem decide essas campanhas é a regra do próprio objetivo, não a
+métrica ponderada.
+
 A tela mostra um EXEMPLO VIVO ao lado da régua: abra a aba Campanhas primeiro,
 e a tela usará uma campanha sua de verdade pra mostrar como cada ajuste muda o
 veredito e o custo por ponto. Sem exemplo, a régua fica no escuro.

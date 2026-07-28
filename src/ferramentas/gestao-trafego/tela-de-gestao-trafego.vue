@@ -561,18 +561,30 @@ let _gtRegua = normalizarRegua(null);   // começa no padrão; o banco sobrescre
 let _gtReguaCarregada = false;
 
 async function _gtCarregarRegua() {
-  try {
-    const linhas = await sb('gt_ponderada_config?select=pesos,metas,limiares&id=eq.1');
-    _gtRegua = normalizarRegua((linhas || [])[0]);
-    _gtReguaCarregada = true;
-  } catch (e) {
+  // sb() NUNCA lança — ver src/compartilhado/buscar-e-salvar-dados.js. Falha de
+  // rede, sessão expirada (401), falta de GRANT (42501) e erro do servidor (5xx)
+  // voltam como array vazio com .erro anexado (comErro); uma negação de RLS
+  // devolve 200 com lista vazia, SEM .erro — pro PostgREST é indistinguível de
+  // "a tabela realmente não tem nada". Um try/catch aqui era código morto: o
+  // catch nunca rodava, e a flag de "carregou" ficava true mesmo numa leitura
+  // que falhou silenciosamente. C3 do review final (2026-07-28).
+  const linhas = await sb('gt_ponderada_config?select=pesos,metas,limiares&id=eq.1');
+  const ok = !linhas.erro && linhas.length > 0;
+  if (ok) {
+    _gtRegua = normalizarRegua(linhas[0]);
+  } else {
     // NUNCA engolir em silêncio: sem isso, a aba abre com o padrão de fábrica e
     // parece a régua real. O detalhe técnico vai pro console; o dono só precisa
     // saber, na tela, que o campo pode não estar confiável (ver montarPainelRegua).
-    console.error('[GT] falha ao carregar a régua da métrica ponderada:', e);
+    console.error('[GT] falha ao carregar a régua da métrica ponderada:', linhas.erro || 'a leitura voltou sem nenhuma linha');
     _gtRegua = normalizarRegua(null);
-    _gtReguaCarregada = false;
   }
+  _gtReguaCarregada = ok;
+  // Se a aba "A régua" já estiver aberta (ex.: o dono deixou a aba aberta e a
+  // sessão renovou depois), remonta o painel com o resultado fresco. Sem isto,
+  // uma leitura que só dá certo DEPOIS do primeiro paint deixaria o botão
+  // "Salvar" preso em desabilitado até o dono trocar de aba e voltar.
+  if (_gtAbaAtiva === 'regua') _gtTrocarAba('regua');
 }
 
 // Reconhece uma rejeição de permissão/RLS do Postgres (código 42501 ou texto
@@ -1608,6 +1620,9 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.pnd-input){width:96px;padding:5px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);color:var(--text);font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));text-align:right;}
 .tela-gestao-trafego :deep(.pnd-input:focus){outline:none;border-color:var(--accent);}
 .tela-gestao-trafego :deep(.pnd-valor){font-weight:700;}
+/* Explicação de "sem meta de propósito" (ver M do review final, 2026-07-28):
+   sobrescreve o nowrap/right da última coluna, senão o texto sai cortado. */
+.tela-gestao-trafego :deep(.pnd-tabela td.pnd-sem-meta){white-space:normal;text-align:left;font-style:italic;color:var(--muted);font-size:calc(10px*var(--gt-fs,1.3));line-height:1.4;padding-left:12px;}
 .tela-gestao-trafego :deep(.pnd-salvar){align-self:flex-start;padding:9px 20px;border-radius:20px;border:none;background:var(--accent);color:#fff;font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;}
 .tela-gestao-trafego :deep(.pnd-salvar:disabled){opacity:.65;cursor:default;}
 
