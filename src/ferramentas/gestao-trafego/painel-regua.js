@@ -1,7 +1,18 @@
 // Aba "A régua": as tabelas que governam a métrica ponderada em toda a ferramenta.
 // Não fala com o banco — recebe a régua pronta e devolve a editada pelo callback.
 // O EXEMPLO VIVO ao lado é o ponto: sem ele o dono editaria peso no escuro.
-import { calcularPonderada, PESOS_PADRAO } from './ponderada.js';
+//
+// A tela tem DOIS NÍVEIS DE LEITURA, não dois sistemas concorrentes (o dono
+// finalmente colocou em palavras, 2026-07-28):
+//  - BLOCO 1, a ponderada: uma média geral. Responde "essa campanha comprou
+//    engajamento caro ou barato, no geral?". Vale enquanto o dono NÃO declarar
+//    o que a campanha está comprando.
+//  - BLOCO 2, o resultado: a leitura fina — custo por lead, por conversa, por
+//    venda, por visita, por mil impressões. Vale a partir da declaração.
+// Peso responde "quanto isso vale pra mim"; meta responde "quanto eu aceito
+// pagar por isso" — por isso os dois blocos ficam JUNTOS mas SEPARADOS: o
+// dono precisa ver os dois, mas nunca confundir um com o outro.
+import { calcularPonderada, PESOS_PADRAO, LIMIARES_PADRAO } from './ponderada.js';
 import { metaDoBalde } from './regua.js';
 import { ALVOS, alvoDoBalde, avaliarAlvo } from './alvos.js';
 // Metas por interação (Fase 3): ALVOS e INTERACOES são DUAS listas que gravam na
@@ -13,10 +24,21 @@ import { INTERACOES } from './interacoes.js';
 const ROTULO_PESO = {
   curtidas: 'Curtida', comentarios: 'Comentário',
   salvamentos: 'Salvamento', compartilhamentos: 'Compartilhamento',
+  // Visita entra com peso 5 (decisão do dono, 2026-07-28 — ver ponderada.js).
+  visitas: 'Visita',
 };
 const ROTULO_BALDE = {
   engajamento: 'Engajamento', trafego: 'Tráfego', reconhecimento: 'Reconhecimento',
   mensagens: 'Mensagens', leads: 'Leads', vendas: 'Vendas',
+};
+// Voltaram a ser editáveis (decisão do dono, 2026-07-28): a tela mostra onde a cor
+// muda e ele quer poder mover isso. Cada campo é um MULTIPLICADOR da meta de
+// engajamento (custo por ponto) — sozinho ele não diz nada ("0,8" de quê?), por
+// isso o preview ao lado converte pra reais em tempo real (ver pintarLimiares).
+const ROTULO_LIMIAR = {
+  escalarForte: 'Escalar forte até',
+  dentroMeta: 'Dentro da meta até',
+  manter: 'Manter e observar até',
 };
 // Cada faixa com o texto e a cor do selo. Sem emoji: a tela usa cor e forma,
 // não figurinha (é a regra da casa em elemento visual).
@@ -32,15 +54,15 @@ const inteiro = (v) => Number(v || 0).toLocaleString('pt-BR');
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // `formato` é a unidade que mora DENTRO da caixa do campo — vem direto de
-// ALVOS[balde].unidade ('R$' hoje, pra toda meta) na linha de meta; peso não
-// tem unidade (é um multiplicador puro), então chama sem este argumento.
+// ALVOS[balde].unidade ('R$' hoje, pra toda meta) na linha de meta; peso e
+// limiar não têm unidade (são números puros), então chamam sem este argumento.
 // Sem ela o número fica solto e o rótulo precisa carregar a unidade, o que
 // alongava a linha.
 function campo(id, valor, passo, editavel, formato) {
   const prefixo = formato || '';
   if (!editavel) {
     // Custo-alvo é dinheiro: mostra "R$ 0,20" igual ao exemplo vivo ao lado,
-    // não o número cru. Peso fica como número puro (sem unidade).
+    // não o número cru. Peso e limiar ficam como número puro (sem unidade).
     const texto = prefixo === 'R$' ? reais(valor === '' ? null : valor) : esc(valor);
     return `<span class="pnd-valor">${texto}</span>`;
   }
@@ -72,6 +94,11 @@ export function montarPainelRegua(alvo, opcoes) {
   const linhasPeso = Object.keys(PESOS_PADRAO).map((k) =>
     `<tr><td>${ROTULO_PESO[k]}</td><td>${campo('pnd-peso-' + k, regua.pesos[k], '1', editavel)}</td></tr>`).join('');
 
+  // Um preview em reais mora do lado de cada limiar (ver pintarLimiares): sozinho
+  // um multiplicador ("0,8") não diz nada, e é isso que o transforma em legível.
+  const linhasLimiar = Object.keys(LIMIARES_PADRAO).map((k) =>
+    `<tr><td>${esc(ROTULO_LIMIAR[k])}</td><td>${campo('pnd-limiar-' + k, regua.limiares[k], '0.05', editavel)}<div class="pnd-limiar-prev" id="pnd-limiar-prev-${k}"></div></td></tr>`).join('');
+
   // Uma linha por objetivo, cada uma na unidade do resultado dele (ver alvos.js).
   // Objetivo sem meta salva (leads, vendas, reconhecimento hoje, ver migration
   // 20260728_alvos_por_objetivo.sql) mostra o campo VAZIO com uma nota — nunca um
@@ -91,7 +118,8 @@ export function montarPainelRegua(alvo, opcoes) {
   // Só serve pra campanha/anúncio de engajamento em que o dono DECLARAR, no
   // cartão dela, qual interação está comprando (ver o selo de objetivo no
   // cartão, tela-de-gestao-trafego.vue) — sem declaração nada muda, continua
-  // no ponto ponderado.
+  // no ponto ponderado. Mora no Bloco 1 porque é ainda o "mundo do engajamento":
+  // só troca peso por preço de mercado, não vira uma leitura de outro objetivo.
   const linhasInteracao = Object.keys(INTERACOES).map((k) => {
     const it = INTERACOES[k];
     const temMeta = regua.metas[k] != null;
@@ -102,34 +130,49 @@ export function montarPainelRegua(alvo, opcoes) {
     </tr>`;
   }).join('');
 
-  // Ordem dos cartões: abertura explica o conceito → o que vale → quanto pagar →
-  // quando acende. A cor depende da meta, então ela precisa ser lida antes.
+  // Ordem dos cartões: abertura explica o conceito → Bloco 1 (a ponderada, geral)
+  // → Bloco 2 (o resultado, fino). A cor do exemplo vivo depende da meta, então
+  // ela precisa ser lida antes.
   alvo.innerHTML = `
     <div class="pnd-intro">
       <h2 class="pnd-intro-tit">O que é esta aba</h2>
         <div class="pnd-intro-corpo">
       <p>Aqui você diz <b>quanto aceita pagar por cada resultado</b>. É esse número que faz o cartão da campanha acender verde, amarelo ou vermelho lá na aba Campanhas.</p>
-      <p>Cada tipo de campanha é medido pelo resultado que ele realmente compra: campanha de lead pelo <b>custo por lead</b>, de WhatsApp pelo <b>custo por conversa</b>, de venda pelo <b>custo por venda</b>.</p>
-      <p>A exceção é <b>engajamento</b>, que não compra uma ação só. Aí somamos as interações dando peso a cada uma — curtir vale 1, salvar vale 30, porque quem salva quer voltar naquilo. A soma chama-se <b>ponto</b>, e a meta é o preço do ponto.</p>
+      <p>Existem duas formas de ler o preço. A <b>ponderada</b> é a leitura geral: soma curtida, comentário, salvamento, compartilhamento e visita, cada um valendo o que você decidir, numa nota só. Ela responde "essa campanha comprou engajamento caro ou barato, no geral?". O <b>resultado</b> é a leitura fina: custo por lead, por conversa, por venda, por visita, por mil impressões — responde exatamente o que aquele tipo de campanha comprou.</p>
+      <p>Qual das duas vale para uma campanha? Você decide lá em Campanhas, declarando no cartão dela o que ela está comprando. Sem declarar, ela é julgada pela ponderada. Declarando um resultado, vale o custo daquele resultado. Declarando uma interação — curtida, comentário, salvamento ou compartilhamento —, vale o custo daquela interação, que você define logo abaixo.</p>
+      <p>Peso e meta respondem perguntas diferentes: o <b>peso</b> diz quanto aquilo vale pra você, a <b>meta</b> diz quanto você aceita pagar por aquilo. Por isso, quando você declara uma interação, o peso não entra na conta — quem decide é só a meta.</p>
     </div>
       </div>
     <div class="pnd-regua">
       <div>
-        <div class="pnd-cards">
-          <div class="pnd-bloco">
-            <div class="pnd-cab"><h3 class="pnd-titulo">Quanto vale cada interação</h3>${ajudaBtn('pesos')}</div>
-            <p class="pnd-ajuda">Uma curtida vale 1 ponto. Se salvar vale 30, é como dizer que um salvamento equivale a 30 curtidas.</p>
-            <table class="pnd-tabela"><tbody>${linhasPeso}</tbody></table>
+        <div class="pnd-grupo">
+          <h2 class="pnd-grupo-tit">A métrica ponderada${ajudaBtn('ponto')}</h2>
+          <p class="pnd-grupo-sub">A leitura geral. Vale para toda campanha de engajamento até você declarar, no cartão dela, o que ela está comprando.</p>
+          <div class="pnd-cards">
+            <div class="pnd-bloco">
+              <div class="pnd-cab"><h3 class="pnd-titulo">Quanto vale cada interação</h3>${ajudaBtn('pesos')}</div>
+              <p class="pnd-ajuda">Uma curtida vale 1 ponto. Uma visita vale 5. Um salvamento vale 30 — é como dizer que salvar equivale a 30 curtidas.</p>
+              <table class="pnd-tabela"><tbody>${linhasPeso}</tbody></table>
+            </div>
+            <div class="pnd-bloco">
+              <div class="pnd-cab"><h3 class="pnd-titulo">Quando cada cor acende</h3>${ajudaBtn('cores')}</div>
+              <p class="pnd-ajuda">Multiplicadores da sua meta de engajamento (custo por ponto, na tabela ao lado). Cada um mostra em reais o que vira, pra você não fazer a conta de cabeça.</p>
+              <table class="pnd-tabela"><tbody>${linhasLimiar}</tbody></table>
+            </div>
+            <div class="pnd-bloco">
+              <div class="pnd-cab"><h3 class="pnd-titulo">Quanto você aceita pagar por cada interação</h3>${ajudaBtn('meta_interacao')}</div>
+              <p class="pnd-ajuda">Só vale para campanha de engajamento em que você declarar, no cartão dela, qual interação ela está comprando. Curtida e salvamento são mercados diferentes: hoje uma curtida sai por R$ 0,12 e um salvamento por R$ 48.</p>
+              <table class="pnd-tabela"><tbody>${linhasInteracao}</tbody></table>
+            </div>
           </div>
-          <div class="pnd-bloco">
-            <div class="pnd-cab"><h3 class="pnd-titulo">Quanto você aceita pagar por resultado</h3>${ajudaBtn('meta_resultado')}</div>
-            <p class="pnd-ajuda">Uma linha por tipo de campanha, cada uma na unidade do resultado que ela compra. É esse número que dispara a decisão de verba.</p>
-            <table class="pnd-tabela"><tbody>${linhasMeta}</tbody></table>
-          </div>
-          <div class="pnd-bloco">
-            <div class="pnd-cab"><h3 class="pnd-titulo">Quanto você aceita pagar por cada interação</h3>${ajudaBtn('meta_interacao')}</div>
-            <p class="pnd-ajuda">Só vale para campanha de engajamento em que você declarar, no cartão dela, qual interação ela está comprando. Curtida e salvamento são mercados diferentes: hoje uma curtida sai por R$ 0,12 e um salvamento por R$ 48.</p>
-            <table class="pnd-tabela"><tbody>${linhasInteracao}</tbody></table>
+        </div>
+        <div class="pnd-grupo">
+          <div class="pnd-cards">
+            <div class="pnd-bloco">
+              <div class="pnd-cab"><h3 class="pnd-titulo">Quanto você aceita pagar por resultado</h3>${ajudaBtn('meta_resultado')}</div>
+              <p class="pnd-ajuda">Uma linha por tipo de campanha, cada uma na unidade do resultado que ela compra. É esse número que dispara a decisão de verba.</p>
+              <table class="pnd-tabela"><tbody>${linhasMeta}</tbody></table>
+            </div>
           </div>
         </div>
         ${editavel ? (
@@ -167,11 +210,27 @@ export function montarPainelRegua(alvo, opcoes) {
     // nunca colidem, então as duas listas convivem no mesmo objeto sem
     // sobrescrever uma a outra.
     for (const k of Object.keys(INTERACOES)) { const v = ler('pnd-int-' + k, 0); if (v > 0) metas[k] = v; }
-    // Os limiares saíram da tela (decisão do dono, 2026-07-28): continuam valendo
-    // no cálculo e no banco, mas não são mais editáveis aqui. Devolver os que já
-    // estavam evita que salvar apague o que existe.
-    for (const k of Object.keys(regua.limiares)) limiares[k] = regua.limiares[k];
+    // Limiares voltaram a ser editáveis (decisão do dono, 2026-07-28): percorre
+    // LIMIARES_PADRAO (a MESMA lista que desenhou linhasLimiar), com o mesmo
+    // fallback dos pesos — campo vazio/inválido volta pro que a régua JÁ TINHA,
+    // nunca pro multiplicador de fábrica.
+    for (const k of Object.keys(LIMIARES_PADRAO)) limiares[k] = ler('pnd-limiar-' + k, regua.limiares[k]);
     return { pesos, metas, limiares };
+  }
+
+  // Converte cada limiar em reais, ao vivo, contra a meta de engajamento (custo
+  // por ponto — o mesmo campo 'pnd-meta-engajamento' do Bloco 2). Sem isso, um
+  // multiplicador ("0,8") é abstrato demais pra decidir onde mover o corte.
+  function pintarLimiares(r) {
+    const metaEng = Number(r.metas && r.metas.engajamento) || 0;
+    for (const k of Object.keys(LIMIARES_PADRAO)) {
+      const el = document.getElementById('pnd-limiar-prev-' + k);
+      if (!el) continue;
+      const mult = Number(r.limiares[k]);
+      el.textContent = (metaEng > 0 && Number.isFinite(mult) && mult > 0)
+        ? `× ${mult.toLocaleString('pt-BR')} = ${reais(mult * metaEng)}`
+        : 'defina a meta de engajamento para ver em reais';
+    }
   }
 
   // EXEMPLO VIVO: um bloco por OBJETIVO que a conta roda, com campanha real.
@@ -202,7 +261,7 @@ export function montarPainelRegua(alvo, opcoes) {
          <tr><td>Salvamentos</td><td>${inteiro(ex.quantidades.salvamentos)}</td></tr>
          <tr><td>Compartilhamentos</td><td>${inteiro(ex.quantidades.compartilhamentos)}</td></tr>
          <tr class="forte"><td>Pontos${ajudaBtn('ponto')}</td><td>${inteiro(c.pontos)}</td></tr>`
-      : (ex.detalhe || []).map((d) => `<tr class="forte"><td>${esc(d.rotulo)}</td><td>${d.valor == null ? '\u2014' : inteiro(d.valor)}</td></tr>`).join('');
+      : (ex.detalhe || []).map((d) => `<tr class="forte"><td>${esc(d.rotulo)}</td><td>${d.valor == null ? '—' : inteiro(d.valor)}</td></tr>`).join('');
     const cortes = meta > 0 ? `
         <div class="pnd-ex-regua">
           <div class="pnd-ex-corte"><span class="pnd-ponto bom"></span>até ${reais(meta * r.limiares.escalarForte)} — escalar forte</div>
@@ -254,13 +313,20 @@ export function montarPainelRegua(alvo, opcoes) {
       ${lista.map((ex) => blocoDeExemplo(ex, r)).join('')}`;
   }
 
+  // Repinta os dois: o preview dos limiares (Bloco 1) e o exemplo vivo (lateral).
+  // Os dois dependem da MESMA leitura da tela — uma tecla em qualquer campo
+  // (peso, limiar, meta de balde ou meta de interação) precisa mover os dois.
+  function atualizarTela() {
+    pintarLimiares(reguaDaTela());
+    pintarExemplo();
+  }
 
   if (editavel) {
-    alvo.querySelectorAll('.pnd-input').forEach((el) => el.addEventListener('input', pintarExemplo));
+    alvo.querySelectorAll('.pnd-input').forEach((el) => el.addEventListener('input', atualizarTela));
     const botao = document.getElementById('pnd-salvar');
     // Além do atributo `disabled` no HTML, nem liga o listener quando a leitura do
     // banco não foi confirmada — dupla trava contra salvar em cima de dado errado.
     if (botao && podeSalvar) botao.addEventListener('click', () => o.aoSalvar && o.aoSalvar(reguaDaTela(), botao));
   }
-  pintarExemplo();
+  atualizarTela();
 }

@@ -2147,6 +2147,14 @@ Object.assign(window, {
    precisa continuar à vista enquanto se rola e se edita. Antes as tabelas ficavam
    numa coluna e o exemplo sozinho na outra, deixando um vazio enorme ao lado. */
 .tela-gestao-trafego :deep(.pnd-regua){display:grid;grid-template-columns:minmax(0,1fr) minmax(290px,370px);gap:18px;align-items:start;}
+/* Os DOIS BLOCOS da régua (ver painel-regua.js): Bloco 1 "a métrica ponderada"
+   (geral) e Bloco 2 "quanto você aceita pagar por resultado" (fino). Cada
+   .pnd-grupo é um dos dois; o espaço entre eles precisa ser MAIOR que o gap
+   entre cartões do mesmo bloco, senão os dois níveis leem como uma coisa só. */
+.tela-gestao-trafego :deep(.pnd-grupo){margin-bottom:22px;}
+.tela-gestao-trafego :deep(.pnd-grupo:last-child){margin-bottom:0;}
+.tela-gestao-trafego :deep(.pnd-grupo-tit){display:flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:800;color:var(--text);margin:0 0 4px;}
+.tela-gestao-trafego :deep(.pnd-grupo-sub){font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;margin:0 0 12px;max-width:70ch;}
 .tela-gestao-trafego :deep(.pnd-cards){display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:14px;}
 .tela-gestao-trafego :deep(.pnd-bloco){background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;}
 .tela-gestao-trafego :deep(.pnd-cab){display:flex;align-items:center;gap:8px;margin-bottom:5px;}
@@ -2189,6 +2197,10 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.pnd-input::-webkit-outer-spin-button),
 .tela-gestao-trafego :deep(.pnd-input::-webkit-inner-spin-button){-webkit-appearance:none;margin:0;}
 .tela-gestao-trafego :deep(.pnd-valor){font-family:var(--fonte-dados);font-size:calc(12px*var(--gt-fs,1.3));font-weight:600;}
+/* Preview do limiar em reais (ver pintarLimiares em painel-regua.js): fica logo
+   abaixo do campo, na mesma célula — é o que torna um multiplicador solto
+   ("0,8") legível ("× 0,8 = R$ 0,12"), recalculado a cada tecla. */
+.tela-gestao-trafego :deep(.pnd-limiar-prev){margin-top:4px;font-family:var(--fonte-dados);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);white-space:nowrap;}
 /* "Sem meta de propósito" virou UMA nota no rodapé do cartão (ver M do review final,
    2026-07-28). Como linha de tabela, o texto quebrava em quatro e inchava a linha. */
 .tela-gestao-trafego :deep(.pnd-nota){margin:12px 0 0;padding-top:11px;border-top:1px dashed var(--border);font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;}

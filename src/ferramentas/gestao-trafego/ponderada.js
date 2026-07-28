@@ -4,7 +4,17 @@
 // PURO: sem rede, sem tela, sem Supabase — só entram números e saem números.
 // É isso que permite testar a conta inteira com `node --test`.
 
-export const PESOS_PADRAO = Object.freeze({ curtidas: 1, comentarios: 10, salvamentos: 30, compartilhamentos: 20 });
+// VISITA entra com peso 5 (decisão do dono, 2026-07-28), e o número foi escolhido
+// medindo: com peso 25 a visita virava 59% a 100% dos pontos em 7 das 13 campanhas
+// de engajamento dele, e a PIOR campanha do ranking virava a MELHOR — a ponderada
+// deixava de medir engajamento e passava a medir tráfego. Com 5 ela conta de
+// verdade sem sequestrar o resultado.
+//
+// SEGUIDOR ficou de fora de propósito: a Meta não reporta seguidor por campanha
+// nem por anúncio (conferido em todas as 5 contas). O que existe é seguidor por
+// PERFIL por dia, que é a soma de tudo — campanha, post orgânico, indicação.
+// Atribuir isso a uma campanha seria inventar.
+export const PESOS_PADRAO = Object.freeze({ curtidas: 1, comentarios: 10, salvamentos: 30, compartilhamentos: 20, visitas: 5 });
 export const LIMIARES_PADRAO = Object.freeze({ escalarForte: 0.8, dentroMeta: 1.0, manter: 1.3 });
 
 // Ordem importa: a LÍQUIDA vem primeiro e vence a bruta. Líquida já desconta quem
@@ -14,6 +24,9 @@ const FONTES = {
   comentarios: ['onsite_conversion.post_net_comment', 'comment'],
   salvamentos: ['onsite_conversion.post_net_save', 'onsite_conversion.post_save'],
   compartilhamentos: ['post', 'share'],
+  // Visita = quem REALMENTE chegou no destino (landing_page_view). O clique
+  // (link_click) é a queda: alguém pode clicar e desistir antes de a página abrir.
+  visitas: ['landing_page_view', 'link_click'],
 };
 
 function numero(v) { const n = Number(v); return Number.isFinite(n) ? n : 0; }
