@@ -675,11 +675,21 @@ function _gtExemploParaRegua() {
   // balde que NÃO é a ponderada — painel-regua.js recalcula ao vivo só o caso
   // 'ponderada' (engajamento), a partir de `quantidades`.
   const custo = (alvo && alvo.metrica !== 'ponderada') ? _gtMetricValue(alvo.metrica, linha) : null;
+  // DETALHE do exemplo: os números que fazem sentido PRA ESTE objetivo. Mostrar
+  // curtida e salvamento numa campanha de lead não diz nada sobre o que ela
+  // comprou — foi a confusão que o dono apontou. Engajamento fica com `null`
+  // porque lá o detalhe é a própria quebra das interações, que o painel desenha
+  // e recalcula ao vivo conforme os pesos.
+  const detalhe = (alvo && alvo.resultado)
+    ? [{ rotulo: GT_METRIC_CATALOG[alvo.resultado]?.label || alvo.resultado,
+         valor: _gtMetricValue(alvo.resultado, linha) }]
+    : null;
   return {
     nome: linha.campaign_name || 'sua campanha',
     balde,
     quantidades: quantidadesDoInsight(linha),
     custo,
+    detalhe,
   };
 }
 
@@ -1980,6 +1990,16 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.pnd-ex-selo.meio){background:rgba(245,158,11,.15);color:var(--orange);}
 .tela-gestao-trafego :deep(.pnd-ex-selo.ruim){background:rgba(220,38,38,.12);color:var(--red);}
 .tela-gestao-trafego :deep(.pnd-ex-selo.neutro){background:var(--surface2);color:var(--muted);}
+/* "Onde a cor vira": os limiares saíram da EDIÇÃO, não da vista. Em reais, porque
+   multiplicador (0,8 / 1,0 / 1,3) é abstrato e o valor em reais é a mesma
+   informação de um jeito que se lê. */
+.tela-gestao-trafego :deep(.pnd-ex-regua){margin-top:14px;padding-top:12px;border-top:1px solid var(--border);}
+.tela-gestao-trafego :deep(.pnd-ex-regua-tit){font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);margin-bottom:7px;}
+.tela-gestao-trafego :deep(.pnd-ex-corte){display:flex;align-items:center;gap:7px;font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--text);line-height:1.9;}
+.tela-gestao-trafego :deep(.pnd-ponto){width:7px;height:7px;border-radius:50%;flex:0 0 auto;}
+.tela-gestao-trafego :deep(.pnd-ponto.bom){background:var(--green);}
+.tela-gestao-trafego :deep(.pnd-ponto.meio){background:var(--orange);}
+.tela-gestao-trafego :deep(.pnd-ponto.ruim){background:var(--red);}
 .tela-gestao-trafego :deep(.pnd-ex-corpo){padding:14px 18px 16px;}
 /* Cores explícitas: no tema escuro as linhas herdavam um tom de baixo contraste
    e a tabela do exemplo ficava quase ilegível. Rótulo apagado, valor forte. */
