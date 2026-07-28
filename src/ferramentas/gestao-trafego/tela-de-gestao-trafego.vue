@@ -2105,7 +2105,14 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.pnd-tabela tr:last-child td){border-bottom:none;padding-bottom:0;}
 .tela-gestao-trafego :deep(.pnd-tabela td:last-child){text-align:right;white-space:nowrap;width:1%;padding-left:12px;}
 .tela-gestao-trafego :deep(.pnd-destaque td){font-weight:800;}
-.tela-gestao-trafego :deep(.pnd-intro){background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:14px;padding:16px 20px;margin-bottom:18px;max-width:760px;}
+/* Ocupa a lateral inteira (regra da casa: nada de max-width estreito centralizado).
+   Em tela larga os parágrafos vão para DUAS COLUNAS — assim usa toda a extensão
+   sem virar uma linha de 200 caracteres, que ninguém lê até o fim. */
+.tela-gestao-trafego :deep(.pnd-intro){background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:14px;padding:16px 20px;margin-bottom:18px;}
+@media (min-width:1100px){
+  .tela-gestao-trafego :deep(.pnd-intro-corpo){column-count:2;column-gap:34px;}
+  .tela-gestao-trafego :deep(.pnd-intro-corpo p){break-inside:avoid;}
+}
 .tela-gestao-trafego :deep(.pnd-intro-tit){font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));font-weight:700;color:var(--text);margin:0 0 8px;}
 .tela-gestao-trafego :deep(.pnd-intro p){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));color:var(--muted);line-height:1.6;margin:0 0 7px;}
 .tela-gestao-trafego :deep(.pnd-intro p:last-child){margin-bottom:0;}
