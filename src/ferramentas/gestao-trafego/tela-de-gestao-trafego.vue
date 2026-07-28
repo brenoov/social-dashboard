@@ -1626,29 +1626,78 @@ Object.assign(window, {
 
 /* Abas da ferramenta. Prefixo .pnd- próprio: nomes globais vazam pra dentro de
    telas scoped neste projeto e já causaram bug antes. */
-.tela-gestao-trafego :deep(.pnd-abas){display:flex;gap:4px;padding:0 4px 12px;flex-wrap:wrap;}
-.tela-gestao-trafego :deep(.pnd-aba){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;letter-spacing:.4px;padding:7px 16px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);transition:all .15s;}
-.tela-gestao-trafego :deep(.pnd-aba:hover){color:var(--accent);border-color:var(--accent);}
-.tela-gestao-trafego :deep(.pnd-aba.ativa){background:var(--accent-light);border-color:var(--accent);color:var(--accent);}
+/* Abas: um CONTROLE SEGMENTADO (trilho único com a aba ativa em relevo), não dois
+   botões soltos com borda cada. Dois botões contornados lado a lado brigavam com as
+   pílulas de período e de status logo acima — o trilho deixa claro que é uma escolha
+   entre duas telas, não mais um filtro. */
+.tela-gestao-trafego :deep(.pnd-abas){display:inline-flex;gap:2px;padding:4px;margin:0 4px 18px;border-radius:13px;background:var(--surface2);border:1px solid var(--border);}
+.tela-gestao-trafego :deep(.pnd-aba){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:600;letter-spacing:.3px;padding:8px 20px;border-radius:9px;cursor:pointer;border:none;background:none;color:var(--muted);transition:color .18s,background .18s;white-space:nowrap;}
+.tela-gestao-trafego :deep(.pnd-aba:hover){color:var(--text);}
+.tela-gestao-trafego :deep(.pnd-aba.ativa){background:var(--surface);color:var(--accent);box-shadow:0 1px 2px rgba(0,0,0,.06),0 4px 12px rgba(0,0,0,.05);}
 
-/* Aba "A régua": tabelas editáveis + exemplo vivo ao lado (ver painel-regua.js). */
-.tela-gestao-trafego :deep(.pnd-regua){display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;align-items:start;}
-.tela-gestao-trafego :deep(.pnd-col){display:flex;flex-direction:column;gap:16px;min-width:0;}
-.tela-gestao-trafego :deep(.pnd-bloco){background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;}
-.tela-gestao-trafego :deep(.pnd-titulo){font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:800;color:var(--text);margin:0 0 4px;}
-.tela-gestao-trafego :deep(.pnd-ajuda){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));color:var(--muted);margin:0 0 12px;line-height:1.5;}
+/* Aba "A régua" (ver painel-regua.js).
+   Composição: os três cartões de ajuste ocupam a área principal e fluem de 1 a 3
+   colunas conforme a largura; o EXEMPLO VIVO fica numa faixa própria à direita e
+   GRUDADO no topo (sticky) — ele é o retorno visual de cada tecla digitada, então
+   precisa continuar à vista enquanto se rola e se edita. Antes as tabelas ficavam
+   numa coluna e o exemplo sozinho na outra, deixando um vazio enorme ao lado. */
+.tela-gestao-trafego :deep(.pnd-regua){display:grid;grid-template-columns:minmax(0,1fr) minmax(290px,370px);gap:18px;align-items:start;}
+.tela-gestao-trafego :deep(.pnd-cards){display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:14px;}
+.tela-gestao-trafego :deep(.pnd-bloco){background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;}
+.tela-gestao-trafego :deep(.pnd-cab){display:flex;align-items:center;gap:8px;margin-bottom:5px;}
+.tela-gestao-trafego :deep(.pnd-cab::before){content:'';width:3px;height:14px;border-radius:2px;background:var(--accent);flex:0 0 auto;}
+.tela-gestao-trafego :deep(.pnd-titulo){font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));font-weight:700;letter-spacing:.2px;color:var(--text);margin:0;}
+.tela-gestao-trafego :deep(.pnd-ajuda){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);margin:0 0 12px;line-height:1.55;}
 .tela-gestao-trafego :deep(.pnd-tabela){width:100%;border-collapse:collapse;}
-.tela-gestao-trafego :deep(.pnd-tabela td){padding:7px 0;border-bottom:1px solid var(--border);font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));color:var(--text);}
-.tela-gestao-trafego :deep(.pnd-tabela td:last-child){text-align:right;white-space:nowrap;}
+.tela-gestao-trafego :deep(.pnd-tabela td){padding:8px 0;border-bottom:1px solid var(--border);font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));color:var(--text);line-height:1.35;}
+.tela-gestao-trafego :deep(.pnd-tabela tr:last-child td){border-bottom:none;padding-bottom:0;}
+.tela-gestao-trafego :deep(.pnd-tabela td:last-child){text-align:right;white-space:nowrap;width:1%;padding-left:12px;}
 .tela-gestao-trafego :deep(.pnd-destaque td){font-weight:800;}
-.tela-gestao-trafego :deep(.pnd-input){width:96px;padding:5px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);color:var(--text);font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));text-align:right;}
-.tela-gestao-trafego :deep(.pnd-input:focus){outline:none;border-color:var(--accent);}
-.tela-gestao-trafego :deep(.pnd-valor){font-weight:700;}
-/* Explicação de "sem meta de propósito" (ver M do review final, 2026-07-28):
-   sobrescreve o nowrap/right da última coluna, senão o texto sai cortado. */
-.tela-gestao-trafego :deep(.pnd-tabela td.pnd-sem-meta){white-space:normal;text-align:left;font-style:italic;color:var(--muted);font-size:calc(10px*var(--gt-fs,1.3));line-height:1.4;padding-left:12px;}
-.tela-gestao-trafego :deep(.pnd-salvar){align-self:flex-start;padding:9px 20px;border-radius:20px;border:none;background:var(--accent);color:#fff;font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;}
+/* Campo: a caixa é que tem a borda, e o prefixo (R$ ou ×) mora DENTRO dela — assim
+   dá pra ler "R$ 0,15" como uma coisa só, em vez de um número solto sem unidade. */
+.tela-gestao-trafego :deep(.pnd-campo){display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:9px;background:var(--surface2);padding:0 9px;transition:border-color .15s,box-shadow .15s;}
+.tela-gestao-trafego :deep(.pnd-campo:focus-within){border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-light);}
+.tela-gestao-trafego :deep(.pnd-pre){font-family:var(--fonte-dados);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);}
+/* Número em fonte de dados (IBM Plex Mono), como no resto da casa: dígito com
+   largura fixa faz a coluna de valores alinhar sozinha. */
+.tela-gestao-trafego :deep(.pnd-input){width:62px;padding:6px 0;border:none;background:none;color:var(--text);font-family:var(--fonte-dados);font-size:calc(12px*var(--gt-fs,1.3));text-align:right;outline:none;}
+.tela-gestao-trafego :deep(.pnd-input::-webkit-outer-spin-button),
+.tela-gestao-trafego :deep(.pnd-input::-webkit-inner-spin-button){-webkit-appearance:none;margin:0;}
+.tela-gestao-trafego :deep(.pnd-valor){font-family:var(--fonte-dados);font-size:calc(12px*var(--gt-fs,1.3));font-weight:600;}
+/* "Sem meta de propósito" virou UMA nota no rodapé do cartão (ver M do review final,
+   2026-07-28). Como linha de tabela, o texto quebrava em quatro e inchava a linha. */
+.tela-gestao-trafego :deep(.pnd-nota){margin:12px 0 0;padding-top:11px;border-top:1px dashed var(--border);font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;}
+.tela-gestao-trafego :deep(.pnd-salvar){margin-top:16px;padding:10px 22px;border-radius:22px;border:none;background:var(--accent);color:#fff;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;transition:filter .15s,transform .1s;}
+.tela-gestao-trafego :deep(.pnd-salvar:hover:not(:disabled)){filter:brightness(1.08);}
+.tela-gestao-trafego :deep(.pnd-salvar:active:not(:disabled)){transform:translateY(1px);}
 .tela-gestao-trafego :deep(.pnd-salvar:disabled){opacity:.65;cursor:default;}
+
+/* Exemplo vivo: o resultado vem em manchete, não escondido numa linha de tabela. */
+.tela-gestao-trafego :deep(.pnd-exemplo){position:sticky;top:14px;background:var(--surface);border:1px solid var(--accent-mid);border-radius:14px;overflow:hidden;padding:0;}
+.tela-gestao-trafego :deep(.pnd-ex-topo){padding:16px 18px 14px;background:var(--accent-light);border-bottom:1px solid var(--border);}
+.tela-gestao-trafego :deep(.pnd-ex-rot){font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+.tela-gestao-trafego :deep(.pnd-ex-nome){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:600;color:var(--text);line-height:1.4;margin-bottom:14px;}
+.tela-gestao-trafego :deep(.pnd-ex-num){font-family:var(--fonte-dados);font-size:calc(30px*var(--gt-fs,1.3));font-weight:600;line-height:1;letter-spacing:-1px;color:var(--text);}
+.tela-gestao-trafego :deep(.pnd-ex-leg){font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);margin-top:5px;}
+.tela-gestao-trafego :deep(.pnd-ex-selo){display:inline-block;margin-top:12px;padding:5px 13px;border-radius:20px;font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));font-weight:700;}
+.tela-gestao-trafego :deep(.pnd-ex-selo.bom){background:rgba(22,163,74,.13);color:var(--green);}
+.tela-gestao-trafego :deep(.pnd-ex-selo.meio){background:rgba(245,158,11,.15);color:var(--orange);}
+.tela-gestao-trafego :deep(.pnd-ex-selo.ruim){background:rgba(220,38,38,.12);color:var(--red);}
+.tela-gestao-trafego :deep(.pnd-ex-selo.neutro){background:var(--surface2);color:var(--muted);}
+.tela-gestao-trafego :deep(.pnd-ex-corpo){padding:14px 18px 16px;}
+/* Cores explícitas: no tema escuro as linhas herdavam um tom de baixo contraste
+   e a tabela do exemplo ficava quase ilegível. Rótulo apagado, valor forte. */
+.tela-gestao-trafego :deep(.pnd-ex-corpo .pnd-tabela td){font-size:calc(10.5px*var(--gt-fs,1.3));padding:6px 0;color:var(--muted);}
+.tela-gestao-trafego :deep(.pnd-ex-corpo .pnd-tabela td:last-child){font-family:var(--fonte-dados);font-weight:600;color:var(--text);}
+.tela-gestao-trafego :deep(.pnd-ex-corpo .pnd-tabela tr.forte td){font-weight:700;color:var(--text);}
+@media (max-width:900px){
+  /* No celular a faixa do exemplo desce pro fim e para de grudar; e as abas ocupam
+     a largura toda, como o resto da tela já faz. */
+  .tela-gestao-trafego :deep(.pnd-regua){grid-template-columns:1fr;}
+  .tela-gestao-trafego :deep(.pnd-exemplo){position:static;}
+  .tela-gestao-trafego :deep(.pnd-abas){display:flex;width:calc(100% - 8px);}
+  .tela-gestao-trafego :deep(.pnd-aba){flex:1;padding:9px 8px;}
+}
 
 /* ── Loading state (compartilhado com Gestão à Vista/Análise de Campanhas — cada tela traz sua cópia) ── */
 .tela-gestao-trafego :deep(.gv-loading-screen){grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;min-height:60vh;}
