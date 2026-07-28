@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { planoDeCopia, SUFIXO_PADRAO } from './duplicar.js';
+import { planoDeCopia, SUFIXO_PADRAO, executarPlano } from './duplicar.js';
 
 const CAMPANHA = { id: '100', name: 'Bolsas · Tivoli · Vendas' };
 const CONJUNTOS = [{ id: '200', name: 'Tivoli · Vendas' }, { id: '201', name: 'Tivoli · Remarketing' }];
@@ -93,4 +93,86 @@ test('anuncio orfao (adset_id que nao esta na lista) nao entra no plano', () => 
     anuncios: [...ANUNCIOS, { id: '999', name: 'Órfão', adset_id: '777' }],
   });
   assert.ok(!plano.some(p => p.origemId === '999'), 'anuncio sem pai no plano ficaria sem adset_id');
+});
+
+// Meta de mentira: registra as chamadas e devolve o campo certo por nível.
+function metaFalsa({ falharNo } = {}) {
+  const chamadas = [];
+  let n = 0;
+  const enviar = async (caminho, params) => {
+    chamadas.push({ caminho, params });
+    if (falharNo && caminho === falharNo) throw new Error('A Meta recusou.');
+    n += 1;
+    if (params.deep_copy === false && params.campaign_id) return { copied_adset_id: 'novo-cj-' + n };
+    if (params.deep_copy === false) return { copied_campaign_id: 'novo-camp-' + n };
+    return { copied_ad_id: 'novo-ad-' + n };
+  };
+  return { enviar, chamadas };
+}
+
+const ALVO_CAMPANHA = { nivel: 'campanha', campanha: CAMPANHA, conjuntos: CONJUNTOS, anuncios: ANUNCIOS };
+
+test('executa todos os passos e devolve o id novo de cada um', async () => {
+  const meta = metaFalsa();
+  const plano = planoDeCopia(ALVO_CAMPANHA);
+  const rel = await executarPlano(plano, { enviar: meta.enviar });
+  assert.equal(rel.falhou, null);
+  assert.equal(rel.concluidos.length, 6);
+  assert.equal(Object.keys(rel.criados).length, 6);
+});
+
+test('cada chamada vai para /{id de origem}/copies', async () => {
+  const meta = metaFalsa();
+  await executarPlano(planoDeCopia(ALVO_CAMPANHA), { enviar: meta.enviar });
+  assert.equal(meta.chamadas[0].caminho, '/100/copies');
+  assert.ok(meta.chamadas.some(c => c.caminho === '/200/copies'));
+  assert.ok(meta.chamadas.some(c => c.caminho === '/300/copies'));
+});
+
+test('o filho recebe o id NOVO do pai, nao o id de origem', async () => {
+  const meta = metaFalsa();
+  const rel = await executarPlano(planoDeCopia(ALVO_CAMPANHA), { enviar: meta.enviar });
+  const idCampNova = rel.criados['c1:camp'];
+  const chamadaConjunto = meta.chamadas.find(c => c.caminho === '/200/copies');
+  assert.equal(chamadaConjunto.params.campaign_id, idCampNova);
+  const idConjNovo = rel.criados['c1:cj:200'];
+  const chamadaAnuncio = meta.chamadas.find(c => c.caminho === '/300/copies');
+  assert.equal(chamadaAnuncio.params.adset_id, idConjNovo);
+});
+
+test('falha no meio para ali, relata o que deu certo e nao tenta o resto', async () => {
+  const meta = metaFalsa({ falharNo: '/301/copies' });
+  const plano = planoDeCopia(ALVO_CAMPANHA);
+  const rel = await executarPlano(plano, { enviar: meta.enviar });
+  assert.ok(rel.falhou, 'devia ter falhado');
+  assert.equal(rel.falhou.passo.origemId, '301');
+  assert.match(rel.falhou.motivo, /recusou/);
+  assert.equal(rel.concluidos.length, 3, 'campanha + conjunto 200 + anuncio 300');
+  assert.ok(!meta.chamadas.some(c => c.caminho === '/302/copies'), 'nao devia seguir apos falhar');
+});
+
+test('resposta sem o id da copia e tratada como falha, nao como sucesso', async () => {
+  const rel = await executarPlano(planoDeCopia({ nivel: 'anuncio', anuncios: [ANUNCIOS[0]] }), {
+    enviar: async () => ({}),
+  });
+  assert.ok(rel.falhou);
+  assert.match(rel.falhou.motivo, /não devolveu/i);
+});
+
+test('avisa o progresso a cada passo, com a conta certa', async () => {
+  const meta = metaFalsa();
+  const vistos = [];
+  await executarPlano(planoDeCopia(ALVO_CAMPANHA), {
+    enviar: meta.enviar,
+    aoProgredir: (p) => vistos.push(p.feitos + '/' + p.total),
+  });
+  assert.deepEqual(vistos, ['1/6', '2/6', '3/6', '4/6', '5/6', '6/6']);
+});
+
+test('plano vazio nao chama a Meta nenhuma vez', async () => {
+  const meta = metaFalsa();
+  const rel = await executarPlano([], { enviar: meta.enviar });
+  assert.equal(meta.chamadas.length, 0);
+  assert.equal(rel.falhou, null);
+  assert.deepEqual(rel.concluidos, []);
 });

@@ -101,3 +101,52 @@ export function planoDeCopia(alvo, opts = {}) {
   }
   return passos;
 }
+
+function idNovoDaResposta(nivel, resposta) {
+  const campo = CAMPO_ID_NOVO[nivel];
+  const valor = resposta && (resposta[campo] != null ? resposta[campo] : null);
+  return valor == null ? null : String(valor);
+}
+
+// Percorre o plano chamando `enviar` passo a passo. `enviar` é injetada de
+// fora: nos testes é uma Meta de mentira, na tela é o metaPost que já existe.
+//
+// FALHOU NO MEIO: para ali e devolve o relatório. NÃO desfaz nada — apagar
+// campanha por conta própria pra "limpar" é pior que o problema: um engano
+// apaga o objeto errado. Tudo que ficou está PAUSADO, então nada gasta.
+export async function executarPlano(plano, opts = {}) {
+  const { enviar, aoProgredir, feitos } = opts;
+  const criados = Object.assign({}, feitos || {});
+  const relatorio = { criados, concluidos: [], falhou: null };
+  const passos = plano || [];
+
+  for (const p of passos) {
+    // Retomada: passo já concluído numa tentativa anterior não é refeito.
+    if (criados[p.id]) { relatorio.concluidos.push(p.id); continue; }
+
+    const params = Object.assign({}, p.params);
+    if (p.paiPasso) {
+      const idPai = criados[p.paiPasso];
+      if (!idPai) {
+        relatorio.falhou = { passo: p, motivo: 'O item onde esta cópia deveria entrar não foi criado.' };
+        return relatorio;
+      }
+      params[p.paiCampo] = idPai;
+    }
+
+    try {
+      const resposta = await enviar('/' + p.origemId + '/copies', params);
+      const novoId = idNovoDaResposta(p.nivel, resposta);
+      if (!novoId) throw new Error('A Meta não devolveu o número da cópia.');
+      criados[p.id] = novoId;
+      relatorio.concluidos.push(p.id);
+      if (aoProgredir) {
+        aoProgredir({ passo: p, novoId, feitos: relatorio.concluidos.length, total: passos.length });
+      }
+    } catch (e) {
+      relatorio.falhou = { passo: p, motivo: String((e && e.message) || e) };
+      return relatorio;
+    }
+  }
+  return relatorio;
+}
