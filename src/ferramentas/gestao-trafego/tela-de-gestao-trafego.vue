@@ -117,8 +117,9 @@ import { orcamentoDe, detectarNivelOrcamento, podeEditarOrcamentoDaCampanha, pod
 // Aba "A régua" (métrica ponderada): painel puro + os módulos que leem/normalizam
 // a régua vinda do banco (ver painel-regua.js, ponderada.js, regua.js).
 import { montarPainelRegua } from './painel-regua.js'
-import { normalizarRegua } from './regua.js'
-import { quantidadesDoInsight } from './ponderada.js'
+import { normalizarRegua, metaDoBalde } from './regua.js'
+import { quantidadesDoInsight, calcularPonderada } from './ponderada.js'
+import { decidirVeredito } from './veredito.js'
 
 const router = useRouter()
 
@@ -1156,7 +1157,38 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       const exp=document.createElement('div');exp.className='gt-camp-exp';exp.appendChild(hint);exp.appendChild(chev);
       l2.appendChild(chips);l2.appendChild(metrics);l2.appendChild(exp);
       top.appendChild(l1);top.appendChild(l2);
-      const iaRow=_gtBudgetIA[ins.campaign_id] || ((!encerrada&&status==='ACTIVE')?_gtRegraCampanha(camp,ins,insights):null);
+      // PONDERADA: pontos e custo por ponto desta campanha, com a régua do dono.
+      const qtdsPnd = quantidadesDoInsight(ins);
+      const metaPnd = metaDoBalde(_gtRegua, _gtBalde(kpiObjective));
+      const pnd = calcularPonderada(qtdsPnd, { pesos: _gtRegua.pesos, limiares: _gtRegua.limiares, meta: metaPnd });
+
+      // VEREDITO ÚNICO (ver veredito.js): saúde veta > Opus > ponderada.
+      // _gtRegraCampanha continua sendo a leitura de SAÚDE (frequência, CTR).
+      const saudePnd = (!encerrada && status === 'ACTIVE') ? _gtRegraCampanha(camp, ins, insights) : null;
+      const opusPnd = _gtBudgetIA[ins.campaign_id] || null;
+      const decisao = decidirVeredito({
+        saude: saudePnd,
+        opus: opusPnd,
+        ponderada: { ...pnd, meta: metaPnd },
+      });
+
+      // A faixa continua recebendo o formato que ela já espera hoje.
+      const iaRow = decisao.veredito === 'sem-dados' ? null : {
+        veredito: decisao.veredito,
+        justificativa: decisao.porque,
+        budget_sugerido_centavos: (opusPnd && opusPnd.budget_sugerido_centavos) || (saudePnd && saudePnd.budget_sugerido_centavos) || null,
+      };
+      // Custo por ponto aparece SEMPRE, independente de quem deu o veredito:
+      // é informação, não decisão.
+      if (pnd.custoPorPonto != null) {
+        const cor = pnd.faixa === 'escalar-forte' || pnd.faixa === 'dentro-da-meta' ? 'var(--green)'
+          : pnd.faixa === 'manter' ? 'var(--orange)' : pnd.faixa === 'otimizar' ? 'var(--red)' : 'var(--muted)';
+        const extra = document.createElement('div');
+        extra.className = 'gt-metric';
+        extra.title = `${_maFmt(pnd.pontos, 0)} pontos · cada interação vale ${_maFmt(pnd.qualidade, 1)}`;
+        extra.innerHTML = `Custo/ponto <span style="color:${cor}">${_maFmtR(pnd.custoPorPonto)}</span>`;
+        metrics.appendChild(extra);
+      }
       // 1) Faixa de recomendação (estrela) — no TOPO, antes do cabeçalho.
       const bannerWrap=document.createElement('div');
       bannerWrap.innerHTML=_gtRecBanner(iaRow,daily,encerrada,status);
