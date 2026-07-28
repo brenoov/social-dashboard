@@ -62,31 +62,49 @@
         <div class="gv-update-status" id="gt-update-status">—</div>
       </div>
     </div>
-    <div class="gt-body">
-      <div id="gt-camp-col">
-        <div class="gt-camp-card"><div class="gt-empty">Carregando…</div></div>
+
+    <!-- Casca de abas: só mostra/esconde painel via _gtTrocarAba, nunca
+         remonta a lista de campanhas (remontar chamaria a Meta de novo). -->
+    <div class="pnd-abas" role="tablist">
+      <button class="pnd-aba ativa" id="pnd-aba-campanhas" role="tab" onclick="_gtTrocarAba('campanhas')">Campanhas</button>
+      <button class="pnd-aba" id="pnd-aba-regua" role="tab" onclick="_gtTrocarAba('regua')">A régua</button>
+    </div>
+
+    <!-- #gt-painel-campanhas é "display:contents" (ver <style> abaixo): ele só
+         existe pra o toggle de aba (_gtTrocarAba liga/desliga com style.display),
+         mas NÃO pode virar uma caixa de verdade no layout — .gt-body é quem é o
+         item flex real (flex:1 + overflow-y:auto) dentro de .tela-gestao-trafego.
+         Um <div> comum aqui quebraria essa conta (flex:1 de .gt-body deixaria de
+         valer, e a lista de campanhas perderia o scroll contido). -->
+    <div id="gt-painel-campanhas">
+      <div class="gt-body">
+        <div id="gt-camp-col">
+          <div class="gt-camp-card"><div class="gt-empty">Carregando…</div></div>
+        </div>
+      </div>
+
+      <!-- ── EDITOR DE MÉTRICAS POR OBJETIVO (ADMIN) ── -->
+      <div id="gt-cfg-overlay" onclick="_gtCloseEditor()"></div>
+      <div id="gt-cfg-modal">
+        <div class="gt-cfg-head">
+          <span class="gt-cfg-title">⚙️ Métricas por Objetivo</span>
+          <button class="gt-cfg-close" onclick="_gtCloseEditor()">✕</button>
+        </div>
+        <div class="gt-cfg-body" id="gt-cfg-body"></div>
+        <div class="gt-cfg-footer">
+          <button style="padding:7px 16px;border-radius:7px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:600;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);" onclick="_gtCloseEditor()">Cancelar</button>
+          <button id="gt-cfg-save-btn" style="padding:7px 18px;border-radius:7px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;border:none;background:var(--accent);color:#fff;" onclick="_gtSaveEditor()">Salvar</button>
+        </div>
+      </div>
+
+      <div id="gt-cr-overlay" onclick="_gtCloseCriativo()"></div>
+      <div id="gt-cr-modal">
+        <div class="gt-cfg-head"><span class="gt-cfg-title" id="gt-cr-title">Criativo do anúncio</span><button class="gt-cfg-close" onclick="_gtCloseCriativo()">✕</button></div>
+        <div class="gt-cr-body" id="gt-cr-body"></div>
       </div>
     </div>
 
-    <!-- ── EDITOR DE MÉTRICAS POR OBJETIVO (ADMIN) ── -->
-    <div id="gt-cfg-overlay" onclick="_gtCloseEditor()"></div>
-    <div id="gt-cfg-modal">
-      <div class="gt-cfg-head">
-        <span class="gt-cfg-title">⚙️ Métricas por Objetivo</span>
-        <button class="gt-cfg-close" onclick="_gtCloseEditor()">✕</button>
-      </div>
-      <div class="gt-cfg-body" id="gt-cfg-body"></div>
-      <div class="gt-cfg-footer">
-        <button style="padding:7px 16px;border-radius:7px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:600;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);" onclick="_gtCloseEditor()">Cancelar</button>
-        <button id="gt-cfg-save-btn" style="padding:7px 18px;border-radius:7px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;border:none;background:var(--accent);color:#fff;" onclick="_gtSaveEditor()">Salvar</button>
-      </div>
-    </div>
-
-    <div id="gt-cr-overlay" onclick="_gtCloseCriativo()"></div>
-    <div id="gt-cr-modal">
-      <div class="gt-cfg-head"><span class="gt-cfg-title" id="gt-cr-title">Criativo do anúncio</span><button class="gt-cfg-close" onclick="_gtCloseCriativo()">✕</button></div>
-      <div class="gt-cr-body" id="gt-cr-body"></div>
-    </div>
+    <div id="gt-painel-regua" style="display:none"></div>
   </div>
 </template>
 
@@ -102,6 +120,12 @@ import { hojeLocal, diasAtras, primeiroDiaDoMes, ultimoDiaDoMes } from '../../co
 // agrupamento campanha → conjuntos → anúncios moram num módulo puro, testado
 // em orcamento-hierarquia.test.mjs. Aqui só se desenha o resultado.
 import { orcamentoDe, detectarNivelOrcamento, podeEditarOrcamentoDaCampanha, podeEditarOrcamentoDoConjunto, montarHierarquia } from './orcamento-hierarquia.js'
+// Aba "A régua" (métrica ponderada): painel puro + os módulos que leem/normalizam
+// a régua vinda do banco (ver painel-regua.js, ponderada.js, regua.js).
+import { montarPainelRegua } from './painel-regua.js'
+import { normalizarRegua, metaDoBalde } from './regua.js'
+import { quantidadesDoInsight, calcularPonderada } from './ponderada.js'
+import { decidirVeredito } from './veredito.js'
 
 const router = useRouter()
 
@@ -230,6 +254,7 @@ let _gtAdInsights=[];
 let _gtAdsets=[];        // conjuntos de anúncios da conta (Graph /adsets), com o orçamento de cada um
 let _gtRecolhido=false;  // botão "recolher/expandir tudo": estado padrão dos painéis ao (re)desenhar
 let _gtStatusFilter='all';
+let _gtAbaAtiva='campanhas';
 // Seleção múltipla para PAUSAR EM MASSA. Mora FORA do render de propósito: a
 // lista é redesenhada a cada busca/filtro/recolher, e uma seleção guardada
 // dentro do render sumiria sozinha no meio do trabalho.
@@ -520,6 +545,112 @@ async function _gtSaveConfig(balde,metricas){
   if(error) throw error;
   _gtConfig[balde]=metricas;
 }
+
+// ── A régua (métrica ponderada): pesos, metas de custo por balde e limiares
+// do veredito. Lida por qualquer usuário logado (RLS aberta pra leitura);
+// escrita gated no banco a quem tem ACESSO À FERRAMENTA (admin OU a feature
+// 'meta.gestor' — decisão do dono, 2026-07-28: editar a régua é uma ação da
+// ferramenta, não um privilégio de admin) — a tela usa esse MESMO critério
+// (hasPermission('meta.gestor', 'editar')) pra decidir se mostra os campos
+// editáveis, senão o dono via campo editável que não consegue mesmo salvar
+// (ver painel-regua.js e o call site em _gtTrocarAba).
+let _gtRegua = normalizarRegua(null);   // começa no padrão; o banco sobrescreve
+// Só fica true quando a leitura do banco realmente funcionou. Enquanto for false,
+// a aba "A régua" NÃO pode deixar salvar: _gtRegua ainda é o padrão de fábrica
+// (ou o valor de uma leitura anterior), nunca a meta real das cinco contas — e
+// salvar isso sobrescreveria a linha única de verdade. Ver _gtTrocarAba e C3 do
+// review final (2026-07-28).
+let _gtReguaCarregada = false;
+
+async function _gtCarregarRegua() {
+  // sb() NUNCA lança — ver src/compartilhado/buscar-e-salvar-dados.js. Falha de
+  // rede, sessão expirada (401), falta de GRANT (42501) e erro do servidor (5xx)
+  // voltam como array vazio com .erro anexado (comErro); uma negação de RLS
+  // devolve 200 com lista vazia, SEM .erro — pro PostgREST é indistinguível de
+  // "a tabela realmente não tem nada". Um try/catch aqui era código morto: o
+  // catch nunca rodava, e a flag de "carregou" ficava true mesmo numa leitura
+  // que falhou silenciosamente. C3 do review final (2026-07-28).
+  const linhas = await sb('gt_ponderada_config?select=pesos,metas,limiares&id=eq.1');
+  const ok = !linhas.erro && linhas.length > 0;
+  if (ok) {
+    _gtRegua = normalizarRegua(linhas[0]);
+  } else {
+    // NUNCA engolir em silêncio: sem isso, a aba abre com o padrão de fábrica e
+    // parece a régua real. O detalhe técnico vai pro console; o dono só precisa
+    // saber, na tela, que o campo pode não estar confiável (ver montarPainelRegua).
+    console.error('[GT] falha ao carregar a régua da métrica ponderada:', linhas.erro || 'a leitura voltou sem nenhuma linha');
+    _gtRegua = normalizarRegua(null);
+  }
+  _gtReguaCarregada = ok;
+  // Se a aba "A régua" já estiver aberta (ex.: o dono deixou a aba aberta e a
+  // sessão renovou depois), remonta o painel com o resultado fresco. Sem isto,
+  // uma leitura que só dá certo DEPOIS do primeiro paint deixaria o botão
+  // "Salvar" preso em desabilitado até o dono trocar de aba e voltar.
+  if (_gtAbaAtiva === 'regua') _gtTrocarAba('regua');
+}
+
+// Reconhece uma rejeição de permissão/RLS do Postgres (código 42501 ou texto
+// "row-level security"/"permission denied") pra nunca mostrar esse jargão
+// técnico pro dono — ele só precisa saber que faltou permissão de editar
+// esta ferramenta.
+function _gtEhErroDePermissao(e) {
+  const codigo = e && e.code;
+  const msg = String((e && e.message) || '').toLowerCase();
+  return codigo === '42501' || msg.includes('row-level security') || msg.includes('permission denied');
+}
+
+async function _gtSalvarRegua(nova, botao) {
+  const orig = botao ? botao.textContent : '';
+  if (botao) { botao.disabled = true; botao.textContent = 'Salvando...'; }
+  try {
+    const antes = _gtRegua;
+    // QUEM mexeu: estado.userId é o mesmo id já usado no resto da tela (ver
+    // _setGubAvatar em tela-de-admin.vue) — sem isto, updated_by/mudou_quem
+    // ficavam sempre nulos e o histórico não dizia quem alterou.
+    const { error } = await sbClient.from('gt_ponderada_config')
+      .update({ pesos: nova.pesos, metas: nova.metas, limiares: nova.limiares, updated_at: new Date().toISOString(), updated_by: estado.userId })
+      .eq('id', 1);
+    if (error) throw error;
+    _gtRegua = nova;
+    // histórico: guarda o antes e o depois inteiros. Uma falha AQUI não desfaz o
+    // save (a régua já está salva) — mas o dono precisa saber que o histórico
+    // dessa alteração não ficou registrado, senão a auditoria fica com buraco
+    // em silêncio.
+    const { error: erroHistorico } = await sbClient.from('gt_ponderada_config_log').insert({ antes, depois: nova, mudou_quem: estado.userId });
+    if (erroHistorico) {
+      console.error('[GT] falha ao gravar o histórico da régua:', erroHistorico);
+      adminToast('Régua salva, mas não consegui gravar o histórico dessa alteração.', false);
+    } else {
+      adminToast('Régua salva');
+    }
+    await loadGtData();           // a lista inteira recalcula com os pesos novos (e a régua é relida do banco)
+    // Remonta a aba com o estado fresco pós-salvar. Sem isto, limpar um campo e
+    // salvar de novo cairia no valor de ANTES do primeiro save (o `regua` que o
+    // painel guardava em memória), não no valor que está no banco agora.
+    _gtTrocarAba('regua');
+  } catch (e) {
+    if (_gtEhErroDePermissao(e)) {
+      adminToast('Você não tem permissão para editar esta ferramenta, então não deu para alterar a régua.', false);
+    } else {
+      console.error('[GT] erro ao salvar a régua:', e);
+      adminToast('Não foi possível salvar a régua agora. Tente de novo.', false);
+    }
+  } finally {
+    if (botao) { botao.disabled = false; botao.textContent = orig; }
+  }
+}
+
+// Campanha de maior gasto na tela, usada como exemplo vivo da aba da régua.
+function _gtExemploParaRegua() {
+  const linha = [..._gtInsights].sort((a, b) => Number(b.spend || 0) - Number(a.spend || 0))[0];
+  if (!linha) return null;
+  return {
+    nome: linha.campaign_name || 'sua campanha',
+    balde: _gtBalde(linha.objective),
+    quantidades: quantidadesDoInsight(linha),
+  };
+}
+
 function _gtCloseEditor(){
   const ov=document.getElementById('gt-cfg-overlay'),md=document.getElementById('gt-cfg-modal');
   if(ov)ov.style.display='none';
@@ -578,6 +709,7 @@ async function loadGtData(){
   if(sugs)sugs.innerHTML='';
   try{
     if(!_gtConfigLoaded){ await _gtLoadConfig(); _gtConfigLoaded=true; }
+    await _gtCarregarRegua();
     await _gtLoadBudgetIA();
     await _gtLoadAdIA();
     const acc=_gtCurAcc;
@@ -846,7 +978,9 @@ function _gtRecBanner(iaRow,daily,encerrada,status){
   if(encerrada||status!=='ACTIVE'){
     return `<div class="gt-rec-banner neutral"><div class="gt-rec-main"><div class="gt-rec-head"><span class="gt-rec-tag">✦ IA</span></div><div class="gt-rec-just">${just}</div></div></div>`;
   }
-  const varClass=ver==='pausar'?'pausar':ver==='reduzir'?'reduzir':'positivo';
+  // 'otimizar' é caro por ponto: é aviso, não boa notícia — entra na mesma
+  // família visual (laranja) que 'reduzir', nunca no verde de 'positivo'.
+  const varClass=ver==='pausar'?'pausar':(ver==='reduzir'||ver==='otimizar')?'reduzir':'positivo';
   const sug=iaRow.budget_sugerido_centavos!=null?_maFmtR(iaRow.budget_sugerido_centavos/100):null;
   let action='';
   if(ver==='escalar'||ver==='reduzir'){
@@ -854,6 +988,10 @@ function _gtRecBanner(iaRow,daily,encerrada,status){
     action=`<div class="gt-rec-action">${fromTo}${sug?`<button data-gt-aplicar="1" class="gt-act-btn primary">Aplicar ${sug}/dia</button>`:''}</div>`;
   }else if(ver==='manter'){
     action=`<div class="gt-rec-action"><span class="gt-rec-keep">Manter ${dfmt?dfmt+'/dia':'orçamento atual'}</span></div>`;
+  }else if(ver==='otimizar'){
+    // Sem número sugerido (nunca se inventa um) e sem ação automática — mas
+    // não fica muda feito 'sem-dados': avisa que é o dono quem revisa.
+    action=`<div class="gt-rec-action"><span class="gt-rec-keep">Sem orçamento sugerido — revisar manualmente</span></div>`;
   }else if(ver==='pausar'){
     action=`<div class="gt-rec-action"><button data-gt-pausar="1" class="gt-act-btn danger">⏸ Pausar campanha</button></div>`;
   }
@@ -1067,7 +1205,65 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       const exp=document.createElement('div');exp.className='gt-camp-exp';exp.appendChild(hint);exp.appendChild(chev);
       l2.appendChild(chips);l2.appendChild(metrics);l2.appendChild(exp);
       top.appendChild(l1);top.appendChild(l2);
-      const iaRow=_gtBudgetIA[ins.campaign_id] || ((!encerrada&&status==='ACTIVE')?_gtRegraCampanha(camp,ins,insights):null);
+      // PONDERADA: pontos e custo por ponto desta campanha, com a régua do dono.
+      const qtdsPnd = quantidadesDoInsight(ins);
+      // Campanha de MENSAGEM (WhatsApp/Direct) nunca pode ter o veredito decidido
+      // pela ponderada, mesmo caindo no balde 'engajamento': no setup moderno da
+      // Meta, WhatsApp chega como objetivo OUTCOME_ENGAGEMENT (ver GT_OBJETIVO_BALDE),
+      // então herdaria a meta de engajamento — mas o que essa campanha VENDE é
+      // conversa, não curtida/comentário/salvamento. Medindo campanhas reais, o
+      // custo por ponto delas ficou entre R$ 2,97 e R$ 7,21 — pintaria de vermelho
+      // campanhas que estão indo bem no que de fato prometem, só porque engajamento
+      // não é o que compram. Mesma classe de defeito já corrigida pra vendas/leads
+      // (ver comentário na migration 20260728_ponderada_config.sql): a correção
+      // aqui é tratar como "sem meta" (meta=0) qualquer campanha com ação de
+      // mensagem — calcularPonderada devolve faixa 'sem-dados' e decidirVeredito
+      // cai pra saúde/objetivo, sem mexer em decidirVeredito nem no formato dos
+      // campos. O custo por ponto continua calculado e aparecendo no cartão
+      // (custoPorPonto não depende da meta) — só o VEREDITO deixa de ser guiado
+      // por ele.
+      const temMensagem = _gtActionVal(ins, _GT_MSG) != null
+        || _gtActionVal(ins, _GT_MSG_CONN) != null
+        || _gtActionVal(ins, _GT_MSG_REPLY) != null;
+      const metaPnd = temMensagem ? 0 : metaDoBalde(_gtRegua, _gtBalde(kpiObjective));
+      const pnd = calcularPonderada(qtdsPnd, { pesos: _gtRegua.pesos, limiares: _gtRegua.limiares, meta: metaPnd });
+
+      // VEREDITO ÚNICO (ver veredito.js): saúde veta > Opus > ponderada.
+      // _gtRegraCampanha continua sendo a leitura de SAÚDE (frequência, CTR).
+      const saudePnd = (!encerrada && status === 'ACTIVE') ? _gtRegraCampanha(camp, ins, insights) : null;
+      const opusPnd = _gtBudgetIA[ins.campaign_id] || null;
+      const decisao = decidirVeredito({
+        saude: saudePnd,
+        opus: opusPnd,
+        ponderada: { ...pnd, meta: metaPnd },
+      });
+
+      // A faixa continua recebendo o formato que ela já espera hoje.
+      // O orçamento sugerido só pode vir de quem REALMENTE decidiu o veredito
+      // (decisao.origem) — nunca da fonte que perdeu a disputa. Se foi a
+      // ponderada ou a saúde que decidiram, não existe número confiável pra
+      // sugerir (a ponderada nunca inventa um valor multiplicando o atual; a
+      // saúde só decide no veto de pausa ou emprestando o veredito quando não
+      // há mais nada — nenhum dos dois casos tem orçamento pra aplicar).
+      const iaRow = decisao.veredito === 'sem-dados' ? null : {
+        veredito: decisao.veredito,
+        justificativa: decisao.porque,
+        budget_sugerido_centavos: decisao.origem === 'opus' ? ((opusPnd && opusPnd.budget_sugerido_centavos) || null) : null,
+        // "Impacto:" no cartão também só faz sentido quando foi o Opus quem decidiu
+        // (é a estimativa da análise semanal dele) — mesma regra do budget acima.
+        impacto_estimado: decisao.origem === 'opus' ? ((opusPnd && opusPnd.impacto_estimado) || null) : null,
+      };
+      // Custo por ponto aparece SEMPRE, independente de quem deu o veredito:
+      // é informação, não decisão.
+      if (pnd.custoPorPonto != null) {
+        const cor = pnd.faixa === 'escalar-forte' || pnd.faixa === 'dentro-da-meta' ? 'var(--green)'
+          : pnd.faixa === 'manter' ? 'var(--orange)' : pnd.faixa === 'otimizar' ? 'var(--red)' : 'var(--muted)';
+        const extra = document.createElement('div');
+        extra.className = 'gt-metric';
+        extra.title = `${_maFmt(pnd.pontos, 0)} pontos · cada interação vale ${_maFmt(pnd.qualidade, 1)}`;
+        extra.innerHTML = `Custo/ponto <span style="color:${cor}">${_maFmtR(pnd.custoPorPonto)}</span>`;
+        metrics.appendChild(extra);
+      }
       // 1) Faixa de recomendação (estrela) — no TOPO, antes do cabeçalho.
       const bannerWrap=document.createElement('div');
       bannerWrap.innerHTML=_gtRecBanner(iaRow,daily,encerrada,status);
@@ -1115,6 +1311,36 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
 }
 function _gtCrEsc(e){if(e.key==='Escape')_gtCloseCriativo();}
 function _gtCloseCriativo(){const ov=document.getElementById('gt-cr-overlay'),md=document.getElementById('gt-cr-modal'),bd=document.getElementById('gt-cr-body');if(ov)ov.style.display='none';if(md)md.style.display='none';if(bd)bd.innerHTML='';document.removeEventListener('keydown',_gtCrEsc);}
+// Troca de aba: só mostra/esconde painel. NÃO remonta a lista de campanhas —
+// remontar dispararia chamadas à Meta de novo e pode custar rate-limit.
+function _gtTrocarAba(nome) {
+  _gtAbaAtiva = nome;
+  for (const n of ['campanhas', 'regua']) {
+    const painel = document.getElementById('gt-painel-' + n);
+    const aba = document.getElementById('pnd-aba-' + n);
+    if (painel) painel.style.display = (n === nome) ? '' : 'none';
+    if (aba) aba.classList.toggle('ativa', n === nome);
+  }
+  if (nome === 'regua') {
+    const alvo = document.getElementById('gt-painel-regua');
+    if (alvo) montarPainelRegua(alvo, {
+      regua: _gtRegua,
+      // Mesmo critério do RLS (admin OU feature 'meta.gestor' — ver migration
+      // 20260728_ponderada_config.sql): editar a régua é uma ação de quem tem
+      // permissão de EDITAR nesta ferramenta, não um privilégio exclusivo de
+      // admin. Usar outro critério aqui faria os campos aparecerem editáveis
+      // pra quem não consegue salvar de fato (ou o oposto: escondidos de quem
+      // pode).
+      editavel: hasPermission('meta.gestor', 'editar'),
+      // Só true quando _gtCarregarRegua() leu o banco com sucesso. Se ainda não
+      // (ou se falhou), o painel mostra os campos mas trava o "Salvar" — nunca
+      // deixa gravar um valor que pode não ser o real (ver C3 do review final).
+      carregouOk: _gtReguaCarregada,
+      exemplo: _gtExemploParaRegua(),
+      aoSalvar: _gtSalvarRegua,
+    });
+  }
+}
 async function _gtVerCriativo(adId,accId,nome){
   const ov=document.getElementById('gt-cr-overlay'),md=document.getElementById('gt-cr-modal'),bd=document.getElementById('gt-cr-body');
   if(!ov||!md||!bd)return;
@@ -1337,6 +1563,13 @@ onMounted(() => {
   const cfgBtn = document.getElementById('gt-cfg-btn')
   if (cfgBtn) cfgBtn.style.display = hasPermission('meta.gestor', 'editar') ? '' : 'none' // editor de métricas = ação 'editar'
   startGtClock()
+  // A régua (gt_ponderada_config) é UMA linha única, sem relação com qual conta de
+  // anúncios está selecionada — por isso carrega aqui, já no mount, e não só dentro
+  // de loadGtData() (que devolve cedo sem conta selecionada). Sem isto, a aba "A
+  // régua" é clicável desde o primeiro instante mas fica com o padrão de fábrica
+  // até uma conta ser escolhida — e "Salvar" ali gravaria esse padrão por cima da
+  // régua real das cinco contas (ver C3 do review final, 2026-07-28).
+  _gtCarregarRegua()
   _initGestaoTrafego()
   _gtFontScale()
 })
@@ -1357,6 +1590,7 @@ Object.assign(window, {
   _gtCloseEditor,
   _gtSaveEditor,
   _gtCloseCriativo,
+  _gtTrocarAba,
 })
 </script>
 
@@ -1390,6 +1624,32 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gv-pbtn){font-family:var(--fonte-principal);font-size:10px;padding:4px 9px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
 .tela-gestao-trafego :deep(.gv-pbtn.active){background:var(--accent);color:#fff;border-color:var(--accent);}
 
+/* Abas da ferramenta. Prefixo .pnd- próprio: nomes globais vazam pra dentro de
+   telas scoped neste projeto e já causaram bug antes. */
+.tela-gestao-trafego :deep(.pnd-abas){display:flex;gap:4px;padding:0 4px 12px;flex-wrap:wrap;}
+.tela-gestao-trafego :deep(.pnd-aba){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;letter-spacing:.4px;padding:7px 16px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);transition:all .15s;}
+.tela-gestao-trafego :deep(.pnd-aba:hover){color:var(--accent);border-color:var(--accent);}
+.tela-gestao-trafego :deep(.pnd-aba.ativa){background:var(--accent-light);border-color:var(--accent);color:var(--accent);}
+
+/* Aba "A régua": tabelas editáveis + exemplo vivo ao lado (ver painel-regua.js). */
+.tela-gestao-trafego :deep(.pnd-regua){display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;align-items:start;}
+.tela-gestao-trafego :deep(.pnd-col){display:flex;flex-direction:column;gap:16px;min-width:0;}
+.tela-gestao-trafego :deep(.pnd-bloco){background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;}
+.tela-gestao-trafego :deep(.pnd-titulo){font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:800;color:var(--text);margin:0 0 4px;}
+.tela-gestao-trafego :deep(.pnd-ajuda){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));color:var(--muted);margin:0 0 12px;line-height:1.5;}
+.tela-gestao-trafego :deep(.pnd-tabela){width:100%;border-collapse:collapse;}
+.tela-gestao-trafego :deep(.pnd-tabela td){padding:7px 0;border-bottom:1px solid var(--border);font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));color:var(--text);}
+.tela-gestao-trafego :deep(.pnd-tabela td:last-child){text-align:right;white-space:nowrap;}
+.tela-gestao-trafego :deep(.pnd-destaque td){font-weight:800;}
+.tela-gestao-trafego :deep(.pnd-input){width:96px;padding:5px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface2);color:var(--text);font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));text-align:right;}
+.tela-gestao-trafego :deep(.pnd-input:focus){outline:none;border-color:var(--accent);}
+.tela-gestao-trafego :deep(.pnd-valor){font-weight:700;}
+/* Explicação de "sem meta de propósito" (ver M do review final, 2026-07-28):
+   sobrescreve o nowrap/right da última coluna, senão o texto sai cortado. */
+.tela-gestao-trafego :deep(.pnd-tabela td.pnd-sem-meta){white-space:normal;text-align:left;font-style:italic;color:var(--muted);font-size:calc(10px*var(--gt-fs,1.3));line-height:1.4;padding-left:12px;}
+.tela-gestao-trafego :deep(.pnd-salvar){align-self:flex-start;padding:9px 20px;border-radius:20px;border:none;background:var(--accent);color:#fff;font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;}
+.tela-gestao-trafego :deep(.pnd-salvar:disabled){opacity:.65;cursor:default;}
+
 /* ── Loading state (compartilhado com Gestão à Vista/Análise de Campanhas — cada tela traz sua cópia) ── */
 .tela-gestao-trafego :deep(.gv-loading-screen){grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;min-height:60vh;}
 @keyframes gtSpin{to{transform:rotate(360deg)}}
@@ -1400,6 +1660,15 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.ma-obj-chip){font-family:var(--fonte-principal);font-size:9px;font-weight:600;letter-spacing:.5px;padding:2px 6px;border-radius:3px;background:var(--surface2);color:var(--muted);text-transform:uppercase;}
 
 /* ── GESTÃO DE TRÁFEGO — CSS próprio (legacy/index.html L2350-2477, íntegro) ── */
+/* #gt-painel-campanhas é só o alvo do toggle de aba — "display:contents" tira ele
+   da árvore de layout (some como caixa, mas os filhos continuam no DOM), então
+   .gt-body é quem vira o item flex de verdade dentro de .tela-gestao-trafego e
+   mantém seu flex:1 + overflow-y:auto (ver I3 do review final, 2026-07-28). */
+.tela-gestao-trafego :deep(#gt-painel-campanhas){display:contents;}
+/* A aba "A régua" é irmã de #gt-painel-campanhas no mesmo flex column, então
+   precisa da MESMA mecânica de preencher e rolar sozinha — e do mesmo padding
+   lateral que .gt-body usa, senão o conteúdo cola na borda da tela (ver M1). */
+.tela-gestao-trafego :deep(#gt-painel-regua){flex:1;overflow-y:auto;padding:20px 28px;}
 .tela-gestao-trafego :deep(.gt-body){flex:1;display:flex;flex-direction:column;overflow-y:auto;padding:20px 28px;gap:16px;}
 .tela-gestao-trafego :deep(.gt-camp-card){background:none;border:none;border-radius:0;overflow:visible;}
 .tela-gestao-trafego :deep(.gt-camp-hdr){padding:2px 4px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
@@ -1534,6 +1803,7 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-rec-to small){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:500;color:var(--muted);}
 .tela-gestao-trafego :deep(.gt-rec-banner.reduzir .gt-rec-to){color:var(--orange);}
 .tela-gestao-trafego :deep(.gt-rec-keep){font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));font-weight:600;color:var(--green);}
+.tela-gestao-trafego :deep(.gt-rec-banner.reduzir .gt-rec-keep){color:var(--orange);}
 /* Edição manual de orçamento (sempre disponível) */
 .tela-gestao-trafego :deep(.gt-budget-edit){display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));color:var(--muted);}
 .tela-gestao-trafego :deep(.gt-be-cur b){color:var(--text);font-weight:700;}
@@ -1582,6 +1852,7 @@ Object.assign(window, {
 @media(max-width:600px){.tela-gestao-trafego :deep(.gt-cfg-grid){grid-template-columns:repeat(auto-fill,minmax(140px,1fr));}}
 @media(max-width:768px){
   .tela-gestao-trafego :deep(.gt-body){padding:12px 14px;}
+  .tela-gestao-trafego :deep(#gt-painel-regua){padding:12px 14px;}
   .tela-gestao-trafego :deep(.gt-camp-inner){padding:11px 14px 9px;}
   .tela-gestao-trafego :deep(.gt-camp-row-ads){padding-left:14px;padding-right:14px;}
 }
