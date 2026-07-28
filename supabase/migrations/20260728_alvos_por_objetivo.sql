@@ -16,7 +16,7 @@
 -- o veredito cai na leitura de saúde daquele objetivo — que é o certo. O dono
 -- preenche na aba da régua quando começar a rodar esse tipo.
 update public.gt_ponderada_config
-set metas = jsonb_build_object('engajamento', 0.15, 'trafego', 0.25, 'mensagens', 15.00),
+set metas = jsonb_build_object('engajamento', 0.15, 'trafego', 0.25, 'mensagens', 20.00),
     updated_at = now()
 where id = 1;
 
