@@ -598,11 +598,48 @@ async function _gtSalvarObjetivo(alvoId,nivel,interacao){
   // nada, e ela reaparecia sozinha no próximo loadGtData() (porque no banco
   // continuava lá). `.select()` acima é o que permite enxergar essa diferença.
   if(!data||!data.length){
-    adminToast('Você não tem permissão para editar esta ferramenta, então não deu para salvar o objetivo.',false);
-    return;
+    // B1 do review (2026-07-28): zero linhas SEM erro no APAGAR também acontece
+    // quando a linha já não existia — o menu sempre oferece "Voltar ao
+    // ponderado", inclusive pra um alvo sem declaração nenhuma, e apagar o que
+    // não existe devolve zero linhas do mesmo jeito, sem erro nenhum. Como
+    // gt_objetivo_interacao está vazia hoje, TODO clique em "Voltar ao
+    // ponderado" caía aqui e mentia "sem permissão" pro dono — inclusive num
+    // segundo clique logo depois de um reverter normal. Só o apagar é ambíguo
+    // assim: um upsert bem-sucedido sempre devolve a linha, e uma negação de
+    // upsert já caiu no `error` 42501 lá em cima — por isso só desambiguamos
+    // quando `interacao` for o apagar (falsy).
+    if(!interacao){
+      const confirma=await sb(`gt_objetivo_interacao?select=alvo_id&alvo_id=eq.${String(alvoId)}`);
+      if(confirma.erro){
+        // sb() nunca lança — devolve [] com .erro em qualquer falha (rede,
+        // sessão, 5xx). Sem saber se a linha ainda existe, o caminho cauteloso
+        // é não afirmar nem sucesso nem "sem permissão": nenhum dos dois está
+        // confirmado.
+        adminToast('Não consegui confirmar se deu certo. Tente de novo em instantes.',false);
+        return;
+      }
+      if(confirma.length){
+        // a linha continua lá de verdade: aí sim foi negação de permissão.
+        adminToast('Você não tem permissão para editar esta ferramenta, então não deu para salvar o objetivo.',false);
+        return;
+      }
+      // a linha já não existia antes do clique: não era negação, era não ter
+      // nada pra desfazer. Cai pro bloco de sucesso abaixo.
+    } else {
+      adminToast('Você não tem permissão para editar esta ferramenta, então não deu para salvar o objetivo.',false);
+      return;
+    }
   }
-  if(interacao)_gtObjetivoInteracao[String(alvoId)]=interacao;
-  else delete _gtObjetivoInteracao[String(alvoId)];
+  // B2 do review: sem um aviso explícito, o re-render abaixo recolhe os painéis
+  // expandidos e o clique fica sem NENHUM sinal de que algo aconteceu — o toast
+  // (adminToast) é a confirmação visível de que o objetivo mudou de verdade.
+  if(interacao){
+    _gtObjetivoInteracao[String(alvoId)]=interacao;
+    adminToast('Objetivo definido: '+(INTERACOES[interacao]?.rotulo||interacao)+'.');
+  }else{
+    delete _gtObjetivoInteracao[String(alvoId)];
+    adminToast('Objetivo voltou a ser o ponto ponderado.');
+  }
   // M6 do review: nada mudou do lado da Meta — a declaração é estado local
   // (banco próprio, gt_objetivo_interacao). Recarregar a conta inteira via
   // loadGtData() custaria 5 chamadas à Graph API por CLIQUE (e perderia
@@ -1222,7 +1259,15 @@ function _gtFecharMenuObjetivo(){
 function _gtPosicionarMenuObjetivo(menu,chip){
   const r=chip.getBoundingClientRect();
   const altura=menu.offsetHeight||170; // estimativa antes do 1º layout medido
-  menu.style.left=Math.round(r.left)+'px';
+  const largura=menu.offsetWidth||170; // idem, mesmo raciocínio (min-width:170px no CSS)
+  const margem=8; // respiro mínimo até a borda da tela
+  // B3 do review (2026-07-28): sem clamp, perto da borda direita de um celular
+  // o menu nascia com left = chip.left e boa parte da largura vazava pra fora
+  // da viewport — inclusive "Voltar ao ponderado", a única forma de desfazer.
+  // Clampa o left pra sempre caber inteiro na tela, com uma margem mínima; o
+  // flip pra cima quando não sobra espaço embaixo (abaixo) continua igual.
+  const maxLeft=window.innerWidth-largura-margem;
+  menu.style.left=Math.round(Math.max(margem,Math.min(r.left,maxLeft)))+'px';
   if(r.bottom+6+altura<=window.innerHeight){
     menu.style.top=Math.round(r.bottom+6)+'px';menu.style.bottom='';
   }else{
