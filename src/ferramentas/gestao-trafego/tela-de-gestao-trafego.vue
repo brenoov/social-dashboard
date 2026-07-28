@@ -62,6 +62,15 @@
         <div class="gv-update-status" id="gt-update-status">—</div>
       </div>
     </div>
+
+    <!-- Casca de abas: só mostra/esconde painel via _gtTrocarAba, nunca
+         remonta a lista de campanhas (remontar chamaria a Meta de novo). -->
+    <div class="pnd-abas" role="tablist">
+      <button class="pnd-aba ativa" id="pnd-aba-campanhas" role="tab" onclick="_gtTrocarAba('campanhas')">Campanhas</button>
+      <button class="pnd-aba" id="pnd-aba-regua" role="tab" onclick="_gtTrocarAba('regua')">A régua</button>
+    </div>
+
+    <div id="gt-painel-campanhas">
     <div class="gt-body">
       <div id="gt-camp-col">
         <div class="gt-camp-card"><div class="gt-empty">Carregando…</div></div>
@@ -87,6 +96,9 @@
       <div class="gt-cfg-head"><span class="gt-cfg-title" id="gt-cr-title">Criativo do anúncio</span><button class="gt-cfg-close" onclick="_gtCloseCriativo()">✕</button></div>
       <div class="gt-cr-body" id="gt-cr-body"></div>
     </div>
+    </div>
+
+    <div id="gt-painel-regua" style="display:none"></div>
   </div>
 </template>
 
@@ -230,6 +242,7 @@ let _gtAdInsights=[];
 let _gtAdsets=[];        // conjuntos de anúncios da conta (Graph /adsets), com o orçamento de cada um
 let _gtRecolhido=false;  // botão "recolher/expandir tudo": estado padrão dos painéis ao (re)desenhar
 let _gtStatusFilter='all';
+let _gtAbaAtiva='campanhas';
 // Seleção múltipla para PAUSAR EM MASSA. Mora FORA do render de propósito: a
 // lista é redesenhada a cada busca/filtro/recolher, e uma seleção guardada
 // dentro do render sumiria sozinha no meio do trabalho.
@@ -1115,6 +1128,17 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
 }
 function _gtCrEsc(e){if(e.key==='Escape')_gtCloseCriativo();}
 function _gtCloseCriativo(){const ov=document.getElementById('gt-cr-overlay'),md=document.getElementById('gt-cr-modal'),bd=document.getElementById('gt-cr-body');if(ov)ov.style.display='none';if(md)md.style.display='none';if(bd)bd.innerHTML='';document.removeEventListener('keydown',_gtCrEsc);}
+// Troca de aba: só mostra/esconde painel. NÃO remonta a lista de campanhas —
+// remontar dispararia chamadas à Meta de novo e pode custar rate-limit.
+function _gtTrocarAba(nome) {
+  _gtAbaAtiva = nome;
+  for (const n of ['campanhas', 'regua']) {
+    const painel = document.getElementById('gt-painel-' + n);
+    const aba = document.getElementById('pnd-aba-' + n);
+    if (painel) painel.style.display = (n === nome) ? '' : 'none';
+    if (aba) aba.classList.toggle('ativa', n === nome);
+  }
+}
 async function _gtVerCriativo(adId,accId,nome){
   const ov=document.getElementById('gt-cr-overlay'),md=document.getElementById('gt-cr-modal'),bd=document.getElementById('gt-cr-body');
   if(!ov||!md||!bd)return;
@@ -1357,6 +1381,7 @@ Object.assign(window, {
   _gtCloseEditor,
   _gtSaveEditor,
   _gtCloseCriativo,
+  _gtTrocarAba,
 })
 </script>
 
@@ -1389,6 +1414,13 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gv-period-btns){display:flex;align-items:center;gap:4px;}
 .tela-gestao-trafego :deep(.gv-pbtn){font-family:var(--fonte-principal);font-size:10px;padding:4px 9px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
 .tela-gestao-trafego :deep(.gv-pbtn.active){background:var(--accent);color:#fff;border-color:var(--accent);}
+
+/* Abas da ferramenta. Prefixo .pnd- próprio: nomes globais vazam pra dentro de
+   telas scoped neste projeto e já causaram bug antes. */
+.tela-gestao-trafego :deep(.pnd-abas){display:flex;gap:4px;padding:0 4px 12px;flex-wrap:wrap;}
+.tela-gestao-trafego :deep(.pnd-aba){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;letter-spacing:.4px;padding:7px 16px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);transition:all .15s;}
+.tela-gestao-trafego :deep(.pnd-aba:hover){color:var(--accent);border-color:var(--accent);}
+.tela-gestao-trafego :deep(.pnd-aba.ativa){background:var(--accent-light);border-color:var(--accent);color:var(--accent);}
 
 /* ── Loading state (compartilhado com Gestão à Vista/Análise de Campanhas — cada tela traz sua cópia) ── */
 .tela-gestao-trafego :deep(.gv-loading-screen){grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;min-height:60vh;}
