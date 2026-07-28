@@ -21,28 +21,39 @@ const ROTULO_BALDE = {
 // (ver M do review final, 2026-07-28): a tela não pode convidar o admin a
 // preencher um número que não mede o que aquele balde realmente decide.
 const BALDES_COM_META = ['engajamento', 'reconhecimento'];
-const EXPLICACAO_SEM_META = 'Sem meta aqui de propósito: quem julga esse tipo de campanha é a regra do próprio objetivo (clique, conversa, cadastro, venda) — curtida, comentário, salvamento e compartilhamento não dizem se isso aconteceu.';
+// O "× a meta" saiu do rótulo e virou prefixo dentro do campo — o rótulo ficava
+// comprido demais e quebrava em três linhas na coluna estreita.
 const ROTULO_LIMIAR = {
-  escalarForte: 'Escalar forte quando o custo for até (× a meta)',
-  dentroMeta: 'Dentro da meta quando for até (× a meta)',
-  manter: 'Manter e observar quando for até (× a meta)',
+  escalarForte: 'Escalar forte até',
+  dentroMeta: 'Dentro da meta até',
+  manter: 'Manter e observar até',
 };
-const ROTULO_FAIXA = {
-  'escalar-forte': '🟢 Escalar forte', 'dentro-da-meta': '🟢 Dentro da meta',
-  'manter': '🟡 Manter / observar', 'otimizar': '🔴 Otimizar ou pausar', 'sem-dados': 'Sem dados',
+// Cada faixa com o texto e a cor do selo. Sem emoji: a tela usa cor e forma,
+// não figurinha (é a regra da casa em elemento visual).
+const FAIXA = {
+  'escalar-forte': { texto: 'Escalar forte', cor: 'bom' },
+  'dentro-da-meta': { texto: 'Dentro da meta', cor: 'bom' },
+  'manter': { texto: 'Manter e observar', cor: 'meio' },
+  'otimizar': { texto: 'Otimizar ou pausar', cor: 'ruim' },
+  'sem-dados': { texto: 'Sem dados suficientes', cor: 'neutro' },
 };
 const reais = (v) => v == null ? '—' : 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const inteiro = (v) => Number(v || 0).toLocaleString('pt-BR');
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+// `prefixo` é a unidade que mora DENTRO da caixa do campo ('R$' pra dinheiro,
+// '×' pra multiplicador). Sem ela o número fica solto e o rótulo precisa carregar
+// a unidade, o que alongava a linha.
 function campo(id, valor, passo, editavel, formato) {
+  const prefixo = formato === 'dinheiro' ? 'R$' : formato === 'multiplicador' ? '×' : '';
   if (!editavel) {
     // Custo-alvo é dinheiro: mostra "R$ 0,20" igual ao exemplo vivo ao lado,
     // não o número cru. Peso e limiar são multiplicadores, ficam como número.
     const texto = formato === 'dinheiro' ? reais(valor === '' ? null : valor) : esc(valor);
     return `<span class="pnd-valor">${texto}</span>`;
   }
-  return `<input class="pnd-input" id="${esc(id)}" type="number" min="0" step="${passo}" value="${esc(valor)}">`;
+  const pre = prefixo ? `<span class="pnd-pre">${prefixo}</span>` : '';
+  return `<span class="pnd-campo">${pre}<input class="pnd-input" id="${esc(id)}" type="number" min="0" step="${passo}" value="${esc(valor)}"></span>`;
 }
 
 export function montarPainelRegua(alvo, opcoes) {
@@ -63,43 +74,48 @@ export function montarPainelRegua(alvo, opcoes) {
   const linhasPeso = Object.keys(PESOS_PADRAO).map((k) =>
     `<tr><td>${ROTULO_PESO[k]}</td><td>${campo('pnd-peso-' + k, regua.pesos[k], '1', editavel)}</td></tr>`).join('');
 
-  const linhasMeta = Object.keys(ROTULO_BALDE).map((b) => {
-    if (BALDES_COM_META.includes(b)) {
-      return `<tr><td>${ROTULO_BALDE[b]}</td><td>${campo('pnd-meta-' + b, regua.metas[b] != null ? regua.metas[b] : '', '0.01', editavel, 'dinheiro')}</td></tr>`;
-    }
-    return `<tr><td>${ROTULO_BALDE[b]}</td><td class="pnd-sem-meta">${esc(EXPLICACAO_SEM_META)}</td></tr>`;
-  }).join('');
+  // Só os baldes COM meta viram linha editável. Os demais viram UMA nota no rodapé
+  // do cartão: como linha de tabela, a explicação quebrava em quatro linhas e
+  // inchava a tabela inteira (ver M do review final, 2026-07-28).
+  const linhasMeta = BALDES_COM_META.map((b) =>
+    `<tr><td>${ROTULO_BALDE[b]}</td><td>${campo('pnd-meta-' + b, regua.metas[b] != null ? regua.metas[b] : '', '0.01', editavel, 'dinheiro')}</td></tr>`).join('');
+  const semMeta = Object.keys(ROTULO_BALDE)
+    .filter((b) => !BALDES_COM_META.includes(b) && b !== 'padrao')
+    .map((b) => ROTULO_BALDE[b]).join(', ');
 
   const linhasLimiar = Object.keys(LIMIARES_PADRAO).map((k) =>
-    `<tr><td>${ROTULO_LIMIAR[k]}</td><td>${campo('pnd-limiar-' + k, regua.limiares[k], '0.05', editavel)}</td></tr>`).join('');
+    `<tr><td>${ROTULO_LIMIAR[k]}</td><td>${campo('pnd-limiar-' + k, regua.limiares[k], '0.05', editavel, 'multiplicador')}</td></tr>`).join('');
 
+  // Ordem dos cartões: o que vale → quanto pagar → quando acende. A cor depende da
+  // meta, então ela precisa ser lida antes.
   alvo.innerHTML = `
     <div class="pnd-regua">
-      <div class="pnd-col">
-        <div class="pnd-bloco">
-          <h3 class="pnd-titulo">Quanto vale cada interação</h3>
-          <p class="pnd-ajuda">Uma curtida vale 1 ponto. Se um salvamento vale 30, é como dizer que salvar equivale a 30 curtidas.</p>
-          <table class="pnd-tabela"><tbody>${linhasPeso}</tbody></table>
-        </div>
-        <div class="pnd-bloco">
-          <h3 class="pnd-titulo">Quanto você aceita pagar</h3>
-          <p class="pnd-ajuda">Seu custo-alvo por ponto, em reais — só para Engajamento e Reconhecimento, que são julgados por curtida/comentário/salvamento/compartilhamento. As demais campanhas têm objetivo próprio e são julgadas pela regra dele, não por este preço.</p>
-          <table class="pnd-tabela"><tbody>${linhasMeta}</tbody></table>
-        </div>
-        <div class="pnd-bloco">
-          <h3 class="pnd-titulo">Quando cada cor acende</h3>
-          <p class="pnd-ajuda">Multiplicadores da meta. 0,8 significa "custando 80% da meta ou menos".</p>
-          <table class="pnd-tabela"><tbody>${linhasLimiar}</tbody></table>
+      <div>
+        <div class="pnd-cards">
+          <div class="pnd-bloco">
+            <div class="pnd-cab"><h3 class="pnd-titulo">Quanto vale cada interação</h3></div>
+            <p class="pnd-ajuda">Uma curtida vale 1 ponto. Se salvar vale 30, é como dizer que um salvamento equivale a 30 curtidas.</p>
+            <table class="pnd-tabela"><tbody>${linhasPeso}</tbody></table>
+          </div>
+          <div class="pnd-bloco">
+            <div class="pnd-cab"><h3 class="pnd-titulo">Quanto você aceita pagar por ponto</h3></div>
+            <p class="pnd-ajuda">Seu custo-alvo por ponto. É ele que dispara a decisão de verba.</p>
+            <table class="pnd-tabela"><tbody>${linhasMeta}</tbody></table>
+            <p class="pnd-nota">${esc(semMeta)} não têm meta aqui: são julgadas pela regra do próprio objetivo (clique, conversa, cadastro, venda), porque curtida e salvamento não dizem se isso aconteceu.</p>
+          </div>
+          <div class="pnd-bloco">
+            <div class="pnd-cab"><h3 class="pnd-titulo">Quando cada cor acende</h3></div>
+            <p class="pnd-ajuda">Multiplicadores da meta. 0,8 quer dizer "custando 80% da meta ou menos".</p>
+            <table class="pnd-tabela"><tbody>${linhasLimiar}</tbody></table>
+          </div>
         </div>
         ${editavel ? (
           podeSalvar
             ? '<button class="pnd-salvar" id="pnd-salvar">Salvar a régua</button>'
-            : '<button class="pnd-salvar" id="pnd-salvar" disabled>Salvar a régua</button><p class="pnd-ajuda">Ainda não consegui confirmar a régua que está salva no banco. Recarregue a página antes de editar — salvar agora arriscaria apagar a meta de verdade.</p>'
-        ) : '<p class="pnd-ajuda">Você não tem permissão para editar a régua.</p>'}
+            : '<button class="pnd-salvar" id="pnd-salvar" disabled>Salvar a régua</button><p class="pnd-nota">Ainda não consegui confirmar a régua que está salva no banco. Recarregue a página antes de editar — salvar agora arriscaria apagar a meta de verdade.</p>'
+        ) : '<p class="pnd-nota">Você não tem permissão para editar a régua.</p>'}
       </div>
-      <div class="pnd-col">
-        <div class="pnd-bloco pnd-exemplo" id="pnd-exemplo"></div>
-      </div>
+      <div class="pnd-exemplo" id="pnd-exemplo"></div>
     </div>`;
 
   // Lê o que está nos campos AGORA (ou a régua atual, quando só-leitura).
@@ -130,26 +146,41 @@ export function montarPainelRegua(alvo, opcoes) {
     const caixa = document.getElementById('pnd-exemplo');
     if (!caixa) return;
     if (!exemplo) {
-      caixa.innerHTML = '<h3 class="pnd-titulo">Exemplo</h3><p class="pnd-ajuda">Abra a aba Campanhas primeiro para eu usar uma campanha sua de verdade aqui.</p>';
+      caixa.innerHTML = `
+        <div class="pnd-ex-topo">
+          <div class="pnd-ex-rot">Como fica na prática</div>
+          <div class="pnd-ex-nome">Abra a aba Campanhas primeiro, para eu usar uma campanha sua de verdade aqui.</div>
+        </div>`;
       return;
     }
     const r = reguaDaTela();
     const meta = metaDoBalde(r, exemplo.balde);
     const c = calcularPonderada(exemplo.quantidades, { pesos: r.pesos, limiares: r.limiares, meta });
+    const faixa = FAIXA[c.faixa] || FAIXA['sem-dados'];
+    // O RESULTADO vem em manchete (custo por ponto grande + selo colorido), não
+    // escondido na última linha de uma tabela: é ele que responde "e daí?" a cada
+    // tecla digitada. O detalhe fica embaixo, menor, pra quem quiser conferir a conta.
+    const legenda = meta > 0
+      ? `por ponto · sua meta é ${reais(meta)}`
+      : 'por ponto · este tipo de campanha não tem meta aqui';
     caixa.innerHTML = `
-      <h3 class="pnd-titulo">Como fica na prática</h3>
-      <p class="pnd-ajuda">Campanha <b>${esc(exemplo.nome)}</b>, com os números reais dela. Mexa nos campos ao lado e veja mudar aqui.</p>
-      <table class="pnd-tabela"><tbody>
-        <tr><td>Gasto</td><td>${reais(exemplo.quantidades.gasto)}</td></tr>
-        <tr><td>Curtidas</td><td>${inteiro(exemplo.quantidades.curtidas)}</td></tr>
-        <tr><td>Comentários</td><td>${inteiro(exemplo.quantidades.comentarios)}</td></tr>
-        <tr><td>Salvamentos</td><td>${inteiro(exemplo.quantidades.salvamentos)}</td></tr>
-        <tr><td>Compartilhamentos</td><td>${inteiro(exemplo.quantidades.compartilhamentos)}</td></tr>
-        <tr class="pnd-destaque"><td>Pontos</td><td>${inteiro(c.pontos)}</td></tr>
-        <tr class="pnd-destaque"><td>Custo por ponto</td><td>${reais(c.custoPorPonto)}</td></tr>
-        <tr><td>Sua meta</td><td>${meta > 0 ? reais(meta) : '— (defina ao lado)'}</td></tr>
-        <tr class="pnd-destaque"><td>Resultado</td><td>${ROTULO_FAIXA[c.faixa]}</td></tr>
-      </tbody></table>`;
+      <div class="pnd-ex-topo">
+        <div class="pnd-ex-rot">Como fica na prática</div>
+        <div class="pnd-ex-nome">${esc(exemplo.nome)}</div>
+        <div class="pnd-ex-num">${reais(c.custoPorPonto)}</div>
+        <div class="pnd-ex-leg">${legenda}</div>
+        <span class="pnd-ex-selo ${faixa.cor}">${faixa.texto}</span>
+      </div>
+      <div class="pnd-ex-corpo">
+        <table class="pnd-tabela"><tbody>
+          <tr><td>Gasto</td><td>${reais(exemplo.quantidades.gasto)}</td></tr>
+          <tr><td>Curtidas</td><td>${inteiro(exemplo.quantidades.curtidas)}</td></tr>
+          <tr><td>Comentários</td><td>${inteiro(exemplo.quantidades.comentarios)}</td></tr>
+          <tr><td>Salvamentos</td><td>${inteiro(exemplo.quantidades.salvamentos)}</td></tr>
+          <tr><td>Compartilhamentos</td><td>${inteiro(exemplo.quantidades.compartilhamentos)}</td></tr>
+          <tr class="forte"><td>Pontos</td><td>${inteiro(c.pontos)}</td></tr>
+        </tbody></table>
+      </div>`;
   }
 
   if (editavel) {
