@@ -548,8 +548,10 @@ async function _gtSaveConfig(balde,metricas){
 
 // ── A régua (métrica ponderada): pesos, metas de custo por balde e limiares
 // do veredito. Lida por qualquer usuário logado (RLS aberta pra leitura);
-// escrita gated a admin no banco (get_my_role() = 'admin') — a tela usa esse
-// MESMO critério (estado.role === 'admin') pra decidir se mostra os campos
+// escrita gated no banco a quem tem ACESSO À FERRAMENTA (admin OU a feature
+// 'meta.gestor' — decisão do dono, 2026-07-28: editar a régua é uma ação da
+// ferramenta, não um privilégio de admin) — a tela usa esse MESMO critério
+// (hasPermission('meta.gestor', 'editar')) pra decidir se mostra os campos
 // editáveis, senão o dono via campo editável que não consegue mesmo salvar
 // (ver painel-regua.js e o call site em _gtTrocarAba).
 let _gtRegua = normalizarRegua(null);   // começa no padrão; o banco sobrescreve
@@ -589,7 +591,8 @@ async function _gtCarregarRegua() {
 
 // Reconhece uma rejeição de permissão/RLS do Postgres (código 42501 ou texto
 // "row-level security"/"permission denied") pra nunca mostrar esse jargão
-// técnico pro dono — ele só precisa saber que faltou ser admin.
+// técnico pro dono — ele só precisa saber que faltou permissão de editar
+// esta ferramenta.
 function _gtEhErroDePermissao(e) {
   const codigo = e && e.code;
   const msg = String((e && e.message) || '').toLowerCase();
@@ -627,7 +630,7 @@ async function _gtSalvarRegua(nova, botao) {
     _gtTrocarAba('regua');
   } catch (e) {
     if (_gtEhErroDePermissao(e)) {
-      adminToast('Só um administrador pode alterar a régua.', false);
+      adminToast('Você não tem permissão para editar esta ferramenta, então não deu para alterar a régua.', false);
     } else {
       console.error('[GT] erro ao salvar a régua:', e);
       adminToast('Não foi possível salvar a régua agora. Tente de novo.', false);
@@ -1204,7 +1207,25 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       top.appendChild(l1);top.appendChild(l2);
       // PONDERADA: pontos e custo por ponto desta campanha, com a régua do dono.
       const qtdsPnd = quantidadesDoInsight(ins);
-      const metaPnd = metaDoBalde(_gtRegua, _gtBalde(kpiObjective));
+      // Campanha de MENSAGEM (WhatsApp/Direct) nunca pode ter o veredito decidido
+      // pela ponderada, mesmo caindo no balde 'engajamento': no setup moderno da
+      // Meta, WhatsApp chega como objetivo OUTCOME_ENGAGEMENT (ver GT_OBJETIVO_BALDE),
+      // então herdaria a meta de engajamento — mas o que essa campanha VENDE é
+      // conversa, não curtida/comentário/salvamento. Medindo campanhas reais, o
+      // custo por ponto delas ficou entre R$ 2,97 e R$ 7,21 — pintaria de vermelho
+      // campanhas que estão indo bem no que de fato prometem, só porque engajamento
+      // não é o que compram. Mesma classe de defeito já corrigida pra vendas/leads
+      // (ver comentário na migration 20260728_ponderada_config.sql): a correção
+      // aqui é tratar como "sem meta" (meta=0) qualquer campanha com ação de
+      // mensagem — calcularPonderada devolve faixa 'sem-dados' e decidirVeredito
+      // cai pra saúde/objetivo, sem mexer em decidirVeredito nem no formato dos
+      // campos. O custo por ponto continua calculado e aparecendo no cartão
+      // (custoPorPonto não depende da meta) — só o VEREDITO deixa de ser guiado
+      // por ele.
+      const temMensagem = _gtActionVal(ins, _GT_MSG) != null
+        || _gtActionVal(ins, _GT_MSG_CONN) != null
+        || _gtActionVal(ins, _GT_MSG_REPLY) != null;
+      const metaPnd = temMensagem ? 0 : metaDoBalde(_gtRegua, _gtBalde(kpiObjective));
       const pnd = calcularPonderada(qtdsPnd, { pesos: _gtRegua.pesos, limiares: _gtRegua.limiares, meta: metaPnd });
 
       // VEREDITO ÚNICO (ver veredito.js): saúde veta > Opus > ponderada.
@@ -1304,10 +1325,13 @@ function _gtTrocarAba(nome) {
     const alvo = document.getElementById('gt-painel-regua');
     if (alvo) montarPainelRegua(alvo, {
       regua: _gtRegua,
-      // Precisa ser admin de verdade (mesmo critério do RLS: get_my_role()='admin'),
-      // não só ter a permissão 'meta.gestor' — senão os campos aparecem editáveis
-      // pra quem não consegue salvar de fato.
-      editavel: estado.role === 'admin',
+      // Mesmo critério do RLS (admin OU feature 'meta.gestor' — ver migration
+      // 20260728_ponderada_config.sql): editar a régua é uma ação de quem tem
+      // permissão de EDITAR nesta ferramenta, não um privilégio exclusivo de
+      // admin. Usar outro critério aqui faria os campos aparecerem editáveis
+      // pra quem não consegue salvar de fato (ou o oposto: escondidos de quem
+      // pode).
+      editavel: hasPermission('meta.gestor', 'editar'),
       // Só true quando _gtCarregarRegua() leu o banco com sucesso. Se ainda não
       // (ou se falhou), o painel mostra os campos mas trava o "Salvar" — nunca
       // deixa gravar um valor que pode não ser o real (ver C3 do review final).

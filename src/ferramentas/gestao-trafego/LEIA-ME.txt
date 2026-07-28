@@ -137,10 +137,15 @@ não cai pra bruta.
 
 A RÉGUA FICA NA ABA "A RÉGUA"
 -----------------------------
-Quem tem permissão de ADMINISTRADOR pode editar os três conjuntos:
+QUEM PODE EDITAR (atualizado 2026-07-28): não é mais exclusivo de administrador.
+Quem tem a PERMISSÃO DE EDITAR desta ferramenta (a mesma que libera o editor de
+métricas por objetivo — feature 'meta.gestor') pode editar os três conjuntos:
   • Quanto vale cada interação (pesos dos pontos — curtida 1, salvamento 30...).
   • Quanto você aceita pagar (meta por objetivo de campanha — em reais).
   • Quando cada cor acende (limiares — multiplicadores da meta).
+Decisão do dono: editar a régua é uma ação da ferramenta, não um privilégio à
+parte de admin — mexer num peso muda a recomendação de todo mundo, mas quem já
+tem acesso de edição aqui pode fazer isso.
 
 SÓ Engajamento e Reconhecimento ganham meta em reais nessa tabela — de
 propósito. Tráfego, Mensagens, Leads, Vendas e o "Padrão" (usado quando um
@@ -150,6 +155,24 @@ salvamento/compartilhamento não dizem se esse objetivo foi cumprido — julgar
 uma venda pelo preço de uma curtida é o exato bug que essa régua já causou
 uma vez. Quem decide essas campanhas é a regra do próprio objetivo, não a
 métrica ponderada.
+
+O NÚMERO DE PARTIDA (0,15 pra Engajamento e Reconhecimento) veio de medir 23
+campanhas reais ao longo de 90 dias (mediana das campanhas de engajamento
+genuíno ≈ R$ 0,16 por ponto) — não é um valor sagrado. É só o ponto de
+partida: ajuste na própria aba sempre que achar que o custo real mudou.
+
+CAMPANHA DE WHATSAPP NÃO É JULGADA PELO PREÇO DA CURTIDA: no jeito moderno da
+Meta configurar campanha, WhatsApp/Direct chega com o objetivo
+OUTCOME_ENGAGEMENT — o que faria essa campanha cair no balde Engajamento e
+herdar a meta dele. Só que o que uma campanha de WhatsApp vende é CONVERSA, não
+curtida/comentário/salvamento. Medindo campanhas reais, o custo por ponto delas
+ficou entre R$ 2,97 e R$ 7,21 — pintaria de vermelho campanhas que estão indo
+bem no que realmente prometem, só por não venderem engajamento. Por isso, toda
+campanha com ação de mensagem (conversa iniciada, conexão de mensagem ou
+primeira resposta) é tratada como "sem meta" na ponderada: o custo por ponto
+dela ainda aparece no cartão (é informação), mas o VEREDITO vem da regra do
+próprio objetivo (conversas), nunca do preço do ponto. Mesma classe de bug já
+corrigida antes para vendas e leads.
 
 A tela mostra um EXEMPLO VIVO ao lado da régua: abra a aba Campanhas primeiro,
 e a tela usará uma campanha sua de verdade pra mostrar como cada ajuste muda o
@@ -161,6 +184,7 @@ a tela avisa "Régua salva, mas não consegui gravar o histórico dessa alteraç
 O salvamento não é desfeito — mas se o histórico falhar sempre, avise o
 administrador do sistema.
 
-A base de dados garante que SÓ administrador consegue editar a régua (RLS
-ativa): a tela apenas mostra esse travamento, não o inventa. Se você tentar
-editar sem permissão, a tela dirá "Só um administrador pode alterar a régua."
+A base de dados garante, com a mesma regra acima (admin OU permissão de editar
+'meta.gestor'), quem consegue editar a régua (RLS ativa): a tela apenas mostra
+esse travamento, não o inventa. Se você tentar editar sem essa permissão, a
+tela dirá que você não tem permissão para editar esta ferramenta.
