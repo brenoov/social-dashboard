@@ -241,3 +241,89 @@ próprios (teto de variação por vez, nunca reativar o que está pausado).
 - **Automação sem aprovação humana** — projeto seguinte.
 - **Aviso de nota baixa dentro do fluxo de subir anúncio do Estúdio** — outra tela;
   possível continuação depois da fase 4.
+
+---
+
+# REVISÃO DE RUMO — 2026-07-28 (depois da Fase 1 no ar)
+
+O Breno abriu a Fase 1 e disse, com todas as letras, que **não entendeu**. Ao investigar
+com os dados reais dele, três coisas ficaram claras — e duas contrariam o que esta spec
+assumia.
+
+## 1. A ponderada refina, mas quase nunca inverte — nos ANÚNCIOS dele
+
+Medido nas campanhas de engajamento reais (90 dias):
+
+| Campanha | Custo por **interação** | Custo por **ponto** |
+|---|---|---|
+| +Seguidores_PublicoDefinido | R$ 0,047 | R$ 0,040 |
+| Topo Funil — Interação (cópia) | R$ 0,072 | R$ 0,069 |
+| Topo de Funil — Engajamento | R$ 0,996 | R$ 0,372 |
+
+As duas colunas **classificam na mesma ordem**. O motivo: em anúncio pago, curtida
+domina — 19.834 curtidas contra 51 salvamentos numa delas (390 para 1). Com essa
+proporção, peso 30 no salvamento quase não move o resultado. O que muda é a
+**magnitude** (a terceira parece um desastre por interação e apenas cara por ponto).
+
+Consequência: a ponderada **não** justifica sozinha uma aba inteira de configuração.
+Em POST ORGÂNICO a história é outra — salvamento e compartilhamento pesam muito mais
+na proporção — que é exatamente o caso da planilha de origem.
+
+**Lição de processo: isto deveria ter sido medido ANTES de planejar quatro fases.**
+
+## 2. Nove campos de configuração para um número que aparece em 13 de ~100 campanhas
+
+É desproporcional, e foi a origem da confusão. Decisão do dono (opção B): a aba
+**continua**, mas ganha um texto de abertura ensinando o conceito, e os **limiares
+(0,8 / 1,0 / 1,3) saem da tela** — ficam fixos no código. São o item mais abstrato e
+o menos útil.
+
+## 3. O buraco que a pergunta do dono revelou
+
+Ele perguntou se conversão, WhatsApp e lead não precisariam de tratamento próprio.
+Precisam — e já têm: cada balde é julgado pela sua régua (ROAS/CAC, custo por lead,
+custo por conversa, CTR/CPC). **Mas os números dessas réguas estão chumbados no
+código** (`GT_CRIT`), enquanto o engajamento acabou de ganhar meta editável.
+
+Ou seja: ele pode definir o preço da curtida e **não** pode definir o preço do lead —
+que é o que move dinheiro de verdade. É uma inversão de prioridade.
+
+## A generalização que resolve os três
+
+Toda meta passa a ser **"custo por resultado, menor é melhor"**, cada balde na SUA
+unidade. Com isso a métrica ponderada deixa de ser um bicho à parte e vira **um caso**
+da mesma régua — o caso em que o "resultado" é o ponto ponderado.
+
+| Balde | Meta, na unidade dele | Conta (já existe no catálogo) |
+|---|---|---|
+| Engajamento | custo por **ponto** | métrica ponderada |
+| Reconhecimento | **CPM** | `cpm` |
+| Tráfego | custo por **visita** | `custo_visita` |
+| Mensagens | custo por **conversa** | `custo_conversa` |
+| Leads | custo por **lead** | `custo_lead` |
+| Vendas | custo por **compra** (CAC) | `cac` |
+
+Como todas são "menor é melhor", o mesmo semáforo e os mesmos limiares servem para
+todas — sem régua paralela. Sem resultado no período (zero leads, zero conversas), a
+conta é indefinida → `sem-dados` → o veredito cai na leitura de saúde do objetivo,
+que é o comportamento correto e já implementado.
+
+## Fases, renumeradas
+
+| Fase | O que é | Situação |
+|---|---|---|
+| 1 | Motor, régua de engajamento, veredito único | **no ar** |
+| **2** | **Régua explicada + meta por objetivo na unidade dele** | **esta** |
+| 3 | Fila de aprovação humana | depois — não faz sentido aprovar sugestão de robô antes de o dono poder dizer qual é o alvo |
+| 4 | Aba do funil | depois |
+| 5 | Aba de conteúdo (fila de impulsionamento) | depois |
+
+## Sobre a aba de conteúdo, que o dono questionou
+
+A dúvida foi: qual o link com orçamento? O link é **em que colocar verba, antes de
+colocar** — não como dividi-la. Nos dados dele: o post 1º do ranking orgânico virou
+anúncio a R$ 0,13/ponto (R$ 10.190 investidos); o 53º de 68 virou anúncio a
+**R$ 62,65/ponto**. E **R$ 9.399 foram para posts da metade de baixo**.
+
+Ressalva mantida: a correlação é fraca (a metade boa sai 41% mais barata na mediana).
+Serve para **reprovar**, não para eleger. Fica na Fase 5 e depende de o dono querer.
