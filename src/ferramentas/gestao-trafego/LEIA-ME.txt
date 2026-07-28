@@ -218,6 +218,17 @@ oferece "Tentar continuar" (refaz só o que faltou) ou "Deixar assim". A
 ferramenta nunca apaga sozinha pra "limpar" — um engano apagaria o item
 errado.
 
+TEM UM CASO EM QUE O "TENTAR CONTINUAR" NÃO APARECE: quando a Meta aceita o
+pedido mas não informa o número da cópia. Aí ninguém sabe se ela foi criada ou
+não — mandar de novo poderia criar DUAS cópias do mesmo item. A tela diz isso
+com todas as letras e pede pra você conferir no Gerenciador de Anúncios da
+Meta antes de repetir.
+
+O QUE VAI SER COPIADO É O QUE ESTÁ NA TELA. A janela conta os conjuntos e os
+anúncios a partir dos passos que vão de fato rodar, e não das listas que a
+Meta devolveu — assim a frase "vai copiar a campanha «X», com 2 conjuntos e 7
+anúncios" nunca pode prometer mais do que a ferramenta vai fazer.
+
 SÓ ENTRAM OS ANÚNCIOS COM GASTO NO PERÍODO SELECIONADO. A tela só conhece os
 anúncios que a Meta devolveu para o período escolhido lá em cima (HOJE, 7D,
 30D...). Anúncio que não gastou nesse período não aparece na lista e portanto

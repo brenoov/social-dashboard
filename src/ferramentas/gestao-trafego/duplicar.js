@@ -134,18 +134,24 @@ export async function executarPlano(plano, opts = {}) {
       params[p.paiCampo] = idPai;
     }
 
+    let novoId;
     try {
       const resposta = await enviar('/' + p.origemId + '/copies', params);
-      const novoId = idNovoDaResposta(p.nivel, resposta);
+      novoId = idNovoDaResposta(p.nivel, resposta);
       if (!novoId) throw new Error('A Meta não devolveu o número da cópia.');
       criados[p.id] = novoId;
       relatorio.concluidos.push(p.id);
-      if (aoProgredir) {
-        aoProgredir({ passo: p, novoId, feitos: relatorio.concluidos.length, total: passos.length });
-      }
     } catch (e) {
       relatorio.falhou = { passo: p, motivo: String((e && e.message) || e) };
       return relatorio;
+    }
+    // O aviso de progresso fica FORA do try de propósito: ele é desenho de
+    // tela, não conversa com a Meta. Dentro do try, um erro ao desenhar viraria
+    // "A Meta recusou" num passo que na verdade deu certo — a recuperação
+    // continuaria correta (o passo já está em `criados`), mas a mensagem
+    // mentiria pro dono.
+    if (aoProgredir) {
+      aoProgredir({ passo: p, novoId, feitos: relatorio.concluidos.length, total: passos.length });
     }
   }
   return relatorio;

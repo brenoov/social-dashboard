@@ -2,7 +2,7 @@
 
 Data: 2026-07-28
 Ferramenta: `src/ferramentas/gestao-trafego`
-Status: aprovado, não implementado
+Status: aprovado e implementado (correções do review final aplicadas em 2026-07-28)
 
 ## Visão geral
 
@@ -127,7 +127,10 @@ toca (a pasta segue o mesmo padrão em `ponderada.js`, `veredito.js`,
    TODAS as ações da tela. Estendê-lo arriscaria o resto da tela. A janela traz:
    - o que será copiado, por extenso ("Campanha «X», com 2 conjuntos e 7 anúncios");
    - quantas cópias (1 a 5);
-   - sufixo do nome, com sugestão pronta (`· cópia`, `· cópia 2`…);
+   - sufixo do nome, com sugestão pronta (`· cópia`). Pedindo mais de uma
+     cópia, o número entra em TODAS elas (`· cópia 1`, `· cópia 2`, `· cópia
+     3`) — uma cópia sozinha fica só `· cópia`. Numerar todas é mais coerente
+     do que deixar a primeira sem número e começar a contar na segunda;
    - aviso destacado: **"A cópia nasce PAUSADA. Nada vai gastar até você ativar."**
 3. Confirmado, a tela mostra o progresso ("campanha ✓ · conjunto 1 de 2 ✓ ·
    anúncio 3 de 7…").
@@ -141,9 +144,24 @@ não é desenhado. Duplicar cria objetos novos na conta: é a escrita mais forte
 da tela, então fica no critério mais rígido que a ferramenta já usa.
 
 **Travas antes de qualquer escrita:**
-1. `_gtConfirm` obrigatório, listando por extenso o que será criado.
-2. `status_option: 'PAUSED'` explícito em toda chamada de cópia.
-3. A ferramenta nunca ativa nada. Ativar é sempre ação manual do dono.
+1. Confirmação explícita obrigatória, listando por extenso o que será criado.
+   Quem faz esse papel é a janela `_gtDuplicarModal` (ver "Fluxo do usuário",
+   passo 2) — **ela É a confirmação**, não uma tela a mais depois de um
+   `_gtConfirm`. O `_gtConfirm` só devolve sim/não e não tem campo de
+   formulário; aqui é preciso perguntar quantas cópias e qual sufixo, no mesmo
+   lugar em que se lê o que vai ser copiado. Empilhar um `_gtConfirm` na
+   frente da janela seria uma segunda pergunta idêntica à primeira: ninguém lê
+   duas vezes, e clicar em "sim" no automático é justamente o que uma trava
+   não pode ensinar. **Não bote um segundo confirm aqui achando que é
+   correção.** (O `_gtConfirm` continua sendo o portão de TODAS as outras
+   ações da tela, intocado.)
+2. O que vai ser copiado é lido da **hierarquia desenhada na tela**, não das
+   respostas cruas da Meta — ver "De onde sai a lista do que será copiado".
+   A frase que o dono lê ("com 2 conjuntos e 7 anúncios") é contada a partir
+   dos **passos do plano** que vão de fato rodar, nunca das listas que
+   entraram: assim a promessa e a execução não têm como discordar.
+3. `status_option: 'PAUSED'` explícito em toda chamada de cópia.
+4. A ferramenta nunca ativa nada. Ativar é sempre ação manual do dono.
 
 ## Erro no meio do caminho
 
@@ -152,6 +170,18 @@ da tela, então fica no critério mais rígido que a ferramenta já usa.
 - A tela relata exatamente o que foi criado até parar (nome + id) e oferece
   **"Tentar continuar de onde parou"** ou **"Deixar assim"** — tudo pausado,
   nada gastando.
+- **Exceção: a Meta aceitou o pedido e não devolveu o número da cópia.** Aí o
+  "Tentar continuar" NÃO é oferecido. Sem o número, o passo não entra na lista
+  do que foi criado, e continuar mandaria o mesmo pedido de novo — se o objeto
+  tiver sido criado mesmo assim (e só a Meta sabe), o dono fica com duas
+  cópias; sendo o passo da campanha, a primeira ainda fica vazia e órfã
+  enquanto a cascata desce na segunda. A tela diz por extenso que não sabe se
+  aquela cópia existe e manda conferir no Gerenciador antes de repetir.
+- **Qualquer erro fora da conversa com a Meta** (um problema ao desenhar a
+  própria janela, por exemplo) também termina numa caixa com botão
+  **"Fechar"**. As caixas de "Copiando…"/"Continuando…" não têm botão nenhum e
+  cobrem a tela inteira: sem essa saída, a única forma de escapar seria
+  recarregar a página no meio de uma escrita em conta ao vivo.
 - Erro traduzido reaproveitando o tradutor que a tela já tem em
   `_gtApplyAction` (permissão, token sem `ads_management`, limite de chamadas).
 - **Limite de chamadas:** copiar 7 anúncios são 7 chamadas seguidas. Em caso
@@ -172,6 +202,12 @@ Todos contra uma Meta de mentira. Nenhum teste encosta em conta real.
 5. Falha no anúncio 3 de 7: para ali, relata os 2 que deram certo, não tenta
    os restantes.
 6. "Continuar de onde parou" não recria o que já foi criado.
+7. **Cascata do nível CONJUNTO ponta a ponta**: o conjunto copiado sozinho é o
+   único caso em que o passo raiz manda `deep_copy: false` SEM `campaign_id`, e
+   a Meta responde `copied_adset_id` ali. A Meta de mentira decide o campo da
+   resposta pelo **objeto chamado** (o id no caminho `/{id}/copies`), como a de
+   verdade — nunca pelos parâmetros enviados, que não distinguem esse caso e
+   deixavam o botão do meio sem teste de execução.
 
 ## Limite conhecido: só os anúncios com gasto no período
 
@@ -186,6 +222,35 @@ quem quiser levar todos escolhe um período maior antes de duplicar.
 
 Buscar os anúncios sem gasto seria uma consulta nova à Meta e é escopo além
 deste projeto. Ficar sem eles, avisando, é honesto; ficar sem eles calado não.
+
+## De onde sai a lista do que será copiado
+
+O alvo da cópia é montado a partir de **`hier`** — a hierarquia que
+`montarHierarquia` devolve e que o cartão da campanha conta e desenha —,
+**nunca das respostas cruas das chamadas à Meta**.
+
+Os anúncios vêm dos insights (ver limite acima), mas **os conjuntos vêm de
+outra chamada** (`/act_X/adsets`), que falha por conta própria: ela tem
+`.catch(()=>[])`, corta em 2000 linhas e filtra por status. Quando ela falha,
+volta VAZIA e a tela não avisa nada — `montarHierarquia` reconstrói o conjunto
+a partir do próprio anúncio ("Anúncio cujo conjunto não veio na lista NÃO
+some") e o cartão continua correto.
+
+O `planoDeCopia` não tem essa rede: ele descarta o anúncio cujo `adset_id` não
+está entre os conjuntos recebidos. Montar o alvo com as listas cruas fazia o
+pior desfecho possível acontecer calado — a janela dizia "com 12 anúncios", o
+plano tinha 1 passo, nascia uma campanha vazia e pausada, e o relatório dizia
+"Pronto, 1 item copiado". Lendo de `hier`, o que vai ser copiado é exatamente o
+que está na tela.
+
+Dois efeitos colaterais bem-vindos da mesma decisão:
+- **Conjunto ARQUIVADO** sem gasto e sem anúncio já é derrubado pelo filtro
+  `vivo` de `montarHierarquia`: some da conta da janela e não é ressuscitado
+  como cópia nova (a Meta ainda pode recusar copiar objeto arquivado e abortar
+  a cascata no meio).
+- O grupo inventado **`_sem_conjunto`** (anúncio que chegou sem `adset_id`) não
+  existe na Meta: fica fora do alvo da campanha e não ganha botão próprio —
+  senão a tela mandaria `POST /_sem_conjunto/copies`.
 
 ## Riscos / pontos a verificar
 

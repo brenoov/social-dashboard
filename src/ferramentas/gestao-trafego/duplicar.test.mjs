@@ -96,6 +96,24 @@ test('anuncio orfao (adset_id que nao esta na lista) nao entra no plano', () => 
 });
 
 // Meta de mentira: registra as chamadas e devolve o campo certo por nível.
+//
+// O nível vem do OBJETO CHAMADO (o id no caminho `/{id}/copies`), como na Meta
+// de verdade — nunca dos parâmetros enviados. Adivinhar pelos parâmetros
+// escondia o nível conjunto: uma cópia de conjunto na raiz manda `deep_copy`
+// false e NÃO manda `campaign_id`, e a Meta de mentira respondia
+// `copied_campaign_id` ali, deixando o botão do conjunto sem teste de ponta a
+// ponta.
+const NIVEL_DO_OBJETO = {
+  [CAMPANHA.id]: 'campanha',
+  ...Object.fromEntries(CONJUNTOS.map(c => [c.id, 'conjunto'])),
+  ...Object.fromEntries(ANUNCIOS.map(a => [a.id, 'anuncio'])),
+};
+const CAMPO_DA_RESPOSTA = {
+  campanha: 'copied_campaign_id',
+  conjunto: 'copied_adset_id',
+  anuncio: 'copied_ad_id',
+};
+
 function metaFalsa({ falharNo } = {}) {
   const chamadas = [];
   let n = 0;
@@ -103,14 +121,20 @@ function metaFalsa({ falharNo } = {}) {
     chamadas.push({ caminho, params });
     if (falharNo && caminho === falharNo) throw new Error('A Meta recusou.');
     n += 1;
-    if (params.deep_copy === false && params.campaign_id) return { copied_adset_id: 'novo-cj-' + n };
-    if (params.deep_copy === false) return { copied_campaign_id: 'novo-camp-' + n };
-    return { copied_ad_id: 'novo-ad-' + n };
+    const idOrigem = String(caminho).split('/')[1];
+    const nivel = NIVEL_DO_OBJETO[idOrigem];
+    if (!nivel) throw new Error('A Meta de mentira não conhece o objeto ' + idOrigem);
+    return { [CAMPO_DA_RESPOSTA[nivel]]: 'novo-' + nivel + '-' + n };
   };
   return { enviar, chamadas };
 }
 
 const ALVO_CAMPANHA = { nivel: 'campanha', campanha: CAMPANHA, conjuntos: CONJUNTOS, anuncios: ANUNCIOS };
+const ALVO_CONJUNTO = {
+  nivel: 'conjunto',
+  conjuntos: [CONJUNTOS[0]],
+  anuncios: ANUNCIOS.filter(a => a.adset_id === CONJUNTOS[0].id),
+};
 
 test('executa todos os passos e devolve o id novo de cada um', async () => {
   const meta = metaFalsa();
@@ -138,6 +162,34 @@ test('o filho recebe o id NOVO do pai, nao o id de origem', async () => {
   const idConjNovo = rel.criados['c1:cj:200'];
   const chamadaAnuncio = meta.chamadas.find(c => c.caminho === '/300/copies');
   assert.equal(chamadaAnuncio.params.adset_id, idConjNovo);
+});
+
+// O botão do MEIO (duplicar só o conjunto de anúncios) tem uma armadilha
+// própria: o passo raiz é um conjunto SEM campaign_id, e a Meta responde
+// `copied_adset_id`. Se algum dia o motor pedir o campo errado aqui, a cascata
+// morre no primeiro passo com "a Meta não devolveu o número da cópia".
+test('conjunto: executa a cascata inteira e os anuncios entram no conjunto NOVO', async () => {
+  const meta = metaFalsa();
+  const plano = planoDeCopia(ALVO_CONJUNTO);
+  assert.deepEqual(plano.map(p => p.nivel), ['conjunto', 'anuncio', 'anuncio']);
+
+  const rel = await executarPlano(plano, { enviar: meta.enviar });
+  assert.equal(rel.falhou, null, 'a cascata do conjunto nao pode falhar');
+  assert.equal(rel.concluidos.length, 3, 'conjunto + 2 anuncios');
+
+  const idCjNovo = rel.criados['c1:cj'];
+  assert.match(idCjNovo, /^novo-conjunto-/, 'o nivel conjunto responde copied_adset_id');
+
+  const chamadaRaiz = meta.chamadas.find(c => c.caminho === '/200/copies');
+  assert.equal(chamadaRaiz.params.deep_copy, false, 'a cascata e nossa, nao da Meta');
+  assert.equal(chamadaRaiz.params.campaign_id, undefined, 'o conjunto continua na campanha de origem');
+
+  const dosAnuncios = meta.chamadas.filter(c => c.caminho !== '/200/copies');
+  assert.deepEqual(dosAnuncios.map(c => c.caminho), ['/300/copies', '/301/copies']);
+  for (const c of dosAnuncios) {
+    assert.equal(c.params.adset_id, idCjNovo, 'anuncio precisa entrar na COPIA do conjunto');
+    assert.equal(c.params.status_option, 'PAUSED');
+  }
 });
 
 test('falha no meio para ali, relata o que deu certo e nao tenta o resto', async () => {
