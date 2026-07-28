@@ -3,6 +3,7 @@
 // O EXEMPLO VIVO ao lado é o ponto: sem ele o dono editaria peso no escuro.
 import { calcularPonderada, PESOS_PADRAO, LIMIARES_PADRAO } from './ponderada.js';
 import { metaDoBalde } from './regua.js';
+import { ALVOS } from './alvos.js';
 
 const ROTULO_PESO = {
   curtidas: 'Curtida', comentarios: 'Comentário',
@@ -10,17 +11,8 @@ const ROTULO_PESO = {
 };
 const ROTULO_BALDE = {
   engajamento: 'Engajamento', trafego: 'Tráfego', reconhecimento: 'Reconhecimento',
-  mensagens: 'Mensagens', leads: 'Leads', vendas: 'Vendas', padrao: 'Padrão (usado quando não há regra própria)',
+  mensagens: 'Mensagens', leads: 'Leads', vendas: 'Vendas',
 };
-// Só engajamento e reconhecimento nascem de curtida/comentário/salvamento/
-// compartilhamento — é a única situação em que "custo por ponto" é a régua
-// certa. Tráfego, mensagens, leads e vendas têm objetivo próprio (clique,
-// conversa, cadastro, venda) que a métrica ponderada não enxerga; e "padrão"
-// é o fallback que vale pra QUALQUER balde sem regra própria — dar uma meta
-// a ele é reabrir a mesma porta. Por isso só esses dois ganham campo editável
-// (ver M do review final, 2026-07-28): a tela não pode convidar o admin a
-// preencher um número que não mede o que aquele balde realmente decide.
-const BALDES_COM_META = ['engajamento', 'reconhecimento'];
 // Cada faixa com o texto e a cor do selo. Sem emoji: a tela usa cor e forma,
 // não figurinha (é a regra da casa em elemento visual).
 const FAIXA = {
@@ -67,19 +59,30 @@ export function montarPainelRegua(alvo, opcoes) {
   const linhasPeso = Object.keys(PESOS_PADRAO).map((k) =>
     `<tr><td>${ROTULO_PESO[k]}</td><td>${campo('pnd-peso-' + k, regua.pesos[k], '1', editavel)}</td></tr>`).join('');
 
-  // Só os baldes COM meta viram linha editável. Os demais viram UMA nota no rodapé
-  // do cartão: como linha de tabela, a explicação quebrava em quatro linhas e
-  // inchava a tabela inteira (ver M do review final, 2026-07-28).
-  const linhasMeta = BALDES_COM_META.map((b) =>
-    `<tr><td>${ROTULO_BALDE[b]}</td><td>${campo('pnd-meta-' + b, regua.metas[b] != null ? regua.metas[b] : '', '0.01', editavel, 'dinheiro')}</td></tr>`).join('');
-  const semMeta = Object.keys(ROTULO_BALDE)
-    .filter((b) => !BALDES_COM_META.includes(b) && b !== 'padrao')
-    .map((b) => ROTULO_BALDE[b]).join(', ');
+  // Uma linha por objetivo, cada uma na unidade do resultado dele (ver alvos.js).
+  // Objetivo sem meta salva (leads, vendas, reconhecimento hoje, ver migration
+  // 20260728_alvos_por_objetivo.sql) mostra o campo VAZIO com uma nota — nunca um
+  // número de exemplo: campo vazio é honesto, número inventado não.
+  const linhasMeta = Object.keys(ALVOS).map((b) => {
+    const a = ALVOS[b];
+    const temMeta = regua.metas[b] != null;
+    const valor = temMeta ? regua.metas[b] : '';
+    const nota = temMeta ? '' : '<div class="pnd-alvo-vazio">ainda sem histórico — defina quando começar a rodar esse tipo</div>';
+    return `<tr>
+      <td><div class="pnd-alvo-nome">${esc(ROTULO_BALDE[b] || b)}</div><div class="pnd-alvo-ajuda">${esc(a.rotulo)} — ${esc(a.ajuda)}</div>${nota}</td>
+      <td>${campo('pnd-meta-' + b, valor, '0.01', editavel, 'dinheiro')}</td>
+    </tr>`;
+  }).join('');
 
-
-  // Ordem dos cartões: o que vale → quanto pagar → quando acende. A cor depende da
-  // meta, então ela precisa ser lida antes.
+  // Ordem dos cartões: abertura explica o conceito → o que vale → quanto pagar →
+  // quando acende. A cor depende da meta, então ela precisa ser lida antes.
   alvo.innerHTML = `
+    <div class="pnd-intro">
+      <h2 class="pnd-intro-tit">O que é esta aba</h2>
+      <p>Aqui você diz <b>quanto aceita pagar por cada resultado</b>. É esse número que faz o cartão da campanha acender verde, amarelo ou vermelho lá na aba Campanhas.</p>
+      <p>Cada tipo de campanha é medido pelo resultado que ele realmente compra: campanha de lead pelo <b>custo por lead</b>, de WhatsApp pelo <b>custo por conversa</b>, de venda pelo <b>custo por venda</b>.</p>
+      <p>A exceção é <b>engajamento</b>, que não compra uma ação só. Aí somamos as interações dando peso a cada uma — curtir vale 1, salvar vale 30, porque quem salva quer voltar naquilo. A soma chama-se <b>ponto</b>, e a meta é o preço do ponto.</p>
+    </div>
     <div class="pnd-regua">
       <div>
         <div class="pnd-cards">
@@ -89,10 +92,9 @@ export function montarPainelRegua(alvo, opcoes) {
             <table class="pnd-tabela"><tbody>${linhasPeso}</tbody></table>
           </div>
           <div class="pnd-bloco">
-            <div class="pnd-cab"><h3 class="pnd-titulo">Quanto você aceita pagar por ponto</h3></div>
-            <p class="pnd-ajuda">Seu custo-alvo por ponto. É ele que dispara a decisão de verba.</p>
+            <div class="pnd-cab"><h3 class="pnd-titulo">Quanto você aceita pagar por resultado</h3></div>
+            <p class="pnd-ajuda">Uma linha por tipo de campanha, cada uma na unidade do resultado que ela compra. É esse número que dispara a decisão de verba.</p>
             <table class="pnd-tabela"><tbody>${linhasMeta}</tbody></table>
-            <p class="pnd-nota">${esc(semMeta)} não têm meta aqui: são julgadas pela regra do próprio objetivo (clique, conversa, cadastro, venda), porque curtida e salvamento não dizem se isso aconteceu.</p>
           </div>
         </div>
         ${editavel ? (
@@ -116,13 +118,14 @@ export function montarPainelRegua(alvo, opcoes) {
     // Se o dono apagar um campo sem querer, o valor volta pro que a régua JÁ TINHA
     // (não pro padrão de fábrica) — senão um peso 50 customizado vira 30 no silêncio.
     for (const k of Object.keys(PESOS_PADRAO)) pesos[k] = ler('pnd-peso-' + k, regua.pesos[k]);
-    // Baldes fora de BALDES_COM_META não têm <input> na tela (ver linhasMeta) —
-    // 'pnd-meta-<balde>' não existe no DOM, `ler` devolve o padrão 0, e a linha
-    // abaixo não grava a chave. Resultado: salvar a régua também limpa qualquer
-    // meta antiga guardada por engano num balde sem target (ex.: 'padrao'),
-    // o que é o comportamento certo — essas metas nunca deveriam existir (ver M
-    // do review final, 2026-07-28).
-    for (const b of Object.keys(ROTULO_BALDE)) { const v = ler('pnd-meta-' + b, 0); if (v > 0) metas[b] = v; }
+    // Percorre ALVOS (não ROTULO_BALDE nem regua.metas) — é a MESMA lista que
+    // desenhou as linhas em linhasMeta, então leitura e escrita nunca divergem.
+    // Um balde fora de ALVOS (ex.: 'padrao') não tem <input> na tela: 'pnd-meta-
+    // <balde>' não existe no DOM, `ler` devolve o padrão 0, e a linha abaixo não
+    // grava a chave. Resultado: salvar a régua também limpa qualquer meta antiga
+    // guardada por engano num balde sem alvo — o que é o comportamento certo,
+    // essas metas nunca deveriam existir (ver M do review final, 2026-07-28).
+    for (const b of Object.keys(ALVOS)) { const v = ler('pnd-meta-' + b, 0); if (v > 0) metas[b] = v; }
     // Os limiares saíram da tela (decisão do dono, 2026-07-28): continuam valendo
     // no cálculo e no banco, mas não são mais editáveis aqui. Devolver os que já
     // estavam evita que salvar apague o que existe.

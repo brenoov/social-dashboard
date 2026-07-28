@@ -1653,6 +1653,13 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.pnd-tabela tr:last-child td){border-bottom:none;padding-bottom:0;}
 .tela-gestao-trafego :deep(.pnd-tabela td:last-child){text-align:right;white-space:nowrap;width:1%;padding-left:12px;}
 .tela-gestao-trafego :deep(.pnd-destaque td){font-weight:800;}
+.tela-gestao-trafego :deep(.pnd-intro){background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:14px;padding:16px 20px;margin-bottom:18px;max-width:760px;}
+.tela-gestao-trafego :deep(.pnd-intro-tit){font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));font-weight:700;color:var(--text);margin:0 0 8px;}
+.tela-gestao-trafego :deep(.pnd-intro p){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));color:var(--muted);line-height:1.6;margin:0 0 7px;}
+.tela-gestao-trafego :deep(.pnd-intro p:last-child){margin-bottom:0;}
+.tela-gestao-trafego :deep(.pnd-alvo-nome){font-weight:600;}
+.tela-gestao-trafego :deep(.pnd-alvo-ajuda){font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);line-height:1.45;margin-top:3px;max-width:44ch;}
+.tela-gestao-trafego :deep(.pnd-alvo-vazio){font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--orange);line-height:1.45;margin-top:3px;font-style:italic;}
 /* Campo: a caixa é que tem a borda, e o prefixo (R$ ou ×) mora DENTRO dela — assim
    dá pra ler "R$ 0,15" como uma coisa só, em vez de um número solto sem unidade. */
 .tela-gestao-trafego :deep(.pnd-campo){display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:9px;background:var(--surface2);padding:0 9px;transition:border-color .15s,box-shadow .15s;}
