@@ -17,7 +17,13 @@ export const ALVOS = {
     ajuda: 'Ponto é a nota que damos a cada interação conforme o quanto ela vale: curtir vale 1, salvar vale 30.',
   },
   reconhecimento: {
-    metrica: 'cpm', rotulo: 'Custo por mil pessoas alcançadas', unidade: 'R$',
+    // "impressões", NÃO "pessoas alcançadas": a conta é CPM (gasto ÷ impressões ×
+    // 1000), e uma mesma pessoa pode ver o anúncio várias vezes. Com frequência 1,5
+    // o rótulo errado faria o dono definir a meta com um denominador 50% maior do
+    // que o real — e o veredito de verba sairia contra um número que ele entendeu
+    // de outro jeito. Este rótulo alimenta três lugares: a linha da régua, o título
+    // do exemplo vivo e a frase do veredito.
+    metrica: 'cpm', rotulo: 'Custo por mil impressões', unidade: 'R$',
     ajuda: 'Campanha de reconhecimento existe para aparecer. O preço justo é por mil impressões.',
   },
   trafego: {
