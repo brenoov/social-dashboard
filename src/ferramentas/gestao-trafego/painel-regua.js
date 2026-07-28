@@ -181,6 +181,31 @@ export function montarPainelRegua(alvo, opcoes) {
     const legenda = meta > 0
       ? `${rotulo} · sua meta é ${reais(meta)}`
       : `${rotulo} · este tipo de campanha não tem meta aqui`;
+    // ONDE A COR VIRA, em REAIS. Os limiares saíram da edição (ninguém calibra
+    // semáforo antes de entender a régua), mas escondê-los por completo foi longe
+    // demais: sem isso o dono vê o selo e não sabe por que aquela cor. Multiplicador
+    // (0,8 / 1,0 / 1,3) é abstrato; o valor em reais é a mesma informação legível.
+    const reguaDeCores = meta > 0 ? `
+        <div class="pnd-ex-regua">
+          <div class="pnd-ex-regua-tit">Onde a cor vira</div>
+          <div class="pnd-ex-corte"><span class="pnd-ponto bom"></span>até ${reais(meta * r.limiares.escalarForte)} — escalar forte</div>
+          <div class="pnd-ex-corte"><span class="pnd-ponto bom"></span>até ${reais(meta * r.limiares.dentroMeta)} — dentro da meta</div>
+          <div class="pnd-ex-corte"><span class="pnd-ponto meio"></span>até ${reais(meta * r.limiares.manter)} — manter e observar</div>
+          <div class="pnd-ex-corte"><span class="pnd-ponto ruim"></span>acima disso — otimizar ou pausar</div>
+        </div>` : '';
+
+    // DETALHE: para engajamento é a quebra das interações (que muda ao vivo com
+    // os pesos); para os demais objetivos é a QUANTIDADE do resultado que aquele
+    // objetivo compra — lead, conversa, venda, visita, impressão. Mostrar curtida
+    // numa campanha de lead não diz nada sobre o que ela comprou.
+    const linhasDetalhe = ehPonderada
+      ? `<tr><td>Curtidas</td><td>${inteiro(exemplo.quantidades.curtidas)}</td></tr>
+          <tr><td>Comentários</td><td>${inteiro(exemplo.quantidades.comentarios)}</td></tr>
+          <tr><td>Salvamentos</td><td>${inteiro(exemplo.quantidades.salvamentos)}</td></tr>
+          <tr><td>Compartilhamentos</td><td>${inteiro(exemplo.quantidades.compartilhamentos)}</td></tr>
+          <tr class="forte"><td>Pontos</td><td>${inteiro(c.pontos)}</td></tr>`
+      : (exemplo.detalhe || []).map((d) => `<tr class="forte"><td>${esc(d.rotulo)}</td><td>${d.valor == null ? '\u2014' : inteiro(d.valor)}</td></tr>`).join('');
+
     caixa.innerHTML = `
       <div class="pnd-ex-topo">
         <div class="pnd-ex-rot">Como fica na prática</div>
@@ -188,15 +213,12 @@ export function montarPainelRegua(alvo, opcoes) {
         <div class="pnd-ex-num">${reais(custo)}</div>
         <div class="pnd-ex-leg">${esc(legenda)}</div>
         <span class="pnd-ex-selo ${faixa.cor}">${faixa.texto}</span>
+        ${reguaDeCores}
       </div>
       <div class="pnd-ex-corpo">
         <table class="pnd-tabela"><tbody>
           <tr><td>Gasto</td><td>${reais(exemplo.quantidades.gasto)}</td></tr>
-          <tr><td>Curtidas</td><td>${inteiro(exemplo.quantidades.curtidas)}</td></tr>
-          <tr><td>Comentários</td><td>${inteiro(exemplo.quantidades.comentarios)}</td></tr>
-          <tr><td>Salvamentos</td><td>${inteiro(exemplo.quantidades.salvamentos)}</td></tr>
-          <tr><td>Compartilhamentos</td><td>${inteiro(exemplo.quantidades.compartilhamentos)}</td></tr>
-          <tr class="forte"><td>Pontos</td><td>${inteiro(c.pontos)}</td></tr>
+          ${linhasDetalhe}
         </tbody></table>
       </div>`;
   }
