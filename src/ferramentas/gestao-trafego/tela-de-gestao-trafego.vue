@@ -133,7 +133,7 @@ import { alvoDoBalde, avaliarAlvo } from './alvos.js'
 // anúncio a anúncio) de engajamento, qual interação aquilo está comprando
 // (curtida/comentário/salvamento/compartilhamento). Sem declarar, nada muda —
 // continua no ponto ponderado, exatamente como hoje. Ver interacoes.js.
-import { INTERACOES, custoDaInteracao } from './interacoes.js'
+import { INTERACOES, custoDaInteracao, interacaoValida } from './interacoes.js'
 
 const router = useRouter()
 
@@ -1661,6 +1661,25 @@ function _renderGtAds(pane,ads,allInsights,allAdInsights,campNum){
     if (seloObjAd) nameWrap.appendChild(seloObjAd);
     const metrics=document.createElement('div');metrics.className='gt-metrics';
     metrics.innerHTML=`<div class="gt-metric">CTR <span style="color:${ctrColor}">${_maFmtPct(ctr)}</span></div><div class="gt-metric" style="font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:700;"><span>${_maFmtR(spend)}</span></div>`;
+    // Declarada a interação no anúncio, o número dela aparece AQUI, com a cor da
+    // faixa. O anúncio não tem (e não passa a ter) um veredito por custo-vs-meta
+    // próprio — a pílula do topo continua sendo a leitura de saúde/Opus. Mas sem
+    // mostrar o custo daquilo que o dono declarou, declarar no anúncio não faria
+    // nada visível, e ele pediu que valesse pro anúncio também.
+    const declAd=_gtObjetivoInteracao[String(ad.ad_id)];
+    if(interacaoValida(declAd)){
+      const qAd=quantidadesDoInsight(ad);
+      const custoAd=custoDaInteracao(qAd,declAd);
+      const metaAd=metaDoBalde(_gtRegua,declAd);
+      const avalAd=avaliarAlvo({custo:custoAd,meta:metaAd,limiares:_gtRegua.limiares});
+      const corAd=avalAd.faixa==='escalar-forte'||avalAd.faixa==='dentro-da-meta'?'var(--green)'
+        :avalAd.faixa==='manter'?'var(--orange)':avalAd.faixa==='otimizar'?'var(--red)':'var(--muted)';
+      const el=document.createElement('div');
+      el.className='gt-metric';
+      el.title=`${INTERACOES[declAd].rotuloCusto} · sua meta é ${metaAd>0?_maFmtR(metaAd):'—'}`;
+      el.innerHTML=`${_gtEsc(INTERACOES[declAd].rotulo)} <span style="color:${corAd}">${custoAd==null?'—':_maFmtR(custoAd)}</span>`;
+      metrics.appendChild(el);
+    }
     const adNum=document.createElement('div');adNum.className='gt-ad-num';adNum.textContent=(campNum!=null?campNum+'.':'')+(ai+1);
     const adSelCb=_gtSelCaixa('ad',ad.ad_id,ad.ad_name||ad.adset_name,adStatus==='ACTIVE');
     if(adSelCb)top.appendChild(adSelCb);
