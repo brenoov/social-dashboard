@@ -781,6 +781,7 @@ async function _gtSalvarRegua(nova, botao) {
 // a campanha de MAIOR GASTO, que é a mais representativa do dinheiro dele.
 function _gtExemplosParaRegua() {
   const porBalde = {};
+  const porInteracao = {};
   for (const linha of _gtInsights) {
     const baldeBruto = _gtBalde(linha.objective);
     // Mesma correção do cartão: campanha de WhatsApp chega como OUTCOME_ENGAGEMENT.
@@ -790,14 +791,31 @@ function _gtExemplosParaRegua() {
       || _gtActionVal(linha, _GT_MSG_REPLY) != null
     );
     const balde = temMensagem ? 'mensagens' : baldeBruto;
-    if (!alvoDoBalde(balde)) continue;                       // balde sem alvo não vira exemplo
-    const atual = porBalde[balde];
-    if (!atual || Number(linha.spend || 0) > Number(atual.spend || 0)) porBalde[balde] = linha;
+    if (alvoDoBalde(balde)) {
+      const atual = porBalde[balde];
+      if (!atual || Number(linha.spend || 0) > Number(atual.spend || 0)) porBalde[balde] = linha;
+    }
+    // Exemplo POR INTERAÇÃO: a régua tem meta por curtida/comentário/salvamento/
+    // compartilhamento, então cada uma dessas metas também precisa do seu "como
+    // fica na prática" — senão o dono digita um número sem ver o efeito.
+    // Escolhe a campanha com MAIS daquela interação (a mais representativa dela),
+    // e só entre campanhas de engajamento, que é onde a declaração vale.
+    if (balde === 'engajamento') {
+      const q = quantidadesDoInsight(linha);
+      for (const chave of Object.keys(INTERACOES)) {
+        if (!(q[chave] > 0)) continue;                       // zero não vira exemplo
+        const atual = porInteracao[chave];
+        if (!atual || q[chave] > atual.qtd) porInteracao[chave] = { linha, qtd: q[chave], q };
+      }
+    }
   }
   const exemplos = [];
   for (const [balde, linha] of Object.entries(porBalde)) {
     const alvo = alvoDoBalde(balde);
     exemplos.push({
+      tipo: 'objetivo',
+      chave: balde,
+      rotulo: alvo.rotulo,
       nome: linha.campaign_name || 'sua campanha',
       balde,
       quantidades: quantidadesDoInsight(linha),
@@ -810,8 +828,25 @@ function _gtExemplosParaRegua() {
         : null,
     });
   }
-  // Ordem de leitura: onde há mais dinheiro primeiro.
-  exemplos.sort((a, b) => Number(b.quantidades.gasto || 0) - Number(a.quantidades.gasto || 0));
+  for (const [chave, { linha, qtd, q }] of Object.entries(porInteracao)) {
+    exemplos.push({
+      tipo: 'interacao',
+      chave,
+      rotulo: INTERACOES[chave].rotuloCusto,
+      titulo: INTERACOES[chave].rotulo,
+      nome: linha.campaign_name || 'sua campanha',
+      balde: 'engajamento',
+      quantidades: q,
+      custo: custoDaInteracao(q, chave),
+      detalhe: [{ rotulo: INTERACOES[chave].rotulo, valor: qtd }],
+    });
+  }
+  // Ordem de leitura: primeiro os objetivos de resultado (onde há mais dinheiro),
+  // depois as interações — é a mesma ordem dos cartões da régua ao lado.
+  exemplos.sort((a, b) => {
+    if (a.tipo !== b.tipo) return a.tipo === 'objetivo' ? -1 : 1;
+    return Number(b.quantidades.gasto || 0) - Number(a.quantidades.gasto || 0);
+  });
   return exemplos;
 }
 
@@ -2103,6 +2138,12 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.pnd-ex-cab){padding:0 2px;}
 .tela-gestao-trafego :deep(.pnd-ex-cab-tit){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--accent);}
 .tela-gestao-trafego :deep(.pnd-ex-cab-sub){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;margin-top:4px;}
+/* Bloco de INTERAÇÃO usa borda discreta: são exemplos de apoio às metas por
+   curtida/comentário/salvamento/compartilhamento, abaixo dos objetivos de
+   resultado, que são a leitura principal. */
+.tela-gestao-trafego :deep(.pnd-ex-bloco.interacao){border-color:var(--border);}
+.tela-gestao-trafego :deep(.pnd-ex-bloco.interacao .pnd-ex-topo){background:var(--surface2);}
+.tela-gestao-trafego :deep(.pnd-ex-bloco.interacao .pnd-ex-rot){color:var(--muted);}
 .tela-gestao-trafego :deep(.pnd-ex-bloco){background:var(--surface);border:1px solid var(--accent-mid);border-radius:14px;overflow:hidden;flex:0 0 auto;}
 .tela-gestao-trafego :deep(.pnd-ex-topo){padding:14px 16px 13px;background:var(--accent-light);border-bottom:1px solid var(--border);}
 .tela-gestao-trafego :deep(.pnd-ex-rot){font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
