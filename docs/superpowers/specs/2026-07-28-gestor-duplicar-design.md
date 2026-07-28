@@ -121,7 +121,10 @@ toca (a pasta segue o mesmo padrão em `ponderada.js`, `veredito.js`,
 
 1. Botão **⧉ Duplicar** ao lado dos botões existentes, nos três níveis.
    Só aparece para quem tem permissão de editar (ver Segurança).
-2. Clique abre o `_gtConfirm` já usado por toda a tela, contendo:
+2. Clique abre uma janela própria (`_gtDuplicarModal`), com o mesmo visual do
+   `_gtConfirm` mas função separada — o `_gtConfirm` só devolve sim/não, não
+   tem campo de formulário, e o código o marca como o portão preservado de
+   TODAS as ações da tela. Estendê-lo arriscaria o resto da tela. A janela traz:
    - o que será copiado, por extenso ("Campanha «X», com 2 conjuntos e 7 anúncios");
    - quantas cópias (1 a 5);
    - sufixo do nome, com sugestão pronta (`· cópia`, `· cópia 2`…);
@@ -169,6 +172,20 @@ Todos contra uma Meta de mentira. Nenhum teste encosta em conta real.
 5. Falha no anúncio 3 de 7: para ali, relata os 2 que deram certo, não tenta
    os restantes.
 6. "Continuar de onde parou" não recria o que já foi criado.
+
+## Limite conhecido: só os anúncios com gasto no período
+
+A lista de anúncios que a tela tem em mãos vem dos **insights** do período
+selecionado (HOJE, 7D, 30D...). Anúncio que não gastou naquele período **não
+está na lista** e portanto **não é copiado**.
+
+Copiar de menos calado seria o pior desfecho possível aqui — o dono acharia
+que levou a campanha inteira. Por isso o aviso vai **escrito na janela de
+confirmação**, não escondido num comentário de código, e repetido no LEIA-ME:
+quem quiser levar todos escolhe um período maior antes de duplicar.
+
+Buscar os anúncios sem gasto seria uma consulta nova à Meta e é escopo além
+deste projeto. Ficar sem eles, avisando, é honesto; ficar sem eles calado não.
 
 ## Riscos / pontos a verificar
 
