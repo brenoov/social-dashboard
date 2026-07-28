@@ -4,8 +4,8 @@
 // PURO: sem rede, sem tela, sem Supabase — só entram números e saem números.
 // É isso que permite testar a conta inteira com `node --test`.
 
-export const PESOS_PADRAO = { curtidas: 1, comentarios: 10, salvamentos: 30, compartilhamentos: 20 };
-export const LIMIARES_PADRAO = { escalarForte: 0.8, dentroMeta: 1.0, manter: 1.3 };
+export const PESOS_PADRAO = Object.freeze({ curtidas: 1, comentarios: 10, salvamentos: 30, compartilhamentos: 20 });
+export const LIMIARES_PADRAO = Object.freeze({ escalarForte: 0.8, dentroMeta: 1.0, manter: 1.3 });
 
 // Ordem importa: a LÍQUIDA vem primeiro e vence a bruta. Líquida já desconta quem
 // descurtiu/dessalvou, e a casa toda usa a régua "líquido com sinal".
@@ -32,6 +32,12 @@ function valorDaAcao(acoes, tipos) {
 export function quantidadesDoInsight(linha) {
   const acoes = linha && linha.actions;
   const q = { gasto: numero(linha && linha.spend) };
+  // A API do Meta não envia um action_type quando a contagem é zero — ele
+  // simplesmente fica de fora do array de actions. Para essas quatro métricas,
+  // ausência DE VERDADE significa "zero interações", não dado faltante. Então
+  // o 0 aqui é honesto, não inventado. A regra "ausente ≠ zero" continua
+  // valendo para VALORES DERIVADOS (custo por ponto, qualidade, índice),
+  // que ficam null quando não há nada a dividir.
   for (const chave of Object.keys(FONTES)) {
     const v = valorDaAcao(acoes, FONTES[chave]);
     q[chave] = v == null ? 0 : v;
