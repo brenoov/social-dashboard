@@ -62,6 +62,12 @@ export function montarPainelRegua(alvo, opcoes) {
   const carregouOk = o.carregouOk === true;
   const podeSalvar = editavel && carregouOk;
   const exemplos = o.exemplos || null;
+  // Botão "?" de ajuda contextual (ver ajuda.js e _gtAjudaBtn na tela). Este
+  // módulo é puro — só monta innerHTML, nunca lê `window` — então recebe a
+  // função pronta de quem chama, em vez de importar do .vue (que importaria
+  // este arquivo de volta) ou reimplementar aqui o HTML do botão. Sem o
+  // parâmetro (ex.: chamada de teste), vira no-op — nunca quebra o painel.
+  const ajudaBtn = typeof o.ajudaBtn === 'function' ? o.ajudaBtn : () => '';
 
   const linhasPeso = Object.keys(PESOS_PADRAO).map((k) =>
     `<tr><td>${ROTULO_PESO[k]}</td><td>${campo('pnd-peso-' + k, regua.pesos[k], '1', editavel)}</td></tr>`).join('');
@@ -111,17 +117,17 @@ export function montarPainelRegua(alvo, opcoes) {
       <div>
         <div class="pnd-cards">
           <div class="pnd-bloco">
-            <div class="pnd-cab"><h3 class="pnd-titulo">Quanto vale cada interação</h3></div>
+            <div class="pnd-cab"><h3 class="pnd-titulo">Quanto vale cada interação</h3>${ajudaBtn('pesos')}</div>
             <p class="pnd-ajuda">Uma curtida vale 1 ponto. Se salvar vale 30, é como dizer que um salvamento equivale a 30 curtidas.</p>
             <table class="pnd-tabela"><tbody>${linhasPeso}</tbody></table>
           </div>
           <div class="pnd-bloco">
-            <div class="pnd-cab"><h3 class="pnd-titulo">Quanto você aceita pagar por resultado</h3></div>
+            <div class="pnd-cab"><h3 class="pnd-titulo">Quanto você aceita pagar por resultado</h3>${ajudaBtn('meta_resultado')}</div>
             <p class="pnd-ajuda">Uma linha por tipo de campanha, cada uma na unidade do resultado que ela compra. É esse número que dispara a decisão de verba.</p>
             <table class="pnd-tabela"><tbody>${linhasMeta}</tbody></table>
           </div>
           <div class="pnd-bloco">
-            <div class="pnd-cab"><h3 class="pnd-titulo">Quanto você aceita pagar por cada interação</h3></div>
+            <div class="pnd-cab"><h3 class="pnd-titulo">Quanto você aceita pagar por cada interação</h3>${ajudaBtn('meta_interacao')}</div>
             <p class="pnd-ajuda">Só vale para campanha de engajamento em que você declarar, no cartão dela, qual interação ela está comprando. Curtida e salvamento são mercados diferentes: hoje uma curtida sai por R$ 0,12 e um salvamento por R$ 48.</p>
             <table class="pnd-tabela"><tbody>${linhasInteracao}</tbody></table>
           </div>
@@ -195,7 +201,7 @@ export function montarPainelRegua(alvo, opcoes) {
          <tr><td>Comentários</td><td>${inteiro(ex.quantidades.comentarios)}</td></tr>
          <tr><td>Salvamentos</td><td>${inteiro(ex.quantidades.salvamentos)}</td></tr>
          <tr><td>Compartilhamentos</td><td>${inteiro(ex.quantidades.compartilhamentos)}</td></tr>
-         <tr class="forte"><td>Pontos</td><td>${inteiro(c.pontos)}</td></tr>`
+         <tr class="forte"><td>Pontos${ajudaBtn('ponto')}</td><td>${inteiro(c.pontos)}</td></tr>`
       : (ex.detalhe || []).map((d) => `<tr class="forte"><td>${esc(d.rotulo)}</td><td>${d.valor == null ? '\u2014' : inteiro(d.valor)}</td></tr>`).join('');
     const cortes = meta > 0 ? `
         <div class="pnd-ex-regua">
@@ -214,7 +220,7 @@ export function montarPainelRegua(alvo, opcoes) {
           <div class="pnd-ex-nome">${esc(ex.nome)}</div>
           <div class="pnd-ex-num">${reais(custo)}</div>
           <div class="pnd-ex-leg">${esc(legenda)}</div>
-          <span class="pnd-ex-selo ${faixa.cor}">${faixa.texto}</span>
+          <span class="pnd-ex-selo ${faixa.cor}">${faixa.texto}</span>${ajudaBtn('cores')}
           ${cortes}
         </div>
         <div class="pnd-ex-corpo">

@@ -134,6 +134,9 @@ import { alvoDoBalde, avaliarAlvo } from './alvos.js'
 // (curtida/comentário/salvamento/compartilhamento). Sem declarar, nada muda —
 // continua no ponto ponderado, exatamente como hoje. Ver interacoes.js.
 import { INTERACOES, custoDaInteracao, interacaoValida } from './interacoes.js'
+// Glossário da ferramenta (botões "?" de ajuda contextual) — ver ajuda.js pro
+// porquê disto existir. PURO: só dicionário titulo/texto, sem tela nem rede.
+import { ajudaDe } from './ajuda.js'
 
 const router = useRouter()
 
@@ -663,8 +666,11 @@ function _gtFmt(v, fmt){
 function _gtKpisHtml(row){
   const balde=_gtBalde(row.objective);
   const keys=_gtMetricasDoBalde(balde);
+  // Só 4 métricas do catálogo têm entrada em ajuda.js (custo_conversa, custo_lead,
+  // cpm, custo_visita) — a chave da métrica já É a chave da ajuda, sem mapa
+  // separado. _gtAjudaBtn devolve '' pras demais, então elas ficam sem botão.
   return keys.map(k=>{ const m=GT_METRIC_CATALOG[k]; if(!m)return ''; const val=_gtFmt(m.compute(row), m.fmt);
-    return `<div class="gt-kpi"><span class="gt-kpi-lbl">${m.label}</span><span class="gt-kpi-val">${val}</span></div>`;
+    return `<div class="gt-kpi"><span class="gt-kpi-lbl">${m.label}${_gtAjudaBtn(k)}</span><span class="gt-kpi-val">${val}</span></div>`;
   }).join('');
 }
 async function _gtSaveConfig(balde,metricas){
@@ -1180,7 +1186,7 @@ function _gtRecBanner(iaRow,daily,encerrada,status){
   const ver=iaRow.veredito||'';
   // Pausada/concluída/arquivada: faixa neutra com a última análise apagada, sem ação.
   if(encerrada||status!=='ACTIVE'){
-    return `<div class="gt-rec-banner neutral"><div class="gt-rec-main"><div class="gt-rec-head"><span class="gt-rec-tag">✦ IA</span></div><div class="gt-rec-just">${just}</div></div></div>`;
+    return `<div class="gt-rec-banner neutral"><div class="gt-rec-main"><div class="gt-rec-head"><span class="gt-rec-tag">✦ IA</span>${_gtAjudaBtn('veredito')}</div><div class="gt-rec-just">${just}</div></div></div>`;
   }
   // 'otimizar' é caro por ponto: é aviso, não boa notícia — entra na mesma
   // família visual (laranja) que 'reduzir', nunca no verde de 'positivo'.
@@ -1189,7 +1195,7 @@ function _gtRecBanner(iaRow,daily,encerrada,status){
   let action='';
   if(ver==='escalar'||ver==='reduzir'){
     const fromTo=(dfmt&&sug)?`<span class="gt-rec-from">${dfmt}/dia</span><span class="gt-rec-arrow">→</span><span class="gt-rec-to">${sug}<small>/dia</small></span>`:'';
-    action=`<div class="gt-rec-action">${fromTo}${sug?`<button data-gt-aplicar="1" class="gt-act-btn primary">Aplicar ${sug}/dia</button>`:''}</div>`;
+    action=`<div class="gt-rec-action">${fromTo}${sug?`<button data-gt-aplicar="1" class="gt-act-btn primary">Aplicar ${sug}/dia</button>${_gtAjudaBtn('orcamento_sugerido')}`:''}</div>`;
   }else if(ver==='manter'){
     action=`<div class="gt-rec-action"><span class="gt-rec-keep">Manter ${dfmt?dfmt+'/dia':'orçamento atual'}</span></div>`;
   }else if(ver==='otimizar'){
@@ -1201,7 +1207,7 @@ function _gtRecBanner(iaRow,daily,encerrada,status){
   }
   return `<div class="gt-rec-banner ${varClass}">
     <div class="gt-rec-main">
-      <div class="gt-rec-head"><span class="gt-rec-verdict">${_gtEsc(ver)}</span><span class="gt-rec-tag">✦ IA</span></div>
+      <div class="gt-rec-head"><span class="gt-rec-verdict">${_gtEsc(ver)}</span><span class="gt-rec-tag">✦ IA</span>${_gtAjudaBtn('veredito')}</div>
       <div class="gt-rec-just">${just}</div>
       ${iaRow.impacto_estimado?`<div class="gt-rec-impact"><b>Impacto:</b> ${_gtEsc(iaRow.impacto_estimado)}</div>`:''}
     </div>
@@ -1563,7 +1569,12 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       // mesmo recorte do custo por ponto logo abaixo.
       const elegivelSeloObj = baldeCamp === 'engajamento' && !temMensagem;
       const seloObjEl = _gtSeloObjetivoEl(ins.campaign_id, 'campanha', elegivelSeloObj);
-      if (seloObjEl) chips.appendChild(seloObjEl);
+      if (seloObjEl) {
+        chips.appendChild(seloObjEl);
+        const objHelpWrap = document.createElement('span');
+        objHelpWrap.innerHTML = _gtAjudaBtn('objetivo_declarado');
+        if (objHelpWrap.firstElementChild) chips.appendChild(objHelpWrap.firstElementChild);
+      }
       // O índice "custo por ponto" só existe pra engajamento — é o único balde
       // cujo resultado É o ponto da ponderada. Fora dele, dividir R$/ponto por
       // uma meta de outra unidade (R$/visita, R$/lead...) seria comparar
@@ -1661,8 +1672,18 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
         extra.title = objDeclarado
           ? `${_maFmt(pnd.pontos, 0)} pontos · cada interação vale ${_maFmt(pnd.qualidade, 1)} · cor neutra porque esta campanha foi declarada e é julgada por ${INTERACOES[objDeclarado].rotulo.toLowerCase()}, não por ponto`
           : `${_maFmt(pnd.pontos, 0)} pontos · cada interação vale ${_maFmt(pnd.qualidade, 1)}`;
-        extra.innerHTML = `Custo/ponto <span style="color:${cor}">${_maFmtR(pnd.custoPorPonto)}</span>`;
+        extra.innerHTML = `Custo/ponto${_gtAjudaBtn('custo_por_ponto')} <span style="color:${cor}">${_maFmtR(pnd.custoPorPonto)}</span>`;
         metrics.appendChild(extra);
+        // "Qualidade" só existia até aqui escondida dentro do title (tooltip) do
+        // chip acima — nunca virava um número que o dono via sem passar o mouse.
+        // Vira seu próprio chip, mesmo padrão, só pra dar rosto a essa métrica e
+        // ao botão que a explica (ajuda.js: qualidade).
+        if (pnd.qualidade != null) {
+          const qualEl = document.createElement('div');
+          qualEl.className = 'gt-metric';
+          qualEl.innerHTML = `Qualidade${_gtAjudaBtn('qualidade')} <span>${_maFmt(pnd.qualidade, 1)}</span>`;
+          metrics.appendChild(qualEl);
+        }
       }
       // 1) Faixa de recomendação (estrela) — no TOPO, antes do cabeçalho.
       const bannerWrap=document.createElement('div');
@@ -1746,6 +1767,12 @@ function _gtTrocarAba(nome) {
       carregouOk: _gtReguaCarregada,
       exemplos: _gtExemplosParaRegua(),
       aoSalvar: _gtSalvarRegua,
+      // painel-regua.js é módulo puro (só innerHTML, sem tocar em `window`) —
+      // por isso o botão "?" entra por injeção, não por import cruzado do
+      // .vue. A função em si (_gtAjuda) segue registrada em window porque o
+      // onclick="..." do HTML gerado por este painel só existe depois de
+      // virar string no DOM, e ali só um global alcança.
+      ajudaBtn: _gtAjudaBtn,
     });
   }
 }
@@ -1919,6 +1946,31 @@ function _renderGtAds(pane,ads,allInsights,allAdInsights,campNum,temMensagemCamp
 }
 // escapa texto vindo da Meta (nome de campanha/anúncio, mensagem de erro) antes de ir p/ innerHTML
 function _gtEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+// Ajuda contextual (glossário em ajuda.js): abre o MESMO modal _gtConfirm já
+// usado pra confirmar ações, só que sem botão Cancelar (okOnly). Nunca abre
+// modal vazio — chave desconhecida não faz nada (mesma regra de ajudaDe).
+// Exposta em window (ver Object.assign(window,{...}) abaixo) porque é chamada
+// a partir de onclick="..." em HTML gerado (innerHTML), tanto pelo cartão de
+// campanha aqui quanto pelo painel puro painel-regua.js (que recebe esta
+// função — ver _gtAjudaBtn — via opção `ajudaBtn`, e não pode ler `window`
+// direto num módulo que se pretende puro/testável fora do navegador).
+function _gtAjuda(chave){
+  const entrada=ajudaDe(chave);
+  if(!entrada)return;
+  _gtConfirm(entrada.titulo,entrada.texto,{okOnly:true});
+}
+// Botão "?" redondo (mesmo padrão visual de .ma-kpi-q em análise de campanhas
+// — ver .pnd-ajuda-btn no <style> abaixo). Devolve '' pra chave sem entrada:
+// nunca deve existir um botão que abre um modal vazio. O texto de ajuda.js já
+// é HTML de propósito (constante do módulo, não dado do usuário/Meta) — por
+// isso NÃO passa por _gtEsc aqui; só o titulo/atributos usam _gtEsc porque
+// vão para atributo HTML.
+function _gtAjudaBtn(chave){
+  const entrada=ajudaDe(chave);
+  if(!entrada)return'';
+  const titulo=_gtEsc(entrada.titulo);
+  return `<button type="button" class="pnd-ajuda-btn" onclick="_gtAjuda('${String(chave).replace(/'/g,"\\'")}')" title="${titulo}" aria-label="${titulo}">?</button>`;
+}
 // Modal de confirmação/aviso. opts:{danger,okOnly,okLabel}. Resolve true (confirmar) / false (cancelar).
 // ESTE É O GATE que precede TODA ação de mutação real (_gtApplyAction) — pausar/
 // reativar campanha ou anúncio, e mudar orçamento. Preservado intacto/verbatim.
@@ -2040,6 +2092,7 @@ Object.assign(window, {
   _gtSaveEditor,
   _gtCloseCriativo,
   _gtTrocarAba,
+  _gtAjuda,
 })
 </script>
 
@@ -2099,6 +2152,12 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.pnd-cab){display:flex;align-items:center;gap:8px;margin-bottom:5px;}
 .tela-gestao-trafego :deep(.pnd-cab::before){content:'';width:3px;height:14px;border-radius:2px;background:var(--accent);flex:0 0 auto;}
 .tela-gestao-trafego :deep(.pnd-titulo){font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));font-weight:700;letter-spacing:.2px;color:var(--text);margin:0;}
+/* Botão "?" de ajuda contextual — mesmo desenho de .ma-kpi-q (análise de
+   campanhas): círculo pequeno e discreto, cor de destaque só no hover. Fica ao
+   lado do rótulo que já existe (título de cartão, rótulo de KPI, selo…), nunca
+   sozinho anunciando algo (ver _gtAjudaBtn). */
+.tela-gestao-trafego :deep(.pnd-ajuda-btn){margin-left:5px;width:14px;height:14px;border-radius:50%;border:1px solid var(--border);background:none;color:var(--muted);font-size:9px;font-weight:700;cursor:pointer;line-height:1;padding:0;vertical-align:middle;flex:0 0 auto;}
+.tela-gestao-trafego :deep(.pnd-ajuda-btn:hover){border-color:var(--accent);color:var(--accent);}
 .tela-gestao-trafego :deep(.pnd-ajuda){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);margin:0 0 12px;line-height:1.55;}
 .tela-gestao-trafego :deep(.pnd-tabela){width:100%;border-collapse:collapse;}
 .tela-gestao-trafego :deep(.pnd-tabela td){padding:8px 0;border-bottom:1px solid var(--border);font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));color:var(--text);line-height:1.35;}
