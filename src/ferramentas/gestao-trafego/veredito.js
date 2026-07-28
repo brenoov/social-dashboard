@@ -29,29 +29,38 @@ const reais = (v) => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFraction
 // Sem essa checagem, custoPorPonto/meta ausentes viram "R$ NaN" na frase mostrada ao dono.
 const numeroValido = (v) => typeof v === 'number' && Number.isFinite(v) && v > 0;
 
+// A unidade do resultado ("por ponto", "por conversa iniciada", "por lead"...)
+// vem de fora (p.rotulo), nunca fixa: cada objetivo tem a SUA unidade desde a
+// generalização de metas por objetivo (ver alvos.js). Antes esta frase sempre
+// dizia "por ponto" mesmo quando quem decidiu foi o alvo de outro balde (ex.:
+// WhatsApp julgado por custo por conversa) — o dono lia "Caro por ponto" numa
+// campanha de mensagem, o que aponta pra linha errada da régua (I3 do review
+// final, 2026-07-28). 'por ponto' aqui é só o padrão de quem não manda rótulo
+// (compatibilidade com chamadas antigas/engajamento).
 function porqueDaPonderada(p) {
+  const unidade = p.rotulo || 'por ponto';
   const temNumeros = numeroValido(p.custoPorPonto) && numeroValido(p.meta);
   const custo = temNumeros ? reais(p.custoPorPonto) : null;
   const meta = temNumeros ? reais(p.meta) : null;
 
   if (p.faixa === 'escalar-forte') {
     return temNumeros
-      ? `Barato por ponto: ${custo} contra a meta de ${meta}. Há espaço claro para escalar.`
-      : 'Barato por ponto, mas não consegui mostrar os números exatos. Há espaço claro para escalar.';
+      ? `Barato ${unidade}: ${custo} contra a meta de ${meta}. Há espaço claro para escalar.`
+      : `Barato ${unidade}, mas não consegui mostrar os números exatos. Há espaço claro para escalar.`;
   }
   if (p.faixa === 'dentro-da-meta') {
     return temNumeros
-      ? `Dentro da meta: ${custo} por ponto contra ${meta}. Pode escalar.`
-      : 'Dentro da meta, mas não consegui mostrar os números exatos. Pode escalar.';
+      ? `Dentro da meta: ${custo} ${unidade} contra ${meta}. Pode escalar.`
+      : `Dentro da meta, mas não consegui mostrar os números exatos. Pode escalar.`;
   }
   if (p.faixa === 'manter') {
     return temNumeros
-      ? `Um pouco acima da meta: ${custo} por ponto contra ${meta}. Observar antes de mexer.`
-      : 'Um pouco acima da meta, mas não consegui mostrar os números exatos. Observar antes de mexer.';
+      ? `Um pouco acima da meta: ${custo} ${unidade} contra ${meta}. Observar antes de mexer.`
+      : `Um pouco acima da meta, mas não consegui mostrar os números exatos. Observar antes de mexer.`;
   }
   return temNumeros
-    ? `Caro por ponto: ${custo} contra a meta de ${meta}. Revisar criativo ou público.`
-    : 'Caro por ponto, mas não consegui mostrar os números exatos. Revisar criativo ou público.';
+    ? `Caro ${unidade}: ${custo} contra a meta de ${meta}. Revisar criativo ou público.`
+    : `Caro ${unidade}, mas não consegui mostrar os números exatos. Revisar criativo ou público.`;
 }
 
 export function decidirVeredito(entrada) {

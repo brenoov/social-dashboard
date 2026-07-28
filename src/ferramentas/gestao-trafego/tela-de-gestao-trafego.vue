@@ -484,7 +484,10 @@ const GT_OBJETIVO_BALDE={
   OUTCOME_LEADS:'leads', LEAD_GENERATION:'leads',
 };
 const GT_BALDE_PADRAO={
-  trafego:['ctr','cpc','visitas','cpm'],
+  // custo_visita é a métrica que DECIDE o veredito deste balde (ver alvos.js
+  // ALVOS.trafego) — precisa aparecer no cartão, senão o dono vê o selo mudar
+  // sem enxergar o número que o explica (I6 do review final, 2026-07-28).
+  trafego:['ctr','cpc','visitas','custo_visita','cpm'],
   vendas:['roas','cac','valor_conversao','compras'],
   reconhecimento:['alcance','cpm','frequencia','impressoes'],
   // Conversas iniciadas primeiro: é o resultado principal das campanhas de WhatsApp (La Vessel I).
@@ -495,6 +498,14 @@ const GT_BALDE_PADRAO={
   padrao:['ctr','cpc','gasto','alcance'],
 };
 function _gtBalde(objective){ return GT_OBJETIVO_BALDE[String(objective||'').toUpperCase()]||'padrao'; }
+// Fragmento "por X" pra frase do veredito (ver veredito.js porqueDaPonderada).
+// Vem do MESMO rótulo que a régua já mostra (ALVOS[balde].rotulo, ex.: "Custo
+// por conversa iniciada"), só sem o prefixo "Custo " — evita duplicar a unidade
+// de cada objetivo em dois lugares (I3 do review final, 2026-07-28).
+function _gtRotuloPorUnidade(alvoObj){
+  if(!alvoObj || !alvoObj.rotulo) return 'por ponto';
+  return alvoObj.rotulo.replace(/^Custo\s+/i, '');
+}
 function _gtMetricValue(key,row){ const m=GT_METRIC_CATALOG[key]; return m?m.compute(row):null; }
 let _gtConfig={};
 let _gtConfigLoaded=false;
@@ -644,13 +655,30 @@ async function _gtSalvarRegua(nova, botao) {
 }
 
 // Campanha de maior gasto na tela, usada como exemplo vivo da aba da régua.
+// Precisa escolher o MESMO alvo que o cartão da campanha escolheria (ver bloco
+// "ALVO DO OBJETIVO" acima) — inclusive o desvio de campanha-de-mensagem —
+// senão o exemplo vivo ensina a conta errada pro dono (C1 do review final,
+// 2026-07-28: nesta conta, a campanha de maior gasto é de WhatsApp).
 function _gtExemploParaRegua() {
   const linha = [..._gtInsights].sort((a, b) => Number(b.spend || 0) - Number(a.spend || 0))[0];
   if (!linha) return null;
+  const baldeBruto = _gtBalde(linha.objective);
+  const temMensagem = baldeBruto === 'engajamento' && (
+    _gtActionVal(linha, _GT_MSG) != null
+    || _gtActionVal(linha, _GT_MSG_CONN) != null
+    || _gtActionVal(linha, _GT_MSG_REPLY) != null
+  );
+  const balde = temMensagem ? 'mensagens' : baldeBruto;
+  const alvo = alvoDoBalde(balde);
+  // Custo pronto (não depende dos pesos/limiares editáveis nesta aba) pra todo
+  // balde que NÃO é a ponderada — painel-regua.js recalcula ao vivo só o caso
+  // 'ponderada' (engajamento), a partir de `quantidades`.
+  const custo = (alvo && alvo.metrica !== 'ponderada') ? _gtMetricValue(alvo.metrica, linha) : null;
   return {
     nome: linha.campaign_name || 'sua campanha',
-    balde: _gtBalde(linha.objective),
+    balde,
     quantidades: quantidadesDoInsight(linha),
+    custo,
   };
 }
 
@@ -1210,6 +1238,7 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       top.appendChild(l1);top.appendChild(l2);
       // PONDERADA: pontos e custo por ponto desta campanha, com a régua do dono.
       const qtdsPnd = quantidadesDoInsight(ins);
+      const baldeCamp = _gtBalde(kpiObjective);
       // Campanha de MENSAGEM (WhatsApp/Direct) nunca pode ter o veredito decidido
       // pela ponderada, mesmo caindo no balde 'engajamento': no setup moderno da
       // Meta, WhatsApp chega como objetivo OUTCOME_ENGAGEMENT (ver GT_OBJETIVO_BALDE),
@@ -1219,16 +1248,32 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       // campanhas que estão indo bem no que de fato prometem, só porque engajamento
       // não é o que compram. Mesma classe de defeito já corrigida pra vendas/leads
       // (ver comentário na migration 20260728_ponderada_config.sql): a correção
-      // aqui é tratar como "sem meta" (meta=0) qualquer campanha com ação de
-      // mensagem — calcularPonderada devolve faixa 'sem-dados' e decidirVeredito
-      // cai pra saúde/objetivo, sem mexer em decidirVeredito nem no formato dos
-      // campos. O custo por ponto continua calculado e aparecendo no cartão
-      // (custoPorPonto não depende da meta) — só o VEREDITO deixa de ser guiado
-      // por ele.
-      const temMensagem = _gtActionVal(ins, _GT_MSG) != null
+      // aqui é tratar como "sem meta" (meta=0) qualquer campanha de ENGAJAMENTO
+      // com ação de mensagem — calcularPonderada devolve faixa 'sem-dados' e
+      // decidirVeredito cai pra saúde/objetivo, sem mexer em decidirVeredito nem
+      // no formato dos campos. O custo por ponto continua calculado e aparecendo
+      // no cartão (custoPorPonto não depende da meta) — só o VEREDITO deixa de
+      // ser guiado por ele.
+      // O `&& baldeCamp==='engajamento'` é o que restringe este desvio ao caso
+      // real (WhatsApp chegando como engajamento): uma campanha de LEAD ou de
+      // TRÁFEGO que também dispara uma ação de mensagem (ex.: roteia pro
+      // WhatsApp) já tem o alvo certo do seu PRÓPRIO balde — sem essa restrição,
+      // esse desvio sequestrava um alvo correto que o dono acabou de ganhar
+      // (I5 do review final, 2026-07-28).
+      const temMensagem = baldeCamp === 'engajamento' && (
+        _gtActionVal(ins, _GT_MSG) != null
         || _gtActionVal(ins, _GT_MSG_CONN) != null
-        || _gtActionVal(ins, _GT_MSG_REPLY) != null;
-      const metaPnd = temMensagem ? 0 : metaDoBalde(_gtRegua, _gtBalde(kpiObjective));
+        || _gtActionVal(ins, _GT_MSG_REPLY) != null
+      );
+      // O índice "custo por ponto" só existe pra engajamento — é o único balde
+      // cujo resultado É o ponto da ponderada. Fora dele, dividir R$/ponto por
+      // uma meta de outra unidade (R$/visita, R$/lead...) seria comparar
+      // maçã com laranja: o chip pintava verde/vermelho contradizendo o
+      // veredito do mesmo cartão (C2 do review final, 2026-07-28). meta=0 aqui
+      // faz calcularPonderada devolver faixa 'sem-dados' (cor neutra), mas o
+      // custo por ponto em si continua calculado e aparecendo — é informação,
+      // não veredito.
+      const metaPnd = (baldeCamp === 'engajamento' && !temMensagem) ? metaDoBalde(_gtRegua, 'engajamento') : 0;
       const pnd = calcularPonderada(qtdsPnd, { pesos: _gtRegua.pesos, limiares: _gtRegua.limiares, meta: metaPnd });
 
       // ALVO DO OBJETIVO: cada tipo de campanha é medido pelo resultado que ele
@@ -1238,7 +1283,6 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       // 'mensagens' mesmo chegando com objetivo de engajamento — mesma correção
       // de sempre (ver comentário de temMensagem acima), só que agora em vez de
       // simplesmente cair fora da conta, ela ganha o alvo certo: custo por conversa.
-      const baldeCamp = _gtBalde(kpiObjective);
       const alvo = temMensagem ? alvoDoBalde('mensagens') : alvoDoBalde(baldeCamp);
       const metaAlvo = metaDoBalde(_gtRegua, temMensagem ? 'mensagens' : baldeCamp);
       const custoAlvo = !alvo ? null
@@ -1257,7 +1301,10 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
         // por conversa, por venda, por visita, por mil pessoas — ou por ponto,
         // no caso de engajamento), não mais sempre da ponderada. decidirVeredito
         // não muda: ele só lê faixa/custoPorPonto/meta, quaisquer que sejam.
-        ponderada: { faixa: aval.faixa, custoPorPonto: custoAlvo, meta: metaAlvo },
+        // `rotulo` é novo (I3 do review final, 2026-07-28): a unidade certa pra
+        // frase do veredito ("Caro por conversa iniciada", não sempre "por
+        // ponto") — vem do mesmo ALVOS[balde].rotulo que a régua já usa.
+        ponderada: { faixa: aval.faixa, custoPorPonto: custoAlvo, meta: metaAlvo, rotulo: _gtRotuloPorUnidade(alvo) },
       });
 
       // A faixa continua recebendo o formato que ela já espera hoje.

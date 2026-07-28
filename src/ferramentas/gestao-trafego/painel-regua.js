@@ -1,9 +1,9 @@
 // Aba "A régua": as tabelas que governam a métrica ponderada em toda a ferramenta.
 // Não fala com o banco — recebe a régua pronta e devolve a editada pelo callback.
 // O EXEMPLO VIVO ao lado é o ponto: sem ele o dono editaria peso no escuro.
-import { calcularPonderada, PESOS_PADRAO, LIMIARES_PADRAO } from './ponderada.js';
+import { calcularPonderada, PESOS_PADRAO } from './ponderada.js';
 import { metaDoBalde } from './regua.js';
-import { ALVOS } from './alvos.js';
+import { ALVOS, alvoDoBalde, avaliarAlvo } from './alvos.js';
 
 const ROTULO_PESO = {
   curtidas: 'Curtida', comentarios: 'Comentário',
@@ -26,15 +26,17 @@ const reais = (v) => v == null ? '—' : 'R$ ' + Number(v).toLocaleString('pt-BR
 const inteiro = (v) => Number(v || 0).toLocaleString('pt-BR');
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-// `prefixo` é a unidade que mora DENTRO da caixa do campo ('R$' pra dinheiro,
-// '×' pra multiplicador). Sem ela o número fica solto e o rótulo precisa carregar
-// a unidade, o que alongava a linha.
+// `formato` é a unidade que mora DENTRO da caixa do campo — vem direto de
+// ALVOS[balde].unidade ('R$' hoje, pra toda meta) na linha de meta; peso não
+// tem unidade (é um multiplicador puro), então chama sem este argumento.
+// Sem ela o número fica solto e o rótulo precisa carregar a unidade, o que
+// alongava a linha.
 function campo(id, valor, passo, editavel, formato) {
-  const prefixo = formato === 'dinheiro' ? 'R$' : formato === 'multiplicador' ? '×' : '';
+  const prefixo = formato || '';
   if (!editavel) {
     // Custo-alvo é dinheiro: mostra "R$ 0,20" igual ao exemplo vivo ao lado,
-    // não o número cru. Peso e limiar são multiplicadores, ficam como número.
-    const texto = formato === 'dinheiro' ? reais(valor === '' ? null : valor) : esc(valor);
+    // não o número cru. Peso fica como número puro (sem unidade).
+    const texto = prefixo === 'R$' ? reais(valor === '' ? null : valor) : esc(valor);
     return `<span class="pnd-valor">${texto}</span>`;
   }
   const pre = prefixo ? `<span class="pnd-pre">${prefixo}</span>` : '';
@@ -70,7 +72,7 @@ export function montarPainelRegua(alvo, opcoes) {
     const nota = temMeta ? '' : '<div class="pnd-alvo-vazio">ainda sem histórico — defina quando começar a rodar esse tipo</div>';
     return `<tr>
       <td><div class="pnd-alvo-nome">${esc(ROTULO_BALDE[b] || b)}</div><div class="pnd-alvo-ajuda">${esc(a.rotulo)} — ${esc(a.ajuda)}</div>${nota}</td>
-      <td>${campo('pnd-meta-' + b, valor, '0.01', editavel, 'dinheiro')}</td>
+      <td>${campo('pnd-meta-' + b, valor, '0.01', editavel, a.unidade)}</td>
     </tr>`;
   }).join('');
 
@@ -146,21 +148,45 @@ export function montarPainelRegua(alvo, opcoes) {
       return;
     }
     const r = reguaDaTela();
+    // MESMO CAMINHO do cartão da campanha (ver tela-de-gestao-trafego.vue,
+    // bloco "ALVO DO OBJETIVO"): alvoDoBalde + avaliarAlvo, nunca sempre
+    // "custo por ponto". Antes este exemplo calculava só a ponderada e pintava
+    // o selo com a meta do balde da campanha (ex.: WhatsApp, balde 'mensagens'),
+    // então uma campanha de conversa aparecia com "R$ X por ponto" comparado
+    // contra a meta de R$ 20,00 por CONVERSA — comparação entre unidades
+    // diferentes, o exato erro que esta fase eliminou em todo o resto da tela
+    // (C1 do review final, 2026-07-28). `exemplo.balde` já vem resolvido pela
+    // tela (considerando se a campanha tem resultado de mensagem).
+    // `alvoObj` (não `alvo` — esse nome já é o parâmetro/elemento DOM da função
+    // de fora) é a definição do alvos.js pro balde desta campanha-exemplo.
+    const alvoObj = alvoDoBalde(exemplo.balde);
     const meta = metaDoBalde(r, exemplo.balde);
-    const c = calcularPonderada(exemplo.quantidades, { pesos: r.pesos, limiares: r.limiares, meta });
-    const faixa = FAIXA[c.faixa] || FAIXA['sem-dados'];
-    // O RESULTADO vem em manchete (custo por ponto grande + selo colorido), não
+    // Só quando o alvo do balde É a ponderada (hoje, só engajamento) o custo
+    // depende dos pesos que o dono está editando agora nesta mesma aba; para
+    // os demais baldes, o custo já veio pronto de uma campanha real e não muda
+    // com peso/limiar (eles não fazem parte da conta daquele objetivo).
+    const ehPonderada = !!alvoObj && alvoObj.metrica === 'ponderada';
+    const c = calcularPonderada(exemplo.quantidades, { pesos: r.pesos, limiares: r.limiares, meta: ehPonderada ? meta : 0 });
+    const custo = !alvoObj ? null : ehPonderada ? c.custoPorPonto : exemplo.custo;
+    const aval = avaliarAlvo({ custo, meta, limiares: r.limiares });
+    const faixa = FAIXA[aval.faixa] || FAIXA['sem-dados'];
+    // O rótulo vem do PRÓPRIO alvo (alvos.js) — nunca mais "por ponto" fixo.
+    // Sem alvo definido pro balde (objetivo que a tela não mapeia), mostra um
+    // rótulo genérico e cai em 'sem-dados': nunca um selo colorido nascido da
+    // meta de outro balde.
+    const rotulo = alvoObj ? alvoObj.rotulo : 'Custo por resultado';
+    // O RESULTADO vem em manchete (número grande + selo colorido), não
     // escondido na última linha de uma tabela: é ele que responde "e daí?" a cada
     // tecla digitada. O detalhe fica embaixo, menor, pra quem quiser conferir a conta.
     const legenda = meta > 0
-      ? `por ponto · sua meta é ${reais(meta)}`
-      : 'por ponto · este tipo de campanha não tem meta aqui';
+      ? `${rotulo} · sua meta é ${reais(meta)}`
+      : `${rotulo} · este tipo de campanha não tem meta aqui`;
     caixa.innerHTML = `
       <div class="pnd-ex-topo">
         <div class="pnd-ex-rot">Como fica na prática</div>
         <div class="pnd-ex-nome">${esc(exemplo.nome)}</div>
-        <div class="pnd-ex-num">${reais(c.custoPorPonto)}</div>
-        <div class="pnd-ex-leg">${legenda}</div>
+        <div class="pnd-ex-num">${reais(custo)}</div>
+        <div class="pnd-ex-leg">${esc(legenda)}</div>
         <span class="pnd-ex-selo ${faixa.cor}">${faixa.texto}</span>
       </div>
       <div class="pnd-ex-corpo">

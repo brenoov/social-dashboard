@@ -29,12 +29,18 @@ export function normalizarRegua(linha) {
   };
 }
 
-// Meta do balde; sem ela, tenta o 'padrao'; sem nenhum, devolve 0 — e 0 faz o
-// cálculo devolver "sem-dados", que é melhor que inventar uma meta.
-// SEMPRE devolve um número: texto é coercido, valores inválidos recuam pro padrao.
+// Meta do balde; sem meta salva PARA ESTE BALDE, devolve 0 — e 0 faz o cálculo
+// devolver "sem-dados", que é melhor que inventar uma meta.
+// NÃO existe mais reserva em 'padrao': desde a generalização de metas por
+// objetivo (2026-07-28, ver alvos.js), cada balde tem sua PRÓPRIA unidade —
+// R$ por ponto, R$ por lead, R$ por venda, R$ por visita, R$ por mil pessoas,
+// R$ por conversa. Aplicar a meta de um balde a outro por "reserva" misturaria
+// unidades diferentes como se fossem a mesma régua (I4 do review final,
+// 2026-07-28). Se 'padrao' ainda aparecer salvo no banco (versão antiga ou
+// restore), ele é ignorado de propósito aqui.
+// SEMPRE devolve um número: texto é coercido, valores inválidos devolvem 0.
 export function metaDoBalde(regua, balde) {
   const m = (regua && regua.metas) || {};
   if (m[balde] > 0) return Number(m[balde]);
-  if (m.padrao > 0) return Number(m.padrao);
   return 0;
 }
