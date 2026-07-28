@@ -197,3 +197,44 @@ administrador do sistema.
 A base de dados garante (RLS ativa) quem consegue editar a régua — a tela apenas
 mostra esse travamento, não o inventa. Se você tentar editar sem permissão, a
 tela dirá que você não tem permissão para editar esta ferramenta.
+
+OBJETIVO POR INTERAÇÃO (desde 2026-07-28)
+==========================================
+PESO E PREÇO SÃO DUAS COISAS DIFERENTES
+Peso é o quanto uma interação VALE (curtida vale 1 ponto, salvamento vale 30 —
+é a régua de "quanto vale cada interação", explicada acima). Preço é o quanto
+ela CUSTA de verdade pra você comprar. As duas coisas não andam juntas: um
+salvamento vale 30 vezes mais que uma curtida, mas CUSTA muito mais que 30
+vezes uma curtida — medido nas suas campanhas reais, salvamento custou umas 400
+vezes mais caro. Por isso cada interação tem a SUA PRÓPRIA meta de custo (aba
+"A régua", bloco "Quanto você aceita pagar por cada interação") — comparar
+tudo pelo ponto ponderado é, na prática, sempre premiar quem compra curtida,
+porque curtida é 83% do volume.
+
+O DONO DECLARA, NO CARTÃO, O QUE AQUELA CAMPANHA (OU ANÚNCIO) ESTÁ COMPRANDO
+Numa campanha de engajamento (que não seja de WhatsApp — essa já tem o
+resultado dela, que é conversa), aparece um selo "Objetivo: ponderado" no
+cabeçalho. Clicando nele, você escolhe qual das quatro interações — curtida,
+comentário, salvamento ou compartilhamento — essa campanha (ou aquele anúncio
+específico) está de fato comprando. O mesmo selo existe em cada anúncio.
+
+DECLARAR MUDA O JULGAMENTO; NÃO DECLARAR NÃO MUDA NADA
+Sem declarar, tudo continua exatamente como sempre foi: julgado pelo ponto
+ponderado, com a meta de "R$ por ponto" da aba "A régua". Declarando, o
+veredito daquele cartão passa a ser o CUSTO DA INTERAÇÃO DECLARADA contra a
+meta daquela interação (ex.: campanha declarada "Salvamento" é julgada pelo
+custo por salvamento, contra a meta de salvamento) — não mais pelo ponto. O
+chip "Custo/ponto" continua aparecendo como referência, mas fica com cor
+NEUTRA numa campanha declarada: ele não é mais quem decide o veredito daquele
+cartão, então parar de pintar verde/vermelho por ele evita uma contradição
+visual (selo dizendo "dentro da meta" do lado de um número pintado de
+vermelho por um critério que o cartão já não usa).
+
+OS NÚMEROS MEDIDOS (13 campanhas, 90 dias)
+  • Curtida:          R$ 0,12
+  • Compartilhamento:  R$ 13 a R$ 21
+  • Salvamento:        R$ 48 a R$ 51
+  • Comentário:        R$ 128 a R$ 172 (dado mais fraco: poucos comentários no
+    total, mas foi o que deu pra medir)
+É essa diferença de mercado — de centavos a mais de cem reais pela mesma
+"interação" — que a declaração existe pra proteger.

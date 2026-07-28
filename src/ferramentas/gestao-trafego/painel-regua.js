@@ -4,6 +4,11 @@
 import { calcularPonderada, PESOS_PADRAO } from './ponderada.js';
 import { metaDoBalde } from './regua.js';
 import { ALVOS, alvoDoBalde, avaliarAlvo } from './alvos.js';
+// Metas por interação (Fase 3): ALVOS e INTERACOES são DUAS listas que gravam na
+// MESMA regua.metas — os baldes são 'engajamento/trafego/...' e as interações são
+// 'curtidas/comentarios/...', então as chaves nunca colidem (ver Task 3 do plano
+// 2026-07-28-meta-ads-objetivo-por-interacao-f3.md).
+import { INTERACOES } from './interacoes.js';
 
 const ROTULO_PESO = {
   curtidas: 'Curtida', comentarios: 'Comentário',
@@ -76,6 +81,21 @@ export function montarPainelRegua(alvo, opcoes) {
     </tr>`;
   }).join('');
 
+  // Uma linha por INTERAÇÃO (curtida/comentário/salvamento/compartilhamento).
+  // Só serve pra campanha/anúncio de engajamento em que o dono DECLARAR, no
+  // cartão dela, qual interação está comprando (ver o selo de objetivo no
+  // cartão, tela-de-gestao-trafego.vue) — sem declaração nada muda, continua
+  // no ponto ponderado.
+  const linhasInteracao = Object.keys(INTERACOES).map((k) => {
+    const it = INTERACOES[k];
+    const temMeta = regua.metas[k] != null;
+    const valor = temMeta ? regua.metas[k] : '';
+    return `<tr>
+      <td><div class="pnd-alvo-nome">${esc(it.rotulo)}</div><div class="pnd-alvo-ajuda">${esc(it.ajuda)}</div></td>
+      <td>${campo('pnd-int-' + k, valor, '0.01', editavel, 'R$')}</td>
+    </tr>`;
+  }).join('');
+
   // Ordem dos cartões: abertura explica o conceito → o que vale → quanto pagar →
   // quando acende. A cor depende da meta, então ela precisa ser lida antes.
   alvo.innerHTML = `
@@ -97,6 +117,11 @@ export function montarPainelRegua(alvo, opcoes) {
             <div class="pnd-cab"><h3 class="pnd-titulo">Quanto você aceita pagar por resultado</h3></div>
             <p class="pnd-ajuda">Uma linha por tipo de campanha, cada uma na unidade do resultado que ela compra. É esse número que dispara a decisão de verba.</p>
             <table class="pnd-tabela"><tbody>${linhasMeta}</tbody></table>
+          </div>
+          <div class="pnd-bloco">
+            <div class="pnd-cab"><h3 class="pnd-titulo">Quanto você aceita pagar por cada interação</h3></div>
+            <p class="pnd-ajuda">Só vale para campanha de engajamento em que você declarar, no cartão dela, qual interação ela está comprando. Curtida e salvamento são mercados diferentes: hoje uma curtida sai por R$ 0,12 e um salvamento por R$ 48.</p>
+            <table class="pnd-tabela"><tbody>${linhasInteracao}</tbody></table>
           </div>
         </div>
         ${editavel ? (
@@ -128,6 +153,12 @@ export function montarPainelRegua(alvo, opcoes) {
     // guardada por engano num balde sem alvo — o que é o comportamento certo,
     // essas metas nunca deveriam existir (ver M do review final, 2026-07-28).
     for (const b of Object.keys(ALVOS)) { const v = ler('pnd-meta-' + b, 0); if (v > 0) metas[b] = v; }
+    // Mesma lógica, agora para as METAS POR INTERAÇÃO (Task 3): percorre
+    // INTERACOES (a MESMA lista que desenhou linhasInteracao), gravando na
+    // MESMA `metas` — balde ('engajamento'...) e interação ('curtidas'...)
+    // nunca colidem, então as duas listas convivem no mesmo objeto sem
+    // sobrescrever uma a outra.
+    for (const k of Object.keys(INTERACOES)) { const v = ler('pnd-int-' + k, 0); if (v > 0) metas[k] = v; }
     // Os limiares saíram da tela (decisão do dono, 2026-07-28): continuam valendo
     // no cálculo e no banco, mas não são mais editáveis aqui. Devolver os que já
     // estavam evita que salvar apague o que existe.
