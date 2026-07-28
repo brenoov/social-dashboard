@@ -2141,16 +2141,18 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.pnd-aba.ativa){color:var(--accent);border-bottom-color:var(--accent);}
 
 /* Aba "A régua" (ver painel-regua.js).
-   Composição: os três cartões de ajuste ocupam a área principal e fluem de 1 a 3
-   colunas conforme a largura; o EXEMPLO VIVO fica numa faixa própria à direita e
-   GRUDADO no topo (sticky) — ele é o retorno visual de cada tecla digitada, então
-   precisa continuar à vista enquanto se rola e se edita. Antes as tabelas ficavam
-   numa coluna e o exemplo sozinho na outra, deixando um vazio enorme ao lado. */
+   Composição: os cartões de ajuste (dois por seção, nas duas seções) ocupam a
+   área principal e fluem de 1 a 2 colunas conforme a largura; o EXEMPLO VIVO
+   fica numa faixa própria à direita e GRUDADO no topo (sticky) — ele é o
+   retorno visual de cada tecla digitada, então precisa continuar à vista
+   enquanto se rola e se edita. Antes as tabelas ficavam numa coluna e o
+   exemplo sozinho na outra, deixando um vazio enorme ao lado. */
 .tela-gestao-trafego :deep(.pnd-regua){display:grid;grid-template-columns:minmax(0,1fr) minmax(290px,370px);gap:18px;align-items:start;}
-/* Os DOIS BLOCOS da régua (ver painel-regua.js): Bloco 1 "a métrica ponderada"
-   (geral) e Bloco 2 "quanto você aceita pagar por resultado" (fino). Cada
-   .pnd-grupo é um dos dois; o espaço entre eles precisa ser MAIOR que o gap
-   entre cartões do mesmo bloco, senão os dois níveis leem como uma coisa só. */
+/* As DUAS SEÇÕES da régua (ver painel-regua.js): "Engajamento ponderado"
+   (pesos + quanto aceita pagar por cada interação) e "Metas por resultado"
+   (meta por objetivo + os limiares que decidem a cor a partir dela). Cada
+   .pnd-grupo é uma das duas; o espaço entre elas precisa ser MAIOR que o gap
+   entre cartões da mesma seção, senão as duas leituras leem como uma coisa só. */
 .tela-gestao-trafego :deep(.pnd-grupo){margin-bottom:22px;}
 .tela-gestao-trafego :deep(.pnd-grupo:last-child){margin-bottom:0;}
 .tela-gestao-trafego :deep(.pnd-grupo-tit){display:flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:800;color:var(--text);margin:0 0 4px;}

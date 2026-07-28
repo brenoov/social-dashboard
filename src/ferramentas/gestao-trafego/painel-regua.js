@@ -4,14 +4,15 @@
 //
 // A tela tem DOIS NÍVEIS DE LEITURA, não dois sistemas concorrentes (o dono
 // finalmente colocou em palavras, 2026-07-28):
-//  - BLOCO 1, a ponderada: uma média geral. Responde "essa campanha comprou
-//    engajamento caro ou barato, no geral?". Vale enquanto o dono NÃO declarar
-//    o que a campanha está comprando.
-//  - BLOCO 2, o resultado: a leitura fina — custo por lead, por conversa, por
-//    venda, por visita, por mil impressões. Vale a partir da declaração.
+//  - Seção 1, "Engajamento ponderado": uma média geral. Responde "essa
+//    campanha comprou engajamento caro ou barato, no geral?". Vale enquanto o
+//    dono NÃO declarar o que a campanha está comprando.
+//  - Seção 2, "Metas por resultado": a leitura fina — custo por lead, por
+//    conversa, por venda, por visita, por mil impressões — e os limiares que
+//    decidem a cor a partir dela. Vale a partir da declaração.
 // Peso responde "quanto isso vale pra mim"; meta responde "quanto eu aceito
-// pagar por isso" — por isso os dois blocos ficam JUNTOS mas SEPARADOS: o
-// dono precisa ver os dois, mas nunca confundir um com o outro.
+// pagar por isso" — por isso as duas seções ficam JUNTAS mas SEPARADAS: o
+// dono precisa ver as duas, mas nunca confundir uma com a outra.
 import { calcularPonderada, PESOS_PADRAO, LIMIARES_PADRAO } from './ponderada.js';
 import { metaDoBalde } from './regua.js';
 import { ALVOS, alvoDoBalde, avaliarAlvo } from './alvos.js';
@@ -21,11 +22,14 @@ import { ALVOS, alvoDoBalde, avaliarAlvo } from './alvos.js';
 // 2026-07-28-meta-ads-objetivo-por-interacao-f3.md).
 import { INTERACOES } from './interacoes.js';
 
+// Só estas quatro: são exatamente as chaves de PESOS_PADRAO. Visita foi
+// tentada e RETIRADA a pedido do dono — o porquê de cada peso (e de por que só
+// quatro, contra os sete da planilha de origem) está em ponderada.js, onde os
+// pesos são montados; não repetir aqui. Não readicionar um rótulo aqui sem
+// readicionar o peso lá.
 const ROTULO_PESO = {
   curtidas: 'Curtida', comentarios: 'Comentário',
   salvamentos: 'Salvamento', compartilhamentos: 'Compartilhamento',
-  // Visita entra com peso 5 (decisão do dono, 2026-07-28 — ver ponderada.js).
-  visitas: 'Visita',
 };
 const ROTULO_BALDE = {
   engajamento: 'Engajamento', trafego: 'Tráfego', reconhecimento: 'Reconhecimento',
@@ -118,8 +122,9 @@ export function montarPainelRegua(alvo, opcoes) {
   // Só serve pra campanha/anúncio de engajamento em que o dono DECLARAR, no
   // cartão dela, qual interação está comprando (ver o selo de objetivo no
   // cartão, tela-de-gestao-trafego.vue) — sem declaração nada muda, continua
-  // no ponto ponderado. Mora no Bloco 1 porque é ainda o "mundo do engajamento":
-  // só troca peso por preço de mercado, não vira uma leitura de outro objetivo.
+  // no ponto ponderado. Mora na Seção 1 "Engajamento ponderado" porque é ainda
+  // o "mundo do engajamento": só troca peso por preço de mercado, não vira uma
+  // leitura de outro objetivo.
   const linhasInteracao = Object.keys(INTERACOES).map((k) => {
     const it = INTERACOES[k];
     const temMeta = regua.metas[k] != null;
@@ -130,15 +135,27 @@ export function montarPainelRegua(alvo, opcoes) {
     </tr>`;
   }).join('');
 
-  // Ordem dos cartões: abertura explica o conceito → Bloco 1 (a ponderada, geral)
-  // → Bloco 2 (o resultado, fino). A cor do exemplo vivo depende da meta, então
-  // ela precisa ser lida antes.
+  // Ordem dos cartões: abertura explica o conceito → Seção 1 "Engajamento
+  // ponderado" (pesos + quanto aceita pagar por cada interação) → Seção 2
+  // "Metas por resultado" (meta por objetivo + os limiares que decidem a cor).
+  // O EXEMPLO VIVO ao lado depende da meta, então ela precisa ser lida antes.
+  //
+  // FIDELIDADE: este arranjo espelha a planilha de origem do dono
+  // (metrica_ponderada.xlsx), cuja aba Config tem exatamente três blocos —
+  // PESOS POR MÉTRICA, METAS DE CUSTO POR OBJETIVO e LIMIARES DE DECISÃO. Aqui
+  // os três viram DUAS seções de tela: a Seção 1 é "PESOS POR MÉTRICA" + a
+  // meta por interação (ainda é o mundo do engajamento); a Seção 2 junta
+  // "METAS DE CUSTO POR OBJETIVO" com "LIMIARES DE DECISÃO", porque o limiar
+  // só decide a cor de um RESULTADO — não faz sentido lido sozinho, ao lado
+  // dos pesos. (A planilha lista sete pesos; só quatro existem por campanha no
+  // Meta Ads — o porquê está em ponderada.js, onde os pesos são montados; não
+  // repetir aqui.)
   alvo.innerHTML = `
     <div class="pnd-intro">
       <h2 class="pnd-intro-tit">O que é esta aba</h2>
         <div class="pnd-intro-corpo">
       <p>Aqui você diz <b>quanto aceita pagar por cada resultado</b>. É esse número que faz o cartão da campanha acender verde, amarelo ou vermelho lá na aba Campanhas.</p>
-      <p>Existem duas formas de ler o preço. A <b>ponderada</b> é a leitura geral: soma curtida, comentário, salvamento, compartilhamento e visita, cada um valendo o que você decidir, numa nota só. Ela responde "essa campanha comprou engajamento caro ou barato, no geral?". O <b>resultado</b> é a leitura fina: custo por lead, por conversa, por venda, por visita, por mil impressões — responde exatamente o que aquele tipo de campanha comprou.</p>
+      <p>Existem duas formas de ler o preço. A <b>ponderada</b> é a leitura geral: soma curtida, comentário, salvamento e compartilhamento, cada um valendo o que você decidir, numa nota só. Ela responde "essa campanha comprou engajamento caro ou barato, no geral?". O <b>resultado</b> é a leitura fina: custo por lead, por conversa, por venda, por visita, por mil impressões — responde exatamente o que aquele tipo de campanha comprou.</p>
       <p>Qual das duas vale para uma campanha? Você decide lá em Campanhas, declarando no cartão dela o que ela está comprando. Sem declarar, ela é julgada pela ponderada. Declarando um resultado, vale o custo daquele resultado. Declarando uma interação — curtida, comentário, salvamento ou compartilhamento —, vale o custo daquela interação, que você define logo abaixo.</p>
       <p>Peso e meta respondem perguntas diferentes: o <b>peso</b> diz quanto aquilo vale pra você, a <b>meta</b> diz quanto você aceita pagar por aquilo. Por isso, quando você declara uma interação, o peso não entra na conta — quem decide é só a meta.</p>
     </div>
@@ -146,18 +163,13 @@ export function montarPainelRegua(alvo, opcoes) {
     <div class="pnd-regua">
       <div>
         <div class="pnd-grupo">
-          <h2 class="pnd-grupo-tit">A métrica ponderada${ajudaBtn('ponto')}</h2>
+          <h2 class="pnd-grupo-tit">Engajamento ponderado${ajudaBtn('ponto')}</h2>
           <p class="pnd-grupo-sub">A leitura geral. Vale para toda campanha de engajamento até você declarar, no cartão dela, o que ela está comprando.</p>
           <div class="pnd-cards">
             <div class="pnd-bloco">
               <div class="pnd-cab"><h3 class="pnd-titulo">Quanto vale cada interação</h3>${ajudaBtn('pesos')}</div>
-              <p class="pnd-ajuda">Uma curtida vale 1 ponto. Uma visita vale 5. Um salvamento vale 30 — é como dizer que salvar equivale a 30 curtidas.</p>
+              <p class="pnd-ajuda">Uma curtida vale 1 ponto. Um salvamento vale 30 — é como dizer que salvar equivale a 30 curtidas.</p>
               <table class="pnd-tabela"><tbody>${linhasPeso}</tbody></table>
-            </div>
-            <div class="pnd-bloco">
-              <div class="pnd-cab"><h3 class="pnd-titulo">Quando cada cor acende</h3>${ajudaBtn('cores')}</div>
-              <p class="pnd-ajuda">Multiplicadores da sua meta de engajamento (custo por ponto, na tabela ao lado). Cada um mostra em reais o que vira, pra você não fazer a conta de cabeça.</p>
-              <table class="pnd-tabela"><tbody>${linhasLimiar}</tbody></table>
             </div>
             <div class="pnd-bloco">
               <div class="pnd-cab"><h3 class="pnd-titulo">Quanto você aceita pagar por cada interação</h3>${ajudaBtn('meta_interacao')}</div>
@@ -167,11 +179,18 @@ export function montarPainelRegua(alvo, opcoes) {
           </div>
         </div>
         <div class="pnd-grupo">
+          <h2 class="pnd-grupo-tit">Metas por resultado</h2>
+          <p class="pnd-grupo-sub">A leitura fina. Uma meta por tipo de campanha e os limiares que, a partir dela, decidem quando a cor muda.</p>
           <div class="pnd-cards">
             <div class="pnd-bloco">
               <div class="pnd-cab"><h3 class="pnd-titulo">Quanto você aceita pagar por resultado</h3>${ajudaBtn('meta_resultado')}</div>
               <p class="pnd-ajuda">Uma linha por tipo de campanha, cada uma na unidade do resultado que ela compra. É esse número que dispara a decisão de verba.</p>
               <table class="pnd-tabela"><tbody>${linhasMeta}</tbody></table>
+            </div>
+            <div class="pnd-bloco">
+              <div class="pnd-cab"><h3 class="pnd-titulo">Quando cada cor acende</h3>${ajudaBtn('cores')}</div>
+              <p class="pnd-ajuda">Multiplicadores da sua meta de engajamento (custo por ponto, na tabela ao lado). Cada um mostra em reais o que vira, pra você não fazer a conta de cabeça.</p>
+              <table class="pnd-tabela"><tbody>${linhasLimiar}</tbody></table>
             </div>
           </div>
         </div>
@@ -219,8 +238,9 @@ export function montarPainelRegua(alvo, opcoes) {
   }
 
   // Converte cada limiar em reais, ao vivo, contra a meta de engajamento (custo
-  // por ponto — o mesmo campo 'pnd-meta-engajamento' do Bloco 2). Sem isso, um
-  // multiplicador ("0,8") é abstrato demais pra decidir onde mover o corte.
+  // por ponto — o mesmo campo 'pnd-meta-engajamento' que está ao lado, na tabela
+  // de resultado desta mesma Seção 2). Sem isso, um multiplicador ("0,8") é
+  // abstrato demais pra decidir onde mover o corte.
   function pintarLimiares(r) {
     const metaEng = Number(r.metas && r.metas.engajamento) || 0;
     for (const k of Object.keys(LIMIARES_PADRAO)) {
@@ -313,7 +333,7 @@ export function montarPainelRegua(alvo, opcoes) {
       ${lista.map((ex) => blocoDeExemplo(ex, r)).join('')}`;
   }
 
-  // Repinta os dois: o preview dos limiares (Bloco 1) e o exemplo vivo (lateral).
+  // Repinta os dois: o preview dos limiares (Seção 2) e o exemplo vivo (lateral).
   // Os dois dependem da MESMA leitura da tela — uma tecla em qualquer campo
   // (peso, limiar, meta de balde ou meta de interação) precisa mover os dois.
   function atualizarTela() {
