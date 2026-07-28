@@ -31,9 +31,10 @@ export function normalizarRegua(linha) {
 
 // Meta do balde; sem ela, tenta o 'padrao'; sem nenhum, devolve 0 — e 0 faz o
 // cálculo devolver "sem-dados", que é melhor que inventar uma meta.
+// SEMPRE devolve um número: texto é coercido, valores inválidos recuam pro padrao.
 export function metaDoBalde(regua, balde) {
   const m = (regua && regua.metas) || {};
-  if (m[balde] > 0) return m[balde];
-  if (m.padrao > 0) return m.padrao;
+  if (m[balde] > 0) return Number(m[balde]);
+  if (m.padrao > 0) return Number(m.padrao);
   return 0;
 }

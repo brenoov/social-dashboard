@@ -32,3 +32,31 @@ test('sem meta nenhuma devolve 0 (que o calculo trata como sem-dados)', () => {
   const r = normalizarRegua({ metas: {} });
   assert.equal(metaDoBalde(r, 'engajamento'), 0);
 });
+
+test('metaDoBalde coerce string da meta solicitada pra number', () => {
+  const r = { metas: { engajamento: '5' } };
+  const resultado = metaDoBalde(r, 'engajamento');
+  assert.equal(typeof resultado, 'number', 'deve ser number, não string');
+  assert.equal(resultado, 5, 'deve coercir "5" pro número 5');
+});
+
+test('metaDoBalde coerce string do padrao quando a meta solicitada nao existe', () => {
+  const r = { metas: { padrao: '10' } };
+  const resultado = metaDoBalde(r, 'curtidas');
+  assert.equal(typeof resultado, 'number', 'deve ser number, não string');
+  assert.equal(resultado, 10, 'deve coercir "10" pro número 10');
+});
+
+test('metaDoBalde passa numero real direto e devolve como number', () => {
+  const r = { metas: { engajamento: 7.5 } };
+  const resultado = metaDoBalde(r, 'engajamento');
+  assert.equal(typeof resultado, 'number', 'deve ser number');
+  assert.equal(resultado, 7.5, 'deve preservar o valor');
+});
+
+test('metaDoBalde sem nenhuma meta devolve 0 como number', () => {
+  const r = { metas: {} };
+  const resultado = metaDoBalde(r, 'engajamento');
+  assert.equal(typeof resultado, 'number', 'deve ser number');
+  assert.equal(resultado, 0, 'deve ser 0');
+});
