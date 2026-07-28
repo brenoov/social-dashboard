@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calcularPonderada, quantidadesDoInsight, PESOS_PADRAO } from './ponderada.js';
+import { calcularPonderada, quantidadesDoInsight, PESOS_PADRAO, faixaDoIndice } from './ponderada.js';
 
 test('pontos = soma de quantidade x peso', () => {
   const r = calcularPonderada({ curtidas: 100, comentarios: 2, salvamentos: 3, compartilhamentos: 1, gasto: 50 });
@@ -85,4 +85,16 @@ test('liquida presente valendo ZERO e zero mesmo (nao cai pra bruta)', () => {
 test('insight sem actions nao quebra', () => {
   const q = quantidadesDoInsight({ spend: '5' });
   assert.deepEqual(q, { curtidas: 0, comentarios: 0, salvamentos: 0, compartilhamentos: 0, gasto: 5 });
+});
+
+test('faixaDoIndice é exportada e usa os limiares padrão quando não vierem', () => {
+  assert.equal(faixaDoIndice(0.5), 'escalar-forte');
+  assert.equal(faixaDoIndice(1.0), 'dentro-da-meta');
+  assert.equal(faixaDoIndice(1.2), 'manter');
+  assert.equal(faixaDoIndice(2), 'otimizar');
+  assert.equal(faixaDoIndice(null), 'sem-dados');
+});
+
+test('faixaDoIndice respeita limiares customizados', () => {
+  assert.equal(faixaDoIndice(0.9, { escalarForte: 0.95, dentroMeta: 1, manter: 1.1 }), 'escalar-forte');
 });

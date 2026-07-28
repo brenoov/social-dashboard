@@ -22,15 +22,22 @@ test('valor invalido (texto, negativo, NaN) cai no padrao daquele campo', () => 
   assert.equal(r.limiares.escalarForte, 0.8);
 });
 
-test('metaDoBalde devolve a meta do balde e cai em padrao quando nao ha', () => {
-  const r = normalizarRegua({ metas: { engajamento: 0.15, padrao: 0.3 } });
+test('metaDoBalde devolve a meta do PROPRIO balde, nunca a de outro', () => {
+  const r = normalizarRegua({ metas: { engajamento: 0.15, trafego: 0.25 } });
   assert.equal(metaDoBalde(r, 'engajamento'), 0.15);
-  assert.equal(metaDoBalde(r, 'balde-que-nao-existe'), 0.3);
+  assert.equal(metaDoBalde(r, 'trafego'), 0.25);
+  assert.equal(metaDoBalde(r, 'balde-que-nao-existe'), 0, 'balde sem meta propria devolve 0, nunca empresta de outro');
 });
 
 test('sem meta nenhuma devolve 0 (que o calculo trata como sem-dados)', () => {
   const r = normalizarRegua({ metas: {} });
   assert.equal(metaDoBalde(r, 'engajamento'), 0);
+});
+
+test('nao existe mais reserva em "padrao": cada balde tem sua propria unidade (I4 do review final, 2026-07-28)', () => {
+  assert.equal(metaDoBalde({ metas: { padrao: 0.2 } }, 'vendas'), 0, 'padrao nao pode virar meta de vendas (unidades diferentes)');
+  assert.equal(metaDoBalde({ metas: { padrao: 0.2 } }, 'leads'), 0);
+  assert.equal(metaDoBalde({ metas: { padrao: 0.2 } }, 'reconhecimento'), 0);
 });
 
 test('metaDoBalde coerce string da meta solicitada pra number', () => {
@@ -40,11 +47,11 @@ test('metaDoBalde coerce string da meta solicitada pra number', () => {
   assert.equal(resultado, 5, 'deve coercir "5" pro número 5');
 });
 
-test('metaDoBalde coerce string do padrao quando a meta solicitada nao existe', () => {
+test('metaDoBalde NAO usa "padrao" quando a meta solicitada nao existe (devolve 0)', () => {
   const r = { metas: { padrao: '10' } };
   const resultado = metaDoBalde(r, 'curtidas');
   assert.equal(typeof resultado, 'number', 'deve ser number, não string');
-  assert.equal(resultado, 10, 'deve coercir "10" pro número 10');
+  assert.equal(resultado, 0, 'padrao nao serve de reserva; deve devolver 0');
 });
 
 test('metaDoBalde passa numero real direto e devolve como number', () => {

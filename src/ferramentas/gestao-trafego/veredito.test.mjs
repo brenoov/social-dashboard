@@ -124,6 +124,27 @@ test('faixa reconhecida mas custoPorPonto ausente: nunca mostra R$ NaN', () => {
   assert.match(r.porque, /Barato por ponto/);
 });
 
+test('a frase usa a unidade do PROPRIO objetivo, nao sempre "por ponto" (I3 do review final)', () => {
+  const r = decidirVeredito({
+    saude: { veredito: 'manter', justificativa: '' },
+    opus: null,
+    ponderada: { faixa: 'otimizar', custoPorPonto: 26.95, meta: 20, rotulo: 'por conversa iniciada' },
+  });
+  assert.equal(r.veredito, 'otimizar');
+  assert.equal(r.origem, 'ponderada');
+  assert.match(r.porque, /Caro por conversa iniciada: R\$ 26,95 contra a meta de R\$ 20,00/);
+  assert.doesNotMatch(r.porque, /por ponto/);
+});
+
+test('sem rotulo (chamada antiga/engajamento), a frase continua dizendo "por ponto"', () => {
+  const r = decidirVeredito({
+    saude: null,
+    opus: null,
+    ponderada: { faixa: 'escalar-forte', custoPorPonto: 0.05, meta: 0.2 },
+  });
+  assert.match(r.porque, /Barato por ponto/);
+});
+
 test('faixa reconhecida mas meta ausente: nunca mostra R$ NaN', () => {
   const r = decidirVeredito({
     saude: null,
