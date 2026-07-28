@@ -15,6 +15,16 @@ function completar(vindo, padrao) {
   return saida;
 }
 
+// DOIS conjuntos de limiar, um por seção da régua (decisão do dono, 2026-07-28):
+// `limiares` governa a Seção 1 (custo por ponto e por interação declarada);
+// `limiares_resultado` governa a Seção 2 (custo por lead/conversa/venda/visita/
+// mil impressões). A REGRA a lembrar: quem é DONO da meta é quem é DONO do
+// limiar — cada seção tem sua própria meta (custo por ponto de um lado, custo
+// por resultado do outro), então cada uma precisa poder "escalar forte" num
+// multiplicador diferente (ex.: 0,8× pra engajamento, 0,9× pra vendas) sem que
+// mexer numa mexa na outra. Os dois nascem com os MESMOS valores de fábrica
+// (LIMIARES_PADRAO) porque é o mesmo ponto de partida — só divergem quando o
+// dono ajustar um dos dois na tela.
 export function normalizarRegua(linha) {
   const l = linha || {};
   const metas = {};
@@ -25,6 +35,7 @@ export function normalizarRegua(linha) {
   return {
     pesos: completar(l.pesos, PESOS_PADRAO),
     limiares: completar(l.limiares, LIMIARES_PADRAO),
+    limiares_resultado: completar(l.limiares_resultado, LIMIARES_PADRAO),
     metas,
   };
 }

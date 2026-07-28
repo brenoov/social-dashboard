@@ -6,7 +6,28 @@ import { PESOS_PADRAO, LIMIARES_PADRAO } from './ponderada.js';
 test('linha vazia ou nula cai inteira no padrao', () => {
   assert.deepEqual(normalizarRegua(null).pesos, PESOS_PADRAO);
   assert.deepEqual(normalizarRegua(null).limiares, LIMIARES_PADRAO);
+  assert.deepEqual(normalizarRegua(null).limiares_resultado, LIMIARES_PADRAO);
   assert.deepEqual(normalizarRegua(undefined).pesos, PESOS_PADRAO);
+});
+
+test('limiares_resultado (Seção 2) preenche so o que faltou, mantendo o que veio do banco', () => {
+  const r = normalizarRegua({ limiares_resultado: { escalarForte: 0.9 } });
+  assert.equal(r.limiares_resultado.escalarForte, 0.9, 'respeita o do banco');
+  assert.equal(r.limiares_resultado.dentroMeta, 1.0, 'completa com o padrao');
+  assert.equal(r.limiares_resultado.manter, 1.3, 'completa com o padrao');
+});
+
+test('limiares_resultado com valor invalido (texto, negativo, NaN) cai no padrao daquele campo', () => {
+  const r = normalizarRegua({ limiares_resultado: { escalarForte: 'abc', dentroMeta: -1, manter: null } });
+  assert.equal(r.limiares_resultado.escalarForte, 0.8);
+  assert.equal(r.limiares_resultado.dentroMeta, 1.0);
+  assert.equal(r.limiares_resultado.manter, 1.3);
+});
+
+test('os dois conjuntos de limiar sao INDEPENDENTES: mudar um nao mexe no outro', () => {
+  const r = normalizarRegua({ limiares: { escalarForte: 0.8 }, limiares_resultado: { escalarForte: 0.9 } });
+  assert.equal(r.limiares.escalarForte, 0.8, 'Seção 1 (ponto/interação) fica no dela');
+  assert.equal(r.limiares_resultado.escalarForte, 0.9, 'Seção 2 (resultado) fica no dela, sem herdar da 1');
 });
 
 test('preenche so o que faltou, mantendo o que veio do banco', () => {

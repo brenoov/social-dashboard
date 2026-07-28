@@ -706,7 +706,7 @@ async function _gtCarregarRegua() {
   // "a tabela realmente não tem nada". Um try/catch aqui era código morto: o
   // catch nunca rodava, e a flag de "carregou" ficava true mesmo numa leitura
   // que falhou silenciosamente. C3 do review final (2026-07-28).
-  const linhas = await sb('gt_ponderada_config?select=pesos,metas,limiares&id=eq.1');
+  const linhas = await sb('gt_ponderada_config?select=pesos,metas,limiares,limiares_resultado&id=eq.1');
   const ok = !linhas.erro && linhas.length > 0;
   if (ok) {
     _gtRegua = normalizarRegua(linhas[0]);
@@ -744,7 +744,7 @@ async function _gtSalvarRegua(nova, botao) {
     // _setGubAvatar em tela-de-admin.vue) — sem isto, updated_by/mudou_quem
     // ficavam sempre nulos e o histórico não dizia quem alterou.
     const { error } = await sbClient.from('gt_ponderada_config')
-      .update({ pesos: nova.pesos, metas: nova.metas, limiares: nova.limiares, updated_at: new Date().toISOString(), updated_by: estado.userId })
+      .update({ pesos: nova.pesos, metas: nova.metas, limiares: nova.limiares, limiares_resultado: nova.limiares_resultado, updated_at: new Date().toISOString(), updated_by: estado.userId })
       .eq('id', 1);
     if (error) throw error;
     _gtRegua = nova;
@@ -1619,7 +1619,15 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
         metaAlvo = metaDoBalde(_gtRegua, objDeclarado);
         rotuloAlvo = { rotulo: INTERACOES[objDeclarado].rotuloCusto };
       }
-      const aval = avaliarAlvo({ custo: custoAlvo, meta: metaAlvo, limiares: _gtRegua.limiares });
+      // QUAL CONJUNTO DE LIMIAR decide a cor: bucket engajamento (ponderada,
+      // sem declaração) e qualquer interação declarada são "mundo do ponto" —
+      // usam `limiares` (Seção 1 da régua). Todo o resto (reconhecimento,
+      // tráfego, mensagens — inclusive por desvio de WhatsApp — leads,
+      // vendas) é "mundo do resultado" — usa `limiares_resultado` (Seção 2).
+      // Regra da régua (dois conjuntos, 2026-07-28): quem é dono da META é
+      // dono do LIMIAR.
+      const usaLimiaresDeEngajamento = (alvo && alvo.metrica === 'ponderada') || !!objDeclarado;
+      const aval = avaliarAlvo({ custo: custoAlvo, meta: metaAlvo, limiares: usaLimiaresDeEngajamento ? _gtRegua.limiares : _gtRegua.limiares_resultado });
 
       // VEREDITO ÚNICO (ver veredito.js): saúde veta > Opus > ponderada.
       // _gtRegraCampanha continua sendo a leitura de SAÚDE (frequência, CTR).
@@ -2141,18 +2149,22 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.pnd-aba.ativa){color:var(--accent);border-bottom-color:var(--accent);}
 
 /* Aba "A régua" (ver painel-regua.js).
-   Composição: os cartões de ajuste (dois por seção, nas duas seções) ocupam a
-   área principal e fluem de 1 a 2 colunas conforme a largura; o EXEMPLO VIVO
+   Composição: os cartões de ajuste (três na Seção 1, dois na Seção 2) ocupam a
+   área principal e fluem de 1 a 3 colunas conforme a largura; o EXEMPLO VIVO
    fica numa faixa própria à direita e GRUDADO no topo (sticky) — ele é o
    retorno visual de cada tecla digitada, então precisa continuar à vista
    enquanto se rola e se edita. Antes as tabelas ficavam numa coluna e o
    exemplo sozinho na outra, deixando um vazio enorme ao lado. */
 .tela-gestao-trafego :deep(.pnd-regua){display:grid;grid-template-columns:minmax(0,1fr) minmax(290px,370px);gap:18px;align-items:start;}
-/* As DUAS SEÇÕES da régua (ver painel-regua.js): "Engajamento ponderado"
-   (pesos + quanto aceita pagar por cada interação) e "Metas por resultado"
-   (meta por objetivo + os limiares que decidem a cor a partir dela). Cada
-   .pnd-grupo é uma das duas; o espaço entre elas precisa ser MAIOR que o gap
-   entre cartões da mesma seção, senão as duas leituras leem como uma coisa só. */
+/* As DUAS SEÇÕES da régua (ver painel-regua.js), cada uma com sua PRÓPRIA meta
+   e seu PRÓPRIO limiar (2026-07-28 — quem é dono da meta é dono do limiar):
+   "Engajamento ponderado" (pesos + custo por objetivo, que são as 4 interações
+   MAIS o ponto ponderado + os limiares que multiplicam ESSA meta — coluna
+   `limiares`) e "Metas por resultado" (meta por objetivo de resultado +
+   os limiares que multiplicam ESSA outra meta — coluna `limiares_resultado`).
+   Cada .pnd-grupo é uma das duas; o espaço entre elas precisa ser MAIOR que o
+   gap entre cartões da mesma seção, senão as duas leituras leem como uma
+   coisa só. */
 .tela-gestao-trafego :deep(.pnd-grupo){margin-bottom:22px;}
 .tela-gestao-trafego :deep(.pnd-grupo:last-child){margin-bottom:0;}
 .tela-gestao-trafego :deep(.pnd-grupo-tit){display:flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:800;color:var(--text);margin:0 0 4px;}
