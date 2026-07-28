@@ -1607,6 +1607,13 @@ function _gtDupStatus(html,acoes){
   let ov=document.getElementById('gt-dup-ov');
   if(!ov)return;
   ov.innerHTML='';ov.style.display='flex';
+  // Corta o handler de fechar-clicando-no-fundo que _gtDuplicarModal deixou
+  // preso no overlay. Sem isso, um clique no fundo durante a cascata de
+  // chamadas na Meta (que pode levar segundos, mais ainda com o backoff de
+  // comEspera) esconde a janela enquanto as chamadas de verdade continuam
+  // rodando — a tela parece ociosa/cancelada com campanhas sendo criadas por
+  // trás. Daqui em diante só sai por botão, nunca clicando fora.
+  ov.onclick=null;
   const box=document.createElement('div');
   box.style.cssText='background:var(--surface,#fff);color:var(--text,#111);border-radius:14px;max-width:440px;width:100%;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.45);font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));line-height:1.6;';
   box.innerHTML=html;
@@ -1625,10 +1632,17 @@ function _gtDupFechar(){const ov=document.getElementById('gt-dup-ov');if(ov)ov.s
 
 const _GT_DUP_ROTULO={campanha:'campanha',conjunto:'conjunto de anúncios',anuncio:'anúncio'};
 
+// Guard de "só uma cópia em cascata por vez". O overlay #gt-dup-ov é
+// compartilhado por toda a jornada (modal + progresso + relatório +
+// "tentar continuar"), então duas cópias ao mesmo tempo bagunçariam a
+// mesma janela e poderiam disparar chamadas concorrentes na Meta.
+let _gtDupBusy=false;
+
 // AÇÃO REAL na Meta: cria cópias. Sempre PAUSADAS, sempre após confirmação.
 async function _gtAbrirDuplicar(alvo){
   const tok=_gtCurAcc?.id;
   if(!tok){await _gtConfirm('Sem conta selecionada','Escolha uma conta de anúncios antes de duplicar.',{okOnly:true});return;}
+  if(_gtDupBusy){await _gtConfirm('Já tem uma cópia em andamento','Espere a cópia atual terminar antes de começar outra.',{okOnly:true});return;}
 
   const nome=alvo.nivel==='campanha'?alvo.campanha?.name
     :alvo.nivel==='conjunto'?alvo.conjuntos?.[0]?.name
@@ -1655,21 +1669,35 @@ async function _gtAbrirDuplicar(alvo){
     return;
   }
 
-  // comEspera: se a Meta pedir calma no meio da cascata, ela mesma espera e
-  // repete, sem devolver o problema pro dono.
-  const enviar=comEspera((caminho,params)=>metaPost(caminho,params,tok));
-  const passoTxt=p=>_GT_DUP_ROTULO[p.passo.nivel]+' «'+_gtEsc(p.passo.origemNome)+'»';
-  const aoProgredir=p=>_gtDupStatus('<b>Copiando…</b><br>'+p.feitos+' de '+p.total+' — '+passoTxt(p));
+  _gtDupBusy=true;
+  // Ownership da liberação do guard passa pro _gtDupRelatar assim que ele é
+  // chamado (ele libera no sucesso e em "Deixar assim", e mantém preso
+  // durante "Tentar continuar"). O finally aqui é só uma rede de segurança
+  // caso algo estoure ANTES disso — pra nunca travar o guard pra sempre.
+  let _entregue=false;
+  try{
+    // comEspera: se a Meta pedir calma no meio da cascata, ela mesma espera e
+    // repete, sem devolver o problema pro dono.
+    const enviar=comEspera((caminho,params)=>metaPost(caminho,params,tok));
+    const passoTxt=p=>_GT_DUP_ROTULO[p.passo.nivel]+' «'+_gtEsc(p.passo.origemNome)+'»';
+    const aoProgredir=p=>_gtDupStatus('<b>Copiando…</b><br>'+p.feitos+' de '+p.total+' — '+passoTxt(p));
 
-  _gtDupStatus('<b>Copiando…</b><br>0 de '+plano.length);
-  const rel=await executarPlano(plano,{enviar,aoProgredir});
-  _gtDupRelatar(plano,rel,enviar);
+    _gtDupStatus('<b>Copiando…</b><br>0 de '+plano.length);
+    const rel=await executarPlano(plano,{enviar,aoProgredir});
+    _entregue=true;
+    _gtDupRelatar(plano,rel,enviar);
+  } finally {
+    if(!_entregue)_gtDupBusy=false;
+  }
 }
 
 // Mostra o desfecho. Falhou no meio: NADA é desfeito — o que ficou está
 // pausado, e o dono escolhe continuar ou deixar assim.
 function _gtDupRelatar(plano,rel,enviar){
   if(!rel.falhou){
+    // Terminou: nenhuma outra chamada na Meta vai acontecer por essa
+    // jornada, então o guard de "uma cópia por vez" já pode ser liberado.
+    _gtDupBusy=false;
     _gtDupStatus('<b>Pronto.</b><br>'+rel.concluidos.length+' '+(rel.concluidos.length===1?'item copiado':'itens copiados')+
       ', tudo <b>pausado</b>. Ative quando quiser, e ajuste o orçamento no botão «✎ editar».',
       [{texto:'Fechar',primario:true,aoClicar:()=>{_gtDupFechar();loadGtData();}}]);
@@ -1682,12 +1710,25 @@ function _gtDupRelatar(plano,rel,enviar){
     '<br><br>Copiei '+feitos+' de '+plano.length+' '+(plano.length===1?'item':'itens')+'. '+
     (feitos?'O que já foi criado está <b>pausado</b> e não vai gastar. Não apaguei nada.':'Nada foi criado.'),
     [
-      {texto:'Deixar assim',aoClicar:()=>{_gtDupFechar();loadGtData();}},
+      // "Deixar assim" é o outro desfecho final: libera o guard aqui.
+      // "Tentar continuar" NÃO libera — ele mesmo dispara mais chamadas na
+      // Meta (via retomar) e chama _gtDupRelatar de novo, que decide o
+      // desfecho seguinte. Só assim o guard cobre a jornada inteira, sem
+      // travar pra sempre (todo caminho volta a passar por aqui).
+      {texto:'Deixar assim',aoClicar:()=>{_gtDupBusy=false;_gtDupFechar();loadGtData();}},
       {texto:'Tentar continuar',primario:true,aoClicar:async()=>{
         _gtDupStatus('<b>Continuando…</b>');
-        const novo=await retomar(plano,rel,{enviar,
-          aoProgredir:p=>_gtDupStatus('<b>Continuando…</b><br>'+p.feitos+' de '+p.total)});
-        _gtDupRelatar(plano,novo,enviar);
+        try{
+          const novo=await retomar(plano,rel,{enviar,
+            aoProgredir:p=>_gtDupStatus('<b>Continuando…</b><br>'+p.feitos+' de '+p.total)});
+          _gtDupRelatar(plano,novo,enviar);
+        }catch(e){
+          // Rede de segurança: retomar não deveria lançar (executarPlano já
+          // captura os erros da Meta), mas se lançar mesmo assim, o guard
+          // não pode ficar preso pra sempre.
+          _gtDupBusy=false;
+          throw e;
+        }
       }},
     ]);
 }
