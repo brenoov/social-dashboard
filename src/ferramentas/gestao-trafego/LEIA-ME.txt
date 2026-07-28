@@ -93,3 +93,61 @@ da Análise de Campanhas):
   criativo).
 
 Para mexer só nesta tela, edite apenas esta pasta.
+
+MÉTRICA PONDERADA (desde 2026-07-28)
+=====================================
+Em vez de contar interações no bruto, a ferramenta converte cada uma em PONTOS
+conforme o valor dela. Curtir vale 1; salvar vale 30. A ideia: quem salva um post
+demonstra muito mais interesse do que quem curte, e a conta precisa refletir isso.
+
+Com os pontos, sai o CUSTO POR PONTO (gasto ÷ pontos). Comparado com a meta que o
+dono define na aba "A régua", ele acende o semáforo.
+
+Arquivos:
+- ponderada.js .... a conta (pontos, custo por ponto, qualidade, semáforo). Puro.
+- veredito.js ..... decide o veredito do cartão. Puro.
+- regua.js ........ lê a régua do banco sem deixar a tela quebrar. Puro.
+- painel-regua.js . a aba onde o dono edita pesos, metas e limiares.
+Os três primeiros têm teste ao lado (.test.mjs) e rodam com `npm test`.
+
+O VEREDITO É UM SÓ, decidido nesta ordem (não existem dois selos disputando):
+  1. Saúde manda pausar -> PAUSA, por mais barato que esteja. Frequência alta
+     queima a audiência, e preço baixo não conserta isso.
+  2. Saúde ok e há análise do Opus -> vale o Opus.
+  3. Saúde ok e sem Opus -> vale a ponderada.
+  4. Ponderada sem faixa aproveitável (ex.: volume baixo demais) e há uma
+     leitura de saúde com veredito -> vale a saúde, com a explicação dela
+     (é o caso de campanha de baixo gasto: a ponderada não tem dado suficiente,
+     mas a saúde ainda sabe dizer algo específico).
+Se nenhuma dessas quatro situações se aplicar, o cartão fica sem-dados.
+
+O custo por ponto aparece SEMPRE, independente de quem deu o veredito: ele é
+informação, não decisão. Mas o orçamento sugerido vem SÓ de quem decidiu o cartão:
+quando é a ponderada que manda ('otimizar', 'manter', etc.), não há número
+sugerido — nunca se inventa um. Quando quem decide é o Opus ou a saúde, eles têm
+seu número próprio.
+
+MÉTRICAS LÍQUIDAS: quando a Meta oferece a versão líquida (que já desconta quem
+descurtiu ou dessalvou), ela vence a bruta. Líquida valendo ZERO é zero mesmo —
+não cai pra bruta.
+
+A RÉGUA FICA NA ABA "A RÉGUA"
+-----------------------------
+Quem tem permissão de ADMINISTRADOR pode editar os três conjuntos:
+  • Quanto vale cada interação (pesos dos pontos — curtida 1, salvamento 30...).
+  • Quanto você aceita pagar (meta por objetivo de campanha — em reais).
+  • Quando cada cor acende (limiares — multiplicadores da meta).
+
+A tela mostra um EXEMPLO VIVO ao lado da régua: abra a aba Campanhas primeiro,
+e a tela usará uma campanha sua de verdade pra mostrar como cada ajuste muda o
+veredito e o custo por ponto. Sem exemplo, a régua fica no escuro.
+
+Toda alteração é gravada em histórico (tabela gt_ponderada_config_log), com o
+antes e o depois completos. Se o histórico não gravar (ex.: corte de internet),
+a tela avisa "Régua salva, mas não consegui gravar o histórico dessa alteração".
+O salvamento não é desfeito — mas se o histórico falhar sempre, avise o
+administrador do sistema.
+
+A base de dados garante que SÓ administrador consegue editar a régua (RLS
+ativa): a tela apenas mostra esse travamento, não o inventa. Se você tentar
+editar sem permissão, a tela dirá "Só um administrador pode alterar a régua."
