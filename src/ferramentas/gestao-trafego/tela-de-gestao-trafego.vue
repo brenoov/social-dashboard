@@ -117,7 +117,7 @@ import { orcamentoDe, detectarNivelOrcamento, podeEditarOrcamentoDaCampanha, pod
 // Aba "A régua" (métrica ponderada): painel puro + os módulos que leem/normalizam
 // a régua vinda do banco (ver painel-regua.js, ponderada.js, regua.js).
 import { montarPainelRegua } from './painel-regua.js'
-import { normalizarRegua, metaDoBalde } from './regua.js'
+import { normalizarRegua } from './regua.js'
 import { quantidadesDoInsight } from './ponderada.js'
 
 const router = useRouter()
@@ -541,8 +541,10 @@ async function _gtSaveConfig(balde,metricas){
 
 // ── A régua (métrica ponderada): pesos, metas de custo por balde e limiares
 // do veredito. Lida por qualquer usuário logado (RLS aberta pra leitura);
-// escrita gated a admin no banco — a tela só ESCONDE os campos pra quem não
-// pode editar, não é ela quem tranca (ver painel-regua.js).
+// escrita gated a admin no banco (get_my_role() = 'admin') — a tela usa esse
+// MESMO critério (estado.role === 'admin') pra decidir se mostra os campos
+// editáveis, senão o dono via campo editável que não consegue mesmo salvar
+// (ver painel-regua.js e o call site em _gtTrocarAba).
 let _gtRegua = normalizarRegua(null);   // começa no padrão; o banco sobrescreve
 
 async function _gtCarregarRegua() {
@@ -550,6 +552,15 @@ async function _gtCarregarRegua() {
     const linhas = await sb('gt_ponderada_config?select=pesos,metas,limiares&id=eq.1');
     _gtRegua = normalizarRegua((linhas || [])[0]);
   } catch (e) { _gtRegua = normalizarRegua(null); }
+}
+
+// Reconhece uma rejeição de permissão/RLS do Postgres (código 42501 ou texto
+// "row-level security"/"permission denied") pra nunca mostrar esse jargão
+// técnico pro dono — ele só precisa saber que faltou ser admin.
+function _gtEhErroDePermissao(e) {
+  const codigo = e && e.code;
+  const msg = String((e && e.message) || '').toLowerCase();
+  return codigo === '42501' || msg.includes('row-level security') || msg.includes('permission denied');
 }
 
 async function _gtSalvarRegua(nova, botao) {
@@ -561,13 +572,26 @@ async function _gtSalvarRegua(nova, botao) {
       .update({ pesos: nova.pesos, metas: nova.metas, limiares: nova.limiares, updated_at: new Date().toISOString() })
       .eq('id', 1);
     if (error) throw error;
-    // histórico: guarda o antes e o depois inteiros (falha aqui NÃO desfaz o save)
-    await sbClient.from('gt_ponderada_config_log').insert({ antes, depois: nova });
     _gtRegua = nova;
-    adminToast('Régua salva');
+    // histórico: guarda o antes e o depois inteiros. Uma falha AQUI não desfaz o
+    // save (a régua já está salva) — mas o dono precisa saber que o histórico
+    // dessa alteração não ficou registrado, senão a auditoria fica com buraco
+    // em silêncio.
+    const { error: erroHistorico } = await sbClient.from('gt_ponderada_config_log').insert({ antes, depois: nova });
+    if (erroHistorico) {
+      console.error('[GT] falha ao gravar o histórico da régua:', erroHistorico);
+      adminToast('Régua salva, mas não consegui gravar o histórico dessa alteração.', false);
+    } else {
+      adminToast('Régua salva');
+    }
     await loadGtData();           // a lista inteira recalcula com os pesos novos
   } catch (e) {
-    adminToast('Erro ao salvar a régua: ' + String((e && e.message) || e || 'erro desconhecido'), false);
+    if (_gtEhErroDePermissao(e)) {
+      adminToast('Só um administrador pode alterar a régua.', false);
+    } else {
+      console.error('[GT] erro ao salvar a régua:', e);
+      adminToast('Não foi possível salvar a régua agora. Tente de novo.', false);
+    }
   } finally {
     if (botao) { botao.disabled = false; botao.textContent = orig; }
   }
@@ -1194,7 +1218,10 @@ function _gtTrocarAba(nome) {
     const alvo = document.getElementById('gt-painel-regua');
     if (alvo) montarPainelRegua(alvo, {
       regua: _gtRegua,
-      editavel: hasPermission('meta.gestor', 'editar'),
+      // Precisa ser admin de verdade (mesmo critério do RLS: get_my_role()='admin'),
+      // não só ter a permissão 'meta.gestor' — senão os campos aparecem editáveis
+      // pra quem não consegue salvar de fato.
+      editavel: estado.role === 'admin',
       exemplo: _gtExemploParaRegua(),
       aoSalvar: _gtSalvarRegua,
     });

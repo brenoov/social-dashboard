@@ -2,6 +2,7 @@
 // Não fala com o banco — recebe a régua pronta e devolve a editada pelo callback.
 // O EXEMPLO VIVO ao lado é o ponto: sem ele o dono editaria peso no escuro.
 import { calcularPonderada, PESOS_PADRAO, LIMIARES_PADRAO } from './ponderada.js';
+import { metaDoBalde } from './regua.js';
 
 const ROTULO_PESO = {
   curtidas: 'Curtida', comentarios: 'Comentário',
@@ -24,8 +25,13 @@ const reais = (v) => v == null ? '—' : 'R$ ' + Number(v).toLocaleString('pt-BR
 const inteiro = (v) => Number(v || 0).toLocaleString('pt-BR');
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-function campo(id, valor, passo, editavel) {
-  if (!editavel) return `<span class="pnd-valor">${esc(valor)}</span>`;
+function campo(id, valor, passo, editavel, formato) {
+  if (!editavel) {
+    // Custo-alvo é dinheiro: mostra "R$ 0,20" igual ao exemplo vivo ao lado,
+    // não o número cru. Peso e limiar são multiplicadores, ficam como número.
+    const texto = formato === 'dinheiro' ? reais(valor === '' ? null : valor) : esc(valor);
+    return `<span class="pnd-valor">${texto}</span>`;
+  }
   return `<input class="pnd-input" id="${esc(id)}" type="number" min="0" step="${passo}" value="${esc(valor)}">`;
 }
 
@@ -39,7 +45,7 @@ export function montarPainelRegua(alvo, opcoes) {
     `<tr><td>${ROTULO_PESO[k]}</td><td>${campo('pnd-peso-' + k, regua.pesos[k], '1', editavel)}</td></tr>`).join('');
 
   const linhasMeta = Object.keys(ROTULO_BALDE).map((b) =>
-    `<tr><td>${ROTULO_BALDE[b]}</td><td>${campo('pnd-meta-' + b, regua.metas[b] != null ? regua.metas[b] : '', '0.01', editavel)}</td></tr>`).join('');
+    `<tr><td>${ROTULO_BALDE[b]}</td><td>${campo('pnd-meta-' + b, regua.metas[b] != null ? regua.metas[b] : '', '0.01', editavel, 'dinheiro')}</td></tr>`).join('');
 
   const linhasLimiar = Object.keys(LIMIARES_PADRAO).map((k) =>
     `<tr><td>${ROTULO_LIMIAR[k]}</td><td>${campo('pnd-limiar-' + k, regua.limiares[k], '0.05', editavel)}</td></tr>`).join('');
@@ -78,9 +84,11 @@ export function montarPainelRegua(alvo, opcoes) {
       return (Number.isFinite(n) && n > 0) ? n : padrao;
     };
     const pesos = {}, metas = {}, limiares = {};
-    for (const k of Object.keys(PESOS_PADRAO)) pesos[k] = ler('pnd-peso-' + k, PESOS_PADRAO[k]);
+    // Se o dono apagar um campo sem querer, o valor volta pro que a régua JÁ TINHA
+    // (não pro padrão de fábrica) — senão um peso 50 customizado vira 30 no silêncio.
+    for (const k of Object.keys(PESOS_PADRAO)) pesos[k] = ler('pnd-peso-' + k, regua.pesos[k]);
     for (const b of Object.keys(ROTULO_BALDE)) { const v = ler('pnd-meta-' + b, 0); if (v > 0) metas[b] = v; }
-    for (const k of Object.keys(LIMIARES_PADRAO)) limiares[k] = ler('pnd-limiar-' + k, LIMIARES_PADRAO[k]);
+    for (const k of Object.keys(LIMIARES_PADRAO)) limiares[k] = ler('pnd-limiar-' + k, regua.limiares[k]);
     return { pesos, metas, limiares };
   }
 
@@ -93,7 +101,7 @@ export function montarPainelRegua(alvo, opcoes) {
       return;
     }
     const r = reguaDaTela();
-    const meta = r.metas[exemplo.balde] > 0 ? r.metas[exemplo.balde] : (r.metas.padrao || 0);
+    const meta = metaDoBalde(r, exemplo.balde);
     const c = calcularPonderada(exemplo.quantidades, { pesos: r.pesos, limiares: r.limiares, meta });
     caixa.innerHTML = `
       <h3 class="pnd-titulo">Como fica na prática</h3>
