@@ -179,3 +179,15 @@ export function comEspera(enviar, opts = {}) {
     }
   };
 }
+
+// Continuar de onde parou. Reaproveita os ids que o relatório anterior já
+// guardou: os passos concluídos são pulados e os filhos apontam pros pais
+// que já existem.
+//
+// De propósito NÃO sai varrendo a conta pra "descobrir" o que já está lá:
+// adivinhar pelo nome é exatamente como se criam duplicatas indesejadas.
+// A única fonte de verdade é o relatório da tentativa anterior.
+export function retomar(plano, relatorioAnterior, opts = {}) {
+  const feitos = (relatorioAnterior && relatorioAnterior.criados) || {};
+  return executarPlano(plano, Object.assign({}, opts, { feitos }));
+}

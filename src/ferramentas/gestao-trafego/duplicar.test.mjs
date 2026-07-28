@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { planoDeCopia, SUFIXO_PADRAO, executarPlano, comEspera, ehPedidoDeCalma } from './duplicar.js';
+import { planoDeCopia, SUFIXO_PADRAO, executarPlano, comEspera, ehPedidoDeCalma, retomar } from './duplicar.js';
 
 const CAMPANHA = { id: '100', name: 'Bolsas · Tivoli · Vendas' };
 const CONJUNTOS = [{ id: '200', name: 'Tivoli · Vendas' }, { id: '201', name: 'Tivoli · Remarketing' }];
@@ -223,4 +223,45 @@ test('a espera envolvida continua repassando caminho e parametros intactos', asy
     { esperar: async () => {} });
   await enviar('/300/copies', { status_option: 'PAUSED', adset_id: '9' });
   assert.deepEqual(vistas, [{ caminho: '/300/copies', params: { status_option: 'PAUSED', adset_id: '9' } }]);
+});
+
+test('retomar refaz so o que faltou, sem recriar o que ja existe', async () => {
+  const plano = planoDeCopia(ALVO_CAMPANHA);
+  const primeira = metaFalsa({ falharNo: '/301/copies' });
+  const rel1 = await executarPlano(plano, { enviar: primeira.enviar });
+  assert.equal(rel1.concluidos.length, 3);
+
+  const segunda = metaFalsa();
+  const rel2 = await retomar(plano, rel1, { enviar: segunda.enviar });
+  assert.equal(rel2.falhou, null);
+  assert.equal(rel2.concluidos.length, 6, 'o relatorio final cobre o plano inteiro');
+  const refeitos = segunda.chamadas.map(c => c.caminho);
+  assert.ok(!refeitos.includes('/100/copies'), 'a campanha ja existia, nao podia ser recriada');
+  assert.ok(!refeitos.includes('/200/copies'), 'o conjunto ja existia');
+  assert.ok(refeitos.includes('/301/copies'), 'o passo que falhou precisa ser refeito');
+});
+
+test('retomar mantem os ids ja criados no relatorio final', async () => {
+  const plano = planoDeCopia(ALVO_CAMPANHA);
+  const rel1 = await executarPlano(plano, { enviar: metaFalsa({ falharNo: '/301/copies' }).enviar });
+  const idCampOriginal = rel1.criados['c1:camp'];
+  const rel2 = await retomar(plano, rel1, { enviar: metaFalsa().enviar });
+  assert.equal(rel2.criados['c1:camp'], idCampOriginal, 'nao pode trocar o id do que ja existe');
+});
+
+test('retomar sem relatorio anterior e o mesmo que executar do zero', async () => {
+  const meta = metaFalsa();
+  const plano = planoDeCopia({ nivel: 'anuncio', anuncios: [ANUNCIOS[0]] });
+  const rel = await retomar(plano, null, { enviar: meta.enviar });
+  assert.equal(rel.concluidos.length, 1);
+  assert.equal(meta.chamadas.length, 1);
+});
+
+test('retomar um plano ja completo nao chama a Meta', async () => {
+  const plano = planoDeCopia({ nivel: 'anuncio', anuncios: [ANUNCIOS[0]] });
+  const rel1 = await executarPlano(plano, { enviar: metaFalsa().enviar });
+  const meta = metaFalsa();
+  const rel2 = await retomar(plano, rel1, { enviar: meta.enviar });
+  assert.equal(meta.chamadas.length, 0);
+  assert.equal(rel2.falhou, null);
 });
