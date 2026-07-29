@@ -442,6 +442,13 @@ async function _initGestaoTrafego(){
     const nm=document.getElementById('gt-acc-name');
     if(nm)nm.textContent=_gtCurAcc?.display_name||_gtCurAcc?.name||'—';
     _buildGtDropdown();
+    // A fila dispara AQUI, assim que as contas existem — não depois do
+    // `await loadGtData()` abaixo, que ainda vai buscar campanhas, anúncios e
+    // insights da conta selecionada. Ela varre as cinco contas por conta
+    // própria e não precisa esperar nada disso; deixá-la pra depois só atrasaria
+    // o contador da aba. Sem `await` de propósito: uma falha nela não pode
+    // derrubar o carregamento da tela.
+    _gtCarregarFila();
     await loadGtData();
   }catch(e){
     if(col)col.innerHTML=`<div class="gt-camp-card"><div class="gt-empty">Erro ao carregar contas:<br>${e.message}</div></div>`;
@@ -703,6 +710,9 @@ function _gtReguaAtiva() {
 let _gtFila = { pendentes: [], vencidas: [], silenciadas: [], respondidas: [] };
 let _gtFilaFiltro = '';
 let _gtFilaCarregando = false;
+// Só vira true quando a leitura terminou de verdade. Enquanto for false, a aba
+// diz "carregando", nunca "não há nada" — ver a guarda em _gtCarregarFila.
+let _gtFilaCarregou = false;
 
 // Busca as campanhas e os conjuntos SÓ das contas que têm pendência. Sem este
 // recorte seriam duas chamadas por conta em toda abertura da aba, quatro delas
@@ -739,6 +749,15 @@ async function _gtFilaBuscarNomes() {
 
 async function _gtCarregarFila() {
   if (_gtFilaCarregando) return;
+  // Sem a lista de contas não dá pra saber quais campanhas existem — e uma fila
+  // zerada por falta de dado é indistinguível de uma fila realmente vazia. Fica
+  // como "ainda carregando" e tenta de novo quando as contas chegarem, em vez de
+  // afirmar que não há nada a decidir. Mesmo princípio do fail-closed da régua.
+  if (!(_gtAccounts && _gtAccounts.length)) {
+    _gtFilaCarregou = false;
+    if (_gtAbaAtiva === 'fila') _gtTrocarAba('fila');
+    return;
+  }
   _gtFilaCarregando = true;
   try {
     // sb() nunca lança: devolve [] com .erro (ver buscar-e-salvar-dados.js).
@@ -828,6 +847,7 @@ async function _gtCarregarFila() {
     // Marca o conflito: robô manda escalar numa campanha que está queimando a
     // audiência. É o motivo de as duas leituras andarem juntas.
     for (const item of _gtFila.pendentes) item.conflito = contradiz(item.saude, item.veredito);
+    _gtFilaCarregou = true;
   } finally {
     _gtFilaCarregando = false;
   }
@@ -842,7 +862,8 @@ function _gtPintarContadorFila() {
   if (!el) return;
   const n = _gtFila.pendentes.length;
   el.textContent = String(n);
-  el.hidden = n === 0;
+  // Enquanto não carregou, esconde: um "0" ali afirmaria que não há pendência.
+  el.hidden = n === 0 || !_gtFilaCarregou;
 }
 
 // Grava a decisão. Append-only: cada decisão é uma linha nova (ver a migration
@@ -1982,6 +2003,7 @@ function _gtTrocarAba(nome) {
       contas: _gtAccounts,
       contaFiltro: _gtFilaFiltro,
       agora: new Date().toISOString(),
+      carregou: _gtFilaCarregou,
       // Mesmo critério da régua e do RLS da tabela: decidir na fila é ação de
       // quem pode EDITAR nesta ferramenta.
       editavel: hasPermission('meta.gestor', 'editar'),
@@ -2330,10 +2352,12 @@ onMounted(() => {
   // até uma conta ser escolhida — e "Salvar" ali gravaria esse padrão por cima da
   // régua real das cinco contas (ver C3 do review final, 2026-07-28).
   _gtCarregarRegua()
-  // A fila é das CINCO contas, então não espera a seleção de conta — carrega já
-  // no mount pra o contador da aba aparecer desde o primeiro instante.
-  _gtCarregarFila()
-  _initGestaoTrafego()
+  // A fila NÃO é chamada aqui: ela depende da lista de contas, que só existe
+  // dentro de _initGestaoTrafego — e é lá que ela dispara, assim que as contas
+  // chegam. Chamada neste ponto, varria uma lista vazia, não achava campanha
+  // nenhuma e anunciava "nada esperando decisão" (bug visto pelo dono,
+  // 2026-07-29). A guarda em _gtCarregarFila é a segunda trava do mesmo caso.
+  _initGestaoTrafego();
   _gtFontScale()
 })
 onUnmounted(() => {
