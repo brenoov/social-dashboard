@@ -26,6 +26,8 @@ Valem para TODAS as tarefas.
 - Rodar `npm test` (e `npm run build` nas tarefas de tela) antes de cada commit.
 - Commit em português, escopo `(gestor)`, terminando com `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`, feito com `git -c user.name="brenoov" -c user.email="breno@rbvcompany.com" commit ...` — email vazio trava o deploy do Vercel.
 - **Nunca salvar de verdade num conjunto real** durante o desenvolvimento. Não rodar `npm run dev` nas tarefas do motor.
+- **Toda função de módulo usada no `.vue` precisa estar importada** — há um teste que varre isso (`imports.test.mjs`). Ver a seção "Três testes novos" abaixo antes de escrever no `.vue`.
+- **Dependência nova numa função que tem teste de isolamento entra na lista de dublês do teste** — nunca afrouxe o teste para caber. Idem seção abaixo.
 
 ## Formas de `targeting` já validadas ao vivo neste projeto
 
@@ -50,6 +52,61 @@ descontinuado.
 
 **Não verificado:** se algum campo de targeting é imutável após a criação do
 conjunto. Tratar recusa da Meta como caminho normal, com mensagem clara.
+
+## ESTADO DO ARQUIVO — reancorado em 2026-07-29
+
+**Este plano foi escrito em 28/07 e reancorado em 29/07.** Entre uma data e
+outra a outra frente de trabalho mandou 28 PRs (#45–#72) e o
+`tela-de-gestao-trafego.vue` foi de 2.366 para **3.458 linhas**. Todos os
+números de linha abaixo foram conferidos no arquivo atual — mas **confira de
+novo antes de inserir**: se a outra frente mandar mais PRs, eles andam outra vez.
+O jeito seguro é procurar pelo NOME (`grep -n "function _gtDupTraduzir"`), não
+pelo número.
+
+| Âncora | Linha hoje |
+|---|---|
+| `import ... from './duplicar.js'` | 130 |
+| `import { sbClient, ... }` | 121 |
+| `metaFetchAll` | 242 |
+| `campFields` (já traz `objective`) | 1357 |
+| `setFields` | 1364 |
+| `function _gtBotaoDuplicar` | 1653 |
+| `function _renderGtConjuntos` | 2284 |
+| `function _renderGtAds` | 2364 |
+| `function _gtConfirm` | 2464 |
+| `function _gtDupTraduzir` | 2709 |
+
+**Mudanças que afetam este plano:**
+
+- `_renderGtConjuntos` e `_renderGtAds` ganharam um parâmetro a mais
+  (`temMensagemCampanha`). Ao inserir, **não mexa nas assinaturas**.
+- `sbClient` está importado na linha 121 e já é usado para ler e gravar tabela
+  em vários pontos (582, 683, 945, 1170). A Task 5 pode usá-lo com segurança —
+  a dúvida que este plano deixara em aberto está resolvida.
+- O mapa objetivo→balde saiu do `.vue` e virou módulo próprio (`baldes.js`).
+- **Baseline de testes agora é 514/514**, não 327. Os números esperados nas
+  tarefas abaixo já estão corrigidos.
+
+## Três testes novos que impõem regra ao seu código
+
+A outra frente escreveu isto depois de a tela quebrar em produção duas vezes
+no mesmo dia. **Leia antes de escrever qualquer coisa no `.vue`:**
+
+1. **`imports.test.mjs`** — varre a tela e exige que **toda função de módulo
+   usada esteja importada**. Nasceu de `card is not defined` e
+   `baldeEfetivo is not defined`, que passaram no `npm run build` e só
+   quebraram na cara do dono: o Vite não resolve identificador livre. Se você
+   usar `lerPublico` sem importar, este teste pega.
+2. **`render-anuncios.test.mjs`** — executa `_renderGtAds` de verdade, isolada,
+   com uma lista de dublês. **Qualquer dependência nova que você acrescentar a
+   essa função precisa entrar na lista de dublês do teste.** Foi assim que o
+   botão de duplicar quebrou o teste na junção de 29/07: a correção é
+   acrescentar o dublê (`_gtBotaoDuplicar: () => null`), **nunca** afrouxar o
+   teste. Hoje `_renderGtConjuntos` não tem teste equivalente — se ganhar um,
+   vale a mesma regra.
+3. **`tela-boot.test.mjs`** — protege a ORDEM de boot (a fila carregava antes
+   das contas existirem e anunciava "nada esperando" com nove itens na fila).
+   Este plano não mexe no boot, mas não mova chamadas de inicialização.
 
 ## File Structure
 
@@ -233,7 +290,7 @@ export function lerPublico(targeting) {
 - [ ] **Step 4: Rodar e confirmar que passa**
 
 Run: `npm test 2>&1 | grep -E "^ℹ (tests|pass|fail)"`
-Expected: PASS — `fail 0`, `npm run test:ci` sobe de 327 para 333 (6 testes novos).
+Expected: PASS — `fail 0`, `npm run test:ci` sobe de 514 para 520 (6 testes novos).
 
 - [ ] **Step 5: Commitar**
 
@@ -465,7 +522,7 @@ export function montarTargeting(publico, original) {
 - [ ] **Step 4: Rodar e confirmar que passa**
 
 Run: `npm test 2>&1 | grep -E "^ℹ (tests|pass|fail)"`
-Expected: PASS — `fail 0`, `test:ci` sobe para 345 (12 testes novos).
+Expected: PASS — `fail 0`, `test:ci` sobe para 532 (12 testes novos).
 
 - [ ] **Step 5: Commitar**
 
@@ -617,7 +674,7 @@ export function resumoDasMudancas(antes, depois) {
 }
 ```
 
-- [ ] **Step 4: Rodar e confirmar que passa** — `fail 0`, `test:ci` sobe para 351 (6 testes novos).
+- [ ] **Step 4: Rodar e confirmar que passa** — `fail 0`, `test:ci` sobe para 538 (6 testes novos).
 
 - [ ] **Step 5: Commitar**
 
@@ -784,7 +841,7 @@ export function avisosDe(antes, depois, contexto) {
 }
 ```
 
-- [ ] **Step 4: Rodar e confirmar que passa** — `fail 0`, `test:ci` sobe para 359 (8 testes novos).
+- [ ] **Step 4: Rodar e confirmar que passa** — `fail 0`, `test:ci` sobe para 546 (8 testes novos).
 
 - [ ] **Step 5: Commitar**
 
@@ -820,7 +877,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 - [ ] **Step 1: Importar o motor**
 
-Junto do import de `duplicar.js` (por volta da linha 123):
+Junto do import de `duplicar.js` (linha 130 hoje — ache pelo nome, não pelo número):
 
 ```js
 import { lerPublico, montarTargeting, resumoDasMudancas, avisosDe, PUBLICO_VAZIO } from './publico-alvo.js'
@@ -828,7 +885,7 @@ import { lerPublico, montarTargeting, resumoDasMudancas, avisosDe, PUBLICO_VAZIO
 
 - [ ] **Step 2: As três buscas**
 
-Inserir logo antes de `function _gtBotaoDuplicar` (por volta da linha 1096):
+Inserir logo antes de `function _gtBotaoDuplicar` (linha 1653 hoje — ache pelo nome):
 
 ```js
 // Público de UM conjunto, buscado na hora. O Gestor não traz targeting na
@@ -867,7 +924,10 @@ async function _gtListarPresets(){
 }
 ```
 
-**Confirme antes de escrever:** que `metaFetchAll` e `sbClient` existem com esses nomes neste arquivo (`grep -n "function metaFetchAll\|sbClient" src/ferramentas/gestao-trafego/tela-de-gestao-trafego.vue`). Se `sbClient` não estiver disponível, use o mesmo caminho que a tela já usa para ler tabela do Supabase — **não invente um cliente novo**.
+**Resolvido em 29/07 — não precisa mais confirmar:** `metaFetchAll` existe
+(linha 242) e `sbClient` está importado (linha 121), já usado para ler e gravar
+tabela em vários pontos da tela (582, 683, 945, 1170). Siga esses precedentes;
+**não invente um cliente novo**.
 
 - [ ] **Step 3: Verificar que compila**
 
@@ -934,7 +994,7 @@ converteria duas vezes e a Meta recusaria. É o mesmo caminho que
 
 - [ ] **Step 1: A caixa de estado e os tijolos do editor**
 
-Inserir depois do bloco do duplicar (após `_gtDupTraduzir`):
+Inserir depois do bloco do duplicar, ou seja, após `_gtDupTraduzir` (linha 2709 hoje — ache pelo nome):
 
 ```js
 /* ── EDITOR DE PÚBLICO DO CONJUNTO ──────────────────────────────────────────
@@ -1381,7 +1441,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 - [ ] **Step 1: O botão no conjunto**
 
-Em `_renderGtConjuntos`, junto do botão de duplicar (por volta da linha 1542–1550), na **mesma** `.gt-action-row`:
+Em `_renderGtConjuntos` (linha 2284 hoje), junto do botão de duplicar, na **mesma** `.gt-action-row`. A função ganhou o parâmetro `temMensagemCampanha` em 29/07 — **não mexa na assinatura**:
 
 ```js
     const bPub=(g.id==='_sem_conjunto'||!hasPermission('meta.gestor','editar'))?null:(()=>{
