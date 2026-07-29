@@ -2460,8 +2460,18 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gtf-filtro:hover){color:var(--text);border-color:var(--muted);}
 .tela-gestao-trafego :deep(.gtf-filtro.ativo){background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600;}
 .tela-gestao-trafego :deep(.gtf-filtro-n){font-family:var(--fonte-dados);font-size:calc(9px*var(--gt-fs,1.3));opacity:.65;}
-.tela-gestao-trafego :deep(.gtf-lista){list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
-.tela-gestao-trafego :deep(.gtf-item){background:var(--surface);padding:12px 16px;border-left:3px solid var(--muted);}
+/* Cada campanha é uma CAIXA separada, não uma linha de tabela colada na
+   seguinte (pedido do dono, 2026-07-29: "ta tudo muito junto"). Continua sendo
+   LISTA — uma por linha, largura inteira —, mas com respiro entre elas: cada
+   item traz justificativa, impacto e às vezes a quebra por conjunto, então o
+   bloco é alto e sem separação o olho não acha onde uma acaba e a outra começa. */
+.tela-gestao-trafego :deep(.gtf-lista){list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;}
+.tela-gestao-trafego :deep(.gtf-item){background:var(--surface);padding:15px 18px;border:1px solid var(--border);border-left:3px solid var(--muted);border-radius:12px;}
+/* A linha do topo — selo, nome, valores, botões — é a "capa" do item: separada
+   do corpo por um filete, ela vira o ponto de corte visual entre campanhas. */
+.tela-gestao-trafego :deep(.gtf-item .gtf-linha){padding-bottom:11px;border-bottom:1px solid color-mix(in srgb,var(--border) 60%,transparent);}
+/* Sem corpo (item de saúde curto), o filete não separa nada: some. */
+.tela-gestao-trafego :deep(.gtf-item .gtf-linha:only-child){padding-bottom:0;border-bottom:0;}
 .tela-gestao-trafego :deep(.gtf-item.positivo){border-left-color:var(--green);}
 .tela-gestao-trafego :deep(.gtf-item.reduzir){border-left-color:var(--orange);}
 .tela-gestao-trafego :deep(.gtf-item.pausar){border-left-color:var(--red);}
@@ -2493,7 +2503,7 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gtf-btn.aprovar:hover){filter:brightness(1.08);}
 .tela-gestao-trafego :deep(.gtf-btn:disabled){opacity:.6;cursor:default;}
 /* Leitura desce ABAIXO da linha, recuada pra alinhar com o nome da campanha. */
-.tela-gestao-trafego :deep(.gtf-just),.tela-gestao-trafego :deep(.gtf-impacto){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;margin:6px 0 0;}
+.tela-gestao-trafego :deep(.gtf-just),.tela-gestao-trafego :deep(.gtf-impacto){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;margin:9px 0 0;}
 .tela-gestao-trafego :deep(.gtf-conjuntos){margin-top:7px;}
 .tela-gestao-trafego :deep(.gtf-conjuntos summary){font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);cursor:pointer;}
 .tela-gestao-trafego :deep(.gtf-conjuntos summary:hover){color:var(--text);}
