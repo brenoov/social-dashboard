@@ -92,6 +92,14 @@ function linha(item, agoraMs, editavel) {
   const de = item.budget_atual_centavos;
   const para = item.budget_sugerido_centavos;
   const pct = (de > 0 && para > 0) ? Math.round(((para - de) / de) * 100) : null;
+  // O botão DIZ O QUE VAI FAZER, com o número. "Aprovar" sozinho é ambíguo numa
+  // linha que corta verba — o dono perguntou "e tem o botão reduzir também?"
+  // justamente olhando uma sugestão de reduzir (2026-07-29). Ler o botão tem que
+  // bastar para saber o que acontece ao clicar; o valor no texto é a última
+  // chance de perceber que se está aprovando o número errado.
+  const rotuloAcao = item.veredito === 'pausar' ? 'Pausar'
+    : item.veredito === 'reduzir' ? `Baixar para ${reais(para)}`
+    : `Subir para ${reais(para)}`;
   const idade = diasAtras(item.gerado_em, agoraMs);
   const valores = item.veredito === 'pausar'
     ? `<span class="gtf-pausar-nota">para de rodar</span>`
@@ -113,7 +121,7 @@ function linha(item, agoraMs, editavel) {
         ${editavel ? `
           <div class="gtf-acoes">
             <button class="gtf-btn recusar" data-gtf-recusar="1">Dispensar</button>
-            ${podeAplicar ? '<button class="gtf-btn aprovar" data-gtf-aprovar="1">Aprovar</button>' : ''}
+            ${podeAplicar ? `<button class="gtf-btn aprovar${item.veredito === 'reduzir' ? ' reduzir' : ''}${item.veredito === 'pausar' ? ' pausar' : ''}" data-gtf-aprovar="1">${esc(rotuloAcao)}</button>` : ''}
           </div>` : '<span class="gtf-sem-permissao" title="Só quem tem permissão de editar a Gestão de Tráfego pode aprovar ou recusar.">você não tem permissão para decidir</span>'}
       </div>
       ${item.justificativa ? `<p class="gtf-just">${esc(item.justificativa)}</p>` : ''}

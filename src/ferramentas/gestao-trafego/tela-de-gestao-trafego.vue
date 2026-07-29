@@ -2486,6 +2486,10 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gtf-btn){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));font-weight:600;padding:6px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:var(--bg);color:var(--muted);transition:all .12s ease;}
 .tela-gestao-trafego :deep(.gtf-btn:hover){color:var(--text);border-color:var(--muted);}
 .tela-gestao-trafego :deep(.gtf-btn.aprovar){background:var(--accent);border-color:var(--accent);color:#fff;}
+/* O botao carrega a COR da acao: cortar verba e pausar nao sao a mesma decisao
+   que escalar, e a cor avisa antes da leitura. */
+.tela-gestao-trafego :deep(.gtf-btn.aprovar.reduzir){background:var(--orange);border-color:var(--orange);}
+.tela-gestao-trafego :deep(.gtf-btn.aprovar.pausar){background:var(--red);border-color:var(--red);}
 .tela-gestao-trafego :deep(.gtf-btn.aprovar:hover){filter:brightness(1.08);}
 .tela-gestao-trafego :deep(.gtf-btn:disabled){opacity:.6;cursor:default;}
 /* Leitura desce ABAIXO da linha, recuada pra alinhar com o nome da campanha. */
