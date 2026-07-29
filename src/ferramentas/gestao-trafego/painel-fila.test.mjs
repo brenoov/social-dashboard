@@ -205,3 +205,16 @@ test('carregado e vazio de verdade diz que esta vazio', () => {
 test('sem o parametro assume carregado (compatibilidade)', () => {
   assert.match(monta({ pendentes: [] }), /Nada esperando decis/);
 });
+
+test('o botao DIZ a acao e o valor, nao um "Aprovar" generico', () => {
+  // "Aprovar" numa linha que corta verba e ambiguo — ler o botao tem que bastar.
+  const subir = monta({ pendentes: [item({ veredito: 'escalar', budget_sugerido_centavos: 28000 })], editavel: true });
+  assert.match(subir, /Subir para R\$ 280,00/);
+
+  const baixar = monta({ pendentes: [item({ veredito: 'reduzir', budget_sugerido_centavos: 15000 })], editavel: true });
+  assert.match(baixar, /Baixar para R\$ 150,00/);
+  assert.match(baixar, /gtf-btn aprovar reduzir/, 'e carrega a cor da acao');
+
+  const pausar = monta({ pendentes: [item({ veredito: 'pausar' })], editavel: true });
+  assert.match(pausar, /">Pausar</);
+});
