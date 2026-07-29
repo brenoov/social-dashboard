@@ -65,7 +65,12 @@ export function selecionarCampanhas(camps, insByCamp, modo, agoraMs) {
 }
 
 // Monta as mensagens (system + user) pro Opus: analisa a campanha E os anúncios dela.
-export function montarMensagens(camp, ins, ads) {
+export function montarMensagens(camp, ins, ads, conjuntos) {
+  // O orçamento REAL desta campanha. Em ABO ele mora nos conjuntos: ler só
+  // `camp.daily_budget` devolvia nulo e o modelo calculava a sugestão em cima do
+  // zero — foi assim que a "MODA & BOLSAS" (R$ 230/dia no ar) recebeu sugestão
+  // de R$ 200 rotulada "escalar", um corte vestido de aumento.
+  const orc = orcamentoEfetivoDaCampanha(camp, conjuntos || []);
   const system =
     'Você é um gestor de tráfego pago sênior. Analise UMA campanha do Meta Ads E os anúncios dela, e recomende: ' +
     '(1) o orçamento diário ideal da CAMPANHA; (2) por ANÚNCIO, manter ou pausar o criativo. ' +
@@ -73,6 +78,11 @@ export function montarMensagens(camp, ins, ads) {
     'CONCEITOS (obrigatórios): performance RUIM nunca vira "escalar" — CTR muito abaixo do aceitável pro objetivo, CPC/CPL alto, ROAS baixo, ou frequência alta (fadiga) → "reduzir" ou "pausar", NUNCA "escalar". ' +
     '"escalar" só com EVIDÊNCIA de eficiência (bom resultado a custo baixo) E volume/dado suficiente. Seja conservador quando faltar dado. ' +
     'Por anúncio: "pausar" criativo com performance ruim ou fadiga; "manter" os que vão bem. ' +
+    'ORÇAMENTO: `orcamento` traz o valor diário que a campanha REALMENTE tem no ar e ONDE ele mora — ' +
+    'em CBO na própria campanha, em ABO somado nos conjuntos ativos (conjunto pausado não entra: não gasta). ' +
+    'Sugira SEMPRE o total diário da campanha, comparando com `orcamento.reais`: se o seu número for MENOR que ele, ' +
+    'o veredito é "reduzir", nunca "escalar" — mesmo que pareça um valor alto isolado. ' +
+    'Com `orcamento.reais` nulo você NÃO sabe o gasto atual: use "manter" e diga na justificativa que o orçamento não pôde ser lido. ' +
     'Responda SOMENTE com um JSON válido, sem texto antes ou depois, no formato: ' +
     '{"budget_sugerido_centavos": <inteiro, centavos de R$/dia>, ' +
     '"veredito": "escalar"|"reduzir"|"manter"|"pausar", ' +
@@ -82,8 +92,15 @@ export function montarMensagens(camp, ins, ads) {
   const dados = {
     nome: camp.name || '',
     objetivo: camp.objective || '',
-    budget_diario_atual_centavos: camp.daily_budget != null ? Number(camp.daily_budget) : null,
-    budget_total_centavos: camp.lifetime_budget != null ? Number(camp.lifetime_budget) : null,
+    orcamento: {
+      reais: orc.reais,
+      centavos: orc.centavos,
+      tipo: orc.tipo,                       // 'diario' | 'total' | 'misto' | null
+      onde: orc.sigla,                      // 'CBO' | 'ABO' | null
+      conjuntos_somados: orc.conjuntosSomados,
+      conjuntos_pausados_ignorados: orc.conjuntosIgnorados,
+      configurado_centavos: orc.configuradoCentavos,
+    },
     gasto: num(ins.spend),
     impressoes: num(ins.impressions),
     cliques: num(ins.clicks),
@@ -144,6 +161,10 @@ function num(v) { const n = parseFloat(v); return Number.isFinite(n) ? n : null;
 
 // ---------- infra (rede) — só roda no main(), não é importado nos testes ----------
 import { registrarExecucao } from './registrar-execucao.mjs';
+// Onde mora o orçamento (CBO na campanha x ABO nos conjuntos) e quanto ele soma
+// de fato. Módulo puro, o MESMO que a tela usa — a conta não pode divergir entre
+// o que o robô sugere e o que a tela mostra.
+import { orcamentoEfetivoDaCampanha } from '../src/ferramentas/gestao-trafego/orcamento-hierarquia.js';
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY_TRAFEGO || process.env.ANTHROPIC_API_KEY_BUDGET || process.env.ANTHROPIC_API_KEY;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
@@ -210,8 +231,11 @@ function textoDaResposta(resp) {
 }
 
 async function main() {
-  if (!ANTHROPIC_API_KEY || !SERVICE_KEY) {
-    console.error('✗ Faltam segredos: ' + (!ANTHROPIC_API_KEY ? 'ANTHROPIC_API_KEY_TRAFEGO ' : '') + (!SERVICE_KEY ? 'SUPABASE_SERVICE_KEY' : ''));
+  // Em --dry nada é enviado ao modelo (o laço dá `continue` antes da chamada),
+  // então exigir a chave da API só impedia a conferência de rodar na máquina de
+  // quem não tem o segredo — que é justamente quando conferir é mais útil.
+  if ((!ANTHROPIC_API_KEY && !DRY) || !SERVICE_KEY) {
+    console.error('✗ Faltam segredos: ' + (!ANTHROPIC_API_KEY && !DRY ? 'ANTHROPIC_API_KEY_TRAFEGO ' : '') + (!SERVICE_KEY ? 'SUPABASE_SERVICE_KEY' : ''));
     process.exit(1);
   }
   const agoraMs = Date.now();
@@ -258,6 +282,17 @@ async function main() {
       } catch (e) { console.log('  act_' + adAcc + ' falhou no Graph: ' + e.message); continue; }
       const insByCamp = {};
       insights.forEach((i) => { insByCamp[i.campaign_id] = i; });
+      // CONJUNTOS: em campanha ABO o orçamento mora aqui, não na campanha. Sem
+      // esta busca o robô lia R$ 0,00 e sugeria em cima do zero (ver
+      // orcamentoEfetivoDaCampanha). Uma falha aqui não derruba a rodada: a
+      // campanha ABO fica com orçamento 'indefinido' e o prompt manda o modelo
+      // responder "manter" — melhor calar do que sugerir em cima de nada.
+      let adsets = [];
+      try {
+        adsets = (await graphGet(`/act_${adAcc}/adsets`, { fields: 'id,campaign_id,daily_budget,lifetime_budget,effective_status', limit: 500 }, acc.access_token)).data || [];
+      } catch (e) { console.log('  act_' + adAcc + ' falhou adsets no Graph: ' + e.message); }
+      const conjuntosPorCamp = {};
+      adsets.forEach((cj) => { (conjuntosPorCamp[cj.campaign_id] = conjuntosPorCamp[cj.campaign_id] || []).push(cj); });
       const adFields = 'ad_id,ad_name,adset_name,campaign_id,spend,impressions,clicks,ctr,cpc,reach,frequency';
       let adIns = [], adObjs = [];
       try {
@@ -277,8 +312,18 @@ async function main() {
     for (const camp of selecionadas) {
       total++;
       const ins = insByCamp[camp.id] || {};
-      const { system, user } = montarMensagens(camp, ins, adsAtivosPorCamp[camp.id] || []);
-      if (DRY) { console.log('  [dry] ' + (camp.name || camp.id)); continue; }
+      const conjuntosDaCamp = conjuntosPorCamp[camp.id] || [];
+      const { system, user } = montarMensagens(camp, ins, adsAtivosPorCamp[camp.id] || [], conjuntosDaCamp);
+      if (DRY) {
+        // Mostra o orçamento que o modelo VAI ver. É a forma barata de conferir,
+        // sem gastar uma chamada, se a leitura de CBO/ABO está certa — foi
+        // exatamente o que passou despercebido enquanto o dry só imprimia o nome.
+        const o = orcamentoEfetivoDaCampanha(camp, conjuntosDaCamp);
+        const valor = o.centavos != null ? 'R$ ' + (o.centavos / 100).toFixed(2) : 'NÃO LIDO';
+        const extra = o.conjuntosIgnorados ? ` (+${o.conjuntosIgnorados} conj. pausado ignorado)` : '';
+        console.log(`  [dry] ${camp.name || camp.id} — ${o.sigla || 'sem nível'} ${valor}${o.conjuntosSomados ? ` em ${o.conjuntosSomados} conj.` : ''}${extra}`);
+        continue;
+      }
       let saida;
       try {
         const resp = await anthropic({ model: MODEL, max_tokens: 8192, thinking: { type: 'adaptive' }, system, messages: [{ role: 'user', content: user }] });
@@ -292,7 +337,10 @@ async function main() {
           account_id: acc.id,
           objetivo: camp.objective || null,
           effective_status: camp.effective_status || null,
-          budget_atual_centavos: camp.daily_budget != null ? Number(camp.daily_budget) : null,
+          // O que a campanha tem NO AR — em ABO isso vem da soma dos conjuntos
+          // ativos. Antes gravava o campo da campanha, nulo em ABO, e a tela
+          // mostrava "R$ 0,00 → R$ 200,00" numa campanha que já rodava R$ 230.
+          budget_atual_centavos: orcamentoEfetivoDaCampanha(camp, conjuntosDaCamp).centavos,
           budget_sugerido_centavos: saida.budget_sugerido_centavos,
           veredito: saida.veredito,
           justificativa: saida.justificativa,
