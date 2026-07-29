@@ -2221,11 +2221,54 @@ function _renderGtAds(pane,ads,allInsights,allAdInsights,campNum,temMensagemCamp
     const spend=parseFloat(ad.spend||0);
     const adStatus=ad.effective_status||'';
     const ctrColor=ctr>=2?'var(--green)':ctr<0.8?'var(--red)':'var(--orange)';
-    // O SELO "Manter"/"Pausar" SAIU DAQUI (decisão do dono, 2026-07-29): assim
-    // como o veredito da campanha, o que é julgamento mora na Fila — lá os
-    // criativos fracos aparecem agrupados na campanha deles, com o motivo e os
-    // números, e uma ação só pra todos. Um selo aqui seria a mesma decisão em
-    // dois lugares, e o daqui não deixaria registro.
+    const card=document.createElement('div');card.className='gt-ad-card';
+    const top=document.createElement('div');top.className='gt-ad-top';
+    // O SELO "Manter"/"Pausar" DA IA saiu daqui (decisão do dono, 2026-07-29):
+    // assim como o veredito da campanha, o que é JULGAMENTO mora na Fila — lá os
+    // criativos fracos aparecem agrupados na campanha deles, com o motivo e uma
+    // ação só pra todos. Um selo aqui seria a mesma decisão em dois lugares, e o
+    // daqui não deixaria registro.
+    // O badge de STATUS fica: "Ativo"/"Pausado" não é opinião sobre o criativo,
+    // é o estado dele na Meta — e antes só aparecia quando NÃO havia análise da
+    // IA, o que escondia o status justamente nos anúncios mais relevantes.
+    const seal=document.createElement('div');
+    const cls=adStatus==='ACTIVE'?'active':adStatus==='PAUSED'?'paused':'inactive';
+    const lb=adStatus==='ACTIVE'?'Ativo':adStatus==='PAUSED'?'Pausado':adStatus==='ARCHIVED'?'Arquivado':'Inativo';
+    seal.className='gt-status-badge '+cls;seal.textContent=lb;
+    const nameWrap=document.createElement('div');nameWrap.className='gt-ad-name';
+    nameWrap.innerHTML=`<div class="gt-ad-nm">${_gtEsc(ad.ad_name||ad.adset_name||'—')}</div>${ad.adset_name&&ad.ad_name?`<div class="gt-ad-sub">${_gtEsc(ad.adset_name)}</div>`:''}`;
+    // Selo de objetivo por interação: só anúncio de engajamento que NÃO seja de
+    // mensagem pode declarar. "É de mensagem?" vem PRONTO da campanha — a Meta
+    // omite o action_type inteiro quando a contagem é zero, e um anúncio de
+    // WhatsApp sem conversa nesta janela ficaria idêntico a um de engajamento
+    // puro, abrindo o selo pra declarar "Salvamento" onde o produto é conversa.
+    const baldeAd = _gtBalde(ad.objective || '');
+    const seloObjAd = _gtSeloObjetivoEl(ad.ad_id, 'anuncio', baldeAd === 'engajamento' && !temMensagemCampanha);
+    if (seloObjAd) nameWrap.appendChild(seloObjAd);
+    const metrics=document.createElement('div');metrics.className='gt-metrics';
+    metrics.innerHTML=`<div class="gt-metric">CTR <span style="color:${ctrColor}">${_maFmtPct(ctr)}</span></div><div class="gt-metric" style="font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:700;"><span>${_maFmtR(spend)}</span></div>`;
+    // Declarada a interação no anúncio, o custo dela aparece aqui com a cor da
+    // faixa — senão declarar no anúncio não faria nada visível.
+    const declAd=_gtObjetivoInteracao[String(ad.ad_id)];
+    if(interacaoValida(declAd)){
+      const qAd=quantidadesDoInsight(ad);
+      const custoAd=custoDaInteracao(qAd,declAd);
+      const reguaAd=_gtReguaAtiva();
+      const metaAd=metaDoBalde(reguaAd,declAd);
+      const avalAd=avaliarAlvo({custo:custoAd,meta:metaAd,limiares:reguaAd.limiares});
+      const corAd=avalAd.faixa==='escalar-forte'||avalAd.faixa==='dentro-da-meta'?'var(--green)'
+        :avalAd.faixa==='manter'?'var(--orange)':avalAd.faixa==='otimizar'?'var(--red)':'var(--muted)';
+      const el=document.createElement('div');
+      el.className='gt-metric';
+      el.title=`${INTERACOES[declAd].rotuloCusto} · sua meta é ${metaAd>0?_maFmtR(metaAd):'—'}`;
+      el.innerHTML=`${_gtEsc(INTERACOES[declAd].rotulo)} <span style="color:${corAd}">${custoAd==null?'—':_maFmtR(custoAd)}</span>`;
+      metrics.appendChild(el);
+    }
+    const adNum=document.createElement('div');adNum.className='gt-ad-num';adNum.textContent=(campNum!=null?campNum+'.':'')+(ai+1);
+    const adSelCb=_gtSelCaixa('ad',ad.ad_id,ad.ad_name||ad.adset_name,adStatus==='ACTIVE');
+    if(adSelCb)top.appendChild(adSelCb);
+    top.appendChild(adNum);top.appendChild(seal);top.appendChild(nameWrap);top.appendChild(metrics);
+    card.appendChild(top);
     // Ações do anúncio: ver criativo + pausar/reativar manual.
     const actBar=document.createElement('div');actBar.className='gt-action-row';
     const crBtn=document.createElement('button');crBtn.className='gt-act-btn';crBtn.textContent='👁 Ver criativo';
