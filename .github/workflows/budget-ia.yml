@@ -9,7 +9,13 @@ name: Budget IA (análise diária)
 #   - segunda:  também as que veicularam em algum momento nos últimos 7 dias.
 on:
   schedule:
-    - cron: '41 9 * * *'
+    # 08:00 BRT. O cron do GitHub Actions é em UTC, e o Brasil não tem mais
+    # horário de verão, então BRT = UTC-3 o ano todo.
+    #
+    # Rodava 06:41 BRT; passou pra 08:00 a pedido do dono (2026-07-29), junto do
+    # aviso de saldo — assim, quando ele abre o painel de manhã, a fila já está
+    # com a análise do dia e não com a de ontem.
+    - cron: '0 11 * * *'
   workflow_dispatch:
     inputs:
       escopo:
