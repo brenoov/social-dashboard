@@ -11,12 +11,11 @@ const VEREDITOS = new Set(['escalar', 'reduzir', 'manter', 'pausar']);
 const VEREDITOS_AD = new Set(['manter', 'pausar']);
 
 // Campanha "em veiculação real": ACTIVE e (sem stop_time OU stop_time no futuro).
-export function campanhaEmVeiculacao(camp, agoraMs) {
-  if (!camp || camp.effective_status !== 'ACTIVE') return false;
-  if (!camp.stop_time) return true;
-  const t = Date.parse(camp.stop_time);
-  return Number.isNaN(t) ? true : t > agoraMs;
-}
+// A regra mora em veiculacao.js — a MESMA que a fila usa. Ficou duplicada por um
+// tempo e o resultado foi a tela mostrando campanha encerrada que o robô já
+// ignorava corretamente. Reexportada porque os testes deste arquivo a usam pelo
+// nome antigo.
+export const campanhaEmVeiculacao = (camp, agoraMs) => emVeiculacao(camp, agoraMs);
 
 // ---------- escopo da rodada ----------
 
@@ -201,6 +200,7 @@ import { baldeEfetivo } from '../src/ferramentas/gestao-trafego/baldes.js';
 import { normalizarRegua, reguaDaConta, metaDoBalde } from '../src/ferramentas/gestao-trafego/regua.js';
 import { quantidadesDoInsight, calcularPonderada } from '../src/ferramentas/gestao-trafego/ponderada.js';
 import { alvoDoBalde } from '../src/ferramentas/gestao-trafego/alvos.js';
+import { emVeiculacao } from '../src/ferramentas/gestao-trafego/veiculacao.js';
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY_TRAFEGO || process.env.ANTHROPIC_API_KEY_BUDGET || process.env.ANTHROPIC_API_KEY;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
