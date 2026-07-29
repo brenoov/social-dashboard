@@ -38,8 +38,8 @@ function interessesDe(targeting) {
 function excluidasDe(targeting) {
   const ex = (targeting && targeting.excluded_geo_locations) || {};
   const fora = [];
-  for (const c of lista(ex.cities)) fora.push({ key: String(c.key), nome: nomeDe(c), tipo: 'cidade' });
-  for (const r of lista(ex.regions)) fora.push({ key: String(r.key), nome: nomeDe(r), tipo: 'regiao' });
+  for (const c of lista(ex.cities)) if (c && c.key != null) fora.push({ key: String(c.key), nome: nomeDe(c), tipo: 'cidade' });
+  for (const r of lista(ex.regions)) if (r && r.key != null) fora.push({ key: String(r.key), nome: nomeDe(r), tipo: 'regiao' });
   return fora;
 }
 
@@ -51,19 +51,19 @@ export function lerPublico(targeting) {
   const geo = t.geo_locations || {};
   const auto = t.targeting_automation || {};
   return {
-    cidades: lista(geo.cities).map((c) => ({
+    cidades: lista(geo.cities).filter((c) => c && c.key != null).map((c) => ({
       key: String(c.key),
       nome: nomeDe(c),
       raio: c.radius == null ? 0 : Number(c.radius),
       unidade: c.distance_unit || 'kilometer',
     })),
     excluidas: excluidasDe(t),
-    idadeMin: t.age_min == null ? PUBLICO_VAZIO.idadeMin : Number(t.age_min),
-    idadeMax: t.age_max == null ? PUBLICO_VAZIO.idadeMax : Number(t.age_max),
+    idadeMin: t.age_min == null ? PUBLICO_VAZIO.idadeMin : Number.isFinite(Number(t.age_min)) ? Number(t.age_min) : PUBLICO_VAZIO.idadeMin,
+    idadeMax: t.age_max == null ? PUBLICO_VAZIO.idadeMax : Number.isFinite(Number(t.age_max)) ? Number(t.age_max) : PUBLICO_VAZIO.idadeMax,
     generos: lista(t.genders).map(Number),
     interesses: interessesDe(t),
-    incluir: lista(t.custom_audiences).map((a) => ({ id: String(a.id), name: nomeDe(a) })),
-    excluir: lista(t.excluded_custom_audiences).map((a) => ({ id: String(a.id), name: nomeDe(a) })),
+    incluir: lista(t.custom_audiences).filter((a) => a && a.id != null).map((a) => ({ id: String(a.id), name: nomeDe(a) })),
+    excluir: lista(t.excluded_custom_audiences).filter((a) => a && a.id != null).map((a) => ({ id: String(a.id), name: nomeDe(a) })),
     // Ausente = padrão da Meta = LIGADO. Assumir desligado faria a tela mentir
     // sobre o estado atual da conta do dono.
     advantagePlus: auto.advantage_audience == null ? true : Number(auto.advantage_audience) === 1,

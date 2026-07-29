@@ -66,3 +66,37 @@ test('PUBLICO_VAZIO tem a forma completa, sem campo faltando', () => {
   for (const chave of ['cidades','excluidas','idadeMin','idadeMax','generos','interesses','incluir','excluir','advantagePlus'])
     assert.ok(chave in PUBLICO_VAZIO, 'faltou ' + chave);
 });
+
+test('null em geo_locations.cities nao quebra, entrada valida ao lado sobrevive', () => {
+  const p = lerPublico({ geo_locations: { cities: [null, { key: '123', name: 'Válida' }, null] } });
+  assert.deepEqual(p.cidades, [{ key: '123', nome: 'Válida', raio: 0, unidade: 'kilometer' }]);
+});
+
+test('null em excluded_geo_locations (cities e regions) nao quebra', () => {
+  const p = lerPublico({ excluded_geo_locations: { cities: [null, { key: '1', name: 'São Paulo' }], regions: [{ key: '2', name: 'Valid' }, null] } });
+  assert.deepEqual(p.excluidas, [
+    { key: '1', nome: 'São Paulo', tipo: 'cidade' },
+    { key: '2', nome: 'Valid', tipo: 'regiao' },
+  ]);
+});
+
+test('null em custom_audiences e excluded_custom_audiences nao quebra', () => {
+  const p = lerPublico({ custom_audiences: [null, { id: 'a1', name: 'Aud1' }], excluded_custom_audiences: [{ id: 'a2', name: 'Aud2' }, null] });
+  assert.deepEqual(p.incluir, [{ id: 'a1', name: 'Aud1' }]);
+  assert.deepEqual(p.excluir, [{ id: 'a2', name: 'Aud2' }]);
+});
+
+test('null em flexible_spec nao quebra', () => {
+  const p = lerPublico({ flexible_spec: [null, { interests: [null, { id: '1', name: 'Ok' }] }] });
+  assert.deepEqual(p.interesses, [{ id: '1', name: 'Ok' }]);
+});
+
+test('age_min e age_max invalidos (NaN) recebem os valores padrao', () => {
+  const p = lerPublico({ age_min: 'abc', age_max: null });
+  assert.equal(p.idadeMin, PUBLICO_VAZIO.idadeMin);
+  assert.equal(p.idadeMax, PUBLICO_VAZIO.idadeMax);
+
+  const p2 = lerPublico({ age_min: {}, age_max: 'xyz' });
+  assert.equal(p2.idadeMin, PUBLICO_VAZIO.idadeMin);
+  assert.equal(p2.idadeMax, PUBLICO_VAZIO.idadeMax);
+});
