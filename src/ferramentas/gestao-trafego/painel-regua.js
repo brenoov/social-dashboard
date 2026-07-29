@@ -311,7 +311,11 @@ export function montarPainelRegua(alvo, opcoes) {
       const mult = Number(r.limiares[k]);
       el.textContent = (metaEng > 0 && Number.isFinite(mult) && mult > 0)
         ? `× ${mult.toLocaleString('pt-BR')} = ${reais(mult * metaEng)}`
-        : 'defina a meta de engajamento para ver em reais';
+        // Curto de proposito: este aviso divide a linha com o rotulo ('Manter e
+        // observar ate'), e um texto longo aqui espremia o rotulo em tres linhas.
+        // Some quando a conta nao tem meta salva — o caso normal de cliente novo,
+        // que passou a ser frequente com a meta por conta (2026-07-29).
+        : 'defina a meta acima';
     }
   }
 
@@ -341,7 +345,7 @@ export function montarPainelRegua(alvo, opcoes) {
       if (!el) continue;
       const mult = Number(r.limiares_resultado[k]);
       const multValido = Number.isFinite(mult) && mult > 0;
-      if (!multValido) { el.textContent = 'defina o multiplicador para ver em reais'; continue; }
+      if (!multValido) { el.textContent = 'defina o multiplicador'; continue; }
       if (!base) { el.textContent = `× ${mult.toLocaleString('pt-BR')}`; continue; }
       el.textContent = `× ${mult.toLocaleString('pt-BR')} = ${reais(mult * base.meta)} ${sufixoDoAlvo(base.balde)}`;
     }

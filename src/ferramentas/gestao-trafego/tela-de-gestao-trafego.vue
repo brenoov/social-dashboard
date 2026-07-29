@@ -2221,6 +2221,7 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.pnd-grupo){margin-bottom:22px;}
 .tela-gestao-trafego :deep(.pnd-grupo:last-child){margin-bottom:0;}
 .tela-gestao-trafego :deep(.pnd-grupo-tit){display:flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:800;color:var(--text);margin:0 0 4px;}
+.tela-gestao-trafego :deep(.pnd-tabela td:first-child){min-width:11ch;}
 .tela-gestao-trafego :deep(.pnd-conta-tag){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));color:var(--txt);line-height:1.5;background:color-mix(in srgb,var(--green) 10%,transparent);border:1px solid color-mix(in srgb,var(--green) 32%,transparent);border-left-width:3px;border-radius:8px;padding:9px 13px;margin:0 0 16px;}
 .tela-gestao-trafego :deep(.pnd-conta-tag--vazio){background:color-mix(in srgb,var(--orange) 10%,transparent);border-color:color-mix(in srgb,var(--orange) 32%,transparent);}
 .tela-gestao-trafego :deep(.pnd-grupo-sub){font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;margin:0 0 12px;max-width:70ch;}
