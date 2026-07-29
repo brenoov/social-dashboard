@@ -1397,7 +1397,7 @@ Object.assign(window, {
 /* ── Modal de permissões (.perm-*, legacy L1402-1423) — não é .admin-*,
    MANTIDO no global também; duplicado aqui pois o modal foi trazido para
    dentro da raiz deste componente. ── */
-.tela-admin :deep(.perm-overlay){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.tela-admin :deep(.perm-overlay){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
 .tela-admin :deep(.perm-overlay.open){display:flex;}
 /* 420 → 760: a matriz tem 5 colunas fixas de ação + a coluna de nomes; em 420
    ela nasceria rolando na horizontal já no desktop. 95vw segura o celular. */

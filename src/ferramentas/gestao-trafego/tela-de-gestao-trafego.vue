@@ -2408,7 +2408,7 @@ function _gtConfirm(title,detailHtml,opts){
   opts=opts||{};
   return new Promise(resolve=>{
     let ov=document.getElementById('gt-confirm-ov');
-    if(!ov){ov=document.createElement('div');ov.id='gt-confirm-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';document.body.appendChild(ov);}
+    if(!ov){ov=document.createElement('div');ov.id='gt-confirm-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));';document.body.appendChild(ov);}
     ov.innerHTML='';ov.style.display='flex';
     const box=document.createElement('div');
     box.style.cssText='background:var(--surface,#fff);color:var(--text,#111);border-radius:14px;max-width:400px;width:100%;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.45);font-family:var(--fonte-principal);';
@@ -2605,7 +2605,7 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-obj-n){font-family:var(--fonte-dados);font-size:calc(8.5px*var(--gt-fs,1.3));opacity:.65;}
 
 /* ── MODAL DO FUNIL ───────────────────────────────────────────────────────── */
-.tela-gestao-trafego :deep(#gt-modal-funil){position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px;}
+.tela-gestao-trafego :deep(#gt-modal-funil){position:fixed;inset:0;height:100dvh;z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px;}
 .tela-gestao-trafego :deep(.gfn-fundo){position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(2px);}
 .tela-gestao-trafego :deep(.gfn-caixa){position:relative;background:var(--bg);border:1px solid var(--border);border-radius:16px;width:min(860px,100%);max-height:86vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.32);overflow:hidden;}
 .tela-gestao-trafego :deep(.gfn-topo){display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:20px 24px 14px;border-bottom:1px solid var(--border);}
@@ -2654,9 +2654,15 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gfn-vazio){display:flex;flex-direction:column;gap:6px;text-align:center;padding:34px 20px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));color:var(--text);}
 .tela-gestao-trafego :deep(.gfn-vazio span){font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;}
 @media (max-width:640px){
-  .tela-gestao-trafego :deep(#gt-modal-funil){padding:0;}
-  .tela-gestao-trafego :deep(.gfn-caixa){max-height:100vh;height:100vh;border-radius:0;width:100%;}
+  /* NÃO cola no topo: com padding 0 e height 100vh, o botão de fechar ficava
+     debaixo do entalhe/ilha e não dava pra tocar (achado do dono, 2026-07-29). */
+  .tela-gestao-trafego :deep(#gt-modal-funil){padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));}
+  .tela-gestao-trafego :deep(.gfn-caixa){max-height:100%;height:auto;border-radius:14px;width:100%;}
   .tela-gestao-trafego :deep(.gfn-corpo){padding:14px;}
+  /* Alvo de toque do X: 44x44 é o mínimo que se acerta com o polegar (medido
+     antes: 35x31). O `margin` negativo tira o peso visual do quadrado maior sem
+     encolher a área que responde ao toque. */
+  .tela-gestao-trafego :deep(.gfn-x){min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;padding:0;margin:-8px -10px 0 0;}
 }
 
 /* ── FILA DE APROVAÇÃO ───────────────────────────────────────────────────── */
@@ -3057,7 +3063,7 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-empty){text-align:center;padding:32px 16px;font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));color:var(--muted);line-height:1.7;}
 /* Config modal (editor admin — métricas por objetivo) */
 .tela-gestao-trafego :deep(#gt-cfg-btn){margin-right:4px;}
-.tela-gestao-trafego :deep(#gt-cfg-overlay){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1300;display:none;backdrop-filter:blur(2px);}
+.tela-gestao-trafego :deep(#gt-cfg-overlay){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1300;display:none;backdrop-filter:blur(2px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
 .tela-gestao-trafego :deep(#gt-cfg-modal){position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1301;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(720px,94vw);max-height:84vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.35);}
 .tela-gestao-trafego :deep(.gt-cfg-head){padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
 .tela-gestao-trafego :deep(.gt-cfg-title){font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:700;color:var(--text);}
@@ -3071,7 +3077,7 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-cfg-chk input){accent-color:var(--accent);cursor:pointer;}
 .tela-gestao-trafego :deep(.gt-cfg-footer){padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;gap:10px;}
 /* Modal "Ver criativo" */
-.tela-gestao-trafego :deep(#gt-cr-overlay){position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1400;display:none;backdrop-filter:blur(2px);}
+.tela-gestao-trafego :deep(#gt-cr-overlay){position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1400;display:none;backdrop-filter:blur(2px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
 .tela-gestao-trafego :deep(#gt-cr-modal){position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1401;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(420px,94vw);max-height:88vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4);overflow:hidden;}
 .tela-gestao-trafego :deep(.gt-cr-body){padding:14px;overflow:auto;flex:1;display:flex;justify-content:center;align-items:flex-start;}
 .tela-gestao-trafego :deep(.gt-cr-frame){width:100%;display:flex;justify-content:center;}
@@ -3090,11 +3096,14 @@ Object.assign(window, {
 /* ── Zoom de fonte (controle flutuante A−/A+ que _gtFontScale cria — legacy
    L1703-1707 + variante dark L1378-1381; cada tela que usa zoom traz sua
    própria cópia, mesmo padrão de tela-de-noticias.vue) ── */
-.tela-gestao-trafego :deep(.zoomctl){position:fixed;right:20px;bottom:70px;z-index:9997;display:inline-flex;align-items:center;gap:2px;background:#ffffff;border:1px solid rgba(13,13,13,.14);border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:4px;}
+.tela-gestao-trafego :deep(.zoomctl){position:fixed;right:20px;bottom:calc(env(safe-area-inset-bottom,0px) + 72px);z-index:9997;display:inline-flex;align-items:center;gap:2px;background:#ffffff;border:1px solid rgba(13,13,13,.14);border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:4px;}
 .tela-gestao-trafego :deep(.zoomctl button){width:34px;height:34px;border:none;background:none;border-radius:50%;font-family:var(--fonte-principal);font-size:14px;font-weight:700;color:#1a1a1a;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;}
 .tela-gestao-trafego :deep(.zoomctl button:hover){background:#f0ece4;}
 .tela-gestao-trafego :deep(.zoomctl-val){font-family:var(--fonte-principal);font-size:11px;font-weight:600;color:#6b6258;min-width:40px;text-align:center;cursor:pointer;user-select:none;font-variant-numeric:tabular-nums;}
-@media(max-width:560px){.tela-gestao-trafego :deep(.zoomctl){right:14px;bottom:64px;}}
+/* O tema fica em `safe-area + 20px` com 42px de altura (termina em +62); o zoom
+   precisa começar ACIMA disso. Sem a safe-area aqui os dois se encavalavam em
+   aparelho com barra de gestos (achado do dono, 2026-07-29). */
+@media(max-width:560px){.tela-gestao-trafego :deep(.zoomctl){right:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);}}
 [data-theme="dark"] .tela-gestao-trafego :deep(.zoomctl){background:#211d16;border-color:rgba(255,255,255,.2);}
 [data-theme="dark"] .tela-gestao-trafego :deep(.zoomctl button){color:#ece7dc;}
 [data-theme="dark"] .tela-gestao-trafego :deep(.zoomctl button:hover){background:#2c2719;}

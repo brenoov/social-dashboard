@@ -744,7 +744,7 @@
   .np-brandsel{display:inline-flex;align-items:center;gap:11px;justify-content:center;background:none;border:none;cursor:pointer;font-family:var(--fonte-principal);font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink);padding:14px 22px;border-radius:10px;transition:background .15s;}
   .np-brandsel:hover{background:var(--paper2);}
   .np-brandsel img{width:24px;height:24px;border-radius:50%;object-fit:cover;background:#fff;}
-  .np-brandmenu{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:55;animation:npfade .15s ease;}
+  .np-brandmenu{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:55;animation:npfade .15s ease;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
   .np-brandmenu.open{display:block;}
   @keyframes npfade{from{opacity:0}to{opacity:1}}
   .np-brandmenu-panel{position:absolute;left:0;right:0;top:0;max-width:960px;margin:0 auto;background:var(--paper);max-height:85vh;overflow:auto;border-radius:0 0 18px 18px;padding:14px 14px 24px;box-shadow:0 24px 50px rgba(0,0,0,.35);}
@@ -987,7 +987,7 @@
   .gc-lupa{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--accent);cursor:pointer;margin-left:6px;vertical-align:middle;padding:0;transition:background .15s,transform .15s;flex-shrink:0;}
   .gc-lupa:hover{background:var(--accent-light);transform:scale(1.08);}
   .gc-lupa svg{width:13px;height:13px;}
-  .gc-im{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:none;align-items:center;justify-content:center;padding:20px;animation:npfade .15s ease;}
+  .gc-im{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:none;align-items:center;justify-content:center;padding:20px;animation:npfade .15s ease;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
   .gc-im.open{display:flex;}
   .gc-im-card{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);width:min(440px,94vw);overflow:hidden;}
   .gc-im-x{position:absolute;top:10px;right:10px;width:30px;height:30px;border-radius:50%;border:none;background:rgba(0,0,0,.45);color:#fff;cursor:pointer;font-size:13px;z-index:2;display:flex;align-items:center;justify-content:center;}
@@ -1017,7 +1017,7 @@
   .gc-mix-chip.off .gc-mix-l::after{content:' ⚠';}
   .gc-info{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;border:none;background:var(--accent-light);color:var(--accent);font-family:var(--fonte-principal);font-size:11px;font-weight:800;cursor:pointer;margin-left:6px;vertical-align:middle;padding:0;line-height:1;transition:background .15s,transform .15s;flex-shrink:0;}
   .gc-info:hover{background:var(--accent);color:#fff;transform:scale(1.12);}
-  .gc-infomodal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:none;align-items:center;justify-content:center;padding:20px;animation:npfade .15s ease;}
+  .gc-infomodal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:none;align-items:center;justify-content:center;padding:20px;animation:npfade .15s ease;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
   .gc-infomodal.open{display:flex;}
   .gc-infomodal-card{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);width:min(620px,96vw);max-height:88vh;overflow:auto;}
   .gc-infomodal-body{padding:26px 30px 30px;}
@@ -1043,11 +1043,13 @@
     .gc-tw{border-radius:10px;}
   }
   /* ── Controle de zoom (ferramentas com muito texto) ── */
-  .zoomctl{position:fixed;right:20px;bottom:70px;z-index:9997;display:inline-flex;align-items:center;gap:2px;background:#ffffff;border:1px solid rgba(13,13,13,.14);border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:4px;}
+  .zoomctl{position:fixed;right:20px;bottom:calc(env(safe-area-inset-bottom,0px) + 72px);z-index:9997;display:inline-flex;align-items:center;gap:2px;background:#ffffff;border:1px solid rgba(13,13,13,.14);border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:4px;}
   .zoomctl button{width:34px;height:34px;border:none;background:none;border-radius:50%;font-family:var(--fonte-principal);font-size:14px;font-weight:700;color:#1a1a1a;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;}
   .zoomctl button:hover{background:#f0ece4;}
   .zoomctl-val{font-family:var(--fonte-principal);font-size:11px;font-weight:600;color:#6b6258;min-width:40px;text-align:center;cursor:pointer;user-select:none;font-variant-numeric:tabular-nums;}
-  @media(max-width:560px){.zoomctl{right:14px;bottom:64px;}}
+  /* O tema fica em `safe-area + 20px` com 42px de altura (termina em +62); o zoom
+   precisa começar acima. Sem safe-area aqui, os dois se encavalavam. */
+@media(max-width:560px){.zoomctl{right:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);}}
 
   /* Brand Picker */
   #sales-brand-screen{min-height:100vh;display:none;flex-direction:column;background:var(--bg);position:relative;z-index:1;}
@@ -1402,7 +1404,7 @@
      usa (formulário de convite de usuário). */
 
   /* ── PERMISSIONS MODAL ── */
-  .perm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+  .perm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
   .perm-overlay.open{display:flex;}
   .perm-modal{background:var(--surface);border-radius:8px;width:420px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden;}
   .perm-modal-hdr{padding:20px 22px 14px;border-bottom:1px solid var(--border);}
@@ -1485,7 +1487,7 @@
   @media(max-width:600px){.banco-body{padding:16px 12px;}.banco-file-details{display:none;}.banco-dl-btn span{display:none;}.banco-topbar{padding:7px 14px;}}
 
   /* ── CHANGE PASSWORD MODAL ── */
-  #cpm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:none;backdrop-filter:blur(3px);}
+  #cpm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:none;backdrop-filter:blur(3px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
   #cpm-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10000;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:26px 28px;width:340px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.25);display:none;}
   .cpm-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
   .cpm-title{font-family:var(--fonte-principal);font-size:16px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text);}
@@ -1533,4 +1535,21 @@ img{max-width:100%;}
   .topbar-app{flex-wrap:wrap;gap:var(--sp-2);}
   .topbar-app__filtros{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;}
   .topbar-app__status{display:none;}              /* relógio/status somem no celular */
+}
+
+/* ── TOPBAR NO CELULAR: sem relógio nem data ──────────────────────────────────
+   O aparelho já mostra hora e data na barra de status, a um centímetro dali.
+   Repetir gasta a largura que faz falta pro nome da conta e pros filtros de
+   período — que são o que se usa de fato (pedido do dono, 2026-07-29).
+   `!important` porque telas individuais reintroduziam o relógio com regras
+   próprias; esta é a palavra final e vale pro app inteiro. */
+@media (max-width: 820px) {
+  .gv-clock-wrap,
+  .gv-clock-time,
+  .gv-clock-date,
+  #dash-clock,
+  #gt-clock,
+  #gt-date { display: none !important; }
+  /* Sem o bloco do relógio, a topbar não precisa mais quebrar em duas linhas. */
+  .gv-topbar { padding-top: max(6px, env(safe-area-inset-top)); }
 }
