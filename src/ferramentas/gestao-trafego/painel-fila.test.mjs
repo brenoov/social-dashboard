@@ -218,3 +218,47 @@ test('o botao DIZ a acao e o valor, nao um "Aprovar" generico', () => {
   const pausar = monta({ pendentes: [item({ veredito: 'pausar' })], editavel: true });
   assert.match(pausar, /">Pausar</);
 });
+
+test('criativos aparecem DOBRADOS, com numero e motivo, e uma acao so', () => {
+  const html = monta({ pendentes: [item({
+    criativos: [
+      { ad_id: 'a1', nome: 'Criativo A', ctr: 0.12, gasto: 89, porque: 'CTR crítico com R$ 89 gastos' },
+      { ad_id: 'a2', nome: 'Criativo B', ctr: 0.08, gasto: 64, porque: 'Frequência 5,1×' },
+    ],
+  })], editavel: true });
+  assert.match(html, /<details class="gtf-criativos"/, 'fechado por padrao');
+  assert.match(html, /2 criativos sem tração/);
+  assert.match(html, /CTR crítico com R\$ 89 gastos/, 'o motivo aparece: pausar nao pode ser pedido de fe');
+  // O motivo ja traz os numeros da janela do robo. Repetir CTR ao lado, vindo
+  // dos ultimos 30 dias, colocava dois valores diferentes na mesma linha.
+  assert.ok(!/CTR 0,12%/.test(html), 'nao repete um CTR de outra janela');
+  assert.match(html, /Pausar os 2/);
+  assert.equal((html.match(/data-gtf-criativos/g) || []).length, 1, 'uma acao pra todos');
+});
+
+test('um criativo so fala no singular', () => {
+  const html = monta({ pendentes: [item({ criativos: [{ ad_id: 'a1', nome: 'X', porque: 'y' }] })], editavel: true });
+  assert.match(html, /1 criativo sem tração — ver qual/);
+  assert.match(html, /Pausar o criativo/);
+});
+
+test('sem permissao nao mostra o botao de pausar criativos', () => {
+  const html = monta({ pendentes: [item({ criativos: [{ ad_id: 'a1', nome: 'X' }] })], editavel: false });
+  assert.match(html, /criativo sem tração/, 'mas continua vendo quais sao');
+  assert.ok(!html.includes('data-gtf-criativos'));
+});
+
+test('campanha SO com criativos nao finge ser sugestao de verba', () => {
+  const html = monta({ pendentes: [item({
+    veredito: 'criativos', origem: 'criativos', budget_sugerido_centavos: null,
+    justificativa: null, criativos: [{ ad_id: 'a1', nome: 'X', porque: 'y' }],
+  })], editavel: true });
+  assert.match(html, /Trocar criativos/);
+  assert.ok(!html.includes('data-gtf-aprovar'), 'nao ha valor de orcamento pra aprovar');
+});
+
+test('nome de criativo e motivo sao escapados', () => {
+  const html = monta({ pendentes: [item({ criativos: [{ ad_id: 'a1', nome: '<script>x</script>', porque: '<img src=y>' }] })] });
+  assert.ok(!html.includes('<script>x'));
+  assert.ok(!html.includes('<img src=y'));
+});

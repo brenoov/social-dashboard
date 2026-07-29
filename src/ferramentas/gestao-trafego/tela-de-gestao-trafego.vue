@@ -129,7 +129,7 @@ import { montarPainelRegua } from './painel-regua.js'
 // silêncio de 7 dias, a repartição por conjunto) moram em fila.js, puro e
 // testado; painel-fila.js só monta a tela.
 import { montarPainelFila } from './painel-fila.js'
-import { montarFila, distribuirEntreConjuntos, mesclarSaude, DIAS_DE_SILENCIO } from './fila.js'
+import { montarFila, distribuirEntreConjuntos, mesclarSaude, anexarCriativos, DIAS_DE_SILENCIO } from './fila.js'
 // A leitura de SAÚDE (fadiga de audiência, criativo que não conecta) — volta a
 // ter lugar, agora dentro da Fila e grudada na sugestão do robô. Ver saude.js.
 import { lerSaude, categoriaDoObjetivo, contradiz } from './saude.js'
@@ -181,7 +181,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 //     de leitura REST já extraído para o miolo compartilhado (idêntico ao sb()
 //     do legado, legacy L3356, só troca currentSession por estado.currentSession);
 //     reaproveitado aqui em vez de copiado de novo (usado por
-//     _gtLoadConfig/_gtLoadAdIA).
+//     _gtLoadConfig).
 //   - estado.currentSession                      → substitui a global solta `currentSession`
 //     do legado, usada dentro de adTok()/metaFetch()/metaPost() (legacy L3358/8508/8570).
 //   - metaFetch, metaFetchAll, metaPost, adFetch, adTok, _maCleanAccId, _getActions,
@@ -539,14 +539,6 @@ async function _gtLoadConfig(){
     (rows||[]).forEach(r=>{ if(Array.isArray(r.metricas)) _gtConfig[r.balde]=r.metricas; });
   }catch(e){ _gtConfig={}; }
 }
-let _gtAdIA={};
-async function _gtLoadAdIA(){
-  try{
-    const rows=await sb('gt_ad_analises?select=ad_id,veredito,justificativa,gerado_em');
-    _gtAdIA={};
-    (rows||[]).forEach(r=>{ if(r&&r.ad_id) _gtAdIA[r.ad_id]=r; });
-  }catch(e){ _gtAdIA={}; }
-}
 // Declarações de objetivo por interação (Fase 3). sb() NUNCA lança — devolve
 // [] com .erro em qualquer falha (rede, sessão, RLS); aqui basta checar
 // linhas.erro antes de usar (mesmo padrão de _gtCarregarRegua/_gtLoadConfig).
@@ -730,7 +722,7 @@ async function _gtFilaBuscarNomes() {
   const mapa = new Map();
   await Promise.all((_gtAccounts || []).filter((c) => c && c.ad_account_id).map(async (conta) => {
     const acc = _maCleanAccId(conta.ad_account_id);
-    const [camps, sets, ins] = await Promise.all([
+    const [camps, sets, ins, anuncios] = await Promise.all([
       metaFetchAll(`/act_${acc}/campaigns`, { fields: 'id,name,effective_status,objective,daily_budget,lifetime_budget,stop_time' }, conta.id).catch(() => []),
       // destination_type/optimization_goal: o que a Meta AFIRMA sobre ser WhatsApp
       // (ver ehDeWhatsapp). Sem eles a saúde mede lead numa campanha que compra
@@ -739,12 +731,20 @@ async function _gtFilaBuscarNomes() {
       // 30 dias: é a janela em que fadiga de audiência aparece. Mais curto não
       // acumula frequência; mais longo mistura público já renovado.
       metaFetchAll(`/act_${acc}/insights`, { level: 'campaign', fields: 'campaign_id,spend,impressions,ctr,frequency,clicks,cpc,reach,actions,video_play_actions', date_preset: 'last_30d' }, conta.id).catch(() => []),
+      // Anúncios: o robô diz quais criativos não engatam (gt_ad_analises) e a
+      // fila mostra a lista dentro da campanha. Só os ATIVOS interessam.
+      metaFetchAll(`/act_${acc}/ads`, { fields: 'id,name,campaign_id,effective_status' }, conta.id).catch(() => []),
     ]);
     const insPorCamp = {};
     for (const i of ins || []) insPorCamp[String(i.campaign_id)] = i;
+    const adsPorCamp = {};
+    for (const a of anuncios || []) {
+      if (String(a.effective_status || '').toUpperCase() !== 'ACTIVE') continue;
+      (adsPorCamp[String(a.campaign_id)] = adsPorCamp[String(a.campaign_id)] || []).push(a);
+    }
     for (const c of camps || []) {
       const meus = (sets || []).filter((x) => String(x.campaign_id) === String(c.id));
-      mapa.set(String(c.id), { campanha: c, conjuntos: meus, conta, insight: insPorCamp[String(c.id)] || null });
+      mapa.set(String(c.id), { campanha: c, conjuntos: meus, conta, insight: insPorCamp[String(c.id)] || null, anuncios: adsPorCamp[String(c.id)] || [] });
     }
   }));
   return mapa;
@@ -852,6 +852,36 @@ async function _gtCarregarFila() {
       });
     }
     _gtFila = mesclarSaude(_gtFila, saudes);
+
+    // CRIATIVOS SEM TRAÇÃO: o robô analisa anúncio a anúncio e marca 'pausar'
+    // nos que não engatam. Eles aparecem AGRUPADOS na linha da campanha —
+    // dezesseis anúncios da mesma campanha não são dezesseis decisões, são uma
+    // ("esta campanha precisa de criativo novo").
+    const [adAnalises, decisoesCr] = await Promise.all([
+      sb('gt_ad_analises?select=ad_id,veredito,justificativa,gerado_em&veredito=eq.pausar'),
+      sb('gt_fila_decisoes?select=campaign_id,decisao,decidido_em,escopo&escopo=eq.criativos&order=decidido_em.desc'),
+    ]);
+    const porAd = {};
+    for (const a of adAnalises || []) if (a && a.ad_id) porAd[String(a.ad_id)] = a;
+    const criativos = [];
+    for (const [id, info] of mapa) {
+      if (!emVeiculacao(info.campanha, agoraMs)) continue;
+      const orcC = orcamentoEfetivoDaCampanha(info.campanha, info.conjuntos);
+      for (const ad of info.anuncios || []) {
+        const a = porAd[String(ad.id)];
+        if (!a) continue;
+        criativos.push({
+          campaign_id: id, ad_id: String(ad.id), nome: ad.name || '',
+          account_id: info.conta.id,
+          campaign_name: info.campanha.name || '',
+          conta_nome: info.conta.display_name || info.conta.name || '',
+          budget_atual_centavos: orcC.centavos,
+          porque: a.justificativa || '',
+          analisado_em: a.gerado_em || null,
+        });
+      }
+    }
+    _gtFila = anexarCriativos(_gtFila, criativos, decisoesCr || []);
     // Marca o conflito: robô manda escalar numa campanha que está queimando a
     // audiência. É o motivo de as duas leituras andarem juntas.
     for (const item of _gtFila.pendentes) item.conflito = contradiz(item.saude, item.veredito);
@@ -876,8 +906,11 @@ function _gtPintarContadorFila() {
 
 // Grava a decisão. Append-only: cada decisão é uma linha nova (ver a migration
 // 2026-07-29-fila-decisoes.sql) — corrigir é decidir de novo, não reescrever.
-async function _gtFilaGravarDecisao(item, decisao, aplicado, erro) {
+async function _gtFilaGravarDecisao(item, decisao, aplicado, erro, escopo) {
   const linha = {
+    // 'orcamento' ou 'criativos': são perguntas independentes na MESMA campanha,
+    // e sem separar uma calaria a outra (ver a migration do escopo).
+    escopo: escopo || 'orcamento',
     campaign_id: String(item.campaign_id),
     account_id: item.account_id ? String(item.account_id) : null,
     veredito: item.veredito,
@@ -974,6 +1007,42 @@ async function _gtFilaAprovar(item, botao) {
   } else {
     botao.textContent = '✓ Aplicado';
     adminToast(alvos.length > 1 ? `Aplicado nos ${alvos.length} conjuntos.` : 'Aplicado na Meta.');
+  }
+  await _gtCarregarFila();
+}
+
+// Pausa os criativos fracos de uma campanha, de uma vez. É uma decisão só — o
+// robô marcou dezesseis anúncios da mesma campanha, e perguntar dezesseis vezes
+// seria transformar a fila em lista de tarefas.
+async function _gtFilaPausarCriativos(item, botao) {
+  const lista = item.criativos || [];
+  if (!lista.length) return;
+  const nomes = lista.slice(0, 6).map((c) => `• ${_gtEsc(c.nome || c.ad_id)}`).join('<br>');
+  const resto = lista.length > 6 ? `<br>… e mais ${lista.length - 6}` : '';
+  const ok = await _gtConfirm(
+    lista.length > 1 ? `Pausar ${lista.length} criativos?` : 'Pausar este criativo?',
+    `De "${_gtEsc(item.campaign_name || '')}":<br>${nomes}${resto}<br><br>A campanha continua rodando — só os anúncios param.`,
+    { danger: true },
+  );
+  if (!ok) return;
+  const orig = botao.textContent;
+  botao.disabled = true; botao.textContent = '…';
+  const feitos = [];
+  let falha = null;
+  for (const c of lista) {
+    try {
+      // A conta é a DO ITEM: a fila junta as cinco.
+      await metaPost('/' + c.ad_id, { status: 'PAUSED' }, item.account_id);
+      feitos.push({ id: c.ad_id, nome: c.nome || null, tipo: 'pausar_anuncio' });
+    } catch (e) { falha = String((e && e.message) || e || 'erro desconhecido'); break; }
+  }
+  // Grava mesmo com falha no meio: `aplicado` diz o que saiu de verdade.
+  await _gtFilaGravarDecisao(item, 'aprovada', feitos, falha, 'criativos');
+  if (falha) {
+    adminToast(feitos.length ? `Pausei ${feitos.length} de ${lista.length} e parei: ${falha}` : `Não consegui pausar: ${falha}`, false);
+    botao.disabled = false; botao.textContent = orig;
+  } else {
+    adminToast(lista.length > 1 ? `${lista.length} criativos pausados.` : 'Criativo pausado.');
   }
   await _gtCarregarFila();
 }
@@ -1209,7 +1278,6 @@ async function loadGtData(){
   try{
     if(!_gtConfigLoaded){ await _gtLoadConfig(); _gtConfigLoaded=true; }
     await _gtCarregarRegua();
-    await _gtLoadAdIA();
     await _gtCarregarObjetivos();
     const acc=_gtCurAcc;
     const tok=acc.id;
@@ -1475,14 +1543,6 @@ function _gtRegraCampanha(camp,ins,allInsights){
   let bud=null;
   if(daily!=null){const f=veredito==='escalar'?1.25:veredito==='reduzir'?0.75:1;bud=Math.round(daily*f*100);}
   return { veredito, budget_sugerido_centavos: bud, justificativa: v.text };
-}
-// Recomendação de ANÚNCIO por regra — manter/pausar (mesma forma da linha do Opus por anúncio).
-function _gtRegraAnuncio(ad){
-  const ctr=parseFloat(ad.ctr||0),spend=parseFloat(ad.spend||0),impr=parseInt(ad.impressions||0),freq=parseFloat(ad.frequency||0);
-  if(freq>=4)return{veredito:'pausar',justificativa:`Frequência ${_maFmt(freq,1)}× — criativo com fadiga.`};
-  if(ctr<0.3&&spend>15&&impr>1000)return{veredito:'pausar',justificativa:`CTR crítico ${_maFmtPct(ctr)} com ${_maFmtR(spend)} gastos — desperdiçando budget.`};
-  if(ctr<0.5&&spend>30)return{veredito:'pausar',justificativa:`CTR ${_maFmtPct(ctr)} baixo — substituir ou pausar o criativo.`};
-  return{veredito:'manter',justificativa:`CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)}.`};
 }
 // Controle de edição manual de orçamento — serve tanto pra CAMPANHA (CBO)
 // quanto pra CONJUNTO de anúncios (ABO). Quem decide se é editável é o módulo
@@ -2017,6 +2077,7 @@ function _gtTrocarAba(nome) {
       editavel: hasPermission('meta.gestor', 'editar'),
       aoAprovar: _gtFilaAprovar,
       aoRecusar: _gtFilaRecusar,
+      aoPausarCriativos: _gtFilaPausarCriativos,
       aoFiltrar: (id) => { _gtFilaFiltro = id; _gtTrocarAba('fila'); },
       ajudaBtn: _gtAjudaBtn,
     });
@@ -2160,68 +2221,11 @@ function _renderGtAds(pane,ads,allInsights,allAdInsights,campNum,temMensagemCamp
     const spend=parseFloat(ad.spend||0);
     const adStatus=ad.effective_status||'';
     const ctrColor=ctr>=2?'var(--green)':ctr<0.8?'var(--red)':'var(--orange)';
-    const iaRow=_gtAdIA[ad.ad_id] || ((ad.effective_status==='ACTIVE')?_gtRegraAnuncio(ad):null);
-    const card=document.createElement('div');card.className='gt-ad-card';
-    const top=document.createElement('div');top.className='gt-ad-top';
-    // Selo: pílula do veredito da IA; se não houver análise, cai pro badge de status.
-    const seal=document.createElement('div');
-    if(iaRow){
-      seal.className='gt-ad-pill '+(iaRow.veredito==='pausar'?'pausar':'manter');
-      seal.textContent=iaRow.veredito==='pausar'?'Pausar':'Manter';
-    }else{
-      const cls=adStatus==='ACTIVE'?'active':adStatus==='PAUSED'?'paused':'inactive';
-      const lb=adStatus==='ACTIVE'?'Ativo':adStatus==='PAUSED'?'Pausado':adStatus==='ARCHIVED'?'Arquivado':'Inativo';
-      seal.className='gt-status-badge '+cls;seal.textContent=lb;
-    }
-    const nameWrap=document.createElement('div');nameWrap.className='gt-ad-name';
-    nameWrap.innerHTML=`<div class="gt-ad-nm">${_gtEsc(ad.ad_name||ad.adset_name||'—')}</div>${ad.adset_name&&ad.ad_name?`<div class="gt-ad-sub">${_gtEsc(ad.adset_name)}</div>`:''}`;
-    // Selo de objetivo por interação (Fase 3, Task 4): mesmo recorte da
-    // campanha — só anúncio de engajamento que NÃO seja de mensagem pode
-    // declarar. Nota: hoje o anúncio NÃO tem um veredito por custo-vs-meta
-    // (o selo do topo acima é a regra de saúde CTR/frequência, _gtRegraAnuncio,
-    // ou o Opus — nenhum dos dois é "custo por resultado"), então declarar
-    // aqui grava a preferência e pinta o selo, mas não existe, hoje, um
-    // veredito de custo do anúncio para redirecionar — só a campanha tem essa
-    // peça (ver _gtSeloObjetivoEl acima e o bloco "OBJETIVO DECLARADO" em
-    // _renderGtCampaigns).
-    // "É de mensagem?" vem PRONTO da campanha (temMensagemCampanha, ver H1 do
-    // review 2026-07-28) — NÃO recalculado a partir das actions do PRÓPRIO
-    // anúncio. A Meta omite o action_type inteiro quando a contagem é zero, e
-    // um anúncio de WhatsApp que não puxou conversa nesta janela ficaria com
-    // `actions` idêntico ao de engajamento puro, abrindo o selo pra declarar
-    // "Salvamento" num anúncio cujo produto de verdade é conversa.
-    const baldeAd = _gtBalde(ad.objective || '');
-    const seloObjAd = _gtSeloObjetivoEl(ad.ad_id, 'anuncio', baldeAd === 'engajamento' && !temMensagemCampanha);
-    if (seloObjAd) nameWrap.appendChild(seloObjAd);
-    const metrics=document.createElement('div');metrics.className='gt-metrics';
-    metrics.innerHTML=`<div class="gt-metric">CTR <span style="color:${ctrColor}">${_maFmtPct(ctr)}</span></div><div class="gt-metric" style="font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:700;"><span>${_maFmtR(spend)}</span></div>`;
-    // Declarada a interação no anúncio, o número dela aparece AQUI, com a cor da
-    // faixa. O anúncio não tem (e não passa a ter) um veredito por custo-vs-meta
-    // próprio — a pílula do topo continua sendo a leitura de saúde/Opus. Mas sem
-    // mostrar o custo daquilo que o dono declarou, declarar no anúncio não faria
-    // nada visível, e ele pediu que valesse pro anúncio também.
-    const declAd=_gtObjetivoInteracao[String(ad.ad_id)];
-    if(interacaoValida(declAd)){
-      const qAd=quantidadesDoInsight(ad);
-      const custoAd=custoDaInteracao(qAd,declAd);
-      const reguaAd=_gtReguaAtiva();
-      const metaAd=metaDoBalde(reguaAd,declAd);
-      const avalAd=avaliarAlvo({custo:custoAd,meta:metaAd,limiares:reguaAd.limiares});
-      const corAd=avalAd.faixa==='escalar-forte'||avalAd.faixa==='dentro-da-meta'?'var(--green)'
-        :avalAd.faixa==='manter'?'var(--orange)':avalAd.faixa==='otimizar'?'var(--red)':'var(--muted)';
-      const el=document.createElement('div');
-      el.className='gt-metric';
-      el.title=`${INTERACOES[declAd].rotuloCusto} · sua meta é ${metaAd>0?_maFmtR(metaAd):'—'}`;
-      el.innerHTML=`${_gtEsc(INTERACOES[declAd].rotulo)} <span style="color:${corAd}">${custoAd==null?'—':_maFmtR(custoAd)}</span>`;
-      metrics.appendChild(el);
-    }
-    const adNum=document.createElement('div');adNum.className='gt-ad-num';adNum.textContent=(campNum!=null?campNum+'.':'')+(ai+1);
-    const adSelCb=_gtSelCaixa('ad',ad.ad_id,ad.ad_name||ad.adset_name,adStatus==='ACTIVE');
-    if(adSelCb)top.appendChild(adSelCb);
-    top.appendChild(adNum);top.appendChild(seal);top.appendChild(nameWrap);top.appendChild(metrics);
-    card.appendChild(top);
-    // Porquê da IA (apoio).
-    if(iaRow&&iaRow.justificativa){const why=document.createElement('div');why.className='gt-ad-why';why.textContent=iaRow.justificativa;card.appendChild(why);}
+    // O SELO "Manter"/"Pausar" SAIU DAQUI (decisão do dono, 2026-07-29): assim
+    // como o veredito da campanha, o que é julgamento mora na Fila — lá os
+    // criativos fracos aparecem agrupados na campanha deles, com o motivo e os
+    // números, e uma ação só pra todos. Um selo aqui seria a mesma decisão em
+    // dois lugares, e o daqui não deixaria registro.
     // Ações do anúncio: ver criativo + pausar/reativar manual.
     const actBar=document.createElement('div');actBar.className='gt-action-row';
     const crBtn=document.createElement('button');crBtn.className='gt-act-btn';crBtn.textContent='👁 Ver criativo';
@@ -2536,6 +2540,20 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gtf-saude){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));line-height:1.5;margin:6px 0 0;color:var(--muted);}
 .tela-gestao-trafego :deep(.gtf-saude.alerta){color:var(--orange);}
 .tela-gestao-trafego :deep(.gtf-saude.conflito){color:var(--text);background:color-mix(in srgb,var(--orange) 12%,transparent);border-left:3px solid var(--orange);border-radius:0 8px 8px 0;padding:8px 12px;margin-top:8px;}
+/* Criativos sem tracao, dobrados dentro da campanha. Dezesseis anuncios da
+   mesma campanha nao sao dezesseis decisoes — a lista fica fechada e a acao e
+   uma so. */
+.tela-gestao-trafego :deep(.gtf-criativos){margin-top:8px;}
+.tela-gestao-trafego :deep(.gtf-criativos summary){font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--orange);cursor:pointer;font-weight:600;}
+.tela-gestao-trafego :deep(.gtf-criativos summary:hover){filter:brightness(1.15);}
+.tela-gestao-trafego :deep(.gtf-cr-lista){list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;}
+.tela-gestao-trafego :deep(.gtf-cr){display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;padding:6px 10px;background:var(--bg);border-radius:7px;}
+.tela-gestao-trafego :deep(.gtf-cr-nome){font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--text);font-weight:600;overflow-wrap:anywhere;}
+.tela-gestao-trafego :deep(.gtf-cr-num){font-family:var(--fonte-dados);font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);white-space:nowrap;}
+/* O motivo ocupa a linha toda: e o que justifica pausar, nao pode ficar cortado. */
+.tela-gestao-trafego :deep(.gtf-cr-pq){flex:1 1 100%;font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);line-height:1.45;}
+.tela-gestao-trafego :deep(.gtf-btn.pausar-criativos){margin-top:9px;background:var(--red);border-color:var(--red);color:#fff;}
+.tela-gestao-trafego :deep(.gtf-btn.pausar-criativos:hover){filter:brightness(1.08);}
 .tela-gestao-trafego :deep(.gtf-hoje){font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);}
 .tela-gestao-trafego :deep(.gtf-sem-numero){font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);margin:6px 0 0;font-style:italic;}
 .tela-gestao-trafego :deep(.gtf-sem-permissao){font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);}
@@ -2826,13 +2844,9 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-be-box[hidden]){display:none;}
 .tela-gestao-trafego :deep(.gt-be-box input){width:82px;padding:5px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));}
 /* Pílula de veredito do anúncio + nome/porquê */
-.tela-gestao-trafego :deep(.gt-ad-pill){font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:3px 9px;border-radius:999px;flex-shrink:0;}
-.tela-gestao-trafego :deep(.gt-ad-pill.manter){background:color-mix(in srgb,var(--green) 14%,transparent);color:var(--green);}
-.tela-gestao-trafego :deep(.gt-ad-pill.pausar){background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red);}
 .tela-gestao-trafego :deep(.gt-ad-name){flex:1;min-width:0;}
 .tela-gestao-trafego :deep(.gt-ad-nm){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .tela-gestao-trafego :deep(.gt-ad-sub){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);}
-.tela-gestao-trafego :deep(.gt-ad-why){font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--muted);line-height:1.4;padding-left:2px;}
 /* Auto button */
 .tela-gestao-trafego :deep(.gt-auto-btn){display:flex;align-items:center;gap:6px;padding:5px 14px;border-radius:7px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);letter-spacing:.3px;transition:all .2s;white-space:nowrap;position:relative;}
 .tela-gestao-trafego :deep(.gt-auto-btn:hover){border-color:#9ca3af;color:var(--text);}

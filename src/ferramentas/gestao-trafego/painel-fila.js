@@ -23,6 +23,8 @@ const VEREDITO = {
   escalar: { texto: 'Subir orçamento', cor: 'positivo' },
   reduzir: { texto: 'Baixar orçamento', cor: 'reduzir' },
   pausar: { texto: 'Pausar campanha', cor: 'pausar' },
+  // Campanha que só tem criativo fraco: não é sobre verba, é sobre o anúncio.
+  criativos: { texto: 'Trocar criativos', cor: 'reduzir' },
 };
 
 // A leitura de SAÚDE, grudada na sugestão. Três formas, por ordem de urgência:
@@ -78,6 +80,30 @@ function blocoConjuntos(item) {
 // linha carrega o essencial na horizontal — conta, campanha, de → para, ação —
 // e o que é leitura (justificativa, quebra por conjunto) desce abaixo, sem
 // disputar espaço com a decisão.
+// Os criativos sem tração da campanha, dobrados. Cada um com o motivo e os
+// números que o robô olhou — sem isso "pausar" seria um pedido de fé.
+function blocoCriativos(item, editavel) {
+  const lista = item.criativos || [];
+  if (!lista.length) return '';
+  // SÓ o nome e o motivo. O motivo já traz os números que o robô olhou, na
+  // janela DELE — mostrar CTR/gasto ao lado, vindos dos últimos 30 dias, punha
+  // dois valores diferentes de CTR na mesma linha ("CTR 1,52%" seguido de "CTR
+  // 1,11% e CPC R$ 2,49 abaixo do padrão"). Um número que contradiz o outro a um
+  // centímetro de distância destrói a confiança nos dois.
+  const linhas = lista.map((c) => `
+    <li class="gtf-cr">
+      <span class="gtf-cr-nome">${esc(c.nome || c.ad_id)}</span>
+      ${c.porque ? `<span class="gtf-cr-pq">${esc(c.porque)}</span>` : ''}
+    </li>`).join('');
+  const n = lista.length;
+  return `
+    <details class="gtf-criativos">
+      <summary>${n} criativo${n > 1 ? 's' : ''} sem tração — ver ${n > 1 ? 'quais' : 'qual'}</summary>
+      <ul class="gtf-cr-lista">${linhas}</ul>
+      ${editavel ? `<button class="gtf-btn pausar-criativos" data-gtf-criativos="1">Pausar ${n > 1 ? `os ${n}` : 'o criativo'}</button>` : ''}
+    </details>`;
+}
+
 function linha(item, agoraMs, editavel) {
   const v = VEREDITO[item.veredito] || { texto: item.veredito, cor: 'neutro' };
   // Quem propôs: o robô (padrão) ou a leitura de saúde da própria ferramenta.
@@ -126,6 +152,7 @@ function linha(item, agoraMs, editavel) {
       </div>
       ${item.justificativa ? `<p class="gtf-just">${esc(item.justificativa)}</p>` : ''}
       ${blocoSaude(item)}
+      ${blocoCriativos(item, editavel)}
       ${!podeAplicar && editavel ? '<p class="gtf-sem-numero">Sem valor sugerido: ajuste o orçamento na aba Campanhas, ou dispense este aviso.</p>' : ''}
       ${item.impacto_estimado ? `<p class="gtf-impacto"><b>Impacto esperado:</b> ${esc(item.impacto_estimado)}</p>` : ''}
       ${blocoConjuntos(item)}
@@ -206,7 +233,9 @@ export function montarPainelFila(alvo, opcoes) {
     if (!item) continue;
     const ap = el.querySelector('[data-gtf-aprovar]');
     const re = el.querySelector('[data-gtf-recusar]');
+    const cr = el.querySelector('[data-gtf-criativos]');
     if (ap && o.aoAprovar) ap.addEventListener('click', () => o.aoAprovar(item, ap));
     if (re && o.aoRecusar) re.addEventListener('click', () => o.aoRecusar(item, re));
+    if (cr && o.aoPausarCriativos) cr.addEventListener('click', () => o.aoPausarCriativos(item, cr));
   }
 }

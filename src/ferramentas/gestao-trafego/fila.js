@@ -97,6 +97,10 @@ export function montarFila(analises, decisoes, agora) {
   const porCampanha = new Map();
   for (const d of decisoes || []) {
     if (!d || d.campaign_id == null) continue;
+    // Só decisões de ORÇAMENTO calam a sugestão de orçamento. Pausar os
+    // criativos de uma campanha não responde se a verba dela deve subir — são
+    // perguntas independentes, e sem este filtro uma calaria a outra.
+    if (d.escopo && d.escopo !== 'orcamento') continue;
     const chave = String(d.campaign_id);
     const atual = porCampanha.get(chave);
     if (!atual || (quando(d.decidido_em) ?? 0) > (quando(atual.decidido_em) ?? 0)) porCampanha.set(chave, d);
@@ -171,6 +175,74 @@ export function mesclarSaude(fila, saudes) {
       origem: 'saude',
       saude: s.saude,
       conjuntos: s.conjuntos || [],
+    });
+  }
+  const porValor = (x, y) => (Number(y.budget_atual_centavos) || 0) - (Number(x.budget_atual_centavos) || 0);
+  return { ...f, pendentes: pendentes.concat(novos).sort(porValor) };
+}
+
+// Anexa os CRIATIVOS SEM TRAÇÃO à linha da campanha (2026-07-29, decisão do
+// dono). O robô analisa anúncio a anúncio e marca 'pausar' nos que não engatam;
+// eram 25 assim, em 6 campanhas — 16 numa só.
+//
+// Agrupados de propósito: 16 linhas separadas não são 16 decisões, são uma só —
+// "esta campanha precisa de criativo novo". Uma linha por anúncio inflaria a
+// fila de 11 para 36 itens e a transformaria em lista de tarefas.
+//
+// `criativos` é uma lista de { campaign_id, ad_id, nome, ctr, gasto, porque }.
+// Campanha que só tem criativo fraco (sem sugestão de verba e sem alerta de
+// saúde) VIRA item próprio — senão a recomendação sumiria, que é exatamente o
+// que se está corrigindo ao tirar o selo do cartão.
+export function anexarCriativos(fila, criativos, decisoesCriativos) {
+  const f = fila || {};
+  const pendentes = [...(f.pendentes || [])];
+
+  // Campanha cujos criativos já foram respondidos não pergunta de novo até o
+  // robô reanalisar. Mesma lógica de `jaRespondida`, no escopo 'criativos'.
+  const respondidos = new Map();
+  for (const d of decisoesCriativos || []) {
+    if (!d || d.campaign_id == null || d.escopo !== 'criativos') continue;
+    const k = String(d.campaign_id);
+    const atual = respondidos.get(k);
+    if (!atual || (quando(d.decidido_em) ?? 0) > (quando(atual.decidido_em) ?? 0)) respondidos.set(k, d);
+  }
+
+  const porCampanha = new Map();
+  for (const c of criativos || []) {
+    if (!c || c.campaign_id == null || !c.ad_id) continue;
+    const k = String(c.campaign_id);
+    const decisao = respondidos.get(k);
+    // A decisão vale para os criativos que existiam quando foi tomada; análise
+    // nova (criativo novo, ou reavaliação) volta a perguntar.
+    if (decisao && (quando(decisao.decidido_em) ?? 0) >= (quando(c.analisado_em) ?? 0)) continue;
+    if (!porCampanha.has(k)) porCampanha.set(k, []);
+    porCampanha.get(k).push(c);
+  }
+
+  const jaNaFila = new Set(pendentes.map((i) => String(i.campaign_id)));
+  for (const item of pendentes) {
+    const lista = porCampanha.get(String(item.campaign_id));
+    if (lista && lista.length) item.criativos = lista;
+  }
+
+  const novos = [];
+  for (const [id, lista] of porCampanha) {
+    if (jaNaFila.has(id) || !lista.length) continue;
+    const base = lista[0];
+    novos.push({
+      campaign_id: id,
+      account_id: base.account_id || null,
+      campaign_name: base.campaign_name || '',
+      conta_nome: base.conta_nome || '',
+      // Não é sobre verba: o veredito aqui é sobre o criativo, e por isso não
+      // existe valor sugerido nem botão de orçamento.
+      veredito: 'criativos',
+      justificativa: null,
+      budget_atual_centavos: base.budget_atual_centavos ?? null,
+      budget_sugerido_centavos: null,
+      gerado_em: base.analisado_em || null,
+      origem: 'criativos',
+      criativos: lista,
     });
   }
   const porValor = (x, y) => (Number(y.budget_atual_centavos) || 0) - (Number(x.budget_atual_centavos) || 0);
