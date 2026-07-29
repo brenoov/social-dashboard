@@ -4,6 +4,17 @@
 // PURO: sem rede, sem tela, sem Supabase — só entram números e saem números.
 // É isso que permite testar a conta inteira com `node --test`.
 
+// PESOS: só estes quatro. A planilha de origem tem sete (mais Encaminhamentos,
+// Republicações, Visitas e Novos seguidores), mas ela nasceu de um POST do
+// Instagram, onde os sete existem. No anúncio pago:
+//  - "encaminhamento" a Meta não separa; o que ela entrega é `post`, que é o
+//    compartilhamento — por isso ele ocupa esse lugar, com o mesmo peso 20;
+//  - "republicação" só existe em post orgânico;
+//  - "novo seguidor" não vem por campanha nem por anúncio (só por perfil/dia,
+//    que é a soma de tudo — atribuir a uma campanha seria inventar);
+//  - "visita" chegou a entrar com peso 5 e foi RETIRADA a pedido do dono
+//    (2026-07-28): mesmo com peso baixo, campanha que só entrega visita
+//    dominava a conta, e a ponderada deixava de medir engajamento.
 export const PESOS_PADRAO = Object.freeze({ curtidas: 1, comentarios: 10, salvamentos: 30, compartilhamentos: 20 });
 export const LIMIARES_PADRAO = Object.freeze({ escalarForte: 0.8, dentroMeta: 1.0, manter: 1.3 });
 
