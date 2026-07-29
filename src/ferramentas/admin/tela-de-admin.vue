@@ -455,15 +455,19 @@ let _permState = null       // { userId, permissions, allowed_accounts, is_super
 let _contasCache = null     // perfis de rede (accounts)
 let _usersCache = []        // lista de usuários (p/ o "duplicar")
 
-async function openPermModal(u) {
+async function openPermModal(u, opcoes) {
+  const soNotificacoes = !!(opcoes && opcoes.soNotificacoes)
   _permState = {
     userId: u.id,
     permissions: JSON.parse(JSON.stringify(u.permissions || {})),
     allowed_accounts: u.allowed_accounts ?? null,
     is_superadmin: !!u.is_superadmin,
     // { vendas: true, saldo: false } — o estado resolvido (preferência salva ou
-    // o padrão do tipo). Só o que DIFERE do padrão é gravado, ver savePermissions.
+    // o padrão do tipo).
     notificacoes: {},
+    // No modo "minhas notificações" o save NÃO toca em permissions/features:
+    // editar os próprios privilégios é exatamente o que a tela impede.
+    soNotificacoes,
   }
   // As preferências vêm por usuário; sem linha salva vale o padrão do tipo.
   let prefs = []
@@ -508,6 +512,12 @@ function _mkMarcarTudo(texto, recursos, u) {
   return w
 }
 
+// As PRÓPRIAS notificações: mesmo card, mesmo salvamento, sem a matriz de
+// permissões junto — que é justamente o que não se pode editar em si mesmo.
+async function _abrirMinhasNotificacoes(u) {
+  await openPermModal(u, { soNotificacoes: true })
+}
+
 // Um interruptor por tipo de notificação, com a descrição do que chega e
 // quando. Sem a descrição, "Saldo" sozinho não diz se avisa todo dia ou só
 // quando acaba — e quem decide ligar precisa saber o que está ligando.
@@ -545,6 +555,11 @@ function _mkBlocoNotificacoes() {
 
 function _renderPermBody(u) {
   const body = document.getElementById('perm-modal-body'); body.replaceChildren()
+  if (_permState.soNotificacoes) {
+    // Sem o interruptor de super-admin: ninguém se promove nem se rebaixa aqui.
+    body.appendChild(_mkBlocoNotificacoes())
+    return
+  }
   // 1) Super-admin
   const saRow = document.createElement('label'); saRow.style.cssText = 'display:flex;align-items:center;gap:8px;cursor:pointer;border-bottom:2px solid var(--border);padding-bottom:10px;margin-bottom:8px'
   const saCb = document.createElement('input'); saCb.type = 'checkbox'; saCb.checked = _permState.is_superadmin
@@ -689,17 +704,22 @@ function closePermModal() {
 async function savePermissions() {
   if (!_permState) return
   const btn = document.getElementById('perm-save-btn'); btn.disabled = true; btn.textContent = 'Salvando...'
-  const features = derivarFeatures(_permState.permissions, { ehSuperadmin: _permState.is_superadmin })
+  // No modo "minhas notificações" o PATCH em profiles nem acontece: só as
+  // preferências são gravadas.
+  const features = _permState.soNotificacoes ? null
+    : derivarFeatures(_permState.permissions, { ehSuperadmin: _permState.is_superadmin })
   const payload = {
     permissions: _permState.permissions,
     allowed_accounts: _permState.allowed_accounts,
     is_superadmin: _permState.is_superadmin,
   }
   if (features !== null) payload.features = features
-  await adFetch('profiles?id=eq.' + _permState.userId, {
-    method: 'PATCH',
-    body: JSON.stringify(payload),
-  })
+  if (!_permState.soNotificacoes) {
+    await adFetch('profiles?id=eq.' + _permState.userId, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    })
+  }
 
   // NOTIFICAÇÕES: grava uma linha por tipo com o estado escolhido. Poderia
   // gravar só o que difere do padrão, mas aí "ligado por escolha" e "ligado
@@ -782,6 +802,16 @@ async function loadAdminUsers() {
       const pwBtn = mkEl('button', 'sr-btn'); pwBtn.textContent = 'Trocar senha'; pwBtn.title = 'Definir uma nova senha para este usuário'
       pwBtn.addEventListener('click', () => _abrirTrocaSenha(u, row))
       ctrl.appendChild(pwBtn)
+    }
+    // O botão "Permissões" some na PRÓPRIA linha (trava contra autopromoção, e
+    // ela fica) — mas isso também trancava as próprias NOTIFICAÇÕES, que não são
+    // privilégio nenhum: é escolher o que chega no seu celular. Sem este botão o
+    // dono tentou ligar o próprio aviso e acabou gravando na linha de outro
+    // usuário (2026-07-29). Aqui abre SÓ o bloco de notificações.
+    if (isSelf) {
+      const notifBtn = mkEl('button', 'sr-btn'); notifBtn.textContent = 'Minhas notificações'
+      notifBtn.addEventListener('click', () => _abrirMinhasNotificacoes(u))
+      ctrl.appendChild(notifBtn)
     }
     if (!isSelf && canEdit) {
       const permBtn = mkEl('button', 'sr-btn'); permBtn.textContent = 'Permissões'
