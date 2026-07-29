@@ -171,3 +171,65 @@ test('nada quebra com lista de analises nula', () => {
   const f = montarFila(null, null, AGORA);
   assert.deepEqual(f.pendentes, []);
 });
+
+// ── saude linkada as analises (2026-07-29) ─────────────────────────────────
+
+import { mesclarSaude } from './fila.js';
+
+const saudeAlerta = { nivel: 'alerta', veredito: 'reduzir', porque: 'Frequência 4,2× — o mesmo público já viu demais.' };
+const saudeAtencao = { nivel: 'atencao', veredito: 'monitorar', porque: 'CTR 0,30% baixo para engajamento.' };
+
+test('a saude GRUDA no item que o robo ja trouxe', () => {
+  const f = montarFila([analise()], [], AGORA);
+  const r = mesclarSaude(f, [{ campaign_id: 'c1', saude: saudeAtencao }]);
+  assert.equal(r.pendentes[0].saude.nivel, 'atencao');
+  assert.equal(r.pendentes.length, 1, 'nao duplica o item');
+});
+
+test('alerta em campanha que o robo NAO trouxe vira item proprio', () => {
+  // O caso real: robo disse 'manter' (nao entra na fila) numa campanha com
+  // frequencia 4,2x. Sem isto o alerta ficava invisivel.
+  const f = montarFila([], [], AGORA);
+  const r = mesclarSaude(f, [{
+    campaign_id: 'so-saude', campaign_name: '[Leads] Para WhatsApp', conta_nome: 'Motoeasy',
+    saude: saudeAlerta, budget_atual_centavos: 11532,
+  }]);
+  assert.equal(r.pendentes.length, 1);
+  assert.equal(r.pendentes[0].veredito, 'reduzir');
+  assert.equal(r.pendentes[0].origem, 'saude');
+  assert.equal(r.pendentes[0].budget_sugerido_centavos, null, 'ninguem calculou um numero — nao se inventa');
+});
+
+test('"atencao" sozinha NAO cria item: e observacao, nao pendencia', () => {
+  const f = montarFila([], [], AGORA);
+  const r = mesclarSaude(f, [{ campaign_id: 'x', saude: saudeAtencao }]);
+  assert.equal(r.pendentes.length, 0);
+});
+
+test('alerta em campanha SILENCIADA nao ressuscita pela saude', () => {
+  // Senao a recusa de 7 dias seria contornada por um caminho lateral.
+  const f = montarFila([analise()], [{ campaign_id: 'c1', decisao: 'recusada', decidido_em: dias(-1), silenciar_ate: dias(6) }], AGORA);
+  const r = mesclarSaude(f, [{ campaign_id: 'c1', saude: saudeAlerta }]);
+  assert.equal(r.pendentes.length, 0);
+});
+
+test('alerta em campanha ja RESPONDIDA tambem nao volta', () => {
+  const f = montarFila([analise()], [{ campaign_id: 'c1', decisao: 'aprovada', decidido_em: dias(0) }], AGORA);
+  const r = mesclarSaude(f, [{ campaign_id: 'c1', saude: saudeAlerta }]);
+  assert.equal(r.pendentes.length, 0);
+});
+
+test('itens de saude entram na mesma ordem por gasto', () => {
+  const f = montarFila([analise({ campaign_id: 'media', budget_atual_centavos: 9000 })], [], AGORA);
+  const r = mesclarSaude(f, [
+    { campaign_id: 'grande', saude: saudeAlerta, budget_atual_centavos: 30000 },
+    { campaign_id: 'pequena', saude: saudeAlerta, budget_atual_centavos: 1000 },
+  ]);
+  assert.deepEqual(r.pendentes.map((i) => i.campaign_id), ['grande', 'media', 'pequena']);
+});
+
+test('sem saude nenhuma a fila passa intacta', () => {
+  const f = montarFila([analise()], [], AGORA);
+  assert.deepEqual(mesclarSaude(f, []).pendentes.length, 1);
+  assert.deepEqual(mesclarSaude(f, null).pendentes.length, 1);
+});
