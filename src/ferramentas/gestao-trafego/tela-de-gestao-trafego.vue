@@ -1826,6 +1826,17 @@ function _gtTrocarAba(nome) {
       // deixa gravar um valor que pode não ser o real (ver C3 do review final).
       carregouOk: _gtReguaCarregada,
       exemplos: _gtExemplosParaRegua(),
+      // O card de abertura é longo e explica a aba inteira. Quem já leu não quer
+      // rolar por ele toda vez — mas o painel remonta a cada troca de conta e a
+      // cada save, então a escolha precisa morar fora dele. Mesmo lugar onde o
+      // zoom da tela já mora. Ausente = aberto: na primeira visita a explicação
+      // aparece, e só depois de lida é que o dono decide escondê-la.
+      introAberta: localStorage.getItem('gt.regua.intro') !== 'fechada',
+      aoAlternarIntro: (aberta) => {
+        // localStorage estoura em aba anônima e com cota cheia; a preferência
+        // não vale derrubar a tela.
+        try { localStorage.setItem('gt.regua.intro', aberta ? 'aberta' : 'fechada'); } catch (e) { /* preferência é opcional */ }
+      },
       aoSalvar: _gtSalvarRegua,
       // painel-regua.js é módulo puro (só innerHTML, sem tocar em `window`) —
       // por isso o botão "?" entra por injeção, não por import cruzado do
@@ -2246,7 +2257,17 @@ Object.assign(window, {
    Em tela larga os parágrafos vão para DUAS COLUNAS — assim usa toda a extensão
    sem virar uma linha de 200 caracteres, que ninguém lê até o fim. */
 .tela-gestao-trafego :deep(.pnd-intro){background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:14px;padding:16px 20px;margin-bottom:18px;}
-.tela-gestao-trafego :deep(.pnd-intro-tit){font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));font-weight:700;color:var(--text);margin:0 0 8px;}
+.tela-gestao-trafego :deep(.pnd-intro-tit){font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));font-weight:700;color:var(--text);margin:0 0 8px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;user-select:none;}
+.tela-gestao-trafego :deep(.pnd-intro-tit::-webkit-details-marker){display:none;}
+/* Seta propria: a do <details> nativo muda de forma entre navegadores e nao
+   acompanha o --gt-fs (o zoom da tela), entao ficava minuscula no zoom alto. */
+.tela-gestao-trafego :deep(.pnd-intro-tit::before){content:'';width:0;height:0;border-left:5px solid currentColor;border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .15s ease;flex:0 0 auto;}
+.tela-gestao-trafego :deep(.pnd-intro[open] .pnd-intro-tit::before){transform:rotate(90deg);}
+.tela-gestao-trafego :deep(.pnd-intro-tit:hover){color:var(--accent);}
+/* Fechado o card vira so o cabecalho: sem a margem de baixo do titulo ele fica
+   com respiro estranho dentro da caixa. */
+.tela-gestao-trafego :deep(.pnd-intro:not([open]) .pnd-intro-tit){margin-bottom:0;}
+.tela-gestao-trafego :deep(.pnd-intro:not([open])){padding-top:13px;padding-bottom:13px;}
 /* UMA coluna e largura inteira (pedido do dono, 2026-07-28). Cheguei a usar duas
    colunas pra encurtar a linha, e cheguei a limitar a medida do texto — as duas
    coisas foram desfeitas: em duas colunas virava paredão, e com max-width voltava

@@ -125,6 +125,14 @@ export function montarPainelRegua(alvo, opcoes) {
   // diferença. Sem o nome à vista, o dono editaria a régua de um cliente
   // achando que mexia na de todos.
   const nomeConta = String(o.nomeConta || '').trim();
+  // O card de abertura explica a aba inteira — é longo de propósito, e quem já
+  // entendeu não quer rolar por ele toda vez. Vira recolhível, e QUEM LEMBRA da
+  // escolha é quem chamou (a tela, que já guarda o zoom em localStorage): este
+  // módulo monta HTML e não lê `window`, mesmo motivo pelo qual o botão "?"
+  // chega por injeção. Nasce ABERTO — na primeira visita o dono precisa da
+  // explicação, e só depois de ler é que ele decide escondê-la.
+  const introAberta = o.introAberta !== false;
+  const aoAlternarIntro = typeof o.aoAlternarIntro === 'function' ? o.aoAlternarIntro : null;
   // Botão "?" de ajuda contextual (ver ajuda.js e _gtAjudaBtn na tela). Este
   // módulo é puro — só monta innerHTML, nunca lê `window` — então recebe a
   // função pronta de quem chama, em vez de importar do .vue (que importaria
@@ -199,8 +207,8 @@ export function montarPainelRegua(alvo, opcoes) {
   // seção). O EXEMPLO VIVO ao lado depende da meta, então ela precisa ser lida
   // antes.
   alvo.innerHTML = `
-    <div class="pnd-intro">
-      <h2 class="pnd-intro-tit">O que é esta aba</h2>
+    <details class="pnd-intro" id="pnd-intro"${introAberta ? ' open' : ''}>
+      <summary class="pnd-intro-tit">O que é esta aba</summary>
         <div class="pnd-intro-corpo">
       <p>Aqui você diz <b>quanto aceita pagar por cada resultado</b>. É esse número que faz o cartão da campanha acender verde, amarelo ou vermelho lá na aba Campanhas.</p>
       <p>Existem duas formas de ler o preço. A <b>ponderada</b> é a leitura geral: soma curtida, comentário, salvamento e compartilhamento, cada um valendo o que você decidir, numa nota só. Ela responde "essa campanha comprou engajamento caro ou barato, no geral?". O <b>resultado</b> é a leitura fina: custo por lead, por conversa, por venda, por visita, por mil impressões — responde exatamente o que aquele tipo de campanha comprou.</p>
@@ -209,7 +217,7 @@ export function montarPainelRegua(alvo, opcoes) {
       <p>Cada seção abaixo tem sua PRÓPRIA meta e seu PRÓPRIO limiar de cor: "escalar forte" pode valer 0,8× numa e 0,9× na outra, sem uma mexer na outra.</p>
       <p><b>As metas são de cada cliente, separadamente.</b> Um mesmo resultado custa preços muito diferentes de uma conta pra outra, então uma meta só valendo pra todas diria mais sobre de quem é a conta do que sobre a campanha ir bem. Os pesos e as cores, esses valem pra todo mundo: peso é o quanto uma interação <i>vale</i>, não o quanto ela <i>custa</i>.</p>
     </div>
-      </div>
+      </details>
     ${nomeConta ? `<div class="pnd-conta-tag">Você está editando as metas de <b>${esc(nomeConta)}</b>. Trocar de conta lá em cima troca estes números.</div>`
       : `<div class="pnd-conta-tag pnd-conta-tag--vazio">Escolha uma conta de anúncios lá em cima para ver e editar as metas dela.</div>`}
     <div class="pnd-regua">
@@ -447,6 +455,13 @@ export function montarPainelRegua(alvo, opcoes) {
     pintarLimiaresSecao2(r);
     pintarExemplo();
   }
+
+  // Recolher/abrir o card de abertura. Fora do `if (editavel)` de propósito:
+  // quem só olha a régua também rola a tela, e esconder a explicação não é uma
+  // edição da régua. O painel remonta a cada troca de conta e a cada save, então
+  // sem avisar quem chamou o card voltaria a abrir sozinho toda vez.
+  const intro = document.getElementById('pnd-intro');
+  if (intro && aoAlternarIntro) intro.addEventListener('toggle', () => aoAlternarIntro(intro.open));
 
   if (editavel) {
     alvo.querySelectorAll('.pnd-input').forEach((el) => el.addEventListener('input', atualizarTela));
