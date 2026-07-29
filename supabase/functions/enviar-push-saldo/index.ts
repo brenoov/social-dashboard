@@ -16,6 +16,9 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3';
 import { lerSaldo, montarAvisoDeSaldo } from '../_shared/saldo-de-conta.js';
 import { exigirSegredoDeCron } from '../_shared/segredo-de-cron.ts';
+// Quem quer receber ESTE tipo. Sem isto o push ia pra todas as inscrições — e
+// saldo de conta de anúncio não é assunto de todo mundo.
+import { inscricoesDoTipo } from '../_shared/notificacoes.js';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -97,9 +100,16 @@ Deno.serve(async (req) => {
     url: '/gestao-trafego',
   });
 
-  const { data: subs } = await sb.from('push_subs').select('*');
+  const [{ data: subs }, { data: prefs }] = await Promise.all([
+    sb.from('push_subs').select('*'),
+    sb.from('push_preferencias').select('user_id,tipo,ativo'),
+  ]);
+  const alvos = inscricoesDoTipo(subs, prefs, 'saldo');
+  if (!alvos.length) {
+    return json({ ok: true, enviado: false, motivo: 'ninguem_quer_este_tipo', titulo: aviso.titulo });
+  }
   let enviados = 0, podados = 0;
-  for (const s of (subs || [])) {
+  for (const s of alvos) {
     try {
       await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload);
       enviados++;
