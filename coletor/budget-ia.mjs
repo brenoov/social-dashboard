@@ -95,10 +95,14 @@ export function montarMensagens(camp, ins, ads, conjuntos, regua) {
     'Sugira SEMPRE o total diário da campanha, comparando com `orcamento.reais`: se o seu número for MENOR que ele, ' +
     'o veredito é "reduzir", nunca "escalar" — mesmo que pareça um valor alto isolado. ' +
     'Com `orcamento.reais` nulo você NÃO sabe o gasto atual: use "manter" e diga na justificativa que o orçamento não pôde ser lido. ' +
-    'A RÉGUA DO DONO manda: `regua` traz o que ELE aceita pagar por resultado NESTA conta (`regua.meta_reais`, na unidade de `regua.rotulo`) ' +
-    'e quanto a campanha está pagando de fato (`regua.custo_atual_reais`). Cada cliente pratica um preço muito diferente, então compare com a meta DELE, ' +
+    'A META manda: `regua.meta_reais` é quanto se aceita pagar por resultado NESTA conta (na unidade de `regua.rotulo`) ' +
+    'e `regua.custo_atual_reais` é quanto a campanha paga de fato. Cada conta pratica um preço muito diferente, então compare com a meta DESTA conta, ' +
     'nunca com uma noção geral de caro ou barato. Pagando ABAIXO da meta há espaço para escalar; ACIMA, é "reduzir" ou "otimizar". ' +
-    'Cite esse número na justificativa, em reais e contra a meta — é a linguagem que o dono usa na ferramenta. ' +
+    'Cite esse número na justificativa, em reais e contra a meta. ' +
+    // Quem LÊ a justificativa é o próprio dono da conta. Escrever "a meta do
+    // dono" faz o texto falar dele em terceira pessoa, como se fosse sobre
+    // outra pessoa (correção pedida por ele, 2026-07-29).
+    'ESCREVA SEMPRE "a meta" ou "a meta desta conta" — NUNCA "a meta do dono", "o dono definiu" ou qualquer menção a "dono", "cliente" ou "gestor": quem lê o texto é a própria pessoa que definiu a meta. ' +
     'Quando `regua.meta_reais` for nulo, essa conta ainda não tem meta para este tipo de campanha: aí sim julgue pelos indicadores do objetivo, e diga que a meta não está definida. ' +
     'Responda SOMENTE com um JSON válido, sem texto antes ou depois, no formato: ' +
     '{"budget_sugerido_centavos": <inteiro, centavos de R$/dia>, ' +
@@ -190,7 +194,7 @@ import { registrarExecucao } from './registrar-execucao.mjs';
 // de fato. Módulo puro, o MESMO que a tela usa — a conta não pode divergir entre
 // o que o robô sugere e o que a tela mostra.
 import { orcamentoEfetivoDaCampanha } from '../src/ferramentas/gestao-trafego/orcamento-hierarquia.js';
-// A RÉGUA DO DONO. Sem isto o robô julgava por critério próprio (CTR, CPC,
+// A RÉGUA. Sem isto o robô julgava por critério próprio (CTR, CPC,
 // frequência) enquanto a tela julgava pela meta que o dono definiu — dois juízes
 // discordando sobre a mesma campanha. Agora ele responde contra a MESMA régua.
 import { baldeEfetivo } from '../src/ferramentas/gestao-trafego/baldes.js';
@@ -304,7 +308,7 @@ async function main() {
     // Sem a régua o robô ainda funciona, só volta a julgar pelos indicadores do
     // objetivo — e o prompt manda dizer que a meta não está definida. Melhor que
     // abortar a rodada inteira.
-    console.log('  ⚠ não consegui ler a régua, seguindo sem as metas do dono: ' + e.message);
+    console.log('  ⚠ não consegui ler a régua, seguindo sem as metas: ' + e.message);
     reguaBruta = normalizarRegua(null);
   }
   let total = 0, gravadas = 0, puladas = 0;

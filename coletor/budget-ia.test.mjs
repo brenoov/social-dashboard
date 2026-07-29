@@ -222,3 +222,11 @@ test('montarMensagens sem o 4o argumento nao quebra (compatibilidade)', () => {
   const { user } = montarMensagens({ name: 'C', objective: 'X', daily_budget: '1000' }, {}, []);
   assert.match(user, /orcamento/);
 });
+
+test('o prompt PROIBE falar "do dono": quem le e a propria pessoa', () => {
+  // A justificativa aparece na tela pra quem definiu a meta. "A meta do dono"
+  // faz o texto falar dela em terceira pessoa (correcao pedida em 2026-07-29).
+  const { system } = montarMensagens({ name: 'C', objective: 'OUTCOME_TRAFFIC' }, {}, [], []);
+  assert.match(system, /NUNCA "a meta do dono"/);
+  assert.ok(!/compare com a meta DELE/.test(system), 'a propria instrucao nao pode usar a forma que proibe');
+});
