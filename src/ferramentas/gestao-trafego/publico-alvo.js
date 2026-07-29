@@ -125,8 +125,8 @@ export function montarTargeting(publico, original) {
     ? { cities: cidsFiltered }
     : null);
 
-  const cid = p.excluidas.filter((e) => e != null && e.tipo !== 'regiao').map((e) => ({ key: String(e.key) }));
-  const reg = p.excluidas.filter((e) => e != null && e.tipo === 'regiao').map((e) => ({ key: String(e.key) }));
+  const cid = p.excluidas.filter((e) => e != null && e.key != null && e.tipo !== 'regiao').map((e) => ({ key: String(e.key) }));
+  const reg = p.excluidas.filter((e) => e != null && e.key != null && e.tipo === 'regiao').map((e) => ({ key: String(e.key) }));
   const fora = {};
   if (cid.length) fora.cities = cid;
   if (reg.length) fora.regions = reg;

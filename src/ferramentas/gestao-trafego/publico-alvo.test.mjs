@@ -266,3 +266,37 @@ test('null em generos nao quebra, entrada valida sobrevive', () => {
   const { targeting } = montarTargeting(p, {});
   assert.deepEqual(targeting.genders, [1, 2]);
 });
+
+test('excluida sem key (ou malformada) nao quebra, entrada valida sobrevive, nenhuma chave undefined', () => {
+  // {} tem tipo undefined; { tipo: 'cidade' } tem key undefined; ambas devem ser saltadas
+  const p = {
+    cidades: [],
+    excluidas: [
+      {},
+      { key: '1', nome: 'Válida', tipo: 'cidade' },
+      { tipo: 'cidade' },
+      { key: '2', nome: 'Região', tipo: 'regiao' },
+      { tipo: 'regiao' }
+    ],
+    idadeMin: 18,
+    idadeMax: 65,
+    generos: [],
+    interesses: [],
+    incluir: [],
+    excluir: [],
+    advantagePlus: true
+  };
+  const { targeting } = montarTargeting(p, {});
+
+  // Entradas válidas sobrevivem
+  assert.deepEqual(targeting.excluded_geo_locations.cities.length, 1, 'uma cidade válida');
+  assert.equal(targeting.excluded_geo_locations.cities[0].key, '1', 'chave correta da cidade');
+  assert.deepEqual(targeting.excluded_geo_locations.regions.length, 1, 'uma região válida');
+  assert.equal(targeting.excluded_geo_locations.regions[0].key, '2', 'chave correta da região');
+
+  // Nunca produz chaves undefined ou null
+  for (const c of targeting.excluded_geo_locations.cities || [])
+    assert.notEqual(c.key, 'undefined', 'nunca escreve key: undefined nas cities');
+  for (const r of targeting.excluded_geo_locations.regions || [])
+    assert.notEqual(r.key, 'undefined', 'nunca escreve key: undefined nas regions');
+});
