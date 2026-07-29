@@ -152,8 +152,18 @@ export function montarPainelFila(alvo, opcoes) {
 
   const visiveis = filtroAtual ? pendentes.filter((i) => String(i.account_id || '') === filtroAtual) : pendentes;
 
+  // "Não carregou" e "está vazio" NÃO são a mesma coisa. Dizer "nada esperando
+  // decisão" quando a leitura ainda não terminou é afirmar que não há o que
+  // decidir — e foi exatamente o que a tela fez quando a fila rodou antes de as
+  // contas chegarem (2026-07-29). Quem chama passa `carregou`.
+  const carregou = o.carregou !== false;
   const corpo = visiveis.length
     ? visiveis.map((i) => linha(i, agoraMs, editavel)).join('')
+    : !carregou
+    ? `<div class="gtf-vazio">
+         <b>Carregando suas campanhas…</b>
+         <span>Assim que elas chegarem, mostro aqui o que está esperando decisão.</span>
+       </div>`
     : `<div class="gtf-vazio">
          <b>Nada esperando decisão${filtroAtual ? ' nesta conta' : ''}.</b>
          <span>O robô analisa as campanhas toda madrugada. Quando ele propuser mexer em orçamento, aparece aqui.</span>

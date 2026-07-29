@@ -187,3 +187,21 @@ test('sem valor sugerido mostra o gasto de hoje, nao um "de -> para" vazio', () 
   assert.match(html, /R\$ 230,00/);
   assert.match(html, /gtf-hoje/);
 });
+
+test('enquanto NAO carregou nao afirma que a fila esta vazia', () => {
+  // O bug de 2026-07-29: a fila rodou antes de as contas chegarem, achou zero
+  // campanha e anunciou "Nada esperando decisao" — quando na verdade nao tinha
+  // lido nada. Dizer "nao ha o que decidir" e uma afirmacao, nao um placeholder.
+  const html = monta({ pendentes: [], carregou: false });
+  assert.match(html, /Carregando/);
+  assert.ok(!html.includes('Nada esperando'));
+});
+
+test('carregado e vazio de verdade diz que esta vazio', () => {
+  const html = monta({ pendentes: [], carregou: true });
+  assert.match(html, /Nada esperando decis/);
+});
+
+test('sem o parametro assume carregado (compatibilidade)', () => {
+  assert.match(monta({ pendentes: [] }), /Nada esperando decis/);
+});
