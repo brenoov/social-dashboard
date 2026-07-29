@@ -123,7 +123,7 @@ import { orcamentoDe, detectarNivelOrcamento, podeEditarOrcamentoDaCampanha, pod
 // Aba "A régua" (métrica ponderada): painel puro + os módulos que leem/normalizam
 // a régua vinda do banco (ver painel-regua.js, ponderada.js, regua.js).
 import { montarPainelRegua } from './painel-regua.js'
-import { normalizarRegua, metaDoBalde } from './regua.js'
+import { normalizarRegua, metaDoBalde, reguaDaConta, mesclarMetasDaConta } from './regua.js'
 import { quantidadesDoInsight, calcularPonderada } from './ponderada.js'
 import { decidirVeredito } from './veredito.js'
 // Alvo de cada tipo de campanha (custo por lead/conversa/venda/visita/mil
@@ -698,6 +698,17 @@ let _gtRegua = normalizarRegua(null);   // começa no padrão; o banco sobrescre
 // review final (2026-07-28).
 let _gtReguaCarregada = false;
 
+// A régua COMO ELA VALE pra conta que está na tela agora. `_gtRegua` é o bruto
+// do banco (que guarda a meta das cinco contas juntas); esta é a que decide cor
+// e veredito. Sempre use ESTA no cálculo — usar `_gtRegua` direto julgaria a
+// conta aberta pela meta de outro cliente.
+//
+// Sem conta selecionada devolve metas vazias, e vazio faz o cálculo dizer
+// 'sem-dados' em vez de chutar. Ver reguaDaConta em regua.js.
+function _gtReguaAtiva() {
+  return reguaDaConta(_gtRegua, _gtCurAcc && _gtCurAcc.id);
+}
+
 async function _gtCarregarRegua() {
   // sb() NUNCA lança — ver src/compartilhado/buscar-e-salvar-dados.js. Falha de
   // rede, sessão expirada (401), falta de GRANT (42501) e erro do servidor (5xx)
@@ -706,7 +717,7 @@ async function _gtCarregarRegua() {
   // "a tabela realmente não tem nada". Um try/catch aqui era código morto: o
   // catch nunca rodava, e a flag de "carregou" ficava true mesmo numa leitura
   // que falhou silenciosamente. C3 do review final (2026-07-28).
-  const linhas = await sb('gt_ponderada_config?select=pesos,metas,limiares,limiares_resultado&id=eq.1');
+  const linhas = await sb('gt_ponderada_config?select=pesos,metas,limiares,limiares_resultado,metas_por_conta&id=eq.1');
   const ok = !linhas.erro && linhas.length > 0;
   if (ok) {
     _gtRegua = normalizarRegua(linhas[0]);
@@ -740,14 +751,29 @@ async function _gtSalvarRegua(nova, botao) {
   if (botao) { botao.disabled = true; botao.textContent = 'Salvando...'; }
   try {
     const antes = _gtRegua;
+    const contaId = _gtCurAcc && _gtCurAcc.id;
+    // Sem conta escolhida não dá pra salvar: as metas da tela pertencem a UMA
+    // conta, e sem saber qual elas não teriam onde morar. Gravar só os pesos e
+    // deixar as metas caírem no vácuo seria pior — o dono digitaria os valores,
+    // veria "Régua salva" e voltaria depois com os campos vazios.
+    if (!contaId) {
+      adminToast('Escolha primeiro a conta de anúncios: as metas são dela.', false);
+      return;
+    }
+    // As metas são DA CONTA; pesos e limiares seguem gerais (peso é quanto uma
+    // interação vale, não quanto custa — isso não muda de cliente pra cliente).
+    // mesclarMetasDaConta devolve o mapa inteiro com só esta conta trocada: sem
+    // isso, salvar a régua da Vessel apagaria as metas das outras quatro, que
+    // moram no mesmo campo do banco.
+    const metasPorConta = mesclarMetasDaConta(_gtRegua, contaId, nova.metas);
     // QUEM mexeu: estado.userId é o mesmo id já usado no resto da tela (ver
     // _setGubAvatar em tela-de-admin.vue) — sem isto, updated_by/mudou_quem
     // ficavam sempre nulos e o histórico não dizia quem alterou.
     const { error } = await sbClient.from('gt_ponderada_config')
-      .update({ pesos: nova.pesos, metas: nova.metas, limiares: nova.limiares, limiares_resultado: nova.limiares_resultado, updated_at: new Date().toISOString(), updated_by: estado.userId })
+      .update({ pesos: nova.pesos, limiares: nova.limiares, limiares_resultado: nova.limiares_resultado, metas_por_conta: metasPorConta, updated_at: new Date().toISOString(), updated_by: estado.userId })
       .eq('id', 1);
     if (error) throw error;
-    _gtRegua = nova;
+    _gtRegua = normalizarRegua({ ...nova, metas: _gtRegua.metas, metas_por_conta: metasPorConta });
     // histórico: guarda o antes e o depois inteiros. Uma falha AQUI não desfaz o
     // save (a régua já está salva) — mas o dono precisa saber que o histórico
     // dessa alteração não ficou registrado, senão a auditoria fica com buraco
@@ -1600,8 +1626,11 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       // faz calcularPonderada devolver faixa 'sem-dados' (cor neutra), mas o
       // custo por ponto em si continua calculado e aparecendo — é informação,
       // não veredito.
-      const metaPnd = (baldeCamp === 'engajamento' && !temMensagem) ? metaDoBalde(_gtRegua, 'engajamento') : 0;
-      const pnd = calcularPonderada(qtdsPnd, { pesos: _gtRegua.pesos, limiares: _gtRegua.limiares, meta: metaPnd });
+      // A régua DA CONTA aberta, nunca a linha crua do banco: as cinco contas
+      // moram no mesmo registro e cada uma tem sua meta (ver _gtReguaAtiva).
+      const reguaAtiva = _gtReguaAtiva();
+      const metaPnd = (baldeCamp === 'engajamento' && !temMensagem) ? metaDoBalde(reguaAtiva, 'engajamento') : 0;
+      const pnd = calcularPonderada(qtdsPnd, { pesos: reguaAtiva.pesos, limiares: reguaAtiva.limiares, meta: metaPnd });
 
       // ALVO DO OBJETIVO: cada tipo de campanha é medido pelo resultado que ele
       // compra (lead, conversa, venda, visita, mil impressões) — e engajamento
@@ -1611,7 +1640,7 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       // de sempre (ver comentário de temMensagem acima), só que agora em vez de
       // simplesmente cair fora da conta, ela ganha o alvo certo: custo por conversa.
       const alvo = temMensagem ? alvoDoBalde('mensagens') : alvoDoBalde(baldeCamp);
-      let metaAlvo = metaDoBalde(_gtRegua, temMensagem ? 'mensagens' : baldeCamp);
+      let metaAlvo = metaDoBalde(reguaAtiva, temMensagem ? 'mensagens' : baldeCamp);
       let custoAlvo = !alvo ? null
         : alvo.metrica === 'ponderada' ? pnd.custoPorPonto
         : _gtMetricValue(alvo.metrica, ins);
@@ -1633,7 +1662,7 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       const objDeclarado = interacaoValida(objDeclaradoBruto) ? objDeclaradoBruto : null;
       if (objDeclarado) {
         custoAlvo = custoDaInteracao(qtdsPnd, objDeclarado);
-        metaAlvo = metaDoBalde(_gtRegua, objDeclarado);
+        metaAlvo = metaDoBalde(reguaAtiva, objDeclarado);
         rotuloAlvo = { rotulo: INTERACOES[objDeclarado].rotuloCusto };
       }
       // QUAL CONJUNTO DE LIMIAR decide a cor: bucket engajamento (ponderada,
@@ -1644,7 +1673,7 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       // Regra da régua (dois conjuntos, 2026-07-28): quem é dono da META é
       // dono do LIMIAR.
       const usaLimiaresDeEngajamento = (alvo && alvo.metrica === 'ponderada') || !!objDeclarado;
-      const aval = avaliarAlvo({ custo: custoAlvo, meta: metaAlvo, limiares: usaLimiaresDeEngajamento ? _gtRegua.limiares : _gtRegua.limiares_resultado });
+      const aval = avaliarAlvo({ custo: custoAlvo, meta: metaAlvo, limiares: usaLimiaresDeEngajamento ? reguaAtiva.limiares : reguaAtiva.limiares_resultado });
 
       // VEREDITO ÚNICO (ver veredito.js): saúde veta > Opus > ponderada.
       // _gtRegraCampanha continua sendo a leitura de SAÚDE (frequência, CTR).
@@ -1778,7 +1807,13 @@ function _gtTrocarAba(nome) {
   if (nome === 'regua') {
     const alvo = document.getElementById('gt-painel-regua');
     if (alvo) montarPainelRegua(alvo, {
-      regua: _gtRegua,
+      // A régua DA CONTA aberta — é o que o dono edita. Passar `_gtRegua` cru
+      // mostraria a meta antiga, única, que não governa mais nada.
+      regua: _gtReguaAtiva(),
+      // De QUEM são estas metas. Sem o nome na tela, o dono editaria a régua da
+      // Raíssa achando que estava mexendo na de todo mundo — e os números são
+      // muito diferentes entre as contas (28× no custo por ponto).
+      nomeConta: (_gtCurAcc && (_gtCurAcc.display_name || _gtCurAcc.name)) || '',
       // Mesmo critério do RLS (admin OU feature 'meta.gestor' — ver migration
       // 20260728_ponderada_config.sql): editar a régua é uma ação de quem tem
       // permissão de EDITAR nesta ferramenta, não um privilégio exclusivo de
@@ -1941,8 +1976,9 @@ function _renderGtAds(pane,ads,allInsights,allAdInsights,campNum,temMensagemCamp
     if(interacaoValida(declAd)){
       const qAd=quantidadesDoInsight(ad);
       const custoAd=custoDaInteracao(qAd,declAd);
-      const metaAd=metaDoBalde(_gtRegua,declAd);
-      const avalAd=avaliarAlvo({custo:custoAd,meta:metaAd,limiares:_gtRegua.limiares});
+      const reguaAd=_gtReguaAtiva();
+      const metaAd=metaDoBalde(reguaAd,declAd);
+      const avalAd=avaliarAlvo({custo:custoAd,meta:metaAd,limiares:reguaAd.limiares});
       const corAd=avalAd.faixa==='escalar-forte'||avalAd.faixa==='dentro-da-meta'?'var(--green)'
         :avalAd.faixa==='manter'?'var(--orange)':avalAd.faixa==='otimizar'?'var(--red)':'var(--muted)';
       const el=document.createElement('div');
@@ -2185,6 +2221,9 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.pnd-grupo){margin-bottom:22px;}
 .tela-gestao-trafego :deep(.pnd-grupo:last-child){margin-bottom:0;}
 .tela-gestao-trafego :deep(.pnd-grupo-tit){display:flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:800;color:var(--text);margin:0 0 4px;}
+.tela-gestao-trafego :deep(.pnd-tabela td:first-child){min-width:11ch;}
+.tela-gestao-trafego :deep(.pnd-conta-tag){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));color:var(--txt);line-height:1.5;background:color-mix(in srgb,var(--green) 10%,transparent);border:1px solid color-mix(in srgb,var(--green) 32%,transparent);border-left-width:3px;border-radius:8px;padding:9px 13px;margin:0 0 16px;}
+.tela-gestao-trafego :deep(.pnd-conta-tag--vazio){background:color-mix(in srgb,var(--orange) 10%,transparent);border-color:color-mix(in srgb,var(--orange) 32%,transparent);}
 .tela-gestao-trafego :deep(.pnd-grupo-sub){font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;margin:0 0 12px;max-width:70ch;}
 .tela-gestao-trafego :deep(.pnd-cards){display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:14px;}
 .tela-gestao-trafego :deep(.pnd-bloco){background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;}
