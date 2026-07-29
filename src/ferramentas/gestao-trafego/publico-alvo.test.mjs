@@ -119,7 +119,23 @@ test('CAMPO DESCONHECIDO SOBREVIVE A IDA E VOLTA — o teste que segura tudo', (
 
 test('ida e volta sem mexer em nada devolve o mesmo publico', () => {
   const { targeting } = montarTargeting(lerPublico(ALVO_META), ALVO_META);
-  assert.deepEqual(lerPublico(targeting), lerPublico(ALVO_META));
+  const lido = lerPublico(targeting);
+  const original = lerPublico(ALVO_META);
+
+  // Nomes de cidades, regiões e públicos são read-only echoes da Meta, não
+  // sobrevivem à escrita (publico.mjs:9, 36). Comparar tudo mais — chaves,
+  // raios, idades, gêneros, interesses (esses sim viajam), advantage+.
+  assert.deepEqual(lido.cidades.map((c) => ({ key: c.key, raio: c.raio, unidade: c.unidade })),
+    original.cidades.map((c) => ({ key: c.key, raio: c.raio, unidade: c.unidade })));
+  assert.deepEqual(lido.excluidas.map((e) => ({ key: e.key, tipo: e.tipo })),
+    original.excluidas.map((e) => ({ key: e.key, tipo: e.tipo })));
+  assert.deepEqual(lido.idadeMin, original.idadeMin);
+  assert.deepEqual(lido.idadeMax, original.idadeMax);
+  assert.deepEqual(lido.generos, original.generos);
+  assert.deepEqual(lido.interesses, original.interesses);
+  assert.deepEqual(lido.incluir.map((a) => ({ id: a.id })), original.incluir.map((a) => ({ id: a.id })));
+  assert.deepEqual(lido.excluir.map((a) => ({ id: a.id })), original.excluir.map((a) => ({ id: a.id })));
+  assert.deepEqual(lido.advantagePlus, original.advantagePlus);
 });
 
 test('so as chaves gerenciadas mudam', () => {
@@ -188,8 +204,8 @@ test('raio zero significa a cidade inteira e NAO e ajustado', () => {
 test('incluir e excluir publico nao se misturam', () => {
   const p = lerPublico(ALVO_META);
   const { targeting } = montarTargeting(p, ALVO_META);
-  assert.deepEqual(targeting.custom_audiences, [{ id: 'aud1', name: 'Visitantes do site' }]);
-  assert.deepEqual(targeting.excluded_custom_audiences, [{ id: 'aud2', name: 'Já compraram' }]);
+  assert.deepEqual(targeting.custom_audiences, [{ id: 'aud1' }]);
+  assert.deepEqual(targeting.excluded_custom_audiences, [{ id: 'aud2' }]);
   assert.ok(!('exclusions' in targeting), 'público em exclusions está descontinuado na Meta');
 });
 
@@ -207,4 +223,46 @@ test('publico SEM cidade nenhuma nao restaura as antigas em silencio', () => {
   // apagou tudo e veria o de antes voltar. Quem barra é o aviso bloqueante
   // da Task 4; aqui a chave simplesmente sai do pacote.
   assert.ok(!('geo_locations' in targeting));
+});
+
+test('null em cidades nao quebra, entrada valida sobrevive', () => {
+  const p = { cidades: [null, { key: '1', nome: 'Válida', raio: 25, unidade: 'kilometer' }, null], excluidas: [], idadeMin: 18, idadeMax: 65, generos: [], interesses: [], incluir: [], excluir: [], advantagePlus: true };
+  const { targeting } = montarTargeting(p, {});
+  assert.deepEqual(targeting.geo_locations.cities.length, 1);
+  assert.equal(targeting.geo_locations.cities[0].key, '1');
+});
+
+test('null em excluidas nao quebra, entrada valida sobrevive', () => {
+  const p = { cidades: [], excluidas: [null, { key: '1', nome: 'Válida', tipo: 'cidade' }, { key: '2', nome: 'Região', tipo: 'regiao' }, null], idadeMin: 18, idadeMax: 65, generos: [], interesses: [], incluir: [], excluir: [], advantagePlus: true };
+  const { targeting } = montarTargeting(p, {});
+  assert.deepEqual(targeting.excluded_geo_locations.cities.length, 1);
+  assert.deepEqual(targeting.excluded_geo_locations.regions.length, 1);
+});
+
+test('null em interesses nao quebra, entrada valida sobrevive', () => {
+  const p = { cidades: [], excluidas: [], idadeMin: 18, idadeMax: 65, generos: [], interesses: [null, { id: '1', name: 'Válido' }, null], incluir: [], excluir: [], advantagePlus: true };
+  const { targeting } = montarTargeting(p, {});
+  const ints = targeting.flexible_spec.flatMap(g => g.interests || []);
+  assert.deepEqual(ints.length, 1);
+  assert.equal(ints[0].id, '1');
+});
+
+test('null em incluir nao quebra, entrada valida sobrevive', () => {
+  const p = { cidades: [], excluidas: [], idadeMin: 18, idadeMax: 65, generos: [], interesses: [], incluir: [null, { id: 'a1', name: 'Válido' }, null], excluir: [], advantagePlus: true };
+  const { targeting } = montarTargeting(p, {});
+  assert.deepEqual(targeting.custom_audiences.length, 1);
+  assert.equal(targeting.custom_audiences[0].id, 'a1');
+});
+
+test('null em excluir nao quebra, entrada valida sobrevive', () => {
+  const p = { cidades: [], excluidas: [], idadeMin: 18, idadeMax: 65, generos: [], interesses: [], incluir: [], excluir: [null, { id: 'a2', name: 'Válido' }, null], advantagePlus: true };
+  const { targeting } = montarTargeting(p, {});
+  assert.deepEqual(targeting.excluded_custom_audiences.length, 1);
+  assert.equal(targeting.excluded_custom_audiences[0].id, 'a2');
+});
+
+test('null em generos nao quebra, entrada valida sobrevive', () => {
+  const p = { cidades: [], excluidas: [], idadeMin: 18, idadeMax: 65, generos: [null, 1, null, 2, null], interesses: [], incluir: [], excluir: [], advantagePlus: true };
+  const { targeting } = montarTargeting(p, {});
+  assert.deepEqual(targeting.genders, [1, 2]);
 });

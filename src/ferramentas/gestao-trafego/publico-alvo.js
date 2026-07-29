@@ -76,8 +76,8 @@ export const RAIO_MINIMO_KM = 17;
 export const RAIO_MINIMO_MI = 10;
 
 function cidadeParaMeta(c, ajustes) {
+  if (c == null || c.key == null) return null;
   const saida = { key: String(c.key) };
-  if (c.nome != null) saida.name = c.nome;
   const raio = Number(c.raio) || 0;
   if (raio > 0) {
     const unidade = c.unidade === 'mile' ? 'mile' : 'kilometer';
@@ -99,8 +99,10 @@ function cidadeParaMeta(c, ajustes) {
 // existe para evitar.
 function flexComInteresses(originalFlex, interesses) {
   const outros = (Array.isArray(originalFlex) ? originalFlex : []).filter((g) => g && !g.interests);
-  if (!interesses.length) return outros.length ? outros : null;
-  return [...outros, { interests: interesses.map((i) => ({ id: String(i.id), name: i.name })) }];
+  // Filtra nulls de interesses: Meta carrega nome no read, mas não valida na escrita
+  const ints = interesses.filter((i) => i != null && i.id != null);
+  if (!ints.length) return outros.length ? outros : null;
+  return [...outros, { interests: ints.map((i) => ({ id: String(i.id), name: i.name })) }];
 }
 
 // Escreve o público de volta no formato da Meta.
@@ -118,20 +120,13 @@ export function montarTargeting(publico, original) {
   // Sem cidade nenhuma a chave SAI do pacote. Ressuscitar as cidades antigas
   // aqui faria a tela mentir: o dono apagou tudo e veria o de antes voltar.
   // Quem impede de salvar um público sem lugar é o aviso bloqueante (Task 4).
-  põe('geo_locations', p.cidades.length
-    ? { cities: p.cidades.map((c) => cidadeParaMeta(c, ajustes)) }
+  const cidsFiltered = p.cidades.filter((c) => c != null).map((c) => cidadeParaMeta(c, ajustes)).filter((c) => c != null);
+  põe('geo_locations', cidsFiltered.length
+    ? { cities: cidsFiltered }
     : null);
 
-  const cid = p.excluidas.filter((e) => e.tipo !== 'regiao').map((e) => {
-    const c = { key: String(e.key) };
-    if (e.nome != null) c.name = e.nome;
-    return c;
-  });
-  const reg = p.excluidas.filter((e) => e.tipo === 'regiao').map((e) => {
-    const r = { key: String(e.key) };
-    if (e.nome != null) r.name = e.nome;
-    return r;
-  });
+  const cid = p.excluidas.filter((e) => e != null && e.tipo !== 'regiao').map((e) => ({ key: String(e.key) }));
+  const reg = p.excluidas.filter((e) => e != null && e.tipo === 'regiao').map((e) => ({ key: String(e.key) }));
   const fora = {};
   if (cid.length) fora.cities = cid;
   if (reg.length) fora.regions = reg;
@@ -139,18 +134,14 @@ export function montarTargeting(publico, original) {
 
   põe('age_min', Number(p.idadeMin));
   põe('age_max', Number(p.idadeMax));
-  põe('genders', p.generos.length ? p.generos.map(Number) : null);
+  // Filtra nulls e coerce a number: Number(null) === 0 mas gêneros válidos são 1 e 2
+  const gerosValid = p.generos.filter((g) => g != null).map(Number).filter((g) => !Number.isNaN(g));
+  põe('genders', gerosValid.length ? gerosValid : null);
   põe('flexible_spec', flexComInteresses(t.flexible_spec, p.interesses));
-  põe('custom_audiences', p.incluir.length ? p.incluir.map((a) => {
-    const aud = { id: String(a.id) };
-    if (a.name != null) aud.name = a.name;
-    return aud;
-  }) : null);
-  põe('excluded_custom_audiences', p.excluir.length ? p.excluir.map((a) => {
-    const aud = { id: String(a.id) };
-    if (a.name != null) aud.name = a.name;
-    return aud;
-  }) : null);
+  const incluirValid = p.incluir.filter((a) => a != null && a.id != null).map((a) => ({ id: String(a.id) }));
+  põe('custom_audiences', incluirValid.length ? incluirValid : null);
+  const excluirValid = p.excluir.filter((a) => a != null && a.id != null).map((a) => ({ id: String(a.id) }));
+  põe('excluded_custom_audiences', excluirValid.length ? excluirValid : null);
   põe('targeting_automation', { ...(t.targeting_automation || {}), advantage_audience: p.advantagePlus ? 1 : 0 });
 
   return { targeting: t, ajustes };
