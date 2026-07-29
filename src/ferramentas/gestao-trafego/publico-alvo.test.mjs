@@ -385,3 +385,18 @@ test('mudanca de unidade (kilometer <-> mile) no mesmo raio e relatada', () => {
   assert.match(r, /Raio de Campinas/, 'deve mencionar a cidade');
   assert.match(r, /25\s*km.*mi|mi.*km/, 'deve mostrar ambas as unidades');
 });
+
+test('cidade existente sem nome, raio muda, mostra "sem nome" nao codigo', () => {
+  const antes = lerPublico(ALVO_META);
+  const depois = { ...antes, cidades: [{ key: '1058', nome: '', raio: 50, unidade: 'kilometer' }] };
+  const r = resumoDasMudancas(antes, depois).join(' | ');
+  assert.match(r, /sem nome.*1058|Raio.*sem nome/, 'deve conter "sem nome" e código');
+  assert.ok(!r.match(/Raio de 1058/), 'nunca mostra codigo sozinho no raio');
+});
+
+test('cidade com raio 0 (cidade inteira) em ambos lados, unidade muda, nao gera linha', () => {
+  const antes = { cidades: [{ key: '1058', nome: 'Campinas', raio: 0, unidade: 'kilometer' }], excluidas: [], idadeMin: 18, idadeMax: 65, generos: [], interesses: [], incluir: [], excluir: [], advantagePlus: true };
+  const depois = { ...antes, cidades: [{ key: '1058', nome: 'Campinas', raio: 0, unidade: 'mile' }] };
+  const r = resumoDasMudancas(antes, depois);
+  assert.ok(!r.some(linha => linha.includes('Raio de Campinas')), 'nao deve gerar linha de raio quando ambos sao 0');
+});

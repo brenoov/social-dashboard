@@ -192,11 +192,13 @@ export function resumoDasMudancas(antes, depois) {
     if (c == null || c.key == null) continue;
     const ant = raioAntes.get(c.key);
     if (ant && (Number(ant.raio) !== Number(c.raio) || ant.unidade !== c.unidade)) {
+      // Pula mudança de unidade quando ambos os raios são 0 (cidade inteira), é irrelevante.
+      if (Number(ant.raio) === 0 && Number(c.raio) === 0) continue;
       const unAnt = ant.unidade === 'mile' ? 'mi' : 'km';
       const unNova = c.unidade === 'mile' ? 'mi' : 'km';
       const valAnt = ant.raio ? `${ant.raio} ${unAnt}` : 'cidade inteira';
       const valNova = c.raio ? `${c.raio} ${unNova}` : 'cidade inteira';
-      const nomeCidade = c.nome || c.key;
+      const nomeCidade = nomePara(c, c.key);
       linhas.push(`Raio de ${nomeCidade}: ${valAnt} → ${valNova}`);
     }
   }
