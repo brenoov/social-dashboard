@@ -69,3 +69,89 @@ export function lerPublico(targeting) {
     advantagePlus: auto.advantage_audience == null ? true : Number(auto.advantage_audience) === 1,
   };
 }
+
+// A Meta recusa raio de cidade abaixo disso (código 1487110, apanhado ao vivo
+// em 2026-07-12). Raio 0 é caso à parte: significa "a cidade inteira".
+export const RAIO_MINIMO_KM = 17;
+export const RAIO_MINIMO_MI = 10;
+
+function cidadeParaMeta(c, ajustes) {
+  const saida = { key: String(c.key) };
+  if (c.nome != null) saida.name = c.nome;
+  const raio = Number(c.raio) || 0;
+  if (raio > 0) {
+    const unidade = c.unidade === 'mile' ? 'mile' : 'kilometer';
+    const minimo = unidade === 'mile' ? RAIO_MINIMO_MI : RAIO_MINIMO_KM;
+    if (raio < minimo) {
+      ajustes.push({ cidade: c.nome || String(c.key), de: raio, para: minimo, unidade });
+      saida.radius = minimo;
+    } else {
+      saida.radius = raio;
+    }
+    saida.distance_unit = unidade;
+  }
+  return saida;
+}
+
+// Troca APENAS a parte de interesses do flexible_spec, preservando os outros
+// grupos (comportamentos, eventos de vida). Eles moram no mesmo array e
+// sobrescrevê-lo inteiro os apagaria — mesma classe de perda que este arquivo
+// existe para evitar.
+function flexComInteresses(originalFlex, interesses) {
+  const outros = (Array.isArray(originalFlex) ? originalFlex : []).filter((g) => g && !g.interests);
+  if (!interesses.length) return outros.length ? outros : null;
+  return [...outros, { interests: interesses.map((i) => ({ id: String(i.id), name: i.name })) }];
+}
+
+// Escreve o público de volta no formato da Meta.
+//
+// PARTE DO ORIGINAL e sobrescreve só as chaves gerenciadas. Toda chave que
+// este editor não conhece passa intacta. Campo gerenciado que ficou vazio é
+// REMOVIDO do pacote em vez de ir como lista vazia — a Meta trata `[]` e
+// ausente de formas diferentes.
+export function montarTargeting(publico, original) {
+  const t = Object.assign({}, original && typeof original === 'object' ? original : {});
+  const p = Object.assign({}, PUBLICO_VAZIO, publico || {});
+  const ajustes = [];
+  const põe = (chave, valor) => { if (valor == null) delete t[chave]; else t[chave] = valor; };
+
+  // Sem cidade nenhuma a chave SAI do pacote. Ressuscitar as cidades antigas
+  // aqui faria a tela mentir: o dono apagou tudo e veria o de antes voltar.
+  // Quem impede de salvar um público sem lugar é o aviso bloqueante (Task 4).
+  põe('geo_locations', p.cidades.length
+    ? { cities: p.cidades.map((c) => cidadeParaMeta(c, ajustes)) }
+    : null);
+
+  const cid = p.excluidas.filter((e) => e.tipo !== 'regiao').map((e) => {
+    const c = { key: String(e.key) };
+    if (e.nome != null) c.name = e.nome;
+    return c;
+  });
+  const reg = p.excluidas.filter((e) => e.tipo === 'regiao').map((e) => {
+    const r = { key: String(e.key) };
+    if (e.nome != null) r.name = e.nome;
+    return r;
+  });
+  const fora = {};
+  if (cid.length) fora.cities = cid;
+  if (reg.length) fora.regions = reg;
+  põe('excluded_geo_locations', Object.keys(fora).length ? fora : null);
+
+  põe('age_min', Number(p.idadeMin));
+  põe('age_max', Number(p.idadeMax));
+  põe('genders', p.generos.length ? p.generos.map(Number) : null);
+  põe('flexible_spec', flexComInteresses(t.flexible_spec, p.interesses));
+  põe('custom_audiences', p.incluir.length ? p.incluir.map((a) => {
+    const aud = { id: String(a.id) };
+    if (a.name != null) aud.name = a.name;
+    return aud;
+  }) : null);
+  põe('excluded_custom_audiences', p.excluir.length ? p.excluir.map((a) => {
+    const aud = { id: String(a.id) };
+    if (a.name != null) aud.name = a.name;
+    return aud;
+  }) : null);
+  põe('targeting_automation', { ...(t.targeting_automation || {}), advantage_audience: p.advantagePlus ? 1 : 0 });
+
+  return { targeting: t, ajustes };
+}
