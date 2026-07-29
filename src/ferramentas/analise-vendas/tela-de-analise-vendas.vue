@@ -1301,7 +1301,9 @@ onUnmounted(() => {
 /* ── RESPONSIVE (compartilhado — legacy L645-662/694-696) ── */
 @media(max-width:1024px){
   .tela-analise-vendas :deep(.gv-topbar){flex-wrap:wrap;padding:8px 14px;gap:6px;}
-  .tela-analise-vendas :deep(.gv-clock-wrap){display:block!important;}
+  /* O relógio foi REMOVIDO do celular no app inteiro (estilos-globais.css): o
+     aparelho já mostra hora e data na barra de status. Esta tela forçava o
+     contrário com !important — era a única. */
 }
 @media(max-width:640px){
   .tela-analise-vendas :deep(.gv-topbar){padding:6px 10px;}

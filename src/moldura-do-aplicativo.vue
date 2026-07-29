@@ -243,8 +243,7 @@ watch(() => estado.user?.id, avaliarPush)
 /* ── Modal Trocar senha ── */
 .perfil-modal-overlay {
   position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,.45);
-  display: flex; align-items: center; justify-content: center; padding: 20px;
-}
+  display: flex; align-items: center; justify-content: center; padding: 20px;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
 .perfil-modal {
   background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
   box-shadow: var(--shadow-lg); padding: 22px; width: 100%; max-width: 340px;
@@ -284,8 +283,7 @@ watch(() => estado.user?.id, avaliarPush)
 /* ── Modal de notificações (Web Push) — prefixo np- único (evita colisão CSS global) ── */
 .np-modal-fundo {
   position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 10001;
-  display: flex; align-items: center; justify-content: center; padding: 20px;
-}
+  display: flex; align-items: center; justify-content: center; padding: 20px;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
 .np-modal {
   background: var(--surface); color: var(--text); border: 1px solid var(--border);
   border-radius: 16px; box-shadow: var(--shadow-lg); padding: 28px 24px;
