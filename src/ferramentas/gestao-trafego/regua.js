@@ -25,19 +25,74 @@ function completar(vindo, padrao) {
 // mexer numa mexa na outra. Os dois nascem com os MESMOS valores de fábrica
 // (LIMIARES_PADRAO) porque é o mesmo ponto de partida — só divergem quando o
 // dono ajustar um dos dois na tela.
+// Só sobrevive número positivo e finito. Serve pras metas, onde um campo ausente
+// tem que SUMIR do objeto (e não virar 0), porque "sem meta" e "meta zero" são
+// coisas diferentes: a primeira não julga, a segunda dividiria por zero.
+function metasValidas(vindo) {
+  const metas = {};
+  for (const [chave, valor] of Object.entries(vindo || {})) {
+    const n = Number(valor);
+    if (Number.isFinite(n) && n > 0) metas[chave] = n;
+  }
+  return metas;
+}
+
 export function normalizarRegua(linha) {
   const l = linha || {};
-  const metas = {};
-  for (const [balde, valor] of Object.entries(l.metas || {})) {
-    const n = Number(valor);
-    if (Number.isFinite(n) && n > 0) metas[balde] = n;
+  // `metas_por_conta` é um mapa id-da-conta → metas daquela conta. Cada conta de
+  // anúncios pratica um custo MUITO diferente: medido em 90 dias reais, o ponto
+  // de engajamento custa R$ 0,013 na Vessel e R$ 0,372 na Breno Vale — 28× de
+  // diferença. Com uma meta só pras cinco, o veredito parava de depender da
+  // campanha ir bem e passava a depender de qual conta ela era: a Vessel ficava
+  // verde mesmo piorando, a Breno Vale vermelha mesmo melhorando. A régua
+  // carimbava em vez de julgar.
+  const porConta = {};
+  for (const [contaId, metasDaConta] of Object.entries(l.metas_por_conta || {})) {
+    if (contaId) porConta[contaId] = metasValidas(metasDaConta);
   }
   return {
     pesos: completar(l.pesos, PESOS_PADRAO),
     limiares: completar(l.limiares, LIMIARES_PADRAO),
     limiares_resultado: completar(l.limiares_resultado, LIMIARES_PADRAO),
-    metas,
+    // LEGADO: a meta única que valia pras cinco contas. Continua sendo lida e
+    // guardada pra não perder o histórico, mas NÃO governa mais nenhum veredito
+    // — quem governa é `metas_por_conta`, resolvido por `reguaDaConta`. Não
+    // volte a usar este campo direto: ele é a meta de outra conta.
+    metas: metasValidas(l.metas),
+    metas_por_conta: porConta,
   };
+}
+
+// A régua COMO ELA VALE para uma conta: os pesos e os limiares são gerais (peso
+// é quanto uma interação VALE, não quanto custa — isso não muda de cliente pra
+// cliente), e as metas são as daquela conta.
+//
+// Conta sem metas salvas fica com `metas: {}` — em BRANCO, de propósito, sem
+// herdar padrão nenhum (decisão do dono, 2026-07-29). É o caso da Mantova, que
+// não tem histórico: sem meta o cálculo devolve 'sem-dados', e "não sei julgar"
+// é uma resposta honesta. Herdar a meta de outra conta seria pior que o silêncio
+// — julgaria a Mantova pelo preço que a Raíssa paga.
+//
+// Sem conta selecionada, mesma coisa: em branco. PURO.
+export function reguaDaConta(regua, contaId) {
+  const r = regua || {};
+  const porConta = r.metas_por_conta || {};
+  return {
+    pesos: r.pesos,
+    limiares: r.limiares,
+    limiares_resultado: r.limiares_resultado,
+    metas: (contaId && porConta[contaId]) ? porConta[contaId] : {},
+    metas_por_conta: porConta,
+  };
+}
+
+// Devolve o mapa INTEIRO com as metas de UMA conta trocadas. As outras contas
+// passam intactas — sem isto, salvar a régua da Vessel apagaria as metas da
+// Raíssa e da Breno Vale, que estão no mesmo campo do banco. PURO.
+export function mesclarMetasDaConta(regua, contaId, metas) {
+  const atual = (regua && regua.metas_por_conta) || {};
+  if (!contaId) return { ...atual };
+  return { ...atual, [contaId]: metasValidas(metas) };
 }
 
 // Meta do balde; sem meta salva PARA ESTE BALDE, devolve 0 — e 0 faz o cálculo

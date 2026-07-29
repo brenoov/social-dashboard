@@ -119,6 +119,12 @@ export function montarPainelRegua(alvo, opcoes) {
   const carregouOk = o.carregouOk === true;
   const podeSalvar = editavel && carregouOk;
   const exemplos = o.exemplos || null;
+  // De QUEM são as metas desta tela. Cada conta de anúncios tem a sua, porque
+  // cada uma pratica um preço muito diferente: medido em 90 dias reais, o ponto
+  // de engajamento custa R$ 0,013 na Vessel e R$ 0,372 na Breno Vale — 28× de
+  // diferença. Sem o nome à vista, o dono editaria a régua de um cliente
+  // achando que mexia na de todos.
+  const nomeConta = String(o.nomeConta || '').trim();
   // Botão "?" de ajuda contextual (ver ajuda.js e _gtAjudaBtn na tela). Este
   // módulo é puro — só monta innerHTML, nunca lê `window` — então recebe a
   // função pronta de quem chama, em vez de importar do .vue (que importaria
@@ -201,12 +207,15 @@ export function montarPainelRegua(alvo, opcoes) {
       <p>Qual das duas vale para uma campanha? Você decide lá em Campanhas, declarando no cartão dela o que ela está comprando. Sem declarar, ela é julgada pela ponderada. Declarando um resultado, vale o custo daquele resultado. Declarando uma interação — curtida, comentário, salvamento ou compartilhamento —, vale o custo daquela interação, que você define logo abaixo.</p>
       <p>Peso e meta respondem perguntas diferentes: o <b>peso</b> diz quanto aquilo vale pra você, a <b>meta</b> diz quanto você aceita pagar por aquilo. Por isso, quando você declara uma interação, o peso não entra na conta — quem decide é só a meta.</p>
       <p>Cada seção abaixo tem sua PRÓPRIA meta e seu PRÓPRIO limiar de cor: "escalar forte" pode valer 0,8× numa e 0,9× na outra, sem uma mexer na outra.</p>
+      <p><b>As metas são de cada cliente, separadamente.</b> Um mesmo resultado custa preços muito diferentes de uma conta pra outra, então uma meta só valendo pra todas diria mais sobre de quem é a conta do que sobre a campanha ir bem. Os pesos e as cores, esses valem pra todo mundo: peso é o quanto uma interação <i>vale</i>, não o quanto ela <i>custa</i>.</p>
     </div>
       </div>
+    ${nomeConta ? `<div class="pnd-conta-tag">Você está editando as metas de <b>${esc(nomeConta)}</b>. Trocar de conta lá em cima troca estes números.</div>`
+      : `<div class="pnd-conta-tag pnd-conta-tag--vazio">Escolha uma conta de anúncios lá em cima para ver e editar as metas dela.</div>`}
     <div class="pnd-regua">
       <div>
         <div class="pnd-grupo">
-          <h2 class="pnd-grupo-tit">Engajamento ponderado${ajudaBtn('ponto')}</h2>
+          <h2 class="pnd-grupo-tit">Engajamento ponderado${nomeConta ? ` — ${esc(nomeConta)}` : ''}${ajudaBtn('ponto')}</h2>
           <p class="pnd-grupo-sub">A leitura geral. Vale para toda campanha de engajamento até você declarar, no cartão dela, o que ela está comprando.</p>
           <div class="pnd-cards">
             <div class="pnd-bloco">
@@ -227,7 +236,7 @@ export function montarPainelRegua(alvo, opcoes) {
           </div>
         </div>
         <div class="pnd-grupo">
-          <h2 class="pnd-grupo-tit">Metas por resultado</h2>
+          <h2 class="pnd-grupo-tit">Metas por resultado${nomeConta ? ` — ${esc(nomeConta)}` : ''}</h2>
           <p class="pnd-grupo-sub">A leitura fina. Uma meta por tipo de campanha e os limiares que, a partir dela, decidem quando a cor muda.</p>
           <div class="pnd-cards">
             <div class="pnd-bloco">
