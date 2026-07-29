@@ -29,7 +29,16 @@
         <p>Ferramentas de tráfego pago para suas contas</p>
       </div>
       <div class="smenu-cards" :class="{ 'view-list': visualizacao === 'list' }">
-        <div class="smenu-card" v-if="hasPermission('module:meta:campanha')" @click="ir('meta-campanhas')">
+        <!-- ANÁLISE DE CAMPANHAS OCULTA (decisão do dono, 2026-07-29). Tudo que
+             ela mostrava — KPIs por objetivo, funil de conversão, CTR/CPC/CPM —
+             vive hoje na Gestão de Tráfego: os KPIs no cartão da campanha, o
+             funil no botão "Funil" da aba Campanhas, e agora com filtro por
+             objetivo. Duas telas respondendo a mesma pergunta com números
+             calculados por caminhos diferentes é convite pra divergirem.
+             A ROTA /meta-campanhas continua de pé: quem tiver o link salvo
+             ainda abre, e nada foi apagado — se fizer falta, é só devolver o
+             card. -->
+        <div class="smenu-card" v-if="false" @click="ir('meta-campanhas')">
           <span class="smenu-card-num">01</span>
           <div class="smenu-card-icon" style="background:linear-gradient(135deg,#1877F2,#0062E0)">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>

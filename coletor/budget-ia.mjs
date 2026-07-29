@@ -11,12 +11,11 @@ const VEREDITOS = new Set(['escalar', 'reduzir', 'manter', 'pausar']);
 const VEREDITOS_AD = new Set(['manter', 'pausar']);
 
 // Campanha "em veiculação real": ACTIVE e (sem stop_time OU stop_time no futuro).
-export function campanhaEmVeiculacao(camp, agoraMs) {
-  if (!camp || camp.effective_status !== 'ACTIVE') return false;
-  if (!camp.stop_time) return true;
-  const t = Date.parse(camp.stop_time);
-  return Number.isNaN(t) ? true : t > agoraMs;
-}
+// A regra mora em veiculacao.js — a MESMA que a fila usa. Ficou duplicada por um
+// tempo e o resultado foi a tela mostrando campanha encerrada que o robô já
+// ignorava corretamente. Reexportada porque os testes deste arquivo a usam pelo
+// nome antigo.
+export const campanhaEmVeiculacao = (camp, agoraMs) => emVeiculacao(camp, agoraMs);
 
 // ---------- escopo da rodada ----------
 
@@ -65,7 +64,24 @@ export function selecionarCampanhas(camps, insByCamp, modo, agoraMs) {
 }
 
 // Monta as mensagens (system + user) pro Opus: analisa a campanha E os anúncios dela.
-export function montarMensagens(camp, ins, ads) {
+export function montarMensagens(camp, ins, ads, conjuntos, regua) {
+  // O orçamento REAL desta campanha. Em ABO ele mora nos conjuntos: ler só
+  // `camp.daily_budget` devolvia nulo e o modelo calculava a sugestão em cima do
+  // zero — foi assim que a "MODA & BOLSAS" (R$ 230/dia no ar) recebeu sugestão
+  // de R$ 200 rotulada "escalar", um corte vestido de aumento.
+  const orc = orcamentoEfetivoDaCampanha(camp, conjuntos || []);
+  // A meta desta CONTA para o tipo desta campanha. `regua` já vem resolvida pela
+  // conta certa (reguaDaConta) — cada cliente pratica um preço muito diferente:
+  // o ponto de engajamento custa R$ 0,013 na Vessel e R$ 0,372 na Breno Vale.
+  const balde = baldeEfetivo(camp.objective, conjuntos || []);
+  const alvo = alvoDoBalde(balde);
+  const meta = regua ? metaDoBalde(regua, balde) : 0;
+  // Custo por ponto: só existe em engajamento, o único balde cujo resultado é o
+  // ponto ponderado. Nos outros o resultado é uma ação só (lead, conversa,
+  // visita) e o ponto não diria nada.
+  const pnd = (balde === 'engajamento' && regua)
+    ? calcularPonderada(quantidadesDoInsight(ins) || {}, { pesos: regua.pesos, limiares: regua.limiares, meta })
+    : null;
   const system =
     'Você é um gestor de tráfego pago sênior. Analise UMA campanha do Meta Ads E os anúncios dela, e recomende: ' +
     '(1) o orçamento diário ideal da CAMPANHA; (2) por ANÚNCIO, manter ou pausar o criativo. ' +
@@ -73,6 +89,20 @@ export function montarMensagens(camp, ins, ads) {
     'CONCEITOS (obrigatórios): performance RUIM nunca vira "escalar" — CTR muito abaixo do aceitável pro objetivo, CPC/CPL alto, ROAS baixo, ou frequência alta (fadiga) → "reduzir" ou "pausar", NUNCA "escalar". ' +
     '"escalar" só com EVIDÊNCIA de eficiência (bom resultado a custo baixo) E volume/dado suficiente. Seja conservador quando faltar dado. ' +
     'Por anúncio: "pausar" criativo com performance ruim ou fadiga; "manter" os que vão bem. ' +
+    'ORÇAMENTO: `orcamento` traz o valor diário que a campanha REALMENTE tem no ar e ONDE ele mora — ' +
+    'em CBO na própria campanha, em ABO somado nos conjuntos ativos (conjunto pausado não entra: não gasta). ' +
+    'Sugira SEMPRE o total diário da campanha, comparando com `orcamento.reais`: se o seu número for MENOR que ele, ' +
+    'o veredito é "reduzir", nunca "escalar" — mesmo que pareça um valor alto isolado. ' +
+    'Com `orcamento.reais` nulo você NÃO sabe o gasto atual: use "manter" e diga na justificativa que o orçamento não pôde ser lido. ' +
+    'A META manda: `regua.meta_reais` é quanto se aceita pagar por resultado NESTA conta (na unidade de `regua.rotulo`) ' +
+    'e `regua.custo_atual_reais` é quanto a campanha paga de fato. Cada conta pratica um preço muito diferente, então compare com a meta DESTA conta, ' +
+    'nunca com uma noção geral de caro ou barato. Pagando ABAIXO da meta há espaço para escalar; ACIMA, é "reduzir" ou "otimizar". ' +
+    'Cite esse número na justificativa, em reais e contra a meta. ' +
+    // Quem LÊ a justificativa é o próprio dono da conta. Escrever "a meta do
+    // dono" faz o texto falar dele em terceira pessoa, como se fosse sobre
+    // outra pessoa (correção pedida por ele, 2026-07-29).
+    'ESCREVA SEMPRE "a meta" ou "a meta desta conta" — NUNCA "a meta do dono", "o dono definiu" ou qualquer menção a "dono", "cliente" ou "gestor": quem lê o texto é a própria pessoa que definiu a meta. ' +
+    'Quando `regua.meta_reais` for nulo, essa conta ainda não tem meta para este tipo de campanha: aí sim julgue pelos indicadores do objetivo, e diga que a meta não está definida. ' +
     'Responda SOMENTE com um JSON válido, sem texto antes ou depois, no formato: ' +
     '{"budget_sugerido_centavos": <inteiro, centavos de R$/dia>, ' +
     '"veredito": "escalar"|"reduzir"|"manter"|"pausar", ' +
@@ -82,8 +112,23 @@ export function montarMensagens(camp, ins, ads) {
   const dados = {
     nome: camp.name || '',
     objetivo: camp.objective || '',
-    budget_diario_atual_centavos: camp.daily_budget != null ? Number(camp.daily_budget) : null,
-    budget_total_centavos: camp.lifetime_budget != null ? Number(camp.lifetime_budget) : null,
+    regua: {
+      tipo_de_campanha: balde,
+      rotulo: alvo ? alvo.rotulo : null,          // ex.: "Custo por ponto", "Custo por conversa iniciada"
+      meta_reais: meta > 0 ? meta : null,          // nulo = conta sem meta para este tipo
+      custo_atual_reais: pnd ? pnd.custoPorPonto : null,
+      indice_contra_meta: pnd ? pnd.indice : null, // 1,0 = exatamente na meta
+      pesos: regua ? regua.pesos : null,
+    },
+    orcamento: {
+      reais: orc.reais,
+      centavos: orc.centavos,
+      tipo: orc.tipo,                       // 'diario' | 'total' | 'misto' | null
+      onde: orc.sigla,                      // 'CBO' | 'ABO' | null
+      conjuntos_somados: orc.conjuntosSomados,
+      conjuntos_pausados_ignorados: orc.conjuntosIgnorados,
+      configurado_centavos: orc.configuradoCentavos,
+    },
     gasto: num(ins.spend),
     impressoes: num(ins.impressions),
     cliques: num(ins.clicks),
@@ -144,6 +189,18 @@ function num(v) { const n = parseFloat(v); return Number.isFinite(n) ? n : null;
 
 // ---------- infra (rede) — só roda no main(), não é importado nos testes ----------
 import { registrarExecucao } from './registrar-execucao.mjs';
+// Onde mora o orçamento (CBO na campanha x ABO nos conjuntos) e quanto ele soma
+// de fato. Módulo puro, o MESMO que a tela usa — a conta não pode divergir entre
+// o que o robô sugere e o que a tela mostra.
+import { orcamentoEfetivoDaCampanha } from '../src/ferramentas/gestao-trafego/orcamento-hierarquia.js';
+// A RÉGUA. Sem isto o robô julgava por critério próprio (CTR, CPC,
+// frequência) enquanto a tela julgava pela meta que o dono definiu — dois juízes
+// discordando sobre a mesma campanha. Agora ele responde contra a MESMA régua.
+import { baldeEfetivo } from '../src/ferramentas/gestao-trafego/baldes.js';
+import { normalizarRegua, reguaDaConta, metaDoBalde } from '../src/ferramentas/gestao-trafego/regua.js';
+import { quantidadesDoInsight, calcularPonderada } from '../src/ferramentas/gestao-trafego/ponderada.js';
+import { alvoDoBalde } from '../src/ferramentas/gestao-trafego/alvos.js';
+import { emVeiculacao } from '../src/ferramentas/gestao-trafego/veiculacao.js';
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY_TRAFEGO || process.env.ANTHROPIC_API_KEY_BUDGET || process.env.ANTHROPIC_API_KEY;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
@@ -210,8 +267,11 @@ function textoDaResposta(resp) {
 }
 
 async function main() {
-  if (!ANTHROPIC_API_KEY || !SERVICE_KEY) {
-    console.error('✗ Faltam segredos: ' + (!ANTHROPIC_API_KEY ? 'ANTHROPIC_API_KEY_TRAFEGO ' : '') + (!SERVICE_KEY ? 'SUPABASE_SERVICE_KEY' : ''));
+  // Em --dry nada é enviado ao modelo (o laço dá `continue` antes da chamada),
+  // então exigir a chave da API só impedia a conferência de rodar na máquina de
+  // quem não tem o segredo — que é justamente quando conferir é mais útil.
+  if ((!ANTHROPIC_API_KEY && !DRY) || !SERVICE_KEY) {
+    console.error('✗ Faltam segredos: ' + (!ANTHROPIC_API_KEY && !DRY ? 'ANTHROPIC_API_KEY_TRAFEGO ' : '') + (!SERVICE_KEY ? 'SUPABASE_SERVICE_KEY' : ''));
     process.exit(1);
   }
   const agoraMs = Date.now();
@@ -227,7 +287,30 @@ async function main() {
 
   // accounts guarda contas IG/página com access_token; a coluna ad_account_id é vazia.
   // A(s) conta(s) de anúncio são descobertas em runtime via Graph /me/adaccounts (igual ao meta-proxy).
-  const contas = await sbGet('/accounts?select=id,access_token');
+  const contas = await sbGet('/accounts?select=id,name,ad_account_id,access_token');
+  // ATENÇÃO: `accounts` tem DOIS tipos de registro. Cinco são as contas do painel
+  // (com ad_account_id) e duas são só portadoras de token ("Gustavo Guerra",
+  // "Humberto Mendonca") que enxergam TODAS as contas de anúncios. O robô varre
+  // /me/adaccounts a partir de cada registro com token, então quem tem token
+  // amplo analisa campanha de todo mundo — e era por isso que ele gravava sempre
+  // o MESMO account_id em tudo, deixando a fila sem saber de qual cliente era
+  // cada sugestão. Este mapa devolve a conta do painel a partir da conta de
+  // anúncios onde a campanha realmente vive.
+  const contaPorAdAccount = new Map();
+  for (const c of contas) if (c.ad_account_id) contaPorAdAccount.set(cleanAcc(c.ad_account_id), c);
+
+  // A régua: pesos e limiares são gerais, as metas são POR CONTA.
+  let reguaBruta = null;
+  try {
+    const linhas = await sbGet('/gt_ponderada_config?select=pesos,metas,limiares,limiares_resultado,metas_por_conta&id=eq.1');
+    reguaBruta = normalizarRegua((linhas && linhas[0]) || null);
+  } catch (e) {
+    // Sem a régua o robô ainda funciona, só volta a julgar pelos indicadores do
+    // objetivo — e o prompt manda dizer que a meta não está definida. Melhor que
+    // abortar a rodada inteira.
+    console.log('  ⚠ não consegui ler a régua, seguindo sem as metas: ' + e.message);
+    reguaBruta = normalizarRegua(null);
+  }
   let total = 0, gravadas = 0, puladas = 0;
 
   const seenAdAcc = new Set();
@@ -247,6 +330,9 @@ async function main() {
       const adAcc = cleanAcc(aa.account_id || aa.id);
       if (!adAcc || seenAdAcc.has(adAcc)) continue;
       seenAdAcc.add(adAcc);
+      // De QUEM é esta conta de anúncios — é isso que diz qual meta da régua vale.
+      const contaDoPainel = contaPorAdAccount.get(adAcc) || null;
+      const reguaDaContaAtual = reguaDaConta(reguaBruta, contaDoPainel && contaDoPainel.id);
       let camps, insights;
       try {
         // No modo amplo pedimos também as pausadas/com-problema — a peneira do que
@@ -258,6 +344,21 @@ async function main() {
       } catch (e) { console.log('  act_' + adAcc + ' falhou no Graph: ' + e.message); continue; }
       const insByCamp = {};
       insights.forEach((i) => { insByCamp[i.campaign_id] = i; });
+      // CONJUNTOS: em campanha ABO o orçamento mora aqui, não na campanha. Sem
+      // esta busca o robô lia R$ 0,00 e sugeria em cima do zero (ver
+      // orcamentoEfetivoDaCampanha). Uma falha aqui não derruba a rodada: a
+      // campanha ABO fica com orçamento 'indefinido' e o prompt manda o modelo
+      // responder "manter" — melhor calar do que sugerir em cima de nada.
+      let adsets = [];
+      try {
+        // destination_type/optimization_goal são o que a Meta AFIRMA sobre a campanha
+        // ser de WhatsApp (ver ehDeWhatsapp em baldes.js). Sem eles, campanha de
+        // WhatsApp de verdade era julgada pela meta de engajamento — a "[IA] Dom
+        // Pedro · WhatsApp" caía em R$ 0,012 por ponto em vez de R$ 7,70 por conversa.
+        adsets = (await graphGet(`/act_${adAcc}/adsets`, { fields: 'id,campaign_id,daily_budget,lifetime_budget,effective_status,destination_type,optimization_goal', limit: 500 }, acc.access_token)).data || [];
+      } catch (e) { console.log('  act_' + adAcc + ' falhou adsets no Graph: ' + e.message); }
+      const conjuntosPorCamp = {};
+      adsets.forEach((cj) => { (conjuntosPorCamp[cj.campaign_id] = conjuntosPorCamp[cj.campaign_id] || []).push(cj); });
       const adFields = 'ad_id,ad_name,adset_name,campaign_id,spend,impressions,clicks,ctr,cpc,reach,frequency';
       let adIns = [], adObjs = [];
       try {
@@ -277,8 +378,21 @@ async function main() {
     for (const camp of selecionadas) {
       total++;
       const ins = insByCamp[camp.id] || {};
-      const { system, user } = montarMensagens(camp, ins, adsAtivosPorCamp[camp.id] || []);
-      if (DRY) { console.log('  [dry] ' + (camp.name || camp.id)); continue; }
+      const conjuntosDaCamp = conjuntosPorCamp[camp.id] || [];
+      const { system, user } = montarMensagens(camp, ins, adsAtivosPorCamp[camp.id] || [], conjuntosDaCamp, reguaDaContaAtual);
+      if (DRY) {
+        // Mostra o orçamento que o modelo VAI ver. É a forma barata de conferir,
+        // sem gastar uma chamada, se a leitura de CBO/ABO está certa — foi
+        // exatamente o que passou despercebido enquanto o dry só imprimia o nome.
+        const o = orcamentoEfetivoDaCampanha(camp, conjuntosDaCamp);
+        const valor = o.centavos != null ? 'R$ ' + (o.centavos / 100).toFixed(2) : 'NÃO LIDO';
+        const extra = o.conjuntosIgnorados ? ` (+${o.conjuntosIgnorados} conj. pausado ignorado)` : '';
+        const bal = baldeEfetivo(camp.objective, conjuntosDaCamp);
+        const mt = metaDoBalde(reguaDaContaAtual, bal);
+        const quem = contaDoPainel ? contaDoPainel.name : '??';
+        console.log(`  [dry] ${camp.name || camp.id} — ${quem} · ${o.sigla || 'sem nível'} ${valor}${o.conjuntosSomados ? ` em ${o.conjuntosSomados} conj.` : ''}${extra} · ${bal} meta ${mt > 0 ? 'R$ ' + mt : 'NÃO DEFINIDA'}`);
+        continue;
+      }
       let saida;
       try {
         const resp = await anthropic({ model: MODEL, max_tokens: 8192, thinking: { type: 'adaptive' }, system, messages: [{ role: 'user', content: user }] });
@@ -289,10 +403,16 @@ async function main() {
       try {
         await sbUpsert('/gt_budget_analises', [{
           campaign_id: camp.id,
-          account_id: acc.id,
+          // A conta do PAINEL (de quem é a campanha), não o registro que carregava
+          // o token. Sem isto a fila não conseguia filtrar por cliente: todas as
+          // análises vinham com o mesmo account_id.
+          account_id: (contaDoPainel && contaDoPainel.id) || acc.id,
           objetivo: camp.objective || null,
           effective_status: camp.effective_status || null,
-          budget_atual_centavos: camp.daily_budget != null ? Number(camp.daily_budget) : null,
+          // O que a campanha tem NO AR — em ABO isso vem da soma dos conjuntos
+          // ativos. Antes gravava o campo da campanha, nulo em ABO, e a tela
+          // mostrava "R$ 0,00 → R$ 200,00" numa campanha que já rodava R$ 230.
+          budget_atual_centavos: orcamentoEfetivoDaCampanha(camp, conjuntosDaCamp).centavos,
           budget_sugerido_centavos: saida.budget_sugerido_centavos,
           veredito: saida.veredito,
           justificativa: saida.justificativa,

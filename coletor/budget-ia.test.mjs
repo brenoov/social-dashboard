@@ -150,3 +150,83 @@ test('parsearSaida: sem anuncios = array vazio', () => {
   const o = parsearSaida('{"budget_sugerido_centavos":6000,"veredito":"escalar","justificativa":"ROAS bom","impacto_estimado":"+20% compras"}');
   assert.deepEqual(o.anuncios, []);
 });
+
+// ---------------------------------------------------------------------------
+// O `user` e "prosa + JSON + prosa": nao da pra JSON.parse do primeiro '{' ate
+// o fim. Pega da primeira chave ate a ultima.
+const dadosDoPrompt = (user) => JSON.parse(user.slice(user.indexOf('{'), user.lastIndexOf('}') + 1));
+
+// ORCAMENTO REAL NO PROMPT (2026-07-29). O robo lia so `camp.daily_budget`; em
+// campanha ABO isso e nulo, entao o modelo recebia "sem orcamento" e calculava
+// a sugestao em cima do zero. Casos abaixo sao as campanhas reais que erraram.
+// ---------------------------------------------------------------------------
+
+test('ABO: o prompt leva o orcamento dos CONJUNTOS, nao zero', () => {
+  // "[ENGAJAMENTO] FEED | P1" da Vessel: R$ 90/dia em 3 conjuntos, campanha sem
+  // orcamento proprio. O robo sugeriu R$ 70 chamando de "escalar".
+  const { user } = montarMensagens(
+    { name: 'FEED P1', objective: 'OUTCOME_ENGAGEMENT' },
+    { spend: '400' },
+    [],
+    [
+      { daily_budget: '3000', effective_status: 'ACTIVE' },
+      { daily_budget: '3000', effective_status: 'ACTIVE' },
+      { daily_budget: '3000', effective_status: 'ACTIVE' },
+    ]
+  );
+  const dados = dadosDoPrompt(user);
+  assert.equal(dados.orcamento.reais, 90, 'R$ 90, nao null nem 0');
+  assert.equal(dados.orcamento.onde, 'ABO');
+  assert.equal(dados.orcamento.conjuntos_somados, 3);
+});
+
+test('ABO: conjunto pausado nao entra, mas o configurado vai junto', () => {
+  // "MODA & BOLSAS": R$ 290 configurados, R$ 230 no ar.
+  const { user } = montarMensagens(
+    { name: 'MODA & BOLSAS', objective: 'OUTCOME_TRAFFIC' }, {}, [],
+    [
+      { daily_budget: '20000', effective_status: 'ACTIVE' },
+      { daily_budget: '3000', effective_status: 'ACTIVE' },
+      { daily_budget: '6000', effective_status: 'PAUSED' },
+    ]
+  );
+  const dados = dadosDoPrompt(user);
+  assert.equal(dados.orcamento.reais, 230);
+  assert.equal(dados.orcamento.configurado_centavos, 29000);
+  assert.equal(dados.orcamento.conjuntos_pausados_ignorados, 1);
+});
+
+test('CBO segue funcionando: o orcamento e o da campanha', () => {
+  const { user } = montarMensagens({ name: 'C', objective: 'OUTCOME_SALES', daily_budget: '5000' }, {}, [], []);
+  const dados = dadosDoPrompt(user);
+  assert.equal(dados.orcamento.reais, 50);
+  assert.equal(dados.orcamento.onde, 'CBO');
+});
+
+test('sem conjuntos e sem orcamento na campanha: null, e o prompt manda MANTER', () => {
+  // null nao e zero. O modelo precisa saber que NAO SABE, senao sugere em cima do vazio.
+  const { system, user } = montarMensagens({ name: 'C', objective: 'OUTCOME_TRAFFIC' }, {}, [], []);
+  const dados = dadosDoPrompt(user);
+  assert.equal(dados.orcamento.reais, null);
+  assert.match(system, /nulo você NÃO sabe o gasto atual/, 'a instrucao de calar precisa estar no prompt');
+});
+
+test('o prompt PROIBE chamar de escalar um numero menor que o atual', () => {
+  // A regra que faltava: R$ 230 -> R$ 200 saia rotulado "escalar".
+  const { system } = montarMensagens({ name: 'C', objective: 'OUTCOME_TRAFFIC' }, {}, [], []);
+  assert.match(system, /MENOR que ele/);
+  assert.match(system, /"reduzir", nunca "escalar"/);
+});
+
+test('montarMensagens sem o 4o argumento nao quebra (compatibilidade)', () => {
+  const { user } = montarMensagens({ name: 'C', objective: 'X', daily_budget: '1000' }, {}, []);
+  assert.match(user, /orcamento/);
+});
+
+test('o prompt PROIBE falar "do dono": quem le e a propria pessoa', () => {
+  // A justificativa aparece na tela pra quem definiu a meta. "A meta do dono"
+  // faz o texto falar dela em terceira pessoa (correcao pedida em 2026-07-29).
+  const { system } = montarMensagens({ name: 'C', objective: 'OUTCOME_TRAFFIC' }, {}, [], []);
+  assert.match(system, /NUNCA "a meta do dono"/);
+  assert.ok(!/compare com a meta DELE/.test(system), 'a propria instrucao nao pode usar a forma que proibe');
+});

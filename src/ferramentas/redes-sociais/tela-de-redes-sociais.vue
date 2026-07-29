@@ -417,7 +417,7 @@
 
     <!-- MODAL "Filtrar campanhas" (legacy L11754-11769 — mesmo motivo do tooltip
          acima: irmão solto no body no legado, trazido pra dentro da raiz aqui) -->
-    <div id="campaign-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;align-items:center;justify-content:center;backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
+    <div id="campaign-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));" onclick="if(event.target===this)this.style.display='none'">
       <div class="campaign-modal">
         <div class="camp-modal-hdr">
           <span>Filtro de Campanhas</span>
@@ -1603,7 +1603,7 @@ function applyFreshness(lastSnapStr) {
 /* ── INFO: como contamos novos seguidores (modal do "?") (legacy L4015-4042, verbatim) ── */
 function openFollowersInfo() {
   const ov = document.createElement('div')
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px;'
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));'
   ov.onclick = e => { if (e.target === ov) ov.remove() }
   const m = document.createElement('div')
   m.style.cssText = "background:#fff;max-width:470px;width:100%;max-height:85vh;overflow:auto;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.32);font-family:'IBM Plex Sans',sans-serif;color:#1e293b;"

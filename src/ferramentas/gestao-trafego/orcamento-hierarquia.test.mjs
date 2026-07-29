@@ -6,6 +6,7 @@ import {
   podeEditarOrcamentoDaCampanha,
   podeEditarOrcamentoDoConjunto,
   montarHierarquia,
+  orcamentoEfetivoDaCampanha,
 } from './orcamento-hierarquia.js';
 
 // A Meta manda orçamento como STRING em centavos.
@@ -184,4 +185,86 @@ test('id do conjunto casa mesmo se a Meta mandar número num lado e string no ou
   const h = montarHierarquia([{ id: 123, name: 'Conjunto' }], [{ ad_id: 'a1', adset_id: 123, spend: '5' }]);
   assert.equal(h.length, 1);
   assert.equal(h[0].anuncios.length, 1);
+});
+
+// ---------------------------------------------------------------------------
+// ORCAMENTO EFETIVO (2026-07-29). O robo de budget lia so o daily_budget da
+// CAMPANHA; em ABO isso e nulo, entao ele via R$ 0 e sugeria em cima do zero.
+// ---------------------------------------------------------------------------
+
+test('CBO: o orcamento e o da propria campanha', () => {
+  const r = orcamentoEfetivoDaCampanha({ daily_budget: '3500' }, []);
+  assert.equal(r.sigla, 'CBO');
+  assert.equal(r.centavos, 3500);
+  assert.equal(r.tipo, 'diario');
+  assert.equal(r.conjuntosSomados, 0);
+});
+
+test('ABO: soma os conjuntos em vez de devolver zero', () => {
+  // O caso real: campanha sem orcamento proprio, R$ 90/dia espalhados em 3 conjuntos.
+  const conjuntos = [
+    { daily_budget: '3000', effective_status: 'ACTIVE' },
+    { daily_budget: '3000', effective_status: 'ACTIVE' },
+    { daily_budget: '3000', effective_status: 'ACTIVE' },
+  ];
+  const r = orcamentoEfetivoDaCampanha({}, conjuntos);
+  assert.equal(r.sigla, 'ABO');
+  assert.equal(r.centavos, 9000, 'R$ 90, nao R$ 0');
+  assert.equal(r.conjuntosSomados, 3);
+});
+
+test('ABO: conjunto PAUSADO nao entra na soma — ele nao gasta', () => {
+  // "MODA & BOLSAS" real: R$ 290 configurados, R$ 230 no ar (um de R$ 60 parado).
+  const conjuntos = [
+    { daily_budget: '20000', effective_status: 'ACTIVE' },
+    { daily_budget: '3000', effective_status: 'ACTIVE' },
+    { daily_budget: '6000', effective_status: 'PAUSED' },
+  ];
+  const r = orcamentoEfetivoDaCampanha({}, conjuntos);
+  assert.equal(r.centavos, 23000, 'so o que esta rodando');
+  assert.equal(r.configuradoCentavos, 29000, 'mas o configurado fica disponivel');
+  assert.equal(r.conjuntosIgnorados, 1);
+});
+
+test('ABO com TODOS pausados: devolve o configurado, nao zero', () => {
+  // Zero aqui esconderia que existe orcamento montado na campanha.
+  const r = orcamentoEfetivoDaCampanha({}, [
+    { daily_budget: '5000', effective_status: 'PAUSED' },
+    { daily_budget: '5000', effective_status: 'PAUSED' },
+  ]);
+  assert.equal(r.centavos, 10000);
+  assert.equal(r.conjuntosSomados, 2);
+});
+
+test('sem orcamento em lugar nenhum devolve null — e null NAO e zero', () => {
+  // null significa "nao sei", e e isso que impede uma sugestao calculada em
+  // cima de nada. Zero seria uma afirmacao falsa sobre o gasto.
+  const r = orcamentoEfetivoDaCampanha({}, [{ effective_status: 'ACTIVE' }]);
+  assert.equal(r.nivel, 'indefinido');
+  assert.equal(r.centavos, null);
+  assert.notEqual(r.centavos, 0);
+});
+
+test('ABO misturando diario e total marca tipo "misto"', () => {
+  const r = orcamentoEfetivoDaCampanha({}, [
+    { daily_budget: '3000', effective_status: 'ACTIVE' },
+    { lifetime_budget: '50000', effective_status: 'ACTIVE' },
+  ]);
+  assert.equal(r.tipo, 'misto', 'R$/dia e R$ total nao somam a mesma unidade');
+});
+
+test('aceita `status` quando `effective_status` nao veio', () => {
+  const r = orcamentoEfetivoDaCampanha({}, [
+    { daily_budget: '3000', status: 'ACTIVE' },
+    { daily_budget: '3000', status: 'PAUSED' },
+  ]);
+  assert.equal(r.centavos, 3000);
+});
+
+test('CBO ganha da soma dos conjuntos: quem manda e a campanha', () => {
+  const r = orcamentoEfetivoDaCampanha({ daily_budget: '10000' }, [
+    { daily_budget: '3000', effective_status: 'ACTIVE' },
+  ]);
+  assert.equal(r.sigla, 'CBO');
+  assert.equal(r.centavos, 10000);
 });

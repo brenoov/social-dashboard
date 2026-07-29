@@ -1,0 +1,241 @@
+// A aba FILA: tudo que o robô propôs e ainda espera uma decisão, das cinco
+// contas numa lista só.
+//
+// PURO no sentido que importa aqui: monta innerHTML e liga listeners no
+// elemento que recebe, mas não lê `window`, não vai à rede e não conhece o
+// Supabase. Quem busca dado e quem aplica na Meta é a tela — este arquivo
+// recebe os itens prontos e devolve as decisões por callback. Mesmo contrato de
+// painel-regua.js.
+import { distribuirEntreConjuntos } from './fila.js';
+
+// TEXTO DE FORA VAI TODO POR `esc`. Vale pro nome da campanha e do conjunto (vêm
+// da Meta) e principalmente pra `justificativa` e `impacto_estimado`, que são
+// escritos pelo MODELO — texto que ninguém revisou antes de virar innerHTML.
+// Nenhuma interpolação abaixo escapa dessa regra; a única exceção é `ajudaBtn`,
+// que é HTML montado pela própria tela.
+
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const reais = (cent) => cent == null ? '—' : 'R$ ' + (Number(cent) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Cor e palavra de cada veredito. 'reduzir' e 'pausar' são avisos, não boas
+// notícias — mesma família visual do cartão da campanha.
+const VEREDITO = {
+  escalar: { texto: 'Subir orçamento', cor: 'positivo' },
+  reduzir: { texto: 'Baixar orçamento', cor: 'reduzir' },
+  pausar: { texto: 'Pausar campanha', cor: 'pausar' },
+  // Campanha que só tem criativo fraco: não é sobre verba, é sobre o anúncio.
+  criativos: { texto: 'Trocar criativos', cor: 'reduzir' },
+};
+
+// A leitura de SAÚDE, grudada na sugestão. Três formas, por ordem de urgência:
+//
+// - CONFLITO: o robô manda escalar e a saúde diz que a audiência está queimada.
+//   É o caso mais perigoso da tela — aprovar ali é pagar mais para repetir o
+//   anúncio para quem já cansou —, então ganha destaque de verdade, não uma nota
+//   de rodapé.
+// - ALERTA sozinho: pede ação por si.
+// - ATENÇÃO: observação; fica discreta.
+function blocoSaude(item) {
+  const s = item.saude;
+  if (!s || (s.nivel !== 'alerta' && s.nivel !== 'atencao')) return '';
+  if (item.conflito) {
+    return `<p class="gtf-saude conflito"><b>Atenção:</b> ${esc(s.porque)} O robô sugeriu subir mesmo assim — vale conferir antes de aprovar.</p>`;
+  }
+  // Item que nasceu DA saúde já tem esse texto como justificativa; repetir seria
+  // dizer a mesma coisa duas vezes no mesmo cartão.
+  if (item.origem === 'saude') return '';
+  return `<p class="gtf-saude ${s.nivel}">${esc(s.porque)}</p>`;
+}
+
+const diasAtras = (iso, agoraMs) => {
+  const t = Date.parse(iso || '');
+  if (!Number.isFinite(t)) return null;
+  return Math.max(0, Math.round((agoraMs - t) / 86400000));
+};
+
+// A quebra por conjunto de um item ABO — o que o dono vê ANTES de aprovar.
+// Fica dobrada num <details>: em lista, abrir a quebra de todos de uma vez
+// empurraria as decisões seguintes pra fora da tela. Devolve '' quando é CBO
+// (aplica direto na campanha) ou quando não há conjunto.
+function blocoConjuntos(item) {
+  const partes = item.conjuntos && item.conjuntos.length
+    ? distribuirEntreConjuntos(item.conjuntos, item.budget_sugerido_centavos)
+    : [];
+  if (!partes.length) return '';
+  const linhas = partes.map((p) => `
+    <tr>
+      <td class="gtf-cj-nome">${esc(p.nome || '—')}</td>
+      <td class="gtf-cj-de">${reais(p.deCentavos)}</td>
+      <td class="gtf-cj-seta">→</td>
+      <td class="gtf-cj-para">${reais(p.paraCentavos)}</td>
+    </tr>`).join('');
+  return `
+    <details class="gtf-conjuntos">
+      <summary>O orçamento está em ${partes.length} conjunto${partes.length > 1 ? 's' : ''} — ver como fica cada um</summary>
+      <table class="gtf-cj-tabela"><tbody>${linhas}</tbody></table>
+    </details>`;
+}
+
+// UMA LINHA por sugestão (pedido do dono, 2026-07-29: lista, não blocos). A
+// linha carrega o essencial na horizontal — conta, campanha, de → para, ação —
+// e o que é leitura (justificativa, quebra por conjunto) desce abaixo, sem
+// disputar espaço com a decisão.
+// Os criativos sem tração da campanha, dobrados. Cada um com o motivo e os
+// números que o robô olhou — sem isso "pausar" seria um pedido de fé.
+function blocoCriativos(item, editavel) {
+  const lista = item.criativos || [];
+  if (!lista.length) return '';
+  // SÓ o nome e o motivo. O motivo já traz os números que o robô olhou, na
+  // janela DELE — mostrar CTR/gasto ao lado, vindos dos últimos 30 dias, punha
+  // dois valores diferentes de CTR na mesma linha ("CTR 1,52%" seguido de "CTR
+  // 1,11% e CPC R$ 2,49 abaixo do padrão"). Um número que contradiz o outro a um
+  // centímetro de distância destrói a confiança nos dois.
+  const linhas = lista.map((c) => `
+    <li class="gtf-cr">
+      <span class="gtf-cr-nome">${esc(c.nome || c.ad_id)}</span>
+      ${c.porque ? `<span class="gtf-cr-pq">${esc(c.porque)}</span>` : ''}
+    </li>`).join('');
+  const n = lista.length;
+  return `
+    <details class="gtf-criativos">
+      <summary>${n} criativo${n > 1 ? 's' : ''} sem tração — ver ${n > 1 ? 'quais' : 'qual'}</summary>
+      <ul class="gtf-cr-lista">${linhas}</ul>
+      ${editavel ? `<button class="gtf-btn pausar-criativos" data-gtf-criativos="1">Pausar ${n > 1 ? `os ${n}` : 'o criativo'}</button>` : ''}
+    </details>`;
+}
+
+function linha(item, agoraMs, editavel) {
+  const v = VEREDITO[item.veredito] || { texto: item.veredito, cor: 'neutro' };
+  // Quem propôs: o robô (padrão) ou a leitura de saúde da própria ferramenta.
+  // Dizer isso importa porque item de saúde não traz valor sugerido — ninguém
+  // calculou um número ali.
+  const fonte = item.origem === 'saude' ? 'saúde da campanha' : 'robô';
+  // Só dá pra APROVAR o que tem uma ação concreta: um valor novo de orçamento ou
+  // uma pausa. Alerta de saúde do tipo "reduzir" não traz número — ninguém
+  // calculou um —, então não existe botão de aplicar: seria um botão que promete
+  // agir e não sabe o quê. Ali o caminho é o dono ajustar na aba Campanhas.
+  const podeAplicar = item.veredito === 'pausar' || item.budget_sugerido_centavos != null;
+  const de = item.budget_atual_centavos;
+  const para = item.budget_sugerido_centavos;
+  const pct = (de > 0 && para > 0) ? Math.round(((para - de) / de) * 100) : null;
+  // O botão DIZ O QUE VAI FAZER, com o número. "Aprovar" sozinho é ambíguo numa
+  // linha que corta verba — o dono perguntou "e tem o botão reduzir também?"
+  // justamente olhando uma sugestão de reduzir (2026-07-29). Ler o botão tem que
+  // bastar para saber o que acontece ao clicar; o valor no texto é a última
+  // chance de perceber que se está aprovando o número errado.
+  const rotuloAcao = item.veredito === 'pausar' ? 'Pausar'
+    : item.veredito === 'reduzir' ? `Baixar para ${reais(para)}`
+    : `Subir para ${reais(para)}`;
+  const idade = diasAtras(item.gerado_em, agoraMs);
+  const valores = item.veredito === 'pausar'
+    ? `<span class="gtf-pausar-nota">para de rodar</span>`
+    : para == null
+    // Item vindo da saúde não tem número sugerido: mostra só o que se gasta hoje.
+    // Inventar um valor multiplicando o atual seria chutar.
+    ? `<span class="gtf-para">${reais(de)}</span><span class="gtf-hoje">hoje</span>`
+    : `<span class="gtf-de">${reais(de)}</span><span class="gtf-seta">→</span><span class="gtf-para">${reais(para)}</span>${pct != null ? `<span class="gtf-pct ${pct < 0 ? 'neg' : ''}">${pct > 0 ? '+' : ''}${pct}%</span>` : ''}`;
+
+  return `
+    <li class="gtf-item ${v.cor}${item.conflito ? ' conflito' : ''}" data-gtf-id="${esc(item.campaign_id)}">
+      <div class="gtf-linha">
+        <span class="gtf-selo">${esc(v.texto)}</span>
+        <div class="gtf-ident">
+          <span class="gtf-nome">${esc(item.campaign_name || item.campaign_id)}</span>
+          <span class="gtf-conta">${esc(item.conta_nome || '')} · ${esc(fonte)}${idade == null ? '' : ` · ${idade === 0 ? 'hoje' : idade === 1 ? 'ontem' : `há ${idade} dias`}`}</span>
+        </div>
+        <div class="gtf-valores">${valores}</div>
+        ${editavel ? `
+          <div class="gtf-acoes">
+            <button class="gtf-btn recusar" data-gtf-recusar="1">Dispensar</button>
+            ${podeAplicar ? `<button class="gtf-btn aprovar${item.veredito === 'reduzir' ? ' reduzir' : ''}${item.veredito === 'pausar' ? ' pausar' : ''}" data-gtf-aprovar="1">${esc(rotuloAcao)}</button>` : ''}
+          </div>` : '<span class="gtf-sem-permissao" title="Só quem tem permissão de editar a Gestão de Tráfego pode aprovar ou recusar.">você não tem permissão para decidir</span>'}
+      </div>
+      ${item.justificativa ? `<p class="gtf-just">${esc(item.justificativa)}</p>` : ''}
+      ${blocoSaude(item)}
+      ${blocoCriativos(item, editavel)}
+      ${!podeAplicar && editavel ? '<p class="gtf-sem-numero">Sem valor sugerido: ajuste o orçamento na aba Campanhas, ou dispense este aviso.</p>' : ''}
+      ${item.impacto_estimado ? `<p class="gtf-impacto"><b>Impacto esperado:</b> ${esc(item.impacto_estimado)}</p>` : ''}
+      ${blocoConjuntos(item)}
+    </li>`;
+}
+
+// opcoes: { pendentes, vencidas, silenciadas, contas, contaFiltro, agora,
+//           editavel, aoAprovar(item, botao), aoRecusar(item, botao),
+//           aoFiltrar(contaId), ajudaBtn }
+export function montarPainelFila(alvo, opcoes) {
+  const o = opcoes || {};
+  const agoraMs = Date.parse(o.agora || '') || Date.now();
+  const pendentes = o.pendentes || [];
+  const vencidas = o.vencidas || [];
+  const silenciadas = o.silenciadas || [];
+  const editavel = !!o.editavel;
+  const ajudaBtn = typeof o.ajudaBtn === 'function' ? o.ajudaBtn : () => '';
+
+  // O filtro conta o que CADA conta tem de pendente. Sem o número, o dono
+  // clicaria conta por conta pra descobrir que quatro estão vazias — foi
+  // exatamente o motivo de a fila ser lista única.
+  const porConta = new Map();
+  for (const i of pendentes) {
+    const k = String(i.account_id || '');
+    porConta.set(k, (porConta.get(k) || 0) + 1);
+  }
+  const filtroAtual = o.contaFiltro == null ? '' : String(o.contaFiltro);
+  const botoesFiltro = [{ id: '', nome: 'Todas as contas', n: pendentes.length }]
+    .concat((o.contas || []).map((c) => ({ id: String(c.id), nome: c.display_name || c.name || '—', n: porConta.get(String(c.id)) || 0 })))
+    .map((c) => `<button class="gtf-filtro${filtroAtual === c.id ? ' ativo' : ''}" data-gtf-conta="${esc(c.id)}">${esc(c.nome)}<span class="gtf-filtro-n">${c.n}</span></button>`)
+    .join('');
+
+  const visiveis = filtroAtual ? pendentes.filter((i) => String(i.account_id || '') === filtroAtual) : pendentes;
+
+  // "Não carregou" e "está vazio" NÃO são a mesma coisa. Dizer "nada esperando
+  // decisão" quando a leitura ainda não terminou é afirmar que não há o que
+  // decidir — e foi exatamente o que a tela fez quando a fila rodou antes de as
+  // contas chegarem (2026-07-29). Quem chama passa `carregou`.
+  const carregou = o.carregou !== false;
+  const corpo = visiveis.length
+    ? visiveis.map((i) => linha(i, agoraMs, editavel)).join('')
+    : !carregou
+    ? `<div class="gtf-vazio">
+         <b>Carregando suas campanhas…</b>
+         <span>Assim que elas chegarem, mostro aqui o que está esperando decisão.</span>
+       </div>`
+    : `<div class="gtf-vazio">
+         <b>Nada esperando decisão${filtroAtual ? ' nesta conta' : ''}.</b>
+         <span>O robô analisa as campanhas toda madrugada. Quando ele propuser mexer em orçamento, aparece aqui.</span>
+       </div>`;
+
+  alvo.innerHTML = `
+    <div class="gtf-cab">
+      <div>
+        <h2 class="gtf-tit">Esperando sua decisão${ajudaBtn('fila')}</h2>
+        <p class="gtf-sub">O robô propõe, você decide. Nada mexe no orçamento sem passar por aqui.</p>
+      </div>
+    </div>
+    <div class="gtf-filtros">${botoesFiltro}</div>
+    <ul class="gtf-lista">${corpo}</ul>
+    ${vencidas.length ? `
+      <details class="gtf-extra">
+        <summary>${vencidas.length} sugest${vencidas.length > 1 ? 'ões vencidas' : 'ão vencida'}</summary>
+        <p class="gtf-extra-nota">O robô parou de reanalisar estas campanhas, então o número é antigo. Ficam aqui para você não perder de vista uma campanha esquecida.</p>
+        <ul class="gtf-lista">${vencidas.map((i) => linha(i, agoraMs, editavel)).join('')}</ul>
+      </details>` : ''}
+    ${silenciadas.length ? `
+      <div class="gtf-silenciadas">${silenciadas.length} sugest${silenciadas.length > 1 ? 'ões recusadas voltam' : 'ão recusada volta'} a aparecer se a situação continuar.</div>` : ''}
+  `;
+
+  for (const b of alvo.querySelectorAll('[data-gtf-conta]')) {
+    b.addEventListener('click', () => o.aoFiltrar && o.aoFiltrar(b.dataset.gtfConta || ''));
+  }
+  if (!editavel) return;
+  const todos = pendentes.concat(vencidas);
+  for (const el of alvo.querySelectorAll('[data-gtf-id]')) {
+    const item = todos.find((i) => String(i.campaign_id) === el.dataset.gtfId);
+    if (!item) continue;
+    const ap = el.querySelector('[data-gtf-aprovar]');
+    const re = el.querySelector('[data-gtf-recusar]');
+    const cr = el.querySelector('[data-gtf-criativos]');
+    if (ap && o.aoAprovar) ap.addEventListener('click', () => o.aoAprovar(item, ap));
+    if (re && o.aoRecusar) re.addEventListener('click', () => o.aoRecusar(item, re));
+    if (cr && o.aoPausarCriativos) cr.addEventListener('click', () => o.aoPausarCriativos(item, cr));
+  }
+}

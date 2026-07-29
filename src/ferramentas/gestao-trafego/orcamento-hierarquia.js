@@ -122,3 +122,61 @@ export function montarHierarquia(conjuntos, anuncios) {
   const vivo = (g) => !(g.conjunto && g.conjunto.effective_status === 'ARCHIVED' && g.gasto === 0 && !g.anuncios.length);
   return [...grupos.values()].filter(vivo).sort((a, b) => b.gasto - a.gasto);
 }
+
+// QUANTO esta campanha gasta por dia, de verdade — some onde o orçamento mora.
+//
+// POR QUE ISTO EXISTE (2026-07-29): o robô de budget lia só `daily_budget` da
+// CAMPANHA. Em campanha ABO esse campo é nulo, então ele via R$ 0,00 e calculava
+// a sugestão como se partisse do zero. Resultado medido nas contas reais: a
+// "MODA & BOLSAS" da Raíssa, com R$ 230/dia rodando nos conjuntos, recebeu
+// sugestão de R$ 200 rotulada **escalar** — um corte de 13% vestido de aumento.
+// Cinco das dez sugestões acionáveis daquele dia tinham esse defeito.
+//
+// SÓ CONTA CONJUNTO ATIVO: conjunto pausado tem orçamento configurado mas não
+// gasta nada. A mesma "MODA & BOLSAS" soma R$ 290 configurados e R$ 230 no ar
+// (um conjunto de R$ 60 parado) — usar os R$ 290 seria inventar gasto que não
+// existe. `configuradoCentavos` carrega o total para quem quiser mostrar os dois.
+//
+// Todos os conjuntos pausados: devolve o configurado, porque aí não há "no ar"
+// nenhum e zero esconderia que existe orçamento montado ali.
+//
+// → { nivel, sigla, centavos, reais, tipo, conjuntosSomados, conjuntosIgnorados,
+//     configuradoCentavos, rotulo, explicacao }
+//   `centavos` é null quando não dá pra saber — e null NÃO é zero: significa
+//   "não sei", que é o que impede uma sugestão calculada em cima de nada.
+export function orcamentoEfetivoDaCampanha(campanha, conjuntos) {
+  const nivel = detectarNivelOrcamento(campanha, conjuntos);
+  const base = { nivel: nivel.nivel, sigla: nivel.sigla, rotulo: nivel.rotulo, explicacao: nivel.explicacao };
+
+  if (nivel.nivel === 'campanha') {
+    const o = orcamentoDe(campanha);
+    return {
+      ...base, centavos: o.centavos, reais: o.reais, tipo: o.tipo,
+      conjuntosSomados: 0, conjuntosIgnorados: 0, configuradoCentavos: o.centavos,
+    };
+  }
+
+  if (nivel.nivel === 'conjunto') {
+    const comOrcamento = (conjuntos || []).filter((c) => orcamentoDe(c));
+    const ativo = (c) => String((c && (c.effective_status || c.status)) || '').toUpperCase() === 'ACTIVE';
+    const ativos = comOrcamento.filter(ativo);
+    // Nenhum ativo: cai pro configurado (ver comentário acima).
+    const somados = ativos.length ? ativos : comOrcamento;
+    const soma = (lista) => lista.reduce((t, c) => t + orcamentoDe(c).centavos, 0);
+    const centavos = soma(somados);
+    // Conjunto diário e conjunto de orçamento total na mesma campanha não somam
+    // a mesma unidade (R$/dia vs R$ no total do período). Marcar 'misto' avisa
+    // quem consome que o número é uma soma aproximada, em vez de fingir que é
+    // um valor diário limpo.
+    const tipos = new Set(somados.map((c) => orcamentoDe(c).tipo));
+    return {
+      ...base, centavos, reais: centavos / 100,
+      tipo: tipos.size === 1 ? [...tipos][0] : 'misto',
+      conjuntosSomados: somados.length,
+      conjuntosIgnorados: comOrcamento.length - somados.length,
+      configuradoCentavos: soma(comOrcamento),
+    };
+  }
+
+  return { ...base, centavos: null, reais: null, tipo: null, conjuntosSomados: 0, conjuntosIgnorados: 0, configuradoCentavos: null };
+}

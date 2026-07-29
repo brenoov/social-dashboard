@@ -445,7 +445,7 @@ onMounted(() => {
 .tela-gestao-comercial :deep(.gc-lupa){display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--accent);cursor:pointer;margin-left:6px;vertical-align:middle;padding:0;transition:background .15s,transform .15s;flex-shrink:0;}
 .tela-gestao-comercial :deep(.gc-lupa:hover){background:var(--accent-light);transform:scale(1.08);}
 .tela-gestao-comercial :deep(.gc-lupa svg){width:13px;height:13px;}
-.tela-gestao-comercial :deep(.gc-im){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:none;align-items:center;justify-content:center;padding:20px;animation:npfade .15s ease;}
+.tela-gestao-comercial :deep(.gc-im){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:none;align-items:center;justify-content:center;padding:20px;animation:npfade .15s ease;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
 .tela-gestao-comercial :deep(.gc-im.open){display:flex;}
 .tela-gestao-comercial :deep(.gc-im-card){position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);width:min(440px,94vw);overflow:hidden;}
 .tela-gestao-comercial :deep(.gc-im-x){position:absolute;top:10px;right:10px;width:30px;height:30px;border-radius:50%;border:none;background:rgba(0,0,0,.45);color:#fff;cursor:pointer;font-size:calc(13px*var(--gc-fs,1));z-index:2;display:flex;align-items:center;justify-content:center;}
@@ -475,7 +475,7 @@ onMounted(() => {
 .tela-gestao-comercial :deep(.gc-mix-chip.off .gc-mix-l::after){content:' ⚠';}
 .tela-gestao-comercial :deep(.gc-info){display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;border:none;background:var(--accent-light);color:var(--accent);font-family:var(--fonte-principal);font-size:calc(11px*var(--gc-fs,1));font-weight:800;cursor:pointer;margin-left:6px;vertical-align:middle;padding:0;line-height:1;transition:background .15s,transform .15s;flex-shrink:0;}
 .tela-gestao-comercial :deep(.gc-info:hover){background:var(--accent);color:#fff;transform:scale(1.12);}
-.tela-gestao-comercial :deep(.gc-infomodal){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:none;align-items:center;justify-content:center;padding:20px;animation:npfade .15s ease;}
+.tela-gestao-comercial :deep(.gc-infomodal){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:none;align-items:center;justify-content:center;padding:20px;animation:npfade .15s ease;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
 .tela-gestao-comercial :deep(.gc-infomodal.open){display:flex;}
 .tela-gestao-comercial :deep(.gc-infomodal-card){position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);width:min(620px,96vw);max-height:88vh;overflow:auto;}
 .tela-gestao-comercial :deep(.gc-infomodal-body){padding:26px 30px 30px;}

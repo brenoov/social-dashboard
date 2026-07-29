@@ -173,15 +173,27 @@ paga hoje (um pouco abaixo da média, pra régua dizer "melhor que agora"). Ajus
 aqui na aba sempre que achar que o seu custo real mudou — a régua é uma
 ferramenta, não uma lei.
 
+A ABA TEM DUAS SEÇÕES, CADA UMA COM SUA PRÓPRIA META E SEU PRÓPRIO LIMIAR
+(desde 2026-07-28, revisando a divisão anterior): a régua espelha a aba Config
+da planilha de origem (metrica_ponderada.xlsx), que tem PESOS POR MÉTRICA,
+METAS DE CUSTO POR OBJETIVO e LIMIARES DE DECISÃO.
+  • Seção 1, "Engajamento ponderado": os pesos, o custo por objetivo (as
+    quatro interações MAIS o "engajamento ponderado" — cinco linhas) e os
+    limiares que decidem a cor a partir DESSA meta (coluna `limiares`).
+  • Seção 2, "Metas por resultado": a meta de reconhecimento, tráfego,
+    mensagens, leads e vendas, e os limiares que decidem a cor a partir
+    DESSAS metas (coluna `limiares_resultado`).
+A REGRA: quem é dono da meta é dono do limiar. É por isso que existem DOIS
+conjuntos de limiar, não um só — o dono pode querer "escalar forte" em 0,8×
+pra engajamento e 0,9× pra vendas, sem que ajustar um mexa no outro.
+
 QUEM PODE EDITAR
 Quem tem a PERMISSÃO DE EDITAR desta ferramenta (feature 'meta.gestor') pode
-editar dois conjuntos na aba:
-  • Quanto vale cada interação (pesos dos pontos — curtida 1, salvamento 30...).
-  • Quanto você aceita pagar (meta por objetivo de campanha — em reais).
-Os limiares que fazem o semáforo acender (0,8 / 1,0 / 1,3) saíram da tela
-(decisão do dono): continuam valendo no cálculo e no banco, mas não são mais
-editáveis aqui. Como ninguém calibra semáforo antes de entender a régua, eles
-ficam fixos.
+editar tudo isso: pesos, as duas tabelas de meta e os dois conjuntos de
+limiar. Os limiares voltaram a ser editáveis (decisão do dono, 2026-07-28): a
+tela mostra onde a cor muda e ele quer poder mover isso — cada campo tem um
+preview ao lado que converte o multiplicador em reais na hora, contra a meta
+que aquela seção governa.
 
 A tela mostra um EXEMPLO VIVO ao lado da régua: abra a aba Campanhas primeiro,
 e a tela usará uma campanha sua de verdade pra mostrar como cada ajuste muda o
@@ -248,3 +260,43 @@ O QUE O DUPLICAR NÃO FAZ (e por quê):
 Arquivos: duplicar.js (o motor, PURO — monta o plano e executa) e
 duplicar.test.mjs (testes, com uma Meta de mentira: nenhum teste encosta em
 conta real). Rodam com `npm test`.
+OBJETIVO POR INTERAÇÃO (desde 2026-07-28)
+==========================================
+PESO E PREÇO SÃO DUAS COISAS DIFERENTES
+Peso é o quanto uma interação VALE (curtida vale 1 ponto, salvamento vale 30 —
+é a régua de "quanto vale cada interação", explicada acima). Preço é o quanto
+ela CUSTA de verdade pra você comprar. As duas coisas não andam juntas: um
+salvamento vale 30 vezes mais que uma curtida, mas CUSTA muito mais que 30
+vezes uma curtida — medido nas suas campanhas reais, salvamento custou umas 400
+vezes mais caro. Por isso cada interação tem a SUA PRÓPRIA meta de custo (aba
+"A régua", Seção 1, bloco "Quanto você aceita pagar") — comparar
+tudo pelo ponto ponderado é, na prática, sempre premiar quem compra curtida,
+porque curtida é 83% do volume.
+
+O DONO DECLARA, NO CARTÃO, O QUE AQUELA CAMPANHA (OU ANÚNCIO) ESTÁ COMPRANDO
+Numa campanha de engajamento (que não seja de WhatsApp — essa já tem o
+resultado dela, que é conversa), aparece um selo "Objetivo: ponderado" no
+cabeçalho. Clicando nele, você escolhe qual das quatro interações — curtida,
+comentário, salvamento ou compartilhamento — essa campanha (ou aquele anúncio
+específico) está de fato comprando. O mesmo selo existe em cada anúncio.
+
+DECLARAR MUDA O JULGAMENTO; NÃO DECLARAR NÃO MUDA NADA
+Sem declarar, tudo continua exatamente como sempre foi: julgado pelo ponto
+ponderado, com a meta de "R$ por ponto" da aba "A régua". Declarando, o
+veredito daquele cartão passa a ser o CUSTO DA INTERAÇÃO DECLARADA contra a
+meta daquela interação (ex.: campanha declarada "Salvamento" é julgada pelo
+custo por salvamento, contra a meta de salvamento) — não mais pelo ponto. O
+chip "Custo/ponto" continua aparecendo como referência, mas fica com cor
+NEUTRA numa campanha declarada: ele não é mais quem decide o veredito daquele
+cartão, então parar de pintar verde/vermelho por ele evita uma contradição
+visual (selo dizendo "dentro da meta" do lado de um número pintado de
+vermelho por um critério que o cartão já não usa).
+
+OS NÚMEROS MEDIDOS (13 campanhas, 90 dias)
+  • Curtida:          R$ 0,12
+  • Compartilhamento:  R$ 13 a R$ 21
+  • Salvamento:        R$ 48 a R$ 51
+  • Comentário:        R$ 128 a R$ 172 (dado mais fraco: poucos comentários no
+    total, mas foi o que deu pra medir)
+É essa diferença de mercado — de centavos a mais de cem reais pela mesma
+"interação" — que a declaração existe pra proteger.

@@ -19,6 +19,9 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3';
 import { agregarVendasPorCanal, montarCorpo } from '../_shared/vendas-do-dia.js';
 import { exigirSegredoDeCron } from '../_shared/segredo-de-cron.ts';
+// Quem quer receber ESTE tipo (ver _shared/notificacoes.js). 'vendas' vem
+// ligado por padrão — quem não quiser, o admin desliga na tela de Usuários.
+import { inscricoesDoTipo } from '../_shared/notificacoes.js';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -176,9 +179,13 @@ Deno.serve(async (req) => {
   });
   const payload = JSON.stringify(montarCorpo(agg, { refLabel, cmpLabel }));
 
-  const { data: subs } = await sb.from('push_subs').select('*');
+  const [{ data: subs }, { data: prefs }] = await Promise.all([
+    sb.from('push_subs').select('*'),
+    sb.from('push_preferencias').select('user_id,tipo,ativo'),
+  ]);
+  const alvos = inscricoesDoTipo(subs, prefs, 'vendas');
   let enviados = 0, podados = 0;
-  for (const s of (subs || [])) {
+  for (const s of alvos) {
     try {
       await webpush.sendNotification(
         { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },

@@ -157,6 +157,10 @@ import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/c
 import { estado, PERMISSION_TREE, RECURSOS } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { ACOES_MATRIZ, agruparRecursos, contarAcoes, estadoDaSelecao, marcarTudo } from './agrupar-permissoes.js'
 import { derivarFeatures } from '../../compartilhado/derivar-features.js'
+// Quais notificações existem e qual o padrão de cada uma. A lista mora junto da
+// Edge que envia (supabase/functions/_shared) pra não haver duas verdades sobre
+// quem recebe o quê — a tela LÊ dela em vez de repetir os nomes.
+import { TIPOS_DE_NOTIFICACAO, querReceber } from '../../../supabase/functions/_shared/notificacoes.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 import { gerarSenhaForte } from './senha.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
@@ -451,13 +455,27 @@ let _permState = null       // { userId, permissions, allowed_accounts, is_super
 let _contasCache = null     // perfis de rede (accounts)
 let _usersCache = []        // lista de usuários (p/ o "duplicar")
 
-async function openPermModal(u) {
+async function openPermModal(u, opcoes) {
+  const soNotificacoes = !!(opcoes && opcoes.soNotificacoes)
   _permState = {
     userId: u.id,
     permissions: JSON.parse(JSON.stringify(u.permissions || {})),
     allowed_accounts: u.allowed_accounts ?? null,
     is_superadmin: !!u.is_superadmin,
+    // { vendas: true, saldo: false } — o estado resolvido (preferência salva ou
+    // o padrão do tipo).
+    notificacoes: {},
+    // No modo "minhas notificações" o save NÃO toca em permissions/features:
+    // editar os próprios privilégios é exatamente o que a tela impede.
+    soNotificacoes,
   }
+  // As preferências vêm por usuário; sem linha salva vale o padrão do tipo.
+  let prefs = []
+  try {
+    const r = await adFetch(`push_preferencias?select=user_id,tipo,ativo&user_id=eq.${u.id}`)
+    prefs = await r.json()
+  } catch { prefs = [] }
+  for (const t of TIPOS_DE_NOTIFICACAO) _permState.notificacoes[t.chave] = querReceber(prefs, u.id, t.chave)
   const sub = document.getElementById('perm-modal-user'); sub.textContent = ''
   const strong = document.createElement('strong'); strong.textContent = u.name || u.email
   sub.appendChild(strong); sub.appendChild(document.createTextNode(' · ' + u.email))
@@ -494,14 +512,64 @@ function _mkMarcarTudo(texto, recursos, u) {
   return w
 }
 
+// As PRÓPRIAS notificações: mesmo card, mesmo salvamento, sem a matriz de
+// permissões junto — que é justamente o que não se pode editar em si mesmo.
+async function _abrirMinhasNotificacoes(u) {
+  await openPermModal(u, { soNotificacoes: true })
+}
+
+// Um interruptor por tipo de notificação, com a descrição do que chega e
+// quando. Sem a descrição, "Saldo" sozinho não diz se avisa todo dia ou só
+// quando acaba — e quem decide ligar precisa saber o que está ligando.
+function _mkBlocoNotificacoes() {
+  const card = document.createElement('section'); card.className = 'perm-card'
+  const hdr = document.createElement('div'); hdr.className = 'perm-card-hdr'
+  const t = document.createElement('span'); t.className = 'perm-card-titulo'; t.textContent = 'Notificações no celular'
+  const n = Object.values(_permState.notificacoes).filter(Boolean).length
+  const c = document.createElement('span'); c.className = 'perm-card-contagem'
+  c.textContent = `${n} de ${TIPOS_DE_NOTIFICACAO.length}`
+  hdr.appendChild(t); hdr.appendChild(c); card.appendChild(hdr)
+
+  const lista = document.createElement('div'); lista.className = 'perm-notif-lista'
+  for (const tipo of TIPOS_DE_NOTIFICACAO) {
+    const linha = document.createElement('label'); linha.className = 'perm-notif'
+    const cb = document.createElement('input'); cb.type = 'checkbox'
+    cb.checked = !!_permState.notificacoes[tipo.chave]
+    cb.addEventListener('change', () => {
+      _permState.notificacoes[tipo.chave] = cb.checked
+      c.textContent = `${Object.values(_permState.notificacoes).filter(Boolean).length} de ${TIPOS_DE_NOTIFICACAO.length}`
+    })
+    const txt = document.createElement('div'); txt.className = 'perm-notif-txt'
+    const rot = document.createElement('span'); rot.className = 'perm-notif-rot'; rot.textContent = tipo.rotulo
+    const des = document.createElement('span'); des.className = 'perm-notif-des'; des.textContent = tipo.descricao
+    txt.appendChild(rot); txt.appendChild(des)
+    linha.appendChild(cb); linha.appendChild(txt)
+    lista.appendChild(linha)
+  }
+  card.appendChild(lista)
+  const nota = document.createElement('div'); nota.className = 'perm-notif-nota'
+  nota.textContent = 'A pessoa só recebe se também tiver autorizado as notificações no aparelho dela.'
+  card.appendChild(nota)
+  return card
+}
+
 function _renderPermBody(u) {
   const body = document.getElementById('perm-modal-body'); body.replaceChildren()
+  if (_permState.soNotificacoes) {
+    // Sem o interruptor de super-admin: ninguém se promove nem se rebaixa aqui.
+    body.appendChild(_mkBlocoNotificacoes())
+    return
+  }
   // 1) Super-admin
   const saRow = document.createElement('label'); saRow.style.cssText = 'display:flex;align-items:center;gap:8px;cursor:pointer;border-bottom:2px solid var(--border);padding-bottom:10px;margin-bottom:8px'
   const saCb = document.createElement('input'); saCb.type = 'checkbox'; saCb.checked = _permState.is_superadmin
   saCb.addEventListener('change', () => { _permState.is_superadmin = saCb.checked; _renderPermBody(u) })
   const saTxt = document.createElement('span'); saTxt.textContent = 'Super-admin (vê tudo · gerencia permissões)'; saTxt.style.cssText = 'font-weight:700;font-size:13px'
   saRow.appendChild(saCb); saRow.appendChild(saTxt); body.appendChild(saRow)
+  // 1.5) NOTIFICAÇÕES — antes do desvio de super-admin de propósito: acesso
+  // total não quer dizer "recebe todo aviso no celular". Super-admin também
+  // escolhe o que chega.
+  body.appendChild(_mkBlocoNotificacoes())
   if (_permState.is_superadmin) {
     const info = document.createElement('div'); info.textContent = 'Super-admin tem acesso total — permissões e perfis não se aplicam.'; info.style.cssText = 'font-size:12px;color:var(--muted);padding:6px 0'
     body.appendChild(info); return
@@ -636,17 +704,40 @@ function closePermModal() {
 async function savePermissions() {
   if (!_permState) return
   const btn = document.getElementById('perm-save-btn'); btn.disabled = true; btn.textContent = 'Salvando...'
-  const features = derivarFeatures(_permState.permissions, { ehSuperadmin: _permState.is_superadmin })
+  // No modo "minhas notificações" o PATCH em profiles nem acontece: só as
+  // preferências são gravadas.
+  const features = _permState.soNotificacoes ? null
+    : derivarFeatures(_permState.permissions, { ehSuperadmin: _permState.is_superadmin })
   const payload = {
     permissions: _permState.permissions,
     allowed_accounts: _permState.allowed_accounts,
     is_superadmin: _permState.is_superadmin,
   }
   if (features !== null) payload.features = features
-  await adFetch('profiles?id=eq.' + _permState.userId, {
-    method: 'PATCH',
-    body: JSON.stringify(payload),
-  })
+  if (!_permState.soNotificacoes) {
+    await adFetch('profiles?id=eq.' + _permState.userId, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  // NOTIFICAÇÕES: grava uma linha por tipo com o estado escolhido. Poderia
+  // gravar só o que difere do padrão, mas aí "ligado por escolha" e "ligado
+  // porque é o padrão" viram a mesma coisa no banco — e se o padrão mudar
+  // amanhã, a escolha de quem já decidiu seria silenciosamente revertida.
+  const linhas = Object.entries(_permState.notificacoes).map(([tipo, ativo]) => ({
+    user_id: _permState.userId, tipo, ativo: !!ativo,
+    alterado_em: new Date().toISOString(), alterado_por: estado.userId,
+  }))
+  if (linhas.length) {
+    // upsert pela chave (user_id, tipo): regravar é o caso normal aqui.
+    await adFetch('push_preferencias?on_conflict=user_id,tipo', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates' },
+      body: JSON.stringify(linhas),
+    })
+  }
+
   btn.disabled = false; btn.textContent = 'Salvar'
   adminToast('Permissões atualizadas')
   closePermModal()
@@ -711,6 +802,16 @@ async function loadAdminUsers() {
       const pwBtn = mkEl('button', 'sr-btn'); pwBtn.textContent = 'Trocar senha'; pwBtn.title = 'Definir uma nova senha para este usuário'
       pwBtn.addEventListener('click', () => _abrirTrocaSenha(u, row))
       ctrl.appendChild(pwBtn)
+    }
+    // O botão "Permissões" some na PRÓPRIA linha (trava contra autopromoção, e
+    // ela fica) — mas isso também trancava as próprias NOTIFICAÇÕES, que não são
+    // privilégio nenhum: é escolher o que chega no seu celular. Sem este botão o
+    // dono tentou ligar o próprio aviso e acabou gravando na linha de outro
+    // usuário (2026-07-29). Aqui abre SÓ o bloco de notificações.
+    if (isSelf) {
+      const notifBtn = mkEl('button', 'sr-btn'); notifBtn.textContent = 'Minhas notificações'
+      notifBtn.addEventListener('click', () => _abrirMinhasNotificacoes(u))
+      ctrl.appendChild(notifBtn)
     }
     if (!isSelf && canEdit) {
       const permBtn = mkEl('button', 'sr-btn'); permBtn.textContent = 'Permissões'
@@ -1296,7 +1397,7 @@ Object.assign(window, {
 /* ── Modal de permissões (.perm-*, legacy L1402-1423) — não é .admin-*,
    MANTIDO no global também; duplicado aqui pois o modal foi trazido para
    dentro da raiz deste componente. ── */
-.tela-admin :deep(.perm-overlay){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.tela-admin :deep(.perm-overlay){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
 .tela-admin :deep(.perm-overlay.open){display:flex;}
 /* 420 → 760: a matriz tem 5 colunas fixas de ação + a coluna de nomes; em 420
    ela nasceria rolando na horizontal já no desktop. 95vw segura o celular. */
@@ -1334,6 +1435,20 @@ Object.assign(window, {
 .tela-admin :deep(.perm-card-hdr){display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border-bottom:1px solid var(--border);}
 .tela-admin :deep(.perm-card-titulo){font-family:var(--fonte-principal);font-size:12px;font-weight:700;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .tela-admin :deep(.perm-card-contagem){font-family:var(--fonte-principal);font-size:10px;color:var(--muted);flex-shrink:0;font-variant-numeric:tabular-nums;}
+/* NOTIFICAÇÃO NÃO É COLUNA DA MATRIZ. A matriz é recurso × ação (ver, editar,
+   criar...) e vale pra toda ferramenta; "quer receber aviso no celular" não é
+   uma ação sobre um recurso, e como coluna deixaria a célula vazia em quase
+   todas as linhas. Por isso é um card próprio, com o texto do que chega. */
+.tela-admin :deep(.perm-notif-lista){display:flex;flex-direction:column;gap:2px;padding:4px 0;}
+.tela-admin :deep(.perm-notif){display:flex;align-items:flex-start;gap:10px;padding:9px 12px;cursor:pointer;border-radius:8px;}
+.tela-admin :deep(.perm-notif:hover){background:var(--surface2);}
+.tela-admin :deep(.perm-notif input){margin-top:2px;flex-shrink:0;}
+.tela-admin :deep(.perm-notif-txt){display:flex;flex-direction:column;gap:2px;}
+.tela-admin :deep(.perm-notif-rot){font-family:var(--fonte-principal);font-size:12.5px;font-weight:600;color:var(--text);}
+/* A descrição existe porque "Saldo" sozinho não diz se avisa todo dia ou só
+   quando acaba — quem liga precisa saber o que está ligando. */
+.tela-admin :deep(.perm-notif-des){font-family:var(--fonte-principal);font-size:11px;color:var(--muted);line-height:1.45;}
+.tela-admin :deep(.perm-notif-nota){font-family:var(--fonte-principal);font-size:10.5px;color:var(--muted);padding:2px 12px 8px;font-style:italic;}
 
 /* A rolagem horizontal vive DENTRO do card: no celular a grade desliza aqui e
    o modal nunca ganha barra horizontal. */
