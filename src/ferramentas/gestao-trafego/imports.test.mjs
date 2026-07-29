@@ -29,9 +29,18 @@ function nomesExportados() {
   return mapa;
 }
 
+// Comentário que MENCIONA um símbolo não é uso dele. Sem tirar, "ver
+// GT_OBJETIVO_BALDE" e "(ALVOS.trafego)" viravam import faltando — e um teste
+// que acusa o que não existe é pior que teste nenhum: ensina a ignorá-lo.
+function semComentarios(codigo) {
+  return codigo
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')   // bloco
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');  // linha (o [^:] evita cortar "https://")
+}
+
 function scriptDaTela() {
   const vue = readFileSync(join(AQUI, 'tela-de-gestao-trafego.vue'), 'utf8');
-  return vue.slice(vue.indexOf('<script'), vue.indexOf('</script>'));
+  return semComentarios(vue.slice(vue.indexOf('<script'), vue.indexOf('</script>')));
 }
 
 function nomesImportados(script) {
@@ -48,8 +57,11 @@ test('a tela não chama função de módulo sem importar', () => {
   const faltando = [];
   for (const [nome, arq] of nomesExportados()) {
     if (importados.has(nome)) continue;
-    // `nome(` = chamada. Basta pra pegar o caso que já quebrou duas vezes.
-    if (new RegExp(`\\b${nome}\\s*\\(`).test(script)) faltando.push(`${nome} (exportado por ${arq})`);
+    // Chamada de função `nome(`, acesso a objeto `NOME[` ou `NOME.`, ou uso
+    // solto do identificador. Só `nome(` não bastava: `ALVOS[o]` passou batido e
+    // quebrou a aba pela terceira vez (2026-07-29).
+    const usado = new RegExp(`(^|[^\\w.$'"\`])${nome}\\s*[([.,);\\]}]`, 'm');
+    if (usado.test(script)) faltando.push(`${nome} (exportado por ${arq})`);
   }
   assert.deepEqual(faltando, [], 'a tela usa estes nomes mas não os importa — vai quebrar em runtime, e o build NÃO pega');
 });
@@ -60,5 +72,16 @@ test('o proprio teste enxerga um import faltando', () => {
   const importados = nomesImportados(script);
   assert.ok(importados.has('alfa'));
   assert.ok(!importados.has('beta'));
-  assert.ok(/\bbeta\s*\(/.test(script), 'e reconhece a chamada de beta');
+});
+
+test('pega CONSTANTE usada como objeto, nao so chamada de funcao', () => {
+  // `ALVOS[o]` passou batido na primeira versao do teste e quebrou a aba pela
+  // TERCEIRA vez no mesmo dia. Chamada, indexacao e acesso a campo contam.
+  const usado = (nome, script) => new RegExp(`(^|[^\\w.$'"\`])${nome}\\s*[([.,);\\]}]`, 'm').test(script);
+  assert.ok(usado('ALVOS', 'const x = ALVOS[o]'), 'indexacao');
+  assert.ok(usado('ALVOS', 'const x = ALVOS.trafego'), 'acesso a campo');
+  assert.ok(usado('lerSaldo', 'lerSaldo(conta, 10)'), 'chamada');
+  // e NAO confunde com propriedade de outro objeto nem com texto solto
+  assert.ok(!usado('ALVOS', 'const x = config.ALVOS.trafego'), 'propriedade de outro objeto');
+  // Comentario e tratado antes, por semComentarios — aqui so o codigo importa.
 });
