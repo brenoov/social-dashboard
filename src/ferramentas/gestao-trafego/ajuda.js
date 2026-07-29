@@ -69,6 +69,13 @@ export const AJUDA = {
       <p><b>Se estiver quase tudo vermelho</b>, provavelmente a meta está ambiciosa demais. Uma régua que só mostra vermelho para de ser lida — e aí ela não separa mais a campanha ruim da péssima.</p>`,
   },
 
+  funil: {
+    titulo: 'O que o funil mostra',
+    texto: `<p>O caminho que as pessoas fazem nas campanhas que estão <b>no ar agora</b>: quantas viram, quantas clicaram e quantas chegaram no resultado. Um bloco para cada tipo de campanha que esta conta roda.</p>
+      <p><b>Nem todo tipo tem funil de verdade.</b> Em campanha de mensagem, de cadastro ou de venda, o resultado acontece <i>depois</i> do clique — aí faz sentido ver quanto se perde em cada degrau.</p>
+      <p>Já em engajamento, curtir ou salvar acontece <i>no lugar</i> do clique, não depois. Por isso ali o número aparece como proporção — quanto rendeu por pessoa alcançada — em vez de fingir que é um degrau. Se fosse empilhado, apareceria algo como "11.000% de quem clicou", que não quer dizer nada.</p>
+      <p>A frequência ao lado das pessoas alcançadas diz quantas vezes o anúncio apareceu para cada uma. Acima de 3 ou 4, o mesmo público está vendo demais.</p>`,
+  },
   fila: {
     titulo: 'O que é a fila',
     texto: `<p>Todo dia de madrugada o robô olha suas campanhas e propõe mexer no orçamento de algumas. <b>Essas propostas param aqui</b> e não acontecem sozinhas — nada muda na Meta sem você aprovar.</p>

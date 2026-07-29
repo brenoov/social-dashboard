@@ -43,6 +43,10 @@
         <button class="gv-pbtn active" data-preset="sofar" onclick="setGtPeriod(this)">ATÉ AGORA</button>
         <button class="gv-pbtn" onclick="loadGtData()" style="border-color:var(--accent);color:var(--accent)">↻</button>
       </div>
+      <button class="gt-auto-btn" id="gt-funil-btn" onclick="_gtAbrirFunil()" title="Ver o funil das campanhas que estão no ar">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        <span>Funil</span>
+      </button>
       <button class="gt-auto-btn" id="gt-cfg-btn" style="display:none" onclick="_gtOpenEditor()" title="Configurar métricas por objetivo">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         <span>KPIs</span>
@@ -105,6 +109,7 @@
       </div>
     </div>
 
+    <div id="gt-modal-funil" style="display:none"></div>
     <div id="gt-painel-fila" style="display:none"></div>
 <div id="gt-painel-regua" style="display:none"></div>
   </div>
@@ -129,6 +134,10 @@ import { montarPainelRegua } from './painel-regua.js'
 // silêncio de 7 dias, a repartição por conjunto) moram em fila.js, puro e
 // testado; painel-fila.js só monta a tela.
 import { montarPainelFila } from './painel-fila.js'
+// O funil das campanhas NO AR, um bloco por objetivo. Nem todo objetivo tem
+// funil de verdade — ver funil.js.
+import { montarPainelFunil } from './painel-funil.js'
+import { LEITURA } from './funil.js'
 import { montarFila, distribuirEntreConjuntos, mesclarSaude, anexarCriativos, DIAS_DE_SILENCIO } from './fila.js'
 // A leitura de SAÚDE (fadiga de audiência, criativo que não conecta) — volta a
 // ter lugar, agora dentro da Fila e grudada na sugestão do robô. Ver saude.js.
@@ -269,6 +278,11 @@ function _maObjLabel(obj){
    exceto _gtAccounts, que substitui a global _maAccounts do legado — ver
    nota de dependências acima) ── */
 let _gtPreset='sofar';
+// Filtro por OBJETIVO na lista de campanhas. Vazio = todos. Cada conta roda um
+// conjunto diferente de objetivos, então os botões são montados a partir do que
+// a conta REALMENTE tem — não de uma lista fixa que mostraria "Vendas 0" nas
+// cinco contas.
+let _gtFiltroObjetivo='';
 let _gtCurAcc=null;
 let _gtAccounts=[];
 let _gtLastLoadTime=null;
@@ -1047,6 +1061,51 @@ async function _gtFilaPausarCriativos(item, botao) {
   await _gtCarregarFila();
 }
 
+// Nome do objetivo em português, pro botão de filtro. Vem de LEITURA (funil.js),
+// a mesma fonte que o modal do funil usa — dois nomes diferentes pra mesma coisa
+// na mesma tela seria confuso.
+function _gtRotuloObjetivo(balde){
+  return (LEITURA[balde]&&LEITURA[balde].rotulo)||balde;
+}
+
+// Como o período está escrito no botão ativo — o funil precisa DIZER de que
+// janela ele fala, senão "288 conversas" pode ser de hoje ou de 30 dias.
+function _gtPeriodoRotulo() {
+  const b = document.querySelector('#gt-period-btns .gv-pbtn.active');
+  return b ? (b.textContent || '').trim().toLowerCase() : '';
+}
+
+// ── FUNIL (modal da aba Campanhas) ──────────────────────────────────────────
+// Só as campanhas EM VEICULAÇÃO entram: o funil responde "como está indo o que
+// está no ar", e campanha encerrada só faria a média mentir.
+function _gtAbrirFunil() {
+  const alvo = document.getElementById('gt-modal-funil');
+  if (!alvo) return;
+  const agoraMs = Date.now();
+  const campanhas = [];
+  for (const ins of _gtInsights || []) {
+    const camp = (_gtCampaigns || []).find((c) => String(c.id) === String(ins.campaign_id));
+    if (!camp || !emVeiculacao(camp, agoraMs)) continue;
+    const conjuntos = (_gtAdsets || []).filter((sx) => String(sx.campaign_id) === String(camp.id));
+    campanhas.push({ balde: baldeEfetivo(camp.objective || ins.objective || '', conjuntos), insight: ins });
+  }
+  montarPainelFunil(alvo, {
+    campanhas,
+    contaNome: (_gtCurAcc && (_gtCurAcc.display_name || _gtCurAcc.name)) || '',
+    periodoRotulo: _gtPeriodoRotulo(),
+    aoFechar: _gtFecharFunil,
+    ajudaBtn: _gtAjudaBtn,
+  });
+  alvo.style.display = '';
+  document.addEventListener('keydown', _gtFunilEsc);
+}
+function _gtFecharFunil() {
+  const alvo = document.getElementById('gt-modal-funil');
+  if (alvo) { alvo.style.display = 'none'; alvo.innerHTML = ''; }
+  document.removeEventListener('keydown', _gtFunilEsc);
+}
+function _gtFunilEsc(e) { if (e && e.key === 'Escape') _gtFecharFunil(); }
+
 async function _gtCarregarRegua() {
   // sb() NUNCA lança — ver src/compartilhado/buscar-e-salvar-dados.js. Falha de
   // rede, sessão expirada (401), falta de GRANT (42501) e erro do servidor (5xx)
@@ -1722,7 +1781,22 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
   // Conjuntos por campanha — é o que permite saber se o orçamento é da
   // campanha (CBO) ou dos conjuntos (ABO) e mostrar a camada do meio.
   const setsByCamp={};(adsets||[]).forEach(s=>{const k=String(s.campaign_id||'');if(!setsByCamp[k])setsByCamp[k]=[];setsByCamp[k].push(s);});
-  const sorted=[...insights].sort((a,b)=>parseFloat(b.spend||0)-parseFloat(a.spend||0));
+  // Quantas campanhas cada objetivo tem NESTA conta — o número no botão evita
+  // clicar num filtro pra descobrir que ele está vazio.
+  const contagem={};
+  for(const ins of insights){
+    const c=campMap[ins.campaign_id];
+    const b=baldeEfetivo((c&&c.objective)||ins.objective||'', setsByCamp[String(ins.campaign_id)]||[]);
+    contagem[b]=(contagem[b]||0)+1;
+  }
+  // Filtro que aponta pra um objetivo que sumiu (troca de conta, mudança de
+  // período) se desfaz sozinho — senão a lista fica vazia sem explicação.
+  if(_gtFiltroObjetivo&&!contagem[_gtFiltroObjetivo])_gtFiltroObjetivo='';
+  const todas=[...insights].sort((a,b)=>parseFloat(b.spend||0)-parseFloat(a.spend||0));
+  const sorted=_gtFiltroObjetivo
+    ? todas.filter(ins=>{const c=campMap[ins.campaign_id];
+        return baldeEfetivo((c&&c.objective)||ins.objective||'', setsByCamp[String(ins.campaign_id)]||[])===_gtFiltroObjetivo;})
+    : todas;
   const card=document.createElement('div');card.className='gt-camp-card';
   const hdr=document.createElement('div');hdr.className='gt-camp-hdr';
   const ttlWrap=document.createElement('div');ttlWrap.style.cssText='display:flex;align-items:center;gap:10px;';
@@ -1785,6 +1859,22 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
   hdrRight.appendChild(collapseBtn);hdrRight.appendChild(filterWrap);hdrRight.appendChild(searchInp);
   hdr.appendChild(ttlWrap);hdr.appendChild(hdrRight);
   card.appendChild(hdr);
+  // Barra de objetivos: só aparece quando há mais de um na conta — com um só,
+  // filtrar não separa nada.
+  const objs=Object.keys(contagem).sort((a,b)=>contagem[b]-contagem[a]);
+  if(objs.length>1){
+    const barra=document.createElement('div');barra.className='gt-obj-filtros';
+    const faz=(chave,rot,n)=>{
+      const b=document.createElement('button');
+      b.className='gt-obj-filtro'+(_gtFiltroObjetivo===chave?' ativo':'');
+      b.innerHTML=`${_gtEsc(rot)}<span class="gt-obj-n">${n}</span>`;
+      b.addEventListener('click',ev=>{ev.stopPropagation();_gtFiltroObjetivo=chave;_renderGtCampaigns(col,campaigns,insights,adInsights,adsets);});
+      return b;
+    };
+    barra.appendChild(faz('','Todos',todas.length));
+    for(const o of objs) barra.appendChild(faz(o,(ALVOS[o]&&ALVOS[o].rotuloCurto)||_gtRotuloObjetivo(o),contagem[o]));
+    card.appendChild(barra);
+  }
   const list=document.createElement('div');list.className='gt-camp-list';card.appendChild(list);
   const tok=_gtCurAcc?.id;
   function renderList(q){
@@ -2426,6 +2516,7 @@ onUnmounted(() => {
 // _buildGtDropdown usam addEventListener ou atribuição direta a .onclick).
 Object.assign(window, {
   setGtPeriod,
+  _gtAbrirFunil,
   toggleGtAccPicker,
   loadGtData,
   _gtOpenEditor,
@@ -2502,6 +2593,68 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.pnd-grupo:last-child){margin-bottom:0;}
 .tela-gestao-trafego :deep(.pnd-grupo-tit){display:flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:800;color:var(--text);margin:0 0 4px;}
 .tela-gestao-trafego :deep(.pnd-tabela td:first-child){min-width:11ch;}
+/* ── FILTRO POR OBJETIVO (lista de campanhas) ─────────────────────────────── */
+.tela-gestao-trafego :deep(.gt-obj-filtros){display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px;border-bottom:1px solid var(--border);}
+.tela-gestao-trafego :deep(.gt-obj-filtro){display:inline-flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));padding:5px 11px;border-radius:999px;cursor:pointer;background:var(--surface2);border:1px solid var(--border);color:var(--muted);transition:all .12s ease;}
+.tela-gestao-trafego :deep(.gt-obj-filtro:hover){color:var(--text);border-color:var(--muted);}
+.tela-gestao-trafego :deep(.gt-obj-filtro.ativo){background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600;}
+.tela-gestao-trafego :deep(.gt-obj-n){font-family:var(--fonte-dados);font-size:calc(8.5px*var(--gt-fs,1.3));opacity:.65;}
+
+/* ── MODAL DO FUNIL ───────────────────────────────────────────────────────── */
+.tela-gestao-trafego :deep(#gt-modal-funil){position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px;}
+.tela-gestao-trafego :deep(.gfn-fundo){position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(2px);}
+.tela-gestao-trafego :deep(.gfn-caixa){position:relative;background:var(--bg);border:1px solid var(--border);border-radius:16px;width:min(860px,100%);max-height:86vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.32);overflow:hidden;}
+.tela-gestao-trafego :deep(.gfn-topo){display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:20px 24px 14px;border-bottom:1px solid var(--border);}
+.tela-gestao-trafego :deep(.gfn-h2){font-family:var(--fonte-principal);font-size:calc(15px*var(--gt-fs,1.3));font-weight:700;color:var(--text);margin:0;}
+.tela-gestao-trafego :deep(.gfn-h2-sub){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);margin:4px 0 0;}
+.tela-gestao-trafego :deep(.gfn-x){background:none;border:0;color:var(--muted);font-size:calc(15px*var(--gt-fs,1.3));cursor:pointer;padding:2px 6px;line-height:1;flex-shrink:0;}
+.tela-gestao-trafego :deep(.gfn-x:hover){color:var(--text);}
+.tela-gestao-trafego :deep(.gfn-corpo){overflow-y:auto;padding:18px 24px 24px;display:flex;flex-direction:column;gap:16px;}
+.tela-gestao-trafego :deep(.gfn-bloco){background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;}
+.tela-gestao-trafego :deep(.gfn-tit){font-family:var(--fonte-principal);font-size:calc(12.5px*var(--gt-fs,1.3));font-weight:700;color:var(--text);margin:0;}
+.tela-gestao-trafego :deep(.gfn-sub){font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);}
+.tela-gestao-trafego :deep(.gfn-explica){font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);margin:6px 0 12px;line-height:1.5;}
+.tela-gestao-trafego :deep(.gfn-etapas){display:flex;flex-direction:column;gap:11px;}
+.tela-gestao-trafego :deep(.gfn-et-topo){display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
+.tela-gestao-trafego :deep(.gfn-et-rot){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--text);font-weight:600;}
+.tela-gestao-trafego :deep(.gfn-et-val){font-family:var(--fonte-dados);font-size:calc(12px*var(--gt-fs,1.3));font-weight:700;color:var(--text);}
+/* min-width no preenchimento: barra de 0,3% ainda precisa ser VISTA como barra. */
+.tela-gestao-trafego :deep(.gfn-barra){height:8px;background:var(--bg);border-radius:5px;overflow:hidden;margin-top:5px;}
+.tela-gestao-trafego :deep(.gfn-barra-in){height:100%;background:var(--accent);border-radius:5px;min-width:3px;}
+/* Sem barra: o resultado de uma PROPORCAO nao e degrau da pilha (ver funil.js). */
+.tela-gestao-trafego :deep(.gfn-sem-barra){height:8px;margin-top:5px;border-top:1px dashed var(--border);}
+.tela-gestao-trafego :deep(.gfn-et-nota){font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);margin-top:4px;}
+/* O que as pessoas fizeram: a quebra do engajamento por tipo de interacao. */
+.tela-gestao-trafego :deep(.gfn-interacoes){margin-top:14px;padding-top:13px;border-top:1px solid var(--border);}
+.tela-gestao-trafego :deep(.gfn-int-tit){font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));font-weight:700;color:var(--text);margin-bottom:9px;}
+.tela-gestao-trafego :deep(.gfn-int-lista){list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px;}
+/* grid: rotulo | barra (cresce) | quantidade | % | peso */
+.tela-gestao-trafego :deep(.gfn-int){display:grid;grid-template-columns:minmax(88px,auto) 1fr auto auto auto;align-items:center;gap:9px;}
+.tela-gestao-trafego :deep(.gfn-int-rot){font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--text);}
+.tela-gestao-trafego :deep(.gfn-int-barra){height:6px;background:var(--bg);border-radius:4px;overflow:hidden;}
+.tela-gestao-trafego :deep(.gfn-int-barra span){display:block;height:100%;background:var(--accent);border-radius:4px;min-width:3px;}
+.tela-gestao-trafego :deep(.gfn-int-qtd){font-family:var(--fonte-dados);font-size:calc(9.5px*var(--gt-fs,1.3));font-weight:700;color:var(--text);white-space:nowrap;}
+.tela-gestao-trafego :deep(.gfn-int-pct){font-family:var(--fonte-dados);font-size:calc(8.5px*var(--gt-fs,1.3));color:var(--muted);white-space:nowrap;min-width:38px;text-align:right;}
+/* O peso e o elo com a regua: explica por que 200 mil curtidas podem valer
+   menos que 500 salvamentos. */
+.tela-gestao-trafego :deep(.gfn-int-peso){font-family:var(--fonte-principal);font-size:calc(8px*var(--gt-fs,1.3));color:var(--muted);background:var(--bg);border-radius:999px;padding:2px 7px;white-space:nowrap;}
+@media (max-width:640px){
+  .tela-gestao-trafego :deep(.gfn-int){grid-template-columns:1fr auto auto;grid-template-areas:'rot qtd pct' 'barra barra peso';gap:4px 8px;}
+  .tela-gestao-trafego :deep(.gfn-int-rot){grid-area:rot;}
+  .tela-gestao-trafego :deep(.gfn-int-barra){grid-area:barra;}
+  .tela-gestao-trafego :deep(.gfn-int-qtd){grid-area:qtd;}
+  .tela-gestao-trafego :deep(.gfn-int-pct){grid-area:pct;}
+  .tela-gestao-trafego :deep(.gfn-int-peso){grid-area:peso;justify-self:end;}
+}
+.tela-gestao-trafego :deep(.gfn-tipo){display:inline-block;margin-top:13px;font-family:var(--fonte-principal);font-size:calc(8.5px*var(--gt-fs,1.3));color:var(--muted);font-style:italic;}
+.tela-gestao-trafego :deep(.gfn-vazio){display:flex;flex-direction:column;gap:6px;text-align:center;padding:34px 20px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));color:var(--text);}
+.tela-gestao-trafego :deep(.gfn-vazio span){font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;}
+@media (max-width:640px){
+  .tela-gestao-trafego :deep(#gt-modal-funil){padding:0;}
+  .tela-gestao-trafego :deep(.gfn-caixa){max-height:100vh;height:100vh;border-radius:0;width:100%;}
+  .tela-gestao-trafego :deep(.gfn-corpo){padding:14px;}
+}
+
 /* ── FILA DE APROVAÇÃO ───────────────────────────────────────────────────── */
 /* A fila é irmã de #gt-painel-campanhas no mesmo flex column e precisa rolar
    sozinha — mesma estrutura de #gt-painel-regua. Sem o padding ela nascia colada
