@@ -67,6 +67,7 @@
          remonta a lista de campanhas (remontar chamaria a Meta de novo). -->
     <div class="pnd-abas" role="tablist">
       <button class="pnd-aba ativa" id="pnd-aba-campanhas" role="tab" onclick="_gtTrocarAba('campanhas')">Campanhas</button>
+      <button class="pnd-aba" id="pnd-aba-fila" role="tab" onclick="_gtTrocarAba('fila')">Fila<span class="pnd-aba-n" id="pnd-fila-n" hidden></span></button>
       <button class="pnd-aba" id="pnd-aba-regua" role="tab" onclick="_gtTrocarAba('regua')">A régua</button>
     </div>
 
@@ -104,7 +105,8 @@
       </div>
     </div>
 
-    <div id="gt-painel-regua" style="display:none"></div>
+    <div id="gt-painel-fila" style="display:none"></div>
+<div id="gt-painel-regua" style="display:none"></div>
   </div>
 </template>
 
@@ -123,6 +125,15 @@ import { orcamentoDe, detectarNivelOrcamento, podeEditarOrcamentoDaCampanha, pod
 // Aba "A régua" (métrica ponderada): painel puro + os módulos que leem/normalizam
 // a régua vinda do banco (ver painel-regua.js, ponderada.js, regua.js).
 import { montarPainelRegua } from './painel-regua.js'
+// A FILA: o que o robô propôs e ainda espera decisão. As regras (o que entra, o
+// silêncio de 7 dias, a repartição por conjunto) moram em fila.js, puro e
+// testado; painel-fila.js só monta a tela.
+import { montarPainelFila } from './painel-fila.js'
+import { montarFila, distribuirEntreConjuntos, DIAS_DE_SILENCIO } from './fila.js'
+import { orcamentoEfetivoDaCampanha } from './orcamento-hierarquia.js'
+// Objetivo -> balde e "e de WhatsApp?" moram num modulo so porque o ROBO precisa
+// da mesma resposta que a tela (ver baldes.js).
+import { baldeDoObjetivo, ehDeWhatsapp } from './baldes.js'
 import { normalizarRegua, metaDoBalde, reguaDaConta, mesclarMetasDaConta } from './regua.js'
 import { quantidadesDoInsight, calcularPonderada } from './ponderada.js'
 import { decidirVeredito } from './veredito.js'
@@ -491,17 +502,6 @@ const GT_METRIC_CATALOG={
   video_views:{label:'Views de vídeo',fmt:'int',compute:r=>_gtActionVal(r,_GT_VIDEO)},
   engaj_pub:{label:'Engajamento da publicação',fmt:'int',compute:r=>_gtActionVal(r,_GT_POSTENG)},
 };
-const GT_OBJETIVO_BALDE={
-  OUTCOME_TRAFFIC:'trafego', LINK_CLICKS:'trafego',
-  OUTCOME_SALES:'vendas', CONVERSIONS:'vendas', PRODUCT_CATALOG_SALES:'vendas',
-  OUTCOME_AWARENESS:'reconhecimento', BRAND_AWARENESS:'reconhecimento', REACH:'reconhecimento', VIDEO_VIEWS:'reconhecimento',
-  // Engajamento inclui as campanhas de MENSAGEM modernas (OUTCOME_ENGAGEMENT com destino WhatsApp),
-  // por isso o balde de engajamento passou a ter Conversas iniciadas. MESSAGES (objetivo antigo
-  // de mensagem) tem balde próprio 'mensagens'.
-  OUTCOME_ENGAGEMENT:'engajamento', POST_ENGAGEMENT:'engajamento', PAGE_LIKES:'engajamento',
-  MESSAGES:'mensagens',
-  OUTCOME_LEADS:'leads', LEAD_GENERATION:'leads',
-};
 const GT_BALDE_PADRAO={
   // custo_visita é a métrica que DECIDE o veredito deste balde (ver alvos.js
   // ALVOS.trafego) — precisa aparecer no cartão, senão o dono vê o selo mudar
@@ -516,7 +516,7 @@ const GT_BALDE_PADRAO={
   leads:['leads','custo_lead','ctr','gasto'],
   padrao:['ctr','cpc','gasto','alcance'],
 };
-function _gtBalde(objective){ return GT_OBJETIVO_BALDE[String(objective||'').toUpperCase()]||'padrao'; }
+function _gtBalde(objective){ return baldeDoObjetivo(objective); }
 // Fragmento "por X" pra frase do veredito (ver veredito.js porqueDaPonderada).
 // Vem do MESMO rótulo que a régua já mostra (ALVOS[balde].rotulo, ex.: "Custo
 // por conversa iniciada"), só sem o prefixo "Custo " — evita duplicar a unidade
@@ -709,6 +709,198 @@ function _gtReguaAtiva() {
   return reguaDaConta(_gtRegua, _gtCurAcc && _gtCurAcc.id);
 }
 
+// ── FILA DE APROVAÇÃO ───────────────────────────────────────────────────────
+// Lista única das cinco contas: o robô propõe, o dono decide, e é o ÚNICO
+// caminho que mexe em orçamento a partir de uma sugestão. O cartão da campanha
+// virou só leitura de propósito — com dois caminhos, um deles escaparia do
+// registro (decisão do dono, 2026-07-29).
+let _gtFila = { pendentes: [], vencidas: [], silenciadas: [], respondidas: [] };
+let _gtFilaFiltro = '';
+let _gtFilaCarregando = false;
+
+// Busca as campanhas e os conjuntos SÓ das contas que têm pendência. Sem este
+// recorte seriam duas chamadas por conta em toda abertura da aba, quatro delas
+// para descobrir que não havia nada a decidir ali.
+// ATENÇÃO ao `account_id` de gt_budget_analises: ele é o id do REGISTRO QUE
+// GUARDA O TOKEN, e um mesmo registro atende as cinco contas de anúncios (o robô
+// varre /me/adaccounts a partir dele). Ou seja, ele NÃO diz de qual conta do
+// painel a campanha é — todas as análises vêm com o mesmo valor. Quem responde
+// isso é onde a campanha foi encontrada, e por isso a busca varre as contas do
+// painel em vez de tentar adivinhar pelo campo gravado.
+async function _gtFilaBuscarNomes(itens) {
+  const mapa = new Map();
+  await Promise.all((_gtAccounts || []).filter((c) => c && c.ad_account_id).map(async (conta) => {
+    const acc = _maCleanAccId(conta.ad_account_id);
+    const [camps, sets] = await Promise.all([
+      metaFetchAll(`/act_${acc}/campaigns`, { fields: 'id,name,effective_status,daily_budget,lifetime_budget' }, conta.id).catch(() => []),
+      metaFetchAll(`/act_${acc}/adsets`, { fields: 'id,name,campaign_id,daily_budget,lifetime_budget,effective_status' }, conta.id).catch(() => []),
+    ]);
+    for (const c of camps || []) {
+      const meus = (sets || []).filter((x) => String(x.campaign_id) === String(c.id));
+      mapa.set(String(c.id), { campanha: c, conjuntos: meus, conta });
+    }
+  }));
+  return mapa;
+}
+
+async function _gtCarregarFila() {
+  if (_gtFilaCarregando) return;
+  _gtFilaCarregando = true;
+  try {
+    // sb() nunca lança: devolve [] com .erro (ver buscar-e-salvar-dados.js).
+    const [analises, decisoes] = await Promise.all([
+      sb('gt_budget_analises?select=campaign_id,account_id,veredito,justificativa,impacto_estimado,budget_atual_centavos,budget_sugerido_centavos,gerado_em,valida_ate'),
+      sb('gt_fila_decisoes?select=campaign_id,decisao,decidido_em,silenciar_ate&order=decidido_em.desc'),
+    ]);
+    if (analises.erro) { console.error('[GT] falha ao ler as análises da fila:', analises.erro); }
+    _gtFila = montarFila(analises || [], decisoes || [], new Date().toISOString());
+
+    // Enriquece com nome da campanha e conjuntos (a Meta é quem sabe).
+    const todos = _gtFila.pendentes.concat(_gtFila.vencidas);
+    const mapa = todos.length ? await _gtFilaBuscarNomes(todos) : new Map();
+    // SÓ CAMPANHA VIVA fica na fila. O robô guarda a análise mesmo depois de a
+    // campanha parar, e o `effective_status` gravado é o do dia da análise —
+    // envelhece. Sem cruzar com a Meta agora, a fila pedia decisão sobre
+    // campanha encerrada: das 26 análises vencidas em 29/07, 12 eram assim.
+    // Campanha que sumiu da conta também cai aqui (não está no mapa).
+    const viva = (i) => {
+      const info = mapa.get(String(i.campaign_id));
+      return !!info && String(info.campanha.effective_status || '').toUpperCase() === 'ACTIVE';
+    };
+    _gtFila.pendentes = _gtFila.pendentes.filter(viva);
+    _gtFila.vencidas = _gtFila.vencidas.filter(viva);
+    for (const i of _gtFila.pendentes.concat(_gtFila.vencidas)) {
+      const info = mapa.get(String(i.campaign_id));
+      if (!info) continue;
+      i.campaign_name = info.campanha.name || '';
+      i.conta_nome = info.conta.display_name || info.conta.name || '';
+      // A conta de verdade é esta, não a que veio gravada (ver o comentário em
+      // _gtFilaBuscarNomes). Sem isto o filtro por conta contava zero em todas.
+      i.account_id = info.conta.id;
+      const orc = orcamentoEfetivoDaCampanha(info.campanha, info.conjuntos);
+      i.nivel = orc.sigla;
+      // Só campanha ABO ganha quebra por conjunto; em CBO o valor vai direto na
+      // campanha e uma lista de conjuntos ali só confundiria.
+      i.conjuntos = orc.sigla === 'ABO'
+        ? info.conjuntos
+            .filter((c) => String(c.effective_status || '').toUpperCase() === 'ACTIVE' && (c.daily_budget || c.lifetime_budget))
+            .map((c) => ({ id: c.id, nome: c.name, deCentavos: Number(c.daily_budget || c.lifetime_budget) }))
+        : [];
+    }
+  } finally {
+    _gtFilaCarregando = false;
+  }
+  _gtPintarContadorFila();
+  if (_gtAbaAtiva === 'fila') _gtTrocarAba('fila');
+}
+
+// O número na aba é o que faz a fila ser lembrada: sem ele o dono só descobre
+// que há decisão pendente se abrir a aba por conta própria.
+function _gtPintarContadorFila() {
+  const el = document.getElementById('pnd-fila-n');
+  if (!el) return;
+  const n = _gtFila.pendentes.length;
+  el.textContent = String(n);
+  el.hidden = n === 0;
+}
+
+// Grava a decisão. Append-only: cada decisão é uma linha nova (ver a migration
+// 2026-07-29-fila-decisoes.sql) — corrigir é decidir de novo, não reescrever.
+async function _gtFilaGravarDecisao(item, decisao, aplicado, erro) {
+  const linha = {
+    campaign_id: String(item.campaign_id),
+    account_id: item.account_id ? String(item.account_id) : null,
+    veredito: item.veredito,
+    budget_atual_centavos: item.budget_atual_centavos ?? null,
+    budget_sugerido_centavos: item.budget_sugerido_centavos ?? null,
+    analise_gerada_em: item.gerado_em || null,
+    decisao,
+    decidido_por: estado.userId,
+    // Recusar cala a campanha por 7 dias, inclusive contra análise nova — o robô
+    // regrava todo dia, então sem isto a recusa duraria algumas horas.
+    silenciar_ate: decisao === 'recusada'
+      ? new Date(Date.now() + DIAS_DE_SILENCIO * 86400000).toISOString()
+      : null,
+    aplicado: aplicado || [],
+    erro: erro || null,
+  };
+  const { error } = await sbClient.from('gt_fila_decisoes').insert(linha);
+  return error || null;
+}
+
+async function _gtFilaRecusar(item, botao) {
+  const ok = await _gtConfirm('Recusar esta sugestão?',
+    `"${_gtEsc(item.campaign_name || item.campaign_id)}" sai da fila e só volta a aparecer daqui a ${DIAS_DE_SILENCIO} dias, se a situação continuar. Nada muda na Meta.`);
+  if (!ok) return;
+  const orig = botao.textContent;
+  botao.disabled = true; botao.textContent = '…';
+  const erro = await _gtFilaGravarDecisao(item, 'recusada', [], null);
+  if (erro) {
+    console.error('[GT] falha ao gravar a recusa:', erro);
+    adminToast(_gtEhErroDePermissao(erro) ? 'Você não tem permissão para decidir na fila.' : 'Não consegui registrar a recusa. Tente de novo.', false);
+    botao.disabled = false; botao.textContent = orig;
+    return;
+  }
+  adminToast('Recusada. Volta em ' + DIAS_DE_SILENCIO + ' dias se continuar assim.');
+  await _gtCarregarFila();
+}
+
+async function _gtFilaAprovar(item, botao) {
+  // O que vai ser escrito na Meta, item a item. Em ABO uma aprovação vira
+  // VÁRIAS escritas (uma por conjunto) — por isso a confirmação mostra a quebra
+  // inteira antes, e não só o total.
+  const alvos = item.veredito === 'pausar'
+    ? [{ id: item.campaign_id, tipo: 'pausar', nome: item.campaign_name }]
+    : (item.conjuntos && item.conjuntos.length)
+      ? distribuirEntreConjuntos(item.conjuntos, item.budget_sugerido_centavos)
+          .map((p) => ({ id: p.id, tipo: 'budget', budget: p.paraCentavos, de: p.deCentavos, nome: p.nome }))
+      : [{ id: item.campaign_id, tipo: 'budget', budget: item.budget_sugerido_centavos, de: item.budget_atual_centavos, nome: item.campaign_name }];
+
+  const detalhe = item.veredito === 'pausar'
+    ? `"${_gtEsc(item.campaign_name || item.campaign_id)}" será PAUSADA na Meta agora.`
+    : alvos.length > 1
+      ? `Vou aplicar em ${alvos.length} conjuntos de "${_gtEsc(item.campaign_name || '')}":<br>`
+        + alvos.map((a) => `• ${_gtEsc(a.nome || a.id)}: ${_maFmtR((a.de || 0) / 100)} → <b>${_maFmtR(a.budget / 100)}</b>/dia`).join('<br>')
+      : `"${_gtEsc(item.campaign_name || item.campaign_id)}": ${_maFmtR((item.budget_atual_centavos || 0) / 100)}/dia → <b>${_maFmtR(item.budget_sugerido_centavos / 100)}/dia</b>.`;
+
+  const ok = await _gtConfirm('Aprovar e aplicar na Meta?', detalhe, { danger: item.veredito === 'pausar' });
+  if (!ok) return;
+
+  const orig = botao.textContent;
+  botao.disabled = true; botao.textContent = '…';
+  const feitos = [];
+  let falha = null;
+  for (const alvo of alvos) {
+    try {
+      // A conta é a DO ITEM, não a selecionada na tela: a fila junta as cinco
+      // contas, e usar _gtCurAcc mandaria a escrita pelo token errado.
+      if (alvo.tipo === 'pausar') await metaPost('/' + alvo.id, { status: 'PAUSED' }, item.account_id);
+      else await metaPost('/' + alvo.id, { daily_budget: String(alvo.budget) }, item.account_id);
+      feitos.push({ id: alvo.id, nome: alvo.nome || null, de: alvo.de ?? null, para: alvo.budget ?? null, tipo: alvo.tipo });
+    } catch (e) {
+      falha = String((e && e.message) || e || 'erro desconhecido');
+      break;   // não insiste: metade aplicada já é o suficiente pra registrar e avisar
+    }
+  }
+
+  // Grava SEMPRE, mesmo com falha no meio: `aplicado` guarda o que realmente
+  // saiu e `erro` diz onde parou. Sem isto, uma aprovação parcial não deixaria
+  // rastro nenhum e a auditoria não bateria com a Meta.
+  const erroGravar = await _gtFilaGravarDecisao(item, 'aprovada', feitos, falha);
+  if (erroGravar) console.error('[GT] apliquei na Meta mas não consegui gravar a decisão:', erroGravar);
+
+  if (falha) {
+    adminToast(feitos.length
+      ? `Apliquei ${feitos.length} de ${alvos.length} e parei: ${falha}`
+      : `Não consegui aplicar: ${falha}`, false);
+    botao.disabled = false; botao.textContent = orig;
+  } else {
+    botao.textContent = '✓ Aplicado';
+    adminToast(alvos.length > 1 ? `Aplicado nos ${alvos.length} conjuntos.` : 'Aplicado na Meta.');
+  }
+  await _gtCarregarFila();
+}
+
 async function _gtCarregarRegua() {
   // sb() NUNCA lança — ver src/compartilhado/buscar-e-salvar-dados.js. Falha de
   // rede, sessão expirada (401), falta de GRANT (42501) e erro do servidor (5xx)
@@ -818,7 +1010,9 @@ function _gtExemplosParaRegua() {
     const baldeBruto = _gtBalde(linha.objective);
     // Mesmo criterio do cartao: quem diz se e WhatsApp e o CONJUNTO, nao a acao.
     const conjuntosDaLinha = (_gtAdsets||[]).filter(x => String(x.campaign_id||'') === String(linha.campaign_id||''));
-    const temMensagem = baldeBruto === 'engajamento' && _gtEhDeWhatsapp(conjuntosDaLinha);
+    // Destino WhatsApp vale pra QUALQUER objetivo (ver baldeEfetivo em baldes.js):
+    // campanha de 'leads' que compra conversa e medida por conversa.
+    const temMensagem = ehDeWhatsapp(conjuntosDaLinha);
     const balde = temMensagem ? 'mensagens' : baldeBruto;
     if (alvoDoBalde(balde)) {
       const atual = porBalde[balde];
@@ -1108,11 +1302,6 @@ async function _gtPausarSelecionados(btn){
 // destination_type WHATSAPP (e optimization_goal CONVERSATIONS). Conferido ao vivo:
 // Vessel e Motoeasy usam CONVERSATIONS/WHATSAPP; as da Raíssa que pegavam conversa
 // de tabela são VISIT_INSTAGRAM_PROFILE, PROFILE_VISIT ou POST_ENGAGEMENT.
-function _gtEhDeWhatsapp(conjuntos){
-  return (conjuntos||[]).some(s =>
-    String(s&&s.destination_type||'').toUpperCase()==='WHATSAPP'
-    || String(s&&s.optimization_goal||'').toUpperCase()==='CONVERSATIONS');
-}
 // Campanha "encerrada": ACTIVE no Meta mas com stop_time já no passado.
 function _gtEncerrada(camp,nowMs){
   if(!camp||camp.effective_status!=='ACTIVE'||!camp.stop_time)return false;
@@ -1606,7 +1795,9 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       // A campanha e de WhatsApp? Vem do CONJUNTO (o que a Meta afirma), nao do
       // resultado. Inferir por "tem acao de mensagem" classificava no mercado
       // errado toda campanha que pegava uma conversa de tabela — ver _gtEhDeWhatsapp.
-      const temMensagem = baldeCamp === 'engajamento' && _gtEhDeWhatsapp(conjuntos);
+      // Mesma regra do robô: quem manda é o que a Meta afirma no conjunto, e vale
+      // pra qualquer objetivo (ver baldeEfetivo em baldes.js).
+      const temMensagem = ehDeWhatsapp(conjuntos);
       // Selo de objetivo por interação (Fase 3): só campanha de engajamento que
       // NÃO seja de mensagem pode declarar qual interação está comprando —
       // mesmo recorte do custo por ponto logo abaixo.
@@ -1798,11 +1989,29 @@ function _gtCloseCriativo(){const ov=document.getElementById('gt-cr-overlay'),md
 // remontar dispararia chamadas à Meta de novo e pode custar rate-limit.
 function _gtTrocarAba(nome) {
   _gtAbaAtiva = nome;
-  for (const n of ['campanhas', 'regua']) {
+  for (const n of ['campanhas', 'fila', 'regua']) {
     const painel = document.getElementById('gt-painel-' + n);
     const aba = document.getElementById('pnd-aba-' + n);
     if (painel) painel.style.display = (n === nome) ? '' : 'none';
     if (aba) aba.classList.toggle('ativa', n === nome);
+  }
+  if (nome === 'fila') {
+    const alvo = document.getElementById('gt-painel-fila');
+    if (alvo) montarPainelFila(alvo, {
+      pendentes: _gtFila.pendentes,
+      vencidas: _gtFila.vencidas,
+      silenciadas: _gtFila.silenciadas,
+      contas: _gtAccounts,
+      contaFiltro: _gtFilaFiltro,
+      agora: new Date().toISOString(),
+      // Mesmo critério da régua e do RLS da tabela: decidir na fila é ação de
+      // quem pode EDITAR nesta ferramenta.
+      editavel: hasPermission('meta.gestor', 'editar'),
+      aoAprovar: _gtFilaAprovar,
+      aoRecusar: _gtFilaRecusar,
+      aoFiltrar: (id) => { _gtFilaFiltro = id; _gtTrocarAba('fila'); },
+      ajudaBtn: _gtAjudaBtn,
+    });
   }
   if (nome === 'regua') {
     const alvo = document.getElementById('gt-painel-regua');
@@ -2143,6 +2352,9 @@ onMounted(() => {
   // até uma conta ser escolhida — e "Salvar" ali gravaria esse padrão por cima da
   // régua real das cinco contas (ver C3 do review final, 2026-07-28).
   _gtCarregarRegua()
+  // A fila é das CINCO contas, então não espera a seleção de conta — carrega já
+  // no mount pra o contador da aba aparecer desde o primeiro instante.
+  _gtCarregarFila()
   _initGestaoTrafego()
   _gtFontScale()
 })
@@ -2233,6 +2445,78 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.pnd-grupo:last-child){margin-bottom:0;}
 .tela-gestao-trafego :deep(.pnd-grupo-tit){display:flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:800;color:var(--text);margin:0 0 4px;}
 .tela-gestao-trafego :deep(.pnd-tabela td:first-child){min-width:11ch;}
+/* ── FILA DE APROVAÇÃO ───────────────────────────────────────────────────── */
+/* LISTA, nao blocos (pedido do dono, 2026-07-29): uma linha por sugestao, largura
+   inteira. Em grade de cartoes, 8 sugestoes viravam 8 caixas altas e a decisao
+   ficava espalhada; em lista o olho desce por uma coluna so de "de -> para". */
+.tela-gestao-trafego :deep(.pnd-aba-n){display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 5px;margin-left:6px;border-radius:9px;background:var(--red);color:#fff;font-family:var(--fonte-dados);font-size:calc(8.5px*var(--gt-fs,1.3));font-weight:700;line-height:1;}
+.tela-gestao-trafego :deep(.gtf-cab){display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin:0 0 14px;}
+.tela-gestao-trafego :deep(.gtf-tit){font-family:var(--fonte-principal);font-size:calc(15px*var(--gt-fs,1.3));font-weight:700;color:var(--text);margin:0;}
+.tela-gestao-trafego :deep(.gtf-sub){font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--muted);margin:4px 0 0;line-height:1.5;}
+.tela-gestao-trafego :deep(.gtf-filtros){display:flex;flex-wrap:wrap;gap:7px;margin:0 0 14px;}
+.tela-gestao-trafego :deep(.gtf-filtro){display:inline-flex;align-items:center;gap:7px;font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));padding:6px 12px;border-radius:999px;cursor:pointer;background:var(--surface);border:1px solid var(--border);color:var(--muted);transition:all .12s ease;}
+.tela-gestao-trafego :deep(.gtf-filtro:hover){color:var(--text);border-color:var(--muted);}
+.tela-gestao-trafego :deep(.gtf-filtro.ativo){background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600;}
+.tela-gestao-trafego :deep(.gtf-filtro-n){font-family:var(--fonte-dados);font-size:calc(9px*var(--gt-fs,1.3));opacity:.65;}
+.tela-gestao-trafego :deep(.gtf-lista){list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.tela-gestao-trafego :deep(.gtf-item){background:var(--surface);padding:12px 16px;border-left:3px solid var(--muted);}
+.tela-gestao-trafego :deep(.gtf-item.positivo){border-left-color:var(--green);}
+.tela-gestao-trafego :deep(.gtf-item.reduzir){border-left-color:var(--orange);}
+.tela-gestao-trafego :deep(.gtf-item.pausar){border-left-color:var(--red);}
+/* A linha: selo, identificacao (cresce), valores, acoes. `min-width:0` no meio e
+   o que deixa o nome longo truncar em vez de empurrar os botoes pra fora. */
+.tela-gestao-trafego :deep(.gtf-linha){display:flex;align-items:center;gap:14px;}
+.tela-gestao-trafego :deep(.gtf-selo){flex:0 0 auto;font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--text);}
+.tela-gestao-trafego :deep(.gtf-item.positivo .gtf-selo){background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green);}
+.tela-gestao-trafego :deep(.gtf-item.reduzir .gtf-selo){background:color-mix(in srgb,var(--orange) 18%,transparent);color:var(--orange);}
+.tela-gestao-trafego :deep(.gtf-item.pausar .gtf-selo){background:color-mix(in srgb,var(--red) 18%,transparent);color:var(--red);}
+.tela-gestao-trafego :deep(.gtf-ident){flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.tela-gestao-trafego :deep(.gtf-nome){font-family:var(--fonte-principal);font-size:calc(11.5px*var(--gt-fs,1.3));font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tela-gestao-trafego :deep(.gtf-conta){font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);}
+.tela-gestao-trafego :deep(.gtf-valores){flex:0 0 auto;display:flex;align-items:baseline;gap:7px;font-family:var(--fonte-dados);white-space:nowrap;}
+.tela-gestao-trafego :deep(.gtf-de){font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--muted);text-decoration:line-through;}
+.tela-gestao-trafego :deep(.gtf-seta){color:var(--muted);}
+.tela-gestao-trafego :deep(.gtf-para){font-size:calc(14px*var(--gt-fs,1.3));font-weight:700;color:var(--text);}
+.tela-gestao-trafego :deep(.gtf-pct){font-size:calc(9.5px*var(--gt-fs,1.3));font-weight:700;color:var(--green);}
+.tela-gestao-trafego :deep(.gtf-pct.neg){color:var(--orange);}
+.tela-gestao-trafego :deep(.gtf-pausar-nota){font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--red);font-weight:600;}
+.tela-gestao-trafego :deep(.gtf-acoes){flex:0 0 auto;display:flex;gap:7px;}
+.tela-gestao-trafego :deep(.gtf-btn){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));font-weight:600;padding:6px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:var(--bg);color:var(--muted);transition:all .12s ease;}
+.tela-gestao-trafego :deep(.gtf-btn:hover){color:var(--text);border-color:var(--muted);}
+.tela-gestao-trafego :deep(.gtf-btn.aprovar){background:var(--accent);border-color:var(--accent);color:#fff;}
+.tela-gestao-trafego :deep(.gtf-btn.aprovar:hover){filter:brightness(1.08);}
+.tela-gestao-trafego :deep(.gtf-btn:disabled){opacity:.6;cursor:default;}
+/* Leitura desce ABAIXO da linha, recuada pra alinhar com o nome da campanha. */
+.tela-gestao-trafego :deep(.gtf-just),.tela-gestao-trafego :deep(.gtf-impacto){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;margin:6px 0 0;}
+.tela-gestao-trafego :deep(.gtf-conjuntos){margin-top:7px;}
+.tela-gestao-trafego :deep(.gtf-conjuntos summary){font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);cursor:pointer;}
+.tela-gestao-trafego :deep(.gtf-conjuntos summary:hover){color:var(--text);}
+/* width:100% + a coluna do nome absorvendo a sobra: sem isso a tabela usa
+   largura automatica, o nome mais longo enche a coluna e encosta no valor
+   (medido: 0px de folga na linha "MINI VLOG INSPIRA MAIS | PERFIL"). */
+.tela-gestao-trafego :deep(.gtf-cj-tabela){margin-top:6px;width:100%;max-width:560px;border-collapse:collapse;font-family:var(--fonte-dados);font-size:calc(9.5px*var(--gt-fs,1.3));table-layout:auto;}
+.tela-gestao-trafego :deep(.gtf-cj-tabela td){padding:3px 0;}
+.tela-gestao-trafego :deep(.gtf-cj-nome){font-family:var(--fonte-principal);color:var(--text);padding-right:24px;width:100%;overflow-wrap:anywhere;}
+.tela-gestao-trafego :deep(.gtf-cj-de){color:var(--muted);text-align:right;white-space:nowrap;}
+.tela-gestao-trafego :deep(.gtf-cj-seta){color:var(--muted);padding:0 7px;}
+.tela-gestao-trafego :deep(.gtf-cj-para){color:var(--text);font-weight:700;text-align:right;white-space:nowrap;}
+.tela-gestao-trafego :deep(.gtf-sem-permissao){font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);}
+.tela-gestao-trafego :deep(.gtf-vazio){background:var(--surface);padding:26px;text-align:center;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));color:var(--text);display:flex;flex-direction:column;gap:6px;}
+.tela-gestao-trafego :deep(.gtf-vazio span){font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;}
+.tela-gestao-trafego :deep(.gtf-extra){margin-top:18px;}
+.tela-gestao-trafego :deep(.gtf-extra summary){font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--muted);cursor:pointer;padding:7px 0;}
+.tela-gestao-trafego :deep(.gtf-extra summary:hover){color:var(--text);}
+.tela-gestao-trafego :deep(.gtf-extra-nota){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);line-height:1.55;margin:0 0 11px;}
+.tela-gestao-trafego :deep(.gtf-silenciadas){margin-top:14px;font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);}
+/* No celular a linha vira duas: identificacao em cima, valores e botoes embaixo. */
+@media (max-width:720px){
+  .tela-gestao-trafego :deep(.gtf-linha){flex-wrap:wrap;gap:9px;}
+  .tela-gestao-trafego :deep(.gtf-ident){flex:1 1 100%;order:1;}
+  .tela-gestao-trafego :deep(.gtf-selo){order:0;}
+  .tela-gestao-trafego :deep(.gtf-valores){order:2;flex:1 1 auto;}
+  .tela-gestao-trafego :deep(.gtf-acoes){order:3;}
+  .tela-gestao-trafego :deep(.gtf-btn){flex:1;}
+}
 .tela-gestao-trafego :deep(.pnd-conta-tag){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));color:var(--txt);line-height:1.5;background:color-mix(in srgb,var(--green) 10%,transparent);border:1px solid color-mix(in srgb,var(--green) 32%,transparent);border-left-width:3px;border-radius:8px;padding:9px 13px;margin:0 0 16px;}
 .tela-gestao-trafego :deep(.pnd-conta-tag--vazio){background:color-mix(in srgb,var(--orange) 10%,transparent);border-color:color-mix(in srgb,var(--orange) 32%,transparent);}
 .tela-gestao-trafego :deep(.pnd-grupo-sub){font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;margin:0 0 12px;max-width:70ch;}

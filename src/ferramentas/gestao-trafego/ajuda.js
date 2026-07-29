@@ -69,6 +69,13 @@ export const AJUDA = {
       <p><b>Se estiver quase tudo vermelho</b>, provavelmente a meta está ambiciosa demais. Uma régua que só mostra vermelho para de ser lida — e aí ela não separa mais a campanha ruim da péssima.</p>`,
   },
 
+  fila: {
+    titulo: 'O que é a fila',
+    texto: `<p>Todo dia de madrugada o robô olha suas campanhas e propõe mexer no orçamento de algumas. <b>Essas propostas param aqui</b> e não acontecem sozinhas — nada muda na Meta sem você aprovar.</p>
+      <p>Você tem duas respostas: <b>Aprovar</b>, e aí o valor é aplicado na Meta na hora; ou <b>Recusar</b>, e aquela campanha fica quieta por uma semana. Passada a semana, se a situação continuar igual, ela volta a perguntar — porque aí já é outro momento.</p>
+      <p>Quando o orçamento da campanha está espalhado entre vários conjuntos, a fila mostra <b>quanto vai para cada um</b> antes de você decidir, mantendo a proporção que você já escolheu entre eles.</p>
+      <p>Só aparece aqui o que pede uma decisão. Quando o robô diz para não mexer, não há o que aprovar, então ele não ocupa espaço.</p>`,
+  },
   veredito: {
     titulo: 'Como a recomendação é decidida',
     texto: `<p>Existe <b>um veredito por cartão</b>, nunca dois selos disputando. Ele é decidido nesta ordem:</p>
