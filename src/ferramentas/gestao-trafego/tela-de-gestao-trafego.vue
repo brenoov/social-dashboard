@@ -148,7 +148,7 @@ import { emVeiculacao } from './veiculacao.js'
 import { orcamentoEfetivoDaCampanha } from './orcamento-hierarquia.js'
 // Objetivo -> balde e "e de WhatsApp?" moram num modulo so porque o ROBO precisa
 // da mesma resposta que a tela (ver baldes.js).
-import { baldeDoObjetivo, ehDeWhatsapp } from './baldes.js'
+import { baldeDoObjetivo, ehDeWhatsapp, baldeEfetivo } from './baldes.js'
 import { normalizarRegua, metaDoBalde, reguaDaConta, mesclarMetasDaConta } from './regua.js'
 import { quantidadesDoInsight, calcularPonderada } from './ponderada.js'
 // Alvo de cada tipo de campanha (custo por lead/conversa/venda/visita/mil
