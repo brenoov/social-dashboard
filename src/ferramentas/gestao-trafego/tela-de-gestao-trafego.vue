@@ -1872,7 +1872,11 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       return b;
     };
     barra.appendChild(faz('','Todos',todas.length));
-    for(const o of objs) barra.appendChild(faz(o,(ALVOS[o]&&ALVOS[o].rotuloCurto)||_gtRotuloObjetivo(o),contagem[o]));
+    // _gtRotuloObjetivo lê de LEITURA (funil.js) — a MESMA fonte que o modal do
+    // funil usa. A versão anterior tentava `ALVOS[o].rotuloCurto`: ALVOS não
+    // estava importado e `rotuloCurto` não existe em alvos.js, dois erros na
+    // mesma linha que só apareciam quando a lista era montada.
+    for(const o of objs) barra.appendChild(faz(o,_gtRotuloObjetivo(o),contagem[o]));
     card.appendChild(barra);
   }
   const list=document.createElement('div');list.className='gt-camp-list';card.appendChild(list);
