@@ -2448,6 +2448,11 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.pnd-grupo-tit){display:flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:800;color:var(--text);margin:0 0 4px;}
 .tela-gestao-trafego :deep(.pnd-tabela td:first-child){min-width:11ch;}
 /* ── FILA DE APROVAÇÃO ───────────────────────────────────────────────────── */
+/* A fila é irmã de #gt-painel-campanhas no mesmo flex column e precisa rolar
+   sozinha — mesma estrutura de #gt-painel-regua. Sem o padding ela nascia colada
+   na borda da tela, com a caixa da campanha encostando na lateral (visto pelo
+   dono, 2026-07-29). */
+.tela-gestao-trafego :deep(#gt-painel-fila){flex:1;overflow-y:auto;padding:20px 28px;}
 /* LISTA, nao blocos (pedido do dono, 2026-07-29): uma linha por sugestao, largura
    inteira. Em grade de cartoes, 8 sugestoes viravam 8 caixas altas e a decisao
    ficava espalhada; em lista o olho desce por uma coluna so de "de -> para". */
@@ -2853,6 +2858,9 @@ Object.assign(window, {
 @media(max-width:768px){
   .tela-gestao-trafego :deep(.gt-body){padding:12px 14px;}
   .tela-gestao-trafego :deep(#gt-painel-regua){padding:12px 14px;}
+  /* No celular o respiro é menor, mas nunca zero: o dedo precisa de onde pegar
+     pra rolar sem encostar no botão da caixa. */
+  .tela-gestao-trafego :deep(#gt-painel-fila){padding:12px 14px;}
   .tela-gestao-trafego :deep(.gt-camp-inner){padding:11px 14px 9px;}
   .tela-gestao-trafego :deep(.gt-camp-row-ads){padding-left:14px;padding-right:14px;}
 }
