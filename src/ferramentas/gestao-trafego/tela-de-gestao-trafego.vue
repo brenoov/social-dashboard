@@ -133,6 +133,9 @@ import { montarFila, distribuirEntreConjuntos, mesclarSaude, DIAS_DE_SILENCIO } 
 // A leitura de SAÚDE (fadiga de audiência, criativo que não conecta) — volta a
 // ter lugar, agora dentro da Fila e grudada na sugestão do robô. Ver saude.js.
 import { lerSaude, categoriaDoObjetivo, contradiz } from './saude.js'
+// "Está rodando?" NÃO é effective_status === 'ACTIVE': a Meta mantém ACTIVE em
+// campanha que já chegou ao fim do período. Ver veiculacao.js.
+import { emVeiculacao } from './veiculacao.js'
 import { orcamentoEfetivoDaCampanha } from './orcamento-hierarquia.js'
 // Objetivo -> balde e "e de WhatsApp?" moram num modulo so porque o ROBO precisa
 // da mesma resposta que a tela (ver baldes.js).
@@ -728,7 +731,7 @@ async function _gtFilaBuscarNomes() {
   await Promise.all((_gtAccounts || []).filter((c) => c && c.ad_account_id).map(async (conta) => {
     const acc = _maCleanAccId(conta.ad_account_id);
     const [camps, sets, ins] = await Promise.all([
-      metaFetchAll(`/act_${acc}/campaigns`, { fields: 'id,name,effective_status,objective,daily_budget,lifetime_budget' }, conta.id).catch(() => []),
+      metaFetchAll(`/act_${acc}/campaigns`, { fields: 'id,name,effective_status,objective,daily_budget,lifetime_budget,stop_time' }, conta.id).catch(() => []),
       // destination_type/optimization_goal: o que a Meta AFIRMA sobre ser WhatsApp
       // (ver ehDeWhatsapp). Sem eles a saúde mede lead numa campanha que compra
       // conversa e acusa "nenhum resultado" onde houve mil.
@@ -778,9 +781,14 @@ async function _gtCarregarFila() {
     // envelhece. Sem cruzar com a Meta agora, a fila pedia decisão sobre
     // campanha encerrada: das 26 análises vencidas em 29/07, 12 eram assim.
     // Campanha que sumiu da conta também cai aqui (não está no mapa).
+    const agoraMs = Date.now();
     const viva = (i) => {
       const info = mapa.get(String(i.campaign_id));
-      return !!info && String(info.campanha.effective_status || '').toUpperCase() === 'ACTIVE';
+      // emVeiculacao olha TAMBÉM o stop_time. Só o effective_status deixava
+      // passar campanha encerrada: a "Vamos Brasillll" terminou em 05/07 e
+      // continuava na fila pedindo mudança de orçamento (achado do dono,
+      // 2026-07-29). Decidir verba de campanha que acabou não muda nada.
+      return !!info && emVeiculacao(info.campanha, agoraMs);
     };
     _gtFila.pendentes = _gtFila.pendentes.filter(viva);
     _gtFila.vencidas = _gtFila.vencidas.filter(viva);
@@ -805,7 +813,7 @@ async function _gtCarregarFila() {
     // SAÚDE de cada campanha viva, e o cruzamento com o que o robô propôs.
     const saudes = [];
     for (const [id, info] of mapa) {
-      if (String(info.campanha.effective_status || '').toUpperCase() !== 'ACTIVE') continue;
+      if (!emVeiculacao(info.campanha, agoraMs)) continue;
       if (!info.insight) continue;
       const i = info.insight;
       const wa = ehDeWhatsapp(info.conjuntos);
