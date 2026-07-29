@@ -233,3 +233,60 @@ test('sem saude nenhuma a fila passa intacta', () => {
   assert.deepEqual(mesclarSaude(f, []).pendentes.length, 1);
   assert.deepEqual(mesclarSaude(f, null).pendentes.length, 1);
 });
+
+// ── criativos sem tracao, agrupados na campanha (2026-07-29) ───────────────
+
+import { anexarCriativos } from './fila.js';
+
+const criativo = (extra) => ({
+  campaign_id: 'c1', ad_id: 'a1', nome: 'Criativo A', ctr: 0.12, gasto: 89,
+  porque: 'CTR crítico', analisado_em: dias(-1), ...extra,
+});
+
+test('os criativos GRUDAM na linha da campanha, nao viram linhas soltas', () => {
+  // 16 anuncios da mesma campanha nao sao 16 decisoes — sao uma: "esta campanha
+  // precisa de criativo novo".
+  const f = montarFila([analise()], [], AGORA);
+  const r = anexarCriativos(f, [criativo(), criativo({ ad_id: 'a2' }), criativo({ ad_id: 'a3' })], []);
+  assert.equal(r.pendentes.length, 1, 'continua uma linha');
+  assert.equal(r.pendentes[0].criativos.length, 3);
+});
+
+test('campanha SO com criativo fraco vira item proprio', () => {
+  // Senao a recomendacao sumiria — que e o erro que se esta corrigindo ao tirar
+  // o selo do cartao.
+  const f = montarFila([], [], AGORA);
+  const r = anexarCriativos(f, [criativo({ campaign_id: 'so-criativo', campaign_name: 'Dom Pedro' })], []);
+  assert.equal(r.pendentes.length, 1);
+  assert.equal(r.pendentes[0].veredito, 'criativos');
+  assert.equal(r.pendentes[0].budget_sugerido_centavos, null, 'nao e sobre verba');
+});
+
+test('decidir sobre CRIATIVOS nao responde a pergunta de ORCAMENTO', () => {
+  // A mesma campanha tem duas perguntas independentes. Sem separar por escopo,
+  // pausar os criativos calaria a sugestao de verba que ainda espera resposta.
+  const f = montarFila([analise()], [{ campaign_id: 'c1', decisao: 'aprovada', decidido_em: dias(0), escopo: 'criativos' }], AGORA);
+  assert.equal(f.pendentes.length, 1, 'a sugestao de orcamento continua de pe');
+});
+
+test('e o contrario tambem: decidir orcamento nao cala os criativos', () => {
+  const f = montarFila([analise()], [{ campaign_id: 'c1', decisao: 'aprovada', decidido_em: dias(0), escopo: 'orcamento' }], AGORA);
+  assert.equal(f.pendentes.length, 0, 'o orcamento foi respondido');
+  const r = anexarCriativos(f, [criativo()], [{ campaign_id: 'c1', decisao: 'aprovada', decidido_em: dias(0), escopo: 'orcamento' }]);
+  assert.equal(r.pendentes.length, 1, 'mas os criativos ainda perguntam');
+  assert.equal(r.pendentes[0].origem, 'criativos');
+});
+
+test('criativos ja respondidos somem ate o robo reanalisar', () => {
+  const f = montarFila([], [], AGORA);
+  const decisao = [{ campaign_id: 'c1', decisao: 'aprovada', decidido_em: dias(0), escopo: 'criativos' }];
+  assert.equal(anexarCriativos(f, [criativo({ analisado_em: dias(-1) })], decisao).pendentes.length, 0);
+  // analise NOVA (criativo novo ou reavaliacao) volta a perguntar
+  assert.equal(anexarCriativos(f, [criativo({ analisado_em: dias(1) })], decisao).pendentes.length, 1);
+});
+
+test('sem criativo nenhum a fila passa intacta', () => {
+  const f = montarFila([analise()], [], AGORA);
+  assert.equal(anexarCriativos(f, [], []).pendentes.length, 1);
+  assert.equal(anexarCriativos(f, null, null).pendentes[0].criativos, undefined);
+});
