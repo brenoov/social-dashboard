@@ -136,7 +136,6 @@ import { orcamentoEfetivoDaCampanha } from './orcamento-hierarquia.js'
 import { baldeDoObjetivo, ehDeWhatsapp } from './baldes.js'
 import { normalizarRegua, metaDoBalde, reguaDaConta, mesclarMetasDaConta } from './regua.js'
 import { quantidadesDoInsight, calcularPonderada } from './ponderada.js'
-import { decidirVeredito } from './veredito.js'
 // Alvo de cada tipo de campanha (custo por lead/conversa/venda/visita/mil
 // pessoas, ou por ponto no caso de engajamento) — ver alvos.js.
 import { alvoDoBalde, avaliarAlvo } from './alvos.js'
@@ -176,7 +175,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 //     de leitura REST já extraído para o miolo compartilhado (idêntico ao sb()
 //     do legado, legacy L3356, só troca currentSession por estado.currentSession);
 //     reaproveitado aqui em vez de copiado de novo (usado por
-//     _gtLoadConfig/_gtLoadBudgetIA/_gtLoadAdIA).
+//     _gtLoadConfig/_gtLoadAdIA).
 //   - estado.currentSession                      → substitui a global solta `currentSession`
 //     do legado, usada dentro de adTok()/metaFetch()/metaPost() (legacy L3358/8508/8570).
 //   - metaFetch, metaFetchAll, metaPost, adFetch, adTok, _maCleanAccId, _getActions,
@@ -200,7 +199,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 // exatamente como a produção atual. Por isso todo o cluster de funções GT
 // usadas em onclick="..." (no <template> acima) é exposto em window no fim
 // deste bloco. Conferido por grep: dentro do HTML gerado em runtime
-// (_renderGtCampaigns/_renderGtAds/_gtRecBanner/_buildGtDropdown/_gtConfirm)
+// (_renderGtCampaigns/_renderGtAds/_buildGtDropdown/_gtConfirm)
 // NENHUMA função é chamada por onclick="..." literal — todas usam
 // addEventListener ou atribuição direta a .onclick (closures em escopo de
 // módulo), então não precisam ser expostas em window.
@@ -517,14 +516,6 @@ const GT_BALDE_PADRAO={
   padrao:['ctr','cpc','gasto','alcance'],
 };
 function _gtBalde(objective){ return baldeDoObjetivo(objective); }
-// Fragmento "por X" pra frase do veredito (ver veredito.js porqueDaPonderada).
-// Vem do MESMO rótulo que a régua já mostra (ALVOS[balde].rotulo, ex.: "Custo
-// por conversa iniciada"), só sem o prefixo "Custo " — evita duplicar a unidade
-// de cada objetivo em dois lugares (I3 do review final, 2026-07-28).
-function _gtRotuloPorUnidade(alvoObj){
-  if(!alvoObj || !alvoObj.rotulo) return 'por ponto';
-  return alvoObj.rotulo.replace(/^Custo\s+/i, '');
-}
 function _gtMetricValue(key,row){ const m=GT_METRIC_CATALOG[key]; return m?m.compute(row):null; }
 let _gtConfig={};
 let _gtConfigLoaded=false;
@@ -534,14 +525,6 @@ async function _gtLoadConfig(){
     _gtConfig={};
     (rows||[]).forEach(r=>{ if(Array.isArray(r.metricas)) _gtConfig[r.balde]=r.metricas; });
   }catch(e){ _gtConfig={}; }
-}
-let _gtBudgetIA={};
-async function _gtLoadBudgetIA(){
-  try{
-    const rows=await sb('gt_budget_analises?select=campaign_id,budget_sugerido_centavos,veredito,justificativa,impacto_estimado,gerado_em,budget_atual_centavos');
-    _gtBudgetIA={};
-    (rows||[]).forEach(r=>{ if(r&&r.campaign_id) _gtBudgetIA[r.campaign_id]=r; });
-  }catch(e){ _gtBudgetIA={}; }
 }
 let _gtAdIA={};
 async function _gtLoadAdIA(){
@@ -1132,7 +1115,6 @@ async function loadGtData(){
   try{
     if(!_gtConfigLoaded){ await _gtLoadConfig(); _gtConfigLoaded=true; }
     await _gtCarregarRegua();
-    await _gtLoadBudgetIA();
     await _gtLoadAdIA();
     await _gtCarregarObjetivos();
     const acc=_gtCurAcc;
@@ -1408,46 +1390,6 @@ function _gtRegraAnuncio(ad){
   if(ctr<0.5&&spend>30)return{veredito:'pausar',justificativa:`CTR ${_maFmtPct(ctr)} baixo — substituir ou pausar o criativo.`};
   return{veredito:'manter',justificativa:`CTR ${_maFmtPct(ctr)} · ${_maFmtR(spend)}.`};
 }
-// Faixa de recomendação da IA (estrela do cartão). Trata todos os estados.
-function _gtRecBanner(iaRow,daily,encerrada,status){
-  const dfmt=daily!=null?_maFmtR(daily):null;
-  if(!iaRow){
-    return `<div class="gt-rec-banner neutral"><div class="gt-rec-main"><div class="gt-rec-head"><span class="gt-rec-verdict">Análise em breve</span></div><div class="gt-rec-just">O robô avalia as campanhas toda semana.</div></div></div>`;
-  }
-  const quando=iaRow.gerado_em?new Date(iaRow.gerado_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}):'';
-  const just=_gtEsc(iaRow.justificativa||'');
-  const ver=iaRow.veredito||'';
-  // Pausada/concluída/arquivada: faixa neutra com a última análise apagada, sem ação.
-  if(encerrada||status!=='ACTIVE'){
-    return `<div class="gt-rec-banner neutral"><div class="gt-rec-main"><div class="gt-rec-head"><span class="gt-rec-tag">✦ IA</span>${_gtAjudaBtn('veredito')}</div><div class="gt-rec-just">${just}</div></div></div>`;
-  }
-  // 'otimizar' é caro por ponto: é aviso, não boa notícia — entra na mesma
-  // família visual (laranja) que 'reduzir', nunca no verde de 'positivo'.
-  const varClass=ver==='pausar'?'pausar':(ver==='reduzir'||ver==='otimizar')?'reduzir':'positivo';
-  const sug=iaRow.budget_sugerido_centavos!=null?_maFmtR(iaRow.budget_sugerido_centavos/100):null;
-  let action='';
-  if(ver==='escalar'||ver==='reduzir'){
-    const fromTo=(dfmt&&sug)?`<span class="gt-rec-from">${dfmt}/dia</span><span class="gt-rec-arrow">→</span><span class="gt-rec-to">${sug}<small>/dia</small></span>`:'';
-    action=`<div class="gt-rec-action">${fromTo}${sug?`<button data-gt-aplicar="1" class="gt-act-btn primary">Aplicar ${sug}/dia</button>${_gtAjudaBtn('orcamento_sugerido')}`:''}</div>`;
-  }else if(ver==='manter'){
-    action=`<div class="gt-rec-action"><span class="gt-rec-keep">Manter ${dfmt?dfmt+'/dia':'orçamento atual'}</span></div>`;
-  }else if(ver==='otimizar'){
-    // Sem número sugerido (nunca se inventa um) e sem ação automática — mas
-    // não fica muda feito 'sem-dados': avisa que é o dono quem revisa.
-    action=`<div class="gt-rec-action"><span class="gt-rec-keep">Sem orçamento sugerido — revisar manualmente</span></div>`;
-  }else if(ver==='pausar'){
-    action=`<div class="gt-rec-action"><button data-gt-pausar="1" class="gt-act-btn danger">⏸ Pausar campanha</button></div>`;
-  }
-  return `<div class="gt-rec-banner ${varClass}">
-    <div class="gt-rec-main">
-      <div class="gt-rec-head"><span class="gt-rec-verdict">${_gtEsc(ver)}</span><span class="gt-rec-tag">✦ IA</span>${_gtAjudaBtn('veredito')}</div>
-      <div class="gt-rec-just">${just}</div>
-      ${iaRow.impacto_estimado?`<div class="gt-rec-impact"><b>Impacto:</b> ${_gtEsc(iaRow.impacto_estimado)}</div>`:''}
-    </div>
-    ${action}
-  </div>`;
-}
-
 // Controle de edição manual de orçamento — serve tanto pra CAMPANHA (CBO)
 // quanto pra CONJUNTO de anúncios (ABO). Quem decide se é editável é o módulo
 // puro (podeEditarOrcamentoDa*); aqui só se desenha o veredito dele.
@@ -1491,28 +1433,13 @@ function _gtWireBudgetManual(el,alvo){
       _d:`${alvo.nivelNome} "${_gtEsc(alvo.nome)}":<br><b>${antes}</b> → <b>${_maFmtR(v)}/dia</b>`},bMan,el);
   });
 }
-function _gtWireBudgetControls(el,ins,camp,iaRow,permCamp){
+// Só a edição MANUAL do orçamento. Os botões "Aplicar R$ X/dia" e "Pausar
+// campanha" da faixa de recomendação saíram junto com a faixa (2026-07-29): com
+// a fila existindo, eles eram um segundo caminho pra verba que não deixava
+// registro de decisão. O que sobra aqui é o dono agindo por conta própria.
+function _gtWireBudgetControls(el,ins,camp,permCamp){
   if(!el)return;
-  const nm=_gtEsc(ins.campaign_name||camp?.name||'a campanha');
   const daily=camp?.daily_budget?parseFloat(camp.daily_budget)/100:null;
-  const bAplicar=el.querySelector('[data-gt-aplicar]');
-  // Sendo ABO, o orçamento não é da campanha: aplicar a sugestão da IA aqui
-  // levaria recusa da Meta. Some com o botão em vez de oferecer um caminho
-  // que não funciona — a nota abaixo do cabeçalho manda pro conjunto certo.
-  if(bAplicar&&permCamp&&!permCamp.editavel){bAplicar.remove();}
-  else if(bAplicar&&iaRow&&iaRow.budget_sugerido_centavos!=null){
-    bAplicar.addEventListener('click',ev=>{ev.stopPropagation();
-      const novo=iaRow.budget_sugerido_centavos;
-      _gtApplyAction({type:'update_budget',id:ins.campaign_id,budget:novo,_t:'Aplicar budget sugerido?',_d:`"${nm}": ${daily!=null?_maFmtR(daily)+'/dia':'orçamento atual'} → ${_maFmtR(novo/100)}/dia (sugestão da IA).`},bAplicar,el);
-    });
-  }
-  const bPausar=el.querySelector('[data-gt-pausar]');
-  if(bPausar){
-    bPausar.addEventListener('click',ev=>{ev.stopPropagation();
-      _gtApplyAction({type:'pause_campaign',id:ins.campaign_id,_t:'Pausar campanha?',_d:`"${nm}" será PAUSADA na Meta agora.`},bPausar,el);
-    });
-  }
-  // Edição manual da campanha: mesma mecânica do conjunto (helper compartilhado).
   _gtWireBudgetManual(el,{id:ins.campaign_id,nome:ins.campaign_name||camp?.name||'a campanha',atualReais:daily,nivelLbl:'da campanha',nivelNome:'Campanha'});
 }
 // ── Selo de OBJETIVO POR INTERAÇÃO (Fase 3) ─────────────────────────────────
@@ -1866,38 +1793,20 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       const usaLimiaresDeEngajamento = (alvo && alvo.metrica === 'ponderada') || !!objDeclarado;
       const aval = avaliarAlvo({ custo: custoAlvo, meta: metaAlvo, limiares: usaLimiaresDeEngajamento ? reguaAtiva.limiares : reguaAtiva.limiares_resultado });
 
-      // VEREDITO ÚNICO (ver veredito.js): saúde veta > Opus > ponderada.
-      // _gtRegraCampanha continua sendo a leitura de SAÚDE (frequência, CTR).
-      const saudePnd = (!encerrada && status === 'ACTIVE') ? _gtRegraCampanha(camp, ins, insights) : null;
-      const opusPnd = _gtBudgetIA[ins.campaign_id] || null;
-      const decisao = decidirVeredito({
-        saude: saudePnd,
-        opus: opusPnd,
-        // O veredito agora vem do ALVO do objetivo da campanha (custo por lead,
-        // por conversa, por venda, por visita, por mil pessoas — ou por ponto,
-        // no caso de engajamento), não mais sempre da ponderada. decidirVeredito
-        // não muda: ele só lê faixa/custoPorPonto/meta, quaisquer que sejam.
-        // `rotulo` é novo (I3 do review final, 2026-07-28): a unidade certa pra
-        // frase do veredito ("Caro por conversa iniciada", não sempre "por
-        // ponto") — vem do mesmo ALVOS[balde].rotulo que a régua já usa.
-        ponderada: { faixa: aval.faixa, custoPorPonto: custoAlvo, meta: metaAlvo, rotulo: _gtRotuloPorUnidade(rotuloAlvo) },
-      });
+      // ATENÇÃO — PENDÊNCIA CONHECIDA (2026-07-29): a leitura de SAÚDE
+      // (frequência alta = fadiga de audiência, CTR muito baixo) ficou SEM
+      // LUGAR NA TELA. Ela aparecia na faixa de recomendação, que saiu daqui
+      // quando o julgamento migrou pra Fila; e a Fila hoje só lista o que o robô
+      // propõe sobre ORÇAMENTO. `_gtRegraCampanha` e `veredito.js` seguem no
+      // repo, com testes, esperando destino — a decisão pendente é se a saúde
+      // vira item de fila (coerente com "todo julgamento mora na fila") ou volta
+      // como aviso no cartão. NÃO apagar os dois antes disso.
 
-      // A faixa continua recebendo o formato que ela já espera hoje.
-      // O orçamento sugerido só pode vir de quem REALMENTE decidiu o veredito
-      // (decisao.origem) — nunca da fonte que perdeu a disputa. Se foi a
-      // ponderada ou a saúde que decidiram, não existe número confiável pra
-      // sugerir (a ponderada nunca inventa um valor multiplicando o atual; a
-      // saúde só decide no veto de pausa ou emprestando o veredito quando não
-      // há mais nada — nenhum dos dois casos tem orçamento pra aplicar).
-      const iaRow = decisao.veredito === 'sem-dados' ? null : {
-        veredito: decisao.veredito,
-        justificativa: decisao.porque,
-        budget_sugerido_centavos: decisao.origem === 'opus' ? ((opusPnd && opusPnd.budget_sugerido_centavos) || null) : null,
-        // "Impacto:" no cartão também só faz sentido quando foi o Opus quem decidiu
-        // (é a estimativa da análise semanal dele) — mesma regra do budget acima.
-        impacto_estimado: decisao.origem === 'opus' ? ((opusPnd && opusPnd.impacto_estimado) || null) : null,
-      };
+      // O VEREDITO SAIU DAQUI. Quem decide o que fazer com a campanha é a aba
+      // Fila, que junta saúde, robô e régua num lugar só e registra a decisão.
+      // O cartão ficou com o que ele sabe dizer sem julgar: os números.
+      // A leitura de saúde (_gtRegraCampanha) e a análise do robô continuam
+      // existindo — a fila é que as consome agora.
       // Custo por ponto aparece SEMPRE, independente de quem deu o veredito:
       // é informação, não decisão.
       if (pnd.custoPorPonto != null) {
@@ -1930,11 +1839,13 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
           metrics.appendChild(qualEl);
         }
       }
-      // 1) Faixa de recomendação (estrela) — no TOPO, antes do cabeçalho.
-      const bannerWrap=document.createElement('div');
-      bannerWrap.innerHTML=_gtRecBanner(iaRow,daily,encerrada,status);
-      if(bannerWrap.firstElementChild)inner.appendChild(bannerWrap.firstElementChild);
-      // 2) Cabeçalho de apoio (clicável p/ expandir anúncios).
+      // 1) TODO JULGAMENTO MORA NA FILA (decisão do dono, 2026-07-29). O cartão
+      // aqui é a leitura da campanha: números e orçamento. Antes tinha uma faixa
+      // de recomendação com botões "Aplicar R$ X/dia" e "Pausar campanha" que
+      // mexiam na Meta na hora — com a fila existindo, isso virava um SEGUNDO
+      // caminho pra verba, e o que passa por ele não vira registro de decisão.
+      // Uma aprovação que dá pra contornar não é aprovação.
+      // Cabeçalho de apoio (clicável p/ expandir anúncios).
       inner.appendChild(top);
       // 3) Orçamento da campanha. Só oferece edição quando o orçamento é MESMO
       // da campanha (CBO). Sendo ABO, mostra por que não dá e manda pro
@@ -1946,14 +1857,16 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
         beWrap.innerHTML=_gtBudgetEditHtml(permCamp,orcamentoDe(camp));
         if(beWrap.firstElementChild)inner.appendChild(beWrap.firstElementChild);
       }
-      // 4) Rodapé: pausar/reativar manual. Pula o "Pausar" se a faixa já mostra Pausar (evita botão duplicado).
-      const bannerHasPause=!!iaRow&&iaRow.veredito==='pausar'&&!encerrada&&status==='ACTIVE';
-      if(!encerrada&&!bannerHasPause){
+      // Rodapé: pausar/reativar na MÃO. Continua aqui de propósito — é o dono
+      // agindo por conta própria, não uma sugestão sendo aprovada, mesma razão
+      // pela qual o "✎ editar" do orçamento ficou. A fila existe pra filtrar o
+      // que o robô propõe. (Não há mais faixa pra duplicar o botão de pausar.)
+      if(!encerrada){
         const tgl=_gtManualToggleBtn('campaign',ins.campaign_id,status,ins.campaign_name||camp?.name);
         if(tgl){const actBar=document.createElement('div');actBar.className='gt-action-row';actBar.appendChild(tgl);inner.appendChild(actBar);}
       }
       // 5) Liga os controles (aplicar sugerido, pausar da faixa, editar manual).
-      _gtWireBudgetControls(inner,ins,camp,iaRow,permCamp);
+      _gtWireBudgetControls(inner,ins,camp,permCamp);
       // Painel dos CONJUNTOS (que por sua vez trazem os anúncios dentro).
       const adsPane=document.createElement('div');adsPane.className='gt-camp-row-ads';
       // H1 do review (2026-07-28): `temMensagem` desce até o anúncio em vez de
@@ -2365,7 +2278,7 @@ onUnmounted(() => {
 // Cluster de funções chamadas via onclick="..." literal no <template> acima.
 // Conferido por grep (ver comentário no topo do bloco de script): nenhuma
 // outra função _gt*/setGt*/toggleGt* é chamada por onclick="..." dentro do
-// HTML gerado em runtime (_renderGtCampaigns/_renderGtAds/_gtRecBanner/
+// HTML gerado em runtime (_renderGtCampaigns/_renderGtAds/
 // _buildGtDropdown usam addEventListener ou atribuição direta a .onclick).
 Object.assign(window, {
   setGtPeriod,
@@ -2779,31 +2692,6 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-act-btn.primary:hover){background:var(--accent);color:#fff;}
 .tela-gestao-trafego :deep(.gt-act-btn:disabled){opacity:.5;cursor:not-allowed;pointer-events:none;}
 /* ===== Redesign direção A ===== */
-/* Faixa de recomendação (estrela do cartão) */
-.tela-gestao-trafego :deep(.gt-rec-banner){display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:11px 14px;margin:2px 0 10px;border-radius:10px;border-left:5px solid var(--border);background:var(--surface2);}
-.tela-gestao-trafego :deep(.gt-rec-banner.positivo){border-left-color:var(--green);background:color-mix(in srgb,var(--green) 9%,transparent);}
-.tela-gestao-trafego :deep(.gt-rec-banner.reduzir){border-left-color:var(--orange);background:color-mix(in srgb,var(--orange) 9%,transparent);}
-.tela-gestao-trafego :deep(.gt-rec-banner.pausar){border-left-color:var(--red);background:color-mix(in srgb,var(--red) 9%,transparent);}
-.tela-gestao-trafego :deep(.gt-rec-banner.neutral){border-left-color:var(--border);background:var(--surface2);}
-.tela-gestao-trafego :deep(.gt-rec-main){flex:1;min-width:200px;}
-.tela-gestao-trafego :deep(.gt-rec-head){display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-.tela-gestao-trafego :deep(.gt-rec-verdict){font-family:var(--fonte-principal);font-weight:600;font-size:calc(17px*var(--gt-fs,1.3));text-transform:uppercase;letter-spacing:.02em;line-height:1;}
-.tela-gestao-trafego :deep(.gt-rec-banner.positivo .gt-rec-verdict){color:var(--green);}
-.tela-gestao-trafego :deep(.gt-rec-banner.reduzir .gt-rec-verdict){color:var(--orange);}
-.tela-gestao-trafego :deep(.gt-rec-banner.pausar .gt-rec-verdict){color:var(--red);}
-.tela-gestao-trafego :deep(.gt-rec-banner.neutral .gt-rec-verdict){color:var(--muted);font-size:calc(14px*var(--gt-fs,1.3));}
-.tela-gestao-trafego :deep(.gt-rec-tag){font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);}
-.tela-gestao-trafego :deep(.gt-rec-just){font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));color:var(--text);margin-top:3px;line-height:1.4;}
-.tela-gestao-trafego :deep(.gt-rec-banner.neutral .gt-rec-just){color:var(--muted);}
-.tela-gestao-trafego :deep(.gt-rec-impact){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);margin-top:2px;}
-.tela-gestao-trafego :deep(.gt-rec-action){display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0;}
-.tela-gestao-trafego :deep(.gt-rec-from){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));color:var(--muted);text-decoration:line-through;}
-.tela-gestao-trafego :deep(.gt-rec-arrow){color:var(--muted);}
-.tela-gestao-trafego :deep(.gt-rec-to){font-family:var(--fonte-dados);font-size:calc(22px*var(--gt-fs,1.3));font-weight:600;color:var(--green);line-height:1;}
-.tela-gestao-trafego :deep(.gt-rec-to small){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:500;color:var(--muted);}
-.tela-gestao-trafego :deep(.gt-rec-banner.reduzir .gt-rec-to){color:var(--orange);}
-.tela-gestao-trafego :deep(.gt-rec-keep){font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));font-weight:600;color:var(--green);}
-.tela-gestao-trafego :deep(.gt-rec-banner.reduzir .gt-rec-keep){color:var(--orange);}
 /* Edição manual de orçamento (sempre disponível) */
 .tela-gestao-trafego :deep(.gt-budget-edit){display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));color:var(--muted);}
 .tela-gestao-trafego :deep(.gt-be-cur b){color:var(--text);font-weight:700;}
@@ -2891,8 +2779,6 @@ Object.assign(window, {
   /* CORPO DOS CARDS no celular: botões QUEBRAM o texto (não estouram) + busca ocupa a largura */
   .tela-gestao-trafego :deep(.gt-act-btn){white-space:normal;max-width:100%;height:auto;text-align:center;}
   .tela-gestao-trafego :deep(.gt-camp-hdr input){width:100% !important;flex:1 1 100%;box-sizing:border-box;}
-  .tela-gestao-trafego :deep(.gt-rec-banner){align-items:flex-start;}
-  .tela-gestao-trafego :deep(.gt-rec-banner .gt-act-btn){width:100%;justify-content:center;}
   .tela-gestao-trafego :deep(.gt-action-row){width:100%;}
   .tela-gestao-trafego :deep(.gt-action-row .gt-act-btn){flex:1 1 auto;}
   /* nada dentro do card pode empurrar a largura pra fora */
