@@ -157,6 +157,10 @@ import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/c
 import { estado, PERMISSION_TREE, RECURSOS } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { ACOES_MATRIZ, agruparRecursos, contarAcoes, estadoDaSelecao, marcarTudo } from './agrupar-permissoes.js'
 import { derivarFeatures } from '../../compartilhado/derivar-features.js'
+// Quais notificações existem e qual o padrão de cada uma. A lista mora junto da
+// Edge que envia (supabase/functions/_shared) pra não haver duas verdades sobre
+// quem recebe o quê — a tela LÊ dela em vez de repetir os nomes.
+import { TIPOS_DE_NOTIFICACAO, querReceber } from '../../../supabase/functions/_shared/notificacoes.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 import { gerarSenhaForte } from './senha.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
@@ -457,7 +461,17 @@ async function openPermModal(u) {
     permissions: JSON.parse(JSON.stringify(u.permissions || {})),
     allowed_accounts: u.allowed_accounts ?? null,
     is_superadmin: !!u.is_superadmin,
+    // { vendas: true, saldo: false } — o estado resolvido (preferência salva ou
+    // o padrão do tipo). Só o que DIFERE do padrão é gravado, ver savePermissions.
+    notificacoes: {},
   }
+  // As preferências vêm por usuário; sem linha salva vale o padrão do tipo.
+  let prefs = []
+  try {
+    const r = await adFetch(`push_preferencias?select=user_id,tipo,ativo&user_id=eq.${u.id}`)
+    prefs = await r.json()
+  } catch { prefs = [] }
+  for (const t of TIPOS_DE_NOTIFICACAO) _permState.notificacoes[t.chave] = querReceber(prefs, u.id, t.chave)
   const sub = document.getElementById('perm-modal-user'); sub.textContent = ''
   const strong = document.createElement('strong'); strong.textContent = u.name || u.email
   sub.appendChild(strong); sub.appendChild(document.createTextNode(' · ' + u.email))
@@ -494,6 +508,41 @@ function _mkMarcarTudo(texto, recursos, u) {
   return w
 }
 
+// Um interruptor por tipo de notificação, com a descrição do que chega e
+// quando. Sem a descrição, "Saldo" sozinho não diz se avisa todo dia ou só
+// quando acaba — e quem decide ligar precisa saber o que está ligando.
+function _mkBlocoNotificacoes() {
+  const card = document.createElement('section'); card.className = 'perm-card'
+  const hdr = document.createElement('div'); hdr.className = 'perm-card-hdr'
+  const t = document.createElement('span'); t.className = 'perm-card-titulo'; t.textContent = 'Notificações no celular'
+  const n = Object.values(_permState.notificacoes).filter(Boolean).length
+  const c = document.createElement('span'); c.className = 'perm-card-contagem'
+  c.textContent = `${n} de ${TIPOS_DE_NOTIFICACAO.length}`
+  hdr.appendChild(t); hdr.appendChild(c); card.appendChild(hdr)
+
+  const lista = document.createElement('div'); lista.className = 'perm-notif-lista'
+  for (const tipo of TIPOS_DE_NOTIFICACAO) {
+    const linha = document.createElement('label'); linha.className = 'perm-notif'
+    const cb = document.createElement('input'); cb.type = 'checkbox'
+    cb.checked = !!_permState.notificacoes[tipo.chave]
+    cb.addEventListener('change', () => {
+      _permState.notificacoes[tipo.chave] = cb.checked
+      c.textContent = `${Object.values(_permState.notificacoes).filter(Boolean).length} de ${TIPOS_DE_NOTIFICACAO.length}`
+    })
+    const txt = document.createElement('div'); txt.className = 'perm-notif-txt'
+    const rot = document.createElement('span'); rot.className = 'perm-notif-rot'; rot.textContent = tipo.rotulo
+    const des = document.createElement('span'); des.className = 'perm-notif-des'; des.textContent = tipo.descricao
+    txt.appendChild(rot); txt.appendChild(des)
+    linha.appendChild(cb); linha.appendChild(txt)
+    lista.appendChild(linha)
+  }
+  card.appendChild(lista)
+  const nota = document.createElement('div'); nota.className = 'perm-notif-nota'
+  nota.textContent = 'A pessoa só recebe se também tiver autorizado as notificações no aparelho dela.'
+  card.appendChild(nota)
+  return card
+}
+
 function _renderPermBody(u) {
   const body = document.getElementById('perm-modal-body'); body.replaceChildren()
   // 1) Super-admin
@@ -502,6 +551,10 @@ function _renderPermBody(u) {
   saCb.addEventListener('change', () => { _permState.is_superadmin = saCb.checked; _renderPermBody(u) })
   const saTxt = document.createElement('span'); saTxt.textContent = 'Super-admin (vê tudo · gerencia permissões)'; saTxt.style.cssText = 'font-weight:700;font-size:13px'
   saRow.appendChild(saCb); saRow.appendChild(saTxt); body.appendChild(saRow)
+  // 1.5) NOTIFICAÇÕES — antes do desvio de super-admin de propósito: acesso
+  // total não quer dizer "recebe todo aviso no celular". Super-admin também
+  // escolhe o que chega.
+  body.appendChild(_mkBlocoNotificacoes())
   if (_permState.is_superadmin) {
     const info = document.createElement('div'); info.textContent = 'Super-admin tem acesso total — permissões e perfis não se aplicam.'; info.style.cssText = 'font-size:12px;color:var(--muted);padding:6px 0'
     body.appendChild(info); return
@@ -647,6 +700,24 @@ async function savePermissions() {
     method: 'PATCH',
     body: JSON.stringify(payload),
   })
+
+  // NOTIFICAÇÕES: grava uma linha por tipo com o estado escolhido. Poderia
+  // gravar só o que difere do padrão, mas aí "ligado por escolha" e "ligado
+  // porque é o padrão" viram a mesma coisa no banco — e se o padrão mudar
+  // amanhã, a escolha de quem já decidiu seria silenciosamente revertida.
+  const linhas = Object.entries(_permState.notificacoes).map(([tipo, ativo]) => ({
+    user_id: _permState.userId, tipo, ativo: !!ativo,
+    alterado_em: new Date().toISOString(), alterado_por: estado.userId,
+  }))
+  if (linhas.length) {
+    // upsert pela chave (user_id, tipo): regravar é o caso normal aqui.
+    await adFetch('push_preferencias?on_conflict=user_id,tipo', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates' },
+      body: JSON.stringify(linhas),
+    })
+  }
+
   btn.disabled = false; btn.textContent = 'Salvar'
   adminToast('Permissões atualizadas')
   closePermModal()
@@ -1334,6 +1405,20 @@ Object.assign(window, {
 .tela-admin :deep(.perm-card-hdr){display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border-bottom:1px solid var(--border);}
 .tela-admin :deep(.perm-card-titulo){font-family:var(--fonte-principal);font-size:12px;font-weight:700;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .tela-admin :deep(.perm-card-contagem){font-family:var(--fonte-principal);font-size:10px;color:var(--muted);flex-shrink:0;font-variant-numeric:tabular-nums;}
+/* NOTIFICAÇÃO NÃO É COLUNA DA MATRIZ. A matriz é recurso × ação (ver, editar,
+   criar...) e vale pra toda ferramenta; "quer receber aviso no celular" não é
+   uma ação sobre um recurso, e como coluna deixaria a célula vazia em quase
+   todas as linhas. Por isso é um card próprio, com o texto do que chega. */
+.tela-admin :deep(.perm-notif-lista){display:flex;flex-direction:column;gap:2px;padding:4px 0;}
+.tela-admin :deep(.perm-notif){display:flex;align-items:flex-start;gap:10px;padding:9px 12px;cursor:pointer;border-radius:8px;}
+.tela-admin :deep(.perm-notif:hover){background:var(--surface2);}
+.tela-admin :deep(.perm-notif input){margin-top:2px;flex-shrink:0;}
+.tela-admin :deep(.perm-notif-txt){display:flex;flex-direction:column;gap:2px;}
+.tela-admin :deep(.perm-notif-rot){font-family:var(--fonte-principal);font-size:12.5px;font-weight:600;color:var(--text);}
+/* A descrição existe porque "Saldo" sozinho não diz se avisa todo dia ou só
+   quando acaba — quem liga precisa saber o que está ligando. */
+.tela-admin :deep(.perm-notif-des){font-family:var(--fonte-principal);font-size:11px;color:var(--muted);line-height:1.45;}
+.tela-admin :deep(.perm-notif-nota){font-family:var(--fonte-principal);font-size:10.5px;color:var(--muted);padding:2px 12px 8px;font-style:italic;}
 
 /* A rolagem horizontal vive DENTRO do card: no celular a grade desliza aqui e
    o modal nunca ganha barra horizontal. */
