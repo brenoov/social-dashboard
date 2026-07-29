@@ -148,12 +148,27 @@ export function montarTargeting(publico, original) {
 }
 
 const GENERO_NOME = { 1: 'homens', 2: 'mulheres' };
-const listaNomes = (arr) => arr.map((x) => x.nome || x.name || '').filter(Boolean);
+
+// Formata nome para display: mostra "sem nome" se vazio, nunca codigo sozinho.
+function nomePara(x, chave) {
+  const nome = x.nome || x.name;
+  if (nome) return nome;
+  return `sem nome (${chave})`;
+}
 
 // Compara duas listas por chave e devolve "+entrou, −saiu" com NOMES.
 // Código de cidade e id de interesse não significam nada para o dono.
+// Null ou sem chave/id é saltado — nunca quebra.
 function diffLista(antes, depois, chaveDe, rotulo) {
-  const mapa = (arr) => new Map(arr.map((x) => [String(chaveDe(x)), x.nome || x.name || String(chaveDe(x))]));
+  const mapa = (arr) => new Map(
+    (arr || [])
+      .filter((x) => x != null && chaveDe(x) != null)
+      .map((x) => {
+        const chave = String(chaveDe(x));
+        const nome = nomePara(x, chave);
+        return [chave, nome];
+      })
+  );
   const a = mapa(antes), d = mapa(depois);
   const entrou = [...d].filter(([k]) => !a.has(k)).map(([, n]) => '+' + n);
   const saiu = [...a].filter(([k]) => !d.has(k)).map(([, n]) => '−' + n);
@@ -171,13 +186,18 @@ export function resumoDasMudancas(antes, depois) {
   const cid = diffLista(a.cidades, d.cidades, (x) => x.key, 'Cidades');
   if (cid) linhas.push(cid);
 
-  // Raio muda sem a cidade entrar ou sair — precisa de comparação própria.
-  const raioAntes = new Map(a.cidades.map((c) => [c.key, c]));
-  for (const c of d.cidades) {
+  // Raio ou unidade mudam sem a cidade entrar ou sair — precisa de comparação própria.
+  const raioAntes = new Map((a.cidades || []).filter((c) => c != null && c.key != null).map((c) => [c.key, c]));
+  for (const c of (d.cidades || [])) {
+    if (c == null || c.key == null) continue;
     const ant = raioAntes.get(c.key);
-    if (ant && Number(ant.raio) !== Number(c.raio)) {
-      const un = c.unidade === 'mile' ? 'mi' : 'km';
-      linhas.push(`Raio de ${c.nome || c.key}: ${ant.raio || 'cidade inteira'} → ${c.raio ? c.raio + ' ' + un : 'cidade inteira'}`);
+    if (ant && (Number(ant.raio) !== Number(c.raio) || ant.unidade !== c.unidade)) {
+      const unAnt = ant.unidade === 'mile' ? 'mi' : 'km';
+      const unNova = c.unidade === 'mile' ? 'mi' : 'km';
+      const valAnt = ant.raio ? `${ant.raio} ${unAnt}` : 'cidade inteira';
+      const valNova = c.raio ? `${c.raio} ${unNova}` : 'cidade inteira';
+      const nomeCidade = c.nome || c.key;
+      linhas.push(`Raio de ${nomeCidade}: ${valAnt} → ${valNova}`);
     }
   }
 

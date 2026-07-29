@@ -347,3 +347,41 @@ test('toda frase e texto legivel, sem objeto vazando', () => {
     assert.ok(!frase.includes('[object'), 'objeto vazou pra tela: ' + frase);
   }
 });
+
+test('null ou entrada sem key/id nao quebra, entrada valida sobrevive', () => {
+  const antes = lerPublico(ALVO_META);
+  const depois = { ...antes, cidades: [null, { key: '1058', nome: 'Campinas', raio: 30, unidade: 'kilometer' }, null] };
+  const r = resumoDasMudancas(antes, depois);
+  assert.ok(r.some(linha => linha.includes('Campinas')), 'entrada válida sobrevive');
+  assert.ok(!r.some(linha => linha.includes('[object')), 'nenhuma entrada null quebra a saída');
+});
+
+test('interesse/publico sem nome mostra "sem nome" + codigo, nunca codigo sozinho', () => {
+  const antes = lerPublico(ALVO_META);
+  const depois = { ...antes, interesses: [{ id: '999', name: '' }] };
+  const r = resumoDasMudancas(antes, depois).join(' | ');
+  assert.match(r, /sem nome.*999|interesse.*sem nome/, 'deve conter "sem nome" e o código');
+  assert.ok(!r.match(/^999$|Interesses: \+999/), 'nunca mostra codigo sozinho');
+});
+
+test('cidade sem nome mostra "sem nome" + codigo, nao mostra codigo sozinho', () => {
+  const antes = lerPublico(ALVO_META);
+  const depois = { ...antes, cidades: [{ key: '777', nome: '', raio: 0, unidade: 'kilometer' }] };
+  const r = resumoDasMudancas(antes, depois).join(' | ');
+  assert.match(r, /sem nome.*777|cidade.*sem nome/, 'deve conter "sem nome" e o código');
+});
+
+test('publico personalizado sem nome mostra "sem nome" + codigo', () => {
+  const antes = lerPublico(ALVO_META);
+  const depois = { ...antes, incluir: [{ id: 'aud_vazio', name: '' }] };
+  const r = resumoDasMudancas(antes, depois).join(' | ');
+  assert.match(r, /sem nome.*aud_vazio|público.*sem nome/, 'deve conter "sem nome" e o id');
+});
+
+test('mudanca de unidade (kilometer <-> mile) no mesmo raio e relatada', () => {
+  const antes = lerPublico(ALVO_META);
+  const depois = { ...antes, cidades: [{ key: '1058', nome: 'Campinas', raio: 25, unidade: 'mile' }] };
+  const r = resumoDasMudancas(antes, depois).join(' | ');
+  assert.match(r, /Raio de Campinas/, 'deve mencionar a cidade');
+  assert.match(r, /25\s*km.*mi|mi.*km/, 'deve mostrar ambas as unidades');
+});
