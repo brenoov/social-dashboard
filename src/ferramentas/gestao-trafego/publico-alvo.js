@@ -146,3 +146,62 @@ export function montarTargeting(publico, original) {
 
   return { targeting: t, ajustes };
 }
+
+const GENERO_NOME = { 1: 'homens', 2: 'mulheres' };
+const listaNomes = (arr) => arr.map((x) => x.nome || x.name || '').filter(Boolean);
+
+// Compara duas listas por chave e devolve "+entrou, −saiu" com NOMES.
+// Código de cidade e id de interesse não significam nada para o dono.
+function diffLista(antes, depois, chaveDe, rotulo) {
+  const mapa = (arr) => new Map(arr.map((x) => [String(chaveDe(x)), x.nome || x.name || String(chaveDe(x))]));
+  const a = mapa(antes), d = mapa(depois);
+  const entrou = [...d].filter(([k]) => !a.has(k)).map(([, n]) => '+' + n);
+  const saiu = [...a].filter(([k]) => !d.has(k)).map(([, n]) => '−' + n);
+  if (!entrou.length && !saiu.length) return null;
+  return rotulo + ': ' + [...entrou, ...saiu].join(', ');
+}
+
+// Lista em português do que mudou entre dois públicos. É o que o dono lê
+// antes de confirmar — por isso nomes, nunca códigos.
+export function resumoDasMudancas(antes, depois) {
+  const a = Object.assign({}, PUBLICO_VAZIO, antes || {});
+  const d = Object.assign({}, PUBLICO_VAZIO, depois || {});
+  const linhas = [];
+
+  const cid = diffLista(a.cidades, d.cidades, (x) => x.key, 'Cidades');
+  if (cid) linhas.push(cid);
+
+  // Raio muda sem a cidade entrar ou sair — precisa de comparação própria.
+  const raioAntes = new Map(a.cidades.map((c) => [c.key, c]));
+  for (const c of d.cidades) {
+    const ant = raioAntes.get(c.key);
+    if (ant && Number(ant.raio) !== Number(c.raio)) {
+      const un = c.unidade === 'mile' ? 'mi' : 'km';
+      linhas.push(`Raio de ${c.nome || c.key}: ${ant.raio || 'cidade inteira'} → ${c.raio ? c.raio + ' ' + un : 'cidade inteira'}`);
+    }
+  }
+
+  const exc = diffLista(a.excluidas, d.excluidas, (x) => x.key, 'Lugares excluídos');
+  if (exc) linhas.push(exc);
+
+  if (a.idadeMin !== d.idadeMin || a.idadeMax !== d.idadeMax)
+    linhas.push(`Idade: ${a.idadeMin}–${a.idadeMax} → ${d.idadeMin}–${d.idadeMax}`);
+
+  const gen = (g) => (g.length ? g.map((x) => GENERO_NOME[x] || x).join(' e ') : 'todos');
+  if (gen(a.generos) !== gen(d.generos))
+    linhas.push(`Gênero: ${gen(a.generos)} → ${gen(d.generos)}`);
+
+  const int = diffLista(a.interesses, d.interesses, (x) => x.id, 'Interesses');
+  if (int) linhas.push(int);
+
+  const inc = diffLista(a.incluir, d.incluir, (x) => x.id, 'Públicos incluídos');
+  if (inc) linhas.push(inc);
+
+  const exd = diffLista(a.excluir, d.excluir, (x) => x.id, 'Públicos excluídos');
+  if (exd) linhas.push(exd);
+
+  if (a.advantagePlus !== d.advantagePlus)
+    linhas.push('Advantage+: ' + (d.advantagePlus ? 'desligado → LIGADO' : 'ligado → DESLIGADO'));
+
+  return linhas;
+}

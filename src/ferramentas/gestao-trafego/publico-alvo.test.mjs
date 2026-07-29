@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { lerPublico, PUBLICO_VAZIO, montarTargeting } from './publico-alvo.js';
+import { lerPublico, PUBLICO_VAZIO, montarTargeting, resumoDasMudancas } from './publico-alvo.js';
 
 // Forma real devolvida pela Meta (campos conferidos em coletor/lib/publico.mjs).
 const ALVO_META = {
@@ -299,4 +299,51 @@ test('excluida sem key (ou malformada) nao quebra, entrada valida sobrevive, nen
     assert.notEqual(c.key, 'undefined', 'nunca escreve key: undefined nas cities');
   for (const r of targeting.excluded_geo_locations.regions || [])
     assert.notEqual(r.key, 'undefined', 'nunca escreve key: undefined nas regions');
+});
+
+test('sem mudanca, resumo vazio', () => {
+  assert.deepEqual(resumoDasMudancas(lerPublico(ALVO_META), lerPublico(ALVO_META)), []);
+});
+
+test('cidade entrando e saindo aparecem com nome, nao com codigo', () => {
+  const antes = lerPublico(ALVO_META);
+  const depois = lerPublico(ALVO_META);
+  depois.cidades = [{ key: '999', nome: 'Piracicaba', raio: 0, unidade: 'kilometer' }];
+  const r = resumoDasMudancas(antes, depois).join(' | ');
+  assert.match(r, /Piracicaba/);
+  assert.match(r, /Campinas/);
+  assert.ok(!/1058|999/.test(r), 'o dono não entende código de cidade');
+});
+
+test('idade, genero e advantage+ saem em frase legivel', () => {
+  const antes = lerPublico(ALVO_META);
+  const d1 = { ...antes, idadeMin: 30 };
+  assert.match(resumoDasMudancas(antes, d1).join(' '), /30/);
+  const d2 = { ...antes, generos: [] };
+  assert.match(resumoDasMudancas(antes, d2).join(' ').toLowerCase(), /gênero|genero|todos/);
+  const d3 = { ...antes, advantagePlus: true };
+  assert.match(resumoDasMudancas(antes, d3).join(' '), /Advantage/);
+});
+
+test('mudanca de raio da mesma cidade e relatada', () => {
+  const antes = lerPublico(ALVO_META);
+  const depois = { ...antes, cidades: [{ key: '1058', nome: 'Campinas', raio: 50, unidade: 'kilometer' }] };
+  assert.match(resumoDasMudancas(antes, depois).join(' '), /Campinas.*50|50.*Campinas/);
+});
+
+test('publicos personalizados: incluidos e excluidos saem separados', () => {
+  const antes = lerPublico(ALVO_META);
+  const depois = { ...antes, incluir: [], excluir: [] };
+  const r = resumoDasMudancas(antes, depois).join(' | ');
+  assert.match(r, /Visitantes do site/);
+  assert.match(r, /Já compraram/);
+});
+
+test('toda frase e texto legivel, sem objeto vazando', () => {
+  const antes = lerPublico(ALVO_META);
+  const depois = { ...antes, idadeMin: 30, generos: [], interesses: [] };
+  for (const frase of resumoDasMudancas(antes, depois)) {
+    assert.equal(typeof frase, 'string');
+    assert.ok(!frase.includes('[object'), 'objeto vazou pra tela: ' + frase);
+  }
 });
