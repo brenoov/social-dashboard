@@ -55,3 +55,7 @@ coletor/fotos-baixadas/
 # acervo local de fotos das bolsas COM MODELO (organizado por SKU) usado p/ montar o
 # fotos-modelo-map.json dos criativos; ~1GB, fica local (fábrica lê por URL, não daqui)
 coletor/fotos_por_sku/
+
+# Arquivos de laboratório (CSS/HTML extraídos pra conferir tela sem login).
+# São temporários por natureza — um deles escapou pro commit em 2026-07-29.
+public/lab-*
