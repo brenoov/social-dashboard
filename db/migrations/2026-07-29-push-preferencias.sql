@@ -38,3 +38,20 @@ create policy push_pref_escrita on public.push_preferencias
   for all to authenticated
   using (exists (select 1 from public.profiles p where p.id = auth.uid() and (p.role = 'admin' or p.is_superadmin)))
   with check (exists (select 1 from public.profiles p where p.id = auth.uid() and (p.role = 'admin' or p.is_superadmin)));
+
+-- ── AJUSTE (mesmo dia): cada um edita as PRÓPRIAS ──────────────────────────
+-- A regra acima deixava só admin escrever, e o botão "Minhas notificações" não
+-- funcionaria para o resto da equipe. Escolher o que chega no próprio celular é
+-- preferência, não privilégio — e quem não quiser receber vai acabar desligando
+-- na permissão do aparelho, onde a escolha some sem registro nenhum.
+drop policy if exists push_pref_escrita on public.push_preferencias;
+create policy push_pref_escrita on public.push_preferencias
+  for all to authenticated
+  using (
+    user_id = auth.uid()
+    or exists (select 1 from public.profiles p where p.id = auth.uid() and (p.role = 'admin' or p.is_superadmin))
+  )
+  with check (
+    user_id = auth.uid()
+    or exists (select 1 from public.profiles p where p.id = auth.uid() and (p.role = 'admin' or p.is_superadmin))
+  );
