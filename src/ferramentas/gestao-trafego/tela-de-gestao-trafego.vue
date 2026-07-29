@@ -790,12 +790,9 @@ function _gtExemplosParaRegua() {
   const porInteracao = {};
   for (const linha of _gtInsights) {
     const baldeBruto = _gtBalde(linha.objective);
-    // Mesma correção do cartão: campanha de WhatsApp chega como OUTCOME_ENGAGEMENT.
-    const temMensagem = baldeBruto === 'engajamento' && (
-      _gtActionVal(linha, _GT_MSG) != null
-      || _gtActionVal(linha, _GT_MSG_CONN) != null
-      || _gtActionVal(linha, _GT_MSG_REPLY) != null
-    );
+    // Mesmo criterio do cartao: quem diz se e WhatsApp e o CONJUNTO, nao a acao.
+    const conjuntosDaLinha = (_gtAdsets||[]).filter(x => String(x.campaign_id||'') === String(linha.campaign_id||''));
+    const temMensagem = baldeBruto === 'engajamento' && _gtEhDeWhatsapp(conjuntosDaLinha);
     const balde = temMensagem ? 'mensagens' : baldeBruto;
     if (alvoDoBalde(balde)) {
       const atual = porBalde[balde];
@@ -937,7 +934,10 @@ async function loadGtData(){
     // Conjuntos de anúncios (ad sets): é aqui que mora o orçamento quando a
     // campanha é ABO. Sem isto não dá pra saber se é ABO ou CBO nem editar o
     // orçamento no nível certo.
-    const setFields='id,name,effective_status,daily_budget,lifetime_budget,campaign_id';
+    // destination_type/optimization_goal sao o que a META AFIRMA sobre o destino da
+    // campanha. Sem eles so dava pra INFERIR pelo resultado, e inferir estava errado
+    // (ver _gtEhDeWhatsapp).
+    const setFields='id,name,effective_status,daily_budget,lifetime_budget,campaign_id,destination_type,optimization_goal';
     const timeRange={since,until};
     const [insights,campaigns,adInsights,adObjs,adsets]=await Promise.all([
       metaFetchAll(`/act_${_maCleanAccId(adAccId)}/insights`,{level:'campaign',fields,filtering:JSON.stringify([{field:'spend',operator:'GREATER_THAN',value:'0'}]),time_range:timeRange},tok).catch(()=>[]),
@@ -1068,6 +1068,24 @@ async function _gtPausarSelecionados(btn){
       {okOnly:true});
   }
   loadGtData();
+}
+// A campanha é DE WHATSAPP? Pergunta pra Meta, não pro resultado.
+//
+// O teste anterior era "tem alguma ação de mensagem?" — e UMA conversa avulsa
+// bastava. Isso quebrou feio na conta que mais gasta: a "[TRÁFEGO] VIAGENS |
+// PERFIL" da Raíssa (R$ 5.706, 4.601 curtidas e 18 conversas de tabela) era
+// julgada a R$ 317 por conversa contra uma meta de R$ 15 — vermelho gritante numa
+// campanha que nem é de conversa. Ao todo, R$ 47 mil daquela conta estavam sendo
+// medidos no mercado errado.
+//
+// O sinal certo vem do CONJUNTO: campanha de WhatsApp de verdade tem
+// destination_type WHATSAPP (e optimization_goal CONVERSATIONS). Conferido ao vivo:
+// Vessel e Motoeasy usam CONVERSATIONS/WHATSAPP; as da Raíssa que pegavam conversa
+// de tabela são VISIT_INSTAGRAM_PROFILE, PROFILE_VISIT ou POST_ENGAGEMENT.
+function _gtEhDeWhatsapp(conjuntos){
+  return (conjuntos||[]).some(s =>
+    String(s&&s.destination_type||'').toUpperCase()==='WHATSAPP'
+    || String(s&&s.optimization_goal||'').toUpperCase()==='CONVERSATIONS');
 }
 // Campanha "encerrada": ACTIVE no Meta mas com stop_time já no passado.
 function _gtEncerrada(camp,nowMs){
@@ -1559,11 +1577,10 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       // WhatsApp) já tem o alvo certo do seu PRÓPRIO balde — sem essa restrição,
       // esse desvio sequestrava um alvo correto que o dono acabou de ganhar
       // (I5 do review final, 2026-07-28).
-      const temMensagem = baldeCamp === 'engajamento' && (
-        _gtActionVal(ins, _GT_MSG) != null
-        || _gtActionVal(ins, _GT_MSG_CONN) != null
-        || _gtActionVal(ins, _GT_MSG_REPLY) != null
-      );
+      // A campanha e de WhatsApp? Vem do CONJUNTO (o que a Meta afirma), nao do
+      // resultado. Inferir por "tem acao de mensagem" classificava no mercado
+      // errado toda campanha que pegava uma conversa de tabela — ver _gtEhDeWhatsapp.
+      const temMensagem = baldeCamp === 'engajamento' && _gtEhDeWhatsapp(conjuntos);
       // Selo de objetivo por interação (Fase 3): só campanha de engajamento que
       // NÃO seja de mensagem pode declarar qual interação está comprando —
       // mesmo recorte do custo por ponto logo abaixo.
