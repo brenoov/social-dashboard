@@ -25,6 +25,26 @@ const VEREDITO = {
   pausar: { texto: 'Pausar campanha', cor: 'pausar' },
 };
 
+// A leitura de SAÚDE, grudada na sugestão. Três formas, por ordem de urgência:
+//
+// - CONFLITO: o robô manda escalar e a saúde diz que a audiência está queimada.
+//   É o caso mais perigoso da tela — aprovar ali é pagar mais para repetir o
+//   anúncio para quem já cansou —, então ganha destaque de verdade, não uma nota
+//   de rodapé.
+// - ALERTA sozinho: pede ação por si.
+// - ATENÇÃO: observação; fica discreta.
+function blocoSaude(item) {
+  const s = item.saude;
+  if (!s || (s.nivel !== 'alerta' && s.nivel !== 'atencao')) return '';
+  if (item.conflito) {
+    return `<p class="gtf-saude conflito"><b>Atenção:</b> ${esc(s.porque)} O robô sugeriu subir mesmo assim — vale conferir antes de aprovar.</p>`;
+  }
+  // Item que nasceu DA saúde já tem esse texto como justificativa; repetir seria
+  // dizer a mesma coisa duas vezes no mesmo cartão.
+  if (item.origem === 'saude') return '';
+  return `<p class="gtf-saude ${s.nivel}">${esc(s.porque)}</p>`;
+}
+
 const diasAtras = (iso, agoraMs) => {
   const t = Date.parse(iso || '');
   if (!Number.isFinite(t)) return null;
@@ -60,30 +80,45 @@ function blocoConjuntos(item) {
 // disputar espaço com a decisão.
 function linha(item, agoraMs, editavel) {
   const v = VEREDITO[item.veredito] || { texto: item.veredito, cor: 'neutro' };
+  // Quem propôs: o robô (padrão) ou a leitura de saúde da própria ferramenta.
+  // Dizer isso importa porque item de saúde não traz valor sugerido — ninguém
+  // calculou um número ali.
+  const fonte = item.origem === 'saude' ? 'saúde da campanha' : 'robô';
+  // Só dá pra APROVAR o que tem uma ação concreta: um valor novo de orçamento ou
+  // uma pausa. Alerta de saúde do tipo "reduzir" não traz número — ninguém
+  // calculou um —, então não existe botão de aplicar: seria um botão que promete
+  // agir e não sabe o quê. Ali o caminho é o dono ajustar na aba Campanhas.
+  const podeAplicar = item.veredito === 'pausar' || item.budget_sugerido_centavos != null;
   const de = item.budget_atual_centavos;
   const para = item.budget_sugerido_centavos;
   const pct = (de > 0 && para > 0) ? Math.round(((para - de) / de) * 100) : null;
   const idade = diasAtras(item.gerado_em, agoraMs);
   const valores = item.veredito === 'pausar'
     ? `<span class="gtf-pausar-nota">para de rodar</span>`
+    : para == null
+    // Item vindo da saúde não tem número sugerido: mostra só o que se gasta hoje.
+    // Inventar um valor multiplicando o atual seria chutar.
+    ? `<span class="gtf-para">${reais(de)}</span><span class="gtf-hoje">hoje</span>`
     : `<span class="gtf-de">${reais(de)}</span><span class="gtf-seta">→</span><span class="gtf-para">${reais(para)}</span>${pct != null ? `<span class="gtf-pct ${pct < 0 ? 'neg' : ''}">${pct > 0 ? '+' : ''}${pct}%</span>` : ''}`;
 
   return `
-    <li class="gtf-item ${v.cor}" data-gtf-id="${esc(item.campaign_id)}">
+    <li class="gtf-item ${v.cor}${item.conflito ? ' conflito' : ''}" data-gtf-id="${esc(item.campaign_id)}">
       <div class="gtf-linha">
         <span class="gtf-selo">${esc(v.texto)}</span>
         <div class="gtf-ident">
           <span class="gtf-nome">${esc(item.campaign_name || item.campaign_id)}</span>
-          <span class="gtf-conta">${esc(item.conta_nome || '')}${idade == null ? '' : ` · ${idade === 0 ? 'hoje' : idade === 1 ? 'ontem' : `há ${idade} dias`}`}</span>
+          <span class="gtf-conta">${esc(item.conta_nome || '')} · ${esc(fonte)}${idade == null ? '' : ` · ${idade === 0 ? 'hoje' : idade === 1 ? 'ontem' : `há ${idade} dias`}`}</span>
         </div>
         <div class="gtf-valores">${valores}</div>
         ${editavel ? `
           <div class="gtf-acoes">
-            <button class="gtf-btn recusar" data-gtf-recusar="1">Recusar</button>
-            <button class="gtf-btn aprovar" data-gtf-aprovar="1">Aprovar</button>
+            <button class="gtf-btn recusar" data-gtf-recusar="1">Dispensar</button>
+            ${podeAplicar ? '<button class="gtf-btn aprovar" data-gtf-aprovar="1">Aprovar</button>' : ''}
           </div>` : '<span class="gtf-sem-permissao" title="Só quem tem permissão de editar a Gestão de Tráfego pode aprovar ou recusar.">você não tem permissão para decidir</span>'}
       </div>
       ${item.justificativa ? `<p class="gtf-just">${esc(item.justificativa)}</p>` : ''}
+      ${blocoSaude(item)}
+      ${!podeAplicar && editavel ? '<p class="gtf-sem-numero">Sem valor sugerido: ajuste o orçamento na aba Campanhas, ou dispense este aviso.</p>' : ''}
       ${item.impacto_estimado ? `<p class="gtf-impacto"><b>Impacto esperado:</b> ${esc(item.impacto_estimado)}</p>` : ''}
       ${blocoConjuntos(item)}
     </li>`;

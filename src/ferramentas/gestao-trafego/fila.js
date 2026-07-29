@@ -120,3 +120,60 @@ export function montarFila(analises, decisoes, agora) {
   saida.vencidas.sort(porValor);
   return saida;
 }
+
+// Junta a leitura de SAÚDE às sugestões do robô (2026-07-29, pedido do dono:
+// "não dá pra linkar também a saúde junto com as análises?").
+//
+// Faz duas coisas, e as duas importam:
+//
+// 1. ANEXA a saúde ao item que já existe. O caso que justifica o link é o robô
+//    mandar ESCALAR uma campanha com a audiência queimada — aprovar ali é pagar
+//    mais para repetir o anúncio para quem já cansou. `contradiz` marca isso.
+//
+// 2. CRIA item para campanha com alerta que o robô não trouxe. Sem isso o
+//    alerta some: o robô disse 'manter', 'manter' não entra na fila, e uma
+//    campanha com frequência 4,2× ficava invisível. É exatamente o caso da
+//    "[Leads] Para WhatsApp" da Motoeasy medida em 29/07.
+//
+// `saudes` é uma lista de { campaign_id, account_id, campaign_name, conta_nome,
+// saude, budget_atual_centavos }. Só 'alerta' vira item próprio — 'atencao' é
+// observação e só aparece grudada numa sugestão que já existia. PURO.
+export function mesclarSaude(fila, saudes) {
+  const f = fila || {};
+  const pendentes = [...(f.pendentes || [])];
+  const porCampanha = new Map();
+  for (const s of saudes || []) if (s && s.campaign_id != null) porCampanha.set(String(s.campaign_id), s);
+
+  const jaNaFila = new Set(pendentes.concat(f.vencidas || [], f.silenciadas || [], f.respondidas || [])
+    .map((i) => String(i.campaign_id)));
+
+  for (const item of pendentes) {
+    const s = porCampanha.get(String(item.campaign_id));
+    if (s && s.saude) item.saude = s.saude;
+  }
+
+  const novos = [];
+  for (const [id, s] of porCampanha) {
+    if (jaNaFila.has(id)) continue;
+    if (!s.saude || s.saude.nivel !== 'alerta') continue;
+    novos.push({
+      campaign_id: id,
+      account_id: s.account_id || null,
+      campaign_name: s.campaign_name || '',
+      conta_nome: s.conta_nome || '',
+      // O veredito vem da SAÚDE, e não há orçamento sugerido: ninguém calculou
+      // um número aqui, e inventar um multiplicando o atual seria chutar.
+      veredito: s.saude.veredito === 'pausar' ? 'pausar' : 'reduzir',
+      justificativa: s.saude.porque,
+      budget_atual_centavos: s.budget_atual_centavos ?? null,
+      budget_sugerido_centavos: null,
+      gerado_em: s.medido_em || null,
+      origem: 'saude',
+      saude: s.saude,
+      conjuntos: s.conjuntos || [],
+    });
+  }
+  const porValor = (x, y) => (Number(y.budget_atual_centavos) || 0) - (Number(x.budget_atual_centavos) || 0);
+  return { ...f, pendentes: pendentes.concat(novos).sort(porValor) };
+}
+

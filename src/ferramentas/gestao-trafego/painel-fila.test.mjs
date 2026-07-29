@@ -140,3 +140,50 @@ test('nada quebra sem opcoes', () => {
   montarPainelFila(a, {});
   assert.ok(a.innerHTML.length > 0);
 });
+
+// ── saude linkada (2026-07-29) ─────────────────────────────────────────────
+
+test('CONFLITO ganha destaque: robo manda escalar, audiencia queimada', () => {
+  const html = monta({ pendentes: [item({
+    conflito: true,
+    saude: { nivel: 'alerta', veredito: 'reduzir', porque: 'Frequência 4,2× — o mesmo público já viu demais.' },
+  })], editavel: true });
+  assert.match(html, /gtf-item positivo conflito/);
+  assert.match(html, /4,2/);
+  assert.match(html, /vale conferir antes de aprovar/);
+});
+
+test('saude de atencao aparece discreta, sem alarde', () => {
+  const html = monta({ pendentes: [item({ saude: { nivel: 'atencao', veredito: 'monitorar', porque: 'CTR 0,30% baixo.' } })] });
+  assert.match(html, /gtf-saude atencao/);
+  assert.ok(!html.includes('conflito'));
+});
+
+test('item nascido da SAUDE nao repete o mesmo texto duas vezes', () => {
+  const html = monta({ pendentes: [item({
+    origem: 'saude', veredito: 'reduzir', budget_sugerido_centavos: null,
+    justificativa: 'Frequência 4,2× — o mesmo público já viu demais.',
+    saude: { nivel: 'alerta', veredito: 'reduzir', porque: 'Frequência 4,2× — o mesmo público já viu demais.' },
+  })] });
+  assert.equal((html.match(/4,2×/g) || []).length, 1);
+  assert.match(html, /saúde da campanha/, 'diz de onde veio');
+});
+
+test('SEM valor sugerido nao existe botao de aprovar', () => {
+  // Um botao que promete agir e nao sabe o que fazer e pior que nenhum botao.
+  const html = monta({ pendentes: [item({ origem: 'saude', veredito: 'reduzir', budget_sugerido_centavos: null })], editavel: true });
+  assert.ok(!html.includes('data-gtf-aprovar'));
+  assert.match(html, /data-gtf-recusar/, 'mas da pra dispensar');
+  assert.match(html, /ajuste o orçamento na aba Campanhas/);
+});
+
+test('pausar SEM valor sugerido continua aprovavel: a acao existe', () => {
+  const html = monta({ pendentes: [item({ origem: 'saude', veredito: 'pausar', budget_sugerido_centavos: null })], editavel: true });
+  assert.match(html, /data-gtf-aprovar/);
+});
+
+test('sem valor sugerido mostra o gasto de hoje, nao um "de -> para" vazio', () => {
+  const html = monta({ pendentes: [item({ origem: 'saude', veredito: 'reduzir', budget_sugerido_centavos: null })] });
+  assert.match(html, /R\$ 230,00/);
+  assert.match(html, /gtf-hoje/);
+});

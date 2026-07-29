@@ -129,7 +129,10 @@ import { montarPainelRegua } from './painel-regua.js'
 // silêncio de 7 dias, a repartição por conjunto) moram em fila.js, puro e
 // testado; painel-fila.js só monta a tela.
 import { montarPainelFila } from './painel-fila.js'
-import { montarFila, distribuirEntreConjuntos, DIAS_DE_SILENCIO } from './fila.js'
+import { montarFila, distribuirEntreConjuntos, mesclarSaude, DIAS_DE_SILENCIO } from './fila.js'
+// A leitura de SAÚDE (fadiga de audiência, criativo que não conecta) — volta a
+// ter lugar, agora dentro da Fila e grudada na sugestão do robô. Ver saude.js.
+import { lerSaude, categoriaDoObjetivo, contradiz } from './saude.js'
 import { orcamentoEfetivoDaCampanha } from './orcamento-hierarquia.js'
 // Objetivo -> balde e "e de WhatsApp?" moram num modulo so porque o ROBO precisa
 // da mesma resposta que a tela (ver baldes.js).
@@ -710,17 +713,25 @@ let _gtFilaCarregando = false;
 // painel a campanha é — todas as análises vêm com o mesmo valor. Quem responde
 // isso é onde a campanha foi encontrada, e por isso a busca varre as contas do
 // painel em vez de tentar adivinhar pelo campo gravado.
-async function _gtFilaBuscarNomes(itens) {
+async function _gtFilaBuscarNomes() {
   const mapa = new Map();
   await Promise.all((_gtAccounts || []).filter((c) => c && c.ad_account_id).map(async (conta) => {
     const acc = _maCleanAccId(conta.ad_account_id);
-    const [camps, sets] = await Promise.all([
-      metaFetchAll(`/act_${acc}/campaigns`, { fields: 'id,name,effective_status,daily_budget,lifetime_budget' }, conta.id).catch(() => []),
-      metaFetchAll(`/act_${acc}/adsets`, { fields: 'id,name,campaign_id,daily_budget,lifetime_budget,effective_status' }, conta.id).catch(() => []),
+    const [camps, sets, ins] = await Promise.all([
+      metaFetchAll(`/act_${acc}/campaigns`, { fields: 'id,name,effective_status,objective,daily_budget,lifetime_budget' }, conta.id).catch(() => []),
+      // destination_type/optimization_goal: o que a Meta AFIRMA sobre ser WhatsApp
+      // (ver ehDeWhatsapp). Sem eles a saúde mede lead numa campanha que compra
+      // conversa e acusa "nenhum resultado" onde houve mil.
+      metaFetchAll(`/act_${acc}/adsets`, { fields: 'id,name,campaign_id,daily_budget,lifetime_budget,effective_status,destination_type,optimization_goal' }, conta.id).catch(() => []),
+      // 30 dias: é a janela em que fadiga de audiência aparece. Mais curto não
+      // acumula frequência; mais longo mistura público já renovado.
+      metaFetchAll(`/act_${acc}/insights`, { level: 'campaign', fields: 'campaign_id,spend,impressions,ctr,frequency,clicks,cpc,reach,actions,video_play_actions', date_preset: 'last_30d' }, conta.id).catch(() => []),
     ]);
+    const insPorCamp = {};
+    for (const i of ins || []) insPorCamp[String(i.campaign_id)] = i;
     for (const c of camps || []) {
       const meus = (sets || []).filter((x) => String(x.campaign_id) === String(c.id));
-      mapa.set(String(c.id), { campanha: c, conjuntos: meus, conta });
+      mapa.set(String(c.id), { campanha: c, conjuntos: meus, conta, insight: insPorCamp[String(c.id)] || null });
     }
   }));
   return mapa;
@@ -738,9 +749,11 @@ async function _gtCarregarFila() {
     if (analises.erro) { console.error('[GT] falha ao ler as análises da fila:', analises.erro); }
     _gtFila = montarFila(analises || [], decisoes || [], new Date().toISOString());
 
-    // Enriquece com nome da campanha e conjuntos (a Meta é quem sabe).
-    const todos = _gtFila.pendentes.concat(_gtFila.vencidas);
-    const mapa = todos.length ? await _gtFilaBuscarNomes(todos) : new Map();
+    // Busca SEMPRE, mesmo com a fila vazia: a leitura de saúde precisa varrer as
+    // campanhas ativas, e uma delas pode ter alerta sem o robô ter proposto nada
+    // (foi o caso da "[Leads] Para WhatsApp" da Motoeasy, frequência 4,2× com o
+    // robô dizendo 'manter').
+    const mapa = await _gtFilaBuscarNomes();
     // SÓ CAMPANHA VIVA fica na fila. O robô guarda a análise mesmo depois de a
     // campanha parar, e o `effective_status` gravado é o do dia da análise —
     // envelhece. Sem cruzar com a Meta agora, a fila pedia decisão sobre
@@ -770,6 +783,51 @@ async function _gtCarregarFila() {
             .map((c) => ({ id: c.id, nome: c.name, deCentavos: Number(c.daily_budget || c.lifetime_budget) }))
         : [];
     }
+    // SAÚDE de cada campanha viva, e o cruzamento com o que o robô propôs.
+    const saudes = [];
+    for (const [id, info] of mapa) {
+      if (String(info.campanha.effective_status || '').toUpperCase() !== 'ACTIVE') continue;
+      if (!info.insight) continue;
+      const i = info.insight;
+      const wa = ehDeWhatsapp(info.conjuntos);
+      const acao = (tipos) => {
+        for (const t of tipos) {
+          const a = (i.actions || []).find((x) => x && x.action_type === t);
+          if (a) return Number(a.value) || 0;
+        }
+        return 0;
+      };
+      const saude = lerSaude({
+        categoria: categoriaDoObjetivo(info.campanha.objective, wa),
+        gasto: parseFloat(i.spend || 0), impressoes: parseInt(i.impressions || 0, 10),
+        ctr: parseFloat(i.ctr || 0), frequencia: parseFloat(i.frequency || 0),
+        cliques: parseInt(i.clicks || 0, 10), cpc: parseFloat(i.cpc || 0),
+        alcance: parseInt(i.reach || 0, 10),
+        // Campanha de WhatsApp compra CONVERSA — medir 'lead' aqui acusaria
+        // "nenhum resultado" numa campanha com mil conversas.
+        resultados: wa ? acao(['onsite_conversion.messaging_conversation_started_7d', 'onsite_conversion.messaging_conversation_started'])
+                       : acao(['lead', 'onsite_conversion.lead_grouped', 'purchase']),
+        engajamentos: acao(['post_engagement', 'page_engagement']),
+        plays: parseInt((i.video_play_actions && i.video_play_actions[0] && i.video_play_actions[0].value) || 0, 10),
+      });
+      if (saude.nivel !== 'alerta' && saude.nivel !== 'atencao') continue;
+      const orc = orcamentoEfetivoDaCampanha(info.campanha, info.conjuntos);
+      saudes.push({
+        campaign_id: id, account_id: info.conta.id,
+        campaign_name: info.campanha.name || '',
+        conta_nome: info.conta.display_name || info.conta.name || '',
+        saude, budget_atual_centavos: orc.centavos,
+        medido_em: new Date().toISOString(),
+        conjuntos: orc.sigla === 'ABO'
+          ? info.conjuntos.filter((c) => String(c.effective_status || '').toUpperCase() === 'ACTIVE' && (c.daily_budget || c.lifetime_budget))
+              .map((c) => ({ id: c.id, nome: c.name, deCentavos: Number(c.daily_budget || c.lifetime_budget) }))
+          : [],
+      });
+    }
+    _gtFila = mesclarSaude(_gtFila, saudes);
+    // Marca o conflito: robô manda escalar numa campanha que está queimando a
+    // audiência. É o motivo de as duas leituras andarem juntas.
+    for (const item of _gtFila.pendentes) item.conflito = contradiz(item.saude, item.veredito);
   } finally {
     _gtFilaCarregando = false;
   }
@@ -832,6 +890,13 @@ async function _gtFilaAprovar(item, botao) {
   // O que vai ser escrito na Meta, item a item. Em ABO uma aprovação vira
   // VÁRIAS escritas (uma por conjunto) — por isso a confirmação mostra a quebra
   // inteira antes, e não só o total.
+  // Trava de segurança: sem número e sem pausa não há o que aplicar. O painel já
+  // esconde o botão nesse caso; isto existe porque quem aplica na Meta não pode
+  // depender de a tela ter escondido o botão certo.
+  if (item.veredito !== 'pausar' && item.budget_sugerido_centavos == null) {
+    adminToast('Este aviso não tem valor sugerido — ajuste o orçamento na aba Campanhas.', false);
+    return;
+  }
   const alvos = item.veredito === 'pausar'
     ? [{ id: item.campaign_id, tipo: 'pausar', nome: item.campaign_name }]
     : (item.conjuntos && item.conjuntos.length)
@@ -2413,6 +2478,15 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gtf-cj-de){color:var(--muted);text-align:right;white-space:nowrap;}
 .tela-gestao-trafego :deep(.gtf-cj-seta){color:var(--muted);padding:0 7px;}
 .tela-gestao-trafego :deep(.gtf-cj-para){color:var(--text);font-weight:700;text-align:right;white-space:nowrap;}
+/* Saúde grudada na sugestão. O CONFLITO (robô manda escalar numa campanha com a
+   audiência queimada) é o caso mais perigoso da tela e ganha destaque de
+   verdade — borda e fundo —, não uma nota de rodapé. */
+.tela-gestao-trafego :deep(.gtf-item.conflito){border-left-color:var(--orange);}
+.tela-gestao-trafego :deep(.gtf-saude){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));line-height:1.5;margin:6px 0 0;color:var(--muted);}
+.tela-gestao-trafego :deep(.gtf-saude.alerta){color:var(--orange);}
+.tela-gestao-trafego :deep(.gtf-saude.conflito){color:var(--text);background:color-mix(in srgb,var(--orange) 12%,transparent);border-left:3px solid var(--orange);border-radius:0 8px 8px 0;padding:8px 12px;margin-top:8px;}
+.tela-gestao-trafego :deep(.gtf-hoje){font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);}
+.tela-gestao-trafego :deep(.gtf-sem-numero){font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);margin:6px 0 0;font-style:italic;}
 .tela-gestao-trafego :deep(.gtf-sem-permissao){font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);}
 .tela-gestao-trafego :deep(.gtf-vazio){background:var(--surface);padding:26px;text-align:center;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));color:var(--text);display:flex;flex-direction:column;gap:6px;}
 .tela-gestao-trafego :deep(.gtf-vazio span){font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;}
