@@ -171,21 +171,30 @@ export function montarPainelFila(alvo, opcoes) {
   const editavel = !!o.editavel;
   const ajudaBtn = typeof o.ajudaBtn === 'function' ? o.ajudaBtn : () => '';
 
-  // O filtro conta o que CADA conta tem de pendente. Sem o número, o dono
-  // clicaria conta por conta pra descobrir que quatro estão vazias — foi
-  // exatamente o motivo de a fila ser lista única.
-  const porConta = new Map();
+  // QUEM FILTRA É O SELETOR DA TOPBAR (pedido do dono, 2026-07-29). A fila tinha
+  // botões próprios de conta, que duplicavam um seletor que já existe logo
+  // acima — dois controles pra mesma coisa, e o de cima com saldo e gasto de
+  // cada conta.
+  //
+  // O preço disso é perder a visão das cinco de uma vez, e por isso o que está
+  // nas OUTRAS contas continua sendo dito: some da lista, não do conhecimento.
+  const filtroAtual = o.contaFiltro == null ? '' : String(o.contaFiltro);
+  const visiveis = filtroAtual ? pendentes.filter((i) => String(i.account_id || '') === filtroAtual) : pendentes;
+
+  const noutrasContas = new Map();
   for (const i of pendentes) {
     const k = String(i.account_id || '');
-    porConta.set(k, (porConta.get(k) || 0) + 1);
+    if (k === filtroAtual) continue;
+    noutrasContas.set(k, (noutrasContas.get(k) || 0) + 1);
   }
-  const filtroAtual = o.contaFiltro == null ? '' : String(o.contaFiltro);
-  const botoesFiltro = [{ id: '', nome: 'Todas as contas', n: pendentes.length }]
-    .concat((o.contas || []).map((c) => ({ id: String(c.id), nome: c.display_name || c.name || '—', n: porConta.get(String(c.id)) || 0 })))
-    .map((c) => `<button class="gtf-filtro${filtroAtual === c.id ? ' ativo' : ''}" data-gtf-conta="${esc(c.id)}">${esc(c.nome)}<span class="gtf-filtro-n">${c.n}</span></button>`)
-    .join('');
-
-  const visiveis = filtroAtual ? pendentes.filter((i) => String(i.account_id || '') === filtroAtual) : pendentes;
+  const nomeDaConta = (id) => {
+    const c = (o.contas || []).find((x) => String(x.id) === String(id));
+    return c ? (c.display_name || c.name || '—') : 'outra conta';
+  };
+  const totalFora = [...noutrasContas.values()].reduce((a, b) => a + b, 0);
+  const avisoOutras = totalFora
+    ? `<div class="gtf-outras">Mais ${totalFora} em ${[...noutrasContas.entries()].map(([id, n]) => `<b>${esc(nomeDaConta(id))}</b> (${n})`).join(', ')} — troque a conta lá em cima para ver.</div>`
+    : '';
 
   // "Não carregou" e "está vazio" NÃO são a mesma coisa. Dizer "nada esperando
   // decisão" quando a leitura ainda não terminou é afirmar que não há o que
@@ -200,7 +209,7 @@ export function montarPainelFila(alvo, opcoes) {
          <span>Assim que elas chegarem, mostro aqui o que está esperando decisão.</span>
        </div>`
     : `<div class="gtf-vazio">
-         <b>Nada esperando decisão${filtroAtual ? ' nesta conta' : ''}.</b>
+         <b>Nada esperando decisão${filtroAtual ? ` em ${esc(o.contaNome || 'nesta conta')}` : ''}.</b>
          <span>O robô analisa as campanhas toda madrugada. Quando ele propuser mexer em orçamento, aparece aqui.</span>
        </div>`;
 
@@ -208,11 +217,11 @@ export function montarPainelFila(alvo, opcoes) {
     <div class="gtf-cab">
       <div>
         <h2 class="gtf-tit">Esperando sua decisão${ajudaBtn('fila')}</h2>
-        <p class="gtf-sub">O robô propõe, você decide. Nada mexe no orçamento sem passar por aqui.</p>
+        <p class="gtf-sub">${o.contaNome ? `${esc(o.contaNome)} · ` : ''}o robô propõe, você decide. Nada mexe no orçamento sem passar por aqui.</p>
       </div>
     </div>
-    <div class="gtf-filtros">${botoesFiltro}</div>
     <ul class="gtf-lista">${corpo}</ul>
+    ${avisoOutras}
     ${vencidas.length ? `
       <details class="gtf-extra">
         <summary>${vencidas.length} sugest${vencidas.length > 1 ? 'ões vencidas' : 'ão vencida'}</summary>
@@ -223,9 +232,6 @@ export function montarPainelFila(alvo, opcoes) {
       <div class="gtf-silenciadas">${silenciadas.length} sugest${silenciadas.length > 1 ? 'ões recusadas voltam' : 'ão recusada volta'} a aparecer se a situação continuar.</div>` : ''}
   `;
 
-  for (const b of alvo.querySelectorAll('[data-gtf-conta]')) {
-    b.addEventListener('click', () => o.aoFiltrar && o.aoFiltrar(b.dataset.gtfConta || ''));
-  }
   if (!editavel) return;
   const todos = pendentes.concat(vencidas);
   for (const el of alvo.querySelectorAll('[data-gtf-id]')) {
