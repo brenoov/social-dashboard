@@ -16,6 +16,7 @@ export const PUBLICO_VAZIO = {
   generos: [], interesses: [],
   incluir: [], excluir: [],
   advantagePlus: true,
+  outrasLocalizacoes: [],
 };
 
 const lista = (v) => (Array.isArray(v) ? v : []);
@@ -43,6 +44,26 @@ function excluidasDe(targeting) {
   return fora;
 }
 
+// Localidades que o editor não gerencia, mas que devem ser preservadas. Retorna
+// os nomes das chaves de geo_locations que não são 'cities' e contêm dados.
+// Também captura tipos desconhecidos (futuros campos da Meta).
+function outrasLocalizacoesDe(targeting) {
+  const geo = (targeting && targeting.geo_locations) || {};
+  const outras = [];
+  // Chaves conhecidas (para ordem consistente)
+  const conhecidas = ['regions', 'countries', 'zips', 'custom_locations', 'places', 'geo_markets'];
+  for (const chave of conhecidas) {
+    if (lista(geo[chave]).length > 0) outras.push(chave);
+  }
+  // Captura tipos desconhecidos (iterar todas as chaves, exceto 'cities')
+  for (const chave in geo) {
+    if (chave !== 'cities' && !conhecidas.includes(chave) && lista(geo[chave]).length > 0) {
+      outras.push(chave);
+    }
+  }
+  return outras;
+}
+
 // Traduz o público como a Meta devolve para uma forma simples de trabalhar.
 // Nunca lança: público ausente ou malformado devolve a forma padrão, porque
 // travar a tela por causa de um campo estranho seria pior que mostrar vazio.
@@ -67,6 +88,10 @@ export function lerPublico(targeting) {
     // Ausente = padrão da Meta = LIGADO. Assumir desligado faria a tela mentir
     // sobre o estado atual da conta do dono.
     advantagePlus: auto.advantage_audience == null ? true : Number(auto.advantage_audience) === 1,
+    // Localidades que o editor não gerencia (regiões, países, CEPs, etc.).
+    // Descritivo apenas; montarTargeting ignora esse campo e preserva as outras
+    // localidades direto do original.
+    outrasLocalizacoes: outrasLocalizacoesDe(t),
   };
 }
 
@@ -117,13 +142,23 @@ export function montarTargeting(publico, original) {
   const ajustes = [];
   const põe = (chave, valor) => { if (valor == null) delete t[chave]; else t[chave] = valor; };
 
-  // Sem cidade nenhuma a chave SAI do pacote. Ressuscitar as cidades antigas
-  // aqui faria a tela mentir: o dono apagou tudo e veria o de antes voltar.
-  // Quem impede de salvar um público sem lugar é o aviso bloqueante (Task 4).
+  // Preserva outras localidades (regiões, países, etc.) que o editor não gerencia.
+  // Começa do original e sobrescreve só o campo 'cities'. Se as cidades ficarem
+  // vazias, deleta apenas esse campo, mantendo o resto. Deleta geo_locations
+  // inteira só se nada restar.
   const cidsFiltered = p.cidades.filter((c) => c != null).map((c) => cidadeParaMeta(c, ajustes)).filter((c) => c != null);
-  põe('geo_locations', cidsFiltered.length
-    ? { cities: cidsFiltered }
-    : null);
+  const geoOriginal = (t.geo_locations && typeof t.geo_locations === 'object') ? { ...t.geo_locations } : {};
+  if (cidsFiltered.length) {
+    geoOriginal.cities = cidsFiltered;
+  } else {
+    delete geoOriginal.cities;
+  }
+  // Deleta geo_locations inteira só se nenhuma outra localização restar
+  if (Object.keys(geoOriginal).length) {
+    t.geo_locations = geoOriginal;
+  } else {
+    delete t.geo_locations;
+  }
 
   const cid = p.excluidas.filter((e) => e != null && e.key != null && e.tipo !== 'regiao').map((e) => ({ key: String(e.key) }));
   const reg = p.excluidas.filter((e) => e != null && e.key != null && e.tipo === 'regiao').map((e) => ({ key: String(e.key) }));
@@ -234,6 +269,20 @@ const temRestricaoManual = (p) =>
   p.idadeMin !== PUBLICO_VAZIO.idadeMin ||
   p.idadeMax !== PUBLICO_VAZIO.idadeMax;
 
+const NOMES_LOCALIZACOES = {
+  regions: 'região',
+  countries: 'país',
+  zips: 'CEP',
+  custom_locations: 'localização personalizada',
+  places: 'local',
+  geo_markets: 'mercado geográfico',
+};
+
+// Traduz chaves de geo_locations da Meta para português legível.
+function nomeDaLocalizacao(chave) {
+  return NOMES_LOCALIZACOES[chave] || 'outra localização';
+}
+
 // Os avisos que precedem o salvar. `bloqueia: true` impede a gravação até o
 // dono resolver o conflito.
 //
@@ -258,11 +307,23 @@ export function avisosDe(antes, depois, contexto) {
 
   // A Meta exige localização: conjunto não mira em lugar nenhum. Barrar aqui
   // é melhor que deixar salvar e tomar recusa sem entender o motivo.
-  if (!(d.cidades || []).length) {
+  // Mas só bloqueia se REALMENTE não houver localização nenhuma — nem cidades
+  // nem regiões/países/CEPs/etc.
+  const temCidades = (d.cidades || []).length > 0;
+  const temOutrasLoc = (d.outrasLocalizacoes || []).length > 0;
+  if (!temCidades && !temOutrasLoc) {
     avisos.push({
       tipo: 'sem-lugar',
-      texto: 'O público ficou <b>sem nenhuma cidade</b>. A Meta não aceita um conjunto sem localização — escolha pelo menos uma.',
+      texto: 'O público ficou <b>sem nenhuma localização</b>. A Meta não aceita um conjunto sem localização — escolha pelo menos uma cidade, região, país, CEP ou localização customizada.',
       bloqueia: true,
+    });
+  } else if (temOutrasLoc) {
+    // Avisa que há localidades que o editor não gerencia, mas que serão preservadas.
+    const nomes = d.outrasLocalizacoes.map(nomeDaLocalizacao).join(', ');
+    avisos.push({
+      tipo: 'outras-localizacoes',
+      texto: `Este conjunto tem ${nomes} definido(s). O editor aqui não gerencia essas localidades — elas serão <b>mantidas intactas</b> ao salvar.`,
+      bloqueia: false,
     });
   }
 

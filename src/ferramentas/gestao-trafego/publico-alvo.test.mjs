@@ -511,3 +511,97 @@ test('sem cidade E advantage+ conflict coexistem — dois bloqueios, nenhum se p
   assert.ok(bloqueios.some(x => /cidade|lugar|local/i.test(x.texto)), 'um bloqueio é sobre localização');
   assert.ok(bloqueios.some(x => /Advantage/i.test(x.texto)), 'outro bloqueio é sobre Advantage+');
 });
+
+test('lerPublico: targeting com regions popula outrasLocalizacoes', () => {
+  const comRegioes = { geo_locations: { cities: [{ key: '1058', name: 'Campinas' }], regions: [{ key: '456', name: 'SP' }] } };
+  const p = lerPublico(comRegioes);
+  assert.ok(p.outrasLocalizacoes.includes('regions'), 'deve listar regions em outrasLocalizacoes');
+  assert.deepEqual(p.cidades.length, 1, 'cities ainda aparecem normalmente');
+});
+
+test('lerPublico: targeting com countries e zips popula outrasLocalizacoes', () => {
+  const comPaises = { geo_locations: { countries: [{ key: 'BR' }], zips: [{ key: '13000' }] } };
+  const p = lerPublico(comPaises);
+  assert.ok(p.outrasLocalizacoes.includes('countries'), 'deve listar countries');
+  assert.ok(p.outrasLocalizacoes.includes('zips'), 'deve listar zips');
+  assert.deepEqual(p.cidades.length, 0, 'sem cities, cidades vazio');
+});
+
+test('lerPublico: só cities não popula outrasLocalizacoes', () => {
+  const p = lerPublico(ALVO_META);
+  assert.deepEqual(p.outrasLocalizacoes, [], 'outrasLocalizacoes vazio quando só cities');
+});
+
+test('cities E regions: round-trip preserva regions enquanto cities atualiza', () => {
+  const original = {
+    geo_locations: {
+      cities: [{ key: '1058', name: 'Campinas', radius: 25, distance_unit: 'kilometer' }],
+      regions: [{ key: '456', name: 'SP' }],
+    },
+  };
+  const p = lerPublico(original);
+  p.cidades = [{ key: '999', nome: 'Piracicaba', raio: 0, unidade: 'kilometer' }];
+  const { targeting } = montarTargeting(p, original);
+  // Regions devem permanecer intactas
+  assert.ok(targeting.geo_locations.regions, 'regions sobrevivem');
+  assert.deepEqual(targeting.geo_locations.regions, [{ key: '456', name: 'SP' }], 'regions preservadas intactas');
+  // Cities devem ser atualizadas
+  assert.deepEqual(targeting.geo_locations.cities[0].key, '999', 'cities atualizada');
+});
+
+test('só regions: montarTargeting NÃO deleta geo_locations inteira', () => {
+  const original = { geo_locations: { regions: [{ key: '456', name: 'SP' }] } };
+  const p = { ...PUBLICO_VAZIO, outrasLocalizacoes: ['regions'] };
+  const { targeting } = montarTargeting(p, original);
+  assert.ok('geo_locations' in targeting, 'geo_locations deve existir');
+  assert.ok(targeting.geo_locations.regions, 'regions deve estar lá');
+  assert.ok(!('cities' in targeting.geo_locations), 'cities não deve estar (foi vazia)');
+});
+
+test('cities esvaziada (só tinha cities): geo_locations removida, compatível com comportamento anterior', () => {
+  const original = { geo_locations: { cities: [{ key: '1058', name: 'Campinas' }] } };
+  const p = { ...PUBLICO_VAZIO, cidades: [] };
+  const { targeting } = montarTargeting(p, original);
+  assert.ok(!('geo_locations' in targeting), 'geo_locations removida quando cities vazia e nada mais tem');
+});
+
+test('tipo geo desconhecido survives round-trip e é contado em outrasLocalizacoes', () => {
+  const original = {
+    geo_locations: {
+      cities: [{ key: '1058', name: 'Campinas' }],
+      geo_algo_novo: [{ id: 'x' }],
+    },
+  };
+  const p = lerPublico(original);
+  // Tipo desconhecido aparece em outrasLocalizacoes
+  assert.ok(p.outrasLocalizacoes.includes('geo_algo_novo'), 'tipo desconhecido é listado');
+  const { targeting } = montarTargeting(p, original);
+  // Tipo desconhecido survives
+  assert.ok(targeting.geo_locations.geo_algo_novo, 'tipo desconhecido sobrevive');
+  assert.deepEqual(targeting.geo_locations.geo_algo_novo, [{ id: 'x' }], 'conteúdo intacto');
+});
+
+test('avisosDe: só regions → SEM bloqueio, mas aviso informativo com tradução', () => {
+  const p = { ...PUBLICO_VAZIO, outrasLocalizacoes: ['regions'] };
+  const avisos = avisosDe(p, p, { ativo: false, ajustes: [] });
+  const bloqueios = avisos.filter(x => x.bloqueia);
+  assert.ok(!bloqueios.length, 'não deve bloquear quando há regiões');
+  const info = avisos.find(x => x.tipo === 'outras-localizacoes');
+  assert.ok(info, 'deve ter aviso informativo');
+  assert.ok(/região/i.test(info.texto), 'deve traduzir "regions" para "região"');
+  assert.ok(/mantid/i.test(info.texto), 'deve avisar que será mantida');
+});
+
+test('avisosDe: múltiplas outrasLocalizacoes na mensagem separadas por vírgula', () => {
+  const p = { ...PUBLICO_VAZIO, outrasLocalizacoes: ['regions', 'countries', 'zips'] };
+  const avisos = avisosDe(p, p, { ativo: false, ajustes: [] });
+  const info = avisos.find(x => x.tipo === 'outras-localizacoes');
+  assert.ok(/região.*país.*CEP/i.test(info.texto) || /CEP.*país.*região/i.test(info.texto), 'deve listar todas com português');
+});
+
+test('avisosDe: realmente sem localização nenhuma BLOQUEIA (nem cities, nem outras)', () => {
+  const p = { ...PUBLICO_VAZIO, cidades: [], outrasLocalizacoes: [] };
+  const avisos = avisosDe(p, p, { ativo: false, ajustes: [] });
+  const bloqueio = avisos.find(x => x.bloqueia && /localização/i.test(x.texto));
+  assert.ok(bloqueio, 'deve bloquear quando nem cidades nem outras localidades existem');
+});
