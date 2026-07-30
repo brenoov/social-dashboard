@@ -1,0 +1,352 @@
+/* CENTRAL DE CONTEÚDO — estilos.
+ *
+ * Arquivo à parte (padrão do estudio.css da Fábrica) porque as quatro visões
+ * compartilham quase tudo; deixar em <style scoped> obrigaria a repetir.
+ *
+ * TODO seletor começa com .ctd-. O CSS global tem 134 KB e já vazou para tela
+ * com scoped neste projeto (o caso .home-card). O prefixo curto .cnt- NÃO serve:
+ * já é usado como id em tela-de-redes-sociais.vue.
+ *
+ * As cores vêm das variáveis do tema (--bg/--surface/--border/--accent/--text/
+ * --muted), então a tela acompanha claro e escuro sem regra duplicada.
+ */
+
+.ctd-tela {
+  --ctd-fs: 'IBM Plex Sans', system-ui, sans-serif;
+  --ctd-fd: 'Sora', system-ui, sans-serif;
+  --ctd-fm: 'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--ctd-fs);
+}
+
+@keyframes ctdUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ── Topbar ───────────────────────────────────────────────────────────────── */
+.ctd-topbar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 13px clamp(14px, 2.5vw, 44px);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: saturate(1.4) blur(10px);
+  position: sticky; top: 0; z-index: 30;
+}
+.ctd-tb-left { display: flex; align-items: center; gap: 14px; }
+.ctd-back {
+  display: inline-flex; align-items: center; gap: 5px; background: none;
+  border: 1px solid var(--border); color: var(--muted); font-size: 12px; font-weight: 500;
+  padding: 6px 11px; border-radius: var(--radius-sm); cursor: pointer;
+  transition: border-color .18s, color .18s;
+}
+.ctd-back:hover { border-color: var(--accent); color: var(--text); }
+.ctd-title {
+  font-size: 15px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase;
+  color: var(--text); flex: 1; white-space: nowrap;
+}
+.ctd-tb-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* Seletor de marca */
+.ctd-marca {
+  appearance: none; background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 7px 32px 7px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: inherit; max-width: 100%;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 16px) 52%, calc(100% - 11px) 52%;
+  background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+}
+.ctd-marca:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.ctd-btn {
+  display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  font-family: inherit; font-size: 13px; font-weight: 600; padding: 7px 14px; cursor: pointer;
+  transition: border-color .18s, background .18s, opacity .18s;
+}
+.ctd-btn:hover:not(:disabled) { border-color: var(--accent); }
+.ctd-btn:disabled { opacity: .45; cursor: not-allowed; }
+.ctd-btn-primario { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ctd-btn-primario:hover:not(:disabled) { filter: brightness(1.08); }
+.ctd-btn-perigo { color: var(--red); border-color: color-mix(in srgb, var(--red) 40%, var(--border)); }
+.ctd-btn-perigo:hover:not(:disabled) { border-color: var(--red); }
+
+/* ── Corpo e abas ─────────────────────────────────────────────────────────── */
+.ctd-body {
+  padding: clamp(14px, 2vw, 32px) clamp(14px, 2.5vw, 48px) 72px;
+  display: flex; flex-direction: column; gap: 18px; width: 100%;
+}
+.ctd-tabs { display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
+.ctd-tabs button {
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--muted); font-family: inherit; font-size: 13.5px; font-weight: 600;
+  padding: 9px 14px; cursor: pointer; transition: color .18s, border-color .18s;
+}
+.ctd-tabs button:hover { color: var(--text); }
+.ctd-tabs button.on { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Selos de contagem na topbar das abas */
+.ctd-selos { display: flex; gap: 8px; flex-wrap: wrap; }
+.ctd-selo {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600;
+  padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); color: var(--muted);
+}
+.ctd-selo i { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.ctd-selo b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* ── Avisos (erro, vazio, permissão pela metade) ──────────────────────────── */
+.ctd-aviso {
+  border-radius: var(--radius-md); padding: 14px 16px; font-size: 13.5px; line-height: 1.6;
+  border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+}
+.ctd-aviso b { color: var(--text); font-weight: 600; }
+.ctd-aviso-erro {
+  color: var(--red); border-color: color-mix(in srgb, var(--red) 30%, transparent);
+  background: color-mix(in srgb, var(--red) 8%, transparent);
+}
+.ctd-aviso-atencao {
+  border-color: color-mix(in srgb, #f59e0b 35%, transparent);
+  background: color-mix(in srgb, #f59e0b 9%, transparent);
+}
+.ctd-vazio {
+  display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
+  padding: clamp(36px, 7vw, 72px) 20px; color: var(--muted);
+  border: 1px dashed var(--border); border-radius: var(--radius-md);
+}
+.ctd-vazio h3 { font-family: var(--ctd-fd); font-size: 18px; font-weight: 600; color: var(--text); }
+.ctd-vazio p { font-size: 13.5px; max-width: 46ch; line-height: 1.6; }
+
+/* ── Cartão da peça (usado pelas três visões) ─────────────────────────────── */
+.ctd-cartao {
+  display: flex; gap: 10px; text-align: left; width: 100%;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 9px; cursor: pointer; font-family: inherit; color: var(--text);
+  transition: border-color .16s, transform .16s, box-shadow .16s;
+}
+.ctd-cartao:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.ctd-cartao-mini {
+  width: 44px; height: 44px; flex-shrink: 0; border-radius: 7px; object-fit: cover;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 16px;
+}
+.ctd-cartao-corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ctd-cartao-titulo {
+  font-size: 13px; font-weight: 600; line-height: 1.3; color: var(--text);
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ctd-cartao-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 11px; color: var(--muted); }
+.ctd-cartao-hora { font-family: var(--ctd-fm); font-variant-numeric: tabular-nums; }
+.ctd-pip {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700;
+  letter-spacing: .3px; text-transform: uppercase; padding: 2px 7px; border-radius: 20px;
+  border: 1px solid currentColor;
+}
+.ctd-formato {
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px;
+  color: var(--muted); border: 1px solid var(--border); border-radius: 20px; padding: 2px 7px;
+}
+
+/* ── Visão: Calendário ────────────────────────────────────────────────────── */
+.ctd-cal-topo {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+}
+.ctd-cal-mes { font-family: var(--ctd-fd); font-size: clamp(19px, 2.4vw, 26px); font-weight: 600; color: var(--text); }
+.ctd-cal-nav { display: flex; gap: 6px; align-items: center; }
+.ctd-cal-grade {
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px;
+  background: var(--border); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden;
+}
+.ctd-cal-cab {
+  background: var(--surface); text-align: center; padding: 8px 4px;
+  font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted);
+}
+.ctd-cal-dia {
+  background: var(--bg); min-height: 118px; padding: 6px; display: flex; flex-direction: column; gap: 5px;
+}
+.ctd-cal-dia.fora { background: color-mix(in srgb, var(--surface) 45%, var(--bg)); }
+.ctd-cal-dia.fora .ctd-cal-num { opacity: .4; }
+.ctd-cal-dia.hoje { box-shadow: inset 0 0 0 2px var(--accent); }
+.ctd-cal-cabdia { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.ctd-cal-num { font-family: var(--ctd-fm); font-size: 12px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.ctd-cal-add {
+  background: none; border: none; color: var(--muted); cursor: pointer; font-size: 15px;
+  line-height: 1; padding: 0 3px; border-radius: 4px; opacity: 0; transition: opacity .15s, color .15s;
+}
+.ctd-cal-dia:hover .ctd-cal-add { opacity: 1; }
+.ctd-cal-add:hover { color: var(--accent); }
+.ctd-cal-add:focus-visible { opacity: 1; outline: 2px solid var(--accent); }
+.ctd-cal-pecas { display: flex; flex-direction: column; gap: 4px; }
+.ctd-cal-chip {
+  display: flex; align-items: center; gap: 5px; width: 100%; text-align: left;
+  background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--border);
+  border-radius: 5px; padding: 4px 6px; cursor: pointer; font-family: inherit;
+  font-size: 11px; color: var(--text); transition: border-color .15s;
+}
+.ctd-cal-chip:hover { border-color: var(--accent); }
+.ctd-cal-chip-hora { font-family: var(--ctd-fm); font-size: 10px; color: var(--muted); flex-shrink: 0; }
+.ctd-cal-chip-txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Gaveta das peças sem data */
+.ctd-semdata { display: flex; flex-direction: column; gap: 8px; }
+.ctd-semdata-t { font-size: 12px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); }
+.ctd-semdata-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+
+/* ── Visão: Quadro (kanban) ───────────────────────────────────────────────── */
+.ctd-kb { display: grid; grid-template-columns: repeat(5, minmax(212px, 1fr)); gap: 12px; align-items: start; }
+.ctd-kb-col {
+  background: color-mix(in srgb, var(--surface) 55%, var(--bg));
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  display: flex; flex-direction: column; min-height: 130px;
+}
+.ctd-kb-col.alvo { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--bg)); }
+.ctd-kb-cab {
+  display: flex; align-items: center; gap: 7px; padding: 10px 11px;
+  border-bottom: 1px solid var(--border);
+}
+.ctd-kb-bolinha { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.ctd-kb-nome { font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--text); flex: 1; }
+.ctd-kb-conta {
+  font-family: var(--ctd-fm); font-size: 11px; color: var(--muted);
+  background: var(--bg); border-radius: 20px; padding: 1px 7px; font-variant-numeric: tabular-nums;
+}
+.ctd-kb-lista { display: flex; flex-direction: column; gap: 7px; padding: 9px; min-height: 60px; }
+.ctd-kb-vazia { font-size: 11.5px; color: var(--muted); text-align: center; padding: 14px 6px; line-height: 1.5; }
+
+/* ── Visão: Lista ─────────────────────────────────────────────────────────── */
+.ctd-lista-filtros { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+.ctd-chip-filtro {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+  color: var(--muted); font-family: inherit; font-size: 12px; font-weight: 600;
+  padding: 5px 12px; cursor: pointer; transition: border-color .16s, color .16s;
+}
+.ctd-chip-filtro:hover { color: var(--text); }
+.ctd-chip-filtro.on { border-color: var(--accent); color: var(--accent); }
+.ctd-tabela-rolagem { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-md); }
+.ctd-tabela { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 660px; }
+.ctd-tabela th {
+  text-align: left; padding: 10px 12px; background: var(--surface);
+  font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--muted);
+  border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none;
+}
+.ctd-tabela th:hover { color: var(--text); }
+.ctd-tabela td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+.ctd-tabela tbody tr { cursor: pointer; transition: background .15s; }
+.ctd-tabela tbody tr:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.ctd-tabela-data { font-family: var(--ctd-fm); font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--muted); }
+
+/* ── Painel lateral (criar/editar) ────────────────────────────────────────── */
+.ctd-fundo {
+  position: fixed; inset: 0; z-index: 60; background: rgba(0, 0, 0, .5);
+  backdrop-filter: blur(2px); display: flex; justify-content: flex-end;
+}
+.ctd-painel {
+  background: var(--bg); width: min(560px, 100%); height: 100%; overflow-y: auto;
+  display: flex; flex-direction: column; box-shadow: -12px 0 40px rgba(0, 0, 0, .28);
+  animation: ctdEntra .22s cubic-bezier(.22, 1, .36, 1) both;
+}
+@keyframes ctdEntra { from { transform: translateX(24px); opacity: .4; } to { transform: none; opacity: 1; } }
+.ctd-painel-cab {
+  display: flex; align-items: center; gap: 10px; padding: 15px clamp(15px, 3vw, 24px);
+  border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 2;
+}
+.ctd-painel-t { font-family: var(--ctd-fd); font-size: 17px; font-weight: 600; flex: 1; color: var(--text); }
+.ctd-fechar {
+  background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--muted); cursor: pointer; font-size: 17px; line-height: 1; padding: 4px 10px;
+}
+.ctd-fechar:hover { border-color: var(--red); color: var(--red); }
+.ctd-painel-corpo { padding: clamp(15px, 3vw, 24px); display: flex; flex-direction: column; gap: 16px; flex: 1; }
+.ctd-painel-rodape {
+  display: flex; gap: 8px; flex-wrap: wrap; padding: 14px clamp(15px, 3vw, 24px);
+  border-top: 1px solid var(--border); position: sticky; bottom: 0; background: var(--bg);
+}
+
+/* ── Campos de formulário ─────────────────────────────────────────────────── */
+.ctd-campo { display: flex; flex-direction: column; gap: 6px; }
+.ctd-rot { font-size: 12px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); }
+.ctd-ajuda { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.ctd-in, .ctd-ta, .ctd-sel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text); font-family: inherit; font-size: 14px; padding: 9px 11px; width: 100%;
+}
+.ctd-in:focus, .ctd-ta:focus, .ctd-sel:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+.ctd-ta { resize: vertical; min-height: 110px; line-height: 1.6; }
+.ctd-contador { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; align-self: flex-end; }
+.ctd-contador.estourou { color: var(--red); font-weight: 700; }
+.ctd-linha { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* Formato em botões, não em dropdown: são 4 e a escolha muda as regras de arquivo */
+.ctd-formatos { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 7px; }
+.ctd-formato-btn {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--muted); font-family: inherit; font-size: 12.5px; font-weight: 600;
+  padding: 9px 8px; cursor: pointer; transition: border-color .16s, color .16s;
+}
+.ctd-formato-btn:hover { color: var(--text); }
+.ctd-formato-btn.on { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+
+/* Arquivos */
+.ctd-solta {
+  border: 1px dashed var(--border); border-radius: var(--radius-md); padding: 20px 14px;
+  text-align: center; color: var(--muted); font-size: 13px; cursor: pointer; transition: border-color .16s, background .16s;
+}
+.ctd-solta:hover, .ctd-solta.sobre { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.ctd-arquivos { display: flex; flex-direction: column; gap: 7px; }
+.ctd-arquivo {
+  display: flex; align-items: center; gap: 9px; padding: 7px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface);
+}
+.ctd-arquivo img, .ctd-arquivo video {
+  width: 46px; height: 46px; object-fit: cover; border-radius: 6px; flex-shrink: 0; background: var(--bg);
+}
+.ctd-arquivo-nome { flex: 1; min-width: 0; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctd-arquivo-peso { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ctd-mini-btn {
+  background: none; border: 1px solid var(--border); border-radius: 5px; color: var(--muted);
+  cursor: pointer; font-size: 12px; line-height: 1; padding: 5px 8px;
+}
+.ctd-mini-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }
+.ctd-mini-btn:disabled { opacity: .35; cursor: not-allowed; }
+.ctd-mini-btn.perigo:hover { border-color: var(--red); color: var(--red); }
+
+/* Histórico da peça */
+.ctd-trilha { display: flex; flex-direction: column; gap: 7px; }
+.ctd-trilha-item { display: flex; gap: 9px; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.ctd-trilha-quando { font-family: var(--ctd-fm); font-size: 11px; flex-shrink: 0; opacity: .8; }
+
+/* ── Tela de uma peça só (destino do push) ────────────────────────────────── */
+.ctd-peca-wrap { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+.ctd-peca-midia {
+  border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border);
+  background: var(--surface); display: flex; flex-direction: column; gap: 1px;
+}
+.ctd-peca-midia img, .ctd-peca-midia video { width: 100%; height: auto; display: block; }
+.ctd-peca-legenda {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 15px; font-size: 14.5px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; color: var(--text);
+}
+.ctd-peca-acoes { display: flex; gap: 9px; flex-wrap: wrap; }
+.ctd-peca-acoes .ctd-btn { flex: 1 1 160px; justify-content: center; padding: 13px 16px; font-size: 14.5px; }
+
+/* ── Responsivo: no celular nada estoura a tela ───────────────────────────── */
+@media (max-width: 900px) {
+  .ctd-kb { grid-template-columns: 1fr; }
+  .ctd-linha { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+  .ctd-title { font-size: 12px; letter-spacing: 2px; flex: 1 0 100%; order: 3; }
+  .ctd-tb-right { width: 100%; }
+  .ctd-marca { flex: 1; }
+  /* O mês inteiro não cabe em 7 colunas legíveis num celular: vira uma coluna
+     só, com as datas em sequência. Dia sem peça some — rolar 30 quadros vazios
+     para achar os 4 que interessam não ajuda ninguém. */
+  .ctd-cal-grade { grid-template-columns: 1fr; }
+  .ctd-cal-cab { display: none; }
+  .ctd-cal-dia { min-height: 0; flex-direction: row; align-items: flex-start; gap: 10px; padding: 9px 11px; }
+  .ctd-cal-dia.vazio { display: none; }
+  .ctd-cal-dia.fora { display: none; }
+  .ctd-cal-cabdia { flex-direction: column; min-width: 40px; }
+  .ctd-cal-pecas { flex: 1; }
+  .ctd-cal-add { opacity: 1; }
+  .ctd-painel { width: 100%; }
+}
