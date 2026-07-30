@@ -163,6 +163,15 @@ export async function decidir(pecaId, decisao, motivo = null) {
   return Array.isArray(data) ? data[0] : data
 }
 
+// Pede o aviso da hora H de novo. A Edge carimba `avisado_em` ANTES de enviar
+// (para não avisar duas vezes), então um push perdido no caminho fica sem
+// segunda chance — este é o botão que dá.
+export async function reavisar(pecaId) {
+  const { data, error } = await sbClient.rpc('conteudo_reavisar', { p_peca: pecaId })
+  if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))
+  return Array.isArray(data) ? data[0] : data
+}
+
 export async function excluirPeca(pecaId) {
   // Os arquivos do depósito não somem sozinhos com o `on delete cascade` da
   // tabela — o Storage é outro mundo. Apaga primeiro, senão viram lixo eterno.

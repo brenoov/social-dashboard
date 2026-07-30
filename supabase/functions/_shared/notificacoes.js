@@ -27,6 +27,17 @@ export const TIPOS_DE_NOTIFICACAO = [
     // repetiria o problema que esta tabela existe pra resolver.
     padrao: false,
   },
+  {
+    chave: 'conteudo',
+    rotulo: 'Hora de publicar',
+    descricao: 'No horário agendado de cada post, com a arte e a legenda prontas para copiar.',
+    // LIGADO por padrão, ao contrário de 'saldo': este aviso é a razão de ser da
+    // Central de Conteúdo. Quem entra na ferramenta entra para publicar, e uma
+    // peça agendada que não avisa ninguém simplesmente não sai.
+    // Quem recebe ainda é cruzado com a permissão da ferramenta em
+    // _shared/aviso-de-conteudo.js — o padrão aqui não abre nada sozinho.
+    padrao: true,
+  },
 ];
 
 export function ehTipoValido(tipo) {

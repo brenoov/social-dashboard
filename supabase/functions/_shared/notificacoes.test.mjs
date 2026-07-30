@@ -9,16 +9,37 @@ const subs = [
 ];
 
 test('os tipos que existem hoje', () => {
-  assert.deepEqual(TIPOS_DE_NOTIFICACAO.map((t) => t.chave), ['vendas', 'saldo']);
+  assert.deepEqual(TIPOS_DE_NOTIFICACAO.map((t) => t.chave), ['vendas', 'saldo', 'conteudo']);
   assert.equal(ehTipoValido('vendas'), true);
   assert.equal(ehTipoValido('inventado'), false);
 });
 
-test('vendas vem ligado por padrao; saldo NAO', () => {
+test('vendas e conteudo vem ligados por padrao; saldo NAO', () => {
   // So quem cuida de trafego precisa do saldo. Ligar pra todo mundo repetiria o
   // problema que essa preferencia existe pra resolver.
   assert.equal(padraoDoTipo('vendas'), true);
   assert.equal(padraoDoTipo('saldo'), false);
+  // 'conteudo' e o aviso da hora de publicar: e a razao de ser da ferramenta, e
+  // quem recebe ainda passa pelo cruzamento com a permissao (aviso-de-conteudo.js).
+  assert.equal(padraoDoTipo('conteudo'), true);
+});
+
+test('todo tipo tem chave, rotulo e descricao (a tela de preferencias le esta lista)', () => {
+  for (const t of TIPOS_DE_NOTIFICACAO) {
+    assert.ok(t.chave, 'faltou chave');
+    assert.ok(t.rotulo, `faltou rotulo em ${t.chave}`);
+    assert.ok(t.descricao && t.descricao.length > 15, `descricao fraca em ${t.chave}`);
+    assert.equal(typeof t.padrao, 'boolean');
+  }
+});
+
+test('a lista de tipos bate com o CHECK de push_preferencias.tipo', () => {
+  // Se um tipo novo entrar aqui sem a migration que solta o CHECK, salvar a
+  // preferencia falha com erro de constraint. Ja aconteceu com 'conteudo'.
+  assert.deepEqual(
+    TIPOS_DE_NOTIFICACAO.map((t) => t.chave).sort(),
+    ['conteudo', 'saldo', 'vendas'],
+  );
 });
 
 test('sem preferencia salva vale o padrao do tipo', () => {

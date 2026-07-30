@@ -64,6 +64,15 @@
           <button v-if="peca.status === 'agendada'" class="ctd-btn" :disabled="trabalhando" @click="adiando = !adiando">
             Adiar
           </button>
+
+          <!-- Só faz sentido depois que o aviso já saiu: antes disso ele ainda vem. -->
+          <button
+            v-if="peca.status === 'agendada' && peca.avisado_em"
+            class="ctd-btn"
+            :disabled="trabalhando"
+            title="Manda o aviso de novo, caso o push não tenha chegado"
+            @click="pedirDeNovo"
+          >{{ reavisado ? '✓ Vai chegar em até 5 min' : 'Não recebi o aviso' }}</button>
         </div>
 
         <div v-if="adiando" class="ctd-campo">
@@ -106,6 +115,7 @@ const copiado = ref(false)
 const trabalhando = ref(false)
 const adiando = ref(false)
 const novaData = ref('')
+const reavisado = ref(false)
 
 const legendaFinal = computed(() =>
   peca.value ? montarLegendaFinal(peca.value.legenda, peca.value.hashtags) : '',
@@ -150,6 +160,19 @@ async function marcarPublicada() {
   erro.value = ''
   try {
     peca.value = await dados.mudarStatus(peca.value, 'publicada')
+  } catch (e) {
+    erro.value = e.message
+  } finally {
+    trabalhando.value = false
+  }
+}
+
+async function pedirDeNovo() {
+  trabalhando.value = true
+  erro.value = ''
+  try {
+    peca.value = await dados.reavisar(peca.value.id)
+    reavisado.value = true
   } catch (e) {
     erro.value = e.message
   } finally {
