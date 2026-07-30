@@ -247,6 +247,7 @@ export function avisosDe(antes, depois, contexto) {
   const mudou = resumoDasMudancas(a, d).length > 0;
 
   for (const aj of ctx.ajustes || []) {
+    if (aj == null) continue;
     const un = aj.unidade === 'mile' ? 'milhas' : 'km';
     avisos.push({
       tipo: 'raio',
@@ -257,7 +258,7 @@ export function avisosDe(antes, depois, contexto) {
 
   // A Meta exige localização: conjunto não mira em lugar nenhum. Barrar aqui
   // é melhor que deixar salvar e tomar recusa sem entender o motivo.
-  if (!d.cidades.length) {
+  if (!(d.cidades || []).length) {
     avisos.push({
       tipo: 'sem-lugar',
       texto: 'O público ficou <b>sem nenhuma cidade</b>. A Meta não aceita um conjunto sem localização — escolha pelo menos uma.',

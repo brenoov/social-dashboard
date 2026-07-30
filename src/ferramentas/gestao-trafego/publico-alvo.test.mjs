@@ -18,6 +18,11 @@ const ALVO_META = {
   instagram_positions: ['stream', 'story'],
 };
 
+// Públicos dos testes de Advantage+ precisam de uma localização para isolar o
+// comportamento do Advantage+ da regra de localização (que bloqueia sem cidades).
+// Sem isso, testes medem duas coisas ao mesmo tempo.
+const COM_CIDADE = { ...PUBLICO_VAZIO, cidades: [{ key: '1058', nome: 'Campinas', raio: 0, unidade: 'kilometer' }] };
+
 test('le todos os campos que o editor gerencia', () => {
   const p = lerPublico(ALVO_META);
   assert.deepEqual(p.cidades, [{ key: '1058', nome: 'Campinas', raio: 25, unidade: 'kilometer' }]);
@@ -425,18 +430,12 @@ test('LIGAR advantage+ com restricao manual BLOQUEIA — a Meta recusa (1870227)
 });
 
 test('ligar advantage+ SEM restricao manual nao bloqueia', () => {
-  // COM_CIDADE: esses testes medem Advantage+, não localização. PUBLICO_VAZIO
-  // tem cidades: [] que bloquearia por regra distinta — precisamos isolar.
-  const COM_CIDADE = { ...PUBLICO_VAZIO, cidades: [{ key: '1058', nome: 'Campinas', raio: 0, unidade: 'kilometer' }] };
   const a = { ...COM_CIDADE, advantagePlus: false };
   const d = { ...COM_CIDADE, advantagePlus: true };
   assert.ok(!avisosDe(a, d, { ativo: false, ajustes: [] }).some(x => x.bloqueia));
 });
 
 test('desligar advantage+ avisa, mas nao bloqueia', () => {
-  // COM_CIDADE: esses testes medem Advantage+, não localização. PUBLICO_VAZIO
-  // tem cidades: [] que bloquearia por regra distinta — precisamos isolar.
-  const COM_CIDADE = { ...PUBLICO_VAZIO, cidades: [{ key: '1058', nome: 'Campinas', raio: 0, unidade: 'kilometer' }] };
   const a = { ...COM_CIDADE, advantagePlus: true };
   const d = { ...COM_CIDADE, advantagePlus: false, idadeMin: 25 };
   const avisos = avisosDe(a, d, { ativo: false, ajustes: [] });
@@ -458,6 +457,38 @@ test('publico sem lugar nenhum BLOQUEIA — a Meta exige localizacao', () => {
   const bloq = avisosDe(a, d, { ativo: false, ajustes: [] }).find(x => x.bloqueia);
   assert.ok(bloq, 'conjunto não pode mirar em lugar nenhum');
   assert.match(bloq.texto.toLowerCase(), /cidade|lugar|local/);
+});
+
+test('depois.cidades: null nao quebra e bloqueia por sem-lugar', () => {
+  const a = lerPublico(ALVO_META);
+  const d = { ...a, cidades: null };
+  const avisos = avisosDe(a, d, { ativo: false, ajustes: [] });
+  assert.ok(avisos.length > 0, 'não deve quebrar, deve retornar avisos');
+  const bloq = avisos.find(x => x.bloqueia && /cidade|lugar|local/i.test(x.texto));
+  assert.ok(bloq, 'null em cidades é "sem lugar", deve bloquear');
+});
+
+test('depois.cidades: undefined nao quebra e bloqueia por sem-lugar', () => {
+  const a = lerPublico(ALVO_META);
+  const d = { ...a, cidades: undefined };
+  const avisos = avisosDe(a, d, { ativo: false, ajustes: [] });
+  assert.ok(avisos.length > 0, 'não deve quebrar, deve retornar avisos');
+  const bloq = avisos.find(x => x.bloqueia && /cidade|lugar|local/i.test(x.texto));
+  assert.ok(bloq, 'undefined em cidades é "sem lugar", deve bloquear');
+});
+
+test('antes.cidades: null nao quebra', () => {
+  const a = { ...COM_CIDADE, cidades: null };
+  const d = lerPublico(ALVO_META);
+  const avisos = avisosDe(a, d, { ativo: false, ajustes: [] });
+  assert.ok(Array.isArray(avisos), 'não deve quebrar, deve retornar array');
+});
+
+test('antes.cidades: undefined nao quebra', () => {
+  const a = { ...COM_CIDADE, cidades: undefined };
+  const d = lerPublico(ALVO_META);
+  const avisos = avisosDe(a, d, { ativo: false, ajustes: [] });
+  assert.ok(Array.isArray(avisos), 'não deve quebrar, deve retornar array');
 });
 
 test('todo aviso tem texto legivel e marca de bloqueio explicita', () => {
