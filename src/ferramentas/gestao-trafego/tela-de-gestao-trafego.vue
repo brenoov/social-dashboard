@@ -128,6 +128,7 @@ import { hojeLocal, diasAtras, primeiroDiaDoMes, ultimoDiaDoMes } from '../../co
 // em orcamento-hierarquia.test.mjs. Aqui só se desenha o resultado.
 import { orcamentoDe, detectarNivelOrcamento, podeEditarOrcamentoDaCampanha, podeEditarOrcamentoDoConjunto, montarHierarquia } from './orcamento-hierarquia.js'
 import { planoDeCopia, executarPlano, comEspera, retomar, SUFIXO_PADRAO } from './duplicar.js'
+import { lerPublico, montarTargeting, resumoDasMudancas, avisosDe, PUBLICO_VAZIO } from './publico-alvo.js'
 // Aba "A régua" (métrica ponderada): painel puro + os módulos que leem/normalizam
 // a régua vinda do banco (ver painel-regua.js, ponderada.js, regua.js).
 import { montarPainelRegua } from './painel-regua.js'
@@ -1646,6 +1647,45 @@ function _gtWireBudgetManual(el,alvo){
       _t:`Aplicar orçamento ${alvo.nivelLbl}?`,
       _d:`${alvo.nivelNome} "${_gtEsc(alvo.nome)}":<br><b>${antes}</b> → <b>${_maFmtR(v)}/dia</b>`},bMan,el);
   });
+}
+// Público de UM conjunto, buscado na hora. O Gestor não traz targeting na
+// carga da tela de propósito: pedir isso de todos os conjuntos em toda carga
+// deixaria a tela lenta pra um dado que quase nunca é olhado.
+async function _gtBuscarPublico(adsetId){
+  const tok=_gtCurAcc?.id;
+  if(!tok)return null;
+  const r=await metaFetch('/'+adsetId,{fields:'targeting,effective_status'},tok);
+  return r||null;
+}
+
+// Públicos personalizados da conta (remarketing e semelhantes). Buscados UMA
+// vez por conta e reaproveitados: a lista muda pouco e a chamada é cara.
+let _gtPublicosSalvos=null;      // {conta, lista} | null
+async function _gtListarPublicosSalvos(){
+  const tok=_gtCurAcc?.id;
+  const accId=_gtCurAcc?.ad_account_id;
+  if(!tok||!accId)return [];
+  // Chave do cache é o AD ACCOUNT (ad_account_id), não o carrier do proxy
+  // (_gtCurAcc.id): o mesmo carrier pode servir várias contas de anúncio
+  // (descoberta via /me/adaccounts), então cachear por carrier vazaria a
+  // lista de públicos de uma conta pra dentro de outra.
+  if(_gtPublicosSalvos&&_gtPublicosSalvos.conta===accId)return _gtPublicosSalvos.lista;
+  // Falha aqui NÃO derruba o editor: lista opcional que não carrega não pode
+  // impedir o dono de trocar uma cidade.
+  const r=await metaFetchAll(`/act_${_maCleanAccId(accId)}/customaudiences`,
+    {fields:'id,name,subtype',limit:200},tok).catch(()=>null);
+  if(r===null)return null;       // null = "não consegui carregar", [] = "não tem nenhum"
+  _gtPublicosSalvos={conta:accId,lista:r};
+  return r;
+}
+
+// Públicos prontos montados no Estúdio (tabela fabrica_publicos, leitura
+// liberada para autenticados). Escolher um PREENCHE o editor; não salva.
+async function _gtListarPresets(){
+  const{data,error}=await sbClient.from('fabrica_publicos')
+    .select('id,nome,geo,idade_min,idade_max,generos,interesses,custom_audiences')
+    .eq('ativo',true).order('created_at',{ascending:false});
+  return error?null:(data||[]);
 }
 // Botão "⧉ Duplicar". Só existe para quem tem permissão de EDITAR nesta
 // ferramenta — mesmo critério do orçamento. Duplicar cria objeto novo na
