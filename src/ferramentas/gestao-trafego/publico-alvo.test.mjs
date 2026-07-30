@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { lerPublico, PUBLICO_VAZIO, montarTargeting, resumoDasMudancas } from './publico-alvo.js';
+import { lerPublico, PUBLICO_VAZIO, montarTargeting, resumoDasMudancas, avisosDe } from './publico-alvo.js';
 
 // Forma real devolvida pela Meta (campos conferidos em coletor/lib/publico.mjs).
 const ALVO_META = {
@@ -399,4 +399,84 @@ test('cidade com raio 0 (cidade inteira) em ambos lados, unidade muda, nao gera 
   const depois = { ...antes, cidades: [{ key: '1058', nome: 'Campinas', raio: 0, unidade: 'mile' }] };
   const r = resumoDasMudancas(antes, depois);
   assert.ok(!r.some(linha => linha.includes('Raio de Campinas')), 'nao deve gerar linha de raio quando ambos sao 0');
+});
+
+test('conjunto ATIVO avisa que reinicia o aprendizado; pausado nao avisa', () => {
+  const a = lerPublico(ALVO_META), d = { ...a, idadeMin: 30 };
+  const ativo = avisosDe(a, d, { ativo: true, ajustes: [] });
+  assert.ok(ativo.some(x => /aprendizado/i.test(x.texto)));
+  const pausado = avisosDe(a, d, { ativo: false, ajustes: [] });
+  assert.ok(!pausado.some(x => /aprendizado/i.test(x.texto)),
+    'aviso que aparece sempre é aviso que ninguém lê');
+});
+
+test('sem mudanca nenhuma, nao avisa nada — nem em conjunto ativo', () => {
+  const a = lerPublico(ALVO_META);
+  assert.deepEqual(avisosDe(a, a, { ativo: true, ajustes: [] }), []);
+});
+
+test('LIGAR advantage+ com restricao manual BLOQUEIA — a Meta recusa (1870227)', () => {
+  const a = lerPublico(ALVO_META);
+  const d = { ...a, advantagePlus: true };   // ALVO_META tem idade, gênero e interesses
+  const avisos = avisosDe(a, d, { ativo: false, ajustes: [] });
+  const conflito = avisos.find(x => x.bloqueia);
+  assert.ok(conflito, 'combinação que a Meta recusa não pode ser oferecida como se funcionasse');
+  assert.match(conflito.texto, /Advantage/);
+});
+
+test('ligar advantage+ SEM restricao manual nao bloqueia', () => {
+  // COM_CIDADE: esses testes medem Advantage+, não localização. PUBLICO_VAZIO
+  // tem cidades: [] que bloquearia por regra distinta — precisamos isolar.
+  const COM_CIDADE = { ...PUBLICO_VAZIO, cidades: [{ key: '1058', nome: 'Campinas', raio: 0, unidade: 'kilometer' }] };
+  const a = { ...COM_CIDADE, advantagePlus: false };
+  const d = { ...COM_CIDADE, advantagePlus: true };
+  assert.ok(!avisosDe(a, d, { ativo: false, ajustes: [] }).some(x => x.bloqueia));
+});
+
+test('desligar advantage+ avisa, mas nao bloqueia', () => {
+  // COM_CIDADE: esses testes medem Advantage+, não localização. PUBLICO_VAZIO
+  // tem cidades: [] que bloquearia por regra distinta — precisamos isolar.
+  const COM_CIDADE = { ...PUBLICO_VAZIO, cidades: [{ key: '1058', nome: 'Campinas', raio: 0, unidade: 'kilometer' }] };
+  const a = { ...COM_CIDADE, advantagePlus: true };
+  const d = { ...COM_CIDADE, advantagePlus: false, idadeMin: 25 };
+  const avisos = avisosDe(a, d, { ativo: false, ajustes: [] });
+  assert.ok(avisos.some(x => /desligado/i.test(x.texto)));
+  assert.ok(!avisos.some(x => x.bloqueia));
+});
+
+test('ajuste de raio vira aviso com a cidade pelo nome', () => {
+  const a = lerPublico(ALVO_META);
+  const avisos = avisosDe(a, a, { ativo: false, ajustes: [{ cidade: 'Campinas', de: 5, para: 17, unidade: 'kilometer' }] });
+  const r = avisos.find(x => /Campinas/.test(x.texto));
+  assert.ok(r);
+  assert.match(r.texto, /17/);
+});
+
+test('publico sem lugar nenhum BLOQUEIA — a Meta exige localizacao', () => {
+  const a = lerPublico(ALVO_META);
+  const d = { ...a, cidades: [] };
+  const bloq = avisosDe(a, d, { ativo: false, ajustes: [] }).find(x => x.bloqueia);
+  assert.ok(bloq, 'conjunto não pode mirar em lugar nenhum');
+  assert.match(bloq.texto.toLowerCase(), /cidade|lugar|local/);
+});
+
+test('todo aviso tem texto legivel e marca de bloqueio explicita', () => {
+  const a = lerPublico(ALVO_META);
+  const d = { ...a, advantagePlus: true, idadeMin: 30 };
+  for (const x of avisosDe(a, d, { ativo: true, ajustes: [] })) {
+    assert.equal(typeof x.texto, 'string');
+    assert.ok(x.texto.length > 15);
+    assert.equal(typeof x.bloqueia, 'boolean');
+  }
+});
+
+test('sem cidade E advantage+ conflict coexistem — dois bloqueios, nenhum se perde', () => {
+  const a = lerPublico(ALVO_META);
+  // Remove cidades E liga Advantage+ com restrição manual (ambas condições de bloqueio)
+  const d = { ...a, cidades: [], advantagePlus: true };
+  const avisos = avisosDe(a, d, { ativo: false, ajustes: [] });
+  const bloqueios = avisos.filter(x => x.bloqueia);
+  assert.ok(bloqueios.length >= 2, 'deve ter pelo menos 2 avisos bloqueantes: sem-cidade E conflito Advantage+');
+  assert.ok(bloqueios.some(x => /cidade|lugar|local/i.test(x.texto)), 'um bloqueio é sobre localização');
+  assert.ok(bloqueios.some(x => /Advantage/i.test(x.texto)), 'outro bloqueio é sobre Advantage+');
 });

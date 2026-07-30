@@ -227,3 +227,68 @@ export function resumoDasMudancas(antes, depois) {
 
   return linhas;
 }
+
+const temRestricaoManual = (p) =>
+  (p.generos && p.generos.length > 0) ||
+  (p.interesses && p.interesses.length > 0) ||
+  p.idadeMin !== PUBLICO_VAZIO.idadeMin ||
+  p.idadeMax !== PUBLICO_VAZIO.idadeMax;
+
+// Os avisos que precedem o salvar. `bloqueia: true` impede a gravação até o
+// dono resolver o conflito.
+//
+// Aviso que aparece sempre é aviso que ninguém lê: se nada mudou, não avisa
+// nada, e o aviso de aprendizado só sai em conjunto que está rodando.
+export function avisosDe(antes, depois, contexto) {
+  const a = Object.assign({}, PUBLICO_VAZIO, antes || {});
+  const d = Object.assign({}, PUBLICO_VAZIO, depois || {});
+  const ctx = contexto || {};
+  const avisos = [];
+  const mudou = resumoDasMudancas(a, d).length > 0;
+
+  for (const aj of ctx.ajustes || []) {
+    const un = aj.unidade === 'mile' ? 'milhas' : 'km';
+    avisos.push({
+      tipo: 'raio',
+      texto: `Ajustei o raio de ${aj.cidade} de ${aj.de} para ${aj.para} ${un} — a Meta não aceita menos.`,
+      bloqueia: false,
+    });
+  }
+
+  // A Meta exige localização: conjunto não mira em lugar nenhum. Barrar aqui
+  // é melhor que deixar salvar e tomar recusa sem entender o motivo.
+  if (!d.cidades.length) {
+    avisos.push({
+      tipo: 'sem-lugar',
+      texto: 'O público ficou <b>sem nenhuma cidade</b>. A Meta não aceita um conjunto sem localização — escolha pelo menos uma.',
+      bloqueia: true,
+    });
+  }
+
+  // A Meta REJEITA segmentação manual com o Advantage+ ligado (código 1870227,
+  // apanhado ao vivo em 2026-07-12). Deixar salvar e tomar o erro seria
+  // transferir pro dono um conflito que a ferramenta já conhece.
+  if (d.advantagePlus && temRestricaoManual(d)) {
+    avisos.push({
+      tipo: 'conflito',
+      texto: 'Com o Advantage+ ligado, a Meta <b>recusa</b> idade, gênero e interesses definidos à mão. Escolha: ou desliga o Advantage+, ou limpa essas restrições.',
+      bloqueia: true,
+    });
+  } else if (!d.advantagePlus && a.advantagePlus) {
+    avisos.push({
+      tipo: 'advantage',
+      texto: 'O Advantage+ será <b>desligado</b>. A partir daí idade, gênero e interesses passam a valer como limite de verdade.',
+      bloqueia: false,
+    });
+  }
+
+  if (mudou && ctx.ativo) {
+    avisos.push({
+      tipo: 'aprendizado',
+      texto: 'Este conjunto está rodando. Mudar o público <b>reinicia o aprendizado da Meta</b> — o custo pode piorar por alguns dias até estabilizar.',
+      bloqueia: false,
+    });
+  }
+
+  return avisos;
+}
