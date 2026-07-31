@@ -118,17 +118,28 @@ export function filtrarValidos(propostos, respostaMeta) {
     if (!l || typeof l !== 'object') continue;   // item nulo ou lixo: pulado
     if (l.valid !== true) continue;              // a Meta não reconheceu
     if (l.id == null) continue;                  // sem id não dá pra usar
+    // Só aceita id string ou número; qualquer outro tipo é garbage que não pode
+    // ser um identificador de verdade (objeto, array, boolean viram identificadores
+    // fake como "[object Object]" ou "true" se convertidos a string, e depois quebram
+    // na tabela e na conta).
+    if (typeof l.id !== 'string' && typeof l.id !== 'number') continue;
     const id = String(l.id);
     if (vistos.has(id)) continue;
     const nome = limpo(l.name);
     if (!nome) continue;
     vistos.add(id);
+    // Audience size: ausente vira null (público de tamanho desconhecido), presente vira
+    // Number se for um número de verdade. String, array, objeto — qualquer coisa que
+    // vira NaN é descartada também: não é informação válida.
+    let audience_size = null;
+    if (l.audience_size != null) {
+      const n = Number(l.audience_size);
+      if (Number.isFinite(n)) audience_size = n;
+    }
     itens.push({
       id,
       nome,
-      // Ausente vira null, nunca 0: público de tamanho zero é uma informação
-      // diferente de tamanho desconhecido.
-      audience_size: l.audience_size == null ? null : Number(l.audience_size),
+      audience_size,
     });
   }
   return { itens, propostos: lista(propostos).length, validos: itens.length };

@@ -272,6 +272,60 @@ test('audience_size ausente vira null, nao NaN nem zero', () => {
     'zero seria mentira: publico de tamanho zero e diferente de tamanho desconhecido');
 });
 
+test('id com tipo errado (objeto, array, boolean) e pulado; o bom do lado SOBREVIVE', () => {
+  const r = filtrarValidos(['A', 'B', 'C', 'D'], {
+    data: [
+      { name: 'A', valid: true, id: {} },           // garbage: objeto
+      { name: 'B', valid: true, id: '6003' },       // bom
+      { name: 'C', valid: true, id: [1, 2] },       // garbage: array
+      { name: 'D', valid: true, id: true },         // garbage: boolean
+    ],
+  });
+  assert.equal(r.itens.length, 1, 'só a entrada B com id string sobrevive');
+  assert.equal(r.itens[0].nome, 'B');
+  assert.equal(r.itens[0].id, '6003');
+});
+
+test('id como 0 e como string vazia AINDA SOBREVIVEM — falsy mas legítimo', () => {
+  const r = filtrarValidos(['A', 'B'], {
+    data: [
+      { name: 'A', valid: true, id: 0 },    // zero: falsy, mas legítimo
+      { name: 'B', valid: true, id: '' },   // string vazia: falsy, mas legítimo
+    ],
+  });
+  assert.equal(r.itens.length, 2, 'ambas sobrevivem apesar de falsy');
+  assert.equal(r.itens[0].id, '0');
+  assert.equal(r.itens[1].id, '');
+});
+
+test('audience_size com tipo errado vira null, nao NaN; o bom do lado SOBREVIVE', () => {
+  const r = filtrarValidos(['A', 'B', 'C', 'D'], {
+    data: [
+      { name: 'A', valid: true, id: '1', audience_size: 'muito' },     // garbage: string
+      { name: 'B', valid: true, id: '2', audience_size: 5 },           // bom
+      { name: 'C', valid: true, id: '3', audience_size: {} },          // garbage: objeto
+      { name: 'D', valid: true, id: '4', audience_size: [1, 2, 3] },   // garbage: array
+    ],
+  });
+  assert.equal(r.itens.length, 4, 'todos sobrevivem porque têm id válido e nome');
+  // A, C, D têm garbage audience_size → null
+  assert.equal(r.itens[0].audience_size, null, '"muito" não é número: vira null');
+  assert.ok(Number.isNaN(Number('muito')), 'confirma que "muito" → NaN na conversão');
+  // B tem número de verdade
+  assert.equal(r.itens[1].audience_size, 5);
+  assert.equal(r.itens[2].audience_size, null, '{} → NaN → null');
+  assert.ok(Number.isNaN(Number({})), 'confirma que {} → NaN na conversão');
+  assert.equal(r.itens[3].audience_size, null, '[1,2,3] → NaN → null');
+  assert.ok(Number.isNaN(Number([1, 2, 3])), 'confirma que [1,2,3] → NaN na conversão');
+});
+
+test('audience_size como 0 vira 0, nao null', () => {
+  const r = filtrarValidos(['X'], { data: [{ name: 'X', valid: true, id: '1', audience_size: 0 }] });
+  assert.equal(r.itens[0].audience_size, 0,
+    'zero é número de verdade (diferente de ausente)');
+  assert.ok(Number.isFinite(0), 'confirma que 0 é finito');
+});
+
 test('nomesPropostos limpa a resposta da IA e ignora lixo', () => {
   assert.deepEqual(nomesPropostos({ interesses: ['Bolsas', '  Moda  ', '', null, 42] }),
     ['Bolsas', 'Moda']);
