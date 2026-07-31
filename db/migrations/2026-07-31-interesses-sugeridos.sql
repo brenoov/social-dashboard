@@ -1,14 +1,18 @@
 -- Sugestões de interesse por marca × objetivo, geradas pelo robô semanal
 -- coletor/sugerir-interesses.mjs.
 --
--- COMO O DADO CHEGA AQUI: a IA propõe nomes de interesse, e a PRÓPRIA META
--- valida cada um (/search?type=adinterestvalid). O que ela não reconhece é
--- descartado antes de virar linha nesta tabela. Por isso `itens` só contém
--- interesse que existe de verdade, com o id que a Meta devolveu.
+-- COMO O DADO CHEGA AQUI: a IA dá ASSUNTOS (termos de busca) e o robô busca
+-- cada assunto no catálogo da Meta (/search?type=adinterest), colhendo os
+-- interesses que voltam. Por isso `itens` só contém interesse que existe de
+-- verdade, com o id que a Meta devolveu — nome escrito pela IA não chega aqui.
 --
--- Sem essa etapa a tela mostraria sugestões bonitas que dariam erro na hora de
--- usar — pior que não sugerir nada, porque parece funcionar até o momento em
--- que importa.
+-- O ESTRUTURAL: nome de interesse nunca vem do modelo. Se viesse, a tela
+-- mostraria sugestão bonita que dá erro na hora de usar — pior que não sugerir
+-- nada, porque parece funcionar até o momento em que importa.
+--
+-- (Só o COMENTÁRIO mudou depois de aplicada, não o esquema: a primeira versão
+-- pedia o nome exato à IA e validava com type=adinterestvalid. Rendia 15%, e a
+-- busca substituiu a validação. As colunas continuam as mesmas.)
 --
 -- O DONO NÃO EDITA ESTA TABELA pela tela: se a sugestão está ruim, quem muda é
 -- o robô (o pedido que ele faz à IA). Por isso a escrita é só service_role.
@@ -16,10 +20,10 @@ create table if not exists interesses_sugeridos (
   id uuid primary key default gen_random_uuid(),
   marca_id uuid not null references fabrica_marcas(id) on delete cascade,
   objetivo text not null,                    -- chave de ALVOS (src/ferramentas/gestao-trafego/alvos.js)
-  itens jsonb not null default '[]'::jsonb,  -- [{id, nome, audience_size}] JÁ validados na Meta
-  -- Propostos x válidos medem o aproveitamento da validação. Se a taxa vier
-  -- baixa, o pedido feito à IA precisa de ajuste — e dá pra ver isso sem abrir
-  -- o log do robô.
+  itens jsonb not null default '[]'::jsonb,  -- [{id, nome, audience_size}] vindos do catálogo da Meta, no máximo 12, maior público primeiro
+  -- Quanto a rodada rendeu: `propostos` são os TERMOS que a IA deu, `validos`
+  -- são os interesses que as buscas acharam e ficaram na linha. Mais de um
+  -- interesse por termo é normal — não é uma taxa de sobrevivência.
   propostos int not null default 0,
   validos int not null default 0,
   modelo text,

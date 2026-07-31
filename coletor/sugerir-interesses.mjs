@@ -1,8 +1,15 @@
 // Robô semanal: sugere interesses de segmentação por marca × objetivo.
 //
-// COMO FUNCIONA: lê as marcas ativas e as lojas de cada uma, pede ao modelo uma
-// lista de interesses para cada objetivo, e VALIDA CADA NOME NA META antes de
-// gravar. O que a Meta não reconhece é descartado — a IA propõe, a Meta decide.
+// COMO FUNCIONA: lê as marcas ativas e as lojas de cada uma, pede ao modelo
+// TERMOS DE BUSCA para cada objetivo, BUSCA CADA TERMO NA META e colhe os
+// interesses que voltarem. Os nomes saem do catálogo da Meta — a IA só escolhe
+// o assunto.
+//
+// POR QUE ASSIM: antes se pedia ao modelo o NOME EXATO de cada interesse e
+// depois se validava nome por nome. Medido na conta de verdade, 15% dos nomes
+// existiam — a faixa chegava à tela com uma ou duas sugestões. Pedir nome exato
+// é pedir que o modelo decore um catálogo que ele nunca viu; pedir o assunto é
+// pedir o que ele sabe fazer.
 //
 // POR QUE PRÉ-CALCULADO E NÃO SOB CLIQUE: a sugestão já está na tela quando o
 // dono abre o editor, o custo é fixo por semana em vez de crescer com o uso, e
@@ -12,7 +19,7 @@
 // então o valor real aparece no painel Status do Claude, em reais.
 import { structured, SONNET, usageSummary } from './lib-llm.mjs';
 import { registrarExecucao } from './registrar-execucao.mjs';
-import { montarPedido, nomesPropostos, filtrarValidos, comCidadesResolvidas, rodadaFalhouInteira, OBJETIVOS } from './lib/interesses.mjs';
+import { montarPedido, nomesPropostos, colherDaBusca, comCidadesResolvidas, rodadaFalhouInteira, OBJETIVOS } from './lib/interesses.mjs';
 // Login da conta de serviço (mesma usada por subir-estudio.mjs, ativar-estudio.mjs
 // etc.) — o meta-proxy chama auth.getUser() sobre o Authorization recebido, e uma
 // service key não é sessão de usuário: ela sempre daria 401 "nao autenticado" ali.
@@ -45,20 +52,26 @@ async function sbPost(path, body, prefer) {
   if (!r.ok) throw new Error(`POST ${path} ${r.status} ${(await r.text()).slice(0, 200)}`);
 }
 
-// Fala com a Meta pela Edge meta-proxy, como o resto do projeto.
-// Manda ARRAY, não texto: o proxy já faz JSON.stringify em valor que é objeto,
-// e converter aqui converteria duas vezes.
+// Busca UM termo no catálogo de interesses da Meta, pela Edge meta-proxy.
+//
+// É EXATAMENTE A MESMA CHAMADA que a Fábrica faz quando o dono digita na busca
+// de interesses (painel-subir.vue, "buscarInteresses"): type=adinterest, o termo
+// em `q`, `limit` 10. Usar a chamada já provada em produção é de propósito —
+// nenhum campo novo, nenhuma versão de Graph diferente, nenhuma surpresa.
+//
+// Manda os parâmetros como objeto, não texto: o proxy já faz JSON.stringify em
+// valor que é objeto, e converter aqui converteria duas vezes.
 // AUTENTICAÇÃO: token de USUÁRIO (loginServico), não a service key — o
 // meta-proxy resolve o chamador via auth.getUser(), que só reconhece sessão de
 // usuário de verdade. `token` vem de run(), obtido uma única vez antes do laço.
-async function validarNaMeta(accountId, nomes, token) {
+async function buscarNaMeta(accountId, termo, token) {
   const r = await fetch(SUPABASE_URL + '/functions/v1/meta-proxy', {
     method: 'POST',
     headers: { apikey: ANON, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       accountId,
       path: '/search',
-      params: { type: 'adinterestvalid', interest_list: nomes },
+      params: { type: 'adinterest', q: termo, limit: 10 },
       method: 'GET',
     }),
   });
@@ -125,17 +138,25 @@ async function resolverNomesDeCidade(chaves, token, accountId) {
   }
 }
 
+// O campo continua se chamando `interesses` — é o que o modelo devolve, e mudar
+// o nome não mudaria nada além de exigir tocar em mais um lugar. O que ele
+// carrega hoje são TERMOS DE BUSCA, e a descrição diz isso.
 const SCHEMA = {
   type: 'object',
   properties: {
     interesses: {
       type: 'array',
       items: { type: 'string' },
-      description: 'Nomes de interesse do Meta, em português do Brasil, até 12.',
+      description: 'Termos de busca curtos (1 a 3 palavras), em português do Brasil, até 8.',
     },
   },
   required: ['interesses'],
 };
+
+// Pausa entre uma busca e a seguinte. São 8 termos × 6 objetivos por marca, e
+// este robô roda uma vez por semana: não existe motivo nenhum pra ter pressa
+// com a API da Meta.
+const PAUSA_ENTRE_BUSCAS = 400;
 
 export async function run() {
   const t0 = Date.now();
@@ -180,22 +201,33 @@ export async function run() {
         puladas++; continue;
       }
 
-      const propostos = nomesPropostos(resposta);
-      if (!propostos.length) { console.log(`  ⚠ ${marca.nome} · ${objetivo}: IA não propôs nada`); puladas++; continue; }
+      const termos = nomesPropostos(resposta);
+      if (!termos.length) { console.log(`  ⚠ ${marca.nome} · ${objetivo}: IA não propôs nenhum termo`); puladas++; continue; }
 
-      let validacao;
-      try {
-        validacao = await validarNaMeta(marca.account_id, propostos, token);
-      } catch (e) {
-        // Sem validação NÃO grava: sugestão não conferida na Meta é pior que
-        // sugestão nenhuma, porque dá erro só na hora de usar.
-        console.log(`  ⚠ ${marca.nome} · ${objetivo}: validação falhou — ${String(e).slice(0, 120)}`);
+      // UMA BUSCA POR TERMO, e uma busca que falha NÃO derruba o objetivo: os
+      // outros termos ainda trazem interesse bom. Só se TODAS falharem é que o
+      // objetivo é pulado — aí a causa não é o termo, é a Meta ou o token, e a
+      // regra antiga continua valendo: sem resposta da Meta, não se grava nada.
+      const respostas = [];
+      for (const termo of termos) {
+        try {
+          respostas.push(await buscarNaMeta(marca.account_id, termo, token));
+        } catch (e) {
+          console.log(`  ⚠ ${marca.nome} · ${objetivo}: a busca por "${termo}" falhou — ${String(e).slice(0, 120)}`);
+        }
+        await sleep(PAUSA_ENTRE_BUSCAS);
+      }
+      if (!respostas.length) {
+        console.log(`  ⚠ ${marca.nome} · ${objetivo}: TODAS as ${termos.length} buscas na Meta falharam — nada gravado`);
         puladas++; continue;
       }
 
-      const { itens, propostos: nProp, validos } = filtrarValidos(propostos, validacao);
+      const { itens, propostos: nProp, validos } = colherDaBusca(termos, respostas);
       totPropostos += nProp; totValidos += validos;
-      console.log(`  ${marca.nome} · ${objetivo}: ${validos}/${nProp} sobreviveram à validação`);
+      // O número mudou de sentido: antes era "quantos sobreviveram à validação",
+      // agora é "quantos interesses as buscas acharam". Passar de 100% é normal —
+      // um termo pode trazer vários interesses.
+      console.log(`  ${marca.nome} · ${objetivo}: ${validos} interesses achados a partir de ${nProp} termos`);
 
       if (!itens.length) { puladas++; continue; }
       // Em --dry nenhuma SUGESTÃO é gravada. A linha de ia_execucoes lá embaixo é
@@ -223,14 +255,18 @@ export async function run() {
   }
 
   const uso = usageSummary();
-  const aproveitamento = totPropostos ? Math.round((totValidos / totPropostos) * 100) : 0;
+  // NÃO é mais "aproveitamento": não existe mais um total de nomes propostos do
+  // qual uma parte sobrevive. São interesses ACHADOS a partir de termos buscados,
+  // e o número pode passar de um por termo sem que isso seja anomalia nenhuma.
+  // Manter a palavra antiga aqui faria o dono ler 250% e achar que quebrou.
+  const rendimento = `${totValidos} interesses achados em ${totPropostos} termos`;
   // Em --dry o resumo fala de `simuladas`, nunca de `gravadas` — a mesma frase
   // vira o log do console E o `detalhe` gravado em ia_execucoes logo abaixo,
   // então não existe uma versão "bonita" pro console e uma verdadeira pro
   // banco: é a mesma, e ela já nasce certa nos dois lugares.
   const base = DRY
-    ? `SECO: ${simuladas} teriam sido gravadas (nada escrito), ${puladas} puladas, aproveitamento ${aproveitamento}%`
-    : `${gravadas} gravadas, ${puladas} puladas, aproveitamento ${aproveitamento}%`;
+    ? `SECO: ${simuladas} teriam sido gravadas (nada escrito), ${puladas} puladas, ${rendimento}`
+    : `${gravadas} gravadas, ${puladas} puladas, ${rendimento}`;
 
   // FALHA SISTÊMICA ≠ falha de uma marca. A regra mora no lib (com teste), porque
   // é ela que decide se um problema aparece ou passa batido — ver rodadaFalhouInteira.

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { montarPedido, OBJETIVOS, NOME_DO_OBJETIVO, nomesPropostos, filtrarValidos, comCidadesResolvidas, rodadaFalhouInteira } from './interesses.mjs';
+import { montarPedido, OBJETIVOS, NOME_DO_OBJETIVO, nomesPropostos, colherDaBusca, MAXIMO_POR_OBJETIVO, comCidadesResolvidas, rodadaFalhouInteira } from './interesses.mjs';
 import { ALVOS } from '../../src/ferramentas/gestao-trafego/alvos.js';
 
 const MARCA = { id: 'm1', nome: 'La Vessel' };
@@ -276,54 +276,122 @@ test('lojas como string ou numero NAO quebra', () => {
   assert.ok(!/undefined|null|\[object/.test(p2.user), 'lixo não vazou: ' + p2.user);
 });
 
-const META_OK = {
+// ===== O PEDIDO PEDE ASSUNTO, NÃO NOME DE CATÁLOGO =====
+
+test('o pedido NAO manda a IA acertar o nome exato de um interesse do Meta', () => {
+  // Era isto que rendia 15%: pedir nome exato é pedir que o modelo decore um
+  // catálogo que ele nunca viu. Se alguém reescrever o pedido de volta pra
+  // "nomes que existam no Meta", este teste cai.
+  const p = montarPedido({ marca: MARCA, lojas: LOJAS, objetivo: 'vendas' });
+  assert.match(p.system.toLowerCase(), /não precisa conhecer o catálogo/,
+    'o system tem de deixar claro que conhecer o catálogo não é tarefa da IA');
+  assert.match(p.user.toLowerCase(), /termos de busca/, 'o pedido é de termo de busca');
+  assert.ok(!/do jeito que aparecem no gerenciador/.test(p.system.toLowerCase()),
+    'pedir o nome do jeito que aparece no Gerenciador é justamente o que foi abandonado');
+});
+
+test('o pedido pede 8 termos, nao 12 nomes', () => {
+  // Menos e mais largo: cada termo vira uma busca na Meta, e termo largo rende
+  // mais interesse de verdade que nome específico chutado.
+  const p = montarPedido({ marca: MARCA, lojas: LOJAS, objetivo: 'vendas' });
+  assert.match(p.user, /até 8 termos/);
+  assert.ok(!p.user.includes('até 12'), 'o número antigo não pode sobrar no texto');
+});
+
+// ===== A COLHEITA DAS BUSCAS =====
+//
+// A resposta de type=adinterest NÃO tem campo `valid`: o que ela devolve já é
+// catálogo da Meta. As fixtures aqui são desse formato, de propósito — exigir
+// `valid: true` (como a validação antiga fazia) descartaria absolutamente tudo.
+const BUSCA_BOLSAS = {
   data: [
-    { name: 'Bolsas', valid: true, id: '6003', audience_size: 2300000 },
-    { name: 'Moda feminina', valid: true, id: '6004', audience_size: 8100000 },
-    { name: 'Interesse Inventado', valid: false },
+    { name: 'Bolsas', id: '6003', audience_size: 2300000 },
+    { name: 'Bolsa de couro', id: '6005', audience_size: 900000 },
   ],
 };
+const BUSCA_MODA = {
+  data: [{ name: 'Moda feminina', id: '6004', audience_size: 8100000 }],
+};
 
-test('so o que a Meta reconheceu passa; o inventado e DESCARTADO', () => {
-  const r = filtrarValidos(['Bolsas', 'Moda feminina', 'Interesse Inventado'], META_OK);
-  assert.deepEqual(r.itens.map((i) => i.nome), ['Bolsas', 'Moda feminina']);
-  assert.equal(r.propostos, 3);
-  assert.equal(r.validos, 2);
+test('os interesses vem das BUSCAS, e resultado sem campo `valid` entra normalmente', () => {
+  const r = colherDaBusca(['bolsas', 'moda'], [BUSCA_BOLSAS, BUSCA_MODA]);
+  assert.deepEqual(r.itens.map((i) => i.nome), ['Moda feminina', 'Bolsas', 'Bolsa de couro']);
+  assert.equal(r.propostos, 2, 'propostos agora conta TERMOS, não nomes de interesse');
+  assert.equal(r.validos, 3, 'validos agora conta os interesses achados');
 });
 
 test('id e tamanho de publico da Meta sao preservados', () => {
-  const r = filtrarValidos(['Bolsas'], META_OK);
-  assert.equal(r.itens[0].id, '6003');
-  assert.equal(r.itens[0].audience_size, 2300000);
+  const r = colherDaBusca(['bolsas'], [BUSCA_BOLSAS]);
+  const bolsas = r.itens.find((i) => i.nome === 'Bolsas');
+  assert.equal(bolsas.id, '6003');
+  assert.equal(bolsas.audience_size, 2300000);
 });
 
-test('valido SEM id e descartado — sugestao sem id nao da pra usar', () => {
-  const r = filtrarValidos(['X'], { data: [{ name: 'X', valid: true }] });
+test('um termo pode render VARIOS interesses — passar de um por termo e normal', () => {
+  const r = colherDaBusca(['bolsas'], [BUSCA_BOLSAS]);
+  assert.equal(r.propostos, 1);
+  assert.equal(r.validos, 2, 'a conta não é mais "sobreviveu ou não": é quanto rendeu');
+});
+
+test('resultado SEM id e descartado — sugestao sem id nao da pra usar', () => {
+  const r = colherDaBusca(['x'], [{ data: [{ name: 'X' }] }]);
   assert.deepEqual(r.itens, []);
   assert.equal(r.validos, 0);
 });
 
-test('repetido entra uma vez so', () => {
-  const r = filtrarValidos(['Bolsas', 'Bolsas'], {
-    data: [{ name: 'Bolsas', valid: true, id: '6003', audience_size: 10 },
-           { name: 'Bolsas', valid: true, id: '6003', audience_size: 10 }],
-  });
+test('resultado sem nome e descartado', () => {
+  const r = colherDaBusca(['x'], [{ data: [{ id: '1' }, { id: '2', name: '   ' }] }]);
+  assert.deepEqual(r.itens, []);
+});
+
+test('o MESMO interesse achado por DUAS buscas diferentes entra uma vez so', () => {
+  // Isto agora é rotina, não exceção: "bolsa" e "bolsas" devolvem o mesmo
+  // interesse, e cada busca vem numa resposta separada — a comparação tem de
+  // valer ENTRE as respostas, não só dentro de cada uma.
+  const r = colherDaBusca(['bolsa', 'bolsas'], [
+    { data: [{ name: 'Bolsas', id: '6003', audience_size: 10 }] },
+    { data: [{ name: 'Bolsas', id: '6003', audience_size: 10 }] },
+  ]);
+  assert.equal(r.itens.length, 1);
+  assert.equal(r.validos, 1);
+});
+
+test('repetido DENTRO da mesma busca tambem entra uma vez so', () => {
+  const r = colherDaBusca(['bolsas'], [{
+    data: [{ name: 'Bolsas', id: '6003', audience_size: 10 },
+           { name: 'Bolsas', id: '6003', audience_size: 10 }],
+  }]);
   assert.equal(r.itens.length, 1);
 });
 
 test('item nulo na resposta da Meta e pulado, e o bom do lado SOBREVIVE', () => {
-  const r = filtrarValidos(['Bolsas'], {
-    data: [null, { name: 'Bolsas', valid: true, id: '6003', audience_size: 5 }, {}, 'lixo'],
-  });
+  const r = colherDaBusca(['bolsas'], [{
+    data: [null, { name: 'Bolsas', id: '6003', audience_size: 5 }, {}, 'lixo'],
+  }]);
   assert.equal(r.itens.length, 1);
   assert.equal(r.itens[0].nome, 'Bolsas');
 });
 
-test('resposta ausente, vazia ou malformada devolve zero, sem quebrar', () => {
-  for (const resp of [null, undefined, {}, { data: null }, { data: 'lixo' }, []]) {
-    const r = filtrarValidos(['Bolsas'], resp);
+test('busca torta no meio da lista nao derruba as boas do lado', () => {
+  // Uma busca pode ter voltado torta enquanto as outras vieram certas.
+  const r = colherDaBusca(['a', 'b', 'c'], [null, BUSCA_MODA, 'lixo', { data: null }, BUSCA_BOLSAS]);
+  assert.equal(r.itens.length, 3, 'as duas buscas boas sobrevivem inteiras');
+  assert.equal(r.propostos, 3, 'propostos conta os termos pedidos, não as respostas que vieram');
+});
+
+test('respostas ausentes, vazias ou malformadas devolvem zero, sem quebrar', () => {
+  for (const resp of [null, undefined, {}, 'lixo', 42, [], [null], [{}], [{ data: null }], [{ data: 'lixo' }]]) {
+    const r = colherDaBusca(['bolsas'], resp);
     assert.deepEqual(r.itens, []);
     assert.equal(r.validos, 0);
+  }
+});
+
+test('termos ausentes ou tortos nao quebram a contagem', () => {
+  for (const t of [null, undefined, 'nao e array', 42, {}]) {
+    const r = colherDaBusca(t, [BUSCA_MODA]);
+    assert.equal(r.propostos, 0);
+    assert.equal(r.validos, 1, 'a colheita continua valendo mesmo sem saber os termos');
   }
 });
 
@@ -332,65 +400,65 @@ test('tamanho do publico: os TRES nomes de campo da Meta sao aceitos', () => {
   // favor dos bounds — a mesma mudança que já quebrou o approximate_count neste
   // projeto. Se só o nome antigo fosse lido e a Meta mandasse o novo, NADA daria
   // erro: toda etiqueta da faixa ficaria sem número, que é o mais útil que ela tem.
-  const r = filtrarValidos(['A', 'B', 'C'], {
+  const r = colherDaBusca(['a', 'b', 'c'], [{
     data: [
-      { name: 'A', valid: true, id: '1', audience_size: 100 },
-      { name: 'B', valid: true, id: '2', audience_size_upper_bound: 200 },
-      { name: 'C', valid: true, id: '3', audience_size_lower_bound: 300 },
+      { name: 'A', id: '1', audience_size: 100 },
+      { name: 'B', id: '2', audience_size_upper_bound: 200 },
+      { name: 'C', id: '3', audience_size_lower_bound: 300 },
     ],
-  });
-  assert.equal(r.itens[0].audience_size, 100, 'nome antigo');
-  assert.equal(r.itens[1].audience_size, 200, 'nome novo, teto');
-  assert.equal(r.itens[2].audience_size, 300, 'nome novo, piso');
+  }]);
+  const por = (id) => r.itens.find((i) => i.id === id).audience_size;
+  assert.equal(por('1'), 100, 'nome antigo');
+  assert.equal(por('2'), 200, 'nome novo, teto');
+  assert.equal(por('3'), 300, 'nome novo, piso');
 });
 
 test('tamanho do publico: com os dois bounds, vale o TETO', () => {
   // Mesma escolha já feita na tela dos públicos salvos (approximate_count_upper_bound).
-  const r = filtrarValidos(['A'], {
-    data: [{ name: 'A', valid: true, id: '1', audience_size_lower_bound: 10, audience_size_upper_bound: 90 }],
-  });
+  const r = colherDaBusca(['a'], [{
+    data: [{ name: 'A', id: '1', audience_size_lower_bound: 10, audience_size_upper_bound: 90 }],
+  }]);
   assert.equal(r.itens[0].audience_size, 90);
 });
 
 test('audience_size ausente vira null, nao NaN nem zero', () => {
-  const r = filtrarValidos(['X'], { data: [{ name: 'X', valid: true, id: '1' }] });
+  const r = colherDaBusca(['x'], [{ data: [{ name: 'X', id: '1' }] }]);
   assert.equal(r.itens[0].audience_size, null,
     'zero seria mentira: publico de tamanho zero e diferente de tamanho desconhecido');
 });
 
 test('id com tipo errado (objeto, array, boolean) e pulado; o bom do lado SOBREVIVE', () => {
-  const r = filtrarValidos(['A', 'B', 'C', 'D'], {
+  const r = colherDaBusca(['a'], [{
     data: [
-      { name: 'A', valid: true, id: {} },           // garbage: objeto
-      { name: 'B', valid: true, id: '6003' },       // bom
-      { name: 'C', valid: true, id: [1, 2] },       // garbage: array
-      { name: 'D', valid: true, id: true },         // garbage: boolean
+      { name: 'A', id: {} },           // garbage: objeto
+      { name: 'B', id: '6003' },       // bom
+      { name: 'C', id: [1, 2] },       // garbage: array
+      { name: 'D', id: true },         // garbage: boolean
     ],
-  });
+  }]);
   assert.equal(r.itens.length, 1, 'só a entrada B com id string sobrevive');
   assert.equal(r.itens[0].nome, 'B');
   assert.equal(r.itens[0].id, '6003');
 });
 
 test('id como 0 e como string vazia AINDA SOBREVIVEM — falsy mas legítimo', () => {
-  const r = filtrarValidos(['A', 'B'], {
+  const r = colherDaBusca(['a'], [{
     data: [
-      { name: 'A', valid: true, id: 0 },    // zero: falsy, mas legítimo
-      { name: 'B', valid: true, id: '' },   // string vazia: falsy, mas legítimo
+      { name: 'A', id: 0, audience_size: 20 },    // zero: falsy, mas legítimo
+      { name: 'B', id: '', audience_size: 10 },   // string vazia: falsy, mas legítimo
     ],
-  });
+  }]);
   assert.equal(r.itens.length, 2, 'ambas sobrevivem apesar de falsy');
-  assert.equal(r.itens[0].id, '0');
-  assert.equal(r.itens[1].id, '');
+  assert.deepEqual(r.itens.map((i) => i.id), ['0', '']);
 });
 
 test('id como NaN e pulado (typeof NaN é "number", mas é garbage se stringificado); o bom do lado SOBREVIVE', () => {
-  const r = filtrarValidos(['A', 'B'], {
+  const r = colherDaBusca(['a'], [{
     data: [
-      { name: 'A', valid: true, id: NaN },           // garbage: NaN vira "NaN" string
-      { name: 'B', valid: true, id: '6003' },        // bom
+      { name: 'A', id: NaN },           // garbage: NaN vira "NaN" string
+      { name: 'B', id: '6003' },        // bom
     ],
-  });
+  }]);
   assert.equal(r.itens.length, 1, 'só a entrada B com id legítimo sobrevive');
   assert.equal(r.itens[0].nome, 'B');
   assert.equal(r.itens[0].id, '6003');
@@ -398,31 +466,63 @@ test('id como NaN e pulado (typeof NaN é "number", mas é garbage se stringific
 });
 
 test('audience_size com tipo errado vira null, nao NaN; o bom do lado SOBREVIVE', () => {
-  const r = filtrarValidos(['A', 'B', 'C', 'D'], {
+  const r = colherDaBusca(['a'], [{
     data: [
-      { name: 'A', valid: true, id: '1', audience_size: 'muito' },     // garbage: string
-      { name: 'B', valid: true, id: '2', audience_size: 5 },           // bom
-      { name: 'C', valid: true, id: '3', audience_size: {} },          // garbage: objeto
-      { name: 'D', valid: true, id: '4', audience_size: [1, 2, 3] },   // garbage: array
+      { name: 'A', id: '1', audience_size: 'muito' },     // garbage: string
+      { name: 'B', id: '2', audience_size: 5 },           // bom
+      { name: 'C', id: '3', audience_size: {} },          // garbage: objeto
+      { name: 'D', id: '4', audience_size: [1, 2, 3] },   // garbage: array
     ],
-  });
+  }]);
   assert.equal(r.itens.length, 4, 'todos sobrevivem porque têm id válido e nome');
-  // A, C, D têm garbage audience_size → null
-  assert.equal(r.itens[0].audience_size, null, '"muito" não é número: vira null');
+  const por = (id) => r.itens.find((i) => i.id === id).audience_size;
+  assert.equal(por('1'), null, '"muito" não é número: vira null');
   assert.ok(Number.isNaN(Number('muito')), 'confirma que "muito" → NaN na conversão');
-  // B tem número de verdade
-  assert.equal(r.itens[1].audience_size, 5);
-  assert.equal(r.itens[2].audience_size, null, '{} → NaN → null');
+  assert.equal(por('2'), 5, 'número de verdade fica');
+  assert.equal(por('3'), null, '{} → NaN → null');
   assert.ok(Number.isNaN(Number({})), 'confirma que {} → NaN na conversão');
-  assert.equal(r.itens[3].audience_size, null, '[1,2,3] → NaN → null');
+  assert.equal(por('4'), null, '[1,2,3] → NaN → null');
   assert.ok(Number.isNaN(Number([1, 2, 3])), 'confirma que [1,2,3] → NaN na conversão');
 });
 
-test('audience_size como 0 vira 0, nao null', () => {
-  const r = filtrarValidos(['X'], { data: [{ name: 'X', valid: true, id: '1', audience_size: 0 }] });
+test('audience_size como 0 vira 0, nao null — e GANHA do bound que veio junto', () => {
+  // `0 ?? teto` devolve 0: o `??` só pula null/undefined. Trocar por `||` aqui
+  // faria um público de tamanho zero virar o teto de outro campo.
+  const r = colherDaBusca(['x'], [{
+    data: [{ name: 'X', id: '1', audience_size: 0, audience_size_upper_bound: 500 }],
+  }]);
   assert.equal(r.itens[0].audience_size, 0,
     'zero é número de verdade (diferente de ausente)');
   assert.ok(Number.isFinite(0), 'confirma que 0 é finito');
+});
+
+test('a colheita e ordenada pelo MAIOR publico, e tamanho desconhecido vai pro FIM', () => {
+  // A faixa mostra as primeiras: o dono quer ver antes quem alcança mais gente.
+  // null é DESCONHECIDO, não zero — mas mesmo assim não pode ficar na frente de
+  // quem tem número, senão o destaque vai justo pro que não se sabe medir.
+  const r = colherDaBusca(['a'], [{
+    data: [
+      { name: 'Pequeno', id: '1', audience_size: 10 },
+      { name: 'Sem tamanho', id: '2' },
+      { name: 'Grande', id: '3', audience_size: 900 },
+      { name: 'Zero', id: '4', audience_size: 0 },
+      { name: 'Medio', id: '5', audience_size: 100 },
+    ],
+  }]);
+  assert.deepEqual(r.itens.map((i) => i.nome),
+    ['Grande', 'Medio', 'Pequeno', 'Zero', 'Sem tamanho']);
+});
+
+test('a linha e capada em 12 interesses, ficando com os MAIORES', () => {
+  // Um termo largo ("moda") volta com dez resultados sozinho. Sem teto, ele
+  // tomaria a faixa inteira e os outros termos não apareceriam.
+  const muitos = { data: Array.from({ length: 40 }, (_, i) => ({ name: 'I' + i, id: String(i), audience_size: i })) };
+  const r = colherDaBusca(['a'], [muitos]);
+  assert.equal(MAXIMO_POR_OBJETIVO, 12);
+  assert.equal(r.itens.length, 12);
+  assert.equal(r.validos, 12, 'validos conta o que FICOU, senão a tabela se contradiz');
+  assert.equal(r.itens[0].nome, 'I39', 'o maior público vem primeiro');
+  assert.equal(r.itens[11].nome, 'I28', 'os 12 maiores, nenhum menor');
 });
 
 test('nomesPropostos limpa a resposta da IA e ignora lixo', () => {

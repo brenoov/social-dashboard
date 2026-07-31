@@ -1,6 +1,6 @@
 // Sugestão de interesses: a parte PURA.
 //
-// Monta o que a IA recebe e filtra o que a Meta devolve. Sem rede, sem banco —
+// Monta o que a IA recebe e colhe o que a Meta devolve. Sem rede, sem banco —
 // por isso dá pra testar a decisão inteira sem gastar um centavo de IA nem
 // tocar numa conta de anúncios.
 //
@@ -137,26 +137,39 @@ export function montarPedido({ marca, lojas, objetivo } = {}) {
   const ajuda = limpo((ALVOS[objetivo] || {}).ajuda);
   const linhasLojas = descreverLojas(lojas);
 
+  // A IA NÃO PRECISA CONHECER O CATÁLOGO DA META — e é essa a mudança que este
+  // pedido carrega. Antes se pedia o NOME EXATO de cada interesse, do jeito que
+  // ele aparece no Gerenciador; medido na conta de verdade, só 15% dos nomes
+  // existiam. Não era desleixo do modelo: pedir nome exato é pedir que ele
+  // decore uma lista que ele nunca viu.
+  //
+  // Agora se pede o ASSUNTO. Quem procura o nome é o robô, que busca cada termo
+  // na própria Meta (type=adinterest) e colhe o que voltar — os nomes saem do
+  // catálogo, nunca da memória do modelo.
   const system =
-    'Você sugere interesses de segmentação do Meta Ads para lojas brasileiras. ' +
-    'Responda só com nomes de interesse que existam de verdade no Meta, em português do Brasil, ' +
-    'do jeito que aparecem no Gerenciador de Anúncios. Nada de explicação, nada de invenção.';
+    'Você sugere ASSUNTOS de busca para encontrar interesses de segmentação do Meta Ads para lojas brasileiras. ' +
+    'Você NÃO precisa conhecer o catálogo do Meta nem acertar o nome exato de nenhum interesse: ' +
+    'cada assunto que você der será buscado na própria Meta, e os nomes de verdade vêm de lá. ' +
+    'Responda só com termos curtos em português do Brasil, um assunto por item. Nada de explicação.';
 
   const user = [
     `Marca: ${nomeMarca}`,
     linhasLojas.length ? `Lojas:\n${linhasLojas.join('\n')}` : 'Lojas: não cadastradas',
     `Objetivo da campanha: ${nomeObjetivo}${ajuda ? ` (medido por: ${ajuda})` : ''}`,
     '',
-    'Sugira até 12 interesses do Meta que façam sentido para ESTE objetivo desta marca.',
-    'Prefira interesses que o Gerenciador de Anúncios realmente tenha; nomes inventados serão descartados.',
+    'Sugira até 8 termos de busca: assuntos que importam para quem compraria desta marca com ESTE objetivo.',
+    'Cada termo deve ser curto e abrangente (1 a 3 palavras), do tipo que se digita numa busca.',
+    'Não tente adivinhar o nome exato de um interesse do Meta — cada termo será buscado no catálogo dele.',
   ].join('\n');
 
   return { system, user };
 }
 
-// O que a IA devolveu, limpo. A resposta vem de `structured()`, que já garante
-// a forma — mas garantir forma não garante conteúdo, então nome vazio, nome que
-// não é texto e repetido saem aqui.
+// O que a IA devolveu, limpo — hoje são TERMOS DE BUSCA, não nomes de interesse
+// (ver montarPedido). A resposta vem de `structured()`, que já garante a forma —
+// mas garantir forma não garante conteúdo, então item vazio, item que não é
+// texto e repetido saem aqui. Repetido importa mais do que parecia: cada termo
+// vira uma ida à Meta, e dois termos iguais são duas chamadas pela mesma resposta.
 export function nomesPropostos(resposta) {
   const brutos = lista(resposta && resposta.interesses);
   const vistos = new Set();
@@ -170,51 +183,84 @@ export function nomesPropostos(resposta) {
   return saida;
 }
 
-// A META DECIDE, NÃO A IA. O que a Meta não reconheceu é descartado aqui e
-// nunca chega na tabela — sem isso a tela mostraria sugestões bonitas que
-// dariam erro na hora de usar, que é pior do que não sugerir nada.
+// Quantos interesses uma linha da tabela pode ter. Um termo largo ("moda")
+// devolve dez resultados sozinho; sem teto, um termo desses tomaria a faixa
+// inteira e os outros sete termos não apareceriam.
+export const MAXIMO_POR_OBJETIVO = 12;
+
+// OS NOMES VÊM DA META, NÃO DA IA. Aqui se colhe o que as buscas devolveram —
+// cada termo da IA virou uma busca `type=adinterest`, e o que volta é catálogo
+// de verdade, já com id e tamanho de público. A IA nunca escreve um nome que
+// chegue à tabela: ela só escolhe o assunto.
 //
-// Devolve também quantos foram propostos x quantos sobraram: se a taxa de
-// aproveitamento vier baixa, o número aparece no log e o pedido é ajustado.
-export function filtrarValidos(propostos, respostaMeta) {
-  const linhas = lista(respostaMeta && respostaMeta.data);
+// A função que existia antes (`filtrarValidos`) fazia o contrário: recebia os
+// nomes que a IA tinha escrito e jogava fora o que a Meta não reconhecia.
+// Funcionava, mas jogava fora 85% — daí a inversão.
+//
+// `respostas` é a lista de respostas acumuladas, UMA POR TERMO buscado, cada uma
+// no formato que a Meta devolve ({ data: [...] }). Vem como lista porque uma
+// busca pode ter falhado sozinha: o robô segue com as outras, e o que chegou
+// aqui é só o que deu certo.
+//
+// Devolve a MESMA forma de antes — { itens, propostos, validos } — pra tabela,
+// faixa e contadores da rodada não mudarem. O que mudou é o significado:
+// `propostos` são os TERMOS que a IA deu, `validos` são os interesses distintos
+// que as buscas acharam. Não é mais uma taxa de sobrevivência, é quanto rendeu.
+export function colherDaBusca(termos, respostas, limite = MAXIMO_POR_OBJETIVO) {
   const vistos = new Set();
   const itens = [];
-  for (const l of linhas) {
-    if (!l || typeof l !== 'object') continue;   // item nulo ou lixo: pulado
-    if (l.valid !== true) continue;              // a Meta não reconheceu
-    if (l.id == null) continue;                  // sem id não dá pra usar
-    // Só aceita id string ou número; qualquer outro tipo é garbage que não pode
-    // ser um identificador de verdade (objeto, array, boolean viram identificadores
-    // fake como "[object Object]" ou "true" se convertidos a string, e depois quebram
-    // na tabela e na conta). NaN é typeof 'number' mas também é garbage: "NaN" string.
-    if (typeof l.id !== 'string' && typeof l.id !== 'number') continue;
-    if (Number.isNaN(l.id)) continue;
-    const id = String(l.id);
-    if (vistos.has(id)) continue;
-    const nome = limpo(l.name);
-    if (!nome) continue;
-    vistos.add(id);
-    // Tamanho do público: TRÊS nomes de campo possíveis, na ordem de preferência.
-    // A Graph v22 (a versão que o meta-proxy usa) aposentou o `audience_size`
-    // pelado nas buscas de segmentação em favor de `audience_size_lower_bound` /
-    // `audience_size_upper_bound` — a mesma família de mudança que já mordeu este
-    // projeto com `approximate_count` → `approximate_count_upper_bound` (a cicatriz
-    // está anotada no painel-subir.vue). Ler só o nome antigo não daria ERRO: daria
-    // tamanho nulo em TODO interesse, e a faixa apareceria sem número nenhum, que é
-    // justamente o que ela tem de mais útil. Aceitar os três resolve nos dois mundos.
-    // Ausente continua virando null (tamanho DESCONHECIDO), nunca 0.
-    const bruto = l.audience_size ?? l.audience_size_upper_bound ?? l.audience_size_lower_bound;
-    let audience_size = null;
-    if (bruto != null) {
-      const n = Number(bruto);
-      if (Number.isFinite(n)) audience_size = n;
+  for (const resposta of lista(respostas)) {
+    for (const l of lista(resposta && resposta.data)) {
+      if (!l || typeof l !== 'object') continue;   // item nulo ou lixo: pulado
+      if (l.id == null) continue;                  // sem id não dá pra usar
+      // Só aceita id string ou número; qualquer outro tipo é garbage que não pode
+      // ser um identificador de verdade (objeto, array, boolean viram identificadores
+      // fake como "[object Object]" ou "true" se convertidos a string, e depois quebram
+      // na tabela e na conta). NaN é typeof 'number' mas também é garbage: "NaN" string.
+      if (typeof l.id !== 'string' && typeof l.id !== 'number') continue;
+      if (Number.isNaN(l.id)) continue;
+      const id = String(l.id);
+      // Repetido sai aqui, e agora ele é ROTINA, não exceção: termos parecidos
+      // ("bolsa" e "bolsas") devolvem o mesmo interesse, e cada busca vem numa
+      // resposta diferente — a comparação tem de valer entre TODAS elas.
+      if (vistos.has(id)) continue;
+      const nome = limpo(l.name);
+      if (!nome) continue;
+      vistos.add(id);
+      // Tamanho do público: TRÊS nomes de campo possíveis, na ordem de preferência.
+      // A Graph v22 (a versão que o meta-proxy usa) aposentou o `audience_size`
+      // pelado nas buscas de segmentação em favor de `audience_size_lower_bound` /
+      // `audience_size_upper_bound` — a mesma família de mudança que já mordeu este
+      // projeto com `approximate_count` → `approximate_count_upper_bound` (a cicatriz
+      // está anotada no painel-subir.vue). Ler só o nome antigo não daria ERRO: daria
+      // tamanho nulo em TODO interesse, e a faixa apareceria sem número nenhum, que é
+      // justamente o que ela tem de mais útil. Aceitar os três resolve nos dois mundos.
+      // Ausente continua virando null (tamanho DESCONHECIDO), nunca 0.
+      const bruto = l.audience_size ?? l.audience_size_upper_bound ?? l.audience_size_lower_bound;
+      let audience_size = null;
+      if (bruto != null) {
+        const n = Number(bruto);
+        if (Number.isFinite(n)) audience_size = n;
+      }
+      itens.push({
+        id,
+        nome,
+        audience_size,
+      });
     }
-    itens.push({
-      id,
-      nome,
-      audience_size,
-    });
   }
-  return { itens, propostos: lista(propostos).length, validos: itens.length };
+
+  // MAIOR PÚBLICO PRIMEIRO: é a ordem que serve ao dono, porque a faixa mostra
+  // as primeiras e ele quer ver antes o interesse que alcança mais gente.
+  // Tamanho DESCONHECIDO (null) vai pro fim, nunca pro começo — ordenar null
+  // como se fosse zero já seria ruim; deixá-lo na frente colocaria justamente o
+  // que não se sabe medir no lugar de mais destaque.
+  const peso = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : -Infinity);
+  itens.sort((a, b) => peso(b.audience_size) - peso(a.audience_size));
+
+  const cortados = Number.isFinite(limite) && limite >= 0 ? itens.slice(0, limite) : itens;
+  // `validos` conta o que FICOU na linha, não o que foi colhido antes do corte:
+  // a tabela guarda `itens` e `validos` lado a lado, e um número maior que a
+  // lista ao lado dele seria uma contradição visível na própria tela.
+  return { itens: cortados, propostos: lista(termos).length, validos: cortados.length };
 }

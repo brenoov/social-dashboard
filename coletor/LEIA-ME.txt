@@ -110,6 +110,10 @@ Antes disso, escolher interesse era chutar no escuro.
 O QUE A IA RECEBE: o nome da marca, o nome de cada loja, as CIDADES que cada
 loja atende e o objetivo da campanha. Nada de texto escrito por gente.
 
+O QUE A IA DEVOLVE: até 8 TERMOS DE BUSCA — assuntos, não nomes de interesse.
+Coisas como "bolsa de couro" ou "moda feminina". Quem procura os nomes de
+verdade é o robô, buscando cada termo na própria Meta.
+
 As cidades merecem uma nota: no banco elas estão guardadas como CÓDIGO do Meta
 (267873), não como nome. Antes de perguntar qualquer coisa à IA, o robô pede ao
 Meta o nome de cada código — de uma vez só na rodada inteira, pra não pagar a
@@ -117,20 +121,33 @@ mesma pergunta seis vezes. Se o Meta não responder, o robô NÃO cancela a sema
 manda o pedido sem as cidades e avisa no log. Sugestão sem cidade é mais
 genérica; semana nenhuma é pior.
 
-A IA PROPÕE, MAS QUEM DECIDE É A META
---------------------------------------
-O robô pede uma lista ao modelo e depois VALIDA CADA NOME na própria Meta
-(/search?type=adinterestvalid). O que ela não reconhece é jogado fora antes de
-virar linha no banco.
+A IA ESCOLHE O ASSUNTO, A META DÁ OS NOMES
+-------------------------------------------
+Pra cada termo, o robô faz uma busca no catálogo da Meta
+(/search?type=adinterest) — a MESMA busca que você faz quando digita na caixa
+de interesses da Fábrica — e guarda os interesses que voltarem, já com o id e o
+tamanho de público certos. Nome de interesse escrito pela IA nunca chega ao
+banco: os nomes saem todos do catálogo.
 
-Isso não é preciosismo: sem essa etapa a tela mostraria sugestões bonitas que
-dariam ERRO na hora de usar — pior do que não sugerir nada, porque parece que
-funciona até o momento em que importa. E é por isso também que uma validação
-que FALHA não grava nada: pular a semana é melhor que gravar palpite.
+POR QUE MUDOU (o número que provocou a mudança): antes o robô pedia à IA o NOME
+EXATO de cada interesse e depois conferia nome por nome na Meta. Rodando na conta
+de verdade, de cada 12 nomes só 1 a 3 existiam — 15%. A faixa chegava à tela com
+uma ou duas sugestões, fina demais pra valer a pena. Não era desleixo do modelo:
+acertar o nome exato é decorar um catálogo que ele nunca viu. Pedir o assunto é
+pedir o que ele sabe fazer.
 
-O robô anota no log quantos foram propostos e quantos sobreviveram. Se essa
-proporção cair muito, o pedido feito à IA precisa de ajuste — e dá pra ver isso
-sem abrir o log, olhando as colunas "propostos" e "validos" da tabela.
+UMA BUSCA QUE FALHA NÃO PERDE O OBJETIVO: são 8 buscas por objetivo, e as outras
+7 seguem valendo. Só quando TODAS as buscas de um objetivo falham é que ele é
+pulado sem gravar nada — aí o problema não é o termo, é a Meta ou o token, e
+gravar palpite continua sendo pior do que pular a semana.
+
+CADA LINHA GUARDA NO MÁXIMO 12 INTERESSES, os de MAIOR público primeiro. O teto
+existe porque um termo largo ("moda") volta com dez resultados sozinho e tomaria
+a faixa inteira.
+
+O robô anota no log quantos termos foram pedidos e quantos interesses as buscas
+acharam. Passar de um interesse por termo é normal. Dá pra ver o mesmo sem abrir
+o log, nas colunas "propostos" (termos) e "validos" (interesses) da tabela.
 
 CUSTO
 -----
@@ -159,13 +176,13 @@ PRA RODAR PELA PRIMEIRA VEZ (o que falta)
      GESTOR_USER_EMAIL ....... já usado (Fábrica)
      GESTOR_USER_PASSWORD .... já usado (Fábrica)
 3. Disparar na mão pelo Actions, no modo "seco" primeiro: ele roda tudo e
-   mostra quantos interesses sobreviveram à validação, sem gravar sugestão
-   nenhuma no banco.
+   mostra quantos interesses as buscas acharam, sem gravar sugestão nenhuma
+   no banco.
    ATENÇÃO, PORQUE É DINHEIRO: "seco" quer dizer que não grava — NÃO quer dizer
    que não custa. A rodada seca faz as MESMAS 6 chamadas pagas à IA que a rodada
    normal, e elas aparecem no painel Status do Claude igual. O que você economiza
    é a gravação, não o custo.
-4. Se a proporção parecer boa, rodar no modo normal.
+4. Se o número parecer bom, rodar no modo normal.
 
 POR QUE PRECISA DE LOGIN DE USUÁRIO
 ------------------------------------
@@ -174,5 +191,5 @@ a chave de serviço do banco não serve, ele devolve 401. Por isso o robô faz
 login com a conta de serviço (loginServico) antes de começar, igual à Fábrica.
 
 Isso já causou um bug que quase passou: com a chave errada, o robô rodaria toda
-semana, tomaria 401 em toda validação, gravaria zero e NADA pareceria erro —
-você só veria a Fábrica sem sugestão nenhuma, sem saber por quê.
+semana, tomaria 401 em toda busca, gravaria zero e NADA pareceria erro — você só
+veria a Fábrica sem sugestão nenhuma, sem saber por quê.

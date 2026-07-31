@@ -53,8 +53,8 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           # Login da conta de serviço: o meta-proxy exige SESSÃO DE USUÁRIO, não
           # a service key — ele chama auth.getUser() e devolve 401 sem usuário.
-          # Sem estes dois, o robô roda, toma 401 em toda validação e grava zero
-          # sugestões pra sempre, sem nada parecer erro.
+          # Sem estes dois, o robô roda, toma 401 em toda busca de interesse e
+          # grava zero sugestões pra sempre, sem nada parecer erro.
           GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
           GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
         run: node coletor/sugerir-interesses.mjs
