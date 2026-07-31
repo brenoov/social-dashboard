@@ -95,10 +95,20 @@ test('quem desligou o tipo nao recebe, mesmo tendo a ferramenta', () => {
   assert.deepEqual(alvosDoAviso(subs, prefs, PERFIS), [])
 })
 
-test('sem preferencia salva vale o padrao do tipo (conteudo nasce LIGADO)', () => {
-  // Diferente de "saldo": quem entra nesta ferramenta entrou para publicar, e o
-  // aviso da hora H é a razão de ela existir.
-  assert.deepEqual(alvosDoAviso([sub('u1')], [], PERFIS).map(s => s.user_id), ['u1'])
+test('sem ninguem ter ligado, o aviso NAO vai pra ninguem', () => {
+  // O tipo 'conteudo' nasce desmarcado (decisão do dono). É isto que permite o
+  // robô da hora H ficar ativo sem tocar o celular de quem não pediu: mesmo
+  // tendo a ferramenta e um aparelho inscrito, sem ligar não chega nada.
+  assert.deepEqual(alvosDoAviso([sub('u1'), sub('u3')], [], PERFIS), [])
+})
+
+test('quem liga passa a receber — e so quem tem a ferramenta', () => {
+  const subs = [sub('u1'), sub('u2')]
+  const prefs = [
+    { user_id: 'u1', tipo: 'conteudo', ativo: true },
+    { user_id: 'u2', tipo: 'conteudo', ativo: true },   // ligou, mas não tem a ferramenta
+  ]
+  assert.deepEqual(alvosDoAviso(subs, prefs, PERFIS).map(s => s.user_id), ['u1'])
 })
 
 test('inscricao sem dono fica de fora', () => {

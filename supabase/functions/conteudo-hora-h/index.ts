@@ -126,7 +126,18 @@ Deno.serve(async (req) => {
   ]);
   const alvos = alvosDoAviso(subs, prefs, perfis);
   if (!alvos.length) {
-    return json({ ok: true, enviado: false, motivo: 'ninguem_para_avisar', pecas: paraAvisar.length });
+    // Estado NORMAL enquanto ninguém tiver ligado o aviso em Administração ›
+    // Usuários: o tipo 'conteudo' nasce desmarcado. A peça já foi reivindicada
+    // (não vai ser tentada de novo), então o motivo fica registrado na trilha —
+    // senão a pessoa abriria a peça e veria "chegou a hora" sem nenhum aviso e
+    // sem nenhuma explicação.
+    for (const p of paraAvisar) {
+      await sb.from('conteudo_eventos').insert({
+        peca_id: p.id, acao: 'avisou',
+        detalhe: 'Chegou a hora, mas ninguém tem o aviso de conteúdo ligado (Administração › Usuários).',
+      });
+    }
+    return json({ ok: true, enviado: false, motivo: 'ninguem_ligou_o_aviso', pecas: paraAvisar.length });
   }
 
   let enviados = 0, podados = 0;
