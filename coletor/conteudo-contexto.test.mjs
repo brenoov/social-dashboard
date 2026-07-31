@@ -178,3 +178,77 @@ test('o contexto nunca sai com undefined em lugar nenhum', () => {
   })
   assert.ok(!/undefined|\[object Object\]/.test(txt), `contexto sujo: ${txt}`)
 })
+
+// ---------- concorrentes por marca ----------
+//
+// O defeito que estes testes travam: o briefing puxava o Portal de Notícias
+// (moda e calçado) para TODA marca, e a primeira pauta real do Breno Vale —
+// marca pessoal — citou @Isla e @Santa Lolla como concorrentes dele.
+
+test('os concorrentes cadastrados da marca entram no briefing', () => {
+  const txt = montarContextoDaMarca({
+    conta: { name: 'Breno Vale' },
+    hoje: '2026-07-31',
+    concorrentesDaMarca: [
+      { handle: 'lasarocarvalho', nome: 'Lasaro Carvalho', observacao: 'Mesmo nicho de marca pessoal.' },
+    ],
+  })
+  assert.match(txt, /Lasaro Carvalho/)
+  assert.match(txt, /@lasarocarvalho/)
+  assert.match(txt, /Mesmo nicho de marca pessoal/)
+})
+
+test('concorrente so com handle nao vira "undefined"', () => {
+  const txt = montarContextoDaMarca({
+    conta: { name: 'X' }, hoje: '2026-07-31',
+    concorrentesDaMarca: [{ handle: 'mottu' }],
+  })
+  assert.match(txt, /@mottu/)
+  assert.ok(!/undefined|\[object Object\]/.test(txt), `contexto sujo: ${txt}`)
+})
+
+test('concorrente sem nome nem handle e descartado', () => {
+  const txt = montarContextoDaMarca({
+    conta: { name: 'X' }, hoje: '2026-07-31',
+    concorrentesDaMarca: [{ observacao: 'sobrou de um cadastro pela metade' }],
+  })
+  assert.ok(!/Contra quem esta marca disputa/.test(txt))
+})
+
+test('a regra de nao citar concorrente esta SEMPRE no briefing', () => {
+  // Inclusive sem concorrente cadastrado: o modelo pode citar uma marca de
+  // memoria, e ai a regra e a unica coisa que segura.
+  for (const dados of [
+    { conta: { name: 'X' }, hoje: '2026-07-31' },
+    { conta: { name: 'X' }, hoje: '2026-07-31', concorrentesDaMarca: [{ nome: 'Y' }] },
+  ]) {
+    assert.match(montarContextoDaMarca(dados), /NUNCA escreva o nome nem o @ de um concorrente/)
+  }
+})
+
+test('as duas fontes de concorrente ficam em secoes separadas', () => {
+  const txt = montarContextoDaMarca({
+    conta: { name: 'Vessel' }, hoje: '2026-07-31',
+    concorrentesDaMarca: [{ nome: 'Loja da Esquina' }],
+    concorrentes: [{ handle: 'Schutz', legenda: 'lancou a colecao nova' }],
+  })
+  const iNicho = txt.indexOf('Contra quem esta marca disputa')
+  const iPortal = txt.indexOf('O que o mercado está publicando')
+  assert.ok(iNicho > -1, 'faltou a secao dos concorrentes cadastrados')
+  assert.ok(iPortal > -1, 'faltou a secao do Portal')
+  assert.ok(iNicho < iPortal, 'o nicho da marca vem antes do Portal')
+  assert.ok(txt.includes('Loja da Esquina'))
+  assert.ok(txt.includes('@Schutz'))
+})
+
+test('marca fora do nicho nao recebe o Portal', () => {
+  // O robo so passa `concorrentes` quando accounts.conteudo_usa_portal e true.
+  // Aqui fica travado o outro lado: sem a lista, a secao nao existe.
+  const txt = montarContextoDaMarca({
+    conta: { name: 'Breno Vale' }, hoje: '2026-07-31',
+    concorrentesDaMarca: [{ nome: 'Lasaro Carvalho' }],
+    concorrentes: [],
+  })
+  assert.ok(!/O que o mercado está publicando/.test(txt))
+  assert.ok(!/Schutz|Arezzo|Santa Lolla|Isla/.test(txt))
+})

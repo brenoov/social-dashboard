@@ -26,7 +26,7 @@
 //   node --env-file=.env conteudo-ideias.mjs --conta <uuid>
 import { OPUS, structured, usageSummary } from './lib-llm.mjs';
 import { registrarExecucao } from './registrar-execucao.mjs';
-import { PILARES, montarContextoDaMarca, ehRepetida } from './conteudo-contexto.mjs';
+import { ESQUEMA, SISTEMA, montarContextoDaMarca, ehRepetida } from './conteudo-contexto.mjs';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -61,61 +61,13 @@ async function sb(caminho, opcoes = {}) {
   return texto ? JSON.parse(texto) : null;
 }
 
-const ESQUEMA = {
-  type: 'object',
-  properties: {
-    ideias: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          titulo: { type: 'string', description: 'Curto e concreto, do jeito que a pessoa anotaria.' },
-          formato: { type: 'string', enum: ['feed', 'carrossel', 'reels', 'stories'] },
-          pilar: { type: 'string', enum: PILARES },
-          gancho: { type: 'string', description: 'A primeira frase do post — o que segura o dedo.' },
-          roteiro: {
-            type: 'array',
-            description: 'Só para reels e stories: cena a cena, gravável hoje. Vazio nos demais.',
-            items: {
-              type: 'object',
-              properties: {
-                cena: { type: 'integer' },
-                fala: { type: 'string' },
-                duracao_s: { type: 'integer' },
-              },
-              required: ['cena', 'fala'],
-            },
-          },
-          legenda_sugerida: { type: 'string' },
-          hashtags_sugeridas: { type: 'string' },
-          por_que_agora: {
-            type: 'string',
-            description: 'Justifique com um DADO do briefing: uma data, um post que foi bem, um concorrente.',
-          },
-        },
-        required: ['titulo', 'formato', 'pilar', 'gancho', 'por_que_agora'],
-      },
-    },
-  },
-  required: ['ideias'],
-};
-
-const SISTEMA = `Você é o social media desta marca — não um consultor de fora.
-
-Regras:
-1. Toda ideia tem que ser gravável ou fotografável por UMA pessoa, com celular, esta semana. Nada que dependa de produção, ator ou orçamento.
-2. "por_que_agora" precisa citar um dado concreto do briefing. Se você não consegue justificar com o que está ali, a ideia não presta — troque.
-3. Varie os pilares. Seis ideias de "produto" seguidas é uma ideia só repetida seis vezes.
-4. Escreva como a marca escreve, no tom que os textos dela mostram.
-5. Não repita nada que já esteja na agenda.
-6. Português do Brasil, direto, sem jargão de marketing.`;
-
 async function carregarDadosDaMarca(accountId) {
-  const [contas, blocos, pecas, ideiasExistentes] = await Promise.all([
-    sb(`accounts?id=eq.${accountId}&select=id,name,username`),
+  const [contas, blocos, pecas, ideiasExistentes, doNicho] = await Promise.all([
+    sb(`accounts?id=eq.${accountId}&select=id,name,username,conteudo_usa_portal`),
     sb(`conteudo_blocos?account_id=eq.${accountId}&ativo=eq.true&select=tipo,nome,texto`),
     sb(`conteudo_pecas?account_id=eq.${accountId}&select=id,titulo,formato,status,publicado_em&order=publicado_em.desc&limit=60`),
     sb(`conteudo_ideias?or=(account_id.eq.${accountId},account_id.is.null)&situacao=in.(nova,favorita)&select=titulo`),
+    sb(`conteudo_concorrentes?account_id=eq.${accountId}&ativo=eq.true&select=handle,nome,observacao`),
   ]);
 
   const publicadas = (pecas || []).filter(p => p.status === 'publicada');
@@ -132,7 +84,15 @@ async function carregarDadosDaMarca(accountId) {
     publicados = publicadas.map(p => ({ ...p, metrica: ultima[p.id] || null }));
   }
 
+  const conta = (contas || [])[0] || {};
+
   // Concorrentes da rodada mais recente do Portal de Notícias.
+  //
+  // SÓ PARA QUEM É DO NICHO. O Portal cobre moda e calçado (Schutz, Anacapri,
+  // Petite Jolie, Arezzo...). Antes eu puxava sem filtro, e a primeira pauta
+  // real do Breno Vale — marca pessoal — citou "@Isla, @Santa Lolla e
+  // @Arezzo&Co" como concorrentes dele. Quem manda é a coluna
+  // `accounts.conteudo_usa_portal`, que nasce falsa.
   //
   // As colunas são `marca`, `titulo` e `resumo` — NÃO handle/legenda/curtidas.
   // (Escrevi errado na primeira versão e o try/catch abaixo engoliu: a seção de
@@ -142,22 +102,25 @@ async function carregarDadosDaMarca(accountId) {
   // Best-effort de propósito: sem o Portal, o briefing sai um pouco mais pobre,
   // mas a rodada não pode falhar por causa de uma seção acessória.
   let concorrentes = [];
-  try {
-    const linhas = await sb(
-      'noticias_concorrentes?select=marca,titulo,resumo,categoria&order=rodada.desc&limit=8',
-    ) || [];
-    concorrentes = linhas.map(l => ({
-      handle: l.marca,
-      legenda: [l.titulo, l.resumo].filter(Boolean).join(' — '),
-    })).filter(c => c.legenda);
-  } catch { concorrentes = []; }
+  if (conta.conteudo_usa_portal) {
+    try {
+      const linhas = await sb(
+        'noticias_concorrentes?select=marca,titulo,resumo,categoria&order=rodada.desc&limit=8',
+      ) || [];
+      concorrentes = linhas.map(l => ({
+        handle: l.marca,
+        legenda: [l.titulo, l.resumo].filter(Boolean).join(' — '),
+      })).filter(c => c.legenda);
+    } catch { concorrentes = []; }
+  }
 
   return {
-    conta: (contas || [])[0] || {},
+    conta,
     blocos: blocos || [],
     publicados,
     agendadas: pecas || [],
     concorrentes,
+    concorrentesDaMarca: doNicho || [],
     hoje: new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }),
     jaExistem: (ideiasExistentes || []).map(i => i.titulo),
   };
@@ -229,6 +192,9 @@ async function main() {
         formato: i.formato || null,
         pilar: i.pilar || null,
         roteiro: Array.isArray(i.roteiro) ? i.roteiro : [],
+        producao: i.producao || null,
+        porque_formato: i.porque_formato || null,
+        cta: i.cta || null,
         legenda_sugerida: i.legenda_sugerida || null,
         hashtags_sugeridas: i.hashtags_sugeridas || null,
         por_que_agora: i.por_que_agora || null,

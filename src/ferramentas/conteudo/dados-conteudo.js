@@ -227,7 +227,14 @@ export async function decidir(pecaId, decisao, motivo = null) {
 export async function listarIdeias(accountId) {
   const { data, error } = await sbClient
     .from('conteudo_ideias')
-    .select('id,account_id,titulo,gancho,formato,pilar,roteiro,legenda_sugerida,hashtags_sugeridas,por_que_agora,origem,situacao,peca_id,created_at')
+    // As colunas do roteiro completo (producao/cta/porque_formato) entram aqui.
+    // Esquecer uma não dá erro nenhum: o campo chega `undefined` e o painel
+    // simplesmente não mostra a seção. Se algo sumir do roteiro aberto, é a
+    // primeira linha a conferir.
+    .select(
+      'id,account_id,titulo,gancho,formato,pilar,roteiro,producao,porque_formato,cta,'
+      + 'legenda_sugerida,hashtags_sugeridas,por_que_agora,origem,situacao,peca_id,created_at',
+    )
     .or(`account_id.eq.${_idDeConta(accountId)},account_id.is.null`)
     .neq('situacao', 'descartada')
     .order('created_at', { ascending: false })

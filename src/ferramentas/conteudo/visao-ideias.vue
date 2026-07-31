@@ -57,14 +57,28 @@
     </div>
 
     <div v-else class="ctd-ideias-grade">
-      <article v-for="ideia in visiveis" :key="ideia.id" class="ctd-ideia" :class="{ usada: ideia.situacao === 'usada' }">
+      <!-- O cartão inteiro abre o roteiro. Quem vem de Trello já tenta clicar no
+           cartão por instinto; obrigar a mirar num link seria atrito à toa.
+           Os botões de dentro param a propagação para não abrirem junto. -->
+      <article
+        v-for="ideia in visiveis"
+        :key="ideia.id"
+        class="ctd-ideia ctd-ideia-abrivel"
+        :class="{ usada: ideia.situacao === 'usada' }"
+        role="button"
+        tabindex="0"
+        :aria-label="`Abrir o roteiro de ${ideia.titulo}`"
+        @click="aberta = ideia"
+        @keydown.enter="aberta = ideia"
+        @keydown.space.prevent="aberta = ideia"
+      >
         <header class="ctd-ideia-cab">
           <span v-if="ideia.origem === 'ia'" class="ctd-ideia-selo" title="Sugerida pela IA"><IconeFaisca /></span>
           <h3 class="ctd-ideia-titulo">{{ ideia.titulo }}</h3>
           <button
             class="ctd-mini-btn"
             :title="ideia.situacao === 'favorita' ? 'Tirar dos favoritos' : 'Favoritar'"
-            @click="alternarFavorita(ideia)"
+            @click.stop="alternarFavorita(ideia)"
           ><IconeEstrela :cheia="ideia.situacao === 'favorita'" /></button>
         </header>
 
@@ -76,32 +90,40 @@
         <p v-if="ideia.gancho" class="ctd-ideia-gancho">“{{ ideia.gancho }}”</p>
         <p v-if="ideia.por_que_agora" class="ctd-ideia-porque"><b>Por que agora:</b> {{ ideia.por_que_agora }}</p>
 
-        <details v-if="ideia.roteiro?.length" class="ctd-ideia-roteiro">
-          <summary>Roteiro ({{ ideia.roteiro.length }} cenas)</summary>
-          <ol>
-            <li v-for="(c, i) in ideia.roteiro" :key="i">
-              {{ c.fala }}<span v-if="c.duracao_s"> ({{ c.duracao_s }}s)</span>
-            </li>
-          </ol>
-        </details>
+        <!-- O resumo do roteiro. O passo a passo inteiro mora no painel: repetir
+             aqui encheria o cartão e tiraria o motivo de abrir. -->
+        <p v-if="ideia.roteiro?.length" class="ctd-ideia-roteiro-resumo">
+          {{ ideia.roteiro.length }} {{ rotuloDoPasso(ideia.roteiro.length, ideia.formato) }}
+          <template v-if="duracaoTotalEmSegundos(ideia.roteiro)">
+            · {{ duracaoTotalEmSegundos(ideia.roteiro) }}s
+          </template>
+          <span>ver o roteiro</span>
+        </p>
 
         <footer class="ctd-ideia-rodape">
           <button
             v-if="ideia.situacao !== 'usada'"
             class="ctd-btn ctd-btn-primario"
             :disabled="trabalhando"
-            @click="virarPeca(ideia)"
+            @click.stop="virarPeca(ideia)"
           >Virar peça</button>
           <span v-else class="ctd-ajuda ctd-ideia-feita"><IconeCerto /> Já virou peça</span>
           <button
             v-if="ideia.situacao !== 'usada'"
             class="ctd-mini-btn perigo"
             title="Descartar"
-            @click="descartar(ideia)"
+            @click.stop="descartar(ideia)"
           >×</button>
         </footer>
       </article>
     </div>
+
+    <PainelIdeia
+      v-if="aberta"
+      :ideia="aberta"
+      @fechar="aberta = null"
+      @virar-peca="i => { aberta = null; virarPeca(i) }"
+    />
   </div>
 </template>
 
@@ -109,6 +131,8 @@
 import { ref, computed, onUnmounted } from 'vue'
 import { IconeEstrela, IconeFaisca, IconeCerto } from './icones.js'
 import { regrasDoFormato } from './formatos.js'
+import { rotuloDoPasso, duracaoTotalEmSegundos } from './roteiro.js'
+import PainelIdeia from './painel-ideia.vue'
 import * as dados from './dados-conteudo.js'
 
 const props = defineProps({
@@ -122,6 +146,7 @@ const filtro = ref('')
 const erro = ref('')
 const job = ref(null)
 const anotando = ref(false)
+const aberta = ref(null)
 const rascunhoIdeia = ref('')
 const trabalhando = ref(false)
 let relogio = null

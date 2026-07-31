@@ -745,3 +745,139 @@
   .ctd-cal-add { opacity: 1; }
   .ctd-painel { width: 100%; }
 }
+
+/* ── O roteiro aberto (painel-ideia) ──────────────────────────────────────────
+ *
+ * Esta tela é lida com o celular na mão, prestes a gravar. A hierarquia segue a
+ * ordem em que se executa: o gancho dos 3 segundos domina o topo, a fala vem em
+ * corpo grande e entre aspas (é para ler em voz alta) e o enquadramento vem
+ * menor, como instrução de bastidor. Nenhum quadro de kanban mostra isso.
+ */
+.ctd-painel-largo { width: min(760px, 100%); }
+.ctd-roteiro { gap: 22px; }
+
+.ctd-rot-fita { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ctd-formato-forte {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  color: var(--accent); font-weight: 700;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.ctd-formato-tempo { font-family: var(--ctd-fm); font-variant-numeric: tabular-nums; }
+.ctd-rot-nota { font-size: 13px; color: var(--muted); line-height: 1.6; margin: -8px 0 0; }
+.ctd-rot-nota b { color: var(--text); font-weight: 600; }
+
+/* OS 3 PRIMEIROS SEGUNDOS. É a única coisa da tela com tamanho de manchete,
+   porque é a única que decide se o resto vai ser assistido. */
+.ctd-gancho3 {
+  position: relative; overflow: hidden;
+  border-radius: var(--radius); padding: 18px 20px 20px;
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--accent) 13%, transparent),
+      color-mix(in srgb, var(--accent) 3%, transparent));
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+/* A barra viva à esquerda: o cronômetro dos 3 segundos, parado em forma. */
+.ctd-gancho3::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: linear-gradient(180deg, var(--accent), transparent);
+}
+.ctd-gancho3-rot {
+  display: block; font-size: 11px; font-weight: 700; letter-spacing: 1.2px;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 8px;
+}
+.ctd-gancho3-txt {
+  font-family: var(--ctd-fd); font-size: clamp(17px, 2.6vw, 21px); line-height: 1.4;
+  font-weight: 600; color: var(--text); margin: 0;
+}
+
+.ctd-rot-bloco { display: flex; flex-direction: column; gap: 10px; }
+.ctd-rot-h {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.1px; text-transform: uppercase;
+  color: var(--muted); margin: 0; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.ctd-rot-bloco p { margin: 0; font-size: 14px; line-height: 1.65; color: var(--text); }
+.ctd-rot-producao p {
+  background: var(--surface); border: 1px dashed var(--border);
+  border-radius: var(--radius-sm); padding: 12px 14px; color: var(--muted);
+}
+
+/* A linha do tempo dos takes. O fio vertical liga um ao outro: a pessoa vê que
+   é uma sequência, não uma lista de sugestões soltas. */
+.ctd-takes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ctd-take { display: flex; gap: 14px; padding: 0 0 18px; position: relative; }
+.ctd-take:last-child { padding-bottom: 0; }
+.ctd-take::before {
+  content: ''; position: absolute; left: 17px; top: 38px; bottom: 0; width: 1px;
+  background: var(--border);
+}
+.ctd-take:last-child::before { display: none; }
+
+.ctd-take-num {
+  flex: none; width: 36px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.ctd-take-num span {
+  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--surface); border: 1px solid var(--border);
+  font-family: var(--ctd-fm); font-size: 13px; font-weight: 700; color: var(--text);
+  position: relative; z-index: 1;
+}
+.ctd-take-num b {
+  font-family: var(--ctd-fm); font-size: 10px; font-weight: 600; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ctd-take-corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; padding-top: 3px; }
+/* O enquadramento é instrução de bastidor: menor e mais apagado que a fala. */
+.ctd-take-imagem { font-size: 13px; line-height: 1.55; color: var(--muted); }
+/* A fala é o que se executa. Corpo grande porque vai ser lida em voz alta,
+   às vezes de longe, com o celular apoiado. */
+.ctd-take-fala {
+  font-size: 15.5px; line-height: 1.55; color: var(--text); font-weight: 500;
+  border-left: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  padding-left: 12px;
+}
+.ctd-take-tela, .ctd-rot-cta {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 7px;
+  font-size: 13px; color: var(--text);
+}
+.ctd-take-tela span, .ctd-rot-cta span {
+  font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase;
+  color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px;
+}
+
+.ctd-rot-legenda { white-space: pre-wrap; }
+.ctd-rot-tags { font-family: var(--ctd-fm); font-size: 12.5px; color: var(--accent); word-break: break-word; }
+.ctd-rot-porque p { font-size: 13px; color: var(--muted); font-style: italic; }
+
+/* O cartão de ideia inteiro vira um alvo de clique — é o gesto que a pessoa
+   já tenta por instinto, vindo de Trello. */
+.ctd-ideia-abrivel { cursor: pointer; }
+.ctd-ideia-abrivel:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+
+@media (max-width: 560px) {
+  .ctd-take { gap: 10px; }
+  .ctd-take::before { left: 14px; }
+  .ctd-take-num { width: 30px; }
+  .ctd-take-num span { width: 26px; height: 26px; font-size: 12px; }
+  .ctd-gancho3 { padding: 15px 16px 17px; }
+}
+
+/* O resumo do roteiro no cartão. Diz o tamanho da produção sem despejar o
+   roteiro inteiro — e o "ver o roteiro" à direita é a promessa do clique. */
+.ctd-ideia-roteiro-resumo {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin: 0; font-family: var(--ctd-fm); font-size: 11.5px; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.ctd-ideia-roteiro-resumo span {
+  margin-left: auto; font-family: var(--ctd-fs); font-weight: 600; color: var(--accent);
+  opacity: 0; transform: translateX(-4px); transition: opacity .18s, transform .18s;
+}
+.ctd-ideia-abrivel:hover .ctd-ideia-roteiro-resumo span,
+.ctd-ideia-abrivel:focus-visible .ctd-ideia-roteiro-resumo span { opacity: 1; transform: none; }
+/* Sem hover (toque), a promessa fica sempre visível — senão ninguém descobre. */
+@media (hover: none) {
+  .ctd-ideia-roteiro-resumo span { opacity: 1; transform: none; }
+}
