@@ -18,9 +18,22 @@
       </div>
     </header>
 
-    <div v-if="!celulas.length" class="ctd-vazio">
-      <h3>Nada para prever ainda</h3>
-      <p>Assim que houver peça com arte, a grade aparece aqui do jeito que vai ficar no perfil.</p>
+    <!-- Vazia, a grade continua desenhada. Nove quadros pontilhados dizem o que
+         vai acontecer ali melhor que uma frase — a pessoa vê a forma do perfil
+         antes de ter conteúdo nele. -->
+    <div v-if="!celulas.length" class="ctd-perfil">
+      <header class="ctd-perfil-cab">
+        <span class="ctd-perfil-foto">
+          <img v-if="conta?.picture_url" :src="conta.picture_url" :alt="conta.name">
+        </span>
+        <span class="ctd-perfil-id">
+          <b>{{ conta?.username ? '@' + String(conta.username).replace(/^@/, '') : (conta?.name || 'perfil') }}</b>
+          <span>a grade aparece aqui conforme você agenda</span>
+        </span>
+      </header>
+      <div class="ctd-previa-grade">
+        <span v-for="i in 9" :key="i" class="ctd-celula ctd-celula-fantasma"></span>
+      </div>
     </div>
 
     <!-- A moldura de perfil não é enfeite: sem ela a grade lê como banco de

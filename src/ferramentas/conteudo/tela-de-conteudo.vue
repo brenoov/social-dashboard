@@ -54,7 +54,9 @@
               <img v-if="miniaturas[p.id]" :src="miniaturas[p.id]" alt="" class="ctd-proxima-mini">
               <span v-else class="ctd-proxima-mini ctd-proxima-sem"><IconeFormato :formato="p.formato" :tamanho="18" /></span>
               <span class="ctd-proxima-txt">
-                <span class="ctd-proxima-quando">{{ quandoSai(p.publicar_em) }}</span>
+                <span class="ctd-proxima-quando">
+                  <i v-if="ehIminente(p.publicar_em)" class="ctd-pulso"></i>{{ quandoSai(p.publicar_em) }}
+                </span>
                 <span class="ctd-proxima-titulo">{{ p.titulo || 'Sem título' }}</span>
               </span>
             </button>
@@ -66,7 +68,7 @@
             <i :style="{ background: s.cor }"></i>{{ s.rotulo }} <b>{{ s.total }}</b>
           </span>
           <span v-if="aguardando" class="ctd-selo ctd-selo-pergunta">
-            <i style="background:#f59e0b"></i>Esperando você confirmar o post <b>{{ aguardando }}</b>
+            <i class="ctd-pulso" style="background:#f59e0b"></i>Esperando você confirmar o post <b>{{ aguardando }}</b>
           </span>
         </div>
 
@@ -90,37 +92,41 @@
           @abrir-peca="aoNascerPeca"
         />
 
-        <div v-if="!pecas.length && aba !== 'ideias'" class="ctd-vazio">
-          <h3>Nenhuma peça ainda</h3>
-          <p>
-            Aqui é onde o conteúdo desta marca é planejado: você monta a peça, ela passa pela aprovação
-            e fica agendada. Na hora marcada chega um aviso no celular com tudo pronto para publicar.
-          </p>
+        <!-- Convite, não bloqueio: com zero peças a ferramenta ANTES sumia e
+             sobrava uma caixa de texto. A estrutura vazia é que ensina o que a
+             ferramenta faz — o calendário do mês, as colunas do quadro, a grade
+             do perfil. Então a faixa aparece POR CIMA das visões, e elas
+             continuam lá atrás. -->
+        <div v-if="!pecas.length && aba !== 'ideias'" class="ctd-convite">
+          <span class="ctd-convite-txt">
+            <b>Nenhuma peça ainda.</b>
+            Monte a primeira: ela passa pela aprovação, fica agendada, e na hora marcada
+            chega um aviso no celular com tudo pronto para publicar.
+          </span>
           <button class="ctd-btn ctd-btn-primario" @click="abrirNova()">Criar a primeira peça</button>
         </div>
 
-        <!-- Condição explícita em vez de v-else: o v-if acima virou composto, e
-             um `v-else` amarrado a ele é fácil de quebrar sem perceber. -->
-        <template v-if="pecas.length">
-          <VisaoCalendario
-            v-show="aba === 'calendario'"
-            :pecas="pecas"
-            :miniaturas="miniaturas"
-            @abrir="abrir"
-            @nova="abrirNova"
-          />
-          <VisaoKanban
-            v-show="aba === 'quadro'"
-            :pecas="pecas"
-            :miniaturas="miniaturas"
-            :metricas="metricas"
-            :pode-aprovar="podeAprovar"
-            @abrir="abrir"
-            @mover="mover"
-          />
-          <PreviaDoFeed v-show="aba === 'previa'" :pecas="pecas" :miniaturas="miniaturas" :conta="contaAtual" @abrir="abrir" />
-          <VisaoLista v-show="aba === 'lista'" :pecas="pecas" @abrir="abrir" />
-        </template>
+        <!-- As visões renderizam SEMPRE. Cada uma sabe se virar vazia: o
+             calendário mostra o mês, o quadro mostra as colunas, a prévia
+             explica o que vai aparecer ali. -->
+        <VisaoCalendario
+          v-show="aba === 'calendario'"
+          :pecas="pecas"
+          :miniaturas="miniaturas"
+          @abrir="abrir"
+          @nova="abrirNova"
+        />
+        <VisaoKanban
+          v-show="aba === 'quadro'"
+          :pecas="pecas"
+          :miniaturas="miniaturas"
+          :metricas="metricas"
+          :pode-aprovar="podeAprovar"
+          @abrir="abrir"
+          @mover="mover"
+        />
+        <PreviaDoFeed v-show="aba === 'previa'" :pecas="pecas" :miniaturas="miniaturas" :conta="contaAtual" @abrir="abrir" />
+        <VisaoLista v-show="aba === 'lista'" :pecas="pecas" @abrir="abrir" />
       </template>
 
       <div v-else class="ctd-vazio">
@@ -142,7 +148,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import VisaoCalendario from './visao-calendario.vue'
 import VisaoKanban from './visao-kanban.vue'
@@ -194,9 +200,36 @@ const proximas = computed(() => {
     .slice(0, 4)
 })
 
-// "hoje às 18:00", "amanhã às 09:00", "15/07 às 18:00". Data seca obriga a
-// pessoa a calcular; o que ela quer saber é se é hoje.
+// O relógio que faz a contagem regressiva andar. Sem ele, "em 2h 15min" ficaria
+// congelado no valor de quando a tela abriu — pior que não ter contagem, porque
+// parece atual e não é.
+const agora = ref(Date.now())
+let tique = null
+onMounted(() => { tique = setInterval(() => { agora.value = Date.now() }, 30_000) })
+onUnmounted(() => clearInterval(tique))
+
+// Falta menos de 2 horas? É o que acende o ponto pulsante — o aviso de que essa
+// peça precisa de atenção AGORA, não depois.
+function ehIminente(iso) {
+  if (!iso) return false
+  const falta = new Date(iso).getTime() - agora.value
+  return falta > -3600_000 && falta < 2 * 3600_000
+}
+
+// "em 12 min", "em 2h 15min", "hoje às 18:00", "amanhã às 09:00", "15/07 às 18:00".
+//
+// Perto da hora, contagem regressiva; longe, data e hora. Uma peça que sai em 20
+// minutos e outra que sai semana que vem não pedem a mesma leitura — a primeira
+// é urgência, a segunda é informação.
 function quandoSai(iso) {
+  const falta = new Date(iso).getTime() - agora.value
+  if (falta > 0 && falta < 6 * 3600_000) {
+    const min = Math.round(falta / 60000)
+    if (min < 60) return `em ${min} min`
+    return `em ${Math.floor(min / 60)}h ${String(min % 60).padStart(2, '0')}min`
+  }
+  if (falta <= 0 && falta > -3600_000) return 'agora'
+
   const dia = diaDaPeca(iso)
   const hoje = hojeLocal()
   const hora = horaDaPeca(iso)
