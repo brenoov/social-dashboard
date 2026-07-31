@@ -29,6 +29,7 @@ tela-de-peca.vue ........... uma peça só, feita para o celular (destino do avi
 visao-calendario.vue ....... o mês em quadros
 visao-kanban.vue ........... o quadro por etapa, com arrastar
 visao-lista.vue ............ a tabela, com filtro por situação e ordenação
+visao-ideias.vue ........... o banco de pautas e o botão de gerar com IA
 cartao-peca.vue ............ o cartão da peça — UM só, usado pelas três visões
 painel-peca.vue ............ criar/editar: arquivos, legenda, data, mover de etapa
 dados-conteudo.js .......... toda a conversa com o banco e com o depósito de arquivos
@@ -123,7 +124,31 @@ Todo horário que a pessoa vê e digita é de Brasília; no banco fica em UTC
 new Date().toISOString().slice(0,10) para pegar "hoje" — das 21h à meia-noite
 isso já devolve o dia seguinte.
 
+O ROBÔ DE PAUTA (aba Ideias)
+----------------------------
+Clicar em "Gerar ideias com IA" enfileira um job (conteudo_jobs) e dispara o
+GitHub Actions, que roda coletor/conteudo-ideias.mjs com o modelo Opus. Leva de
+1 a 3 minutos; a tela acompanha sozinha.
+
+Não roda dentro de uma Edge Function porque Opus com contexto grande estoura o
+relógio dela — mesma razão de a Fábrica de Anúncios funcionar assim.
+
+O QUE FAZ ELE VALER É O CONTEXTO, não o modelo. Qualquer IA escreve "poste um
+bastidor da loja". O que ela não adivinha, e que vai no briefing:
+  - os posts desta marca que mais renderam (e os que menos renderam)
+  - o que já está na agenda, para não repetir
+  - como a marca escreve (os blocos de texto)
+  - o que os concorrentes publicaram (Portal de Notícias)
+  - o mês e as datas comerciais
+
+Esse briefing é montado por coletor/conteudo-contexto.mjs, que é puro e testado
+— dá para conferir o prompt inteiro sem gastar API.
+
+CUSTO: cada rodada aparece sozinha no Painel de Status do Claude
+(/claude-status), com tokens e valor em reais.
+
 O QUE AINDA NÃO EXISTE
 ----------------------
-Fase 4 ... banco de ideias, blocos de legenda por marca e o gerador de pauta
-           com IA. As Fases 1, 2 e 3 estão feitas.
+As quatro fases estão feitas. O que falta é decisão do dono, não código:
+  - ligar os dois crons (migrations 06 e 09)
+  - o App Review da Meta, para a publicação virar automática
