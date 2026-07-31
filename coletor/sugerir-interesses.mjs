@@ -110,10 +110,17 @@ export async function run() {
       if (!itens.length) { puladas++; continue; }
       if (DRY) { gravadas++; continue; }
 
-      await sbPost('/interesses_sugeridos?on_conflict=marca_id,objetivo', {
-        marca_id: marca.id, objetivo, itens, propostos: nProp, validos, modelo: MODEL,
-        gerado_em: new Date().toISOString(),
-      }, 'resolution=merge-duplicates,return=minimal');
+      try {
+        await sbPost('/interesses_sugeridos?on_conflict=marca_id,objetivo', {
+          marca_id: marca.id, objetivo, itens, propostos: nProp, validos, modelo: MODEL,
+          gerado_em: new Date().toISOString(),
+        }, 'resolution=merge-duplicates,return=minimal');
+      } catch (e) {
+        // Uma marca não pode derrubar a rodada inteira: as outras marca×objetivo
+        // ainda não processadas continuam valendo a pena tentar.
+        console.log(`  ⚠ ${marca.nome} · ${objetivo}: gravar falhou — ${String(e).slice(0, 120)}`);
+        puladas++; continue;
+      }
       gravadas++;
       await sleep(500);
     }
