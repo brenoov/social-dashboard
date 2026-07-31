@@ -5,6 +5,7 @@
       :key="coluna.chave"
       class="ctd-kb-col"
       :class="{ alvo: alvo === coluna.chave }"
+      :style="{ '--ctd-cor-coluna': coluna.cor }"
       @dragover.prevent="aoArrastarSobre(coluna)"
       @dragleave="alvo = alvo === coluna.chave ? '' : alvo"
       @drop.prevent="aoSoltar(coluna)"
@@ -30,6 +31,7 @@
             com-data
             @abrir="$emit('abrir', $event)"
           />
+
         </div>
 
         <p v-if="!coluna.total" class="ctd-kb-vazia">{{ VAZIAS[coluna.chave] }}</p>

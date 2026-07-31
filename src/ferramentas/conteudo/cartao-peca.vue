@@ -1,7 +1,7 @@
 <template>
   <!-- O cartão da peça. UM só, usado pelo quadro, pela lista e pela gaveta de
        "sem data" — três cópias divergiriam na primeira semana. -->
-  <button class="ctd-cartao" @click="$emit('abrir', peca)">
+  <button class="ctd-cartao" :style="{ '--ctd-cor-status': cor }" @click="$emit('abrir', peca)">
     <img v-if="miniatura" class="ctd-cartao-mini" :src="miniatura" :alt="peca.titulo">
     <span v-else class="ctd-cartao-mini">{{ iconeDoFormato }}</span>
 

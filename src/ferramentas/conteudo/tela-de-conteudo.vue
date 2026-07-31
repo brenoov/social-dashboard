@@ -35,6 +35,32 @@
       <div v-if="carregando" class="ctd-vazio"><p>Carregando…</p></div>
 
       <template v-else-if="contas.length">
+        <!-- O QUE SAI A SEGUIR. É a pergunta que a pessoa tem ao abrir a tela, e
+             antes disso ela precisava caçar no calendário. Só aparece quando há
+             algo agendado — faixa vazia todo dia vira ruído. -->
+        <section v-if="proximas.length" class="ctd-proximas">
+          <div class="ctd-proximas-cab">
+            <span class="ctd-proximas-t">Sai a seguir</span>
+            <span class="ctd-proximas-sub">as próximas {{ proximas.length === 1 ? 'peça' : proximas.length + ' peças' }} agendadas</span>
+          </div>
+          <div class="ctd-proximas-fila">
+            <button
+              v-for="p in proximas"
+              :key="p.id"
+              class="ctd-proxima"
+              :style="{ '--ctd-cor-status': corDeStatus(p.status) }"
+              @click="abrir(p)"
+            >
+              <img v-if="miniaturas[p.id]" :src="miniaturas[p.id]" alt="" class="ctd-proxima-mini">
+              <span v-else class="ctd-proxima-mini ctd-proxima-sem">▣</span>
+              <span class="ctd-proxima-txt">
+                <span class="ctd-proxima-quando">{{ quandoSai(p.publicar_em) }}</span>
+                <span class="ctd-proxima-titulo">{{ p.titulo || 'Sem título' }}</span>
+              </span>
+            </button>
+          </div>
+        </section>
+
         <div class="ctd-selos">
           <span v-for="s in selos" :key="s.chave" class="ctd-selo">
             <i :style="{ background: s.cor }"></i>{{ s.rotulo }} <b>{{ s.total }}</b>
@@ -123,6 +149,8 @@ import VisaoIdeias from './visao-ideias.vue'
 import PainelPeca from './painel-peca.vue'
 import { STATUS, corDeStatus } from './estados.js'
 import { contarPorStatus } from './agrupar-kanban.js'
+import { diaDaPeca, horaDaPeca, dataHoraBRT } from './grade-do-calendario.js'
+import { hojeLocal } from '../../compartilhado/datas.js'
 import * as dados from './dados-conteudo.js'
 import './estilos-conteudo.css'
 
@@ -145,6 +173,33 @@ const dataSugerida = ref('')
 
 const podeAprovar = dados.podeAprovar()
 const permissaoPelaMetade = dados.permissaoIncompleta()
+
+// As próximas a sair, no máximo 4. Quatro cabe numa linha em tela de trabalho e
+// responde "o que vem por aí" sem virar uma segunda lista concorrendo com o
+// calendário.
+const proximas = computed(() => {
+  const agora = Date.now()
+  return pecas.value
+    .filter(p => (p.status === 'agendada' || p.status === 'aprovada') && p.publicar_em)
+    .filter(p => new Date(p.publicar_em).getTime() > agora - 3600_000)  // tolera 1h de atraso
+    .sort((a, b) => String(a.publicar_em).localeCompare(String(b.publicar_em)))
+    .slice(0, 4)
+})
+
+// "hoje às 18:00", "amanhã às 09:00", "15/07 às 18:00". Data seca obriga a
+// pessoa a calcular; o que ela quer saber é se é hoje.
+function quandoSai(iso) {
+  const dia = diaDaPeca(iso)
+  const hoje = hojeLocal()
+  const hora = horaDaPeca(iso)
+  if (dia === hoje) return `hoje às ${hora}`
+  const amanha = new Date(`${hoje}T12:00:00-03:00`)
+  amanha.setDate(amanha.getDate() + 1)
+  if (dia === amanha.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })) {
+    return `amanhã às ${hora}`
+  }
+  return dataHoraBRT(iso)
+}
 
 // Só os selos que interessam no dia a dia — sete contagens viram ruído.
 const DESTACADOS = ['em_aprovacao', 'aprovada', 'agendada']
