@@ -127,6 +127,7 @@ import { hojeLocal, diasAtras, primeiroDiaDoMes, ultimoDiaDoMes } from '../../co
 // agrupamento campanha → conjuntos → anúncios moram num módulo puro, testado
 // em orcamento-hierarquia.test.mjs. Aqui só se desenha o resultado.
 import { orcamentoDe, detectarNivelOrcamento, podeEditarOrcamentoDaCampanha, podeEditarOrcamentoDoConjunto, montarHierarquia } from './orcamento-hierarquia.js'
+import { planoDeCopia, executarPlano, comEspera, retomar, SUFIXO_PADRAO } from './duplicar.js'
 // Aba "A régua" (métrica ponderada): painel puro + os módulos que leem/normalizam
 // a régua vinda do banco (ver painel-regua.js, ponderada.js, regua.js).
 import { montarPainelRegua } from './painel-regua.js'
@@ -1648,6 +1649,16 @@ function _gtWireBudgetManual(el,alvo){
       _d:`${alvo.nivelNome} "${_gtEsc(alvo.nome)}":<br><b>${antes}</b> → <b>${_maFmtR(v)}/dia</b>`},bMan,el);
   });
 }
+// Botão "⧉ Duplicar". Só existe para quem tem permissão de EDITAR nesta
+// ferramenta — mesmo critério do orçamento. Duplicar cria objeto novo na
+// conta, então fica no portão mais rígido que a tela já usa.
+function _gtBotaoDuplicar(alvo){
+  if(!hasPermission('meta.gestor','editar'))return null;
+  const b=document.createElement('button');
+  b.className='gt-btn-dup';b.textContent='⧉ Duplicar';b.title='Criar uma cópia pausada';
+  b.addEventListener('click',ev=>{ev.stopPropagation();_gtAbrirDuplicar(alvo);});
+  return b;
+}
 // Só a edição MANUAL do orçamento. Os botões "Aplicar R$ X/dia" e "Pausar
 // campanha" da faixa de recomendação saíram junto com a faixa (2026-07-29): com
 // a fila existindo, eles eram um segundo caminho pra verba que não deixava
@@ -2115,6 +2126,36 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
         const tgl=_gtManualToggleBtn('campaign',ins.campaign_id,status,ins.campaign_name||camp?.name);
         if(tgl){const actBar=document.createElement('div');actBar.className='gt-action-row';actBar.appendChild(tgl);inner.appendChild(actBar);}
       }
+      // 4b) Duplicar a campanha inteira.
+      //
+      // O QUE VAI SER COPIADO SAI DE `hier`, NÃO das listas cruas.
+      // `conjuntos` vem da chamada /adsets, que tem `.catch(()=>[])`, corta em
+      // 2000 linhas e filtra por status: quando ela falha, ela volta VAZIA e
+      // ninguém percebe. A tela sobrevive porque montarHierarquia reconstrói o
+      // conjunto a partir do próprio anúncio ("Anúncio cujo conjunto não veio
+      // na lista NÃO some") — mas planoDeCopia joga fora o anúncio cujo
+      // adset_id não está na lista de conjuntos. Montando o alvo com as listas
+      // cruas, o pior desfecho possível acontecia calado: a janela dizia
+      // "com 12 anúncios", o plano tinha 1 passo, nascia uma campanha vazia e
+      // pausada e o relatório dizia "Pronto".
+      // `hier` é EXATAMENTE o que o cartão conta e desenha — copiar o que está
+      // na tela é a única leitura que nunca contradiz o que o dono está vendo.
+      // De quebra, resolve os conjuntos ARQUIVADOS: `hier` já derruba
+      // arquivado sem gasto e sem anúncio (filtro `vivo`), então eles não são
+      // mais contados nem ressuscitados como cópia nova.
+      const gruposDup=hier.filter(g=>g.id!=='_sem_conjunto');
+      const bDupCamp=_gtBotaoDuplicar({
+        nivel:'campanha',
+        campanha:{id:ins.campaign_id,name:ins.campaign_name||camp?.name||''},
+        conjuntos:gruposDup.map(g=>({id:g.id,name:g.nome})),
+        anuncios:gruposDup.flatMap(g=>(g.anuncios||[]).map(a=>({id:a.ad_id,name:a.ad_name,adset_id:g.id}))),
+      });
+      if(bDupCamp){
+        // Reaproveita a linha de ações do pausar, se ela existir; senão cria.
+        let barraDup=inner.querySelector('.gt-action-row');
+        if(!barraDup){barraDup=document.createElement('div');barraDup.className='gt-action-row';inner.appendChild(barraDup);}
+        barraDup.appendChild(bDupCamp);
+      }
       // 5) Liga os controles (aplicar sugerido, pausar da faixa, editar manual).
       _gtWireBudgetControls(inner,ins,camp,permCamp);
       // Painel dos CONJUNTOS (que por sua vez trazem os anúncios dentro).
@@ -2298,6 +2339,20 @@ function _renderGtConjuntos(pane,hier,camp,conjuntos,nivelOrc,campNum,temMensage
         if(perm.editavel)_gtWireBudgetManual(be,{id:g.id,nome:g.nome,atualReais:perm.atualReais,nivelLbl:'do conjunto',nivelNome:'Conjunto'});
       }
     }
+    // `g` vem de montarHierarquia: g.id, g.nome e g.anuncios (os anúncios do
+    // conjunto, já vindos dos insights — daí ad_id/ad_name).
+    // O grupo '_sem_conjunto' é INVENTADO por montarHierarquia para não sumir
+    // com anúncio que chegou sem adset_id: não existe na Meta, e o botão ali
+    // mandaria POST /_sem_conjunto/copies. Sem botão nesse grupo.
+    const bDupCj=g.id==='_sem_conjunto'?null:_gtBotaoDuplicar({
+      nivel:'conjunto',
+      conjuntos:[{id:g.id,name:g.nome}],
+      anuncios:(g.anuncios||[]).map(a=>({id:a.ad_id,name:a.ad_name,adset_id:g.id})),
+    });
+    if(bDupCj){
+      const barraCj=document.createElement('div');barraCj.className='gt-action-row';
+      barraCj.appendChild(bDupCj);card.appendChild(barraCj);
+    }
     // Anúncios do conjunto.
     const adsPane=document.createElement('div');adsPane.className='gt-set-pane';
     adsPane.__gtRender=()=>_renderGtAds(adsPane,g.anuncios,null,null,num,temMensagemCampanha);
@@ -2376,6 +2431,8 @@ function _renderGtAds(pane,ads,allInsights,allAdInsights,campNum,temMensagemCamp
     actBar.appendChild(crBtn);
     const adTgl=_gtManualToggleBtn('ad',ad.ad_id,adStatus,ad.ad_name||ad.adset_name);
     if(adTgl)actBar.appendChild(adTgl);
+    const bDupAd=_gtBotaoDuplicar({nivel:'anuncio',anuncios:[{id:ad.ad_id,name:ad.ad_name||ad.adset_name||''}]});
+    if(bDupAd)actBar.appendChild(bDupAd);
     card.appendChild(actBar);
     pane.appendChild(card);
   });
@@ -2426,6 +2483,244 @@ function _gtConfirm(title,detailHtml,opts){
     box.appendChild(bar);ov.appendChild(box);
     ov.onclick=e=>{if(e.target===ov)close(false);};
   });
+}
+// Janela do DUPLICAR. Não usa _gtConfirm porque aquele modal só devolve
+// sim/não — aqui precisamos de quantas cópias e do sufixo do nome. Mesmo
+// visual, função separada, para não mexer no portão compartilhado de todas
+// as outras ações.
+function _gtDuplicarModal(resumo){
+  return new Promise(resolve=>{
+    let ov=document.getElementById('gt-dup-ov');
+    if(!ov){ov=document.createElement('div');ov.id='gt-dup-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';document.body.appendChild(ov);}
+    ov.innerHTML='';ov.style.display='flex';
+    const box=document.createElement('div');
+    box.style.cssText='background:var(--surface,#fff);color:var(--text,#111);border-radius:14px;max-width:440px;width:100%;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.45);font-family:var(--fonte-principal);';
+    box.innerHTML=
+      '<div style="font-size:calc(16px*var(--gt-fs,1.3));font-weight:800;margin-bottom:9px;">Duplicar</div>'+
+      '<div style="font-size:calc(13px*var(--gt-fs,1.3));color:var(--muted,#666);line-height:1.55;margin-bottom:16px;">'+resumo+'</div>'+
+      '<label style="display:block;font-size:calc(12px*var(--gt-fs,1.3));font-weight:700;margin-bottom:5px;">Quantas cópias</label>'+
+      '<select data-dup-qtd style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--border,#ddd);background:var(--surface,#fff);color:var(--text,#111);font-size:calc(13px*var(--gt-fs,1.3));margin-bottom:14px;">'+
+        [1,2,3,4,5].map(n=>'<option value="'+n+'">'+n+(n===1?' cópia':' cópias')+'</option>').join('')+
+      '</select>'+
+      '<label style="display:block;font-size:calc(12px*var(--gt-fs,1.3));font-weight:700;margin-bottom:5px;">O que acrescentar no nome</label>'+
+      '<input data-dup-sufixo value="'+_gtEsc(SUFIXO_PADRAO)+'" style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--border,#ddd);background:var(--surface,#fff);color:var(--text,#111);font-size:calc(13px*var(--gt-fs,1.3));margin-bottom:16px;">'+
+      '<div style="background:rgba(22,163,74,.12);border:1px solid rgba(22,163,74,.35);border-radius:8px;padding:11px 13px;font-size:calc(12px*var(--gt-fs,1.3));line-height:1.5;margin-bottom:18px;"><b>A cópia nasce PAUSADA.</b> Nada vai gastar até você ativar.</div>';
+    const bar=document.createElement('div');bar.style.cssText='display:flex;gap:10px;justify-content:flex-end;';
+    const close=v=>{ov.style.display='none';resolve(v);};
+    const c=document.createElement('button');c.textContent='Cancelar';
+    c.style.cssText='padding:9px 16px;border-radius:8px;border:1px solid var(--border,#ddd);background:none;color:var(--text,#111);font-weight:600;font-size:calc(13px*var(--gt-fs,1.3));cursor:pointer;';
+    c.onclick=()=>close(null);bar.appendChild(c);
+    const ok=document.createElement('button');ok.textContent='Duplicar';
+    ok.style.cssText='padding:9px 18px;border-radius:8px;border:none;background:var(--accent,#6366f1);color:#fff;font-weight:700;font-size:calc(13px*var(--gt-fs,1.3));cursor:pointer;';
+    ok.onclick=()=>close({
+      quantidade:parseInt(box.querySelector('[data-dup-qtd]').value,10)||1,
+      sufixo:box.querySelector('[data-dup-sufixo]').value,
+    });
+    bar.appendChild(ok);
+    box.appendChild(bar);ov.appendChild(box);
+    ov.onclick=e=>{if(e.target===ov)close(null);};
+  });
+}
+
+// Caixa de progresso/resultado da cópia. Reusa o visual do _gtConfirm.
+function _gtDupStatus(html,acoes){
+  let ov=document.getElementById('gt-dup-ov');
+  if(!ov)return;
+  ov.innerHTML='';ov.style.display='flex';
+  // Corta o handler de fechar-clicando-no-fundo que _gtDuplicarModal deixou
+  // preso no overlay. Sem isso, um clique no fundo durante a cascata de
+  // chamadas na Meta (que pode levar segundos, mais ainda com o backoff de
+  // comEspera) esconde a janela enquanto as chamadas de verdade continuam
+  // rodando — a tela parece ociosa/cancelada com campanhas sendo criadas por
+  // trás. Daqui em diante só sai por botão, nunca clicando fora.
+  ov.onclick=null;
+  const box=document.createElement('div');
+  box.style.cssText='background:var(--surface,#fff);color:var(--text,#111);border-radius:14px;max-width:440px;width:100%;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.45);font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));line-height:1.6;';
+  box.innerHTML=html;
+  if(acoes&&acoes.length){
+    const bar=document.createElement('div');bar.style.cssText='display:flex;gap:10px;justify-content:flex-end;margin-top:18px;';
+    for(const a of acoes){
+      const b=document.createElement('button');b.textContent=a.texto;
+      b.style.cssText='padding:9px 16px;border-radius:8px;border:'+(a.primario?'none':'1px solid var(--border,#ddd)')+';background:'+(a.primario?'var(--accent,#6366f1)':'none')+';color:'+(a.primario?'#fff':'var(--text,#111)')+';font-weight:700;font-size:calc(13px*var(--gt-fs,1.3));cursor:pointer;';
+      b.onclick=a.aoClicar;bar.appendChild(b);
+    }
+    box.appendChild(bar);
+  }
+  ov.appendChild(box);
+}
+function _gtDupFechar(){const ov=document.getElementById('gt-dup-ov');if(ov)ov.style.display='none';}
+
+// SAÍDA DE EMERGÊNCIA. As caixas de "Copiando…"/"Continuando…" não têm botão
+// nenhum e o _gtDupStatus corta o fechar-clicando-no-fundo — se algo estourar
+// ali (um erro fora da conversa com a Meta, por exemplo ao desenhar o
+// progresso), o dono ficava preso atrás de uma cortina em cima da tela
+// inteira, sem outra saída além de recarregar a página no meio de uma
+// escrita numa conta ao vivo. Toda saída inesperada passa por aqui e sempre
+// entrega um botão "Fechar".
+function _gtDupErroInesperado(e){
+  _gtDupBusy=false;
+  const detalhe=_gtEsc(String((e&&e.message)||e||'').slice(0,180));
+  _gtDupStatus(
+    '<b>Deu um problema inesperado aqui na tela.</b><br>'+
+    'Parte das cópias pode ter sido criada antes disso. <b>Nada foi apagado</b>, e '+
+    'tudo que eu crio nasce <b>pausado</b> — então nada está gastando.<br>'+
+    'Feche, confira a lista e, se faltar alguma coisa, duplique de novo só o que faltou.'+
+    (detalhe?'<br><br><span style="color:var(--muted,#666);font-size:calc(11px*var(--gt-fs,1.3));">'+detalhe+'</span>':''),
+    [{texto:'Fechar',primario:true,aoClicar:()=>{_gtDupFechar();loadGtData();}}]);
+}
+
+const _GT_DUP_ROTULO={campanha:'campanha',conjunto:'conjunto de anúncios',anuncio:'anúncio'};
+
+// Guard de "só uma cópia em cascata por vez". O overlay #gt-dup-ov é
+// compartilhado por toda a jornada (modal + progresso + relatório +
+// "tentar continuar"), então duas cópias ao mesmo tempo bagunçariam a
+// mesma janela e poderiam disparar chamadas concorrentes na Meta.
+let _gtDupBusy=false;
+
+// AÇÃO REAL na Meta: cria cópias. Sempre PAUSADAS, sempre após confirmação.
+async function _gtAbrirDuplicar(alvo){
+  const tok=_gtCurAcc?.id;
+  if(!tok){await _gtConfirm('Sem conta selecionada','Escolha uma conta de anúncios antes de duplicar.',{okOnly:true});return;}
+  if(_gtDupBusy){await _gtConfirm('Já tem uma cópia em andamento','Espere a cópia atual terminar antes de começar outra.',{okOnly:true});return;}
+
+  const nome=alvo.nivel==='campanha'?alvo.campanha?.name
+    :alvo.nivel==='conjunto'?alvo.conjuntos?.[0]?.name
+    :alvo.anuncios?.[0]?.name;
+
+  // A CONTA DA JANELA SAI DO PLANO, não das listas que entraram.
+  // Antes o resumo contava `alvo.conjuntos`/`alvo.anuncios` e o plano era
+  // montado depois, por outro caminho: qualquer item que planoDeCopia
+  // descartasse (anúncio sem conjunto correspondente, por exemplo) continuava
+  // sendo prometido na frase. Contando os PASSOS que de fato vão rodar, a
+  // frase que o dono lê não tem como discordar do que vai acontecer.
+  // A prévia usa quantidade 1 só pra contar UMA cópia; a quantidade escolhida
+  // multiplica isso depois, e nenhuma das regras de "plano vazio" depende dela.
+  const previa=planoDeCopia(alvo,{quantidade:1});
+  if(!previa.length){
+    await _gtConfirm('Não há o que copiar',
+      'Abra a campanha para carregar os conjuntos e anúncios antes de duplicar.',{okOnly:true});
+    return;
+  }
+  // Só os FILHOS (passos que entram dentro de outro) — o passo raiz é o próprio
+  // item que o dono mandou copiar e já está nomeado na frase.
+  const contaPassos=nivel=>previa.filter(p=>p.nivel===nivel&&p.paiPasso).length;
+  const nCj=contaPassos('conjunto');
+  const nAd=contaPassos('anuncio');
+  const filhos=[nCj?nCj+(nCj===1?' conjunto':' conjuntos'):'',nAd?nAd+(nAd===1?' anúncio':' anúncios'):'']
+    .filter(Boolean).join(' e ');
+  // AVISO NECESSÁRIO: a lista de anúncios da tela vem dos insights do período
+  // escolhido — anúncio sem gasto no período NÃO está nela e portanto NÃO
+  // será copiado. Copiar de menos calado seria o pior desfecho possível aqui,
+  // então isso vai escrito na janela, não num comentário de código.
+  const resumo='Vai copiar '+(_GT_DUP_ROTULO[alvo.nivel]||'item')+' <b>«'+_gtEsc(nome||'sem nome')+'»</b>'
+    +(filhos?', com '+filhos+'.':'.')
+    +(nAd?'<br><span style="color:var(--orange,#d97706)">Só entram os anúncios com gasto no período que está selecionado.</span>':'');
+
+  const escolha=await _gtDuplicarModal(resumo);
+  if(!escolha)return;
+
+  const plano=planoDeCopia(alvo,escolha);
+  if(!plano.length){
+    _gtDupStatus('<b>Não há o que copiar.</b><br>Abra a campanha para carregar os conjuntos e anúncios antes de duplicar.',
+      [{texto:'Entendi',primario:true,aoClicar:_gtDupFechar}]);
+    return;
+  }
+
+  _gtDupBusy=true;
+  // Ownership da liberação do guard passa pro _gtDupRelatar assim que ele é
+  // chamado (ele libera no sucesso e em "Deixar assim", e mantém preso
+  // durante "Tentar continuar"). O catch aqui é a rede de segurança caso algo
+  // estoure fora da conversa com a Meta: libera o guard E devolve uma janela
+  // com botão de fechar — a caixa "Copiando…" não tem botão nenhum, então sem
+  // isto o dono ficava preso atrás dela.
+  try{
+    // comEspera: se a Meta pedir calma no meio da cascata, ela mesma espera e
+    // repete, sem devolver o problema pro dono.
+    const enviar=comEspera((caminho,params)=>metaPost(caminho,params,tok));
+    const passoTxt=p=>_GT_DUP_ROTULO[p.passo.nivel]+' «'+_gtEsc(p.passo.origemNome)+'»';
+    const aoProgredir=p=>_gtDupStatus('<b>Copiando…</b><br>'+p.feitos+' de '+p.total+' — '+passoTxt(p));
+
+    _gtDupStatus('<b>Copiando…</b><br>0 de '+plano.length);
+    const rel=await executarPlano(plano,{enviar,aoProgredir});
+    _gtDupRelatar(plano,rel,enviar);
+  }catch(e){
+    _gtDupErroInesperado(e);
+  }
+}
+
+// Mostra o desfecho. Falhou no meio: NADA é desfeito — o que ficou está
+// pausado, e o dono escolhe continuar ou deixar assim.
+function _gtDupRelatar(plano,rel,enviar){
+  if(!rel.falhou){
+    // Terminou: nenhuma outra chamada na Meta vai acontecer por essa
+    // jornada, então o guard de "uma cópia por vez" já pode ser liberado.
+    _gtDupBusy=false;
+    _gtDupStatus('<b>Pronto.</b><br>'+rel.concluidos.length+' '+(rel.concluidos.length===1?'item copiado':'itens copiados')+
+      ', tudo <b>pausado</b>. Ative quando quiser, e ajuste o orçamento no botão «✎ editar».',
+      [{texto:'Fechar',primario:true,aoClicar:()=>{_gtDupFechar();loadGtData();}}]);
+    return;
+  }
+  const motivo=_gtDupTraduzir(rel.falhou.motivo);
+  const feitos=rel.concluidos.length;
+  const cabecalho='<b>Parei no meio.</b><br>'+motivo+
+    '<br><br>Copiei '+feitos+' de '+plano.length+' '+(plano.length===1?'item':'itens')+'. '+
+    (feitos?'O que já foi criado está <b>pausado</b> e não vai gastar. Não apaguei nada.':'Nada foi criado.');
+  // "Deixar assim" é o desfecho final: libera o guard aqui.
+  const deixarAssim={texto:'Deixar assim',aoClicar:()=>{_gtDupBusy=false;_gtDupFechar();loadGtData();}};
+
+  // CASO EM QUE CONTINUAR É PERIGOSO: a Meta aceitou o pedido mas não devolveu
+  // o número da cópia. Como não veio número, o passo NÃO entra na lista do que
+  // foi criado — e "Tentar continuar" mandaria o mesmo pedido de novo. Se a
+  // cópia tiver sido criada de verdade (e só a Meta sabe), o dono acaba com
+  // DUAS. Aqui a saída honesta é parar e mandar conferir, não oferecer um
+  // botão que pode duplicar em dobro.
+  if(/não devolveu/i.test(String(rel.falhou.motivo||''))){
+    _gtDupBusy=false;
+    _gtDupStatus(
+      cabecalho+
+      '<br><br>Como a Meta não informou o número, <b>não sei dizer se essa cópia foi criada ou não</b> — '+
+      'e mandar de novo poderia criar uma segunda cópia do mesmo item. '+
+      'Confira no Gerenciador de Anúncios da Meta e, se faltar, duplique só o que faltou.',
+      [{texto:'Fechar',primario:true,aoClicar:()=>{_gtDupFechar();loadGtData();}}]);
+    return;
+  }
+
+  _gtDupStatus(cabecalho,
+    [
+      deixarAssim,
+      // "Tentar continuar" NÃO libera o guard — ele mesmo dispara mais
+      // chamadas na Meta (via retomar) e chama _gtDupRelatar de novo, que
+      // decide o desfecho seguinte. Só assim o guard cobre a jornada inteira,
+      // sem travar pra sempre (todo caminho volta a passar por aqui).
+      {texto:'Tentar continuar',primario:true,aoClicar:async()=>{
+        _gtDupStatus('<b>Continuando…</b>');
+        try{
+          const novo=await retomar(plano,rel,{enviar,
+            aoProgredir:p=>_gtDupStatus('<b>Continuando…</b><br>'+p.feitos+' de '+p.total)});
+          _gtDupRelatar(plano,novo,enviar);
+        }catch(e){
+          // Rede de segurança: retomar não deveria lançar (executarPlano já
+          // captura os erros da Meta). Se lançar mesmo assim, a caixa
+          // "Continuando…" na tela não tem botão nenhum — relançar o erro
+          // deixaria o dono trancado atrás dela. _gtDupErroInesperado libera o
+          // guard e devolve o botão de fechar.
+          _gtDupErroInesperado(e);
+        }
+      }},
+    ]);
+}
+
+// Traduz o erro da Meta. Mesmo espírito do tradutor de _gtApplyAction: o dono
+// não precisa ver jargão técnico, precisa saber o que fazer.
+function _gtDupTraduzir(msg){
+  const m=String(msg||'');
+  if(/permiss|#200|#10\b|#272|OAuth|token|management/i.test(m))
+    return 'O acesso desta conta <b>não tem permissão de gerenciar anúncios</b>. Verifique na Meta.';
+  if(/#17|rate|limit|too many|reduce the amount/i.test(m))
+    return 'A Meta pediu para <b>diminuir o ritmo</b> (limite de chamadas). Espere alguns minutos e tente continuar.';
+  if(/não devolveu/i.test(m))
+    return 'A Meta aceitou o pedido mas <b>não informou o número da cópia</b>, então parei para não criar item solto.';
+  return '<b>A Meta recusou:</b> '+_gtEsc(m.slice(0,180));
 }
 // AÇÃO REAL na Meta (pausar/reativar campanha ou anúncio, mudar orçamento).
 // Toda chamada de metaPost() aqui é precedida por await _gtConfirm(...) — o
@@ -3045,6 +3340,12 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-act-btn.primary){border-color:var(--accent);color:var(--accent);}
 .tela-gestao-trafego :deep(.gt-act-btn.primary:hover){background:var(--accent);color:#fff;}
 .tela-gestao-trafego :deep(.gt-act-btn:disabled){opacity:.5;cursor:not-allowed;pointer-events:none;}
+.tela-gestao-trafego :deep(.gt-btn-dup){
+  padding:6px 11px;border-radius:7px;border:1px solid var(--border,#ddd);
+  background:none;color:var(--text,#111);font-weight:600;
+  font-size:calc(12px*var(--gt-fs,1.3));cursor:pointer;white-space:nowrap;
+}
+.tela-gestao-trafego :deep(.gt-btn-dup:hover){background:var(--surface-2,rgba(0,0,0,.05));}
 /* ===== Redesign direção A ===== */
 /* Edição manual de orçamento (sempre disponível) */
 .tela-gestao-trafego :deep(.gt-budget-edit){display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));color:var(--muted);}

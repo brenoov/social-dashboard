@@ -210,6 +210,56 @@ A base de dados garante (RLS ativa) quem consegue editar a régua — a tela ape
 mostra esse travamento, não o inventa. Se você tentar editar sem permissão, a
 tela dirá que você não tem permissão para editar esta ferramenta.
 
+DUPLICAR CAMPANHA / CONJUNTO / ANÚNCIO (desde 2026-07-28)
+==========================================================
+Botão "⧉ Duplicar" nos três níveis. Só aparece para quem tem permissão de
+EDITAR nesta ferramenta — a mesma que libera mexer no orçamento e na régua.
+
+A CÓPIA SEMPRE NASCE PAUSADA. Isso vai escrito em toda chamada, não é
+confiança no padrão da Meta. Nada gasta até você ativar na mão.
+
+A cópia é feita em CASCATA: primeiro a campanha vazia, depois cada conjunto
+pra dentro dela, depois cada anúncio pro conjunto novo. Parece trabalho a
+mais, e é de propósito: o jeito "copie tudo de uma vez" da Meta (deep_copy)
+trava em 3 anúncios por chamada — justamente a campanha grande que você mais
+quer duplicar. Em cascata não tem teto, você vê o progresso, e se algo falhar
+dá pra saber exatamente onde parou.
+
+SE PARAR NO MEIO: nada é apagado. O que foi criado fica lá, PAUSADO, e a tela
+oferece "Tentar continuar" (refaz só o que faltou) ou "Deixar assim". A
+ferramenta nunca apaga sozinha pra "limpar" — um engano apagaria o item
+errado.
+
+TEM UM CASO EM QUE O "TENTAR CONTINUAR" NÃO APARECE: quando a Meta aceita o
+pedido mas não informa o número da cópia. Aí ninguém sabe se ela foi criada ou
+não — mandar de novo poderia criar DUAS cópias do mesmo item. A tela diz isso
+com todas as letras e pede pra você conferir no Gerenciador de Anúncios da
+Meta antes de repetir.
+
+O QUE VAI SER COPIADO É O QUE ESTÁ NA TELA. A janela conta os conjuntos e os
+anúncios a partir dos passos que vão de fato rodar, e não das listas que a
+Meta devolveu — assim a frase "vai copiar a campanha «X», com 2 conjuntos e 7
+anúncios" nunca pode prometer mais do que a ferramenta vai fazer.
+
+SÓ ENTRAM OS ANÚNCIOS COM GASTO NO PERÍODO SELECIONADO. A tela só conhece os
+anúncios que a Meta devolveu para o período escolhido lá em cima (HOJE, 7D,
+30D...). Anúncio que não gastou nesse período não aparece na lista e portanto
+NÃO é copiado. A janela do duplicar avisa isso. Se você quer levar todos,
+escolha um período maior ANTES de duplicar.
+
+O QUE O DUPLICAR NÃO FAZ (e por quê):
+- Não copia para OUTRA conta de anúncios. A Meta não oferece isso em nenhum
+  nível. Levar uma campanha pra outra loja exige recriar do zero na conta de
+  destino, inclusive re-subindo as imagens (no Meta a imagem pertence à
+  conta). É outro projeto.
+- Não troca criativo, público ou posicionamento na hora de copiar. Isso é
+  edição, e ainda não existe aqui.
+- Não muda o orçamento na cópia — a Meta não aceita. Duplique e ajuste depois
+  no botão "✎ editar" do orçamento, que já existe.
+
+Arquivos: duplicar.js (o motor, PURO — monta o plano e executa) e
+duplicar.test.mjs (testes, com uma Meta de mentira: nenhum teste encosta em
+conta real). Rodam com `npm test`.
 OBJETIVO POR INTERAÇÃO (desde 2026-07-28)
 ==========================================
 PESO E PREÇO SÃO DUAS COISAS DIFERENTES

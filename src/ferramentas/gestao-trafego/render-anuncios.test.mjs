@@ -59,6 +59,9 @@ test('_renderGtAds monta o cartão sem referenciar variável inexistente', () =>
     _gtSeloObjetivoEl: () => null,
     _gtSelCaixa: () => null,
     _gtManualToggleBtn: () => null,
+    // Devolve null como os outros botões opcionais: o cartão faz `if(bDupAd)`
+    // antes de encaixar, então null exercita o caminho de "sem permissão".
+    _gtBotaoDuplicar: () => null,
     _gtVerCriativo: () => {},
     _gtReguaAtiva: () => ({ pesos: {}, limiares: {}, metas: {} }),
     _gtObjetivoInteracao: {},
