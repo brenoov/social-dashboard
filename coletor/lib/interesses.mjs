@@ -234,10 +234,151 @@ export function montarPedido({ marca, lojas, objetivo } = {}) {
     '',
     'Sugira até 8 termos de busca: assuntos que importam para quem compraria desta marca com ESTE objetivo.',
     'Cada termo deve ser curto e abrangente (1 a 3 palavras), do tipo que se digita numa busca.',
+    // A REGRA QUE A SONDA DE 2026-07-31 MEDIU, e o motivo de ela estar escrita
+    // com exemplos: o catálogo do Meta é uma lista de SUBSTANTIVOS, e a busca
+    // casa com o nome da entrada. Qualificador mata a busca — os dois lados do
+    // mesmo produto foram sondados na mesma rodada:
+    //   "bolsa" → Bolsas (acessórios), 486 mi     "bolsa feminina" → NADA
+    //   "cinto" → Cinto, 37 mi                    "cinto de couro" → NADA
+    //   "carteira" → Carteira (acessórios), 64 mi "carteira feminina" → NADA
+    // Nenhum dos 13 vazios da sonda era substantivo pelado, e nenhum dos 18
+    // achados tinha qualificador.
+    'REGRA MEDIDA: escreva o SUBSTANTIVO SOZINHO, no singular — "bolsa", "cinto", "carteira", "óculos".',
+    'NÃO acrescente qualificador: "bolsa feminina", "cinto de couro" e "carteira feminina" NÃO EXISTEM no catálogo e voltam vazios.',
     'Não tente adivinhar o nome exato de um interesse do Meta — cada termo será buscado no catálogo dele.',
   ].join('\n');
 
   return { system, user };
+}
+
+// ═══ SEGUNDA ETAPA: A IA ESCOLHE ENTRE O QUE EXISTE ═══════════════════════════
+//
+// POR QUE ELA PRECISOU EXISTIR. A sonda de 2026-07-31 provou que o catálogo da
+// Meta é indexado por SUBSTANTIVO PELADO: "bolsa" acha `Bolsas (acessórios)`
+// (486 mi), "bolsa feminina" não acha nada. Ótimo — só que substantivo pelado é
+// justamente o que traz HOMÔNIMO junto:
+//   "bolsa"  → Bolsas (acessórios) ... e 8 BOLSAS DE VALORES (Istambul, Mumbai)
+//   "clutch" → Clutch ... e `Hard rock` e `Embraiagem`
+//   "luxo"   → Bens de luxo ... e `Egito` e `Luxor Hotel`
+// Trocar o vocabulário sem tratar isso seria trocar um lixo por outro.
+//
+// A SAÍDA QUE SÓ AGORA EXISTE: até aqui a IA era obrigada a ADIVINHAR nomes de
+// um catálogo que ela nunca viu — e a lição mais cara desta série é que ela erra
+// nisso (pedindo nome exato, 15% existiam). Agora ela não adivinha nada: recebe
+// as fichinhas REAIS que a Meta devolveu e só diz quais servem. Julgar "Bolsa de
+// Valores de Istambul não é de uma loja de bolsas" é o que um modelo faz bem.
+//
+// E RESOLVE O OUTRO PROBLEMA DE QUEBRA: os seis objetivos vinham devolvendo a
+// mesma lista porque os termos específicos morriam na busca e só os genéricos
+// sobreviviam. Como a escolha é feita POR OBJETIVO, sobre a mesma lista bruta, é
+// aqui que os seis finalmente podem divergir — sem depender de o catálogo ter
+// entrada para cada nuance.
+//
+// Devolve null quando não há o que escolher (sem itens, marca sem nome, objetivo
+// desconhecido) — quem chama pula a etapa e segue com a lista como veio.
+export function montarEscolha({ marca, objetivo, itens } = {}) {
+  if (!OBJETIVOS.includes(objetivo)) return null;
+  const nomeMarca = limpo(marca && marca.nome);
+  if (!nomeMarca) return null;
+  const segmento = limpo(marca && marca.segmento);
+  const nomeObjetivo = NOME_DO_OBJETIVO[objetivo] || objetivo;
+  const foco = limpo(FOCO_DO_OBJETIVO[objetivo]);
+
+  const linhas = [];
+  for (const i of lista(itens)) {
+    if (!i || typeof i !== 'object') continue;
+    const nome = limpo(i.nome);
+    const id = limpo(i.id);
+    if (!nome || !id) continue;
+    // O TAMANHO VAI JUNTO porque é informação de decisão, não enfeite: entre dois
+    // interesses que servem, o de 3 mil pessoas não vale uma linha da faixa.
+    const tam = tamanhoLegivel(i.audience_size);
+    linhas.push(`- id ${id} · ${nome}${tam ? ` (${tam} pessoas)` : ''}`);
+  }
+  if (!linhas.length) return null;
+
+  const system =
+    'Você escolhe, dentro de uma lista REAL de interesses de segmentação do Meta Ads, quais servem para uma loja brasileira. ' +
+    'A lista veio do próprio Meta: todos os itens existem. ' +
+    'Seu trabalho é SÓ separar o que tem a ver com a marca do que caiu ali por coincidência de nome. ' +
+    'Responda apenas com os id dos que servem. Nada de explicação, e nunca invente um id que não esteja na lista.';
+
+  const user = [
+    `Marca: ${nomeMarca}`,
+    ...(segmento ? [`O que ela vende: ${segmento}`] : []),
+    `Objetivo da campanha: ${nomeObjetivo}`,
+    ...(foco ? [`Quem procurar neste objetivo: ${foco}`] : []),
+    '',
+    'Interesses encontrados no catálogo do Meta:',
+    ...linhas,
+    '',
+    // O EXEMPLO É O CASO REAL da sonda, não um caso inventado: é exatamente esse
+    // o erro que a etapa existe pra evitar.
+    'Muitos vieram por coincidência de palavra — buscar "bolsa" traz "Bolsa de Valores de Istambul", que não tem nada a ver com uma loja de bolsas.',
+    'Devolva os id dos que fazem sentido para ESTA marca com ESTE objetivo, do mais relevante para o menos.',
+    'É melhor devolver poucos e certos do que muitos e duvidosos. Se nenhum servir, devolva lista vazia.',
+  ].join('\n');
+
+  return { system, user };
+}
+
+// OS ESCOLHIDOS QUE EXISTEM DE VERDADE — o portão entre a resposta da IA e a
+// tabela.
+//
+// A REGRA DA CASA, de novo: nome de interesse NUNCA vem da IA, vem da Meta.
+// Aqui ela só aponta id; qualquer id que não esteja na lista oferecida é
+// descartado sem dó. Um id inventado que passasse viraria linha no banco
+// apontando pra um interesse que não existe, e a campanha subiria com
+// segmentação fantasma — falha silenciosa, do tipo que este projeto já pagou
+// caro pra aprender a evitar.
+//
+// A ORDEM É A DA IA, não a de tamanho: nesta altura ela é ranking de RELEVÂNCIA,
+// e a faixa mostra os primeiros. Ordenar por tamanho aqui jogaria o interesse
+// certo pra baixo do genérico grande — que é o defeito que a etapa veio corrigir.
+//
+// Repetido na resposta entra uma vez só. Lista vazia devolve vazio: "nenhum
+// serve" é uma resposta legítima, e quem decide o que fazer com uma rodada
+// inteira vazia é `rodadaFalhouInteira`.
+export function escolhidosValidos(escolhidos, itens) {
+  const porId = new Map();
+  for (const i of lista(itens)) {
+    if (!i || typeof i !== 'object') continue;
+    const id = limpo(i.id);
+    if (id) porId.set(id, i);
+  }
+  const saida = [];
+  const vistos = new Set();
+  for (const bruto of lista(escolhidos)) {
+    // Aceita id como texto ou número: o modelo às vezes devolve 6003 em vez de
+    // "6003", e recusar por causa do tipo jogaria fora escolha boa.
+    if (typeof bruto !== 'string' && typeof bruto !== 'number') continue;
+    const id = limpo(String(bruto));
+    if (!id || vistos.has(id)) continue;
+    const item = porId.get(id);
+    if (!item) continue;      // id que a IA inventou: fora, sem alarde
+    vistos.add(id);
+    saida.push(item);
+  }
+  return saida;
+}
+
+// A LINHA DO LOG DA ESCOLHA — o que a IA descartou, e por isso ela existe.
+//
+// Sem ela, a rodada seca mostraria a lista final menor e ninguém saberia se a
+// busca achou pouco ou se a escolha cortou muito. É a mesma dívida dos cortes
+// por tamanho, um andar acima.
+export function linhaDaEscolha(antes, depois) {
+  const n = lista(antes).length;
+  const m = lista(depois).length;
+  if (!n) return '';
+  const nomes = [];
+  const ficaram = new Set(lista(depois).map((i) => limpo(i && i.id)));
+  for (const i of lista(antes)) {
+    const nome = limpo(i && i.nome);
+    if (nome && !ficaram.has(limpo(i && i.id))) nomes.push(nome);
+  }
+  if (!nomes.length) return `      a IA olhou os ${n} e ficou com todos`;
+  return `      a IA ficou com ${m} de ${n} — fora: ${nomes.join(' · ')}`;
 }
 
 // O que a IA devolveu, limpo — hoje são TERMOS DE BUSCA, não nomes de interesse

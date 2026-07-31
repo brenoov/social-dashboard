@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { montarPedido, OBJETIVOS, NOME_DO_OBJETIVO, FOCO_DO_OBJETIVO, nomesPropostos, colherDaBusca, MAXIMO_POR_OBJETIVO, TETO_DE_PUBLICO, PISO_DE_PUBLICO, linhasDosPequenos, linhasPorTermo, tamanhoLegivel, linhaDosTermos, linhasDaPrevia, linhasDosLargos, comCidadesResolvidas, rodadaFalhouInteira } from './interesses.mjs';
+import { montarPedido, montarEscolha, escolhidosValidos, linhaDaEscolha, OBJETIVOS, NOME_DO_OBJETIVO, FOCO_DO_OBJETIVO, nomesPropostos, colherDaBusca, MAXIMO_POR_OBJETIVO, TETO_DE_PUBLICO, PISO_DE_PUBLICO, linhasDosPequenos, linhasPorTermo, tamanhoLegivel, linhaDosTermos, linhasDaPrevia, linhasDosLargos, comCidadesResolvidas, rodadaFalhouInteira } from './interesses.mjs';
 import { ALVOS } from '../../src/ferramentas/gestao-trafego/alvos.js';
 
 const MARCA = { id: 'm1', nome: 'La Vessel' };
@@ -1104,4 +1104,95 @@ test('MOSTRA O CRU: o que o teto e o piso cortariam ainda aparece aqui', () => {
     resposta: { data: [{ name: 'Acessórios de moda', audience_size: 1_150_000_000 }, { name: 'VK Plus Size', audience_size: 3_000 }] },
   }]);
   assert.match(linhas[1], /→ Acessórios de moda · VK Plus Size$/);
+});
+
+// ===== SEGUNDA ETAPA: a IA escolhe entre o que EXISTE =====
+
+const ITENS = [
+  { id: '6003', nome: 'Bolsas (acessórios)', audience_size: 486_100_000 },
+  { id: '6004', nome: 'Bolsa de Valores de Istambul', audience_size: 2_000_000 },
+  { id: '6005', nome: 'Cinto', audience_size: 37_100_000 },
+];
+
+test('o pedido de escolha lista as fichinhas REAIS, com id e tamanho', () => {
+  const p = montarEscolha({ marca: { nome: 'La Vessel', segmento: 'bolsas e cintos' }, objetivo: 'vendas', itens: ITENS });
+  assert.match(p.user, /- id 6003 · Bolsas \(acessórios\) \(486,1 mi pessoas\)/);
+  assert.match(p.user, /- id 6005 · Cinto \(37,1 mi pessoas\)/);
+  assert.match(p.user, /O que ela vende: bolsas e cintos/);
+  // A escolha é POR OBJETIVO — é isso que permite os seis divergirem.
+  assert.match(p.user, /Objetivo da campanha: Vendas/);
+  assert.match(p.system, /nunca invente um id/);
+});
+
+test('sem itens, sem marca ou com objetivo desconhecido nao ha o que escolher', () => {
+  assert.equal(montarEscolha({ marca: { nome: 'X' }, objetivo: 'vendas', itens: [] }), null);
+  assert.equal(montarEscolha({ marca: { nome: '  ' }, objetivo: 'vendas', itens: ITENS }), null);
+  assert.equal(montarEscolha({ marca: { nome: 'X' }, objetivo: 'inventado', itens: ITENS }), null);
+  assert.equal(montarEscolha(), null);
+});
+
+test('item sem id ou sem nome nao entra na lista oferecida, e o bom do lado SOBREVIVE', () => {
+  const p = montarEscolha({
+    marca: { nome: 'X' }, objetivo: 'vendas',
+    itens: [{ id: '', nome: 'Sem id' }, { id: '9', nome: '  ' }, null, { id: '6003', nome: 'Bolsas' }],
+  });
+  assert.match(p.user, /- id 6003 · Bolsas$/m);
+  assert.ok(!p.user.includes('Sem id'));
+});
+
+test('interesse sem tamanho aparece na lista mesmo assim, sem parenteses vazio', () => {
+  const p = montarEscolha({ marca: { nome: 'X' }, objetivo: 'vendas', itens: [{ id: '1', nome: 'Cinto' }] });
+  assert.match(p.user, /- id 1 · Cinto$/m);
+  assert.ok(!p.user.includes('()'));
+});
+
+test('a escolha fica so com os id que EXISTIAM na lista — id inventado nao passa', () => {
+  const r = escolhidosValidos(['6003', '9999', '6005'], ITENS);
+  assert.deepEqual(r.map((i) => i.nome), ['Bolsas (acessórios)', 'Cinto']);
+});
+
+test('a ORDEM e a da IA (relevancia), nao a de tamanho', () => {
+  // Cinto (37 mi) na frente de Bolsas (486 mi) porque a IA achou mais relevante.
+  const r = escolhidosValidos(['6005', '6003'], ITENS);
+  assert.deepEqual(r.map((i) => i.nome), ['Cinto', 'Bolsas (acessórios)']);
+});
+
+test('id como numero e aceito; repetido entra uma vez so', () => {
+  const r = escolhidosValidos([6003, '6003', 6005], ITENS);
+  assert.deepEqual(r.map((i) => i.id), ['6003', '6005']);
+});
+
+test('resposta vazia ou torta devolve lista vazia, nao a lista inteira', () => {
+  // "Nenhum serve" é resposta legítima. Devolver tudo por precaução desligaria
+  // a etapa em silêncio — que é o defeito que ela veio consertar.
+  assert.deepEqual(escolhidosValidos([], ITENS), []);
+  assert.deepEqual(escolhidosValidos(null, ITENS), []);
+  assert.deepEqual(escolhidosValidos([null, {}, true, ['6003']], ITENS), []);
+});
+
+test('a linha do log diz o que a IA cortou, pelo NOME', () => {
+  const ficaram = escolhidosValidos(['6003', '6005'], ITENS);
+  const l = linhaDaEscolha(ITENS, ficaram);
+  assert.match(l, /ficou com 2 de 3 — fora: Bolsa de Valores de Istambul$/);
+});
+
+test('quando nada e cortado a linha diz isso, em vez de mentir por omissao', () => {
+  assert.match(linhaDaEscolha(ITENS, ITENS), /olhou os 3 e ficou com todos$/);
+  assert.equal(linhaDaEscolha([], []), '', 'sem lista, sem linha');
+});
+
+test('a linha aguenta a IA ter cortado TUDO', () => {
+  assert.match(linhaDaEscolha(ITENS, []), /ficou com 0 de 3 — fora: Bolsas \(acessórios\) · Bolsa de Valores de Istambul · Cinto$/);
+});
+
+// ===== A REGRA DO SUBSTANTIVO PELADO, medida pela sonda =====
+
+test('o pedido ENSINA a regra do substantivo sozinho, com os exemplos que falharam', () => {
+  const p = montarPedido({ marca: { nome: 'La Vessel' }, lojas: [], objetivo: 'vendas' });
+  assert.match(p.user, /SUBSTANTIVO SOZINHO/);
+  assert.match(p.user, /"bolsa feminina"/, 'o contra-exemplo medido tem de estar escrito');
+  // A regra NÃO pode virar pedido de termo estreito: essa instrução já zerou as
+  // 48 buscas de uma rodada inteira (cef4b36).
+  assert.ok(!/específico|nicho|detalhad/i.test(p.user.replace(/NÃO EXISTEM.*/g, '')),
+    'nada que empurre a IA a estreitar o termo');
 });

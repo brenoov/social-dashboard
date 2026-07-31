@@ -19,7 +19,7 @@
 // então o valor real aparece no painel Status do Claude, em reais.
 import { structured, SONNET, usageSummary } from './lib-llm.mjs';
 import { registrarExecucao } from './registrar-execucao.mjs';
-import { montarPedido, nomesPropostos, colherDaBusca, linhaDosTermos, linhasDaPrevia, linhasDosLargos, linhasDosPequenos, linhasPorTermo, comCidadesResolvidas, rodadaFalhouInteira, OBJETIVOS } from './lib/interesses.mjs';
+import { montarPedido, montarEscolha, escolhidosValidos, linhaDaEscolha, nomesPropostos, colherDaBusca, linhaDosTermos, linhasDaPrevia, linhasDosLargos, linhasDosPequenos, linhasPorTermo, comCidadesResolvidas, rodadaFalhouInteira, OBJETIVOS } from './lib/interesses.mjs';
 // Login da conta de serviço (mesma usada por subir-estudio.mjs, ativar-estudio.mjs
 // etc.) — o meta-proxy chama auth.getUser() sobre o Authorization recebido, e uma
 // service key não é sessão de usuário: ela sempre daria 401 "nao autenticado" ali.
@@ -175,6 +175,25 @@ const SCHEMA = {
   required: ['interesses'],
 };
 
+// SEGUNDA ETAPA: só os id, nunca nomes.
+//
+// Pedir NOME de volta reabriria a porta que este robô fechou a duras penas — a
+// IA escreveria "Bolsas femininas" com a melhor das intenções e gravaríamos um
+// interesse que não existe no Meta. Id ela não tem como inventar de forma
+// plausível, e `escolhidosValidos` ainda confere um a um contra a lista
+// oferecida.
+const SCHEMA_ESCOLHA = {
+  type: 'object',
+  properties: {
+    ids: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Os id dos interesses que servem, do mais relevante para o menos. Só id que está na lista.',
+    },
+  },
+  required: ['ids'],
+};
+
 // Pausa entre uma busca e a seguinte. São 8 termos × 6 objetivos por marca, e
 // este robô roda uma vez por semana: não existe motivo nenhum pra ter pressa
 // com a API da Meta.
@@ -260,7 +279,36 @@ export async function run() {
         puladas++; continue;
       }
 
-      const { itens, propostos: nProp, validos, largos, pequenos } = colherDaBusca(termos, respostas);
+      const colhido = colherDaBusca(termos, respostas);
+      const { propostos: nProp, largos, pequenos } = colhido;
+
+      // SEGUNDA ETAPA: a IA escolhe entre as fichinhas REAIS que a Meta devolveu.
+      //
+      // Aqui ela não adivinha nada — recebe o que existe e só separa o que serve
+      // do que caiu por coincidência de palavra ("bolsa" traz bolsa de valores).
+      // Ver montarEscolha em lib/interesses.mjs para o porquê de cada linha.
+      //
+      // DEGRADA, NÃO DERRUBA: se esta chamada falhar, a lista segue como veio da
+      // busca — que é exatamente o comportamento de antes desta etapa existir.
+      // Perder a rodada inteira por causa de um refinamento seria trocar uma
+      // faixa boa por nenhuma faixa. Mas o aviso sai no log: degradar em
+      // silêncio é como um filtro desligado passa meses sem ninguém notar.
+      let itens = colhido.itens;
+      const escolha = montarEscolha({ marca, objetivo, itens });
+      if (escolha) {
+        try {
+          const r = await structured({ model: MODEL, system: escolha.system, user: escolha.user, schema: SCHEMA_ESCOLHA, toolName: 'escolher' });
+          const ficaram = escolhidosValidos(r && r.ids, itens);
+          // Lista vazia é resposta legítima ("nenhum serve") e é respeitada: quem
+          // decide o que fazer com uma rodada inteira vazia é rodadaFalhouInteira,
+          // lá embaixo, que já pinta o Actions de vermelho.
+          if (DRY) console.log(linhaDaEscolha(itens, ficaram));
+          itens = ficaram;
+        } catch (e) {
+          console.log(`  ⚠ ${marca.nome} · ${objetivo}: a escolha da IA falhou — seguindo com a lista da busca (${String(e).slice(0, 90)})`);
+        }
+      }
+      const validos = itens.length;
       totPropostos += nProp; totValidos += validos;
       // O número mudou de sentido: antes era "quantos sobreviveram à validação",
       // agora é "quantos interesses as buscas acharam". Passar de 100% é normal —
