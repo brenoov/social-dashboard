@@ -87,24 +87,47 @@ test('CBO nao mostra bloco de conjuntos', () => {
 
 // ── filtro por conta ────────────────────────────────────────────────────────
 
-test('o filtro conta quantas pendencias cada conta tem', () => {
-  const html = monta({
-    pendentes: [item(), item({ campaign_id: 'c2' }), item({ campaign_id: 'c3', account_id: 'conta-2' })],
-    contas: [{ id: 'conta-1', name: 'Raíssa' }, { id: 'conta-2', name: 'Vessel' }, { id: 'conta-3', name: 'Mantova' }],
-  });
-  // Sem o numero, o dono clicaria conta por conta pra achar as vazias.
-  assert.match(html, /Todas as contas<span class="gtf-filtro-n">3</);
-  assert.match(html, /Mantova<span class="gtf-filtro-n">0</);
-});
-
-test('filtrar por conta mostra so a dela', () => {
+test('quem filtra e o seletor da topbar: mostra so a conta aberta', () => {
   const html = monta({
     pendentes: [item({ campaign_name: 'DA RAISSA' }), item({ campaign_id: 'c2', account_id: 'conta-2', campaign_name: 'DA VESSEL' })],
     contas: [{ id: 'conta-1', name: 'Raíssa' }, { id: 'conta-2', name: 'Vessel' }],
-    contaFiltro: 'conta-2',
+    contaFiltro: 'conta-2', contaNome: 'Vessel',
   });
   assert.ok(html.includes('DA VESSEL'));
   assert.ok(!html.includes('DA RAISSA'));
+  assert.ok(!html.includes('gtf-filtro'), 'os botoes proprios de conta sairam');
+});
+
+test('o que esta nas OUTRAS contas continua sendo dito', () => {
+  // Filtrar por conta some com itens da lista; some do CONHECIMENTO nao pode —
+  // senao o dono acha que resolveu tudo olhando uma conta so.
+  const html = monta({
+    pendentes: [
+      item({ account_id: 'conta-1' }),
+      item({ campaign_id: 'c2', account_id: 'conta-2' }),
+      item({ campaign_id: 'c3', account_id: 'conta-2' }),
+      item({ campaign_id: 'c4', account_id: 'conta-3' }),
+    ],
+    contas: [{ id: 'conta-1', name: 'Raíssa' }, { id: 'conta-2', name: 'Vessel' }, { id: 'conta-3', name: 'Motoeasy' }],
+    contaFiltro: 'conta-1', contaNome: 'Raíssa',
+  });
+  assert.match(html, /Mais 3 em/);
+  assert.match(html, /Vessel<\/b> \(2\)/);
+  assert.match(html, /Motoeasy<\/b> \(1\)/);
+  assert.match(html, /troque a conta lá em cima/);
+});
+
+test('sem nada em outras contas, nao inventa aviso', () => {
+  const html = monta({
+    pendentes: [item({ account_id: 'conta-1' })],
+    contas: [{ id: 'conta-1', name: 'Raíssa' }], contaFiltro: 'conta-1', contaNome: 'Raíssa',
+  });
+  assert.ok(!html.includes('gtf-outras'));
+});
+
+test('a fila vazia DESTA conta diz o nome dela', () => {
+  const html = monta({ pendentes: [], contaFiltro: 'conta-1', contaNome: 'Mantova Móveis', carregou: true });
+  assert.match(html, /Nada esperando decisão em Mantova Móveis/);
 });
 
 // ── estados ─────────────────────────────────────────────────────────────────

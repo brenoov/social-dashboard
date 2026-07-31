@@ -719,7 +719,6 @@ function _gtReguaAtiva() {
 // virou só leitura de propósito — com dois caminhos, um deles escaparia do
 // registro (decisão do dono, 2026-07-29).
 let _gtFila = { pendentes: [], vencidas: [], silenciadas: [], respondidas: [] };
-let _gtFilaFiltro = '';
 let _gtFilaCarregando = false;
 // Só vira true quando a leitura terminou de verdade. Enquanto for false, a aba
 // diz "carregando", nunca "não há nada" — ver a guarda em _gtCarregarFila.
@@ -1383,6 +1382,9 @@ async function loadGtData(){
     // de anúncios (ou abrir a régua antes de os dados chegarem) deixava o exemplo
     // velho ou vazio, e o dono precisava passar pela aba Campanhas primeiro.
     if(_gtAbaAtiva==='regua') _gtTrocarAba('regua');
+    // A FILA também segue a conta selecionada — repinta sem rebuscar nada (os
+    // itens já estão em memória; só o recorte muda).
+    if(_gtAbaAtiva==='fila') _gtTrocarAba('fila');
     // Reset AI analyze button
     const btn=document.getElementById('gt-analyze-btn');
     if(btn){btn.disabled=false;btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Analisar com Agente IA';}
@@ -2244,7 +2246,12 @@ function _gtTrocarAba(nome) {
       vencidas: _gtFila.vencidas,
       silenciadas: _gtFila.silenciadas,
       contas: _gtAccounts,
-      contaFiltro: _gtFilaFiltro,
+      // Quem filtra é o SELETOR DA TOPBAR: a fila mostra a conta que está
+      // aberta, como o resto da tela. Antes ela tinha botões próprios de conta,
+      // duplicando um seletor que já existe logo acima e que ainda mostra saldo
+      // e gasto de cada uma (pedido do dono, 2026-07-29).
+      contaFiltro: (_gtCurAcc && _gtCurAcc.id) || '',
+      contaNome: (_gtCurAcc && (_gtCurAcc.display_name || _gtCurAcc.name)) || '',
       agora: new Date().toISOString(),
       carregou: _gtFilaCarregou,
       // Mesmo critério da régua e do RLS da tabela: decidir na fila é ação de
@@ -2253,7 +2260,6 @@ function _gtTrocarAba(nome) {
       aoAprovar: _gtFilaAprovar,
       aoRecusar: _gtFilaRecusar,
       aoPausarCriativos: _gtFilaPausarCriativos,
-      aoFiltrar: (id) => { _gtFilaFiltro = id; _gtTrocarAba('fila'); },
       ajudaBtn: _gtAjudaBtn,
     });
   }
@@ -3540,11 +3546,10 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gtf-cab){display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin:0 0 14px;}
 .tela-gestao-trafego :deep(.gtf-tit){font-family:var(--fonte-principal);font-size:calc(15px*var(--gt-fs,1.3));font-weight:700;color:var(--text);margin:0;}
 .tela-gestao-trafego :deep(.gtf-sub){font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--muted);margin:4px 0 0;line-height:1.5;}
-.tela-gestao-trafego :deep(.gtf-filtros){display:flex;flex-wrap:wrap;gap:7px;margin:0 0 14px;}
-.tela-gestao-trafego :deep(.gtf-filtro){display:inline-flex;align-items:center;gap:7px;font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));padding:6px 12px;border-radius:999px;cursor:pointer;background:var(--surface);border:1px solid var(--border);color:var(--muted);transition:all .12s ease;}
-.tela-gestao-trafego :deep(.gtf-filtro:hover){color:var(--text);border-color:var(--muted);}
-.tela-gestao-trafego :deep(.gtf-filtro.ativo){background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600;}
-.tela-gestao-trafego :deep(.gtf-filtro-n){font-family:var(--fonte-dados);font-size:calc(9px*var(--gt-fs,1.3));opacity:.65;}
+/* Os botões de conta saíram: quem filtra é o seletor da topbar. O que ficou é o
+   aviso do que está nas OUTRAS contas — some da lista, não do conhecimento. */
+.tela-gestao-trafego :deep(.gtf-outras){margin-top:14px;padding:10px 14px;border-radius:10px;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;}
+.tela-gestao-trafego :deep(.gtf-outras b){color:var(--text);}
 /* Cada campanha é uma CAIXA separada, não uma linha de tabela colada na
    seguinte (pedido do dono, 2026-07-29: "ta tudo muito junto"). Continua sendo
    LISTA — uma por linha, largura inteira —, mas com respiro entre elas: cada
