@@ -197,7 +197,11 @@ create policy robos_execucoes_srv on public.robos_execucoes for all using (auth.
 create policy robos_esperados_srv on public.robos_esperados for all using (auth.role() = 'service_role');
 
 -- ── LIGAR A CONFERÊNCIA ─────────────────────────────────────────────────────
-select cron.schedule('conferir-robos', '*/5 * * * *', $$ select public.conferir_robos() $$);
+-- :02, :07, :12… e NÃO */5. Os robôs disparam nos múltiplos de 5; rodando no
+-- mesmo minuto, o conferente chega antes de a resposta HTTP voltar e a
+-- conferência atrasa um ciclo inteiro (medido: o disparo das 16:40 ficou sem
+-- status até as 16:45). Dois minutos de folga cobrem a Edge mais lenta.
+select cron.schedule('conferir-robos', '2-59/5 * * * *', $$ select public.conferir_robos() $$);
 
 -- ── MIGRAR OS CRONS ─────────────────────────────────────────────────────────
 -- Mesmos horários, mesmos corpos, mesmos timeouts do que já existia. A ÚNICA
