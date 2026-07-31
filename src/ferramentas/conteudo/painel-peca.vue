@@ -158,6 +158,31 @@
             >{{ destino.rotulo }}</button>
           </div>
           <span v-if="destinoBloqueado" class="ctd-ajuda">{{ destinoBloqueado }}</span>
+
+          <!-- REPROVAR PEDE O MOTIVO.
+               A tela já tinha o aviso "Reprovada. {motivo}" pronto lá em cima,
+               mas nada preenchia o motivo — era código morto. Quem escreveu a
+               peça via que foi recusada e não via por quê, que é a única
+               informação que faz a recusa valer alguma coisa. -->
+          <div v-if="pedindoMotivo" class="ctd-motivo">
+            <label class="ctd-rot" for="ctd-motivo">Por que está reprovando?</label>
+            <textarea
+              id="ctd-motivo"
+              ref="campoMotivo"
+              v-model="motivoRecusa"
+              class="ctd-ta"
+              rows="2"
+              placeholder="Ex.: a foto está escura e a legenda promete um preço que mudou"
+            ></textarea>
+            <div class="ctd-peca-acoes">
+              <button
+                class="ctd-btn ctd-btn-perigo"
+                :disabled="!motivoRecusa.trim()"
+                @click="confirmarReprovacao"
+              >Reprovar</button>
+              <button class="ctd-btn" @click="pedindoMotivo = false">Cancelar</button>
+            </div>
+          </div>
         </div>
 
         <div v-if="!ehNova && eventos.length" class="ctd-campo">
@@ -176,6 +201,14 @@
           {{ salvando ? 'Salvando…' : (ehNova ? 'Criar rascunho' : 'Salvar') }}
         </button>
         <button class="ctd-btn" @click="$emit('fechar')">Fechar</button>
+
+        <!-- O recado fica COLADO no botão que o provocou, não num canto da tela:
+             é onde o olho já está depois do clique. `aria-live` faz o leitor de
+             tela anunciar sem roubar o foco. -->
+        <span v-if="recado" class="ctd-recado" role="status" aria-live="polite">
+          <IconeCerto /> {{ recado }}
+        </span>
+
         <button
           v-if="!ehNova"
           class="ctd-btn ctd-btn-perigo"
@@ -190,9 +223,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { rotuloDeStatus, corDeStatus, transicoesPermitidas, podeTransicionar } from './estados.js'
 import { FORMATOS, regrasDoFormato, validarArquivos, formatarBytes } from './formatos.js'
+import { IconeCerto } from './icones.js'
 import { LIMITE_LEGENDA, LIMITE_HASHTAGS, listarHashtags } from './legenda.js'
 import { paraCampoDeDataHora, deCampoDeDataHora, dataHoraBRT } from './grade-do-calendario.js'
 import * as dados from './dados-conteudo.js'
@@ -222,6 +256,22 @@ const metrica = ref(null)
 const decidindo = ref(false)
 const erro = ref('')
 const salvando = ref(false)
+
+// A CONFIRMAÇÃO QUE FALTAVA. Salvar não dizia nada: a pessoa clicava, o painel
+// continuava igual, e não havia como saber se pegou. Silêncio depois de uma
+// ação é o que faz alguém clicar de novo — ou desconfiar da ferramenta.
+const recado = ref('')
+let relogioRecado = null
+function avisar(texto) {
+  recado.value = texto
+  clearTimeout(relogioRecado)
+  relogioRecado = setTimeout(() => { recado.value = '' }, 2600)
+}
+
+// Reprovação: motivo antes da decisão.
+const pedindoMotivo = ref(false)
+const motivoRecusa = ref('')
+const campoMotivo = ref(null)
 const enviando = ref('')
 const arrastandoArquivo = ref(false)
 const confirmandoExclusao = ref(false)
@@ -316,25 +366,59 @@ async function responderSugestao(confirma) {
 }
 
 onMounted(() => { preencher(props.peca); carregarAnexos() })
+onUnmounted(() => clearTimeout(relogioRecado))
 watch(() => props.peca, (p) => { atual.value = p; preencher(p); carregarAnexos() })
 
 function camposDoBanco() {
-  return {
+  const publicarEm = deCampoDeDataHora(form.quando)
+  const campos = {
     account_id: props.accountId,
     titulo: form.titulo.trim(),
     formato: form.formato,
     legenda: form.legenda,
     hashtags: form.hashtags,
     observacoes: form.observacoes || null,
-    publicar_em: deCampoDeDataHora(form.quando),
+    publicar_em: publicarEm,
   }
+
+  // MUDOU A DATA? ENTÃO O AVISO PRECISA VALER DE NOVO.
+  //
+  // `mudarStatus` já limpava `avisado_em` ao reagendar, mas só ele — e o botão
+  // Salvar troca a data sem passar por lá. Uma peça já avisada e remarcada por
+  // aqui ficava marcada como "avisei" para sempre, e o robô da hora H (que só
+  // olha quem tem avisado_em nulo) nunca mais tocava nela. Falha silenciosa:
+  // nenhum erro, nenhum sinal, o aviso simplesmente não chegava.
+  //
+  // Só limpa quando a data REALMENTE mudou: salvar a peça sem mexer no horário
+  // não pode ressuscitar um aviso que já foi entregue.
+  //
+  // A comparação é pelo INSTANTE, não pelo texto: o banco devolve
+  // "2026-08-01T12:00:00+00:00" e o campo da tela produz "...12:00:00.000Z".
+  // Comparando string, os dois nunca batem e o aviso seria zerado a cada Salvar.
+  if (!mesmoInstante(publicarEm, atual.value?.publicar_em)) campos.avisado_em = null
+
+  return campos
+}
+
+function mesmoInstante(a, b) {
+  if (!a && !b) return true
+  if (!a || !b) return false
+  const ta = new Date(a).getTime()
+  const tb = new Date(b).getTime()
+  // Data inválida de um lado só conta como mudança — melhor reavisar do que
+  // deixar a peça muda.
+  if (Number.isNaN(ta) || Number.isNaN(tb)) return false
+  return ta === tb
 }
 
 async function salvar() {
   erro.value = ''
   salvando.value = true
+  // Guardado ANTES de gravar: assim que a peça ganha id, `ehNova` vira falso e
+  // o recado diria "Salvo" numa peça que acabou de nascer.
+  const eraNova = ehNova.value
   try {
-    if (ehNova.value) {
+    if (eraNova) {
       atual.value = await dados.criarPeca(camposDoBanco())
       preencher(atual.value)
       await carregarAnexos()
@@ -342,6 +426,7 @@ async function salvar() {
       atual.value = await dados.atualizarPeca(atual.value.id, camposDoBanco())
       preencher(atual.value)
     }
+    avisar(eraNova ? 'Rascunho criado — agora dá para subir a arte' : 'Salvo')
     emit('mudou')
   } catch (e) {
     erro.value = e.message
@@ -351,6 +436,25 @@ async function salvar() {
 }
 
 async function mover(destino) {
+  // Reprovar não é um clique só: primeiro o motivo, depois a decisão.
+  if (destino === 'reprovada') {
+    pedindoMotivo.value = true
+    motivoRecusa.value = ''
+    await nextTick()
+    campoMotivo.value?.focus()
+    return
+  }
+  await aplicarDestino(destino)
+}
+
+async function confirmarReprovacao() {
+  const motivo = motivoRecusa.value.trim()
+  if (!motivo) return
+  await aplicarDestino('reprovada', motivo)
+  pedindoMotivo.value = false
+}
+
+async function aplicarDestino(destino, motivo = null) {
   erro.value = ''
   try {
     // Salva o que está na tela antes de mudar de etapa: senão a peça vai para
@@ -358,11 +462,12 @@ async function mover(destino) {
     atual.value = await dados.atualizarPeca(atual.value.id, camposDoBanco())
 
     atual.value = (destino === 'aprovada' || destino === 'reprovada')
-      ? await dados.decidir(atual.value.id, destino)
+      ? await dados.decidir(atual.value.id, destino, motivo)
       : await dados.mudarStatus(atual.value, destino)
 
     preencher(atual.value)
     await carregarAnexos()
+    avisar(destino === 'reprovada' ? 'Reprovada, com o motivo registrado' : 'Pronto')
     emit('mudou')
   } catch (e) {
     erro.value = e.message
@@ -391,7 +496,15 @@ async function subir(lista) {
   const impeditivos = problemasAgora.filter(p => !/precisa de/.test(p))
   if (impeditivos.length) { erro.value = impeditivos.join(' '); return }
 
-  let ordem = arquivos.value.length
+  // A ORDEM SAI DA MAIOR JÁ USADA, NÃO DA QUANTIDADE.
+  //
+  // Com `arquivos.value.length` havia um caminho que quebrava de verdade: suba
+  // 3 fotos (ordens 1,2,3), apague a do meio (sobram 1 e 3, length = 2), suba
+  // outra → ela recebia ordem 3, que já existe. O `unique (peca_id, ordem)`
+  // recusava, o arquivo já subido era apagado do depósito e a pessoa lia um
+  // erro do Postgres em inglês. Apagar não renumera de propósito (renumerar
+  // mexeria na ordem que a pessoa escolheu), então quem tem de se virar é aqui.
+  let ordem = arquivos.value.reduce((maior, a) => Math.max(maior, Number(a?.ordem) || 0), 0)
   for (const file of lista) {
     enviando.value = file.name
     try {

@@ -81,18 +81,74 @@
 .ctd-ideia-feita { display: inline-flex; align-items: center; gap: 5px; color: var(--green, #10b981); }
 .ctd-ideia-selo { display: inline-flex; color: var(--accent); flex-shrink: 0; margin-top: 2px; }
 
+/* OS BOTÕES.
+ *
+ * Antes: 31px de altura, canto de 3px, cinza sobre cinza, e a única reação ao
+ * mouse era a borda trocar de cor. Liam como texto clicável, não como botão —
+ * era o "fraco demais" que o dono apontou.
+ *
+ * Agora: 40px de altura (44 no toque, que é o mínimo do dedo), canto de 10px,
+ * profundidade de verdade no primário e uma reação de apertar que devolve o
+ * clique. O peso vem do tamanho e do contraste, não de enfeite.
+ */
 .ctd-btn {
-  display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-sm);
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 40px; padding: 9px 18px; border-radius: 10px;
   border: 1px solid var(--border); background: var(--surface); color: var(--text);
-  font-family: inherit; font-size: 13px; font-weight: 600; padding: 7px 14px; cursor: pointer;
-  transition: border-color .18s, background .18s, opacity .18s;
+  font-family: inherit; font-size: 13.5px; font-weight: 600; letter-spacing: .1px;
+  cursor: pointer; white-space: nowrap;
+  transition: border-color .16s, background .16s, transform .1s ease, box-shadow .16s, opacity .16s;
 }
-.ctd-btn:hover:not(:disabled) { border-color: var(--accent); }
-.ctd-btn:disabled { opacity: .45; cursor: not-allowed; }
-.ctd-btn-primario { background: var(--accent); border-color: var(--accent); color: #fff; }
-.ctd-btn-primario:hover:not(:disabled) { filter: brightness(1.08); }
-.ctd-btn-perigo { color: var(--red); border-color: color-mix(in srgb, var(--red) 40%, var(--border)); }
-.ctd-btn-perigo:hover:not(:disabled) { border-color: var(--red); }
+.ctd-btn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+}
+/* Afundar 1px no clique é o retorno mais barato que existe: diz "peguei" antes
+   mesmo de a ação terminar. */
+.ctd-btn:active:not(:disabled) { transform: translateY(1px); }
+.ctd-btn:disabled { opacity: .4; cursor: not-allowed; }
+/* Faltava foco visível na maioria dos alvos — quem navega por teclado ficava
+   sem saber onde estava. */
+.ctd-btn:focus-visible, .ctd-mini-btn:focus-visible, .ctd-chip-filtro:focus-visible,
+.ctd-fechar:focus-visible, .ctd-formato-btn:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+.ctd-btn-primario {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--accent) 92%, #fff),
+    var(--accent));
+  border-color: color-mix(in srgb, var(--accent) 70%, #000);
+  color: #1a1205; font-weight: 700;
+  box-shadow: 0 1px 2px rgba(0,0,0,.25), 0 4px 14px color-mix(in srgb, var(--accent) 26%, transparent);
+}
+.ctd-btn-primario:hover:not(:disabled) {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 82%, #fff), var(--accent));
+  box-shadow: 0 1px 2px rgba(0,0,0,.25), 0 6px 20px color-mix(in srgb, var(--accent) 38%, transparent);
+}
+.ctd-btn-primario:active:not(:disabled) { box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+
+.ctd-btn-perigo {
+  color: var(--red); border-color: color-mix(in srgb, var(--red) 45%, var(--border));
+  background: color-mix(in srgb, var(--red) 6%, var(--surface));
+}
+.ctd-btn-perigo:hover:not(:disabled) {
+  border-color: var(--red); background: color-mix(in srgb, var(--red) 13%, var(--surface));
+}
+
+/* No toque o dedo precisa de 44px — é a regra da Apple e da Material, e a
+   ferramenta vai ser usada de pé, na frente do Instagram. */
+@media (hover: none) {
+  .ctd-btn { min-height: 44px; padding: 11px 18px; }
+}
+
+/* O "salvo" que faltava. Aparece colado no botão que o provocou e some sozinho. */
+.ctd-recado {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; font-weight: 600; color: var(--green, #22c55e);
+  animation: ctdRecado .3s cubic-bezier(.22, 1, .36, 1) both;
+}
+@keyframes ctdRecado { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
 
 /* ── Corpo e abas ─────────────────────────────────────────────────────────── */
 .ctd-body {
@@ -627,19 +683,59 @@
 .ctd-ideia-rodape .ctd-btn { flex: 1; justify-content: center; }
 
 /* ── Painel lateral (criar/editar) ────────────────────────────────────────── */
+/* MODAL DE VERDADE, CENTRALIZADO — não mais gaveta colada na direita.
+ *
+ * A gaveta colava no canto e ia do topo ao rodapé da janela, o que fazia o
+ * conteúdo ficar espremido numa faixa alta e estreita mesmo em tela larga.
+ * Centralizado, a caixa respeita os limites da tela: nunca passa de 88% da
+ * altura nem encosta nas bordas, e a rolagem acontece DENTRO dela.
+ */
 .ctd-fundo {
-  position: fixed; inset: 0; z-index: 60; background: rgba(0, 0, 0, .5);
-  backdrop-filter: blur(2px); display: flex; justify-content: flex-end;
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(0, 0, 0, .58); backdrop-filter: blur(3px);
+  display: flex; align-items: center; justify-content: center;
+  padding: clamp(12px, 3vh, 40px) clamp(12px, 3vw, 40px);
+  animation: ctdFundoEntra .18s ease both;
 }
+@keyframes ctdFundoEntra { from { opacity: 0; } to { opacity: 1; } }
+
 .ctd-painel {
-  background: var(--bg); width: min(560px, 100%); height: 100%; overflow-y: auto;
-  display: flex; flex-direction: column; box-shadow: -12px 0 40px rgba(0, 0, 0, .28);
-  animation: ctdEntra .22s cubic-bezier(.22, 1, .36, 1) both;
+  background: var(--bg); color: var(--text);
+  width: min(620px, 100%);
+  /* Teto de altura + rolagem interna: é o que faz o modal "respeitar os limites
+     da tela" em vez de crescer para fora dela. */
+  max-height: 100%;
+  border-radius: 16px; border: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .5), 0 2px 8px rgba(0, 0, 0, .3);
+  animation: ctdEntra .24s cubic-bezier(.22, 1, .36, 1) both;
 }
-@keyframes ctdEntra { from { transform: translateX(24px); opacity: .4; } to { transform: none; opacity: 1; } }
+.ctd-painel-largo { width: min(820px, 100%); }
+
+/* Cresce a partir do centro, curto e sem exagero. */
+@keyframes ctdEntra {
+  from { transform: scale(.96) translateY(8px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+/* NO CELULAR VIRA FOLHA QUE SOBE DE BAIXO. Modal centralizado com margem em
+   tela de 390px desperdiça as bordas e deixa o conteúdo apertado; a folha
+   colada embaixo é o padrão que o dedo já conhece e ainda deixa o topo da tela
+   visível para dar contexto. */
+@media (max-width: 640px) {
+  .ctd-fundo { align-items: flex-end; padding: 0; }
+  .ctd-painel, .ctd-painel-largo {
+    width: 100%; max-height: 94vh;
+    border-radius: 18px 18px 0 0; border-bottom: none;
+  }
+  @keyframes ctdEntra {
+    from { transform: translateY(28px); opacity: .5; }
+    to { transform: none; opacity: 1; }
+  }
+}
 .ctd-painel-cab {
   display: flex; align-items: center; gap: 10px; padding: 15px clamp(15px, 3vw, 24px);
-  border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 2;
+  border-bottom: 1px solid var(--border); background: var(--bg); flex: none;
 }
 .ctd-painel-t { font-family: var(--ctd-fd); font-size: 17px; font-weight: 600; flex: 1; color: var(--text); }
 .ctd-fechar {
@@ -647,10 +743,25 @@
   color: var(--muted); cursor: pointer; font-size: 17px; line-height: 1; padding: 4px 10px;
 }
 .ctd-fechar:hover { border-color: var(--red); color: var(--red); }
-.ctd-painel-corpo { padding: clamp(15px, 3vw, 24px); display: flex; flex-direction: column; gap: 16px; flex: 1; }
+/* A rolagem mora AQUI, não no painel: o cabeçalho e o rodapé ficam fixos e só
+   o miolo corre. `min-height: 0` é o que permite um filho de flex encolher
+   abaixo do próprio conteúdo — sem ele o modal estoura a altura da tela. */
+.ctd-painel-corpo {
+  padding: clamp(15px, 3vw, 24px); display: flex; flex-direction: column; gap: 16px;
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+}
+/* OS FILHOS NÃO PODEM ENCOLHER — e esta linha não é zelo, é correção de um bug
+   que eu mesmo criei ao pôr rolagem aqui.
+   Num contêiner flex em coluna, todo filho tem `flex-shrink: 1` por padrão.
+   Quando o conteúdo passa da altura, o navegador espreme TODOS eles em vez de
+   rolar. Quem tem `overflow: hidden` — como a caixa "Os 3 primeiros segundos" —
+   não transborda: CORTA. O resultado era o gancho sumir da tela, com o texto
+   presente no DOM, do tamanho certo e da cor certa. Só o retrato mostrou. */
+.ctd-painel-corpo > * { flex-shrink: 0; }
 .ctd-painel-rodape {
-  display: flex; gap: 8px; flex-wrap: wrap; padding: 14px clamp(15px, 3vw, 24px);
-  border-top: 1px solid var(--border); position: sticky; bottom: 0; background: var(--bg);
+  display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  padding: 14px clamp(15px, 3vw, 24px);
+  border-top: 1px solid var(--border); background: var(--bg); flex: none;
 }
 
 /* ── Campos de formulário ─────────────────────────────────────────────────── */
@@ -743,7 +854,6 @@
   .ctd-cal-cabdia { flex-direction: column; min-width: 40px; }
   .ctd-cal-pecas { flex: 1; }
   .ctd-cal-add { opacity: 1; }
-  .ctd-painel { width: 100%; }
 }
 
 /* ── O roteiro aberto (painel-ideia) ──────────────────────────────────────────
@@ -771,7 +881,7 @@
    porque é a única que decide se o resto vai ser assistido. */
 .ctd-gancho3 {
   position: relative; overflow: hidden;
-  border-radius: var(--radius); padding: 18px 20px 20px;
+  border-radius: var(--radius-lg); padding: 18px 20px 20px;
   background:
     linear-gradient(135deg,
       color-mix(in srgb, var(--accent) 13%, transparent),

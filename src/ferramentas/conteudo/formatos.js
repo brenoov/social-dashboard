@@ -8,8 +8,16 @@
 export const LIMITE_IMAGEM = 15 * 1024 * 1024   // 15 MB
 export const LIMITE_VIDEO = 300 * 1024 * 1024   // 300 MB
 
-const MIMES_IMAGEM = ['image/jpeg', 'image/png', 'image/webp']
+// HEIC/HEIF é o padrão da câmera do iPhone. Ficar de fora fazia o erro mais
+// provável do primeiro uso ser justamente "arrastei a foto do meu celular".
+// O Instagram converte na hora de publicar, então aceitar aqui não cria
+// problema lá na frente.
+const MIMES_IMAGEM = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
 const MIMES_VIDEO = ['video/mp4', 'video/quicktime']
+
+// O que dizer quando o arquivo não serve. Listar a extensão (e não o tipo MIME)
+// porque é o que a pessoa vê no nome do arquivo.
+export const EXTENSOES_ACEITAS = 'JPG, PNG, WEBP, HEIC, MP4 ou MOV'
 
 export const FORMATOS = [
   {
@@ -103,15 +111,23 @@ export function validarArquivos(formato, arquivos) {
   for (const arquivo of lista) {
     const tipo = tipoDoMime(arquivo?.mime)
 
+    // TODA MENSAGEM DE RECUSA TERMINA DIZENDO O QUE SERVE. Antes elas paravam
+    // no diagnóstico ("não é uma imagem nem um vídeo") e deixavam a pessoa
+    // adivinhando — e o caso mais comum, a foto do iPhone, caía exatamente aí.
     if (!tipo) {
-      problemas.push(`${_nome(arquivo)} não é uma imagem nem um vídeo.`)
+      problemas.push(
+        `${_nome(arquivo)} não é uma imagem nem um vídeo que o Instagram aceite. `
+        + `Use ${EXTENSOES_ACEITAS}.`,
+      )
       continue
     }
     if (!regras.mimes.includes(arquivo.mime)) {
-      const aceita = regras.mimes.includes(MIMES_VIDEO[0]) && !regras.mimes.includes(MIMES_IMAGEM[0])
-        ? 'só aceita vídeo'
-        : `não aceita arquivos do tipo ${arquivo.mime}`
-      problemas.push(`${_nome(arquivo)}: ${regras.rotulo} ${aceita}.`)
+      const soVideo = regras.mimes.includes(MIMES_VIDEO[0]) && !regras.mimes.includes(MIMES_IMAGEM[0])
+      problemas.push(
+        soVideo
+          ? `${_nome(arquivo)}: ${regras.rotulo} só aceita vídeo — use MP4 ou MOV.`
+          : `${_nome(arquivo)}: ${regras.rotulo} não aceita este tipo de arquivo. Use ${EXTENSOES_ACEITAS}.`,
+      )
       continue
     }
 
