@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { useJobStatus } from './use-job-status.js'
@@ -7,6 +7,7 @@ import AjudaTooltip from './ajuda-tooltip.vue'
 import TourCoachmark from './tour-coachmark.vue'
 import { TOUR_SUBIR } from './tutorial-fabrica.js'
 import { orcamentoBase, validarOrcamento, orcamentoParaEnvio } from './orcamento-form.js'
+import { GT_OBJETIVO_BALDE } from '../gestao-trafego/baldes.js'
 const tourAberto = ref(false)
 const props = defineProps({ campanhaId: String, retomarJobId: String })
 const emit = defineEmits(['subido'])
@@ -99,6 +100,56 @@ async function buscarInteresses() {
 }
 function addInteresse(i) { if (!publico.interesses.some((x) => x.id === i.id)) publico.interesses.push({ id: i.id, name: i.name }); interessesAchados.value = []; buscaInteresse.value = '' }
 function rmInteresse(id) { publico.interesses = publico.interesses.filter((x) => x.id !== id) }
+
+// ===== Faixa de sugestões de interesse (robô coletor/sugerir-interesses.mjs) =====
+// Cadeia até a linha certa de interesses_sugeridos:
+//   fabrica_campanhas.objetivo (chave, ex. 'engajamento') -> fabrica_objetivos.meta_objective
+//   (ex. 'OUTCOME_ENGAGEMENT') -> GT_OBJETIVO_BALDE (mesmo mapa do Gestor de Tráfego, pra tela e
+//   robô nunca discordarem sobre o balde) -> interesses_sugeridos.marca_id + objetivo(balde).
+// Qualquer elo faltando (sem campanha, objetivo sem linha em fabrica_objetivos, marca nova, robô
+// que ainda não rodou) simplesmente não preenche `sugestoes` — sem faixa, sem erro pro dono.
+const sugestoes = ref(null) // { itens: [{id, nome, audience_size}], rotuloObjetivo, marcaNome, geradoEm } | null
+async function carregarSugestoesInteresse() {
+  try {
+    if (!props.campanhaId) return
+    const camp = await sb(`fabrica_campanhas?select=objetivo&id=eq.${props.campanhaId}`)
+    const chave = camp[0]?.objetivo
+    if (!chave) return
+    const objs = await sb(`fabrica_objetivos?select=rotulo,meta_objective&chave=eq.${chave}`)
+    const meta_objective = objs[0]?.meta_objective
+    if (!meta_objective) return
+    const balde = GT_OBJETIVO_BALDE[String(meta_objective).toUpperCase()]
+    if (!balde) return
+    const marcas = await sb(`fabrica_marcas?select=id,nome&account_id=eq.${ACCOUNT_ID}`)
+    const marcaId = marcas[0]?.id
+    if (!marcaId) return
+    const rows = await sb(`interesses_sugeridos?select=itens,gerado_em&marca_id=eq.${marcaId}&objetivo=eq.${balde}`)
+    const row = rows[0]
+    if (!row || !Array.isArray(row.itens) || !row.itens.length) return
+    sugestoes.value = { itens: row.itens, rotuloObjetivo: objs[0]?.rotulo || chave, marcaNome: marcas[0]?.nome || '', geradoEm: row.gerado_em }
+  } catch { /* falha ao carregar não quebra a busca de interesse existente */ }
+}
+// Tamanho de público em português (2,3 mi / 940 mil). audience_size null/malformado -> '' (sem
+// número na etiqueta) — nunca "0", porque nulo (desconhecido) e zero são fatos diferentes.
+function formatarPublico(n) {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return ''
+  if (n >= 1_000_000) return (n / 1_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mi'
+  if (n >= 1_000) return Math.round(n / 1000).toLocaleString('pt-BR') + ' mil'
+  return n.toLocaleString('pt-BR')
+}
+function formatarDataCurta(iso) {
+  const d = iso ? new Date(iso) : null
+  return (d && !isNaN(d.getTime())) ? d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : ''
+}
+// Etiquetas prontas pro template: só linhas com id+nome válidos, sem as já escolhidas em
+// publico.interesses (senão vira poluição repetida na faixa).
+const chipsSugeridos = computed(() => {
+  if (!sugestoes.value) return []
+  const escolhidos = new Set(publico.interesses.map((x) => x.id))
+  return sugestoes.value.itens
+    .filter((i) => i != null && typeof i === 'object' && i.id != null && typeof i.nome === 'string' && i.nome.trim() && !escolhidos.has(i.id))
+    .map((i) => ({ id: i.id, nome: i.nome, tam: formatarPublico(i.audience_size) }))
+})
 function toggleGenero(g) { const i = publico.generos.indexOf(g); i > -1 ? publico.generos.splice(i, 1) : publico.generos.push(g) }
 function publicoParaEnvio(p = publico) {
   return { geo: { cities: p.geo.cities.map((c) => ({ key: c.key, nome: c.nome, radius: c.radius, distance_unit: c.distance_unit })), excluded: p.geo.excluded.map((e) => ({ key: e.key, nome: e.nome, type: e.type })) }, idade_min: p.idade_min, idade_max: p.idade_max, generos: [...p.generos], interesses: p.interesses.map((i) => ({ id: i.id, name: i.name })), custom_audiences: p.custom_audiences.map((a) => ({ id: a.id, name: a.name, subtype: a.subtype })) }
@@ -170,6 +221,7 @@ onMounted(async () => {
   campanhas.value = data?.data || []
   await carregarPresets()
   listarAudiences() // auto-carrega os públicos (audiences) já existentes no Meta — não bloqueia o mount
+  carregarSugestoesInteresse() // idem: faixa de sugestões não bloqueia o mount
   // Retoma um subir em andamento (usuário saiu e voltou): reata o banner/polling e trava re-clique.
   if (props.retomarJobId) start(props.retomarJobId)
 })
@@ -366,6 +418,18 @@ watch(job, (j) => { if (j?.status === 'concluido' && j.resultado) emit('subido',
             <span v-if="!publico.generos.length" class="ch-nm" style="font-weight:400;color:var(--ink-dim)">Todos (vazio = ambos)</span>
           </div>
         </label>
+      </div>
+
+      <div class="fields" style="margin-top:12px" v-if="chipsSugeridos.length">
+        <div class="field wide">
+          <span class="fl">Sugestões para {{ sugestoes.rotuloObjetivo }} · {{ sugestoes.marcaNome }}</span>
+          <div class="lojas">
+            <button type="button" class="loja-chip" v-for="i in chipsSugeridos" :key="i.id" @click="addInteresse({ id: i.id, name: i.nome })">
+              {{ i.nome }}<span v-if="i.tam" style="color:var(--ink-dim)"> · {{ i.tam }}</span>
+            </button>
+          </div>
+          <p v-if="sugestoes.geradoEm" class="eyebrow muted" style="margin:6px 0 0">gerado em {{ formatarDataCurta(sugestoes.geradoEm) }}</p>
+        </div>
       </div>
 
       <div class="fields" style="margin-top:12px">
