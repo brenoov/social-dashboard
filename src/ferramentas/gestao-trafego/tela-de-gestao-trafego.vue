@@ -253,7 +253,9 @@ async function metaFetchAll(path,params,accountId){
 }
 async function metaPost(path,params,accountId){
   const{data:{session}}=await sbClient.auth.getSession();
-  if(!session)throw new Error('Não autenticado');
+  // Nem chegou a sair do navegador — mesma certeza de um pedido barrado no
+  // proxy: nada foi gravado. Ver a classificação logo abaixo.
+  if(!session){const semSessao=new Error('Não autenticado');semSessao.naoChegouNaMeta=true;throw semSessao;}
   const r=await fetch(SUPABASE_URL+'/functions/v1/meta-proxy',{
     method:'POST',
     headers:{'Authorization':'Bearer '+session.access_token,'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
@@ -262,15 +264,23 @@ async function metaPost(path,params,accountId){
   const d=await r.json();
   if(d&&d.error){
     const err=new Error((d.error&&d.error.message)||d.error||'Meta API error');
-    // DUAS COISAS BEM DIFERENTES chegam por aqui, e só uma delas prova que
-    // nada foi gravado:
-    //  • a Meta respondeu recusando  → o corpo é o pacote de erro do Graph
-    //    (um OBJETO, com message/code). Aí a gravação não aconteceu, ponto.
-    //  • o meta-proxy desistiu de esperar (ele aborta a chamada em 15s) ou
-    //    estourou por outro motivo → o corpo é uma STRING solta. Nesse caso a
-    //    Meta pode muito bem ter processado o pedido, e afirmar "nada foi
-    //    alterado" seria mentir para o dono numa conta ao vivo.
-    err.metaRecusou=!!(d.error&&typeof d.error==='object'&&(d.error.message!=null||d.error.code!=null));
+    // TRÊS COISAS BEM DIFERENTES chegam por aqui, e duas delas provam que nada
+    // foi gravado. Quem chama precisa saber qual é antes de prometer alguma
+    // coisa ao dono numa conta ao vivo:
+    //
+    //  1. A META RESPONDEU RECUSANDO → o corpo é o pacote de erro do Graph, um
+    //     OBJETO com message/code. A gravação não aconteceu, ponto.
+    //  2. O PEDIDO NEM SAIU DO PROXY → o meta-proxy barra antes de falar com a
+    //     Meta (sem sessão, sem permissão, conta sem token, pedido incompleto)
+    //     e devolve o motivo como STRING, com status abaixo de 500. Também não
+    //     foi gravado nada — e aqui dá pra dizer isso com certeza.
+    //  3. O PROXY DESISTIU NO MEIO → ele aborta a chamada à Meta em 15s (ou
+    //     estoura por outro motivo) e devolve STRING com status 500. Esse é o
+    //     único caso incerto: a Meta pode muito bem ter processado o pedido, e
+    //     afirmar "nada foi alterado" seria mentir.
+    const corpoDeErroDaMeta=!!(d.error&&typeof d.error==='object'&&(d.error.message!=null||d.error.code!=null));
+    err.metaRecusou=corpoDeErroDaMeta;
+    err.naoChegouNaMeta=!corpoDeErroDaMeta&&r.status<500;
     throw err;
   }
   return d;
@@ -3309,18 +3319,28 @@ async function _gtAbrirPublico(conjunto){
             // falhou foi a espera do proxy (15s) ou a internet no meio do
             // caminho, o pedido pode ter chegado lá — e aí vale a mesma frase
             // honesta da escada de emergência, não uma garantia inventada.
+            // Quando o pedido nem chegou a sair daqui (sem sessão, sem
+            // permissão, conta sem token) a certeza é a mesma de uma recusa da
+            // Meta: nada foi gravado. Só o pedido que SAIU e não voltou é que é
+            // incerto — a frase de "não dá para saber" existe pra ele.
             const recusaDaMeta=!!(e&&e.metaRecusou);
-            const titulo=recusaDaMeta?'A Meta não aceitou.':'Não consegui falar com a Meta.';
-            const rodape=recusaDaMeta
+            const nemSaiuDaqui=!!(e&&e.naoChegouNaMeta);
+            const semDuvida=recusaDaMeta||nemSaiuDaqui;
+            const titulo=recusaDaMeta?'A Meta não aceitou.'
+              :nemSaiuDaqui?'Não deu para enviar.'
+              :'Não consegui falar com a Meta.';
+            const rodape=semDuvida
               ?'<br><br>Nada foi alterado no conjunto.'
               :'<br><br><b>Não dá para saber se a Meta já processou</b> essa mudança. Abra esta tela de novo daqui a pouco (ou o Gerenciador de Anúncios da Meta) e confira o público do conjunto antes de tentar salvar outra vez.';
             // O tradutor abre com "A Meta recusou:" quando não reconhece a
             // mensagem — o que contradiria o título quando quem falhou não foi
-            // a Meta. Nesse caso mostra o texto cru, escapado.
-            const detalhe=recusaDaMeta
+            // a Meta. No caso incerto, então, mostra o texto cru, escapado.
+            const detalhe=semDuvida
               ?_gtPubTraduzir(String((e&&e.message)||e))
               :_gtEsc(String((e&&e.message)||e).slice(0,180));
-            if(saiuPelaEscada)adminToast(recusaDaMeta?'A Meta não aceitou a mudança de público.':'Não consegui falar com a Meta — confira o público deste conjunto antes de tentar de novo.',false);
+            if(saiuPelaEscada)adminToast(recusaDaMeta?'A Meta não aceitou a mudança de público — nada foi alterado.'
+              :nemSaiuDaqui?'Não deu para enviar a mudança de público — nada foi alterado.'
+              :'Não consegui falar com a Meta — confira o público deste conjunto antes de tentar de novo.',false);
             else _gtPubStatus('<b>'+titulo+'</b><br>'+detalhe+rodape,
               [{texto:'Fechar',primario:true,aoClicar:()=>{_gtPubFechar();fimDaJornada();}}]);
           }finally{
@@ -3347,6 +3367,16 @@ async function _gtAbrirPublico(conjunto){
 // Mesmo espírito do _gtDupTraduzir, mais o caso que só existe aqui.
 function _gtPubTraduzir(msg){
   const m=String(msg||'');
+  // Os três motivos que o meta-proxy devolve quando barra o pedido ANTES de
+  // falar com a Meta (supabase/functions/meta-proxy/index.ts). Ficam aqui em
+  // cima porque "conta sem token" cairia no tradutor de permissão do duplicar
+  // e mandaria o dono conferir na Meta uma coisa que é do sistema daqui.
+  if(/n[ãa]o autenticado/i.test(m))
+    return 'Sua <b>sessão expirou</b>. Entre no sistema de novo e refaça a alteração — nada foi enviado.';
+  if(/sem permiss[ãa]o/i.test(m))
+    return 'Você <b>não tem permissão</b> para mexer nesta conta de anúncios. Peça a liberação ao administrador do sistema.';
+  if(/conta sem token/i.test(m))
+    return 'Esta conta de anúncios está <b>sem o acesso à Meta cadastrado</b> aqui no sistema. Fale com o administrador.';
   if(/1870227|advantage/i.test(m))
     return 'A Meta recusou porque o <b>Advantage+ está ligado</b> neste conjunto. Desligue o Advantage+ no editor para que idade, gênero e interesses valham.';
   if(/1487110|radius/i.test(m))

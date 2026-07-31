@@ -65,16 +65,32 @@ function excluidasDe(targeting) {
   return fora;
 }
 
-// Chaves de geo_locations que são LUGAR de verdade. É uma lista fechada de
-// propósito: `location_types` (["home","recent"]) mora no mesmo objeto, existe
-// em quase todo conjunto criado no Gerenciador e NÃO é lugar nenhum. Contá-lo
-// como localização fazia duas coisas erradas ao mesmo tempo — o conjunto sem
-// nenhuma cidade passava pelo bloqueio obrigatório da Meta, e o aviso "este
-// conjunto tem outra localização" aparecia em quase todo conjunto (aviso que
-// aparece sempre é aviso que ninguém lê).
-const CHAVES_DE_LOCALIZACAO = [
-  'regions', 'countries', 'zips', 'custom_locations', 'places',
-  'geo_markets', 'electoral_districts', 'subcities', 'neighborhoods',
+// LISTA DE PERMISSÃO DE LUGARES DE VERDADE — e a linha que ela desenha tem os
+// dois lados perigosos. Quem for acrescentar chave aqui precisa saber de que
+// lado a sua está:
+//
+//   DENTRO  → só o que mira um LUGAR. Esquecer um tipo de lugar aqui é pior do
+//             que parece: um conjunto mirado SÓ por esse tipo passa a contar
+//             como "sem localização nenhuma" e o Salvar trava, sem o dono ter
+//             mudado nada — e a única saída seria acrescentar uma cidade que
+//             ele nunca quis.
+//   FORA    → tudo que é configuração e mora no mesmo objeto. O caso que deu
+//             errado é o `location_types` (["home","recent"]), presente em
+//             quase todo conjunto criado no Gerenciador: contado como lugar,
+//             ele furava o bloqueio obrigatório da Meta (conjunto sem cidade
+//             nenhuma salvava e não mirava em lugar algum) e ainda disparava o
+//             aviso "este conjunto tem outra localização" em quase todo
+//             conjunto — aviso que aparece sempre é aviso que ninguém lê.
+//
+// Chave que não está aqui continua PRESERVADA ao salvar de qualquer jeito (a
+// escrita espalha o objeto inteiro); o que esta lista decide é só o que CONTA
+// como lugar. Toda chave listada precisa de um nome em português em
+// NOMES_LOCALIZACOES, senão o dono leria a chave crua em inglês no aviso.
+export const CHAVES_DE_LOCALIZACAO = [
+  'regions', 'countries', 'country_groups', 'zips', 'custom_locations',
+  'places', 'geo_markets', 'metro_areas', 'electoral_districts',
+  'medium_geo_areas', 'small_geo_areas', 'subcities', 'neighborhoods',
+  'subneighborhoods', 'location_cluster_ids',
 ];
 
 // Localidades que o editor não gerencia, mas que devem ser preservadas.
@@ -387,16 +403,25 @@ function restricoesIguais(a, b) {
   return ids(a) === ids(b);
 }
 
+// Uma entrada para CADA chave de CHAVES_DE_LOCALIZACAO, em português de gente —
+// esse texto vai direto pro aviso que o dono lê antes de confirmar, e chave
+// crua em inglês ali não diz nada a ninguém.
 const NOMES_LOCALIZACOES = {
   regions: 'região',
   countries: 'país',
+  country_groups: 'grupo de países',
   zips: 'CEP',
   custom_locations: 'localização personalizada',
   places: 'local',
   geo_markets: 'mercado geográfico',
+  metro_areas: 'região metropolitana',
   electoral_districts: 'distrito eleitoral',
+  medium_geo_areas: 'área média do mapa',
+  small_geo_areas: 'área pequena do mapa',
   subcities: 'região dentro da cidade',
   neighborhoods: 'bairro',
+  subneighborhoods: 'parte de um bairro',
+  location_cluster_ids: 'conjunto de lugares salvo na Meta',
 };
 
 // Traduz chaves de geo_locations da Meta para português legível.

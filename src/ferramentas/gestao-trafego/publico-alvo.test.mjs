@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { lerPublico, PUBLICO_VAZIO, montarTargeting, resumoDasMudancas, avisosDe } from './publico-alvo.js';
+import { lerPublico, PUBLICO_VAZIO, montarTargeting, resumoDasMudancas, avisosDe, CHAVES_DE_LOCALIZACAO } from './publico-alvo.js';
 
 // Forma real devolvida pela Meta (campos conferidos em coletor/lib/publico.mjs).
 const ALVO_META = {
@@ -768,6 +768,59 @@ test('tipo geo desconhecido sobrevive a ida e volta (mas NAO conta como localiza
   const { targeting } = montarTargeting(p, original);
   assert.ok(targeting.geo_locations.geo_algo_novo, 'tipo desconhecido sobrevive');
   assert.deepEqual(targeting.geo_locations.geo_algo_novo, [{ id: 'x' }], 'conteúdo intacto');
+});
+
+// ESQUECER UM TIPO DE LUGAR NA LISTA TRAVA O SALVAR. Um conjunto mirado SÓ por
+// grupo de países (o que o Gerenciador produz quando se escolhe "América do
+// Sul"), por região metropolitana ou por área do mapa passaria a contar como
+// "sem localização nenhuma": Salvar morto, sem o dono ter mudado nada, e a
+// única saída seria acrescentar uma cidade que ele nunca quis — exatamente o
+// beco sem saída que o bloqueio de Advantage+ já custou. Este teste percorre a
+// lista INTEIRA, então tipo novo acrescentado lá entra aqui sozinho.
+test('TODO tipo de lugar da lista conta como lugar, nao trava o salvar e volta intacto', () => {
+  assert.ok(CHAVES_DE_LOCALIZACAO.length >= 15, 'a lista não pode encolher sem alguém perceber');
+  for (const chave of CHAVES_DE_LOCALIZACAO) {
+    const conteudo = [{ key: 'x1' }];
+    const original = { geo_locations: { [chave]: conteudo }, age_min: 25 };
+    const p = lerPublico(original);
+
+    assert.deepEqual(p.outrasLocalizacoes, [chave], chave + ' tem que contar como lugar');
+    assert.deepEqual(p.cidades, [], chave + ' não é cidade');
+
+    // Sem cidade nenhuma, mas COM esse lugar: não pode bloquear.
+    const avisos = avisosDe(p, p, { ativo: false, ajustes: [] });
+    assert.ok(!avisos.some((x) => x.bloqueia),
+      chave + ': conjunto mirado só por isso ficaria impossível de salvar');
+
+    // O aviso informativo tem que sair em português, nunca com a chave crua.
+    const info = avisos.find((x) => x.tipo === 'outras-localizacoes');
+    assert.ok(info, chave + ': deve avisar que o editor não gerencia isso');
+    assert.ok(!info.texto.includes(chave), chave + ': o dono não pode ler a chave crua em inglês');
+    assert.ok(!info.texto.includes('outra localização'),
+      chave + ': caiu no nome genérico — falta a entrada dele em NOMES_LOCALIZACOES');
+
+    // E volta intacto pra Meta.
+    const { targeting } = montarTargeting(p, original);
+    assert.deepEqual(targeting.geo_locations[chave], conteudo, chave + ' tem que sobreviver ao salvar');
+  }
+});
+
+test('conjunto mirado so por grupo de paises salva normalmente (caso do Gerenciador)', () => {
+  // Advantage+ desligado no original de propósito: isola a pergunta de
+  // localização do bloqueio de "Advantage+ com restrição manual".
+  const original = {
+    geo_locations: { country_groups: ['south_america'], location_types: ['home', 'recent'] },
+    age_min: 25,
+    targeting_automation: { advantage_audience: 0 },
+  };
+  const p = lerPublico(original);
+  const d = { ...p, idadeMin: 30 };
+  const avisos = avisosDe(p, d, { ativo: false, ajustes: [] });
+  assert.ok(!avisos.some((x) => x.bloqueia), 'trocar a idade não pode travar num conjunto sem cidade mas com lugar');
+  assert.match(avisos.find((x) => x.tipo === 'outras-localizacoes').texto, /grupo de países/);
+  const { targeting } = montarTargeting(d, original);
+  assert.deepEqual(targeting.geo_locations, original.geo_locations, 'nada no lugar foi tocado');
+  assert.equal(targeting.age_min, 30);
 });
 
 test('location_types NAO e localizacao: sem cidade nenhuma o salvar e BLOQUEADO', () => {

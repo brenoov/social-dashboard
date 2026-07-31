@@ -339,8 +339,9 @@ por cidade. Se você puser um valor menor, a tela ajusta sozinha pro mínimo
 aceito E avisa que ajustou — nunca troca o número calada.
 
 LUGARES QUE ESTE EDITOR NÃO GERENCIA FICAM DO JEITO QUE ESTAVAM. Um conjunto
-pode ser mirado por região, país, CEP ou ponto no mapa, além de (ou em vez de)
-cidade — este editor só mexe em cidade (incluída e excluída). Tudo o mais fica
+pode ser mirado por região, país, grupo de países ("América do Sul"), região
+metropolitana, bairro, CEP ou ponto no mapa, além de (ou em vez de) cidade —
+este editor só mexe em cidade (incluída e excluída). Tudo o mais fica
 como estava ao salvar, tanto na lista de ONDE MOSTRAR quanto na de ONDE NÃO
 MOSTRAR, e a tela avisa antes de você confirmar quando existe algum desses.
 Na prática: um conjunto mirado por estado, por exemplo, pode ser editado
