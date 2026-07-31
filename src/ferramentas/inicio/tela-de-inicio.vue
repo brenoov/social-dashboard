@@ -146,6 +146,16 @@
           </div>
           <span class="home-card-enter">→</span>
         </div>
+        <div class="home-card" id="home-card-conteudo" v-show="podeConteudo" @click="ir('conteudo')" @mouseenter="definirTemaFundo('default')" @mouseleave="definirTemaFundo('default')">
+          <div class="home-card-icon" style="background:linear-gradient(135deg,#be123c 0%,#e11d48 100%)">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="16" r="2"/></svg>
+          </div>
+          <div class="home-card-text">
+            <h3>Central de<br>Conteúdo</h3>
+            <p>Calendário, aprovação e agendamento dos posts de cada marca</p>
+          </div>
+          <span class="home-card-enter">→</span>
+        </div>
         <!-- Escritório 3D dos Agentes: rota ainda não existe. -->
         <div class="home-card" id="home-card-hq3d" @click="abrirEscritorio3D" @mouseenter="definirTemaFundo('default')" @mouseleave="definirTemaFundo('default')">
           <div class="home-card-icon" style="background:linear-gradient(135deg,#0d9488 0%,#16a89a 100%)">
@@ -185,6 +195,7 @@ const podeNoticias = computed(() => hasPermission('noticias', 'ver'))
 const podeGestor = computed(() => hasPermission('gestor', 'ver'))
 const podeAcessos = computed(() => hasPermission('acessos', 'ver'))
 const podeClaudeStatus = computed(() => hasPermission('claude.status', 'ver'))
+const podeConteudo = computed(() => hasPermission('conteudo', 'ver'))
 
 // Nenhuma ferramenta liberada? Sem isto, os 9 cards somem um a um e sobra a barra
 // de topo numa página em branco — o usuário lê como "o sistema quebrou" e reporta
@@ -193,7 +204,7 @@ const podeClaudeStatus = computed(() => hasPermission('claude.status', 'ver'))
 const semNenhumaFerramenta = computed(() =>
   !ehAdmin.value && !podeRedes.value && !podeVendas.value && !podeMeta.value &&
   !podeBanco.value && !podeNoticias.value && !podeGestor.value &&
-  !podeAcessos.value && !podeClaudeStatus.value
+  !podeAcessos.value && !podeClaudeStatus.value && !podeConteudo.value
 )
 
 // O perfil não carregou (rede, sessão expirada, servidor). É DIFERENTE de "não tem

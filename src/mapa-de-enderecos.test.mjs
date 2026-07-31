@@ -34,6 +34,20 @@ test('noticias exige a permissao noticias', () => {
   assert.deepEqual(podeEntrar(rota, true, negaTudo), { name: 'inicio' })
 })
 
+test('conteudo exige a permissao conteudo', () => {
+  const rota = { name: 'conteudo', meta: { recurso: 'conteudo' } }
+  assert.equal(podeEntrar(rota, true, permiteTudo), true)
+  assert.deepEqual(podeEntrar(rota, true, negaTudo), { name: 'inicio' })
+})
+
+test('a tela de uma peca so e o mesmo gate da central', () => {
+  // Ela é o destino do push: se o gate fosse mais frouxo aqui, o link da
+  // notificação viraria a porta dos fundos da ferramenta.
+  const rota = { name: 'conteudo-peca', meta: { recurso: 'conteudo' } }
+  assert.deepEqual(podeEntrar(rota, true, negaTudo), { name: 'inicio' })
+  assert.deepEqual(podeEntrar(rota, false, permiteTudo), { name: 'login' })
+})
+
 test('a permissao checada e a declarada na rota', () => {
   const vistos = []
   const espiao = (r) => { vistos.push(r); return true }

@@ -54,6 +54,30 @@
         <p>Tarefas que <b>criam imagens</b> ou <b>sobem anúncios</b> não usam a API paga (que cobra por uso) — só a assinatura. Então custam <b>R$ 0</b>. Já os <b>textos</b> (relatórios, análises, resumos) usam a API paga e têm custo em reais.</p>
       </div>
 
+      <!-- SAÚDE DOS ROBÔS: só aparece quando há problema.
+           Fica ANTES de tudo de propósito. Um alarme no rodapé não é alarme —
+           e a razão de esta seção existir é que a falha era invisível: o painel
+           do cron marca "succeeded" mesmo quando a função devolve erro. -->
+      <section v-if="robosComProblema.length" class="csc-alerta">
+        <h2 class="csc-alerta-t">⚠ Robô sem rodar direito</h2>
+        <div v-for="r in robosComProblema" :key="r.robo" class="csc-alerta-item">
+          <div class="csc-alerta-cab">
+            <b>{{ r.robo }}</b>
+            <span class="csc-alerta-selo" :class="{ critico: r.critico }">
+              {{ r.critico ? 'crítico' : 'atenção' }}
+            </span>
+          </div>
+          <p class="csc-alerta-txt">
+            <template v-if="r.ultimo_sucesso">
+              A última vez que funcionou foi {{ tempoRel(r.ultimo_sucesso) }}.
+            </template>
+            <template v-else>Nunca funcionou desde que passamos a medir.</template>
+            <template v-if="r.falhas_24h"> Falhou {{ r.falhas_24h }}× nas últimas 24 horas.</template>
+          </p>
+          <p class="csc-alerta-porque">{{ r.porque }}</p>
+        </div>
+      </section>
+
       <!-- ROBÔS -->
       <div class="csc-sec">
         <h2 class="csc-sec-t">Os robôs de IA</h2>
@@ -593,11 +617,30 @@ function fraseAcaoMaiuscula(e) {
 // ── carga ──
 const erroCarregar = ref(null)
 
+// Saúde dos robôs agendados (pg_cron → Edge Functions). É outra coisa dos robôs
+// de IA acima: aqui não se mede custo, mede-se se a rodada DEU CERTO. Existe
+// porque cron.job_run_details diz "succeeded" mesmo quando a função devolve erro
+// — ver a migration 2026-07-31-saude-dos-robos.sql.
+const saudeDosRobos = ref([])
+
+// Só o que está com problema. Robô saudável não vira aviso: um painel que avisa
+// sobre o que está normal ensina a ignorar aviso.
+const robosComProblema = computed(() =>
+  saudeDosRobos.value
+    .filter(r => r.situacao === 'ATRASADO' || r.situacao === 'nunca deu certo')
+    .sort((a, b) => Number(b.critico) - Number(a.critico)),
+)
+
 async function carregar() {
-  const [ex, pr] = await Promise.all([
+  const [ex, pr, sa] = await Promise.all([
     sb('ia_execucoes?select=*&order=run_at.desc&limit=200'),
     sb('projetos_status?select=*&arquivado=is.false&order=ordem.desc'),
+    // Saúde dos robôs agendados. NÃO entra no erroCarregar abaixo: se esta
+    // consulta falhar, o painel inteiro não pode sumir por causa dela — o pior
+    // que acontece é o aviso não aparecer.
+    sb('robos_saude?select=*'),
   ])
+  if (!sa.erro) saudeDosRobos.value = sa
   // Antes: falha virava [] e a tela dizia "0 execuções, R$ 0" como se fosse
   // verdade. Só sobrescreve os dados bons quando a busca deu certo — assim um
   // blip de rede no refresh de 60s não apaga o que já estava na tela.
@@ -732,6 +775,31 @@ onUnmounted(() => {
 .csc-hero-gasto-est { margin-top: 8px; font-size: 11.5px; color: var(--muted); line-height: 1.5; max-width: 300px; padding-top: 8px; border-top: 1px dashed var(--border); }
 .csc-hero-gasto-est b { color: var(--text); font-weight: 600; }
 .csc-carregando { color: var(--muted); }
+
+/* SAÚDE DOS ROBÔS: o aviso de que algo parou. Vermelho de propósito — é a única
+   coisa nesta tela que pede ação, e só aparece quando existe problema. */
+.csc-alerta {
+  display: flex; flex-direction: column; gap: 12px;
+  border: 1px solid color-mix(in srgb, var(--red) 45%, transparent);
+  background: color-mix(in srgb, var(--red) 8%, var(--surface));
+  border-radius: 16px; padding: clamp(16px, 2.2vw, 24px);
+  animation: cscUp .5s cubic-bezier(.22,1,.36,1) both;
+}
+.csc-alerta-t { font-family: var(--fd); font-size: 17px; font-weight: 600; color: var(--red); }
+.csc-alerta-item {
+  display: flex; flex-direction: column; gap: 4px;
+  padding-top: 10px; border-top: 1px solid color-mix(in srgb, var(--red) 20%, transparent);
+}
+.csc-alerta-item:first-of-type { border-top: none; padding-top: 0; }
+.csc-alerta-cab { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.csc-alerta-cab b { font-family: var(--fm); font-size: 14px; color: var(--text); }
+.csc-alerta-selo {
+  font-size: 10px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 20px; border: 1px solid var(--border); color: var(--muted);
+}
+.csc-alerta-selo.critico { border-color: var(--red); color: var(--red); }
+.csc-alerta-txt { font-size: 13.5px; line-height: 1.6; color: var(--text); }
+.csc-alerta-porque { font-size: 12.5px; line-height: 1.55; color: var(--muted); max-width: 80ch; }
 
 /* GASTO REAL (extrato): bloco de destaque com a fatura de verdade da Anthropic */
 .csc-real { border-radius: 18px; border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); padding: clamp(18px, 2.4vw, 26px); display: flex; flex-direction: column; gap: 12px; box-shadow: var(--shadow-md); animation: cscUp .5s cubic-bezier(.22,1,.36,1) both; background:

@@ -27,6 +27,8 @@ const RECURSOS = [
   { key: 'gestor', label: 'Gestão Comercial (IA)', acoes: ['ver'] },
   { key: 'gestor.relatorios', label: 'Relatórios Comerciais', acoes: ['ver', 'exportar'] },
   { key: 'claude.status', label: 'Painel de Status do Claude', acoes: ['ver'] },
+  { key: 'conteudo', label: 'Central de Conteúdo', acoes: ['ver', 'criar', 'editar', 'excluir'] },
+  { key: 'conteudo.aprovar', label: 'Conteúdo — Aprovar peças', acoes: ['ver'] },
 ]
 
 const TREE = [
@@ -38,6 +40,7 @@ const TREE = [
   { key: 'gestor', label: 'Gestão Comercial (IA)', children: [] },
   { key: 'acessos', label: 'Colaboradores e Acessos', children: [] },
   { key: 'claude.status', label: 'Painel de Status do Claude', children: [] },
+  { key: 'conteudo', label: 'Central de Conteúdo', children: [] },
 ]
 
 test('ferramentaDaChave pega o trecho antes do primeiro ponto', () => {
@@ -48,7 +51,7 @@ test('ferramentaDaChave pega o trecho antes do primeiro ponto', () => {
 
 test('agrupa o catálogo por ferramenta, na ordem do catálogo', () => {
   const g = agruparRecursos(RECURSOS, TREE)
-  assert.deepEqual(g.map((x) => x.key), ['social', 'sales', 'meta', 'banco', 'acessos', 'noticias', 'gestor', 'claude'])
+  assert.deepEqual(g.map((x) => x.key), ['social', 'sales', 'meta', 'banco', 'acessos', 'noticias', 'gestor', 'claude', 'conteudo'])
   assert.deepEqual(g[0].recursos.map((r) => r.key), ['social', 'social.relatorio'])
   assert.deepEqual(g[1].recursos.map((r) => r.key), ['sales.gestao', 'sales.analise', 'sales.metas'])
   assert.deepEqual(g[2].recursos.map((r) => r.key), ['meta.campanha', 'meta.gestor', 'meta.fabrica'])
