@@ -87,12 +87,24 @@ Deno.serve(async (req) => {
     );
 
     if (!gh.ok) {
+      const corpo = (await gh.text()).slice(0, 300);
+
+      // O 404 aqui quase sempre tem UMA causa: o arquivo do workflow ainda não
+      // está na branch `main`. O disparo é sempre em `main` (é de lá que o
+      // Actions roda), então enquanto a mudança viver só numa branch, o botão
+      // "Gerar ideias" falha — e "dispatch_falhou 404" não diz isso a ninguém.
+      const motivo = gh.status === 404
+        ? 'O robô de pauta ainda não está publicado: o arquivo conteudo-ideias.yml '
+          + 'precisa estar na branch main (ou seja, o PR precisa ser mesclado). '
+          + 'Até lá, o resto da Central de Conteúdo funciona normalmente.'
+        : `A chamada ao GitHub falhou (${gh.status}). ${corpo}`;
+
       // Job marcado como erro na hora: sem isto ele ficaria "enfileirado" para
       // sempre, e a tela mostraria uma ampulheta eterna.
       await sb.from('conteudo_jobs')
-        .update({ status: 'erro', erro: `dispatch_falhou ${gh.status}`, updated_at: new Date().toISOString() })
+        .update({ status: 'erro', erro: motivo, updated_at: new Date().toISOString() })
         .eq('id', job.id);
-      return json({ error: 'dispatch_falhou', detail: (await gh.text()).slice(0, 300) }, 502);
+      return json({ error: 'dispatch_falhou', detail: motivo }, 502);
     }
 
     return json({ job_id: job.id, quantas });

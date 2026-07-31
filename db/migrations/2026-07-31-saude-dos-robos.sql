@@ -181,18 +181,29 @@ order by x.critico desc, x.robo;
 comment on view public.robos_saude is
   'Situacao de cada robo. ATRASADO = passou do tempo maximo sem UM sucesso.';
 
+-- OBRIGATÓRIO. Sem isto a view roda com a permissão do DONO (postgres) e passa
+-- por cima do RLS das tabelas de baixo — não é detalhe teórico: medido, um
+-- usuário 'viewer' comum lia 6 linhas pela view e 0 pela tabela.
+--
+-- Toda view nova sobre tabela com RLS neste projeto precisa desta linha.
+alter view public.robos_saude set (security_invoker = true);
+
 alter table public.robos_execucoes enable row level security;
 alter table public.robos_esperados enable row level security;
 
--- Só admin vê: é informação de operação, não de negócio.
+-- Quem vê é quem já tem a tela: o painel /claude-status é liberado pela
+-- permissão 'claude.status', não por ser admin. Com regra só-admin, quem tem
+-- acesso ao painel veria a seção de saúde vazia, sem entender por quê.
 create policy robos_execucoes_leitura on public.robos_execucoes
   for select to authenticated
   using (exists (select 1 from public.profiles p where p.id = auth.uid()
-                  and (p.role = 'admin' or p.is_superadmin)));
+                  and (p.role = 'admin' or p.is_superadmin
+                       or 'claude.status' = any (p.features))));
 create policy robos_esperados_leitura on public.robos_esperados
   for select to authenticated
   using (exists (select 1 from public.profiles p where p.id = auth.uid()
-                  and (p.role = 'admin' or p.is_superadmin)));
+                  and (p.role = 'admin' or p.is_superadmin
+                       or 'claude.status' = any (p.features))));
 create policy robos_execucoes_srv on public.robos_execucoes for all using (auth.role() = 'service_role');
 create policy robos_esperados_srv on public.robos_esperados for all using (auth.role() = 'service_role');
 
