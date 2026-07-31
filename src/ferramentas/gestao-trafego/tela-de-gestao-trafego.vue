@@ -128,7 +128,7 @@ import { hojeLocal, diasAtras, primeiroDiaDoMes, ultimoDiaDoMes } from '../../co
 // em orcamento-hierarquia.test.mjs. Aqui só se desenha o resultado.
 import { orcamentoDe, detectarNivelOrcamento, podeEditarOrcamentoDaCampanha, podeEditarOrcamentoDoConjunto, montarHierarquia } from './orcamento-hierarquia.js'
 import { planoDeCopia, executarPlano, comEspera, retomar, SUFIXO_PADRAO } from './duplicar.js'
-import { lerPublico, montarTargeting, resumoDasMudancas, avisosDe, PUBLICO_VAZIO } from './publico-alvo.js'
+import { lerPublico, montarTargeting, resumoDasMudancas, avisosDe } from './publico-alvo.js'
 // Aba "A régua" (métrica ponderada): painel puro + os módulos que leem/normalizam
 // a régua vinda do banco (ver painel-regua.js, ponderada.js, regua.js).
 import { montarPainelRegua } from './painel-regua.js'
@@ -2928,8 +2928,26 @@ function _gtPubSecaoPessoas(){
   const li=_gtPubLinha();
   const de=_gtPubInput(_gtPub.idadeMin,'de','80px');de.type='number';de.min='13';de.max='65';
   const ate=_gtPubInput(_gtPub.idadeMax,'até','80px');ate.type='number';ate.min='13';ate.max='65';
-  de.onchange=()=>{_gtPub.idadeMin=Number(de.value)||18;};
-  ate.onchange=()=>{_gtPub.idadeMax=Number(ate.value)||65;};
+  // Idade ENTRA em temRestricaoManual (publico-alvo.js) — ao contrário do raio,
+  // uma mudança aqui pode abrir ou fechar o conflito com Advantage+. Por isso
+  // redesenha (onchange só dispara no blur/commit, não por tecla — não é o
+  // problema de foco que tira a redesenha do raio). Sem isso o dono só
+  // descobriria o conflito na confirmação, com Cancelar como único botão
+  // vivo — perdendo a edição inteira.
+  // Também nunca deixa mínimo > máximo passar pro objeto: a Meta devolveria
+  // um erro cru (sem tradução em _gtPubTraduzir) em vez do editor prevenir
+  // aqui — o valor recém-digitado é ajustado pra igualar o outro lado, e o
+  // próprio campo mostra a correção ao redesenhar.
+  de.onchange=()=>{
+    _gtPub.idadeMin=Number(de.value)||18;
+    if(_gtPub.idadeMin>_gtPub.idadeMax)_gtPub.idadeMin=_gtPub.idadeMax;
+    _gtPubRedesenha();
+  };
+  ate.onchange=()=>{
+    _gtPub.idadeMax=Number(ate.value)||65;
+    if(_gtPub.idadeMax<_gtPub.idadeMin)_gtPub.idadeMax=_gtPub.idadeMin;
+    _gtPubRedesenha();
+  };
   li.appendChild(de);const t=document.createElement('span');t.textContent='até';li.appendChild(t);li.appendChild(ate);
   cx.appendChild(li);
 
@@ -3128,7 +3146,12 @@ async function _gtAbrirPublico(conjunto){
 
     const html='<b>Confirma estas mudanças?</b><ul style="margin:9px 0 0;padding-left:18px;">'
       +linhas.map(l=>'<li>'+_gtEsc(l)+'</li>').join('')+'</ul>'
-      +avisos.map(a=>'<div style="margin-top:12px;background:'+(a.bloqueia?'rgba(220,38,38,.10)':'rgba(217,119,6,.12)')+';border:1px solid '+(a.bloqueia?'rgba(220,38,38,.35)':'rgba(217,119,6,.35)')+';border-radius:8px;padding:11px 13px;line-height:1.5;">'+a.texto+'</div>').join('');
+      // Todo aviso, EXCETO 'raio', é texto fixo do módulo ou usa o mapa fechado
+      // NOMES_LOCALIZACOES — carrega <b> DE PROPÓSITO, então não escapamos
+      // (escapar tudo trocaria o negrito por "&lt;b&gt;" visível). O 'raio' é
+      // o único que interpola dado vindo da Meta (aj.cidade, publico-alvo.js)
+      // sem <b> nenhum — escapar só esse é o único ponto sem perda.
+      +avisos.map(a=>'<div style="margin-top:12px;background:'+(a.bloqueia?'rgba(220,38,38,.10)':'rgba(217,119,6,.12)')+';border:1px solid '+(a.bloqueia?'rgba(220,38,38,.35)':'rgba(217,119,6,.35)')+';border-radius:8px;padding:11px 13px;line-height:1.5;">'+(a.tipo==='raio'?_gtEsc(a.texto):a.texto)+'</div>').join('');
 
     // A gravação de verdade acontece DENTRO do clique de "Salvar na Meta", que
     // o `_gtPubStatus` acima não bloqueia (é só desenho de tela). Sem esperar
@@ -3143,18 +3166,48 @@ async function _gtAbrirPublico(conjunto){
       _gtPubStatus(html,[
         {texto:'Cancelar',aoClicar:()=>{_gtPubFechar();fimDaJornada();}},
         {texto:'Salvar na Meta',primario:true,desabilitado:avisos.some(a=>a.bloqueia),aoClicar:async()=>{
+          // metaPost (ao contrário de metaFetch) NÃO tem AbortController — um
+          // socket travado prenderia o dono atrás de uma caixa sem botão até
+          // o navegador desistir sozinho. E comEspera pode ficar mudo por até
+          // uns 14s de backoff (2+4+8s) num limite de chamadas da Meta, que lê
+          // como tela travada. Duas coisas, então: (1) depois de alguns
+          // segundos aparece um Fechar HONESTO — nunca diz que cancelou a
+          // gravação, porque não dá pra saber se ela já chegou na Meta; (2)
+          // cada espera do backoff pinta uma linha, pra não ficar mudo.
+          let podeFechar=false, saiuPelaEscada=false;
+          const pintarSalvando=(extra)=>{
+            if(saiuPelaEscada)return;   // dono já fechou; resultado tardio vira toast, não reabre a caixa
+            _gtPubStatus('<b>Salvando…</b>'+(extra?'<br>'+extra:''),
+              podeFechar?[{texto:'Fechar',aoClicar:()=>{saiuPelaEscada=true;_gtPubFechar();}}]:undefined);
+          };
+          const timerFechar=setTimeout(()=>{
+            podeFechar=true;
+            pintarSalvando('Isso está demorando mais que o esperado. Pode fechar — <b>não dá para saber se a Meta já processou</b>; se já tiver, a lista se atualiza sozinha na próxima vez que você abrir esta tela.');
+          },6000);
           try{
-            _gtPubStatus('<b>Salvando…</b>');
+            pintarSalvando();
             // targeting vai como OBJETO: o meta-proxy já faz JSON.stringify.
             // Converter aqui converteria duas vezes e a Meta recusaria.
-            const enviar=comEspera((caminho,params)=>metaPost(caminho,params,tok));
+            const enviar=comEspera((caminho,params)=>metaPost(caminho,params,tok),{
+              esperar:(ms)=>{pintarSalvando('A Meta pediu para esperar um pouco — tentando de novo em cerca de '+Math.round(ms/1000)+'s…');return new Promise(r=>setTimeout(r,ms));},
+            });
             await enviar('/'+conjunto.id,{targeting});
-            _gtPubStatus('<b>Pronto.</b><br>O público deste conjunto foi atualizado.',
+            clearTimeout(timerFechar);
+            if(saiuPelaEscada){adminToast('O público deste conjunto foi atualizado.');loadGtData();}
+            else _gtPubStatus('<b>Pronto.</b><br>O público deste conjunto foi atualizado.',
               [{texto:'Fechar',primario:true,aoClicar:()=>{_gtPubFechar();loadGtData();fimDaJornada();}}]);
           }catch(e){
-            _gtPubStatus('<b>A Meta não aceitou.</b><br>'+_gtPubTraduzir(String((e&&e.message)||e))
+            clearTimeout(timerFechar);
+            if(saiuPelaEscada)adminToast('A Meta não aceitou a mudança de público. Nada foi alterado no conjunto.',false);
+            else _gtPubStatus('<b>A Meta não aceitou.</b><br>'+_gtPubTraduzir(String((e&&e.message)||e))
               +'<br><br>Nada foi alterado no conjunto.',
               [{texto:'Fechar',primario:true,aoClicar:()=>{_gtPubFechar();fimDaJornada();}}]);
+          }finally{
+            // Se o dono já saiu pela escada, a jornada só termina de verdade
+            // (e a trava de ocupado só solta) quando o pedido de fato
+            // concluiu — nunca no clique do "Fechar" de emergência, que só
+            // tira a CAIXA da frente, não o pedido que segue em voo.
+            if(saiuPelaEscada)fimDaJornada();
           }
         }},
       ]);
