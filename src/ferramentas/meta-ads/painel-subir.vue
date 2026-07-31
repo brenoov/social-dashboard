@@ -138,13 +138,20 @@ async function carregarSugestoesInteresse() {
     sugestoes.value = { itens: row.itens, rotuloObjetivo: objs[0]?.rotulo || chave, marcaNome: marcas[0]?.nome || '', geradoEm: row.gerado_em }
   } catch { /* falha ao carregar não quebra a busca de interesse existente */ }
 }
-// Tamanho de público em português (2,3 mi / 940 mil). audience_size null/malformado -> '' (sem
-// número na etiqueta) — nunca "0", porque nulo (desconhecido) e zero são fatos diferentes.
+// Tamanho de público em português (1,58 bi / 2,3 mi / 940 mil). audience_size null/malformado -> ''
+// (sem número na etiqueta) — nunca "0", porque nulo (desconhecido) e zero são fatos diferentes.
+//
+// GÊMEA de `tamanhoLegivel` em coletor/lib/interesses.mjs, que o robô usa no log da rodada seca.
+// As duas têm de andar juntas: se divergirem, o log e esta etiqueta mostram números diferentes pro
+// MESMO interesse, e quem conferir um contra o outro vai achar que o robô gravou errado. Não dá pra
+// importar uma da outra (o robô é Node, isto aqui é um .vue) — por isso o aviso fica nas duas.
 function formatarPublico(n) {
   if (typeof n !== 'number' || !Number.isFinite(n)) return ''
   // O corte do "mi" é 999.500 e não 1.000.000 porque a faixa de baixo ARREDONDA: com corte em
   // 1 milhão, 999.999 caía no "mil", virava Math.round(999,999) = 1.000 e aparecia como
-  // "1.000 mil" — que ninguém escreve. Daqui pra cima, 999.500 já é "1 mi".
+  // "1.000 mil" — que ninguém escreve. Daqui pra cima, 999.500 já é "1 mi". O "bi" é o mesmo
+  // degrau acima: sem ele, 1,58 bilhão apareceria como "1.580 mi".
+  if (n >= 999_500_000) return (n / 1_000_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + ' bi'
   if (n >= 999_500) return (n / 1_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mi'
   if (n >= 1_000) return Math.round(n / 1000).toLocaleString('pt-BR') + ' mil'
   return n.toLocaleString('pt-BR')

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { montarPedido, OBJETIVOS, NOME_DO_OBJETIVO, nomesPropostos, colherDaBusca, MAXIMO_POR_OBJETIVO, tamanhoLegivel, linhasDaPrevia, comCidadesResolvidas, rodadaFalhouInteira } from './interesses.mjs';
+import { montarPedido, OBJETIVOS, NOME_DO_OBJETIVO, FOCO_DO_OBJETIVO, nomesPropostos, colherDaBusca, MAXIMO_POR_OBJETIVO, TETO_DE_PUBLICO, tamanhoLegivel, linhasDaPrevia, linhasDosLargos, comCidadesResolvidas, rodadaFalhouInteira } from './interesses.mjs';
 import { ALVOS } from '../../src/ferramentas/gestao-trafego/alvos.js';
 
 const MARCA = { id: 'm1', nome: 'La Vessel' };
@@ -291,11 +291,56 @@ test('o pedido NAO manda a IA acertar o nome exato de um interesse do Meta', () 
 });
 
 test('o pedido pede 8 termos, nao 12 nomes', () => {
-  // Menos e mais largo: cada termo vira uma busca na Meta, e termo largo rende
-  // mais interesse de verdade que nome específico chutado.
   const p = montarPedido({ marca: MARCA, lojas: LOJAS, objetivo: 'vendas' });
   assert.match(p.user, /até 8 termos/);
   assert.ok(!p.user.includes('até 12'), 'o número antigo não pode sobrar no texto');
+});
+
+test('o pedido manda ser ESPECIFICO e nomeia as megacategorias proibidas', () => {
+  // A primeira rodada trouxe "Compras na internet" (1,58 bi) e "black friday"
+  // (178 mi) porque o pedido pedia termo "abrangente". Pedir abrangência é pedir
+  // exatamente o que não segmenta ninguém.
+  const p = montarPedido({ marca: MARCA, lojas: LOJAS, objetivo: 'vendas' });
+  assert.match(p.system, /ESPECÍFICO/, 'a instrução tem de estar no system também');
+  assert.match(p.user, /SEJA ESPECÍFICO/);
+  for (const proibida of ['compras', 'internet', 'varejo', 'black friday'])
+    assert.ok(p.user.includes(`"${proibida}"`), `a megacategoria ${proibida} tem de ser citada como proibida`);
+  assert.ok(!/curto e abrangente/.test(p.user), 'pedir abrangência é o que causou o problema');
+});
+
+test('todo objetivo tem FOCO proprio, e nenhum sobrando', () => {
+  assert.deepEqual(Object.keys(FOCO_DO_OBJETIVO).sort(), [...OBJETIVOS].sort(),
+    'balde novo na régua precisa de foco aqui, senão o objetivo volta a não ter cara própria');
+  for (const [chave, foco] of Object.entries(FOCO_DO_OBJETIVO))
+    assert.ok(foco && foco.length > 20, chave + ' com foco curto demais pra mudar o resultado');
+});
+
+test('objetivos diferentes pedem PESSOAS diferentes, nao so um rotulo diferente', () => {
+  // O defeito medido: os seis objetivos devolveram quase a mesma lista. Se o
+  // pedido não diz QUEM procurar, o modelo não tem por onde diferenciar.
+  const vendas = montarPedido({ marca: MARCA, lojas: LOJAS, objetivo: 'vendas' });
+  const reconhecimento = montarPedido({ marca: MARCA, lojas: LOJAS, objetivo: 'reconhecimento' });
+  assert.match(vendas.user, /Quem procurar neste objetivo: .*momento de compra/);
+  assert.match(reconhecimento.user, /Quem procurar neste objetivo: .*ainda NÃO conhece a marca/);
+  assert.notEqual(vendas.user, reconhecimento.user);
+  assert.match(vendas.user, /reconhecimento não podem ser os mesmos de vendas/,
+    'o pedido tem de dizer explicitamente que as listas não podem coincidir');
+});
+
+test('FOCO_DO_OBJETIVO com chave faltante NAO vira undefined no pedido', () => {
+  // Mesmo cuidado do NOME_DO_OBJETIVO: se alguém acrescentar um balde e esquecer
+  // o foco, a linha some do pedido — nunca aparece "undefined" nela.
+  const chave = 'vendas';
+  const original = FOCO_DO_OBJETIVO[chave];
+  delete FOCO_DO_OBJETIVO[chave];
+  try {
+    const p = montarPedido({ marca: MARCA, lojas: LOJAS, objetivo: chave });
+    assert.ok(p, 'o pedido continua saindo');
+    assert.ok(!p.user.includes('undefined'), 'nunca deve vazar undefined');
+    assert.ok(!p.user.includes('Quem procurar neste objetivo'), 'sem foco, a linha inteira some');
+  } finally {
+    FOCO_DO_OBJETIVO[chave] = original;
+  }
 });
 
 // ===== A COLHEITA DAS BUSCAS =====
@@ -525,6 +570,77 @@ test('a linha e capada em 12 interesses, ficando com os MAIORES', () => {
   assert.equal(r.itens[11].nome, 'I28', 'os 12 maiores, nenhum menor');
 });
 
+// ===== O TETO DE PÚBLICO: largo demais não segmenta ninguém =====
+
+test('interesse acima do teto sai dos itens e vai pra lista de largos', () => {
+  // "Compras na internet", 1,58 bilhão: escolher isso é o mesmo que não escolher
+  // interesse nenhum.
+  const r = colherDaBusca(['a'], [{
+    data: [
+      { name: 'Compras na internet', id: '1', audience_size: 1_580_000_000 },
+      { name: 'Bolsa de couro', id: '2', audience_size: 940_000 },
+    ],
+  }]);
+  assert.deepEqual(r.itens.map((i) => i.nome), ['Bolsa de couro']);
+  assert.deepEqual(r.largos.map((i) => i.nome), ['Compras na internet']);
+  assert.equal(r.validos, 1, 'o cortado não conta como válido');
+});
+
+test('o teto padrao e 500 milhoes, e e PROVISORIO', () => {
+  assert.equal(TETO_DE_PUBLICO, 500_000_000);
+  // Exatamente no teto FICA; só passa quem está ACIMA. Sem isso, o número
+  // redondo do comentário e o comportamento contariam histórias diferentes.
+  const r = colherDaBusca(['a'], [{
+    data: [
+      { name: 'No teto', id: '1', audience_size: TETO_DE_PUBLICO },
+      { name: 'Um a mais', id: '2', audience_size: TETO_DE_PUBLICO + 1 },
+    ],
+  }]);
+  assert.deepEqual(r.itens.map((i) => i.nome), ['No teto']);
+  assert.deepEqual(r.largos.map((i) => i.nome), ['Um a mais']);
+});
+
+test('tamanho DESCONHECIDO nunca e cortado pelo teto — nao se condena por falta de prova', () => {
+  // Tratar null como "grande" jogaria fora interesse bom só porque a Meta não
+  // devolveu o número. Ele fica, e a ordenação já o manda pro fim da fila.
+  const r = colherDaBusca(['a'], [{ data: [{ name: 'Sem tamanho', id: '1' }] }], 12, 10);
+  assert.deepEqual(r.itens.map((i) => i.nome), ['Sem tamanho']);
+  assert.deepEqual(r.largos, []);
+});
+
+test('teto customizado corta pelo numero passado; sem teto finito nao corta nada', () => {
+  const dados = [{ data: [{ name: 'Grande', id: '1', audience_size: 100 }, { name: 'Pequeno', id: '2', audience_size: 5 }] }];
+  assert.deepEqual(colherDaBusca(['a'], dados, 12, 50).itens.map((i) => i.nome), ['Pequeno']);
+  assert.deepEqual(colherDaBusca(['a'], dados, 12, Infinity).itens.map((i) => i.nome), ['Grande', 'Pequeno']);
+  assert.deepEqual(colherDaBusca(['a'], dados, 12, Infinity).largos, []);
+});
+
+test('os largos vem ordenados do MAIOR pro menor, como os itens', () => {
+  const r = colherDaBusca(['a'], [{
+    data: [
+      { name: 'Bilhao', id: '1', audience_size: 1_580_000_000 },
+      { name: 'Meio bilhao e pouco', id: '2', audience_size: 600_000_000 },
+      { name: 'Quase um bilhao', id: '3', audience_size: 900_000_000 },
+    ],
+  }]);
+  assert.deepEqual(r.itens, []);
+  assert.deepEqual(r.largos.map((i) => i.nome), ['Bilhao', 'Quase um bilhao', 'Meio bilhao e pouco']);
+});
+
+test('o teto NAO julga pelo nome — so pelo tamanho', () => {
+  // "black friday" é usado no Brasil de verdade, e nome em inglês não é prova de
+  // nada. Filtrar por cara de estrangeiro derrubaria interesse legítimo; quem
+  // decide relevância é o dono, olhando a faixa.
+  const r = colherDaBusca(['a'], [{
+    data: [
+      { name: 'black friday', id: '1', audience_size: 178_000_000 },
+      { name: 'Observe and Report', id: '2', audience_size: 2_000_000 },
+    ],
+  }]);
+  assert.equal(r.itens.length, 2, 'nenhum dos dois é cortado por causa do nome');
+  assert.deepEqual(r.largos, []);
+});
+
 // ===== A PRÉVIA DA RODADA SECA =====
 
 test('tamanho legivel: milhao, mil e numero pelado, em portugues', () => {
@@ -591,6 +707,44 @@ test('a previa com lista ausente ou torta devolve nada, sem quebrar', () => {
 test('nome gigantesco na previa e capado, nao domina o log', () => {
   const linhas = linhasDaPrevia([{ id: '1', nome: 'C'.repeat(5000), audience_size: 10 }]);
   assert.ok(linhas[0].length <= 260, 'linha capada: ' + linhas[0].length);
+});
+
+test('tamanho legivel: bilhao vira "bi", nao "1.580 mi"', () => {
+  // Sem o degrau do bi, 1,58 bilhão saía como "1.580 mi" — ninguém lê isso como
+  // um bilhão e meio, que é justamente o número que motivou o teto.
+  assert.equal(tamanhoLegivel(1_580_000_000), '1,58 bi');
+  assert.equal(tamanhoLegivel(999_500_000), '1 bi');
+  assert.equal(tamanhoLegivel(999_499_999), '999,5 mi');
+});
+
+test('o log dos largos mostra nome, tamanho e ATE ONDE ia o teto', () => {
+  // O teto é provisório: quem lê o log precisa ver o que caiu e contra que linha.
+  const linhas = linhasDosLargos([
+    { id: '1', nome: 'Compras na internet', audience_size: 1_580_000_000 },
+    { id: '2', nome: 'Varejo', audience_size: 700_000_000 },
+  ]);
+  assert.equal(linhas.length, 3, 'um cabeçalho e duas linhas');
+  assert.match(linhas[0], /descartados por serem largos demais \(acima de 500 mi\):$/);
+  assert.match(linhas[1], /· Compras na internet — 1,58 bi$/);
+  assert.match(linhas[2], /· Varejo — 700 mi$/);
+  for (const l of linhas) assert.match(l, /^ {6}/, 'indentado sob o objetivo, como a prévia');
+});
+
+test('sem nenhum cortado, o log dos largos nao escreve NADA — nem cabecalho solto', () => {
+  for (const v of [[], null, undefined, 'lixo', 42, [null], [{}], [{ id: '1', nome: '  ' }]])
+    assert.deepEqual(linhasDosLargos(v), [], 'cabeçalho sem lista embaixo seria ruído no log');
+});
+
+test('log dos largos: item lixo pulado, o bom do lado SOBREVIVE, sem vazar undefined', () => {
+  const linhas = linhasDosLargos([null, 'lixo', { id: '1' }, { id: '2', nome: 'Varejo', audience_size: 700_000_000 }]);
+  assert.equal(linhas.length, 2);
+  assert.match(linhas[1], /· Varejo — 700 mi$/);
+  assert.ok(!/undefined|null|\[object/.test(linhas.join('\n')), 'lixo vazou: ' + linhas.join('\n'));
+});
+
+test('log dos largos: cortado SEM tamanho aparece por extenso, nao como zero', () => {
+  const linhas = linhasDosLargos([{ id: '1', nome: 'X' }], 999);
+  assert.match(linhas[1], /· X — tamanho desconhecido$/);
 });
 
 test('nomesPropostos limpa a resposta da IA e ignora lixo', () => {

@@ -19,7 +19,7 @@
 // então o valor real aparece no painel Status do Claude, em reais.
 import { structured, SONNET, usageSummary } from './lib-llm.mjs';
 import { registrarExecucao } from './registrar-execucao.mjs';
-import { montarPedido, nomesPropostos, colherDaBusca, linhasDaPrevia, comCidadesResolvidas, rodadaFalhouInteira, OBJETIVOS } from './lib/interesses.mjs';
+import { montarPedido, nomesPropostos, colherDaBusca, linhasDaPrevia, linhasDosLargos, comCidadesResolvidas, rodadaFalhouInteira, OBJETIVOS } from './lib/interesses.mjs';
 // Login da conta de serviço (mesma usada por subir-estudio.mjs, ativar-estudio.mjs
 // etc.) — o meta-proxy chama auth.getUser() sobre o Authorization recebido, e uma
 // service key não é sessão de usuário: ela sempre daria 401 "nao autenticado" ali.
@@ -54,10 +54,29 @@ async function sbPost(path, body, prefer) {
 
 // Busca UM termo no catálogo de interesses da Meta, pela Edge meta-proxy.
 //
-// É EXATAMENTE A MESMA CHAMADA que a Fábrica faz quando o dono digita na busca
-// de interesses (painel-subir.vue, "buscarInteresses"): type=adinterest, o termo
-// em `q`, `limit` 10. Usar a chamada já provada em produção é de propósito —
-// nenhum campo novo, nenhuma versão de Graph diferente, nenhuma surpresa.
+// É A MESMA CHAMADA que a Fábrica faz quando o dono digita na busca de
+// interesses (painel-subir.vue, "buscarInteresses"): type=adinterest, o termo em
+// `q`, `limit` 10 — mais o `locale`, que é a única diferença e está explicada
+// logo abaixo.
+//
+// LOCALE pt_BR — POR QUE ESTÁ AQUI E POR QUE PODE NÃO FUNCIONAR:
+// a primeira rodada trouxe "Observe and Report" (um filme americano de 2009),
+// "List of fashion magazines" (em inglês, com cara de lista de Wikipédia),
+// "India Fashion Week" (país errado) e "VK Moda Feminina Plus Size" (VK é rede
+// social russa). Tudo isso é catálogo de OUTRO idioma/país entrando numa busca
+// em português.
+//
+// A documentação da Meta NÃO lista `locale` como parâmetro de entrada — mas a
+// RESPOSTA traz um campo `locale`, o que sugere fortemente que ele é aceito. E a
+// mesma documentação afirma que a resposta não tem `audience_size`, quando a
+// nossa rodada ao vivo veio com tamanho em tudo: ou seja, ela está velha em
+// relação à v22 e não decide nada. Por isso isto é HIPÓTESE A MEDIR, não fato.
+//
+// SE A META REJEITAR O PARÂMETRO, a chamada falha e o `catch` por busca lá
+// embaixo pinta um ⚠ no log da rodada seca — e a gente descobre na hora. Esse é
+// o jeito CERTO de errar aqui, e é de propósito que ele não foi amaciado: um
+// parâmetro ignorado em silêncio devolveria o mesmo filme americano de sempre e
+// ninguém saberia que a hipótese estava errada.
 //
 // Manda os parâmetros como objeto, não texto: o proxy já faz JSON.stringify em
 // valor que é objeto, e converter aqui converteria duas vezes.
@@ -71,7 +90,7 @@ async function buscarNaMeta(accountId, termo, token) {
     body: JSON.stringify({
       accountId,
       path: '/search',
-      params: { type: 'adinterest', q: termo, limit: 10 },
+      params: { type: 'adinterest', q: termo, limit: 10, locale: 'pt_BR' },
       method: 'GET',
     }),
   });
@@ -147,7 +166,7 @@ const SCHEMA = {
     interesses: {
       type: 'array',
       items: { type: 'string' },
-      description: 'Termos de busca curtos (1 a 3 palavras), em português do Brasil, até 8.',
+      description: 'Termos de busca ESPECÍFICOS (tipo de produto, marca concorrente, ocasião, hobby de quem compra), em português do Brasil, até 8. Nada de categoria enorme como "compras" ou "varejo".',
     },
   },
   required: ['interesses'],
@@ -222,7 +241,7 @@ export async function run() {
         puladas++; continue;
       }
 
-      const { itens, propostos: nProp, validos } = colherDaBusca(termos, respostas);
+      const { itens, propostos: nProp, validos, largos } = colherDaBusca(termos, respostas);
       totPropostos += nProp; totValidos += validos;
       // O número mudou de sentido: antes era "quantos sobreviveram à validação",
       // agora é "quantos interesses as buscas acharam". Passar de 100% é normal —
@@ -243,6 +262,11 @@ export async function run() {
         // a segunda pergunta. No modo normal isto não sai: lá a linha está na
         // tabela e na tela, e o log fica sendo resumo.
         for (const linha of linhasDaPrevia(itens)) console.log(linha);
+        // E logo abaixo o que foi CORTADO por ser largo demais, com o tamanho.
+        // O teto que corta é provisório (ver TETO_DE_PUBLICO): sem ver o que ele
+        // derruba, não há como saber se está no lugar certo — e um corte
+        // invisível nunca seria corrigido.
+        for (const linha of linhasDosLargos(largos)) console.log(linha);
         simuladas++; continue;
       }
 

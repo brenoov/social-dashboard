@@ -111,8 +111,15 @@ O QUE A IA RECEBE: o nome da marca, o nome de cada loja, as CIDADES que cada
 loja atende e o objetivo da campanha. Nada de texto escrito por gente.
 
 O QUE A IA DEVOLVE: até 8 TERMOS DE BUSCA — assuntos, não nomes de interesse.
-Coisas como "bolsa de couro" ou "moda feminina". Quem procura os nomes de
+Coisas como "bolsa de couro" ou "marroquinaria". Quem procura os nomes de
 verdade é o robô, buscando cada termo na própria Meta.
+
+E os termos têm de ser ESPECÍFICOS. O pedido proíbe categoria enorme ("compras",
+"internet", "varejo", "black friday", "moda" sozinha), porque termo largo acha
+público de centenas de milhões de pessoas e isso não separa cliente de
+não-cliente. O pedido também diz QUEM procurar em cada objetivo — quem está em
+momento de compra não é quem ainda nem conhece a marca — pra que os seis
+objetivos não devolvam a mesma lista seis vezes.
 
 As cidades merecem uma nota: no banco elas estão guardadas como CÓDIGO do Meta
 (267873), não como nome. Antes de perguntar qualquer coisa à IA, o robô pede ao
@@ -142,8 +149,48 @@ pulado sem gravar nada — aí o problema não é o termo, é a Meta ou o token,
 gravar palpite continua sendo pior do que pular a semana.
 
 CADA LINHA GUARDA NO MÁXIMO 12 INTERESSES, os de MAIOR público primeiro. O teto
-existe porque um termo largo ("moda") volta com dez resultados sozinho e tomaria
-a faixa inteira.
+existe porque um termo largo volta com dez resultados sozinho e tomaria a faixa
+inteira.
+
+INTERESSE GRANDE DEMAIS É JOGADO FORA
+--------------------------------------
+"Compras na internet" tem 1,58 BILHÃO de pessoas. Escolher isso como interesse é
+o mesmo que não escolher interesse nenhum — não separa cliente de não-cliente,
+só dá a impressão de que a campanha está mirando alguém. Então tudo acima de 500
+milhões de pessoas é descartado.
+
+ESSE 500 MILHÕES É PROVISÓRIO e está escrito pra ser mudado (a linha mora em
+coletor/lib/interesses.mjs, com o nome TETO_DE_PUBLICO). Ele saiu de uma medição
+só, e ainda por cima o tamanho que o Meta devolve parece ser MUNDIAL, não do
+Brasil — número grande não é automaticamente errado pra cá. Por isso a linha
+começou alta: deixar entrar coisa larga demais é um erro que você VÊ e reclama;
+cortar interesse bom é um erro que ninguém nunca fica sabendo.
+
+Pra poder acertar essa linha, a rodada seca LISTA tudo que foi cortado, com o
+tamanho de cada um — e mostra o tamanho do que ficou também. É olhando esses dois
+que dá pra decidir se 500 milhões é muito ou pouco.
+
+O QUE NÃO É JULGADO: o NOME. O robô não descarta interesse por parecer
+estrangeiro ou por parecer estranho. "Black friday" é usado no Brasil de
+verdade, e esse caminho acabaria jogando fora interesse legítimo. Tamanho e
+idioma da busca são o que dá pra medir; se o nome faz sentido pra marca, quem
+decide é você, olhando a faixa.
+
+BUSCA EM PORTUGUÊS (uma aposta que está sendo medida)
+------------------------------------------------------
+A primeira rodada trouxe um filme americano de 2009 ("Observe and Report"), uma
+lista de revistas em inglês, uma semana de moda da ÍNDIA e um perfil de uma rede
+social RUSSA. Tudo catálogo de outro idioma entrando numa busca em português.
+
+O robô agora pede a busca com idioma pt_BR. A documentação do Meta NÃO lista esse
+parâmetro — mas a resposta dela devolve um campo de idioma, o que sugere que ele
+é aceito; e a mesma documentação diz que a resposta não traz tamanho de público,
+quando a nossa rodada veio com tamanho em tudo. Ou seja: a documentação está
+velha e não resolve a dúvida.
+
+Então isto é uma APOSTA A MEDIR. Se o Meta recusar o parâmetro, a busca falha, o
+⚠ aparece no log da rodada seca e a gente descobre na hora — de propósito não foi
+feito pra falhar quieto.
 
 O robô anota no log quantos termos foram pedidos e quantos interesses as buscas
 acharam. Passar de um interesse por termo é normal. Dá pra ver o mesmo sem abrir
@@ -177,10 +224,21 @@ PRA RODAR PELA PRIMEIRA VEZ (o que falta)
      GESTOR_USER_PASSWORD .... já usado (Fábrica)
 3. Disparar na mão pelo Actions, no modo "seco" primeiro: ele roda tudo e
    MOSTRA NO LOG a lista que seria gravada — cada interesse com seu nome e o
-   tamanho do público, na mesma ordem que iria pro banco — sem gravar sugestão
-   nenhuma. É pra isso que o seco serve: o número diz se rendeu, mas só os
-   nomes dizem se prestam, e quem julga isso é você. No modo normal essa lista
-   não sai (lá ela está na tabela e na tela, e o log fica sendo só o resumo).
+   tamanho do público, na mesma ordem que iria pro banco — e, logo abaixo, o
+   que foi descartado por ser largo demais, também com o tamanho. Sem gravar
+   sugestão nenhuma. É pra isso que o seco serve: o número diz se rendeu, mas
+   só os nomes dizem se prestam, e quem julga isso é você. No modo normal essa
+   lista não sai (lá ela está na tabela e na tela, e o log fica só o resumo).
+
+   Fica assim:
+
+     La Vessel · vendas: 6 interesses achados a partir de 8 termos
+          1. black friday — 178 mi
+          2. Moda feminina — 8,1 mi
+          3. Bolsa de couro — 940 mil
+          4. Couro — tamanho desconhecido
+         descartados por serem largos demais (acima de 500 mi):
+            · Compras na internet — 1,58 bi
    ATENÇÃO, PORQUE É DINHEIRO: "seco" quer dizer que não grava — NÃO quer dizer
    que não custa. A rodada seca faz as MESMAS 6 chamadas pagas à IA que a rodada
    normal, e elas aparecem no painel Status do Claude igual. O que você economiza

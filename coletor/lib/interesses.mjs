@@ -29,6 +29,30 @@ export const NOME_DO_OBJETIVO = {
   vendas: 'Vendas',
 };
 
+// QUEM PROCURAR em cada objetivo — a linha que faz os seis objetivos pedirem
+// coisas DIFERENTES.
+//
+// Medido: com o pedido só dizendo o nome do objetivo, os seis devolveram
+// praticamente a mesma lista. E aí a promessa da ferramenta cai por terra: a
+// faixa existe porque o que serve pra vender não é o que serve pra ser
+// conhecido. Se as seis listas são iguais, sobrou uma lista só, repetida seis
+// vezes e cobrada seis vezes.
+//
+// Cada linha diz em que MOMENTO da relação com a marca está a pessoa daquele
+// objetivo. É isso que muda o termo — não o nome do objetivo.
+//
+// Mesma regra do mapa acima: chave faltante não vira 'undefined' no pedido, a
+// linha simplesmente não entra (ver montarPedido), e há teste garantindo que o
+// mapa cobre exatamente OBJETIVOS.
+export const FOCO_DO_OBJETIVO = {
+  engajamento: 'Gente que já gosta do assunto e comenta sobre ele: hobbies, comunidades e temas do dia a dia dela.',
+  reconhecimento: 'Gente que ainda NÃO conhece a marca: o estilo de vida e os gostos de quem teria a ver com ela.',
+  trafego: 'Gente que pesquisa e compara antes de decidir: assuntos de quem está se informando sobre esse tipo de produto.',
+  mensagens: 'Gente que tira dúvida antes de comprar: assuntos de quem quer atendimento, medida, encomenda, personalização.',
+  leads: 'Gente disposta a deixar contato em troca de algo: assuntos de quem busca novidade, lista de espera, condição especial.',
+  vendas: 'Gente em momento de compra: marcas concorrentes, tipos de produto específicos e ocasiões que levam a comprar.',
+};
+
 const lista = (v) => (Array.isArray(v) ? v : []);
 const texto = (v) => (typeof v === 'string' ? v.trim() : '');
 
@@ -146,19 +170,36 @@ export function montarPedido({ marca, lojas, objetivo } = {}) {
   // Agora se pede o ASSUNTO. Quem procura o nome é o robô, que busca cada termo
   // na própria Meta (type=adinterest) e colhe o que voltar — os nomes saem do
   // catálogo, nunca da memória do modelo.
+  // ESPECÍFICO, NÃO ABRANGENTE — e esta foi a segunda correção, feita depois de
+  // ler os nomes que a primeira rodada trouxe. Pedindo termo "curto e
+  // abrangente", a IA respondia "moda", "compras", "varejo"; toda busca caía nas
+  // mesmas megacategorias, e as seis listas saíram quase idênticas, com coisas
+  // como "Compras na internet" (1,58 bilhão de pessoas), que não segmenta nada.
+  //
+  // Termo largo tem cara de acerto porque sempre traz resultado. Só que trazer
+  // resultado não é o serviço: o serviço é trazer gente que compraria DESTA
+  // marca.
   const system =
     'Você sugere ASSUNTOS de busca para encontrar interesses de segmentação do Meta Ads para lojas brasileiras. ' +
     'Você NÃO precisa conhecer o catálogo do Meta nem acertar o nome exato de nenhum interesse: ' +
     'cada assunto que você der será buscado na própria Meta, e os nomes de verdade vêm de lá. ' +
-    'Responda só com termos curtos em português do Brasil, um assunto por item. Nada de explicação.';
+    'Seu trabalho é ser ESPECÍFICO: termo genérico demais acha público gigante que não segmenta ninguém. ' +
+    'Responda só com termos em português do Brasil, um assunto por item. Nada de explicação.';
+
+  const foco = limpo(FOCO_DO_OBJETIVO[objetivo]);
 
   const user = [
     `Marca: ${nomeMarca}`,
     linhasLojas.length ? `Lojas:\n${linhasLojas.join('\n')}` : 'Lojas: não cadastradas',
     `Objetivo da campanha: ${nomeObjetivo}${ajuda ? ` (medido por: ${ajuda})` : ''}`,
+    // Sem foco cadastrado a linha some — nunca vira 'undefined' no pedido.
+    ...(foco ? [`Quem procurar neste objetivo: ${foco}`] : []),
     '',
-    'Sugira até 8 termos de busca: assuntos que importam para quem compraria desta marca com ESTE objetivo.',
-    'Cada termo deve ser curto e abrangente (1 a 3 palavras), do tipo que se digita numa busca.',
+    'Pense primeiro no que ESTA marca vende e em quem compra isso. Depois escreva até 8 termos de busca.',
+    'Os termos têm de servir a ESTE objetivo: os de reconhecimento não podem ser os mesmos de vendas.',
+    'SEJA ESPECÍFICO: prefira o tipo de produto, a ocasião de uso, a marca concorrente, o hobby de quem compra.',
+    'NÃO use categorias enormes como "compras", "internet", "varejo", "black friday", "promoção", "moda" sozinha —',
+    'elas acham público de centenas de milhões de pessoas e não separam cliente de não-cliente.',
     'Não tente adivinhar o nome exato de um interesse do Meta — cada termo será buscado no catálogo dele.',
   ].join('\n');
 
@@ -188,6 +229,31 @@ export function nomesPropostos(resposta) {
 // inteira e os outros sete termos não apareceriam.
 export const MAXIMO_POR_OBJETIVO = 12;
 
+// TETO DE PÚBLICO — acima disto o interesse não é critério de segmentação.
+//
+// "Compras na internet" tem 1,58 BILHÃO de pessoas. Escolher isso como interesse
+// é o mesmo que não escolher interesse nenhum: não separa cliente de
+// não-cliente, só dá a impressão de que a campanha está mirando alguém.
+//
+// ESTE NÚMERO É PROVISÓRIO, e está escrito aqui pra ser mudado.
+// Ele saiu de UMA rodada, e a rodada mediu pouco: dos tamanhos que o dono julgou,
+// só conhecemos dois que ele recusou (1,58 bi e 178 mi) — e NENHUM dos quatro
+// interesses que ele aprovou. Ou seja, não sabemos onde começa o "largo demais",
+// só sabemos um lugar onde ele com certeza já passou.
+//
+// Por isso a linha começa ALTA, em 500 milhões: ela corta o que é indefensável
+// e não arrisca derrubar às cegas um interesse bom cujo tamanho ninguém mediu.
+// Errar pra cima deixa entrar lixo que o dono vê e reclama; errar pra baixo
+// apaga interesse bom sem ninguém nunca saber que ele existiu.
+//
+// E TEM UM PORÉM QUE IMPEDE DE APERTAR NO CHUTE: o tamanho que a Meta devolve
+// parece ser GLOBAL, não do Brasil. Um número grande não é automaticamente
+// errado pra cá. Só dá pra baixar esta linha depois de ver, na rodada seca, os
+// tamanhos dos interesses que PRESTAM — e é justamente por isso que a prévia
+// mostra o tamanho de tudo que fica, e o log lista tudo que foi cortado por
+// aqui.
+export const TETO_DE_PUBLICO = 500_000_000;
+
 // OS NOMES VÊM DA META, NÃO DA IA. Aqui se colhe o que as buscas devolveram —
 // cada termo da IA virou uma busca `type=adinterest`, e o que volta é catálogo
 // de verdade, já com id e tamanho de público. A IA nunca escreve um nome que
@@ -202,13 +268,18 @@ export const MAXIMO_POR_OBJETIVO = 12;
 // busca pode ter falhado sozinha: o robô segue com as outras, e o que chegou
 // aqui é só o que deu certo.
 //
-// Devolve a MESMA forma de antes — { itens, propostos, validos } — pra tabela,
-// faixa e contadores da rodada não mudarem. O que mudou é o significado:
-// `propostos` são os TERMOS que a IA deu, `validos` são os interesses distintos
-// que as buscas acharam. Não é mais uma taxa de sobrevivência, é quanto rendeu.
-export function colherDaBusca(termos, respostas, limite = MAXIMO_POR_OBJETIVO) {
+// Devolve `{ itens, propostos, validos }` como sempre — tabela, faixa e
+// contadores não mudam — mais `largos`, que são os cortados pelo teto de
+// público. `largos` NÃO vai pro banco: existe pra rodada seca poder mostrar no
+// log o que foi jogado fora e por quê. Corte que ninguém vê é corte que ninguém
+// consegue corrigir, e este teto nasceu provisório de propósito.
+//
+// `propostos` são os TERMOS que a IA deu, `validos` os interesses distintos que
+// ficaram. Não é taxa de sobrevivência, é quanto rendeu.
+export function colherDaBusca(termos, respostas, limite = MAXIMO_POR_OBJETIVO, teto = TETO_DE_PUBLICO) {
   const vistos = new Set();
   const itens = [];
+  const largos = [];
   for (const resposta of lista(respostas)) {
     for (const l of lista(resposta && resposta.data)) {
       if (!l || typeof l !== 'object') continue;   // item nulo ou lixo: pulado
@@ -242,11 +313,16 @@ export function colherDaBusca(termos, respostas, limite = MAXIMO_POR_OBJETIVO) {
         const n = Number(bruto);
         if (Number.isFinite(n)) audience_size = n;
       }
-      itens.push({
-        id,
-        nome,
-        audience_size,
-      });
+      const item = { id, nome, audience_size };
+      // LARGO DEMAIS pra ser critério de segmentação — ver TETO_DE_PUBLICO.
+      //
+      // Só corta quem TEM tamanho medido e passou do teto. Tamanho DESCONHECIDO
+      // (null) NUNCA é cortado aqui: não se joga fora o que não se conseguiu
+      // medir. Tratar null como "grande" seria condenar por falta de prova, e
+      // tratar como "pequeno" já é o que acontece — ele fica, e vai pro fim da
+      // fila na ordenação, que é o lugar honesto de quem não tem número.
+      const largoDemais = audience_size != null && Number.isFinite(teto) && audience_size > teto;
+      (largoDemais ? largos : itens).push(item);
     }
   }
 
@@ -256,13 +332,15 @@ export function colherDaBusca(termos, respostas, limite = MAXIMO_POR_OBJETIVO) {
   // como se fosse zero já seria ruim; deixá-lo na frente colocaria justamente o
   // que não se sabe medir no lugar de mais destaque.
   const peso = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : -Infinity);
-  itens.sort((a, b) => peso(b.audience_size) - peso(a.audience_size));
+  const porTamanho = (a, b) => peso(b.audience_size) - peso(a.audience_size);
+  itens.sort(porTamanho);
+  largos.sort(porTamanho);   // o maior primeiro também aqui: o log fica lendo do pior pro menos pior
 
   const cortados = Number.isFinite(limite) && limite >= 0 ? itens.slice(0, limite) : itens;
   // `validos` conta o que FICOU na linha, não o que foi colhido antes do corte:
   // a tabela guarda `itens` e `validos` lado a lado, e um número maior que a
   // lista ao lado dele seria uma contradição visível na própria tela.
-  return { itens: cortados, propostos: lista(termos).length, validos: cortados.length };
+  return { itens: cortados, propostos: lista(termos).length, validos: cortados.length, largos };
 }
 
 // Tamanho de público em português: '2,3 mi', '940 mil', '850'.
@@ -281,9 +359,33 @@ export function colherDaBusca(termos, respostas, limite = MAXIMO_POR_OBJETIVO) {
 // chama decide o que escrever no lugar.
 export function tamanhoLegivel(n) {
   if (typeof n !== 'number' || !Number.isFinite(n)) return '';
+  // 'bi' pelo mesmo motivo do 'mi', um degrau acima: sem ele, 1,58 bilhão sai
+  // como '1.580 mi', que ninguém lê como um bilhão e meio. O corte é 999,5 mi
+  // pra faixa de baixo não arredondar em '1.000 mi'.
+  if (n >= 999_500_000) return (n / 1_000_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + ' bi';
   if (n >= 999_500) return (n / 1_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mi';
   if (n >= 1_000) return Math.round(n / 1000).toLocaleString('pt-BR') + ' mil';
   return n.toLocaleString('pt-BR');
+}
+
+// AS LINHAS DO QUE FOI CORTADO POR SER LARGO DEMAIS — só na rodada seca.
+//
+// O teto de público é provisório e foi tirado de uma medição só. Um corte que
+// não aparece em lugar nenhum é um corte que ninguém consegue conferir: o dono
+// veria a faixa menor e não saberia se o robô achou pouco ou se jogou fora
+// muito. Mostrando nome e tamanho de cada descartado, a próxima rodada tem com
+// o que ajustar a linha — que é exatamente o que falta hoje.
+export function linhasDosLargos(largos, teto = TETO_DE_PUBLICO) {
+  const linhas = [];
+  for (const i of lista(largos)) {
+    if (!i || typeof i !== 'object') continue;
+    const nome = limpo(i.nome);
+    if (!nome) continue;
+    linhas.push(`         · ${nome} — ${tamanhoLegivel(i.audience_size) || 'tamanho desconhecido'}`);
+  }
+  if (!linhas.length) return [];
+  const limite = tamanhoLegivel(teto);
+  return [`      descartados por serem largos demais${limite ? ` (acima de ${limite})` : ''}:`, ...linhas];
 }
 
 // A PRÉVIA DA RODADA SECA: as linhas que mostram O QUE SERIA GRAVADO.
