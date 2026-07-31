@@ -1,0 +1,71 @@
+name: Ideias de conteúdo (robô de pauta)
+
+# Disparado pela Central de Conteúdo (Edge `conteudo-trigger`) quando alguém
+# clica em "Gerar ideias com IA". SEM agendamento automático: pauta se pede
+# quando se precisa, e cada rodada custa API.
+on:
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: 'ID do job em conteudo_jobs (a Edge preenche)'
+        required: false
+        type: string
+      conta:
+        description: 'ID da conta, para rodar à mão sem passar pela fila'
+        required: false
+        type: string
+      quantas:
+        description: 'Quantas ideias gerar'
+        required: false
+        default: '12'
+        type: string
+
+concurrency:
+  group: conteudo-ideias
+  cancel-in-progress: false
+
+jobs:
+  gerar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Este job não escreve no repositório; só lê o código e fala com Supabase e
+    # Anthropic. Sem isto o GITHUB_TOKEN viria com permissão de escrita à toa.
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Instalar dependências
+        working-directory: coletor
+        run: npm ci --omit=dev || npm install --omit=dev
+      - name: Gerar ideias
+        working-directory: coletor
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # Mesmo segredo do robô de budget: é a mesma conta da Anthropic.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_TRAFEGO }}
+          # Os inputs entram por ENV, nunca interpolados direto no `run`.
+          # Com `${{ inputs.x }}` no meio do shell, um valor com aspas e ponto e
+          # vírgula vira comando executado no runner — e este runner tem a
+          # service key do banco no ambiente.
+          JOB_ID: ${{ inputs.job_id }}
+          CONTA: ${{ inputs.conta }}
+          QUANTAS: ${{ inputs.quantas }}
+        run: |
+          set -euo pipefail
+          # Validação de formato: os dois são UUID, e `quantas` é número. Barrar
+          # aqui é mais barato que confiar em quem disparou.
+          uuid='^[0-9a-fA-F-]{36}$'
+          if [ -n "$JOB_ID" ]; then
+            [[ "$JOB_ID" =~ $uuid ]] || { echo "job_id não é um UUID"; exit 1; }
+            node conteudo-ideias.mjs --job "$JOB_ID" --quantas "${QUANTAS//[^0-9]/}"
+          else
+            [[ "$CONTA" =~ $uuid ]] || { echo "conta não é um UUID"; exit 1; }
+            node conteudo-ideias.mjs --conta "$CONTA" --quantas "${QUANTAS//[^0-9]/}"
+          fi

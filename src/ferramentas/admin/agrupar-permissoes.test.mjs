@@ -13,8 +13,8 @@ import {
 // silenciosamente desatualizado.
 
 const RECURSOS = [
-  { key: 'social', label: 'Redes Sociais (Dashboard)', acoes: ['ver', 'exportar'] },
-  { key: 'social.relatorio', label: 'Redes — Relatório', acoes: ['ver', 'exportar'] },
+  { key: 'social', label: 'Redes Sociais — Dashboard', acoes: ['ver', 'exportar'] },
+  { key: 'social.relatorio', label: 'Redes Sociais — Relatório Interativo', acoes: ['ver', 'exportar'] },
   { key: 'sales.gestao', label: 'Gestão à Vista', acoes: ['ver', 'exportar'] },
   { key: 'sales.analise', label: 'Análise de Vendas', acoes: ['ver', 'exportar'] },
   { key: 'sales.metas', label: 'Metas de Vendas', acoes: ['ver', 'editar'] },
@@ -27,10 +27,12 @@ const RECURSOS = [
   { key: 'gestor', label: 'Gestão Comercial (IA)', acoes: ['ver'] },
   { key: 'gestor.relatorios', label: 'Relatórios Comerciais', acoes: ['ver', 'exportar'] },
   { key: 'claude.status', label: 'Painel de Status do Claude', acoes: ['ver'] },
+  { key: 'conteudo', label: 'Redes Sociais — Central de Conteúdo', acoes: ['ver', 'criar', 'editar', 'excluir'] },
+  { key: 'conteudo.aprovar', label: 'Redes Sociais — Aprovar peças', acoes: ['ver'] },
 ]
 
 const TREE = [
-  { key: 'social', label: 'Dashboard Redes Sociais', children: [] },
+  { key: 'social', label: 'Redes Sociais', children: [] },
   { key: 'sales', label: 'Dashboard de Vendas', children: [] },
   { key: 'meta', label: 'Meta Ads', children: [] },
   { key: 'banco', label: 'Banco de Arquivos', children: [] },
@@ -38,6 +40,7 @@ const TREE = [
   { key: 'gestor', label: 'Gestão Comercial (IA)', children: [] },
   { key: 'acessos', label: 'Colaboradores e Acessos', children: [] },
   { key: 'claude.status', label: 'Painel de Status do Claude', children: [] },
+  { key: 'conteudo', label: 'Central de Conteúdo', children: [] },
 ]
 
 test('ferramentaDaChave pega o trecho antes do primeiro ponto', () => {
@@ -48,7 +51,7 @@ test('ferramentaDaChave pega o trecho antes do primeiro ponto', () => {
 
 test('agrupa o catálogo por ferramenta, na ordem do catálogo', () => {
   const g = agruparRecursos(RECURSOS, TREE)
-  assert.deepEqual(g.map((x) => x.key), ['social', 'sales', 'meta', 'banco', 'acessos', 'noticias', 'gestor', 'claude'])
+  assert.deepEqual(g.map((x) => x.key), ['social', 'sales', 'meta', 'banco', 'acessos', 'noticias', 'gestor', 'claude', 'conteudo'])
   assert.deepEqual(g[0].recursos.map((r) => r.key), ['social', 'social.relatorio'])
   assert.deepEqual(g[1].recursos.map((r) => r.key), ['sales.gestao', 'sales.analise', 'sales.metas'])
   assert.deepEqual(g[2].recursos.map((r) => r.key), ['meta.campanha', 'meta.gestor', 'meta.fabrica'])
@@ -65,7 +68,7 @@ test('nenhum recurso do catálogo se perde no agrupamento', () => {
 test('rótulo do grupo vem da árvore; ferramenta desconhecida com 1 recurso usa o rótulo do recurso', () => {
   const g = agruparRecursos(RECURSOS, TREE)
   const porKey = Object.fromEntries(g.map((x) => [x.key, x.label]))
-  assert.equal(porKey.social, 'Dashboard Redes Sociais')
+  assert.equal(porKey.social, 'Redes Sociais')
   assert.equal(porKey.meta, 'Meta Ads')
   assert.equal(porKey.acessos, 'Colaboradores e Acessos')
   // 'claude' não existe na árvore (lá a chave é 'claude.status')
