@@ -32,15 +32,10 @@ export const NOME_DO_OBJETIVO = {
 const lista = (v) => (Array.isArray(v) ? v : []);
 const texto = (v) => (typeof v === 'string' ? v.trim() : '');
 
-// Tira o que poderia quebrar a estrutura do pedido ou parecer instrução nova.
-// O cadastro não é digitação livre do usuário, mas continua sendo dado de fora.
-const limpo = (s) => {
-  let t = texto(s);
-  // Trunca na primeira aspa: se tentarem injetar usando "La Marca", lixo", fica só "La Marca"
-  const quoteIndex = t.search(/["'`]/);
-  if (quoteIndex >= 0) t = t.substring(0, quoteIndex);
-  return t.trim();
-};
+// Tira o que poderia quebrar a estrutura do pedido: newlines criam novas seções,
+// e um campo gigantesco domina a requisição. Preserva aspas e apóstrofos — legítimos
+// em nomes (Casa D'Oro, Loja D'Água, Sant'Ana).
+const limpo = (s) => texto(s).replace(/[\n\r\x00-\x1f]/g, ' ').replace(/\s{2,}/g, ' ').trim().substring(0, 200);
 
 function cidadesDaLoja(loja) {
   return lista(loja && loja.geo_cities)
