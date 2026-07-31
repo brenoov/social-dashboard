@@ -1,0 +1,23 @@
+-- Central de Conteúdo — liberar a leitura de `accounts.conteudo_usa_portal`
+--
+-- O QUE QUEBROU: a migration 12 criou esta coluna e a tela passou a pedi-la no
+-- `select` dos perfis. A Central inteira parou com "Não consegui carregar os
+-- perfis" — nem a lista de marcas abria.
+--
+-- POR QUE: em `accounts` o SELECT é concedido COLUNA A COLUNA, não na tabela.
+-- E no Postgres, coluna nova NÃO herda permissão desse tipo. Ela nasceu
+-- invisível para `authenticated`, e o PostgREST derruba a consulta inteira
+-- quando uma das colunas pedidas não é legível.
+--
+-- ISSO NÃO É DESCUIDO DE QUEM ESCREVEU AS PERMISSÕES — É PROTEÇÃO. O SELECT é
+-- por coluna exatamente para manter `access_token` (o token da Meta) e
+-- `publicacao_automatica` fora do alcance do navegador. A anon key está no
+-- bundle público; um `grant select on public.accounts to authenticated` faria a
+-- correção "funcionar" e entregaria o token de todas as contas para qualquer
+-- pessoa logada.
+--
+-- Por isso aqui vai UMA coluna, nomeada. Se você adicionar outra coluna em
+-- `accounts` que o front precise ler, vai passar por isto de novo — é o
+-- pedágio de manter o token protegido, e vale a pena.
+
+grant select (conteudo_usa_portal) on public.accounts to authenticated;

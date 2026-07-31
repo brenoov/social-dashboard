@@ -43,8 +43,37 @@ export async function structured({ model, system, user, schema, toolName = 'resp
       const tu = (j.content || []).find(c => c.type === 'tool_use');
       if (!tu) { lastErr = 'sem tool_use'; await sleep(1500 * (t + 1)); continue; }
       _track(model, j.usage);
+
+      // RESPOSTA CORTADA NO TETO NÃO É RESPOSTA.
+      //
+      // Quando a saída bate em `max_tokens`, a API devolve 200 e um tool_use com
+      // o JSON pela metade — e nós devolvíamos esse pedaço como se fosse o
+      // resultado. Aconteceu de verdade: o robô de pauta pediu 12 ideias com
+      // roteiro completo, parou exatamente em 8192 tokens de saída, gravou ZERO
+      // ideias e registrou a rodada como concluída. Custou US$0,22 e ninguém
+      // ficou sabendo que tinha falhado.
+      //
+      // Estourar aqui é melhor que devolver dado pela metade — e não adianta
+      // repetir, porque o teto é o mesmo em toda tentativa: o que precisa mudar
+      // é `maxTokens` ou o tamanho do pedido.
+      // NÃO REPETIR: o teto é o mesmo em toda tentativa, então repetir só
+      // multiplicaria a conta (6 tentativas × o preço de uma resposta cheia)
+      // para chegar no mesmo lugar. O que precisa mudar é maxTokens ou o
+      // tamanho do pedido — e isso é decisão de quem chamou.
+      if (j.stop_reason === 'max_tokens') {
+        const fatal = new Error(
+          `resposta cortada no teto de ${maxTokens} tokens de saída — o JSON veio pela metade. `
+          + 'Aumente maxTokens ou peça menos itens de uma vez.',
+        );
+        fatal.naoRepetir = true;
+        throw fatal;
+      }
       return tu.input;
-    } catch (e) { lastErr = String(e).slice(0, 160); await sleep(1500 * (t + 1)); }
+    } catch (e) {
+      if (e?.naoRepetir) throw e;
+      lastErr = String(e).slice(0, 160);
+      await sleep(1500 * (t + 1));
+    }
   }
   throw new Error('LLM falhou após ' + tentativas + ' tentativas: ' + lastErr);
 }

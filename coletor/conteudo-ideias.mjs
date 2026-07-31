@@ -155,15 +155,35 @@ async function main() {
   const briefing = montarContextoDaMarca(dados);
   console.log(`marca: ${dados.conta.name} · ${dados.publicados.length} publicados · ${dados.jaExistem.length} ideias já no banco`);
 
+  // O TETO ACOMPANHA O TAMANHO DO PEDIDO.
+  //
+  // Era fixo em 8192, e isso bastava enquanto a ideia era título + gancho +
+  // falas. Com o roteiro completo cada ideia passou a custar ~850 tokens de
+  // saída (medido: 8 ideias = 6783). Ao pedir 12, a resposta bateu no teto,
+  // veio pela metade, e a rodada gravou ZERO ideias se dizendo concluída.
+  //
+  // 1200 por ideia dá folga sobre os 850 medidos — roteiro longo de reels puxa
+  // mais. Se um dia faltar, `structured()` avisa alto em vez de truncar calado.
+  const tetoDeSaida = Math.min(32000, 1500 + quantas * 1200);
+
   const resposta = await structured({
     model: OPUS,
     system: SISTEMA,
     user: `${briefing}\n\n## Sua tarefa\nSugira ${quantas} ideias de conteúdo para esta marca.`,
     schema: ESQUEMA,
-    maxTokens: 8192,
+    maxTokens: tetoDeSaida,
   });
 
   const brutas = Array.isArray(resposta?.ideias) ? resposta.ideias : [];
+
+  // NENHUMA IDEIA É FALHA, NÃO RESULTADO. Sem isto a rodada se declarava
+  // concluída com zero, a tela parava de girar sem dizer nada e a pessoa ficava
+  // olhando para a mesma lista de antes sem saber por quê.
+  // (Diferente de "todas repetidas", logo abaixo: ali a IA trabalhou e o dedup
+  // é que descartou — isso é resultado legítimo e tem recado próprio.)
+  if (!brutas.length) {
+    throw new Error('a IA não devolveu nenhuma ideia nesta rodada. Tente de novo.');
+  }
 
   // DEDUPLICAÇÃO. Sem isto, "gerar mais ideias" pela terceira vez devolve a
   // mesma pauta com outras palavras, e o banco vira um depósito de repetição.
