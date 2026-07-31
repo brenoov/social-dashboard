@@ -77,8 +77,8 @@ export async function carregarPerfil(session) {
 
 // Catálogo de recursos → ações válidas. Fonte de verdade do editor de permissões (Fase 1).
 export const RECURSOS = [
-  { key: 'social', label: 'Redes Sociais (Dashboard)', acoes: ['ver', 'exportar'] },
-  { key: 'social.relatorio', label: 'Redes — Relatório', acoes: ['ver', 'exportar'] },
+  { key: 'social', label: 'Redes Sociais — Dashboard', acoes: ['ver', 'exportar'] },
+  { key: 'social.relatorio', label: 'Redes Sociais — Relatório Interativo', acoes: ['ver', 'exportar'] },
   { key: 'sales.gestao', label: 'Gestão à Vista', acoes: ['ver', 'exportar'] },
   { key: 'sales.analise', label: 'Análise de Vendas', acoes: ['ver', 'exportar'] },
   { key: 'sales.metas', label: 'Metas de Vendas', acoes: ['ver', 'editar'] },
@@ -91,11 +91,11 @@ export const RECURSOS = [
   { key: 'gestor', label: 'Gestão Comercial (IA)', acoes: ['ver'] },
   { key: 'gestor.relatorios', label: 'Relatórios Comerciais', acoes: ['ver', 'exportar'] },
   { key: 'claude.status', label: 'Painel de Status do Claude', acoes: ['ver'] },
-  { key: 'conteudo', label: 'Central de Conteúdo', acoes: ['ver', 'criar', 'editar', 'excluir'] },
+  { key: 'conteudo', label: 'Redes Sociais — Central de Conteúdo', acoes: ['ver', 'criar', 'editar', 'excluir'] },
   // Chave separada em vez de uma 6ª coluna 'aprovar' na matriz: ACOES_MATRIZ é
   // fixa em 5 colunas, e uma coluna nova abriria célula vazia nas 15 linhas
   // existentes para servir só a esta. Mesmo padrão de social.relatorio.
-  { key: 'conteudo.aprovar', label: 'Conteúdo — Aprovar peças', acoes: ['ver'] },
+  { key: 'conteudo.aprovar', label: 'Redes Sociais — Aprovar peças', acoes: ['ver'] },
 ]
 
 // Ponte: chaves antigas (call sites legados) → recurso novo. Assim nada quebra durante a migração.
@@ -122,7 +122,9 @@ export function contasPermitidas() {
 
 // Árvore de módulos (para o painel de admin gerenciar depois). Porte verbatim (legacy/index.html L4525).
 export const PERMISSION_TREE = [
-  { key: 'social', label: 'Dashboard Redes Sociais', children: [] },
+  { key: 'social', label: 'Redes Sociais', children: [
+    { key: 'social.relatorio', label: 'Relatório Interativo' },
+  ] },
   { key: 'sales', label: 'Dashboard de Vendas', children: [
     { key: 'sales.gestao', label: 'Gestão à Vista' },
     { key: 'sales.analise', label: 'Análise de Vendas' },

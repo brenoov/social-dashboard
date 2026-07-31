@@ -118,7 +118,7 @@
             @abrir="abrir"
             @mover="mover"
           />
-          <PreviaDoFeed v-show="aba === 'previa'" :pecas="pecas" :miniaturas="miniaturas" @abrir="abrir" />
+          <PreviaDoFeed v-show="aba === 'previa'" :pecas="pecas" :miniaturas="miniaturas" :conta="contaAtual" @abrir="abrir" />
           <VisaoLista v-show="aba === 'lista'" :pecas="pecas" @abrir="abrir" />
         </template>
       </template>
@@ -181,6 +181,10 @@ const permissaoPelaMetade = dados.permissaoIncompleta()
 // As próximas a sair, no máximo 4. Quatro cabe numa linha em tela de trabalho e
 // responde "o que vem por aí" sem virar uma segunda lista concorrendo com o
 // calendário.
+// A conta selecionada por inteiro (nome, @, foto) — a prévia do feed usa para
+// montar a moldura de perfil.
+const contaAtual = computed(() => contas.value.find(c => c.id === contaSel.value) || null)
+
 const proximas = computed(() => {
   const agora = Date.now()
   return pecas.value

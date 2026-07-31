@@ -17,7 +17,7 @@
     <div class="smenu-body">
       <div class="smenu-headline">
         <h2>Escolha a ferramenta</h2>
-        <p>Painel ao vivo ou relatório detalhado das redes sociais</p>
+        <p>Medir o que já aconteceu, ou planejar o que vem</p>
       </div>
       <div class="smenu-cards">
         <div class="smenu-card" @click="ir('redes-sociais')">
@@ -38,6 +38,18 @@
           <div class="smenu-card-desc">Planilha do histórico coletado, dia a dia, por perfil — para curadoria e conferência. Ordena, filtra e exporta.</div>
           <span class="smenu-card-enter">→</span>
         </div>
+        <!-- Central de Conteúdo mora aqui, e não num card solto na Central: as
+             duas primeiras MEDEM o que já aconteceu, esta PLANEJA o que vem.
+             É a mesma área de trabalho. -->
+        <div class="smenu-card" v-if="podeConteudo" @click="ir('conteudo')">
+          <span class="smenu-card-num">03</span>
+          <div class="smenu-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="16" r="2"/></svg>
+          </div>
+          <div class="smenu-card-title">Central de Conteúdo</div>
+          <div class="smenu-card-desc">Planeje o que vai ser publicado: calendário, aprovação, agendamento e a prévia de como o perfil vai ficar.</div>
+          <span class="smenu-card-enter">→</span>
+        </div>
       </div>
     </div>
   </div>
@@ -54,12 +66,17 @@ const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
 const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 
 const ehAdmin = computed(() => estado.role === 'admin')
+const podeConteudo = computed(() => hasPermission('conteudo', 'ver'))
 
 function voltar() { router.push({ name: 'inicio' }) }
 function ir(nome) { router.push({ name: nome }) }
 
 onMounted(() => {
-  if (!hasPermission('tool:social')) {
+  // A Central de Conteúdo passou a morar aqui dentro, então quem tem SÓ ela
+  // também precisa entrar. Com a guarda antiga (só `tool:social`) essa pessoa
+  // era expulsa para o Início antes de ver o card — sem acesso a uma ferramenta
+  // que ela tem permissão de usar.
+  if (!hasPermission('tool:social') && !hasPermission('conteudo', 'ver')) {
     adminToast('Sem acesso', false)
     router.push({ name: 'inicio' })
   }

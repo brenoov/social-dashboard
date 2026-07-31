@@ -23,7 +23,21 @@
       <p>Assim que houver peça com arte, a grade aparece aqui do jeito que vai ficar no perfil.</p>
     </div>
 
-    <div v-else class="ctd-previa-grade">
+    <!-- A moldura de perfil não é enfeite: sem ela a grade lê como banco de
+         imagens solto. Com o @ e a contagem em cima, o olho reconhece na hora
+         que aquilo é o Instagram da marca — que é a pergunta que a aba responde. -->
+    <div v-else class="ctd-perfil">
+      <header class="ctd-perfil-cab">
+        <span class="ctd-perfil-foto">
+          <img v-if="conta?.picture_url" :src="conta.picture_url" :alt="conta.name">
+        </span>
+        <span class="ctd-perfil-id">
+          <b>{{ conta?.username ? '@' + String(conta.username).replace(/^@/, '') : (conta?.name || 'perfil') }}</b>
+          <span>{{ celulas.length }} {{ celulas.length === 1 ? 'publicação na grade' : 'publicações na grade' }}</span>
+        </span>
+      </header>
+
+      <div class="ctd-previa-grade">
       <button
         v-for="c in celulas"
         :key="c.peca.id"
@@ -42,6 +56,7 @@
 
         <span v-if="c.peca.formato !== 'feed'" class="ctd-celula-marca"><IconeFormato :formato="c.peca.formato" :tamanho="15" /></span>
       </button>
+      </div>
     </div>
   </section>
 </template>
@@ -54,6 +69,7 @@ import { dataHoraBRT } from './grade-do-calendario.js'
 const props = defineProps({
   pecas: { type: Array, default: () => [] },
   miniaturas: { type: Object, default: () => ({}) },
+  conta: { type: Object, default: null },
 })
 
 defineEmits(['abrir'])
