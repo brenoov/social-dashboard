@@ -15,7 +15,15 @@
 //   node conteudo-ideias.mjs --job <uuid>
 //   node conteudo-ideias.mjs --conta <uuid> --quantas 12
 //   node conteudo-ideias.mjs --conta <uuid> --seco     (não grava nada)
-import 'dotenv/config';
+// SEM `import 'dotenv/config'`. Parece inofensivo e derrubou as duas primeiras
+// rodadas de verdade: no GitHub Actions o pacote não existe (não é dependência
+// do coletor, e o workflow instala com --omit=dev), então o script morria com
+// ERR_MODULE_NOT_FOUND antes da primeira linha.
+//
+// Nenhum outro robô daqui usa dotenv — budget-ia, gestor-comercial e companhia
+// leem `process.env` direto, porque no Actions as variáveis vêm do `env:` do
+// workflow. Para rodar na sua máquina, use:
+//   node --env-file=.env conteudo-ideias.mjs --conta <uuid>
 import { OPUS, structured, usageSummary } from './lib-llm.mjs';
 import { registrarExecucao } from './registrar-execucao.mjs';
 import { PILARES, montarContextoDaMarca, ehRepetida } from './conteudo-contexto.mjs';

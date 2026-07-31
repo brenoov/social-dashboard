@@ -40,9 +40,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Instalar dependências
-        working-directory: coletor
-        run: npm ci --omit=dev || npm install --omit=dev
+      # Sem instalação de dependências: este robô só usa `fetch` nativo, igual ao
+      # budget-ia e ao gestor-comercial. O `npm ci` que existia aqui não trazia
+      # nada de útil e só dava a impressão de que trazia — foi ele que escondeu a
+      # falta do dotenv até a primeira rodada real.
       - name: Gerar ideias
         working-directory: coletor
         env:
@@ -69,3 +70,26 @@ jobs:
             [[ "$CONTA" =~ $uuid ]] || { echo "conta não é um UUID"; exit 1; }
             node conteudo-ideias.mjs --conta "$CONTA" --quantas "${QUANTAS//[^0-9]/}"
           fi
+
+      # REDE DE SEGURANÇA. O script marca o job como 'erro' quando ELE falha —
+      # mas não quando a falha acontece ANTES dele existir: dependência faltando,
+      # checkout quebrado, secret ausente. Nesses casos o job ficava
+      # 'enfileirado' para sempre e a tela girava a ampulheta sem fim.
+      #
+      # Aconteceu de verdade na primeira rodada: `import 'dotenv/config'` matou o
+      # processo antes da primeira linha, e os dois pedidos ficaram pendurados.
+      - name: Marcar o pedido como falho se algo quebrou antes do robô
+        if: failure() && inputs.job_id != ''
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          JOB_ID: ${{ inputs.job_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          curl -sS -X PATCH \
+            "https://kounqtdoioootxqegkij.supabase.co/rest/v1/conteudo_jobs?id=eq.${JOB_ID}" \
+            -H "apikey: ${SUPABASE_SERVICE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=minimal" \
+            -d "{\"status\":\"erro\",\"erro\":\"A rodada falhou antes do robô começar. Detalhes em ${RUN_URL}\"}"
