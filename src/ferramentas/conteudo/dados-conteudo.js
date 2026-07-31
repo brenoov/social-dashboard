@@ -22,6 +22,21 @@ function _uid() {
   return estado.currentSession?.user?.id || null
 }
 
+// Duas consultas montam filtro do PostgREST por texto (`.or('account_id.eq.X,...')`),
+// que é o único jeito de dizer "desta marca OU de todas". Texto colado em filtro
+// pede confirmação de formato: um valor com vírgula ou parêntese mudaria a
+// lógica do filtro, não só o valor.
+//
+// Hoje isso não daria acesso a nada — o RLS destas tabelas não separa por marca
+// (nenhuma tabela do projeto separa; a restrição por `allowed_accounts` é só de
+// front em todo o sistema). É defesa para o dia em que separar.
+function _idDeConta(id) {
+  if (!/^[0-9a-fA-F-]{36}$/.test(String(id || ''))) {
+    throw new Error('Perfil inválido.')
+  }
+  return id
+}
+
 // O front tem DOIS campos de permissão que precisam concordar: `permissions`
 // (que hasPermission lê) e `features` (que o RLS lê). Quando eles divergem, o
 // banco devolve lista vazia e a tela diz "nenhuma peça ainda" — que é a mentira
@@ -213,7 +228,7 @@ export async function listarIdeias(accountId) {
   const { data, error } = await sbClient
     .from('conteudo_ideias')
     .select('id,account_id,titulo,gancho,formato,pilar,roteiro,legenda_sugerida,hashtags_sugeridas,por_que_agora,origem,situacao,peca_id,created_at')
-    .or(`account_id.eq.${accountId},account_id.is.null`)
+    .or(`account_id.eq.${_idDeConta(accountId)},account_id.is.null`)
     .neq('situacao', 'descartada')
     .order('created_at', { ascending: false })
   if (error) throw new Error(`Não consegui carregar as ideias: ${error.message}`)
@@ -271,7 +286,7 @@ export async function listarBlocos(accountId) {
   const { data, error } = await sbClient
     .from('conteudo_blocos')
     .select('id,account_id,tipo,nome,texto,usos,ativo')
-    .or(`account_id.eq.${accountId},account_id.is.null`)
+    .or(`account_id.eq.${_idDeConta(accountId)},account_id.is.null`)
     .eq('ativo', true)
     .order('tipo')
   if (error) return []
