@@ -7,7 +7,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "node --test 'src/**/*.test.mjs' 'coletor/**/*.test.mjs' 'supabase/functions/**/*.test.mjs'",
-    "test:ci": "node --test 'src/**/*.test.mjs' 'supabase/functions/**/*.test.mjs'"
+    "test:ci": "node --test 'src/**/*.test.mjs' 'coletor/lib/**/*.test.mjs' 'supabase/functions/**/*.test.mjs'"
   },
   "dependencies": {
     "vue": "^3.4.0",
