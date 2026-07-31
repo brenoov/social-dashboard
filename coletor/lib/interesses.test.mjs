@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { montarPedido, OBJETIVOS, NOME_DO_OBJETIVO } from './interesses.mjs';
+import { montarPedido, OBJETIVOS, NOME_DO_OBJETIVO, nomesPropostos, filtrarValidos } from './interesses.mjs';
 import { ALVOS } from '../../src/ferramentas/gestao-trafego/alvos.js';
 
 const MARCA = { id: 'm1', nome: 'La Vessel' };
@@ -213,4 +213,72 @@ test('lojas como string ou numero NAO quebra', () => {
   });
   assert.ok(p2, 'pedido gerado mesmo com lojas numero');
   assert.ok(!/undefined|null|\[object/.test(p2.user), 'lixo não vazou: ' + p2.user);
+});
+
+const META_OK = {
+  data: [
+    { name: 'Bolsas', valid: true, id: '6003', audience_size: 2300000 },
+    { name: 'Moda feminina', valid: true, id: '6004', audience_size: 8100000 },
+    { name: 'Interesse Inventado', valid: false },
+  ],
+};
+
+test('so o que a Meta reconheceu passa; o inventado e DESCARTADO', () => {
+  const r = filtrarValidos(['Bolsas', 'Moda feminina', 'Interesse Inventado'], META_OK);
+  assert.deepEqual(r.itens.map((i) => i.nome), ['Bolsas', 'Moda feminina']);
+  assert.equal(r.propostos, 3);
+  assert.equal(r.validos, 2);
+});
+
+test('id e tamanho de publico da Meta sao preservados', () => {
+  const r = filtrarValidos(['Bolsas'], META_OK);
+  assert.equal(r.itens[0].id, '6003');
+  assert.equal(r.itens[0].audience_size, 2300000);
+});
+
+test('valido SEM id e descartado — sugestao sem id nao da pra usar', () => {
+  const r = filtrarValidos(['X'], { data: [{ name: 'X', valid: true }] });
+  assert.deepEqual(r.itens, []);
+  assert.equal(r.validos, 0);
+});
+
+test('repetido entra uma vez so', () => {
+  const r = filtrarValidos(['Bolsas', 'Bolsas'], {
+    data: [{ name: 'Bolsas', valid: true, id: '6003', audience_size: 10 },
+           { name: 'Bolsas', valid: true, id: '6003', audience_size: 10 }],
+  });
+  assert.equal(r.itens.length, 1);
+});
+
+test('item nulo na resposta da Meta e pulado, e o bom do lado SOBREVIVE', () => {
+  const r = filtrarValidos(['Bolsas'], {
+    data: [null, { name: 'Bolsas', valid: true, id: '6003', audience_size: 5 }, {}, 'lixo'],
+  });
+  assert.equal(r.itens.length, 1);
+  assert.equal(r.itens[0].nome, 'Bolsas');
+});
+
+test('resposta ausente, vazia ou malformada devolve zero, sem quebrar', () => {
+  for (const resp of [null, undefined, {}, { data: null }, { data: 'lixo' }, []]) {
+    const r = filtrarValidos(['Bolsas'], resp);
+    assert.deepEqual(r.itens, []);
+    assert.equal(r.validos, 0);
+  }
+});
+
+test('audience_size ausente vira null, nao NaN nem zero', () => {
+  const r = filtrarValidos(['X'], { data: [{ name: 'X', valid: true, id: '1' }] });
+  assert.equal(r.itens[0].audience_size, null,
+    'zero seria mentira: publico de tamanho zero e diferente de tamanho desconhecido');
+});
+
+test('nomesPropostos limpa a resposta da IA e ignora lixo', () => {
+  assert.deepEqual(nomesPropostos({ interesses: ['Bolsas', '  Moda  ', '', null, 42] }),
+    ['Bolsas', 'Moda']);
+  for (const r of [null, undefined, {}, { interesses: null }, { interesses: 'x' }])
+    assert.deepEqual(nomesPropostos(r), []);
+});
+
+test('nomesPropostos tira repetido preservando a ordem', () => {
+  assert.deepEqual(nomesPropostos({ interesses: ['A', 'B', 'A'] }), ['A', 'B']);
 });

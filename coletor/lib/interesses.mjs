@@ -87,3 +87,49 @@ export function montarPedido({ marca, lojas, objetivo } = {}) {
 
   return { system, user };
 }
+
+// O que a IA devolveu, limpo. A resposta vem de `structured()`, que já garante
+// a forma — mas garantir forma não garante conteúdo, então nome vazio, nome que
+// não é texto e repetido saem aqui.
+export function nomesPropostos(resposta) {
+  const brutos = lista(resposta && resposta.interesses);
+  const vistos = new Set();
+  const saida = [];
+  for (const b of brutos) {
+    const nome = limpo(b);
+    if (!nome || vistos.has(nome.toLowerCase())) continue;
+    vistos.add(nome.toLowerCase());
+    saida.push(nome);
+  }
+  return saida;
+}
+
+// A META DECIDE, NÃO A IA. O que a Meta não reconheceu é descartado aqui e
+// nunca chega na tabela — sem isso a tela mostraria sugestões bonitas que
+// dariam erro na hora de usar, que é pior do que não sugerir nada.
+//
+// Devolve também quantos foram propostos x quantos sobraram: se a taxa de
+// aproveitamento vier baixa, o número aparece no log e o pedido é ajustado.
+export function filtrarValidos(propostos, respostaMeta) {
+  const linhas = lista(respostaMeta && respostaMeta.data);
+  const vistos = new Set();
+  const itens = [];
+  for (const l of linhas) {
+    if (!l || typeof l !== 'object') continue;   // item nulo ou lixo: pulado
+    if (l.valid !== true) continue;              // a Meta não reconheceu
+    if (l.id == null) continue;                  // sem id não dá pra usar
+    const id = String(l.id);
+    if (vistos.has(id)) continue;
+    const nome = limpo(l.name);
+    if (!nome) continue;
+    vistos.add(id);
+    itens.push({
+      id,
+      nome,
+      // Ausente vira null, nunca 0: público de tamanho zero é uma informação
+      // diferente de tamanho desconhecido.
+      audience_size: l.audience_size == null ? null : Number(l.audience_size),
+    });
+  }
+  return { itens, propostos: lista(propostos).length, validos: itens.length };
+}
