@@ -31,17 +31,40 @@ ou de gasto baixo antes de conduzir.
 ## 2. Trabalho EM ANDAMENTO
 
 **Branch:** `fix/interesses-buscar` (publicada, sobre `main`)
-**Último commit:** `fed5ce8`
-**Havia mudança não commitada** quando a sessão acabou: um subagente estava
-aplicando a leitura de `fabrica_marcas.segmento` no pedido da IA. **Confira
-`git status` antes de qualquer coisa** — pode estar pela metade.
+**Último commit:** `fbe9355` · **árvore limpa, nada pendente**
+**Estado:** 922/922 no CI, build ✓, migration aplicada e commitada.
 
-O arquivo `db/migrations/2026-07-31-marca-segmento.sql` existe sem versionar
-(a migration já foi aplicada no banco; falta commitar o arquivo).
+### O que já está escrito e NÃO medido
+`montarPedido` agora recebe `fabrica_marcas.segmento` logo após o nome da marca:
 
-### O que essa mudança faz
-Passar `fabrica_marcas.segmento` para `montarPedido`, logo após o nome da marca.
-Sem segmento → cai no comportamento de hoje (só o nome), sem quebrar.
+```
+Marca: La Vessel
+O que ela vende: bolsas femininas (transversal, de ombro, tote, de mão,
+clutch de festa e mochila), cintos, carteiras, porta-cartões, óculos de sol
+e acessórios
+Lojas:
+- Tivoli (atende Campinas (São Paulo))
+Objetivo da campanha: Vendas (medido por: ...)
+Quem procurar neste objetivo: ...
+```
+
+Sem `segmento`, a linha inteira some e o resto sai igual ao de hoje (vale para
+nulo, vazio, só espaços e tipo errado).
+
+### ⚠️ FALTA MEDIR — é o próximo passo
+Rodar em modo seco (§ receita abaixo) e olhar os **termos** que a IA gera:
+
+- **Se citarem `cinto`, `carteira`, `óculos de sol`** → o campo fez o serviço.
+- **Se os seis objetivos ainda convergirem** mesmo com termos certos, o suspeito
+  vira o `FOCO_DO_OBJETIVO` — **a única variável nunca isolada desta série**
+  (entrou junto com a instrução de especificidade que zerou tudo, em `cef4b36`,
+  então os dados nunca o inocentaram; só o argumento). A linha de termos no log
+  já permite julgar isso por observação.
+
+### Armadilha anotada no código
+Esquecer `segmento` no `select` do robô **não daria erro**: chegaria vazio, a
+linha sumiria, e a IA voltaria a adivinhar pelo nome — o próprio defeito
+voltando em silêncio.
 
 ### Como medir (o ciclo que vinha funcionando)
 ```
