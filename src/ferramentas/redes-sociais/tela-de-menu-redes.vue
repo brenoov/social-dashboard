@@ -1,7 +1,9 @@
 <template>
-  <!-- Submenu da área de Redes Sociais (padrão de tela-de-menu-vendas.vue). Só chega aqui
-       quem é admin (a Central manda os demais direto pra dashboard). Card do Relatório só
-       aparece pra admin. Visibilidade controlada pelo vue-router. -->
+  <!-- Submenu da área de Redes Sociais (padrão de tela-de-menu-vendas.vue).
+       Chega aqui quem tem MAIS DE UMA ferramenta da área; quem tem só uma vai
+       direto nela (ver irRedes() em tela-de-inicio.vue). Antes o desvio era por
+       ser admin, o que passou a esconder a Central de Conteúdo de quem tinha
+       permissão só dela. Card do Relatório continua só para admin. -->
   <div class="tela-menu-redes">
     <div class="smenu-topbar">
       <button class="smenu-back" @click="voltar">
@@ -17,10 +19,14 @@
     <div class="smenu-body">
       <div class="smenu-headline">
         <h2>Escolha a ferramenta</h2>
-        <p>Painel ao vivo ou relatório detalhado das redes sociais</p>
+        <p>Medir o que já aconteceu, ou planejar o que vem</p>
       </div>
       <div class="smenu-cards">
-        <div class="smenu-card" @click="ir('redes-sociais')">
+        <!-- O card do Dashboard não tinha v-if: quando a área só tinha ele, era
+             inofensivo — todo mundo que chegava aqui tinha `social`. Com a
+             Central de Conteúdo aqui dentro, quem tem só ela passaria a ver um
+             card para uma ferramenta que não pode abrir. -->
+        <div class="smenu-card" v-if="podeDashboard" @click="ir('redes-sociais')">
           <span class="smenu-card-num">01</span>
           <div class="smenu-card-icon">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
@@ -36,6 +42,18 @@
           </div>
           <div class="smenu-card-title">Relatório Interativo</div>
           <div class="smenu-card-desc">Planilha do histórico coletado, dia a dia, por perfil — para curadoria e conferência. Ordena, filtra e exporta.</div>
+          <span class="smenu-card-enter">→</span>
+        </div>
+        <!-- Central de Conteúdo mora aqui, e não num card solto na Central: as
+             duas primeiras MEDEM o que já aconteceu, esta PLANEJA o que vem.
+             É a mesma área de trabalho. -->
+        <div class="smenu-card" v-if="podeConteudo" @click="ir('conteudo')">
+          <span class="smenu-card-num">03</span>
+          <div class="smenu-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="16" r="2"/></svg>
+          </div>
+          <div class="smenu-card-title">Central de Conteúdo</div>
+          <div class="smenu-card-desc">Planeje o que vai ser publicado: calendário, aprovação, agendamento e a prévia de como o perfil vai ficar.</div>
           <span class="smenu-card-enter">→</span>
         </div>
       </div>
@@ -54,12 +72,18 @@ const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
 const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 
 const ehAdmin = computed(() => estado.role === 'admin')
+const podeConteudo = computed(() => hasPermission('conteudo', 'ver'))
+const podeDashboard = computed(() => hasPermission('social', 'ver'))
 
 function voltar() { router.push({ name: 'inicio' }) }
 function ir(nome) { router.push({ name: nome }) }
 
 onMounted(() => {
-  if (!hasPermission('tool:social')) {
+  // A Central de Conteúdo passou a morar aqui dentro, então quem tem SÓ ela
+  // também precisa entrar. Com a guarda antiga (só `tool:social`) essa pessoa
+  // era expulsa para o Início antes de ver o card — sem acesso a uma ferramenta
+  // que ela tem permissão de usar.
+  if (!hasPermission('tool:social') && !hasPermission('conteudo', 'ver')) {
     adminToast('Sem acesso', false)
     router.push({ name: 'inicio' })
   }

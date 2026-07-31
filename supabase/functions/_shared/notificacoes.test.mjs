@@ -9,16 +9,50 @@ const subs = [
 ];
 
 test('os tipos que existem hoje', () => {
-  assert.deepEqual(TIPOS_DE_NOTIFICACAO.map((t) => t.chave), ['vendas', 'saldo']);
+  assert.deepEqual(TIPOS_DE_NOTIFICACAO.map((t) => t.chave), ['vendas', 'saldo', 'conteudo']);
   assert.equal(ehTipoValido('vendas'), true);
   assert.equal(ehTipoValido('inventado'), false);
 });
 
-test('vendas vem ligado por padrao; saldo NAO', () => {
+test('so vendas vem ligado por padrao; saldo e conteudo NAO', () => {
   // So quem cuida de trafego precisa do saldo. Ligar pra todo mundo repetiria o
   // problema que essa preferencia existe pra resolver.
   assert.equal(padraoDoTipo('vendas'), true);
   assert.equal(padraoDoTipo('saldo'), false);
+  // 'conteudo' nasce DESMARCADO (decisao do dono): so recebe quem ligar em
+  // Administracao > Usuarios. E o que permite o robo da hora H ficar ativo sem
+  // tocar o celular de quem nao pediu.
+  assert.equal(padraoDoTipo('conteudo'), false);
+});
+
+test('sem ninguem ter ligado, o aviso de conteudo nao vai pra ninguem', () => {
+  // A garantia de que ativar o cron nao incomoda ninguem de saida.
+  const subs = [{ user_id: 'u1', endpoint: 'e1' }, { user_id: 'u2', endpoint: 'e2' }];
+  assert.deepEqual(inscricoesDoTipo(subs, [], 'conteudo'), []);
+});
+
+test('quem liga passa a receber', () => {
+  const subs = [{ user_id: 'u1', endpoint: 'e1' }];
+  const prefs = [{ user_id: 'u1', tipo: 'conteudo', ativo: true }];
+  assert.equal(inscricoesDoTipo(subs, prefs, 'conteudo').length, 1);
+});
+
+test('todo tipo tem chave, rotulo e descricao (a tela de preferencias le esta lista)', () => {
+  for (const t of TIPOS_DE_NOTIFICACAO) {
+    assert.ok(t.chave, 'faltou chave');
+    assert.ok(t.rotulo, `faltou rotulo em ${t.chave}`);
+    assert.ok(t.descricao && t.descricao.length > 15, `descricao fraca em ${t.chave}`);
+    assert.equal(typeof t.padrao, 'boolean');
+  }
+});
+
+test('a lista de tipos bate com o CHECK de push_preferencias.tipo', () => {
+  // Se um tipo novo entrar aqui sem a migration que solta o CHECK, salvar a
+  // preferencia falha com erro de constraint. Ja aconteceu com 'conteudo'.
+  assert.deepEqual(
+    TIPOS_DE_NOTIFICACAO.map((t) => t.chave).sort(),
+    ['conteudo', 'saldo', 'vendas'],
+  );
 });
 
 test('sem preferencia salva vale o padrao do tipo', () => {

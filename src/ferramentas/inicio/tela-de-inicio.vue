@@ -66,8 +66,8 @@
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
           </div>
           <div class="home-card-text">
-            <h3>Dashboard<br>Redes Sociais</h3>
-            <p>Métricas e KPIs do Instagram para todas as marcas</p>
+            <h3>Redes<br>Sociais</h3>
+            <p>Métricas do Instagram, relatório e a Central de Conteúdo</p>
           </div>
           <span class="home-card-enter">→</span>
         </div>
@@ -177,7 +177,9 @@ const router = useRouter()
 // Card de Administração só aparece pra quem é admin (a rota /admin já existe).
 const ehAdmin = computed(() => estado.is_superadmin)
 // Cada card só aparece pra quem tem 'ver' no recurso (o de Admin é gateado por super-admin acima).
-const podeRedes = computed(() => hasPermission('social', 'ver') || hasPermission('social.relatorio', 'ver'))
+// A Central de Conteúdo mora dentro de Redes Sociais, então quem só tem ela
+// precisa ver o card de Redes para chegar lá.
+const podeRedes = computed(() => hasPermission('social', 'ver') || hasPermission('social.relatorio', 'ver') || hasPermission('conteudo', 'ver'))
 const podeVendas = computed(() => hasPermission('sales.gestao', 'ver') || hasPermission('sales.analise', 'ver'))
 const podeMeta = computed(() => hasPermission('meta.campanha', 'ver') || hasPermission('meta.gestor', 'ver'))
 const podeBanco = computed(() => hasPermission('banco', 'ver'))
@@ -218,10 +220,32 @@ function ir(nome) {
   router.push({ name: nome })
 }
 
-// Redes Sociais: admin vê o submenu (Dashboard + Relatório); os demais vão direto
-// pra dashboard (só têm 1 opção, então o submenu seria inútil pra eles).
+// Redes Sociais: quem tem MAIS DE UMA ferramenta na área vê o submenu; quem tem
+// só uma vai direto nela, porque um submenu de um item só é um clique a troco de
+// nada.
+//
+// Antes isto era `ehAdmin ? submenu : dashboard`, o que fazia sentido quando a
+// área tinha só Dashboard + Relatório (e o Relatório era de admin). Com a Central
+// de Conteúdo aqui dentro, essa regra passou a esconder a ferramenta: quem tinha
+// a Central mas não era admin ia parar no Dashboard e não tinha como chegar nela.
+// ATENÇÃO: esta contagem tem que espelhar EXATAMENTE os cards que o submenu
+// mostra (tela-de-menu-redes.vue). Se divergir, alguém é mandado direto para uma
+// ferramenta enquanto teria outras — ou vê um submenu de um item só.
+//
+// Cuidado com `ehAdmin`: aqui ele é `is_superadmin`, e no submenu é
+// `role === 'admin'`. Mesmo nome, definições diferentes. Usar o daqui faria um
+// admin não-superadmin (existem 5 hoje) perder o Relatório, porque o submenu
+// mostraria o card e este desvio o mandaria direto ao Dashboard.
 function irRedes() {
-  router.push({ name: ehAdmin.value ? 'redes' : 'redes-sociais' })
+  const ehAdminDoSubmenu = estado.role === 'admin' || estado.is_superadmin
+
+  const destinos = [
+    hasPermission('social', 'ver') ? 'redes-sociais' : null,
+    ehAdminDoSubmenu ? 'redes-relatorio' : null,
+    hasPermission('conteudo', 'ver') ? 'conteudo' : null,
+  ].filter(Boolean)
+
+  router.push({ name: destinos.length > 1 ? 'redes' : (destinos[0] || 'inicio') })
 }
 
 // Escritório 3D dos Agentes: página estática (three.js) servida em public/escritorio-3d/.

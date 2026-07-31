@@ -25,6 +25,10 @@ const rotas = [
   { path: '/redes-relatorio', name: 'redes-relatorio', component: () => import('./ferramentas/redes-sociais/tela-de-relatorio-redes.vue') },
   { path: '/admin', name: 'admin', component: () => import('./ferramentas/admin/tela-de-admin.vue') },
   { path: '/claude-status', name: 'claude-status', component: () => import('./ferramentas/claude-status/tela-de-status-claude.vue'), meta: { recurso: 'claude.status' } },
+  { path: '/conteudo', name: 'conteudo', component: () => import('./ferramentas/conteudo/tela-de-conteudo.vue'), meta: { recurso: 'conteudo' } },
+  // Tela de uma peça só. É o destino do push da hora H, então precisa abrir
+  // direto pelo link da notificação, sem passar pela lista.
+  { path: '/conteudo/peca/:id', name: 'conteudo-peca', component: () => import('./ferramentas/conteudo/tela-de-peca.vue'), meta: { recurso: 'conteudo' }, props: true },
   // Catch-all — precisa ser a ÚLTIMA rota. Sem ela, uma URL/bookmark que não
   // existe mais dá tela branca (o vercel.json reescreve tudo pra index.html,
   // mas o vue-router não acha rota nenhuma pra montar).

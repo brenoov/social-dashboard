@@ -522,27 +522,61 @@ async function avisarSuperAdmin(sb: any, degraded: string[]) {
   }
 }
 
-async function rodarColeta() {
+// `apenasConta` = processa UMA conta só. É o modo normal desde 2026-07-31.
+//
+// POR QUE MUDOU: varrer as 7 contas numa chamada só estourava o teto de 150s da
+// plataforma. Não era teoria — a instrumentação de robos_execucoes pegou duas
+// falhas no mesmo dia: 546 WORKER_RESOURCE_LIMIT às 12h e
+// 504 IDLE_TIMEOUT ("Request idle timeout limit (150s) reached") às 18h.
+// O `timeout_milliseconds := 180000` do cron nunca teve efeito: 180s é MAIOR que
+// o limite real da Supabase, então quem cortava era sempre a plataforma.
+//
+// Aumentar timeout não resolveria: o teto não é nosso. A saída é a chamada fazer
+// menos — uma conta por vez, sete execuções curtas em vez de uma longa. É o mesmo
+// desenho que a Fábrica de Anúncios já usa.
+//
+// Sem `apenasConta` o comportamento antigo continua (todas as contas), para
+// chamada manual e para não quebrar quem chamar sem o parâmetro.
+async function rodarColeta(apenasConta?: string | null) {
   const sb = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
   // ad_account_id vem daqui — antes o coletor nem selecionava a coluna e usava um
   // mapa fixo no código, que estava errado para a Mantova Móveis.
-  const { data: accounts, error } = await sb.from('accounts').select('id,name,instagram_id,access_token,ad_account_id,picture_url');
+  let q = sb.from('accounts').select('id,name,instagram_id,access_token,ad_account_id,picture_url');
+  if (apenasConta) q = q.eq('id', apenasConta);
+  const { data: accounts, error } = await q;
   if (error) throw error;
-  console.log(`Iniciando coleta — ${new Date().toISOString()} — ${accounts.length} contas`);
+  if (!accounts?.length) {
+    return { contas: 0, degradados: [], aviso: apenasConta ? `conta ${apenasConta} não encontrada` : 'nenhuma conta' };
+  }
+
+  const comeco = Date.now();
+  console.log(`Coleta — ${accounts.length} conta(s)${apenasConta ? ' (uma só)' : ' (todas)'}`);
   const degraded: string[] = [];
   for (const acc of accounts) {
     try { await processarConta(sb, acc, degraded); } catch (e) { console.error(`Erro ${acc.name}:`, e); }
   }
   await avisarSuperAdmin(sb, degraded);
-  return { contas: accounts.length, degradados: degraded };
+
+  // O tempo volta na resposta e fica gravado em robos_execucoes. É o que permite
+  // ver a margem para o teto de 150s sem precisar caçar log — e perceber cedo se
+  // uma conta voltar a crescer até encostar nele.
+  return {
+    contas: accounts.length,
+    conta: accounts.length === 1 ? accounts[0].name : null,
+    segundos: Math.round((Date.now() - comeco) / 1000),
+    degradados: degraded,
+  };
 }
 
-// SINCRONO: aguarda a coleta inteira (~120s) e responde no fim. O invocador precisa segurar a
-// conexão — o cron usa net.http_post com timeout_milliseconds:=180000 (background não é confiável
-// aqui: EdgeRuntime.waitUntil foi morto pela reciclação da instância).
+// SÍNCRONO: aguarda a coleta e responde no fim. O invocador segura a conexão
+// (background não é confiável aqui: EdgeRuntime.waitUntil foi morto pela
+// reciclação da instância).
+//
+// O TETO É 150s E É DA PLATAFORMA, não do nosso timeout. Por isso o cron manda
+// uma conta por chamada — ver o comentário de rodarColeta().
 Deno.serve(async (req: Request) => {
   // Só o pg_cron entra. Antes: verify_jwt=true, o que NÃO protegia — a anon key é
   // um JWT válido do projeto e está no bundle público do site. Tanto que o próprio
@@ -553,7 +587,9 @@ Deno.serve(async (req: Request) => {
   if (negado) return negado;
 
   try {
-    const r = await rodarColeta();
+    // O corpo pode não vir, ou vir sem account_id (chamada manual, modo antigo).
+    const corpo = await req.json().catch(() => ({}));
+    const r = await rodarColeta(corpo?.account_id ?? null);
     return new Response(JSON.stringify({ ok: true, ts: new Date().toISOString(), ...r }), { headers: { 'Content-Type': 'application/json' } });
   } catch (e) {
     console.error(e);
