@@ -162,6 +162,58 @@
   display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 
+/* ── Vida ─────────────────────────────────────────────────────────────────── */
+
+/* O PULSO. Só em duas situações, e as duas pedem ação agora: peça que sai em
+   menos de 2h, e post esperando confirmação. Animação que fica sempre ligada
+   vira papel de parede e para de significar coisa alguma. */
+@keyframes ctdPulso {
+  0%   { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+  70%  { box-shadow: 0 0 0 6px transparent; opacity: .85; }
+  100% { box-shadow: 0 0 0 0 transparent; opacity: 1; }
+}
+.ctd-pulso {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  background: currentColor; display: inline-block; margin-right: 5px;
+  animation: ctdPulso 2s ease-out infinite;
+}
+
+/* O CONVITE de tela vazia: a faixa que chama para a primeira peça, com as
+   visões vivas atrás. Respira devagar — é convite, não alarme. */
+@keyframes ctdRespira {
+  0%, 100% { border-color: color-mix(in srgb, var(--accent) 30%, var(--border)); }
+  50%      { border-color: color-mix(in srgb, var(--accent) 65%, var(--border)); }
+}
+.ctd-convite {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 15px 18px; border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  background:
+    radial-gradient(70% 140% at 0% 0%, color-mix(in srgb, var(--accent) 10%, transparent) 0%, transparent 60%),
+    var(--surface);
+  animation: ctdRespira 3.4s ease-in-out infinite;
+}
+.ctd-convite-txt { flex: 1; min-width: 240px; font-size: 13.5px; line-height: 1.6; color: var(--muted); }
+.ctd-convite-txt b { color: var(--text); font-weight: 600; }
+.ctd-convite .ctd-btn { flex-shrink: 0; }
+
+/* O selo ganha relevo quando tem número, e some quando é zero — um "0" é ruído
+   ocupando lugar de informação. */
+.ctd-selo { transition: border-color .2s, transform .2s; }
+.ctd-selo:hover { border-color: var(--accent); transform: translateY(-1px); }
+.ctd-selo-pergunta {
+  border-color: color-mix(in srgb, #f59e0b 45%, transparent);
+  background: color-mix(in srgb, #f59e0b 8%, transparent);
+  color: var(--text);
+}
+.ctd-selo-pergunta .ctd-pulso { color: #f59e0b; }
+.ctd-proxima-quando .ctd-pulso { color: var(--accent); }
+
+/* A imagem cresce de leve no cartão do quadro. O movimento é da FOTO, não do
+   cartão: o cartão pular deslocaria a coluna inteira. */
+.ctd-cartao-mini { transition: transform .45s cubic-bezier(.22, 1, .36, 1); }
+.ctd-cartao:hover .ctd-cartao-mini { transform: scale(1.05); }
+
 /* Selos de contagem na topbar das abas */
 .ctd-selos { display: flex; gap: 8px; flex-wrap: wrap; }
 .ctd-selo {
@@ -400,6 +452,18 @@
   pointer-events: none;
 }
 .ctd-celula:hover { transform: scale(1.04); z-index: 2; }
+
+/* Os quadros vazios da grade: contorno pontilhado por dentro, sem interação.
+   Mostram a FORMA do perfil antes de existir conteúdo. */
+.ctd-celula-fantasma {
+  background: color-mix(in srgb, var(--text) 4%, var(--surface));
+  box-shadow: inset 0 0 0 1px var(--border);
+  cursor: default; pointer-events: none;
+}
+.ctd-celula-fantasma::after {
+  content: ''; position: absolute; inset: 22%;
+  border: 1.5px dashed color-mix(in srgb, var(--text) 14%, transparent); border-radius: 6px;
+}
 .ctd-celula:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; z-index: 3; }
 
 .ctd-celula-veu {
