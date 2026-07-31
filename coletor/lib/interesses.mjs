@@ -65,7 +65,9 @@ export function montarPedido({ marca, lojas, objetivo } = {}) {
   // engajamento tem rotulo 'Custo por ponto'. Dizer à IA "Objetivo da campanha:
   // Custo por ponto" seria absurdo. Por isso o nome do objetivo vem daqui, e o
   // `ajuda` de ALVOS entra só como contexto extra do que se está medindo.
-  const nomeObjetivo = NOME_DO_OBJETIVO[objetivo];
+  // Fallback: se a chave não está no mapa (divergência com ALVOS), usa a chave
+  // mesmo. Nunca vira "undefined" no pedido.
+  const nomeObjetivo = NOME_DO_OBJETIVO[objetivo] || objetivo;
   const ajuda = limpo((ALVOS[objetivo] || {}).ajuda);
   const linhasLojas = descreverLojas(lojas);
 
