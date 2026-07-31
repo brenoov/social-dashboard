@@ -823,9 +823,16 @@
   font-family: var(--ctd-fm); font-size: 13px; font-weight: 700; color: var(--text);
   position: relative; z-index: 1;
 }
+/* A duração fica EM CIMA do fio da linha do tempo, com o fundo do painel atrás.
+   Sem essa máscara o fio atravessa o número e "12s" aparece riscado ao meio —
+   só dá para ver isso olhando a tela, o build não acusa. Mascarar (em vez de
+   empurrar o início do fio para baixo) funciona também nos takes sem duração,
+   onde não há o que mascarar e o fio segue reto. */
 .ctd-take-num b {
   font-family: var(--ctd-fm); font-size: 10px; font-weight: 600; color: var(--muted);
   font-variant-numeric: tabular-nums;
+  position: relative; z-index: 1;
+  background: var(--bg); padding: 1px 3px; border-radius: 4px;
 }
 
 .ctd-take-corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; padding-top: 3px; }
@@ -881,3 +888,43 @@
 @media (hover: none) {
   .ctd-ideia-roteiro-resumo span { opacity: 1; transform: none; }
 }
+
+/* "A marca" fica encostado à direita da fita de abas: não é mais uma visão do
+   conteúdo, é onde se ajusta o que a IA sabe. Separar visualmente evita que
+   alguém o procure entre Calendário e Quadro. */
+.ctd-tab-fim { margin-left: auto; }
+
+/* Listas de cadastro do painel da marca (textos e concorrentes). */
+.ctd-mini-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ctd-mini-lista li {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 10px 12px;
+}
+.ctd-mini-lista li > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ctd-mini-lista b { font-size: 13px; color: var(--text); }
+.ctd-mini-lista span { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.ctd-linha-dupla { display: flex; gap: 8px; flex-wrap: wrap; }
+.ctd-linha-dupla > * { flex: 1; min-width: 140px; }
+.ctd-vazio-linha {
+  border: 1px dashed var(--border); border-radius: var(--radius-sm);
+  padding: 10px 12px; margin: 0;
+}
+
+.ctd-check { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; padding-top: 4px; }
+.ctd-check input { margin-top: 3px; flex: none; width: 16px; height: 16px; accent-color: var(--accent); }
+.ctd-check span { display: flex; flex-direction: column; gap: 3px; }
+.ctd-check b { font-size: 13px; color: var(--text); }
+.ctd-check small { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+/* O que o sistema já junta sozinho. O ponto à esquerda acende quando aquele
+   insumo existe de verdade — é o que responde "por que a pauta saiu fraca?". */
+.ctd-sabe { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ctd-sabe li { display: flex; flex-direction: column; gap: 2px; padding-left: 18px; position: relative; }
+.ctd-sabe li::before {
+  content: ''; position: absolute; left: 0; top: 6px; width: 8px; height: 8px;
+  border-radius: 50%; background: var(--border);
+}
+.ctd-sabe li.tem::before { background: var(--green, #22c55e); }
+.ctd-sabe b { font-size: 13px; color: var(--text); }
+.ctd-sabe span { font-size: 12.5px; color: var(--muted); }

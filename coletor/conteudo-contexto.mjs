@@ -9,6 +9,8 @@
 // PURO: sem rede e sem banco. O script busca os dados e passa pra cá, o que
 // deixa o prompt inteiro testável sem gastar um centavo de API.
 
+import { nomeDoMes, datasDoMes } from '../src/ferramentas/conteudo/datas-comerciais.js';
+
 // Poucos e concretos. Uma lista de 20 pilares faz o modelo escolher pelo nome
 // bonito; com 6, ele precisa encaixar a ideia em algo que a marca de fato faz.
 export const PILARES = [
@@ -24,28 +26,9 @@ export const PILARES = [
 // modelo perder o começo do contexto (onde está a instrução).
 export const MAX_POSTS_NO_CONTEXTO = 20;
 
-const MESES = [
-  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
-  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
-];
-
-// Datas que mexem com varejo. Não é calendário completo de propósito: é o que
-// faz diferença para quem vende.
-const DATAS_DO_MES = {
-  1: 'volta às aulas, liquidação de verão',
-  2: 'Carnaval',
-  3: 'Dia do Consumidor (15), início do outono',
-  4: 'Páscoa',
-  5: 'Dia das Mães (2º domingo) — a data mais forte do varejo depois do Natal',
-  6: 'Dia dos Namorados (12), festas juninas',
-  7: 'férias escolares, liquidação de inverno',
-  8: 'Dia dos Pais (2º domingo)',
-  9: 'Dia do Cliente (15), início da primavera',
-  10: 'Dia das Crianças (12)',
-  11: 'Black Friday (última sexta)',
-  12: 'Natal, retrospectiva do ano',
-};
-
+// As datas comerciais e os nomes dos meses vêm de um módulo COMPARTILHADO com a
+// tela: o robô manda no briefing, o painel "A marca" mostra o que foi mandado.
+// Duas cópias divergiriam em silêncio.
 function _txt(v) {
   return (typeof v === 'string' ? v : '').trim();
 }
@@ -234,8 +217,8 @@ export function montarContextoDaMarca(dados = {}) {
   );
 
   partes.push(
-    `## Quando é\nHoje é ${hoje}, mês de ${MESES[mes - 1]}. ` +
-    `Datas que importam: ${DATAS_DO_MES[mes] || 'nada marcante no calendário comercial'}.`,
+    `## Quando é\nHoje é ${hoje}, mês de ${nomeDoMes(mes)}. ` +
+    `Datas que importam: ${datasDoMes(mes)}.`,
   );
 
   return partes.join('\n\n');

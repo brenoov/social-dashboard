@@ -80,6 +80,12 @@
           <button :class="{ on: aba === 'ideias' }" @click="aba = 'ideias'">
             Ideias<span v-if="ideias.length"> ({{ ideias.length }})</span>
           </button>
+
+          <!-- Fica à direita e separado das abas de propósito: não é uma visão
+               do conteúdo, é o ajuste do que a IA sabe sobre a marca. -->
+          <button class="ctd-tab-fim" title="O que a IA sabe sobre esta marca" @click="painelMarca = true">
+            A marca
+          </button>
         </div>
 
         <!-- Ideias fica FORA do "se não tem peça": é justamente por onde se
@@ -144,6 +150,15 @@
       @fechar="fecharPainel"
       @mudou="recarregar"
     />
+
+    <PainelMarca
+      v-if="painelMarca && contaSel"
+      :conta="contaAtual"
+      :account-id="contaSel"
+      :pecas="pecas"
+      @fechar="painelMarca = false"
+      @mudou="recarregar"
+    />
   </div>
 </template>
 
@@ -157,6 +172,7 @@ import VisaoIdeias from './visao-ideias.vue'
 import PreviaDoFeed from './previa-do-feed.vue'
 import IconeFormato from './icone-formato.vue'
 import PainelPeca from './painel-peca.vue'
+import PainelMarca from './painel-marca.vue'
 import { STATUS, corDeStatus } from './estados.js'
 import { contarPorStatus } from './agrupar-kanban.js'
 import { diaDaPeca, horaDaPeca, dataHoraBRT } from './grade-do-calendario.js'
@@ -178,6 +194,7 @@ const carregando = ref(true)
 const erro = ref('')
 
 const painelAberto = ref(false)
+const painelMarca = ref(false)
 const pecaEmEdicao = ref(null)
 const dataSugerida = ref('')
 

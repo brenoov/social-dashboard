@@ -59,7 +59,10 @@ export function podeAprovar() {
 export async function listarContas() {
   const { data, error } = await sbClient
     .from('accounts')
-    .select('id,name,username,accent_color,profile_picture_url,picture_url')
+    // `conteudo_usa_portal` alimenta a caixinha do painel "A marca". Sem ela o
+    // campo chega undefined e a caixa nasce desmarcada mesmo para quem usa o
+    // Portal — o usuário desmarcaria algo que já estava ligado sem perceber.
+    .select('id,name,username,accent_color,profile_picture_url,picture_url,conteudo_usa_portal')
     .order('name')
   if (error) throw new Error(`Não consegui carregar os perfis: ${error.message}`)
 
@@ -312,6 +315,52 @@ export async function salvarBloco(bloco) {
 export async function apagarBloco(id) {
   const { error } = await sbClient.from('conteudo_blocos').update({ ativo: false }).eq('id', id)
   if (error) throw new Error(`Não consegui remover: ${error.message}`)
+}
+
+// ── Concorrentes da marca ────────────────────────────────────────────────────
+//
+// Concorrente é de cada marca, nunca do sistema. O robô de pauta puxava o Portal
+// de Notícias (moda e calçado) para TODA conta, e a primeira pauta do Breno Vale
+// saiu citando @Isla e @Santa Lolla como concorrentes dele.
+
+export async function listarConcorrentes(accountId) {
+  const { data, error } = await sbClient
+    .from('conteudo_concorrentes')
+    .select('id,account_id,handle,nome,observacao,ativo')
+    .eq('account_id', _idDeConta(accountId))
+    .eq('ativo', true)
+    .order('nome')
+  if (error) return []
+  return data || []
+}
+
+export async function salvarConcorrente(concorrente) {
+  const { data, error } = await sbClient
+    .from('conteudo_concorrentes')
+    .upsert(concorrente)
+    .select('*').single()
+  if (error) {
+    // 23505 = o mesmo @ já está cadastrado nesta marca. O aviso genérico do
+    // Postgres não diz nada a quem está preenchendo o formulário.
+    if (error.code === '23505') throw new Error('Esse @ já está na lista desta marca.')
+    throw new Error(`Não consegui salvar o concorrente: ${error.message}`)
+  }
+  return data
+}
+
+export async function apagarConcorrente(id) {
+  const { error } = await sbClient.from('conteudo_concorrentes').update({ ativo: false }).eq('id', id)
+  if (error) throw new Error(`Não consegui remover: ${error.message}`)
+}
+
+// Liga/desliga o Portal de Notícias para esta marca. Só faz sentido para quem é
+// do nicho que o Portal cobre — hoje, moda e calçado.
+export async function mudarUsoDoPortal(accountId, usa) {
+  const { error } = await sbClient
+    .from('accounts')
+    .update({ conteudo_usa_portal: !!usa })
+    .eq('id', _idDeConta(accountId))
+  if (error) throw new Error(`Não consegui mudar o Portal de Notícias: ${error.message}`)
 }
 
 // Pede o aviso da hora H de novo. A Edge carimba `avisado_em` ANTES de enviar

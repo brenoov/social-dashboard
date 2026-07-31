@@ -30,8 +30,12 @@ visao-calendario.vue ....... o mês em quadros
 visao-kanban.vue ........... o quadro por etapa, com arrastar
 visao-lista.vue ............ a tabela, com filtro por situação e ordenação
 visao-ideias.vue ........... o banco de pautas e o botão de gerar com IA
+previa-do-feed.vue ......... como o perfil vai ficar: a grade de 3 colunas do Instagram
 cartao-peca.vue ............ o cartão da peça — UM só, usado pelas três visões
 painel-peca.vue ............ criar/editar: arquivos, legenda, data, mover de etapa
+painel-ideia.vue ........... o roteiro da ideia, feito para ler com o celular na mão
+painel-marca.vue ........... "A marca": o que a IA sabe desta marca (ver abaixo)
+icone-formato.vue / icones.js  os ícones, desenhados aqui — emoji como ícone é proibido
 dados-conteudo.js .......... toda a conversa com o banco e com o depósito de arquivos
 estilos-conteudo.css ....... os estilos (todos com prefixo .ctd-)
 
@@ -42,10 +46,17 @@ formatos.js ................ feed/carrossel/reels/story e as regras de arquivo
 legenda.js ................. montar a legenda final, contar, tratar hashtag
 grade-do-calendario.js ..... montar o mês e converter horário para Brasília
 agrupar-kanban.js .......... distribuir as peças nas colunas do quadro
+roteiro.js ................. ler o roteiro que a IA devolveu (takes, falas, chamada)
+datas-comerciais.js ........ o calendário do varejo, mês a mês
 
-Esses cinco NÃO podem importar Vue nem o Supabase: a conexão com o banco é
+Esses NÃO podem importar Vue nem o Supabase: a conexão com o banco é
 criada no escopo do módulo lendo `window`, e o teste em Node quebra na hora.
 É por isso que eles recebem os dados por parâmetro.
+
+datas-comerciais.js mora aqui, mas quem mais usa é o robô: coletor/conteudo-contexto.mjs
+o importa por caminho relativo. É de propósito — o robô manda as datas no briefing
+e o painel "A marca" mostra à pessoa o que foi mandado. Duas cópias divergiriam em
+silêncio, sem nada quebrar.
 
 DE ONDE VÊM OS DADOS
 --------------------
@@ -54,6 +65,9 @@ conteudo_arquivos .......... os arquivos de cada peça, em ordem (carrossel = N 
 conteudo_eventos ........... a trilha de quem fez o quê (append-only, nunca dar update)
 conteudo_casamentos ........ a ligação com o post real do Instagram (e as recusas)
 conteudo_metricas .......... curtidas/alcance de cada peça, uma leitura por dia
+conteudo_blocos ............ os textos que ensinam como a marca fala
+conteudo_concorrentes ...... contra quem CADA marca disputa (é da marca, não do sistema)
+conteudo_ideias / conteudo_jobs  as pautas geradas e o pedido que gerou cada rodada
 accounts ................... os perfis do Instagram (o seletor de marca)
 bucket "conteudo" .......... as artes. PRIVADO — toda exibição usa URL assinada
 
@@ -90,6 +104,10 @@ MIGRATIONS
 2026-07-31-conteudo-07-metricas.sql ..... casamentos e métricas
 2026-07-31-conteudo-08-segredo-espelho.sql o segredo do robô do espelho
 2026-07-31-conteudo-09-cron-espelho.sql . LIGA o espelho (ver abaixo)
+2026-07-31-conteudo-10-ideias.sql ....... o banco de pautas e a fila do robô
+2026-07-31-conteudo-11-permissao-desmarcada.sql  a ferramenta nasce invisível para todos
+2026-08-01-conteudo-12-concorrentes-por-marca.sql  concorrente é da marca (ver abaixo)
+2026-08-01-conteudo-13-roteiro-completo.sql  a ideia deixa de ser tópico e vira roteiro
 
 ATENÇÃO: as migrations 06 e 09 NÃO estão aplicadas. Elas são o interruptor dos
 dois robôs, e ficaram de fora de propósito — a 06 dispara notificação em
@@ -138,11 +156,27 @@ bastidor da loja". O que ela não adivinha, e que vai no briefing:
   - os posts desta marca que mais renderam (e os que menos renderam)
   - o que já está na agenda, para não repetir
   - como a marca escreve (os blocos de texto)
-  - o que os concorrentes publicaram (Portal de Notícias)
+  - contra quem ela disputa (os concorrentes DELA)
   - o mês e as datas comerciais
 
 Esse briefing é montado por coletor/conteudo-contexto.mjs, que é puro e testado
 — dá para conferir o prompt inteiro sem gastar API.
+
+O PAINEL "A MARCA" (botão à direita das abas)
+---------------------------------------------
+É onde se preenche o que a IA não tem como adivinhar: como a marca fala e contra
+quem ela disputa. O painel mostra também o que o sistema já junta sozinho — sem
+isso, quem recebe uma pauta fraca não sabe se faltou cadastro ou faltou histórico.
+
+CONCORRENTE É DA MARCA, NUNCA DO SISTEMA. O robô puxava noticias_concorrentes sem
+filtro; aquela tabela é do Portal de Notícias e é 100% moda e calçado. Resultado: a
+primeira pauta real do Breno Vale — marca pessoal — citou @Isla e @Santa Lolla como
+concorrentes dele. Hoje cada conta tem a sua lista, e o Portal só entra para quem
+marcar "Usar o Portal de Notícias" (accounts.conteudo_usa_portal, que nasce falso).
+
+Junto vai a regra de discrição: a IA NUNCA cita o nome nem o @ de um concorrente
+em texto que vá ao ar. Ela fica no briefing mesmo sem concorrente cadastrado —
+o modelo pode citar uma marca de memória.
 
 CUSTO: cada rodada aparece sozinha no Painel de Status do Claude
 (/claude-status), com tokens e valor em reais.
