@@ -298,6 +298,19 @@ test('id como 0 e como string vazia AINDA SOBREVIVEM — falsy mas legítimo', (
   assert.equal(r.itens[1].id, '');
 });
 
+test('id como NaN e pulado (typeof NaN é "number", mas é garbage se stringificado); o bom do lado SOBREVIVE', () => {
+  const r = filtrarValidos(['A', 'B'], {
+    data: [
+      { name: 'A', valid: true, id: NaN },           // garbage: NaN vira "NaN" string
+      { name: 'B', valid: true, id: '6003' },        // bom
+    ],
+  });
+  assert.equal(r.itens.length, 1, 'só a entrada B com id legítimo sobrevive');
+  assert.equal(r.itens[0].nome, 'B');
+  assert.equal(r.itens[0].id, '6003');
+  assert.ok(Number.isNaN(NaN), 'confirma que NaN é detectável por Number.isNaN');
+});
+
 test('audience_size com tipo errado vira null, nao NaN; o bom do lado SOBREVIVE', () => {
   const r = filtrarValidos(['A', 'B', 'C', 'D'], {
     data: [

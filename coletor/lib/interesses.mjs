@@ -121,8 +121,9 @@ export function filtrarValidos(propostos, respostaMeta) {
     // Só aceita id string ou número; qualquer outro tipo é garbage que não pode
     // ser um identificador de verdade (objeto, array, boolean viram identificadores
     // fake como "[object Object]" ou "true" se convertidos a string, e depois quebram
-    // na tabela e na conta).
+    // na tabela e na conta). NaN é typeof 'number' mas também é garbage: "NaN" string.
     if (typeof l.id !== 'string' && typeof l.id !== 'number') continue;
+    if (Number.isNaN(l.id)) continue;
     const id = String(l.id);
     if (vistos.has(id)) continue;
     const nome = limpo(l.name);
