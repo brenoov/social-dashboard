@@ -21,11 +21,11 @@ on:
   workflow_dispatch:
     inputs:
       modo:
-        description: 'seco = roda tudo e não grava as sugestões (as chamadas de IA custam igual)'
+        description: 'seco = roda tudo e não grava (a IA custa igual) · sonda = só pergunta à Meta o que existe, sem IA, R$ 0'
         required: false
         default: 'normal'
         type: choice
-        options: ['normal', 'seco']
+        options: ['normal', 'seco', 'sonda']
 
 concurrency:
   group: sugerir-interesses
@@ -67,3 +67,17 @@ jobs:
           GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
           GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
         run: node coletor/sugerir-interesses.mjs --dry
+
+      # SONDA: pergunta à Meta o que EXISTE no catálogo, sem passar por IA.
+      # Diagnóstico puro — não grava nada e não decide nada.
+      #
+      # REPARE NA FALTA DA ANTHROPIC_API_KEY: não é esquecimento. A sonda não
+      # chama modelo nenhum, então a chave não é entregue a este passo. Se um dia
+      # alguém precisar dela aqui, é sinal de que a sonda deixou de ser sonda.
+      - name: Sondar o catálogo da Meta (sem IA, R$ 0)
+        if: ${{ inputs.modo == 'sonda' }}
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
+          GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
+        run: node coletor/sondar-interesses.mjs
