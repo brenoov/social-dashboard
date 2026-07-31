@@ -22,7 +22,11 @@
         <p>Medir o que já aconteceu, ou planejar o que vem</p>
       </div>
       <div class="smenu-cards">
-        <div class="smenu-card" @click="ir('redes-sociais')">
+        <!-- O card do Dashboard não tinha v-if: quando a área só tinha ele, era
+             inofensivo — todo mundo que chegava aqui tinha `social`. Com a
+             Central de Conteúdo aqui dentro, quem tem só ela passaria a ver um
+             card para uma ferramenta que não pode abrir. -->
+        <div class="smenu-card" v-if="podeDashboard" @click="ir('redes-sociais')">
           <span class="smenu-card-num">01</span>
           <div class="smenu-card-icon">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
@@ -69,6 +73,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 
 const ehAdmin = computed(() => estado.role === 'admin')
 const podeConteudo = computed(() => hasPermission('conteudo', 'ver'))
+const podeDashboard = computed(() => hasPermission('social', 'ver'))
 
 function voltar() { router.push({ name: 'inicio' }) }
 function ir(nome) { router.push({ name: nome }) }

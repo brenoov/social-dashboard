@@ -228,13 +228,24 @@ function ir(nome) {
 // área tinha só Dashboard + Relatório (e o Relatório era de admin). Com a Central
 // de Conteúdo aqui dentro, essa regra passou a esconder a ferramenta: quem tinha
 // a Central mas não era admin ia parar no Dashboard e não tinha como chegar nela.
+// ATENÇÃO: esta contagem tem que espelhar EXATAMENTE os cards que o submenu
+// mostra (tela-de-menu-redes.vue). Se divergir, alguém é mandado direto para uma
+// ferramenta enquanto teria outras — ou vê um submenu de um item só.
+//
+// Cuidado com `ehAdmin`: aqui ele é `is_superadmin`, e no submenu é
+// `role === 'admin'`. Mesmo nome, definições diferentes. Usar o daqui faria um
+// admin não-superadmin (existem 5 hoje) perder o Relatório, porque o submenu
+// mostraria o card e este desvio o mandaria direto ao Dashboard.
 function irRedes() {
-  const destinos = []
-  if (hasPermission('social', 'ver')) destinos.push('redes-sociais')
-  if (ehAdmin.value || hasPermission('social.relatorio', 'ver')) destinos.push('redes-relatorio')
-  if (hasPermission('conteudo', 'ver')) destinos.push('conteudo')
+  const ehAdminDoSubmenu = estado.role === 'admin' || estado.is_superadmin
 
-  router.push({ name: destinos.length > 1 ? 'redes' : (destinos[0] || 'redes') })
+  const destinos = [
+    hasPermission('social', 'ver') ? 'redes-sociais' : null,
+    ehAdminDoSubmenu ? 'redes-relatorio' : null,
+    hasPermission('conteudo', 'ver') ? 'conteudo' : null,
+  ].filter(Boolean)
+
+  router.push({ name: destinos.length > 1 ? 'redes' : (destinos[0] || 'inicio') })
 }
 
 // Escritório 3D dos Agentes: página estática (three.js) servida em public/escritorio-3d/.
