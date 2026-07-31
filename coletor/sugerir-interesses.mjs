@@ -54,29 +54,29 @@ async function sbPost(path, body, prefer) {
 
 // Busca UM termo no catálogo de interesses da Meta, pela Edge meta-proxy.
 //
-// É A MESMA CHAMADA que a Fábrica faz quando o dono digita na busca de
-// interesses (painel-subir.vue, "buscarInteresses"): type=adinterest, o termo em
-// `q`, `limit` 10 — mais o `locale`, que é a única diferença e está explicada
-// logo abaixo.
+// É EXATAMENTE A MESMA CHAMADA que a Fábrica faz quando o dono digita na busca
+// de interesses (painel-subir.vue, "buscarInteresses"): type=adinterest, o termo
+// em `q`, `limit` 10. Nada além disso — e o parágrafo abaixo existe pra que
+// ninguém acrescente `locale` de novo achando que é uma boa ideia nova.
 //
-// LOCALE pt_BR — POR QUE ESTÁ AQUI E POR QUE PODE NÃO FUNCIONAR:
-// a primeira rodada trouxe "Observe and Report" (um filme americano de 2009),
-// "List of fashion magazines" (em inglês, com cara de lista de Wikipédia),
-// "India Fashion Week" (país errado) e "VK Moda Feminina Plus Size" (VK é rede
-// social russa). Tudo isso é catálogo de OUTRO idioma/país entrando numa busca
-// em português.
+// JÁ TENTAMOS `locale: 'pt_BR'` — NÃO FUNCIONA. MEDIDO, NÃO SUPOSTO:
+// a Meta ACEITOU o parâmetro (nenhum 400, nenhum erro, zero ⚠ no log) e
+// devolveu ZERO resultado nas 48 buscas da rodada. Ou seja: o parâmetro existe
+// de verdade, mas o formato/significado não é o que a gente supôs — o locale de
+// segmentação da Meta costuma ser um ID numérico, não a sigla em texto.
 //
-// A documentação da Meta NÃO lista `locale` como parâmetro de entrada — mas a
-// RESPOSTA traz um campo `locale`, o que sugere fortemente que ele é aceito. E a
-// mesma documentação afirma que a resposta não tem `audience_size`, quando a
-// nossa rodada ao vivo veio com tamanho em tudo: ou seja, ela está velha em
-// relação à v22 e não decide nada. Por isso isto é HIPÓTESE A MEDIR, não fato.
+// NÃO SAIA CHUTANDO OUTRO FORMATO. Cada chute custa uma rodada, e o problema que
+// o locale ia resolver (filme americano, semana de moda da Índia, rede social
+// russa aparecendo numa busca em português) pode muito bem já estar resolvido de
+// graça pelo pedido: aqueles nomes vieram todos de termo GENÉRICO batendo no
+// catálogo mundial. Termo específico em português tende a cair sozinho em
+// entrada brasileira. É isso que a próxima rodada mede.
 //
-// SE A META REJEITAR O PARÂMETRO, a chamada falha e o `catch` por busca lá
-// embaixo pinta um ⚠ no log da rodada seca — e a gente descobre na hora. Esse é
-// o jeito CERTO de errar aqui, e é de propósito que ele não foi amaciado: um
-// parâmetro ignorado em silêncio devolveria o mesmo filme americano de sempre e
-// ninguém saberia que a hipótese estava errada.
+// Fica registrado o susto que essa tentativa deu, porque ele valeu a pena: com
+// zero resultado em tudo, a rodada terminou VERMELHA e com código de saída 1,
+// em vez de gravar uma faixa vazia em silêncio. Foi a regra da "rodada que não
+// produziu nada é falha" (rodadaFalhouInteira) fazendo exatamente o trabalho
+// dela.
 //
 // Manda os parâmetros como objeto, não texto: o proxy já faz JSON.stringify em
 // valor que é objeto, e converter aqui converteria duas vezes.
@@ -90,7 +90,7 @@ async function buscarNaMeta(accountId, termo, token) {
     body: JSON.stringify({
       accountId,
       path: '/search',
-      params: { type: 'adinterest', q: termo, limit: 10, locale: 'pt_BR' },
+      params: { type: 'adinterest', q: termo, limit: 10 },
       method: 'GET',
     }),
   });

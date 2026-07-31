@@ -172,25 +172,37 @@ que dá pra decidir se 500 milhões é muito ou pouco.
 
 O QUE NÃO É JULGADO: o NOME. O robô não descarta interesse por parecer
 estrangeiro ou por parecer estranho. "Black friday" é usado no Brasil de
-verdade, e esse caminho acabaria jogando fora interesse legítimo. Tamanho e
-idioma da busca são o que dá pra medir; se o nome faz sentido pra marca, quem
-decide é você, olhando a faixa.
+verdade, e esse caminho acabaria jogando fora interesse legítimo. Tamanho é o
+que dá pra medir; se o nome faz sentido pra marca, quem decide é você, olhando
+a faixa.
 
-BUSCA EM PORTUGUÊS (uma aposta que está sendo medida)
-------------------------------------------------------
-A primeira rodada trouxe um filme americano de 2009 ("Observe and Report"), uma
-lista de revistas em inglês, uma semana de moda da ÍNDIA e um perfil de uma rede
-social RUSSA. Tudo catálogo de outro idioma entrando numa busca em português.
+JÁ TENTAMOS FILTRAR A BUSCA POR IDIOMA — E NÃO DEU CERTO
+---------------------------------------------------------
+Fica anotado pra ninguém tentar de novo achando que é ideia nova.
 
-O robô agora pede a busca com idioma pt_BR. A documentação do Meta NÃO lista esse
-parâmetro — mas a resposta dela devolve um campo de idioma, o que sugere que ele
-é aceito; e a mesma documentação diz que a resposta não traz tamanho de público,
-quando a nossa rodada veio com tamanho em tudo. Ou seja: a documentação está
-velha e não resolve a dúvida.
+O problema: uma rodada trouxe um filme americano de 2009 ("Observe and Report"),
+uma lista de revistas em inglês, uma semana de moda da ÍNDIA e um perfil de uma
+rede social RUSSA. Catálogo de outro idioma entrando numa busca em português.
 
-Então isto é uma APOSTA A MEDIR. Se o Meta recusar o parâmetro, a busca falha, o
-⚠ aparece no log da rodada seca e a gente descobre na hora — de propósito não foi
-feito pra falhar quieto.
+A tentativa: pedir a busca com idioma "pt_BR".
+
+O resultado, MEDIDO: o Meta ACEITOU o parâmetro — nenhum erro, nenhum aviso no
+log — e devolveu ZERO resultado nas 48 buscas. Nenhuma sugestão em nenhum
+objetivo. Ou seja, o parâmetro existe de verdade, mas o formato não é esse (o
+idioma na segmentação do Meta costuma ser um número de código, não a sigla
+escrita). A documentação dele não ajuda: ela nem lista esse parâmetro, e ainda
+por cima jura que a resposta não traz tamanho de público, quando traz.
+
+Por que não saímos chutando outro formato: cada chute custa uma rodada, e o
+problema pode já estar resolvido de graça pelo pedido — aqueles nomes esquisitos
+vieram todos de termo GENÉRICO batendo no catálogo mundial, e agora os termos
+são específicos e em português. Primeiro medimos isso.
+
+O LADO BOM DO SUSTO: com zero resultado em tudo, a rodada terminou VERMELHA e
+com erro registrado, em vez de gravar uma faixa vazia caladinha. Se ela tivesse
+terminado verde, o dono ficaria vendo a Fábrica sem sugestão nenhuma por semanas
+sem nada parecer quebrado. É a regra de "rodada que não produziu nada é falha"
+funcionando.
 
 O robô anota no log quantos termos foram pedidos e quantos interesses as buscas
 acharam. Passar de um interesse por termo é normal. Dá pra ver o mesmo sem abrir
