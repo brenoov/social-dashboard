@@ -339,6 +339,7 @@ const ROBOS = [
   { slug: 'fabrica-subir',    label: 'Fábrica · Subir Campanha', faz: 'Monta a campanha e sobe os anúncios para o Meta.', quando: 'quando você manda', verbo: 'Subiu' },
   { slug: 'fabrica-ativar',   label: 'Fábrica · Ligar Anúncios', faz: 'Liga os anúncios no Gerenciador do Meta.', quando: 'quando você manda', verbo: 'Ligou' },
   { slug: 'status-projetos',  label: 'Atualizador do Painel', faz: 'Atualiza este painel com o andamento dos projetos.', quando: 'a cada mudança nos planos', verbo: 'Atualizou' },
+  { slug: 'sugerir-interesses', label: 'Sugestões de Interesse', faz: 'Sugere os interesses de público de cada objetivo e confere um por um no Meta antes de mostrar na Fábrica.', quando: 'todo domingo de manhã', verbo: 'Sugeriu' },
 ]
 const META = Object.fromEntries(ROBOS.map(r => [r.slug, r]))
 const nomeRobo = (slug) => (META[slug]?.label) || slug
@@ -562,6 +563,11 @@ const ROBO_CHAVE = {
   spyconcorrente: 'Espião de concorrentes',
   gestortrafego: 'Gestor de Tráfego',
   gestorcomercial: 'Gestor Comercial',
+  // Esta chave chega com hífen ('sugerir-interesses'). As duas formas ficam
+  // mapeadas porque numa tela sobre DINHEIRO não pode aparecer nome técnico de
+  // arquivo — e não vale a pena descobrir na produção qual das duas veio.
+  'sugerir-interesses': 'Sugestões de Interesse (Fábrica de Anúncios)',
+  sugeririnteresses: 'Sugestões de Interesse (Fábrica de Anúncios)',
 }
 const traduzChave = (nome) => ROBO_CHAVE[String(nome || '').toLowerCase()] || nome || '—'
 
@@ -575,6 +581,7 @@ const AREA = {
   'fabrica-subir': 'Fábrica de Anúncios',
   'fabrica-ativar': 'Fábrica de Anúncios',
   'status-projetos': 'Painel do Sistema',
+  'sugerir-interesses': 'Fábrica de Anúncios',
 }
 const areaDe = (robo) => AREA[robo] || nomeRobo(robo)
 

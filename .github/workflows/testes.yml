@@ -14,9 +14,16 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci
-      # test:ci roda só os testes PUROS do app (src/**), que não dependem de rede nem de
-      # credenciais. Os testes do coletor misturam integração (chamam Supabase/Anthropic ao
-      # vivo) e por isso não rodam aqui — eles rodam localmente (npm test) e nos workflows
-      # dos próprios robôs, que têm as credenciais. Rodar integração aqui daria 401 e
-      # e-mail de falha a cada push.
+      # test:ci roda só os testes PUROS: os do app (src/**), os das Edge Functions, e os de
+      # coletor/lib/** — nenhum depende de rede nem de credencial.
+      #
+      # A pasta coletor/ como um todo continua FORA: os robôs na raiz dela chamam
+      # Supabase/Anthropic ao vivo e dariam 401 + e-mail de falha a cada push. Eles rodam
+      # localmente (npm test) e nos workflows dos próprios robôs, que têm as credenciais.
+      #
+      # Mas coletor/lib/** é a biblioteca PURA que os robôs importam (público, orçamento,
+      # objetivos, interesses...). Ficava de fora só porque o filtro era a pasta inteira —
+      # eram 67 testes escritos que nunca rodavam no PR, e uma regressão neles chegaria em
+      # produção sem ninguém ver. Se um teste novo aqui precisar de rede, ele está na pasta
+      # errada: o lugar dele é junto do robô, não na lib.
       - run: npm run test:ci

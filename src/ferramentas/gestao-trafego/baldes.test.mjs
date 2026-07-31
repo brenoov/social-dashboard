@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { baldeDoObjetivo, ehDeWhatsapp, baldeEfetivo } from './baldes.js';
+import { baldeDoObjetivo, ehDeWhatsapp, baldeEfetivo, baldeDoObjetivoDaFabrica } from './baldes.js';
 
 test('cada objetivo cai no seu balde', () => {
   assert.equal(baldeDoObjetivo('OUTCOME_TRAFFIC'), 'trafego');
@@ -52,4 +52,54 @@ test('SEM destino WhatsApp cada objetivo continua no seu balde', () => {
   assert.equal(baldeEfetivo('OUTCOME_LEADS', [{ destination_type: 'ON_AD' }]), 'leads');
   assert.equal(baldeEfetivo('OUTCOME_TRAFFIC', [{ optimization_goal: 'LINK_CLICKS' }]), 'trafego');
   assert.equal(baldeEfetivo('OUTCOME_SALES', []), 'vendas');
+});
+
+// As QUATRO linhas semeadas em db/migrations/022_fabrica_objetivos.sql, copiadas
+// campo por campo. Se a migration mudar, este bloco tem de mudar junto — e é de
+// propósito: e o que prende a tela da Fabrica a um fato do banco.
+const OBJETIVOS_DA_FABRICA = [
+  { chave: 'engajamento', rotulo: 'Engajamento (WhatsApp)', meta_objective: 'OUTCOME_ENGAGEMENT', optimization_goal: 'CONVERSATIONS', destination_type: 'WHATSAPP' },
+  { chave: 'conversao',   rotulo: 'Conversão / Vendas',     meta_objective: 'OUTCOME_SALES',      optimization_goal: 'CONVERSATIONS', destination_type: 'WHATSAPP' },
+  { chave: 'branding',    rotulo: 'Reconhecimento',         meta_objective: 'OUTCOME_AWARENESS',  optimization_goal: 'REACH',         destination_type: null },
+  { chave: 'trafego',     rotulo: 'Tráfego',                meta_objective: 'OUTCOME_TRAFFIC',    optimization_goal: 'LINK_CLICKS',   destination_type: 'WHATSAPP' },
+];
+const daFabrica = (chave) => OBJETIVOS_DA_FABRICA.find((o) => o.chave === chave);
+
+test('os objetivos da Fabrica caem no balde que a META AFIRMA, nao no rotulo', () => {
+  // TRES dos quatro objetivos da Fabrica mandam pro WhatsApp. Julgar so pelo
+  // meta_objective daria sugestao de ENGAJAMENTO pra uma campanha de conversa —
+  // o mesmo erro de classificacao que este produto ja cometeu duas vezes.
+  assert.equal(baldeDoObjetivoDaFabrica(daFabrica('engajamento')), 'mensagens');
+  assert.equal(baldeDoObjetivoDaFabrica(daFabrica('conversao')), 'mensagens');
+  assert.equal(baldeDoObjetivoDaFabrica(daFabrica('trafego')), 'mensagens');
+  // O unico sem messaging (destination_type null, REACH): segue reconhecimento.
+  assert.equal(baldeDoObjetivoDaFabrica(daFabrica('branding')), 'reconhecimento');
+});
+
+test('o rotulo bonito NAO decide o balde', () => {
+  // "Engajamento (WhatsApp)" e o nome que o dono le na tela; quem manda sao os
+  // campos. Trocar o rotulo nao pode mudar o balde.
+  const comOutroRotulo = { ...daFabrica('engajamento'), rotulo: 'Qualquer outro nome' };
+  assert.equal(baldeDoObjetivoDaFabrica(comOutroRotulo), 'mensagens');
+});
+
+test('linha sem optimization_goal (select curto de quem chamou) cai em padrao, NAO em engajamento', () => {
+  // A coluna e `not null` na migration 022: linha de verdade sempre tem valor.
+  // Faltar aqui so pode ser `select` de quem chamou que nao pediu a coluna — e
+  // responder 'engajamento' com confianca seria o erro de classificacao de novo,
+  // em silencio. 'padrao' fecha a faixa de sugestoes em vez de mostrar a errada.
+  assert.equal(baldeDoObjetivoDaFabrica({ chave: 'engajamento', meta_objective: 'OUTCOME_ENGAGEMENT' }), 'padrao');
+  // Nem com o outro sinal presente: se a coluna `not null` nao veio, a linha
+  // chegou incompleta e nao da pra confiar em nada dela.
+  assert.equal(baldeDoObjetivoDaFabrica({ chave: 'engajamento', meta_objective: 'OUTCOME_ENGAGEMENT', destination_type: 'WHATSAPP' }), 'padrao');
+  assert.equal(baldeDoObjetivoDaFabrica({ meta_objective: 'OUTCOME_SALES', optimization_goal: '   ' }), 'padrao',
+    'so espaco e o mesmo que faltar');
+  assert.equal(baldeDoObjetivoDaFabrica({ meta_objective: 'OUTCOME_SALES', optimization_goal: null }), 'padrao');
+});
+
+test('linha ausente ou lixo cai em padrao, sem quebrar', () => {
+  // 'padrao' e o balde sem meta — quem chama trata como "nao sei", e a faixa de
+  // sugestoes simplesmente nao aparece.
+  for (const lixo of [null, undefined, {}, 'engajamento', 42, []])
+    assert.equal(baldeDoObjetivoDaFabrica(lixo), 'padrao');
 });
