@@ -2756,6 +2756,429 @@ function _gtDupTraduzir(msg){
     return 'A Meta aceitou o pedido mas <b>não informou o número da cópia</b>, então parei para não criar item solto.';
   return '<b>A Meta recusou:</b> '+_gtEsc(m.slice(0,180));
 }
+
+/* ── EDITOR DE PÚBLICO DO CONJUNTO ──────────────────────────────────────────
+   Estado de trabalho no módulo, não passado de função em função: os controles
+   são muitos e todos mexem no MESMO objeto. Redesenhar é sempre pelo
+   _gtPubRedesenha, para o botão de salvar reavaliar os avisos bloqueantes. */
+let _gtPub=null;            // Publico em edição (forma do publico-alvo.js)
+let _gtPubAntes=null;       // como estava quando abriu — base do resumo
+let _gtPubSalvos=null;      // públicos personalizados da conta (null = não carregou)
+let _gtPubPresets=null;     // públicos prontos do Estúdio (null = não carregou)
+let _gtPubAtivo=false;      // o conjunto está rodando?
+let _gtPubBusy=false;       // trava: um editor por vez
+// Começa e termina como função vazia, NUNCA null: os controles do editor
+// chamam isto direto, e se algo lançar com a janela aberta um `null` aqui
+// viraria erro em cima de erro, deixando o dono com a tela travada.
+let _gtPubRedesenha=()=>{};
+
+function _gtPubOverlay(){
+  let ov=document.getElementById('gt-pub-ov');
+  if(!ov){ov=document.createElement('div');ov.id='gt-pub-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';document.body.appendChild(ov);}
+  return ov;
+}
+function _gtPubFechar(){const ov=document.getElementById('gt-pub-ov');if(ov)ov.style.display='none';}
+
+// Caixa de estado (carregando / resultado / erro). SEMPRE zera o ov.onclick:
+// durante a gravação não pode fechar clicando fora, e toda saída é por botão —
+// lição que o duplicar já pagou (cópia seguia rodando com a tela parecendo parada).
+function _gtPubStatus(html,acoes){
+  const ov=_gtPubOverlay();ov.innerHTML='';ov.style.display='flex';ov.onclick=null;
+  const box=document.createElement('div');
+  box.style.cssText='background:var(--surface,#fff);color:var(--text,#111);border-radius:14px;max-width:460px;width:100%;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.45);font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));line-height:1.6;';
+  box.innerHTML=html;
+  if(acoes&&acoes.length){
+    const bar=document.createElement('div');bar.style.cssText='display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap;';
+    for(const a of acoes){
+      const b=document.createElement('button');b.textContent=a.texto;b.disabled=!!a.desabilitado;
+      b.style.cssText='padding:9px 16px;border-radius:8px;border:'+(a.primario?'none':'1px solid var(--border,#ddd)')+';background:'+(a.primario?'var(--accent,#6366f1)':'none')+';color:'+(a.primario?'#fff':'var(--text,#111)')+';font-weight:700;font-size:calc(13px*var(--gt-fs,1.3));cursor:'+(a.desabilitado?'not-allowed':'pointer')+';opacity:'+(a.desabilitado?'.5':'1')+';';
+      if(!a.desabilitado)b.onclick=a.aoClicar;
+      bar.appendChild(b);
+    }
+    box.appendChild(bar);
+  }
+  ov.appendChild(box);
+}
+
+// Tijolos do editor. Nomes curtos porque aparecem muitas vezes abaixo.
+function _gtPubTitulo(txt){const d=document.createElement('div');d.style.cssText='font-size:calc(12px*var(--gt-fs,1.3));font-weight:800;margin:16px 0 6px;';d.textContent=txt;return d;}
+function _gtPubAjuda(txt){const d=document.createElement('div');d.style.cssText='font-size:calc(11px*var(--gt-fs,1.3));color:var(--muted,#666);margin:-3px 0 7px;line-height:1.45;';d.textContent=txt;return d;}
+function _gtPubLinha(){const d=document.createElement('div');d.style.cssText='display:flex;gap:6px;flex-wrap:wrap;align-items:center;';return d;}
+function _gtPubInput(valor,ph,largura){const i=document.createElement('input');i.value=valor==null?'':valor;i.placeholder=ph||'';i.style.cssText='padding:7px 9px;border-radius:7px;border:1px solid var(--border,#ddd);background:var(--surface,#fff);color:var(--text,#111);font-size:calc(12px*var(--gt-fs,1.3));'+(largura?'width:'+largura+';':'flex:1;min-width:120px;');return i;}
+
+// Etiqueta de item escolhido, com o × pra tirar. `extra` entra antes do ×
+// (é onde o raio da cidade aparece).
+function _gtPubChip(texto,aoRemover,extra){
+  const c=document.createElement('span');
+  c.style.cssText='display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:20px;border:1px solid var(--border,#ddd);font-size:calc(11px*var(--gt-fs,1.3));background:var(--surface2,rgba(0,0,0,.03));';
+  const t=document.createElement('span');t.textContent=texto;c.appendChild(t);
+  if(extra)c.appendChild(extra);
+  const x=document.createElement('button');x.textContent='×';x.title='Tirar';
+  x.style.cssText='border:none;background:none;color:var(--muted,#666);cursor:pointer;font-size:calc(14px*var(--gt-fs,1.3));line-height:1;padding:0 2px;';
+  x.onclick=ev=>{ev.stopPropagation();aoRemover();};
+  c.appendChild(x);
+  return c;
+}
+
+// Campo de busca + resultados. `aoBuscar(termo)` devolve lista ou lança.
+// Erro NUNCA é engolido: busca que falha calada vira "não acha nada" e o dono
+// não entende por quê (o Estúdio já apanhou exatamente disso).
+function _gtPubBusca(ph,aoBuscar,aoEscolher,rotuloDe){
+  const cx=document.createElement('div');
+  const linha=_gtPubLinha();
+  const inp=_gtPubInput('',ph);
+  const bt=document.createElement('button');bt.textContent='Buscar';bt.className='gt-btn-dup';
+  const res=document.createElement('div');res.style.cssText='display:flex;flex-direction:column;gap:2px;margin-top:6px;';
+  const erro=document.createElement('div');erro.style.cssText='font-size:calc(11px*var(--gt-fs,1.3));color:var(--red,#dc2626);margin-top:5px;';
+  async function buscar(){
+    const termo=inp.value.trim();if(!termo)return;
+    res.innerHTML='';erro.textContent='';bt.disabled=true;bt.textContent='…';
+    try{
+      const achados=await aoBuscar(termo);
+      if(!achados.length){erro.textContent='Nada encontrado para essa busca.';return;}
+      for(const item of achados){
+        const b=document.createElement('button');b.textContent=rotuloDe(item);
+        b.style.cssText='text-align:left;padding:6px 9px;border-radius:6px;border:1px solid var(--border,#ddd);background:none;color:var(--text,#111);font-size:calc(11px*var(--gt-fs,1.3));cursor:pointer;';
+        b.onclick=ev=>{ev.stopPropagation();aoEscolher(item);inp.value='';res.innerHTML='';_gtPubRedesenha&&_gtPubRedesenha();};
+        res.appendChild(b);
+      }
+    }catch(e){
+      erro.textContent='Não consegui buscar agora: '+String((e&&e.message)||e).slice(0,120);
+    }finally{bt.disabled=false;bt.textContent='Buscar';}
+  }
+  bt.onclick=ev=>{ev.stopPropagation();buscar();};
+  inp.onkeydown=ev=>{if(ev.key==='Enter'){ev.preventDefault();buscar();}};
+  linha.appendChild(inp);linha.appendChild(bt);
+  cx.appendChild(linha);cx.appendChild(res);cx.appendChild(erro);
+  return cx;
+}
+
+// As duas buscas da Meta, nos mesmos caminhos que o Estúdio já provou ao vivo.
+async function _gtPubBuscarCidades(termo){
+  const tok=_gtCurAcc?.id;
+  const r=await metaFetch('/search',{type:'adgeolocation',location_types:JSON.stringify(['city']),q:termo,limit:15},tok);
+  return (r&&r.data)||[];
+}
+async function _gtPubBuscarInteresses(termo){
+  const tok=_gtCurAcc?.id;
+  const r=await metaFetch('/search',{type:'adinterest',q:termo,limit:10},tok);
+  return (r&&r.data)||[];
+}
+
+// Onde o anúncio é mostrado: cidades com raio, e lugares a excluir.
+function _gtPubSecaoLugar(){
+  const cx=document.createElement('div');
+  cx.appendChild(_gtPubTitulo('Onde mostrar'));
+  cx.appendChild(_gtPubAjuda('Raio 0 significa a cidade inteira. A Meta não aceita raio menor que 17 km — se você puser menos, eu aviso e ajusto.'));
+  const chips=_gtPubLinha();
+  for(const c of _gtPub.cidades){
+    const raio=_gtPubInput(c.raio,'raio','70px');
+    raio.type='number';raio.min='0';raio.title='Raio em km (0 = cidade inteira)';
+    // De propósito NÃO redesenha: redesenhar aqui tiraria o cursor do campo no
+    // meio da digitação. Raio não gera aviso bloqueante — só o de ajuste, que
+    // é recalculado na confirmação.
+    raio.onchange=()=>{c.raio=Number(raio.value)||0;};
+    chips.appendChild(_gtPubChip(c.nome||c.key,()=>{_gtPub.cidades=_gtPub.cidades.filter(x=>x.key!==c.key);_gtPubRedesenha();},raio));
+  }
+  // "Sem cidade" só é problema de verdade quando NÃO sobra localização
+  // nenhuma. Um conjunto mirado por estado/país/CEP (outrasLocalizacoes,
+  // Task 4) não tem cidade nenhuma e está perfeitamente válido — o vermelho
+  // aqui só quando os dois lados estão vazios.
+  if(!_gtPub.cidades.length&&!(_gtPub.outrasLocalizacoes||[]).length){
+    const vazio=document.createElement('span');
+    vazio.style.cssText='font-size:calc(11px*var(--gt-fs,1.3));color:var(--red,#dc2626);';
+    vazio.textContent='Sem nenhuma cidade — a Meta não aceita assim.';
+    chips.appendChild(vazio);
+  }
+  cx.appendChild(chips);
+  // Aviso calmo (não bloqueante): há localidades que este editor não gerencia
+  // (região, país, CEP…) e que serão preservadas intactas ao salvar. O dono
+  // precisa saber disso AQUI, no corpo, antes de chegar na confirmação — não
+  // só no resumo final. Reusa o texto que avisosDe já traduz para o mesmo
+  // caso, em vez de inventar uma frase nova.
+  if((_gtPub.outrasLocalizacoes||[]).length){
+    const notaLocal=avisosDe(_gtPub,_gtPub,{}).find(x=>x.tipo==='outras-localizacoes');
+    if(notaLocal){
+      const nota=document.createElement('div');
+      nota.style.cssText='font-size:calc(11px*var(--gt-fs,1.3));color:var(--muted,#666);margin:2px 0 7px;line-height:1.45;';
+      nota.innerHTML=notaLocal.texto;
+      cx.appendChild(nota);
+    }
+  }
+  cx.appendChild(_gtPubBusca('Buscar cidade…',_gtPubBuscarCidades,
+    c=>{if(!_gtPub.cidades.some(x=>x.key===String(c.key)))_gtPub.cidades.push({key:String(c.key),nome:c.name+(c.region?' · '+c.region:''),raio:0,unidade:'kilometer'});},
+    c=>c.name+(c.region?' · '+c.region:'')));
+
+  cx.appendChild(_gtPubTitulo('Onde NÃO mostrar'));
+  const fora=_gtPubLinha();
+  for(const e of _gtPub.excluidas)
+    fora.appendChild(_gtPubChip((e.nome||e.key)+(e.tipo==='regiao'?' (região)':''),()=>{_gtPub.excluidas=_gtPub.excluidas.filter(x=>x.key!==e.key);_gtPubRedesenha();}));
+  if(!_gtPub.excluidas.length)fora.appendChild(_gtPubAjuda('Nenhum lugar excluído.'));
+  cx.appendChild(fora);
+  cx.appendChild(_gtPubBusca('Excluir uma cidade…',_gtPubBuscarCidades,
+    c=>{if(!_gtPub.excluidas.some(x=>x.key===String(c.key)))_gtPub.excluidas.push({key:String(c.key),nome:c.name,tipo:'cidade'});},
+    c=>c.name+(c.region?' · '+c.region:'')));
+  return cx;
+}
+
+// Idade, gênero e interesses — os três que brigam com o Advantage+.
+function _gtPubSecaoPessoas(){
+  const cx=document.createElement('div');
+  cx.appendChild(_gtPubTitulo('Idade'));
+  const li=_gtPubLinha();
+  const de=_gtPubInput(_gtPub.idadeMin,'de','80px');de.type='number';de.min='13';de.max='65';
+  const ate=_gtPubInput(_gtPub.idadeMax,'até','80px');ate.type='number';ate.min='13';ate.max='65';
+  de.onchange=()=>{_gtPub.idadeMin=Number(de.value)||18;};
+  ate.onchange=()=>{_gtPub.idadeMax=Number(ate.value)||65;};
+  li.appendChild(de);const t=document.createElement('span');t.textContent='até';li.appendChild(t);li.appendChild(ate);
+  cx.appendChild(li);
+
+  cx.appendChild(_gtPubTitulo('Gênero'));
+  const lg=_gtPubLinha();
+  const opcoes=[{v:[],r:'Todos'},{v:[1],r:'Homens'},{v:[2],r:'Mulheres'}];
+  const atual=JSON.stringify(_gtPub.generos);
+  for(const o of opcoes){
+    const b=document.createElement('button');b.textContent=o.r;b.className='gt-btn-dup';
+    if(JSON.stringify(o.v)===atual)b.style.borderColor='var(--accent,#6366f1)',b.style.color='var(--accent,#6366f1)';
+    b.onclick=ev=>{ev.stopPropagation();_gtPub.generos=[...o.v];_gtPubRedesenha();};
+    lg.appendChild(b);
+  }
+  cx.appendChild(lg);
+
+  cx.appendChild(_gtPubTitulo('Interesses'));
+  const ci=_gtPubLinha();
+  for(const i of _gtPub.interesses)
+    ci.appendChild(_gtPubChip(i.name||i.id,()=>{_gtPub.interesses=_gtPub.interesses.filter(x=>x.id!==i.id);_gtPubRedesenha();}));
+  if(!_gtPub.interesses.length)ci.appendChild(_gtPubAjuda('Nenhum interesse — a Meta escolhe sozinha.'));
+  cx.appendChild(ci);
+  cx.appendChild(_gtPubBusca('Buscar interesse…',_gtPubBuscarInteresses,
+    i=>{if(!_gtPub.interesses.some(x=>x.id===String(i.id)))_gtPub.interesses.push({id:String(i.id),name:i.name});},
+    i=>i.name));
+  return cx;
+}
+
+// Públicos personalizados (remarketing e semelhantes), incluindo e excluindo.
+// Lista que não carrega NÃO derruba o editor: avisa só nesta seção.
+function _gtPubSecaoPublicos(){
+  const cx=document.createElement('div');
+  cx.appendChild(_gtPubTitulo('Públicos salvos na conta'));
+  if(_gtPubSalvos===null){
+    cx.appendChild(_gtPubAjuda('Não consegui carregar seus públicos salvos. O resto do editor funciona normalmente.'));
+    return cx;
+  }
+  if(!_gtPubSalvos.length){
+    cx.appendChild(_gtPubAjuda('Esta conta não tem público salvo. Crie no Gerenciador da Meta — criar por aqui está bloqueado pela Meta nesta conta.'));
+    return cx;
+  }
+  cx.appendChild(_gtPubAjuda('Clique uma vez para INCLUIR (verde), duas para EXCLUIR (vermelho), três para tirar.'));
+  const lp=_gtPubLinha();
+  for(const a of _gtPubSalvos){
+    const incluido=_gtPub.incluir.some(x=>x.id===String(a.id));
+    const excluido=_gtPub.excluir.some(x=>x.id===String(a.id));
+    const b=document.createElement('button');b.textContent=a.name;b.className='gt-btn-dup';
+    if(incluido)b.style.borderColor='#16a34a',b.style.color='#16a34a';
+    if(excluido)b.style.borderColor='#dc2626',b.style.color='#dc2626',b.textContent='∅ '+a.name;
+    b.onclick=ev=>{
+      ev.stopPropagation();
+      const id=String(a.id),nome=a.name;
+      _gtPub.incluir=_gtPub.incluir.filter(x=>x.id!==id);
+      _gtPub.excluir=_gtPub.excluir.filter(x=>x.id!==id);
+      if(!incluido&&!excluido)_gtPub.incluir.push({id,name:nome});
+      else if(incluido)_gtPub.excluir.push({id,name:nome});
+      _gtPubRedesenha();
+    };
+    lp.appendChild(b);
+  }
+  cx.appendChild(lp);
+  return cx;
+}
+
+// Advantage+ e "usar um público pronto do Estúdio".
+function _gtPubSecaoExtras(){
+  const cx=document.createElement('div');
+  cx.appendChild(_gtPubTitulo('Advantage+'));
+  cx.appendChild(_gtPubAjuda('Ligado, a Meta escolhe o público sozinha. Ligado NÃO convive com idade, gênero e interesses definidos à mão — a Meta recusa a combinação.'));
+  const lb=document.createElement('label');
+  lb.style.cssText='display:flex;align-items:center;gap:8px;font-size:calc(12px*var(--gt-fs,1.3));cursor:pointer;';
+  const ck=document.createElement('input');ck.type='checkbox';ck.checked=!!_gtPub.advantagePlus;
+  ck.onchange=()=>{_gtPub.advantagePlus=ck.checked;_gtPubRedesenha();};
+  lb.appendChild(ck);const s=document.createElement('span');s.textContent='Deixar a Meta escolher o público (Advantage+)';lb.appendChild(s);
+  cx.appendChild(lb);
+
+  if(_gtPubPresets===null){
+    cx.appendChild(_gtPubTitulo('Usar um público pronto'));
+    cx.appendChild(_gtPubAjuda('Não consegui carregar os públicos montados no Estúdio.'));
+    return cx;
+  }
+  if(!_gtPubPresets.length)return cx;
+  cx.appendChild(_gtPubTitulo('Usar um público pronto do Estúdio'));
+  cx.appendChild(_gtPubAjuda('Escolher um preenche o editor inteiro. Você ainda vê o que mudou e confirma antes de salvar.'));
+  const sel=document.createElement('select');
+  sel.style.cssText='width:100%;padding:8px;border-radius:7px;border:1px solid var(--border,#ddd);background:var(--surface,#fff);color:var(--text,#111);font-size:calc(12px*var(--gt-fs,1.3));';
+  sel.innerHTML='<option value="">— escolher —</option>'+_gtPubPresets.map(p=>'<option value="'+_gtEsc(p.id)+'">'+_gtEsc(p.nome)+'</option>').join('');
+  sel.onchange=()=>{
+    const p=_gtPubPresets.find(x=>String(x.id)===sel.value);
+    if(!p)return;
+    // Preenche, NÃO salva. O preset guarda a mesma forma que o Estúdio usa.
+    _gtPub.cidades=((p.geo&&p.geo.cities)||[]).map(c=>({key:String(c.key),nome:c.nome||String(c.key),raio:Number(c.radius)||0,unidade:c.distance_unit||'kilometer'}));
+    _gtPub.excluidas=((p.geo&&p.geo.excluded)||[]).map(e=>({key:String(e.key),nome:e.nome||String(e.key),tipo:e.type==='region'?'regiao':'cidade'}));
+    _gtPub.idadeMin=p.idade_min==null?18:Number(p.idade_min);
+    _gtPub.idadeMax=p.idade_max==null?65:Number(p.idade_max);
+    _gtPub.generos=(p.generos||[]).map(Number);
+    _gtPub.interesses=(p.interesses||[]).map(i=>({id:String(i.id),name:i.name}));
+    _gtPub.incluir=(p.custom_audiences||[]).map(a=>({id:String(a.id),name:a.name}));
+    // Público definido à mão não convive com Advantage+ — mesma regra do publico.mjs.
+    _gtPub.advantagePlus=false;
+    _gtPubRedesenha();
+  };
+  cx.appendChild(sel);
+  return cx;
+}
+
+// A janela. Resolve com o Publico editado, ou null se cancelou.
+// NÃO estende o _gtConfirm: aquele é o portão sim/não de TODAS as ações da
+// tela, marcado no código como preservado verbatim, e não tem formulário.
+function _gtPublicoModal(nomeConjunto){
+  return new Promise(resolve=>{
+    const ov=_gtPubOverlay();ov.onclick=null;
+    const box=document.createElement('div');
+    box.style.cssText='background:var(--surface,#fff);color:var(--text,#111);border-radius:14px;max-width:560px;width:100%;max-height:86vh;overflow-y:auto;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.45);font-family:var(--fonte-principal);';
+    const corpo=document.createElement('div');
+    const barra=document.createElement('div');
+    barra.style.cssText='display:flex;gap:10px;justify-content:flex-end;margin-top:20px;position:sticky;bottom:0;background:var(--surface,#fff);padding-top:12px;';
+    const bCancelar=document.createElement('button');bCancelar.textContent='Cancelar';
+    bCancelar.style.cssText='padding:9px 16px;border-radius:8px;border:1px solid var(--border,#ddd);background:none;color:var(--text,#111);font-weight:600;font-size:calc(13px*var(--gt-fs,1.3));cursor:pointer;';
+    bCancelar.onclick=()=>{_gtPubFechar();resolve(null);};
+    const bSalvar=document.createElement('button');bSalvar.textContent='Ver o que mudou';
+    bSalvar.onclick=()=>{_gtPubFechar();resolve(_gtPub);};
+    barra.appendChild(bCancelar);barra.appendChild(bSalvar);
+
+    // Redesenha o corpo e reavalia os avisos. É aqui que o botão de continuar
+    // é liberado ou travado — sem isso, o dono só descobriria o conflito de
+    // Advantage+ tomando erro da Meta.
+    _gtPubRedesenha=()=>{
+      corpo.innerHTML='';
+      const tit=document.createElement('div');
+      tit.style.cssText='font-size:calc(16px*var(--gt-fs,1.3));font-weight:800;margin-bottom:3px;';
+      tit.textContent='Quem vê estes anúncios';
+      const sub=document.createElement('div');
+      sub.style.cssText='font-size:calc(12px*var(--gt-fs,1.3));color:var(--muted,#666);margin-bottom:6px;';
+      sub.textContent='Conjunto: '+nomeConjunto;
+      corpo.appendChild(tit);corpo.appendChild(sub);
+      corpo.appendChild(_gtPubSecaoLugar());
+      corpo.appendChild(_gtPubSecaoPessoas());
+      corpo.appendChild(_gtPubSecaoPublicos());
+      corpo.appendChild(_gtPubSecaoExtras());
+
+      const { ajustes }=montarTargeting(_gtPub,{});
+      const avisos=avisosDe(_gtPubAntes,_gtPub,{ativo:_gtPubAtivo,ajustes});
+      const trava=avisos.find(a=>a.bloqueia);
+      for(const a of avisos.filter(x=>x.bloqueia)){
+        const d=document.createElement('div');
+        d.style.cssText='margin-top:14px;background:rgba(220,38,38,.10);border:1px solid rgba(220,38,38,.35);border-radius:8px;padding:11px 13px;font-size:calc(12px*var(--gt-fs,1.3));line-height:1.5;';
+        d.innerHTML=a.texto;
+        corpo.appendChild(d);
+      }
+      bSalvar.disabled=!!trava;
+      bSalvar.style.cssText='padding:9px 18px;border-radius:8px;border:none;background:var(--accent,#6366f1);color:#fff;font-weight:700;font-size:calc(13px*var(--gt-fs,1.3));cursor:'+(trava?'not-allowed':'pointer')+';opacity:'+(trava?'.5':'1')+';';
+    };
+
+    ov.innerHTML='';ov.style.display='flex';
+    box.appendChild(corpo);box.appendChild(barra);ov.appendChild(box);
+    _gtPubRedesenha();
+  });
+}
+
+const _gtPubClonar=(p)=>JSON.parse(JSON.stringify(p));
+
+// AÇÃO REAL na Meta: muda quem vê os anúncios de um conjunto ao vivo.
+async function _gtAbrirPublico(conjunto){
+  const tok=_gtCurAcc?.id;
+  if(!tok){await _gtConfirm('Sem conta selecionada','Escolha uma conta de anúncios antes de mexer no público.',{okOnly:true});return;}
+  if(_gtPubBusy){await _gtConfirm('Já tem um público aberto','Termine o que está aberto antes de abrir outro.',{okOnly:true});return;}
+  _gtPubBusy=true;
+  try{
+    _gtPubStatus('<b>Carregando o público…</b>');
+    let dados=null;
+    try{ dados=await _gtBuscarPublico(conjunto.id); }
+    catch(e){
+      _gtPubStatus('<b>Não consegui carregar o público.</b><br>'+_gtDupTraduzir(String((e&&e.message)||e)),
+        [{texto:'Fechar',primario:true,aoClicar:_gtPubFechar}]);
+      return;
+    }
+    if(!dados){_gtPubStatus('<b>Não consegui carregar o público deste conjunto.</b>',[{texto:'Fechar',primario:true,aoClicar:_gtPubFechar}]);return;}
+
+    _gtPubAntes=lerPublico(dados.targeting);
+    _gtPub=_gtPubClonar(_gtPubAntes);
+    _gtPubAtivo=dados.effective_status==='ACTIVE';
+    // As duas listas são opcionais: null significa "não carregou", e cada
+    // seção avisa por si. Não podem impedir o dono de trocar uma cidade.
+    [_gtPubSalvos,_gtPubPresets]=await Promise.all([
+      _gtListarPublicosSalvos().catch(()=>null),
+      _gtListarPresets().catch(()=>null),
+    ]);
+
+    const escolha=await _gtPublicoModal(conjunto.nome||'sem nome');
+    if(!escolha)return;
+
+    const {targeting,ajustes}=montarTargeting(escolha,dados.targeting);
+    const linhas=resumoDasMudancas(_gtPubAntes,escolha);
+    const avisos=avisosDe(_gtPubAntes,escolha,{ativo:_gtPubAtivo,ajustes});
+    if(!linhas.length){_gtPubStatus('<b>Nada mudou.</b><br>Não há o que salvar.',[{texto:'Fechar',primario:true,aoClicar:_gtPubFechar}]);return;}
+
+    const html='<b>Confirma estas mudanças?</b><ul style="margin:9px 0 0;padding-left:18px;">'
+      +linhas.map(l=>'<li>'+_gtEsc(l)+'</li>').join('')+'</ul>'
+      +avisos.map(a=>'<div style="margin-top:12px;background:'+(a.bloqueia?'rgba(220,38,38,.10)':'rgba(217,119,6,.12)')+';border:1px solid '+(a.bloqueia?'rgba(220,38,38,.35)':'rgba(217,119,6,.35)')+';border-radius:8px;padding:11px 13px;line-height:1.5;">'+a.texto+'</div>').join('');
+
+    // A gravação de verdade acontece DENTRO do clique de "Salvar na Meta", que
+    // o `_gtPubStatus` acima não bloqueia (é só desenho de tela). Sem esperar
+    // por ela aqui, o `finally` deste função liberaria _gtPubBusy assim que a
+    // caixa de confirmação aparecesse — ANTES do dono decidir salvar — e um
+    // segundo editor poderia abrir e tomar o mesmo overlay #gt-pub-ov enquanto
+    // a chamada na Meta ainda está em voo, exatamente o risco que o duplicar
+    // já pagou (janela parecendo livre com escrita real rodando por trás).
+    // Por isso a jornada inteira — confirmar, salvar, ver o resultado — vira
+    // uma Promise que esta função espera antes de cair no finally.
+    await new Promise(fimDaJornada=>{
+      _gtPubStatus(html,[
+        {texto:'Cancelar',aoClicar:()=>{_gtPubFechar();fimDaJornada();}},
+        {texto:'Salvar na Meta',primario:true,desabilitado:avisos.some(a=>a.bloqueia),aoClicar:async()=>{
+          try{
+            _gtPubStatus('<b>Salvando…</b>');
+            // targeting vai como OBJETO: o meta-proxy já faz JSON.stringify.
+            // Converter aqui converteria duas vezes e a Meta recusaria.
+            const enviar=comEspera((caminho,params)=>metaPost(caminho,params,tok));
+            await enviar('/'+conjunto.id,{targeting});
+            _gtPubStatus('<b>Pronto.</b><br>O público deste conjunto foi atualizado.',
+              [{texto:'Fechar',primario:true,aoClicar:()=>{_gtPubFechar();loadGtData();fimDaJornada();}}]);
+          }catch(e){
+            _gtPubStatus('<b>A Meta não aceitou.</b><br>'+_gtPubTraduzir(String((e&&e.message)||e))
+              +'<br><br>Nada foi alterado no conjunto.',
+              [{texto:'Fechar',primario:true,aoClicar:()=>{_gtPubFechar();fimDaJornada();}}]);
+          }
+        }},
+      ]);
+    });
+  }catch(e){
+    _gtPubStatus('<b>Deu problema inesperado.</b><br>'+_gtEsc(String((e&&e.message)||e).slice(0,180))
+      +'<br><br>Se a gravação não chegou a acontecer, nada mudou no conjunto.',
+      [{texto:'Fechar',primario:true,aoClicar:_gtPubFechar}]);
+  }finally{
+    _gtPubBusy=false;
+    _gtPubRedesenha=()=>{};   // função vazia, não null — ver a declaração
+  }
+}
+
+// Mesmo espírito do _gtDupTraduzir, mais o caso que só existe aqui.
+function _gtPubTraduzir(msg){
+  const m=String(msg||'');
+  if(/1870227|advantage/i.test(m))
+    return 'A Meta recusou porque o <b>Advantage+ está ligado</b> neste conjunto. Desligue o Advantage+ no editor para que idade, gênero e interesses valham.';
+  if(/1487110|radius/i.test(m))
+    return 'A Meta recusou o <b>raio</b> de uma das cidades. O mínimo é 17 km (10 milhas).';
+  return _gtDupTraduzir(m);
+}
+
 // AÇÃO REAL na Meta (pausar/reativar campanha ou anúncio, mudar orçamento).
 // Toda chamada de metaPost() aqui é precedida por await _gtConfirm(...) — o
 // usuário SEMPRE confirma antes de qualquer mutação ser aplicada na conta ao vivo.
