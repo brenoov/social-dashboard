@@ -157,9 +157,28 @@ async function gerar() {
 
 // A rodada leva minutos e roda fora daqui (GitHub Actions). Consultar de 5 em 5
 // segundos é o suficiente para a tela não parecer travada.
+//
+// O LIMITE DE PACIÊNCIA não é excesso de zelo. Quem grava 'erro' no job é o
+// próprio robô — então uma falha ANTES de ele começar (dependência faltando,
+// GitHub fora do ar, disparo que não pegou) deixava o job em 'enfileirado' para
+// sempre e esta tela girando a ampulheta sem fim, sem nada para clicar.
+// Aconteceu de verdade. O workflow agora fecha o job por conta própria, mas
+// isso depende de o workflow ter chegado a rodar; aqui é a garantia de que a
+// tela sempre devolve o controle para a pessoa.
+const PACIENCIA_MS = 10 * 60 * 1000
+
 function acompanhar() {
   clearInterval(relogio)
+  const comecou = Date.now()
   relogio = setInterval(async () => {
+    if (Date.now() - comecou > PACIENCIA_MS) {
+      clearInterval(relogio)
+      job.value = null
+      erro.value = 'A rodada demorou mais que o esperado e paramos de aguardar. '
+        + 'Se as ideias aparecerem depois, é só recarregar a página. '
+        + 'Você também pode tentar de novo.'
+      return
+    }
     const j = await dados.verJob(job.value)
     if (!j) return
     if (j.status === 'concluido') {
