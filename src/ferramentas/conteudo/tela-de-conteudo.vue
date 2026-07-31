@@ -52,7 +52,7 @@
               @click="abrir(p)"
             >
               <img v-if="miniaturas[p.id]" :src="miniaturas[p.id]" alt="" class="ctd-proxima-mini">
-              <span v-else class="ctd-proxima-mini ctd-proxima-sem">▣</span>
+              <span v-else class="ctd-proxima-mini ctd-proxima-sem"><IconeFormato :formato="p.formato" :tamanho="18" /></span>
               <span class="ctd-proxima-txt">
                 <span class="ctd-proxima-quando">{{ quandoSai(p.publicar_em) }}</span>
                 <span class="ctd-proxima-titulo">{{ p.titulo || 'Sem título' }}</span>
@@ -73,6 +73,7 @@
         <div class="ctd-tabs">
           <button :class="{ on: aba === 'calendario' }" @click="aba = 'calendario'">Calendário</button>
           <button :class="{ on: aba === 'quadro' }" @click="aba = 'quadro'">Quadro</button>
+          <button :class="{ on: aba === 'previa' }" @click="aba = 'previa'">Prévia do feed</button>
           <button :class="{ on: aba === 'lista' }" @click="aba = 'lista'">Lista</button>
           <button :class="{ on: aba === 'ideias' }" @click="aba = 'ideias'">
             Ideias<span v-if="ideias.length"> ({{ ideias.length }})</span>
@@ -117,6 +118,7 @@
             @abrir="abrir"
             @mover="mover"
           />
+          <PreviaDoFeed v-show="aba === 'previa'" :pecas="pecas" :miniaturas="miniaturas" @abrir="abrir" />
           <VisaoLista v-show="aba === 'lista'" :pecas="pecas" @abrir="abrir" />
         </template>
       </template>
@@ -146,6 +148,8 @@ import VisaoCalendario from './visao-calendario.vue'
 import VisaoKanban from './visao-kanban.vue'
 import VisaoLista from './visao-lista.vue'
 import VisaoIdeias from './visao-ideias.vue'
+import PreviaDoFeed from './previa-do-feed.vue'
+import IconeFormato from './icone-formato.vue'
 import PainelPeca from './painel-peca.vue'
 import { STATUS, corDeStatus } from './estados.js'
 import { contarPorStatus } from './agrupar-kanban.js'

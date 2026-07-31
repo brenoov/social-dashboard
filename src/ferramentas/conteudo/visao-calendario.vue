@@ -23,17 +23,25 @@
             <span class="ctd-cal-num">{{ dia.numero }}</span>
             <button class="ctd-cal-add" :title="`Nova peça em ${dia.numero}`" @click="$emit('nova', dia.iso)">+</button>
           </div>
+          <!-- A ARTE, não o título. Num calendário de conteúdo a pessoa
+               reconhece o post pela imagem — o texto é a legenda da imagem, não
+               o contrário. É o que separa isto de um quadro de tarefas. -->
           <div class="ctd-cal-pecas">
             <button
               v-for="peca in dia.pecas"
               :key="peca.id"
-              class="ctd-cal-chip"
-              :style="{ borderLeftColor: corDeStatus(peca.status) }"
-              :title="`${peca.titulo} — ${rotuloDeStatus(peca.status)}`"
+              class="ctd-cal-peca"
+              :style="{ '--ctd-cor-status': corDeStatus(peca.status) }"
+              :title="`${peca.titulo} — ${rotuloDeStatus(peca.status)} — ${horaDaPeca(peca.publicar_em)}`"
               @click="$emit('abrir', peca)"
             >
-              <span class="ctd-cal-chip-hora">{{ horaDaPeca(peca.publicar_em) }}</span>
-              <span class="ctd-cal-chip-txt">{{ peca.titulo || 'Sem título' }}</span>
+              <img v-if="miniaturas[peca.id]" :src="miniaturas[peca.id]" :alt="peca.titulo" loading="lazy">
+              <span v-else class="ctd-cal-peca-sem"><IconeFormato :formato="peca.formato" :tamanho="20" /></span>
+
+              <span class="ctd-cal-peca-info">
+                <span class="ctd-cal-peca-hora">{{ horaDaPeca(peca.publicar_em) }}</span>
+                <span class="ctd-cal-peca-titulo">{{ peca.titulo || 'Sem título' }}</span>
+              </span>
             </button>
           </div>
         </div>
@@ -59,6 +67,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import CartaoPeca from './cartao-peca.vue'
+import IconeFormato from './icone-formato.vue'
 import { DIAS_DA_SEMANA, montarMes, horaDaPeca } from './grade-do-calendario.js'
 import { corDeStatus, rotuloDeStatus } from './estados.js'
 import { hojeLocal } from '../../compartilhado/datas.js'

@@ -6,7 +6,7 @@
           Todas ({{ ideias.length }})
         </button>
         <button class="ctd-chip-filtro" :class="{ on: filtro === 'favorita' }" @click="filtro = 'favorita'">
-          ★ Favoritas ({{ contagem.favorita }})
+          <IconeEstrela cheia /> Favoritas ({{ contagem.favorita }})
         </button>
         <button class="ctd-chip-filtro" :class="{ on: filtro === 'ia' }" @click="filtro = 'ia'">
           Da IA ({{ contagem.ia }})
@@ -19,7 +19,7 @@
       <div class="ctd-ideias-acoes">
         <button class="ctd-btn" @click="anotando = !anotando">+ Anotar ideia</button>
         <button class="ctd-btn ctd-btn-primario" :disabled="!!job" @click="gerar">
-          {{ job ? 'Pensando…' : '✨ Gerar ideias com IA' }}
+          <IconeFaisca v-if="!job" /><span>{{ job ? 'Pensando…' : 'Gerar ideias com IA' }}</span>
         </button>
       </div>
     </div>
@@ -59,13 +59,13 @@
     <div v-else class="ctd-ideias-grade">
       <article v-for="ideia in visiveis" :key="ideia.id" class="ctd-ideia" :class="{ usada: ideia.situacao === 'usada' }">
         <header class="ctd-ideia-cab">
-          <span v-if="ideia.origem === 'ia'" class="ctd-ideia-selo" title="Sugerida pela IA">✨</span>
+          <span v-if="ideia.origem === 'ia'" class="ctd-ideia-selo" title="Sugerida pela IA"><IconeFaisca /></span>
           <h3 class="ctd-ideia-titulo">{{ ideia.titulo }}</h3>
           <button
             class="ctd-mini-btn"
             :title="ideia.situacao === 'favorita' ? 'Tirar dos favoritos' : 'Favoritar'"
             @click="alternarFavorita(ideia)"
-          >{{ ideia.situacao === 'favorita' ? '★' : '☆' }}</button>
+          ><IconeEstrela :cheia="ideia.situacao === 'favorita'" /></button>
         </header>
 
         <div class="ctd-ideia-tags">
@@ -92,7 +92,7 @@
             :disabled="trabalhando"
             @click="virarPeca(ideia)"
           >Virar peça</button>
-          <span v-else class="ctd-ajuda">✓ Já virou peça</span>
+          <span v-else class="ctd-ajuda ctd-ideia-feita"><IconeCerto /> Já virou peça</span>
           <button
             v-if="ideia.situacao !== 'usada'"
             class="ctd-mini-btn perigo"
@@ -107,6 +107,7 @@
 
 <script setup>
 import { ref, computed, onUnmounted } from 'vue'
+import { IconeEstrela, IconeFaisca, IconeCerto } from './icones.js'
 import { regrasDoFormato } from './formatos.js'
 import * as dados from './dados-conteudo.js'
 
