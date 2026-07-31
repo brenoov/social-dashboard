@@ -107,8 +107,21 @@ marca × objetivo de campanha. As sugestões aparecem numa faixa acima da busca
 de interesses na Fábrica de Anúncios, com o tamanho do público de cada uma.
 Antes disso, escolher interesse era chutar no escuro.
 
-O QUE A IA RECEBE: o nome da marca, o nome de cada loja, as CIDADES que cada
-loja atende e o objetivo da campanha. Nada de texto escrito por gente.
+O QUE A IA RECEBE: o nome da marca, O QUE ELA VENDE, o nome de cada loja, as
+CIDADES que cada loja atende e o objetivo da campanha. Tudo vem do cadastro —
+nada de texto escrito na hora por alguém.
+
+"O QUE ELA VENDE" É O CAMPO MAIS IMPORTANTE DO PEDIDO. Ele sai da coluna
+`segmento` de fabrica_marcas. Antes dele existir, a IA recebia só o nome ("La
+Vessel"), deduzia "loja de moda feminina" e devolvia "looks do dia", "estilo
+pessoal", "influencer moda" — genérico, e igual nos seis objetivos. Enquanto
+isso, a maior linha de produto da loja, contando itens no estoque, é CINTO (398,
+mais que qualquer tipo de bolsa) — e nenhum termo jamais citou cinto, porque
+ninguém tinha contado isso a ela.
+
+Se a coluna estiver vazia, nada quebra: o pedido sai só com o nome, como era
+antes, e a linha simplesmente não aparece. Marca nova sem o campo preenchido
+gera sugestão mais genérica, não gera erro.
 
 O QUE A IA DEVOLVE: até 8 TERMOS DE BUSCA — assuntos, não nomes de interesse.
 Coisas como "moda feminina" ou "bolsas". Quem procura os nomes de verdade é o
@@ -191,30 +204,37 @@ O motivo: o catálogo do Meta é GROSSO. Ele tem "Moda feminina", "Bolsas",
 Termo específico demais não acha nada, simplesmente porque não existe entrada
 correspondente lá dentro.
 
-Ou seja: a especificidade do termo não é a alavanca. A relevância tem de vir de
-FILTRAR o que voltou, não de estreitar o que se pergunta. É pra isso que o robô
-agora coleta a CATEGORIA de cada interesse (veja abaixo).
+Ou seja: a especificidade do termo não é a alavanca. O que faltava não era o
+modelo apertar a pontaria — era ele SABER O QUE A LOJA VENDE, e isso agora chega
+pelo campo "o que ela vende" (lá em cima).
 
 Os três pontos medidos deste mesmo texto, pra não repetir nenhum:
   pedindo o nome exato do interesse ..... 15% dos nomes existiam
   pedindo termo "específico" ............ zero resultado
   pedindo "curto e abrangente" .......... 49 interesses achados
 
-A CATEGORIA DE CADA INTERESSE (por enquanto só pra olhar)
-----------------------------------------------------------
-Junto com o nome e o tamanho, o Meta devolve a CATEGORIA do interesse, tipo
-"Compras e moda > Bolsas" ou "Entretenimento > Filmes". A gente estava jogando
-esse dado fora.
+A CATEGORIA DE CADA INTERESSE — MEDIDA, E NÃO SERVE PRA FILTRAR
+----------------------------------------------------------------
+Mais uma anotada pra ninguém tentar de novo.
 
-É quase certo que seja ele que separa o joio: "Bolsas" é Compras e moda, mas
-"Observe and Report" (um filme) é Entretenimento > Filmes e "India Fashion Week"
-é Eventos. Uma regra por categoria resolveria de uma vez o que três tentativas de
-mexer no texto do pedido não resolveram.
+Junto com o nome e o tamanho, o Meta devolve uma CATEGORIA do interesse. A ideia
+era usar ela pra separar o joio: "Bolsas" seria "Compras e moda", enquanto
+"Observe and Report" (um filme) seria "Entretenimento > Filmes". Uma regra por
+categoria resolveria de uma vez.
 
-MAS AINDA NÃO FILTRA NADA. Nesta rodada a categoria só é COLETADA e MOSTRADA no
-log da rodada seca, ao lado de cada nome. Primeiro se olha o valor de verdade,
-depois se escreve a regra — que é exatamente o contrário do que foi feito nas
-tentativas anteriores, e é por isso que elas custaram três rodadas.
+O resultado, MEDIDO: quase toda categoria volta como "Interesses > Outros
+interesses > <o próprio nome do interesse>". É um lugar-nenhum que só repete o
+nome. De 36 interesses achados, UM tinha categoria de verdade. Não dá pra
+filtrar por um campo que é igual pra todo mundo.
+
+A categoria continua sendo COLETADA e mostrada no log seco (custa nada, e é bom
+ter à vista), mas NÃO existe nem deve existir regra baseada nela até que o Meta
+passe a preenchê-la.
+
+A lição que ficou, e que vale mais que o campo: olhar o valor de verdade ANTES de
+escrever a regra. Se a regra tivesse sido escrita junto, ela não faria nada e
+ninguém desconfiaria — porque não filtrar nada e filtrar errado se parecem
+demais quando não se olha.
 
 JÁ TENTAMOS FILTRAR A BUSCA POR IDIOMA — E NÃO DEU CERTO
 ---------------------------------------------------------

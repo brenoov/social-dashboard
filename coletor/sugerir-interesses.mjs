@@ -191,7 +191,11 @@ export async function run() {
   // grava em ia_execucoes com status 'erro'.
   const token = await loginServico();
 
-  const marcas = await sbGet('/fabrica_marcas?select=id,nome,account_id&ativo=eq.true');
+  // `segmento` (o que a marca vende) é o campo mais importante do pedido — ver
+  // montarPedido. Esquecer de pedir a coluna aqui NÃO daria erro: ela chegaria
+  // undefined, a linha sumiria do pedido e a IA voltaria a adivinhar pelo nome,
+  // exatamente o defeito que a coluna existe pra consertar, e em silêncio.
+  const marcas = await sbGet('/fabrica_marcas?select=id,nome,segmento,account_id&ativo=eq.true');
   const lojas = await sbGet('/fabrica_lojas?select=nome,marca_id,geo_cities');
 
   // Traduz TODAS as chaves de cidade de uma vez, antes do laço (ver

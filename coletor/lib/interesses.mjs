@@ -158,6 +158,24 @@ export function montarPedido({ marca, lojas, objetivo } = {}) {
   const nomeMarca = limpo(marca && marca.nome);
   if (!nomeMarca) return null;
 
+  // O QUE A MARCA VENDE — o fato mais importante do pedido inteiro.
+  //
+  // Sem isto, a IA recebia só o nome "La Vessel" e tinha de adivinhar o resto.
+  // Ela adivinhava "loja de moda feminina" e devolvia "looks do dia", "estilo
+  // pessoal", "influencer moda" — genérico, e igual nos seis objetivos. Medido:
+  // a maior linha de produto da loja, por quantidade de itens, é CINTO (398),
+  // mais que qualquer tipo de bolsa. Nenhum termo da IA jamais citou cinto,
+  // porque ninguém nunca contou a ela.
+  //
+  // Passa pelo mesmo `limpo()` de todo campo de cadastro: é dado da mesma classe
+  // que o nome da marca, e recebe o mesmo tratamento — newline vira espaço,
+  // texto gigante é capado.
+  //
+  // VAZIO NÃO QUEBRA NADA: marca cadastrada amanhã sem preencher a coluna cai no
+  // comportamento de antes (só o nome) e o pedido sai do mesmo jeito. A linha
+  // inteira some — nunca aparece "O que ela vende:" seguido de nada.
+  const segmento = limpo(marca && marca.segmento);
+
   // ATENÇÃO: `ALVOS[x].rotulo` é o rótulo da MÉTRICA, não do objetivo —
   // engajamento tem rotulo 'Custo por ponto'. Dizer à IA "Objetivo da campanha:
   // Custo por ponto" seria absurdo. Por isso o nome do objetivo vem daqui, e o
@@ -190,10 +208,11 @@ export function montarPedido({ marca, lojas, objetivo } = {}) {
   // correspondente não existe lá dentro.
   //
   // ENTÃO NÃO APERTE ESTE TEXTO PRA "MELHORAR A RELEVÂNCIA". Já tentamos, e o
-  // resultado foi a faixa inteira vazia nos seis objetivos. Se os nomes vierem
-  // fora de contexto (filme americano, semana de moda da Índia), o caminho é
-  // filtrar DEPOIS pela categoria que a Meta devolve em `path`, não estreitar o
-  // termo antes — o `path` é justamente o que esta rodada está indo medir.
+  // resultado foi a faixa inteira vazia nos seis objetivos. O que faltava nunca
+  // foi pontaria no pedido — era CONTEXTO: a IA não sabia o que a loja vende. É
+  // isso que a linha "O que ela vende" resolve, algumas linhas abaixo.
+  // (Filtrar depois pelo `path` também já foi tentado e não serve: ver o
+  // comentário de caminhoDoInteresse.)
   const system =
     'Você sugere ASSUNTOS de busca para encontrar interesses de segmentação do Meta Ads para lojas brasileiras. ' +
     'Você NÃO precisa conhecer o catálogo do Meta nem acertar o nome exato de nenhum interesse: ' +
@@ -204,6 +223,8 @@ export function montarPedido({ marca, lojas, objetivo } = {}) {
 
   const user = [
     `Marca: ${nomeMarca}`,
+    // Logo abaixo do nome, porque é o que muda tudo o que vem depois.
+    ...(segmento ? [`O que ela vende: ${segmento}`] : []),
     linhasLojas.length ? `Lojas:\n${linhasLojas.join('\n')}` : 'Lojas: não cadastradas',
     `Objetivo da campanha: ${nomeObjetivo}${ajuda ? ` (medido por: ${ajuda})` : ''}`,
     // A ÚNICA linha que sobrou da tentativa que zerou: ela diz QUEM procurar, não
@@ -268,13 +289,21 @@ export const MAXIMO_POR_OBJETIVO = 12;
 export const TETO_DE_PUBLICO = 500_000_000;
 
 // A CATEGORIA do interesse, do jeito que a Meta manda: um caminho de migalhas
-// ("Compras e moda" > "Bolsas"). É a informação que a gente vinha JOGANDO FORA e
-// que provavelmente separa "Bolsas" (Compras e moda) de "Observe and Report"
-// (Entretenimento > Filmes) e "India Fashion Week" (Eventos).
+// ("Compras e moda" > "Bolsas").
 //
-// AINDA NÃO FILTRA NADA. Esta rodada só COLHE e MOSTRA, pra decidir a regra em
-// cima de valor real em vez de mais um palpite — foi palpite que zerou as duas
-// últimas rodadas.
+// MEDIDO, E NÃO SERVE PRA FILTRAR: a aposta era que ela separasse "Bolsas"
+// (Compras e moda) de "Observe and Report" (Entretenimento > Filmes). Na conta
+// de verdade, quase tudo volta como "Interesses > Outros interesses > <o próprio
+// nome do interesse>" — um lugar-nenhum que só repete o nome. De 36 interesses,
+// UM tinha categoria de verdade.
+//
+// Continua sendo colhida e mostrada no log seco (custa nada e é bom ter à
+// vista), mas NÃO escreva regra em cima dela até o Meta passar a preenchê-la:
+// uma regra assim não filtraria nada e ninguém desconfiaria, porque não filtrar
+// nada e filtrar errado se parecem demais quando não se olha.
+//
+// E foi por ter COLHIDO ANTES DE FILTRAR que isso apareceu de graça, em vez de
+// virar mais uma rodada perdida.
 //
 // Devolve sempre um ARRAY DE TEXTOS, vazio quando não deu pra saber. Aqui vazio
 // e ausente valem a mesma coisa de propósito: os dois querem dizer "não sei a
