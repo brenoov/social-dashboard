@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { montarPedido, OBJETIVOS, NOME_DO_OBJETIVO, FOCO_DO_OBJETIVO, nomesPropostos, colherDaBusca, MAXIMO_POR_OBJETIVO, TETO_DE_PUBLICO, tamanhoLegivel, linhasDaPrevia, linhasDosLargos, comCidadesResolvidas, rodadaFalhouInteira } from './interesses.mjs';
+import { montarPedido, OBJETIVOS, NOME_DO_OBJETIVO, FOCO_DO_OBJETIVO, nomesPropostos, colherDaBusca, MAXIMO_POR_OBJETIVO, TETO_DE_PUBLICO, tamanhoLegivel, linhaDosTermos, linhasDaPrevia, linhasDosLargos, comCidadesResolvidas, rodadaFalhouInteira } from './interesses.mjs';
 import { ALVOS } from '../../src/ferramentas/gestao-trafego/alvos.js';
 
 const MARCA = { id: 'm1', nome: 'La Vessel' };
@@ -296,16 +296,26 @@ test('o pedido pede 8 termos, nao 12 nomes', () => {
   assert.ok(!p.user.includes('até 12'), 'o número antigo não pode sobrar no texto');
 });
 
-test('o pedido manda ser ESPECIFICO e nomeia as megacategorias proibidas', () => {
-  // A primeira rodada trouxe "Compras na internet" (1,58 bi) e "black friday"
-  // (178 mi) porque o pedido pedia termo "abrangente". Pedir abrangência é pedir
-  // exatamente o que não segmenta ninguém.
+test('o pedido pede termo CURTO E ABRANGENTE — pedir "especifico" zerou tudo', () => {
+  // MEDIDO, não opinião. O mesmo texto, três versões:
+  //   nome exato do interesse .... 15% existiam
+  //   termo "ESPECÍFICO" ......... ZERO resultado em 48 buscas
+  //   "curto e abrangente" ....... 49 interesses achados
+  // O catálogo da Meta é GROSSO ("Bolsas", "Moda feminina"); termo estreito não
+  // acha nada porque a entrada correspondente não existe lá dentro.
   const p = montarPedido({ marca: MARCA, lojas: LOJAS, objetivo: 'vendas' });
-  assert.match(p.system, /ESPECÍFICO/, 'a instrução tem de estar no system também');
-  assert.match(p.user, /SEJA ESPECÍFICO/);
-  for (const proibida of ['compras', 'internet', 'varejo', 'black friday'])
-    assert.ok(p.user.includes(`"${proibida}"`), `a megacategoria ${proibida} tem de ser citada como proibida`);
-  assert.ok(!/curto e abrangente/.test(p.user), 'pedir abrangência é o que causou o problema');
+  assert.match(p.user, /curto e abrangente/);
+  assert.ok(!/ESPECÍFICO/.test(p.user), 'esta instrução zerou as 48 buscas — não pode voltar');
+  assert.ok(!/ESPECÍFICO/.test(p.system), 'nem no system');
+  assert.ok(!p.user.includes('categorias enormes'), 'a proibição de megacategoria vinha junto e ia junto');
+});
+
+test('nenhum FOCO empurra pra estreitar o termo', () => {
+  // A linha de vendas dizia "tipos de produto ESPECÍFICOS" — a mesma instrução
+  // que zerou, por outro nome. Palavra que empurra pra estreitar reintroduz o
+  // defeito sem parecer que reintroduziu.
+  for (const [chave, foco] of Object.entries(FOCO_DO_OBJETIVO))
+    assert.ok(!/específic|nicho|detalhad/i.test(foco), `${chave} voltou a pedir termo estreito: ${foco}`);
 });
 
 test('todo objetivo tem FOCO proprio, e nenhum sobrando', () => {
@@ -323,8 +333,6 @@ test('objetivos diferentes pedem PESSOAS diferentes, nao so um rotulo diferente'
   assert.match(vendas.user, /Quem procurar neste objetivo: .*momento de compra/);
   assert.match(reconhecimento.user, /Quem procurar neste objetivo: .*ainda NÃO conhece a marca/);
   assert.notEqual(vendas.user, reconhecimento.user);
-  assert.match(vendas.user, /reconhecimento não podem ser os mesmos de vendas/,
-    'o pedido tem de dizer explicitamente que as listas não podem coincidir');
 });
 
 test('FOCO_DO_OBJETIVO com chave faltante NAO vira undefined no pedido', () => {
@@ -570,6 +578,56 @@ test('a linha e capada em 12 interesses, ficando com os MAIORES', () => {
   assert.equal(r.itens[11].nome, 'I28', 'os 12 maiores, nenhum menor');
 });
 
+// ===== A CATEGORIA (path) — colhida e mostrada, ainda SEM filtrar =====
+
+test('o path da Meta e preservado como lista de textos', () => {
+  const r = colherDaBusca(['bolsas'], [{
+    data: [{ name: 'Bolsas', id: '1', audience_size: 10, path: ['Compras e moda', 'Bolsas'] }],
+  }]);
+  assert.deepEqual(r.itens[0].path, ['Compras e moda', 'Bolsas']);
+});
+
+test('path ausente vira lista VAZIA, e o interesse continua entrando', () => {
+  // Sem categoria não é motivo pra descartar: nesta rodada o path só é OBSERVADO.
+  const r = colherDaBusca(['x'], [{ data: [{ name: 'X', id: '1', audience_size: 10 }] }]);
+  assert.deepEqual(r.itens[0].path, []);
+  assert.equal(r.itens.length, 1, 'sem categoria o interesse não pode sumir');
+});
+
+test('path com lixo dentro: item torto e pulado, o texto bom do lado SOBREVIVE', () => {
+  const r = colherDaBusca(['x'], [{
+    data: [{ name: 'X', id: '1', path: [null, 'Compras e moda', 42, {}, '   ', 'Bolsas'] }],
+  }]);
+  assert.deepEqual(r.itens[0].path, ['Compras e moda', 'Bolsas']);
+});
+
+test('path com tipo errado inteiro nao quebra: vira vazio', () => {
+  for (const ruim of [null, undefined, 42, {}, true]) {
+    const r = colherDaBusca(['x'], [{ data: [{ name: 'X', id: '1', path: ruim }] }]);
+    assert.deepEqual(r.itens[0].path, [], 'path ' + JSON.stringify(ruim));
+    assert.equal(r.itens.length, 1, 'path torto não pode derrubar o interesse');
+  }
+});
+
+test('path como texto solto e aceito — numa rodada de diagnostico, mostrar vale mais que descartar', () => {
+  const r = colherDaBusca(['x'], [{ data: [{ name: 'X', id: '1', path: 'Compras e moda' }] }]);
+  assert.deepEqual(r.itens[0].path, ['Compras e moda']);
+});
+
+test('o path tambem acompanha o que foi cortado por tamanho', () => {
+  // A categoria dos DESCARTADOS é evidência igual: pode ser que o que é largo
+  // demais seja sempre de uma categoria só.
+  const r = colherDaBusca(['x'], [{
+    data: [{ name: 'Compras na internet', id: '1', audience_size: 1_580_000_000, path: ['Compras e moda'] }],
+  }]);
+  assert.deepEqual(r.largos[0].path, ['Compras e moda']);
+});
+
+test('path gigantesco e capado, nao domina o log nem a linha do banco', () => {
+  const r = colherDaBusca(['x'], [{ data: [{ name: 'X', id: '1', path: ['C'.repeat(5000)] }] }]);
+  assert.ok(r.itens[0].path[0].length <= 200, 'capado como todo texto que vem de fora');
+});
+
 // ===== O TETO DE PÚBLICO: largo demais não segmenta ninguém =====
 
 test('interesse acima do teto sai dos itens e vai pra lista de largos', () => {
@@ -667,6 +725,44 @@ test('tamanho legivel: desconhecido vira vazio, e ZERO vira "0"', () => {
   assert.equal(tamanhoLegivel(0), '0');
 });
 
+test('a previa mostra a CATEGORIA ao lado do tamanho', () => {
+  const linhas = linhasDaPrevia([
+    { id: '1', nome: 'Bolsas', audience_size: 2_300_000, path: ['Compras e moda', 'Bolsas'] },
+    { id: '2', nome: 'Observe and Report', audience_size: 500_000, path: ['Entretenimento', 'Filmes'] },
+  ]);
+  assert.match(linhas[0], /Bolsas — 2,3 mi {2}\[Compras e moda > Bolsas\]$/);
+  assert.match(linhas[1], /\[Entretenimento > Filmes\]$/,
+    'é esta coluna que vai dizer se dá pra filtrar por categoria');
+});
+
+test('sem categoria a previa escreve "sem categoria", nao colchete vazio', () => {
+  for (const p of [undefined, [], null, 'lixo', [null, 42]]) {
+    const linhas = linhasDaPrevia([{ id: '1', nome: 'X', audience_size: 10, path: p }]);
+    assert.match(linhas[0], /\[sem categoria\]$/, 'path ' + JSON.stringify(p));
+  }
+});
+
+test('o log dos largos tambem mostra a categoria', () => {
+  const linhas = linhasDosLargos([
+    { id: '1', nome: 'Compras na internet', audience_size: 1_580_000_000, path: ['Compras e moda'] },
+  ]);
+  assert.match(linhas[1], /· Compras na internet — 1,58 bi {2}\[Compras e moda\]$/);
+});
+
+test('a linha dos TERMOS mostra o que a IA devolveu, separado por ponto', () => {
+  // Duas rodadas zeraram e os termos — única pista — eram invisíveis.
+  assert.equal(linhaDosTermos(['moda feminina', 'bolsas', 'couro']),
+    'termos da IA: moda feminina · bolsas · couro');
+  // Vírgula dentro do termo não confunde, porque o separador não é vírgula.
+  assert.equal(linhaDosTermos(['bolsas, mochilas']), 'termos da IA: bolsas, mochilas');
+});
+
+test('a linha dos termos ignora lixo e devolve vazio quando nao sobra nada', () => {
+  assert.equal(linhaDosTermos([null, '  ', 42, 'bolsas', {}]), 'termos da IA: bolsas');
+  for (const v of [null, undefined, [], 'nao e array', 42, {}, [null], ['   ']])
+    assert.equal(linhaDosTermos(v), '', 'sem termo nenhum não se escreve linha vazia');
+});
+
 test('a previa mostra nome e tamanho, na ORDEM em que seria gravado', () => {
   // A lista já chega ordenada por maior público de colherDaBusca, e é nessa
   // ordem que ela vai pro banco. Reordenar na prévia seria mostrar uma coisa e
@@ -677,25 +773,25 @@ test('a previa mostra nome e tamanho, na ORDEM em que seria gravado', () => {
     { id: '3', nome: 'Bolsa de couro', audience_size: 940_000 },
   ]);
   assert.equal(linhas.length, 3);
-  assert.match(linhas[0], /1\. Moda feminina — 8,1 mi$/);
-  assert.match(linhas[1], /2\. Bolsas — 2,3 mi$/);
-  assert.match(linhas[2], /3\. Bolsa de couro — 940 mil$/);
+  assert.match(linhas[0], /1\. Moda feminina — 8,1 mi {2}\[sem categoria\]$/);
+  assert.match(linhas[1], /2\. Bolsas — 2,3 mi {2}\[sem categoria\]$/);
+  assert.match(linhas[2], /3\. Bolsa de couro — 940 mil {2}\[sem categoria\]$/);
   for (const l of linhas) assert.match(l, /^ {6}/, 'indentada, pra ficar sob o objetivo no log');
 });
 
 test('a previa escreve "tamanho desconhecido" por extenso, nunca zero nem traco solto', () => {
   // No log, um traço sozinho pareceria número faltando por defeito do robô.
   const linhas = linhasDaPrevia([{ id: '1', nome: 'Couro' }]);
-  assert.match(linhas[0], /Couro — tamanho desconhecido$/);
+  assert.match(linhas[0], /Couro — tamanho desconhecido {2}\[sem categoria\]$/);
   assert.ok(!/— 0$/.test(linhas[0]), 'desconhecido não pode virar zero');
   // Já público de tamanho ZERO é um fato, e aparece como zero.
-  assert.match(linhasDaPrevia([{ id: '1', nome: 'Nicho', audience_size: 0 }])[0], /Nicho — 0$/);
+  assert.match(linhasDaPrevia([{ id: '1', nome: 'Nicho', audience_size: 0 }])[0], /Nicho — 0 {2}\[sem categoria\]$/);
 });
 
 test('a previa nao quebra com lixo, e o item bom do lado SOBREVIVE', () => {
   const linhas = linhasDaPrevia([null, 'lixo', {}, { id: '1', nome: '  ' }, { id: '2', nome: 'Bolsas', audience_size: 10 }]);
   assert.equal(linhas.length, 1, 'só o item bom vira linha');
-  assert.match(linhas[0], /1\. Bolsas — 10$/, 'a numeração conta as linhas MOSTRADAS, sem buraco');
+  assert.match(linhas[0], /1\. Bolsas — 10 {2}\[sem categoria\]$/, 'a numeração conta as linhas MOSTRADAS, sem buraco');
   assert.ok(!/undefined|null|\[object/.test(linhas.join('\n')), 'lixo vazou: ' + linhas.join('\n'));
 });
 
@@ -725,8 +821,8 @@ test('o log dos largos mostra nome, tamanho e ATE ONDE ia o teto', () => {
   ]);
   assert.equal(linhas.length, 3, 'um cabeçalho e duas linhas');
   assert.match(linhas[0], /descartados por serem largos demais \(acima de 500 mi\):$/);
-  assert.match(linhas[1], /· Compras na internet — 1,58 bi$/);
-  assert.match(linhas[2], /· Varejo — 700 mi$/);
+  assert.match(linhas[1], /· Compras na internet — 1,58 bi {2}\[sem categoria\]$/);
+  assert.match(linhas[2], /· Varejo — 700 mi {2}\[sem categoria\]$/);
   for (const l of linhas) assert.match(l, /^ {6}/, 'indentado sob o objetivo, como a prévia');
 });
 
@@ -738,13 +834,13 @@ test('sem nenhum cortado, o log dos largos nao escreve NADA — nem cabecalho so
 test('log dos largos: item lixo pulado, o bom do lado SOBREVIVE, sem vazar undefined', () => {
   const linhas = linhasDosLargos([null, 'lixo', { id: '1' }, { id: '2', nome: 'Varejo', audience_size: 700_000_000 }]);
   assert.equal(linhas.length, 2);
-  assert.match(linhas[1], /· Varejo — 700 mi$/);
+  assert.match(linhas[1], /· Varejo — 700 mi {2}\[sem categoria\]$/);
   assert.ok(!/undefined|null|\[object/.test(linhas.join('\n')), 'lixo vazou: ' + linhas.join('\n'));
 });
 
 test('log dos largos: cortado SEM tamanho aparece por extenso, nao como zero', () => {
   const linhas = linhasDosLargos([{ id: '1', nome: 'X' }], 999);
-  assert.match(linhas[1], /· X — tamanho desconhecido$/);
+  assert.match(linhas[1], /· X — tamanho desconhecido {2}\[sem categoria\]$/);
 });
 
 test('nomesPropostos limpa a resposta da IA e ignora lixo', () => {

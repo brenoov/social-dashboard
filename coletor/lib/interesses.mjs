@@ -44,13 +44,20 @@ export const NOME_DO_OBJETIVO = {
 // Mesma regra do mapa acima: chave faltante não vira 'undefined' no pedido, a
 // linha simplesmente não entra (ver montarPedido), e há teste garantindo que o
 // mapa cobre exatamente OBJETIVOS.
+//
+// CADA LINHA DIZ *QUEM* PROCURAR — NUNCA "QUÃO ESTREITO" O TERMO TEM DE SER.
+// Esta é a única sobrevivente da rodada que zerou, e ela só pode ficar se não
+// carregar a pressão que zerou. A linha de vendas dizia "tipos de produto
+// ESPECÍFICOS", que é a mesma instrução por outro nome — saiu. Se um dia alguém
+// for editar aqui: palavra que empurre pra estreitar o termo ("específico",
+// "nicho", "detalhado") reintroduz o defeito sem parecer que reintroduziu.
 export const FOCO_DO_OBJETIVO = {
   engajamento: 'Gente que já gosta do assunto e comenta sobre ele: hobbies, comunidades e temas do dia a dia dela.',
   reconhecimento: 'Gente que ainda NÃO conhece a marca: o estilo de vida e os gostos de quem teria a ver com ela.',
   trafego: 'Gente que pesquisa e compara antes de decidir: assuntos de quem está se informando sobre esse tipo de produto.',
   mensagens: 'Gente que tira dúvida antes de comprar: assuntos de quem quer atendimento, medida, encomenda, personalização.',
   leads: 'Gente disposta a deixar contato em troca de algo: assuntos de quem busca novidade, lista de espera, condição especial.',
-  vendas: 'Gente em momento de compra: marcas concorrentes, tipos de produto específicos e ocasiões que levam a comprar.',
+  vendas: 'Gente em momento de compra: marcas concorrentes e ocasiões que levam a comprar.',
 };
 
 const lista = (v) => (Array.isArray(v) ? v : []);
@@ -170,21 +177,28 @@ export function montarPedido({ marca, lojas, objetivo } = {}) {
   // Agora se pede o ASSUNTO. Quem procura o nome é o robô, que busca cada termo
   // na própria Meta (type=adinterest) e colhe o que voltar — os nomes saem do
   // catálogo, nunca da memória do modelo.
-  // ESPECÍFICO, NÃO ABRANGENTE — e esta foi a segunda correção, feita depois de
-  // ler os nomes que a primeira rodada trouxe. Pedindo termo "curto e
-  // abrangente", a IA respondia "moda", "compras", "varejo"; toda busca caía nas
-  // mesmas megacategorias, e as seis listas saíram quase idênticas, com coisas
-  // como "Compras na internet" (1,58 bilhão de pessoas), que não segmenta nada.
+  // "CURTO E ABRANGENTE" É DE PROPÓSITO, E JÁ FOI PAGO CARO PRA DESCOBRIR ISSO.
   //
-  // Termo largo tem cara de acerto porque sempre traz resultado. Só que trazer
-  // resultado não é o serviço: o serviço é trazer gente que compraria DESTA
-  // marca.
+  // Duas rodadas mediram os dois extremos deste mesmo texto:
+  //   pedindo o NOME EXATO do interesse ........ 15% dos nomes existiam
+  //   pedindo termo "ESPECÍFICO" ............... ZERO resultado em 48 buscas
+  //   pedindo termo "curto e abrangente" ....... 49 interesses achados
+  //
+  // O motivo é o catálogo da Meta, não o modelo: ele é GROSSO. Tem "Moda
+  // feminina", "Bolsas", "Roupas femininas" — não tem "bolsa de couro artesanal
+  // para trabalho". Termo específico demais não acha nada porque a entrada
+  // correspondente não existe lá dentro.
+  //
+  // ENTÃO NÃO APERTE ESTE TEXTO PRA "MELHORAR A RELEVÂNCIA". Já tentamos, e o
+  // resultado foi a faixa inteira vazia nos seis objetivos. Se os nomes vierem
+  // fora de contexto (filme americano, semana de moda da Índia), o caminho é
+  // filtrar DEPOIS pela categoria que a Meta devolve em `path`, não estreitar o
+  // termo antes — o `path` é justamente o que esta rodada está indo medir.
   const system =
     'Você sugere ASSUNTOS de busca para encontrar interesses de segmentação do Meta Ads para lojas brasileiras. ' +
     'Você NÃO precisa conhecer o catálogo do Meta nem acertar o nome exato de nenhum interesse: ' +
     'cada assunto que você der será buscado na própria Meta, e os nomes de verdade vêm de lá. ' +
-    'Seu trabalho é ser ESPECÍFICO: termo genérico demais acha público gigante que não segmenta ninguém. ' +
-    'Responda só com termos em português do Brasil, um assunto por item. Nada de explicação.';
+    'Responda só com termos curtos em português do Brasil, um assunto por item. Nada de explicação.';
 
   const foco = limpo(FOCO_DO_OBJETIVO[objetivo]);
 
@@ -192,14 +206,13 @@ export function montarPedido({ marca, lojas, objetivo } = {}) {
     `Marca: ${nomeMarca}`,
     linhasLojas.length ? `Lojas:\n${linhasLojas.join('\n')}` : 'Lojas: não cadastradas',
     `Objetivo da campanha: ${nomeObjetivo}${ajuda ? ` (medido por: ${ajuda})` : ''}`,
-    // Sem foco cadastrado a linha some — nunca vira 'undefined' no pedido.
+    // A ÚNICA linha que sobrou da tentativa que zerou: ela diz QUEM procurar, não
+    // quão estreito o termo tem de ser. Sem foco cadastrado a linha some inteira —
+    // nunca vira 'undefined' no pedido.
     ...(foco ? [`Quem procurar neste objetivo: ${foco}`] : []),
     '',
-    'Pense primeiro no que ESTA marca vende e em quem compra isso. Depois escreva até 8 termos de busca.',
-    'Os termos têm de servir a ESTE objetivo: os de reconhecimento não podem ser os mesmos de vendas.',
-    'SEJA ESPECÍFICO: prefira o tipo de produto, a ocasião de uso, a marca concorrente, o hobby de quem compra.',
-    'NÃO use categorias enormes como "compras", "internet", "varejo", "black friday", "promoção", "moda" sozinha —',
-    'elas acham público de centenas de milhões de pessoas e não separam cliente de não-cliente.',
+    'Sugira até 8 termos de busca: assuntos que importam para quem compraria desta marca com ESTE objetivo.',
+    'Cada termo deve ser curto e abrangente (1 a 3 palavras), do tipo que se digita numa busca.',
     'Não tente adivinhar o nome exato de um interesse do Meta — cada termo será buscado no catálogo dele.',
   ].join('\n');
 
@@ -253,6 +266,38 @@ export const MAXIMO_POR_OBJETIVO = 12;
 // mostra o tamanho de tudo que fica, e o log lista tudo que foi cortado por
 // aqui.
 export const TETO_DE_PUBLICO = 500_000_000;
+
+// A CATEGORIA do interesse, do jeito que a Meta manda: um caminho de migalhas
+// ("Compras e moda" > "Bolsas"). É a informação que a gente vinha JOGANDO FORA e
+// que provavelmente separa "Bolsas" (Compras e moda) de "Observe and Report"
+// (Entretenimento > Filmes) e "India Fashion Week" (Eventos).
+//
+// AINDA NÃO FILTRA NADA. Esta rodada só COLHE e MOSTRA, pra decidir a regra em
+// cima de valor real em vez de mais um palpite — foi palpite que zerou as duas
+// últimas rodadas.
+//
+// Devolve sempre um ARRAY DE TEXTOS, vazio quando não deu pra saber. Aqui vazio
+// e ausente valem a mesma coisa de propósito: os dois querem dizer "não sei a
+// categoria", e nenhuma decisão depende de distinguir um do outro (diferente do
+// audience_size, onde 0 e desconhecido são fatos distintos e por isso null é
+// obrigatório).
+//
+// Aceita array (filtrando pro que é texto de verdade) e também texto solto, caso
+// a Meta mude o formato: numa rodada de diagnóstico, mostrar o que veio vale
+// mais que descartar por não ser exatamente a forma esperada. Qualquer outra
+// coisa vira vazio.
+function caminhoDoInteresse(bruto) {
+  if (typeof bruto === 'string') {
+    const s = limpo(bruto);
+    return s ? [s] : [];
+  }
+  const saida = [];
+  for (const p of lista(bruto)) {
+    const s = limpo(p);          // item nulo, número ou objeto no meio: pulado
+    if (s) saida.push(s);
+  }
+  return saida;
+}
 
 // OS NOMES VÊM DA META, NÃO DA IA. Aqui se colhe o que as buscas devolveram —
 // cada termo da IA virou uma busca `type=adinterest`, e o que volta é catálogo
@@ -313,7 +358,7 @@ export function colherDaBusca(termos, respostas, limite = MAXIMO_POR_OBJETIVO, t
         const n = Number(bruto);
         if (Number.isFinite(n)) audience_size = n;
       }
-      const item = { id, nome, audience_size };
+      const item = { id, nome, audience_size, path: caminhoDoInteresse(l.path) };
       // LARGO DEMAIS pra ser critério de segmentação — ver TETO_DE_PUBLICO.
       //
       // Só corta quem TEM tamanho medido e passou do teto. Tamanho DESCONHECIDO
@@ -368,20 +413,47 @@ export function tamanhoLegivel(n) {
   return n.toLocaleString('pt-BR');
 }
 
+// A categoria pronta pro log: 'Compras e moda > Bolsas', ou o aviso de que a
+// Meta não mandou nenhuma. Aparece em TUDO que o log mostra (o que fica e o que
+// é cortado), porque é justamente o valor que esta rodada foi medir.
+function categoriaLegivel(path) {
+  const c = lista(path).filter((p) => typeof p === 'string' && p);
+  return c.length ? c.join(' > ') : 'sem categoria';
+}
+
+// OS TERMOS QUE A IA DEVOLVEU — só na rodada seca, e é o buraco que duas rodadas
+// zeradas escancararam: com zero interesse achado, os termos eram a ÚNICA pista
+// do que tinha acontecido, e eles eram invisíveis. É a mesma falta que os nomes
+// de interesse tinham, um andar acima.
+//
+// Sai ANTES das buscas, e não depois: numa rodada em que tudo falha ou tudo vem
+// vazio, esta linha ainda assim aparece.
+export function linhaDosTermos(termos) {
+  const limpos = [];
+  for (const t of lista(termos)) {
+    const s = limpo(t);
+    if (s) limpos.push(s);
+  }
+  if (!limpos.length) return '';
+  // Junta com ' · ' e não com vírgula: termo pode ter vírgula dentro, e aí não
+  // dava pra saber onde um acaba e o outro começa.
+  return `termos da IA: ${limpos.join(' · ')}`;
+}
+
 // AS LINHAS DO QUE FOI CORTADO POR SER LARGO DEMAIS — só na rodada seca.
 //
 // O teto de público é provisório e foi tirado de uma medição só. Um corte que
 // não aparece em lugar nenhum é um corte que ninguém consegue conferir: o dono
 // veria a faixa menor e não saberia se o robô achou pouco ou se jogou fora
-// muito. Mostrando nome e tamanho de cada descartado, a próxima rodada tem com
-// o que ajustar a linha — que é exatamente o que falta hoje.
+// muito. Mostrando nome, tamanho e categoria de cada descartado, a próxima
+// rodada tem com o que ajustar a linha — que é exatamente o que falta hoje.
 export function linhasDosLargos(largos, teto = TETO_DE_PUBLICO) {
   const linhas = [];
   for (const i of lista(largos)) {
     if (!i || typeof i !== 'object') continue;
     const nome = limpo(i.nome);
     if (!nome) continue;
-    linhas.push(`         · ${nome} — ${tamanhoLegivel(i.audience_size) || 'tamanho desconhecido'}`);
+    linhas.push(`         · ${nome} — ${tamanhoLegivel(i.audience_size) || 'tamanho desconhecido'}  [${categoriaLegivel(i.path)}]`);
   }
   if (!linhas.length) return [];
   const limite = tamanhoLegivel(teto);
@@ -412,7 +484,9 @@ export function linhasDaPrevia(itens) {
     const tam = tamanhoLegivel(i.audience_size);
     // 'tamanho desconhecido' por extenso, nunca '0' nem espaço em branco: no log
     // um traço solto pareceria número faltando por defeito do robô.
-    saida.push(`      ${String(posicao).padStart(2, ' ')}. ${nome} — ${tam || 'tamanho desconhecido'}`);
+    // A CATEGORIA entre colchetes no fim: é o dado que esta rodada foi buscar, e
+    // é lendo esta coluna que se decide se dá pra filtrar por ela.
+    saida.push(`      ${String(posicao).padStart(2, ' ')}. ${nome} — ${tam || 'tamanho desconhecido'}  [${categoriaLegivel(i.path)}]`);
   }
   return saida;
 }

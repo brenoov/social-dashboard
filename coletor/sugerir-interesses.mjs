@@ -19,7 +19,7 @@
 // então o valor real aparece no painel Status do Claude, em reais.
 import { structured, SONNET, usageSummary } from './lib-llm.mjs';
 import { registrarExecucao } from './registrar-execucao.mjs';
-import { montarPedido, nomesPropostos, colherDaBusca, linhasDaPrevia, linhasDosLargos, comCidadesResolvidas, rodadaFalhouInteira, OBJETIVOS } from './lib/interesses.mjs';
+import { montarPedido, nomesPropostos, colherDaBusca, linhaDosTermos, linhasDaPrevia, linhasDosLargos, comCidadesResolvidas, rodadaFalhouInteira, OBJETIVOS } from './lib/interesses.mjs';
 // Login da conta de serviço (mesma usada por subir-estudio.mjs, ativar-estudio.mjs
 // etc.) — o meta-proxy chama auth.getUser() sobre o Authorization recebido, e uma
 // service key não é sessão de usuário: ela sempre daria 401 "nao autenticado" ali.
@@ -166,7 +166,10 @@ const SCHEMA = {
     interesses: {
       type: 'array',
       items: { type: 'string' },
-      description: 'Termos de busca ESPECÍFICOS (tipo de produto, marca concorrente, ocasião, hobby de quem compra), em português do Brasil, até 8. Nada de categoria enorme como "compras" ou "varejo".',
+      // Voltou a pedir termo CURTO, junto com o pedido: a versão que exigia
+      // termo "ESPECÍFICO" zerou as 48 buscas — o catálogo da Meta é grosso e
+      // não tem entrada pra termo estreito. Ver o comentário em montarPedido.
+      description: 'Termos de busca curtos (1 a 3 palavras), em português do Brasil, até 8.',
     },
   },
   required: ['interesses'],
@@ -223,6 +226,14 @@ export async function run() {
       const termos = nomesPropostos(resposta);
       if (!termos.length) { console.log(`  ⚠ ${marca.nome} · ${objetivo}: IA não propôs nenhum termo`); puladas++; continue; }
 
+      // SÓ EM SECO, E ANTES DE BUSCAR: os termos que a IA devolveu.
+      //
+      // Duas rodadas terminaram em zero e não deu pra saber por quê, porque os
+      // termos — a única pista que restava — não apareciam em lugar nenhum. Sai
+      // ANTES das buscas de propósito: assim ele aparece mesmo quando toda busca
+      // falha ou toda busca volta vazia, que é justamente quando ele importa.
+      if (DRY) console.log(`  ${marca.nome} · ${objetivo} — ${linhaDosTermos(termos)}`);
+
       // UMA BUSCA POR TERMO, e uma busca que falha NÃO derruba o objetivo: os
       // outros termos ainda trazem interesse bom. Só se TODAS falharem é que o
       // objetivo é pulado — aí a causa não é o termo, é a Meta ou o token, e a
@@ -248,6 +259,23 @@ export async function run() {
       // um termo pode trazer vários interesses.
       console.log(`  ${marca.nome} · ${objetivo}: ${validos} interesses achados a partir de ${nProp} termos`);
 
+      // A PRÉVIA VEM ANTES DO `continue` DE LISTA VAZIA, e isso é um conserto:
+      // do jeito anterior, um objetivo em que TUDO foi descartado por tamanho
+      // saía do laço aqui em cima e o bloco de descartados nunca era impresso —
+      // ou seja, o corte ficava invisível justamente no caso em que ele explica
+      // tudo. Com `itens` vazio a prévia simplesmente não tem linha nenhuma.
+      if (DRY) {
+        // A prévia do que SERIA gravado, nome por nome, na mesma ordem que iria
+        // pro banco: o número diz se rendeu, os nomes dizem se prestam, e só o
+        // dono responde a segunda pergunta.
+        for (const linha of linhasDaPrevia(itens)) console.log(linha);
+        // E o que foi CORTADO por ser largo demais, com o tamanho. O teto que
+        // corta é provisório (ver TETO_DE_PUBLICO): sem ver o que ele derruba,
+        // não há como saber se está no lugar certo — e um corte invisível nunca
+        // seria corrigido.
+        for (const linha of linhasDosLargos(largos)) console.log(linha);
+      }
+
       if (!itens.length) { puladas++; continue; }
       // Em --dry nenhuma SUGESTÃO é gravada. A linha de ia_execucoes lá embaixo é
       // gravada do mesmo jeito, e isso é de propósito: as chamadas de IA da rodada
@@ -255,20 +283,9 @@ export async function run() {
       // O que não sobe é `gravadas`: um registro de auditoria que afirmasse
       // "6 gravadas" numa rodada seca seria uma mentira permanente no robô que
       // ninguém fica olhando.
-      if (DRY) {
-        // SÓ EM SECO: a prévia do que SERIA gravado, nome por nome, na mesma
-        // ordem que iria pro banco. É a razão de existir da rodada seca — o
-        // número diz se rendeu, os nomes dizem se prestam, e só o dono responde
-        // a segunda pergunta. No modo normal isto não sai: lá a linha está na
-        // tabela e na tela, e o log fica sendo resumo.
-        for (const linha of linhasDaPrevia(itens)) console.log(linha);
-        // E logo abaixo o que foi CORTADO por ser largo demais, com o tamanho.
-        // O teto que corta é provisório (ver TETO_DE_PUBLICO): sem ver o que ele
-        // derruba, não há como saber se está no lugar certo — e um corte
-        // invisível nunca seria corrigido.
-        for (const linha of linhasDosLargos(largos)) console.log(linha);
-        simuladas++; continue;
-      }
+      // A prévia já foi impressa acima. Aqui só se conta a simulação: no modo
+      // normal a linha está na tabela e na tela, e o log fica sendo resumo.
+      if (DRY) { simuladas++; continue; }
 
       try {
         await sbPost('/interesses_sugeridos?on_conflict=marca_id,objetivo', {

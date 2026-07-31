@@ -115,7 +115,9 @@ function rmInteresse(id) { publico.interesses = publico.interesses.filter((x) =>
 // meta_objective: o objetivo padrão da Fábrica é 'Engajamento (WhatsApp)' — OUTCOME_ENGAGEMENT
 // com destino WHATSAPP. Traduzir só pelo meta_objective daria sugestões de ENGAJAMENTO pra uma
 // campanha de WhatsApp, que é o erro de classificação que este produto já cometeu duas vezes.
-const sugestoes = ref(null) // { itens: [{id, nome, audience_size}], rotuloObjetivo, marcaNome, geradoEm } | null
+// { itens: [{id, nome, audience_size, path}], rotuloObjetivo, marcaNome, geradoEm } | null
+// `path` é a categoria da Meta, gravada pelo robô só pra diagnóstico — a faixa não usa.
+const sugestoes = ref(null)
 // Id vindo da URL não entra em filtro do PostgREST sem conferir o formato: valor com vírgula ou
 // parêntese mudaria a LÓGICA do filtro, não só o valor (mesma guarda do commit 46b55de).
 const ehUuid = (v) => /^[0-9a-fA-F-]{36}$/.test(String(v || ''))

@@ -20,7 +20,11 @@ create table if not exists interesses_sugeridos (
   id uuid primary key default gen_random_uuid(),
   marca_id uuid not null references fabrica_marcas(id) on delete cascade,
   objetivo text not null,                    -- chave de ALVOS (src/ferramentas/gestao-trafego/alvos.js)
-  itens jsonb not null default '[]'::jsonb,  -- [{id, nome, audience_size}] vindos do catálogo da Meta, no máximo 12, maior público primeiro
+  -- [{id, nome, audience_size, path}] vindos do catálogo da Meta, no máximo 12,
+  -- maior público primeiro. `path` é a categoria da Meta ("Compras e moda" >
+  -- "Bolsas"), guardada pra diagnóstico — a tela não usa, e por ser jsonb não
+  -- precisou de mudança de esquema pra caber.
+  itens jsonb not null default '[]'::jsonb,
   -- Quanto a rodada rendeu: `propostos` são os TERMOS que a IA deu, `validos`
   -- são os interesses que as buscas acharam e ficaram na linha. Mais de um
   -- interesse por termo é normal — não é uma taxa de sobrevivência.
