@@ -300,3 +300,54 @@ OS NÚMEROS MEDIDOS (13 campanhas, 90 dias)
     total, mas foi o que deu pra medir)
 É essa diferença de mercado — de centavos a mais de cem reais pela mesma
 "interação" — que a declaração existe pra proteger.
+
+QUEM VÊ OS ANÚNCIOS: BOTÃO "👥 Público" (desde 2026-07-31)
+============================================================
+Dentro de cada conjunto de anúncios, botão "👥 Público" ao lado do "⧉
+Duplicar". Abre uma janela que mostra quem a Meta está mirando hoje (cidades e
+raio, idade, gênero, interesses, públicos personalizados e Advantage+) e deixa
+mudar. Só aparece pra quem tem a permissão de EDITAR desta ferramenta (a mesma
+que libera orçamento e duplicar) — mudar o público muda quem vê os anúncios de
+uma conta ao vivo, então não é um botão pra qualquer um.
+
+ATENÇÃO: MUDAR O PÚBLICO DE UM CONJUNTO RODANDO REINICIA O APRENDIZADO DA META.
+Toda vez que você muda pra quem o anúncio é mostrado, a Meta esquece o que
+tinha aprendido sobre esse conjunto e recomeça a testar do zero. Na prática
+isso costuma deixar o custo PIOR por alguns dias, até a Meta reaprender e o
+resultado se estabilizar de novo. A tela avisa isso na hora de confirmar — não
+é motivo pra nunca editar, é motivo pra não fazer isso toda semana sem
+necessidade.
+
+ADVANTAGE+ E RESTRIÇÃO MANUAL NÃO CONVIVEM. Se o Advantage+ está ligado (a
+Meta escolhendo o público sozinha) e você também define idade, gênero ou
+interesse à mão, a Meta recusa a combinação — erro 1870227, que já pegamos ao
+vivo numa conta real em 12/07/2026. Em vez de deixar você configurar os dois e
+só descobrir o erro depois de tentar salvar, a tela obriga a escolher um dos
+dois ANTES de deixar salvar: ou o Advantage+ ligado (e aí idade/gênero/
+interesse ficam de fora), ou os três definidos à mão (e aí o Advantage+ tem que
+estar desligado).
+
+O RAIO MÍNIMO É 17 KM (10 MILHAS). A Meta não aceita um raio menor que esse
+por cidade. Se você puser um valor menor, a tela ajusta sozinha pro mínimo
+aceito E avisa que ajustou — nunca troca o número calada.
+
+LUGARES QUE ESTE EDITOR NÃO GERENCIA FICAM DO JEITO QUE ESTAVAM. Um conjunto
+pode ser mirado por região, país ou CEP, além de (ou em vez de) cidade — este
+editor só mexe em cidade (incluída e excluída). Região, país e CEP que já
+estavam configurados são preservados intactos ao salvar, e a tela avisa isso
+antes de você confirmar. Existe um teste garantindo que essa preservação nunca
+quebra. Na prática: um conjunto mirado por estado, por exemplo, pode ser
+editado normalmente por aqui (trocar idade, interesse etc.) sem perder o
+direcionamento por estado que ele já tinha.
+
+EDITAR O PÚBLICO NÃO MEXE EM ONDE O ANÚNCIO APARECE. Feed, Story, Reels e os
+outros posicionamentos são uma configuração separada, e este editor não toca
+nela — isso fica pra um projeto futuro. Existe um teste garantindo que salvar
+o público não apaga essa configuração por engano.
+
+DÁ PRA APLICAR UM PÚBLICO JÁ MONTADO NO ESTÚDIO. Se a conta tem públicos
+prontos criados no Estúdio, um menu na janela deixa escolher um deles — isso
+só PREENCHE o editor com aqueles valores (cidade, idade, interesses etc.),
+nunca salva sozinho: você ainda vê o resumo do que vai mudar e confirma antes
+de qualquer coisa ir pra Meta, exatamente como qualquer outra edição feita à
+mão.
