@@ -23,7 +23,13 @@
           @dragstart="arrastando = peca"
           @dragend="arrastando = null; alvo = ''"
         >
-          <CartaoPeca :peca="peca" :miniatura="miniaturas[peca.id]" com-data @abrir="$emit('abrir', $event)" />
+          <CartaoPeca
+            :peca="peca"
+            :miniatura="miniaturas[peca.id]"
+            :metrica="metricas[peca.id]"
+            com-data
+            @abrir="$emit('abrir', $event)"
+          />
         </div>
 
         <p v-if="!coluna.total" class="ctd-kb-vazia">{{ VAZIAS[coluna.chave] }}</p>
@@ -41,6 +47,7 @@ import { podeTransicionar } from './estados.js'
 const props = defineProps({
   pecas: { type: Array, default: () => [] },
   miniaturas: { type: Object, default: () => ({}) },
+  metricas: { type: Object, default: () => ({}) },
   podeAprovar: { type: Boolean, default: false },
 })
 

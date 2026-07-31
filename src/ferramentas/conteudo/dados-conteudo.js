@@ -97,6 +97,49 @@ export async function miniaturasDasPecas(pecaIds) {
   )
 }
 
+// A medição mais recente de cada peça, para o rodapé do cartão. Uma consulta
+// para a lista toda — não uma por cartão.
+export async function metricasDasPecas(pecaIds) {
+  if (!pecaIds?.length) return {}
+  const { data, error } = await sbClient
+    .from('conteudo_metricas')
+    .select('peca_id,capturado_em,curtidas,comentarios,alcance,salvamentos,compartilhamentos,visualizacoes')
+    .in('peca_id', pecaIds)
+    .order('capturado_em', { ascending: false })
+  if (error) return {}
+
+  // A consulta vem ordenada do mais novo para o mais velho, então a primeira
+  // linha de cada peça é a leitura mais recente.
+  const saida = {}
+  for (const m of data || []) if (!saida[m.peca_id]) saida[m.peca_id] = m
+  return saida
+}
+
+// As perguntas esperando resposta ("É este post?"). Só as sugestões — o que já
+// foi confirmado virou vínculo na peça, e o recusado não volta.
+export async function sugestoesDeCasamento(pecaIds) {
+  if (!pecaIds?.length) return {}
+  const { data, error } = await sbClient
+    .from('conteudo_casamentos')
+    .select('id,peca_id,ig_media_id,ig_permalink,ig_timestamp,ig_caption,ig_thumb,pontuacao,motivo')
+    .in('peca_id', pecaIds)
+    .eq('situacao', 'sugerido')
+    .order('pontuacao', { ascending: false })
+  if (error) return {}
+
+  const saida = {}
+  for (const c of data || []) if (!saida[c.peca_id]) saida[c.peca_id] = c
+  return saida
+}
+
+export async function decidirCasamento(casamentoId, confirma) {
+  const { data, error } = await sbClient.rpc('conteudo_decidir_casamento', {
+    p_casamento: casamentoId, p_confirma: confirma,
+  })
+  if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))
+  return Array.isArray(data) ? data[0] : data
+}
+
 export async function listarEventos(pecaId) {
   const { data, error } = await sbClient
     .from('conteudo_eventos')

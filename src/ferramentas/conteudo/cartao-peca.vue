@@ -13,6 +13,14 @@
         <span v-if="hora" class="ctd-cartao-hora">{{ hora }}</span>
         <span v-else class="ctd-cartao-hora">sem data</span>
       </span>
+
+      <!-- Só aparece depois que o post foi encontrado no Instagram. Métrica que
+           a Meta não respondeu fica de fora em vez de virar zero. -->
+      <span v-if="temMetrica" class="ctd-cartao-metricas">
+        <span v-if="metrica.curtidas !== null" title="Curtidas">♥ {{ fmt(metrica.curtidas) }}</span>
+        <span v-if="metrica.comentarios !== null" title="Comentários">✉ {{ fmt(metrica.comentarios) }}</span>
+        <span v-if="metrica.alcance !== null" title="Alcance">◎ {{ fmt(metrica.alcance) }}</span>
+      </span>
     </span>
   </button>
 </template>
@@ -29,6 +37,7 @@ const props = defineProps({
   // No quadro a data completa importa (a coluna não diz o dia); no calendário
   // o dia já é o quadro, então só a hora basta.
   comData: { type: Boolean, default: false },
+  metrica: { type: Object, default: null },
 })
 
 defineEmits(['abrir'])
@@ -42,4 +51,17 @@ const iconeDoFormato = computed(() => ICONES[props.peca.formato] || '▣')
 const hora = computed(() =>
   props.comData ? (props.peca.publicar_em ? dataHoraBRT(props.peca.publicar_em) : '') : horaDaPeca(props.peca.publicar_em),
 )
+
+// Só mostra o rodapé se houver ALGUM número. Uma peça medida em que a Meta não
+// respondeu nada renderizaria uma linha vazia.
+const temMetrica = computed(() => {
+  const m = props.metrica
+  return !!m && [m.curtidas, m.comentarios, m.alcance].some(v => v !== null && v !== undefined)
+})
+
+// 1200 vira "1,2 mil": em cartão pequeno o número inteiro quebra a linha.
+function fmt(n) {
+  if (n === null || n === undefined) return '—'
+  return n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',')} mil` : String(n)
+}
 </script>

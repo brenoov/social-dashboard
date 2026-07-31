@@ -146,6 +146,45 @@
   color: var(--muted); border: 1px solid var(--border); border-radius: 20px; padding: 2px 7px;
 }
 
+/* Rodapé de métricas do cartão: só aparece depois que o post foi encontrado. */
+.ctd-cartao-metricas {
+  display: flex; gap: 10px; flex-wrap: wrap; margin-top: 2px;
+  font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+
+/* "É este post?" — a pergunta quando o robô achou algo mas não teve certeza. */
+.ctd-sugestao {
+  display: flex; flex-direction: column; gap: 10px;
+  border: 1px solid color-mix(in srgb, #f59e0b 40%, transparent);
+  background: color-mix(in srgb, #f59e0b 8%, transparent);
+  border-radius: var(--radius-md); padding: 14px;
+}
+.ctd-sugestao-corpo { display: flex; gap: 11px; align-items: flex-start; }
+.ctd-sugestao-mini {
+  width: 68px; height: 68px; object-fit: cover; border-radius: 8px; flex-shrink: 0;
+  background: var(--surface);
+}
+.ctd-sugestao-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.ctd-sugestao-legenda {
+  font-size: 13px; line-height: 1.5; color: var(--text);
+  display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ctd-sugestao-link { font-size: 12px; color: var(--accent); text-decoration: none; align-self: flex-start; }
+.ctd-sugestao-link:hover { text-decoration: underline; }
+.ctd-selo-pergunta { border-color: color-mix(in srgb, #f59e0b 45%, transparent); color: var(--text); }
+
+/* Os números do post, no painel da peça. */
+.ctd-numeros { display: grid; grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); gap: 8px; }
+.ctd-numero {
+  display: flex; flex-direction: column; gap: 2px; align-items: center; text-align: center;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 6px;
+}
+.ctd-numero-val {
+  font-family: var(--ctd-fm); font-size: 19px; font-weight: 600; color: var(--text);
+  font-variant-numeric: tabular-nums; line-height: 1;
+}
+.ctd-numero-lbl { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+
 /* ── Visão: Calendário ────────────────────────────────────────────────────── */
 .ctd-cal-topo {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;

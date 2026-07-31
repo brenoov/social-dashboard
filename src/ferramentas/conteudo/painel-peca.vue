@@ -15,6 +15,45 @@
           <b>Reprovada.</b> {{ form.motivo_reprovacao }}
         </p>
 
+        <!-- O robô achou um post parecido mas não teve certeza. Quem decide é
+             quem escreveu a peça — por isso a legenda REAL aparece aqui, não só
+             a miniatura: é o que permite conferir sem abrir o Instagram. -->
+        <div v-if="sugestao" class="ctd-sugestao">
+          <span class="ctd-rot">É este o post no Instagram?</span>
+          <div class="ctd-sugestao-corpo">
+            <img v-if="sugestao.ig_thumb" :src="sugestao.ig_thumb" alt="" class="ctd-sugestao-mini">
+            <div class="ctd-sugestao-txt">
+              <span class="ctd-sugestao-legenda">{{ sugestao.ig_caption || '(post sem legenda)' }}</span>
+              <span class="ctd-ajuda">
+                Publicado em {{ dataHoraBRT(sugestao.ig_timestamp) }}. {{ sugestao.motivo }}
+              </span>
+              <a v-if="sugestao.ig_permalink" :href="sugestao.ig_permalink" target="_blank" rel="noopener" class="ctd-sugestao-link">
+                Abrir no Instagram ↗
+              </a>
+            </div>
+          </div>
+          <div class="ctd-peca-acoes">
+            <button class="ctd-btn ctd-btn-primario" :disabled="decidindo" @click="responderSugestao(true)">
+              Sim, é este
+            </button>
+            <button class="ctd-btn" :disabled="decidindo" @click="responderSugestao(false)">
+              Não é
+            </button>
+          </div>
+        </div>
+
+        <!-- Desempenho, quando já houver. -->
+        <div v-if="metrica" class="ctd-campo">
+          <span class="ctd-rot">Como foi este post</span>
+          <div class="ctd-numeros">
+            <div v-for="n in numeros" :key="n.rotulo" class="ctd-numero">
+              <span class="ctd-numero-val">{{ n.valor }}</span>
+              <span class="ctd-numero-lbl">{{ n.rotulo }}</span>
+            </div>
+          </div>
+          <span class="ctd-ajuda">Medido em {{ metrica.capturado_em?.split('-').reverse().join('/') }}.</span>
+        </div>
+
         <div class="ctd-campo">
           <label class="ctd-rot" for="ctd-titulo">Título (só para você achar depois)</label>
           <input id="ctd-titulo" v-model="form.titulo" class="ctd-in" placeholder="Ex.: Bastidor da loja nova" maxlength="120">
@@ -178,6 +217,9 @@ const form = reactive({
 const arquivos = ref([])
 const urls = ref({})
 const eventos = ref([])
+const sugestao = ref(null)
+const metrica = ref(null)
+const decidindo = ref(false)
 const erro = ref('')
 const salvando = ref(false)
 const enviando = ref('')
@@ -227,12 +269,49 @@ function preencher(p) {
 
 async function carregarAnexos() {
   if (!atual.value?.id) return
+  const id = atual.value.id
   try {
-    arquivos.value = await dados.listarArquivos(atual.value.id)
+    arquivos.value = await dados.listarArquivos(id)
     urls.value = await dados.urlsAssinadas(arquivos.value.map(a => a.caminho))
-    eventos.value = await dados.listarEventos(atual.value.id)
+    eventos.value = await dados.listarEventos(id)
+    sugestao.value = (await dados.sugestoesDeCasamento([id]))[id] || null
+    metrica.value = (await dados.metricasDasPecas([id]))[id] || null
   } catch (e) {
     erro.value = e.message
+  }
+}
+
+// Métrica ausente sai da lista em vez de virar zero: 0 curtidas é uma afirmação
+// sobre o post, e a Meta simplesmente não respondeu.
+const numeros = computed(() => {
+  const m = metrica.value
+  if (!m) return []
+  return [
+    { rotulo: 'curtidas', valor: m.curtidas },
+    { rotulo: 'comentários', valor: m.comentarios },
+    { rotulo: 'alcance', valor: m.alcance },
+    { rotulo: 'salvamentos', valor: m.salvamentos },
+    { rotulo: 'compartilh.', valor: m.compartilhamentos },
+    { rotulo: 'visualizações', valor: m.visualizacoes },
+  ].filter(n => n.valor !== null && n.valor !== undefined)
+})
+
+async function responderSugestao(confirma) {
+  decidindo.value = true
+  erro.value = ''
+  try {
+    await dados.decidirCasamento(sugestao.value.id, confirma)
+    sugestao.value = null
+    if (confirma) {
+      atual.value = await dados.carregarPeca(atual.value.id)
+      preencher(atual.value)
+    }
+    await carregarAnexos()
+    emit('mudou')
+  } catch (e) {
+    erro.value = e.message
+  } finally {
+    decidindo.value = false
   }
 }
 

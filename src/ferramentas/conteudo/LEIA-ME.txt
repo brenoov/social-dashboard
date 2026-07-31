@@ -51,14 +51,56 @@ DE ONDE VÊM OS DADOS
 conteudo_pecas ............. uma linha por post planejado
 conteudo_arquivos .......... os arquivos de cada peça, em ordem (carrossel = N linhas)
 conteudo_eventos ........... a trilha de quem fez o quê (append-only, nunca dar update)
+conteudo_casamentos ........ a ligação com o post real do Instagram (e as recusas)
+conteudo_metricas .......... curtidas/alcance de cada peça, uma leitura por dia
 accounts ................... os perfis do Instagram (o seletor de marca)
 bucket "conteudo" .......... as artes. PRIVADO — toda exibição usa URL assinada
 
+OS DOIS ROBÔS
+-------------
+conteudo-hora-h ..... de 5 em 5 min. Avisa no celular quando chega a hora de
+                     publicar. Reivindica a peça ANTES de mandar o aviso, senão
+                     duas execuções cruzadas avisariam duas vezes.
+conteudo-espelho .... de 30 em 30 min. Procura no Instagram o post que saiu e
+                     traz curtidas/alcance de volta. Mede todo dia na primeira
+                     semana, depois semanal, e para aos 30 dias.
+
+COMO O ESPELHO DECIDE QUE ACHOU O POST
+---------------------------------------
+Nota = 70% semelhança da legenda + 30% proximidade do horário. Só casa sozinho
+com nota ≥ 0,85 E sem nenhum outro candidato perto; qualquer dúvida vira a
+pergunta "É este post?" na tela.
+
+É conservador de propósito: vincular a peça errada mostraria o desempenho de um
+post no card de outro, e o número pareceria plausível — ninguém perceberia.
+
+STORY NÃO CASA SOZINHO. A API da Meta não devolve story de forma confiável (ele
+some em 24h). Story só vira "publicado" pelo botão "Já publiquei", e não tem
+métrica coletada. Está assim porque fingir que funciona seria pior.
+
 MIGRATIONS
 ----------
-db/migrations/2026-07-29-conteudo-01-fundacao.sql ... tabelas, RLS, trigger, função
-db/migrations/2026-07-29-conteudo-02-bucket.sql ..... o depósito de arquivos privado
-db/migrations/2026-07-29-conteudo-03-permissao.sql .. libera para o superadmin
+2026-07-29-conteudo-01-fundacao.sql ..... tabelas, RLS, trigger, função
+2026-07-29-conteudo-02-bucket.sql ....... o depósito de arquivos privado
+2026-07-29-conteudo-03-permissao.sql .... libera para o superadmin
+2026-07-30-conteudo-04-hora-h.sql ....... tipo de aviso + reivindicar/reavisar
+2026-07-30-conteudo-05-segredo-hora-h.sql  o segredo do robô do aviso
+2026-07-30-conteudo-06-cron-hora-h.sql .. LIGA o aviso (ver abaixo)
+2026-07-31-conteudo-07-metricas.sql ..... casamentos e métricas
+2026-07-31-conteudo-08-segredo-espelho.sql o segredo do robô do espelho
+2026-07-31-conteudo-09-cron-espelho.sql . LIGA o espelho (ver abaixo)
+
+ATENÇÃO: as migrations 06 e 09 NÃO estão aplicadas. Elas são o interruptor dos
+dois robôs, e ficaram de fora de propósito — a 06 dispara notificação em
+celular de verdade, e ligar isso é decisão do dono, não efeito colateral de um
+deploy. Para desligar depois de ligar:
+   select cron.unschedule('conteudo-hora-h');
+   select cron.unschedule('conteudo-espelho');
+
+NÃO RODE o runner de migrations deste repo (coletor/run-migrations.mjs) sem
+antes acertar o schema_migrations: ele acusa ~27 pendentes porque a maioria foi
+aplicada direto no banco e nunca foi registrada. As desta ferramenta foram
+aplicadas uma a uma pelo MCP do Supabase.
 
 PERMISSÕES — SÃO DUAS
 ---------------------
@@ -81,8 +123,7 @@ Todo horário que a pessoa vê e digita é de Brasília; no banco fica em UTC
 new Date().toISOString().slice(0,10) para pegar "hoje" — das 21h à meia-noite
 isso já devolve o dia seguinte.
 
-O QUE AINDA NÃO EXISTE (fases seguintes, ver o plano)
------------------------------------------------------
-Fase 2 ... o aviso no celular na hora marcada (push) e a tela de peça ligada nele
-Fase 3 ... casar a peça com o post real do Instagram e trazer curtidas/alcance
-Fase 4 ... banco de ideias, blocos de legenda por marca e o gerador de pauta com IA
+O QUE AINDA NÃO EXISTE
+----------------------
+Fase 4 ... banco de ideias, blocos de legenda por marca e o gerador de pauta
+           com IA. As Fases 1, 2 e 3 estão feitas.

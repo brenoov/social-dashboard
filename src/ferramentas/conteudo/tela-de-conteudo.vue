@@ -39,6 +39,9 @@
           <span v-for="s in selos" :key="s.chave" class="ctd-selo">
             <i :style="{ background: s.cor }"></i>{{ s.rotulo }} <b>{{ s.total }}</b>
           </span>
+          <span v-if="aguardando" class="ctd-selo ctd-selo-pergunta">
+            <i style="background:#f59e0b"></i>Esperando você confirmar o post <b>{{ aguardando }}</b>
+          </span>
         </div>
 
         <div class="ctd-tabs">
@@ -68,6 +71,7 @@
             v-show="aba === 'quadro'"
             :pecas="pecas"
             :miniaturas="miniaturas"
+            :metricas="metricas"
             :pode-aprovar="podeAprovar"
             @abrir="abrir"
             @mover="mover"
@@ -112,6 +116,8 @@ const contas = ref([])
 const contaSel = ref('')
 const pecas = ref([])
 const miniaturas = ref({})
+const metricas = ref({})
+const aguardando = ref(0)
 const aba = ref('calendario')
 const carregando = ref(true)
 const erro = ref('')
@@ -152,12 +158,23 @@ async function recarregar() {
 }
 
 async function carregarMiniaturas() {
-  // Miniatura é enfeite: se falhar, os cartões mostram o ícone do formato e a
-  // tela segue funcionando. Não vale poluir a faixa de erro por causa disso.
+  // Miniatura e métrica são enfeite: se falharem, os cartões mostram o ícone do
+  // formato e seguem funcionando. Não vale poluir a faixa de erro por isso.
+  const ids = pecas.value.map(p => p.id)
   try {
-    miniaturas.value = await dados.miniaturasDasPecas(pecas.value.map(p => p.id))
+    miniaturas.value = await dados.miniaturasDasPecas(ids)
   } catch {
     miniaturas.value = {}
+  }
+  try {
+    metricas.value = await dados.metricasDasPecas(ids)
+    // Quantas peças estão com a pergunta "É este post?" esperando resposta.
+    // Vira o selo da topbar — senão a pergunta ficaria escondida dentro de cada
+    // peça, e ninguém abre peça publicada para conferir.
+    aguardando.value = Object.keys(await dados.sugestoesDeCasamento(ids)).length
+  } catch {
+    metricas.value = {}
+    aguardando.value = 0
   }
 }
 
