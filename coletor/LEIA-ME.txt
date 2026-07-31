@@ -95,3 +95,69 @@ monta o mesmo banco rodando os arquivos na sequência.
 ATENÇÃO: rodar migrations altera o banco DE VERDADE. Cuidado.
 
 ==================================================================
+
+==================================================================
+
+ROBÔ: SUGERIR INTERESSES (semanal, desde 2026-07-31)
+=====================================================
+Arquivo: sugerir-interesses.mjs · Agenda: domingo 07:34 (Brasília)
+
+O QUE FAZ: sugere interesses de segmentação do Meta Ads pra cada combinação de
+marca × objetivo de campanha. As sugestões aparecem numa faixa acima da busca
+de interesses na Fábrica de Anúncios, com o tamanho do público de cada uma.
+Antes disso, escolher interesse era chutar no escuro.
+
+A IA PROPÕE, MAS QUEM DECIDE É A META
+--------------------------------------
+O robô pede uma lista ao modelo e depois VALIDA CADA NOME na própria Meta
+(/search?type=adinterestvalid). O que ela não reconhece é jogado fora antes de
+virar linha no banco.
+
+Isso não é preciosismo: sem essa etapa a tela mostraria sugestões bonitas que
+dariam ERRO na hora de usar — pior do que não sugerir nada, porque parece que
+funciona até o momento em que importa. E é por isso também que uma validação
+que FALHA não grava nada: pular a semana é melhor que gravar palpite.
+
+O robô anota no log quantos foram propostos e quantos sobreviveram. Se essa
+proporção cair muito, o pedido feito à IA precisa de ajuste — e dá pra ver isso
+sem abrir o log, olhando as colunas "propostos" e "validos" da tabela.
+
+CUSTO
+-----
+Poucos centavos por semana: são 6 gerações pequenas (uma por objetivo), com o
+modelo Sonnet — bem mais barato que os robôs de budget e comercial, que usam
+Opus em cima de campanhas inteiras.
+
+Como é SEMANAL e não por clique, o custo não cresce com o uso: abrir a Fábrica
+cem vezes por dia não muda nada.
+
+Cada rodada é anotada em ia_execucoes, então o valor REAL aparece no painel
+Status do Claude, em reais, com data. Você não precisa acreditar na estimativa
+acima — dá pra conferir.
+
+PRA RODAR PELA PRIMEIRA VEZ (o que falta)
+------------------------------------------
+1. Aplicar a migration db/migrations/2026-07-31-interesses-sugeridos.sql —
+   sem a tabela, o robô roda e falha na gravação.
+2. Conferir se os segredos existem no GitHub. Três dos quatro já são usados por
+   outros robôs; o que provavelmente FALTA é o primeiro:
+     ANTHROPIC_API_KEY ....... ATENÇÃO: o robô de budget usa outro nome
+                               (ANTHROPIC_API_KEY_TRAFEGO). Este aqui lê o nome
+                               sem sufixo. Se não existir, ele falha na primeira
+                               chamada — mas falha ALTO, com erro registrado.
+     SUPABASE_SERVICE_KEY .... já usado
+     GESTOR_USER_EMAIL ....... já usado (Fábrica)
+     GESTOR_USER_PASSWORD .... já usado (Fábrica)
+3. Disparar na mão pelo Actions, no modo "seco" primeiro: ele roda tudo,
+   mostra quantos interesses sobreviveram à validação, e NÃO grava nada.
+4. Se a proporção parecer boa, rodar no modo normal.
+
+POR QUE PRECISA DE LOGIN DE USUÁRIO
+------------------------------------
+O robô fala com a Meta pelo meta-proxy, e o proxy exige uma SESSÃO DE USUÁRIO —
+a chave de serviço do banco não serve, ele devolve 401. Por isso o robô faz
+login com a conta de serviço (loginServico) antes de começar, igual à Fábrica.
+
+Isso já causou um bug que quase passou: com a chave errada, o robô rodaria toda
+semana, tomaria 401 em toda validação, gravaria zero e NADA pareceria erro —
+você só veria a Fábrica sem sugestão nenhuma, sem saber por quê.

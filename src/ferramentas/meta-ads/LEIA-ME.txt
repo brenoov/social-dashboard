@@ -23,3 +23,52 @@ ao Banco de Arquivos e ao Menu de Vendas: os cliques usam bindings @click do
 Vue, sem precisar expor nada em "window".
 
 Para mexer só nesta tela, edite apenas esta pasta.
+
+FAIXA DE SUGESTÕES DE INTERESSE (desde 2026-07-31)
+===================================================
+Na tela de publicar (Fábrica de Anúncios), logo acima da busca de interesses,
+aparece uma faixa com interesses já sugeridos pra aquela campanha:
+
+  Sugestões para Vendas · La Vessel
+  [Bolsas 2,3 mi] [Moda feminina 8,1 mi] [Couro 940 mil]
+  gerado em 25/07
+
+Clicar numa etiqueta adiciona o interesse, igual a escolher pela busca. O que
+você já escolheu some da faixa, pra não virar poluição.
+
+O NÚMERO AO LADO É O TAMANHO DO PÚBLICO
+----------------------------------------
+É a estimativa da própria Meta de quantas pessoas aquele interesse alcança.
+Serve pra você não escolher no escuro: "Couro" e "Moda feminina" parecem a
+mesma coisa até você ver que um tem 940 mil pessoas e o outro 8 milhões.
+
+Quando a Meta não informa o tamanho, a etiqueta aparece só com o nome — sem
+número. Isso é de propósito: mostrar "0" seria mentira, porque público de
+tamanho zero e público de tamanho desconhecido são coisas diferentes.
+
+A DATA DIZ SE ESTÁ VELHO
+-------------------------
+"gerado em 25/07" é quando o robô montou aquela lista. Ele roda uma vez por
+semana (domingo de manhã), então a data normal é a do último domingo.
+
+NÃO APARECER FAIXA É NORMAL
+----------------------------
+A faixa some inteira quando não há sugestão pra aquela combinação de marca e
+objetivo — marca nova, objetivo que o robô ainda não cobriu, ou robô que ainda
+não rodou. Não é erro, e a busca de interesses continua funcionando como
+sempre. Foi feito assim de propósito: caixa vazia pedindo desculpa só ocupa
+espaço.
+
+DE ONDE VÊM AS SUGESTÕES
+-------------------------
+De um robô semanal (coletor/sugerir-interesses.mjs) que pede a lista pra uma IA
+e depois VALIDA CADA NOME na própria Meta. Interesse que a Meta não reconhece é
+descartado antes de chegar aqui — então tudo que aparece na faixa existe de
+verdade e pode ser usado.
+
+As sugestões mudam por OBJETIVO da campanha: o que faz sentido pra uma campanha
+de vendas não é o mesmo de uma de reconhecimento. A faixa descobre o objetivo
+pela própria campanha que você está publicando.
+
+Se a sugestão estiver ruim, não dá pra editar por aqui — quem muda é o robô
+(ver coletor/LEIA-ME.txt).
