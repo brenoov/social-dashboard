@@ -19,7 +19,7 @@
 // então o valor real aparece no painel Status do Claude, em reais.
 import { structured, SONNET, usageSummary } from './lib-llm.mjs';
 import { registrarExecucao } from './registrar-execucao.mjs';
-import { montarPedido, nomesPropostos, colherDaBusca, comCidadesResolvidas, rodadaFalhouInteira, OBJETIVOS } from './lib/interesses.mjs';
+import { montarPedido, nomesPropostos, colherDaBusca, linhasDaPrevia, comCidadesResolvidas, rodadaFalhouInteira, OBJETIVOS } from './lib/interesses.mjs';
 // Login da conta de serviço (mesma usada por subir-estudio.mjs, ativar-estudio.mjs
 // etc.) — o meta-proxy chama auth.getUser() sobre o Authorization recebido, e uma
 // service key não é sessão de usuário: ela sempre daria 401 "nao autenticado" ali.
@@ -236,7 +236,15 @@ export async function run() {
       // O que não sobe é `gravadas`: um registro de auditoria que afirmasse
       // "6 gravadas" numa rodada seca seria uma mentira permanente no robô que
       // ninguém fica olhando.
-      if (DRY) { simuladas++; continue; }
+      if (DRY) {
+        // SÓ EM SECO: a prévia do que SERIA gravado, nome por nome, na mesma
+        // ordem que iria pro banco. É a razão de existir da rodada seca — o
+        // número diz se rendeu, os nomes dizem se prestam, e só o dono responde
+        // a segunda pergunta. No modo normal isto não sai: lá a linha está na
+        // tabela e na tela, e o log fica sendo resumo.
+        for (const linha of linhasDaPrevia(itens)) console.log(linha);
+        simuladas++; continue;
+      }
 
       try {
         await sbPost('/interesses_sugeridos?on_conflict=marca_id,objetivo', {

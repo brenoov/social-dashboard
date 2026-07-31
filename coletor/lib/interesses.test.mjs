@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { montarPedido, OBJETIVOS, NOME_DO_OBJETIVO, nomesPropostos, colherDaBusca, MAXIMO_POR_OBJETIVO, comCidadesResolvidas, rodadaFalhouInteira } from './interesses.mjs';
+import { montarPedido, OBJETIVOS, NOME_DO_OBJETIVO, nomesPropostos, colherDaBusca, MAXIMO_POR_OBJETIVO, tamanhoLegivel, linhasDaPrevia, comCidadesResolvidas, rodadaFalhouInteira } from './interesses.mjs';
 import { ALVOS } from '../../src/ferramentas/gestao-trafego/alvos.js';
 
 const MARCA = { id: 'm1', nome: 'La Vessel' };
@@ -523,6 +523,74 @@ test('a linha e capada em 12 interesses, ficando com os MAIORES', () => {
   assert.equal(r.validos, 12, 'validos conta o que FICOU, senão a tabela se contradiz');
   assert.equal(r.itens[0].nome, 'I39', 'o maior público vem primeiro');
   assert.equal(r.itens[11].nome, 'I28', 'os 12 maiores, nenhum menor');
+});
+
+// ===== A PRÉVIA DA RODADA SECA =====
+
+test('tamanho legivel: milhao, mil e numero pelado, em portugues', () => {
+  assert.equal(tamanhoLegivel(2_300_000), '2,3 mi');
+  assert.equal(tamanhoLegivel(940_000), '940 mil');
+  assert.equal(tamanhoLegivel(8_100_000), '8,1 mi');
+  assert.equal(tamanhoLegivel(850), '850');
+  assert.equal(tamanhoLegivel(1_000), '1 mil');
+});
+
+test('tamanho legivel: 999.999 vira "1 mi", nunca "1.000 mil"', () => {
+  // O corte é 999.500 e não 1.000.000 porque a faixa de baixo arredonda. Com
+  // corte no milhão, 999.999 caía no "mil" e virava "1.000 mil" — que ninguém
+  // escreve. Mesma regra da etiqueta da faixa na Fábrica.
+  assert.equal(tamanhoLegivel(999_999), '1 mi');
+  assert.equal(tamanhoLegivel(999_500), '1 mi');
+  assert.equal(tamanhoLegivel(999_499), '999 mil');
+});
+
+test('tamanho legivel: desconhecido vira vazio, e ZERO vira "0"', () => {
+  // Nulo e zero são fatos diferentes: um é "não sei", o outro é "sei, e é zero".
+  for (const v of [null, undefined, NaN, Infinity, 'muito', {}, []])
+    assert.equal(tamanhoLegivel(v), '', 'desconhecido não pode virar número');
+  assert.equal(tamanhoLegivel(0), '0');
+});
+
+test('a previa mostra nome e tamanho, na ORDEM em que seria gravado', () => {
+  // A lista já chega ordenada por maior público de colherDaBusca, e é nessa
+  // ordem que ela vai pro banco. Reordenar na prévia seria mostrar uma coisa e
+  // gravar outra.
+  const linhas = linhasDaPrevia([
+    { id: '1', nome: 'Moda feminina', audience_size: 8_100_000 },
+    { id: '2', nome: 'Bolsas', audience_size: 2_300_000 },
+    { id: '3', nome: 'Bolsa de couro', audience_size: 940_000 },
+  ]);
+  assert.equal(linhas.length, 3);
+  assert.match(linhas[0], /1\. Moda feminina — 8,1 mi$/);
+  assert.match(linhas[1], /2\. Bolsas — 2,3 mi$/);
+  assert.match(linhas[2], /3\. Bolsa de couro — 940 mil$/);
+  for (const l of linhas) assert.match(l, /^ {6}/, 'indentada, pra ficar sob o objetivo no log');
+});
+
+test('a previa escreve "tamanho desconhecido" por extenso, nunca zero nem traco solto', () => {
+  // No log, um traço sozinho pareceria número faltando por defeito do robô.
+  const linhas = linhasDaPrevia([{ id: '1', nome: 'Couro' }]);
+  assert.match(linhas[0], /Couro — tamanho desconhecido$/);
+  assert.ok(!/— 0$/.test(linhas[0]), 'desconhecido não pode virar zero');
+  // Já público de tamanho ZERO é um fato, e aparece como zero.
+  assert.match(linhasDaPrevia([{ id: '1', nome: 'Nicho', audience_size: 0 }])[0], /Nicho — 0$/);
+});
+
+test('a previa nao quebra com lixo, e o item bom do lado SOBREVIVE', () => {
+  const linhas = linhasDaPrevia([null, 'lixo', {}, { id: '1', nome: '  ' }, { id: '2', nome: 'Bolsas', audience_size: 10 }]);
+  assert.equal(linhas.length, 1, 'só o item bom vira linha');
+  assert.match(linhas[0], /1\. Bolsas — 10$/, 'a numeração conta as linhas MOSTRADAS, sem buraco');
+  assert.ok(!/undefined|null|\[object/.test(linhas.join('\n')), 'lixo vazou: ' + linhas.join('\n'));
+});
+
+test('a previa com lista ausente ou torta devolve nada, sem quebrar', () => {
+  for (const v of [null, undefined, 'nao e array', 42, {}, []])
+    assert.deepEqual(linhasDaPrevia(v), []);
+});
+
+test('nome gigantesco na previa e capado, nao domina o log', () => {
+  const linhas = linhasDaPrevia([{ id: '1', nome: 'C'.repeat(5000), audience_size: 10 }]);
+  assert.ok(linhas[0].length <= 260, 'linha capada: ' + linhas[0].length);
 });
 
 test('nomesPropostos limpa a resposta da IA e ignora lixo', () => {

@@ -264,3 +264,53 @@ export function colherDaBusca(termos, respostas, limite = MAXIMO_POR_OBJETIVO) {
   // lista ao lado dele seria uma contradição visível na própria tela.
   return { itens: cortados, propostos: lista(termos).length, validos: cortados.length };
 }
+
+// Tamanho de público em português: '2,3 mi', '940 mil', '850'.
+//
+// É A MESMA REGRA da etiqueta da faixa na Fábrica (painel-subir.vue,
+// "formatarPublico"), copiada de propósito — o robô é Node e a outra mora dentro
+// de um .vue, então não dá pra importar. Se um dia divergirem, o log do robô e a
+// tela mostrariam números diferentes pro MESMO interesse, e quem estivesse
+// conferindo um contra o outro ia achar que o robô gravou errado.
+//
+// O corte do 'mi' é 999.500 e não 1.000.000 porque a faixa de baixo ARREDONDA:
+// com corte em 1 milhão, 999.999 caía no 'mil', virava Math.round(999,999) =
+// 1.000 e aparecia como '1.000 mil' — que ninguém escreve.
+//
+// Desconhecido devolve '' (e não '0'): nulo e zero são fatos diferentes, e quem
+// chama decide o que escrever no lugar.
+export function tamanhoLegivel(n) {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return '';
+  if (n >= 999_500) return (n / 1_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mi';
+  if (n >= 1_000) return Math.round(n / 1000).toLocaleString('pt-BR') + ' mil';
+  return n.toLocaleString('pt-BR');
+}
+
+// A PRÉVIA DA RODADA SECA: as linhas que mostram O QUE SERIA GRAVADO.
+//
+// Sem isto, a rodada seca dizia só "56 interesses achados" — e uma prévia que
+// não mostra o que seria escrito faz metade do serviço: o número diz se rendeu,
+// mas só os NOMES dizem se prestam. Quantidade e qualidade são perguntas
+// diferentes, e o dono é quem responde a segunda.
+//
+// Fica aqui, no arquivo puro, pelo mesmo motivo do resto: `sugerir-interesses.mjs`
+// executa no import, então nada lá dentro tem teste.
+//
+// Ordem preservada: a lista chega de `colherDaBusca` já ordenada por maior
+// público, e é NESTA ordem que ela vai pro banco. A prévia mostra exatamente
+// isso — reordenar aqui seria mostrar uma coisa e gravar outra.
+export function linhasDaPrevia(itens) {
+  const saida = [];
+  let posicao = 0;
+  for (const i of lista(itens)) {
+    if (!i || typeof i !== 'object') continue;      // item nulo ou lixo: pulado
+    const nome = limpo(i.nome);
+    if (!nome) continue;
+    posicao += 1;
+    const tam = tamanhoLegivel(i.audience_size);
+    // 'tamanho desconhecido' por extenso, nunca '0' nem espaço em branco: no log
+    // um traço solto pareceria número faltando por defeito do robô.
+    saida.push(`      ${String(posicao).padStart(2, ' ')}. ${nome} — ${tam || 'tamanho desconhecido'}`);
+  }
+  return saida;
+}

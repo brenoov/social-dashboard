@@ -176,8 +176,11 @@ PRA RODAR PELA PRIMEIRA VEZ (o que falta)
      GESTOR_USER_EMAIL ....... já usado (Fábrica)
      GESTOR_USER_PASSWORD .... já usado (Fábrica)
 3. Disparar na mão pelo Actions, no modo "seco" primeiro: ele roda tudo e
-   mostra quantos interesses as buscas acharam, sem gravar sugestão nenhuma
-   no banco.
+   MOSTRA NO LOG a lista que seria gravada — cada interesse com seu nome e o
+   tamanho do público, na mesma ordem que iria pro banco — sem gravar sugestão
+   nenhuma. É pra isso que o seco serve: o número diz se rendeu, mas só os
+   nomes dizem se prestam, e quem julga isso é você. No modo normal essa lista
+   não sai (lá ela está na tabela e na tela, e o log fica sendo só o resumo).
    ATENÇÃO, PORQUE É DINHEIRO: "seco" quer dizer que não grava — NÃO quer dizer
    que não custa. A rodada seca faz as MESMAS 6 chamadas pagas à IA que a rodada
    normal, e elas aparecem no painel Status do Claude igual. O que você economiza
