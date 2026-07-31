@@ -48,7 +48,17 @@ async function sb(caminho, opcoes = {}) {
     },
   });
   if (!r.ok) throw new Error(`Supabase ${r.status}: ${(await r.text()).slice(0, 200)}`);
-  return r.status === 204 ? null : r.json();
+
+  // CORPO VAZIO NÃO É ERRO. Testar só `status === 204` não basta: com
+  // `Prefer: return=minimal` o PostgREST responde **201 com corpo vazio** no
+  // insert, e `r.json()` estoura com "Unexpected end of JSON input".
+  //
+  // Isso derrubou uma rodada que tinha dado certo — as 12 ideias já estavam
+  // gravadas, e o script morreu na linha seguinte e marcou o pedido como
+  // 'erro'. O pior tipo de defeito: o trabalho foi feito e o sistema disse que
+  // não foi. Por isso a checagem é pelo conteúdo, não pelo código de status.
+  const texto = await r.text();
+  return texto ? JSON.parse(texto) : null;
 }
 
 const ESQUEMA = {
