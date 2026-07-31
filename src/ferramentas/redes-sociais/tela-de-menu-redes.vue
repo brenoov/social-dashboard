@@ -1,7 +1,9 @@
 <template>
-  <!-- Submenu da área de Redes Sociais (padrão de tela-de-menu-vendas.vue). Só chega aqui
-       quem é admin (a Central manda os demais direto pra dashboard). Card do Relatório só
-       aparece pra admin. Visibilidade controlada pelo vue-router. -->
+  <!-- Submenu da área de Redes Sociais (padrão de tela-de-menu-vendas.vue).
+       Chega aqui quem tem MAIS DE UMA ferramenta da área; quem tem só uma vai
+       direto nela (ver irRedes() em tela-de-inicio.vue). Antes o desvio era por
+       ser admin, o que passou a esconder a Central de Conteúdo de quem tinha
+       permissão só dela. Card do Relatório continua só para admin. -->
   <div class="tela-menu-redes">
     <div class="smenu-topbar">
       <button class="smenu-back" @click="voltar">

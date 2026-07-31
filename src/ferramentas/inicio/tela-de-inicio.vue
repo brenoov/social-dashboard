@@ -66,8 +66,8 @@
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
           </div>
           <div class="home-card-text">
-            <h3>Dashboard<br>Redes Sociais</h3>
-            <p>Métricas e KPIs do Instagram para todas as marcas</p>
+            <h3>Redes<br>Sociais</h3>
+            <p>Métricas do Instagram, relatório e a Central de Conteúdo</p>
           </div>
           <span class="home-card-enter">→</span>
         </div>
@@ -220,10 +220,21 @@ function ir(nome) {
   router.push({ name: nome })
 }
 
-// Redes Sociais: admin vê o submenu (Dashboard + Relatório); os demais vão direto
-// pra dashboard (só têm 1 opção, então o submenu seria inútil pra eles).
+// Redes Sociais: quem tem MAIS DE UMA ferramenta na área vê o submenu; quem tem
+// só uma vai direto nela, porque um submenu de um item só é um clique a troco de
+// nada.
+//
+// Antes isto era `ehAdmin ? submenu : dashboard`, o que fazia sentido quando a
+// área tinha só Dashboard + Relatório (e o Relatório era de admin). Com a Central
+// de Conteúdo aqui dentro, essa regra passou a esconder a ferramenta: quem tinha
+// a Central mas não era admin ia parar no Dashboard e não tinha como chegar nela.
 function irRedes() {
-  router.push({ name: ehAdmin.value ? 'redes' : 'redes-sociais' })
+  const destinos = []
+  if (hasPermission('social', 'ver')) destinos.push('redes-sociais')
+  if (ehAdmin.value || hasPermission('social.relatorio', 'ver')) destinos.push('redes-relatorio')
+  if (hasPermission('conteudo', 'ver')) destinos.push('conteudo')
+
+  router.push({ name: destinos.length > 1 ? 'redes' : (destinos[0] || 'redes') })
 }
 
 // Escritório 3D dos Agentes: página estática (three.js) servida em public/escritorio-3d/.
