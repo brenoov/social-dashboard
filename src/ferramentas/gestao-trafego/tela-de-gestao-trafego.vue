@@ -260,7 +260,19 @@ async function metaPost(path,params,accountId){
     body:JSON.stringify({accountId,path,params,method:'POST'})
   });
   const d=await r.json();
-  if(d&&d.error)throw new Error((d.error&&d.error.message)||d.error||'Meta API error');
+  if(d&&d.error){
+    const err=new Error((d.error&&d.error.message)||d.error||'Meta API error');
+    // DUAS COISAS BEM DIFERENTES chegam por aqui, e só uma delas prova que
+    // nada foi gravado:
+    //  • a Meta respondeu recusando  → o corpo é o pacote de erro do Graph
+    //    (um OBJETO, com message/code). Aí a gravação não aconteceu, ponto.
+    //  • o meta-proxy desistiu de esperar (ele aborta a chamada em 15s) ou
+    //    estourou por outro motivo → o corpo é uma STRING solta. Nesse caso a
+    //    Meta pode muito bem ter processado o pedido, e afirmar "nada foi
+    //    alterado" seria mentir para o dono numa conta ao vivo.
+    err.metaRecusou=!!(d.error&&typeof d.error==='object'&&(d.error.message!=null||d.error.code!=null));
+    throw err;
+  }
   return d;
 }
 function _maCleanAccId(id){return String(id||'').replace(/^act_/,'');}
@@ -1666,7 +1678,10 @@ let _gtPublicosSalvos=null;      // {conta, lista} | null
 async function _gtListarPublicosSalvos(){
   const tok=_gtCurAcc?.id;
   const accId=_gtCurAcc?.ad_account_id;
-  if(!tok||!accId)return [];
+  // null = "não consegui carregar", e é isso mesmo que acontece sem conta: []
+  // faria a tela afirmar "esta conta não tem público salvo", que é outra coisa
+  // e não é verdade.
+  if(!tok||!accId)return null;
   // Chave do cache é o AD ACCOUNT (ad_account_id), não o carrier do proxy
   // (_gtCurAcc.id): o mesmo carrier pode servir várias contas de anúncio
   // (descoberta via /me/adaccounts), então cachear por carrier vazaria a
@@ -2934,8 +2949,14 @@ function _gtPubSecaoLugar(){
 
   cx.appendChild(_gtPubTitulo('Onde NÃO mostrar'));
   const fora=_gtPubLinha();
-  for(const e of _gtPub.excluidas)
-    fora.appendChild(_gtPubChip((e.nome||e.key)+(e.tipo==='regiao'?' (região)':''),()=>{_gtPub.excluidas=_gtPub.excluidas.filter(x=>x.key!==e.key);_gtPubRedesenha();}));
+  // O raio da cidade excluída vem da Meta e é preservado ao salvar; aparece
+  // aqui (sem campo pra editar) porque excluir 25 km em volta de uma cidade é
+  // muito diferente de excluir só a cidade — o dono precisa ver isso.
+  for(const e of _gtPub.excluidas){
+    const raio=Number(e.raio)||0;
+    const volta=raio>0?' — '+raio+' '+(e.unidade==='mile'?'mi':'km')+' em volta':'';
+    fora.appendChild(_gtPubChip((e.nome||e.key)+(e.tipo==='regiao'?' (região)':'')+volta,()=>{_gtPub.excluidas=_gtPub.excluidas.filter(x=>x.key!==e.key);_gtPubRedesenha();}));
+  }
   if(!_gtPub.excluidas.length)fora.appendChild(_gtPubAjuda('Nenhum lugar excluído.'));
   cx.appendChild(fora);
   cx.appendChild(_gtPubBusca('Excluir uma cidade…',_gtPubBuscarCidades,
@@ -2961,13 +2982,18 @@ function _gtPubSecaoPessoas(){
   // um erro cru (sem tradução em _gtPubTraduzir) em vez do editor prevenir
   // aqui — o valor recém-digitado é ajustado pra igualar o outro lado, e o
   // próprio campo mostra a correção ao redesenhar.
+  // O min/max do campo é só sugestão do navegador: digitar 200 e sair do campo
+  // passa direto. A Meta só aceita de 13 a 65, então a trava de verdade é
+  // esta — o valor é preso na faixa antes de encostar no objeto, e o campo
+  // mostra a correção ao redesenhar.
+  const naFaixa=(n)=>Math.min(65,Math.max(13,n));
   de.onchange=()=>{
-    _gtPub.idadeMin=Number(de.value)||18;
+    _gtPub.idadeMin=naFaixa(Number(de.value)||18);
     if(_gtPub.idadeMin>_gtPub.idadeMax)_gtPub.idadeMin=_gtPub.idadeMax;
     _gtPubRedesenha();
   };
   ate.onchange=()=>{
-    _gtPub.idadeMax=Number(ate.value)||65;
+    _gtPub.idadeMax=naFaixa(Number(ate.value)||65);
     if(_gtPub.idadeMax<_gtPub.idadeMin)_gtPub.idadeMax=_gtPub.idadeMin;
     _gtPubRedesenha();
   };
@@ -3000,11 +3026,35 @@ function _gtPubSecaoPessoas(){
 
 // Públicos personalizados (remarketing e semelhantes), incluindo e excluindo.
 // Lista que não carrega NÃO derruba o editor: avisa só nesta seção.
+//
+// O QUE JÁ ESTÁ NO CONJUNTO APARECE SEMPRE, mesmo sem a lista da conta. Antes
+// os quadradinhos saíam só de percorrer a lista da conta: se ela não
+// carregasse, o dono não via que existe uma inclusão ou uma exclusão de
+// público valendo — e ela ia junto no salvamento assim mesmo.
 function _gtPubSecaoPublicos(){
   const cx=document.createElement('div');
   cx.appendChild(_gtPubTitulo('Públicos salvos na conta'));
+
+  const nomeDoSalvo=(id)=>{
+    const achado=(_gtPubSalvos||[]).find(x=>String(x.id)===id);
+    return (achado&&achado.name)||null;
+  };
+  const emUso=_gtPubLinha();
+  const chipEmUso=(item,marca,tirar)=>{
+    const id=String(item.id);
+    return _gtPubChip(marca+' '+(item.name||nomeDoSalvo(id)||('público salvo ('+id+')')),()=>{tirar(id);_gtPubRedesenha();});
+  };
+  for(const a of (_gtPub.incluir||[]))
+    emUso.appendChild(chipEmUso(a,'✓',id=>{_gtPub.incluir=_gtPub.incluir.filter(x=>String(x.id)!==id);}));
+  for(const a of (_gtPub.excluir||[]))
+    emUso.appendChild(chipEmUso(a,'∅',id=>{_gtPub.excluir=_gtPub.excluir.filter(x=>String(x.id)!==id);}));
+  if(emUso.childNodes.length){
+    cx.appendChild(_gtPubAjuda('Valendo neste conjunto agora — ✓ é quem VÊ, ∅ é quem NÃO vê. Clique no × para tirar.'));
+    cx.appendChild(emUso);
+  }
+
   if(_gtPubSalvos===null){
-    cx.appendChild(_gtPubAjuda('Não consegui carregar seus públicos salvos. O resto do editor funciona normalmente.'));
+    cx.appendChild(_gtPubAjuda('Não consegui carregar a lista de públicos salvos desta conta, então não dá para acrescentar nenhum agora. O resto do editor funciona normalmente'+(emUso.childNodes.length?' — e o que já está valendo aparece aí em cima.':'.')));
     return cx;
   }
   if(!_gtPubSalvos.length){
@@ -3068,6 +3118,10 @@ function _gtPubSecaoExtras(){
     _gtPub.generos=(p.generos||[]).map(Number);
     _gtPub.interesses=(p.interesses||[]).map(i=>({id:String(i.id),name:i.name}));
     _gtPub.incluir=(p.custom_audiences||[]).map(a=>({id:String(a.id),name:a.name}));
+    // O preset preenche o editor INTEIRO, como a ajuda acima promete. Deixar
+    // uma exclusão de público do conjunto antigo sobrando estreitaria em
+    // silêncio o público pronto que o dono acabou de escolher.
+    _gtPub.excluir=[];
     // Público definido à mão não convive com Advantage+ — mesma regra do publico.mjs.
     _gtPub.advantagePlus=false;
     _gtPubRedesenha();
@@ -3172,7 +3226,7 @@ async function _gtAbrirPublico(conjunto){
     let dados=null;
     try{ dados=await _gtBuscarPublico(conjunto.id); }
     catch(e){
-      _gtPubStatus('<b>Não consegui carregar o público.</b><br>'+_gtDupTraduzir(String((e&&e.message)||e)),
+      _gtPubStatus('<b>Não consegui carregar o público.</b><br>'+_gtPubTraduzir(String((e&&e.message)||e)),
         [{texto:'Fechar',primario:true,aoClicar:_gtPubFechar}]);
       return;
     }
@@ -3250,13 +3304,24 @@ async function _gtAbrirPublico(conjunto){
               [{texto:'Fechar',primario:true,aoClicar:()=>{_gtPubFechar();loadGtData();fimDaJornada();}}]);
           }catch(e){
             clearTimeout(timerFechar);
-            // Ao contrário do texto da caixa abaixo, este toast NÃO afirma "nada
-            // foi alterado": é exatamente o caminho (pedido lento / timeout) em
-            // que a caixa já admitiu "não dá para saber se a Meta já processou" —
-            // repetir a garantia forte aqui seria contradizer o próprio aviso.
-            if(saiuPelaEscada)adminToast('A Meta não aceitou a mudança de público.',false);
-            else _gtPubStatus('<b>A Meta não aceitou.</b><br>'+_gtPubTraduzir(String((e&&e.message)||e))
-              +'<br><br>Nada foi alterado no conjunto.',
+            // "Nada foi alterado" só pode ser dito quando a PRÓPRIA META
+            // respondeu recusando (err.metaRecusou, ver metaPost). Se o que
+            // falhou foi a espera do proxy (15s) ou a internet no meio do
+            // caminho, o pedido pode ter chegado lá — e aí vale a mesma frase
+            // honesta da escada de emergência, não uma garantia inventada.
+            const recusaDaMeta=!!(e&&e.metaRecusou);
+            const titulo=recusaDaMeta?'A Meta não aceitou.':'Não consegui falar com a Meta.';
+            const rodape=recusaDaMeta
+              ?'<br><br>Nada foi alterado no conjunto.'
+              :'<br><br><b>Não dá para saber se a Meta já processou</b> essa mudança. Abra esta tela de novo daqui a pouco (ou o Gerenciador de Anúncios da Meta) e confira o público do conjunto antes de tentar salvar outra vez.';
+            // O tradutor abre com "A Meta recusou:" quando não reconhece a
+            // mensagem — o que contradiria o título quando quem falhou não foi
+            // a Meta. Nesse caso mostra o texto cru, escapado.
+            const detalhe=recusaDaMeta
+              ?_gtPubTraduzir(String((e&&e.message)||e))
+              :_gtEsc(String((e&&e.message)||e).slice(0,180));
+            if(saiuPelaEscada)adminToast(recusaDaMeta?'A Meta não aceitou a mudança de público.':'Não consegui falar com a Meta — confira o público deste conjunto antes de tentar de novo.',false);
+            else _gtPubStatus('<b>'+titulo+'</b><br>'+detalhe+rodape,
               [{texto:'Fechar',primario:true,aoClicar:()=>{_gtPubFechar();fimDaJornada();}}]);
           }finally{
             // Se o dono já saiu pela escada, a jornada só termina de verdade

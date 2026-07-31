@@ -18,6 +18,46 @@ const ALVO_META = {
   instagram_positions: ['stream', 'story'],
 };
 
+// O CONJUNTO COMO ELE É NA CONTA DE VERDADE — não como o editor gostaria que
+// fosse. O ALVO_META acima foi montado a partir dos campos que o editor
+// gerencia, e é exatamente por isso que a bateria ficou verde durante quatro
+// perdas silenciosas de dados. Este aqui carrega o que a Meta manda de fato:
+//   • location_types  → em quase todo conjunto criado no Gerenciador, e NÃO é lugar;
+//   • exclusão por ponto no mapa (custom_locations) e por CEP, que o editor não desenha;
+//   • cidade excluída COM raio e unidade (excluir 25 km em volta ≠ excluir a mancha urbana);
+//   • flexible_spec com uma entrada MISTA (interesse + comportamento juntos) e
+//     uma segunda entrada só de interesse — as duas entradas se somam com E;
+//   • NENHUM targeting_automation, que é o caso em que "ligado" é palpite.
+//
+// SEM `name` nas entradas de lugar de propósito: nome de cidade é eco de
+// leitura da Meta, o editor nunca manda nome de volta na escrita (mandar um
+// campo que ninguém conferiu numa conta ao vivo seria trocar um risco por
+// outro). O que TEM que sobreviver é chave, raio, unidade e tudo que o editor
+// não gerencia — e é isso que a invariante abaixo cobra.
+const ALVO_REALISTA = {
+  geo_locations: {
+    cities: [{ key: '1058', radius: 25, distance_unit: 'kilometer' }],
+    location_types: ['home', 'recent'],
+  },
+  excluded_geo_locations: {
+    custom_locations: [{ latitude: -22.9, longitude: -47.06, radius: 10, distance_unit: 'kilometer' }],
+    zips: [{ key: 'BR:13000' }],
+    cities: [{ key: '2777', radius: 25, distance_unit: 'kilometer' }],
+  },
+  age_min: 25,
+  age_max: 45,
+  genders: [2],
+  flexible_spec: [
+    { interests: [{ id: '6003', name: 'Moda' }], behaviors: [{ id: 'b1', name: 'Viajantes' }] },
+    { interests: [{ id: '6004', name: 'Luxo' }] },
+  ],
+  custom_audiences: [{ id: 'aud1' }],
+  excluded_custom_audiences: [{ id: 'aud2' }],
+  publisher_platforms: ['facebook', 'instagram'],
+  device_platforms: ['mobile'],
+  locales: [6],
+};
+
 // Públicos dos testes de Advantage+ precisam de uma localização para isolar o
 // comportamento do Advantage+ da regra de localização (que bloqueia sem cidades).
 // Sem isso, testes medem duas coisas ao mesmo tempo.
@@ -120,6 +160,126 @@ test('CAMPO DESCONHECIDO SOBREVIVE A IDA E VOLTA — o teste que segura tudo', (
   assert.deepEqual(targeting.device_platforms, ['mobile']);
   assert.deepEqual(targeting.locales, [6]);
   assert.deepEqual(targeting.algo_que_a_meta_inventar_amanha, { seja_o_que_for: true });
+});
+
+// ═══ A INVARIANTE DA TELA DE DINHEIRO ═══
+// Abrir o editor, não mexer em nada e salvar tem que devolver para a Meta
+// EXATAMENTE o pacote que veio dela. Qualquer diferença aqui é uma mudança em
+// quem vê os anúncios que o dono não pediu, não viu no resumo e não vai
+// descobrir até a conta ficar estranha.
+test('IDA E VOLTA SEM EDIÇÃO NÃO MUDA UM BYTE DO PACOTE — a invariante que segura tudo', () => {
+  const { targeting } = montarTargeting(lerPublico(ALVO_REALISTA), ALVO_REALISTA);
+  assert.deepEqual(targeting, ALVO_REALISTA);
+});
+
+test('duas entradas de interesse continuam DUAS — E nunca vira OU', () => {
+  // [{Moda}, {Luxo}] = "gosta de Moda E de Luxo". Juntar as duas numa entrada
+  // só viraria "Moda OU Luxo" e o alcance pode pular de dezenas de milhares
+  // para milhões — na conta ao vivo, sem uma linha no resumo.
+  const original = { flexible_spec: [{ interests: [{ id: '1', name: 'Moda' }] }, { interests: [{ id: '2', name: 'Luxo' }] }] };
+  const { targeting } = montarTargeting(lerPublico(original), original);
+  assert.equal(targeting.flexible_spec.length, 2, 'as duas entradas continuam separadas');
+  assert.deepEqual(targeting.flexible_spec, original.flexible_spec);
+});
+
+test('comportamento que mora na MESMA entrada de um interesse nao e apagado', () => {
+  const original = { flexible_spec: [{ interests: [{ id: '1', name: 'Moda' }], behaviors: [{ id: 'b1', name: 'Viajantes' }] }] };
+  const { targeting } = montarTargeting(lerPublico(original), original);
+  assert.deepEqual(targeting.flexible_spec, original.flexible_spec);
+});
+
+test('tirar o unico interesse de uma entrada mista deixa o comportamento de pe', () => {
+  const original = { flexible_spec: [{ interests: [{ id: '1', name: 'Moda' }], behaviors: [{ id: 'b1', name: 'Viajantes' }] }] };
+  const p = lerPublico(original);
+  p.interesses = [];
+  const { targeting } = montarTargeting(p, original);
+  assert.deepEqual(targeting.flexible_spec, [{ behaviors: [{ id: 'b1', name: 'Viajantes' }] }]);
+});
+
+test('entrada que so tinha interesses e ficou sem nenhum desaparece', () => {
+  const original = { flexible_spec: [{ interests: [{ id: '1', name: 'Moda' }] }, { behaviors: [{ id: 'b1' }] }] };
+  const p = lerPublico(original);
+  p.interesses = [];
+  const { targeting } = montarTargeting(p, original);
+  assert.deepEqual(targeting.flexible_spec, [{ behaviors: [{ id: 'b1' }] }]);
+});
+
+test('interesse NOVO entra na entrada que ja mandava nos interesses, nao numa solta', () => {
+  const original = { flexible_spec: [{ behaviors: [{ id: 'b1' }] }, { interests: [{ id: '1', name: 'Moda' }] }] };
+  const p = lerPublico(original);
+  p.interesses = [...p.interesses, { id: '9', name: 'Sapatos' }];
+  const { targeting } = montarTargeting(p, original);
+  assert.equal(targeting.flexible_spec.length, 2, 'não cria uma entrada nova (que seria um E a mais)');
+  assert.deepEqual(targeting.flexible_spec[1].interests,
+    [{ id: '1', name: 'Moda' }, { id: '9', name: 'Sapatos' }]);
+  assert.deepEqual(targeting.flexible_spec[0], { behaviors: [{ id: 'b1' }] });
+});
+
+test('conjunto sem flexible_spec nenhum: interesse novo cria a primeira entrada', () => {
+  const p = { ...PUBLICO_VAZIO, interesses: [{ id: '9', name: 'Sapatos' }] };
+  const { targeting } = montarTargeting(p, {});
+  assert.deepEqual(targeting.flexible_spec, [{ interests: [{ id: '9', name: 'Sapatos' }] }]);
+});
+
+test('RAIO DA CIDADE EXCLUIDA sobrevive — sem ele a exclusao encolhe sozinha', () => {
+  const p = lerPublico(ALVO_REALISTA);
+  assert.deepEqual(p.excluidas, [
+    { key: '2777', nome: '', tipo: 'cidade', raio: 25, unidade: 'kilometer' },
+  ]);
+  p.idadeMin = 30;   // o dono só mexeu na idade
+  const { targeting } = montarTargeting(p, ALVO_REALISTA);
+  assert.deepEqual(targeting.excluded_geo_locations.cities,
+    [{ key: '2777', radius: 25, distance_unit: 'kilometer' }],
+    'perder o raio faria o anúncio voltar a rodar num raio de 25 km que o dono excluiu');
+});
+
+test('CEP e ponto no mapa excluidos sobrevivem a uma troca de idade', () => {
+  const p = lerPublico(ALVO_REALISTA);
+  p.idadeMin = 30;
+  const { targeting } = montarTargeting(p, ALVO_REALISTA);
+  assert.deepEqual(targeting.excluded_geo_locations.zips, ALVO_REALISTA.excluded_geo_locations.zips);
+  assert.deepEqual(targeting.excluded_geo_locations.custom_locations, ALVO_REALISTA.excluded_geo_locations.custom_locations);
+  assert.equal(targeting.age_min, 30);
+});
+
+test('tirar a cidade excluida NAO leva junto o CEP e o ponto no mapa', () => {
+  const p = lerPublico(ALVO_REALISTA);
+  p.excluidas = [];
+  const { targeting } = montarTargeting(p, ALVO_REALISTA);
+  assert.ok(!('cities' in targeting.excluded_geo_locations), 'a cidade saiu');
+  assert.deepEqual(targeting.excluded_geo_locations.zips, ALVO_REALISTA.excluded_geo_locations.zips);
+  assert.deepEqual(targeting.excluded_geo_locations.custom_locations, ALVO_REALISTA.excluded_geo_locations.custom_locations);
+});
+
+test('ADVANTAGE+ NAO E INVENTADO: conjunto sem o campo salva sem o campo', () => {
+  const p = lerPublico(ALVO_REALISTA);
+  assert.equal(p.advantagePlus, true, 'a TELA mostra ligado, que é o padrão da Meta');
+  assert.equal(p.advantagePlusDeclarado, false, 'mas o conjunto nunca disse isso');
+  p.idadeMin = 30;
+  const { targeting } = montarTargeting(p, ALVO_REALISTA);
+  assert.ok(!('targeting_automation' in targeting),
+    'gravar o palpite ligaria o Advantage+ sozinho a cada salvamento, sem uma linha no resumo');
+});
+
+test('advantage+ e escrito quando o dono DESLIGA num conjunto que nao tinha o campo', () => {
+  const p = lerPublico(ALVO_REALISTA);
+  p.advantagePlus = false;
+  const { targeting } = montarTargeting(p, ALVO_REALISTA);
+  assert.equal(targeting.targeting_automation.advantage_audience, 0);
+});
+
+test('advantage+ e escrito sempre que o conjunto JA trazia o campo', () => {
+  const p = lerPublico(ALVO_META);   // advantage_audience: 0
+  const { targeting } = montarTargeting(p, ALVO_META);
+  assert.equal(targeting.targeting_automation.advantage_audience, 0);
+});
+
+test('genero 0 (ou qualquer codigo invalido) nao chega na Meta', () => {
+  const p = { ...PUBLICO_VAZIO, generos: [0] };
+  const { targeting } = montarTargeting(p, {});
+  assert.ok(!('genders' in targeting), '0 não é gênero na Meta — vira campo ausente, não [0]');
+  const p2 = { ...PUBLICO_VAZIO, generos: [0, 1, 7, 2] };
+  assert.deepEqual(montarTargeting(p2, {}).targeting.genders, [1, 2]);
 });
 
 test('ida e volta sem mexer em nada devolve o mesmo publico', () => {
@@ -421,12 +581,36 @@ test('sem mudanca nenhuma, nao avisa nada — nem em conjunto ativo', () => {
 });
 
 test('LIGAR advantage+ com restricao manual BLOQUEIA — a Meta recusa (1870227)', () => {
+  // ALVO_META traz advantage_audience: 0 EXPLÍCITO, então o "antes" é
+  // desligado de verdade e isto pinça a TRANSIÇÃO (desligado → ligado), não um
+  // estado que já veio pronto da Meta.
   const a = lerPublico(ALVO_META);
+  assert.equal(a.advantagePlus, false, 'o antes tem que ser desligado para isto medir a transição');
   const d = { ...a, advantagePlus: true };   // ALVO_META tem idade, gênero e interesses
   const avisos = avisosDe(a, d, { ativo: false, ajustes: [] });
   const conflito = avisos.find(x => x.bloqueia);
   assert.ok(conflito, 'combinação que a Meta recusa não pode ser oferecida como se funcionasse');
   assert.match(conflito.texto, /Advantage/);
+});
+
+test('conjunto que CHEGOU com advantage+ e restricao manual nao trava o Salvar', () => {
+  // Ele já está assim na Meta. Travar aqui deixaria o dono sem saída a não ser
+  // desligar o Advantage+ — mudança de verdade em quem vê os anúncios, que ele
+  // não pediu — só para conseguir trocar uma cidade.
+  const a = { ...COM_CIDADE, advantagePlus: true, idadeMin: 25, idadeMax: 45, generos: [2] };
+  assert.deepEqual(avisosDe(a, a, { ativo: true, ajustes: [] }), [], 'nada mudou, nada avisa');
+
+  const d = { ...a, cidades: [{ key: '999', nome: 'Piracicaba', raio: 0, unidade: 'kilometer' }] };
+  assert.ok(!avisosDe(a, d, { ativo: false, ajustes: [] }).some(x => x.bloqueia),
+    'trocar de cidade não pode ser barrado por um conflito que a ferramenta não criou');
+});
+
+test('mexer na restricao com advantage+ JA ligado BLOQUEIA — esse conflito e novo', () => {
+  const a = { ...COM_CIDADE, advantagePlus: true, idadeMin: 25, idadeMax: 45 };
+  const d = { ...a, idadeMin: 30 };
+  const bloq = avisosDe(a, d, { ativo: false, ajustes: [] }).find(x => x.bloqueia);
+  assert.ok(bloq, 'a Meta vai recusar essa gravação — melhor barrar antes');
+  assert.match(bloq.texto, /Advantage/);
 });
 
 test('ligar advantage+ SEM restricao manual nao bloqueia', () => {
@@ -565,7 +749,13 @@ test('cities esvaziada (só tinha cities): geo_locations removida, compatível c
   assert.ok(!('geo_locations' in targeting), 'geo_locations removida quando cities vazia e nada mais tem');
 });
 
-test('tipo geo desconhecido survives round-trip e é contado em outrasLocalizacoes', () => {
+// MUDOU DE PROPÓSITO (revisão final): antes este teste exigia que QUALQUER
+// chave desconhecida de geo_locations contasse como localização. Isso é o que
+// fazia `location_types` (["home","recent"], presente em quase todo conjunto)
+// passar por lugar — furando o bloqueio obrigatório da Meta e disparando um
+// aviso que aparecia sempre. Contar agora é por lista fechada de lugares; a
+// PRESERVAÇÃO da chave desconhecida continua garantida, que é o que importa.
+test('tipo geo desconhecido sobrevive a ida e volta (mas NAO conta como localizacao)', () => {
   const original = {
     geo_locations: {
       cities: [{ key: '1058', name: 'Campinas' }],
@@ -573,12 +763,35 @@ test('tipo geo desconhecido survives round-trip e é contado em outrasLocalizaco
     },
   };
   const p = lerPublico(original);
-  // Tipo desconhecido aparece em outrasLocalizacoes
-  assert.ok(p.outrasLocalizacoes.includes('geo_algo_novo'), 'tipo desconhecido é listado');
+  assert.ok(!p.outrasLocalizacoes.includes('geo_algo_novo'),
+    'chave que ninguém conferiu ser lugar não pode segurar o bloqueio de "sem localização"');
   const { targeting } = montarTargeting(p, original);
-  // Tipo desconhecido survives
   assert.ok(targeting.geo_locations.geo_algo_novo, 'tipo desconhecido sobrevive');
   assert.deepEqual(targeting.geo_locations.geo_algo_novo, [{ id: 'x' }], 'conteúdo intacto');
+});
+
+test('location_types NAO e localizacao: sem cidade nenhuma o salvar e BLOQUEADO', () => {
+  const original = {
+    geo_locations: { cities: [{ key: '1058', name: 'Campinas' }], location_types: ['home', 'recent'] },
+  };
+  const p = lerPublico(original);
+  assert.deepEqual(p.outrasLocalizacoes, [],
+    'location_types é configuração de "quem mora / quem está de passagem", não lugar');
+
+  // O dono apaga a única cidade: tem que bater no bloqueio da Meta.
+  const semCidade = { ...p, cidades: [] };
+  const bloq = avisosDe(p, semCidade, { ativo: false, ajustes: [] }).find((x) => x.bloqueia);
+  assert.ok(bloq, 'conjunto sem lugar nenhum não pode passar batido só porque tem location_types');
+  assert.match(bloq.texto.toLowerCase(), /localização/);
+
+  // E não pode inventar aviso: conjunto normal não recebe "tem outra localização".
+  const avisos = avisosDe(p, p, { ativo: false, ajustes: [] });
+  assert.ok(!avisos.some((x) => x.tipo === 'outras-localizacoes'),
+    'aviso que aparece em quase todo conjunto é aviso que ninguém lê');
+
+  // E a chave viaja intacta de volta.
+  const { targeting } = montarTargeting(p, original);
+  assert.deepEqual(targeting.geo_locations.location_types, ['home', 'recent']);
 });
 
 test('avisosDe: só regions → SEM bloqueio, mas aviso informativo com tradução', () => {

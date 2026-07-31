@@ -327,18 +327,52 @@ dois ANTES de deixar salvar: ou o Advantage+ ligado (e aí idade/gênero/
 interesse ficam de fora), ou os três definidos à mão (e aí o Advantage+ tem que
 estar desligado).
 
+ISSO SÓ TRAVA O CONFLITO QUE VOCÊ ACABOU DE CRIAR — ligar o Advantage+, ou
+mexer em idade/gênero/interesse com ele já ligado. Se o conjunto JÁ CHEGOU
+assim da Meta e você só quer trocar uma cidade, o Salvar continua liberado: ele
+já está desse jeito lá, e travar aqui deixaria você sem saída a não ser
+desligar o Advantage+ — que é uma mudança de verdade em quem vê os anúncios, e
+que você não pediu.
+
 O RAIO MÍNIMO É 17 KM (10 MILHAS). A Meta não aceita um raio menor que esse
 por cidade. Se você puser um valor menor, a tela ajusta sozinha pro mínimo
 aceito E avisa que ajustou — nunca troca o número calada.
 
 LUGARES QUE ESTE EDITOR NÃO GERENCIA FICAM DO JEITO QUE ESTAVAM. Um conjunto
-pode ser mirado por região, país ou CEP, além de (ou em vez de) cidade — este
-editor só mexe em cidade (incluída e excluída). Região, país e CEP que já
-estavam configurados são preservados intactos ao salvar, e a tela avisa isso
-antes de você confirmar. Existe um teste garantindo que essa preservação nunca
-quebra. Na prática: um conjunto mirado por estado, por exemplo, pode ser
-editado normalmente por aqui (trocar idade, interesse etc.) sem perder o
-direcionamento por estado que ele já tinha.
+pode ser mirado por região, país, CEP ou ponto no mapa, além de (ou em vez de)
+cidade — este editor só mexe em cidade (incluída e excluída). Tudo o mais fica
+como estava ao salvar, tanto na lista de ONDE MOSTRAR quanto na de ONDE NÃO
+MOSTRAR, e a tela avisa antes de você confirmar quando existe algum desses.
+Na prática: um conjunto mirado por estado, por exemplo, pode ser editado
+normalmente por aqui (trocar idade, interesse etc.) sem perder o direcionamento
+por estado que ele já tinha.
+
+O RAIO DA CIDADE EXCLUÍDA TAMBÉM É PRESERVADO. Excluir "25 km em volta de
+Americana" não é a mesma coisa que excluir só a mancha urbana de Americana; o
+raio viaja de volta pra Meta do jeito que veio, e agora aparece escrito na
+etiqueta da cidade excluída (só pra você ver — editar o raio da exclusão não é
+oferecido aqui).
+
+O QUE GARANTE ISSO É UM TESTE DE IDA E VOLTA. Existe um teste que abre um
+conjunto do jeito que a Meta manda de verdade — com exclusão por CEP, exclusão
+por ponto no mapa, cidade excluída com raio, dois grupos de interesse e
+comportamento — e exige que abrir e salvar SEM MEXER EM NADA devolva pra Meta
+exatamente o mesmo pacote, campo por campo. Qualquer perda silenciosa quebra
+esse teste.
+
+INTERESSE COMBINADO COM "E" CONTINUA COMBINADO COM "E". A Meta deixa montar
+público do tipo "gosta de Moda E de Luxo" (dois grupos separados), que é bem
+diferente de "gosta de Moda OU de Luxo" (os dois no mesmo grupo) — o segundo
+alcança MUITO mais gente. O editor mexe só na lista de interesses dentro dos
+grupos que já existiam, sem nunca juntar nem separar grupo, então essa
+diferença é mantida. Comportamento e evento de vida que estejam no mesmo grupo
+de um interesse também ficam de pé.
+
+ADVANTAGE+ NÃO É LIGADO POR ENGANO. Quando a Meta não informa esse campo, a
+tela mostra "ligado", que é o padrão dela — mas isso é leitura, não certeza, e
+por isso o campo só é GRAVADO se o conjunto já o trazia ou se você mexer no
+quadradinho. Sem essa regra, todo salvamento podia ligar o Advantage+ sozinho
+sem aparecer nenhuma linha no resumo do que mudou.
 
 EDITAR O PÚBLICO NÃO MEXE EM ONDE O ANÚNCIO APARECE. Feed, Story, Reels e os
 outros posicionamentos são uma configuração separada, e este editor não toca

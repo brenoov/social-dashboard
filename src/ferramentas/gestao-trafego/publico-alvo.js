@@ -10,12 +10,21 @@
 // trocaria uma cidade e o conjunto pararia de rodar no Instagram Stories sem
 // nada avisar. Por isso montarTargeting (Task 2) parte do original.
 
+// A REGRA QUE VALE EM TODO NÍVEL: ler o que gerenciamos e escrever DE VOLTA
+// DENTRO do que foi lido — nunca montar um objeto do zero no lugar de um que
+// já existia. Vale para o `targeting` inteiro, para o `geo_locations`, para o
+// `excluded_geo_locations` e para cada entrada do `flexible_spec`. Montar um
+// container novo um nível abaixo apaga em silêncio o que morava ao lado.
 export const PUBLICO_VAZIO = {
   cidades: [], excluidas: [],
   idadeMin: 18, idadeMax: 65,
   generos: [], interesses: [],
   incluir: [], excluir: [],
   advantagePlus: true,
+  // O conjunto TRAZIA o campo advantage_audience da Meta? Quando não trazia, o
+  // `advantagePlus: true` acima é PALPITE (o padrão da Meta), e palpite não
+  // pode virar valor gravado. Ver montarTargeting.
+  advantagePlusDeclarado: false,
   outrasLocalizacoes: [],
 };
 
@@ -36,30 +45,45 @@ function interessesDe(targeting) {
   return achados;
 }
 
+// Cidade excluída também pode ter RAIO (excluir 25 km em volta de uma cidade
+// não é a mesma coisa que excluir só a mancha urbana dela). O raio só entra na
+// forma simples quando existe no original — assim a cidade sem raio continua
+// exatamente com a mesma forma de antes.
 function excluidasDe(targeting) {
   const ex = (targeting && targeting.excluded_geo_locations) || {};
   const fora = [];
-  for (const c of lista(ex.cities)) if (c && c.key != null) fora.push({ key: String(c.key), nome: nomeDe(c), tipo: 'cidade' });
+  for (const c of lista(ex.cities)) {
+    if (!c || c.key == null) continue;
+    const item = { key: String(c.key), nome: nomeDe(c), tipo: 'cidade' };
+    if (c.radius != null) {
+      item.raio = Number(c.radius);
+      item.unidade = c.distance_unit || 'kilometer';
+    }
+    fora.push(item);
+  }
   for (const r of lista(ex.regions)) if (r && r.key != null) fora.push({ key: String(r.key), nome: nomeDe(r), tipo: 'regiao' });
   return fora;
 }
 
-// Localidades que o editor não gerencia, mas que devem ser preservadas. Retorna
-// os nomes das chaves de geo_locations que não são 'cities' e contêm dados.
-// Também captura tipos desconhecidos (futuros campos da Meta).
+// Chaves de geo_locations que são LUGAR de verdade. É uma lista fechada de
+// propósito: `location_types` (["home","recent"]) mora no mesmo objeto, existe
+// em quase todo conjunto criado no Gerenciador e NÃO é lugar nenhum. Contá-lo
+// como localização fazia duas coisas erradas ao mesmo tempo — o conjunto sem
+// nenhuma cidade passava pelo bloqueio obrigatório da Meta, e o aviso "este
+// conjunto tem outra localização" aparecia em quase todo conjunto (aviso que
+// aparece sempre é aviso que ninguém lê).
+const CHAVES_DE_LOCALIZACAO = [
+  'regions', 'countries', 'zips', 'custom_locations', 'places',
+  'geo_markets', 'electoral_districts', 'subcities', 'neighborhoods',
+];
+
+// Localidades que o editor não gerencia, mas que devem ser preservadas.
+// Devolve os nomes das chaves de geo_locations que são lugar e têm conteúdo.
 function outrasLocalizacoesDe(targeting) {
   const geo = (targeting && targeting.geo_locations) || {};
   const outras = [];
-  // Chaves conhecidas (para ordem consistente)
-  const conhecidas = ['regions', 'countries', 'zips', 'custom_locations', 'places', 'geo_markets'];
-  for (const chave of conhecidas) {
+  for (const chave of CHAVES_DE_LOCALIZACAO) {
     if (lista(geo[chave]).length > 0) outras.push(chave);
-  }
-  // Captura tipos desconhecidos (iterar todas as chaves, exceto 'cities')
-  for (const chave in geo) {
-    if (chave !== 'cities' && !conhecidas.includes(chave) && lista(geo[chave]).length > 0) {
-      outras.push(chave);
-    }
   }
   return outras;
 }
@@ -86,8 +110,10 @@ export function lerPublico(targeting) {
     incluir: lista(t.custom_audiences).filter((a) => a && a.id != null).map((a) => ({ id: String(a.id), name: nomeDe(a) })),
     excluir: lista(t.excluded_custom_audiences).filter((a) => a && a.id != null).map((a) => ({ id: String(a.id), name: nomeDe(a) })),
     // Ausente = padrão da Meta = LIGADO. Assumir desligado faria a tela mentir
-    // sobre o estado atual da conta do dono.
+    // sobre o estado atual da conta do dono. Mas isso é PALPITE, e o palpite
+    // fica marcado ao lado para não ser gravado como se fosse fato.
     advantagePlus: auto.advantage_audience == null ? true : Number(auto.advantage_audience) === 1,
+    advantagePlusDeclarado: auto.advantage_audience != null,
     // Localidades que o editor não gerencia (regiões, países, CEPs, etc.).
     // Descritivo apenas; montarTargeting ignora esse campo e preserva as outras
     // localidades direto do original.
@@ -118,16 +144,67 @@ function cidadeParaMeta(c, ajustes) {
   return saida;
 }
 
-// Troca APENAS a parte de interesses do flexible_spec, preservando os outros
-// grupos (comportamentos, eventos de vida). Eles moram no mesmo array e
-// sobrescrevê-lo inteiro os apagaria — mesma classe de perda que este arquivo
-// existe para evitar.
+// Reescreve os interesses DENTRO das entradas que já existem no flexible_spec,
+// sem nunca remontar o array.
+//
+// COMO A META LÊ ESSE ARRAY (é o que faz a diferença entre alcançar 50 mil e
+// alcançar 5 milhões de pessoas):
+//   • entradas DIFERENTES do array se somam com E (tem que valer as duas);
+//   • chaves DENTRO da mesma entrada se somam com OU.
+// Ou seja: [{interests:[Moda]}, {interests:[Luxo]}] é "gosta de Moda E de
+// Luxo"; [{interests:[Moda, Luxo]}] é "gosta de Moda OU de Luxo" — público
+// muito maior. E [{interests:[Moda], behaviors:[Viajantes]}] guarda um
+// comportamento que mora na MESMA entrada que o interesse.
+//
+// Por isso aqui: cada entrada é copiada, só a lista `interests` dela é
+// filtrada, e as outras chaves passam intactas. Interesse novo entra na
+// primeira entrada que já mandava nos interesses (ou numa entrada nova, se
+// nenhuma mandava) — nunca vira uma entrada solta que apertaria o público com
+// um E que o dono não pediu.
 function flexComInteresses(originalFlex, interesses) {
-  const outros = (Array.isArray(originalFlex) ? originalFlex : []).filter((g) => g && !g.interests);
-  // Filtra nulls de interesses: Meta carrega nome no read, mas não valida na escrita
-  const ints = interesses.filter((i) => i != null && i.id != null);
-  if (!ints.length) return outros.length ? outros : null;
-  return [...outros, { interests: ints.map((i) => ({ id: String(i.id), name: i.name })) }];
+  const orig = Array.isArray(originalFlex) ? originalFlex : [];
+  // Filtra nulls de interesses: a Meta manda nome na leitura, mas não valida na escrita.
+  const querem = interesses.filter((i) => i != null && i.id != null);
+  const idsQueridos = new Set(querem.map((i) => String(i.id)));
+
+  // Tudo que JÁ estava em alguma entrada. O que não estiver aqui é interesse
+  // que o dono acabou de acrescentar.
+  const jaEstavam = new Set();
+  for (const grupo of orig)
+    for (const i of lista(grupo && grupo.interests))
+      if (i && i.id != null) jaEstavam.add(String(i.id));
+
+  let dona = -1;   // entrada que manda nos interesses (a primeira que os tinha)
+  const entradas = [];
+  for (const grupo of orig) {
+    if (grupo == null || typeof grupo !== 'object') continue;
+    if (!Array.isArray(grupo.interests)) { entradas.push(grupo); continue; }
+    const mantidos = grupo.interests.filter((i) => i != null && i.id != null && idsQueridos.has(String(i.id)));
+    const copia = { ...grupo };
+    // Entrada que perdeu todos os interesses só perde ESSA chave — o que
+    // estava ao lado (comportamentos, eventos de vida) continua de pé.
+    if (mantidos.length) copia.interests = mantidos;
+    else delete copia.interests;
+    if (dona < 0) dona = entradas.length;
+    entradas.push(copia);
+  }
+
+  const novos = [];
+  const vistos = new Set();
+  for (const i of querem) {
+    const id = String(i.id);
+    if (jaEstavam.has(id) || vistos.has(id)) continue;
+    vistos.add(id);
+    novos.push({ id, name: i.name });
+  }
+  if (novos.length) {
+    if (dona < 0) entradas.push({ interests: novos });
+    else entradas[dona] = { ...entradas[dona], interests: [...lista(entradas[dona].interests), ...novos] };
+  }
+
+  // Entrada que ficou completamente vazia desaparece; as demais sobrevivem.
+  const saida = entradas.filter((e) => Object.keys(e).length > 0);
+  return saida.length ? saida : null;
 }
 
 // Escreve o público de volta no formato da Meta.
@@ -160,24 +237,54 @@ export function montarTargeting(publico, original) {
     delete t.geo_locations;
   }
 
-  const cid = p.excluidas.filter((e) => e != null && e.key != null && e.tipo !== 'regiao').map((e) => ({ key: String(e.key) }));
+  // MESMO TRATAMENTO DO geo_locations, pela mesma razão. Um conjunto pode
+  // excluir CEP, ponto no mapa (custom_locations) e cidade ao mesmo tempo; o
+  // editor só desenha cidade e região. Montar esse objeto do zero apagava o
+  // resto — e o dono, que só queria trocar uma idade, voltava a anunciar num
+  // lugar que tinha excluído de propósito, sem uma linha de aviso.
+  const excluirCidade = (e) => {
+    const saida = { key: String(e.key) };
+    // O raio da cidade excluída vem da Meta e não é editável aqui: viaja de
+    // volta como estava, sem passar pelo mínimo (mexer num número que o dono
+    // não vê seria trocar a exclusão dele por outra).
+    const raio = Number(e.raio) || 0;
+    if (raio > 0) {
+      saida.radius = raio;
+      saida.distance_unit = e.unidade === 'mile' ? 'mile' : 'kilometer';
+    }
+    return saida;
+  };
+  const cid = p.excluidas.filter((e) => e != null && e.key != null && e.tipo !== 'regiao').map(excluirCidade);
   const reg = p.excluidas.filter((e) => e != null && e.key != null && e.tipo === 'regiao').map((e) => ({ key: String(e.key) }));
-  const fora = {};
-  if (cid.length) fora.cities = cid;
-  if (reg.length) fora.regions = reg;
-  põe('excluded_geo_locations', Object.keys(fora).length ? fora : null);
+  const foraOriginal = (t.excluded_geo_locations && typeof t.excluded_geo_locations === 'object') ? { ...t.excluded_geo_locations } : {};
+  if (cid.length) foraOriginal.cities = cid; else delete foraOriginal.cities;
+  if (reg.length) foraOriginal.regions = reg; else delete foraOriginal.regions;
+  põe('excluded_geo_locations', Object.keys(foraOriginal).length ? foraOriginal : null);
 
   põe('age_min', Number(p.idadeMin));
   põe('age_max', Number(p.idadeMax));
-  // Filtra nulls e coerce a number: Number(null) === 0 mas gêneros válidos são 1 e 2
-  const gerosValid = p.generos.filter((g) => g != null).map(Number).filter((g) => !Number.isNaN(g));
+  // A Meta só conhece 1 (homens) e 2 (mulheres). Qualquer outra coisa é lixo —
+  // e 0 é o lixo mais perigoso, porque Number(null) vale 0 e passaria batido.
+  const gerosValid = p.generos.filter((g) => g != null).map(Number).filter((g) => g === 1 || g === 2);
   põe('genders', gerosValid.length ? gerosValid : null);
   põe('flexible_spec', flexComInteresses(t.flexible_spec, p.interesses));
   const incluirValid = p.incluir.filter((a) => a != null && a.id != null).map((a) => ({ id: String(a.id) }));
   põe('custom_audiences', incluirValid.length ? incluirValid : null);
   const excluirValid = p.excluir.filter((a) => a != null && a.id != null).map((a) => ({ id: String(a.id) }));
   põe('excluded_custom_audiences', excluirValid.length ? excluirValid : null);
-  põe('targeting_automation', { ...(t.targeting_automation || {}), advantage_audience: p.advantagePlus ? 1 : 0 });
+  // ADVANTAGE+ SÓ VAI PRO PACOTE SE FOR FATO, NUNCA SE FOR PALPITE.
+  // Quando o conjunto não traz advantage_audience, a leitura mostra "ligado"
+  // porque é o padrão da Meta — mas gravar esse palpite LIGARIA o Advantage+
+  // sozinho, em todo salvamento, mudando quem vê os anúncios sem uma linha no
+  // resumo (true comparado com true não gera diferença nenhuma). Então: só
+  // escreve se o campo já existia no conjunto ou se o dono mexeu no
+  // interruptor de verdade.
+  const autoOriginal = (t.targeting_automation && typeof t.targeting_automation === 'object') ? t.targeting_automation : null;
+  const jaTinha = !!(autoOriginal && autoOriginal.advantage_audience != null);
+  const comoEstava = jaTinha ? Number(autoOriginal.advantage_audience) === 1 : true;
+  const donoMexeu = !!p.advantagePlus !== comoEstava;
+  if (jaTinha || p.advantagePlusDeclarado || donoMexeu)
+    põe('targeting_automation', { ...(autoOriginal || {}), advantage_audience: p.advantagePlus ? 1 : 0 });
 
   return { targeting: t, ajustes };
 }
@@ -269,6 +376,17 @@ const temRestricaoManual = (p) =>
   p.idadeMin !== PUBLICO_VAZIO.idadeMin ||
   p.idadeMax !== PUBLICO_VAZIO.idadeMax;
 
+// As três restrições que brigam com o Advantage+ estão iguais nos dois lados?
+// Serve para o bloqueio olhar a MUDANÇA e não o estado: conflito que já veio
+// pronto da Meta não é erro que esta ferramenta possa cobrar do dono.
+function restricoesIguais(a, b) {
+  if (Number(a.idadeMin) !== Number(b.idadeMin) || Number(a.idadeMax) !== Number(b.idadeMax)) return false;
+  const gen = (p) => (p.generos || []).filter((g) => g != null).map(Number).sort().join(',');
+  if (gen(a) !== gen(b)) return false;
+  const ids = (p) => (p.interesses || []).filter((i) => i != null && i.id != null).map((i) => String(i.id)).sort().join(',');
+  return ids(a) === ids(b);
+}
+
 const NOMES_LOCALIZACOES = {
   regions: 'região',
   countries: 'país',
@@ -276,6 +394,9 @@ const NOMES_LOCALIZACOES = {
   custom_locations: 'localização personalizada',
   places: 'local',
   geo_markets: 'mercado geográfico',
+  electoral_districts: 'distrito eleitoral',
+  subcities: 'região dentro da cidade',
+  neighborhoods: 'bairro',
 };
 
 // Traduz chaves de geo_locations da Meta para português legível.
@@ -330,7 +451,15 @@ export function avisosDe(antes, depois, contexto) {
   // A Meta REJEITA segmentação manual com o Advantage+ ligado (código 1870227,
   // apanhado ao vivo em 2026-07-12). Deixar salvar e tomar o erro seria
   // transferir pro dono um conflito que a ferramenta já conhece.
-  if (d.advantagePlus && temRestricaoManual(d)) {
+  //
+  // MAS SÓ BLOQUEIA O CONFLITO QUE O DONO ACABOU DE CRIAR — ou ligando o
+  // Advantage+, ou mexendo em idade/gênero/interesse com ele já ligado. Um
+  // conjunto que chegou da Meta assim já está assim: travar o Salvar nesse
+  // caso deixaria o dono sem saída a não ser desligar o Advantage+, que é uma
+  // mudança de verdade em quem vê os anúncios — e que ele não pediu.
+  const conflitoNovo = d.advantagePlus && temRestricaoManual(d)
+    && (!a.advantagePlus || !restricoesIguais(a, d));
+  if (conflitoNovo) {
     avisos.push({
       tipo: 'conflito',
       texto: 'Com o Advantage+ ligado, a Meta <b>recusa</b> idade, gênero e interesses definidos à mão. Escolha: ou desliga o Advantage+, ou limpa essas restrições.',
