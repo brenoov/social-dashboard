@@ -92,7 +92,11 @@ export async function run() {
   const marcas = await sbGet('/fabrica_marcas?select=id,nome,account_id&ativo=eq.true');
   const lojas = await sbGet('/fabrica_lojas?select=nome,marca_id,geo_cities');
 
-  let gravadas = 0, puladas = 0, totPropostos = 0, totValidos = 0;
+  // `gravadas` só sobe quando uma linha É ESCRITA de verdade — em --dry ela
+  // fica genuinamente zero, como no budget-ia.mjs. `simuladas` conta o que
+  // TERIA sido gravado, separado, pra --dry poder ser informativo sem inflar
+  // um número que vai parar em ia_execucoes como se fosse escrita real.
+  let gravadas = 0, simuladas = 0, puladas = 0, totPropostos = 0, totValidos = 0;
 
   for (const marca of marcas) {
     const lojasDaMarca = lojas.filter((l) => l && l.marca_id === marca.id);
@@ -126,7 +130,11 @@ export async function run() {
       console.log(`  ${marca.nome} · ${objetivo}: ${validos}/${nProp} sobreviveram à validação`);
 
       if (!itens.length) { puladas++; continue; }
-      if (DRY) { gravadas++; continue; }
+      // Em --dry NADA é gravado — nem aqui, nem em ia_execucoes lá embaixo.
+      // `gravadas` não sobe: um registro de auditoria que afirma "6 gravadas"
+      // numa rodada seca seria uma mentira permanente no robô que ninguém
+      // fica olhando.
+      if (DRY) { simuladas++; continue; }
 
       try {
         await sbPost('/interesses_sugeridos?on_conflict=marca_id,objetivo', {
@@ -146,7 +154,14 @@ export async function run() {
 
   const uso = usageSummary();
   const aproveitamento = totPropostos ? Math.round((totValidos / totPropostos) * 100) : 0;
-  console.log(`\n${gravadas} gravadas, ${puladas} puladas, aproveitamento ${aproveitamento}%${DRY ? ' (dry)' : ''}`);
+  // Em --dry o resumo fala de `simuladas`, nunca de `gravadas` — a mesma frase
+  // vira o log do console E o `detalhe` gravado em ia_execucoes logo abaixo,
+  // então não existe uma versão "bonita" pro console e uma verdadeira pro
+  // banco: é a mesma, e ela já nasce certa nos dois lugares.
+  const resumo = DRY
+    ? `SECO: ${simuladas} teriam sido gravadas (nada escrito), ${puladas} puladas, aproveitamento ${aproveitamento}%`
+    : `${gravadas} gravadas, ${puladas} puladas, aproveitamento ${aproveitamento}%`;
+  console.log(`\n${resumo}`);
 
   // NOMES CONFERIDOS em lib-llm.mjs: usageSummary devolve { usd, tin, tout,
   // calls, text } — NÃO inputTokens/outputTokens/chamadas. Errar aqui faria o
@@ -156,8 +171,11 @@ export async function run() {
   await registrarExecucao({
     robo: 'sugerir-interesses', acao: 'sugestão de interesses', modelo: MODEL,
     inputTokens: uso.tin || 0, outputTokens: uso.tout || 0, chamadas: uso.calls || 0,
+    // `itens: gravadas` (nunca `simuladas`): em --dry isso fica 0 de verdade,
+    // porque nenhuma linha foi escrita — o registro de auditoria não pode
+    // afirmar uma gravação que não aconteceu.
     duracaoMs: Date.now() - t0, itens: gravadas, unidade: 'marca×objetivo',
-    status: 'ok', detalhe: `${gravadas} gravadas, ${puladas} puladas, aproveitamento ${aproveitamento}%`,
+    status: 'ok', detalhe: resumo,
   });
 }
 
