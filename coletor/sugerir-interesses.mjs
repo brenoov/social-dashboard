@@ -19,7 +19,7 @@
 // então o valor real aparece no painel Status do Claude, em reais.
 import { structured, SONNET, usageSummary } from './lib-llm.mjs';
 import { registrarExecucao } from './registrar-execucao.mjs';
-import { montarPedido, nomesPropostos, colherDaBusca, linhaDosTermos, linhasDaPrevia, linhasDosLargos, comCidadesResolvidas, rodadaFalhouInteira, OBJETIVOS } from './lib/interesses.mjs';
+import { montarPedido, nomesPropostos, colherDaBusca, linhaDosTermos, linhasDaPrevia, linhasDosLargos, linhasDosPequenos, linhasPorTermo, comCidadesResolvidas, rodadaFalhouInteira, OBJETIVOS } from './lib/interesses.mjs';
 // Login da conta de serviço (mesma usada por subir-estudio.mjs, ativar-estudio.mjs
 // etc.) — o meta-proxy chama auth.getUser() sobre o Authorization recebido, e uma
 // service key não é sessão de usuário: ela sempre daria 401 "nao autenticado" ali.
@@ -242,21 +242,25 @@ export async function run() {
       // outros termos ainda trazem interesse bom. Só se TODAS falharem é que o
       // objetivo é pulado — aí a causa não é o termo, é a Meta ou o token, e a
       // regra antiga continua valendo: sem resposta da Meta, não se grava nada.
-      const respostas = [];
+      // GUARDADO EM PARES { termo, resposta }, não em dois arrays lado a lado:
+      // busca que falha não entra, e sem o par o log de "o que cada termo achou"
+      // atribuiria o resultado ao termo errado a partir da primeira falha.
+      const buscas = [];
       for (const termo of termos) {
         try {
-          respostas.push(await buscarNaMeta(marca.account_id, termo, token));
+          buscas.push({ termo, resposta: await buscarNaMeta(marca.account_id, termo, token) });
         } catch (e) {
           console.log(`  ⚠ ${marca.nome} · ${objetivo}: a busca por "${termo}" falhou — ${String(e).slice(0, 120)}`);
         }
         await sleep(PAUSA_ENTRE_BUSCAS);
       }
+      const respostas = buscas.map((b) => b.resposta);
       if (!respostas.length) {
         console.log(`  ⚠ ${marca.nome} · ${objetivo}: TODAS as ${termos.length} buscas na Meta falharam — nada gravado`);
         puladas++; continue;
       }
 
-      const { itens, propostos: nProp, validos, largos } = colherDaBusca(termos, respostas);
+      const { itens, propostos: nProp, validos, largos, pequenos } = colherDaBusca(termos, respostas);
       totPropostos += nProp; totValidos += validos;
       // O número mudou de sentido: antes era "quantos sobreviveram à validação",
       // agora é "quantos interesses as buscas acharam". Passar de 100% é normal —
@@ -278,6 +282,14 @@ export async function run() {
         // não há como saber se está no lugar certo — e um corte invisível nunca
         // seria corrigido.
         for (const linha of linhasDosLargos(largos)) console.log(linha);
+        // O mesmo por baixo (ver PISO_DE_PUBLICO). Vem depois dos largos porque
+        // é a leitura menos frequente: o teto foi afrouxado e o piso, apertado.
+        for (const linha of linhasDosPequenos(pequenos)) console.log(linha);
+        // E, por último, o CRU: qual termo achou o quê. É a linha que responde
+        // se a lista repetida vem da IA ou do catálogo da Meta. Fica no fim de
+        // propósito — é a mais comprida, e quem só quer conferir a qualidade da
+        // rodada já leu tudo que precisava acima.
+        for (const linha of linhasPorTermo(buscas)) console.log(linha);
       }
 
       if (!itens.length) { puladas++; continue; }

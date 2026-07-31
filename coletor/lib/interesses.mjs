@@ -286,7 +286,43 @@ export const MAXIMO_POR_OBJETIVO = 12;
 // tamanhos dos interesses que PRESTAM — e é justamente por isso que a prévia
 // mostra o tamanho de tudo que fica, e o log lista tudo que foi cortado por
 // aqui.
-export const TETO_DE_PUBLICO = 500_000_000;
+//
+// AFROUXADO DE 500 MI PRA 1,2 BI (rodada de 2026-07-31, decisão do dono).
+// A rodada seca mostrou o teto cortando `Acessórios de moda` (1,15 bi) nos SEIS
+// objetivos — a categoria da própria loja, o descarte mais caro que este robô
+// podia estar fazendo. O argumento que sustentava os 500 mi caiu junto: o
+// anúncio sempre sai preso na cidade da loja com raio (ver `montarTargeting` em
+// publico.mjs), então um interesse global grande NÃO espalha verba pelo Brasil
+// — ele só descreve gente demais no mundo, e o recorte de cidade resolve isso.
+//
+// 1,2 bi é a linha entre os dois únicos tamanhos que já foram julgados de
+// verdade: `Acessórios de moda` (1,15 bi, serve) e `Compras na internet`
+// (1,58 bi, não serve — "compra pela internet" não separa cliente de
+// não-cliente). Continua PROVISÓRIO, e agora os dois erros aparecem no log:
+// o que passou do teto e o que não chegou ao piso.
+export const TETO_DE_PUBLICO = 1_200_000_000;
+
+// PISO DE PÚBLICO — pequeno demais pra existir na cidade da loja.
+//
+// A rodada de 2026-07-31 escancarou a falta dele: `VK Moda Feminina Plus Size`
+// — uma página de rede social RUSSA com 3 MIL pessoas no mundo inteiro — foi
+// parar nos SEIS objetivos, enquanto a categoria da loja era descartada por
+// cima. O filtro tinha teto e não tinha chão, então o lixo miúdo passava batido
+// e ainda ocupava vaga na faixa.
+//
+// A conta é de gente, não de gosto: 3 mil pessoas ESPALHADAS PELO MUNDO viram
+// aproximadamente zero dentro de um raio de 20 km em Campinas. Um interesse
+// assim não segmenta — ele esvazia. A Meta chega a recusar conjunto sem público
+// suficiente, e quando não recusa, entrega para quase ninguém.
+//
+// 500 mil (global) é folgado de propósito, pela mesma lógica do teto: errar pra
+// baixo aqui deixa passar miudeza que aparece no log e se corrige; errar pra
+// cima apagaria interesse bom de nicho sem ninguém saber que existiu. Continua
+// PROVISÓRIO — mexer só com rodada seca na mão.
+//
+// Tamanho DESCONHECIDO (null) NUNCA é cortado, nem por cima nem por baixo:
+// não se joga fora o que não se conseguiu medir.
+export const PISO_DE_PUBLICO = 500_000;
 
 // A CATEGORIA do interesse, do jeito que a Meta manda: um caminho de migalhas
 // ("Compras e moda" > "Bolsas").
@@ -343,17 +379,19 @@ function caminhoDoInteresse(bruto) {
 // aqui é só o que deu certo.
 //
 // Devolve `{ itens, propostos, validos }` como sempre — tabela, faixa e
-// contadores não mudam — mais `largos`, que são os cortados pelo teto de
-// público. `largos` NÃO vai pro banco: existe pra rodada seca poder mostrar no
-// log o que foi jogado fora e por quê. Corte que ninguém vê é corte que ninguém
-// consegue corrigir, e este teto nasceu provisório de propósito.
+// contadores não mudam — mais `largos` e `pequenos`, que são os cortados pelo
+// teto e pelo piso de público. Nenhum dos dois vai pro banco: existem pra rodada
+// seca poder mostrar no log o que foi jogado fora e por quê. Corte que ninguém
+// vê é corte que ninguém consegue corrigir, e as duas linhas nasceram
+// provisórias de propósito.
 //
 // `propostos` são os TERMOS que a IA deu, `validos` os interesses distintos que
 // ficaram. Não é taxa de sobrevivência, é quanto rendeu.
-export function colherDaBusca(termos, respostas, limite = MAXIMO_POR_OBJETIVO, teto = TETO_DE_PUBLICO) {
+export function colherDaBusca(termos, respostas, limite = MAXIMO_POR_OBJETIVO, teto = TETO_DE_PUBLICO, piso = PISO_DE_PUBLICO) {
   const vistos = new Set();
   const itens = [];
   const largos = [];
+  const pequenos = [];
   for (const resposta of lista(respostas)) {
     for (const l of lista(resposta && resposta.data)) {
       if (!l || typeof l !== 'object') continue;   // item nulo ou lixo: pulado
@@ -396,7 +434,14 @@ export function colherDaBusca(termos, respostas, limite = MAXIMO_POR_OBJETIVO, t
       // tratar como "pequeno" já é o que acontece — ele fica, e vai pro fim da
       // fila na ordenação, que é o lugar honesto de quem não tem número.
       const largoDemais = audience_size != null && Number.isFinite(teto) && audience_size > teto;
-      (largoDemais ? largos : itens).push(item);
+      // PEQUENO DEMAIS — ver PISO_DE_PUBLICO. Mesmas duas cautelas do teto:
+      // só corta quem TEM tamanho medido, e "no piso" FICA (só sai quem está
+      // abaixo). Um interesse não pode ser largo e pequeno ao mesmo tempo, então
+      // a ordem entre os dois testes não muda resultado nenhum.
+      const pequenoDemais = audience_size != null && Number.isFinite(piso) && audience_size < piso;
+      if (largoDemais) largos.push(item);
+      else if (pequenoDemais) pequenos.push(item);
+      else itens.push(item);
     }
   }
 
@@ -409,12 +454,15 @@ export function colherDaBusca(termos, respostas, limite = MAXIMO_POR_OBJETIVO, t
   const porTamanho = (a, b) => peso(b.audience_size) - peso(a.audience_size);
   itens.sort(porTamanho);
   largos.sort(porTamanho);   // o maior primeiro também aqui: o log fica lendo do pior pro menos pior
+  // Nos pequenos a leitura útil é a inversa — o MENOR primeiro é o mais absurdo,
+  // e é ele que explica o corte (foi um de 3 mil que motivou o piso).
+  pequenos.sort((a, b) => peso(a.audience_size) - peso(b.audience_size));
 
   const cortados = Number.isFinite(limite) && limite >= 0 ? itens.slice(0, limite) : itens;
   // `validos` conta o que FICOU na linha, não o que foi colhido antes do corte:
   // a tabela guarda `itens` e `validos` lado a lado, e um número maior que a
   // lista ao lado dele seria uma contradição visível na própria tela.
-  return { itens: cortados, propostos: lista(termos).length, validos: cortados.length, largos };
+  return { itens: cortados, propostos: lista(termos).length, validos: cortados.length, largos, pequenos };
 }
 
 // Tamanho de público em português: '2,3 mi', '940 mil', '850'.
@@ -487,6 +535,73 @@ export function linhasDosLargos(largos, teto = TETO_DE_PUBLICO) {
   if (!linhas.length) return [];
   const limite = tamanhoLegivel(teto);
   return [`      descartados por serem largos demais${limite ? ` (acima de ${limite})` : ''}:`, ...linhas];
+}
+
+// AS LINHAS DO QUE FOI CORTADO POR SER PEQUENO DEMAIS — irmã da de cima.
+//
+// Existe pelo mesmo motivo, e por uma dívida concreta: o piso foi criado DEPOIS
+// de um interesse de 3 mil pessoas passar em seis objetivos sem ninguém ver.
+// Um corte novo que nascesse mudo repetiria exatamente o erro que ele conserta.
+export function linhasDosPequenos(pequenos, piso = PISO_DE_PUBLICO) {
+  const linhas = [];
+  for (const i of lista(pequenos)) {
+    if (!i || typeof i !== 'object') continue;
+    const nome = limpo(i.nome);
+    if (!nome) continue;
+    linhas.push(`         · ${nome} — ${tamanhoLegivel(i.audience_size) || 'tamanho desconhecido'}  [${categoriaLegivel(i.path)}]`);
+  }
+  if (!linhas.length) return [];
+  const limite = tamanhoLegivel(piso);
+  return [`      descartados por serem pequenos demais${limite ? ` (abaixo de ${limite})` : ''}:`, ...linhas];
+}
+
+// O QUE CADA TERMO ACHOU, um termo por linha — só na rodada seca.
+//
+// A PERGUNTA QUE ISTO RESPONDE: os seis objetivos pedem coisas diferentes e
+// voltam com a mesma lista. De quem é a culpa — da IA, que estaria repetindo
+// assunto, ou do catálogo da Meta, que é grosso e devolve o mesmo genérico pra
+// termos distintos?
+//
+// A rodada de 2026-07-31 deixou isso empatado: "mensagens" pediu `atendimento
+// personalizado`, `WhatsApp compras`, `consultoria moda` — termos claramente
+// diferentes dos de "leads" — e as duas listas saíram iguais. Só que o log
+// mostrava os termos de um lado e os achados do outro, sem ligar um ao outro,
+// então a culpa ficou por indício. Ligando os dois, a resposta fica óbvia de
+// ler: termo que volta VAZIO é o catálogo que não tem aquilo; termo que volta
+// cheio e sempre com os mesmos nomes é a IA batendo na mesma tecla.
+//
+// MOSTRA O QUE A META DEVOLVEU, CRU — antes do teto, do piso, do limite por
+// objetivo e da retirada de repetidos. É de propósito: aqui se julga a BUSCA,
+// não o nosso filtro. Quem julga o filtro são as duas listas de descartados.
+//
+// `buscas` é a lista de pares { termo, resposta } — pares, e não dois arrays
+// lado a lado, porque busca que falha não entra na lista: com dois arrays, um
+// termo que falhasse no meio empurraria todos os outros pra linha errada e o
+// log passaria a mentir com cara de precisão.
+export const MAXIMO_NOMES_POR_TERMO = 6;
+
+export function linhasPorTermo(buscas, maximo = MAXIMO_NOMES_POR_TERMO) {
+  const linhas = [];
+  for (const b of lista(buscas)) {
+    if (!b || typeof b !== 'object') continue;
+    const termo = limpo(b.termo);
+    if (!termo) continue;
+    const nomes = [];
+    for (const l of lista(b.resposta && b.resposta.data)) {
+      if (!l || typeof l !== 'object') continue;
+      const nome = limpo(l.name);
+      if (nome) nomes.push(nome);
+    }
+    // 'nada' por extenso: é o caso mais informativo dos dois, e um traço solto
+    // ou uma linha em branco pareceria log truncado em vez de resposta vazia.
+    if (!nomes.length) { linhas.push(`         · "${termo}" → nada`); continue; }
+    const teto = Number.isFinite(maximo) && maximo > 0 ? maximo : nomes.length;
+    const mostrados = nomes.slice(0, teto);
+    const sobra = nomes.length - mostrados.length;
+    linhas.push(`         · "${termo}" → ${mostrados.join(' · ')}${sobra > 0 ? ` (+${sobra})` : ''}`);
+  }
+  if (!linhas.length) return [];
+  return ['      o que cada termo achou na Meta (cru, antes dos cortes):', ...linhas];
 }
 
 // A PRÉVIA DA RODADA SECA: as linhas que mostram O QUE SERIA GRAVADO.
