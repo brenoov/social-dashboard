@@ -219,7 +219,7 @@ begin
   return v_row;
 end $$;
 
-revoke all on function public.conteudo_decidir(uuid, text, text) from public;
+revoke execute on function public.conteudo_decidir(uuid, text, text) from public, anon;
 grant execute on function public.conteudo_decidir(uuid, text, text) to authenticated;
 
 -- ── RLS ─────────────────────────────────────────────────────────────────────

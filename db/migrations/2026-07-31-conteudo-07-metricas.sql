@@ -121,7 +121,7 @@ begin
   return v_row;
 end $$;
 
-revoke all on function public.conteudo_decidir_casamento(uuid, boolean) from public;
+revoke execute on function public.conteudo_decidir_casamento(uuid, boolean) from public, anon;
 grant execute on function public.conteudo_decidir_casamento(uuid, boolean) to authenticated;
 
 -- ── RLS ─────────────────────────────────────────────────────────────────────

@@ -75,8 +75,17 @@ begin
   return v_req;
 end $$;
 
-revoke all on function public.disparar_robo(text, text, text, jsonb, int) from public;
-revoke all on function public.disparar_robo(text, text, text, jsonb, int) from authenticated;
+-- `anon` PRECISA estar aqui, e não é excesso de zelo: o Supabase concede
+-- EXECUTE em função nova do schema public para anon/authenticated/service_role
+-- por default privileges, e `revoke ... from public` NÃO tira uma concessão
+-- explícita ao papel anon. Como a chave anon está no bundle público do site,
+-- esquecer esta linha deixa a função aberta para qualquer visitante.
+--
+-- Aqui era grave: disparar_robo LÊ o segredo sozinha, então servia de procurador
+-- confuso para disparar QUALQUER Edge Function — mandar push para todo mundo,
+-- queimar a cota da Graph API. Confirmado em teste antes da correção.
+revoke execute on function public.disparar_robo(text, text, text, jsonb, int) from public, anon, authenticated;
+grant  execute on function public.disparar_robo(text, text, text, jsonb, int) to service_role;
 
 -- ── A CONFERÊNCIA ───────────────────────────────────────────────────────────
 -- Corre atrás da resposta antes de o pg_net podar. Roda de 5 em 5 minutos.
@@ -118,8 +127,8 @@ begin
   return v_conferidos;
 end $$;
 
-revoke all on function public.conferir_robos() from public;
-revoke all on function public.conferir_robos() from authenticated;
+revoke execute on function public.conferir_robos() from public, anon, authenticated;
+grant  execute on function public.conferir_robos() to service_role;
 
 -- ── O QUE SE ESPERA DE CADA ROBÔ ────────────────────────────────────────────
 create table if not exists public.robos_esperados (

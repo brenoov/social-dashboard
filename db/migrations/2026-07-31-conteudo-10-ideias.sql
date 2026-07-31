@@ -159,7 +159,7 @@ begin
   return v_peca;
 end $$;
 
-revoke all on function public.conteudo_ideia_virar_peca(uuid, uuid, timestamptz) from public;
+revoke execute on function public.conteudo_ideia_virar_peca(uuid, uuid, timestamptz) from public, anon;
 grant execute on function public.conteudo_ideia_virar_peca(uuid, uuid, timestamptz) to authenticated;
 
 -- ── RLS ─────────────────────────────────────────────────────────────────────

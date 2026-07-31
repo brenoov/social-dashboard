@@ -52,8 +52,11 @@ $$;
 -- Só o service_role (a Edge do cron) chama. `authenticated` não entra: senão
 -- qualquer usuário logado poderia marcar todas as peças como avisadas e
 -- silenciar a agenda inteira.
-revoke all on function public.conteudo_reivindicar_hora_h() from public;
-revoke all on function public.conteudo_reivindicar_hora_h() from authenticated;
+-- `anon` PRECISA constar: o Supabase concede EXECUTE por default privileges e
+-- `revoke from public` nao tira concessao explicita ao papel anon. Sem esta
+-- linha, um visitante podia marcar toda peca agendada como "ja avisei" e
+-- silenciar as notificacoes. Confirmado em teste.
+revoke execute on function public.conteudo_reivindicar_hora_h() from public, anon, authenticated;
 grant execute on function public.conteudo_reivindicar_hora_h() to service_role;
 
 -- ── 4. Reavisar (desfaz a reivindicação de UMA peça) ────────────────────────
@@ -90,5 +93,5 @@ begin
   return v_row;
 end $$;
 
-revoke all on function public.conteudo_reavisar(uuid) from public;
+revoke execute on function public.conteudo_reavisar(uuid) from public, anon;
 grant execute on function public.conteudo_reavisar(uuid) to authenticated;
