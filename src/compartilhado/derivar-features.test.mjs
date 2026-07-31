@@ -55,6 +55,21 @@ test('não quebra com null/undefined nem com ações fora do formato', () => {
   assert.deepEqual(derivarFeatures({ social: null, banco: 'ver' }), []);
 });
 
+/* ── Central de Conteúdo: o pai 'conteudo' é módulo de verdade ───────────── */
+
+test("conteudo.aprovar promove o pai 'conteudo' (ao contrário de claude.status)", () => {
+  // 'conteudo' É um módulo real (tem tela e RLS próprios), então NÃO entra em
+  // PAIS_QUE_NAO_EXISTEM. Consequência assumida: quem pode aprovar também vê a
+  // ferramenta — o que é o certo, ninguém aprova o que não consegue abrir.
+  assert.deepEqual(derivarFeatures({ 'conteudo.aprovar': ['ver'] }), ['conteudo', 'conteudo.aprovar']);
+});
+
+test('só a permissão de entrar NÃO concede a de aprovar', () => {
+  // O RLS de aprovar checa a chave FILHA. Se este teste quebrar, qualquer
+  // pessoa com acesso à ferramenta passa a poder aprovar peça dos outros.
+  assert.deepEqual(derivarFeatures({ conteudo: ['ver', 'criar'] }), ['conteudo']);
+});
+
 /* ── Super-admin: devolve null = "não mexa no features[]" ────────────────── */
 
 test('super-admin com permissions vazio devolve null (não zera o features)', () => {

@@ -91,6 +91,11 @@ export const RECURSOS = [
   { key: 'gestor', label: 'Gestão Comercial (IA)', acoes: ['ver'] },
   { key: 'gestor.relatorios', label: 'Relatórios Comerciais', acoes: ['ver', 'exportar'] },
   { key: 'claude.status', label: 'Painel de Status do Claude', acoes: ['ver'] },
+  { key: 'conteudo', label: 'Central de Conteúdo', acoes: ['ver', 'criar', 'editar', 'excluir'] },
+  // Chave separada em vez de uma 6ª coluna 'aprovar' na matriz: ACOES_MATRIZ é
+  // fixa em 5 colunas, e uma coluna nova abriria célula vazia nas 15 linhas
+  // existentes para servir só a esta. Mesmo padrão de social.relatorio.
+  { key: 'conteudo.aprovar', label: 'Conteúdo — Aprovar peças', acoes: ['ver'] },
 ]
 
 // Ponte: chaves antigas (call sites legados) → recurso novo. Assim nada quebra durante a migração.
@@ -132,4 +137,7 @@ export const PERMISSION_TREE = [
   { key: 'gestor', label: 'Gestão Comercial (IA)', children: [] },
   { key: 'acessos', label: 'Colaboradores e Acessos', children: [] },
   { key: 'claude.status', label: 'Painel de Status do Claude', children: [] },
+  { key: 'conteudo', label: 'Central de Conteúdo', children: [
+    { key: 'conteudo.aprovar', label: 'Aprovar peças' },
+  ] },
 ]

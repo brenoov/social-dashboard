@@ -1,0 +1,154 @@
+FERRAMENTA: Central de Conteúdo
+================================
+
+O QUE É
+-------
+O lugar onde o conteúdo ORGÂNICO (post normal, não anúncio pago) de cada marca é
+planejado do começo ao fim: alguém monta a peça, ela passa por aprovação, fica
+agendada com data e hora, e na hora marcada chega um aviso no celular com a arte
+e a legenda prontas para publicar.
+
+NÃO CONFUNDIR com:
+  - "Redes Sociais" (../redes-sociais) → MEDE o que já aconteceu.
+  - "Fábrica de Anúncios" (../meta-ads) → sobe ANÚNCIO PAGO na Meta.
+Esta ferramenta é a única que trata de post orgânico.
+
+POR QUE ELA NÃO PUBLICA SOZINHA
+-------------------------------
+O aplicativo da Meta da empresa ainda não tem a permissão de publicar
+(`instagram_content_publish`), que depende de uma análise da própria Meta. Até
+lá, na hora marcada o sistema AVISA em vez de publicar.
+Isso é provisório de propósito: quando a Meta liberar, só muda o que acontece
+dentro de supabase/functions/_shared/publicar-instagram.js (Fase 2). Nenhuma
+peça já cadastrada precisa ser refeita.
+
+ARQUIVOS
+--------
+tela-de-conteudo.vue ....... a casca: topbar, seletor de marca, abas, carga dos dados
+tela-de-peca.vue ........... uma peça só, feita para o celular (destino do aviso)
+visao-calendario.vue ....... o mês em quadros
+visao-kanban.vue ........... o quadro por etapa, com arrastar
+visao-lista.vue ............ a tabela, com filtro por situação e ordenação
+visao-ideias.vue ........... o banco de pautas e o botão de gerar com IA
+cartao-peca.vue ............ o cartão da peça — UM só, usado pelas três visões
+painel-peca.vue ............ criar/editar: arquivos, legenda, data, mover de etapa
+dados-conteudo.js .......... toda a conversa com o banco e com o depósito de arquivos
+estilos-conteudo.css ....... os estilos (todos com prefixo .ctd-)
+
+REGRA DE NEGÓCIO (arquivos .js puros, cada um com teste ao lado)
+----------------------------------------------------------------
+estados.js ................. as etapas e quais passagens são permitidas
+formatos.js ................ feed/carrossel/reels/story e as regras de arquivo
+legenda.js ................. montar a legenda final, contar, tratar hashtag
+grade-do-calendario.js ..... montar o mês e converter horário para Brasília
+agrupar-kanban.js .......... distribuir as peças nas colunas do quadro
+
+Esses cinco NÃO podem importar Vue nem o Supabase: a conexão com o banco é
+criada no escopo do módulo lendo `window`, e o teste em Node quebra na hora.
+É por isso que eles recebem os dados por parâmetro.
+
+DE ONDE VÊM OS DADOS
+--------------------
+conteudo_pecas ............. uma linha por post planejado
+conteudo_arquivos .......... os arquivos de cada peça, em ordem (carrossel = N linhas)
+conteudo_eventos ........... a trilha de quem fez o quê (append-only, nunca dar update)
+conteudo_casamentos ........ a ligação com o post real do Instagram (e as recusas)
+conteudo_metricas .......... curtidas/alcance de cada peça, uma leitura por dia
+accounts ................... os perfis do Instagram (o seletor de marca)
+bucket "conteudo" .......... as artes. PRIVADO — toda exibição usa URL assinada
+
+OS DOIS ROBÔS
+-------------
+conteudo-hora-h ..... de 5 em 5 min. Avisa no celular quando chega a hora de
+                     publicar. Reivindica a peça ANTES de mandar o aviso, senão
+                     duas execuções cruzadas avisariam duas vezes.
+conteudo-espelho .... de 30 em 30 min. Procura no Instagram o post que saiu e
+                     traz curtidas/alcance de volta. Mede todo dia na primeira
+                     semana, depois semanal, e para aos 30 dias.
+
+COMO O ESPELHO DECIDE QUE ACHOU O POST
+---------------------------------------
+Nota = 70% semelhança da legenda + 30% proximidade do horário. Só casa sozinho
+com nota ≥ 0,85 E sem nenhum outro candidato perto; qualquer dúvida vira a
+pergunta "É este post?" na tela.
+
+É conservador de propósito: vincular a peça errada mostraria o desempenho de um
+post no card de outro, e o número pareceria plausível — ninguém perceberia.
+
+STORY NÃO CASA SOZINHO. A API da Meta não devolve story de forma confiável (ele
+some em 24h). Story só vira "publicado" pelo botão "Já publiquei", e não tem
+métrica coletada. Está assim porque fingir que funciona seria pior.
+
+MIGRATIONS
+----------
+2026-07-29-conteudo-01-fundacao.sql ..... tabelas, RLS, trigger, função
+2026-07-29-conteudo-02-bucket.sql ....... o depósito de arquivos privado
+2026-07-29-conteudo-03-permissao.sql .... libera para o superadmin
+2026-07-30-conteudo-04-hora-h.sql ....... tipo de aviso + reivindicar/reavisar
+2026-07-30-conteudo-05-segredo-hora-h.sql  o segredo do robô do aviso
+2026-07-30-conteudo-06-cron-hora-h.sql .. LIGA o aviso (ver abaixo)
+2026-07-31-conteudo-07-metricas.sql ..... casamentos e métricas
+2026-07-31-conteudo-08-segredo-espelho.sql o segredo do robô do espelho
+2026-07-31-conteudo-09-cron-espelho.sql . LIGA o espelho (ver abaixo)
+
+ATENÇÃO: as migrations 06 e 09 NÃO estão aplicadas. Elas são o interruptor dos
+dois robôs, e ficaram de fora de propósito — a 06 dispara notificação em
+celular de verdade, e ligar isso é decisão do dono, não efeito colateral de um
+deploy. Para desligar depois de ligar:
+   select cron.unschedule('conteudo-hora-h');
+   select cron.unschedule('conteudo-espelho');
+
+NÃO RODE o runner de migrations deste repo (coletor/run-migrations.mjs) sem
+antes acertar o schema_migrations: ele acusa ~27 pendentes porque a maioria foi
+aplicada direto no banco e nunca foi registrada. As desta ferramenta foram
+aplicadas uma a uma pelo MCP do Supabase.
+
+PERMISSÕES — SÃO DUAS
+---------------------
+conteudo ................... entra na ferramenta, cria e edita peça
+conteudo.aprovar ........... decide (aprova/reprova) a peça dos outros
+
+São duas chaves separadas porque a matriz de permissões do painel de admin tem
+colunas fixas (ver, criar, editar, excluir, exportar) — não dava para inventar
+uma coluna "aprovar" só para esta ferramenta.
+
+ATENÇÃO: o gate de aprovar NÃO está no botão. Está numa trigger do banco
+(conteudo_guarda_aprovacao). O motivo é simples: a chave do Supabase está no
+JavaScript que qualquer pessoa baixa, então esconder o botão não protege nada.
+
+OBSERVAÇÃO SOBRE FUSO
+---------------------
+Todo horário que a pessoa vê e digita é de Brasília; no banco fica em UTC
+(timestamptz). A conversão dos dois lados está em grade-do-calendario.js
+(paraCampoDeDataHora / deCampoDeDataHora), com teste de ida e volta. Nunca use
+new Date().toISOString().slice(0,10) para pegar "hoje" — das 21h à meia-noite
+isso já devolve o dia seguinte.
+
+O ROBÔ DE PAUTA (aba Ideias)
+----------------------------
+Clicar em "Gerar ideias com IA" enfileira um job (conteudo_jobs) e dispara o
+GitHub Actions, que roda coletor/conteudo-ideias.mjs com o modelo Opus. Leva de
+1 a 3 minutos; a tela acompanha sozinha.
+
+Não roda dentro de uma Edge Function porque Opus com contexto grande estoura o
+relógio dela — mesma razão de a Fábrica de Anúncios funcionar assim.
+
+O QUE FAZ ELE VALER É O CONTEXTO, não o modelo. Qualquer IA escreve "poste um
+bastidor da loja". O que ela não adivinha, e que vai no briefing:
+  - os posts desta marca que mais renderam (e os que menos renderam)
+  - o que já está na agenda, para não repetir
+  - como a marca escreve (os blocos de texto)
+  - o que os concorrentes publicaram (Portal de Notícias)
+  - o mês e as datas comerciais
+
+Esse briefing é montado por coletor/conteudo-contexto.mjs, que é puro e testado
+— dá para conferir o prompt inteiro sem gastar API.
+
+CUSTO: cada rodada aparece sozinha no Painel de Status do Claude
+(/claude-status), com tokens e valor em reais.
+
+O QUE AINDA NÃO EXISTE
+----------------------
+As quatro fases estão feitas. O que falta é decisão do dono, não código:
+  - ligar os dois crons (migrations 06 e 09)
+  - o App Review da Meta, para a publicação virar automática
