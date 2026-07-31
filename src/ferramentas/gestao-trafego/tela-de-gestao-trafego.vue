@@ -2383,9 +2383,20 @@ function _renderGtConjuntos(pane,hier,camp,conjuntos,nivelOrc,campNum,temMensage
       conjuntos:[{id:g.id,name:g.nome}],
       anuncios:(g.anuncios||[]).map(a=>({id:a.ad_id,name:a.ad_name,adset_id:g.id})),
     });
-    if(bDupCj){
+    // Botão "Público": mesmo gate do orçamento e do duplicar (editar muda uma
+    // conta ao vivo). Some no mesmo grupo inventado '_sem_conjunto', pelo
+    // mesmo motivo do duplicar — não existe conjunto de verdade pra editar.
+    const bPub=(g.id==='_sem_conjunto'||!hasPermission('meta.gestor','editar'))?null:(()=>{
+      const b=document.createElement('button');
+      b.className='gt-btn-dup';b.textContent='👥 Público';b.title='Ver e mudar quem vê estes anúncios';
+      b.addEventListener('click',ev=>{ev.stopPropagation();_gtAbrirPublico({id:g.id,nome:g.nome});});
+      return b;
+    })();
+    if(bDupCj||bPub){
       const barraCj=document.createElement('div');barraCj.className='gt-action-row';
-      barraCj.appendChild(bDupCj);card.appendChild(barraCj);
+      if(bDupCj)barraCj.appendChild(bDupCj);
+      if(bPub)barraCj.appendChild(bPub);
+      card.appendChild(barraCj);
     }
     // Anúncios do conjunto.
     const adsPane=document.createElement('div');adsPane.className='gt-set-pane';
@@ -2767,6 +2778,12 @@ let _gtPubSalvos=null;      // públicos personalizados da conta (null = não ca
 let _gtPubPresets=null;     // públicos prontos do Estúdio (null = não carregou)
 let _gtPubAtivo=false;      // o conjunto está rodando?
 let _gtPubBusy=false;       // trava: um editor por vez
+// true só entre o "Fechar" de emergência (dono já saiu da caixa) e o pedido
+// de verdade terminar na Meta: _gtPubBusy continua preso os dois casos, mas
+// "tem editor aberto, termine antes de abrir outro" e "já fechou, só falta a
+// Meta responder" são avisos diferentes — o segundo não tem nada pra o dono
+// terminar, então merece frase própria (ver _gtAbrirPublico).
+let _gtPubFechadoEmVoo=false;
 // Começa e termina como função vazia, NUNCA null: os controles do editor
 // chamam isto direto, e se algo lançar com a janela aberta um `null` aqui
 // viraria erro em cima de erro, deixando o dono com a tela travada.
@@ -2926,8 +2943,8 @@ function _gtPubSecaoPessoas(){
   const cx=document.createElement('div');
   cx.appendChild(_gtPubTitulo('Idade'));
   const li=_gtPubLinha();
-  const de=_gtPubInput(_gtPub.idadeMin,'de','80px');de.type='number';de.min='13';de.max='65';
-  const ate=_gtPubInput(_gtPub.idadeMax,'até','80px');ate.type='number';ate.min='13';ate.max='65';
+  const de=_gtPubInput(_gtPub.idadeMin,'de','80px');de.type='number';de.min='13';de.max='65';de.dataset.gtpubId='idade-min';
+  const ate=_gtPubInput(_gtPub.idadeMax,'até','80px');ate.type='number';ate.min='13';ate.max='65';ate.dataset.gtpubId='idade-max';
   // Idade ENTRA em temRestricaoManual (publico-alvo.js) — ao contrário do raio,
   // uma mudança aqui pode abrir ou fechar o conflito com Advantage+. Por isso
   // redesenha (onchange só dispara no blur/commit, não por tecla — não é o
@@ -3075,6 +3092,17 @@ function _gtPublicoModal(nomeConjunto){
     // é liberado ou travado — sem isso, o dono só descobriria o conflito de
     // Advantage+ tomando erro da Meta.
     _gtPubRedesenha=()=>{
+      // O redesenho troca TODO o conteúdo de `corpo` — sem isso, o dono
+      // digitando a idade (por exemplo) via cada onchange perdia o foco do
+      // campo e a caixa voltava pro topo, porque `box` (que rola, não `corpo`)
+      // ficava intacta mas seu conteúdo era substituído por elementos novos.
+      // Guarda posição da rolagem e QUAL controle estava focado (pelo
+      // data-gtpub-id que os campos relevantes carregam) para devolver os
+      // dois depois de montar tudo de novo.
+      const scrollAntes=box.scrollTop;
+      const focoAntes=document.activeElement;
+      const focoId=(focoAntes&&corpo.contains(focoAntes)&&focoAntes.dataset)?focoAntes.dataset.gtpubId:null;
+      const cursorAntes=(focoId&&typeof focoAntes.selectionStart==='number')?focoAntes.selectionStart:null;
       corpo.innerHTML='';
       const tit=document.createElement('div');
       tit.style.cssText='font-size:calc(16px*var(--gt-fs,1.3));font-weight:800;margin-bottom:3px;';
@@ -3099,6 +3127,20 @@ function _gtPublicoModal(nomeConjunto){
       }
       bSalvar.disabled=!!trava;
       bSalvar.style.cssText='padding:9px 18px;border-radius:8px;border:none;background:var(--accent,#6366f1);color:#fff;font-weight:700;font-size:calc(13px*var(--gt-fs,1.3));cursor:'+(trava?'not-allowed':'pointer')+';opacity:'+(trava?'.5':'1')+';';
+
+      // Devolve a rolagem e o foco depois do corpo inteiro estar montado —
+      // nunca antes: focar/setar scrollTop num controle que ainda não existe
+      // no DOM novo não faz nada.
+      box.scrollTop=scrollAntes;
+      if(focoId){
+        const novo=corpo.querySelector('[data-gtpub-id="'+focoId+'"]');
+        if(novo){
+          novo.focus();
+          if(cursorAntes!=null&&typeof novo.setSelectionRange==='function'){
+            try{novo.setSelectionRange(cursorAntes,cursorAntes);}catch(_){/* tipo do input não suporta seleção (ex.: number em alguns navegadores) — sem problema, o foco já voltou */}
+          }
+        }
+      }
     };
 
     ov.innerHTML='';ov.style.display='flex';
@@ -3113,7 +3155,11 @@ const _gtPubClonar=(p)=>JSON.parse(JSON.stringify(p));
 async function _gtAbrirPublico(conjunto){
   const tok=_gtCurAcc?.id;
   if(!tok){await _gtConfirm('Sem conta selecionada','Escolha uma conta de anúncios antes de mexer no público.',{okOnly:true});return;}
-  if(_gtPubBusy){await _gtConfirm('Já tem um público aberto','Termine o que está aberto antes de abrir outro.',{okOnly:true});return;}
+  if(_gtPubBusy){
+    if(_gtPubFechadoEmVoo)await _gtConfirm('Ainda terminando de salvar','Ainda estou terminando de salvar o público anterior — espere um instante.',{okOnly:true});
+    else await _gtConfirm('Já tem um público aberto','Termine o que está aberto antes de abrir outro.',{okOnly:true});
+    return;
+  }
   _gtPubBusy=true;
   try{
     _gtPubStatus('<b>Carregando o público…</b>');
@@ -3178,7 +3224,7 @@ async function _gtAbrirPublico(conjunto){
           const pintarSalvando=(extra)=>{
             if(saiuPelaEscada)return;   // dono já fechou; resultado tardio vira toast, não reabre a caixa
             _gtPubStatus('<b>Salvando…</b>'+(extra?'<br>'+extra:''),
-              podeFechar?[{texto:'Fechar',aoClicar:()=>{saiuPelaEscada=true;_gtPubFechar();}}]:undefined);
+              podeFechar?[{texto:'Fechar',aoClicar:()=>{saiuPelaEscada=true;_gtPubFechadoEmVoo=true;_gtPubFechar();}}]:undefined);
           };
           const timerFechar=setTimeout(()=>{
             podeFechar=true;
@@ -3198,7 +3244,11 @@ async function _gtAbrirPublico(conjunto){
               [{texto:'Fechar',primario:true,aoClicar:()=>{_gtPubFechar();loadGtData();fimDaJornada();}}]);
           }catch(e){
             clearTimeout(timerFechar);
-            if(saiuPelaEscada)adminToast('A Meta não aceitou a mudança de público. Nada foi alterado no conjunto.',false);
+            // Ao contrário do texto da caixa abaixo, este toast NÃO afirma "nada
+            // foi alterado": é exatamente o caminho (pedido lento / timeout) em
+            // que a caixa já admitiu "não dá para saber se a Meta já processou" —
+            // repetir a garantia forte aqui seria contradizer o próprio aviso.
+            if(saiuPelaEscada)adminToast('A Meta não aceitou a mudança de público.',false);
             else _gtPubStatus('<b>A Meta não aceitou.</b><br>'+_gtPubTraduzir(String((e&&e.message)||e))
               +'<br><br>Nada foi alterado no conjunto.',
               [{texto:'Fechar',primario:true,aoClicar:()=>{_gtPubFechar();fimDaJornada();}}]);
@@ -3218,6 +3268,7 @@ async function _gtAbrirPublico(conjunto){
       [{texto:'Fechar',primario:true,aoClicar:_gtPubFechar}]);
   }finally{
     _gtPubBusy=false;
+    _gtPubFechadoEmVoo=false;
     _gtPubRedesenha=()=>{};   // função vazia, não null — ver a declaração
   }
 }
