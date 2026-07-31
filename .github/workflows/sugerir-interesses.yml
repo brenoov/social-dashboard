@@ -21,7 +21,7 @@ on:
   workflow_dispatch:
     inputs:
       modo:
-        description: 'seco = roda tudo sem gravar nada (pra testar sem custo de gravação)'
+        description: 'seco = roda tudo e não grava as sugestões (as chamadas de IA custam igual)'
         required: false
         default: 'normal'
         type: choice

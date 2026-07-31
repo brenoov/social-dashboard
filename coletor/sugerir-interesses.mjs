@@ -12,7 +12,7 @@
 // então o valor real aparece no painel Status do Claude, em reais.
 import { structured, SONNET, usageSummary } from './lib-llm.mjs';
 import { registrarExecucao } from './registrar-execucao.mjs';
-import { montarPedido, nomesPropostos, filtrarValidos, OBJETIVOS } from './lib/interesses.mjs';
+import { montarPedido, nomesPropostos, filtrarValidos, comCidadesResolvidas, OBJETIVOS } from './lib/interesses.mjs';
 // Login da conta de serviço (mesma usada por subir-estudio.mjs, ativar-estudio.mjs
 // etc.) — o meta-proxy chama auth.getUser() sobre o Authorization recebido, e uma
 // service key não é sessão de usuário: ela sempre daria 401 "nao autenticado" ali.
@@ -66,6 +66,65 @@ async function validarNaMeta(accountId, nomes, token) {
   return r.json();
 }
 
+// Traduz CHAVE de cidade → NOME de cidade, perguntando à Meta.
+//
+// POR QUE PRECISA: `fabrica_lojas.geo_cities` guarda chaves ('[267873,241913]'),
+// não nomes — foi assim que a migration 018 semeou a coluna. Sem traduzir, o
+// pedido à IA sai com o nome das lojas e ZERO geografia, e ninguém percebe:
+// nada dá erro, a rodada fica verde e as sugestões só ficam mais genéricas.
+//
+// É A MESMA CHAMADA da Fábrica (painel-subir.vue, "resolverNomesCidades"):
+// type=adgeolocationmeta com a lista de chaves. Manda ARRAY porque o meta-proxy
+// já faz JSON.stringify em valor que é objeto — a Fábrica manda o texto pronto,
+// e os dois chegam idênticos na Meta.
+//
+// UMA VEZ POR RODADA: as mesmas chaves se repetem em todo objetivo de toda
+// marca, e cada ida à Meta é uma chamada paga. Resolver por marca × objetivo
+// seria pagar seis vezes pela mesma resposta.
+//
+// A geolocalização da Meta é global (não é dado da conta de anúncios), então
+// qualquer `accountId` válido serve só para o proxy achar o token.
+async function resolverNomesDeCidade(chaves, token, accountId) {
+  const brutas = Array.isArray(chaves) ? chaves : [];
+  const unicas = [...new Set(brutas.filter((k) => k != null && typeof k !== 'object').map((k) => String(k)))]
+    .filter((k) => k.length > 0);
+  if (!unicas.length || !accountId) return {};
+  try {
+    const r = await fetch(SUPABASE_URL + '/functions/v1/meta-proxy', {
+      method: 'POST',
+      headers: { apikey: ANON, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId,
+        path: '/search',
+        params: { type: 'adgeolocationmeta', cities: unicas },
+        method: 'GET',
+      }),
+    });
+    if (!r.ok) throw new Error('meta-proxy ' + r.status);
+    const resp = await r.json();
+    const cidades = (resp && resp.data && resp.data.cities) || {};
+    const mapa = {};
+    for (const chave of Object.keys(cidades)) {
+      const c = cidades[chave];
+      if (!c || typeof c !== 'object') continue;
+      const nome = typeof c.name === 'string' ? c.name.trim() : '';
+      if (!nome) continue;
+      // "Americana (São Paulo)" e não "Americana · São Paulo": o pedido junta as
+      // cidades com vírgula, e a vírgula do estado viraria uma cidade a mais.
+      const regiao = typeof c.region === 'string' ? c.region.trim() : '';
+      mapa[String(chave)] = regiao ? `${nome} (${regiao})` : nome;
+    }
+    return mapa;
+  } catch (e) {
+    // NÃO derruba a rodada. Um pedido só com o nome das lojas rende sugestão mais
+    // genérica que um com as cidades — mas é MUITO melhor que semana sem sugestão
+    // nenhuma, que é o que aconteceria se a falha subisse.
+    console.log(`  ⚠ não consegui traduzir as cidades na Meta — ${String(e).slice(0, 120)}`);
+    console.log('    (o pedido segue sem a geografia das lojas)');
+    return {};
+  }
+}
+
 const SCHEMA = {
   type: 'object',
   properties: {
@@ -92,6 +151,13 @@ export async function run() {
   const marcas = await sbGet('/fabrica_marcas?select=id,nome,account_id&ativo=eq.true');
   const lojas = await sbGet('/fabrica_lojas?select=nome,marca_id,geo_cities');
 
+  // Traduz TODAS as chaves de cidade de uma vez, antes do laço (ver
+  // resolverNomesDeCidade). Se a Meta não responder, `nomesDeCidade` fica vazio,
+  // as chaves seguem cruas e o pedido sai sem geografia — sem derrubar a rodada.
+  const chavesDeCidade = lojas.flatMap((l) => (Array.isArray(l && l.geo_cities) ? l.geo_cities : []));
+  const contaParaGeo = (marcas.find((m) => m && m.account_id) || {}).account_id;
+  const nomesDeCidade = await resolverNomesDeCidade(chavesDeCidade, token, contaParaGeo);
+
   // `gravadas` só sobe quando uma linha É ESCRITA de verdade — em --dry ela
   // fica genuinamente zero, como no budget-ia.mjs. `simuladas` conta o que
   // TERIA sido gravado, separado, pra --dry poder ser informativo sem inflar
@@ -99,7 +165,9 @@ export async function run() {
   let gravadas = 0, simuladas = 0, puladas = 0, totPropostos = 0, totValidos = 0;
 
   for (const marca of marcas) {
-    const lojasDaMarca = lojas.filter((l) => l && l.marca_id === marca.id);
+    const lojasDaMarca = lojas
+      .filter((l) => l && l.marca_id === marca.id)
+      .map((l) => comCidadesResolvidas(l, nomesDeCidade));
     for (const objetivo of OBJETIVOS) {
       const pedido = montarPedido({ marca, lojas: lojasDaMarca, objetivo });
       if (!pedido) { puladas++; continue; }
@@ -130,10 +198,12 @@ export async function run() {
       console.log(`  ${marca.nome} · ${objetivo}: ${validos}/${nProp} sobreviveram à validação`);
 
       if (!itens.length) { puladas++; continue; }
-      // Em --dry NADA é gravado — nem aqui, nem em ia_execucoes lá embaixo.
-      // `gravadas` não sobe: um registro de auditoria que afirma "6 gravadas"
-      // numa rodada seca seria uma mentira permanente no robô que ninguém
-      // fica olhando.
+      // Em --dry nenhuma SUGESTÃO é gravada. A linha de ia_execucoes lá embaixo é
+      // gravada do mesmo jeito, e isso é de propósito: as chamadas de IA da rodada
+      // seca custam dinheiro de verdade, então o custo tem de aparecer no painel.
+      // O que não sobe é `gravadas`: um registro de auditoria que afirmasse
+      // "6 gravadas" numa rodada seca seria uma mentira permanente no robô que
+      // ninguém fica olhando.
       if (DRY) { simuladas++; continue; }
 
       try {
@@ -158,10 +228,33 @@ export async function run() {
   // vira o log do console E o `detalhe` gravado em ia_execucoes logo abaixo,
   // então não existe uma versão "bonita" pro console e uma verdadeira pro
   // banco: é a mesma, e ela já nasce certa nos dois lugares.
-  const resumo = DRY
+  const base = DRY
     ? `SECO: ${simuladas} teriam sido gravadas (nada escrito), ${puladas} puladas, aproveitamento ${aproveitamento}%`
     : `${gravadas} gravadas, ${puladas} puladas, aproveitamento ${aproveitamento}%`;
+
+  // FALHA SISTÊMICA ≠ falha de uma marca.
+  //
+  // Cada marca×objetivo é protegida por um try/catch próprio, e isso está certo:
+  // uma marca com problema não pode derrubar as outras cinco. Mas quando NADA sai
+  // e tudo foi pulado, a causa não é uma marca — é a chave da IA que não existe, a
+  // migration que não foi aplicada, o token da Meta vencido. Sem isto, todos esses
+  // casos terminavam a rodada em VERDE, e o dono só descobriria abrindo a Fábrica e
+  // estranhando a falta da faixa, semanas depois.
+  //
+  // Rodada seca NÃO conta como falha por não ter gravado — ela não grava por
+  // desenho. O que conta ali é `simuladas`: se nem simular deu, também falhou.
+  const produzidas = DRY ? simuladas : gravadas;
+  const falhouTudo = puladas > 0 && produzidas === 0;
+  const resumo = falhouTudo
+    ? `${base} — NADA saiu nesta rodada; olhe o log acima para achar a causa`
+    : base;
   console.log(`\n${resumo}`);
+  if (falhouTudo) {
+    // exitCode (e não process.exit) pra que a linha de auditoria abaixo AINDA
+    // seja gravada antes do processo terminar em vermelho no Actions.
+    process.exitCode = 1;
+    console.error('rodada sem nenhum resultado — marcando a execução como erro');
+  }
 
   // NOMES CONFERIDOS em lib-llm.mjs: usageSummary devolve { usd, tin, tout,
   // calls, text } — NÃO inputTokens/outputTokens/chamadas. Errar aqui faria o
@@ -175,7 +268,7 @@ export async function run() {
     // porque nenhuma linha foi escrita — o registro de auditoria não pode
     // afirmar uma gravação que não aconteceu.
     duracaoMs: Date.now() - t0, itens: gravadas, unidade: 'marca×objetivo',
-    status: 'ok', detalhe: resumo,
+    status: falhouTudo ? 'erro' : 'ok', detalhe: resumo,
   });
 }
 

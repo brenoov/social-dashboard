@@ -1,12 +1,24 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { montarPedido, OBJETIVOS, NOME_DO_OBJETIVO, nomesPropostos, filtrarValidos } from './interesses.mjs';
+import { montarPedido, OBJETIVOS, NOME_DO_OBJETIVO, nomesPropostos, filtrarValidos, comCidadesResolvidas } from './interesses.mjs';
 import { ALVOS } from '../../src/ferramentas/gestao-trafego/alvos.js';
 
 const MARCA = { id: 'm1', nome: 'La Vessel' };
+
+// DOIS formatos, e os dois são de verdade — confundir os dois foi o bug:
+//
+// LOJAS_CRUAS é o que está NO BANCO. A migration 018 semeou geo_cities como
+// '[267873,241913]'::jsonb: chaves da Meta, sem nome nenhum. É isto que o robô lê,
+// e é isto que sobra quando a tradução na Meta falha.
+const LOJAS_CRUAS = [
+  { nome: 'Tivoli', geo_cities: [267873, 241913] },
+  { nome: 'Iguatemi', geo_cities: [247071] },
+];
+// LOJAS é o que o ROBÔ entrega ao montarPedido depois de perguntar à Meta o nome
+// de cada chave. Só neste formato existe nome de cidade pra escrever no pedido.
 const LOJAS = [
-  { nome: 'Tivoli', geo_cities: [{ key: '1058', nome: 'Campinas' }] },
-  { nome: 'Iguatemi', geo_cities: [{ key: '2777', nome: 'Americana' }] },
+  { nome: 'Tivoli', geo_cities: [{ key: '267873', nome: 'Campinas' }] },
+  { nome: 'Iguatemi', geo_cities: [{ key: '241913', nome: 'Americana' }] },
 ];
 
 test('as chaves de objetivo sao EXATAMENTE as da regua', () => {
@@ -29,12 +41,86 @@ test('o nome do objetivo NAO e o rotulo da metrica', () => {
   assert.match(p.user, /Objetivo da campanha: Engajamento/);
 });
 
-test('o pedido leva marca, lojas e cidades do cadastro', () => {
+test('o pedido leva marca, lojas e as cidades JA TRADUZIDAS', () => {
+  // Cidade só aparece no formato { key, nome } — o que o robô monta DEPOIS de
+  // perguntar o nome à Meta. Ver o teste do formato cru logo abaixo.
   const p = montarPedido({ marca: MARCA, lojas: LOJAS, objetivo: 'vendas' });
   assert.match(p.user, /La Vessel/);
   assert.match(p.user, /Tivoli/);
   assert.match(p.user, /Campinas/);
   assert.match(p.user, /Americana/);
+});
+
+test('geo_cities no formato do BANCO (chaves peladas) nao vira cidade falsa', () => {
+  // O formato real: fabrica_lojas.geo_cities = [267873,241913]. Chave não é nome —
+  // escrever "atende 267873" no pedido não ajuda a IA e ainda parece nome quebrado.
+  // Então a loja entra SEM geografia, e as lojas continuam todas lá.
+  const p = montarPedido({ marca: MARCA, lojas: LOJAS_CRUAS, objetivo: 'vendas' });
+  assert.ok(p, 'o formato de verdade do banco não pode derrubar o pedido');
+  assert.match(p.user, /La Vessel/);
+  assert.match(p.user, /Tivoli/);
+  assert.match(p.user, /Iguatemi/);
+  assert.ok(!p.user.includes('267873'), 'chave da Meta não pode virar nome de cidade');
+  assert.ok(!p.user.includes('247071'), 'chave da Meta não pode virar nome de cidade');
+  assert.ok(!/undefined|null|\[object/.test(p.user), 'lixo vazou: ' + p.user);
+  assert.ok(!p.user.includes('atende'), 'sem nome resolvido, a loja entra sem geografia');
+});
+
+test('chave em texto ("267873") tambem nao vira cidade falsa', () => {
+  // jsonb pode devolver a chave como texto dependendo de como foi gravada.
+  const p = montarPedido({
+    marca: MARCA,
+    lojas: [{ nome: 'Tivoli', geo_cities: ['267873', '241913'] }],
+    objetivo: 'vendas',
+  });
+  assert.match(p.user, /Tivoli/);
+  assert.ok(!p.user.includes('267873'));
+  assert.ok(!/undefined|null|\[object/.test(p.user), 'lixo vazou: ' + p.user);
+});
+
+test('comCidadesResolvidas troca chave por nome e o pedido passa a ter cidade', () => {
+  // O caminho completo do conserto: banco -> tradução na Meta -> pedido.
+  const nomes = { 267873: 'Campinas (São Paulo)', 241913: 'Americana (São Paulo)', 247071: 'Sorocaba (São Paulo)' };
+  const lojas = LOJAS_CRUAS.map((l) => comCidadesResolvidas(l, nomes));
+  const p = montarPedido({ marca: MARCA, lojas, objetivo: 'vendas' });
+  assert.match(p.user, /Tivoli \(atende Campinas \(São Paulo\), Americana \(São Paulo\)\)/);
+  assert.match(p.user, /Iguatemi \(atende Sorocaba \(São Paulo\)\)/);
+});
+
+test('comCidadesResolvidas: chave que a Meta NAO devolveu fica crua, e nao vira nome falso', () => {
+  const loja = comCidadesResolvidas({ nome: 'Tivoli', geo_cities: [267873, 241913] }, { 267873: 'Campinas' });
+  assert.deepEqual(loja.geo_cities, [{ key: '267873', nome: 'Campinas' }, 241913]);
+  const p = montarPedido({ marca: MARCA, lojas: [loja], objetivo: 'vendas' });
+  assert.match(p.user, /Tivoli \(atende Campinas\)$/m, 'só a cidade conhecida entra');
+  assert.ok(!p.user.includes('241913'));
+});
+
+test('comCidadesResolvidas nao quebra com mapa vazio, nulo ou loja torta', () => {
+  // A tradução na Meta pode falhar inteira — e nesse caso o robô segue sem geografia.
+  for (const mapa of [null, undefined, {}, 'lixo', 42]) {
+    const loja = comCidadesResolvidas({ nome: 'Tivoli', geo_cities: [267873] }, mapa);
+    assert.deepEqual(loja.geo_cities, [267873], 'sem nome conhecido, a chave fica como veio');
+  }
+  assert.deepEqual(comCidadesResolvidas(null, {}).geo_cities, []);
+  assert.deepEqual(comCidadesResolvidas({ nome: 'X', geo_cities: 'nao e array' }, {}).geo_cities, []);
+  // Cidade que JÁ vem resolvida do banco não é mexida.
+  const jaResolvida = comCidadesResolvidas({ nome: 'X', geo_cities: [{ key: '1', nome: 'Campinas' }] }, { 1: 'Outra' });
+  assert.deepEqual(jaResolvida.geo_cities, [{ key: '1', nome: 'Campinas' }]);
+});
+
+test('a mesma loja: chave crua NAO traz cidade, chave traduzida TRAZ', () => {
+  // O par que prova o conserto: era esta diferença que o teste antigo escondia,
+  // porque a fixture já vinha traduzida e ninguém tinha aberto a migration.
+  const crua = montarPedido({
+    marca: MARCA, objetivo: 'vendas',
+    lojas: [{ nome: 'Tivoli', geo_cities: [267873] }],
+  });
+  const traduzida = montarPedido({
+    marca: MARCA, objetivo: 'vendas',
+    lojas: [{ nome: 'Tivoli', geo_cities: [{ key: '267873', nome: 'Campinas (São Paulo)' }] }],
+  });
+  assert.ok(!crua.user.includes('Campinas'));
+  assert.match(traduzida.user, /Tivoli \(atende Campinas \(São Paulo\)\)/);
 });
 
 test('o pedido diz qual e o objetivo, com o rotulo da regua', () => {
@@ -134,46 +220,21 @@ test('nomes muito longos de loja e cidade sao capados', () => {
 });
 
 test('mapa NOME_DO_OBJETIVO com fallback: chave faltante NAO vira undefined', () => {
-  // Se uma chave nova foi adicionada a ALVOS mas não a NOME_DO_OBJETIVO,
-  // o fallback garante que a chave mesma aparece no pedido, nunca "undefined".
-  // Salva e restaura para não quebrar testes seguintes.
-  const chaveOriginal = NOME_DO_OBJETIVO['teste_fallback'];
-  delete NOME_DO_OBJETIVO['teste_fallback'];
-
+  // O dia em que alguém acrescentar um balde em ALVOS e esquecer de dar nome a
+  // ele aqui: o pedido tem de sair com a CHAVE, nunca com "undefined".
+  //
+  // O teste tira a chave do mapa de propósito, então a devolução tem de ser no
+  // `finally`: se uma asserção falhar no meio, sem isso a chave ficaria apagada
+  // para todos os testes seguintes do arquivo, e o estrago apareceria longe daqui.
+  const chaveTeste = 'vendas';
+  const nomeOriginal = NOME_DO_OBJETIVO[chaveTeste];
+  delete NOME_DO_OBJETIVO[chaveTeste];
   try {
-    // Simula uma chave presente em OBJETIVOS (por isso pensa que é válida) mas
-    // ausente em NOME_DO_OBJETIVO. Monta um pedido forçado pulando o guard.
-    // Método: cria um objetivo inválido e depois força com eval ou direct call.
-    // Mais simples: modifica OBJETIVOS temporariamente, chama a função, restaura.
-    // Mas OBJETIVOS é Object.keys(ALVOS), então não dá.
-
-    // Alternativa: chama montarPedido com um objetivo válido (que está em ALVOS)
-    // e testa que se removermos a chave do mapa, ele não quebra.
-    // Para fazer isso sem quebrar o guard, precisamos que a chave esteja em ALVOS.
-
-    // Solução: cria uma chave fictícia em ALVOS, chama, remove de NOME_DO_OBJETIVO,
-    // chama novamente, verifica que caiu no fallback.
-
-    // Mais simples ainda: assume que um dia alguém vai adicionar uma chave
-    // a ALVOS e esquecer de NOME_DO_OBJETIVO. Testa removendo uma chave real
-    // e verificando que o pedido não tem "undefined".
-
-    const chaveTeste = 'vendas';
-    const savedNome = NOME_DO_OBJETIVO[chaveTeste];
-    delete NOME_DO_OBJETIVO[chaveTeste];
-
-    // Agora montarPedido com 'vendas' irá cair no fallback
     const p = montarPedido({ marca: MARCA, lojas: LOJAS, objetivo: chaveTeste });
-
-    // Objetivo da campanha deve ter o fallback (a chave mesma), não "undefined"
     assert.ok(!p.user.includes('undefined'), 'nunca deve vazar undefined');
     assert.match(p.user, new RegExp(`Objetivo da campanha: ${chaveTeste}`), 'fallback é a chave mesma');
-
-    // Restaura para não afetar testes seguintes
-    NOME_DO_OBJETIVO[chaveTeste] = savedNome;
   } finally {
-    // Restaura em qualquer caso
-    if (chaveOriginal !== undefined) NOME_DO_OBJETIVO['teste_fallback'] = chaveOriginal;
+    NOME_DO_OBJETIVO[chaveTeste] = nomeOriginal;
   }
 });
 
@@ -264,6 +325,31 @@ test('resposta ausente, vazia ou malformada devolve zero, sem quebrar', () => {
     assert.deepEqual(r.itens, []);
     assert.equal(r.validos, 0);
   }
+});
+
+test('tamanho do publico: os TRES nomes de campo da Meta sao aceitos', () => {
+  // A Graph v22 aposentou o `audience_size` pelado nas buscas de segmentação em
+  // favor dos bounds — a mesma mudança que já quebrou o approximate_count neste
+  // projeto. Se só o nome antigo fosse lido e a Meta mandasse o novo, NADA daria
+  // erro: toda etiqueta da faixa ficaria sem número, que é o mais útil que ela tem.
+  const r = filtrarValidos(['A', 'B', 'C'], {
+    data: [
+      { name: 'A', valid: true, id: '1', audience_size: 100 },
+      { name: 'B', valid: true, id: '2', audience_size_upper_bound: 200 },
+      { name: 'C', valid: true, id: '3', audience_size_lower_bound: 300 },
+    ],
+  });
+  assert.equal(r.itens[0].audience_size, 100, 'nome antigo');
+  assert.equal(r.itens[1].audience_size, 200, 'nome novo, teto');
+  assert.equal(r.itens[2].audience_size, 300, 'nome novo, piso');
+});
+
+test('tamanho do publico: com os dois bounds, vale o TETO', () => {
+  // Mesma escolha já feita na tela dos públicos salvos (approximate_count_upper_bound).
+  const r = filtrarValidos(['A'], {
+    data: [{ name: 'A', valid: true, id: '1', audience_size_lower_bound: 10, audience_size_upper_bound: 90 }],
+  });
+  assert.equal(r.itens[0].audience_size, 90);
 });
 
 test('audience_size ausente vira null, nao NaN nem zero', () => {

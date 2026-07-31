@@ -37,10 +37,52 @@ const texto = (v) => (typeof v === 'string' ? v.trim() : '');
 // em nomes (Casa D'Oro, Loja D'Água, Sant'Ana).
 const limpo = (s) => texto(s).replace(/[\n\r\x00-\x1f]/g, ' ').replace(/\s{2,}/g, ' ').trim().substring(0, 200);
 
+// As cidades de uma loja, prontas pra entrar no pedido.
+//
+// FORMATO REAL DO BANCO: `fabrica_lojas.geo_cities` guarda CHAVES da Meta, não
+// nomes — a migration 018 semeou '[267873,241913]' e a Fábrica lê a coluna assim
+// (painel-subir.vue trata cada item como chave). Chave pelada NÃO é lixo: é o
+// formato de verdade. Só que ela não tem nome pra escrever no pedido.
+//
+// Quem traduz chave → nome é quem tem rede: o robô pergunta à Meta antes de
+// montar o pedido e entrega os itens já no formato { key, nome }. Por isso os
+// DOIS formatos entram aqui:
+//   { key, nome } → cidade resolvida, o nome vai pro pedido;
+//   267873 / '267873' → chave crua (a Meta não respondeu, ou a cidade não voltou):
+//     a loja entra no pedido sem geografia, em vez de entrar com "267873" — que
+//     não diz nada pra IA e ainda parece um nome de cidade quebrado.
+// Lixo de verdade (null, {}, '', tipo errado) também sai, pelo mesmo caminho.
 function cidadesDaLoja(loja) {
-  return lista(loja && loja.geo_cities)
-    .map((c) => limpo(c && c.nome))
-    .filter((n) => n.length > 0);
+  const saida = [];
+  for (const c of lista(loja && loja.geo_cities)) {
+    if (c == null) continue;
+    // Chave crua (número ou texto): formato legítimo, mas sem nome pra mostrar.
+    if (typeof c !== 'object') continue;
+    const nome = limpo(c.nome);
+    if (nome) saida.push(nome);
+  }
+  return saida;
+}
+
+// Troca as CHAVES de cidade de uma loja pelos NOMES que a Meta devolveu.
+//
+// Fica aqui, no arquivo puro, porque é decisão — não é rede: quem fala com a
+// Meta é o robô, que passa o mapa { chave: nome } pronto. Assim a regra de "o
+// que fazer com a chave que a Meta não reconheceu" tem teste, sem chamada paga.
+//
+// Chave sem nome fica COMO ESTÁ (crua). Não se inventa nome, e não se apaga a
+// entrada: apagar esconderia que a loja tem cidade cadastrada, e inventar
+// colocaria um número no lugar de um nome de cidade dentro do pedido.
+export function comCidadesResolvidas(loja, nomes) {
+  const mapa = (nomes && typeof nomes === 'object') ? nomes : {};
+  return {
+    ...loja,
+    geo_cities: lista(loja && loja.geo_cities).map((c) => {
+      if (c == null || typeof c === 'object') return c;   // já resolvida, ou lixo: não mexe
+      const nome = limpo(mapa[String(c)]);
+      return nome ? { key: String(c), nome } : c;
+    }),
+  };
 }
 
 function descreverLojas(lojas) {
@@ -129,12 +171,19 @@ export function filtrarValidos(propostos, respostaMeta) {
     const nome = limpo(l.name);
     if (!nome) continue;
     vistos.add(id);
-    // Audience size: ausente vira null (público de tamanho desconhecido), presente vira
-    // Number se for um número de verdade. String, array, objeto — qualquer coisa que
-    // vira NaN é descartada também: não é informação válida.
+    // Tamanho do público: TRÊS nomes de campo possíveis, na ordem de preferência.
+    // A Graph v22 (a versão que o meta-proxy usa) aposentou o `audience_size`
+    // pelado nas buscas de segmentação em favor de `audience_size_lower_bound` /
+    // `audience_size_upper_bound` — a mesma família de mudança que já mordeu este
+    // projeto com `approximate_count` → `approximate_count_upper_bound` (a cicatriz
+    // está anotada no painel-subir.vue). Ler só o nome antigo não daria ERRO: daria
+    // tamanho nulo em TODO interesse, e a faixa apareceria sem número nenhum, que é
+    // justamente o que ela tem de mais útil. Aceitar os três resolve nos dois mundos.
+    // Ausente continua virando null (tamanho DESCONHECIDO), nunca 0.
+    const bruto = l.audience_size ?? l.audience_size_upper_bound ?? l.audience_size_lower_bound;
     let audience_size = null;
-    if (l.audience_size != null) {
-      const n = Number(l.audience_size);
+    if (bruto != null) {
+      const n = Number(bruto);
       if (Number.isFinite(n)) audience_size = n;
     }
     itens.push({

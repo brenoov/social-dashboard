@@ -58,3 +58,26 @@ export function baldeEfetivo(objective, conjuntos) {
   if (ehDeWhatsapp(conjuntos)) return 'mensagens';
   return balde;
 }
+
+// O balde de um objetivo da FÁBRICA — recebe a linha inteira de
+// `fabrica_objetivos` (chave, rotulo, meta_objective, destination_type,
+// optimization_goal…).
+//
+// POR QUE MORA AQUI, e não na tela da Fábrica: a linha da Fábrica carrega os
+// MESMOS dois sinais que o Gestor lê do conjunto — `destination_type` e
+// `optimization_goal`. O objetivo padrão da Fábrica é
+// ('engajamento','Engajamento (WhatsApp)', OUTCOME_ENGAGEMENT, CONVERSATIONS,
+// WHATSAPP): olhar só o `meta_objective` joga fora exatamente o sinal que a
+// correção de 2026-07-29 foi construída em cima, e a campanha de WhatsApp volta
+// a ser tratada como engajamento comum. Esse erro de classificação já foi
+// cometido duas vezes neste produto; a terceira só é evitada se a regra tiver UM
+// lugar. O Gestor vai ganhar a mesma faixa de sugestões — e uma regra que mora
+// no componente da Fábrica é uma regra que será rededuzida lá, diferente.
+//
+// Repare que ele não RECOPIA a regra: passa a própria linha como se fosse um
+// conjunto para o `baldeEfetivo`, porque os nomes dos campos são os mesmos. Se a
+// regra de WhatsApp mudar, muda uma vez só.
+export function baldeDoObjetivoDaFabrica(objetivo) {
+  if (!objetivo || typeof objetivo !== 'object') return 'padrao';
+  return baldeEfetivo(objetivo.meta_objective, [objetivo]);
+}

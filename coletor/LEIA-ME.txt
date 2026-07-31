@@ -107,6 +107,16 @@ marca × objetivo de campanha. As sugestões aparecem numa faixa acima da busca
 de interesses na Fábrica de Anúncios, com o tamanho do público de cada uma.
 Antes disso, escolher interesse era chutar no escuro.
 
+O QUE A IA RECEBE: o nome da marca, o nome de cada loja, as CIDADES que cada
+loja atende e o objetivo da campanha. Nada de texto escrito por gente.
+
+As cidades merecem uma nota: no banco elas estão guardadas como CÓDIGO do Meta
+(267873), não como nome. Antes de perguntar qualquer coisa à IA, o robô pede ao
+Meta o nome de cada código — de uma vez só na rodada inteira, pra não pagar a
+mesma pergunta seis vezes. Se o Meta não responder, o robô NÃO cancela a semana:
+manda o pedido sem as cidades e avisa no log. Sugestão sem cidade é mais
+genérica; semana nenhuma é pior.
+
 A IA PROPÕE, MAS QUEM DECIDE É A META
 --------------------------------------
 O robô pede uma lista ao modelo e depois VALIDA CADA NOME na própria Meta
@@ -148,8 +158,13 @@ PRA RODAR PELA PRIMEIRA VEZ (o que falta)
      SUPABASE_SERVICE_KEY .... já usado
      GESTOR_USER_EMAIL ....... já usado (Fábrica)
      GESTOR_USER_PASSWORD .... já usado (Fábrica)
-3. Disparar na mão pelo Actions, no modo "seco" primeiro: ele roda tudo,
-   mostra quantos interesses sobreviveram à validação, e NÃO grava nada.
+3. Disparar na mão pelo Actions, no modo "seco" primeiro: ele roda tudo e
+   mostra quantos interesses sobreviveram à validação, sem gravar sugestão
+   nenhuma no banco.
+   ATENÇÃO, PORQUE É DINHEIRO: "seco" quer dizer que não grava — NÃO quer dizer
+   que não custa. A rodada seca faz as MESMAS 6 chamadas pagas à IA que a rodada
+   normal, e elas aparecem no painel Status do Claude igual. O que você economiza
+   é a gravação, não o custo.
 4. Se a proporção parecer boa, rodar no modo normal.
 
 POR QUE PRECISA DE LOGIN DE USUÁRIO
