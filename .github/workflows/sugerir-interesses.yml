@@ -1,0 +1,69 @@
+name: Sugestão de interesses (semanal)
+
+# Domingo 10:34 UTC (07:34 Brasília) + disparo manual.
+#
+# SEMANAL, não diária: a sugestão é por marca × objetivo (hoje 6 gerações no
+# total) e não muda de um dia pro outro. Rodar todo dia só multiplicaria o custo
+# sem mudar o resultado.
+#
+# DOMINGO de propósito: assim a sugestão está fresca quando a semana começa e o
+# dono vai montar campanha.
+#
+# MINUTO QUEBRADO e fora da hora cheia: agendamento na hora cheia entra na fila
+# do Actions e atrasa 2-3h (já medido neste repo — ver budget-ia.yml). Também
+# escolhido pra não colidir com os outros robôs, que se concentram nas manhãs de
+# segunda e nos primeiros minutos das 9h UTC.
+on:
+  schedule:
+    # O cron do Actions é em UTC. O Brasil não tem mais horário de verão, então
+    # BRT = UTC-3 o ano todo.
+    - cron: '34 10 * * 0'
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: 'seco = roda tudo sem gravar nada (pra testar sem custo de gravação)'
+        required: false
+        default: 'normal'
+        type: choice
+        options: ['normal', 'seco']
+
+concurrency:
+  group: sugerir-interesses
+  cancel-in-progress: false
+
+jobs:
+  sugerir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # SEGURANÇA: os dois passos abaixo têm comando FIXO e são escolhidos por
+      # `if`. Nada vindo de fora entra na linha de comando — nem a escolha do
+      # modo. Segredo só por `env:`, nunca interpolado no `run:`.
+      - name: Rodar sugestão de interesses
+        if: ${{ inputs.modo != 'seco' }}
+        env:
+          # Lida pelo lib-llm.mjs (structured()).
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Leitura e gravação no Supabase (REST).
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # Login da conta de serviço: o meta-proxy exige SESSÃO DE USUÁRIO, não
+          # a service key — ele chama auth.getUser() e devolve 401 sem usuário.
+          # Sem estes dois, o robô roda, toma 401 em toda validação e grava zero
+          # sugestões pra sempre, sem nada parecer erro.
+          GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
+          GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
+        run: node coletor/sugerir-interesses.mjs
+
+      - name: Rodar em seco (sem gravar)
+        if: ${{ inputs.modo == 'seco' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
+          GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
+        run: node coletor/sugerir-interesses.mjs --dry
