@@ -206,6 +206,92 @@ export async function decidir(pecaId, decisao, motivo = null) {
   return Array.isArray(data) ? data[0] : data
 }
 
+// ── Ideias ──────────────────────────────────────────────────────────────────
+
+// Ideias da marca + as que valem para todas (account_id nulo).
+export async function listarIdeias(accountId) {
+  const { data, error } = await sbClient
+    .from('conteudo_ideias')
+    .select('id,account_id,titulo,gancho,formato,pilar,roteiro,legenda_sugerida,hashtags_sugeridas,por_que_agora,origem,situacao,peca_id,created_at')
+    .or(`account_id.eq.${accountId},account_id.is.null`)
+    .neq('situacao', 'descartada')
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(`Não consegui carregar as ideias: ${error.message}`)
+  return data || []
+}
+
+export async function criarIdeia(dados) {
+  const { data, error } = await sbClient
+    .from('conteudo_ideias')
+    .insert({ ...dados, origem: 'manual', criado_por: _uid() })
+    .select('*').single()
+  if (error) throw new Error(`Não consegui salvar a ideia: ${error.message}`)
+  return data
+}
+
+export async function mudarSituacaoDaIdeia(id, situacao) {
+  const { error } = await sbClient.from('conteudo_ideias').update({ situacao }).eq('id', id)
+  if (error) throw new Error(`Não consegui atualizar: ${error.message}`)
+}
+
+// A ideia vira rascunho. Passa por função do banco para que criar a peça,
+// marcar a ideia como usada e ligar as duas aconteça de uma vez só.
+export async function ideiaViraPeca(ideiaId, accountId, publicarEm = null) {
+  const { data, error } = await sbClient.rpc('conteudo_ideia_virar_peca', {
+    p_ideia: ideiaId, p_account: accountId, p_publicar_em: publicarEm,
+  })
+  if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))
+  return Array.isArray(data) ? data[0] : data
+}
+
+export async function pedirIdeiasParaIA(accountId, quantas = 12) {
+  const { data, error } = await sbClient.functions.invoke('conteudo-trigger', {
+    body: { account_id: accountId, quantas },
+  })
+  if (error) {
+    // O corpo do erro traz o motivo real (ex.: já tem rodada em andamento).
+    const detalhe = await error.context?.json?.().catch(() => null)
+    if (detalhe?.error === 'ja_rodando') throw new Error('Já tem uma rodada em andamento para esta marca. Espere ela terminar.')
+    if (detalhe?.error === 'sem_permissao') throw new Error('Você não tem permissão para gerar ideias.')
+    throw new Error(detalhe?.detail || error.message || 'Não consegui pedir as ideias.')
+  }
+  return data
+}
+
+export async function verJob(jobId) {
+  const { data, error } = await sbClient
+    .from('conteudo_jobs').select('id,status,resultado,erro').eq('id', jobId).maybeSingle()
+  if (error) return null
+  return data
+}
+
+// ── Blocos de texto ─────────────────────────────────────────────────────────
+
+export async function listarBlocos(accountId) {
+  const { data, error } = await sbClient
+    .from('conteudo_blocos')
+    .select('id,account_id,tipo,nome,texto,usos,ativo')
+    .or(`account_id.eq.${accountId},account_id.is.null`)
+    .eq('ativo', true)
+    .order('tipo')
+  if (error) return []
+  return data || []
+}
+
+export async function salvarBloco(bloco) {
+  const { data, error } = await sbClient
+    .from('conteudo_blocos')
+    .upsert({ ...bloco, criado_por: bloco.id ? undefined : _uid() })
+    .select('*').single()
+  if (error) throw new Error(`Não consegui salvar o bloco: ${error.message}`)
+  return data
+}
+
+export async function apagarBloco(id) {
+  const { error } = await sbClient.from('conteudo_blocos').update({ ativo: false }).eq('id', id)
+  if (error) throw new Error(`Não consegui remover: ${error.message}`)
+}
+
 // Pede o aviso da hora H de novo. A Edge carimba `avisado_em` ANTES de enviar
 // (para não avisar duas vezes), então um push perdido no caminho fica sem
 // segunda chance — este é o botão que dá.

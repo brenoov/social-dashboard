@@ -48,9 +48,22 @@
           <button :class="{ on: aba === 'calendario' }" @click="aba = 'calendario'">Calendário</button>
           <button :class="{ on: aba === 'quadro' }" @click="aba = 'quadro'">Quadro</button>
           <button :class="{ on: aba === 'lista' }" @click="aba = 'lista'">Lista</button>
+          <button :class="{ on: aba === 'ideias' }" @click="aba = 'ideias'">
+            Ideias<span v-if="ideias.length"> ({{ ideias.length }})</span>
+          </button>
         </div>
 
-        <div v-if="!pecas.length" class="ctd-vazio">
+        <!-- Ideias fica FORA do "se não tem peça": é justamente por onde se
+             começa quando não há nada. -->
+        <VisaoIdeias
+          v-show="aba === 'ideias'"
+          :ideias="ideias"
+          :account-id="contaSel"
+          @mudou="recarregar"
+          @abrir-peca="aoNascerPeca"
+        />
+
+        <div v-if="!pecas.length && aba !== 'ideias'" class="ctd-vazio">
           <h3>Nenhuma peça ainda</h3>
           <p>
             Aqui é onde o conteúdo desta marca é planejado: você monta a peça, ela passa pela aprovação
@@ -59,7 +72,9 @@
           <button class="ctd-btn ctd-btn-primario" @click="abrirNova()">Criar a primeira peça</button>
         </div>
 
-        <template v-else>
+        <!-- Condição explícita em vez de v-else: o v-if acima virou composto, e
+             um `v-else` amarrado a ele é fácil de quebrar sem perceber. -->
+        <template v-if="pecas.length">
           <VisaoCalendario
             v-show="aba === 'calendario'"
             :pecas="pecas"
@@ -104,6 +119,7 @@ import { useRouter } from 'vue-router'
 import VisaoCalendario from './visao-calendario.vue'
 import VisaoKanban from './visao-kanban.vue'
 import VisaoLista from './visao-lista.vue'
+import VisaoIdeias from './visao-ideias.vue'
 import PainelPeca from './painel-peca.vue'
 import { STATUS, corDeStatus } from './estados.js'
 import { contarPorStatus } from './agrupar-kanban.js'
@@ -115,6 +131,7 @@ const router = useRouter()
 const contas = ref([])
 const contaSel = ref('')
 const pecas = ref([])
+const ideias = ref([])
 const miniaturas = ref({})
 const metricas = ref({})
 const aguardando = ref(0)
@@ -147,7 +164,7 @@ async function carregarContas() {
 }
 
 async function recarregar() {
-  if (!contaSel.value) { pecas.value = []; return }
+  if (!contaSel.value) { pecas.value = []; ideias.value = []; return }
   try {
     erro.value = ''
     pecas.value = await dados.listarPecas(contaSel.value)
@@ -155,6 +172,19 @@ async function recarregar() {
   } catch (e) {
     erro.value = e.message
   }
+  // As ideias em separado: uma falha aqui não pode esconder o calendário.
+  try {
+    ideias.value = await dados.listarIdeias(contaSel.value)
+  } catch {
+    ideias.value = []
+  }
+}
+
+// A ideia virou rascunho: abre a peça nova já para edição, senão a pessoa fica
+// sem saber para onde ela foi.
+function aoNascerPeca(peca) {
+  aba.value = 'calendario'
+  abrir(peca)
 }
 
 async function carregarMiniaturas() {
