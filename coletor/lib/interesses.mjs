@@ -85,6 +85,30 @@ export function comCidadesResolvidas(loja, nomes) {
   };
 }
 
+// A RODADA INTEIRA FALHOU? — a decisão que pinta o Actions de vermelho.
+//
+// Cada marca × objetivo tem try/catch próprio, e isso está certo: uma marca com
+// problema não pode derrubar as outras cinco. Mas quando NADA saiu e tudo foi
+// pulado, a causa não é uma marca — é a chave da IA que não existe, a migration
+// que não foi aplicada, o token da Meta vencido. Sem esta regra, todos esses
+// casos terminavam a rodada em VERDE, e o dono só descobriria semanas depois,
+// abrindo a Fábrica e estranhando a falta da faixa.
+//
+// Fica aqui, e não dentro do run(), pelo mesmo motivo do comCidadesResolvidas:
+// `sugerir-interesses.mjs` executa no import, então nada lá dentro tem teste — e
+// esta é justamente a regra que decide se um problema aparece ou não aparece.
+//
+// TRÊS entradas e três respostas:
+//   pulou tudo e não produziu nada ....... FALHOU (vermelho)
+//   rodada seca que SIMULOU pelo menos uma  não falhou (ela não grava por desenho)
+//   não tinha o que fazer (nada pulado) ... não falhou (semana sem marca ativa
+//                                           não é defeito; é uma semana vazia)
+export function rodadaFalhouInteira({ gravadas, simuladas, puladas, seco } = {}) {
+  const conta = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  const produzidas = seco ? conta(simuladas) : conta(gravadas);
+  return conta(puladas) > 0 && produzidas === 0;
+}
+
 function descreverLojas(lojas) {
   const linhas = [];
   for (const loja of lista(lojas)) {

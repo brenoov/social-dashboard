@@ -77,7 +77,27 @@ export function baldeEfetivo(objective, conjuntos) {
 // Repare que ele não RECOPIA a regra: passa a própria linha como se fosse um
 // conjunto para o `baldeEfetivo`, porque os nomes dos campos são os mesmos. Se a
 // regra de WhatsApp mudar, muda uma vez só.
+//
+// A GUARDA DO `optimization_goal` É SOBRE QUEM CHAMA, NÃO SOBRE O DADO.
+// Na migration 022 a coluna é `not null`: linha de verdade SEMPRE tem valor. Então
+// chegar aqui sem ele não quer dizer "esta linha não tem" — quer dizer que o
+// `select` de quem chamou não pediu a coluna. E aí acontece o pior caso possível:
+//
+//   baldeDoObjetivoDaFabrica({ chave:'engajamento', meta_objective:'OUTCOME_ENGAGEMENT' })
+//
+// devolveria 'engajamento' com toda a confiança — o erro de classificação de novo,
+// em silêncio, sem exceção e sem teste vermelho. Enquanto só a Fábrica chama, o que
+// segura isso é uma STRING de `select` num .vue; quando o Gestor ganhar a mesma
+// faixa, um `select` mais curto ressuscita o bug com a suíte inteira verde.
+//
+// Por isso a falta da coluna cai em 'padrao', que é o balde sem meta: quem chama
+// trata como "não sei" e a faixa de sugestões simplesmente não abre. Responder
+// errado com confiança é pior que não responder.
+//
+// `destination_type` NÃO serve de guarda: ele é nulo de verdade no 'branding'
+// (a única linha sem messaging), então ausência ali é dado legítimo.
 export function baldeDoObjetivoDaFabrica(objetivo) {
   if (!objetivo || typeof objetivo !== 'object') return 'padrao';
+  if (typeof objetivo.optimization_goal !== 'string' || !objetivo.optimization_goal.trim()) return 'padrao';
   return baldeEfetivo(objetivo.meta_objective, [objetivo]);
 }

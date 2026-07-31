@@ -83,6 +83,20 @@ test('o rotulo bonito NAO decide o balde', () => {
   assert.equal(baldeDoObjetivoDaFabrica(comOutroRotulo), 'mensagens');
 });
 
+test('linha sem optimization_goal (select curto de quem chamou) cai em padrao, NAO em engajamento', () => {
+  // A coluna e `not null` na migration 022: linha de verdade sempre tem valor.
+  // Faltar aqui so pode ser `select` de quem chamou que nao pediu a coluna — e
+  // responder 'engajamento' com confianca seria o erro de classificacao de novo,
+  // em silencio. 'padrao' fecha a faixa de sugestoes em vez de mostrar a errada.
+  assert.equal(baldeDoObjetivoDaFabrica({ chave: 'engajamento', meta_objective: 'OUTCOME_ENGAGEMENT' }), 'padrao');
+  // Nem com o outro sinal presente: se a coluna `not null` nao veio, a linha
+  // chegou incompleta e nao da pra confiar em nada dela.
+  assert.equal(baldeDoObjetivoDaFabrica({ chave: 'engajamento', meta_objective: 'OUTCOME_ENGAGEMENT', destination_type: 'WHATSAPP' }), 'padrao');
+  assert.equal(baldeDoObjetivoDaFabrica({ meta_objective: 'OUTCOME_SALES', optimization_goal: '   ' }), 'padrao',
+    'so espaco e o mesmo que faltar');
+  assert.equal(baldeDoObjetivoDaFabrica({ meta_objective: 'OUTCOME_SALES', optimization_goal: null }), 'padrao');
+});
+
 test('linha ausente ou lixo cai em padrao, sem quebrar', () => {
   // 'padrao' e o balde sem meta — quem chama trata como "nao sei", e a faixa de
   // sugestoes simplesmente nao aparece.

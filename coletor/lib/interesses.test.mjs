@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { montarPedido, OBJETIVOS, NOME_DO_OBJETIVO, nomesPropostos, filtrarValidos, comCidadesResolvidas } from './interesses.mjs';
+import { montarPedido, OBJETIVOS, NOME_DO_OBJETIVO, nomesPropostos, filtrarValidos, comCidadesResolvidas, rodadaFalhouInteira } from './interesses.mjs';
 import { ALVOS } from '../../src/ferramentas/gestao-trafego/alvos.js';
 
 const MARCA = { id: 'm1', nome: 'La Vessel' };
@@ -434,4 +434,46 @@ test('nomesPropostos limpa a resposta da IA e ignora lixo', () => {
 
 test('nomesPropostos tira repetido preservando a ordem', () => {
   assert.deepEqual(nomesPropostos({ interesses: ['A', 'B', 'A'] }), ['A', 'B']);
+});
+
+test('rodada que pulou TUDO sem gravar nada e FALHA — o Actions tem de ficar vermelho', () => {
+  // O cenario que o try/catch por marca escondia: sem chave da IA, sem a migration,
+  // com token da Meta vencido, TODAS as 6 combinacoes caem no catch e a rodada
+  // terminava verde. Isto e o que faz o dono ser avisado.
+  assert.equal(rodadaFalhouInteira({ gravadas: 0, simuladas: 0, puladas: 6, seco: false }), true);
+  assert.equal(rodadaFalhouInteira({ gravadas: 0, simuladas: 0, puladas: 1, seco: false }), true);
+});
+
+test('rodada SECA que simulou pelo menos uma NAO e falha — ela nao grava por desenho', () => {
+  // Em seco `gravadas` fica zero de proposito. Julgar por `gravadas` faria toda
+  // rodada seca terminar vermelha, e o dono pararia de olhar pro vermelho.
+  assert.equal(rodadaFalhouInteira({ gravadas: 0, simuladas: 6, puladas: 0, seco: true }), false);
+  assert.equal(rodadaFalhouInteira({ gravadas: 0, simuladas: 1, puladas: 5, seco: true }), false,
+    'uma que passou ja prova que o caminho inteiro funciona');
+  // Mas seco que nao simulou nada e pulou tudo falhou do mesmo jeito.
+  assert.equal(rodadaFalhouInteira({ gravadas: 0, simuladas: 0, puladas: 6, seco: true }), true);
+});
+
+test('rodada sem NADA a fazer nao e falha — semana vazia nao e defeito', () => {
+  // Nenhuma marca ativa: nao gravou porque nao havia o que gravar, e nao pulou
+  // nada. Pintar isso de vermelho seria alarme falso toda semana.
+  assert.equal(rodadaFalhouInteira({ gravadas: 0, simuladas: 0, puladas: 0, seco: false }), false);
+  assert.equal(rodadaFalhouInteira({ gravadas: 0, simuladas: 0, puladas: 0, seco: true }), false);
+  assert.equal(rodadaFalhouInteira({}), false, 'sem argumento nenhum tambem nao inventa falha');
+  assert.equal(rodadaFalhouInteira(), false);
+});
+
+test('rodada parcial (algumas gravaram, outras pularam) NAO e falha', () => {
+  // Uma marca com problema no meio de seis nao pode pintar a semana de vermelho:
+  // o try/catch por item existe justamente pra isso, e ele continua valendo.
+  assert.equal(rodadaFalhouInteira({ gravadas: 3, simuladas: 0, puladas: 3, seco: false }), false);
+  assert.equal(rodadaFalhouInteira({ gravadas: 1, simuladas: 0, puladas: 5, seco: false }), false);
+});
+
+test('contador com tipo errado nao inventa nem esconde falha', () => {
+  // Contador so vira numero se for numero de verdade; NaN/undefined valem zero.
+  assert.equal(rodadaFalhouInteira({ gravadas: NaN, puladas: 6, seco: false }), true);
+  assert.equal(rodadaFalhouInteira({ gravadas: '3', puladas: 6, seco: false }), true,
+    'texto nao conta como gravacao');
+  assert.equal(rodadaFalhouInteira({ gravadas: 0, puladas: NaN, seco: false }), false);
 });

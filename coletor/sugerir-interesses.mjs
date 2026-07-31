@@ -12,7 +12,7 @@
 // então o valor real aparece no painel Status do Claude, em reais.
 import { structured, SONNET, usageSummary } from './lib-llm.mjs';
 import { registrarExecucao } from './registrar-execucao.mjs';
-import { montarPedido, nomesPropostos, filtrarValidos, comCidadesResolvidas, OBJETIVOS } from './lib/interesses.mjs';
+import { montarPedido, nomesPropostos, filtrarValidos, comCidadesResolvidas, rodadaFalhouInteira, OBJETIVOS } from './lib/interesses.mjs';
 // Login da conta de serviço (mesma usada por subir-estudio.mjs, ativar-estudio.mjs
 // etc.) — o meta-proxy chama auth.getUser() sobre o Authorization recebido, e uma
 // service key não é sessão de usuário: ela sempre daria 401 "nao autenticado" ali.
@@ -232,19 +232,9 @@ export async function run() {
     ? `SECO: ${simuladas} teriam sido gravadas (nada escrito), ${puladas} puladas, aproveitamento ${aproveitamento}%`
     : `${gravadas} gravadas, ${puladas} puladas, aproveitamento ${aproveitamento}%`;
 
-  // FALHA SISTÊMICA ≠ falha de uma marca.
-  //
-  // Cada marca×objetivo é protegida por um try/catch próprio, e isso está certo:
-  // uma marca com problema não pode derrubar as outras cinco. Mas quando NADA sai
-  // e tudo foi pulado, a causa não é uma marca — é a chave da IA que não existe, a
-  // migration que não foi aplicada, o token da Meta vencido. Sem isto, todos esses
-  // casos terminavam a rodada em VERDE, e o dono só descobriria abrindo a Fábrica e
-  // estranhando a falta da faixa, semanas depois.
-  //
-  // Rodada seca NÃO conta como falha por não ter gravado — ela não grava por
-  // desenho. O que conta ali é `simuladas`: se nem simular deu, também falhou.
-  const produzidas = DRY ? simuladas : gravadas;
-  const falhouTudo = puladas > 0 && produzidas === 0;
+  // FALHA SISTÊMICA ≠ falha de uma marca. A regra mora no lib (com teste), porque
+  // é ela que decide se um problema aparece ou passa batido — ver rodadaFalhouInteira.
+  const falhouTudo = rodadaFalhouInteira({ gravadas, simuladas, puladas, seco: DRY });
   const resumo = falhouTudo
     ? `${base} — NADA saiu nesta rodada; olhe o log acima para achar a causa`
     : base;
