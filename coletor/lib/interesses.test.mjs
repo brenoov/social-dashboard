@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { montarPedido, montarEscolha, escolhidosValidos, linhaDaEscolha, OBJETIVOS, NOME_DO_OBJETIVO, FOCO_DO_OBJETIVO, nomesPropostos, colherDaBusca, MAXIMO_POR_OBJETIVO, TETO_DE_PUBLICO, PISO_DE_PUBLICO, linhasDosPequenos, linhasPorTermo, tamanhoLegivel, linhaDosTermos, linhasDaPrevia, linhasDosLargos, comCidadesResolvidas, rodadaFalhouInteira } from './interesses.mjs';
+import { montarPedido, montarEscolha, termosDaMarca, juntarTermos, escolhidosValidos, linhaDaEscolha, OBJETIVOS, NOME_DO_OBJETIVO, FOCO_DO_OBJETIVO, nomesPropostos, colherDaBusca, MAXIMO_POR_OBJETIVO, TETO_DE_PUBLICO, PISO_DE_PUBLICO, linhasDosPequenos, linhasPorTermo, tamanhoLegivel, linhaDosTermos, linhasDaPrevia, linhasDosLargos, comCidadesResolvidas, rodadaFalhouInteira } from './interesses.mjs';
 import { ALVOS } from '../../src/ferramentas/gestao-trafego/alvos.js';
 
 const MARCA = { id: 'm1', nome: 'La Vessel' };
@@ -1195,4 +1195,44 @@ test('o pedido ENSINA a regra do substantivo sozinho, com os exemplos que falhar
   // 48 buscas de uma rodada inteira (cef4b36).
   assert.ok(!/específico|nicho|detalhad/i.test(p.user.replace(/NÃO EXISTEM.*/g, '')),
     'nada que empurre a IA a estreitar o termo');
+});
+
+// ===== OS PRODUTOS DA MARCA ENTRAM SEMPRE (não por sorteio da IA) =====
+
+test('os termos de produto vem da coluna, limpos e sem repetir', () => {
+  const r = termosDaMarca({ termos_produto: ['bolsa', 'Bolsa', ' cinto ', '', null, 42, 'carteira'] });
+  assert.deepEqual(r, ['bolsa', 'cinto', 'carteira']);
+});
+
+test('marca sem a coluna preenchida devolve vazio — volta ao comportamento de antes', () => {
+  assert.deepEqual(termosDaMarca({}), []);
+  assert.deepEqual(termosDaMarca({ termos_produto: null }), []);
+  assert.deepEqual(termosDaMarca({ termos_produto: 'bolsa' }), [], 'texto solto não é lista');
+  assert.deepEqual(termosDaMarca(), []);
+});
+
+test('OS DA MARCA VEM PRIMEIRO — se bater no teto, quem sai e o palpite da IA', () => {
+  const r = juntarTermos(['bolsa', 'cinto'], ['moda', 'estilo'], 3);
+  assert.deepEqual(r, ['bolsa', 'cinto', 'moda']);
+});
+
+test('a IA repetindo um termo da marca nao gasta duas buscas iguais', () => {
+  // Sem comparar sem-maiúscula, "Bolsa" e "bolsa" virariam duas buscas idênticas
+  // na Meta e o log pareceria mostrar dois assuntos.
+  const r = juntarTermos(['bolsa'], ['Bolsa', 'BOLSA', 'moda']);
+  assert.deepEqual(r, ['bolsa', 'moda']);
+});
+
+test('sem termo da marca, junta so os da IA — e vice-versa', () => {
+  assert.deepEqual(juntarTermos([], ['moda']), ['moda']);
+  assert.deepEqual(juntarTermos(['cinto'], []), ['cinto']);
+  assert.deepEqual(juntarTermos(null, null), []);
+});
+
+test('CINTO sobrevive mesmo quando a IA nao lembra dele — o caso que originou isto', () => {
+  // Rodada real de 2026-07-31: a IA não pediu `cinto` em nenhum dos 6 objetivos,
+  // e cinto é a maior categoria do estoque (398 peças).
+  const marca = { termos_produto: ['bolsa', 'cinto', 'carteira', 'óculos'] };
+  const daIA = ['moda feminina', 'estilo', 'tendência', 'presente'];
+  assert.ok(juntarTermos(termosDaMarca(marca), daIA).includes('cinto'));
 });

@@ -399,6 +399,64 @@ export function nomesPropostos(resposta) {
   return saida;
 }
 
+// OS TERMOS DOS PRODUTOS DA MARCA — buscados SEMPRE, não sorteados.
+//
+// POR QUE: na rodada real de 2026-07-31, `Cinto` ficou em ZERO dos seis
+// objetivos. Cinto é a MAIOR categoria do estoque (398 peças). Não foi o
+// catálogo — `cinto` acha `Cinto` (37 mi), medido pela sonda. Foi a IA não ter
+// lembrado de pedir. Numa medição anterior ela pediu em 2 de 6; é sorteio, e o
+// produto que a loja mais tem em estoque não pode depender de sorteio.
+//
+// Vem de `fabrica_marcas.termos_produto`, curado e medido pela sonda — NÃO
+// deduzido do texto de `segmento`: deduzir exigiria adivinhar plural em
+// português, e a primeira palavra que quebra é nossa ("óculos" no singular é
+// "óculos", não "óculo"). Ver a migration 2026-08-01-interesses-termos-de-produto.
+//
+// Coluna vazia devolve lista vazia e tudo segue como antes — marca nova não
+// quebra nada por não ter sido curada ainda.
+export const MAXIMO_TERMOS_DE_PRODUTO = 8;
+
+export function termosDaMarca(marca, maximo = MAXIMO_TERMOS_DE_PRODUTO) {
+  const saida = [];
+  const vistos = new Set();
+  for (const bruto of lista(marca && marca.termos_produto)) {
+    if (typeof bruto !== 'string') continue;
+    const t = limpo(bruto);
+    if (!t) continue;
+    const chave = t.toLowerCase();
+    if (vistos.has(chave)) continue;
+    vistos.add(chave);
+    saida.push(t);
+    if (Number.isFinite(maximo) && saida.length >= maximo) break;
+  }
+  return saida;
+}
+
+// JUNTA os termos fixos da marca com os que a IA propôs.
+//
+// OS DA MARCA VÊM PRIMEIRO, e isso importa mais do que parece: se um dia o total
+// bater no teto, quem fica de fora é o palpite da IA, não o produto que a loja
+// vende. A ordem é a garantia, não uma preferência estética.
+//
+// Repetido entra uma vez só, comparando SEM diferenciar maiúscula: a IA pedir
+// "Bolsa" quando a marca já tem "bolsa" gastaria duas buscas idênticas na Meta
+// e faria o log parecer que são dois assuntos.
+export function juntarTermos(daMarca, daIA, maximo = 16) {
+  const saida = [];
+  const vistos = new Set();
+  for (const bruto of [...lista(daMarca), ...lista(daIA)]) {
+    if (typeof bruto !== 'string') continue;
+    const t = limpo(bruto);
+    if (!t) continue;
+    const chave = t.toLowerCase();
+    if (vistos.has(chave)) continue;
+    vistos.add(chave);
+    saida.push(t);
+    if (Number.isFinite(maximo) && saida.length >= maximo) break;
+  }
+  return saida;
+}
+
 // Quantos interesses uma linha da tabela pode ter. Um termo largo ("moda")
 // devolve dez resultados sozinho; sem teto, um termo desses tomaria a faixa
 // inteira e os outros sete termos não apareceriam.
