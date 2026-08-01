@@ -74,3 +74,35 @@ export function podeTransicionar(de, para, opcoes = {}) {
   }
   return { ok: true, motivo: null }
 }
+
+// ── AÇÕES EM LOTE ───────────────────────────────────────────────────────────
+//
+// O que dá para fazer com VÁRIAS peças de uma vez. Aprovar oito rascunhos no
+// fim do dia eram oito idas ao painel.
+//
+// A REGRA É A INTERSEÇÃO, não a união: um destino só aparece se TODAS as peças
+// selecionadas puderem ir para lá. Oferecer um destino que serve para metade
+// produziria meia operação e um erro no meio — pior que não oferecer.
+export function destinosEmLote(pecas, { podeAprovar = false } = {}) {
+  const lista = Array.isArray(pecas) ? pecas.filter(Boolean) : [];
+  if (!lista.length) return [];
+
+  let comuns = null;
+  for (const peca of lista) {
+    const daPeca = new Set(
+      transicoesPermitidas(peca.status).filter(destino =>
+        podeTransicionar(peca.status, destino, {
+          podeAprovar,
+          temData: !!peca.publicar_em,
+        }).ok),
+    );
+    comuns = comuns === null ? daPeca : new Set([...comuns].filter(d => daPeca.has(d)));
+    if (!comuns.size) break;
+  }
+
+  return [...(comuns || [])].map(chave => ({
+    chave,
+    rotulo: rotuloDeStatus(chave),
+    cor: corDeStatus(chave),
+  }));
+}

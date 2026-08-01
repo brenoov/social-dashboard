@@ -6,6 +6,7 @@ import {
   corDeStatus,
   transicoesPermitidas,
   podeTransicionar,
+  destinosEmLote,
 } from './estados.js'
 
 // ── O catálogo ──────────────────────────────────────────────────────────────
@@ -127,4 +128,66 @@ test('agendada pode voltar para aprovada (desagendar) e ir para publicada', () =
   const t = transicoesPermitidas('agendada')
   assert.ok(t.includes('publicada'))
   assert.ok(t.includes('aprovada'))
+})
+
+// ---------- acoes em lote ----------
+//
+// A regra e a INTERSECAO: um destino so aparece se TODAS as pecas puderem ir
+// para la. Oferecer o que serve para metade produziria meia operacao e um erro
+// no meio — pior que nao oferecer.
+
+test('em lote, so aparece o que serve para TODAS', () => {
+  const d = destinosEmLote([
+    { status: 'rascunho' },
+    { status: 'em_aprovacao' },
+  ], { podeAprovar: true }).map(x => x.chave)
+  // rascunho vai para em_aprovacao/arquivada; em_aprovacao vai para
+  // aprovada/reprovada/rascunho. O unico comum e 'arquivada'.
+  assert.ok(!d.includes('em_aprovacao'), 'em_aprovacao nao serve para quem ja esta la')
+  assert.ok(!d.includes('aprovada'), 'aprovada nao serve para um rascunho')
+})
+
+test('pecas no MESMO estado oferecem os destinos daquele estado', () => {
+  const d = destinosEmLote([
+    { status: 'em_aprovacao' }, { status: 'em_aprovacao' },
+  ], { podeAprovar: true }).map(x => x.chave)
+  assert.ok(d.includes('aprovada'))
+  assert.ok(d.includes('reprovada'))
+})
+
+test('sem permissao de aprovar, aprovar NAO aparece no lote', () => {
+  const d = destinosEmLote([{ status: 'em_aprovacao' }], { podeAprovar: false }).map(x => x.chave)
+  assert.ok(!d.includes('aprovada'))
+})
+
+test('agendar em lote exige que TODAS tenham data', () => {
+  const comData = { status: 'aprovada', publicar_em: '2026-08-03T12:00:00Z' }
+  const semData = { status: 'aprovada', publicar_em: null }
+  assert.ok(destinosEmLote([comData], { podeAprovar: true }).some(d => d.chave === 'agendada'))
+  assert.ok(
+    !destinosEmLote([comData, semData], { podeAprovar: true }).some(d => d.chave === 'agendada'),
+    'uma peca sem data tira o destino de todo o lote',
+  )
+})
+
+test('selecao vazia nao oferece nada', () => {
+  for (const v of [[], null, undefined, [null]]) {
+    assert.deepEqual(destinosEmLote(v), [])
+  }
+})
+
+test('peca publicada num lote misto derruba quase tudo', () => {
+  // Publicada so vai para arquivada; qualquer lote com ela fica limitado.
+  const d = destinosEmLote([
+    { status: 'publicada' }, { status: 'rascunho' },
+  ], { podeAprovar: true }).map(x => x.chave)
+  assert.deepEqual(d, ['arquivada'])
+})
+
+test('cada destino vem com rotulo e cor para a tela', () => {
+  const d = destinosEmLote([{ status: 'rascunho' }], { podeAprovar: true })
+  for (const x of d) {
+    assert.ok(x.rotulo && x.rotulo !== x.chave, `sem rotulo legivel: ${JSON.stringify(x)}`)
+    assert.match(x.cor, /^#/, `sem cor: ${JSON.stringify(x)}`)
+  }
 })

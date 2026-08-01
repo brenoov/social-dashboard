@@ -519,6 +519,67 @@ export async function subirArquivo(peca, file, ordem) {
   return data
 }
 
+// DUPLICAR UMA PEÇA, com a arte junto.
+//
+// POR QUE ISTO EXISTE: conteúdo real é repetitivo. "O mesmo carrossel do mês
+// passado com outro produto" é o caso mais comum de todos, e sem isto a pessoa
+// refazia tudo do zero — inclusive subindo os arquivos de novo.
+//
+// A CÓPIA NASCE EM RASCUNHO E SEM DATA. Herdar a data criaria dois posts no
+// mesmo horário, que é o oposto do que quem duplica quer. E herdar o status
+// colocaria no ar, sem revisão, algo que ninguém leu.
+export async function duplicarPeca(peca) {
+  const nova = await criarPeca({
+    account_id: peca.account_id,
+    titulo: `${peca.titulo || 'Peça'} (cópia)`,
+    formato: peca.formato,
+    legenda: peca.legenda || '',
+    hashtags: peca.hashtags || '',
+    observacoes: peca.observacoes || null,
+    publicar_em: null,
+  })
+
+  const arquivos = await listarArquivos(peca.id)
+  const copiados = []
+  for (const a of arquivos) {
+    // O caminho carrega o id da peça; sem trocar, as duas apontariam para o
+    // MESMO objeto no depósito — e apagar uma levaria a arte da outra junto.
+    const destino = a.caminho.replace(`/${peca.id}/`, `/${nova.id}/`)
+
+    // SE A TROCA NÃO ACONTECEU, NÃO COPIA. Um caminho fora do padrão (arquivo
+    // antigo, importado à mão) sairia idêntico daqui, e a linha nova apontaria
+    // para o objeto da peça ORIGINAL. Ninguém veria nada de errado — até
+    // alguém apagar a cópia e a arte sumir das duas.
+    if (destino === a.caminho) continue
+
+    const { error: erroCopia } = await sbClient.storage.from(BUCKET).copy(a.caminho, destino)
+    if (erroCopia) continue   // um arquivo que falha não impede os outros
+
+    const { data, error } = await sbClient.from('conteudo_arquivos').insert({
+      peca_id: nova.id,
+      ordem: a.ordem,
+      bucket: a.bucket,
+      caminho: destino,
+      tipo: a.tipo,
+      mime: a.mime,
+      bytes: a.bytes,
+    }).select('id').single()
+    if (error) {
+      // Não deixa cópia órfã no depósito se a linha não entrou.
+      await sbClient.storage.from(BUCKET).remove([destino])
+      continue
+    }
+    copiados.push(data)
+  }
+
+  await registrarEvento(nova.id, {
+    acao: 'duplicou',
+    detalhe: `Cópia de "${peca.titulo || 'sem título'}"${copiados.length ? ` com ${copiados.length} arquivo(s)` : ''}.`,
+  })
+
+  return { peca: nova, arquivos: copiados.length, arquivosOriginais: arquivos.length }
+}
+
 export async function removerArquivo(arquivo) {
   await sbClient.storage.from(BUCKET).remove([arquivo.caminho])
   const { error } = await sbClient.from('conteudo_arquivos').delete().eq('id', arquivo.id)

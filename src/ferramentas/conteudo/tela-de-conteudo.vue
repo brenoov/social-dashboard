@@ -148,6 +148,7 @@
           :conta="contaAtual"
           @abrir="abrir"
           @nova="abrirNova"
+          @remarcar="remarcar"
         />
 
         <VisaoProgramacao
@@ -156,8 +157,10 @@
           :miniaturas="miniaturas"
           :metricas="metricas"
           :pode-aprovar="podeAprovar"
+          :trabalhando="emLote"
           @abrir="abrir"
           @mover="mover"
+          @mover-lote="moverLote"
         />
       </template>
 
@@ -175,6 +178,7 @@
       :pode-aprovar="podeAprovar"
       @fechar="fecharPainel"
       @mudou="recarregar"
+      @abrir-peca="p => { recarregar(); abrir(p) }"
     />
 
     <PainelSemana
@@ -201,7 +205,7 @@ import { IconeFaisca } from './icones.js'
 import { STATUS, corDeStatus } from './estados.js'
 import { contarPorStatus } from './agrupar-kanban.js'
 import { filtrarPecas, filtrarIdeias } from './buscar.js'
-import { diaDaPeca, horaDaPeca, dataHoraBRT } from './grade-do-calendario.js'
+import { diaDaPeca, horaDaPeca, dataHoraBRT, deCampoDeDataHora } from './grade-do-calendario.js'
 import { hojeLocal } from '../../compartilhado/datas.js'
 import * as dados from './dados-conteudo.js'
 import './estilos-conteudo.css'
@@ -369,6 +373,62 @@ function abrirNova(dia = '') {
 function fecharPainel() {
   painelAberto.value = false
   pecaEmEdicao.value = null
+}
+
+// MOVER VÁRIAS DE UMA VEZ.
+//
+// Uma a uma, em sequência, e não em paralelo: aprovar passa por função do banco
+// que valida permissão e registra evento na mesma transação — dez chamadas
+// simultâneas disputariam a mesma linha. Dez peças levam segundos; a clareza do
+// que falhou vale mais que os segundos economizados.
+const emLote = ref(false)
+async function moverLote({ pecas: alvo, destino }) {
+  if (!alvo?.length) return
+  erro.value = ''
+  emLote.value = true
+  const falhas = []
+  try {
+    for (const peca of alvo) {
+      try {
+        if (destino === 'aprovada' || destino === 'reprovada') await dados.decidir(peca.id, destino)
+        else await dados.mudarStatus(peca, destino)
+      } catch (e) {
+        falhas.push(`${peca.titulo || 'sem título'}: ${e.message}`)
+      }
+    }
+    await recarregar()
+    // Dizer QUAIS falharam, não quantas: "2 de 8 falharam" não deixa ninguém
+    // consertar nada.
+    if (falhas.length) erro.value = `Não consegui mover: ${falhas.join(' · ')}`
+  } finally {
+    emLote.value = false
+  }
+}
+
+// REMARCAR PELO CALENDÁRIO. Muda o DIA e mantém a hora: quem arrasta quer
+// trocar a data, não o horário — que foi escolhido por um motivo.
+async function remarcar({ peca, dia }) {
+  erro.value = ''
+  try {
+    // A hora atual da peça, em Brasília. Sem data anterior (peça solta), 09:00,
+    // o mesmo padrão do "+" do calendário.
+    const horaAtual = peca.publicar_em ? horaDaPeca(peca.publicar_em) : '09:00'
+    const quando = deCampoDeDataHora(`${dia}T${horaAtual}`)
+
+    // `avisado_em` PRECISA ser zerado. A peça remarcada continuaria marcada
+    // como já avisada e o robô da hora H — que só olha quem tem o campo nulo —
+    // nunca mais tocaria nela. Falha silenciosa: nenhum erro, o aviso
+    // simplesmente não chega. (Foi exatamente o que aconteceu pelo botão
+    // Salvar antes de eu corrigir lá.)
+    await dados.atualizarPeca(peca.id, { publicar_em: quando, avisado_em: null })
+    await dados.registrarEvento(peca.id, {
+      acao: 'remarcou',
+      detalhe: `Arrastada no calendário para ${dia} às ${horaAtual}.`,
+    })
+    await recarregar()
+  } catch (e) {
+    erro.value = e.message
+  }
 }
 
 async function mover({ peca, destino, veredito }) {

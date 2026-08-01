@@ -232,6 +232,9 @@
           {{ salvando ? 'Salvando…' : (ehNova ? 'Criar rascunho' : 'Salvar') }}
         </button>
         <button class="ctd-btn" @click="$emit('fechar')">Fechar</button>
+        <button v-if="!ehNova" class="ctd-btn" :disabled="duplicando" @click="duplicar">
+          {{ duplicando ? 'Duplicando…' : 'Duplicar' }}
+        </button>
 
         <!-- O recado fica COLADO no botão que o provocou, não num canto da tela:
              é onde o olho já está depois do clique. `aria-live` faz o leitor de
@@ -270,7 +273,7 @@ const props = defineProps({
   podeAprovar: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['fechar', 'mudou'])
+const emit = defineEmits(['fechar', 'mudou', 'abrir-peca'])
 
 const atual = ref(props.peca)
 const ehNova = computed(() => !atual.value?.id)
@@ -298,6 +301,29 @@ function avisar(texto) {
   recado.value = texto
   clearTimeout(relogioRecado)
   relogioRecado = setTimeout(() => { recado.value = '' }, 2600)
+}
+
+// DUPLICAR. Conteúdo real é repetitivo — "o mesmo carrossel do mês passado com
+// outro produto" é o caso mais comum, e sem isto refazia-se tudo do zero,
+// inclusive subindo os arquivos de novo.
+const duplicando = ref(false)
+async function duplicar() {
+  erro.value = ''
+  duplicando.value = true
+  try {
+    const r = await dados.duplicarPeca(atual.value)
+    const arte = r.arquivosOriginais
+      ? ` com ${r.arquivos} de ${r.arquivosOriginais} arquivo(s)`
+      : ''
+    avisar(`Cópia criada${arte}`)
+    emit('mudou')
+    // Abre a cópia: quem duplica quer editar a cópia, não continuar na original.
+    emit('abrir-peca', r.peca)
+  } catch (e) {
+    erro.value = e.message
+  } finally {
+    duplicando.value = false
+  }
 }
 
 // Ligar ao post do Instagram na mão.

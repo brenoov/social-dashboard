@@ -17,7 +17,13 @@
           v-for="dia in semana"
           :key="dia.iso"
           class="ctd-cal-dia"
-          :class="{ fora: !dia.doMes, hoje: dia.iso === hoje, vazio: !dia.pecas.length }"
+          :class="{
+            fora: !dia.doMes, hoje: dia.iso === hoje, vazio: !dia.pecas.length,
+            alvo: alvo === dia.iso,
+          }"
+          @dragover.prevent="aoArrastarSobre($event, dia)"
+          @dragleave="aoSair($event, dia)"
+          @drop.prevent="aoSoltar(dia)"
         >
           <div class="ctd-cal-cabdia">
             <span class="ctd-cal-num">{{ dia.numero }}</span>
@@ -31,9 +37,13 @@
               v-for="peca in dia.pecas"
               :key="peca.id"
               class="ctd-cal-peca"
+              :class="{ arrastando: arrastando?.id === peca.id }"
               :style="{ '--ctd-cor-status': corDeStatus(peca.status) }"
-              :title="`${peca.titulo} — ${rotuloDeStatus(peca.status)} — ${horaDaPeca(peca.publicar_em)}`"
+              :draggable="podeRemarcar(peca)"
+              :title="tituloDaPeca(peca)"
               @click="$emit('abrir', peca)"
+              @dragstart="aoComecar($event, peca)"
+              @dragend="arrastando = null; alvo = ''"
             >
               <img v-if="miniaturas[peca.id]" :src="miniaturas[peca.id]" :alt="peca.titulo" loading="lazy">
               <span v-else class="ctd-cal-peca-sem"><IconeFormato :formato="peca.formato" :tamanho="20" /></span>
@@ -77,9 +87,65 @@ const props = defineProps({
   miniaturas: { type: Object, default: () => ({}) },
 })
 
-defineEmits(['abrir', 'nova'])
+const emit = defineEmits(['abrir', 'nova', 'remarcar'])
 
 const hoje = hojeLocal()
+
+// ── ARRASTAR PARA REMARCAR ─────────────────────────────────────────────────
+//
+// Remarcar era a ação mais comum e a mais cara: abrir a peça, achar o campo de
+// data, digitar, salvar. O gesto natural é puxar do dia 12 para o dia 15.
+const arrastando = ref(null)
+const alvo = ref('')
+
+// Peça publicada não se remarca: a data dela é fato registrado, não plano.
+function podeRemarcar(peca) {
+  return peca?.status !== 'publicada'
+}
+
+function tituloDaPeca(peca) {
+  const base = `${peca.titulo} — ${rotuloDeStatus(peca.status)} — ${horaDaPeca(peca.publicar_em)}`
+  return podeRemarcar(peca) ? `${base}\nArraste para outro dia para remarcar.` : base
+}
+
+// O FIREFOX EXIGE `setData` para o arraste começar: sem isso o dragstart até
+// dispara, mas nenhum drop acontece. (Foi assim que o arrastar do quadro ficou
+// morto num navegador inteiro, em silêncio.)
+function aoComecar(ev, peca) {
+  if (!podeRemarcar(peca)) { ev.preventDefault(); return }
+  arrastando.value = peca
+  if (ev.dataTransfer) {
+    ev.dataTransfer.effectAllowed = 'move'
+    ev.dataTransfer.setData('text/plain', peca.id)
+  }
+}
+
+function aoArrastarSobre(ev, dia) {
+  const ok = !!arrastando.value && dia?.iso && dia.iso !== diaDaPecaArrastada.value
+  if (ev.dataTransfer) ev.dataTransfer.dropEffect = ok ? 'move' : 'none'
+  alvo.value = ok ? dia.iso : ''
+}
+
+// `dragleave` borbulha das peças dentro do dia, e sem esta guarda o realce
+// piscava a cada peça que o cursor cruzava.
+function aoSair(ev, dia) {
+  if (ev.currentTarget.contains(ev.relatedTarget)) return
+  if (alvo.value === dia.iso) alvo.value = ''
+}
+
+const diaDaPecaArrastada = computed(() =>
+  arrastando.value?.publicar_em ? String(arrastando.value.publicar_em).slice(0, 10) : '',
+)
+
+function aoSoltar(dia) {
+  const peca = arrastando.value
+  alvo.value = ''
+  arrastando.value = null
+  if (!peca || !dia?.iso) return
+  // Soltar no mesmo dia não é remarcação — é engano de mira.
+  if (dia.iso === diaDaPecaArrastada.value) return
+  emit('remarcar', { peca, dia: dia.iso })
+}
 const [anoDeHoje, mesDeHoje] = hoje.split('-').map(Number)
 
 const ano = ref(anoDeHoje)

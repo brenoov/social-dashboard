@@ -15,6 +15,7 @@
         :miniaturas="miniaturas"
         @abrir="$emit('abrir', $event)"
         @nova="$emit('nova', $event)"
+        @remarcar="$emit('remarcar', $event)"
       />
     </div>
 
@@ -39,5 +40,5 @@ defineProps({
   conta: { type: Object, default: null },
 })
 
-defineEmits(['abrir', 'nova'])
+defineEmits(['abrir', 'nova', 'remarcar'])
 </script>

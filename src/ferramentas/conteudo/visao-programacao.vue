@@ -29,7 +29,14 @@
       @abrir="$emit('abrir', $event)"
       @mover="$emit('mover', $event)"
     />
-    <VisaoLista v-show="modo === 'lista'" :pecas="pecas" @abrir="$emit('abrir', $event)" />
+    <VisaoLista
+      v-show="modo === 'lista'"
+      :pecas="pecas"
+      :pode-aprovar="podeAprovar"
+      :trabalhando="trabalhando"
+      @abrir="$emit('abrir', $event)"
+      @mover-lote="$emit('mover-lote', $event)"
+    />
   </div>
 </template>
 
@@ -43,9 +50,10 @@ defineProps({
   miniaturas: { type: Object, default: () => ({}) },
   metricas: { type: Object, default: () => ({}) },
   podeAprovar: { type: Boolean, default: false },
+  trabalhando: { type: Boolean, default: false },
 })
 
-defineEmits(['abrir', 'mover'])
+defineEmits(['abrir', 'mover', 'mover-lote'])
 
 // Quadro é o padrão: é a visão que mostra ONDE cada peça está travada, que é a
 // pergunta de quem abre a programação. A lista serve para varrer muita coisa.

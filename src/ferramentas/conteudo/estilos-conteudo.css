@@ -1336,3 +1336,36 @@
   .ctd-sem-dia { gap: 10px; }
   .ctd-sem-quando { width: 64px; }
 }
+
+/* ── Seleção e ações em lote na lista ──────────────────────────────────────── */
+.ctd-tab-sel { width: 40px; text-align: center; }
+.ctd-tab-sel input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+.ctd-tabela tbody tr.marcada { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+
+.ctd-lote {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 10px 14px; border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
+  /* SEM `sticky`. Tentei colar no topo e o resultado foi a barra COBRINDO o
+     cabeçalho da tabela em 23px, medidos: com `top` maior que a posição
+     natural do elemento, o navegador o empurra para baixo já no primeiro
+     instante, sobre o que vem depois.
+     Colar embaixo (padrão do Gmail) resolveria, mas para uma lista que
+     raramente passa de uma tela não vale a complexidade — e barra que cobre
+     conteúdo é pior que barra que sai de vista. */
+}
+.ctd-lote-conta { font-size: 13px; font-weight: 700; color: var(--accent); }
+.ctd-lote-rot {
+  font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase;
+  color: var(--muted);
+}
+.ctd-lote-limpar { margin-left: auto; min-height: 32px; padding: 6px 12px; font-size: 12px; }
+
+/* ── Arrastar no calendário ────────────────────────────────────────────────── */
+.ctd-cal-dia.alvo {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.ctd-cal-peca[draggable="true"] { cursor: grab; }
+.ctd-cal-peca.arrastando { opacity: .4; }
