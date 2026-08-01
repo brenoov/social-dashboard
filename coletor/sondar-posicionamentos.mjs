@@ -17,6 +17,37 @@
 //      precisaria ser preservado (a mesma dívida que geo_locations já tem).
 //
 // CUSTA R$ 0: nenhuma IA. Só GETs no Graph via meta-proxy. NÃO GRAVA NADA.
+//
+// ═══ O QUE ELA ACHOU (2026-08-01, 50 conjuntos da La Vessel) ═══════════════
+//
+// 1. AUTOMÁTICO É O NORMAL, NÃO A EXCEÇÃO: 44 de 50 conjuntos não declaram
+//    posicionamento nenhum. Os 6 que declaram são todos anúncios de VAGA DE
+//    EMPREGO, e todos pausados. A tela tem de tratar "automático" como o estado
+//    esperado — e mudar isso é decisão grande, não um clique de passagem.
+//
+// 2. O VOCABULÁRIO REAL É MUITO MAIOR QUE O DA FÁBRICA. Se eu tivesse escrito a
+//    tela a partir do `regrasPlacement` (que conhece facebook/instagram/
+//    audience_network/messenger e as posições feed/story/reels), teria errado em
+//    dois lugares que apagariam entrega sem avisar:
+//      publisher_platforms .. facebook · instagram · WHATSAPP  ← whatsapp não
+//                             existe no vocabulário do criativo
+//      facebook_positions ... feed · story · facebook_reels · instream_video ·
+//                             marketplace · notification · profile_feed · search
+//      instagram_positions .. stream · story · reels · explore · explore_home ·
+//                             profile_feed · profile_reels
+//    São 8 posições no Facebook e 7 no Instagram, contra 3 e 3 que o criativo
+//    conhece. Uma tela oferecendo só 3 e gravando o que estivesse marcado
+//    ESTREITARIA a entrega de quem tem 8 — silenciosamente.
+//
+// 3. HÁ CAMPO A PRESERVAR, exatamente como geo_locations: `whatsapp_positions`
+//    (=status) e `device_platforms` (=mobile) existem na conta e a tela não
+//    pretende desenhar. Montar o objeto do zero apagaria os dois.
+//
+// CONCLUSÃO DE DESENHO: a tela não pode oferecer uma lista fixa tirada da
+// documentação nem do criativo. Tem de LER o que o conjunto já tem, mostrar
+// aquilo, e devolver preservando tudo que não desenhou.
+
+
 import { loginServico } from './lib/bling-comercial.mjs';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://kounqtdoioootxqegkij.supabase.co';
