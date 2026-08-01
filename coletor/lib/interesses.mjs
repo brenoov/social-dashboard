@@ -245,6 +245,16 @@ export function montarPedido({ marca, lojas, objetivo } = {}) {
     // achados tinha qualificador.
     'REGRA MEDIDA: escreva o SUBSTANTIVO SOZINHO, no singular — "bolsa", "cinto", "carteira", "óculos".',
     'NÃO acrescente qualificador: "bolsa feminina", "cinto de couro" e "carteira feminina" NÃO EXISTEM no catálogo e voltam vazios.',
+    // MEDIDO em duas rodadas: palavra abstrata bate em qualquer coisa. `estilo`
+    // trouxe `Tai chi chuan estilo Wu`, `Esqui estilo livre` e `Estilo
+    // arquitetónico`; `tendência` trouxe `tendência do mercado (setores comercial
+    // e financeiro)`. Nenhum dos dois rendeu UM interesse aproveitável em rodada
+    // nenhuma — só ocupou vaga e ainda deu trabalho pro filtro de tamanho.
+    //
+    // Note que isto NÃO pede termo mais estreito (a instrução que zerou tudo em
+    // cef4b36): pede COISA em vez de CONCEITO. "óculos" é curto e concreto; os
+    // dois convivem.
+    'Prefira COISA a CONCEITO: "óculos" e "mochila" acham produto; "estilo", "tendência" e "lifestyle" acham tai chi, esqui e mercado financeiro.',
     'Não tente adivinhar o nome exato de um interesse do Meta — cada termo será buscado no catálogo dele.',
   ].join('\n');
 
@@ -317,6 +327,23 @@ export function montarEscolha({ marca, objetivo, itens } = {}) {
     'Muitos vieram por coincidência de palavra — buscar "bolsa" traz "Bolsa de Valores de Istambul", que não tem nada a ver com uma loja de bolsas.',
     'Devolva os id dos que fazem sentido para ESTA marca com ESTE objetivo, do mais relevante para o menos.',
     'É melhor devolver poucos e certos do que muitos e duvidosos. Se nenhum servir, devolva lista vazia.',
+    // ESTAS TRÊS LINHAS SÃO O CONSERTO DE 2026-08-01, e cada uma paga um erro
+    // observado na rodada real:
+    //
+    // (a) SEM NÚMERO A ATINGIR. Ao soltar o teto de quantidade, a lista oferecida
+    //     pulou de 12 para ~50 itens e a IA passou a devolver EXATAMENTE 12 em
+    //     todos os seis objetivos — o teto virou meta. Foi assim que entraram
+    //     `Bolsa de Valores de Hong Kong` (em "mensagens"!), `Bolsa de estudo`,
+    //     `Boémia` e `Moda hip hop`: vaga sobrando sendo preenchida.
+    // (b) O TESTE DA FRASE. "Poucos e certos" é abstrato e perde para a vontade
+    //     de completar a lista; uma pergunta concreta, que se responde item a
+    //     item, resiste melhor.
+    // (c) O EXEMPLO DO ERRO DA VEZ. `Bolsa de Valores de Hong Kong` passou mesmo
+    //     com o exemplo de Istambul logo acima — o mesmo erro, outra cidade. Fica
+    //     explícito que a família inteira está fora, não só o exemplo citado.
+    'Não existe número certo de respostas: 4 podem ser mais úteis que 12. Nunca complete a lista só para ela ficar cheia.',
+    'Teste cada um antes de incluir: "uma pessoa interessada NISTO compraria desta loja?" Se a resposta for "talvez", deixe fora.',
+    'Bolsa de valores, bolsa de estudo e qualquer outro sentido da palavra que não seja o produto da loja estão SEMPRE fora, de qualquer cidade ou país.',
   ].join('\n');
 
   return { system, user };
