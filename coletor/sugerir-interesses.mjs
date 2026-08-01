@@ -1,8 +1,15 @@
 // Robô semanal: sugere interesses de segmentação por marca × objetivo.
 //
-// COMO FUNCIONA: lê as marcas ativas e as lojas de cada uma, pede ao modelo uma
-// lista de interesses para cada objetivo, e VALIDA CADA NOME NA META antes de
-// gravar. O que a Meta não reconhece é descartado — a IA propõe, a Meta decide.
+// COMO FUNCIONA: lê as marcas ativas e as lojas de cada uma, pede ao modelo
+// TERMOS DE BUSCA para cada objetivo, BUSCA CADA TERMO NA META e colhe os
+// interesses que voltarem. Os nomes saem do catálogo da Meta — a IA só escolhe
+// o assunto.
+//
+// POR QUE ASSIM: antes se pedia ao modelo o NOME EXATO de cada interesse e
+// depois se validava nome por nome. Medido na conta de verdade, 15% dos nomes
+// existiam — a faixa chegava à tela com uma ou duas sugestões. Pedir nome exato
+// é pedir que o modelo decore um catálogo que ele nunca viu; pedir o assunto é
+// pedir o que ele sabe fazer.
 //
 // POR QUE PRÉ-CALCULADO E NÃO SOB CLIQUE: a sugestão já está na tela quando o
 // dono abre o editor, o custo é fixo por semana em vez de crescer com o uso, e
@@ -12,7 +19,7 @@
 // então o valor real aparece no painel Status do Claude, em reais.
 import { structured, SONNET, usageSummary } from './lib-llm.mjs';
 import { registrarExecucao } from './registrar-execucao.mjs';
-import { montarPedido, nomesPropostos, filtrarValidos, comCidadesResolvidas, rodadaFalhouInteira, OBJETIVOS } from './lib/interesses.mjs';
+import { montarPedido, montarEscolha, escolhidosValidos, linhaDaEscolha, nomesPropostos, colherDaBusca, linhaDosTermos, linhasDaPrevia, linhasDosLargos, linhasDosPequenos, linhasPorTermo, comCidadesResolvidas, rodadaFalhouInteira, OBJETIVOS } from './lib/interesses.mjs';
 // Login da conta de serviço (mesma usada por subir-estudio.mjs, ativar-estudio.mjs
 // etc.) — o meta-proxy chama auth.getUser() sobre o Authorization recebido, e uma
 // service key não é sessão de usuário: ela sempre daria 401 "nao autenticado" ali.
@@ -45,20 +52,45 @@ async function sbPost(path, body, prefer) {
   if (!r.ok) throw new Error(`POST ${path} ${r.status} ${(await r.text()).slice(0, 200)}`);
 }
 
-// Fala com a Meta pela Edge meta-proxy, como o resto do projeto.
-// Manda ARRAY, não texto: o proxy já faz JSON.stringify em valor que é objeto,
-// e converter aqui converteria duas vezes.
+// Busca UM termo no catálogo de interesses da Meta, pela Edge meta-proxy.
+//
+// É EXATAMENTE A MESMA CHAMADA que a Fábrica faz quando o dono digita na busca
+// de interesses (painel-subir.vue, "buscarInteresses"): type=adinterest, o termo
+// em `q`, `limit` 10. Nada além disso — e o parágrafo abaixo existe pra que
+// ninguém acrescente `locale` de novo achando que é uma boa ideia nova.
+//
+// JÁ TENTAMOS `locale: 'pt_BR'` — NÃO FUNCIONA. MEDIDO, NÃO SUPOSTO:
+// a Meta ACEITOU o parâmetro (nenhum 400, nenhum erro, zero ⚠ no log) e
+// devolveu ZERO resultado nas 48 buscas da rodada. Ou seja: o parâmetro existe
+// de verdade, mas o formato/significado não é o que a gente supôs — o locale de
+// segmentação da Meta costuma ser um ID numérico, não a sigla em texto.
+//
+// NÃO SAIA CHUTANDO OUTRO FORMATO. Cada chute custa uma rodada, e o problema que
+// o locale ia resolver (filme americano, semana de moda da Índia, rede social
+// russa aparecendo numa busca em português) pode muito bem já estar resolvido de
+// graça pelo pedido: aqueles nomes vieram todos de termo GENÉRICO batendo no
+// catálogo mundial. Termo específico em português tende a cair sozinho em
+// entrada brasileira. É isso que a próxima rodada mede.
+//
+// Fica registrado o susto que essa tentativa deu, porque ele valeu a pena: com
+// zero resultado em tudo, a rodada terminou VERMELHA e com código de saída 1,
+// em vez de gravar uma faixa vazia em silêncio. Foi a regra da "rodada que não
+// produziu nada é falha" (rodadaFalhouInteira) fazendo exatamente o trabalho
+// dela.
+//
+// Manda os parâmetros como objeto, não texto: o proxy já faz JSON.stringify em
+// valor que é objeto, e converter aqui converteria duas vezes.
 // AUTENTICAÇÃO: token de USUÁRIO (loginServico), não a service key — o
 // meta-proxy resolve o chamador via auth.getUser(), que só reconhece sessão de
 // usuário de verdade. `token` vem de run(), obtido uma única vez antes do laço.
-async function validarNaMeta(accountId, nomes, token) {
+async function buscarNaMeta(accountId, termo, token) {
   const r = await fetch(SUPABASE_URL + '/functions/v1/meta-proxy', {
     method: 'POST',
     headers: { apikey: ANON, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       accountId,
       path: '/search',
-      params: { type: 'adinterestvalid', interest_list: nomes },
+      params: { type: 'adinterest', q: termo, limit: 10 },
       method: 'GET',
     }),
   });
@@ -125,17 +157,47 @@ async function resolverNomesDeCidade(chaves, token, accountId) {
   }
 }
 
+// O campo continua se chamando `interesses` — é o que o modelo devolve, e mudar
+// o nome não mudaria nada além de exigir tocar em mais um lugar. O que ele
+// carrega hoje são TERMOS DE BUSCA, e a descrição diz isso.
 const SCHEMA = {
   type: 'object',
   properties: {
     interesses: {
       type: 'array',
       items: { type: 'string' },
-      description: 'Nomes de interesse do Meta, em português do Brasil, até 12.',
+      // Voltou a pedir termo CURTO, junto com o pedido: a versão que exigia
+      // termo "ESPECÍFICO" zerou as 48 buscas — o catálogo da Meta é grosso e
+      // não tem entrada pra termo estreito. Ver o comentário em montarPedido.
+      description: 'Termos de busca curtos (1 a 3 palavras), em português do Brasil, até 8.',
     },
   },
   required: ['interesses'],
 };
+
+// SEGUNDA ETAPA: só os id, nunca nomes.
+//
+// Pedir NOME de volta reabriria a porta que este robô fechou a duras penas — a
+// IA escreveria "Bolsas femininas" com a melhor das intenções e gravaríamos um
+// interesse que não existe no Meta. Id ela não tem como inventar de forma
+// plausível, e `escolhidosValidos` ainda confere um a um contra a lista
+// oferecida.
+const SCHEMA_ESCOLHA = {
+  type: 'object',
+  properties: {
+    ids: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Os id dos interesses que servem, do mais relevante para o menos. Só id que está na lista.',
+    },
+  },
+  required: ['ids'],
+};
+
+// Pausa entre uma busca e a seguinte. São 8 termos × 6 objetivos por marca, e
+// este robô roda uma vez por semana: não existe motivo nenhum pra ter pressa
+// com a API da Meta.
+const PAUSA_ENTRE_BUSCAS = 400;
 
 export async function run() {
   const t0 = Date.now();
@@ -148,7 +210,11 @@ export async function run() {
   // grava em ia_execucoes com status 'erro'.
   const token = await loginServico();
 
-  const marcas = await sbGet('/fabrica_marcas?select=id,nome,account_id&ativo=eq.true');
+  // `segmento` (o que a marca vende) é o campo mais importante do pedido — ver
+  // montarPedido. Esquecer de pedir a coluna aqui NÃO daria erro: ela chegaria
+  // undefined, a linha sumiria do pedido e a IA voltaria a adivinhar pelo nome,
+  // exatamente o defeito que a coluna existe pra consertar, e em silêncio.
+  const marcas = await sbGet('/fabrica_marcas?select=id,nome,segmento,account_id&ativo=eq.true');
   const lojas = await sbGet('/fabrica_lojas?select=nome,marca_id,geo_cities');
 
   // Traduz TODAS as chaves de cidade de uma vez, antes do laço (ver
@@ -180,22 +246,99 @@ export async function run() {
         puladas++; continue;
       }
 
-      const propostos = nomesPropostos(resposta);
-      if (!propostos.length) { console.log(`  ⚠ ${marca.nome} · ${objetivo}: IA não propôs nada`); puladas++; continue; }
+      const termos = nomesPropostos(resposta);
+      if (!termos.length) { console.log(`  ⚠ ${marca.nome} · ${objetivo}: IA não propôs nenhum termo`); puladas++; continue; }
 
-      let validacao;
-      try {
-        validacao = await validarNaMeta(marca.account_id, propostos, token);
-      } catch (e) {
-        // Sem validação NÃO grava: sugestão não conferida na Meta é pior que
-        // sugestão nenhuma, porque dá erro só na hora de usar.
-        console.log(`  ⚠ ${marca.nome} · ${objetivo}: validação falhou — ${String(e).slice(0, 120)}`);
+      // SÓ EM SECO, E ANTES DE BUSCAR: os termos que a IA devolveu.
+      //
+      // Duas rodadas terminaram em zero e não deu pra saber por quê, porque os
+      // termos — a única pista que restava — não apareciam em lugar nenhum. Sai
+      // ANTES das buscas de propósito: assim ele aparece mesmo quando toda busca
+      // falha ou toda busca volta vazia, que é justamente quando ele importa.
+      if (DRY) console.log(`  ${marca.nome} · ${objetivo} — ${linhaDosTermos(termos)}`);
+
+      // UMA BUSCA POR TERMO, e uma busca que falha NÃO derruba o objetivo: os
+      // outros termos ainda trazem interesse bom. Só se TODAS falharem é que o
+      // objetivo é pulado — aí a causa não é o termo, é a Meta ou o token, e a
+      // regra antiga continua valendo: sem resposta da Meta, não se grava nada.
+      // GUARDADO EM PARES { termo, resposta }, não em dois arrays lado a lado:
+      // busca que falha não entra, e sem o par o log de "o que cada termo achou"
+      // atribuiria o resultado ao termo errado a partir da primeira falha.
+      const buscas = [];
+      for (const termo of termos) {
+        try {
+          buscas.push({ termo, resposta: await buscarNaMeta(marca.account_id, termo, token) });
+        } catch (e) {
+          console.log(`  ⚠ ${marca.nome} · ${objetivo}: a busca por "${termo}" falhou — ${String(e).slice(0, 120)}`);
+        }
+        await sleep(PAUSA_ENTRE_BUSCAS);
+      }
+      const respostas = buscas.map((b) => b.resposta);
+      if (!respostas.length) {
+        console.log(`  ⚠ ${marca.nome} · ${objetivo}: TODAS as ${termos.length} buscas na Meta falharam — nada gravado`);
         puladas++; continue;
       }
 
-      const { itens, propostos: nProp, validos } = filtrarValidos(propostos, validacao);
+      const colhido = colherDaBusca(termos, respostas);
+      const { propostos: nProp, largos, pequenos } = colhido;
+
+      // SEGUNDA ETAPA: a IA escolhe entre as fichinhas REAIS que a Meta devolveu.
+      //
+      // Aqui ela não adivinha nada — recebe o que existe e só separa o que serve
+      // do que caiu por coincidência de palavra ("bolsa" traz bolsa de valores).
+      // Ver montarEscolha em lib/interesses.mjs para o porquê de cada linha.
+      //
+      // DEGRADA, NÃO DERRUBA: se esta chamada falhar, a lista segue como veio da
+      // busca — que é exatamente o comportamento de antes desta etapa existir.
+      // Perder a rodada inteira por causa de um refinamento seria trocar uma
+      // faixa boa por nenhuma faixa. Mas o aviso sai no log: degradar em
+      // silêncio é como um filtro desligado passa meses sem ninguém notar.
+      let itens = colhido.itens;
+      const escolha = montarEscolha({ marca, objetivo, itens });
+      if (escolha) {
+        try {
+          const r = await structured({ model: MODEL, system: escolha.system, user: escolha.user, schema: SCHEMA_ESCOLHA, toolName: 'escolher' });
+          const ficaram = escolhidosValidos(r && r.ids, itens);
+          // Lista vazia é resposta legítima ("nenhum serve") e é respeitada: quem
+          // decide o que fazer com uma rodada inteira vazia é rodadaFalhouInteira,
+          // lá embaixo, que já pinta o Actions de vermelho.
+          if (DRY) console.log(linhaDaEscolha(itens, ficaram));
+          itens = ficaram;
+        } catch (e) {
+          console.log(`  ⚠ ${marca.nome} · ${objetivo}: a escolha da IA falhou — seguindo com a lista da busca (${String(e).slice(0, 90)})`);
+        }
+      }
+      const validos = itens.length;
       totPropostos += nProp; totValidos += validos;
-      console.log(`  ${marca.nome} · ${objetivo}: ${validos}/${nProp} sobreviveram à validação`);
+      // O número mudou de sentido: antes era "quantos sobreviveram à validação",
+      // agora é "quantos interesses as buscas acharam". Passar de 100% é normal —
+      // um termo pode trazer vários interesses.
+      console.log(`  ${marca.nome} · ${objetivo}: ${validos} interesses achados a partir de ${nProp} termos`);
+
+      // A PRÉVIA VEM ANTES DO `continue` DE LISTA VAZIA, e isso é um conserto:
+      // do jeito anterior, um objetivo em que TUDO foi descartado por tamanho
+      // saía do laço aqui em cima e o bloco de descartados nunca era impresso —
+      // ou seja, o corte ficava invisível justamente no caso em que ele explica
+      // tudo. Com `itens` vazio a prévia simplesmente não tem linha nenhuma.
+      if (DRY) {
+        // A prévia do que SERIA gravado, nome por nome, na mesma ordem que iria
+        // pro banco: o número diz se rendeu, os nomes dizem se prestam, e só o
+        // dono responde a segunda pergunta.
+        for (const linha of linhasDaPrevia(itens)) console.log(linha);
+        // E o que foi CORTADO por ser largo demais, com o tamanho. O teto que
+        // corta é provisório (ver TETO_DE_PUBLICO): sem ver o que ele derruba,
+        // não há como saber se está no lugar certo — e um corte invisível nunca
+        // seria corrigido.
+        for (const linha of linhasDosLargos(largos)) console.log(linha);
+        // O mesmo por baixo (ver PISO_DE_PUBLICO). Vem depois dos largos porque
+        // é a leitura menos frequente: o teto foi afrouxado e o piso, apertado.
+        for (const linha of linhasDosPequenos(pequenos)) console.log(linha);
+        // E, por último, o CRU: qual termo achou o quê. É a linha que responde
+        // se a lista repetida vem da IA ou do catálogo da Meta. Fica no fim de
+        // propósito — é a mais comprida, e quem só quer conferir a qualidade da
+        // rodada já leu tudo que precisava acima.
+        for (const linha of linhasPorTermo(buscas)) console.log(linha);
+      }
 
       if (!itens.length) { puladas++; continue; }
       // Em --dry nenhuma SUGESTÃO é gravada. A linha de ia_execucoes lá embaixo é
@@ -204,6 +347,8 @@ export async function run() {
       // O que não sobe é `gravadas`: um registro de auditoria que afirmasse
       // "6 gravadas" numa rodada seca seria uma mentira permanente no robô que
       // ninguém fica olhando.
+      // A prévia já foi impressa acima. Aqui só se conta a simulação: no modo
+      // normal a linha está na tabela e na tela, e o log fica sendo resumo.
       if (DRY) { simuladas++; continue; }
 
       try {
@@ -223,14 +368,18 @@ export async function run() {
   }
 
   const uso = usageSummary();
-  const aproveitamento = totPropostos ? Math.round((totValidos / totPropostos) * 100) : 0;
+  // NÃO é mais "aproveitamento": não existe mais um total de nomes propostos do
+  // qual uma parte sobrevive. São interesses ACHADOS a partir de termos buscados,
+  // e o número pode passar de um por termo sem que isso seja anomalia nenhuma.
+  // Manter a palavra antiga aqui faria o dono ler 250% e achar que quebrou.
+  const rendimento = `${totValidos} interesses achados em ${totPropostos} termos`;
   // Em --dry o resumo fala de `simuladas`, nunca de `gravadas` — a mesma frase
   // vira o log do console E o `detalhe` gravado em ia_execucoes logo abaixo,
   // então não existe uma versão "bonita" pro console e uma verdadeira pro
   // banco: é a mesma, e ela já nasce certa nos dois lugares.
   const base = DRY
-    ? `SECO: ${simuladas} teriam sido gravadas (nada escrito), ${puladas} puladas, aproveitamento ${aproveitamento}%`
-    : `${gravadas} gravadas, ${puladas} puladas, aproveitamento ${aproveitamento}%`;
+    ? `SECO: ${simuladas} teriam sido gravadas (nada escrito), ${puladas} puladas, ${rendimento}`
+    : `${gravadas} gravadas, ${puladas} puladas, ${rendimento}`;
 
   // FALHA SISTÊMICA ≠ falha de uma marca. A regra mora no lib (com teste), porque
   // é ela que decide se um problema aparece ou passa batido — ver rodadaFalhouInteira.

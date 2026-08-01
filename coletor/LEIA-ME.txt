@@ -107,8 +107,31 @@ marca × objetivo de campanha. As sugestões aparecem numa faixa acima da busca
 de interesses na Fábrica de Anúncios, com o tamanho do público de cada uma.
 Antes disso, escolher interesse era chutar no escuro.
 
-O QUE A IA RECEBE: o nome da marca, o nome de cada loja, as CIDADES que cada
-loja atende e o objetivo da campanha. Nada de texto escrito por gente.
+O QUE A IA RECEBE: o nome da marca, O QUE ELA VENDE, o nome de cada loja, as
+CIDADES que cada loja atende e o objetivo da campanha. Tudo vem do cadastro —
+nada de texto escrito na hora por alguém.
+
+"O QUE ELA VENDE" É O CAMPO MAIS IMPORTANTE DO PEDIDO. Ele sai da coluna
+`segmento` de fabrica_marcas. Antes dele existir, a IA recebia só o nome ("La
+Vessel"), deduzia "loja de moda feminina" e devolvia "looks do dia", "estilo
+pessoal", "influencer moda" — genérico, e igual nos seis objetivos. Enquanto
+isso, a maior linha de produto da loja, contando itens no estoque, é CINTO (398,
+mais que qualquer tipo de bolsa) — e nenhum termo jamais citou cinto, porque
+ninguém tinha contado isso a ela.
+
+Se a coluna estiver vazia, nada quebra: o pedido sai só com o nome, como era
+antes, e a linha simplesmente não aparece. Marca nova sem o campo preenchido
+gera sugestão mais genérica, não gera erro.
+
+O QUE A IA DEVOLVE: até 8 TERMOS DE BUSCA — assuntos, não nomes de interesse.
+Coisas como "moda feminina" ou "bolsas". Quem procura os nomes de verdade é o
+robô, buscando cada termo na própria Meta.
+
+Os termos são pedidos CURTOS E ABRANGENTES, e isso é de propósito — ver a seção
+"já tentamos pedir termo específico" mais abaixo, porque o contrário já foi
+tentado e zerou a ferramenta inteira. O pedido também diz QUEM procurar em cada
+objetivo (quem está em momento de compra não é quem ainda nem conhece a marca),
+pra que os seis objetivos não devolvam a mesma lista seis vezes.
 
 As cidades merecem uma nota: no banco elas estão guardadas como CÓDIGO do Meta
 (267873), não como nome. Antes de perguntar qualquer coisa à IA, o robô pede ao
@@ -117,20 +140,133 @@ mesma pergunta seis vezes. Se o Meta não responder, o robô NÃO cancela a sema
 manda o pedido sem as cidades e avisa no log. Sugestão sem cidade é mais
 genérica; semana nenhuma é pior.
 
-A IA PROPÕE, MAS QUEM DECIDE É A META
+A IA ESCOLHE O ASSUNTO, A META DÁ OS NOMES
+-------------------------------------------
+Pra cada termo, o robô faz uma busca no catálogo da Meta
+(/search?type=adinterest) — a MESMA busca que você faz quando digita na caixa
+de interesses da Fábrica — e guarda os interesses que voltarem, já com o id e o
+tamanho de público certos. Nome de interesse escrito pela IA nunca chega ao
+banco: os nomes saem todos do catálogo.
+
+POR QUE MUDOU (o número que provocou a mudança): antes o robô pedia à IA o NOME
+EXATO de cada interesse e depois conferia nome por nome na Meta. Rodando na conta
+de verdade, de cada 12 nomes só 1 a 3 existiam — 15%. A faixa chegava à tela com
+uma ou duas sugestões, fina demais pra valer a pena. Não era desleixo do modelo:
+acertar o nome exato é decorar um catálogo que ele nunca viu. Pedir o assunto é
+pedir o que ele sabe fazer.
+
+UMA BUSCA QUE FALHA NÃO PERDE O OBJETIVO: são 8 buscas por objetivo, e as outras
+7 seguem valendo. Só quando TODAS as buscas de um objetivo falham é que ele é
+pulado sem gravar nada — aí o problema não é o termo, é a Meta ou o token, e
+gravar palpite continua sendo pior do que pular a semana.
+
+CADA LINHA GUARDA NO MÁXIMO 12 INTERESSES, os de MAIOR público primeiro. O teto
+existe porque um termo largo volta com dez resultados sozinho e tomaria a faixa
+inteira.
+
+INTERESSE GRANDE DEMAIS É JOGADO FORA
 --------------------------------------
-O robô pede uma lista ao modelo e depois VALIDA CADA NOME na própria Meta
-(/search?type=adinterestvalid). O que ela não reconhece é jogado fora antes de
-virar linha no banco.
+"Compras na internet" tem 1,58 BILHÃO de pessoas. Escolher isso como interesse é
+o mesmo que não escolher interesse nenhum — não separa cliente de não-cliente,
+só dá a impressão de que a campanha está mirando alguém. Então tudo acima de 500
+milhões de pessoas é descartado.
 
-Isso não é preciosismo: sem essa etapa a tela mostraria sugestões bonitas que
-dariam ERRO na hora de usar — pior do que não sugerir nada, porque parece que
-funciona até o momento em que importa. E é por isso também que uma validação
-que FALHA não grava nada: pular a semana é melhor que gravar palpite.
+ESSE 500 MILHÕES É PROVISÓRIO e está escrito pra ser mudado (a linha mora em
+coletor/lib/interesses.mjs, com o nome TETO_DE_PUBLICO). Ele saiu de uma medição
+só, e ainda por cima o tamanho que o Meta devolve parece ser MUNDIAL, não do
+Brasil — número grande não é automaticamente errado pra cá. Por isso a linha
+começou alta: deixar entrar coisa larga demais é um erro que você VÊ e reclama;
+cortar interesse bom é um erro que ninguém nunca fica sabendo.
 
-O robô anota no log quantos foram propostos e quantos sobreviveram. Se essa
-proporção cair muito, o pedido feito à IA precisa de ajuste — e dá pra ver isso
-sem abrir o log, olhando as colunas "propostos" e "validos" da tabela.
+Pra poder acertar essa linha, a rodada seca LISTA tudo que foi cortado, com o
+tamanho de cada um — e mostra o tamanho do que ficou também. É olhando esses dois
+que dá pra decidir se 500 milhões é muito ou pouco.
+
+O QUE NÃO É JULGADO: o NOME. O robô não descarta interesse por parecer
+estrangeiro ou por parecer estranho. "Black friday" é usado no Brasil de
+verdade, e esse caminho acabaria jogando fora interesse legítimo. Tamanho é o
+que dá pra medir; se o nome faz sentido pra marca, quem decide é você, olhando
+a faixa.
+
+JÁ TENTAMOS PEDIR TERMO ESPECÍFICO — E ZEROU TUDO
+--------------------------------------------------
+Também fica anotado, pelo mesmo motivo: parece uma boa ideia, e não é.
+
+O raciocínio era: se os termos forem mais específicos, os interesses achados
+serão mais relevantes. Trocamos "curto e abrangente" por "SEJA ESPECÍFICO" e
+proibimos categoria enorme no pedido.
+
+O resultado, MEDIDO: ZERO interesse em todos os seis objetivos, nas 48 buscas. A
+ferramenta inteira vazia.
+
+O motivo: o catálogo do Meta é GROSSO. Ele tem "Moda feminina", "Bolsas",
+"Roupas femininas" — ele NÃO tem "bolsa de couro artesanal para trabalho".
+Termo específico demais não acha nada, simplesmente porque não existe entrada
+correspondente lá dentro.
+
+Ou seja: a especificidade do termo não é a alavanca. O que faltava não era o
+modelo apertar a pontaria — era ele SABER O QUE A LOJA VENDE, e isso agora chega
+pelo campo "o que ela vende" (lá em cima).
+
+Os três pontos medidos deste mesmo texto, pra não repetir nenhum:
+  pedindo o nome exato do interesse ..... 15% dos nomes existiam
+  pedindo termo "específico" ............ zero resultado
+  pedindo "curto e abrangente" .......... 49 interesses achados
+
+A CATEGORIA DE CADA INTERESSE — MEDIDA, E NÃO SERVE PRA FILTRAR
+----------------------------------------------------------------
+Mais uma anotada pra ninguém tentar de novo.
+
+Junto com o nome e o tamanho, o Meta devolve uma CATEGORIA do interesse. A ideia
+era usar ela pra separar o joio: "Bolsas" seria "Compras e moda", enquanto
+"Observe and Report" (um filme) seria "Entretenimento > Filmes". Uma regra por
+categoria resolveria de uma vez.
+
+O resultado, MEDIDO: quase toda categoria volta como "Interesses > Outros
+interesses > <o próprio nome do interesse>". É um lugar-nenhum que só repete o
+nome. De 36 interesses achados, UM tinha categoria de verdade. Não dá pra
+filtrar por um campo que é igual pra todo mundo.
+
+A categoria continua sendo COLETADA e mostrada no log seco (custa nada, e é bom
+ter à vista), mas NÃO existe nem deve existir regra baseada nela até que o Meta
+passe a preenchê-la.
+
+A lição que ficou, e que vale mais que o campo: olhar o valor de verdade ANTES de
+escrever a regra. Se a regra tivesse sido escrita junto, ela não faria nada e
+ninguém desconfiaria — porque não filtrar nada e filtrar errado se parecem
+demais quando não se olha.
+
+JÁ TENTAMOS FILTRAR A BUSCA POR IDIOMA — E NÃO DEU CERTO
+---------------------------------------------------------
+Fica anotado pra ninguém tentar de novo achando que é ideia nova.
+
+O problema: uma rodada trouxe um filme americano de 2009 ("Observe and Report"),
+uma lista de revistas em inglês, uma semana de moda da ÍNDIA e um perfil de uma
+rede social RUSSA. Catálogo de outro idioma entrando numa busca em português.
+
+A tentativa: pedir a busca com idioma "pt_BR".
+
+O resultado, MEDIDO: o Meta ACEITOU o parâmetro — nenhum erro, nenhum aviso no
+log — e devolveu ZERO resultado nas 48 buscas. Nenhuma sugestão em nenhum
+objetivo. Ou seja, o parâmetro existe de verdade, mas o formato não é esse (o
+idioma na segmentação do Meta costuma ser um número de código, não a sigla
+escrita). A documentação dele não ajuda: ela nem lista esse parâmetro, e ainda
+por cima jura que a resposta não traz tamanho de público, quando traz.
+
+Por que não saímos chutando outro formato: cada chute custa uma rodada, e o
+problema pode já estar resolvido de graça pelo pedido — aqueles nomes esquisitos
+vieram todos de termo GENÉRICO batendo no catálogo mundial, e agora os termos
+são específicos e em português. Primeiro medimos isso.
+
+O LADO BOM DO SUSTO: com zero resultado em tudo, a rodada terminou VERMELHA e
+com erro registrado, em vez de gravar uma faixa vazia caladinha. Se ela tivesse
+terminado verde, o dono ficaria vendo a Fábrica sem sugestão nenhuma por semanas
+sem nada parecer quebrado. É a regra de "rodada que não produziu nada é falha"
+funcionando.
+
+O robô anota no log quantos termos foram pedidos e quantos interesses as buscas
+acharam. Passar de um interesse por termo é normal. Dá pra ver o mesmo sem abrir
+o log, nas colunas "propostos" (termos) e "validos" (interesses) da tabela.
 
 CUSTO
 -----
@@ -159,13 +295,34 @@ PRA RODAR PELA PRIMEIRA VEZ (o que falta)
      GESTOR_USER_EMAIL ....... já usado (Fábrica)
      GESTOR_USER_PASSWORD .... já usado (Fábrica)
 3. Disparar na mão pelo Actions, no modo "seco" primeiro: ele roda tudo e
-   mostra quantos interesses sobreviveram à validação, sem gravar sugestão
-   nenhuma no banco.
+   MOSTRA NO LOG a lista que seria gravada — cada interesse com seu nome e o
+   tamanho do público, na mesma ordem que iria pro banco — e, logo abaixo, o
+   que foi descartado por ser largo demais, também com o tamanho. Sem gravar
+   sugestão nenhuma. É pra isso que o seco serve: o número diz se rendeu, mas
+   só os nomes dizem se prestam, e quem julga isso é você. No modo normal essa
+   lista não sai (lá ela está na tabela e na tela, e o log fica só o resumo).
+
+   Antes de tudo isso ele mostra também os TERMOS que a IA pediu — sem eles,
+   uma rodada que volta vazia não tem pista nenhuma do que aconteceu (foi o que
+   aconteceu duas vezes). E ao lado de cada interesse, entre colchetes, a
+   categoria do Meta.
+
+   Fica assim:
+
+     La Vessel · vendas — termos da IA: moda feminina · bolsas · couro
+     La Vessel · vendas: 5 interesses achados a partir de 3 termos
+          1. Moda feminina — 8,1 mi  [Compras e moda > Roupas]
+          2. Bolsas — 2,3 mi  [Compras e moda > Bolsas]
+          3. Observe and Report — 1,2 mi  [Entretenimento > Filmes]
+          4. India Fashion Week — 300 mil  [Eventos]
+          5. Couro — tamanho desconhecido  [sem categoria]
+         descartados por serem largos demais (acima de 500 mi):
+            · Compras na internet — 1,58 bi  [Compras e moda]
    ATENÇÃO, PORQUE É DINHEIRO: "seco" quer dizer que não grava — NÃO quer dizer
    que não custa. A rodada seca faz as MESMAS 6 chamadas pagas à IA que a rodada
    normal, e elas aparecem no painel Status do Claude igual. O que você economiza
    é a gravação, não o custo.
-4. Se a proporção parecer boa, rodar no modo normal.
+4. Se o número parecer bom, rodar no modo normal.
 
 POR QUE PRECISA DE LOGIN DE USUÁRIO
 ------------------------------------
@@ -174,5 +331,5 @@ a chave de serviço do banco não serve, ele devolve 401. Por isso o robô faz
 login com a conta de serviço (loginServico) antes de começar, igual à Fábrica.
 
 Isso já causou um bug que quase passou: com a chave errada, o robô rodaria toda
-semana, tomaria 401 em toda validação, gravaria zero e NADA pareceria erro —
-você só veria a Fábrica sem sugestão nenhuma, sem saber por quê.
+semana, tomaria 401 em toda busca, gravaria zero e NADA pareceria erro — você só
+veria a Fábrica sem sugestão nenhuma, sem saber por quê.

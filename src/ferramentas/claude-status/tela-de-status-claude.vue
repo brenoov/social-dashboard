@@ -339,7 +339,7 @@ const ROBOS = [
   { slug: 'fabrica-subir',    label: 'Fábrica · Subir Campanha', faz: 'Monta a campanha e sobe os anúncios para o Meta.', quando: 'quando você manda', verbo: 'Subiu' },
   { slug: 'fabrica-ativar',   label: 'Fábrica · Ligar Anúncios', faz: 'Liga os anúncios no Gerenciador do Meta.', quando: 'quando você manda', verbo: 'Ligou' },
   { slug: 'status-projetos',  label: 'Atualizador do Painel', faz: 'Atualiza este painel com o andamento dos projetos.', quando: 'a cada mudança nos planos', verbo: 'Atualizou' },
-  { slug: 'sugerir-interesses', label: 'Sugestões de Interesse', faz: 'Sugere os interesses de público de cada objetivo e confere um por um no Meta antes de mostrar na Fábrica.', quando: 'todo domingo de manhã', verbo: 'Sugeriu' },
+  { slug: 'sugerir-interesses', label: 'Sugestões de Interesse', faz: 'Descobre os interesses de público de cada objetivo buscando no catálogo do Meta, e mostra na Fábrica.', quando: 'todo domingo de manhã', verbo: 'Sugeriu' },
 ]
 const META = Object.fromEntries(ROBOS.map(r => [r.slug, r]))
 const nomeRobo = (slug) => (META[slug]?.label) || slug
