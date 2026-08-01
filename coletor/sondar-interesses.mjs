@@ -78,15 +78,26 @@ async function buscarNaMeta(accountId, termo, token) {
 
 // SONDA DOS "PARECIDOS" — o `adinterestsuggestion` da Meta.
 //
-// POR QUE ANTES DE CONSTRUIR: a ideia é oferecer "mostrar parecidos" no editor de
-// público, a partir de um interesse que a pessoa já escolheu. Só que a doc da
-// Meta já errou duas vezes neste projeto (sobre `audience_size` e sobre
-// `locale`), e a regra que ficou é: formato de API externa afirmado "segundo a
-// documentação" e não verificado ao vivo é suposição vestida de restrição.
+// ⚠️ RESULTADO (2026-08-01): NÃO SERVE. A ideia era oferecer "mostrar parecidos"
+// no editor de público, a partir de um interesse já escolhido. O endpoint
+// RESPONDE (nenhum erro, 10 itens sempre) — e é aí que estava a armadilha: quem
+// olhasse só o status diria que funciona.
 //
-// Custa R$ 0 e responde três coisas de uma vez: o endpoint existe nesta conta,
-// devolve nomes de verdade, e devolve tamanho de público (sem tamanho, o piso e
-// o teto não teriam como julgar o que voltasse).
+// O que ele devolve, para QUALQUER semente:
+//   `Acesso ao Facebook (celular): todos os dispositivos móveis` — 4,54 bi
+//   `Amigos de pessoas que fazem aniversário em um mês` — 3,15 bi
+//   `Viajantes frequentes` — 3,05 bi · `Amigos de fãs de futebol` — 2,76 bi
+// Nove dos dez resultados são IDÊNTICOS entre [Bolsas], [Cinto] e
+// [Bolsas, Carteira]. O décimo é a própria semente devolvida de volta.
+//
+// Ou seja: não são "parecidos", é uma lista fixa de comportamentos e dados
+// demográficos gigantes. Segmentar por eles é o mesmo que não segmentar — o
+// motivo pelo qual o TETO_DE_PUBLICO existe, e todos passariam longe dele.
+//
+// A sonda fica no código porque é a PROVA, reproduzível por R$ 0. Se um dia
+// alguém propuser "mostrar parecidos" de novo, rode antes de escrever tela.
+//
+// Custou R$ 0 e evitou uma funcionalidade inteira que teria entregado lixo.
 //
 // `interest_list` vai como ARRAY: o meta-proxy faz JSON.stringify em valor que é
 // objeto, então converter aqui converteria duas vezes — mesma pegadinha do
