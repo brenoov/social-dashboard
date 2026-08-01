@@ -129,6 +129,7 @@ import { hojeLocal, diasAtras, primeiroDiaDoMes, ultimoDiaDoMes } from '../../co
 import { orcamentoDe, detectarNivelOrcamento, podeEditarOrcamentoDaCampanha, podeEditarOrcamentoDoConjunto, montarHierarquia } from './orcamento-hierarquia.js'
 import { planoDeCopia, executarPlano, comEspera, retomar, SUFIXO_PADRAO } from './duplicar.js'
 import { lerPublico, montarTargeting, resumoDasMudancas, avisosDe } from './publico-alvo.js'
+import { sugestoesParaOConjunto, linhaDeOrigem } from './sugestoes-de-interesse.js'
 // Aba "A régua" (métrica ponderada): painel puro + os módulos que leem/normalizam
 // a régua vinda do banco (ver painel-regua.js, ponderada.js, regua.js).
 import { montarPainelRegua } from './painel-regua.js'
@@ -2233,7 +2234,14 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       // "elegível" pro selo de interação, e o dono podia declarar "Salvamento"
       // nele — comparando, no mesmo mercado de salvamento, um anúncio cujo
       // produto real é conversa. A CAMPANHA é a unidade certa pra essa decisão.
-      adsPane.__gtRender=()=>_renderGtConjuntos(adsPane,hier,camp,conjuntos,nivelOrc,i+1,temMensagem);
+      // O BALDE DESCE PRONTO, e é o MESMO que a régua usa duas telas acima
+      // (`temMensagem ? 'mensagens' : baldeCamp`) — não um cálculo novo. Um
+      // segundo jeito de decidir o balde acabaria discordando do primeiro, que
+      // é exatamente o defeito que baldes.js foi criado pra impedir.
+      // `baldeCamp` (lá em cima) já sai de kpiObjective, que tem o valor de
+      // reserva do insight quando camp.objective vem vazio.
+      const baldeDaCampanha=temMensagem?'mensagens':baldeCamp;
+      adsPane.__gtRender=()=>_renderGtConjuntos(adsPane,hier,camp,conjuntos,nivelOrc,i+1,temMensagem,baldeDaCampanha);
       top.addEventListener('click',()=>{
         const isOpen=adsPane.classList.toggle('open');
         chev.classList.toggle('open',isOpen);
@@ -2352,7 +2360,7 @@ async function _gtVerCriativo(adId,accId,nome){
 // Camada do meio: campanha → CONJUNTOS DE ANÚNCIOS → anúncios.
 // É aqui que se edita o orçamento quando a campanha é ABO (orçamento no
 // conjunto). hier vem do módulo puro (montarHierarquia).
-function _renderGtConjuntos(pane,hier,camp,conjuntos,nivelOrc,campNum,temMensagemCampanha){
+function _renderGtConjuntos(pane,hier,camp,conjuntos,nivelOrc,campNum,temMensagemCampanha,baldeDaCampanha){
   const lbl=document.createElement('div');lbl.className='gt-ads-section-lbl';
   lbl.textContent=`Conjuntos de anúncios (${hier.length})`;
   pane.appendChild(lbl);
@@ -2420,7 +2428,12 @@ function _renderGtConjuntos(pane,hier,camp,conjuntos,nivelOrc,campNum,temMensage
     const bPub=(g.id==='_sem_conjunto'||!hasPermission('meta.gestor','editar'))?null:(()=>{
       const b=document.createElement('button');
       b.className='gt-btn-dup';b.textContent='👥 Público';b.title='Ver e mudar quem vê estes anúncios';
-      b.addEventListener('click',ev=>{ev.stopPropagation();_gtAbrirPublico({id:g.id,nome:g.nome});});
+      b.addEventListener('click',ev=>{ev.stopPropagation();
+        // O balde EFETIVO (baldes.js) traduz o objetivo da Meta para o mesmo
+        // vocabulário do robô de sugestões ('vendas', 'mensagens'...) — e já
+        // trata a campanha com destino WhatsApp, que a Meta declara como
+        // engajamento mas se mede por conversa.
+        _gtAbrirPublico({id:g.id,nome:g.nome,objetivo:baldeDaCampanha});});
       return b;
     })();
     if(bDupCj||bPub){
@@ -2804,6 +2817,12 @@ function _gtDupTraduzir(msg){
    são muitos e todos mexem no MESMO objeto. Redesenhar é sempre pelo
    _gtPubRedesenha, para o botão de salvar reavaliar os avisos bloqueantes. */
 let _gtPub=null;            // Publico em edição (forma do publico-alvo.js)
+// Sugestões da IA para o objetivo DESTA campanha (interesses_sugeridos), e o
+// balde que as escolhe. `null` = não carregou; `[]` = carregou e não tem.
+// A diferença importa: a faixa some nos dois casos, mas só o primeiro é falha.
+let _gtPubSugeridos=null;
+let _gtPubObjetivo='';
+let _gtPubSugeridoEm=null;   // quando o robô gerou — vai na frase de procedência
 let _gtPubAntes=null;       // como estava quando abriu — base do resumo
 let _gtPubSalvos=null;      // públicos personalizados da conta (null = não carregou)
 let _gtPubPresets=null;     // públicos prontos do Estúdio (null = não carregou)
@@ -3031,7 +3050,70 @@ function _gtPubSecaoPessoas(){
   cx.appendChild(_gtPubBusca('Buscar interesse…',_gtPubBuscarInteresses,
     i=>{if(!_gtPub.interesses.some(x=>x.id===String(i.id)))_gtPub.interesses.push({id:String(i.id),name:i.name});},
     i=>i.name));
+
+  // A FAIXA DE SUGESTÕES DA IA — depois da busca, de propósito.
+  //
+  // O robô semanal já escolhe interesses bons para cada objetivo, mas eles só
+  // apareciam na Fábrica, na hora de CRIAR campanha. Aqui, onde se mexe em
+  // campanha que já está rodando, a pessoa ficava digitando de memória.
+  //
+  // VEM DEPOIS da busca porque é atalho, não caminho principal: quem já sabe o
+  // que quer digita; quem não sabe olha o que a IA achou. Antes da busca, a
+  // faixa empurraria o campo pra baixo em toda abertura do editor.
+  const sug=_gtPubFaixaSugestoes();
+  if(sug)cx.appendChild(sug);
   return cx;
+}
+
+// Monta a faixa, ou devolve null quando não há o que mostrar.
+//
+// NULL EM VEZ DE FAIXA VAZIA: seção vazia com título é o estado que faz a pessoa
+// achar que a tela quebrou. Some inteira — e some também quando TUDO que a IA
+// sugeriu já está no público, que é sinal de que ela já foi usada.
+function _gtPubFaixaSugestoes(){
+  const itens=sugestoesParaOConjunto(_gtPubSugeridos,_gtPubObjetivo,_gtPub.interesses);
+  if(!itens.length)return null;
+
+  const cx=document.createElement('div');
+  cx.style.cssText='margin-top:14px;padding-top:12px;border-top:1px dashed var(--border,#ddd);';
+  cx.appendChild(_gtPubAjuda(linhaDeOrigem(_gtPubObjetivo,_gtPubSugeridoEm)));
+
+  const linha=_gtPubLinha();
+  for(const i of itens){
+    // Quadradinho de ACRESCENTAR, não de tirar: o "×" do _gtPubChip removeria,
+    // e aqui o gesto é o contrário. Por isso é botão próprio, com "+".
+    const b=document.createElement('button');
+    b.type='button';
+    b.style.cssText='display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:20px;'
+      +'border:1px dashed var(--accent,#6366f1);color:var(--accent,#6366f1);background:none;cursor:pointer;'
+      +'font-size:calc(11px*var(--gt-fs,1.3));';
+    const mais=document.createElement('span');mais.textContent='+';mais.style.cssText='font-weight:800;';
+    b.appendChild(mais);
+    const t=document.createElement('span');t.textContent=i.nome;b.appendChild(t);
+    b.title=i.audience_size?('Cerca de '+_gtPubTamanho(i.audience_size)+' de pessoas no mundo'):'Sugestão da IA';
+    b.onclick=ev=>{
+      ev.stopPropagation();
+      // Mesma forma que a busca da Meta grava ({id,name}) — se divergir, o
+      // salvamento monta o targeting com um objeto que a Meta não entende.
+      if(!_gtPub.interesses.some(x=>x.id===i.id))_gtPub.interesses.push({id:i.id,name:i.nome});
+      _gtPubRedesenha();
+    };
+    linha.appendChild(b);
+  }
+  cx.appendChild(linha);
+  return cx;
+}
+
+// Tamanho de público em português. É a MESMA regra do robô (tamanhoLegivel em
+// coletor/lib/interesses.mjs) e da Fábrica (formatarPublico em painel-subir.vue),
+// repetida porque nenhum dos dois é importável daqui. Se um dia divergirem, o
+// mesmo interesse mostraria número diferente em duas telas.
+function _gtPubTamanho(n){
+  if(typeof n!=='number'||!Number.isFinite(n))return '';
+  if(n>=999_500_000)return (n/1_000_000_000).toLocaleString('pt-BR',{maximumFractionDigits:2})+' bi';
+  if(n>=999_500)return (n/1_000_000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' mi';
+  if(n>=1_000)return Math.round(n/1000).toLocaleString('pt-BR')+' mil';
+  return n.toLocaleString('pt-BR');
 }
 
 // Públicos personalizados (remarketing e semelhantes), incluindo e excluindo.
@@ -3219,6 +3301,22 @@ function _gtPublicoModal(nomeConjunto){
   });
 }
 
+// AS SUGESTÕES DA MARCA DESTA CONTA.
+//
+// O laço é `fabrica_marcas.account_id` = a conta selecionada no Gestor
+// (_gtCurAcc.id) — a mesma chave que a Fábrica usa. Conta sem marca cadastrada
+// simplesmente não tem sugestão, e isso é normal: a Vessel tem, as outras não.
+//
+// NUNCA DERRUBA O EDITOR: quem chama trata a falha como "não carregou". Mudar
+// uma cidade não pode depender de uma faixa de sugestão ter vindo.
+async function _gtListarSugestoes(){
+  const conta=_gtCurAcc&&_gtCurAcc.id;
+  if(!conta)return null;
+  const linhas=await sb('interesses_sugeridos?select=objetivo,itens,gerado_em,'
+    +'fabrica_marcas!inner(account_id)&fabrica_marcas.account_id=eq.'+encodeURIComponent(conta));
+  return Array.isArray(linhas)?linhas:null;
+}
+
 const _gtPubClonar=(p)=>JSON.parse(JSON.stringify(p));
 
 // AÇÃO REAL na Meta: muda quem vê os anúncios de um conjunto ao vivo.
@@ -3247,10 +3345,22 @@ async function _gtAbrirPublico(conjunto){
     _gtPubAtivo=dados.effective_status==='ACTIVE';
     // As duas listas são opcionais: null significa "não carregou", e cada
     // seção avisa por si. Não podem impedir o dono de trocar uma cidade.
-    [_gtPubSalvos,_gtPubPresets]=await Promise.all([
+    // As três listas são opcionais: null significa "não carregou", e cada seção
+    // avisa por si (a faixa de sugestões simplesmente não aparece). Nenhuma
+    // delas pode impedir o dono de trocar uma cidade.
+    [_gtPubSalvos,_gtPubPresets,_gtPubSugeridos]=await Promise.all([
       _gtListarPublicosSalvos().catch(()=>null),
       _gtListarPresets().catch(()=>null),
+      _gtListarSugestoes().catch(()=>null),
     ]);
+    _gtPubObjetivo=String((conjunto&&conjunto.objetivo)||'');
+    // A data mais recente entre as linhas da marca: é uma rodada só, então
+    // qualquer uma serve — mas pegar a maior evita mostrar data velha se um
+    // objetivo tiver falhado numa semana e ficado para trás.
+    _gtPubSugeridoEm=(_gtPubSugeridos||[]).reduce((maior,l)=>{
+      const d=l&&l.gerado_em?new Date(l.gerado_em):null;
+      return (d&&!Number.isNaN(d.getTime())&&(!maior||d>maior))?d:maior;
+    },null);
 
     const escolha=await _gtPublicoModal(conjunto.nome||'sem nome');
     if(!escolha)return;
