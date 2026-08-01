@@ -76,6 +76,36 @@ async function buscarNaMeta(accountId, termo, token) {
   return r.json();
 }
 
+// SONDA DOS "PARECIDOS" — o `adinterestsuggestion` da Meta.
+//
+// POR QUE ANTES DE CONSTRUIR: a ideia é oferecer "mostrar parecidos" no editor de
+// público, a partir de um interesse que a pessoa já escolheu. Só que a doc da
+// Meta já errou duas vezes neste projeto (sobre `audience_size` e sobre
+// `locale`), e a regra que ficou é: formato de API externa afirmado "segundo a
+// documentação" e não verificado ao vivo é suposição vestida de restrição.
+//
+// Custa R$ 0 e responde três coisas de uma vez: o endpoint existe nesta conta,
+// devolve nomes de verdade, e devolve tamanho de público (sem tamanho, o piso e
+// o teto não teriam como julgar o que voltasse).
+//
+// `interest_list` vai como ARRAY: o meta-proxy faz JSON.stringify em valor que é
+// objeto, então converter aqui converteria duas vezes — mesma pegadinha do
+// `cities` na tradução de geolocalização.
+async function sugerirParecidos(accountId, nomes, token) {
+  const r = await fetch(SUPABASE_URL + '/functions/v1/meta-proxy', {
+    method: 'POST',
+    headers: { apikey: ANON, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      accountId,
+      path: '/search',
+      params: { type: 'adinterestsuggestion', interest_list: nomes, limit: 10 },
+      method: 'GET',
+    }),
+  });
+  if (!r.ok) throw new Error('meta-proxy ' + r.status + ' ' + (await r.text()).slice(0, 200));
+  return r.json();
+}
+
 async function run() {
   if (!SERVICE_KEY) throw new Error('falta SUPABASE_SERVICE_KEY');
   const token = await loginServico();
@@ -106,6 +136,27 @@ async function run() {
       acharam++;
       console.log(`  "${termo}" → ${itens.length} achados`);
       for (const linha of linhasDaPrevia(itens)) console.log(linha);
+    }
+    await sleep(PAUSA_ENTRE_BUSCAS);
+  }
+
+  // ── OS "PARECIDOS" ────────────────────────────────────────────────────────
+  // Roda no fim porque é uma pergunta diferente: não é "este termo existe?", é
+  // "a Meta sabe sugerir a partir do que já existe?". Falha aqui NÃO derruba a
+  // sonda — a resposta "o endpoint não serve nesta conta" é resultado, e é
+  // exatamente por isso que se sonda antes de construir.
+  console.log('\n── Parecidos (adinterestsuggestion) ──');
+  for (const semente of [['Bolsas'], ['Cinto'], ['Bolsas', 'Carteira']]) {
+    try {
+      const resp = await sugerirParecidos(conta.account_id, semente, token);
+      const { itens } = colherDaBusca(semente, [resp], Infinity, Infinity, -Infinity);
+      if (!itens.length) { console.log(`  a partir de [${semente.join(', ')}] → nada`); }
+      else {
+        console.log(`  a partir de [${semente.join(', ')}] → ${itens.length} parecidos`);
+        for (const linha of linhasDaPrevia(itens)) console.log(linha);
+      }
+    } catch (e) {
+      console.log(`  a partir de [${semente.join(', ')}] → ⚠ ${String(e).slice(0, 160)}`);
     }
     await sleep(PAUSA_ENTRE_BUSCAS);
   }
