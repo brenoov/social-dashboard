@@ -18,6 +18,9 @@
         <select v-model="contaSel" class="ctd-marca" aria-label="Perfil">
           <option v-for="c in contas" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
+        <button class="ctd-btn" :disabled="!contaSel" @click="painelSemana = true">
+          <IconeFaisca /> Montar a semana
+        </button>
         <button class="ctd-btn ctd-btn-primario" :disabled="!contaSel" @click="abrirNova()">+ Nova peça</button>
       </div>
     </div>
@@ -174,6 +177,13 @@
       @mudou="recarregar"
     />
 
+    <PainelSemana
+      v-if="painelSemana && contaSel"
+      :account-id="contaSel"
+      :ideias="ideias"
+      @fechar="painelSemana = false"
+      @mudou="recarregar"
+    />
   </div>
 </template>
 
@@ -186,6 +196,8 @@ import VisaoIdeias from './visao-ideias.vue'
 import VozDaMarca from './voz-da-marca.vue'
 import IconeFormato from './icone-formato.vue'
 import PainelPeca from './painel-peca.vue'
+import PainelSemana from './painel-semana.vue'
+import { IconeFaisca } from './icones.js'
 import { STATUS, corDeStatus } from './estados.js'
 import { contarPorStatus } from './agrupar-kanban.js'
 import { filtrarPecas, filtrarIdeias } from './buscar.js'
@@ -215,6 +227,7 @@ const carregando = ref(true)
 const erro = ref('')
 
 const painelAberto = ref(false)
+const painelSemana = ref(false)
 const pecaEmEdicao = ref(null)
 const dataSugerida = ref('')
 

@@ -53,6 +53,17 @@ Deno.serve(async (req) => {
 
     const quantas = Math.min(Math.max(Number(body.quantas) || 12, 1), MAX_POR_RODADA);
 
+    // QUAL ROBÔ. Lista fechada, nunca o texto cru: este valor atravessa até o
+    // `case` do workflow, onde vira nome de arquivo executado no runner — e
+    // esse runner tem a service key do banco no ambiente.
+    const modo = body.modo === 'semana' ? 'semana' : 'ideias';
+
+    // A segunda-feira da semana a planejar, quando vier. Formato conferido aqui
+    // porque ela entra no pedido à IA e nas datas dos slots.
+    const segunda = /^\d{4}-\d{2}-\d{2}$/.test(String(body.segunda || ''))
+      ? String(body.segunda)
+      : null;
+
     // Já tem rodada em andamento para esta marca?
     const desde = new Date(Date.now() - MINUTOS_ENTRE_RODADAS * 60000).toISOString();
     const { data: emAndamento } = await sb
@@ -68,7 +79,12 @@ Deno.serve(async (req) => {
 
     const { data: job, error } = await sb
       .from('conteudo_jobs')
-      .insert({ tipo: 'ideias', account_id: accountId, params: { quantas }, criado_por: ud.user.id })
+      .insert({
+        tipo: modo,
+        account_id: accountId,
+        params: modo === 'semana' ? { segunda } : { quantas },
+        criado_por: ud.user.id,
+      })
       .select('id').single();
     if (error) return json({ error: 'insert_falhou', detail: error.message }, 500);
 
@@ -82,7 +98,10 @@ Deno.serve(async (req) => {
           Accept: 'application/vnd.github+json',
           'User-Agent': 'conteudo-trigger',
         },
-        body: JSON.stringify({ ref: 'main', inputs: { job_id: job.id, quantas: String(quantas) } }),
+        body: JSON.stringify({
+          ref: 'main',
+          inputs: { job_id: job.id, quantas: String(quantas), modo },
+        }),
       },
     );
 

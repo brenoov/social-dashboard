@@ -1,4 +1,4 @@
-name: Ideias de conteúdo (robô de pauta)
+name: Conteúdo com IA (pauta e semana)
 
 # Disparado pela Central de Conteúdo (Edge `conteudo-trigger`) quando alguém
 # clica em "Gerar ideias com IA". SEM agendamento automático: pauta se pede
@@ -15,9 +15,14 @@ on:
         required: false
         type: string
       quantas:
-        description: 'Quantas ideias gerar'
+        description: 'Quantas ideias gerar (só no modo ideias)'
         required: false
         default: '12'
+        type: string
+      modo:
+        description: 'ideias = pautas avulsas · semana = a semana montada'
+        required: false
+        default: 'ideias'
         type: string
 
 concurrency:
@@ -58,17 +63,27 @@ jobs:
           JOB_ID: ${{ inputs.job_id }}
           CONTA: ${{ inputs.conta }}
           QUANTAS: ${{ inputs.quantas }}
+          MODO: ${{ inputs.modo }}
         run: |
           set -euo pipefail
           # Validação de formato: os dois são UUID, e `quantas` é número. Barrar
           # aqui é mais barato que confiar em quem disparou.
           uuid='^[0-9a-fA-F-]{36}$'
+
+          # Qual robô. Lista fechada: o valor vira nome de arquivo, e aceitar
+          # texto livre aqui seria deixar quem dispara escolher o que executar.
+          case "${MODO:-ideias}" in
+            ideias) SCRIPT=conteudo-ideias.mjs ;;
+            semana) SCRIPT=conteudo-semana.mjs ;;
+            *) echo "modo desconhecido: $MODO"; exit 1 ;;
+          esac
+
           if [ -n "$JOB_ID" ]; then
             [[ "$JOB_ID" =~ $uuid ]] || { echo "job_id não é um UUID"; exit 1; }
-            node conteudo-ideias.mjs --job "$JOB_ID" --quantas "${QUANTAS//[^0-9]/}"
+            node "$SCRIPT" --job "$JOB_ID" --quantas "${QUANTAS//[^0-9]/}"
           else
             [[ "$CONTA" =~ $uuid ]] || { echo "conta não é um UUID"; exit 1; }
-            node conteudo-ideias.mjs --conta "$CONTA" --quantas "${QUANTAS//[^0-9]/}"
+            node "$SCRIPT" --conta "$CONTA" --quantas "${QUANTAS//[^0-9]/}"
           fi
 
       # REDE DE SEGURANÇA. O script marca o job como 'erro' quando ELE falha —

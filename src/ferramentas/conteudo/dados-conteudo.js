@@ -10,6 +10,7 @@
 
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { estado } from '../../compartilhado/controle-de-login-e-usuario.js'
+import { deCampoDeDataHora } from './grade-do-calendario.js'
 
 export const BUCKET = 'conteudo'
 
@@ -301,17 +302,75 @@ export async function ideiaViraPeca(ideiaId, accountId, publicarEm = null) {
 }
 
 export async function pedirIdeiasParaIA(accountId, quantas = 12) {
+  return _pedirAIA({ account_id: accountId, quantas, modo: 'ideias' })
+}
+
+// Pedir a SEMANA montada. Mesma fila e mesmo disparador do robô de pauta: muda
+// o `modo`, que escolhe qual script roda lá no Actions.
+export async function pedirSemanaParaIA(accountId, segunda) {
+  return _pedirAIA({ account_id: accountId, modo: 'semana', segunda })
+}
+
+async function _pedirAIA(corpo) {
   const { data, error } = await sbClient.functions.invoke('conteudo-trigger', {
-    body: { account_id: accountId, quantas },
+    body: corpo,
   })
   if (error) {
     // O corpo do erro traz o motivo real (ex.: já tem rodada em andamento).
     const detalhe = await error.context?.json?.().catch(() => null)
     if (detalhe?.error === 'ja_rodando') throw new Error('Já tem uma rodada em andamento para esta marca. Espere ela terminar.')
-    if (detalhe?.error === 'sem_permissao') throw new Error('Você não tem permissão para gerar ideias.')
-    throw new Error(detalhe?.detail || error.message || 'Não consegui pedir as ideias.')
+    if (detalhe?.error === 'sem_permissao') throw new Error('Você não tem permissão para pedir isso à IA.')
+    throw new Error(detalhe?.detail || error.message || 'Não consegui falar com a IA.')
   }
   return data
+}
+
+// O PLANO ACEITO VIRA PEÇAS.
+//
+// Uma peça por slot, em rascunho e com data marcada — nunca já agendada: a arte
+// ainda não existe, e uma peça agendada sem arte dispararia o aviso da hora H
+// com as mãos vazias.
+//
+// Quem veio do banco carrega a legenda e as hashtags que a ideia já tinha, e a
+// ideia é marcada como usada. Quem é pauta nova nasce só com título e legenda
+// do gancho — o resto se escreve na peça.
+export async function planoViraPecas(accountId, slots) {
+  const criadas = []
+  for (const s of Array.isArray(slots) ? slots : []) {
+    const ideia = s.ideia || null
+    const titulo = ideia?.titulo || s.titulo_novo
+    if (!titulo || !s.data) continue
+
+    const peca = await criarPeca({
+      account_id: accountId,
+      titulo,
+      formato: s.formato || ideia?.formato || 'feed',
+      legenda: ideia?.legenda_sugerida || s.gancho_novo || '',
+      hashtags: ideia?.hashtags_sugeridas || '',
+      // A data vem do plano em horário de Brasília; `deCampoDeDataHora` faz a
+      // conversão que o resto da ferramenta já usa.
+      publicar_em: _instanteDoSlot(s),
+      observacoes: s.porque_neste_dia || null,
+    })
+    criadas.push(peca)
+
+    if (ideia?.id) {
+      // Não usa `ideiaViraPeca` porque a peça já foi criada aqui, com os campos
+      // do plano; aquela função cria uma peça vazia por conta própria.
+      await sbClient.from('conteudo_ideias')
+        .update({ situacao: 'usada', peca_id: peca.id })
+        .eq('id', ideia.id)
+    }
+  }
+  return criadas
+}
+
+// "2026-08-03" + "19:00" → o instante em UTC. Passa pelo mesmo caminho do campo
+// de data da peça para não haver duas conversões de fuso diferentes na
+// ferramenta — que é como nasce um post agendado três horas fora.
+function _instanteDoSlot(slot) {
+  const hora = /^\d{2}:\d{2}$/.test(slot?.hora || '') ? slot.hora : '12:00'
+  return deCampoDeDataHora(`${slot.data}T${hora}`)
 }
 
 export async function verJob(jobId) {
