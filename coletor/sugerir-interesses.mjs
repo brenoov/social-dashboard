@@ -19,7 +19,7 @@
 // então o valor real aparece no painel Status do Claude, em reais.
 import { structured, SONNET, usageSummary } from './lib-llm.mjs';
 import { registrarExecucao } from './registrar-execucao.mjs';
-import { montarPedido, montarEscolha, termosDaMarca, juntarTermos, escolhidosValidos, linhaDaEscolha, nomesPropostos, colherDaBusca, linhaDosTermos, linhasDaPrevia, linhasDosLargos, linhasDosPequenos, linhasPorTermo, comCidadesResolvidas, rodadaFalhouInteira, OBJETIVOS } from './lib/interesses.mjs';
+import { montarPedido, montarEscolha, MAXIMO_POR_OBJETIVO, termosDaMarca, juntarTermos, escolhidosValidos, linhaDaEscolha, nomesPropostos, colherDaBusca, linhaDosTermos, linhasDaPrevia, linhasDosLargos, linhasDosPequenos, linhasPorTermo, comCidadesResolvidas, rodadaFalhouInteira, OBJETIVOS } from './lib/interesses.mjs';
 // Login da conta de serviço (mesma usada por subir-estudio.mjs, ativar-estudio.mjs
 // etc.) — o meta-proxy chama auth.getUser() sobre o Authorization recebido, e uma
 // service key não é sessão de usuário: ela sempre daria 401 "nao autenticado" ali.
@@ -283,7 +283,19 @@ export async function run() {
         puladas++; continue;
       }
 
-      const colhido = colherDaBusca(termos, respostas);
+      // COLHE SEM TETO DE QUANTIDADE — o `Infinity` aqui é o conserto de
+      // 2026-08-01, não descuido.
+      //
+      // Com o teto de 12 aplicado AQUI, o corte era por TAMANHO DE PÚBLICO e
+      // acontecia ANTES de a IA olhar. `Cinto` (37 mi), da maior categoria do
+      // estoque, não cabia entre os 12 maiores e sumia dos seis objetivos — sem
+      // nunca ter sido recusado por ninguém. `Hard rock` (186 mi) ficava no
+      // lugar dele. Ver MAXIMO_POR_OBJETIVO em lib/interesses.mjs.
+      //
+      // Os cortes por TAMANHO (piso e teto de público) continuam valendo aqui:
+      // aqueles julgam se o interesse serve como critério de segmentação, o que
+      // é diferente de escolher os N melhores.
+      const colhido = colherDaBusca(termos, respostas, Infinity);
       const { propostos: nProp, largos, pequenos } = colhido;
 
       // SEGUNDA ETAPA: a IA escolhe entre as fichinhas REAIS que a Meta devolveu.
@@ -312,6 +324,14 @@ export async function run() {
           console.log(`  ⚠ ${marca.nome} · ${objetivo}: a escolha da IA falhou — seguindo com a lista da busca (${String(e).slice(0, 90)})`);
         }
       }
+      // O TETO DE QUANTIDADE VEM AGORA, sobre o que a IA escolheu — e não mais
+      // sobre o que a busca achou. A lista chega dela em ordem de RELEVÂNCIA,
+      // então cortar o fim tira o menos relevante, e não o menor.
+      //
+      // Vale também para o caminho degradado (escolha falhou): ali a ordem ainda
+      // é por tamanho, o corte volta a ser o antigo, e isso é aceitável — é o
+      // comportamento de antes, num caminho de exceção que grita no log.
+      if (itens.length > MAXIMO_POR_OBJETIVO) itens = itens.slice(0, MAXIMO_POR_OBJETIVO);
       const validos = itens.length;
       totPropostos += nProp; totValidos += validos;
       // O número mudou de sentido: antes era "quantos sobreviveram à validação",

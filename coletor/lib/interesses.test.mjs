@@ -1236,3 +1236,64 @@ test('CINTO sobrevive mesmo quando a IA nao lembra dele — o caso que originou 
   const daIA = ['moda feminina', 'estilo', 'tendência', 'presente'];
   assert.ok(juntarTermos(termosDaMarca(marca), daIA).includes('cinto'));
 });
+
+// ===== O TETO DE QUANTIDADE NÃO PODE CORTAR ANTES DA IA =====
+//
+// O defeito que este bloco tranca (2026-08-01): com o teto de 12 aplicado na
+// COLHEITA, o corte era por TAMANHO e acontecia antes de a IA olhar. `Cinto`
+// (37 mi), da maior categoria do estoque, sumia dos seis objetivos sem nunca ter
+// sido recusado — `Hard rock` (186 mi) ficava no lugar dele.
+
+const MUITOS = {
+  data: [
+    { name: 'Acessórios de moda', id: '1', audience_size: 1_150_000_000 },
+    { name: 'Presente', id: '2', audience_size: 505_000_000 },
+    { name: 'Bolsas', id: '3', audience_size: 486_000_000 },
+    { name: 'Óculos de sol', id: '4', audience_size: 435_000_000 },
+    { name: 'Design de moda', id: '5', audience_size: 408_000_000 },
+    { name: 'Hard rock', id: '6', audience_size: 186_000_000 },
+    { name: 'black friday', id: '7', audience_size: 178_000_000 },
+    { name: 'Moda streetwear', id: '8', audience_size: 160_000_000 },
+    { name: 'Mochila', id: '9', audience_size: 95_000_000 },
+    { name: 'Bolsa de estudo', id: '10', audience_size: 88_000_000 },
+    { name: 'Carteira', id: '11', audience_size: 64_000_000 },
+    { name: 'Semana de moda', id: '12', audience_size: 55_000_000 },
+    { name: 'Cinto', id: '13', audience_size: 37_100_000 },
+    { name: 'Clutch', id: '14', audience_size: 18_000_000 },
+  ],
+};
+
+test('com o teto padrao, CINTO fica de fora — o defeito, reproduzido', () => {
+  const r = colherDaBusca(['bolsa'], [MUITOS]);
+  assert.equal(r.itens.length, MAXIMO_POR_OBJETIVO);
+  assert.ok(!r.itens.some((i) => i.nome === 'Cinto'), 'é este o corte que matava o Cinto');
+  assert.ok(r.itens.some((i) => i.nome === 'Hard rock'), 'e é este o lixo que ficava no lugar');
+});
+
+test('SEM teto de quantidade, Cinto e Clutch chegam vivos ate a escolha', () => {
+  // É assim que o robô passou a chamar: colherDaBusca(termos, respostas, Infinity).
+  const r = colherDaBusca(['bolsa'], [MUITOS], Infinity);
+  assert.equal(r.itens.length, 14, 'ninguém é cortado por quantidade');
+  assert.ok(r.itens.some((i) => i.nome === 'Cinto'));
+  assert.ok(r.itens.some((i) => i.nome === 'Clutch'));
+});
+
+test('a IA consegue escolher Cinto quando ele chega ate ela, e a ordem dela manda', () => {
+  const { itens } = colherDaBusca(['bolsa'], [MUITOS], Infinity);
+  const p = montarEscolha({ marca: { nome: 'La Vessel' }, objetivo: 'vendas', itens });
+  assert.match(p.user, /- id 13 · Cinto/, 'Cinto TEM de estar na lista oferecida');
+  assert.match(p.user, /- id 6 · Hard rock/, 'e o lixo também: quem julga é ela');
+
+  // Escolha por relevância, não por tamanho: Cinto na frente de Hard rock.
+  const ficaram = escolhidosValidos(['3', '13', '11'], itens);
+  assert.deepEqual(ficaram.map((i) => i.nome), ['Bolsas', 'Cinto', 'Carteira']);
+});
+
+test('o teto ainda existe — so que sobre o que a IA escolheu, cortando o fim', () => {
+  // O robô aplica `itens.slice(0, MAXIMO_POR_OBJETIVO)` DEPOIS da escolha. Como a
+  // lista chega em ordem de relevância, o que cai é o menos relevante — não o menor.
+  const { itens } = colherDaBusca(['bolsa'], [MUITOS], Infinity);
+  const escolhidos = escolhidosValidos(itens.map((i) => i.id), itens);
+  assert.equal(escolhidos.length, 14);
+  assert.equal(escolhidos.slice(0, MAXIMO_POR_OBJETIVO).length, 12);
+});

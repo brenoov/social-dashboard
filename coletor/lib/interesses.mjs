@@ -460,6 +460,27 @@ export function juntarTermos(daMarca, daIA, maximo = 16) {
 // Quantos interesses uma linha da tabela pode ter. Um termo largo ("moda")
 // devolve dez resultados sozinho; sem teto, um termo desses tomaria a faixa
 // inteira e os outros sete termos não apareceriam.
+//
+// ⚠️ ONDE ESTE TETO SE APLICA MUDOU EM 2026-08-01, E O PORQUÊ IMPORTA.
+//
+// Ele valia ANTES da IA escolher, cortando **por tamanho de público**. Efeito
+// medido: `Cinto` (37 mi) — produto da MAIOR categoria do estoque, 398 peças —
+// não entrava em objetivo nenhum. Ele não era recusado pela IA: era eliminado
+// antes de chegar a ela, porque não cabia entre os 12 MAIORES. Quem ocupava a
+// vaga: `Hard rock` (186 mi, ruído do termo "clutch"), `Bolsa de estudo`
+// (88 mi), `black friday` (178 mi).
+//
+// A prova estava no log e passou batida por um tempo: as seis linhas de escolha
+// diziam "a IA ficou com N de **12**" — sempre 12, em todos os objetivos. Era o
+// teto, não o tamanho real da colheita.
+//
+// E era um corte que PIORAVA conforme o robô melhorava: cada termo de produto
+// novo trazia mais gente grande, empurrando os produtos pequenos pra fora.
+//
+// Agora a ordem é: colhe tudo → **a IA escolhe entre tudo** → o teto se aplica
+// ao que ela escolheu. O corte deixa de ser por tamanho e passa a ser por
+// relevância julgada, que é o único critério que sabe a diferença entre `Cinto`
+// e `Hard rock`.
 export const MAXIMO_POR_OBJETIVO = 12;
 
 // TETO DE PÚBLICO — acima disto o interesse não é critério de segmentação.
