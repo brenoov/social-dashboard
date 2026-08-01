@@ -81,6 +81,21 @@
             Ideias<span v-if="ideias.length"> ({{ ideias.length }})</span>
           </button>
 
+          <!-- UMA BUSCA SÓ, valendo para todas as abas.
+               Não havia busca em lugar nenhum, e os filtros de cada visão eram
+               locais: filtrar na Lista e pular para o Calendário devolvia tudo.
+               Aqui o termo atravessa as abas junto com a pessoa. -->
+          <div class="ctd-busca">
+            <input
+              v-model="busca"
+              type="search"
+              class="ctd-busca-in"
+              placeholder="Buscar por título, legenda, hashtag…"
+              aria-label="Buscar em todas as visões"
+            >
+            <button v-if="busca" class="ctd-busca-x" aria-label="Limpar busca" @click="busca = ''">×</button>
+          </div>
+
           <!-- Fica à direita e separado das abas de propósito: não é uma visão
                do conteúdo, é o ajuste do que a IA sabe sobre a marca. -->
           <button class="ctd-tab-fim" title="O que a IA sabe sobre esta marca" @click="painelMarca = true">
@@ -92,7 +107,7 @@
              começa quando não há nada. -->
         <VisaoIdeias
           v-show="aba === 'ideias'"
-          :ideias="ideias"
+          :ideias="ideiasVisiveis"
           :account-id="contaSel"
           @mudou="recarregar"
           @abrir-peca="aoNascerPeca"
@@ -117,22 +132,22 @@
              explica o que vai aparecer ali. -->
         <VisaoCalendario
           v-show="aba === 'calendario'"
-          :pecas="pecas"
+          :pecas="pecasVisiveis"
           :miniaturas="miniaturas"
           @abrir="abrir"
           @nova="abrirNova"
         />
         <VisaoKanban
           v-show="aba === 'quadro'"
-          :pecas="pecas"
+          :pecas="pecasVisiveis"
           :miniaturas="miniaturas"
           :metricas="metricas"
           :pode-aprovar="podeAprovar"
           @abrir="abrir"
           @mover="mover"
         />
-        <PreviaDoFeed v-show="aba === 'previa'" :pecas="pecas" :miniaturas="miniaturas" :conta="contaAtual" @abrir="abrir" />
-        <VisaoLista v-show="aba === 'lista'" :pecas="pecas" @abrir="abrir" />
+        <PreviaDoFeed v-show="aba === 'previa'" :pecas="pecasVisiveis" :miniaturas="miniaturas" :conta="contaAtual" @abrir="abrir" />
+        <VisaoLista v-show="aba === 'lista'" :pecas="pecasVisiveis" @abrir="abrir" />
       </template>
 
       <div v-else class="ctd-vazio">
@@ -175,6 +190,7 @@ import PainelPeca from './painel-peca.vue'
 import PainelMarca from './painel-marca.vue'
 import { STATUS, corDeStatus } from './estados.js'
 import { contarPorStatus } from './agrupar-kanban.js'
+import { filtrarPecas, filtrarIdeias } from './buscar.js'
 import { diaDaPeca, horaDaPeca, dataHoraBRT } from './grade-do-calendario.js'
 import { hojeLocal } from '../../compartilhado/datas.js'
 import * as dados from './dados-conteudo.js'
@@ -186,6 +202,13 @@ const contas = ref([])
 const contaSel = ref('')
 const pecas = ref([])
 const ideias = ref([])
+const busca = ref('')
+
+// O que cada visão enxerga depois da busca. As peças do painel "A marca" e os
+// selos do topo continuam usando `pecas` cru: eles falam da marca inteira, não
+// do recorte que a pessoa está olhando agora.
+const pecasVisiveis = computed(() => filtrarPecas(pecas.value, busca.value))
+const ideiasVisiveis = computed(() => filtrarIdeias(ideias.value, busca.value))
 const miniaturas = ref({})
 const metricas = ref({})
 const aguardando = ref(0)

@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   falaDoTake, rotuloDoPasso, duracaoTotalEmSegundos, montarRoteiroParaCopiar,
+  ideiaEmBranco, limparParaGravar,
 } from './roteiro.js'
 
 const IDEIA = {
@@ -116,4 +117,89 @@ test('ideia no formato antigo continua copiavel', () => {
     roteiro: [{ cena: 1, fala: 'o que se falava antes' }],
   })
   assert.match(txt, /Fala: "o que se falava antes"/)
+})
+
+// ---------- escrever uma ideia à mão ----------
+
+test('ideiaEmBranco devolve tudo string, nunca null', () => {
+  // `v-model` num campo de texto com null escreve a palavra "null" no campo.
+  const r = ideiaEmBranco()
+  for (const [chave, valor] of Object.entries(r)) {
+    if (chave === 'roteiro') { assert.ok(Array.isArray(valor)); continue }
+    assert.equal(typeof valor, 'string', `${chave} nao e string: ${valor}`)
+  }
+})
+
+test('ideiaEmBranco copia uma ideia existente inteira', () => {
+  const r = ideiaEmBranco(IDEIA)
+  assert.equal(r.titulo, IDEIA.titulo)
+  assert.equal(r.gancho, IDEIA.gancho)
+  assert.equal(r.roteiro.length, 2)
+  assert.equal(r.roteiro[1].texto_na_tela, 'sem fórmula mágica')
+})
+
+test('editar ideia ANTIGA nao apaga o que ela tinha escrito', () => {
+  // O formato velho usa `fala`; sem ler os dois, abrir para editar apagaria.
+  const r = ideiaEmBranco({ titulo: 'velha', roteiro: [{ cena: 1, fala: 'o texto antigo' }] })
+  assert.equal(r.roteiro[0].narracao, 'o texto antigo')
+})
+
+test('ideiaEmBranco NAO compartilha o roteiro com a original', () => {
+  // Sem copia profunda, editar um take mexeria no objeto que a lista de tras
+  // esta mostrando.
+  const original = { roteiro: [{ cena: 1, imagem: 'antes' }] }
+  const r = ideiaEmBranco(original)
+  r.roteiro[0].imagem = 'depois'
+  assert.equal(original.roteiro[0].imagem, 'antes')
+})
+
+test('limparParaGravar troca texto vazio por null', () => {
+  const g = limparParaGravar({ titulo: 'X', gancho: '   ', cta: '' })
+  assert.equal(g.titulo, 'X')
+  assert.equal(g.gancho, null)
+  assert.equal(g.cta, null)
+})
+
+test('limparParaGravar descarta take totalmente vazio', () => {
+  const g = limparParaGravar({
+    titulo: 'X',
+    roteiro: [
+      { cena: 1, imagem: 'tem', narracao: '', texto_na_tela: '' },
+      { cena: 2, imagem: '', narracao: '  ', texto_na_tela: '' },
+      { cena: 3, imagem: '', narracao: 'so fala', texto_na_tela: '' },
+    ],
+  })
+  assert.equal(g.roteiro.length, 2, 'o take vazio do meio some')
+  assert.deepEqual(g.roteiro.map(t => t.cena), [1, 2], 'e a numeracao e refeita')
+})
+
+test('limparParaGravar renumera pela ordem final', () => {
+  const g = limparParaGravar({
+    titulo: 'X',
+    roteiro: [{ cena: 9, imagem: 'a' }, { cena: 3, imagem: 'b' }],
+  })
+  assert.deepEqual(g.roteiro.map(t => t.cena), [1, 2])
+})
+
+test('duracao invalida vira null, nunca NaN', () => {
+  const g = limparParaGravar({ titulo: 'X', roteiro: [{ imagem: 'a', duracao_s: 'abc' }] })
+  assert.equal(g.roteiro[0].duracao_s, null)
+})
+
+test('limparParaGravar aguenta rascunho vazio', () => {
+  for (const v of [undefined, null, {}, { roteiro: null }]) {
+    const g = limparParaGravar(v)
+    assert.equal(g.titulo, '')
+    assert.deepEqual(g.roteiro, [])
+  }
+})
+
+test('o que sai de limparParaGravar volta legivel em montarRoteiroParaCopiar', () => {
+  // Ida e volta: escrever à mão e copiar tem que dar o mesmo tipo de texto que
+  // uma ideia da IA.
+  const g = limparParaGravar(ideiaEmBranco(IDEIA))
+  const txt = montarRoteiroParaCopiar(g)
+  assert.match(txt, /OS 3 PRIMEIROS SEGUNDOS/)
+  assert.match(txt, /Fala: "Eu ajudo pessoa comum/)
+  assert.ok(!/undefined|null|NaN/.test(txt), txt)
 })

@@ -254,6 +254,37 @@ export async function criarIdeia(dados) {
   return data
 }
 
+// Editar uma ideia. Vale tanto para arrumar o que a IA escreveu quanto para
+// continuar uma que foi anotada à mão pela metade.
+//
+// `origem` NÃO é tocada de propósito: se a IA sugeriu, ela continua marcada
+// como sugestão da IA mesmo depois de a pessoa reescrever — o selo conta de
+// onde a ideia nasceu, não quem digitou por último.
+// Ligar a peça ao post real na mão, colando o link.
+//
+// A SAÍDA QUE NÃO EXISTIA: o casamento automático só acontece se o robô achar e
+// propuser. Quando ele não acha — publicação fora da janela, legenda muito
+// reescrita, story (que a Meta não devolve de forma confiável) — a peça ficava
+// sem métrica para sempre e não havia o que fazer na tela.
+export async function casarNaMao(pecaId, linkOuCodigo) {
+  const { data, error } = await sbClient.rpc('conteudo_casar_na_mao', {
+    p_peca: pecaId,
+    p_media: linkOuCodigo,
+  })
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function atualizarIdeia(id, campos) {
+  const { data, error } = await sbClient
+    .from('conteudo_ideias')
+    .update(campos)
+    .eq('id', id)
+    .select('*').single()
+  if (error) throw new Error(`Não consegui salvar a ideia: ${error.message}`)
+  return data
+}
+
 export async function mudarSituacaoDaIdeia(id, situacao) {
   const { error } = await sbClient.from('conteudo_ideias').update({ situacao }).eq('id', id)
   if (error) throw new Error(`Não consegui atualizar: ${error.message}`)

@@ -17,7 +17,7 @@
       </div>
 
       <div class="ctd-ideias-acoes">
-        <button class="ctd-btn" @click="anotando = !anotando">+ Anotar ideia</button>
+        <button class="ctd-btn" @click="anotarNoModal">+ Anotar ideia</button>
         <button class="ctd-btn ctd-btn-primario" :disabled="!!job" @click="gerar">
           <IconeFaisca v-if="!job" /><span>{{ job ? 'Pensando…' : 'Gerar ideias com IA' }}</span>
         </button>
@@ -31,22 +31,6 @@
       publicado nesta marca, o que rendeu mais, o que já está na agenda e o que os concorrentes
       andam postando. Pode deixar a tela aberta.
     </p>
-
-    <!-- Anotar uma ideia na mão -->
-    <div v-if="anotando" class="ctd-campo ctd-anotar">
-      <label class="ctd-rot" for="ctd-nova-ideia">A ideia, do jeito que vier</label>
-      <input
-        id="ctd-nova-ideia"
-        v-model="rascunhoIdeia"
-        class="ctd-in"
-        placeholder="Ex.: bastidor da montagem da vitrine nova"
-        @keyup.enter="anotar"
-      >
-      <div class="ctd-peca-acoes">
-        <button class="ctd-btn ctd-btn-primario" :disabled="!rascunhoIdeia.trim()" @click="anotar">Anotar</button>
-        <button class="ctd-btn" @click="anotando = false">Cancelar</button>
-      </div>
-    </div>
 
     <div v-if="!visiveis.length" class="ctd-vazio">
       <h3>{{ ideias.length ? 'Nada com esse filtro' : 'Nenhuma ideia ainda' }}</h3>
@@ -68,9 +52,9 @@
         role="button"
         tabindex="0"
         :aria-label="`Abrir o roteiro de ${ideia.titulo}`"
-        @click="aberta = ideia"
-        @keydown.enter="aberta = ideia"
-        @keydown.space.prevent="aberta = ideia"
+        @click="abrirIdeia(ideia)"
+        @keydown.enter="abrirIdeia(ideia)"
+        @keydown.space.prevent="abrirIdeia(ideia)"
       >
         <header class="ctd-ideia-cab">
           <span v-if="ideia.origem === 'ia'" class="ctd-ideia-selo" title="Sugerida pela IA"><IconeFaisca /></span>
@@ -121,8 +105,11 @@
     <PainelIdeia
       v-if="aberta"
       :ideia="aberta"
-      @fechar="aberta = null"
-      @virar-peca="i => { aberta = null; virarPeca(i) }"
+      :account-id="accountId"
+      :comecar-editando="criandoNova"
+      @fechar="fecharPainel"
+      @mudou="$emit('mudou')"
+      @virar-peca="i => { fecharPainel(); virarPeca(i) }"
     />
   </div>
 </template>
@@ -145,9 +132,8 @@ const emit = defineEmits(['mudou', 'abrir-peca'])
 const filtro = ref('')
 const erro = ref('')
 const job = ref(null)
-const anotando = ref(false)
 const aberta = ref(null)
-const rascunhoIdeia = ref('')
+const criandoNova = ref(false)
 const trabalhando = ref(false)
 let relogio = null
 
@@ -220,17 +206,24 @@ function acompanhar() {
 
 onUnmounted(() => clearInterval(relogio))
 
-async function anotar() {
-  const titulo = rascunhoIdeia.value.trim()
-  if (!titulo) return
-  try {
-    await dados.criarIdeia({ account_id: props.accountId, titulo })
-    rascunhoIdeia.value = ''
-    anotando.value = false
-    emit('mudou')
-  } catch (e) {
-    erro.value = e.message
-  }
+// "+ Anotar ideia" abre o MESMO painel do roteiro, em branco.
+//
+// Antes era um campo de título solto, e o resultado eram ideias de uma linha
+// convivendo com roteiros completos na mesma lista — a anotada à mão nascia
+// pobre por desenho. Agora a estrutura é a mesma; muda só quem preenche.
+function anotarNoModal() {
+  criandoNova.value = true
+  aberta.value = { roteiro: [] }
+}
+
+function abrirIdeia(ideia) {
+  criandoNova.value = false
+  aberta.value = ideia
+}
+
+function fecharPainel() {
+  aberta.value = null
+  criandoNova.value = false
 }
 
 async function alternarFavorita(ideia) {

@@ -63,10 +63,16 @@ Deno.serve(async (req) => {
   // Só peças dos últimos 7 dias: mais velho que isso, o post já saiu da primeira
   // página de /media e a janela de casamento (24h) já fechou de qualquer jeito.
   const seteDiasAtras = new Date(agora.getTime() - 7 * 86400000).toISOString();
+  // STORY FICA DE FORA. A Graph não devolve story de forma confiável em
+  // /{ig}/media, então `casar-publicacao.js` nunca casa um — e sem este filtro
+  // toda peça de story era relida a cada 30 minutos, por 7 dias, para dar zero.
+  // Trabalho puro, e pior: a peça parecia "em análise" quando na verdade nunca
+  // seria analisada. Para story o caminho é colar o link à mão, no painel.
   const { data: semVinculo } = await sb
     .from('conteudo_pecas')
     .select('id,account_id,titulo,formato,legenda,hashtags,publicar_em,status')
     .in('status', ['agendada', 'publicada'])
+    .neq('formato', 'stories')
     .is('ig_media_id', null)
     .gte('publicar_em', seteDiasAtras)
     .not('publicar_em', 'is', null);

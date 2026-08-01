@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { COLUNAS_KANBAN, agruparPorStatus, contarPorStatus } from './agrupar-kanban.js'
+import { COLUNAS_KANBAN, agruparPorStatus, contarPorStatus , pecasReprovadas } from './agrupar-kanban.js'
 
 const peca = (id, status, publicar_em = null) => ({ id, status, publicar_em, titulo: `peça ${id}` })
 
@@ -93,4 +93,35 @@ test('contarPorStatus devolve zero em todo status quando nao ha peca', () => {
   const c = contarPorStatus([])
   assert.equal(Object.values(c).every(n => n === 0), true)
   assert.ok('em_aprovacao' in c)
+})
+
+// ---------- as reprovadas nao podem sumir em silencio ----------
+
+test('pecasReprovadas devolve so as reprovadas', () => {
+  const lista = [
+    { id: 'a', status: 'rascunho' },
+    { id: 'b', status: 'reprovada', publicar_em: '2026-08-02T12:00:00Z' },
+    { id: 'c', status: 'arquivada' },
+    { id: 'd', status: 'reprovada', publicar_em: '2026-08-01T12:00:00Z' },
+  ]
+  const r = pecasReprovadas(lista)
+  assert.deepEqual(r.map(p => p.id), ['d', 'b'], 'ordena por data, mais cedo primeiro')
+})
+
+test('reprovada NAO vira coluna do quadro', () => {
+  const colunas = agruparPorStatus([{ id: 'x', status: 'reprovada' }])
+  assert.ok(!colunas.some(c => c.chave === 'reprovada'))
+  assert.equal(colunas.reduce((s, c) => s + c.total, 0), 0, 'nao entra em coluna nenhuma')
+})
+
+test('arquivada fica de fora dos dois lugares', () => {
+  const lista = [{ id: 'x', status: 'arquivada' }]
+  assert.deepEqual(pecasReprovadas(lista), [])
+  assert.equal(agruparPorStatus(lista).reduce((s, c) => s + c.total, 0), 0)
+})
+
+test('pecasReprovadas aguenta lixo', () => {
+  for (const v of [null, undefined, [], [null], [{}]]) {
+    assert.deepEqual(pecasReprovadas(v), [])
+  }
 })

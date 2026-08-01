@@ -780,9 +780,19 @@
 .ctd-in, .ctd-ta, .ctd-sel {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
   color: var(--text); font-family: inherit; font-size: 14px; padding: 9px 11px; width: 100%;
+  /* `width: 100%` com preenchimento interno e `content-box` (o padrão) soma a
+     borda POR FORA e o campo vaza do contêiner — medidos 13px para fora da
+     caixa de cada take. Nada quebra, só fica torto, e por isso passa. */
+  box-sizing: border-box;
 }
 .ctd-in:focus, .ctd-ta:focus, .ctd-sel:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
-.ctd-ta { resize: vertical; min-height: 110px; line-height: 1.6; }
+/* O `min-height` fixo fazia o atributo `rows` não valer nada: um textarea de 2
+   linhas vinha com a mesma altura de um de 6, e o formulário de escrever ideia
+   ficava com o campo do gancho dominando a tela sem motivo. Agora o piso é
+   baixo e quem manda é o `rows` de cada campo. */
+.ctd-ta { resize: vertical; min-height: 3.4em; line-height: 1.6; }
+/* A legenda da peça continua nascendo grande: ali o texto é longo de verdade. */
+#ctd-legenda { min-height: 110px; }
 .ctd-contador { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; align-self: flex-end; }
 .ctd-contador.estourou { color: var(--red); font-weight: 700; }
 .ctd-linha { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -1047,3 +1057,120 @@
 .ctd-sabe li.tem::before { background: var(--green, #22c55e); }
 .ctd-sabe b { font-size: 13px; color: var(--text); }
 .ctd-sabe span { font-size: 12.5px; color: var(--muted); }
+
+/* ── Busca ──────────────────────────────────────────────────────────────────
+ * Não havia busca em lugar nenhum da ferramenta, e os filtros de cada visão
+ * eram locais — filtrar na Lista e pular para o Calendário devolvia tudo.
+ * Este campo é único e vale para todas as abas.
+ */
+.ctd-busca { position: relative; display: flex; align-items: center; margin-left: auto; }
+.ctd-busca-in {
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  border-radius: 10px; padding: 8px 30px 8px 12px; font-family: inherit; font-size: 13px;
+  width: clamp(150px, 22vw, 260px); min-height: 36px;
+}
+.ctd-busca-in::-webkit-search-cancel-button { display: none; }
+.ctd-busca-in:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ctd-busca-x {
+  position: absolute; right: 6px; background: none; border: none; cursor: pointer;
+  color: var(--muted); font-size: 16px; line-height: 1; padding: 4px 6px; border-radius: 6px;
+}
+.ctd-busca-x:hover { color: var(--red); }
+
+/* ── Quadro: rolagem lateral e menu de mover ────────────────────────────────
+ * Entre 900 e 1150px as 5 colunas (mínimo 212px cada) não cabem e a PÁGINA
+ * inteira ganhava barra horizontal — janela dividida num laptop bastava. A
+ * rolagem agora é do quadro, não do documento.
+ */
+.ctd-kb-rolagem { display: flex; flex-direction: column; gap: 18px; overflow-x: auto; padding-bottom: 4px; }
+.ctd-kb { min-width: 1108px; }
+@media (max-width: 900px) {
+  .ctd-kb { min-width: 0; }
+  .ctd-kb-rolagem { overflow-x: visible; }
+}
+
+.ctd-kb-item { display: flex; flex-direction: column; gap: 4px; }
+
+/* O CAMINHO SEM ARRASTAR. Arrastar não existe em tela de toque, e sem isto a
+   aba Quadro era só leitura no celular. */
+.ctd-kb-mover { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 0 2px 2px; }
+.ctd-kb-mover-rot {
+  font-size: 9.5px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase;
+  color: var(--muted); margin-right: 2px;
+}
+.ctd-kb-mover-btn {
+  background: none; border: 1px solid var(--border); border-radius: 7px;
+  color: var(--muted); font-family: inherit; font-size: 11px; font-weight: 600;
+  padding: 4px 8px; min-height: 26px; cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.ctd-kb-mover-btn:hover {
+  border-color: var(--ctd-cor-destino, var(--accent));
+  color: var(--ctd-cor-destino, var(--accent));
+  background: color-mix(in srgb, var(--ctd-cor-destino, var(--accent)) 10%, transparent);
+}
+.ctd-kb-mover-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (hover: none) { .ctd-kb-mover-btn { min-height: 32px; padding: 6px 10px; } }
+
+/* As reprovadas. Não são coluna (não são etapa), mas sumir em silêncio era pior. */
+.ctd-kb-recusadas {
+  border: 1px solid color-mix(in srgb, var(--red) 30%, var(--border));
+  border-radius: var(--radius-lg); padding: 14px;
+  background: color-mix(in srgb, var(--red) 4%, transparent);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.ctd-kb-recusadas header { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.ctd-kb-recusadas-t {
+  font-size: 12px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--red);
+}
+.ctd-kb-recusadas-fila {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(212px, 1fr)); gap: 10px;
+}
+
+/* ── Escrever um take à mão ─────────────────────────────────────────────── */
+.ctd-take-edit {
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 10px; display: flex; flex-direction: column; gap: 7px;
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+}
+.ctd-take-edit-cab { display: flex; align-items: center; gap: 7px; }
+.ctd-take-edit-num {
+  width: 26px; height: 26px; flex: none; border-radius: 50%; display: grid; place-items: center;
+  background: var(--surface); border: 1px solid var(--border);
+  font-family: var(--ctd-fm); font-size: 12px; font-weight: 700; color: var(--text);
+}
+.ctd-in-curto { width: 70px; flex: none; }
+.ctd-take-edit-cab .ctd-mini-btn { margin-left: 0; }
+.ctd-take-edit-cab .ctd-mini-btn:first-of-type { margin-left: auto; }
+
+/* ── O que só funcionava com o mouse ────────────────────────────────────────
+ * Metade dos acessos é celular, e nele a ferramenta ficava estática: o véu com
+ * data e título da Prévia do feed, e o "+" para criar peça num dia, só existiam
+ * no hover. No toque não há hover — então aquilo simplesmente não existia.
+ */
+@media (hover: none) {
+  /* A Prévia mostrava 12 fotos mudas: sem data, sem título. */
+  .ctd-celula-veu {
+    opacity: 1;
+    background: linear-gradient(to top, rgba(0,0,0,.82) 0%, rgba(0,0,0,.35) 42%, transparent 72%);
+  }
+  /* O "+" do dia só reaparecia abaixo de 720px — em tablet ficava invisível,
+     e é o único atalho para criar peça num dia específico. */
+  .ctd-cal-add { opacity: 1; }
+
+  /* ALVOS PEQUENOS DEMAIS PARA O DEDO. O mínimo é 44px (Apple) / 48dp
+     (Material); estes estavam em torno de 21×15 (o "+" do dia) e 28×22 (o
+     favoritar e o descartar das ideias). Errar o alvo num botão de descartar
+     é o tipo de engano que custa trabalho. */
+  .ctd-cal-add { min-width: 34px; min-height: 34px; font-size: 18px; }
+  .ctd-mini-btn { min-width: 38px; min-height: 38px; padding: 8px 10px; }
+  .ctd-chip-filtro { min-height: 38px; padding: 8px 14px; }
+  .ctd-fechar { min-width: 40px; min-height: 40px; }
+}
+
+/* A Prévia do feed estava travada em 480px, contra a regra de largura total. */
+.ctd-perfil { max-width: 620px; }
+
+/* `.ctd-campo` é flex em coluna, então todo filho estica na largura toda. Bom
+   para campo de texto, ruim para botão: o "+ take" virava uma faixa de 700px. */
+.ctd-btn-encolhe { align-self: flex-start; }

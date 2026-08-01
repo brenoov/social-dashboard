@@ -43,6 +43,21 @@ export function agruparPorStatus(pecas) {
   })
 }
 
+// O QUE FICA FORA DAS COLUNAS.
+//
+// Reprovada não vira coluna (é beco, não etapa), mas sumir em silêncio é pior
+// que ocupar espaço: quem reprovava via o cartão evaporar do quadro sem nenhum
+// sinal, e a peça só reaparecia se alguém pensasse em filtrar na Lista.
+//
+// Reprovada é FILA DE TRABALHO — alguém precisa consertar e reenviar. Por isso
+// ela volta ao quadro numa faixa própria, embaixo. Arquivada não: essa é beco
+// de verdade, e quem procura por ela usa a Lista.
+export function pecasReprovadas(pecas) {
+  return (Array.isArray(pecas) ? pecas : [])
+    .filter(p => p?.status === 'reprovada')
+    .sort(_porData)
+}
+
 // Conta TODOS os status, inclusive os que não viram coluna — é o que alimenta
 // os selos da topbar ("3 esperando aprovação", "2 reprovadas").
 export function contarPorStatus(pecas) {

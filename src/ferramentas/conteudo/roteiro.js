@@ -81,3 +81,66 @@ export function montarRoteiroParaCopiar(ideia = {}) {
 
   return linhas.join('\n').trim();
 }
+
+// ---------- escrever uma ideia à mão ----------
+
+// O rascunho editável a partir de uma ideia existente (ou vazio, para uma nova).
+//
+// Devolve SEMPRE strings, nunca null: `v-model` num campo de texto com null
+// escreve a palavra "null" dentro do campo. E copia o roteiro em profundidade,
+// senão editar um take mexeria no objeto que a lista de trás está mostrando.
+export function ideiaEmBranco(base = {}) {
+  const b = base || {};
+  return {
+    titulo: _limpo(b.titulo),
+    formato: _limpo(b.formato),
+    pilar: _limpo(b.pilar),
+    gancho: _limpo(b.gancho),
+    producao: _limpo(b.producao),
+    legenda_sugerida: _limpo(b.legenda_sugerida),
+    cta: _limpo(b.cta),
+    hashtags_sugeridas: _limpo(b.hashtags_sugeridas),
+    por_que_agora: _limpo(b.por_que_agora),
+    roteiro: (Array.isArray(b.roteiro) ? b.roteiro : []).map((t, i) => ({
+      cena: Number(t?.cena) || i + 1,
+      imagem: _limpo(t?.imagem),
+      // Lê o formato antigo (`fala`) para que editar uma ideia velha não apague
+      // o que ela já tinha escrito.
+      narracao: falaDoTake(t),
+      texto_na_tela: _limpo(t?.texto_na_tela),
+      duracao_s: Number(t?.duracao_s) || null,
+    })),
+  };
+}
+
+// O que vai para o banco. Texto vazio vira null (o banco distingue "não
+// preenchido" de "preenchido com nada"), a numeração das cenas é refeita pela
+// ordem final, e take totalmente vazio é descartado — sobra de um "+ take" que
+// a pessoa clicou e não usou.
+export function limparParaGravar(rascunho = {}) {
+  const r = rascunho || {};
+  const ouNulo = v => _limpo(v) || null;
+
+  const roteiro = (Array.isArray(r.roteiro) ? r.roteiro : [])
+    .filter(t => _limpo(t?.imagem) || _limpo(t?.narracao) || _limpo(t?.texto_na_tela))
+    .map((t, i) => ({
+      cena: i + 1,
+      imagem: _limpo(t?.imagem),
+      narracao: _limpo(t?.narracao),
+      texto_na_tela: _limpo(t?.texto_na_tela),
+      duracao_s: Number(t?.duracao_s) || null,
+    }));
+
+  return {
+    titulo: _limpo(r.titulo),
+    formato: ouNulo(r.formato),
+    pilar: ouNulo(r.pilar),
+    gancho: ouNulo(r.gancho),
+    producao: ouNulo(r.producao),
+    legenda_sugerida: ouNulo(r.legenda_sugerida),
+    cta: ouNulo(r.cta),
+    hashtags_sugeridas: ouNulo(r.hashtags_sugeridas),
+    por_que_agora: ouNulo(r.por_que_agora),
+    roteiro,
+  };
+}

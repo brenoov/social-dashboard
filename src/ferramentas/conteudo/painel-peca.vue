@@ -43,6 +43,36 @@
           </div>
         </div>
 
+        <!-- LIGAR AO POST NA MÃO.
+             O robô só casa o que ele encontra. Fora da janela de 24h, com a
+             legenda muito reescrita, ou em story (que a Meta não devolve de
+             forma confiável), ele não acha — e antes disto a peça ficava sem
+             métrica para sempre, sem nada a fazer na tela. -->
+        <div v-if="podeCasarNaMao" class="ctd-campo">
+          <span class="ctd-rot">Ligar ao post do Instagram</span>
+          <p v-if="ehStory" class="ctd-ajuda">
+            <b>Story não é medido automaticamente.</b> O Instagram não devolve os stories de forma
+            confiável, então este é o único caminho — e mesmo ligado, os números de story ficam
+            disponíveis por pouco tempo.
+          </p>
+          <p v-else class="ctd-ajuda">
+            Já publicou e o sistema não encontrou sozinho? Cole aqui o endereço do post.
+          </p>
+          <div class="ctd-linha-dupla">
+            <input
+              v-model="linkDoPost"
+              class="ctd-in"
+              placeholder="https://www.instagram.com/p/…"
+              @keyup.enter="casarNaMao"
+            >
+            <button
+              class="ctd-btn ctd-btn-primario"
+              :disabled="!linkDoPost.trim() || casando"
+              @click="casarNaMao"
+            >{{ casando ? 'Ligando…' : 'Ligar' }}</button>
+          </div>
+        </div>
+
         <!-- Desempenho, quando já houver. -->
         <div v-if="metrica" class="ctd-campo">
           <span class="ctd-rot">Como foi este post</span>
@@ -268,6 +298,40 @@ function avisar(texto) {
   recado.value = texto
   clearTimeout(relogioRecado)
   relogioRecado = setTimeout(() => { recado.value = '' }, 2600)
+}
+
+// Ligar ao post do Instagram na mão.
+const linkDoPost = ref('')
+const casando = ref(false)
+
+const ehStory = computed(() => form.formato === 'stories')
+
+// Só faz sentido oferecer quando a peça já saiu (ou deveria ter saído) e ainda
+// não está ligada a nenhum post. Em story oferecemos sempre que houver data,
+// porque para ele NUNCA vai haver sugestão automática.
+const podeCasarNaMao = computed(() => {
+  if (ehNova.value) return false
+  if (atual.value?.ig_media_id) return false
+  if (ehStory.value) return !!form.quando
+  return ['agendada', 'publicada'].includes(form.status)
+})
+
+async function casarNaMao() {
+  const link = linkDoPost.value.trim()
+  if (!link) return
+  erro.value = ''
+  casando.value = true
+  try {
+    atual.value = await dados.casarNaMao(atual.value.id, link)
+    preencher(atual.value)
+    linkDoPost.value = ''
+    avisar('Ligado ao post — os números chegam na próxima medição')
+    emit('mudou')
+  } catch (e) {
+    erro.value = e.message
+  } finally {
+    casando.value = false
+  }
 }
 
 // Reprovação: motivo antes da decisão.
