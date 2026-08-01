@@ -39,12 +39,12 @@ jobs:
       COLETOR_MODEL: claude-sonnet-4-6
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Definir rodada (data BR)
         run: echo "RODADA=$(TZ=America/Sao_Paulo date +%F)" >> "$GITHUB_ENV"

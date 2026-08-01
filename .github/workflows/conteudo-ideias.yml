@@ -36,10 +36,10 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
       # Sem instalação de dependências: este robô só usa `fetch` nativo, igual ao
       # budget-ia e ao gestor-comercial. O `npm ci` que existia aqui não trazia
       # nada de útil e só dava a impressão de que trazia — foi ele que escondeu a

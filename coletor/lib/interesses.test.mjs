@@ -1297,3 +1297,32 @@ test('o teto ainda existe — so que sobre o que a IA escolheu, cortando o fim',
   assert.equal(escolhidos.length, 14);
   assert.equal(escolhidos.slice(0, MAXIMO_POR_OBJETIVO).length, 12);
 });
+
+// ===== O 12 É LIMITE, NÃO META (conserto de 2026-08-01) =====
+
+test('a escolha diz que NAO existe numero certo de respostas', () => {
+  const p = montarEscolha({ marca: { nome: 'X' }, objetivo: 'vendas', itens: ITENS });
+  assert.match(p.user, /Não existe número certo de respostas/);
+  assert.match(p.user, /Nunca complete a lista só para ela ficar cheia/);
+});
+
+test('a escolha proibe a FAMILIA do homonimo, nao so a cidade do exemplo', () => {
+  // `Bolsa de Valores de Hong Kong` passou mesmo com o exemplo de Istambul logo
+  // acima: mesmo erro, outra cidade.
+  const p = montarEscolha({ marca: { nome: 'X' }, objetivo: 'vendas', itens: ITENS });
+  assert.match(p.user, /de qualquer cidade ou país/);
+  assert.match(p.user, /bolsa de estudo/i);
+});
+
+test('a escolha da um teste concreto, item a item', () => {
+  const p = montarEscolha({ marca: { nome: 'X' }, objetivo: 'vendas', itens: ITENS });
+  assert.match(p.user, /compraria desta loja\?/);
+});
+
+test('o pedido de termos manda preferir COISA a CONCEITO, com os exemplos medidos', () => {
+  const p = montarPedido({ marca: { nome: 'La Vessel' }, lojas: [], objetivo: 'vendas' });
+  assert.match(p.user, /COISA a CONCEITO/);
+  assert.match(p.user, /"estilo", "tendência"/);
+  // E segue sem reintroduzir a instrução que zerou 48 buscas.
+  assert.ok(!/específico|nicho|detalhad/i.test(p.user.replace(/NÃO EXISTEM.*/g, '')));
+});

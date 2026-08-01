@@ -34,10 +34,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Rodar análise de budget
         env:
           ANTHROPIC_API_KEY_TRAFEGO: ${{ secrets.ANTHROPIC_API_KEY_TRAFEGO }}

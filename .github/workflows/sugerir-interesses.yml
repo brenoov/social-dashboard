@@ -36,10 +36,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
 
       # SEGURANÇA: os passos abaixo têm comando FIXO e são escolhidos por `if`.
       # Nada vindo de fora entra na linha de comando — nem a escolha do modo.
