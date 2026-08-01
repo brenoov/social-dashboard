@@ -691,6 +691,15 @@
  * altura nem encosta nas bordas, e a rolagem acontece DENTRO dela.
  */
 .ctd-fundo {
+  /* AS FONTES SÃO REDECLARADAS AQUI, e não é repetição à toa: os modais são
+     teleportados para o <body>, então ficam FORA de `.ctd-tela` — que é quem
+     define --ctd-fs/-fd/-fm. Sem estas linhas o modal herdaria a fonte do
+     documento e destoaria da tela que o abriu. */
+  --ctd-fs: 'IBM Plex Sans', system-ui, sans-serif;
+  --ctd-fd: 'Sora', system-ui, sans-serif;
+  --ctd-fm: 'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
+  font-family: var(--ctd-fs);
+
   position: fixed; inset: 0; z-index: 60;
   background: rgba(0, 0, 0, .58); backdrop-filter: blur(3px);
   display: flex; align-items: center; justify-content: center;

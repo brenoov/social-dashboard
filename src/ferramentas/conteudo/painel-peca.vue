@@ -1,4 +1,5 @@
 <template>
+  <Teleport to="body">
   <div class="ctd-fundo" @click.self="$emit('fechar')">
     <div class="ctd-painel" role="dialog" aria-label="Peça de conteúdo">
       <div class="ctd-painel-cab">
@@ -220,6 +221,7 @@
       </div>
     </div>
   </div>
+  </Teleport>
 </template>
 
 <script setup>

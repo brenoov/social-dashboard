@@ -5,6 +5,7 @@
        (é para ler em voz alta) e o "o que aparece na tela" vem menor ao lado —
        a fala é o que se executa, o enquadramento é a instrução.
        Trello mostra um cartão com descrição; aqui se abre um roteiro. -->
+  <Teleport to="body">
   <div class="ctd-fundo" @click.self="$emit('fechar')">
     <div
       class="ctd-painel ctd-painel-largo"
@@ -94,6 +95,7 @@
       </div>
     </div>
   </div>
+  </Teleport>
 </template>
 
 <script setup>

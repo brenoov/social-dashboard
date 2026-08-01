@@ -5,6 +5,7 @@
        está agendado, o mês) o sistema monta sozinho — e é por isso que este
        painel mostra também o que já é automático: sem isso a pessoa não sabe se
        a pauta saiu fraca por falta de cadastro ou por falta de histórico. -->
+  <Teleport to="body">
   <div class="ctd-fundo" @click.self="$emit('fechar')">
     <div class="ctd-painel ctd-painel-largo" role="dialog" aria-labelledby="ctd-marca-t">
       <div class="ctd-painel-cab">
@@ -139,6 +140,7 @@
       </div>
     </div>
   </div>
+  </Teleport>
 </template>
 
 <script setup>
