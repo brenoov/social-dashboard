@@ -76,6 +76,47 @@ async function buscarNaMeta(accountId, termo, token) {
   return r.json();
 }
 
+// SONDA DOS "PARECIDOS" — o `adinterestsuggestion` da Meta.
+//
+// ⚠️ RESULTADO (2026-08-01): NÃO SERVE. A ideia era oferecer "mostrar parecidos"
+// no editor de público, a partir de um interesse já escolhido. O endpoint
+// RESPONDE (nenhum erro, 10 itens sempre) — e é aí que estava a armadilha: quem
+// olhasse só o status diria que funciona.
+//
+// O que ele devolve, para QUALQUER semente:
+//   `Acesso ao Facebook (celular): todos os dispositivos móveis` — 4,54 bi
+//   `Amigos de pessoas que fazem aniversário em um mês` — 3,15 bi
+//   `Viajantes frequentes` — 3,05 bi · `Amigos de fãs de futebol` — 2,76 bi
+// Nove dos dez resultados são IDÊNTICOS entre [Bolsas], [Cinto] e
+// [Bolsas, Carteira]. O décimo é a própria semente devolvida de volta.
+//
+// Ou seja: não são "parecidos", é uma lista fixa de comportamentos e dados
+// demográficos gigantes. Segmentar por eles é o mesmo que não segmentar — o
+// motivo pelo qual o TETO_DE_PUBLICO existe, e todos passariam longe dele.
+//
+// A sonda fica no código porque é a PROVA, reproduzível por R$ 0. Se um dia
+// alguém propuser "mostrar parecidos" de novo, rode antes de escrever tela.
+//
+// Custou R$ 0 e evitou uma funcionalidade inteira que teria entregado lixo.
+//
+// `interest_list` vai como ARRAY: o meta-proxy faz JSON.stringify em valor que é
+// objeto, então converter aqui converteria duas vezes — mesma pegadinha do
+// `cities` na tradução de geolocalização.
+async function sugerirParecidos(accountId, nomes, token) {
+  const r = await fetch(SUPABASE_URL + '/functions/v1/meta-proxy', {
+    method: 'POST',
+    headers: { apikey: ANON, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      accountId,
+      path: '/search',
+      params: { type: 'adinterestsuggestion', interest_list: nomes, limit: 10 },
+      method: 'GET',
+    }),
+  });
+  if (!r.ok) throw new Error('meta-proxy ' + r.status + ' ' + (await r.text()).slice(0, 200));
+  return r.json();
+}
+
 async function run() {
   if (!SERVICE_KEY) throw new Error('falta SUPABASE_SERVICE_KEY');
   const token = await loginServico();
@@ -106,6 +147,27 @@ async function run() {
       acharam++;
       console.log(`  "${termo}" → ${itens.length} achados`);
       for (const linha of linhasDaPrevia(itens)) console.log(linha);
+    }
+    await sleep(PAUSA_ENTRE_BUSCAS);
+  }
+
+  // ── OS "PARECIDOS" ────────────────────────────────────────────────────────
+  // Roda no fim porque é uma pergunta diferente: não é "este termo existe?", é
+  // "a Meta sabe sugerir a partir do que já existe?". Falha aqui NÃO derruba a
+  // sonda — a resposta "o endpoint não serve nesta conta" é resultado, e é
+  // exatamente por isso que se sonda antes de construir.
+  console.log('\n── Parecidos (adinterestsuggestion) ──');
+  for (const semente of [['Bolsas'], ['Cinto'], ['Bolsas', 'Carteira']]) {
+    try {
+      const resp = await sugerirParecidos(conta.account_id, semente, token);
+      const { itens } = colherDaBusca(semente, [resp], Infinity, Infinity, -Infinity);
+      if (!itens.length) { console.log(`  a partir de [${semente.join(', ')}] → nada`); }
+      else {
+        console.log(`  a partir de [${semente.join(', ')}] → ${itens.length} parecidos`);
+        for (const linha of linhasDaPrevia(itens)) console.log(linha);
+      }
+    } catch (e) {
+      console.log(`  a partir de [${semente.join(', ')}] → ⚠ ${String(e).slice(0, 160)}`);
     }
     await sleep(PAUSA_ENTRE_BUSCAS);
   }

@@ -192,7 +192,7 @@ manter a regra para o resto (`Bolsa de estudo`, hoje em 2/6).
 | **C3** | Criar campanha do zero no Gestor. **NUNCA foi feito** — o dono chegou a achar que sim. |
 | **C4** | Copiar campanha para outra conta (a Meta não copia; exige recriar + re-subir imagens). |
 | **C5** | Trocar criativo/público ao duplicar. |
-| — | Sugestão nativa da Meta (`adinterestsuggestion`, "mostrar parecidos"). Pequena, sem IA. |
+| ~~—~~ | ~~Sugestão nativa da Meta (`adinterestsuggestion`)~~ — **SONDADA E DESCARTADA (2026-08-01).** O endpoint responde sem erro, mas devolve a MESMA lista para qualquer semente: `Acesso ao Facebook (celular)` 4,54 bi, `Amigos de pessoas que fazem aniversário` 3,15 bi, `Viajantes frequentes` 3,05 bi. 9 de 10 idênticos entre [Bolsas], [Cinto] e [Bolsas, Carteira]; o décimo é a própria semente. Não são parecidos: é uma lista fixa de comportamentos gigantes. Prova reproduzível por R$ 0 em `coletor/sondar-interesses.mjs`. |
 | ~~A~~ | ~~Vigia de saldo~~ — a outra frente fez. |
 
 ---
