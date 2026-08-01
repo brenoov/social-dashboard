@@ -72,14 +72,23 @@
           </span>
         </div>
 
+        <!-- QUATRO ABAS, agrupadas pelo que a pessoa está FAZENDO — não pelo
+             tipo de visualização. Eram seis, e três delas (Calendário, Prévia,
+             Lista) eram formas de olhar a mesma coisa, o que obrigava a pular
+             de aba para montar uma ideia na cabeça.
+               Home ......... o mês e como o perfil vai ficar, lado a lado
+               Programação .. o trabalho em andamento: quadro ou tabela
+               Ideias ....... o que ainda não virou peça
+               Voz da marca . o que a IA sabe desta marca -->
         <div class="ctd-tabs">
-          <button :class="{ on: aba === 'calendario' }" @click="aba = 'calendario'">Calendário</button>
-          <button :class="{ on: aba === 'quadro' }" @click="aba = 'quadro'">Quadro</button>
-          <button :class="{ on: aba === 'previa' }" @click="aba = 'previa'">Prévia do feed</button>
-          <button :class="{ on: aba === 'lista' }" @click="aba = 'lista'">Lista</button>
+          <button :class="{ on: aba === 'home' }" @click="aba = 'home'">Home</button>
+          <button :class="{ on: aba === 'programacao' }" @click="aba = 'programacao'">
+            Programação<span v-if="pecas.length"> ({{ pecas.length }})</span>
+          </button>
           <button :class="{ on: aba === 'ideias' }" @click="aba = 'ideias'">
             Ideias<span v-if="ideias.length"> ({{ ideias.length }})</span>
           </button>
+          <button :class="{ on: aba === 'voz' }" @click="aba = 'voz'">Voz da marca</button>
 
           <!-- UMA BUSCA SÓ, valendo para todas as abas.
                Não havia busca em lugar nenhum, e os filtros de cada visão eram
@@ -95,16 +104,10 @@
             >
             <button v-if="busca" class="ctd-busca-x" aria-label="Limpar busca" @click="busca = ''">×</button>
           </div>
-
-          <!-- Fica à direita e separado das abas de propósito: não é uma visão
-               do conteúdo, é o ajuste do que a IA sabe sobre a marca. -->
-          <button class="ctd-tab-fim" title="O que a IA sabe sobre esta marca" @click="painelMarca = true">
-            A marca
-          </button>
         </div>
 
-        <!-- Ideias fica FORA do "se não tem peça": é justamente por onde se
-             começa quando não há nada. -->
+        <!-- Ideias e Voz da marca ficam FORA do "se não tem peça": são
+             justamente por onde se começa quando não há nada. -->
         <VisaoIdeias
           v-show="aba === 'ideias'"
           :ideias="ideiasVisiveis"
@@ -113,12 +116,20 @@
           @abrir-peca="aoNascerPeca"
         />
 
+        <VozDaMarca
+          v-if="aba === 'voz' && contaSel"
+          :conta="contaAtual"
+          :account-id="contaSel"
+          :pecas="pecas"
+          @mudou="recarregar"
+        />
+
         <!-- Convite, não bloqueio: com zero peças a ferramenta ANTES sumia e
              sobrava uma caixa de texto. A estrutura vazia é que ensina o que a
              ferramenta faz — o calendário do mês, as colunas do quadro, a grade
              do perfil. Então a faixa aparece POR CIMA das visões, e elas
              continuam lá atrás. -->
-        <div v-if="!pecas.length && aba !== 'ideias'" class="ctd-convite">
+        <div v-if="!pecas.length && aba !== 'ideias' && aba !== 'voz'" class="ctd-convite">
           <span class="ctd-convite-txt">
             <b>Nenhuma peça ainda.</b>
             Monte a primeira: ela passa pela aprovação, fica agendada, e na hora marcada
@@ -127,18 +138,17 @@
           <button class="ctd-btn ctd-btn-primario" @click="abrirNova()">Criar a primeira peça</button>
         </div>
 
-        <!-- As visões renderizam SEMPRE. Cada uma sabe se virar vazia: o
-             calendário mostra o mês, o quadro mostra as colunas, a prévia
-             explica o que vai aparecer ali. -->
-        <VisaoCalendario
-          v-show="aba === 'calendario'"
+        <VisaoHome
+          v-show="aba === 'home'"
           :pecas="pecasVisiveis"
           :miniaturas="miniaturas"
+          :conta="contaAtual"
           @abrir="abrir"
           @nova="abrirNova"
         />
-        <VisaoKanban
-          v-show="aba === 'quadro'"
+
+        <VisaoProgramacao
+          v-show="aba === 'programacao'"
           :pecas="pecasVisiveis"
           :miniaturas="miniaturas"
           :metricas="metricas"
@@ -146,8 +156,6 @@
           @abrir="abrir"
           @mover="mover"
         />
-        <PreviaDoFeed v-show="aba === 'previa'" :pecas="pecasVisiveis" :miniaturas="miniaturas" :conta="contaAtual" @abrir="abrir" />
-        <VisaoLista v-show="aba === 'lista'" :pecas="pecasVisiveis" @abrir="abrir" />
       </template>
 
       <div v-else class="ctd-vazio">
@@ -166,28 +174,18 @@
       @mudou="recarregar"
     />
 
-    <PainelMarca
-      v-if="painelMarca && contaSel"
-      :conta="contaAtual"
-      :account-id="contaSel"
-      :pecas="pecas"
-      @fechar="painelMarca = false"
-      @mudou="recarregar"
-    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import VisaoCalendario from './visao-calendario.vue'
-import VisaoKanban from './visao-kanban.vue'
-import VisaoLista from './visao-lista.vue'
+import VisaoHome from './visao-home.vue'
+import VisaoProgramacao from './visao-programacao.vue'
 import VisaoIdeias from './visao-ideias.vue'
-import PreviaDoFeed from './previa-do-feed.vue'
+import VozDaMarca from './voz-da-marca.vue'
 import IconeFormato from './icone-formato.vue'
 import PainelPeca from './painel-peca.vue'
-import PainelMarca from './painel-marca.vue'
 import { STATUS, corDeStatus } from './estados.js'
 import { contarPorStatus } from './agrupar-kanban.js'
 import { filtrarPecas, filtrarIdeias } from './buscar.js'
@@ -212,12 +210,11 @@ const ideiasVisiveis = computed(() => filtrarIdeias(ideias.value, busca.value))
 const miniaturas = ref({})
 const metricas = ref({})
 const aguardando = ref(0)
-const aba = ref('calendario')
+const aba = ref('home')
 const carregando = ref(true)
 const erro = ref('')
 
 const painelAberto = ref(false)
-const painelMarca = ref(false)
 const pecaEmEdicao = ref(null)
 const dataSugerida = ref('')
 
@@ -319,7 +316,7 @@ async function recarregar() {
 // A ideia virou rascunho: abre a peça nova já para edição, senão a pessoa fica
 // sem saber para onde ela foi.
 function aoNascerPeca(peca) {
-  aba.value = 'calendario'
+  aba.value = 'home'
   abrir(peca)
 }
 

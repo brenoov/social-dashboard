@@ -24,17 +24,29 @@ peça já cadastrada precisa ser refeita.
 
 ARQUIVOS
 --------
+AS QUATRO ABAS (agrupadas pelo que a pessoa está FAZENDO, não pelo tipo de
+visualização — eram seis, e três delas eram formas de olhar a mesma coisa):
+
+  Home ......... o mês e como o perfil vai ficar, LADO A LADO
+  Programação .. o trabalho em andamento: quadro ou tabela, na mesma aba
+  Ideias ....... o que ainda não virou peça
+  Voz da marca . o que a IA sabe desta marca (ver abaixo)
+
 tela-de-conteudo.vue ....... a casca: topbar, seletor de marca, abas, carga dos dados
 tela-de-peca.vue ........... uma peça só, feita para o celular (destino do aviso)
+visao-home.vue ............. compõe calendário + prévia do feed
+visao-programacao.vue ...... compõe quadro + lista, com troca entre os dois
 visao-calendario.vue ....... o mês em quadros
-visao-kanban.vue ........... o quadro por etapa, com arrastar
+visao-kanban.vue ........... o quadro por etapa, com arrastar E com "mover para"
+                             (arrastar não existe em tela de toque)
 visao-lista.vue ............ a tabela, com filtro por situação e ordenação
 visao-ideias.vue ........... o banco de pautas e o botão de gerar com IA
 previa-do-feed.vue ......... como o perfil vai ficar: a grade de 3 colunas do Instagram
-cartao-peca.vue ............ o cartão da peça — UM só, usado pelas três visões
+cartao-peca.vue ............ o cartão da peça — UM só, usado pelas visões
 painel-peca.vue ............ criar/editar: arquivos, legenda, data, mover de etapa
-painel-ideia.vue ........... o roteiro da ideia, feito para ler com o celular na mão
-painel-marca.vue ........... "A marca": o que a IA sabe desta marca (ver abaixo)
+painel-ideia.vue ........... o roteiro: LÊ o que a IA fez e ESCREVE um à mão
+voz-da-marca.vue ........... aba: tom de voz, concorrentes, Portal de Notícias
+buscar.js .................. a busca por texto, uma só para todas as visões
 icone-formato.vue / icones.js  os ícones, desenhados aqui — emoji como ícone é proibido
 dados-conteudo.js .......... toda a conversa com o banco e com o depósito de arquivos
 estilos-conteudo.css ....... os estilos (todos com prefixo .ctd-)
