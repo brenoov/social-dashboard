@@ -19,7 +19,7 @@
 // então o valor real aparece no painel Status do Claude, em reais.
 import { structured, SONNET, usageSummary } from './lib-llm.mjs';
 import { registrarExecucao } from './registrar-execucao.mjs';
-import { montarPedido, montarEscolha, escolhidosValidos, linhaDaEscolha, nomesPropostos, colherDaBusca, linhaDosTermos, linhasDaPrevia, linhasDosLargos, linhasDosPequenos, linhasPorTermo, comCidadesResolvidas, rodadaFalhouInteira, OBJETIVOS } from './lib/interesses.mjs';
+import { montarPedido, montarEscolha, termosDaMarca, juntarTermos, escolhidosValidos, linhaDaEscolha, nomesPropostos, colherDaBusca, linhaDosTermos, linhasDaPrevia, linhasDosLargos, linhasDosPequenos, linhasPorTermo, comCidadesResolvidas, rodadaFalhouInteira, OBJETIVOS } from './lib/interesses.mjs';
 // Login da conta de serviço (mesma usada por subir-estudio.mjs, ativar-estudio.mjs
 // etc.) — o meta-proxy chama auth.getUser() sobre o Authorization recebido, e uma
 // service key não é sessão de usuário: ela sempre daria 401 "nao autenticado" ali.
@@ -214,7 +214,7 @@ export async function run() {
   // montarPedido. Esquecer de pedir a coluna aqui NÃO daria erro: ela chegaria
   // undefined, a linha sumiria do pedido e a IA voltaria a adivinhar pelo nome,
   // exatamente o defeito que a coluna existe pra consertar, e em silêncio.
-  const marcas = await sbGet('/fabrica_marcas?select=id,nome,segmento,account_id&ativo=eq.true');
+  const marcas = await sbGet('/fabrica_marcas?select=id,nome,segmento,termos_produto,account_id&ativo=eq.true');
   const lojas = await sbGet('/fabrica_lojas?select=nome,marca_id,geo_cities');
 
   // Traduz TODAS as chaves de cidade de uma vez, antes do laço (ver
@@ -246,8 +246,12 @@ export async function run() {
         puladas++; continue;
       }
 
-      const termos = nomesPropostos(resposta);
-      if (!termos.length) { console.log(`  ⚠ ${marca.nome} · ${objetivo}: IA não propôs nenhum termo`); puladas++; continue; }
+      // OS PRODUTOS DA MARCA ENTRAM SEMPRE, na frente dos palpites da IA.
+      // Ver termosDaMarca/juntarTermos: `Cinto` ficou em zero dos seis objetivos
+      // numa rodada real só porque a IA não lembrou de pedir, e cinto é a maior
+      // categoria do estoque. Produto da loja não pode depender de sorteio.
+      const termos = juntarTermos(termosDaMarca(marca), nomesPropostos(resposta));
+      if (!termos.length) { console.log(`  ⚠ ${marca.nome} · ${objetivo}: nem a marca nem a IA deram termo nenhum`); puladas++; continue; }
 
       // SÓ EM SECO, E ANTES DE BUSCAR: os termos que a IA devolveu.
       //
