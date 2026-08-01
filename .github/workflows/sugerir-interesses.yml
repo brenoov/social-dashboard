@@ -41,11 +41,29 @@ jobs:
         with:
           node-version: '20'
 
-      # SEGURANÇA: os dois passos abaixo têm comando FIXO e são escolhidos por
-      # `if`. Nada vindo de fora entra na linha de comando — nem a escolha do
-      # modo. Segredo só por `env:`, nunca interpolado no `run:`.
+      # SEGURANÇA: os passos abaixo têm comando FIXO e são escolhidos por `if`.
+      # Nada vindo de fora entra na linha de comando — nem a escolha do modo.
+      # Segredo só por `env:`, nunca interpolado no `run:`.
+      #
+      # ESTA CONDIÇÃO LISTA QUEM PODE GASTAR, e não quem não pode. Já foi
+      # `inputs.modo != 'seco'`, escrita quando só existiam dois modos. Quando o
+      # modo `sonda` nasceu (2026-07-31), ela silenciosamente passou a significar
+      # "sonda também é pra valer": o dispatch da sonda rodou o robô DE VERDADE
+      # antes dela e gravou em produção. Custou uma rodada de IA e sujou a tabela
+      # com a versão anterior à etapa de escolha.
+      #
+      # Escrita assim, um modo novo criado amanhã falha pro lado seguro: não roda
+      # nada até alguém decidir conscientemente que ele pode gastar.
+      #
+      # AS DUAS PRIMEIRAS CLÁUSULAS COBREM O AGENDAMENTO: no evento `schedule`
+      # não existe `inputs`, então `inputs.modo` vem nulo. Em tese `null == ''`
+      # é verdadeiro nas expressões do Actions (os dois viram 0 na conversão),
+      # mas essa é exatamente a classe de "segundo a documentação" que este
+      # projeto já pagou caro pra não confiar. E aqui o preço de errar é o robô
+      # semanal parar de rodar SEM NADA FICAR VERMELHO — passo pulado é verde.
+      # Duas cláusulas custam nada; descobrir isso em três domingos custa caro.
       - name: Rodar sugestão de interesses
-        if: ${{ inputs.modo != 'seco' }}
+        if: ${{ inputs.modo == null || inputs.modo == '' || inputs.modo == 'normal' }}
         env:
           # Lida pelo lib-llm.mjs (structured()).
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
