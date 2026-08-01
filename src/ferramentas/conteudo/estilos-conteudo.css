@@ -119,7 +119,7 @@
     color-mix(in srgb, var(--accent) 92%, #fff),
     var(--accent));
   border-color: color-mix(in srgb, var(--accent) 70%, #000);
-  color: #1a1205; font-weight: 700;
+  color: var(--sobre-accent, #12100e); font-weight: 700;
   box-shadow: 0 1px 2px rgba(0,0,0,.25), 0 4px 14px color-mix(in srgb, var(--accent) 26%, transparent);
 }
 .ctd-btn-primario:hover:not(:disabled) {
@@ -908,9 +908,12 @@
   border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
 }
 /* A barra viva à esquerda: o cronômetro dos 3 segundos, parado em forma. */
+/* A barra viva à esquerda: o degradê do Instagram, de cima a baixo. É o
+   momento mais expressivo da tela, e o único lugar onde o degradê aparece
+   inteiro — usado em tudo, viraria enfeite; usado aqui, marca o que importa. */
 .ctd-gancho3::before {
   content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
-  background: linear-gradient(180deg, var(--accent), transparent);
+  background: var(--ig-degrade, linear-gradient(180deg, var(--accent), transparent));
 }
 .ctd-gancho3-rot {
   display: block; font-size: 11px; font-weight: 700; letter-spacing: 1.2px;
@@ -1174,3 +1177,55 @@
 /* `.ctd-campo` é flex em coluna, então todo filho estica na largura toda. Bom
    para campo de texto, ruim para botão: o "+ take" virava uma faixa de 700px. */
 .ctd-btn-encolhe { align-self: flex-start; }
+
+/* ── O sotaque da marca onde o trabalho é criativo ─────────────────────────────
+ * O degradê aparece em três lugares e só neles: o fio sob a topbar (diz de que
+ * ferramenta se trata antes de qualquer texto), a barra do gancho (o momento
+ * que decide o post) e o selo da IA. Espalhar mais transformaria assinatura em
+ * papel de parede.
+ */
+.ctd-topbar { position: sticky; }
+.ctd-topbar::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+  background: var(--ig-degrade); opacity: .85;
+}
+
+/* O selo da IA ganha a cor da marca em vez de um azul qualquer. */
+.ctd-ideia-selo { color: var(--accent); }
+
+/* Quem prefere menos movimento não perde a identidade — o degradê é estático. */
+
+/* ── Onde a cor da marca aparece, e onde NÃO ────────────────────────────────
+ *
+ * O primeiro corte ficou rosa demais: "Virar peça" preenchido em cada cartão
+ * transformava sotaque em papel de parede, e o olho perdia o que era
+ * realmente a ação principal da tela.
+ *
+ * A regra: preenchimento cheio é UM por tela (o "+ Nova peça" da topbar).
+ * Nos cartões, a ação principal vira contorno — continua evidente, sem gritar.
+ */
+.ctd-ideia-rodape .ctd-btn-primario,
+.ctd-kb-recusadas .ctd-btn-primario,
+.ctd-take-edit ~ .ctd-btn-primario {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  color: var(--accent);
+  box-shadow: none;
+  font-weight: 600;
+}
+.ctd-ideia-rodape .ctd-btn-primario:hover:not(:disabled),
+.ctd-kb-recusadas .ctd-btn-primario:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: var(--accent);
+  box-shadow: none;
+}
+
+/* O bloco do gancho estava com fundo quase magenta. Ele precisa chamar atenção,
+   não virar um cartaz: o degradê da barra à esquerda já faz esse trabalho. */
+.ctd-gancho3 {
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--accent) 7%, transparent),
+      color-mix(in srgb, var(--accent) 2%, transparent));
+  border-color: color-mix(in srgb, var(--accent) 22%, var(--border));
+}

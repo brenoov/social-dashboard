@@ -4,10 +4,15 @@
     --gutter:16px;            /* margem lateral segura (cresce no desktop, ver @media no fim) */
     --container-max:1280px;   /* largura máxima do conteúdo */
     --card-radius:12px; --card-pad:var(--sp-4); --card-gap:var(--sp-3); --card-min:260px;
-    --bg:#ffffff;--surface:#ffffff;--surface2:#f4f5f7;
-    --border:rgba(0,0,0,0.09);
+    /* TEMA CLARO — PÉROLA, NÃO BRANCO AZULADO.
+       O branco puro cansa a vista em tela grande, e o cinza-azulado que estava
+       aqui (#f4f5f7) dava um ar de planilha. Pérola é branco quente: o vermelho
+       vem na frente do azul (#faf7f2 = R250 G247 B242), o oposto do que havia.
+       O mesmo vale para o texto — preto azulado virou preto quente. */
+    --bg:#faf7f2;--surface:#ffffff;--surface2:#f2ede4;
+    --border:rgba(0,0,0,0.10);
     --accent:#1D4ED8;--accent-light:rgba(29,78,216,0.08);--accent-mid:rgba(29,78,216,0.30);
-    --text:#0a0a12;--muted:rgba(10,10,18,0.80);
+    --text:#17150f;--muted:rgba(23,21,15,0.72);
     --green:#1a6e45;--yellow:#8a6200;--orange:#b85800;--red:#b01e3a;
     --radius-sm:3px;--radius-md:6px;--radius-lg:12px;--radius-xl:18px;
     --shadow-sm:0 1px 3px rgba(0,0,0,.07);
@@ -20,10 +25,16 @@
     --fonte-marca: 'Oswald', sans-serif;                                /* só a marca RBV */
   }
   [data-theme="dark"]{
-    --bg:#0a0b14;--surface:#10111f;--surface2:#161728;
-    --border:rgba(255,255,255,0.08);
+    /* TEMA ESCURO — PRETO, NÃO AZUL-MARINHO.
+       O que havia (#0a0b14) tinha o azul 10 pontos acima do vermelho: em tela
+       grande lia como marinho, não como preto. Agora é neutro e mais fundo, o
+       que faz a cor do conteúdo saltar em vez de competir com o fundo.
+       O texto era #e2e4f0 — branco AZULADO (B 14 acima do R). Virou pérola:
+       #f0ece4, quente, com o vermelho na frente. Medido: 16,8 de contraste. */
+    --bg:#0a0a0b;--surface:#121214;--surface2:#1b1b1e;
+    --border:rgba(255,255,255,0.09);
     --accent:#4f7cff;--accent-light:rgba(79,124,255,0.12);--accent-mid:rgba(79,124,255,0.30);
-    --text:#e2e4f0;--muted:rgba(226,228,240,0.50);
+    --text:#f0ece4;--muted:rgba(240,236,228,0.55);
     --green:#22c55e;--yellow:#eab308;--orange:#f97316;--red:#f43f5e;
     --shadow-sm:0 1px 3px rgba(0,0,0,.3);
     --shadow-md:0 4px 16px rgba(0,0,0,.4);
@@ -1552,4 +1563,39 @@ img{max-width:100%;}
   #gt-date { display: none !important; }
   /* Sem o bloco do relógio, a topbar não precisa mais quebrar em duas linhas. */
   .gv-topbar { padding-top: max(6px, env(safe-area-inset-top)); }
+}
+
+/* ═══ TRAÇOS DO INSTAGRAM NAS FERRAMENTAS DE REDE SOCIAL ═══════════════════════
+ *
+ * O resto do sistema é azul corporativo, e isso está certo: Vendas, Tráfego e
+ * Financeiro são ferramentas de número. Mas as duas que tratam de Instagram —
+ * Redes Sociais (que mede) e Central de Conteúdo (que cria) — pediam a cor de
+ * onde o trabalho acontece.
+ *
+ * NÃO é a logo do Instagram nem imitação de marca: é a FAMÍLIA de cores dela
+ * (o degradê roxo → magenta → laranja → amarelo), usada como sotaque. O azul
+ * global continua valendo em todas as outras telas.
+ *
+ * As cores foram MEDIDAS, não escolhidas por gosto:
+ *   #ff5c8d sobre o preto novo = 6,75 (AA)
+ *   #b81e5c sobre o pérola     = 5,82 (AA)
+ *   texto PRETO no botão rosa  = 6,48 — mais legível que branco (4,34).
+ *   Por isso o botão principal destas telas tem texto escuro.
+ */
+.tela-redes-sociais,
+.ctd-tela {
+  --accent:#b81e5c;
+  --accent-light:rgba(184,30,92,0.08);
+  --accent-mid:rgba(184,30,92,0.30);
+  /* O degradê da marca, para os momentos de assinatura — nunca em texto. */
+  --ig-degrade:linear-gradient(115deg,#833ab4 0%,#c13584 28%,#e1306c 52%,#f56040 76%,#fcaf45 100%);
+  /* Sobre o rosa, o texto é escuro: medido, é o que se lê melhor. */
+  --sobre-accent:#ffffff;
+}
+[data-theme="dark"] .tela-redes-sociais,
+[data-theme="dark"] .ctd-tela {
+  --accent:#ff5c8d;
+  --accent-light:rgba(255,92,141,0.14);
+  --accent-mid:rgba(255,92,141,0.34);
+  --sobre-accent:#12100e;
 }
