@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { sugestoesParaOConjunto, linhaDeOrigem, MAXIMO_DE_CHIPS } from './sugestoes-de-interesse.js'
+import { sugestoesParaOConjunto, linhaDeOrigem, montarFaixaDeSugestoes, MAXIMO_DE_CHIPS } from './sugestoes-de-interesse.js'
 
 const SUGERIDOS = [
   {
@@ -90,4 +90,107 @@ test('sem data a frase continua inteira, sem parenteses solto', () => {
 test('sem objetivo nao ha frase', () => {
   assert.equal(linhaDeOrigem('', new Date()), '')
   assert.equal(linhaDeOrigem(), '')
+})
+
+// ===== A MONTAGEM DA FAIXA =====
+//
+// Um `document` de mentira, do tamanho exato do que a faixa usa. Existe porque a
+// faixa vive numa tela de 4 mil linhas que exige login e dados ao vivo da Meta —
+// e o que não se consegue abrir sozinho, ninguém confere.
+
+function docFalso() {
+  const criar = (tag) => ({
+    tag,
+    filhos: [],
+    style: { cssText: '' },
+    textContent: '',
+    title: '',
+    type: '',
+    onclick: null,
+    appendChild(f) { this.filhos.push(f); return f },
+    // O texto inteiro da subárvore — é assim que se pergunta "apareceu?" sem
+    // depender de qual span carrega qual pedaço.
+    get texto() { return (this.textContent || '') + this.filhos.map((f) => f.texto).join('') },
+    get botoes() { return this.filhos.flatMap((f) => (f.tag === 'button' ? [f] : f.botoes)) },
+  })
+  return { createElement: criar }
+}
+
+const BASE = () => ({
+  doc: docFalso(),
+  sugeridos: SUGERIDOS,
+  objetivo: 'vendas',
+  jaEscolhidos: [],
+  ajuda: (t) => { const d = docFalso().createElement('div'); d.textContent = t; return d },
+  linha: () => docFalso().createElement('div'),
+  tamanho: (n) => (n >= 999_500 ? Math.round(n / 1e6) + ' mi' : String(n)),
+})
+
+test('monta um botao por sugestao, com o nome dentro', () => {
+  const el = montarFaixaDeSugestoes(BASE())
+  assert.ok(el, 'a faixa tem de existir quando há sugestão')
+  assert.equal(el.botoes.length, 3)
+  assert.ok(el.texto.includes('Bolsas (acessórios)'))
+  assert.ok(el.texto.includes('Cinto'))
+})
+
+test('cada botao mostra o "+" — o gesto e ACRESCENTAR, nao tirar', () => {
+  // Reusar o chip do editor (que tem "×") faria a faixa parecer a lista do que
+  // já está escolhido, o oposto do que ela é.
+  const el = montarFaixaDeSugestoes(BASE())
+  for (const b of el.botoes) assert.ok(b.texto.startsWith('+'), 'botão sem o +: ' + b.texto)
+})
+
+test('clicar avisa QUAL item foi escolhido, com id e nome', () => {
+  const escolhidos = []
+  const el = montarFaixaDeSugestoes({ ...BASE(), aoEscolher: (i) => escolhidos.push(i) })
+  el.botoes[1].onclick({ stopPropagation() {} })
+  assert.deepEqual(escolhidos, [{ id: '6005', nome: 'Cinto', audience_size: 37_100_000 }])
+})
+
+test('o clique nao vaza para a janela atras (stopPropagation)', () => {
+  // Sem isto, o clique fecharia o painel por trás da faixa — o mesmo defeito
+  // que o editor já teve com o fechar-clicando-fora.
+  let parou = false
+  const el = montarFaixaDeSugestoes({ ...BASE(), aoEscolher() {} })
+  el.botoes[0].onclick({ stopPropagation() { parou = true } })
+  assert.equal(parou, true)
+})
+
+test('clique sem aoEscolher, ou com evento torto, NAO estoura', () => {
+  const el = montarFaixaDeSugestoes(BASE())
+  el.botoes[0].onclick({})
+  el.botoes[0].onclick(null)
+})
+
+test('a frase de procedencia entra na faixa', () => {
+  const el = montarFaixaDeSugestoes({ ...BASE(), quando: new Date(2026, 7, 1) })
+  assert.ok(el.texto.includes('Sugestões da IA para campanhas de vendas (01/08)'))
+})
+
+test('o titulo do botao traz o tamanho do publico, e sem tamanho nao mente', () => {
+  const el = montarFaixaDeSugestoes(BASE())
+  assert.match(el.botoes[0].title, /Cerca de 486 mi de pessoas/)
+  const semTam = montarFaixaDeSugestoes({
+    ...BASE(),
+    sugeridos: [{ objetivo: 'vendas', itens: [{ id: '1', nome: 'X' }] }],
+  })
+  assert.equal(semTam.botoes[0].title, 'Sugestão da IA')
+})
+
+test('sem nada a mostrar devolve NULL — nao uma faixa vazia', () => {
+  assert.equal(montarFaixaDeSugestoes({ ...BASE(), objetivo: 'padrao' }), null)
+  assert.equal(montarFaixaDeSugestoes({ ...BASE(), sugeridos: null }), null)
+  assert.equal(montarFaixaDeSugestoes({ ...BASE(), jaEscolhidos: [{ id: '6003' }, { id: '6005' }, { id: '6007' }] }), null)
+})
+
+test('sem document nao tenta desenhar — devolve null em vez de estourar', () => {
+  assert.equal(montarFaixaDeSugestoes({ ...BASE(), doc: null }), null)
+  assert.equal(montarFaixaDeSugestoes(), null)
+})
+
+test('sem os ajudantes da tela ainda monta — degrada, nao quebra', () => {
+  const el = montarFaixaDeSugestoes({ doc: docFalso(), sugeridos: SUGERIDOS, objetivo: 'vendas', jaEscolhidos: [] })
+  assert.ok(el)
+  assert.equal(el.botoes.length, 3)
 })

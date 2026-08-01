@@ -129,7 +129,7 @@ import { hojeLocal, diasAtras, primeiroDiaDoMes, ultimoDiaDoMes } from '../../co
 import { orcamentoDe, detectarNivelOrcamento, podeEditarOrcamentoDaCampanha, podeEditarOrcamentoDoConjunto, montarHierarquia } from './orcamento-hierarquia.js'
 import { planoDeCopia, executarPlano, comEspera, retomar, SUFIXO_PADRAO } from './duplicar.js'
 import { lerPublico, montarTargeting, resumoDasMudancas, avisosDe } from './publico-alvo.js'
-import { sugestoesParaOConjunto, linhaDeOrigem } from './sugestoes-de-interesse.js'
+import { montarFaixaDeSugestoes } from './sugestoes-de-interesse.js'
 // Aba "A régua" (métrica ponderada): painel puro + os módulos que leem/normalizam
 // a régua vinda do banco (ver painel-regua.js, ponderada.js, regua.js).
 import { montarPainelRegua } from './painel-regua.js'
@@ -3065,43 +3065,31 @@ function _gtPubSecaoPessoas(){
   return cx;
 }
 
-// Monta a faixa, ou devolve null quando não há o que mostrar.
+// A faixa de sugestões. O MIOLO mora em sugestoes-de-interesse.js — aqui só se
+// entrega o `document`, os ajudantes de desenho desta janela e o que fazer no
+// clique.
 //
-// NULL EM VEZ DE FAIXA VAZIA: seção vazia com título é o estado que faz a pessoa
-// achar que a tela quebrou. Some inteira — e some também quando TUDO que a IA
-// sugeriu já está no público, que é sinal de que ela já foi usada.
+// POR QUE NÃO MORA AQUI: este arquivo é `<script setup>`, então nada declarado
+// nele é importável, e a faixa não teria como ser testada nem aberta num
+// navegador sozinha. Conferir exigiria subir a tela, logar e achar uma campanha
+// — na prática, ninguém confere.
 function _gtPubFaixaSugestoes(){
-  const itens=sugestoesParaOConjunto(_gtPubSugeridos,_gtPubObjetivo,_gtPub.interesses);
-  if(!itens.length)return null;
-
-  const cx=document.createElement('div');
-  cx.style.cssText='margin-top:14px;padding-top:12px;border-top:1px dashed var(--border,#ddd);';
-  cx.appendChild(_gtPubAjuda(linhaDeOrigem(_gtPubObjetivo,_gtPubSugeridoEm)));
-
-  const linha=_gtPubLinha();
-  for(const i of itens){
-    // Quadradinho de ACRESCENTAR, não de tirar: o "×" do _gtPubChip removeria,
-    // e aqui o gesto é o contrário. Por isso é botão próprio, com "+".
-    const b=document.createElement('button');
-    b.type='button';
-    b.style.cssText='display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:20px;'
-      +'border:1px dashed var(--accent,#6366f1);color:var(--accent,#6366f1);background:none;cursor:pointer;'
-      +'font-size:calc(11px*var(--gt-fs,1.3));';
-    const mais=document.createElement('span');mais.textContent='+';mais.style.cssText='font-weight:800;';
-    b.appendChild(mais);
-    const t=document.createElement('span');t.textContent=i.nome;b.appendChild(t);
-    b.title=i.audience_size?('Cerca de '+_gtPubTamanho(i.audience_size)+' de pessoas no mundo'):'Sugestão da IA';
-    b.onclick=ev=>{
-      ev.stopPropagation();
-      // Mesma forma que a busca da Meta grava ({id,name}) — se divergir, o
-      // salvamento monta o targeting com um objeto que a Meta não entende.
+  return montarFaixaDeSugestoes({
+    doc:document,
+    sugeridos:_gtPubSugeridos,
+    objetivo:_gtPubObjetivo,
+    jaEscolhidos:_gtPub.interesses,
+    quando:_gtPubSugeridoEm,
+    ajuda:_gtPubAjuda,
+    linha:_gtPubLinha,
+    tamanho:_gtPubTamanho,
+    // Mesma forma que a busca da Meta grava ({id,name}) — se divergir, o
+    // salvamento monta o targeting com um objeto que a Meta não entende.
+    aoEscolher:(i)=>{
       if(!_gtPub.interesses.some(x=>x.id===i.id))_gtPub.interesses.push({id:i.id,name:i.nome});
       _gtPubRedesenha();
-    };
-    linha.appendChild(b);
-  }
-  cx.appendChild(linha);
-  return cx;
+    },
+  });
 }
 
 // Tamanho de público em português. É a MESMA regra do robô (tamanhoLegivel em

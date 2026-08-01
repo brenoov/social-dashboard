@@ -78,3 +78,62 @@ export function linhaDeOrigem(objetivo, quando) {
     : '';
   return `Sugestões da IA para campanhas de ${nome}${data}. Clique para acrescentar.`;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A FAIXA, MONTADA AQUI E NÃO DENTRO DA TELA.
+//
+// POR QUE ELA SAIU DO .vue: aquele arquivo é `<script setup>`, e nada declarado
+// lá dentro é importável — então a faixa não tinha como ser testada nem aberta
+// num navegador sozinha. A única forma de conferir era subir a tela inteira,
+// logar e achar uma campanha; na prática, ninguém confere, e este arquivo já
+// mordeu por aí antes (um `::before` de CSS global ficava por cima dos botões e
+// comia os cliques, sem nada dar erro).
+//
+// RECEBE O `document` POR PARÂMETRO em vez de ler o global: é o que permite
+// rodar em Node com um documento de mentira, e é a mesma razão de os outros
+// módulos puros daqui receberem os dados em vez de buscá-los.
+//
+// Recebe também os ajudantes de desenho da tela (`ajuda`, `linha`, `tamanho`):
+// eles carregam o estilo do editor, que não pode ser copiado pra cá sob pena de
+// a faixa envelhecer diferente do resto da janela.
+//
+// Devolve `null` quando não há o que mostrar — quem chama só anexa se vier algo.
+export function montarFaixaDeSugestoes(opcoes = {}) {
+  const { doc, sugeridos, objetivo, jaEscolhidos, quando, aoEscolher, ajuda, linha, tamanho } = opcoes;
+  if (!doc || typeof doc.createElement !== 'function') return null;
+
+  const itens = sugestoesParaOConjunto(sugeridos, objetivo, jaEscolhidos);
+  if (!itens.length) return null;
+
+  const cx = doc.createElement('div');
+  cx.style.cssText = 'margin-top:14px;padding-top:12px;border-top:1px dashed var(--border,#ddd);';
+  if (typeof ajuda === 'function') cx.appendChild(ajuda(linhaDeOrigem(objetivo, quando)));
+
+  const fila = typeof linha === 'function' ? linha() : doc.createElement('div');
+  for (const i of itens) {
+    // BOTÃO DE ACRESCENTAR, não quadradinho de tirar: o chip do editor tem um
+    // "×" que REMOVE, e aqui o gesto é o contrário. Reusar o chip faria a faixa
+    // parecer uma lista do que já está escolhido — o oposto do que ela é.
+    const b = doc.createElement('button');
+    b.type = 'button';
+    b.style.cssText = 'display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:20px;'
+      + 'border:1px dashed var(--accent,#6366f1);color:var(--accent,#6366f1);background:none;cursor:pointer;'
+      + 'font-size:calc(11px*var(--gt-fs,1.3));';
+    const mais = doc.createElement('span');
+    mais.textContent = '+';
+    mais.style.cssText = 'font-weight:800;';
+    b.appendChild(mais);
+    const t = doc.createElement('span');
+    t.textContent = i.nome;
+    b.appendChild(t);
+    const tam = (typeof tamanho === 'function' && i.audience_size) ? tamanho(i.audience_size) : '';
+    b.title = tam ? `Cerca de ${tam} de pessoas no mundo` : 'Sugestão da IA';
+    b.onclick = (ev) => {
+      if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
+      if (typeof aoEscolher === 'function') aoEscolher(i);
+    };
+    fila.appendChild(b);
+  }
+  cx.appendChild(fila);
+  return cx;
+}
