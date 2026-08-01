@@ -25,7 +25,7 @@ on:
         required: false
         default: 'normal'
         type: choice
-        options: ['normal', 'seco', 'sonda']
+        options: ['normal', 'seco', 'sonda', 'sonda-posicionamentos']
 
 concurrency:
   group: sugerir-interesses
@@ -99,3 +99,14 @@ jobs:
           GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
           GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
         run: node coletor/sondar-interesses.mjs
+
+      # Segunda sonda, mesma natureza: pergunta ao Graph o que os conjuntos REAIS
+      # têm de posicionamento hoje, antes de escrever tela pra editar isso.
+      # Também sem IA, também sem a chave da Anthropic.
+      - name: Sondar posicionamentos dos conjuntos (sem IA, R$ 0)
+        if: ${{ inputs.modo == 'sonda-posicionamentos' }}
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
+          GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
+        run: node coletor/sondar-posicionamentos.mjs
