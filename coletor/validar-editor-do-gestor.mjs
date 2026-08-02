@@ -101,6 +101,11 @@ async function main() {
     const rc = await proxy({ accountId: acct, path: `/${adAccount}/campaigns`, method: 'POST', params: {
       name: '[VALIDAÇÃO GESTOR] editor de público — apagar', objective: 'OUTCOME_ENGAGEMENT',
       status: 'PAUSED', special_ad_categories: [],
+      // Sem isto a Meta recusa com code 100/4834011 "Invalid parameter" — medido
+      // na primeira tentativa. É a declaração de que o orçamento fica no
+      // CONJUNTO (ABO) e não na campanha; o payload da Fábrica já mandava, e foi
+      // dele que este saiu depois da recusa.
+      is_adset_budget_sharing_enabled: false,
     } });
     if (rc.status !== 200 || !rc.d?.id) { console.log(`✗ campanha rejeitada — ${erro(rc.d)}`); process.exit(1); }
     campaignId = rc.d.id;
