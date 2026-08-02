@@ -1390,3 +1390,11 @@
 
 /* A explicação de que o rascunho nasce sozinho. */
 .ctd-solta small { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); }
+
+/* Peça com data que NÃO está agendada: a faixa "Sai a seguir" mostrava como se
+   fosse sair, e o robô da hora H só olha as agendadas. Avisar é melhor que
+   esconder — escondida, a peça esquecida sumia de vista. */
+.ctd-proxima-falta {
+  display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .3px;
+  color: var(--yellow, #eab308); margin-top: 2px;
+}

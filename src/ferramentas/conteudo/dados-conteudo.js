@@ -210,6 +210,24 @@ export async function mudarStatus(peca, novoStatus, extras = {}) {
   if (novoStatus === 'agendada') campos.avisado_em = null
   if (novoStatus === 'publicada' && !campos.publicado_em) campos.publicado_em = new Date().toISOString()
 
+  // DESAGENDAR TAMBÉM LIMPA A MARCA DE AVISADO.
+  //
+  // A data FICA de propósito: quem desagenda quase sempre quer pausar, não
+  // perder o horário que escolheu — e a faixa "Sai a seguir" agora avisa que
+  // falta agendar, em vez de fingir que a peça vai sair.
+  //
+  // Mas a marca de avisado tem de sair: uma peça avisada, desagendada e
+  // reagendada mais tarde continuaria marcada como já avisada, e o robô da
+  // hora H — que só olha quem tem o campo nulo — nunca mais tocaria nela.
+  //
+  // Só ao VOLTAR para antes do agendamento. Ao publicar ou arquivar, a marca
+  // fica: ela é o registro de que o aviso saiu, e apagá-la perderia isso sem
+  // ganhar nada (peça publicada não recebe aviso de qualquer jeito).
+  const ANTES_DE_AGENDAR = ['rascunho', 'em_aprovacao', 'aprovada', 'reprovada']
+  if (peca.status === 'agendada' && ANTES_DE_AGENDAR.includes(novoStatus)) {
+    campos.avisado_em = null
+  }
+
   const atualizada = await atualizarPeca(peca.id, campos)
   await registrarEvento(peca.id, { de: peca.status, para: novoStatus, acao: 'mudou_status' })
   return atualizada

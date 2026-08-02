@@ -44,7 +44,9 @@
         <section v-if="proximas.length" class="ctd-proximas">
           <div class="ctd-proximas-cab">
             <span class="ctd-proximas-t">Sai a seguir</span>
-            <span class="ctd-proximas-sub">as próximas {{ proximas.length === 1 ? 'peça' : proximas.length + ' peças' }} agendadas</span>
+            <span class="ctd-proximas-sub">
+              as próximas {{ proximas.length === 1 ? 'peça' : proximas.length + ' peças' }} com data
+            </span>
           </div>
           <div class="ctd-proximas-fila">
             <button
@@ -58,9 +60,20 @@
               <span v-else class="ctd-proxima-mini ctd-proxima-sem"><IconeFormato :formato="p.formato" :tamanho="18" /></span>
               <span class="ctd-proxima-txt">
                 <span class="ctd-proxima-quando">
-                  <i v-if="ehIminente(p.publicar_em)" class="ctd-pulso"></i>{{ quandoSai(p.publicar_em) }}
+                  <i v-if="ehIminente(p.publicar_em) && p.status === 'agendada'" class="ctd-pulso"></i>
+                  {{ quandoSai(p.publicar_em) }}
                 </span>
                 <span class="ctd-proxima-titulo">{{ p.titulo || 'Sem título' }}</span>
+                <!-- A FAIXA ESTAVA PROMETENDO O QUE O SISTEMA NÃO CUMPRE: ela
+                     incluía peças `aprovada` com data, mas o robô da hora H só
+                     dispara para `agendada`. A peça aparecia como "sai a
+                     seguir" e nada a faria sair — inclusive depois de alguém
+                     desagendar, porque desagendar não limpa a data.
+                     Em vez de escondê-la (o que faria a peça esquecida sumir),
+                     a faixa agora avisa o que falta. -->
+                <span v-if="p.status !== 'agendada'" class="ctd-proxima-falta">
+                  falta agendar — o aviso não vai sair
+                </span>
               </span>
             </button>
           </div>
