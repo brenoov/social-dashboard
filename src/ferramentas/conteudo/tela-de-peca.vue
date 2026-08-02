@@ -45,13 +45,47 @@
 
         <div>
           <span class="ctd-rot">Legenda — já com as hashtags</span>
-          <div class="ctd-peca-legenda">{{ legendaFinal || '(sem legenda)' }}</div>
+          <!-- TEXTAREA, não div: quando `navigator.clipboard` falha (acontece em
+               http e em iOS antigo) a saída é selecionar à mão, e selecionar
+               texto dentro de um div no celular é sofrimento. Num textarea um
+               toque longo já oferece "Selecionar tudo". Somente-leitura porque
+               editar aqui não salvaria nada. -->
+          <textarea
+            ref="campoLegenda"
+            class="ctd-peca-legenda"
+            readonly
+            :value="legendaFinal || '(sem legenda)'"
+            aria-label="Legenda pronta para copiar"
+            @focus="$event.target.select()"
+          ></textarea>
         </div>
 
         <div class="ctd-peca-acoes">
-          <button class="ctd-btn" @click="copiar">{{ copiado ? '✓ Copiado' : 'Copiar legenda' }}</button>
-          <button v-if="baixavel" class="ctd-btn" @click="baixar">Baixar arquivos</button>
+          <button class="ctd-btn ctd-btn-primario" @click="copiar">
+            {{ copiado ? '✓ Copiado' : 'Copiar legenda' }}
+          </button>
+          <button v-if="baixavel" class="ctd-btn" @click="baixar">
+            {{ arquivos.length > 1 ? `Baixar ${arquivos.length} arquivos` : 'Baixar a arte' }}
+          </button>
+          <!-- A TELA INTEIRA EXISTE PARA LEVAR A PESSOA AO INSTAGRAM e não tinha
+               o link para ele. No celular o esquema `instagram://` abre o app
+               direto; no computador cai no site, que é o comportamento certo
+               nos dois lugares. -->
+          <!-- Link comum para o site. No celular o próprio sistema abre o app
+               quando ele está instalado (universal link) — tentar o esquema
+               `instagram://` na mão exigiria adivinhar se deu certo, e no
+               computador falharia em silêncio. -->
+          <a
+            class="ctd-btn"
+            href="https://www.instagram.com/"
+            target="_blank"
+            rel="noopener"
+          >Abrir o Instagram</a>
         </div>
+
+        <p v-if="copiado" class="ctd-ajuda ctd-peca-dica">
+          Legenda copiada. No Instagram, é só colar no campo de escrever.
+        </p>
 
         <div class="ctd-peca-acoes">
           <button
@@ -113,6 +147,7 @@ const carregando = ref(true)
 const erro = ref('')
 const copiado = ref(false)
 const trabalhando = ref(false)
+const baixando = ref(false)
 const adiando = ref(false)
 const novaData = ref('')
 const reavisado = ref(false)
@@ -146,14 +181,46 @@ async function copiar() {
   }
 }
 
-function baixar() {
-  // Uma aba por arquivo. No iPhone o usuário segura a imagem e salva na galeria;
-  // é o caminho que funciona sem app nenhum instalado.
-  for (const a of arquivos.value) {
-    const url = urls.value[a.caminho]
-    if (url) window.open(url, '_blank')
+// BAIXAR DE VERDADE, um de cada vez.
+//
+// Antes era `window.open` por arquivo: no iPhone o bloqueador de pop-up mata do
+// segundo em diante, e o que abre é uma ABA COM A IMAGEM, não um download. Para
+// um carrossel de 8 slides isso é inviável em pé na frente do Instagram.
+//
+// Agora cada arquivo vira um link com assinatura de download e é clicado em
+// sequência, com uma pausa curta: navegador nenhum aceita oito downloads
+// disparados no mesmo instante.
+async function baixar() {
+  if (baixando.value) return
+  baixando.value = true
+  try {
+    for (const a of arquivos.value) {
+      const url = await dados.urlParaBaixar(a.caminho, nomeDoArquivo(a))
+      if (!url) continue
+      const link = document.createElement('a')
+      link.href = url
+      link.rel = 'noopener'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      await new Promise(r => setTimeout(r, 350))
+    }
+  } finally {
+    baixando.value = false
   }
 }
+
+// O nome que o arquivo terá no aparelho. O caminho no depósito é
+// "conta/peca/1-slug.jpg" — salvar com esse nome deixa a galeria cheia de "1-".
+function nomeDoArquivo(a) {
+  const ext = String(a?.caminho || '').split('.').pop() || 'jpg'
+  const base = String(peca.value?.titulo || 'peca')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase().slice(0, 40)
+  const n = Number(a?.ordem) || 1
+  return arquivos.value.length > 1 ? `${base}-${n}.${ext}` : `${base}.${ext}`
+}
+
 
 async function marcarPublicada() {
   trabalhando.value = true

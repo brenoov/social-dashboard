@@ -117,11 +117,7 @@
         <div class="ctd-campo">
           <span class="ctd-rot">Arquivos</span>
 
-          <p v-if="ehNova" class="ctd-ajuda">
-            Salve o rascunho primeiro — aí aparece o lugar para subir a arte.
-          </p>
-
-          <template v-else>
+          <template>
             <div
               class="ctd-solta"
               :class="{ sobre: arrastandoArquivo }"
@@ -130,8 +126,14 @@
               @dragleave="arrastandoArquivo = false"
               @drop.prevent="aoSoltarArquivos"
             >
-              <span v-if="enviando">Enviando… {{ enviando }}</span>
-              <span v-else>Arraste os arquivos aqui, ou clique para escolher</span>
+              <span v-if="enviando" class="ctd-solta-enviando">
+                <span class="ctd-solta-giro"></span>
+                Enviando {{ enviando }}<template v-if="fila > 1"> ({{ feitos }} de {{ fila }})</template>
+              </span>
+              <span v-else>
+                Arraste os arquivos aqui, ou clique para escolher
+                <small v-if="ehNova">O rascunho é criado sozinho quando a arte chegar.</small>
+              </span>
             </div>
             <input ref="seletor" type="file" multiple hidden :accept="aceita" @change="aoEscolherArquivos">
 
@@ -306,6 +308,11 @@ function avisar(texto) {
 // DUPLICAR. Conteúdo real é repetitivo — "o mesmo carrossel do mês passado com
 // outro produto" é o caso mais comum, e sem isto refazia-se tudo do zero,
 // inclusive subindo os arquivos de novo.
+// Quantos arquivos nesta leva e quantos já foram. Um vídeo de 150 MB ficava
+// minutos mostrando só o nome, parecendo travado.
+const fila = ref(0)
+const feitos = ref(0)
+
 const duplicando = ref(false)
 async function duplicar() {
   erro.value = ''
@@ -566,6 +573,15 @@ async function aplicarDestino(destino, motivo = null) {
   }
 }
 
+// Um título provisório tirado do nome do arquivo. Melhor que "Sem título" e
+// melhor que barrar o upload por causa de um campo que a pessoa ia preencher
+// depois de qualquer jeito.
+function _tituloDoArquivo(file) {
+  const nome = String(file?.name || '').replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim()
+  if (!nome) return 'Nova peça'
+  return nome.charAt(0).toUpperCase() + nome.slice(1).slice(0, 110)
+}
+
 async function aoEscolherArquivos(ev) {
   await subir([...ev.target.files])
   ev.target.value = ''
@@ -577,8 +593,29 @@ async function aoSoltarArquivos(ev) {
 }
 
 async function subir(lista) {
-  if (!lista.length || !atual.value?.id) return
+  if (!lista.length) return
   erro.value = ''
+
+  // A PEÇA NASCE SOZINHA QUANDO A ARTE CHEGA.
+  //
+  // Antes, a área de upload só aparecia depois de "Criar rascunho" — e a pessoa
+  // que monta a peça pensando na arte era mandada salvar um rascunho vazio
+  // primeiro. Era o passo mais antinatural do fluxo inteiro, e foi exatamente
+  // onde a primeira peça de verdade travou.
+  //
+  // O rascunho continua existindo (a peça precisa de id para o arquivo apontar),
+  // só que agora ele é consequência de arrastar a arte, não pré-requisito.
+  if (!atual.value?.id) {
+    if (!form.titulo.trim()) form.titulo = _tituloDoArquivo(lista[0])
+    try {
+      atual.value = await dados.criarPeca(camposDoBanco())
+      preencher(atual.value)
+      emit('mudou')
+    } catch (e) {
+      erro.value = e.message
+      return
+    }
+  }
 
   // Barra antes de enviar: um vídeo de 400 MB só falharia no fim do upload.
   const problemasAgora = validarArquivos(form.formato, [
@@ -597,16 +634,20 @@ async function subir(lista) {
   // erro do Postgres em inglês. Apagar não renumera de propósito (renumerar
   // mexeria na ordem que a pessoa escolheu), então quem tem de se virar é aqui.
   let ordem = arquivos.value.reduce((maior, a) => Math.max(maior, Number(a?.ordem) || 0), 0)
+  fila.value = lista.length
+  feitos.value = 0
   for (const file of lista) {
     enviando.value = file.name
     try {
       await dados.subirArquivo(atual.value, file, ++ordem)
+      feitos.value++
     } catch (e) {
       erro.value = e.message
       break
     }
   }
   enviando.value = ''
+  fila.value = 0
   await carregarAnexos()
   emit('mudou')
 }

@@ -599,6 +599,23 @@ export async function urlAssinada(caminho, segundos = 3600) {
   return data?.signedUrl || null
 }
 
+// URL que BAIXA em vez de abrir.
+//
+// A diferença é o `download` na assinatura: ele faz o depósito responder com
+// Content-Disposition: attachment, e aí o navegador salva o arquivo.
+//
+// O atributo `download` de um link NÃO resolveria isto: ele é ignorado quando o
+// arquivo está em outro domínio — e o nosso está, no domínio do Supabase. Sem
+// esse parâmetro, o que acontece é abrir uma aba com a imagem, que no iPhone
+// ainda esbarra no bloqueador de pop-up a partir do segundo arquivo.
+export async function urlParaBaixar(caminho, nome, segundos = 3600) {
+  const { data, error } = await sbClient.storage
+    .from(BUCKET)
+    .createSignedUrl(caminho, segundos, { download: nome || true })
+  if (error) return null
+  return data?.signedUrl || null
+}
+
 export async function urlsAssinadas(caminhos, segundos = 3600) {
   if (!caminhos?.length) return {}
   const { data, error } = await sbClient.storage.from(BUCKET).createSignedUrls(caminhos, segundos)
