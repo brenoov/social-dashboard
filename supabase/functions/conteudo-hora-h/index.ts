@@ -171,8 +171,11 @@ Deno.serve(async (req) => {
   }
 
   return json({
-    ok: true, enviado: true,
+    // `enviado` reflete o que ACONTECEU, não o que se tentou: com responsável
+    // sem a notificação ligada, a rodada termina sem push nenhum — e dizer
+    // "enviado: true" ali faria o diagnóstico mentir.
+    ok: true, enviado: enviados > 0,
     avisadas: paraAvisar.length, publicadas: publicadas.length,
-    atrasadas: atrasadas.length, enviados, podados,
+    atrasadas: atrasadas.length, enviados, podados, sem_alvo: semAlvo,
   });
 });
