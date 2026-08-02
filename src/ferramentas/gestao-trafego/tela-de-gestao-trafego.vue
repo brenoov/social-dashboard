@@ -129,6 +129,7 @@ import { hojeLocal, diasAtras, primeiroDiaDoMes, ultimoDiaDoMes } from '../../co
 import { orcamentoDe, detectarNivelOrcamento, podeEditarOrcamentoDaCampanha, podeEditarOrcamentoDoConjunto, montarHierarquia } from './orcamento-hierarquia.js'
 import { planoDeCopia, executarPlano, comEspera, retomar, SUFIXO_PADRAO } from './duplicar.js'
 import { lerPublico, montarTargeting, resumoDasMudancas, avisosDe } from './publico-alvo.js'
+import { montarSecaoPosicionamentos } from './posicionamentos.js'
 import { montarFaixaDeSugestoes } from './sugestoes-de-interesse.js'
 // Aba "A régua" (métrica ponderada): painel puro + os módulos que leem/normalizam
 // a régua vinda do banco (ver painel-regua.js, ponderada.js, regua.js).
@@ -3254,6 +3255,19 @@ function _gtPublicoModal(nomeConjunto){
       corpo.appendChild(_gtPubSecaoLugar());
       corpo.appendChild(_gtPubSecaoPessoas());
       corpo.appendChild(_gtPubSecaoPublicos());
+      // ONDE O ANÚNCIO APARECE. Depois de quem vê e antes do Advantage+: é a
+      // pergunta "onde", que só faz sentido depois de "quem". O miolo mora em
+      // posicionamentos.js — aqui só entra o document, os ajudantes de desenho
+      // e o que fazer quando muda.
+      const secPos=montarSecaoPosicionamentos({
+        doc:document,
+        pos:_gtPub.posicionamentos,
+        titulo:_gtPubTitulo,
+        ajuda:_gtPubAjuda,
+        linha:_gtPubLinha,
+        aoMudar:(novo)=>{_gtPub.posicionamentos=novo;_gtPubRedesenha();},
+      });
+      if(secPos)corpo.appendChild(secPos);
       corpo.appendChild(_gtPubSecaoExtras());
 
       const { ajustes }=montarTargeting(_gtPub,{});
