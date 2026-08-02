@@ -25,7 +25,7 @@ on:
         required: false
         default: 'normal'
         type: choice
-        options: ['normal', 'seco', 'sonda', 'sonda-posicionamentos']
+        options: ['normal', 'seco', 'sonda', 'sonda-posicionamentos', 'validar-editor']
 
 concurrency:
   group: sugerir-interesses
@@ -110,3 +110,15 @@ jobs:
           GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
           GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
         run: node coletor/sondar-posicionamentos.mjs
+
+      # GANCHO TEMPORÁRIO. A casa deste validador é validar-editor-gestor.yml,
+      # que nasceu nesta mesma branch — e o GitHub só aceita disparar workflow
+      # que JÁ EXISTA na branch principal. Enquanto ele não chega lá, o disparo
+      # sai daqui. Some assim que o PR entrar.
+      - name: Validar editor de público ao vivo (cria PAUSED e apaga)
+        if: ${{ inputs.modo == 'validar-editor' }}
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
+          GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
+        run: cd coletor && npm ci && node --import ./lib/curl-fetch.mjs validar-editor-do-gestor.mjs
