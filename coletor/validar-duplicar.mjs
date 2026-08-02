@@ -69,6 +69,18 @@ async function main() {
 
   console.log(`\n=== VALIDAÇÃO do Duplicar · ${marca.nome} · ${adAccount} ===\n`);
 
+  // FAXINA DE ÓRFÃS antes de começar. Uma rodada anterior deixou campanha para
+  // trás quando um `process.exit()` dentro do `try` pulou o `finally` — o
+  // defeito está corrigido, mas quem valida money-path tem de saber limpar o
+  // que uma versão anterior de si mesmo sujou.
+  const rorf = await proxy({ accountId: acct, path: `/${adAccount}/campaigns`, method: 'GET',
+    params: { fields: 'id,name,status', limit: 100, filtering: JSON.stringify([{ field: 'name', operator: 'CONTAIN', value: '[VALIDAÇÃO' }]) } });
+  for (const c of ((rorf.d && rorf.d.data) || [])) {
+    if (String(c.status).toUpperCase() === 'DELETED') continue;
+    const rd = await proxy({ accountId: acct, path: `/${c.id}`, method: 'POST', params: { status: 'DELETED' } });
+    console.log(`🧹 sobra de rodada anterior apagada: ${c.name} (${c.id})${rd.status === 200 ? '' : ' — FALHOU'}`);
+  }
+
   // UM CRIATIVO QUE JÁ EXISTE. Subir imagem só para testar cópia seria pagar
   // upload e sujar a conta com um criativo órfão — e o que se está testando é o
   // `/copies`, não a criação de criativo.
@@ -83,16 +95,23 @@ async function main() {
       name: '[VALIDAÇÃO DUPLICAR] original — apagar', objective: 'OUTCOME_ENGAGEMENT',
       status: 'PAUSED', special_ad_categories: [], is_adset_budget_sharing_enabled: false,
     } });
-    if (rc.status !== 200 || !rc.d?.id) { console.log(`✗ campanha rejeitada — ${erro(rc.d)}`); process.exit(1); }
+    if (rc.status !== 200 || !rc.d?.id) throw new Error('campanha rejeitada — ' + erro(rc.d));
     campanhaId = rc.d.id;
 
     const ra = await proxy({ accountId: acct, path: `/${adAccount}/adsets`, method: 'POST', params: {
       name: '[VALIDAÇÃO] conjunto', campaign_id: campanhaId, status: 'PAUSED',
       daily_budget: 5000, billing_event: 'IMPRESSIONS', optimization_goal: 'POST_ENGAGEMENT',
       bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
-      targeting: { geo_locations: { cities: cidades.map((key) => ({ key, radius: 20, distance_unit: 'kilometer' })) }, age_min: 25, age_max: 45 },
+      // `advantage_audience: 0` é OBRIGATÓRIO junto com idade manual: a Meta liga
+      // o Advantage+ por padrão e recusa a combinação com code 100/1870227 —
+      // medido aqui na primeira tentativa, e já anotado desde o SP-4.
+      targeting: {
+        geo_locations: { cities: cidades.map((key) => ({ key, radius: 20, distance_unit: 'kilometer' })) },
+        age_min: 25, age_max: 45,
+        targeting_automation: { advantage_audience: 0 },
+      },
     } });
-    if (ra.status !== 200 || !ra.d?.id) { console.log(`✗ conjunto rejeitado — ${erro(ra.d)}`); process.exit(1); }
+    if (ra.status !== 200 || !ra.d?.id) throw new Error('conjunto rejeitado — ' + erro(ra.d));
     const conjuntoId = ra.d.id;
 
     const anuncios = [];
@@ -100,7 +119,7 @@ async function main() {
       const rad = await proxy({ accountId: acct, path: `/${adAccount}/ads`, method: 'POST', params: {
         name: `[VALIDAÇÃO] anúncio ${n}`, adset_id: conjuntoId, creative: { creative_id: criativo.id }, status: 'PAUSED',
       } });
-      if (rad.status !== 200 || !rad.d?.id) { console.log(`✗ anúncio ${n} rejeitado — ${erro(rad.d)}`); process.exit(1); }
+      if (rad.status !== 200 || !rad.d?.id) throw new Error(`anúncio ${n} rejeitado — ` + erro(rad.d));
       anuncios.push({ id: rad.d.id, name: `[VALIDAÇÃO] anúncio ${n}`, adset_id: conjuntoId });
     }
     console.log(`original criado: campanha ${campanhaId} · 1 conjunto · ${anuncios.length} anúncios (tudo PAUSED)\n`);
