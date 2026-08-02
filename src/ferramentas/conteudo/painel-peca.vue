@@ -134,43 +134,41 @@
         <div class="ctd-campo">
           <span class="ctd-rot">Arquivos</span>
 
-          <template>
-            <div
-              class="ctd-solta"
-              :class="{ sobre: arrastandoArquivo }"
-              @click="$refs.seletor.click()"
-              @dragover.prevent="arrastandoArquivo = true"
-              @dragleave="arrastandoArquivo = false"
-              @drop.prevent="aoSoltarArquivos"
-            >
-              <span v-if="enviando" class="ctd-solta-enviando">
-                <span class="ctd-solta-giro"></span>
-                Enviando {{ enviando }}<template v-if="fila > 1"> ({{ feitos }} de {{ fila }})</template>
-              </span>
-              <span v-else>
-                Arraste os arquivos aqui, ou clique para escolher
-                <small v-if="ehNova">O rascunho é criado sozinho quando a arte chegar.</small>
-              </span>
-            </div>
-            <input ref="seletor" type="file" multiple hidden :accept="aceita" @change="aoEscolherArquivos">
+          <div
+            class="ctd-solta"
+            :class="{ sobre: arrastandoArquivo }"
+            @click="$refs.seletor.click()"
+            @dragover.prevent="arrastandoArquivo = true"
+            @dragleave="arrastandoArquivo = false"
+            @drop.prevent="aoSoltarArquivos"
+          >
+            <span v-if="enviando" class="ctd-solta-enviando">
+              <span class="ctd-solta-giro"></span>
+              Enviando {{ enviando }}<template v-if="fila > 1"> ({{ feitos }} de {{ fila }})</template>
+            </span>
+            <span v-else>
+              Arraste os arquivos aqui, ou clique para escolher
+              <small v-if="ehNova">O rascunho é criado sozinho quando a arte chegar.</small>
+            </span>
+          </div>
+          <input ref="seletor" type="file" multiple hidden :accept="aceita" @change="aoEscolherArquivos">
 
-            <div v-if="arquivos.length" class="ctd-arquivos">
-              <div v-for="(a, i) in arquivos" :key="a.id" class="ctd-arquivo">
-                <img v-if="a.tipo === 'imagem' && urls[a.caminho]" :src="urls[a.caminho]" alt="">
-                <video v-else-if="a.tipo === 'video' && urls[a.caminho]" :src="urls[a.caminho]" preload="metadata"></video>
-                <span v-else class="ctd-arquivo-peso">…</span>
-                <span class="ctd-arquivo-nome">{{ nomeCurto(a.caminho) }}</span>
-                <span class="ctd-arquivo-peso">{{ formatarBytes(a.bytes) }}</span>
-                <button class="ctd-mini-btn" :disabled="i === 0" title="Subir na ordem" @click="reordenar(i, -1)">↑</button>
-                <button class="ctd-mini-btn" :disabled="i === arquivos.length - 1" title="Descer na ordem" @click="reordenar(i, 1)">↓</button>
-                <button class="ctd-mini-btn perigo" title="Remover" @click="removerEste(a)">×</button>
-              </div>
+          <div v-if="arquivos.length" class="ctd-arquivos">
+            <div v-for="(a, i) in arquivos" :key="a.id" class="ctd-arquivo">
+              <img v-if="a.tipo === 'imagem' && urls[a.caminho]" :src="urls[a.caminho]" alt="">
+              <video v-else-if="a.tipo === 'video' && urls[a.caminho]" :src="urls[a.caminho]" preload="metadata"></video>
+              <span v-else class="ctd-arquivo-peso">…</span>
+              <span class="ctd-arquivo-nome">{{ nomeCurto(a.caminho) }}</span>
+              <span class="ctd-arquivo-peso">{{ formatarBytes(a.bytes) }}</span>
+              <button class="ctd-mini-btn" :disabled="i === 0" title="Subir na ordem" @click="reordenar(i, -1)">↑</button>
+              <button class="ctd-mini-btn" :disabled="i === arquivos.length - 1" title="Descer na ordem" @click="reordenar(i, 1)">↓</button>
+              <button class="ctd-mini-btn perigo" title="Remover" @click="removerEste(a)">×</button>
             </div>
+          </div>
 
-            <ul v-if="problemas.length" class="ctd-aviso ctd-aviso-atencao">
-              <li v-for="p in problemas" :key="p">{{ p }}</li>
-            </ul>
-          </template>
+          <ul v-if="problemas.length" class="ctd-aviso ctd-aviso-atencao">
+            <li v-for="p in problemas" :key="p">{{ p }}</li>
+          </ul>
         </div>
 
         <div class="ctd-campo">
