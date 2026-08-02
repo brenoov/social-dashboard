@@ -113,6 +113,23 @@
           </span>
         </div>
 
+        <div class="ctd-campo">
+          <label class="ctd-rot" for="ctd-resp">Quem vai publicar</label>
+          <select id="ctd-resp" v-model="form.responsavel" class="ctd-sel">
+            <option :value="null">Qualquer um da equipe</option>
+            <option v-for="p in pessoas" :key="p.id" :value="p.id">{{ p.nome }}</option>
+          </select>
+          <span class="ctd-ajuda">
+            <template v-if="form.responsavel">
+              Na hora marcada, o aviso vai só para essa pessoa.
+            </template>
+            <template v-else>
+              Sem alguém definido, o aviso vai para toda a equipe que tem a notificação ligada —
+              e aviso que chega para todos costuma não ser tratado por ninguém.
+            </template>
+          </span>
+        </div>
+
         <!-- ARQUIVOS -->
         <div class="ctd-campo">
           <span class="ctd-rot">Arquivos</span>
@@ -190,6 +207,21 @@
               @click="mover(destino.chave)"
             >{{ destino.rotulo }}</button>
           </div>
+          <!-- APROVAR JÁ AGENDANDO. Eram dois cliques mesmo com a data
+               preenchida, e o estado do meio não acrescenta decisão nenhuma
+               quando a data existe — é burocracia. Passa por função do banco,
+               que confere a permissão de aprovar: um caminho comum
+               em_aprovacao → agendada seria um UPDATE simples e pularia o
+               guardião da aprovação. -->
+          <button
+            v-if="podeAprovarEAgendar"
+            class="ctd-btn ctd-btn-primario ctd-btn-encolhe"
+            :disabled="trabalhandoAqui"
+            @click="aprovarEAgendar"
+          >
+            <IconeCerto /> Aprovar e agendar para {{ dataHoraBRT(atual.publicar_em) }}
+          </button>
+
           <span v-if="destinoBloqueado" class="ctd-ajuda">{{ destinoBloqueado }}</span>
 
           <!-- REPROVAR PEDE O MOTIVO.
@@ -282,7 +314,7 @@ const ehNova = computed(() => !atual.value?.id)
 
 const form = reactive({
   titulo: '', formato: 'feed', quando: '', legenda: '', hashtags: '',
-  observacoes: '', status: 'rascunho', motivo_reprovacao: null,
+  observacoes: '', status: 'rascunho', motivo_reprovacao: null, responsavel: null,
 })
 
 const arquivos = ref([])
@@ -312,6 +344,35 @@ function avisar(texto) {
 // minutos mostrando só o nome, parecendo travado.
 const fila = ref(0)
 const feitos = ref(0)
+
+// Quem pode ser responsável. Carregado uma vez ao abrir o painel.
+const pessoas = ref([])
+
+// APROVAR JÁ AGENDANDO só faz sentido com a data preenchida e para quem aprova.
+const podeAprovarEAgendar = computed(() =>
+  !ehNova.value
+  && form.status === 'em_aprovacao'
+  && props.podeAprovar
+  && !!atual.value?.publicar_em)
+
+const trabalhandoAqui = ref(false)
+async function aprovarEAgendar() {
+  erro.value = ''
+  trabalhandoAqui.value = true
+  try {
+    // Salva o que está na tela antes: quem aprova precisa decidir sobre a
+    // legenda que está à vista, não sobre a versão anterior.
+    atual.value = await dados.atualizarPeca(atual.value.id, camposDoBanco())
+    atual.value = await dados.aprovarEAgendar(atual.value.id)
+    preencher(atual.value)
+    avisar('Aprovada e agendada')
+    emit('mudou')
+  } catch (e) {
+    erro.value = e.message
+  } finally {
+    trabalhandoAqui.value = false
+  }
+}
 
 const duplicando = ref(false)
 async function duplicar() {
@@ -414,6 +475,7 @@ function preencher(p) {
   form.observacoes = p?.observacoes || ''
   form.status = p?.status || 'rascunho'
   form.motivo_reprovacao = p?.motivo_reprovacao || null
+  form.responsavel = p?.responsavel || null
 }
 
 async function carregarAnexos() {
@@ -464,7 +526,11 @@ async function responderSugestao(confirma) {
   }
 }
 
-onMounted(() => { preencher(props.peca); carregarAnexos() })
+onMounted(async () => {
+  preencher(props.peca)
+  carregarAnexos()
+  pessoas.value = await dados.listarPessoas()
+})
 onUnmounted(() => clearTimeout(relogioRecado))
 watch(() => props.peca, (p) => { atual.value = p; preencher(p); carregarAnexos() })
 
@@ -477,6 +543,7 @@ function camposDoBanco() {
     legenda: form.legenda,
     hashtags: form.hashtags,
     observacoes: form.observacoes || null,
+    responsavel: form.responsavel || null,
     publicar_em: publicarEm,
   }
 

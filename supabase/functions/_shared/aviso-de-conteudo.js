@@ -51,12 +51,30 @@ export function montarAvisoDePeca(peca, conta) {
 // inscricoesDoTipo() sozinha só sabe de preferência. Sem cruzar com a permissão,
 // alguém que perdeu o acesso continuaria recebendo o título das peças no
 // celular — vazamento pequeno, mas é vazamento.
-export function alvosDoAviso(inscricoes, preferencias, perfis) {
+export function alvosDoAviso(inscricoes, preferencias, perfis, responsavel = null) {
   const podem = new Set(
     (perfis || [])
       .filter(p => p && (p.role === 'admin' || p.is_superadmin || (p.features || []).includes('conteudo')))
       .map(p => String(p.id)),
   );
-  return inscricoesDoTipo(inscricoes, preferencias, 'conteudo')
+  const querem = inscricoesDoTipo(inscricoes, preferencias, 'conteudo')
     .filter(s => podem.has(String(s.user_id)));
+
+  // TEM DONO? O AVISO É SÓ DELE.
+  //
+  // Sem isto, cinco pessoas com a ferramenta recebiam "Hora de publicar" de
+  // TODAS as marcas, inclusive das que não cuidam — e aviso que chega para
+  // todos é aviso que ninguém trata como seu.
+  //
+  // Se o dono existe mas não tem a notificação ligada (ou perdeu o acesso), a
+  // lista sai VAZIA de propósito: mandar para os outros seria entregar a alguém
+  // uma tarefa que não é dele, sem ninguém pedir. A Edge registra "ninguém
+  // recebeu" na trilha da peça, que é onde isso se conserta.
+  if (responsavel) {
+    return querem.filter(s => String(s.user_id) === String(responsavel));
+  }
+
+  // Sem dono, avisa quem quiser — é o comportamento de antes, e é o que mantém
+  // a peça antiga (e a de quem não quer preencher mais um campo) funcionando.
+  return querem;
 }

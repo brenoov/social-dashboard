@@ -14,9 +14,12 @@ import { deCampoDeDataHora } from './grade-do-calendario.js'
 
 export const BUCKET = 'conteudo'
 
+// Esquecer uma coluna aqui NÃO dá erro: o campo chega `undefined` e a tela
+// simplesmente não mostra aquilo. Já aconteceu com `conteudo_usa_portal`, que
+// fazia a caixinha do Portal nascer desmarcada mesmo para quem o usava.
 const CAMPOS_PECA =
   'id,account_id,titulo,formato,status,legenda,hashtags,observacoes,' +
-  'publicar_em,publicado_em,avisado_em,ig_media_id,ig_permalink,' +
+  'publicar_em,publicado_em,avisado_em,ig_media_id,ig_permalink,responsavel,' +
   'criado_por,aprovado_por,aprovado_em,motivo_reprovacao,created_at,updated_at'
 
 function _uid() {
@@ -235,6 +238,34 @@ export async function mudarStatus(peca, novoStatus, extras = {}) {
 
 // Aprovar/reprovar vai pela função do banco: ela valida a permissão, impede que
 // dois aprovadores decidam a mesma peça e grava o evento na mesma transação.
+// Quem pode ser responsável por uma peça: quem consegue abrir a ferramenta.
+//
+// Não filtra por quem tem o AVISO ligado de propósito. Escolher alguém que ainda
+// não ligou é legítimo — a notificação nasce desmarcada e a pessoa liga depois.
+// Esconder essa gente da lista faria parecer que ela não existe.
+export async function listarPessoas() {
+  const { data, error } = await sbClient
+    .from('profiles')
+    .select('id,email,name,role,is_superadmin,features')
+    .order('email')
+  if (error) return []
+  return (data || [])
+    .filter(p => p.role === 'admin' || p.is_superadmin || (p.features || []).includes('conteudo'))
+    .map(p => ({ id: p.id, nome: p.name || p.email, email: p.email }))
+}
+
+// APROVAR JÁ AGENDANDO, num passo.
+//
+// Passa por função do banco e não por `mudarStatus` porque a trigger que guarda
+// a aprovação só vigia a entrada em 'aprovada'/'reprovada'. Um caminho comum
+// em_aprovacao → agendada seria um UPDATE simples e pularia o guardião — ou
+// seja, qualquer pessoa com acesso poria conteúdo na fila sem ninguém aprovar.
+export async function aprovarEAgendar(pecaId) {
+  const { data, error } = await sbClient.rpc('conteudo_aprovar_e_agendar', { p_peca: pecaId })
+  if (error) throw new Error(error.message)
+  return data
+}
+
 export async function decidir(pecaId, decisao, motivo = null) {
   const { data, error } = await sbClient.rpc('conteudo_decidir', {
     p_peca: pecaId, p_decisao: decisao, p_motivo: motivo,

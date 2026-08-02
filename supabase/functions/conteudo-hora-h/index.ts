@@ -124,26 +124,30 @@ Deno.serve(async (req) => {
     // a peça — senão o título dela chega no celular de quem perdeu o acesso.
     sb.from('profiles').select('id,role,is_superadmin,features'),
   ]);
-  const alvos = alvosDoAviso(subs, prefs, perfis);
-  if (!alvos.length) {
-    // Estado NORMAL enquanto ninguém tiver ligado o aviso em Administração ›
-    // Usuários: o tipo 'conteudo' nasce desmarcado. A peça já foi reivindicada
-    // (não vai ser tentada de novo), então o motivo fica registrado na trilha —
-    // senão a pessoa abriria a peça e veria "chegou a hora" sem nenhum aviso e
-    // sem nenhuma explicação.
-    for (const p of paraAvisar) {
-      await sb.from('conteudo_eventos').insert({
-        peca_id: p.id, acao: 'avisou',
-        detalhe: 'Chegou a hora, mas ninguém tem o aviso de conteúdo ligado (Administração › Usuários).',
-      });
-    }
-    return json({ ok: true, enviado: false, motivo: 'ninguem_ligou_o_aviso', pecas: paraAvisar.length });
-  }
-
-  let enviados = 0, podados = 0;
+  let enviados = 0, podados = 0, semAlvo = 0;
   const mortas = new Set<string>();
 
   for (const p of paraAvisar) {
+    // OS ALVOS SÃO POR PEÇA, não da rodada inteira: com responsável definido, o
+    // aviso é só dele. Calcular uma vez para todas mandaria a peça de uma marca
+    // para quem cuida de outra.
+    const alvos = alvosDoAviso(subs, prefs, perfis, p.responsavel);
+
+    if (!alvos.length) {
+      // Dois casos, uma mensagem para cada — porque o conserto é diferente.
+      // A peça JÁ foi reivindicada (não será tentada de novo), então o motivo
+      // fica na trilha: senão a pessoa abriria a peça, veria "chegou a hora" e
+      // nenhum aviso, sem nenhuma explicação.
+      semAlvo++;
+      await sb.from('conteudo_eventos').insert({
+        peca_id: p.id, acao: 'avisou',
+        detalhe: p.responsavel
+          ? 'Chegou a hora, mas quem é responsável por esta peça está com o aviso de conteúdo desligado (Administração › Usuários).'
+          : 'Chegou a hora, mas ninguém tem o aviso de conteúdo ligado (Administração › Usuários).',
+      });
+      continue;
+    }
+
     const payload = JSON.stringify(montarAvisoDePeca(p, porConta[p.account_id] || {}));
     for (const s of alvos) {
       if (mortas.has(s.endpoint)) continue;
