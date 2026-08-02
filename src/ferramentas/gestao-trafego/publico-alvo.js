@@ -15,6 +15,8 @@
 // já existia. Vale para o `targeting` inteiro, para o `geo_locations`, para o
 // `excluded_geo_locations` e para cada entrada do `flexible_spec`. Montar um
 // container novo um nível abaixo apaga em silêncio o que morava ao lado.
+import { lerPosicionamentos, gravarPosicionamentos, resumoDosPosicionamentos, estreitou, POSICIONAMENTO_AUTOMATICO } from './posicionamentos.js';
+
 export const PUBLICO_VAZIO = {
   cidades: [], excluidas: [],
   idadeMin: 18, idadeMax: 65,
@@ -26,6 +28,10 @@ export const PUBLICO_VAZIO = {
   // pode virar valor gravado. Ver montarTargeting.
   advantagePlusDeclarado: false,
   outrasLocalizacoes: [],
+  // ONDE O ANÚNCIO APARECE. Automático é o estado de 44 dos 50 conjuntos da
+  // conta (medido), então é ele que tem de ser o padrão aqui — o contrário faria
+  // o editor propor "escolhido à mão" a quem nunca escolheu nada.
+  posicionamentos: POSICIONAMENTO_AUTOMATICO,
 };
 
 const lista = (v) => (Array.isArray(v) ? v : []);
@@ -134,6 +140,7 @@ export function lerPublico(targeting) {
     // Descritivo apenas; montarTargeting ignora esse campo e preserva as outras
     // localidades direto do original.
     outrasLocalizacoes: outrasLocalizacoesDe(t),
+    posicionamentos: lerPosicionamentos(t),
   };
 }
 
@@ -302,7 +309,12 @@ export function montarTargeting(publico, original) {
   if (jaTinha || p.advantagePlusDeclarado || donoMexeu)
     põe('targeting_automation', { ...(autoOriginal || {}), advantage_audience: p.advantagePlus ? 1 : 0 });
 
-  return { targeting: t, ajustes };
+  // ONDE O ANÚNCIO APARECE — por último, e sobre o `t` já montado, porque
+  // `gravarPosicionamentos` também parte do original e preserva o que não
+  // desenha (`whatsapp_positions`, `device_platforms`). Rodar antes faria as
+  // atribuições acima passarem por cima do que ele acabou de decidir.
+  const comPlacements = gravarPosicionamentos(t, p.posicionamentos);
+  return { targeting: comPlacements, ajustes };
 }
 
 const GENERO_NOME = { 1: 'homens', 2: 'mulheres' };
@@ -343,6 +355,11 @@ export function resumoDasMudancas(antes, depois) {
 
   const cid = diffLista(a.cidades, d.cidades, (x) => x.key, 'Cidades');
   if (cid) linhas.push(cid);
+
+  // Onde o anúncio aparece. Sem estas linhas, trocar posicionamento seria a
+  // ÚNICA mudança do editor que passaria calada pela janela de confirmação — e
+  // é a que muda onde o anúncio é entregue.
+  for (const l of resumoDosPosicionamentos(a.posicionamentos, d.posicionamentos)) linhas.push(l);
 
   // Raio ou unidade mudam sem a cidade entrar ou sair — precisa de comparação própria.
   const raioAntes = new Map((a.cidades || []).filter((c) => c != null && c.key != null).map((c) => [c.key, c]));
@@ -447,6 +464,23 @@ export function avisosDe(antes, depois, contexto) {
     avisos.push({
       tipo: 'raio',
       texto: `Ajustei o raio de ${aj.cidade} de ${aj.de} para ${aj.para} ${un} — a Meta não aceita menos.`,
+      bloqueia: false,
+    });
+  }
+
+  // ESTREITAR A ENTREGA DE UM CONJUNTO ATIVO. É a mudança mais cara que este
+  // editor permite e a mais silenciosa: nada dá erro, o anúncio só passa a
+  // alcançar menos gente, e a queda aparece dias depois como "caiu o resultado".
+  //
+  // AVISA, NÃO BLOQUEIA: estreitar de propósito é uso legítimo (foi o que os
+  // seis conjuntos de vaga de emprego fizeram). O que não pode é acontecer sem
+  // ninguém ler.
+  if (ctx.ativo && estreitou(a.posicionamentos, d.posicionamentos)) {
+    avisos.push({
+      tipo: 'posicionamento-estreitou',
+      texto: '<b>Este conjunto está ATIVO e vai passar a aparecer em menos lugares.</b><br>'
+        + 'A entrega diminui sem nada dar erro — o efeito aparece dias depois, como queda de resultado. '
+        + 'Se a ideia era só testar, volte para automático.',
       bloqueia: false,
     });
   }
