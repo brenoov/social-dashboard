@@ -855,7 +855,10 @@ test('avisosDe: só regions → SEM bloqueio, mas aviso informativo com traduç�
   const info = avisos.find(x => x.tipo === 'outras-localizacoes');
   assert.ok(info, 'deve ter aviso informativo');
   assert.ok(/região/i.test(info.texto), 'deve traduzir "regions" para "região"');
-  assert.ok(/mantid/i.test(info.texto), 'deve avisar que será mantida');
+  // A promessa continua a mesma; a frase é que mudou (ver "a frase das outras
+  // localizacoes fica legivel", no fim deste arquivo). "mantidas intactas"
+  // virou "nada se perde", que diz o mesmo em português de gente.
+  assert.ok(/nada se perde/i.test(info.texto), 'deve avisar que não se perde');
 });
 
 test('avisosDe: múltiplas outrasLocalizacoes na mensagem separadas por vírgula', () => {
@@ -871,3 +874,30 @@ test('avisosDe: realmente sem localização nenhuma BLOQUEIA (nem cities, nem ou
   const bloqueio = avisos.find(x => x.bloqueia && /localização/i.test(x.texto));
   assert.ok(bloqueio, 'deve bloquear quando nem cidades nem outras localidades existem');
 });
+
+// ── A frase sobre localidades que o editor não desenha ─────────────────────
+//
+// A versão antiga saía "Este conjunto tem local definido(s)." — sem número, com
+// um "(s)" preguiçoso, e falando em "conjunto" numa tela que às vezes está
+// criando uma CAMPANHA NOVA. Visto ao vivo ao aplicar um público salvo.
+test('a frase das outras localizacoes fica legivel no singular e no plural', () => {
+  const comUma = avisosDe({}, { cidades: [{ key: '1' }], outrasLocalizacoes: ['places'] }, {})
+    .find((a) => a.tipo === 'outras-localizacoes')
+  assert.match(comUma.texto, /Além das cidades acima/)
+  assert.match(comUma.texto, /também usa local/)
+  assert.match(comUma.texto, /Ele vai junto/)
+  assert.ok(!/\(s\)/.test(comUma.texto), 'o "(s)" preguiçoso voltou')
+  assert.ok(!/conjunto/.test(comUma.texto), 'fala em conjunto numa tela que pode ser de campanha nova')
+
+  const comTres = avisosDe({}, { cidades: [], outrasLocalizacoes: ['regions', 'zips', 'places'] }, {})
+    .find((a) => a.tipo === 'outras-localizacoes')
+  assert.match(comTres.texto, /^Este público também usa região, CEP e local/)
+  assert.match(comTres.texto, /Eles vão junto/)
+})
+
+test('a frase promete o que o codigo cumpre: nada se perde', () => {
+  const a = avisosDe({}, { cidades: [{ key: '1' }], outrasLocalizacoes: ['zips'] }, {})
+    .find((x) => x.tipo === 'outras-localizacoes')
+  assert.match(a.texto, /nada se perde/)
+  assert.equal(a.bloqueia, false)
+})

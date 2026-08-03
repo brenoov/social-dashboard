@@ -467,6 +467,31 @@ function nomeDaLocalizacao(chave) {
   return NOMES_LOCALIZACOES[chave] || 'outra localização';
 }
 
+// A FRASE SOBRE O QUE O EDITOR NÃO DESENHA.
+//
+// A versão antiga saía como "Este conjunto tem local definido(s)." — sem número,
+// com um "(s)" preguiçoso e falando em "conjunto" numa tela que às vezes está
+// criando uma CAMPANHA NOVA, onde conjunto nenhum existe ainda. Visto ao vivo
+// ao aplicar um público salvo (03/08/2026).
+//
+// O que a pessoa precisa saber é uma coisa só: existe segmentação de lugar aqui
+// que a tela não mostra, e ela NÃO se perde.
+export function frasePosLocalizacoes(outras) {
+  const nomes = (Array.isArray(outras) ? outras : []).map(nomeDaLocalizacao);
+  if (!nomes.length) return '';
+  if (nomes.length === 1) return nomes[0];
+  if (nomes.length === 2) return `${nomes[0]} e ${nomes[1]}`;
+  return `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}`;
+}
+
+function fraseDasOutrasLocalizacoes(outras, temCidades) {
+  const quais = frasePosLocalizacoes(outras);
+  const um = (Array.isArray(outras) ? outras : []).length === 1;
+  return (temCidades ? 'Além das cidades acima, este público' : 'Este público')
+    + ` também usa ${quais} — ${um ? 'um tipo de lugar' : 'tipos de lugar'} que esta tela não sabe mostrar.`
+    + ` ${um ? 'Ele vai' : 'Eles vão'} junto do jeito que ${um ? 'está' : 'estão'}: <b>nada se perde</b>.`;
+}
+
 // Os avisos que precedem o salvar. `bloqueia: true` impede a gravação até o
 // dono resolver o conflito.
 //
@@ -520,10 +545,9 @@ export function avisosDe(antes, depois, contexto) {
     });
   } else if (temOutrasLoc) {
     // Avisa que há localidades que o editor não gerencia, mas que serão preservadas.
-    const nomes = d.outrasLocalizacoes.map(nomeDaLocalizacao).join(', ');
     avisos.push({
       tipo: 'outras-localizacoes',
-      texto: `Este conjunto tem ${nomes} definido(s). O editor aqui não gerencia essas localidades — elas serão <b>mantidas intactas</b> ao salvar.`,
+      texto: fraseDasOutrasLocalizacoes(d.outrasLocalizacoes, temCidades),
       bloqueia: false,
     });
   }
