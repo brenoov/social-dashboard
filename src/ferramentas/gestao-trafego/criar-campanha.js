@@ -40,6 +40,9 @@ export function estadoInicial() {
     nome: '',
     orcamentoCentavos: 5000,
     tipoOrcamento: 'diario',
+    // Só usada quando o orçamento é TOTAL. A Meta exige `end_time` para
+    // lifetime_budget — sem data, ela recusa o conjunto.
+    terminaEm: '',
     publico: null,          // forma do publico-alvo.js
     imagemHash: '',
     imagemPreview: '',
@@ -65,6 +68,12 @@ export function faltaNoPasso(chave, estado) {
     if (!Number.isFinite(c) || c <= 0) faltas.push('Informe quanto pode ser gasto por dia.');
     else if (c < ORCAMENTO_MINIMO_CENTAVOS) {
       faltas.push(`A Meta não aceita menos de ${(ORCAMENTO_MINIMO_CENTAVOS / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} por dia.`);
+    }
+    // ORÇAMENTO TOTAL EXIGE DATA DE TÉRMINO. É a Meta que exige (`lifetime_budget`
+    // sem `end_time` é recusado), e faz sentido: um valor total sem prazo não diz
+    // em quanto tempo gastar. Pedir aqui evita a recusa lá.
+    if (e.tipoOrcamento === 'total' && !texto(e.terminaEm)) {
+      faltas.push('Escolha até quando a campanha vai rodar — orçamento total precisa de uma data de término.');
     }
   }
   if (chave === 'publico') {
@@ -109,6 +118,15 @@ export function imagemServe({ bytes, largura, altura } = {}) {
 
 const reais = (c) => (Number(c) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+// A DATA DO CAMPO ("2026-08-31") vira o FIM daquele dia, não o começo.
+// Quem escolhe 31 quer que rode o dia 31 inteiro; mandar 00:00 encerraria a
+// campanha antes de o dia começar. Sem fuso escrito à mão: a Meta interpreta na
+// zona da conta de anúncios, que é a mesma de quem está olhando a tela.
+export function horarioDeTermino(data) {
+  const d = String(data || '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(d) ? `${d}T23:59:59` : '';
+}
+
 // O QUE VAI SER CRIADO, em português, para a confirmação.
 //
 // A janela de confirmar é a última chance de perceber que se está criando a
@@ -139,7 +157,17 @@ export function resumoDoQueVaiSerCriado(estado, objetivoRotulo) {
 export function payloadsDoAssistente({ estado, objetivoRow, marca, loja }) {
   const e = estado || {};
   if (!objetivoRow || !marca || !loja) return null;
-  const orcamento = { modo: 'ABO', tipo: e.tipoOrcamento === 'total' ? 'lifetime' : 'diario', valorCentavos: Number(e.orcamentoCentavos) };
+  // OS NOMES DOS CAMPOS SÃO OS DE `orcamento.mjs`, e não é detalhe: a primeira
+  // versão mandava `tipo:'lifetime'` e `valorCentavos`, e `normalizarOrcamento`
+  // — que só conhece `'total'` e `valor` — caía no padrão silenciosamente.
+  // Resultado: quem escolhesse "Total R$ 500" criava um conjunto de R$ 500 POR
+  // DIA. Nenhum erro, nenhum aviso, e a diferença aparecia na fatura.
+  const orcamento = {
+    modo: 'ABO',
+    tipo: e.tipoOrcamento === 'total' ? 'total' : 'diario',
+    valor: Number(e.orcamentoCentavos),
+    ...(e.tipoOrcamento === 'total' && texto(e.terminaEm) ? { fim: horarioDeTermino(e.terminaEm) } : {}),
+  };
   const { campaign, adset } = payloadCampanhaAdset(
     objetivoRow, marca, loja,
     { DAILY_BUDGET: Number(e.orcamentoCentavos), DATA: '' },

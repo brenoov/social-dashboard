@@ -73,6 +73,11 @@
       <button class="pnd-aba ativa" id="pnd-aba-campanhas" role="tab" onclick="_gtTrocarAba('campanhas')">Campanhas</button>
       <button class="pnd-aba" id="pnd-aba-fila" role="tab" onclick="_gtTrocarAba('fila')">Fila<span class="pnd-aba-n" id="pnd-fila-n" hidden></span></button>
       <button class="pnd-aba" id="pnd-aba-regua" role="tab" onclick="_gtTrocarAba('regua')">A régua</button>
+      <!-- Criar campanha do zero. Fica na barra de abas por ser a única ação da
+           tela que NÃO é sobre uma campanha que já existe — pendurá-la num card
+           seria dizer que ela depende de um. Só aparece para quem pode editar;
+           quem só olha não vê botão que não pode usar. -->
+      <button class="pnd-aba-acao" id="gt-btn-nova" role="button" hidden onclick="_gtNovoAbrir()">+ Nova campanha</button>
     </div>
 
     <!-- #gt-painel-campanhas é "display:contents" (ver <style> abaixo): ele só
@@ -113,6 +118,17 @@
          display:flex nele. O clique rodava, a função rodava, e nada acontecia —
          sem erro nenhum no console.
          Modal é conteúdo de tela inteira: o lugar dele é fora de qualquer aba. -->
+    <!-- O ASSISTENTE DE NOVA CAMPANHA, também FORA de qualquer aba. Mesma razão
+         do modal de criativo logo abaixo: a troca de aba põe #gt-painel-campanhas
+         em display:none, e ancestral escondido esconde o filho por mais que se
+         mande display:flex nele. -->
+    <div id="gt-novo-ov" onclick="_gtNovoFechar()"></div>
+    <div id="gt-novo-modal">
+      <div class="gt-cfg-head"><span class="gt-cfg-title" id="gt-novo-titulo">Nova campanha</span><button class="gt-cfg-close" onclick="_gtNovoFechar()">✕</button></div>
+      <div id="gt-novo-corpo"></div>
+      <div id="gt-novo-rodape"></div>
+    </div>
+
     <div id="gt-cr-overlay" onclick="_gtCloseCriativo()"></div>
     <div id="gt-cr-modal">
       <div class="gt-cfg-head"><span class="gt-cfg-title" id="gt-cr-title">Criativo do anúncio</span><button class="gt-cfg-close" onclick="_gtCloseCriativo()">✕</button></div>
@@ -148,6 +164,12 @@ import { montarPainelRegua } from './painel-regua.js'
 // silêncio de 7 dias, a repartição por conjunto) moram em fila.js, puro e
 // testado; painel-fila.js só monta a tela.
 import { montarPainelFila } from './painel-fila.js'
+import { montarAssistente, textoDaConfirmacao } from './assistente-campanha.js'
+import { estadoInicial, imagemServe, payloadsDoAssistente, PASSOS } from './criar-campanha.js'
+import { carregarMarcasELojas } from '../../../coletor/lib/config-lojas.mjs'
+// O criativo sai do MESMO montador da Fábrica — puro, sem nada de Node, então
+// o Vite empacota para o navegador sem ginástica.
+import { payloadCriativa } from '../../../coletor/lib/meta-subir.mjs'
 import { lerGastos, linhasDoModal, usoDoOrcamento } from './gastos-da-fila.js'
 // O funil das campanhas NO AR, um bloco por objetivo. Nem todo objetivo tem
 // funil de verdade — ver funil.js.
@@ -3338,6 +3360,297 @@ async function _gtListarSugestoes(){
   return Array.isArray(linhas)?linhas:null;
 }
 
+
+/* ═══ ASSISTENTE DE NOVA CAMPANHA (C3) ══════════════════════════════════════
+   Cria campanha + conjunto + criativo + anúncio, tudo PAUSED.
+
+   O DESENHO das quatro telas mora em assistente-campanha.js e as REGRAS em
+   criar-campanha.js — aqui fica só o que precisa de rede e de estado da tela.
+   O payload sai do MESMO montador que a Fábrica usa em produção; escrever um
+   segundo fez a Meta recusar quatro vezes seguidas.
+
+   Cada passo desta cadeia foi provado ao vivo antes desta tela existir
+   (validar-criar-no-gestor.mjs: 24/24 nos quatro objetivos, e
+   validar-envio-de-imagem.mjs: 4/4 no caminho da imagem). */
+let _gtNovo=null;            // estado do formulário (forma de criar-campanha.js)
+let _gtNovoPasso=0;
+let _gtNovoObjetivos=[];     // linhas de fabrica_objetivos
+let _gtNovoMarca=null, _gtNovoLoja=null;
+let _gtNovoImagens=[];
+let _gtNovoEnviando=false, _gtNovoCriando=false, _gtNovoFaltas=false;
+
+function _gtNovoFechar(){
+  const ov=document.getElementById('gt-novo-ov'),md=document.getElementById('gt-novo-modal');
+  if(ov)ov.style.display='none';
+  if(md)md.style.display='none';
+  document.removeEventListener('keydown',_gtNovoEsc);
+  _gtNovoCriando=false;
+}
+function _gtNovoEsc(e){
+  // Enquanto está criando, ESC não fecha: sair no meio deixaria a pessoa sem
+  // saber o que já foi criado na conta.
+  if(e.key==='Escape'&&!_gtNovoCriando)_gtNovoFechar();
+}
+
+async function _gtNovoAbrir(){
+  if(!_gtCurAcc){await _gtConfirm('Sem conta selecionada','Escolha uma conta de anúncios primeiro.',{okOnly:true});return;}
+  _gtNovo=estadoInicial();_gtNovoPasso=0;_gtNovoFaltas=false;_gtNovoCriando=false;_gtNovoEnviando=false;
+  const ov=document.getElementById('gt-novo-ov'),md=document.getElementById('gt-novo-modal');
+  if(!ov||!md)return;
+  ov.style.display='block';md.style.display='flex';
+  document.addEventListener('keydown',_gtNovoEsc);
+  const tt=document.getElementById('gt-novo-titulo');
+  if(tt)tt.textContent='Nova campanha · '+((_gtCurAcc&&(_gtCurAcc.display_name||_gtCurAcc.name))||'');
+  _gtNovoRedesenhar('<div class="gt-novo-carregando">Carregando os objetivos e as imagens da conta…</div>');
+
+  // O MESMO carregador da Fábrica (config-lojas.mjs, puro): marca e loja trazem
+  // page_id, instagram_user_id, cidades e WhatsApp, sem os quais o payload não
+  // fecha. Reusar em vez de reconsultar é o que mantém uma verdade só.
+  // ZERA ANTES DE CARREGAR. Sem isto, uma falha de rede deixaria a marca da
+  // ABERTURA ANTERIOR de pé — possivelmente de outra conta — e a guarda logo
+  // abaixo passaria batido achando que tinha cadastro.
+  _gtNovoLoja=null;_gtNovoMarca=null;_gtNovoObjetivos=[];_gtNovoImagens=[];
+  try{
+    const { lojas }=await carregarMarcasELojas((caminho)=>sb(caminho.replace(/^\//,'')));
+    // SÓ LOJA DA CONTA QUE ESTÁ NA TELA. A primeira versão caía em `lojas[0]`
+    // quando nenhuma batia — e `lojas[0]` pode ser de OUTRA marca, com outra
+    // conta de anúncios. A campanha nasceria numa conta que a pessoa não
+    // escolheu, com o nome da conta certa no título da janela. Sem conta, sem
+    // criação: é melhor não poder do que criar no lugar errado.
+    _gtNovoLoja=(lojas||[]).find(l=>l.ativo&&l.marca&&String(l.marca.accountId)===String(_gtCurAcc.id))||null;
+    _gtNovoMarca=(_gtNovoLoja&&_gtNovoLoja.marca)||null;
+    _gtNovoObjetivos=(await sb('fabrica_objetivos?select=chave,rotulo,meta_objective,optimization_goal,billing_event,destination_type,promoted_object_tipo,ativo&ativo=eq.true&order=ordem'))||[];
+  }catch(e){ _gtNovoObjetivos=[]; }
+
+  if(!_gtNovoMarca||!_gtNovoLoja||!_gtNovoObjetivos.length){
+    _gtNovoRedesenhar('<div class="gt-novo-carregando">Esta conta de anúncios não tem loja cadastrada na Fábrica.<br><br>'
+      +'Criar campanha por aqui monta o mesmo pedido que a Fábrica monta, e ele precisa da página do Facebook, '
+      +'do Instagram e do WhatsApp da loja. Sem esse cadastro eu não teria de onde tirar esses dados — e não vou '
+      +'criar na conta de outra marca só para o botão funcionar.</div>');
+    return;
+  }
+  _gtNovoImagens=await _gtNovoBuscarImagens();
+  _gtNovoRedesenhar();
+}
+
+// As imagens que a conta já tem. Falhar aqui NÃO impede de criar: dá pra enviar
+// uma nova, e uma lista vazia é melhor que uma janela que não abre.
+async function _gtNovoBuscarImagens(){
+  try{
+    const r=await metaFetch('/'+_gtCleanAct(_gtNovoMarca.adAccount)+'/adimages',{fields:'hash,name,permalink_url',limit:12},_gtNovoMarca.accountId);
+    return ((r&&r.data)||[]).filter(i=>i&&i.hash).map(i=>({hash:i.hash,nome:i.name,url:i.permalink_url||''}));
+  }catch(e){ return []; }
+}
+const _gtCleanAct=(a)=>String(a||'').startsWith('act_')?String(a):('act_'+String(a||''));
+
+function _gtNovoRedesenhar(htmlDireto){
+  const corpo=document.getElementById('gt-novo-corpo'),rodape=document.getElementById('gt-novo-rodape');
+  if(!corpo||!rodape)return;
+  corpo.innerHTML='';rodape.innerHTML='';
+  if(htmlDireto){corpo.innerHTML=htmlDireto;return;}
+  const feito=montarAssistente({
+    doc:document,estado:_gtNovo,passo:_gtNovoPasso,
+    objetivos:_gtNovoObjetivos,imagens:_gtNovoImagens,
+    enviando:_gtNovoEnviando,criando:_gtNovoCriando,mostrarFaltas:_gtNovoFaltas,
+    // `semRedesenhar` existe para digitação: redesenhar a cada letra faria o
+    // campo perder o foco no meio da palavra.
+    aoMudar:(mudanca,op)=>{Object.assign(_gtNovo,mudanca);if(!(op&&op.semRedesenhar))_gtNovoRedesenhar();},
+    aoPasso:(n)=>{_gtNovoPasso=n;_gtNovoFaltas=false;_gtNovoRedesenhar();},
+    aoIrPara:(chave)=>{_gtNovoPasso=Math.max(0,PASSOS.findIndex(p=>p.chave===chave));_gtNovoFaltas=true;_gtNovoRedesenhar();},
+    aoMostrarFaltas:()=>{_gtNovoFaltas=true;_gtNovoRedesenhar();},
+    aoAbrirPublico:_gtNovoPublico,
+    aoEnviarImagem:_gtNovoEnviarImagem,
+    aoCriar:_gtNovoCriar,
+  });
+  if(!feito)return;
+  corpo.appendChild(feito.corpo);rodape.appendChild(feito.rodape);
+}
+
+// O PASSO 3 REUSA O EDITOR DE PÚBLICO que já existe — ele devolve a escolha e
+// NÃO salva sozinho, então serve para campanha que ainda nem foi criada.
+// Semeia com as cidades da loja: começar vazio faria a pessoa procurar a própria
+// cidade que já está cadastrada.
+async function _gtNovoPublico(){
+  // A MESMA TRAVA do editor de conjunto: um editor de público por vez. Os dois
+  // caminhos escrevem nas MESMAS globais (_gtPub, _gtPubAntes) e disputam o
+  // MESMO overlay #gt-pub-ov — abrir o segundo por cima do primeiro faria a
+  // escolha de um vazar para o outro, e um deles gravaria na Meta.
+  if(_gtPubBusy){
+    await _gtConfirm('Já tem um público aberto','Termine o que está aberto antes de abrir outro.',{okOnly:true});
+    return;
+  }
+  _gtPubBusy=true;
+  try{ await _gtNovoPublicoMiolo(); }
+  finally{ _gtPubBusy=false; }
+}
+async function _gtNovoPublicoMiolo(){
+  // `geo_cities` veio da migration 018 como chave crua, mas o teste de
+  // interesses mostra que há linha guardada como {key,nome} — aceita as duas.
+  const cruas=((_gtNovoLoja&&_gtNovoLoja.geoCities)||[])
+    .map(c=>(c&&typeof c==='object')?{key:String(c.key),nome:c.nome||''}:{key:String(c),nome:''})
+    .filter(c=>c.key&&c.key!=='undefined');
+  const nomes=await _gtNovoNomesDeCidade(cruas.filter(c=>!c.nome).map(c=>c.key));
+  const cidades=cruas.map(c=>({key:c.key,nome:c.nome||nomes[c.key]||c.key,raio:0,unidade:'kilometer'}));
+  _gtPubAntes=_gtNovo.publico||{...lerPublico({}),cidades};
+  _gtPub=_gtPubClonar(_gtPubAntes);
+  _gtPubAtivo=false;
+  _gtPubObjetivo='';_gtPubSugeridos=null;_gtPubSugeridoEm=null;
+  [_gtPubSalvos,_gtPubPresets]=await Promise.all([
+    _gtListarPublicosSalvos().catch(()=>null),
+    _gtListarPresets().catch(()=>null),
+  ]);
+  const escolha=await _gtPublicoModal('nova campanha');
+  if(escolha){_gtNovo.publico=escolha;}
+  _gtNovoRedesenhar();
+}
+
+// CHAVE DE CIDADE → NOME. `fabrica_lojas.geo_cities` guarda chaves cruas
+// (267873), não nomes — foi assim que a migration 018 semeou a coluna. No fluxo
+// normal o nome vem de graça, porque a Meta devolve `name` dentro do targeting
+// do conjunto; aqui não existe conjunto ainda.
+//
+// É A MESMA CHAMADA que a Fábrica e o robô de interesses já usam
+// (`type=adgeolocationmeta`), então não é caminho novo. Falhar não impede nada:
+// sem nome a cidade aparece pela chave, feia mas correta — e quem segmenta é a
+// chave, não o rótulo.
+async function _gtNovoNomesDeCidade(chaves){
+  const unicas=[...new Set((chaves||[]).map(k=>String(k)).filter(Boolean))];
+  if(!unicas.length)return {};
+  try{
+    const r=await metaFetch('/search',{type:'adgeolocationmeta',cities:unicas},_gtNovoMarca.accountId);
+    const cidades=(r&&r.data&&r.data.cities)||{};
+    const mapa={};
+    for(const k of Object.keys(cidades))if(cidades[k]&&cidades[k].name)mapa[k]=cidades[k].name;
+    return mapa;
+  }catch(e){ return {}; }
+}
+
+// CRIAR DE VERDADE: campanha → conjunto → criativo → anúncio, nessa ordem,
+// porque cada um precisa do id do anterior.
+//
+// O CRIATIVO SAI DO DESTINO DO CONJUNTO (`payloadCriativa`), e não de um
+// criativo achado por aí: foi reusar criativo alheio que fez a Meta recusar
+// 1885154 e 1487891 ("criativo de WhatsApp em conjunto que não era de
+// WhatsApp"). Montado a partir do destino, ele casa por construção.
+//
+// SE FALHAR NO MEIO, NÃO APAGA NADA por conta própria — diz exatamente o que já
+// existe na conta e deixa a decisão com o dono. Apagar sozinho o que ele acabou
+// de mandar criar seria decidir por ele num momento em que já está confuso.
+async function _gtNovoCriar(){
+  const row=_gtNovoObjetivos.find(o=>o.chave===_gtNovo.objetivo);
+  if(!row){await _gtConfirm('Objetivo não encontrado','Não achei este objetivo no cadastro da Fábrica.',{okOnly:true});return;}
+  const payloads=payloadsDoAssistente({estado:_gtNovo,objetivoRow:row,marca:_gtNovoMarca,loja:_gtNovoLoja});
+  if(!payloads){await _gtConfirm('Falta cadastro','Não consegui montar a campanha: falta marca ou loja no cadastro da Fábrica.',{okOnly:true});return;}
+
+  const ok=await _gtConfirm('Confirma criar?',textoDaConfirmacao(_gtNovo,row.rotulo),{okLabel:'Criar pausado'});
+  if(!ok)return;
+
+  // A CONTA vem da MARCA, e não do seletor da tela: as duas são a mesma (a loja
+  // só é aceita se `marca.accountId` bater com a conta escolhida), e é da marca
+  // que sai o `adAccount` do caminho. Ler os dois do mesmo lugar é o que garante
+  // que o token e a conta de destino nunca se separam.
+  const act=_gtCleanAct(_gtNovoMarca.adAccount), conta=_gtNovoMarca.accountId;
+  const feito=[];
+  _gtNovoCriando=true;_gtNovoRedesenhar();
+  try{
+    const c=await metaPost('/'+act+'/campaigns',payloads.campaign,conta);
+    if(!c||!c.id)throw new Error('a Meta aceitou mas não devolveu o código da campanha');
+    feito.push('campanha '+c.id);
+
+    const cj=await metaPost('/'+act+'/adsets',{...payloads.adset,campaign_id:c.id},conta);
+    if(!cj||!cj.id)throw new Error('a Meta aceitou mas não devolveu o código do conjunto');
+    feito.push('conjunto '+cj.id);
+
+    const criativo=payloadCriativa({
+      hash:_gtNovo.imagemHash,adsetDestinationType:row.destination_type,
+      waNumero:_gtNovoLoja.whatsapp,page:_gtNovoMarca.pageId,ig:_gtNovoMarca.igId,
+      mensagem:_gtNovo.texto,
+    });
+    const cr=await metaPost('/'+act+'/adcreatives',{name:(_gtNovo.nome||'anúncio')+' · criativo',...criativo},conta);
+    if(!cr||!cr.id)throw new Error('a Meta aceitou mas não devolveu o código do criativo');
+    feito.push('criativo '+cr.id);
+
+    const ad=await metaPost('/'+act+'/ads',{
+      name:(_gtNovo.nome||'anúncio')+' · anúncio',adset_id:cj.id,
+      creative:{creative_id:cr.id},status:'PAUSED',
+    },conta);
+    if(!ad||!ad.id)throw new Error('a Meta aceitou mas não devolveu o código do anúncio');
+
+    _gtNovoCriando=false;
+    _gtNovoFechar();
+    await _gtConfirm('Pronto — está criado e pausado',
+      'Campanha <b>'+_gtEsc(_gtNovo.nome)+'</b> criada com 1 conjunto e 1 anúncio.<br><br>'
+      +'<b>Nada está rodando ainda.</b> Ela nasce pausada de propósito: dê uma olhada nela na lista '
+      +'e ative quando estiver satisfeito.',{okOnly:true});
+    loadGtData();
+  }catch(e){
+    _gtNovoCriando=false;_gtNovoRedesenhar();
+    // O QUE JÁ EXISTE vai junto do erro. Sem isso, uma falha no anúncio deixaria
+    // campanha e conjunto na conta sem ninguém saber — e o dono tentaria de novo,
+    // criando o dobro.
+    const jaExiste=feito.length
+      ? '<br><br><b>O que já foi criado e continua na conta (tudo pausado):</b><br>'+feito.map(_gtEsc).join('<br>')
+        +'<br><br>Não apaguei nada por conta própria. Você pode completar na Meta ou apagar por lá.'
+      : '<br><br>Nada chegou a ser criado.';
+    await _gtConfirm('A Meta recusou',_gtEsc(String((e&&e.message)||e))+jaExiste,{okOnly:true});
+  }
+}
+
+// ENVIAR IMAGEM: arquivo → Storage → Meta → hash. O meta-proxy só busca imagem
+// do Storage deste projeto (trava anti-SSRF), então o caminho é obrigatório.
+// Provado em validar-envio-de-imagem.mjs (4/4).
+function _gtNovoEnviarImagem(){
+  const inp=document.createElement('input');
+  inp.type='file';inp.accept='image/png,image/jpeg';
+  inp.onchange=async()=>{
+    const arq=inp.files&&inp.files[0];
+    if(!arq)return;
+    // CONFERE ANTES DE SUBIR. A Meta recusa imagem pequena, e descobrir isso
+    // depois de esperar o upload é o pior momento possível.
+    const dim=await _gtNovoDimensoes(arq).catch(()=>({}));
+    const veredito=imagemServe({bytes:arq.size,largura:dim.largura,altura:dim.altura});
+    if(!veredito.ok){
+      await _gtConfirm('Esta imagem não serve',veredito.problemas.map(_gtEsc).join('<br>'),{okOnly:true});
+      return;
+    }
+    _gtNovoEnviando=true;_gtNovoRedesenhar();
+    try{
+      const {data:{session}}=await sbClient.auth.getSession();
+      const caminho='gestor-envios/'+Date.now()+'-'+String(arq.name||'imagem').replace(/[^a-zA-Z0-9._-]/g,'_');
+      const up=await sbClient.storage.from('fabrica-criativos').upload(caminho,arq,{upsert:true,contentType:arq.type});
+      if(up.error)throw new Error(up.error.message);
+      const {data:pub}=sbClient.storage.from('fabrica-criativos').getPublicUrl(caminho);
+      const r=await fetch(SUPABASE_URL+'/functions/v1/meta-proxy',{
+        method:'POST',
+        headers:{'Authorization':'Bearer '+session.access_token,'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+        body:JSON.stringify({accountId:_gtNovoMarca.accountId,path:'/'+_gtCleanAct(_gtNovoMarca.adAccount)+'/adimages',method:'POST',params:{},imageFromUrl:pub.publicUrl,imageField:'envio'}),
+      });
+      const d=await r.json().catch(()=>({}));
+      const primeira=d&&d.images&&Object.values(d.images)[0];
+      if(!primeira||!primeira.hash)throw new Error((d&&d.error&&(d.error.error_user_msg||d.error.message))||'a Meta não devolveu o código da imagem');
+      _gtNovoImagens=[{hash:primeira.hash,nome:arq.name,url:pub.publicUrl},..._gtNovoImagens];
+      _gtNovo.imagemHash=primeira.hash;_gtNovo.imagemPreview=pub.publicUrl;
+    }catch(e){
+      await _gtConfirm('Não consegui enviar a imagem',_gtEsc(String((e&&e.message)||e)),{okOnly:true});
+    }finally{
+      _gtNovoEnviando=false;_gtNovoRedesenhar();
+    }
+  };
+  inp.click();
+}
+
+// Largura e altura sem depender de biblioteca. Falhar aqui não acusa a imagem —
+// o que não se sabe não vira acusação (ver imagemServe).
+function _gtNovoDimensoes(arq){
+  return new Promise((resolve,reject)=>{
+    const url=URL.createObjectURL(arq);
+    const img=new Image();
+    img.onload=()=>{resolve({largura:img.naturalWidth,altura:img.naturalHeight});URL.revokeObjectURL(url);};
+    img.onerror=()=>{reject(new Error('não deu para ler'));URL.revokeObjectURL(url);};
+    img.src=url;
+  });
+}
+
 const _gtPubClonar=(p)=>JSON.parse(JSON.stringify(p));
 
 // AÇÃO REAL na Meta: muda quem vê os anúncios de um conjunto ao vivo.
@@ -3587,6 +3900,11 @@ onMounted(() => {
   document.addEventListener('click', _gtDocClick)
   const cfgBtn = document.getElementById('gt-cfg-btn')
   if (cfgBtn) cfgBtn.style.display = hasPermission('meta.gestor', 'editar') ? '' : 'none' // editor de métricas = ação 'editar'
+  // Criar campanha é escrita na Meta — mesma ação 'editar' que pausar e mudar
+  // orçamento. Nasce `hidden` no template: se a permissão não puder ser lida por
+  // qualquer motivo, o botão fica escondido em vez de aparecer por engano.
+  const novaBtn = document.getElementById('gt-btn-nova')
+  if (novaBtn && hasPermission('meta.gestor', 'editar')) novaBtn.hidden = false
   startGtClock()
   // A régua (gt_ponderada_config) é UMA linha única, sem relação com qual conta de
   // anúncios está selecionada — por isso carrega aqui, já no mount, e não só dentro
@@ -3623,6 +3941,8 @@ Object.assign(window, {
   _gtCloseCriativo,
   _gtTrocarAba,
   _gtAjuda,
+  _gtNovoAbrir,
+  _gtNovoFechar,
 })
 </script>
 
@@ -4214,6 +4534,40 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-cfg-head){padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
 .tela-gestao-trafego :deep(.gt-cfg-title){font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:700;color:var(--text);}
 .tela-gestao-trafego :deep(.gt-cfg-close){background:none;border:none;color:var(--muted);cursor:pointer;font-size:calc(16px*var(--gt-fs,1.3));padding:0;line-height:1;}
+
+/* ── ASSISTENTE DE NOVA CAMPANHA ──────────────────────────────────────────
+   Mesmo desenho do editor de métricas (#gt-cfg-*): é a mesma casa, e inventar
+   uma segunda janela faria a tela parecer dois aplicativos. O miolo é montado
+   em assistente-campanha.js com estilo inline, então aqui só mora a moldura.
+
+   `--surface2` e não `--bg` no botão: `--bg` (#0a0a0b) é mais escuro que o
+   cartão no tema escuro, e o resultado era botão preto com letra branca — foi
+   exatamente isso que o dono apontou nas outras telas desta ferramenta. */
+.tela-gestao-trafego :deep(.pnd-aba-acao){appearance:none;margin-left:auto;margin-bottom:-1px;padding:7px 15px;align-self:center;border:1px solid var(--border);border-radius:8px;background:var(--surface2,var(--surface));color:var(--accent);font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:border-color .15s ease,color .15s ease;}
+.tela-gestao-trafego :deep(.pnd-aba-acao:hover){border-color:var(--accent);}
+.tela-gestao-trafego :deep(#gt-novo-ov){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1300;display:none;backdrop-filter:blur(2px);}
+.tela-gestao-trafego :deep(#gt-novo-modal){position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1301;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(620px,94vw);max-height:88vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+/* O corpo é quem rola, não a janela: com a janela rolando, o rodapé (onde
+   ficam "Voltar" e "Criar") saía da tela justo no passo mais longo.
+   SEM padding e SEM borda nos dois: quem monta o miolo (assistente-campanha.js)
+   já traz o seu, e somar os dois dava margem dobrada no corpo e um rodapé
+   encolhido no canto esquerdo, com o "Avançar" longe da borda direita. Estes
+   dois seletores são moldura, não desenho. */
+.tela-gestao-trafego :deep(#gt-novo-corpo){flex:1;min-height:0;overflow-y:auto;font-family:var(--fonte-principal);color:var(--text);font-size:calc(12px*var(--gt-fs,1.3));}
+.tela-gestao-trafego :deep(#gt-novo-rodape){flex:0 0 auto;font-family:var(--fonte-principal);}
+.tela-gestao-trafego :deep(#gt-novo-rodape > *){width:100%;box-sizing:border-box;}
+/* O ÍCONE DO SELETOR DE DATA é desenhado pelo navegador e nasce PRETO — no tema
+   escuro ele vira um borrão invisível no canto do campo, o mesmo tipo de defeito
+   que o dono apontou nos botões desta ferramenta. `invert` é o único jeito de
+   alcançá-lo; ele não aceita `color`. */
+:root[data-theme="dark"] .tela-gestao-trafego :deep(.gt-novo-data)::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.75;cursor:pointer;}
+.tela-gestao-trafego :deep(.gt-novo-carregando){padding:26px 4px;text-align:center;color:var(--muted);line-height:1.6;}
+@media(max-width:640px){
+  /* No celular a janela ocupa a tela inteira: 88vh centralizado deixava metade
+     do assistente fora do alcance do polegar. */
+  .tela-gestao-trafego :deep(#gt-novo-modal){top:0;left:0;transform:none;width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0;border:none;}
+  .tela-gestao-trafego :deep(.pnd-aba-acao){margin-left:0;flex:1 1 100%;margin-top:6px;}
+}
 .tela-gestao-trafego :deep(.gt-cfg-body){padding:16px 20px;overflow-y:auto;flex:1;}
 .tela-gestao-trafego :deep(.gt-cfg-sec){margin-bottom:18px;}
 .tela-gestao-trafego :deep(.gt-cfg-sec:last-child){margin-bottom:0;}

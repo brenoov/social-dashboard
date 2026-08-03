@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   PASSOS, estadoInicial, faltaNoPasso, podeAvancar, primeiroPassoIncompleto,
   imagemServe, resumoDoQueVaiSerCriado, payloadsDoAssistente, publicoParaFabrica,
-  LADO_MINIMO_PX, ORCAMENTO_MINIMO_CENTAVOS,
+  LADO_MINIMO_PX, ORCAMENTO_MINIMO_CENTAVOS, horarioDeTermino,
 } from './criar-campanha.js'
 
 const cheio = () => ({
@@ -130,3 +130,48 @@ test('sem objetivo, marca ou loja nao monta payload nenhum', () => {
   assert.equal(payloadsDoAssistente({ estado: cheio(), objetivoRow: null, marca: MARCA, loja: LOJA }), null)
   assert.equal(payloadsDoAssistente({ estado: cheio(), objetivoRow: ROW, marca: null, loja: LOJA }), null)
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ORÇAMENTO TOTAL NÃO PODE VIRAR ORÇAMENTO DIÁRIO.
+//
+// O DEFEITO REAL (achado antes de subir, 2026-08-03): `payloadsDoAssistente`
+// montava `{ tipo: 'lifetime', valorCentavos }`, mas `normalizarOrcamento` só
+// conhece `'total'` e `valor` — os dois nomes errados caíam no padrão em
+// silêncio. Quem escolhesse "Total R$ 500" criava um conjunto de R$ 500 POR DIA.
+//
+// Nenhum erro, nenhum aviso: a Meta aceita, a campanha nasce pausada e correta
+// aos olhos, e a diferença só aparece na fatura. É o formato de falha mais caro
+// que esta tela pode ter, porque é o único em que ela mexe em dinheiro.
+test('orçamento TOTAL vira lifetime_budget, e nunca daily_budget', () => {
+  const e = {
+    ...estadoInicial(), objetivo: 'conversao', nome: 'X',
+    orcamentoCentavos: 50000, tipoOrcamento: 'total', terminaEm: '2026-09-30',
+  };
+  const { adset } = payloadsDoAssistente({ estado: e, objetivoRow: ROW, marca: MARCA, loja: LOJA });
+  assert.equal(adset.daily_budget, undefined, 'total NÃO pode virar orçamento diário');
+  assert.equal(adset.lifetime_budget, 50000);
+  // A data vira o FIM do dia escolhido: quem marca 30 quer o dia 30 inteiro.
+  assert.equal(adset.end_time, '2026-09-30T23:59:59');
+});
+
+test('orçamento POR DIA continua daily_budget, sem data nenhuma', () => {
+  const e = { ...estadoInicial(), objetivo: 'conversao', nome: 'X', orcamentoCentavos: 8000 };
+  const { adset } = payloadsDoAssistente({ estado: e, objetivoRow: ROW, marca: MARCA, loja: LOJA });
+  assert.equal(adset.daily_budget, 8000);
+  assert.equal(adset.lifetime_budget, undefined);
+  assert.equal(adset.end_time, undefined);
+});
+
+test('total SEM data de término não deixa avançar', () => {
+  const e = { ...estadoInicial(), orcamentoCentavos: 50000, tipoOrcamento: 'total' };
+  const faltas = faltaNoPasso('orcamento', e);
+  assert.equal(faltas.length, 1);
+  assert.match(faltas[0], /término/);
+  assert.ok(podeAvancar('orcamento', { ...e, terminaEm: '2026-09-30' }));
+});
+
+test('data mal formada não vira end_time inventado', () => {
+  assert.equal(horarioDeTermino('30/09/2026'), '');
+  assert.equal(horarioDeTermino(''), '');
+  assert.equal(horarioDeTermino('2026-09-30'), '2026-09-30T23:59:59');
+});

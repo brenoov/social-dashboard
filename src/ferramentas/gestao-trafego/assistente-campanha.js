@@ -25,6 +25,7 @@ const CSS = {
   linha: 'display:flex;gap:7px;flex-wrap:wrap;align-items:center;',
   campo: 'width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-family:var(--fonte-principal);font-size:calc(11.5px*var(--gt-fs,1.3));box-sizing:border-box;',
   resumo: 'background:var(--surface2);border-radius:8px;padding:11px 13px;font-size:calc(10.5px*var(--gt-fs,1.3));line-height:1.7;color:var(--muted);',
+  rotulo: 'display:block;font-size:calc(10.5px*var(--gt-fs,1.3));font-weight:700;margin:0 0 5px;color:var(--text);',
   falta: 'margin:12px 0 0;padding:10px 12px;border-radius:8px;background:color-mix(in srgb,var(--orange) 12%,transparent);border:1px solid color-mix(in srgb,var(--orange) 35%,transparent);font-size:calc(10.5px*var(--gt-fs,1.3));line-height:1.55;color:var(--text);',
 };
 
@@ -68,7 +69,10 @@ function passoObjetivo(doc, o) {
 // ── PASSO 2 · quanto ────────────────────────────────────────────────────────
 function passoOrcamento(doc, o) {
   const cx = el(doc, 'div');
-  cx.appendChild(el(doc, 'div', CSS.tit, 'Quanto por dia'));
+  // O TÍTULO acompanha a escolha: "Quanto por dia" com orçamento total é
+  // simplesmente a frase errada, e é a frase que a pessoa lê primeiro.
+  cx.appendChild(el(doc, 'div', CSS.tit,
+    o.estado.tipoOrcamento === 'total' ? 'Quanto no total' : 'Quanto por dia'));
   cx.appendChild(el(doc, 'p', CSS.ajuda,
     'A campanha nasce PAUSADA. Nada é gasto até você ativar no Gerenciador ou aqui.'));
 
@@ -88,8 +92,30 @@ function passoOrcamento(doc, o) {
   fila.appendChild(pastilha(doc, 'Total', o.estado.tipoOrcamento === 'total', () => o.aoMudar({ tipoOrcamento: 'total' })));
   cx.appendChild(fila);
 
+  // A DATA SÓ APARECE COM "Total" escolhido. É a Meta que exige `end_time` junto
+  // de `lifetime_budget`; e um campo de data pendurado no orçamento diário só
+  // faria a pessoa se perguntar se precisa preencher.
+  if (o.estado.tipoOrcamento === 'total') {
+    const fim = el(doc, 'div', 'margin-top:12px;');
+    fim.appendChild(el(doc, 'label', CSS.rotulo, 'Até quando vai rodar'));
+    const dia = el(doc, 'input', CSS.campo + 'width:190px;display:block;');
+    // A classe existe só para o CSS da tela alcançar o ícone NATIVO do
+    // seletor de data — ele nasce preto e some no tema escuro. Ver
+    // `.gt-novo-data` em tela-de-gestao-trafego.vue.
+    dia.className = 'gt-novo-data';
+    dia.type = 'date';
+    dia.value = o.estado.terminaEm || '';
+    dia.onchange = () => o.aoMudar({ terminaEm: dia.value });
+    fim.appendChild(dia);
+    cx.appendChild(fim);
+  }
+
+  // UMA frase de rodapé, não duas: dizer a mesma coisa em dois parágrafos
+  // seguidos faz parecer que são regras diferentes.
   cx.appendChild(el(doc, 'p', CSS.ajuda + 'margin:10px 0 0;',
-    `Mínimo de ${reais(ORCAMENTO_MINIMO_CENTAVOS)} por dia — abaixo disso a Meta recusa.`));
+    o.estado.tipoOrcamento === 'total'
+      ? 'Este valor é o do período inteiro, e não por dia — a Meta distribui até a data de término.'
+      : `Mínimo de ${reais(ORCAMENTO_MINIMO_CENTAVOS)} por dia — abaixo disso a Meta recusa.`));
   return cx;
 }
 
