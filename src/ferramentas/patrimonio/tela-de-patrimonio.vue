@@ -5,6 +5,9 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Gestão Interna
       </button>
       <span class="pat-title">Patrimônio</span>
+      <button class="pat-btn-listas" @click="listasAbertas = true" v-if="podeEditar" title="Listas">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      </button>
       <button class="pat-btn-novo" @click="abrirNovo" v-if="podeCriar" title="Cadastrar bem">+</button>
     </div>
 
@@ -242,6 +245,44 @@
         </div>
       </div>
     </div>
+
+    <!-- Listas editáveis: o dono cria/renomeia/apaga as opções que aparecem nos
+         campos do bem. Sem isto ele ficaria preso nos valores semeados. -->
+    <div class="pat-ficha-fundo" v-if="listasAbertas" @click.self="listasAbertas = false">
+      <div class="pat-ficha">
+        <div class="pat-ficha-topo">
+          <button class="pat-ficha-fechar" @click="listasAbertas = false" aria-label="Fechar">✕</button>
+          <span class="pat-ficha-titulo">Listas</span>
+        </div>
+        <div class="pat-ficha-corpo">
+          <p class="pat-listas-ajuda">
+            Estas são as opções que aparecem nos campos do bem. Pode criar, renomear
+            e apagar à vontade — o que você escrever aqui é o que aparece lá.
+          </p>
+          <div class="pat-lista-bloco" v-for="def in DEFS_LISTAS" :key="def.tabela">
+            <h4>{{ def.titulo }}</h4>
+            <div class="pat-lista-item" v-for="item in def.ref.value" :key="item.id">
+              <input
+                class="pat-lista-nome"
+                :value="item.nome"
+                @change="renomearItem(def, item, $event.target.value)">
+              <button class="pat-lista-del" @click="apagarItem(def, item)" aria-label="Apagar">✕</button>
+            </div>
+            <div class="pat-lista-novo">
+              <input
+                class="pat-lista-nome"
+                v-model="novos[def.tabela]"
+                :placeholder="'Nova opção em ' + def.titulo.toLowerCase()"
+                @keyup.enter="criarItem(def)">
+              <button class="pat-btn" @click="criarItem(def)">Adicionar</button>
+            </div>
+          </div>
+        </div>
+        <div class="pat-ficha-pe">
+          <button class="pat-btn primario" @click="listasAbertas = false">Pronto</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -462,6 +503,60 @@ async function salvarBem() {
   await carregar()
 }
 
+// ------------------------------------------------------------ listas editáveis
+const listasAbertas = ref(false)
+const podeEditar = computed(() => hasPermission('patrimonio', 'editar'))
+const novos = reactive({
+  patrimonio_empresas: '', patrimonio_locais: '',
+  patrimonio_comodos: '', patrimonio_categorias: '',
+})
+
+// As quatro listas simples (nome + ordem). Tipo fica de fora por enquanto: ele
+// depende de categoria, e um seletor encadeado no celular pede desenho próprio
+// — entra numa fase seguinte, junto com a classificação de 3 níveis.
+const DEFS_LISTAS = [
+  { tabela: 'patrimonio_empresas', titulo: 'Empresas', ref: empresas },
+  { tabela: 'patrimonio_locais', titulo: 'Locais', ref: locais },
+  { tabela: 'patrimonio_comodos', titulo: 'Cômodos', ref: comodos },
+  { tabela: 'patrimonio_categorias', titulo: 'Categorias', ref: categorias },
+]
+
+async function criarItem(def) {
+  const nome = (novos[def.tabela] || '').trim()
+  if (!nome) return
+  const { error } = await sbClient.from(def.tabela).insert({ nome, ordem: def.ref.value.length + 1 })
+  if (error) {
+    // unique(nome) violado = a opção já existe. Dizer isso, não vomitar o erro do banco.
+    const jaExiste = /duplicate key|unique/i.test(error.message)
+    adminToast(jaExiste ? `"${nome}" já está na lista` : 'Erro: ' + error.message, false)
+    return
+  }
+  novos[def.tabela] = ''
+  await carregar()
+}
+
+async function renomearItem(def, item, novoNome) {
+  const nome = (novoNome || '').trim()
+  if (!nome || nome === item.nome) return
+  const { error } = await sbClient.from(def.tabela).update({ nome }).eq('id', item.id)
+  if (error) { adminToast('Erro ao renomear: ' + error.message, false); await carregar(); return }
+  await carregar()
+}
+
+// Apagar uma opção NÃO apaga bem nenhum: as FKs são "on delete set null", então
+// o bem fica sem aquele campo e continua lá. Avisar isso é honestidade, não enfeite.
+async function apagarItem(def, item) {
+  const usados = bens.value.filter((b) =>
+    b.empresa_id === item.id || b.local_id === item.id ||
+    b.comodo_id === item.id || b.categoria_id === item.id).length
+  if (usados > 0) {
+    adminToast(`"${item.nome}" está em ${usados} bem(ns). Eles ficam sem esse campo.`, false)
+  }
+  const { error } = await sbClient.from(def.tabela).delete().eq('id', item.id)
+  if (error) { adminToast('Erro ao apagar: ' + error.message, false); return }
+  await carregar()
+}
+
 async function excluirBem() {
   const id = bemAberto.value.id
   const nome = form.nome
@@ -589,6 +684,15 @@ onMounted(() => {
 .tela-patrimonio .pat-hist h4{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
 .tela-patrimonio .pat-hist-vazio{font-family:var(--fonte-principal);font-size:12px;line-height:1.6;color:var(--muted);}
 .tela-patrimonio .pat-hist-linha{font-family:var(--fonte-principal);font-size:12px;color:var(--text);padding:7px 10px;background:var(--surface2);border-radius:7px;}
+
+/* ---- listas editáveis ---- */
+.tela-patrimonio .pat-btn-listas{width:38px;height:38px;flex-shrink:0;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation;}
+.tela-patrimonio .pat-listas-ajuda{font-family:var(--fonte-principal);font-size:12px;line-height:1.6;color:var(--muted);}
+.tela-patrimonio .pat-lista-bloco{display:flex;flex-direction:column;gap:7px;border-top:1px solid var(--border);padding-top:12px;}
+.tela-patrimonio .pat-lista-bloco h4{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+.tela-patrimonio .pat-lista-item,.tela-patrimonio .pat-lista-novo{display:flex;gap:7px;align-items:center;}
+.tela-patrimonio .pat-lista-nome{flex:1;min-width:0;font-size:16px;font-family:var(--fonte-principal);padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);}
+.tela-patrimonio .pat-lista-del{width:36px;height:36px;flex-shrink:0;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:#dc2626;cursor:pointer;touch-action:manipulation;}
 
 @media(min-width:1025px){
   .tela-patrimonio .pat-topbar{padding:13px 24px;}

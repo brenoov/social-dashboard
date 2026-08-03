@@ -85,7 +85,6 @@
         <button class="ac-tab" data-tab="org" onclick="_acSetTab('org')">Organizações</button>
         <button class="ac-tab" data-tab="drive" onclick="_acSetTab('drive')">Drive</button>
         <button class="ac-tab" data-tab="auditoria" onclick="_acSetTab('auditoria')">Auditoria</button>
-        <button class="ac-tab" data-tab="patrimonio" onclick="_acSetTab('patrimonio')">Patrimônio</button>
         <!-- Aba Configurações: antes era só a engrenagem, sem rótulo — o dono não achava.
              Agora tem ícone + texto, igual às outras abas (Tarefa 8). -->
         <button class="ac-tab ac-tab-config" data-tab="config" onclick="_acSetTab('config')" title="Configurações"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Configurações</button>
@@ -110,7 +109,10 @@ import { contarAcessosOneDrive, resumoAcessosOneDrive, statusWorkdrive, campoPre
 // Patrimônio (Tarefa 5): dinheiro em centavos + histórico de posse (módulo já testado)
 import { formatarValor, parsearValor, CATEGORIAS_PATRIMONIO, fecharEAbrirHistorico } from '../patrimonio/patrimonio.js'
 // Lógica pura da lista/consolidado de patrimônio (somar, filtrar, formatar data, histórico)
-import { somarCentavos, filtrarItens, formatarDataBR, textoLinhaHistorico, donoAtualNome } from '../patrimonio/patrimonio-lista.js'
+// filtrarItens e donoAtualNome saíram junto com a aba Patrimônio (que virou
+// módulo próprio); os que ficam ainda servem os blocos de Dispositivos e
+// Veículos da ficha do colaborador, que só saem na Fase 3.
+import { somarCentavos, formatarDataBR, textoLinhaHistorico } from '../patrimonio/patrimonio-lista.js'
 // Auditoria (Tarefa 6): classificação pura do volume de acesso ao OneDrive (destaque de "muitas pastas")
 import { volumeDeAcesso } from './auditoria-volume.js'
 
@@ -1391,7 +1393,6 @@ function _acRender(){
   if(_acTab==='auditoria')return _acRenderAuditoria();
   if(_acTab==='drive')return _acRenderDrive();
   if(_acTab==='config')return _acRenderConfiguracoes();
-  if(_acTab==='patrimonio')return _acRenderPatrimonio();
   if(_acTab==='icloud')return _acRenderICloud();
   if(_acSel)return _acRenderFicha(_acSel);
   if(_acSelSetor!==null)return _acRenderColaboradores(_acSelSetor);
@@ -2313,7 +2314,6 @@ async function _acPatTrocarDono(id,pessoaAtualId){
     close();adminToast('Dono atualizado');
     // O item pode ter saído desta ficha (foi pra outra pessoa): re-render da ficha atual.
     _acRenderPatItens(pessoaAtualId);_acFichaCarregarContadores(pessoaAtualId);
-    if(_acTab==='patrimonio')_acRenderPatrimonio();
   };
 }
 // Ver o histórico de posse de um item (quem teve, de–até, motivo).
@@ -2343,52 +2343,8 @@ async function _acPatDel(id,pessoaId){
   await _acLog('patrimonio.remover','item:'+id,'ok',null);
   adminToast('Item removido');
   _acRenderPatItens(pessoaId);_acFichaCarregarContadores(pessoaId);
-  if(_acTab==='patrimonio')_acRenderPatrimonio();
 }
 
-// ---- Aba consolidada "Patrimônio": todos os bens de todas as pessoas ----
-let _acPatFiltro={categoria:'',pessoaId:'',status:''};
-let _acPatCache=null;
-async function _acRenderPatrimonio(){
-  const body=document.getElementById('ac-body');
-  body.innerHTML='<div class="ac-muted">Carregando patrimônio…</div>';
-  const[{data:itens,error:eI},{data:pessoas}]=await Promise.all([
-    sbClient.from('acessos_dispositivos').select('*').order('atualizado_em',{ascending:false}),
-    sbClient.from('acessos_pessoas').select('id,nome,status').order('nome'),
-  ]);
-  if(eI){body.innerHTML='<div class="ac-fx-empty">Não consegui carregar o patrimônio: '+_acEsc(eI.message)+'</div>';return;}
-  _acPatCache={itens:itens||[],pessoas:pessoas||[]};
-  _acPatPaint();
-}
-function _acPatPaint(){
-  const body=document.getElementById('ac-body');if(!body||!_acPatCache)return;
-  const{itens,pessoas}=_acPatCache;
-  const pById={};pessoas.forEach(p=>{pById[p.id]=p;});
-  const filtrados=filtrarItens(itens,_acPatFiltro);
-  const total=somarCentavos(filtrados);
-  const opt=(v,label,sel)=>`<option value="${_acEsc(v)}" ${v===sel?'selected':''}>${_acEsc(label)}</option>`;
-  const filtros=`<div class="ac-pat-filtros">
-    <select class="ac-select" onchange="_acPatSetFiltro('categoria',this.value)"><option value="">Todas as categorias</option>${CATEGORIAS_PATRIMONIO.map(c=>opt(c,c,_acPatFiltro.categoria)).join('')}</select>
-    <select class="ac-select" onchange="_acPatSetFiltro('pessoaId',this.value)"><option value="">Todas as pessoas</option>${pessoas.map(p=>opt(p.id,p.nome,_acPatFiltro.pessoaId)).join('')}</select>
-    <select class="ac-select" onchange="_acPatSetFiltro('status',this.value)"><option value="">Todas as situações</option>${AC_DST.map(s=>opt(s[0],s[1],_acPatFiltro.status)).join('')}</select>
-  </div>`;
-  const linhas=filtrados.length?filtrados.map(d=>`<tr onclick="_acPatHistorico('${d.id}')">
-      <td>${_acEsc(d.descricao||'—')}</td>
-      <td><span class="ac-chip">${_acEsc(d.categoria||'—')}</span></td>
-      <td>${_acEsc(donoAtualNome(d,pById))}</td>
-      <td>${_acPatStatusPill(d.status)}</td>
-      <td class="ac-pat-r">${_acEsc(formatarValor(d.valor_centavos))}</td>
-      <td>${_acEsc(d.desde?formatarDataBR(d.desde):'—')}</td>
-    </tr>`).join(''):'<tr><td colspan="6" class="ac-muted" style="padding:18px;text-align:center">Nenhum item para esses filtros.</td></tr>';
-  body.innerHTML=`<div class="ac-section-h"><h3>Patrimônio</h3><div class="ac-pat-kpi">${filtrados.length} item(ns) · total <strong>${_acEsc(formatarValor(total))}</strong></div></div>
-    ${filtros}
-    <div class="ac-pat-tablewrap"><table class="ac-pat-table">
-      <thead><tr><th>Item</th><th>Categoria</th><th>Dono atual</th><th>Situação</th><th class="ac-pat-r">Valor</th><th>Desde</th></tr></thead>
-      <tbody>${linhas}</tbody>
-    </table></div>
-    <div class="ac-muted" style="margin-top:10px;font-size:12px">Clique numa linha para ver o histórico de posse do item.</div>`;
-}
-function _acPatSetFiltro(k,v){_acPatFiltro[k]=v;_acPatPaint();}
 
 function _acSanitizeName(n){return String(n||'arquivo').replace(/[^\w.\-]+/g,'_').slice(-80);}
 // Ícone de documento (mesmo traço do vazio da ficha) pra cada termo da lista.
@@ -2643,7 +2599,7 @@ Object.assign(window, {
   _acWdNo, _acWdAlternar, _acWdImportar,
   // Patrimônio (Tarefa 5): CRUD na ficha, histórico de posse e aba consolidada.
   _acPatStatusPill, _acRenderPatItens, _acPatRow, _acPatForm, _acPatTrocarDono, _acPatHistorico,
-  _acPatDel, _acRenderPatrimonio, _acPatPaint, _acPatSetFiltro
+  _acPatDel
 })
 
 // ==========================================================================
