@@ -198,3 +198,9 @@ O QUE AINDA NÃO EXISTE
 As quatro fases estão feitas. O que falta é decisão do dono, não código:
   - ligar os dois crons (migrations 06 e 09)
   - o App Review da Meta, para a publicação virar automática
+    (o que pedir, o texto pronto e o roteiro do vídeo: docs/app-review-meta.md.
+     medido em 03/08/2026: falta SÓ instagram_content_publish; as outras sete
+     permissões que o sistema usa já funcionam)
+  - a publicação em si: publicar-instagram.js ainda devolve {modo:'manual'} —
+    a aprovação da Meta NÃO liga isso sozinha, ainda falta escrever os dois
+    passos da Graph API e resolver a URL pública da imagem (bucket privado)
