@@ -155,6 +155,10 @@ import { hojeLocal, diasAtras, primeiroDiaDoMes, ultimoDiaDoMes } from '../../co
 import { orcamentoDe, detectarNivelOrcamento, podeEditarOrcamentoDaCampanha, podeEditarOrcamentoDoConjunto, montarHierarquia } from './orcamento-hierarquia.js'
 import { planoDeCopia, executarPlano, comEspera, retomar, SUFIXO_PADRAO } from './duplicar.js'
 import { lerPublico, montarTargeting, resumoDasMudancas, avisosDe } from './publico-alvo.js'
+// Os públicos salvos DE VERDADE (`saved_audiences`), que trazem cidade, idade,
+// gênero, interesses e comportamentos prontos. Ver publicos-salvos.js para a
+// confusão que isto conserta.
+import { lerSalvos } from './publicos-salvos.js'
 import { montarSecaoPosicionamentos } from './posicionamentos.js'
 import { montarFaixaDeSugestoes } from './sugestoes-de-interesse.js'
 // Aba "A régua" (métrica ponderada): painel puro + os módulos que leem/normalizam
@@ -1668,6 +1672,21 @@ async function _gtBuscarPublico(adsetId){
 // Públicos personalizados da conta (remarketing e semelhantes). Buscados UMA
 // vez por conta e reaproveitados: a lista muda pouco e a chamada é cara.
 let _gtPublicosSalvos=null;      // {conta, lista} | null
+// OS PÚBLICOS SALVOS DE VERDADE. `customaudiences` (a função abaixo) são LISTAS
+// DE PESSOAS; público salvo é uma SEGMENTAÇÃO guardada, e mora noutro endereço.
+// A tela chamava as listas de "públicos salvos" — daí a reclamação do dono de
+// que o público já tinha localização e ela pedia a cidade de novo.
+let _gtPubSalvosDeVerdade=null;   // null = não carregou; [] = a conta não tem
+async function _gtListarPublicosDeVerdade(){
+  const tok=_gtCurAcc?.id, accId=_gtCurAcc?.ad_account_id;
+  if(!tok||!accId)return null;
+  try{
+    const r=await metaFetch(`/act_${_maCleanAccId(accId)}/saved_audiences`,
+      {fields:'id,name,targeting',limit:100},tok);
+    return lerSalvos((r&&r.data)||[]);
+  }catch(e){ return null; }
+}
+
 async function _gtListarPublicosSalvos(){
   const tok=_gtCurAcc?.id;
   const accId=_gtCurAcc?.ad_account_id;
@@ -2975,6 +2994,56 @@ async function _gtPubBuscarInteresses(termo){
 }
 
 // Onde o anúncio é mostrado: cidades com raio, e lugares a excluir.
+// COMEÇAR DE UM PÚBLICO SALVO — a primeira coisa do editor, porque é a que
+// evita refazer à mão o que já está pronto.
+//
+// Clicar SUBSTITUI o editor inteiro: cidade, idade, gênero, interesses e
+// comportamentos. Era isto que faltava — o dono escolhia um público que já
+// trazia as cidades e a tela continuava pedindo a cidade.
+function _gtPubSecaoPublicosSalvos(){
+  const bloco=document.createElement('div');
+  const lista=_gtPubSalvosDeVerdade;
+  // Não carregou é diferente de não existir: a seção some quando não há o que
+  // mostrar, em vez de afirmar que a conta não tem público salvo.
+  if(!lista||!lista.length)return bloco;
+
+  bloco.appendChild(_gtPubTitulo('Começar de um público salvo'));
+  bloco.appendChild(_gtPubAjuda('Traz tudo pronto: onde, idade, gênero, interesses e comportamentos. Depois você ajusta o que quiser.'));
+  const fila=_gtPubLinha();
+  fila.style.flexDirection='column';
+  fila.style.alignItems='stretch';
+  for(const sa of lista){
+    const b=document.createElement('button');
+    b.type='button';
+    b.style.cssText='display:block;width:100%;text-align:left;padding:9px 11px;margin-bottom:5px;'
+      +'border-radius:8px;cursor:pointer;border:1px solid var(--border,#ddd);background:var(--surface2,#f2ede4);'
+      +'color:var(--text,#111);font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));';
+    const nome=document.createElement('div');
+    nome.style.cssText='font-weight:700;';
+    nome.textContent=sa.nome;
+    const res=document.createElement('div');
+    res.style.cssText='font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted,#666);margin-top:2px;';
+    res.textContent=sa.resumo;
+    b.appendChild(nome);b.appendChild(res);
+    b.onclick=async()=>{
+      // GUARDA A BASE. `montarTargeting` preserva o que o editor não gerencia
+      // (comportamentos, posicionamentos, tudo) copiando do original — e o
+      // original, a partir daqui, é o público salvo.
+      _gtPubAntes=lerPublico(sa.targeting);
+      _gtPub=_gtPubClonar(_gtPubAntes);
+      if(_gtNovo)_gtNovo._targetingBase=sa.targeting;
+      _gtPubRedesenha();
+      await _gtConfirm('Público aplicado',
+        '<b>'+_gtEsc(sa.nome)+'</b> entrou inteiro no editor.<br><br>'+_gtEsc(sa.resumo)
+        +(sa.cidades.length?'<br><br>Onde: '+_gtEsc(sa.cidades.join(', ')):'')
+        +'<br><br>Ajuste o que quiser daqui para baixo.',{okOnly:true});
+    };
+    fila.appendChild(b);
+  }
+  bloco.appendChild(fila);
+  return bloco;
+}
+
 function _gtPubSecaoLugar(){
   const cx=document.createElement('div');
   cx.appendChild(_gtPubTitulo('Onde mostrar'));
@@ -3297,6 +3366,7 @@ function _gtPublicoModal(nomeConjunto,rotuloDoBotao){
       sub.style.cssText='font-size:calc(12px*var(--gt-fs,1.3));color:var(--muted,#666);margin-bottom:6px;';
       sub.textContent='Conjunto: '+nomeConjunto;
       corpo.appendChild(tit);corpo.appendChild(sub);
+      corpo.appendChild(_gtPubSecaoPublicosSalvos());
       corpo.appendChild(_gtPubSecaoLugar());
       corpo.appendChild(_gtPubSecaoPessoas());
       corpo.appendChild(_gtPubSecaoPublicos());
@@ -3636,9 +3706,10 @@ async function _gtNovoPublicoMiolo(){
   _gtPub=_gtPubClonar(_gtPubAntes);
   _gtPubAtivo=false;
   _gtPubObjetivo='';_gtPubSugeridos=null;_gtPubSugeridoEm=null;
-  [_gtPubSalvos,_gtPubPresets]=await Promise.all([
+  [_gtPubSalvos,_gtPubPresets,_gtPubSalvosDeVerdade]=await Promise.all([
     _gtListarPublicosSalvos().catch(()=>null),
     _gtListarPresets().catch(()=>null),
+    _gtListarPublicosDeVerdade().catch(()=>null),
   ]);
   const escolha=await _gtPublicoModal('nova campanha','Usar este público');
   if(escolha){_gtNovo.publico=escolha;}
@@ -3856,10 +3927,11 @@ async function _gtAbrirPublico(conjunto){
     // As três listas são opcionais: null significa "não carregou", e cada seção
     // avisa por si (a faixa de sugestões simplesmente não aparece). Nenhuma
     // delas pode impedir o dono de trocar uma cidade.
-    [_gtPubSalvos,_gtPubPresets,_gtPubSugeridos]=await Promise.all([
+    [_gtPubSalvos,_gtPubPresets,_gtPubSugeridos,_gtPubSalvosDeVerdade]=await Promise.all([
       _gtListarPublicosSalvos().catch(()=>null),
       _gtListarPresets().catch(()=>null),
       _gtListarSugestoes().catch(()=>null),
+      _gtListarPublicosDeVerdade().catch(()=>null),
     ]);
     _gtPubObjetivo=String((conjunto&&conjunto.objetivo)||'');
     // A data mais recente entre as linhas da marca: é uma rodada só, então
