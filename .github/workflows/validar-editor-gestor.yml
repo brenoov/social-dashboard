@@ -14,7 +14,7 @@ on:
         required: false
         default: 'editor'
         type: choice
-        options: ['editor', 'duplicar', 'criativo', 'permissoes', 'criar', 'envio']
+        options: ['editor', 'duplicar', 'criativo', 'permissoes', 'criar', 'envio', 'appreview']
       manter:
         description: 'manter a campanha de teste no fim (para conferir no Gerenciador)'
         required: false
@@ -37,7 +37,7 @@ jobs:
       # interesses: nada vindo de fora entra na linha de comando. A lição do
       # `modo != 'seco'` vale aqui — cada passo declara em que caso roda.
       - name: Validar o EDITOR e apagar no fim
-        if: ${{ inputs.alvo != 'duplicar' && inputs.manter != 'sim' }}
+        if: ${{ inputs.alvo == 'editor' && inputs.manter != 'sim' }}
         env:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
@@ -45,7 +45,7 @@ jobs:
         run: cd coletor && node --import ./lib/curl-fetch.mjs validar-editor-do-gestor.mjs
 
       - name: Validar o EDITOR e MANTER a campanha
-        if: ${{ inputs.alvo != 'duplicar' && inputs.manter == 'sim' }}
+        if: ${{ inputs.alvo == 'editor' && inputs.manter == 'sim' }}
         env:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
@@ -113,3 +113,13 @@ jobs:
           GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
           GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
         run: cd coletor && node --import ./lib/curl-fetch.mjs validar-envio-de-imagem.mjs
+
+      # Sonda de LEITURA sobre o App Review: o que o token já pode, e quais
+      # endpoints de verdade recusam. Não publica, não cria contêiner de mídia.
+      - name: Sondar o App Review (leitura pura, R$ 0)
+        if: ${{ inputs.alvo == 'appreview' }}
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
+          GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
+        run: cd coletor && node --import ./lib/curl-fetch.mjs sondar-app-review.mjs
