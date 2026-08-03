@@ -3384,6 +3384,7 @@ let _gtNovoNumerosWa=[];     // números de WhatsApp que a Meta JÁ aceitou nest
 let _gtNovoPublicacoes=[];   // publicações do perfil, para impulsionar
 let _gtNovoCarregandoPubs=false;
 let _gtNovoPubsDoPerfil='';  // de qual perfil a lista carregada é (trocar de página troca isto)
+let _gtNovoErroPubs='';      // por que a lista não veio — a tela MOSTRA isto
 let _gtNovoImagens=[];
 let _gtNovoEnviando=false, _gtNovoCriando=false, _gtNovoFaltas=false;
 
@@ -3479,7 +3480,7 @@ async function _gtNovoTalvezCarregarPublicacoes(){
   if(!perfil){_gtNovoPublicacoes=[];_gtNovoPubsDoPerfil='';return;}
   if(_gtNovoPubsDoPerfil===perfil||_gtNovoCarregandoPubs)return;
 
-  _gtNovoCarregandoPubs=true;_gtNovoPublicacoes=[];_gtNovoRedesenhar();
+  _gtNovoCarregandoPubs=true;_gtNovoPublicacoes=[];_gtNovoErroPubs='';_gtNovoRedesenhar();
   try{
     const r=await metaFetch('/'+perfil+'/media',
       {fields:'id,caption,media_type,thumbnail_url,media_url,permalink,timestamp',limit:24},_gtCurAcc.id);
@@ -3495,7 +3496,16 @@ async function _gtNovoTalvezCarregarPublicacoes(){
       link:m.permalink||'',
     }));
     _gtNovoPubsDoPerfil=perfil;
-  }catch(e){ _gtNovoPublicacoes=[]; }
+  }catch(e){
+    // O ERRO VAI PARA A TELA, e não some num catch mudo.
+    //
+    // Foi assim que eu perdi meia hora: a tela dizia "não consegui carregar as
+    // publicações" e eu não tinha como saber por quê — nem eu, nem o dono. Um
+    // catch que engole o motivo é a mesma doença de truncar a mensagem da Meta,
+    // e eu já sabia disso.
+    _gtNovoPublicacoes=[];
+    _gtNovoErroPubs=String((e&&e.message)||e);
+  }
   finally{ _gtNovoCarregandoPubs=false;_gtNovoRedesenhar(); }
 }
 
