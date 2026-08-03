@@ -149,3 +149,21 @@ test('o contador soma so a acao escolhida, e ignora as variantes de janela', () 
   assert.equal(n, 10)
   assert.equal(contadorDe('inexistente')({ actions: [] }), 0)
 })
+
+test('a frase da idade CONCORDA — "a faixa custa", "as faixas custam"', () => {
+  // Visto ao vivo na conta: "a faixa 18-24 custam a partir de R$ 3,42".
+  // Texto errado numa tela que pede confiança em número é o pior lugar para
+  // economizar cuidado.
+  const umaSo = recomendarIdade(lerFaixasDeIdade(IDADE_REAL, conversas))
+  assert.match(umaSo.porque, /a faixa 18-24 custa a partir/)
+  assert.ok(!/faixa 18-24 custam/.test(umaSo.porque))
+
+  // Duas faixas baratas e uma cara: o plural tem que voltar.
+  const duasBaratas = [
+    { age: '18-24', spend: '100', actions: [{ action_type: 'a_messaging_conversation_started', value: '50' }] },
+    { age: '25-34', spend: '120', actions: [{ action_type: 'a_messaging_conversation_started', value: '50' }] },
+    { age: '55-64', spend: '600', actions: [{ action_type: 'a_messaging_conversation_started', value: '50' }] },
+  ]
+  const varias = recomendarIdade(lerFaixasDeIdade(duasBaratas, conversas))
+  assert.match(varias.porque, /as faixas de 18 a 34 anos custam a partir/)
+})

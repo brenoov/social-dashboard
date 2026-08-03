@@ -3098,7 +3098,10 @@ async function _gtPubBuscarSugestao(){
     const [porIdade,conjuntos,insConjuntos]=await Promise.all([
       metaFetch('/'+act+'/insights',{...base,level:'account',breakdowns:'age'},conta).catch(()=>null),
       metaFetch('/'+act+'/adsets',{fields:'id,name,targeting',limit:200},conta).catch(()=>null),
-      metaFetch('/'+act+'/insights',{...base,level:'adset',limit:300},conta).catch(()=>null),
+      // `adset_id` PEDIDO EXPLICITAMENTE: sem ele a resposta não diz de qual
+      // conjunto cada linha é, e o cruzamento com o targeting não fecha —
+      // as cidades e os interesses simplesmente não apareciam.
+      metaFetch('/'+act+'/insights',{...base,fields:'spend,actions,adset_id',level:'adset',limit:300},conta).catch(()=>null),
     ]);
     const linhasIdade=(porIdade&&porIdade.data)||[];
     const linhasConj=(insConjuntos&&insConjuntos.data)||[];

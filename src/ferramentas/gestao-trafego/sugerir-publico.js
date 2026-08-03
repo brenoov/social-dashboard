@@ -74,14 +74,20 @@ export function recomendarIdade(faixas) {
   const idadeMin = faixaEmNumero(primeira.faixa);
   const idadeMax = ultima.faixa.includes('+') ? 65 : num(String(ultima.faixa).split('-')[1]) || 65;
 
+  const uma = dentro.length === 1;
   const fora = uteis.filter((f) => f.custo > melhor * 1.5);
   const gastoFora = fora.reduce((s, f) => s + f.gasto, 0);
 
   return {
     idadeMin,
     idadeMax,
-    porque: `Nesta conta, ${primeira.faixa === ultima.faixa ? `a faixa ${primeira.faixa}` : `as faixas de ${idadeMin} a ${idadeMax} anos`} `
-      + `custam a partir de ${reais(melhor)} por resultado, enquanto ${fora.length === 1 ? `a faixa ${fora[0].faixa} custa` : 'as demais custam'} `
+    // CONCORDÂNCIA DE VERDADE. A primeira versão dizia "a faixa 18-24 custam",
+    // porque o verbo era fixo — visto ao vivo na conta. Texto errado numa tela
+    // que pede confiança em número é o pior lugar para economizar cuidado.
+    porque: (uma
+      ? `Nesta conta, a faixa ${primeira.faixa} custa a partir de ${reais(melhor)} por resultado`
+      : `Nesta conta, as faixas de ${idadeMin} a ${idadeMax} anos custam a partir de ${reais(melhor)} por resultado`)
+      + `, enquanto ${fora.length === 1 ? `a faixa ${fora[0].faixa} custa` : 'as demais custam'} `
       + `até ${reais(pior)} — ${(pior / melhor).toFixed(1)}× mais caro.`,
     // O número que dói: quanto foi para as faixas caras no período medido.
     desperdicio: gastoFora,
