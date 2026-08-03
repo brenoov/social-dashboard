@@ -3255,7 +3255,11 @@ function _gtPubSecaoExtras(){
 // A janela. Resolve com o Publico editado, ou null se cancelou.
 // NÃO estende o _gtConfirm: aquele é o portão sim/não de TODAS as ações da
 // tela, marcado no código como preservado verbatim, e não tem formulário.
-function _gtPublicoModal(nomeConjunto){
+// `rotuloDoBotao` existe porque o MESMO editor serve a dois momentos: ajustar o
+// público de um conjunto que já roda (aí "Ver o que mudou" é exato) e escolher o
+// público de uma campanha que ainda não existe — onde nada mudou, porque não
+// havia nada antes. Visto ao vivo em 03/08/2026.
+function _gtPublicoModal(nomeConjunto,rotuloDoBotao){
   return new Promise(resolve=>{
     const ov=_gtPubOverlay();ov.onclick=null;
     const box=document.createElement('div');
@@ -3266,7 +3270,7 @@ function _gtPublicoModal(nomeConjunto){
     const bCancelar=document.createElement('button');bCancelar.textContent='Cancelar';
     bCancelar.style.cssText='padding:9px 16px;border-radius:8px;border:1px solid var(--border,#ddd);background:none;color:var(--text,#111);font-weight:600;font-size:calc(13px*var(--gt-fs,1.3));cursor:pointer;';
     bCancelar.onclick=()=>{_gtPubFechar();resolve(null);};
-    const bSalvar=document.createElement('button');bSalvar.textContent='Ver o que mudou';
+    const bSalvar=document.createElement('button');bSalvar.textContent=rotuloDoBotao||'Ver o que mudou';
     bSalvar.onclick=()=>{_gtPubFechar();resolve(_gtPub);};
     barra.appendChild(bCancelar);barra.appendChild(bSalvar);
 
@@ -3499,7 +3503,7 @@ async function _gtNovoPublicoMiolo(){
     _gtListarPublicosSalvos().catch(()=>null),
     _gtListarPresets().catch(()=>null),
   ]);
-  const escolha=await _gtPublicoModal('nova campanha');
+  const escolha=await _gtPublicoModal('nova campanha','Usar este público');
   if(escolha){_gtNovo.publico=escolha;}
   _gtNovoRedesenhar();
 }

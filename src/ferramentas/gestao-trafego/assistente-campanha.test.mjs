@@ -174,3 +174,46 @@ test('a confirmacao ESCAPA o que vem de fora — nome digitado e dados da Meta',
   assert.match(h, /<b>Vou criar na Meta:<\/b>/)
   assert.match(h, /nasce <b>pausado<\/b>/)
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// O PRIMEIRO CLIQUE EM "CRIAR CAMPANHA" TEM QUE VALER.
+//
+// O DEFEITO REAL, visto ao vivo na conta do dono (03/08/2026) depois de 34
+// testes verdes: `primeiroPassoIncompleto` era calculado no DESENHO do rodapé.
+// O último passo muda o estado SEM redesenhar (senão o campo de texto perderia
+// o foco a cada letra), então a resposta guardada ficava velha: o primeiro
+// clique achava que a peça estava incompleta e mandava a pessoa para o passo em
+// que ela já estava.
+//
+// O sintoma era o pior formato possível — NADA acontecia. Sem erro, sem aviso,
+// sem mudança na tela. Só o segundo clique funcionava.
+test('completar o ultimo passo SEM redesenhar nao rouba o primeiro clique', () => {
+  const doc = docFalso();
+  // O estado como ele fica ao ENTRAR no passo 4: tudo pronto, menos imagem e texto.
+  const estado = {
+    ...estadoInicial(), objetivo: 'engajamento', nome: 'Campanha',
+    publico: { cidades: [{ key: '267873', nome: 'Campinas' }] },
+  };
+  let criou = false, mandouPara = null;
+  const desenhar = () => montarAssistente({
+    doc, estado, passo: 3, objetivos: [{ chave: 'engajamento', rotulo: 'Engajamento' }],
+    imagens: [{ hash: 'h1', nome: 'a.jpg' }],
+    aoMudar: (m, op) => { Object.assign(estado, m); if (!(op && op.semRedesenhar)) throw new Error('redesenhou'); },
+    aoPasso: () => {}, aoIrPara: (c) => { mandouPara = c; }, aoMostrarFaltas: () => {},
+    aoAbrirPublico: () => {}, aoEnviarImagem: () => {}, aoCriar: () => { criou = true },
+  });
+
+  const { corpo, rodape } = desenhar();
+  // Escolhe a imagem e escreve o texto — sem NENHUM redesenho, como na tela real.
+  estado.imagemHash = 'h1';
+  const area = corpo.campos.find((c) => c.tag === 'textarea');
+  area.value = 'Texto do anúncio';
+  area.oninput();
+
+  // O MESMO rodapé desenhado antes, agora clicado.
+  const criar = rodape.botoes.find((b) => b.textContent === 'Criar campanha');
+  criar.onclick();
+
+  assert.equal(criou, true, 'o primeiro clique não criou — foi o defeito de 03/08')
+  assert.equal(mandouPara, null, 'mandou de volta para um passo que já estava completo')
+});
