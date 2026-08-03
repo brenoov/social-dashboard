@@ -163,6 +163,21 @@ async function main() {
     // afirmação sobre a Meta, e afirmação sobre a Meta se confere.
     const rorig = await proxy({ accountId: acct, path: `/${cobaia.id}/ads`, params: { fields: 'id', limit: 50 }, method: 'GET' });
     conferir('o original continua com os mesmos anúncios', ((rorig.d && rorig.d.data) || []).length === anuncios.length);
+    // ── DE QUEM É A CULPA DO (#200) ─────────────────────────────────────────
+    // Se a cópia do conjunto falhar, a pergunta seguinte é: falha SEMPRE, ou só
+    // quando muda de campanha? A resposta muda o diagnóstico de "Duplicar está
+    // quebrado" para "Duplicar de campanha está quebrado" — e é uma chamada.
+    if (rel.falhou && rel.falhou.passo && rel.falhou.passo.nivel === 'conjunto') {
+      const cj = conjuntos[0];
+      const r = await proxy({ accountId: acct, path: `/${cj.id}/copies`, method: 'POST', params: { status_option: 'PAUSED', deep_copy: false } });
+      const idSolto = r.d && r.d.copied_adset_id;
+      conferir('copiar o conjunto NA MESMA campanha funciona', !!idSolto, idSolto ? `virou ${idSolto}` : erro(r.d));
+      if (idSolto) {
+        // Não deixa lixo: o conjunto solto nasceu na campanha do dono.
+        const rdel = await proxy({ accountId: acct, path: `/${idSolto}`, method: 'POST', params: { status: 'DELETED' } });
+        console.log(`  🗑 conjunto de diagnóstico apagado${rdel.status === 200 ? '' : ' — FALHOU (' + idSolto + ')'}`);
+      }
+    }
   } finally {
     if (copiaId && !MANTER) {
       const rd = await proxy({ accountId: acct, path: `/${copiaId}`, method: 'POST', params: { status: 'DELETED' } });
