@@ -59,3 +59,4 @@ coletor/fotos_por_sku/
 # Arquivos de laboratório (CSS/HTML extraídos pra conferir tela sem login).
 # São temporários por natureza — um deles escapou pro commit em 2026-07-29.
 public/lab-*
+__repro/

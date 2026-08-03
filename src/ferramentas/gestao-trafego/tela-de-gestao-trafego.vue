@@ -102,11 +102,21 @@
         </div>
       </div>
 
-      <div id="gt-cr-overlay" onclick="_gtCloseCriativo()"></div>
-      <div id="gt-cr-modal">
-        <div class="gt-cfg-head"><span class="gt-cfg-title" id="gt-cr-title">Criativo do anúncio</span><button class="gt-cfg-close" onclick="_gtCloseCriativo()">✕</button></div>
-        <div class="gt-cr-body" id="gt-cr-body"></div>
-      </div>
+    </div>
+
+    <!-- O MODAL DE CRIATIVO / GASTOS MORA AQUI, FORA DAS ABAS.
+         Ele nasceu dentro de #gt-painel-campanhas, e funcionava — porque só era
+         aberto pela lista de anúncios, que vive nessa aba. Quando a Fila passou
+         a abri-lo (lupa do criativo e botão de gastos), ele parou de aparecer:
+         o painel de Campanhas está com display:none enquanto outra aba está
+         ativa, e ancestral escondido esconde o filho por mais que se mande
+         display:flex nele. O clique rodava, a função rodava, e nada acontecia —
+         sem erro nenhum no console.
+         Modal é conteúdo de tela inteira: o lugar dele é fora de qualquer aba. -->
+    <div id="gt-cr-overlay" onclick="_gtCloseCriativo()"></div>
+    <div id="gt-cr-modal">
+      <div class="gt-cfg-head"><span class="gt-cfg-title" id="gt-cr-title">Criativo do anúncio</span><button class="gt-cfg-close" onclick="_gtCloseCriativo()">✕</button></div>
+      <div class="gt-cr-body" id="gt-cr-body"></div>
     </div>
 
     <div id="gt-modal-funil" style="display:none"></div>

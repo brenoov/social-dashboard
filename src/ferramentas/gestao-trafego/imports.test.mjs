@@ -85,3 +85,40 @@ test('pega CONSTANTE usada como objeto, nao so chamada de funcao', () => {
   assert.ok(!usado('ALVOS', 'const x = config.ALVOS.trafego'), 'propriedade de outro objeto');
   // Comentario e tratado antes, por semComentarios — aqui so o codigo importa.
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODAL NÃO PODE MORAR DENTRO DE UMA ABA.
+//
+// O defeito real (2026-08-03): o modal de criativo/gastos nasceu dentro de
+// `#gt-painel-campanhas` e funcionava, porque só era aberto pela lista de
+// anúncios — que vive nessa aba. Quando a Fila passou a abri-lo (a lupa do
+// criativo e o botão de gastos), ele parou de aparecer: a troca de aba põe o
+// painel em `display:none`, e ancestral escondido esconde o filho por mais que
+// se mande `display:flex` nele.
+//
+// O clique rodava. A função rodava. Nada acontecia, e NENHUM erro aparecia no
+// console — o pior formato de falha que existe. Nem o build nem os testes de
+// unidade pegam isso, porque é uma relação entre dois pedaços de HTML.
+test('o modal de criativo/gastos NÃO está dentro do painel de campanhas', () => {
+  const vue = readFileSync(new URL('./tela-de-gestao-trafego.vue', import.meta.url), 'utf8');
+  const abre = vue.indexOf('<div id="gt-painel-campanhas">');
+  assert.ok(abre > -1, 'o painel de campanhas sumiu — atualize este teste');
+
+  // Onde o painel FECHA: conta as <div> abertas e fechadas a partir dele.
+  let i = abre, nivel = 0, fecha = -1;
+  const tags = /<div\b[^>]*>|<\/div>/g;
+  tags.lastIndex = abre;
+  let m;
+  while ((m = tags.exec(vue))) {
+    nivel += m[0] === '</div>' ? -1 : 1;
+    if (nivel === 0) { fecha = m.index; break; }
+    i = m.index;
+  }
+  assert.ok(fecha > abre, 'não consegui achar o fim do painel de campanhas');
+
+  const dentro = vue.slice(abre, fecha);
+  for (const id of ['gt-cr-overlay', 'gt-cr-modal']) {
+    assert.ok(!dentro.includes(`id="${id}"`),
+      `${id} está DENTRO de #gt-painel-campanhas — some quando outra aba está ativa`);
+  }
+});
