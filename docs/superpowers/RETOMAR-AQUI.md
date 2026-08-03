@@ -175,10 +175,10 @@ manter a regra para o resto (`Bolsa de estudo`, hoje em 2/6).
 
 ## 4. Pendências registradas (não são bugs)
 
-- **Node 20 nos workflows**: o GitHub avisa que vai parar de aceitar. Vale para
-  **todos** os robôs do repo, não só os novos. Manutenção de uma vez só.
-- **A faixa no Gestor de Tráfego** ainda não existe — o dado e a regra
-  compartilhada (`baldeDoObjetivoDaFabrica` em `baldes.js`) já estão prontos.
+- ~~**Node 20 nos workflows**~~ — **RESOLVIDO.** Conferido em 03/08/2026: todos
+  os workflows estão em Node 22 ou 24. Não há mais nada a fazer aqui.
+- ~~**A faixa no Gestor de Tráfego**~~ — **FEITA.** `montarFaixaDeSugestoes`
+  está importada e usada em `tela-de-gestao-trafego.vue`.
 - **`interesses_sugeridos` sem coluna de conta**, então fora da política por
   conta que a outra frente criou. Decisão registrada, não esquecimento.
 
@@ -186,10 +186,12 @@ manter a regra para o resto (`Bolsa de estudo`, hoje em 2/6).
 
 ## 5. Roadmap restante
 
+> **Atualizado em 03/08/2026.** C2 e C3 saíram; o que sobra está abaixo.
+
 | | O quê |
 |---|---|
-| **C2** | Editar posicionamentos (feed/story/reels). Ficou pequeno: herda o motor do editar-público. |
-| **C3** | Criar campanha do zero no Gestor. **NUNCA foi feito** — o dono chegou a achar que sim. |
+| ~~**C2**~~ | ~~Editar posicionamentos~~ — **NO AR** (`posicionamentos.js`, dentro do editor de público). |
+| ~~**C3**~~ | ~~Criar campanha do zero no Gestor~~ — **NO AR e provado ao vivo** (03/08/2026): campanha + conjunto + anúncio criados pela tela na conta Vessel, lidos de volta PAUSED e apagados. Achou 1 defeito que 34 testes verdes não pegaram — o primeiro clique em "Criar campanha" não fazia nada (PR #104). |
 | **C4** | Copiar campanha para outra conta (a Meta não copia; exige recriar + re-subir imagens). |
 | **C5** | Trocar criativo/público ao duplicar. |
 | ~~—~~ | ~~Sugestão nativa da Meta (`adinterestsuggestion`)~~ — **SONDADA E DESCARTADA (2026-08-01).** O endpoint responde sem erro, mas devolve a MESMA lista para qualquer semente: `Acesso ao Facebook (celular)` 4,54 bi, `Amigos de pessoas que fazem aniversário` 3,15 bi, `Viajantes frequentes` 3,05 bi. 9 de 10 idênticos entre [Bolsas], [Cinto] e [Bolsas, Carteira]; o décimo é a própria semente. Não são parecidos: é uma lista fixa de comportamentos gigantes. Prova reproduzível por R$ 0 em `coletor/sondar-interesses.mjs`. |
