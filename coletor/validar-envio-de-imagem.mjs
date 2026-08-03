@@ -14,6 +14,7 @@
 // arquivo do Storage no fim.
 import './lib/carregar-env.mjs';
 import tls from 'node:tls';
+import zlib from 'node:zlib';
 import { loginServico } from './lib/bling-comercial.mjs';
 import { carregarMarcasELojas } from './lib/config-lojas.mjs';
 
@@ -29,13 +30,60 @@ const provas = [];
 const conferir = (nome, ok, det) => { provas.push({ nome, ok: !!ok }); console.log(`  ${ok ? '✓' : '✗'} ${nome}${det ? ' — ' + det : ''}`); };
 const sbGet = async (p) => { const r = await fetch(URL_SB + '/rest/v1' + p, { headers: { apikey: SK, Authorization: 'Bearer ' + SK } }); if (!r.ok) throw new Error('GET ' + r.status); return r.json(); };
 
-// Um PNG 8×8 de verdade, montado aqui. Sem baixar nada de fora: a validação não
-// pode depender de um host que pode cair, e imagem de terceiro num teste é
-// exatamente o tipo de dependência silenciosa que quebra meses depois.
-function pngDeTeste() {
-  const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAJUlEQVR4nGP8//8/AzGAiShV'
-    + 'oxpHNY5qHNU4qnFU46jGUY0DrxEAxTsD/2ZaFkkAAAAASUVORK5CYII=';
-  return Buffer.from(b64, 'base64');
+// UM PNG DE VERDADE, gerado aqui com o zlib do Node. Sem baixar nada de fora: a
+// validação não pode depender de um host que pode cair, e imagem de terceiro num
+// teste é dependência silenciosa que quebra meses depois.
+//
+// 600×600 porque a Meta RECUSA imagem pequena — o primeiro teste usou 8×8 (95
+// bytes) e voltou 100/2446496 "Formato de imagem", com o `file_size` no corpo do
+// erro. O tamanho mínimo é regra da plataforma, não capricho.
+function pngDeTeste(lado = 600) {
+  const linhas = [];
+  for (let y = 0; y < lado; y++) {
+    const linha = Buffer.alloc(lado * 3 + 1);
+    linha[0] = 0; // filtro "none"
+    for (let x = 0; x < lado; x++) {
+      // Um degradê simples: dá bytes variados, então o PNG não comprime a quase
+      // nada como faria uma cor chapada.
+      linha[1 + x * 3] = (x * 255 / lado) | 0;
+      linha[2 + x * 3] = (y * 255 / lado) | 0;
+      linha[3 + x * 3] = 128;
+    }
+    linhas.push(linha);
+  }
+  const bloco = (tipo, dados) => {
+    const b = Buffer.alloc(8 + dados.length + 4);
+    b.writeUInt32BE(dados.length, 0);
+    b.write(tipo, 4);
+    dados.copy(b, 8);
+    b.writeInt32BE(crc32(Buffer.concat([Buffer.from(tipo), dados])) | 0, 8 + dados.length);
+    return b;
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(lado, 0); ihdr.writeUInt32BE(lado, 4);
+  ihdr[8] = 8; ihdr[9] = 2; // 8 bits, RGB
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    bloco('IHDR', ihdr),
+    bloco('IDAT', zlib.deflateSync(Buffer.concat(linhas))),
+    bloco('IEND', Buffer.alloc(0)),
+  ]);
+}
+
+// CRC-32 do PNG. Vinte linhas para não trazer uma dependência inteira só por isto.
+const TABELA_CRC = (() => {
+  const t = new Int32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c;
+  }
+  return t;
+})();
+function crc32(buf) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < buf.length; i++) c = TABELA_CRC[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
 }
 
 async function main() {
