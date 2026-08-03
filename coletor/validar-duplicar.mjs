@@ -13,23 +13,28 @@
 // prometia "12 anúncios" e nascia campanha VAZIA. Aqui a contagem do plano é
 // comparada com o que a Meta REALMENTE criou.
 //
-// COMO: cria campanha + conjunto + 2 anúncios PAUSED (reusando um criativo que
-// já existe na conta, para não subir imagem), duplica pelo MESMO
-// `planoDeCopia`/`executarPlano` da tela, lê a cópia de volta e apaga as duas.
+// COMO: NÃO cria original. Escolhe uma campanha PAUSADA que já existe na conta,
+// duplica pelo MESMO `planoDeCopia`/`executarPlano` da tela, confere a cópia
+// campo a campo e apaga SÓ A CÓPIA.
+//
+// POR QUE NÃO CRIAR O ORIGINAL: tentei, e a Meta recusou quatro vezes seguidas
+// (4834011, 1870227, 1885154, 1487891) — as três últimas por incompatibilidade
+// entre o criativo que eu reusava e o conjunto que eu montava. Montar um
+// original que a Meta aceite é um problema DIFERENTE do que se quer testar, e
+// resolvê-lo não prova nada sobre o Duplicar.
+//
+// Duplicar o que já existe é melhor por três motivos: testa a estrutura REAL
+// (com os anúncios que a conta tem de verdade), não inventa objeto novo, e
+// deixa menos lixo — só a cópia precisa ser apagada. O original NUNCA é tocado:
+// `/copies` lê a origem, não a modifica.
 //
 // Uso: node --import ./lib/curl-fetch.mjs validar-duplicar.mjs [--manter]
 import './lib/carregar-env.mjs';
 import tls from 'node:tls';
 import { loginServico } from './lib/bling-comercial.mjs';
 import { carregarMarcasELojas } from './lib/config-lojas.mjs';
-import { carregarObjetivos, mapaObjetivo } from './lib/objetivos.mjs';
-// O payload da campanha+conjunto sai DAQUI, não da minha cabeça. Duas tentativas
-// escritas à mão foram recusadas (4834011 e 1870227) por campos que este builder
-// já mandava há meses. A terceira recusa (1885154) foi o criativo da conta não
-// combinar com o conjunto — e ele combina com o que este builder monta, porque é
-// o mesmo combo que subiu os anúncios de verdade.
-import { payloadCampanhaAdset, resolverLoja } from './subir-estudio.mjs';
-import { planoDeCopia, executarPlano } from '../src/ferramentas/gestao-trafego/duplicar.js';
+import { resolverLoja } from './subir-estudio.mjs';
+import { planoDeCopia, executarPlano, SUFIXO_PADRAO } from '../src/ferramentas/gestao-trafego/duplicar.js';
 
 tls.DEFAULT_MAX_VERSION = 'TLSv1.2';
 
@@ -72,77 +77,53 @@ async function main() {
   const loja = resolverLoja(lojas, 'tivoli') || (lojas || [])[0];
   const marca = (loja && loja.marca) || marcaAtiva;
   const acct = marca.accountId, adAccount = marca.adAccount;
-  const { porChave } = await carregarObjetivos(sbGet);
-  const objetivoRow = mapaObjetivo(porChave, 'engajamento');
-  if (!objetivoRow) throw new Error('objetivo engajamento não encontrado em fabrica_objetivos');
 
   console.log(`\n=== VALIDAÇÃO do Duplicar · ${marca.nome} · ${adAccount} ===\n`);
 
-  // FAXINA DE ÓRFÃS antes de começar. Uma rodada anterior deixou campanha para
-  // trás quando um `process.exit()` dentro do `try` pulou o `finally` — o
-  // defeito está corrigido, mas quem valida money-path tem de saber limpar o
-  // que uma versão anterior de si mesmo sujou.
+  // FAXINA DE CÓPIAS de rodadas anteriores. O sufixo "· cópia" é do próprio
+  // motor (SUFIXO_PADRAO), então é ele que identifica o que este validador
+  // criou — e só isso é apagado. Campanha sem o sufixo é do dono.
   const rorf = await proxy({ accountId: acct, path: `/${adAccount}/campaigns`, method: 'GET',
-    params: { fields: 'id,name,status', limit: 100, filtering: JSON.stringify([{ field: 'name', operator: 'CONTAIN', value: '[VALIDAÇÃO' }]) } });
+    params: { fields: 'id,name,status', limit: 200, filtering: JSON.stringify([{ field: 'name', operator: 'CONTAIN', value: SUFIXO_PADRAO }]) } });
   for (const c of ((rorf.d && rorf.d.data) || [])) {
     if (String(c.status).toUpperCase() === 'DELETED') continue;
     const rd = await proxy({ accountId: acct, path: `/${c.id}`, method: 'POST', params: { status: 'DELETED' } });
-    console.log(`🧹 sobra de rodada anterior apagada: ${c.name} (${c.id})${rd.status === 200 ? '' : ' — FALHOU'}`);
+    console.log(`🧹 cópia de rodada anterior apagada: ${c.name}${rd.status === 200 ? '' : ' — FALHOU'}`);
   }
 
-  // UM CRIATIVO QUE JÁ EXISTE. Subir imagem só para testar cópia seria pagar
-  // upload e sujar a conta com um criativo órfão — e o que se está testando é o
-  // `/copies`, não a criação de criativo.
-  const rcr = await proxy({ accountId: acct, path: `/${adAccount}/adcreatives`, params: { fields: 'id,name', limit: 1 }, method: 'GET' });
-  const criativo = rcr.d && rcr.d.data && rcr.d.data[0];
-  if (!criativo) { console.log('✗ a conta não tem nenhum criativo para reusar — sem isso não dá pra criar anúncio'); process.exit(1); }
-  console.log(`criativo reusado: ${criativo.id}\n`);
+  // A COBAIA: uma campanha PAUSADA que já existe, com conjunto e anúncio.
+  // Pausada de propósito — duplicar não mexe no original, mas se algo der muito
+  // errado, o estrago possível é menor numa campanha que já está parada.
+  const rcs = await proxy({ accountId: acct, path: `/${adAccount}/campaigns`, method: 'GET',
+    params: { fields: 'id,name,status,effective_status', limit: 100 } });
+  const pausadas = ((rcs.d && rcs.d.data) || [])
+    .filter((c) => String(c.status).toUpperCase() === 'PAUSED' && !String(c.name).includes(SUFIXO_PADRAO));
 
-  let campanhaId = null, copiaId = null;
+  let cobaia = null, conjuntos = [], anuncios = [];
+  for (const c of pausadas) {
+    const rj = await proxy({ accountId: acct, path: `/${c.id}/adsets`, params: { fields: 'id,name', limit: 25 }, method: 'GET' });
+    const cjs = (rj.d && rj.d.data) || [];
+    if (!cjs.length) continue;
+    const rd = await proxy({ accountId: acct, path: `/${c.id}/ads`, params: { fields: 'id,name,adset_id', limit: 25 }, method: 'GET' });
+    const ads = (rd.d && rd.d.data) || [];
+    // Pequena de propósito: a cascata rasa é o que se testa, não o volume — e
+    // cada anúncio a mais é uma chamada a mais no limite da conta (code 17).
+    if (!ads.length || ads.length > 4 || cjs.length > 2) continue;
+    cobaia = c; conjuntos = cjs; anuncios = ads; break;
+  }
+  if (!cobaia) { console.log('✗ nenhuma campanha PAUSADA pequena com anúncios para servir de cobaia'); process.exit(1); }
+  console.log(`cobaia: "${cobaia.name}" — ${conjuntos.length} conjunto(s), ${anuncios.length} anúncio(s)\n`);
+
+  let copiaId = null;
   try {
-    // O MESMO builder que a Fábrica usa para subir campanha de verdade —
-    // objetivo 'engajamento', que é o combo provado (OUTCOME_ENGAGEMENT +
-    // destino WhatsApp + CONVERSATIONS). Escolhido porque é com ele que os
-    // criativos desta conta foram feitos: criativo e conjunto precisam falar do
-    // mesmo destino, senão a Meta recusa o anúncio com 100/1885154.
-    const { campaign: cPayload, adset: aPayload } = payloadCampanhaAdset(
-      objetivoRow, marca, loja, { DAILY_BUDGET: 5000, DATA: 'VALIDACAO' },
-    );
-    cPayload.name = '[VALIDAÇÃO DUPLICAR] original — apagar';
-    aPayload.name = '[VALIDAÇÃO] conjunto';
-
-    const rc = await proxy({ accountId: acct, path: `/${adAccount}/campaigns`, method: 'POST', params: cPayload });
-    if (rc.status !== 200 || !rc.d?.id) throw new Error('campanha rejeitada — ' + erro(rc.d));
-    campanhaId = rc.d.id;
-
-    const ra = await proxy({ accountId: acct, path: `/${adAccount}/adsets`, method: 'POST', params: { ...aPayload, campaign_id: campanhaId } });
-    if (ra.status !== 200 || !ra.d?.id) throw new Error('conjunto rejeitado — ' + erro(ra.d));
-    const conjuntoId = ra.d.id;
-
-    const anuncios = [];
-    for (const n of [1, 2]) {
-      const rad = await proxy({ accountId: acct, path: `/${adAccount}/ads`, method: 'POST', params: {
-        name: `[VALIDAÇÃO] anúncio ${n}`, adset_id: conjuntoId, creative: { creative_id: criativo.id }, status: 'PAUSED',
-      } });
-      if (rad.status !== 200 || !rad.d?.id) throw new Error(`anúncio ${n} rejeitado — ` + erro(rad.d));
-      anuncios.push({ id: rad.d.id, name: `[VALIDAÇÃO] anúncio ${n}`, adset_id: conjuntoId });
-    }
-    console.log(`original criado: campanha ${campanhaId} · 1 conjunto · ${anuncios.length} anúncios (tudo PAUSED)\n`);
-
     // ── O PLANO, pelo mesmo motor da tela ───────────────────────────────────
-    const alvo = {
-      nivel: 'campanha',
-      campanha: { id: campanhaId, name: '[VALIDAÇÃO DUPLICAR] original — apagar' },
-      conjuntos: [{ id: conjuntoId, name: '[VALIDAÇÃO] conjunto' }],
-      anuncios,
-    };
-    const plano = planoDeCopia(alvo);
-    console.log(`PLANO: ${plano.length} passos (1 campanha + 1 conjunto + ${anuncios.length} anúncios)`);
-    conferir('o plano tem um passo por objeto', plano.length === 1 + 1 + anuncios.length, `${plano.length} passos`);
+    const plano = planoDeCopia({ nivel: 'campanha', campanha: cobaia, conjuntos, anuncios });
+    const esperado = 1 + conjuntos.length + anuncios.length;
+    console.log(`PLANO: ${plano.length} passos`);
+    conferir('o plano tem um passo por objeto', plano.length === esperado, `${plano.length} de ${esperado}`);
     conferir('todo passo pede PAUSED explicitamente', plano.every((p) => p.params.status_option === 'PAUSED'));
     conferir('campanha e conjunto pedem deep_copy: false', plano.filter((p) => p.nivel !== 'anuncio').every((p) => p.params.deep_copy === false));
 
-    // ── A EXECUÇÃO ──────────────────────────────────────────────────────────
     const enviar = async (caminho, params) => {
       const r = await proxy({ accountId: acct, path: caminho, method: 'POST', params });
       if (r.status !== 200 || r.d?.error) throw new Error(erro(r.d));
@@ -152,37 +133,43 @@ async function main() {
     conferir('nenhum passo falhou', !rel.falhou, rel.falhou ? `${rel.falhou.passo.nivel}: ${rel.falhou.motivo}` : '');
     conferir('todos os passos concluíram', rel.concluidos.length === plano.length, `${rel.concluidos.length}/${plano.length}`);
     copiaId = rel.criados['c1:camp'] || null;
-    conferir('a Meta devolveu o número da campanha copiada', !!copiaId, String(copiaId));
+    // A Meta NÃO devolve `id` — devolve copied_campaign_id. Se um dia mudar, é
+    // aqui que aparece, e a cascata inteira teria quebrado no primeiro passo.
+    conferir('a Meta devolveu copied_campaign_id (não `id`)', !!copiaId, String(copiaId));
     if (!copiaId) return;
 
     // ── A PROVA: o que a Meta REALMENTE criou ───────────────────────────────
-    // É aqui que o defeito do plano teria aparecido: a janela prometia 12
-    // anúncios e nascia campanha VAZIA, com "Pronto, 1 item copiado".
-    const rcp = await proxy({ accountId: acct, path: `/${copiaId}`, params: { fields: 'name,status,effective_status' }, method: 'GET' });
+    const rcp = await proxy({ accountId: acct, path: `/${copiaId}`, params: { fields: 'name,status' }, method: 'GET' });
     console.log('\nA CÓPIA, lida de volta da Meta:');
     conferir('a cópia nasceu PAUSADA', String(rcp.d?.status || '').toUpperCase() === 'PAUSED', rcp.d?.status);
-    conferir('o nome levou o sufixo de cópia', String(rcp.d?.name || '').includes('cópia'), rcp.d?.name);
+    conferir('o nome levou o sufixo de cópia', String(rcp.d?.name || '').includes(SUFIXO_PADRAO), rcp.d?.name);
 
-    const rcs = await proxy({ accountId: acct, path: `/${copiaId}/adsets`, params: { fields: 'id,name,status', limit: 50 }, method: 'GET' });
-    const conjuntosCopia = (rcs.d && rcs.d.data) || [];
-    conferir('a cascata levou o conjunto junto', conjuntosCopia.length === 1, `${conjuntosCopia.length} conjunto(s)`);
-    conferir('o conjunto copiado está PAUSED', conjuntosCopia.every((c) => String(c.status).toUpperCase() === 'PAUSED'));
+    const rjc = await proxy({ accountId: acct, path: `/${copiaId}/adsets`, params: { fields: 'id,name,status', limit: 50 }, method: 'GET' });
+    const cjCopia = (rjc.d && rjc.d.data) || [];
+    conferir('a cascata levou os conjuntos junto', cjCopia.length === conjuntos.length, `${cjCopia.length} de ${conjuntos.length}`);
+    conferir('os conjuntos copiados estão PAUSED', cjCopia.length > 0 && cjCopia.every((c) => String(c.status).toUpperCase() === 'PAUSED'));
 
-    const rads = await proxy({ accountId: acct, path: `/${copiaId}/ads`, params: { fields: 'id,name,status,adset_id', limit: 50 }, method: 'GET' });
-    const adsCopia = (rads.d && rads.d.data) || [];
-    // A CONTAGEM É A PROVA CENTRAL: promessa da janela × realidade da conta.
+    const rac = await proxy({ accountId: acct, path: `/${copiaId}/ads`, params: { fields: 'id,name,status,adset_id', limit: 50 }, method: 'GET' });
+    const adsCopia = (rac.d && rac.d.data) || [];
+    // A CONTAGEM É A PROVA CENTRAL: é exatamente aqui que o defeito pego na
+    // revisão apareceria — a janela prometia 12 anúncios e nascia campanha
+    // VAZIA, com "Pronto, 1 item copiado".
     conferir('a contagem de anúncios bate com o plano', adsCopia.length === anuncios.length, `plano prometia ${anuncios.length}, a Meta criou ${adsCopia.length}`);
     conferir('os anúncios copiados estão PAUSED', adsCopia.length > 0 && adsCopia.every((a) => String(a.status).toUpperCase() === 'PAUSED'));
     conferir('os anúncios entraram no conjunto COPIADO, não no original',
-      adsCopia.every((a) => conjuntosCopia.some((c) => String(c.id) === String(a.adset_id))),
-      adsCopia.map((a) => a.adset_id).join(','));
+      adsCopia.every((a) => cjCopia.some((c) => String(c.id) === String(a.adset_id))));
+
+    // O ORIGINAL NÃO PODE TER SIDO TOCADO. `/copies` lê a origem — mas isso é
+    // afirmação sobre a Meta, e afirmação sobre a Meta se confere.
+    const rorig = await proxy({ accountId: acct, path: `/${cobaia.id}/ads`, params: { fields: 'id', limit: 50 }, method: 'GET' });
+    conferir('o original continua com os mesmos anúncios', ((rorig.d && rorig.d.data) || []).length === anuncios.length);
   } finally {
-    for (const [rot, id] of [['original', campanhaId], ['cópia', copiaId]]) {
-      if (!id || MANTER) continue;
-      const rd = await proxy({ accountId: acct, path: `/${id}`, method: 'POST', params: { status: 'DELETED' } });
-      console.log(`🗑 ${rd.status === 200 ? `${rot} apagada` : `NÃO APAGOU a ${rot} (${id}) — ${erro(rd.d)}`}`);
+    if (copiaId && !MANTER) {
+      const rd = await proxy({ accountId: acct, path: `/${copiaId}`, method: 'POST', params: { status: 'DELETED' } });
+      console.log(`\n🗑 ${rd.status === 200 ? 'cópia apagada (o original nunca foi tocado)' : 'NÃO APAGOU a cópia ' + copiaId + ' — ' + erro(rd.d)}`);
+    } else if (copiaId) {
+      console.log(`\n⚠ cópia mantida a pedido: ${copiaId}`);
     }
-    if (MANTER) console.log(`\n⚠ mantidas a pedido: original ${campanhaId} · cópia ${copiaId}`);
   }
 
   const falhas = provas.filter((p) => !p.ok);
