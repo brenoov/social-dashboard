@@ -20,7 +20,7 @@ import { lerPosicionamentos, gravarPosicionamentos, resumoDosPosicionamentos, es
 export const PUBLICO_VAZIO = {
   cidades: [], excluidas: [],
   idadeMin: 18, idadeMax: 65,
-  generos: [], interesses: [],
+  generos: [], interesses: [], comportamentos: [],
   incluir: [], excluir: [],
   advantagePlus: true,
   // O conjunto TRAZIA o campo advantage_audience da Meta? Quando não trazia, o
@@ -46,6 +46,25 @@ function interessesDe(targeting) {
   for (const grupo of flex) {
     for (const i of lista(grupo && grupo.interests)) {
       if (i && i.id != null) achados.push({ id: String(i.id), name: nomeDe(i) });
+    }
+  }
+  return achados;
+}
+
+// COMPORTAMENTOS moram no MESMO `flexible_spec` dos interesses, e o editor não
+// os desenha. Ler mesmo assim não é capricho: os públicos salvos desta conta
+// trazem "Engaged Shoppers" e "Frequent Travelers", e um público aplicado sem
+// eles é um público DIFERENTE — mais largo, e não é o que a pessoa escolheu.
+//
+// Ao editar um conjunto que já existe eles se preservam sozinhos (montarTargeting
+// copia as outras chaves de cada entrada). Quem precisa dessa lista é a CAMPANHA
+// NOVA, que monta o targeting do zero e os perderia em silêncio.
+function comportamentosDe(targeting) {
+  const flex = lista(targeting && targeting.flexible_spec);
+  const achados = [];
+  for (const grupo of flex) {
+    for (const b of lista(grupo && grupo.behaviors)) {
+      if (b && b.id != null) achados.push({ id: String(b.id), name: nomeDe(b) });
     }
   }
   return achados;
@@ -129,6 +148,8 @@ export function lerPublico(targeting) {
     idadeMax: t.age_max == null ? PUBLICO_VAZIO.idadeMax : Number.isFinite(Number(t.age_max)) ? Number(t.age_max) : PUBLICO_VAZIO.idadeMax,
     generos: lista(t.genders).map(Number),
     interesses: interessesDe(t),
+    // Lidos e carregados, não editados — ver comportamentosDe.
+    comportamentos: comportamentosDe(t),
     incluir: lista(t.custom_audiences).filter((a) => a && a.id != null).map((a) => ({ id: String(a.id), name: nomeDe(a) })),
     excluir: lista(t.excluded_custom_audiences).filter((a) => a && a.id != null).map((a) => ({ id: String(a.id), name: nomeDe(a) })),
     // Ausente = padrão da Meta = LIGADO. Assumir desligado faria a tela mentir

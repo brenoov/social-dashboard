@@ -412,3 +412,30 @@ test('a confirmacao NAO promete WhatsApp num tipo que vai pro Direct', () => {
   assert.ok(site.some((l) => /leva para https:\/\/x\.com\.br/.test(l)))
   assert.ok(!site.some((l) => /WhatsApp/.test(l)))
 })
+
+test('os comportamentos do publico salvo CHEGAM na Meta, junto dos interesses', () => {
+  // O silêncio que isto impede: aplicar um público salvo com "Engaged Shoppers"
+  // e criar a campanha sem ele — público mais largo que o escolhido, sem aviso.
+  const e = {
+    ...cheio(),
+    publico: {
+      cidades: [{ key: '247071', nome: 'Campinas' }],
+      idadeMin: 25, idadeMax: 65,
+      interesses: [{ id: '6003198476967', name: 'Bolsas' }],
+      comportamentos: [{ id: '6071631541183', name: 'Engaged Shoppers' }],
+    },
+  }
+  const { adset } = payloadsDoAssistente({ estado: e, objetivoRow: ROW, nomeDaConta: 'Vessel' })
+  const flex = adset.targeting.flexible_spec
+  assert.equal(flex.length, 1, 'entradas separadas somam com E e APERTAM o público')
+  assert.deepEqual(flex[0].interests.map((i) => i.name), ['Bolsas'])
+  assert.deepEqual(flex[0].behaviors.map((b) => b.name), ['Engaged Shoppers'])
+})
+
+test('sem comportamento, o payload sai igual ao de antes (a Fábrica nao muda)', () => {
+  const { adset } = payloadsDoAssistente({ estado: cheio(), objetivoRow: ROW, nomeDaConta: 'Vessel' })
+  const flex = adset.targeting.flexible_spec
+  assert.equal(flex.length, 1)
+  assert.equal(flex[0].behaviors, undefined)
+  assert.ok(flex[0].interests.length)
+})

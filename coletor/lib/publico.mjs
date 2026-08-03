@@ -32,7 +32,18 @@ export function montarTargeting(publico, loja) {
   if (publico.idade_min != null) t.age_min = publico.idade_min;
   if (publico.idade_max != null) t.age_max = publico.idade_max;
   if (publico.generos?.length) t.genders = publico.generos;
-  if (publico.interesses?.length) t.flexible_spec = [{ interests: publico.interesses.map((i) => ({ id: i.id, name: i.name })) }];
+  // INTERESSES E COMPORTAMENTOS NA MESMA ENTRADA do flexible_spec: entradas
+  // diferentes se somam com E (aperta o público), chaves dentro da mesma se
+  // somam com OU. Separá-los faria "gosta de Bolsas E é comprador engajado",
+  // que é um público muito menor do que o público salvo original.
+  //
+  // `comportamentos` só existe quando o público veio de um PÚBLICO SALVO da
+  // conta — o editor não os cria. Ausente, nada muda (retrocompatível com a
+  // Fábrica, que nunca os manda).
+  const flex = {};
+  if (publico.interesses?.length) flex.interests = publico.interesses.map((i) => ({ id: i.id, name: i.name }));
+  if (publico.comportamentos?.length) flex.behaviors = publico.comportamentos.map((b) => ({ id: b.id, name: b.name }));
+  if (Object.keys(flex).length) t.flexible_spec = [flex];
   if (publico.custom_audiences?.length) t.custom_audiences = publico.custom_audiences.map((a) => ({ id: a.id }));
   // Meta liga o Advantage+ Audience por padrão e aí REJEITA segmentação manual de idade/gênero/
   // interesses (code 1870227). Como aqui o usuário definiu um público à mão, opta por sair —

@@ -395,6 +395,10 @@ export function publicoParaFabrica(pub) {
     idade_max: p.idadeMax,
     generos: p.generos || [],
     interesses: (p.interesses || []).filter((i) => i && i.id).map((i) => ({ id: String(i.id), name: i.name })),
+    // Vieram de um público salvo da conta e vão junto. Sem esta linha, aplicar
+    // um público salvo criaria uma campanha com um público MAIS LARGO que o
+    // escolhido — e em silêncio, que é o pior jeito de errar público.
+    comportamentos: (p.comportamentos || []).filter((b) => b && b.id).map((b) => ({ id: String(b.id), name: b.name })),
     custom_audiences: (p.incluir || []).filter((a) => a && a.id).map((a) => ({ id: String(a.id) })),
   };
 }
