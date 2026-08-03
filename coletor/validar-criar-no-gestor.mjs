@@ -139,8 +139,22 @@ async function main() {
       conferir(`entrou no conjunto certo (${chave})`, String(rl.d?.adset_id) === String(conjuntoId));
     } finally {
       if (campanhaId && !MANTER) {
-        const rd = await proxy({ accountId: acct, path: `/${campanhaId}`, method: 'POST', params: { status: 'DELETED' } });
-        console.log(`  🗑 ${rd.status === 200 ? 'apagada' : 'NÃO APAGOU ' + campanhaId}`);
+        // TENTA DE NOVO antes de desistir. Na primeira rodada uma das quatro não
+        // foi apagada — a Meta recusou uma vez e o script seguiu em frente,
+        // deixando campanha de teste na conta do dono. Uma falha transitória não
+        // pode virar lixo permanente, e a faxina do começo só limparia na PRÓXIMA
+        // execução, que pode não acontecer.
+        let apagou = false;
+        for (let tentativa = 1; tentativa <= 3 && !apagou; tentativa++) {
+          const rd = await proxy({ accountId: acct, path: `/${campanhaId}`, method: 'POST', params: { status: 'DELETED' } });
+          apagou = rd.status === 200 && !rd.d?.error;
+          if (!apagou) {
+            console.log(`  ⚠ tentativa ${tentativa} de apagar falhou: ${erro(rd.d)}`);
+            await new Promise((r) => setTimeout(r, 1500 * tentativa));
+          }
+        }
+        console.log(`  🗑 ${apagou ? 'apagada' : 'NÃO APAGOU — apague na mão: ' + campanhaId}`);
+        if (!apagou) provas.push({ nome: 'limpeza da campanha ' + campanhaId, ok: false });
       }
     }
   }
