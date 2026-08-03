@@ -3004,6 +3004,42 @@ async function _gtPubBuscarInteresses(termo){
 }
 
 // Onde o anúncio é mostrado: cidades com raio, e lugares a excluir.
+// A LEITURA DA IA, em cima da evidência que já está na tela.
+//
+// Ela NÃO recalcula nada: os números vão prontos e o prompt manda não inventar
+// outros. O que a IA acrescenta é o julgamento — o que fazer, por quê, e qual o
+// risco de seguir. É a régua que o dono deu: "senão conta de porcentagem eu
+// mesmo fazia".
+async function _gtPubLeituraDaIA(sugestao,rotulo){
+  try{
+    _gtPubSugestaoDados={..._gtPubSugestaoDados,pensando:true};_gtPubRedesenha();
+    const {data:{session}}=await sbClient.auth.getSession();
+    if(!session)return;
+    const sub=_gtNovo?_gtNovoObjetivos.find(o=>o.id===_gtNovo.objetivo):null;
+    const r=await fetch(SUPABASE_URL+'/functions/v1/sugerir-publico-ia',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+session.access_token,'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({
+        evidencia:{contando:rotulo,idade:sugestao.idade,cidades:sugestao.cidades,interesses:sugestao.interesses,porque:sugestao.porqueDosConjuntos},
+        marca:(_gtCurAcc&&(_gtCurAcc.display_name||_gtCurAcc.name))||'',
+        objetivo:(sub&&sub.rotulo)||'',
+      }),
+    });
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok||!d.ok){
+      // O MOTIVO VAI PARA A TELA, inclusive o "rode o robô da chave". Erro
+      // genérico aqui faria parecer que a IA não existe.
+      _gtPubSugestaoDados={..._gtPubSugestaoDados,pensando:false,
+        erroIA:(d&&(d.comoResolver||d.detalhe||d.error))||('a função respondeu '+r.status)};
+      return;
+    }
+    _gtPubSugestaoDados={..._gtPubSugestaoDados,pensando:false,
+      leitura:d.leitura||'',cuidado:d.cuidado||'',interessesIA:d.interesses||[]};
+  }catch(e){
+    _gtPubSugestaoDados={..._gtPubSugestaoDados,pensando:false,erroIA:String((e&&e.message)||e)};
+  }finally{ _gtPubRedesenha(); }
+}
+
 // SUGERIR PELO QUE JÁ ACONTECEU NESTA CONTA.
 //
 // Não é palpite: sai do custo por resultado de cada faixa de idade e dos
@@ -3048,6 +3084,22 @@ function _gtPubSecaoSugestao(){
   if(s.porqueDosConjuntos)caixa.appendChild(_gtPubLinhaTexto(s.porqueDosConjuntos,true));
   bloco.appendChild(caixa);
 
+  // A LEITURA DA IA vem numa caixa PRÓPRIA, e marcada. Misturar com os números
+  // faria parecer que a opinião dela também foi medida.
+  if(s.pensando||s.leitura||s.erroIA){
+    const cx=_gtPubCaixa('');
+    cx.style.marginTop='7px';
+    cx.style.borderLeft='3px solid var(--accent,#6366f1)';
+    cx.appendChild(_gtPubLinhaTexto('Leitura da IA',true));
+    if(s.pensando)cx.appendChild(_gtPubLinhaTexto('Lendo os números…'));
+    else if(s.erroIA)cx.appendChild(_gtPubLinhaTexto('Não consegui a leitura: '+s.erroIA,true));
+    else{
+      cx.appendChild(_gtPubLinhaTexto(s.leitura));
+      if(s.cuidado)cx.appendChild(_gtPubLinhaTexto('Cuidado: '+s.cuidado,true));
+    }
+    bloco.appendChild(cx);
+  }
+
   // APLICAR É UMA ESCOLHA, e não o que acontece por padrão: a sugestão é
   // evidência, e quem decide o público continua sendo quem paga por ele.
   const fila=_gtPubLinha();
@@ -3055,7 +3107,12 @@ function _gtPubSecaoSugestao(){
   if(s.idade)fila.appendChild(_gtPubBotaoAplicar(`Usar idade ${s.idade.idadeMin}–${s.idade.idadeMax}`,()=>{
     _gtPub.idadeMin=s.idade.idadeMin;_gtPub.idadeMax=s.idade.idadeMax;_gtPubRedesenha();
   }));
-  if(s.interesses.length)fila.appendChild(_gtPubBotaoAplicar('Somar os interesses',()=>{
+  if((s.interessesIA||[]).length)fila.appendChild(_gtPubBotaoAplicar('Somar os interesses que a IA escolheu',()=>{
+    const jaTem=new Set((_gtPub.interesses||[]).map(i=>String(i.id)));
+    for(const i of s.interessesIA)if(!jaTem.has(String(i.id)))_gtPub.interesses.push({id:String(i.id),name:i.nome});
+    _gtPubRedesenha();
+  }));
+  if(s.interesses.length)fila.appendChild(_gtPubBotaoAplicar('Somar todos os interesses',()=>{
     const jaTem=new Set((_gtPub.interesses||[]).map(i=>String(i.id)));
     for(const i of s.interesses)if(!jaTem.has(String(i.key)))_gtPub.interesses.push({id:String(i.key),name:i.nome});
     _gtPubRedesenha();
@@ -3116,6 +3173,11 @@ async function _gtPubBuscarSugestao(){
       conjuntos:lerConjuntos((conjuntos&&conjuntos.data)||[],porConjunto,contar),
     });
     _gtPubSugestaoDados={...s,contando:rotulo};
+    _gtPubRedesenha();
+    // A EVIDÊNCIA JÁ ESTÁ NA TELA antes da IA responder. Se ela demorar ou
+    // falhar, os números continuam ali — a leitura é um acréscimo, não a
+    // condição para a tela servir.
+    if(s.temAlgo)await _gtPubLeituraDaIA(s,rotulo);
   }catch(e){
     _gtPubSugestaoDados={temAlgo:false,motivoVazio:'Não consegui olhar os números: '+String((e&&e.message)||e)};
   }finally{
