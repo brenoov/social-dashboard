@@ -7,6 +7,7 @@
 // recebe os itens prontos e devolve as decisões por callback. Mesmo contrato de
 // painel-regua.js.
 import { opcoesDaLinha, frasePasso } from './acoes-da-fila.js';
+import { gastoDaLinha, usoDoOrcamento } from './gastos-da-fila.js';
 
 import { distribuirEntreConjuntos } from './fila.js';
 
@@ -183,6 +184,25 @@ function blocoImpactos(opcoes, editavel) {
     </details>`;
 }
 
+// O GASTO DE VERDADE, ao lado do teto (pedido do dono, 2026-08-03).
+//
+// A fila mostrava só ORÇAMENTO — o teto que se autoriza. Gasto é outra coisa, e
+// a diferença entre os dois é a informação: campanha com teto de R$ 230 que
+// gastou R$ 104 ontem não vai gastar mais só porque o teto sobe.
+//
+// O botão abre o detalhamento; o número fica na linha porque ler a fila sem
+// abrir nada já tem de dizer o essencial.
+function blocoGasto(item) {
+  const g = gastoDaLinha(item.gastos);
+  if (!g) return '';
+  const uso = usoDoOrcamento(item.gastos, item.budget_atual_centavos);
+  return `
+    <div class="gtf-gasto${uso && uso.aperta ? ' sobrando' : ''}">
+      <span class="gtf-gasto-num">${esc(g.texto)}</span>
+      <button class="gtf-gasto-btn" data-gtf-gastos="1" title="Ver o gasto por período">gastos</button>
+    </div>`;
+}
+
 function linha(item, agoraMs, editavel) {
   const v = VEREDITO[item.veredito] || { texto: item.veredito, cor: 'neutro' };
   const opcoes = opcoesDaLinha(item);
@@ -224,10 +244,12 @@ function linha(item, agoraMs, editavel) {
           <span class="gtf-conta">${esc(item.conta_nome || '')} · ${esc(fonte)}${idade == null ? '' : ` · ${idade === 0 ? 'hoje' : idade === 1 ? 'ontem' : `há ${idade} dias`}`}</span>
         </div>
         <div class="gtf-valores">${valores}</div>
+        ${blocoGasto(item)}
         ${editavel ? blocoAcoes(item, opcoes) : '<span class="gtf-sem-permissao" title="Só quem tem permissão de editar a Gestão de Tráfego pode aprovar ou recusar.">você não tem permissão para decidir</span>'}
       </div>
       ${item.justificativa ? `<p class="gtf-just">${esc(item.justificativa)}</p>` : ''}
       ${blocoSaude(item)}
+      ${(() => { const u = usoDoOrcamento(item.gastos, item.budget_atual_centavos); return u && u.aperta ? `<p class="gtf-uso">${esc(u.texto)}</p>` : ''; })()}
       ${blocoImpactos(opcoes, editavel)}
       ${blocoCriativos(item, editavel)}
       ${editavel && !opcoes.subir && !opcoes.baixar ? '<p class="gtf-sem-numero">Esta campanha não tem orçamento conhecido: ajuste na aba Campanhas, ou mantenha como está.</p>' : ''}
@@ -238,7 +260,7 @@ function linha(item, agoraMs, editavel) {
 
 // opcoes: { pendentes, vencidas, silenciadas, contas, contaFiltro, agora,
 //           editavel, aoAprovar(item, botao, opcao), aoRecusar(item, botao),
-//           aoVerCriativo(item, adId, nome),
+//           aoVerCriativo(item, adId, nome), aoVerGastos(item, botao),
 //           aoFiltrar(contaId), ajudaBtn }
 export function montarPainelFila(alvo, opcoes) {
   const o = opcoes || {};
@@ -334,6 +356,9 @@ export function montarPainelFila(alvo, opcoes) {
         b.addEventListener('click', () => o.aoAprovar(item, b, opcao));
       }
     }
+
+    const gb = el.querySelector('[data-gtf-gastos]');
+    if (gb && o.aoVerGastos) gb.addEventListener('click', (ev) => { ev.stopPropagation(); o.aoVerGastos(item, gb); });
 
     // A LUPA de cada criativo travado.
     for (const lp of el.querySelectorAll('[data-gtf-lupa]')) {
