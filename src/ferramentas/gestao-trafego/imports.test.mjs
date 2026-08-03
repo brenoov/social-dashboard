@@ -32,10 +32,21 @@ function nomesExportados() {
 // Comentário que MENCIONA um símbolo não é uso dele. Sem tirar, "ver
 // GT_OBJETIVO_BALDE" e "(ALVOS.trafego)" viravam import faltando — e um teste
 // que acusa o que não existe é pior que teste nenhum: ensina a ignorá-lo.
+//
+// TEXTO DE TELA TAMBÉM NÃO É CÓDIGO, e essa parte custou uma caça: a tela tem
+// a frase `'<b>Nada mudou.</b>'`, e o módulo de rascunhos exporta uma função
+// chamada `mudou`. O teste acusou um import faltando que não faltava. Todo nome
+// exportado que também é palavra do português comum cairia na mesma armadilha
+// ("linha", "quando", "passo").
+//
+// As aspas simples e duplas têm o conteúdo apagado; a CRASE fica, porque
+// `${...}` dentro dela é código de verdade.
 function semComentarios(codigo) {
   return codigo
     .replace(/\/\*[\s\S]*?\*\//g, ' ')   // bloco
-    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');  // linha (o [^:] evita cortar "https://")
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1')   // linha (o [^:] evita cortar "https://")
+    .replace(/'(?:\\.|[^'\\\n])*'/g, "''")    // texto entre aspas simples
+    .replace(/"(?:\\.|[^"\\\n])*"/g, '""');   // e entre aspas duplas
 }
 
 function scriptDaTela() {
@@ -248,4 +259,20 @@ test('o proprio teste de opcoes enxerga uma que falta', () => {
   const lidas = new Set([...assistente.matchAll(/\bo\.([a-zA-Z]\w*)/g)].map((m) => m[1]));
   const passadas = new Set([...trecho.matchAll(/(^|[{,\s])(\w+)\s*:/g)].map((m) => m[2]));
   assert.deepEqual([...lidas].filter((n) => !passadas.has(n)), ['beta']);
+});
+
+test('o teste de imports nao le TEXTO DE TELA como se fosse codigo', () => {
+  // O falso positivo real (03/08/2026): a tela tem a frase '<b>Nada mudou.</b>'
+  // e rascunhos.js exporta uma funcao `mudou`. O teste acusou um import que nao
+  // faltava. Vale para todo nome exportado que tambem e palavra comum
+  // ("linha", "quando", "passo").
+  const bruto = [
+    "import { mudou as rascunhoMudou } from './rascunhos.js'",
+    "_gtPubStatus('<b>Nada mudou.</b>')",
+    'if (rascunhoMudou(a, b)) {}',
+  ].join('\n');
+  const script = semComentarios(bruto);
+  const usado = (nome) => new RegExp('(^|[^\\w.$\'"`])' + nome + '\\s*[([.,);\\]}]', 'm').test(script);
+  assert.equal(usado('mudou'), false, 'leu a frase da tela como uso da funcao');
+  assert.equal(usado('rascunhoMudou'), true, 'deixou de ver o uso de verdade');
 });

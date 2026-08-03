@@ -159,6 +159,10 @@ import { lerPublico, montarTargeting, resumoDasMudancas, avisosDe } from './publ
 // gênero, interesses e comportamentos prontos. Ver publicos-salvos.js para a
 // confusão que isto conserta.
 import { lerSalvos } from './publicos-salvos.js'
+// Rascunho que sobrevive a fechar a aba, e o histórico do que foi criado ou
+// recusado. As regras (o que vale salvar, quando mudou, como cada linha é dita)
+// moram em rascunhos.js; aqui fica só o que precisa de banco.
+import { valeSalvar, mudou as rascunhoMudou, linhaParaSalvar, montarHistorico, rascunhoParaRetomar } from './rascunhos.js'
 import { montarSecaoPosicionamentos } from './posicionamentos.js'
 import { montarFaixaDeSugestoes } from './sugestoes-de-interesse.js'
 // Aba "A régua" (métrica ponderada): painel puro + os módulos que leem/normalizam
@@ -3455,10 +3459,19 @@ let _gtNovoPublicacoes=[];   // publicações do perfil, para impulsionar
 let _gtNovoCarregandoPubs=false;
 let _gtNovoPubsDoPerfil='';  // de qual perfil a lista carregada é (trocar de página troca isto)
 let _gtNovoErroPubs='';      // por que a lista não veio — a tela MOSTRA isto
+// ── RASCUNHO ────────────────────────────────────────────────────────────────
+let _gtNovoRascunhoId=null;  // a linha em gt_campanhas_rascunho desta tentativa
+let _gtNovoUltimoSalvo=null; // o estado como ele foi gravado da última vez
+let _gtNovoTimerSalvar=null;
+let _gtNovoHistorico=[];
 let _gtNovoImagens=[];
 let _gtNovoEnviando=false, _gtNovoCriando=false, _gtNovoFaltas=false;
 
 function _gtNovoFechar(){
+  // FECHAR SALVA NA HORA, sem esperar o atraso: fechar a janela é exatamente o
+  // momento em que o trabalho se perderia.
+  if(_gtNovoTimerSalvar){clearTimeout(_gtNovoTimerSalvar);_gtNovoTimerSalvar=null;}
+  _gtNovoSalvarRascunho();
   const ov=document.getElementById('gt-novo-ov'),md=document.getElementById('gt-novo-modal');
   if(ov)ov.style.display='none';
   if(md)md.style.display='none';
@@ -3474,6 +3487,26 @@ function _gtNovoEsc(e){
 async function _gtNovoAbrir(){
   if(!_gtCurAcc){await _gtConfirm('Sem conta selecionada','Escolha uma conta de anúncios primeiro.',{okOnly:true});return;}
   _gtNovo=estadoInicial();_gtNovoPasso=0;_gtNovoFaltas=false;_gtNovoCriando=false;_gtNovoEnviando=false;
+  _gtNovoRascunhoId=null;_gtNovoUltimoSalvo=null;
+  _gtNovoHistorico=await _gtNovoLerHistorico();
+
+  // RETOMAR DE ONDE PAROU. Perguntar só quando há o que retomar: oferecer
+  // sempre viraria um clique a mais em toda campanha nova.
+  const retomar=rascunhoParaRetomar(_gtNovoHistorico,new Date());
+  if(retomar){
+    const l=montarHistorico([retomar],new Date())[0];
+    const continuar=await _gtConfirm('Você tem uma campanha começada',
+      '<b>'+_gtEsc(l.nome)+'</b>'+(l.tipo?' — '+_gtEsc(l.tipo):'')+'<br>'
+      +_gtEsc(l.quando)+', '+_gtEsc(l.ondeParou)+'.<br><br>'
+      +'Quer continuar de onde parou? Se preferir começar do zero, o rascunho continua guardado no histórico.',
+      {okLabel:'Continuar'});
+    if(continuar){
+      _gtNovo=Object.assign(estadoInicial(),retomar.estado||{});
+      _gtNovoPasso=Number(retomar.passo)||0;
+      _gtNovoRascunhoId=retomar.id;
+      _gtNovoUltimoSalvo=JSON.parse(JSON.stringify(_gtNovo));
+    }
+  }
   const ov=document.getElementById('gt-novo-ov'),md=document.getElementById('gt-novo-modal');
   if(!ov||!md)return;
   ov.style.display='block';md.style.display='flex';
@@ -3505,7 +3538,9 @@ async function _gtNovoAbrir(){
   // página, o Instagram e o WhatsApp dela já vêm preenchidos — é o caso comum e
   // poupa três escolhas. Tudo continua trocável na tela: foi exatamente amarrar
   // isto ao cadastro que quebrou o botão em conta sem loja registrada.
-  if(sugerido)Object.assign(_gtNovo,sugerido);
+  // A SUGESTÃO DO CADASTRO só entra em campanha começando do zero. Num rascunho
+  // retomado ela sobrescreveria a página que a pessoa já tinha escolhido.
+  if(sugerido&&!_gtNovoRascunhoId)Object.assign(_gtNovo,sugerido);
   _gtNovoRedesenhar();
 }
 
@@ -3531,6 +3566,65 @@ async function _gtNovoBuscarPaginas(){
         igNome:(p.instagram_business_account&&p.instagram_business_account.username)||'',
       }))
       .sort((a,b)=>String(a.nome).localeCompare(String(b.nome),'pt-BR'));
+  }catch(e){ return []; }
+}
+
+// ── SALVAR O RASCUNHO ───────────────────────────────────────────────────────
+//
+// Sozinho, atrasado, e só quando mudou. Atrasado (1,2 s) porque digitar o nome
+// dispara uma mudança por letra; só quando mudou porque redesenhar a tela não é
+// motivo para escrever no banco.
+//
+// FALHAR AQUI NÃO ATRAPALHA NADA. Rascunho é rede de segurança, não parte do
+// caminho: se o banco recusar, a pessoa continua criando a campanha do mesmo
+// jeito e no máximo perde a proteção contra fechar a aba.
+function _gtNovoAgendarSalvar(){
+  if(_gtNovoTimerSalvar)clearTimeout(_gtNovoTimerSalvar);
+  _gtNovoTimerSalvar=setTimeout(()=>{_gtNovoSalvarRascunho();},1200);
+}
+
+async function _gtNovoSalvarRascunho(){
+  try{
+    if(!_gtNovo||!_gtCurAcc)return;
+    if(!valeSalvar(_gtNovo))return;
+    if(!rascunhoMudou(_gtNovoUltimoSalvo,_gtNovo))return;
+    const sub=_gtNovoObjetivos.find(o=>o.id===_gtNovo.objetivo);
+    const linha=linhaParaSalvar({
+      estado:_gtNovo,passo:_gtNovoPasso,contaId:_gtCurAcc.id,
+      tipoRotulo:(sub&&sub.rotulo)||'',
+    });
+    if(_gtNovoRascunhoId){
+      const {error}=await sbClient.from('gt_campanhas_rascunho').update(linha).eq('id',_gtNovoRascunhoId);
+      if(error)return;
+    }else{
+      const {data,error}=await sbClient.from('gt_campanhas_rascunho').insert(linha).select('id').single();
+      if(error||!data)return;
+      _gtNovoRascunhoId=data.id;
+    }
+    _gtNovoUltimoSalvo=JSON.parse(JSON.stringify(_gtNovo));
+  }catch(e){ /* rede de segurança não pode virar obstáculo */ }
+}
+
+// O DESFECHO desta tentativa, guardado para o histórico. É o que responde,
+// meses depois, "por que essa campanha não foi?".
+async function _gtNovoFecharRascunho(status,resultado){
+  try{
+    if(!_gtNovoRascunhoId)return;
+    await sbClient.from('gt_campanhas_rascunho')
+      .update({status,resultado:resultado||null}).eq('id',_gtNovoRascunhoId);
+  }catch(e){ /* idem */ }
+}
+
+// O HISTÓRICO DESTA CONTA — rascunhos e enviados, do time inteiro.
+async function _gtNovoLerHistorico(){
+  try{
+    if(!_gtCurAcc)return [];
+    const {data,error}=await sbClient.from('gt_campanhas_rascunho')
+      .select('id,nome,tipo,status,passo,estado,resultado,updated_at,created_at')
+      .eq('account_id',String(_gtCurAcc.id))
+      .order('updated_at',{ascending:false}).limit(40);
+    if(error)return [];
+    return data||[];
   }catch(e){ return []; }
 }
 
@@ -3658,6 +3752,7 @@ function _gtNovoRedesenhar(htmlDireto){
       // Mudar o TIPO no passo 1 pode passar a exigir publicação — e mudar de
       // página no passo 2 muda de qual perfil elas vêm.
       if(mudanca&&(mudanca.objetivo!==undefined||mudanca.pageId!==undefined))_gtNovoTalvezCarregarPublicacoes();
+      _gtNovoAgendarSalvar();
     },
     aoPasso:(n)=>{
       _gtNovoPasso=n;_gtNovoFaltas=false;_gtNovoRedesenhar();
@@ -3666,6 +3761,7 @@ function _gtNovoRedesenhar(htmlDireto){
       // que a maioria dos tipos não usa — e antes do passo 2 nem se sabe de
       // qual perfil elas viriam.
       _gtNovoTalvezCarregarPublicacoes();
+      _gtNovoAgendarSalvar();
     },
     aoIrPara:(chave)=>{_gtNovoPasso=Math.max(0,PASSOS.findIndex(p=>p.chave===chave));_gtNovoFaltas=true;_gtNovoRedesenhar();},
     aoMostrarFaltas:()=>{_gtNovoFaltas=true;_gtNovoRedesenhar();},
@@ -3796,6 +3892,7 @@ async function _gtNovoCriar(){
     if(!ad||!ad.id)throw new Error('a Meta aceitou mas não devolveu o código do anúncio');
 
     _gtNovoCriando=false;
+    await _gtNovoFecharRascunho('criada',{campanha:c.id,conjunto:cj.id,anuncio:ad.id,criativo:cr.id});
     _gtNovoFechar();
     await _gtConfirm('Pronto — está criado e pausado',
       'Campanha <b>'+_gtEsc(_gtNovo.nome)+'</b> criada com 1 conjunto e 1 anúncio.<br><br>'
