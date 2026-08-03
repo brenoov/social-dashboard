@@ -3566,6 +3566,12 @@ function _gtNovoRedesenhar(htmlDireto){
     // se o número de WhatsApp é pedido neste passo.
     objetivoRow:_gtNovoObjetivos.find(o=>o.id===_gtNovo.objetivo)||null,
     numerosWa:_gtNovoNumerosWa,
+    // AS PUBLICAÇÕES E O ESTADO DELAS. Sem estas três linhas o desenho recebe
+    // `undefined`, cai no ramo de lista vazia e diz que não há publicação —
+    // enquanto a lista carregada está aqui do lado, cheia. Foi o que aconteceu.
+    publicacoes:_gtNovoPublicacoes,
+    carregandoPublicacoes:_gtNovoCarregandoPubs,
+    erroPublicacoes:_gtNovoErroPubs,
     enviando:_gtNovoEnviando,criando:_gtNovoCriando,mostrarFaltas:_gtNovoFaltas,
     // `semRedesenhar` existe para digitação: redesenhar a cada letra faria o
     // campo perder o foco no meio da palavra.
