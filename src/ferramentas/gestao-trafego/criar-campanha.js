@@ -9,6 +9,8 @@
 // série: a Meta recusou quatro vezes seguidas, cada uma por um campo que o
 // original já mandava.
 import { payloadCampanhaAdset } from '../../../coletor/lib/payload-campanha.mjs';
+import { payloadCriativa } from '../../../coletor/lib/meta-subir.mjs';
+import { pedeNumeroDeWhatsapp, pedeEnderecoDoSite, podeSerCriado, bloqueio } from './subobjetivos.js';
 
 // OS QUATRO PASSOS, na ordem em que a decisão acontece: o que se quer, quanto
 // custa, para quem, e o que a pessoa vê. Cada um é uma pergunta, e é por isso
@@ -48,7 +50,8 @@ export function estadoInicial() {
     // Escolhidos na tela, não herdados de cadastro nenhum.
     pageId: '',
     igId: '',
-    whatsapp: '',           // só usado quando o objetivo é de WhatsApp
+    whatsapp: '',           // só usado quando o sub-objetivo leva para o WhatsApp
+    site: '',               // só usado quando o sub-objetivo leva para um site
     orcamentoCentavos: 5000,
     tipoOrcamento: 'diario',
     // Só usada quando o orçamento é TOTAL. A Meta exige `end_time` para
@@ -69,10 +72,19 @@ const texto = (v) => (typeof v === 'string' ? v.trim() : '');
 // que a Fábrica declara, e `destination_type` contendo WHATSAPP é o que a Meta
 // usa para montar o criativo. Objetivo pode ter um sem o outro, e faltar o
 // número em qualquer um dos casos faz a Meta recusar o conjunto.
-export function pedeWhatsapp(objetivoRow) {
-  const r = objetivoRow || {};
-  return r.promoted_object_tipo === 'whatsapp'
-    || String(r.destination_type || '').toUpperCase().includes('WHATSAPP');
+// QUEM DECIDE É O CATÁLOGO, e não o formato do `destination_type`. A primeira
+// versão olhava "contém WHATSAPP" no destino, o que funcionava por acidente:
+// `MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP` contém, e `INSTAGRAM_DIRECT`
+// não — mas quem sabe disso é a linha do catálogo, que já declara o que precisa.
+export const pedeWhatsapp = (sub) => pedeNumeroDeWhatsapp(sub);
+export const pedeSite = (sub) => pedeEnderecoDoSite(sub);
+
+// Endereço de site que a Meta aceita: precisa ter esquema e domínio. "loja.com"
+// sem http é recusado, e descobrir isso na resposta dela é o pior momento.
+export function siteValido(v) {
+  const t = texto(v);
+  if (!/^https?:\/\//i.test(t)) return false;
+  try { return !!new URL(t).hostname.includes('.'); } catch { return false; }
 }
 
 // Só dígitos, para comparar tamanho. O criativo da Fábrica já faz o mesmo
@@ -129,9 +141,16 @@ export function faltaNoPasso(chave, estado, objetivoRow) {
     if (pedeWhatsapp(objetivoRow) && digitos(e.whatsapp).length < MINIMO_DE_DIGITOS_WHATSAPP) {
       faltas.push('Este objetivo leva a conversa para o WhatsApp — informe o número com DDI e DDD (ex.: 55 19 99999-9999).');
     }
+    if (pedeSite(objetivoRow) && !siteValido(e.site)) {
+      faltas.push('Este objetivo leva para um site — informe o endereço completo, começando com https://');
+    }
   }
   if (chave === 'objetivo') {
     if (!texto(e.objetivo)) faltas.push('Escolha o que você quer que aconteça.');
+    // O QUE AINDA NÃO DÁ PARA CRIAR aparece na lista, mas não deixa avançar — e
+    // repete aqui o motivo, porque quem clicou em "Avançar" pode não ter lido o
+    // aviso lá em cima.
+    else if (objetivoRow && !podeSerCriado(objetivoRow)) faltas.push(bloqueio(objetivoRow));
     if (!texto(e.nome)) faltas.push('Dê um nome à campanha — é por ele que você vai achá-la depois.');
   }
   if (chave === 'orcamento') {
@@ -218,6 +237,7 @@ export function resumoDoQueVaiSerCriado(estado, objetivoRotulo, identidade) {
       + (texto(id.instagram) ? ` e @${texto(id.instagram)}` : ' (sem Instagram ligado)'));
   }
   if (texto(e.whatsapp)) linhas.push(`Conversas vão para o WhatsApp ${texto(e.whatsapp)}`);
+  if (texto(e.site)) linhas.push(`O anúncio leva para ${texto(e.site)}`);
   linhas.push(e.tipoOrcamento === 'total'
     ? `1 conjunto com ${reais(e.orcamentoCentavos)} no total${texto(e.terminaEm) ? `, até ${texto(e.terminaEm).split('-').reverse().join('/')}` : ''}`
     : `1 conjunto com ${reais(e.orcamentoCentavos)} por dia`);
@@ -275,6 +295,56 @@ export function payloadsDoAssistente({ estado, objetivoRow, nomeDaConta }) {
     adset.name = `${texto(e.nome)} · conjunto`.slice(0, 200);
   }
   return { campaign, adset };
+}
+
+// O CRIATIVO DESTE ASSISTENTE.
+//
+// Delega no `payloadCriativa` da Fábrica SÓ nos casos que ele já monta provados
+// (WhatsApp puro e multi-destino). Os destinos novos são montados aqui, e não
+// lá, por dois motivos: mexer num montador que sobe anúncio de verdade há meses
+// é o risco que não vale a pena, e a regra nova precisa de um dado que ele nem
+// recebe — o endereço do site.
+//
+// O CUIDADO QUE ISTO RESOLVE: `payloadCriativa` decide pelo `destination_type`,
+// e cai no ramo "WhatsApp puro" para qualquer destino que não seja vazio. Com
+// `INSTAGRAM_DIRECT` ele montaria um link de wa.me — um anúncio de Direct
+// levando para o WhatsApp, sem erro nenhum da Meta.
+export function criativaDoAssistente({ sub, estado, page, ig }) {
+  const e = estado || {};
+  const s = sub || {};
+  const mensagem = texto(e.texto);
+  const dt = String(s.destination_type || '').toUpperCase();
+
+  if (dt.includes('WHATSAPP')) {
+    // Caminho provado da Fábrica, sem tocar: WhatsApp puro e multi-destino.
+    return payloadCriativa({
+      hash: texto(e.imagemHash), adsetDestinationType: s.destination_type,
+      waNumero: texto(e.whatsapp), page, ig, mensagem,
+    });
+  }
+
+  const comum = { image_hash: texto(e.imagemHash), message: mensagem };
+  if (dt === 'INSTAGRAM_DIRECT') {
+    return {
+      object_story_spec: { page_id: page, instagram_user_id: ig, link_data: {
+        ...comum, link: 'https://www.instagram.com/',
+        call_to_action: { type: 'INSTAGRAM_MESSAGE', value: { app_destination: 'INSTAGRAM_DIRECT' } },
+      } },
+    };
+  }
+  if (pedeSite(s)) {
+    return {
+      object_story_spec: { page_id: page, instagram_user_id: ig, link_data: {
+        ...comum, link: texto(e.site), call_to_action: { type: 'LEARN_MORE' },
+      } },
+    };
+  }
+  // Reconhecimento: sem destino e sem site. Liga ao perfil, como a Fábrica faz.
+  return {
+    object_story_spec: { page_id: page, instagram_user_id: ig, link_data: {
+      ...comum, link: 'https://www.instagram.com/', call_to_action: { type: 'LEARN_MORE' },
+    } },
+  };
 }
 
 // O EDITOR DE PÚBLICO e a FÁBRICA falam formas diferentes do mesmo público: o

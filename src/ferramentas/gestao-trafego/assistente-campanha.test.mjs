@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { montarAssistente, textoDaConfirmacao } from './assistente-campanha.js'
 import { estadoInicial } from './criar-campanha.js'
+import { CATALOGO, marcarUsados, acharSubobjetivo } from './subobjetivos.js'
 
 // Um `document` de mentira do tamanho exato do que o assistente usa. Existe
 // porque a tela real exige login e dados ao vivo — e o que não se abre sozinho
@@ -21,7 +22,10 @@ function docFalso() {
   return { createElement: criar }
 }
 
-const OBJETIVOS = [
+const OBJETIVOS = marcarUsados(CATALOGO, [
+  ...Array(42).fill({ campaign: { objective: 'OUTCOME_ENGAGEMENT' }, optimization_goal: 'CONVERSATIONS', destination_type: 'WHATSAPP' }),
+])
+const OBJETIVOS_ANTIGOS = [
   { chave: 'engajamento', rotulo: 'Conversas no WhatsApp' },
   { chave: 'conversao', rotulo: 'Vendas' },
 ]
@@ -31,7 +35,7 @@ const PAGINAS = [
   { id: '959648637231934', nome: 'La Vessel Hortolândia', igId: '', igNome: '' },
 ]
 const cheio = () => ({
-  ...estadoInicial(), objetivo: 'engajamento', nome: 'Bolsas',
+  ...estadoInicial(), objetivo: 'conversa-whatsapp', nome: 'Bolsas',
   pageId: '946991068499592', igId: '17841405371693083', whatsapp: '5519999999999',
   publico: { cidades: [{ key: '1', nome: 'Campinas' }], idadeMin: 25, idadeMax: 45, interesses: [{ id: '9', name: 'Bolsas' }] },
   imagemHash: 'h1', texto: 'Oi',
@@ -44,11 +48,37 @@ const montar = (extra = {}) => montarAssistente({
   ...extra,
 })
 
-test('o passo 1 mostra os objetivos com nome de gente, nao o codigo da Meta', () => {
+test('o passo 1 mostra os tipos AGRUPADOS, com nome de gente', () => {
   const { corpo } = montar()
-  assert.match(corpo.texto, /Conversas no WhatsApp/)
-  assert.match(corpo.texto, /Vendas/)
-  assert.ok(!/OUTCOME_/.test(corpo.texto))
+  assert.match(corpo.texto, /Conversa no WhatsApp/)
+  assert.match(corpo.texto, /Visualização de vídeo/)
+  assert.match(corpo.texto, /Visita ao perfil do Instagram/)
+  // Os grupos são os objetivos da Meta, ditos em português.
+  assert.match(corpo.texto, /Conversas/)
+  assert.match(corpo.texto, /Reconhecimento/)
+  assert.ok(!/OUTCOME_|THRUPLAY|PROFILE_VISIT/.test(corpo.texto), 'vazou sigla da Meta')
+})
+
+test('o que a conta JA RODOU aparece marcado, com a contagem', () => {
+  const { corpo } = montar()
+  assert.match(corpo.texto, /já usado aqui · 42/)
+})
+
+test('o que ainda nao da pra criar aparece, marcado, e explica ao ser clicado', () => {
+  // Decisão do dono: mostrar em vez de esconder. Ver que existe — e por quê
+  // ainda não dá — vale mais que uma lista curta que finge que não existe.
+  const { corpo } = montar()
+  assert.match(corpo.texto, /ainda não dá/)
+
+  const escolhido = montar({ estado: { ...estadoInicial(), objetivo: 'visita-perfil' } })
+  assert.match(escolhido.corpo.texto, /publicação que já está no perfil/)
+})
+
+test('a explicacao aparece SO do escolhido, e nao das catorze', () => {
+  const nenhum = montar().corpo.texto
+  assert.ok(!/A Meta procura quem costuma abrir conversa/.test(nenhum))
+  const um = montar({ estado: { ...estadoInicial(), objetivo: 'conversa-whatsapp' } }).corpo.texto
+  assert.match(um, /A Meta procura quem costuma abrir conversa/)
 })
 
 test('a trilha diz onde se esta', () => {
@@ -65,7 +95,7 @@ test('escolher objetivo avisa quem chama, sem redesenhar por conta propria', () 
   let mudou = null
   const { corpo } = montar({ aoMudar: (m) => { mudou = m } })
   corpo.botoes[0].onclick({ preventDefault() {} })
-  assert.deepEqual(mudou, { objetivo: 'engajamento' })
+  assert.deepEqual(mudou, { objetivo: 'conversa-whatsapp' })
 })
 
 test('digitar o nome NAO redesenha — senao o campo perde o foco a cada letra', () => {
@@ -201,13 +231,14 @@ test('completar o ultimo passo SEM redesenhar nao rouba o primeiro clique', () =
   const doc = docFalso();
   // O estado como ele fica ao ENTRAR no passo 4: tudo pronto, menos imagem e texto.
   const estado = {
-    ...estadoInicial(), objetivo: 'engajamento', nome: 'Campanha',
+    ...estadoInicial(), objetivo: 'alcance', nome: 'Campanha',
     pageId: '946991068499592', igId: '17841405371693083',
     publico: { cidades: [{ key: '267873', nome: 'Campinas' }] },
   };
   let criou = false, mandouPara = null;
   const desenhar = () => montarAssistente({
-    doc, estado, passo: 4, objetivos: [{ chave: 'engajamento', rotulo: 'Engajamento' }], paginas: PAGINAS,
+    doc, estado, passo: 4, objetivos: OBJETIVOS, paginas: PAGINAS,
+    objetivoRow: acharSubobjetivo('alcance'),
     imagens: [{ hash: 'h1', nome: 'a.jpg' }],
     aoMudar: (m, op) => { Object.assign(estado, m); if (!(op && op.semRedesenhar)) throw new Error('redesenhou'); },
     aoPasso: () => {}, aoIrPara: (c) => { mandouPara = c; }, aoMostrarFaltas: () => {},
@@ -266,8 +297,8 @@ test('o perfil escolhido aparece pelo @, nao pelo numero', () => {
 })
 
 test('o campo de WhatsApp so aparece quando o objetivo leva pra la', () => {
-  const semWa = { chave: 'engajamento', destination_type: '', promoted_object_tipo: 'page' }
-  const comWa = { chave: 'engajamento', destination_type: 'WHATSAPP', promoted_object_tipo: 'whatsapp' }
+  const semWa = acharSubobjetivo('alcance')
+  const comWa = acharSubobjetivo('conversa-whatsapp')
   assert.ok(!/WhatsApp que vai receber/.test(montar({ passo: 1, objetivoRow: semWa }).corpo.texto),
     'mostrou campo de WhatsApp num objetivo que não usa — campo sem uso faz duvidar')
   assert.match(montar({ passo: 1, objetivoRow: comWa }).corpo.texto, /WhatsApp que vai receber/)
@@ -278,7 +309,7 @@ test('digitar o numero NAO redesenha — senao o campo perde o foco', () => {
   // tira o cursor do campo no meio da digitação.
   let op = null
   const { corpo } = montar({
-    passo: 1, objetivoRow: { destination_type: 'WHATSAPP' },
+    passo: 1, objetivoRow: acharSubobjetivo('conversa-whatsapp'),
     aoMudar: (m, o) => { op = o },
   })
   const campo = corpo.campos.find((c) => c.type === 'tel')
@@ -298,7 +329,7 @@ test('o passo de identidade oferece os numeros que a Meta ja aceitou', () => {
     { pageId: '999', numero: '5519900000000' },
   ]
   const estado = { ...estadoInicial(), pageId: '946991068499592' }
-  const { corpo } = montar({ passo: 1, estado, numerosWa, objetivoRow: { destination_type: 'WHATSAPP' } })
+  const { corpo } = montar({ passo: 1, estado, numerosWa, objetivoRow: acharSubobjetivo('conversa-whatsapp') })
   assert.match(corpo.texto, /Já usados aqui/)
   assert.match(corpo.texto, /5519971092194/)
   // O número de OUTRA página não aparece: esta tem os seus.
@@ -311,7 +342,7 @@ test('clicar num numero conhecido preenche o campo', () => {
   const numerosWa = [{ pageId: '946991068499592', numero: '5519971092194' }]
   const estado = { ...estadoInicial(), pageId: '946991068499592' }
   const { corpo } = montar({
-    passo: 1, estado, numerosWa, objetivoRow: { destination_type: 'WHATSAPP' },
+    passo: 1, estado, numerosWa, objetivoRow: acharSubobjetivo('conversa-whatsapp'),
     aoMudar: (m) => { mudou = m },
   })
   corpo.botoes.find((b) => b.textContent === '5519971092194').onclick({ preventDefault() {} })
@@ -319,7 +350,7 @@ test('clicar num numero conhecido preenche o campo', () => {
 })
 
 test('sem numero conhecido, o texto volta a ser o generico', () => {
-  const { corpo } = montar({ passo: 1, numerosWa: [], objetivoRow: { destination_type: 'WHATSAPP' } })
+  const { corpo } = montar({ passo: 1, numerosWa: [], objetivoRow: acharSubobjetivo('conversa-whatsapp') })
   assert.ok(!/Já usados aqui/.test(corpo.texto))
   assert.match(corpo.texto, /não conversa com ninguém/)
 })

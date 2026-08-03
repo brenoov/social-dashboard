@@ -165,11 +165,11 @@ import { montarPainelRegua } from './painel-regua.js'
 // testado; painel-fila.js só monta a tela.
 import { montarPainelFila } from './painel-fila.js'
 import { montarAssistente, textoDaConfirmacao } from './assistente-campanha.js'
-import { estadoInicial, imagemServe, payloadsDoAssistente, numerosJaUsados, PASSOS } from './criar-campanha.js'
+import { estadoInicial, imagemServe, payloadsDoAssistente, numerosJaUsados, criativaDoAssistente, PASSOS } from './criar-campanha.js'
+// O CATÁLOGO DE SUB-OBJETIVOS: a Meta tem dois níveis (objetivo da campanha e
+// meta de otimização do conjunto) e a tela tratava como um só. Ver subobjetivos.js.
+import { CATALOGO, marcarUsados, acharSubobjetivo } from './subobjetivos.js'
 import { carregarMarcasELojas } from '../../../coletor/lib/config-lojas.mjs'
-// O criativo sai do MESMO montador da Fábrica — puro, sem nada de Node, então
-// o Vite empacota para o navegador sem ginástica.
-import { payloadCriativa } from '../../../coletor/lib/meta-subir.mjs'
 import { lerGastos, linhasDoModal, usoDoOrcamento } from './gastos-da-fila.js'
 // O funil das campanhas NO AR, um bloco por objetivo. Nem todo objetivo tem
 // funil de verdade — ver funil.js.
@@ -3411,23 +3411,21 @@ async function _gtNovoAbrir(){
   // ZERA ANTES DE CARREGAR: uma falha de rede não pode deixar de pé a lista da
   // ABERTURA ANTERIOR, que pode ser de outra conta.
   _gtNovoObjetivos=[];_gtNovoImagens=[];_gtNovoPaginas=[];_gtNovoNumerosWa=[];
-  const [objs,pags,imgs,sugerido,numeros]=await Promise.all([
-    sb('fabrica_objetivos?select=chave,rotulo,meta_objective,optimization_goal,billing_event,destination_type,promoted_object_tipo,ativo&ativo=eq.true&order=ordem').catch(()=>null),
+  // OS CONJUNTOS QUE JÁ EXISTEM servem a DUAS perguntas de uma vez: quais
+  // combinações esta conta já rodou (o selo "já usado aqui") e quais números de
+  // WhatsApp a Meta já aceitou. Uma chamada, dois usos.
+  const [pags,imgs,sugerido,conjuntos]=await Promise.all([
     _gtNovoBuscarPaginas(),
     _gtNovoBuscarImagens(),
     _gtNovoSugerirIdentidade(),
-    _gtNovoBuscarNumerosWa(),
+    _gtNovoBuscarConjuntos(),
   ]);
-  _gtNovoObjetivos=objs||[];_gtNovoPaginas=pags;_gtNovoImagens=imgs;_gtNovoNumerosWa=numeros;
-
-  // OS OBJETIVOS são a única coisa sem a qual não dá para seguir: eles são a
-  // receita (objective + optimization_goal + destination_type) que a Meta cobra.
-  // Página e imagem são escolhas, e escolha vazia se resolve na própria tela.
-  if(!_gtNovoObjetivos.length){
-    _gtNovoRedesenhar('<div class="gt-novo-carregando">Não consegui carregar os tipos de campanha.<br><br>'
-      +'Eles moram em <b>fabrica_objetivos</b> e valem para todas as contas. Sem eles eu não sei o que pedir à Meta.</div>');
-    return;
-  }
+  _gtNovoPaginas=pags;_gtNovoImagens=imgs;
+  _gtNovoNumerosWa=numerosJaUsados(conjuntos);
+  // O CATÁLOGO É FIXO (mora no código, não no banco): a lista do que a conta já
+  // usou nunca ensina nada novo, e conta nova começaria vazia. O que ela já
+  // rodou entra como MARCA, que é a informação que de fato ajuda a escolher.
+  _gtNovoObjetivos=marcarUsados(CATALOGO,conjuntos);
 
   // SUGERE, MAS NÃO IMPÕE. Se esta conta tem marca cadastrada na Fábrica, a
   // página, o Instagram e o WhatsApp dela já vêm preenchidos — é o caso comum e
@@ -3469,11 +3467,11 @@ async function _gtNovoBuscarPaginas(){
 // um número inventado (03/08/2026). O que existe é a prova pelo uso: todo
 // conjunto que já roda carrega no `promoted_object` o par página + número que
 // a Meta aceitou. Falhar aqui não impede nada: o campo continua livre.
-async function _gtNovoBuscarNumerosWa(){
+async function _gtNovoBuscarConjuntos(){
   try{
     const r=await metaFetch('/'+_gtCleanAct(_gtCurAcc.ad_account_id)+'/adsets',
-      {fields:'promoted_object',limit:200},_gtCurAcc.id);
-    return numerosJaUsados((r&&r.data)||[]);
+      {fields:'promoted_object,optimization_goal,destination_type,campaign{objective}',limit:300},_gtCurAcc.id);
+    return (r&&r.data)||[];
   }catch(e){ return []; }
 }
 
@@ -3517,7 +3515,7 @@ function _gtNovoRedesenhar(htmlDireto){
     objetivos:_gtNovoObjetivos,imagens:_gtNovoImagens,paginas:_gtNovoPaginas,
     // A LINHA DO OBJETIVO vai junto porque o desenho depende dela: é ela que diz
     // se o número de WhatsApp é pedido neste passo.
-    objetivoRow:_gtNovoObjetivos.find(o=>o.chave===_gtNovo.objetivo)||null,
+    objetivoRow:_gtNovoObjetivos.find(o=>o.id===_gtNovo.objetivo)||null,
     numerosWa:_gtNovoNumerosWa,
     enviando:_gtNovoEnviando,criando:_gtNovoCriando,mostrarFaltas:_gtNovoFaltas,
     // `semRedesenhar` existe para digitação: redesenhar a cada letra faria o
@@ -3605,8 +3603,8 @@ async function _gtNovoNomesDeCidade(chaves){
 // existe na conta e deixa a decisão com o dono. Apagar sozinho o que ele acabou
 // de mandar criar seria decidir por ele num momento em que já está confuso.
 async function _gtNovoCriar(){
-  const row=_gtNovoObjetivos.find(o=>o.chave===_gtNovo.objetivo);
-  if(!row){await _gtConfirm('Objetivo não encontrado','Não achei este objetivo no cadastro da Fábrica.',{okOnly:true});return;}
+  const row=_gtNovoObjetivos.find(o=>o.id===_gtNovo.objetivo);
+  if(!row){await _gtConfirm('Tipo não encontrado','Não achei este tipo de campanha no catálogo.',{okOnly:true});return;}
   const payloads=payloadsDoAssistente({estado:_gtNovo,objetivoRow:row,nomeDaConta:(_gtCurAcc.display_name||_gtCurAcc.name||'')});
   if(!payloads){await _gtConfirm('Falta a página','Não consegui montar a campanha: escolha a página do Facebook que assina o anúncio.',{okOnly:true});return;}
 
@@ -3633,10 +3631,11 @@ async function _gtNovoCriar(){
     if(!cj||!cj.id)throw new Error('a Meta aceitou mas não devolveu o código do conjunto');
     feito.push('conjunto '+cj.id);
 
-    const criativo=payloadCriativa({
-      hash:_gtNovo.imagemHash,adsetDestinationType:row.destination_type,
-      waNumero:_gtNovo.whatsapp,page:_gtNovo.pageId,ig:_gtNovo.igId||undefined,
-      mensagem:_gtNovo.texto,
+    // O CRIATIVO DEPENDE DO DESTINO, e não só do hash da imagem: WhatsApp sai do
+    // montador provado da Fábrica, e os destinos novos (Direct, site,
+    // reconhecimento) são montados em criar-campanha.js. Ver criativaDoAssistente.
+    const criativo=criativaDoAssistente({
+      sub:row,estado:_gtNovo,page:_gtNovo.pageId,ig:_gtNovo.igId||undefined,
     });
     const cr=await metaPost('/'+act+'/adcreatives',{name:(_gtNovo.nome||'anúncio')+' · criativo',...criativo},conta);
     if(!cr||!cr.id)throw new Error('a Meta aceitou mas não devolveu o código do criativo');
