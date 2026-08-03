@@ -152,40 +152,11 @@ async function adsetsDaCampanha(campaignId) {
   }));
 }
 
-// --- payload puro (sem Graph) de campaign+adset a partir da linha de fabrica_objetivos --------
-// row = linha de fabrica_objetivos (mapaObjetivo); cfg = { DAILY_BUDGET, DATA }. destination_type só
-// entra se a linha tiver (branding não tem => omitido); promoted_object só entra se
-// montaPromotedObject(...) devolver objeto (branding='none' => undefined => omitido).
-// Nomes legíveis no Gerenciador da Meta (o "[Estudio]"/chave técnica confundia):
-//   campanha = "Bolsas · <loja> · <objetivo> · <dd/mm/aaaa>", conjunto = "<loja> · <objetivo>".
-// Objetivo pelo rótulo humano (fabrica_objetivos.rotulo), data com barras.
-export function rotuloObjetivo(row) { return row?.rotulo || row?.chave || 'Anúncios'; }
-export function nomeCampanha(loja, row, cfg) { return `Bolsas · ${loja.nome} · ${rotuloObjetivo(row)} · ${String(cfg.DATA || '').replace(/-/g, '/')}`.slice(0, 200); }
-export function nomeConjunto(loja, row) { return `${loja.nome} · ${rotuloObjetivo(row)}`.slice(0, 200); }
-
-export function payloadCampanhaAdset(row, marca, loja, cfg, publico = null, orcamento = null) {
-  const campaign = {
-    name: nomeCampanha(loja, row, cfg),
-    objective: row.meta_objective,
-    status: 'PAUSED',
-    special_ad_categories: [],
-    is_adset_budget_sharing_enabled: false,
-  };
-  const adset = {
-    name: nomeConjunto(loja, row),
-    billing_event: row.billing_event || 'IMPRESSIONS',
-    optimization_goal: row.optimization_goal,
-    status: 'PAUSED',
-    targeting: montarTargeting(publico, loja),
-  };
-  const orc = orcamentoMeta(orcamento, cfg.DAILY_BUDGET);
-  Object.assign(campaign, orc.campaign);
-  Object.assign(adset, orc.adset);
-  if (row.destination_type) adset.destination_type = row.destination_type;
-  const po = montaPromotedObject(row.promoted_object_tipo, marca, loja);
-  if (po) adset.promoted_object = po;
-  return { campaign, adset };
-}
+// O payload de campanha+conjunto mora em lib/payload-campanha.mjs desde
+// 2026-08-03, para a TELA de criar campanha usar o MESMO montador — copiar seria
+// repetir o erro que fez a Meta recusar quatro vezes. Reexportado aqui porque
+// meia dúzia de scripts já importa daqui.
+export { rotuloObjetivo, nomeCampanha, nomeConjunto, payloadCampanhaAdset } from './lib/payload-campanha.mjs';
 
 // --- destino 'nova': cria campanha + 1 conjunto a partir do objetivo da rodada -----------------
 async function criarCampanhaNova(loja, objetivoRow, publico = null, orcamento = null) {
