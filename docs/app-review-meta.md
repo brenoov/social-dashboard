@@ -121,40 +121,50 @@ Grave em uma tomada só, sem cortes, com o cursor visível:
 Fale ou escreva na tela, em cada passo, qual permissão está sendo usada.
 Analista não adivinha.
 
-> **Cuidado com a ordem.** O passo 5 só existe depois que a publicação
-> automática estiver implementada (ver a seção seguinte). Gravar o vídeo antes
-> disso obriga a gravar de novo.
+> **Cuidado com a ordem.** O passo 5 só acontece com o interruptor ligado, o
+> que só é possível depois da aprovação. Na prática: assim que a permissão sair,
+> ligue numa marca só, publique uma peça de teste, e grave o vídeo dessa
+> publicação.
 
 ---
 
 ## 5. A aprovação NÃO liga a publicação sozinha
 
 Este é o ponto que mais surpreende, e por isso está por último e em separado.
-Hoje `supabase/functions/_shared/publicar-instagram.js` **não publica nada**:
-devolve `{ modo: 'manual' }` e o sistema manda o aviso no celular com a arte e a
-legenda prontas. A função `publicarDeVerdade()` ainda não foi escrita.
+
+**O código já existe** (`supabase/functions/_shared/publicar-instagram.js`), com
+os dois passos da Graph API, carrossel, reels e stories, e 25 testes que rodam a
+sequência inteira contra uma Meta de mentira. Mas ele está **desligado** no
+interruptor `ESCOPOS_DE_PUBLICACAO_LIBERADOS`, que continua `false` — hoje
+`publicarPeca()` devolve `{ modo: 'manual' }` e o sistema manda o aviso no
+celular com a arte e a legenda prontas.
 
 Depois da aprovação, na ordem:
 
-1. **Regerar o token** com o escopo novo e trocá-lo no segredo do `meta-proxy`.
-   O token atual não ganha permissão por osmose — ele foi emitido antes.
+1. **Regerar o token** com o escopo novo e trocá-lo onde ele mora. O token atual
+   não ganha permissão por osmose — ele foi emitido antes.
 2. **Conferir `CREATE_CONTENT`** na página. Isso é papel **na página**, não
    escopo do app: sem ele, publicar falha mesmo com a permissão aprovada. A
    sonda confere isso; rode `alvo=appreview` de novo depois de trocar o token.
-3. **Escrever `publicarDeVerdade()`**: dois passos da Graph API —
-   `POST /{ig-user-id}/media` devolve um contêiner, `POST /{ig-user-id}/media_publish`
-   publica. Carrossel é um contêiner por item mais um de álbum.
-4. **Resolver a imagem pública.** O bucket `conteudo` é PRIVADO, e a Graph API
-   precisa baixar a imagem de uma URL pública. Vai ser preciso uma URL assinada
-   (e conferir se o host dela está na allow-list do `meta-proxy`) ou uma cópia
-   pública temporária que se apaga depois de publicar. Este item é trabalho de
-   verdade, não configuração.
-5. **Trocar `ESCOPOS_DE_PUBLICACAO_LIBERADOS` para `true`** e ligar conta por
-   conta em `accounts.publicacao_automatica` — **começar por UMA marca**, nunca
-   por todas.
-6. **Ligar os dois crons** da Central (migrations
+3. **Trocar `ESCOPOS_DE_PUBLICACAO_LIBERADOS` para `true`**, publicar a função
+   `conteudo-hora-h`, e ligar conta por conta em `accounts.publicacao_automatica`
+   — **começar por UMA marca**, nunca por todas.
+4. **Ligar os dois crons** da Central (migrations
    `2026-07-30-conteudo-06-cron-hora-h.sql` e
    `2026-07-31-conteudo-09-cron-espelho.sql`), hoje desligados de propósito.
 
-Os passos 3 e 4 são código nosso e podem ser feitos **antes** da aprovação sair —
-inclusive convém, porque o vídeo do passo 5 do roteiro precisa deles prontos.
+### O que ainda não tem prova
+
+Os testes provam a **sequência** — que os contêineres são criados na ordem certa,
+que o vídeo só é publicado depois de `FINISHED`, que carrossel monta o álbum com
+os filhos certos. O que eles **não** podem provar é o que só a Meta responde:
+se ela aceita cada `media_type`, se baixa a URL assinada do nosso Storage, e se o
+formato do arquivo passa. Isso só se sabe na primeira publicação de verdade — que
+é justamente a que vai virar o vídeo do pedido. Faça essa primeira numa peça de
+teste, numa marca só.
+
+**A imagem sai por URL assinada** do bucket privado `conteudo`, válida por 30
+minutos, gerada em `conteudo-hora-h` e injetada no módulo. A Meta baixa o arquivo
+pelo lado dela — não existe upload de bytes nesta API. (A allow-list do
+`meta-proxy` não entra nesta história: aqui a Edge Function fala direto com a
+Graph API, com o token da conta.)

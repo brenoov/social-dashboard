@@ -201,6 +201,7 @@ As quatro fases estão feitas. O que falta é decisão do dono, não código:
     (o que pedir, o texto pronto e o roteiro do vídeo: docs/app-review-meta.md.
      medido em 03/08/2026: falta SÓ instagram_content_publish; as outras sete
      permissões que o sistema usa já funcionam)
-  - a publicação em si: publicar-instagram.js ainda devolve {modo:'manual'} —
-    a aprovação da Meta NÃO liga isso sozinha, ainda falta escrever os dois
-    passos da Graph API e resolver a URL pública da imagem (bucket privado)
+  - ligar o interruptor: publicar-instagram.js JÁ SABE publicar (os dois passos
+    da Graph API, carrossel, reels e stories, com 25 testes), mas
+    ESCOPOS_DE_PUBLICACAO_LIBERADOS está false de propósito. Vira true quando a
+    permissão sair — e aí liga conta por conta, começando por UMA marca.

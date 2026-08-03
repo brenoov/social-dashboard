@@ -3,9 +3,12 @@
 // Roda de 5 em 5 minutos. Pega as peças cuja hora chegou e manda um push para
 // quem pode publicar, com a arte e a legenda prontas.
 //
-// POR QUE ELA NÃO PUBLICA: o aplicativo da Meta ainda não tem o escopo
-// `instagram_content_publish` (ver _shared/publicar-instagram.js). Quando tiver,
-// só o `modo` que volta de publicarPeca() muda — esta função já ramifica nele.
+// POR QUE ELA AINDA NÃO PUBLICA: a publicação está IMPLEMENTADA em
+// _shared/publicar-instagram.js, mas desligada no interruptor
+// ESCOPOS_DE_PUBLICACAO_LIBERADOS — o aplicativo da Meta ainda não tem o escopo
+// `instagram_content_publish` (ver docs/app-review-meta.md). Quando o interruptor
+// virar, só o `modo` que volta de publicarPeca() muda; esta função já ramifica
+// nele e nada mais precisa mexer.
 //
 // A ARMADILHA QUE ESTA FUNÇÃO RESOLVE: avisar duas vezes. O cron dispara a cada
 // 5 minutos e uma execução pode demorar; duas rodadas podem se cruzar. Se a
@@ -82,7 +85,17 @@ Deno.serve(async (req) => {
     try {
       const { data: arquivos } = await sb.from('conteudo_arquivos')
         .select('caminho,tipo,ordem').eq('peca_id', p.id).order('ordem');
-      const r = await publicarPeca(p, arquivos || [], conta);
+      // A URL TEMPORÁRIA É INJETADA AQUI, e não montada lá dentro: o bucket
+      // `conteudo` é PRIVADO e a Meta baixa o arquivo pelo lado dela, então
+      // precisa de um link assinado. Quem tem o cliente do Storage é esta
+      // função — o módulo de publicar continua sem saber o que é Supabase, e
+      // por isso continua testável sem conta nenhuma.
+      const urlAssinada = async (caminho: string, segundos: number) => {
+        const { data, error } = await sb.storage.from('conteudo').createSignedUrl(caminho, segundos);
+        if (error) throw new Error(`não consegui assinar a URL de "${caminho}": ${error.message}`);
+        return data?.signedUrl || '';
+      };
+      const r = await publicarPeca(p, arquivos || [], conta, { urlAssinada });
       if (r.modo === 'automatico') {
         await sb.from('conteudo_pecas').update({
           status: 'publicada', publicado_em: new Date().toISOString(), ig_media_id: r.ig_media_id,
