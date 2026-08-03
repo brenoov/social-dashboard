@@ -14,7 +14,7 @@ on:
         required: false
         default: 'editor'
         type: choice
-        options: ['editor', 'duplicar', 'criativo', 'permissoes']
+        options: ['editor', 'duplicar', 'criativo', 'permissoes', 'criar']
       manter:
         description: 'manter a campanha de teste no fim (para conferir no Gerenciador)'
         required: false
@@ -91,3 +91,14 @@ jobs:
           GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
           GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
         run: cd coletor && node --import ./lib/curl-fetch.mjs sondar-permissoes-meta.mjs
+
+      # A CADEIA campanha → conjunto → anúncio, nos quatro objetivos. É a prova
+      # que precisa existir ANTES da tela de criar campanha (o C3): escrever tela
+      # sobre payload não provado faz o erro aparecer no clique do dono.
+      - name: Validar criar do zero (PAUSED, apaga no fim)
+        if: ${{ inputs.alvo == 'criar' }}
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
+          GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
+        run: cd coletor && node --import ./lib/curl-fetch.mjs validar-criar-no-gestor.mjs
