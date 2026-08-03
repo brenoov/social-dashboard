@@ -4,6 +4,7 @@ import {
   PASSOS, estadoInicial, faltaNoPasso, podeAvancar, primeiroPassoIncompleto,
   imagemServe, resumoDoQueVaiSerCriado, payloadsDoAssistente, publicoParaFabrica,
   LADO_MINIMO_PX, ORCAMENTO_MINIMO_CENTAVOS, horarioDeTermino, pedeWhatsapp,
+  numerosJaUsados, numerosParaPagina,
 } from './criar-campanha.js'
 
 const cheio = () => ({
@@ -238,4 +239,39 @@ test('a confirmacao diz QUAL pagina assina — e avisa quando nao ha Instagram',
 
   const semIg = resumoDoQueVaiSerCriado(cheio(), 'Engajamento', { pagina: 'La Vessel Hortolândia' })
   assert.ok(semIg.some((l) => /sem Instagram ligado/.test(l)))
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OS NÚMEROS DE WHATSAPP QUE A META JÁ ACEITOU
+//
+// DESCOBERTO DO JEITO CARO (03/08/2026): criei uma campanha com um número
+// inventado e a Meta recusou o CONJUNTO depois de a campanha já existir —
+// "This WhatsApp phone number is not linked to your account". Não há endpoint
+// que liste os números permitidos; o que há é a prova pelo uso, no
+// `promoted_object` dos conjuntos que já rodam.
+const CONJUNTOS = [
+  { promoted_object: { page_id: '324679337390168', whatsapp_phone_number: '5519971092194' } },
+  { promoted_object: { page_id: '1015508584968115', whatsapp_phone_number: '5519971124217' } },
+  { promoted_object: { page_id: '1015508584968115', whatsapp_phone_number: '5519971124217' } }, // repetido
+  { promoted_object: { page_id: '324679337390168' } },                                          // sem número
+  { },                                                                                          // sem nada
+]
+
+test('colhe os numeros dos conjuntos que existem, sem repetir', () => {
+  assert.deepEqual(numerosJaUsados(CONJUNTOS), [
+    { pageId: '324679337390168', numero: '5519971092194' },
+    { pageId: '1015508584968115', numero: '5519971124217' },
+  ])
+  assert.deepEqual(numerosJaUsados(null), [])
+})
+
+test('mostra os numeros DA PAGINA escolhida', () => {
+  const n = numerosParaPagina(numerosJaUsados(CONJUNTOS), '1015508584968115')
+  assert.deepEqual(n.map((x) => x.numero), ['5519971124217'])
+})
+
+test('pagina sem numero conhecido mostra os da conta, em vez de lista vazia', () => {
+  // Palpite útil vale mais que nada: a pessoa vê de qual página cada um é.
+  const n = numerosParaPagina(numerosJaUsados(CONJUNTOS), '999999')
+  assert.equal(n.length, 2)
 })

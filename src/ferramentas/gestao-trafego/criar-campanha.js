@@ -79,6 +79,36 @@ export function pedeWhatsapp(objetivoRow) {
 // (`soDigitos` em meta-subir.mjs) antes de montar o link do wa.me.
 const digitos = (v) => String(v == null ? '' : v).replace(/\D/g, '');
 
+// OS NÚMEROS QUE JÁ FUNCIONAM NESTA CONTA, tirados dos conjuntos que existem.
+//
+// POR QUE (medido ao vivo em 03/08/2026): a Meta recusa número que não esteja
+// ligado à conta, com "This WhatsApp phone number is not linked to your
+// account" — e não existe endpoint que liste os números permitidos. O que
+// existe é a prova pelo uso: todo conjunto de WhatsApp que já roda carrega, no
+// `promoted_object`, o par página + número que a Meta ACEITOU.
+//
+// Então em vez de deixar digitar no escuro, oferecemos o que já deu certo. Quem
+// tiver um número novo continua podendo digitar — a lista é atalho, não trava.
+export function numerosJaUsados(conjuntos) {
+  const vistos = new Map();
+  for (const cj of (Array.isArray(conjuntos) ? conjuntos : [])) {
+    const po = cj && cj.promoted_object;
+    const numero = po && po.whatsapp_phone_number;
+    if (!numero) continue;
+    const chave = `${po.page_id || ''}|${numero}`;
+    if (!vistos.has(chave)) vistos.set(chave, { pageId: String(po.page_id || ''), numero: String(numero) });
+  }
+  return [...vistos.values()];
+}
+
+// Os números desta página primeiro; se ela não tem nenhum, mostra os da conta —
+// é melhor um palpite útil que uma lista vazia, e a pessoa vê de qual página é.
+export function numerosParaPagina(numeros, pageId) {
+  const lista = Array.isArray(numeros) ? numeros : [];
+  const daPagina = lista.filter((n) => String(n.pageId) === String(pageId));
+  return daPagina.length ? daPagina : lista;
+}
+
 // Um número brasileiro com DDI+DDD+número tem 12 ou 13 dígitos (13 com o 9).
 // Abaixo disso é engano de digitação, e o anúncio sairia com um link morto —
 // que é pior que não sair, porque gasta.

@@ -165,7 +165,7 @@ import { montarPainelRegua } from './painel-regua.js'
 // testado; painel-fila.js só monta a tela.
 import { montarPainelFila } from './painel-fila.js'
 import { montarAssistente, textoDaConfirmacao } from './assistente-campanha.js'
-import { estadoInicial, imagemServe, payloadsDoAssistente, PASSOS } from './criar-campanha.js'
+import { estadoInicial, imagemServe, payloadsDoAssistente, numerosJaUsados, PASSOS } from './criar-campanha.js'
 import { carregarMarcasELojas } from '../../../coletor/lib/config-lojas.mjs'
 // O criativo sai do MESMO montador da Fábrica — puro, sem nada de Node, então
 // o Vite empacota para o navegador sem ginástica.
@@ -3380,6 +3380,7 @@ let _gtNovo=null;            // estado do formulário (forma de criar-campanha.j
 let _gtNovoPasso=0;
 let _gtNovoObjetivos=[];     // linhas de fabrica_objetivos (a receita, vale p/ toda conta)
 let _gtNovoPaginas=[];       // páginas do Facebook que o token pode usar, com o IG de cada
+let _gtNovoNumerosWa=[];     // números de WhatsApp que a Meta JÁ aceitou nesta conta
 let _gtNovoImagens=[];
 let _gtNovoEnviando=false, _gtNovoCriando=false, _gtNovoFaltas=false;
 
@@ -3409,14 +3410,15 @@ async function _gtNovoAbrir(){
 
   // ZERA ANTES DE CARREGAR: uma falha de rede não pode deixar de pé a lista da
   // ABERTURA ANTERIOR, que pode ser de outra conta.
-  _gtNovoObjetivos=[];_gtNovoImagens=[];_gtNovoPaginas=[];
-  const [objs,pags,imgs,sugerido]=await Promise.all([
+  _gtNovoObjetivos=[];_gtNovoImagens=[];_gtNovoPaginas=[];_gtNovoNumerosWa=[];
+  const [objs,pags,imgs,sugerido,numeros]=await Promise.all([
     sb('fabrica_objetivos?select=chave,rotulo,meta_objective,optimization_goal,billing_event,destination_type,promoted_object_tipo,ativo&ativo=eq.true&order=ordem').catch(()=>null),
     _gtNovoBuscarPaginas(),
     _gtNovoBuscarImagens(),
     _gtNovoSugerirIdentidade(),
+    _gtNovoBuscarNumerosWa(),
   ]);
-  _gtNovoObjetivos=objs||[];_gtNovoPaginas=pags;_gtNovoImagens=imgs;
+  _gtNovoObjetivos=objs||[];_gtNovoPaginas=pags;_gtNovoImagens=imgs;_gtNovoNumerosWa=numeros;
 
   // OS OBJETIVOS são a única coisa sem a qual não dá para seguir: eles são a
   // receita (objective + optimization_goal + destination_type) que a Meta cobra.
@@ -3457,6 +3459,21 @@ async function _gtNovoBuscarPaginas(){
         igNome:(p.instagram_business_account&&p.instagram_business_account.username)||'',
       }))
       .sort((a,b)=>String(a.nome).localeCompare(String(b.nome),'pt-BR'));
+  }catch(e){ return []; }
+}
+
+// OS NÚMEROS DE WHATSAPP QUE A META JÁ ACEITOU NESTA CONTA.
+//
+// Não existe endpoint que liste os números permitidos — descoberto do jeito
+// caro, tomando "This WhatsApp phone number is not linked to your account" de
+// um número inventado (03/08/2026). O que existe é a prova pelo uso: todo
+// conjunto que já roda carrega no `promoted_object` o par página + número que
+// a Meta aceitou. Falhar aqui não impede nada: o campo continua livre.
+async function _gtNovoBuscarNumerosWa(){
+  try{
+    const r=await metaFetch('/'+_gtCleanAct(_gtCurAcc.ad_account_id)+'/adsets',
+      {fields:'promoted_object',limit:200},_gtCurAcc.id);
+    return numerosJaUsados((r&&r.data)||[]);
   }catch(e){ return []; }
 }
 
@@ -3501,6 +3518,7 @@ function _gtNovoRedesenhar(htmlDireto){
     // A LINHA DO OBJETIVO vai junto porque o desenho depende dela: é ela que diz
     // se o número de WhatsApp é pedido neste passo.
     objetivoRow:_gtNovoObjetivos.find(o=>o.chave===_gtNovo.objetivo)||null,
+    numerosWa:_gtNovoNumerosWa,
     enviando:_gtNovoEnviando,criando:_gtNovoCriando,mostrarFaltas:_gtNovoFaltas,
     // `semRedesenhar` existe para digitação: redesenhar a cada letra faria o
     // campo perder o foco no meio da palavra.
