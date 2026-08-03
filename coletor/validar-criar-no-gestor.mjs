@@ -78,10 +78,16 @@ async function main() {
   const PREFIXO = '[VALIDA C3]';
   const velhas = await proxy({ accountId: acct, path: `/${act}/campaigns`, method: 'GET',
     params: { fields: 'id,name,status', limit: 100, filtering: JSON.stringify([{ field: 'name', operator: 'CONTAIN', value: PREFIXO }]) } });
-  for (const c of ((velhas.d && velhas.d.data) || [])) {
+  // DIZ O QUE ENCONTROU, inclusive o que já estava apagado. Silêncio aqui é
+  // ambíguo: não dá pra distinguir "não havia sobra" de "o filtro não achou" —
+  // e foi essa dúvida que ficou depois de uma rodada deixar campanha para trás.
+  const achadas = (velhas.d && velhas.d.data) || [];
+  console.log(`faxina: ${achadas.length} campanha(s) com o prefixo ${PREFIXO}`
+    + (achadas.length ? ' → ' + achadas.map((c) => `${c.name}=${c.status}`).join(' · ') : ''));
+  for (const c of achadas) {
     if (String(c.status).toUpperCase() === 'DELETED') continue;
-    await proxy({ accountId: acct, path: `/${c.id}`, method: 'POST', params: { status: 'DELETED' } });
-    console.log(`🧹 sobra apagada: ${c.name}`);
+    const rd = await proxy({ accountId: acct, path: `/${c.id}`, method: 'POST', params: { status: 'DELETED' } });
+    console.log(`🧹 sobra ${rd.status === 200 ? 'apagada' : 'NÃO apagada'}: ${c.name} (${c.id})`);
   }
 
   // UMA IMAGEM QUE JÁ EXISTE na conta. Subir imagem nova é outro problema (e
