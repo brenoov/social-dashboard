@@ -37,6 +37,12 @@
 //                  Ainda NÃO sabemos criar esses — é outra tela (escolher a
 //                  publicação), e por isso eles aparecem bloqueados, com o
 //                  motivo escrito.
+// NUNCA `'ig'` — medido em 03/08/2026, do jeito caro: a Meta recusa com
+// `(#100) Invalid keys "instagram_user_id" were found in param "promoted_object"`.
+// Olhando os conjuntos que já rodam nas contas, TODO destino de Instagram
+// (INSTAGRAM_DIRECT, INSTAGRAM_PROFILE) usa `page_id`, e nunca o id do perfil.
+// O perfil entra no CRIATIVO (`object_story_spec.instagram_user_id`), que é
+// outro lugar — e é a confusão que custou uma campanha apagada.
 export const CRIATIVO_NOVO = 'novo';
 export const CRIATIVO_PUBLICACAO = 'publicacao';
 
@@ -78,7 +84,7 @@ export const CATALOGO = [
     id: 'conversa-direct', grupo: 'Conversas', rotulo: 'Conversa no Direct do Instagram',
     explicacao: 'A conversa acontece no Direct, sem sair do Instagram. Bom quando o número de WhatsApp não é o canal principal.',
     meta_objective: 'OUTCOME_ENGAGEMENT', optimization_goal: 'CONVERSATIONS',
-    billing_event: 'IMPRESSIONS', destination_type: 'INSTAGRAM_DIRECT', promoted_object_tipo: 'ig',
+    billing_event: 'IMPRESSIONS', destination_type: 'INSTAGRAM_DIRECT', promoted_object_tipo: 'page',
     criativo: CRIATIVO_NOVO, precisa: [],
   },
   {
@@ -95,7 +101,7 @@ export const CATALOGO = [
     id: 'visita-perfil', grupo: 'Perfil e publicação', rotulo: 'Visita ao perfil do Instagram',
     explicacao: 'Leva gente para o seu perfil, para conhecer a marca e seguir. É o mais rodado nestas contas.',
     meta_objective: 'OUTCOME_TRAFFIC', optimization_goal: 'PROFILE_VISIT',
-    billing_event: 'IMPRESSIONS', destination_type: 'INSTAGRAM_PROFILE', promoted_object_tipo: 'ig',
+    billing_event: 'IMPRESSIONS', destination_type: 'INSTAGRAM_PROFILE', promoted_object_tipo: 'page',
     criativo: CRIATIVO_PUBLICACAO, precisa: [PRECISA_PUBLICACAO],
   },
   {
@@ -157,7 +163,7 @@ export const CATALOGO = [
     id: 'lembranca', grupo: 'Reconhecimento', rotulo: 'Lembrança da marca',
     explicacao: 'A Meta procura quem tem mais chance de LEMBRAR do anúncio depois. Serve para marca, não para venda.',
     meta_objective: 'OUTCOME_AWARENESS', optimization_goal: 'AD_RECALL_LIFT',
-    billing_event: 'IMPRESSIONS', destination_type: null, promoted_object_tipo: 'none',
+    billing_event: 'IMPRESSIONS', destination_type: null, promoted_object_tipo: 'page',
     criativo: CRIATIVO_NOVO, precisa: [],
   },
 ];
