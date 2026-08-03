@@ -108,6 +108,22 @@ export function montarMensagens(camp, ins, ads, conjuntos, regua) {
     '"veredito": "escalar"|"reduzir"|"manter"|"pausar", ' +
     '"justificativa": "<1-2 frases PT-BR>", ' +
     '"impacto_estimado": "<estimativa curta PT-BR>", ' +
+    // OS TRÊS IMPACTOS (pedido do dono, 2026-08-03). A fila passou a oferecer
+    // subir/baixar/manter em toda linha, e ele foi direto ao ponto: "não é pra
+    // falar só de orçamento, quero um detalhamento de impacto real, o que
+    // acontecerá com as métricas — senão conta de porcentagem eu mesmo fazia".
+    //
+    // Conta de porcentagem a TELA faz. O que só você sabe é o que acontece com
+    // o custo por resultado desta campanha contra a meta desta conta, com a
+    // frequência, com o alcance e com o aprendizado. É isso que tem de estar
+    // escrito — com os números que você olhou, não com adjetivos.
+    '"impactos": {"subir": "<...>", "baixar": "<...>", "manter": "<...>"}, ' +
+    'CADA IMPACTO: 1 ou 2 frases, e fale do EFEITO NAS MÉTRICAS desta campanha — custo por resultado contra a meta desta conta, ' +
+    'frequência (fadiga), alcance, volume de resultado e reinício do aprendizado da Meta quando a mudança for grande. ' +
+    'Use os NÚMEROS que você recebeu (custo atual, meta, frequência, CTR), não adjetivos soltos. ' +
+    'NÃO repita a porcentagem nem o valor em reais: a tela já mostra os dois, e repetir rouba o espaço do que só você sabe dizer. ' +
+    'Escreva os três mesmo quando um deles for uma má ideia — dizer POR QUE é má ideia é justamente o que ajuda a decidir. ' +
+    'Em "manter", diga o que acontece se nada for feito, não "nada muda". ' +
     '"anuncios": [ {"ad_id": "<id>", "veredito": "manter"|"pausar", "justificativa": "<1 frase PT-BR>"} ]}';
   const dados = {
     nome: camp.name || '',
@@ -176,11 +192,22 @@ export function parsearSaida(text) {
           && typeof a.justificativa === 'string' && a.justificativa.trim())
         .map((a) => ({ ad_id: a.ad_id.trim(), veredito: a.veredito, justificativa: a.justificativa.trim() }))
     : [];
+  // OS TRÊS IMPACTOS SÃO OPCIONAIS na validação, e isso é decisão, não descuido:
+  // se o modelo esquecer um deles, é melhor gravar a análise sem os textos (a
+  // tela cai na conta simples) do que jogar fora uma recomendação de orçamento
+  // inteira por causa de uma frase. Só entra o que veio como texto de verdade.
+  const impactos = {};
+  for (const k of ['subir', 'baixar', 'manter']) {
+    const v = o.impactos && o.impactos[k];
+    if (typeof v === 'string' && v.trim()) impactos[k] = v.trim();
+  }
+
   return {
     budget_sugerido_centavos: Math.round(b),
     veredito: o.veredito,
     justificativa: o.justificativa.trim(),
     impacto_estimado: o.impacto_estimado.trim(),
+    impactos: Object.keys(impactos).length ? impactos : null,
     anuncios,
   };
 }
@@ -417,6 +444,7 @@ async function main() {
           veredito: saida.veredito,
           justificativa: saida.justificativa,
           impacto_estimado: saida.impacto_estimado,
+          impactos: saida.impactos,
           modelo: MODEL,
           gerado_em: new Date().toISOString(),
           valida_ate: validaAte,

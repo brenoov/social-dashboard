@@ -138,6 +138,7 @@ import { montarPainelRegua } from './painel-regua.js'
 // silêncio de 7 dias, a repartição por conjunto) moram em fila.js, puro e
 // testado; painel-fila.js só monta a tela.
 import { montarPainelFila } from './painel-fila.js'
+import { lerGastos, linhasDoModal, usoDoOrcamento } from './gastos-da-fila.js'
 // O funil das campanhas NO AR, um bloco por objetivo. Nem todo objetivo tem
 // funil de verdade — ver funil.js.
 import { montarPainelFunil } from './painel-funil.js'
@@ -743,6 +744,9 @@ function _gtReguaAtiva() {
 // virou só leitura de propósito — com dois caminhos, um deles escaparia do
 // registro (decisão do dono, 2026-07-29).
 let _gtFila = { pendentes: [], vencidas: [], silenciadas: [], respondidas: [] };
+// Data de N dias atrás em AAAA-MM-DD, para o filtro do PostgREST.
+const _gtDiasAtras = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+let _gtGastosPorCampanha = new Map();
 let _gtFilaCarregando = false;
 // Só vira true quando a leitura terminou de verdade. Enquanto for false, a aba
 // diz "carregando", nunca "não há nada" — ver a guarda em _gtCarregarFila.
@@ -803,12 +807,25 @@ async function _gtCarregarFila() {
   _gtFilaCarregando = true;
   try {
     // sb() nunca lança: devolve [] com .erro (ver buscar-e-salvar-dados.js).
-    const [analises, decisoes] = await Promise.all([
-      sb('gt_budget_analises?select=campaign_id,account_id,veredito,justificativa,impacto_estimado,budget_atual_centavos,budget_sugerido_centavos,gerado_em,valida_ate'),
+    const [analises, decisoes, gastos] = await Promise.all([
+      sb('gt_budget_analises?select=campaign_id,account_id,veredito,justificativa,impacto_estimado,impactos,budget_atual_centavos,budget_sugerido_centavos,gerado_em,valida_ate'),
       sb('gt_fila_decisoes?select=campaign_id,decisao,decidido_em,silenciar_ate&order=decidido_em.desc'),
+      // O GASTO de verdade, do coletor — sem chamada nova à Meta. Só as capturas
+      // dos últimos dias: `lerGastos` fica com a mais nova de cada campanha, e
+      // trazer meses de histórico para descartar seria peso de rede à toa.
+      sb(`campaign_insights?select=campaign_id,captured_at,period_days,spend&captured_at=gte.${_gtDiasAtras(3)}`),
     ]);
     if (analises.erro) { console.error('[GT] falha ao ler as análises da fila:', analises.erro); }
     _gtFila = montarFila(analises || [], decisoes || [], new Date().toISOString());
+    // O gasto entra DEPOIS de montar a fila, por campanha. Agrupar aqui em vez
+    // de dentro de montarFila mantém aquele módulo puro sem saber de insights.
+    _gtGastosPorCampanha = new Map();
+    for (const g of (gastos || [])) {
+      if (!g || g.campaign_id == null) continue;
+      const k = String(g.campaign_id);
+      if (!_gtGastosPorCampanha.has(k)) _gtGastosPorCampanha.set(k, []);
+      _gtGastosPorCampanha.get(k).push(g);
+    }
 
     // Busca SEMPRE, mesmo com a fila vazia: a leitura de saúde precisa varrer as
     // campanhas ativas, e uma delas pode ter alerta sem o robô ter proposto nada
@@ -2282,6 +2299,13 @@ function _gtTrocarAba(nome) {
   }
   if (nome === 'fila') {
     const alvo = document.getElementById('gt-painel-fila');
+    // O gasto vive fora da fila (vem do coletor, não do robô), então entra aqui,
+    // grudado no item — assim o painel puro recebe tudo pronto.
+    for (const grupo of ['pendentes', 'vencidas', 'silenciadas']) {
+      for (const it of ((_gtFila && _gtFila[grupo]) || [])) {
+        it.gastos = lerGastos(_gtGastosPorCampanha.get(String(it.campaign_id)) || []);
+      }
+    }
     if (alvo) montarPainelFila(alvo, {
       pendentes: _gtFila.pendentes,
       vencidas: _gtFila.vencidas,
@@ -2302,6 +2326,7 @@ function _gtTrocarAba(nome) {
       // A LUPA da fila reusa o MESMO modal da lista de anúncios — prévia real da
       // Meta, já validada ao vivo. Ligar o que existe, em vez de escrever outra.
       aoVerCriativo: (item, adId, nome) => _gtVerCriativo(adId, item.account_id || (_gtCurAcc && _gtCurAcc.id), nome),
+      aoVerGastos: (item) => _gtVerGastos(item),
       aoRecusar: _gtFilaRecusar,
       aoPausarCriativos: _gtFilaPausarCriativos,
       ajudaBtn: _gtAjudaBtn,
@@ -2350,6 +2375,34 @@ function _gtTrocarAba(nome) {
     });
   }
 }
+// O DETALHAMENTO DE GASTO, no mesmo modal do criativo — janela genérica que já
+// existe (título + corpo + ESC + clique fora). Escrever outra seria manter duas.
+function _gtVerGastos(item){
+  const ov=document.getElementById('gt-cr-overlay'),md=document.getElementById('gt-cr-modal'),bd=document.getElementById('gt-cr-body');
+  if(!ov||!md||!bd)return;
+  ov.style.display='block';md.style.display='flex';
+  const tt=document.getElementById('gt-cr-title');
+  if(tt)tt.textContent='Gastos · '+(item.campaign_name||item.campaign_id||'');
+  document.addEventListener('keydown',_gtCrEsc);
+
+  const linhas=linhasDoModal(item.gastos);
+  if(!linhas.length){
+    bd.innerHTML='<div class="gt-gasto-vazio">Ainda não tenho gasto registrado desta campanha.<br>O coletor grava uma vez por dia.</div>';
+    return;
+  }
+  const uso=usoDoOrcamento(item.gastos,item.budget_atual_centavos);
+  const teto=item.budget_atual_centavos!=null
+    ? '<div class="gt-gasto-teto">Teto de orçamento: <b>'+_maFmtR(item.budget_atual_centavos/100)+'</b> por dia</div>' : '';
+  bd.innerHTML='<div class="gt-gasto-box">'+teto
+    +'<table class="gt-gasto-tab">'+linhas.map(l=>
+      '<tr'+(l.parcial?' class="parcial"':'')+'><th>'+_gtEsc(l.rotulo)+'</th>'
+      +'<td class="v">'+_gtEsc(l.valor)+'</td><td class="n">'+_gtEsc(l.nota||'')+'</td></tr>').join('')
+    +'</table>'
+    +(uso&&uso.aperta?'<p class="gt-gasto-aviso">'+_gtEsc(uso.texto)+'</p>':'')
+    +'<p class="gt-gasto-fonte">Números do coletor, capturados em '
+    +_gtEsc((item.gastos&&item.gastos.capturadoEm)||'—')+'. Não é fatura da Meta.</p></div>';
+}
+
 async function _gtVerCriativo(adId,accId,nome){
   const ov=document.getElementById('gt-cr-overlay'),md=document.getElementById('gt-cr-modal'),bd=document.getElementById('gt-cr-body');
   if(!ov||!md||!bd)return;
@@ -3809,6 +3862,48 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gtf-btn.aprovar.pausar){background:var(--red);border-color:var(--red);}
 .tela-gestao-trafego :deep(.gtf-btn.aprovar:hover){filter:brightness(1.08);}
 .tela-gestao-trafego :deep(.gtf-btn:disabled){opacity:.6;cursor:default;}
+/* A RECOMENDAÇÃO DA IA EM DESTAQUE, e os caminhos contrários discretos (pedido
+   do dono, 2026-08-03). `.alternativa` é botão de contorno: continua a um
+   clique, mas não disputa o olho com o conselho. */
+.tela-gestao-trafego :deep(.gtf-btn.recomendada){box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);font-weight:700;}
+.tela-gestao-trafego :deep(.gtf-btn.aprovar.reduzir.recomendada){box-shadow:0 0 0 3px color-mix(in srgb, var(--orange) 22%, transparent);}
+.tela-gestao-trafego :deep(.gtf-btn.alternativa){background:transparent;border-color:var(--border);color:var(--muted);font-weight:500;opacity:.75;}
+.tela-gestao-trafego :deep(.gtf-btn.alternativa:hover){opacity:1;color:var(--text);border-color:var(--muted);}
+.tela-gestao-trafego :deep(.gtf-btn.alternativa.reduzir:hover){color:var(--orange);border-color:var(--orange);}
+.tela-gestao-trafego :deep(.gtf-estrela){font-size:.9em;opacity:.9;}
+/* O bloco de impacto: MENOR que o corpo da linha — é leitura de apoio, não
+   manchete. O texto da IA fica no tamanho de leitura; a conta, menor ainda. */
+.tela-gestao-trafego :deep(.gtf-impactos){margin-top:9px;font-size:calc(9.5px*var(--gt-fs,1.3));}
+.tela-gestao-trafego :deep(.gtf-impactos summary){cursor:pointer;color:var(--muted);font-weight:600;}
+.tela-gestao-trafego :deep(.gtf-impactos summary:hover){color:var(--text);}
+.tela-gestao-trafego :deep(.gtf-impactos ul){margin:7px 0 0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:7px;}
+.tela-gestao-trafego :deep(.gtf-impactos li){padding-left:9px;border-left:2px solid var(--border);}
+.tela-gestao-trafego :deep(.gtf-impactos li.rec){border-left-color:var(--accent);}
+.tela-gestao-trafego :deep(.gtf-impactos b){display:block;color:var(--text);}
+.tela-gestao-trafego :deep(.gtf-tag-rec){font-size:.85em;color:var(--accent);font-weight:700;}
+.tela-gestao-trafego :deep(.gtf-impacto-txt){display:block;color:var(--text);line-height:1.55;margin-top:2px;}
+.tela-gestao-trafego :deep(.gtf-conta-simples){display:block;color:var(--muted);font-size:.88em;margin-top:3px;}
+.tela-gestao-trafego :deep(.gtf-passo-origem){color:var(--muted);font-size:.88em;margin:8px 0 0;line-height:1.5;}
+/* O GASTO ao lado do teto. `sobrando` marca a campanha que não usa o que já
+   pode gastar — é a leitura que muda a decisão, então merece cor. */
+.tela-gestao-trafego :deep(.gtf-gasto){display:flex;align-items:center;gap:6px;flex:0 0 auto;}
+.tela-gestao-trafego :deep(.gtf-gasto-num){font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);white-space:nowrap;}
+.tela-gestao-trafego :deep(.gtf-gasto.sobrando .gtf-gasto-num){color:var(--orange);font-weight:700;}
+.tela-gestao-trafego :deep(.gtf-gasto-btn){font-size:calc(9px*var(--gt-fs,1.3));padding:3px 9px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;}
+.tela-gestao-trafego :deep(.gtf-gasto-btn:hover){color:var(--text);border-color:var(--muted);}
+.tela-gestao-trafego :deep(.gtf-uso){margin:8px 0 0;font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--orange);line-height:1.5;}
+/* O modal de gastos, dentro da janela genérica do criativo. */
+.tela-gestao-trafego :deep(.gt-gasto-box){padding:16px 18px;font-family:var(--fonte-principal);}
+.tela-gestao-trafego :deep(.gt-gasto-teto){font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);margin-bottom:12px;}
+.tela-gestao-trafego :deep(.gt-gasto-tab){width:100%;border-collapse:collapse;font-size:calc(10px*var(--gt-fs,1.3));}
+.tela-gestao-trafego :deep(.gt-gasto-tab tr){border-bottom:1px solid var(--border);}
+.tela-gestao-trafego :deep(.gt-gasto-tab tr.parcial){opacity:.75;}
+.tela-gestao-trafego :deep(.gt-gasto-tab th){text-align:left;padding:8px 0;font-weight:700;color:var(--text);}
+.tela-gestao-trafego :deep(.gt-gasto-tab td.v){text-align:right;font-weight:800;color:var(--text);white-space:nowrap;padding-right:10px;}
+.tela-gestao-trafego :deep(.gt-gasto-tab td.n){color:var(--muted);font-size:.88em;text-align:right;white-space:nowrap;}
+.tela-gestao-trafego :deep(.gt-gasto-aviso){margin:12px 0 0;padding:10px 12px;border-radius:8px;background:rgba(217,119,6,.12);border:1px solid rgba(217,119,6,.35);color:var(--text);font-size:calc(9.5px*var(--gt-fs,1.3));line-height:1.55;}
+.tela-gestao-trafego :deep(.gt-gasto-fonte){margin:12px 0 0;color:var(--muted);font-size:calc(8.5px*var(--gt-fs,1.3));line-height:1.5;}
+.tela-gestao-trafego :deep(.gt-gasto-vazio){padding:30px 20px;text-align:center;color:var(--muted);font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));line-height:1.6;}
 /* Leitura desce ABAIXO da linha, recuada pra alinhar com o nome da campanha. */
 .tela-gestao-trafego :deep(.gtf-just),.tela-gestao-trafego :deep(.gtf-impacto){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;margin:9px 0 0;}
 .tela-gestao-trafego :deep(.gtf-conjuntos){margin-top:7px;}

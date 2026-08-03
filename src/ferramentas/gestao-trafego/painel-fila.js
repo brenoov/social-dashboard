@@ -7,6 +7,7 @@
 // recebe os itens prontos e devolve as decisões por callback. Mesmo contrato de
 // painel-regua.js.
 import { opcoesDaLinha, frasePasso } from './acoes-da-fila.js';
+import { gastoDaLinha, usoDoOrcamento } from './gastos-da-fila.js';
 
 import { distribuirEntreConjuntos } from './fila.js';
 
@@ -130,15 +131,23 @@ function blocoAcoes(item, opcoes) {
   const pausar = item.veredito === 'pausar'
     ? `<button class="gtf-btn aprovar pausar" data-gtf-acao="pausar" title="A campanha para de rodar hoje. O que já foi gasto não volta.">Pausar campanha</button>`
     : '';
-  const bt = (op, extra) => op
-    ? `<button class="gtf-btn ${extra}" data-gtf-acao="${op.chave}" title="${esc(op.impacto)}">${esc(op.rotulo)}</button>`
-    : '';
+  // A RECOMENDADA VEM CHEIA, as outras vêm apagadas (pedido do dono,
+  // 2026-08-03: "deixe evidente qual a recomendação da IA e aí chamando menos
+  // atenção os botões inversos"). O caminho contrário continua a UM clique — o
+  // que muda é o peso visual, não o acesso.
+  const bt = (op, cor) => {
+    if (!op) return '';
+    const rec = o.recomendada === op.chave;
+    const classes = rec ? `aprovar${cor} recomendada` : `alternativa${cor}`;
+    return `<button class="gtf-btn ${classes}" data-gtf-acao="${op.chave}" title="${esc(op.impacto)}">`
+      + `${rec ? '<span class="gtf-estrela" aria-hidden="true">★</span> ' : ''}${esc(op.rotulo)}</button>`;
+  };
   return `
     <div class="gtf-acoes">
-      ${bt(o.subir, 'aprovar' + (o.recomendada === 'subir' ? ' recomendada' : ' alternativa'))}
-      ${bt(o.baixar, 'aprovar reduzir' + (o.recomendada === 'baixar' ? ' recomendada' : ' alternativa'))}
+      ${bt(o.subir, '')}
+      ${bt(o.baixar, ' reduzir')}
       ${pausar}
-      <button class="gtf-btn recusar" data-gtf-acao="manter" title="${esc(o.manter.impacto)}">Manter como está</button>
+      <button class="gtf-btn alternativa" data-gtf-acao="manter" title="${esc(o.manter.impacto)}">Manter como está</button>
     </div>`;
 }
 
@@ -148,17 +157,50 @@ function blocoAcoes(item, opcoes) {
 function blocoImpactos(opcoes, editavel) {
   const o = opcoes || {};
   if (!editavel || (!o.subir && !o.baixar)) return '';
-  const linha = (op) => op ? `<li><b>${esc(op.rotulo)}</b> — ${esc(op.impacto)}${op.noPiso ? ' <i>(o valor parou no mínimo que a Meta aceita)</i>' : ''}</li>` : '';
+  // O TEXTO DA IA VEM PRIMEIRO E SOZINHO NA LINHA; a conta (de → para, no mês)
+  // desce para uma linha menor embaixo. O dono foi direto: "não é pra falar só
+  // de orçamento... senão conta de porcentagem eu mesmo fazia". A conta continua
+  // porque o valor mensal é o que se sente — mas ela não é a informação.
+  const linha = (op, rotulo) => {
+    if (!op) return '';
+    const conta = op.conta && op.daIA ? `<span class="gtf-conta-simples">${esc(op.conta)}</span>` : '';
+    const piso = op.noPiso ? ' <i>(o valor parou no mínimo que a Meta aceita)</i>' : '';
+    return `<li${o.recomendada === op.chave ? ' class="rec"' : ''}>`
+      + `<b>${esc(rotulo || op.rotulo)}</b>${o.recomendada === op.chave ? ' <span class="gtf-tag-rec">recomendado</span>' : ''}`
+      + `<span class="gtf-impacto-txt">${esc(op.impacto)}${piso}</span>${conta}</li>`;
+  };
+  // Quando NENHUM texto veio da IA, a lista é a conta — e isso fica dito. Vender
+  // multiplicação como análise seria pior que não ter o bloco.
+  const semIA = ![o.subir, o.baixar, o.manter].some((x) => x && x.daIA);
   return `
     <details class="gtf-impactos">
       <summary>O que acontece em cada escolha</summary>
       <ul>
         ${linha(o.subir)}
         ${linha(o.baixar)}
-        <li><b>${esc(o.manter.rotulo)}</b> — ${esc(o.manter.impacto)}</li>
+        ${linha(o.manter)}
       </ul>
-      <p class="gtf-passo-origem">${esc(frasePasso(o))}</p>
+      <p class="gtf-passo-origem">${esc(frasePasso(o))}${semIA ? ' A leitura de impacto desta linha ainda não foi feita pela IA — o que está acima é só a conta.' : ''}</p>
     </details>`;
+}
+
+// O GASTO DE VERDADE, ao lado do teto (pedido do dono, 2026-08-03).
+//
+// A fila mostrava só ORÇAMENTO — o teto que se autoriza. Gasto é outra coisa, e
+// a diferença entre os dois é a informação: campanha com teto de R$ 230 que
+// gastou R$ 104 ontem não vai gastar mais só porque o teto sobe.
+//
+// O botão abre o detalhamento; o número fica na linha porque ler a fila sem
+// abrir nada já tem de dizer o essencial.
+function blocoGasto(item) {
+  const g = gastoDaLinha(item.gastos);
+  if (!g) return '';
+  const uso = usoDoOrcamento(item.gastos, item.budget_atual_centavos);
+  return `
+    <div class="gtf-gasto${uso && uso.aperta ? ' sobrando' : ''}">
+      <span class="gtf-gasto-num">${esc(g.texto)}</span>
+      <button class="gtf-gasto-btn" data-gtf-gastos="1" title="Ver o gasto por período">gastos</button>
+    </div>`;
 }
 
 function linha(item, agoraMs, editavel) {
@@ -202,10 +244,12 @@ function linha(item, agoraMs, editavel) {
           <span class="gtf-conta">${esc(item.conta_nome || '')} · ${esc(fonte)}${idade == null ? '' : ` · ${idade === 0 ? 'hoje' : idade === 1 ? 'ontem' : `há ${idade} dias`}`}</span>
         </div>
         <div class="gtf-valores">${valores}</div>
+        ${blocoGasto(item)}
         ${editavel ? blocoAcoes(item, opcoes) : '<span class="gtf-sem-permissao" title="Só quem tem permissão de editar a Gestão de Tráfego pode aprovar ou recusar.">você não tem permissão para decidir</span>'}
       </div>
       ${item.justificativa ? `<p class="gtf-just">${esc(item.justificativa)}</p>` : ''}
       ${blocoSaude(item)}
+      ${(() => { const u = usoDoOrcamento(item.gastos, item.budget_atual_centavos); return u && u.aperta ? `<p class="gtf-uso">${esc(u.texto)}</p>` : ''; })()}
       ${blocoImpactos(opcoes, editavel)}
       ${blocoCriativos(item, editavel)}
       ${editavel && !opcoes.subir && !opcoes.baixar ? '<p class="gtf-sem-numero">Esta campanha não tem orçamento conhecido: ajuste na aba Campanhas, ou mantenha como está.</p>' : ''}
@@ -216,7 +260,7 @@ function linha(item, agoraMs, editavel) {
 
 // opcoes: { pendentes, vencidas, silenciadas, contas, contaFiltro, agora,
 //           editavel, aoAprovar(item, botao, opcao), aoRecusar(item, botao),
-//           aoVerCriativo(item, adId, nome),
+//           aoVerCriativo(item, adId, nome), aoVerGastos(item, botao),
 //           aoFiltrar(contaId), ajudaBtn }
 export function montarPainelFila(alvo, opcoes) {
   const o = opcoes || {};
@@ -312,6 +356,9 @@ export function montarPainelFila(alvo, opcoes) {
         b.addEventListener('click', () => o.aoAprovar(item, b, opcao));
       }
     }
+
+    const gb = el.querySelector('[data-gtf-gastos]');
+    if (gb && o.aoVerGastos) gb.addEventListener('click', (ev) => { ev.stopPropagation(); o.aoVerGastos(item, gb); });
 
     // A LUPA de cada criativo travado.
     for (const lp of el.querySelectorAll('[data-gtf-lupa]')) {
