@@ -14,7 +14,7 @@ on:
         required: false
         default: 'editor'
         type: choice
-        options: ['editor', 'duplicar', 'criativo']
+        options: ['editor', 'duplicar', 'criativo', 'permissoes']
       manter:
         description: 'manter a campanha de teste no fim (para conferir no Gerenciador)'
         required: false
@@ -80,3 +80,14 @@ jobs:
           GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
           GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
         run: cd coletor && node --import ./lib/curl-fetch.mjs sondar-criativo-do-anuncio.mjs
+
+      # Sonda de LEITURA sobre permissões: responde de uma vez o (#200) do
+      # Duplicar e o bloqueio de criar público. Cria no máximo um público de
+      # teste e o apaga. Sem IA.
+      - name: Sondar permissões da Meta (sem IA, R$ 0)
+        if: ${{ inputs.alvo == 'permissoes' }}
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
+          GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
+        run: cd coletor && node --import ./lib/curl-fetch.mjs sondar-permissoes-meta.mjs

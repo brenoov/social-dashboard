@@ -276,7 +276,21 @@ async function metaPost(path,params,accountId){
   });
   const d=await r.json();
   if(d&&d.error){
-    const err=new Error((d.error&&d.error.message)||d.error||'Meta API error');
+    // A EXPLICAÇÃO DA META VAI JUNTO NA MENSAGEM, e não só o `message`.
+    //
+    // `message` costuma ser genérico ("Invalid parameter", "(#200) Permissions
+    // error"). Quem diz o que houve é `error_user_title`/`error_user_msg`, em
+    // português e já escrito para quem lê. Jogar os dois fora fazia a tela
+    // mostrar "A Meta recusou: Invalid parameter" — verdadeiro e inútil.
+    //
+    // Vai na MENSAGEM (não numa propriedade) porque quem trata a falha em
+    // duplicar.js guarda `String(e.message || e)`: propriedade extra se perderia
+    // no caminho.
+    const eMeta=d.error||{};
+    const partes=[(eMeta.message)||d.error||'Meta API error'];
+    if(eMeta.error_user_title)partes.push('— '+eMeta.error_user_title);
+    if(eMeta.error_user_msg)partes.push(': '+eMeta.error_user_msg);
+    const err=new Error(partes.join(' '));
     // TRÊS COISAS BEM DIFERENTES chegam por aqui, e duas delas provam que nada
     // foi gravado. Quem chama precisa saber qual é antes de prometer alguma
     // coisa ao dono numa conta ao vivo:
@@ -2877,13 +2891,34 @@ function _gtDupRelatar(plano,rel,enviar){
 // não precisa ver jargão técnico, precisa saber o que fazer.
 function _gtDupTraduzir(msg){
   const m=String(msg||'');
-  if(/permiss|#200|#10\b|#272|OAuth|token|management/i.test(m))
-    return 'O acesso desta conta <b>não tem permissão de gerenciar anúncios</b>. Verifique na Meta.';
   if(/#17|rate|limit|too many|reduce the amount/i.test(m))
     return 'A Meta pediu para <b>diminuir o ritmo</b> (limite de chamadas). Espere alguns minutos e tente continuar.';
   if(/não devolveu/i.test(m))
     return 'A Meta aceitou o pedido mas <b>não informou o número da cópia</b>, então parei para não criar item solto.';
-  return '<b>A Meta recusou:</b> '+_gtEsc(m.slice(0,180));
+  // JANELA DE ATRIBUIÇÃO (subcode 1885423) — medido em 2026-08-03: é a causa de
+  // 4 em cada 5 falhas de cópia de conjunto nesta conta. A campanha foi criada
+  // com uma janela que a Meta NÃO ACEITA MAIS para aquele objetivo; ela tolera
+  // no que já existe, e revalida na cópia. Não é permissão, e chamar de
+  // permissão mandava o dono procurar no lugar errado.
+  if(/1885423|janela de atribui/i.test(m))
+    return 'A Meta recusou a cópia por causa da <b>janela de atribuição</b> deste conjunto. '
+      + 'Ela foi criada com uma janela que a Meta não aceita mais para este objetivo — '
+      + 'tolera no conjunto que já existe, mas barra na cópia. '
+      + 'O caminho é criar o conjunto novo pelo Gerenciador (ou pela Fábrica) em vez de copiar este.';
+  // O (#200) SECO. Não afirmamos mais falta de permissão: a sonda de 2026-08-03
+  // mostrou o token COM ads_management, ads_read e business_management, e o
+  // usuário como MANAGE na conta. Dizer "não tem permissão" mandava procurar um
+  // problema que não existe — e foi o que atrasou este diagnóstico.
+  if(/#200|permissions error/i.test(m) && !/error_user_msg|explica/i.test(m))
+    return 'A Meta recusou a cópia <b>sem dizer o motivo</b> (erro 200). '
+      + 'Não é falta de permissão do acesso — isso foi conferido. '
+      + 'Costuma ser alguma regra nova da Meta que o conjunto antigo não cumpre; '
+      + 'criar o conjunto novo em vez de copiar resolve.';
+  if(/permiss|#10\b|#272|OAuth|token|management/i.test(m))
+    return 'O acesso desta conta <b>não tem permissão de gerenciar anúncios</b>. Verifique na Meta.';
+  // SEM TRUNCAR. Cortar em 180 caracteres apagava justamente o fim, que é onde
+  // a Meta explica — foi o que segurou o diagnóstico deste bug por dias.
+  return '<b>A Meta recusou:</b> '+_gtEsc(m);
 }
 
 /* ── EDITOR DE PÚBLICO DO CONJUNTO ──────────────────────────────────────────
