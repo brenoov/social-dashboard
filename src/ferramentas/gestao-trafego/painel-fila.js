@@ -242,9 +242,13 @@ function linha(item, agoraMs, editavel) {
         <div class="gtf-ident">
           <span class="gtf-nome">${esc(item.campaign_name || item.campaign_id)}</span>
           <span class="gtf-conta">${esc(item.conta_nome || '')} · ${esc(fonte)}${idade == null ? '' : ` · ${idade === 0 ? 'hoje' : idade === 1 ? 'ontem' : `há ${idade} dias`}`}</span>
+          <!-- O GASTO FICA COLADO NO NOME (pedido do dono, 2026-08-03), e não na
+               ponta direita junto das ações. É informação sobre a campanha, como
+               a conta e a data — quem lê o nome quer saber quanto ela está
+               gastando ali mesmo, não do outro lado da linha. -->
+          ${blocoGasto(item)}
         </div>
         <div class="gtf-valores">${valores}</div>
-        ${blocoGasto(item)}
         ${editavel ? blocoAcoes(item, opcoes) : '<span class="gtf-sem-permissao" title="Só quem tem permissão de editar a Gestão de Tráfego pode aprovar ou recusar.">você não tem permissão para decidir</span>'}
       </div>
       ${item.justificativa ? `<p class="gtf-just">${esc(item.justificativa)}</p>` : ''}

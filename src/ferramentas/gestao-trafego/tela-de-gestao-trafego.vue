@@ -3896,7 +3896,7 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gtf-passo-origem){color:var(--muted);font-size:.88em;margin:8px 0 0;line-height:1.5;}
 /* O GASTO ao lado do teto. `sobrando` marca a campanha que não usa o que já
    pode gastar — é a leitura que muda a decisão, então merece cor. */
-.tela-gestao-trafego :deep(.gtf-gasto){display:flex;align-items:center;gap:6px;flex:0 0 auto;}
+.tela-gestao-trafego :deep(.gtf-gasto){display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;}
 .tela-gestao-trafego :deep(.gtf-gasto-num){font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);white-space:nowrap;}
 .tela-gestao-trafego :deep(.gtf-gasto.sobrando .gtf-gasto-num){color:var(--orange);font-weight:700;}
 .tela-gestao-trafego :deep(.gtf-gasto-btn){font-size:calc(9px*var(--gt-fs,1.3));padding:3px 9px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;}
