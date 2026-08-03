@@ -237,12 +237,29 @@ export function montarAssistente(opcoes = {}) {
   return { corpo, rodape };
 }
 
+// ESCAPA O QUE VEM DE FORA antes de virar HTML.
+//
+// Três coisas entram no resumo e NENHUMA é nossa: o nome da campanha é digitado
+// pela pessoa, e os nomes de cidade e de interesse vêm da Meta. Sem escapar, um
+// nome com `<img src=x onerror=...>` viraria código dentro da janela de
+// confirmação — que é justamente a janela onde se aperta o botão que gasta
+// dinheiro.
+//
+// Achado por revisão de segurança automática em 2026-08-03, e o alerta estava
+// certo: eu montei HTML na mão num módulo em que todo o resto usa `textContent`.
+const esc = (v) => String(v == null ? '' : v)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
 // O TEXTO DA CONFIRMAÇÃO — a última chance de perceber que se está criando a
 // coisa errada. Lista tudo e diz que nasce pausado: prometer "criar campanha"
 // sem dizer que ela não vai rodar seria esconder a melhor parte.
+//
+// Devolve HTML (e não um nó) porque a janela de confirmação da tela recebe
+// string — é a mesma `_gtConfirm` usada pelo Duplicar e pelo editor de público.
 export function textoDaConfirmacao(estado, objetivoRotulo) {
   const linhas = resumoDoQueVaiSerCriado(estado, objetivoRotulo);
   return `<b>Vou criar na Meta:</b><ul style="margin:9px 0 0;padding-left:18px;line-height:1.7;">`
-    + linhas.map((l) => `<li>${l}</li>`).join('')
+    + linhas.map((l) => `<li>${esc(l)}</li>`).join('')
     + '</ul><p style="margin:12px 0 0;">Tudo nasce <b>pausado</b> — nada gasta até você ativar.</p>';
 }

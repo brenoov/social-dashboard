@@ -156,3 +156,21 @@ test('a confirmacao lista tudo E avisa que nasce pausado', () => {
   assert.match(h, /Conversas no WhatsApp/)
   assert.match(h, /nasce <b>pausado<\/b>/)
 })
+
+test('a confirmacao ESCAPA o que vem de fora — nome digitado e dados da Meta', () => {
+  // O nome é digitado pela pessoa; cidade e interesse vêm da Meta. Nenhum é
+  // nosso, e esta é a janela onde se aperta o botão que gasta dinheiro.
+  const veneno = '<img src=x onerror="alert(1)">'
+  const h = textoDaConfirmacao({
+    ...cheio(), nome: veneno,
+    publico: { cidades: [{ key: '1', nome: veneno }], idadeMin: 25, idadeMax: 45, interesses: [{ id: '9', name: veneno }] },
+  }, veneno)
+  // O que importa é o `<` não chegar cru: dentro de texto escapado, a palavra
+  // "onerror=" é só palavra — não vira atributo de nada.
+  assert.ok(!h.includes('<img'), 'a tag não pode chegar crua no HTML')
+  assert.ok(!/<[a-z]+ [^>]*onerror/i.test(h), 'e não pode existir tag nenhuma com onerror')
+  assert.ok(h.includes('&lt;img'), 'tem de aparecer escapado, e não sumir')
+  // O HTML que é NOSSO continua funcionando — escapar não pode virar texto puro.
+  assert.match(h, /<b>Vou criar na Meta:<\/b>/)
+  assert.match(h, /nasce <b>pausado<\/b>/)
+})
