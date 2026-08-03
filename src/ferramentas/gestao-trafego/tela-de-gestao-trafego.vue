@@ -159,6 +159,10 @@ import { lerPublico, montarTargeting, resumoDasMudancas, avisosDe } from './publ
 // gênero, interesses e comportamentos prontos. Ver publicos-salvos.js para a
 // confusão que isto conserta.
 import { lerSalvos } from './publicos-salvos.js'
+// Sugerir público a partir do que JÁ ACONTECEU nesta conta. A evidência (idade
+// por custo, cidades e interesses dos conjuntos que performam) mora em
+// sugerir-publico.js, puro e testado com os números reais da conta.
+import { lerFaixasDeIdade, lerConjuntos, montarSugestao, escolherAcao, contadorDe } from './sugerir-publico.js'
 // Rascunho que sobrevive a fechar a aba, e o histórico do que foi criado ou
 // recusado. As regras (o que vale salvar, quando mudou, como cada linha é dita)
 // moram em rascunhos.js; aqui fica só o que precisa de banco.
@@ -1681,6 +1685,8 @@ let _gtPublicosSalvos=null;      // {conta, lista} | null
 // A tela chamava as listas de "públicos salvos" — daí a reclamação do dono de
 // que o público já tinha localização e ela pedia a cidade de novo.
 let _gtPubSalvosDeVerdade=null;   // null = não carregou; [] = a conta não tem
+let _gtPubSugestaoDados=null;     // a sugestão vinda dos números da conta
+let _gtPubSugerindo=false;
 async function _gtListarPublicosDeVerdade(){
   const tok=_gtCurAcc?.id, accId=_gtCurAcc?.ad_account_id;
   if(!tok||!accId)return null;
@@ -2998,6 +3004,122 @@ async function _gtPubBuscarInteresses(termo){
 }
 
 // Onde o anúncio é mostrado: cidades com raio, e lugares a excluir.
+// SUGERIR PELO QUE JÁ ACONTECEU NESTA CONTA.
+//
+// Não é palpite: sai do custo por resultado de cada faixa de idade e dos
+// conjuntos que de fato performam. A evidência vem junto de cada sugestão —
+// o dono já disse que conta de porcentagem ele mesmo faz.
+function _gtPubSecaoSugestao(){
+  const bloco=document.createElement('div');
+  bloco.appendChild(_gtPubTitulo('Sugerir pelo que já aconteceu aqui'));
+  bloco.appendChild(_gtPubAjuda('Olha os últimos 90 dias desta conta e mostra o que saiu mais barato — com o número ao lado.'));
+
+  if(_gtPubSugerindo){
+    bloco.appendChild(_gtPubCaixa('Olhando os números da conta…'));
+    return bloco;
+  }
+  if(!_gtPubSugestaoDados){
+    const b=document.createElement('button');
+    b.type='button';
+    b.textContent='Ver o que os números dizem';
+    b.style.cssText='padding:8px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--accent,#6366f1);'
+      +'background:transparent;color:var(--accent,#6366f1);font-weight:700;'
+      +'font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));';
+    b.onclick=_gtPubBuscarSugestao;
+    bloco.appendChild(b);
+    return bloco;
+  }
+
+  const s=_gtPubSugestaoDados;
+  if(!s.temAlgo){
+    bloco.appendChild(_gtPubCaixa(s.motivoVazio));
+    return bloco;
+  }
+  const caixa=_gtPubCaixa('');
+  if(s.contando){
+    caixa.appendChild(_gtPubLinhaTexto('Contando '+s.contando+', nos últimos 90 dias.',true));
+  }
+  if(s.idade){
+    caixa.appendChild(_gtPubLinhaTexto(`Idade ${s.idade.idadeMin}–${s.idade.idadeMax}: ${s.idade.porque}`));
+    if(s.idade.fraseDoDesperdicio)caixa.appendChild(_gtPubLinhaTexto(s.idade.fraseDoDesperdicio,true));
+  }
+  if(s.cidades.length)caixa.appendChild(_gtPubLinhaTexto('Cidades que se repetem nos melhores: '+s.cidades.map(c=>c.nome).join(', ')));
+  if(s.interesses.length)caixa.appendChild(_gtPubLinhaTexto('Interesses que se repetem nos melhores: '+s.interesses.map(i=>i.nome).join(', ')));
+  if(s.porqueDosConjuntos)caixa.appendChild(_gtPubLinhaTexto(s.porqueDosConjuntos,true));
+  bloco.appendChild(caixa);
+
+  // APLICAR É UMA ESCOLHA, e não o que acontece por padrão: a sugestão é
+  // evidência, e quem decide o público continua sendo quem paga por ele.
+  const fila=_gtPubLinha();
+  fila.style.marginTop='8px';
+  if(s.idade)fila.appendChild(_gtPubBotaoAplicar(`Usar idade ${s.idade.idadeMin}–${s.idade.idadeMax}`,()=>{
+    _gtPub.idadeMin=s.idade.idadeMin;_gtPub.idadeMax=s.idade.idadeMax;_gtPubRedesenha();
+  }));
+  if(s.interesses.length)fila.appendChild(_gtPubBotaoAplicar('Somar os interesses',()=>{
+    const jaTem=new Set((_gtPub.interesses||[]).map(i=>String(i.id)));
+    for(const i of s.interesses)if(!jaTem.has(String(i.key)))_gtPub.interesses.push({id:String(i.key),name:i.nome});
+    _gtPubRedesenha();
+  }));
+  if(fila.childNodes.length)bloco.appendChild(fila);
+  return bloco;
+}
+
+function _gtPubCaixa(txt){
+  const d=document.createElement('div');
+  d.style.cssText='background:var(--surface2,#f2ede4);border-radius:8px;padding:11px 13px;'
+    +'font-size:calc(11px*var(--gt-fs,1.3));line-height:1.6;color:var(--text,#111);';
+  if(txt)d.textContent=txt;
+  return d;
+}
+function _gtPubLinhaTexto(txt,fraco){
+  const d=document.createElement('div');
+  d.style.cssText='margin-bottom:4px;'+(fraco?'color:var(--muted,#666);font-size:calc(10px*var(--gt-fs,1.3));':'');
+  d.textContent=txt;
+  return d;
+}
+function _gtPubBotaoAplicar(rotulo,aoClicar){
+  const b=document.createElement('button');
+  b.type='button';b.textContent=rotulo;
+  b.style.cssText='padding:7px 12px;border-radius:999px;cursor:pointer;border:1px solid var(--accent,#6366f1);'
+    +'background:var(--accent,#6366f1);color:#fff;font-weight:700;'
+    +'font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));';
+  b.onclick=(e)=>{if(e&&e.preventDefault)e.preventDefault();aoClicar();};
+  return b;
+}
+
+// AS TRÊS CHAMADAS que sustentam a sugestão. Falhar aqui não derruba o editor:
+// sugestão é ajuda, e ajuda que quebra a tela é atrapalho.
+async function _gtPubBuscarSugestao(){
+  if(_gtPubSugerindo)return;
+  _gtPubSugerindo=true;_gtPubRedesenha();
+  try{
+    const act='act_'+_maCleanAccId(_gtCurAcc.ad_account_id), conta=_gtCurAcc.id;
+    const base={date_preset:'last_90d',fields:'spend,actions'};
+    const [porIdade,conjuntos,insConjuntos]=await Promise.all([
+      metaFetch('/'+act+'/insights',{...base,level:'account',breakdowns:'age'},conta).catch(()=>null),
+      metaFetch('/'+act+'/adsets',{fields:'id,name,targeting',limit:200},conta).catch(()=>null),
+      metaFetch('/'+act+'/insights',{...base,level:'adset',limit:300},conta).catch(()=>null),
+    ]);
+    const linhasIdade=(porIdade&&porIdade.data)||[];
+    const linhasConj=(insConjuntos&&insConjuntos.data)||[];
+    // QUAL RESULTADO CONTAR sai do que a conta mais produz, e o nome disso
+    // aparece na tela: contar errado inverteria a recomendação inteira.
+    const rotulo=escolherAcao([...linhasIdade,...linhasConj]);
+    const contar=contadorDe(rotulo);
+    const porConjunto={};
+    for(const l of linhasConj)if(l&&l.adset_id)porConjunto[String(l.adset_id)]=l;
+    const s=montarSugestao({
+      faixasDeIdade:lerFaixasDeIdade(linhasIdade,contar),
+      conjuntos:lerConjuntos((conjuntos&&conjuntos.data)||[],porConjunto,contar),
+    });
+    _gtPubSugestaoDados={...s,contando:rotulo};
+  }catch(e){
+    _gtPubSugestaoDados={temAlgo:false,motivoVazio:'Não consegui olhar os números: '+String((e&&e.message)||e)};
+  }finally{
+    _gtPubSugerindo=false;_gtPubRedesenha();
+  }
+}
+
 // COMEÇAR DE UM PÚBLICO SALVO — a primeira coisa do editor, porque é a que
 // evita refazer à mão o que já está pronto.
 //
@@ -3371,6 +3493,7 @@ function _gtPublicoModal(nomeConjunto,rotuloDoBotao){
       sub.textContent='Conjunto: '+nomeConjunto;
       corpo.appendChild(tit);corpo.appendChild(sub);
       corpo.appendChild(_gtPubSecaoPublicosSalvos());
+      corpo.appendChild(_gtPubSecaoSugestao());
       corpo.appendChild(_gtPubSecaoLugar());
       corpo.appendChild(_gtPubSecaoPessoas());
       corpo.appendChild(_gtPubSecaoPublicos());
