@@ -23,6 +23,7 @@ const RECURSOS = [
   { key: 'meta.fabrica', label: 'Fábrica de Anúncios', acoes: ['ver', 'editar'] },
   { key: 'banco', label: 'Banco de Arquivos', acoes: ['ver', 'criar', 'excluir'] },
   { key: 'acessos', label: 'Colaboradores e Acessos', acoes: ['ver', 'criar', 'editar', 'excluir'] },
+  { key: 'patrimonio', label: 'Patrimônio', acoes: ['ver', 'criar', 'editar', 'excluir'] },
   { key: 'noticias', label: 'Portal de Notícias', acoes: ['ver'] },
   { key: 'gestor', label: 'Gestão Comercial (IA)', acoes: ['ver'] },
   { key: 'gestor.relatorios', label: 'Relatórios Comerciais', acoes: ['ver', 'exportar'] },
@@ -39,6 +40,7 @@ const TREE = [
   { key: 'noticias', label: 'Portal de Notícias', children: [] },
   { key: 'gestor', label: 'Gestão Comercial (IA)', children: [] },
   { key: 'acessos', label: 'Colaboradores e Acessos', children: [] },
+  { key: 'patrimonio', label: 'Patrimônio', children: [] },
   { key: 'claude.status', label: 'Painel de Status do Claude', children: [] },
   { key: 'conteudo', label: 'Central de Conteúdo', children: [] },
 ]
@@ -51,11 +53,13 @@ test('ferramentaDaChave pega o trecho antes do primeiro ponto', () => {
 
 test('agrupa o catálogo por ferramenta, na ordem do catálogo', () => {
   const g = agruparRecursos(RECURSOS, TREE)
-  assert.deepEqual(g.map((x) => x.key), ['social', 'sales', 'meta', 'banco', 'acessos', 'noticias', 'gestor', 'claude', 'conteudo'])
+  assert.deepEqual(g.map((x) => x.key), ['social', 'sales', 'meta', 'banco', 'acessos', 'patrimonio', 'noticias', 'gestor', 'claude', 'conteudo'])
   assert.deepEqual(g[0].recursos.map((r) => r.key), ['social', 'social.relatorio'])
   assert.deepEqual(g[1].recursos.map((r) => r.key), ['sales.gestao', 'sales.analise', 'sales.metas'])
   assert.deepEqual(g[2].recursos.map((r) => r.key), ['meta.campanha', 'meta.gestor', 'meta.fabrica'])
-  assert.deepEqual(g[6].recursos.map((r) => r.key), ['gestor', 'gestor.relatorios'])
+  // Achado pela CHAVE, não pela posição: recurso novo inserido antes de 'gestor'
+  // deslocava o índice e quebrava este teste por um motivo que não é o dele.
+  assert.deepEqual(g.find((x) => x.key === 'gestor').recursos.map((r) => r.key), ['gestor', 'gestor.relatorios'])
 })
 
 test('nenhum recurso do catálogo se perde no agrupamento', () => {
