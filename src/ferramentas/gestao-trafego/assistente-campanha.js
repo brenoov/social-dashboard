@@ -254,8 +254,18 @@ export function montarAssistente(opcoes = {}) {
       else o.aoPasso(i + 1);
     }));
   } else {
-    const incompleto = primeiroPassoIncompleto(o.estado);
     rodape.appendChild(btn(o.criando ? 'Criando…' : 'Criar campanha', true, !o.criando, () => {
+      // O QUE FALTA É PERGUNTADO NO CLIQUE, e não no desenho. Perguntar no
+      // desenho parece igual e não é: o último campo (imagem e texto) muda o
+      // estado SEM redesenhar — de propósito, senão o campo de texto perderia o
+      // foco a cada letra. Então a resposta guardada no desenho fica velha, e
+      // o primeiro clique em "Criar campanha" caía no ramo de "está incompleto"
+      // e mandava a pessoa para o passo em que ela já estava.
+      //
+      // O sintoma era o pior possível: nada acontecia. Sem erro, sem aviso, sem
+      // nada mudar na tela — só o segundo clique funcionava. Visto ao vivo na
+      // conta real (03/08/2026), depois de 34 testes verdes.
+      const incompleto = primeiroPassoIncompleto(o.estado);
       if (incompleto) o.aoIrPara(incompleto);
       else o.aoCriar();
     }));
