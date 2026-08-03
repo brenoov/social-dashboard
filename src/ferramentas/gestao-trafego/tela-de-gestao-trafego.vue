@@ -3809,7 +3809,12 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gtf-pct.neg){color:var(--orange);}
 .tela-gestao-trafego :deep(.gtf-pausar-nota){font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--red);font-weight:600;}
 .tela-gestao-trafego :deep(.gtf-acoes){flex:0 0 auto;display:flex;gap:7px;}
-.tela-gestao-trafego :deep(.gtf-btn){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));font-weight:600;padding:6px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:var(--bg);color:var(--muted);transition:all .12s ease;}
+/* `--surface2` e não `--bg`: no tema escuro `--bg` (#0a0a0b) é MAIS ESCURO que o
+   cartão (#121214), e o botão virava um bloco preto furado dentro dele — foi o
+   que o dono viu e chamou de "fundo preto com letra branca". `--surface2` é o
+   token de superfície elevada: mais claro no escuro, mais escuro no claro, e
+   assenta no cartão nos dois. */
+.tela-gestao-trafego :deep(.gtf-btn){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));font-weight:600;padding:6px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted);transition:all .12s ease;}
 .tela-gestao-trafego :deep(.gtf-btn:hover){color:var(--text);border-color:var(--muted);}
 .tela-gestao-trafego :deep(.gtf-btn.aprovar){background:var(--accent);border-color:var(--accent);color:#fff;}
 /* O botao carrega a COR da acao: cortar verba e pausar nao sao a mesma decisao
@@ -3888,7 +3893,7 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gtf-criativos summary){font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--orange);cursor:pointer;font-weight:600;}
 .tela-gestao-trafego :deep(.gtf-criativos summary:hover){filter:brightness(1.15);}
 .tela-gestao-trafego :deep(.gtf-cr-lista){list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;}
-.tela-gestao-trafego :deep(.gtf-cr){display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;padding:6px 10px;background:var(--bg);border-radius:7px;}
+.tela-gestao-trafego :deep(.gtf-cr){display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;padding:6px 10px;background:var(--surface2);border-radius:7px;}
 .tela-gestao-trafego :deep(.gtf-cr-nome){font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--text);font-weight:600;overflow-wrap:anywhere;}
 .tela-gestao-trafego :deep(.gtf-cr-num){font-family:var(--fonte-dados);font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);white-space:nowrap;}
 /* O motivo ocupa a linha toda: e o que justifica pausar, nao pode ficar cortado. */
@@ -4177,7 +4182,7 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-act-btn:disabled){opacity:.5;cursor:not-allowed;pointer-events:none;}
 .tela-gestao-trafego :deep(.gt-btn-dup){
   padding:6px 11px;border-radius:7px;border:1px solid var(--border,#ddd);
-  background:none;color:var(--text,#111);font-weight:600;
+  background:var(--surface2);color:var(--text,#111);font-weight:600;
   font-size:calc(12px*var(--gt-fs,1.3));cursor:pointer;white-space:nowrap;
 }
 .tela-gestao-trafego :deep(.gt-btn-dup:hover){background:var(--surface-2,rgba(0,0,0,.05));}
