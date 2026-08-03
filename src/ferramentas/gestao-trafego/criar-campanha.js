@@ -10,7 +10,7 @@
 // original já mandava.
 import { payloadCampanhaAdset } from '../../../coletor/lib/payload-campanha.mjs';
 import { payloadCriativa } from '../../../coletor/lib/meta-subir.mjs';
-import { pedeNumeroDeWhatsapp, pedeEnderecoDoSite, podeSerCriado, bloqueio } from './subobjetivos.js';
+import { pedeNumeroDeWhatsapp, pedeEnderecoDoSite, podeSerCriado, bloqueio, usaPublicacao } from './subobjetivos.js';
 
 // OS QUATRO PASSOS, na ordem em que a decisão acontece: o que se quer, quanto
 // custa, para quem, e o que a pessoa vê. Cada um é uma pergunta, e é por isso
@@ -61,6 +61,9 @@ export function estadoInicial() {
     imagemHash: '',
     imagemPreview: '',
     texto: '',
+    // Só usados quando o tipo impulsiona uma publicação que já está no ar.
+    publicacaoId: '',
+    publicacaoResumo: '',
   };
 }
 
@@ -175,8 +178,15 @@ export function faltaNoPasso(chave, estado, objetivoRow) {
     if (!temCidade && !temOutra) faltas.push('Escolha pelo menos uma cidade ou região — a Meta exige um lugar.');
   }
   if (chave === 'anuncio') {
-    if (!texto(e.imagemHash)) faltas.push('Escolha uma imagem, ou envie uma.');
-    if (!texto(e.texto)) faltas.push('Escreva o texto que vai aparecer no anúncio.');
+    // DOIS CAMINHOS, e é o tipo escolhido que decide qual. Impulsionar uma
+    // publicação não pede imagem nem texto: a arte e a legenda são as do post,
+    // e pedir de novo faria escrever um texto que nunca apareceria.
+    if (usaPublicacao(objetivoRow)) {
+      if (!texto(e.publicacaoId)) faltas.push('Escolha a publicação que vai ser impulsionada.');
+    } else {
+      if (!texto(e.imagemHash)) faltas.push('Escolha uma imagem, ou envie uma.');
+      if (!texto(e.texto)) faltas.push('Escreva o texto que vai aparecer no anúncio.');
+    }
   }
   return faltas;
 }
@@ -256,7 +266,9 @@ export function resumoDoQueVaiSerCriado(estado, objetivoRotulo, identidade, sub)
   if (p.idadeMin != null && p.idadeMax != null) linhas.push(`Idade ${p.idadeMin}–${p.idadeMax}`);
   const interesses = (p.interesses || []).map((i) => i.name).filter(Boolean);
   if (interesses.length) linhas.push(`Interesses: ${interesses.join(', ')}`);
-  linhas.push('1 anúncio com a imagem escolhida');
+  linhas.push(usaPublicacao(sub)
+    ? `1 anúncio impulsionando ${texto(e.publicacaoResumo) || 'a publicação escolhida'}`
+    : '1 anúncio com a imagem escolhida');
   return linhas;
 }
 
@@ -324,6 +336,14 @@ export function criativaDoAssistente({ sub, estado, page, ig }) {
   const s = sub || {};
   const mensagem = texto(e.texto);
   const dt = String(s.destination_type || '').toUpperCase();
+
+  // IMPULSIONAR UMA PUBLICAÇÃO. Provado ao vivo em 03/08/2026: estes dois
+  // campos, e SÓ eles. Mandar `object_story_spec` junto faz a Meta responder
+  // "O campo de link é obrigatório" e recusar — os dois caminhos não se
+  // misturam, e essa é a armadilha deste trecho.
+  if (usaPublicacao(s)) {
+    return { instagram_user_id: ig, source_instagram_media_id: texto(e.publicacaoId) };
+  }
 
   if (dt.includes('WHATSAPP')) {
     // Caminho provado da Fábrica, sem tocar: WhatsApp puro e multi-destino.

@@ -8,7 +8,7 @@
 // Recebe o `document` e os ajudantes de desenho por parâmetro. Puro no sentido
 // que importa: não lê `window`, não fala com rede, e não guarda estado — quem
 // chama passa o estado e recebe o desenho.
-import { GRUPOS, bloqueio, podeSerCriado } from './subobjetivos.js';
+import { GRUPOS, bloqueio, podeSerCriado, usaPublicacao } from './subobjetivos.js';
 import { PASSOS, faltaNoPasso, primeiroPassoIncompleto, resumoDoQueVaiSerCriado, ORCAMENTO_MINIMO_CENTAVOS, pedeWhatsapp, pedeSite, numerosParaPagina } from './criar-campanha.js';
 
 const reais = (c) => (Number(c) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -70,6 +70,10 @@ function passoObjetivo(doc, o) {
     const trava = bloqueio(escolhido);
     if (trava) {
       box.appendChild(el(doc, 'div', 'margin-top:8px;color:var(--orange);font-weight:600;', trava));
+    } else if (escolhido.aviso) {
+      // AVISO não é bloqueio: dá para tentar, e pode dar certo em outra conta.
+      // Esconder isso faria a recusa da Meta parecer defeito da ferramenta.
+      box.appendChild(el(doc, 'div', 'margin-top:8px;color:var(--orange);', escolhido.aviso));
     }
     cx.appendChild(box);
   }
@@ -296,6 +300,85 @@ function passoPublico(doc, o) {
   return cx;
 }
 
+// ── PASSO 5b · impulsionar uma publicação ───────────────────────────────────
+//
+// Aqui não se escolhe imagem nem se escreve texto: a arte e a legenda são as da
+// publicação. Pedir de novo faria escrever um texto que nunca apareceria — o
+// anúncio É o post.
+function passoPublicacao(doc, o) {
+  const cx = el(doc, 'div');
+  cx.appendChild(el(doc, 'div', CSS.tit, 'Qual publicação impulsionar'));
+  cx.appendChild(el(doc, 'p', CSS.ajuda,
+    'O anúncio vai ser esta publicação, com a legenda que ela já tem. As curtidas e comentários somam aos que ela já tem.'));
+
+  if (o.carregandoPublicacoes) {
+    cx.appendChild(el(doc, 'div', CSS.resumo, 'Carregando as publicações do perfil…'));
+    return cx;
+  }
+  const posts = o.publicacoes || [];
+  if (!posts.length) {
+    cx.appendChild(el(doc, 'div', CSS.resumo,
+      o.estado.igId
+        ? 'Não consegui carregar as publicações deste perfil.'
+        : 'Esta página não tem perfil do Instagram ligado, e é de lá que vêm as publicações. Volte e escolha outra página.'));
+    return cx;
+  }
+
+  const grade = el(doc, 'div', 'display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;');
+  for (const post of posts) {
+    const escolhido = String(o.estado.publicacaoId) === String(post.id);
+    const b = el(doc, 'button', 'position:relative;padding:0;border-radius:8px;overflow:hidden;cursor:pointer;'
+      + 'aspect-ratio:1;background:var(--surface2);'
+      + (escolhido ? 'border:2px solid var(--accent);' : 'border:1px solid var(--border);'));
+    b.type = 'button';
+    if (post.miniatura) {
+      const img = el(doc, 'img', 'width:100%;height:100%;object-fit:cover;display:block;');
+      img.src = post.miniatura;
+      img.alt = post.legenda || 'publicação';
+      b.appendChild(img);
+    } else {
+      b.appendChild(el(doc, 'span', 'font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);padding:6px;display:block;',
+        (post.legenda || 'sem legenda').slice(0, 40)));
+    }
+    // VÍDEO tem selo: o tipo da publicação decide o que dá para fazer com ela
+    // (visualização de vídeo só existe em vídeo), e ver isso na grade evita
+    // escolher uma foto e tomar recusa depois.
+    if (post.tipo === 'VIDEO') {
+      b.appendChild(el(doc, 'span', 'position:absolute;top:4px;right:5px;font-size:calc(8.5px*var(--gt-fs,1.3));'
+        + 'font-weight:700;color:#fff;background:rgba(0,0,0,.6);border-radius:4px;padding:1px 5px;', 'vídeo'));
+    }
+    b.onclick = (ev) => {
+      if (ev && ev.preventDefault) ev.preventDefault();
+      o.aoMudar({ publicacaoId: String(post.id), publicacaoResumo: resumoDaPublicacao(post) });
+    };
+    grade.appendChild(b);
+  }
+  cx.appendChild(grade);
+
+  const escolhida = posts.find((p) => String(p.id) === String(o.estado.publicacaoId));
+  if (escolhida) {
+    const box = el(doc, 'div', CSS.resumo + 'margin-top:11px;');
+    box.appendChild(el(doc, 'div', null, resumoDaPublicacao(escolhida)));
+    if (escolhida.legenda) {
+      box.appendChild(el(doc, 'div', 'margin-top:5px;color:var(--text);', `"${escolhida.legenda.slice(0, 160)}"`));
+    }
+    cx.appendChild(box);
+  }
+  return cx;
+}
+
+// Um jeito curto de dizer QUAL publicação, para a confirmação. Data e tipo, que
+// é o que distingue duas fotos parecidas.
+export function resumoDaPublicacao(post) {
+  const p = post || {};
+  const tipo = p.tipo === 'VIDEO' ? 'o vídeo' : 'a publicação';
+  const dia = p.data ? new Date(p.data) : null;
+  const quando = dia && !Number.isNaN(dia.getTime())
+    ? ` de ${String(dia.getDate()).padStart(2, '0')}/${String(dia.getMonth() + 1).padStart(2, '0')}`
+    : '';
+  return `${tipo}${quando}`;
+}
+
 // ── PASSO 5 · o anúncio ─────────────────────────────────────────────────────
 function passoAnuncio(doc, o) {
   const cx = el(doc, 'div');
@@ -333,7 +416,12 @@ function passoAnuncio(doc, o) {
   return cx;
 }
 
-const DESENHOS = { objetivo: passoObjetivo, identidade: passoIdentidade, orcamento: passoOrcamento, publico: passoPublico, anuncio: passoAnuncio };
+// O ÚLTIMO PASSO tem dois desenhos, e quem decide é o tipo escolhido.
+const DESENHOS = {
+  objetivo: passoObjetivo, identidade: passoIdentidade, orcamento: passoOrcamento,
+  publico: passoPublico,
+  anuncio: (doc, o) => (usaPublicacao(o.objetivoRow) ? passoPublicacao(doc, o) : passoAnuncio(doc, o)),
+};
 
 // ── O ASSISTENTE INTEIRO ────────────────────────────────────────────────────
 //

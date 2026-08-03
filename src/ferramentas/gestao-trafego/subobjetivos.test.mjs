@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   CATALOGO, GRUPOS, acharSubobjetivo, marcarUsados, bloqueio, podeSerCriado,
-  pedeNumeroDeWhatsapp, pedeEnderecoDoSite, CRIATIVO_PUBLICACAO,
+  pedeNumeroDeWhatsapp, pedeEnderecoDoSite, CRIATIVO_PUBLICACAO, usaPublicacao,
 } from './subobjetivos.js'
 
 // Os conjuntos como a Meta os devolve — copiados da medição real de 03/08/2026
@@ -76,15 +76,33 @@ test('todo id e unico — senao a escolha da tela pega o item errado', () => {
 
 // ── O que ainda não dá para criar ───────────────────────────────────────────
 
-test('impulsionar publicacao aparece, mas BLOQUEADO e com o motivo', () => {
-  // Medido: os anúncios de ON_POST e INSTAGRAM_PROFILE não têm imagem própria —
-  // carregam effective_object_story_id apontando para um post real.
+test('impulsionar publicacao JA DA PARA CRIAR — provado ao vivo', () => {
+  // A cadeia inteira foi provada em 03/08/2026 na conta Vessel, criando e
+  // apagando: conjunto ✓ criativo ✓ anúncio ✓ para "engajamento na publicação"
+  // e "visualização de vídeo".
   for (const id of ['visita-perfil', 'engajamento-post', 'video-thruplay']) {
     const s = acharSubobjetivo(id)
     assert.equal(s.criativo, CRIATIVO_PUBLICACAO)
-    assert.equal(podeSerCriado(s), false)
-    assert.match(bloqueio(s), /publicação que já está no perfil/)
+    assert.equal(usaPublicacao(s), true)
+    assert.equal(podeSerCriado(s), true, `${id} ainda bloqueado`)
   }
+})
+
+test('visita ao perfil avisa que a META libera conta por conta', () => {
+  // Medido do jeito caro: a conta Vessel tem 57 conjuntos desse tipo rodando e
+  // ainda assim a Meta recusou criar um NOVO pela API —
+  // "This account isn't eligible to use Profile Visit ads yet".
+  // Não é bloqueio nosso: outra conta pode estar liberada.
+  const s = acharSubobjetivo('visita-perfil')
+  assert.equal(podeSerCriado(s), true, 'não é para bloquear — a decisão é da Meta')
+  assert.match(s.aviso, /conta por conta/)
+  assert.match(s.aviso, /não é erro seu/)
+})
+
+test('so quem impulsiona publicacao usa esse caminho', () => {
+  assert.equal(usaPublicacao(acharSubobjetivo('conversa-whatsapp')), false)
+  assert.equal(usaPublicacao(acharSubobjetivo('alcance')), false)
+  assert.equal(usaPublicacao(null), false)
 })
 
 test('conversao no site pede pixel, e o motivo diz isso', () => {
@@ -97,6 +115,8 @@ test('o que DA para criar hoje nao tem bloqueio nenhum', () => {
   assert.deepEqual(criaveis, [
     'conversa-whatsapp', 'conversa-whatsapp-cadastros', 'conversa-whatsapp-vendas',
     'conversa-direct', 'conversa-todos',
+    // Os três de publicação entraram em 03/08/2026, provados ao vivo.
+    'visita-perfil', 'engajamento-post', 'video-thruplay',
     'site-cliques', 'site-visitas',
     'alcance', 'lembranca',
   ])
