@@ -84,17 +84,39 @@ async function main() {
 
   // ── 3. O (#200) DO DUPLICAR, com o erro inteiro ──────────────────────────
   console.log('\n── 3. Copiar conjunto (o (#200) do Duplicar)');
-  const rs = await proxy({ accountId: acct, path: `/${act}/adsets`, method: 'GET', params: { fields: 'id,name', limit: 1 } });
-  const conjunto = rs.d && rs.d.data && rs.d.data[0];
-  if (!conjunto) console.log('   ⚠ nenhum conjunto na conta para testar');
-  else {
-    const c = await proxy({ accountId: acct, path: `/${conjunto.id}/copies`, method: 'POST', params: { status_option: 'PAUSED', deep_copy: false } });
+  // VÁRIOS conjuntos, de campanhas e objetivos diferentes. Testar um só não
+  // separa "a conta não copia conjunto" de "aquele conjunto tem algo".
+  const rs = await proxy({ accountId: acct, path: `/${act}/adsets`, method: 'GET',
+    params: { fields: 'id,name,effective_status,optimization_goal,destination_type,promoted_object,campaign{objective,special_ad_categories}', limit: 8 } });
+  const conjuntos = (rs.d && rs.d.data) || [];
+  if (!conjuntos.length) console.log('   ⚠ nenhum conjunto na conta para testar');
+  let algumFuncionou = false;
+  for (const cj of conjuntos.slice(0, 5)) {
+    const camp = cj.campaign || {};
+    const marca = `${(camp.objective || '?')}${cj.promoted_object ? ' +promoted_object' : ''}${(camp.special_ad_categories || []).length ? ' +categoria_especial' : ''}`;
+    const c = await proxy({ accountId: acct, path: `/${cj.id}/copies`, method: 'POST', params: { status_option: 'PAUSED', deep_copy: false } });
     if (c.d && c.d.copied_adset_id) {
-      console.log(`   ✓ FUNCIONOU agora (${c.d.copied_adset_id}) — apagando`);
+      algumFuncionou = true;
+      console.log(`   ✓ "${(cj.name || '').slice(0, 34)}" [${marca}] COPIOU`);
       await proxy({ accountId: acct, path: `/${c.d.copied_adset_id}`, method: 'POST', params: { status: 'DELETED' } });
     } else {
-      console.log(`   ✗ recusado:\n      ${erroCompleto(c.d)}`);
+      const e = (c.d && c.d.error) || {};
+      console.log(`   ✗ "${(cj.name || '').slice(0, 34)}" [${marca}] → code ${e.code}${e.error_subcode ? '/' + e.error_subcode : ''}${e.error_user_msg ? ' · ' + e.error_user_msg.slice(0, 90) : ''}`);
     }
+  }
+  console.log(algumFuncionou
+    ? '   → NÃO é a conta: algum conjunto copia. O que difere entre eles é a pista.'
+    : '   → nenhum conjunto copiou: é a CONTA ou o ENDPOINT, não o conjunto.');
+
+  // E a cópia de CAMPANHA, para confirmar que o contraste continua de pé.
+  const rc2 = await proxy({ accountId: acct, path: `/${act}/campaigns`, method: 'GET', params: { fields: 'id,name', limit: 1 } });
+  const camp1 = rc2.d && rc2.d.data && rc2.d.data[0];
+  if (camp1) {
+    const cc = await proxy({ accountId: acct, path: `/${camp1.id}/copies`, method: 'POST', params: { status_option: 'PAUSED', deep_copy: false } });
+    if (cc.d && cc.d.copied_campaign_id) {
+      console.log('   ✓ copiar CAMPANHA funciona (o contraste continua: campanha sim, conjunto não)');
+      await proxy({ accountId: acct, path: `/${cc.d.copied_campaign_id}`, method: 'POST', params: { status: 'DELETED' } });
+    } else console.log(`   ✗ copiar campanha TAMBÉM falhou agora: ${erroCompleto(cc.d)}`);
   }
 
   // ── 4. PÚBLICO: sem regra × com regra ────────────────────────────────────
