@@ -3381,6 +3381,9 @@ let _gtNovoPasso=0;
 let _gtNovoObjetivos=[];     // linhas de fabrica_objetivos (a receita, vale p/ toda conta)
 let _gtNovoPaginas=[];       // páginas do Facebook que o token pode usar, com o IG de cada
 let _gtNovoNumerosWa=[];     // números de WhatsApp que a Meta JÁ aceitou nesta conta
+let _gtNovoPublicacoes=[];   // publicações do perfil, para impulsionar
+let _gtNovoCarregandoPubs=false;
+let _gtNovoPubsDoPerfil='';  // de qual perfil a lista carregada é (trocar de página troca isto)
 let _gtNovoImagens=[];
 let _gtNovoEnviando=false, _gtNovoCriando=false, _gtNovoFaltas=false;
 

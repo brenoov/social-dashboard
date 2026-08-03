@@ -163,3 +163,45 @@ test('o proprio teste de window enxerga um nome faltando', () => {
   }
   assert.deepEqual(faltando, ['beta']);
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TODA GLOBAL `_gt*` USADA PRECISA SER DECLARADA NO ARQUIVO.
+//
+// O DEFEITO REAL (03/08/2026): escrevi `_gtNovoPubsDoPerfil` em quatro lugares e
+// a linha do `let` não entrou. `npm run build` passou — o Vite não resolve
+// identificadores livres — e os testes passaram, porque nenhum deles executa
+// essa função. O erro só apareceu no clique, na conta real:
+// `ReferenceError: _gtNovoPubsDoPerfil is not defined`.
+//
+// É PRIMO do teste de imports lá em cima, e o complementa: aquele pega nome de
+// MÓDULO usado sem importar; este pega variável de ARQUIVO usada sem declarar.
+// Os dois têm a mesma causa — o build não olha, e o dono descobre clicando.
+test('toda global _gt* usada na tela está declarada nela', () => {
+  const script = scriptDaTela();
+
+  // Onde um nome NASCE: let/const/var/function, parâmetro não conta (é local).
+  const declarados = new Set();
+  for (const m of script.matchAll(/\b(?:let|const|var)\s+([\w$]+)/g)) declarados.add(m[1]);
+  for (const m of script.matchAll(/\bfunction\s+([\w$]+)/g)) declarados.add(m[1]);
+  // Declaração em lista: `let a=1, b=2;`
+  for (const m of script.matchAll(/\b(?:let|const|var)\s+[^;\n]+/g)) {
+    for (const n of m[0].matchAll(/[,(]\s*([\w$]+)\s*=/g)) declarados.add(n[1]);
+  }
+
+  const usados = new Set();
+  for (const m of script.matchAll(/(^|[^\w.$'"`])(_gt[\w$]*)/gm)) usados.add(m[2]);
+
+  const faltando = [...usados].filter((n) => !declarados.has(n)).sort();
+  assert.deepEqual(faltando, [],
+    'estes nomes _gt* são usados mas nunca declarados — ReferenceError no clique, e o build NÃO pega');
+});
+
+test('o proprio teste de globais enxerga uma que falta', () => {
+  // Sem isto o teste poderia estar sempre passando por engano.
+  const script = 'let _gtA=1;\nfunction f(){ _gtA=2; _gtB=3; }';
+  const declarados = new Set();
+  for (const m of script.matchAll(/\b(?:let|const|var)\s+([\w$]+)/g)) declarados.add(m[1]);
+  const usados = new Set();
+  for (const m of script.matchAll(/(^|[^\w.$'"`])(_gt[\w$]*)/gm)) usados.add(m[2]);
+  assert.deepEqual([...usados].filter((n) => !declarados.has(n)), ['_gtB']);
+});
