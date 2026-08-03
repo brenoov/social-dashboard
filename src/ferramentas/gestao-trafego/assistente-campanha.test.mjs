@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { montarAssistente, textoDaConfirmacao } from './assistente-campanha.js'
+import { montarAssistente, textoDaConfirmacao, resumoDaPublicacao } from './assistente-campanha.js'
 import { estadoInicial } from './criar-campanha.js'
 import { CATALOGO, marcarUsados, acharSubobjetivo } from './subobjetivos.js'
 
@@ -67,11 +67,20 @@ test('o que a conta JA RODOU aparece marcado, com a contagem', () => {
 test('o que ainda nao da pra criar aparece, marcado, e explica ao ser clicado', () => {
   // Decisão do dono: mostrar em vez de esconder. Ver que existe — e por quê
   // ainda não dá — vale mais que uma lista curta que finge que não existe.
+  // Sobraram os que dependem de pixel e de formulário; impulsionar publicação
+  // saiu daqui em 03/08/2026, quando passou a funcionar.
   const { corpo } = montar()
   assert.match(corpo.texto, /ainda não dá/)
 
-  const escolhido = montar({ estado: { ...estadoInicial(), objetivo: 'visita-perfil' } })
-  assert.match(escolhido.corpo.texto, /publicação que já está no perfil/)
+  const escolhido = montar({ estado: { ...estadoInicial(), objetivo: 'site-conversao' } })
+  assert.match(escolhido.corpo.texto, /pixel/)
+})
+
+test('visita ao perfil NAO e bloqueada, mas mostra o aviso da Meta', () => {
+  // A Meta libera conta por conta, e quem decide não é a nossa tela.
+  const { corpo } = montar({ estado: { ...estadoInicial(), objetivo: 'visita-perfil' } })
+  assert.match(corpo.texto, /conta por conta/)
+  assert.match(corpo.texto, /não é erro seu/)
 })
 
 test('a explicacao aparece SO do escolhido, e nao das catorze', () => {
@@ -353,4 +362,58 @@ test('sem numero conhecido, o texto volta a ser o generico', () => {
   const { corpo } = montar({ passo: 1, numerosWa: [], objetivoRow: acharSubobjetivo('conversa-whatsapp') })
   assert.ok(!/Já usados aqui/.test(corpo.texto))
   assert.match(corpo.texto, /não conversa com ninguém/)
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// IMPULSIONAR UMA PUBLICAÇÃO
+
+const POSTS = [
+  { id: '18096882434461048', legenda: 'Para dias imprevisíveis', tipo: 'VIDEO', miniatura: 'https://x/1.jpg', data: '2026-07-27T12:00:00+0000' },
+  { id: '17964368865131806', legenda: 'Alguns sons anunciam', tipo: 'IMAGE', miniatura: 'https://x/2.jpg', data: '2026-07-22T12:00:00+0000' },
+]
+const noPassoDaPublicacao = (extra = {}) => montar({
+  passo: 4, objetivoRow: acharSubobjetivo('engajamento-post'), publicacoes: POSTS,
+  estado: { ...cheio(), imagemHash: '', texto: '' }, ...extra,
+})
+
+test('o ultimo passo vira ESCOLHER PUBLICACAO quando o tipo pede isso', () => {
+  const { corpo } = noPassoDaPublicacao()
+  assert.match(corpo.texto, /Qual publicação impulsionar/)
+  // E NÃO pede imagem nem texto: a arte e a legenda são as do post.
+  assert.ok(!/Escolha uma imagem/.test(corpo.texto))
+  assert.ok(!/texto que aparece junto/.test(corpo.texto))
+})
+
+test('video ganha selo — o tipo decide o que da pra fazer com a publicacao', () => {
+  const { corpo } = noPassoDaPublicacao()
+  assert.match(corpo.texto, /vídeo/)
+})
+
+test('escolher a publicacao guarda o id E um resumo legivel', () => {
+  let mudou = null
+  const { corpo } = noPassoDaPublicacao({ aoMudar: (m) => { mudou = m } })
+  corpo.botoes[0].onclick({ preventDefault() {} })
+  assert.equal(mudou.publicacaoId, '18096882434461048')
+  // O resumo é o que aparece na confirmação: precisa distinguir dois posts parecidos.
+  assert.match(mudou.publicacaoResumo, /o vídeo de 27\/07/)
+})
+
+test('enquanto carrega, diz que esta carregando', () => {
+  const { corpo } = noPassoDaPublicacao({ carregandoPublicacoes: true, publicacoes: [] })
+  assert.match(corpo.texto, /Carregando as publicações/)
+})
+
+test('pagina sem Instagram explica onde consertar, em vez de lista vazia', () => {
+  const { corpo } = noPassoDaPublicacao({
+    publicacoes: [], estado: { ...cheio(), igId: '', imagemHash: '', texto: '' },
+  })
+  assert.match(corpo.texto, /não tem perfil do Instagram ligado/)
+  assert.match(corpo.texto, /Volte e escolha outra página/)
+})
+
+test('resumoDaPublicacao distingue foto de video, e diz o dia', () => {
+  assert.equal(resumoDaPublicacao({ tipo: 'VIDEO', data: '2026-07-27T12:00:00+0000' }), 'o vídeo de 27/07')
+  assert.equal(resumoDaPublicacao({ tipo: 'IMAGE', data: '2026-07-22T12:00:00+0000' }), 'a publicação de 22/07')
+  // Sem data não inventa data nenhuma.
+  assert.equal(resumoDaPublicacao({ tipo: 'IMAGE' }), 'a publicação')
 })

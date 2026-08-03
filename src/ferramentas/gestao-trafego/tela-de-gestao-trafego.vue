@@ -168,7 +168,7 @@ import { montarAssistente, textoDaConfirmacao } from './assistente-campanha.js'
 import { estadoInicial, imagemServe, payloadsDoAssistente, numerosJaUsados, criativaDoAssistente, PASSOS } from './criar-campanha.js'
 // O CATÁLOGO DE SUB-OBJETIVOS: a Meta tem dois níveis (objetivo da campanha e
 // meta de otimização do conjunto) e a tela tratava como um só. Ver subobjetivos.js.
-import { CATALOGO, marcarUsados, acharSubobjetivo } from './subobjetivos.js'
+import { CATALOGO, marcarUsados, acharSubobjetivo, usaPublicacao } from './subobjetivos.js'
 import { carregarMarcasELojas } from '../../../coletor/lib/config-lojas.mjs'
 import { lerGastos, linhasDoModal, usoDoOrcamento } from './gastos-da-fila.js'
 // O funil das campanhas NO AR, um bloco por objetivo. Nem todo objetivo tem
@@ -3460,6 +3460,42 @@ async function _gtNovoBuscarPaginas(){
   }catch(e){ return []; }
 }
 
+// AS PUBLICAÇÕES DO PERFIL, para impulsionar.
+//
+// Vêm de `/{ig-user-id}/media` — medido em 03/08/2026: devolve id, legenda,
+// tipo, miniatura e data. O `id` daqui é EXATAMENTE o
+// `source_instagram_media_id` que o criativo pede, então não há tradução.
+//
+// Carrega uma vez por perfil: trocar de página no passo 2 troca o perfil, e a
+// lista velha seria de outra marca.
+async function _gtNovoTalvezCarregarPublicacoes(){
+  const sub=_gtNovoObjetivos.find(o=>o.id===_gtNovo.objetivo);
+  if(!usaPublicacao(sub))return;
+  if(_gtNovoPasso!==PASSOS.length-1)return;
+  const perfil=String(_gtNovo.igId||'');
+  if(!perfil){_gtNovoPublicacoes=[];_gtNovoPubsDoPerfil='';return;}
+  if(_gtNovoPubsDoPerfil===perfil||_gtNovoCarregandoPubs)return;
+
+  _gtNovoCarregandoPubs=true;_gtNovoPublicacoes=[];_gtNovoRedesenhar();
+  try{
+    const r=await metaFetch('/'+perfil+'/media',
+      {fields:'id,caption,media_type,thumbnail_url,media_url,permalink,timestamp',limit:24},_gtCurAcc.id);
+    _gtNovoPublicacoes=((r&&r.data)||[]).filter(m=>m&&m.id).map(m=>({
+      id:String(m.id),
+      legenda:m.caption||'',
+      tipo:m.media_type||'',
+      // VÍDEO não tem `media_url` que sirva de miniatura (é o arquivo do vídeo,
+      // pesado e às vezes bloqueado); é `thumbnail_url` que serve. Foto não tem
+      // thumbnail, e aí o `media_url` é a própria imagem.
+      miniatura:m.thumbnail_url||(m.media_type==='VIDEO'?'':m.media_url)||'',
+      data:m.timestamp||'',
+      link:m.permalink||'',
+    }));
+    _gtNovoPubsDoPerfil=perfil;
+  }catch(e){ _gtNovoPublicacoes=[]; }
+  finally{ _gtNovoCarregandoPubs=false;_gtNovoRedesenhar(); }
+}
+
 // OS NÚMEROS DE WHATSAPP QUE A META JÁ ACEITOU NESTA CONTA.
 //
 // Não existe endpoint que liste os números permitidos — descoberto do jeito
@@ -3520,8 +3556,28 @@ function _gtNovoRedesenhar(htmlDireto){
     enviando:_gtNovoEnviando,criando:_gtNovoCriando,mostrarFaltas:_gtNovoFaltas,
     // `semRedesenhar` existe para digitação: redesenhar a cada letra faria o
     // campo perder o foco no meio da palavra.
-    aoMudar:(mudanca,op)=>{Object.assign(_gtNovo,mudanca);if(!(op&&op.semRedesenhar))_gtNovoRedesenhar();},
-    aoPasso:(n)=>{_gtNovoPasso=n;_gtNovoFaltas=false;_gtNovoRedesenhar();},
+    aoMudar:(mudanca,op)=>{
+      // TROCAR DE PÁGINA TROCA O PERFIL, e a publicação escolhida era de outro:
+      // deixá-la de pé mandaria a Meta impulsionar o post de uma marca com a
+      // página de outra.
+      if(mudanca&&mudanca.pageId!==undefined&&String(mudanca.pageId)!==String(_gtNovo.pageId)){
+        _gtNovo.publicacaoId='';_gtNovo.publicacaoResumo='';
+        _gtNovoPublicacoes=[];_gtNovoPubsDoPerfil='';
+      }
+      Object.assign(_gtNovo,mudanca);
+      if(!(op&&op.semRedesenhar))_gtNovoRedesenhar();
+      // Mudar o TIPO no passo 1 pode passar a exigir publicação — e mudar de
+      // página no passo 2 muda de qual perfil elas vêm.
+      if(mudanca&&(mudanca.objetivo!==undefined||mudanca.pageId!==undefined))_gtNovoTalvezCarregarPublicacoes();
+    },
+    aoPasso:(n)=>{
+      _gtNovoPasso=n;_gtNovoFaltas=false;_gtNovoRedesenhar();
+      // AS PUBLICAÇÕES SÓ CARREGAM AO CHEGAR NO ÚLTIMO PASSO, e só se o tipo
+      // escolhido precisar delas. Buscar na abertura seria pagar uma chamada
+      // que a maioria dos tipos não usa — e antes do passo 2 nem se sabe de
+      // qual perfil elas viriam.
+      _gtNovoTalvezCarregarPublicacoes();
+    },
     aoIrPara:(chave)=>{_gtNovoPasso=Math.max(0,PASSOS.findIndex(p=>p.chave===chave));_gtNovoFaltas=true;_gtNovoRedesenhar();},
     aoMostrarFaltas:()=>{_gtNovoFaltas=true;_gtNovoRedesenhar();},
     aoAbrirPublico:_gtNovoPublico,
@@ -3621,10 +3677,12 @@ async function _gtNovoCriar(){
   // que amarrava a criação à Fábrica e abria a porta para criar na conta errada.
   const act=_gtCleanAct(_gtCurAcc.ad_account_id), conta=_gtCurAcc.id;
   const feito=[];
+  let idDaCampanha=null;
   _gtNovoCriando=true;_gtNovoRedesenhar();
   try{
     const c=await metaPost('/'+act+'/campaigns',payloads.campaign,conta);
     if(!c||!c.id)throw new Error('a Meta aceitou mas não devolveu o código da campanha');
+    idDaCampanha=c.id;
     feito.push('campanha '+c.id);
 
     const cj=await metaPost('/'+act+'/adsets',{...payloads.adset,campaign_id:c.id},conta);
@@ -3659,11 +3717,37 @@ async function _gtNovoCriar(){
     // O QUE JÁ EXISTE vai junto do erro. Sem isso, uma falha no anúncio deixaria
     // campanha e conjunto na conta sem ninguém saber — e o dono tentaria de novo,
     // criando o dobro.
-    const jaExiste=feito.length
-      ? '<br><br><b>O que já foi criado e continua na conta (tudo pausado):</b><br>'+feito.map(_gtEsc).join('<br>')
-        +'<br><br>Não apaguei nada por conta própria. Você pode completar na Meta ou apagar por lá.'
-      : '<br><br>Nada chegou a ser criado.';
-    await _gtConfirm('A Meta recusou',_gtEsc(String((e&&e.message)||e))+jaExiste,{okOnly:true});
+    if(!feito.length){
+      await _gtConfirm('A Meta recusou',_gtEsc(String((e&&e.message)||e))
+        +'<br><br>Nada chegou a ser criado.',{okOnly:true});
+      return;
+    }
+    // OFERECE DESFAZER, em vez de mandar a pessoa no Gerenciador.
+    //
+    // Antes esta janela dizia "não apaguei nada por conta própria. Você pode
+    // apagar por lá" — verdadeiro e pouco útil: sobrava uma campanha pela
+    // metade e o conserto era fora da ferramenta. Continuo NÃO apagando sozinho
+    // (a decisão é de quem clicou), mas agora o botão está aqui.
+    const apagar=await _gtConfirm('A Meta recusou',
+      _gtEsc(String((e&&e.message)||e))
+      +'<br><br><b>O que já foi criado, e está pausado:</b><br>'+feito.map(_gtEsc).join('<br>')
+      +'<br><br>Nada está gastando. Quer que eu apague o que ficou pela metade?',
+      {okLabel:'Apagar o que foi criado',danger:true});
+    if(!apagar||!idDaCampanha)return;
+
+    // Apagar a CAMPANHA leva junto conjunto e anúncio — é uma chamada só, e não
+    // deixa pedaço para trás se uma das três falhar.
+    let ok=false,ultimoErro='';
+    for(let t=1;t<=3&&!ok;t++){
+      try{ await metaPost('/'+idDaCampanha,{status:'DELETED'},conta); ok=true; }
+      catch(err){ ultimoErro=String((err&&err.message)||err); await new Promise(r=>setTimeout(r,1200*t)); }
+    }
+    await _gtConfirm(ok?'Apagado':'Não consegui apagar',
+      ok?'A campanha e o que estava dentro dela foram apagados.'
+        :'Tentei três vezes e a Meta recusou: '+_gtEsc(ultimoErro)
+         +'<br><br>Apague na mão no Gerenciador: campanha <b>'+_gtEsc(idDaCampanha)+'</b>.',
+      {okOnly:true});
+    if(ok)loadGtData();
   }
 }
 

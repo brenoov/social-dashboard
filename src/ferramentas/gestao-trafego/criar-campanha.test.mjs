@@ -286,10 +286,54 @@ test('reconhecimento, sem site e sem destino, liga ao perfil', () => {
 })
 
 test('o que ainda nao da pra criar nao deixa avancar, com o motivo', () => {
-  const perfil = acharSubobjetivo('visita-perfil')
-  const e = { ...estadoInicial(), objetivo: 'visita-perfil', nome: 'X' }
-  assert.equal(podeAvancar('objetivo', e, perfil), false)
-  assert.match(faltaNoPasso('objetivo', e, perfil)[0], /publicação que já está no perfil/)
+  // Sobrou o que depende de pixel e de formulário. Impulsionar publicação saiu
+  // desta lista em 03/08/2026, quando passou a funcionar.
+  const pixel = acharSubobjetivo('site-conversao')
+  const e = { ...estadoInicial(), objetivo: 'site-conversao', nome: 'X' }
+  assert.equal(podeAvancar('objetivo', e, pixel), false)
+  assert.match(faltaNoPasso('objetivo', e, pixel)[0], /pixel/)
+})
+
+// ── Impulsionar publicação ─────────────────────────────────────────────────
+
+test('impulsionar publicacao pede a PUBLICACAO, e nao imagem nem texto', () => {
+  // Pedir imagem e texto aqui faria escrever um texto que nunca apareceria: a
+  // arte e a legenda são as do post. O anúncio É o post.
+  const post = acharSubobjetivo('engajamento-post')
+  const vazio = { ...estadoInicial() }
+  assert.deepEqual(faltaNoPasso('anuncio', vazio, post), ['Escolha a publicação que vai ser impulsionada.'])
+
+  const comPost = { ...vazio, publicacaoId: '18096882434461048' }
+  assert.deepEqual(faltaNoPasso('anuncio', comPost, post), [], 'cobrou imagem ou texto num impulsionamento')
+})
+
+test('anuncio NOVO continua pedindo imagem e texto', () => {
+  const novo = acharSubobjetivo('conversa-whatsapp')
+  const so_post = { ...estadoInicial(), publicacaoId: '123' }
+  const faltas = faltaNoPasso('anuncio', so_post, novo)
+  assert.equal(faltas.length, 2, 'publicação não substitui imagem+texto num anúncio novo')
+})
+
+test('o criativo de publicacao leva SO os dois campos provados', () => {
+  // Provado ao vivo em 03/08/2026. Mandar `object_story_spec` junto faz a Meta
+  // responder "O campo de link é obrigatório" e recusar — os dois caminhos não
+  // se misturam, e essa é a armadilha.
+  const c = criativaDoAssistente({
+    sub: acharSubobjetivo('engajamento-post'),
+    estado: { publicacaoId: '18096882434461048', texto: 'ignorado', imagemHash: 'ignorado' },
+    page: 'P', ig: '17841462952561833',
+  })
+  assert.deepEqual(c, { instagram_user_id: '17841462952561833', source_instagram_media_id: '18096882434461048' })
+  assert.equal(c.object_story_spec, undefined, 'object_story_spec junto faz a Meta recusar')
+})
+
+test('a confirmacao diz QUAL publicacao vai ser impulsionada', () => {
+  const e = { ...cheio(), publicacaoId: '1', publicacaoResumo: 'o vídeo de 27/07' }
+  const l = resumoDoQueVaiSerCriado(e, 'Engajamento', {}, acharSubobjetivo('engajamento-post'))
+  assert.ok(l.some((x) => /impulsionando o vídeo de 27\/07/.test(x)))
+  // E num anúncio novo continua falando de imagem.
+  const novo = resumoDoQueVaiSerCriado(e, 'WhatsApp', {}, acharSubobjetivo('conversa-whatsapp'))
+  assert.ok(novo.some((x) => /com a imagem escolhida/.test(x)))
 })
 
 test('a pagina e o Instagram escolhidos vao PRO PAYLOAD, e nao um cadastro', () => {

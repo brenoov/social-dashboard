@@ -34,9 +34,11 @@
 //                  `link_data` nem `video_data`; carregam
 //                  `effective_object_story_id` e `source_instagram_media_id`
 //                  apontando para um post real do Instagram.
-//                  Ainda NÃO sabemos criar esses — é outra tela (escolher a
-//                  publicação), e por isso eles aparecem bloqueados, com o
-//                  motivo escrito.
+//                  Criar assim é PROVADO (03/08/2026, na conta Vessel):
+//                    POST /act_X/adcreatives
+//                      { instagram_user_id, source_instagram_media_id }
+//                  Sem `object_story_spec` junto — pôr os dois faz a Meta pedir
+//                  "O campo de link é obrigatório" e recusar.
 // NUNCA `'ig'` — medido em 03/08/2026, do jeito caro: a Meta recusa com
 // `(#100) Invalid keys "instagram_user_id" were found in param "promoted_object"`.
 // Olhando os conjuntos que já rodam nas contas, TODO destino de Instagram
@@ -100,6 +102,15 @@ export const CATALOGO = [
   {
     id: 'visita-perfil', grupo: 'Perfil e publicação', rotulo: 'Visita ao perfil do Instagram',
     explicacao: 'Leva gente para o seu perfil, para conhecer a marca e seguir. É o mais rodado nestas contas.',
+    // A META LIBERA CONTA POR CONTA, e não é o nosso código que decide. Medido
+    // em 03/08/2026 na conta Vessel — que tem 57 conjuntos desse tipo rodando! —
+    // criar um NOVO pela API foi recusado com
+    // `(#100/2016153) This account isn't eligible to use Profile Visit ads yet`.
+    // Fica selecionável, com o aviso: outra conta pode estar liberada, e o que
+    // vale hoje pode não valer no mês que vem.
+    aviso: 'A Meta libera este tipo conta por conta. Em 03/08/2026 ela recusou criar um novo na conta '
+      + 'Vessel ("esta conta ainda não está qualificada para anúncios de visita ao perfil"), mesmo com '
+      + 'dezenas já rodando lá. Se ela recusar, não é erro seu nem da ferramenta.',
     meta_objective: 'OUTCOME_TRAFFIC', optimization_goal: 'PROFILE_VISIT',
     billing_event: 'IMPRESSIONS', destination_type: 'INSTAGRAM_PROFILE', promoted_object_tipo: 'page',
     criativo: CRIATIVO_PUBLICACAO, precisa: [PRECISA_PUBLICACAO],
@@ -221,10 +232,10 @@ function chaveDaCombinacao(objetivo, meta, destino) {
 export function bloqueio(sub) {
   const s = sub || {};
   const precisa = s.precisa || [];
-  if (s.criativo === CRIATIVO_PUBLICACAO || precisa.includes(PRECISA_PUBLICACAO)) {
-    return 'Este tipo impulsiona uma publicação que já está no perfil, em vez de criar um anúncio novo. '
-      + 'Escolher a publicação é uma tela que ainda não existe aqui.';
-  }
+  // IMPULSIONAR PUBLICAÇÃO deixou de bloquear em 03/08/2026: a tela de escolher
+  // a publicação existe, e a cadeia inteira foi provada ao vivo (conjunto →
+  // criativo → anúncio → apagar) para "engajamento na publicação" e
+  // "visualização de vídeo".
   if (precisa.includes(PRECISA_PIXEL)) {
     return 'Precisa de um pixel medindo o site, e de qual evento contar como conversão. '
       + 'Escolher isso ainda não existe aqui.';
@@ -236,6 +247,10 @@ export function bloqueio(sub) {
 }
 
 export const podeSerCriado = (sub) => bloqueio(sub) === null;
+
+// Este tipo se faz escolhendo uma publicação que já está no ar, em vez de
+// mandar imagem e texto novos?
+export const usaPublicacao = (sub) => (sub || {}).criativo === CRIATIVO_PUBLICACAO;
 
 // O que perguntar a mais neste sub-objetivo. A tela usa para decidir se mostra o
 // campo de WhatsApp, o de endereço do site, os dois ou nenhum.
