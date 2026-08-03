@@ -1,0 +1,47 @@
+name: Guardar a chave da IA onde o servidor alcança
+# POR QUE ESTE ROBÔ EXISTE, e por que ele é de UMA LINHA:
+#
+# A chave da Anthropic que analisa campanhas mora aqui, nos segredos do GitHub.
+# As Edge Functions do Supabase não enxergam esse cofre — elas leem a tabela
+# `segredos_de_cron`, que tem RLS ligada e ZERO políticas (só o service role
+# entra). São dois cofres diferentes, e a chave precisa estar nos dois.
+#
+# ESTE ROBÔ COPIA DE UM PARA O OUTRO SEM QUE A CHAVE PASSE POR NINGUÉM: ele roda
+# aqui dentro, onde os dois segredos já existem, e nunca imprime o valor.
+#
+# Rode UMA VEZ, no botão. Rodar de novo só é preciso se a chave for trocada.
+on:
+  workflow_dispatch:
+jobs:
+  guardar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Copiar a chave do tráfego para segredos_de_cron
+        env:
+          CHAVE: ${{ secrets.ANTHROPIC_API_KEY_TRAFEGO }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CHAVE:-}" ]; then
+            echo "::error::ANTHROPIC_API_KEY_TRAFEGO não está configurada nos segredos do repositório."
+            exit 1
+          fi
+          # A chave vai no CORPO, montado pelo jq a partir da variável de
+          # ambiente — nunca na linha de comando, que aparece em `ps` e em log.
+          CORPO=$(jq -n --arg s "$CHAVE" '{nome:"anthropic_api_key_trafego", segredo:$s}')
+          CODIGO=$(printf '%s' "$CORPO" | curl -s -o /dev/null -w '%{http_code}' \
+            -X POST "${SUPABASE_URL:-https://kounqtdoioootxqegkij.supabase.co}/rest/v1/segredos_de_cron?on_conflict=nome" \
+            -H "apikey: $SUPABASE_SERVICE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: resolution=merge-duplicates" \
+            --data-binary @-)
+          # O `set -e` não pega HTTP: sem esta conferência, um 401 passaria como
+          # sucesso e a chave simplesmente não estaria lá.
+          if [ "$CODIGO" != "201" ] && [ "$CODIGO" != "200" ] && [ "$CODIGO" != "204" ]; then
+            echo "::error::o Supabase respondeu $CODIGO ao guardar a chave"
+            exit 1
+          fi
+          echo "chave guardada (resposta $CODIGO) — o valor não é impresso em lugar nenhum"
