@@ -87,14 +87,24 @@ Cruzamento adicional (medido):
 
 - **8 exatos**: Ana Vieira, Larissa Sousa, Breno, Thiago Siqueira, Silvana Godoi,
   Guilherme Cardoso, Gabriel Gertrudes, Theo Vieira.
-- **10 por primeiro nome**, sendo 8 resolvíveis (Erick→Erick Martins, Paola→Paola Graf,
-  Humberto→Humberto Mendonça, Eliana, Jeremias, Marcus, Dandara, Bárbara→Barbara Franco)
-  e **2 ambíguos**: "Gabriel" (Alves ou Gertrudes) e "Clara" (Beduschi ou Marques).
+- **10 por primeiro nome**, todos resolvíveis: Erick→Erick Martins, Paola→Paola Graf,
+  Humberto→Humberto Mendonça, Eliana, Jeremias, Marcus, Dandara, Bárbara→Barbara Franco,
+  e os dois que pareciam ambíguos **resolvem pelo próprio dado da planilha**:
+
+  | Linha da planilha | Pista | Colaborador |
+  |---|---|---|
+  | nº 4 · Macbook Air M4 · RBV Company · setor `MKT` | Marketing | **Gabriel Alves** (setor Marketing) |
+  | nº 307 · Macbook Air M4 · **Moto Easy** · Piracicaba | Moto Easy | **Clara Beduschi** (`@motoeasybrasil.com`) |
+
+  Confirmado pelo dono: Gabriel Gertrudes é do Desenvolvimento, Gabriel Alves do
+  Marketing; Clara Beduschi é da Moto Easy, Clara Marques da Vessel Conchal.
 - **10 inexistentes**: Jéssica, Najla, Raíssa, Abner, Ionara, Isabela, ISABELLA BONINI,
   Maria Vitória, Maria Almeida (+ "Inutilizado", que é lixo).
 
-Observação adicional: `acessos_pessoas` tem **"Guilherme Cardoso" duplicado**
-(um ativo, um desligado). Precisa de desempate no vínculo.
+Observação adicional: `acessos_pessoas` tinha **"Guilherme Cardoso" duplicado**. O
+registro desligado (criado 2026-06-29 com `motivo_saida='Duplicidade'`, sem nenhum item,
+termo, vínculo ou log apontando pra ele) foi **apagado em 2026-08-03 a pedido do dono**.
+Sobrou o ativo, que é o que tem conta Zoho e avatar.
 
 ## Decisões tomadas
 
@@ -231,10 +241,12 @@ pessoa), atualizando sozinha. Substitui o "atualizar tabela dinâmica" da planil
 - 3 itens sem valor (284, 285, 290): importados com valor em branco e marcados pra conferir.
 - `Número` da planilha vira o **número de patrimônio** no app (a etiqueta física continua
   valendo).
-- **Pessoas**: nome exato → vincula; primeiro nome sem ambiguidade → vincula; ambíguo
-  ("Gabriel", "Clara") ou inexistente (10 nomes, ~13 itens) → **guarda o nome como texto**,
-  marcado como "pessoa não cadastrada", numa lista de pendências com os botões
-  "ligar a um colaborador" e "cadastrar". Nunca cria colaborador sozinho.
+- **Pessoas**: nome exato → vincula; primeiro nome sem ambiguidade → vincula. Quando o
+  primeiro nome tem mais de um candidato, **desempata pela Empresa/Unidade/Setor da
+  própria linha** antes de desistir (foi o que resolveu "Gabriel" e "Clara" — ver acima).
+  Sobrando ambiguidade, ou nome inexistente (10 nomes, ~13 itens) → **guarda o nome como
+  texto**, marcado como "pessoa não cadastrada", numa lista de pendências com os botões
+  "ligar a um colaborador" e "cadastrar". **Nunca cria colaborador sozinho.**
 - A importação é **conferível antes de gravar** (prévia com contagem por empresa/categoria).
 
 ### D15 — Família "Gestão Interna": matriz como PORTA, não como caixa
