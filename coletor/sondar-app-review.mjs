@@ -66,7 +66,10 @@ const PRECISA = [
   ['business_management', 'Ler as contas de anúncio do Business e resolver marca/loja'],
   ['pages_show_list', 'Descobrir a página ligada à marca'],
   ['pages_read_engagement', 'Ler alcance/engajamento dos posts da página'],
-  ['pages_manage_posts', 'Central de Conteúdo: publicar o post aprovado na página'],
+  // AUSENTE DE PROPÓSITO: `pages_manage_posts`. Nenhum código nosso publica em
+  // Página do Facebook — a Central de Conteúdo é só Instagram. Listar aqui faria
+  // a sonda cobrar uma permissão que ninguém usa, e pedir permissão sem uso é
+  // reprovação certa no App Review (a Meta não a vê sendo usada no vídeo).
   ['instagram_basic', 'Ler perfil e mídias do Instagram da marca'],
   ['instagram_manage_insights', 'Dashboard de Redes: seguidores, alcance e engajamento'],
   ['instagram_content_publish', 'Central de Conteúdo: publicar sozinho o post aprovado no Instagram'],
@@ -131,11 +134,22 @@ async function main() {
     // `tasks` diz o que ESTE token pode fazer NA PÁGINA. Sem CREATE_CONTENT ali,
     // publicar não funciona nem com a permissão aprovada — é papel na página,
     // não escopo do app, e os dois são confundidos o tempo todo.
-    const t = await tentar('o que o token pode fazer NA PÁGINA (tasks)', { accountId: acct, path: `/${marca.pageId}`, method: 'GET', params: { fields: 'tasks' } }, 'pages_show_list');
-    const tarefas = (t.d && t.d.tasks) || [];
-    if (tarefas.length) {
-      console.log(`      tasks: ${tarefas.join(', ')}`);
-      linha(tarefas.includes('CREATE_CONTENT'), '      CREATE_CONTENT — sem isto, publicar na página não funciona');
+    //
+    // SAI DE `/me/accounts`, e não de `/{page_id}`: pedir `fields=tasks` na
+    // página devolve `(#100) nonexisting field (tasks)`, que a primeira versão
+    // desta sonda mostrou como se fosse falta de permissão. Sonda que acusa o
+    // que não existe é pior que sonda nenhuma — ensina a ignorá-la.
+    const t = await tentar('o que o token pode fazer NA PÁGINA (tasks)',
+      { accountId: acct, path: '/me/accounts', method: 'GET', params: { fields: 'id,name,tasks', limit: 50 } },
+      'pages_show_list');
+    const paginas = (t.d && t.d.data) || [];
+    const minha = paginas.find((pg) => String(pg.id) === String(marca.pageId));
+    if (!paginas.length) console.log('      (o token não devolveu página nenhuma)');
+    else if (!minha) console.log(`      ⚠ a página ${marca.pageId} NÃO está entre as ${paginas.length} que o token enxerga`);
+    else {
+      const tarefas = minha.tasks || [];
+      console.log(`      tasks: ${tarefas.join(', ') || '(vazio)'}`);
+      linha(tarefas.includes('CREATE_CONTENT'), '      CREATE_CONTENT — sem isto, publicar na página não funciona nem com a permissão aprovada');
     }
   }
 
