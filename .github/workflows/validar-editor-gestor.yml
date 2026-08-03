@@ -14,7 +14,7 @@ on:
         required: false
         default: 'editor'
         type: choice
-        options: ['editor', 'duplicar']
+        options: ['editor', 'duplicar', 'criativo']
       manter:
         description: 'manter a campanha de teste no fim (para conferir no Gerenciador)'
         required: false
@@ -70,3 +70,13 @@ jobs:
           GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
           GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
         run: cd coletor && node --import ./lib/curl-fetch.mjs validar-duplicar.mjs --manter
+
+      # Sonda de leitura pura: descobre o que a Meta entrega para MOSTRAR um
+      # anúncio, antes de a lupa da Fila ser escrita. Sem IA, sem gravar nada.
+      - name: Sondar o que dá para mostrar de um anúncio (sem IA, R$ 0)
+        if: ${{ inputs.alvo == 'criativo' }}
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
+          GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
+        run: cd coletor && node --import ./lib/curl-fetch.mjs sondar-criativo-do-anuncio.mjs
