@@ -105,7 +105,6 @@ dono define na aba "A régua", ele acende o semáforo.
 
 Arquivos:
 - ponderada.js .... a conta (pontos, custo por ponto, qualidade, semáforo). Puro.
-- veredito.js ..... decide o veredito do cartão. Puro.
 - regua.js ........ lê a régua do banco sem deixar a tela quebrar. Puro.
 - painel-regua.js . a aba onde o dono edita pesos, metas e limiares.
 Os três primeiros têm teste ao lado (.test.mjs) e rodam com `npm test`.
