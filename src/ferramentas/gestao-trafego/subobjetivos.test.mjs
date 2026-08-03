@@ -121,3 +121,30 @@ test('acharSubobjetivo devolve null pro que nao existe, sem estourar', () => {
   assert.equal(acharSubobjetivo(''), null)
   assert.equal(acharSubobjetivo(undefined), null)
 })
+
+test('NENHUM tipo manda instagram_user_id no promoted_object', () => {
+  // MEDIDO DO JEITO CARO (03/08/2026): a Meta recusa com
+  // `(#100) Invalid keys "instagram_user_id" were found in param "promoted_object"`.
+  // Olhando os conjuntos que JÁ rodam, todo destino de Instagram usa `page_id`
+  // — inclusive INSTAGRAM_DIRECT e INSTAGRAM_PROFILE. O perfil entra no
+  // CRIATIVO (object_story_spec.instagram_user_id), que é outro lugar.
+  const errados = CATALOGO.filter((s) => s.promoted_object_tipo === 'ig')
+  assert.deepEqual(errados.map((s) => s.id), [], 'promoted_object_tipo "ig" é recusado pela Meta')
+})
+
+test('os tipos de promoted_object batem com o que as contas JA rodam', () => {
+  // Cada linha aqui foi lida de um conjunto real, não da documentação.
+  const medido = {
+    'conversa-whatsapp': 'whatsapp',        // page_id + whatsapp_phone_number
+    'conversa-direct': 'page',              // só page_id
+    'visita-perfil': 'page',                // só page_id
+    'engajamento-post': 'none',             // nenhum promoted_object
+    'video-thruplay': 'none',               // nenhum
+    'site-cliques': 'none',                 // nenhum
+    'formulario': 'page',                   // só page_id
+    'lembranca': 'page',                    // só page_id
+  }
+  for (const [id, tipo] of Object.entries(medido)) {
+    assert.equal(acharSubobjetivo(id).promoted_object_tipo, tipo, `${id} não bate com o medido`)
+  }
+})
