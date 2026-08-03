@@ -22,6 +22,13 @@ import './lib/carregar-env.mjs';
 import tls from 'node:tls';
 import { loginServico } from './lib/bling-comercial.mjs';
 import { carregarMarcasELojas } from './lib/config-lojas.mjs';
+import { carregarObjetivos, mapaObjetivo } from './lib/objetivos.mjs';
+// O payload da campanha+conjunto sai DAQUI, não da minha cabeça. Duas tentativas
+// escritas à mão foram recusadas (4834011 e 1870227) por campos que este builder
+// já mandava há meses. A terceira recusa (1885154) foi o criativo da conta não
+// combinar com o conjunto — e ele combina com o que este builder monta, porque é
+// o mesmo combo que subiu os anúncios de verdade.
+import { payloadCampanhaAdset, resolverLoja } from './subir-estudio.mjs';
 import { planoDeCopia, executarPlano } from '../src/ferramentas/gestao-trafego/duplicar.js';
 
 tls.DEFAULT_MAX_VERSION = 'TLSv1.2';
@@ -62,10 +69,12 @@ function conferir(nome, ok, detalhe) {
 async function main() {
   TOKEN = await loginServico();
   const { lojas, marcaAtiva } = await carregarMarcasELojas(sbGet);
-  const loja = (lojas || [])[0];
+  const loja = resolverLoja(lojas, 'tivoli') || (lojas || [])[0];
   const marca = (loja && loja.marca) || marcaAtiva;
   const acct = marca.accountId, adAccount = marca.adAccount;
-  const cidades = ((loja && loja.geoCities) || []).slice(0, 1).map(String);
+  const { porChave } = await carregarObjetivos(sbGet);
+  const objetivoRow = mapaObjetivo(porChave, 'engajamento');
+  if (!objetivoRow) throw new Error('objetivo engajamento não encontrado em fabrica_objetivos');
 
   console.log(`\n=== VALIDAÇÃO do Duplicar · ${marca.nome} · ${adAccount} ===\n`);
 
@@ -91,26 +100,22 @@ async function main() {
 
   let campanhaId = null, copiaId = null;
   try {
-    const rc = await proxy({ accountId: acct, path: `/${adAccount}/campaigns`, method: 'POST', params: {
-      name: '[VALIDAÇÃO DUPLICAR] original — apagar', objective: 'OUTCOME_ENGAGEMENT',
-      status: 'PAUSED', special_ad_categories: [], is_adset_budget_sharing_enabled: false,
-    } });
+    // O MESMO builder que a Fábrica usa para subir campanha de verdade —
+    // objetivo 'engajamento', que é o combo provado (OUTCOME_ENGAGEMENT +
+    // destino WhatsApp + CONVERSATIONS). Escolhido porque é com ele que os
+    // criativos desta conta foram feitos: criativo e conjunto precisam falar do
+    // mesmo destino, senão a Meta recusa o anúncio com 100/1885154.
+    const { campaign: cPayload, adset: aPayload } = payloadCampanhaAdset(
+      objetivoRow, marca, loja, { DAILY_BUDGET: 5000, DATA: 'VALIDACAO' },
+    );
+    cPayload.name = '[VALIDAÇÃO DUPLICAR] original — apagar';
+    aPayload.name = '[VALIDAÇÃO] conjunto';
+
+    const rc = await proxy({ accountId: acct, path: `/${adAccount}/campaigns`, method: 'POST', params: cPayload });
     if (rc.status !== 200 || !rc.d?.id) throw new Error('campanha rejeitada — ' + erro(rc.d));
     campanhaId = rc.d.id;
 
-    const ra = await proxy({ accountId: acct, path: `/${adAccount}/adsets`, method: 'POST', params: {
-      name: '[VALIDAÇÃO] conjunto', campaign_id: campanhaId, status: 'PAUSED',
-      daily_budget: 5000, billing_event: 'IMPRESSIONS', optimization_goal: 'POST_ENGAGEMENT',
-      bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
-      // `advantage_audience: 0` é OBRIGATÓRIO junto com idade manual: a Meta liga
-      // o Advantage+ por padrão e recusa a combinação com code 100/1870227 —
-      // medido aqui na primeira tentativa, e já anotado desde o SP-4.
-      targeting: {
-        geo_locations: { cities: cidades.map((key) => ({ key, radius: 20, distance_unit: 'kilometer' })) },
-        age_min: 25, age_max: 45,
-        targeting_automation: { advantage_audience: 0 },
-      },
-    } });
+    const ra = await proxy({ accountId: acct, path: `/${adAccount}/adsets`, method: 'POST', params: { ...aPayload, campaign_id: campanhaId } });
     if (ra.status !== 200 || !ra.d?.id) throw new Error('conjunto rejeitado — ' + erro(ra.d));
     const conjuntoId = ra.d.id;
 
