@@ -317,10 +317,19 @@ function passoPublicacao(doc, o) {
   }
   const posts = o.publicacoes || [];
   if (!posts.length) {
-    cx.appendChild(el(doc, 'div', CSS.resumo,
-      o.estado.igId
-        ? 'Não consegui carregar as publicações deste perfil.'
-        : 'Esta página não tem perfil do Instagram ligado, e é de lá que vêm as publicações. Volte e escolha outra página.'));
+    const caixa = el(doc, 'div', CSS.resumo);
+    if (!o.estado.igId) {
+      caixa.textContent = 'Esta página não tem perfil do Instagram ligado, e é de lá que vêm as publicações. '
+        + 'Volte e escolha outra página.';
+    } else if (o.erroPublicacoes) {
+      // O MOTIVO, INTEIRO. "Não consegui" sozinho não ajuda ninguém — nem quem
+      // usa, nem quem conserta.
+      caixa.appendChild(el(doc, 'div', null, 'Não consegui carregar as publicações deste perfil.'));
+      caixa.appendChild(el(doc, 'div', 'margin-top:6px;color:var(--orange);', o.erroPublicacoes));
+    } else {
+      caixa.textContent = 'Este perfil não tem publicação nenhuma para impulsionar.';
+    }
+    cx.appendChild(caixa);
     return cx;
   }
 

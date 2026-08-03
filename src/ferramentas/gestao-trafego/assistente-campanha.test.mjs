@@ -417,3 +417,17 @@ test('resumoDaPublicacao distingue foto de video, e diz o dia', () => {
   // Sem data não inventa data nenhuma.
   assert.equal(resumoDaPublicacao({ tipo: 'IMAGE' }), 'a publicação')
 })
+
+test('quando a lista nao vem, a tela diz O MOTIVO — nao so "nao consegui"', () => {
+  // Um catch mudo é a mesma doença de truncar a mensagem da Meta: some
+  // justamente a informação que conserta. Custou meia hora de caça em produção.
+  const { corpo } = noPassoDaPublicacao({ publicacoes: [], erroPublicacoes: 'Meta API error: rate limit' })
+  assert.match(corpo.texto, /Não consegui carregar/)
+  assert.match(corpo.texto, /rate limit/)
+})
+
+test('perfil sem publicacao nenhuma NAO e tratado como erro', () => {
+  const { corpo } = noPassoDaPublicacao({ publicacoes: [], erroPublicacoes: '' })
+  assert.match(corpo.texto, /não tem publicação nenhuma/)
+  assert.ok(!/Não consegui/.test(corpo.texto))
+})
