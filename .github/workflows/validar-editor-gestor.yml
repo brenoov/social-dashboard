@@ -14,7 +14,7 @@ on:
         required: false
         default: 'editor'
         type: choice
-        options: ['editor', 'duplicar', 'criativo', 'permissoes', 'criar']
+        options: ['editor', 'duplicar', 'criativo', 'permissoes', 'criar', 'envio']
       manter:
         description: 'manter a campanha de teste no fim (para conferir no Gerenciador)'
         required: false
@@ -102,3 +102,14 @@ jobs:
           GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
           GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
         run: cd coletor && node --import ./lib/curl-fetch.mjs validar-criar-no-gestor.mjs
+
+      # O caminho da imagem enviada: arquivo → Storage → Meta → image_hash. É o
+      # único pedaço do C3 sem prova, e o único que passa pela trava anti-SSRF
+      # do meta-proxy.
+      - name: Validar envio de imagem (Storage → Meta)
+        if: ${{ inputs.alvo == 'envio' }}
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
+          GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
+        run: cd coletor && node --import ./lib/curl-fetch.mjs validar-envio-de-imagem.mjs
