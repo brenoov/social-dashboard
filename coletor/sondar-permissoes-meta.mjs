@@ -138,19 +138,38 @@ async function main() {
   const ig = marca.igId || marca.ig_id;
   if (!ig) console.log('   (sem instagram_user_id na marca — pulando o teste com regra)');
   else {
-    const regra = { inclusions: { operator: 'or', rules: [{
-      event_sources: [{ type: 'ig_business', id: String(ig) }],
-      retention_seconds: 365 * 24 * 3600,
-      filter: { operator: 'and', filters: [{ field: 'event', operator: 'eq', value: 'ig_business_profile_all' }] },
-    }] } };
-    const comRegra = await proxy({ accountId: acct, path: `/${act}/customaudiences`, method: 'POST',
-      params: { name: nome + ' 2', subtype: 'ENGAGEMENT', rule: regra } });
-    if (comRegra.d && comRegra.d.id) {
-      console.log(`   ✓ COM regra: criou (${comRegra.d.id}) — o bloqueio ACABOU`);
-      await proxy({ accountId: acct, path: `/${comRegra.d.id}`, method: 'DELETE' });
-      console.log('     🗑 apagado');
-    } else {
-      console.log(`   ✗ COM regra falha:\n      ${erroCompleto(comRegra.d)}`);
+    // VARIAÇÕES DA REGRA, numa rodada só. O erro (#2654) diz que o nome do
+    // evento é inválido — mas `ig_business_profile_all` é alfanumérico e curto,
+    // então o que chega à Meta NÃO é o que a gente manda, ou o campo lido não é
+    // o que a gente pensa. Testar um valor por vez custa uma rodada cada.
+    const base = (filtro, extra = {}) => ({
+      inclusions: { operator: 'or', rules: [{
+        event_sources: [{ type: 'ig_business', id: String(ig) }],
+        retention_seconds: 365 * 24 * 3600,
+        ...extra,
+        ...(filtro ? { filter: filtro } : {}),
+      }] },
+    });
+    const f = (op, valor) => ({ operator: 'and', filters: [{ field: 'event', operator: op, value: valor }] });
+
+    const variantes = [
+      ['filter operator "eq" · ig_business_profile_all', base(f('eq', 'ig_business_profile_all'))],
+      ['filter operator "=" · ig_business_profile_all', base(f('=', 'ig_business_profile_all'))],
+      ['filter operator "i_contains" · ig_business_profile_all', base(f('i_contains', 'ig_business_profile_all'))],
+      ['SEM filter (todos os eventos da fonte)', base(null)],
+      ['page_engaged (o canônico de página)', base(f('eq', 'page_engaged'))],
+    ];
+    for (const [rotulo, regra] of variantes) {
+      const r = await proxy({ accountId: acct, path: `/${act}/customaudiences`, method: 'POST',
+        params: { name: `ZZ sonda ${rotulo.slice(0, 24)}`, subtype: 'ENGAGEMENT', rule: regra } });
+      if (r.d && r.d.id) {
+        console.log(`   ✓ ${rotulo} → CRIOU (${r.d.id})`);
+        await proxy({ accountId: acct, path: `/${r.d.id}`, method: 'DELETE' });
+        console.log('     🗑 apagado');
+      } else {
+        const e = (r.d && r.d.error) || {};
+        console.log(`   ✗ ${rotulo} → code ${e.code}${e.error_subcode ? '/' + e.error_subcode : ''}: ${(e.message || '').slice(0, 120)}`);
+      }
     }
   }
 

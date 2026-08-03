@@ -208,7 +208,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 //     _gtLoadConfig).
 //   - estado.currentSession                      → substitui a global solta `currentSession`
 //     do legado, usada dentro de adTok()/metaFetch()/metaPost() (legacy L3358/8508/8570).
-//   - metaFetch, metaFetchAll, metaPost, adFetch, adTok, _maCleanAccId, _getActions,
+//   - metaFetch, metaFetchAll, metaPost, adFetch, adTok, _maCleanAccId,
 //     _maFmtR, _maFmt, _maFmtPct, _maObjLabel → COPIADOS abaixo (helpers do
 //     legado que este módulo usa e que ainda não têm um lugar compartilhado no
 //     Vue; ver legacy L8569, L8584, L8507, L4376, L8920, L8943, L8953-8955,
@@ -313,10 +313,6 @@ async function metaPost(path,params,accountId){
   return d;
 }
 function _maCleanAccId(id){return String(id||'').replace(/^act_/,'');}
-function _getActions(ins,type){
-  const a=(ins.actions||[]).find(x=>x.action_type===type);
-  return a?parseFloat(a.value||0):0;
-}
 function _maFmtR(v){if(!v&&v!==0)return'—';const n=parseFloat(v);if(n>=1000)return'R$'+n.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});return'R$'+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function _maFmt(v,dec=0){if(!v&&v!==0)return'—';return parseFloat(v).toLocaleString('pt-BR',{minimumFractionDigits:dec,maximumFractionDigits:dec});}
 function _maFmtPct(v){return parseFloat(v||0).toFixed(2)+'%';}
@@ -1587,18 +1583,6 @@ function _gtEncerrada(camp,nowMs){
   const t=Date.parse(camp.stop_time);
   return !Number.isNaN(t)&&t<nowMs;
 }
-// ── Motor de regras client-side (fallback quando não há análise do Opus) ──
-// Espelha os critérios do prompt do Opus. Limiares fixos = preset "equilibrada" (sem postura).
-function _gtObjCategory(obj){
-  const o=(obj||'').toUpperCase();
-  if(o.includes('LEAD'))return'lead';
-  if(o.includes('CONVERSION')||o.includes('SALE'))return'conversion';
-  if(o.includes('ENGAGEMENT')||o==='POST_ENGAGEMENT'||o==='PAGE_LIKES')return'engagement';
-  if(o.includes('VIDEO')||o==='VIDEO_VIEWS')return'video';
-  if(o.includes('AWARENESS')||o==='BRAND_AWARENESS'||o==='REACH')return'awareness';
-  if(o.includes('TRAFFIC')||o==='LINK_CLICKS')return'traffic';
-  return'other';
-}
 const GT_CRIT={
   minSpend:20,minImpr:1000, freqSat:4,freqAtt:3.5,
   lead:{pausSpend:80,pausImpr:4000,escCTR:2.0,escCPLf:0.85,monCTR:1.5,monSpend:50},
@@ -1606,79 +1590,6 @@ const GT_CRIT={
   engagement:{pausSpend:60,pausEng:10,pausImpr:2000,escEng:100,escCTR:1.0,monCTR:0.5,monSpend:30},
   video:{monSpend:50,monViews:100,escViews:500,escCTR:0.8},
 };
-function _gtVerdict(m){
-  const C=GT_CRIT,P=_maFmtPct,R=_maFmtR,N=_maFmt;
-  if(m.spend<C.minSpend||m.impr<C.minImpr)
-    return{kind:'coletando',text:`Volume baixo (${R(m.spend)} · ${N(m.impr)} impressões) — sem recomendação confiável ainda.`};
-  if(m.freq>=C.freqSat)
-    return{kind:'reduzir',text:`Frequência ${N(m.freq,1)}× — o mesmo público já viu demais. Vale reduzir o orçamento.`};
-  if(m.freq>=C.freqAtt)
-    return{kind:'monitorar',text:`Frequência ${N(m.freq,1)}× — começando a saturar o público, monitorar.`};
-  if(m.cat==='lead'||m.cat==='conversion'){
-    const c=C.lead;
-    if(m.leads===0&&m.spend>=c.pausSpend&&m.impr>=c.pausImpr)
-      return{kind:'pausar',text:`${R(m.spend)} gastos e 0 conversões. Pausar e revisar oferta/segmentação.`};
-    if(m.leads>0&&m.ctr>=c.escCTR&&(!m.avgCPL||m.cpl<=m.avgCPL*c.escCPLf))
-      return{kind:'escalar',text:`${N(m.leads)} leads · CPL ${R(m.cpl)} (abaixo da média) · CTR ${P(m.ctr)}. Forte — vale escalar.`};
-    if(m.leads===0&&m.ctr>=c.monCTR&&m.spend>=c.monSpend)
-      return{kind:'monitorar',text:`CTR ${P(m.ctr)} bom, mas 0 conversões — provável gargalo na landing/oferta.`};
-    if(m.leads>0)
-      return{kind:'saudavel',text:`${N(m.leads)} leads · CPL ${R(m.cpl)} · CTR ${P(m.ctr)}.`};
-    return{kind:'monitorar',text:`CTR ${P(m.ctr)} · ${R(m.spend)} — ainda sem conversão, mas dentro da margem.`};
-  }
-  if(m.cat==='traffic'){
-    const c=C.traffic;
-    if(m.ctr<c.pausCTR&&m.spend>=c.pausSpend&&m.impr>=c.pausImpr)
-      return{kind:'pausar',text:`CTR ${P(m.ctr)} muito baixo com ${R(m.spend)} gastos — clique caro, desperdício.`};
-    if(m.ctr>=c.escCTR&&m.cpc>0&&m.cpc<=c.escCPC)
-      return{kind:'escalar',text:`CTR ${P(m.ctr)} · CPC ${R(m.cpc)} — clique barato e eficiente. Vale escalar.`};
-    if(m.ctr<c.monCTR&&m.spend>=c.monSpend)
-      return{kind:'monitorar',text:`CTR ${P(m.ctr)} fraco para tráfego — testar criativo ou segmentação.`};
-    return{kind:'saudavel',text:`${N(m.clicks)} cliques · CTR ${P(m.ctr)} · CPC ${R(m.cpc)}.`};
-  }
-  if(m.cat==='engagement'){
-    const c=C.engagement;
-    if(m.spend>=c.pausSpend&&m.eng<c.pausEng&&m.impr>=c.pausImpr)
-      return{kind:'pausar',text:`${R(m.spend)} gastos e só ${N(m.eng)} engajamentos — o criativo não está conectando.`};
-    if(m.eng>=c.escEng&&m.ctr>=c.escCTR)
-      return{kind:'escalar',text:`${N(m.eng)} engajamentos · CTR ${P(m.ctr)} — boa tração. Considere escalar.`};
-    if(m.ctr<c.monCTR&&m.spend>=c.monSpend)
-      return{kind:'monitorar',text:`CTR ${P(m.ctr)} baixo para engajamento — o criativo pode não estar conectando.`};
-    return{kind:'saudavel',text:`${N(m.eng)} engajamentos · CTR ${P(m.ctr)} · ${R(m.spend)}.`};
-  }
-  if(m.cat==='video'){
-    const c=C.video;
-    if(m.spend>=c.monSpend&&m.views<c.monViews)
-      return{kind:'monitorar',text:`Poucos plays (${N(m.views)}) com ${R(m.spend)} gastos — o hook do vídeo pode estar fraco.`};
-    if(m.views>=c.escViews&&m.ctr>=c.escCTR)
-      return{kind:'escalar',text:`${N(m.views)} plays · CTR ${P(m.ctr)} — boa tração para o vídeo.`};
-    return{kind:'saudavel',text:`${N(m.views)} plays · CTR ${P(m.ctr)} · ${R(m.spend)}.`};
-  }
-  if(m.cat==='awareness')
-    return{kind:'saudavel',text:`${N(m.reach)} alcance · Frequência ${N(m.freq,1)}× · ${R(m.spend)}.`};
-  return{kind:'saudavel',text:`CTR ${P(m.ctr)} · ${R(m.spend)} gastos.`};
-}
-// Recomendação de CAMPANHA por regra — mesma forma da linha do Opus.
-function _gtRegraCampanha(camp,ins,allInsights){
-  const daily=camp&&camp.daily_budget?parseFloat(camp.daily_budget)/100:null;
-  const m={
-    cat:_gtObjCategory(ins.objective||(camp&&camp.objective)||''),
-    ctr:parseFloat(ins.ctr||0),spend:parseFloat(ins.spend||0),impr:parseInt(ins.impressions||0),
-    freq:parseFloat(ins.frequency||0),clicks:parseInt(ins.clicks||0),cpc:parseFloat(ins.cpc||0),
-    leads:_getActions(ins,'lead'),eng:(_getActions(ins,'post_engagement')||_getActions(ins,'page_engagement')),
-    views:parseInt((ins.video_play_actions&&ins.video_play_actions[0]&&ins.video_play_actions[0].value)||0),
-    reach:parseInt(ins.reach||0),daily,
-  };
-  m.cpl=m.leads>0?m.spend/m.leads:null;
-  const arr=allInsights||[];
-  const totS=arr.reduce((s,i)=>s+parseFloat(i.spend||0),0),totL=arr.reduce((s,i)=>s+_getActions(i,'lead'),0);
-  m.avgCPL=totL>0?totS/totL:null;
-  const v=_gtVerdict(m);
-  const veredito=v.kind==='escalar'?'escalar':v.kind==='reduzir'?'reduzir':v.kind==='pausar'?'pausar':'manter';
-  let bud=null;
-  if(daily!=null){const f=veredito==='escalar'?1.25:veredito==='reduzir'?0.75:1;bud=Math.round(daily*f*100);}
-  return { veredito, budget_sugerido_centavos: bud, justificativa: v.text };
-}
 // Controle de edição manual de orçamento — serve tanto pra CAMPANHA (CBO)
 // quanto pra CONJUNTO de anúncios (ABO). Quem decide se é editável é o módulo
 // puro (podeEditarOrcamentoDa*); aqui só se desenha o veredito dele.
@@ -2085,7 +1996,7 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       // (ver comentário na migration 20260728_ponderada_config.sql): a correção
       // aqui é tratar como "sem meta" (meta=0) qualquer campanha de ENGAJAMENTO
       // com ação de mensagem — calcularPonderada devolve faixa 'sem-dados' e
-      // decidirVeredito cai pra saúde/objetivo, sem mexer em decidirVeredito nem
+      // o julgamento cai pra saúde/objetivo, sem mexer em
       // no formato dos campos. O custo por ponto continua calculado e aparecendo
       // no cartão (custoPorPonto não depende da meta) — só o VEREDITO deixa de
       // ser guiado por ele.
@@ -2169,20 +2080,20 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       const usaLimiaresDeEngajamento = (alvo && alvo.metrica === 'ponderada') || !!objDeclarado;
       const aval = avaliarAlvo({ custo: custoAlvo, meta: metaAlvo, limiares: usaLimiaresDeEngajamento ? reguaAtiva.limiares : reguaAtiva.limiares_resultado });
 
-      // ATENÇÃO — PENDÊNCIA CONHECIDA (2026-07-29): a leitura de SAÚDE
-      // (frequência alta = fadiga de audiência, CTR muito baixo) ficou SEM
-      // LUGAR NA TELA. Ela aparecia na faixa de recomendação, que saiu daqui
-      // quando o julgamento migrou pra Fila; e a Fila hoje só lista o que o robô
-      // propõe sobre ORÇAMENTO. `_gtRegraCampanha` e `veredito.js` seguem no
-      // repo, com testes, esperando destino — a decisão pendente é se a saúde
-      // vira item de fila (coerente com "todo julgamento mora na fila") ou volta
-      // como aviso no cartão. NÃO apagar os dois antes disso.
+      // A PENDÊNCIA DA SAÚDE FECHOU (2026-08-03). Ela mora na Fila: `mesclarSaude`
+      // gruda o alerta na linha que o robô propôs, marca quando os dois se
+      // contradizem, e cria linha própria para campanha com alerta que o robô
+      // não trouxe. Só nível 'alerta' vira linha; 'atenção' só aparece anexada —
+      // é o que impede a fila de virar lista de tarefas.
+      // Com o destino decidido, `_gtRegraCampanha`, `_gtVerdict`, `_gtObjCategory`
+      // e `veredito.js` foram apagados: eram o julgamento do tempo em que ele
+      // morava no cartão, e ninguém os chamava havia semanas.
 
       // O VEREDITO SAIU DAQUI. Quem decide o que fazer com a campanha é a aba
       // Fila, que junta saúde, robô e régua num lugar só e registra a decisão.
       // O cartão ficou com o que ele sabe dizer sem julgar: os números.
-      // A leitura de saúde (_gtRegraCampanha) e a análise do robô continuam
-      // existindo — a fila é que as consome agora.
+      // A leitura de saúde (saude.js) e a análise do robô continuam existindo —
+      // a fila é que as consome agora.
       // Custo por ponto aparece SEMPRE, independente de quem deu o veredito:
       // é informação, não decisão.
       if (pnd.custoPorPonto != null) {
@@ -3784,7 +3695,7 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-obj-filtros){display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px;border-bottom:1px solid var(--border);}
 .tela-gestao-trafego :deep(.gt-obj-filtro){display:inline-flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));padding:5px 11px;border-radius:999px;cursor:pointer;background:var(--surface2);border:1px solid var(--border);color:var(--muted);transition:all .12s ease;}
 .tela-gestao-trafego :deep(.gt-obj-filtro:hover){color:var(--text);border-color:var(--muted);}
-.tela-gestao-trafego :deep(.gt-obj-filtro.ativo){background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600;}
+.tela-gestao-trafego :deep(.gt-obj-filtro.ativo){background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600;}
 .tela-gestao-trafego :deep(.gt-obj-n){font-family:var(--fonte-dados);font-size:calc(8.5px*var(--gt-fs,1.3));opacity:.65;}
 
 /* ── MODAL DO FUNIL ───────────────────────────────────────────────────────── */
@@ -3898,7 +3809,12 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gtf-pct.neg){color:var(--orange);}
 .tela-gestao-trafego :deep(.gtf-pausar-nota){font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--red);font-weight:600;}
 .tela-gestao-trafego :deep(.gtf-acoes){flex:0 0 auto;display:flex;gap:7px;}
-.tela-gestao-trafego :deep(.gtf-btn){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));font-weight:600;padding:6px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:var(--bg);color:var(--muted);transition:all .12s ease;}
+/* `--surface2` e não `--bg`: no tema escuro `--bg` (#0a0a0b) é MAIS ESCURO que o
+   cartão (#121214), e o botão virava um bloco preto furado dentro dele — foi o
+   que o dono viu e chamou de "fundo preto com letra branca". `--surface2` é o
+   token de superfície elevada: mais claro no escuro, mais escuro no claro, e
+   assenta no cartão nos dois. */
+.tela-gestao-trafego :deep(.gtf-btn){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));font-weight:600;padding:6px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted);transition:all .12s ease;}
 .tela-gestao-trafego :deep(.gtf-btn:hover){color:var(--text);border-color:var(--muted);}
 .tela-gestao-trafego :deep(.gtf-btn.aprovar){background:var(--accent);border-color:var(--accent);color:#fff;}
 /* O botao carrega a COR da acao: cortar verba e pausar nao sao a mesma decisao
@@ -3977,7 +3893,7 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gtf-criativos summary){font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--orange);cursor:pointer;font-weight:600;}
 .tela-gestao-trafego :deep(.gtf-criativos summary:hover){filter:brightness(1.15);}
 .tela-gestao-trafego :deep(.gtf-cr-lista){list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;}
-.tela-gestao-trafego :deep(.gtf-cr){display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;padding:6px 10px;background:var(--bg);border-radius:7px;}
+.tela-gestao-trafego :deep(.gtf-cr){display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;padding:6px 10px;background:var(--surface2);border-radius:7px;}
 .tela-gestao-trafego :deep(.gtf-cr-nome){font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--text);font-weight:600;overflow-wrap:anywhere;}
 .tela-gestao-trafego :deep(.gtf-cr-num){font-family:var(--fonte-dados);font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);white-space:nowrap;}
 /* O motivo ocupa a linha toda: e o que justifica pausar, nao pode ficar cortado. */
@@ -4266,7 +4182,7 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-act-btn:disabled){opacity:.5;cursor:not-allowed;pointer-events:none;}
 .tela-gestao-trafego :deep(.gt-btn-dup){
   padding:6px 11px;border-radius:7px;border:1px solid var(--border,#ddd);
-  background:none;color:var(--text,#111);font-weight:600;
+  background:var(--surface2);color:var(--text,#111);font-weight:600;
   font-size:calc(12px*var(--gt-fs,1.3));cursor:pointer;white-space:nowrap;
 }
 .tela-gestao-trafego :deep(.gt-btn-dup:hover){background:var(--surface-2,rgba(0,0,0,.05));}
