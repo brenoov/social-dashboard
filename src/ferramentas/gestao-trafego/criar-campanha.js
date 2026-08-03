@@ -16,6 +16,13 @@ import { payloadCampanhaAdset } from '../../../coletor/lib/payload-campanha.mjs'
 export const PASSOS = [
   { chave: 'objetivo', titulo: 'O que você quer que aconteça',
     ajuda: 'Isto define como a Meta entrega e o que ela otimiza.' },
+  // DE QUEM É O ANÚNCIO vem logo depois do objetivo, e não do cadastro da
+  // Fábrica. Amarrar isto à marca cadastrada foi um erro de desenho: o dono
+  // quer criar campanha do zero em qualquer conta, escolhendo a página, o
+  // Instagram e o número na hora. Fica aqui porque o objetivo é quem decide se
+  // o WhatsApp é pedido ou não.
+  { chave: 'identidade', titulo: 'De quem é o anúncio',
+    ajuda: 'A página e o perfil que aparecem para quem vê.' },
   { chave: 'orcamento', titulo: 'Quanto por dia',
     ajuda: 'A campanha nasce PAUSADA — nada é gasto até você ativar.' },
   { chave: 'publico', titulo: 'Para quem',
@@ -38,6 +45,10 @@ export function estadoInicial() {
   return {
     objetivo: '',           // chave de fabrica_objetivos
     nome: '',
+    // Escolhidos na tela, não herdados de cadastro nenhum.
+    pageId: '',
+    igId: '',
+    whatsapp: '',           // só usado quando o objetivo é de WhatsApp
     orcamentoCentavos: 5000,
     tipoOrcamento: 'diario',
     // Só usada quando o orçamento é TOTAL. A Meta exige `end_time` para
@@ -52,13 +63,43 @@ export function estadoInicial() {
 
 const texto = (v) => (typeof v === 'string' ? v.trim() : '');
 
+// ESTE OBJETIVO PRECISA DE UM NÚMERO DE WHATSAPP?
+//
+// Duas evidências, e as duas contam: `promoted_object_tipo === 'whatsapp'` é o
+// que a Fábrica declara, e `destination_type` contendo WHATSAPP é o que a Meta
+// usa para montar o criativo. Objetivo pode ter um sem o outro, e faltar o
+// número em qualquer um dos casos faz a Meta recusar o conjunto.
+export function pedeWhatsapp(objetivoRow) {
+  const r = objetivoRow || {};
+  return r.promoted_object_tipo === 'whatsapp'
+    || String(r.destination_type || '').toUpperCase().includes('WHATSAPP');
+}
+
+// Só dígitos, para comparar tamanho. O criativo da Fábrica já faz o mesmo
+// (`soDigitos` em meta-subir.mjs) antes de montar o link do wa.me.
+const digitos = (v) => String(v == null ? '' : v).replace(/\D/g, '');
+
+// Um número brasileiro com DDI+DDD+número tem 12 ou 13 dígitos (13 com o 9).
+// Abaixo disso é engano de digitação, e o anúncio sairia com um link morto —
+// que é pior que não sair, porque gasta.
+export const MINIMO_DE_DIGITOS_WHATSAPP = 12;
+
 // O QUE FALTA NESTE PASSO — lista de frases, vazia quando dá para avançar.
 //
 // Devolve FRASES, não códigos: quem chama mostra direto, e uma mensagem escrita
 // aqui perto da regra tem chance de continuar verdadeira quando a regra mudar.
-export function faltaNoPasso(chave, estado) {
+export function faltaNoPasso(chave, estado, objetivoRow) {
   const e = estado || {};
   const faltas = [];
+  if (chave === 'identidade') {
+    if (!texto(e.pageId)) faltas.push('Escolha a página do Facebook que assina o anúncio.');
+    // O Instagram NÃO é obrigatório: anúncio só de Facebook existe. Mas a
+    // maioria das páginas tem um perfil ligado, e sair sem ele significa não
+    // aparecer no Instagram — então o assistente avisa em vez de barrar.
+    if (pedeWhatsapp(objetivoRow) && digitos(e.whatsapp).length < MINIMO_DE_DIGITOS_WHATSAPP) {
+      faltas.push('Este objetivo leva a conversa para o WhatsApp — informe o número com DDI e DDD (ex.: 55 19 99999-9999).');
+    }
+  }
   if (chave === 'objetivo') {
     if (!texto(e.objetivo)) faltas.push('Escolha o que você quer que aconteça.');
     if (!texto(e.nome)) faltas.push('Dê um nome à campanha — é por ele que você vai achá-la depois.');
@@ -91,12 +132,12 @@ export function faltaNoPasso(chave, estado) {
   return faltas;
 }
 
-export const podeAvancar = (chave, estado) => faltaNoPasso(chave, estado).length === 0;
+export const podeAvancar = (chave, estado, objetivoRow) => faltaNoPasso(chave, estado, objetivoRow).length === 0;
 
 // O PRIMEIRO PASSO INCOMPLETO — para o assistente saber onde parar quando alguém
 // pula direto para o fim, e para o botão final não prometer o que não pode.
-export function primeiroPassoIncompleto(estado) {
-  for (const p of PASSOS) if (!podeAvancar(p.chave, estado)) return p.chave;
+export function primeiroPassoIncompleto(estado, objetivoRow) {
+  for (const p of PASSOS) if (!podeAvancar(p.chave, estado, objetivoRow)) return p.chave;
   return null;
 }
 
@@ -132,13 +173,24 @@ export function horarioDeTermino(data) {
 // A janela de confirmar é a última chance de perceber que se está criando a
 // coisa errada — então ela lista tudo, e diz que nasce pausado. Prometer "criar
 // campanha" sem dizer que ela não vai rodar seria esconder a melhor parte.
-export function resumoDoQueVaiSerCriado(estado, objetivoRotulo) {
+export function resumoDoQueVaiSerCriado(estado, objetivoRotulo, identidade) {
   const e = estado || {};
   const p = e.publico || {};
+  const id = identidade || {};
   const linhas = [
     `Campanha "${texto(e.nome)}" — ${objetivoRotulo || texto(e.objetivo)}`,
-    `1 conjunto com ${reais(e.orcamentoCentavos)} por dia`,
   ];
+  // A PÁGINA ENTRA NA CONFIRMAÇÃO, e é a linha mais importante depois do nome:
+  // é a única coisa desta tela que muda de quem o anúncio parece ser, e a única
+  // que ninguém percebe estar errada depois de criado.
+  if (texto(id.pagina) || texto(e.pageId)) {
+    linhas.push(`Assinada por ${texto(id.pagina) || `página ${texto(e.pageId)}`}`
+      + (texto(id.instagram) ? ` e @${texto(id.instagram)}` : ' (sem Instagram ligado)'));
+  }
+  if (texto(e.whatsapp)) linhas.push(`Conversas vão para o WhatsApp ${texto(e.whatsapp)}`);
+  linhas.push(e.tipoOrcamento === 'total'
+    ? `1 conjunto com ${reais(e.orcamentoCentavos)} no total${texto(e.terminaEm) ? `, até ${texto(e.terminaEm).split('-').reverse().join('/')}` : ''}`
+    : `1 conjunto com ${reais(e.orcamentoCentavos)} por dia`);
   const cidades = (p.cidades || []).map((c) => c.nome || c.key).filter(Boolean);
   if (cidades.length) linhas.push(`Em ${cidades.join(', ')}`);
   if (p.idadeMin != null && p.idadeMax != null) linhas.push(`Idade ${p.idadeMin}–${p.idadeMax}`);
@@ -154,9 +206,23 @@ export function resumoDoQueVaiSerCriado(estado, objetivoRotulo) {
 // `nome` do formulário SOBRESCREVE o nome automático: quem digitou um nome quer
 // aquele nome. O do montador é o padrão da Fábrica, bom para lote e ruim para
 // campanha feita à mão.
-export function payloadsDoAssistente({ estado, objetivoRow, marca, loja }) {
+export function payloadsDoAssistente({ estado, objetivoRow, nomeDaConta }) {
   const e = estado || {};
-  if (!objetivoRow || !marca || !loja) return null;
+  if (!objetivoRow || !texto(e.pageId)) return null;
+  // A "marca" e a "loja" que o montador da Fábrica espera são montadas AQUI, a
+  // partir do que a pessoa escolheu na tela. Antes elas vinham do cadastro, e
+  // isso amarrava criar campanha à existência de uma loja registrada — não dava
+  // para criar do zero numa conta qualquer, nem escolher outra página.
+  //
+  // Continuam existindo porque o montador é o mesmo que a Fábrica usa em
+  // produção, e trocar a assinatura dele para caber neste caso seria mexer no
+  // que já está provado. Traduzir aqui é mais barato que manter dois.
+  const marca = { pageId: texto(e.pageId), igId: texto(e.igId) || undefined };
+  const loja = {
+    nome: texto(nomeDaConta) || 'Campanha',
+    whatsapp: texto(e.whatsapp),
+    geoCities: [],   // vazio de propósito: o público desta tela sempre traz cidade
+  };
   // OS NOMES DOS CAMPOS SÃO OS DE `orcamento.mjs`, e não é detalhe: a primeira
   // versão mandava `tipo:'lifetime'` e `valorCentavos`, e `normalizarOrcamento`
   // — que só conhece `'total'` e `valor` — caía no padrão silenciosamente.
@@ -171,7 +237,7 @@ export function payloadsDoAssistente({ estado, objetivoRow, marca, loja }) {
   const { campaign, adset } = payloadCampanhaAdset(
     objetivoRow, marca, loja,
     { DAILY_BUDGET: Number(e.orcamentoCentavos), DATA: '' },
-    e.publico ? publicoParaFabrica(e.publico, loja) : null,
+    e.publico ? publicoParaFabrica(e.publico) : null,
     orcamento,
   );
   if (texto(e.nome)) {
@@ -185,7 +251,7 @@ export function payloadsDoAssistente({ estado, objetivoRow, marca, loja }) {
 // editor guarda `cidades:[{key,raio,unidade}]`, a Fábrica espera
 // `geo:{cities:[{key,radius,distance_unit}]}`. Traduzir aqui é o preço de reusar
 // o `montarTargeting` que já está provado, e é melhor que manter dois.
-export function publicoParaFabrica(pub, loja) {
+export function publicoParaFabrica(pub) {
   const p = pub || {};
   return {
     geo: {
@@ -200,6 +266,5 @@ export function publicoParaFabrica(pub, loja) {
     generos: p.generos || [],
     interesses: (p.interesses || []).filter((i) => i && i.id).map((i) => ({ id: String(i.id), name: i.name })),
     custom_audiences: (p.incluir || []).filter((a) => a && a.id).map((a) => ({ id: String(a.id) })),
-    _loja: loja,
   };
 }

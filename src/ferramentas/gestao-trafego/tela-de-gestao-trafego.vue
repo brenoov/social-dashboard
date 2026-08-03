@@ -3378,8 +3378,8 @@ async function _gtListarSugestoes(){
    validar-envio-de-imagem.mjs: 4/4 no caminho da imagem). */
 let _gtNovo=null;            // estado do formulário (forma de criar-campanha.js)
 let _gtNovoPasso=0;
-let _gtNovoObjetivos=[];     // linhas de fabrica_objetivos
-let _gtNovoMarca=null, _gtNovoLoja=null;
+let _gtNovoObjetivos=[];     // linhas de fabrica_objetivos (a receita, vale p/ toda conta)
+let _gtNovoPaginas=[];       // páginas do Facebook que o token pode usar, com o IG de cada
 let _gtNovoImagens=[];
 let _gtNovoEnviando=false, _gtNovoCriando=false, _gtNovoFaltas=false;
 
@@ -3407,41 +3407,84 @@ async function _gtNovoAbrir(){
   if(tt)tt.textContent='Nova campanha · '+((_gtCurAcc&&(_gtCurAcc.display_name||_gtCurAcc.name))||'');
   _gtNovoRedesenhar('<div class="gt-novo-carregando">Carregando os objetivos e as imagens da conta…</div>');
 
-  // O MESMO carregador da Fábrica (config-lojas.mjs, puro): marca e loja trazem
-  // page_id, instagram_user_id, cidades e WhatsApp, sem os quais o payload não
-  // fecha. Reusar em vez de reconsultar é o que mantém uma verdade só.
-  // ZERA ANTES DE CARREGAR. Sem isto, uma falha de rede deixaria a marca da
-  // ABERTURA ANTERIOR de pé — possivelmente de outra conta — e a guarda logo
-  // abaixo passaria batido achando que tinha cadastro.
-  _gtNovoLoja=null;_gtNovoMarca=null;_gtNovoObjetivos=[];_gtNovoImagens=[];
-  try{
-    const { lojas }=await carregarMarcasELojas((caminho)=>sb(caminho.replace(/^\//,'')));
-    // SÓ LOJA DA CONTA QUE ESTÁ NA TELA. A primeira versão caía em `lojas[0]`
-    // quando nenhuma batia — e `lojas[0]` pode ser de OUTRA marca, com outra
-    // conta de anúncios. A campanha nasceria numa conta que a pessoa não
-    // escolheu, com o nome da conta certa no título da janela. Sem conta, sem
-    // criação: é melhor não poder do que criar no lugar errado.
-    _gtNovoLoja=(lojas||[]).find(l=>l.ativo&&l.marca&&String(l.marca.accountId)===String(_gtCurAcc.id))||null;
-    _gtNovoMarca=(_gtNovoLoja&&_gtNovoLoja.marca)||null;
-    _gtNovoObjetivos=(await sb('fabrica_objetivos?select=chave,rotulo,meta_objective,optimization_goal,billing_event,destination_type,promoted_object_tipo,ativo&ativo=eq.true&order=ordem'))||[];
-  }catch(e){ _gtNovoObjetivos=[]; }
+  // ZERA ANTES DE CARREGAR: uma falha de rede não pode deixar de pé a lista da
+  // ABERTURA ANTERIOR, que pode ser de outra conta.
+  _gtNovoObjetivos=[];_gtNovoImagens=[];_gtNovoPaginas=[];
+  const [objs,pags,imgs,sugerido]=await Promise.all([
+    sb('fabrica_objetivos?select=chave,rotulo,meta_objective,optimization_goal,billing_event,destination_type,promoted_object_tipo,ativo&ativo=eq.true&order=ordem').catch(()=>null),
+    _gtNovoBuscarPaginas(),
+    _gtNovoBuscarImagens(),
+    _gtNovoSugerirIdentidade(),
+  ]);
+  _gtNovoObjetivos=objs||[];_gtNovoPaginas=pags;_gtNovoImagens=imgs;
 
-  if(!_gtNovoMarca||!_gtNovoLoja||!_gtNovoObjetivos.length){
-    _gtNovoRedesenhar('<div class="gt-novo-carregando">Esta conta de anúncios não tem loja cadastrada na Fábrica.<br><br>'
-      +'Criar campanha por aqui monta o mesmo pedido que a Fábrica monta, e ele precisa da página do Facebook, '
-      +'do Instagram e do WhatsApp da loja. Sem esse cadastro eu não teria de onde tirar esses dados — e não vou '
-      +'criar na conta de outra marca só para o botão funcionar.</div>');
+  // OS OBJETIVOS são a única coisa sem a qual não dá para seguir: eles são a
+  // receita (objective + optimization_goal + destination_type) que a Meta cobra.
+  // Página e imagem são escolhas, e escolha vazia se resolve na própria tela.
+  if(!_gtNovoObjetivos.length){
+    _gtNovoRedesenhar('<div class="gt-novo-carregando">Não consegui carregar os tipos de campanha.<br><br>'
+      +'Eles moram em <b>fabrica_objetivos</b> e valem para todas as contas. Sem eles eu não sei o que pedir à Meta.</div>');
     return;
   }
-  _gtNovoImagens=await _gtNovoBuscarImagens();
+
+  // SUGERE, MAS NÃO IMPÕE. Se esta conta tem marca cadastrada na Fábrica, a
+  // página, o Instagram e o WhatsApp dela já vêm preenchidos — é o caso comum e
+  // poupa três escolhas. Tudo continua trocável na tela: foi exatamente amarrar
+  // isto ao cadastro que quebrou o botão em conta sem loja registrada.
+  if(sugerido)Object.assign(_gtNovo,sugerido);
   _gtNovoRedesenhar();
 }
 
-// As imagens que a conta já tem. Falhar aqui NÃO impede de criar: dá pra enviar
-// uma nova, e uma lista vazia é melhor que uma janela que não abre.
+// AS PÁGINAS QUE O TOKEN PODE USAR, com o Instagram de cada uma.
+//
+// `/me/accounts` devolve os dois na MESMA resposta (medido em 03/08/2026: 10
+// páginas, todas com CREATE_CONTENT). Por isso escolher a página já resolve o
+// perfil, e ninguém precisa saber de cor o número de 17 dígitos do Instagram.
+//
+// `tasks` diz o que o token pode fazer NA PÁGINA. Sem CREATE_CONTENT ali, o
+// anúncio não sai nem com a permissão do app aprovada — então essas não entram
+// na lista, em vez de aparecerem e falharem no fim.
+async function _gtNovoBuscarPaginas(){
+  try{
+    const r=await metaFetch('/me/accounts',{
+      fields:'id,name,tasks,instagram_business_account{id,username}',limit:100,
+    },_gtCurAcc.id);
+    return ((r&&r.data)||[])
+      .filter(p=>p&&p.id&&(p.tasks||[]).includes('CREATE_CONTENT'))
+      .map(p=>({
+        id:String(p.id),nome:p.name||String(p.id),
+        igId:(p.instagram_business_account&&String(p.instagram_business_account.id))||'',
+        igNome:(p.instagram_business_account&&p.instagram_business_account.username)||'',
+      }))
+      .sort((a,b)=>String(a.nome).localeCompare(String(b.nome),'pt-BR'));
+  }catch(e){ return []; }
+}
+
+// O CADASTRO DA FÁBRICA VIRA SUGESTÃO, e nada mais. Falhar aqui não atrapalha:
+// devolve nada e a pessoa escolhe na mão, que é o caminho normal de quem não
+// tem cadastro.
+async function _gtNovoSugerirIdentidade(){
+  try{
+    const { lojas }=await carregarMarcasELojas((caminho)=>sb(caminho.replace(/^\//,'')));
+    const loja=(lojas||[]).find(l=>l.ativo&&l.marca&&String(l.marca.accountId)===String(_gtCurAcc.id));
+    if(!loja||!loja.marca||!loja.marca.pageId)return null;
+    return {
+      pageId:String(loja.marca.pageId),
+      igId:loja.marca.igId?String(loja.marca.igId):'',
+      whatsapp:loja.whatsapp||'',
+      // As cidades da loja também são só ponto de partida — o editor de público
+      // abre com elas e a pessoa tira ou põe o que quiser.
+      _cidadesSugeridas:loja.geoCities||[],
+    };
+  }catch(e){ return null; }
+}
+
+// As imagens que a conta que está NA TELA já tem. Falhar aqui NÃO impede de
+// criar: dá pra enviar uma nova, e uma lista vazia é melhor que uma janela que
+// não abre.
 async function _gtNovoBuscarImagens(){
   try{
-    const r=await metaFetch('/'+_gtCleanAct(_gtNovoMarca.adAccount)+'/adimages',{fields:'hash,name,permalink_url',limit:12},_gtNovoMarca.accountId);
+    const r=await metaFetch('/'+_gtCleanAct(_gtCurAcc.ad_account_id)+'/adimages',{fields:'hash,name,permalink_url',limit:12},_gtCurAcc.id);
     return ((r&&r.data)||[]).filter(i=>i&&i.hash).map(i=>({hash:i.hash,nome:i.name,url:i.permalink_url||''}));
   }catch(e){ return []; }
 }
@@ -3454,7 +3497,10 @@ function _gtNovoRedesenhar(htmlDireto){
   if(htmlDireto){corpo.innerHTML=htmlDireto;return;}
   const feito=montarAssistente({
     doc:document,estado:_gtNovo,passo:_gtNovoPasso,
-    objetivos:_gtNovoObjetivos,imagens:_gtNovoImagens,
+    objetivos:_gtNovoObjetivos,imagens:_gtNovoImagens,paginas:_gtNovoPaginas,
+    // A LINHA DO OBJETIVO vai junto porque o desenho depende dela: é ela que diz
+    // se o número de WhatsApp é pedido neste passo.
+    objetivoRow:_gtNovoObjetivos.find(o=>o.chave===_gtNovo.objetivo)||null,
     enviando:_gtNovoEnviando,criando:_gtNovoCriando,mostrarFaltas:_gtNovoFaltas,
     // `semRedesenhar` existe para digitação: redesenhar a cada letra faria o
     // campo perder o foco no meio da palavra.
@@ -3490,7 +3536,7 @@ async function _gtNovoPublico(){
 async function _gtNovoPublicoMiolo(){
   // `geo_cities` veio da migration 018 como chave crua, mas o teste de
   // interesses mostra que há linha guardada como {key,nome} — aceita as duas.
-  const cruas=((_gtNovoLoja&&_gtNovoLoja.geoCities)||[])
+  const cruas=((_gtNovo&&_gtNovo._cidadesSugeridas)||[])
     .map(c=>(c&&typeof c==='object')?{key:String(c.key),nome:c.nome||''}:{key:String(c),nome:''})
     .filter(c=>c.key&&c.key!=='undefined');
   const nomes=await _gtNovoNomesDeCidade(cruas.filter(c=>!c.nome).map(c=>c.key));
@@ -3521,7 +3567,7 @@ async function _gtNovoNomesDeCidade(chaves){
   const unicas=[...new Set((chaves||[]).map(k=>String(k)).filter(Boolean))];
   if(!unicas.length)return {};
   try{
-    const r=await metaFetch('/search',{type:'adgeolocationmeta',cities:unicas},_gtNovoMarca.accountId);
+    const r=await metaFetch('/search',{type:'adgeolocationmeta',cities:unicas},_gtCurAcc.id);
     const cidades=(r&&r.data&&r.data.cities)||{};
     const mapa={};
     for(const k of Object.keys(cidades))if(cidades[k]&&cidades[k].name)mapa[k]=cidades[k].name;
@@ -3543,17 +3589,21 @@ async function _gtNovoNomesDeCidade(chaves){
 async function _gtNovoCriar(){
   const row=_gtNovoObjetivos.find(o=>o.chave===_gtNovo.objetivo);
   if(!row){await _gtConfirm('Objetivo não encontrado','Não achei este objetivo no cadastro da Fábrica.',{okOnly:true});return;}
-  const payloads=payloadsDoAssistente({estado:_gtNovo,objetivoRow:row,marca:_gtNovoMarca,loja:_gtNovoLoja});
-  if(!payloads){await _gtConfirm('Falta cadastro','Não consegui montar a campanha: falta marca ou loja no cadastro da Fábrica.',{okOnly:true});return;}
+  const payloads=payloadsDoAssistente({estado:_gtNovo,objetivoRow:row,nomeDaConta:(_gtCurAcc.display_name||_gtCurAcc.name||'')});
+  if(!payloads){await _gtConfirm('Falta a página','Não consegui montar a campanha: escolha a página do Facebook que assina o anúncio.',{okOnly:true});return;}
 
-  const ok=await _gtConfirm('Confirma criar?',textoDaConfirmacao(_gtNovo,row.rotulo),{okLabel:'Criar pausado'});
+  const pg=_gtNovoPaginas.find(x=>String(x.id)===String(_gtNovo.pageId))||{};
+  const ok=await _gtConfirm('Confirma criar?',
+    textoDaConfirmacao(_gtNovo,row.rotulo,{pagina:pg.nome,instagram:pg.igNome}),{okLabel:'Criar pausado'});
   if(!ok)return;
 
   // A CONTA vem da MARCA, e não do seletor da tela: as duas são a mesma (a loja
   // só é aceita se `marca.accountId` bater com a conta escolhida), e é da marca
   // que sai o `adAccount` do caminho. Ler os dois do mesmo lugar é o que garante
   // que o token e a conta de destino nunca se separam.
-  const act=_gtCleanAct(_gtNovoMarca.adAccount), conta=_gtNovoMarca.accountId;
+  // A CONTA É A QUE ESTÁ NA TELA, ponto. Antes vinha do cadastro da marca, o
+  // que amarrava a criação à Fábrica e abria a porta para criar na conta errada.
+  const act=_gtCleanAct(_gtCurAcc.ad_account_id), conta=_gtCurAcc.id;
   const feito=[];
   _gtNovoCriando=true;_gtNovoRedesenhar();
   try{
@@ -3567,7 +3617,7 @@ async function _gtNovoCriar(){
 
     const criativo=payloadCriativa({
       hash:_gtNovo.imagemHash,adsetDestinationType:row.destination_type,
-      waNumero:_gtNovoLoja.whatsapp,page:_gtNovoMarca.pageId,ig:_gtNovoMarca.igId,
+      waNumero:_gtNovo.whatsapp,page:_gtNovo.pageId,ig:_gtNovo.igId||undefined,
       mensagem:_gtNovo.texto,
     });
     const cr=await metaPost('/'+act+'/adcreatives',{name:(_gtNovo.nome||'anúncio')+' · criativo',...criativo},conta);
@@ -3627,7 +3677,7 @@ function _gtNovoEnviarImagem(){
       const r=await fetch(SUPABASE_URL+'/functions/v1/meta-proxy',{
         method:'POST',
         headers:{'Authorization':'Bearer '+session.access_token,'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
-        body:JSON.stringify({accountId:_gtNovoMarca.accountId,path:'/'+_gtCleanAct(_gtNovoMarca.adAccount)+'/adimages',method:'POST',params:{},imageFromUrl:pub.publicUrl,imageField:'envio'}),
+        body:JSON.stringify({accountId:_gtCurAcc.id,path:'/'+_gtCleanAct(_gtCurAcc.ad_account_id)+'/adimages',method:'POST',params:{},imageFromUrl:pub.publicUrl,imageField:'envio'}),
       });
       const d=await r.json().catch(()=>({}));
       const primeira=d&&d.images&&Object.values(d.images)[0];
