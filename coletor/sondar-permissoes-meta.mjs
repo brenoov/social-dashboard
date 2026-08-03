@@ -100,8 +100,9 @@ async function main() {
       console.log(`   ✓ "${(cj.name || '').slice(0, 34)}" [${marca}] COPIOU`);
       await proxy({ accountId: acct, path: `/${c.d.copied_adset_id}`, method: 'POST', params: { status: 'DELETED' } });
     } else {
-      const e = (c.d && c.d.error) || {};
-      console.log(`   ✗ "${(cj.name || '').slice(0, 34)}" [${marca}] → code ${e.code}${e.error_subcode ? '/' + e.error_subcode : ''}${e.error_user_msg ? ' · ' + e.error_user_msg.slice(0, 90) : ''}`);
+      // SEM TRUNCAR. Cortar a mensagem foi o que segurou esta investigação três
+      // vezes seguidas — a explicação da Meta vive no FIM do texto.
+      console.log(`   ✗ "${(cj.name || '').slice(0, 34)}" [${marca}]\n      ${erroCompleto(c.d)}`);
     }
   }
   console.log(algumFuncionou
