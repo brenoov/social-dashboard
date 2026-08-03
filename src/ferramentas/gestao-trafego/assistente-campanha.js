@@ -8,7 +8,8 @@
 // Recebe o `document` e os ajudantes de desenho por parâmetro. Puro no sentido
 // que importa: não lê `window`, não fala com rede, e não guarda estado — quem
 // chama passa o estado e recebe o desenho.
-import { PASSOS, faltaNoPasso, primeiroPassoIncompleto, resumoDoQueVaiSerCriado, ORCAMENTO_MINIMO_CENTAVOS, pedeWhatsapp, numerosParaPagina } from './criar-campanha.js';
+import { GRUPOS, bloqueio, podeSerCriado } from './subobjetivos.js';
+import { PASSOS, faltaNoPasso, primeiroPassoIncompleto, resumoDoQueVaiSerCriado, ORCAMENTO_MINIMO_CENTAVOS, pedeWhatsapp, pedeSite, numerosParaPagina } from './criar-campanha.js';
 
 const reais = (c) => (Number(c) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -47,14 +48,33 @@ function passoObjetivo(doc, o) {
   const cx = el(doc, 'div');
   cx.appendChild(el(doc, 'div', CSS.tit, 'O que você quer que aconteça'));
   cx.appendChild(el(doc, 'p', CSS.ajuda,
-    'Isto define como a Meta entrega e o que ela otimiza. Os quatro já foram testados nesta conta.'));
+    'A Meta tem um tipo para cada resultado, e entrega diferente em cada um. O selo verde marca o que esta conta já rodou.'));
 
-  const fila = el(doc, 'div', CSS.linha + 'margin-bottom:12px;');
-  for (const obj of (o.objetivos || [])) {
-    fila.appendChild(pastilha(doc, obj.rotulo || obj.chave, o.estado.objetivo === obj.chave,
-      () => o.aoMudar({ objetivo: obj.chave })));
+  // AGRUPADO, e não uma fila de pastilhas: com quatorze opções, uma fila só vira
+  // um paredão que ninguém lê. O grupo é o objetivo ("Conversas"), e o item é o
+  // sub-objetivo — que é a distinção que a Meta faz e a tela não fazia.
+  const escolhido = (o.objetivos || []).find((x) => x.id === o.estado.objetivo);
+  for (const grupo of GRUPOS) {
+    const doGrupo = (o.objetivos || []).filter((x) => x.grupo === grupo);
+    if (!doGrupo.length) continue;
+    cx.appendChild(el(doc, 'div', 'font-size:calc(9.5px*var(--gt-fs,1.3));font-weight:700;letter-spacing:1.2px;'
+      + 'text-transform:uppercase;color:var(--muted);margin:14px 0 6px;', grupo));
+    for (const sub of doGrupo) cx.appendChild(linhaDoSubobjetivo(doc, o, sub));
   }
-  cx.appendChild(fila);
+
+  // A EXPLICAÇÃO do escolhido fica embaixo, e não em cada linha: catorze
+  // explicações abertas ao mesmo tempo não são ajuda, são ruído.
+  if (escolhido) {
+    const box = el(doc, 'div', CSS.resumo + 'margin-top:14px;');
+    box.appendChild(el(doc, 'div', null, escolhido.explicacao));
+    const trava = bloqueio(escolhido);
+    if (trava) {
+      box.appendChild(el(doc, 'div', 'margin-top:8px;color:var(--orange);font-weight:600;', trava));
+    }
+    cx.appendChild(box);
+  }
+
+  cx.appendChild(el(doc, 'div', 'height:12px;'));
 
   const nome = el(doc, 'input', CSS.campo);
   nome.value = o.estado.nome || '';
@@ -64,6 +84,33 @@ function passoObjetivo(doc, o) {
   nome.oninput = () => o.aoMudar({ nome: nome.value }, { semRedesenhar: true });
   cx.appendChild(nome);
   return cx;
+}
+
+// UMA LINHA da lista de tipos. Botão de largura inteira, e não pastilha: o
+// rótulo é uma frase ("Conversa no WhatsApp (buscando cadastro)"), e frase em
+// pastilha vira uma sopa de retângulos de tamanhos diferentes.
+function linhaDoSubobjetivo(doc, o, sub) {
+  const ligado = o.estado.objetivo === sub.id;
+  const travado = !podeSerCriado(sub);
+  const b = el(doc, 'button', 'display:flex;align-items:center;gap:8px;width:100%;text-align:left;'
+    + 'padding:9px 11px;margin-bottom:5px;border-radius:8px;cursor:pointer;box-sizing:border-box;'
+    + 'font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));'
+    + (ligado
+      ? 'background:color-mix(in srgb,var(--accent) 16%,transparent);border:1px solid var(--accent);color:var(--text);font-weight:700;'
+      : 'background:var(--surface2);border:1px solid var(--border);color:var(--text);')
+    // O que ainda não dá para criar fica APAGADO, mas clicável: clicar mostra o
+    // motivo embaixo. Botão morto que não responde não ensina nada.
+    + (travado && !ligado ? 'opacity:.55;' : ''));
+  b.type = 'button';
+  b.appendChild(el(doc, 'span', 'flex:1;', sub.rotulo));
+  if (sub.usos > 0) {
+    b.appendChild(el(doc, 'span', 'font-size:calc(9px*var(--gt-fs,1.3));font-weight:700;color:var(--green);'
+      + 'background:color-mix(in srgb,var(--green) 15%,transparent);border-radius:999px;padding:2px 7px;white-space:nowrap;',
+      `já usado aqui · ${sub.usos}`));
+  }
+  if (travado) b.appendChild(el(doc, 'span', 'font-size:calc(9px*var(--gt-fs,1.3));color:var(--orange);', 'ainda não dá'));
+  b.onclick = (ev) => { if (ev && ev.preventDefault) ev.preventDefault(); o.aoMudar({ objetivo: sub.id }); };
+  return b;
 }
 
 // ── PASSO 2 · de quem é o anúncio ───────────────────────────────────────────
@@ -109,6 +156,22 @@ function passoIdentidade(doc, o) {
       ? `Instagram: @${escolhida.igNome}`
       : 'Esta página não tem perfil do Instagram ligado — o anúncio vai aparecer só no Facebook.'));
     cx.appendChild(box);
+  }
+
+  // O ENDEREÇO DO SITE, quando é para lá que o anúncio leva.
+  if (pedeSite(o.objetivoRow)) {
+    const site = el(doc, 'div', 'margin-top:14px;');
+    site.appendChild(el(doc, 'label', CSS.rotulo, 'Endereço para onde o anúncio leva'));
+    const campo = el(doc, 'input', CSS.campo);
+    campo.type = 'url';
+    campo.value = o.estado.site || '';
+    campo.placeholder = 'https://…';
+    campo.oninput = () => o.aoMudar({ site: campo.value }, { semRedesenhar: true });
+    campo.onblur = () => o.aoMudar({}, {});
+    site.appendChild(campo);
+    site.appendChild(el(doc, 'p', CSS.ajuda + 'margin:7px 0 0;',
+      'Completo, começando com https:// — sem isso a Meta recusa.'));
+    cx.appendChild(site);
   }
 
   // O NÚMERO SÓ APARECE quando o objetivo leva para o WhatsApp. Num objetivo de

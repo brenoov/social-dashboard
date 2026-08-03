@@ -4,8 +4,9 @@ import {
   PASSOS, estadoInicial, faltaNoPasso, podeAvancar, primeiroPassoIncompleto,
   imagemServe, resumoDoQueVaiSerCriado, payloadsDoAssistente, publicoParaFabrica,
   LADO_MINIMO_PX, ORCAMENTO_MINIMO_CENTAVOS, horarioDeTermino, pedeWhatsapp,
-  numerosJaUsados, numerosParaPagina,
+  numerosJaUsados, numerosParaPagina, siteValido, criativaDoAssistente,
 } from './criar-campanha.js'
+import { acharSubobjetivo } from './subobjetivos.js'
 
 const cheio = () => ({
   ...estadoInicial(),
@@ -196,27 +197,99 @@ test('sem pagina escolhida, o passo de identidade nao avanca', () => {
   assert.ok(faltas.some((f) => /página do Facebook/.test(f)))
 })
 
-test('o WhatsApp so e cobrado quando o objetivo leva pra la', () => {
-  const semWa = { chave: 'trafego', destination_type: '', promoted_object_tipo: 'page' }
-  const comWa = { chave: 'conversao', destination_type: 'WHATSAPP', promoted_object_tipo: 'whatsapp' }
+test('o WhatsApp so e cobrado quando o sub-objetivo leva pra la', () => {
+  // QUEM DECIDE É O CATÁLOGO, e não o formato do destino. A primeira versão
+  // olhava "contém WHATSAPP" no `destination_type`, e acertava por acidente:
+  // INSTAGRAM_DIRECT não contém, mas MESSAGING_..._WHATSAPP contém — e a
+  // pergunta certa ("este tipo precisa de um número?") é a do catálogo.
+  const semWa = acharSubobjetivo('conversa-direct')
+  const comWa = acharSubobjetivo('conversa-whatsapp')
   assert.equal(pedeWhatsapp(semWa), false)
   assert.equal(pedeWhatsapp(comWa), true)
-  // As DUAS evidências contam, e sozinhas: um objetivo pode declarar uma e não a outra.
-  assert.equal(pedeWhatsapp({ promoted_object_tipo: 'whatsapp' }), true)
-  assert.equal(pedeWhatsapp({ destination_type: 'WHATSAPP_MESSENGER' }), true)
+  assert.equal(pedeWhatsapp(acharSubobjetivo('conversa-todos')), true, 'multi-destino também leva ao WhatsApp')
 
   const estado = { ...estadoInicial(), pageId: '123' }
-  assert.equal(podeAvancar('identidade', estado, semWa), true, 'cobrou WhatsApp num objetivo que não usa')
+  assert.equal(podeAvancar('identidade', estado, semWa), true, 'cobrou WhatsApp num tipo que não usa')
   assert.equal(podeAvancar('identidade', estado, comWa), false)
   assert.ok(faltaNoPasso('identidade', estado, comWa)[0].includes('DDI'))
 })
 
 test('numero curto demais e recusado — link morto gasta e nao conversa', () => {
-  const comWa = { destination_type: 'WHATSAPP' }
+  const comWa = acharSubobjetivo('conversa-whatsapp')
   const curto = { ...estadoInicial(), pageId: '123', whatsapp: '99999' }
   assert.equal(podeAvancar('identidade', curto, comWa), false)
   // Aceita o que a pessoa digitar com pontuação: 55 (19) 99999-9999 são 13 dígitos.
   assert.equal(podeAvancar('identidade', { ...curto, whatsapp: '55 (19) 99999-9999' }, comWa), true)
+})
+
+// ── O endereço do site ─────────────────────────────────────────────────────
+
+test('quem leva pro site cobra endereco COMPLETO', () => {
+  const site = acharSubobjetivo('site-cliques')
+  const base = { ...estadoInicial(), pageId: '123' }
+  assert.equal(podeAvancar('identidade', base, site), false)
+  // "loja.com" sem esquema é recusado pela Meta — melhor recusar aqui.
+  assert.equal(podeAvancar('identidade', { ...base, site: 'lavessel.com.br' }, site), false)
+  assert.equal(podeAvancar('identidade', { ...base, site: 'https://lavessel.com.br' }, site), true)
+  assert.ok(faltaNoPasso('identidade', base, site)[0].includes('https://'))
+})
+
+test('siteValido recusa o que a Meta recusaria', () => {
+  assert.equal(siteValido('https://loja.com.br/promo'), true)
+  assert.equal(siteValido('http://loja.com'), true)
+  assert.equal(siteValido('loja.com'), false)
+  assert.equal(siteValido('https://localhost'), false, 'sem ponto não é domínio')
+  assert.equal(siteValido(''), false)
+})
+
+// ── O criativo de cada destino ─────────────────────────────────────────────
+
+test('WhatsApp continua saindo do montador PROVADO da Fabrica', () => {
+  const c = criativaDoAssistente({
+    sub: acharSubobjetivo('conversa-whatsapp'),
+    estado: { imagemHash: 'h', texto: 'Oi', whatsapp: '5519971092194' },
+    page: '324679337390168', ig: '17841462952561833',
+  })
+  assert.match(c.object_story_spec.link_data.link, /wa\.me\/5519971092194/)
+  assert.equal(c.object_story_spec.link_data.call_to_action.type, 'WHATSAPP_MESSAGE')
+  assert.ok(c.degrees_of_freedom_spec, 'perdeu o DOF_SPEC da Fábrica')
+})
+
+test('Direct do Instagram NAO vira link de WhatsApp', () => {
+  // O defeito que isto impede: `payloadCriativa` cai no ramo "WhatsApp puro"
+  // para QUALQUER destino não-vazio. Um anúncio de Direct sairia com wa.me,
+  // sem erro nenhum da Meta.
+  const c = criativaDoAssistente({
+    sub: acharSubobjetivo('conversa-direct'),
+    estado: { imagemHash: 'h', texto: 'Oi' }, page: 'P', ig: 'IG',
+  })
+  assert.ok(!/wa\.me/.test(JSON.stringify(c)), 'montou link de WhatsApp num anúncio de Direct')
+  assert.equal(c.object_story_spec.link_data.call_to_action.type, 'INSTAGRAM_MESSAGE')
+})
+
+test('site leva pro ENDERECO digitado, e nao pro instagram.com', () => {
+  const c = criativaDoAssistente({
+    sub: acharSubobjetivo('site-cliques'),
+    estado: { imagemHash: 'h', texto: 'Oi', site: 'https://lavessel.com.br/promo' }, page: 'P', ig: 'IG',
+  })
+  assert.equal(c.object_story_spec.link_data.link, 'https://lavessel.com.br/promo')
+  assert.equal(c.object_story_spec.link_data.call_to_action.type, 'LEARN_MORE')
+})
+
+test('reconhecimento, sem site e sem destino, liga ao perfil', () => {
+  const c = criativaDoAssistente({
+    sub: acharSubobjetivo('alcance'),
+    estado: { imagemHash: 'h', texto: 'Oi' }, page: 'P', ig: 'IG',
+  })
+  assert.match(c.object_story_spec.link_data.link, /instagram\.com/)
+  assert.equal(c.object_story_spec.instagram_user_id, 'IG')
+})
+
+test('o que ainda nao da pra criar nao deixa avancar, com o motivo', () => {
+  const perfil = acharSubobjetivo('visita-perfil')
+  const e = { ...estadoInicial(), objetivo: 'visita-perfil', nome: 'X' }
+  assert.equal(podeAvancar('objetivo', e, perfil), false)
+  assert.match(faltaNoPasso('objetivo', e, perfil)[0], /publicação que já está no perfil/)
 })
 
 test('a pagina e o Instagram escolhidos vao PRO PAYLOAD, e nao um cadastro', () => {
