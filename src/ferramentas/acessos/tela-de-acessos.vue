@@ -108,9 +108,9 @@ import { decidirEstadoAcesso, mensagemEstadoVazio, agruparPorEscopo, corDeAvatar
 import { montarEmailsDeSelecao } from './onedrive-escrita.js'
 import { contarAcessosOneDrive, resumoAcessosOneDrive, statusWorkdrive, campoPreenchido, resumoDaFicha } from './ficha-do-colaborador.js'
 // Patrimônio (Tarefa 5): dinheiro em centavos + histórico de posse (módulo já testado)
-import { formatarValor, parsearValor, CATEGORIAS_PATRIMONIO, fecharEAbrirHistorico } from './patrimonio.js'
+import { formatarValor, parsearValor, CATEGORIAS_PATRIMONIO, fecharEAbrirHistorico } from '../patrimonio/patrimonio.js'
 // Lógica pura da lista/consolidado de patrimônio (somar, filtrar, formatar data, histórico)
-import { somarCentavos, filtrarItens, formatarDataBR, textoLinhaHistorico, donoAtualNome } from './patrimonio-lista.js'
+import { somarCentavos, filtrarItens, formatarDataBR, textoLinhaHistorico, donoAtualNome } from '../patrimonio/patrimonio-lista.js'
 // Auditoria (Tarefa 6): classificação pura do volume de acesso ao OneDrive (destaque de "muitas pastas")
 import { volumeDeAcesso } from './auditoria-volume.js'
 
