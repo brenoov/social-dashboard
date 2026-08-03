@@ -153,8 +153,8 @@ test('silenciadas viram uma nota, nao somem caladas', () => {
 test('sem permissao nao mostra botao de decidir', () => {
   const comPermissao = monta({ pendentes: [item()], editavel: true });
   const sem = monta({ pendentes: [item()], editavel: false });
-  assert.match(comPermissao, /data-gtf-aprovar/);
-  assert.ok(!sem.includes('data-gtf-aprovar'));
+  assert.match(comPermissao, /data-gtf-acao/);
+  assert.ok(!sem.includes('data-gtf-acao'));
   assert.match(sem, /n(ã|&atilde;)o tem permiss(ã|&atilde;)o/);
 });
 
@@ -192,17 +192,32 @@ test('item nascido da SAUDE nao repete o mesmo texto duas vezes', () => {
   assert.match(html, /saúde da campanha/, 'diz de onde veio');
 });
 
-test('SEM valor sugerido nao existe botao de aprovar', () => {
-  // Um botao que promete agir e nao sabe o que fazer e pior que nenhum botao.
+test('SEM valor sugerido as tres aparecem — mas a tela DIZ de onde veio o numero', () => {
+  // A regra antiga era "sem numero, sem botao: um botao que promete agir e nao
+  // sabe o que fazer e pior que nenhum botao". O dono pediu as tres sempre
+  // (2026-08-03), e a promessa deixa de ser oca por outro caminho: o valor esta
+  // escrito no botao E a origem dele esta escrita na linha. Sem essa segunda
+  // parte, esta mudanca teria reintroduzido exatamente o defeito de antes.
   const html = monta({ pendentes: [item({ origem: 'saude', veredito: 'reduzir', budget_sugerido_centavos: null })], editavel: true });
-  assert.ok(!html.includes('data-gtf-aprovar'));
-  assert.match(html, /data-gtf-recusar/, 'mas da pra dispensar');
-  assert.match(html, /ajuste o orçamento na aba Campanhas/);
+  assert.match(html, /data-gtf-acao="subir"/);
+  assert.match(html, /data-gtf-acao="baixar"/);
+  assert.match(html, /data-gtf-acao="manter"/);
+  assert.match(html, /não sugeriu um valor para esta linha/, 'a origem do número tem de estar dita');
 });
 
-test('pausar SEM valor sugerido continua aprovavel: a acao existe', () => {
+test('campanha SEM orcamento conhecido so pode manter, e a tela explica', () => {
+  // Aqui nao ha o que multiplicar: oferecer "subir 20%" de nada seria inventar.
+  const html = monta({ pendentes: [item({ origem: 'saude', veredito: 'reduzir', budget_sugerido_centavos: null, budget_atual_centavos: null })], editavel: true });
+  assert.ok(!html.includes('data-gtf-acao="subir"'));
+  assert.match(html, /data-gtf-acao="manter"/);
+  assert.match(html, /não tem orçamento conhecido/);
+});
+
+test('pausar continua existindo ao lado das tres — tirar seria tirar capacidade', () => {
   const html = monta({ pendentes: [item({ origem: 'saude', veredito: 'pausar', budget_sugerido_centavos: null })], editavel: true });
-  assert.match(html, /data-gtf-aprovar/);
+  assert.match(html, /data-gtf-acao="pausar"/);
+  assert.match(html, /data-gtf-acao="subir"/, 'e as tres tambem');
+  assert.match(html, /data-gtf-acao="manter"/);
 });
 
 test('sem valor sugerido mostra o gasto de hoje, nao um "de -> para" vazio', () => {
@@ -232,14 +247,40 @@ test('sem o parametro assume carregado (compatibilidade)', () => {
 test('o botao DIZ a acao e o valor, nao um "Aprovar" generico', () => {
   // "Aprovar" numa linha que corta verba e ambiguo — ler o botao tem que bastar.
   const subir = monta({ pendentes: [item({ veredito: 'escalar', budget_sugerido_centavos: 28000 })], editavel: true });
-  assert.match(subir, /Subir para R\$ 280,00/);
+  assert.match(subir, /Subir para R\$\s?280,00/);
 
   const baixar = monta({ pendentes: [item({ veredito: 'reduzir', budget_sugerido_centavos: 15000 })], editavel: true });
-  assert.match(baixar, /Baixar para R\$ 150,00/);
+  assert.match(baixar, /Baixar para R\$\s?150,00/);
   assert.match(baixar, /gtf-btn aprovar reduzir/, 'e carrega a cor da acao');
 
   const pausar = monta({ pendentes: [item({ veredito: 'pausar' })], editavel: true });
-  assert.match(pausar, /">Pausar</);
+  assert.match(pausar, /Pausar campanha/);
+});
+
+test('as TRES escolhas aparecem sempre, e a do robo vem destacada', () => {
+  // Antes havia uma so: a que o robo escolheu. Quem discordava tinha de
+  // dispensar a sugestao e ir mexer na aba Campanhas — na pratica, a fila decidia.
+  const html = monta({ pendentes: [item({ veredito: 'escalar', budget_atual_centavos: 23000, budget_sugerido_centavos: 28000 })], editavel: true });
+  assert.match(html, /data-gtf-acao="subir"[^>]*>Subir para R\$\s?280,00/);
+  assert.match(html, /Baixar para R\$\s?180,00/, 'espelho: o mesmo 22% para baixo');
+  assert.match(html, /Manter como está/);
+  assert.match(html, /recomendada/, 'a do robo vem marcada');
+});
+
+test('o impacto de cada escolha aparece POR EXTENSO, nao so no title', () => {
+  // `title` nao existe em tela de toque, e a explicacao foi o que o dono pediu
+  // junto com os botoes.
+  const html = monta({ pendentes: [item({ veredito: 'escalar', budget_atual_centavos: 5000, budget_sugerido_centavos: 6250 })], editavel: true });
+  assert.match(html, /O que acontece em cada escolha/);
+  assert.match(html, /No mês, cerca de R\$\s?375,00 a mais/);
+  assert.match(html, /No mês, cerca de R\$\s?375,00 a menos/);
+  assert.match(html, /volta a aparecer daqui a 7 dias/);
+});
+
+test('a lupa aparece em cada criativo travado, com o id do anuncio', () => {
+  const html = monta({ pendentes: [item({ criativos: [{ ad_id: '99', nome: 'Bolsa A', porque: 'CTR baixo' }] })], editavel: true });
+  assert.match(html, /data-gtf-lupa="99"/);
+  assert.match(html, /ver</);
 });
 
 test('criativos aparecem DOBRADOS, com numero e motivo, e uma acao so', () => {

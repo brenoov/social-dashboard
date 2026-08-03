@@ -987,32 +987,39 @@ async function _gtFilaRecusar(item, botao) {
   await _gtCarregarFila();
 }
 
-async function _gtFilaAprovar(item, botao) {
+async function _gtFilaAprovar(item, botao, opcao) {
+  // QUAL DAS TRÊS FOI CLICADA. `opcao` vem do painel com o valor JÁ CALCULADO —
+  // o mesmo que estava escrito no botão. Recalcular aqui abriria a porta para
+  // aplicar um número diferente do que a pessoa leu antes de clicar.
+  const ehPausa = (opcao && opcao.chave === 'pausar') || (!opcao && item.veredito === 'pausar');
+  const alvoCentavos = (opcao && opcao.alvoCentavos != null)
+    ? opcao.alvoCentavos
+    : item.budget_sugerido_centavos;
   // O que vai ser escrito na Meta, item a item. Em ABO uma aprovação vira
   // VÁRIAS escritas (uma por conjunto) — por isso a confirmação mostra a quebra
   // inteira antes, e não só o total.
   // Trava de segurança: sem número e sem pausa não há o que aplicar. O painel já
   // esconde o botão nesse caso; isto existe porque quem aplica na Meta não pode
   // depender de a tela ter escondido o botão certo.
-  if (item.veredito !== 'pausar' && item.budget_sugerido_centavos == null) {
+  if (!ehPausa && alvoCentavos == null) {
     adminToast('Este aviso não tem valor sugerido — ajuste o orçamento na aba Campanhas.', false);
     return;
   }
-  const alvos = item.veredito === 'pausar'
+  const alvos = ehPausa
     ? [{ id: item.campaign_id, tipo: 'pausar', nome: item.campaign_name }]
     : (item.conjuntos && item.conjuntos.length)
-      ? distribuirEntreConjuntos(item.conjuntos, item.budget_sugerido_centavos)
+      ? distribuirEntreConjuntos(item.conjuntos, alvoCentavos)
           .map((p) => ({ id: p.id, tipo: 'budget', budget: p.paraCentavos, de: p.deCentavos, nome: p.nome }))
-      : [{ id: item.campaign_id, tipo: 'budget', budget: item.budget_sugerido_centavos, de: item.budget_atual_centavos, nome: item.campaign_name }];
+      : [{ id: item.campaign_id, tipo: 'budget', budget: alvoCentavos, de: item.budget_atual_centavos, nome: item.campaign_name }];
 
-  const detalhe = item.veredito === 'pausar'
+  const detalhe = ehPausa
     ? `"${_gtEsc(item.campaign_name || item.campaign_id)}" será PAUSADA na Meta agora.`
     : alvos.length > 1
       ? `Vou aplicar em ${alvos.length} conjuntos de "${_gtEsc(item.campaign_name || '')}":<br>`
         + alvos.map((a) => `• ${_gtEsc(a.nome || a.id)}: ${_maFmtR((a.de || 0) / 100)} → <b>${_maFmtR(a.budget / 100)}</b>/dia`).join('<br>')
-      : `"${_gtEsc(item.campaign_name || item.campaign_id)}": ${_maFmtR((item.budget_atual_centavos || 0) / 100)}/dia → <b>${_maFmtR(item.budget_sugerido_centavos / 100)}/dia</b>.`;
+      : `"${_gtEsc(item.campaign_name || item.campaign_id)}": ${_maFmtR((item.budget_atual_centavos || 0) / 100)}/dia → <b>${_maFmtR(alvoCentavos / 100)}/dia</b>.`;
 
-  const ok = await _gtConfirm('Aprovar e aplicar na Meta?', detalhe, { danger: item.veredito === 'pausar' });
+  const ok = await _gtConfirm('Aplicar na Meta?', detalhe, { danger: ehPausa });
   if (!ok) return;
 
   const orig = botao.textContent;
@@ -2292,6 +2299,9 @@ function _gtTrocarAba(nome) {
       // quem pode EDITAR nesta ferramenta.
       editavel: hasPermission('meta.gestor', 'editar'),
       aoAprovar: _gtFilaAprovar,
+      // A LUPA da fila reusa o MESMO modal da lista de anúncios — prévia real da
+      // Meta, já validada ao vivo. Ligar o que existe, em vez de escrever outra.
+      aoVerCriativo: (item, adId, nome) => _gtVerCriativo(adId, item.account_id || (_gtCurAcc && _gtCurAcc.id), nome),
       aoRecusar: _gtFilaRecusar,
       aoPausarCriativos: _gtFilaPausarCriativos,
       ajudaBtn: _gtAjudaBtn,

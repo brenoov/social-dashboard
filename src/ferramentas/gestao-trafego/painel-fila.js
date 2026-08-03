@@ -6,6 +6,8 @@
 // Supabase. Quem busca dado e quem aplica na Meta é a tela — este arquivo
 // recebe os itens prontos e devolve as decisões por callback. Mesmo contrato de
 // painel-regua.js.
+import { opcoesDaLinha, frasePasso } from './acoes-da-fila.js';
+
 import { distribuirEntreConjuntos } from './fila.js';
 
 // TEXTO DE FORA VAI TODO POR `esc`. Vale pro nome da campanha e do conjunto (vêm
@@ -90,10 +92,15 @@ function blocoCriativos(item, editavel) {
   // dois valores diferentes de CTR na mesma linha ("CTR 1,52%" seguido de "CTR
   // 1,11% e CPC R$ 2,49 abaixo do padrão"). Um número que contradiz o outro a um
   // centímetro de distância destrói a confiança nos dois.
+  // A LUPA (pedido do dono, 2026-08-03): a fila dizia "3 criativos sem tração" e
+  // a pessoa tinha de acreditar. O modal de prévia já existia na lista de
+  // anúncios da campanha — aqui ele só passou a ser alcançável de onde a decisão
+  // é tomada. Mostra o anúncio RENDERIZADO, não a nossa descrição dele.
   const linhas = lista.map((c) => `
     <li class="gtf-cr">
       <span class="gtf-cr-nome">${esc(c.nome || c.ad_id)}</span>
       ${c.porque ? `<span class="gtf-cr-pq">${esc(c.porque)}</span>` : ''}
+      ${editavel && c.ad_id ? `<button class="gtf-cr-lupa" data-gtf-lupa="${esc(c.ad_id)}" data-gtf-lupa-nome="${esc(c.nome || '')}" title="Ver o anúncio como ele aparece">🔍 ver</button>` : ''}
     </li>`).join('');
   const n = lista.length;
   return `
@@ -104,8 +111,59 @@ function blocoCriativos(item, editavel) {
     </details>`;
 }
 
+// AS TRÊS ESCOLHAS, lado a lado (pedido do dono, 2026-08-03).
+//
+// Antes havia UMA: a que o robô escolheu. Quem discordava não tinha caminho —
+// para baixar uma verba que o robô mandou subir era preciso dispensar a sugestão
+// e ir mexer na aba Campanhas. Na prática, a fila decidia.
+//
+// A recomendada fica DESTACADA, não sozinha: o conselho do robô é informação
+// útil, mas não pode ser o único caminho aberto.
+//
+// O impacto de cada uma vai no `title` E numa linha abaixo do grupo, porque
+// `title` não existe em tela de toque — e a explicação é justamente o que o dono
+// pediu junto com os botões.
+function blocoAcoes(item, opcoes) {
+  const o = opcoes || {};
+  // Pausar não é uma das três, mas continua existindo quando o robô recomenda:
+  // tirar o botão seria tirar uma capacidade que a fila já tinha.
+  const pausar = item.veredito === 'pausar'
+    ? `<button class="gtf-btn aprovar pausar" data-gtf-acao="pausar" title="A campanha para de rodar hoje. O que já foi gasto não volta.">Pausar campanha</button>`
+    : '';
+  const bt = (op, extra) => op
+    ? `<button class="gtf-btn ${extra}" data-gtf-acao="${op.chave}" title="${esc(op.impacto)}">${esc(op.rotulo)}</button>`
+    : '';
+  return `
+    <div class="gtf-acoes">
+      ${bt(o.subir, 'aprovar' + (o.recomendada === 'subir' ? ' recomendada' : ' alternativa'))}
+      ${bt(o.baixar, 'aprovar reduzir' + (o.recomendada === 'baixar' ? ' recomendada' : ' alternativa'))}
+      ${pausar}
+      <button class="gtf-btn recusar" data-gtf-acao="manter" title="${esc(o.manter.impacto)}">Manter como está</button>
+    </div>`;
+}
+
+// A explicação de cada escolha, por extenso e sempre visível.
+// Fica FORA do `title` porque tela de toque não tem o que passar o mouse — e foi
+// o dono quem pediu "explique o impacto caso eu escolha qualquer uma delas".
+function blocoImpactos(opcoes, editavel) {
+  const o = opcoes || {};
+  if (!editavel || (!o.subir && !o.baixar)) return '';
+  const linha = (op) => op ? `<li><b>${esc(op.rotulo)}</b> — ${esc(op.impacto)}${op.noPiso ? ' <i>(o valor parou no mínimo que a Meta aceita)</i>' : ''}</li>` : '';
+  return `
+    <details class="gtf-impactos">
+      <summary>O que acontece em cada escolha</summary>
+      <ul>
+        ${linha(o.subir)}
+        ${linha(o.baixar)}
+        <li><b>${esc(o.manter.rotulo)}</b> — ${esc(o.manter.impacto)}</li>
+      </ul>
+      <p class="gtf-passo-origem">${esc(frasePasso(o))}</p>
+    </details>`;
+}
+
 function linha(item, agoraMs, editavel) {
   const v = VEREDITO[item.veredito] || { texto: item.veredito, cor: 'neutro' };
+  const opcoes = opcoesDaLinha(item);
   // Quem propôs: o robô (padrão) ou a leitura de saúde da própria ferramenta.
   // Dizer isso importa porque item de saúde não traz valor sugerido — ninguém
   // calculou um número ali.
@@ -144,23 +202,21 @@ function linha(item, agoraMs, editavel) {
           <span class="gtf-conta">${esc(item.conta_nome || '')} · ${esc(fonte)}${idade == null ? '' : ` · ${idade === 0 ? 'hoje' : idade === 1 ? 'ontem' : `há ${idade} dias`}`}</span>
         </div>
         <div class="gtf-valores">${valores}</div>
-        ${editavel ? `
-          <div class="gtf-acoes">
-            <button class="gtf-btn recusar" data-gtf-recusar="1">Dispensar</button>
-            ${podeAplicar ? `<button class="gtf-btn aprovar${item.veredito === 'reduzir' ? ' reduzir' : ''}${item.veredito === 'pausar' ? ' pausar' : ''}" data-gtf-aprovar="1">${esc(rotuloAcao)}</button>` : ''}
-          </div>` : '<span class="gtf-sem-permissao" title="Só quem tem permissão de editar a Gestão de Tráfego pode aprovar ou recusar.">você não tem permissão para decidir</span>'}
+        ${editavel ? blocoAcoes(item, opcoes) : '<span class="gtf-sem-permissao" title="Só quem tem permissão de editar a Gestão de Tráfego pode aprovar ou recusar.">você não tem permissão para decidir</span>'}
       </div>
       ${item.justificativa ? `<p class="gtf-just">${esc(item.justificativa)}</p>` : ''}
       ${blocoSaude(item)}
+      ${blocoImpactos(opcoes, editavel)}
       ${blocoCriativos(item, editavel)}
-      ${!podeAplicar && editavel ? '<p class="gtf-sem-numero">Sem valor sugerido: ajuste o orçamento na aba Campanhas, ou dispense este aviso.</p>' : ''}
+      ${editavel && !opcoes.subir && !opcoes.baixar ? '<p class="gtf-sem-numero">Esta campanha não tem orçamento conhecido: ajuste na aba Campanhas, ou mantenha como está.</p>' : ''}
       ${item.impacto_estimado ? `<p class="gtf-impacto"><b>Impacto esperado:</b> ${esc(item.impacto_estimado)}</p>` : ''}
       ${blocoConjuntos(item)}
     </li>`;
 }
 
 // opcoes: { pendentes, vencidas, silenciadas, contas, contaFiltro, agora,
-//           editavel, aoAprovar(item, botao), aoRecusar(item, botao),
+//           editavel, aoAprovar(item, botao, opcao), aoRecusar(item, botao),
+//           aoVerCriativo(item, adId, nome),
 //           aoFiltrar(contaId), ajudaBtn }
 export function montarPainelFila(alvo, opcoes) {
   const o = opcoes || {};
@@ -237,11 +293,35 @@ export function montarPainelFila(alvo, opcoes) {
   for (const el of alvo.querySelectorAll('[data-gtf-id]')) {
     const item = todos.find((i) => String(i.campaign_id) === el.dataset.gtfId);
     if (!item) continue;
-    const ap = el.querySelector('[data-gtf-aprovar]');
-    const re = el.querySelector('[data-gtf-recusar]');
     const cr = el.querySelector('[data-gtf-criativos]');
-    if (ap && o.aoAprovar) ap.addEventListener('click', () => o.aoAprovar(item, ap));
-    if (re && o.aoRecusar) re.addEventListener('click', () => o.aoRecusar(item, re));
     if (cr && o.aoPausarCriativos) cr.addEventListener('click', () => o.aoPausarCriativos(item, cr));
+
+    // AS TRÊS ESCOLHAS (mais 'pausar', quando o robô recomenda). Cada botão diz
+    // no `data-gtf-acao` qual é, e a mesma opção calculada vai junto — assim
+    // quem trata o clique não recalcula o valor e não corre o risco de aplicar
+    // um número diferente do que o botão mostrava.
+    const opcoes = opcoesDaLinha(item);
+    for (const b of el.querySelectorAll('[data-gtf-acao]')) {
+      const acao = b.dataset.gtfAcao;
+      if (acao === 'manter') {
+        // 'Manter' é o antigo 'Dispensar' renomeado (confirmado pelo dono,
+        // 2026-08-03): mesma gravação, nome que uma pessoa entende.
+        if (o.aoRecusar) b.addEventListener('click', () => o.aoRecusar(item, b));
+      } else if (o.aoAprovar) {
+        const opcao = acao === 'pausar' ? { chave: 'pausar', alvoCentavos: null } : opcoes[acao];
+        b.addEventListener('click', () => o.aoAprovar(item, b, opcao));
+      }
+    }
+
+    // A LUPA de cada criativo travado.
+    for (const lp of el.querySelectorAll('[data-gtf-lupa]')) {
+      if (!o.aoVerCriativo) break;
+      lp.addEventListener('click', (ev) => {
+        // O botão mora dentro de um <details>; sem isto o clique fecharia a
+        // lista de criativos ao mesmo tempo que abre o modal.
+        ev.preventDefault(); ev.stopPropagation();
+        o.aoVerCriativo(item, lp.dataset.gtfLupa, lp.dataset.gtfLupaNome || '');
+      });
+    }
   }
 }
