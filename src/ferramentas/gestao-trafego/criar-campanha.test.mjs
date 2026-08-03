@@ -3,18 +3,21 @@ import assert from 'node:assert/strict'
 import {
   PASSOS, estadoInicial, faltaNoPasso, podeAvancar, primeiroPassoIncompleto,
   imagemServe, resumoDoQueVaiSerCriado, payloadsDoAssistente, publicoParaFabrica,
-  LADO_MINIMO_PX, ORCAMENTO_MINIMO_CENTAVOS, horarioDeTermino,
+  LADO_MINIMO_PX, ORCAMENTO_MINIMO_CENTAVOS, horarioDeTermino, pedeWhatsapp,
 } from './criar-campanha.js'
 
 const cheio = () => ({
   ...estadoInicial(),
   objetivo: 'engajamento', nome: 'Bolsas — Campinas',
+  pageId: '324679337390168', igId: '17841462952561833', whatsapp: '5519999999999',
   publico: { cidades: [{ key: '267873', nome: 'Campinas', raio: 20, unidade: 'kilometer' }], idadeMin: 25, idadeMax: 45, interesses: [{ id: '6003', name: 'Bolsas' }] },
   imagemHash: 'abc123', texto: 'Bolsas com 30% OFF',
 })
 
-test('sao quatro passos, na ordem da decisao', () => {
-  assert.deepEqual(PASSOS.map((p) => p.chave), ['objetivo', 'orcamento', 'publico', 'anuncio'])
+test('sao cinco passos, na ordem da decisao', () => {
+  // "de quem é" entra em SEGUNDO, logo depois do objetivo: é o objetivo que
+  // decide se o número de WhatsApp vai ser pedido.
+  assert.deepEqual(PASSOS.map((p) => p.chave), ['objetivo', 'identidade', 'orcamento', 'publico', 'anuncio'])
 })
 
 test('o estado novo nao avanca em nada — e diz o que falta, em portugues', () => {
@@ -77,7 +80,7 @@ test('o que nao se sabe NAO vira acusacao', () => {
 test('o resumo lista o que vai ser criado, com nome de gente', () => {
   const l = resumoDoQueVaiSerCriado(cheio(), 'Conversas no WhatsApp')
   assert.match(l[0], /"Bolsas — Campinas" — Conversas no WhatsApp/)
-  assert.match(l[1], /1 conjunto com R\$\s?50,00 por dia/)
+  assert.ok(l.some((x) => /1 conjunto com R\$\s?50,00 por dia/.test(x)))
   assert.ok(l.some((x) => /Em Campinas/.test(x)))
   assert.ok(l.some((x) => /Idade 25–45/.test(x)))
   assert.ok(l.some((x) => /Interesses: Bolsas/.test(x)))
@@ -86,13 +89,13 @@ test('o resumo lista o que vai ser criado, com nome de gente', () => {
 // ── A tradução entre o editor e a Fábrica ──────────────────────────────────
 
 test('traduz a cidade do editor para a forma da Fabrica', () => {
-  const f = publicoParaFabrica(cheio().publico, {})
+  const f = publicoParaFabrica(cheio().publico)
   assert.deepEqual(f.geo.cities, [{ key: '267873', radius: 20, distance_unit: 'kilometer' }])
   assert.deepEqual(f.interesses, [{ id: '6003', name: 'Bolsas' }])
 })
 
 test('cidade inteira (raio 0) vai SEM radius — nao inventa um raio', () => {
-  const f = publicoParaFabrica({ cidades: [{ key: '1', raio: 0 }] }, {})
+  const f = publicoParaFabrica({ cidades: [{ key: '1', raio: 0 }] })
   assert.deepEqual(f.geo.cities, [{ key: '1' }])
 })
 
@@ -105,7 +108,7 @@ const LOJA = { nome: 'Tivoli', geoCities: ['267873'], whatsapp: '5519999999999' 
 test('o payload sai do montador COMPARTILHADO, com os campos que a Meta exige', () => {
   // Os dois campos abaixo foram justamente os que faltaram nas recusas 4834011 e
   // 1870227 quando eu escrevi payload próprio. Vêm de graça ao reusar.
-  const { campaign, adset } = payloadsDoAssistente({ estado: cheio(), objetivoRow: ROW, marca: MARCA, loja: LOJA })
+  const { campaign, adset } = payloadsDoAssistente({ estado: cheio(), objetivoRow: ROW, nomeDaConta: 'Vessel' })
   assert.equal(campaign.objective, 'OUTCOME_ENGAGEMENT')
   assert.equal(campaign.status, 'PAUSED')
   assert.equal(campaign.is_adset_budget_sharing_enabled, false)
@@ -115,20 +118,23 @@ test('o payload sai do montador COMPARTILHADO, com os campos que a Meta exige', 
 })
 
 test('o nome DIGITADO manda sobre o nome automatico', () => {
-  const { campaign, adset } = payloadsDoAssistente({ estado: cheio(), objetivoRow: ROW, marca: MARCA, loja: LOJA })
+  const { campaign, adset } = payloadsDoAssistente({ estado: cheio(), objetivoRow: ROW, nomeDaConta: 'Vessel' })
   assert.equal(campaign.name, 'Bolsas — Campinas')
   assert.match(adset.name, /^Bolsas — Campinas · conjunto$/)
 })
 
 test('tudo nasce PAUSED — a promessa que garante que nada gasta', () => {
-  const { campaign, adset } = payloadsDoAssistente({ estado: cheio(), objetivoRow: ROW, marca: MARCA, loja: LOJA })
+  const { campaign, adset } = payloadsDoAssistente({ estado: cheio(), objetivoRow: ROW, nomeDaConta: 'Vessel' })
   assert.equal(campaign.status, 'PAUSED')
   assert.equal(adset.status, 'PAUSED')
 })
 
 test('sem objetivo, marca ou loja nao monta payload nenhum', () => {
-  assert.equal(payloadsDoAssistente({ estado: cheio(), objetivoRow: null, marca: MARCA, loja: LOJA }), null)
-  assert.equal(payloadsDoAssistente({ estado: cheio(), objetivoRow: ROW, marca: null, loja: LOJA }), null)
+  assert.equal(payloadsDoAssistente({ estado: cheio(), objetivoRow: null }), null)
+  // SEM PÁGINA não monta: a página é o que assina o anúncio, e a Meta recusa
+  // criativo sem ela. Antes o bloqueio era "sem marca cadastrada", que exigia
+  // cadastro da Fábrica para criar campanha numa conta qualquer.
+  assert.equal(payloadsDoAssistente({ estado: { ...cheio(), pageId: '' }, objetivoRow: ROW }), null)
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -144,10 +150,10 @@ test('sem objetivo, marca ou loja nao monta payload nenhum', () => {
 // que esta tela pode ter, porque é o único em que ela mexe em dinheiro.
 test('orçamento TOTAL vira lifetime_budget, e nunca daily_budget', () => {
   const e = {
-    ...estadoInicial(), objetivo: 'conversao', nome: 'X',
+    ...estadoInicial(), objetivo: 'conversao', nome: 'X', pageId: '324679337390168',
     orcamentoCentavos: 50000, tipoOrcamento: 'total', terminaEm: '2026-09-30',
   };
-  const { adset } = payloadsDoAssistente({ estado: e, objetivoRow: ROW, marca: MARCA, loja: LOJA });
+  const { adset } = payloadsDoAssistente({ estado: e, objetivoRow: ROW, nomeDaConta: 'Vessel' });
   assert.equal(adset.daily_budget, undefined, 'total NÃO pode virar orçamento diário');
   assert.equal(adset.lifetime_budget, 50000);
   // A data vira o FIM do dia escolhido: quem marca 30 quer o dia 30 inteiro.
@@ -155,8 +161,8 @@ test('orçamento TOTAL vira lifetime_budget, e nunca daily_budget', () => {
 });
 
 test('orçamento POR DIA continua daily_budget, sem data nenhuma', () => {
-  const e = { ...estadoInicial(), objetivo: 'conversao', nome: 'X', orcamentoCentavos: 8000 };
-  const { adset } = payloadsDoAssistente({ estado: e, objetivoRow: ROW, marca: MARCA, loja: LOJA });
+  const e = { ...estadoInicial(), objetivo: 'conversao', nome: 'X', pageId: '324679337390168', orcamentoCentavos: 8000 };
+  const { adset } = payloadsDoAssistente({ estado: e, objetivoRow: ROW, nomeDaConta: 'Vessel' });
   assert.equal(adset.daily_budget, 8000);
   assert.equal(adset.lifetime_budget, undefined);
   assert.equal(adset.end_time, undefined);
@@ -175,3 +181,61 @@ test('data mal formada não vira end_time inventado', () => {
   assert.equal(horarioDeTermino(''), '');
   assert.equal(horarioDeTermino('2026-09-30'), '2026-09-30T23:59:59');
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DE QUEM É O ANÚNCIO — escolhido na tela, não herdado do cadastro.
+//
+// O DEFEITO DE DESENHO (apontado pelo dono, 03/08/2026): o assistente exigia
+// que a conta tivesse uma loja cadastrada na Fábrica, e tirava dela a página, o
+// Instagram e o WhatsApp. Só que criar campanha do zero não tem nada a ver com
+// a Fábrica — em conta sem cadastro o botão simplesmente não funcionava, e
+// mesmo com cadastro não dava para usar OUTRA página.
+test('sem pagina escolhida, o passo de identidade nao avanca', () => {
+  const faltas = faltaNoPasso('identidade', estadoInicial(), ROW)
+  assert.ok(faltas.some((f) => /página do Facebook/.test(f)))
+})
+
+test('o WhatsApp so e cobrado quando o objetivo leva pra la', () => {
+  const semWa = { chave: 'trafego', destination_type: '', promoted_object_tipo: 'page' }
+  const comWa = { chave: 'conversao', destination_type: 'WHATSAPP', promoted_object_tipo: 'whatsapp' }
+  assert.equal(pedeWhatsapp(semWa), false)
+  assert.equal(pedeWhatsapp(comWa), true)
+  // As DUAS evidências contam, e sozinhas: um objetivo pode declarar uma e não a outra.
+  assert.equal(pedeWhatsapp({ promoted_object_tipo: 'whatsapp' }), true)
+  assert.equal(pedeWhatsapp({ destination_type: 'WHATSAPP_MESSENGER' }), true)
+
+  const estado = { ...estadoInicial(), pageId: '123' }
+  assert.equal(podeAvancar('identidade', estado, semWa), true, 'cobrou WhatsApp num objetivo que não usa')
+  assert.equal(podeAvancar('identidade', estado, comWa), false)
+  assert.ok(faltaNoPasso('identidade', estado, comWa)[0].includes('DDI'))
+})
+
+test('numero curto demais e recusado — link morto gasta e nao conversa', () => {
+  const comWa = { destination_type: 'WHATSAPP' }
+  const curto = { ...estadoInicial(), pageId: '123', whatsapp: '99999' }
+  assert.equal(podeAvancar('identidade', curto, comWa), false)
+  // Aceita o que a pessoa digitar com pontuação: 55 (19) 99999-9999 são 13 dígitos.
+  assert.equal(podeAvancar('identidade', { ...curto, whatsapp: '55 (19) 99999-9999' }, comWa), true)
+})
+
+test('a pagina e o Instagram escolhidos vao PRO PAYLOAD, e nao um cadastro', () => {
+  const e = { ...cheio(), pageId: '999', igId: '888', whatsapp: '5511988887777' }
+  const { adset } = payloadsDoAssistente({ estado: e, objetivoRow: ROW, nomeDaConta: 'Qualquer conta' })
+  assert.deepEqual(adset.promoted_object, { page_id: '999' }, 'usou a página do cadastro em vez da escolhida')
+})
+
+test('objetivo de WhatsApp leva o numero DIGITADO pro promoted_object', () => {
+  const row = { ...ROW, promoted_object_tipo: 'whatsapp', destination_type: 'WHATSAPP' }
+  const e = { ...cheio(), pageId: '999', whatsapp: '55 11 98888-7777' }
+  const { adset } = payloadsDoAssistente({ estado: e, objetivoRow: row, nomeDaConta: 'X' })
+  assert.equal(adset.promoted_object.page_id, '999')
+  assert.equal(adset.promoted_object.whatsapp_phone_number, '55 11 98888-7777')
+})
+
+test('a confirmacao diz QUAL pagina assina — e avisa quando nao ha Instagram', () => {
+  const linhas = resumoDoQueVaiSerCriado(cheio(), 'Engajamento', { pagina: 'La Vessel', instagram: 'vessel.brasil' })
+  assert.ok(linhas.some((l) => /La Vessel/.test(l) && /vessel\.brasil/.test(l)))
+
+  const semIg = resumoDoQueVaiSerCriado(cheio(), 'Engajamento', { pagina: 'La Vessel Hortolândia' })
+  assert.ok(semIg.some((l) => /sem Instagram ligado/.test(l)))
+})

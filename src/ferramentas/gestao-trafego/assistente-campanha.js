@@ -8,7 +8,7 @@
 // Recebe o `document` e os ajudantes de desenho por parâmetro. Puro no sentido
 // que importa: não lê `window`, não fala com rede, e não guarda estado — quem
 // chama passa o estado e recebe o desenho.
-import { PASSOS, faltaNoPasso, primeiroPassoIncompleto, resumoDoQueVaiSerCriado, ORCAMENTO_MINIMO_CENTAVOS } from './criar-campanha.js';
+import { PASSOS, faltaNoPasso, primeiroPassoIncompleto, resumoDoQueVaiSerCriado, ORCAMENTO_MINIMO_CENTAVOS, pedeWhatsapp } from './criar-campanha.js';
 
 const reais = (c) => (Number(c) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -66,7 +66,72 @@ function passoObjetivo(doc, o) {
   return cx;
 }
 
-// ── PASSO 2 · quanto ────────────────────────────────────────────────────────
+// ── PASSO 2 · de quem é o anúncio ───────────────────────────────────────────
+//
+// As páginas vêm da Meta (`/me/accounts`), não do cadastro da Fábrica. O
+// Instagram vem JUNTO de cada página — a Meta devolve os dois na mesma resposta,
+// então escolher a página já resolve o perfil, e ninguém precisa saber o número
+// de 17 dígitos do Instagram de cor.
+function passoIdentidade(doc, o) {
+  const cx = el(doc, 'div');
+  cx.appendChild(el(doc, 'div', CSS.tit, 'De quem é o anúncio'));
+  cx.appendChild(el(doc, 'p', CSS.ajuda,
+    'A página assina o anúncio, e o perfil do Instagram é onde ele aparece por lá.'));
+
+  const paginas = o.paginas || [];
+  cx.appendChild(el(doc, 'label', CSS.rotulo, 'Página do Facebook'));
+  if (!paginas.length) {
+    cx.appendChild(el(doc, 'div', CSS.resumo, 'Não consegui carregar as páginas desta conta.'));
+    return cx;
+  }
+  const sel = el(doc, 'select', CSS.campo);
+  const vazia = el(doc, 'option', null, 'Escolha uma página…');
+  vazia.value = '';
+  sel.appendChild(vazia);
+  for (const pg of paginas) {
+    const op = el(doc, 'option', null, pg.nome || pg.id);
+    op.value = String(pg.id);
+    if (String(o.estado.pageId) === String(pg.id)) op.selected = true;
+    sel.appendChild(op);
+  }
+  // Escolher a página TRAZ O INSTAGRAM JUNTO. Deixar o perfil para uma segunda
+  // pergunta faria a pessoa escolher duas vezes a mesma coisa.
+  sel.onchange = () => {
+    const achou = paginas.find((pg) => String(pg.id) === String(sel.value));
+    o.aoMudar({ pageId: sel.value, igId: (achou && achou.igId) || '' });
+  };
+  cx.appendChild(sel);
+
+  const escolhida = paginas.find((pg) => String(pg.id) === String(o.estado.pageId));
+  if (escolhida) {
+    const box = el(doc, 'div', CSS.resumo + 'margin-top:10px;');
+    box.appendChild(el(doc, 'div', null, escolhida.igNome
+      ? `Instagram: @${escolhida.igNome}`
+      : 'Esta página não tem perfil do Instagram ligado — o anúncio vai aparecer só no Facebook.'));
+    cx.appendChild(box);
+  }
+
+  // O NÚMERO SÓ APARECE quando o objetivo leva para o WhatsApp. Num objetivo de
+  // tráfego ele seria um campo sem uso, e campo sem uso faz a pessoa se perguntar
+  // se esqueceu de preencher.
+  if (pedeWhatsapp(o.objetivoRow)) {
+    const wa = el(doc, 'div', 'margin-top:14px;');
+    wa.appendChild(el(doc, 'label', CSS.rotulo, 'Número do WhatsApp que vai receber as conversas'));
+    const campo = el(doc, 'input', CSS.campo);
+    campo.type = 'tel';
+    campo.value = o.estado.whatsapp || '';
+    campo.placeholder = '55 19 99999-9999';
+    campo.oninput = () => o.aoMudar({ whatsapp: campo.value }, { semRedesenhar: true });
+    campo.onblur = () => o.aoMudar({}, {});
+    wa.appendChild(campo);
+    wa.appendChild(el(doc, 'p', CSS.ajuda + 'margin:7px 0 0;',
+      'Com DDI e DDD. É para onde o botão do anúncio leva — número errado gasta e não conversa com ninguém.'));
+    cx.appendChild(wa);
+  }
+  return cx;
+}
+
+// ── PASSO 3 · quanto ────────────────────────────────────────────────────────
 function passoOrcamento(doc, o) {
   const cx = el(doc, 'div');
   // O TÍTULO acompanha a escolha: "Quanto por dia" com orçamento total é
@@ -119,7 +184,7 @@ function passoOrcamento(doc, o) {
   return cx;
 }
 
-// ── PASSO 3 · para quem ─────────────────────────────────────────────────────
+// ── PASSO 4 · para quem ─────────────────────────────────────────────────────
 function passoPublico(doc, o) {
   const cx = el(doc, 'div');
   cx.appendChild(el(doc, 'div', CSS.tit, 'Para quem'));
@@ -151,7 +216,7 @@ function passoPublico(doc, o) {
   return cx;
 }
 
-// ── PASSO 4 · o anúncio ─────────────────────────────────────────────────────
+// ── PASSO 5 · o anúncio ─────────────────────────────────────────────────────
 function passoAnuncio(doc, o) {
   const cx = el(doc, 'div');
   cx.appendChild(el(doc, 'div', CSS.tit, 'O anúncio'));
@@ -188,7 +253,7 @@ function passoAnuncio(doc, o) {
   return cx;
 }
 
-const DESENHOS = { objetivo: passoObjetivo, orcamento: passoOrcamento, publico: passoPublico, anuncio: passoAnuncio };
+const DESENHOS = { objetivo: passoObjetivo, identidade: passoIdentidade, orcamento: passoOrcamento, publico: passoPublico, anuncio: passoAnuncio };
 
 // ── O ASSISTENTE INTEIRO ────────────────────────────────────────────────────
 //
@@ -207,7 +272,7 @@ export function montarAssistente(opcoes = {}) {
   // falta, que é a única coisa que um assistente precisa prometer.
   const trilha = el(doc, 'div', 'display:flex;gap:6px;align-items:center;margin-bottom:14px;');
   PASSOS.forEach((p, n) => {
-    const feito = n < i && faltaNoPasso(p.chave, o.estado).length === 0;
+    const feito = n < i && faltaNoPasso(p.chave, o.estado, o.objetivoRow).length === 0;
     trilha.appendChild(el(doc, 'span',
       `width:${n === i ? '22px' : '8px'};height:8px;border-radius:999px;`
       + `background:${n === i ? 'var(--accent)' : feito ? 'color-mix(in srgb,var(--accent) 45%,transparent)' : 'var(--border)'};`));
@@ -220,7 +285,7 @@ export function montarAssistente(opcoes = {}) {
 
   // O QUE FALTA, dito na hora — não só um botão apagado. Botão desabilitado sem
   // explicação é o jeito mais rápido de deixar alguém preso numa tela.
-  const faltas = faltaNoPasso(passo.chave, o.estado);
+  const faltas = faltaNoPasso(passo.chave, o.estado, o.objetivoRow);
   if (faltas.length && o.mostrarFaltas) {
     const av = el(doc, 'div', CSS.falta);
     for (const f of faltas) av.appendChild(el(doc, 'div', null, f));
@@ -250,7 +315,7 @@ export function montarAssistente(opcoes = {}) {
     rodape.appendChild(btn('Avançar', true, true, () => {
       // NÃO trava o Avançar: mostra o que falta e fica. Botão morto sem
       // explicação prende a pessoa sem dizer por quê.
-      if (faltaNoPasso(passo.chave, o.estado).length) o.aoMostrarFaltas();
+      if (faltaNoPasso(passo.chave, o.estado, o.objetivoRow).length) o.aoMostrarFaltas();
       else o.aoPasso(i + 1);
     }));
   } else {
@@ -265,7 +330,7 @@ export function montarAssistente(opcoes = {}) {
       // O sintoma era o pior possível: nada acontecia. Sem erro, sem aviso, sem
       // nada mudar na tela — só o segundo clique funcionava. Visto ao vivo na
       // conta real (03/08/2026), depois de 34 testes verdes.
-      const incompleto = primeiroPassoIncompleto(o.estado);
+      const incompleto = primeiroPassoIncompleto(o.estado, o.objetivoRow);
       if (incompleto) o.aoIrPara(incompleto);
       else o.aoCriar();
     }));
@@ -293,8 +358,8 @@ const esc = (v) => String(v == null ? '' : v)
 //
 // Devolve HTML (e não um nó) porque a janela de confirmação da tela recebe
 // string — é a mesma `_gtConfirm` usada pelo Duplicar e pelo editor de público.
-export function textoDaConfirmacao(estado, objetivoRotulo) {
-  const linhas = resumoDoQueVaiSerCriado(estado, objetivoRotulo);
+export function textoDaConfirmacao(estado, objetivoRotulo, identidade) {
+  const linhas = resumoDoQueVaiSerCriado(estado, objetivoRotulo, identidade);
   return `<b>Vou criar na Meta:</b><ul style="margin:9px 0 0;padding-left:18px;line-height:1.7;">`
     + linhas.map((l) => `<li>${esc(l)}</li>`).join('')
     + '</ul><p style="margin:12px 0 0;">Tudo nasce <b>pausado</b> — nada gasta até você ativar.</p>';
