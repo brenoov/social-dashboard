@@ -222,7 +222,7 @@ export function horarioDeTermino(data) {
 // A janela de confirmar é a última chance de perceber que se está criando a
 // coisa errada — então ela lista tudo, e diz que nasce pausado. Prometer "criar
 // campanha" sem dizer que ela não vai rodar seria esconder a melhor parte.
-export function resumoDoQueVaiSerCriado(estado, objetivoRotulo, identidade) {
+export function resumoDoQueVaiSerCriado(estado, objetivoRotulo, identidade, sub) {
   const e = estado || {};
   const p = e.publico || {};
   const id = identidade || {};
@@ -236,8 +236,18 @@ export function resumoDoQueVaiSerCriado(estado, objetivoRotulo, identidade) {
     linhas.push(`Assinada por ${texto(id.pagina) || `página ${texto(e.pageId)}`}`
       + (texto(id.instagram) ? ` e @${texto(id.instagram)}` : ' (sem Instagram ligado)'));
   }
-  if (texto(e.whatsapp)) linhas.push(`Conversas vão para o WhatsApp ${texto(e.whatsapp)}`);
-  if (texto(e.site)) linhas.push(`O anúncio leva para ${texto(e.site)}`);
+  // SÓ O CANAL DESTE TIPO. O número e o endereço podem estar preenchidos sem
+  // serem usados — o do WhatsApp vem sugerido do cadastro da marca, e fica lá
+  // mesmo quando se escolhe um tipo que leva ao Direct. Visto ao vivo:
+  // uma campanha de Direct dizia "Conversas vão para o WhatsApp +55…", que é
+  // mentira, e mentira justamente na tela que existe para conferir.
+  //
+  // Quando `sub` não vem (chamada antiga), volta a mostrar o que estiver
+  // preenchido: melhor a informação a mais do que a menos.
+  const mostraWhats = sub ? pedeWhatsapp(sub) : true;
+  const mostraSite = sub ? pedeSite(sub) : true;
+  if (mostraWhats && texto(e.whatsapp)) linhas.push(`Conversas vão para o WhatsApp ${texto(e.whatsapp)}`);
+  if (mostraSite && texto(e.site)) linhas.push(`O anúncio leva para ${texto(e.site)}`);
   linhas.push(e.tipoOrcamento === 'total'
     ? `1 conjunto com ${reais(e.orcamentoCentavos)} no total${texto(e.terminaEm) ? `, até ${texto(e.terminaEm).split('-').reverse().join('/')}` : ''}`
     : `1 conjunto com ${reais(e.orcamentoCentavos)} por dia`);

@@ -348,3 +348,23 @@ test('pagina sem numero conhecido mostra os da conta, em vez de lista vazia', ()
   const n = numerosParaPagina(numerosJaUsados(CONJUNTOS), '999999')
   assert.equal(n.length, 2)
 })
+
+test('a confirmacao NAO promete WhatsApp num tipo que vai pro Direct', () => {
+  // O DEFEITO REAL, visto ao vivo (03/08/2026): o número vem sugerido do
+  // cadastro da marca e fica no estado mesmo quando se escolhe um tipo que
+  // leva ao Direct. A confirmação dizia "Conversas vão para o WhatsApp +55…"
+  // numa campanha de Direct — mentira, e justamente na tela que existe para
+  // conferir antes de gastar.
+  const e = { ...cheio(), whatsapp: '5519971690502', site: 'https://x.com.br' }
+
+  const direct = resumoDoQueVaiSerCriado(e, 'Direct', {}, acharSubobjetivo('conversa-direct'))
+  assert.ok(!direct.some((l) => /WhatsApp/.test(l)), 'prometeu WhatsApp num anúncio de Direct')
+  assert.ok(!direct.some((l) => /leva para https/.test(l)), 'prometeu site num anúncio de Direct')
+
+  const whats = resumoDoQueVaiSerCriado(e, 'WhatsApp', {}, acharSubobjetivo('conversa-whatsapp'))
+  assert.ok(whats.some((l) => /WhatsApp 5519971690502/.test(l)))
+
+  const site = resumoDoQueVaiSerCriado(e, 'Site', {}, acharSubobjetivo('site-cliques'))
+  assert.ok(site.some((l) => /leva para https:\/\/x\.com\.br/.test(l)))
+  assert.ok(!site.some((l) => /WhatsApp/.test(l)))
+})

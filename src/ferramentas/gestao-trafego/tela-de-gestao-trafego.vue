@@ -3610,7 +3610,7 @@ async function _gtNovoCriar(){
 
   const pg=_gtNovoPaginas.find(x=>String(x.id)===String(_gtNovo.pageId))||{};
   const ok=await _gtConfirm('Confirma criar?',
-    textoDaConfirmacao(_gtNovo,row.rotulo,{pagina:pg.nome,instagram:pg.igNome}),{okLabel:'Criar pausado'});
+    textoDaConfirmacao(_gtNovo,row.rotulo,{pagina:pg.nome,instagram:pg.igNome},row),{okLabel:'Criar pausado'});
   if(!ok)return;
 
   // A CONTA vem da MARCA, e não do seletor da tela: as duas são a mesma (a loja
