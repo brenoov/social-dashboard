@@ -261,10 +261,13 @@ test('as TRES escolhas aparecem sempre, e a do robo vem destacada', () => {
   // Antes havia uma so: a que o robo escolheu. Quem discordava tinha de
   // dispensar a sugestao e ir mexer na aba Campanhas — na pratica, a fila decidia.
   const html = monta({ pendentes: [item({ veredito: 'escalar', budget_atual_centavos: 23000, budget_sugerido_centavos: 28000 })], editavel: true });
-  assert.match(html, /data-gtf-acao="subir"[^>]*>Subir para R\$\s?280,00/);
+  // A recomendada carrega a estrela antes do rótulo, então o `>` não cola no texto.
+  assert.match(html, /data-gtf-acao="subir"[^>]*>.*Subir para R\$\s?280,00/);
   assert.match(html, /Baixar para R\$\s?180,00/, 'espelho: o mesmo 22% para baixo');
   assert.match(html, /Manter como está/);
-  assert.match(html, /recomendada/, 'a do robo vem marcada');
+  assert.match(html, /class="gtf-btn aprovar recomendada"/, 'a do robo vem cheia');
+  assert.match(html, /data-gtf-acao="baixar"[^>]*class=|class="gtf-btn alternativa reduzir"/, 'a inversa vem discreta');
+  assert.match(html, /data-gtf-acao="manter"[^>]*>|alternativa/, 'manter tambem e discreto');
 });
 
 test('o impacto de cada escolha aparece POR EXTENSO, nao so no title', () => {

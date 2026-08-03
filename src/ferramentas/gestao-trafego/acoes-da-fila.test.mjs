@@ -110,3 +110,54 @@ test('valor torto nao vira NaN na tela', () => {
   assert.equal(o.subir, null)
   assert.ok(!/NaN/.test(JSON.stringify(o)))
 })
+
+// ── O IMPACTO ESCRITO PELA IA ───────────────────────────────────────────────
+//
+// O pedido do dono: "não é pra falar só de orçamento, quero um detalhamento de
+// impacto real, o que acontecerá com as métricas... senão conta de porcentagem
+// eu mesmo fazia". A conta continua existindo — mas como apoio, e dizendo que é.
+
+const COM_IA = {
+  ...ESCALAR,
+  impactos: {
+    subir: 'Com o custo por conversa 32% abaixo da meta, o volume deve subir junto sem piorar o custo; a frequência está em 1,8× e ainda há espaço de audiência.',
+    baixar: 'Cortar aqui devolve alcance que está barato e o custo por conversa tende a piorar, porque a campanha sai da faixa de entrega estável.',
+    manter: 'A campanha segue entregando abaixo da meta, mas sem aproveitar o espaço — o resultado fica parado no volume de hoje.',
+  },
+};
+
+test('o texto da IA MANDA sobre a conta', () => {
+  const o = opcoesDaLinha(COM_IA)
+  assert.match(o.subir.impacto, /frequência está em 1,8×/)
+  assert.equal(o.subir.daIA, true)
+  assert.match(o.baixar.impacto, /custo por conversa tende a piorar/)
+  assert.match(o.manter.impacto, /sem aproveitar o espaço/)
+})
+
+test('a conta NAO some — vira a linha de apoio', () => {
+  // O valor mensal é o que a pessoa sente; ele só deixa de ser a manchete.
+  const o = opcoesDaLinha(COM_IA)
+  assert.match(o.subir.conta, /No mês, cerca de R\$\s?375,00 a mais/)
+  assert.notEqual(o.subir.conta, o.subir.impacto)
+})
+
+test('sem texto da IA, cai na conta E MARCA que caiu', () => {
+  // `daIA: false` é o que deixa a tela avisar "isto é só a conta". Vender
+  // multiplicação como análise seria pior que não ter o bloco.
+  const o = opcoesDaLinha(ESCALAR)
+  assert.equal(o.subir.daIA, false)
+  assert.equal(o.manter.daIA, false)
+  assert.equal(o.subir.impacto, o.subir.conta)
+})
+
+test('texto vazio ou torto conta como AUSENTE, nao como impacto', () => {
+  const o = opcoesDaLinha({ ...ESCALAR, impactos: { subir: '   ', baixar: 42, manter: null } })
+  assert.equal(o.subir.daIA, false)
+  assert.equal(o.baixar.daIA, false)
+})
+
+test('a IA pode escrever so um dos tres — os outros caem na conta', () => {
+  const o = opcoesDaLinha({ ...ESCALAR, impactos: { baixar: 'Perde alcance barato.' } })
+  assert.equal(o.baixar.daIA, true)
+  assert.equal(o.subir.daIA, false)
+})
