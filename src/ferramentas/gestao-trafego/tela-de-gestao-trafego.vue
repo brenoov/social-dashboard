@@ -804,7 +804,7 @@ async function _gtCarregarFila() {
   try {
     // sb() nunca lança: devolve [] com .erro (ver buscar-e-salvar-dados.js).
     const [analises, decisoes] = await Promise.all([
-      sb('gt_budget_analises?select=campaign_id,account_id,veredito,justificativa,impacto_estimado,budget_atual_centavos,budget_sugerido_centavos,gerado_em,valida_ate'),
+      sb('gt_budget_analises?select=campaign_id,account_id,veredito,justificativa,impacto_estimado,impactos,budget_atual_centavos,budget_sugerido_centavos,gerado_em,valida_ate'),
       sb('gt_fila_decisoes?select=campaign_id,decisao,decidido_em,silenciar_ate&order=decidido_em.desc'),
     ]);
     if (analises.erro) { console.error('[GT] falha ao ler as análises da fila:', analises.erro); }
@@ -3809,6 +3809,28 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gtf-btn.aprovar.pausar){background:var(--red);border-color:var(--red);}
 .tela-gestao-trafego :deep(.gtf-btn.aprovar:hover){filter:brightness(1.08);}
 .tela-gestao-trafego :deep(.gtf-btn:disabled){opacity:.6;cursor:default;}
+/* A RECOMENDAÇÃO DA IA EM DESTAQUE, e os caminhos contrários discretos (pedido
+   do dono, 2026-08-03). `.alternativa` é botão de contorno: continua a um
+   clique, mas não disputa o olho com o conselho. */
+.tela-gestao-trafego :deep(.gtf-btn.recomendada){box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);font-weight:700;}
+.tela-gestao-trafego :deep(.gtf-btn.aprovar.reduzir.recomendada){box-shadow:0 0 0 3px color-mix(in srgb, var(--orange) 22%, transparent);}
+.tela-gestao-trafego :deep(.gtf-btn.alternativa){background:transparent;border-color:var(--border);color:var(--muted);font-weight:500;opacity:.75;}
+.tela-gestao-trafego :deep(.gtf-btn.alternativa:hover){opacity:1;color:var(--text);border-color:var(--muted);}
+.tela-gestao-trafego :deep(.gtf-btn.alternativa.reduzir:hover){color:var(--orange);border-color:var(--orange);}
+.tela-gestao-trafego :deep(.gtf-estrela){font-size:.9em;opacity:.9;}
+/* O bloco de impacto: MENOR que o corpo da linha — é leitura de apoio, não
+   manchete. O texto da IA fica no tamanho de leitura; a conta, menor ainda. */
+.tela-gestao-trafego :deep(.gtf-impactos){margin-top:9px;font-size:calc(9.5px*var(--gt-fs,1.3));}
+.tela-gestao-trafego :deep(.gtf-impactos summary){cursor:pointer;color:var(--muted);font-weight:600;}
+.tela-gestao-trafego :deep(.gtf-impactos summary:hover){color:var(--text);}
+.tela-gestao-trafego :deep(.gtf-impactos ul){margin:7px 0 0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:7px;}
+.tela-gestao-trafego :deep(.gtf-impactos li){padding-left:9px;border-left:2px solid var(--border);}
+.tela-gestao-trafego :deep(.gtf-impactos li.rec){border-left-color:var(--accent);}
+.tela-gestao-trafego :deep(.gtf-impactos b){display:block;color:var(--text);}
+.tela-gestao-trafego :deep(.gtf-tag-rec){font-size:.85em;color:var(--accent);font-weight:700;}
+.tela-gestao-trafego :deep(.gtf-impacto-txt){display:block;color:var(--text);line-height:1.55;margin-top:2px;}
+.tela-gestao-trafego :deep(.gtf-conta-simples){display:block;color:var(--muted);font-size:.88em;margin-top:3px;}
+.tela-gestao-trafego :deep(.gtf-passo-origem){color:var(--muted);font-size:.88em;margin:8px 0 0;line-height:1.5;}
 /* Leitura desce ABAIXO da linha, recuada pra alinhar com o nome da campanha. */
 .tela-gestao-trafego :deep(.gtf-just),.tela-gestao-trafego :deep(.gtf-impacto){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;margin:9px 0 0;}
 .tela-gestao-trafego :deep(.gtf-conjuntos){margin-top:7px;}

@@ -58,12 +58,30 @@ export function opcoesDaLinha(item) {
   const passoPadrao = doRobo == null;
   const veredito = item && item.veredito;
 
+  // O QUE A IA ESCREVEU PARA CADA ESCOLHA — tem precedência sobre a conta.
+  //
+  // POR QUE (dono, 2026-08-03): "não é pra falar só de orçamento, quero um
+  // detalhamento de impacto real, o que acontecerá com as métricas... senão
+  // conta de porcentagem eu mesmo fazia".
+  //
+  // A conta continua existindo como PLANO B, para análise antiga (a coluna
+  // `impactos` nasceu agora) e para item vindo da saúde, que não passa pelo
+  // robô. E a tela DIZ qual dos dois está lendo — porque "a IA analisou" e "a
+  // tela multiplicou" são coisas diferentes, e confundir as duas seria vender
+  // uma conta de padaria como análise.
+  const daIA = (chave) => {
+    const t = item && item.impactos && item.impactos[chave];
+    return (typeof t === 'string' && t.trim()) ? t.trim() : null;
+  };
+
   const manter = {
     chave: 'manter',
     rotulo: 'Manter como está',
-    // O texto diz as DUAS consequências: nada muda agora, e a sugestão volta.
-    // Sem a segunda, "manter" parece desligar o aviso para sempre.
-    impacto: 'Nada muda no orçamento. A sugestão sai da fila e volta a aparecer daqui a 7 dias se a situação continuar.',
+    impacto: daIA('manter')
+      // O texto diz as DUAS consequências: nada muda agora, e a sugestão volta.
+      // Sem a segunda, "manter" parece desligar o aviso para sempre.
+      || 'Nada muda no orçamento. A sugestão sai da fila e volta a aparecer daqui a 7 dias se a situação continuar.',
+    daIA: !!daIA('manter'),
   };
 
   if (!de || de <= 0) return { subir: null, baixar: null, manter, passo, passoPadrao, recomendada: null };
@@ -83,16 +101,20 @@ export function opcoesDaLinha(item) {
     const dif = alvo - de;
     const pct = Math.round((dif / de) * 100);
     const mes = Math.abs(dif) * DIAS_NO_MES;
+    const texto = daIA(chave);
     return {
       chave,
       alvoCentavos: alvo,
       pct,
       rotulo: `${verbo} para ${reais(alvo)}`,
-      // O impacto fala em DIA e em MÊS: o valor diário é o que se aprova, mas é
-      // o mensal que a pessoa sente. Um "+R$ 12,50 por dia" parece pouco até
-      // virar "R$ 375 a mais no mês".
-      impacto: `De ${reais(de)} para ${reais(alvo)} por dia (${pct > 0 ? '+' : ''}${pct}%). `
+      // A conta em DIA e em MÊS é o plano B. Ela não some quando a IA escreve:
+      // vira a linha pequena embaixo, porque o valor mensal continua sendo o que
+      // a pessoa sente — "+R$ 12,50 por dia" parece pouco até virar "R$ 375 no mês".
+      conta: `De ${reais(de)} para ${reais(alvo)} por dia (${pct > 0 ? '+' : ''}${pct}%). `
         + `No mês, cerca de ${reais(mes)} ${dif > 0 ? 'a mais' : 'a menos'}.`,
+      impacto: texto || `De ${reais(de)} para ${reais(alvo)} por dia (${pct > 0 ? '+' : ''}${pct}%). `
+        + `No mês, cerca de ${reais(mes)} ${dif > 0 ? 'a mais' : 'a menos'}.`,
+      daIA: !!texto,
       // Marca quando o piso mordeu: sem isso o botão mostraria um número que não
       // corresponde ao passo anunciado, e ninguém entenderia por quê.
       noPiso: chave === 'baixar' && alvo > cru,
