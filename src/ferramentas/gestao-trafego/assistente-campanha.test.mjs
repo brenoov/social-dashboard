@@ -291,3 +291,35 @@ test('sem pagina nenhuma, o passo diz isso em vez de mostrar lista vazia', () =>
   const { corpo } = montar({ passo: 1, paginas: [] })
   assert.match(corpo.texto, /Não consegui carregar as páginas/)
 })
+
+test('o passo de identidade oferece os numeros que a Meta ja aceitou', () => {
+  const numerosWa = [
+    { pageId: '946991068499592', numero: '5519971092194' },
+    { pageId: '999', numero: '5519900000000' },
+  ]
+  const estado = { ...estadoInicial(), pageId: '946991068499592' }
+  const { corpo } = montar({ passo: 1, estado, numerosWa, objetivoRow: { destination_type: 'WHATSAPP' } })
+  assert.match(corpo.texto, /Já usados aqui/)
+  assert.match(corpo.texto, /5519971092194/)
+  // O número de OUTRA página não aparece: esta tem os seus.
+  assert.ok(!/5519900000000/.test(corpo.texto))
+  assert.match(corpo.texto, /só aceita número já ligado a esta conta/)
+})
+
+test('clicar num numero conhecido preenche o campo', () => {
+  let mudou = null
+  const numerosWa = [{ pageId: '946991068499592', numero: '5519971092194' }]
+  const estado = { ...estadoInicial(), pageId: '946991068499592' }
+  const { corpo } = montar({
+    passo: 1, estado, numerosWa, objetivoRow: { destination_type: 'WHATSAPP' },
+    aoMudar: (m) => { mudou = m },
+  })
+  corpo.botoes.find((b) => b.textContent === '5519971092194').onclick({ preventDefault() {} })
+  assert.deepEqual(mudou, { whatsapp: '5519971092194' })
+})
+
+test('sem numero conhecido, o texto volta a ser o generico', () => {
+  const { corpo } = montar({ passo: 1, numerosWa: [], objetivoRow: { destination_type: 'WHATSAPP' } })
+  assert.ok(!/Já usados aqui/.test(corpo.texto))
+  assert.match(corpo.texto, /não conversa com ninguém/)
+})

@@ -8,7 +8,7 @@
 // Recebe o `document` e os ajudantes de desenho por parâmetro. Puro no sentido
 // que importa: não lê `window`, não fala com rede, e não guarda estado — quem
 // chama passa o estado e recebe o desenho.
-import { PASSOS, faltaNoPasso, primeiroPassoIncompleto, resumoDoQueVaiSerCriado, ORCAMENTO_MINIMO_CENTAVOS, pedeWhatsapp } from './criar-campanha.js';
+import { PASSOS, faltaNoPasso, primeiroPassoIncompleto, resumoDoQueVaiSerCriado, ORCAMENTO_MINIMO_CENTAVOS, pedeWhatsapp, numerosParaPagina } from './criar-campanha.js';
 
 const reais = (c) => (Number(c) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -124,8 +124,25 @@ function passoIdentidade(doc, o) {
     campo.oninput = () => o.aoMudar({ whatsapp: campo.value }, { semRedesenhar: true });
     campo.onblur = () => o.aoMudar({}, {});
     wa.appendChild(campo);
+
+    // OS NÚMEROS QUE JÁ FUNCIONAM aparecem como atalho. A Meta recusa número
+    // que não esteja ligado à conta, e não há como perguntar quais são — o que
+    // se sabe é quais ela JÁ aceitou, pelos conjuntos que existem.
+    const conhecidos = numerosParaPagina(o.numerosWa || [], o.estado.pageId);
+    if (conhecidos.length) {
+      const fila = el(doc, 'div', CSS.linha + 'margin-top:8px;');
+      fila.appendChild(el(doc, 'span', 'font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);', 'Já usados aqui:'));
+      for (const n of conhecidos.slice(0, 4)) {
+        fila.appendChild(pastilha(doc, n.numero, String(o.estado.whatsapp || '').replace(/\D/g, '') === n.numero,
+          () => o.aoMudar({ whatsapp: n.numero })));
+      }
+      wa.appendChild(fila);
+    }
+
     wa.appendChild(el(doc, 'p', CSS.ajuda + 'margin:7px 0 0;',
-      'Com DDI e DDD. É para onde o botão do anúncio leva — número errado gasta e não conversa com ninguém.'));
+      conhecidos.length
+        ? 'Com DDI e DDD. A Meta só aceita número já ligado a esta conta — os acima são os que ela já aceitou.'
+        : 'Com DDI e DDD. É para onde o botão do anúncio leva — número errado gasta e não conversa com ninguém.'));
     cx.appendChild(wa);
   }
   return cx;
