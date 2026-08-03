@@ -200,3 +200,54 @@ export function montarSugestao({ faixasDeIdade, conjuntos }) {
       : '',
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// QUAL RESULTADO CONTAR — e dizer qual foi.
+//
+// A mesma conta compra coisas diferentes: conversa no WhatsApp, clique no site,
+// visita ao perfil. Escolher errado inverte a recomendação inteira, então a
+// escolha é feita por evidência (o que a conta mais produziu) e o nome do que
+// foi contado aparece na tela.
+//
+// A ordem é a de VALOR, não a de volume: conversa vale mais que clique, e se a
+// conta tem as duas é pela conversa que ela deve ser julgada.
+const ACOES = [
+  { teste: /messaging_conversation_started/, rotulo: 'conversas iniciadas' },
+  { teste: /^offsite_conversion\.fb_pixel_purchase$|^purchase$/, rotulo: 'compras' },
+  { teste: /^lead$|^offsite_conversion\.fb_pixel_lead$/, rotulo: 'cadastros' },
+  { teste: /^landing_page_view$/, rotulo: 'visitas que carregaram' },
+  { teste: /^link_click$/, rotulo: 'cliques no link' },
+  { teste: /^post_engagement$/, rotulo: 'engajamentos na publicação' },
+];
+
+// Qual ação esta conta produz mais — decidida uma vez, e usada em tudo.
+export function escolherAcao(linhas) {
+  const total = new Map();
+  for (const l of (Array.isArray(linhas) ? linhas : [])) {
+    for (const a of (Array.isArray(l && l.actions) ? l.actions : [])) {
+      if (!a || !a.action_type) continue;
+      const achou = ACOES.find((x) => x.teste.test(a.action_type));
+      if (!achou) continue;
+      total.set(achou.rotulo, (total.get(achou.rotulo) || 0) + num(a.value));
+    }
+  }
+  // Ordem de VALOR entre as que existem, e não a maior quantidade: clique
+  // sempre ganharia de conversa no volume, e julgar por clique premiaria quem
+  // compra clique barato.
+  for (const { rotulo } of ACOES) if ((total.get(rotulo) || 0) > 0) return rotulo;
+  return null;
+}
+
+// O contador para um rótulo escolhido. Devolve função, para casar com a
+// assinatura que `lerFaixasDeIdade` e `lerConjuntos` já esperam.
+export function contadorDe(rotulo) {
+  const def = ACOES.find((x) => x.rotulo === rotulo);
+  if (!def) return () => 0;
+  return (linha) => {
+    let n = 0;
+    for (const a of (Array.isArray(linha && linha.actions) ? linha.actions : [])) {
+      if (a && a.action_type && def.teste.test(a.action_type)) n += num(a.value);
+    }
+    return n;
+  };
+}

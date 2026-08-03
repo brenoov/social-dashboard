@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   lerFaixasDeIdade, recomendarIdade, lerConjuntos, recomendarDosConjuntos,
-  montarSugestao, MINIMO_DE_RESULTADOS,
+  montarSugestao, MINIMO_DE_RESULTADOS, escolherAcao, contadorDe,
 } from './sugerir-publico.js'
 
 // MEDIDO na conta Vessel, 90 dias, 03/08/2026 — copiado da resposta da Meta,
@@ -116,4 +116,36 @@ test('sem dado, DIZ por que — e nao so "sem sugestoes"', () => {
   const s = montarSugestao({ faixasDeIdade: [], conjuntos: [] })
   assert.equal(s.temAlgo, false)
   assert.match(s.motivoVazio, new RegExp(`${MINIMO_DE_RESULTADOS} resultados`))
+})
+
+// ── Qual resultado contar ──────────────────────────────────────────────────
+
+test('escolhe a acao por VALOR, e nao por volume', () => {
+  // Clique sempre ganharia de conversa no volume; julgar por clique premiaria
+  // quem compra clique barato, que é o contrário do que se quer.
+  const linhas = [{
+    actions: [
+      { action_type: 'link_click', value: '5000' },
+      { action_type: 'onsite_conversion.messaging_conversation_started_7d', value: '40' },
+    ],
+  }]
+  assert.equal(escolherAcao(linhas), 'conversas iniciadas')
+})
+
+test('sem conversa, cai para o proximo que existir', () => {
+  assert.equal(escolherAcao([{ actions: [{ action_type: 'link_click', value: '10' }] }]), 'cliques no link')
+  assert.equal(escolherAcao([{ actions: [{ action_type: 'landing_page_view', value: '3' }] }]), 'visitas que carregaram')
+  assert.equal(escolherAcao([{ actions: [] }]), null)
+  assert.equal(escolherAcao(null), null)
+})
+
+test('o contador soma so a acao escolhida, e ignora as variantes de janela', () => {
+  // A Meta manda a mesma conversa em várias janelas de atribuição (_7d, _1d…).
+  const conta = contadorDe('conversas iniciadas')
+  const n = conta({ actions: [
+    { action_type: 'onsite_conversion.messaging_conversation_started_7d', value: '10' },
+    { action_type: 'link_click', value: '999' },
+  ] })
+  assert.equal(n, 10)
+  assert.equal(contadorDe('inexistente')({ actions: [] }), 0)
 })
