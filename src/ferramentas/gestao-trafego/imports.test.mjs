@@ -117,8 +117,49 @@ test('o modal de criativo/gastos NÃO está dentro do painel de campanhas', () =
   assert.ok(fecha > abre, 'não consegui achar o fim do painel de campanhas');
 
   const dentro = vue.slice(abre, fecha);
-  for (const id of ['gt-cr-overlay', 'gt-cr-modal']) {
+  // O assistente de nova campanha entra na MESMA lista: ele é aberto pelo botão
+  // da barra de abas, que fica visível em qualquer aba — então se ele morasse
+  // dentro do painel de Campanhas, abriria invisível a partir da Fila ou da
+  // régua, exatamente como o modal de criativo abriu.
+  for (const id of ['gt-cr-overlay', 'gt-cr-modal', 'gt-novo-ov', 'gt-novo-modal']) {
     assert.ok(!dentro.includes(`id="${id}"`),
       `${id} está DENTRO de #gt-painel-campanhas — some quando outra aba está ativa`);
   }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FUNÇÃO CHAMADA POR onclick="..." NO TEMPLATE PRECISA ESTAR EM window.
+//
+// O `<script setup>` do Vue tem escopo de módulo: um `onclick="_gtNovoFechar()"`
+// literal no HTML é avaliado no escopo GLOBAL, onde nada disso existe. Só
+// funciona porque o fim do arquivo faz `Object.assign(window, {...})` — e
+// esquecer um nome ali dá "_gtNovoFechar is not defined" no clique, sem que o
+// build ou qualquer teste de unidade percebam.
+test('toda função chamada por onclick no template está exposta em window', () => {
+  const vue = readFileSync(new URL('./tela-de-gestao-trafego.vue', import.meta.url), 'utf8');
+  const template = vue.slice(0, vue.indexOf('<script'));
+  const bloco = vue.slice(vue.indexOf('Object.assign(window, {'));
+  const expostas = new Set((bloco.slice(0, bloco.indexOf('})')).match(/\w+/g) || []));
+
+  const faltando = [];
+  for (const m of template.matchAll(/onclick="([^"]+)"/g)) {
+    for (const chamada of m[1].matchAll(/(?:^|[;\s])(\w+)\s*\(/g)) {
+      const nome = chamada[1];
+      // `event.stopPropagation()` e afins são do próprio navegador.
+      if (nome === 'stopPropagation' || nome === 'event') continue;
+      if (!expostas.has(nome)) faltando.push(nome);
+    }
+  }
+  assert.deepEqual([...new Set(faltando)], [],
+    'estes nomes são chamados por onclick no template mas não estão em Object.assign(window, {...})');
+});
+
+test('o proprio teste de window enxerga um nome faltando', () => {
+  const expostas = new Set(['alfa']);
+  const template = '<button onclick="beta()">x</button>';
+  const faltando = [];
+  for (const m of template.matchAll(/onclick="([^"]+)"/g)) {
+    for (const c of m[1].matchAll(/(?:^|[;\s])(\w+)\s*\(/g)) if (!expostas.has(c[1])) faltando.push(c[1]);
+  }
+  assert.deepEqual(faltando, ['beta']);
 });
