@@ -78,6 +78,10 @@
            seria dizer que ela depende de um. Só aparece para quem pode editar;
            quem só olha não vê botão que não pode usar. -->
       <button class="pnd-aba-acao" id="gt-btn-nova" role="button" hidden onclick="_gtNovoAbrir()">+ Nova campanha</button>
+      <!-- O HISTÓRICO fica colado no "+ Nova campanha" porque é a mesma
+           conversa: o que foi começado aqui. Mesmo gate (`hidden` some junto),
+           porque quem não pode criar não tem o que ver nesta lista. -->
+      <button class="pnd-aba-acao" id="gt-btn-hist" role="button" hidden onclick="_gtHistAbrir()">Histórico</button>
     </div>
 
     <!-- #gt-painel-campanhas é "display:contents" (ver <style> abaixo): ele só
@@ -181,6 +185,9 @@ import { montarPainelRegua } from './painel-regua.js'
 // silêncio de 7 dias, a repartição por conjunto) moram em fila.js, puro e
 // testado; painel-fila.js só monta a tela.
 import { montarPainelFila } from './painel-fila.js'
+// A LISTA do histórico de campanhas começadas por aqui. As regras de leitura
+// moram em rascunhos.js; este só desenha (e escapa tudo que vem de fora).
+import { montarPainelHistorico, marcarQuemPodeApagar } from './painel-historico.js'
 import { montarAssistente, textoDaConfirmacao } from './assistente-campanha.js'
 import { estadoInicial, imagemServe, payloadsDoAssistente, numerosJaUsados, criativaDoAssistente, PASSOS } from './criar-campanha.js'
 // O CATÁLOGO DE SUB-OBJETIVOS: a Meta tem dois níveis (objetivo da campanha e
@@ -3670,6 +3677,10 @@ let _gtNovoVideos=[];        // os vídeos que a conta já tem, com capa
 let _gtNovoEnviando=false, _gtNovoCriando=false, _gtNovoFaltas=false;
 
 function _gtNovoFechar(){
+  // O HISTÓRICO USA A MESMA MOLDURA. Sem esta saída, fechar a lista gravaria um
+  // rascunho de uma campanha que ninguém começou — e o histórico encheria de
+  // linhas vazias criadas por quem só foi olhar.
+  if(_gtHistAberto){_gtHistFechar();return;}
   // FECHAR SALVA NA HORA, sem esperar o atraso: fechar a janela é exatamente o
   // momento em que o trabalho se perderia.
   if(_gtNovoTimerSalvar){clearTimeout(_gtNovoTimerSalvar);_gtNovoTimerSalvar=null;}
@@ -3686,7 +3697,9 @@ function _gtNovoEsc(e){
   if(e.key==='Escape'&&!_gtNovoCriando)_gtNovoFechar();
 }
 
-async function _gtNovoAbrir(){
+// `op.retomar` é a linha escolhida NO HISTÓRICO. Vindo de lá, não se pergunta
+// "quer continuar?": a pessoa já respondeu essa pergunta ao clicar em Continuar.
+async function _gtNovoAbrir(op){
   if(!_gtCurAcc){await _gtConfirm('Sem conta selecionada','Escolha uma conta de anúncios primeiro.',{okOnly:true});return;}
   _gtNovo=estadoInicial();_gtNovoPasso=0;_gtNovoFaltas=false;_gtNovoCriando=false;_gtNovoEnviando=false;
   _gtNovoRascunhoId=null;_gtNovoUltimoSalvo=null;
@@ -3696,7 +3709,14 @@ async function _gtNovoAbrir(){
 
   // RETOMAR DE ONDE PAROU. Perguntar só quando há o que retomar: oferecer
   // sempre viraria um clique a mais em toda campanha nova.
-  const retomar=rascunhoParaRetomar(_gtNovoHistorico,new Date());
+  const escolhido=op&&op.retomar;
+  if(escolhido){
+    _gtNovo=Object.assign(estadoInicial(),escolhido.estado||{});
+    _gtNovoPasso=Number(escolhido.passo)||0;
+    _gtNovoRascunhoId=escolhido.id;
+    _gtNovoUltimoSalvo=JSON.parse(JSON.stringify(_gtNovo));
+  }
+  const retomar=escolhido?null:rascunhoParaRetomar(_gtNovoHistorico,new Date());
   if(retomar){
     const l=montarHistorico([retomar],new Date())[0];
     const continuar=await _gtConfirm('Você tem uma campanha começada',
@@ -3818,6 +3838,79 @@ async function _gtNovoFecharRascunho(status,resultado){
     await sbClient.from('gt_campanhas_rascunho')
       .update({status,resultado:resultado||null}).eq('id',_gtNovoRascunhoId);
   }catch(e){ /* idem */ }
+}
+
+// A TELA DO HISTÓRICO.
+//
+// Reaproveita a moldura do assistente (`#gt-novo-modal`) em vez de ganhar uma
+// própria: é o mesmo assunto, e uma moldura nova seria CSS duplicado para
+// parecer igual. A bandeira `_gtHistAberto` é o que separa os dois — sem ela,
+// fechar o histórico gravaria um rascunho de uma campanha que ninguém começou.
+let _gtHistAberto=false;
+
+async function _gtHistAbrir(){
+  const ov=document.getElementById('gt-novo-ov'),md=document.getElementById('gt-novo-modal');
+  const corpo=document.getElementById('gt-novo-corpo'),rod=document.getElementById('gt-novo-rodape');
+  const tt=document.getElementById('gt-novo-titulo');
+  if(!ov||!md||!corpo)return;
+  _gtHistAberto=true;
+  if(tt)tt.textContent='Histórico · '+((_gtCurAcc&&(_gtCurAcc.display_name||_gtCurAcc.name))||'');
+  if(rod)rod.innerHTML='';
+  ov.style.display='block';md.style.display='flex';
+  document.addEventListener('keydown',_gtNovoEsc);
+  montarPainelHistorico(corpo,{carregando:true});
+  await _gtHistDesenhar();
+}
+
+async function _gtHistDesenhar(){
+  const corpo=document.getElementById('gt-novo-corpo');
+  if(!corpo)return;
+  let cruas=[],erro='';
+  try{
+    if(!_gtCurAcc)throw new Error('nenhuma conta selecionada');
+    const {data,error}=await sbClient.from('gt_campanhas_rascunho')
+      .select('id,nome,tipo,status,passo,estado,resultado,updated_at,created_at,criado_por')
+      .eq('account_id',String(_gtCurAcc.id))
+      .order('updated_at',{ascending:false}).limit(60);
+    // O MOTIVO VAI PRA TELA. `catch` mudo aqui já custou meia hora de caça uma
+    // vez nesta mesma tela (o buscador de publicações).
+    if(error)throw new Error(error.message||'o banco recusou a leitura');
+    cruas=data||[];
+  }catch(e){ erro=String((e&&e.message)||e); }
+
+  const {data:{user}}=await sbClient.auth.getUser().catch(()=>({data:{}}));
+  const linhas=marcarQuemPodeApagar(montarHistorico(cruas,new Date()),cruas,user&&user.id);
+  montarPainelHistorico(corpo,{
+    linhas, erro,
+    aoContinuar:async(id)=>{
+      const row=cruas.find(r=>String(r.id)===String(id));
+      if(!row)return;
+      _gtHistFechar();
+      await _gtNovoAbrir({retomar:row});
+    },
+    aoApagar:async(id)=>{
+      const row=cruas.find(r=>String(r.id)===String(id));
+      const ok=await _gtConfirm('Apagar do histórico?',
+        '<b>'+_gtEsc((row&&row.nome)||'esta linha')+'</b><br><br>'
+        +'Isso apaga só o registro aqui. Campanha que já foi criada na Meta CONTINUA lá — '
+        +'apagar daqui não desfaz nada lá.',{okLabel:'Apagar'});
+      if(!ok)return;
+      const {error}=await sbClient.from('gt_campanhas_rascunho').delete().eq('id',id);
+      if(error){adminToast('Não consegui apagar: '+(error.message||''),false);return;}
+      // Se era o rascunho aberto no assistente, o id guardado ficou órfão —
+      // e a próxima gravação recriaria a linha que a pessoa acabou de apagar.
+      if(String(_gtNovoRascunhoId)===String(id))_gtNovoRascunhoId=null;
+      await _gtHistDesenhar();
+    },
+  });
+}
+
+function _gtHistFechar(){
+  _gtHistAberto=false;
+  const ov=document.getElementById('gt-novo-ov'),md=document.getElementById('gt-novo-modal');
+  if(ov)ov.style.display='none';
+  if(md)md.style.display='none';
+  document.removeEventListener('keydown',_gtNovoEsc);
 }
 
 // O HISTÓRICO DESTA CONTA — rascunhos e enviados, do time inteiro.
@@ -4621,6 +4714,11 @@ onMounted(() => {
   // qualquer motivo, o botão fica escondido em vez de aparecer por engano.
   const novaBtn = document.getElementById('gt-btn-nova')
   if (novaBtn && hasPermission('meta.gestor', 'editar')) novaBtn.hidden = false
+  // O histórico segue o MESMO gate, e de propósito: ele mostra rascunhos e
+  // erros de criação: quem não pode criar não tem o que ver nele. Um gate
+  // próprio e mais largo seria uma porta lateral para a mesma informação.
+  const histBtn = document.getElementById('gt-btn-hist')
+  if (histBtn && hasPermission('meta.gestor', 'editar')) histBtn.hidden = false
   startGtClock()
   // A régua (gt_ponderada_config) é UMA linha única, sem relação com qual conta de
   // anúncios está selecionada — por isso carrega aqui, já no mount, e não só dentro
@@ -4659,6 +4757,7 @@ Object.assign(window, {
   _gtAjuda,
   _gtNovoAbrir,
   _gtNovoFechar,
+  _gtHistAbrir,
 })
 </script>
 
