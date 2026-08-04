@@ -149,7 +149,7 @@
           <span class="home-card-enter">→</span>
         </div>
         <!-- Escritório 3D dos Agentes: rota ainda não existe. -->
-        <div class="home-card" id="home-card-hq3d" @click="abrirEscritorio3D" @mouseenter="definirTemaFundo('default')" @mouseleave="definirTemaFundo('default')">
+        <div v-if="podeEscritorio3D" class="home-card" id="home-card-hq3d" @click="abrirEscritorio3D" @mouseenter="definirTemaFundo('default')" @mouseleave="definirTemaFundo('default')">
           <div class="home-card-icon" style="background:linear-gradient(135deg,#0d9488 0%,#16a89a 100%)">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><line x1="9" y1="9" x2="9" y2="9.01"/><line x1="9" y1="13" x2="9" y2="13.01"/><line x1="9" y1="17" x2="9" y2="17.01"/></svg>
           </div>
@@ -194,6 +194,8 @@ const podePatrimonio = computed(() => hasPermission('patrimonio', 'ver'))
 // mostra só os que a pessoa pode ver.
 const podeGestaoInterna = computed(() => podeAcessos.value || podePatrimonio.value)
 const podeClaudeStatus = computed(() => hasPermission('claude.status', 'ver'))
+// O 3D era o único cartão sem porteiro. Agora segue a mesma chave dos outros.
+const podeEscritorio3D = computed(() => hasPermission('escritorio3d', 'ver'))
 
 // Nenhuma ferramenta liberada? Sem isto, os 9 cards somem um a um e sobra a barra
 // de topo numa página em branco — o usuário lê como "o sistema quebrou" e reporta
@@ -202,7 +204,7 @@ const podeClaudeStatus = computed(() => hasPermission('claude.status', 'ver'))
 const semNenhumaFerramenta = computed(() =>
   !ehAdmin.value && !podeRedes.value && !podeVendas.value && !podeMeta.value &&
   !podeBanco.value && !podeNoticias.value && !podeGestor.value &&
-  !podeGestaoInterna.value && !podeClaudeStatus.value
+  !podeGestaoInterna.value && !podeClaudeStatus.value && !podeEscritorio3D.value
 )
 
 // O perfil não carregou (rede, sessão expirada, servidor). É DIFERENTE de "não tem

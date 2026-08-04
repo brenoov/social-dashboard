@@ -149,6 +149,11 @@ export const PERMISSION_TREE = [
     { key: 'patrimonio', label: 'Patrimônio' },
   ] },
   { key: 'claude.status', label: 'Painel de Status do Claude', children: [] },
+  // ESCRITÓRIO 3D. Entrou na árvore em 04/08/2026, a pedido do dono: até então
+  // era a única ferramenta da home SEM porteiro — qualquer pessoa logada abria.
+  // Como toda chave nova, ela sobe concedida a NINGUÉM: quem tinha acesso por
+  // omissão passa a precisar da marcação explícita. É de propósito.
+  { key: 'escritorio3d', label: 'Escritório 3D dos Agentes', children: [] },
   { key: 'conteudo', label: 'Central de Conteúdo', children: [
     { key: 'conteudo.aprovar', label: 'Aprovar peças' },
   ] },
