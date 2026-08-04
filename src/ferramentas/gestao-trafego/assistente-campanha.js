@@ -12,6 +12,8 @@ import { GRUPOS, bloqueio, podeSerCriado, usaPublicacao } from './subobjetivos.j
 // A busca, o filtro, a ordem e a descrição de cada publicação moram num módulo
 // puro — ver conteudo-existente.js.
 import { filtrar, ordenar, tiposPresentes, descricaoDaPublicacao, ORDENS, AVISO_STORIES } from './conteudo-existente.js';
+import { linhaDoTexto, AVISO_DAS_VAGAS } from './sugerir-texto.js';
+import { botoesDe, botaoEscolhido, avisoDeTamanho, SAUDACAO_PADRAO, RESPOSTA_PADRAO } from './campos-do-anuncio.js';
 import { PASSOS, faltaNoPasso, primeiroPassoIncompleto, resumoDoQueVaiSerCriado, ORCAMENTO_MINIMO_CENTAVOS, pedeWhatsapp, pedeSite, numerosParaPagina } from './criar-campanha.js';
 
 const reais = (c) => (Number(c) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -328,6 +330,80 @@ function passoPublico(doc, o) {
   return cx;
 }
 
+// OS TEXTOS QUE JÁ FUNCIONARAM, e a sugestão da IA em cima deles.
+//
+// Era o único passo do assistente onde ainda se escrevia numa caixa vazia. A
+// evidência aparece PRIMEIRO — os textos reais com o custo ao lado —, e a
+// sugestão da IA vem depois, marcada. Misturar as duas faria a opinião dela
+// parecer medida.
+function secaoDeTexto(doc, o) {
+  const bloco = el(doc, 'div', 'margin:0 0 12px;');
+  const t = o.textos;
+
+  if (!t) {
+    if (!o.aoBuscarTextos) return bloco;
+    const b = ec(doc, 'button', 'gtw-b secundario', o.buscandoTextos ? 'Olhando os textos…' : 'Ver os textos que já funcionaram aqui');
+    b.type = 'button';
+    b.disabled = !!o.buscandoTextos;
+    b.onclick = (ev) => { if (ev && ev.preventDefault) ev.preventDefault(); o.aoBuscarTextos(); };
+    bloco.appendChild(b);
+    return bloco;
+  }
+  if (!t.temAlgo) {
+    bloco.appendChild(el(doc, 'div', CSS.resumo, t.motivoVazio || 'Sem textos comparáveis nesta conta.'));
+    return bloco;
+  }
+
+  const caixa = el(doc, 'div', CSS.resumo);
+  caixa.appendChild(el(doc, 'div', 'font-weight:700;color:var(--text);margin-bottom:6px;',
+    t.diferenca ? `O texto muda o preço em até ${Math.round(t.diferenca)}×` : 'Os textos que já rodaram aqui'));
+  for (const x of t.melhores.slice(0, 3)) {
+    const linha = el(doc, 'div', 'margin-bottom:7px;');
+    linha.appendChild(el(doc, 'div', 'color:var(--green);font-family:var(--fonte-dados);font-size:calc(9.5px*var(--gt-fs,1.3));', linhaDoTexto(x)));
+    linha.appendChild(el(doc, 'div', 'color:var(--text);', `"${String(x.texto).slice(0, 130)}"`));
+    caixa.appendChild(linha);
+  }
+  if (t.piores.length) {
+    const pior = t.piores[t.piores.length - 1];
+    const linha = el(doc, 'div', 'margin-top:9px;padding-top:8px;border-top:1px solid var(--border);');
+    linha.appendChild(el(doc, 'div', 'color:var(--orange);font-family:var(--fonte-dados);font-size:calc(9.5px*var(--gt-fs,1.3));', 'o mais caro · ' + linhaDoTexto(pior)));
+    linha.appendChild(el(doc, 'div', null, `"${String(pior.texto).slice(0, 110)}"`));
+    caixa.appendChild(linha);
+  }
+  // AS VAGAS APARECEM, marcadas — e com o porquê. Elas são o texto mais barato
+  // da conta, e escondê-las faria a tela discordar do Gerenciador da Meta.
+  if ((t.vagas || []).length) {
+    caixa.appendChild(el(doc, 'div', 'margin-top:9px;padding-top:8px;border-top:1px solid var(--border);color:var(--muted);',
+      `${t.vagas.length} ${t.vagas.length === 1 ? 'texto de vaga de emprego ficou' : 'textos de vaga de emprego ficaram'} fora da conta. ${AVISO_DAS_VAGAS}`));
+  }
+  bloco.appendChild(caixa);
+
+  if (t.pensando || t.leitura || t.erro) {
+    const cx2 = el(doc, 'div', CSS.resumo + 'margin-top:7px;border-left:3px solid var(--accent);');
+    cx2.appendChild(el(doc, 'div', 'font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);margin-bottom:4px;', 'Leitura da IA'));
+    if (t.pensando) cx2.appendChild(el(doc, 'div', null, 'Lendo os textos…'));
+    else if (t.erro) cx2.appendChild(el(doc, 'div', 'color:var(--orange);', 'Não consegui a leitura: ' + t.erro));
+    else {
+      cx2.appendChild(el(doc, 'div', 'color:var(--text);', t.leitura));
+      if (t.cuidado) cx2.appendChild(el(doc, 'div', 'margin-top:6px;color:var(--muted);', 'Cuidado: ' + t.cuidado));
+    }
+    bloco.appendChild(cx2);
+  }
+
+  // USAR É ESCOLHA. A sugestão entra na caixa de texto ao clicar, e continua
+  // editável — ninguém publica o que a IA escreveu sem ler.
+  for (const sug of (t.sugestoes || [])) {
+    const b = ec(doc, 'button', 'gtw-b secundario', null);
+    b.type = 'button';
+    b.style.cssText += 'display:block;width:100%;text-align:left;margin-top:6px;white-space:normal;line-height:1.5;font-weight:500;';
+    b.appendChild(el(doc, 'div', 'font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);margin-bottom:3px;', 'usar este texto'));
+    b.appendChild(el(doc, 'div', null, sug));
+    b.onclick = (ev) => { if (ev && ev.preventDefault) ev.preventDefault(); o.aoMudar({ texto: sug }); };
+    bloco.appendChild(b);
+  }
+  return bloco;
+}
+
 // ── PASSO 5b · impulsionar uma publicação ───────────────────────────────────
 //
 // Aqui não se escolhe imagem nem se escreve texto: a arte e a legenda são as da
@@ -518,12 +594,134 @@ function passoAnuncio(doc, o) {
       'Este vídeo não tem capa, e a Meta exige uma. Escolha outro vídeo ou envie uma imagem.'));
   }
 
+  cx.appendChild(secaoDeTexto(doc, o));
+
   const txt = el(doc, 'textarea', CSS.campo + 'min-height:74px;resize:vertical;line-height:1.5;');
   txt.value = o.estado.texto || '';
   txt.placeholder = 'O texto que aparece junto do anúncio.';
   txt.oninput = () => o.aoMudar({ texto: txt.value }, { semRedesenhar: true });
   cx.appendChild(txt);
+
+  cx.appendChild(maisCampos(doc, o));
   return cx;
+}
+
+// UM CAMPO DE UMA LINHA, com rótulo, explicação e o aviso de tamanho embaixo.
+// `semRedesenhar` porque redesenhar a cada tecla tira o cursor do lugar.
+function campoDeLinha(doc, o, { chave, rotulo, ajuda, exemplo, limite }) {
+  const d = el(doc, 'div', 'margin-bottom:10px;');
+  d.appendChild(el(doc, 'label', 'display:block;font-weight:600;margin-bottom:3px;color:var(--text);', rotulo));
+  if (ajuda) d.appendChild(el(doc, 'p', CSS.ajuda + 'margin:0 0 5px;', ajuda));
+  const i = el(doc, 'input', CSS.campo);
+  i.type = 'text';
+  i.value = o.estado[chave] || '';
+  i.placeholder = exemplo || '';
+  const aviso = el(doc, 'div', CSS.ajuda + 'margin:4px 0 0;color:var(--orange);', avisoDeTamanho(limite, o.estado[chave]));
+  i.oninput = () => {
+    o.aoMudar({ [chave]: i.value }, { semRedesenhar: true });
+    // O aviso é escrito na mão porque a tela não redesenha enquanto se digita —
+    // e um aviso de tamanho que só aparece depois não avisa nada.
+    aviso.textContent = avisoDeTamanho(limite, i.value);
+  };
+  d.appendChild(i);
+  d.appendChild(aviso);
+  return d;
+}
+
+// OS CAMPOS QUE FALTAVAM: título, descrição, botão e a saudação do WhatsApp.
+//
+// PEDIDO DO DONO (03/08/2026): "quando for objetivo de whatsapp eu poder
+// escolher a pré mensagem de saudação, pode editar mais campos relacionados ao
+// anúncio".
+//
+// FICAM FECHADOS por padrão. São opcionais — a Meta preenche sozinha o que
+// ficar em branco —, e abertos empurrariam o botão de criar para fora da tela
+// justamente em quem só quer o básico.
+function maisCampos(doc, o) {
+  const sub = o.objetivoRow || null;
+  const ehWhats = String((sub || {}).destination_type || '').toUpperCase().includes('WHATSAPP');
+  const lista = botoesDe(sub);
+
+  const box = el(doc, 'details', 'margin-top:12px;border:1px solid var(--border);border-radius:10px;'
+    + 'padding:10px 12px;background:var(--surface2);');
+  if (o.maisCamposAberto) box.open = true;
+  // O <details> não avisa a tela sozinho, e sem isto ele fecharia a cada
+  // redesenho — perdendo o que a pessoa estava escrevendo de vista.
+  box.ontoggle = () => o.aoMudar({}, { semRedesenhar: true, maisCamposAberto: box.open });
+
+  const t = el(doc, 'summary', 'cursor:pointer;font-weight:600;color:var(--text);');
+  t.textContent = ehWhats ? 'Mais opções — título, botão e saudação do WhatsApp' : 'Mais opções — título, descrição e botão';
+  box.appendChild(t);
+
+  const dentro = el(doc, 'div', 'margin-top:10px;');
+
+  dentro.appendChild(campoDeLinha(doc, o, {
+    chave: 'titulo', rotulo: 'Título', limite: 'titulo',
+    ajuda: 'A frase em negrito, logo abaixo da imagem. Se ficar em branco, o Facebook usa o nome da página.',
+    exemplo: 'Bolsas que não passam despercebidas',
+  }));
+  dentro.appendChild(campoDeLinha(doc, o, {
+    chave: 'descricao', rotulo: 'Descrição', limite: 'descricao',
+    ajuda: 'Uma linha menor, embaixo do título. Aparece em alguns lugares e some em outros — não coloque nela o que é essencial.',
+    exemplo: 'Frete grátis acima de R$ 300',
+  }));
+
+  // O BOTÃO. Só aparece quando há escolha de verdade: no WhatsApp existe um
+  // botão só, e um menu de um item é enfeite que confunde.
+  if (lista.length > 1) {
+    const d = el(doc, 'div', 'margin-bottom:10px;');
+    d.appendChild(el(doc, 'label', 'display:block;font-weight:600;margin-bottom:3px;color:var(--text);', 'Botão'));
+    d.appendChild(el(doc, 'p', CSS.ajuda + 'margin:0 0 5px;', 'O que está escrito no botão do anúncio.'));
+    const sel = el(doc, 'select', CSS.campo);
+    const atual = botaoEscolhido(sub, o.estado.botao);
+    for (const b of lista) {
+      const op = el(doc, 'option', null, b.rotulo + (b.usos ? ` · a conta já usou ${b.usos}×` : ''));
+      op.value = b.id;
+      if (b.id === atual) op.selected = true;
+      sel.appendChild(op);
+    }
+    sel.onchange = () => o.aoMudar({ botao: sel.value }, { semRedesenhar: true });
+    d.appendChild(sel);
+    dentro.appendChild(d);
+  }
+
+  // A SAUDAÇÃO, só onde há conversa. São DOIS textos e a diferença entre eles é
+  // a parte que se erra: um é o que a LOJA diz, o outro é o que já vem digitado
+  // no WhatsApp do CLIENTE.
+  if (ehWhats) {
+    const cab = el(doc, 'div', 'margin:14px 0 8px;padding-top:10px;border-top:1px solid var(--border);');
+    cab.appendChild(el(doc, 'div', 'font-weight:700;color:var(--text);', 'A saudação do WhatsApp'));
+    cab.appendChild(el(doc, 'p', CSS.ajuda + 'margin:3px 0 0;',
+      'É a primeira tela que a pessoa vê quando clica no anúncio e o WhatsApp abre. '
+      + 'Metade dos anúncios desta conta já usa uma. Deixando em branco, vale a saudação padrão da sua página.'));
+    dentro.appendChild(cab);
+
+    dentro.appendChild(campoDeLinha(doc, o, {
+      chave: 'saudacao', rotulo: 'O que a loja diz',
+      ajuda: 'A mensagem de boas-vindas que aparece na conversa.',
+      exemplo: SAUDACAO_PADRAO,
+    }));
+    dentro.appendChild(campoDeLinha(doc, o, {
+      chave: 'saudacaoResposta', rotulo: 'O que já vem digitado pro cliente',
+      ajuda: 'A frase que aparece pronta na caixa dele — ele só aperta enviar. É o que faz a conversa começar de verdade.',
+      exemplo: RESPOSTA_PADRAO,
+    }));
+
+    if (String(o.estado.saudacao || '').trim()) {
+      const p = el(doc, 'div', CSS.resumo + 'margin-top:4px;');
+      p.appendChild(el(doc, 'div', CSS.ajuda + 'margin:0 0 5px;', 'Como vai ficar na conversa'));
+      p.appendChild(el(doc, 'div', 'background:var(--surface);border-radius:10px 10px 10px 2px;padding:7px 10px;'
+        + 'display:inline-block;max-width:100%;color:var(--text);', o.estado.saudacao));
+      p.appendChild(el(doc, 'div', 'margin-top:6px;text-align:right;'));
+      p.lastChild.appendChild(el(doc, 'span', 'background:var(--accent);color:#fff;border-radius:10px 10px 2px 10px;'
+        + 'padding:7px 10px;display:inline-block;max-width:100%;',
+        String(o.estado.saudacaoResposta || '').trim() || RESPOSTA_PADRAO));
+      dentro.appendChild(p);
+    }
+  }
+
+  box.appendChild(dentro);
+  return box;
 }
 
 // O ÚLTIMO PASSO tem dois desenhos, e quem decide é o tipo escolhido.

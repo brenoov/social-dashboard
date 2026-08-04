@@ -165,6 +165,9 @@ import { lerSalvos } from './publicos-salvos.js'
 import { lerFaixasDeIdade, lerConjuntos, montarSugestao, escolherAcao, contadorDe } from './sugerir-publico.js'
 // A leitura das publicações do perfil (tipo, engajamento, miniatura) — puro.
 import { lerPublicacoes } from './conteudo-existente.js'
+// Os textos que já rodaram, agrupados e com a armadilha das vagas separada —
+// ver sugerir-texto.js para o achado que fez esse módulo existir.
+import { agruparPorTexto, montarSugestaoDeTexto } from './sugerir-texto.js'
 // Rascunho que sobrevive a fechar a aba, e o histórico do que foi criado ou
 // recusado. As regras (o que vale salvar, quando mudou, como cada linha é dita)
 // moram em rascunhos.js; aqui fica só o que precisa de banco.
@@ -3651,6 +3654,12 @@ let _gtNovoPubsDoPerfil='';  // de qual perfil a lista carregada é (trocar de p
 let _gtNovoErroPubs='';      // por que a lista não veio — a tela MOSTRA isto
 let _gtNovoStories=[];       // stories ATIVOS: vivem 24h e somem
 let _gtNovoBusca='';let _gtNovoTipoPub='todos';let _gtNovoOrdemPub='recentes';
+let _gtNovoTextos=null;      // a evidência dos textos + a leitura da IA
+// O <details> de "Mais opções" é lembrado AQUI e não no DOM: cada redesenho
+// monta um <details> novo, e sem guardar isso ele fecharia sozinho no meio de
+// quem estava escrevendo a saudação.
+let _gtNovoMaisCampos=false;
+let _gtNovoBuscandoTextos=false;
 // ── RASCUNHO ────────────────────────────────────────────────────────────────
 let _gtNovoRascunhoId=null;  // a linha em gt_campanhas_rascunho desta tentativa
 let _gtNovoUltimoSalvo=null; // o estado como ele foi gravado da última vez
@@ -3682,6 +3691,7 @@ async function _gtNovoAbrir(){
   _gtNovo=estadoInicial();_gtNovoPasso=0;_gtNovoFaltas=false;_gtNovoCriando=false;_gtNovoEnviando=false;
   _gtNovoRascunhoId=null;_gtNovoUltimoSalvo=null;
   _gtNovoBusca='';_gtNovoTipoPub='todos';_gtNovoOrdemPub='recentes';_gtNovoStories=[];
+  _gtNovoTextos=null;_gtNovoBuscandoTextos=false;_gtNovoMaisCampos=false;
   _gtNovoHistorico=await _gtNovoLerHistorico();
 
   // RETOMAR DE ONDE PAROU. Perguntar só quando há o que retomar: oferecer
@@ -3871,6 +3881,87 @@ async function _gtNovoTalvezCarregarPublicacoes(){
   finally{ _gtNovoCarregandoPubs=false;_gtNovoRedesenhar(); }
 }
 
+// OS TEXTOS QUE JÁ RODARAM NESTA CONTA, com o custo real de cada um.
+//
+// PAGINADO de propósito, e com `date_preset:'maximum'`: a primeira medição usou
+// 90 dias e achou 3 textos com resultado — parecia que não havia dado. Com tudo
+// o que a conta já rodou são 81 textos, 19 deles com resultado suficiente. O
+// dado estava lá; a janela é que era curta.
+//
+// (E `time_range` com um ano voltou VAZIO. O atalho `maximum` funciona; o
+// intervalo escrito à mão, não. Descoberto medindo.)
+async function _gtNovoBuscarTextos(){
+  if(_gtNovoBuscandoTextos)return;
+  _gtNovoBuscandoTextos=true;_gtNovoRedesenhar();
+  try{
+    const act=_gtCleanAct(_gtCurAcc.ad_account_id), conta=_gtCurAcc.id;
+    const paginar=async(caminho,params,voltas)=>{
+      let saida=[],depois=null,v=0;
+      do{
+        const r=await metaFetch(caminho,{...params,...(depois?{after:depois}:{})},conta);
+        saida=saida.concat((r&&r.data)||[]);
+        depois=((r&&r.data)||[]).length&&r.paging&&r.paging.cursors?r.paging.cursors.after:null;
+      }while(depois&&++v<voltas);
+      return saida;
+    };
+    const [ads,ins]=await Promise.all([
+      paginar('/'+act+'/ads',{fields:'id,creative{object_story_spec,body}',limit:200},5),
+      paginar('/'+act+'/insights',{level:'ad',fields:'ad_id,spend,actions,campaign_name',date_preset:'maximum',limit:500},5),
+    ]);
+    const rotulo=escolherAcao(ins);
+    const contar=contadorDe(rotulo);
+    const porAd={};
+    for(const l of ins)if(l&&l.ad_id)porAd[String(l.ad_id)]=l;
+    const s=montarSugestaoDeTexto(agruparPorTexto(ads,porAd,contar));
+    _gtNovoTextos={...s,contando:rotulo};
+    _gtNovoRedesenhar();
+    if(s.temAlgo)await _gtNovoLeituraDeTexto(s,rotulo);
+  }catch(e){
+    _gtNovoTextos={temAlgo:false,motivoVazio:'Não consegui ler os textos: '+String((e&&e.message)||e)};
+  }finally{
+    _gtNovoBuscandoTextos=false;_gtNovoRedesenhar();
+  }
+}
+
+// A LEITURA E AS SUGESTÕES DA IA. A evidência já está na tela antes dela — se a
+// IA falhar, os textos reais com o custo continuam ali.
+async function _gtNovoLeituraDeTexto(evidencia,rotulo){
+  try{
+    _gtNovoTextos={..._gtNovoTextos,pensando:true};_gtNovoRedesenhar();
+    const {data:{session}}=await sbClient.auth.getSession();
+    if(!session)return;
+    const sub=_gtNovoObjetivos.find(o=>o.id===_gtNovo.objetivo);
+    const enxuto=(x)=>({texto:String(x.texto).slice(0,300),custo:Number(x.custo.toFixed(2)),resultados:x.resultados});
+    const r=await fetch(SUPABASE_URL+'/functions/v1/sugerir-publico-ia',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+session.access_token,'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({
+        modo:'texto',
+        marca:(_gtCurAcc&&(_gtCurAcc.display_name||_gtCurAcc.name))||'',
+        objetivo:(sub&&sub.rotulo)||'',
+        evidencia:{
+          contando:rotulo,
+          melhores:evidencia.melhores.map(enxuto),
+          piores:evidencia.piores.map(enxuto),
+          // AS VAGAS VÃO SEPARADAS, e o prompt sabe o que fazer com elas: são o
+          // texto mais barato da conta e não servem de modelo para vender.
+          vagas:(evidencia.vagas||[]).slice(0,4).map(enxuto),
+          diferenca:evidencia.diferenca,
+        },
+      }),
+    });
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok||!d.ok){
+      _gtNovoTextos={..._gtNovoTextos,pensando:false,
+        erro:(d&&(d.comoResolver||d.detalhe||d.error))||('a função respondeu '+r.status)};
+      return;
+    }
+    _gtNovoTextos={..._gtNovoTextos,pensando:false,leitura:d.leitura||'',cuidado:d.cuidado||'',sugestoes:d.sugestoes||[]};
+  }catch(e){
+    _gtNovoTextos={..._gtNovoTextos,pensando:false,erro:String((e&&e.message)||e)};
+  }finally{ _gtNovoRedesenhar(); }
+}
+
 // OS VÍDEOS QUE A CONTA JÁ TEM.
 //
 // `picture` é a CAPA que a Meta já gerou — e capa é obrigatória no criativo de
@@ -3951,6 +4042,7 @@ function _gtNovoRedesenhar(htmlDireto){
     carregandoPublicacoes:_gtNovoCarregandoPubs,
     erroPublicacoes:_gtNovoErroPubs,
     stories:_gtNovoStories,mostrarAvisoStories:true,
+    textos:_gtNovoTextos,buscandoTextos:_gtNovoBuscandoTextos,aoBuscarTextos:_gtNovoBuscarTextos,
     buscaPublicacao:_gtNovoBusca,tipoPublicacao:_gtNovoTipoPub,ordemPublicacao:_gtNovoOrdemPub,
     // A BUSCA NÃO É ESTADO DA CAMPANHA: ela não vai para o rascunho nem para a
     // Meta. Por isso muda por aqui, e não pelo `aoMudar`, que grava no banco.
@@ -3961,6 +4053,7 @@ function _gtNovoRedesenhar(htmlDireto){
       _gtNovoRedesenhar();
     },
     enviando:_gtNovoEnviando,criando:_gtNovoCriando,mostrarFaltas:_gtNovoFaltas,
+    maisCamposAberto:_gtNovoMaisCampos,
     // `semRedesenhar` existe para digitação: redesenhar a cada letra faria o
     // campo perder o foco no meio da palavra.
     aoMudar:(mudanca,op)=>{
@@ -3971,6 +4064,7 @@ function _gtNovoRedesenhar(htmlDireto){
         _gtNovo.publicacaoId='';_gtNovo.publicacaoResumo='';
         _gtNovoPublicacoes=[];_gtNovoPubsDoPerfil='';
       }
+      if(op&&op.maisCamposAberto!==undefined)_gtNovoMaisCampos=!!op.maisCamposAberto;
       Object.assign(_gtNovo,mudanca);
       if(!(op&&op.semRedesenhar))_gtNovoRedesenhar();
       // Mudar o TIPO no passo 1 pode passar a exigir publicação — e mudar de

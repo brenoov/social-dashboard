@@ -491,3 +491,86 @@ test('a confirmacao diz que e video, e nao "a imagem escolhida"', () => {
   const l = resumoDoQueVaiSerCriado(e, 'WhatsApp', {}, acharSubobjetivo('conversa-whatsapp'))
   assert.ok(l.some((x) => /com o vídeo escolhido/.test(x)))
 })
+
+// ── Os campos novos do anúncio (03/08/2026) ─────────────────────────────────
+
+test('a saudacao do WhatsApp CHEGA no criativo, no campo que a Meta le', () => {
+  const c = criativaDoAssistente({
+    sub: acharSubobjetivo('conversa-whatsapp'),
+    estado: { imagemHash: 'h', texto: 'oi', whatsapp: '11999999999',
+      saudacao: 'Bem-vindo à Vessel!', saudacaoResposta: 'Quero ver as bolsas' },
+    page: 'P', ig: 'I',
+  })
+  const d = c.object_story_spec.link_data || c.object_story_spec.video_data
+  const w = JSON.parse(d.page_welcome_message)
+  assert.equal(w.text_format.message.text, 'Bem-vindo à Vessel!')
+  assert.equal(w.text_format.message.autofill_message.content, 'Quero ver as bolsas')
+})
+
+test('saudacao NAO entra em campanha que nao abre conversa', () => {
+  // Num anúncio de site ela seria um campo ignorado — ou um erro, dependendo do
+  // humor da Meta. Melhor não mandar.
+  const c = criativaDoAssistente({
+    sub: acharSubobjetivo('site-cliques'),
+    estado: { imagemHash: 'h', texto: 'oi', site: 'https://vessel.com.br', saudacao: 'Oi!' },
+    page: 'P', ig: 'I',
+  })
+  assert.equal(c.object_story_spec.link_data.page_welcome_message, undefined)
+})
+
+test('titulo e descricao chegam no criativo — e no NOME certo por formato', () => {
+  const img = criativaDoAssistente({
+    sub: acharSubobjetivo('site-cliques'),
+    estado: { imagemHash: 'h', texto: 'oi', site: 'https://vessel.com.br', titulo: 'Bolsas novas', descricao: 'Frete grátis' },
+    page: 'P', ig: 'I',
+  })
+  assert.equal(img.object_story_spec.link_data.name, 'Bolsas novas')
+  assert.equal(img.object_story_spec.link_data.description, 'Frete grátis')
+
+  const vid = criativaDoAssistente({
+    sub: acharSubobjetivo('site-cliques'),
+    estado: { videoId: 'v1', videoCapa: 'https://x/c.png', texto: 'oi', site: 'https://vessel.com.br', titulo: 'Bolsas novas' },
+    page: 'P', ig: 'I',
+  })
+  assert.equal(vid.object_story_spec.video_data.title, 'Bolsas novas')
+  assert.equal(vid.object_story_spec.video_data.name, undefined)
+})
+
+test('trocar o botao NAO perde o caminho ate o numero do WhatsApp', () => {
+  // Medido: no WhatsApp puro o número vai no `link` (wa.me/…), e o botão vem
+  // sem `value`. Sobrescrever o call_to_action inteiro, ou mexer no link,
+  // faria o botão apontar pra lugar nenhum.
+  const c = criativaDoAssistente({
+    sub: acharSubobjetivo('conversa-whatsapp'),
+    estado: { imagemHash: 'h', texto: 'oi', whatsapp: '11999999999', botao: 'SHOP_NOW' },
+    page: 'P', ig: 'I',
+  })
+  const d = c.object_story_spec.link_data || c.object_story_spec.video_data
+  assert.equal(d.call_to_action.type, 'WHATSAPP_MESSAGE', 'botão que não cabe no destino não pode passar')
+  assert.match(String(d.link), /11999999999/)
+})
+
+test('multi-destino NAO tem o botao trocado — quem escolhe e a Meta', () => {
+  // O caminho multi manda três botões em `asset_feed_spec` e deixa a Meta
+  // escolher. Trocar o de baixo brigaria com a lista de cima.
+  const sub = { ...acharSubobjetivo('conversa-todos') }
+  const c = criativaDoAssistente({
+    sub, estado: { imagemHash: 'h', texto: 'oi', whatsapp: '11999999999', botao: 'WHATSAPP_MESSAGE' },
+    page: 'P', ig: 'I',
+  })
+  if (c.asset_feed_spec) {
+    assert.equal(c.object_story_spec.link_data.call_to_action.type, 'MESSAGE_PAGE')
+    assert.equal(c.asset_feed_spec.call_to_actions.length, 3)
+  }
+})
+
+test('impulsionar publicacao continua com os DOIS campos, sem extras grudados', () => {
+  // O caminho da publicação não tem object_story_spec: mandar título ou
+  // saudação nele faz a Meta responder "O campo de link é obrigatório".
+  const c = criativaDoAssistente({
+    sub: acharSubobjetivo('engajamento-post'),
+    estado: { publicacaoId: '123', titulo: 'ignorar', saudacao: 'ignorar', descricao: 'ignorar' },
+    page: 'P', ig: 'I',
+  })
+  assert.deepEqual(Object.keys(c).sort(), ['instagram_user_id', 'source_instagram_media_id'])
+})
