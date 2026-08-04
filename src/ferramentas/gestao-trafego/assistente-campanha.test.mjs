@@ -93,14 +93,29 @@ test('a explicacao aparece SO do escolhido, e nao das catorze', () => {
   assert.match(um, /A Meta procura quem costuma abrir conversa/)
 })
 
-test('a trilha diz onde se esta', () => {
-  assert.match(montar({ passo: 0 }).corpo.texto, /passo 1 de 5/)
-  assert.match(montar({ passo: 3, estado: cheio() }).corpo.texto, /passo 4 de 5/)
+test('a trilha diz os NOMES dos passos, e nao so quantos faltam', () => {
+  // Cinco pontinhos respondem "quanto falta" e não respondem "o que vem" — e é
+  // o que vem que faz alguém decidir se continua agora ou volta depois.
+  const t = montar({ passo: 0 }).corpo.texto
+  for (const nome of ['O que', 'De quem', 'Quanto', 'Para quem', 'O anúncio']) {
+    assert.ok(t.includes(nome), `a trilha não diz "${nome}"`)
+  }
+})
+
+test('o passo atual fica marcado, e os ja feitos ganham o certo', () => {
+  const noQuarto = montar({ passo: 3, estado: cheio(), objetivoRow: acharSubobjetivo('conversa-whatsapp') })
+  const passos = noQuarto.corpo.filhos[0].filhos
+  assert.match(passos[3].className, /agora/)
+  assert.match(passos[0].className, /feito/)
+  // O passo já cumprido troca o número por um certo: o número dele não importa
+  // mais, e o certo diz o que importa.
+  assert.equal(passos[0].filhos[0].textContent, '✓')
+  assert.equal(passos[3].filhos[0].textContent, '4')
 })
 
 test('passo fora da faixa nao estoura — encaixa no limite', () => {
-  assert.match(montar({ passo: 99, estado: cheio() }).corpo.texto, /passo 5 de 5/)
-  assert.match(montar({ passo: -5 }).corpo.texto, /passo 1 de 5/)
+  assert.match(montar({ passo: 99, estado: cheio() }).corpo.texto, /O anúncio/)
+  assert.match(montar({ passo: -5 }).corpo.texto, /O que/)
 })
 
 test('escolher objetivo avisa quem chama, sem redesenhar por conta propria', () => {
