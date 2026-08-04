@@ -66,9 +66,11 @@
       <button class="pat-trilha-item atual" v-if="caminho.comodoId">{{ nomeDoNivel('comodoId') }}</button>
     </div>
 
-    <!-- Faixa de filtros: ROLA na horizontal, nunca quebra em linhas.
-         Empresa e Local saíram daqui: agora eles SÃO a navegação, e repetir o
-         mesmo recorte em dois lugares faria os dois brigarem entre si. -->
+    <!-- Filtros. Empresa e Local saíram daqui: agora eles SÃO a navegação, e
+         repetir o mesmo recorte em dois lugares faria os dois brigarem entre si.
+         Sobraram dois, então no celular eles OCUPAM a largura toda, lado a lado,
+         em vez de ficarem estreitos numa faixa que rola. No desktop, onde há
+         espaço de sobra, seguem em linha. -->
     <div class="pat-filtros rolagem-x" v-if="visao !== 'resumo'">
       <select class="pat-select" v-model="filtro.categoriaId" aria-label="Categoria">
         <option value="">Todas as categorias</option>
@@ -78,7 +80,6 @@
         <option value="">Todas as situações</option>
         <option v-for="s in SITUACOES" :key="s.valor" :value="s.valor">{{ s.rotulo }}</option>
       </select>
-      <button class="pat-chip" :class="{ ativo: filtro.semDono }" @click="filtro.semDono = !filtro.semDono">Sem dono</button>
       <button class="pat-chip" v-if="temFiltro" @click="limparFiltros">Limpar</button>
     </div>
 
@@ -1500,7 +1501,12 @@ onMounted(() => {
   .tela-patrimonio .pat-resumo-qtd{font-size:19px;}
   .tela-patrimonio .pat-busca-wrap,.tela-patrimonio .pat-filtros,.tela-patrimonio .pat-visoes{padding-left:12px;padding-right:12px;}
   .tela-patrimonio .pat-busca{padding:9px 11px;}
-  .tela-patrimonio .pat-select{padding:7px 9px;max-width:150px;}
+  /* Dois filtros, largura toda, lado a lado. Antes eram estreitos (max-width)
+     numa faixa rolável — sobrava borda vazia dos dois lados da tela. */
+  .tela-patrimonio .pat-filtros{display:grid;grid-template-columns:1fr 1fr;gap:8px;overflow:visible;}
+  .tela-patrimonio .pat-select{padding:8px 9px;max-width:none;width:100%;}
+  /* "Limpar" só aparece com filtro ativo; quando aparece, pega a linha inteira. */
+  .tela-patrimonio .pat-filtros .pat-chip{grid-column:1 / -1;}
   .tela-patrimonio .pat-chip{padding:7px 11px;font-size:11px;}
   .tela-patrimonio .pat-body{padding:0 12px 40px;}
 }
