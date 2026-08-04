@@ -9,6 +9,8 @@
   <div id="acessos-screen" class="tela-acessos">
     <div class="ac-topbar">
       <button class="ac-back" @click="voltar">← Central</button>
+      <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
+      <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
     </div>
 
     <!-- ============================================================
@@ -2707,6 +2709,9 @@ onMounted(() => {
   _acTopoStatusProvedor('zoho.status', 'ac-prov-zoho', 'ac-prov-zoho-note', 'ac-prov-zoho-pill')
   _acTopoStatusProvedor('microsoft.status', 'ac-prov-ms', 'ac-prov-ms-note', 'ac-prov-ms-pill')
 })
+
+const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
+const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 </script>
 
 <style scoped>
@@ -2738,6 +2743,7 @@ onMounted(() => {
    aqui tapava a decoração e ainda deixava uma faixa visível onde a tela
    terminava. */
 .tela-acessos{display:flex;flex-direction:column;min-height:100vh;position:relative;z-index:1;background:transparent}
+.tela-acessos :deep(.ac-topbar .rbv-logo){height:24px;width:auto;}
 .tela-acessos :deep(.ac-topbar){display:flex;align-items:center;gap:18px;padding:16px 24px;border-bottom:1px solid rgba(255,255,255,.08);position:sticky;top:0;background:inherit;flex-wrap:wrap}
 .tela-acessos :deep(.ac-back){background:none;border:1px solid rgba(255,255,255,.18);color:inherit;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px}
 .tela-acessos :deep(.ac-tabs){display:flex;gap:6px;margin-left:auto}

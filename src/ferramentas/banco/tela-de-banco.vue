@@ -8,8 +8,9 @@
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
         Central
       </button>
+      <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
+      <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
       <span class="banco-topbar-title">Banco de Arquivos</span>
-      <div style="width:80px"></div>
     </div>
     <div class="banco-body">
       <div class="banco-upload-zone" id="banco-drop-zone">
@@ -164,6 +165,9 @@ onMounted(()=>{
   setupBancoUpload();
   loadArquivos();
 });
+
+const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
+const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 </script>
 
 <style scoped>
@@ -175,6 +179,7 @@ onMounted(()=>{
    aqui tapava a decoração e ainda deixava uma faixa visível onde a tela
    terminava. */
 .tela-banco{min-height:100vh;display:flex;flex-direction:column;background:transparent;}
+.tela-banco :deep(.banco-topbar .rbv-logo){height:24px;width:auto;}
 .tela-banco :deep(.banco-topbar){display:flex;align-items:center;justify-content:space-between;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
 .tela-banco :deep(.banco-back){display:flex;align-items:center;gap:4px;font-family:var(--fonte-principal);font-size:10px;font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;letter-spacing:.3px;text-transform:uppercase;}
 .tela-banco :deep(.banco-topbar-title){font-family:var(--fonte-principal);font-size:15px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--text);}

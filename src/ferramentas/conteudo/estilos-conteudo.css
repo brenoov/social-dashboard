@@ -39,6 +39,7 @@
 }
 
 /* ── Topbar ───────────────────────────────────────────────────────────────── */
+.ctd-topbar .rbv-logo{height:24px;width:auto;}
 .ctd-topbar {
   display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
   padding: 13px clamp(14px, 2.5vw, 44px);

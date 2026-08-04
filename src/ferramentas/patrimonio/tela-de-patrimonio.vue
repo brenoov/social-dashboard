@@ -6,6 +6,8 @@
       <button class="pat-back" @click="voltar">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>{{ rotuloDoVoltar }}
       </button>
+      <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
+      <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
       <span class="pat-title">{{ rotuloDoCaminho(caminho, listas) }}</span>
       <button class="pat-btn-ajuda" @click="abrirPasseio" title="Como usar esta tela">?</button>
     </div>
@@ -1453,6 +1455,9 @@ onMounted(() => {
     }
   })
 })
+
+const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
+const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 </script>
 
 <style scoped>
@@ -1465,6 +1470,7 @@ onMounted(() => {
 .tela-patrimonio{min-height:100vh;display:flex;flex-direction:column;background:transparent;width:100%;}
 
 /* Sem reserva de espaço: o avatar é um filho de verdade desta barra agora. */
+.tela-patrimonio .pat-topbar .rbv-logo{height:22px;width:auto;flex-shrink:0;}
 .tela-patrimonio .pat-topbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
 .tela-patrimonio .pat-back{font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);cursor:pointer;background:none;border:1px solid var(--accent-mid);border-radius:5px;padding:6px 10px;display:flex;align-items:center;gap:5px;white-space:nowrap;touch-action:manipulation;}
 .tela-patrimonio .pat-title{font-family:var(--fonte-principal);font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text);flex:1;min-width:0;}
@@ -1673,6 +1679,13 @@ onMounted(() => {
    foco) — o que encolhe é o padding e a largura máxima, não a fonte. */
 @media(max-width:640px){
   .tela-patrimonio .pat-topbar{padding:9px 12px;}
+  /* No celular a logo SAI. Nao e o tamanho dela: e a largura. O titulo desta
+     barra e o caminho onde voce esta ("Vessel Conchal > Fabrica > Escritorio"),
+     e com a logo ocupando a linha ele quebrava em duas — a barra ia de 49 pra
+     64px. Entre ver a marca e ver onde voce esta, numa ferramenta que se usa
+     em pe andando pelo predio, ganha saber onde voce esta. No tablet e no
+     computador a logo aparece normal. (A Gestao a Vista ja faz o mesmo.) */
+  .tela-patrimonio .pat-topbar .rbv-logo{display:none;}
   .tela-patrimonio .pat-back{font-size:9px;letter-spacing:1px;padding:5px 8px;}
   .tela-patrimonio .pat-title{font-size:12px;letter-spacing:1.2px;}
   .tela-patrimonio .pat-btn-novo,.tela-patrimonio .pat-btn-listas,.tela-patrimonio .pat-btn-sel{width:34px;height:34px;}

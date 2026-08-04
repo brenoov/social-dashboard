@@ -7,8 +7,9 @@
       <button class="rel-back" @click="voltar">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Redes
       </button>
+      <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
+      <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
       <span class="rel-title">Relatório Interativo</span>
-      <div style="width:52px"></div>
     </div>
 
     <div class="rel-controles">
@@ -239,6 +240,9 @@ onMounted(async () => {
 })
 
 function voltar() { router.push({ name: 'redes' }) }
+
+const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
+const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 </script>
 
 <style scoped>
@@ -247,6 +251,7 @@ function voltar() { router.push({ name: 'redes' }) }
    aqui tapava a decoração e ainda deixava uma faixa visível onde a tela
    terminava. */
 .tela-relatorio{min-height:100vh;display:flex;flex-direction:column;background:transparent;position:relative;z-index:1;}
+.rel-topbar .rbv-logo{height:24px;width:auto;}
 .rel-topbar{display:flex;align-items:center;justify-content:space-between;padding:13px 24px;border-bottom:1px solid var(--border);background:var(--surface);gap:16px;position:sticky;top:0;z-index:20;}
 .rel-back{font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);cursor:pointer;background:none;border:1px solid var(--accent-mid);border-radius:5px;padding:5px 10px;display:flex;align-items:center;gap:5px;transition:background .15s;}
 .rel-back:hover{background:var(--accent-light);}
