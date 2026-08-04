@@ -90,10 +90,13 @@ function passoObjetivo(doc, o) {
 
   // A EXPLICAÇÃO do escolhido fica embaixo, e não em cada linha: catorze
   // explicações abertas ao mesmo tempo não são ajuda, são ruído.
-  if (escolhido) {
+  // A explicação subiu para a linha escolhida; esta caixa fica com o que é
+  // AVISO — repetir a mesma frase nos dois lugares faria a tela parecer que
+  // tem duas coisas a dizer quando tem uma.
+  const trava0 = escolhido ? bloqueio(escolhido) : '';
+  if (escolhido && (trava0 || escolhido.aviso)) {
     const box = el(doc, 'div', CSS.resumo + 'margin-top:14px;');
-    box.appendChild(el(doc, 'div', null, escolhido.explicacao));
-    const trava = bloqueio(escolhido);
+    const trava = trava0;
     if (trava) {
       box.appendChild(el(doc, 'div', 'margin-top:8px;color:var(--orange);font-weight:600;', trava));
     } else if (escolhido.aviso) {
@@ -122,23 +125,52 @@ function passoObjetivo(doc, o) {
 function linhaDoSubobjetivo(doc, o, sub) {
   const ligado = o.estado.objetivo === sub.id;
   const travado = !podeSerCriado(sub);
-  const b = el(doc, 'button', 'display:flex;align-items:center;gap:8px;width:100%;text-align:left;'
-    + 'padding:9px 11px;margin-bottom:5px;border-radius:8px;cursor:pointer;box-sizing:border-box;'
+  const b = el(doc, 'button', 'display:block;width:100%;text-align:left;'
+    + 'padding:10px 12px;margin-bottom:6px;border-radius:10px;cursor:pointer;box-sizing:border-box;'
     + 'font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));'
+    + 'transition:border-color .12s,background .12s;'
     + (ligado
-      ? 'background:color-mix(in srgb,var(--accent) 16%,transparent);border:1px solid var(--accent);color:var(--text);font-weight:700;'
-      : 'background:var(--surface2);border:1px solid var(--border);color:var(--text);')
+      ? 'background:color-mix(in srgb,var(--accent) 14%,transparent);border:2px solid var(--accent);color:var(--text);'
+      // 2px na escolhida e 1px nas outras mudaria a ALTURA da linha e faria a
+      // lista pular a cada clique. O padding compensa a diferença.
+      : 'background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:11px 13px;')
     // O que ainda não dá para criar fica APAGADO, mas clicável: clicar mostra o
     // motivo embaixo. Botão morto que não responde não ensina nada.
     + (travado && !ligado ? 'opacity:.55;' : ''));
   b.type = 'button';
-  b.appendChild(el(doc, 'span', 'flex:1;', sub.rotulo));
+
+  const topo = el(doc, 'div', 'display:flex;align-items:center;gap:8px;');
+  topo.appendChild(el(doc, 'span', 'flex:1;font-weight:' + (ligado ? '700' : '600') + ';', sub.rotulo));
+
+  // O QUE A CONTA JÁ RODOU, e o número é DADO — fonte de dados e contorno em
+  // vez de pastilha cheia. A pastilha verde sólida gritava mais que o nome do
+  // próprio tipo, que é o que a pessoa está tentando ler.
   if (sub.usos > 0) {
-    b.appendChild(el(doc, 'span', 'font-size:calc(9px*var(--gt-fs,1.3));font-weight:700;color:var(--green);'
-      + 'background:color-mix(in srgb,var(--green) 15%,transparent);border-radius:999px;padding:2px 7px;white-space:nowrap;',
-      `já usado aqui · ${sub.usos}`));
+    const selo = el(doc, 'span', 'font-size:calc(9px*var(--gt-fs,1.3));color:var(--green);'
+      + 'border:1px solid color-mix(in srgb,var(--green) 45%,transparent);border-radius:999px;'
+      + 'padding:1px 8px;white-space:nowrap;flex:none;');
+    selo.appendChild(el(doc, 'span', 'font-family:var(--fonte-dados);font-weight:700;', String(sub.usos)));
+    selo.appendChild(el(doc, 'span', null, ' nesta conta'));
+    topo.appendChild(selo);
   }
-  if (travado) b.appendChild(el(doc, 'span', 'font-size:calc(9px*var(--gt-fs,1.3));color:var(--orange);', 'ainda não dá'));
+  if (travado) {
+    topo.appendChild(el(doc, 'span', 'font-size:calc(9px*var(--gt-fs,1.3));color:var(--orange);'
+      + 'border:1px solid color-mix(in srgb,var(--orange) 45%,transparent);border-radius:999px;'
+      + 'padding:1px 8px;white-space:nowrap;flex:none;', 'ainda não dá'));
+  }
+  b.appendChild(topo);
+
+  // A EXPLICAÇÃO DO ESCOLHIDO, na própria linha.
+  //
+  // SÓ do escolhido, e isso é decisão antiga que continua valendo: catorze
+  // explicações abertas ao mesmo tempo não são ajuda, são ruído. O que muda
+  // aqui é o LUGAR — ela ficava numa caixa depois da lista inteira, longe do
+  // que a pessoa acabou de clicar. Agora responde onde a pergunta foi feita.
+  if (ligado && sub.explicacao) {
+    b.appendChild(el(doc, 'div', 'margin-top:3px;font-weight:400;line-height:1.45;'
+      + 'font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);', sub.explicacao));
+  }
+
   b.onclick = (ev) => { if (ev && ev.preventDefault) ev.preventDefault(); o.aoMudar({ objetivo: sub.id }); };
   return b;
 }
