@@ -126,7 +126,13 @@ function montarPrompt(ev: any, marca?: string, objetivo?: string) {
     '',
     'Sua tarefa:',
     '1. Escreva uma LEITURA de no máximo 4 frases dizendo o que estes números indicam sobre para quem anunciar — idade, onde e interesses. Cite os números que sustentam cada afirmação.',
+    // ESCOLHER É DEIXAR DE FORA. Na primeira versão a IA escreveu que dois dos
+    // interesses "parecem desconectados do produto" — e devolveu os quatro
+    // mesmo assim. O botão "somar os que a IA escolheu" somaria justamente os
+    // que ela acabara de criticar. Visto no primeiro teste ao vivo (03/08/2026).
     '2. Escolha os interesses que valem a pena manter, ENTRE OS QUE JÁ APARECEM na evidência. Não invente interesses novos nem ids.',
+    '   ESCOLHER É DEIXAR DE FORA: devolva SÓ os que você recomenda de verdade. Se um não combina com a marca, não o inclua na lista — mesmo que ele venha dos conjuntos baratos. Explique na leitura por que o deixou de fora.',
+    '   Se nenhum valer a pena, devolva a lista vazia.',
     '3. Escreva um CUIDADO de uma frase: o principal risco de seguir esta leitura (por exemplo, público pequeno demais, ou dado concentrado em poucos conjuntos).',
     '',
     'Se os números não sustentarem uma conclusão, diga isso na leitura em vez de inventar uma.',
