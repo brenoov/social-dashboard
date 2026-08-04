@@ -91,8 +91,10 @@ onMounted(() => {
 .tela-menu-gestao-interna .gimenu-headline{text-align:center;}
 .tela-menu-gestao-interna .gimenu-headline h2{font-family:var(--fonte-principal);font-size:26px;font-weight:500;letter-spacing:3px;text-transform:uppercase;color:var(--text);margin-bottom:6px;}
 .tela-menu-gestao-interna .gimenu-headline p{font-family:var(--fonte-principal);font-size:12px;color:var(--muted);}
-.tela-menu-gestao-interna .gimenu-cards{display:flex;gap:22px;flex-wrap:wrap;justify-content:center;}
-.tela-menu-gestao-interna .gimenu-card{position:relative;width:270px;min-height:210px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:30px 24px 48px;cursor:pointer;transition:all .25s;display:flex;flex-direction:column;gap:14px;overflow:hidden;}
+/* Um card sob o outro, ocupando a largura — em qualquer tela, não só no
+   celular. Era isso que o dono queria ver replicado nos outros menus. */
+.tela-menu-gestao-interna .gimenu-cards{display:flex;flex-direction:column;align-items:stretch;gap:14px;width:100%;max-width:720px;margin-inline:auto;}
+.tela-menu-gestao-interna .gimenu-card{position:relative;width:100%;min-height:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:30px 24px 48px;cursor:pointer;transition:all .25s;display:flex;flex-direction:column;gap:14px;overflow:hidden;}
 .tela-menu-gestao-interna .gimenu-card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 8px 32px rgba(0,0,0,.1);}
 .tela-menu-gestao-interna .gimenu-card-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;}
 .tela-menu-gestao-interna .gimenu-card-title{font-family:var(--fonte-principal);font-size:18px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);line-height:1.2;}

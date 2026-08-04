@@ -143,4 +143,13 @@ onMounted(() => {
 .tela-menu-vendas .smenu-card-embreve:hover::before{opacity:0;}
 .tela-menu-vendas .smenu-card-embreve-selo{position:absolute;bottom:16px;right:18px;font-family:var(--fonte-principal);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:3px 7px;}
 .tela-menu-vendas .smenu-cards.view-list .smenu-card-embreve-selo{position:static;margin-left:auto;}
+
+/* ── Cards empilhados, ocupando a largura ──────────────────────────────────
+   Pedido do dono: com 3 itens, o layout lado a lado deixava 2 em cima e 1
+   sozinho embaixo — desequilibrado. Agora cada card ocupa a largura e eles
+   ficam um sob o outro, com margem, em qualquer tamanho de tela.
+   O max-width existe pra não virar uma faixa de 1.400px num monitor grande:
+   card largo demais separa o ícone do texto e cansa de ler. */
+.tela-menu-vendas .smenu-cards{flex-direction:column;align-items:stretch;width:100%;max-width:720px;margin-inline:auto;gap:14px;}
+.tela-menu-vendas .smenu-card{width:100%;min-height:auto;}
 </style>
