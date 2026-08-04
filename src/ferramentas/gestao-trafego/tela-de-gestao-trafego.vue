@@ -5556,8 +5556,13 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gtw-b.primario:hover:not(:disabled)){box-shadow:var(--shadow-md);}
 .tela-gestao-trafego :deep(.gtw-b.secundario){background:var(--surface2);color:var(--text);border-color:var(--border);}
 .tela-gestao-trafego :deep(.gtw-b.secundario:hover:not(:disabled)){border-color:var(--accent);color:var(--accent);}
-.tela-gestao-trafego :deep(.gtw-b.fantasma){background:none;color:var(--muted);}
-.tela-gestao-trafego :deep(.gtw-b.fantasma:hover:not(:disabled)){color:var(--text);}
+/* O FANTASMA usava `--muted`, que é a MESMA cor do texto desabilitado. Voltar
+   ficava indistinguível de um botão morto — e "Voltar" é a única saída de quem
+   errou o passo anterior. Cor de texto normal e uma borda discreta: continua
+   sendo o botão secundário da dupla, sem passar por apagado. */
+.tela-gestao-trafego :deep(.gtw-b.fantasma){background:none;color:var(--text);
+  border-color:var(--border);opacity:.85;}
+.tela-gestao-trafego :deep(.gtw-b.fantasma:hover:not(:disabled)){opacity:1;border-color:var(--accent);color:var(--accent);}
 
 /* NÚMERO É DADO. A fonte muda porque o painel inteiro já muda — é o sinal de
    "isto é medida", e o assistente era o único lugar que não dava esse sinal. */

@@ -63,8 +63,16 @@ test('o passo 1 mostra os tipos AGRUPADOS, com nome de gente', () => {
 })
 
 test('o que a conta JA RODOU aparece marcado, com a contagem', () => {
+  // O texto do selo mudou em 04/08/2026 ("já usado aqui · 42" → "42 nesta
+  // conta"): a pastilha verde cheia gritava mais que o nome do próprio tipo,
+  // que é o que a pessoa está tentando ler. O que NÃO pode mudar é o número
+  // estar lá — é ele que diz o que esta conta já rodou.
+  //
+  // `\s+` e não um espaço: o número vive num <span> próprio (fonte de dados) e
+  // o documento falso junta nós irmãos com um separador — no navegador sai
+  // "42 nesta conta", aqui sai com dois espaços. Artefato do dublê, não da tela.
   const { corpo } = montar()
-  assert.match(corpo.texto, /já usado aqui · 42/)
+  assert.match(corpo.texto, /42\s+nesta conta/)
 })
 
 test('o que ainda nao da pra criar aparece, marcado, e explica ao ser clicado', () => {
