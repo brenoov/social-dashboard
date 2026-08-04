@@ -60,6 +60,20 @@ test('carro parado: pessoa e local são coisas SEPARADAS', () => {
   assert.equal(ambos.ondeEsta, 'Conchal', 'os dois sobrevivem — nenhum apaga o outro')
 })
 
+test('carro com RESPONSÁVEL FIXO não é carro livre', () => {
+  // Correção do dono: "os carros que têm nome atrelado não estão livres". O
+  // Volvo do Humberto não está esperando alguém pegar — ele é o carro do
+  // Humberto. Oferecê-lo como disponível convidava a pegar o carro alheio.
+  const e = estadoDoVeiculo(carro({ pessoa_id: 'p-humberto', pessoa_nome: 'Humberto' }), [])
+  assert.equal(e.naRua, false, 'não está na rua: está parado, mas é dele')
+  assert.equal(e.disponivel, false)
+  assert.equal(resumoDoEstado(e), 'Livre, com Humberto')
+})
+
+test('sem responsável e sem uso aberto, aí sim está livre', () => {
+  assert.equal(estadoDoVeiculo(carro(), []).disponivel, true)
+})
+
 test('carro na oficina não é carro livre', () => {
   const e = estadoDoVeiculo(carro({ situacao: 'em_manutencao' }), [])
   assert.equal(e.disponivel, false)

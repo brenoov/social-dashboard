@@ -45,7 +45,7 @@ function voltar() { router.push({ name: 'gestao-interna' }) }
 async function carregar() {
   carregando.value = true
   falha.value = ''
-  const [v, u, p, q, pl, rv] = await Promise.all([
+  const [v, u, p, q, pl, rv, bn] = await Promise.all([
     sbClient.from('frota_veiculos').select('*').order('nome'),
     // Só o que interessa pra montar a tela: o aberto de cada carro e as
     // devoluções recentes. Puxar o histórico inteiro cresceria pra sempre.
@@ -57,6 +57,10 @@ async function carregar() {
     sbClient.from('frota_requisicoes').select('*').order('retirada_prevista'),
     sbClient.from('frota_plano_revisao').select('*').order('ordem'),
     sbClient.from('frota_revisoes').select('*'),
+    // Bens do Patrimônio que são veículos — a lista do seletor de ligação na
+    // ficha. Pode falhar sem derrubar nada: quem não tem Patrimônio ainda
+    // gere a frota.
+    sbClient.from('patrimonio_bens').select('id,nome,numero').order('nome').limit(500),
   ])
   if (v.error || u.error) {
     falha.value = 'Não consegui carregar a frota. Recarregue a página; se continuar, avise.'
@@ -71,6 +75,7 @@ async function carregar() {
   requisicoes.value = q && !q.error ? (q.data || []) : []
   plano.value = pl && !pl.error ? (pl.data || []) : []
   revisoes.value = rv && !rv.error ? (rv.data || []) : []
+  bensVeiculo.value = bn && !bn.error ? (bn.data || []) : []
   carregando.value = false
 }
 
@@ -318,15 +323,22 @@ async function confirmarDecisao() {
 const plano = ref([])
 const revisoes = ref([])
 
+// A aba Revisões mostra SÓ O QUE ESTÁ CHEGANDO (correção do dono). Listar
+// todos os itens de todos os carros virava uma parede de "em dia" onde o que
+// importa se perdia. Item em dia, sem registro ou sem quilometragem não é
+// notícia — quem quiser o histórico completo abre a ficha do carro na Gestão.
 const revisoesPorVeiculo = computed(() => linhas.value.map((l) => {
-  const itens = revisoesDoVeiculo({
+  const todos = revisoesDoVeiculo({
     veiculo: l.veiculo, kmAtual: l.km, plano: plano.value, revisoes: revisoes.value,
   })
-  return { linha: l, itens, resumo: resumoDeRevisoes(itens) }
-}).sort((a, b) => {
-  const ordem = { vencida: 0, perto: 1, 'sem-registro': 2, 'em-dia': 3 }
-  return (ordem[a.resumo.nivel] ?? 9) - (ordem[b.resumo.nivel] ?? 9)
-}))
+  const itens = todos.filter((i) => i.situacao === 'vencida' || i.situacao === 'perto')
+  return { linha: l, itens, resumo: resumoDeRevisoes(todos) }
+})
+  .filter((r) => r.itens.length)
+  .sort((a, b) => {
+    const ordem = { vencida: 0, perto: 1 }
+    return (ordem[a.resumo.nivel] ?? 9) - (ordem[b.resumo.nivel] ?? 9)
+  }))
 
 // O editor de limiares: o dono acrescenta e ajusta sem depender de programador,
 // porque quem muda de opinião é o mecânico.
@@ -365,6 +377,113 @@ async function salvarItem() {
 
 async function alternarItem(p) {
   const { error } = await sbClient.from('frota_plano_revisao').update({ ativo: !p.ativo }).eq('id', p.id)
+  if (!error) carregar()
+}
+
+/* ── A ficha do veículo (aba Gestão) ─────────────────────────────────────────
+   Tudo do carro num lugar só: identificação, contrato, seguro, tag de pedágio,
+   rastreador, a ligação com o Patrimônio, quem é o responsável, e o histórico
+   de manutenção. Pedido do dono — antes só dava pra ver, não pra mexer. */
+const veiculoAberto = ref(null)
+const vForm = reactive({})
+const errosDoVeiculo = ref([])
+const CAMPOS_VEICULO = [
+  'nome', 'placa', 'marca', 'ano', 'cor', 'combustivel', 'renavam', 'chassi', 'tipo_oleo',
+  'contrato', 'codigo_patrimonial', 'categoria_comercial', 'situacao', 'pessoa_id', 'local_texto',
+  'seguro_seguradora', 'seguro_apolice', 'seguro_vence_em', 'tag_pedagio', 'rastreador',
+  'bem_id', 'observacao',
+]
+
+// Os bens do Patrimônio que são veículos — a lista do seletor de ligação.
+const bensVeiculo = ref([])
+
+function abrirVeiculo(v) {
+  veiculoAberto.value = v
+  errosDoVeiculo.value = []
+  for (const c of CAMPOS_VEICULO) vForm[c] = v[c] ?? ''
+  vForm.aluguel = v.aluguel_centavos == null ? '' : (v.aluguel_centavos / 100).toString()
+  vForm.fipe = v.fipe_centavos == null ? '' : (v.fipe_centavos / 100).toString()
+  vForm.seguroValor = v.seguro_valor_centavos == null ? '' : (v.seguro_valor_centavos / 100).toString()
+  novaRevisao.item = plano.value.length ? plano.value[0].item : ''
+  novaRevisao.km = ''
+  novaRevisao.feita_em = ''
+  novaRevisao.oficina = ''
+  novaRevisao.custo = ''
+}
+function fecharVeiculo() { veiculoAberto.value = null; errosDoVeiculo.value = [] }
+
+// Dinheiro em centavos, sempre — float com centavo vira erro de arredondamento
+// que ninguém acha depois.
+const centavosDe = (v) => {
+  if (v === '' || v === null || v === undefined) return null
+  const n = Number(String(v).replace(/\./g, '').replace(',', '.'))
+  return Number.isFinite(n) ? Math.round(n * 100) : null
+}
+
+async function salvarVeiculo() {
+  if (gravando.value) return
+  if (!String(vForm.nome || '').trim() || !String(vForm.placa || '').trim()) {
+    errosDoVeiculo.value = ['Nome e placa são obrigatórios — é por eles que o carro é reconhecido.']
+    return
+  }
+  gravando.value = true
+  const dados = {}
+  for (const c of CAMPOS_VEICULO) dados[c] = vForm[c] === '' ? null : vForm[c]
+  dados.placa = String(vForm.placa).toUpperCase().replace(/[^A-Z0-9]/g, '')
+  dados.ano = vForm.ano ? parseInt(vForm.ano, 10) : null
+  dados.aluguel_centavos = centavosDe(vForm.aluguel)
+  dados.fipe_centavos = centavosDe(vForm.fipe)
+  dados.seguro_valor_centavos = centavosDe(vForm.seguroValor)
+  dados.atualizado_em = new Date().toISOString()
+
+  const { error } = await sbClient.from('frota_veiculos').update(dados).eq('id', veiculoAberto.value.id)
+  gravando.value = false
+  if (error) {
+    errosDoVeiculo.value = [/duplicate|unique/i.test(error.message || '')
+      ? 'Já existe outro veículo com essa placa.'
+      : 'Não consegui gravar. Confira a conexão e tente de novo.']
+    return
+  }
+  fecharVeiculo()
+  carregar()
+}
+
+// Histórico de manutenção do carro aberto, do mais recente pro mais antigo.
+const historicoDoVeiculo = computed(() => {
+  if (!veiculoAberto.value) return []
+  return revisoes.value
+    .filter((r) => r.veiculo_id === veiculoAberto.value.id)
+    .slice()
+    .sort((a, b) => (b.km ?? 0) - (a.km ?? 0))
+})
+
+const novaRevisao = reactive({ item: '', km: '', feita_em: '', oficina: '', custo: '' })
+
+async function gravarRevisao() {
+  if (gravando.value || !veiculoAberto.value) return
+  const km = parseInt(String(novaRevisao.km).replace(/\D/g, ''), 10)
+  if (!novaRevisao.item || !Number.isInteger(km)) {
+    errosDoVeiculo.value = ['Escolha o item e informe com quantos quilômetros ele foi trocado.']
+    return
+  }
+  gravando.value = true
+  const { error } = await sbClient.from('frota_revisoes').insert({
+    veiculo_id: veiculoAberto.value.id,
+    item: novaRevisao.item,
+    km,
+    feita_em: novaRevisao.feita_em || null,
+    oficina: novaRevisao.oficina || null,
+    custo_centavos: centavosDe(novaRevisao.custo),
+  })
+  gravando.value = false
+  if (error) { errosDoVeiculo.value = ['Não consegui gravar a manutenção.']; return }
+  errosDoVeiculo.value = []
+  novaRevisao.km = ''; novaRevisao.feita_em = ''; novaRevisao.oficina = ''; novaRevisao.custo = ''
+  await carregar()
+}
+
+async function apagarRevisao(r) {
+  const { error } = await sbClient.from('frota_revisoes').delete().eq('id', r.id)
   if (!error) carregar()
 }
 
@@ -529,17 +648,23 @@ onMounted(async () => {
           </div>
         </div>
 
+        <!-- Sem "Vou usar" aqui (correção do dono): esta aba é para GERIR a
+             frota. Pegar carro é na aba Motorista. -->
         <div class="fr-acoes" v-if="podeEditar">
-          <button v-if="l.naRua" class="fr-btn primario" @click="abrirDevolucao(l)">Devolver</button>
-          <button v-else-if="l.disponivel" class="fr-btn primario" @click="abrirRetirada(l)">Vou usar</button>
+          <button class="fr-btn primario" @click="abrirVeiculo(l.veiculo)">Abrir ficha</button>
+          <button v-if="l.naRua" class="fr-btn" @click="abrirDevolucao(l)">Devolver</button>
         </div>
       </div>
     </div>
 
     <!-- ÁREA REVISÕES: o que está vencendo, e o plano que o dono edita. -->
     <template v-if="area === 'revisoes' && !carregando && !falha">
-      <h2 class="fr-secao">Situação de cada carro</h2>
-      <div class="fr-lista">
+      <h2 class="fr-secao">Chegando a hora</h2>
+      <p class="fr-aviso" v-if="!revisoesPorVeiculo.length">
+        Nada vencendo agora. Quando algum carro chegar perto de uma troca, ele aparece aqui —
+        o histórico completo de cada um fica na ficha dele, na aba Gestão.
+      </p>
+      <div class="fr-lista" v-else>
         <div v-for="r in revisoesPorVeiculo" :key="r.linha.veiculo.id"
              class="fr-card" :class="{ espera: r.resumo.nivel === 'perto', ruimzao: r.resumo.nivel === 'vencida' }">
           <div class="fr-card-topo">
@@ -583,6 +708,133 @@ onMounted(async () => {
         <button class="fr-btn primario" @click="abrirItem(null)">+ Acrescentar item</button>
       </div>
     </template>
+
+    <!-- FICHA DO VEÍCULO: tudo do carro num lugar só, e editável. -->
+    <div class="fr-ficha-fundo" v-if="veiculoAberto" @click.self="fecharVeiculo">
+      <div class="fr-ficha larga" role="dialog">
+        <div class="fr-ficha-topo">
+          <span class="fr-ficha-titulo">{{ veiculoAberto.nome }} · {{ veiculoAberto.placa }}</span>
+          <button class="fr-fechar" @click="fecharVeiculo" aria-label="Fechar">✕</button>
+        </div>
+        <div class="fr-ficha-corpo">
+          <h3 class="fr-grupo">Identificação</h3>
+          <div class="fr-dupla">
+            <label class="fr-campo"><span class="fr-lab">Nome</span><input v-model="vForm.nome" type="text"></label>
+            <label class="fr-campo"><span class="fr-lab">Placa</span><input v-model="vForm.placa" type="text"></label>
+            <label class="fr-campo"><span class="fr-lab">Marca</span><input v-model="vForm.marca" type="text"></label>
+            <label class="fr-campo"><span class="fr-lab">Ano</span><input v-model="vForm.ano" type="text" inputmode="numeric"></label>
+            <label class="fr-campo"><span class="fr-lab">Cor</span><input v-model="vForm.cor" type="text"></label>
+            <label class="fr-campo"><span class="fr-lab">Combustível</span><input v-model="vForm.combustivel" type="text"></label>
+            <label class="fr-campo"><span class="fr-lab">Renavam</span><input v-model="vForm.renavam" type="text"></label>
+            <label class="fr-campo"><span class="fr-lab">Chassi</span><input v-model="vForm.chassi" type="text"></label>
+            <label class="fr-campo"><span class="fr-lab">Tipo de óleo</span><input v-model="vForm.tipo_oleo" type="text"></label>
+            <label class="fr-campo">
+              <span class="fr-lab">Situação</span>
+              <select v-model="vForm.situacao">
+                <option value="ativo">Ativo</option>
+                <option value="em_manutencao">Em manutenção</option>
+                <option value="inativo">Parado</option>
+                <option value="alienado">Fora da frota</option>
+              </select>
+            </label>
+          </div>
+
+          <h3 class="fr-grupo">Onde está</h3>
+          <div class="fr-dupla">
+            <label class="fr-campo">
+              <span class="fr-lab">Responsável</span>
+              <select v-model="vForm.pessoa_id">
+                <option value="">— ninguém —</option>
+                <option v-for="p in pessoas" :key="p.id" :value="p.id">{{ p.nome }}</option>
+              </select>
+              <span class="fr-ajuda">Carro com responsável deixa de aparecer como livre para os outros.</span>
+            </label>
+            <label class="fr-campo">
+              <span class="fr-lab">Local</span>
+              <input v-model="vForm.local_texto" type="text" placeholder="Barracão, Conchal…">
+            </label>
+          </div>
+
+          <h3 class="fr-grupo">Contrato e valores</h3>
+          <div class="fr-dupla">
+            <label class="fr-campo"><span class="fr-lab">Contrato</span><input v-model="vForm.contrato" type="text" placeholder="CTR-007"></label>
+            <label class="fr-campo"><span class="fr-lab">Aluguel por mês (R$)</span><input v-model="vForm.aluguel" type="text" inputmode="decimal"></label>
+            <label class="fr-campo"><span class="fr-lab">Valor FIPE (R$)</span><input v-model="vForm.fipe" type="text" inputmode="decimal"></label>
+            <label class="fr-campo"><span class="fr-lab">Categoria comercial</span><input v-model="vForm.categoria_comercial" type="text"></label>
+          </div>
+
+          <h3 class="fr-grupo">Seguro</h3>
+          <div class="fr-dupla">
+            <label class="fr-campo"><span class="fr-lab">Seguradora</span><input v-model="vForm.seguro_seguradora" type="text"></label>
+            <label class="fr-campo"><span class="fr-lab">Apólice</span><input v-model="vForm.seguro_apolice" type="text"></label>
+            <label class="fr-campo"><span class="fr-lab">Vence em</span><input v-model="vForm.seguro_vence_em" type="date"></label>
+            <label class="fr-campo"><span class="fr-lab">Valor (R$)</span><input v-model="vForm.seguroValor" type="text" inputmode="decimal"></label>
+          </div>
+
+          <h3 class="fr-grupo">Equipamentos e patrimônio</h3>
+          <div class="fr-dupla">
+            <label class="fr-campo"><span class="fr-lab">Tag de pedágio</span><input v-model="vForm.tag_pedagio" type="text" placeholder="Sem Parar, número da tag…"></label>
+            <label class="fr-campo"><span class="fr-lab">Rastreador</span><input v-model="vForm.rastreador" type="text" placeholder="empresa, identificador…"></label>
+            <label class="fr-campo"><span class="fr-lab">Código patrimonial</span><input v-model="vForm.codigo_patrimonial" type="text" placeholder="RBB-007"></label>
+            <label class="fr-campo">
+              <span class="fr-lab">Bem no Patrimônio</span>
+              <select v-model="vForm.bem_id">
+                <option value="">— não ligado —</option>
+                <option v-for="b in bensVeiculo" :key="b.id" :value="b.id">
+                  {{ b.numero ? String(b.numero).padStart(6, '0') + ' · ' : '' }}{{ b.nome }}
+                </option>
+              </select>
+              <span class="fr-ajuda">Só para carro próprio. Os alugados não são bens da empresa.</span>
+            </label>
+          </div>
+
+          <label class="fr-campo">
+            <span class="fr-lab">Observação</span>
+            <input v-model="vForm.observacao" type="text">
+          </label>
+
+          <h3 class="fr-grupo">Histórico de manutenção</h3>
+          <ul class="fr-hist" v-if="historicoDoVeiculo.length">
+            <li v-for="h in historicoDoVeiculo" :key="h.id">
+              <span class="fr-item-nome">{{ h.item }}</span>
+              <span class="fr-item-txt">
+                {{ h.km ? h.km.toLocaleString('pt-BR') + ' km' : 'sem km' }}
+                <template v-if="h.feita_em"> · {{ h.feita_em.split('-').reverse().join('/') }}</template>
+                <template v-if="h.oficina"> · {{ h.oficina }}</template>
+              </span>
+              <button class="fr-mini" @click="apagarRevisao(h)" title="Apagar este registro">✕</button>
+            </li>
+          </ul>
+          <p class="fr-ajuda" v-else>Nenhuma manutenção registrada neste carro ainda.</p>
+
+          <div class="fr-dupla">
+            <label class="fr-campo">
+              <span class="fr-lab">O que foi feito</span>
+              <select v-model="novaRevisao.item">
+                <option v-for="p in plano" :key="p.id" :value="p.item">{{ p.item }}</option>
+              </select>
+            </label>
+            <label class="fr-campo"><span class="fr-lab">Com quantos km</span><input v-model="novaRevisao.km" type="text" inputmode="numeric"></label>
+            <label class="fr-campo"><span class="fr-lab">Quando</span><input v-model="novaRevisao.feita_em" type="date"></label>
+            <label class="fr-campo"><span class="fr-lab">Oficina</span><input v-model="novaRevisao.oficina" type="text"></label>
+            <label class="fr-campo"><span class="fr-lab">Custo (R$)</span><input v-model="novaRevisao.custo" type="text" inputmode="decimal"></label>
+          </div>
+          <div class="fr-acoes">
+            <button class="fr-btn" :disabled="gravando" @click="gravarRevisao">+ Registrar manutenção</button>
+          </div>
+
+          <ul class="fr-problemas" v-if="errosDoVeiculo.length">
+            <li v-for="(e, i) in errosDoVeiculo" :key="i">{{ e }}</li>
+          </ul>
+        </div>
+        <div class="fr-ficha-rodape">
+          <button class="fr-btn" @click="fecharVeiculo">Fechar</button>
+          <button class="fr-btn primario" :disabled="gravando" @click="salvarVeiculo">
+            {{ gravando ? 'Gravando…' : 'Gravar' }}
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- EDITOR DE UM ITEM DO PLANO -->
     <div class="fr-ficha-fundo" v-if="itemEmEdicao" @click.self="fecharItem">
@@ -844,6 +1096,17 @@ onMounted(async () => {
 .tela-frota .fr-item-txt{font-variant-numeric:tabular-nums;}
 .tela-frota .fr-item-km{font-family:var(--fonte-dados);font-size:12.5px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;}
 .tela-frota .fr-pedido.desligado{opacity:.5;}
+/* A ficha do veículo é longa: no computador ela abre mais larga e os campos
+   ficam em duas colunas, pra não virar um rolo de 40 linhas. */
+.tela-frota .fr-ficha.larga{max-width:720px;}
+.tela-frota .fr-grupo{margin:6px 0 2px;font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--accent);}
+.tela-frota .fr-dupla{display:grid;grid-template-columns:1fr;gap:12px;}
+@media(min-width:560px){ .tela-frota .fr-dupla{grid-template-columns:1fr 1fr;} }
+.tela-frota .fr-hist{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;}
+.tela-frota .fr-hist li{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;background:var(--surface2,var(--surface));border:1px solid var(--border);border-radius:9px;font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);}
+.tela-frota .fr-hist .fr-item-txt{flex:1;min-width:0;}
+.tela-frota .fr-mini{appearance:none;border:1px solid var(--border);background:none;color:var(--muted);border-radius:7px;width:28px;height:28px;font-size:12px;cursor:pointer;flex:0 0 auto;}
+.tela-frota .fr-mini:hover{border-color:var(--red,#c0392b);color:var(--red,#c0392b);}
 .tela-frota .fr-selo.espera{background:color-mix(in srgb,var(--orange,#d97706) 18%,transparent);color:var(--orange,#d97706);}
 .tela-frota .fr-selo.boa{background:color-mix(in srgb,var(--green,#16a34a) 18%,transparent);color:var(--green,#16a34a);}
 .tela-frota .fr-selo.ruim{background:color-mix(in srgb,var(--red,#c0392b) 16%,transparent);color:var(--red,#c0392b);}

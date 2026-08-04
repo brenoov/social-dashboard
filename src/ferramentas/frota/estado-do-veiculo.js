@@ -64,7 +64,12 @@ export function estadoDoVeiculo(veiculo, usos) {
     km,
     tanque,
     precisaAbastecer: precisaAbastecer(tanque),
-    disponivel: !aberto && veiculo.situacao === 'ativo',
+    // LIVRE é só o carro que não está na rua E não tem responsável fixo.
+    // Correção do dono: "os carros que têm nome atrelado não estão livres" —
+    // o Volvo do Humberto não está esperando alguém pegar, ele é o carro do
+    // Humberto. Oferecer esses como disponíveis convidava a pegar o carro de
+    // outra pessoa.
+    disponivel: !aberto && veiculo.situacao === 'ativo' && !veiculo.pessoa_id,
   };
 }
 
