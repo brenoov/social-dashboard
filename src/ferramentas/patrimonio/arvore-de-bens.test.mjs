@@ -52,7 +52,7 @@ test('sem nenhum bem, nenhum grupo (nem o "sem")', () => {
 
 test('rótulo "sem" muda conforme o campo', () => {
   assert.equal(agruparBens(BENS, 'local_id', LISTAS.locais).find((x) => x.id === SEM_VALOR).nome, 'Sem local')
-  assert.equal(agruparBens(BENS, 'comodo_id', LISTAS.comodos).find((x) => x.id === SEM_VALOR).nome, 'Sem cômodo')
+  assert.equal(agruparBens(BENS, 'comodo_id', LISTAS.comodos).find((x) => x.id === SEM_VALOR).nome, 'Sem ambiente')
 })
 
 test('caminho vazio devolve todos os bens', () => {

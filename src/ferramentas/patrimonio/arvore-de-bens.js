@@ -14,7 +14,7 @@ export const SEM_VALOR = '__sem__'
 const ROTULO_SEM = {
   empresa_id: 'Sem empresa',
   local_id: 'Sem local',
-  comodo_id: 'Sem cômodo',
+  comodo_id: 'Sem ambiente',
 }
 
 const CAMPO_DO_NIVEL = {

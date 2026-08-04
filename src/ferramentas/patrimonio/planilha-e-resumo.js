@@ -14,7 +14,7 @@ export const COLUNAS_PLANILHA = [
   { chave: 'marca', titulo: 'Marca / modelo', tipo: 'texto' },
   { chave: 'empresa', titulo: 'Marca (empresa)', tipo: 'texto' },
   { chave: 'local', titulo: 'Local', tipo: 'texto' },
-  { chave: 'comodo', titulo: 'Cômodo', tipo: 'texto' },
+  { chave: 'comodo', titulo: 'Ambiente', tipo: 'texto' },
   { chave: 'dono', titulo: 'Com quem', tipo: 'texto' },
   { chave: 'situacao', titulo: 'Situação', tipo: 'texto' },
   { chave: 'etiquetado', titulo: 'Etiquetado', tipo: 'texto' },

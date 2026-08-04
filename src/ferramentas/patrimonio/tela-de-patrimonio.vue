@@ -342,7 +342,7 @@
           </div>
 
           <label class="pat-campo">
-            <span>Cômodo</span>
+            <span>Ambiente</span>
             <select v-model="massa.comodoId" :disabled="!massa.localId">
               <option value="">{{ massa.localId ? '— não mudar —' : 'escolha o local' }}</option>
               <option v-for="k in comodosDaMassa" :key="k.id" :value="k.id">{{ k.nome }}</option>
@@ -442,7 +442,7 @@
               </select>
             </label>
             <label class="pat-campo">
-              <span>Cômodo</span>
+              <span>Ambiente</span>
               <select v-model="form.comodo_id" :disabled="!form.local_id">
                 <option value="">{{ form.local_id ? '—' : 'escolha o local antes' }}</option>
                 <option v-for="c in comodosDoForm" :key="c.id" :value="c.id">{{ c.nome }}</option>
@@ -536,7 +536,7 @@
         <div class="pat-ficha-corpo">
           <p class="pat-listas-ajuda">
             Aqui você monta a estrutura: cada <strong>marca</strong> tem seus
-            <strong>locais</strong>, e cada local tem seus <strong>cômodos</strong>.
+            <strong>locais</strong>, e cada local tem seus <strong>ambientes</strong>.
             É a mesma ordem em que você navega os bens.
           </p>
 
@@ -570,19 +570,20 @@
 
                 <div class="pat-arv-filhos" v-if="galhoAberto('l' + local.id)">
                   <div class="pat-arv-vazio" v-if="!comodosDoLocal(local.id).length">
-                    Nenhum cômodo neste local ainda.
+                    Nenhum ambiente neste local ainda.
                   </div>
                   <div class="pat-arv-linha nivel3" v-for="comodo in comodosDoLocal(local.id)" :key="comodo.id">
                     <span class="pat-arv-vaga"></span>
                     <input class="pat-lista-nome" :value="comodo.nome"
                            @change="renomearItem(DEF_COMODOS, comodo, $event.target.value)">
-                    <button class="pat-lista-del" @click="apagarItem(DEF_COMODOS, comodo)" aria-label="Apagar cômodo">✕</button>
+                    <button class="pat-lista-del" @click="apagarItem(DEF_COMODOS, comodo)" aria-label="Apagar ambiente">✕</button>
                   </div>
                   <div class="pat-arv-linha nivel3">
                     <span class="pat-arv-vaga"></span>
                     <input class="pat-lista-nome" v-model="novoComodo[local.id]"
-                           placeholder="novo cômodo aqui…"
-                           @keyup.enter="criarFilho(DEF_COMODOS, { local_id: local.id }, novoComodo, local.id)">
+                           placeholder="novo ambiente aqui…"
+                           @keyup.enter="criarFilho(DEF_COMODOS, { local_id: local.id }, novoComodo, local.id)"
+                           @blur="criarFilho(DEF_COMODOS, { local_id: local.id }, novoComodo, local.id)">
                     <button class="pat-btn" @click="criarFilho(DEF_COMODOS, { local_id: local.id }, novoComodo, local.id)">+</button>
                   </div>
                 </div>
@@ -592,7 +593,8 @@
                 <span class="pat-arv-vaga"></span>
                 <input class="pat-lista-nome" v-model="novoLocal[marca.id]"
                        placeholder="novo local nesta marca…"
-                       @keyup.enter="criarFilho(DEF_LOCAIS, { empresa_id: marca.id }, novoLocal, marca.id)">
+                       @keyup.enter="criarFilho(DEF_LOCAIS, { empresa_id: marca.id }, novoLocal, marca.id)"
+                       @blur="criarFilho(DEF_LOCAIS, { empresa_id: marca.id }, novoLocal, marca.id)">
                 <button class="pat-btn" @click="criarFilho(DEF_LOCAIS, { empresa_id: marca.id }, novoLocal, marca.id)">+</button>
               </div>
             </div>
@@ -601,7 +603,8 @@
           <div class="pat-arv-linha nivel1">
             <span class="pat-arv-vaga"></span>
             <input class="pat-lista-nome" v-model="novos.patrimonio_empresas"
-                   placeholder="nova marca…" @keyup.enter="criarItem(DEF_MARCAS)">
+                   placeholder="nova marca…" @keyup.enter="criarItem(DEF_MARCAS)"
+                   @blur="criarItem(DEF_MARCAS)">
             <button class="pat-btn" @click="criarItem(DEF_MARCAS)">Adicionar marca</button>
           </div>
 
@@ -618,7 +621,8 @@
             </div>
             <div class="pat-lista-novo">
               <input class="pat-lista-nome" v-model="novos.patrimonio_categorias"
-                     placeholder="nova categoria…" @keyup.enter="criarItem(DEF_CATEGORIAS)">
+                     placeholder="nova categoria…" @keyup.enter="criarItem(DEF_CATEGORIAS)"
+                     @blur="criarItem(DEF_CATEGORIAS)">
               <button class="pat-btn" @click="criarItem(DEF_CATEGORIAS)">Adicionar</button>
             </div>
           </div>
@@ -669,7 +673,12 @@ const pessoasById = computed(() => {
   return mapa
 })
 
-// ------------------------------------------------- navegação Empresa→Local→Cômodo
+// ------------------------------------------------ navegação Empresa→Local→Ambiente
+// ATENÇÃO ao ler o código: na TELA o terceiro nível chama "Ambiente" (pedido do
+// dono — "cômodo" soava doméstico demais pra Produção, Estoque e Sala de
+// Reunião). No BANCO e aqui no código ele continua `comodo`/`comodo_id`:
+// renomear tabela e coluna com 341 bens apontando pra elas, com o app no ar, é
+// risco sem retorno. Se um dia valer a pena, é um `alter table rename`.
 // Onde a pessoa está agora na árvore. Vazio = raiz (lista de empresas).
 const caminho = reactive({ empresaId: '', localId: '', comodoId: '' })
 // "Ver os N itens daqui, sem separar": escape pra ver os bens sem descer mais.
@@ -998,7 +1007,7 @@ const EIXOS = [
   { chave: 'categoria', titulo: 'Por categoria' },
   { chave: 'empresa', titulo: 'Por marca' },
   { chave: 'local', titulo: 'Por local' },
-  { chave: 'comodo', titulo: 'Por cômodo' },
+  { chave: 'comodo', titulo: 'Por ambiente' },
   { chave: 'dono', titulo: 'Por pessoa' },
   { chave: 'tipo', titulo: 'Por tipo' },
   { chave: 'situacao', titulo: 'Por situação' },
@@ -1161,7 +1170,7 @@ const novoComodo = reactive({})
 
 const DEF_MARCAS = { tabela: 'patrimonio_empresas', titulo: 'Marcas', ref: empresas }
 const DEF_LOCAIS = { tabela: 'patrimonio_locais', titulo: 'Locais', ref: locais }
-const DEF_COMODOS = { tabela: 'patrimonio_comodos', titulo: 'Cômodos', ref: comodos }
+const DEF_COMODOS = { tabela: 'patrimonio_comodos', titulo: 'Ambientes', ref: comodos }
 const DEF_CATEGORIAS = { tabela: 'patrimonio_categorias', titulo: 'Categorias', ref: categorias }
 
 // Quais galhos da árvore estão abertos. Tudo fechado por padrão: abrir os 12
@@ -1189,6 +1198,7 @@ async function criarFilho(def, vinculo, mapaDeNovos, chaveDoPai) {
     return
   }
   mapaDeNovos[chaveDoPai] = ''
+  adminToast(`"${nome}" criado`)
   await carregar()
 }
 
@@ -1203,6 +1213,7 @@ async function criarItem(def) {
     return
   }
   novos[def.tabela] = ''
+  adminToast(`"${nome}" criado`)
   await carregar()
 }
 
@@ -1223,10 +1234,10 @@ async function apagarItem(def, item) {
   if (def.tabela === 'patrimonio_empresas') {
     const filhos = locaisDaMarca(item.id)
     const netos = filhos.reduce((n, l) => n + comodosDoLocal(l.id).length, 0)
-    if (filhos.length) aviso = `Apagar "${item.nome}" apaga junto ${filhos.length} local(is) e ${netos} cômodo(s).`
+    if (filhos.length) aviso = `Apagar "${item.nome}" apaga junto ${filhos.length} local(is) e ${netos} ambiente(s).`
   } else if (def.tabela === 'patrimonio_locais') {
     const filhos = comodosDoLocal(item.id)
-    if (filhos.length) aviso = `Apagar "${item.nome}" apaga junto ${filhos.length} cômodo(s).`
+    if (filhos.length) aviso = `Apagar "${item.nome}" apaga junto ${filhos.length} ambiente(s).`
   }
   const usados = bens.value.filter((b) =>
     b.empresa_id === item.id || b.local_id === item.id ||
