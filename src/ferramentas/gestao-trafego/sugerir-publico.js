@@ -88,7 +88,21 @@ export function recomendarIdade(faixas) {
       ? `Nesta conta, a faixa ${primeira.faixa} custa a partir de ${reais(melhor)} por resultado`
       : `Nesta conta, as faixas de ${idadeMin} a ${idadeMax} anos custam a partir de ${reais(melhor)} por resultado`)
       + `, enquanto ${fora.length === 1 ? `a faixa ${fora[0].faixa} custa` : 'as demais custam'} `
-      + `até ${reais(pior)} — ${(pior / melhor).toFixed(1)}× mais caro.`,
+      // VÍRGULA, e não ponto: a mesma frase já escreve "R$ 1.164,60" e emendava
+      // "2.5× mais caro" — separador decimal de outro idioma no meio da conta.
+      + `até ${reais(pior)} — ${(pior / melhor).toFixed(1).replace('.', ',')}× mais caro.`,
+    // OS NÚMEROS CRUS, além da frase.
+    //
+    // A frase (`porque`) continua, porque é ela que explica. Mas texto pronto
+    // não dá para alinhar numa coluna nem colocar em destaque — e a tela
+    // mostrava um parágrafo cinza onde o que importa é a comparação. Quem
+    // desenha precisa dos números separados; quem lê precisa da frase. Os dois
+    // saem daqui.
+    faixaMelhor: primeira.faixa === ultima.faixa ? primeira.faixa : `${primeira.faixa} a ${ultima.faixa}`,
+    custoMelhor: melhor,
+    faixaPior: fora.length === 1 ? fora[0].faixa : `${fora.length} faixas`,
+    custoPior: pior,
+    vezes: pior / melhor,
     // O número que dói: quanto foi para as faixas caras no período medido.
     desperdicio: gastoFora,
     fraseDoDesperdicio: gastoFora > 0

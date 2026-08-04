@@ -44,7 +44,9 @@ test('a recomendacao de idade sai do numero real, com o porque junto', () => {
   // 3,42 × 1,5 = 5,13 — só 18–24 fica abaixo disso.
   assert.equal(r.idadeMax, 24)
   assert.match(r.porque, /R\$\s?3,42/)
-  assert.match(r.porque, /4\.0× mais caro/)
+  // VÍRGULA: a mesma frase escreve "R$ 13,68", e "4.0×" ali no meio era
+  // separador decimal de outro idioma.
+  assert.match(r.porque, /4,0× mais caro/)
   // O número que dói: o que foi para as faixas caras.
   assert.ok(r.desperdicio > 8000)
   assert.match(r.fraseDoDesperdicio, /últimos 90 dias/)
