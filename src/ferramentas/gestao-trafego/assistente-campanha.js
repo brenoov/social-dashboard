@@ -9,6 +9,9 @@
 // que importa: não lê `window`, não fala com rede, e não guarda estado — quem
 // chama passa o estado e recebe o desenho.
 import { GRUPOS, bloqueio, podeSerCriado, usaPublicacao } from './subobjetivos.js';
+// A busca, o filtro, a ordem e a descrição de cada publicação moram num módulo
+// puro — ver conteudo-existente.js.
+import { filtrar, ordenar, tiposPresentes, descricaoDaPublicacao, ORDENS, AVISO_STORIES } from './conteudo-existente.js';
 import { PASSOS, faltaNoPasso, primeiroPassoIncompleto, resumoDoQueVaiSerCriado, ORCAMENTO_MINIMO_CENTAVOS, pedeWhatsapp, pedeSite, numerosParaPagina } from './criar-campanha.js';
 
 const reais = (c) => (Number(c) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -333,8 +336,38 @@ function passoPublicacao(doc, o) {
     return cx;
   }
 
+  // BUSCAR, FILTRAR E ORDENAR. Com o histórico inteiro na tela, rolar até achar
+  // "aquele post do lançamento" é pior que digitar duas palavras.
+  const busca = el(doc, 'input', CSS.campo + 'margin-bottom:8px;');
+  busca.type = 'search';
+  busca.value = o.buscaPublicacao || '';
+  busca.placeholder = 'Procurar na legenda…';
+  busca.dataset.gtpubId = 'busca-publicacao';
+  busca.oninput = () => o.aoMudarBusca && o.aoMudarBusca({ buscaPublicacao: busca.value });
+  cx.appendChild(busca);
+
+  const barra = el(doc, 'div', CSS.linha + 'margin-bottom:9px;');
+  const tipos = ['todos', ...tiposPresentes(posts)];
+  for (const t of tipos) {
+    barra.appendChild(pastilha(doc, t === 'todos' ? 'Tudo' : t, (o.tipoPublicacao || 'todos') === t,
+      () => o.aoMudarBusca && o.aoMudarBusca({ tipoPublicacao: t })));
+  }
+  for (const ord of ORDENS) {
+    barra.appendChild(pastilha(doc, ord.rotulo, (o.ordemPublicacao || 'recentes') === ord.chave,
+      () => o.aoMudarBusca && o.aoMudarBusca({ ordemPublicacao: ord.chave })));
+  }
+  cx.appendChild(barra);
+
+  const visiveis = ordenar(filtrar(posts, o.buscaPublicacao, o.tipoPublicacao), o.ordemPublicacao);
+  if (!visiveis.length) {
+    cx.appendChild(el(doc, 'div', CSS.resumo, 'Nenhuma publicação com esse texto. Apague a busca para ver todas.'));
+    return cx;
+  }
+  cx.appendChild(el(doc, 'div', CSS.ajuda + 'margin:0 0 7px;',
+    `${visiveis.length} de ${posts.length} ${posts.length === 1 ? 'publicação' : 'publicações'}`));
+
   const grade = el(doc, 'div', 'display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;');
-  for (const post of posts) {
+  for (const post of visiveis) {
     const escolhido = String(o.estado.publicacaoId) === String(post.id);
     const b = el(doc, 'button', 'position:relative;padding:0;border-radius:8px;overflow:hidden;cursor:pointer;'
       + 'aspect-ratio:1;background:var(--surface2);'
@@ -349,13 +382,21 @@ function passoPublicacao(doc, o) {
       b.appendChild(el(doc, 'span', 'font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);padding:6px;display:block;',
         (post.legenda || 'sem legenda').slice(0, 40)));
     }
-    // VÍDEO tem selo: o tipo da publicação decide o que dá para fazer com ela
-    // (visualização de vídeo só existe em vídeo), e ver isso na grade evita
-    // escolher uma foto e tomar recusa depois.
-    if (post.tipo === 'VIDEO') {
+    // O SELO É O TIPO (Reels, Carrossel, Foto…), e não só "vídeo": o tipo decide
+    // o que dá para fazer com a publicação — visualização de vídeo só existe em
+    // vídeo —, e ver isso na grade evita escolher e tomar recusa depois.
+    if (post.tipo) {
       b.appendChild(el(doc, 'span', 'position:absolute;top:4px;right:5px;font-size:calc(8.5px*var(--gt-fs,1.3));'
-        + 'font-weight:700;color:#fff;background:rgba(0,0,0,.6);border-radius:4px;padding:1px 5px;', 'vídeo'));
+        + 'font-weight:700;color:#fff;background:rgba(0,0,0,.6);border-radius:4px;padding:1px 5px;', post.tipo));
     }
+    // ENGAJAMENTO NA PRÓPRIA MINIATURA. É o número que decide qual impulsionar,
+    // e obrigar a clicar em cada uma para vê-lo tornaria a grade inútil.
+    if (post.curtidas || post.comentarios) {
+      b.appendChild(el(doc, 'span', 'position:absolute;bottom:0;left:0;right:0;font-size:calc(8.5px*var(--gt-fs,1.3));'
+        + 'color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.75));padding:10px 5px 3px;text-align:left;',
+        `♥ ${post.curtidas} · 💬 ${post.comentarios}`));
+    }
+    b.title = descricaoDaPublicacao(post);
     b.onclick = (ev) => {
       if (ev && ev.preventDefault) ev.preventDefault();
       o.aoMudar({ publicacaoId: String(post.id), publicacaoResumo: resumoDaPublicacao(post) });
@@ -364,10 +405,15 @@ function passoPublicacao(doc, o) {
   }
   cx.appendChild(grade);
 
+  // STORIES: a lista vazia é o caso NORMAL, e sem esta frase parece defeito.
+  if ((o.stories || []).length === 0 && o.mostrarAvisoStories) {
+    cx.appendChild(el(doc, 'div', CSS.ajuda + 'margin:9px 0 0;', AVISO_STORIES));
+  }
+
   const escolhida = posts.find((p) => String(p.id) === String(o.estado.publicacaoId));
   if (escolhida) {
     const box = el(doc, 'div', CSS.resumo + 'margin-top:11px;');
-    box.appendChild(el(doc, 'div', null, resumoDaPublicacao(escolhida)));
+    box.appendChild(el(doc, 'div', null, descricaoDaPublicacao(escolhida) || resumoDaPublicacao(escolhida)));
     if (escolhida.legenda) {
       box.appendChild(el(doc, 'div', 'margin-top:5px;color:var(--text);', `"${escolhida.legenda.slice(0, 160)}"`));
     }
@@ -380,7 +426,10 @@ function passoPublicacao(doc, o) {
 // é o que distingue duas fotos parecidas.
 export function resumoDaPublicacao(post) {
   const p = post || {};
-  const tipo = p.tipo === 'VIDEO' ? 'o vídeo' : 'a publicação';
+  // `video` é o sinal, e não mais o texto do tipo: desde que a lista passou a
+  // dizer "Reels"/"Carrossel"/"Foto" em português, comparar com 'VIDEO' calava
+  // e todo post virava "a publicação".
+  const tipo = p.video ? 'o vídeo' : 'a publicação';
   const dia = p.data ? new Date(p.data) : null;
   const quando = dia && !Number.isNaN(dia.getTime())
     ? ` de ${String(dia.getDate()).padStart(2, '0')}/${String(dia.getMonth() + 1).padStart(2, '0')}`

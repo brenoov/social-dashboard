@@ -163,6 +163,8 @@ import { lerSalvos } from './publicos-salvos.js'
 // por custo, cidades e interesses dos conjuntos que performam) mora em
 // sugerir-publico.js, puro e testado com os números reais da conta.
 import { lerFaixasDeIdade, lerConjuntos, montarSugestao, escolherAcao, contadorDe } from './sugerir-publico.js'
+// A leitura das publicações do perfil (tipo, engajamento, miniatura) — puro.
+import { lerPublicacoes } from './conteudo-existente.js'
 // Rascunho que sobrevive a fechar a aba, e o histórico do que foi criado ou
 // recusado. As regras (o que vale salvar, quando mudou, como cada linha é dita)
 // moram em rascunhos.js; aqui fica só o que precisa de banco.
@@ -3647,6 +3649,8 @@ let _gtNovoPublicacoes=[];   // publicações do perfil, para impulsionar
 let _gtNovoCarregandoPubs=false;
 let _gtNovoPubsDoPerfil='';  // de qual perfil a lista carregada é (trocar de página troca isto)
 let _gtNovoErroPubs='';      // por que a lista não veio — a tela MOSTRA isto
+let _gtNovoStories=[];       // stories ATIVOS: vivem 24h e somem
+let _gtNovoBusca='';let _gtNovoTipoPub='todos';let _gtNovoOrdemPub='recentes';
 // ── RASCUNHO ────────────────────────────────────────────────────────────────
 let _gtNovoRascunhoId=null;  // a linha em gt_campanhas_rascunho desta tentativa
 let _gtNovoUltimoSalvo=null; // o estado como ele foi gravado da última vez
@@ -3677,6 +3681,7 @@ async function _gtNovoAbrir(){
   if(!_gtCurAcc){await _gtConfirm('Sem conta selecionada','Escolha uma conta de anúncios primeiro.',{okOnly:true});return;}
   _gtNovo=estadoInicial();_gtNovoPasso=0;_gtNovoFaltas=false;_gtNovoCriando=false;_gtNovoEnviando=false;
   _gtNovoRascunhoId=null;_gtNovoUltimoSalvo=null;
+  _gtNovoBusca='';_gtNovoTipoPub='todos';_gtNovoOrdemPub='recentes';_gtNovoStories=[];
   _gtNovoHistorico=await _gtNovoLerHistorico();
 
   // RETOMAR DE ONDE PAROU. Perguntar só quando há o que retomar: oferecer
@@ -3836,19 +3841,22 @@ async function _gtNovoTalvezCarregarPublicacoes(){
 
   _gtNovoCarregandoPubs=true;_gtNovoPublicacoes=[];_gtNovoErroPubs='';_gtNovoRedesenhar();
   try{
-    const r=await metaFetch('/'+perfil+'/media',
-      {fields:'id,caption,media_type,thumbnail_url,media_url,permalink,timestamp',limit:24},_gtCurAcc.id);
-    _gtNovoPublicacoes=((r&&r.data)||[]).filter(m=>m&&m.id).map(m=>({
-      id:String(m.id),
-      legenda:m.caption||'',
-      tipo:m.media_type||'',
-      // VÍDEO não tem `media_url` que sirva de miniatura (é o arquivo do vídeo,
-      // pesado e às vezes bloqueado); é `thumbnail_url` que serve. Foto não tem
-      // thumbnail, e aí o `media_url` é a própria imagem.
-      miniatura:m.thumbnail_url||(m.media_type==='VIDEO'?'':m.media_url)||'',
-      data:m.timestamp||'',
-      link:m.permalink||'',
-    }));
+    // O HISTÓRICO INTEIRO, com o detalhe que a Meta dá de graça na própria
+    // lista: tipo, curtidas e comentários. Uma chamada por publicação para
+    // buscar isso seria 12 idas para responder o que já veio.
+    //
+    // STORIES vêm junto, de outro endereço: eles não aparecem em /media.
+    // Falhar ali não derruba nada — a lista vazia é o caso normal.
+    const [r,st]=await Promise.all([
+      metaFetch('/'+perfil+'/media',
+        {fields:'id,caption,media_type,media_product_type,thumbnail_url,media_url,permalink,timestamp,like_count,comments_count',limit:50},_gtCurAcc.id),
+      metaFetch('/'+perfil+'/stories',
+        {fields:'id,media_type,media_product_type,thumbnail_url,media_url,permalink,timestamp'},_gtCurAcc.id).catch(()=>null),
+    ]);
+    _gtNovoStories=lerPublicacoes((st&&st.data)||[]);
+    // Os stories entram NA MESMA grade, com o selo "Story" — são impulsionáveis
+    // do mesmo jeito, e separá-los em duas listas faria procurar duas vezes.
+    _gtNovoPublicacoes=[..._gtNovoStories,...lerPublicacoes((r&&r.data)||[])];
     _gtNovoPubsDoPerfil=perfil;
   }catch(e){
     // O ERRO VAI PARA A TELA, e não some num catch mudo.
@@ -3942,6 +3950,16 @@ function _gtNovoRedesenhar(htmlDireto){
     publicacoes:_gtNovoPublicacoes,
     carregandoPublicacoes:_gtNovoCarregandoPubs,
     erroPublicacoes:_gtNovoErroPubs,
+    stories:_gtNovoStories,mostrarAvisoStories:true,
+    buscaPublicacao:_gtNovoBusca,tipoPublicacao:_gtNovoTipoPub,ordemPublicacao:_gtNovoOrdemPub,
+    // A BUSCA NÃO É ESTADO DA CAMPANHA: ela não vai para o rascunho nem para a
+    // Meta. Por isso muda por aqui, e não pelo `aoMudar`, que grava no banco.
+    aoMudarBusca:(m)=>{
+      if(m.buscaPublicacao!==undefined)_gtNovoBusca=m.buscaPublicacao;
+      if(m.tipoPublicacao!==undefined)_gtNovoTipoPub=m.tipoPublicacao;
+      if(m.ordemPublicacao!==undefined)_gtNovoOrdemPub=m.ordemPublicacao;
+      _gtNovoRedesenhar();
+    },
     enviando:_gtNovoEnviando,criando:_gtNovoCriando,mostrarFaltas:_gtNovoFaltas,
     // `semRedesenhar` existe para digitação: redesenhar a cada letra faria o
     // campo perder o foco no meio da palavra.
