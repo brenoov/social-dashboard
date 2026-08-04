@@ -115,6 +115,12 @@ const estiloBalao = () => {
 </script>
 
 <template>
+  <!-- Teleport pro <body>: o passeio é todo position:fixed, e um ancestral com
+       `zoom` (o envelope da rota, quando a pessoa aumenta a letra) ou com
+       `transform` faz o fixed passar a se medir por ELE, não pela tela. O realce
+       e o balão caíam em lugar errado por causa disso. Fora da árvore da tela,
+       não há ancestral que possa prendê-los. -->
+  <Teleport to="body">
   <div v-if="modelValue" class="passeio-fundo">
     <div v-if="rect" class="passeio-realce" :style="estiloRealce()"></div>
     <div class="passeio-balao" ref="balaoEl" :style="estiloBalao()" role="dialog" aria-live="polite">
@@ -131,6 +137,7 @@ const estiloBalao = () => {
       </div>
     </div>
   </div>
+  </Teleport>
 </template>
 
 <style scoped>

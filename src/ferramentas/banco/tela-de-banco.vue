@@ -10,6 +10,7 @@
       </button>
       <span class="banco-topbar-title">Banco de Arquivos</span>
       <div style="width:80px"></div>
+          <AvatarDoPerfil />
     </div>
     <div class="banco-body">
       <div class="banco-upload-zone" id="banco-drop-zone">
@@ -34,6 +35,7 @@
 </template>
 
 <script setup>
+import AvatarDoPerfil from '../../compartilhado/avatar-do-perfil.vue'
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL } from '../../compartilhado/conectar-no-banco-de-dados.js'

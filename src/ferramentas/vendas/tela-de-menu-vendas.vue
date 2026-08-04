@@ -22,6 +22,7 @@
           <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="1" width="14" height="2.5" rx="1"/><rect x="0" y="5.75" width="14" height="2.5" rx="1"/><rect x="0" y="10.5" width="14" height="2.5" rx="1"/></svg>
         </button>
       </div>
+          <AvatarDoPerfil />
     </div>
     <div class="smenu-body" :style="visualizacao === 'list' ? { justifyContent: 'flex-start', paddingTop: '28px' } : {}">
       <div class="smenu-headline" v-show="visualizacao !== 'list'">
@@ -51,6 +52,7 @@
 </template>
 
 <script setup>
+import AvatarDoPerfil from '../../compartilhado/avatar-do-perfil.vue'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'

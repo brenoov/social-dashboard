@@ -9,6 +9,7 @@
       </button>
       <span class="rel-title">Relatório Interativo</span>
       <div style="width:52px"></div>
+          <AvatarDoPerfil />
     </div>
 
     <div class="rel-controles">
@@ -76,6 +77,7 @@
 </template>
 
 <script setup>
+import AvatarDoPerfil from '../../compartilhado/avatar-do-perfil.vue'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { estado, hasPermission, contasPermitidas } from '../../compartilhado/controle-de-login-e-usuario.js'

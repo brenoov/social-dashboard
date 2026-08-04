@@ -15,6 +15,7 @@
         <span class="smenu-title">Redes Sociais</span>
       </div>
       <div style="width:60px"></div>
+          <AvatarDoPerfil />
     </div>
     <div class="smenu-body">
       <div class="smenu-headline">
@@ -59,6 +60,7 @@
 </template>
 
 <script setup>
+import AvatarDoPerfil from '../../compartilhado/avatar-do-perfil.vue'
 import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { estado, hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'

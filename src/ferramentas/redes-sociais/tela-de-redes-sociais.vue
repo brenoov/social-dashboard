@@ -51,7 +51,8 @@
           <div class="gv-update-status" id="collection-status">—</div>
           <div class="gv-update-status" id="live-status" style="margin-top:1px"></div>
         </div>
-      </div>
+            <AvatarDoPerfil />
+    </div>
 
       <!-- GUARDA DE FRESCOR: avisa quando os dados não são de hoje (coletor parado) -->
       <div id="freshness-banner" style="display:none;align-items:center;gap:8px;padding:9px 16px;background:#7f1d1d;color:#fff;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;letter-spacing:.3px;border-bottom:1px solid #991b1b;"></div>
@@ -437,6 +438,7 @@
 </template>
 
 <script setup>
+import AvatarDoPerfil from '../../compartilhado/avatar-do-perfil.vue'
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import FaixaDeErro from '../../compartilhado/faixa-de-erro.vue'
