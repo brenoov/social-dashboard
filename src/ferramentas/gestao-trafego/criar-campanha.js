@@ -11,6 +11,7 @@
 import { payloadCampanhaAdset } from '../../../coletor/lib/payload-campanha.mjs';
 import { payloadCriativa } from '../../../coletor/lib/meta-subir.mjs';
 import { pedeNumeroDeWhatsapp, pedeEnderecoDoSite, podeSerCriado, bloqueio, usaPublicacao } from './subobjetivos.js';
+import { montarSaudacao, extrasDoCriativo, botaoEscolhido } from './campos-do-anuncio.js';
 
 // OS QUATRO PASSOS, na ordem em que a decisão acontece: o que se quer, quanto
 // custa, para quem, e o que a pessoa vê. Cada um é uma pergunta, e é por isso
@@ -354,7 +355,53 @@ function ctaDoDestino(sub, estado) {
   return { type: 'LEARN_MORE' };
 }
 
-export function criativaDoAssistente({ sub, estado, page, ig }) {
+// OS CAMPOS EXTRAS entram DEPOIS, e de uma vez só para todos os caminhos.
+//
+// Por que depois, e não dentro de cada ramo: o ramo do WhatsApp delega em
+// `payloadCriativa`, que é código provado da Fábrica e que eu não quero tocar.
+// Costurar título, descrição, botão e saudação em cinco lugares diferentes
+// também garantiria esquecer um — e esquecer aqui é o campo sumir CALADO, sem
+// erro da Meta, que foi como o título quase se perdeu no ramo de vídeo.
+//
+// O anúncio que impulsiona uma publicação não passa por aqui de propósito: ele
+// não tem `object_story_spec`, e o texto dele é o da publicação original.
+function comExtras(criativa, { sub, estado }) {
+  const e = estado || {};
+  const spec = (criativa || {}).object_story_spec;
+  if (!spec) return criativa;
+  const ehVideo = !!spec.video_data;
+  const dados = spec.video_data || spec.link_data;
+  if (!dados) return criativa;
+
+  Object.assign(dados, extrasDoCriativo({ titulo: e.titulo, descricao: e.descricao, video: ehVideo }));
+
+  // O botão: troca só o TIPO e mantém o `value`. O `value` é que carrega o
+  // número do WhatsApp e o endereço do site — perdê-lo faria o botão apontar
+  // para lugar nenhum.
+  //
+  // E NÃO MEXE quando existe `asset_feed_spec`: ali a campanha manda três
+  // botões de uma vez (Messenger, WhatsApp, Direct) e é a Meta que escolhe onde
+  // a pessoa responde melhor. Trocar o botão de baixo brigaria com a lista de
+  // cima e quebraria o multi-destino, que é caminho provado da Fábrica.
+  if (dados.call_to_action && !criativa.asset_feed_spec) {
+    dados.call_to_action = { ...dados.call_to_action, type: botaoEscolhido(sub, e.botao) };
+  }
+
+  // A SAUDAÇÃO só existe onde há conversa. Num anúncio de site ela seria um
+  // campo ignorado — ou um erro, dependendo do humor da Meta.
+  const dt = String((sub || {}).destination_type || '').toUpperCase();
+  if (dt.includes('WHATSAPP')) {
+    const saudacao = montarSaudacao({ saudacao: e.saudacao, resposta: e.saudacaoResposta });
+    if (saudacao) dados.page_welcome_message = saudacao;
+  }
+  return criativa;
+}
+
+export function criativaDoAssistente(args) {
+  return comExtras(criativaSemExtras(args), args);
+}
+
+function criativaSemExtras({ sub, estado, page, ig }) {
   const e = estado || {};
   const s = sub || {};
   const mensagem = texto(e.texto);

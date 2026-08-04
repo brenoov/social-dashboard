@@ -74,7 +74,12 @@ Deno.serve(async (req) => {
     }, 503);
   }
 
-  const prompt = montarPrompt(evidencia, corpo.marca, corpo.objetivo);
+  // DOIS TRABALHOS, dois prompts. Uma função só porque a permissão, a chave e o
+  // tratamento de erro são idênticos — e três cópias disso divergiriam.
+  const modo = corpo.modo === 'texto' ? 'texto' : 'publico';
+  const prompt = modo === 'texto'
+    ? promptDeTexto(evidencia, corpo.marca, corpo.objetivo)
+    : montarPrompt(evidencia, corpo.marca, corpo.objetivo);
 
   let r: Response;
   try {
@@ -100,6 +105,19 @@ Deno.serve(async (req) => {
   const texto = (d?.content || []).map((c: any) => c?.text || '').join('').trim();
   const lido = extrairJson(texto);
   if (!lido) return json({ error: 'resposta_ilegivel', bruto: texto.slice(0, 800) }, 502);
+
+  if (modo === 'texto') {
+    return json({
+      ok: true,
+      leitura: String(lido.leitura || '').slice(0, 1200),
+      // No máximo três, e cada uma cortada: sugestão longa demais não cabe no
+      // anúncio e ninguém lê antes de escolher.
+      sugestoes: (Array.isArray(lido.sugestoes) ? lido.sugestoes : [])
+        .slice(0, 3).map((t) => String(t || '').slice(0, 600)).filter(Boolean),
+      cuidado: String(lido.cuidado || '').slice(0, 400),
+      uso: d?.usage || null,
+    });
+  }
 
   return json({
     ok: true,
@@ -139,6 +157,43 @@ function montarPrompt(ev: any, marca?: string, objetivo?: string) {
     '',
     'Responda SÓ com JSON, neste formato:',
     '{"leitura":"...","interesses":[{"id":"...","nome":"..."}],"cuidado":"..."}',
+  ].filter(Boolean).join('\n');
+}
+
+// O PROMPT DO TEXTO DO ANÚNCIO.
+//
+// A armadilha que ele precisa conhecer, medida antes de existir: nesta conta os
+// textos MAIS BARATOS são anúncios de VAGA DE EMPREGO (R$ 0,55 por conversa,
+// contra R$ 184,72 do pior texto de produto). Vaga rende conversa baratíssima
+// porque gente se candidata — e não serve de modelo para vender bolsa.
+//
+// Eles chegam SEPARADOS na evidência, e o prompt diz explicitamente para não
+// copiar o tom deles. Sem isso, a IA escreveria anúncio de recrutamento para
+// vender produto, com um número ótimo por trás para justificar.
+function promptDeTexto(ev: any, marca?: string, objetivo?: string) {
+  return [
+    'Você escreve texto de anúncio para o Meta Ads de um negócio pequeno, em português do Brasil.',
+    marca ? `A marca é: ${marca}.` : '',
+    objetivo ? `O tipo de campanha: ${objetivo}.` : '',
+    '',
+    'Estes são os textos que esta conta JÁ RODOU, com o custo real por resultado. São medidos, não estimados:',
+    '```json',
+    JSON.stringify(ev).slice(0, 7000),
+    '```',
+    '',
+    'ATENÇÃO: os itens em "vagas" são anúncios de EMPREGO. Eles têm o custo mais baixo da conta porque',
+    'gente se candidata — e NÃO servem de modelo para vender produto. Não copie o tom deles, não os cite',
+    'como exemplo a seguir, e não escreva nada que pareça recrutamento.',
+    '',
+    'Sua tarefa:',
+    '1. LEITURA: em no máximo 3 frases, o que separa os textos baratos dos caros NESTA conta. Cite os números.',
+    '2. SUGESTOES: escreva 3 textos novos de anúncio, no que a evidência mostra que funciona aqui.',
+    '   Cada um com no máximo 3 linhas. Português simples, sem jargão de marketing e sem promessa que a marca não fez.',
+    '   Não invente desconto, preço, prazo nem condição que não apareça na evidência.',
+    '3. CUIDADO: uma frase sobre o principal risco de seguir esta leitura.',
+    '',
+    'Responda SÓ com JSON:',
+    '{"leitura":"...","sugestoes":["...","...","..."],"cuidado":"..."}',
   ].filter(Boolean).join('\n');
 }
 
