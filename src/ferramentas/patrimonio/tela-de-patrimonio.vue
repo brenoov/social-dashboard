@@ -48,7 +48,7 @@
         v-model="filtro.busca"
         type="search"
         inputmode="search"
-        placeholder="Buscar por nome, número da etiqueta ou pessoa…"
+        placeholder="Buscar por item, etiqueta, pessoa, local…"
         aria-label="Buscar bem">
     </div>
 
@@ -766,7 +766,27 @@ const temCaminho = computed(() => !!(caminho.empresaId || caminho.localId || cam
 
 // Os filtros (categoria/situação/sem dono/busca) valem SEMPRE, em qualquer nível:
 // eles recortam o conteúdo, a árvore recorta o lugar. São perguntas diferentes.
-const bensFiltrados = computed(() => filtrarBens(bensDoCaminho(bens.value, caminho), filtro))
+// Tudo que o bem NÃO carrega em si, mas que a pessoa vai digitar na busca: o
+// nome de quem está com ele, a marca, o local, o ambiente, a categoria e o tipo.
+// No banco o bem guarda só os identificadores; sem resolver aqui, procurar por
+// "erick" ou por "conchal" não acha nada.
+// Existe um nomeDe() mais abaixo que devolve '—' quando não há valor — bom pra
+// exibir, ruim pra buscar (ninguém procura por travessão). Este devolve vazio.
+const nomeParaBusca = (lista, id) => (id ? (lista.find((x) => x.id === id)?.nome || '') : '')
+function textoDeBusca(bem) {
+  return [
+    bem.pessoa_id ? (pessoasById.value[bem.pessoa_id]?.nome || '') : '',
+    nomeParaBusca(empresas.value, bem.empresa_id),
+    nomeParaBusca(locais.value, bem.local_id),
+    nomeParaBusca(comodos.value, bem.comodo_id),
+    nomeParaBusca(categorias.value, bem.categoria_id),
+    nomeParaBusca(tipos.value, bem.tipo_id),
+    rotuloDaSituacao(bem.situacao),
+  ].filter(Boolean).join(' ')
+}
+
+const bensFiltrados = computed(() =>
+  filtrarBens(bensDoCaminho(bens.value, caminho), filtro, textoDeBusca))
 
 // O que o contador do topo conta depende da visão: a árvore mostra a pasta em
 // que a pessoa está, a Planilha mostra tudo que passou pelos filtros (ignorando
@@ -774,7 +794,7 @@ const bensFiltrados = computed(() => filtrarBens(bensDoCaminho(bens.value, camin
 // enquanto a lista mostrava outro foi exatamente o que confundiu o dono.
 const bensDoContador = computed(() => {
   if (visao.value === 'resumo') return bens.value
-  if (visao.value === 'planilha') return filtrarBens(bens.value, filtro)
+  if (visao.value === 'planilha') return filtrarBens(bens.value, filtro, textoDeBusca)
   return bensFiltrados.value
 })
 const resumo = computed(() => resumoDaLista(bensDoContador.value))
@@ -1149,7 +1169,7 @@ const linhasAchatadas = computed(() => {
 // A planilha ignora o nível da árvore (é a planilha INTEIRA), mas respeita busca
 // e filtros — senão o campo de busca em cima dela não faria nada.
 const linhasPlanilha = computed(() => {
-  const permitidos = new Set(filtrarBens(bens.value, filtro).map((b) => b.id))
+  const permitidos = new Set(filtrarBens(bens.value, filtro, textoDeBusca).map((b) => b.id))
   return ordenarPlanilha(
     linhasAchatadas.value.filter((l) => permitidos.has(l.id)), ordem.chave, ordem.crescente)
 })

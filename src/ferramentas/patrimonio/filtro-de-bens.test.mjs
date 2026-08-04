@@ -61,3 +61,37 @@ test('normalizar tira acento e caixa', () => {
   assert.equal(normalizar('Televisão LG'), 'televisao lg')
   assert.equal(normalizar(null), '')
 })
+
+/* ── A busca precisa achar pelo NOME de quem está com o bem ──────────────────
+   No banco o bem guarda o identificador da pessoa, não o nome dela. Procurar
+   por "erick" não achava nada, porque o nome do Erick não está no bem — está na
+   tabela de pessoas. Quem chama resolve e passa em `textoExtra`. */
+
+const PESSOAS = { p1: 'Erick Martins', p2: 'Larissa Sousa' }
+const nomeDoDono = (b) => PESSOAS[b.pessoa_id] || ''
+
+test('acha pelo nome do colaborador que está com o bem', () => {
+  assert.deepEqual(filtrarBens(BENS, { busca: 'erick' }, nomeDoDono).map(b => b.id), ['a'])
+  assert.deepEqual(filtrarBens(BENS, { busca: 'martins' }, nomeDoDono).map(b => b.id), ['a'])
+})
+
+test('sem o texto de fora, o nome do colaborador NÃO é achado', () => {
+  // Guarda contra alguém remover o parâmetro achando que é supérfluo.
+  assert.deepEqual(filtrarBens(BENS, { busca: 'erick' }).map(b => b.id), [])
+})
+
+test('o texto de fora também serve para local, ambiente e categoria', () => {
+  const contexto = (b) => (b.id === 'b' ? 'Fábrica Conchal Produção Celulares' : '')
+  assert.deepEqual(filtrarBens(BENS, { busca: 'conchal' }, contexto).map(b => b.id), ['b'])
+  assert.deepEqual(filtrarBens(BENS, { busca: 'producao' }, contexto).map(b => b.id), ['b'])
+})
+
+test('a busca continua achando pela observação do bem', () => {
+  const com = [{ id: 'z', nome: 'Notebook', observacao: 'tela trincada' }]
+  assert.deepEqual(filtrarBens(com, { busca: 'trincada' }).map(b => b.id), ['z'])
+})
+
+test('texto de fora vazio ou quebrado não derruba a busca', () => {
+  assert.equal(filtrarBens(BENS, { busca: 'macbook' }, () => null).length, 1)
+  assert.equal(filtrarBens(BENS, { busca: 'macbook' }, null).length, 1)
+})
