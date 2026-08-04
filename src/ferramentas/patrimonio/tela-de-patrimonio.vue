@@ -8,6 +8,7 @@
       </button>
       <span class="pat-title">{{ rotuloDoCaminho(caminho, listas) }}</span>
       <button class="pat-btn-ajuda" @click="abrirPasseio" title="Como usar esta tela">?</button>
+      <AvatarDoPerfil />
     </div>
 
     <!-- Contagem e ações na MESMA linha: contagem à esquerda, botões à direita.
@@ -716,6 +717,7 @@ import { SITUACOES, rotuloDaSituacao, classeDaSituacao, textoDoDono, avisoDeDono
 import { FILTRO_VAZIO, filtrarBens, resumoDaLista } from './filtro-de-bens.js'
 import { SEM_VALOR, agruparBens, bensDoCaminho, rotuloDoCaminho } from './arvore-de-bens.js'
 import PasseioGuiado from '../../compartilhado/passeio-guiado.vue'
+import AvatarDoPerfil from '../../compartilhado/avatar-do-perfil.vue'
 import { PASSOS, AJUDAS, deveAbrirSozinho, marcarComoVisto } from './tutorial.js'
 import { TETO_PADRAO, textoDaFaixa, mapaDeNumeros, aumentarTeto, ehRecente } from './numeros-de-etiqueta.js'
 import { COLUNAS_PLANILHA, ordenarPlanilha, resumirPor, totaisGerais, montarLinhasParaExcel } from './planilha-e-resumo.js'
@@ -1437,10 +1439,8 @@ onMounted(() => {
    A tabela larga só aparece a partir de 1025px. */
 .tela-patrimonio{min-height:100vh;display:flex;flex-direction:column;background:var(--bg);width:100%;}
 
-/* O padding da direita reserva a faixa do avatar flutuante. Feito AQUI e não
-   numa regra global: a global injetava um item flex em toda topbar do app e
-   quebrava linha nas 10 que usam flex-wrap. */
-.tela-patrimonio .pat-topbar{display:flex;align-items:center;gap:10px;padding:10px calc(14px + var(--reserva-avatar)) 10px 14px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
+/* Sem reserva de espaço: o avatar é um filho de verdade desta barra agora. */
+.tela-patrimonio .pat-topbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
 .tela-patrimonio .pat-back{font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);cursor:pointer;background:none;border:1px solid var(--accent-mid);border-radius:5px;padding:6px 10px;display:flex;align-items:center;gap:5px;white-space:nowrap;touch-action:manipulation;}
 .tela-patrimonio .pat-title{font-family:var(--fonte-principal);font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text);flex:1;min-width:0;}
 /* Contagem e ações na mesma linha: o número puxa pra esquerda, os botões pra
@@ -1639,7 +1639,7 @@ onMounted(() => {
    dedo abaixo de ~34px. Os selects em 16px continuam (senão o iOS dá zoom no
    foco) — o que encolhe é o padding e a largura máxima, não a fonte. */
 @media(max-width:640px){
-  .tela-patrimonio .pat-topbar{padding:9px calc(12px + var(--reserva-avatar)) 9px 12px;}
+  .tela-patrimonio .pat-topbar{padding:9px 12px;}
   .tela-patrimonio .pat-back{font-size:9px;letter-spacing:1px;padding:5px 8px;}
   .tela-patrimonio .pat-title{font-size:12px;letter-spacing:1.2px;}
   .tela-patrimonio .pat-btn-novo,.tela-patrimonio .pat-btn-listas,.tela-patrimonio .pat-btn-sel{width:34px;height:34px;}
@@ -1661,7 +1661,7 @@ onMounted(() => {
 @media(min-width:1025px){
   .tela-patrimonio .pat-kpis{grid-template-columns:repeat(3,1fr);}
   .tela-patrimonio .pat-visoes{padding-left:24px;padding-right:24px;}
-  .tela-patrimonio .pat-topbar{padding:13px calc(24px + var(--reserva-avatar)) 13px 24px;}
+  .tela-patrimonio .pat-topbar{padding:13px 24px;}
   .tela-patrimonio .pat-linha-topo,.tela-patrimonio .pat-busca-wrap,.tela-patrimonio .pat-filtros{padding-left:24px;padding-right:24px;}
   .tela-patrimonio .pat-body{padding:0 24px 48px;}
   .tela-patrimonio .pat-cards{display:none;}

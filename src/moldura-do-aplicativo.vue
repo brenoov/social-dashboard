@@ -20,7 +20,10 @@
 
     <!-- Perfil (avatar + menu) — canto superior direito, global, só quando logado.
          Restaura o badge de usuário do legado (setGlobalUserBtn): trocar senha e sair. -->
-    <div v-if="estado.user && !naTelaLogin" class="perfil-menu">
+    <!-- O avatar flutuante só existe onde a tela NÃO monta o seu próprio na barra
+         de cima (ver compartilhado/avatar-do-perfil.vue). Sem esta condição
+         apareceriam dois avatares na mesma tela. -->
+    <div v-if="estado.user && !naTelaLogin && !avatarNaBarra" class="perfil-menu">
       <button class="perfil-avatar" type="button" @click="menuAberto = !menuAberto" :title="estado.user.email" aria-label="Menu do perfil">
         <img v-if="estado.avatarUrl" :src="estado.avatarUrl" alt="Perfil">
         <span v-else class="perfil-avatar-ph">{{ iniciais }}</span>
@@ -48,6 +51,30 @@
         </div>
       </template>
     </div>
+
+    <!-- Menu do perfil quando o avatar está DENTRO da barra da tela. É o mesmo
+         conteúdo do menu de sempre, desenhado aqui num lugar só: duplicar
+         "trocar senha" e "sair" em cada tela seria pedir para divergirem. -->
+    <template v-if="avatarNaBarra && menuDoPerfilAberto && estado.user">
+      <div class="perfil-backdrop" @click="menuDoPerfilAberto = false"></div>
+      <div class="perfil-dropdown perfil-dropdown-fixo">
+        <div class="perfil-dropdown-email">{{ estado.user.email }}</div>
+        <div class="perfil-dropdown-role" v-if="estado.role === 'admin'">Administrador</div>
+        <div class="perfil-dropdown-sep"></div>
+        <button v-if="pushSuportado() && !pushAtivo" class="perfil-dropdown-item" type="button" @click="ativarPush">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          Ativar notificações
+        </button>
+        <button class="perfil-dropdown-item" type="button" @click="abrirTrocarSenha">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Trocar senha
+        </button>
+        <button class="perfil-dropdown-item perfil-dropdown-sair" type="button" @click="sair">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Sair
+        </button>
+      </div>
+    </template>
 
     <!-- Modal Trocar senha (o próprio usuário digita a nova senha) -->
     <div v-if="trocarSenhaAberto" class="perfil-modal-overlay" @click.self="fecharTrocarSenha">
@@ -120,6 +147,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { avatarNaBarra, menuDoPerfilAberto } from './compartilhado/estado-do-avatar.js'
 import { estado } from './compartilhado/controle-de-login-e-usuario.js'
 import { sbClient } from './compartilhado/conectar-no-banco-de-dados.js'
 import { inscrever, jaInscrito, permissaoAtual, pushSuportado, registrarSW } from './compartilhado/notificacoes-push.js'
@@ -198,6 +226,7 @@ async function avaliarPush() {
 
 async function ativarPush() {
   menuAberto.value = false // fecha o menu do avatar se veio de lá
+  menuDoPerfilAberto.value = false
   const ok = await inscrever(estado.user?.id)
   pushAtivo.value = ok
   // Some ao ativar OU quando o navegador nega (nesta sessão). Se a pessoa só
@@ -258,6 +287,9 @@ watch(() => estado.user?.id, avaliarPush)
   display: flex; align-items: center; justify-content: center;
 }
 .perfil-backdrop { position: fixed; inset: 0; z-index: 9998; }
+.perfil-dropdown-fixo {
+  position: fixed; top: calc(env(safe-area-inset-top, 0px) + 52px); right: 14px;
+}
 .perfil-dropdown {
   position: absolute; top: 48px; right: 0; z-index: 9999; min-width: 210px;
   background: var(--surface); border: 1px solid var(--border); border-radius: 12px;

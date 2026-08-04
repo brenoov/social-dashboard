@@ -8,7 +8,7 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Central
       </button>
       <span class="gimenu-title">Gestão Interna</span>
-      <span class="gimenu-espaco"></span>
+      <AvatarDoPerfil />
     </div>
 
     <div class="gimenu-body">
@@ -56,6 +56,7 @@ import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
+import AvatarDoPerfil from '../../compartilhado/avatar-do-perfil.vue'
 
 const router = useRouter()
 
@@ -82,12 +83,10 @@ onMounted(() => {
 
 <style scoped>
 .tela-menu-gestao-interna{min-height:100vh;display:flex;flex-direction:column;background:var(--bg);position:relative;z-index:1;}
-/* padding-right reserva a faixa do avatar flutuante (ver estilos-globais.css) */
-.tela-menu-gestao-interna .gimenu-topbar{display:flex;align-items:center;justify-content:space-between;padding:13px calc(24px + var(--reserva-avatar)) 13px 24px;border-bottom:1px solid var(--border);background:var(--surface);gap:16px;position:sticky;top:0;z-index:10;}
+.tela-menu-gestao-interna .gimenu-topbar{display:flex;align-items:center;justify-content:space-between;padding:13px 24px;border-bottom:1px solid var(--border);background:var(--surface);gap:16px;position:sticky;top:0;z-index:10;}
 .tela-menu-gestao-interna .gimenu-back{font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);cursor:pointer;background:none;border:1px solid var(--accent-mid);border-radius:5px;padding:5px 10px;display:flex;align-items:center;gap:5px;transition:background .15s;white-space:nowrap;}
 .tela-menu-gestao-interna .gimenu-back:hover{background:var(--accent-light);}
 .tela-menu-gestao-interna .gimenu-title{font-family:var(--fonte-principal);font-size:15px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--text);}
-.tela-menu-gestao-interna .gimenu-espaco{width:70px;}
 .tela-menu-gestao-interna .gimenu-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;gap:40px;}
 .tela-menu-gestao-interna .gimenu-headline{text-align:center;}
 .tela-menu-gestao-interna .gimenu-headline h2{font-family:var(--fonte-principal);font-size:26px;font-weight:500;letter-spacing:3px;text-transform:uppercase;color:var(--text);margin-bottom:6px;}
@@ -104,7 +103,7 @@ onMounted(() => {
 .tela-menu-gestao-interna .gimenu-card-embreve:hover{border-color:var(--border);transform:none;box-shadow:none;}
 .tela-menu-gestao-interna .gimenu-card-embreve-selo{position:absolute;bottom:16px;right:18px;font-family:var(--fonte-principal);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:3px 7px;}
 @media(max-width:640px){
-  .tela-menu-gestao-interna .gimenu-topbar{padding:8px calc(14px + var(--reserva-avatar)) 8px 14px;}
+  .tela-menu-gestao-interna .gimenu-topbar{padding:8px 14px;}
   .tela-menu-gestao-interna .gimenu-body{padding:28px 14px;gap:26px;}
   .tela-menu-gestao-interna .gimenu-cards{width:100%;gap:12px;}
   .tela-menu-gestao-interna .gimenu-card{width:100%;min-height:auto;padding:18px 16px 40px;}
