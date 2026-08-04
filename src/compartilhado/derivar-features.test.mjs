@@ -90,3 +90,17 @@ test('sem opções (ou opções vazias) deriva normalmente — o padrão é não
   assert.deepEqual(derivarFeatures({ social: ['ver'] }), ['social']);
   assert.deepEqual(derivarFeatures({ social: ['ver'] }, {}), ['social']);
 });
+
+/* ── Patrimônio: a chave que a RLS do módulo novo procura ────────────────── */
+
+// is_patrimonio_admin() (db/migrations/acessos/018_patrimonio_cadastros.sql)
+// procura a string 'patrimonio' dentro de profiles.features. Se a derivação não
+// produzisse essa string, o front liberaria a tela e o banco devolveria vazio —
+// o mesmo sintoma que já aconteceu com a Análise de Campanhas.
+test('patrimônio deriva a feature que a RLS do módulo procura', () => {
+  assert.deepEqual(derivarFeatures({ patrimonio: ['ver', 'criar', 'editar'] }), ['patrimonio']);
+});
+
+test('patrimônio sem "ver" não entra em features', () => {
+  assert.deepEqual(derivarFeatures({ patrimonio: ['editar'] }), []);
+});

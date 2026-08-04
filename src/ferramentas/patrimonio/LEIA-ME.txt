@@ -1,0 +1,23 @@
+Módulo Patrimônio: o inventário de bens da empresa (o que a empresa tem, onde
+está, quanto vale e com quem está).
+
+É um dos submódulos de "Gestão Interna" — a porta que fica na Central. Os outros
+são Colaboradores e Acessos (src/ferramentas/acessos) e, no futuro, Frota.
+
+O que tem aqui:
+  tela-de-patrimonio.vue  a tela (lista de bens, ficha do bem, listas editáveis)
+  patrimonio.js           dinheiro em centavos e histórico de posse
+  patrimonio-lista.js     somar, formatar data, texto de linha do histórico
+  rotulos-do-bem.js       situações do bem e como cada uma aparece na tela
+  filtro-de-bens.js       busca por texto, filtros e total
+
+Os arquivos .js são LÓGICA PURA: não tocam banco nem tela, e cada um tem seu
+.test.mjs ao lado. Rode com "npm test".
+
+Regra desta tela: ela é usada principalmente NO CELULAR. Cartão, nunca tabela
+larga, no telefone. Filtro em faixa que rola, nunca quebrando em várias linhas.
+
+O bem pode estar SEM ninguém (em estoque, em manutenção) — dono é opcional, de
+propósito: no inventário real, 88% dos bens não estão com uma pessoa.
+
+Desenho: docs/superpowers/specs/2026-08-03-patrimonio-modulo-proprio-design.md

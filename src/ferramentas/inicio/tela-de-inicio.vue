@@ -125,14 +125,16 @@
           </div>
           <span class="home-card-enter">→</span>
         </div>
-        <!-- Colaboradores e Acessos: única ferramenta além de Notícias já migrada, navega de verdade. -->
-        <div class="home-card" id="home-card-acessos" v-show="podeAcessos" @click="ir('acessos')">
+        <!-- Porta da família Gestão Interna: leva ao menu com Colaboradores e
+             Acessos, Patrimônio e (futuramente) Frota. Aparece pra quem tem
+             qualquer um dos submódulos. -->
+        <div class="home-card" id="home-card-gestao-interna" v-show="podeGestaoInterna" @click="ir('gestao-interna')">
           <div class="home-card-icon" style="background:linear-gradient(135deg,#0f766e 0%,#0d9488 100%)">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg>
           </div>
           <div class="home-card-text">
-            <h3>Colaboradores<br>e Acessos</h3>
-            <p>Pessoas, dispositivos e termo de responsabilidade</p>
+            <h3>Gestão<br>Interna</h3>
+            <p>Colaboradores, acessos, patrimônio e frota</p>
           </div>
           <span class="home-card-enter">→</span>
         </div>
@@ -186,6 +188,11 @@ const podeBanco = computed(() => hasPermission('banco', 'ver'))
 const podeNoticias = computed(() => hasPermission('noticias', 'ver'))
 const podeGestor = computed(() => hasPermission('gestor', 'ver'))
 const podeAcessos = computed(() => hasPermission('acessos', 'ver'))
+const podePatrimonio = computed(() => hasPermission('patrimonio', 'ver'))
+// Gestão Interna é uma PORTA (menu), não uma ferramenta: não tem permissão
+// própria. Aparece pra quem tem qualquer um dos submódulos, e o menu lá dentro
+// mostra só os que a pessoa pode ver.
+const podeGestaoInterna = computed(() => podeAcessos.value || podePatrimonio.value)
 const podeClaudeStatus = computed(() => hasPermission('claude.status', 'ver'))
 
 // Nenhuma ferramenta liberada? Sem isto, os 9 cards somem um a um e sobra a barra
@@ -195,7 +202,7 @@ const podeClaudeStatus = computed(() => hasPermission('claude.status', 'ver'))
 const semNenhumaFerramenta = computed(() =>
   !ehAdmin.value && !podeRedes.value && !podeVendas.value && !podeMeta.value &&
   !podeBanco.value && !podeNoticias.value && !podeGestor.value &&
-  !podeAcessos.value && !podeClaudeStatus.value
+  !podeGestaoInterna.value && !podeClaudeStatus.value
 )
 
 // O perfil não carregou (rede, sessão expirada, servidor). É DIFERENTE de "não tem

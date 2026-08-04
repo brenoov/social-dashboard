@@ -249,6 +249,68 @@ pessoa), atualizando sozinha. Substitui o "atualizar tabela dinâmica" da planil
   "ligar a um colaborador" e "cadastrar". **Nunca cria colaborador sozinho.**
 - A importação é **conferível antes de gravar** (prévia com contagem por empresa/categoria).
 
+### D16 — Navegação em árvore: Empresa → Local → Cômodo → bens
+
+Pedido do dono depois de ver a F1: os bens não ficam numa lista plana, ficam
+**separados por Empresa / Local / Cômodo**, e se navega **entrando nível a nível**
+(não acordeão, não lista agrupada por título). Cada nível mostra contagem e valor
+somado, e a trilha no topo deixa pular de volta pra qualquer nível.
+
+Regras que caíram junto:
+
+- **Buscar sai da árvore.** Digitou no campo de busca, some a hierarquia e a resposta
+  vem em lista: buscar é um pedido de "ache em TUDO", e obrigar a adivinhar a pasta
+  depois de digitar o nome do bem seria absurdo.
+- **Empresa e Local saíram da faixa de filtros** — agora eles SÃO a navegação. Manter
+  os dois recortes faria eles brigarem entre si.
+- **"Ver os N itens daqui, sem separar"** em cada nível: escape pra quem quer a lista
+  sem descer até o último cômodo.
+- **Nenhum bem pode sumir.** O dado real tem 2 itens sem empresa, 8 sem unidade e 12
+  sem setor. Todo nível ganha um grupo **"Sem empresa/local/cômodo"** (sempre por
+  último, em âmbar) e dá pra ENTRAR nele. Bem que está num nível mas não cai em
+  nenhum grupo abaixo aparece solto ali mesmo, sob "N itens direto aqui".
+- **Um botão de voltar só**: sobe um degrau da árvore e, na raiz, sai do módulo.
+
+Lógica pura em `src/ferramentas/patrimonio/arvore-de-bens.js` (11 testes).
+
+### D17 — Cadastros viram árvore de verdade: Marca → Local → Cômodo
+
+Pedido do dono: a tela de Listas despejava 4 listas planas de uma vez e
+"embaralhava a cabeça na hora de editar e adicionar". Ele escolheu **aninhar de
+verdade** (não só reorganizar visualmente), ciente do custo.
+
+**Isto reverte parte de D1.** D1 dizia que Empresa, Local e Cômodo eram eixos
+independentes, porque o dado mostrava Fábrica Conchal com bem de 3 empresas e
+"Sala de Reunião" em 5 locais. A decisão do dono é que a estrutura de cadastro
+espelhe a navegação, e o custo foi aceito explicitamente:
+
+- `patrimonio_locais.empresa_id` NOT NULL, `patrimonio_comodos.local_id` NOT NULL,
+  ambos `on delete cascade`.
+- Unicidade passa a ser por pai: `unique(empresa_id, nome)` e `unique(local_id, nome)`.
+- Um cômodo repetido vira um cadastro por local: **"Sala de Reunião" agora são 5
+  linhas**, "Diretoria" 4, "Operação Loja" 4. Total: 5 marcas, 12 locais, 47 cômodos.
+- Os 2 itens avulsos (RB Builders e RBV na Fábrica Conchal) deixam de ter local
+  próprio: o local ficou sob a marca dominante. RB Builders nasce sem local.
+
+A hierarquia semeada **não foi inventada**: saiu do cruzamento Unidade × Empresa
+(marca dominante de cada local) e Unidade × Setor (cômodos reais de cada local) da
+planilha. Só duas correções de digitação: `ADMINISTRATIVO` → `Administrativo` e
+`Fabrica Conchal` → `Fábrica Conchal`.
+
+Consequências no front:
+
+- **Seletores em cascata na ficha**: Local só lista os da marca escolhida, Cômodo só
+  os do local. Trocar a marca limpa local e cômodo — senão o bem ficaria com um
+  local de outra marca e a árvore da tela principal viraria mentira.
+- **Tela de Listas vira árvore colapsável**, tudo fechado por padrão. Cada nível tem
+  seu próprio campo de "novo" (um campo compartilhado escreveria no galho errado).
+  Linha sem botão de abrir reserva a largura dele, senão o nível 3 volta pra esquerda
+  e empata com o nível 2 — medido: sem a vaga, nível 2 em 76px e nível 3 em 74px.
+- **Confirmação antes de apagar em cascata**: apagar marca leva locais e cômodos
+  junto. Painel próprio dentro do componente, sem `confirm()` nativo.
+- **Categoria continua lista solta** — classifica o que o bem É, não onde está.
+  Aninhar obrigaria a recadastrar "Computadores" em cada sala.
+
 ### D15 — Família "Gestão Interna": matriz como PORTA, não como caixa
 
 O dono perguntou se Frota podia ser um submódulo da mesma ferramenta-matriz. A resposta é

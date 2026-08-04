@@ -4,6 +4,10 @@
     --gutter:16px;            /* margem lateral segura (cresce no desktop, ver @media no fim) */
     --container-max:1280px;   /* largura máxima do conteúdo */
     --card-radius:12px; --card-pad:var(--sp-4); --card-gap:var(--sp-3); --card-min:260px;
+    /* Faixa que o avatar flutuante do perfil ocupa no canto superior direito:
+       40px do avatar + 18px de afastamento da borda + 6px de folga. Nenhuma
+       topbar pode escrever aqui — ver a regra [class$="topbar"]::after. */
+    --reserva-avatar:64px;
     /* TEMA CLARO — PÉROLA, NÃO BRANCO AZULADO.
        O branco puro cansa a vista em tela grande, e o cinza-azulado que estava
        aqui (#f4f5f7) dava um ar de planilha. Pérola é branco quente: o vermelho
@@ -1531,6 +1535,31 @@ img{max-width:100%;}
 .rotulo-secao{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
 .rolagem-x{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;}
 .rolagem-x::-webkit-scrollbar{height:5px;} .rolagem-x::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+/* ── FAIXA RESERVADA DO AVATAR ──────────────────────────────────────────────
+   O avatar do perfil (moldura-do-aplicativo.vue) é position:fixed no canto
+   superior direito — 40px de largura a 18px da borda, z-index 9999 — e portanto
+   passa POR CIMA de qualquer coisa que uma ferramenta ponha no canto direito da
+   sua topbar. Já cobriu o botão "+" do Patrimônio, e o dono relatou que cobre
+   coisas em outras telas também.
+
+   Conserto em um lugar só: toda topbar do app é flex e tem UMA classe terminada
+   em "topbar" (os elementos internos são "-left"/"-right"/"-brand", que não
+   casam com este seletor). Um pseudo-elemento de largura fixa no fim da linha
+   reserva a faixa do avatar e empurra o conteúdo real pra esquerda sozinho —
+   sem mexer no padding de cada tela e sem quebrar o border-bottom (o que
+   aconteceria se a reserva fosse feita com border-right: o canto mitrado apaga
+   a linha de baixo nos últimos pixels).
+
+   Em topbar com justify-content:space-between o efeito é o mesmo e desejado: o
+   último item real deixa de encostar na borda e sai de baixo do avatar.
+   Topbar nova só precisa terminar o nome da classe em "topbar" e ser flex. */
+[class$="topbar"]::after,
+.topbar-app::after{
+  content:'';
+  flex:0 0 var(--reserva-avatar);
+  pointer-events:none;
+}
 
 /* Topbar padrão: [voltar] · [titulo] · [filtros] · [status] */
 .topbar-app{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--gutter);border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}

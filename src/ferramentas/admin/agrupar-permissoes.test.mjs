@@ -23,6 +23,7 @@ const RECURSOS = [
   { key: 'meta.fabrica', label: 'Fábrica de Anúncios', acoes: ['ver', 'editar'] },
   { key: 'banco', label: 'Banco de Arquivos', acoes: ['ver', 'criar', 'excluir'] },
   { key: 'acessos', label: 'Colaboradores e Acessos', acoes: ['ver', 'criar', 'editar', 'excluir'] },
+  { key: 'patrimonio', label: 'Patrimônio', acoes: ['ver', 'criar', 'editar', 'excluir'] },
   { key: 'noticias', label: 'Portal de Notícias', acoes: ['ver'] },
   { key: 'gestor', label: 'Gestão Comercial (IA)', acoes: ['ver'] },
   { key: 'gestor.relatorios', label: 'Relatórios Comerciais', acoes: ['ver', 'exportar'] },
@@ -38,7 +39,10 @@ const TREE = [
   { key: 'banco', label: 'Banco de Arquivos', children: [] },
   { key: 'noticias', label: 'Portal de Notícias', children: [] },
   { key: 'gestor', label: 'Gestão Comercial (IA)', children: [] },
-  { key: 'acessos', label: 'Colaboradores e Acessos', children: [] },
+  { key: 'gestao-interna', label: 'Gestão Interna', children: [
+    { key: 'acessos', label: 'Colaboradores e Acessos' },
+    { key: 'patrimonio', label: 'Patrimônio' },
+  ] },
   { key: 'claude.status', label: 'Painel de Status do Claude', children: [] },
   { key: 'conteudo', label: 'Central de Conteúdo', children: [] },
 ]
@@ -51,11 +55,13 @@ test('ferramentaDaChave pega o trecho antes do primeiro ponto', () => {
 
 test('agrupa o catálogo por ferramenta, na ordem do catálogo', () => {
   const g = agruparRecursos(RECURSOS, TREE)
-  assert.deepEqual(g.map((x) => x.key), ['social', 'sales', 'meta', 'banco', 'acessos', 'noticias', 'gestor', 'claude', 'conteudo'])
+  assert.deepEqual(g.map((x) => x.key), ['social', 'sales', 'meta', 'banco', 'gestao-interna', 'noticias', 'gestor', 'claude', 'conteudo'])
   assert.deepEqual(g[0].recursos.map((r) => r.key), ['social', 'social.relatorio'])
   assert.deepEqual(g[1].recursos.map((r) => r.key), ['sales.gestao', 'sales.analise', 'sales.metas'])
   assert.deepEqual(g[2].recursos.map((r) => r.key), ['meta.campanha', 'meta.gestor', 'meta.fabrica'])
-  assert.deepEqual(g[6].recursos.map((r) => r.key), ['gestor', 'gestor.relatorios'])
+  // Achado pela CHAVE, não pela posição: recurso novo inserido antes de 'gestor'
+  // deslocava o índice e quebrava este teste por um motivo que não é o dele.
+  assert.deepEqual(g.find((x) => x.key === 'gestor').recursos.map((r) => r.key), ['gestor', 'gestor.relatorios'])
 })
 
 test('nenhum recurso do catálogo se perde no agrupamento', () => {
@@ -70,7 +76,7 @@ test('rótulo do grupo vem da árvore; ferramenta desconhecida com 1 recurso usa
   const porKey = Object.fromEntries(g.map((x) => [x.key, x.label]))
   assert.equal(porKey.social, 'Redes Sociais')
   assert.equal(porKey.meta, 'Meta Ads')
-  assert.equal(porKey.acessos, 'Colaboradores e Acessos')
+  assert.equal(porKey['gestao-interna'], 'Gestão Interna')
   // 'claude' não existe na árvore (lá a chave é 'claude.status')
   assert.equal(porKey.claude, 'Painel de Status do Claude')
 })
@@ -169,4 +175,43 @@ test('marcar tudo de um grupo não vaza para outro grupo', () => {
   const p = marcarTudo({}, meta.recursos, true)
   assert.equal(estadoDaSelecao(grupos.find((g) => g.key === 'sales').recursos, p), 'vazio')
   assert.equal(estadoDaSelecao(meta.recursos, p), 'cheio')
+})
+
+/* ── Agrupamento explícito pela árvore ────────────────────────────────────────
+   Acessos e Patrimônio são submódulos de Gestão Interna, mas as chaves deles NÃO
+   têm o prefixo 'gestao-interna.' — renomear quebraria is_acessos_admin() e o
+   acessos-proxy, que procuram a string 'acessos' dentro de features. Então a
+   árvore declara os filhos e o agrupador honra essa declaração, caindo na
+   derivação por prefixo para todo o resto. */
+
+test('filho declarado na árvore cai no grupo do pai, mesmo sem prefixo na chave', () => {
+  const g = agruparRecursos(RECURSOS, TREE)
+  const gi = g.find((x) => x.key === 'gestao-interna')
+  assert.ok(gi, 'esperava um grupo gestao-interna')
+  assert.deepEqual(gi.recursos.map((r) => r.key), ['acessos', 'patrimonio'])
+  assert.equal(gi.label, 'Gestão Interna')
+})
+
+test('quem não está declarado continua agrupando pelo prefixo', () => {
+  const g = agruparRecursos(RECURSOS, TREE)
+  // sales.metas não está nos children de 'sales' na árvore, e mesmo assim cai lá
+  assert.ok(g.find((x) => x.key === 'sales').recursos.some((r) => r.key === 'sales.metas'))
+  // claude.status é nó próprio, sem filhos: continua virando o grupo 'claude'
+  assert.ok(g.find((x) => x.key === 'claude'))
+})
+
+test('marcar tudo do grupo pega os DOIS submódulos de uma vez', () => {
+  const g = agruparRecursos(RECURSOS, TREE)
+  const gi = g.find((x) => x.key === 'gestao-interna')
+  const p = marcarTudo({}, gi.recursos, true)
+  assert.deepEqual(Object.keys(p).sort(), ['acessos', 'patrimonio'])
+  assert.equal(estadoDaSelecao(gi.recursos, p), 'cheio')
+  assert.equal(estadoDaSelecao(gi.recursos, {}), 'vazio')
+  assert.equal(estadoDaSelecao(gi.recursos, { acessos: ['ver'] }), 'parcial')
+})
+
+test('filho declarado que não existe no catálogo não inventa grupo vazio', () => {
+  const treeComFantasma = [{ key: 'x', label: 'X', children: [{ key: 'nao-existe' }] }]
+  const g = agruparRecursos(RECURSOS, treeComFantasma)
+  assert.ok(!g.some((x) => x.key === 'x'))
 })

@@ -28,13 +28,30 @@ export function ferramentaDaChave(key) {
 // não conhece e o grupo tem um recurso só, usa o rótulo do próprio recurso
 // (caso 'claude.status' → "Painel de Status do Claude"). Último recurso: a
 // própria chave. Nenhum rótulo novo é inventado aqui.
+// Filho declarado na árvore → grupo do pai. Existe porque 'acessos' e
+// 'patrimonio' são submódulos de Gestão Interna mas NÃO têm o prefixo na chave:
+// renomear para 'gestao-interna.acessos' quebraria is_acessos_admin() e o
+// acessos-proxy, que procuram a string 'acessos' dentro de features[].
+//
+// Só o que a árvore declara explicitamente entra aqui; todo o resto continua
+// derivado do prefixo. Não é um catálogo paralelo: a árvore já existia e já era
+// a fonte dos rótulos — passou a ser também a do parentesco quando ele é dito.
+function grupoDeclarado(tree) {
+  const mapa = {}
+  for (const n of tree || []) {
+    for (const filho of n.children || []) mapa[filho.key] = n.key
+  }
+  return mapa
+}
+
 export function agruparRecursos(recursos, tree) {
   const rotuloDaArvore = {}
   for (const n of tree || []) rotuloDaArvore[n.key] = n.label
+  const declarado = grupoDeclarado(tree)
 
   const porFerramenta = new Map()
   for (const r of recursos || []) {
-    const f = ferramentaDaChave(r.key)
+    const f = declarado[r.key] || ferramentaDaChave(r.key)
     if (!porFerramenta.has(f)) porFerramenta.set(f, [])
     porFerramenta.get(f).push(r)
   }

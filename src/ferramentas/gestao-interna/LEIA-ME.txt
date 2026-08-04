@@ -1,0 +1,15 @@
+Gestão Interna: a PORTA (menu) que fica na Central e leva aos módulos internos
+da empresa. Não é uma ferramenta — não tem dado próprio, não tem tabela, não tem
+permissão própria.
+
+Os submódulos, cada um com seu arquivo, sua rota e sua permissão:
+  Colaboradores e Acessos  src/ferramentas/acessos      (permissão: acessos)
+  Patrimônio               src/ferramentas/patrimonio   (permissão: patrimonio)
+  Frota                    ainda não existe             (fase futura)
+
+Regra: o menu aparece na Central pra quem tem QUALQUER um dos submódulos, e
+mostra só os que a pessoa pode ver. Quem só tem Patrimônio abre e vê um item.
+
+Mesmo padrão de tela-de-menu-vendas.vue e tela-de-menu-meta-ads.vue.
+
+Desenho: docs/superpowers/specs/2026-08-03-patrimonio-modulo-proprio-design.md
