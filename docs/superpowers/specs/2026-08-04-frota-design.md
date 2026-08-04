@@ -36,17 +36,34 @@ Três sintomas de que a planilha não se sustenta:
 
 ## Decisões
 
-### D1 — Veículo de frota NÃO nasce como bem do Patrimônio
+### D1 — Veículo de frota É bem do Patrimônio (REVISTA pelo dono)
 
-Os 10 carros são **alugados**: cada um tem contrato vinculado (CTR-001 a CTR-010, do
-"Contrato Mestre de Locação de Frota") e valor de aluguel mensal. Lançá-los como bens
-inflaria o patrimônio em R$ 1,1 milhão de coisa que a empresa não possui — e o dono
-acabou de validar o total de R$ 1.294.235,13.
+**A primeira versão desta decisão dizia o contrário**, e o raciocínio era: os carros têm
+contrato de locação (CTR-001 a CTR-010) e mensalidade, então lançá-los como bens inflaria
+o patrimônio com coisa que a empresa não possui.
 
-`frota_veiculos` tem uma ligação **opcional** com `patrimonio_bens`. Carro próprio, se
-houver, aponta para o bem; carro alugado não aponta. O código patrimonial da planilha
-(RBB-001 a RBB-010) é guardado como texto, porque é a numeração de quem aluga, não a
-etiqueta física de 1 a 400 do Patrimônio.
+O dono corrigiu: *"os carros são patrimônio"*. E faz sentido dentro do grupo — o código
+patrimonial RBB-XXX e o "Contrato Mestre de Locação de Frota" moram na pasta da RB
+Builders, ou seja, quem aluga é uma empresa do próprio grupo. O aluguel é transferência
+interna, não saída de patrimônio.
+
+Os 9 viraram bens, na empresa **RB Builders**, categoria Veículos, valor pela **FIPE de
+03/2026**. `frota_veiculos.bem_id` liga os dois: quem abre a ficha na Frota vê o carro, e
+quem abre o Patrimônio vê o bem, sem contar duas vezes.
+
+Consequência no número que o dono já tinha validado: **341 bens / R$ 1.294.235,13 →
+349 bens / R$ 2.370.619,13**.
+
+Três cuidados na passagem:
+
+- O **Fiat Punto já existia** no Patrimônio (na RBV Company, por R$ 33.000). Foi **ligado**,
+  não duplicado — duplicar contaria o mesmo carro duas vezes. O valor dele ficou como
+  estava; a FIPE diz R$ 27.714, e trocar ou não é decisão do dono.
+- Entram como **não etiquetados**, sem número de etiqueta (observação do dono: nem todos
+  têm a etiqueta colada). Aparecem na lista de quem falta etiquetar, e o número sai da
+  faixa disponível quando alguém for colar.
+- O `codigo_patrimonial` (RBB-XXX) continua no campo próprio da Frota: é a numeração de
+  quem aluga, não a etiqueta física de 1 a 400 do Patrimônio.
 
 ### D2 — Onde está: pessoa e local são campos SEPARADOS
 
