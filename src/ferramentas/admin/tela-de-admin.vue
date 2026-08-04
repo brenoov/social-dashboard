@@ -37,6 +37,7 @@
       <nav class="admin-sidebar">
         <div class="admin-nav-group-label">Gestão</div>
         <div class="admin-nav-item active" data-section="users" onclick="loadAdminSection('users')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Usuários</span></div>
+        <div class="admin-nav-item" data-section="equipes" onclick="loadAdminSection('equipes')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/></svg><span>Times de venda</span></div>
         <div class="admin-nav-item" data-section="accounts" onclick="loadAdminSection('accounts')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg><span>Contas</span></div>
         <div class="admin-nav-item" data-section="requests" onclick="loadAdminSection('requests')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Solicitações</span></div>
         <div class="admin-nav-group-label">Vendas</div>
@@ -118,6 +119,11 @@
           <div class="admin-section-sub">Verificação automática diária (23:30) — frescor, consistência e anomalias das métricas de todos os perfis.</div>
           <div id="admin-saude-body"><div style="color:var(--muted);font-size:12px">Carregando...</div></div>
         </div>
+        <div class="admin-section" id="admin-section-equipes">
+          <div class="admin-section-title">Times de venda</div>
+          <div class="admin-section-sub">Lojas, canais e setores — e quem trabalha em cada um. É por aqui que uma loja nova entra no sistema.</div>
+          <div id="admin-equipes-body"><div style="color:var(--muted);font-size:12px">Carregando...</div></div>
+        </div>
         <div class="admin-section" id="admin-section-metas">
           <div class="admin-section-title">Metas de Vendas</div>
           <div class="admin-section-sub">Configure as metas mensais por canal e loja</div>
@@ -164,6 +170,12 @@ import { TIPOS_DE_NOTIFICACAO, querReceber } from '../../../supabase/functions/_
 import { adminToast } from '../../compartilhado/avisos.js'
 import { gerarSenhaForte } from './senha.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
+// As REGRAS dos times (quem administra, quem concede o quê, o que falta em cada
+// um) moram em equipes.js, puro e testado. Aqui só se desenha e se grava.
+import {
+  PAPEIS, acharPapel, podeAdministrarTime, papeisQuePossoConceder, podeRemover,
+  validarTime, canaisLivres, linhaDoTime, ordenarTimes,
+} from './equipes.js'
 
 const router = useRouter()
 
@@ -322,7 +334,7 @@ function loadAdminSection(name) {
   document.querySelectorAll('.admin-nav-item').forEach(el => el.classList.toggle('active', el.dataset.section === name))
   document.querySelectorAll('.admin-section').forEach(el => el.classList.remove('active'))
   const sec = document.getElementById('admin-section-' + name); if (sec) sec.classList.add('active')
-  const carregadores = { users: loadAdminUsers, accounts: loadAdminAccounts, data: loadAdminData, metas: loadAdminMetas, requests: loadAdminRequests, saude: loadAdminSaude }
+  const carregadores = { users: loadAdminUsers, accounts: loadAdminAccounts, data: loadAdminData, metas: loadAdminMetas, requests: loadAdminRequests, saude: loadAdminSaude, equipes: loadAdminEquipes }
   carregadores[name]?.()
   updateSaudeBadge()
 }
@@ -334,6 +346,239 @@ async function updateSaudeBadge() {
   const fails = last.length ? await sb('data_integrity_checks?select=id&status=eq.fail&checked_date=eq.' + last[0].checked_date) : []
   if (fails.length) { if (!dot) { dot = document.createElement('span'); dot.className = 'saude-dot'; dot.style.cssText = 'display:inline-block;width:7px;height:7px;border-radius:50%;background:#dc2626;margin-left:6px;vertical-align:middle;'; (nav.querySelector('span') || nav).appendChild(dot) } }
   else if (dot) { dot.remove() }
+}
+
+/* ── TIMES DE VENDA ─────────────────────────────────────────────────────────
+ *
+ * PEDIDO DO DONO (04/08/2026): gerir as equipes de lojas e canais aqui, definir
+ * quem gere cada time e quem pode criar e excluir.
+ *
+ * A LISTA DE LOJAS É DADO, NÃO CÓDIGO. "tem dom pedro também, e aí logo terá
+ * iguatemi campinas, sorocaba, etc" — loja nova é rotina do negócio. Tudo o que
+ * esta tela faz é escrever em `equipes` e `equipes_membros`; nenhuma loja está
+ * escrita em lugar nenhum do sistema.
+ */
+let _eqTimes = []
+let _eqMembros = []
+let _eqPessoas = []
+let _eqCanais = []
+let _eqEditando = null   // id do time aberto para edição, ou 'novo'
+
+const _eqEu = () => ({ is_superadmin: !!estado.is_superadmin, id: estado.user?.id })
+
+// Meu papel num time. O dono não precisa ser membro para administrar.
+function _eqMeuPapel(timeId) {
+  const m = _eqMembros.find(x => String(x.equipe_id) === String(timeId) && String(x.profile_id) === String(estado.user?.id))
+  return m ? m.papel : null
+}
+
+async function loadAdminEquipes() {
+  const body = document.getElementById('admin-equipes-body'); if (!body) return
+  body.innerHTML = '<div style="color:var(--muted);font-size:12px">Carregando…</div>'
+  try {
+    const [times, membros, pessoas, canais] = await Promise.all([
+      sb('equipes?select=*'),
+      sb('equipes_membros?select=*'),
+      sb('profiles?select=id,name,email,disabled,escopo_por_equipe&order=name'),
+      sb('bling_lojas?select=loja_id,nome&order=nome'),
+    ])
+    _eqTimes = times || []; _eqMembros = membros || []
+    _eqPessoas = pessoas || []; _eqCanais = canais || []
+    _eqDesenhar()
+  } catch (e) {
+    // O MOTIVO VAI PRA TELA. `catch` mudo aqui já custou meia hora de caça
+    // noutra tela deste mesmo sistema.
+    body.innerHTML = '<div style="color:var(--red,#dc2626);font-size:12.5px">Não consegui carregar os times: ' + escHtml(String(e && e.message || e)) + '</div>'
+  }
+}
+
+function _eqDesenhar() {
+  const body = document.getElementById('admin-equipes-body'); if (!body) return
+  const eu = _eqEu()
+  const podeCriar = eu.is_superadmin || _eqMembros.some(m => String(m.profile_id) === String(eu.id) && m.papel === 'gestor')
+
+  let html = ''
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">'
+  html += '<div style="color:var(--muted);font-size:12px;">' + _eqTimes.length + (_eqTimes.length === 1 ? ' time' : ' times') + ' cadastrados</div>'
+  if (podeCriar) html += '<button data-eq-novo style="border:none;background:var(--accent);color:#fff;border-radius:9px;padding:9px 16px;font-size:12.5px;font-weight:700;cursor:pointer;">+ Novo time</button>'
+  html += '</div>'
+
+  if (!_eqTimes.length) {
+    html += '<div style="border:1px dashed var(--border);border-radius:12px;padding:22px;text-align:center;color:var(--muted);font-size:12.5px;">'
+      + 'Nenhum time ainda. Crie um para cada loja e cada canal de venda — é o que permite dizer que uma vendedora só enxerga a loja dela.</div>'
+  }
+
+  for (const t of ordenarTimes(_eqTimes)) {
+    const l = linhaDoTime(t, _eqMembros)
+    const meu = _eqMeuPapel(t.id)
+    const posso = podeAdministrarTime(eu, meu)
+    const canal = _eqCanais.find(c => String(c.loja_id) === String(t.canal_loja_id))
+    html += '<div style="border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;background:var(--surface);'
+      + (l.ativo ? '' : 'opacity:.6;') + '">'
+    html += '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">'
+    html += '<div style="font-weight:800;font-size:14px;color:var(--text);">' + escHtml(l.nome)
+      + '<span style="font-weight:600;font-size:10.5px;color:var(--muted);margin-left:8px;text-transform:uppercase;letter-spacing:1px;">' + escHtml(l.tipo) + '</span>'
+      + (l.ativo ? '' : '<span style="font-weight:700;font-size:10.5px;color:var(--orange,#d97706);margin-left:8px;">inativo</span>')
+      + '</div>'
+    html += '<div style="font-size:12px;color:var(--muted);">' + escHtml(l.quemTem) + '</div>'
+    html += '</div>'
+    // A AMARRA COM O BLING em letras claras: é ela que faz o faturamento
+    // aparecer, e o nome de lá quase nunca é o nome da casa.
+    html += '<div style="font-size:11.5px;color:var(--muted);margin-top:5px;">Vendas pelo canal: '
+      + (canal ? '<b style="color:var(--text)">' + escHtml(canal.nome) + '</b>' : '<i>nenhum ligado</i>') + '</div>'
+    for (const a of l.avisos) {
+      html += '<div style="margin-top:6px;font-size:11.5px;color:' + (a.grave ? 'var(--orange,#d97706)' : 'var(--muted)') + ';">' + escHtml(a.texto) + '</div>'
+    }
+    html += '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">'
+    if (posso) html += '<button data-eq-editar="' + escHtml(t.id) + '" style="border:1px solid var(--border);background:none;color:var(--text);border-radius:8px;padding:6px 12px;font-size:11.5px;font-weight:600;cursor:pointer;">Editar</button>'
+    if (posso) html += '<button data-eq-gente="' + escHtml(t.id) + '" style="border:1px solid var(--accent);background:none;color:var(--accent);border-radius:8px;padding:6px 12px;font-size:11.5px;font-weight:700;cursor:pointer;">Quem trabalha aqui (' + l.quantos + ')</button>'
+    if (!posso) html += '<span style="font-size:11.5px;color:var(--muted);">Você não administra este time.</span>'
+    html += '</div>'
+    if (String(_eqEditando) === String(t.id)) html += _eqFormulario(t)
+    if (String(_eqEditando) === 'gente:' + t.id) html += _eqGente(t)
+    html += '</div>'
+  }
+  if (_eqEditando === 'novo') html += '<div style="border:1px solid var(--accent);border-radius:12px;padding:14px 16px;margin-bottom:10px;background:var(--surface);">' + _eqFormulario(null) + '</div>'
+
+  body.innerHTML = html
+  _eqLigar(body)
+}
+
+// O FORMULÁRIO do time. Os quatro vínculos ficam juntos e explicados: é aqui
+// que "Tivoli" vira "Loja Santa Bárbara d'Oeste" para as vendas.
+function _eqFormulario(t) {
+  const e = t || { nome: '', tipo: 'loja', ativo: true }
+  const livres = canaisLivres(_eqCanais, _eqTimes, e.id)
+  const opc = (lista, val, chave, rot) => lista.map(x =>
+    '<option value="' + escHtml(x[chave]) + '"' + (String(x[chave]) === String(val) ? ' selected' : '') + '>' + escHtml(x[rot]) + '</option>').join('')
+  const campo = 'style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12.5px;"'
+  const rot = 'style="display:block;font-size:11px;font-weight:700;color:var(--text);margin:10px 0 4px;"'
+  let h = '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">'
+  h += '<label ' + rot + '>Nome do time</label>'
+  h += '<input data-eq-campo="nome" value="' + escHtml(e.nome || '') + '" placeholder="Tivoli, Iguatemi Campinas, Sorocaba…" ' + campo + '>'
+  h += '<label ' + rot + '>O que é</label>'
+  h += '<select data-eq-campo="tipo" ' + campo + '>'
+    + '<option value="loja"' + (e.tipo === 'loja' ? ' selected' : '') + '>Loja — ponto físico que vende</option>'
+    + '<option value="canal"' + (e.tipo === 'canal' ? ' selected' : '') + '>Canal — vende sem loja física</option>'
+    + '<option value="setor"' + (e.tipo === 'setor' ? ' selected' : '') + '>Setor — não vende</option></select>'
+  h += '<label ' + rot + '>Canal no Bling (é ele que traz o faturamento)</label>'
+  h += '<select data-eq-campo="canal_loja_id" ' + campo + '><option value="">— ainda não tem —</option>' + opc(livres, e.canal_loja_id, 'loja_id', 'nome') + '</select>'
+  h += '<div style="font-size:11px;color:var(--muted);margin-top:4px;">O nome no Bling quase nunca é o nome da casa: o time <b>Tivoli</b> usa o canal <b>Loja Santa Bárbara d\'Oeste</b>. Sem ligar, o time mostra faturamento zero.</div>'
+  h += '<div data-eq-erro style="margin-top:10px;color:var(--red,#dc2626);font-size:12px;"></div>'
+  h += '<div style="display:flex;gap:8px;margin-top:12px;">'
+  h += '<button data-eq-salvar="' + escHtml(e.id || '') + '" style="border:none;background:var(--accent);color:#fff;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;">Salvar</button>'
+  h += '<button data-eq-cancelar style="border:1px solid var(--border);background:none;color:var(--text);border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;">Cancelar</button>'
+  h += '</div></div>'
+  return h
+}
+
+// QUEM TRABALHA NO TIME. A lista de papéis que aparece depende de quem está
+// olhando — ninguém entrega um papel acima do seu.
+function _eqGente(t) {
+  const eu = _eqEu()
+  const meu = _eqMeuPapel(t.id)
+  const meus = _eqMembros.filter(m => String(m.equipe_id) === String(t.id))
+  const podeDar = papeisQuePossoConceder(eu, meu)
+  const nome = (id) => {
+    const p = _eqPessoas.find(x => String(x.id) === String(id))
+    return p ? (p.name || p.email) : '(usuário removido)'
+  }
+  let h = '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">'
+  if (!meus.length) h += '<div style="color:var(--muted);font-size:12px;margin-bottom:10px;">Ninguém neste time ainda.</div>'
+  for (const m of meus) {
+    const papel = acharPapel(m.papel)
+    const r = podeRemover(eu, meu, m, meus)
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">'
+    h += '<div><div style="font-size:12.5px;color:var(--text);font-weight:600;">' + escHtml(nome(m.profile_id)) + '</div>'
+      + '<div style="font-size:11px;color:var(--muted);">' + escHtml(papel ? papel.explicacao : m.papel) + '</div></div>'
+    h += '<div style="display:flex;gap:7px;align-items:center;">'
+    if (podeDar.length) {
+      h += '<select data-eq-papel="' + escHtml(m.id) + '" style="padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:11.5px;">'
+        + podeDar.map(p => '<option value="' + p.id + '"' + (p.id === m.papel ? ' selected' : '') + '>' + escHtml(p.rotulo) + '</option>').join('') + '</select>'
+    } else {
+      h += '<span style="font-size:11.5px;color:var(--muted);">' + escHtml(papel ? papel.rotulo : m.papel) + '</span>'
+    }
+    if (r.pode) h += '<button data-eq-tirar="' + escHtml(m.id) + '" title="Tirar do time" style="border:1px solid var(--border);background:none;color:var(--red,#dc2626);border-radius:7px;padding:5px 10px;font-size:11.5px;cursor:pointer;">Tirar</button>'
+    else h += '<span title="' + escHtml(r.porque) + '" style="font-size:11px;color:var(--muted);cursor:help;">não dá</span>'
+    h += '</div></div>'
+  }
+  // COLOCAR GENTE. Só quem ainda não está no time aparece — oferecer quem já
+  // está leva ao erro de chave repetida, que não diz nada a quem está usando.
+  if (podeDar.length) {
+    const dentro = new Set(meus.map(m => String(m.profile_id)))
+    const fora = _eqPessoas.filter(p => !dentro.has(String(p.id)) && !p.disabled)
+    h += '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center;">'
+    h += '<select data-eq-nova-pessoa style="flex:1;min-width:180px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;">'
+      + '<option value="">Escolha quem entra…</option>'
+      + fora.map(p => '<option value="' + escHtml(p.id) + '">' + escHtml(p.name || p.email) + '</option>').join('') + '</select>'
+    h += '<select data-eq-novo-papel style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;">'
+      + podeDar.map(p => '<option value="' + p.id + '">' + escHtml(p.rotulo) + '</option>').join('') + '</select>'
+    h += '<button data-eq-por="' + escHtml(t.id) + '" style="border:none;background:var(--accent);color:#fff;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">Colocar no time</button>'
+    h += '</div>'
+  }
+  h += '<div style="display:flex;gap:8px;margin-top:12px;"><button data-eq-cancelar style="border:1px solid var(--border);background:none;color:var(--text);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;">Fechar</button></div>'
+  h += '</div>'
+  return h
+}
+
+function _eqLigar(body) {
+  const q = (sel) => Array.from(body.querySelectorAll(sel))
+  const um = (sel) => body.querySelector(sel)
+  const novo = um('[data-eq-novo]'); if (novo) novo.onclick = () => { _eqEditando = 'novo'; _eqDesenhar() }
+  q('[data-eq-editar]').forEach(b => { b.onclick = () => { _eqEditando = b.getAttribute('data-eq-editar'); _eqDesenhar() } })
+  q('[data-eq-gente]').forEach(b => { b.onclick = () => { _eqEditando = 'gente:' + b.getAttribute('data-eq-gente'); _eqDesenhar() } })
+  q('[data-eq-cancelar]').forEach(b => { b.onclick = () => { _eqEditando = null; _eqDesenhar() } })
+
+  const salvar = um('[data-eq-salvar]')
+  if (salvar) salvar.onclick = async () => {
+    const id = salvar.getAttribute('data-eq-salvar') || null
+    const val = (c) => { const el = um('[data-eq-campo="' + c + '"]'); return el ? el.value : '' }
+    const dados = {
+      id: id || undefined,
+      nome: val('nome').trim(),
+      tipo: val('tipo'),
+      canal_loja_id: val('canal_loja_id') ? Number(val('canal_loja_id')) : null,
+    }
+    const erro = validarTime(dados, _eqTimes)
+    const cxErro = um('[data-eq-erro]')
+    if (erro) { if (cxErro) cxErro.textContent = erro; return }
+    salvar.disabled = true; salvar.textContent = 'Salvando…'
+    try {
+      const corpo = { nome: dados.nome, tipo: dados.tipo, canal_loja_id: dados.canal_loja_id }
+      const r = id
+        ? await adFetch('equipes?id=eq.' + encodeURIComponent(id), { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(corpo) })
+        : await adFetch('equipes', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(corpo) })
+      if (!r.ok) throw new Error(await r.text())
+      _eqEditando = null
+      await loadAdminEquipes()
+      adminToast(id ? 'Time atualizado.' : 'Time criado.', true)
+    } catch (e) {
+      salvar.disabled = false; salvar.textContent = 'Salvar'
+      if (cxErro) cxErro.textContent = 'Não consegui salvar: ' + String(e && e.message || e)
+    }
+  }
+
+  q('[data-eq-papel]').forEach(sel => { sel.onchange = async () => {
+    const r = await adFetch('equipes_membros?id=eq.' + encodeURIComponent(sel.getAttribute('data-eq-papel')),
+      { method: 'PATCH', body: JSON.stringify({ papel: sel.value }) })
+    if (!r.ok) { adminToast('Não consegui mudar o papel.', false); return }
+    await loadAdminEquipes()
+  } })
+
+  q('[data-eq-tirar]').forEach(b => { b.onclick = async () => {
+    const r = await adFetch('equipes_membros?id=eq.' + encodeURIComponent(b.getAttribute('data-eq-tirar')), { method: 'DELETE' })
+    if (!r.ok) { adminToast('Não consegui tirar do time.', false); return }
+    await loadAdminEquipes()
+  } })
+
+  const por = um('[data-eq-por]')
+  if (por) por.onclick = async () => {
+    const pes = um('[data-eq-nova-pessoa]'), pap = um('[data-eq-novo-papel]')
+    if (!pes || !pes.value) { adminToast('Escolha quem entra no time.', false); return }
+    const r = await adFetch('equipes_membros', { method: 'POST', body: JSON.stringify({ equipe_id: por.getAttribute('data-eq-por'), profile_id: pes.value, papel: pap ? pap.value : 'vendedora' }) })
+    if (!r.ok) { adminToast('Não consegui colocar no time.', false); return }
+    await loadAdminEquipes()
+  }
 }
 
 /* ── SAÚDE DOS DADOS (legacy L4411-4522, verbatim) ── */

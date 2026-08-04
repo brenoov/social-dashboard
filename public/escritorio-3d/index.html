@@ -10,6 +10,59 @@ header h1{font-size:14px;margin:0;font-weight:800}.badge{font-size:11px;color:#d
 #card .body{padding:13px 16px;font-size:13px;line-height:1.55;color:#d6ddf5}#card .close{position:absolute;top:8px;right:11px;background:none;border:0;color:#aab;font-size:19px;cursor:pointer}
 #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9;background:#0e1322;color:#aab2d0;white-space:pre-wrap;padding:20px;text-align:center}
 .hint{position:fixed;left:14px;bottom:12px;z-index:5;font-size:11.5px;color:#9aa6cc;background:rgba(14,19,34,.7);padding:7px 11px;border-radius:9px;border:1px solid #2a3350}</style></head><body>
+<!-- PORTEIRO. Esta página é ESTÁTICA e carrega a chave anônima — antes de
+     04/08/2026 qualquer pessoa com o endereço abria, logada ou não. Esconder o
+     cartão na home não protegia nada: o endereço é fixo e adivinhável.
+
+     A checagem roda ANTES de qualquer outra coisa e usa `fetch` puro, sem
+     esperar o supabase-js do CDN: dependência de ordem de script num porteiro é
+     como deixar a porta encostada enquanto a fechadura carrega.
+
+     Lê os DOIS campos de permissão de propósito. O sistema tem dois modelos
+     (`permissions` no front, `features[]` no Edge/RLS) e eles nem sempre
+     concordam — checar só um deixaria gente legítima de fora ou gente de fora
+     dentro. -->
+<div id="porteiro" style="position:fixed;inset:0;z-index:99999;background:#0b0f1a;color:#9aa6cc;
+     display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;
+     font:14px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;">conferindo seu acesso…</div>
+<script>
+(function(){
+  var U='https://kounqtdoioootxqegkij.supabase.co';
+  var AK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtvdW5xdGRvaW9vb3R4cWVna2lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMDMwMDUsImV4cCI6MjA5NDc3OTAwNX0.MVXa6jngjKXkH3eZ7as_j_k8Eb7lJKcFmO4kCKAnuHM';
+  var el=document.getElementById('porteiro');
+  function nega(msg){
+    el.innerHTML='<div><div style="font-size:16px;color:#e8ecf8;margin-bottom:8px;">'+msg+'</div>'+
+      '<a href="/" style="color:#6ea8ff;">voltar para a Central</a></div>';
+  }
+  var chave=null;
+  try{ for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(/^sb-.*-auth-token$/.test(k)){chave=k;break;} } }catch(e){}
+  var tok=null;
+  if(chave){ try{ tok=JSON.parse(localStorage.getItem(chave)); }catch(e){} }
+  if(!tok||!tok.access_token){ nega('Entre na Central para ver o Escritório 3D.'); return; }
+  var uid=(tok.user&&tok.user.id)||'';
+  if(!uid){ nega('Não consegui identificar sua sessão. Entre de novo.'); return; }
+  fetch(U+'/rest/v1/profiles?select=role,is_superadmin,permissions,features&id=eq.'+encodeURIComponent(uid),
+        {headers:{apikey:AK,Authorization:'Bearer '+tok.access_token}})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      var p=(d&&d[0])||null;
+      if(!p){ nega('Não consegui ler seu perfil. Tente entrar de novo.'); return; }
+      var feats=p.features||[];
+      var perms=p.permissions||{};
+      // SEM ATALHO PARA `role==='admin'`, e isto foi corrigido antes de mesclar
+      // (04/08/2026): o cartão da home usa `hasPermission`, que NÃO tem esse
+      // atalho. Com ele aqui, um admin comum não veria o cartão mas entraria
+      // pelo endereço — porta que a tela diz estar fechada e não está. As duas
+      // portas passam a responder a mesma coisa.
+      var pode = p.is_superadmin===true
+              || feats.indexOf('escritorio3d')>=0
+              || ((perms['escritorio3d']||[]).indexOf('ver')>=0);
+      if(!pode){ nega('Você ainda não tem acesso ao Escritório 3D.'); return; }
+      el.parentNode.removeChild(el);
+    })
+    .catch(function(){ nega('Não consegui conferir seu acesso agora.'); });
+})();
+</script>
 <canvas id="c"></canvas>
 <header><h1>🏛️ Central RBV — HQ 3D</h1><span class="badge">motor procedural · planta validada</span><span class="badge">arraste girar · scroll zoom · botão-direito/Shift pan · WASD andar</span></header>
 <div class="hint">Recepção · corredor 3m · 2 open spaces · reuniões · executivas · café · lounge · pet · TI · storage. Clique num agente.</div>
