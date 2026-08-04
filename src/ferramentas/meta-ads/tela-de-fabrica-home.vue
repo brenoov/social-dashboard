@@ -1,5 +1,6 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
@@ -142,15 +143,12 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 <template>
   <div class="fest">
     <div class="shell">
-      <header class="topbar">
-        <button class="voltar-central" @click="voltarCentral" aria-label="Voltar para a Central">← Central</button>
-        <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
-        <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
-        <div class="brand"><div class="t">Fábrica de Anúncios</div><div class="s">Painel</div></div>
-        <div class="divider"></div>
-        <button class="voltar-central" @click="reverTour">Rever tour</button>
-        <button class="cmd amber" data-tour="nova-campanha" @click="nova"><span class="ci">▶</span> Nova campanha</button>
-      </header>
+      <barra-de-topo voltar="Central" titulo="Fábrica de Anúncios" @voltar="voltarCentral">
+        <template #acoes>
+          <button class="bt-acao" @click="reverTour">Rever tour</button>
+          <button class="bt-acao primario" data-tour="nova-campanha" @click="nova">+ Nova campanha</button>
+        </template>
+      </barra-de-topo>
 
       <!-- números -->
       <div class="readout" data-tour="numeros">

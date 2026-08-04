@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
@@ -75,26 +76,16 @@ onUnmounted(() => { if (_clockTimer) clearInterval(_clockTimer) })
   <div class="fest">
     <div class="shell">
       <!-- BARRA DE STATUS -->
-      <header class="topbar">
-        <button class="voltar-central" @click="voltarHome" aria-label="Voltar para a Fábrica">← Fábrica</button>
-        <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
-        <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
-        <div class="brand">
-          <div class="t">Fábrica de Anúncios</div>
-          <div class="s">Estúdio de Criativos</div>
-        </div>
-        <div class="sys">
-          <span class="sig"><i class="led go"></i>Banco de dados</span>
-          <span class="sig"><i class="led go"></i>Meta (anúncios)</span>
-          <span class="sig"><i class="led" :class="passo==='conferir' ? 'run' : 'idle'"></i>Publicando</span>
-          <span class="sig"><i class="led hold"></i>Limite da Meta</span>
-        </div>
-        <div class="divider"></div>
-        <div class="clock">
-          <div class="v num">{{ relogio }}</div>
-          <small>Horário · BRT</small>
-        </div>
-      </header>
+      <barra-de-topo voltar="Fábrica" titulo="Estúdio de Criativos" @voltar="voltarHome">
+        <template #acoes>
+  <div class="sys">
+            <span class="sig"><i class="led go"></i>Banco de dados</span>
+            <span class="sig"><i class="led go"></i>Meta (anúncios)</span>
+            <span class="sig"><i class="led" :class="passo==='conferir' ? 'run' : 'idle'"></i>Publicando</span>
+            <span class="sig"><i class="led hold"></i>Limite da Meta</span>
+          </div>
+        </template>
+      </barra-de-topo>
 
       <div class="grid">
         <!-- TRILHO DE PASSOS -->

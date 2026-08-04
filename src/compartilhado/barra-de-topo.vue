@@ -82,7 +82,12 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
      ganham a linha inteira, que é onde o polegar alcança. */
   .bt-barra{flex-wrap:wrap;row-gap:8px;}
   .bt-titulo{flex:1 1 0;text-align:right;font-size:11.5px;letter-spacing:1.2px;}
-  .bt-dir{flex:1 0 100%;}
+  /* `1 1 auto`, nao `1 0 100%`: assim as acoes FICAM na primeira linha quando
+     cabem (um botao so, por exemplo) e so descem quando nao cabem — e aí sim
+     ocupam a linha inteira, porque o flex-grow as espalha. Forcar 100% sempre
+     dava uma linha inteira pra um unico botao, e a barra da Gestao a Vista
+     subiu de 122 pra 174px de altura por causa disso.  */
+  .bt-dir{flex:1 1 auto;min-width:0;}
   .bt-dir:empty{display:none;}
 }
 </style>

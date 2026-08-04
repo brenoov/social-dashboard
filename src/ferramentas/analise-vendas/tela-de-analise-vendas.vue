@@ -15,19 +15,12 @@
        #sa-body é 100% montado via innerHTML/createElement pelo JS abaixo
        (renderSalesAnalysis e as sub-renderSA*). -->
   <div class="tela-analise-vendas">
-    <div class="gv-topbar">
-      <div class="gv-topbar-brand" style="display:flex;align-items:center;gap:14px">
-        <button class="gv-back" @click="closeSalesAnalysis">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-          Marcas
-        </button>
-        <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
-        <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
-        <div style="display:flex;flex-direction:column;gap:2px">
-          <span class="gv-perf-tag" id="sa-brand-nm" style="font-size:11px;letter-spacing:4px;">Análise de Vendas</span>
-          <span class="gv-brand-tag" style="font-size:9px;letter-spacing:2px;opacity:.5;">Vessel Brasil · Dados Bling</span>
-        </div>
-      </div>
+    <barra-de-topo voltar="Vendas" titulo="Análise de Vendas" @voltar="closeSalesAnalysis" />
+
+    <!-- FAIXA DE CONTROLES: periodo e filtros. Nao sao acoes pequenas —
+         sao uma tira larga que dentro da barra disputava espaco com o
+         titulo. Aqui tem a linha propria. -->
+    <div class="gv-controles">
       <div class="gv-period-btns">
         <button class="gv-pbtn" data-period="today" onclick="saSelectPeriod('today')"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite;vertical-align:middle;flex-shrink:0;"></span>HOJE</button>
         <button class="gv-pbtn" data-period="1d" onclick="saSelectPeriod('1d')">1D</button>
@@ -46,6 +39,7 @@
         </div>
       </div>
       
+    
     </div>
     <div id="sa-body"></div>
   </div>
@@ -53,6 +47,7 @@
 
 <script setup>
 import { onMounted, onUnmounted } from 'vue'
+import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
@@ -1350,4 +1345,7 @@ body.dev-tv .tela-analise-vendas :deep(.sa-pos-grid){gap:3px;}
 body.dev-tv .tela-analise-vendas :deep(.sa-pos-cell){font-size:16px;padding:6px 10px;min-width:83px;}
 body.dev-tv .tela-analise-vendas :deep(.sa-pos-name){font-size:18px;padding:6px 13px;}
 body.dev-tv .tela-analise-vendas :deep(.sa-loading-lbl){font-size:16px;}
+/* FAIXA DE CONTROLES — ver o comentario no template. */
+.tela-analise-vendas :deep(.gv-controles){display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;padding:8px 24px;border-bottom:1px solid var(--border);background:var(--surface);}
+@media(max-width:640px){.tela-analise-vendas :deep(.gv-controles){padding:0;flex-direction:column;align-items:stretch;gap:0;}}
 </style>
