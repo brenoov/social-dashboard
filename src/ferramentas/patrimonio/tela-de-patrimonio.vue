@@ -52,7 +52,16 @@
         inputmode="search"
         placeholder="Buscar por item, etiqueta, pessoa, local…"
         aria-label="Buscar bem">
+      <!-- Ler a etiqueta com a camera. So aparece em aparelho que TEM camera:
+           mostrar o botao no computador de mesa seria prometer o que nao existe. -->
+      <button v-if="temCamera" class="pat-btn-camera" type="button" @click="lendoEtiqueta = true"
+              title="Ler a etiqueta com a camera" aria-label="Ler a etiqueta com a camera">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="7" y2="12"/><line x1="7" y1="8" x2="7" y2="16"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16"/><line x1="17" y1="8" x2="17" y2="16"/></svg>
+      </button>
     </div>
+    <p class="pat-aviso-leitura" v-if="avisoDaLeitura">{{ avisoDaLeitura }}</p>
+
+    <leitor-de-etiqueta v-model="lendoEtiqueta" @leu="aoLerEtiqueta" />
 
     <!-- Trilha do caminho: mostra a descida inteira e permite pular de volta pra
          qualquer nível com um toque, sem subir de um em um. -->
@@ -723,6 +732,8 @@ import { SEM_VALOR, agruparBens, bensDoCaminho, rotuloDoCaminho } from './arvore
 import PasseioGuiado from '../../compartilhado/passeio-guiado.vue'
 import { PASSOS, AJUDAS, deveAbrirSozinho, marcarComoVisto } from './tutorial.js'
 import { TETO_PADRAO, textoDaFaixa, mapaDeNumeros, aumentarTeto, ehRecente } from './numeros-de-etiqueta.js'
+import LeitorDeEtiqueta from './leitor-de-etiqueta.vue'
+import { resultadoDaLeitura, mensagemDoResultado, etiqueta as etiquetaImpressa } from './leitor-de-codigo.js'
 import { COLUNAS_PLANILHA, ordenarPlanilha, resumirPor, totaisGerais, montarLinhasParaExcel } from './planilha-e-resumo.js'
 import { LIMPAR, montarAlteracaoEmMassa, temAlgoParaMudar, resumoDaSelecao,
   alternarTodosVisiveis, estadoDaSelecaoVisivel } from './acao-em-massa.js'
@@ -918,6 +929,38 @@ function voltar() {
 // Qual bem está aberto na ficha (null = ficha fechada). Declarado ANTES das
 // funções que mexem nele — `const` não sobe (hoisting), e usá-lo antes daria
 // ReferenceError em runtime, não erro de build.
+/* ── LER A ETIQUETA COM A CÂMERA ────────────────────────────────────────────
+   A etiqueta da RBV & Co. guarda o número de patrimônio num código de barras
+   Code 128 — a de nº 19 contém "000019" (lido de uma etiqueta de verdade). Ler
+   e abrir o item é o caminho curto pro que essa ferramenta serve: você está de
+   pé na frente do bem e quer saber de quem ele é.
+
+   O que decidir a partir do texto lido mora em leitor-de-codigo.js, que é
+   testado sem câmera nenhuma. Aqui só se liga uma coisa na outra. */
+const lendoEtiqueta = ref(false)
+const avisoDaLeitura = ref('')
+// `mediaDevices` não existe em navegador antigo nem fora de HTTPS — e sem essa
+// checagem o botão apareceria e não faria nada.
+const temCamera = typeof navigator !== 'undefined'
+  && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
+
+function aoLerEtiqueta(texto) {
+  const r = resultadoDaLeitura(bens.value, texto)
+  if (r.ok) {
+    avisoDaLeitura.value = ''
+    // A busca também recebe o número: assim, ao fechar a ficha, a pessoa vê o
+    // item na lista em vez de voltar pra uma tela que não mudou.
+    filtro.busca = etiquetaImpressa(r.numero)
+    abrirBem(r.bem)
+    return
+  }
+  // Erro não vira modal: ela está de pé, com o celular numa mão. Um aviso na
+  // tela, e o botão continua ali pra tentar de novo.
+  avisoDaLeitura.value = mensagemDoResultado(r)
+}
+// O aviso some assim que a pessoa faz qualquer outra coisa na busca.
+watch(() => filtro.busca, () => { avisoDaLeitura.value = '' })
+
 const bemAberto = ref(null)
 
 function abrirBem(bem) {
@@ -1496,7 +1539,12 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-patrimonio .pat-resumo-lab,.tela-patrimonio .pat-resumo-sep{font-size:12px;color:var(--muted);}
 .tela-patrimonio .pat-resumo-total{font-size:15px;font-weight:600;color:var(--accent);}
 
-.tela-patrimonio .pat-busca-wrap{padding:8px 14px;}
+.tela-patrimonio .pat-busca-wrap{padding:8px 14px;display:flex;align-items:center;gap:8px;}
+/* 44px de lado: e o alvo minimo que um dedo acerta sem errar. */
+.tela-patrimonio .pat-btn-camera{flex:0 0 auto;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);cursor:pointer;touch-action:manipulation;}
+.tela-patrimonio .pat-btn-camera:hover{border-color:var(--accent);color:var(--accent);}
+.tela-patrimonio .pat-aviso-leitura{margin:0;padding:0 14px 8px;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.5;color:var(--orange,#b26a00);}
+
 /* 16px obrigatório: abaixo disso o iOS dá zoom sozinho ao focar o campo. */
 .tela-patrimonio .pat-busca{width:100%;font-size:16px;font-family:var(--fonte-principal);padding:11px 13px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);}
 
