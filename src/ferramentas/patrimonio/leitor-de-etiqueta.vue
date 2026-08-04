@@ -17,13 +17,18 @@
  * vida — e o ciclo de vida é o que importa: câmera que não é desligada fica com
  * a luzinha acesa e come bateria mesmo com a janela fechada. */
 import { ref, watch, onUnmounted } from 'vue'
+import { diagnosticar } from './permissao-de-camera.js'
 
 const props = defineProps({ modelValue: Boolean })
 const emit = defineEmits(['update:modelValue', 'leu'])
 
 const video = ref(null)
-const erro = ref('')
 const preparando = ref(false)
+// `aviso` é a tela de recado: ou explicando que o pedido de permissão vem aí,
+// ou explicando por que a câmera não abriu e o que fazer. Enquanto ele existe,
+// não há vídeo — e é isso que conserta o defeito relatado: antes, quando dava
+// errado, a janela abria PRETA E CALADA.
+const aviso = ref(null)
 const demorando = ref(false)   // 12s tentando: hora de oferecer a saída manual
 let relogio = null
 let fluxo = null          // o MediaStream da câmera
@@ -32,9 +37,47 @@ let parar = false         // corta o laço de leitura
 function fechar() { emit('update:modelValue', false) }
 
 async function abrir() {
-  erro.value = ''
-  preparando.value = true
   parar = false
+  preparando.value = false
+  // O diagnóstico vem ANTES de encostar na câmera. Se o navegador não tem o
+  // recurso, ou a página não está em endereço seguro, ou a permissão já foi
+  // negada, não adianta chamar: só dá erro calado.
+  aviso.value = diagnosticar({
+    temMediaDevices: temMediaDevices(),
+    contextoSeguro: contextoSeguro(),
+    permissao: await estadoDaPermissao(),
+    ua: navigator.userAgent,
+  })
+  // Já liberada: entra direto, sem tela intermediária. Pedir "toque para
+  // permitir" a quem já permitiu é atrito à toa.
+  if (aviso.value.estado === 'liberada') return ligarCamera()
+}
+
+function temMediaDevices() {
+  return !!(typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
+}
+function contextoSeguro() {
+  // `isSecureContext` é o que o próprio navegador usa pra decidir se libera
+  // câmera. localhost conta como seguro; IP da rede local, não.
+  if (typeof window === 'undefined') return true
+  return window.isSecureContext !== false
+}
+async function estadoDaPermissao() {
+  // Safari não responde a essa consulta pra câmera, e navegador antigo nem tem
+  // a consulta. Quando não dá pra saber, devolve nulo e o diagnóstico trata
+  // como "ainda vai perguntar" — que é o certo.
+  try {
+    if (!navigator.permissions || !navigator.permissions.query) return null
+    const r = await navigator.permissions.query({ name: 'camera' })
+    return r && r.state
+  } catch (e) { return null }
+}
+
+async function ligarCamera() {
+  aviso.value = null
+  demorando.value = false
+  parar = false
+  preparando.value = true
   try {
     // `ideal` e não `exact`: em aparelho sem câmera traseira (notebook), exact
     // recusa e não abre nada. Assim ele cai na que existir.
@@ -44,12 +87,15 @@ async function abrir() {
     })
   } catch (e) {
     preparando.value = false
-    erro.value = e && e.name === 'NotAllowedError'
-      ? 'Você não deu permissão de câmera. Libere nos ajustes do navegador e tente de novo.'
-      : 'Não consegui abrir a câmera deste aparelho.'
+    aviso.value = diagnosticar({
+      temMediaDevices: temMediaDevices(),
+      contextoSeguro: contextoSeguro(),
+      erroNome: e && e.name,
+      ua: navigator.userAgent,
+    })
     return
   }
-  // O elemento só existe depois que o v-if montou a janela.
+  // O elemento do vídeo só existe depois que o v-if montou o palco.
   await new Promise((ok) => requestAnimationFrame(ok))
   const el = video.value
   if (!el) { desligar(); return }
@@ -58,8 +104,8 @@ async function abrir() {
   await el.play().catch(() => {})
   preparando.value = false
   // Etiqueta rasgada, suja ou com reflexo teimoso existe. Depois de um tempo
-  // parado apontando, a pessoa precisa ouvir que dá pra digitar — senão ela
-  // fica ali achando que é ela que está fazendo errado.
+  // parado apontando, a pessoa precisa ouvir que dá pra digitar — senão fica
+  // ali achando que é ela que está fazendo errado.
   relogio = setTimeout(() => { demorando.value = true }, 12000)
   procurar(el)
 }
@@ -76,7 +122,14 @@ async function procurar(el) {
   try {
     zx = await import('@zxing/library')
   } catch (e) {
-    erro.value = 'Não consegui carregar o leitor de código de barras. Confira a conexão e tente de novo.'
+    aviso.value = {
+      estado: 'sem-leitor',
+      titulo: 'Não consegui carregar o leitor',
+      texto: 'O leitor de código de barras não baixou. Confira a conexão e toque em "Tentar de novo".',
+      passos: [],
+      podeTentar: true,
+    }
+    desligar()
     return
   }
 
@@ -230,29 +283,52 @@ onUnmounted(desligar)
     <div v-if="modelValue" class="let-fundo" @click.self="fechar">
       <div class="let-caixa" role="dialog" aria-label="Ler etiqueta com a câmera">
         <div class="let-topo">
-          <span class="let-titulo">Aponte para a etiqueta</span>
+          <span class="let-titulo">{{ aviso ? aviso.titulo : 'Aponte para a etiqueta' }}</span>
           <button type="button" class="let-fechar" @click="fechar" aria-label="Fechar">✕</button>
         </div>
 
-        <div class="let-palco">
-          <video ref="video" class="let-video" muted playsinline></video>
-          <!-- A moldura NÃO é decoração: é exatamente o pedaço do quadro que o
-               leitor analisa (8%/20% de cada lado, veja `procurar`). Ler o
-               quadro inteiro não funciona — testado. Se mexer numa, mexa na
-               outra. -->
-          <div class="let-mira" aria-hidden="true"></div>
-          <p v-if="preparando" class="let-aviso">Ligando a câmera…</p>
+        <!-- TELA DE RECADO. Existe porque a janela abrindo preta e calada era o
+             defeito relatado: no Android, com a permissão já negada, o navegador
+             recusa SEM PERGUNTAR e não havia nada dizendo isso. Agora a pessoa
+             sempre lê o que houve e o que fazer. -->
+        <div v-if="aviso" class="let-recado">
+          <p class="let-recado-txt">{{ aviso.texto }}</p>
+          <ol v-if="aviso.passos.length" class="let-passos">
+            <li v-for="(p, i) in aviso.passos" :key="i">{{ p }}</li>
+          </ol>
+          <div class="let-botoes">
+            <!-- O toque NESTE botão é o que dispara o pedido do navegador. Ter um
+                 botão explícito, em vez de pedir assim que a janela abre, é o que
+                 faz a pessoa entender o que está aceitando — e aceitar. -->
+            <button v-if="aviso.podeTentar" type="button" class="let-btn primario" @click="ligarCamera">
+              {{ aviso.estado === 'vai-perguntar' ? 'Permitir câmera' : 'Tentar de novo' }}
+            </button>
+            <button type="button" class="let-btn" @click="fechar">
+              {{ aviso.podeTentar ? 'Digitar o número' : 'Fechar' }}
+            </button>
+          </div>
         </div>
 
-        <p v-if="erro" class="let-erro">{{ erro }}</p>
-        <p v-else-if="demorando" class="let-erro">
-          Essa etiqueta está difícil. Mude o ângulo para tirar o reflexo de cima do código —
-          ou feche e digite o número que está impresso embaixo dele.
-        </p>
-        <p v-else class="let-dica">
-          Encoste o celular a um palmo da etiqueta. Se não ler, mude o ângulo para tirar
-          o reflexo de cima do código — ou digite o número na busca.
-        </p>
+        <template v-else>
+          <div class="let-palco">
+            <video ref="video" class="let-video" muted playsinline></video>
+            <!-- A moldura NÃO é decoração: é exatamente o pedaço do quadro que o
+                 leitor analisa (8%/20% de cada lado, veja `procurar`). Ler o
+                 quadro inteiro não funciona — testado. Se mexer numa, mexa na
+                 outra. -->
+            <div class="let-mira" aria-hidden="true"></div>
+            <p v-if="preparando" class="let-aviso">Ligando a câmera…</p>
+          </div>
+
+          <p v-if="demorando" class="let-erro">
+            Essa etiqueta está difícil. Mude o ângulo para tirar o reflexo de cima do código —
+            ou feche e digite o número que está impresso embaixo dele.
+          </p>
+          <p v-else class="let-dica">
+            Encaixe o código dentro da moldura, a um palmo de distância. O número também está
+            impresso embaixo dele, se preferir digitar.
+          </p>
+        </template>
       </div>
     </div>
   </Teleport>
@@ -270,6 +346,15 @@ onUnmounted(desligar)
 .let-video{width:100%;height:100%;object-fit:cover;display:block;}
 .let-mira{position:absolute;left:8%;right:8%;top:20%;bottom:20%;border:2px solid rgba(255,255,255,.85);border-radius:10px;box-shadow:0 0 0 9999px rgba(0,0,0,.28);}
 .let-aviso{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;margin:0;color:#fff;font-family:var(--fonte-principal);font-size:13px;}
+.let-recado{padding:16px 16px 18px;}
+.let-recado-txt{margin:0;font-family:var(--fonte-principal);font-size:13.5px;line-height:1.6;color:var(--text);}
+.let-passos{margin:12px 0 0;padding-left:20px;font-family:var(--fonte-principal);font-size:13px;line-height:1.75;color:var(--muted);}
+.let-passos li{margin-bottom:3px;}
+.let-botoes{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px;}
+/* 44px de altura: alvo que o dedo acerta. Largura cheia no celular, porque a
+   pessoa está de pé segurando o aparelho com uma mão só. */
+.let-btn{flex:1 1 auto;min-width:130px;min-height:44px;font-family:var(--fonte-principal);font-size:14px;font-weight:600;padding:11px 16px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);cursor:pointer;touch-action:manipulation;}
+.let-btn.primario{background:var(--accent);border-color:var(--accent);color:#fff;}
 .let-dica,.let-erro{margin:0;padding:12px 14px;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.55;color:var(--muted);}
 .let-erro{color:var(--red,#c0392b);}
 </style>

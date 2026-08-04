@@ -52,9 +52,12 @@
         inputmode="search"
         placeholder="Buscar por item, etiqueta, pessoa, local…"
         aria-label="Buscar bem">
-      <!-- Ler a etiqueta com a camera. So aparece em aparelho que TEM camera:
-           mostrar o botao no computador de mesa seria prometer o que nao existe. -->
-      <button v-if="temCamera" class="pat-btn-camera" type="button" @click="lendoEtiqueta = true"
+      <!-- O botao aparece SEMPRE. Antes ele sumia quando o navegador nao expunha
+           a camera — e isso acontece justamente onde algo esta errado (pagina
+           fora de endereco seguro, navegador sem o recurso). O dono relatou
+           "nao funciona no Android"; parte era isso: nao era nao funcionar, era
+           nao aparecer, sem nada explicando. Agora quem explica e a janela. -->
+      <button class="pat-btn-camera" type="button" @click="lendoEtiqueta = true"
               title="Ler a etiqueta com a camera" aria-label="Ler a etiqueta com a camera">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="7" y2="12"/><line x1="7" y1="8" x2="7" y2="16"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16"/><line x1="17" y1="8" x2="17" y2="16"/></svg>
       </button>
@@ -939,11 +942,6 @@ function voltar() {
    testado sem câmera nenhuma. Aqui só se liga uma coisa na outra. */
 const lendoEtiqueta = ref(false)
 const avisoDaLeitura = ref('')
-// `mediaDevices` não existe em navegador antigo nem fora de HTTPS — e sem essa
-// checagem o botão apareceria e não faria nada.
-const temCamera = typeof navigator !== 'undefined'
-  && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
-
 function aoLerEtiqueta(texto) {
   const r = resultadoDaLeitura(bens.value, texto)
   if (r.ok) {
