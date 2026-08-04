@@ -7,32 +7,29 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>{{ rotuloDoVoltar }}
       </button>
       <span class="pat-title">{{ rotuloDoCaminho(caminho, listas) }}</span>
+      <button class="pat-btn-ajuda" @click="abrirPasseio" title="Como usar esta tela">?</button>
     </div>
 
-    <!-- Ações numa faixa PRÓPRIA: no celular elas não cabiam na mesma linha do
-         título e ficavam uma por cima da outra. No desktop a faixa continua
-         parecendo parte da barra de cima. -->
-    <div class="pat-acoes">
-      <button class="pat-btn-sel" :class="{ ativo: modoSelecao }" @click="alternarModoSelecao" v-if="podeEditar"
+    <!-- Contagem e ações na MESMA linha: contagem à esquerda, botões à direita.
+         Estavam em faixas separadas e comiam duas alturas do celular à toa. -->
+    <div class="pat-linha-topo">
+      <div class="pat-resumo">
+        <span class="pat-resumo-qtd">{{ resumo.quantidade }}</span>
+        <span class="pat-resumo-lab">{{ resumo.quantidade === 1 ? 'item' : 'itens' }}</span>
+        <span class="pat-resumo-sep">·</span>
+        <span class="pat-resumo-total">{{ formatarValor(resumo.totalCentavos) }}</span>
+        <span class="pat-resumo-onde">{{ ondeEstouContando }}</span>
+      </div>
+      <div class="pat-acoes">
+        <button class="pat-btn-sel" :class="{ ativo: modoSelecao }" @click="alternarModoSelecao" v-if="podeEditar"
               :title="modoSelecao ? 'Sair da seleção' : 'Selecionar vários'">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
       </button>
-      <button class="pat-btn-listas" @click="listasAbertas = true" v-if="podeEditar" title="Listas">
+        <button class="pat-btn-listas" @click="listasAbertas = true" v-if="podeEditar" title="Listas">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
-      <button class="pat-btn-novo" @click="abrirNovo" v-if="podeCriar" title="Cadastrar bem">+</button>
-    </div>
-
-    <!-- O contador SEGUE a visão ativa e DIZ de que conjunto está falando.
-         Antes ele mostrava sempre a pasta atual: com a Planilha aberta (que
-         ignora a pasta), a tela exibia 227 itens em cima e 341 na lista, sem
-         nada explicando a diferença. Dois números certos que juntos mentem. -->
-    <div class="pat-resumo">
-      <span class="pat-resumo-qtd">{{ resumo.quantidade }}</span>
-      <span class="pat-resumo-lab">{{ resumo.quantidade === 1 ? 'item' : 'itens' }}</span>
-      <span class="pat-resumo-sep">·</span>
-      <span class="pat-resumo-total">{{ formatarValor(resumo.totalCentavos) }}</span>
-      <span class="pat-resumo-onde">{{ ondeEstouContando }}</span>
+        <button class="pat-btn-novo" @click="abrirNovo" v-if="podeCriar" title="Cadastrar bem">+</button>
+      </div>
     </div>
 
     <!-- As três visões do mesmo dado: navegar por lugar, ver tudo detalhado
@@ -298,6 +295,7 @@
             Preencha só o que você quer mudar. <strong>Campo deixado em branco não é
             alterado</strong> — os itens mantêm o que já têm.
           </p>
+          <div class="pat-ajuda-txt">{{ AJUDAS.massa }}</div>
 
           <label class="pat-campo">
             <span>Situação</span>
@@ -369,6 +367,10 @@
       </div>
     </div>
 
+    <!-- O passeio guiado. Abre sozinho na primeira visita e depois só pelo "?".
+         O componente é compartilhado — a Frota vai usar o mesmo. -->
+    <PasseioGuiado v-model="passeioAberto" :passos="PASSOS" />
+
     <!-- Confirmação da tela. Fica por cima de tudo (inclusive do painel de
          Listas) porque é ela que segura uma ação destrutiva em cascata. -->
     <div class="pat-confirm-fundo" v-if="confirmacao">
@@ -399,11 +401,11 @@
 
           <div class="pat-campo-par">
             <label class="pat-campo">
-              <span>Nº da etiqueta</span>
+              <span>Nº da etiqueta <button type="button" class="pat-ajuda-q" @click.prevent="alternarAjuda('etiqueta')" title="O que é isso?">?</button></span>
               <input v-model="form.numero" type="text" inputmode="numeric" placeholder="Ex.: 47">
             </label>
             <label class="pat-campo">
-              <span>Valor de compra</span>
+              <span>Valor de compra <button type="button" class="pat-ajuda-q" @click.prevent="alternarAjuda('valor')" title="O que é isso?">?</button></span>
               <input v-model="form.valor" type="text" inputmode="decimal" placeholder="R$ 0,00">
             </label>
           </div>
@@ -473,19 +475,21 @@
           </div>
 
           <label class="pat-campo">
-            <span>Situação</span>
+            <span>Situação <button type="button" class="pat-ajuda-q" @click.prevent="alternarAjuda('situacao')" title="O que é isso?">?</button></span>
             <select v-model="form.situacao">
               <option v-for="s in SITUACOES" :key="s.valor" :value="s.valor">{{ s.rotulo }}</option>
             </select>
           </label>
 
           <label class="pat-campo">
-            <span>Com quem está <em>(opcional)</em></span>
+            <span>Com quem está <em>(opcional)</em> <button type="button" class="pat-ajuda-q" @click.prevent="alternarAjuda('dono')" title="O que é isso?">?</button></span>
             <select v-model="form.pessoa_id">
               <option value="">Ninguém</option>
               <option v-for="p in pessoasAtivas" :key="p.id" :value="p.id">{{ p.nome }}</option>
             </select>
           </label>
+
+          <div class="pat-ajuda-txt" v-if="ajudaAberta">{{ AJUDAS[ajudaAberta] }}</div>
 
           <div class="pat-nota" v-if="avisoDono">{{ avisoDono }}</div>
 
@@ -539,6 +543,7 @@
             <strong>locais</strong>, e cada local tem seus <strong>ambientes</strong>.
             É a mesma ordem em que você navega os bens.
           </p>
+          <div class="pat-ajuda-txt">{{ AJUDAS.arvore }}</div>
 
           <!-- Árvore de cadastro, aberta um galho por vez. Fechado por padrão
                pra não despejar 47 caixas de texto na cara de quem só quer
@@ -647,6 +652,8 @@ import { textoLinhaHistorico } from './patrimonio-lista.js'
 import { SITUACOES, rotuloDaSituacao, classeDaSituacao, textoDoDono, avisoDeDonoVazio } from './rotulos-do-bem.js'
 import { FILTRO_VAZIO, filtrarBens, resumoDaLista } from './filtro-de-bens.js'
 import { SEM_VALOR, agruparBens, bensDoCaminho, rotuloDoCaminho } from './arvore-de-bens.js'
+import PasseioGuiado from '../../compartilhado/passeio-guiado.vue'
+import { PASSOS, AJUDAS, deveAbrirSozinho, marcarComoVisto } from './tutorial.js'
 import { COLUNAS_PLANILHA, ordenarPlanilha, resumirPor, totaisGerais, montarLinhasParaExcel } from './planilha-e-resumo.js'
 import { LIMPAR, montarAlteracaoEmMassa, temAlgoParaMudar, resumoDaSelecao,
   alternarTodosVisiveis, estadoDaSelecaoVisivel } from './acao-em-massa.js'
@@ -998,6 +1005,16 @@ async function salvarBem() {
   await carregar()
 }
 
+// -------------------------------------------------------------------- tutorial
+const passeioAberto = ref(false)
+const ajudaAberta = ref('')            // qual "?" está aberto (vazio = nenhum)
+function alternarAjuda(chave) { ajudaAberta.value = ajudaAberta.value === chave ? '' : chave }
+function abrirPasseio() { passeioAberto.value = true }
+// Fechou o passeio (concluiu ou pulou): não abre mais sozinho.
+watch(passeioAberto, (aberto) => {
+  if (!aberto) marcarComoVisto(typeof localStorage !== 'undefined' ? localStorage : null)
+})
+
 // -------------------------------------------------- visões: planilha e resumo
 const visao = ref('arvore')
 const ordem = reactive({ chave: 'numero', crescente: true })
@@ -1314,7 +1331,13 @@ onMounted(() => {
     router.push({ name: 'inicio' })
     return
   }
-  carregar()
+  carregar().then(() => {
+    // Só depois dos dados na tela: passeio apontando pra botão que ainda não
+    // renderizou realça o vazio.
+    if (deveAbrirSozinho(typeof localStorage !== 'undefined' ? localStorage : null)) {
+      passeioAberto.value = true
+    }
+  })
 })
 </script>
 
@@ -1326,12 +1349,19 @@ onMounted(() => {
 .tela-patrimonio .pat-topbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
 .tela-patrimonio .pat-back{font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);cursor:pointer;background:none;border:1px solid var(--accent-mid);border-radius:5px;padding:6px 10px;display:flex;align-items:center;gap:5px;white-space:nowrap;touch-action:manipulation;}
 .tela-patrimonio .pat-title{font-family:var(--fonte-principal);font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text);flex:1;min-width:0;}
-/* Ações em faixa própria. No celular elas empilhavam em cima do título. */
-.tela-patrimonio .pat-acoes{display:flex;gap:8px;justify-content:flex-end;padding:8px 14px 0;}
+/* Contagem e ações na mesma linha: o número puxa pra esquerda, os botões pra
+   direita. Antes eram duas faixas empilhadas, comendo altura à toa no celular. */
+.tela-patrimonio .pat-linha-topo{display:flex;align-items:center;gap:10px;padding:10px 14px 2px;}
+.tela-patrimonio .pat-acoes{display:flex;gap:8px;flex-shrink:0;}
 .tela-patrimonio .pat-resumo-onde{font-size:11px;color:var(--muted);}
+.tela-patrimonio .pat-ajuda-q{width:16px;height:16px;padding:0;border-radius:50%;border:1px solid var(--border);background:none;color:var(--muted);font-size:9px;font-weight:700;cursor:pointer;vertical-align:1px;}
+.tela-patrimonio .pat-ajuda-q:hover{color:var(--accent);border-color:var(--accent);}
+.tela-patrimonio .pat-ajuda-txt{font-family:var(--fonte-principal);font-size:12px;line-height:1.65;color:var(--text);background:var(--accent-light);border-radius:8px;padding:10px 12px;}
+.tela-patrimonio .pat-btn-ajuda{width:24px;height:24px;flex-shrink:0;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:var(--fonte-principal);font-size:12px;font-weight:700;cursor:pointer;touch-action:manipulation;}
+.tela-patrimonio .pat-btn-ajuda:hover{color:var(--accent);border-color:var(--accent);}
 .tela-patrimonio .pat-btn-novo{width:38px;height:38px;flex-shrink:0;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:22px;line-height:1;cursor:pointer;touch-action:manipulation;}
 
-.tela-patrimonio .pat-resumo{display:flex;align-items:baseline;gap:6px;padding:12px 14px 4px;font-family:var(--fonte-principal);}
+.tela-patrimonio .pat-resumo{flex:1;min-width:0;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-family:var(--fonte-principal);}
 .tela-patrimonio .pat-resumo-qtd{font-size:22px;font-weight:700;color:var(--text);}
 .tela-patrimonio .pat-resumo-lab,.tela-patrimonio .pat-resumo-sep{font-size:12px;color:var(--muted);}
 .tela-patrimonio .pat-resumo-total{font-size:15px;font-weight:600;color:var(--accent);}
@@ -1505,10 +1535,9 @@ onMounted(() => {
   .tela-patrimonio .pat-topbar{padding:9px 12px;}
   .tela-patrimonio .pat-back{font-size:9px;letter-spacing:1px;padding:5px 8px;}
   .tela-patrimonio .pat-title{font-size:12px;letter-spacing:1.2px;}
-  .tela-patrimonio .pat-acoes{padding:8px 12px 0;}
   .tela-patrimonio .pat-btn-novo,.tela-patrimonio .pat-btn-listas,.tela-patrimonio .pat-btn-sel{width:34px;height:34px;}
   .tela-patrimonio .pat-btn-novo{font-size:19px;}
-  .tela-patrimonio .pat-resumo{padding:10px 12px 2px;}
+  .tela-patrimonio .pat-linha-topo{padding:9px 12px 2px;gap:8px;}
   .tela-patrimonio .pat-resumo-qtd{font-size:19px;}
   .tela-patrimonio .pat-busca-wrap,.tela-patrimonio .pat-filtros,.tela-patrimonio .pat-visoes{padding-left:12px;padding-right:12px;}
   .tela-patrimonio .pat-busca{padding:9px 11px;}
@@ -1526,7 +1555,7 @@ onMounted(() => {
   .tela-patrimonio .pat-kpis{grid-template-columns:repeat(3,1fr);}
   .tela-patrimonio .pat-visoes{padding-left:24px;padding-right:24px;}
   .tela-patrimonio .pat-topbar{padding:13px 24px;}
-  .tela-patrimonio .pat-resumo,.tela-patrimonio .pat-busca-wrap,.tela-patrimonio .pat-filtros{padding-left:24px;padding-right:24px;}
+  .tela-patrimonio .pat-linha-topo,.tela-patrimonio .pat-busca-wrap,.tela-patrimonio .pat-filtros{padding-left:24px;padding-right:24px;}
   .tela-patrimonio .pat-body{padding:0 24px 48px;}
   .tela-patrimonio .pat-cards{display:none;}
   .tela-patrimonio .pat-tabela-wrap{display:block;}
