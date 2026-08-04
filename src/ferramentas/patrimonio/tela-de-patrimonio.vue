@@ -58,7 +58,10 @@
       <button class="pat-chip" v-if="temFiltro" @click="limparFiltros">Limpar</button>
     </div>
 
-    <div class="pat-body">
+    <!-- O zoom vale para o CONTEÚDO (pastas, cartões, tabela), não para a barra
+         de cima nem para os filtros: eles precisam continuar do mesmo tamanho e
+         no mesmo lugar enquanto a pessoa aumenta a leitura da lista. -->
+    <div class="pat-body" :style="{ zoom }">
       <div class="pat-aviso" v-if="carregando">Carregando os bens…</div>
 
       <div class="pat-aviso pat-aviso-erro" v-else-if="erro">
@@ -159,6 +162,15 @@
           </table>
         </div>
       </template>
+    </div>
+
+    <!-- Zoom: mesma peça flutuante (.zoomctl) que Notícias, Gestão de Tráfego e
+         Gestão Comercial já usam — o estilo é global, aqui só o comportamento.
+         Some quando um painel está aberto, senão fica boiando sobre o modal. -->
+    <div class="zoomctl" v-if="!bemAberto && !listasAbertas">
+      <button type="button" @click="mudarZoom(-0.1)" title="Diminuir" aria-label="Diminuir">−</button>
+      <span class="zoomctl-val" @click="zoom = 1" title="Restaurar 100%">{{ Math.round(zoom * 100) }}%</span>
+      <button type="button" @click="mudarZoom(0.1)" title="Aumentar" aria-label="Aumentar">+</button>
     </div>
 
     <!-- Ficha do bem. É um painel DENTRO do componente (v-if), não um elemento
@@ -435,6 +447,22 @@ function nomeDoNivel(nivel) {
 
 // O "voltar" sobe um degrau; na raiz é que sai do módulo. Um botão só.
 const rotuloDoVoltar = computed(() => (temCaminho.value ? 'Voltar' : 'Gestão Interna'))
+
+// ------------------------------------------------------------------------ zoom
+// Aumentar/diminuir o tamanho de tudo na lista. Serve tanto pra quem enxerga
+// pouco quanto pra caber mais item na tela — o dono pediu explicitamente.
+// Limites 60%–200%: abaixo de 60% o texto some, acima de 200% cabe um item por
+// tela e a lista deixa de ser lista. Fica guardado por navegador.
+const CHAVE_ZOOM = 'pat-zoom'
+const zoom = ref(Number(localStorage.getItem(CHAVE_ZOOM)) || 1)
+
+function mudarZoom(passo) {
+  zoom.value = Math.min(2, Math.max(0.6, Math.round((zoom.value + passo) * 10) / 10))
+}
+
+watch(zoom, (z) => {
+  try { localStorage.setItem(CHAVE_ZOOM, String(z)) } catch (e) { /* modo privado: só não guarda */ }
+})
 
 const temFiltro = computed(() =>
   !!filtro.busca || !!filtro.empresaId || !!filtro.localId ||
