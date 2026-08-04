@@ -259,6 +259,23 @@
             (o botão ≡ lá em cima) e crie um local dentro dela.
           </div>
 
+          <!-- Classificação de 3 níveis que o dono já usava na planilha:
+               Categoria (Computadores) → Tipo (Notebook) → Marca/modelo (Macbook).
+               Tipo só lista os da categoria escolhida, mesma regra de local/cômodo. -->
+          <div class="pat-campo-par">
+            <label class="pat-campo">
+              <span>Tipo</span>
+              <select v-model="form.tipo_id" :disabled="!form.categoria_id">
+                <option value="">{{ form.categoria_id ? '—' : 'escolha a categoria antes' }}</option>
+                <option v-for="t in tiposDoForm" :key="t.id" :value="t.id">{{ t.nome }}</option>
+              </select>
+            </label>
+            <label class="pat-campo">
+              <span>Marca / modelo</span>
+              <input v-model="form.marca" type="text" placeholder="Ex.: Macbook">
+            </label>
+          </div>
+
           <label class="pat-campo">
             <span>Situação</span>
             <select v-model="form.situacao">
@@ -443,6 +460,7 @@ const empresas = ref([])
 const locais = ref([])
 const comodos = ref([])
 const categorias = ref([])
+const tipos = ref([])
 const pessoas = ref([])
 
 const filtro = reactive({ ...FILTRO_VAZIO })
@@ -618,6 +636,7 @@ const pessoasAtivas = computed(() => pessoas.value.filter((p) => p.status === 'a
 const FORM_VAZIO = {
   nome: '', numero: '', valor: '', data_compra: '',
   empresa_id: '', local_id: '', comodo_id: '', categoria_id: '',
+  tipo_id: '', marca: '',
   pessoa_id: '', situacao: 'em_estoque', observacao: '', etiquetado: false,
 }
 const form = reactive({ ...FORM_VAZIO })
@@ -629,6 +648,13 @@ watch(() => form.situacao, (nova) => {
 })
 
 // Os seletores em cascata da ficha.
+const tiposDaCategoria = (categoriaId) =>
+  categoriaId ? tipos.value.filter((t) => t.categoria_id === categoriaId) : []
+const tiposDoForm = computed(() => tiposDaCategoria(form.categoria_id))
+watch(() => form.categoria_id, () => {
+  if (!tiposDoForm.value.some((t) => t.id === form.tipo_id)) form.tipo_id = ''
+})
+
 const locaisDoForm = computed(() => locaisDaMarca(form.empresa_id))
 const comodosDoForm = computed(() => comodosDoLocal(form.local_id))
 
@@ -672,6 +698,8 @@ watch(bemAberto, async (bem) => {
     local_id: bem.local_id || '',
     comodo_id: bem.comodo_id || '',
     categoria_id: bem.categoria_id || '',
+    tipo_id: bem.tipo_id || '',
+    marca: bem.marca || '',
     pessoa_id: bem.pessoa_id || '',
     situacao: bem.situacao || 'em_estoque',
     observacao: bem.observacao || '',
@@ -737,6 +765,8 @@ async function salvarBem() {
     local_id: form.local_id || null,
     comodo_id: form.comodo_id || null,
     categoria_id: form.categoria_id || null,
+    tipo_id: form.tipo_id || null,
+    marca: (form.marca || '').trim() || null,
     pessoa_id: form.pessoa_id || null,
     // Ligou numa pessoa de verdade: o nome solto da planilha perde a razão de existir.
     dono_texto: form.pessoa_id ? null : (bemAberto.value.dono_texto || null),
@@ -884,12 +914,13 @@ async function excluirBem() {
 async function carregar() {
   carregando.value = true
   erro.value = ''
-  const [rBens, rEmp, rLoc, rCom, rCat, rPes] = await Promise.all([
+  const [rBens, rEmp, rLoc, rCom, rCat, rTip, rPes] = await Promise.all([
     sbClient.from('patrimonio_bens').select('*').order('numero', { ascending: true, nullsFirst: false }),
     sbClient.from('patrimonio_empresas').select('id,nome').order('ordem').order('nome'),
     sbClient.from('patrimonio_locais').select('id,nome,empresa_id').order('ordem').order('nome'),
     sbClient.from('patrimonio_comodos').select('id,nome,local_id').order('ordem').order('nome'),
     sbClient.from('patrimonio_categorias').select('id,nome,vida_util_anos').order('ordem').order('nome'),
+    sbClient.from('patrimonio_tipos').select('id,nome,categoria_id').order('ordem').order('nome'),
     sbClient.from('acessos_pessoas').select('id,nome,status').order('nome'),
   ])
   if (rBens.error) {
@@ -902,6 +933,7 @@ async function carregar() {
   locais.value = rLoc.data || []
   comodos.value = rCom.data || []
   categorias.value = rCat.data || []
+  tipos.value = rTip.data || []
   // Colaboradores vêm do módulo vizinho: é o ÚNICO ponto em que Patrimônio
   // depende de Colaboradores e Acessos. Se a pessoa não tiver acesso àquele
   // módulo, a RLS devolve lista vazia — e a tela segue funcionando, mostrando
