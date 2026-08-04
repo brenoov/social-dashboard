@@ -43,7 +43,13 @@ const TELA = readFileSync(new URL('./tela-de-patrimonio.vue', import.meta.url), 
 test('todo passo aponta pra um seletor que existe na tela', () => {
   for (const p of PASSOS) {
     const classe = p.selector.replace(/^\./, '')
-    assert.ok(TELA.includes(`class="${classe}`) || TELA.includes(`${classe} `) || TELA.includes(`"${classe}"`),
+    // Procura a classe em QUALQUER posição do atributo. A versão anterior só
+    // achava se ela fosse a primeira ou viesse com espaço depois — e deu
+    // falso alarme quando o botão de ajuda virou
+    // `class="bt-acao so-icone pat-btn-ajuda"`, com o gancho no fim.
+    const achou = [...TELA.matchAll(/class="([^"]*)"/g)]
+      .some((m) => m[1].split(/\s+/).includes(classe))
+    assert.ok(achou,
       `o passo "${p.titulo}" aponta para ${p.selector}, que não existe mais na tela`)
   }
 })

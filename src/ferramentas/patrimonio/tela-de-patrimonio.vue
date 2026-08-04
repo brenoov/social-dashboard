@@ -4,7 +4,7 @@
          Assim o mesmo botão serve pra subir e pra sair, sem o usuário decorar dois. -->
     <barra-de-topo :voltar="rotuloDoVoltar" :titulo="rotuloDoCaminho(caminho, listas)" @voltar="voltar">
       <template #acoes>
-        <button class="bt-acao so-icone" @click="abrirPasseio" title="Como usar esta tela">?</button>
+        <button class="pat-btn-ajuda bt-acao so-icone" @click="abrirPasseio" title="Como usar esta tela">?</button>
       </template>
     </barra-de-topo>
 
@@ -1525,8 +1525,6 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
    visualmente o texto ao campo de onde ele veio. */
 .tela-patrimonio .pat-ajuda-txt{position:relative;font-family:var(--fonte-principal);font-size:12px;line-height:1.65;color:var(--text);background:var(--accent-light);border:1px solid var(--accent-mid);border-radius:8px;padding:10px 12px;margin-top:-4px;}
 .tela-patrimonio .pat-ajuda-txt::before{content:'';position:absolute;top:-6px;left:16px;width:10px;height:10px;background:var(--accent-light);border-left:1px solid var(--accent-mid);border-top:1px solid var(--accent-mid);transform:rotate(45deg);}
-.tela-patrimonio .pat-btn-ajuda{width:24px;height:24px;flex-shrink:0;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:var(--fonte-principal);font-size:12px;font-weight:700;cursor:pointer;touch-action:manipulation;}
-.tela-patrimonio .pat-btn-ajuda:hover{color:var(--accent);border-color:var(--accent);}
 .tela-patrimonio .pat-btn-novo{width:38px;height:38px;flex-shrink:0;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:22px;line-height:1;cursor:pointer;touch-action:manipulation;}
 
 .tela-patrimonio .pat-resumo{flex:1;min-width:0;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-family:var(--fonte-principal);}
