@@ -3335,6 +3335,7 @@ function _gtPubSecaoPublicosSalvos(){
       +(escolhido
         ? 'border:2px solid var(--accent,#6366f1);background:color-mix(in srgb,var(--accent,#6366f1) 10%,transparent);'
         : 'border:1px solid var(--border,#ddd);background:var(--surface2,#f2ede4);');
+    b.dataset.gtpubSalvo=String(sa.id);
     const topo=document.createElement('div');
     topo.style.cssText='display:flex;gap:8px;align-items:center;justify-content:space-between;';
     const nome=document.createElement('div');
@@ -3373,6 +3374,13 @@ function _gtPubSecaoPublicosSalvos(){
       // clique a mais para dizer o que a própria lista agora mostra — e tapava
       // justamente o editor que a pessoa ia conferir.
       _gtPubRedesenha();
+      // O redesenho recria os elementos: procurar o marcado DEPOIS é o único
+      // jeito de achar o que está na tela agora. Centralizar evita que a linha
+      // recém-marcada nasça atrás da barra de botões.
+      // `document` e não `corpo`: esta função desenha uma SEÇÃO, e não conhece
+      // a caixa do modal. O atributo é único o bastante para achar sozinho.
+      const marcado=document.querySelector('[data-gtpub-salvo="'+String(sa.id).replace(/"/g,'')+'"]');
+      if(marcado&&marcado.scrollIntoView)marcado.scrollIntoView({block:'center',behavior:'smooth'});
     };
     fila.appendChild(b);
   }
@@ -3670,8 +3678,16 @@ function _gtPublicoModal(nomeConjunto,rotuloDoBotao){
     const box=document.createElement('div');
     box.style.cssText='background:var(--surface,#fff);color:var(--text,#111);border-radius:14px;max-width:560px;width:100%;max-height:86vh;overflow-y:auto;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.45);font-family:var(--fonte-principal);';
     const corpo=document.createElement('div');
+    // ESPAÇO PARA A BARRA. Ela é `sticky` — o conteúdo passa POR BAIXO dela, e
+    // sem esta folga a última linha da tela fica escondida atrás dos botões.
+    // Visto ao vivo em 04/08/2026: a linha "Onde: Americana · Campinas · …" do
+    // público escolhido nascia cortada pela metade.
+    corpo.style.paddingBottom='18px';
     const barra=document.createElement('div');
-    barra.style.cssText='display:flex;gap:10px;justify-content:flex-end;margin-top:20px;position:sticky;bottom:0;background:var(--surface,#fff);padding-top:12px;';
+    // A borda em cima é o que faz a barra parecer barra. Sem ela, os botões
+    // flutuam sobre o texto que passa por baixo e o encontro fica sujo.
+    barra.style.cssText='display:flex;gap:10px;justify-content:flex-end;margin-top:20px;position:sticky;bottom:0;'
+      +'background:var(--surface,#fff);padding:12px 0 2px;border-top:1px solid var(--border,#e5e5e5);';
     const bCancelar=document.createElement('button');bCancelar.textContent='Cancelar';
     bCancelar.style.cssText='padding:9px 16px;border-radius:8px;border:1px solid var(--border,#ddd);background:none;color:var(--text,#111);font-weight:600;font-size:calc(13px*var(--gt-fs,1.3));cursor:pointer;';
     bCancelar.onclick=()=>{_gtPubFechar();resolve(null);};
