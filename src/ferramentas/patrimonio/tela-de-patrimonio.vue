@@ -1,5 +1,5 @@
 <template>
-  <div class="tela-patrimonio">
+  <div class="tela-patrimonio" :class="{ 'com-barra': modoSelecao && selecionados.size }">
     <div class="pat-topbar">
       <!-- O "voltar" sobe UM nível da árvore; só na raiz é que ele sai do módulo.
            Assim o mesmo botão serve pra subir e pra sair, sem o usuário decorar dois. -->
@@ -7,6 +7,10 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>{{ rotuloDoVoltar }}
       </button>
       <span class="pat-title">{{ rotuloDoCaminho(caminho, listas) }}</span>
+      <button class="pat-btn-sel" :class="{ ativo: modoSelecao }" @click="alternarModoSelecao" v-if="podeEditar"
+              :title="modoSelecao ? 'Sair da seleção' : 'Selecionar vários'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      </button>
       <button class="pat-btn-listas" @click="listasAbertas = true" v-if="podeEditar" title="Listas">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
       </button>
@@ -62,6 +66,19 @@
          de cima nem para os filtros: eles precisam continuar do mesmo tamanho e
          no mesmo lugar enquanto a pessoa aumenta a leitura da lista. -->
     <div class="pat-body" :style="{ zoom }">
+      <!-- Barra do modo de seleção: marcar/desmarcar tudo que está na tela AGORA
+           (respeitando busca, filtros e o nível da árvore em que a pessoa está).
+           Fica ANTES da cadeia v-if/v-else-if/v-else abaixo, de propósito: um
+           v-if solto no meio da cadeia a parte em duas, e a lista de itens some
+           justamente quando o modo de seleção está ligado. Já aconteceu. -->
+      <div class="pat-selbar" v-if="modoSelecao && !carregando && !erro && bensFiltrados.length">
+        <button class="pat-chip" :class="{ ativo: estadoVisivel === 'cheio' }" @click="alternarVisiveis">
+          {{ estadoVisivel === 'cheio' ? 'Desmarcar' : 'Marcar' }} os {{ bensFiltrados.length }} daqui
+        </button>
+        <span class="pat-selbar-info" v-if="estadoVisivel === 'parcial'">alguns marcados</span>
+        <button class="pat-chip" v-if="selecionados.size" @click="selecionados = new Set()">Limpar seleção</button>
+      </div>
+
       <div class="pat-aviso" v-if="carregando">Carregando os bens…</div>
 
       <div class="pat-aviso pat-aviso-erro" v-else-if="erro">
@@ -117,8 +134,10 @@
 
         <!-- CELULAR e TABLET: cartões. É a única forma que funciona com uma mão. -->
         <div class="pat-cards" v-if="mostrarBens">
-          <button class="pat-card" v-for="bem in bensNaTela" :key="bem.id" @click="abrirBem(bem)">
+          <button class="pat-card" :class="{ marcado: selecionados.has(bem.id) }"
+                  v-for="bem in bensNaTela" :key="bem.id" @click="tocarNoBem(bem)">
             <div class="pat-card-topo">
+              <span class="pat-check-caixa" v-if="modoSelecao">{{ selecionados.has(bem.id) ? '✓' : '' }}</span>
               <span class="pat-card-nome">{{ bem.nome }}</span>
               <span class="pat-pill" :class="classeDaSituacao(bem.situacao)">{{ rotuloDaSituacao(bem.situacao) }}</span>
             </div>
@@ -143,12 +162,13 @@
           <table class="pat-tabela">
             <thead>
               <tr>
-                <th>Nº</th><th>Item</th><th>Categoria</th><th>Empresa</th>
+                <th v-if="modoSelecao"></th><th>Nº</th><th>Item</th><th>Categoria</th><th>Empresa</th>
                 <th>Local</th><th>Com quem</th><th>Situação</th><th class="pat-dir">Valor</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="bem in bensNaTela" :key="bem.id" @click="abrirBem(bem)">
+              <tr v-for="bem in bensNaTela" :key="bem.id" :class="{ marcado: selecionados.has(bem.id) }" @click="tocarNoBem(bem)">
+                <td v-if="modoSelecao"><span class="pat-check-caixa">{{ selecionados.has(bem.id) ? '✓' : '' }}</span></td>
                 <td>{{ bem.numero ?? '—' }}</td>
                 <td>{{ bem.nome }}</td>
                 <td>{{ nomeDe(categorias, bem.categoria_id) }}</td>
@@ -162,6 +182,103 @@
           </table>
         </div>
       </template>
+    </div>
+
+    <!-- Barra do que está marcado. Fica colada embaixo porque é lá que o polegar
+         alcança, e some sozinha quando nada está marcado. -->
+    <div class="pat-massa-barra" v-if="modoSelecao && selecionados.size">
+      <div class="pat-massa-conta">
+        <strong>{{ resumoSelecao.quantidade }}</strong>
+        {{ resumoSelecao.quantidade === 1 ? 'item' : 'itens' }}
+        <em v-if="resumoSelecao.totalCentavos">· {{ formatarValor(resumoSelecao.totalCentavos) }}</em>
+      </div>
+      <button class="pat-btn primario" @click="abrirEmMassa">Alterar</button>
+    </div>
+
+    <!-- Painel de alteração em massa. Todo campo começa VAZIO, e vazio quer
+         dizer "não mexe nisso" — é o que impede alterar a situação de 80 itens
+         e apagar o dono, o local e a categoria dos 80 sem querer. -->
+    <div class="pat-ficha-fundo" v-if="massaAberta" @click.self="massaAberta = false">
+      <div class="pat-ficha">
+        <div class="pat-ficha-topo">
+          <button class="pat-ficha-fechar" @click="massaAberta = false" aria-label="Fechar">✕</button>
+          <span class="pat-ficha-titulo">Alterar {{ resumoSelecao.quantidade }} itens</span>
+        </div>
+
+        <div class="pat-ficha-corpo">
+          <p class="pat-listas-ajuda">
+            Preencha só o que você quer mudar. <strong>Campo deixado em branco não é
+            alterado</strong> — os itens mantêm o que já têm.
+          </p>
+
+          <label class="pat-campo">
+            <span>Situação</span>
+            <select v-model="massa.situacao">
+              <option value="">— não mudar —</option>
+              <option v-for="s in SITUACOES" :key="s.valor" :value="s.valor">{{ s.rotulo }}</option>
+            </select>
+          </label>
+
+          <label class="pat-campo">
+            <span>Com quem está</span>
+            <select v-model="massa.pessoaId">
+              <option value="">— não mudar —</option>
+              <option :value="LIMPAR">Tirar o dono (ninguém)</option>
+              <option v-for="p in pessoasAtivas" :key="p.id" :value="p.id">{{ p.nome }}</option>
+            </select>
+          </label>
+
+          <label class="pat-campo">
+            <span>Categoria</span>
+            <select v-model="massa.categoriaId">
+              <option value="">— não mudar —</option>
+              <option v-for="c in categorias" :key="c.id" :value="c.id">{{ c.nome }}</option>
+            </select>
+          </label>
+
+          <div class="pat-campo-par">
+            <label class="pat-campo">
+              <span>Marca</span>
+              <select v-model="massa.empresaId">
+                <option value="">— não mudar —</option>
+                <option v-for="e in empresas" :key="e.id" :value="e.id">{{ e.nome }}</option>
+              </select>
+            </label>
+            <label class="pat-campo">
+              <span>Local</span>
+              <select v-model="massa.localId" :disabled="!massa.empresaId">
+                <option value="">{{ massa.empresaId ? '— não mudar —' : 'escolha a marca' }}</option>
+                <option v-for="l in locaisDaMassa" :key="l.id" :value="l.id">{{ l.nome }}</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="pat-campo">
+            <span>Cômodo</span>
+            <select v-model="massa.comodoId" :disabled="!massa.localId">
+              <option value="">{{ massa.localId ? '— não mudar —' : 'escolha o local' }}</option>
+              <option v-for="k in comodosDaMassa" :key="k.id" :value="k.id">{{ k.nome }}</option>
+            </select>
+          </label>
+
+          <div class="pat-nota" v-for="(a, i) in avisosDaMassa" :key="i">{{ a }}</div>
+
+          <div class="pat-massa-vazia" v-if="!temAlgoParaMudar(massa)">
+            Nada escolhido ainda — nenhum item será alterado.
+          </div>
+        </div>
+
+        <div class="pat-ficha-pe">
+          <button class="pat-btn" @click="massaAberta = false">Cancelar</button>
+          <button class="pat-btn perigo" v-if="podeExcluir" @click="apagarEmMassa">
+            Apagar os {{ resumoSelecao.quantidade }}
+          </button>
+          <button class="pat-btn primario" :disabled="!temAlgoParaMudar(massa) || salvandoMassa"
+                  @click="salvarEmMassa">
+            {{ salvandoMassa ? 'Aplicando…' : 'Aplicar' }}
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Confirmação da tela. Fica por cima de tudo (inclusive do painel de
@@ -180,7 +297,7 @@
     <!-- Zoom: mesma peça flutuante (.zoomctl) que Notícias, Gestão de Tráfego e
          Gestão Comercial já usam — o estilo é global, aqui só o comportamento.
          Some quando um painel está aberto, senão fica boiando sobre o modal. -->
-    <div class="zoomctl" v-if="!bemAberto && !listasAbertas">
+    <div class="zoomctl" v-if="!bemAberto && !listasAbertas && !massaAberta && !selecionados.size">
       <button type="button" @click="mudarZoom(-0.1)" title="Diminuir" aria-label="Diminuir">−</button>
       <span class="zoomctl-val" @click="zoom = 1" title="Restaurar 100%">{{ Math.round(zoom * 100) }}%</span>
       <button type="button" @click="mudarZoom(0.1)" title="Aumentar" aria-label="Aumentar">+</button>
@@ -447,6 +564,8 @@ import { textoLinhaHistorico } from './patrimonio-lista.js'
 import { SITUACOES, rotuloDaSituacao, classeDaSituacao, textoDoDono, avisoDeDonoVazio } from './rotulos-do-bem.js'
 import { FILTRO_VAZIO, filtrarBens, resumoDaLista } from './filtro-de-bens.js'
 import { SEM_VALOR, agruparBens, bensDoCaminho, rotuloDoCaminho } from './arvore-de-bens.js'
+import { LIMPAR, montarAlteracaoEmMassa, temAlgoParaMudar, resumoDaSelecao,
+  alternarTodosVisiveis, estadoDaSelecaoVisivel } from './acao-em-massa.js'
 
 const router = useRouter()
 
@@ -791,6 +910,93 @@ async function salvarBem() {
   await carregar()
 }
 
+// ------------------------------------------------------- alteração em massa
+const modoSelecao = ref(false)
+const selecionados = ref(new Set())
+const massaAberta = ref(false)
+const salvandoMassa = ref(false)
+const MASSA_VAZIA = { situacao: '', pessoaId: '', categoriaId: '', empresaId: '', localId: '', comodoId: '' }
+const massa = reactive({ ...MASSA_VAZIA })
+
+const resumoSelecao = computed(() => resumoDaSelecao(bens.value, selecionados.value))
+const estadoVisivel = computed(() => estadoDaSelecaoVisivel(selecionados.value, bensNaTela.value))
+const avisosDaMassa = computed(() =>
+  montarAlteracaoEmMassa(massa, { quantidade: resumoSelecao.value.quantidade }).avisos)
+
+const locaisDaMassa = computed(() => locaisDaMarca(massa.empresaId))
+const comodosDaMassa = computed(() => comodosDoLocal(massa.localId))
+watch(() => massa.empresaId, () => { massa.localId = ''; massa.comodoId = '' })
+watch(() => massa.localId, () => { massa.comodoId = '' })
+
+function alternarModoSelecao() {
+  modoSelecao.value = !modoSelecao.value
+  if (!modoSelecao.value) selecionados.value = new Set()
+}
+
+// No modo de seleção, tocar no bem MARCA em vez de abrir a ficha. Dois gestos
+// diferentes no mesmo toque confundiriam; o modo deixa claro qual está valendo.
+function tocarNoBem(bem) {
+  if (!modoSelecao.value) { abrirBem(bem); return }
+  const s = new Set(selecionados.value)
+  if (s.has(bem.id)) s.delete(bem.id); else s.add(bem.id)
+  selecionados.value = s
+}
+
+function alternarVisiveis() {
+  selecionados.value = alternarTodosVisiveis(
+    selecionados.value, bensNaTela.value, estadoVisivel.value !== 'cheio')
+}
+
+function abrirEmMassa() {
+  Object.assign(massa, MASSA_VAZIA)
+  massaAberta.value = true
+}
+
+async function salvarEmMassa() {
+  const ids = [...selecionados.value]
+  const { alteracao } = montarAlteracaoEmMassa(massa, { quantidade: ids.length })
+  if (!Object.keys(alteracao).length || !ids.length) return
+  salvandoMassa.value = true
+  const { error } = await sbClient.from('patrimonio_bens')
+    .update({ ...alteracao, atualizado_em: new Date().toISOString() }).in('id', ids)
+  if (error) { adminToast('Erro ao alterar: ' + error.message, false); salvandoMassa.value = false; return }
+
+  // Trocou o dono de todo mundo: o histórico de posse tem que acompanhar, senão
+  // a base passa a dizer quem tem o quê sem registrar quando mudou.
+  if ('pessoa_id' in alteracao) {
+    const hoje = hojeLocal()
+    await sbClient.from('patrimonio_posse').update({ ate: hoje }).in('bem_id', ids).is('ate', null)
+    if (alteracao.pessoa_id) {
+      const p = pessoas.value.find((x) => x.id === alteracao.pessoa_id)
+      await sbClient.from('patrimonio_posse').insert(ids.map((bemId) => ({
+        bem_id: bemId, pessoa_id: p.id, pessoa_nome: p.nome, de: hoje, motivo: 'alteração em massa',
+      })))
+    }
+  }
+  await registrarLog('bem.alterar_em_massa', ids.length + ' bens', Object.keys(alteracao).join(', '))
+  salvandoMassa.value = false
+  massaAberta.value = false
+  selecionados.value = new Set()
+  modoSelecao.value = false
+  adminToast(ids.length + ' itens alterados')
+  await carregar()
+}
+
+async function apagarEmMassa() {
+  const ids = [...selecionados.value]
+  if (!ids.length) return
+  const total = formatarValor(resumoSelecao.value.totalCentavos)
+  if (!(await _confirmar(`Apagar ${ids.length} itens (${total}) do patrimônio. O histórico de posse deles some junto.`))) return
+  const { error } = await sbClient.from('patrimonio_bens').delete().in('id', ids)
+  if (error) { adminToast('Erro ao apagar: ' + error.message, false); return }
+  await registrarLog('bem.apagar_em_massa', ids.length + ' bens', total)
+  massaAberta.value = false
+  selecionados.value = new Set()
+  modoSelecao.value = false
+  adminToast(ids.length + ' itens apagados')
+  await carregar()
+}
+
 // ------------------------------------------------------------ listas editáveis
 const listasAbertas = ref(false)
 const podeEditar = computed(() => hasPermission('patrimonio', 'editar'))
@@ -973,6 +1179,7 @@ onMounted(() => {
 .tela-patrimonio .pat-chip.ativo{background:var(--accent);border-color:var(--accent);color:#fff;}
 
 .tela-patrimonio .pat-body{flex:1;padding:0 14px 40px;}
+.tela-patrimonio.com-barra .pat-body{padding-bottom:100px;}
 .tela-patrimonio .pat-aviso{padding:26px 4px;color:var(--muted);font-family:var(--fonte-principal);font-size:13px;}
 .tela-patrimonio .pat-aviso-erro{color:#dc2626;}
 
@@ -1001,6 +1208,22 @@ onMounted(() => {
 
 .tela-patrimonio .pat-ver-todos{width:100%;margin-top:10px;font-family:var(--fonte-principal);font-size:12px;font-weight:600;color:var(--accent);background:none;border:1px dashed var(--border);border-radius:10px;padding:11px;cursor:pointer;touch-action:manipulation;}
 .tela-patrimonio .pat-secao-bens{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:18px 0 8px;}
+
+/* ---- selecao em massa ---- */
+.tela-patrimonio .pat-btn-sel{width:38px;height:38px;flex-shrink:0;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation;}
+.tela-patrimonio .pat-btn-sel.ativo{background:var(--accent);border-color:var(--accent);color:#fff;}
+.tela-patrimonio .pat-selbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:0 0 12px;}
+.tela-patrimonio .pat-selbar-info{font-family:var(--fonte-principal);font-size:11px;color:var(--muted);}
+.tela-patrimonio .pat-check-caixa{width:22px;height:22px;flex-shrink:0;border:2px solid var(--border);border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;line-height:1;}
+.tela-patrimonio .pat-card.marcado{border-color:var(--accent);background:var(--accent-light);}
+.tela-patrimonio .pat-card.marcado .pat-check-caixa,
+.tela-patrimonio .pat-tabela tbody tr.marcado .pat-check-caixa{background:var(--accent);border-color:var(--accent);}
+.tela-patrimonio .pat-tabela tbody tr.marcado{background:var(--accent-light);}
+/* A barra fica colada embaixo: e onde o polegar alcanca no celular. */
+.tela-patrimonio .pat-massa-barra{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;align-items:center;gap:12px;padding:12px 14px calc(12px + env(safe-area-inset-bottom,0px));background:var(--surface);border-top:1px solid var(--border);box-shadow:0 -6px 20px rgba(0,0,0,.10);}
+.tela-patrimonio .pat-massa-conta{flex:1;min-width:0;font-family:var(--fonte-principal);font-size:13px;color:var(--text);}
+.tela-patrimonio .pat-massa-conta em{font-style:normal;color:var(--muted);}
+.tela-patrimonio .pat-massa-vazia{font-family:var(--fonte-principal);font-size:12px;color:var(--muted);text-align:center;padding:6px;}
 
 .tela-patrimonio .pat-cards{display:flex;flex-direction:column;gap:10px;}
 .tela-patrimonio .pat-card{display:flex;flex-direction:column;gap:6px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;font-family:var(--fonte-principal);color:var(--text);touch-action:manipulation;}
