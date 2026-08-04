@@ -7,6 +7,12 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>{{ rotuloDoVoltar }}
       </button>
       <span class="pat-title">{{ rotuloDoCaminho(caminho, listas) }}</span>
+    </div>
+
+    <!-- Ações numa faixa PRÓPRIA: no celular elas não cabiam na mesma linha do
+         título e ficavam uma por cima da outra. No desktop a faixa continua
+         parecendo parte da barra de cima. -->
+    <div class="pat-acoes">
       <button class="pat-btn-sel" :class="{ ativo: modoSelecao }" @click="alternarModoSelecao" v-if="podeEditar"
               :title="modoSelecao ? 'Sair da seleção' : 'Selecionar vários'">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -17,11 +23,16 @@
       <button class="pat-btn-novo" @click="abrirNovo" v-if="podeCriar" title="Cadastrar bem">+</button>
     </div>
 
+    <!-- O contador SEGUE a visão ativa e DIZ de que conjunto está falando.
+         Antes ele mostrava sempre a pasta atual: com a Planilha aberta (que
+         ignora a pasta), a tela exibia 227 itens em cima e 341 na lista, sem
+         nada explicando a diferença. Dois números certos que juntos mentem. -->
     <div class="pat-resumo">
       <span class="pat-resumo-qtd">{{ resumo.quantidade }}</span>
       <span class="pat-resumo-lab">{{ resumo.quantidade === 1 ? 'item' : 'itens' }}</span>
       <span class="pat-resumo-sep">·</span>
       <span class="pat-resumo-total">{{ formatarValor(resumo.totalCentavos) }}</span>
+      <span class="pat-resumo-onde">{{ ondeEstouContando }}</span>
     </div>
 
     <!-- As três visões do mesmo dado: navegar por lugar, ver tudo detalhado
@@ -71,10 +82,7 @@
       <button class="pat-chip" v-if="temFiltro" @click="limparFiltros">Limpar</button>
     </div>
 
-    <!-- O zoom vale para o CONTEÚDO (pastas, cartões, tabela), não para a barra
-         de cima nem para os filtros: eles precisam continuar do mesmo tamanho e
-         no mesmo lugar enquanto a pessoa aumenta a leitura da lista. -->
-    <div class="pat-body" :style="{ zoom }">
+    <div class="pat-body">
       <!-- Barra do modo de seleção: marcar/desmarcar tudo que está na tela AGORA
            (respeitando busca, filtros e o nível da árvore em que a pessoa está).
            Fica ANTES da cadeia v-if/v-else-if/v-else abaixo, de propósito: um
@@ -140,7 +148,7 @@
         </button>
 
         <div class="pat-secao-bens" v-if="mostrarBens && mostrarGrupos && bensSoltos.length">
-          {{ bensSoltos.length }} {{ bensSoltos.length === 1 ? 'item' : 'itens' }} direto aqui
+          {{ textoDosSoltos }}
         </div>
 
         <!-- CELULAR e TABLET: cartões. É a única forma que funciona com uma mão. -->
@@ -375,15 +383,6 @@
           <button class="pat-btn perigo" @click="responderConfirmacao(true)">Apagar</button>
         </div>
       </div>
-    </div>
-
-    <!-- Zoom: mesma peça flutuante (.zoomctl) que Notícias, Gestão de Tráfego e
-         Gestão Comercial já usam — o estilo é global, aqui só o comportamento.
-         Some quando um painel está aberto, senão fica boiando sobre o modal. -->
-    <div class="zoomctl" v-if="!bemAberto && !listasAbertas && !massaAberta && !selecionados.size">
-      <button type="button" @click="mudarZoom(-0.1)" title="Diminuir" aria-label="Diminuir">−</button>
-      <span class="zoomctl-val" @click="zoom = 1" title="Restaurar 100%">{{ Math.round(zoom * 100) }}%</span>
-      <button type="button" @click="mudarZoom(0.1)" title="Aumentar" aria-label="Aumentar">+</button>
     </div>
 
     <!-- Ficha do bem. É um painel DENTRO do componente (v-if), não um elemento
@@ -688,7 +687,25 @@ const temCaminho = computed(() => !!(caminho.empresaId || caminho.localId || cam
 // Os filtros (categoria/situação/sem dono/busca) valem SEMPRE, em qualquer nível:
 // eles recortam o conteúdo, a árvore recorta o lugar. São perguntas diferentes.
 const bensFiltrados = computed(() => filtrarBens(bensDoCaminho(bens.value, caminho), filtro))
-const resumo = computed(() => resumoDaLista(bensFiltrados.value))
+
+// O que o contador do topo conta depende da visão: a árvore mostra a pasta em
+// que a pessoa está, a Planilha mostra tudo que passou pelos filtros (ignorando
+// a pasta) e o Resumo mostra o patrimônio inteiro. Ter um número fixo em cima
+// enquanto a lista mostrava outro foi exatamente o que confundiu o dono.
+const bensDoContador = computed(() => {
+  if (visao.value === 'resumo') return bens.value
+  if (visao.value === 'planilha') return filtrarBens(bens.value, filtro)
+  return bensFiltrados.value
+})
+const resumo = computed(() => resumoDaLista(bensDoContador.value))
+
+// E o contador DIZ de onde é o número, pra não haver dúvida na tela.
+const ondeEstouContando = computed(() => {
+  if (visao.value === 'resumo') return 'no total'
+  if (visao.value === 'planilha') return temFiltro.value ? 'na busca' : 'no total'
+  if (temCaminho.value) return 'em ' + rotuloDoCaminho(caminho, listas.value)
+  return temFiltro.value ? 'na busca' : 'no total'
+})
 
 // Os cadastros agora são uma ÁRVORE: local pertence a uma marca, cômodo a um
 // local. Estes dois filtros são a base de tudo — a navegação, os seletores da
@@ -735,6 +752,17 @@ const bensSoltos = computed(() => {
 
 const bensNaTela = computed(() => (mostrarGrupos.value ? bensSoltos.value : bensFiltrados.value))
 
+// Estes são os bens que estão neste nível e não caem em nenhuma pasta abaixo.
+// Antes o rótulo era "N itens direto aqui" — jargão meu, ninguém entende. Como
+// a tela SABE em que nível está, dá pra dizer exatamente o que falta neles.
+const textoDosSoltos = computed(() => {
+  const n = bensSoltos.value.length
+  const quantos = `${n} ${n === 1 ? 'item' : 'itens'}`
+  if (!caminho.empresaId) return `${quantos} sem marca`
+  if (!caminho.localId) return `${quantos} sem local`
+  return `${quantos} sem cômodo`
+})
+
 function entrarNoGrupo(g) {
   if (!caminho.empresaId) caminho.empresaId = g.id
   else if (!caminho.localId) caminho.localId = g.id
@@ -763,21 +791,6 @@ function nomeDoNivel(nivel) {
 // O "voltar" sobe um degrau; na raiz é que sai do módulo. Um botão só.
 const rotuloDoVoltar = computed(() => (temCaminho.value ? 'Voltar' : 'Gestão Interna'))
 
-// ------------------------------------------------------------------------ zoom
-// Aumentar/diminuir o tamanho de tudo na lista. Serve tanto pra quem enxerga
-// pouco quanto pra caber mais item na tela — o dono pediu explicitamente.
-// Limites 60%–200%: abaixo de 60% o texto some, acima de 200% cabe um item por
-// tela e a lista deixa de ser lista. Fica guardado por navegador.
-const CHAVE_ZOOM = 'pat-zoom'
-const zoom = ref(Number(localStorage.getItem(CHAVE_ZOOM)) || 1)
-
-function mudarZoom(passo) {
-  zoom.value = Math.min(2, Math.max(0.6, Math.round((zoom.value + passo) * 10) / 10))
-}
-
-watch(zoom, (z) => {
-  try { localStorage.setItem(CHAVE_ZOOM, String(z)) } catch (e) { /* modo privado: só não guarda */ }
-})
 
 const temFiltro = computed(() =>
   !!filtro.busca || !!filtro.empresaId || !!filtro.localId ||
@@ -1320,6 +1333,9 @@ onMounted(() => {
 .tela-patrimonio .pat-topbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
 .tela-patrimonio .pat-back{font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);cursor:pointer;background:none;border:1px solid var(--accent-mid);border-radius:5px;padding:6px 10px;display:flex;align-items:center;gap:5px;white-space:nowrap;touch-action:manipulation;}
 .tela-patrimonio .pat-title{font-family:var(--fonte-principal);font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text);flex:1;min-width:0;}
+/* Ações em faixa própria. No celular elas empilhavam em cima do título. */
+.tela-patrimonio .pat-acoes{display:flex;gap:8px;justify-content:flex-end;padding:8px 14px 0;}
+.tela-patrimonio .pat-resumo-onde{font-size:11px;color:var(--muted);}
 .tela-patrimonio .pat-btn-novo{width:38px;height:38px;flex-shrink:0;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:22px;line-height:1;cursor:pointer;touch-action:manipulation;}
 
 .tela-patrimonio .pat-resumo{display:flex;align-items:baseline;gap:6px;padding:12px 14px 4px;font-family:var(--fonte-principal);}
@@ -1489,6 +1505,25 @@ onMounted(() => {
 .tela-patrimonio .pat-confirm p{font-size:13px;line-height:1.6;color:var(--text);}
 .tela-patrimonio .pat-confirm-pergunta{font-weight:600;}
 .tela-patrimonio .pat-confirm-pe{display:flex;gap:8px;justify-content:flex-end;margin-top:4px;}
+
+/* CELULAR: tudo um degrau menor pra caber na largura, sem apertar o alvo do
+   dedo abaixo de ~34px. Os selects em 16px continuam (senão o iOS dá zoom no
+   foco) — o que encolhe é o padding e a largura máxima, não a fonte. */
+@media(max-width:640px){
+  .tela-patrimonio .pat-topbar{padding:9px 12px;}
+  .tela-patrimonio .pat-back{font-size:9px;letter-spacing:1px;padding:5px 8px;}
+  .tela-patrimonio .pat-title{font-size:12px;letter-spacing:1.2px;}
+  .tela-patrimonio .pat-acoes{padding:8px 12px 0;}
+  .tela-patrimonio .pat-btn-novo,.tela-patrimonio .pat-btn-listas,.tela-patrimonio .pat-btn-sel{width:34px;height:34px;}
+  .tela-patrimonio .pat-btn-novo{font-size:19px;}
+  .tela-patrimonio .pat-resumo{padding:10px 12px 2px;}
+  .tela-patrimonio .pat-resumo-qtd{font-size:19px;}
+  .tela-patrimonio .pat-busca-wrap,.tela-patrimonio .pat-filtros,.tela-patrimonio .pat-visoes{padding-left:12px;padding-right:12px;}
+  .tela-patrimonio .pat-busca{padding:9px 11px;}
+  .tela-patrimonio .pat-select{padding:7px 9px;max-width:150px;}
+  .tela-patrimonio .pat-chip{padding:7px 11px;font-size:11px;}
+  .tela-patrimonio .pat-body{padding:0 12px 40px;}
+}
 
 @media(min-width:1025px){
   .tela-patrimonio .pat-kpis{grid-template-columns:repeat(3,1fr);}

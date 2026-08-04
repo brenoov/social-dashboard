@@ -1628,3 +1628,15 @@ img{max-width:100%;}
   --accent-mid:rgba(255,92,141,0.34);
   --sobre-accent:#12100e;
 }
+
+/* ── Controle de zoom antigo, por ferramenta ────────────────────────────────
+   Notícias, Gestão de Tráfego e Gestão Comercial criavam cada uma o SEU botão
+   flutuante de zoom, no mesmo canto do botão de tema — dois controles redondos
+   disputando o polegar no celular. Agora existe um painel único de Ajustes
+   (tema + tamanho) na moldura do app, valendo pra Central inteira.
+
+   A regra fica AQUI e não no <style scoped> da moldura: estilo escopado ganha
+   um [data-v-...] e não alcança elemento criado por outro componente — foi o
+   que aconteceu na primeira tentativa. O botão some; o comportamento das telas
+   antigas continua intacto. */
+.zoomctl{display:none !important;}

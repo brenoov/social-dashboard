@@ -63,17 +63,35 @@
       </div>
     </div>
 
-    <!-- Alternador de tema claro/escuro — global, em todas as telas. -->
-    <button
-      class="btn-tema"
-      type="button"
-      @click="alternarTema"
-      :title="temaEscuro ? 'Mudar para tema claro' : 'Mudar para tema escuro'"
-      aria-label="Alternar tema claro/escuro"
-    >
-      <svg v-if="temaEscuro" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-      <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <!-- Ajustes de leitura: UM botão só, no canto, abrindo tema e zoom.
+         Antes eram dois botões flutuantes disputando o mesmo canto da tela do
+         celular. O zoom vale para a Central INTEIRA (aplicado no conteúdo da
+         rota), então cada ferramenta não precisa mais do seu próprio. -->
+    <button class="btn-ajustes" type="button" @click="ajustesAbertos = !ajustesAbertos"
+            title="Tema e tamanho da letra" aria-label="Tema e tamanho da letra">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     </button>
+
+    <div class="ajustes-fundo" v-if="ajustesAbertos" @click.self="ajustesAbertos = false">
+      <div class="ajustes-caixa">
+        <div class="ajustes-linha">
+          <span class="ajustes-rot">Tema</span>
+          <div class="ajustes-grupo">
+            <button :class="{ ativo: !temaEscuro }" @click="aplicarTema(false)">Claro</button>
+            <button :class="{ ativo: temaEscuro }" @click="aplicarTema(true)">Escuro</button>
+          </div>
+        </div>
+        <div class="ajustes-linha">
+          <span class="ajustes-rot">Tamanho</span>
+          <div class="ajustes-grupo">
+            <button @click="mudarZoom(-0.1)" aria-label="Diminuir">−</button>
+            <span class="ajustes-val" @click="aplicarZoom(1)" title="Voltar a 100%">{{ Math.round(zoom * 100) }}%</span>
+            <button @click="mudarZoom(0.1)" aria-label="Aumentar">+</button>
+          </div>
+        </div>
+        <button class="ajustes-pronto" @click="ajustesAbertos = false">Pronto</button>
+      </div>
+    </div>
 
     <!-- Modal insistente de opt-in (só botão Ativar agora; some ao ativar/negar).
          O controle permanente de ativar fica no menu do avatar, só enquanto não
@@ -87,7 +105,11 @@
       </div>
     </div>
 
-    <router-view />
+    <!-- O zoom envolve o conteúdo da rota, não o <html>: aplicado na raiz, ele
+         desloca tudo que é position:fixed (avatar, painéis, barra de seleção). -->
+    <div class="conteudo-da-rota" :style="zoom === 1 ? null : { zoom }">
+      <router-view />
+    </div>
   </div>
 </template>
 
@@ -187,12 +209,22 @@ function aplicarTema(escuro) {
   document.documentElement.dataset.theme = escuro ? 'dark' : 'light'
   localStorage.setItem('tema', escuro ? 'dark' : 'light')
 }
-function alternarTema() {
-  aplicarTema(!temaEscuro.value)
+/* ── Ajustes de leitura: tema + zoom, num painel só ── */
+const ajustesAbertos = ref(false)
+
+// Zoom da Central inteira. Fica aqui, e não em cada ferramenta, porque era isso
+// que enchia o canto da tela do celular de botões flutuantes repetidos.
+// 60%–200%: abaixo disso o texto some, acima cabe uma linha por tela.
+const zoom = ref(1)
+function aplicarZoom(z) {
+  zoom.value = Math.min(2, Math.max(0.6, Math.round(z * 10) / 10))
+  try { localStorage.setItem('zoom-central', String(zoom.value)) } catch (e) { /* modo privado */ }
 }
+function mudarZoom(passo) { aplicarZoom(zoom.value + passo) }
 
 onMounted(() => {
   aplicarTema(localStorage.getItem('tema') === 'dark')
+  aplicarZoom(Number(localStorage.getItem('zoom-central')) || 1)
   // Registra o SW de push já no boot (não depende de opt-in) pra a entrega
   // funcionar de cara pra quem já ativou noutra sessão.
   if (pushSuportado()) registrarSW().catch(() => {})
@@ -268,17 +300,28 @@ watch(() => estado.user?.id, avaliarPush)
 .perfil-modal-btn.primario { background: var(--accent); border-color: var(--accent); color: #fff; }
 .perfil-modal-btn:disabled { opacity: .6; cursor: default; }
 
-/* ── Toggle de tema ── */
-.btn-tema {
-  position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); right: 20px; z-index: 9998;
-  width: 42px; height: 42px; border-radius: 50%;
+/* ── Ajustes de leitura (tema + zoom): UM botão, menor que os dois de antes ── */
+.btn-ajustes {
+  position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); right: 16px; z-index: 9998;
+  width: 34px; height: 34px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  background: var(--surface); color: var(--text); border: 1px solid var(--border);
-  box-shadow: var(--shadow-md); cursor: pointer;
-  transition: transform .15s ease, box-shadow .15s ease, color .15s ease;
+  background: var(--surface); color: var(--muted); border: 1px solid var(--border);
+  box-shadow: var(--shadow-md); cursor: pointer; opacity: .82;
+  transition: opacity .15s ease, color .15s ease, transform .15s ease;
 }
-.btn-tema:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); color: var(--accent); }
-.btn-tema:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn-ajustes:hover { opacity: 1; color: var(--accent); transform: translateY(-1px); }
+.btn-ajustes:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; opacity: 1; }
+
+.ajustes-fundo { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: flex-end; justify-content: flex-end; padding: 16px; background: rgba(0,0,0,.28); }
+.ajustes-caixa { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-lg); padding: 14px; width: 100%; max-width: 280px; display: flex; flex-direction: column; gap: 12px; font-family: var(--fonte-principal); }
+.ajustes-linha { display: flex; align-items: center; gap: 10px; }
+.ajustes-rot { flex: 1; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+.ajustes-grupo { display: flex; align-items: center; gap: 4px; border: 1px solid var(--border); border-radius: 9px; padding: 3px; }
+.ajustes-grupo button { min-width: 32px; height: 30px; padding: 0 9px; border: none; background: none; border-radius: 7px; font-family: var(--fonte-principal); font-size: 12px; font-weight: 600; color: var(--text); cursor: pointer; touch-action: manipulation; }
+.ajustes-grupo button.ativo { background: var(--accent); color: #fff; }
+.ajustes-val { min-width: 44px; text-align: center; font-size: 11px; font-weight: 600; color: var(--muted); cursor: pointer; user-select: none; font-variant-numeric: tabular-nums; }
+.ajustes-pronto { width: 100%; height: 36px; border: none; border-radius: 9px; background: var(--accent); color: #fff; font-family: var(--fonte-principal); font-size: 13px; font-weight: 600; cursor: pointer; touch-action: manipulation; }
+
 
 /* ── Modal de notificações (Web Push) — prefixo np- único (evita colisão CSS global) ── */
 .np-modal-fundo {
