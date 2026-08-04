@@ -45,12 +45,7 @@
         </button>
         <div id="ma-acc-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:260px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.18);z-index:999;overflow:hidden;" onclick="event.stopPropagation()"></div>
       </div>
-      <div class="gv-clock-wrap" onclick="event.stopPropagation()">
-        <span class="live-dot" style="margin-bottom:4px">Tempo Real</span>
-        <div class="gv-clock-time" id="ma-clock">--:--:--</div>
-        <div class="gv-clock-date" id="ma-date"></div>
-        <div class="gv-update-status" id="ma-update-status">—</div>
-      </div>
+      
     </div>
     <div class="ma-body" id="ma-content-wrap">
       <div id="ma-content"></div>
@@ -492,7 +487,6 @@ function _getCpa(ins,type){
   const a=(ins.cost_per_action_type||[]).find(x=>x.action_type===type);
   return a?parseFloat(a.value||0):0;
 }
-
 
 function _maFmtR(v){if(!v&&v!==0)return'—';const n=parseFloat(v);if(n>=1000)return'R$'+n.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});return'R$'+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function _maFmt(v,dec=0){if(!v&&v!==0)return'—';return parseFloat(v).toLocaleString('pt-BR',{minimumFractionDigits:dec,maximumFractionDigits:dec});}

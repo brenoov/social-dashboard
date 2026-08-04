@@ -45,12 +45,7 @@
           <div class="sa-canal-drop" id="sa-canal-drop"></div>
         </div>
       </div>
-      <div class="gv-clock-wrap" onclick="event.stopPropagation()">
-        <span class="live-dot" style="margin-bottom:4px">Tempo Real</span>
-        <div class="gv-clock-time" id="sa-clock">--:--:--</div>
-        <div class="gv-clock-date" id="sa-clock-date"></div>
-        <div class="gv-update-status" id="sa-update-status">—</div>
-      </div>
+      
     </div>
     <div id="sa-body"></div>
   </div>
@@ -300,7 +295,6 @@ async function loadSalesAnalysisData(period){
     Chart.defaults.color=window._saLabelColor();
     _saFsz=n=>Math.round(n*(window._saTvF||1));
   }catch(e){}
-
 
   const now=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Sao_Paulo'}));
   const y=now.getFullYear(),m=now.getMonth()+1;

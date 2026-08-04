@@ -10,6 +10,7 @@
  * com aprovação, multas e plano de revisão vêm nas fases seguintes; o desenho
  * inteiro está em docs/superpowers/specs/2026-08-04-frota-design.md. */
 import { ref, reactive, computed, onMounted } from 'vue'
+import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
@@ -496,14 +497,7 @@ onMounted(async () => {
 
 <template>
   <div class="tela-frota">
-    <div class="fr-topbar">
-      <button class="fr-back" @click="voltar">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Gestão Interna
-      </button>
-      <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
-      <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
-      <span class="fr-title">Frota</span>
-    </div>
+    <barra-de-topo voltar="Gestão Interna" titulo="Frota" @voltar="voltar" />
 
     <!-- Duas áreas (D8). Quem só dirige vê uma aba só — e nesse caso a barra
          não aparece: barra de uma aba é enfeite que come altura de tela. -->

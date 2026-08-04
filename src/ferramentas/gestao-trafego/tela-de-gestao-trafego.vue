@@ -59,12 +59,7 @@
         </button>
         <div id="gt-acc-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:270px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.18);z-index:999;overflow:hidden;max-height:340px;overflow-y:auto;" onclick="event.stopPropagation()"></div>
       </div>
-      <div class="gv-clock-wrap" onclick="event.stopPropagation()">
-        <span class="live-dot" style="margin-bottom:4px">Tempo Real</span>
-        <div class="gv-clock-time" id="gt-clock">--:--:--</div>
-        <div class="gv-clock-date" id="gt-date"></div>
-        <div class="gv-update-status" id="gt-update-status">—</div>
-      </div>
+      
     </div>
 
     <!-- Casca de abas: só mostra/esconde painel via _gtTrocarAba, nunca
@@ -3786,7 +3781,6 @@ async function _gtListarSugestoes(){
     +'fabrica_marcas!inner(account_id)&fabrica_marcas.account_id=eq.'+encodeURIComponent(conta));
   return Array.isArray(linhas)?linhas:null;
 }
-
 
 /* ═══ ASSISTENTE DE NOVA CAMPANHA (C3) ══════════════════════════════════════
    Cria campanha + conjunto + criativo + anúncio, tudo PAUSED.

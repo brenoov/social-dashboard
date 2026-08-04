@@ -44,12 +44,7 @@
           </div>
         </div>
       </div>
-      <div class="gv-clock-wrap">
-        <span class="live-dot" style="margin-bottom:4px">Tempo Real</span>
-        <div class="gv-clock-time" id="gv-clock">--:--:--</div>
-        <div class="gv-clock-date" id="gv-date"></div>
-        <div class="gv-update-status" id="gv-update-status">—</div>
-      </div>
+      
     </div>
     <div class="gv-board" id="gv-board">
       <div class="gv-loading-screen">
