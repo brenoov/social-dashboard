@@ -7,15 +7,7 @@
        .tela-marca-vendas (sem display:none — quem controla a visibilidade
        agora é o vue-router). -->
   <div class="tela-marca-vendas">
-    <div class="smenu-topbar">
-      <button class="smenu-back" @click="voltar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Vendas</button>
-      <div style="display:flex;align-items:center;gap:10px">
-        <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
-        <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
-        <span class="smenu-title">Análise de Vendas</span>
-      </div>
-      <span></span>
-    </div>
+    <barra-de-topo voltar="Vendas" titulo="Análise de Vendas" @voltar="voltar" />
     <div class="sbrand-body">
       <div class="sbrand-title">Selecione a marca</div>
       <div class="sbrand-grid">
@@ -44,6 +36,7 @@
 
 <script setup>
 import { onMounted } from 'vue'
+import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'

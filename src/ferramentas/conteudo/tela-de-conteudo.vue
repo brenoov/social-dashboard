@@ -4,26 +4,17 @@
        nos .js puros ao lado (estados.js, formatos.js, agrupar-kanban.js…).
        Classes .ctd- para não colidir com o CSS global. -->
   <div class="ctd-tela">
-    <div class="ctd-topbar">
-      <div class="ctd-tb-left">
-        <button class="ctd-back" @click="router.push({ name: 'inicio' })">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-          Central
-        </button>
-        <img class="rbv-logo rbv-logo-light" src="/midia/LOGOTIPOBRENOPRETO.png" alt="RBV">
-        <img class="rbv-logo rbv-logo-dark" src="/midia/LOGOTIPOBRENOBRANCO.png" alt="RBV">
-      </div>
-      <span class="ctd-title">Central de Conteúdo</span>
-      <div class="ctd-tb-right">
-        <select v-model="contaSel" class="ctd-marca" aria-label="Perfil">
+    <barra-de-topo voltar="Central" titulo="Central de Conteúdo" @voltar="router.push({ name: 'inicio' })">
+      <template #acoes>
+        <select v-model="contaSel" class="bt-acao" aria-label="Perfil">
           <option v-for="c in contas" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
-        <button class="ctd-btn" :disabled="!contaSel" @click="painelSemana = true">
+        <button class="bt-acao" :disabled="!contaSel" @click="painelSemana = true">
           <IconeFaisca /> Montar a semana
         </button>
-        <button class="ctd-btn ctd-btn-primario" :disabled="!contaSel" @click="abrirNova()">+ Nova peça</button>
-      </div>
-    </div>
+        <button class="bt-acao primario" :disabled="!contaSel" @click="abrirNova()">+ Nova peça</button>
+      </template>
+    </barra-de-topo>
 
     <div class="ctd-body">
       <p v-if="permissaoPelaMetade" class="ctd-aviso ctd-aviso-atencao">
@@ -206,6 +197,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import VisaoHome from './visao-home.vue'
 import VisaoProgramacao from './visao-programacao.vue'
