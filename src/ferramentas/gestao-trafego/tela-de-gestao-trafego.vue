@@ -5055,7 +5055,12 @@ Object.assign(window, {
   .tela-gestao-trafego :deep(.gtf-ident){flex:1 1 100%;order:1;}
   .tela-gestao-trafego :deep(.gtf-selo){order:0;}
   .tela-gestao-trafego :deep(.gtf-valores){order:2;flex:1 1 auto;}
-  .tela-gestao-trafego :deep(.gtf-acoes){order:3;}
+  /* Os botoes de decisao ganham a linha inteira e quebram. Antes o bloco era
+     `flex:0 0 auto` + `nowrap`: nao encolhia nem quebrava, entao os quatro
+     botoes (486px medidos) sangravam 179px pra fora do card numa tela de 375.
+     min-width de 46% segura dois por linha em vez de quatro espremidos. */
+  .tela-gestao-trafego :deep(.gtf-acoes){order:3;flex:1 1 100%;flex-wrap:wrap;}
+  .tela-gestao-trafego :deep(.gtf-btn){flex:1 1 auto;min-width:46%;}
   .tela-gestao-trafego :deep(.gtf-btn){flex:1;}
 }
 .tela-gestao-trafego :deep(.pnd-conta-tag){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));color:var(--txt);line-height:1.5;background:color-mix(in srgb,var(--green) 10%,transparent);border:1px solid color-mix(in srgb,var(--green) 32%,transparent);border-left-width:3px;border-radius:8px;padding:9px 13px;margin:0 0 16px;}
@@ -5349,7 +5354,7 @@ Object.assign(window, {
 /* Config modal (editor admin — métricas por objetivo) */
 .tela-gestao-trafego :deep(#gt-cfg-btn){margin-right:4px;}
 .tela-gestao-trafego :deep(#gt-cfg-overlay){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1300;display:none;backdrop-filter:blur(2px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
-.tela-gestao-trafego :deep(#gt-cfg-modal){position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1301;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(720px,94vw);max-height:84vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+.tela-gestao-trafego :deep(#gt-cfg-modal){position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1301;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(720px,calc(100vw - 28px));max-height:84vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.35);}
 .tela-gestao-trafego :deep(.gt-cfg-head){padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
 .tela-gestao-trafego :deep(.gt-cfg-title){font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:700;color:var(--text);}
 .tela-gestao-trafego :deep(.gt-cfg-close){background:none;border:none;color:var(--muted);cursor:pointer;font-size:calc(16px*var(--gt-fs,1.3));padding:0;line-height:1;}
@@ -5421,6 +5426,11 @@ Object.assign(window, {
    cartão no tema escuro, e o resultado era botão preto com letra branca — foi
    exatamente isso que o dono apontou nas outras telas desta ferramenta. */
 .tela-gestao-trafego :deep(.pnd-aba-acao){appearance:none;margin-left:auto;margin-bottom:-1px;padding:7px 15px;align-self:center;border:1px solid var(--border);border-radius:8px;background:var(--surface2,var(--surface));color:var(--accent);font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:border-color .15s ease,color .15s ease;}
+/* Os dois botoes de acao andam JUNTOS na direita. Antes cada um tinha o seu
+   `margin-left:auto` e o navegador reparte a sobra entre todas as margens
+   automaticas: metade antes de "Nova campanha", metade antes de "Historico"
+   — os dois soltos no meio da barra. So o primeiro empurra; o segundo cola. */
+.tela-gestao-trafego :deep(.pnd-aba-acao + .pnd-aba-acao){margin-left:0;}
 .tela-gestao-trafego :deep(.pnd-aba-acao:hover){border-color:var(--accent);}
 .tela-gestao-trafego :deep(#gt-novo-ov){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1300;display:none;backdrop-filter:blur(2px);}
 .tela-gestao-trafego :deep(#gt-novo-modal){position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1301;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(620px,94vw);max-height:88vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.35);}
@@ -5450,9 +5460,11 @@ Object.assign(window, {
 :root[data-theme="dark"] .tela-gestao-trafego :deep(.gt-novo-data)::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.75;cursor:pointer;}
 .tela-gestao-trafego :deep(.gt-novo-carregando){padding:26px 4px;text-align:center;color:var(--muted);line-height:1.6;}
 @media(max-width:640px){
-  /* No celular a janela ocupa a tela inteira: 88vh centralizado deixava metade
-     do assistente fora do alcance do polegar. */
-  .tela-gestao-trafego :deep(#gt-novo-modal){top:0;left:0;transform:none;width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0;border:none;}
+  /* Centralizado COM MARGEM, nunca colado nas bordas — pedido do dono, o mesmo
+     que ele ja tinha feito pro modal do Patrimonio. A versao anterior era
+     `100vw x 100dvh`: virava uma tela dentro da tela, sem borda, e nao dava pra
+     ver que era uma janela que fecha. 14px de folga de cada lado. */
+  .tela-gestao-trafego :deep(#gt-novo-modal){width:calc(100vw - 28px);max-width:none;max-height:calc(100dvh - 56px);border-radius:14px;}
   .tela-gestao-trafego :deep(.pnd-aba-acao){margin-left:0;flex:1 1 100%;margin-top:6px;}
 }
 .tela-gestao-trafego :deep(.gt-cfg-body){padding:16px 20px;overflow-y:auto;flex:1;}
@@ -5465,7 +5477,7 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-cfg-footer){padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;gap:10px;}
 /* Modal "Ver criativo" */
 .tela-gestao-trafego :deep(#gt-cr-overlay){position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1400;display:none;backdrop-filter:blur(2px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
-.tela-gestao-trafego :deep(#gt-cr-modal){position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1401;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(420px,94vw);max-height:88vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4);overflow:hidden;}
+.tela-gestao-trafego :deep(#gt-cr-modal){position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1401;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(420px,calc(100vw - 28px));max-height:88vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4);overflow:hidden;}
 .tela-gestao-trafego :deep(.gt-cr-body){padding:14px;overflow:auto;flex:1;display:flex;justify-content:center;align-items:flex-start;}
 .tela-gestao-trafego :deep(.gt-cr-frame){width:100%;display:flex;justify-content:center;}
 .tela-gestao-trafego :deep(.gt-cr-frame iframe){max-width:100%;border:none;border-radius:8px;}
