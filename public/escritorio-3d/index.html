@@ -41,9 +41,38 @@ header h1{font-size:14px;margin:0;font-weight:800}.badge{font-size:11px;color:#d
   if(!tok||!tok.access_token){ nega('Entre na Central para ver o Escritório 3D.'); return; }
   var uid=(tok.user&&tok.user.id)||'';
   if(!uid){ nega('Não consegui identificar sua sessão. Entre de novo.'); return; }
-  fetch(U+'/rest/v1/profiles?select=role,is_superadmin,permissions,features&id=eq.'+encodeURIComponent(uid),
-        {headers:{apikey:AK,Authorization:'Bearer '+tok.access_token}})
-    .then(function(r){return r.json();})
+  // BUSCA O PERFIL, E SABE RENOVAR A SESSÃO ANTES DE DESISTIR.
+  //
+  // Visto ao vivo em 04/08/2026: o porteiro barrou um SUPERADMIN dizendo "não
+  // consegui ler seu perfil", e a MESMA chamada dava 200 segundos depois. O
+  // motivo é que esta página é ESTÁTICA — ela não tem o supabase-js cuidando da
+  // sessão como o aplicativo tem. Com o `access_token` guardado já vencido (ou
+  // recém-trocado), a leitura volta 401.
+  //
+  // Negar por dúvida é o padrão certo para PERMISSÃO. Só que isto não era
+  // dúvida de permissão: era sessão velha — e tratar as duas como a mesma coisa
+  // tranca do lado de fora justamente quem tem a chave.
+  function perfil(token){
+    return fetch(U+'/rest/v1/profiles?select=role,is_superadmin,permissions,features&id=eq.'+encodeURIComponent(uid),
+      {headers:{apikey:AK,Authorization:'Bearer '+token}})
+      .then(function(r){ return r.status===401 ? null : r.json(); });
+  }
+  function renovar(){
+    if(!tok.refresh_token) return Promise.resolve(null);
+    return fetch(U+'/auth/v1/token?grant_type=refresh_token',
+      {method:'POST',headers:{apikey:AK,'Content-Type':'application/json'},
+       body:JSON.stringify({refresh_token:tok.refresh_token})})
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){ return (j&&j.access_token)||null; });
+  }
+  perfil(tok.access_token)
+    .then(function(d){
+      // UMA tentativa de renovar, e só quando a primeira falhou por sessão.
+      // Repetir em laço transformaria problema de login em martelada no
+      // servidor de autenticação.
+      if(d) return d;
+      return renovar().then(function(novo){ return novo ? perfil(novo) : null; });
+    })
     .then(function(d){
       var p=(d&&d[0])||null;
       if(!p){ nega('Não consegui ler seu perfil. Tente entrar de novo.'); return; }
