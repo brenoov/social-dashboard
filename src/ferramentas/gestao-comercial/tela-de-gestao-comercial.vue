@@ -22,9 +22,13 @@
     <div class="gc-tabs" v-if="podeRelatorios" role="tablist">
       <button type="button" role="tab" :class="{ on: abaGc==='briefing' }" @click="irPara('briefing')">Briefing Semanal</button>
       <button type="button" role="tab" :class="{ on: abaGc==='relatorios' }" @click="irPara('relatorios')">Relatórios</button>
+      <!-- ESPELHO do time de venda. Só aparece para quem administra algum: a
+           própria aba se esconde de quem não teria o que fazer nela. -->
+      <button v-if="podeTime" type="button" role="tab" :class="{ on: abaGc==='time' }" @click="irPara('time')">Time de vendas</button>
     </div>
     <div class="gc-body" id="gc-body" v-show="abaGc==='briefing'"></div>
     <RelatoriosComerciais v-if="relMontada" v-show="abaGc==='relatorios'" />
+    <TimeDeVendas v-if="timeMontado" v-show="abaGc==='time'" />
   </div>
 </template>
 
@@ -32,9 +36,10 @@
 import { onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
-import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
+import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 import RelatoriosComerciais from './relatorios-comerciais.vue'
+import TimeDeVendas from './time-de-vendas.vue'
 
 const router = useRouter()
 
@@ -45,9 +50,28 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 const abaGc = ref('briefing')
 const relMontada = ref(false)   // monta o filho só quando a aba abre pela 1ª vez
 const podeRelatorios = computed(() => hasPermission('gestor.relatorios', 'ver'))
+const timeMontado = ref(false)
+
+// QUEM VÊ A ABA: o dono, ou quem administra/supervisiona algum time.
+//
+// Sem chave de permissão nova, e de propósito: aqui o direito vem do DADO — é
+// gestora de um time ou não é. Uma chave à parte poderia dizer "sim" para quem
+// o banco vai recusar, e aí a tela promete o que não entrega.
+const podeTime = ref(false)
+async function conferirSeGerencioAlgumTime() {
+  if (estado.is_superadmin) { podeTime.value = true; return }
+  try {
+    const { data } = await sbClient.from('equipes_membros')
+      .select('papel').eq('profile_id', estado.user?.id).in('papel', ['gestor', 'supervisora']).limit(1)
+    podeTime.value = !!(data && data.length)
+  } catch (e) { podeTime.value = false }
+}
 function irPara(aba) {
   abaGc.value = aba
   if (aba === 'relatorios') relMontada.value = true
+  // Só monta quando a pessoa entra: a aba faz quatro consultas ao banco, e
+  // quem nunca a abre não deve pagar por elas.
+  if (aba === 'time') timeMontado.value = true
 }
 
 // ==========================================================================
@@ -331,6 +355,7 @@ onMounted(() => {
   }
   loadGestao()
   _gcFontScale()
+  conferirSeGerencioAlgumTime()
 })
 </script>
 
