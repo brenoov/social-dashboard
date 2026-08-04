@@ -4,13 +4,14 @@ import {
   PAPEIS, acharPapel, nivelDo,
   podeAdministrarTime, papeisQuePossoConceder, podeRemover,
   avisosDoTime, validarTime, canaisLivres, linhaDoTime, ordenarTimes,
+  veOEstoque, podeLiberarEstoque,
 } from './equipes.js'
 
 const dono = { is_superadmin: true }
 const gente = { is_superadmin: false }
 
 // Os times reais, como ficaram no banco em 04/08/2026.
-const TIVOLI = { id: 't1', nome: 'Tivoli', tipo: 'loja', canal_loja_id: 205834140, local_id: 'l1', setor_id: 's1', ordem: 10 }
+const TIVOLI = { id: 't1', nome: 'Tivoli', tipo: 'loja', canal_loja_id: 205834140, local_id: 'l1', setor_id: 's1', deposito_id: 14888726315, ordem: 10 }
 const DOMPEDRO = { id: 't2', nome: 'Dom Pedro', tipo: 'loja', canal_loja_id: 205657609, local_id: 'l2', setor_id: 's2', ordem: 20 }
 const IGUATEMI = { id: 't3', nome: 'Iguatemi Campinas', tipo: 'loja', canal_loja_id: null, ordem: 30 }
 
@@ -93,7 +94,7 @@ test('time completo nao inventa aviso', () => {
 test('canal de venda nao e cobrado por local nem setor', () => {
   // Atacado Nuvem Shop não tem endereço nem gente de RH — cobrar isso seria
   // pedir para preencher o que não existe.
-  const canal = { nome: 'Atacado Nuvem Shop', tipo: 'canal', canal_loja_id: 205451611 }
+  const canal = { nome: 'Atacado Nuvem Shop', tipo: 'canal', canal_loja_id: 205451611, deposito_id: 14888248253 }
   assert.deepEqual(avisosDoTime(canal), [])
 })
 
@@ -188,4 +189,46 @@ test('papel que nao existe tem nivel zero, e nao estoura', () => {
   assert.equal(nivelDo('presidente'), 0)
   assert.equal(nivelDo(null), 0)
   assert.equal(acharPapel('presidente'), null)
+})
+
+// ── O estoque é liberado, não herdado ───────────────────────────────────────
+
+test('supervisora e gestor veem o estoque PELO PAPEL', () => {
+  assert.equal(veOEstoque({ papel: 'supervisora' }, []).ve, true)
+  assert.equal(veOEstoque({ papel: 'gestor' }, []).ve, true)
+})
+
+test('vendedora NAO ve estoque so por estar no time', () => {
+  // Decisão do dono: estar no time abre as vendas; o estoque é decisão de quem
+  // supervisiona.
+  assert.equal(veOEstoque({ papel: 'vendedora', equipe_id: 't1', profile_id: 'p1' }, []).ve, false)
+})
+
+test('vendedora COM liberacao ve — e so a do time dela', () => {
+  const liberacoes = [{ equipe_id: 't1', profile_id: 'p1', chave: 'estoque' }]
+  assert.equal(veOEstoque({ papel: 'vendedora', equipe_id: 't1', profile_id: 'p1' }, liberacoes).ve, true)
+  // mesma pessoa, OUTRO time: não vale
+  assert.equal(veOEstoque({ papel: 'vendedora', equipe_id: 't2', profile_id: 'p1' }, liberacoes).ve, false)
+  // outra pessoa, mesmo time: não vale
+  assert.equal(veOEstoque({ papel: 'vendedora', equipe_id: 't1', profile_id: 'p9' }, liberacoes).ve, false)
+})
+
+test('liberacao de OUTRA chave nao serve para estoque', () => {
+  const liberacoes = [{ equipe_id: 't1', profile_id: 'p1', chave: 'outra-coisa' }]
+  assert.equal(veOEstoque({ papel: 'vendedora', equipe_id: 't1', profile_id: 'p1' }, liberacoes).ve, false)
+})
+
+test('a supervisora LIBERA, mesmo sem administrar o time', () => {
+  // Ela não põe nem tira gente — mas o estoque é dela.
+  assert.equal(podeAdministrarTime(gente, 'supervisora'), false)
+  assert.equal(podeLiberarEstoque(gente, 'supervisora'), true)
+  assert.equal(podeLiberarEstoque(gente, 'vendedora'), false)
+  assert.equal(podeLiberarEstoque(dono, null), true)
+  assert.equal(podeLiberarEstoque(null, 'gestor'), false)
+})
+
+test('time sem deposito avisa que o estoque vai aparecer vazio', () => {
+  // Vazio se confunde com "acabou o produto".
+  const semDeposito = { nome: 'Tivoli', tipo: 'loja', canal_loja_id: 1, local_id: 'l', setor_id: 's' }
+  assert.ok(avisosDoTime(semDeposito).some(a => /estoque/.test(a.texto)))
 })

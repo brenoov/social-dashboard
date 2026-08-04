@@ -79,6 +79,30 @@ export function podeRemover(eu, papelNoTime, membro, todosOsMembros) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// O ESTOQUE É LIBERADO, NÃO HERDADO
+//
+// Decisão do dono: estar no time deixa a pessoa ver as VENDAS do time; o
+// estoque não vem junto. Ou ela supervisiona, ou alguém liberou para ela.
+export function veOEstoque(membro, liberacoes) {
+  const m = membro || {};
+  if (m.papel === 'supervisora' || m.papel === 'gestor') return { ve: true, porque: 'pelo papel' };
+  const tem = (liberacoes || []).some(
+    (l) => String(l.equipe_id) === String(m.equipe_id)
+      && String(l.profile_id) === String(m.profile_id)
+      && l.chave === 'estoque',
+  );
+  return { ve: tem, porque: tem ? 'liberado' : '' };
+}
+
+// Quem pode LIBERAR o estoque neste time. Repare que supervisora entra — ela
+// não administra o time (não põe nem tira gente), mas o estoque é dela.
+export function podeLiberarEstoque(eu, papelNoTime) {
+  if (!eu) return false;
+  if (eu.is_superadmin) return true;
+  return papelNoTime === 'supervisora' || papelNoTime === 'gestor';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // O QUE FALTA NUM TIME
 //
 // Time sem canal do Bling é o caso que MAIS confunde: tudo parece certo, a
@@ -93,6 +117,11 @@ export function avisosDoTime(equipe) {
       texto: 'Sem canal do Bling: este time não vai mostrar faturamento nenhum. '
         + 'Ligue ao canal correspondente assim que ele existir no Bling.',
     });
+  }
+  // Depósito é o que responde "estoque desta loja". Sem ele o estoque aparece
+  // vazio — e vazio se confunde com "acabou o produto".
+  if (!e.deposito_id) {
+    out.push({ grave: false, texto: 'Sem depósito ligado: o estoque deste time vai aparecer vazio.' });
   }
   if (e.tipo !== 'canal' && !e.local_id) {
     out.push({ grave: false, texto: 'Sem local do Patrimônio: os bens desta loja não vão aparecer ligados ao time.' });
