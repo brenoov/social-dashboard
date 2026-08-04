@@ -412,3 +412,165 @@ test('a confirmacao NAO promete WhatsApp num tipo que vai pro Direct', () => {
   assert.ok(site.some((l) => /leva para https:\/\/x\.com\.br/.test(l)))
   assert.ok(!site.some((l) => /WhatsApp/.test(l)))
 })
+
+test('os comportamentos do publico salvo CHEGAM na Meta, junto dos interesses', () => {
+  // O silêncio que isto impede: aplicar um público salvo com "Engaged Shoppers"
+  // e criar a campanha sem ele — público mais largo que o escolhido, sem aviso.
+  const e = {
+    ...cheio(),
+    publico: {
+      cidades: [{ key: '247071', nome: 'Campinas' }],
+      idadeMin: 25, idadeMax: 65,
+      interesses: [{ id: '6003198476967', name: 'Bolsas' }],
+      comportamentos: [{ id: '6071631541183', name: 'Engaged Shoppers' }],
+    },
+  }
+  const { adset } = payloadsDoAssistente({ estado: e, objetivoRow: ROW, nomeDaConta: 'Vessel' })
+  const flex = adset.targeting.flexible_spec
+  assert.equal(flex.length, 1, 'entradas separadas somam com E e APERTAM o público')
+  assert.deepEqual(flex[0].interests.map((i) => i.name), ['Bolsas'])
+  assert.deepEqual(flex[0].behaviors.map((b) => b.name), ['Engaged Shoppers'])
+})
+
+test('sem comportamento, o payload sai igual ao de antes (a Fábrica nao muda)', () => {
+  const { adset } = payloadsDoAssistente({ estado: cheio(), objetivoRow: ROW, nomeDaConta: 'Vessel' })
+  const flex = adset.targeting.flexible_spec
+  assert.equal(flex.length, 1)
+  assert.equal(flex[0].behaviors, undefined)
+  assert.ok(flex[0].interests.length)
+})
+
+// ── Vídeo ──────────────────────────────────────────────────────────────────
+
+test('video vira video_data, com a capa dentro — e nao link_data', () => {
+  // Medido num anúncio real desta conta: o formato é `video_data` com
+  // `image_url` dentro. Sem a capa a Meta recusa o criativo.
+  const c = criativaDoAssistente({
+    sub: acharSubobjetivo('conversa-whatsapp'),
+    estado: { videoId: '1471771715011230', videoCapa: 'https://x/capa.jpg', texto: 'Oi', whatsapp: '5519971092194' },
+    page: 'P', ig: 'IG',
+  })
+  const vd = c.object_story_spec.video_data
+  assert.equal(vd.video_id, '1471771715011230')
+  assert.equal(vd.image_url, 'https://x/capa.jpg')
+  assert.equal(vd.message, 'Oi')
+  assert.equal(vd.call_to_action.type, 'WHATSAPP_MESSAGE')
+  assert.equal(c.object_story_spec.link_data, undefined, 'vídeo não usa link_data')
+})
+
+test('o video manda no criativo mesmo se houver imagem escolhida antes', () => {
+  const c = criativaDoAssistente({
+    sub: acharSubobjetivo('alcance'),
+    estado: { videoId: 'V', videoCapa: 'https://x/c.jpg', imagemHash: 'H', texto: 'Oi' },
+    page: 'P', ig: 'IG',
+  })
+  assert.ok(c.object_story_spec.video_data, 'a imagem antiga ganhou do vídeo escolhido')
+})
+
+test('video de Direct leva o botao do Direct, e nao o do WhatsApp', () => {
+  const c = criativaDoAssistente({
+    sub: acharSubobjetivo('conversa-direct'),
+    estado: { videoId: 'V', videoCapa: 'https://x/c.jpg', texto: 'Oi', whatsapp: '5519999999999' },
+    page: 'P', ig: 'IG',
+  })
+  assert.equal(c.object_story_spec.video_data.call_to_action.type, 'INSTAGRAM_MESSAGE')
+  assert.ok(!/wa\.me|api\.whatsapp/.test(JSON.stringify(c)))
+})
+
+test('video SEM capa nao deixa avancar — a Meta recusaria', () => {
+  const semCapa = { ...estadoInicial(), videoId: 'V', texto: 'Oi' }
+  const faltas = faltaNoPasso('anuncio', semCapa, acharSubobjetivo('conversa-whatsapp'))
+  assert.ok(faltas.some((f) => /capa/.test(f)))
+
+  const comCapa = { ...semCapa, videoCapa: 'https://x/c.jpg' }
+  assert.deepEqual(faltaNoPasso('anuncio', comCapa, acharSubobjetivo('conversa-whatsapp')), [])
+})
+
+test('a confirmacao diz que e video, e nao "a imagem escolhida"', () => {
+  const e = { ...cheio(), imagemHash: '', videoId: 'V', videoCapa: 'https://x/c.jpg' }
+  const l = resumoDoQueVaiSerCriado(e, 'WhatsApp', {}, acharSubobjetivo('conversa-whatsapp'))
+  assert.ok(l.some((x) => /com o vídeo escolhido/.test(x)))
+})
+
+// ── Os campos novos do anúncio (03/08/2026) ─────────────────────────────────
+
+test('a saudacao do WhatsApp CHEGA no criativo, no campo que a Meta le', () => {
+  const c = criativaDoAssistente({
+    sub: acharSubobjetivo('conversa-whatsapp'),
+    estado: { imagemHash: 'h', texto: 'oi', whatsapp: '11999999999',
+      saudacao: 'Bem-vindo à Vessel!', saudacaoResposta: 'Quero ver as bolsas' },
+    page: 'P', ig: 'I',
+  })
+  const d = c.object_story_spec.link_data || c.object_story_spec.video_data
+  const w = JSON.parse(d.page_welcome_message)
+  assert.equal(w.text_format.message.text, 'Bem-vindo à Vessel!')
+  assert.equal(w.text_format.message.autofill_message.content, 'Quero ver as bolsas')
+})
+
+test('saudacao NAO entra em campanha que nao abre conversa', () => {
+  // Num anúncio de site ela seria um campo ignorado — ou um erro, dependendo do
+  // humor da Meta. Melhor não mandar.
+  const c = criativaDoAssistente({
+    sub: acharSubobjetivo('site-cliques'),
+    estado: { imagemHash: 'h', texto: 'oi', site: 'https://vessel.com.br', saudacao: 'Oi!' },
+    page: 'P', ig: 'I',
+  })
+  assert.equal(c.object_story_spec.link_data.page_welcome_message, undefined)
+})
+
+test('titulo e descricao chegam no criativo — e no NOME certo por formato', () => {
+  const img = criativaDoAssistente({
+    sub: acharSubobjetivo('site-cliques'),
+    estado: { imagemHash: 'h', texto: 'oi', site: 'https://vessel.com.br', titulo: 'Bolsas novas', descricao: 'Frete grátis' },
+    page: 'P', ig: 'I',
+  })
+  assert.equal(img.object_story_spec.link_data.name, 'Bolsas novas')
+  assert.equal(img.object_story_spec.link_data.description, 'Frete grátis')
+
+  const vid = criativaDoAssistente({
+    sub: acharSubobjetivo('site-cliques'),
+    estado: { videoId: 'v1', videoCapa: 'https://x/c.png', texto: 'oi', site: 'https://vessel.com.br', titulo: 'Bolsas novas' },
+    page: 'P', ig: 'I',
+  })
+  assert.equal(vid.object_story_spec.video_data.title, 'Bolsas novas')
+  assert.equal(vid.object_story_spec.video_data.name, undefined)
+})
+
+test('trocar o botao NAO perde o caminho ate o numero do WhatsApp', () => {
+  // Medido: no WhatsApp puro o número vai no `link` (wa.me/…), e o botão vem
+  // sem `value`. Sobrescrever o call_to_action inteiro, ou mexer no link,
+  // faria o botão apontar pra lugar nenhum.
+  const c = criativaDoAssistente({
+    sub: acharSubobjetivo('conversa-whatsapp'),
+    estado: { imagemHash: 'h', texto: 'oi', whatsapp: '11999999999', botao: 'SHOP_NOW' },
+    page: 'P', ig: 'I',
+  })
+  const d = c.object_story_spec.link_data || c.object_story_spec.video_data
+  assert.equal(d.call_to_action.type, 'WHATSAPP_MESSAGE', 'botão que não cabe no destino não pode passar')
+  assert.match(String(d.link), /11999999999/)
+})
+
+test('multi-destino NAO tem o botao trocado — quem escolhe e a Meta', () => {
+  // O caminho multi manda três botões em `asset_feed_spec` e deixa a Meta
+  // escolher. Trocar o de baixo brigaria com a lista de cima.
+  const sub = { ...acharSubobjetivo('conversa-todos') }
+  const c = criativaDoAssistente({
+    sub, estado: { imagemHash: 'h', texto: 'oi', whatsapp: '11999999999', botao: 'WHATSAPP_MESSAGE' },
+    page: 'P', ig: 'I',
+  })
+  if (c.asset_feed_spec) {
+    assert.equal(c.object_story_spec.link_data.call_to_action.type, 'MESSAGE_PAGE')
+    assert.equal(c.asset_feed_spec.call_to_actions.length, 3)
+  }
+})
+
+test('impulsionar publicacao continua com os DOIS campos, sem extras grudados', () => {
+  // O caminho da publicação não tem object_story_spec: mandar título ou
+  // saudação nele faz a Meta responder "O campo de link é obrigatório".
+  const c = criativaDoAssistente({
+    sub: acharSubobjetivo('engajamento-post'),
+    estado: { publicacaoId: '123', titulo: 'ignorar', saudacao: 'ignorar', descricao: 'ignorar' },
+    page: 'P', ig: 'I',
+  })
+  assert.deepEqual(Object.keys(c).sort(), ['instagram_user_id', 'source_instagram_media_id'])
+})

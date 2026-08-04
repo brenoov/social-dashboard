@@ -155,6 +155,23 @@ import { hojeLocal, diasAtras, primeiroDiaDoMes, ultimoDiaDoMes } from '../../co
 import { orcamentoDe, detectarNivelOrcamento, podeEditarOrcamentoDaCampanha, podeEditarOrcamentoDoConjunto, montarHierarquia } from './orcamento-hierarquia.js'
 import { planoDeCopia, executarPlano, comEspera, retomar, SUFIXO_PADRAO } from './duplicar.js'
 import { lerPublico, montarTargeting, resumoDasMudancas, avisosDe } from './publico-alvo.js'
+// Os públicos salvos DE VERDADE (`saved_audiences`), que trazem cidade, idade,
+// gênero, interesses e comportamentos prontos. Ver publicos-salvos.js para a
+// confusão que isto conserta.
+import { lerSalvos } from './publicos-salvos.js'
+// Sugerir público a partir do que JÁ ACONTECEU nesta conta. A evidência (idade
+// por custo, cidades e interesses dos conjuntos que performam) mora em
+// sugerir-publico.js, puro e testado com os números reais da conta.
+import { lerFaixasDeIdade, lerConjuntos, montarSugestao, escolherAcao, contadorDe } from './sugerir-publico.js'
+// A leitura das publicações do perfil (tipo, engajamento, miniatura) — puro.
+import { lerPublicacoes } from './conteudo-existente.js'
+// Os textos que já rodaram, agrupados e com a armadilha das vagas separada —
+// ver sugerir-texto.js para o achado que fez esse módulo existir.
+import { agruparPorTexto, montarSugestaoDeTexto } from './sugerir-texto.js'
+// Rascunho que sobrevive a fechar a aba, e o histórico do que foi criado ou
+// recusado. As regras (o que vale salvar, quando mudou, como cada linha é dita)
+// moram em rascunhos.js; aqui fica só o que precisa de banco.
+import { valeSalvar, mudou as rascunhoMudou, linhaParaSalvar, montarHistorico, rascunhoParaRetomar } from './rascunhos.js'
 import { montarSecaoPosicionamentos } from './posicionamentos.js'
 import { montarFaixaDeSugestoes } from './sugestoes-de-interesse.js'
 // Aba "A régua" (métrica ponderada): painel puro + os módulos que leem/normalizam
@@ -1668,6 +1685,23 @@ async function _gtBuscarPublico(adsetId){
 // Públicos personalizados da conta (remarketing e semelhantes). Buscados UMA
 // vez por conta e reaproveitados: a lista muda pouco e a chamada é cara.
 let _gtPublicosSalvos=null;      // {conta, lista} | null
+// OS PÚBLICOS SALVOS DE VERDADE. `customaudiences` (a função abaixo) são LISTAS
+// DE PESSOAS; público salvo é uma SEGMENTAÇÃO guardada, e mora noutro endereço.
+// A tela chamava as listas de "públicos salvos" — daí a reclamação do dono de
+// que o público já tinha localização e ela pedia a cidade de novo.
+let _gtPubSalvosDeVerdade=null;   // null = não carregou; [] = a conta não tem
+let _gtPubSugestaoDados=null;     // a sugestão vinda dos números da conta
+let _gtPubSugerindo=false;
+async function _gtListarPublicosDeVerdade(){
+  const tok=_gtCurAcc?.id, accId=_gtCurAcc?.ad_account_id;
+  if(!tok||!accId)return null;
+  try{
+    const r=await metaFetch(`/act_${_maCleanAccId(accId)}/saved_audiences`,
+      {fields:'id,name,targeting',limit:100},tok);
+    return lerSalvos((r&&r.data)||[]);
+  }catch(e){ return null; }
+}
+
 async function _gtListarPublicosSalvos(){
   const tok=_gtCurAcc?.id;
   const accId=_gtCurAcc?.ad_account_id;
@@ -2975,6 +3009,237 @@ async function _gtPubBuscarInteresses(termo){
 }
 
 // Onde o anúncio é mostrado: cidades com raio, e lugares a excluir.
+// A LEITURA DA IA, em cima da evidência que já está na tela.
+//
+// Ela NÃO recalcula nada: os números vão prontos e o prompt manda não inventar
+// outros. O que a IA acrescenta é o julgamento — o que fazer, por quê, e qual o
+// risco de seguir. É a régua que o dono deu: "senão conta de porcentagem eu
+// mesmo fazia".
+async function _gtPubLeituraDaIA(sugestao,rotulo){
+  try{
+    _gtPubSugestaoDados={..._gtPubSugestaoDados,pensando:true};_gtPubRedesenha();
+    const {data:{session}}=await sbClient.auth.getSession();
+    if(!session)return;
+    const sub=_gtNovo?_gtNovoObjetivos.find(o=>o.id===_gtNovo.objetivo):null;
+    const r=await fetch(SUPABASE_URL+'/functions/v1/sugerir-publico-ia',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+session.access_token,'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({
+        evidencia:{contando:rotulo,idade:sugestao.idade,cidades:sugestao.cidades,interesses:sugestao.interesses,porque:sugestao.porqueDosConjuntos},
+        marca:(_gtCurAcc&&(_gtCurAcc.display_name||_gtCurAcc.name))||'',
+        objetivo:(sub&&sub.rotulo)||'',
+      }),
+    });
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok||!d.ok){
+      // O MOTIVO VAI PARA A TELA, inclusive o "rode o robô da chave". Erro
+      // genérico aqui faria parecer que a IA não existe.
+      _gtPubSugestaoDados={..._gtPubSugestaoDados,pensando:false,
+        erroIA:(d&&(d.comoResolver||d.detalhe||d.error))||('a função respondeu '+r.status)};
+      return;
+    }
+    _gtPubSugestaoDados={..._gtPubSugestaoDados,pensando:false,
+      leitura:d.leitura||'',cuidado:d.cuidado||'',interessesIA:d.interesses||[]};
+  }catch(e){
+    _gtPubSugestaoDados={..._gtPubSugestaoDados,pensando:false,erroIA:String((e&&e.message)||e)};
+  }finally{ _gtPubRedesenha(); }
+}
+
+// SUGERIR PELO QUE JÁ ACONTECEU NESTA CONTA.
+//
+// Não é palpite: sai do custo por resultado de cada faixa de idade e dos
+// conjuntos que de fato performam. A evidência vem junto de cada sugestão —
+// o dono já disse que conta de porcentagem ele mesmo faz.
+function _gtPubSecaoSugestao(){
+  const bloco=document.createElement('div');
+  bloco.appendChild(_gtPubTitulo('Sugerir pelo que já aconteceu aqui'));
+  bloco.appendChild(_gtPubAjuda('Olha os últimos 90 dias desta conta e mostra o que saiu mais barato — com o número ao lado.'));
+
+  if(_gtPubSugerindo){
+    bloco.appendChild(_gtPubCaixa('Olhando os números da conta…'));
+    return bloco;
+  }
+  if(!_gtPubSugestaoDados){
+    const b=document.createElement('button');
+    b.type='button';
+    b.textContent='Ver o que os números dizem';
+    b.style.cssText='padding:8px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--accent,#6366f1);'
+      +'background:transparent;color:var(--accent,#6366f1);font-weight:700;'
+      +'font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));';
+    b.onclick=_gtPubBuscarSugestao;
+    bloco.appendChild(b);
+    return bloco;
+  }
+
+  const s=_gtPubSugestaoDados;
+  if(!s.temAlgo){
+    bloco.appendChild(_gtPubCaixa(s.motivoVazio));
+    return bloco;
+  }
+  const caixa=_gtPubCaixa('');
+  if(s.contando){
+    caixa.appendChild(_gtPubLinhaTexto('Contando '+s.contando+', nos últimos 90 dias.',true));
+  }
+  if(s.idade){
+    caixa.appendChild(_gtPubLinhaTexto(`Idade ${s.idade.idadeMin}–${s.idade.idadeMax}: ${s.idade.porque}`));
+    if(s.idade.fraseDoDesperdicio)caixa.appendChild(_gtPubLinhaTexto(s.idade.fraseDoDesperdicio,true));
+  }
+  if(s.cidades.length)caixa.appendChild(_gtPubLinhaTexto('Cidades que se repetem nos melhores: '+s.cidades.map(c=>c.nome).join(', ')));
+  if(s.interesses.length)caixa.appendChild(_gtPubLinhaTexto('Interesses que se repetem nos melhores: '+s.interesses.map(i=>i.nome).join(', ')));
+  if(s.porqueDosConjuntos)caixa.appendChild(_gtPubLinhaTexto(s.porqueDosConjuntos,true));
+  bloco.appendChild(caixa);
+
+  // A LEITURA DA IA vem numa caixa PRÓPRIA, e marcada. Misturar com os números
+  // faria parecer que a opinião dela também foi medida.
+  if(s.pensando||s.leitura||s.erroIA){
+    const cx=_gtPubCaixa('');
+    cx.style.marginTop='7px';
+    cx.style.borderLeft='3px solid var(--accent,#6366f1)';
+    cx.appendChild(_gtPubLinhaTexto('Leitura da IA',true));
+    if(s.pensando)cx.appendChild(_gtPubLinhaTexto('Lendo os números…'));
+    else if(s.erroIA)cx.appendChild(_gtPubLinhaTexto('Não consegui a leitura: '+s.erroIA,true));
+    else{
+      cx.appendChild(_gtPubLinhaTexto(s.leitura));
+      if(s.cuidado)cx.appendChild(_gtPubLinhaTexto('Cuidado: '+s.cuidado,true));
+    }
+    bloco.appendChild(cx);
+  }
+
+  // APLICAR É UMA ESCOLHA, e não o que acontece por padrão: a sugestão é
+  // evidência, e quem decide o público continua sendo quem paga por ele.
+  const fila=_gtPubLinha();
+  fila.style.marginTop='8px';
+  if(s.idade)fila.appendChild(_gtPubBotaoAplicar(`Usar idade ${s.idade.idadeMin}–${s.idade.idadeMax}`,()=>{
+    _gtPub.idadeMin=s.idade.idadeMin;_gtPub.idadeMax=s.idade.idadeMax;_gtPubRedesenha();
+  }));
+  if((s.interessesIA||[]).length)fila.appendChild(_gtPubBotaoAplicar('Somar os interesses que a IA escolheu',()=>{
+    const jaTem=new Set((_gtPub.interesses||[]).map(i=>String(i.id)));
+    for(const i of s.interessesIA)if(!jaTem.has(String(i.id)))_gtPub.interesses.push({id:String(i.id),name:i.nome});
+    _gtPubRedesenha();
+  }));
+  if(s.interesses.length)fila.appendChild(_gtPubBotaoAplicar('Somar todos os interesses',()=>{
+    const jaTem=new Set((_gtPub.interesses||[]).map(i=>String(i.id)));
+    for(const i of s.interesses)if(!jaTem.has(String(i.key)))_gtPub.interesses.push({id:String(i.key),name:i.nome});
+    _gtPubRedesenha();
+  }));
+  if(fila.childNodes.length)bloco.appendChild(fila);
+  return bloco;
+}
+
+function _gtPubCaixa(txt){
+  const d=document.createElement('div');
+  d.style.cssText='background:var(--surface2,#f2ede4);border-radius:8px;padding:11px 13px;'
+    +'font-size:calc(11px*var(--gt-fs,1.3));line-height:1.6;color:var(--text,#111);';
+  if(txt)d.textContent=txt;
+  return d;
+}
+function _gtPubLinhaTexto(txt,fraco){
+  const d=document.createElement('div');
+  d.style.cssText='margin-bottom:4px;'+(fraco?'color:var(--muted,#666);font-size:calc(10px*var(--gt-fs,1.3));':'');
+  d.textContent=txt;
+  return d;
+}
+function _gtPubBotaoAplicar(rotulo,aoClicar){
+  const b=document.createElement('button');
+  b.type='button';b.textContent=rotulo;
+  b.style.cssText='padding:7px 12px;border-radius:999px;cursor:pointer;border:1px solid var(--accent,#6366f1);'
+    +'background:var(--accent,#6366f1);color:#fff;font-weight:700;'
+    +'font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));';
+  b.onclick=(e)=>{if(e&&e.preventDefault)e.preventDefault();aoClicar();};
+  return b;
+}
+
+// AS TRÊS CHAMADAS que sustentam a sugestão. Falhar aqui não derruba o editor:
+// sugestão é ajuda, e ajuda que quebra a tela é atrapalho.
+async function _gtPubBuscarSugestao(){
+  if(_gtPubSugerindo)return;
+  _gtPubSugerindo=true;_gtPubRedesenha();
+  try{
+    const act='act_'+_maCleanAccId(_gtCurAcc.ad_account_id), conta=_gtCurAcc.id;
+    const base={date_preset:'last_90d',fields:'spend,actions'};
+    const [porIdade,conjuntos,insConjuntos]=await Promise.all([
+      metaFetch('/'+act+'/insights',{...base,level:'account',breakdowns:'age'},conta).catch(()=>null),
+      metaFetch('/'+act+'/adsets',{fields:'id,name,targeting',limit:200},conta).catch(()=>null),
+      // `adset_id` PEDIDO EXPLICITAMENTE: sem ele a resposta não diz de qual
+      // conjunto cada linha é, e o cruzamento com o targeting não fecha —
+      // as cidades e os interesses simplesmente não apareciam.
+      metaFetch('/'+act+'/insights',{...base,fields:'spend,actions,adset_id',level:'adset',limit:300},conta).catch(()=>null),
+    ]);
+    const linhasIdade=(porIdade&&porIdade.data)||[];
+    const linhasConj=(insConjuntos&&insConjuntos.data)||[];
+    // QUAL RESULTADO CONTAR sai do que a conta mais produz, e o nome disso
+    // aparece na tela: contar errado inverteria a recomendação inteira.
+    const rotulo=escolherAcao([...linhasIdade,...linhasConj]);
+    const contar=contadorDe(rotulo);
+    const porConjunto={};
+    for(const l of linhasConj)if(l&&l.adset_id)porConjunto[String(l.adset_id)]=l;
+    const s=montarSugestao({
+      faixasDeIdade:lerFaixasDeIdade(linhasIdade,contar),
+      conjuntos:lerConjuntos((conjuntos&&conjuntos.data)||[],porConjunto,contar),
+    });
+    _gtPubSugestaoDados={...s,contando:rotulo};
+    _gtPubRedesenha();
+    // A EVIDÊNCIA JÁ ESTÁ NA TELA antes da IA responder. Se ela demorar ou
+    // falhar, os números continuam ali — a leitura é um acréscimo, não a
+    // condição para a tela servir.
+    if(s.temAlgo)await _gtPubLeituraDaIA(s,rotulo);
+  }catch(e){
+    _gtPubSugestaoDados={temAlgo:false,motivoVazio:'Não consegui olhar os números: '+String((e&&e.message)||e)};
+  }finally{
+    _gtPubSugerindo=false;_gtPubRedesenha();
+  }
+}
+
+// COMEÇAR DE UM PÚBLICO SALVO — a primeira coisa do editor, porque é a que
+// evita refazer à mão o que já está pronto.
+//
+// Clicar SUBSTITUI o editor inteiro: cidade, idade, gênero, interesses e
+// comportamentos. Era isto que faltava — o dono escolhia um público que já
+// trazia as cidades e a tela continuava pedindo a cidade.
+function _gtPubSecaoPublicosSalvos(){
+  const bloco=document.createElement('div');
+  const lista=_gtPubSalvosDeVerdade;
+  // Não carregou é diferente de não existir: a seção some quando não há o que
+  // mostrar, em vez de afirmar que a conta não tem público salvo.
+  if(!lista||!lista.length)return bloco;
+
+  bloco.appendChild(_gtPubTitulo('Começar de um público salvo'));
+  bloco.appendChild(_gtPubAjuda('Traz tudo pronto: onde, idade, gênero, interesses e comportamentos. Depois você ajusta o que quiser.'));
+  const fila=_gtPubLinha();
+  fila.style.flexDirection='column';
+  fila.style.alignItems='stretch';
+  for(const sa of lista){
+    const b=document.createElement('button');
+    b.type='button';
+    b.style.cssText='display:block;width:100%;text-align:left;padding:9px 11px;margin-bottom:5px;'
+      +'border-radius:8px;cursor:pointer;border:1px solid var(--border,#ddd);background:var(--surface2,#f2ede4);'
+      +'color:var(--text,#111);font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));';
+    const nome=document.createElement('div');
+    nome.style.cssText='font-weight:700;';
+    nome.textContent=sa.nome;
+    const res=document.createElement('div');
+    res.style.cssText='font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted,#666);margin-top:2px;';
+    res.textContent=sa.resumo;
+    b.appendChild(nome);b.appendChild(res);
+    b.onclick=async()=>{
+      // GUARDA A BASE. `montarTargeting` preserva o que o editor não gerencia
+      // (comportamentos, posicionamentos, tudo) copiando do original — e o
+      // original, a partir daqui, é o público salvo.
+      _gtPubAntes=lerPublico(sa.targeting);
+      _gtPub=_gtPubClonar(_gtPubAntes);
+      if(_gtNovo)_gtNovo._targetingBase=sa.targeting;
+      _gtPubRedesenha();
+      await _gtConfirm('Público aplicado',
+        '<b>'+_gtEsc(sa.nome)+'</b> entrou inteiro no editor.<br><br>'+_gtEsc(sa.resumo)
+        +(sa.cidades.length?'<br><br>Onde: '+_gtEsc(sa.cidades.join(', ')):'')
+        +'<br><br>Ajuste o que quiser daqui para baixo.',{okOnly:true});
+    };
+    fila.appendChild(b);
+  }
+  bloco.appendChild(fila);
+  return bloco;
+}
+
 function _gtPubSecaoLugar(){
   const cx=document.createElement('div');
   cx.appendChild(_gtPubTitulo('Onde mostrar'));
@@ -3297,6 +3562,8 @@ function _gtPublicoModal(nomeConjunto,rotuloDoBotao){
       sub.style.cssText='font-size:calc(12px*var(--gt-fs,1.3));color:var(--muted,#666);margin-bottom:6px;';
       sub.textContent='Conjunto: '+nomeConjunto;
       corpo.appendChild(tit);corpo.appendChild(sub);
+      corpo.appendChild(_gtPubSecaoPublicosSalvos());
+      corpo.appendChild(_gtPubSecaoSugestao());
       corpo.appendChild(_gtPubSecaoLugar());
       corpo.appendChild(_gtPubSecaoPessoas());
       corpo.appendChild(_gtPubSecaoPublicos());
@@ -3385,10 +3652,28 @@ let _gtNovoPublicacoes=[];   // publicações do perfil, para impulsionar
 let _gtNovoCarregandoPubs=false;
 let _gtNovoPubsDoPerfil='';  // de qual perfil a lista carregada é (trocar de página troca isto)
 let _gtNovoErroPubs='';      // por que a lista não veio — a tela MOSTRA isto
+let _gtNovoStories=[];       // stories ATIVOS: vivem 24h e somem
+let _gtNovoBusca='';let _gtNovoTipoPub='todos';let _gtNovoOrdemPub='recentes';
+let _gtNovoTextos=null;      // a evidência dos textos + a leitura da IA
+// O <details> de "Mais opções" é lembrado AQUI e não no DOM: cada redesenho
+// monta um <details> novo, e sem guardar isso ele fecharia sozinho no meio de
+// quem estava escrevendo a saudação.
+let _gtNovoMaisCampos=false;
+let _gtNovoBuscandoTextos=false;
+// ── RASCUNHO ────────────────────────────────────────────────────────────────
+let _gtNovoRascunhoId=null;  // a linha em gt_campanhas_rascunho desta tentativa
+let _gtNovoUltimoSalvo=null; // o estado como ele foi gravado da última vez
+let _gtNovoTimerSalvar=null;
+let _gtNovoHistorico=[];
 let _gtNovoImagens=[];
+let _gtNovoVideos=[];        // os vídeos que a conta já tem, com capa
 let _gtNovoEnviando=false, _gtNovoCriando=false, _gtNovoFaltas=false;
 
 function _gtNovoFechar(){
+  // FECHAR SALVA NA HORA, sem esperar o atraso: fechar a janela é exatamente o
+  // momento em que o trabalho se perderia.
+  if(_gtNovoTimerSalvar){clearTimeout(_gtNovoTimerSalvar);_gtNovoTimerSalvar=null;}
+  _gtNovoSalvarRascunho();
   const ov=document.getElementById('gt-novo-ov'),md=document.getElementById('gt-novo-modal');
   if(ov)ov.style.display='none';
   if(md)md.style.display='none';
@@ -3404,6 +3689,28 @@ function _gtNovoEsc(e){
 async function _gtNovoAbrir(){
   if(!_gtCurAcc){await _gtConfirm('Sem conta selecionada','Escolha uma conta de anúncios primeiro.',{okOnly:true});return;}
   _gtNovo=estadoInicial();_gtNovoPasso=0;_gtNovoFaltas=false;_gtNovoCriando=false;_gtNovoEnviando=false;
+  _gtNovoRascunhoId=null;_gtNovoUltimoSalvo=null;
+  _gtNovoBusca='';_gtNovoTipoPub='todos';_gtNovoOrdemPub='recentes';_gtNovoStories=[];
+  _gtNovoTextos=null;_gtNovoBuscandoTextos=false;_gtNovoMaisCampos=false;
+  _gtNovoHistorico=await _gtNovoLerHistorico();
+
+  // RETOMAR DE ONDE PAROU. Perguntar só quando há o que retomar: oferecer
+  // sempre viraria um clique a mais em toda campanha nova.
+  const retomar=rascunhoParaRetomar(_gtNovoHistorico,new Date());
+  if(retomar){
+    const l=montarHistorico([retomar],new Date())[0];
+    const continuar=await _gtConfirm('Você tem uma campanha começada',
+      '<b>'+_gtEsc(l.nome)+'</b>'+(l.tipo?' — '+_gtEsc(l.tipo):'')+'<br>'
+      +_gtEsc(l.quando)+', '+_gtEsc(l.ondeParou)+'.<br><br>'
+      +'Quer continuar de onde parou? Se preferir começar do zero, o rascunho continua guardado no histórico.',
+      {okLabel:'Continuar'});
+    if(continuar){
+      _gtNovo=Object.assign(estadoInicial(),retomar.estado||{});
+      _gtNovoPasso=Number(retomar.passo)||0;
+      _gtNovoRascunhoId=retomar.id;
+      _gtNovoUltimoSalvo=JSON.parse(JSON.stringify(_gtNovo));
+    }
+  }
   const ov=document.getElementById('gt-novo-ov'),md=document.getElementById('gt-novo-modal');
   if(!ov||!md)return;
   ov.style.display='block';md.style.display='flex';
@@ -3414,17 +3721,18 @@ async function _gtNovoAbrir(){
 
   // ZERA ANTES DE CARREGAR: uma falha de rede não pode deixar de pé a lista da
   // ABERTURA ANTERIOR, que pode ser de outra conta.
-  _gtNovoObjetivos=[];_gtNovoImagens=[];_gtNovoPaginas=[];_gtNovoNumerosWa=[];
+  _gtNovoObjetivos=[];_gtNovoImagens=[];_gtNovoVideos=[];_gtNovoPaginas=[];_gtNovoNumerosWa=[];
   // OS CONJUNTOS QUE JÁ EXISTEM servem a DUAS perguntas de uma vez: quais
   // combinações esta conta já rodou (o selo "já usado aqui") e quais números de
   // WhatsApp a Meta já aceitou. Uma chamada, dois usos.
-  const [pags,imgs,sugerido,conjuntos]=await Promise.all([
+  const [pags,imgs,vids,sugerido,conjuntos]=await Promise.all([
     _gtNovoBuscarPaginas(),
     _gtNovoBuscarImagens(),
+    _gtNovoBuscarVideos(),
     _gtNovoSugerirIdentidade(),
     _gtNovoBuscarConjuntos(),
   ]);
-  _gtNovoPaginas=pags;_gtNovoImagens=imgs;
+  _gtNovoPaginas=pags;_gtNovoImagens=imgs;_gtNovoVideos=vids;
   _gtNovoNumerosWa=numerosJaUsados(conjuntos);
   // O CATÁLOGO É FIXO (mora no código, não no banco): a lista do que a conta já
   // usou nunca ensina nada novo, e conta nova começaria vazia. O que ela já
@@ -3435,7 +3743,9 @@ async function _gtNovoAbrir(){
   // página, o Instagram e o WhatsApp dela já vêm preenchidos — é o caso comum e
   // poupa três escolhas. Tudo continua trocável na tela: foi exatamente amarrar
   // isto ao cadastro que quebrou o botão em conta sem loja registrada.
-  if(sugerido)Object.assign(_gtNovo,sugerido);
+  // A SUGESTÃO DO CADASTRO só entra em campanha começando do zero. Num rascunho
+  // retomado ela sobrescreveria a página que a pessoa já tinha escolhido.
+  if(sugerido&&!_gtNovoRascunhoId)Object.assign(_gtNovo,sugerido);
   _gtNovoRedesenhar();
 }
 
@@ -3464,6 +3774,65 @@ async function _gtNovoBuscarPaginas(){
   }catch(e){ return []; }
 }
 
+// ── SALVAR O RASCUNHO ───────────────────────────────────────────────────────
+//
+// Sozinho, atrasado, e só quando mudou. Atrasado (1,2 s) porque digitar o nome
+// dispara uma mudança por letra; só quando mudou porque redesenhar a tela não é
+// motivo para escrever no banco.
+//
+// FALHAR AQUI NÃO ATRAPALHA NADA. Rascunho é rede de segurança, não parte do
+// caminho: se o banco recusar, a pessoa continua criando a campanha do mesmo
+// jeito e no máximo perde a proteção contra fechar a aba.
+function _gtNovoAgendarSalvar(){
+  if(_gtNovoTimerSalvar)clearTimeout(_gtNovoTimerSalvar);
+  _gtNovoTimerSalvar=setTimeout(()=>{_gtNovoSalvarRascunho();},1200);
+}
+
+async function _gtNovoSalvarRascunho(){
+  try{
+    if(!_gtNovo||!_gtCurAcc)return;
+    if(!valeSalvar(_gtNovo))return;
+    if(!rascunhoMudou(_gtNovoUltimoSalvo,_gtNovo))return;
+    const sub=_gtNovoObjetivos.find(o=>o.id===_gtNovo.objetivo);
+    const linha=linhaParaSalvar({
+      estado:_gtNovo,passo:_gtNovoPasso,contaId:_gtCurAcc.id,
+      tipoRotulo:(sub&&sub.rotulo)||'',
+    });
+    if(_gtNovoRascunhoId){
+      const {error}=await sbClient.from('gt_campanhas_rascunho').update(linha).eq('id',_gtNovoRascunhoId);
+      if(error)return;
+    }else{
+      const {data,error}=await sbClient.from('gt_campanhas_rascunho').insert(linha).select('id').single();
+      if(error||!data)return;
+      _gtNovoRascunhoId=data.id;
+    }
+    _gtNovoUltimoSalvo=JSON.parse(JSON.stringify(_gtNovo));
+  }catch(e){ /* rede de segurança não pode virar obstáculo */ }
+}
+
+// O DESFECHO desta tentativa, guardado para o histórico. É o que responde,
+// meses depois, "por que essa campanha não foi?".
+async function _gtNovoFecharRascunho(status,resultado){
+  try{
+    if(!_gtNovoRascunhoId)return;
+    await sbClient.from('gt_campanhas_rascunho')
+      .update({status,resultado:resultado||null}).eq('id',_gtNovoRascunhoId);
+  }catch(e){ /* idem */ }
+}
+
+// O HISTÓRICO DESTA CONTA — rascunhos e enviados, do time inteiro.
+async function _gtNovoLerHistorico(){
+  try{
+    if(!_gtCurAcc)return [];
+    const {data,error}=await sbClient.from('gt_campanhas_rascunho')
+      .select('id,nome,tipo,status,passo,estado,resultado,updated_at,created_at')
+      .eq('account_id',String(_gtCurAcc.id))
+      .order('updated_at',{ascending:false}).limit(40);
+    if(error)return [];
+    return data||[];
+  }catch(e){ return []; }
+}
+
 // AS PUBLICAÇÕES DO PERFIL, para impulsionar.
 //
 // Vêm de `/{ig-user-id}/media` — medido em 03/08/2026: devolve id, legenda,
@@ -3482,19 +3851,22 @@ async function _gtNovoTalvezCarregarPublicacoes(){
 
   _gtNovoCarregandoPubs=true;_gtNovoPublicacoes=[];_gtNovoErroPubs='';_gtNovoRedesenhar();
   try{
-    const r=await metaFetch('/'+perfil+'/media',
-      {fields:'id,caption,media_type,thumbnail_url,media_url,permalink,timestamp',limit:24},_gtCurAcc.id);
-    _gtNovoPublicacoes=((r&&r.data)||[]).filter(m=>m&&m.id).map(m=>({
-      id:String(m.id),
-      legenda:m.caption||'',
-      tipo:m.media_type||'',
-      // VÍDEO não tem `media_url` que sirva de miniatura (é o arquivo do vídeo,
-      // pesado e às vezes bloqueado); é `thumbnail_url` que serve. Foto não tem
-      // thumbnail, e aí o `media_url` é a própria imagem.
-      miniatura:m.thumbnail_url||(m.media_type==='VIDEO'?'':m.media_url)||'',
-      data:m.timestamp||'',
-      link:m.permalink||'',
-    }));
+    // O HISTÓRICO INTEIRO, com o detalhe que a Meta dá de graça na própria
+    // lista: tipo, curtidas e comentários. Uma chamada por publicação para
+    // buscar isso seria 12 idas para responder o que já veio.
+    //
+    // STORIES vêm junto, de outro endereço: eles não aparecem em /media.
+    // Falhar ali não derruba nada — a lista vazia é o caso normal.
+    const [r,st]=await Promise.all([
+      metaFetch('/'+perfil+'/media',
+        {fields:'id,caption,media_type,media_product_type,thumbnail_url,media_url,permalink,timestamp,like_count,comments_count',limit:50},_gtCurAcc.id),
+      metaFetch('/'+perfil+'/stories',
+        {fields:'id,media_type,media_product_type,thumbnail_url,media_url,permalink,timestamp'},_gtCurAcc.id).catch(()=>null),
+    ]);
+    _gtNovoStories=lerPublicacoes((st&&st.data)||[]);
+    // Os stories entram NA MESMA grade, com o selo "Story" — são impulsionáveis
+    // do mesmo jeito, e separá-los em duas listas faria procurar duas vezes.
+    _gtNovoPublicacoes=[..._gtNovoStories,...lerPublicacoes((r&&r.data)||[])];
     _gtNovoPubsDoPerfil=perfil;
   }catch(e){
     // O ERRO VAI PARA A TELA, e não some num catch mudo.
@@ -3507,6 +3879,103 @@ async function _gtNovoTalvezCarregarPublicacoes(){
     _gtNovoErroPubs=String((e&&e.message)||e);
   }
   finally{ _gtNovoCarregandoPubs=false;_gtNovoRedesenhar(); }
+}
+
+// OS TEXTOS QUE JÁ RODARAM NESTA CONTA, com o custo real de cada um.
+//
+// PAGINADO de propósito, e com `date_preset:'maximum'`: a primeira medição usou
+// 90 dias e achou 3 textos com resultado — parecia que não havia dado. Com tudo
+// o que a conta já rodou são 81 textos, 19 deles com resultado suficiente. O
+// dado estava lá; a janela é que era curta.
+//
+// (E `time_range` com um ano voltou VAZIO. O atalho `maximum` funciona; o
+// intervalo escrito à mão, não. Descoberto medindo.)
+async function _gtNovoBuscarTextos(){
+  if(_gtNovoBuscandoTextos)return;
+  _gtNovoBuscandoTextos=true;_gtNovoRedesenhar();
+  try{
+    const act=_gtCleanAct(_gtCurAcc.ad_account_id), conta=_gtCurAcc.id;
+    const paginar=async(caminho,params,voltas)=>{
+      let saida=[],depois=null,v=0;
+      do{
+        const r=await metaFetch(caminho,{...params,...(depois?{after:depois}:{})},conta);
+        saida=saida.concat((r&&r.data)||[]);
+        depois=((r&&r.data)||[]).length&&r.paging&&r.paging.cursors?r.paging.cursors.after:null;
+      }while(depois&&++v<voltas);
+      return saida;
+    };
+    const [ads,ins]=await Promise.all([
+      paginar('/'+act+'/ads',{fields:'id,creative{object_story_spec,body}',limit:200},5),
+      paginar('/'+act+'/insights',{level:'ad',fields:'ad_id,spend,actions,campaign_name',date_preset:'maximum',limit:500},5),
+    ]);
+    const rotulo=escolherAcao(ins);
+    const contar=contadorDe(rotulo);
+    const porAd={};
+    for(const l of ins)if(l&&l.ad_id)porAd[String(l.ad_id)]=l;
+    const s=montarSugestaoDeTexto(agruparPorTexto(ads,porAd,contar));
+    _gtNovoTextos={...s,contando:rotulo};
+    _gtNovoRedesenhar();
+    if(s.temAlgo)await _gtNovoLeituraDeTexto(s,rotulo);
+  }catch(e){
+    _gtNovoTextos={temAlgo:false,motivoVazio:'Não consegui ler os textos: '+String((e&&e.message)||e)};
+  }finally{
+    _gtNovoBuscandoTextos=false;_gtNovoRedesenhar();
+  }
+}
+
+// A LEITURA E AS SUGESTÕES DA IA. A evidência já está na tela antes dela — se a
+// IA falhar, os textos reais com o custo continuam ali.
+async function _gtNovoLeituraDeTexto(evidencia,rotulo){
+  try{
+    _gtNovoTextos={..._gtNovoTextos,pensando:true};_gtNovoRedesenhar();
+    const {data:{session}}=await sbClient.auth.getSession();
+    if(!session)return;
+    const sub=_gtNovoObjetivos.find(o=>o.id===_gtNovo.objetivo);
+    const enxuto=(x)=>({texto:String(x.texto).slice(0,300),custo:Number(x.custo.toFixed(2)),resultados:x.resultados});
+    const r=await fetch(SUPABASE_URL+'/functions/v1/sugerir-publico-ia',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+session.access_token,'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({
+        modo:'texto',
+        marca:(_gtCurAcc&&(_gtCurAcc.display_name||_gtCurAcc.name))||'',
+        objetivo:(sub&&sub.rotulo)||'',
+        evidencia:{
+          contando:rotulo,
+          melhores:evidencia.melhores.map(enxuto),
+          piores:evidencia.piores.map(enxuto),
+          // AS VAGAS VÃO SEPARADAS, e o prompt sabe o que fazer com elas: são o
+          // texto mais barato da conta e não servem de modelo para vender.
+          vagas:(evidencia.vagas||[]).slice(0,4).map(enxuto),
+          diferenca:evidencia.diferenca,
+        },
+      }),
+    });
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok||!d.ok){
+      _gtNovoTextos={..._gtNovoTextos,pensando:false,
+        erro:(d&&(d.comoResolver||d.detalhe||d.error))||('a função respondeu '+r.status)};
+      return;
+    }
+    _gtNovoTextos={..._gtNovoTextos,pensando:false,leitura:d.leitura||'',cuidado:d.cuidado||'',sugestoes:d.sugestoes||[]};
+  }catch(e){
+    _gtNovoTextos={..._gtNovoTextos,pensando:false,erro:String((e&&e.message)||e)};
+  }finally{ _gtNovoRedesenhar(); }
+}
+
+// OS VÍDEOS QUE A CONTA JÁ TEM.
+//
+// `picture` é a CAPA que a Meta já gerou — e capa é obrigatória no criativo de
+// vídeo (medido num anúncio real: `video_data.image_url`). Vídeo sem capa entra
+// na lista assim mesmo, marcado: escondê-lo faria parecer que ele não existe,
+// e a tela avisa na hora de escolher.
+async function _gtNovoBuscarVideos(){
+  try{
+    const r=await metaFetch('/'+_gtCleanAct(_gtCurAcc.ad_account_id)+'/advideos',
+      {fields:'id,title,picture,created_time',limit:12},_gtCurAcc.id);
+    return ((r&&r.data)||[]).filter(v=>v&&v.id).map(v=>({
+      id:String(v.id),titulo:v.title||'',capa:v.picture||'',data:v.created_time||'',
+    }));
+  }catch(e){ return []; }
 }
 
 // OS NÚMEROS DE WHATSAPP QUE A META JÁ ACEITOU NESTA CONTA.
@@ -3561,12 +4030,30 @@ function _gtNovoRedesenhar(htmlDireto){
   if(htmlDireto){corpo.innerHTML=htmlDireto;return;}
   const feito=montarAssistente({
     doc:document,estado:_gtNovo,passo:_gtNovoPasso,
-    objetivos:_gtNovoObjetivos,imagens:_gtNovoImagens,paginas:_gtNovoPaginas,
+    objetivos:_gtNovoObjetivos,imagens:_gtNovoImagens,videos:_gtNovoVideos,paginas:_gtNovoPaginas,
     // A LINHA DO OBJETIVO vai junto porque o desenho depende dela: é ela que diz
     // se o número de WhatsApp é pedido neste passo.
     objetivoRow:_gtNovoObjetivos.find(o=>o.id===_gtNovo.objetivo)||null,
     numerosWa:_gtNovoNumerosWa,
+    // AS PUBLICAÇÕES E O ESTADO DELAS. Sem estas três linhas o desenho recebe
+    // `undefined`, cai no ramo de lista vazia e diz que não há publicação —
+    // enquanto a lista carregada está aqui do lado, cheia. Foi o que aconteceu.
+    publicacoes:_gtNovoPublicacoes,
+    carregandoPublicacoes:_gtNovoCarregandoPubs,
+    erroPublicacoes:_gtNovoErroPubs,
+    stories:_gtNovoStories,mostrarAvisoStories:true,
+    textos:_gtNovoTextos,buscandoTextos:_gtNovoBuscandoTextos,aoBuscarTextos:_gtNovoBuscarTextos,
+    buscaPublicacao:_gtNovoBusca,tipoPublicacao:_gtNovoTipoPub,ordemPublicacao:_gtNovoOrdemPub,
+    // A BUSCA NÃO É ESTADO DA CAMPANHA: ela não vai para o rascunho nem para a
+    // Meta. Por isso muda por aqui, e não pelo `aoMudar`, que grava no banco.
+    aoMudarBusca:(m)=>{
+      if(m.buscaPublicacao!==undefined)_gtNovoBusca=m.buscaPublicacao;
+      if(m.tipoPublicacao!==undefined)_gtNovoTipoPub=m.tipoPublicacao;
+      if(m.ordemPublicacao!==undefined)_gtNovoOrdemPub=m.ordemPublicacao;
+      _gtNovoRedesenhar();
+    },
     enviando:_gtNovoEnviando,criando:_gtNovoCriando,mostrarFaltas:_gtNovoFaltas,
+    maisCamposAberto:_gtNovoMaisCampos,
     // `semRedesenhar` existe para digitação: redesenhar a cada letra faria o
     // campo perder o foco no meio da palavra.
     aoMudar:(mudanca,op)=>{
@@ -3577,11 +4064,13 @@ function _gtNovoRedesenhar(htmlDireto){
         _gtNovo.publicacaoId='';_gtNovo.publicacaoResumo='';
         _gtNovoPublicacoes=[];_gtNovoPubsDoPerfil='';
       }
+      if(op&&op.maisCamposAberto!==undefined)_gtNovoMaisCampos=!!op.maisCamposAberto;
       Object.assign(_gtNovo,mudanca);
       if(!(op&&op.semRedesenhar))_gtNovoRedesenhar();
       // Mudar o TIPO no passo 1 pode passar a exigir publicação — e mudar de
       // página no passo 2 muda de qual perfil elas vêm.
       if(mudanca&&(mudanca.objetivo!==undefined||mudanca.pageId!==undefined))_gtNovoTalvezCarregarPublicacoes();
+      _gtNovoAgendarSalvar();
     },
     aoPasso:(n)=>{
       _gtNovoPasso=n;_gtNovoFaltas=false;_gtNovoRedesenhar();
@@ -3590,6 +4079,7 @@ function _gtNovoRedesenhar(htmlDireto){
       // que a maioria dos tipos não usa — e antes do passo 2 nem se sabe de
       // qual perfil elas viriam.
       _gtNovoTalvezCarregarPublicacoes();
+      _gtNovoAgendarSalvar();
     },
     aoIrPara:(chave)=>{_gtNovoPasso=Math.max(0,PASSOS.findIndex(p=>p.chave===chave));_gtNovoFaltas=true;_gtNovoRedesenhar();},
     aoMostrarFaltas:()=>{_gtNovoFaltas=true;_gtNovoRedesenhar();},
@@ -3630,9 +4120,10 @@ async function _gtNovoPublicoMiolo(){
   _gtPub=_gtPubClonar(_gtPubAntes);
   _gtPubAtivo=false;
   _gtPubObjetivo='';_gtPubSugeridos=null;_gtPubSugeridoEm=null;
-  [_gtPubSalvos,_gtPubPresets]=await Promise.all([
+  [_gtPubSalvos,_gtPubPresets,_gtPubSalvosDeVerdade]=await Promise.all([
     _gtListarPublicosSalvos().catch(()=>null),
     _gtListarPresets().catch(()=>null),
+    _gtListarPublicosDeVerdade().catch(()=>null),
   ]);
   const escolha=await _gtPublicoModal('nova campanha','Usar este público');
   if(escolha){_gtNovo.publico=escolha;}
@@ -3719,6 +4210,7 @@ async function _gtNovoCriar(){
     if(!ad||!ad.id)throw new Error('a Meta aceitou mas não devolveu o código do anúncio');
 
     _gtNovoCriando=false;
+    await _gtNovoFecharRascunho('criada',{campanha:c.id,conjunto:cj.id,anuncio:ad.id,criativo:cr.id});
     _gtNovoFechar();
     await _gtConfirm('Pronto — está criado e pausado',
       'Campanha <b>'+_gtEsc(_gtNovo.nome)+'</b> criada com 1 conjunto e 1 anúncio.<br><br>'
@@ -3769,10 +4261,14 @@ async function _gtNovoCriar(){
 // Provado em validar-envio-de-imagem.mjs (4/4).
 function _gtNovoEnviarImagem(){
   const inp=document.createElement('input');
-  inp.type='file';inp.accept='image/png,image/jpeg';
+  inp.type='file';inp.accept='image/png,image/jpeg,video/mp4,video/quicktime';
   inp.onchange=async()=>{
     const arq=inp.files&&inp.files[0];
     if(!arq)return;
+    // VÍDEO SEGUE OUTRO CAMINHO: quem baixa é a Meta, pelo `file_url`, porque um
+    // arquivo de dezenas de MB carregado na função do servidor estouraria o
+    // limite dela. A trava de origem é a MESMA — só o Storage deste projeto.
+    if(/^video\//.test(arq.type||'')){ await _gtNovoEnviarVideo(arq); return; }
     // CONFERE ANTES DE SUBIR. A Meta recusa imagem pequena, e descobrir isso
     // depois de esperar o upload é o pior momento possível.
     const dim=await _gtNovoDimensoes(arq).catch(()=>({}));
@@ -3805,6 +4301,57 @@ function _gtNovoEnviarImagem(){
     }
   };
   inp.click();
+}
+
+// ENVIAR VÍDEO: arquivo → Storage → Meta (que baixa) → id + capa.
+//
+// A Meta demora para processar: o vídeo entra e a capa só existe depois. Por
+// isso buscamos a capa numa segunda ida, e — se ela ainda não estiver pronta —
+// dizemos isso em vez de deixar um vídeo sem capa parecendo escolhível.
+async function _gtNovoEnviarVideo(arq){
+  _gtNovoEnviando=true;_gtNovoRedesenhar();
+  try{
+    const {data:{session}}=await sbClient.auth.getSession();
+    const caminho='gestor-envios/'+Date.now()+'-'+String(arq.name||'video').replace(/[^a-zA-Z0-9._-]/g,'_');
+    const up=await sbClient.storage.from('fabrica-criativos').upload(caminho,arq,{upsert:true,contentType:arq.type});
+    if(up.error)throw new Error(up.error.message);
+    const {data:pub}=sbClient.storage.from('fabrica-criativos').getPublicUrl(caminho);
+
+    const r=await fetch(SUPABASE_URL+'/functions/v1/meta-proxy',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+session.access_token,'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({
+        accountId:_gtCurAcc.id,
+        path:'/'+_gtCleanAct(_gtCurAcc.ad_account_id)+'/advideos',
+        method:'POST',params:{name:String(arq.name||'vídeo')},
+        videoFromUrl:pub.publicUrl,
+      }),
+    });
+    const d=await r.json().catch(()=>({}));
+    if(!d||!d.id)throw new Error((d&&d.error&&(d.error.error_user_msg||d.error.message))||'a Meta não devolveu o código do vídeo');
+
+    // A CAPA vem numa segunda ida: a Meta ainda está processando quando responde.
+    let capa='';
+    for(let t=1;t<=6&&!capa;t++){
+      await new Promise(r2=>setTimeout(r2,2500));
+      try{
+        const v=await metaFetch('/'+d.id,{fields:'picture,status'},_gtCurAcc.id);
+        capa=(v&&v.picture)||'';
+      }catch(e){ /* tenta de novo */ }
+    }
+    _gtNovoVideos=[{id:String(d.id),titulo:arq.name||'vídeo enviado',capa,data:''},..._gtNovoVideos];
+    _gtNovo.videoId=String(d.id);_gtNovo.videoCapa=capa;
+    _gtNovo.imagemHash='';_gtNovo.imagemPreview='';
+    if(!capa){
+      await _gtConfirm('Vídeo enviado, capa ainda não',
+        'A Meta recebeu o vídeo, mas ainda está gerando a capa — e ela é obrigatória no anúncio.<br><br>'
+        +'Espere um minuto e abra o assistente de novo, ou escolha outro vídeo.',{okOnly:true});
+    }
+  }catch(e){
+    await _gtConfirm('Não consegui enviar o vídeo',_gtEsc(String((e&&e.message)||e)),{okOnly:true});
+  }finally{
+    _gtNovoEnviando=false;_gtNovoRedesenhar();
+  }
 }
 
 // Largura e altura sem depender de biblioteca. Falhar aqui não acusa a imagem —
@@ -3850,10 +4397,11 @@ async function _gtAbrirPublico(conjunto){
     // As três listas são opcionais: null significa "não carregou", e cada seção
     // avisa por si (a faixa de sugestões simplesmente não aparece). Nenhuma
     // delas pode impedir o dono de trocar uma cidade.
-    [_gtPubSalvos,_gtPubPresets,_gtPubSugeridos]=await Promise.all([
+    [_gtPubSalvos,_gtPubPresets,_gtPubSugeridos,_gtPubSalvosDeVerdade]=await Promise.all([
       _gtListarPublicosSalvos().catch(()=>null),
       _gtListarPresets().catch(()=>null),
       _gtListarSugestoes().catch(()=>null),
+      _gtListarPublicosDeVerdade().catch(()=>null),
     ]);
     _gtPubObjetivo=String((conjunto&&conjunto.objetivo)||'');
     // A data mais recente entre as linhas da marca: é uma rodada só, então
@@ -4703,6 +5251,64 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-cfg-title){font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:700;color:var(--text);}
 .tela-gestao-trafego :deep(.gt-cfg-close){background:none;border:none;color:var(--muted);cursor:pointer;font-size:calc(16px*var(--gt-fs,1.3));padding:0;line-height:1;}
 
+/* ── O ASSISTENTE, VESTIDO COMO O RESTO DA CASA ───────────────────────────
+   O assistente nasceu montado com estilo solto no JavaScript, e por isso
+   destoava: botão de um tamanho aqui, de outro ali, número em Sora onde o resto
+   do painel usa IBM Plex Mono. Não é uma linguagem visual nova — é a MESMA,
+   aplicada a uma tela que ficou de fora dela.
+
+   As três decisões:
+   1. NÚMERO É DADO, e dado tem fonte própria nesta casa (--fonte-dados). Preço,
+      custo e contagem passam a usá-la — é o sinal que o painel inteiro já dá.
+   2. BOTÃO TEM TRÊS PAPÉIS, não sete tamanhos: o que faz a coisa (primário), o
+      que oferece uma escolha (secundário) e o que só recua (fantasma).
+   3. O PASSO A PASSO DIZ OS NOMES. Cinco pontinhos não informam nada; cinco
+      nomes dizem onde se está, o que já passou e o que falta. */
+
+/* A TRILHA. Nomeada, e não pontilhada: "passo 3 de 5" responde quanto falta,
+   mas não responde o que vem. */
+.tela-gestao-trafego :deep(.gtw-trilha){display:flex;gap:2px;margin:0 0 16px;align-items:stretch;}
+.tela-gestao-trafego :deep(.gtw-passo){flex:1;min-width:0;padding:0 0 7px;border-bottom:2px solid var(--border);
+  font-family:var(--fonte-principal);font-size:calc(8.5px*var(--gt-fs,1.3));font-weight:600;letter-spacing:.6px;
+  text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  transition:color .18s ease,border-color .18s ease;}
+.tela-gestao-trafego :deep(.gtw-passo.feito){color:var(--green);border-bottom-color:color-mix(in srgb,var(--green) 55%,transparent);}
+.tela-gestao-trafego :deep(.gtw-passo.agora){color:var(--accent);border-bottom-color:var(--accent);font-weight:800;}
+.tela-gestao-trafego :deep(.gtw-passo .n){font-family:var(--fonte-dados);margin-right:5px;opacity:.75;}
+
+/* O CABEÇALHO do passo: pergunta grande, resposta curta embaixo. */
+.tela-gestao-trafego :deep(.gtw-titulo){font-family:var(--fonte-principal);font-size:calc(14px*var(--gt-fs,1.3));
+  font-weight:800;letter-spacing:-.2px;margin:0 0 4px;color:var(--text);}
+.tela-gestao-trafego :deep(.gtw-ajuda){font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--muted);
+  margin:0 0 14px;line-height:1.55;max-width:52ch;}
+
+/* OS TRÊS PAPÉIS DE BOTÃO. `focus-visible` e não `focus`: o anel tem que
+   aparecer para quem navega no teclado e sumir para quem clica. */
+.tela-gestao-trafego :deep(.gtw-b){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));
+  font-weight:700;padding:9px 17px;border-radius:9px;cursor:pointer;border:1px solid transparent;
+  transition:transform .12s ease,box-shadow .18s ease,background .18s ease,border-color .18s ease;}
+.tela-gestao-trafego :deep(.gtw-b:focus-visible){outline:2px solid var(--accent);outline-offset:2px;}
+.tela-gestao-trafego :deep(.gtw-b:active:not(:disabled)){transform:translateY(1px);}
+.tela-gestao-trafego :deep(.gtw-b:disabled){opacity:.5;cursor:default;}
+.tela-gestao-trafego :deep(.gtw-b.primario){background:var(--accent);color:#fff;box-shadow:var(--shadow-sm);}
+.tela-gestao-trafego :deep(.gtw-b.primario:hover:not(:disabled)){box-shadow:var(--shadow-md);}
+.tela-gestao-trafego :deep(.gtw-b.secundario){background:var(--surface2);color:var(--text);border-color:var(--border);}
+.tela-gestao-trafego :deep(.gtw-b.secundario:hover:not(:disabled)){border-color:var(--accent);color:var(--accent);}
+.tela-gestao-trafego :deep(.gtw-b.fantasma){background:none;color:var(--muted);}
+.tela-gestao-trafego :deep(.gtw-b.fantasma:hover:not(:disabled)){color:var(--text);}
+
+/* NÚMERO É DADO. A fonte muda porque o painel inteiro já muda — é o sinal de
+   "isto é medida", e o assistente era o único lugar que não dava esse sinal. */
+.tela-gestao-trafego :deep(.gtw-num){font-family:var(--fonte-dados);font-feature-settings:'tnum';}
+
+/* A ENTRADA DO PASSO. Um movimento só, curto, no conteúdo — o suficiente para
+   a troca ser percebida sem virar espetáculo. Quem pediu menos movimento no
+   sistema não recebe nenhum. */
+@media (prefers-reduced-motion: no-preference){
+  .tela-gestao-trafego :deep(.gtw-entra){animation:gtwEntra .22s ease both;}
+}
+@keyframes gtwEntra{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
 /* ── ASSISTENTE DE NOVA CAMPANHA ──────────────────────────────────────────
    Mesmo desenho do editor de métricas (#gt-cfg-*): é a mesma casa, e inventar
    uma segunda janela faria a tela parecer dois aplicativos. O miolo é montado
@@ -4721,7 +5327,17 @@ Object.assign(window, {
    já traz o seu, e somar os dois dava margem dobrada no corpo e um rodapé
    encolhido no canto esquerdo, com o "Avançar" longe da borda direita. Estes
    dois seletores são moldura, não desenho. */
-.tela-gestao-trafego :deep(#gt-novo-corpo){flex:1;min-height:0;overflow-y:auto;font-family:var(--fonte-principal);color:var(--text);font-size:calc(12px*var(--gt-fs,1.3));}
+/* SOMBRA DE ROLAGEM, só CSS. No passo dos tipos a lista continua abaixo da
+   dobra e nada dizia isso — "Cliques para o site" aparecia cortado ao meio,
+   parecendo o fim. Os dois primeiros planos ficam presos ao conteúdo
+   (`local`) e os dois últimos à moldura (`scroll`): a sombra só aparece do
+   lado em que ainda há o que ver. */
+.tela-gestao-trafego :deep(#gt-novo-corpo){flex:1;min-height:0;overflow-y:auto;font-family:var(--fonte-principal);color:var(--text);font-size:calc(12px*var(--gt-fs,1.3));
+  background:
+    linear-gradient(var(--surface) 30%, transparent) top / 100% 24px no-repeat local,
+    linear-gradient(transparent, var(--surface) 70%) bottom / 100% 24px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, rgba(0,0,0,.16), transparent) top / 100% 10px no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, rgba(0,0,0,.16), transparent) bottom / 100% 10px no-repeat scroll;}
 .tela-gestao-trafego :deep(#gt-novo-rodape){flex:0 0 auto;font-family:var(--fonte-principal);}
 .tela-gestao-trafego :deep(#gt-novo-rodape > *){width:100%;box-sizing:border-box;}
 /* O ÍCONE DO SELETOR DE DATA é desenhado pelo navegador e nasce PRETO — no tema

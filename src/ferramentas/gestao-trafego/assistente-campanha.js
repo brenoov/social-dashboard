@@ -9,9 +9,24 @@
 // que importa: não lê `window`, não fala com rede, e não guarda estado — quem
 // chama passa o estado e recebe o desenho.
 import { GRUPOS, bloqueio, podeSerCriado, usaPublicacao } from './subobjetivos.js';
+// A busca, o filtro, a ordem e a descrição de cada publicação moram num módulo
+// puro — ver conteudo-existente.js.
+import { filtrar, ordenar, tiposPresentes, descricaoDaPublicacao, ORDENS, AVISO_STORIES } from './conteudo-existente.js';
+import { linhaDoTexto, AVISO_DAS_VAGAS } from './sugerir-texto.js';
+import { botoesDe, botaoEscolhido, avisoDeTamanho, SAUDACAO_PADRAO, RESPOSTA_PADRAO } from './campos-do-anuncio.js';
 import { PASSOS, faltaNoPasso, primeiroPassoIncompleto, resumoDoQueVaiSerCriado, ORCAMENTO_MINIMO_CENTAVOS, pedeWhatsapp, pedeSite, numerosParaPagina } from './criar-campanha.js';
 
 const reais = (c) => (Number(c) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+// Com CLASSE, e não com estilo solto. O estilo solto foi o que fez esta tela
+// destoar do resto: botão de um tamanho aqui, de outro ali. As classes moram no
+// <style> da tela — ver ".gtw-*" em tela-de-gestao-trafego.vue.
+function ec(doc, tag, className, texto) {
+  const e = doc.createElement(tag);
+  if (className) e.className = className;
+  if (texto != null) e.textContent = texto;
+  return e;
+}
 
 function el(doc, tag, css, texto) {
   const e = doc.createElement(tag);
@@ -20,7 +35,18 @@ function el(doc, tag, css, texto) {
   return e;
 }
 
+// O NOME CURTO de cada passo, para a trilha. Curto de propósito: cinco títulos
+// inteiros lado a lado não cabem, e cortados no meio não informam.
+const NOMES_CURTOS = {
+  objetivo: 'O que',
+  identidade: 'De quem',
+  orcamento: 'Quanto',
+  publico: 'Para quem',
+  anuncio: 'O anúncio',
+};
+
 const CSS = {
+  // Mantidos porque muitos trechos ainda os usam; os novos vão de classe.
   tit: 'font-size:calc(12px*var(--gt-fs,1.3));font-weight:800;margin:0 0 3px;',
   ajuda: 'font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--muted);margin:0 0 12px;line-height:1.5;',
   linha: 'display:flex;gap:7px;flex-wrap:wrap;align-items:center;',
@@ -184,7 +210,7 @@ function passoIdentidade(doc, o) {
   if (pedeWhatsapp(o.objetivoRow)) {
     const wa = el(doc, 'div', 'margin-top:14px;');
     wa.appendChild(el(doc, 'label', CSS.rotulo, 'Número do WhatsApp que vai receber as conversas'));
-    const campo = el(doc, 'input', CSS.campo);
+    const campo = el(doc, 'input', CSS.campo + 'font-family:var(--fonte-dados);letter-spacing:.4px;');
     campo.type = 'tel';
     campo.value = o.estado.whatsapp || '';
     campo.placeholder = '55 19 99999-9999';
@@ -200,8 +226,10 @@ function passoIdentidade(doc, o) {
       const fila = el(doc, 'div', CSS.linha + 'margin-top:8px;');
       fila.appendChild(el(doc, 'span', 'font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);', 'Já usados aqui:'));
       for (const n of conhecidos.slice(0, 4)) {
-        fila.appendChild(pastilha(doc, n.numero, String(o.estado.whatsapp || '').replace(/\D/g, '') === n.numero,
-          () => o.aoMudar({ whatsapp: n.numero })));
+        const p = pastilha(doc, n.numero, String(o.estado.whatsapp || '').replace(/\D/g, '') === n.numero,
+          () => o.aoMudar({ whatsapp: n.numero }));
+        p.style.cssText += 'font-family:var(--fonte-dados);letter-spacing:.3px;';
+        fila.appendChild(p);
       }
       wa.appendChild(fila);
     }
@@ -226,7 +254,9 @@ function passoOrcamento(doc, o) {
     'A campanha nasce PAUSADA. Nada é gasto até você ativar no Gerenciador ou aqui.'));
 
   const fila = el(doc, 'div', CSS.linha);
-  const valor = el(doc, 'input', CSS.campo + 'width:130px;');
+  // NÚMERO É DADO: o painel inteiro usa a fonte de dados para medida, e o
+  // orçamento é a medida mais importante desta tela.
+  const valor = el(doc, 'input', CSS.campo + 'width:140px;font-family:var(--fonte-dados);');
   valor.type = 'text';
   valor.value = reais(o.estado.orcamentoCentavos);
   valor.oninput = () => {
@@ -300,6 +330,80 @@ function passoPublico(doc, o) {
   return cx;
 }
 
+// OS TEXTOS QUE JÁ FUNCIONARAM, e a sugestão da IA em cima deles.
+//
+// Era o único passo do assistente onde ainda se escrevia numa caixa vazia. A
+// evidência aparece PRIMEIRO — os textos reais com o custo ao lado —, e a
+// sugestão da IA vem depois, marcada. Misturar as duas faria a opinião dela
+// parecer medida.
+function secaoDeTexto(doc, o) {
+  const bloco = el(doc, 'div', 'margin:0 0 12px;');
+  const t = o.textos;
+
+  if (!t) {
+    if (!o.aoBuscarTextos) return bloco;
+    const b = ec(doc, 'button', 'gtw-b secundario', o.buscandoTextos ? 'Olhando os textos…' : 'Ver os textos que já funcionaram aqui');
+    b.type = 'button';
+    b.disabled = !!o.buscandoTextos;
+    b.onclick = (ev) => { if (ev && ev.preventDefault) ev.preventDefault(); o.aoBuscarTextos(); };
+    bloco.appendChild(b);
+    return bloco;
+  }
+  if (!t.temAlgo) {
+    bloco.appendChild(el(doc, 'div', CSS.resumo, t.motivoVazio || 'Sem textos comparáveis nesta conta.'));
+    return bloco;
+  }
+
+  const caixa = el(doc, 'div', CSS.resumo);
+  caixa.appendChild(el(doc, 'div', 'font-weight:700;color:var(--text);margin-bottom:6px;',
+    t.diferenca ? `O texto muda o preço em até ${Math.round(t.diferenca)}×` : 'Os textos que já rodaram aqui'));
+  for (const x of t.melhores.slice(0, 3)) {
+    const linha = el(doc, 'div', 'margin-bottom:7px;');
+    linha.appendChild(el(doc, 'div', 'color:var(--green);font-family:var(--fonte-dados);font-size:calc(9.5px*var(--gt-fs,1.3));', linhaDoTexto(x)));
+    linha.appendChild(el(doc, 'div', 'color:var(--text);', `"${String(x.texto).slice(0, 130)}"`));
+    caixa.appendChild(linha);
+  }
+  if (t.piores.length) {
+    const pior = t.piores[t.piores.length - 1];
+    const linha = el(doc, 'div', 'margin-top:9px;padding-top:8px;border-top:1px solid var(--border);');
+    linha.appendChild(el(doc, 'div', 'color:var(--orange);font-family:var(--fonte-dados);font-size:calc(9.5px*var(--gt-fs,1.3));', 'o mais caro · ' + linhaDoTexto(pior)));
+    linha.appendChild(el(doc, 'div', null, `"${String(pior.texto).slice(0, 110)}"`));
+    caixa.appendChild(linha);
+  }
+  // AS VAGAS APARECEM, marcadas — e com o porquê. Elas são o texto mais barato
+  // da conta, e escondê-las faria a tela discordar do Gerenciador da Meta.
+  if ((t.vagas || []).length) {
+    caixa.appendChild(el(doc, 'div', 'margin-top:9px;padding-top:8px;border-top:1px solid var(--border);color:var(--muted);',
+      `${t.vagas.length} ${t.vagas.length === 1 ? 'texto de vaga de emprego ficou' : 'textos de vaga de emprego ficaram'} fora da conta. ${AVISO_DAS_VAGAS}`));
+  }
+  bloco.appendChild(caixa);
+
+  if (t.pensando || t.leitura || t.erro) {
+    const cx2 = el(doc, 'div', CSS.resumo + 'margin-top:7px;border-left:3px solid var(--accent);');
+    cx2.appendChild(el(doc, 'div', 'font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);margin-bottom:4px;', 'Leitura da IA'));
+    if (t.pensando) cx2.appendChild(el(doc, 'div', null, 'Lendo os textos…'));
+    else if (t.erro) cx2.appendChild(el(doc, 'div', 'color:var(--orange);', 'Não consegui a leitura: ' + t.erro));
+    else {
+      cx2.appendChild(el(doc, 'div', 'color:var(--text);', t.leitura));
+      if (t.cuidado) cx2.appendChild(el(doc, 'div', 'margin-top:6px;color:var(--muted);', 'Cuidado: ' + t.cuidado));
+    }
+    bloco.appendChild(cx2);
+  }
+
+  // USAR É ESCOLHA. A sugestão entra na caixa de texto ao clicar, e continua
+  // editável — ninguém publica o que a IA escreveu sem ler.
+  for (const sug of (t.sugestoes || [])) {
+    const b = ec(doc, 'button', 'gtw-b secundario', null);
+    b.type = 'button';
+    b.style.cssText += 'display:block;width:100%;text-align:left;margin-top:6px;white-space:normal;line-height:1.5;font-weight:500;';
+    b.appendChild(el(doc, 'div', 'font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);margin-bottom:3px;', 'usar este texto'));
+    b.appendChild(el(doc, 'div', null, sug));
+    b.onclick = (ev) => { if (ev && ev.preventDefault) ev.preventDefault(); o.aoMudar({ texto: sug }); };
+    bloco.appendChild(b);
+  }
+  return bloco;
+}
+
 // ── PASSO 5b · impulsionar uma publicação ───────────────────────────────────
 //
 // Aqui não se escolhe imagem nem se escreve texto: a arte e a legenda são as da
@@ -333,8 +437,38 @@ function passoPublicacao(doc, o) {
     return cx;
   }
 
+  // BUSCAR, FILTRAR E ORDENAR. Com o histórico inteiro na tela, rolar até achar
+  // "aquele post do lançamento" é pior que digitar duas palavras.
+  const busca = el(doc, 'input', CSS.campo + 'margin-bottom:8px;');
+  busca.type = 'search';
+  busca.value = o.buscaPublicacao || '';
+  busca.placeholder = 'Procurar na legenda…';
+  busca.dataset.gtpubId = 'busca-publicacao';
+  busca.oninput = () => o.aoMudarBusca && o.aoMudarBusca({ buscaPublicacao: busca.value });
+  cx.appendChild(busca);
+
+  const barra = el(doc, 'div', CSS.linha + 'margin-bottom:9px;');
+  const tipos = ['todos', ...tiposPresentes(posts)];
+  for (const t of tipos) {
+    barra.appendChild(pastilha(doc, t === 'todos' ? 'Tudo' : t, (o.tipoPublicacao || 'todos') === t,
+      () => o.aoMudarBusca && o.aoMudarBusca({ tipoPublicacao: t })));
+  }
+  for (const ord of ORDENS) {
+    barra.appendChild(pastilha(doc, ord.rotulo, (o.ordemPublicacao || 'recentes') === ord.chave,
+      () => o.aoMudarBusca && o.aoMudarBusca({ ordemPublicacao: ord.chave })));
+  }
+  cx.appendChild(barra);
+
+  const visiveis = ordenar(filtrar(posts, o.buscaPublicacao, o.tipoPublicacao), o.ordemPublicacao);
+  if (!visiveis.length) {
+    cx.appendChild(el(doc, 'div', CSS.resumo, 'Nenhuma publicação com esse texto. Apague a busca para ver todas.'));
+    return cx;
+  }
+  cx.appendChild(el(doc, 'div', CSS.ajuda + 'margin:0 0 7px;',
+    `${visiveis.length} de ${posts.length} ${posts.length === 1 ? 'publicação' : 'publicações'}`));
+
   const grade = el(doc, 'div', 'display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;');
-  for (const post of posts) {
+  for (const post of visiveis) {
     const escolhido = String(o.estado.publicacaoId) === String(post.id);
     const b = el(doc, 'button', 'position:relative;padding:0;border-radius:8px;overflow:hidden;cursor:pointer;'
       + 'aspect-ratio:1;background:var(--surface2);'
@@ -349,13 +483,21 @@ function passoPublicacao(doc, o) {
       b.appendChild(el(doc, 'span', 'font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);padding:6px;display:block;',
         (post.legenda || 'sem legenda').slice(0, 40)));
     }
-    // VÍDEO tem selo: o tipo da publicação decide o que dá para fazer com ela
-    // (visualização de vídeo só existe em vídeo), e ver isso na grade evita
-    // escolher uma foto e tomar recusa depois.
-    if (post.tipo === 'VIDEO') {
+    // O SELO É O TIPO (Reels, Carrossel, Foto…), e não só "vídeo": o tipo decide
+    // o que dá para fazer com a publicação — visualização de vídeo só existe em
+    // vídeo —, e ver isso na grade evita escolher e tomar recusa depois.
+    if (post.tipo) {
       b.appendChild(el(doc, 'span', 'position:absolute;top:4px;right:5px;font-size:calc(8.5px*var(--gt-fs,1.3));'
-        + 'font-weight:700;color:#fff;background:rgba(0,0,0,.6);border-radius:4px;padding:1px 5px;', 'vídeo'));
+        + 'font-weight:700;color:#fff;background:rgba(0,0,0,.6);border-radius:4px;padding:1px 5px;', post.tipo));
     }
+    // ENGAJAMENTO NA PRÓPRIA MINIATURA. É o número que decide qual impulsionar,
+    // e obrigar a clicar em cada uma para vê-lo tornaria a grade inútil.
+    if (post.curtidas || post.comentarios) {
+      b.appendChild(el(doc, 'span', 'position:absolute;bottom:0;left:0;right:0;font-size:calc(8.5px*var(--gt-fs,1.3));'
+        + 'color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.75));padding:10px 5px 3px;text-align:left;',
+        `♥ ${post.curtidas} · 💬 ${post.comentarios}`));
+    }
+    b.title = descricaoDaPublicacao(post);
     b.onclick = (ev) => {
       if (ev && ev.preventDefault) ev.preventDefault();
       o.aoMudar({ publicacaoId: String(post.id), publicacaoResumo: resumoDaPublicacao(post) });
@@ -364,10 +506,15 @@ function passoPublicacao(doc, o) {
   }
   cx.appendChild(grade);
 
+  // STORIES: a lista vazia é o caso NORMAL, e sem esta frase parece defeito.
+  if ((o.stories || []).length === 0 && o.mostrarAvisoStories) {
+    cx.appendChild(el(doc, 'div', CSS.ajuda + 'margin:9px 0 0;', AVISO_STORIES));
+  }
+
   const escolhida = posts.find((p) => String(p.id) === String(o.estado.publicacaoId));
   if (escolhida) {
     const box = el(doc, 'div', CSS.resumo + 'margin-top:11px;');
-    box.appendChild(el(doc, 'div', null, resumoDaPublicacao(escolhida)));
+    box.appendChild(el(doc, 'div', null, descricaoDaPublicacao(escolhida) || resumoDaPublicacao(escolhida)));
     if (escolhida.legenda) {
       box.appendChild(el(doc, 'div', 'margin-top:5px;color:var(--text);', `"${escolhida.legenda.slice(0, 160)}"`));
     }
@@ -380,7 +527,10 @@ function passoPublicacao(doc, o) {
 // é o que distingue duas fotos parecidas.
 export function resumoDaPublicacao(post) {
   const p = post || {};
-  const tipo = p.tipo === 'VIDEO' ? 'o vídeo' : 'a publicação';
+  // `video` é o sinal, e não mais o texto do tipo: desde que a lista passou a
+  // dizer "Reels"/"Carrossel"/"Foto" em português, comparar com 'VIDEO' calava
+  // e todo post virava "a publicação".
+  const tipo = p.video ? 'o vídeo' : 'a publicação';
   const dia = p.data ? new Date(p.data) : null;
   const quando = dia && !Number.isNaN(dia.getTime())
     ? ` de ${String(dia.getDate()).padStart(2, '0')}/${String(dia.getMonth() + 1).padStart(2, '0')}`
@@ -393,23 +543,43 @@ function passoAnuncio(doc, o) {
   const cx = el(doc, 'div');
   cx.appendChild(el(doc, 'div', CSS.tit, 'O anúncio'));
   cx.appendChild(el(doc, 'p', CSS.ajuda,
-    'Escolha uma imagem que já está na conta, ou envie uma nova. A Meta pede pelo menos 600×600.'));
+    'Escolha uma imagem ou um vídeo que já está na conta, ou envie um. A Meta pede imagem de pelo menos 600×600.'));
 
   const grade = el(doc, 'div', 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;');
-  for (const img of (o.imagens || [])) {
-    const escolhida = o.estado.imagemHash === img.hash;
-    const d = el(doc, 'button', 'width:62px;height:62px;border-radius:8px;cursor:pointer;padding:0;overflow:hidden;'
-      + `border:1px solid var(--border);background:var(--surface2) center/cover no-repeat${img.url ? ` url("${img.url}")` : ''};`
+
+  // A MOLDURA de uma peça — vale para imagem e para vídeo, porque escolher é o
+  // mesmo gesto nos dois casos.
+  const peca = (fundo, escolhida, titulo, selo, aoEscolher) => {
+    const d = el(doc, 'button', 'position:relative;width:62px;height:62px;border-radius:8px;cursor:pointer;padding:0;'
+      + `overflow:hidden;border:1px solid var(--border);background:var(--surface2) center/cover no-repeat${fundo ? ` url("${fundo}")` : ''};`
       + (escolhida ? 'outline:3px solid var(--accent);outline-offset:1px;' : ''));
     d.type = 'button';
-    d.title = img.nome || 'imagem da conta';
-    d.onclick = (ev) => { if (ev && ev.preventDefault) ev.preventDefault(); o.aoMudar({ imagemHash: img.hash, imagemPreview: img.url || '' }); };
-    grade.appendChild(d);
+    d.title = titulo;
+    if (selo) {
+      d.appendChild(el(doc, 'span', 'position:absolute;bottom:3px;right:3px;font-size:calc(8px*var(--gt-fs,1.3));'
+        + 'font-weight:700;color:#fff;background:rgba(0,0,0,.65);border-radius:4px;padding:1px 4px;', selo));
+    }
+    d.onclick = (ev) => { if (ev && ev.preventDefault) ev.preventDefault(); aoEscolher(); };
+    return d;
+  };
+
+  for (const img of (o.imagens || [])) {
+    // ESCOLHER IMAGEM LIMPA O VÍDEO, e vice-versa. São alternativas, não soma:
+    // sem isto, um vídeo escolhido antes continuaria mandando no criativo e a
+    // imagem clicada não faria nada visível.
+    grade.appendChild(peca(img.url, o.estado.imagemHash === img.hash && !o.estado.videoId,
+      img.nome || 'imagem da conta', '',
+      () => o.aoMudar({ imagemHash: img.hash, imagemPreview: img.url || '', videoId: '', videoCapa: '' })));
+  }
+  for (const vid of (o.videos || [])) {
+    grade.appendChild(peca(vid.capa, o.estado.videoId === vid.id,
+      vid.titulo || 'vídeo da conta', '▶',
+      () => o.aoMudar({ videoId: vid.id, videoCapa: vid.capa || '', imagemHash: '', imagemPreview: '' })));
   }
   if (o.aoEnviarImagem) {
     const env = el(doc, 'button', 'padding:7px 12px;border-radius:8px;cursor:pointer;border:1px dashed var(--accent);'
       + 'background:transparent;color:var(--accent);font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));',
-      o.enviando ? 'enviando…' : '+ enviar imagem');
+      o.enviando ? 'enviando…' : '+ enviar imagem ou vídeo');
     env.type = 'button';
     env.disabled = !!o.enviando;
     env.onclick = (ev) => { if (ev && ev.preventDefault) ev.preventDefault(); o.aoEnviarImagem(); };
@@ -417,12 +587,146 @@ function passoAnuncio(doc, o) {
   }
   cx.appendChild(grade);
 
+  // VÍDEO SEM CAPA é recusado pela Meta. Avisar aqui, ao lado da escolha, evita
+  // descobrir isso só no fim.
+  if (o.estado.videoId && !o.estado.videoCapa) {
+    cx.appendChild(el(doc, 'div', CSS.falta + 'margin:0 0 10px;',
+      'Este vídeo não tem capa, e a Meta exige uma. Escolha outro vídeo ou envie uma imagem.'));
+  }
+
+  cx.appendChild(secaoDeTexto(doc, o));
+
   const txt = el(doc, 'textarea', CSS.campo + 'min-height:74px;resize:vertical;line-height:1.5;');
   txt.value = o.estado.texto || '';
   txt.placeholder = 'O texto que aparece junto do anúncio.';
   txt.oninput = () => o.aoMudar({ texto: txt.value }, { semRedesenhar: true });
   cx.appendChild(txt);
+
+  cx.appendChild(maisCampos(doc, o));
   return cx;
+}
+
+// UM CAMPO DE UMA LINHA, com rótulo, explicação e o aviso de tamanho embaixo.
+// `semRedesenhar` porque redesenhar a cada tecla tira o cursor do lugar.
+function campoDeLinha(doc, o, { chave, rotulo, ajuda, exemplo, limite }) {
+  const d = el(doc, 'div', 'margin-bottom:10px;');
+  d.appendChild(el(doc, 'label', 'display:block;font-weight:600;margin-bottom:3px;color:var(--text);', rotulo));
+  if (ajuda) d.appendChild(el(doc, 'p', CSS.ajuda + 'margin:0 0 5px;', ajuda));
+  const i = el(doc, 'input', CSS.campo);
+  i.type = 'text';
+  i.value = o.estado[chave] || '';
+  i.placeholder = exemplo || '';
+  // SÓ AVISA QUEM TEM LIMITE. Visto ao vivo (03/08/2026): sem esta guarda, o
+  // campo da saudação herdava o limite da descrição e dizia "o Facebook corta
+  // depois de 30" numa mensagem de WhatsApp, que não tem esse corte. Conselho
+  // errado com cara de conselho certo é pior que conselho nenhum.
+  const conta = (v) => (limite ? avisoDeTamanho(limite, v) : '');
+  const aviso = el(doc, 'div', CSS.ajuda + 'margin:4px 0 0;color:var(--orange);', conta(o.estado[chave]));
+  i.oninput = () => {
+    o.aoMudar({ [chave]: i.value }, { semRedesenhar: true });
+    // O aviso é escrito na mão porque a tela não redesenha enquanto se digita —
+    // e um aviso de tamanho que só aparece depois não avisa nada.
+    aviso.textContent = conta(i.value);
+  };
+  d.appendChild(i);
+  d.appendChild(aviso);
+  return d;
+}
+
+// OS CAMPOS QUE FALTAVAM: título, descrição, botão e a saudação do WhatsApp.
+//
+// PEDIDO DO DONO (03/08/2026): "quando for objetivo de whatsapp eu poder
+// escolher a pré mensagem de saudação, pode editar mais campos relacionados ao
+// anúncio".
+//
+// FICAM FECHADOS por padrão. São opcionais — a Meta preenche sozinha o que
+// ficar em branco —, e abertos empurrariam o botão de criar para fora da tela
+// justamente em quem só quer o básico.
+function maisCampos(doc, o) {
+  const sub = o.objetivoRow || null;
+  const ehWhats = String((sub || {}).destination_type || '').toUpperCase().includes('WHATSAPP');
+  const lista = botoesDe(sub);
+
+  const box = el(doc, 'details', 'margin-top:12px;border:1px solid var(--border);border-radius:10px;'
+    + 'padding:10px 12px;background:var(--surface2);');
+  if (o.maisCamposAberto) box.open = true;
+  // O <details> não avisa a tela sozinho, e sem isto ele fecharia a cada
+  // redesenho — perdendo o que a pessoa estava escrevendo de vista.
+  box.ontoggle = () => o.aoMudar({}, { semRedesenhar: true, maisCamposAberto: box.open });
+
+  const t = el(doc, 'summary', 'cursor:pointer;font-weight:600;color:var(--text);');
+  t.textContent = ehWhats ? 'Mais opções — título, botão e saudação do WhatsApp' : 'Mais opções — título, descrição e botão';
+  box.appendChild(t);
+
+  const dentro = el(doc, 'div', 'margin-top:10px;');
+
+  dentro.appendChild(campoDeLinha(doc, o, {
+    chave: 'titulo', rotulo: 'Título', limite: 'titulo',
+    ajuda: 'A frase em negrito, logo abaixo da imagem. Se ficar em branco, o Facebook usa o nome da página.',
+    exemplo: 'Bolsas que não passam despercebidas',
+  }));
+  dentro.appendChild(campoDeLinha(doc, o, {
+    chave: 'descricao', rotulo: 'Descrição', limite: 'descricao',
+    ajuda: 'Uma linha menor, embaixo do título. Aparece em alguns lugares e some em outros — não coloque nela o que é essencial.',
+    exemplo: 'Frete grátis acima de R$ 300',
+  }));
+
+  // O BOTÃO. Só aparece quando há escolha de verdade: no WhatsApp existe um
+  // botão só, e um menu de um item é enfeite que confunde.
+  if (lista.length > 1) {
+    const d = el(doc, 'div', 'margin-bottom:10px;');
+    d.appendChild(el(doc, 'label', 'display:block;font-weight:600;margin-bottom:3px;color:var(--text);', 'Botão'));
+    d.appendChild(el(doc, 'p', CSS.ajuda + 'margin:0 0 5px;', 'O que está escrito no botão do anúncio.'));
+    const sel = el(doc, 'select', CSS.campo);
+    const atual = botaoEscolhido(sub, o.estado.botao);
+    for (const b of lista) {
+      const op = el(doc, 'option', null, b.rotulo + (b.usos ? ` · a conta já usou ${b.usos}×` : ''));
+      op.value = b.id;
+      if (b.id === atual) op.selected = true;
+      sel.appendChild(op);
+    }
+    sel.onchange = () => o.aoMudar({ botao: sel.value }, { semRedesenhar: true });
+    d.appendChild(sel);
+    dentro.appendChild(d);
+  }
+
+  // A SAUDAÇÃO, só onde há conversa. São DOIS textos e a diferença entre eles é
+  // a parte que se erra: um é o que a LOJA diz, o outro é o que já vem digitado
+  // no WhatsApp do CLIENTE.
+  if (ehWhats) {
+    const cab = el(doc, 'div', 'margin:14px 0 8px;padding-top:10px;border-top:1px solid var(--border);');
+    cab.appendChild(el(doc, 'div', 'font-weight:700;color:var(--text);', 'A saudação do WhatsApp'));
+    cab.appendChild(el(doc, 'p', CSS.ajuda + 'margin:3px 0 0;',
+      'É a primeira tela que a pessoa vê quando clica no anúncio e o WhatsApp abre. '
+      + 'Metade dos anúncios desta conta já usa uma. Deixando em branco, vale a saudação padrão da sua página.'));
+    dentro.appendChild(cab);
+
+    dentro.appendChild(campoDeLinha(doc, o, {
+      chave: 'saudacao', rotulo: 'O que a loja diz',
+      ajuda: 'A mensagem de boas-vindas que aparece na conversa.',
+      exemplo: SAUDACAO_PADRAO,
+    }));
+    dentro.appendChild(campoDeLinha(doc, o, {
+      chave: 'saudacaoResposta', rotulo: 'O que já vem digitado pro cliente',
+      ajuda: 'A frase que aparece pronta na caixa dele — ele só aperta enviar. É o que faz a conversa começar de verdade.',
+      exemplo: RESPOSTA_PADRAO,
+    }));
+
+    if (String(o.estado.saudacao || '').trim()) {
+      const p = el(doc, 'div', CSS.resumo + 'margin-top:4px;');
+      p.appendChild(el(doc, 'div', CSS.ajuda + 'margin:0 0 5px;', 'Como vai ficar na conversa'));
+      p.appendChild(el(doc, 'div', 'background:var(--surface);border-radius:10px 10px 10px 2px;padding:7px 10px;'
+        + 'display:inline-block;max-width:100%;color:var(--text);', o.estado.saudacao));
+      p.appendChild(el(doc, 'div', 'margin-top:6px;text-align:right;'));
+      p.lastChild.appendChild(el(doc, 'span', 'background:var(--accent);color:#fff;border-radius:10px 10px 2px 10px;'
+        + 'padding:7px 10px;display:inline-block;max-width:100%;',
+        String(o.estado.saudacaoResposta || '').trim() || RESPOSTA_PADRAO));
+      dentro.appendChild(p);
+    }
+  }
+
+  box.appendChild(dentro);
+  return box;
 }
 
 // O ÚLTIMO PASSO tem dois desenhos, e quem decide é o tipo escolhido.
@@ -444,18 +748,21 @@ export function montarAssistente(opcoes = {}) {
   const passo = PASSOS[i];
 
   const corpo = el(doc, 'div', 'padding:16px 18px;');
+  corpo.className = 'gtw-entra';
 
-  // A TRILHA no topo: quatro pontos, o atual cheio. Diz onde se está e quanto
-  // falta, que é a única coisa que um assistente precisa prometer.
-  const trilha = el(doc, 'div', 'display:flex;gap:6px;align-items:center;margin-bottom:14px;');
+  // A TRILHA DIZ OS NOMES. Cinco pontinhos respondem "quanto falta" e não
+  // respondem "o que vem" — e é o que vem que faz alguém decidir se continua
+  // agora ou volta depois. Nome curto, número na fonte de dados, e o passo
+  // atual em destaque.
+  const trilha = ec(doc, 'div', 'gtw-trilha');
   PASSOS.forEach((p, n) => {
     const feito = n < i && faltaNoPasso(p.chave, o.estado, o.objetivoRow).length === 0;
-    trilha.appendChild(el(doc, 'span',
-      `width:${n === i ? '22px' : '8px'};height:8px;border-radius:999px;`
-      + `background:${n === i ? 'var(--accent)' : feito ? 'color-mix(in srgb,var(--accent) 45%,transparent)' : 'var(--border)'};`));
+    const item = ec(doc, 'div', 'gtw-passo' + (n === i ? ' agora' : feito ? ' feito' : ''));
+    item.appendChild(ec(doc, 'span', 'n', feito && n !== i ? '✓' : String(n + 1)));
+    item.appendChild(ec(doc, 'span', null, NOMES_CURTOS[p.chave] || p.chave));
+    item.title = p.titulo;
+    trilha.appendChild(item);
   });
-  trilha.appendChild(el(doc, 'span', 'margin-left:6px;font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);',
-    `passo ${i + 1} de ${PASSOS.length}`));
   corpo.appendChild(trilha);
 
   corpo.appendChild(DESENHOS[passo.chave](doc, o));
@@ -476,6 +783,13 @@ export function montarAssistente(opcoes = {}) {
     '● tudo nasce pausado'));
 
   const btn = (rotulo, primario, ligado, aoClicar) => {
+    const b = ec(doc, 'button', 'gtw-b ' + (primario ? 'primario' : 'fantasma'), rotulo);
+    b.type = 'button';
+    b.disabled = !ligado;
+    if (ligado) b.onclick = (ev) => { if (ev && ev.preventDefault) ev.preventDefault(); aoClicar(); };
+    return b;
+  };
+  const btnAntigo = (rotulo, primario, ligado, aoClicar) => {
     const b = el(doc, 'button', 'padding:9px 16px;border-radius:8px;cursor:pointer;font-weight:700;'
       + 'font-family:var(--fonte-principal);font-size:calc(11.5px*var(--gt-fs,1.3));'
       + (primario ? 'border:1px solid var(--accent);background:var(--accent);color:#fff;'

@@ -11,6 +11,9 @@ function docFalso() {
   const criar = (tag) => ({
     tag, filhos: [], style: { cssText: '' }, textContent: '', value: '', placeholder: '',
     title: '', type: '', disabled: false, selected: false, className: '',
+    // Os campos reais carregam `dataset` (o editor usa para devolver o foco
+    // depois de redesenhar). Sem ele aqui, o desenho estoura no teste.
+    dataset: {}, src: '', alt: '',
     onclick: null, oninput: null, onblur: null, onchange: null,
     appendChild(f) { this.filhos.push(f); return f },
     get texto() { return (this.textContent || '') + this.filhos.map((f) => f.texto).join(' ') },
@@ -90,14 +93,29 @@ test('a explicacao aparece SO do escolhido, e nao das catorze', () => {
   assert.match(um, /A Meta procura quem costuma abrir conversa/)
 })
 
-test('a trilha diz onde se esta', () => {
-  assert.match(montar({ passo: 0 }).corpo.texto, /passo 1 de 5/)
-  assert.match(montar({ passo: 3, estado: cheio() }).corpo.texto, /passo 4 de 5/)
+test('a trilha diz os NOMES dos passos, e nao so quantos faltam', () => {
+  // Cinco pontinhos respondem "quanto falta" e não respondem "o que vem" — e é
+  // o que vem que faz alguém decidir se continua agora ou volta depois.
+  const t = montar({ passo: 0 }).corpo.texto
+  for (const nome of ['O que', 'De quem', 'Quanto', 'Para quem', 'O anúncio']) {
+    assert.ok(t.includes(nome), `a trilha não diz "${nome}"`)
+  }
+})
+
+test('o passo atual fica marcado, e os ja feitos ganham o certo', () => {
+  const noQuarto = montar({ passo: 3, estado: cheio(), objetivoRow: acharSubobjetivo('conversa-whatsapp') })
+  const passos = noQuarto.corpo.filhos[0].filhos
+  assert.match(passos[3].className, /agora/)
+  assert.match(passos[0].className, /feito/)
+  // O passo já cumprido troca o número por um certo: o número dele não importa
+  // mais, e o certo diz o que importa.
+  assert.equal(passos[0].filhos[0].textContent, '✓')
+  assert.equal(passos[3].filhos[0].textContent, '4')
 })
 
 test('passo fora da faixa nao estoura — encaixa no limite', () => {
-  assert.match(montar({ passo: 99, estado: cheio() }).corpo.texto, /passo 5 de 5/)
-  assert.match(montar({ passo: -5 }).corpo.texto, /passo 1 de 5/)
+  assert.match(montar({ passo: 99, estado: cheio() }).corpo.texto, /O anúncio/)
+  assert.match(montar({ passo: -5 }).corpo.texto, /O que/)
 })
 
 test('escolher objetivo avisa quem chama, sem redesenhar por conta propria', () => {
@@ -367,9 +385,11 @@ test('sem numero conhecido, o texto volta a ser o generico', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // IMPULSIONAR UMA PUBLICAÇÃO
 
+// No formato que `conteudo-existente.js` devolve: tipo em português e o
+// engajamento junto, que é o que decide qual impulsionar.
 const POSTS = [
-  { id: '18096882434461048', legenda: 'Para dias imprevisíveis', tipo: 'VIDEO', miniatura: 'https://x/1.jpg', data: '2026-07-27T12:00:00+0000' },
-  { id: '17964368865131806', legenda: 'Alguns sons anunciam', tipo: 'IMAGE', miniatura: 'https://x/2.jpg', data: '2026-07-22T12:00:00+0000' },
+  { id: '18096882434461048', legenda: 'Para dias imprevisíveis', tipo: 'Reels', video: true, miniatura: 'https://x/1.jpg', data: '2026-07-27T12:00:00+0000', curtidas: 36, comentarios: 4, engajamento: 48 },
+  { id: '17964368865131806', legenda: 'Alguns sons anunciam', tipo: 'Foto', video: false, miniatura: 'https://x/2.jpg', data: '2026-07-22T12:00:00+0000', curtidas: 48, comentarios: 9, engajamento: 75 },
 ]
 const noPassoDaPublicacao = (extra = {}) => montar({
   passo: 4, objetivoRow: acharSubobjetivo('engajamento-post'), publicacoes: POSTS,
@@ -384,15 +404,37 @@ test('o ultimo passo vira ESCOLHER PUBLICACAO quando o tipo pede isso', () => {
   assert.ok(!/texto que aparece junto/.test(corpo.texto))
 })
 
-test('video ganha selo — o tipo decide o que da pra fazer com a publicacao', () => {
+test('o selo e o TIPO, e o engajamento aparece na miniatura', () => {
+  // O tipo decide o que dá para fazer com a publicação; o engajamento decide
+  // qual vale impulsionar. Obrigar a clicar em cada uma para ver isso tornaria
+  // a grade inútil.
   const { corpo } = noPassoDaPublicacao()
-  assert.match(corpo.texto, /vídeo/)
+  assert.match(corpo.texto, /Reels/)
+  assert.match(corpo.texto, /♥ 36/)
+  assert.match(corpo.texto, /💬 9/)
+})
+
+test('da pra buscar, filtrar por tipo e ordenar', () => {
+  const so1 = noPassoDaPublicacao({ buscaPublicacao: 'imprevisiveis' })
+  assert.match(so1.corpo.texto, /1 de 2 publicações/)
+  const so2 = noPassoDaPublicacao({ tipoPublicacao: 'Foto' })
+  assert.match(so2.corpo.texto, /1 de 2/)
+  const nada = noPassoDaPublicacao({ buscaPublicacao: 'zzzz' })
+  assert.match(nada.corpo.texto, /Nenhuma publicação com esse texto/)
+})
+
+test('o aviso dos stories so aparece quando pedido', () => {
+  assert.ok(!/24 horas/.test(noPassoDaPublicacao().corpo.texto))
+  assert.match(noPassoDaPublicacao({ mostrarAvisoStories: true, stories: [] }).corpo.texto, /24 horas/)
 })
 
 test('escolher a publicacao guarda o id E um resumo legivel', () => {
   let mudou = null
   const { corpo } = noPassoDaPublicacao({ aoMudar: (m) => { mudou = m } })
-  corpo.botoes[0].onclick({ preventDefault() {} })
+  // O primeiro botão do corpo agora é o filtro "Tudo": a publicação é a que
+  // carrega o selo do tipo.
+  const daGrade = corpo.botoes.find((b) => b.texto.includes('Reels') && b.texto.includes('♥'))
+  daGrade.onclick({ preventDefault() {} })
   assert.equal(mudou.publicacaoId, '18096882434461048')
   // O resumo é o que aparece na confirmação: precisa distinguir dois posts parecidos.
   assert.match(mudou.publicacaoResumo, /o vídeo de 27\/07/)
@@ -412,10 +454,12 @@ test('pagina sem Instagram explica onde consertar, em vez de lista vazia', () =>
 })
 
 test('resumoDaPublicacao distingue foto de video, e diz o dia', () => {
-  assert.equal(resumoDaPublicacao({ tipo: 'VIDEO', data: '2026-07-27T12:00:00+0000' }), 'o vídeo de 27/07')
-  assert.equal(resumoDaPublicacao({ tipo: 'IMAGE', data: '2026-07-22T12:00:00+0000' }), 'a publicação de 22/07')
+  // `video` é o sinal, e não o texto do tipo: a lista passou a dizer
+  // "Reels"/"Foto" em português, e comparar com 'VIDEO' calaria.
+  assert.equal(resumoDaPublicacao({ video: true, tipo: 'Reels', data: '2026-07-27T12:00:00+0000' }), 'o vídeo de 27/07')
+  assert.equal(resumoDaPublicacao({ video: false, tipo: 'Foto', data: '2026-07-22T12:00:00+0000' }), 'a publicação de 22/07')
   // Sem data não inventa data nenhuma.
-  assert.equal(resumoDaPublicacao({ tipo: 'IMAGE' }), 'a publicação')
+  assert.equal(resumoDaPublicacao({ video: false, tipo: 'Foto' }), 'a publicação')
 })
 
 test('quando a lista nao vem, a tela diz O MOTIVO — nao so "nao consegui"', () => {

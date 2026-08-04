@@ -32,10 +32,21 @@ function nomesExportados() {
 // Comentário que MENCIONA um símbolo não é uso dele. Sem tirar, "ver
 // GT_OBJETIVO_BALDE" e "(ALVOS.trafego)" viravam import faltando — e um teste
 // que acusa o que não existe é pior que teste nenhum: ensina a ignorá-lo.
+//
+// TEXTO DE TELA TAMBÉM NÃO É CÓDIGO, e essa parte custou uma caça: a tela tem
+// a frase `'<b>Nada mudou.</b>'`, e o módulo de rascunhos exporta uma função
+// chamada `mudou`. O teste acusou um import faltando que não faltava. Todo nome
+// exportado que também é palavra do português comum cairia na mesma armadilha
+// ("linha", "quando", "passo").
+//
+// As aspas simples e duplas têm o conteúdo apagado; a CRASE fica, porque
+// `${...}` dentro dela é código de verdade.
 function semComentarios(codigo) {
   return codigo
     .replace(/\/\*[\s\S]*?\*\//g, ' ')   // bloco
-    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');  // linha (o [^:] evita cortar "https://")
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1')   // linha (o [^:] evita cortar "https://")
+    .replace(/'(?:\\.|[^'\\\n])*'/g, "''")    // texto entre aspas simples
+    .replace(/"(?:\\.|[^"\\\n])*"/g, '""');   // e entre aspas duplas
 }
 
 function scriptDaTela() {
@@ -204,4 +215,64 @@ test('o proprio teste de globais enxerga uma que falta', () => {
   const usados = new Set();
   for (const m of script.matchAll(/(^|[^\w.$'"`])(_gt[\w$]*)/gm)) usados.add(m[2]);
   assert.deepEqual([...usados].filter((n) => !declarados.has(n)), ['_gtB']);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TUDO QUE O ASSISTENTE LÊ, A TELA PRECISA PASSAR.
+//
+// O DEFEITO REAL (03/08/2026): `montarAssistente` lia `o.publicacoes` e
+// `o.carregandoPublicacoes`, e a chamada em tela-de-gestao-trafego.vue não
+// passava nenhum dos dois. O desenho recebia `undefined`, caía no ramo de lista
+// vazia e dizia "este perfil não tem publicação nenhuma" — enquanto a lista
+// carregada estava ali do lado, com doze itens.
+//
+// Foi o terceiro defeito do MESMO feitio no mesmo dia: o build não olha, os
+// testes de unidade passam (eles montam o objeto na mão, completo), e quem
+// descobre é o dono clicando. Os outros dois já viraram teste aqui em cima —
+// nome de módulo sem import, e global sem declaração. Este é o contrato entre
+// os dois arquivos.
+test('a tela passa TODAS as opções que o assistente lê', () => {
+  const assistente = semComentarios(readFileSync(join(AQUI, 'assistente-campanha.js'), 'utf8'));
+  const vue = scriptDaTela();
+
+  // O que o desenho lê do objeto de opções.
+  const lidas = new Set();
+  for (const m of assistente.matchAll(/\bo\.([a-zA-Z]\w*)/g)) lidas.add(m[1]);
+
+  // A chamada da tela: de `montarAssistente({` até o fecho.
+  const inicio = vue.indexOf('montarAssistente({');
+  assert.ok(inicio > -1, 'a tela não chama montarAssistente — atualize este teste');
+  const trecho = vue.slice(inicio, vue.indexOf('});', inicio));
+  const passadas = new Set();
+  for (const m of trecho.matchAll(/(^|[{,\s])(\w+)\s*:/g)) passadas.add(m[2]);
+
+  // `estado` é lido como `o.estado` e passado como `estado` — o mesmo nome dos
+  // dois lados, que é justamente o contrato que este teste protege.
+  const faltando = [...lidas].filter((n) => !passadas.has(n)).sort();
+  assert.deepEqual(faltando, [],
+    'o assistente lê estas opções e a tela não as passa — o desenho recebe undefined e mente na tela');
+});
+
+test('o proprio teste de opcoes enxerga uma que falta', () => {
+  const assistente = 'function d(e,o){ return o.alfa + o.beta }';
+  const trecho = 'montarAssistente({ doc:document, alfa:1,';
+  const lidas = new Set([...assistente.matchAll(/\bo\.([a-zA-Z]\w*)/g)].map((m) => m[1]));
+  const passadas = new Set([...trecho.matchAll(/(^|[{,\s])(\w+)\s*:/g)].map((m) => m[2]));
+  assert.deepEqual([...lidas].filter((n) => !passadas.has(n)), ['beta']);
+});
+
+test('o teste de imports nao le TEXTO DE TELA como se fosse codigo', () => {
+  // O falso positivo real (03/08/2026): a tela tem a frase '<b>Nada mudou.</b>'
+  // e rascunhos.js exporta uma funcao `mudou`. O teste acusou um import que nao
+  // faltava. Vale para todo nome exportado que tambem e palavra comum
+  // ("linha", "quando", "passo").
+  const bruto = [
+    "import { mudou as rascunhoMudou } from './rascunhos.js'",
+    "_gtPubStatus('<b>Nada mudou.</b>')",
+    'if (rascunhoMudou(a, b)) {}',
+  ].join('\n');
+  const script = semComentarios(bruto);
+  const usado = (nome) => new RegExp('(^|[^\\w.$\'"`])' + nome + '\\s*[([.,);\\]}]', 'm').test(script);
+  assert.equal(usado('mudou'), false, 'leu a frase da tela como uso da funcao');
+  assert.equal(usado('rascunhoMudou'), true, 'deixou de ver o uso de verdade');
 });

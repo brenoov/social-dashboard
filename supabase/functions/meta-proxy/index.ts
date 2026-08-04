@@ -30,7 +30,11 @@ const HOSTS_DE_IMAGEM_PERMITIDOS = [
 ];
 
 // Devolve a URL validada, ou null se não for aceitável.
-function urlDeImagemPermitida(bruta: unknown): URL | null {
+// Vale para IMAGEM e para VÍDEO: a trava é sobre a ORIGEM, não sobre o tipo do
+// arquivo. Quando o vídeo entrou (2026-08-03), a tentação foi passar `file_url`
+// direto como parâmetro comum — o que faria a Meta buscar qualquer endereço que
+// alguém mandasse, reabrindo pela porta dos fundos o que esta lista fechou.
+function urlDeMidiaPermitida(bruta: unknown): URL | null {
   if (typeof bruta !== 'string' || !bruta) return null;
   let u: URL;
   try { u = new URL(bruta); } catch { return null; }
@@ -58,7 +62,7 @@ Deno.serve(async (req: Request) => {
     const allowed = !!prof && (prof.role === 'admin' || (Array.isArray(prof.features) && prof.features.includes('meta')));
     if (!allowed) return json({ error: 'sem permissao' }, 403);
 
-    const { accountId, path, params, method, imageFromUrl, imageField } = await req.json();
+    const { accountId, path, params, method, imageFromUrl, imageField, videoFromUrl } = await req.json();
     if (!accountId || !path) return json({ error: 'accountId e path obrigatorios' }, 400);
 
     const { data: acc, error: accErr } = await svc.from('accounts').select('access_token').eq('id', accountId).single();
@@ -69,7 +73,7 @@ Deno.serve(async (req: Request) => {
     // so dispara quando imageFromUrl vem no body.
     if (imageFromUrl) {
       // Só busca de host da lista. Ver HOSTS_DE_IMAGEM_PERMITIDOS lá em cima.
-      const urlDaImagem = urlDeImagemPermitida(imageFromUrl);
+      const urlDaImagem = urlDeMidiaPermitida(imageFromUrl);
       if (!urlDaImagem) return json({ error: 'origem da imagem nao permitida' }, 400);
       // redirect:'error' fecha o desvio óbvio: um host permitido que responda 302
       // apontando pra rede interna reabriria o SSRF que a lista acabou de fechar.
@@ -93,6 +97,39 @@ Deno.serve(async (req: Request) => {
         let data; try { data = JSON.parse(text); } catch { data = { raw: text }; }
         return json(data, resp.status);
       } finally { clearTimeout(timerU); }
+    }
+
+    // VÍDEO: quem baixa é a META, e não nós.
+    //
+    // Imagem vai por multipart (nós buscamos os bytes e repassamos). Vídeo não
+    // pode ir pelo mesmo caminho: um arquivo de dezenas de MB carregado na
+    // memória desta função estouraria o limite dela — e o download somado ao
+    // upload estouraria o tempo. `file_url` é o caminho que a própria Meta
+    // oferece: mandamos o endereço e ela busca.
+    //
+    // A MESMA TRAVA DE ORIGEM continua valendo. Sem ela, `file_url` seria um
+    // jeito de fazer a Meta buscar qualquer endereço — inclusive interno — que
+    // alguém mandasse no corpo. Só o Storage deste projeto entra.
+    if (videoFromUrl) {
+      const urlDoVideo = urlDeMidiaPermitida(videoFromUrl);
+      if (!urlDoVideo) return json({ error: 'origem do video nao permitida' }, 400);
+      const upUrl = new URL(META_GRAPH + path);
+      upUrl.searchParams.set('access_token', acc.access_token);
+      upUrl.searchParams.set('file_url', urlDoVideo.toString());
+      for (const [k, v] of Object.entries(params || {})) {
+        if (v === undefined || v === null) continue;
+        upUrl.searchParams.set(k, typeof v === 'object' ? JSON.stringify(v) : String(v));
+      }
+      // 60 s, e não 15: a Meta baixa o arquivo ANTES de responder, e vídeo
+      // demora. O tempo curto dava erro de rede num upload que ia dar certo.
+      const ctrlV = new AbortController();
+      const timerV = setTimeout(() => ctrlV.abort(), 60000);
+      try {
+        const resp = await fetch(upUrl.toString(), { method: 'POST', signal: ctrlV.signal });
+        const text = await resp.text();
+        let data; try { data = JSON.parse(text); } catch { data = { raw: text }; }
+        return json(data, resp.status);
+      } finally { clearTimeout(timerV); }
     }
 
     const url = new URL(META_GRAPH + path);
