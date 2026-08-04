@@ -5157,6 +5157,64 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-cfg-title){font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:700;color:var(--text);}
 .tela-gestao-trafego :deep(.gt-cfg-close){background:none;border:none;color:var(--muted);cursor:pointer;font-size:calc(16px*var(--gt-fs,1.3));padding:0;line-height:1;}
 
+/* ── O ASSISTENTE, VESTIDO COMO O RESTO DA CASA ───────────────────────────
+   O assistente nasceu montado com estilo solto no JavaScript, e por isso
+   destoava: botão de um tamanho aqui, de outro ali, número em Sora onde o resto
+   do painel usa IBM Plex Mono. Não é uma linguagem visual nova — é a MESMA,
+   aplicada a uma tela que ficou de fora dela.
+
+   As três decisões:
+   1. NÚMERO É DADO, e dado tem fonte própria nesta casa (--fonte-dados). Preço,
+      custo e contagem passam a usá-la — é o sinal que o painel inteiro já dá.
+   2. BOTÃO TEM TRÊS PAPÉIS, não sete tamanhos: o que faz a coisa (primário), o
+      que oferece uma escolha (secundário) e o que só recua (fantasma).
+   3. O PASSO A PASSO DIZ OS NOMES. Cinco pontinhos não informam nada; cinco
+      nomes dizem onde se está, o que já passou e o que falta. */
+
+/* A TRILHA. Nomeada, e não pontilhada: "passo 3 de 5" responde quanto falta,
+   mas não responde o que vem. */
+.tela-gestao-trafego :deep(.gtw-trilha){display:flex;gap:2px;margin:0 0 16px;align-items:stretch;}
+.tela-gestao-trafego :deep(.gtw-passo){flex:1;min-width:0;padding:0 0 7px;border-bottom:2px solid var(--border);
+  font-family:var(--fonte-principal);font-size:calc(8.5px*var(--gt-fs,1.3));font-weight:600;letter-spacing:.6px;
+  text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  transition:color .18s ease,border-color .18s ease;}
+.tela-gestao-trafego :deep(.gtw-passo.feito){color:var(--green);border-bottom-color:color-mix(in srgb,var(--green) 55%,transparent);}
+.tela-gestao-trafego :deep(.gtw-passo.agora){color:var(--accent);border-bottom-color:var(--accent);font-weight:800;}
+.tela-gestao-trafego :deep(.gtw-passo .n){font-family:var(--fonte-dados);margin-right:5px;opacity:.75;}
+
+/* O CABEÇALHO do passo: pergunta grande, resposta curta embaixo. */
+.tela-gestao-trafego :deep(.gtw-titulo){font-family:var(--fonte-principal);font-size:calc(14px*var(--gt-fs,1.3));
+  font-weight:800;letter-spacing:-.2px;margin:0 0 4px;color:var(--text);}
+.tela-gestao-trafego :deep(.gtw-ajuda){font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--muted);
+  margin:0 0 14px;line-height:1.55;max-width:52ch;}
+
+/* OS TRÊS PAPÉIS DE BOTÃO. `focus-visible` e não `focus`: o anel tem que
+   aparecer para quem navega no teclado e sumir para quem clica. */
+.tela-gestao-trafego :deep(.gtw-b){font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));
+  font-weight:700;padding:9px 17px;border-radius:9px;cursor:pointer;border:1px solid transparent;
+  transition:transform .12s ease,box-shadow .18s ease,background .18s ease,border-color .18s ease;}
+.tela-gestao-trafego :deep(.gtw-b:focus-visible){outline:2px solid var(--accent);outline-offset:2px;}
+.tela-gestao-trafego :deep(.gtw-b:active:not(:disabled)){transform:translateY(1px);}
+.tela-gestao-trafego :deep(.gtw-b:disabled){opacity:.5;cursor:default;}
+.tela-gestao-trafego :deep(.gtw-b.primario){background:var(--accent);color:#fff;box-shadow:var(--shadow-sm);}
+.tela-gestao-trafego :deep(.gtw-b.primario:hover:not(:disabled)){box-shadow:var(--shadow-md);}
+.tela-gestao-trafego :deep(.gtw-b.secundario){background:var(--surface2);color:var(--text);border-color:var(--border);}
+.tela-gestao-trafego :deep(.gtw-b.secundario:hover:not(:disabled)){border-color:var(--accent);color:var(--accent);}
+.tela-gestao-trafego :deep(.gtw-b.fantasma){background:none;color:var(--muted);}
+.tela-gestao-trafego :deep(.gtw-b.fantasma:hover:not(:disabled)){color:var(--text);}
+
+/* NÚMERO É DADO. A fonte muda porque o painel inteiro já muda — é o sinal de
+   "isto é medida", e o assistente era o único lugar que não dava esse sinal. */
+.tela-gestao-trafego :deep(.gtw-num){font-family:var(--fonte-dados);font-feature-settings:'tnum';}
+
+/* A ENTRADA DO PASSO. Um movimento só, curto, no conteúdo — o suficiente para
+   a troca ser percebida sem virar espetáculo. Quem pediu menos movimento no
+   sistema não recebe nenhum. */
+@media (prefers-reduced-motion: no-preference){
+  .tela-gestao-trafego :deep(.gtw-entra){animation:gtwEntra .22s ease both;}
+}
+@keyframes gtwEntra{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
 /* ── ASSISTENTE DE NOVA CAMPANHA ──────────────────────────────────────────
    Mesmo desenho do editor de métricas (#gt-cfg-*): é a mesma casa, e inventar
    uma segunda janela faria a tela parecer dois aplicativos. O miolo é montado
@@ -5175,7 +5233,17 @@ Object.assign(window, {
    já traz o seu, e somar os dois dava margem dobrada no corpo e um rodapé
    encolhido no canto esquerdo, com o "Avançar" longe da borda direita. Estes
    dois seletores são moldura, não desenho. */
-.tela-gestao-trafego :deep(#gt-novo-corpo){flex:1;min-height:0;overflow-y:auto;font-family:var(--fonte-principal);color:var(--text);font-size:calc(12px*var(--gt-fs,1.3));}
+/* SOMBRA DE ROLAGEM, só CSS. No passo dos tipos a lista continua abaixo da
+   dobra e nada dizia isso — "Cliques para o site" aparecia cortado ao meio,
+   parecendo o fim. Os dois primeiros planos ficam presos ao conteúdo
+   (`local`) e os dois últimos à moldura (`scroll`): a sombra só aparece do
+   lado em que ainda há o que ver. */
+.tela-gestao-trafego :deep(#gt-novo-corpo){flex:1;min-height:0;overflow-y:auto;font-family:var(--fonte-principal);color:var(--text);font-size:calc(12px*var(--gt-fs,1.3));
+  background:
+    linear-gradient(var(--surface) 30%, transparent) top / 100% 24px no-repeat local,
+    linear-gradient(transparent, var(--surface) 70%) bottom / 100% 24px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, rgba(0,0,0,.16), transparent) top / 100% 10px no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, rgba(0,0,0,.16), transparent) bottom / 100% 10px no-repeat scroll;}
 .tela-gestao-trafego :deep(#gt-novo-rodape){flex:0 0 auto;font-family:var(--fonte-principal);}
 .tela-gestao-trafego :deep(#gt-novo-rodape > *){width:100%;box-sizing:border-box;}
 /* O ÍCONE DO SELETOR DE DATA é desenhado pelo navegador e nasce PRETO — no tema

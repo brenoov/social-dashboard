@@ -16,6 +16,16 @@ import { PASSOS, faltaNoPasso, primeiroPassoIncompleto, resumoDoQueVaiSerCriado,
 
 const reais = (c) => (Number(c) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+// Com CLASSE, e não com estilo solto. O estilo solto foi o que fez esta tela
+// destoar do resto: botão de um tamanho aqui, de outro ali. As classes moram no
+// <style> da tela — ver ".gtw-*" em tela-de-gestao-trafego.vue.
+function ec(doc, tag, className, texto) {
+  const e = doc.createElement(tag);
+  if (className) e.className = className;
+  if (texto != null) e.textContent = texto;
+  return e;
+}
+
 function el(doc, tag, css, texto) {
   const e = doc.createElement(tag);
   if (css) e.style.cssText = css;
@@ -23,7 +33,18 @@ function el(doc, tag, css, texto) {
   return e;
 }
 
+// O NOME CURTO de cada passo, para a trilha. Curto de propósito: cinco títulos
+// inteiros lado a lado não cabem, e cortados no meio não informam.
+const NOMES_CURTOS = {
+  objetivo: 'O que',
+  identidade: 'De quem',
+  orcamento: 'Quanto',
+  publico: 'Para quem',
+  anuncio: 'O anúncio',
+};
+
 const CSS = {
+  // Mantidos porque muitos trechos ainda os usam; os novos vão de classe.
   tit: 'font-size:calc(12px*var(--gt-fs,1.3));font-weight:800;margin:0 0 3px;',
   ajuda: 'font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--muted);margin:0 0 12px;line-height:1.5;',
   linha: 'display:flex;gap:7px;flex-wrap:wrap;align-items:center;',
@@ -187,7 +208,7 @@ function passoIdentidade(doc, o) {
   if (pedeWhatsapp(o.objetivoRow)) {
     const wa = el(doc, 'div', 'margin-top:14px;');
     wa.appendChild(el(doc, 'label', CSS.rotulo, 'Número do WhatsApp que vai receber as conversas'));
-    const campo = el(doc, 'input', CSS.campo);
+    const campo = el(doc, 'input', CSS.campo + 'font-family:var(--fonte-dados);letter-spacing:.4px;');
     campo.type = 'tel';
     campo.value = o.estado.whatsapp || '';
     campo.placeholder = '55 19 99999-9999';
@@ -203,8 +224,10 @@ function passoIdentidade(doc, o) {
       const fila = el(doc, 'div', CSS.linha + 'margin-top:8px;');
       fila.appendChild(el(doc, 'span', 'font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);', 'Já usados aqui:'));
       for (const n of conhecidos.slice(0, 4)) {
-        fila.appendChild(pastilha(doc, n.numero, String(o.estado.whatsapp || '').replace(/\D/g, '') === n.numero,
-          () => o.aoMudar({ whatsapp: n.numero })));
+        const p = pastilha(doc, n.numero, String(o.estado.whatsapp || '').replace(/\D/g, '') === n.numero,
+          () => o.aoMudar({ whatsapp: n.numero }));
+        p.style.cssText += 'font-family:var(--fonte-dados);letter-spacing:.3px;';
+        fila.appendChild(p);
       }
       wa.appendChild(fila);
     }
@@ -229,7 +252,9 @@ function passoOrcamento(doc, o) {
     'A campanha nasce PAUSADA. Nada é gasto até você ativar no Gerenciador ou aqui.'));
 
   const fila = el(doc, 'div', CSS.linha);
-  const valor = el(doc, 'input', CSS.campo + 'width:130px;');
+  // NÚMERO É DADO: o painel inteiro usa a fonte de dados para medida, e o
+  // orçamento é a medida mais importante desta tela.
+  const valor = el(doc, 'input', CSS.campo + 'width:140px;font-family:var(--fonte-dados);');
   valor.type = 'text';
   valor.value = reais(o.estado.orcamentoCentavos);
   valor.oninput = () => {
@@ -520,18 +545,21 @@ export function montarAssistente(opcoes = {}) {
   const passo = PASSOS[i];
 
   const corpo = el(doc, 'div', 'padding:16px 18px;');
+  corpo.className = 'gtw-entra';
 
-  // A TRILHA no topo: quatro pontos, o atual cheio. Diz onde se está e quanto
-  // falta, que é a única coisa que um assistente precisa prometer.
-  const trilha = el(doc, 'div', 'display:flex;gap:6px;align-items:center;margin-bottom:14px;');
+  // A TRILHA DIZ OS NOMES. Cinco pontinhos respondem "quanto falta" e não
+  // respondem "o que vem" — e é o que vem que faz alguém decidir se continua
+  // agora ou volta depois. Nome curto, número na fonte de dados, e o passo
+  // atual em destaque.
+  const trilha = ec(doc, 'div', 'gtw-trilha');
   PASSOS.forEach((p, n) => {
     const feito = n < i && faltaNoPasso(p.chave, o.estado, o.objetivoRow).length === 0;
-    trilha.appendChild(el(doc, 'span',
-      `width:${n === i ? '22px' : '8px'};height:8px;border-radius:999px;`
-      + `background:${n === i ? 'var(--accent)' : feito ? 'color-mix(in srgb,var(--accent) 45%,transparent)' : 'var(--border)'};`));
+    const item = ec(doc, 'div', 'gtw-passo' + (n === i ? ' agora' : feito ? ' feito' : ''));
+    item.appendChild(ec(doc, 'span', 'n', feito && n !== i ? '✓' : String(n + 1)));
+    item.appendChild(ec(doc, 'span', null, NOMES_CURTOS[p.chave] || p.chave));
+    item.title = p.titulo;
+    trilha.appendChild(item);
   });
-  trilha.appendChild(el(doc, 'span', 'margin-left:6px;font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);',
-    `passo ${i + 1} de ${PASSOS.length}`));
   corpo.appendChild(trilha);
 
   corpo.appendChild(DESENHOS[passo.chave](doc, o));
@@ -552,6 +580,13 @@ export function montarAssistente(opcoes = {}) {
     '● tudo nasce pausado'));
 
   const btn = (rotulo, primario, ligado, aoClicar) => {
+    const b = ec(doc, 'button', 'gtw-b ' + (primario ? 'primario' : 'fantasma'), rotulo);
+    b.type = 'button';
+    b.disabled = !ligado;
+    if (ligado) b.onclick = (ev) => { if (ev && ev.preventDefault) ev.preventDefault(); aoClicar(); };
+    return b;
+  };
+  const btnAntigo = (rotulo, primario, ligado, aoClicar) => {
     const b = el(doc, 'button', 'padding:9px 16px;border-radius:8px;cursor:pointer;font-weight:700;'
       + 'font-family:var(--fonte-principal);font-size:calc(11.5px*var(--gt-fs,1.3));'
       + (primario ? 'border:1px solid var(--accent);background:var(--accent);color:#fff;'
