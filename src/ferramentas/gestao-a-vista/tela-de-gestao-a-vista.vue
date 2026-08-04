@@ -1400,7 +1400,11 @@ onUnmounted(() => {
    Sociais (legacy L210-211/222) que também miravam .gv-perf-tag/.gv-brand-tag/
    .gv-back de raspão — o bloco dedicado da Gestão à Vista (≤480px, abaixo) já
    cobre esses mesmos elementos com valores praticamente iguais. */
-.tela-gestao-a-vista{height:100vh;max-height:100vh;display:flex;flex-direction:column;background:var(--bg);color:var(--text);overflow:hidden;position:relative;z-index:1;}
+/* Fundo TRANSPARENTE: o #bg-shapes (degradê + ícones) fica fixo atrás de tudo
+   pra aparecer, e o body já pinta a cor base nos DOIS temas. Pintar cor sólida
+   aqui tapava a decoração e ainda deixava uma faixa visível onde a tela
+   terminava. */
+.tela-gestao-a-vista{height:100vh;max-height:100vh;display:flex;flex-direction:column;background:transparent;color:var(--text);overflow:hidden;position:relative;z-index:1;}
 /* Task 4: quando a seção de estoque (gv-est) abre, o conteúdo pode passar da
    viewport — deixa a tela crescer e rolar em vez de cortar. Classe alternada
    no toggle de _gvInitEstoqueUI. Não mexe no telão fechado nem no ≤1024px

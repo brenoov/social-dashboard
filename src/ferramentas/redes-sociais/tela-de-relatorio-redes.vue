@@ -242,7 +242,11 @@ function voltar() { router.push({ name: 'redes' }) }
 </script>
 
 <style scoped>
-.tela-relatorio{min-height:100vh;display:flex;flex-direction:column;background:var(--bg);position:relative;z-index:1;}
+/* Fundo TRANSPARENTE: o #bg-shapes (degradê + ícones) fica fixo atrás de tudo
+   pra aparecer, e o body já pinta a cor base nos DOIS temas. Pintar cor sólida
+   aqui tapava a decoração e ainda deixava uma faixa visível onde a tela
+   terminava. */
+.tela-relatorio{min-height:100vh;display:flex;flex-direction:column;background:transparent;position:relative;z-index:1;}
 .rel-topbar{display:flex;align-items:center;justify-content:space-between;padding:13px 24px;border-bottom:1px solid var(--border);background:var(--surface);gap:16px;position:sticky;top:0;z-index:20;}
 .rel-back{font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);cursor:pointer;background:none;border:1px solid var(--accent-mid);border-radius:5px;padding:5px 10px;display:flex;align-items:center;gap:5px;transition:background .15s;}
 .rel-back:hover{background:var(--accent-light);}

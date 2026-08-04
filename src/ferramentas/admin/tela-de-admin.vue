@@ -1318,7 +1318,11 @@ Object.assign(window, {
    Além disso, ficam aqui (DUPLICADOS, mas MANTIDOS no global também — não
    têm o prefixo admin-, então a regra de remoção não se aplica): .sr/.sg*
    .av-edit-btn/.av-img e o modal de permissões .perm-*. */
-.tela-admin{min-height:100vh;display:flex;flex-direction:column;background:var(--bg);}
+/* Fundo TRANSPARENTE: o #bg-shapes (degradê + ícones) fica fixo atrás de tudo
+   pra aparecer, e o body já pinta a cor base nos DOIS temas. Pintar cor sólida
+   aqui tapava a decoração e ainda deixava uma faixa visível onde a tela
+   terminava. */
+.tela-admin{min-height:100vh;display:flex;flex-direction:column;background:transparent;}
 .tela-admin :deep(.admin-topbar){display:flex;align-items:center;justify-content:space-between;padding:13px 24px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
 .tela-admin :deep(.admin-topbar-back){display:flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:13px;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;letter-spacing:.2px;}
 .tela-admin :deep(.admin-topbar-title){font-family:var(--fonte-principal);font-size:15px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--text);}

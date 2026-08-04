@@ -170,7 +170,11 @@ onMounted(()=>{
 /* Porte das regras .banco- e #banco-screen (legacy L2479). #banco-screen vira .tela-banco
    (sem display:none — a visibilidade é do router). Descendentes usam :deep() porque as
    linhas de arquivo e o estado vazio são criados via createElement (fora do template). */
-.tela-banco{min-height:100vh;display:flex;flex-direction:column;background:var(--bg);}
+/* Fundo TRANSPARENTE: o #bg-shapes (degradê + ícones) fica fixo atrás de tudo
+   pra aparecer, e o body já pinta a cor base nos DOIS temas. Pintar cor sólida
+   aqui tapava a decoração e ainda deixava uma faixa visível onde a tela
+   terminava. */
+.tela-banco{min-height:100vh;display:flex;flex-direction:column;background:transparent;}
 .tela-banco :deep(.banco-topbar){display:flex;align-items:center;justify-content:space-between;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
 .tela-banco :deep(.banco-back){display:flex;align-items:center;gap:4px;font-family:var(--fonte-principal);font-size:10px;font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;letter-spacing:.3px;text-transform:uppercase;}
 .tela-banco :deep(.banco-topbar-title){font-family:var(--fonte-principal);font-size:15px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--text);}

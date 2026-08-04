@@ -120,7 +120,11 @@ onMounted(() => {
    (legacy L1718-1731). #sales-brand-screen vira .tela-marca-vendas (sem
    display:none — a visibilidade é do router). Tela 100% estática (só o src
    das <img> muda via JS), então nenhum seletor precisa de :deep(). */
-.tela-marca-vendas{min-height:100vh;display:flex;flex-direction:column;background:var(--bg);position:relative;z-index:1;}
+/* Fundo TRANSPARENTE: o #bg-shapes (degradê + ícones) fica fixo atrás de tudo
+   pra aparecer, e o body já pinta a cor base nos DOIS temas. Pintar cor sólida
+   aqui tapava a decoração e ainda deixava uma faixa visível onde a tela
+   terminava. */
+.tela-marca-vendas{min-height:100vh;display:flex;flex-direction:column;background:transparent;position:relative;z-index:1;}
 .tela-marca-vendas .smenu-topbar{display:flex;align-items:center;justify-content:space-between;padding:13px 24px;border-bottom:1px solid var(--border);background:var(--surface);gap:16px;position:sticky;top:0;z-index:10;}
 .tela-marca-vendas .smenu-back{font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);cursor:pointer;background:none;border:1px solid var(--accent-mid);border-radius:5px;padding:5px 10px;display:flex;align-items:center;gap:5px;transition:background .15s,opacity .15s;white-space:nowrap;}
 .tela-marca-vendas .smenu-back:hover{background:var(--accent-light);}

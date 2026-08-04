@@ -1219,7 +1219,11 @@ onUnmounted(() => {
    (os botões reais usam .gv-pbtn), .sa-delta (não referenciada por nenhum
    renderSA*), e os overrides de TV/responsivo que miravam essas mesmas
    classes mortas (legacy L1953-1961, L1967, L614-620). */
-.tela-analise-vendas{min-height:100vh;display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--bg);position:relative;z-index:1;}
+/* Fundo TRANSPARENTE: o #bg-shapes (degradê + ícones) fica fixo atrás de tudo
+   pra aparecer, e o body já pinta a cor base nos DOIS temas. Pintar cor sólida
+   aqui tapava a decoração e ainda deixava uma faixa visível onde a tela
+   terminava. */
+.tela-analise-vendas{min-height:100vh;display:flex;flex-direction:column;height:100%;overflow:hidden;background:transparent;position:relative;z-index:1;}
 
 /* ── Topbar (compartilhado com Gestão à Vista/Gestão de Tráfego — cada tela traz sua cópia) ── */
 .tela-analise-vendas :deep(.gv-topbar){display:flex;align-items:center;justify-content:space-between;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}

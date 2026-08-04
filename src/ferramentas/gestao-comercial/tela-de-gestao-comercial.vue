@@ -344,7 +344,11 @@ onMounted(() => {
    gcInfo(), gc-item-modal via gcAbrirItem()), por isso os seletores usam
    :deep(). NÃO inclui .zoomctl/.zoomctl-val — já são globais em
    estilos-globais.css (o toggle de fonte só anexa a div, o CSS já existe). */
-.tela-gestao-comercial{display:flex;flex-direction:column;min-height:100vh;background:var(--bg);--gc-fs:1;}
+/* Fundo TRANSPARENTE: o #bg-shapes (degradê + ícones) fica fixo atrás de tudo
+   pra aparecer, e o body já pinta a cor base nos DOIS temas. Pintar cor sólida
+   aqui tapava a decoração e ainda deixava uma faixa visível onde a tela
+   terminava. */
+.tela-gestao-comercial{display:flex;flex-direction:column;min-height:100vh;background:transparent;--gc-fs:1;}
 .tela-gestao-comercial :deep(.gc-topbar){display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 64px 14px 26px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:20;}
 .tela-gestao-comercial :deep(.gc-back){display:inline-flex;align-items:center;gap:7px;background:none;border:none;color:var(--muted);font-family:var(--fonte-principal);font-size:calc(11px*var(--gc-fs,1));font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:1.5px;}
 .tela-gestao-comercial :deep(.gc-back:hover){color:var(--text);}

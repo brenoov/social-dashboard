@@ -2604,10 +2604,29 @@ async function _acRenderGeral() {
         <div class="ac-kpi-val tnum" id="ac-kpi-orgs">…</div>
         <div class="ac-kpi-fine" id="ac-kpi-orgs-fine">e seus setores</div></div>
     </div>
+    <div class="ac-section-h" style="margin-top:26px"><h3>Ir para</h3></div>
     <div class="ac-geral-atalhos">
-      <button class="ac-btn" onclick="_acSetTab('org')">Gerenciar colaboradores</button>
-      <button class="ac-btn ghost" onclick="_acSetTab('drive')">Pastas do Drive</button>
-      <button class="ac-btn ghost" onclick="_acSetTab('auditoria')">Ver a auditoria</button>
+      <button class="ac-atalho" onclick="_acSetTab('org')">
+        <span class="ac-atalho-ico org">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
+        </span>
+        <span class="ac-atalho-txt"><b>Colaboradores</b><em>Organizações, setores e fichas</em></span>
+        <span class="ac-atalho-seta">›</span>
+      </button>
+      <button class="ac-atalho" onclick="_acSetTab('drive')">
+        <span class="ac-atalho-ico drive">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </span>
+        <span class="ac-atalho-txt"><b>Drive</b><em>Pastas do Zoho e quem tem acesso</em></span>
+        <span class="ac-atalho-seta">›</span>
+      </button>
+      <button class="ac-atalho" onclick="_acSetTab('auditoria')">
+        <span class="ac-atalho-ico aud">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </span>
+        <span class="ac-atalho-txt"><b>Auditoria</b><em>Quem tem o quê, por organização</em></span>
+        <span class="ac-atalho-seta">›</span>
+      </button>
     </div>`
   _acGeralNumeros()
 }
@@ -2714,7 +2733,11 @@ onMounted(() => {
    "ac-" ali é abreviação de "auto-cycle", colisão de prefixo com "acessos";
    permanecem em estilos-globais.css, intocados. */
   /* ===== Controle de Acessos ===== */
-.tela-acessos{display:flex;flex-direction:column;min-height:100vh;position:relative;z-index:1;background:var(--bg,#0b0f14)}
+/* Fundo TRANSPARENTE: o #bg-shapes (degradê + ícones) fica fixo atrás de tudo
+   pra aparecer, e o body já pinta a cor base nos DOIS temas. Pintar cor sólida
+   aqui tapava a decoração e ainda deixava uma faixa visível onde a tela
+   terminava. */
+.tela-acessos{display:flex;flex-direction:column;min-height:100vh;position:relative;z-index:1;background:transparent}
 .tela-acessos :deep(.ac-topbar){display:flex;align-items:center;gap:18px;padding:16px 24px;border-bottom:1px solid rgba(255,255,255,.08);position:sticky;top:0;background:inherit;flex-wrap:wrap}
 .tela-acessos :deep(.ac-back){background:none;border:1px solid rgba(255,255,255,.18);color:inherit;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px}
 .tela-acessos :deep(.ac-tabs){display:flex;gap:6px;margin-left:auto}
@@ -2753,6 +2776,23 @@ onMounted(() => {
 .tela-acessos .ac-kpi-lab{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
 .tela-acessos .ac-kpi-val{font-family:var(--fonte-dados);font-size:32px;font-weight:600;letter-spacing:.5px;line-height:1;margin-top:7px;color:var(--text);font-variant-numeric:tabular-nums}
 .tela-acessos .ac-kpi-fine{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.35}
+
+/* ── Atalhos da Visão geral ──────────────────────────────────────────────────
+   Os três botões estavam sem regra nenhuma e ficavam jogados embaixo dos cards.
+   Viraram cartões de verdade, na mesma linguagem dos KPIs: um sob o outro no
+   celular, lado a lado do tablet pra cima. */
+.tela-acessos :deep(.ac-geral-atalhos){display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.tela-acessos :deep(.ac-atalho){display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;cursor:pointer;font-family:var(--fonte-principal);color:var(--text);box-shadow:var(--shadow-sm);transition:border-color .15s ease,transform .15s ease}
+.tela-acessos :deep(.ac-atalho:hover){border-color:var(--accent);transform:translateY(-2px)}
+.tela-acessos :deep(.ac-atalho-ico){width:36px;height:36px;flex:none;border-radius:10px;display:grid;place-items:center;color:#fff}
+.tela-acessos :deep(.ac-atalho-ico.org){background:linear-gradient(135deg,#0f766e,#0d9488)}
+.tela-acessos :deep(.ac-atalho-ico.drive){background:linear-gradient(135deg,#b45309,#d97706)}
+.tela-acessos :deep(.ac-atalho-ico.aud){background:linear-gradient(135deg,#4f46e5,#7c3aed)}
+.tela-acessos :deep(.ac-atalho-txt){flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.tela-acessos :deep(.ac-atalho-txt b){font-size:14px;font-weight:600}
+.tela-acessos :deep(.ac-atalho-txt em){font-style:normal;font-size:11.5px;color:var(--muted);line-height:1.35}
+.tela-acessos :deep(.ac-atalho-seta){color:var(--muted);font-size:18px;flex:none}
+@media(max-width:900px){.tela-acessos :deep(.ac-geral-atalhos){grid-template-columns:1fr}}
 /* No celular os 4 KPIs viram 2 colunas (não estoura a tela) e o cabeçalho
    empilha marca em cima, pills embaixo. */
 @media(max-width:720px){
@@ -2950,8 +2990,11 @@ onMounted(() => {
 .tela-acessos :deep(.ac-section-h){display:flex;align-items:center;gap:10px;margin:0 0 14px}
 .tela-acessos :deep(.ac-section-h h3){margin:0}
 /* ===== Acessos — profundidade + tema claro/escuro via variáveis ===== */
-.tela-acessos{background:var(--surface2)}
-[data-theme="dark"] .tela-acessos{background:var(--bg)}
+/* Estas duas linhas pintavam o fundo por tema e vinham DEPOIS da regra de raiz,
+   sobrescrevendo-a — era por elas que a tela continuava sólida (e preta no tema
+   escuro) mesmo com a raiz já em transparent. O fundo agora é o do body, que já
+   trata os dois temas, com a decoração aparecendo por cima dele. */
+.tela-acessos{background:transparent}
 /* ===== Acessos — lista de colaboradores premium ===== */
 .tela-acessos :deep(.ac-person){padding:13px 14px;gap:14px}
 .tela-acessos :deep(.ac-person .ac-avatar){box-shadow:var(--shadow-sm)}

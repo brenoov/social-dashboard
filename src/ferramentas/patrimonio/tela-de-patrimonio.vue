@@ -1438,7 +1438,11 @@ onMounted(() => {
 <style scoped>
 /* Celular-primeiro: o que está fora de media query É o celular.
    A tabela larga só aparece a partir de 1025px. */
-.tela-patrimonio{min-height:100vh;display:flex;flex-direction:column;background:var(--bg);width:100%;}
+/* Fundo TRANSPARENTE: o #bg-shapes (degradê + ícones) fica fixo atrás de tudo
+   pra aparecer, e o body já pinta a cor base nos DOIS temas. Pintar cor sólida
+   aqui tapava a decoração e ainda deixava uma faixa visível onde a tela
+   terminava. */
+.tela-patrimonio{min-height:100vh;display:flex;flex-direction:column;background:transparent;width:100%;}
 
 /* Sem reserva de espaço: o avatar é um filho de verdade desta barra agora. */
 .tela-patrimonio .pat-topbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}

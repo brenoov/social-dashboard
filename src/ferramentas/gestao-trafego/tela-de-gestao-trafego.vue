@@ -4775,7 +4775,11 @@ Object.assign(window, {
    dropdown de conta são literais do <template> (Vue já aplica o escopo
    neles), mas :deep() também funciona e é mantido por consistência com o
    resto do app. */
-.tela-gestao-trafego{min-height:100vh;display:flex;flex-direction:column;background:var(--bg);position:relative;z-index:1;--gt-fs:1.3;}
+/* Fundo TRANSPARENTE: o #bg-shapes (degradê + ícones) fica fixo atrás de tudo
+   pra aparecer, e o body já pinta a cor base nos DOIS temas. Pintar cor sólida
+   aqui tapava a decoração e ainda deixava uma faixa visível onde a tela
+   terminava. */
+.tela-gestao-trafego{min-height:100vh;display:flex;flex-direction:column;background:transparent;position:relative;z-index:1;--gt-fs:1.3;}
 
 /* ── Topbar (compartilhado com Gestão à Vista/Análise de Campanhas — cada tela traz sua cópia) ── */
 .tela-gestao-trafego :deep(.gv-topbar){display:flex;align-items:center;justify-content:space-between;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
