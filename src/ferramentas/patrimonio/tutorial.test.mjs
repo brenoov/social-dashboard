@@ -9,18 +9,28 @@ const armazem = (inicial = {}) => {
   return { getItem: (k) => d[k] ?? null, setItem: (k, v) => { d[k] = v }, _d: d }
 }
 
-test('o passeio abre sozinho só na primeira vez', () => {
+test('o passeio abre sozinho só na primeira vez daquela pessoa', () => {
   const a = armazem()
-  assert.equal(deveAbrirSozinho(a), true)
-  marcarComoVisto(a)
-  assert.equal(deveAbrirSozinho(a), false)
+  assert.equal(deveAbrirSozinho(a, 'u1'), true)
+  marcarComoVisto(a, 'u1')
+  assert.equal(deveAbrirSozinho(a, 'u1'), false)
+})
+
+test('quem chega depois no MESMO aparelho vê o tutorial', () => {
+  // Era o furo: a memória era por navegador. Numa máquina onde o dono já tinha
+  // fechado o passeio, quem entrasse depois nunca veria — e é justamente essa
+  // pessoa que precisa dele.
+  const a = armazem()
+  marcarComoVisto(a, 'dono')
+  assert.equal(deveAbrirSozinho(a, 'dono'), false)
+  assert.equal(deveAbrirSozinho(a, 'larissa'), true, 'outra pessoa tem que ver o tutorial')
 })
 
 test('modo privado (armazém que recusa) não quebra nem abre em loop', () => {
   const recusa = { getItem: () => { throw new Error('bloqueado') }, setItem: () => { throw new Error('bloqueado') } }
-  assert.equal(deveAbrirSozinho(recusa), false, 'sem poder guardar, é melhor não abrir do que abrir sempre')
-  assert.doesNotThrow(() => marcarComoVisto(recusa))
-  assert.equal(deveAbrirSozinho(null), false)
+  assert.equal(deveAbrirSozinho(recusa, 'u1'), false, 'sem poder guardar, é melhor não abrir do que abrir sempre')
+  assert.doesNotThrow(() => marcarComoVisto(recusa, 'u1'))
+  assert.equal(deveAbrirSozinho(null, 'u1'), false)
 })
 
 /* ── O tutorial aponta pra coisas que EXISTEM ────────────────────────────────

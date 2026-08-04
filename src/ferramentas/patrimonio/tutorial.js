@@ -91,19 +91,23 @@ export const AJUDAS = {
     + 'de 80 itens sem mexer no dono, no lugar ou na categoria deles.',
 }
 
-const CHAVE = 'pat-tutorial-visto'
-
-// O passeio abre sozinho UMA vez, na primeira visita. Depois disso, só quando a
-// pessoa pedir — tutorial que reaparece vira estorvo, e quem já sabe usar passa
-// a fechar no reflexo, sem ler.
-export function deveAbrirSozinho(armazem) {
-  // Sem lugar pra guardar (modo privado, armazém bloqueado), NÃO abre: abrir
-  // sem conseguir lembrar significa abrir toda santa vez, e aí o tutorial vira
-  // estorvo — a pessoa aprende a fechar no reflexo, sem ler.
-  if (!armazem || typeof armazem.getItem !== 'function') return false
-  try { return !armazem.getItem(CHAVE) } catch (e) { return false }
+// A memória é POR PESSOA, não por navegador. Sem o identificador na chave, quem
+// entrasse num aparelho onde outra pessoa já tinha fechado o passeio nunca veria
+// o tutorial — e é justamente quem chega depois que mais precisa dele.
+function chaveDe(usuarioId) {
+  return 'pat-tutorial-visto:' + (usuarioId || 'anonimo')
 }
 
-export function marcarComoVisto(armazem) {
-  try { armazem?.setItem(CHAVE, '1') } catch (e) { /* modo privado: só não guarda */ }
+// O passeio abre sozinho UMA vez, na primeira visita daquela pessoa. Depois
+// disso, só quando ela pedir — tutorial que reaparece vira estorvo, e quem já
+// sabe usar passa a fechar no reflexo, sem ler.
+export function deveAbrirSozinho(armazem, usuarioId) {
+  // Sem lugar pra guardar (modo privado, armazém bloqueado), NÃO abre: abrir
+  // sem conseguir lembrar significa abrir toda santa vez.
+  if (!armazem || typeof armazem.getItem !== 'function') return false
+  try { return !armazem.getItem(chaveDe(usuarioId)) } catch (e) { return false }
+}
+
+export function marcarComoVisto(armazem, usuarioId) {
+  try { armazem?.setItem(chaveDe(usuarioId), '1') } catch (e) { /* modo privado: só não guarda */ }
 }

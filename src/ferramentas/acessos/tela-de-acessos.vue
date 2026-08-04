@@ -20,68 +20,29 @@
          têm id e são preenchidos por JS no onMounted, atualizando só
          o texto/classe dos elementos que já existem aqui.
          ============================================================ -->
+    <!-- Cabeçalho enxuto: só o nome da ferramenta e o estado da conexão que
+         ainda existe. Saíram o selo "RB" (a marca já está na Central, repetir
+         aqui só ocupava o canto) e as pílulas de Microsoft 365 e iCloud, que
+         viraram provedores mortos quando o dono parou de usar os dois. -->
     <div class="ac-topo">
-      <!-- Cabeçalho: marca RB + título + subtítulo + pills de provedor -->
       <div class="ac-hero">
         <div class="ac-hero-brand">
-          <div class="ac-hero-mark">RB</div>
           <div>
             <h1 class="ac-hero-h1">Colaboradores &amp; Acessos</h1>
-            <div class="ac-hero-sub">Central de controle de pastas, pessoas e permissões — RBV&nbsp;Company</div>
+            <div class="ac-hero-sub">Pessoas, contas e pastas — RBV&nbsp;Company</div>
           </div>
         </div>
         <div class="ac-hero-provs">
-          <!-- Zoho e Microsoft têm status REAL (consultado no acessos-proxy).
-               A bolinha começa cinza ("verificando") e o JS pinta verde
-               (conectado) ou âmbar (não conectado); se a consulta falhar,
-               fica cinza com "status indisponível" — nunca em silêncio. -->
           <div class="ac-hero-prov" id="ac-prov-zoho-pill" title="Verificando conexão…">
-            <span class="ac-hero-dot" id="ac-prov-zoho"></span>Zoho WorkDrive<span class="ac-hero-prov-note" id="ac-prov-zoho-note">verificando…</span>
+            <span class="ac-hero-dot" id="ac-prov-zoho"></span>Zoho<span class="ac-hero-prov-note" id="ac-prov-zoho-note">verificando…</span>
           </div>
-          <div class="ac-hero-prov" id="ac-prov-ms-pill" title="Verificando conexão…">
-            <span class="ac-hero-dot" id="ac-prov-ms"></span>Microsoft&nbsp;365<span class="ac-hero-prov-note" id="ac-prov-ms-note">verificando…</span>
-          </div>
-          <!-- iCloud é provedor legado/manual: não tem API de status pra
-               consultar, então fica sempre âmbar ("legado"), fixo. -->
-          <div class="ac-hero-prov" title="Provedor legado (controle manual, sem conexão automática)">
-            <span class="ac-hero-dot leg"></span>iCloud
-          </div>
-        </div>
-      </div>
-
-      <!-- Faixa de 4 KPIs. Números começam com "…" e o JS troca pelos
-           reais; se algum não der pra calcular de forma barata/confiável,
-           o JS mostra "—" com um title explicando (honestidade > número). -->
-      <div class="ac-kpis">
-        <div class="ac-kpi k1">
-          <div class="ac-kpi-rail"></div>
-          <div class="ac-kpi-lab">Pastas geridas</div>
-          <div class="ac-kpi-val tnum" id="ac-kpi-pastas">…</div>
-          <div class="ac-kpi-fine" id="ac-kpi-pastas-fine">carregando…</div>
-        </div>
-        <div class="ac-kpi k2">
-          <div class="ac-kpi-rail"></div>
-          <div class="ac-kpi-lab">Pessoas com acesso</div>
-          <div class="ac-kpi-val tnum" id="ac-kpi-pessoas">…</div>
-          <div class="ac-kpi-fine">colaboradores ativos</div>
-        </div>
-        <div class="ac-kpi k3">
-          <div class="ac-kpi-rail"></div>
-          <div class="ac-kpi-lab">Compartilhamentos</div>
-          <div class="ac-kpi-val tnum" id="ac-kpi-shares">…</div>
-          <div class="ac-kpi-fine" id="ac-kpi-shares-fine">vínculos pessoa–pasta registrados</div>
-        </div>
-        <div class="ac-kpi k4">
-          <div class="ac-kpi-rail"></div>
-          <div class="ac-kpi-lab">Provedores</div>
-          <div class="ac-kpi-val tnum">3</div>
-          <div class="ac-kpi-fine">1 ativo · 2 legado</div>
         </div>
       </div>
     </div>
 
     <div class="ac-navbar">
       <div class="ac-tabs">
+        <button class="ac-tab" data-tab="geral" onclick="_acSetTab('geral')">Visão geral</button>
         <button class="ac-tab" data-tab="org" onclick="_acSetTab('org')">Organizações</button>
         <button class="ac-tab" data-tab="drive" onclick="_acSetTab('drive')">Drive</button>
         <button class="ac-tab" data-tab="auditoria" onclick="_acSetTab('auditoria')">Auditoria</button>
@@ -149,7 +110,7 @@ let _acData={organizacoes:[],setores:[],pessoas:[],config:null};
 let _acSel=null;      // id da pessoa aberta (ou null)
 let _acSelSetor=null; // id do setor aberto (ou null, ou false para "sem setor")
 let _acSelOrg=null;
-let _acTab='setores';
+let _acTab='geral';
 function _acEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function _acLogo(k){
   if(k==='ms')return '<svg width="13" height="13" viewBox="0 0 24 24" style="vertical-align:-2px;margin-right:5px"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="13" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="13" width="10" height="10" fill="#00A4EF"/><rect x="13" y="13" width="10" height="10" fill="#FFB900"/></svg>';
@@ -375,16 +336,14 @@ function _acDriveClassify(name){
 }
 // Qual provedor a aba Drive está mostrando. A empresa está saindo do OneDrive
 // pro Zoho WorkDrive, então os dois convivem aqui até o OneDrive ser arquivado.
-let _acDriveProvedor='onedrive'; // 'onedrive' | 'workdrive'
+// Só existe um provedor de Drive desde que o OneDrive saiu da ferramenta.
+let _acDriveProvedor='workdrive';
 function _acDriveSetProvedor(p){if(p===_acDriveProvedor)return;_acDriveProvedor=p;_acRenderDrive();}
 // Barra que troca de provedor. Fica no topo dos DOIS lados, pra o caminho de
 // volta existir sempre.
-function _acDriveProvedorBar(){
-  return `<div class="ac-driveviews">
-    <button class="ac-tab ${_acDriveProvedor==='onedrive'?'active':''}" onclick="_acDriveSetProvedor('onedrive')">${_acLogo('ms')}OneDrive</button>
-    <button class="ac-tab ${_acDriveProvedor==='workdrive'?'active':''}" onclick="_acDriveSetProvedor('workdrive')">${_acLogo('zoho')}Zoho WorkDrive</button>
-  </div>`;
-}
+// A barra de escolher provedor sumiu junto com o OneDrive: com um provedor só,
+// um seletor de um item é ruído.
+function _acDriveProvedorBar(){return '';}
 /* ===== Zoho WorkDrive (dentro da aba Drive) ===== */
 // Pastas do WorkDrive já importadas, como vieram do banco (lista achatada).
 let _acWdPastas=[];
@@ -478,11 +437,9 @@ async function _acWdImportar(){
 // ===================================================================
 const _AC_PA_PROVS=[
   {key:'workdrive',nome:'Zoho WorkDrive',glyph:'Z',gcls:'ac-g-zoho',tagCls:'ativo',tag:'Ativo'},
-  {key:'onedrive', nome:'OneDrive',      glyph:'M',gcls:'ac-g-ms',  tagCls:'legado',tag:'Legado'},
-  {key:'icloud',   nome:'iCloud',        glyph:'i',gcls:'ac-g-ap',  tagCls:'legado',tag:'Legado'},
 ];
 let _acPaProv='workdrive';          // provedor selecionado no rail
-let _acPaFolders={workdrive:null,onedrive:null,icloud:null}; // cache das listas já carregadas
+let _acPaFolders={workdrive:null}; // cache das listas já carregadas
 let _acPaCounts={workdrive:null,onedrive:null,icloud:null};  // contagem por provedor (null = ainda não sei)
 let _acPaSel=null;                  // id da pasta selecionada
 let _acPaAberto={};                 // ramos abertos/fechados da árvore (por id da pasta)
@@ -1390,10 +1347,10 @@ async function loadAcessos(){
 }
 function _acRender(){
   document.querySelectorAll('#acessos-screen .ac-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===_acTab));
+  if(_acTab==='geral')return _acRenderGeral();
   if(_acTab==='auditoria')return _acRenderAuditoria();
   if(_acTab==='drive')return _acRenderDrive();
   if(_acTab==='config')return _acRenderConfiguracoes();
-  if(_acTab==='icloud')return _acRenderICloud();
   if(_acSel)return _acRenderFicha(_acSel);
   if(_acSelSetor!==null)return _acRenderColaboradores(_acSelSetor);
   if(_acSelOrg!==null)return _acRenderSetores(_acSelOrg);
@@ -1486,24 +1443,8 @@ function _acRenderConfiguracoes(){
           <button class="ac-btn" id="ac-zoho-import" style="display:none" onclick="_acImportarZoho()">Importar usuários</button>
         </div>
       </div>
-      <div class="ac-conn">
-        <div class="ac-conn-top">${_acLogo('ms')}<span class="ac-conn-name">OneDrive</span><span style="margin-left:auto" id="ac-od-status" class="ac-muted">verificando…</span></div>
-        <div class="ac-conn-desc">Compartilhamento das pastas que você controla (conta Microsoft pessoal). A gestão de pastas fica na aba Drive.</div>
-        <div class="ac-conn-actions">
-          <button class="ac-btn ghost" onclick="_acConectarOneDrive()">Conectar / reconectar</button>
-          <button class="ac-btn" onclick="_acSetTab('drive')">Ir para o Drive →</button>
-        </div>
-      </div>
-      <div class="ac-conn">
-        <div class="ac-conn-top">${_acLogo('apple')}<span class="ac-conn-name">iCloud</span><span style="margin-left:auto" class="ac-pill neutral">manual</span></div>
-        <div class="ac-conn-desc">Sem API — cadastre as pastas e os acessos; você compartilha na Apple e marca "feito".</div>
-        <div class="ac-conn-actions">
-          <button class="ac-btn ghost" onclick="_acOpenICloud()">Gerenciar pastas</button>
-        </div>
-      </div>
     </div>`;
   _acZohoStatus();
-  _acODStatus();
 }
 function _acOpenOrg(orgId){_acSelOrg=orgId;_acSelSetor=null;_acSel=null;_acRender();}
 async function _acAddOrg(){
@@ -1669,7 +1610,6 @@ async function _acSaveColaborador(id){
 // a MESMA verdade — assim não dá pra o rótulo/tipo divergir entre os dois.
 const AC_FICHA_CAMPOS={
   email_corporativo:{label:'E-mail corporativo',tipo:'email'},
-  email_outlook:{label:'Conta Microsoft (Outlook)',tipo:'email'},
   conta_apple:{label:'Conta Apple (iCloud)',tipo:'email'},
   numero_corporativo:{label:'Telefone corporativo',tipo:'tel'},
   numero_pessoal:{label:'Telefone pessoal',tipo:'tel'},
@@ -2537,8 +2477,6 @@ function _acAudPaint(){
         <div class="grow" style="min-width:0"><div class="ac-person-name">${_acEsc(p.nome)} ${p.status==='desligado'?'<span class="ac-pill neutral">desligado</span>':''}${badgeMuitas(od)}</div>
           <div class="ac-kicker">${_acEsc(p.cargo||'—')}${orgN?' · '+_acEsc(orgN):''}</div></div></div>
       ${item(_acLogo('zoho'),'Zoho',p.email_corporativo?_acEsc(p.email_corporativo):'<span class="ac-muted">—</span>')}
-      ${item(_acLogo('ms'),'OneDrive',_acOdSummary(od))}
-      ${item(_acLogo('apple'),'iCloud',icl.length?icl.map(f=>_acEsc(f.pasta)+' <span class="ac-muted">('+(f.papel==='edicao'?'edição':'leitura')+(f.estado==='pendente'?' · pendente':'')+')</span>').join(', '):'<span class="ac-muted">sem pastas</span>')}
       ${item(_acLogo('apple'),'Apple',p.conta_apple?_acEsc(p.conta_apple):'<span class="ac-muted">—</span>')}
       ${item('','Dispositivos',disp.length?disp.map(d=>_acEsc(d.descricao||_acItemTipoLabel(d.tipo))).join(', '):'<span class="ac-muted">nenhum</span>')}
       ${item('','Patrimônio',veic.length?veic.map(d=>_acEsc(d.descricao||_acItemTipoLabel(d.tipo))).join(', '):'<span class="ac-muted">nenhum</span>')}
@@ -2553,7 +2491,7 @@ function _acAudPaint(){
       <div class="grow" style="min-width:0"><div class="ac-person-name">${_acEsc(p.nome)} ${p.status==='desligado'?'<span class="ac-pill neutral">desligado</span>':''}${odMuitas?`<span class="ac-badge-muitas" title="Acesso a muitas pastas do OneDrive — vale revisar">${od.length} pastas</span>`:''}</div>
         <div class="ac-kicker">${_acEsc(p.cargo||'—')}${orgN?' · '+_acEsc(orgN):''}</div>
         ${p.email_corporativo?`<div class="ac-person-email">${_acEsc(p.email_corporativo)}</div>`:''}</div>
-      <div class="ac-audrow-counts">${cnt(_acLogo('ms'),'OneDrive',od.length,odMuitas)}${cnt(_acLogo('apple'),'iCloud',icl.length)}${cnt('','Disp',disp.length)}${cnt('','Patrim',veic.length)}</div>
+      <div class="ac-audrow-counts">${cnt(_acLogo('apple'),'iCloud',icl.length)}${cnt('','Disp',disp.length)}${cnt('','Patrim',veic.length)}</div>
       <button class="ac-btn ghost" onclick="_acOpenPessoa('${p.id}')">Abrir →</button>
     </div>`;
   };
@@ -2632,70 +2570,106 @@ async function _acTopoStatusProvedor(action, dotId, noteId, pillId) {
   }
 }
 
-// Preenche a faixa de 4 KPIs com números REAIS do banco. Cada KPI é
-// independente: se um falhar, os outros ainda aparecem, e o que falhou mostra
-// "—" com um title explicando — melhor um traço honesto que um número errado.
-async function _acTopoKpis() {
+// ---- Aba "Visão geral": o retrato da ferramenta em quatro números ----
+//
+// Ficava numa faixa fixa acima das abas, empurrando o conteúdo pra baixo em toda
+// tela. Virou aba própria: quem entra pra ver o panorama abre aqui, e quem entra
+// pra trabalhar vai direto pra Organizações sem passar por ela.
+//
+// Cada número é independente: se um falhar, os outros aparecem, e o que falhou
+// mostra "—" com o motivo. Melhor um traço honesto que um número errado — um card
+// grande se lê como manchete.
+//
+// O antigo KPI "Compartilhamentos" saiu: ele consultava o OneDrive ao vivo, e o
+// OneDrive não é mais usado. No lugar entrou a cobertura de e-mail corporativo,
+// que é o que hoje diz se o cadastro está em dia.
+async function _acRenderGeral() {
+  const body = document.getElementById('ac-body')
+  body.innerHTML = `
+    <div class="ac-kpis">
+      <div class="ac-kpi k1"><div class="ac-kpi-rail"></div>
+        <div class="ac-kpi-lab">Colaboradores ativos</div>
+        <div class="ac-kpi-val tnum" id="ac-kpi-pessoas">…</div>
+        <div class="ac-kpi-fine" id="ac-kpi-pessoas-fine">carregando…</div></div>
+      <div class="ac-kpi k2"><div class="ac-kpi-rail"></div>
+        <div class="ac-kpi-lab">Com e-mail corporativo</div>
+        <div class="ac-kpi-val tnum" id="ac-kpi-email">…</div>
+        <div class="ac-kpi-fine" id="ac-kpi-email-fine">cobertura do cadastro</div></div>
+      <div class="ac-kpi k3"><div class="ac-kpi-rail"></div>
+        <div class="ac-kpi-lab">Pastas geridas</div>
+        <div class="ac-kpi-val tnum" id="ac-kpi-pastas">…</div>
+        <div class="ac-kpi-fine" id="ac-kpi-pastas-fine">no Zoho WorkDrive</div></div>
+      <div class="ac-kpi k4"><div class="ac-kpi-rail"></div>
+        <div class="ac-kpi-lab">Organizações</div>
+        <div class="ac-kpi-val tnum" id="ac-kpi-orgs">…</div>
+        <div class="ac-kpi-fine" id="ac-kpi-orgs-fine">e seus setores</div></div>
+    </div>
+    <div class="ac-geral-atalhos">
+      <button class="ac-btn" onclick="_acSetTab('org')">Gerenciar colaboradores</button>
+      <button class="ac-btn ghost" onclick="_acSetTab('drive')">Pastas do Drive</button>
+      <button class="ac-btn ghost" onclick="_acSetTab('auditoria')">Ver a auditoria</button>
+    </div>`
+  _acGeralNumeros()
+}
+
+async function _acGeralNumeros() {
   const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v }
   const setTitle = (id, t) => { const el = document.getElementById(id); if (el && t != null) el.title = t }
 
-  // KPI 1 — Pastas geridas: quantas pastas ATIVAS (arquivado_em vazio) estão
-  // sob controle, separadas por provedor. Uma consulta só, trazendo apenas a
-  // coluna "tipo" (barato), e a conta é feita aqui no navegador.
+  // Pessoas: ativos, e quantos desligados existem (contexto de quem cresce/encolhe)
   try {
-    const { data, error } = await sbClient
-      .from('acessos_recursos')
-      .select('tipo')
-      .is('arquivado_em', null)
-    if (error) throw error
-    const linhas = data || []
-    const c = { workdrive: 0, onedrive: 0, icloud: 0 }
-    linhas.forEach(r => { if (c[r.tipo] != null) c[r.tipo]++ })
-    setText('ac-kpi-pastas', String(linhas.length))
-    setText('ac-kpi-pastas-fine', montarDetalhePastas(c))
-  } catch (e) {
-    setText('ac-kpi-pastas', '—')
-    setText('ac-kpi-pastas-fine', 'não foi possível contar as pastas agora')
-  }
-
-  // KPI 2 — Pessoas com acesso: colaboradores com status "ativo". COUNT no
-  // banco (head:true = só o número, não traz as linhas).
-  try {
-    const { count, error } = await sbClient
-      .from('acessos_pessoas')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'ativo')
-    if (error) throw error
-    setText('ac-kpi-pessoas', String(count != null ? count : 0))
+    const [{ count: ativos, error: e1 }, { count: fora }] = await Promise.all([
+      sbClient.from('acessos_pessoas').select('*', { count: 'exact', head: true }).eq('status', 'ativo'),
+      sbClient.from('acessos_pessoas').select('*', { count: 'exact', head: true }).eq('status', 'desligado'),
+    ])
+    if (e1) throw e1
+    setText('ac-kpi-pessoas', String(ativos ?? 0))
+    setText('ac-kpi-pessoas-fine', (fora ?? 0) + ' desligado(s) no histórico')
   } catch (e) {
     setText('ac-kpi-pessoas', '—')
+    setText('ac-kpi-pessoas-fine', 'não consegui contar os colaboradores agora')
   }
 
-  // KPI 3 — Compartilhamentos: mostra o número REAL de acessos ativos no OneDrive.
-  //
-  // A tentação seria contar acessos_vinculos (1 COUNT barato no nosso banco), mas
-  // essa tabela só tem 1 linha (medido) — mostraria "1" onde a verdade são ~370.
-  // Um card de KPI se lê como manchete: número errado ali é mentira, não economia.
-  // Então buscamos o número verdadeiro ao vivo (a mesma consulta que a Auditoria já
-  // faz). Custa alguns segundos, então é PREGUIÇOSO: o card já apareceu com "…" e a
-  // gente troca pelo número quando ele chega, sem travar o resto da tela.
+  // Cobertura de e-mail corporativo: quantos dos ATIVOS já têm conta Zoho.
   try {
-    const r = await _acProxy('microsoft.allShares')
-    const itens = (r && Array.isArray(r.items)) ? r.items : null
-    if (itens == null) throw new Error('resposta_sem_items')
-    setText('ac-kpi-shares', String(itens.length))
-    // Se alguma pasta não pôde ser lida, o número é PARCIAL — dizer isso, não fingir total.
-    const falhas = (r && Array.isArray(r.falhas)) ? r.falhas.length : 0
-    if (falhas > 0) {
-      setText('ac-kpi-shares-fine', `acessos no OneDrive (parcial: ${falhas} pasta(s) não lida(s))`)
-      setTitle('ac-kpi-shares', 'Faltou ler ' + falhas + ' pasta(s); o número está incompleto')
-    } else {
-      setText('ac-kpi-shares-fine', 'acessos ativos no OneDrive (ao vivo)')
-    }
+    const { data, error } = await sbClient
+      .from('acessos_pessoas').select('email_corporativo').eq('status', 'ativo')
+    if (error) throw error
+    const lista = data || []
+    const com = lista.filter(p => (p.email_corporativo || '').trim()).length
+    setText('ac-kpi-email', String(com))
+    setText('ac-kpi-email-fine', lista.length
+      ? `de ${lista.length} ativos · faltam ${lista.length - com}`
+      : 'nenhum colaborador ativo')
   } catch (e) {
-    setText('ac-kpi-shares', '—')
-    setText('ac-kpi-shares-fine', 'não foi possível consultar o OneDrive agora')
-    setTitle('ac-kpi-shares', 'A consulta ao OneDrive falhou; o número não é zero, é desconhecido')
+    setText('ac-kpi-email', '—')
+    setText('ac-kpi-email-fine', 'não consegui ler os e-mails agora')
+  }
+
+  // Pastas sob controle no WorkDrive (as arquivadas não contam).
+  try {
+    const { data, error } = await sbClient
+      .from('acessos_recursos').select('tipo').is('arquivado_em', null)
+    if (error) throw error
+    const doWorkdrive = (data || []).filter(r => r.tipo === 'workdrive').length
+    setText('ac-kpi-pastas', String(doWorkdrive))
+  } catch (e) {
+    setText('ac-kpi-pastas', '—')
+    setText('ac-kpi-pastas-fine', 'não consegui contar as pastas agora')
+  }
+
+  // Estrutura: organizações e setores.
+  try {
+    const [{ count: orgs, error: e1 }, { count: setores }] = await Promise.all([
+      sbClient.from('acessos_organizacoes').select('*', { count: 'exact', head: true }),
+      sbClient.from('acessos_setores').select('*', { count: 'exact', head: true }),
+    ])
+    if (e1) throw e1
+    setText('ac-kpi-orgs', String(orgs ?? 0))
+    setText('ac-kpi-orgs-fine', (setores ?? 0) + ' setores no total')
+  } catch (e) {
+    setText('ac-kpi-orgs', '—')
+    setText('ac-kpi-orgs-fine', 'não consegui ler a estrutura agora')
   }
 }
 
@@ -2713,7 +2687,6 @@ onMounted(() => {
   // trata o próprio erro por dentro, então não precisa de try/catch aqui.
   _acTopoStatusProvedor('zoho.status', 'ac-prov-zoho', 'ac-prov-zoho-note', 'ac-prov-zoho-pill')
   _acTopoStatusProvedor('microsoft.status', 'ac-prov-ms', 'ac-prov-ms-note', 'ac-prov-ms-pill')
-  _acTopoKpis()
 })
 </script>
 

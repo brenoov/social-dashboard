@@ -711,7 +711,7 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { adminToast } from '../../compartilhado/avisos.js'
-import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
+import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { hojeLocal } from '../../compartilhado/datas.js'
 import { formatarValor, parsearValor, fecharEAbrirHistorico } from './patrimonio.js'
 import { textoLinhaHistorico } from './patrimonio-lista.js'
@@ -1102,7 +1102,7 @@ function alternarAjuda(chave) { ajudaAberta.value = ajudaAberta.value === chave 
 function abrirPasseio() { passeioAberto.value = true }
 // Fechou o passeio (concluiu ou pulou): não abre mais sozinho.
 watch(passeioAberto, (aberto) => {
-  if (!aberto) marcarComoVisto(typeof localStorage !== 'undefined' ? localStorage : null)
+  if (!aberto) marcarComoVisto(typeof localStorage !== 'undefined' ? localStorage : null, estado.user?.id)
 })
 
 // -------------------------------------------------- visões: planilha e resumo
@@ -1428,7 +1428,7 @@ onMounted(() => {
   carregar().then(() => {
     // Só depois dos dados na tela: passeio apontando pra botão que ainda não
     // renderizou realça o vazio.
-    if (deveAbrirSozinho(typeof localStorage !== 'undefined' ? localStorage : null)) {
+    if (deveAbrirSozinho(typeof localStorage !== 'undefined' ? localStorage : null, estado.user?.id)) {
       passeioAberto.value = true
     }
   })
@@ -1586,8 +1586,11 @@ onMounted(() => {
 .tela-patrimonio .pat-tabela-wrap{display:none;}
 
 /* ---- ficha do bem: painel de baixo pra cima no celular, caixa no desktop ---- */
-.tela-patrimonio .pat-ficha-fundo{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;display:flex;align-items:flex-end;justify-content:center;}
-.tela-patrimonio .pat-ficha{background:var(--surface);width:100%;max-height:92vh;display:flex;flex-direction:column;border-radius:16px 16px 0 0;}
+/* Centralizado e com margem, também no celular. Antes ele nascia colado no
+   rodapé, de ponta a ponta — parecia uma gaveta presa na borda em vez de uma
+   ficha, e no aparelho grande ficava com meia tela vazia em cima. */
+.tela-patrimonio .pat-ficha-fundo{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;display:flex;align-items:center;justify-content:center;padding:16px;}
+.tela-patrimonio .pat-ficha{background:var(--surface);width:100%;max-width:520px;max-height:88vh;display:flex;flex-direction:column;border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.28);}
 .tela-patrimonio .pat-ficha-topo{display:flex;align-items:center;gap:10px;padding:14px;border-bottom:1px solid var(--border);}
 .tela-patrimonio .pat-ficha-fechar{width:34px;height:34px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);font-size:15px;cursor:pointer;touch-action:manipulation;}
 .tela-patrimonio .pat-ficha-titulo{font-family:var(--fonte-principal);font-size:13px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);}
@@ -1678,7 +1681,6 @@ onMounted(() => {
   .tela-patrimonio .pat-tabela tbody tr{cursor:pointer;}
   .tela-patrimonio .pat-tabela tbody tr:hover{background:var(--surface2);}
   .tela-patrimonio .pat-dir{text-align:right;}
-  .tela-patrimonio .pat-ficha-fundo{align-items:center;}
-  .tela-patrimonio .pat-ficha{max-width:560px;border-radius:14px;}
+  .tela-patrimonio .pat-ficha{max-width:560px;}
 }
 </style>
