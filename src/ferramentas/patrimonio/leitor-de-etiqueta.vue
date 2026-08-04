@@ -81,19 +81,25 @@ async function procurar(el) {
   }
 
   /* A leitura pronta do ZXing (`decodeFromStream`, que olha os quadros sozinho)
-     NÃO fechou a leitura da nossa etiqueta — testado com a foto de uma etiqueta
+     NÃO fecha a leitura da nossa etiqueta — testado com a foto de uma etiqueta
      de verdade entrando como se fosse a câmera: 20 segundos sem ler nada.
-     O que funciona, e leu em 249ms, é tratar cada quadro antes:
+     O que funciona é tratar cada quadro antes:
 
-       1. recortar o MIOLO (o mesmo pedaço que a mira desenha na tela) — o
-          quadro inteiro, com a mesa e a sombra em volta, atrapalha;
-       2. ampliar 2×;
-       3. jogar o contraste no talo (barra vira preta, papel vira branco),
-          alternando o ponto de corte a cada quadro, porque o reflexo em cima do
-          código muda o valor que funciona;
-       4. só então entregar pro leitor, com as dicas ligadas.
+       1. recortar o MIOLO — o mesmo pedaço que a mira desenha na tela. O quadro
+          inteiro, com a mesa e a sombra em volta, não fecha;
+       2. achar o ponto de corte OLHANDO O PRÓPRIO QUADRO (método de Otsu) e
+          deixar a imagem em preto e branco puro;
+       3. só então entregar pro leitor, com as dicas ligadas.
 
-     Cada etapa dessas foi medida — nenhuma está aqui por precaução. */
+     Duas coisas que a primeira versão fazia e foram medidas como erradas:
+
+     · Ampliava o recorte 2×. Não adianta nada: com o mesmo quadro, ampliado dá
+       2.477k pixels e 47ms, e sem ampliar dá 619k pixels e 5ms — os dois leem
+       o mesmo "000019". Era dez vezes mais trabalho por quadro à toa.
+     · Testava seis pontos de corte fixos, um por quadro. Isso é o que fazia a
+       leitura levar ~5 segundos no aparelho (relatado pelo dono): no pior caso
+       eram seis quadros até cair no valor certo. O Otsu acha o valor sozinho
+       no primeiro quadro — neste aqui ele escolheu 103, e leu. */
   const dicas = new Map()
   dicas.set(zx.DecodeHintType.TRY_HARDER, true)
   dicas.set(zx.DecodeHintType.POSSIBLE_FORMATS,
@@ -102,27 +108,48 @@ async function procurar(el) {
 
   const tela = document.createElement('canvas')
   const pincel = tela.getContext('2d', { willReadFrequently: true })
-  const CORTES = [0, 90, 110, 130, 150, 170]   // 0 = sem contraste, deixa o leitor decidir
+  const cinza = { dados: null }
+  const histograma = new Uint32Array(256)
+  // Se o Otsu errar (quadro meio na sombra, meio no sol), os quadros seguintes
+  // tentam um pouco mais claro e um pouco mais escuro, e depois sem corte
+  // nenhum. Quatro tentativas, não seis — e a primeira já costuma bastar.
+  const AJUSTES = [0, -25, +25, null]
   let volta = 0
 
   laco(() => {
     if (!el.videoWidth) return null
-    // Mesmas proporções da mira no <template>: o que a pessoa encaixa é o que
-    // o leitor lê. Se um dos dois mudar, o outro tem que mudar junto.
-    const RX = 0.08, RY = 0.20, RW = 0.84, RH = 0.60, ESC = 2
+    // Mesmas proporções da mira no <template>: o que a pessoa encaixa é o que o
+    // leitor lê. Se um dos dois mudar, o outro tem que mudar junto.
+    const RX = 0.08, RY = 0.20, RW = 0.84, RH = 0.60
     const sw = el.videoWidth * RW, sh = el.videoHeight * RH
-    tela.width = Math.round(sw * ESC)
-    tela.height = Math.round(sh * ESC)
+    // Nunca ampliar; só reduzir se o aparelho der um quadro grande demais.
+    // Câmera de celular novo entrega 1920 e às vezes mais, e cada pixel a mais
+    // é trabalho por quadro sem ganho de leitura.
+    const escala = Math.min(1, 1000 / sw)
+    tela.width = Math.round(sw * escala)
+    tela.height = Math.round(sh * escala)
     pincel.drawImage(el, el.videoWidth * RX, el.videoHeight * RY, sw, sh, 0, 0, tela.width, tela.height)
 
     const img = pincel.getImageData(0, 0, tela.width, tela.height)
-    const corte = CORTES[volta++ % CORTES.length]
-    const pontos = new Int32Array(tela.width * tela.height)
+    const n = tela.width * tela.height
+    if (!cinza.dados || cinza.dados.length !== n) cinza.dados = new Uint8Array(n)
+    histograma.fill(0)
     for (let k = 0, j = 0; k < img.data.length; k += 4, j++) {
-      const luz = img.data[k] * 0.3 + img.data[k + 1] * 0.59 + img.data[k + 2] * 0.11
-      const t = corte ? (luz > corte ? 255 : 0) : luz | 0
+      // Luminância em inteiro: 77/151/28 sobre 256 é o mesmo 0.30/0.59/0.11,
+      // sem ponto flutuante — são centenas de milhares de pixels por quadro.
+      const luz = (img.data[k] * 77 + img.data[k + 1] * 151 + img.data[k + 2] * 28) >> 8
+      cinza.dados[j] = luz
+      histograma[luz]++
+    }
+
+    const ajuste = AJUSTES[volta++ % AJUSTES.length]
+    const corte = ajuste === null ? 0 : Math.max(1, Math.min(254, pontoDeCorte(histograma, n) + ajuste))
+    const pontos = new Int32Array(n)
+    for (let j = 0; j < n; j++) {
+      const t = corte ? (cinza.dados[j] > corte ? 255 : 0) : cinza.dados[j]
       pontos[j] = (t << 16) | (t << 8) | t
     }
+
     const fonte = new zx.RGBLuminanceSource(pontos, tela.width, tela.height)
     for (const Binarizador of [zx.HybridBinarizer, zx.GlobalHistogramBinarizer]) {
       // Leitor NOVO a cada tentativa: `reset()` zera os leitores internos que
@@ -138,6 +165,27 @@ async function procurar(el) {
   })
 }
 
+/* Método de Otsu: dado o histograma de tons do quadro, devolve o ponto que
+   melhor separa "papel" de "barra". É preferível a um valor fixo porque a luz
+   do corredor, a sombra da mão e o reflexo do plástico mudam a cada foto — um
+   número cravado só acerta no ambiente onde foi cravado. */
+function pontoDeCorte(histograma, total) {
+  let soma = 0
+  for (let i = 0; i < 256; i++) soma += i * histograma[i]
+  let somaAbaixo = 0, pesoAbaixo = 0, melhor = 0, corte = 128
+  for (let i = 0; i < 256; i++) {
+    pesoAbaixo += histograma[i]
+    if (!pesoAbaixo) continue
+    const pesoAcima = total - pesoAbaixo
+    if (!pesoAcima) break
+    somaAbaixo += i * histograma[i]
+    const separacao = pesoAbaixo * pesoAcima
+      * Math.pow(somaAbaixo / pesoAbaixo - (soma - somaAbaixo) / pesoAcima, 2)
+    if (separacao > melhor) { melhor = separacao; corte = i }
+  }
+  return corte
+}
+
 // Um quadro por vez, sem empilhar: se a leitura de um quadro demora, o próximo
 // só começa depois. `requestAnimationFrame` sozinho enfileiraria trabalho em
 // cima de trabalho e travaria o vídeo.
@@ -147,7 +195,7 @@ function laco(lerUmQuadro) {
     let texto = null
     try { texto = await lerUmQuadro() } catch (e) { /* quadro ruim, segue */ }
     if (texto) return achou(texto)
-    setTimeout(passo, 60)
+    setTimeout(passo, 25)
   }
   passo()
 }
