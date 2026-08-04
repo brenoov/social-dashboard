@@ -14,8 +14,13 @@ test('quem só dirige não vê a aba de Gestão', () => {
 })
 
 test('quem administra vê as duas, e abre na Gestão', () => {
-  assert.deepEqual(areasVisiveis(ADMIN), ['motorista', 'gestao'])
+  assert.deepEqual(areasVisiveis(ADMIN), ['motorista', 'gestao', 'revisoes'])
   assert.equal(areaInicial(ADMIN), 'gestao')
+})
+
+test('Revisões anda junto com Gestão — quem cadastra veículo define os limiares', () => {
+  assert.ok(areasVisiveis(ADMIN).includes('revisoes'))
+  assert.ok(!areasVisiveis(MOTORISTA).includes('revisoes'), 'quem só dirige não mexe no plano de revisão')
 })
 
 test('poder criar já basta pra Gestão, mesmo sem poder excluir', () => {

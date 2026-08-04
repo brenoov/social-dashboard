@@ -19,6 +19,7 @@ import {
   SITUACOES, problemasDaRequisicao, bloqueios, podeDecidir, motivoEmPortugues,
   ordenarFila, quando,
 } from './requisicoes.js'
+import { revisoesDoVeiculo, resumoDeRevisoes, problemasDoItem, avisoAoDesativar } from './revisoes.js'
 
 const router = useRouter()
 const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
@@ -44,7 +45,7 @@ function voltar() { router.push({ name: 'gestao-interna' }) }
 async function carregar() {
   carregando.value = true
   falha.value = ''
-  const [v, u, p, q] = await Promise.all([
+  const [v, u, p, q, pl, rv] = await Promise.all([
     sbClient.from('frota_veiculos').select('*').order('nome'),
     // Só o que interessa pra montar a tela: o aberto de cada carro e as
     // devoluções recentes. Puxar o histórico inteiro cresceria pra sempre.
@@ -54,6 +55,8 @@ async function carregar() {
     // carro está reservado é o que evita o conflito de viagens — esconder isso
     // de quem dirige recriaria no app o problema que o papel tem.
     sbClient.from('frota_requisicoes').select('*').order('retirada_prevista'),
+    sbClient.from('frota_plano_revisao').select('*').order('ordem'),
+    sbClient.from('frota_revisoes').select('*'),
   ])
   if (v.error || u.error) {
     falha.value = 'Não consegui carregar a frota. Recarregue a página; se continuar, avise.'
@@ -66,6 +69,8 @@ async function carregar() {
   // A agenda pode falhar sozinha (permissão nova ainda não concedida) sem
   // derrubar o resto da tela: sem ela a Frota ainda serve pra pegar e devolver.
   requisicoes.value = q && !q.error ? (q.data || []) : []
+  plano.value = pl && !pl.error ? (pl.data || []) : []
+  revisoes.value = rv && !rv.error ? (rv.data || []) : []
   carregando.value = false
 }
 
@@ -305,6 +310,64 @@ async function confirmarDecisao() {
   carregar()
 }
 
+/* ── Revisões (F4) ───────────────────────────────────────────────────────────
+   O plano diz de quantos em quantos km cada item se troca; o histórico diz
+   quando cada um foi trocado em cada carro; e o KM vem sozinho das devoluções.
+   Com os três, o alerta se calcula — que é o que a aba "Alertas" da planilha
+   nunca conseguiu, porque o KM dela dependia de alguém digitar. */
+const plano = ref([])
+const revisoes = ref([])
+
+const revisoesPorVeiculo = computed(() => linhas.value.map((l) => {
+  const itens = revisoesDoVeiculo({
+    veiculo: l.veiculo, kmAtual: l.km, plano: plano.value, revisoes: revisoes.value,
+  })
+  return { linha: l, itens, resumo: resumoDeRevisoes(itens) }
+}).sort((a, b) => {
+  const ordem = { vencida: 0, perto: 1, 'sem-registro': 2, 'em-dia': 3 }
+  return (ordem[a.resumo.nivel] ?? 9) - (ordem[b.resumo.nivel] ?? 9)
+}))
+
+// O editor de limiares: o dono acrescenta e ajusta sem depender de programador,
+// porque quem muda de opinião é o mecânico.
+const itemEmEdicao = ref(null)
+const itemForm = reactive({ item: '', aCadaKm: '', observacao: '' })
+const errosDoItem = ref([])
+
+function abrirItem(p) {
+  itemEmEdicao.value = p || { novo: true }
+  errosDoItem.value = []
+  Object.assign(itemForm, {
+    item: p ? p.item : '', aCadaKm: p ? String(p.a_cada_km) : '', observacao: (p && p.observacao) || '',
+  })
+}
+function fecharItem() { itemEmEdicao.value = null; errosDoItem.value = [] }
+
+async function salvarItem() {
+  if (gravando.value) return
+  const km = parseInt(String(itemForm.aCadaKm).replace(/\D/g, ''), 10)
+  errosDoItem.value = problemasDoItem({
+    item: itemForm.item, aCadaKm: km,
+    existentes: plano.value, idAtual: itemEmEdicao.value && itemEmEdicao.value.id,
+  })
+  if (errosDoItem.value.length) return
+
+  gravando.value = true
+  const dados = { item: itemForm.item.trim(), a_cada_km: km, observacao: itemForm.observacao.trim() || null }
+  const r = itemEmEdicao.value.novo
+    ? await sbClient.from('frota_plano_revisao').insert({ ...dados, ordem: plano.value.length + 1 })
+    : await sbClient.from('frota_plano_revisao').update(dados).eq('id', itemEmEdicao.value.id)
+  gravando.value = false
+  if (r.error) { errosDoItem.value = ['Não consegui gravar. Tente de novo.']; return }
+  fecharItem()
+  carregar()
+}
+
+async function alternarItem(p) {
+  const { error } = await sbClient.from('frota_plano_revisao').update({ ativo: !p.ativo }).eq('id', p.id)
+  if (!error) carregar()
+}
+
 onMounted(async () => {
   await carregar()
   // Só depois de saber as permissões dá pra escolher a aba de abertura.
@@ -469,6 +532,89 @@ onMounted(async () => {
         <div class="fr-acoes" v-if="podeEditar">
           <button v-if="l.naRua" class="fr-btn primario" @click="abrirDevolucao(l)">Devolver</button>
           <button v-else-if="l.disponivel" class="fr-btn primario" @click="abrirRetirada(l)">Vou usar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÁREA REVISÕES: o que está vencendo, e o plano que o dono edita. -->
+    <template v-if="area === 'revisoes' && !carregando && !falha">
+      <h2 class="fr-secao">Situação de cada carro</h2>
+      <div class="fr-lista">
+        <div v-for="r in revisoesPorVeiculo" :key="r.linha.veiculo.id"
+             class="fr-card" :class="{ espera: r.resumo.nivel === 'perto', ruimzao: r.resumo.nivel === 'vencida' }">
+          <div class="fr-card-topo">
+            <div class="fr-card-ident">
+              <span class="fr-card-nome">{{ r.linha.veiculo.nome }}</span>
+              <span class="fr-placa">{{ r.linha.km == null ? 'sem quilometragem' : r.linha.km.toLocaleString('pt-BR') + ' km' }}</span>
+            </div>
+            <span class="fr-selo"
+                  :class="{ ruim: r.resumo.nivel === 'vencida', espera: r.resumo.nivel === 'perto', boa: r.resumo.nivel === 'em-dia' }">
+              {{ r.resumo.texto }}
+            </span>
+          </div>
+          <ul class="fr-itens">
+            <li v-for="i in r.itens" :key="i.item" :class="i.situacao">
+              <span class="fr-item-nome">{{ i.item }}</span>
+              <span class="fr-item-txt">{{ i.texto }}</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <h2 class="fr-secao">Plano de revisão — de quantos em quantos quilômetros</h2>
+      <p class="fr-aviso">
+        Estes números são os que geram os avisos acima. Mude quando o mecânico mandar,
+        e acrescente o que faltar.
+      </p>
+      <ul class="fr-pedidos">
+        <li v-for="p in plano" :key="p.id" class="fr-pedido" :class="{ desligado: !p.ativo }">
+          <div class="fr-pedido-topo">
+            <strong>{{ p.item }}</strong>
+            <span class="fr-item-km">{{ p.a_cada_km.toLocaleString('pt-BR') }} km</span>
+          </div>
+          <div class="fr-pedido-quando" v-if="p.observacao">{{ p.observacao }}</div>
+          <div class="fr-acoes">
+            <button class="fr-btn" @click="abrirItem(p)">Editar</button>
+            <button class="fr-btn" @click="alternarItem(p)">{{ p.ativo ? 'Desativar' : 'Reativar' }}</button>
+          </div>
+        </li>
+      </ul>
+      <div class="fr-acoes" style="padding:12px 14px 40px">
+        <button class="fr-btn primario" @click="abrirItem(null)">+ Acrescentar item</button>
+      </div>
+    </template>
+
+    <!-- EDITOR DE UM ITEM DO PLANO -->
+    <div class="fr-ficha-fundo" v-if="itemEmEdicao" @click.self="fecharItem">
+      <div class="fr-ficha" role="dialog">
+        <div class="fr-ficha-topo">
+          <span class="fr-ficha-titulo">{{ itemEmEdicao.novo ? 'Novo item de revisão' : 'Editar item' }}</span>
+          <button class="fr-fechar" @click="fecharItem" aria-label="Fechar">✕</button>
+        </div>
+        <div class="fr-ficha-corpo">
+          <label class="fr-campo">
+            <span class="fr-lab">O que se troca</span>
+            <input v-model="itemForm.item" type="text" placeholder="Filtro de ar, fluido de freio…">
+          </label>
+          <label class="fr-campo">
+            <span class="fr-lab">A cada quantos quilômetros</span>
+            <input v-model="itemForm.aCadaKm" type="text" inputmode="numeric" placeholder="20000">
+            <span class="fr-ajuda">O aviso começa quando faltarem 10% disso.</span>
+          </label>
+          <label class="fr-campo">
+            <span class="fr-lab">Observação</span>
+            <input v-model="itemForm.observacao" type="text" placeholder="opcional">
+          </label>
+          <p class="fr-ajuda" v-if="itemEmEdicao.ativo === false">{{ avisoAoDesativar(itemEmEdicao.item) }}</p>
+          <ul class="fr-problemas" v-if="errosDoItem.length">
+            <li v-for="(e, i) in errosDoItem" :key="i">{{ e }}</li>
+          </ul>
+        </div>
+        <div class="fr-ficha-rodape">
+          <button class="fr-btn" @click="fecharItem">Cancelar</button>
+          <button class="fr-btn primario" :disabled="gravando" @click="salvarItem">
+            {{ gravando ? 'Gravando…' : 'Gravar' }}
+          </button>
         </div>
       </div>
     </div>
@@ -686,6 +832,18 @@ onMounted(async () => {
 .tela-frota .fr-pedido-motivo{margin:8px 0 0;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.5;color:var(--muted);}
 .tela-frota .fr-recado{margin:0 0 4px;font-family:var(--fonte-principal);font-size:13.5px;line-height:1.6;color:var(--text);}
 .tela-frota .fr-card.espera{border-left-color:var(--orange,#d97706);}
+.tela-frota .fr-card.ruimzao{border-left-color:var(--red,#c0392b);}
+.tela-frota .fr-itens{margin:12px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;}
+.tela-frota .fr-itens li{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);padding-left:10px;border-left:2px solid var(--border);}
+/* A cor fica na BORDA, não no texto: item vencido em vermelho sobre fundo
+   claro e escuro fica ilegível num dos dois temas. */
+.tela-frota .fr-itens li.vencida{border-left-color:var(--red,#c0392b);}
+.tela-frota .fr-itens li.perto{border-left-color:var(--orange,#d97706);}
+.tela-frota .fr-itens li.em-dia{border-left-color:var(--green,#16a34a);}
+.tela-frota .fr-item-nome{color:var(--text);font-weight:600;}
+.tela-frota .fr-item-txt{font-variant-numeric:tabular-nums;}
+.tela-frota .fr-item-km{font-family:var(--fonte-dados);font-size:12.5px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;}
+.tela-frota .fr-pedido.desligado{opacity:.5;}
 .tela-frota .fr-selo.espera{background:color-mix(in srgb,var(--orange,#d97706) 18%,transparent);color:var(--orange,#d97706);}
 .tela-frota .fr-selo.boa{background:color-mix(in srgb,var(--green,#16a34a) 18%,transparent);color:var(--green,#16a34a);}
 .tela-frota .fr-selo.ruim{background:color-mix(in srgb,var(--red,#c0392b) 16%,transparent);color:var(--red,#c0392b);}
