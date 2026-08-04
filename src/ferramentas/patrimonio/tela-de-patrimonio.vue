@@ -284,17 +284,14 @@
           </label>
 
           <label class="pat-campo">
-            <span>Com quem está <em>(só quando está em uso)</em></span>
-            <select v-model="form.pessoa_id" :disabled="form.situacao !== 'em_uso'">
+            <span>Com quem está <em>(opcional)</em></span>
+            <select v-model="form.pessoa_id">
               <option value="">Ninguém</option>
               <option v-for="p in pessoasAtivas" :key="p.id" :value="p.id">{{ p.nome }}</option>
             </select>
           </label>
 
-          <div class="pat-nota" v-if="form.situacao === 'em_uso' && !form.pessoa_id">
-            Um bem <strong>em uso</strong> precisa estar com alguém. Se ele está guardado,
-            escolha <strong>Em estoque</strong>.
-          </div>
+          <div class="pat-nota" v-if="avisoDono">{{ avisoDono }}</div>
 
           <div class="pat-nota" v-if="!bemAberto.novo && bemAberto.dono_texto && !bemAberto.pessoa_id">
             Na planilha este bem estava com <strong>{{ bemAberto.dono_texto }}</strong>, que não
@@ -447,7 +444,7 @@ import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.j
 import { hojeLocal } from '../../compartilhado/datas.js'
 import { formatarValor, parsearValor, fecharEAbrirHistorico } from './patrimonio.js'
 import { textoLinhaHistorico } from './patrimonio-lista.js'
-import { SITUACOES, rotuloDaSituacao, classeDaSituacao, textoDoDono, precisaDeDono } from './rotulos-do-bem.js'
+import { SITUACOES, rotuloDaSituacao, classeDaSituacao, textoDoDono, avisoDeDonoVazio } from './rotulos-do-bem.js'
 import { FILTRO_VAZIO, filtrarBens, resumoDaLista } from './filtro-de-bens.js'
 import { SEM_VALOR, agruparBens, bensDoCaminho, rotuloDoCaminho } from './arvore-de-bens.js'
 
@@ -641,11 +638,13 @@ const FORM_VAZIO = {
 }
 const form = reactive({ ...FORM_VAZIO })
 
-// Sai de "em uso": o dono some junto. Deixar uma pessoa presa num bem que foi
-// pro estoque é como a base fica mentindo sobre quem tem o quê.
-watch(() => form.situacao, (nova) => {
-  if (!precisaDeDono(nova)) form.pessoa_id = ''
-})
+// O aviso de "aparelho pessoal em uso sem ninguém". É aviso, não trava: móvel e
+// máquina ficam em uso sem dono o tempo todo, e são a maioria do patrimônio.
+const avisoDono = computed(() => avisoDeDonoVazio({
+  situacao: form.situacao,
+  categoria: categorias.value.find((c) => c.id === form.categoria_id)?.nome || null,
+  temDono: !!form.pessoa_id,
+}))
 
 // Os seletores em cascata da ficha.
 const tiposDaCategoria = (categoriaId) =>
@@ -742,9 +741,6 @@ async function sincronizarPosse(bemId, novoDonoId) {
 async function salvarBem() {
   const nome = (form.nome || '').trim()
   if (!nome) { adminToast('Dê um nome ao bem', false); return }
-  if (precisaDeDono(form.situacao) && !form.pessoa_id) {
-    adminToast('Bem em uso precisa estar com alguém', false); return
-  }
   const numeroTexto = (form.numero || '').trim()
   if (numeroTexto && !/^\d+$/.test(numeroTexto)) {
     adminToast('O nº da etiqueta é só número', false); return

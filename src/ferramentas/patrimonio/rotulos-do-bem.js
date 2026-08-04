@@ -40,8 +40,25 @@ export function textoDoDono(bem, pessoasById) {
   return 'Sem dono'
 }
 
-// Um bem "em uso" sem ninguém é incoerente — é a única combinação que a tela
-// impede. As outras três situações existem justamente para bem sem dono.
-export function precisaDeDono(situacao) {
-  return situacao === 'em_uso'
+// Categorias em que o bem é de UMA pessoa. O resto (móvel, máquina, televisão)
+// serve o LUGAR: a mesa da Produção está em uso e não é de ninguém.
+// Esta lista é a mesma que decidiu a situação dos 341 bens na importação —
+// mudar aqui sem mudar lá faz a tela discordar do que está gravado.
+export const CATEGORIAS_PESSOAIS = [
+  'Computadores e Periféricos',
+  'Celulares e tablets',
+  'Veículos',
+]
+
+// Dono é OPCIONAL em toda situação. Antes a tela BLOQUEAVA salvar "em uso" sem
+// ninguém — regra que caiu quando o dono apontou que 104 móveis e 78 máquinas
+// estavam em uso sem pertencer a pessoa alguma.
+// Sobrou um AVISO, e só para aparelho pessoal: notebook "em uso" sem dono
+// costuma ser esquecimento, mas quem sabe é quem está com a etiqueta na mão.
+// Devolve o texto do aviso, ou null quando não há o que avisar.
+export function avisoDeDonoVazio({ situacao, categoria, temDono }) {
+  if (temDono) return null
+  if (situacao !== 'em_uso') return null
+  if (!categoria || !CATEGORIAS_PESSOAIS.includes(categoria)) return null
+  return 'Este tipo de bem costuma ficar com uma pessoa, e este está em uso sem ninguém. Confere?'
 }
