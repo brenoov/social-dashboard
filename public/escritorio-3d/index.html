@@ -49,8 +49,12 @@ header h1{font-size:14px;margin:0;font-weight:800}.badge{font-size:11px;color:#d
       if(!p){ nega('Não consegui ler seu perfil. Tente entrar de novo.'); return; }
       var feats=p.features||[];
       var perms=p.permissions||{};
+      // SEM ATALHO PARA `role==='admin'`, e isto foi corrigido antes de mesclar
+      // (04/08/2026): o cartão da home usa `hasPermission`, que NÃO tem esse
+      // atalho. Com ele aqui, um admin comum não veria o cartão mas entraria
+      // pelo endereço — porta que a tela diz estar fechada e não está. As duas
+      // portas passam a responder a mesma coisa.
       var pode = p.is_superadmin===true
-              || p.role==='admin'
               || feats.indexOf('escritorio3d')>=0
               || ((perms['escritorio3d']||[]).indexOf('ver')>=0);
       if(!pode){ nega('Você ainda não tem acesso ao Escritório 3D.'); return; }
