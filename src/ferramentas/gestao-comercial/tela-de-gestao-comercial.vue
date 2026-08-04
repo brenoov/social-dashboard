@@ -357,11 +357,15 @@ onMounted(() => {
 .tela-gestao-comercial :deep(.gc-edicao-lbl){font-size:calc(10px*var(--gc-fs,1));color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
 .tela-gestao-comercial :deep(.gc-edicao select){font-family:var(--fonte-principal);font-size:calc(11px*var(--gc-fs,1));color:var(--text);border:1px solid var(--border);border-radius:7px;padding:5px 9px;background:var(--surface);cursor:pointer;}
 /* Abas Briefing / Relatórios */
-.tela-gestao-comercial .gc-tabs{display:flex;gap:4px;max-width:min(98vw,1860px);margin:0 auto;width:100%;padding:14px clamp(20px,2.8vw,46px) 0;}
+.tela-gestao-comercial .gc-tabs{display:flex;gap:4px;width:100%;max-width:none;box-sizing:border-box;padding:14px clamp(20px,2.8vw,46px) 0;}
 .tela-gestao-comercial .gc-tabs button{appearance:none;background:none;border:none;border-bottom:2px solid transparent;padding:9px 16px;font-family:var(--fonte-principal);font-size:calc(13px*var(--gc-fs,1));font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);cursor:pointer;transition:color .15s ease,border-color .15s ease;}
 .tela-gestao-comercial .gc-tabs button:hover{color:var(--text);}
 .tela-gestao-comercial .gc-tabs button.on{color:var(--accent);border-bottom-color:var(--accent);}
-.tela-gestao-comercial :deep(.gc-body){flex:1;max-width:min(98vw,1860px);margin:0 auto;width:100%;padding:clamp(22px,2vw,34px) clamp(20px,2.8vw,46px) 96px;}
+/* Sem teto de largura: a tela usa o aparelho inteiro. O `max-width:1860px`
+   que estava aqui deixava 792px vazios num monitor de 2560 e 1672px — meia
+   tela — num ultrawide. O respiro das laterais vem do padding, que ja cresce
+   junto com a tela. */
+.tela-gestao-comercial :deep(.gc-body){flex:1;width:100%;max-width:none;box-sizing:border-box;padding:clamp(22px,2vw,34px) clamp(20px,2.8vw,46px) 96px;}
 /* Hero com gradiente + anel de progresso do mês */
 .tela-gestao-comercial :deep(.gc-hero){position:relative;overflow:hidden;border-radius:var(--radius-xl);padding:28px 34px;margin-bottom:26px;background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:24px;box-shadow:var(--shadow-md);}
 .tela-gestao-comercial :deep(.gc-hero::after){content:'';position:absolute;right:-70px;top:-70px;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(79,124,255,.35),transparent 70%);pointer-events:none;}
