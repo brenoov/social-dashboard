@@ -164,6 +164,19 @@
       </template>
     </div>
 
+    <!-- Confirmação da tela. Fica por cima de tudo (inclusive do painel de
+         Listas) porque é ela que segura uma ação destrutiva em cascata. -->
+    <div class="pat-confirm-fundo" v-if="confirmacao">
+      <div class="pat-confirm">
+        <p>{{ confirmacao.texto }}</p>
+        <p class="pat-confirm-pergunta">Quer apagar mesmo assim?</p>
+        <div class="pat-confirm-pe">
+          <button class="pat-btn" @click="responderConfirmacao(false)">Cancelar</button>
+          <button class="pat-btn perigo" @click="responderConfirmacao(true)">Apagar</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Zoom: mesma peça flutuante (.zoomctl) que Notícias, Gestão de Tráfego e
          Gestão Comercial já usam — o estilo é global, aqui só o comportamento.
          Some quando um painel está aberto, senão fica boiando sobre o modal. -->
@@ -221,21 +234,29 @@
             </label>
           </div>
 
+          <!-- Local só mostra os da marca escolhida; cômodo só os do local
+               escolhido. Sem isso a pessoa conseguiria pôr um bem da Vessel numa
+               sala da Moto Easy — e a árvore da tela principal viraria mentira. -->
           <div class="pat-campo-par">
             <label class="pat-campo">
               <span>Local</span>
-              <select v-model="form.local_id">
-                <option value="">—</option>
-                <option v-for="l in locais" :key="l.id" :value="l.id">{{ l.nome }}</option>
+              <select v-model="form.local_id" :disabled="!form.empresa_id">
+                <option value="">{{ form.empresa_id ? '—' : 'escolha a marca antes' }}</option>
+                <option v-for="l in locaisDoForm" :key="l.id" :value="l.id">{{ l.nome }}</option>
               </select>
             </label>
             <label class="pat-campo">
               <span>Cômodo</span>
-              <select v-model="form.comodo_id">
-                <option value="">—</option>
-                <option v-for="c in comodos" :key="c.id" :value="c.id">{{ c.nome }}</option>
+              <select v-model="form.comodo_id" :disabled="!form.local_id">
+                <option value="">{{ form.local_id ? '—' : 'escolha o local antes' }}</option>
+                <option v-for="c in comodosDoForm" :key="c.id" :value="c.id">{{ c.nome }}</option>
               </select>
             </label>
+          </div>
+
+          <div class="pat-nota" v-if="form.empresa_id && !locaisDoForm.length">
+            Esta marca ainda não tem nenhum local cadastrado. Abra <strong>Listas</strong>
+            (o botão ≡ lá em cima) e crie um local dentro dela.
           </div>
 
           <label class="pat-campo">
@@ -304,25 +325,91 @@
         </div>
         <div class="pat-ficha-corpo">
           <p class="pat-listas-ajuda">
-            Estas são as opções que aparecem nos campos do bem. Pode criar, renomear
-            e apagar à vontade — o que você escrever aqui é o que aparece lá.
+            Aqui você monta a estrutura: cada <strong>marca</strong> tem seus
+            <strong>locais</strong>, e cada local tem seus <strong>cômodos</strong>.
+            É a mesma ordem em que você navega os bens.
           </p>
-          <div class="pat-lista-bloco" v-for="def in DEFS_LISTAS" :key="def.tabela">
-            <h4>{{ def.titulo }}</h4>
-            <div class="pat-lista-item" v-for="item in def.ref.value" :key="item.id">
-              <input
-                class="pat-lista-nome"
-                :value="item.nome"
-                @change="renomearItem(def, item, $event.target.value)">
-              <button class="pat-lista-del" @click="apagarItem(def, item)" aria-label="Apagar">✕</button>
+
+          <!-- Árvore de cadastro, aberta um galho por vez. Fechado por padrão
+               pra não despejar 47 caixas de texto na cara de quem só quer
+               renomear uma coisa — que era a reclamação. -->
+          <div class="pat-arv" v-for="marca in empresas" :key="marca.id">
+            <div class="pat-arv-linha nivel1">
+              <button class="pat-arv-abrir" @click="alternarGalho('m' + marca.id)" :aria-expanded="galhoAberto('m' + marca.id)">
+                {{ galhoAberto('m' + marca.id) ? '▾' : '▸' }}
+              </button>
+              <input class="pat-lista-nome" :value="marca.nome"
+                     @change="renomearItem(DEF_MARCAS, marca, $event.target.value)">
+              <button class="pat-lista-del" @click="apagarItem(DEF_MARCAS, marca)" aria-label="Apagar marca">✕</button>
+            </div>
+
+            <div class="pat-arv-filhos" v-if="galhoAberto('m' + marca.id)">
+              <div class="pat-arv-vazio" v-if="!locaisDaMarca(marca.id).length">
+                Nenhum local nesta marca ainda.
+              </div>
+
+              <div v-for="local in locaisDaMarca(marca.id)" :key="local.id">
+                <div class="pat-arv-linha nivel2">
+                  <button class="pat-arv-abrir" @click="alternarGalho('l' + local.id)" :aria-expanded="galhoAberto('l' + local.id)">
+                    {{ galhoAberto('l' + local.id) ? '▾' : '▸' }}
+                  </button>
+                  <input class="pat-lista-nome" :value="local.nome"
+                         @change="renomearItem(DEF_LOCAIS, local, $event.target.value)">
+                  <button class="pat-lista-del" @click="apagarItem(DEF_LOCAIS, local)" aria-label="Apagar local">✕</button>
+                </div>
+
+                <div class="pat-arv-filhos" v-if="galhoAberto('l' + local.id)">
+                  <div class="pat-arv-vazio" v-if="!comodosDoLocal(local.id).length">
+                    Nenhum cômodo neste local ainda.
+                  </div>
+                  <div class="pat-arv-linha nivel3" v-for="comodo in comodosDoLocal(local.id)" :key="comodo.id">
+                    <span class="pat-arv-vaga"></span>
+                    <input class="pat-lista-nome" :value="comodo.nome"
+                           @change="renomearItem(DEF_COMODOS, comodo, $event.target.value)">
+                    <button class="pat-lista-del" @click="apagarItem(DEF_COMODOS, comodo)" aria-label="Apagar cômodo">✕</button>
+                  </div>
+                  <div class="pat-arv-linha nivel3">
+                    <span class="pat-arv-vaga"></span>
+                    <input class="pat-lista-nome" v-model="novoComodo[local.id]"
+                           placeholder="novo cômodo aqui…"
+                           @keyup.enter="criarFilho(DEF_COMODOS, { local_id: local.id }, novoComodo, local.id)">
+                    <button class="pat-btn" @click="criarFilho(DEF_COMODOS, { local_id: local.id }, novoComodo, local.id)">+</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="pat-arv-linha nivel2">
+                <span class="pat-arv-vaga"></span>
+                <input class="pat-lista-nome" v-model="novoLocal[marca.id]"
+                       placeholder="novo local nesta marca…"
+                       @keyup.enter="criarFilho(DEF_LOCAIS, { empresa_id: marca.id }, novoLocal, marca.id)">
+                <button class="pat-btn" @click="criarFilho(DEF_LOCAIS, { empresa_id: marca.id }, novoLocal, marca.id)">+</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="pat-arv-linha nivel1">
+            <span class="pat-arv-vaga"></span>
+            <input class="pat-lista-nome" v-model="novos.patrimonio_empresas"
+                   placeholder="nova marca…" @keyup.enter="criarItem(DEF_MARCAS)">
+            <button class="pat-btn" @click="criarItem(DEF_MARCAS)">Adicionar marca</button>
+          </div>
+
+          <!-- Categoria é lista SOLTA de propósito: ela classifica o que o bem É
+               (notebook, mesa, carro), não onde ele está. Aninhar dentro de local
+               obrigaria a recadastrar "Computadores" em cada sala. -->
+          <div class="pat-lista-bloco">
+            <h4>Categorias</h4>
+            <p class="pat-listas-ajuda">O que o bem é. Não depende de onde ele está.</p>
+            <div class="pat-lista-item" v-for="item in categorias" :key="item.id">
+              <input class="pat-lista-nome" :value="item.nome"
+                     @change="renomearItem(DEF_CATEGORIAS, item, $event.target.value)">
+              <button class="pat-lista-del" @click="apagarItem(DEF_CATEGORIAS, item)" aria-label="Apagar">✕</button>
             </div>
             <div class="pat-lista-novo">
-              <input
-                class="pat-lista-nome"
-                v-model="novos[def.tabela]"
-                :placeholder="'Nova opção em ' + def.titulo.toLowerCase()"
-                @keyup.enter="criarItem(def)">
-              <button class="pat-btn" @click="criarItem(def)">Adicionar</button>
+              <input class="pat-lista-nome" v-model="novos.patrimonio_categorias"
+                     placeholder="nova categoria…" @keyup.enter="criarItem(DEF_CATEGORIAS)">
+              <button class="pat-btn" @click="criarItem(DEF_CATEGORIAS)">Adicionar</button>
             </div>
           </div>
         </div>
@@ -385,12 +472,22 @@ const temCaminho = computed(() => !!(caminho.empresaId || caminho.localId || cam
 const bensFiltrados = computed(() => filtrarBens(bensDoCaminho(bens.value, caminho), filtro))
 const resumo = computed(() => resumoDaLista(bensFiltrados.value))
 
-// Qual campo agrupa no nível atual: sem empresa escolhida agrupa por empresa,
-// com empresa agrupa por local, com local agrupa por cômodo. No cômodo acaba.
+// Os cadastros agora são uma ÁRVORE: local pertence a uma marca, cômodo a um
+// local. Estes dois filtros são a base de tudo — a navegação, os seletores da
+// ficha e a tela de Listas usam os mesmos.
+const locaisDaMarca = (empresaId) =>
+  empresaId && empresaId !== SEM_VALOR ? locais.value.filter((l) => l.empresa_id === empresaId) : []
+const comodosDoLocal = (localId) =>
+  localId && localId !== SEM_VALOR ? comodos.value.filter((c) => c.local_id === localId) : []
+
+// Qual campo agrupa no nível atual: sem marca escolhida agrupa por marca, com
+// marca agrupa pelos locais DELA, com local agrupa pelos cômodos DELE. No cômodo
+// acaba. Passar só os filhos do pai atual é o que impede "Sala de Reunião" de
+// outro local aparecer aqui dentro.
 const nivelAtual = computed(() => {
   if (!caminho.empresaId) return { campo: 'empresa_id', cadastro: empresas.value }
-  if (!caminho.localId) return { campo: 'local_id', cadastro: locais.value }
-  if (!caminho.comodoId) return { campo: 'comodo_id', cadastro: comodos.value }
+  if (!caminho.localId) return { campo: 'local_id', cadastro: locaisDaMarca(caminho.empresaId) }
+  if (!caminho.comodoId) return { campo: 'comodo_id', cadastro: comodosDoLocal(caminho.localId) }
   return null
 })
 
@@ -531,6 +628,22 @@ watch(() => form.situacao, (nova) => {
   if (!precisaDeDono(nova)) form.pessoa_id = ''
 })
 
+// Os seletores em cascata da ficha.
+const locaisDoForm = computed(() => locaisDaMarca(form.empresa_id))
+const comodosDoForm = computed(() => comodosDoLocal(form.local_id))
+
+// Trocou a marca: o local escolhido pode não existir mais nela — e o cômodo
+// junto. Limpar é obrigatório, senão o bem fica com um local de outra marca.
+watch(() => form.empresa_id, () => {
+  if (!locaisDoForm.value.some((l) => l.id === form.local_id)) {
+    form.local_id = ''
+    form.comodo_id = ''
+  }
+})
+watch(() => form.local_id, () => {
+  if (!comodosDoForm.value.some((c) => c.id === form.comodo_id)) form.comodo_id = ''
+})
+
 function fecharFicha() {
   bemAberto.value = null
   historico.value = []
@@ -655,20 +768,44 @@ async function salvarBem() {
 // ------------------------------------------------------------ listas editáveis
 const listasAbertas = ref(false)
 const podeEditar = computed(() => hasPermission('patrimonio', 'editar'))
-const novos = reactive({
-  patrimonio_empresas: '', patrimonio_locais: '',
-  patrimonio_comodos: '', patrimonio_categorias: '',
-})
+const novos = reactive({ patrimonio_empresas: '', patrimonio_categorias: '' })
+// Um campo de "novo" por PAI: cada marca tem sua caixa de novo local, cada local
+// a sua de novo cômodo. Um campo só, compartilhado, escreveria no galho errado.
+const novoLocal = reactive({})
+const novoComodo = reactive({})
 
-// As quatro listas simples (nome + ordem). Tipo fica de fora por enquanto: ele
-// depende de categoria, e um seletor encadeado no celular pede desenho próprio
-// — entra numa fase seguinte, junto com a classificação de 3 níveis.
-const DEFS_LISTAS = [
-  { tabela: 'patrimonio_empresas', titulo: 'Empresas', ref: empresas },
-  { tabela: 'patrimonio_locais', titulo: 'Locais', ref: locais },
-  { tabela: 'patrimonio_comodos', titulo: 'Cômodos', ref: comodos },
-  { tabela: 'patrimonio_categorias', titulo: 'Categorias', ref: categorias },
-]
+const DEF_MARCAS = { tabela: 'patrimonio_empresas', titulo: 'Marcas', ref: empresas }
+const DEF_LOCAIS = { tabela: 'patrimonio_locais', titulo: 'Locais', ref: locais }
+const DEF_COMODOS = { tabela: 'patrimonio_comodos', titulo: 'Cômodos', ref: comodos }
+const DEF_CATEGORIAS = { tabela: 'patrimonio_categorias', titulo: 'Categorias', ref: categorias }
+
+// Quais galhos da árvore estão abertos. Tudo fechado por padrão: abrir os 12
+// locais e 47 cômodos de uma vez é exatamente a bagunça que esta tela resolve.
+const galhosAbertos = ref(new Set())
+const galhoAberto = (chave) => galhosAbertos.value.has(chave)
+function alternarGalho(chave) {
+  const s = new Set(galhosAbertos.value)
+  if (s.has(chave)) s.delete(chave); else s.add(chave)
+  galhosAbertos.value = s
+}
+
+// Cria um filho já amarrado no pai (local dentro da marca, cômodo dentro do local).
+async function criarFilho(def, vinculo, mapaDeNovos, chaveDoPai) {
+  const nome = (mapaDeNovos[chaveDoPai] || '').trim()
+  if (!nome) return
+  const irmaos = def.ref.value.filter((x) => {
+    const [campo, valor] = Object.entries(vinculo)[0]
+    return x[campo] === valor
+  })
+  const { error } = await sbClient.from(def.tabela).insert({ nome, ordem: irmaos.length + 1, ...vinculo })
+  if (error) {
+    const jaExiste = /duplicate key|unique/i.test(error.message)
+    adminToast(jaExiste ? `"${nome}" já existe aqui` : 'Erro: ' + error.message, false)
+    return
+  }
+  mapaDeNovos[chaveDoPai] = ''
+  await carregar()
+}
 
 async function criarItem(def) {
   const nome = (novos[def.tabela] || '').trim()
@@ -692,18 +829,45 @@ async function renomearItem(def, item, novoNome) {
   await carregar()
 }
 
-// Apagar uma opção NÃO apaga bem nenhum: as FKs são "on delete set null", então
-// o bem fica sem aquele campo e continua lá. Avisar isso é honestidade, não enfeite.
+// Apagar NÃO apaga bem nenhum: as FKs do bem são "on delete set null", então ele
+// fica sem aquele campo e continua lá. Mas apagar um galho da ÁRVORE leva os
+// filhos junto (cascade) — apagar uma marca apaga os locais dela e os cômodos
+// deles. Isso precisa ser dito ANTES, não descoberto depois.
 async function apagarItem(def, item) {
+  let aviso = null
+  if (def.tabela === 'patrimonio_empresas') {
+    const filhos = locaisDaMarca(item.id)
+    const netos = filhos.reduce((n, l) => n + comodosDoLocal(l.id).length, 0)
+    if (filhos.length) aviso = `Apagar "${item.nome}" apaga junto ${filhos.length} local(is) e ${netos} cômodo(s).`
+  } else if (def.tabela === 'patrimonio_locais') {
+    const filhos = comodosDoLocal(item.id)
+    if (filhos.length) aviso = `Apagar "${item.nome}" apaga junto ${filhos.length} cômodo(s).`
+  }
   const usados = bens.value.filter((b) =>
     b.empresa_id === item.id || b.local_id === item.id ||
     b.comodo_id === item.id || b.categoria_id === item.id).length
   if (usados > 0) {
-    adminToast(`"${item.nome}" está em ${usados} bem(ns). Eles ficam sem esse campo.`, false)
+    aviso = (aviso ? aviso + ' ' : '') + `${usados} bem(ns) ficam sem esse campo (nenhum é apagado).`
   }
+  if (aviso && !(await _confirmar(aviso))) return
+
   const { error } = await sbClient.from(def.tabela).delete().eq('id', item.id)
   if (error) { adminToast('Erro ao apagar: ' + error.message, false); return }
   await carregar()
+}
+
+// Confirmação própria da tela (nada de confirm() nativo). Promessa que resolve
+// no clique — o painel fica DENTRO do componente, como o resto.
+const confirmacao = ref(null)
+function _confirmar(texto) {
+  return new Promise((resolve) => {
+    confirmacao.value = { texto, resolve }
+  })
+}
+function responderConfirmacao(ok) {
+  const c = confirmacao.value
+  confirmacao.value = null
+  if (c) c.resolve(ok)
 }
 
 async function excluirBem() {
@@ -723,8 +887,8 @@ async function carregar() {
   const [rBens, rEmp, rLoc, rCom, rCat, rPes] = await Promise.all([
     sbClient.from('patrimonio_bens').select('*').order('numero', { ascending: true, nullsFirst: false }),
     sbClient.from('patrimonio_empresas').select('id,nome').order('ordem').order('nome'),
-    sbClient.from('patrimonio_locais').select('id,nome').order('ordem').order('nome'),
-    sbClient.from('patrimonio_comodos').select('id,nome').order('ordem').order('nome'),
+    sbClient.from('patrimonio_locais').select('id,nome,empresa_id').order('ordem').order('nome'),
+    sbClient.from('patrimonio_comodos').select('id,nome,local_id').order('ordem').order('nome'),
     sbClient.from('patrimonio_categorias').select('id,nome,vida_util_anos').order('ordem').order('nome'),
     sbClient.from('acessos_pessoas').select('id,nome,status').order('nome'),
   ])
@@ -861,6 +1025,28 @@ onMounted(() => {
 .tela-patrimonio .pat-lista-item,.tela-patrimonio .pat-lista-novo{display:flex;gap:7px;align-items:center;}
 .tela-patrimonio .pat-lista-nome{flex:1;min-width:0;font-size:16px;font-family:var(--fonte-principal);padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);}
 .tela-patrimonio .pat-lista-del{width:36px;height:36px;flex-shrink:0;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:#dc2626;cursor:pointer;touch-action:manipulation;}
+
+/* ---- árvore de cadastro (Listas) ---- */
+.tela-patrimonio .pat-arv{display:flex;flex-direction:column;}
+.tela-patrimonio .pat-arv-linha{display:flex;gap:6px;align-items:center;padding:3px 0;}
+/* O recuo é o que faz a hierarquia ser LIDA sem precisar explicar. */
+.tela-patrimonio .pat-arv-linha.nivel2{padding-left:10px;}
+.tela-patrimonio .pat-arv-linha.nivel3{padding-left:20px;}
+/* Linha sem botao de abrir reserva a MESMA largura dele. Sem isso o nivel 3
+   (que nao abre nada) volta pra esquerda e empata com o nivel 2 — a
+   hierarquia deixa de ser legivel pelo recuo, que e todo o proposito. */
+.tela-patrimonio .pat-arv-vaga{width:26px;flex-shrink:0;}
+.tela-patrimonio .pat-arv-linha.nivel1 .pat-lista-nome{font-weight:600;}
+.tela-patrimonio .pat-arv-abrir{width:26px;height:34px;flex-shrink:0;border:none;background:none;color:var(--muted);font-size:12px;cursor:pointer;touch-action:manipulation;}
+.tela-patrimonio .pat-arv-filhos{border-left:2px solid var(--border);margin-left:12px;padding-left:2px;}
+.tela-patrimonio .pat-arv-vazio{font-family:var(--fonte-principal);font-size:11px;color:var(--muted);padding:5px 0 5px 16px;}
+
+/* ---- confirmação ---- */
+.tela-patrimonio .pat-confirm-fundo{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:18px;}
+.tela-patrimonio .pat-confirm{background:var(--surface);border-radius:14px;padding:18px;max-width:400px;width:100%;font-family:var(--fonte-principal);display:flex;flex-direction:column;gap:10px;}
+.tela-patrimonio .pat-confirm p{font-size:13px;line-height:1.6;color:var(--text);}
+.tela-patrimonio .pat-confirm-pergunta{font-weight:600;}
+.tela-patrimonio .pat-confirm-pe{display:flex;gap:8px;justify-content:flex-end;margin-top:4px;}
 
 @media(min-width:1025px){
   .tela-patrimonio .pat-topbar{padding:13px 24px;}
