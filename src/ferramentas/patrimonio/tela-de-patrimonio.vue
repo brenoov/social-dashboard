@@ -367,7 +367,6 @@
               <option v-for="s in SITUACOES" :key="s.valor" :value="s.valor">{{ s.rotulo }}</option>
             </select>
           </label>
-          <div class="pat-ajuda-txt" v-if="ajudaAberta === 'situacao'">{{ AJUDAS.situacao }}</div>
 
           <label class="pat-campo">
             <span>Com quem está</span>
@@ -377,7 +376,6 @@
               <option v-for="p in pessoasAtivas" :key="p.id" :value="p.id">{{ p.nome }}</option>
             </select>
           </label>
-          <div class="pat-ajuda-txt" v-if="ajudaAberta === 'dono'">{{ AJUDAS.dono }}</div>
 
           <label class="pat-campo">
             <span>Categoria</span>
@@ -548,6 +546,7 @@
               <option v-for="s in SITUACOES" :key="s.valor" :value="s.valor">{{ s.rotulo }}</option>
             </select>
           </label>
+          <div class="pat-ajuda-txt" v-if="ajudaAberta === 'situacao'">{{ AJUDAS.situacao }}</div>
 
           <label class="pat-campo">
             <span>Com quem está <em>(opcional)</em> <button type="button" class="pat-ajuda-q" @click.prevent="alternarAjuda('dono')" title="O que é isso?">?</button></span>
@@ -556,6 +555,7 @@
               <option v-for="p in pessoasAtivas" :key="p.id" :value="p.id">{{ p.nome }}</option>
             </select>
           </label>
+          <div class="pat-ajuda-txt" v-if="ajudaAberta === 'dono'">{{ AJUDAS.dono }}</div>
 
           <div class="pat-nota" v-if="avisoDono">{{ avisoDono }}</div>
 

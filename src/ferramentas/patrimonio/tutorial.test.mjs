@@ -61,3 +61,37 @@ test('a ajuda da alteração em massa avisa da regra que protege o dado', () => 
   // Se este texto sumir, a pessoa pode achar que campo em branco apaga.
   assert.ok(/branco.*(não|NÃO) é alterado/i.test(AJUDAS.massa))
 })
+
+/* ── Todo "?" tem que mostrar alguma coisa, e PERTO ──────────────────────────
+   Aconteceu de verdade: os textos de "Situação" e "Com quem" foram parar no
+   painel de alteração em massa, a 170 linhas dos botões que os abriam. Tocar no
+   "?" escrevia a explicação num painel fechado — da tela, nada acontecia.
+   O teste confere que cada botão tem o seu texto logo abaixo dele. */
+
+test('cada "?" tem a explicação dele por perto, no mesmo painel', () => {
+  const linhas = TELA.split('\n')
+  const botoes = []
+  const mostras = []
+  linhas.forEach((l, i) => {
+    const b = l.match(/alternarAjuda\('([a-z]+)'\)/)
+    if (b) botoes.push({ chave: b[1], linha: i })
+    for (const m of l.matchAll(/ajudaAberta === '([a-z]+)'/g)) mostras.push({ chave: m[1], linha: i })
+  })
+  assert.ok(botoes.length >= 4, `esperava pelo menos 4 botões de ajuda, achei ${botoes.length}`)
+
+  for (const b of botoes) {
+    const perto = mostras.filter((m) => m.chave === b.chave && m.linha > b.linha && m.linha - b.linha <= 20)
+    assert.ok(perto.length > 0,
+      `o "?" de "${b.chave}" (linha ${b.linha + 1}) não tem a explicação dele nas 20 linhas seguintes — `
+      + `provavelmente ela ficou em outro painel, e tocar no botão não mostra nada`)
+  }
+})
+
+test('toda explicação exibida existe no catálogo AJUDAS', () => {
+  for (const m of TELA.matchAll(/ajudaAberta === '([a-z]+)'/g)) {
+    assert.ok(AJUDAS[m[1]], `a tela tenta mostrar a ajuda "${m[1]}", que não existe em AJUDAS`)
+  }
+  for (const m of TELA.matchAll(/alternarAjuda\('([a-z]+)'\)/g)) {
+    assert.ok(AJUDAS[m[1]], `o botão abre a ajuda "${m[1]}", que não existe em AJUDAS`)
+  }
+})
