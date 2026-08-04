@@ -37,15 +37,13 @@
           <span class="gimenu-card-enter">→</span>
         </div>
 
-        <!-- Frota ainda não existe (fase futura). Aparece apagado, sem clique, pra
-             o dono saber que está no mapa — e não como promessa clicável quebrada. -->
-        <div class="gimenu-card gimenu-card-embreve">
+        <div class="gimenu-card" v-if="podeFrota" @click="ir('frota')">
           <div class="gimenu-card-icon" style="background:linear-gradient(135deg,#475569 0%,#64748b 100%)">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M5 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm14 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0z"/><path d="M3 17V9l3-4h9l4 5v7"/></svg>
           </div>
           <div class="gimenu-card-title">Frota</div>
-          <div class="gimenu-card-desc">Licenciamento, IPVA, quilometragem e revisão dos veículos.</div>
-          <span class="gimenu-card-embreve-selo">Em breve</span>
+          <div class="gimenu-card-desc">Onde está cada carro, com quem, e quanto já rodou.</div>
+          <span class="gimenu-card-enter">→</span>
         </div>
       </div>
     </div>
@@ -62,6 +60,7 @@ const router = useRouter()
 
 const podeAcessos = computed(() => hasPermission('acessos', 'ver'))
 const podePatrimonio = computed(() => hasPermission('patrimonio', 'ver'))
+const podeFrota = computed(() => hasPermission('frota', 'ver'))
 
 function voltar() {
   router.push({ name: 'inicio' })

@@ -88,6 +88,7 @@ export const RECURSOS = [
   { key: 'banco', label: 'Banco de Arquivos', acoes: ['ver', 'criar', 'excluir'] },
   { key: 'acessos', label: 'Colaboradores e Acessos', acoes: ['ver', 'criar', 'editar', 'excluir'] },
   { key: 'patrimonio', label: 'Patrimônio', acoes: ['ver', 'criar', 'editar', 'excluir'] },
+  { key: 'frota', label: 'Frota', acoes: ['ver', 'criar', 'editar', 'excluir'] },
   { key: 'noticias', label: 'Portal de Notícias', acoes: ['ver'] },
   { key: 'gestor', label: 'Gestão Comercial (IA)', acoes: ['ver'] },
   { key: 'gestor.relatorios', label: 'Relatórios Comerciais', acoes: ['ver', 'exportar'] },
@@ -147,6 +148,7 @@ export const PERMISSION_TREE = [
   { key: 'gestao-interna', label: 'Gestão Interna', children: [
     { key: 'acessos', label: 'Colaboradores e Acessos' },
     { key: 'patrimonio', label: 'Patrimônio' },
+    { key: 'frota', label: 'Frota' },
   ] },
   { key: 'claude.status', label: 'Painel de Status do Claude', children: [] },
   { key: 'conteudo', label: 'Central de Conteúdo', children: [
