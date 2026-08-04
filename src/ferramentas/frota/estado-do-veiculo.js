@@ -55,6 +55,10 @@ export function estadoDoVeiculo(veiculo, usos) {
     // Pessoa e local são SEPARADOS (decisão do dono): quem está com o carro
     // agora vence o responsável fixo; parado, mostra onde ele está.
     comQuem: aberto ? (aberto.pessoa_nome || null) : (veiculo.pessoa_nome || null),
+    // Quem está com ele AGORA, por identificador. A área Motorista usa isto
+    // pra separar "o meu carro" de "o carro de outra pessoa" — comparar por
+    // nome quebraria com dois Gabriéis, e a empresa tem dois.
+    usoAbertoPessoaId: aberto ? (aberto.pessoa_id || null) : null,
     ondeEsta: aberto ? null : (veiculo.local_texto || null),
     desde: aberto ? aberto.saida_em : (fechado ? fechado.volta_em : null),
     km,

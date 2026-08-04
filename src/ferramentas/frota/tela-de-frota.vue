@@ -14,6 +14,7 @@ import { useRouter } from 'vue-router'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { estadoDoVeiculo, resumoDoEstado, ordenarEstados, rotuloDoTanque, NIVEIS_TANQUE, problemasDaDevolucao } from './estado-do-veiculo.js'
+import { AREAS, areasVisiveis, areaInicial, painelDoMotorista, resumoDoMotorista } from './areas-da-frota.js'
 
 const router = useRouter()
 const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
@@ -25,6 +26,14 @@ const pessoas = ref([])
 const carregando = ref(true)
 const falha = ref('')
 const podeEditar = computed(() => hasPermission('frota', 'editar'))
+// Duas áreas (D8): Motorista pra quem dirige, Gestão pra quem administra.
+// A separação é de ATENÇÃO, não de sigilo — quem só dirige não precisa de FIPE,
+// contrato e chassi na frente enquanto pega o carro pra sair.
+const pode = (acao) => hasPermission('frota', acao)
+const abas = computed(() => AREAS.filter((a) => areasVisiveis(pode).includes(a.chave)))
+const area = ref('motorista')
+const euId = computed(() => meuId())
+const painel = computed(() => painelDoMotorista(linhas.value, euId.value))
 
 function voltar() { router.push({ name: 'gestao-interna' }) }
 
@@ -36,7 +45,7 @@ async function carregar() {
     // Só o que interessa pra montar a tela: o aberto de cada carro e as
     // devoluções recentes. Puxar o histórico inteiro cresceria pra sempre.
     sbClient.from('frota_uso').select('*').order('saida_em', { ascending: false }).limit(400),
-    sbClient.from('acessos_pessoas').select('id,nome').order('nome'),
+    sbClient.from('acessos_pessoas').select('id,nome,email_corporativo').order('nome'),
   ])
   if (v.error || u.error) {
     falha.value = 'Não consegui carregar a frota. Recarregue a página; se continuar, avise.'
@@ -85,12 +94,17 @@ function abrirDevolucao(linha) {
 }
 function fecharFicha() { ficha.value = null; problemas.value = [] }
 
-// Quem está logado, se estiver cadastrado como colaborador. Serve só de
-// sugestão: quem retira pode ser outra pessoa, e o campo continua editável.
+// Quem está logado, ligado ao colaborador pelo e-mail corporativo. Serve de
+// sugestão na retirada (o campo continua editável — quem pega pode ser outra
+// pessoa) e é o que a área Motorista usa pra saber qual carro é "o meu".
+//
+// A coluna chama `email_corporativo`, não `email` — a primeira versão procurava
+// por `p.email`, que não existe, e sem trazer a coluna na consulta. Devolvia
+// nulo SEMPRE, calada.
 function meuId() {
   const email = estado.user && estado.user.email
   if (!email) return null
-  const eu = pessoas.value.find((p) => (p.email || '').toLowerCase() === email.toLowerCase())
+  const eu = pessoas.value.find((p) => (p.email_corporativo || '').toLowerCase() === email.toLowerCase())
   return eu ? eu.id : null
 }
 
@@ -149,7 +163,11 @@ async function confirmar() {
   carregar()
 }
 
-onMounted(carregar)
+onMounted(async () => {
+  await carregar()
+  // Só depois de saber as permissões dá pra escolher a aba de abertura.
+  area.value = areaInicial(pode)
+})
 </script>
 
 <template>
@@ -163,7 +181,14 @@ onMounted(carregar)
       <span class="fr-title">Frota</span>
     </div>
 
-    <div class="fr-resumo" v-if="!carregando && !falha">
+    <!-- Duas áreas (D8). Quem só dirige vê uma aba só — e nesse caso a barra
+         não aparece: barra de uma aba é enfeite que come altura de tela. -->
+    <div class="fr-abas" v-if="abas.length > 1" role="tablist">
+      <button v-for="ab in abas" :key="ab.chave" role="tab" type="button"
+              :class="{ on: area === ab.chave }" @click="area = ab.chave">{{ ab.rotulo }}</button>
+    </div>
+
+    <div class="fr-resumo" v-if="!carregando && !falha && area === 'gestao'">
       <span><strong>{{ livres }}</strong> {{ livres === 1 ? 'livre' : 'livres' }}</span>
       <span class="fr-sep">·</span>
       <span><strong>{{ naRua }}</strong> na rua</span>
@@ -173,9 +198,89 @@ onMounted(carregar)
 
     <p v-if="carregando" class="fr-vazio">Carregando…</p>
     <p v-else-if="falha" class="fr-erro">{{ falha }}</p>
-    <p v-else-if="!linhas.length" class="fr-vazio">
-      Nenhum veículo cadastrado ainda.
-    </p>
+    <p v-else-if="!linhas.length" class="fr-vazio">Nenhum veículo cadastrado ainda.</p>
+
+    <!-- ÁREA MOTORISTA: o carro que está comigo (pra devolver) e os livres (pra
+         pegar). Sem FIPE, contrato, chassi ou Renavam — quem está de pé no
+         estacionamento não precisa disso na frente. -->
+    <template v-else-if="area === 'motorista'">
+      <p class="fr-motorista-resumo">{{ resumoDoMotorista(painel) }}</p>
+
+      <p class="fr-aviso" v-if="!euId">
+        Não achei você na lista de colaboradores pelo seu e-mail, então não consigo dizer qual
+        carro está com você. Dá pra pegar e devolver normalmente, escolhendo o nome na hora.
+      </p>
+
+      <template v-if="painel.comigo.length">
+        <h2 class="fr-secao">Com você agora</h2>
+        <div class="fr-lista">
+          <div v-for="l in painel.comigo" :key="l.veiculo.id" class="fr-card rua">
+            <div class="fr-card-topo">
+              <div class="fr-card-ident">
+                <span class="fr-card-nome">{{ l.veiculo.nome }}</span>
+                <span class="fr-placa">{{ l.veiculo.placa }}</span>
+              </div>
+            </div>
+            <div class="fr-dados">
+              <div class="fr-dado">
+                <span class="fr-dado-lab">Saiu com</span>
+                <span class="fr-dado-val">{{ l.km == null ? '—' : l.km.toLocaleString('pt-BR') + ' km' }}</span>
+              </div>
+              <div class="fr-dado">
+                <span class="fr-dado-lab">Combustível</span>
+                <span class="fr-dado-val" :class="{ alerta: l.precisaAbastecer }">{{ rotuloDoTanque(l.tanque) }}</span>
+              </div>
+            </div>
+            <div class="fr-acoes" v-if="podeEditar">
+              <button class="fr-btn primario" @click="abrirDevolucao(l)">Devolver</button>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <h2 class="fr-secao">{{ painel.livres.length ? 'Livres para pegar' : 'Nenhum carro livre' }}</h2>
+      <p class="fr-aviso" v-if="!painel.livres.length">
+        Todos estão na rua ou na oficina. Assim que alguém devolver, aparece aqui.
+      </p>
+      <div class="fr-lista" v-else>
+        <div v-for="l in painel.livres" :key="l.veiculo.id" class="fr-card">
+          <div class="fr-card-topo">
+            <div class="fr-card-ident">
+              <span class="fr-card-nome">{{ l.veiculo.nome }}</span>
+              <span class="fr-placa">{{ l.veiculo.placa }}</span>
+            </div>
+            <span class="fr-selo livre" v-if="l.ondeEsta">Em {{ l.ondeEsta }}</span>
+          </div>
+          <div class="fr-dados">
+            <div class="fr-dado">
+              <span class="fr-dado-lab">Quilometragem</span>
+              <span class="fr-dado-val">{{ l.km == null ? '—' : l.km.toLocaleString('pt-BR') + ' km' }}</span>
+            </div>
+            <div class="fr-dado">
+              <span class="fr-dado-lab">Combustível</span>
+              <span class="fr-dado-val" :class="{ alerta: l.precisaAbastecer }">
+                {{ rotuloDoTanque(l.tanque) }}<template v-if="l.precisaAbastecer"> · abastecer</template>
+              </span>
+            </div>
+          </div>
+          <div class="fr-acoes" v-if="podeEditar">
+            <button class="fr-btn primario" @click="abrirRetirada(l)">Vou usar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Os que estão com outras pessoas: sem botão, só pra ninguém achar que
+           o carro sumiu da lista. -->
+      <template v-if="painel.comOutros.length">
+        <h2 class="fr-secao">Na rua com outras pessoas</h2>
+        <ul class="fr-outros">
+          <li v-for="l in painel.comOutros" :key="l.veiculo.id">
+            <strong>{{ l.veiculo.nome }}</strong>
+            <span v-if="l.comQuem"> · com {{ l.comQuem }}</span>
+          </li>
+        </ul>
+      </template>
+    </template>
 
     <div class="fr-lista" v-else>
       <div v-for="l in linhas" :key="l.veiculo.id" class="fr-card" :class="{ rua: l.naRua, parado: !l.disponivel && !l.naRua }">
@@ -283,6 +388,16 @@ onMounted(carregar)
 .tela-frota .fr-topbar .rbv-logo{height:22px;width:auto;flex-shrink:0;}
 .tela-frota .fr-back{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--muted);font-family:var(--fonte-principal);font-size:11px;font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:1.2px;flex-shrink:0;}
 .tela-frota .fr-title{font-family:var(--fonte-principal);font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text);flex:1;min-width:0;text-align:right;}
+.tela-frota .fr-abas{display:flex;gap:4px;padding:2px 14px 0;border-bottom:1px solid var(--border);}
+.tela-frota .fr-abas button{flex:1;appearance:none;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;padding:11px 10px;font-family:var(--fonte-principal);font-size:11.5px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);cursor:pointer;touch-action:manipulation;}
+.tela-frota .fr-abas button.on{color:var(--accent);border-bottom-color:var(--accent);}
+.tela-frota .fr-motorista-resumo{margin:0;padding:14px 14px 4px;font-family:var(--fonte-principal);font-size:15px;font-weight:600;color:var(--text);}
+.tela-frota .fr-secao{margin:16px 0 8px;padding:0 14px;font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);}
+.tela-frota .fr-aviso{margin:0;padding:4px 14px 10px;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.55;color:var(--muted);}
+/* Os carros de outras pessoas: lista simples, sem cartão e sem botão. Dar
+   cartão a eles daria a entender que há algo a fazer, e não há. */
+.tela-frota .fr-outros{margin:0;padding:0 14px 40px;list-style:none;display:flex;flex-direction:column;gap:7px;font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);}
+.tela-frota .fr-outros strong{color:var(--text);font-weight:600;}
 .tela-frota .fr-resumo{display:flex;align-items:center;gap:7px;padding:10px 14px;font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);}
 .tela-frota .fr-resumo strong{color:var(--text);font-variant-numeric:tabular-nums;}
 .tela-frota .fr-sep{opacity:.45;}

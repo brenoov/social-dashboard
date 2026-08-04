@@ -109,19 +109,42 @@ Os limiares moram numa tabela, não no código: o dono muda quando o mecânico m
 Chave `frota`, como toda ferramenta nova nesta central: sobe sem acesso para ninguém, e o
 dono libera. A Gestão Interna é quem carrega essas permissões.
 
+### D8 — Duas áreas dentro da Frota: Motorista e Gestão
+
+Decisão do dono. Quem dirige e quem administra querem coisas diferentes, e hoje a tela
+entrega as duas misturadas.
+
+**Motorista** — o que a pessoa que dirige precisa, e só isso: o carro que está **com ela
+agora** (para devolver) e os que estão **livres** (para pegar). Não mostra FIPE, aluguel,
+contrato, chassi nem Renavam. Não é segredo — é ruído: o motorista está de pé no
+estacionamento resolvendo uma coisa, e cada dado a mais na tela é um obstáculo.
+
+Todo mundo com acesso à Frota vê esta área.
+
+**Gestão** — a frota inteira: valor, contrato, situação, cadastro, manutenção e custo.
+Aparece para quem tem permissão de criar ou excluir (`frota` com essas ações). Quem só
+tem `ver` e `editar` — o motorista — nem vê a aba.
+
+A separação é de **atenção**, não de sigilo. Um motorista que precise do Renavam para uma
+ocorrência continua podendo pedir a quem administra; o que a área Motorista faz é não
+empurrar isso na cara de quem só quer pegar o carro e sair.
+
 ## Fases
 
-**F1 (esta)** — cadastro dos veículos importado da planilha, tela "onde está cada carro",
-e registro de retirada e devolução com KM. Sem isso, multa e manutenção não têm de onde
-tirar resposta.
+**F1 (feita, no ar)** — cadastro dos veículos importado da planilha, tela "onde está cada
+carro", e registro de retirada e devolução com KM. O **Ford Fiesta Hatch ficou de fora**
+(alienado, decisão do dono): entraram 9 veículos.
 
-O **Ford Fiesta Hatch fica fora** (alienado, decisão do dono): entram 9 veículos.
+**F2** — as duas áreas (D8) e a requisição com aprovação: pedir → aprovar → retirar →
+devolver. Aprovadores: Erick e Cristian Leonel.
 
-**F2** — requisição e aprovação (o PDF digitalizado).
-
-**F3** — multas: importar as 26, situação "a revisar", e a descoberta automática do
-condutor pelo cruzamento com os registros de uso.
-
-**F4** — plano de revisão e alertas por KM.
+**F4** — plano de revisão e alertas por KM, usando os limiares de D6. É a fase que a
+planilha nunca conseguiu entregar, porque dependia de alguém digitar o KM à mão.
 
 **F5** — custo: abastecimento, manutenção e aluguel, com custo por quilômetro rodado.
+
+**F3 (por último, decisão do dono)** — multas: importar as 26, com situação `a_revisar`,
+e a descoberta automática do condutor pelo cruzamento com os registros de uso. Fica no
+fim apesar de ser onde está o dinheiro (R$ 1.301,60 já perdidos por não identificação)
+porque ela **precisa de histórico de uso acumulado** para responder qualquer coisa — e
+esse histórico só começa a existir agora, com a F1 no ar.
