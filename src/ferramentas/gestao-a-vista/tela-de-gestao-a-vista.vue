@@ -1620,7 +1620,8 @@ onUnmounted(() => {
   .tela-gestao-a-vista :deep(#gv-bg-anim){display:none;}
   .tela-gestao-a-vista :deep(.gv-board){display:flex;flex-direction:column;gap:1px;background:var(--border);overflow:visible;min-height:0;padding:0;}
   .tela-gestao-a-vista :deep(.gv-left){overflow:visible;flex:none;min-height:auto;padding:16px 20px;gap:12px;justify-content:flex-start;}
-  .tela-gestao-a-vista :deep(.gv-gauge-wrap){flex:none;min-height:0;height:260px;max-height:260px;}
+  /* Tablet e celular deitado: 260px era pouco pro elemento principal da tela. */
+  .tela-gestao-a-vista :deep(.gv-gauge-wrap){flex:none;min-height:0;height:340px;max-height:340px;}
   .tela-gestao-a-vista :deep(.gv-right){display:flex;flex-direction:column;gap:1px;background:var(--border);overflow:visible;min-height:0;}
   .tela-gestao-a-vista :deep(.gv-canal-panel){overflow:visible;padding:12px 16px;}
   .tela-gestao-a-vista :deep(.gv-canal-scroll){display:block;overflow:visible;flex:none;min-height:0;}
@@ -1692,7 +1693,10 @@ onUnmounted(() => {
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-left){display:flex!important;flex-direction:column;align-items:center;padding:16px;gap:12px;overflow:visible;height:auto;background:var(--surface);border:1px solid var(--border);border-radius:6px;width:100%;box-sizing:border-box;flex:none;justify-content:flex-start;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-kpi-period){align-self:flex-start;grid-column:unset;grid-row:unset;margin:0;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-col-grid-label.gv-main-chart-title){align-self:flex-start;grid-column:unset;margin:0;border-bottom:none;padding-bottom:0;}
-  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-gauge-wrap){flex:none;grid-column:unset;grid-row:unset;height:auto;max-height:none;min-height:0;width:100%;max-width:196px;}
+  /* O velocimetro geral e o numero que a pessoa abre a tela pra ver. Estava
+     preso em 196px — metade da largura de um celular de 375. Agora ocupa a
+     tela, com teto pra nao estourar em aparelho grande. */
+  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-gauge-wrap){flex:none;grid-column:unset;grid-row:unset;height:auto;max-height:none;min-height:0;width:100%;max-width:min(340px,88vw);margin-inline:auto;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-gauge-inner){width:100%;max-width:none;aspect-ratio:200/190;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-big-num){font-size:24px;letter-spacing:-0.5px;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-main-kpi){display:grid!important;grid-template-columns:repeat(2,1fr)!important;grid-column:unset;grid-row:unset;align-items:stretch;width:100%;border:1px solid var(--border);border-radius:4px;overflow:hidden;gap:0;padding:0;flex-wrap:unset;flex-shrink:0;}

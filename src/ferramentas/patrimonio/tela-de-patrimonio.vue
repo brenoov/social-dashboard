@@ -367,6 +367,7 @@
               <option v-for="s in SITUACOES" :key="s.valor" :value="s.valor">{{ s.rotulo }}</option>
             </select>
           </label>
+          <div class="pat-ajuda-txt" v-if="ajudaAberta === 'situacao'">{{ AJUDAS.situacao }}</div>
 
           <label class="pat-campo">
             <span>Com quem está</span>
@@ -376,6 +377,7 @@
               <option v-for="p in pessoasAtivas" :key="p.id" :value="p.id">{{ p.nome }}</option>
             </select>
           </label>
+          <div class="pat-ajuda-txt" v-if="ajudaAberta === 'dono'">{{ AJUDAS.dono }}</div>
 
           <label class="pat-campo">
             <span>Categoria</span>
@@ -472,6 +474,9 @@
               <input v-model="form.valor" type="text" inputmode="decimal" placeholder="R$ 0,00">
             </label>
           </div>
+          <div class="pat-ajuda-txt" v-if="ajudaAberta === 'etiqueta' || ajudaAberta === 'valor'">
+            {{ AJUDAS[ajudaAberta] }}
+          </div>
 
           <label class="pat-campo">
             <span>Data da compra <em>(opcional)</em></span>
@@ -551,8 +556,6 @@
               <option v-for="p in pessoasAtivas" :key="p.id" :value="p.id">{{ p.nome }}</option>
             </select>
           </label>
-
-          <div class="pat-ajuda-txt" v-if="ajudaAberta">{{ AJUDAS[ajudaAberta] }}</div>
 
           <div class="pat-nota" v-if="avisoDono">{{ avisoDono }}</div>
 
@@ -1448,7 +1451,12 @@ onMounted(() => {
 .tela-patrimonio .pat-resumo-onde{font-size:11px;color:var(--muted);}
 .tela-patrimonio .pat-ajuda-q{width:16px;height:16px;padding:0;border-radius:50%;border:1px solid var(--border);background:none;color:var(--muted);font-size:9px;font-weight:700;cursor:pointer;vertical-align:1px;}
 .tela-patrimonio .pat-ajuda-q:hover{color:var(--accent);border-color:var(--accent);}
-.tela-patrimonio .pat-ajuda-txt{font-family:var(--fonte-principal);font-size:12px;line-height:1.65;color:var(--text);background:var(--accent-light);border-radius:8px;padding:10px 12px;}
+/* A explicação nasce colada no campo que a pessoa tocou — antes ela aparecia
+   sempre no mesmo lugar, lá no fim do formulário, e quem tocava no "?" do
+   número da etiqueta não via nada acontecer. A setinha em cima amarra
+   visualmente o texto ao campo de onde ele veio. */
+.tela-patrimonio .pat-ajuda-txt{position:relative;font-family:var(--fonte-principal);font-size:12px;line-height:1.65;color:var(--text);background:var(--accent-light);border:1px solid var(--accent-mid);border-radius:8px;padding:10px 12px;margin-top:-4px;}
+.tela-patrimonio .pat-ajuda-txt::before{content:'';position:absolute;top:-6px;left:16px;width:10px;height:10px;background:var(--accent-light);border-left:1px solid var(--accent-mid);border-top:1px solid var(--accent-mid);transform:rotate(45deg);}
 .tela-patrimonio .pat-btn-ajuda{width:24px;height:24px;flex-shrink:0;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:var(--fonte-principal);font-size:12px;font-weight:700;cursor:pointer;touch-action:manipulation;}
 .tela-patrimonio .pat-btn-ajuda:hover{color:var(--accent);border-color:var(--accent);}
 .tela-patrimonio .pat-btn-novo{width:38px;height:38px;flex-shrink:0;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:22px;line-height:1;cursor:pointer;touch-action:manipulation;}
