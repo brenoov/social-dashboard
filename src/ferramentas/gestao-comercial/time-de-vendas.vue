@@ -22,7 +22,7 @@
             <span class="tv-nome">{{ t.nome }}</span>
             <span class="tv-tipo">{{ t.tipo }}</span>
           </div>
-          <span class="tv-papel">você é {{ rotuloDoPapel(meuPapel(t.id)) }}</span>
+          <span class="tv-papel">{{ comoEstouAqui(t.id) }}</span>
         </div>
 
         <div v-for="m in membrosDe(t.id)" :key="m.id" class="tv-linha">
@@ -121,6 +121,13 @@ const possoLiberar = (id) => podeLiberarEstoque(eu.value, meuPapel(id))
 const estoqueDe = (m) => veOEstoque(m, liberacoes.value)
 const podeTirar = (id, m) => podeRemover(eu.value, meuPapel(id), m, membrosDe(id))
 const rotuloDoPapel = (p) => (acharPapel(p) || {}).rotulo || p || '—'
+// O DONO NÃO É MEMBRO de time nenhum, e mesmo assim administra todos. Sem esta
+// distinção a linha saía "você é —", que lê como defeito.
+function comoEstouAqui(timeId) {
+  const p = meuPapel(timeId)
+  if (p) return 'você é ' + rotuloDoPapel(p).toLowerCase()
+  return eu.value.is_superadmin ? 'você administra todos os times' : ''
+}
 const explicacaoDoPapel = (p) => (acharPapel(p) || {}).explicacao || ''
 function nomeDe(id) {
   const p = pessoas.value.find(x => String(x.id) === String(id))
