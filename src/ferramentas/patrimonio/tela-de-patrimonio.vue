@@ -1,10 +1,12 @@
 <template>
   <div class="tela-patrimonio">
     <div class="pat-topbar">
+      <!-- O "voltar" sobe UM nível da árvore; só na raiz é que ele sai do módulo.
+           Assim o mesmo botão serve pra subir e pra sair, sem o usuário decorar dois. -->
       <button class="pat-back" @click="voltar">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Gestão Interna
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>{{ rotuloDoVoltar }}
       </button>
-      <span class="pat-title">Patrimônio</span>
+      <span class="pat-title">{{ rotuloDoCaminho(caminho, listas) }}</span>
       <button class="pat-btn-listas" @click="listasAbertas = true" v-if="podeEditar" title="Listas">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
       </button>
@@ -28,16 +30,22 @@
         aria-label="Buscar bem">
     </div>
 
-    <!-- Faixa de filtros: ROLA na horizontal, nunca quebra em linhas. -->
+    <!-- Trilha do caminho: mostra a descida inteira e permite pular de volta pra
+         qualquer nível com um toque, sem subir de um em um. -->
+    <div class="pat-trilha rolagem-x" v-if="temCaminho">
+      <button class="pat-trilha-item" @click="irParaNivel(0)">Tudo</button>
+      <span class="pat-trilha-sep" v-if="caminho.empresaId">›</span>
+      <button class="pat-trilha-item" v-if="caminho.empresaId" @click="irParaNivel(1)">{{ nomeDoNivel('empresaId') }}</button>
+      <span class="pat-trilha-sep" v-if="caminho.localId">›</span>
+      <button class="pat-trilha-item" v-if="caminho.localId" @click="irParaNivel(2)">{{ nomeDoNivel('localId') }}</button>
+      <span class="pat-trilha-sep" v-if="caminho.comodoId">›</span>
+      <button class="pat-trilha-item atual" v-if="caminho.comodoId">{{ nomeDoNivel('comodoId') }}</button>
+    </div>
+
+    <!-- Faixa de filtros: ROLA na horizontal, nunca quebra em linhas.
+         Empresa e Local saíram daqui: agora eles SÃO a navegação, e repetir o
+         mesmo recorte em dois lugares faria os dois brigarem entre si. -->
     <div class="pat-filtros rolagem-x">
-      <select class="pat-select" v-model="filtro.empresaId" aria-label="Empresa">
-        <option value="">Todas as empresas</option>
-        <option v-for="e in empresas" :key="e.id" :value="e.id">{{ e.nome }}</option>
-      </select>
-      <select class="pat-select" v-model="filtro.localId" aria-label="Local">
-        <option value="">Todos os locais</option>
-        <option v-for="l in locais" :key="l.id" :value="l.id">{{ l.nome }}</option>
-      </select>
       <select class="pat-select" v-model="filtro.categoriaId" aria-label="Categoria">
         <option value="">Todas as categorias</option>
         <option v-for="c in categorias" :key="c.id" :value="c.id">{{ c.nome }}</option>
@@ -76,9 +84,37 @@
       </div>
 
       <template v-else>
+        <!-- Os grupos do nível atual (empresas, depois locais, depois cômodos).
+             Só aparecem quando NÃO há busca em texto: buscar é um pedido de
+             "ache em tudo", e nesse momento a árvore só atrapalharia. -->
+        <div class="pat-grupos" v-if="mostrarGrupos">
+          <button class="pat-grupo" v-for="g in grupos" :key="g.id" @click="entrarNoGrupo(g)">
+            <span class="pat-grupo-ico" :class="{ orfao: g.id === SEM_VALOR }">
+              <svg v-if="g.id !== SEM_VALOR" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              <svg v-else width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </span>
+            <span class="pat-grupo-nome">{{ g.nome }}</span>
+            <span class="pat-grupo-num">
+              {{ g.quantidade }} {{ g.quantidade === 1 ? 'item' : 'itens' }}
+              <em v-if="g.totalCentavos">· {{ formatarValor(g.totalCentavos) }}</em>
+            </span>
+            <span class="pat-grupo-seta">›</span>
+          </button>
+        </div>
+
+        <!-- Escape em qualquer nível: ver os bens de tudo que está aqui embaixo,
+             sem ter que descer até o último cômodo um por um. -->
+        <button class="pat-ver-todos" v-if="mostrarGrupos && bensFiltrados.length" @click="verTudoAqui = true">
+          Ver os {{ bensFiltrados.length }} itens daqui, sem separar
+        </button>
+
+        <div class="pat-secao-bens" v-if="mostrarBens && mostrarGrupos && bensSoltos.length">
+          {{ bensSoltos.length }} {{ bensSoltos.length === 1 ? 'item' : 'itens' }} direto aqui
+        </div>
+
         <!-- CELULAR e TABLET: cartões. É a única forma que funciona com uma mão. -->
-        <div class="pat-cards">
-          <button class="pat-card" v-for="bem in bensFiltrados" :key="bem.id" @click="abrirBem(bem)">
+        <div class="pat-cards" v-if="mostrarBens">
+          <button class="pat-card" v-for="bem in bensNaTela" :key="bem.id" @click="abrirBem(bem)">
             <div class="pat-card-topo">
               <span class="pat-card-nome">{{ bem.nome }}</span>
               <span class="pat-pill" :class="classeDaSituacao(bem.situacao)">{{ rotuloDaSituacao(bem.situacao) }}</span>
@@ -100,7 +136,7 @@
         </div>
 
         <!-- DESKTOP (≥1025px): a tabela larga, que só faz sentido com mouse e tela grande. -->
-        <div class="pat-tabela-wrap rolagem-x">
+        <div class="pat-tabela-wrap rolagem-x" v-if="mostrarBens">
           <table class="pat-tabela">
             <thead>
               <tr>
@@ -109,7 +145,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="bem in bensFiltrados" :key="bem.id" @click="abrirBem(bem)">
+              <tr v-for="bem in bensNaTela" :key="bem.id" @click="abrirBem(bem)">
                 <td>{{ bem.numero ?? '—' }}</td>
                 <td>{{ bem.nome }}</td>
                 <td>{{ nomeDe(categorias, bem.categoria_id) }}</td>
@@ -297,6 +333,7 @@ import { formatarValor, parsearValor, fecharEAbrirHistorico } from './patrimonio
 import { textoLinhaHistorico } from './patrimonio-lista.js'
 import { SITUACOES, rotuloDaSituacao, classeDaSituacao, textoDoDono, precisaDeDono } from './rotulos-do-bem.js'
 import { FILTRO_VAZIO, filtrarBens, resumoDaLista } from './filtro-de-bens.js'
+import { SEM_VALOR, agruparBens, bensDoCaminho, rotuloDoCaminho } from './arvore-de-bens.js'
 
 const router = useRouter()
 
@@ -319,8 +356,85 @@ const pessoasById = computed(() => {
   return mapa
 })
 
-const bensFiltrados = computed(() => filtrarBens(bens.value, filtro))
+// ------------------------------------------------- navegação Empresa→Local→Cômodo
+// Onde a pessoa está agora na árvore. Vazio = raiz (lista de empresas).
+const caminho = reactive({ empresaId: '', localId: '', comodoId: '' })
+// "Ver os N itens daqui, sem separar": escape pra ver os bens sem descer mais.
+const verTudoAqui = ref(false)
+
+const listas = computed(() => ({
+  empresas: empresas.value, locais: locais.value, comodos: comodos.value,
+}))
+
+const temCaminho = computed(() => !!(caminho.empresaId || caminho.localId || caminho.comodoId))
+
+// Os filtros (categoria/situação/sem dono/busca) valem SEMPRE, em qualquer nível:
+// eles recortam o conteúdo, a árvore recorta o lugar. São perguntas diferentes.
+const bensFiltrados = computed(() => filtrarBens(bensDoCaminho(bens.value, caminho), filtro))
 const resumo = computed(() => resumoDaLista(bensFiltrados.value))
+
+// Qual campo agrupa no nível atual: sem empresa escolhida agrupa por empresa,
+// com empresa agrupa por local, com local agrupa por cômodo. No cômodo acaba.
+const nivelAtual = computed(() => {
+  if (!caminho.empresaId) return { campo: 'empresa_id', cadastro: empresas.value }
+  if (!caminho.localId) return { campo: 'local_id', cadastro: locais.value }
+  if (!caminho.comodoId) return { campo: 'comodo_id', cadastro: comodos.value }
+  return null
+})
+
+const grupos = computed(() =>
+  nivelAtual.value ? agruparBens(bensFiltrados.value, nivelAtual.value.campo, nivelAtual.value.cadastro) : [])
+
+// Buscar é um pedido de "ache em TUDO": nesse momento a árvore sai da frente e a
+// resposta vem em lista, senão a pessoa digita o nome do bem e ainda tem que
+// adivinhar em que pasta ele mora.
+const buscando = computed(() => !!(filtro.busca || '').trim())
+
+// Grupos aparecem quando há mais de um lugar pra escolher e a pessoa não pediu
+// pra ver tudo nem está buscando. Um grupo só não é escolha — é um toque à toa.
+const mostrarGrupos = computed(() =>
+  !buscando.value && !verTudoAqui.value && grupos.value.length > 1)
+
+const mostrarBens = computed(() => !mostrarGrupos.value || bensSoltos.value.length > 0)
+
+// Bem que está NESTE nível e não cai em nenhum grupo abaixo (ex.: item da Vessel
+// sem local). Sem isto ele ficaria escondido atrás do grupo "Sem local"; mostrar
+// aqui é mais direto e ele continua alcançável pelos dois caminhos.
+const bensSoltos = computed(() => {
+  const campo = nivelAtual.value?.campo
+  if (!campo) return []
+  return bensFiltrados.value.filter((b) => !b[campo])
+})
+
+const bensNaTela = computed(() => (mostrarGrupos.value ? bensSoltos.value : bensFiltrados.value))
+
+function entrarNoGrupo(g) {
+  if (!caminho.empresaId) caminho.empresaId = g.id
+  else if (!caminho.localId) caminho.localId = g.id
+  else caminho.comodoId = g.id
+  verTudoAqui.value = false
+}
+
+// Volta pro nível N da trilha: 0 = tudo, 1 = dentro da empresa, 2 = dentro do local.
+function irParaNivel(n) {
+  if (n < 3) caminho.comodoId = ''
+  if (n < 2) caminho.localId = ''
+  if (n < 1) caminho.empresaId = ''
+  verTudoAqui.value = false
+}
+
+function nomeDoNivel(nivel) {
+  const cortes = { empresaId: 1, localId: 2, comodoId: 3 }
+  const parcial = { empresaId: '', localId: '', comodoId: '' }
+  const ate = cortes[nivel]
+  if (ate >= 1) parcial.empresaId = caminho.empresaId
+  if (ate >= 2) parcial.localId = caminho.localId
+  if (ate >= 3) parcial.comodoId = caminho.comodoId
+  return rotuloDoCaminho(parcial, listas.value)
+}
+
+// O "voltar" sobe um degrau; na raiz é que sai do módulo. Um botão só.
+const rotuloDoVoltar = computed(() => (temCaminho.value ? 'Voltar' : 'Gestão Interna'))
 
 const temFiltro = computed(() =>
   !!filtro.busca || !!filtro.empresaId || !!filtro.localId ||
@@ -347,7 +461,14 @@ function nomeDoLocal(bem) {
   return `${local} · ${comodo}`
 }
 
+// Sobe um degrau da árvore; só sai do módulo quando já está na raiz. Se a pessoa
+// estava vendo "tudo daqui, sem separar", o primeiro voltar desfaz isso — senão
+// ela apertaria voltar e pularia um nível sem entender por quê.
 function voltar() {
+  if (verTudoAqui.value) { verTudoAqui.value = false; return }
+  if (caminho.comodoId) { caminho.comodoId = ''; return }
+  if (caminho.localId) { caminho.localId = ''; return }
+  if (caminho.empresaId) { caminho.empresaId = ''; return }
   router.push({ name: 'gestao-interna' })
 }
 
@@ -641,6 +762,25 @@ onMounted(() => {
 
 .tela-patrimonio .pat-btn{font-family:var(--fonte-principal);font-size:13px;font-weight:600;padding:11px 18px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);cursor:pointer;touch-action:manipulation;}
 .tela-patrimonio .pat-btn.primario{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+/* ---- árvore: trilha e pastas de nível ---- */
+.tela-patrimonio .pat-trilha{display:flex;align-items:center;gap:5px;padding:0 14px 8px;white-space:nowrap;}
+.tela-patrimonio .pat-trilha-item{font-family:var(--fonte-principal);font-size:12px;font-weight:600;color:var(--accent);background:none;border:none;padding:4px 2px;cursor:pointer;flex-shrink:0;touch-action:manipulation;}
+.tela-patrimonio .pat-trilha-item.atual{color:var(--muted);cursor:default;}
+.tela-patrimonio .pat-trilha-sep{color:var(--muted);font-size:12px;flex-shrink:0;}
+
+.tela-patrimonio .pat-grupos{display:flex;flex-direction:column;gap:8px;}
+.tela-patrimonio .pat-grupo{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;font-family:var(--fonte-principal);color:var(--text);touch-action:manipulation;}
+.tela-patrimonio .pat-grupo:active{border-color:var(--accent);}
+.tela-patrimonio .pat-grupo-ico{width:34px;height:34px;flex-shrink:0;border-radius:9px;background:var(--surface2);color:var(--accent);display:flex;align-items:center;justify-content:center;}
+.tela-patrimonio .pat-grupo-ico.orfao{color:#b45309;}
+.tela-patrimonio .pat-grupo-nome{flex:1;min-width:0;font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tela-patrimonio .pat-grupo-num{font-size:11px;color:var(--muted);text-align:right;flex-shrink:0;}
+.tela-patrimonio .pat-grupo-num em{font-style:normal;display:block;}
+.tela-patrimonio .pat-grupo-seta{color:var(--muted);font-size:17px;flex-shrink:0;}
+
+.tela-patrimonio .pat-ver-todos{width:100%;margin-top:10px;font-family:var(--fonte-principal);font-size:12px;font-weight:600;color:var(--accent);background:none;border:1px dashed var(--border);border-radius:10px;padding:11px;cursor:pointer;touch-action:manipulation;}
+.tela-patrimonio .pat-secao-bens{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:18px 0 8px;}
 
 .tela-patrimonio .pat-cards{display:flex;flex-direction:column;gap:10px;}
 .tela-patrimonio .pat-card{display:flex;flex-direction:column;gap:6px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;font-family:var(--fonte-principal);color:var(--text);touch-action:manipulation;}

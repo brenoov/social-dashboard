@@ -249,6 +249,30 @@ pessoa), atualizando sozinha. Substitui o "atualizar tabela dinâmica" da planil
   "ligar a um colaborador" e "cadastrar". **Nunca cria colaborador sozinho.**
 - A importação é **conferível antes de gravar** (prévia com contagem por empresa/categoria).
 
+### D16 — Navegação em árvore: Empresa → Local → Cômodo → bens
+
+Pedido do dono depois de ver a F1: os bens não ficam numa lista plana, ficam
+**separados por Empresa / Local / Cômodo**, e se navega **entrando nível a nível**
+(não acordeão, não lista agrupada por título). Cada nível mostra contagem e valor
+somado, e a trilha no topo deixa pular de volta pra qualquer nível.
+
+Regras que caíram junto:
+
+- **Buscar sai da árvore.** Digitou no campo de busca, some a hierarquia e a resposta
+  vem em lista: buscar é um pedido de "ache em TUDO", e obrigar a adivinhar a pasta
+  depois de digitar o nome do bem seria absurdo.
+- **Empresa e Local saíram da faixa de filtros** — agora eles SÃO a navegação. Manter
+  os dois recortes faria eles brigarem entre si.
+- **"Ver os N itens daqui, sem separar"** em cada nível: escape pra quem quer a lista
+  sem descer até o último cômodo.
+- **Nenhum bem pode sumir.** O dado real tem 2 itens sem empresa, 8 sem unidade e 12
+  sem setor. Todo nível ganha um grupo **"Sem empresa/local/cômodo"** (sempre por
+  último, em âmbar) e dá pra ENTRAR nele. Bem que está num nível mas não cai em
+  nenhum grupo abaixo aparece solto ali mesmo, sob "N itens direto aqui".
+- **Um botão de voltar só**: sobe um degrau da árvore e, na raiz, sai do módulo.
+
+Lógica pura em `src/ferramentas/patrimonio/arvore-de-bens.js` (11 testes).
+
 ### D15 — Família "Gestão Interna": matriz como PORTA, não como caixa
 
 O dono perguntou se Frota podia ser um submódulo da mesma ferramenta-matriz. A resposta é
