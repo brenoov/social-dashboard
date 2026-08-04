@@ -38,10 +38,11 @@
       <button class="pat-chip" :class="{ ativo: visao === 'arvore' }" @click="visao = 'arvore'">Navegar</button>
       <button class="pat-chip" :class="{ ativo: visao === 'planilha' }" @click="visao = 'planilha'">Planilha</button>
       <button class="pat-chip" :class="{ ativo: visao === 'resumo' }" @click="visao = 'resumo'">Resumo</button>
+      <button class="pat-chip" :class="{ ativo: visao === 'etiquetas' }" @click="visao = 'etiquetas'">Etiquetas</button>
       <button class="pat-chip" v-if="visao === 'planilha'" @click="exportarPlanilha">Exportar Excel</button>
     </div>
 
-    <div class="pat-busca-wrap" v-if="visao !== 'resumo'">
+    <div class="pat-busca-wrap" v-if="visao !== 'resumo' && visao !== 'etiquetas'">
       <input
         class="pat-busca"
         v-model="filtro.busca"
@@ -68,7 +69,7 @@
          Sobraram dois, então no celular eles OCUPAM a largura toda, lado a lado,
          em vez de ficarem estreitos numa faixa que rola. No desktop, onde há
          espaço de sobra, seguem em linha. -->
-    <div class="pat-filtros rolagem-x" v-if="visao !== 'resumo'">
+    <div class="pat-filtros rolagem-x" v-if="visao !== 'resumo' && visao !== 'etiquetas'">
       <select class="pat-select" v-model="filtro.categoriaId" aria-label="Categoria">
         <option value="">Todas as categorias</option>
         <option v-for="c in categorias" :key="c.id" :value="c.id">{{ c.nome }}</option>
@@ -114,7 +115,7 @@
 
       <!-- O Resumo olha o patrimônio inteiro, então não pode cair no vazio de
            filtro: com uma busca sem resultado ele ainda tem o que mostrar. -->
-      <div class="pat-vazio" v-else-if="!bensFiltrados.length && visao !== 'resumo'">
+      <div class="pat-vazio" v-else-if="!bensFiltrados.length && visao !== 'resumo' && visao !== 'etiquetas'">
         <h3>Nenhum bem para esses filtros</h3>
         <p>Tente limpar a busca ou escolher outra empresa, local ou situação.</p>
         <button class="pat-btn" @click="limparFiltros">Limpar filtros</button>
@@ -152,6 +153,7 @@
             <div class="pat-card-topo">
               <span class="pat-check-caixa" v-if="modoSelecao">{{ selecionados.has(bem.id) ? '✓' : '' }}</span>
               <span class="pat-card-nome">{{ bem.nome }}</span>
+              <span class="pat-selo-novo" v-if="ehNovo(bem)">novo</span>
               <span class="pat-pill" :class="classeDaSituacao(bem.situacao)">{{ rotuloDaSituacao(bem.situacao) }}</span>
             </div>
             <div class="pat-card-meta">
@@ -183,7 +185,7 @@
               <tr v-for="bem in bensNaTela" :key="bem.id" :class="{ marcado: selecionados.has(bem.id) }" @click="tocarNoBem(bem)">
                 <td v-if="modoSelecao"><span class="pat-check-caixa">{{ selecionados.has(bem.id) ? '✓' : '' }}</span></td>
                 <td>{{ bem.numero ?? '—' }}</td>
-                <td>{{ bem.nome }}</td>
+                <td>{{ bem.nome }}<span class="pat-selo-novo" v-if="ehNovo(bem)">novo</span></td>
                 <td>{{ nomeDe(categorias, bem.categoria_id) }}</td>
                 <td>{{ nomeDe(empresas, bem.empresa_id) }}</td>
                 <td>{{ nomeDoLocal(bem) }}</td>
@@ -226,6 +228,67 @@
             </tbody>
           </table>
         </div>
+      </template>
+
+      <!-- ETIQUETAS: quais números já estão colados num bem e quais sobraram.
+           Existe porque "qual número eu uso agora?" não tinha resposta em lugar
+           nenhum — a pessoa teria que varrer 341 linhas procurando buraco. -->
+      <template v-else-if="visao === 'etiquetas'">
+        <div class="pat-kpis">
+          <div class="pat-kpi">
+            <span class="pat-kpi-lab">Próximo livre</span>
+            <strong class="pat-kpi-val">{{ numeros.proximoLivre ?? '—' }}</strong>
+            <span class="pat-kpi-fine">use este no próximo bem</span>
+          </div>
+          <div class="pat-kpi">
+            <span class="pat-kpi-lab">Em uso</span>
+            <strong class="pat-kpi-val">{{ numeros.usados }}</strong>
+            <span class="pat-kpi-fine">de 1 a {{ numeros.teto }}</span>
+          </div>
+          <div class="pat-kpi">
+            <span class="pat-kpi-lab">Disponíveis</span>
+            <strong class="pat-kpi-val">{{ numeros.livres }}</strong>
+            <span class="pat-kpi-fine" v-if="numeros.semNumero">{{ numeros.semNumero }} bem(ns) ainda sem etiqueta</span>
+            <span class="pat-kpi-fine" v-else>todos os bens têm etiqueta</span>
+          </div>
+        </div>
+
+        <div class="pat-ajuda-txt">
+          A numeração vai de 1 a {{ numeros.teto }}. Quando acabar, o botão abaixo
+          libera mais 100 números para você continuar etiquetando.
+        </div>
+
+        <div class="pat-secao-num">Disponíveis</div>
+        <div class="pat-faixas">
+          <span class="pat-faixa livre" v-for="f in numeros.faixasLivres" :key="'l' + f.de">{{ textoDaFaixa(f) }}</span>
+          <span class="pat-faixa-vazio" v-if="!numeros.faixasLivres.length">
+            Nenhum número livre — amplie a numeração abaixo.
+          </span>
+        </div>
+
+        <div class="pat-secao-num">Já em uso</div>
+        <div class="pat-faixas">
+          <span class="pat-faixa usada" v-for="f in numeros.faixasUsadas" :key="'u' + f.de">{{ textoDaFaixa(f) }}</span>
+          <span class="pat-faixa-vazio" v-if="!numeros.faixasUsadas.length">Nenhuma etiqueta usada ainda.</span>
+        </div>
+
+        <!-- Etiqueta acima do teto existe de verdade e não pode sumir do
+             relatório só porque não cabe na régua. -->
+        <template v-if="numeros.acimaDoTeto.length">
+          <div class="pat-secao-num">Fora da numeração atual</div>
+          <div class="pat-faixas">
+            <span class="pat-faixa fora" v-for="f in numeros.acimaDoTeto" :key="'f' + f.de">{{ textoDaFaixa(f) }}</span>
+          </div>
+          <div class="pat-ajuda-txt">
+            Estas etiquetas estão coladas em bens, mas passam do limite de
+            {{ numeros.teto }}. Amplie a numeração para que entrem na conta.
+          </div>
+        </template>
+
+        <button class="pat-btn primario pat-btn-mais" v-if="podeEditar" :disabled="salvandoTeto"
+                @click="ampliarNumeracao">
+          {{ salvandoTeto ? 'Ampliando…' : `Liberar mais 100 números (até ${numeros.teto + 100})` }}
+        </button>
       </template>
 
       <!-- RESUMO: onde está o dinheiro. É a aba Dinâmica da planilha, viva. -->
@@ -654,6 +717,7 @@ import { FILTRO_VAZIO, filtrarBens, resumoDaLista } from './filtro-de-bens.js'
 import { SEM_VALOR, agruparBens, bensDoCaminho, rotuloDoCaminho } from './arvore-de-bens.js'
 import PasseioGuiado from '../../compartilhado/passeio-guiado.vue'
 import { PASSOS, AJUDAS, deveAbrirSozinho, marcarComoVisto } from './tutorial.js'
+import { TETO_PADRAO, textoDaFaixa, mapaDeNumeros, aumentarTeto, ehRecente } from './numeros-de-etiqueta.js'
 import { COLUNAS_PLANILHA, ordenarPlanilha, resumirPor, totaisGerais, montarLinhasParaExcel } from './planilha-e-resumo.js'
 import { LIMPAR, montarAlteracaoEmMassa, temAlgoParaMudar, resumoDaSelecao,
   alternarTodosVisiveis, estadoDaSelecaoVisivel } from './acao-em-massa.js'
@@ -1005,6 +1069,29 @@ async function salvarBem() {
   await carregar()
 }
 
+// ------------------------------------------------------ números das etiquetas
+const teto = ref(TETO_PADRAO)
+const salvandoTeto = ref(false)
+const numeros = computed(() => mapaDeNumeros(bens.value, teto.value))
+
+async function ampliarNumeracao() {
+  salvandoTeto.value = true
+  const novo = aumentarTeto(teto.value, 100)
+  const { error } = await sbClient.from('patrimonio_config')
+    .upsert({ chave: 'numero_maximo', valor: String(novo), atualizado_em: new Date().toISOString() })
+  salvandoTeto.value = false
+  if (error) { adminToast('Erro ao ampliar: ' + error.message, false); return }
+  teto.value = novo
+  await registrarLog('numeracao.ampliar', 'até ' + novo, null)
+  adminToast(`Numeração vai até ${novo} agora`)
+}
+
+// O selo verde: serve pra achar de volta o que acabou de ser cadastrado no meio
+// de 341 itens. `agoraNaTela` é fixado na carga em vez de ler o relógio a cada
+// render — senão o selo poderia sumir no meio de um scroll.
+const agoraNaTela = ref(new Date().toISOString())
+const ehNovo = (bem) => ehRecente(bem?.criado_em, agoraNaTela.value, 24)
+
 // -------------------------------------------------------------------- tutorial
 const passeioAberto = ref(false)
 const ajudaAberta = ref('')            // qual "?" está aberto (vazio = nenhum)
@@ -1297,7 +1384,7 @@ async function excluirBem() {
 async function carregar() {
   carregando.value = true
   erro.value = ''
-  const [rBens, rEmp, rLoc, rCom, rCat, rTip, rPes] = await Promise.all([
+  const [rBens, rEmp, rLoc, rCom, rCat, rTip, rPes, rCfg] = await Promise.all([
     sbClient.from('patrimonio_bens').select('*').order('numero', { ascending: true, nullsFirst: false }),
     sbClient.from('patrimonio_empresas').select('id,nome').order('ordem').order('nome'),
     sbClient.from('patrimonio_locais').select('id,nome,empresa_id').order('ordem').order('nome'),
@@ -1305,6 +1392,7 @@ async function carregar() {
     sbClient.from('patrimonio_categorias').select('id,nome,vida_util_anos').order('ordem').order('nome'),
     sbClient.from('patrimonio_tipos').select('id,nome,categoria_id').order('ordem').order('nome'),
     sbClient.from('acessos_pessoas').select('id,nome,status').order('nome'),
+    sbClient.from('patrimonio_config').select('chave,valor'),
   ])
   if (rBens.error) {
     erro.value = rBens.error.message
@@ -1322,6 +1410,9 @@ async function carregar() {
   // módulo, a RLS devolve lista vazia — e a tela segue funcionando, mostrando
   // o nome solto (dono_texto) quando houver.
   pessoas.value = rPes.data || []
+  const cfgTeto = (rCfg.data || []).find((x) => x.chave === 'numero_maximo')
+  teto.value = Number(cfgTeto?.valor) || TETO_PADRAO
+  agoraNaTela.value = new Date().toISOString()
   carregando.value = false
 }
 
@@ -1453,6 +1544,19 @@ onMounted(() => {
 .tela-patrimonio .pat-rank-barra{height:6px;border-radius:999px;background:var(--surface2);margin:8px 0 6px;overflow:hidden;}
 .tela-patrimonio .pat-rank-barra i{display:block;height:100%;background:var(--accent);border-radius:999px;}
 .tela-patrimonio .pat-rank-pe{font-size:11px;color:var(--muted);}
+
+/* ---- etiquetas ---- */
+.tela-patrimonio .pat-secao-num{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:18px 0 8px;}
+.tela-patrimonio .pat-faixas{display:flex;flex-wrap:wrap;gap:7px;}
+.tela-patrimonio .pat-faixa{font-family:var(--fonte-principal);font-size:12px;font-weight:600;padding:6px 11px;border-radius:8px;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.tela-patrimonio .pat-faixa.livre{background:#dcfce7;color:#166534;}
+.tela-patrimonio .pat-faixa.usada{background:var(--surface2);color:var(--muted);}
+.tela-patrimonio .pat-faixa.fora{background:#fef3c7;color:#92400e;}
+.tela-patrimonio .pat-faixa-vazio{font-family:var(--fonte-principal);font-size:12px;color:var(--muted);}
+.tela-patrimonio .pat-btn-mais{width:100%;margin-top:20px;}
+
+/* Selo de recém-cadastrado: verde, pequeno, sem competir com a situação. */
+.tela-patrimonio .pat-selo-novo{flex-shrink:0;margin-left:6px;background:#16a34a;color:#fff;font-family:var(--fonte-principal);font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:999px;white-space:nowrap;vertical-align:1px;}
 
 .tela-patrimonio .pat-cards{display:flex;flex-direction:column;gap:10px;}
 .tela-patrimonio .pat-card{display:flex;flex-direction:column;gap:6px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;font-family:var(--fonte-principal);color:var(--text);touch-action:manipulation;}

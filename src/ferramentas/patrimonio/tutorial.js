@@ -10,34 +10,60 @@
 // forma, e nunca trava.
 export const PASSOS = [
   {
+    selector: '.pat-linha-topo',
+    titulo: '1. O que este número está contando',
+    texto: 'Aqui em cima ficam quantos itens e quanto vale o que você está vendo AGORA. '
+      + 'Repare no final da frase: "no total" é a empresa inteira; "em Vessel" é só '
+      + 'aquela marca; "na busca" é só o que o filtro deixou passar. Se o número parecer '
+      + 'baixo, leia essa palavrinha antes de se assustar — ela diz de onde ele veio.',
+  },
+  {
     selector: '.pat-visoes',
-    titulo: 'Três jeitos de olhar',
-    texto: 'Navegar entra pasta por pasta: marca, depois local, depois ambiente. '
-      + 'Planilha mostra tudo de uma vez, detalhado. Resumo diz onde está o dinheiro.',
+    titulo: '2. Quatro jeitos de olhar a mesma coisa',
+    texto: 'Navegar entra pasta por pasta, como no computador: primeiro a marca, dentro '
+      + 'dela o local, dentro dele o ambiente. Planilha mostra tudo de uma vez em tabela, '
+      + 'com todas as colunas, e exporta pro Excel. Resumo responde "onde está o dinheiro". '
+      + 'Etiquetas diz quais números de patrimônio ainda estão livres.',
   },
   {
     selector: '.pat-busca',
-    titulo: 'Ache pelo número da etiqueta',
-    texto: 'Com o bem na mão, o mais rápido é digitar o número colado nele. '
-      + 'A busca também acha pelo nome do item ou pelo nome de quem está com ele.',
+    titulo: '3. Achar um bem em segundos',
+    texto: 'Com o aparelho na mão, o jeito mais rápido é digitar o número da etiqueta '
+      + 'colada nele. Mas a busca também acha pelo nome do item ("macbook") e pelo nome '
+      + 'de quem está com ele ("larissa"). Não precisa acentuar: "televisao" acha '
+      + '"Televisão". E buscar vale sobre TUDO, mesmo que você esteja dentro de uma pasta.',
   },
   {
     selector: '.pat-btn-novo',
-    titulo: 'Cadastrar um bem',
-    texto: 'O + abre a ficha em branco. Só o nome é obrigatório: o resto você '
-      + 'preenche quando souber, e o bem já fica registrado.',
+    titulo: '4. Cadastrar um bem novo',
+    texto: 'O + abre uma ficha em branco. Só o nome é obrigatório — o resto você preenche '
+      + 'quando souber, e o bem já fica registrado desde agora. Os campos se encadeiam: '
+      + 'escolher a marca libera os locais dela, e escolher o local libera os ambientes '
+      + 'dele. É isso que impede um bem da Vessel de acabar numa sala da Moto Easy.',
   },
   {
     selector: '.pat-btn-sel',
-    titulo: 'Mexer em vários de uma vez',
-    texto: 'Liga o modo de seleção. Tocar num bem passa a marcar em vez de abrir. '
-      + 'Dá pra mudar situação, dono ou lugar de dezenas de itens num golpe só.',
+    titulo: '5. Mexer em vários de uma vez',
+    texto: 'Este botão liga o modo de seleção: a partir daí, tocar num bem MARCA ele em '
+      + 'vez de abrir a ficha. Marque quantos quiser — dá pra filtrar uma sala, marcar '
+      + 'tudo, trocar de sala e marcar mais, que as seleções somam. Aí você muda a '
+      + 'situação, o dono ou o lugar dos vinte de uma vez só.',
   },
   {
     selector: '.pat-btn-listas',
-    titulo: 'A estrutura é sua',
-    texto: 'Na engrenagem você cria e renomeia marcas, locais, ambientes e categorias. '
-      + 'O que você escrever ali é o que aparece nos campos do bem.',
+    titulo: '6. A estrutura é sua',
+    texto: 'Na engrenagem você monta o esqueleto: marcas, os locais de cada marca, os '
+      + 'ambientes de cada local, e as categorias. O que você escrever ali é exatamente o '
+      + 'que aparece nos campos do bem. Cuidado com o apagar: remover uma marca leva '
+      + 'junto os locais e ambientes dela — a tela avisa antes, com os números.',
+  },
+  {
+    selector: '.pat-btn-ajuda',
+    titulo: '7. Quando bater dúvida',
+    texto: 'Este "?" reabre este passeio quando você quiser. E dentro da ficha do bem há '
+      + 'um "?" pequeno em cada campo que costuma gerar dúvida — situação, dono, valor e '
+      + 'número da etiqueta — explicando o que aquilo significa na prática. Pode fechar '
+      + 'agora: nada aqui se perde, e você já sabe onde procurar.',
   },
 ]
 

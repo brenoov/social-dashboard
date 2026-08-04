@@ -11,6 +11,7 @@
 // eu não consigo abri-las logado para conferir se a troca manteria a aparência.
 // Unificar é follow-up, com o dono olhando.
 import { ref, watch, nextTick, onUnmounted, onMounted } from 'vue'
+import { posicaoDoBalao } from './posicao-do-balao.js'
 
 const props = defineProps({
   passos: { type: Array, required: true },
@@ -45,6 +46,10 @@ async function irPara(i) {
   // levou esse tombo.)
   const el = document.querySelector(props.passos[n].selector)
   if (el) el.scrollIntoView({ block: 'center', behavior: 'auto' })
+  medir()
+  // Mede o balão DEPOIS que o texto do passo já está nele: a altura muda de um
+  // passo pro outro e a posição depende dela.
+  await medirBalao()
   medir()
 }
 
@@ -83,23 +88,36 @@ const estiloRealce = () => (rect.value
   }
   : {})
 
-// No celular o balão vai pro rodapé, largura cheia: um balão de 320px ancorado
-// no alvo cabe no desktop e estoura numa tela de 375.
+// O tamanho REAL do balão, medido depois de renderizado. Chutar a altura era a
+// origem do balão cair em cima do alvo: texto de 3 linhas e de 8 linhas ocupam
+// alturas bem diferentes, e a conta usava um número fixo.
+const balaoEl = ref(null)
+const tamBalao = ref({ largura: 330, altura: 180 })
+async function medirBalao() {
+  await nextTick()
+  const el = balaoEl.value
+  if (!el) return
+  const r = el.getBoundingClientRect()
+  if (r.width && r.height) tamBalao.value = { largura: r.width, altura: r.height }
+}
+
+// No celular o balão vira faixa no rodapé (CSS), então aqui não se posiciona
+// nada. No desktop, a conta é pura e testada: nunca cobre o alvo.
 const estiloBalao = () => {
   if (typeof window !== 'undefined' && window.innerWidth <= 640) return {}
-  if (!rect.value) return { top: '40%', left: '50%', transform: 'translate(-50%,-50%)' }
-  const abaixo = rect.value.top + rect.value.height + 12
-  return {
-    top: Math.min(abaixo, window.innerHeight - 200) + 'px',
-    left: Math.max(12, Math.min(rect.value.left, window.innerWidth - 340)) + 'px',
-  }
+  const p = posicaoDoBalao({
+    alvo: rect.value,
+    tela: { largura: window.innerWidth, altura: window.innerHeight },
+    balao: tamBalao.value,
+  })
+  return { top: p.top + 'px', left: p.left + 'px', transform: 'none' }
 }
 </script>
 
 <template>
   <div v-if="modelValue" class="passeio-fundo">
     <div v-if="rect" class="passeio-realce" :style="estiloRealce()"></div>
-    <div class="passeio-balao" :style="estiloBalao()" role="dialog" aria-live="polite">
+    <div class="passeio-balao" ref="balaoEl" :style="estiloBalao()" role="dialog" aria-live="polite">
       <div class="passeio-tit">{{ passo?.titulo }}</div>
       <div class="passeio-txt">{{ passo?.texto }}</div>
       <div class="passeio-acoes">

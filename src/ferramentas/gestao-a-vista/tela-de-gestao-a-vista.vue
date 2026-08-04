@@ -1428,7 +1428,10 @@ onUnmounted(() => {
 .tela-gestao-a-vista :deep(.gv-brand-tag){font-family:var(--fonte-principal);font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--text);opacity:.6;line-height:1;}
 .tela-gestao-a-vista :deep(.gv-perf-tag){font-family:var(--fonte-principal);font-size:13.5px;font-weight:700;letter-spacing:6px;text-transform:uppercase;color:var(--text);opacity:1;line-height:1.2;}
 .tela-gestao-a-vista :deep(.gv-clock-wrap){text-align:right;}
-.tela-gestao-a-vista :deep(.gv-clock-time){font-family:var(--fonte-dados);font-size:28px;font-weight:400;letter-spacing:3px;color:var(--text);line-height:1;}
+/* Relógio menor (era 28px). O bloco .gv-topbar-controls quebrava em DUAS linhas
+   entre 1280 e 1440 — a faixa de um notebook — e o relógio era o item mais
+   largo depois dos botões de período. Medido: com 18px volta a caber em uma. */
+.tela-gestao-a-vista :deep(.gv-clock-time){font-family:var(--fonte-dados);font-size:18px;font-weight:400;letter-spacing:3px;color:var(--text);line-height:1;}
 .tela-gestao-a-vista :deep(.gv-clock-date){font-family:var(--fonte-principal);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:3px;}
 .tela-gestao-a-vista :deep(.gv-update-status){font-family:var(--fonte-principal);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);opacity:.45;margin-top:4px;text-align:right;}
 .tela-gestao-a-vista :deep(.gv-cf-lbl){font-family:var(--fonte-principal);font-size:8px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);}
@@ -1449,7 +1452,31 @@ onUnmounted(() => {
 .tela-gestao-a-vista :deep(.gv-cf-chip.active .gv-cf-check){opacity:1;}
 .tela-gestao-a-vista :deep(.gv-cf-chip span){overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 /* Bloco central do topbar: seletor de intervalos + botão de canais logo à direita */
-.tela-gestao-a-vista :deep(.gv-topbar-controls){display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+/* flex:1 + min-width:0 — o bloco quebrava em duas linhas por 5px enquanto
+   sobravam 110px livres ao lado dele na barra. Num pai com space-between, o
+   filho fica do tamanho do conteúdo e quebra por dentro em vez de usar a folga
+   que está bem ali. Agora ele cresce até o que houver. Medido em 1280/1366/
+   1440/1920. */
+.tela-gestao-a-vista :deep(.gv-topbar-controls){display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;flex:1 1 auto;min-width:0;}
+/* ── Topbar do notebook (1025–1500px) ──────────────────────────────────────
+   Nesta faixa a barra pedia ~1.390px de conteúdo: marca 544 + períodos 493 +
+   canal 218 + relógio 110. O filtro de canal caía para uma segunda linha, e a
+   barra virava um bloco de três alturas.
+
+   Em vez de esconder alguma coisa, os botões de período viram uma FAIXA QUE
+   ROLA — mesmo padrão já validado na Gestão de Tráfego. Eles encolhem até o que
+   sobrar e o resto continua na mesma linha; nenhum período fica inacessível. */
+@media(min-width:1025px) and (max-width:1500px){
+  .tela-gestao-a-vista :deep(.gv-topbar-controls){flex-wrap:nowrap;}
+  .tela-gestao-a-vista :deep(.gv-period-btns){flex:1 1 auto;min-width:0;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+  .tela-gestao-a-vista :deep(.gv-period-btns)::-webkit-scrollbar{display:none;}
+  .tela-gestao-a-vista :deep(.gv-pbtn){flex-shrink:0;}
+  .tela-gestao-a-vista :deep(.gv-cf-dd),.tela-gestao-a-vista :deep(.gv-cf-lbl){flex-shrink:0;}
+  /* O bloco da marca cede primeiro: os dois títulos são o que menos se perde. */
+  .tela-gestao-a-vista :deep(.gv-topbar-brand){min-width:0;}
+  .tela-gestao-a-vista :deep(.gv-perf-tag){letter-spacing:3px;font-size:12px;}
+  .tela-gestao-a-vista :deep(.gv-brand-tag){letter-spacing:1.5px;}
+}
 /* Board layout — 2-column grid: left=gauge panel, right=canal gauges + rankings */
 .tela-gestao-a-vista :deep(.gv-board){flex:1;display:grid;grid-template-columns:480px 1fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;position:relative;z-index:2;backdrop-filter:none;}
 .tela-gestao-a-vista :deep(.gv-left){background:var(--bg);display:flex;flex-direction:column;align-items:center;padding:8px 22px;gap:0;overflow:hidden;justify-content:space-between;}
