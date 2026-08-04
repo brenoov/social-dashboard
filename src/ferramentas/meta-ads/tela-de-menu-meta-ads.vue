@@ -39,7 +39,6 @@
              ainda abre, e nada foi apagado — se fizer falta, é só devolver o
              card. -->
         <div class="smenu-card" v-if="false" @click="ir('meta-campanhas')">
-          <span class="smenu-card-num">01</span>
           <div class="smenu-card-icon" style="background:linear-gradient(135deg,#1877F2,#0062E0)">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
           </div>
@@ -48,7 +47,6 @@
           <span class="smenu-card-enter">→</span>
         </div>
         <div class="smenu-card" v-if="hasPermission('module:meta:gestor')" @click="ir('gestao-trafego')">
-          <span class="smenu-card-num">02</span>
           <div class="smenu-card-icon" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
           </div>
@@ -57,7 +55,6 @@
           <span class="smenu-card-enter">→</span>
         </div>
         <div class="smenu-card" v-if="hasPermission('module:meta:fabrica')" @click="ir('fabrica-estudio')">
-          <span class="smenu-card-num">03</span>
           <div class="smenu-card-icon" style="background:linear-gradient(135deg,#0891b2,#4338ca)">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.2H22l-6 4.4 2.3 7.1L12 16.3 5.7 20.7 8 13.6l-6-4.4h7.6z"/></svg>
           </div>
@@ -153,4 +150,16 @@ onMounted(() => {
 @media(max-width:380px){
   .tela-menu-meta-ads .smenu-card{width:100%;}
 }
+
+/* ── Card "Em breve" ────────────────────────────────────────────────────────
+   Item que já está no mapa mas ainda não existe: aparece apagado, sem clique,
+   com selo. Mostra pra onde a ferramenta está indo sem prometer um botão que
+   não funciona. Nasceu na Gestão Interna (a Frota) e o dono pediu nos demais.
+   Para usar: <div class="smenu-card smenu-card-embreve"> … e no lugar da seta
+   <span class="smenu-card-embreve-selo">Em breve</span> */
+.tela-menu-meta-ads .smenu-card-embreve{cursor:default;opacity:.55;}
+.tela-menu-meta-ads .smenu-card-embreve:hover{border-color:var(--border);transform:none;box-shadow:none;}
+.tela-menu-meta-ads .smenu-card-embreve:hover::before{opacity:0;}
+.tela-menu-meta-ads .smenu-card-embreve-selo{position:absolute;bottom:16px;right:18px;font-family:var(--fonte-principal);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:3px 7px;}
+.tela-menu-meta-ads .smenu-cards.view-list .smenu-card-embreve-selo{position:static;margin-left:auto;}
 </style>

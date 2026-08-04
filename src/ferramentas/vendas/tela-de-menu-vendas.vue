@@ -30,8 +30,7 @@
       </div>
       <div class="smenu-cards" :class="{ 'view-list': visualizacao === 'list' }">
         <div class="smenu-card" v-if="hasPermission('module:sales:gestao-vista')" @click="ir('gestao-vista')">
-          <span class="smenu-card-num">01</span>
-          <div class="smenu-card-icon">
+          <div class="smenu-card-icon" style="background:linear-gradient(135deg,#0f4c81 0%,#1d4ed8 100%)">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           </div>
           <div class="smenu-card-title">Gestão à Vista</div>
@@ -39,8 +38,7 @@
           <span class="smenu-card-enter">→</span>
         </div>
         <div class="smenu-card" v-if="hasPermission('module:sales:analise-vendas')" @click="ir('analise-vendas-marca')">
-          <span class="smenu-card-num">02</span>
-          <div class="smenu-card-icon">
+          <div class="smenu-card-icon" style="background:linear-gradient(135deg,#0f766e 0%,#0d9488 100%)">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
           </div>
           <div class="smenu-card-title">Análise de Vendas</div>
@@ -131,4 +129,16 @@ onMounted(() => {
 @media(max-width:380px){
   .tela-menu-vendas .smenu-card{width:100%;}
 }
+
+/* ── Card "Em breve" ────────────────────────────────────────────────────────
+   Item que já está no mapa mas ainda não existe: aparece apagado, sem clique,
+   com selo. Mostra pra onde a ferramenta está indo sem prometer um botão que
+   não funciona. Nasceu na Gestão Interna (a Frota) e o dono pediu nos demais.
+   Para usar: <div class="smenu-card smenu-card-embreve"> … e no lugar da seta
+   <span class="smenu-card-embreve-selo">Em breve</span> */
+.tela-menu-vendas .smenu-card-embreve{cursor:default;opacity:.55;}
+.tela-menu-vendas .smenu-card-embreve:hover{border-color:var(--border);transform:none;box-shadow:none;}
+.tela-menu-vendas .smenu-card-embreve:hover::before{opacity:0;}
+.tela-menu-vendas .smenu-card-embreve-selo{position:absolute;bottom:16px;right:18px;font-family:var(--fonte-principal);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:3px 7px;}
+.tela-menu-vendas .smenu-cards.view-list .smenu-card-embreve-selo{position:static;margin-left:auto;}
 </style>
