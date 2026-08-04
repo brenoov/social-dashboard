@@ -15,6 +15,10 @@ import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { estadoDoVeiculo, resumoDoEstado, ordenarEstados, rotuloDoTanque, NIVEIS_TANQUE, problemasDaDevolucao } from './estado-do-veiculo.js'
 import { AREAS, areasVisiveis, areaInicial, painelDoMotorista, resumoDoMotorista } from './areas-da-frota.js'
+import {
+  SITUACOES, problemasDaRequisicao, bloqueios, podeDecidir, motivoEmPortugues,
+  ordenarFila, quando,
+} from './requisicoes.js'
 
 const router = useRouter()
 const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
@@ -40,12 +44,16 @@ function voltar() { router.push({ name: 'gestao-interna' }) }
 async function carregar() {
   carregando.value = true
   falha.value = ''
-  const [v, u, p] = await Promise.all([
+  const [v, u, p, q] = await Promise.all([
     sbClient.from('frota_veiculos').select('*').order('nome'),
     // Só o que interessa pra montar a tela: o aberto de cada carro e as
     // devoluções recentes. Puxar o histórico inteiro cresceria pra sempre.
     sbClient.from('frota_uso').select('*').order('saida_em', { ascending: false }).limit(400),
     sbClient.from('acessos_pessoas').select('id,nome,email_corporativo').order('nome'),
+    // A agenda de reservas: quem vê a Frota vê a agenda inteira. Saber que o
+    // carro está reservado é o que evita o conflito de viagens — esconder isso
+    // de quem dirige recriaria no app o problema que o papel tem.
+    sbClient.from('frota_requisicoes').select('*').order('retirada_prevista'),
   ])
   if (v.error || u.error) {
     falha.value = 'Não consegui carregar a frota. Recarregue a página; se continuar, avise.'
@@ -55,6 +63,9 @@ async function carregar() {
   veiculos.value = v.data || []
   usos.value = u.data || []
   pessoas.value = (p.data || [])
+  // A agenda pode falhar sozinha (permissão nova ainda não concedida) sem
+  // derrubar o resto da tela: sem ela a Frota ainda serve pra pegar e devolver.
+  requisicoes.value = q && !q.error ? (q.data || []) : []
   carregando.value = false
 }
 
@@ -163,6 +174,137 @@ async function confirmar() {
   carregar()
 }
 
+/* ── Requisição de uso (F2) ──────────────────────────────────────────────────
+   O formulário de papel virando tela. A parte que o papel nunca fez: avisar do
+   CONFLITO DE VIAGENS — o manual da planilha diz que os 3 dias de antecedência
+   existem justamente pra isso, e cada requisição de papel é uma folha solta que
+   ninguém compara com as outras. */
+const requisicoes = ref([])
+const podeAprovar = computed(() => hasPermission('frota.aprovar', 'ver'))
+
+const pedido = ref(null)   // o formulário aberto, ou nulo
+const pedidoForm = reactive({
+  veiculoId: '', pessoaId: '', departamento: '', destino: '', finalidade: '',
+  retirada: '', devolucao: '', observacao: '',
+})
+const avisosDoPedido = ref([])
+const jaAvisado = ref(false)
+
+// As minhas: pendentes e aprovadas ainda não usadas.
+const minhasRequisicoes = computed(() => ordenarFila(
+  requisicoes.value.filter((r) =>
+    ['pendente', 'aprovada'].includes(r.situacao)
+    && (r.pessoa_id === euId.value || r.criada_por === (estado.user && estado.user.id)))))
+
+// A fila de quem aprova: tudo que está pendente, de todo mundo.
+const filaDeAprovacao = computed(() =>
+  ordenarFila(requisicoes.value.filter((r) => r.situacao === 'pendente')))
+
+function abrirPedido(veiculoId) {
+  pedido.value = { aberto: true }
+  jaAvisado.value = false
+  avisosDoPedido.value = []
+  Object.assign(pedidoForm, {
+    veiculoId: veiculoId || '', pessoaId: euId.value || '', departamento: '',
+    destino: '', finalidade: '', retirada: '', devolucao: '', observacao: '',
+  })
+}
+function fecharPedido() { pedido.value = null; avisosDoPedido.value = [] }
+
+// <input type="datetime-local"> devolve hora LOCAL sem fuso. Mandar essa string
+// crua pro banco gravaria como se fosse UTC — três horas de diferença, que é
+// exatamente o tipo de erro que faz duas pessoas pegarem o mesmo carro.
+const paraIso = (local) => (local ? new Date(local).toISOString() : null)
+
+const rascunhoDoPedido = computed(() => ({
+  id: null,
+  veiculo_id: pedidoForm.veiculoId || null,
+  pessoa_id: pedidoForm.pessoaId || null,
+  destino: pedidoForm.destino,
+  retirada_prevista: paraIso(pedidoForm.retirada),
+  devolucao_prevista: paraIso(pedidoForm.devolucao),
+}))
+
+function conferirPedido() {
+  avisosDoPedido.value = problemasDaRequisicao(
+    rascunhoDoPedido.value, requisicoes.value, new Date().toISOString())
+  return avisosDoPedido.value
+}
+
+async function enviarPedido() {
+  if (gravando.value) return
+  const probs = conferirPedido()
+  if (bloqueios(probs).length) return
+  // Avisos (conflito, antecedência, data passada) pedem uma segunda confirmação
+  // em vez de travar: são combinados entre pessoas, não impossibilidades.
+  if (probs.length && !jaAvisado.value) { jaAvisado.value = true; return }
+
+  gravando.value = true
+  const { error } = await sbClient.from('frota_requisicoes').insert({
+    veiculo_id: pedidoForm.veiculoId,
+    pessoa_id: pedidoForm.pessoaId || null,
+    pessoa_nome: pedidoForm.pessoaId ? nomeDaPessoa(pedidoForm.pessoaId) : null,
+    departamento: pedidoForm.departamento || null,
+    destino: pedidoForm.destino || null,
+    finalidade: pedidoForm.finalidade || null,
+    retirada_prevista: paraIso(pedidoForm.retirada),
+    devolucao_prevista: paraIso(pedidoForm.devolucao),
+    observacao: pedidoForm.observacao || null,
+    criada_por: estado.user && estado.user.id,
+  })
+  gravando.value = false
+  if (error) {
+    avisosDoPedido.value = [{ bloqueia: true, texto: 'Não consegui enviar o pedido. Confira a conexão e tente de novo.' }]
+    return
+  }
+  fecharPedido()
+  carregar()
+}
+
+const decisao = ref(null)   // { requisicao, acao: 'aprovada'|'recusada' }
+const motivoDaRecusa = ref('')
+const erroDaDecisao = ref('')
+
+function abrirDecisao(requisicao, acao) {
+  decisao.value = { requisicao, acao }
+  motivoDaRecusa.value = ''
+  erroDaDecisao.value = ''
+}
+function fecharDecisao() { decisao.value = null; erroDaDecisao.value = '' }
+
+function porQueNaoDecido(r) {
+  return podeDecidir({
+    requisicao: r,
+    minhaPessoaId: euId.value,
+    meuUsuarioId: estado.user && estado.user.id,
+    temPermissaoAprovar: podeAprovar.value,
+  })
+}
+
+async function confirmarDecisao() {
+  const d = decisao.value
+  if (!d || gravando.value) return
+  if (d.acao === 'recusada' && !motivoDaRecusa.value.trim()) {
+    erroDaDecisao.value = 'Diga o motivo. Quem pediu precisa saber o que fazer diferente.'
+    return
+  }
+  gravando.value = true
+  const { error } = await sbClient.from('frota_requisicoes')
+    .update({ situacao: d.acao, motivo_decisao: motivoDaRecusa.value.trim() || null })
+    .eq('id', d.requisicao.id)
+  gravando.value = false
+  if (error) {
+    // O gatilho do banco é quem barra de verdade: sem permissão, ou tentando
+    // decidir a própria requisição. A mensagem dele já vem em português.
+    erroDaDecisao.value = error.message && /aprovar|sua/i.test(error.message)
+      ? error.message
+      : 'Não consegui gravar a decisão. Tente de novo.'
+    return
+  }
+  fecharDecisao()
+  carregar()
+}
+
 onMounted(async () => {
   await carregar()
   // Só depois de saber as permissões dá pra escolher a aba de abertura.
@@ -238,6 +380,21 @@ onMounted(async () => {
         </div>
       </template>
 
+      <!-- As reservas da pessoa: o que ela pediu e ainda não usou. -->
+      <template v-if="minhasRequisicoes.length">
+        <h2 class="fr-secao">Seus pedidos</h2>
+        <ul class="fr-pedidos">
+          <li v-for="r in minhasRequisicoes" :key="r.id" class="fr-pedido">
+            <div class="fr-pedido-topo">
+              <strong>{{ (veiculos.find((v) => v.id === r.veiculo_id) || {}).nome || 'Veículo' }}</strong>
+              <span class="fr-selo" :class="SITUACOES[r.situacao].cor">{{ SITUACOES[r.situacao].rotulo }}</span>
+            </div>
+            <div class="fr-pedido-quando">{{ quando(r.retirada_prevista) }}<span v-if="r.destino"> · {{ r.destino }}</span></div>
+            <div class="fr-pedido-motivo" v-if="r.situacao === 'recusada' && r.motivo_decisao">{{ r.motivo_decisao }}</div>
+          </li>
+        </ul>
+      </template>
+
       <h2 class="fr-secao">{{ painel.livres.length ? 'Livres para pegar' : 'Nenhum carro livre' }}</h2>
       <p class="fr-aviso" v-if="!painel.livres.length">
         Todos estão na rua ou na oficina. Assim que alguém devolver, aparece aqui.
@@ -265,6 +422,10 @@ onMounted(async () => {
           </div>
           <div class="fr-acoes" v-if="podeEditar">
             <button class="fr-btn primario" @click="abrirRetirada(l)">Vou usar</button>
+            <!-- Pegar agora e reservar pra depois são coisas diferentes. O
+                 manual da planilha pede 3 dias de antecedência justamente pra
+                 não atropelar viagem de outro departamento. -->
+            <button class="fr-btn" @click="abrirPedido(l.veiculo.id)">Reservar</button>
           </div>
         </div>
       </div>
@@ -308,6 +469,126 @@ onMounted(async () => {
         <div class="fr-acoes" v-if="podeEditar">
           <button v-if="l.naRua" class="fr-btn primario" @click="abrirDevolucao(l)">Devolver</button>
           <button v-else-if="l.disponivel" class="fr-btn primario" @click="abrirRetirada(l)">Vou usar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FILA DE APROVAÇÃO, na área de Gestão. Só aparece pra quem aprova. -->
+    <template v-if="area === 'gestao' && podeAprovar && filaDeAprovacao.length">
+      <h2 class="fr-secao">Aguardando sua decisão ({{ filaDeAprovacao.length }})</h2>
+      <div class="fr-lista">
+        <div v-for="r in filaDeAprovacao" :key="r.id" class="fr-card espera">
+          <div class="fr-card-topo">
+            <div class="fr-card-ident">
+              <span class="fr-card-nome">{{ (veiculos.find((v) => v.id === r.veiculo_id) || {}).nome || 'Veículo' }}</span>
+              <span class="fr-placa">{{ r.pessoa_nome || 'sem motorista informado' }}</span>
+            </div>
+            <span class="fr-selo espera">{{ quando(r.retirada_prevista) }}</span>
+          </div>
+          <div class="fr-dados">
+            <div class="fr-dado">
+              <span class="fr-dado-lab">Destino</span>
+              <span class="fr-dado-val">{{ r.destino || '—' }}</span>
+            </div>
+            <div class="fr-dado" v-if="r.devolucao_prevista">
+              <span class="fr-dado-lab">Devolve</span>
+              <span class="fr-dado-val">{{ quando(r.devolucao_prevista) }}</span>
+            </div>
+          </div>
+          <p class="fr-pedido-motivo" v-if="r.finalidade">{{ r.finalidade }}</p>
+
+          <div class="fr-acoes" v-if="porQueNaoDecido(r).pode">
+            <button class="fr-btn primario" @click="abrirDecisao(r, 'aprovada')">Aprovar</button>
+            <button class="fr-btn" @click="abrirDecisao(r, 'recusada')">Recusar</button>
+          </div>
+          <p class="fr-aviso" v-else>{{ motivoEmPortugues(porQueNaoDecido(r).motivo) }}</p>
+        </div>
+      </div>
+    </template>
+
+    <!-- PEDIR O CARRO PARA UMA DATA -->
+    <div class="fr-ficha-fundo" v-if="pedido" @click.self="fecharPedido">
+      <div class="fr-ficha" role="dialog">
+        <div class="fr-ficha-topo">
+          <span class="fr-ficha-titulo">Reservar veículo</span>
+          <button class="fr-fechar" @click="fecharPedido" aria-label="Fechar">✕</button>
+        </div>
+        <div class="fr-ficha-corpo">
+          <label class="fr-campo">
+            <span class="fr-lab">Veículo</span>
+            <select v-model="pedidoForm.veiculoId" @change="conferirPedido">
+              <option value="">— escolha —</option>
+              <option v-for="v in veiculos.filter((x) => x.situacao === 'ativo')" :key="v.id" :value="v.id">
+                {{ v.nome }} · {{ v.placa }}
+              </option>
+            </select>
+          </label>
+          <label class="fr-campo">
+            <span class="fr-lab">Quem vai dirigir</span>
+            <select v-model="pedidoForm.pessoaId">
+              <option value="">— escolha —</option>
+              <option v-for="p in pessoas" :key="p.id" :value="p.id">{{ p.nome }}</option>
+            </select>
+          </label>
+          <label class="fr-campo">
+            <span class="fr-lab">Retirada</span>
+            <input v-model="pedidoForm.retirada" type="datetime-local" @change="conferirPedido">
+          </label>
+          <label class="fr-campo">
+            <span class="fr-lab">Devolução prevista</span>
+            <input v-model="pedidoForm.devolucao" type="datetime-local" @change="conferirPedido">
+          </label>
+          <label class="fr-campo">
+            <span class="fr-lab">Destino</span>
+            <input v-model="pedidoForm.destino" type="text" placeholder="Conchal, Campinas…">
+          </label>
+          <label class="fr-campo">
+            <span class="fr-lab">Para quê</span>
+            <input v-model="pedidoForm.finalidade" type="text" placeholder="Homologação, buscar pedido…">
+          </label>
+          <label class="fr-campo">
+            <span class="fr-lab">Departamento</span>
+            <input v-model="pedidoForm.departamento" type="text" placeholder="Administrativo, Marketing…">
+          </label>
+
+          <ul class="fr-problemas" v-if="avisosDoPedido.length">
+            <li v-for="(a, i) in avisosDoPedido" :key="i">{{ a.texto }}</li>
+          </ul>
+        </div>
+        <div class="fr-ficha-rodape">
+          <button class="fr-btn" @click="fecharPedido">Cancelar</button>
+          <button class="fr-btn primario" :disabled="gravando" @click="enviarPedido">
+            {{ gravando ? 'Enviando…' : (jaAvisado && avisosDoPedido.length ? 'Pedir assim mesmo' : 'Pedir') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- APROVAR OU RECUSAR -->
+    <div class="fr-ficha-fundo" v-if="decisao" @click.self="fecharDecisao">
+      <div class="fr-ficha" role="dialog">
+        <div class="fr-ficha-topo">
+          <span class="fr-ficha-titulo">{{ decisao.acao === 'aprovada' ? 'Aprovar' : 'Recusar' }} requisição</span>
+          <button class="fr-fechar" @click="fecharDecisao" aria-label="Fechar">✕</button>
+        </div>
+        <div class="fr-ficha-corpo">
+          <p class="fr-recado">
+            {{ (veiculos.find((v) => v.id === decisao.requisicao.veiculo_id) || {}).nome }}
+            para {{ decisao.requisicao.pessoa_nome || 'motorista não informado' }},
+            {{ quando(decisao.requisicao.retirada_prevista) }}<span v-if="decisao.requisicao.destino">, {{ decisao.requisicao.destino }}</span>.
+          </p>
+          <label class="fr-campo">
+            <span class="fr-lab">{{ decisao.acao === 'recusada' ? 'Motivo (obrigatório)' : 'Observação' }}</span>
+            <input v-model="motivoDaRecusa" type="text"
+                   :placeholder="decisao.acao === 'recusada' ? 'O carro já está reservado nesse dia…' : 'opcional'">
+          </label>
+          <ul class="fr-problemas" v-if="erroDaDecisao"><li>{{ erroDaDecisao }}</li></ul>
+        </div>
+        <div class="fr-ficha-rodape">
+          <button class="fr-btn" @click="fecharDecisao">Cancelar</button>
+          <button class="fr-btn primario" :disabled="gravando" @click="confirmarDecisao">
+            {{ gravando ? 'Gravando…' : (decisao.acao === 'aprovada' ? 'Aprovar' : 'Recusar') }}
+          </button>
         </div>
       </div>
     </div>
@@ -398,6 +679,17 @@ onMounted(async () => {
    cartão a eles daria a entender que há algo a fazer, e não há. */
 .tela-frota .fr-outros{margin:0;padding:0 14px 40px;list-style:none;display:flex;flex-direction:column;gap:7px;font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);}
 .tela-frota .fr-outros strong{color:var(--text);font-weight:600;}
+.tela-frota .fr-pedidos{margin:0;padding:0 14px;list-style:none;display:flex;flex-direction:column;gap:9px;}
+.tela-frota .fr-pedido{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:12px 14px;}
+.tela-frota .fr-pedido-topo{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-family:var(--fonte-principal);font-size:13px;color:var(--text);}
+.tela-frota .fr-pedido-quando{margin-top:4px;font-family:var(--fonte-principal);font-size:12px;color:var(--muted);}
+.tela-frota .fr-pedido-motivo{margin:8px 0 0;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.5;color:var(--muted);}
+.tela-frota .fr-recado{margin:0 0 4px;font-family:var(--fonte-principal);font-size:13.5px;line-height:1.6;color:var(--text);}
+.tela-frota .fr-card.espera{border-left-color:var(--orange,#d97706);}
+.tela-frota .fr-selo.espera{background:color-mix(in srgb,var(--orange,#d97706) 18%,transparent);color:var(--orange,#d97706);}
+.tela-frota .fr-selo.boa{background:color-mix(in srgb,var(--green,#16a34a) 18%,transparent);color:var(--green,#16a34a);}
+.tela-frota .fr-selo.ruim{background:color-mix(in srgb,var(--red,#c0392b) 16%,transparent);color:var(--red,#c0392b);}
+.tela-frota .fr-selo.neutra{background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--muted);}
 .tela-frota .fr-resumo{display:flex;align-items:center;gap:7px;padding:10px 14px;font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);}
 .tela-frota .fr-resumo strong{color:var(--text);font-variant-numeric:tabular-nums;}
 .tela-frota .fr-sep{opacity:.45;}
