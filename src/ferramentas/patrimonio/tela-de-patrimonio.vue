@@ -24,7 +24,16 @@
       <span class="pat-resumo-total">{{ formatarValor(resumo.totalCentavos) }}</span>
     </div>
 
-    <div class="pat-busca-wrap">
+    <!-- As três visões do mesmo dado: navegar por lugar, ver tudo detalhado
+         como a planilha, ou ver onde está o dinheiro. -->
+    <div class="pat-visoes rolagem-x">
+      <button class="pat-chip" :class="{ ativo: visao === 'arvore' }" @click="visao = 'arvore'">Navegar</button>
+      <button class="pat-chip" :class="{ ativo: visao === 'planilha' }" @click="visao = 'planilha'">Planilha</button>
+      <button class="pat-chip" :class="{ ativo: visao === 'resumo' }" @click="visao = 'resumo'">Resumo</button>
+      <button class="pat-chip" v-if="visao === 'planilha'" @click="exportarPlanilha">Exportar Excel</button>
+    </div>
+
+    <div class="pat-busca-wrap" v-if="visao !== 'resumo'">
       <input
         class="pat-busca"
         v-model="filtro.busca"
@@ -36,7 +45,7 @@
 
     <!-- Trilha do caminho: mostra a descida inteira e permite pular de volta pra
          qualquer nível com um toque, sem subir de um em um. -->
-    <div class="pat-trilha rolagem-x" v-if="temCaminho">
+    <div class="pat-trilha rolagem-x" v-if="temCaminho && visao === 'arvore'">
       <button class="pat-trilha-item" @click="irParaNivel(0)">Tudo</button>
       <span class="pat-trilha-sep" v-if="caminho.empresaId">›</span>
       <button class="pat-trilha-item" v-if="caminho.empresaId" @click="irParaNivel(1)">{{ nomeDoNivel('empresaId') }}</button>
@@ -49,7 +58,7 @@
     <!-- Faixa de filtros: ROLA na horizontal, nunca quebra em linhas.
          Empresa e Local saíram daqui: agora eles SÃO a navegação, e repetir o
          mesmo recorte em dois lugares faria os dois brigarem entre si. -->
-    <div class="pat-filtros rolagem-x">
+    <div class="pat-filtros rolagem-x" v-if="visao !== 'resumo'">
       <select class="pat-select" v-model="filtro.categoriaId" aria-label="Categoria">
         <option value="">Todas as categorias</option>
         <option v-for="c in categorias" :key="c.id" :value="c.id">{{ c.nome }}</option>
@@ -97,13 +106,15 @@
         <button class="pat-btn primario" @click="abrirNovo" v-if="podeCriar">Cadastrar o primeiro bem</button>
       </div>
 
-      <div class="pat-vazio" v-else-if="!bensFiltrados.length">
+      <!-- O Resumo olha o patrimônio inteiro, então não pode cair no vazio de
+           filtro: com uma busca sem resultado ele ainda tem o que mostrar. -->
+      <div class="pat-vazio" v-else-if="!bensFiltrados.length && visao !== 'resumo'">
         <h3>Nenhum bem para esses filtros</h3>
         <p>Tente limpar a busca ou escolher outra empresa, local ou situação.</p>
         <button class="pat-btn" @click="limparFiltros">Limpar filtros</button>
       </div>
 
-      <template v-else>
+      <template v-else-if="visao === 'arvore'">
         <!-- Os grupos do nível atual (empresas, depois locais, depois cômodos).
              Só aparecem quando NÃO há busca em texto: buscar é um pedido de
              "ache em tudo", e nesse momento a árvore só atrapalharia. -->
@@ -180,6 +191,78 @@
               </tr>
             </tbody>
           </table>
+        </div>
+      </template>
+
+      <!-- PLANILHA: tudo detalhado, com as colunas que a árvore não mostra
+           (tipo, marca/modelo, etiquetado, data de compra, observação). Ignora o
+           nível da árvore de propósito — é a planilha INTEIRA; busca e filtros
+           continuam valendo. Rola de lado, como planilha rola. -->
+      <template v-else-if="visao === 'planilha'">
+        <div class="pat-plan-topo">
+          {{ linhasPlanilha.length }} {{ linhasPlanilha.length === 1 ? 'linha' : 'linhas' }}
+          · total {{ formatarValor(totalPlanilha) }}
+          <span class="pat-plan-dica">toque no título da coluna para ordenar</span>
+        </div>
+        <div class="pat-plan-wrap rolagem-x">
+          <table class="pat-plan">
+            <thead>
+              <tr>
+                <th v-for="col in COLUNAS_PLANILHA" :key="col.chave"
+                    :class="{ num: col.tipo !== 'texto', ativa: ordem.chave === col.chave }"
+                    @click="ordenarPor(col.chave)">
+                  {{ col.titulo }}<span v-if="ordem.chave === col.chave">{{ ordem.crescente ? ' ▲' : ' ▼' }}</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="l in linhasPlanilha" :key="l.id" @click="abrirPelaPlanilha(l.id)">
+                <td v-for="col in COLUNAS_PLANILHA" :key="col.chave" :class="{ num: col.tipo !== 'texto' }">
+                  {{ col.tipo === 'dinheiro' ? formatarValor(l[col.chave]) : (l[col.chave] || '—') }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </template>
+
+      <!-- RESUMO: onde está o dinheiro. É a aba Dinâmica da planilha, viva. -->
+      <template v-else>
+        <div class="pat-kpis">
+          <div class="pat-kpi">
+            <span class="pat-kpi-lab">Patrimônio total</span>
+            <strong class="pat-kpi-val">{{ formatarValor(totais.totalCentavos) }}</strong>
+            <span class="pat-kpi-fine">{{ totais.itens }} itens<template v-if="totais.semValor"> · {{ totais.semValor }} sem valor informado</template></span>
+          </div>
+          <div class="pat-kpi">
+            <span class="pat-kpi-lab">Em uso</span>
+            <strong class="pat-kpi-val">{{ formatarValor(totais.emUsoCentavos) }}</strong>
+            <span class="pat-kpi-fine">{{ totais.emUso }} itens</span>
+          </div>
+          <div class="pat-kpi">
+            <span class="pat-kpi-lab">Em estoque</span>
+            <strong class="pat-kpi-val">{{ formatarValor(totais.emEstoqueCentavos) }}</strong>
+            <span class="pat-kpi-fine">{{ totais.emEstoque }} itens</span>
+          </div>
+        </div>
+
+        <div class="pat-eixos rolagem-x">
+          <button class="pat-chip" v-for="e in EIXOS" :key="e.chave"
+                  :class="{ ativo: eixo === e.chave }" @click="eixo = e.chave">{{ e.titulo }}</button>
+        </div>
+
+        <div class="pat-rank">
+          <div class="pat-rank-linha" v-for="g in ranking" :key="g.chave">
+            <div class="pat-rank-topo">
+              <span class="pat-rank-nome">{{ g.chave }}</span>
+              <span class="pat-rank-val">{{ formatarValor(g.totalCentavos) }}</span>
+            </div>
+            <div class="pat-rank-barra"><i :style="{ width: Math.max(g.fatia * 100, 1) + '%' }"></i></div>
+            <div class="pat-rank-pe">
+              {{ g.quantidade }} {{ g.quantidade === 1 ? 'item' : 'itens' }}
+              · {{ (g.fatia * 100).toFixed(1).replace('.', ',') }}% do total
+            </div>
+          </div>
         </div>
       </template>
     </div>
@@ -564,6 +647,7 @@ import { textoLinhaHistorico } from './patrimonio-lista.js'
 import { SITUACOES, rotuloDaSituacao, classeDaSituacao, textoDoDono, avisoDeDonoVazio } from './rotulos-do-bem.js'
 import { FILTRO_VAZIO, filtrarBens, resumoDaLista } from './filtro-de-bens.js'
 import { SEM_VALOR, agruparBens, bensDoCaminho, rotuloDoCaminho } from './arvore-de-bens.js'
+import { COLUNAS_PLANILHA, ordenarPlanilha, resumirPor, totaisGerais, montarLinhasParaExcel } from './planilha-e-resumo.js'
 import { LIMPAR, montarAlteracaoEmMassa, temAlgoParaMudar, resumoDaSelecao,
   alternarTodosVisiveis, estadoDaSelecaoVisivel } from './acao-em-massa.js'
 
@@ -910,6 +994,80 @@ async function salvarBem() {
   await carregar()
 }
 
+// -------------------------------------------------- visões: planilha e resumo
+const visao = ref('arvore')
+const ordem = reactive({ chave: 'numero', crescente: true })
+const eixo = ref('categoria')
+
+const EIXOS = [
+  { chave: 'categoria', titulo: 'Por categoria' },
+  { chave: 'empresa', titulo: 'Por marca' },
+  { chave: 'local', titulo: 'Por local' },
+  { chave: 'comodo', titulo: 'Por cômodo' },
+  { chave: 'dono', titulo: 'Por pessoa' },
+  { chave: 'tipo', titulo: 'Por tipo' },
+  { chave: 'situacao', titulo: 'Por situação' },
+]
+
+// O bem "achatado": os ids viram nomes de uma vez só, e daí saem a tabela da
+// planilha, o resumo e o arquivo do Excel — todos lendo a MESMA linha, sem três
+// jeitos diferentes de resolver o mesmo id.
+const linhasAchatadas = computed(() => {
+  const nome = (lista, id) => (id ? (lista.find((x) => x.id === id)?.nome || '') : '')
+  return bens.value.map((b) => ({
+    id: b.id,
+    numero: b.numero,
+    nome: b.nome,
+    categoria: nome(categorias.value, b.categoria_id),
+    tipo: nome(tipos.value, b.tipo_id),
+    marca: b.marca || '',
+    empresa: nome(empresas.value, b.empresa_id),
+    local: nome(locais.value, b.local_id),
+    comodo: nome(comodos.value, b.comodo_id),
+    dono: b.pessoa_id ? (pessoasById.value[b.pessoa_id]?.nome || 'Pessoa removida')
+      : (b.dono_texto ? b.dono_texto + ' (não cadastrada)' : ''),
+    situacao: rotuloDaSituacao(b.situacao),
+    etiquetado: b.etiquetado ? 'Sim' : 'Não',
+    data_compra: b.data_compra ? formatarDataBR(b.data_compra) : '',
+    valor_centavos: b.valor_centavos,
+    observacao: b.observacao || '',
+    _bem: b,
+  }))
+})
+
+// A planilha ignora o nível da árvore (é a planilha INTEIRA), mas respeita busca
+// e filtros — senão o campo de busca em cima dela não faria nada.
+const linhasPlanilha = computed(() => {
+  const permitidos = new Set(filtrarBens(bens.value, filtro).map((b) => b.id))
+  return ordenarPlanilha(
+    linhasAchatadas.value.filter((l) => permitidos.has(l.id)), ordem.chave, ordem.crescente)
+})
+const totalPlanilha = computed(() =>
+  linhasPlanilha.value.reduce((a, l) => a + (typeof l.valor_centavos === 'number' ? l.valor_centavos : 0), 0))
+
+function ordenarPor(chave) {
+  if (ordem.chave === chave) ordem.crescente = !ordem.crescente
+  else { ordem.chave = chave; ordem.crescente = true }
+}
+function abrirPelaPlanilha(id) {
+  const b = bens.value.find((x) => x.id === id)
+  if (b) abrirBem(b)
+}
+
+// O resumo olha o patrimônio INTEIRO, sem filtro nem caminho: é o retrato geral.
+const totais = computed(() => totaisGerais(bens.value))
+const ranking = computed(() => resumirPor(linhasAchatadas.value, (l) => l[eixo.value]))
+
+function exportarPlanilha() {
+  if (typeof XLSX === 'undefined') { adminToast('Exportador não carregou. Recarregue a página.', false); return }
+  const matriz = montarLinhasParaExcel(linhasPlanilha.value)
+  const ws = XLSX.utils.aoa_to_sheet(matriz)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Patrimônio')
+  XLSX.writeFile(wb, `patrimonio-${hojeLocal()}.xlsx`)
+  registrarLog('planilha.exportar', linhasPlanilha.value.length + ' linhas', null)
+}
+
 // ------------------------------------------------------- alteração em massa
 const modoSelecao = ref(false)
 const selecionados = ref(new Set())
@@ -1225,6 +1383,36 @@ onMounted(() => {
 .tela-patrimonio .pat-massa-conta em{font-style:normal;color:var(--muted);}
 .tela-patrimonio .pat-massa-vazia{font-family:var(--fonte-principal);font-size:12px;color:var(--muted);text-align:center;padding:6px;}
 
+/* ---- visoes: planilha e resumo ---- */
+.tela-patrimonio .pat-visoes{display:flex;gap:8px;padding:0 14px 8px;white-space:nowrap;}
+.tela-patrimonio .pat-plan-topo{font-family:var(--fonte-principal);font-size:12px;color:var(--muted);padding:2px 0 10px;}
+.tela-patrimonio .pat-plan-dica{display:block;font-size:11px;opacity:.8;margin-top:2px;}
+/* A planilha ROLA de lado, como planilha rola — 14 colunas nao cabem em tela
+   nenhuma, e espremer viraria papa. A rolagem fica no wrap, nunca na pagina. */
+.tela-patrimonio .pat-plan-wrap{border:1px solid var(--border);border-radius:10px;background:var(--surface);}
+.tela-patrimonio .pat-plan{border-collapse:collapse;font-family:var(--fonte-principal);font-size:12px;white-space:nowrap;}
+.tela-patrimonio .pat-plan th{position:sticky;top:0;background:var(--surface2);text-align:left;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);padding:9px 10px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;}
+.tela-patrimonio .pat-plan th.ativa{color:var(--accent);}
+.tela-patrimonio .pat-plan th.num,.tela-patrimonio .pat-plan td.num{text-align:right;}
+.tela-patrimonio .pat-plan td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text);max-width:260px;overflow:hidden;text-overflow:ellipsis;}
+.tela-patrimonio .pat-plan tbody tr{cursor:pointer;}
+.tela-patrimonio .pat-plan tbody tr:hover{background:var(--surface2);}
+
+.tela-patrimonio .pat-kpis{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:14px;}
+.tela-patrimonio .pat-kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:3px;font-family:var(--fonte-principal);}
+.tela-patrimonio .pat-kpi-lab{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);}
+.tela-patrimonio .pat-kpi-val{font-size:21px;font-weight:700;color:var(--text);}
+.tela-patrimonio .pat-kpi-fine{font-size:11px;color:var(--muted);}
+.tela-patrimonio .pat-eixos{display:flex;gap:8px;padding-bottom:12px;white-space:nowrap;}
+.tela-patrimonio .pat-rank{display:flex;flex-direction:column;gap:12px;}
+.tela-patrimonio .pat-rank-linha{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-family:var(--fonte-principal);}
+.tela-patrimonio .pat-rank-topo{display:flex;gap:10px;align-items:baseline;}
+.tela-patrimonio .pat-rank-nome{flex:1;min-width:0;font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tela-patrimonio .pat-rank-val{font-size:13px;font-weight:700;color:var(--accent);white-space:nowrap;}
+.tela-patrimonio .pat-rank-barra{height:6px;border-radius:999px;background:var(--surface2);margin:8px 0 6px;overflow:hidden;}
+.tela-patrimonio .pat-rank-barra i{display:block;height:100%;background:var(--accent);border-radius:999px;}
+.tela-patrimonio .pat-rank-pe{font-size:11px;color:var(--muted);}
+
 .tela-patrimonio .pat-cards{display:flex;flex-direction:column;gap:10px;}
 .tela-patrimonio .pat-card{display:flex;flex-direction:column;gap:6px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;font-family:var(--fonte-principal);color:var(--text);touch-action:manipulation;}
 .tela-patrimonio .pat-card:active{border-color:var(--accent);}
@@ -1303,6 +1491,8 @@ onMounted(() => {
 .tela-patrimonio .pat-confirm-pe{display:flex;gap:8px;justify-content:flex-end;margin-top:4px;}
 
 @media(min-width:1025px){
+  .tela-patrimonio .pat-kpis{grid-template-columns:repeat(3,1fr);}
+  .tela-patrimonio .pat-visoes{padding-left:24px;padding-right:24px;}
   .tela-patrimonio .pat-topbar{padding:13px 24px;}
   .tela-patrimonio .pat-resumo,.tela-patrimonio .pat-busca-wrap,.tela-patrimonio .pat-filtros{padding-left:24px;padding-right:24px;}
   .tela-patrimonio .pat-body{padding:0 24px 48px;}
