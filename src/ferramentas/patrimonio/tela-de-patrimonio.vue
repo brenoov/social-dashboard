@@ -147,10 +147,6 @@
           Ver os {{ bensFiltrados.length }} itens daqui, sem separar
         </button>
 
-        <div class="pat-secao-bens" v-if="mostrarBens && mostrarGrupos && bensSoltos.length">
-          {{ textoDosSoltos }}
-        </div>
-
         <!-- CELULAR e TABLET: cartões. É a única forma que funciona com uma mão. -->
         <div class="pat-cards" v-if="mostrarBens">
           <button class="pat-card" :class="{ marcado: selecionados.has(bem.id) }"
@@ -739,29 +735,14 @@ const buscando = computed(() => !!(filtro.busca || '').trim())
 const mostrarGrupos = computed(() =>
   !buscando.value && !verTudoAqui.value && grupos.value.length > 1)
 
-const mostrarBens = computed(() => !mostrarGrupos.value || bensSoltos.value.length > 0)
-
-// Bem que está NESTE nível e não cai em nenhum grupo abaixo (ex.: item da Vessel
-// sem local). Sem isto ele ficaria escondido atrás do grupo "Sem local"; mostrar
-// aqui é mais direto e ele continua alcançável pelos dois caminhos.
-const bensSoltos = computed(() => {
-  const campo = nivelAtual.value?.campo
-  if (!campo) return []
-  return bensFiltrados.value.filter((b) => !b[campo])
-})
-
-const bensNaTela = computed(() => (mostrarGrupos.value ? bensSoltos.value : bensFiltrados.value))
-
-// Estes são os bens que estão neste nível e não caem em nenhuma pasta abaixo.
-// Antes o rótulo era "N itens direto aqui" — jargão meu, ninguém entende. Como
-// a tela SABE em que nível está, dá pra dizer exatamente o que falta neles.
-const textoDosSoltos = computed(() => {
-  const n = bensSoltos.value.length
-  const quantos = `${n} ${n === 1 ? 'item' : 'itens'}`
-  if (!caminho.empresaId) return `${quantos} sem marca`
-  if (!caminho.localId) return `${quantos} sem local`
-  return `${quantos} sem cômodo`
-})
+// Ou se mostram as pastas, ou se mostram os bens — nunca os dois.
+// Havia aqui uma segunda lista ("N itens sem local") com os bens deste nível que
+// não caem em nenhuma pasta abaixo. Era REDUNDANTE: esses são exatamente os
+// mesmos itens que já estão dentro da pasta "Sem local", que aparece na lista de
+// pastas com contagem, valor e entrada própria. O dono viu o mesmo item duas
+// vezes na mesma tela. Um caminho só por item.
+const mostrarBens = computed(() => !mostrarGrupos.value)
+const bensNaTela = computed(() => bensFiltrados.value)
 
 function entrarNoGrupo(g) {
   if (!caminho.empresaId) caminho.empresaId = g.id
@@ -1381,7 +1362,6 @@ onMounted(() => {
 .tela-patrimonio .pat-grupo-seta{color:var(--muted);font-size:17px;flex-shrink:0;}
 
 .tela-patrimonio .pat-ver-todos{width:100%;margin-top:10px;font-family:var(--fonte-principal);font-size:12px;font-weight:600;color:var(--accent);background:none;border:1px dashed var(--border);border-radius:10px;padding:11px;cursor:pointer;touch-action:manipulation;}
-.tela-patrimonio .pat-secao-bens{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:18px 0 8px;}
 
 /* ---- selecao em massa ---- */
 .tela-patrimonio .pat-btn-sel{width:38px;height:38px;flex-shrink:0;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation;}

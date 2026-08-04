@@ -84,3 +84,34 @@ test('rótulo do caminho mostra onde a pessoa está', () => {
   assert.equal(rotuloDoCaminho({ empresaId: 'e1', localId: 'l1', comodoId: 'c2' }, LISTAS), 'Produção')
   assert.equal(rotuloDoCaminho({ empresaId: SEM_VALOR }, LISTAS), 'Sem empresa')
 })
+
+/* ── Um caminho só por item ──────────────────────────────────────────────────
+   A tela chegou a mostrar, no mesmo nível, a pasta "Sem local" E uma segunda
+   lista com "N itens sem local" — os mesmos itens, duas vezes. O dono viu e
+   apontou. O invariante que impede isso de voltar: todo bem de um nível cai em
+   EXATAMENTE UM grupo, contando o grupo dos órfãos. Se isso vale, não existe
+   item "de fora" que justifique uma lista extra. */
+
+test('todo bem cai em exatamente um grupo — nada sobra pra uma segunda lista', () => {
+  const g = agruparBens(BENS, 'local_id', LISTAS.locais)
+  const somaDosGrupos = g.reduce((a, x) => a + x.quantidade, 0)
+  assert.equal(somaDosGrupos, BENS.length, 'a soma dos grupos tem que dar o total')
+
+  // E cada item é alcançável entrando em um (e só um) desses grupos.
+  const vistos = new Set()
+  for (const grupo of g) {
+    for (const bem of bensDoCaminho(BENS, { localId: grupo.id })) {
+      assert.ok(!vistos.has(bem.id), `bem ${bem.id} aparece em mais de um grupo`)
+      vistos.add(bem.id)
+    }
+  }
+  assert.equal(vistos.size, BENS.length, 'algum bem ficou inalcançável')
+})
+
+test('o mesmo vale no nível de marca, onde há órfão de verdade', () => {
+  const g = agruparBens(BENS, 'empresa_id', LISTAS.empresas)
+  assert.equal(g.reduce((a, x) => a + x.quantidade, 0), BENS.length)
+  const orfaos = g.find((x) => x.id === SEM_VALOR)
+  assert.equal(orfaos.quantidade, bensDoCaminho(BENS, { empresaId: SEM_VALOR }).length,
+    'a contagem da pasta tem que bater com o que se vê ao entrar nela')
+})
