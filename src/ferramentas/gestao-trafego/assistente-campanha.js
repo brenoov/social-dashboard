@@ -616,12 +616,17 @@ function campoDeLinha(doc, o, { chave, rotulo, ajuda, exemplo, limite }) {
   i.type = 'text';
   i.value = o.estado[chave] || '';
   i.placeholder = exemplo || '';
-  const aviso = el(doc, 'div', CSS.ajuda + 'margin:4px 0 0;color:var(--orange);', avisoDeTamanho(limite, o.estado[chave]));
+  // SÓ AVISA QUEM TEM LIMITE. Visto ao vivo (03/08/2026): sem esta guarda, o
+  // campo da saudação herdava o limite da descrição e dizia "o Facebook corta
+  // depois de 30" numa mensagem de WhatsApp, que não tem esse corte. Conselho
+  // errado com cara de conselho certo é pior que conselho nenhum.
+  const conta = (v) => (limite ? avisoDeTamanho(limite, v) : '');
+  const aviso = el(doc, 'div', CSS.ajuda + 'margin:4px 0 0;color:var(--orange);', conta(o.estado[chave]));
   i.oninput = () => {
     o.aoMudar({ [chave]: i.value }, { semRedesenhar: true });
     // O aviso é escrito na mão porque a tela não redesenha enquanto se digita —
     // e um aviso de tamanho que só aparece depois não avisa nada.
-    aviso.textContent = avisoDeTamanho(limite, i.value);
+    aviso.textContent = conta(i.value);
   };
   d.appendChild(i);
   d.appendChild(aviso);
