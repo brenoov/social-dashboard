@@ -1005,12 +1005,15 @@ onMounted(() => {
 .tela-patrimonio .pat-cards{display:flex;flex-direction:column;gap:10px;}
 .tela-patrimonio .pat-card{display:flex;flex-direction:column;gap:6px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;font-family:var(--fonte-principal);color:var(--text);touch-action:manipulation;}
 .tela-patrimonio .pat-card:active{border-color:var(--accent);}
-.tela-patrimonio .pat-card-topo{display:flex;align-items:center;gap:8px;}
+.tela-patrimonio .pat-card-topo{display:flex;align-items:center;gap:8px;min-width:0;}
 .tela-patrimonio .pat-card-nome{font-size:15px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .tela-patrimonio .pat-card-meta{font-size:12px;color:var(--muted);display:flex;gap:5px;}
 .tela-patrimonio .pat-card-linha{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);}
 
-.tela-patrimonio .pat-pill{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:4px 9px;border-radius:999px;flex-shrink:0;}
+/* nowrap OBRIGATORIO: 'EM MANUTENCAO' em caixa alta com espacamento nao cabe
+   na largura que sobra e quebra DENTRO da pilula, virando um bloco alto em vez
+   de uma pilula. Quem cede espaco e o nome do bem (que tem ellipsis), nunca o badge. */
+.tela-patrimonio .pat-pill{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:4px 9px;border-radius:999px;flex-shrink:0;white-space:nowrap;line-height:1.4;}
 .tela-patrimonio .pat-pill-uso{background:#dcfce7;color:#166534;}
 .tela-patrimonio .pat-pill-estoque{background:#e0e7ff;color:#3730a3;}
 .tela-patrimonio .pat-pill-manutencao{background:#fef3c7;color:#92400e;}
