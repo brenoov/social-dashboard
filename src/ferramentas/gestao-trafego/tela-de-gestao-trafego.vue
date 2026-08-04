@@ -188,6 +188,9 @@ import { montarPainelFila } from './painel-fila.js'
 // A LISTA do histórico de campanhas começadas por aqui. As regras de leitura
 // moram em rascunhos.js; este só desenha (e escapa tudo que vem de fora).
 import { montarPainelHistorico, marcarQuemPodeApagar } from './painel-historico.js'
+// COMO a sugestão é dita: manchete, comparação e prosa em planos diferentes.
+// O que ela é continua saindo de sugerir-publico.js.
+import { manchete, comparacao, repetidos, paragrafosDaLeitura } from './apresentar-sugestao.js'
 import { montarAssistente, textoDaConfirmacao } from './assistente-campanha.js'
 import { estadoInicial, imagemServe, payloadsDoAssistente, numerosJaUsados, criativaDoAssistente, PASSOS } from './criar-campanha.js'
 // O CATÁLOGO DE SUB-OBJETIVOS: a Meta tem dois níveis (objetivo da campanha e
@@ -1697,6 +1700,15 @@ let _gtPublicosSalvos=null;      // {conta, lista} | null
 // A tela chamava as listas de "públicos salvos" — daí a reclamação do dono de
 // que o público já tinha localização e ela pedia a cidade de novo.
 let _gtPubSalvosDeVerdade=null;   // null = não carregou; [] = a conta não tem
+// Qual público salvo está valendo, e o filtro da lista. Ficam AQUI e não no
+// `_gtPub`: são estado de tela (o que está marcado, o que está sendo buscado),
+// e não parte do público que vai para a Meta — misturar faria os dois viajarem
+// juntos para o rascunho e para o targeting.
+let _gtPubSalvoEscolhido='';
+let _gtPubSalvoBusca='';
+// Busca sem acento e sem caixa: quem procura "gastronomia" tem que achar
+// "Gastronomia SP", e quem digita "publico" tem que achar "PúblicoQuente".
+const _gtSemAcento=(x)=>String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 let _gtPubSugestaoDados=null;     // a sugestão vinda dos números da conta
 let _gtPubSugerindo=false;
 async function _gtListarPublicosDeVerdade(){
@@ -3083,17 +3095,88 @@ function _gtPubSecaoSugestao(){
     bloco.appendChild(_gtPubCaixa(s.motivoVazio));
     return bloco;
   }
+  // TRÊS PLANOS, e a ordem é a mensagem: o achado com o número, a comparação
+  // que o sustenta, e só depois a explicação por extenso. Antes era um
+  // parágrafo cinza de cinco linhas onde "2,5× mais barato" tinha o mesmo peso
+  // que a ressalva sobre amostra — o dono viu e disse que dava para melhorar.
   const caixa=_gtPubCaixa('');
-  if(s.contando){
-    caixa.appendChild(_gtPubLinhaTexto('Contando '+s.contando+', nos últimos 90 dias.',true));
+  const mc=manchete(s);
+  if(mc){
+    const topo=document.createElement('div');
+    topo.style.cssText='display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:2px;';
+    const t1=document.createElement('div');
+    t1.style.cssText='font-weight:800;color:var(--text,#111);font-size:calc(13px*var(--gt-fs,1.3));';
+    t1.textContent=mc.titulo;
+    const t2=document.createElement('div');
+    // O NÚMERO É A MANCHETE. Verde porque é economia, e grande porque é o único
+    // pedaço que precisa ser lido de longe.
+    t2.style.cssText='font-weight:800;color:var(--green,#16a34a);font-family:var(--fonte-dados);'
+      +'font-size:calc(13px*var(--gt-fs,1.3));';
+    t2.textContent=mc.numero;
+    topo.appendChild(t1);topo.appendChild(t2);
+    caixa.appendChild(topo);
+    if(mc.custou)caixa.appendChild(_gtPubLinhaTexto(mc.custou,true));
   }
-  if(s.idade){
-    caixa.appendChild(_gtPubLinhaTexto(`Idade ${s.idade.idadeMin}–${s.idade.idadeMax}: ${s.idade.porque}`));
-    if(s.idade.fraseDoDesperdicio)caixa.appendChild(_gtPubLinhaTexto(s.idade.fraseDoDesperdicio,true));
+
+  // A COMPARAÇÃO em duas linhas alinhadas. Alinhar os valores à direita é o que
+  // deixa a diferença visível sem ninguém precisar fazer a conta.
+  const comp=comparacao(s);
+  if(comp.length){
+    const tab=document.createElement('div');
+    tab.style.cssText='margin:8px 0 2px;';
+    for(const l of comp){
+      const linha=document.createElement('div');
+      linha.style.cssText='display:flex;justify-content:space-between;gap:12px;padding:5px 0;'
+        +'border-bottom:1px solid var(--border,#e5e5e5);';
+      const e=document.createElement('span');
+      e.style.cssText='color:var(--muted,#666);';
+      e.textContent=(l.tom==='bom'?'mais barato · ':'mais caro · ')+l.rotulo+' anos';
+      const d=document.createElement('span');
+      d.style.cssText='font-family:var(--fonte-dados);font-weight:700;color:'
+        +(l.tom==='bom'?'var(--green,#16a34a)':'var(--orange,#d97706)')+';';
+      d.textContent=l.valor+' por resultado';
+      linha.appendChild(e);linha.appendChild(d);
+      tab.appendChild(linha);
+    }
+    caixa.appendChild(tab);
   }
-  if(s.cidades.length)caixa.appendChild(_gtPubLinhaTexto('Cidades que se repetem nos melhores: '+s.cidades.map(c=>c.nome).join(', ')));
-  if(s.interesses.length)caixa.appendChild(_gtPubLinhaTexto('Interesses que se repetem nos melhores: '+s.interesses.map(i=>i.nome).join(', ')));
+
+  // De onde saiu a conta, pequeno. Vira rodapé porque é procedência, não achado.
+  if(s.contando)caixa.appendChild(_gtPubLinhaTexto('Contando '+s.contando+', nos últimos 90 dias.',true));
+
+  // O QUE SE REPETE nos melhores conjuntos, em lista. Oito interesses separados
+  // por vírgula é uma frase que ninguém termina de ler.
+  for(const r of repetidos(s)){
+    const t=document.createElement('div');
+    t.style.cssText='margin-top:9px;font-weight:700;color:var(--text,#111);';
+    t.textContent=r.titulo;
+    caixa.appendChild(t);
+    const chips=document.createElement('div');
+    chips.style.cssText='display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;';
+    for(const nome of r.itens){
+      const c=document.createElement('span');
+      c.style.cssText='padding:3px 9px;border-radius:999px;background:var(--surface,#fff);'
+        +'border:1px solid var(--border,#e5e5e5);color:var(--text,#111);'
+        +'font-size:calc(10px*var(--gt-fs,1.3));';
+      c.textContent=nome;
+      chips.appendChild(c);
+    }
+    caixa.appendChild(chips);
+  }
   if(s.porqueDosConjuntos)caixa.appendChild(_gtPubLinhaTexto(s.porqueDosConjuntos,true));
+
+  // A FRASE LONGA não some — vira o segundo plano, que é o lugar dela. Fechada,
+  // porque quem quis o resumo já o teve nas duas primeiras linhas.
+  if(s.idade&&s.idade.porque){
+    const det=document.createElement('details');
+    det.style.cssText='margin-top:9px;';
+    const sum=document.createElement('summary');
+    sum.style.cssText='cursor:pointer;color:var(--muted,#666);font-size:calc(10.5px*var(--gt-fs,1.3));';
+    sum.textContent='como cheguei nisso';
+    det.appendChild(sum);
+    det.appendChild(_gtPubLinhaTexto(s.idade.porque));
+    caixa.appendChild(det);
+  }
   bloco.appendChild(caixa);
 
   // A LEITURA DA IA vem numa caixa PRÓPRIA, e marcada. Misturar com os números
@@ -3106,8 +3189,18 @@ function _gtPubSecaoSugestao(){
     if(s.pensando)cx.appendChild(_gtPubLinhaTexto('Lendo os números…'));
     else if(s.erroIA)cx.appendChild(_gtPubLinhaTexto('Não consegui a leitura: '+s.erroIA,true));
     else{
-      cx.appendChild(_gtPubLinhaTexto(s.leitura));
-      if(s.cuidado)cx.appendChild(_gtPubLinhaTexto('Cuidado: '+s.cuidado,true));
+      // EM PARÁGRAFOS. O modelo devolve um bloco corrido de cinco linhas; duas
+      // frases por bloco dá respiro sem picotar o raciocínio.
+      for(const p of paragrafosDaLeitura(s.leitura)){
+        const d=_gtPubLinhaTexto(p);
+        d.style.marginTop='5px';
+        cx.appendChild(d);
+      }
+      if(s.cuidado){
+        const c=_gtPubLinhaTexto('Cuidado: '+s.cuidado,true);
+        c.style.marginTop='7px';
+        cx.appendChild(c);
+      }
     }
     bloco.appendChild(cx);
   }
@@ -3212,34 +3305,74 @@ function _gtPubSecaoPublicosSalvos(){
 
   bloco.appendChild(_gtPubTitulo('Começar de um público salvo'));
   bloco.appendChild(_gtPubAjuda('Traz tudo pronto: onde, idade, gênero, interesses e comportamentos. Depois você ajusta o que quiser.'));
+
+  // BUSCA quando a lista é longa. Doze caixas iguais empilhadas não é lista, é
+  // parede — e achar "Gastronomia SP" no meio delas é rolar até dar sorte.
+  if(lista.length>6){
+    const busca=_gtPubInput(_gtPubSalvoBusca,'Buscar público salvo…','100%');
+    busca.oninput=()=>{_gtPubSalvoBusca=busca.value;_gtPubRedesenha();};
+    busca.style.marginBottom='7px';
+    bloco.appendChild(busca);
+  }
+  const alvo=_gtSemAcento(_gtPubSalvoBusca);
+  const visiveis=alvo?lista.filter(sa=>_gtSemAcento(sa.nome+' '+sa.resumo).includes(alvo)):lista;
+
   const fila=_gtPubLinha();
   fila.style.flexDirection='column';
   fila.style.alignItems='stretch';
-  for(const sa of lista){
+  if(!visiveis.length){
+    fila.appendChild(_gtPubLinhaTexto('Nenhum público salvo com esse nome.',true));
+  }
+  for(const sa of visiveis){
+    // QUAL ESTÁ VALENDO. Sem isto a pessoa clicava, o editor mudava lá embaixo
+    // e a lista continuava com as doze caixas idênticas — nada dizia qual foi.
+    const escolhido=_gtPubSalvoEscolhido===sa.id;
     const b=document.createElement('button');
     b.type='button';
     b.style.cssText='display:block;width:100%;text-align:left;padding:9px 11px;margin-bottom:5px;'
-      +'border-radius:8px;cursor:pointer;border:1px solid var(--border,#ddd);background:var(--surface2,#f2ede4);'
-      +'color:var(--text,#111);font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));';
+      +'border-radius:10px;cursor:pointer;font-family:var(--fonte-principal);'
+      +'font-size:calc(11px*var(--gt-fs,1.3));color:var(--text,#111);transition:border-color .12s,background .12s;'
+      +(escolhido
+        ? 'border:2px solid var(--accent,#6366f1);background:color-mix(in srgb,var(--accent,#6366f1) 10%,transparent);'
+        : 'border:1px solid var(--border,#ddd);background:var(--surface2,#f2ede4);');
+    const topo=document.createElement('div');
+    topo.style.cssText='display:flex;gap:8px;align-items:center;justify-content:space-between;';
     const nome=document.createElement('div');
     nome.style.cssText='font-weight:700;';
     nome.textContent=sa.nome;
+    topo.appendChild(nome);
+    if(escolhido){
+      const selo=document.createElement('span');
+      selo.style.cssText='flex:none;padding:2px 9px;border-radius:999px;background:var(--accent,#6366f1);'
+        +'color:#fff;font-weight:700;font-size:calc(9px*var(--gt-fs,1.3));';
+      selo.textContent='✓ aplicado';
+      topo.appendChild(selo);
+    }
     const res=document.createElement('div');
     res.style.cssText='font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted,#666);margin-top:2px;';
     res.textContent=sa.resumo;
-    b.appendChild(nome);b.appendChild(res);
-    b.onclick=async()=>{
+    b.appendChild(topo);b.appendChild(res);
+    // AS CIDADES QUE ELE TRAZ, na própria linha do escolhido. O dono pediu
+    // exatamente isto: ver as cidades sem ter que rolar até "Onde mostrar" e
+    // conferir uma a uma se foram mesmo.
+    if(escolhido&&sa.cidades.length){
+      const onde=document.createElement('div');
+      onde.style.cssText='margin-top:6px;font-size:calc(10px*var(--gt-fs,1.3));color:var(--text,#111);';
+      onde.textContent='Onde: '+sa.cidades.join(' · ');
+      b.appendChild(onde);
+    }
+    b.onclick=()=>{
       // GUARDA A BASE. `montarTargeting` preserva o que o editor não gerencia
       // (comportamentos, posicionamentos, tudo) copiando do original — e o
       // original, a partir daqui, é o público salvo.
       _gtPubAntes=lerPublico(sa.targeting);
       _gtPub=_gtPubClonar(_gtPubAntes);
       if(_gtNovo)_gtNovo._targetingBase=sa.targeting;
+      _gtPubSalvoEscolhido=sa.id;
+      // SEM MODAL EM CIMA DE MODAL. O aviso de "público aplicado" obrigava um
+      // clique a mais para dizer o que a própria lista agora mostra — e tapava
+      // justamente o editor que a pessoa ia conferir.
       _gtPubRedesenha();
-      await _gtConfirm('Público aplicado',
-        '<b>'+_gtEsc(sa.nome)+'</b> entrou inteiro no editor.<br><br>'+_gtEsc(sa.resumo)
-        +(sa.cidades.length?'<br><br>Onde: '+_gtEsc(sa.cidades.join(', ')):'')
-        +'<br><br>Ajuste o que quiser daqui para baixo.',{okOnly:true});
     };
     fila.appendChild(b);
   }
@@ -4212,6 +4345,10 @@ async function _gtNovoPublicoMiolo(){
   _gtPubAntes=_gtNovo.publico||{...lerPublico({}),cidades};
   _gtPub=_gtPubClonar(_gtPubAntes);
   _gtPubAtivo=false;
+  // A MARCAÇÃO É DESTA ABERTURA. Sobrando de uma abertura anterior, a lista
+  // diria "✓ aplicado" num público que não está mais valendo — mentira com
+  // cara de confirmação.
+  _gtPubSalvoEscolhido='';_gtPubSalvoBusca='';
   _gtPubObjetivo='';_gtPubSugeridos=null;_gtPubSugeridoEm=null;
   [_gtPubSalvos,_gtPubPresets,_gtPubSalvosDeVerdade]=await Promise.all([
     _gtListarPublicosSalvos().catch(()=>null),
@@ -4485,6 +4622,7 @@ async function _gtAbrirPublico(conjunto){
     _gtPubAntes=lerPublico(dados.targeting);
     _gtPub=_gtPubClonar(_gtPubAntes);
     _gtPubAtivo=dados.effective_status==='ACTIVE';
+    _gtPubSalvoEscolhido='';_gtPubSalvoBusca='';
     // As duas listas são opcionais: null significa "não carregou", e cada
     // seção avisa por si. Não podem impedir o dono de trocar uma cidade.
     // As três listas são opcionais: null significa "não carregou", e cada seção
