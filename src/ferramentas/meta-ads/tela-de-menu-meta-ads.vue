@@ -22,7 +22,6 @@
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
         </button>
       </div>
-          <AvatarDoPerfil />
     </div>
     <div class="smenu-body">
       <div class="smenu-headline">
@@ -69,7 +68,6 @@
 </template>
 
 <script setup>
-import AvatarDoPerfil from '../../compartilhado/avatar-do-perfil.vue'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
@@ -165,12 +163,22 @@ onMounted(() => {
 .tela-menu-meta-ads .smenu-card-embreve-selo{position:absolute;bottom:16px;right:18px;font-family:var(--fonte-principal);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:3px 7px;}
 .tela-menu-meta-ads .smenu-cards.view-list .smenu-card-embreve-selo{position:static;margin-left:auto;}
 
-/* ── Cards empilhados, ocupando a largura ──────────────────────────────────
-   Pedido do dono: com 3 itens, o layout lado a lado deixava 2 em cima e 1
-   sozinho embaixo — desequilibrado. Agora cada card ocupa a largura e eles
-   ficam um sob o outro, com margem, em qualquer tamanho de tela.
-   O max-width existe pra não virar uma faixa de 1.400px num monitor grande:
-   card largo demais separa o ícone do texto e cansa de ler. */
-.tela-menu-meta-ads .smenu-cards{flex-direction:column;align-items:stretch;width:100%;max-width:720px;margin-inline:auto;gap:14px;}
-.tela-menu-meta-ads .smenu-card{width:100%;min-height:auto;}
+/* ── Como os cards se distribuem ────────────────────────────────────────────
+   CELULAR: um sob o outro, ocupando a largura com margem — foi o que o dono
+   achou mais harmônico, e é o que funciona com o polegar.
+   TABLET PRA CIMA: quadrados lado a lado, todos na MESMA fileira. O que
+   incomodava antes não era o lado a lado: era 3 cards virando "2 em cima e 1
+   sozinho embaixo". O max-width cabe 4 cards (4×270 + 3×22), então eles não
+   quebram mais. */
+.tela-menu-meta-ads .smenu-cards{width:100%;max-width:1160px;margin-inline:auto;}
+@media(max-width:640px){
+  .tela-menu-meta-ads .smenu-cards{flex-direction:column;align-items:stretch;gap:14px;max-width:none;}
+  .tela-menu-meta-ads .smenu-card{width:100%;min-height:auto;}
+}
+
+/* Os cards se ajustam à fileira em vez de terem largura fixa: com 270px fixos,
+   três deles pedem 854px e viravam "2 em cima e 1 embaixo" no tablet. Agora
+   dividem a linha (mínimo 200, máximo 300), então cabem numa fileira só de 768
+   pra cima e param de crescer no monitor grande. */
+.tela-menu-meta-ads .smenu-card{flex:1 1 200px;max-width:300px;}
 </style>

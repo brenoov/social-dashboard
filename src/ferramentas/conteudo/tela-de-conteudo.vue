@@ -23,7 +23,6 @@
         </button>
         <button class="ctd-btn ctd-btn-primario" :disabled="!contaSel" @click="abrirNova()">+ Nova peça</button>
       </div>
-          <AvatarDoPerfil />
     </div>
 
     <div class="ctd-body">
@@ -206,7 +205,6 @@
 </template>
 
 <script setup>
-import AvatarDoPerfil from '../../compartilhado/avatar-do-perfil.vue'
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import VisaoHome from './visao-home.vue'

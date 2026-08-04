@@ -51,14 +51,12 @@
         <div class="gv-clock-date" id="sa-clock-date"></div>
         <div class="gv-update-status" id="sa-update-status">—</div>
       </div>
-          <AvatarDoPerfil />
     </div>
     <div id="sa-body"></div>
   </div>
 </template>
 
 <script setup>
-import AvatarDoPerfil from '../../compartilhado/avatar-do-perfil.vue'
 import { onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'

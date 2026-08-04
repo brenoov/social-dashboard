@@ -9,7 +9,6 @@
   <div id="acessos-screen" class="tela-acessos">
     <div class="ac-topbar">
       <button class="ac-back" @click="voltar">← Central</button>
-          <AvatarDoPerfil />
     </div>
 
     <!-- ============================================================
@@ -96,7 +95,6 @@
 </template>
 
 <script setup>
-import AvatarDoPerfil from '../../compartilhado/avatar-do-perfil.vue'
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'

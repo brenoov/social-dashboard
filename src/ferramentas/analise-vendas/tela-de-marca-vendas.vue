@@ -15,7 +15,6 @@
         <span class="smenu-title">Análise de Vendas</span>
       </div>
       <span></span>
-          <AvatarDoPerfil />
     </div>
     <div class="sbrand-body">
       <div class="sbrand-title">Selecione a marca</div>
@@ -44,7 +43,6 @@
 </template>
 
 <script setup>
-import AvatarDoPerfil from '../../compartilhado/avatar-do-perfil.vue'
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'

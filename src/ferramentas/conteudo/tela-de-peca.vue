@@ -11,7 +11,6 @@
         </button>
       </div>
       <span class="ctd-title">Hora de publicar</span>
-          <AvatarDoPerfil />
     </div>
 
     <div class="ctd-body">
@@ -128,7 +127,6 @@
 </template>
 
 <script setup>
-import AvatarDoPerfil from '../../compartilhado/avatar-do-perfil.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { rotuloDeStatus, corDeStatus } from './estados.js'

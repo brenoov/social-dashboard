@@ -51,7 +51,6 @@
           <div class="gv-update-status" id="collection-status">—</div>
           <div class="gv-update-status" id="live-status" style="margin-top:1px"></div>
         </div>
-            <AvatarDoPerfil />
     </div>
 
       <!-- GUARDA DE FRESCOR: avisa quando os dados não são de hoje (coletor parado) -->
@@ -438,7 +437,6 @@
 </template>
 
 <script setup>
-import AvatarDoPerfil from '../../compartilhado/avatar-do-perfil.vue'
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import FaixaDeErro from '../../compartilhado/faixa-de-erro.vue'

@@ -65,7 +65,6 @@
         <div class="gv-clock-date" id="gt-date"></div>
         <div class="gv-update-status" id="gt-update-status">—</div>
       </div>
-          <AvatarDoPerfil />
     </div>
 
     <!-- Casca de abas: só mostra/esconde painel via _gtTrocarAba, nunca
@@ -143,7 +142,6 @@
 </template>
 
 <script setup>
-import AvatarDoPerfil from '../../compartilhado/avatar-do-perfil.vue'
 import { onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'

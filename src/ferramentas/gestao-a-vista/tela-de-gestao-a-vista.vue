@@ -50,7 +50,6 @@
         <div class="gv-clock-date" id="gv-date"></div>
         <div class="gv-update-status" id="gv-update-status">—</div>
       </div>
-          <AvatarDoPerfil />
     </div>
     <div class="gv-board" id="gv-board">
       <div class="gv-loading-screen">
@@ -94,7 +93,6 @@
 </template>
 
 <script setup>
-import AvatarDoPerfil from '../../compartilhado/avatar-do-perfil.vue'
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import TourCoachmark from '../meta-ads/tour-coachmark.vue'

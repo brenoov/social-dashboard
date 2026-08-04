@@ -8,7 +8,6 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Central
       </button>
       <span class="gimenu-title">Gestão Interna</span>
-      <AvatarDoPerfil />
     </div>
 
     <div class="gimenu-body">
@@ -56,7 +55,6 @@ import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
-import AvatarDoPerfil from '../../compartilhado/avatar-do-perfil.vue'
 
 const router = useRouter()
 
@@ -91,10 +89,10 @@ onMounted(() => {
 .tela-menu-gestao-interna .gimenu-headline{text-align:center;}
 .tela-menu-gestao-interna .gimenu-headline h2{font-family:var(--fonte-principal);font-size:26px;font-weight:500;letter-spacing:3px;text-transform:uppercase;color:var(--text);margin-bottom:6px;}
 .tela-menu-gestao-interna .gimenu-headline p{font-family:var(--fonte-principal);font-size:12px;color:var(--muted);}
-/* Um card sob o outro, ocupando a largura — em qualquer tela, não só no
-   celular. Era isso que o dono queria ver replicado nos outros menus. */
-.tela-menu-gestao-interna .gimenu-cards{display:flex;flex-direction:column;align-items:stretch;gap:14px;width:100%;max-width:720px;margin-inline:auto;}
-.tela-menu-gestao-interna .gimenu-card{position:relative;width:100%;min-height:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:30px 24px 48px;cursor:pointer;transition:all .25s;display:flex;flex-direction:column;gap:14px;overflow:hidden;}
+/* Celular: um sob o outro. Tablet pra cima: quadrados lado a lado, todos na
+   mesma fileira (o max-width cabe 4). */
+.tela-menu-gestao-interna .gimenu-cards{display:flex;gap:22px;flex-wrap:wrap;justify-content:center;width:100%;max-width:1160px;margin-inline:auto;}
+.tela-menu-gestao-interna .gimenu-card{position:relative;width:270px;min-height:210px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:30px 24px 48px;cursor:pointer;transition:all .25s;display:flex;flex-direction:column;gap:14px;overflow:hidden;}
 .tela-menu-gestao-interna .gimenu-card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 8px 32px rgba(0,0,0,.1);}
 .tela-menu-gestao-interna .gimenu-card-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;}
 .tela-menu-gestao-interna .gimenu-card-title{font-family:var(--fonte-principal);font-size:18px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);line-height:1.2;}
@@ -110,4 +108,10 @@ onMounted(() => {
   .tela-menu-gestao-interna .gimenu-cards{width:100%;gap:12px;}
   .tela-menu-gestao-interna .gimenu-card{width:100%;min-height:auto;padding:18px 16px 40px;}
 }
+
+/* Os cards se ajustam à fileira em vez de terem largura fixa: com 270px fixos,
+   três deles pedem 854px e viravam "2 em cima e 1 embaixo" no tablet. Agora
+   dividem a linha (mínimo 200, máximo 300), então cabem numa fileira só de 768
+   pra cima e param de crescer no monitor grande. */
+.tela-menu-gestao-interna .gimenu-card{flex:1 1 200px;max-width:300px;}
 </style>

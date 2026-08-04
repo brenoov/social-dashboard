@@ -32,7 +32,6 @@
            direto do estado reativo compartilhado — mesmo dado, sem
            dependência de DOM alheio. -->
       <span id="admin-topbar-user" style="font-family:var(--fonte-principal);font-size:11px;color:var(--muted)">{{ estado.user?.email }}</span>
-          <AvatarDoPerfil />
     </div>
     <div class="admin-layout">
       <nav class="admin-sidebar">
@@ -152,7 +151,6 @@
 </template>
 
 <script setup>
-import AvatarDoPerfil from '../../compartilhado/avatar-do-perfil.vue'
 import { onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'

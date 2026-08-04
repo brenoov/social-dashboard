@@ -18,7 +18,6 @@
       </div>
       <span class="gc-title">Gestão Comercial</span>
       <div class="gc-edicao" v-show="abaGc==='briefing'"><span class="gc-edicao-lbl">Edição</span><select id="gc-select" @change="onSelectEdicao"></select></div>
-          <AvatarDoPerfil />
     </div>
     <div class="gc-tabs" v-if="podeRelatorios" role="tablist">
       <button type="button" role="tab" :class="{ on: abaGc==='briefing' }" @click="irPara('briefing')">Briefing Semanal</button>
@@ -30,7 +29,6 @@
 </template>
 
 <script setup>
-import AvatarDoPerfil from '../../compartilhado/avatar-do-perfil.vue'
 import { onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'

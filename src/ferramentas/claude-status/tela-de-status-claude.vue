@@ -16,7 +16,6 @@
         <div class="csc-clock">{{ relogio }}</div>
         <div class="csc-upd">{{ statusCarga }}</div>
       </div>
-          <AvatarDoPerfil />
     </div>
 
     <div class="csc-body">
@@ -316,7 +315,6 @@
 </template>
 
 <script setup>
-import AvatarDoPerfil from '../../compartilhado/avatar-do-perfil.vue'
 import { onMounted, onUnmounted, ref, reactive, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'

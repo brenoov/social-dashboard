@@ -16,7 +16,6 @@
       </div>
       <div class="np-masthead-mini">Observatório</div>
       <span class="np-meta" id="np-meta">—</span>
-          <AvatarDoPerfil />
     </div>
     <div class="np-tabs" id="np-tabs"></div>
     <div class="np-body" id="np-body"></div>
@@ -24,7 +23,6 @@
 </template>
 
 <script setup>
-import AvatarDoPerfil from '../../compartilhado/avatar-do-perfil.vue'
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'

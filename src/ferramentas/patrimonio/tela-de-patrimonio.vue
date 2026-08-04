@@ -8,7 +8,6 @@
       </button>
       <span class="pat-title">{{ rotuloDoCaminho(caminho, listas) }}</span>
       <button class="pat-btn-ajuda" @click="abrirPasseio" title="Como usar esta tela">?</button>
-      <AvatarDoPerfil />
     </div>
 
     <!-- Contagem e ações na MESMA linha: contagem à esquerda, botões à direita.
@@ -717,7 +716,6 @@ import { SITUACOES, rotuloDaSituacao, classeDaSituacao, textoDoDono, avisoDeDono
 import { FILTRO_VAZIO, filtrarBens, resumoDaLista } from './filtro-de-bens.js'
 import { SEM_VALOR, agruparBens, bensDoCaminho, rotuloDoCaminho } from './arvore-de-bens.js'
 import PasseioGuiado from '../../compartilhado/passeio-guiado.vue'
-import AvatarDoPerfil from '../../compartilhado/avatar-do-perfil.vue'
 import { PASSOS, AJUDAS, deveAbrirSozinho, marcarComoVisto } from './tutorial.js'
 import { TETO_PADRAO, textoDaFaixa, mapaDeNumeros, aumentarTeto, ehRecente } from './numeros-de-etiqueta.js'
 import { COLUNAS_PLANILHA, ordenarPlanilha, resumirPor, totaisGerais, montarLinhasParaExcel } from './planilha-e-resumo.js'
