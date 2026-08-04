@@ -349,7 +349,7 @@ onMounted(() => {
    aqui tapava a decoração e ainda deixava uma faixa visível onde a tela
    terminava. */
 .tela-gestao-comercial{display:flex;flex-direction:column;min-height:100vh;background:transparent;--gc-fs:1;}
-.tela-gestao-comercial :deep(.gc-topbar){display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 64px 14px 26px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:20;}
+.tela-gestao-comercial :deep(.gc-topbar){display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 26px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:20;}
 .tela-gestao-comercial :deep(.gc-back){display:inline-flex;align-items:center;gap:7px;background:none;border:none;color:var(--muted);font-family:var(--fonte-principal);font-size:calc(11px*var(--gc-fs,1));font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:1.5px;}
 .tela-gestao-comercial :deep(.gc-back:hover){color:var(--text);}
 .tela-gestao-comercial :deep(.gc-title){font-family:var(--fonte-principal);font-size:calc(15px*var(--gc-fs,1));font-weight:500;letter-spacing:3px;text-transform:uppercase;color:var(--text);}
@@ -506,5 +506,27 @@ onMounted(() => {
   .tela-gestao-comercial :deep(.gc-report thead th){padding:8px 9px;font-size:calc(9px*var(--gc-fs,1));letter-spacing:.3px;}
   .tela-gestao-comercial :deep(.gc-report tbody td){padding:7px 9px;}
   .tela-gestao-comercial :deep(.gc-tw){border-radius:10px;}
+
+  /* A topbar era UMA linha de tres itens sem quebra. No celular o terceiro —
+     o seletor de "Edicao", que escolhe QUAL semana voce esta lendo — ficava
+     fora da tela: borda direita em 471px num aparelho de 375. Medido, nao
+     suposto. Agora ela quebra: em cima voltar+logo+titulo, embaixo o seletor
+     ocupando a largura toda, que e onde o polegar alcanca. */
+  .tela-gestao-comercial :deep(.gc-topbar){flex-wrap:wrap;row-gap:10px;}
+  .tela-gestao-comercial :deep(.gc-tb-left){flex:0 0 auto;}
+  .tela-gestao-comercial :deep(.gc-title){flex:1 1 auto;min-width:0;text-align:right;font-size:calc(12px*var(--gc-fs,1));letter-spacing:1.5px;}
+  .tela-gestao-comercial :deep(.gc-edicao){flex:1 0 100%;gap:10px;}
+  /* 16px no seletor: abaixo disso o iPhone da zoom sozinho ao tocar, e a tela
+     fica torta ate a pessoa pinçar de volta. */
+  .tela-gestao-comercial :deep(.gc-edicao select){flex:1;min-width:0;font-size:16px;padding:9px 10px;}
+
+  /* O heroi mantinha o anel de 96px na mesma linha do titulo: sobravam 156px
+     de texto num aparelho de 375, e o bloco esticava pra 220px de altura. */
+  .tela-gestao-comercial :deep(.gc-hero){padding:20px 18px;gap:14px;margin-bottom:18px;}
+  .tela-gestao-comercial :deep(.gc-hero-ring),
+  .tela-gestao-comercial :deep(.gc-hero-ring svg){width:70px;height:70px;}
+  .tela-gestao-comercial :deep(.gc-hero-ring-c b){font-size:calc(16px*var(--gc-fs,1));}
+  .tela-gestao-comercial :deep(.gc-hero-ring-c span){font-size:calc(7px*var(--gc-fs,1));}
+  .tela-gestao-comercial :deep(.gc-resumo){padding:16px;font-size:calc(14.5px*var(--gc-fs,1));margin-bottom:20px;}
 }
 </style>
