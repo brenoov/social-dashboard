@@ -7,7 +7,11 @@
        (igual ao legado) porque são atributos HTML nativos, não bindings do Vue — por
        isso _acSetTab (e todo o cluster _ac*) é exposto em window mais abaixo. -->
   <div id="acessos-screen" class="tela-acessos">
-    <barra-de-topo voltar="Central" titulo="Colaboradores e Acessos" @voltar="voltar" />
+    <div class="ac-topbar">
+      <button class="ac-back" @click="voltar">← Central</button>
+      <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
+      <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
+    </div>
 
     <!-- ============================================================
          TOPO NOVO (Tarefa 2 do redesign): cabeçalho comum + faixa de
@@ -55,7 +59,6 @@
 
 <script setup>
 import { onMounted } from 'vue'
-import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { adminToast } from '../../compartilhado/avisos.js'

@@ -10,7 +10,7 @@
 // forma, e nunca trava.
 export const PASSOS = [
   {
-    selector: '.pat-resumo',
+    selector: '.pat-linha-topo',
     titulo: '1. O que este número está contando',
     texto: 'Aqui em cima ficam quantos itens e quanto vale o que você está vendo AGORA. '
       + 'Repare no final da frase: "no total" é a empresa inteira; "em Vessel" é só '

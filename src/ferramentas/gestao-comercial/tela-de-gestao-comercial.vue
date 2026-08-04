@@ -10,11 +10,15 @@
        segue existindo e é exposta em window mais abaixo, pois nada mais a chama por
        onclick/onchange dentro do HTML gerado em runtime). -->
   <div class="tela-gestao-comercial">
-    <barra-de-topo voltar="Central" titulo="Gestão Comercial" @voltar="voltar">
-      <template #acoes>
-        <select id="gc-select" class="bt-acao" v-show="abaGc==='briefing'" aria-label="Edição" @change="onSelectEdicao"></select>
-      </template>
-    </barra-de-topo>
+    <div class="gc-topbar">
+      <div class="gc-tb-left">
+        <button class="gc-back" @click="voltar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Central</button>
+        <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
+        <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
+      </div>
+      <span class="gc-title">Gestão Comercial</span>
+      <div class="gc-edicao" v-show="abaGc==='briefing'"><span class="gc-edicao-lbl">Edição</span><select id="gc-select" @change="onSelectEdicao"></select></div>
+    </div>
     <div class="gc-tabs" v-if="podeRelatorios" role="tablist">
       <button type="button" role="tab" :class="{ on: abaGc==='briefing' }" @click="irPara('briefing')">Briefing Semanal</button>
       <button type="button" role="tab" :class="{ on: abaGc==='relatorios' }" @click="irPara('relatorios')">Relatórios</button>
@@ -30,7 +34,6 @@
 
 <script setup>
 import { onMounted, ref, computed } from 'vue'
-import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'

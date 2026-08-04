@@ -4,12 +4,19 @@
        status dos projetos (projetos_status, derivado dos planos). Classes .csc- para não
        colidir com o CSS global. Full-bleed e responsivo. -->
   <div class="csc-tela">
-    <barra-de-topo voltar="Central" titulo="Status do Claude" @voltar="voltar">
-      <template #acoes>
+    <div class="csc-topbar">
+      <div class="csc-tb-left">
+        <button class="csc-back" @click="voltar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Central</button>
+        <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
+        <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
+      </div>
+      <span class="csc-title">Status do Claude</span>
+      <div class="csc-tb-right">
         <span class="csc-live"><i></i>Ao vivo</span>
-        <span class="csc-upd">{{ statusCarga }}</span>
-      </template>
-    </barra-de-topo>
+        <div class="csc-clock">{{ relogio }}</div>
+        <div class="csc-upd">{{ statusCarga }}</div>
+      </div>
+    </div>
 
     <div class="csc-body">
       <!-- Abas: Visão geral | Extrato de gastos -->
@@ -309,7 +316,6 @@
 
 <script setup>
 import { onMounted, onUnmounted, ref, reactive, computed, watch } from 'vue'
-import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'

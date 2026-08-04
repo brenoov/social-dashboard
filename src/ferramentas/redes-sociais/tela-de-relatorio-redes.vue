@@ -3,7 +3,14 @@
        Fonte: banco (daily_snapshots + engagement/content/account snapshots period_days=1).
        Para curadoria e conferência. Vue declarativo (estado reativo + v-for). -->
   <div class="tela-relatorio">
-    <barra-de-topo voltar="Redes" titulo="Relatório Interativo" @voltar="voltar" />
+    <div class="rel-topbar">
+      <button class="rel-back" @click="voltar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Redes
+      </button>
+      <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
+      <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
+      <span class="rel-title">Relatório Interativo</span>
+    </div>
 
     <div class="rel-controles">
       <div class="rel-grupo-controle">
@@ -71,7 +78,6 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { estado, hasPermission, contasPermitidas } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'

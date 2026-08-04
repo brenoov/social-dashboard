@@ -19,12 +19,19 @@
        na árvore do DOM não muda o layout visual, e ficar dentro da árvore do
        componente é o que permite ao CSS :deep() (scoped) alcançá-los. -->
   <div class="tela-gestao-trafego">
-    <barra-de-topo voltar="Meta Ads" titulo="Gestão de Tráfego" @voltar="closeGestaoTrafego" />
-
-    <!-- FAIXA DE CONTROLES: periodo e filtros. Nao sao acoes pequenas —
-         sao uma tira larga que dentro da barra disputava espaco com o
-         titulo. Aqui tem a linha propria. -->
-    <div class="gv-controles">
+    <div class="gv-topbar">
+      <div class="gv-topbar-brand" style="display:flex;align-items:center;gap:14px">
+        <button class="gv-back" @click="closeGestaoTrafego">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Meta Ads
+        </button>
+        <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
+        <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <span class="gv-perf-tag" style="font-size:calc(11px*var(--gt-fs,1.3));letter-spacing:4px;">Gestão de Tráfego</span>
+          <span class="gv-brand-tag" style="font-size:calc(9px*var(--gt-fs,1.3));letter-spacing:2px;opacity:.5;">Agente IA · Meta Ads</span>
+        </div>
+      </div>
       <div class="gv-period-btns" id="gt-period-btns">
         <button class="gv-pbtn" data-preset="today" onclick="setGtPeriod(this)"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite;vertical-align:middle;flex-shrink:0;"></span>HOJE</button>
         <button class="gv-pbtn" data-preset="1d" onclick="setGtPeriod(this)">1D</button>
@@ -52,8 +59,12 @@
         </button>
         <div id="gt-acc-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:270px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.18);z-index:999;overflow:hidden;max-height:340px;overflow-y:auto;" onclick="event.stopPropagation()"></div>
       </div>
-      
-    
+      <div class="gv-clock-wrap" onclick="event.stopPropagation()">
+        <span class="live-dot" style="margin-bottom:4px">Tempo Real</span>
+        <div class="gv-clock-time" id="gt-clock">--:--:--</div>
+        <div class="gv-clock-date" id="gt-date"></div>
+        <div class="gv-update-status" id="gt-update-status">—</div>
+      </div>
     </div>
 
     <!-- Casca de abas: só mostra/esconde painel via _gtTrocarAba, nunca
@@ -136,7 +147,6 @@
 
 <script setup>
 import { onMounted, onUnmounted } from 'vue'
-import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { estado, hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
@@ -3777,6 +3787,7 @@ async function _gtListarSugestoes(){
   return Array.isArray(linhas)?linhas:null;
 }
 
+
 /* ═══ ASSISTENTE DE NOVA CAMPANHA (C3) ══════════════════════════════════════
    Cria campanha + conjunto + criativo + anúncio, tudo PAUSED.
 
@@ -5701,7 +5712,4 @@ Object.assign(window, {
   .tela-gestao-trafego :deep(.gv-topbar){padding:8px 12px;gap:8px;}
   .tela-gestao-trafego :deep(.gv-topbar-brand){gap:8px;}
 }
-/* FAIXA DE CONTROLES — ver o comentario no template. */
-.tela-gestao-trafego :deep(.gv-controles){display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;padding:8px 24px;border-bottom:1px solid var(--border);background:var(--surface);}
-@media(max-width:640px){.tela-gestao-trafego :deep(.gv-controles){padding:0;flex-direction:column;align-items:stretch;gap:0;}}
 </style>

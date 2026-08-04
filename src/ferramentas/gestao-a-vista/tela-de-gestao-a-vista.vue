@@ -10,16 +10,18 @@
   <div id="gestao-vista-screen" class="tela-gestao-a-vista">
     <div id="gv-watermark" aria-hidden="true">Vessel Brasil</div>
     <div id="gv-bg-anim" aria-hidden="true"></div>
-    <barra-de-topo voltar="Voltar" titulo="Gestão à Vista" @voltar="closeGestaoVista">
-      <template #acoes>
-        <button class="gv-tut-btn bt-acao" type="button" @click="reverTour" title="Ver o tutorial da tela"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Tutorial</button>
-      </template>
-    </barra-de-topo>
-
-    <!-- FAIXA DE CONTROLES, separada da barra. Periodo e canal nao sao "acoes
-         pequenas" — sao uma tira larga que no celular ja rolava sozinha. Dentro
-         da barra ela disputava espaco com o titulo; aqui tem a linha dela. -->
-    <div class="gv-controles">
+    <div class="gv-topbar">
+      <div class="gv-topbar-brand" style="display:flex;align-items:center;gap:14px">
+        <button class="gv-back" @click="closeGestaoVista"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Voltar</button>
+        <button class="gv-tut-btn" type="button" @click="reverTour" title="Ver o tutorial da tela"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Tutorial</button>
+        <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
+        <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <span class="gv-perf-tag">Performance de Vendas</span>
+          <span class="gv-brand-tag">Vessel Brasil · Gestão à Vista</span>
+        </div>
+      </div>
+      <div class="gv-topbar-controls">
         <div class="gv-period-btns" id="gv-period-btns" data-tour="gv-periodo">
           <button class="gv-pbtn active" data-period="today" onclick="gvSelectPeriod('today')"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite;vertical-align:middle;flex-shrink:0;"></span>HOJE</button>
           <button class="gv-pbtn" data-period="1d" onclick="gvSelectPeriod('1d')">1D</button>
@@ -41,8 +43,14 @@
             <div class="gv-cf-chips" id="gv-cf-chips"></div>
           </div>
         </div>
+      </div>
+      <div class="gv-clock-wrap">
+        <span class="live-dot" style="margin-bottom:4px">Tempo Real</span>
+        <div class="gv-clock-time" id="gv-clock">--:--:--</div>
+        <div class="gv-clock-date" id="gv-date"></div>
+        <div class="gv-update-status" id="gv-update-status">—</div>
+      </div>
     </div>
-
     <div class="gv-board" id="gv-board">
       <div class="gv-loading-screen">
         <div class="gv-spinner"></div>
@@ -86,7 +94,6 @@
 
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue'
-import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import TourCoachmark from '../meta-ads/tour-coachmark.vue'
 import { TOUR_GV } from './tutorial-gv.js'
@@ -1454,11 +1461,7 @@ onUnmounted(() => {
    filho fica do tamanho do conteúdo e quebra por dentro em vez de usar a folga
    que está bem ali. Agora ele cresce até o que houver. Medido em 1280/1366/
    1440/1920. */
-/* FAIXA DE CONTROLES — periodo e canal, embaixo da barra padrao. Antes
-   moravam DENTRO da barra e disputavam espaco com o titulo; aqui tem a
-   linha propria, e no celular a tira de periodos rola sozinha como ja
-   rolava. */
-.tela-gestao-a-vista :deep(.gv-controles){display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;padding:8px 28px;border-bottom:1px solid var(--border);background:var(--surface);}
+.tela-gestao-a-vista :deep(.gv-topbar-controls){display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;flex:1 1 auto;min-width:0;}
 /* ── Topbar do notebook (1025–1500px) ──────────────────────────────────────
    Nesta faixa a barra pedia ~1.390px de conteúdo: marca 544 + períodos 493 +
    canal 218 + relógio 110. O filtro de canal caía para uma segunda linha, e a
@@ -1468,7 +1471,7 @@ onUnmounted(() => {
    ROLA — mesmo padrão já validado na Gestão de Tráfego. Eles encolhem até o que
    sobrar e o resto continua na mesma linha; nenhum período fica inacessível. */
 @media(min-width:1025px) and (max-width:1500px){
-  .tela-gestao-a-vista :deep(.gv-controles){flex-wrap:nowrap;}
+  .tela-gestao-a-vista :deep(.gv-topbar-controls){flex-wrap:nowrap;}
   .tela-gestao-a-vista :deep(.gv-period-btns){flex:1 1 auto;min-width:0;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
   .tela-gestao-a-vista :deep(.gv-period-btns)::-webkit-scrollbar{display:none;}
   .tela-gestao-a-vista :deep(.gv-pbtn){flex-shrink:0;}
@@ -1682,9 +1685,7 @@ onUnmounted(() => {
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-clock-wrap){display:none;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-update-status){display:none;}
   /* controls "desaparece" do layout p/ período e canal virarem filhos diretos do topbar (ordem/linhas) */
-  /* No celular a faixa vira coluna: a tira de periodos rola na horizontal e
-     o seletor de canal ocupa a largura toda. */
-  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-controles){display:flex;flex-direction:column;align-items:stretch;gap:0;padding:0;}
+  #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-topbar-controls){display:contents;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-period-btns){order:2;width:100%;box-sizing:border-box;overflow-x:auto;-webkit-overflow-scrolling:touch;display:flex;flex-wrap:nowrap;gap:4px;padding:7px 14px 9px;border-top:1px solid var(--border);background:var(--surface);}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-cf-lbl){display:none;}
   #gestao-vista-screen.tela-gestao-a-vista :deep(.gv-cf-dd){order:3;width:100%;box-sizing:border-box;padding:0 14px 9px;background:var(--surface);}

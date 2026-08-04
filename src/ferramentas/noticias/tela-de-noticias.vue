@@ -8,9 +8,15 @@
          padrão de tela-inicial.vue / tela-de-login.vue, p/ o Vite não tentar resolver
          o caminho como asset em build). -->
   <div id="noticias-screen" class="tela-noticias">
-    <barra-de-topo voltar="Central" titulo="Observatório" @voltar="voltar">
-      <template #acoes><span class="np-meta" id="np-meta">—</span></template>
-    </barra-de-topo>
+    <div class="np-topbar">
+      <div class="np-tb-left">
+        <button class="np-back" @click="voltar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Central</button>
+        <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
+        <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
+      </div>
+      <div class="np-masthead-mini">Observatório</div>
+      <span class="np-meta" id="np-meta">—</span>
+    </div>
     <div class="np-tabs" id="np-tabs"></div>
     <div class="np-body" id="np-body"></div>
   </div>
@@ -18,7 +24,6 @@
 
 <script setup>
 import { onMounted } from 'vue'
-import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 

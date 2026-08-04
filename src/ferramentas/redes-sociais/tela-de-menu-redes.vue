@@ -5,7 +5,17 @@
        ser admin, o que passou a esconder a Central de Conteúdo de quem tinha
        permissão só dela. Card do Relatório continua só para admin. -->
   <div class="tela-menu-redes">
-    <barra-de-topo voltar="Central" titulo="Redes Sociais" @voltar="voltar" />
+    <div class="smenu-topbar">
+      <button class="smenu-back" @click="voltar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Central
+      </button>
+      <div style="display:flex;align-items:center;gap:10px">
+        <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
+        <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
+        <span class="smenu-title">Redes Sociais</span>
+      </div>
+      <div style="width:60px"></div>
+    </div>
     <div class="smenu-body">
       <div class="smenu-headline">
         <h2>Escolha a ferramenta</h2>
@@ -50,7 +60,6 @@
 
 <script setup>
 import { computed, onMounted } from 'vue'
-import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { estado, hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'

@@ -3,7 +3,17 @@
        celular: a arte grande, a legenda pronta para copiar e dois botões
        grandes. Quem chega aqui está em pé, na frente do Instagram aberto. -->
   <div class="ctd-tela">
-    <barra-de-topo voltar="Central de Conteúdo" titulo="Hora de publicar" @voltar="router.push({ name: 'conteudo' })" />
+    <div class="ctd-topbar">
+      <div class="ctd-tb-left">
+        <button class="ctd-back" @click="router.push({ name: 'conteudo' })">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Central de Conteúdo
+        </button>
+        <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
+        <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
+      </div>
+      <span class="ctd-title">Hora de publicar</span>
+    </div>
 
     <div class="ctd-body">
       <div v-if="carregando" class="ctd-vazio"><p>Carregando…</p></div>
@@ -120,7 +130,6 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { rotuloDeStatus, corDeStatus } from './estados.js'
 import { regrasDoFormato } from './formatos.js'

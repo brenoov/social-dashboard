@@ -1536,30 +1536,6 @@ img{max-width:100%;}
 .rolagem-x{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;}
 .rolagem-x::-webkit-scrollbar{height:5px;} .rolagem-x::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
 
-/* ── AÇÕES DA BARRA DE TOPO ────────────────────────────────────────────────
-   Classe global porque o conteúdo de um <slot> é estilizado pelo componente
-   PAI, não pelo filho — então o CSS com escopo de barra-de-topo.vue não
-   alcança os botões que cada ferramenta põe lá dentro.
-
-   Nome novo (`bt-acao`), sem chance de colidir com nada que já exista. É o
-   oposto da tentativa que quebrou as barras antes: aquela era uma regra por
-   SUFIXO (`[class$="topbar"]`) que atingia telas que ninguém tinha visto.
-
-   44px de altura: é o alvo que o dedo acerta. */
-.bt-acao{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:8px 13px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);font-family:var(--fonte-principal);font-size:11.5px;font-weight:600;letter-spacing:.6px;cursor:pointer;white-space:nowrap;touch-action:manipulation;}
-.bt-acao:hover{border-color:var(--accent);color:var(--accent);}
-.bt-acao.primario{background:var(--accent);border-color:var(--accent);color:#fff;}
-.bt-acao.primario:hover{filter:brightness(1.08);color:#fff;}
-.bt-acao.so-icone{padding:8px;width:36px;}
-.bt-acao:disabled{opacity:.55;cursor:default;}
-@media(max-width:640px){
-  /* Na linha própria do celular, as ações dividem a largura por igual. */
-  .bt-dir > .bt-acao{flex:1 1 auto;min-height:42px;font-size:12.5px;}
-  /* Botao de icone nao estica: ele tem uma so letra dentro, e esticar deixa um
-     "?" solto no meio de um botao do tamanho de "Exportar". */
-  .bt-dir > .bt-acao.so-icone{flex:0 0 auto;width:42px;}
-}
-
 /* ── FAIXA RESERVADA DO AVATAR — TENTATIVA REVERTIDA, NÃO REFAZER ──────────
    O avatar do perfil é position:fixed no canto superior direito e passa por cima
    do que a ferramenta puser ali. A tentativa de resolver isso de uma vez para
