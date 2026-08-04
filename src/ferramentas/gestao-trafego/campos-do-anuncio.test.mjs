@@ -159,3 +159,10 @@ test('o aviso de tamanho avisa, e nao trava', () => {
   assert.match(avisoDeTamanho('titulo', longo), /cortar/)
   assert.match(avisoDeTamanho('descricao', 'x'.repeat(40)), /cortar/)
 })
+
+test('campo sem limite nao recebe aviso de tamanho emprestado', () => {
+  // Visto ao vivo: a saudação do WhatsApp herdava o limite da descrição e dizia
+  // "o Facebook corta depois de 30" numa mensagem que não tem esse corte.
+  assert.equal(avisoDeTamanho(undefined, 'x'.repeat(200)), '')
+  assert.equal(avisoDeTamanho('', 'x'.repeat(200)), '')
+})
