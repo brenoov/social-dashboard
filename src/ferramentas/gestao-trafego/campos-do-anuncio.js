@@ -165,6 +165,10 @@ export const LIMITE_TITULO = 40;
 export const LIMITE_DESCRICAO = 30;
 
 export function avisoDeTamanho(campo, valor) {
+  // SEM CAMPO NÃO HÁ LIMITE. A saudação do WhatsApp não tem corte de tamanho, e
+  // cair no limite da descrição por omissão dava conselho errado com cara de
+  // conselho certo.
+  if (campo !== 'titulo' && campo !== 'descricao') return '';
   const t = limpo(valor);
   const limite = campo === 'titulo' ? LIMITE_TITULO : LIMITE_DESCRICAO;
   if (!t || t.length <= limite) return '';
