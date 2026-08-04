@@ -3653,6 +3653,7 @@ let _gtNovoUltimoSalvo=null; // o estado como ele foi gravado da última vez
 let _gtNovoTimerSalvar=null;
 let _gtNovoHistorico=[];
 let _gtNovoImagens=[];
+let _gtNovoVideos=[];        // os vídeos que a conta já tem, com capa
 let _gtNovoEnviando=false, _gtNovoCriando=false, _gtNovoFaltas=false;
 
 function _gtNovoFechar(){
@@ -3705,17 +3706,18 @@ async function _gtNovoAbrir(){
 
   // ZERA ANTES DE CARREGAR: uma falha de rede não pode deixar de pé a lista da
   // ABERTURA ANTERIOR, que pode ser de outra conta.
-  _gtNovoObjetivos=[];_gtNovoImagens=[];_gtNovoPaginas=[];_gtNovoNumerosWa=[];
+  _gtNovoObjetivos=[];_gtNovoImagens=[];_gtNovoVideos=[];_gtNovoPaginas=[];_gtNovoNumerosWa=[];
   // OS CONJUNTOS QUE JÁ EXISTEM servem a DUAS perguntas de uma vez: quais
   // combinações esta conta já rodou (o selo "já usado aqui") e quais números de
   // WhatsApp a Meta já aceitou. Uma chamada, dois usos.
-  const [pags,imgs,sugerido,conjuntos]=await Promise.all([
+  const [pags,imgs,vids,sugerido,conjuntos]=await Promise.all([
     _gtNovoBuscarPaginas(),
     _gtNovoBuscarImagens(),
+    _gtNovoBuscarVideos(),
     _gtNovoSugerirIdentidade(),
     _gtNovoBuscarConjuntos(),
   ]);
-  _gtNovoPaginas=pags;_gtNovoImagens=imgs;
+  _gtNovoPaginas=pags;_gtNovoImagens=imgs;_gtNovoVideos=vids;
   _gtNovoNumerosWa=numerosJaUsados(conjuntos);
   // O CATÁLOGO É FIXO (mora no código, não no banco): a lista do que a conta já
   // usou nunca ensina nada novo, e conta nova começaria vazia. O que ela já
@@ -3861,6 +3863,22 @@ async function _gtNovoTalvezCarregarPublicacoes(){
   finally{ _gtNovoCarregandoPubs=false;_gtNovoRedesenhar(); }
 }
 
+// OS VÍDEOS QUE A CONTA JÁ TEM.
+//
+// `picture` é a CAPA que a Meta já gerou — e capa é obrigatória no criativo de
+// vídeo (medido num anúncio real: `video_data.image_url`). Vídeo sem capa entra
+// na lista assim mesmo, marcado: escondê-lo faria parecer que ele não existe,
+// e a tela avisa na hora de escolher.
+async function _gtNovoBuscarVideos(){
+  try{
+    const r=await metaFetch('/'+_gtCleanAct(_gtCurAcc.ad_account_id)+'/advideos',
+      {fields:'id,title,picture,created_time',limit:12},_gtCurAcc.id);
+    return ((r&&r.data)||[]).filter(v=>v&&v.id).map(v=>({
+      id:String(v.id),titulo:v.title||'',capa:v.picture||'',data:v.created_time||'',
+    }));
+  }catch(e){ return []; }
+}
+
 // OS NÚMEROS DE WHATSAPP QUE A META JÁ ACEITOU NESTA CONTA.
 //
 // Não existe endpoint que liste os números permitidos — descoberto do jeito
@@ -3913,7 +3931,7 @@ function _gtNovoRedesenhar(htmlDireto){
   if(htmlDireto){corpo.innerHTML=htmlDireto;return;}
   const feito=montarAssistente({
     doc:document,estado:_gtNovo,passo:_gtNovoPasso,
-    objetivos:_gtNovoObjetivos,imagens:_gtNovoImagens,paginas:_gtNovoPaginas,
+    objetivos:_gtNovoObjetivos,imagens:_gtNovoImagens,videos:_gtNovoVideos,paginas:_gtNovoPaginas,
     // A LINHA DO OBJETIVO vai junto porque o desenho depende dela: é ela que diz
     // se o número de WhatsApp é pedido neste passo.
     objetivoRow:_gtNovoObjetivos.find(o=>o.id===_gtNovo.objetivo)||null,
@@ -4131,10 +4149,14 @@ async function _gtNovoCriar(){
 // Provado em validar-envio-de-imagem.mjs (4/4).
 function _gtNovoEnviarImagem(){
   const inp=document.createElement('input');
-  inp.type='file';inp.accept='image/png,image/jpeg';
+  inp.type='file';inp.accept='image/png,image/jpeg,video/mp4,video/quicktime';
   inp.onchange=async()=>{
     const arq=inp.files&&inp.files[0];
     if(!arq)return;
+    // VÍDEO SEGUE OUTRO CAMINHO: quem baixa é a Meta, pelo `file_url`, porque um
+    // arquivo de dezenas de MB carregado na função do servidor estouraria o
+    // limite dela. A trava de origem é a MESMA — só o Storage deste projeto.
+    if(/^video\//.test(arq.type||'')){ await _gtNovoEnviarVideo(arq); return; }
     // CONFERE ANTES DE SUBIR. A Meta recusa imagem pequena, e descobrir isso
     // depois de esperar o upload é o pior momento possível.
     const dim=await _gtNovoDimensoes(arq).catch(()=>({}));
@@ -4167,6 +4189,57 @@ function _gtNovoEnviarImagem(){
     }
   };
   inp.click();
+}
+
+// ENVIAR VÍDEO: arquivo → Storage → Meta (que baixa) → id + capa.
+//
+// A Meta demora para processar: o vídeo entra e a capa só existe depois. Por
+// isso buscamos a capa numa segunda ida, e — se ela ainda não estiver pronta —
+// dizemos isso em vez de deixar um vídeo sem capa parecendo escolhível.
+async function _gtNovoEnviarVideo(arq){
+  _gtNovoEnviando=true;_gtNovoRedesenhar();
+  try{
+    const {data:{session}}=await sbClient.auth.getSession();
+    const caminho='gestor-envios/'+Date.now()+'-'+String(arq.name||'video').replace(/[^a-zA-Z0-9._-]/g,'_');
+    const up=await sbClient.storage.from('fabrica-criativos').upload(caminho,arq,{upsert:true,contentType:arq.type});
+    if(up.error)throw new Error(up.error.message);
+    const {data:pub}=sbClient.storage.from('fabrica-criativos').getPublicUrl(caminho);
+
+    const r=await fetch(SUPABASE_URL+'/functions/v1/meta-proxy',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+session.access_token,'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({
+        accountId:_gtCurAcc.id,
+        path:'/'+_gtCleanAct(_gtCurAcc.ad_account_id)+'/advideos',
+        method:'POST',params:{name:String(arq.name||'vídeo')},
+        videoFromUrl:pub.publicUrl,
+      }),
+    });
+    const d=await r.json().catch(()=>({}));
+    if(!d||!d.id)throw new Error((d&&d.error&&(d.error.error_user_msg||d.error.message))||'a Meta não devolveu o código do vídeo');
+
+    // A CAPA vem numa segunda ida: a Meta ainda está processando quando responde.
+    let capa='';
+    for(let t=1;t<=6&&!capa;t++){
+      await new Promise(r2=>setTimeout(r2,2500));
+      try{
+        const v=await metaFetch('/'+d.id,{fields:'picture,status'},_gtCurAcc.id);
+        capa=(v&&v.picture)||'';
+      }catch(e){ /* tenta de novo */ }
+    }
+    _gtNovoVideos=[{id:String(d.id),titulo:arq.name||'vídeo enviado',capa,data:''},..._gtNovoVideos];
+    _gtNovo.videoId=String(d.id);_gtNovo.videoCapa=capa;
+    _gtNovo.imagemHash='';_gtNovo.imagemPreview='';
+    if(!capa){
+      await _gtConfirm('Vídeo enviado, capa ainda não',
+        'A Meta recebeu o vídeo, mas ainda está gerando a capa — e ela é obrigatória no anúncio.<br><br>'
+        +'Espere um minuto e abra o assistente de novo, ou escolha outro vídeo.',{okOnly:true});
+    }
+  }catch(e){
+    await _gtConfirm('Não consegui enviar o vídeo',_gtEsc(String((e&&e.message)||e)),{okOnly:true});
+  }finally{
+    _gtNovoEnviando=false;_gtNovoRedesenhar();
+  }
 }
 
 // Largura e altura sem depender de biblioteca. Falhar aqui não acusa a imagem —

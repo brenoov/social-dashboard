@@ -439,3 +439,55 @@ test('sem comportamento, o payload sai igual ao de antes (a Fábrica nao muda)',
   assert.equal(flex[0].behaviors, undefined)
   assert.ok(flex[0].interests.length)
 })
+
+// ── Vídeo ──────────────────────────────────────────────────────────────────
+
+test('video vira video_data, com a capa dentro — e nao link_data', () => {
+  // Medido num anúncio real desta conta: o formato é `video_data` com
+  // `image_url` dentro. Sem a capa a Meta recusa o criativo.
+  const c = criativaDoAssistente({
+    sub: acharSubobjetivo('conversa-whatsapp'),
+    estado: { videoId: '1471771715011230', videoCapa: 'https://x/capa.jpg', texto: 'Oi', whatsapp: '5519971092194' },
+    page: 'P', ig: 'IG',
+  })
+  const vd = c.object_story_spec.video_data
+  assert.equal(vd.video_id, '1471771715011230')
+  assert.equal(vd.image_url, 'https://x/capa.jpg')
+  assert.equal(vd.message, 'Oi')
+  assert.equal(vd.call_to_action.type, 'WHATSAPP_MESSAGE')
+  assert.equal(c.object_story_spec.link_data, undefined, 'vídeo não usa link_data')
+})
+
+test('o video manda no criativo mesmo se houver imagem escolhida antes', () => {
+  const c = criativaDoAssistente({
+    sub: acharSubobjetivo('alcance'),
+    estado: { videoId: 'V', videoCapa: 'https://x/c.jpg', imagemHash: 'H', texto: 'Oi' },
+    page: 'P', ig: 'IG',
+  })
+  assert.ok(c.object_story_spec.video_data, 'a imagem antiga ganhou do vídeo escolhido')
+})
+
+test('video de Direct leva o botao do Direct, e nao o do WhatsApp', () => {
+  const c = criativaDoAssistente({
+    sub: acharSubobjetivo('conversa-direct'),
+    estado: { videoId: 'V', videoCapa: 'https://x/c.jpg', texto: 'Oi', whatsapp: '5519999999999' },
+    page: 'P', ig: 'IG',
+  })
+  assert.equal(c.object_story_spec.video_data.call_to_action.type, 'INSTAGRAM_MESSAGE')
+  assert.ok(!/wa\.me|api\.whatsapp/.test(JSON.stringify(c)))
+})
+
+test('video SEM capa nao deixa avancar — a Meta recusaria', () => {
+  const semCapa = { ...estadoInicial(), videoId: 'V', texto: 'Oi' }
+  const faltas = faltaNoPasso('anuncio', semCapa, acharSubobjetivo('conversa-whatsapp'))
+  assert.ok(faltas.some((f) => /capa/.test(f)))
+
+  const comCapa = { ...semCapa, videoCapa: 'https://x/c.jpg' }
+  assert.deepEqual(faltaNoPasso('anuncio', comCapa, acharSubobjetivo('conversa-whatsapp')), [])
+})
+
+test('a confirmacao diz que e video, e nao "a imagem escolhida"', () => {
+  const e = { ...cheio(), imagemHash: '', videoId: 'V', videoCapa: 'https://x/c.jpg' }
+  const l = resumoDoQueVaiSerCriado(e, 'WhatsApp', {}, acharSubobjetivo('conversa-whatsapp'))
+  assert.ok(l.some((x) => /com o vídeo escolhido/.test(x)))
+})

@@ -393,29 +393,56 @@ function passoAnuncio(doc, o) {
   const cx = el(doc, 'div');
   cx.appendChild(el(doc, 'div', CSS.tit, 'O anúncio'));
   cx.appendChild(el(doc, 'p', CSS.ajuda,
-    'Escolha uma imagem que já está na conta, ou envie uma nova. A Meta pede pelo menos 600×600.'));
+    'Escolha uma imagem ou um vídeo que já está na conta, ou envie um. A Meta pede imagem de pelo menos 600×600.'));
 
   const grade = el(doc, 'div', 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;');
-  for (const img of (o.imagens || [])) {
-    const escolhida = o.estado.imagemHash === img.hash;
-    const d = el(doc, 'button', 'width:62px;height:62px;border-radius:8px;cursor:pointer;padding:0;overflow:hidden;'
-      + `border:1px solid var(--border);background:var(--surface2) center/cover no-repeat${img.url ? ` url("${img.url}")` : ''};`
+
+  // A MOLDURA de uma peça — vale para imagem e para vídeo, porque escolher é o
+  // mesmo gesto nos dois casos.
+  const peca = (fundo, escolhida, titulo, selo, aoEscolher) => {
+    const d = el(doc, 'button', 'position:relative;width:62px;height:62px;border-radius:8px;cursor:pointer;padding:0;'
+      + `overflow:hidden;border:1px solid var(--border);background:var(--surface2) center/cover no-repeat${fundo ? ` url("${fundo}")` : ''};`
       + (escolhida ? 'outline:3px solid var(--accent);outline-offset:1px;' : ''));
     d.type = 'button';
-    d.title = img.nome || 'imagem da conta';
-    d.onclick = (ev) => { if (ev && ev.preventDefault) ev.preventDefault(); o.aoMudar({ imagemHash: img.hash, imagemPreview: img.url || '' }); };
-    grade.appendChild(d);
+    d.title = titulo;
+    if (selo) {
+      d.appendChild(el(doc, 'span', 'position:absolute;bottom:3px;right:3px;font-size:calc(8px*var(--gt-fs,1.3));'
+        + 'font-weight:700;color:#fff;background:rgba(0,0,0,.65);border-radius:4px;padding:1px 4px;', selo));
+    }
+    d.onclick = (ev) => { if (ev && ev.preventDefault) ev.preventDefault(); aoEscolher(); };
+    return d;
+  };
+
+  for (const img of (o.imagens || [])) {
+    // ESCOLHER IMAGEM LIMPA O VÍDEO, e vice-versa. São alternativas, não soma:
+    // sem isto, um vídeo escolhido antes continuaria mandando no criativo e a
+    // imagem clicada não faria nada visível.
+    grade.appendChild(peca(img.url, o.estado.imagemHash === img.hash && !o.estado.videoId,
+      img.nome || 'imagem da conta', '',
+      () => o.aoMudar({ imagemHash: img.hash, imagemPreview: img.url || '', videoId: '', videoCapa: '' })));
+  }
+  for (const vid of (o.videos || [])) {
+    grade.appendChild(peca(vid.capa, o.estado.videoId === vid.id,
+      vid.titulo || 'vídeo da conta', '▶',
+      () => o.aoMudar({ videoId: vid.id, videoCapa: vid.capa || '', imagemHash: '', imagemPreview: '' })));
   }
   if (o.aoEnviarImagem) {
     const env = el(doc, 'button', 'padding:7px 12px;border-radius:8px;cursor:pointer;border:1px dashed var(--accent);'
       + 'background:transparent;color:var(--accent);font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));',
-      o.enviando ? 'enviando…' : '+ enviar imagem');
+      o.enviando ? 'enviando…' : '+ enviar imagem ou vídeo');
     env.type = 'button';
     env.disabled = !!o.enviando;
     env.onclick = (ev) => { if (ev && ev.preventDefault) ev.preventDefault(); o.aoEnviarImagem(); };
     grade.appendChild(env);
   }
   cx.appendChild(grade);
+
+  // VÍDEO SEM CAPA é recusado pela Meta. Avisar aqui, ao lado da escolha, evita
+  // descobrir isso só no fim.
+  if (o.estado.videoId && !o.estado.videoCapa) {
+    cx.appendChild(el(doc, 'div', CSS.falta + 'margin:0 0 10px;',
+      'Este vídeo não tem capa, e a Meta exige uma. Escolha outro vídeo ou envie uma imagem.'));
+  }
 
   const txt = el(doc, 'textarea', CSS.campo + 'min-height:74px;resize:vertical;line-height:1.5;');
   txt.value = o.estado.texto || '';

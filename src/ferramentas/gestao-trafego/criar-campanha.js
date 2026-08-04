@@ -60,6 +60,11 @@ export function estadoInicial() {
     publico: null,          // forma do publico-alvo.js
     imagemHash: '',
     imagemPreview: '',
+    // VÍDEO: quando preenchido, manda no criativo em vez da imagem. A capa é
+    // obrigatória — medido num anúncio real da conta, que carrega `image_url`
+    // dentro do `video_data`.
+    videoId: '',
+    videoCapa: '',
     texto: '',
     // Só usados quando o tipo impulsiona uma publicação que já está no ar.
     publicacaoId: '',
@@ -184,7 +189,10 @@ export function faltaNoPasso(chave, estado, objetivoRow) {
     if (usaPublicacao(objetivoRow)) {
       if (!texto(e.publicacaoId)) faltas.push('Escolha a publicação que vai ser impulsionada.');
     } else {
-      if (!texto(e.imagemHash)) faltas.push('Escolha uma imagem, ou envie uma.');
+      if (!texto(e.imagemHash) && !texto(e.videoId)) faltas.push('Escolha uma imagem ou um vídeo, ou envie um.');
+      // A CAPA DO VÍDEO é exigida pela Meta dentro do `video_data`. Sem ela o
+      // criativo é recusado, e o erro só apareceria na hora de criar.
+      if (texto(e.videoId) && !texto(e.videoCapa)) faltas.push('Este vídeo não tem capa. Escolha outro, ou envie uma imagem.');
       if (!texto(e.texto)) faltas.push('Escreva o texto que vai aparecer no anúncio.');
     }
   }
@@ -268,7 +276,7 @@ export function resumoDoQueVaiSerCriado(estado, objetivoRotulo, identidade, sub)
   if (interesses.length) linhas.push(`Interesses: ${interesses.join(', ')}`);
   linhas.push(usaPublicacao(sub)
     ? `1 anúncio impulsionando ${texto(e.publicacaoResumo) || 'a publicação escolhida'}`
-    : '1 anúncio com a imagem escolhida');
+    : (texto(e.videoId) ? '1 anúncio com o vídeo escolhido' : '1 anúncio com a imagem escolhida'));
   return linhas;
 }
 
@@ -331,6 +339,21 @@ export function payloadsDoAssistente({ estado, objetivoRow, nomeDaConta }) {
 // e cai no ramo "WhatsApp puro" para qualquer destino que não seja vazio. Com
 // `INSTAGRAM_DIRECT` ele montaria um link de wa.me — um anúncio de Direct
 // levando para o WhatsApp, sem erro nenhum da Meta.
+// O BOTÃO DO ANÚNCIO, por destino. Extraído porque o vídeo precisa do mesmo —
+// e duas cópias divergiriam na primeira mudança.
+function ctaDoDestino(sub, estado) {
+  const dt = String((sub || {}).destination_type || '').toUpperCase();
+  const numero = String(estado.whatsapp || '').replace(/\D/g, '');
+  if (dt.includes('WHATSAPP')) {
+    return { type: 'WHATSAPP_MESSAGE', value: { app_destination: 'WHATSAPP', link: `https://api.whatsapp.com/send?phone=${numero}` } };
+  }
+  if (dt === 'INSTAGRAM_DIRECT') {
+    return { type: 'INSTAGRAM_MESSAGE', value: { app_destination: 'INSTAGRAM_DIRECT' } };
+  }
+  if (pedeSite(sub)) return { type: 'LEARN_MORE', value: { link: texto(estado.site) } };
+  return { type: 'LEARN_MORE' };
+}
+
 export function criativaDoAssistente({ sub, estado, page, ig }) {
   const e = estado || {};
   const s = sub || {};
@@ -343,6 +366,28 @@ export function criativaDoAssistente({ sub, estado, page, ig }) {
   // misturam, e essa é a armadilha deste trecho.
   if (usaPublicacao(s)) {
     return { instagram_user_id: ig, source_instagram_media_id: texto(e.publicacaoId) };
+  }
+
+  // O VÍDEO VEM ANTES DE TUDO, e a ordem não é detalhe: o ramo do WhatsApp
+  // delega em `payloadCriativa`, que só sabe montar imagem. Com o vídeo depois
+  // dele, um anúncio de vídeo para WhatsApp virava um anúncio de imagem VAZIA —
+  // `image_hash: ''` — e a Meta aceitaria o criativo sem nada dentro.
+  // Pego por teste antes de chegar na conta (03/08/2026).
+  //
+  // Formato medido num anúncio real: `video_data` no lugar de `link_data`, com
+  // a capa em `image_url` — sem ela a Meta recusa.
+  if (texto(e.videoId)) {
+    return {
+      object_story_spec: {
+        page_id: page, instagram_user_id: ig,
+        video_data: {
+          video_id: texto(e.videoId),
+          message: mensagem,
+          image_url: texto(e.videoCapa),
+          call_to_action: ctaDoDestino(s, e),
+        },
+      },
+    };
   }
 
   if (dt.includes('WHATSAPP')) {
