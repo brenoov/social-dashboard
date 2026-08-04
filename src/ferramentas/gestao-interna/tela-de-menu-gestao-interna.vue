@@ -109,9 +109,21 @@ onMounted(() => {
   .tela-menu-gestao-interna .gimenu-card{width:100%;min-height:auto;padding:18px 16px 40px;}
 }
 
-/* Os cards se ajustam à fileira em vez de terem largura fixa: com 270px fixos,
-   três deles pedem 854px e viravam "2 em cima e 1 embaixo" no tablet. Agora
-   dividem a linha (mínimo 200, máximo 300), então cabem numa fileira só de 768
-   pra cima e param de crescer no monitor grande. */
-.tela-menu-gestao-interna .gimenu-card{flex:1 1 200px;max-width:300px;}
+
+/* ── COMO OS CARDS SE DISTRIBUEM — bloco único, por último de propósito ──────
+   Esta é a ÚNICA regra que decide a distribuição. Antes havia três empilhadas
+   (a original com 2 lado a lado no celular, uma minha com largura cheia, e uma
+   terceira limitando a 300px) e o resultado dependia de qual ganhava a disputa.
+   Aqui está tudo explícito, inclusive os `none`, para nada de antes vazar.
+
+   CELULAR (até 767): um card sob o outro, largura cheia.
+   TABLET PRA CIMA (768+): quadrados lado a lado, numa fileira só. */
+@media(max-width:767px){
+  .tela-menu-gestao-interna .gimenu-cards{display:flex;flex-direction:column;align-items:stretch;flex-wrap:nowrap;gap:12px;width:100%;max-width:none;margin-inline:0;}
+  .tela-menu-gestao-interna .gimenu-card{width:100%;max-width:none;min-width:0;min-height:auto;flex:none;}
+}
+@media(min-width:768px){
+  .tela-menu-gestao-interna .gimenu-cards{display:flex;flex-direction:row;flex-wrap:nowrap;justify-content:center;gap:18px;width:100%;max-width:1160px;margin-inline:auto;}
+  .tela-menu-gestao-interna .gimenu-card{flex:1 1 0;width:auto;min-width:0;max-width:320px;}
+}
 </style>

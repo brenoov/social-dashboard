@@ -129,22 +129,22 @@ onMounted(() => {
 .tela-menu-redes .smenu-card-embreve-selo{position:absolute;bottom:16px;right:18px;font-family:var(--fonte-principal);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:3px 7px;}
 .tela-menu-redes .smenu-cards.view-list .smenu-card-embreve-selo{position:static;margin-left:auto;}
 
-/* ── Como os cards se distribuem ────────────────────────────────────────────
-   CELULAR: um sob o outro, ocupando a largura com margem — foi o que o dono
-   achou mais harmônico, e é o que funciona com o polegar.
-   TABLET PRA CIMA: quadrados lado a lado, todos na MESMA fileira. O que
-   incomodava antes não era o lado a lado: era 3 cards virando "2 em cima e 1
-   sozinho embaixo". O max-width cabe 4 cards (4×270 + 3×22), então eles não
-   quebram mais. */
-.tela-menu-redes .smenu-cards{width:100%;max-width:1160px;margin-inline:auto;}
-@media(max-width:640px){
-  .tela-menu-redes .smenu-cards{flex-direction:column;align-items:stretch;gap:14px;max-width:none;}
-  .tela-menu-redes .smenu-card{width:100%;min-height:auto;}
-}
 
-/* Os cards se ajustam à fileira em vez de terem largura fixa: com 270px fixos,
-   três deles pedem 854px e viravam "2 em cima e 1 embaixo" no tablet. Agora
-   dividem a linha (mínimo 200, máximo 300), então cabem numa fileira só de 768
-   pra cima e param de crescer no monitor grande. */
-.tela-menu-redes .smenu-card{flex:1 1 200px;max-width:300px;}
+
+/* ── COMO OS CARDS SE DISTRIBUEM — bloco único, por último de propósito ──────
+   Esta é a ÚNICA regra que decide a distribuição. Antes havia três empilhadas
+   (a original com 2 lado a lado no celular, uma minha com largura cheia, e uma
+   terceira limitando a 300px) e o resultado dependia de qual ganhava a disputa.
+   Aqui está tudo explícito, inclusive os `none`, para nada de antes vazar.
+
+   CELULAR (até 767): um card sob o outro, largura cheia.
+   TABLET PRA CIMA (768+): quadrados lado a lado, numa fileira só. */
+@media(max-width:767px){
+  .tela-menu-redes .smenu-cards{display:flex;flex-direction:column;align-items:stretch;flex-wrap:nowrap;gap:12px;width:100%;max-width:none;margin-inline:0;}
+  .tela-menu-redes .smenu-card{width:100%;max-width:none;min-width:0;min-height:auto;flex:none;}
+}
+@media(min-width:768px){
+  .tela-menu-redes .smenu-cards{display:flex;flex-direction:row;flex-wrap:nowrap;justify-content:center;gap:18px;width:100%;max-width:1160px;margin-inline:auto;}
+  .tela-menu-redes .smenu-card{flex:1 1 0;width:auto;min-width:0;max-width:320px;}
+}
 </style>
