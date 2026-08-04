@@ -80,8 +80,11 @@ export function resumoDoEstado(e) {
   if (e.veiculo.situacao === 'alienado') return 'Fora da frota';
   if (e.veiculo.situacao === 'inativo') return 'Parado';
   if (e.naRua) return e.comQuem ? `Na rua com ${e.comQuem}` : 'Na rua';
+  // Carro com responsável NÃO é livre — e o texto tem que dizer isso. A
+  // primeira versão escrevia "Livre, com Humberto", que se contradiz na mesma
+  // frase e fazia a pessoa achar que podia pegar.
+  if (e.comQuem) return `Com ${e.comQuem}`;
   if (e.ondeEsta) return `Livre, em ${e.ondeEsta}`;
-  if (e.comQuem) return `Livre, com ${e.comQuem}`;
   return 'Livre';
 }
 

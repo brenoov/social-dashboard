@@ -52,8 +52,8 @@ test('carro parado: pessoa e local são coisas SEPARADAS', () => {
   const soLocal = estadoDoVeiculo(carro({ local_texto: 'Barracão' }), [])
   assert.equal(resumoDoEstado(soLocal), 'Livre, em Barracão')
 
-  const soPessoa = estadoDoVeiculo(carro({ pessoa_nome: 'Raissa' }), [])
-  assert.equal(resumoDoEstado(soPessoa), 'Livre, com Raissa')
+  const soPessoa = estadoDoVeiculo(carro({ pessoa_id: 'p-raissa', pessoa_nome: 'Raissa' }), [])
+  assert.equal(resumoDoEstado(soPessoa), 'Com Raissa')
 
   const ambos = estadoDoVeiculo(carro({ pessoa_nome: 'Raissa', local_texto: 'Conchal' }), [])
   assert.equal(ambos.comQuem, 'Raissa')
@@ -67,7 +67,10 @@ test('carro com RESPONSÁVEL FIXO não é carro livre', () => {
   const e = estadoDoVeiculo(carro({ pessoa_id: 'p-humberto', pessoa_nome: 'Humberto' }), [])
   assert.equal(e.naRua, false, 'não está na rua: está parado, mas é dele')
   assert.equal(e.disponivel, false)
-  assert.equal(resumoDoEstado(e), 'Livre, com Humberto')
+  // O TEXTO tem que concordar com a regra. "Livre, com Humberto" se contradiz
+  // na mesma frase — e foi o que o dono viu na tela.
+  assert.equal(resumoDoEstado(e), 'Com Humberto')
+  assert.ok(!/livre/i.test(resumoDoEstado(e)), 'carro com responsável nunca diz "livre"')
 })
 
 test('sem responsável e sem uso aberto, aí sim está livre', () => {
