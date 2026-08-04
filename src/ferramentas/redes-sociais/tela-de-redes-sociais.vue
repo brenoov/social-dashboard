@@ -44,13 +44,17 @@
             <span class="ac-toggle-lbl">AUTO</span>
           </div>
         </div>
-        <div class="topbar-right" style="flex-direction:column;align-items:flex-end;gap:2px;">
-          <span class="live-dot" style="margin-bottom:2px">Tempo Real</span>
-          <div id="dash-clock">--:--:<span>--</span></div>
-          <div class="gv-clock-date" id="dash-date"></div>
-          <div class="gv-update-status" id="collection-status">—</div>
-          <div class="gv-update-status" id="live-status" style="margin-top:1px"></div>
-        </div>
+        <!-- Saíram daqui, a pedido do dono: "Tempo Real", o relógio, a data,
+             "ATUALIZADO HOJE" e "● ao vivo (Meta)". Eram cinco linhas de
+             carimbo dizendo que o dado está fresco — e dado fresco é o
+             esperado, não notícia.
+
+             O que avisa de verdade CONTINUA: a faixa vermelha logo abaixo
+             (#freshness-banner) aparece quando o dado NÃO é de hoje. Essa é a
+             informação que muda o que a pessoa faz; o resto era ruído.
+
+             O JS que escrevia nesses elementos já era todo protegido por
+             `if (el)`, então nada quebra por eles não existirem mais. -->
     </div>
 
       <!-- GUARDA DE FRESCOR: avisa quando os dados não são de hoje (coletor parado) -->
@@ -2207,23 +2211,21 @@ function updateCollectionStatus() {
   applyFreshness()
 }
 let _clockTimer = null
+/* O RELÓGIO SAIU DA TELA (pedido do dono), mas o que ele fazia por baixo
+   NÃO PODE SAIR JUNTO: era o tique dele que reavaliava a guarda de frescor a
+   cada minuto — a faixa vermelha que avisa quando o dado não é de hoje.
+
+   Se eu tivesse só apagado o elemento, `startClock` cairia no `if (!el) return`
+   e o aviso congelaria no estado em que estivesse ao abrir a tela. Numa
+   dashboard que fica ligada o dia inteiro numa TV, isso é exatamente o caso que
+   ela precisa pegar.
+
+   Então virou o que sempre foi de verdade: um verificador de frescor. Uma vez
+   por minuto, sem desenhar nada. */
 function startClock() {
-  const el = document.getElementById('dash-clock')
-  const dEl = document.getElementById('dash-date')
-  if (!el) return
-  let lastMin = -1
-  function tick() {
-    const now = new Date()
-    const h = String(now.getHours()).padStart(2, '0')
-    const m = String(now.getMinutes()).padStart(2, '0')
-    const s = String(now.getSeconds()).padStart(2, '0')
-    el.innerHTML = `${h}:${m}:<span>${s}</span>`
-    if (dEl) { const ds = now.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }); dEl.textContent = ds.toUpperCase() }
-    if (now.getMinutes() !== lastMin) { lastMin = now.getMinutes(); updateCollectionStatus() }
-  }
-  tick()
+  updateCollectionStatus()
   if (_clockTimer) clearInterval(_clockTimer)
-  _clockTimer = setInterval(tick, 1000)
+  _clockTimer = setInterval(updateCollectionStatus, 60000)
 }
 
 /* ── META GERAL (barra única) (legacy L5240-5255, verbatim) ── */
