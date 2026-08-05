@@ -2922,7 +2922,10 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
   .tela-acessos :deep(.ac-rail-item+.ac-rail-item){margin-top:0}
 }
 
-.tela-acessos :deep(.ac-aud-grid){display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+/* 260px de largura minima, nao 330: num aparelho de 320px sobram ~292px
+   depois do recuo, e 330 estourava a tela. Em telas grandes o auto-fill
+   continua enchendo com quantas colunas couberem, entao nada muda la. */
+.tela-acessos :deep(.ac-aud-grid){display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
 .tela-acessos :deep(.ac-aud-line){margin-top:5px;font-size:13px}
 .tela-acessos :deep(.ac-aud-line .ac-kicker){display:inline}
 .tela-acessos :deep(.ac-card){border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:16px;margin-bottom:14px}
@@ -3296,7 +3299,11 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-tn-name){font-family:var(--fonte-principal);font-size:13px;font-weight:600;color:var(--text);word-break:break-word}
 .tela-acessos :deep(.ac-tn-sec){font-family:var(--fonte-principal);font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#2dd4bf;background:rgba(13,148,136,.14);padding:2px 7px;border-radius:999px;white-space:nowrap}
 .tela-acessos :deep(.ac-tn-share){padding:3px 9px;font-size:11px;margin-left:auto;flex-shrink:0}
-@media(max-width:640px){.tela-acessos :deep(.ac-tn-sec){display:none}.tela-acessos :deep(.ac-tree){padding-left:14px}.tela-acessos :deep(.ac-tnode){padding-left:14px}}
+/* O setor NAO some mais no celular — ele diz de quem e a pasta, que e metade
+   do sentido desta arvore. Antes era display:none pra caber na largura;
+   agora a linha quebra e o selo desce, custando altura em vez de
+   informacao. */
+@media(max-width:640px){.tela-acessos :deep(.ac-tn-row){flex-wrap:wrap}.tela-acessos :deep(.ac-tn-sec){font-size:9px;order:9}.tela-acessos :deep(.ac-tree){padding-left:14px}.tela-acessos :deep(.ac-tnode){padding-left:14px}}
 /* ===== Drive: fluxograma (org-chart) ===== */
 .tela-acessos :deep(.ac-legend){display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
 .tela-acessos :deep(.ac-leg){display:inline-flex;align-items:center;gap:7px;font-family:var(--fonte-principal);font-size:12px;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:4px 6px 4px 11px}
@@ -3337,7 +3344,8 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-vc-count){font-family:var(--fonte-dados);font-size:11px;font-weight:600;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:1px 8px;flex-shrink:0}
 .tela-acessos :deep(.ac-vc-share){border:1px solid var(--border);background:var(--surface2);border-radius:7px;cursor:pointer;font-size:12px;padding:3px 8px;color:var(--text);flex-shrink:0;line-height:1.1}
 .tela-acessos :deep(.ac-vc-share:hover){border-color:var(--accent-mid);color:var(--accent-mid)}
-@media(max-width:640px){.tela-acessos :deep(.ac-vc-sec){display:none}.tela-acessos :deep(.ac-vcard){gap:7px;padding:6px 9px}}
+/* Idem no cartao da arvore: o setor desce de linha em vez de sumir. */
+@media(max-width:640px){.tela-acessos :deep(.ac-vcard){gap:5px 7px;padding:6px 9px;flex-wrap:wrap}.tela-acessos :deep(.ac-vc-sec){font-size:8.5px;flex-basis:100%}}
 .tela-acessos :deep(.ac-folder-grid){display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
 .tela-acessos :deep(.ac-folder){background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:10px;transition:border-color .15s,box-shadow .15s,transform .15s}
 .tela-acessos :deep(.ac-folder:hover){border-color:var(--accent-mid);box-shadow:var(--shadow-md);transform:translateY(-2px)}
