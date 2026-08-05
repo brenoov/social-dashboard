@@ -73,6 +73,13 @@ const ultimaDoTipo = (veiculoId, cadencia) => {
   return l.length ? l[l.length - 1] : null
 }
 
+// O quadro de cobrança da aba Gestão (D16): quem tem carro fixo e ainda não
+// conferiu hoje. Só as fichas de HOJE entram na conta — uma de ontem não conta
+// como feita, senão o quadro ficaria em dia por engano o dia inteiro.
+const fichasDeHoje = computed(() => fichas.value.filter((f) => f.feita_em === hoje.value))
+const cobranca = computed(() => quemFaltaHoje({
+  veiculos: veiculos.value, fichasDeHoje: fichasDeHoje.value, pessoas: pessoas.value }))
+
 function voltar() { router.push({ name: 'gestao-interna' }) }
 
 async function carregar() {
@@ -785,44 +792,64 @@ onMounted(async () => {
     <!-- GESTÃO. `v-else-if` EXPLÍCITO, nunca `v-else` solto: com `v-else` esta
          lista era o fim da corrente que começa lá em cima no "carregando", e
          qualquer aba que não fosse Motorista caía aqui — Revisões e Plano de
-         manutenção mostravam a frota inteira em cartões. -->
-    <div class="fr-lista" v-else-if="area === 'gestao'">
-      <div v-for="l in linhas" :key="l.veiculo.id" class="fr-card" :class="{ rua: l.naRua, parado: !l.disponivel && !l.naRua }">
-        <div class="fr-card-topo">
-          <div class="fr-card-ident">
-            <span class="fr-card-nome">{{ l.veiculo.nome }}</span>
-            <span class="fr-placa">{{ l.veiculo.placa }}</span>
-          </div>
-          <span class="fr-selo" :class="{ rua: l.naRua, livre: l.disponivel }">{{ resumoDoEstado(l) }}</span>
-        </div>
+         manutenção mostravam a frota inteira em cartões.
 
-        <div class="fr-dados">
-          <div class="fr-dado">
-            <span class="fr-dado-lab">Quilometragem</span>
-            <span class="fr-dado-val">{{ l.km == null ? '—' : l.km.toLocaleString('pt-BR') + ' km' }}</span>
-          </div>
-          <div class="fr-dado">
-            <span class="fr-dado-lab">Combustível</span>
-            <span class="fr-dado-val" :class="{ alerta: l.precisaAbastecer }">
-              {{ rotuloDoTanque(l.tanque) }}<template v-if="l.precisaAbastecer"> · abastecer</template>
-            </span>
-          </div>
-        </div>
+         O quadro de cobrança (Tarefa 9) entra AQUI DENTRO, no mesmo elo da
+         corrente, e não como um `<template v-if>` à parte antes deste `<div>`.
+         Um `v-if` separado quebraria a corrente: o `v-else-if` deste `<div>`
+         passaria a se encadear nesse `v-if` novo, e não mais em
+         "carregando/falha/sem veículo/motorista" — bastaria estar na aba
+         Gestão pra este bloco aparecer, mesmo com a tela ainda carregando. -->
+    <template v-else-if="area === 'gestao'">
+      <h2 class="fr-secao">Checklist de hoje</h2>
+      <p class="fr-aviso">{{ resumoDaCobranca(cobranca) }}</p>
+      <ul class="fr-cobranca">
+        <li v-for="c in cobranca" :key="c.veiculo.id" :class="{ pendente: !c.fez }">
+          <strong>{{ c.veiculo.nome }}</strong>
+          <span v-if="c.dono"> · {{ c.dono }}</span>
+          <span v-else> · dono saiu do cadastro</span>
+          <span class="fr-cobranca-selo">{{ c.fez ? 'feito' : 'falta' }}</span>
+        </li>
+      </ul>
 
-        <!-- Sem "Vou usar" aqui (correção do dono): esta aba é para GERIR a
-             frota. Pegar carro é na aba Motorista. -->
-        <div class="fr-acoes">
-          <button class="fr-btn primario" v-if="podeEditar" @click="abrirVeiculo(l.veiculo)">Abrir ficha</button>
-          <button v-if="podeEditar && l.naRua" class="fr-btn" @click="abrirDevolucao(l)">Devolver</button>
-          <a v-if="zapDoVeiculo(l.veiculo)" class="fr-btn fr-zap" :href="zapDoVeiculo(l.veiculo)"
-               target="_blank" rel="noopener"
-               :title="l.veiculo.contato_nome ? ('Falar com ' + l.veiculo.contato_nome + ' no WhatsApp') : 'Falar no WhatsApp'">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.47 14.38c-.3-.15-1.74-.86-2-.96-.27-.1-.47-.15-.66.15-.2.29-.76.95-.93 1.15-.17.2-.34.22-.63.07-.3-.15-1.25-.46-2.38-1.47-.88-.78-1.47-1.75-1.64-2.05-.17-.29-.02-.45.13-.6.13-.13.3-.34.44-.51.15-.17.2-.29.3-.49.1-.2.05-.37-.02-.51-.08-.15-.66-1.59-.9-2.18-.24-.57-.48-.5-.66-.51h-.57c-.2 0-.51.07-.78.37-.27.29-1.02 1-1.02 2.43s1.05 2.82 1.2 3.02c.15.2 2.06 3.14 4.99 4.4.7.3 1.24.48 1.66.62.7.22 1.33.19 1.83.12.56-.08 1.74-.71 1.98-1.4.24-.68.24-1.27.17-1.39-.07-.12-.27-.2-.56-.34M12 2a10 10 0 0 0-8.6 15.1L2 22l5.05-1.32A10 10 0 1 0 12 2"/></svg>
-              WhatsApp
-            </a>
+      <div class="fr-lista">
+        <div v-for="l in linhas" :key="l.veiculo.id" class="fr-card" :class="{ rua: l.naRua, parado: !l.disponivel && !l.naRua }">
+          <div class="fr-card-topo">
+            <div class="fr-card-ident">
+              <span class="fr-card-nome">{{ l.veiculo.nome }}</span>
+              <span class="fr-placa">{{ l.veiculo.placa }}</span>
+            </div>
+            <span class="fr-selo" :class="{ rua: l.naRua, livre: l.disponivel }">{{ resumoDoEstado(l) }}</span>
+          </div>
+
+          <div class="fr-dados">
+            <div class="fr-dado">
+              <span class="fr-dado-lab">Quilometragem</span>
+              <span class="fr-dado-val">{{ l.km == null ? '—' : l.km.toLocaleString('pt-BR') + ' km' }}</span>
+            </div>
+            <div class="fr-dado">
+              <span class="fr-dado-lab">Combustível</span>
+              <span class="fr-dado-val" :class="{ alerta: l.precisaAbastecer }">
+                {{ rotuloDoTanque(l.tanque) }}<template v-if="l.precisaAbastecer"> · abastecer</template>
+              </span>
+            </div>
+          </div>
+
+          <!-- Sem "Vou usar" aqui (correção do dono): esta aba é para GERIR a
+               frota. Pegar carro é na aba Motorista. -->
+          <div class="fr-acoes">
+            <button class="fr-btn primario" v-if="podeEditar" @click="abrirVeiculo(l.veiculo)">Abrir ficha</button>
+            <button v-if="podeEditar && l.naRua" class="fr-btn" @click="abrirDevolucao(l)">Devolver</button>
+            <a v-if="zapDoVeiculo(l.veiculo)" class="fr-btn fr-zap" :href="zapDoVeiculo(l.veiculo)"
+                 target="_blank" rel="noopener"
+                 :title="l.veiculo.contato_nome ? ('Falar com ' + l.veiculo.contato_nome + ' no WhatsApp') : 'Falar no WhatsApp'">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.47 14.38c-.3-.15-1.74-.86-2-.96-.27-.1-.47-.15-.66.15-.2.29-.76.95-.93 1.15-.17.2-.34.22-.63.07-.3-.15-1.25-.46-2.38-1.47-.88-.78-1.47-1.75-1.64-2.05-.17-.29-.02-.45.13-.6.13-.13.3-.34.44-.51.15-.17.2-.29.3-.49.1-.2.05-.37-.02-.51-.08-.15-.66-1.59-.9-2.18-.24-.57-.48-.5-.66-.51h-.57c-.2 0-.51.07-.78.37-.27.29-1.02 1-1.02 2.43s1.05 2.82 1.2 3.02c.15.2 2.06 3.14 4.99 4.4.7.3 1.24.48 1.66.62.7.22 1.33.19 1.83.12.56-.08 1.74-.71 1.98-1.4.24-.68.24-1.27.17-1.39-.07-.12-.27-.2-.56-.34M12 2a10 10 0 0 0-8.6 15.1L2 22l5.05-1.32A10 10 0 1 0 12 2"/></svg>
+                WhatsApp
+              </a>
+          </div>
         </div>
       </div>
-    </div>
+    </template>
 
     <!-- ÁREA REVISÕES: o que está vencendo, e o plano que o dono edita. -->
     <template v-if="area === 'revisoes' && !carregando && !falha">
@@ -1311,6 +1338,13 @@ onMounted(async () => {
 .tela-frota .fr-motorista-resumo{margin:0;padding:14px 14px 4px;font-family:var(--fonte-principal);font-size:15px;font-weight:600;color:var(--text);}
 .tela-frota .fr-secao{margin:16px 0 8px;padding:0 14px;font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);}
 .tela-frota .fr-aviso{margin:0;padding:4px 14px 10px;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.55;color:var(--muted);}
+/* O quadro de cobrança (D16): quem tem carro fixo e ainda não conferiu hoje.
+   `flex-wrap` no `li` é o que evita estourar a tela no celular — nome do
+   carro comprido, dono e selo cabem em duas linhas em vez de rolar de lado. */
+.tela-frota .fr-cobranca{list-style:none;padding:0 14px;margin:0 0 20px;}
+.tela-frota .fr-cobranca li{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--borda, #eee);}
+.tela-frota .fr-cobranca-selo{margin-left:auto;font-size:.8rem;padding:2px 10px;border-radius:999px;background:#e7f2ea;color:#1c7c3f;}
+.tela-frota .fr-cobranca li.pendente .fr-cobranca-selo{background:#f7e7e7;color:#a12727;}
 /* Os carros de outras pessoas: lista simples, sem cartão e sem botão. Dar
    cartão a eles daria a entender que há algo a fazer, e não há. */
 .tela-frota .fr-outros{margin:0;padding:0 14px 40px;list-style:none;display:flex;flex-direction:column;gap:7px;font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);}
