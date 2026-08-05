@@ -23,7 +23,7 @@ import {
 import { revisoesDoVeiculo, resumoDeRevisoes, problemasDoItem, avisoAoDesativar } from './revisoes.js'
 import { linkDoWhatsapp, telefoneLegivel, porQueNaoDaLink } from '../../compartilhado/whatsapp.js'
 import PainelDeChecklist from './painel-de-checklist.vue'
-import { cadenciasDoDia, quemFaltaHoje, resumoDaCobranca } from '../../../supabase/functions/_shared/checklist.js'
+import { cadenciasDoDia, quemFaltaHoje, resumoDaCobranca, precisaDeChecklist } from '../../../supabase/functions/_shared/checklist.js'
 
 const router = useRouter()
 const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
@@ -1190,6 +1190,26 @@ onMounted(async () => {
         </div>
 
         <div class="fr-ficha-corpo">
+          <!-- O checklist do rodízio (F7): quem pega um carro que não é o seu
+               fixo confere ANTES DE SAIR, como o papel manda — sábado ou não
+               (D6/D9 cobre só o carro fixo, todo dia; este cobre quem pega
+               qualquer carro, no momento de pegar). `pegando-agora` avisa o
+               componente que isso é uma retirada de verdade, senão ele calcula
+               pelo calendário e no fim de semana devolveria zero itens. -->
+          <PainelDeChecklist
+            v-if="ficha.modo === 'retirar' && precisaDeChecklist({ veiculoId: ficha.linha.veiculo.id, fichas, hoje })"
+            :veiculo="ficha.linha.veiculo"
+            :itens="itensDeChecklist"
+            :config="configDeChecklist"
+            :ultima-semanal="ultimaDoTipo(ficha.linha.veiculo.id, 'semanal')"
+            :ultima-mensal="ultimaDoTipo(ficha.linha.veiculo.id, 'mensal')"
+            :ultimo-km="ultimoHodometro(fichas, ficha.linha.veiculo.id)"
+            :hoje="hoje"
+            :pegando-agora="true"
+            :gravando="gravando"
+            @gravar="gravarChecklist" />
+          <p class="fr-erro" v-if="ficha.modo === 'retirar' && erroChecklist">{{ erroChecklist }}</p>
+
           <label class="fr-campo" v-if="ficha.modo === 'retirar'">
             <span class="fr-lab">Quem vai usar</span>
             <select v-model="form.pessoaId">

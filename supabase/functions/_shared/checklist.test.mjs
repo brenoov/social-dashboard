@@ -4,7 +4,7 @@ import {
   diaDaSemana, ehDiaDoMensal, diasEntre,
   semanalAtrasado, mensalAtrasado, cadenciasDoDia,
   itensDaFicha, hodometroAceito, problemasDaFicha,
-  quemFaltaHoje, resumoDaCobranca,
+  quemFaltaHoje, resumoDaCobranca, precisaDeChecklist,
 } from './checklist.js'
 
 // Padrão do banco: semanal na sexta, mensal na 1ª quarta-feira.
@@ -292,4 +292,28 @@ test('o resumo conta quem falta, e comemora quando não falta ninguém', () => {
 
 test('sem carro com dono nenhum, o resumo não mente dizendo que está tudo certo', () => {
   assert.equal(resumoDaCobranca([]), 'Nenhum carro com dono fixo cadastrado.')
+})
+
+/* ── Quem precisa preencher, e quando ────────────────────────────────────── */
+
+test('carro sem ficha hoje precisa de checklist ao ser pego', () => {
+  assert.equal(precisaDeChecklist({ veiculoId: 'v1', fichas: [], hoje: '2026-08-05' }), true)
+})
+
+test('carro que já foi conferido hoje não pede de novo', () => {
+  // D12: um carro, um dia, uma ficha. Quem pega depois herda a conferência de
+  // quem pegou primeiro.
+  const fichas = [{ veiculo_id: 'v1', feita_em: '2026-08-05' }]
+  assert.equal(precisaDeChecklist({ veiculoId: 'v1', fichas, hoje: '2026-08-05' }), false)
+})
+
+test('ficha de ontem não vale para hoje', () => {
+  const fichas = [{ veiculo_id: 'v1', feita_em: '2026-08-04' }]
+  assert.equal(precisaDeChecklist({ veiculoId: 'v1', fichas, hoje: '2026-08-05' }), true)
+})
+
+test('no fim de semana o rodízio ainda confere o carro antes de sair', () => {
+  // O diário é seg-sex, mas quem pega um carro no sábado está prestes a
+  // dirigir. O papel manda conferir ANTES DA UTILIZAÇÃO, e isso não tem dia.
+  assert.equal(precisaDeChecklist({ veiculoId: 'v1', fichas: [], hoje: '2026-08-08' }), true)
 })

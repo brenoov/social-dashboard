@@ -19,12 +19,19 @@ const props = defineProps({
   ultimoKm: { type: Number, default: null },
   hoje: { type: String, required: true },
   gravando: { type: Boolean, default: false },
+  // Quem pega um carro de rodízio está prestes a dirigir, sábado ou não — o
+  // papel manda conferir ANTES DA UTILIZAÇÃO, sem dia da semana. Sem este
+  // sinal, cadenciasDoDia acha que é fim de semana comum e devolve vazio, e o
+  // checklist do rodízio simplesmente não aparece pra quem pega o carro no
+  // sábado.
+  pegandoAgora: { type: Boolean, default: false },
 })
 const emit = defineEmits(['gravar'])
 
 const cadencias = computed(() => cadenciasDoDia({
   hoje: props.hoje, config: props.config,
   ultimaSemanal: props.ultimaSemanal, ultimaMensal: props.ultimaMensal,
+  pegandoAgora: props.pegandoAgora,
 }))
 const daFicha = computed(() => itensDaFicha(props.itens, cadencias.value))
 

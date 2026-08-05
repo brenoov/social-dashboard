@@ -54,8 +54,12 @@ export function mensalAtrasado(hoje, ultimaMensal) {
  * entram no dia próprio (D11) ou quando estão atrasados — e entram UMA vez,
  * nunca duas: semana pulada vira uma conferência, não duas.
  */
-export function cadenciasDoDia({ hoje, config, ultimaSemanal, ultimaMensal }) {
-  if (diaDaSemana(hoje) > 5) return [];
+export function cadenciasDoDia({ hoje, config, ultimaSemanal, ultimaMensal, pegandoAgora }) {
+  // O diário é seg-sex, mas quem pega um carro de rodízio no fim de semana
+  // está prestes a dirigir do mesmo jeito. O papel manda conferir ANTES DA
+  // UTILIZAÇÃO, e isso não tem dia — só o diário entra, nunca semanal/mensal
+  // (esses têm dia próprio, e fim de semana nunca é esse dia).
+  if (diaDaSemana(hoje) > 5) return pegandoAgora ? ['diario'] : [];
   const c = ['diario'];
   if (diaDaSemana(hoje) === config.dia_semanal || semanalAtrasado(hoje, ultimaSemanal)) {
     c.push('semanal');
@@ -64,6 +68,18 @@ export function cadenciasDoDia({ hoje, config, ultimaSemanal, ultimaMensal }) {
     c.push('mensal');
   }
   return c;
+}
+
+/**
+ * Este carro precisa de checklist agora?
+ *
+ * Vale para quem pega um carro de rodízio. Independe do dia da semana: o papel
+ * manda conferir ANTES DA UTILIZAÇÃO, e quem pega um carro no sábado está
+ * prestes a dirigir do mesmo jeito. O que o calendário decide é o que a ficha
+ * PERGUNTA (cadenciasDoDia); no fim de semana, só o diário.
+ */
+export function precisaDeChecklist({ veiculoId, fichas, hoje }) {
+  return !(fichas || []).some((f) => f && f.veiculo_id === veiculoId && f.feita_em === hoje);
 }
 
 /* ── O que entra na ficha ─────────────────────────────────────────────────── */
