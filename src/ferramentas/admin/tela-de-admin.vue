@@ -18,21 +18,7 @@
        da árvore do componente é o que permite ao CSS :deep() (scoped)
        alcançá-lo. -->
   <div class="tela-admin">
-    <div class="admin-topbar">
-      <button class="admin-topbar-back" @click="closeAdmin"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Central</button>
-      <div style="display:flex;align-items:center;gap:12px">
-        <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
-        <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
-        <span class="admin-topbar-title">Administração</span>
-      </div>
-      <!-- No legado, openAdmin() copiava o texto de #home-user-email (outra
-           "tela" do monólito) para cá via getElementById. Numa SPA por rotas
-           essa tela não existe mais no DOM quando o Admin está montado, então
-           em vez de um getElementById cross-tela (que quebraria), lemos
-           direto do estado reativo compartilhado — mesmo dado, sem
-           dependência de DOM alheio. -->
-      <span id="admin-topbar-user" style="font-family:var(--fonte-principal);font-size:11px;color:var(--muted)">{{ estado.user?.email }}</span>
-    </div>
+    <barra-de-topo voltar="Central" titulo="Administração" @voltar="closeAdmin" />
     <div class="admin-layout">
       <nav class="admin-sidebar">
         <div class="admin-nav-group-label">Gestão</div>
@@ -158,6 +144,7 @@
 
 <script setup>
 import { onMounted, onUnmounted } from 'vue'
+import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { estado, PERMISSION_TREE, RECURSOS } from '../../compartilhado/controle-de-login-e-usuario.js'

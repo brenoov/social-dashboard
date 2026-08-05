@@ -3,14 +3,7 @@
        do Vue, sem innerHTML e sem expor nada em window. Mesmo padrão de
        tela-de-menu-vendas.vue. -->
   <div class="tela-menu-gestao-interna">
-    <div class="gimenu-topbar">
-      <button class="gimenu-back" @click="voltar">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Central
-      </button>
-      <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
-      <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
-      <span class="gimenu-title">Gestão Interna</span>
-    </div>
+    <barra-de-topo voltar="Central" titulo="Gestão Interna" @voltar="voltar" />
 
     <div class="gimenu-body">
       <div class="gimenu-headline">
@@ -52,6 +45,7 @@
 
 <script setup>
 import { computed, onMounted } from 'vue'
+import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'

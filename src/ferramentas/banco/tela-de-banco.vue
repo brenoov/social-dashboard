@@ -3,15 +3,7 @@
        (voltar, busca, abrir seletor) usam bindings Vue; as linhas de arquivo são
        geradas via createElement em renderArquivos() e estilizadas com :deep(). -->
   <div class="tela-banco">
-    <div class="banco-topbar">
-      <button class="banco-back" @click="voltar">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        Central
-      </button>
-      <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
-      <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
-      <span class="banco-topbar-title">Banco de Arquivos</span>
-    </div>
+    <barra-de-topo voltar="Central" titulo="Banco de Arquivos" @voltar="voltar" />
     <div class="banco-body">
       <div class="banco-upload-zone" id="banco-drop-zone">
         <div class="banco-upload-icon">
@@ -36,6 +28,7 @@
 
 <script setup>
 import { onMounted } from 'vue'
+import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
