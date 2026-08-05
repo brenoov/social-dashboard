@@ -586,7 +586,7 @@ export function hodometroAceito(novo, ultimoConhecido) {
   }
   if (novo < ultimoConhecido) {
     return { ok: false, precisaJustificar: true,
-      motivo: `O último registro deste carro era ${km(ultimoConhecido)} km, e odômetro não `
+      motivo: `O último registro deste carro era ${km(ultimoConhecido)} km, e o odômetro não `
         + 'anda para trás. Confira o número — ou explique o que aconteceu.' };
   }
   if (novo - ultimoConhecido > SALTO_SUSPEITO) {
