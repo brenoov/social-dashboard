@@ -106,6 +106,33 @@ body.autentica .selo .marca{animation:acender .7s .72s ease forwards}
 body.autentica .revela{opacity:0;transform:translateY(14px);animation:subir .8s var(--atraso,1s) ease forwards}
 @keyframes subir{to{opacity:1;transform:none}}
 
+/* ─── galeria da peca ───────────────────────────────────────────────────── */
+/* As fotos oficiais sao packshots em fundo BRANCO. Sobre o olive noir da pagina
+   elas viram quadrados berrantes, entao cada uma ganha um ladrilho em Mushroom
+   Beige com filete champagne: vira vitrine, e o produto nao e alterado (regra da
+   marca: a foto de referencia manda). */
+.galeria{margin-top:clamp(2.2rem,9vw,3rem)}
+.trilho{
+  display:flex;gap:.7rem;overflow-x:auto;scroll-snap-type:x mandatory;
+  scrollbar-width:none;-ms-overflow-style:none;
+  margin-inline:calc(var(--respiro) * -1);padding-inline:var(--respiro);
+}
+.trilho::-webkit-scrollbar{display:none}
+.trilho figure{
+  flex:0 0 76%;max-width:19rem;scroll-snap-align:center;aspect-ratio:1;
+  background:var(--mushroom);border:1px solid var(--filete);overflow:hidden;
+}
+/* multiply funde o fundo BRANCO do packshot no bege do ladrilho, sem tocar no
+   arquivo da foto: branco x Mushroom = Mushroom. O produto quase nao muda
+   (o bege e 95% de branco) e nada foi editado na imagem oficial. */
+.trilho img{width:100%;height:100%;object-fit:contain;display:block;mix-blend-mode:multiply}
+.pontos{display:flex;justify-content:center;gap:.38rem;margin-top:1rem}
+.pontos i{
+  width:5px;height:5px;border-radius:3px;background:var(--filete);
+  transition:width .25s ease,background .25s ease;
+}
+.pontos i.ativo{width:17px;background:var(--champagne)}
+
 /* ─── a ficha da peca ───────────────────────────────────────────────────── */
 .ficha{margin-top:clamp(2.4rem,9vw,3.4rem);border-top:1px solid var(--filete)}
 .ficha div{
@@ -278,12 +305,18 @@ input:focus{outline:none;border-color:var(--champagne);background:rgba(242,239,2
 
   <div class="veredicto">
     <h1>Peça autêntica</h1>
-    <p>Você acaba de adquirir um produto original <em>La vessel®</em>.</p>
+    <p>Você acaba de adquirir um produto original da <em>VESSEL BRASIL</em>.</p>
   </div>
+
+  <section class="galeria revela" id="galeria" hidden style="--atraso:.9s">
+    <div class="trilho" id="trilho"></div>
+    <div class="pontos" id="pontos"></div>
+  </section>
 
   <dl class="ficha revela" style="--atraso:.95s">
     <div><dt class="rot">Modelo</dt><dd class="val destaque" id="f-modelo">—</dd></div>
     <div><dt class="rot">Cor</dt><dd class="val" id="f-cor">—</dd></div>
+    <div><dt class="rot">Referência</dt><dd class="val" id="f-sku">—</dd></div>
     <div><dt class="rot">Peça</dt><dd class="val" id="f-peca">—</dd></div>
     <div><dt class="rot">Fabricação</dt><dd class="val" id="f-fabricacao">—</dd></div>
   </dl>
@@ -328,7 +361,7 @@ input:focus{outline:none;border-color:var(--champagne);background:rgba(242,239,2
   <footer class="revela" style="--atraso:1.4s">
     <span class="fabricado">Orgulhosamente brasileira</span>
     R. Adelino Gasparine, 165 — Jardim Verona, Itatiba/SP<br>
-    <a href="https://lavessel.com.br" target="_blank" rel="noopener">lavessel.com.br</a> ·
+    <a href="https://lavessel.com.br" target="_blank" rel="noopener">Loja oficial</a> ·
     <a href="https://instagram.com/vessel.brasil" target="_blank" rel="noopener">@vessel.brasil</a>
   </footer>
 </main>
@@ -343,7 +376,7 @@ input:focus{outline:none;border-color:var(--champagne);background:rgba(242,239,2
   <a class="botao" id="botao-falar" href="https://instagram.com/vessel.brasil" target="_blank" rel="noopener">Falar com a Vessel <span>&rsaquo;</span></a>
   <footer>
     R. Adelino Gasparine, 165 — Jardim Verona, Itatiba/SP<br>
-    <a href="https://lavessel.com.br" target="_blank" rel="noopener">lavessel.com.br</a>
+    <a href="https://lavessel.com.br" target="_blank" rel="noopener">Loja oficial</a>
   </footer>
 </main>
 
@@ -410,6 +443,44 @@ function mostrarRegistrada(dados){
     : 'A garantia de 2 anos está guardada com a gente.';
 }
 
+// A galeria so existe se o lote tiver fotos: modelo sem foto simplesmente nao
+// mostra a secao, em vez de deixar um buraco cinza no meio do certificado.
+function montarGaleria(fotos, modelo){
+  if(!Array.isArray(fotos) || !fotos.length) return;
+  const trilho = $('trilho'), pontos = $('pontos');
+  fotos.forEach((caminho, i) => {
+    const fig = document.createElement('figure');
+    const img = document.createElement('img');
+    img.src = caminho;
+    img.alt = `Bolsa ${modelo || ''} — foto ${i + 1} de ${fotos.length}`;
+    img.decoding = 'async';
+    // a primeira carrega junto com a pagina; as outras so quando a cliente arrasta
+    if(i > 0) img.loading = 'lazy';
+    fig.appendChild(img); trilho.appendChild(fig);
+    const ponto = document.createElement('i');
+    if(i === 0) ponto.className = 'ativo';
+    pontos.appendChild(ponto);
+  });
+  $('galeria').hidden = false;
+
+  // marca o ponto da foto que esta no centro do trilho
+  let pedido = null;
+  trilho.addEventListener('scroll', () => {
+    if(pedido) return;
+    pedido = requestAnimationFrame(() => {
+      pedido = null;
+      const meio = trilho.scrollLeft + trilho.clientWidth / 2;
+      let atual = 0, menor = Infinity;
+      [...trilho.children].forEach((f, i) => {
+        const centro = f.offsetLeft + f.offsetWidth / 2;
+        const dist = Math.abs(centro - meio);
+        if(dist < menor){ menor = dist; atual = i; }
+      });
+      [...pontos.children].forEach((p, i) => p.classList.toggle('ativo', i === atual));
+    });
+  }, {passive:true});
+}
+
 async function abrir(){
   if(!codigo){ document.body.className = 'invalida'; return; }
   let dados;
@@ -420,8 +491,10 @@ async function abrir(){
 
   $('f-modelo').textContent = dados.modelo || '—';
   $('f-cor').textContent = dados.cor || '—';
+  $('f-sku').textContent = dados.sku || '—';
   $('f-peca').textContent = pecaDaSerie(dados.numero, dados.total);
   $('f-fabricacao').textContent = dados.fabricado_em ? mesPorExtenso(dados.fabricado_em) : '—';
+  montarGaleria(dados.fotos, dados.modelo);
   if(dados.registrada) mostrarRegistrada(dados);
   document.body.className = 'autentica' + (dados.registrada ? ' registrada' : '');
 }
