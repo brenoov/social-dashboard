@@ -1167,7 +1167,10 @@ async function gravarChecklist({ ficha, respostas }) {
   if (gravando.value) return
   gravando.value = true
   const { data, error } = await sbClient.from('frota_checklist')
-    .insert({ ...ficha, pessoa_id: euId.value, pessoa_nome: estado.perfil?.nome || null })
+    // `estado` NÃO tem a chave `perfil` — usar estado.perfil?.nome gravaria
+    // pessoa_nome nulo em toda ficha. O nome sai da lista de pessoas já
+    // carregada, pelo mesmo helper que o resto da tela usa.
+    .insert({ ...ficha, pessoa_id: euId.value, pessoa_nome: nomeDaPessoa(euId.value) })
     .select('id').single()
   if (!error && data) {
     await sbClient.from('frota_checklist_respostas')
@@ -1175,7 +1178,10 @@ async function gravarChecklist({ ficha, respostas }) {
   }
   gravando.value = false
   if (error) {
-    falha.value = /duplicate|unique/i.test(error.message || '')
+    // Ref PRÓPRIO, nunca o `falha` de carregamento: a linha 613 do template é
+    // `v-else-if="falha"`, que troca a tela INTEIRA por uma linha de texto.
+    // Reaproveitá-lo aqui faria um erro ao gravar apagar a lista de carros.
+    erroChecklist.value = /duplicate|unique/i.test(error.message || '')
       ? 'O checklist deste carro já foi preenchido hoje.'
       : 'Não consegui gravar o checklist. Confira a conexão e tente de novo.'
     return
