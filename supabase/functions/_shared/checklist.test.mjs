@@ -4,6 +4,7 @@ import {
   diaDaSemana, ehDiaDoMensal, diasEntre,
   semanalAtrasado, mensalAtrasado, cadenciasDoDia,
   itensDaFicha, hodometroAceito, problemasDaFicha,
+  quemFaltaHoje, resumoDaCobranca,
 } from './checklist.js'
 
 // Padrão do banco: semanal na sexta, mensal na 1ª quarta-feira.
@@ -209,4 +210,66 @@ test('hodômetro em branco ou zero NÃO passa nem com justificativa longa', () =
     respostas: { d1: 'ok', d2: 'ok' }, itens: DIARIOS,
   })
   assert.equal(zerado.length, 1)
+})
+
+/* ── A cobrança ──────────────────────────────────────────────────────────── */
+
+const VEICULOS = [
+  { id: 'v1', nome: 'VOLVO XC60',  pessoa_id: 'p1', situacao: 'ativo' },
+  { id: 'v2', nome: 'FIAT PUNTO',  pessoa_id: 'p2', situacao: 'ativo' },
+  { id: 'v3', nome: 'HONDA FIT',   pessoa_id: null, situacao: 'ativo' },
+  { id: 'v4', nome: 'FIAT BRAVO',  pessoa_id: 'p3', situacao: 'em_manutencao' },
+]
+const PESSOAS = [
+  { id: 'p1', nome: 'Humberto Mendonça' },
+  { id: 'p2', nome: 'Marcus Vinicius' },
+  { id: 'p3', nome: 'Erick Martins' },
+]
+
+test('carro sem dono fixo não entra na cobrança', () => {
+  // O Honda Fit fica no Barracão, não com alguém. Cobrar dele acusaria todo
+  // dia um carro que ninguém usou, e o quadro viraria ruído.
+  const l = quemFaltaHoje({ veiculos: VEICULOS, fichasDeHoje: [], pessoas: PESSOAS })
+  assert.equal(l.some((x) => x.veiculo.id === 'v3'), false)
+})
+
+test('carro na oficina não entra na cobrança', () => {
+  const l = quemFaltaHoje({ veiculos: VEICULOS, fichasDeHoje: [], pessoas: PESSOAS })
+  assert.equal(l.some((x) => x.veiculo.id === 'v4'), false)
+})
+
+test('quem não fez aparece primeiro, com o nome do dono', () => {
+  const l = quemFaltaHoje({
+    veiculos: VEICULOS, pessoas: PESSOAS,
+    fichasDeHoje: [{ veiculo_id: 'v1' }],
+  })
+  assert.equal(l.length, 2)
+  assert.equal(l[0].veiculo.id, 'v2')
+  assert.equal(l[0].fez, false)
+  assert.equal(l[0].dono, 'Marcus Vinicius')
+  assert.equal(l[1].fez, true)
+})
+
+test('dono que saiu do cadastro não quebra a linha — o carro continua cobrado', () => {
+  const l = quemFaltaHoje({
+    veiculos: [{ id: 'v9', nome: 'X', pessoa_id: 'sumiu', situacao: 'ativo' }],
+    fichasDeHoje: [], pessoas: PESSOAS,
+  })
+  assert.equal(l[0].dono, null)
+  assert.equal(l[0].fez, false)
+})
+
+test('o resumo conta quem falta, e comemora quando não falta ninguém', () => {
+  const todos = quemFaltaHoje({ veiculos: VEICULOS, pessoas: PESSOAS,
+    fichasDeHoje: [{ veiculo_id: 'v1' }, { veiculo_id: 'v2' }] })
+  assert.equal(resumoDaCobranca(todos), 'Todos os carros com dono já foram conferidos hoje.')
+  const um = quemFaltaHoje({ veiculos: VEICULOS, pessoas: PESSOAS,
+    fichasDeHoje: [{ veiculo_id: 'v1' }] })
+  assert.equal(resumoDaCobranca(um), '1 carro ainda sem checklist hoje.')
+  const nenhum = quemFaltaHoje({ veiculos: VEICULOS, pessoas: PESSOAS, fichasDeHoje: [] })
+  assert.equal(resumoDaCobranca(nenhum), '2 carros ainda sem checklist hoje.')
+})
+
+test('sem carro com dono nenhum, o resumo não mente dizendo que está tudo certo', () => {
+  assert.equal(resumoDaCobranca([]), 'Nenhum carro com dono fixo cadastrado.')
 })

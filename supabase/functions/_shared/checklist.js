@@ -133,3 +133,38 @@ export function problemasDaFicha({ hodometro, ultimoKm, justificativa, respostas
   else if (faltando.length > 1) p.push(`Faltam ${faltando.length} itens sem resposta.`);
   return p;
 }
+
+/* ── A cobrança (D16) ─────────────────────────────────────────────────────── */
+
+/**
+ * Quem fez e quem não fez o checklist hoje.
+ *
+ * Só entra carro COM DONO FIXO e ativo: carro de rodízio não tem de quem
+ * cobrar (a ficha dele acontece quando alguém pega), e cobrar dele acusaria
+ * todo dia um carro que ninguém usou — o quadro viraria ruído e ninguém
+ * olharia mais.
+ */
+export function quemFaltaHoje({ veiculos, fichasDeHoje, pessoas }) {
+  const comFicha = new Set((fichasDeHoje || []).map((f) => f && f.veiculo_id));
+  return (veiculos || [])
+    .filter((v) => v && v.pessoa_id && v.situacao === 'ativo')
+    .map((v) => {
+      const dono = (pessoas || []).find((p) => p && p.id === v.pessoa_id);
+      return { veiculo: v, donoId: v.pessoa_id, dono: dono ? dono.nome : null,
+        fez: comFicha.has(v.id) };
+    })
+    .sort((a, b) => (a.fez === b.fez
+      ? String(a.veiculo.nome || '').localeCompare(String(b.veiculo.nome || ''))
+      : (a.fez ? 1 : -1)));
+}
+
+/** A frase do topo do quadro. Nunca diz "tudo certo" sobre o que não sabe. */
+export function resumoDaCobranca(linhas) {
+  const l = linhas || [];
+  if (!l.length) return 'Nenhum carro com dono fixo cadastrado.';
+  const faltam = l.filter((x) => !x.fez).length;
+  if (!faltam) return 'Todos os carros com dono já foram conferidos hoje.';
+  return faltam === 1
+    ? '1 carro ainda sem checklist hoje.'
+    : `${faltam} carros ainda sem checklist hoje.`;
+}
