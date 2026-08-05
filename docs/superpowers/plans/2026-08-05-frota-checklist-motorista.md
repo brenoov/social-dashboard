@@ -255,7 +255,7 @@ import assert from 'node:assert/strict'
 import {
   diaDaSemana, ehDiaDoMensal, diasEntre,
   semanalAtrasado, mensalAtrasado, cadenciasDoDia,
-} from '../../../supabase/functions/_shared/checklist.js'
+} from './checklist.js'   // o teste mora ao lado do módulo, dentro do próprio _shared
 
 // Padrão do banco: semanal na sexta, mensal na 1ª quarta-feira.
 const CONFIG = { dia_semanal: 5, semana_mensal: 1, dia_mensal: 3 }
