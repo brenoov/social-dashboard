@@ -3077,6 +3077,18 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-btn){padding:11px 14px;font-size:14px}
 .tela-acessos :deep(.ac-org-body){grid-template-columns:1fr}
 .tela-acessos :deep(.ac-org-name){font-size:18px;white-space:normal}
+  /* No celular o cabecalho da organizacao ESPREMIA tudo numa linha so: o nome,
+     a contagem em tres linhas e dois botoes, todos disputando 390px. E o
+     "+ Setor" quebrava no meio — "+" em cima, "Setor" embaixo.
+     Agora o bloco de identificacao ocupa a linha inteira e os botoes descem
+     pra linha de baixo, onde cabem. Nada foi removido. */
+  .tela-acessos :deep(.ac-org-head){flex-wrap:wrap;row-gap:10px;padding:14px}
+  .tela-acessos :deep(.ac-org-head) > div[style*="min-width"]{flex:1 1 100%;order:1}
+  .tela-acessos :deep(.ac-org-head) > div[style*="margin-left:auto"]{order:2;margin-left:0!important;flex:1 1 auto}
+  .tela-acessos :deep(.ac-org-badge){order:0}
+  .tela-acessos :deep(.ac-org-chev){order:0;margin-left:auto}
+  /* Botao de barra nunca quebra no meio da palavra. */
+  .tela-acessos :deep(.ac-btn){white-space:nowrap}
 /* As abas QUEBRAM LINHA no celular, nao rolam. Antes rolavam: "Drive"
    aparecia cortado e Auditoria e Configuracoes sumiam por completo — duas abas
    inalcancaveis, e a pessoa nem sabia que existiam.
