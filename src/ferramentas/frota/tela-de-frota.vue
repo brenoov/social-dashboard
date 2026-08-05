@@ -521,7 +521,7 @@ onMounted(async () => {
 
     <!-- Duas áreas (D8). Quem só dirige vê uma aba só — e nesse caso a barra
          não aparece: barra de uma aba é enfeite que come altura de tela. -->
-    <div class="fr-abas" v-if="abas.length > 1" role="tablist">
+    <div class="abas" v-if="abas.length > 1" role="tablist">
       <button v-for="ab in abas" :key="ab.chave" role="tab" type="button"
               :class="{ on: area === ab.chave }" @click="area = ab.chave">{{ ab.rotulo }}</button>
     </div>
@@ -1146,9 +1146,6 @@ onMounted(async () => {
 .tela-frota .fr-topbar .rbv-logo{height:22px;width:auto;flex-shrink:0;}
 .tela-frota .fr-back{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--muted);font-family:var(--fonte-principal);font-size:11px;font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:1.2px;flex-shrink:0;}
 .tela-frota .fr-title{font-family:var(--fonte-principal);font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text);flex:1;min-width:0;text-align:right;}
-.tela-frota .fr-abas{display:flex;gap:4px;padding:2px 14px 0;border-bottom:1px solid var(--border);}
-.tela-frota .fr-abas button{flex:1;appearance:none;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;padding:11px 10px;font-family:var(--fonte-principal);font-size:11.5px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);cursor:pointer;touch-action:manipulation;}
-.tela-frota .fr-abas button.on{color:var(--accent);border-bottom-color:var(--accent);}
 .tela-frota .fr-motorista-resumo{margin:0;padding:14px 14px 4px;font-family:var(--fonte-principal);font-size:15px;font-weight:600;color:var(--text);}
 .tela-frota .fr-secao{margin:16px 0 8px;padding:0 14px;font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);}
 .tela-frota .fr-aviso{margin:0;padding:4px 14px 10px;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.55;color:var(--muted);}

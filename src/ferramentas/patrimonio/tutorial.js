@@ -18,7 +18,7 @@ export const PASSOS = [
       + 'baixo, leia essa palavrinha antes de se assustar — ela diz de onde ele veio.',
   },
   {
-    selector: '.pat-visoes',
+    selector: '.tela-patrimonio .abas',
     titulo: '2. Quatro jeitos de olhar a mesma coisa',
     texto: 'Navegar entra pasta por pasta, como no computador: primeiro a marca, dentro '
       + 'dela o local, dentro dele o ambiente. Planilha mostra tudo de uma vez em tabela, '

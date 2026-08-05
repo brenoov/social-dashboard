@@ -8,6 +8,7 @@
          quebra em linhas agora, e nunca some. -->
     <barra-de-topo :voltar="rotuloDoVoltar" :titulo="rotuloDoCaminho(caminho, listas)" @voltar="voltar">
       <template #acoes>
+        <button class="bt-acao" v-if="visao === 'planilha'" @click="exportarPlanilha">Exportar Excel</button>
         <button class="pat-btn-ajuda" @click="abrirPasseio" title="Como usar esta tela">?</button>
       </template>
     </barra-de-topo>
@@ -36,12 +37,15 @@
 
     <!-- As três visões do mesmo dado: navegar por lugar, ver tudo detalhado
          como a planilha, ou ver onde está o dinheiro. -->
-    <div class="pat-visoes rolagem-x">
-      <button class="pat-chip" :class="{ ativo: visao === 'arvore' }" @click="visao = 'arvore'">Navegar</button>
-      <button class="pat-chip" :class="{ ativo: visao === 'planilha' }" @click="visao = 'planilha'">Planilha</button>
-      <button class="pat-chip" :class="{ ativo: visao === 'resumo' }" @click="visao = 'resumo'">Resumo</button>
-      <button class="pat-chip" :class="{ ativo: visao === 'etiquetas' }" @click="visao = 'etiquetas'">Etiquetas</button>
-      <button class="pat-chip" v-if="visao === 'planilha'" @click="exportarPlanilha">Exportar Excel</button>
+    <!-- O mesmo menu de abas da Frota (classe compartilhada `.abas`), a pedido
+         do dono. Antes eram "chips" numa faixa que rolava — e "Exportar Excel"
+         estava misturado com elas, parecendo mais uma visão quando é uma AÇÃO.
+         Ele subiu pra barra de topo, que é o lugar das ações. -->
+    <div class="abas" role="tablist">
+      <button role="tab" :class="{ on: visao === 'arvore' }" @click="visao = 'arvore'">Navegar</button>
+      <button role="tab" :class="{ on: visao === 'planilha' }" @click="visao = 'planilha'">Planilha</button>
+      <button role="tab" :class="{ on: visao === 'resumo' }" @click="visao = 'resumo'">Resumo</button>
+      <button role="tab" :class="{ on: visao === 'etiquetas' }" @click="visao = 'etiquetas'">Etiquetas</button>
     </div>
 
     <div class="pat-busca-wrap" v-if="visao !== 'resumo' && visao !== 'etiquetas'">

@@ -42,9 +42,17 @@ const TELA = readFileSync(new URL('./tela-de-patrimonio.vue', import.meta.url), 
 
 test('todo passo aponta pra um seletor que existe na tela', () => {
   for (const p of PASSOS) {
-    const classe = p.selector.replace(/^\./, '')
-    assert.ok(TELA.includes(`class="${classe}`) || TELA.includes(`${classe} `) || TELA.includes(`"${classe}"`),
-      `o passo "${p.titulo}" aponta para ${p.selector}, que não existe mais na tela`)
+    // O seletor pode ser composto (".tela-patrimonio .abas") e a classe pode
+    // estar em qualquer posição do atributo. A versão anterior só achava se ela
+    // fosse a primeira ou viesse seguida de espaço, e dava falso alarme nos dois
+    // casos. Aqui: toda classe citada no seletor tem que existir em ALGUM
+    // elemento da tela.
+    const classes = [...p.selector.matchAll(/\.([A-Za-z0-9_-]+)/g)].map((m) => m[1])
+    const naTela = new Set(
+      [...TELA.matchAll(/class="([^"]*)"/g)].flatMap((m) => m[1].split(/\s+/)))
+    const faltando = classes.filter((c) => !naTela.has(c))
+    assert.deepEqual(faltando, [],
+      `o passo "${p.titulo}" aponta para ${p.selector}, e ${faltando.join(', ')} não existe mais na tela`)
   }
 })
 
