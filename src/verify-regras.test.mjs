@@ -32,9 +32,14 @@ test('dataPorExtenso: dia, mes e ano', () => {
 });
 
 test('dataPorExtenso: aguenta o timestamp que o banco devolve', () => {
-  // registrado_em vem como timestamptz ("2026-03-12T18:22:05.123+00:00"), nao
-  // como data pura. Sem o corte, o dia sairia grudado na hora.
+  // registrado_em vem como timestamptz, nao como data pura.
   assert.equal(dataPorExtenso('2026-03-12T18:22:05.123+00:00'), '12 de março de 2026');
+});
+
+test('dataPorExtenso: instante da noite nao pula um dia', () => {
+  // 01:33 UTC de 05/08 e 22:33 de 04/08 em Sao Paulo. Quem registrasse a noite
+  // leria a data de amanha no proprio certificado.
+  assert.equal(dataPorExtenso('2026-08-05T01:33:18.843769+00:00'), '4 de agosto de 2026');
 });
 
 test('whatsappLimpo: so digitos', () => {

@@ -20,8 +20,21 @@ export function mesPorExtenso(iso) {
   return `${MESES[Number(mes) - 1]} de ${ano}`;
 }
 
+// Data pura ("2028-08-04") sai como veio. Ja um instante do banco
+// ("2026-08-05T01:33:18+00:00") vem em UTC: quem registrasse as 22h33 de
+// quarta leria "quinta-feira". Entao o instante e convertido pro fuso de
+// Sao Paulo ANTES de virar dia, mes e ano.
 export function dataPorExtenso(iso) {
-  const [ano, mes, dia] = String(iso).slice(0, 10).split('-');
+  const texto = String(iso);
+  let ano, mes, dia;
+  if (texto.includes('T')) {
+    const d = new Date(texto);
+    [ano, mes, dia] = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(d).split('-');
+  } else {
+    [ano, mes, dia] = texto.slice(0, 10).split('-');
+  }
   return `${Number(dia)} de ${MESES[Number(mes) - 1]} de ${ano}`;
 }
 
