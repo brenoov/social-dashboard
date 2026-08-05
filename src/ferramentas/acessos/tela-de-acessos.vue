@@ -2565,19 +2565,23 @@ async function _acRenderGeral() {
   const body = document.getElementById('ac-body')
   body.innerHTML = `
     <div class="ac-kpis">
-      <div class="ac-kpi k1"><div class="ac-kpi-rail"></div>
+      <div class="ac-kpi k1">
+        <div class="ac-kpi-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg></div>
         <div class="ac-kpi-lab">Colaboradores ativos</div>
         <div class="ac-kpi-val tnum" id="ac-kpi-pessoas">…</div>
         <div class="ac-kpi-fine" id="ac-kpi-pessoas-fine">carregando…</div></div>
-      <div class="ac-kpi k2"><div class="ac-kpi-rail"></div>
+      <div class="ac-kpi k2">
+        <div class="ac-kpi-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
         <div class="ac-kpi-lab">Com e-mail corporativo</div>
         <div class="ac-kpi-val tnum" id="ac-kpi-email">…</div>
         <div class="ac-kpi-fine" id="ac-kpi-email-fine">cobertura do cadastro</div></div>
-      <div class="ac-kpi k3"><div class="ac-kpi-rail"></div>
+      <div class="ac-kpi k3">
+        <div class="ac-kpi-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
         <div class="ac-kpi-lab">Pastas geridas</div>
         <div class="ac-kpi-val tnum" id="ac-kpi-pastas">…</div>
         <div class="ac-kpi-fine" id="ac-kpi-pastas-fine">no Zoho WorkDrive</div></div>
-      <div class="ac-kpi k4"><div class="ac-kpi-rail"></div>
+      <div class="ac-kpi k4">
+        <div class="ac-kpi-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg></div>
         <div class="ac-kpi-lab">Organizações</div>
         <div class="ac-kpi-val tnum" id="ac-kpi-orgs">…</div>
         <div class="ac-kpi-fine" id="ac-kpi-orgs-fine">e seus setores</div></div>
@@ -2735,29 +2739,34 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
    igual no tema claro E no escuro; o mockup tinha as cores cravadas, aqui
    estão traduzidas pros tokens. */
 .tela-acessos .ac-topo{padding:clamp(16px,2.2vw,26px) clamp(14px,2.4vw,44px) 0;width:100%}
-.tela-acessos .ac-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:18px}
-.tela-acessos .ac-hero-brand{display:flex;align-items:center;gap:12px;min-width:0}
+.tela-acessos :deep(.ac-hero){display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:18px}
+.tela-acessos :deep(.ac-hero-brand){display:flex;align-items:center;gap:12px;min-width:0}
 .tela-acessos .ac-hero-mark{width:38px;height:38px;border-radius:10px;flex:none;display:grid;place-items:center;color:#fff;font-weight:800;font-size:16px;letter-spacing:.5px;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 72%,#000));box-shadow:var(--shadow-sm)}
-.tela-acessos .ac-hero-h1{margin:0;font-family:var(--fonte-principal);font-size:clamp(19px,2.3vw,25px);font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text);line-height:1.05}
-.tela-acessos .ac-hero-sub{color:var(--muted);font-size:12.5px;margin-top:3px;line-height:1.35}
-.tela-acessos .ac-hero-provs{display:flex;gap:8px;flex-wrap:wrap}
-.tela-acessos .ac-hero-prov{display:flex;align-items:center;gap:7px;padding:7px 12px;border:1px solid var(--border);border-radius:999px;background:var(--surface);font-size:12.5px;font-weight:600;color:var(--text);box-shadow:var(--shadow-sm)}
-.tela-acessos .ac-hero-prov-note{color:var(--muted);font-weight:500;font-size:11.5px}
-.tela-acessos .ac-hero-prov-note:empty{display:none}
-.tela-acessos .ac-hero-dot{width:8px;height:8px;border-radius:999px;flex:none;background:var(--muted)}
-.tela-acessos .ac-hero-dot.on{background:var(--green);box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 20%,transparent)}
-.tela-acessos .ac-hero-dot.leg{background:var(--orange);box-shadow:0 0 0 3px color-mix(in srgb,var(--orange) 20%,transparent)}
-.tela-acessos .ac-hero-dot.off{background:var(--muted);box-shadow:0 0 0 3px color-mix(in srgb,var(--muted) 18%,transparent)}
-.tela-acessos .ac-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:4px}
-.tela-acessos .ac-kpi{position:relative;overflow:hidden;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;box-shadow:var(--shadow-sm)}
-.tela-acessos .ac-kpi-rail{position:absolute;left:0;top:0;bottom:0;width:3px}
-.tela-acessos .ac-kpi.k1 .ac-kpi-rail{background:var(--accent)}
-.tela-acessos .ac-kpi.k2 .ac-kpi-rail{background:var(--green)}
-.tela-acessos .ac-kpi.k3 .ac-kpi-rail{background:var(--orange)}
-.tela-acessos .ac-kpi.k4 .ac-kpi-rail{background:var(--muted)}
-.tela-acessos .ac-kpi-lab{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
-.tela-acessos .ac-kpi-val{font-family:var(--fonte-dados);font-size:32px;font-weight:600;letter-spacing:.5px;line-height:1;margin-top:7px;color:var(--text);font-variant-numeric:tabular-nums}
-.tela-acessos .ac-kpi-fine{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.35}
+.tela-acessos :deep(.ac-hero-h1){margin:0;font-family:var(--fonte-principal);font-size:clamp(19px,2.3vw,25px);font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text);line-height:1.05}
+.tela-acessos :deep(.ac-hero-sub){color:var(--muted);font-size:12.5px;margin-top:3px;line-height:1.35}
+.tela-acessos :deep(.ac-hero-provs){display:flex;gap:8px;flex-wrap:wrap}
+.tela-acessos :deep(.ac-hero-prov){display:flex;align-items:center;gap:7px;padding:7px 12px;border:1px solid var(--border);border-radius:999px;background:var(--surface);font-size:12.5px;font-weight:600;color:var(--text);box-shadow:var(--shadow-sm)}
+.tela-acessos :deep(.ac-hero-prov-note){color:var(--muted);font-weight:500;font-size:11.5px}
+.tela-acessos :deep(.ac-hero-prov-note):empty{display:none}
+.tela-acessos :deep(.ac-hero-dot){width:8px;height:8px;border-radius:999px;flex:none;background:var(--muted)}
+.tela-acessos :deep(.ac-hero-dot).on{background:var(--green);box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 20%,transparent)}
+.tela-acessos :deep(.ac-hero-dot).leg{background:var(--orange);box-shadow:0 0 0 3px color-mix(in srgb,var(--orange) 20%,transparent)}
+.tela-acessos :deep(.ac-hero-dot).off{background:var(--muted);box-shadow:0 0 0 3px color-mix(in srgb,var(--muted) 18%,transparent)}
+.tela-acessos :deep(.ac-kpis){display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:4px}
+.tela-acessos :deep(.ac-kpi){position:relative;overflow:hidden;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;box-shadow:var(--shadow-sm)}
+.tela-acessos :deep(.ac-kpi .ac-kpi-ico){order:0}
+/* O LADRILHO DE ÍCONE substitui a listrinha de 3px que ficava na borda
+   esquerda. Na MESMA tela, logo abaixo, os cartões de "Ir para" já usavam
+   ladrilho colorido — as métricas eram as únicas cruas, e a inconsistência
+   dentro da propria pagina era o que o dono via como "visual cru".
+   A cor de cada uma repete a do atalho correspondente: pessoas em verde-azulado
+   como "Colaboradores", pastas em laranja como "Drive". */
+.tela-acessos :deep(.ac-kpi-ico){width:34px;height:34px;flex:none;border-radius:10px;display:grid;place-items:center;color:#fff;margin-bottom:12px}
+.tela-acessos :deep(.ac-kpi.k1 .ac-kpi-ico){background:linear-gradient(140deg,#0f766e,#14b8a6)}
+.tela-acessos :deep(.ac-kpi.k2 .ac-kpi-ico){background:linear-gradient(140deg,#15803d,#22c55e)}
+.tela-acessos :deep(.ac-kpi.k3 .ac-kpi-ico){background:linear-gradient(140deg,#b45309,#f59e0b)}
+.tela-acessos :deep(.ac-kpi.k4 .ac-kpi-ico){background:linear-gradient(140deg,#4338ca,#7c6cf6)}
+.tela-acessos :deep(.ac-kpi-fine){order:3;font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.4;opacity:.85}
 
 /* ── Atalhos da Visão geral ──────────────────────────────────────────────────
    Os três botões estavam sem regra nenhuma e ficavam jogados embaixo dos cards.
@@ -2778,25 +2787,25 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 /* No celular os 4 KPIs viram 2 colunas (não estoura a tela) e o cabeçalho
    empilha marca em cima, pills embaixo. */
 @media(max-width:720px){
-  .tela-acessos .ac-kpis{grid-template-columns:repeat(2,1fr)}
-  .tela-acessos .ac-hero{align-items:flex-start}
-  .tela-acessos .ac-hero-provs{width:100%}
+  .tela-acessos :deep(.ac-kpis){grid-template-columns:repeat(2,1fr)}
+  .tela-acessos :deep(.ac-hero){align-items:flex-start}
+  .tela-acessos :deep(.ac-hero-provs){width:100%}
 }
 /* Topo compacto no celular: faixa "Voltar" e cabeçalho com menos respiro,
    subtítulo escondido — o topo deixa de comer meia tela. */
 @media(max-width:640px){
   .tela-acessos :deep(.ac-topbar){padding:9px 14px}
   .tela-acessos .ac-topo{padding:12px 14px 0}
-  .tela-acessos .ac-hero{margin-bottom:12px;gap:10px}
+  .tela-acessos :deep(.ac-hero){margin-bottom:12px;gap:10px}
   /* O subtitulo VOLTOU. Estava escondido no celular pra economizar altura, e
      esconder conteudo e exatamente o que o dono mandou parar de fazer. A
      altura sai do titulo, que estava grande demais pra tela pequena — o
      subtitulo custa 16px e diz de quem sao as pessoas listadas. */
-  .tela-acessos .ac-hero-h1{font-size:17px;letter-spacing:.6px}
-  .tela-acessos .ac-hero-sub{font-size:11.5px;margin-top:2px}
+  .tela-acessos :deep(.ac-hero-h1){font-size:17px;letter-spacing:.6px}
+  .tela-acessos :deep(.ac-hero-sub){font-size:11.5px;margin-top:2px}
 }
 @media(max-width:420px){
-  .tela-acessos .ac-kpi-val{font-size:27px}
+  .tela-acessos :deep(.ac-kpi-val){font-size:27px}
 }
 
 /* ===== Aba "Pastas & Acessos" (Tarefa 3): master-detail 3 colunas =====
