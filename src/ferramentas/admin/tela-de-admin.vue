@@ -362,15 +362,42 @@ let _vdLista = []
 let _vdEscolhas = {}     // nome -> { criar, email, equipe_id }
 let _vdSenhas = []       // as senhas geradas, mostradas UMA vez
 let _vdCarregando = false
+// POR QUE A BUSCA NÃO DEU EM NADA. Sem isto, um resultado vazio devolvia a tela
+// ao botão inicial — indistinguível de "não cliquei". Foi exatamente o que
+// aconteceu em 05/08/2026: o botão parecia morto e não havia como saber por
+// quê. `sb()` nunca estoura; ele devolve lista vazia com o motivo pendurado, e
+// quem não lê esse motivo transforma falha em silêncio.
+let _vdMotivoVazio = ''
 
 async function _vdPuxar() {
   const body = document.getElementById('admin-equipes-body'); if (!body) return
-  _vdCarregando = true; _eqDesenhar()
+  _vdCarregando = true; _vdMotivoVazio = ''; _eqDesenhar()
   try {
-    const [vends, pedidos] = await Promise.all([
-      sb('bling_vendedores?select=vendor_id,nome'),
-      sb('bling_pedido_vendedor?select=vendor_id,loja_id,pedido_data&limit=5000'),
+    // `sbClient`, e NÃO o `sb()` desta tela.
+    //
+    // As duas tabelas só abrem para `authenticated`. O `sb()` monta o cabeçalho
+    // com `estado.currentSession?.access_token || SUPABASE_ANON_KEY` — e com a
+    // chave anônima o PostgREST responde 200 com lista VAZIA, sem erro nenhum.
+    // Falha que se disfarça de "não tem nada".
+    //
+    // O `sbClient` cuida da sessão sozinho (inclusive renovando), e é o mesmo
+    // que a aba espelho do Gestor Comercial usa — aquela funcionou em produção
+    // no mesmo dia em que esta não funcionou. Escolhi o que tem prova.
+    const [rv, rp] = await Promise.all([
+      sbClient.from('bling_vendedores').select('vendor_id,nome'),
+      sbClient.from('bling_pedido_vendedor').select('vendor_id,loja_id,pedido_data').limit(5000),
     ])
+    if (rv.error || rp.error) {
+      _vdMotivoVazio = 'A leitura falhou: ' + ((rv.error || rp.error).message || 'motivo desconhecido')
+      return
+    }
+    const vends = rv.data || []
+    const pedidos = rp.data || []
+    if (!(vends || []).length) {
+      _vdMotivoVazio = 'Nenhum vendedor cadastrado no Bling chegou até aqui. '
+        + 'Abra a Gestão à Vista uma vez — é ela que traz os vendedores do Bling para cá.'
+      return
+    }
     const porVendedor = {}
     for (const p of (pedidos || [])) {
       if (!porVendedor[p.vendor_id]) porVendedor[p.vendor_id] = []
@@ -398,14 +425,15 @@ async function _vdPuxar() {
       }
     }
   } catch (e) {
-    adminToast('Não consegui puxar as vendedoras: ' + String(e && e.message || e), false)
+    _vdMotivoVazio = String(e && e.message || e)
+    adminToast('Não consegui puxar as vendedoras: ' + _vdMotivoVazio, false)
   } finally {
     _vdCarregando = false; _eqDesenhar()
   }
 }
 
 function _vdSecao() {
-  if (!_vdLista.length && !_vdCarregando && !_vdSenhas.length) {
+  if (!_vdLista.length && !_vdCarregando && !_vdSenhas.length && !_vdMotivoVazio) {
     return '<div style="border:1px dashed var(--border);border-radius:12px;padding:16px;margin-bottom:14px;">'
       + '<div style="font-weight:700;color:var(--text);margin-bottom:4px;">Puxar as vendedoras das vendas</div>'
       + '<div class="admin-section-sub" style="margin-bottom:10px;">Lê quem já vendeu no Bling, junta os cadastros repetidos e sugere a loja de cada uma. Nada é criado sem você confirmar.</div>'
@@ -413,6 +441,16 @@ function _vdSecao() {
       + '</div>'
   }
   if (_vdCarregando) return '<div style="color:var(--muted);font-size:12px;margin-bottom:14px;">Lendo as vendas…</div>'
+
+  // O MOTIVO NA TELA, e o botão de volta ao lado. Voltar em silêncio ao estado
+  // inicial faz o botão parecer quebrado.
+  if (_vdMotivoVazio) {
+    return '<div style="border:1px solid var(--orange,#d97706);border-radius:12px;padding:16px;margin-bottom:14px;">'
+      + '<div style="font-weight:700;color:var(--orange,#d97706);margin-bottom:5px;">Não deu para puxar as vendedoras</div>'
+      + '<div class="admin-section-sub" style="margin-bottom:10px;">' + escHtml(_vdMotivoVazio) + '</div>'
+      + '<button data-vd-puxar style="border:1px solid var(--accent);background:transparent;color:var(--accent);border-radius:9px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;">Tentar de novo</button>'
+      + '</div>'
+  }
 
   // AS SENHAS APARECEM UMA VEZ SÓ. Guardá-las para reler depois seria guardar
   // senha em texto — e não guardar obriga a anotar agora, que é o certo.
@@ -699,7 +737,7 @@ function _eqLigar(body) {
   const q = (sel) => Array.from(body.querySelectorAll(sel))
   const um = (sel) => body.querySelector(sel)
   const puxar = um('[data-vd-puxar]'); if (puxar) puxar.onclick = () => _vdPuxar()
-  const fechar = um('[data-vd-fechar]'); if (fechar) fechar.onclick = () => { _vdLista = []; _vdSenhas = []; _eqDesenhar() }
+  const fechar = um('[data-vd-fechar]'); if (fechar) fechar.onclick = () => { _vdLista = []; _vdSenhas = []; _vdMotivoVazio = ''; _eqDesenhar() }
   const criarTudo = um('[data-vd-criar-tudo]'); if (criarTudo) criarTudo.onclick = () => _vdCriarContas(criarTudo)
   q('[data-vd-criar]').forEach(cb => { cb.onchange = () => { _vdEscolhas[cb.getAttribute('data-vd-criar')].criar = cb.checked } })
   q('[data-vd-email]').forEach(i => { i.oninput = () => { _vdEscolhas[i.getAttribute('data-vd-email')].email = i.value } })
