@@ -423,6 +423,10 @@ async function _saPopulateItemCounts(pedidos,pvQtdMap,pvMap){
       if(vid)pvMap[parseInt(p.id)]=vid;
       const row={pedido_id:parseInt(p.id),qtd_itens:n};
       if(vid)row.vendor_id=vid;
+      // A LOJA VAI JUNTO — ver a mesma nota na Gestão à Vista. É o que permite
+      // dizer de qual loja é cada vendedora.
+      const lj=resp.data?.loja?.id??p.loja?.id??null;
+      if(lj)row.loja_id=lj;
       upsert.push(row);
     }catch(e){}
     if((i+1)%10===0)await new Promise(r=>setTimeout(r,250));
