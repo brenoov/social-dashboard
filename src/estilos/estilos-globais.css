@@ -1538,39 +1538,32 @@ img{max-width:100%;}
 
 /* ── MENU DE ABAS ──────────────────────────────────────────────────────────
    O jeito padrão de alternar entre as visões de uma ferramenta. Nasceu na
-   Frota, o dono aprovou ("o menu de abas ficou legal") e pediu igual no
-   Patrimônio — então virou classe compartilhada, pra ferramenta nova herdar
-   sem ninguém precisar lembrar.
+   Frota, o dono aprovou e pediu igual no Patrimônio e no Colaboradores —
+   então é classe compartilhada, pra ferramenta nova herdar sem ninguém
+   precisar lembrar.
 
-   Nome próprio e novo, sem chance de colidir com o que já existe.
+   CADA ABA TEM A LARGURA DO PRÓPRIO TEXTO (`flex:0 1 auto`), e é a FAIXA que
+   quebra, entre abas inteiras. A versão anterior dava a todas a mesma largura
+   mínima e espremia o rótulo até a palavra partir no meio da sílaba —
+   "CONFIGU / RAÇÕES / S". O dono chamou de feio e estava certo.
 
-   As abas DIVIDEM a largura por igual (`flex:1`) e nunca rolam: com quatro ou
-   cinco itens num conjunto fixo, esconder alguma atrás de rolagem é o mesmo
-   erro que deixou duas abas inalcançáveis no Colaboradores. Rótulo comprido
-   quebra em duas linhas. */
-/* `flex-wrap` + base de 90px: com quatro abas elas dividem a linha; com cinco
-   ou mais, a faixa quebra em duas linhas em vez de espremer cada uma a 60px.
-   74px de base e o ponto medido: QUATRO abas ainda cabem numa linha num
-   aparelho de 360px, e CINCO ja quebram — que e o que se quer nos dois casos
-   — largura em que "Configuracoes" partia no meio da silaba
-   ("CONFIGU / RACOES / S"). Quebrar a FAIXA e melhor que quebrar a PALAVRA. */
-.abas{display:flex;flex-wrap:wrap;gap:4px;padding:2px 14px 0;border-bottom:1px solid var(--border);}
-/* `overflow-wrap:anywhere` e o que impede rotulo comprido de ser CORTADO.
-   Sem ele, "Plano de manutencao" nao cabia na caixa e a palavra estourava,
-   ficando com o fim escondido — medido. A regra da central e a mesma do
-   titulo da barra: nao cabe, quebra em duas linhas; nunca some. */
-.abas button{flex:1 1 74px;min-width:0;appearance:none;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;padding:11px 8px;font-family:var(--fonte-principal);font-size:11.5px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);cursor:pointer;touch-action:manipulation;line-height:1.25;overflow-wrap:anywhere;}
+   Quebrar a FAIXA é sempre melhor que quebrar a PALAVRA. E nunca rolar: com
+   quatro ou cinco itens num conjunto fixo, esconder algum atrás de rolagem é
+   o mesmo erro que deixou duas abas inalcançáveis no Colaboradores. */
+.abas{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;padding:2px 12px 0;border-bottom:1px solid var(--border);}
+.abas button{flex:0 1 auto;appearance:none;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;padding:11px 12px;font-family:var(--fonte-principal);font-size:11.5px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);cursor:pointer;touch-action:manipulation;line-height:1.25;}
 .abas button:hover{color:var(--text);}
 .abas button.on{color:var(--accent);border-bottom-color:var(--accent);}
 @media(min-width:768px){
-  /* No computador elas param de esticar: aba ocupando um quarto de uma tela de
-     1440px vira um botão gigante com três palavras perdidas no meio. */
-  .abas{padding:2px 24px 0;gap:2px;}
-  .abas button{flex:0 0 auto;padding:11px 18px;font-size:12px;}
+  /* No computador tudo cabe numa linha, e as abas encostam à esquerda,
+     alinhadas com o resto da tela — centralizar só faz sentido quando elas
+     ocupam a largura toda. */
+  .abas{justify-content:flex-start;padding:2px 24px 0;}
+  .abas button{padding:11px 18px;font-size:12px;}
 }
 @media(max-width:400px){
-  .abas{padding:2px 10px 0;}
-  .abas button{font-size:10.5px;letter-spacing:.6px;padding:10px 5px;}
+  .abas{padding:2px 8px 0;}
+  .abas button{font-size:10.5px;letter-spacing:.5px;padding:10px 9px;}
 }
 
 /* ── AÇÕES DA BARRA DE TOPO ────────────────────────────────────────────────

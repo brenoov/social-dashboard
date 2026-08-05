@@ -12,7 +12,7 @@ export const AREAS = [
   { chave: 'motorista', rotulo: 'Motorista' },
   { chave: 'gestao', rotulo: 'Gestão' },
   { chave: 'revisoes', rotulo: 'Revisões' },
-  { chave: 'plano', rotulo: 'Plano de manutenção' },
+  { chave: 'plano', rotulo: 'Plano' },
 ];
 
 /**

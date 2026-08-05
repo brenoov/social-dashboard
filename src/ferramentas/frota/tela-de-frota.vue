@@ -892,7 +892,7 @@ onMounted(async () => {
          Revisões. Ficava no rodapé daquela aba e o dono não achava — virou aba
          com nome próprio. -->
     <template v-if="area === 'plano' && !carregando && !falha">
-      <h2 class="fr-secao">De quantos em quantos quilômetros</h2>
+      <h2 class="fr-secao">Plano de manutenção — de quantos em quantos quilômetros</h2>
       <p class="fr-aviso">
         Estes números são os que geram os avisos acima. Mude quando o mecânico mandar,
         e acrescente o que faltar.
