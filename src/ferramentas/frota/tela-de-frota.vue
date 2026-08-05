@@ -651,7 +651,11 @@ onMounted(async () => {
       </template>
     </template>
 
-    <div class="fr-lista" v-else>
+    <!-- GESTÃO. `v-else-if` EXPLÍCITO, nunca `v-else` solto: com `v-else` esta
+         lista era o fim da corrente que começa lá em cima no "carregando", e
+         qualquer aba que não fosse Motorista caía aqui — Revisões e Plano de
+         manutenção mostravam a frota inteira em cartões. -->
+    <div class="fr-lista" v-else-if="area === 'gestao'">
       <div v-for="l in linhas" :key="l.veiculo.id" class="fr-card" :class="{ rua: l.naRua, parado: !l.disponivel && !l.naRua }">
         <div class="fr-card-topo">
           <div class="fr-card-ident">
