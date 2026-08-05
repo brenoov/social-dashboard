@@ -218,7 +218,10 @@ async function _gvBuildSkuSlide(pedidos,pedidosPrev){
       if(vid){
         const isNew=!window._gvPedidoVendorMap[p.id];
         window._gvPedidoVendorMap[p.id]=vid;
-        bgMappings.push({pedido_id:parseInt(p.id),vendor_id:vid,pedido_data:p.data?.slice(0,10)||null,qtd_itens:det?.itens?.length||1});
+        // A LOJA VAI JUNTO. O Bling sempre mandou `loja.id` no pedido e esta
+        // linha jogava fora — e sem ela não há como saber de qual loja é cada
+        // vendedora, que é o que o time de venda precisa saber.
+        bgMappings.push({pedido_id:parseInt(p.id),vendor_id:vid,pedido_data:p.data?.slice(0,10)||null,qtd_itens:det?.itens?.length||1,loja_id:det?.loja?.id??p.loja?.id??null});
         if(!window._gvVendedoresCache[vid])newVendIds.add(vid);
         if(isNew)newVendorFound=true;
       }
@@ -256,7 +259,7 @@ async function _gvBuildSkuSlide(pedidos,pedidosPrev){
       const vid=resp.data?.vendedor?.id;
       if(vid){
         window._gvPedidoVendorMap[p.id]=vid;
-        bgMappings.push({pedido_id:parseInt(p.id),vendor_id:vid,pedido_data:p.data?.slice(0,10)||null,qtd_itens:resp.data?.itens?.length||1});
+        bgMappings.push({pedido_id:parseInt(p.id),vendor_id:vid,pedido_data:p.data?.slice(0,10)||null,qtd_itens:resp.data?.itens?.length||1,loja_id:resp.data?.loja?.id??p.loja?.id??null});
         if(!window._gvVendedoresCache[vid])newVendIds.add(vid);
         newVendorFound=true;
       }
