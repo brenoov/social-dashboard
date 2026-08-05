@@ -65,3 +65,71 @@ export function cadenciasDoDia({ hoje, config, ultimaSemanal, ultimaMensal }) {
   }
   return c;
 }
+
+/* ── O que entra na ficha ─────────────────────────────────────────────────── */
+
+/** Os itens ativos das cadências pedidas, na ordem que o gestor definiu. */
+export function itensDaFicha(itens, cadencias) {
+  const quer = new Set(cadencias || []);
+  return (itens || [])
+    .filter((i) => i && i.ativo !== false && quer.has(i.cadencia))
+    .slice()
+    .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+}
+
+/* ── O hodômetro ──────────────────────────────────────────────────────────── */
+
+// Mesmo limiar de problemasDaDevolucao() em estado-do-veiculo.js: 5.000 km numa
+// tacada é quase sempre dedo errado, mas viagem longa existe — por isso pede
+// confirmação em vez de barrar.
+const SALTO_SUSPEITO = 5000;
+const km = (n) => Math.abs(n).toLocaleString('pt-BR');
+
+/**
+ * O número do painel vale? Devolve { ok, precisaJustificar, motivo }.
+ *
+ * `precisaJustificar` distingue as duas recusas: número em branco só se
+ * corrige, mas número que contraria o histórico pode estar certo (painel
+ * trocado, odômetro adulterado pelo dono anterior) e aí a pessoa explica.
+ */
+export function hodometroAceito(novo, ultimoConhecido) {
+  if (!Number.isInteger(novo) || novo <= 0) {
+    return { ok: false, precisaJustificar: false,
+      motivo: 'Informe o número que está no painel agora.' };
+  }
+  if (!Number.isInteger(ultimoConhecido)) {
+    return { ok: true, precisaJustificar: false, motivo: '' };
+  }
+  if (novo < ultimoConhecido) {
+    return { ok: false, precisaJustificar: true,
+      motivo: `O último registro deste carro era ${km(ultimoConhecido)} km, e odômetro não `
+        + 'anda para trás. Confira o número — ou explique o que aconteceu.' };
+  }
+  if (novo - ultimoConhecido > SALTO_SUSPEITO) {
+    return { ok: false, precisaJustificar: true,
+      motivo: `São ${km(novo - ultimoConhecido)} km desde o último registro. `
+        + 'Confirme se está certo, ou explique.' };
+  }
+  return { ok: true, precisaJustificar: false, motivo: '' };
+}
+
+// Justificativa tem de ser uma frase, não um resmungo: "ok" e "sei la" não
+// explicam nada pra quem for ler isso daqui a seis meses.
+const JUSTIFICATIVA_MINIMA = 10;
+
+/**
+ * Valida a ficha ANTES de gravar. Lista vazia significa que pode gravar.
+ * `respostas` é { [itemId]: 'ok' | 'nao_ok' | 'na' }.
+ */
+export function problemasDaFicha({ hodometro, ultimoKm, justificativa, respostas, itens }) {
+  const p = [];
+  const h = hodometroAceito(hodometro, ultimoKm);
+  const explicou = String(justificativa || '').trim().length >= JUSTIFICATIVA_MINIMA;
+  if (!h.ok && !(h.precisaJustificar && explicou)) p.push(h.motivo);
+
+  const r = respostas || {};
+  const faltando = (itens || []).filter((i) => !r[i.id]);
+  if (faltando.length === 1) p.push(`Falta responder "${faltando[0].item}".`);
+  else if (faltando.length > 1) p.push(`Faltam ${faltando.length} itens sem resposta.`);
+  return p;
+}
