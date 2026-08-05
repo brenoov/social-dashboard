@@ -220,3 +220,55 @@ test('normalizar tira acento, caixa e pontuacao', () => {
   assert.equal(normalizar('Alexandra Aleíde de Abreu Pinto'), 'alexandra aleide de abreu pinto')
   assert.equal(normalizar('  Elen   Lopes  '), 'elen lopes')
 })
+
+// ── Amostra fina fala baixo ─────────────────────────────────────────────────
+
+test('12 pedidos com loja de 153 NAO viram uma afirmacao', () => {
+  // O CASO REAL, visto na tela em 05/08/2026: a Silvia tem 153 pedidos e só 12
+  // com loja gravada (a coluna acabou de nascer — 30 de 713 no cache inteiro).
+  // A tela dizia "Loja Dom Pedro" com a cara de quem sabe.
+  const pedidos = Array(12).fill({ loja_id: 205657609 }).concat(Array(141).fill({ loja_id: null }))
+  const e = lojaDaVendedora(pedidos)
+  assert.equal(e.pedidosDela, 153)
+  assert.equal(e.comLoja, 12)
+  assert.ok(e.cobertura < 0.1)
+  const frase = comoDizerALoja(e, 'Dom Pedro')
+  assert.match(frase, /^talvez Dom Pedro/)
+  assert.match(frase, /12 dos 153/)
+})
+
+test('com a maioria dos pedidos carregando loja, volta a afirmar', () => {
+  const pedidos = Array(90).fill({ loja_id: 1 }).concat(Array(10).fill({ loja_id: null }))
+  assert.equal(comoDizerALoja(lojaDaVendedora(pedidos), 'Tivoli'), 'Tivoli')
+})
+
+test('cobertura boa mas divisao parelha continua mostrando a porcentagem', () => {
+  const pedidos = Array(6).fill({ loja_id: 1 }).concat(Array(4).fill({ loja_id: 2 }))
+  assert.match(comoDizerALoja(lojaDaVendedora(pedidos), 'Tivoli'), /Tivoli \(60% das vendas dela\)/)
+})
+
+// ── Avisar demais é não avisar ──────────────────────────────────────────────
+
+test('as duas Najla continuam se avisando — o caso que motivou o aviso', () => {
+  const g = agruparVendedores(REAIS)
+  assert.deepEqual(acha(g, 'Najla Souza').parecidos, ['Najla Rocha'])
+})
+
+test('as duas Maria Eduarda se avisam: os DOIS primeiros nomes batem', () => {
+  const g = agruparVendedores(REAIS)
+  assert.ok(acha(g, 'Maria Eduarda Florêncio').parecidos.includes('Maria Eduarda Cristina Schettini'))
+})
+
+test('Maria Eduarda NAO e parecida com Maria Paula — sao obviamente outras', () => {
+  // Seis avisos apareceram na tela por causa disso. Aviso onde não devia ensina
+  // a ignorar aviso, e aí ele não serve para o caso em que importa.
+  const g = agruparVendedores(REAIS)
+  assert.ok(!acha(g, 'Maria Eduarda Florêncio').parecidos.includes('Maria Paula Pellet Almeida'))
+  assert.ok(!acha(g, 'Maria Cristina').parecidos.includes('Maria Paula Pellet Almeida'))
+})
+
+test('o barulho caiu: menos avisos do que nomes', () => {
+  const g = agruparVendedores(REAIS)
+  const total = g.reduce((s, x) => s + (x.parecidos || []).length, 0)
+  assert.ok(total <= 4, `avisos demais: ${total}`)
+})
