@@ -247,15 +247,30 @@ async function gravarChecklist({ ficha, respostas }) {
     // `pessoas`, do mesmo jeito que a retirada e a requisição já fazem.
     .insert({ ...ficha, pessoa_id: euId.value, pessoa_nome: euId.value ? nomeDaPessoa(euId.value) : null })
     .select('id').single()
-  if (!error && data) {
-    await sbClient.from('frota_checklist_respostas')
-      .insert(respostas.map((r) => ({ ...r, checklist_id: data.id })))
-  }
-  gravando.value = false
   if (error) {
+    gravando.value = false
     erroChecklist.value = /duplicate|unique/i.test(error.message || '')
       ? 'O checklist deste carro já foi preenchido hoje.'
       : 'Não consegui gravar o checklist. Confira a conexão e tente de novo.'
+    return
+  }
+  // A ficha já tem `data.id` aqui — as respostas são um segundo insert, e
+  // podem falhar sozinhas (rede caiu no meio, permissão faltando). Capturar o
+  // erro é OBRIGATÓRIO: sem isso a ficha fica gravada sem nenhuma resposta,
+  // e a tela segue como se tivesse dado tudo certo — ninguém percebe até
+  // alguém abrir o banco e ver a contagem zerada.
+  const { error: erroRespostas } = await sbClient.from('frota_checklist_respostas')
+    .insert(respostas.map((r) => ({ ...r, checklist_id: data.id })))
+  gravando.value = false
+  if (erroRespostas) {
+    // NÃO chama carregar(): recarregar acharia a ficha (ela gravou) e trocaria
+    // o cartão pela frase "Checklist de hoje já feito" — sensação de sucesso
+    // bem no caminho que falhou. A pessoa precisa ver que faltou a parte de
+    // dentro, e saber a quem recorrer, porque tentar de novo bate no índice
+    // "um carro, um dia, uma ficha" e é recusado como duplicidade.
+    erroChecklist.value = 'A ficha do checklist foi registrada, mas as respostas dos itens não '
+      + 'foram salvas. Avise quem administra a Frota antes de tentar de novo — tentar de novo '
+      + 'vai recusar dizendo que o checklist de hoje já existe.'
     return
   }
   await carregar()
