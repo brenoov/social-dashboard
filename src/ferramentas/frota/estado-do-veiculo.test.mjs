@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   estadoDoVeiculo, resumoDoEstado, ordenarEstados, usoAberto, ultimoUsoFechado,
-  rotuloDoTanque, precisaAbastecer, problemasDaDevolucao,
+  rotuloDoTanque, precisaAbastecer, problemasDaDevolucao, ultimoHodometro,
 } from './estado-do-veiculo.js'
 
 const carro = (extra = {}) => ({ id: 'v1', nome: 'FORD FIESTA SEDAN', placa: 'ERO3G55', situacao: 'ativo', ...extra })
@@ -157,4 +157,57 @@ test('sem KM de saída registrado, ainda dá pra devolver', () => {
   // A planilha tem "KM Inicial" em branco em quase todo registro. O módulo não
   // pode travar a devolução por causa de um dado que ninguém preencheu antes.
   assert.deepEqual(problemasDaDevolucao({ kmSaida: null, kmVolta: 146080 }), [])
+})
+
+/* ── O km também vem do checklist (F6) ───────────────────────────────────── */
+
+test('o hodômetro do checklist vira a quilometragem do carro', () => {
+  // É o ponto da fase inteira: sem checklist, este carro não tem km nenhum,
+  // porque ninguém registra viagem.
+  const e = estadoDoVeiculo({ id: 'v1', situacao: 'ativo' }, [],
+    [{ veiculo_id: 'v1', feita_em: '2026-08-05', hodometro: 148320 }])
+  assert.equal(e.km, 148320)
+})
+
+test('entre devolução e checklist, vale o MAIOR — odômetro só anda pra frente', () => {
+  const usos = [{ veiculo_id: 'v1', saida_em: '2026-08-01', volta_em: '2026-08-02', km_volta: 140000 }]
+  const fichas = [{ veiculo_id: 'v1', feita_em: '2026-08-05', hodometro: 148320 }]
+  assert.equal(estadoDoVeiculo({ id: 'v1', situacao: 'ativo' }, usos, fichas).km, 148320)
+  const antigas = [{ veiculo_id: 'v1', feita_em: '2026-07-01', hodometro: 130000 }]
+  assert.equal(estadoDoVeiculo({ id: 'v1', situacao: 'ativo' }, usos, antigas).km, 140000)
+})
+
+test('ficha de outro carro não conta', () => {
+  assert.equal(ultimoHodometro([{ veiculo_id: 'v2', hodometro: 999999 }], 'v1'), null)
+  assert.equal(ultimoHodometro([], 'v1'), null)
+  assert.equal(ultimoHodometro(null, 'v1'), null)
+})
+
+test('chamar com dois argumentos continua funcionando', () => {
+  const e = estadoDoVeiculo({ id: 'v1', situacao: 'ativo' }, [])
+  assert.equal(e.km, null)
+})
+
+/* ── Posse não é "na rua" (D9) ───────────────────────────────────────────── */
+
+test('posse aberta do dono fixo NÃO deixa o carro eternamente na rua', () => {
+  // Sem esta distinção, o Volvo do Humberto apareceria "na rua com Humberto"
+  // para sempre, e o botão de devolver ficaria aceso sem fim.
+  const usos = [{ veiculo_id: 'v1', tipo: 'posse', pessoa_id: 'p1',
+    pessoa_nome: 'Humberto', saida_em: '2026-08-05', volta_em: null }]
+  const e = estadoDoVeiculo({ id: 'v1', situacao: 'ativo', pessoa_id: 'p1' }, usos)
+  assert.equal(e.naRua, false)
+})
+
+test('viagem aberta continua sendo na rua', () => {
+  const usos = [{ veiculo_id: 'v1', tipo: 'viagem', pessoa_id: 'p2',
+    pessoa_nome: 'Marcus', saida_em: '2026-08-05', volta_em: null, km_saida: 1000 }]
+  assert.equal(estadoDoVeiculo({ id: 'v1', situacao: 'ativo' }, usos).naRua, true)
+})
+
+test('linha antiga sem o campo tipo é tratada como viagem', () => {
+  // As linhas gravadas antes da migration 028 não têm `tipo`. Tratá-las como
+  // posse faria carro na rua sumir da lista de quem está fora.
+  const usos = [{ veiculo_id: 'v1', pessoa_id: 'p2', saida_em: '2026-08-05', volta_em: null }]
+  assert.equal(estadoDoVeiculo({ id: 'v1', situacao: 'ativo' }, usos).naRua, true)
 })

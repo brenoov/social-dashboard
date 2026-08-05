@@ -19,9 +19,27 @@ export function precisaAbastecer(quartos) {
   return Number.isInteger(quartos) && quartos <= 1;
 }
 
-/** O uso ainda aberto de um veículo — o que está na rua agora. Nulo se não há. */
+/** O uso ainda aberto de um veículo — o que está na rua agora.
+ *
+ * SÓ VIAGEM. A posse do dono fixo (F6/D9) também é uma linha aberta, e contá-la
+ * aqui faria o Volvo do Humberto aparecer "na rua com Humberto" para sempre,
+ * com o botão de devolver aceso sem fim. Linha sem `tipo` é anterior à
+ * migration 028 e vale como viagem. */
 export function usoAberto(usos, veiculoId) {
-  return (usos || []).find((u) => u && u.veiculo_id === veiculoId && !u.volta_em) || null;
+  return (usos || []).find((u) =>
+    u && u.veiculo_id === veiculoId && !u.volta_em
+    && (u.tipo || 'viagem') === 'viagem') || null;
+}
+
+/** O maior hodômetro já registrado em checklist deste carro. Nulo se não há.
+ *
+ * Pelo MAIOR e não pela data mais nova, pela mesma razão de ultimaRevisao():
+ * data digitada errada acontece o tempo todo, e o odômetro só anda pra frente. */
+export function ultimoHodometro(fichas, veiculoId) {
+  const meus = (fichas || [])
+    .filter((f) => f && f.veiculo_id === veiculoId && Number.isInteger(f.hodometro))
+    .map((f) => f.hodometro);
+  return meus.length ? Math.max(...meus) : null;
 }
 
 /** O último uso ENCERRADO, que é de onde sai o KM atual. */
@@ -38,12 +56,17 @@ export function ultimoUsoFechado(usos, veiculoId) {
  * Monta a linha da tela para um veículo: onde está, com quem, KM e tanque.
  * Não inventa nada: campo sem resposta volta nulo, e a tela mostra travessão.
  */
-export function estadoDoVeiculo(veiculo, usos) {
+export function estadoDoVeiculo(veiculo, usos, fichas) {
   const aberto = usoAberto(usos, veiculo.id);
   const fechado = ultimoUsoFechado(usos, veiculo.id);
-  // O KM mais alto que se conhece. Quando o carro está na rua, o KM de saída
-  // pode ser mais recente que a última devolução.
-  const kms = [fechado && fechado.km_volta, aberto && aberto.km_saida].filter(Number.isInteger);
+  // O KM mais alto que se conhece. Agora com três fontes: a última devolução, a
+  // saída de quem está na rua, e o hodômetro do checklist — que é a única que
+  // funciona pra quem tem carro fixo e nunca registra viagem.
+  const kms = [
+    fechado && fechado.km_volta,
+    aberto && aberto.km_saida,
+    ultimoHodometro(fichas, veiculo.id),
+  ].filter(Number.isInteger);
   const km = kms.length ? Math.max(...kms) : null;
   // O tanque também vem do registro mais recente que tiver informado.
   const ultimo = aberto || fechado;
