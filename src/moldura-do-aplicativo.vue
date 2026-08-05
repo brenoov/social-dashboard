@@ -119,6 +119,29 @@
     <div class="conteudo-da-rota" :style="zoom === 1 ? null : { zoom }">
       <router-view />
     </div>
+
+    <!-- TROCA OBRIGATÓRIA DA SENHA INICIAL.
+         Contas criadas em lote (as vendedoras) nascem com uma senha que outra
+         pessoa digitou e entregou. Enquanto ela não for trocada, quem entregou
+         consegue entrar. Marcar isso no cadastro sem cobrar seria promessa não
+         cumprida — então a cobrança fica AQUI, na moldura, que está em toda
+         rota. Sem botão de fechar de propósito: sair só trocando ou saindo. -->
+    <div v-if="estado.precisa_trocar_senha" class="ts-fundo">
+      <div class="ts-caixa">
+        <h2>Escolha uma senha sua</h2>
+        <p>Esta conta foi criada com uma senha provisória, que alguém digitou e te entregou.
+           Enquanto ela valer, essa pessoa também consegue entrar. Escolha uma senha que só você saiba.</p>
+        <input v-model="senha1" type="password" placeholder="Nova senha (mínimo 8 letras/números)" autocomplete="new-password">
+        <input v-model="senha2" type="password" placeholder="Repita a nova senha" autocomplete="new-password">
+        <p v-if="erroSenha" class="ts-erro">{{ erroSenha }}</p>
+        <div class="ts-acoes">
+          <button type="button" class="ts-ok" :disabled="salvandoSenha" @click="trocarSenhaAgora">
+            {{ salvandoSenha ? 'Salvando…' : 'Salvar e continuar' }}
+          </button>
+          <button type="button" class="ts-sair" @click="sairDaConta">Sair</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -130,6 +153,41 @@ import { sbClient } from './compartilhado/conectar-no-banco-de-dados.js'
 import { inscrever, jaInscrito, permissaoAtual, pushSuportado, registrarSW } from './compartilhado/notificacoes-push.js'
 
 const router = useRouter()
+
+// ── A troca obrigatória da senha inicial ────────────────────────────────────
+const senha1 = ref('')
+const senha2 = ref('')
+const erroSenha = ref('')
+const salvandoSenha = ref(false)
+
+async function trocarSenhaAgora() {
+  erroSenha.value = ''
+  // OITO, e não seis. Seis é o mínimo que o Supabase aceita; numa conta que vê
+  // faturamento, o mínimo do servidor não é o mínimo razoável.
+  if ((senha1.value || '').length < 8) { erroSenha.value = 'A senha precisa de pelo menos 8 letras ou números.'; return }
+  if (senha1.value !== senha2.value) { erroSenha.value = 'As duas senhas estão diferentes.'; return }
+  salvandoSenha.value = true
+  try {
+    const { error } = await sbClient.auth.updateUser({ password: senha1.value })
+    if (error) throw new Error(error.message)
+    // A MARCA SÓ CAI DEPOIS que a senha trocou de verdade. Na ordem inversa,
+    // uma falha na troca deixaria a conta com a senha provisória e sem cobrança.
+    const { error: e2 } = await sbClient.from('profiles')
+      .update({ precisa_trocar_senha: false }).eq('id', estado.user?.id)
+    if (e2) throw new Error(e2.message)
+    estado.precisa_trocar_senha = false
+    senha1.value = ''; senha2.value = ''
+  } catch (e) {
+    erroSenha.value = 'Não consegui salvar: ' + String(e && e.message || e)
+  } finally {
+    salvandoSenha.value = false
+  }
+}
+
+async function sairDaConta() {
+  try { await sbClient.auth.signOut() } catch (e) {}
+  window.location.href = '/'
+}
 const route = useRoute()
 
 /* ── Perfil ── */
@@ -350,4 +408,23 @@ watch(() => estado.user?.id, avaliarPush)
   background: var(--accent); color: #fff; font-weight: 700; font-size: 14px;
   cursor: pointer; font-family: inherit;
 }
+</style>
+
+<style scoped>
+.ts-fundo { position: fixed; inset: 0; z-index: 99998; background: rgba(0,0,0,.72);
+  display: flex; align-items: center; justify-content: center; padding: 20px; }
+.ts-caixa { background: var(--surface, #fff); color: var(--text, #111); border-radius: 14px;
+  max-width: 420px; width: 100%; padding: 26px; box-shadow: 0 24px 60px rgba(0,0,0,.45);
+  font-family: var(--fonte-principal); }
+.ts-caixa h2 { font-size: 17px; font-weight: 800; margin: 0 0 8px; }
+.ts-caixa p { font-size: 13px; color: var(--muted, #666); line-height: 1.55; margin: 0 0 16px; }
+.ts-caixa input { width: 100%; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--border, #ddd);
+  background: var(--surface2, #f7f7f7); color: var(--text, #111); font-size: 13px; margin-bottom: 10px; }
+.ts-erro { color: var(--red, #dc2626); font-size: 12.5px; margin: 0 0 10px !important; }
+.ts-acoes { display: flex; gap: 10px; justify-content: flex-end; }
+.ts-ok { border: none; background: var(--accent, #4f7cff); color: #fff; border-radius: 9px;
+  padding: 10px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.ts-ok:disabled { opacity: .6; cursor: default; }
+.ts-sair { border: 1px solid var(--border, #ddd); background: none; color: var(--text, #111);
+  border-radius: 9px; padding: 10px 14px; font-size: 13px; cursor: pointer; }
 </style>

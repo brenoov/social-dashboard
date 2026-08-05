@@ -14,6 +14,10 @@ export const estado = reactive({
   permissions: {},
   allowed_accounts: null, // null = todos os perfis
   is_superadmin: false,
+  // Conta criada em lote (vendedoras): a senha inicial foi entregue por outra
+  // pessoa. Enquanto for `true`, a moldura do aplicativo cobra a troca — marca
+  // sem cobrança seria promessa não cumprida.
+  precisa_trocar_senha: false,
   // Falha ao carregar o perfil (objeto do classificar-erro) ou null quando deu certo.
   // Separa "é viewer mesmo" de "não consegui carregar" — antes os dois eram iguais.
   erroPerfil: null,
@@ -37,6 +41,7 @@ export function limparEstado() {
   estado.permissions = {}
   estado.allowed_accounts = null
   estado.is_superadmin = false
+  estado.precisa_trocar_senha = false
   estado.erroPerfil = null
 }
 
@@ -51,7 +56,7 @@ export async function carregarPerfil(session) {
   estado.userId = session?.user?.id || null
   try {
     const tok = session?.access_token || SUPABASE_ANON_KEY
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${session.user.id}&select=role,features,avatar_url,permissions,allowed_accounts,is_superadmin`, {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${session.user.id}&select=role,features,avatar_url,permissions,allowed_accounts,is_superadmin,precisa_trocar_senha`, {
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${tok}` },
     })
     const corpo = await r.json().catch(() => null)
@@ -67,6 +72,7 @@ export async function carregarPerfil(session) {
     estado.permissions = p.permissions || {}
     estado.allowed_accounts = p.allowed_accounts ?? null
     estado.is_superadmin = !!p.is_superadmin
+    estado.precisa_trocar_senha = !!p.precisa_trocar_senha
     estado.avatarUrl = p.avatar_url || null
     return { ok: true, erro: null }
   } catch (e) {
