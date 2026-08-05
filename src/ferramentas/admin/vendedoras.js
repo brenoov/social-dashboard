@@ -124,11 +124,27 @@ export function agruparVendedores(vendedores) {
 
   // OS QUASE-IGUAIS ficam marcados, não juntos. É a diferença entre ajudar e
   // decidir no lugar de quem sabe.
+  // AVISAR DEMAIS É NÃO AVISAR. A primeira versão marcava como parecido tudo
+  // que dividia o PRIMEIRO nome, e na tela isso deu seis avisos — "Maria
+  // Eduarda Florêncio" parecida com "Maria Paula Pellet Almeida", que são
+  // obviamente duas pessoas. Aviso que aparece onde não devia ensina a ignorar
+  // aviso, e aí ele não serve mais para o caso em que importa.
+  //
+  // Vale a pena avisar em dois casos, e só neles:
+  //   • os dois primeiros nomes batem  → "Maria Eduarda F." x "Maria Eduarda C."
+  //   • os dois têm só nome e sobrenome, e o primeiro bate → "Najla Souza" x
+  //     "Najla Rocha" (o caso real que motivou o aviso)
   for (const g of grupos) {
     if (g.balcao) { g.parecidos = []; continue; }
-    const primeiroNome = palavras(g.nome)[0];
+    const a = palavras(g.nome);
     g.parecidos = grupos
-      .filter((o) => o !== g && !o.balcao && palavras(o.nome)[0] === primeiroNome)
+      .filter((o) => {
+        if (o === g || o.balcao) return false;
+        const b = palavras(o.nome);
+        if (a[0] !== b[0]) return false;
+        if (a.length >= 2 && b.length >= 2 && a[1] === b[1]) return true;
+        return a.length === 2 && b.length === 2;
+      })
       .map((o) => o.nome);
   }
 
@@ -142,22 +158,32 @@ export function agruparVendedores(vendedores) {
 // por exemplo) não muda o time dela — mas a tela mostra a proporção, porque
 // "vendeu nas duas" é informação, não ruído.
 export function lojaDaVendedora(pedidosDaPessoa) {
+  const todos = (pedidosDaPessoa || []).filter(Boolean);
   const porLoja = {};
-  for (const p of (pedidosDaPessoa || [])) {
-    if (p == null || p.loja_id == null) continue;
+  for (const p of todos) {
+    if (p.loja_id == null) continue;
     porLoja[p.loja_id] = (porLoja[p.loja_id] || 0) + 1;
   }
   const linhas = Object.entries(porLoja).map(([loja_id, n]) => ({ loja_id: Number(loja_id), pedidos: n }))
     .sort((a, b) => b.pedidos - a.pedidos);
-  if (!linhas.length) return { loja_id: null, pedidos: 0, total: 0, certeza: 0, outras: [] };
-  const total = linhas.reduce((s, l) => s + l.pedidos, 0);
+  // `pedidosDela` é o TOTAL dela; `comLoja` é quantos desses têm loja gravada.
+  // Os dois são necessários, e confundi-los foi o erro da primeira versão: ela
+  // calculava a certeza só sobre os que têm loja, então UM pedido decidia a
+  // loja de quem tem cento e cinquenta.
+  const base = { pedidosDela: todos.length, comLoja: linhas.reduce((s, l) => s + l.pedidos, 0) };
+  if (!linhas.length) return { ...base, loja_id: null, pedidos: 0, total: 0, certeza: 0, outras: [] };
   return {
+    ...base,
     loja_id: linhas[0].loja_id,
     pedidos: linhas[0].pedidos,
-    total,
-    // Quanto da venda dela saiu dessa loja. Abaixo de 0,7 a tela pergunta em
-    // vez de afirmar.
-    certeza: linhas[0].pedidos / total,
+    total: base.comLoja,
+    // Quanto das vendas COM LOJA saiu dessa loja.
+    certeza: linhas[0].pedidos / base.comLoja,
+    // Quanto da vida dela o palpite enxerga. Medido em 05/08/2026: só 30 dos
+    // 713 pedidos do cache tinham loja (4%), porque a coluna acabou de nascer.
+    // Sem este número, a tela dizia "Loja Dom Pedro" com a cara de quem sabe,
+    // olhando 12 dos 153 pedidos da pessoa.
+    cobertura: todos.length ? base.comLoja / todos.length : 0,
     outras: linhas.slice(1),
   };
 }
@@ -168,9 +194,17 @@ export function lojaDaVendedora(pedidosDaPessoa) {
 export function comoDizerALoja(escolha, nomeDaLoja) {
   const e = escolha || {};
   if (!e.total) return 'ainda sem loja registrada nas vendas';
+  const nome = nomeDaLoja || 'loja ' + e.loja_id;
+  // AMOSTRA FINA FALA BAIXO. Com menos de um terço dos pedidos dela carregando
+  // loja, o palpite continua sendo mostrado — ele ajuda — mas dizendo em cima
+  // de quantos pedidos ele foi feito. Número confiante sobre amostra fina é a
+  // maneira mais fácil de fazer alguém confiar no que não deveria.
+  if ((e.cobertura || 0) < 0.34) {
+    return `talvez ${nome} — só ${e.comLoja} dos ${e.pedidosDela} pedidos dela têm loja registrada`;
+  }
   const pct = Math.round((e.certeza || 0) * 100);
-  if (e.certeza >= 0.9) return `${nomeDaLoja || 'loja ' + e.loja_id}`;
-  return `${nomeDaLoja || 'loja ' + e.loja_id} (${pct}% das vendas dela)`;
+  if (e.certeza >= 0.9) return nome;
+  return `${nome} (${pct}% das vendas dela)`;
 }
 
 // Quem vira CONTA de acesso: pessoa, e que vendeu alguma coisa. Balcão não —
