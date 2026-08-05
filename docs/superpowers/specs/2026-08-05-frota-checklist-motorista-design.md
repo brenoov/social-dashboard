@@ -30,13 +30,35 @@ registrado e comunicado ao responsável antes da utilização.
 
 ### D9 — Carro fixo tem dono, e a posse é uma linha do tempo sem buraco
 
-`frota_veiculos` ganha **`motorista_id`**: o dono fixo. O `pessoa_id` que já
-existe continua significando *onde o carro está agora* (D2 do desenho original).
-São perguntas diferentes a partir do momento em que a pessoa empresta o carro.
+**Correção sobre a primeira versão deste documento.** Ela mandava criar um campo
+novo, `motorista_id`. Está errado: **`frota_veiculos.pessoa_id` já é o dono
+fixo.** O código trata assim desde a correção do dono registrada em
+`estado-do-veiculo.js:67-72` — *"os carros que têm nome atrelado não estão
+livres; o Volvo do Humberto é o carro do Humberto"* — e o banco confirma: **7 dos
+9 carros já têm dono cadastrado** (Erick, Barbara, Marcus, Thiago, Raissa,
+Humberto, Breno). Os dois sem dono são o Doblo (em Conchal) e o Honda Fit (no
+Barracão) — exatamente os de rodízio, que ficam num lugar em vez de com alguém.
+
+Criar `motorista_id` daria **duas respostas para "de quem é este carro"**, que é
+a mesma classe de defeito já catalogada na central (dois campos de permissão
+dessincronizados). Nenhuma coluna nova de pessoa. Quem está com o carro **agora**
+já vem do uso aberto (`usoAbertoPessoaId`), que também já existe.
 
 `frota_uso` deixa de guardar só **viagem** e passa a guardar **posse**: uma linha
 aberta (`volta_em` nulo, `km_saida` nulo) dizendo "este carro está com esta
 pessoa desde esta data".
+
+Para as duas não se confundirem, `frota_uso` ganha **`tipo`** (`'viagem'` ou
+`'posse'`). Sem isso a posse aberta do dono fixo faria o carro aparecer
+eternamente "na rua", porque `estadoDoVeiculo` chama de na-rua qualquer uso
+aberto. Com o campo: **na rua** é viagem aberta; **posse** é a linha do tempo que
+a multa consulta.
+
+**A posse começa hoje, não no passado.** No dia em que a fase subir, cada carro
+com dono ganha uma linha de posse aberta com a data de hoje. Ninguém sabe desde
+quando cada carro está com cada pessoa, e inventar essa data encheria a linha do
+tempo de resposta falsa — que é pior do que "não sei", porque a multa passaria a
+acusar alguém com um dado inventado.
 
 - Carro fixo entregue a alguém → abre uma linha, sem fim.
 - A pessoa empresta → **fecha** a linha dela naquele instante e **abre** uma para
@@ -90,7 +112,7 @@ dirigem o mesmo carro hoje, quem chegou primeiro conferiu. Inspecionar o mesmo
 pneu duas vezes no mesmo dia não descobre nada, e pedir isso é o caminho mais
 curto para a pessoa parar de olhar.
 
-**Carro sem dono fixo (`motorista_id` nulo) não é cobrado por dia.** Ele não tem
+**Carro sem dono fixo (`pessoa_id` nulo) não é cobrado por dia.** Ele não tem
 de quem cobrar: a ficha dele acontece quando alguém do rodízio clica em "Vou
 usar" e o carro ainda não tem ficha do dia. O quadro de cobrança (D16) só lista
 carros com dono fixo — senão passaria a acusar todo dia carro que ninguém usou.
@@ -159,8 +181,10 @@ quando faltar quilômetro. Sem ele, esta fase repete exatamente o que a `frota_u
 Migration `028_frota_checklist.sql`, seguindo o padrão das 022–027.
 
 ```
-frota_veiculos
-  + motorista_id uuid → acessos_pessoas   -- dono fixo (D9)
+frota_veiculos                 -- SEM coluna nova: pessoa_id já é o dono (D9)
+
+frota_uso
+  + tipo text 'viagem'|'posse' default 'viagem'   -- D9
 
 frota_checklist_itens          -- a lista do gestor (D10)
   id · ordem · item · cadencia ('diario'|'semanal'|'mensal') · ativo · observacao
@@ -213,9 +237,9 @@ reaproveitando `inscricoesDoTipo()` e `push_subs`.
 
 ## Fases
 
-**F6a** — `motorista_id`, a lista editável, a ficha do dia na aba Motorista (para
-o carro fixo) e dentro do "Vou usar" (para o rodízio), e o hodômetro alimentando
-o km do veículo. É o que entrega valor sozinho.
+**F6a** — a lista editável, a ficha do dia na aba Motorista (para o carro fixo) e
+dentro do "Vou usar" (para o rodízio), e o hodômetro alimentando o km do veículo.
+É o que entrega valor sozinho, e não precisa de coluna nova de pessoa.
 
 **F6b** — a posse contínua: passar o carro, e a linha do tempo de quem estava com
 ele. É o que destrava a F3 (multas).
