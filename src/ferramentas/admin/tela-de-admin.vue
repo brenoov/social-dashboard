@@ -541,13 +541,31 @@ async function _vdCriarContas(botao) {
       })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(d.error || ('a função respondeu ' + r.status))
-      const novoId = d.user?.id || d.id || null
-      if (novoId) {
-        // A MARCA DE TROCAR SENHA e o time, num passo só.
-        await adFetch('profiles?id=eq.' + encodeURIComponent(novoId), { method: 'PATCH', body: JSON.stringify({ precisa_trocar_senha: true }) })
-        if (esc.equipe_id) {
-          await adFetch('equipes_membros', { method: 'POST', body: JSON.stringify({ equipe_id: esc.equipe_id, profile_id: novoId, papel: 'vendedora' }) })
-        }
+
+      // O ID VEM DE UMA CONSULTA, e não da resposta.
+      //
+      // `invite-user` devolve `{ success: true }` e mais nada — ela nunca
+      // mandou o id. A primeira versão daqui fazia `d.user?.id || d.id || null`
+      // e, quando dava null, PULAVA em silêncio a marca de trocar senha e a
+      // entrada no time. O teste ponta a ponta pegou: a conta nasceu, e nasceu
+      // sem time e sem cobrança de senha — o pior resultado possível, porque
+      // parece que deu certo.
+      //
+      // Consultar por e-mail funciona porque a função já gravou o perfil antes
+      // de responder.
+      const rBusca = await adFetch('profiles?select=id&email=eq.' + encodeURIComponent(esc.email.trim()))
+      const achados = rBusca.ok ? await rBusca.json().catch(() => []) : []
+      const novoId = (achados[0] || {}).id || null
+      if (!novoId) throw new Error('a conta foi criada, mas não achei o cadastro dela para pôr no time')
+
+      const rMarca = await adFetch('profiles?id=eq.' + encodeURIComponent(novoId),
+        { method: 'PATCH', body: JSON.stringify({ precisa_trocar_senha: true }) })
+      if (!rMarca.ok) throw new Error('a conta foi criada, mas não consegui exigir a troca da senha')
+
+      if (esc.equipe_id) {
+        const rTime = await adFetch('equipes_membros',
+          { method: 'POST', body: JSON.stringify({ equipe_id: esc.equipe_id, profile_id: novoId, papel: 'vendedora' }) })
+        if (!rTime.ok) throw new Error('a conta foi criada, mas não entrou no time')
       }
       feitas.push({ nome: g.nome, email: esc.email.trim(), senha })
     } catch (e) {
