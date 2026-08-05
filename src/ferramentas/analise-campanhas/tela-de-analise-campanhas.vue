@@ -11,19 +11,15 @@
        escopo global; por isso o cluster de funções que eles chamam é exposto em
        window mais abaixo. -->
   <div class="tela-analise-campanhas">
-    <div class="gv-topbar">
-      <div class="gv-topbar-brand" style="display:flex;align-items:center;gap:14px">
-        <button class="gv-back" @click="closeMetaCampanha">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-          Meta Ads
-        </button>
-        <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
-        <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
-        <div style="display:flex;flex-direction:column;gap:2px">
-          <span class="gv-perf-tag" style="font-size:11px;letter-spacing:4px;">Análise de Campanhas</span>
-          <span class="gv-brand-tag" style="font-size:9px;letter-spacing:2px;opacity:.5;">Meta · Tráfego Pago</span>
-        </div>
-      </div>
+    <!-- O SUBTITULO E CONTEUDO: diz de quem sao os numeros desta tela.
+         Foi trocar isso por um titulo unico que fez a primeira versao
+         desta barra ser revertida. -->
+    <barra-de-topo voltar="Meta Ads" titulo="Análise de Campanhas" subtitulo="Meta Ads · Inteligência RBV" @voltar="closeMetaCampanha" />
+
+    <!-- FAIXA DE CONTROLES: periodo e filtros. Nao sao acoes pequenas —
+         sao uma tira larga que dentro da barra disputava espaco com o
+         titulo. Aqui tem a linha propria. -->
+    <div class="gv-controles">
       <div class="gv-period-btns" id="ma-period-btns">
         <button class="gv-pbtn" data-preset="today" onclick="setMaPeriod(this)"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite;vertical-align:middle;flex-shrink:0;"></span>HOJE</button>
         <button class="gv-pbtn" data-preset="1d" onclick="setMaPeriod(this)">1D</button>
@@ -51,6 +47,7 @@
         <div class="gv-clock-date" id="ma-date"></div>
         <div class="gv-update-status" id="ma-update-status">—</div>
       </div>
+    
     </div>
     <div class="ma-body" id="ma-content-wrap">
       <div id="ma-content"></div>
@@ -60,6 +57,7 @@
 
 <script setup>
 import { onMounted, onUnmounted } from 'vue'
+import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { estado, hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
@@ -1379,6 +1377,9 @@ Object.assign(window, {
   .tela-analise-campanhas :deep(.gv-topbar){flex-wrap:wrap;padding:0;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;position:sticky;top:0;z-index:10;background:var(--surface);}
   .tela-analise-campanhas :deep(.gv-topbar-brand){order:1;display:flex;align-items:center;gap:10px;padding:10px 16px;}
 }
+/* FAIXA DE CONTROLES — ver o comentario no template. */
+.tela-analise-campanhas :deep(.gv-controles){display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;padding:8px 24px;border-bottom:1px solid var(--border);background:var(--surface);}
+@media(max-width:640px){.tela-analise-campanhas :deep(.gv-controles){padding:0;flex-direction:column;align-items:stretch;gap:0;}}
 </style>
 
 <style>

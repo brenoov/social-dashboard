@@ -5,24 +5,16 @@
        window. Root vira .tela-menu-vendas (sem display:none — quem controla a
        visibilidade agora é o vue-router). -->
   <div class="tela-menu-vendas">
-    <div class="smenu-topbar">
-      <button class="smenu-back" @click="voltar">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Central
-      </button>
-      <div style="display:flex;align-items:center;gap:10px">
-        <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
-        <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
-        <span class="smenu-title">Dashboard de Vendas</span>
-      </div>
-      <div class="view-toggle">
-        <button class="view-toggle-btn" :class="{ active: visualizacao === 'grid' }" @click="definirVisualizacao('grid')" title="Cards">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="0" width="6" height="6" rx="1"/><rect x="8" y="0" width="6" height="6" rx="1"/><rect x="0" y="8" width="6" height="6" rx="1"/><rect x="8" y="8" width="6" height="6" rx="1"/></svg>
+    <barra-de-topo voltar="Central" titulo="Dashboard de Vendas" @voltar="voltar">
+      <template #acoes>
+        <button class="bt-acao so-icone" :class="{ primario: visualizacao === 'grid' }" @click="definirVisualizacao('grid')" title="Cards">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         </button>
-        <button class="view-toggle-btn" :class="{ active: visualizacao === 'list' }" @click="definirVisualizacao('list')" title="Lista">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="1" width="14" height="2.5" rx="1"/><rect x="0" y="5.75" width="14" height="2.5" rx="1"/><rect x="0" y="10.5" width="14" height="2.5" rx="1"/></svg>
+        <button class="bt-acao so-icone" :class="{ primario: visualizacao === 'list' }" @click="definirVisualizacao('list')" title="Lista">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
         </button>
-      </div>
-    </div>
+      </template>
+    </barra-de-topo>
     <div class="smenu-body" :style="visualizacao === 'list' ? { justifyContent: 'flex-start', paddingTop: '28px' } : {}">
       <div class="smenu-headline" v-show="visualizacao !== 'list'">
         <h2>Escolha seu modo</h2>
@@ -52,6 +44,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'

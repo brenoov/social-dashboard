@@ -10,17 +10,15 @@
   <div id="gestao-vista-screen" class="tela-gestao-a-vista">
     <div id="gv-watermark" aria-hidden="true">Vessel Brasil</div>
     <div id="gv-bg-anim" aria-hidden="true"></div>
-    <div class="gv-topbar">
-      <div class="gv-topbar-brand" style="display:flex;align-items:center;gap:14px">
-        <button class="gv-back" @click="closeGestaoVista"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Voltar</button>
-        <button class="gv-tut-btn" type="button" @click="reverTour" title="Ver o tutorial da tela"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Tutorial</button>
-        <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
-        <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
-        <div style="display:flex;flex-direction:column;gap:2px">
-          <span class="gv-perf-tag">Performance de Vendas</span>
-          <span class="gv-brand-tag">Vessel Brasil · Gestão à Vista</span>
-        </div>
-      </div>
+    <!-- O SUBTITULO E CONTEUDO: diz de quem sao os numeros desta tela.
+         Foi trocar isso por um titulo unico que fez a primeira versao
+         desta barra ser revertida. -->
+    <barra-de-topo voltar="Voltar" titulo="Performance de Vendas" subtitulo="Vessel Brasil · Gestão à Vista" @voltar="closeGestaoVista" />
+
+    <!-- FAIXA DE CONTROLES: periodo e filtros. Nao sao acoes pequenas —
+         sao uma tira larga que dentro da barra disputava espaco com o
+         titulo. Aqui tem a linha propria. -->
+    <div class="gv-controles">
       <div class="gv-topbar-controls">
         <div class="gv-period-btns" id="gv-period-btns" data-tour="gv-periodo">
           <button class="gv-pbtn active" data-period="today" onclick="gvSelectPeriod('today')"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite;vertical-align:middle;flex-shrink:0;"></span>HOJE</button>
@@ -50,6 +48,7 @@
         <div class="gv-clock-date" id="gv-date"></div>
         <div class="gv-update-status" id="gv-update-status">—</div>
       </div>
+    
     </div>
     <div class="gv-board" id="gv-board">
       <div class="gv-loading-screen">
@@ -94,6 +93,7 @@
 
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue'
+import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import TourCoachmark from '../meta-ads/tour-coachmark.vue'
 import { TOUR_GV } from './tutorial-gv.js'
@@ -1862,4 +1862,7 @@ body.dev-tv .tela-gestao-a-vista :deep(#gv-ac-toggle){font-size:21px;padding:8px
   .tela-gestao-a-vista :deep(.gv-est-cols){flex-direction:column;overflow-x:visible;}
   .tela-gestao-a-vista :deep(.gv-est-col){flex:1 1 auto;width:100%;}
 }
+/* FAIXA DE CONTROLES — ver o comentario no template. */
+.tela-gestao-a-vista :deep(.gv-controles){display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;padding:8px 24px;border-bottom:1px solid var(--border);background:var(--surface);}
+@media(max-width:640px){.tela-gestao-a-vista :deep(.gv-controles){padding:0;flex-direction:column;align-items:stretch;gap:0;}}
 </style>

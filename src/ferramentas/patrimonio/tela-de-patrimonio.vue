@@ -1,16 +1,16 @@
 <template>
   <div class="tela-patrimonio" :class="{ 'com-barra': modoSelecao && selecionados.size }">
-    <div class="pat-topbar">
-      <!-- O "voltar" sobe UM nível da árvore; só na raiz é que ele sai do módulo.
-           Assim o mesmo botão serve pra subir e pra sair, sem o usuário decorar dois. -->
-      <button class="pat-back" @click="voltar">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>{{ rotuloDoVoltar }}
-      </button>
-      <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
-      <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
-      <span class="pat-title">{{ rotuloDoCaminho(caminho, listas) }}</span>
-      <button class="pat-btn-ajuda" @click="abrirPasseio" title="Como usar esta tela">?</button>
-    </div>
+    <!-- O "voltar" sobe UM nível da árvore; só na raiz é que ele sai do módulo.
+         Assim o mesmo botão serve pra subir e pra sair, sem decorar dois.
+
+         O TÍTULO AQUI É O CAMINHO onde a pessoa está. Foi cortá-lo com
+         reticências que fez a primeira versão desta barra ser revertida — ele
+         quebra em linhas agora, e nunca some. -->
+    <barra-de-topo :voltar="rotuloDoVoltar" :titulo="rotuloDoCaminho(caminho, listas)" @voltar="voltar">
+      <template #acoes>
+        <button class="pat-btn-ajuda" @click="abrirPasseio" title="Como usar esta tela">?</button>
+      </template>
+    </barra-de-topo>
 
     <!-- Contagem e ações na MESMA linha: contagem à esquerda, botões à direita.
          Estavam em faixas separadas e comiam duas alturas do celular à toa. -->
@@ -722,6 +722,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
+import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { adminToast } from '../../compartilhado/avisos.js'

@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
@@ -54,14 +55,12 @@ onMounted(carregar)
 </script>
 <template>
   <div class="fest"><div class="shell">
-    <header class="topbar">
-      <button class="voltar-central" @click="voltarFabrica">← Fábrica</button>
-      <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
-      <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
-      <div class="brand"><div class="t">Looks & Templates <AjudaTooltip chave="looks" /></div><div class="s">Curadoria</div></div>
-      <div class="divider"></div>
-      <button class="cmd cyan" :disabled="gerandoPreview" @click="gerarPreviews">Gerar previews</button>
-    </header>
+    <barra-de-topo voltar="Fábrica" titulo="Looks &amp; Templates" subtitulo="Curadoria" @voltar="voltarFabrica">
+      <template #acoes>
+        <AjudaTooltip chave="looks" />
+        <button class="bt-acao primario" :disabled="gerandoPreview" @click="gerarPreviews">Gerar previews</button>
+      </template>
+    </barra-de-topo>
     <div class="panel">
       <div class="ph">
         <span class="eyebrow">Looks</span>

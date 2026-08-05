@@ -20,16 +20,11 @@
     <div class="wrapper">
 
       <!-- TOPBAR — sticky, primeira coisa visível -->
-      <div class="topbar">
-        <div class="topbar-left">
-          <button class="gv-back" @click="fecharDashboard"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Central</button>
-          <img class="rbv-logo rbv-logo-light" :src="logoClaroUrl" alt="RBV">
-          <img class="rbv-logo rbv-logo-dark" :src="logoEscuroUrl" alt="RBV">
-          <div style="display:flex;flex-direction:column;gap:2px">
-            <span class="gv-perf-tag" style="font-size:12px;letter-spacing:4px">Análise de Redes Sociais</span>
-            <span class="gv-brand-tag">Inteligência RBV</span>
-          </div>
-        </div>
+      <barra-de-topo voltar="Central" titulo="Análise de Redes Sociais" subtitulo="Inteligência RBV" @voltar="fecharDashboard" />
+
+      <!-- FAIXA DE CONTROLES: periodo, datas e perfis. Tira larga que dentro da
+           barra disputava espaco com o titulo. -->
+      <div class="gv-controles">
         <div class="topbar-center">
           <div class="period-tabs" id="period-tabs"></div>
           <div class="custom-range-inline" id="custom-range-panel">
@@ -55,7 +50,8 @@
 
              O JS que escrevia nesses elementos já era todo protegido por
              `if (el)`, então nada quebra por eles não existirem mais. -->
-    </div>
+    
+      </div>
 
       <!-- GUARDA DE FRESCOR: avisa quando os dados não são de hoje (coletor parado) -->
       <div id="freshness-banner" style="display:none;align-items:center;gap:8px;padding:9px 16px;background:#7f1d1d;color:#fff;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;letter-spacing:.3px;border-bottom:1px solid #991b1b;"></div>
@@ -442,6 +438,7 @@
 
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue'
+import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import FaixaDeErro from '../../compartilhado/faixa-de-erro.vue'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
@@ -2958,4 +2955,7 @@ body.dev-tv .tela-redes-sociais :deep(.camp-filter-lbl){font-size:13px;}
 body.dev-tv .tela-redes-sociais :deep(.camp-filter-info){font-size:16px;}
 body.dev-tv .tela-redes-sociais :deep(.btn-campaign-filter){font-size:13px;}
 body.dev-tv .tela-redes-sociais :deep(.rbv-logo){height:72px;}
+/* FAIXA DE CONTROLES — ver o comentario no template. */
+.gv-controles{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;padding:8px 24px;border-bottom:1px solid var(--border);background:var(--surface);}
+@media(max-width:640px){.gv-controles{padding:8px 12px;flex-direction:column;align-items:stretch;gap:8px;}}
 </style>
