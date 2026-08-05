@@ -44,6 +44,7 @@ declare
   v_lote uuid;
   v_codigo text;
   v_codigos text[] := array[]::text[];
+  v_bytes bytea;
   i int; j int; tentativa int;
 begin
   if not public.is_vessel_admin() then
@@ -63,9 +64,16 @@ begin
   for i in 1..p_quantidade loop
     tentativa := 0;
     loop
+      -- Sorteio CRIPTOGRAFICO, nao random(). O random() do Postgres e
+      -- previsivel: quem comprasse algumas bolsas e olhasse os codigos poderia
+      -- calcular os proximos — e a protecao inteira contra falsificacao depende
+      -- justamente de o codigo nao ser adivinhavel.
+      -- O alfabeto tem exatamente 32 letras e 256/32 = 8, entao `byte % 32` nao
+      -- puxa pra letra nenhuma (sem vies de modulo).
+      v_bytes := extensions.gen_random_bytes(10);
       v_codigo := '';
-      for j in 1..10 loop
-        v_codigo := v_codigo || substr(ALFABETO, 1 + floor(random() * length(ALFABETO))::int, 1);
+      for j in 0..9 loop
+        v_codigo := v_codigo || substr(ALFABETO, 1 + (get_byte(v_bytes, j) % length(ALFABETO)), 1);
       end loop;
       begin
         insert into public.vessel_pecas (codigo, lote_id, numero_na_serie)
