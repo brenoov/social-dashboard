@@ -14,7 +14,7 @@ import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
-import { estadoDoVeiculo, resumoDoEstado, ordenarEstados, rotuloDoTanque, NIVEIS_TANQUE, problemasDaDevolucao } from './estado-do-veiculo.js'
+import { estadoDoVeiculo, resumoDoEstado, ordenarEstados, rotuloDoTanque, NIVEIS_TANQUE, problemasDaDevolucao, ultimoHodometro } from './estado-do-veiculo.js'
 import { AREAS, areasVisiveis, areaInicial, painelDoMotorista, resumoDoMotorista } from './areas-da-frota.js'
 import {
   SITUACOES, problemasDaRequisicao, bloqueios, podeDecidir, motivoEmPortugues,
@@ -22,6 +22,8 @@ import {
 } from './requisicoes.js'
 import { revisoesDoVeiculo, resumoDeRevisoes, problemasDoItem, avisoAoDesativar } from './revisoes.js'
 import { linkDoWhatsapp, telefoneLegivel, porQueNaoDaLink } from '../../compartilhado/whatsapp.js'
+import PainelDeChecklist from './painel-de-checklist.vue'
+import { cadenciasDoDia, quemFaltaHoje, resumoDaCobranca } from '../../../supabase/functions/_shared/checklist.js'
 
 const router = useRouter()
 const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
@@ -42,12 +44,40 @@ const area = ref('motorista')
 const euId = computed(() => meuId())
 const painel = computed(() => painelDoMotorista(linhas.value, euId.value))
 
+// O checklist do dia: os itens que o gestor definiu, a cadência (dia_semanal
+// etc.) e as fichas já preenchidas, de onde saem "última semanal" e "última
+// mensal" de cada carro.
+const itensDeChecklist = ref([])
+const configDeChecklist = ref({ dia_semanal: 5, semana_mensal: 1, dia_mensal: 3 })
+const fichas = ref([])
+
+// A data de HOJE em BRT, como texto. `toISOString()` puro daria a data em UTC,
+// e depois das 21h no Brasil isso já é o dia seguinte — o checklist de hoje
+// apareceria como o de amanhã.
+const hoje = computed(() =>
+  new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10))
+
+// O carro fixo desta pessoa: é o que ela vai conferir hoje.
+const meuCarroFixo = computed(() =>
+  veiculos.value.find((v) => v.pessoa_id && v.pessoa_id === euId.value) || null)
+
+const fichaDeHoje = computed(() => !meuCarroFixo.value ? null
+  : fichas.value.find((f) => f.veiculo_id === meuCarroFixo.value.id && f.feita_em === hoje.value) || null)
+
+const ultimaDoTipo = (veiculoId, cadencia) => {
+  const l = fichas.value
+    .filter((f) => f.veiculo_id === veiculoId && (f.cadencias || []).includes(cadencia))
+    .map((f) => f.feita_em)
+    .sort()
+  return l.length ? l[l.length - 1] : null
+}
+
 function voltar() { router.push({ name: 'gestao-interna' }) }
 
 async function carregar() {
   carregando.value = true
   falha.value = ''
-  const [v, u, p, q, pl, rv, bn] = await Promise.all([
+  const [v, u, p, q, pl, rv, bn, ci, cc, cf] = await Promise.all([
     sbClient.from('frota_veiculos').select('*').order('nome'),
     // Só o que interessa pra montar a tela: o aberto de cada carro e as
     // devoluções recentes. Puxar o histórico inteiro cresceria pra sempre.
@@ -63,6 +93,13 @@ async function carregar() {
     // ficha. Pode falhar sem derrubar nada: quem não tem Patrimônio ainda
     // gere a frota.
     sbClient.from('patrimonio_bens').select('id,nome,numero').order('nome').limit(500),
+    sbClient.from('frota_checklist_itens').select('*').order('ordem'),
+    sbClient.from('frota_checklist_config').select('*').limit(1),
+    // 120 dias: o bastante pra saber quando foi a última mensal, sem crescer
+    // pra sempre.
+    sbClient.from('frota_checklist').select('*')
+      .gte('feita_em', new Date(Date.now() - 120 * 86400000).toISOString().slice(0, 10))
+      .order('feita_em', { ascending: false }),
   ])
   if (v.error || u.error) {
     falha.value = 'Não consegui carregar a frota. Recarregue a página; se continuar, avise.'
@@ -78,6 +115,11 @@ async function carregar() {
   plano.value = pl && !pl.error ? (pl.data || []) : []
   revisoes.value = rv && !rv.error ? (rv.data || []) : []
   bensVeiculo.value = bn && !bn.error ? (bn.data || []) : []
+  // Mesmo padrão tolerante a falha: sem o checklist a Frota ainda serve pra
+  // pegar e devolver carro.
+  itensDeChecklist.value = ci && !ci.error ? (ci.data || []) : []
+  configDeChecklist.value = cc && !cc.error && cc.data?.[0] ? cc.data[0] : configDeChecklist.value
+  fichas.value = cf && !cf.error ? (cf.data || []) : []
   carregando.value = false
 }
 
@@ -87,6 +129,7 @@ const linhas = computed(() => ordenarEstados(
   veiculos.value.map((v) => estadoDoVeiculo(
     { ...v, pessoa_nome: nomeDaPessoa(v.pessoa_id) },
     usos.value,
+    fichas.value,
   )),
 ))
 
@@ -184,6 +227,38 @@ async function confirmar() {
   }
   fecharFicha()
   carregar()
+}
+
+/* ── O checklist do dia (F6) ──────────────────────────────────────────────── */
+
+// Erro PRÓPRIO do checklist, não o `falha` de carregamento: `falha` está
+// numa cadeia `v-else-if` que troca a tela inteira (Motorista/Gestão) por uma
+// linha de texto. Reaproveitá-lo aqui faria uma falha ao GRAVAR o checklist
+// esconder a lista de carros inteira — o mesmo tipo de defeito silencioso que
+// a guarda de estilo existe pra pegar, só que em comportamento, não em CSS.
+const erroChecklist = ref('')
+
+async function gravarChecklist({ ficha, respostas }) {
+  if (gravando.value) return
+  gravando.value = true
+  erroChecklist.value = ''
+  const { data, error } = await sbClient.from('frota_checklist')
+    // `estado` não tem campo `perfil` — o nome de quem preenche vem de
+    // `pessoas`, do mesmo jeito que a retirada e a requisição já fazem.
+    .insert({ ...ficha, pessoa_id: euId.value, pessoa_nome: euId.value ? nomeDaPessoa(euId.value) : null })
+    .select('id').single()
+  if (!error && data) {
+    await sbClient.from('frota_checklist_respostas')
+      .insert(respostas.map((r) => ({ ...r, checklist_id: data.id })))
+  }
+  gravando.value = false
+  if (error) {
+    erroChecklist.value = /duplicate|unique/i.test(error.message || '')
+      ? 'O checklist deste carro já foi preenchido hoje.'
+      : 'Não consegui gravar o checklist. Confira a conexão e tente de novo.'
+    return
+  }
+  await carregar()
 }
 
 /* ── Requisição de uso (F2) ──────────────────────────────────────────────────
@@ -548,6 +623,24 @@ onMounted(async () => {
         Não achei você na lista de colaboradores pelo seu e-mail, então não consigo dizer qual
         carro está com você. Dá pra pegar e devolver normalmente, escolhendo o nome na hora.
       </p>
+
+      <!-- O checklist de hoje, só pra quem tem carro fixo (D6/D9): quem usa
+           carro de rodízio o preenche na hora de pegar (F7, tarefa futura). -->
+      <PainelDeChecklist
+        v-if="meuCarroFixo && !fichaDeHoje"
+        :veiculo="meuCarroFixo"
+        :itens="itensDeChecklist"
+        :config="configDeChecklist"
+        :ultima-semanal="ultimaDoTipo(meuCarroFixo.id, 'semanal')"
+        :ultima-mensal="ultimaDoTipo(meuCarroFixo.id, 'mensal')"
+        :ultimo-km="ultimoHodometro(fichas, meuCarroFixo.id)"
+        :hoje="hoje"
+        :gravando="gravando"
+        @gravar="gravarChecklist" />
+      <p class="fr-aviso" v-else-if="meuCarroFixo && fichaDeHoje">
+        Checklist de hoje já feito, com {{ fichaDeHoje.hodometro.toLocaleString('pt-BR') }} km.
+      </p>
+      <p class="fr-erro" v-if="erroChecklist">{{ erroChecklist }}</p>
 
       <template v-if="painel.comigo.length">
         <h2 class="fr-secao">Com você agora</h2>
