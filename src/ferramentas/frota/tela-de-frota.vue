@@ -388,6 +388,16 @@ function zapDoVeiculo(v) {
   return linkDoWhatsapp(v.contato_telefone, `Olá! É sobre o ${v.nome} (${v.placa}).`)
 }
 
+// A OFICINA é um contato à parte (correção do dono): ela se procura quando o
+// carro precisa de revisão, e o contato geral quando o problema é outro.
+// A mensagem já leva a quilometragem, que é a primeira coisa que o mecânico
+// pergunta.
+function zapDaOficina(v, km) {
+  if (!v) return null
+  const quilometragem = Number.isInteger(km) ? ` Está com ${km.toLocaleString('pt-BR')} km.` : ''
+  return linkDoWhatsapp(v.oficina_telefone, `Olá! É sobre o ${v.nome} (${v.placa}).${quilometragem}`)
+}
+
 /* ── A ficha do veículo (aba Gestão) ─────────────────────────────────────────
    Tudo do carro num lugar só: identificação, contrato, seguro, tag de pedágio,
    rastreador, a ligação com o Patrimônio, quem é o responsável, e o histórico
@@ -400,6 +410,7 @@ const CAMPOS_VEICULO = [
   'contrato', 'codigo_patrimonial', 'categoria_comercial', 'situacao', 'pessoa_id', 'local_texto',
   'seguro_seguradora', 'seguro_apolice', 'seguro_vence_em', 'tag_pedagio', 'rastreador',
   'contato_nome', 'contato_telefone', 'contato_papel',
+  'oficina_nome', 'oficina_telefone',
   'bem_id', 'observacao',
 ]
 
@@ -710,6 +721,15 @@ onMounted(async () => {
               <span class="fr-item-txt">{{ i.texto }}</span>
             </li>
           </ul>
+          <!-- Falar com a mecânica é o passo seguinte a ver "vencida". O botão
+               fica aqui pra não obrigar a abrir a ficha só pra achar o número. -->
+          <div class="fr-acoes" v-if="zapDaOficina(r.linha.veiculo, r.linha.km)">
+            <a class="fr-btn fr-zap" :href="zapDaOficina(r.linha.veiculo, r.linha.km)" target="_blank" rel="noopener"
+               :title="'Falar com ' + (r.linha.veiculo.oficina_nome || 'a oficina') + ' no WhatsApp'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.47 14.38c-.3-.15-1.74-.86-2-.96-.27-.1-.47-.15-.66.15-.2.29-.76.95-.93 1.15-.17.2-.34.22-.63.07-.3-.15-1.25-.46-2.38-1.47-.88-.78-1.47-1.75-1.64-2.05-.17-.29-.02-.45.13-.6.13-.13.3-.34.44-.51.15-.17.2-.29.3-.49.1-.2.05-.37-.02-.51-.08-.15-.66-1.59-.9-2.18-.24-.57-.48-.5-.66-.51h-.57c-.2 0-.51.07-.78.37-.27.29-1.02 1-1.02 2.43s1.05 2.82 1.2 3.02c.15.2 2.06 3.14 4.99 4.4.7.3 1.24.48 1.66.62.7.22 1.33.19 1.83.12.56-.08 1.74-.71 1.98-1.4.24-.68.24-1.27.17-1.39-.07-.12-.27-.2-.56-.34M12 2a10 10 0 0 0-8.6 15.1L2 22l5.05-1.32A10 10 0 1 0 12 2"/></svg>
+              {{ r.linha.veiculo.oficina_nome || 'Oficina' }}
+            </a>
+          </div>
         </div>
       </div>
 
@@ -796,6 +816,18 @@ onMounted(async () => {
             <label class="fr-campo"><span class="fr-lab">Apólice</span><input v-model="vForm.seguro_apolice" type="text"></label>
             <label class="fr-campo"><span class="fr-lab">Vence em</span><input v-model="vForm.seguro_vence_em" type="date"></label>
             <label class="fr-campo"><span class="fr-lab">Valor (R$)</span><input v-model="vForm.seguroValor" type="text" inputmode="decimal"></label>
+          </div>
+
+          <h3 class="fr-grupo">Oficina</h3>
+          <div class="fr-dupla">
+            <label class="fr-campo"><span class="fr-lab">Mecânica</span><input v-model="vForm.oficina_nome" type="text" placeholder="JHM Auto Center"></label>
+            <label class="fr-campo">
+              <span class="fr-lab">Telefone da oficina</span>
+              <input v-model="vForm.oficina_telefone" type="tel" inputmode="tel" placeholder="(19) 3033-9837">
+              <span class="fr-ajuda" v-if="vForm.oficina_telefone && !linkDoWhatsapp(vForm.oficina_telefone)">
+                {{ porQueNaoDaLink(vForm.oficina_telefone) }}
+              </span>
+            </label>
           </div>
 
           <h3 class="fr-grupo">Contato</h3>
