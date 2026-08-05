@@ -257,6 +257,26 @@ test('dono que saiu do cadastro não quebra a linha — o carro continua cobrado
   })
   assert.equal(l[0].dono, null)
   assert.equal(l[0].fez, false)
+  // donoId guarda o id original mesmo sem o nome: é ele, não o nome, que
+  // outra tela usaria pra ir atrás de quem é o dono.
+  assert.equal(l[0].donoId, 'sumiu')
+})
+
+test('dois carros sem checklist saem em ordem alfabética pelo nome, não pela ordem de entrada', () => {
+  // Nomes de propósito ao contrário da ordem em que entram no array: se
+  // alguém tirar o localeCompare do sort, este é o único teste que denuncia —
+  // com só um carro no grupo "não fez" (como nos outros testes daqui), o
+  // desempate nunca entra em jogo e a regressão passaria batido.
+  const l = quemFaltaHoje({
+    veiculos: [
+      { id: 'z', nome: 'ZEBRA', pessoa_id: 'p1', situacao: 'ativo' },
+      { id: 'a', nome: 'ALFA', pessoa_id: 'p2', situacao: 'ativo' },
+    ],
+    fichasDeHoje: [], pessoas: PESSOAS,
+  })
+  assert.equal(l.length, 2)
+  assert.equal(l[0].veiculo.id, 'a')
+  assert.equal(l[1].veiculo.id, 'z')
 })
 
 test('o resumo conta quem falta, e comemora quando não falta ninguém', () => {
