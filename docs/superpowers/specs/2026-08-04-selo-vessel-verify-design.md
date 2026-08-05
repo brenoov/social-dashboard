@@ -19,9 +19,72 @@ pode não ser aprovado, e é a página que vai ser mostrada pra decidir.
   público masculino.
 - Instagram `@vessel.brasil`. Varejo e atacado, lojas físicas, fábrica em Conchal.
 - Produção sai em lotes do mesmo modelo (ex.: 20 bolsas iguais), mas **cada tag é única**.
-- Garantia de fábrica hoje: **1 ano**. Registrando na tag: **2 anos**.
 - As tags serão gravadas **pela equipe, com celular** (app tipo NFC Tools), uma a uma —
   o que torna a tela de gravação da fase 2 obrigatória antes de escalar.
+
+### A garantia: 2 anos já é o padrão, e o registro VALIDA
+
+O dono disse primeiro que a garantia era de 1 ano, virando 2 no registro. **A leitura do
+material da marca desmentiu isso** e o dono corrigiu a rota:
+
+`01. Identidade da Marca/vessel-creative-tokens.json` traz
+`warranty: { text: "2 anos de garantia", required: true, promotional_badge_forbidden: true }`
+— ou seja, **todo criativo é obrigado a estampar 2 anos de garantia**. A promessa já é
+pública, e promessa de anúncio obriga o fornecedor.
+
+Decisão: **2 anos para todo mundo, sem registro.** O registro na tag não dá mais tempo —
+ele **valida**: guarda a garantia em nome da cliente, no sistema da marca.
+
+O motivo está escrito no próprio certificado impresso de vocês, na última linha:
+
+> *"ASSEGURE-SE DO CORRETO PREENCHIMENTO DO SEU CERTIFICADO PELA LOJA, SEJA ELA FÍSICA
+> OU ONLINE. ESTA É A SUA SEGURANÇA!"*
+
+Hoje a garantia depende de a loja preencher um papel à mão. Papel se perde, apaga e não
+prova nada. **É essa dor que a tag resolve** — e é esse o argumento comercial do projeto,
+não um brinde de tempo extra.
+
+### O termo não será escrito por mim
+
+`09. Certificado de Garantia/Certificado de Garantia La vessel.ai` já traz o texto
+aprovado, e é ele que vai pra página, palavra por palavra:
+
+- **Conservação** (5 itens): flanela levemente umedecida e secagem à sombra; nunca máquina
+  de lavar; evitar jeans, tintas, cosméticos e substâncias oleosas; cuidado com excesso de
+  peso; guardar de forma a manter a forma original.
+- **Trocas e reparos** (5 itens): produto sem uso troca uma única vez em até 30 dias com
+  certificado e/ou cupom; defeito vai para análise da fábrica, que tem 30 dias para reparar
+  ou devolver; compra em multimarcas se resolve na própria loja; **a garantia não cobre mau
+  uso, peças amassadas, manchadas, danificadas ou desgastadas pelo uso natural**; conferir
+  o produto no ato da compra.
+- A frase de abertura também é de lá: *"Você acaba de adquirir um produto original
+  La vessel®."*
+
+### A cara da página: identidade VESSEL BRASIL 2026
+
+Do `Manual da Marca - Vessel Brasil.pdf` (Moove Agência Criativa, 2026) — a identidade
+nova, que é a que combina com o domínio:
+
+| Cor | HEX | Pantone |
+|---|---|---|
+| Espresso Profundo | `#29211C` | Black 4 C |
+| Verde Oliva | `#667355` | 5605 UP |
+| Mushroom Beige | `#F2EFE6` | 7527 UP |
+| Off White Quente | `#B7AA9A` | 7530 UP |
+
+Fundos do sistema de criativos: base `#20261C` (olive noir), variação `#2A3023`, acento
+champagne `#C3A36A`.
+
+**Tipografia:** a assinatura VESSEL é lettering desenhado à mão (asset, nunca fonte); a
+palavra BRASIL e os textos de apoio usam **Versatile** — fonte paga, sem licença web.
+O próprio sistema de criativos já nomeia a substituta oficial: **Montserrat**
+(`fallback_family`). É ela que a página usa, e por isso a escolha não é minha.
+
+**Regras da marca que a página obedece:** logo só como asset oficial, nunca redesenhado
+nem distorcido; o pattern nasce da repetição do elemento "SS" e nunca cobre o produto;
+proibido selo promocional em cima da garantia.
+
+**Assets baixados do WorkDrive:** logomarca, monograma "SS", pattern oficial.
 
 ## A limitação que define o desenho
 
@@ -39,23 +102,27 @@ antifalsificação. E por isso toda leitura fica guardada.
 
 ## O que a cliente vê
 
-Uma página só, rolagem única, desenhada pra celular. Fundo escuro, dourado e creme —
-clima de certificado de joalheria. Quatro blocos:
+Uma página só, rolagem única, desenhada pra celular. Fundo olive noir `#20261C`, pattern
+"SS" quase invisível ao fundo, texto em Mushroom Beige, acento champagne. Quatro blocos:
 
 **1. O selo.** Ocupa a primeira tela. Animação curta de conferência (≈800 ms) e trava em
-**"Peça autêntica"**. Embaixo: modelo, cor, **nº da peça ("07 de 20")** e mês de
+**"Peça autêntica"**, com a frase do certificado impresso: *"Você acaba de adquirir um
+produto original La vessel®."* Embaixo: modelo, cor, **nº da peça ("07 de 20")** e mês de
 fabricação. Tem que aparecer em ~1 segundo num 4G de loja — é o momento que vende a
 ideia.
 
-**2. O pop-up da garantia estendida.** Sobe logo depois do selo:
-*"Registre e sua garantia vira 2 anos."* Campos: nome, WhatsApp, onde comprou, data da
-compra. Ao confirmar, o selo ganha a faixa **"Garantia ativa até 04/08/2028"**. Dá pra
-fechar e registrar depois — o botão continua na página.
+**2. O pop-up do registro.** Sobe logo depois do selo:
+*"Registre sua garantia de 2 anos no seu nome."* Campos: nome, WhatsApp, onde comprou,
+data da compra. Ao confirmar, o selo ganha a faixa **"Garantia registrada até
+04/08/2028"**. Dá pra fechar e registrar depois — o botão continua na página.
 
-**3. O termo.** Português claro, sem juridiquês: 1 ano de fábrica pra todo mundo, 2 anos
-registrando. O que cobre (costura, ferragem, alça, defeito de fabricação) e o que não
-cobre (mau uso, corte, desgaste natural). O texto sai no repositório como rascunho — o
-dono revisa antes de ir pra rua.
+O texto de apoio deixa claro o que o registro faz e o que ele *não* faz:
+*"A garantia de 2 anos é sua de qualquer jeito. Registrando, ela fica guardada com a
+gente, no seu nome — sem depender do papel preenchido pela loja."* **Em nenhum lugar a
+página promete tempo extra por registrar.**
+
+**3. O termo.** O texto aprovado do certificado impresso, sem reescrita: conservação (5
+itens) e trocas e reparos (5 itens), incluindo o que a garantia não cobre.
 
 **4. A marca.** Bloco curto sobre o canvas (premium, mais durável que couro), link pro
 Instagram e pra loja.
