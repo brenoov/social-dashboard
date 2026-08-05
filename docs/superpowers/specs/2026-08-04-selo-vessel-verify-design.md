@@ -76,8 +76,8 @@ dona; e ninguém consegue colher nome de cliente lendo tags alheias.
 
 - **A raiz `vesselbrasil.com.br` não vira página.** Decisão do dono. Mas o domínio
   precisa apontar pra Vercel pro `/verify` existir, e sem regra a raiz mostraria o painel
-  interno. Então a raiz **redireciona pra `lavessel.com.br`**. É uma linha de
-  configuração, não é design.
+  interno. Então a raiz **redireciona pra `lavessel.com.br`** — decisão aprovada pelo
+  dono como **provisória**. É uma linha de configuração, não é design.
 - Nada de login, nada de carrinho, nada do painel carregado nessa página.
 
 ## Por trás

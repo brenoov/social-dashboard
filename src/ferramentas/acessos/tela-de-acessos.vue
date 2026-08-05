@@ -2812,7 +2812,12 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
   .tela-acessos :deep(.ac-topbar){padding:9px 14px}
   .tela-acessos .ac-topo{padding:12px 14px 0}
   .tela-acessos .ac-hero{margin-bottom:12px;gap:10px}
-  .tela-acessos .ac-hero-sub{display:none}
+  /* O subtitulo VOLTOU. Estava escondido no celular pra economizar altura, e
+     esconder conteudo e exatamente o que o dono mandou parar de fazer. A
+     altura sai do titulo, que estava grande demais pra tela pequena — o
+     subtitulo custa 16px e diz de quem sao as pessoas listadas. */
+  .tela-acessos .ac-hero-h1{font-size:17px;letter-spacing:.6px}
+  .tela-acessos .ac-hero-sub{font-size:11.5px;margin-top:2px}
 }
 @media(max-width:420px){
   .tela-acessos .ac-kpi-val{font-size:27px}
@@ -3069,7 +3074,16 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-btn){padding:11px 14px;font-size:14px}
 .tela-acessos :deep(.ac-org-body){grid-template-columns:1fr}
 .tela-acessos :deep(.ac-org-name){font-size:18px;white-space:normal}
-.tela-acessos :deep(.ac-tabs){width:100%;margin-left:0;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+/* As abas QUEBRAM LINHA no celular, nao rolam. Antes rolavam: "Drive"
+   aparecia cortado e Auditoria e Configuracoes sumiam por completo — duas abas
+   inalcancaveis, e a pessoa nem sabia que existiam.
+
+   Barrinha de rolagem nao resolve: ela so aparece quando a pessoa JA tentou
+   rolar, entao ate la continua parecendo que o texto foi cortado. Com cinco
+   abas num conjunto fixo, mostrar todas custa uma linha a mais e nao esconde
+   nada — que e a regra depois do tombo da barra de topo. */
+.tela-acessos :deep(.ac-tabs){width:100%;margin-left:0;display:flex;flex-wrap:wrap;gap:6px;overflow:visible}
+.tela-acessos :deep(.ac-tab){white-space:nowrap;flex:0 0 auto}
 .tela-acessos :deep(.ac-tab){white-space:nowrap;flex-shrink:0}
 /* (o max-height/overflow do .ac-modal agora está na regra base, valendo
    pra todas as larguras — não precisa mais repetir só no mobile aqui) */
@@ -3418,7 +3432,10 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-row){flex-wrap:wrap}
 .tela-acessos :deep(.ac-row .grow){min-width:0}
 .tela-acessos :deep(.ac-avatar){flex:0 0 auto}
-.tela-acessos :deep(.ac-navbar){display:flex;justify-content:center;gap:0;padding:14px 24px;border-bottom:1px solid var(--border)}
+/* As abas ficavam CENTRALIZADAS, soltas no meio da tela e longe do titulo.
+   Nenhuma outra ferramenta da central faz isso. Agora encostam na esquerda,
+   com o mesmo recuo do titulo, e a leitura vira uma coluna so. */
+.tela-acessos :deep(.ac-navbar){display:flex;justify-content:flex-start;gap:0;padding:10px 24px;border-bottom:1px solid var(--border)}
 .tela-acessos :deep(.ac-navbar .ac-tabs){margin-left:0;gap:8px}
   /* ===== /Controle de Acessos ===== */
 </style>
