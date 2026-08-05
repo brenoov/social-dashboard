@@ -82,9 +82,18 @@ test('as duas Maria Eduarda continuam separadas', () => {
 })
 
 test('"Maria Cristina" nao e engolida por "Maria Eduarda Cristina Schettini"', () => {
-  // As palavras existem na outra, mas fora de ordem — e são pessoas diferentes.
+  // CONFIRMADO PELO DONO em 04/08/2026, e é por isso que este teste existe:
+  // "já teve uma maria cristina só que em hortolândia, e essa maria eduarda
+  // cristina deve ser outra pessoa". São duas mulheres, de lojas diferentes.
+  //
+  // A primeira versão da regra juntava as duas — as palavras "maria" e
+  // "cristina" aparecem nas duas, na mesma ordem. Juntá-las daria a uma o
+  // faturamento da outra. Se alguém for afrouxar o agrupamento algum dia, que
+  // seja depois de reler isto.
   const g = agruparVendedores(REAIS)
-  assert.ok(acha(g, 'Maria Cristina'), 'Maria Cristina foi engolida')
+  assert.ok(acha(g, 'Maria Cristina'), 'Maria Cristina (Hortolândia) foi engolida')
+  assert.ok(acha(g, 'Maria Eduarda Cristina Schettini'), 'a outra Maria sumiu')
+  assert.equal(acha(g, 'Maria Cristina').ids.length, 1, 'não pode ter absorvido outro cadastro')
 })
 
 // ── Balcão não é pessoa ─────────────────────────────────────────────────────

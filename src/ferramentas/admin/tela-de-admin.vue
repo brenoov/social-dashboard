@@ -348,6 +348,180 @@ async function updateSaudeBadge() {
   else if (dot) { dot.remove() }
 }
 
+/* ── PUXAR AS VENDEDORAS DAS VENDAS ─────────────────────────────────────────
+ *
+ * PEDIDO DO DONO (04/08/2026): "dá para puxar pelas vendas as vendedoras
+ * existentes e jogar no time de vendas e criar usuários".
+ *
+ * O QUE ESTA TELA NÃO FAZ: decidir sozinha. Ela agrupa, sugere loja e sugere
+ * e-mail — e para. Quem confirma é quem conhece a equipe, porque os dois erros
+ * possíveis aqui são caros: juntar duas pessoas dá a uma o faturamento da
+ * outra, e separar a mesma pessoa em duas parte a comissão dela no meio.
+ */
+let _vdLista = []
+let _vdEscolhas = {}     // nome -> { criar, email, equipe_id }
+let _vdSenhas = []       // as senhas geradas, mostradas UMA vez
+let _vdCarregando = false
+
+async function _vdPuxar() {
+  const body = document.getElementById('admin-equipes-body'); if (!body) return
+  _vdCarregando = true; _eqDesenhar()
+  try {
+    const [vends, pedidos] = await Promise.all([
+      sb('bling_vendedores?select=vendor_id,nome'),
+      sb('bling_pedido_vendedor?select=vendor_id,loja_id,pedido_data&limit=5000'),
+    ])
+    const porVendedor = {}
+    for (const p of (pedidos || [])) {
+      if (!porVendedor[p.vendor_id]) porVendedor[p.vendor_id] = []
+      porVendedor[p.vendor_id].push(p)
+    }
+    const comContagem = (vends || []).map(v => {
+      const meus = porVendedor[v.vendor_id] || []
+      const datas = meus.map(x => x.pedido_data).filter(Boolean).sort()
+      return { ...v, pedidos: meus.length, ultima_venda: datas[datas.length - 1] || null }
+    })
+    _vdLista = agruparVendedores(comContagem).map(g => {
+      // Os pedidos de TODOS os ids do grupo — a Elen tem três.
+      const todos = g.ids.flatMap(id => porVendedor[id] || [])
+      const loja = lojaDaVendedora(todos)
+      const equipe = _eqTimes.find(t => String(t.canal_loja_id) === String(loja.loja_id))
+      return { ...g, loja, equipeSugerida: equipe ? equipe.id : '' }
+    })
+    for (const g of _vdLista) {
+      if (!_vdEscolhas[g.nome]) {
+        _vdEscolhas[g.nome] = {
+          criar: viraConta(g),
+          email: viraConta(g) ? emailSugerido(g.nome) : '',
+          equipe_id: g.equipeSugerida || '',
+        }
+      }
+    }
+  } catch (e) {
+    adminToast('Não consegui puxar as vendedoras: ' + String(e && e.message || e), false)
+  } finally {
+    _vdCarregando = false; _eqDesenhar()
+  }
+}
+
+function _vdSecao() {
+  if (!_vdLista.length && !_vdCarregando && !_vdSenhas.length) {
+    return '<div style="border:1px dashed var(--border);border-radius:12px;padding:16px;margin-bottom:14px;">'
+      + '<div style="font-weight:700;color:var(--text);margin-bottom:4px;">Puxar as vendedoras das vendas</div>'
+      + '<div class="admin-section-sub" style="margin-bottom:10px;">Lê quem já vendeu no Bling, junta os cadastros repetidos e sugere a loja de cada uma. Nada é criado sem você confirmar.</div>'
+      + '<button data-vd-puxar style="border:1px solid var(--accent);background:transparent;color:var(--accent);border-radius:9px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;">Puxar das vendas</button>'
+      + '</div>'
+  }
+  if (_vdCarregando) return '<div style="color:var(--muted);font-size:12px;margin-bottom:14px;">Lendo as vendas…</div>'
+
+  // AS SENHAS APARECEM UMA VEZ SÓ. Guardá-las para reler depois seria guardar
+  // senha em texto — e não guardar obriga a anotar agora, que é o certo.
+  if (_vdSenhas.length) {
+    let h = '<div style="border:1px solid var(--green,#16a34a);border-radius:12px;padding:16px;margin-bottom:14px;">'
+    h += '<div style="font-weight:800;color:var(--green,#16a34a);margin-bottom:4px;">Contas criadas — anote as senhas AGORA</div>'
+    h += '<div class="admin-section-sub" style="margin-bottom:10px;">Esta lista não volta a aparecer. Cada uma é obrigada a trocar a senha no primeiro acesso.</div>'
+    h += '<table style="width:100%;border-collapse:collapse;font-size:12px;">'
+    for (const s of _vdSenhas) {
+      h += '<tr><td style="padding:5px 8px 5px 0;color:var(--text);">' + escHtml(s.nome) + '</td>'
+        + '<td style="padding:5px 8px;color:var(--muted);">' + escHtml(s.email) + '</td>'
+        + '<td style="padding:5px 0;font-family:var(--fonte-dados);font-weight:700;color:var(--text);">' + escHtml(s.senha) + '</td></tr>'
+    }
+    h += '</table>'
+    h += '<button data-vd-fechar style="margin-top:12px;border:1px solid var(--border);background:none;color:var(--text);border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;">Já anotei</button>'
+    h += '</div>'
+    return h
+  }
+
+  let h = '<div style="border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;">'
+  h += '<div style="font-weight:800;color:var(--text);margin-bottom:4px;">Vendedoras encontradas nas vendas</div>'
+  h += '<div class="admin-section-sub" style="margin-bottom:12px;">Confira antes de criar. Quem aparece como <b>balcão</b> não é pessoa — a venda dela é real e entra no time, mas não ganha conta de acesso.</div>'
+  for (const g of _vdLista) {
+    const e = _vdEscolhas[g.nome] || {}
+    const nomeDaLoja = (_eqCanais.find(c => String(c.loja_id) === String(g.loja.loja_id)) || {}).nome
+    h += '<div style="border-bottom:1px solid var(--border);padding:9px 0;">'
+    h += '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;">'
+    h += '<div><span style="font-weight:700;color:var(--text);">' + escHtml(g.nome) + '</span>'
+    if (g.balcao) h += '<span style="margin-left:7px;font-size:10px;font-weight:700;color:var(--orange,#d97706);border:1px solid var(--orange,#d97706);border-radius:999px;padding:1px 7px;">balcão</span>'
+    if (g.ids.length > 1) h += '<span style="margin-left:7px;font-size:10.5px;color:var(--green,#16a34a);">' + g.ids.length + ' cadastros juntados</span>'
+    h += '</div>'
+    h += '<div style="font-size:11.5px;color:var(--muted);font-family:var(--fonte-dados);">' + g.pedidos + ' pedidos · ' + escHtml(comoDizerALoja(g.loja, nomeDaLoja)) + '</div>'
+    h += '</div>'
+    // O AVISO DOS PARECIDOS. A máquina não junta por conta própria quando tem
+    // dúvida — ela conta a dúvida.
+    if ((g.parecidos || []).length) {
+      h += '<div style="font-size:11px;color:var(--orange,#d97706);margin-top:3px;">Parecido com ' + escHtml(g.parecidos.join(', ')) + ' — se for a mesma pessoa, junte no Bling antes de criar a conta.</div>'
+    }
+    if (!g.balcao) {
+      h += '<div style="display:flex;gap:8px;margin-top:7px;flex-wrap:wrap;align-items:center;">'
+      h += '<label style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted);cursor:pointer;">'
+        + '<input type="checkbox" data-vd-criar="' + escHtml(g.nome) + '"' + (e.criar ? ' checked' : '') + '> criar conta</label>'
+      h += '<input data-vd-email="' + escHtml(g.nome) + '" value="' + escHtml(e.email || '') + '" placeholder="e-mail" style="flex:1;min-width:190px;padding:6px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:11.5px;">'
+      h += '<select data-vd-equipe="' + escHtml(g.nome) + '" style="padding:6px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:11.5px;">'
+        + '<option value="">— sem time —</option>'
+        + ordenarTimes(_eqTimes).map(t => '<option value="' + escHtml(t.id) + '"' + (String(e.equipe_id) === String(t.id) ? ' selected' : '') + '>' + escHtml(t.nome) + '</option>').join('')
+        + '</select>'
+      h += '</div>'
+    }
+    h += '</div>'
+  }
+  h += '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">'
+  h += '<button data-vd-criar-tudo style="border:none;background:var(--accent);color:#fff;border-radius:9px;padding:9px 16px;font-size:12.5px;font-weight:700;cursor:pointer;">Criar as contas marcadas</button>'
+  h += '<button data-vd-fechar style="border:1px solid var(--border);background:none;color:var(--text);border-radius:9px;padding:9px 14px;font-size:12.5px;cursor:pointer;">Cancelar</button>'
+  h += '</div></div>'
+  return h
+}
+
+async function _vdCriarContas(botao) {
+  const marcadas = _vdLista.filter(g => (_vdEscolhas[g.nome] || {}).criar && !g.balcao)
+  if (!marcadas.length) { adminToast('Nenhuma conta marcada.', false); return }
+  const semEmail = marcadas.filter(g => !(_vdEscolhas[g.nome].email || '').includes('@'))
+  if (semEmail.length) { adminToast('Falta e-mail em: ' + semEmail.map(g => g.nome).join(', '), false); return }
+
+  const ok = await _gtConfirmAdmin('Criar ' + marcadas.length + (marcadas.length === 1 ? ' conta?' : ' contas?'),
+    'Cada uma recebe uma senha diferente, e é obrigada a trocá-la no primeiro acesso. '
+    + 'As senhas aparecem UMA vez — anote antes de fechar.')
+  if (!ok) return
+
+  botao.disabled = true; botao.textContent = 'Criando…'
+  const feitas = []
+  for (const g of marcadas) {
+    const esc = _vdEscolhas[g.nome]
+    // SENHA DIFERENTE PARA CADA UMA. Senha igual para todas significa que
+    // qualquer uma entra na conta da outra — e essas contas veem faturamento.
+    const senha = gerarSenhaForte(12)
+    try {
+      const r = await fetch(SUPABASE_URL + '/functions/v1/invite-user', {
+        method: 'POST',
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + adTok(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: esc.email.trim(), name: g.nome, role: 'viewer', password: senha }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(d.error || ('a função respondeu ' + r.status))
+      const novoId = d.user?.id || d.id || null
+      if (novoId) {
+        // A MARCA DE TROCAR SENHA e o time, num passo só.
+        await adFetch('profiles?id=eq.' + encodeURIComponent(novoId), { method: 'PATCH', body: JSON.stringify({ precisa_trocar_senha: true }) })
+        if (esc.equipe_id) {
+          await adFetch('equipes_membros', { method: 'POST', body: JSON.stringify({ equipe_id: esc.equipe_id, profile_id: novoId, papel: 'vendedora' }) })
+        }
+      }
+      feitas.push({ nome: g.nome, email: esc.email.trim(), senha })
+    } catch (e) {
+      adminToast('Falhou em ' + g.nome + ': ' + String(e && e.message || e), false)
+    }
+  }
+  _vdSenhas = feitas
+  _vdLista = []
+  botao.disabled = false
+  await loadAdminEquipes()
+}
+
+// Confirmação simples desta seção. O admin não tem o _gtConfirm da Gestão de
+// Tráfego, e criar conta é ação que não deve acontecer por clique errado.
+function _gtConfirmAdmin(titulo, texto) {
+  return Promise.resolve(window.confirm(titulo + '\n\n' + texto))
+}
+
 /* ── TIMES DE VENDA ─────────────────────────────────────────────────────────
  *
  * PEDIDO DO DONO (04/08/2026): gerir as equipes de lojas e canais aqui, definir
@@ -397,7 +571,7 @@ function _eqDesenhar() {
   const eu = _eqEu()
   const podeCriar = eu.is_superadmin || _eqMembros.some(m => String(m.profile_id) === String(eu.id) && m.papel === 'gestor')
 
-  let html = ''
+  let html = _vdSecao()
   html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">'
   html += '<div style="color:var(--muted);font-size:12px;">' + _eqTimes.length + (_eqTimes.length === 1 ? ' time' : ' times') + ' cadastrados</div>'
   if (podeCriar) html += '<button data-eq-novo style="border:none;background:var(--accent);color:#fff;border-radius:9px;padding:9px 16px;font-size:12.5px;font-weight:700;cursor:pointer;">+ Novo time</button>'
@@ -524,6 +698,13 @@ function _eqGente(t) {
 function _eqLigar(body) {
   const q = (sel) => Array.from(body.querySelectorAll(sel))
   const um = (sel) => body.querySelector(sel)
+  const puxar = um('[data-vd-puxar]'); if (puxar) puxar.onclick = () => _vdPuxar()
+  const fechar = um('[data-vd-fechar]'); if (fechar) fechar.onclick = () => { _vdLista = []; _vdSenhas = []; _eqDesenhar() }
+  const criarTudo = um('[data-vd-criar-tudo]'); if (criarTudo) criarTudo.onclick = () => _vdCriarContas(criarTudo)
+  q('[data-vd-criar]').forEach(cb => { cb.onchange = () => { _vdEscolhas[cb.getAttribute('data-vd-criar')].criar = cb.checked } })
+  q('[data-vd-email]').forEach(i => { i.oninput = () => { _vdEscolhas[i.getAttribute('data-vd-email')].email = i.value } })
+  q('[data-vd-equipe]').forEach(s2 => { s2.onchange = () => { _vdEscolhas[s2.getAttribute('data-vd-equipe')].equipe_id = s2.value } })
+
   const novo = um('[data-eq-novo]'); if (novo) novo.onclick = () => { _eqEditando = 'novo'; _eqDesenhar() }
   q('[data-eq-editar]').forEach(b => { b.onclick = () => { _eqEditando = b.getAttribute('data-eq-editar'); _eqDesenhar() } })
   q('[data-eq-gente]').forEach(b => { b.onclick = () => { _eqEditando = 'gente:' + b.getAttribute('data-eq-gente'); _eqDesenhar() } })
