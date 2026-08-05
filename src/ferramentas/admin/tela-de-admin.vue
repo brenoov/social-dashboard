@@ -175,7 +175,13 @@ import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import {
   PAPEIS, acharPapel, podeAdministrarTime, papeisQuePossoConceder, podeRemover,
   validarTime, canaisLivres, linhaDoTime, ordenarTimes,
+  veOEstoque, podeLiberarEstoque,
 } from './equipes.js'
+// Puxar as vendedoras das VENDAS: agrupa duplicadas, separa balcão de pessoa e
+// deduz a loja. Regras puras, testadas contra os 22 cadastros reais do Bling.
+import {
+  agruparVendedores, lojaDaVendedora, comoDizerALoja, viraConta, emailSugerido,
+} from './vendedoras.js'
 
 const router = useRouter()
 
