@@ -16,6 +16,7 @@ import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { estadoDoVeiculo, resumoDoEstado, ordenarEstados, rotuloDoTanque, NIVEIS_TANQUE, problemasDaDevolucao, ultimoHodometro } from './estado-do-veiculo.js'
 import { AREAS, areasVisiveis, areaInicial, painelDoMotorista, resumoDoMotorista } from './areas-da-frota.js'
+import { passarPara, posseAberta, abrirPossesQueFaltam } from './posse.js'
 import {
   SITUACOES, problemasDaRequisicao, bloqueios, podeDecidir, motivoEmPortugues,
   ordenarFila, quando,
@@ -167,6 +168,30 @@ function abrirDevolucao(linha) {
   problemas.value = []
 }
 function fecharFicha() { ficha.value = null; problemas.value = [] }
+
+/* ── Passar o carro (F6b) ─────────────────────────────────────────────────
+   Quem tem carro fixo não "retira" e "devolve" — a posse é uma linha aberta
+   à parte da viagem (posse.js). Passar o carro fecha a posse de quem estava
+   e abre a de quem pegou; devolver sem apontar ninguém só fecha, e o carro
+   fica pendente no quadro de cobrança da Gestão até alguém reabrir. */
+const passando = ref(null)      // o veículo cujo passe está aberto
+const paraQuem = ref('')        // id da pessoa escolhida
+
+async function confirmarPasse() {
+  if (gravando.value || !passando.value) return
+  gravando.value = true
+  const alvo = pessoas.value.find((p) => p.id === paraQuem.value) || null
+  const { fechar, abrir } = passarPara({
+    usos: usos.value, veiculoId: passando.value.id,
+    para: alvo, quando: new Date().toISOString(),
+  })
+  if (fechar) await sbClient.from('frota_uso').update({ volta_em: fechar.volta_em }).eq('id', fechar.id)
+  if (abrir) await sbClient.from('frota_uso').insert(abrir)
+  gravando.value = false
+  passando.value = null
+  paraQuem.value = ''
+  await carregar()
+}
 
 // Quem está logado, ligado ao colaborador pelo e-mail corporativo. Serve de
 // sugestão na retirada (o campo continua editável — quem pega pode ser outra
@@ -577,7 +602,17 @@ async function salvarVeiculo() {
   dados.seguro_valor_centavos = centavosDe(vForm.seguroValor)
   dados.atualizado_em = new Date().toISOString()
 
+  // Tirar o dono fixo do carro (pessoa_id vira nulo) NÃO PODE deixar uma posse
+  // aberta órfã: `disponivel` (estado-do-veiculo.js) depende só de pessoa_id,
+  // não do uso aberto, então um carro sem dono e com posse aberta apareceria
+  // livre pra qualquer um pegar mesmo estando com alguém. Fechar a posse junto
+  // com a troca é o que impede esse estado de existir.
+  const posseOrfa = !dados.pessoa_id ? posseAberta(usos.value, veiculoAberto.value.id) : null
+
   const { error } = await sbClient.from('frota_veiculos').update(dados).eq('id', veiculoAberto.value.id)
+  if (!error && posseOrfa) {
+    await sbClient.from('frota_uso').update({ volta_em: dados.atualizado_em }).eq('id', posseOrfa.id)
+  }
   gravando.value = false
   if (error) {
     errosDoVeiculo.value = [/duplicate|unique/i.test(error.message || '')
@@ -686,6 +721,34 @@ onMounted(async () => {
         Checklist de hoje já feito, com {{ fichaDeHoje.hodometro.toLocaleString('pt-BR') }} km.
       </p>
       <p class="fr-erro" v-if="erroChecklist">{{ erroChecklist }}</p>
+
+      <template v-if="meuCarroFixo">
+        <h2 class="fr-secao">Seu carro</h2>
+        <div class="fr-card">
+          <div class="fr-card-topo">
+            <div class="fr-card-ident">
+              <span class="fr-card-nome">{{ meuCarroFixo.nome }}</span>
+              <span class="fr-placa">{{ meuCarroFixo.placa }}</span>
+            </div>
+          </div>
+          <div class="fr-acoes" v-if="passando !== meuCarroFixo">
+            <button class="fr-btn" v-if="podeEditar" @click="passando = meuCarroFixo">
+              Passar o carro para outra pessoa
+            </button>
+          </div>
+          <!-- Quem empresta o carro registra pra quem. É isto que faz a multa ter
+               resposta: sem o passe, a multa cai no nome do dono fixo, que pode não
+               ter sido quem dirigiu. -->
+          <div class="fr-acoes" v-else>
+            <select v-model="paraQuem">
+              <option value="">Devolver para mim (fecho o empréstimo)</option>
+              <option v-for="p in pessoas" :key="p.id" :value="p.id">{{ p.nome }}</option>
+            </select>
+            <button class="fr-btn primario" :disabled="gravando" @click="confirmarPasse">Confirmar</button>
+            <button class="fr-btn" @click="passando = null; paraQuem = ''">Cancelar</button>
+          </div>
+        </div>
+      </template>
 
       <template v-if="painel.comigo.length">
         <h2 class="fr-secao">Com você agora</h2>
