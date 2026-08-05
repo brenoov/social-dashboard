@@ -20,6 +20,7 @@ import {
   ordenarFila, quando,
 } from './requisicoes.js'
 import { revisoesDoVeiculo, resumoDeRevisoes, problemasDoItem, avisoAoDesativar } from './revisoes.js'
+import { linkDoWhatsapp, telefoneLegivel, porQueNaoDaLink } from '../../compartilhado/whatsapp.js'
 
 const router = useRouter()
 const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
@@ -380,6 +381,13 @@ async function alternarItem(p) {
   if (!error) carregar()
 }
 
+// O link de WhatsApp do contato do carro. Já leva o modelo e a placa escritos:
+// quem recebe atende sabendo de qual carro se fala, sem precisar perguntar.
+function zapDoVeiculo(v) {
+  if (!v) return null
+  return linkDoWhatsapp(v.contato_telefone, `Olá! É sobre o ${v.nome} (${v.placa}).`)
+}
+
 /* ── A ficha do veículo (aba Gestão) ─────────────────────────────────────────
    Tudo do carro num lugar só: identificação, contrato, seguro, tag de pedágio,
    rastreador, a ligação com o Patrimônio, quem é o responsável, e o histórico
@@ -391,6 +399,7 @@ const CAMPOS_VEICULO = [
   'nome', 'placa', 'marca', 'ano', 'cor', 'combustivel', 'renavam', 'chassi', 'tipo_oleo',
   'contrato', 'codigo_patrimonial', 'categoria_comercial', 'situacao', 'pessoa_id', 'local_texto',
   'seguro_seguradora', 'seguro_apolice', 'seguro_vence_em', 'tag_pedagio', 'rastreador',
+  'contato_nome', 'contato_telefone', 'contato_papel',
   'bem_id', 'observacao',
 ]
 
@@ -555,8 +564,14 @@ onMounted(async () => {
                 <span class="fr-dado-val" :class="{ alerta: l.precisaAbastecer }">{{ rotuloDoTanque(l.tanque) }}</span>
               </div>
             </div>
-            <div class="fr-acoes" v-if="podeEditar">
-              <button class="fr-btn primario" @click="abrirDevolucao(l)">Devolver</button>
+            <div class="fr-acoes">
+              <button class="fr-btn primario" v-if="podeEditar" @click="abrirDevolucao(l)">Devolver</button>
+              <a v-if="zapDoVeiculo(l.veiculo)" class="fr-btn fr-zap" :href="zapDoVeiculo(l.veiculo)"
+               target="_blank" rel="noopener"
+               :title="l.veiculo.contato_nome ? ('Falar com ' + l.veiculo.contato_nome + ' no WhatsApp') : 'Falar no WhatsApp'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.47 14.38c-.3-.15-1.74-.86-2-.96-.27-.1-.47-.15-.66.15-.2.29-.76.95-.93 1.15-.17.2-.34.22-.63.07-.3-.15-1.25-.46-2.38-1.47-.88-.78-1.47-1.75-1.64-2.05-.17-.29-.02-.45.13-.6.13-.13.3-.34.44-.51.15-.17.2-.29.3-.49.1-.2.05-.37-.02-.51-.08-.15-.66-1.59-.9-2.18-.24-.57-.48-.5-.66-.51h-.57c-.2 0-.51.07-.78.37-.27.29-1.02 1-1.02 2.43s1.05 2.82 1.2 3.02c.15.2 2.06 3.14 4.99 4.4.7.3 1.24.48 1.66.62.7.22 1.33.19 1.83.12.56-.08 1.74-.71 1.98-1.4.24-.68.24-1.27.17-1.39-.07-.12-.27-.2-.56-.34M12 2a10 10 0 0 0-8.6 15.1L2 22l5.05-1.32A10 10 0 1 0 12 2"/></svg>
+              WhatsApp
+            </a>
             </div>
           </div>
         </div>
@@ -602,12 +617,18 @@ onMounted(async () => {
               </span>
             </div>
           </div>
-          <div class="fr-acoes" v-if="podeEditar">
-            <button class="fr-btn primario" @click="abrirRetirada(l)">Vou usar</button>
+          <div class="fr-acoes">
+            <button class="fr-btn primario" v-if="podeEditar" @click="abrirRetirada(l)">Vou usar</button>
             <!-- Pegar agora e reservar pra depois são coisas diferentes. O
                  manual da planilha pede 3 dias de antecedência justamente pra
                  não atropelar viagem de outro departamento. -->
-            <button class="fr-btn" @click="abrirPedido(l.veiculo.id)">Reservar</button>
+            <button class="fr-btn" v-if="podeEditar" @click="abrirPedido(l.veiculo.id)">Reservar</button>
+            <a v-if="zapDoVeiculo(l.veiculo)" class="fr-btn fr-zap" :href="zapDoVeiculo(l.veiculo)"
+               target="_blank" rel="noopener"
+               :title="l.veiculo.contato_nome ? ('Falar com ' + l.veiculo.contato_nome + ' no WhatsApp') : 'Falar no WhatsApp'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.47 14.38c-.3-.15-1.74-.86-2-.96-.27-.1-.47-.15-.66.15-.2.29-.76.95-.93 1.15-.17.2-.34.22-.63.07-.3-.15-1.25-.46-2.38-1.47-.88-.78-1.47-1.75-1.64-2.05-.17-.29-.02-.45.13-.6.13-.13.3-.34.44-.51.15-.17.2-.29.3-.49.1-.2.05-.37-.02-.51-.08-.15-.66-1.59-.9-2.18-.24-.57-.48-.5-.66-.51h-.57c-.2 0-.51.07-.78.37-.27.29-1.02 1-1.02 2.43s1.05 2.82 1.2 3.02c.15.2 2.06 3.14 4.99 4.4.7.3 1.24.48 1.66.62.7.22 1.33.19 1.83.12.56-.08 1.74-.71 1.98-1.4.24-.68.24-1.27.17-1.39-.07-.12-.27-.2-.56-.34M12 2a10 10 0 0 0-8.6 15.1L2 22l5.05-1.32A10 10 0 1 0 12 2"/></svg>
+              WhatsApp
+            </a>
           </div>
         </div>
       </div>
@@ -650,9 +671,15 @@ onMounted(async () => {
 
         <!-- Sem "Vou usar" aqui (correção do dono): esta aba é para GERIR a
              frota. Pegar carro é na aba Motorista. -->
-        <div class="fr-acoes" v-if="podeEditar">
-          <button class="fr-btn primario" @click="abrirVeiculo(l.veiculo)">Abrir ficha</button>
-          <button v-if="l.naRua" class="fr-btn" @click="abrirDevolucao(l)">Devolver</button>
+        <div class="fr-acoes">
+          <button class="fr-btn primario" v-if="podeEditar" @click="abrirVeiculo(l.veiculo)">Abrir ficha</button>
+          <button v-if="podeEditar && l.naRua" class="fr-btn" @click="abrirDevolucao(l)">Devolver</button>
+          <a v-if="zapDoVeiculo(l.veiculo)" class="fr-btn fr-zap" :href="zapDoVeiculo(l.veiculo)"
+               target="_blank" rel="noopener"
+               :title="l.veiculo.contato_nome ? ('Falar com ' + l.veiculo.contato_nome + ' no WhatsApp') : 'Falar no WhatsApp'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.47 14.38c-.3-.15-1.74-.86-2-.96-.27-.1-.47-.15-.66.15-.2.29-.76.95-.93 1.15-.17.2-.34.22-.63.07-.3-.15-1.25-.46-2.38-1.47-.88-.78-1.47-1.75-1.64-2.05-.17-.29-.02-.45.13-.6.13-.13.3-.34.44-.51.15-.17.2-.29.3-.49.1-.2.05-.37-.02-.51-.08-.15-.66-1.59-.9-2.18-.24-.57-.48-.5-.66-.51h-.57c-.2 0-.51.07-.78.37-.27.29-1.02 1-1.02 2.43s1.05 2.82 1.2 3.02c.15.2 2.06 3.14 4.99 4.4.7.3 1.24.48 1.66.62.7.22 1.33.19 1.83.12.56-.08 1.74-.71 1.98-1.4.24-.68.24-1.27.17-1.39-.07-.12-.27-.2-.56-.34M12 2a10 10 0 0 0-8.6 15.1L2 22l5.05-1.32A10 10 0 1 0 12 2"/></svg>
+              WhatsApp
+            </a>
         </div>
       </div>
     </div>
@@ -769,6 +796,22 @@ onMounted(async () => {
             <label class="fr-campo"><span class="fr-lab">Apólice</span><input v-model="vForm.seguro_apolice" type="text"></label>
             <label class="fr-campo"><span class="fr-lab">Vence em</span><input v-model="vForm.seguro_vence_em" type="date"></label>
             <label class="fr-campo"><span class="fr-lab">Valor (R$)</span><input v-model="vForm.seguroValor" type="text" inputmode="decimal"></label>
+          </div>
+
+          <h3 class="fr-grupo">Contato</h3>
+          <div class="fr-dupla">
+            <label class="fr-campo"><span class="fr-lab">Quem é</span><input v-model="vForm.contato_nome" type="text" placeholder="JHM Auto Center"></label>
+            <label class="fr-campo"><span class="fr-lab">O que faz</span><input v-model="vForm.contato_papel" type="text" placeholder="Oficina, locadora, seguro, guincho…"></label>
+            <label class="fr-campo">
+              <span class="fr-lab">Telefone</span>
+              <input v-model="vForm.contato_telefone" type="tel" inputmode="tel" placeholder="(19) 3033-9837">
+              <!-- Diz POR QUE não dá link, em vez de só não mostrar o botão: sem
+                   DDD o app se recusa a montar o link, e a pessoa precisa saber
+                   que é isso — não que o WhatsApp "não funciona". -->
+              <span class="fr-ajuda" v-if="vForm.contato_telefone && !linkDoWhatsapp(vForm.contato_telefone)">
+                {{ porQueNaoDaLink(vForm.contato_telefone) }}
+              </span>
+            </label>
           </div>
 
           <h3 class="fr-grupo">Equipamentos e patrimônio</h3>
@@ -1139,6 +1182,9 @@ onMounted(async () => {
 /* 44px de altura em tudo que se toca: é o alvo que o dedo acerta. Esta
    ferramenta é usada em pé, no estacionamento, com uma mão só. */
 .tela-frota .fr-btn{flex:1 1 auto;min-height:44px;font-family:var(--fonte-principal);font-size:13.5px;font-weight:600;padding:11px 16px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);cursor:pointer;touch-action:manipulation;}
+/* Verde do WhatsApp, que e como as pessoas reconhecem o botao sem ler. */
+.tela-frota .fr-zap{display:inline-flex;align-items:center;justify-content:center;gap:7px;text-decoration:none;border-color:#25d366;color:#128c4a;}
+.tela-frota .fr-zap:hover{background:color-mix(in srgb,#25d366 12%,transparent);}
 .tela-frota .fr-btn.primario{background:var(--accent);border-color:var(--accent);color:#fff;}
 .tela-frota .fr-btn:disabled{opacity:.6;cursor:default;}
 
