@@ -117,8 +117,14 @@ test('fim de semana: nenhuma cadência, nenhum item', () => {
 /* ── O hodômetro ─────────────────────────────────────────────────────────── */
 
 test('hodômetro em branco ou zero não passa', () => {
-  assert.equal(hodometroAceito(null, 100000).ok, false)
-  assert.equal(hodometroAceito(0, 100000).ok, false)
+  // precisaJustificar tem de ser false aqui: não é um número estranho que
+  // pode ter explicação, é a ausência do dado — só se corrige digitando.
+  const branco = hodometroAceito(null, 100000)
+  assert.equal(branco.ok, false)
+  assert.equal(branco.precisaJustificar, false)
+  const zero = hodometroAceito(0, 100000)
+  assert.equal(zero.ok, false)
+  assert.equal(zero.precisaJustificar, false)
 })
 
 test('primeiro hodômetro do carro passa: não há com o que comparar', () => {
@@ -184,4 +190,23 @@ test('hodômetro para trás com justificativa curta demais NÃO passa', () => {
     respostas: { d1: 'ok', d2: 'ok' }, itens: DIARIOS,
   })
   assert.equal(p.length, 1)
+})
+
+test('hodômetro em branco ou zero NÃO passa nem com justificativa longa', () => {
+  // O vazamento que isto impede: justificativa nunca perdoa a AUSÊNCIA do
+  // número, só perdoa um número estranho. Uma justificativa longa e bem
+  // escrita não pode virar atalho pra gravar a ficha sem hodômetro nenhum.
+  const semNumero = problemasDaFicha({
+    hodometro: null, ultimoKm: 272257,
+    justificativa: 'O painel está com defeito, o mostrador não acende de jeito nenhum.',
+    respostas: { d1: 'ok', d2: 'ok' }, itens: DIARIOS,
+  })
+  assert.equal(semNumero.length, 1)
+
+  const zerado = problemasDaFicha({
+    hodometro: 0, ultimoKm: 272257,
+    justificativa: 'O painel está com defeito, o mostrador não acende de jeito nenhum.',
+    respostas: { d1: 'ok', d2: 'ok' }, itens: DIARIOS,
+  })
+  assert.equal(zerado.length, 1)
 })
