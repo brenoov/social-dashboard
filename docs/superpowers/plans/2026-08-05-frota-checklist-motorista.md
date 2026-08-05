@@ -26,8 +26,8 @@
 | Arquivo | Responsabilidade |
 |---|---|
 | `db/migrations/acessos/028_frota_checklist.sql` | **Criar:** as 4 tabelas, o campo `tipo` em `frota_uso`, e a semente dos 21 itens |
-| `src/ferramentas/frota/checklist.js` | **Criar:** que cadências o dia pede, que itens entram na ficha, se o hodômetro vale, e quem falta hoje |
-| `src/ferramentas/frota/checklist.test.mjs` | **Criar:** o teste do acima |
+| `supabase/functions/_shared/checklist.js` | **Criar:** que cadências o dia pede, que itens entram na ficha, se o hodômetro vale, e quem falta hoje. **Mora aqui, não em `src/`**, porque o robô da Task 12 precisa dele e a Edge não alcança `src/` — enquanto o front alcança o `_shared`. É o caminho que `tela-de-admin.vue:156` já usa pra `notificacoes.js`, "pra não haver duas verdades sobre". Um arquivo, dois consumidores. |
+| `supabase/functions/_shared/checklist.test.mjs` | **Criar:** o teste do acima |
 | `src/ferramentas/frota/posse.js` | **Criar:** passar o carro para outra pessoa, e quem estava com ele numa data |
 | `src/ferramentas/frota/posse.test.mjs` | **Criar:** o teste do acima |
 | `src/ferramentas/frota/estado-do-veiculo.js` | **Modificar:** o km também vem do hodômetro; "na rua" só vale para uso do tipo viagem |
@@ -240,8 +240,8 @@ git commit -m "frota: as tabelas do checklist, e o uso passa a distinguir viagem
 ### Task 2: Que cadências o dia de hoje pede
 
 **Files:**
-- Create: `src/ferramentas/frota/checklist.js`
-- Test: `src/ferramentas/frota/checklist.test.mjs`
+- Create: `supabase/functions/_shared/checklist.js`
+- Test: `supabase/functions/_shared/checklist.test.mjs`
 
 **Interfaces:**
 - Consumes: nada. Módulo puro, sem rede e sem Vue.
@@ -255,7 +255,7 @@ import assert from 'node:assert/strict'
 import {
   diaDaSemana, ehDiaDoMensal, diasEntre,
   semanalAtrasado, mensalAtrasado, cadenciasDoDia,
-} from './checklist.js'
+} from '../../../supabase/functions/_shared/checklist.js'
 
 // Padrão do banco: semanal na sexta, mensal na 1ª quarta-feira.
 const CONFIG = { dia_semanal: 5, semana_mensal: 1, dia_mensal: 3 }
@@ -345,7 +345,7 @@ test('semanalAtrasado e mensalAtrasado isolados', () => {
 
 - [ ] **Step 2: Rodar o teste e ver falhar**
 
-Run: `npx node --test src/ferramentas/frota/checklist.test.mjs`
+Run: `npx node --test supabase/functions/_shared/checklist.test.mjs`
 Expected: FALHA com `Cannot find module './checklist.js'`.
 
 - [ ] **Step 3: Escrever o mínimo que faz passar**
@@ -417,13 +417,13 @@ export function cadenciasDoDia({ hoje, config, ultimaSemanal, ultimaMensal }) {
 
 - [ ] **Step 4: Rodar o teste e ver passar**
 
-Run: `npx node --test src/ferramentas/frota/checklist.test.mjs`
+Run: `npx node --test supabase/functions/_shared/checklist.test.mjs`
 Expected: PASSA, 10 testes.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/ferramentas/frota/checklist.js src/ferramentas/frota/checklist.test.mjs
+git add supabase/functions/_shared/checklist.js supabase/functions/_shared/checklist.test.mjs
 git commit -m "frota: que cadencias o dia de hoje pede, sem nunca empilhar dois pesados"
 ```
 
@@ -432,8 +432,8 @@ git commit -m "frota: que cadencias o dia de hoje pede, sem nunca empilhar dois 
 ### Task 3: Os itens da ficha, e o hodômetro que não anda para trás
 
 **Files:**
-- Modify: `src/ferramentas/frota/checklist.js`
-- Test: `src/ferramentas/frota/checklist.test.mjs`
+- Modify: `supabase/functions/_shared/checklist.js`
+- Test: `supabase/functions/_shared/checklist.test.mjs`
 
 **Interfaces:**
 - Consumes: `cadenciasDoDia` da Task 2.
@@ -542,7 +542,7 @@ test('hodômetro para trás com justificativa curta demais NÃO passa', () => {
 
 - [ ] **Step 2: Rodar o teste e ver falhar**
 
-Run: `npx node --test src/ferramentas/frota/checklist.test.mjs`
+Run: `npx node --test supabase/functions/_shared/checklist.test.mjs`
 Expected: FALHA com `itensDaFicha is not a function`.
 
 - [ ] **Step 3: Escrever o mínimo que faz passar**
@@ -621,13 +621,13 @@ export function problemasDaFicha({ hodometro, ultimoKm, justificativa, respostas
 
 - [ ] **Step 4: Rodar o teste e ver passar**
 
-Run: `npx node --test src/ferramentas/frota/checklist.test.mjs`
+Run: `npx node --test supabase/functions/_shared/checklist.test.mjs`
 Expected: PASSA, 22 testes.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/ferramentas/frota/checklist.js src/ferramentas/frota/checklist.test.mjs
+git add supabase/functions/_shared/checklist.js supabase/functions/_shared/checklist.test.mjs
 git commit -m "frota: o hodometro nao anda pra tras, e a ficha nao grava pela metade"
 ```
 
@@ -636,8 +636,8 @@ git commit -m "frota: o hodometro nao anda pra tras, e a ficha nao grava pela me
 ### Task 4: Quem falta fazer o checklist hoje
 
 **Files:**
-- Modify: `src/ferramentas/frota/checklist.js`
-- Test: `src/ferramentas/frota/checklist.test.mjs`
+- Modify: `supabase/functions/_shared/checklist.js`
+- Test: `supabase/functions/_shared/checklist.test.mjs`
 
 **Interfaces:**
 - Consumes: nada das tarefas anteriores.
@@ -713,7 +713,7 @@ test('sem carro com dono nenhum, o resumo não mente dizendo que está tudo cert
 
 - [ ] **Step 2: Rodar o teste e ver falhar**
 
-Run: `npx node --test src/ferramentas/frota/checklist.test.mjs`
+Run: `npx node --test supabase/functions/_shared/checklist.test.mjs`
 Expected: FALHA com `quemFaltaHoje is not a function`.
 
 - [ ] **Step 3: Escrever o mínimo que faz passar**
@@ -759,13 +759,13 @@ export function resumoDaCobranca(linhas) {
 
 - [ ] **Step 4: Rodar o teste e ver passar**
 
-Run: `npx node --test src/ferramentas/frota/checklist.test.mjs`
+Run: `npx node --test supabase/functions/_shared/checklist.test.mjs`
 Expected: PASSA, 28 testes.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/ferramentas/frota/checklist.js src/ferramentas/frota/checklist.test.mjs
+git add supabase/functions/_shared/checklist.js supabase/functions/_shared/checklist.test.mjs
 git commit -m "frota: o quadro de quem ainda nao fez o checklist de hoje"
 ```
 
@@ -930,7 +930,7 @@ git commit -m "frota: a quilometragem passa a vir do hodometro do checklist"
  * Toda a decisão de O QUE perguntar mora em checklist.js, testado. Aqui só tem
  * tela. */
 import { ref, reactive, computed } from 'vue'
-import { cadenciasDoDia, itensDaFicha, problemasDaFicha, hodometroAceito } from './checklist.js'
+import { cadenciasDoDia, itensDaFicha, problemasDaFicha, hodometroAceito } from '../../../supabase/functions/_shared/checklist.js'
 
 const props = defineProps({
   veiculo: { type: Object, required: true },
@@ -1095,7 +1095,7 @@ Em `tela-de-frota.vue`, no `<script setup>`:
 
 ```js
 import PainelDeChecklist from './painel-de-checklist.vue'
-import { cadenciasDoDia, quemFaltaHoje, resumoDaCobranca } from './checklist.js'
+import { cadenciasDoDia, quemFaltaHoje, resumoDaCobranca } from '../../../supabase/functions/_shared/checklist.js'
 import { ultimoHodometro } from './estado-do-veiculo.js'
 
 const itensDeChecklist = ref([])
@@ -1250,7 +1250,7 @@ git commit -m "frota: o motorista preenche o checklist do dia, e o hodometro ent
 
 - [ ] **Step 1: Escrever o teste que falha**
 
-Em `src/ferramentas/frota/checklist.test.mjs`, acrescentar (e incluir
+Em `supabase/functions/_shared/checklist.test.mjs`, acrescentar (e incluir
 `precisaDeChecklist` no `import`):
 
 ```js
@@ -1281,7 +1281,7 @@ test('no fim de semana o rodízio ainda confere o carro antes de sair', () => {
 
 - [ ] **Step 2: Rodar o teste e ver falhar**
 
-Run: `npx node --test src/ferramentas/frota/checklist.test.mjs`
+Run: `npx node --test supabase/functions/_shared/checklist.test.mjs`
 Expected: FALHA com `precisaDeChecklist is not a function`.
 
 - [ ] **Step 3: Escrever o mínimo que faz passar**
@@ -1314,7 +1314,7 @@ export function cadenciasDoDia({ hoje, config, ultimaSemanal, ultimaMensal, pega
 
 - [ ] **Step 4: Rodar o teste e ver passar**
 
-Run: `npx node --test src/ferramentas/frota/checklist.test.mjs`
+Run: `npx node --test supabase/functions/_shared/checklist.test.mjs`
 Expected: PASSA, 32 testes. O teste "sábado e domingo não pedem nada" da Task 2
 continua passando, porque ele chama sem `pegandoAgora`.
 
@@ -1346,7 +1346,7 @@ Run: `npm test`
 Expected: PASSA.
 
 ```bash
-git add src/ferramentas/frota/checklist.js src/ferramentas/frota/checklist.test.mjs src/ferramentas/frota/tela-de-frota.vue
+git add supabase/functions/_shared/checklist.js supabase/functions/_shared/checklist.test.mjs src/ferramentas/frota/tela-de-frota.vue
 git commit -m "frota: quem pega carro de rodizio confere antes de sair, como manda o papel"
 ```
 
@@ -1357,7 +1357,7 @@ git commit -m "frota: quem pega carro de rodizio confere antes de sair, como man
 **Files:**
 - Create: `src/ferramentas/frota/editor-de-checklist.vue`
 - Modify: `src/ferramentas/frota/tela-de-frota.vue`, `src/ferramentas/frota/areas-da-frota.js`
-- Test: `src/ferramentas/frota/areas-da-frota.test.mjs`, `src/ferramentas/frota/checklist.test.mjs`
+- Test: `src/ferramentas/frota/areas-da-frota.test.mjs`, `supabase/functions/_shared/checklist.test.mjs`
 
 **Interfaces:**
 - Consumes: `CADENCIAS` da `checklist.js`.
@@ -1418,7 +1418,7 @@ test('a área Checklist só aparece pra quem administra', () => {
 
 - [ ] **Step 2: Rodar e ver falhar**
 
-Run: `npx node --test src/ferramentas/frota/checklist.test.mjs src/ferramentas/frota/areas-da-frota.test.mjs`
+Run: `npx node --test supabase/functions/_shared/checklist.test.mjs src/ferramentas/frota/areas-da-frota.test.mjs`
 Expected: FALHA nos dois arquivos.
 
 - [ ] **Step 3: Escrever o mínimo que faz passar**
@@ -1478,7 +1478,7 @@ E na função, trocar a linha do push:
  * mecânico muda de opinião, a frota muda, e a lista tem que acompanhar sem
  * depender de programador. */
 import { ref, reactive, computed } from 'vue'
-import { CADENCIAS, problemasDoItemDeChecklist } from './checklist.js'
+import { CADENCIAS, problemasDoItemDeChecklist } from '../../../supabase/functions/_shared/checklist.js'
 
 const props = defineProps({
   itens: { type: Array, default: () => [] },
@@ -1639,7 +1639,7 @@ quinta. Desligar um item e conferir que ele some da ficha do dia na aba
 Motorista.
 
 ```bash
-git add src/ferramentas/frota/editor-de-checklist.vue src/ferramentas/frota/checklist.js src/ferramentas/frota/checklist.test.mjs src/ferramentas/frota/areas-da-frota.js src/ferramentas/frota/areas-da-frota.test.mjs src/ferramentas/frota/tela-de-frota.vue
+git add src/ferramentas/frota/editor-de-checklist.vue supabase/functions/_shared/checklist.js supabase/functions/_shared/checklist.test.mjs src/ferramentas/frota/areas-da-frota.js src/ferramentas/frota/areas-da-frota.test.mjs src/ferramentas/frota/tela-de-frota.vue
 git commit -m "frota: a lista do checklist e os dias sao do gestor, nao do codigo"
 ```
 
@@ -2131,28 +2131,16 @@ git commit -m "frota: o tipo de aviso do checklist, nascendo desligado"
 - Create: `supabase/functions/enviar-push-frota/index.ts`
 
 **Interfaces:**
-- Consumes: `montarAviso` (Task 11), `inscricoesDoTipo` (`_shared/notificacoes.js`), `exigirSegredoDeCron` (`_shared/segredo-de-cron.ts`), `cadenciasDoDia` e `itensDaFicha` (`../../../src/ferramentas/frota/checklist.js` — copiar o arquivo para `_shared/checklist.js` na primeira linha do trabalho, porque a Edge não alcança `src/`).
+- Consumes: `montarAviso` (Task 11), `inscricoesDoTipo` (`_shared/notificacoes.js`), `exigirSegredoDeCron` (`_shared/segredo-de-cron.ts`), `cadenciasDoDia` e `itensDaFicha` (`_shared/checklist.js`, criado na Task 2 — **nada a copiar**).
 - Produces: nada que outra tarefa consuma.
 
-- [ ] **Step 1: Levar a lógica para onde a Edge alcança**
+**Por que `checklist.js` mora em `_shared/` e não em `src/`:** a Edge roda em
+Deno e não alcança `src/`, mas o front alcança `supabase/functions/_shared/`.
+É o mesmo caminho que `tela-de-admin.vue:156` já usa para `notificacoes.js`,
+com o comentário que diz por quê: *"pra não haver duas verdades sobre"*. Um
+arquivo, dois consumidores, zero cópia.
 
-A Edge roda em Deno e não importa de `src/`. Copiar o módulo e deixar dito de
-onde ele veio:
-
-```bash
-cp src/ferramentas/frota/checklist.js supabase/functions/_shared/checklist.js
-cp src/ferramentas/frota/checklist.test.mjs supabase/functions/_shared/checklist.test.mjs
-```
-
-Acrescentar no topo de `supabase/functions/_shared/checklist.js`:
-
-```js
-/* CÓPIA de src/ferramentas/frota/checklist.js — a Edge roda em Deno e não
- * alcança src/. Os dois arquivos têm de andar juntos; o teste ao lado é a
- * cópia do mesmo teste, e é ele que denuncia se um dos dois mudar sozinho. */
-```
-
-- [ ] **Step 2: Escrever a função**
+- [ ] **Step 1: Escrever a função**
 
 ```ts
 // supabase/functions/enviar-push-frota/index.ts
@@ -2274,14 +2262,14 @@ Deno.serve(async (req) => {
 });
 ```
 
-- [ ] **Step 3: Rodar os testes e deployar**
+- [ ] **Step 2: Rodar os testes e deployar**
 
 Run: `npm test`
-Expected: PASSA (a cópia do teste em `_shared/checklist.test.mjs` roda junto).
+Expected: PASSA.
 
 Run: `npx supabase functions deploy enviar-push-frota`
 
-- [ ] **Step 4: Agendar o robô**
+- [ ] **Step 3: Agendar o robô**
 
 Criar `db/migrations/acessos/029_frota_cron_checklist.sql`:
 
@@ -2327,7 +2315,7 @@ node coletor/consultar.mjs "select jobname, schedule, active from cron.job where
 ```
 Expected: uma linha, `30 10 * * 1-5`, ativa.
 
-- [ ] **Step 5: Provar que o robô responde**
+- [ ] **Step 4: Provar que o robô responde**
 
 Disparar à mão e ler o resultado pelo registro, que é o único lugar que conta a
 verdade:
@@ -2349,10 +2337,10 @@ Zero enviados com esse motivo prova que a função rodou, leu as inscrições e
 decidiu certo. Se vier outro motivo — "sem lista ou sem configuração" — aí sim é
 defeito: significa que a migration 028 não chegou no banco.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/functions/enviar-push-frota supabase/functions/_shared/checklist.js supabase/functions/_shared/checklist.test.mjs db/migrations/acessos/029_frota_cron_checklist.sql
+git add supabase/functions/enviar-push-frota db/migrations/acessos/029_frota_cron_checklist.sql
 git commit -m "frota: o robo da manha avisa quem ainda nao conferiu o carro"
 ```
 
