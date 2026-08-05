@@ -170,3 +170,24 @@ test('desativar avisa que o histórico NÃO some', () => {
   assert.match(a, /continuam no histórico/)
   assert.match(a, /reativar/)
 })
+
+test('sem quilometragem NENHUMA, não diz "em dia" — seria mentira', () => {
+  // O caso real da frota hoje: nenhum carro tem devolução registrada, então o
+  // KM é desconhecido em todos. Dizer "revisões em dia" faz o carro sumir do
+  // alerta e ninguém revisa. É a pior resposta possível: parece boa notícia.
+  const r = resumoDeRevisoes([{ situacao: 'sem-km' }, { situacao: 'sem-km' }])
+  assert.equal(r.nivel, 'sem-km')
+  assert.match(r.texto, /quilometragem/i)
+  assert.ok(!/em dia/i.test(r.texto))
+})
+
+test('misturar sem-km com sem-registro também não vira "em dia"', () => {
+  const r = resumoDeRevisoes([{ situacao: 'sem-km' }, { situacao: 'sem-registro' }])
+  assert.ok(!/em dia/i.test(r.texto), 'nenhum dos dois estados é conhecimento')
+})
+
+test('um item em dia entre desconhecidos ainda conta como em dia', () => {
+  // Aqui SE SABE de alguma coisa, e nada está vencendo.
+  const r = resumoDeRevisoes([{ situacao: 'em-dia' }, { situacao: 'sem-km' }])
+  assert.equal(r.nivel, 'em-dia')
+})

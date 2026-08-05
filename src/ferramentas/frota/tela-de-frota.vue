@@ -733,27 +733,6 @@ onMounted(async () => {
         </div>
       </div>
 
-      <h2 class="fr-secao">Plano de revisão — de quantos em quantos quilômetros</h2>
-      <p class="fr-aviso">
-        Estes números são os que geram os avisos acima. Mude quando o mecânico mandar,
-        e acrescente o que faltar.
-      </p>
-      <ul class="fr-pedidos">
-        <li v-for="p in plano" :key="p.id" class="fr-pedido" :class="{ desligado: !p.ativo }">
-          <div class="fr-pedido-topo">
-            <strong>{{ p.item }}</strong>
-            <span class="fr-item-km">{{ p.a_cada_km.toLocaleString('pt-BR') }} km</span>
-          </div>
-          <div class="fr-pedido-quando" v-if="p.observacao">{{ p.observacao }}</div>
-          <div class="fr-acoes">
-            <button class="fr-btn" @click="abrirItem(p)">Editar</button>
-            <button class="fr-btn" @click="alternarItem(p)">{{ p.ativo ? 'Desativar' : 'Reativar' }}</button>
-          </div>
-        </li>
-      </ul>
-      <div class="fr-acoes" style="padding:12px 14px 40px">
-        <button class="fr-btn primario" @click="abrirItem(null)">+ Acrescentar item</button>
-      </div>
     </template>
 
     <!-- FICHA DO VEÍCULO: tudo do carro num lugar só, e editável. -->
@@ -802,6 +781,22 @@ onMounted(async () => {
             </label>
           </div>
 
+          <h3 class="fr-grupo">Contato</h3>
+          <div class="fr-dupla">
+            <label class="fr-campo"><span class="fr-lab">Quem é</span><input v-model="vForm.contato_nome" type="text" placeholder="JHM Auto Center"></label>
+            <label class="fr-campo"><span class="fr-lab">O que faz</span><input v-model="vForm.contato_papel" type="text" placeholder="Oficina, locadora, seguro, guincho…"></label>
+            <label class="fr-campo">
+              <span class="fr-lab">Telefone</span>
+              <input v-model="vForm.contato_telefone" type="tel" inputmode="tel" placeholder="(19) 3033-9837">
+              <!-- Diz POR QUE não dá link, em vez de só não mostrar o botão: sem
+                   DDD o app se recusa a montar o link, e a pessoa precisa saber
+                   que é isso — não que o WhatsApp "não funciona". -->
+              <span class="fr-ajuda" v-if="vForm.contato_telefone && !linkDoWhatsapp(vForm.contato_telefone)">
+                {{ porQueNaoDaLink(vForm.contato_telefone) }}
+              </span>
+            </label>
+          </div>
+
           <h3 class="fr-grupo">Contrato e valores</h3>
           <div class="fr-dupla">
             <label class="fr-campo"><span class="fr-lab">Contrato</span><input v-model="vForm.contrato" type="text" placeholder="CTR-007"></label>
@@ -826,22 +821,6 @@ onMounted(async () => {
               <input v-model="vForm.oficina_telefone" type="tel" inputmode="tel" placeholder="(19) 3033-9837">
               <span class="fr-ajuda" v-if="vForm.oficina_telefone && !linkDoWhatsapp(vForm.oficina_telefone)">
                 {{ porQueNaoDaLink(vForm.oficina_telefone) }}
-              </span>
-            </label>
-          </div>
-
-          <h3 class="fr-grupo">Contato</h3>
-          <div class="fr-dupla">
-            <label class="fr-campo"><span class="fr-lab">Quem é</span><input v-model="vForm.contato_nome" type="text" placeholder="JHM Auto Center"></label>
-            <label class="fr-campo"><span class="fr-lab">O que faz</span><input v-model="vForm.contato_papel" type="text" placeholder="Oficina, locadora, seguro, guincho…"></label>
-            <label class="fr-campo">
-              <span class="fr-lab">Telefone</span>
-              <input v-model="vForm.contato_telefone" type="tel" inputmode="tel" placeholder="(19) 3033-9837">
-              <!-- Diz POR QUE não dá link, em vez de só não mostrar o botão: sem
-                   DDD o app se recusa a montar o link, e a pessoa precisa saber
-                   que é isso — não que o WhatsApp "não funciona". -->
-              <span class="fr-ajuda" v-if="vForm.contato_telefone && !linkDoWhatsapp(vForm.contato_telefone)">
-                {{ porQueNaoDaLink(vForm.contato_telefone) }}
               </span>
             </label>
           </div>
@@ -910,6 +889,33 @@ onMounted(async () => {
         </div>
       </div>
     </div>
+
+    <!-- ABA PLANO DE MANUTENÇÃO: os limiares que geram os avisos da aba
+         Revisões. Ficava no rodapé daquela aba e o dono não achava — virou aba
+         com nome próprio. -->
+    <template v-if="area === 'plano' && !carregando && !falha">
+      <h2 class="fr-secao">De quantos em quantos quilômetros</h2>
+      <p class="fr-aviso">
+        Estes números são os que geram os avisos acima. Mude quando o mecânico mandar,
+        e acrescente o que faltar.
+      </p>
+      <ul class="fr-pedidos">
+        <li v-for="p in plano" :key="p.id" class="fr-pedido" :class="{ desligado: !p.ativo }">
+          <div class="fr-pedido-topo">
+            <strong>{{ p.item }}</strong>
+            <span class="fr-item-km">{{ p.a_cada_km.toLocaleString('pt-BR') }} km</span>
+          </div>
+          <div class="fr-pedido-quando" v-if="p.observacao">{{ p.observacao }}</div>
+          <div class="fr-acoes">
+            <button class="fr-btn" @click="abrirItem(p)">Editar</button>
+            <button class="fr-btn" @click="alternarItem(p)">{{ p.ativo ? 'Desativar' : 'Reativar' }}</button>
+          </div>
+        </li>
+      </ul>
+      <div class="fr-acoes" style="padding:12px 14px 40px">
+        <button class="fr-btn primario" @click="abrirItem(null)">+ Acrescentar item</button>
+      </div>
+    </template>
 
     <!-- EDITOR DE UM ITEM DO PLANO -->
     <div class="fr-ficha-fundo" v-if="itemEmEdicao" @click.self="fecharItem">

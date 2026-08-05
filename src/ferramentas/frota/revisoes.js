@@ -80,8 +80,18 @@ export function resumoDeRevisoes(itens) {
   const perto = l.filter((i) => i.situacao === 'perto').length;
   if (vencidas) return { nivel: 'vencida', texto: vencidas === 1 ? '1 revisão vencida' : `${vencidas} revisões vencidas` };
   if (perto) return { nivel: 'perto', texto: perto === 1 ? '1 revisão chegando' : `${perto} revisões chegando` };
+  // "Em dia" só se pode dizer sobre o que se SABE. Carro sem quilometragem
+  // conhecida (nenhuma devolução registrada ainda) e carro sem histórico de
+  // troca não estão em dia — não se sabe nada sobre eles, e afirmar que estão
+  // bem é a pior resposta possível: some do alerta e ninguém revisa.
+  const semKm = l.filter((i) => i.situacao === 'sem-km').length;
+  if (semKm === l.length && l.length) {
+    return { nivel: 'sem-km', texto: 'Sem quilometragem ainda' };
+  }
   const semRegistro = l.filter((i) => i.situacao === 'sem-registro').length;
-  if (semRegistro === l.length && l.length) return { nivel: 'sem-registro', texto: 'Sem histórico de revisão' };
+  if (semRegistro + semKm === l.length && l.length) {
+    return { nivel: 'sem-registro', texto: 'Sem histórico de revisão' };
+  }
   return { nivel: 'em-dia', texto: 'Revisões em dia' };
 }
 
