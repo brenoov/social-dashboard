@@ -120,6 +120,12 @@
       <router-view />
     </div>
 
+    <!-- Avisa quando sai versão nova. Fica na MOLDURA, não numa ferramenta:
+         o app fica aberto por dias e o deploy tem que alcançar quem estiver em
+         qualquer tela. Ele se teletransporta pro <body>, então o `zoom` acima
+         não o desloca. -->
+    <aviso-de-atualizacao />
+
     <!-- TROCA OBRIGATÓRIA DA SENHA INICIAL.
          Contas criadas em lote (as vendedoras) nascem com uma senha que outra
          pessoa digitou e entregou. Enquanto ela não for trocada, quem entregou
@@ -147,6 +153,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import AvisoDeAtualizacao from './compartilhado/aviso-de-atualizacao.vue'
 import { useRouter, useRoute } from 'vue-router'
 import { estado } from './compartilhado/controle-de-login-e-usuario.js'
 import { sbClient } from './compartilhado/conectar-no-banco-de-dados.js'
