@@ -23,6 +23,7 @@ import {
 import { revisoesDoVeiculo, resumoDeRevisoes, problemasDoItem, avisoAoDesativar } from './revisoes.js'
 import { linkDoWhatsapp, telefoneLegivel, porQueNaoDaLink } from '../../compartilhado/whatsapp.js'
 import PainelDeChecklist from './painel-de-checklist.vue'
+import EditorDeChecklist from './editor-de-checklist.vue'
 import { cadenciasDoDia, quemFaltaHoje, resumoDaCobranca, precisaDeChecklist } from '../../../supabase/functions/_shared/checklist.js'
 
 const router = useRouter()
@@ -274,6 +275,28 @@ async function gravarChecklist({ ficha, respostas }) {
     return
   }
   await carregar()
+}
+
+/* ── O editor da lista e dos dias (aba Gestão, F8) ────────────────────────────
+   A repartição é do GESTOR, não do código: o mecânico muda de opinião, a
+   frota muda, e a lista tem que acompanhar sem depender de programador. */
+async function salvarItemDeChecklist(dados) {
+  const { error } = await sbClient.from('frota_checklist_itens').insert(dados)
+  if (!error) carregar()
+}
+async function alternarItemDeChecklist(i) {
+  const { error } = await sbClient.from('frota_checklist_itens')
+    .update({ ativo: !i.ativo }).eq('id', i.id)
+  if (!error) carregar()
+}
+async function salvarConfigDeChecklist(cfg) {
+  // frota_checklist_config tem UMA linha só, com chave primária `id` booleana
+  // sempre verdadeira — por isso o update filtra por `id = true`, não por um
+  // id de registro comum.
+  const { error } = await sbClient.from('frota_checklist_config')
+    .update({ dia_semanal: cfg.dia_semanal, semana_mensal: cfg.semana_mensal,
+      dia_mensal: cfg.dia_mensal }).eq('id', true)
+  if (!error) carregar()
 }
 
 /* ── Requisição de uso (F2) ──────────────────────────────────────────────────
@@ -1023,6 +1046,17 @@ onMounted(async () => {
       </div>
     </template>
 
+    <!-- ABA CHECKLIST: a lista de itens e os dias do semanal/mensal, editáveis
+         pelo gestor (F8) — mesmo padrão de "plano": bloco próprio, não faz
+         parte da corrente v-else-if de cima. -->
+    <div class="fr-checklist-editor" v-if="area === 'checklist' && !carregando && !falha">
+      <EditorDeChecklist
+        :itens="itensDeChecklist" :config="configDeChecklist" :gravando="gravando"
+        @salvar-item="salvarItemDeChecklist"
+        @alternar-item="alternarItemDeChecklist"
+        @salvar-config="salvarConfigDeChecklist" />
+    </div>
+
     <!-- EDITOR DE UM ITEM DO PLANO -->
     <div class="fr-ficha-fundo" v-if="itemEmEdicao" @click.self="fecharItem">
       <div class="fr-ficha" role="dialog">
@@ -1321,6 +1355,10 @@ onMounted(async () => {
 .tela-frota .fr-vazio,.tela-frota .fr-erro{padding:40px 20px;text-align:center;font-family:var(--fonte-principal);font-size:13px;color:var(--muted);}
 .tela-frota .fr-erro{color:var(--red,#c0392b);}
 
+/* O editor da lista de checklist (F8) só empresta o espaçamento lateral das
+   outras áreas — o miolo visual é do próprio componente EditorDeChecklist. */
+.tela-frota .fr-checklist-editor{padding:4px 14px 40px;}
+
 .tela-frota .fr-lista{display:flex;flex-direction:column;gap:10px;padding:4px 14px 40px;}
 .tela-frota .fr-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--green,#16a34a);border-radius:12px;padding:14px 16px;}
 .tela-frota .fr-card.rua{border-left-color:var(--accent);}
@@ -1367,5 +1405,6 @@ onMounted(async () => {
   .tela-frota .fr-topbar{padding:12px 24px;}
   .tela-frota .fr-resumo{padding:12px 24px;}
   .tela-frota .fr-lista{padding:4px 24px 40px;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}
+  .tela-frota .fr-checklist-editor{padding:4px 24px 40px;}
 }
 </style>

@@ -174,6 +174,30 @@ export function quemFaltaHoje({ veiculos, fichasDeHoje, pessoas }) {
       : (a.fez ? 1 : -1)));
 }
 
+/* ── O editor da lista ────────────────────────────────────────────────────── */
+
+/**
+ * Valida um item da lista antes de gravar. Espelha problemasDoItem() do plano
+ * de revisão — o gestor mexe nas duas listas e merece a mesma reação.
+ */
+export function problemasDoItemDeChecklist({ item, cadencia, existentes, idAtual }) {
+  const p = [];
+  const nome = String(item || '').trim();
+  if (!nome) p.push('Dê um nome ao item. Ex.: "Filtro de ar".');
+  else if (nome.length < 3) p.push('O nome está curto demais para alguém entender depois.');
+
+  if (!CADENCIAS.includes(cadencia)) {
+    p.push('Escolha se o item é conferido todo dia, toda semana ou todo mês.');
+  }
+  const repetido = (existentes || []).some((e) =>
+    e && e.id !== idAtual && String(e.item || '').trim().toLowerCase() === nome.toLowerCase());
+  if (nome && repetido) {
+    p.push(`Já existe um item chamado "${nome}". Edite o que existe em vez de criar outro igual — `
+      + 'dois iguais dariam duas perguntas repetidas na mesma ficha.');
+  }
+  return p;
+}
+
 /** A frase do topo do quadro. Nunca diz "tudo certo" sobre o que não sabe. */
 export function resumoDaCobranca(linhas) {
   const l = linhas || [];

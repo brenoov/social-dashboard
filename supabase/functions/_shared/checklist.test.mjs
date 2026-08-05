@@ -5,6 +5,7 @@ import {
   semanalAtrasado, mensalAtrasado, cadenciasDoDia,
   itensDaFicha, hodometroAceito, problemasDaFicha,
   quemFaltaHoje, resumoDaCobranca, precisaDeChecklist,
+  problemasDoItemDeChecklist,
 } from './checklist.js'
 
 // Padrão do banco: semanal na sexta, mensal na 1ª quarta-feira.
@@ -316,4 +317,42 @@ test('no fim de semana o rodízio ainda confere o carro antes de sair', () => {
   // O diário é seg-sex, mas quem pega um carro no sábado está prestes a
   // dirigir. O papel manda conferir ANTES DA UTILIZAÇÃO, e isso não tem dia.
   assert.equal(precisaDeChecklist({ veiculoId: 'v1', fichas: [], hoje: '2026-08-08' }), true)
+})
+
+/* ── O editor da lista ───────────────────────────────────────────────────── */
+
+const EXISTENTES = [
+  { id: 'a', item: 'Faróis', cadencia: 'semanal' },
+  { id: 'b', item: 'Buzina', cadencia: 'semanal' },
+]
+
+test('item bom não tem problema', () => {
+  assert.deepEqual(problemasDoItemDeChecklist({
+    item: 'Filtro de ar', cadencia: 'mensal', existentes: EXISTENTES, idAtual: null }), [])
+})
+
+test('nome vazio ou curto demais não passa', () => {
+  assert.equal(problemasDoItemDeChecklist({
+    item: '  ', cadencia: 'diario', existentes: [], idAtual: null }).length, 1)
+  assert.equal(problemasDoItemDeChecklist({
+    item: 'ab', cadencia: 'diario', existentes: [], idAtual: null }).length, 1)
+})
+
+test('cadência inventada não passa', () => {
+  const p = problemasDoItemDeChecklist({
+    item: 'Filtro de ar', cadencia: 'anual', existentes: [], idAtual: null })
+  assert.equal(p.length, 1)
+})
+
+test('nome repetido não passa, e a mensagem diz por quê', () => {
+  // Dois itens com o mesmo nome dariam duas perguntas iguais na mesma ficha.
+  const p = problemasDoItemDeChecklist({
+    item: 'faróis', cadencia: 'semanal', existentes: EXISTENTES, idAtual: null })
+  assert.equal(p.length, 1)
+  assert.match(p[0], /já existe/i)
+})
+
+test('editar o próprio item sem trocar o nome passa', () => {
+  assert.deepEqual(problemasDoItemDeChecklist({
+    item: 'Faróis', cadencia: 'diario', existentes: EXISTENTES, idAtual: 'a' }), [])
 })
