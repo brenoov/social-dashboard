@@ -7,48 +7,25 @@
        (igual ao legado) porque são atributos HTML nativos, não bindings do Vue — por
        isso _acSetTab (e todo o cluster _ac*) é exposto em window mais abaixo. -->
   <div id="acessos-screen" class="tela-acessos">
-    <barra-de-topo voltar="Central" titulo="Colaboradores e Acessos" @voltar="voltar" />
+    <barra-de-topo voltar="Central" titulo="Colaboradores e Acessos"
+                   subtitulo="Pessoas, contas e pastas — RBV Company" @voltar="voltar" />
 
-    <!-- ============================================================
-         TOPO NOVO (Tarefa 2 do redesign): cabeçalho comum + faixa de
-         4 KPIs, acima das abas. Fica como markup ESTÁTICO aqui no
-         <template> (não montado por innerHTML), então o CSS scoped
-         normal já alcança — não precisa de :deep pra esta parte.
-         Os valores que mudam (bolinhas de status e números dos KPIs)
-         têm id e são preenchidos por JS no onMounted, atualizando só
-         o texto/classe dos elementos que já existem aqui.
-         ============================================================ -->
-    <!-- Cabeçalho enxuto: só o nome da ferramenta e o estado da conexão que
-         ainda existe. Saíram o selo "RB" (a marca já está na Central, repetir
-         aqui só ocupava o canto) e as pílulas de Microsoft 365 e iCloud, que
-         viraram provedores mortos quando o dono parou de usar os dois. -->
-    <div class="ac-topo">
-      <div class="ac-hero">
-        <div class="ac-hero-brand">
-          <div>
-            <h1 class="ac-hero-h1">Colaboradores &amp; Acessos</h1>
-            <div class="ac-hero-sub">Pessoas, contas e pastas — RBV&nbsp;Company</div>
-          </div>
-        </div>
-        <div class="ac-hero-provs">
-          <div class="ac-hero-prov" id="ac-prov-zoho-pill" title="Verificando conexão…">
-            <span class="ac-hero-dot" id="ac-prov-zoho"></span>Zoho<span class="ac-hero-prov-note" id="ac-prov-zoho-note">verificando…</span>
-          </div>
-        </div>
-      </div>
+    <!-- O cabeçalho grande saiu daqui (pedido do dono): o nome da ferramenta
+         aparecia DUAS vezes, uma na barra de topo e outra num <h1> logo abaixo.
+         O subtítulo não se perdeu — subiu pra barra, que tem lugar pra ele.
+
+         Saiu junto o selo "Zoho conectado". Ele dizia que estava tudo bem, e
+         estar tudo bem é o esperado, não notícia. Quando NÃO estiver, a aba
+         Configurações mostra — é lá que se resolve. -->
+    <!-- Mesmo menu de abas da Frota e do Patrimônio (classe .abas). -->
+    <div class="abas" role="tablist">
+      <button role="tab" data-tab="geral" onclick="_acSetTab('geral')">Visão geral</button>
+      <button role="tab" data-tab="org" onclick="_acSetTab('org')">Organizações</button>
+      <button role="tab" data-tab="drive" onclick="_acSetTab('drive')">Drive</button>
+      <button role="tab" data-tab="auditoria" onclick="_acSetTab('auditoria')">Auditoria</button>
+      <button role="tab" data-tab="config" onclick="_acSetTab('config')" title="Configurações"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Configurações</button>
     </div>
 
-    <div class="ac-navbar">
-      <div class="ac-tabs">
-        <button class="ac-tab" data-tab="geral" onclick="_acSetTab('geral')">Visão geral</button>
-        <button class="ac-tab" data-tab="org" onclick="_acSetTab('org')">Organizações</button>
-        <button class="ac-tab" data-tab="drive" onclick="_acSetTab('drive')">Drive</button>
-        <button class="ac-tab" data-tab="auditoria" onclick="_acSetTab('auditoria')">Auditoria</button>
-        <!-- Aba Configurações: antes era só a engrenagem, sem rótulo — o dono não achava.
-             Agora tem ícone + texto, igual às outras abas (Tarefa 8). -->
-        <button class="ac-tab ac-tab-config" data-tab="config" onclick="_acSetTab('config')" title="Configurações"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Configurações</button>
-      </div>
-    </div>
     <div class="ac-body" id="ac-body"></div>
   </div>
 </template>
@@ -1345,7 +1322,9 @@ async function loadAcessos(){
   _acRender();
 }
 function _acRender(){
-  document.querySelectorAll('#acessos-screen .ac-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===_acTab));
+  // As abas agora usam a classe compartilhada `.abas`, cujo estado ativo e `on`
+  // (nao `active`). O seletor tambem deixou de depender do id do monolito.
+  document.querySelectorAll('.tela-acessos .abas button').forEach(b=>b.classList.toggle('on',b.dataset.tab===_acTab));
   if(_acTab==='geral')return _acRenderGeral();
   if(_acTab==='auditoria')return _acRenderAuditoria();
   if(_acTab==='drive')return _acRenderDrive();
@@ -2703,8 +2682,8 @@ onMounted(() => {
   loadAcessos()
   // O topo carrega em paralelo, sem travar o corpo da tela. Cada chamada já
   // trata o próprio erro por dentro, então não precisa de try/catch aqui.
-  _acTopoStatusProvedor('zoho.status', 'ac-prov-zoho', 'ac-prov-zoho-note', 'ac-prov-zoho-pill')
-  _acTopoStatusProvedor('microsoft.status', 'ac-prov-ms', 'ac-prov-ms-note', 'ac-prov-ms-pill')
+  // Os selos de provedor saíram do topo (ver comentário no template); quem
+  // mostra o estado das conexões agora é a aba Configurações.
 })
 
 const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
