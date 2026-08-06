@@ -45,6 +45,13 @@
         <button class="gv-pbtn active" data-preset="sofar" onclick="setGtPeriod(this)">ATÉ AGORA</button>
         <button class="gv-pbtn" onclick="loadGtData()" style="border-color:var(--accent);color:var(--accent)">↻</button>
       </div>
+      <!-- Funil e KPIs dividem UMA linha no celular. Sozinho, cada um comia uma
+           faixa inteira de ~35px, e são dois botões curtos — a conta não fechava
+           numa tela de 390px, onde o topo chegava a 206px antes do conteúdo.
+           No computador o agrupador não muda nada: a barra já os põe lado a lado.
+           Quando o KPIs está escondido (ele depende de permissão), o Funil ocupa
+           a linha sozinho, como sempre ocupou. -->
+      <div class="gt-dupla">
       <button class="gt-auto-btn" id="gt-funil-btn" onclick="_gtAbrirFunil()" title="Ver o funil das campanhas que estão no ar">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
         <span>Funil</span>
@@ -53,6 +60,7 @@
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         <span>KPIs</span>
       </button>
+      </div>
       <div id="gt-account-picker" onclick="event.stopPropagation()" style="position:relative;display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
         <button id="gt-acc-trigger" style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:7px;padding:5px 12px;background:var(--surface2);cursor:pointer;font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));color:var(--text);white-space:nowrap;" onclick="event.stopPropagation();toggleGtAccPicker()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.6"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
@@ -5513,6 +5521,16 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-empty){text-align:center;padding:32px 16px;font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));color:var(--muted);line-height:1.7;}
 /* Config modal (editor admin — métricas por objetivo) */
 .tela-gestao-trafego :deep(#gt-cfg-btn){margin-right:4px;}
+/* Funil + KPIs numa linha só. No computador é transparente (a barra já os
+   alinhava); no celular é o que devolve ~35px de tela. */
+.tela-gestao-trafego :deep(.gt-dupla){display:flex;align-items:center;gap:8px;}
+@media(max-width:640px){
+  .tela-gestao-trafego :deep(.gt-dupla){width:100%;}
+  /* `flex:1 1 0` divide a largura em partes iguais em vez de deixar cada botão
+     com o tamanho do próprio texto — "Funil" é bem mais curto que "KPIs" com o
+     ícone, e sem isso os dois ficariam desalinhados. */
+  .tela-gestao-trafego :deep(.gt-dupla > .gt-auto-btn){flex:1 1 0;justify-content:center;}
+}
 .tela-gestao-trafego :deep(#gt-cfg-overlay){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1300;display:none;backdrop-filter:blur(2px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
 .tela-gestao-trafego :deep(#gt-cfg-modal){position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1301;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(720px,calc(100vw - 28px));max-height:84vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.35);}
 .tela-gestao-trafego :deep(.gt-cfg-head){padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
