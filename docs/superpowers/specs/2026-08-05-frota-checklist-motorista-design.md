@@ -60,6 +60,63 @@ quando cada carro está com cada pessoa, e inventar essa data encheria a linha d
 tempo de resposta falsa — que é pior do que "não sei", porque a multa passaria a
 acusar alguém com um dado inventado.
 
+### D9b — A tela LÊ a posse: quem está com o carro agora é quem tem a posse aberta
+
+**Correção feita durante a implementação, decisão do dono.** A primeira versão
+tratava a posse como registro para a multa (F3) e mais nada. A revisão da F6b
+mostrou o buraco: o botão "Passar o carro para outra pessoa" gravava a passagem
+e **nenhuma parte visível do app lia isso**. Depois de Marcus passar o carro para
+Barbara, Marcus continuava vendo "Seu carro" e sendo cobrado do checklist, e
+Barbara não via o carro em lugar nenhum.
+
+**É o mesmo defeito que esta fase inteira existe para consertar.** A tabela de uso
+nasceu vazia porque ninguém tinha motivo para fazer o gesto. Um botão que não
+muda nada na tela é exatamente isso outra vez: a pessoa clica duas vezes, vê que
+não acontece nada, e para. A linha do tempo da multa nasceria vazia igual.
+
+Então: **"quem está com o carro agora" passa a ser quem tem a posse aberta, e só
+na falta dela o dono fixo** (`pessoa_id`). A regra mora numa função só, e todos
+os lugares que fazem essa pergunta passam a usá-la:
+
+| Onde | O que muda |
+|---|---|
+| O cartão "Seu carro" e o do checklist | Barbara passa a ver o carro emprestado como dela |
+| O quadro de cobrança (D16) | Enquanto emprestou, Marcus não é cobrado; Barbara é |
+| O nome em "Com fulano" na lista | Mostra quem está com ele de fato |
+| O robô da manhã (D16) | Avisa quem está com o carro, não quem é o dono no papel |
+
+**`pessoa_id` continua sendo o dono fixo** — emprestar não transfere o carro. O
+que muda é só quem responde por ele hoje.
+
+**A invariante que isso cria:** posse aberta num veículo sem `pessoa_id` faria o
+carro aparecer livre para qualquer um pegar enquanto está com alguém. Guardada
+por gatilho no banco, não por checagem de tela — a tela não é o único caminho de
+escrita (`coletor/importar-frota-manutencao.mjs` escreve `pessoa_id` direto), e
+esta central já aprendeu que invariante que importa se guarda no banco.
+
+### D9c — Trocar o dono fixo é diferente de emprestar
+
+Lembrete do dono, e a distinção é necessária: **o dono fixo do carro pode mudar**
+— alguém sai da empresa, o carro é remanejado. Isso se faz na ficha do veículo,
+na aba Gestão, e não é a mesma coisa que emprestar.
+
+| O que acontece | `pessoa_id` | A posse |
+|---|---|---|
+| **Emprestar** ("Passar o carro") | não muda — emprestar não transfere carro | fecha a de quem estava, abre a de quem pegou |
+| **Devolver o emprestado** | não muda | fecha a do emprestado, reabre a do dono fixo |
+| **Trocar o dono fixo**, com o carro na mão do dono | passa de A para B | fecha a de A, abre a de B |
+| **Trocar o dono fixo**, com o carro EMPRESTADO a um terceiro | passa de A para B | **não mexe** — quem está com o carro continua sendo o terceiro |
+| **Tirar o dono fixo** (vira carro de rodízio) | vira nulo | fecha a posse aberta, não abre nenhuma |
+
+A linha da última coluna é a que evita a resposta errada: se o carro está com
+Barbara emprestado e o dono fixo passa de Marcus para Thiago, **quem está com o
+carro continua sendo Barbara**. Fechar a posse dela ali dentro faria a linha do
+tempo dizer que Thiago estava com o carro num dia em que ele nunca o viu — e é
+exatamente esse tipo de resposta inventada que a multa não pode receber.
+
+Quando Barbara devolver, o carro volta para Thiago, que é o dono fixo daquele
+momento — não para Marcus.
+
 - Carro fixo entregue a alguém → abre uma linha, sem fim.
 - A pessoa empresta → **fecha** a linha dela naquele instante e **abre** uma para
   quem pegou.
