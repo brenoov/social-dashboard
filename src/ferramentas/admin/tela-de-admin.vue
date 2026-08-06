@@ -148,8 +148,12 @@ import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { estado, PERMISSION_TREE, RECURSOS } from '../../compartilhado/controle-de-login-e-usuario.js'
-import { ACOES_MATRIZ, agruparRecursos, contarAcoes, estadoDaSelecao, marcarTudo } from './agrupar-permissoes.js'
+import { agruparRecursos, contarAcoes, estadoDaSelecao, marcarTudo } from './agrupar-permissoes.js'
 import { derivarFeatures } from '../../compartilhado/derivar-features.js'
+// A escada de niveis (Sem acesso / Ver / Mexer / Tudo) que substitui a matriz
+// de caixinhas no editor de permissoes: uma escolha por ferramenta, em vez de
+// ate 5 caixinhas por linha das quais mais da metade nunca existiu de verdade.
+import { degrausDoRecurso, degrauDoConjunto, acoesDoDegrau } from './niveis-de-permissao.js'
 // Quais notificações existem e qual o padrão de cada uma. A lista mora junto da
 // Edge que envia (supabase/functions/_shared) pra não haver duas verdades sobre
 // quem recebe o quê — a tela LÊ dela em vez de repetir os nomes.
@@ -1049,12 +1053,14 @@ function _renderPermBody(u) {
     const info = document.createElement('div'); info.textContent = 'Super-admin tem acesso total — permissões e perfis não se aplicam.'; info.style.cssText = 'font-size:12px;color:var(--muted);padding:6px 0'
     body.appendChild(info); return
   }
-  // 2) Matriz recurso × ação, agrupada por ferramenta (um card por ferramenta).
+  // 2) Escada de níveis por recurso, agrupada por ferramenta (um card por
+  // ferramenta).
   //
-  // As COLUNAS SÃO FIXAS (ACOES_MATRIZ) e valem para todos os cards: recurso que
-  // não tem uma ação mostra a célula vazia, NÃO pula a coluna. Antes as ações
-  // eram empilhadas por recurso, então "ver" caía num x diferente em cada linha
-  // e não dava pra varrer uma coluna com o olho — era a causa do "horrível".
+  // Cada ferramenta é UMA escolha (Sem acesso / Ver / Mexer / Tudo — conforme
+  // o que aquele recurso realmente tem no catálogo), não mais uma linha de 5
+  // caixinhas. Era a matriz que fazia 105 células parecerem 105 escolhas
+  // quando só 45 existiam de verdade, e metade dessas 45 nunca foi marcada em
+  // produção (ver niveis-de-permissao.js).
   //
   // Os grupos saem de agruparRecursos(RECURSOS, PERMISSION_TREE): derivados da
   // chave ('social.relatorio' → ferramenta 'social'). Nenhuma lista de grupos
@@ -1078,39 +1084,13 @@ function _renderPermBody(u) {
     hdr.appendChild(_mkMarcarTudo('Tudo', g.recursos, u))
     card.appendChild(hdr)
 
-    // Rolagem horizontal só do card: no celular a matriz desliza dentro dele em
-    // vez de estourar a tela (e o modal continua rolando na vertical).
-    const scroll = document.createElement('div'); scroll.className = 'perm-grade-scroll'
-    const grade = document.createElement('div'); grade.className = 'perm-grade'
-
-    const cab = document.createElement('div'); cab.className = 'perm-linha perm-linha-cab'
-    cab.appendChild(document.createElement('span')) // canto vazio, sobre a coluna dos rótulos
-    ACOES_MATRIZ.forEach(a => { const c = document.createElement('span'); c.className = 'perm-cab-acao'; c.textContent = a; cab.appendChild(c) })
-    grade.appendChild(cab)
-
+    // Cada recurso vira uma linha: a escada de degraus, exceto as chaves de
+    // "aprovar" (frota.aprovar, conteudo.aprovar) — essas são uma caixinha só,
+    // porque "Pode ver" não diz o que elas realmente liberam.
     g.recursos.forEach(r => {
-      const linha = document.createElement('div'); linha.className = 'perm-linha'
-      const lbl = document.createElement('span'); lbl.className = 'perm-linha-nome'; lbl.textContent = r.label; lbl.title = r.label
-      linha.appendChild(lbl)
-      ACOES_MATRIZ.forEach(acao => {
-        if (!r.acoes.includes(acao)) {
-          // Célula vazia: traço discreto. Segura a coluna no lugar — é o que
-          // mantém "ver" alinhado de cima a baixo.
-          const vazia = document.createElement('span'); vazia.className = 'perm-cel perm-cel-vazia'; vazia.textContent = '–'
-          vazia.title = `${r.label} não tem a ação "${acao}"`
-          linha.appendChild(vazia); return
-        }
-        const cel = document.createElement('label'); cel.className = 'perm-cel'
-        const cb = document.createElement('input'); cb.type = 'checkbox'
-        cb.checked = (_permState.permissions[r.key] || []).includes(acao)
-        cb.setAttribute('aria-label', `${r.label} — ${acao}`)
-        cb.title = `${r.label} — ${acao}`
-        cb.addEventListener('change', () => { _togglePerm(r, acao, cb.checked); _renderPermBody(u) })
-        cel.appendChild(cb); linha.appendChild(cel)
-      })
-      grade.appendChild(linha)
+      card.appendChild(APROVACOES[r.key] ? _linhaDeAprovacao(r, u) : _linhaDeNivel(r, u))
     })
-    scroll.appendChild(grade); card.appendChild(scroll); body.appendChild(card)
+    body.appendChild(card)
   })
   // 3) Perfis de rede social
   body.appendChild(_lbl10('PERFIS DE REDE SOCIAL', 12))
@@ -1154,6 +1134,79 @@ function _togglePerm(r, acao, on) {
   else { cur.delete(acao); if (acao === 'ver') cur.clear() }
   const arr = r.acoes.filter(a => cur.has(a))
   if (arr.length) _permState.permissions[r.key] = arr; else delete _permState.permissions[r.key]
+}
+
+// As duas chaves de "aprovar" só têm 'ver' no catálogo, mas "Pode ver" não diz
+// o que elas realmente liberam — quem aprova requisição de veículo não está só
+// "vendo" a Frota. Por isso ganham uma caixinha única com o texto por extenso,
+// em vez de entrar na escada.
+const APROVACOES = {
+  'frota.aprovar': 'Pode aprovar requisição de veículo',
+  'conteudo.aprovar': 'Pode aprovar peças para publicar',
+}
+
+// Uma ferramenta = uma escolha. Os degraus vêm do catálogo (niveis-de-
+// permissao.js), então ferramenta que só deixa ver mostra dois botões, e
+// ferramenta completa mostra quatro. Nada de célula vazia: era isso que fazia
+// a matriz parecer ter 105 escolhas quando tinha 45.
+function _linhaDeNivel(r, u) {
+  const atual = _permState.permissions[r.key] || []
+  const degrau = degrauDoConjunto(r, atual)   // null = conjunto fora da escada
+
+  const linha = document.createElement('div')
+  linha.className = 'perm-nivel'
+
+  const nome = document.createElement('div')
+  nome.className = 'perm-nivel-nome'
+  nome.textContent = r.label            // linha inteira: o nome NUNCA corta
+  linha.appendChild(nome)
+
+  const botoes = document.createElement('div')
+  botoes.className = 'perm-nivel-botoes'
+  for (const d of degrausDoRecurso(r)) {
+    const b = document.createElement('button')
+    b.type = 'button'
+    b.className = 'perm-degrau' + (d.chave === degrau ? ' escolhido' : '')
+    b.textContent = d.rotulo
+    b.onclick = () => { _aplicarDegrau(r, d.chave); _renderPermBody(u) }
+    botoes.appendChild(b)
+  }
+  linha.appendChild(botoes)
+
+  // CONJUNTO FORA DA ESCADA: não escolhe degrau nenhum e não aproxima. Mostra o
+  // que está gravado e deixa a pessoa decidir. Aproximar mudaria acesso sem
+  // ninguém ter pedido — e é justamente o que esta tela não pode fazer.
+  if (atual.length && !degrau) {
+    const aviso = document.createElement('div')
+    aviso.className = 'perm-nivel-aviso'
+    aviso.textContent = 'Personalizado: ' + atual.join(', ') + '. Escolher um nível substitui isto.'
+    linha.appendChild(aviso)
+  }
+  return linha
+}
+
+// Aplica um degrau: grava exatamente as ações daquele degrau, e apaga a chave
+// quando o degrau é "Sem acesso" — mesmo contrato do _togglePerm, onde recurso
+// sem 'ver' não existe no objeto.
+function _aplicarDegrau(r, chaveDoDegrau) {
+  const acoes = acoesDoDegrau(r, chaveDoDegrau)
+  if (!acoes.length) delete _permState.permissions[r.key]
+  else _permState.permissions[r.key] = acoes
+}
+
+// Caixinha única das aprovações: mesmo _togglePerm da escada, só que sem
+// degrau nenhum — é liga/desliga puro, porque só existe uma ação ('ver') a
+// marcar.
+function _linhaDeAprovacao(r, u) {
+  const linha = document.createElement('label')
+  linha.className = 'perm-nivel perm-nivel-aprovacao'
+  linha.style.cssText = 'display:flex;align-items:center;gap:8px;cursor:pointer'
+  const cb = document.createElement('input'); cb.type = 'checkbox'
+  cb.checked = (_permState.permissions[r.key] || []).includes('ver')
+  cb.addEventListener('change', () => { _togglePerm(r, 'ver', cb.checked); _renderPermBody(u) })
+  const txt = document.createElement('span'); txt.textContent = APROVACOES[r.key]
+  linha.appendChild(cb); linha.appendChild(txt)
+  return linha
 }
 
 function closePermModal() {
@@ -1929,27 +1982,18 @@ Object.assign(window, {
 .tela-admin :deep(.perm-notif-des){font-family:var(--fonte-principal);font-size:11px;color:var(--muted);line-height:1.45;}
 .tela-admin :deep(.perm-notif-nota){font-family:var(--fonte-principal);font-size:10.5px;color:var(--muted);padding:2px 12px 8px;font-style:italic;}
 
-/* A rolagem horizontal vive DENTRO do card: no celular a grade desliza aqui e
-   o modal nunca ganha barra horizontal. */
-.tela-admin :deep(.perm-grade-scroll){overflow-x:auto;}
-.tela-admin :deep(.perm-grade){min-width:415px;}
-
-/* O alinhamento das colunas depende deste template ser IDÊNTICO no cabeçalho e
-   em toda linha — é o conserto do "ver" que caía num x diferente por linha.
-   As colunas têm 57px porque "EXPORTAR" em maiúsculas com letter-spacing não cabe
-   em menos: com 42px os cabeçalhos EXCLUIR e EXPORTAR transbordavam e se colavam
-   ("EXCLUIREXPORTAR"). Mexeu na fonte do cabeçalho? Confira a largura de novo. */
-.tela-admin :deep(.perm-linha){display:grid;grid-template-columns:minmax(130px,1fr) repeat(5,57px);align-items:center;padding:0 12px;border-bottom:1px solid var(--border);}
-.tela-admin :deep(.perm-linha:last-child){border-bottom:none;}
-.tela-admin :deep(.perm-linha:not(.perm-linha-cab):hover){background:var(--surface2);}
-.tela-admin :deep(.perm-linha-cab){border-bottom:1px solid var(--border);background:transparent;}
-.tela-admin :deep(.perm-cab-acao){font-family:var(--fonte-principal);font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:700;text-align:center;padding:6px 0;}
-.tela-admin :deep(.perm-linha-nome){font-family:var(--fonte-principal);font-size:12px;color:var(--text);padding:7px 8px 7px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.tela-admin :deep(.perm-cel){display:flex;align-items:center;justify-content:center;padding:7px 0;cursor:pointer;}
-.tela-admin :deep(.perm-cel input){cursor:pointer;margin:0;}
-/* Célula vazia = recurso não tem essa ação. Ocupa a coluna (segura o
-   alinhamento) sem fingir que é um checkbox desmarcado. */
-.tela-admin :deep(.perm-cel-vazia){color:var(--border);cursor:default;font-size:11px;user-select:none;}
+/* A escada de níveis: uma linha por recurso, o nome ocupando a linha inteira
+   (nunca corta) e os degraus quebrando linha por baixo — sem coluna fixa,
+   porque não é mais matriz. Nome grande o bastante pra caber no dedo, no
+   celular e no desktop igual. */
+.tela-admin :deep(.perm-nivel){padding:10px 12px;border-bottom:1px solid var(--border);}
+.tela-admin :deep(.perm-nivel-nome){font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:7px;}
+.tela-admin :deep(.perm-nivel-botoes){display:flex;flex-wrap:wrap;gap:6px;}
+.tela-admin :deep(.perm-degrau){border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:99px;padding:7px 12px;font-size:11.5px;min-height:32px;cursor:pointer;font-family:var(--fonte-principal);}
+.tela-admin :deep(.perm-degrau.escolhido){background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+/* Conjunto fora da escada: mostra o que está gravado sem aproximar de degrau
+   nenhum — aproximar mudaria acesso que ninguém pediu. */
+.tela-admin :deep(.perm-nivel-aviso){margin-top:7px;font-size:11px;color:var(--orange,#d97706);}
 
 @media (max-width:640px){
   /* Topbar compacto no celular: menos padding, logo e e-mail do usuário somem
@@ -1958,8 +2002,6 @@ Object.assign(window, {
   .tela-admin :deep(.admin-topbar-title){font-size:12px;letter-spacing:1.5px;}
   .tela-admin :deep(.admin-topbar .rbv-logo){display:none;}
   .tela-admin :deep(#admin-topbar-user){display:none;}
-  .tela-admin :deep(.perm-linha){grid-template-columns:minmax(110px,1fr) repeat(5,38px);padding:0 8px;}
-  .tela-admin :deep(.perm-linha-nome){font-size:11px;}
   .tela-admin :deep(.perm-modal-body){padding:12px 14px;}
   .tela-admin :deep(.perm-card-hdr){padding:7px 8px;}
 }
