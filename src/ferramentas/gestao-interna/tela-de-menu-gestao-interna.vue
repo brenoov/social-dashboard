@@ -38,6 +38,15 @@
           <div class="gimenu-card-desc">Onde está cada carro, com quem, e quanto já rodou.</div>
           <span class="gimenu-card-enter">→</span>
         </div>
+
+        <div class="gimenu-card" v-if="podeAutenticidade" @click="ir('autenticidade')">
+          <div class="gimenu-card-icon" style="background:linear-gradient(135deg,#3f6212 0%,#65a30d 100%)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+          </div>
+          <div class="gimenu-card-title">Autenticidade e Garantia</div>
+          <div class="gimenu-card-desc">As etiquetas das bolsas, as garantias registradas e os sinais de cópia.</div>
+          <span class="gimenu-card-enter">→</span>
+        </div>
       </div>
     </div>
   </div>
@@ -55,6 +64,7 @@ const router = useRouter()
 const podeAcessos = computed(() => hasPermission('acessos', 'ver'))
 const podePatrimonio = computed(() => hasPermission('patrimonio', 'ver'))
 const podeFrota = computed(() => hasPermission('frota', 'ver'))
+const podeAutenticidade = computed(() => hasPermission('autenticidade', 'ver'))
 
 function voltar() {
   router.push({ name: 'inicio' })
@@ -67,7 +77,10 @@ function ir(nome) {
 // O menu não tem permissão própria: quem não tem NENHUM submódulo não tem o que
 // fazer aqui e volta pra Central com aviso, em vez de encarar um menu vazio.
 onMounted(() => {
-  if (!podeAcessos.value && !podePatrimonio.value) {
+  // Frota e Autenticidade também contam. Sem elas na conta, quem tivesse SÓ um
+  // desses dois era mandado de volta pra Central com "Sem acesso" — mesmo com o
+  // card dele visível bem ali. Era um defeito silencioso da Frota, herdado aqui.
+  if (!podeAcessos.value && !podePatrimonio.value && !podeFrota.value && !podeAutenticidade.value) {
     adminToast('Sem acesso', false)
     router.push({ name: 'inicio' })
   }

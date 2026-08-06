@@ -9,6 +9,7 @@ const rotas = [
   { path: '/gestao-interna', name: 'gestao-interna', component: () => import('./ferramentas/gestao-interna/tela-de-menu-gestao-interna.vue') },
   { path: '/patrimonio', name: 'patrimonio', component: () => import('./ferramentas/patrimonio/tela-de-patrimonio.vue'), meta: { recurso: 'patrimonio' } },
   { path: '/frota', name: 'frota', component: () => import('./ferramentas/frota/tela-de-frota.vue'), meta: { recurso: 'frota' } },
+  { path: '/autenticidade', name: 'autenticidade', component: () => import('./ferramentas/autenticidade/tela-de-autenticidade.vue'), meta: { recurso: 'autenticidade' } },
   { path: '/banco', name: 'banco', component: () => import('./ferramentas/banco/tela-de-banco.vue') },
   { path: '/vendas', name: 'vendas', component: () => import('./ferramentas/vendas/tela-de-menu-vendas.vue') },
   { path: '/gestao-vista', name: 'gestao-vista', component: () => import('./ferramentas/gestao-a-vista/tela-de-gestao-a-vista.vue') },

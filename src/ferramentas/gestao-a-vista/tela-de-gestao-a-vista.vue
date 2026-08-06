@@ -13,7 +13,13 @@
     <!-- O SUBTITULO E CONTEUDO: diz de quem sao os numeros desta tela.
          Foi trocar isso por um titulo unico que fez a primeira versao
          desta barra ser revertida. -->
-    <barra-de-topo voltar="Voltar" titulo="Performance de Vendas" subtitulo="Vessel Brasil · Gestão à Vista" @voltar="closeGestaoVista" />
+    <barra-de-topo voltar="Voltar" titulo="Performance de Vendas" subtitulo="Vessel Brasil · Gestão à Vista" @voltar="closeGestaoVista">
+    <!-- FAIXA DE CONTROLES DENTRO DA BARRA (2026-08-06, pedido do dono).
+         Antes era irma da barra, numa faixa propria — e no computador isso
+         gastava ~80px de altura a toa. Agora entra pelo encaixe de acoes, que
+         ja resolve os dois tamanhos sozinho: fica na linha 1 quando cabe
+         (computador) e desce em largura cheia quando nao cabe (celular). -->
+    <template #acoes>
 
     <!-- FAIXA DE CONTROLES: periodo e filtros. Nao sao acoes pequenas —
          sao uma tira larga que dentro da barra disputava espaco com o
@@ -50,6 +56,8 @@
       </div>
     
     </div>
+    </template>
+    </barra-de-topo>
     <div class="gv-board" id="gv-board">
       <div class="gv-loading-screen">
         <div class="gv-spinner"></div>
@@ -1863,6 +1871,6 @@ body.dev-tv .tela-gestao-a-vista :deep(#gv-ac-toggle){font-size:21px;padding:8px
   .tela-gestao-a-vista :deep(.gv-est-col){flex:1 1 auto;width:100%;}
 }
 /* FAIXA DE CONTROLES — ver o comentario no template. */
-.tela-gestao-a-vista :deep(.gv-controles){display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;padding:8px 24px;border-bottom:1px solid var(--border);background:var(--surface);}
-@media(max-width:640px){.tela-gestao-a-vista :deep(.gv-controles){padding:0;flex-direction:column;align-items:stretch;gap:0;}}
+.tela-gestao-a-vista :deep(.gv-controles){display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;padding:0;background:transparent;}  /* mora DENTRO da barra: fundo, borda de baixo e respiro lateral sao dela */
+@media(max-width:640px){.tela-gestao-a-vista :deep(.gv-controles){padding:8px 12px;flex-direction:column;align-items:stretch;gap:8px;}}
 </style>

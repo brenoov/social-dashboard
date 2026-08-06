@@ -1,0 +1,60 @@
+O QUE E ESTA PASTA
+==================
+
+E o PAINEL do Selo Vessel — o lado de dentro da pagina que a cliente ve quando
+encosta o celular na etiqueta da bolsa.
+
+A pagina da cliente NAO esta aqui: ela e um arquivo separado, em
+public/verify/index.html, porque precisa abrir em 1 segundo no 4G de uma loja e
+nao pode carregar o painel inteiro junto.
+
+AS QUATRO ABAS
+==============
+
+LOTES      Cada lote e uma fornada de bolsas do mesmo modelo. Ao criar um lote
+           de 20, nascem 20 codigos DIFERENTES, um por bolsa.
+
+GRAVAR     Mostra UMA etiqueta por vez, com o endereco em letra grande, botao de
+           copiar e "Gravei essa". Existe por um motivo pratico: 20 etiquetas
+           sao fisicamente identicas, e sem essa tela e questao de tempo ate
+           alguem gravar a mesma duas vezes e pular outra.
+
+REGISTROS  Quem registrou a garantia: nome, WhatsApp, onde comprou. Da pra
+           buscar e baixar em planilha.
+
+ALERTAS    Os sinais de falsificacao. A etiqueta guarda um endereco, e endereco
+           se copia — entao a etiqueta sozinha nao impede nada. O que denuncia a
+           copia e a MESMA peca sendo lida de muitos aparelhos diferentes.
+
+DE ONDE VEM O CODIGO
+====================
+
+Do banco, nunca do navegador. Quem garante que nao existe codigo repetido e a
+chave primaria da tabela; sorteando no navegador, cada codigo precisaria de uma
+ida e volta pra checar, e um lote de 200 viraria 200 requisicoes.
+
+O sorteio e criptografico (gen_random_bytes), nao random(). O random() do
+Postgres e previsivel — quem comprasse algumas bolsas poderia calcular os
+proximos codigos, e a protecao inteira depende de o codigo NAO ser adivinhavel.
+
+Ver db/migrations/2026-08-05-vessel-painel.sql.
+
+A PERMISSAO
+===========
+
+Chave: 'autenticidade'. Como toda ferramenta nova deste projeto, ela nasce
+concedida a NINGUEM — quem precisar recebe pela tela de Admin.
+
+Atencao: a MESMA string precisa existir nos dois lugares. O front le
+permissions{} (RECURSOS e PERMISSION_TREE em
+src/compartilhado/controle-de-login-e-usuario.js) e o banco le features[]
+(is_vessel_admin()). Mexer so num dos dois tira o acesso em silencio.
+
+OS ARQUIVOS
+===========
+
+tela-de-autenticidade.vue  a tela inteira, com as quatro abas
+lotes.js                   as continhas soltas (endereco da etiqueta, progresso
+                           do lote, proxima a gravar, planilha, resumo de
+                           alertas). Ficam separadas porque sao testadas em
+                           lotes.test.mjs

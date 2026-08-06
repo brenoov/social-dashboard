@@ -61,17 +61,33 @@ Deno.serve(async (req: Request) => {
     await sb.from('data_integrity_checks').insert({ checked_date: hoje, account_id: a.id, check_name: 'meta_spotcheck', status: worst, detail: `curtidas ${dl} · alcance ${dr}` });
   }
 
-  // 3) Alerta ativo: se houver qualquer FAIL hoje, dispara webhook (se ALERT_WEBHOOK_URL estiver setado)
-  const { data: fails } = await sb.from('data_integrity_checks')
-    .select('account_id,check_name,detail').eq('checked_date', hoje).eq('status', 'fail');
+  // 3) Alerta ativo: FAIL **e WARN** de hoje viram UM recado (se ALERT_WEBHOOK_URL estiver setado).
+  //
+  // POR QUE O WARN ENTROU (2026-08-06): o check `bruto_seguidores` marcou os 7
+  // perfis em `warn` no dia 05/08, dizendo com todas as letras `ultimo=2026-08-02`
+  // — ou seja, ele PEGOU que o Instagram tinha parado de publicar "seguiram/
+  // deixaram de seguir". Só que warn não disparava nada: ficava gravado numa
+  // tabela que ninguém abre. O sistema sabia e não contou. Quem descobriu foi o
+  // dono, no olho, três dias depois.
+  //
+  // Os dois níveis vão no MESMO recado, separados, e não em dois disparos: o
+  // objetivo é continuar sendo uma mensagem por dia. Alarme que toca demais vira
+  // ruído — e ruído é pior que silêncio, porque parece que alguém está olhando.
+  const { data: achados } = await sb.from('data_integrity_checks')
+    .select('account_id,check_name,detail,status').eq('checked_date', hoje).in('status', ['fail', 'warn']);
+  const fails = (achados ?? []).filter((f: any) => f.status === 'fail');
+  const warns = (achados ?? []).filter((f: any) => f.status === 'warn');
   const hook = Deno.env.get('ALERT_WEBHOOK_URL');
-  if (hook && fails && fails.length) {
+  if (hook && (fails.length || warns.length)) {
     const accMap: Record<string, string> = {};
     (accounts ?? []).forEach((a: any) => accMap[a.id] = a.name || a.instagram_id);
-    const msg = `🚨 Saúde dos dados (${hoje}) — ${fails.length} falha(s):\n` +
-      fails.map((f: any) => `• ${accMap[f.account_id] || '?'} · ${f.check_name}${f.detail ? ' (' + f.detail + ')' : ''}`).join('\n');
+    const linha = (f: any) => `• ${accMap[f.account_id] || '?'} · ${f.check_name}${f.detail ? ' (' + f.detail + ')' : ''}`;
+    const partes: string[] = [];
+    if (fails.length) partes.push(`🚨 ${fails.length} falha(s):\n` + fails.map(linha).join('\n'));
+    if (warns.length) partes.push(`⚠️ ${warns.length} aviso(s):\n` + warns.map(linha).join('\n'));
+    const msg = `Saúde dos dados (${hoje})\n\n` + partes.join('\n\n');
     try { await fetch(hook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: msg, content: msg }) }); } catch (e) { console.error('hook', e); }
   }
 
-  return new Response(JSON.stringify({ ok: true, date: hoje, fails: fails?.length || 0 }), { headers: { 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify({ ok: true, date: hoje, fails: fails.length, warns: warns.length }), { headers: { 'Content-Type': 'application/json' } });
 });

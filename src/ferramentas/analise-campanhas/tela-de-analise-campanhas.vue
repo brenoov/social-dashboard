@@ -14,7 +14,13 @@
     <!-- O SUBTITULO E CONTEUDO: diz de quem sao os numeros desta tela.
          Foi trocar isso por um titulo unico que fez a primeira versao
          desta barra ser revertida. -->
-    <barra-de-topo voltar="Meta Ads" titulo="Análise de Campanhas" subtitulo="Meta Ads · Inteligência RBV" @voltar="closeMetaCampanha" />
+    <barra-de-topo voltar="Meta Ads" titulo="Análise de Campanhas" subtitulo="Meta Ads · Inteligência RBV" @voltar="closeMetaCampanha">
+    <!-- FAIXA DE CONTROLES DENTRO DA BARRA (2026-08-06, pedido do dono).
+         Antes era irma da barra, numa faixa propria — e no computador isso
+         gastava ~80px de altura a toa. Agora entra pelo encaixe de acoes, que
+         ja resolve os dois tamanhos sozinho: fica na linha 1 quando cabe
+         (computador) e desce em largura cheia quando nao cabe (celular). -->
+    <template #acoes>
 
     <!-- FAIXA DE CONTROLES: periodo e filtros. Nao sao acoes pequenas —
          sao uma tira larga que dentro da barra disputava espaco com o
@@ -49,6 +55,8 @@
       </div>
     
     </div>
+    </template>
+    </barra-de-topo>
     <div class="ma-body" id="ma-content-wrap">
       <div id="ma-content"></div>
     </div>
@@ -1378,8 +1386,8 @@ Object.assign(window, {
   .tela-analise-campanhas :deep(.gv-topbar-brand){order:1;display:flex;align-items:center;gap:10px;padding:10px 16px;}
 }
 /* FAIXA DE CONTROLES — ver o comentario no template. */
-.tela-analise-campanhas :deep(.gv-controles){display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;padding:8px 24px;border-bottom:1px solid var(--border);background:var(--surface);}
-@media(max-width:640px){.tela-analise-campanhas :deep(.gv-controles){padding:0;flex-direction:column;align-items:stretch;gap:0;}}
+.tela-analise-campanhas :deep(.gv-controles){display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;padding:0;background:transparent;}  /* mora DENTRO da barra: fundo, borda de baixo e respiro lateral sao dela */
+@media(max-width:640px){.tela-analise-campanhas :deep(.gv-controles){padding:8px 12px;flex-direction:column;align-items:stretch;gap:8px;}}
 </style>
 
 <style>
