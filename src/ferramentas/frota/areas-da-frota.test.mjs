@@ -14,7 +14,7 @@ test('quem só dirige não vê a aba de Gestão', () => {
 })
 
 test('quem administra vê as duas, e abre na Gestão', () => {
-  assert.deepEqual(areasVisiveis(ADMIN), ['motorista', 'gestao', 'revisoes', 'plano', 'checklist'])
+  assert.deepEqual(areasVisiveis(ADMIN), ['motorista', 'gestao', 'revisoes', 'plano'])
   assert.equal(areaInicial(ADMIN), 'gestao')
 })
 
@@ -30,11 +30,6 @@ test('poder criar já basta pra Gestão, mesmo sem poder excluir', () => {
   // exigir os dois esconderia a aba de quem cadastra e não apaga.
   assert.ok(areasVisiveis(perfil('ver', 'criar')).includes('gestao'))
   assert.ok(areasVisiveis(perfil('ver', 'excluir')).includes('gestao'))
-})
-
-test('a área Checklist só aparece pra quem administra', () => {
-  assert.equal(areasVisiveis(() => false).includes('checklist'), false)
-  assert.equal(areasVisiveis((a) => a === 'criar').includes('checklist'), true)
 })
 
 test('sem permissão nenhuma ainda sobra a área Motorista', () => {

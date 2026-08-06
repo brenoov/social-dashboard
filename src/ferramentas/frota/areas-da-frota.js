@@ -13,7 +13,6 @@ export const AREAS = [
   { chave: 'gestao', rotulo: 'Gestão' },
   { chave: 'revisoes', rotulo: 'Revisões' },
   { chave: 'plano', rotulo: 'Plano' },
-  { chave: 'checklist', rotulo: 'Checklist' },
 ];
 
 /**
@@ -24,10 +23,11 @@ export const AREAS = [
 export function areasVisiveis(pode) {
   const p = typeof pode === 'function' ? pode : () => false;
   const areas = ['motorista'];
-  // Revisões e Checklist andam junto com Gestão: quem cadastra veículo é quem
+  // Revisões e Plano andam junto com Gestão: quem cadastra veículo é quem
   // decide de quantos em quantos quilômetros cada item se troca, e é o mesmo
-  // gestor que mantém a lista do checklist e os dias em que ele cai.
-  if (p('criar') || p('excluir')) areas.push('gestao', 'revisoes', 'plano', 'checklist');
+  // gestor que mantém a lista do checklist e os dias em que ele cai — o
+  // checklist mora dentro da aba Plano (D10), não numa aba própria.
+  if (p('criar') || p('excluir')) areas.push('gestao', 'revisoes', 'plano');
   return areas;
 }
 

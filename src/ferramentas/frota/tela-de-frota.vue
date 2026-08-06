@@ -1257,13 +1257,16 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- ABA PLANO DE MANUTENÇÃO: os limiares que geram os avisos da aba
-         Revisões. Ficava no rodapé daquela aba e o dono não achava — virou aba
-         com nome próprio. -->
+    <!-- ABA PLANO DE MANUTENÇÃO: as duas metades da mesma manutenção de
+         primeiro escalão (D10) — o que a oficina troca por quilometragem, e o
+         que o motorista confere sozinho. Eram duas abas porque cada assunto
+         foi tratado separado; são o mesmo assunto visto de dois lados, então
+         moram juntos aqui, quilometragem primeiro (o que já existia) e
+         checklist depois. -->
     <template v-if="area === 'plano' && !carregando && !falha">
-      <h2 class="fr-secao">Plano de manutenção — de quantos em quantos quilômetros</h2>
+      <h2 class="fr-secao">Plano de manutenção — o que a oficina troca, de quantos em quantos quilômetros</h2>
       <p class="fr-aviso">
-        Estes números são os que geram os avisos acima. Mude quando o mecânico mandar,
+        Estes números são os que geram os avisos da aba Revisões. Mude quando o mecânico mandar,
         e acrescente o que faltar.
       </p>
       <ul class="fr-pedidos">
@@ -1282,19 +1285,21 @@ onMounted(async () => {
       <div class="fr-acoes" style="padding:12px 14px 40px">
         <button class="fr-btn primario" @click="abrirItem(null)">+ Acrescentar item</button>
       </div>
-    </template>
 
-    <!-- ABA CHECKLIST: a lista de itens e os dias do semanal/mensal, editáveis
-         pelo gestor (F8) — mesmo padrão de "plano": bloco próprio, não faz
-         parte da corrente v-else-if de cima. -->
-    <div class="fr-checklist-editor" v-if="area === 'checklist' && !carregando && !falha">
-      <EditorDeChecklist
-        :itens="itensDeChecklist" :config="configDeChecklist" :gravando="gravando"
-        :erro-config="erroDaConfig" :erro-item="erroDoItem"
-        @salvar-item="salvarItemDeChecklist"
-        @alternar-item="alternarItemDeChecklist"
-        @salvar-config="salvarConfigDeChecklist" />
-    </div>
+      <h2 class="fr-secao">Checklist — o que o motorista confere sozinho, a cada dia</h2>
+      <p class="fr-aviso">
+        A lista de itens, e os dias em que o semanal e o mensal caem. Mude do mesmo jeito que
+        no plano acima, quando precisar.
+      </p>
+      <div class="fr-checklist-editor">
+        <EditorDeChecklist
+          :itens="itensDeChecklist" :config="configDeChecklist" :gravando="gravando"
+          :erro-config="erroDaConfig" :erro-item="erroDoItem"
+          @salvar-item="salvarItemDeChecklist"
+          @alternar-item="alternarItemDeChecklist"
+          @salvar-config="salvarConfigDeChecklist" />
+      </div>
+    </template>
 
     <!-- EDITOR DE UM ITEM DO PLANO -->
     <div class="fr-ficha-fundo" v-if="itemEmEdicao" @click.self="fecharItem">

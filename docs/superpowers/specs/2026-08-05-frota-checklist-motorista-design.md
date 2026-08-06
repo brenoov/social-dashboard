@@ -151,6 +151,16 @@ Sobe preenchida com esta proposta:
 itens toda manhã produz, em duas semanas, alguém marcando tudo OK sem olhar — e
 um checklist que mente é pior do que checklist nenhum.
 
+**Este editor mora dentro da aba Plano de manutenção, não numa aba própria.**
+A primeira versão deu ao checklist uma aba "Checklist" separada da aba "Plano".
+O dono corrigiu: são o mesmo assunto — a manutenção de primeiro escalão — visto
+de dois lados. Um lado é o que a oficina troca a cada tantos quilômetros (o
+plano por quilometragem, D6); o outro é o que o motorista confere sozinho, a
+cada dia (este checklist). Separar em duas abas tratava como dois assuntos o
+que é um assunto só, e ainda quebrava a linha das abas de tanta aba. As duas
+metades agora convivem na mesma aba Plano, quilometragem primeiro e checklist
+depois, cada metade com seu próprio título deixando claro qual é qual.
+
 ### D11 — Nenhum dia pesado: semanal e mensal têm dia próprio
 
 Decisão do dono. O semanal **não** cai empilhado no diário de segunda: ele tem
