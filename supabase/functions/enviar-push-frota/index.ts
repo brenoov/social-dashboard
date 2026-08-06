@@ -1,0 +1,153 @@
+// supabase/functions/enviar-push-frota/index.ts
+// Cron de manhã, segunda a sexta: avisa quem ainda não fez o checklist do
+// carro de hoje.
+//
+// QUEM É AVISADO (D9b, decisão do dono durante a revisão da F6b): não é
+// sempre o dono fixo do carro. Quem responde pelo carro HOJE é quem está com
+// ele — a posse aberta em frota_uso, se houver; só na falta dela cai no dono
+// fixo (pessoa_id). Se o Marcus emprestou o Volvo pra Barbara, o aviso vai
+// pra ela, porque é ela quem vai preencher a ficha, não ele.
+//
+// Por isso esta função usa quemFaltaHoje() de _shared/checklist.js — a MESMA
+// função que o quadro de cobrança da tela usa (tela-de-frota.vue) — em vez de
+// reimplementar o laço à mão. Se a lógica daqui divergisse da lógica da tela,
+// o robô cobraria uma pessoa e a tela mostraria outra devendo, e as duas não
+// podem discordar sobre quem está com cada carro.
+//
+// SÓ QUEM PRECISA. Um aviso por pessoa, do carro dela — não um aviso geral pra
+// todo mundo. Foi assim que o "Vessel está sem saldo" chegou em três pessoas
+// que não tinham nada com aquilo, e é o problema que push_preferencias existe
+// pra resolver.
+//
+// NÃO ENVIA quando não tem certeza: se a lista de itens ou a configuração não
+// vierem, a função não manda nada. Aviso com contagem errada de itens é pior
+// do que silêncio — a pessoa abre, vê outra coisa, e para de confiar.
+import { createClient } from 'jsr:@supabase/supabase-js@2';
+import webpush from 'npm:web-push@3';
+import { inscricoesDoTipo } from '../_shared/notificacoes.js';
+import { cadenciasDoDia, itensDaFicha, quemFaltaHoje } from '../_shared/checklist.js';
+import { montarAviso } from '../_shared/aviso-de-checklist.js';
+import { exigirSegredoDeCron } from '../_shared/segredo-de-cron.ts';
+
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+const cors = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+const json = (b: unknown, s = 200) =>
+  new Response(JSON.stringify(b), { status: s, headers: { ...cors, 'Content-Type': 'application/json' } });
+
+// Data de hoje em BRT (UTC-3; o Brasil não tem mais horário de verão).
+const hojeBrt = () => new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  const negado = await exigirSegredoDeCron(req, 'enviar-push-frota');
+  if (negado) return negado;
+
+  const sb = createClient(SUPABASE_URL, SERVICE_KEY);
+  const hoje = hojeBrt();
+
+  const [veiculos, itens, config, fichas, usos, pessoas, subs, prefs] = await Promise.all([
+    sb.from('frota_veiculos').select('id,nome,pessoa_id,situacao'),
+    sb.from('frota_checklist_itens').select('*').order('ordem'),
+    sb.from('frota_checklist_config').select('*').limit(1),
+    // 120 dias bastam pra achar a última semanal/mensal de cada carro —
+    // cadenciasDoDia só olha atraso além de 7 e 31 dias.
+    sb.from('frota_checklist').select('veiculo_id,feita_em,cadencias')
+      .gte('feita_em', new Date(Date.now() - 120 * 86400000).toISOString().slice(0, 10)),
+    // Só o ABERTO importa pra "quem está com o carro agora" (D9b) — uma
+    // viagem ou posse com volta_em preenchida já fechou e não decide nada
+    // hoje. Filtrar aqui evita puxar o histórico inteiro de frota_uso.
+    sb.from('frota_uso').select('*').is('volta_em', null),
+    sb.from('acessos_pessoas').select('id,nome,profile_id'),
+    sb.from('push_subs').select('*'),
+    sb.from('push_preferencias').select('*'),
+  ]);
+
+  const cfg = config.data?.[0];
+  if (!cfg || !itens.data?.length) {
+    return json({ enviados: 0, motivo: 'sem lista ou sem configuração — não envio com dado incompleto' });
+  }
+
+  const inscritos = inscricoesDoTipo(subs.data, prefs.data, 'frota');
+  if (!inscritos.length) {
+    // O caso normal enquanto o dono não ligar o aviso pra ninguém (D16). Isso
+    // é SUCESSO: a função rodou, leu as inscrições e decidiu certo — não é
+    // defeito.
+    return json({ enviados: 0, motivo: 'ninguém ligou este aviso ainda' });
+  }
+
+  // O VAPID vem da tabela segredos_de_cron, NÃO de variável de ambiente — é
+  // assim no enviar-push-vendas (linhas 105-110), e a tabela tem RLS ligada
+  // com zero policies: só o service role lê.
+  const { data: segr } = await sb.from('segredos_de_cron').select('nome,segredo')
+    .in('nome', ['vapid_public_key', 'vapid_private_key', 'vapid_subject']);
+  const seg = Object.fromEntries((segr || []).map((r: { nome: string; segredo: string }) =>
+    [r.nome, r.segredo]));
+  if (!seg.vapid_public_key || !seg.vapid_private_key) {
+    return json({ error: 'vapid_nao_configurado' }, 500);
+  }
+  webpush.setVapidDetails(
+    seg.vapid_subject || 'mailto:breno@rbvcompany.com',
+    seg.vapid_public_key, seg.vapid_private_key);
+
+  // Só as fichas de HOJE contam como feito — igual ao quadro de cobrança em
+  // tela-de-frota.vue: uma ficha de ontem não pode marcar o carro em dia por
+  // engano o dia inteiro.
+  const fichasDeHoje = (fichas.data || []).filter((f: { feita_em: string }) => f.feita_em === hoje);
+
+  // A mesma função que decide quem o quadro de cobrança da tela mostra como
+  // devedor, com `usos` pra aplicar D9b: quem está com o carro emprestado é
+  // quem entra aqui, não o dono no papel.
+  const linhas = quemFaltaHoje({
+    veiculos: veiculos.data, fichasDeHoje, pessoas: pessoas.data, usos: usos.data,
+  }).filter((l: { fez: boolean }) => !l.fez);
+
+  const ultima = (veiculoId: string, cadencia: string) => {
+    const l = (fichas.data || [])
+      .filter((f: { veiculo_id: string; cadencias: string[] }) =>
+        f.veiculo_id === veiculoId && (f.cadencias || []).includes(cadencia))
+      .map((f: { feita_em: string }) => f.feita_em).sort();
+    return l.length ? l[l.length - 1] : null;
+  };
+
+  let enviados = 0, podados = 0;
+  for (const linha of linhas) {
+    const v = linha.veiculo;
+    const cadencias = cadenciasDoDia({
+      hoje, config: cfg,
+      ultimaSemanal: ultima(v.id, 'semanal'), ultimaMensal: ultima(v.id, 'mensal'),
+    });
+    if (!cadencias.length) continue;   // fim de semana
+
+    // linha.donoId já veio de quemFaltaHoje() com D9b aplicado: é quem está
+    // com o carro agora (posse aberta), e só na falta dela o dono fixo.
+    const pessoa = (pessoas.data || []).find((p: { id: string }) => p.id === linha.donoId);
+    // O elo com push_subs/push_preferencias é profile_id, não o id da pessoa:
+    // acessos_pessoas.id é a linha de RH, profile_id é quem loga no app.
+    if (!pessoa?.profile_id) continue;   // pessoa sem login: não há pra quem mandar
+    const dela = inscritos.filter((s: { user_id: string }) => String(s.user_id) === String(pessoa.profile_id));
+    if (!dela.length) continue;
+
+    const aviso = montarAviso({ veiculo: v, itens: itensDaFicha(itens.data, cadencias), cadencias });
+    const carga = JSON.stringify({ ...aviso, url: '/frota' });
+    for (const s of dela) {
+      try {
+        await webpush.sendNotification(
+          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, carga);
+        enviados++;
+      } catch (err: any) {
+        // Inscrição morta (aparelho trocado, app desinstalado) some da
+        // tabela, como faz o enviar-push-vendas.
+        if (err?.statusCode === 410 || err?.statusCode === 404) {
+          await sb.from('push_subs').delete().eq('endpoint', s.endpoint);
+          podados++;
+        }
+      }
+    }
+  }
+  return json({ enviados, podados, hoje });
+});
