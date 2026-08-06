@@ -2300,5 +2300,62 @@ Object.assign(window, {
   .tela-admin :deep(#admin-topbar-user){display:none;}
   .tela-admin :deep(.perm-modal-body){padding:12px 14px;}
   .tela-admin :deep(.perm-card-hdr){padding:7px 8px;}
+
+  /* Task 7 — Medir e consertar o celular. Tudo daqui pra baixo é o que a
+     medição a 375px acusou (script no brief da tarefa): estouro=0 já fechava
+     sozinho, sobrou alvo de toque <40px e fonte <16px em input/select
+     (zoom automático do iOS ao focar). Nada de desktop foi tocado — os
+     seletores abaixo só valem dentro deste @media. */
+
+  /* 1) Campos de texto/seleção (.admin-form-input): 13px de fonte e ~37-39px
+     de altura. O !important é porque alguns nascem com font-size/padding
+     inline (desenhados em JS: o input de "trocar senha" por linha e o select
+     de "duplicar permissões de outro usuário") — sem ele, a cascata perderia
+     pro estilo inline e o celular continuaria dando zoom. */
+  .tela-admin :deep(.admin-form-input){font-size:16px!important;min-height:40px!important;box-sizing:border-box;}
+  /* .usr-acao-select (Viewer/Admin por pessoa) já tinha min-height:40px do
+     `.usr-acoes select` (correção anterior) — faltava só a fonte. */
+  .tela-admin :deep(.usr-acao-select){font-size:16px;}
+
+  /* 2) Botões padrão (.sr-btn): "Enviar convite"/"Criar com senha", rodapé
+     do modal (Cancelar/Salvar), "Aplicar" (duplicar permissões) e o miniform
+     de trocar senha por linha (Gerar/Salvar senha/Cancelar) tinham só
+     padding:5-8px — na prática 25-31px de altura. */
+  .tela-admin :deep(.sr-btn){min-height:40px;box-sizing:border-box;}
+
+  /* 3) Degraus (.perm-degrau): tanto o "Agrupar: Marca|Local|Setor" quanto os
+     graus dentro do modal (Sem acesso/Só ver/Ver e mexer/Tudo) herdavam os
+     32px do desktop. */
+  .tela-admin :deep(.perm-degrau){min-height:40px;box-sizing:border-box;padding:9px 14px;}
+
+  /* 4) Botões dos Times de venda ("Puxar das vendas", "+ Novo time",
+     "Editar", "Quem trabalha aqui (N)") são HTML cru com style inline (sem
+     classe própria) — os data-attributes que os identificam no JS servem de
+     gancho aqui; nenhum deles define altura inline, então não precisa de
+     !important. */
+  .tela-admin :deep([data-vd-puxar]),
+  .tela-admin :deep([data-eq-novo]),
+  .tela-admin :deep([data-eq-editar]),
+  .tela-admin :deep([data-eq-gente]){min-height:40px;box-sizing:border-box;display:inline-flex;align-items:center;}
+
+  /* 5) Checkboxes soltos (Super-admin, "Marcar tudo", "Tudo" de cada card,
+     "Todos os perfis", cada conta em "Perfis de rede social") usam o <label>
+     inteiro como alvo de toque — o quadradinho nativo sempre mede uns 13px
+     (é o checkbox do sistema, não dá pra crescer sem reinventá-lo do zero) e
+     por isso NÃO está na lista de seletores medidos pelo dono; o que importa
+     de verdade é o label. .perm-notif não precisava (já tem 67px pela
+     descrição de duas linhas) mas herdar o min-height não muda nada nele. */
+  .tela-admin :deep(.perm-modal-body label){min-height:40px;box-sizing:border-box;}
+
+  /* 6) .av-edit-btn ("trocar foto"): só aparecia no :hover do avatar — no
+     toque isso nunca dispara, então ficava para sempre invisível E
+     inalcançável (bug de sempre, não desta tarefa; aqui ele passa a
+     aparecer). NÃO foi levado a 40px de propósito: o avatar em si tem 32px,
+     e um selo de edição do mesmo tamanho (ou maior) cobriria a foto/inicial
+     da pessoa por baixo — pior que hoje. É ação secundária e rara (trocar
+     foto), então documentamos a exceção em vez de forçar uma tela pior só
+     pra fechar o número. */
+  .tela-admin :deep(.av-edit-btn){opacity:1;width:22px;height:22px;bottom:-4px;right:-4px;}
+  .tela-admin :deep(.av-edit-btn svg){width:11px;height:11px;}
 }
 </style>
