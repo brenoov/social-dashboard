@@ -23,14 +23,12 @@
       <nav class="admin-sidebar">
         <div class="admin-nav-group-label">Gestão</div>
         <div class="admin-nav-item active" data-section="users" onclick="loadAdminSection('users')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Usuários</span></div>
-        <div class="admin-nav-item" data-section="equipes" onclick="loadAdminSection('equipes')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/></svg><span>Times de venda</span></div>
         <div class="admin-nav-item" data-section="accounts" onclick="loadAdminSection('accounts')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg><span>Contas</span></div>
         <div class="admin-nav-item" data-section="requests" onclick="loadAdminSection('requests')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Solicitações</span></div>
         <div class="admin-nav-group-label">Vendas</div>
         <div class="admin-nav-item" data-section="metas" onclick="loadAdminSection('metas')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Metas</span></div>
         <div class="admin-nav-group-label">Plataforma</div>
         <div class="admin-nav-item" data-section="data" onclick="loadAdminSection('data')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><span>Dados</span></div>
-        <div class="admin-nav-item" data-section="saude" onclick="loadAdminSection('saude')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>Saúde dos dados</span></div>
       </nav>
       <div class="admin-content">
         <!-- USUÁRIOS -->
@@ -38,8 +36,6 @@
           <div class="admin-section-title">Usuários &amp; Acessos</div>
           <div class="admin-section-sub">Gerencie quem tem acesso à Central de Inteligência</div>
           <div id="admin-stats-users" class="admin-stats"></div>
-          <span class="sg-label">Usuários cadastrados</span>
-          <div class="sg" id="admin-user-list"></div>
           <span class="sg-label">Convidar novo usuário</span>
           <div class="sg" style="padding:16px 20px;">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;">
@@ -78,6 +74,14 @@
               </div>
             </div>
           </div>
+          <!-- Times de venda mora aqui dentro de Usuários (Task 5): quem cria
+               conta e quem organiza times é a mesma pessoa fazendo a mesma
+               tarefa de gestão de acesso, então a ordem virou criar → times →
+               pessoas, do jeito que o dono aprovou. -->
+          <span class="sg-label">Times de venda</span>
+          <div id="admin-equipes-body"><div style="color:var(--muted);font-size:12px">Carregando...</div></div>
+          <span class="sg-label">Usuários cadastrados</span>
+          <div class="sg" id="admin-user-list"></div>
         </div>
         <!-- CONTAS -->
         <div class="admin-section" id="admin-section-accounts">
@@ -99,16 +103,13 @@
           </div>
           <div id="admin-action-info" style="display:none;margin-top:12px"></div>
         </div>
-        <!-- SAÚDE / METAS -->
+        <!-- SAÚDE: saiu da barra (Task 5), mas a tela de detalhe continua aqui —
+             a faixa de aviso em Dados abre esta seção por onclick, então
+             loadAdminSaude() precisa ter onde desenhar o detalhamento. -->
         <div class="admin-section" id="admin-section-saude">
           <div class="admin-section-title">Saúde dos dados</div>
           <div class="admin-section-sub">Verificação automática diária (23:30) — frescor, consistência e anomalias das métricas de todos os perfis.</div>
           <div id="admin-saude-body"><div style="color:var(--muted);font-size:12px">Carregando...</div></div>
-        </div>
-        <div class="admin-section" id="admin-section-equipes">
-          <div class="admin-section-title">Times de venda</div>
-          <div class="admin-section-sub">Lojas, canais e setores — e quem trabalha em cada um. É por aqui que uma loja nova entra no sistema.</div>
-          <div id="admin-equipes-body"><div style="color:var(--muted);font-size:12px">Carregando...</div></div>
         </div>
         <div class="admin-section" id="admin-section-metas">
           <div class="admin-section-title">Metas de Vendas</div>
@@ -331,18 +332,45 @@ function loadAdminSection(name) {
   document.querySelectorAll('.admin-nav-item').forEach(el => el.classList.toggle('active', el.dataset.section === name))
   document.querySelectorAll('.admin-section').forEach(el => el.classList.remove('active'))
   const sec = document.getElementById('admin-section-' + name); if (sec) sec.classList.add('active')
-  const carregadores = { users: loadAdminUsers, accounts: loadAdminAccounts, data: loadAdminData, metas: loadAdminMetas, requests: loadAdminRequests, saude: loadAdminSaude, equipes: loadAdminEquipes }
+  // 'saude' e 'equipes' saíram deste mapa na Task 5: Saúde não tem mais item na
+  // barra (vive só na faixa de Dados, aberta pelo onclick montado em
+  // updateSaudeBadge) e Times de venda carrega junto com Usuários, dentro de
+  // loadAdminUsers.
+  const carregadores = { users: loadAdminUsers, accounts: loadAdminAccounts, data: loadAdminData, metas: loadAdminMetas, requests: loadAdminRequests }
   carregadores[name]?.()
   updateSaudeBadge()
 }
-// Badge vermelho no item "Saúde dos dados" quando há ❌ no último run.
+
+// O SINAL DA SAÚDE NÃO MORRE COM A ABA.
+//
+// A aba saiu da barra a pedido do dono, mas ela estava CERTA: as 13 falhas por
+// dia que ela acusava eram o bug das curtidas zeradas (commit 9943dda), e ela
+// era o único lugar que avisava. Apagar o aviso junto com a tela repetiria o
+// silêncio que deixou o bug invisível por semanas.
+//
+// Some sozinha quando não há falha: aviso que fica sempre aceso vira paisagem.
 async function updateSaudeBadge() {
-  const nav = document.querySelector('.admin-nav-item[data-section="saude"]'); if (!nav) return
+  const alvo = document.getElementById('admin-section-data'); if (!alvo) return
+  const anterior = alvo.querySelector('.saude-faixa'); if (anterior) anterior.remove()
   const last = await sb('data_integrity_checks?select=checked_date&order=checked_date.desc&limit=1')
-  let dot = nav.querySelector('.saude-dot')
-  const fails = last.length ? await sb('data_integrity_checks?select=id&status=eq.fail&checked_date=eq.' + last[0].checked_date) : []
-  if (fails.length) { if (!dot) { dot = document.createElement('span'); dot.className = 'saude-dot'; dot.style.cssText = 'display:inline-block;width:7px;height:7px;border-radius:50%;background:#dc2626;margin-left:6px;vertical-align:middle;'; (nav.querySelector('span') || nav).appendChild(dot) } }
-  else if (dot) { dot.remove() }
+  if (!last.length) return
+  const fails = await sb('data_integrity_checks?select=id&status=eq.fail&checked_date=eq.' + last[0].checked_date)
+  if (!fails.length) return
+  const faixa = document.createElement('div')
+  faixa.className = 'saude-faixa'
+  faixa.textContent = `A conferência de ${last[0].checked_date} achou ${fails.length} divergência(s) entre o painel e a Meta.`
+  // Clicável: a aba de detalhe (#admin-section-saude) continua no template e
+  // loadAdminSaude() continua existindo — só não tem mais botão na barra pra
+  // chegar nela. A faixa é o novo caminho.
+  faixa.style.cursor = 'pointer'
+  faixa.title = 'Clique para ver o detalhamento'
+  faixa.onclick = () => {
+    document.querySelectorAll('.admin-nav-item').forEach(el => el.classList.remove('active'))
+    document.querySelectorAll('.admin-section').forEach(el => el.classList.remove('active'))
+    document.getElementById('admin-section-saude')?.classList.add('active')
+    loadAdminSaude()
+  }
+  alvo.insertBefore(faixa, alvo.firstChild)
 }
 
 /* ── PUXAR AS VENDEDORAS DAS VENDAS ─────────────────────────────────────────
@@ -1275,6 +1303,11 @@ async function savePermissions() {
 /* ── USUÁRIOS (legacy L4609-4708, verbatim, exceto currentEmail — ver
    adaptação nº2 no comentário do topo) ── */
 async function loadAdminUsers() {
+  // Times de venda virou seção de Usuários (Task 5): carrega junto, sem
+  // esperar — tem DOM e tratamento de erro próprios (loadAdminEquipes),
+  // então travar a lista de pessoas por causa dela seria pior que os dois
+  // carregarem em paralelo.
+  loadAdminEquipes()
   const res = await adFetch('profiles?order=created_at.asc&select=id,email,name,role,disabled,created_at,features,avatar_url,permissions,allowed_accounts,is_superadmin')
   const users = await res.json(); if (!Array.isArray(users)) return
   _usersCache = users // p/ o "duplicar permissões de outro usuário" no editor
@@ -1868,6 +1901,9 @@ Object.assign(window, {
 .tela-admin :deep(.admin-section.active){display:block;}
 .tela-admin :deep(.admin-section-title){font-family:var(--fonte-principal);font-size:22px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);margin-bottom:3px;}
 .tela-admin :deep(.admin-section-sub){font-family:var(--fonte-principal);font-size:12px;color:var(--muted);margin-bottom:28px;}
+/* Faixa de aviso da Saúde dos dados, montada em updateSaudeBadge() (Task 5) —
+   substitui a bolinha vermelha que morava no item da barra que não existe mais. */
+.tela-admin :deep(.saude-faixa){background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:10px;padding:10px 12px;font-size:12px;margin-bottom:14px;}
 .tela-admin :deep(.admin-stats){display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:24px;}
 .tela-admin :deep(.admin-stat){background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;text-align:center;}
 .tela-admin :deep(.admin-stat-val){font-family:var(--fonte-dados);font-size:30px;font-weight:500;color:var(--accent);}
