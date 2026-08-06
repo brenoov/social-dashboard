@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { textoParaAssinar, impressaoDigital, tempoDePreenchimento, SEGUNDOS_SUSPEITOS } from './assinatura.js'
+import { textoParaAssinar, impressaoDigital, tempoDePreenchimento, SEGUNDOS_SUSPEITOS, conferirCorrente } from './assinatura.js'
 
 const FICHA = {
   veiculo_id: 'v1', feita_em: '2026-08-06', pessoa_id: 'p1',
@@ -195,4 +195,90 @@ test('caso realista (ESTABILIDADE, não colisão): observação com Enter dá te
   const h1 = await impressaoDigital(t)
   const h2 = await impressaoDigital(t)
   assert.equal(h1, h2)
+})
+
+/* ── A conferência da corrente ───────────────────────────────────────────── */
+
+// Monta uma corrente de verdade: cada ficha assinada em cima da anterior.
+async function montarCorrente(quantas) {
+  const fichas = [], porFicha = {}
+  let anterior = null
+  for (let i = 0; i < quantas; i++) {
+    const ficha = {
+      id: 'f' + i, veiculo_id: 'v1', feita_em: `2026-08-0${i + 1}`, pessoa_id: 'p1',
+      hodometro: 148000 + i * 100, hodometro_justificativa: null,
+      cadencias: ['diario'], resultado: 'liberado', anomalias: null,
+      assinada_em: `2026-08-0${i + 1}T12:00:00.000Z`,
+      assinatura_hash_anterior: anterior,
+    }
+    const respostas = [{ item_texto: 'Pneus', estado: 'ok', observacao: null }]
+    ficha.assinatura_hash = await impressaoDigital(
+      textoParaAssinar({ ficha, respostas, hashAnterior: anterior }))
+    anterior = ficha.assinatura_hash
+    fichas.push(ficha)
+    porFicha[ficha.id] = respostas
+  }
+  return { fichas, porFicha }
+}
+
+test('corrente intacta confere', async () => {
+  const { fichas, porFicha } = await montarCorrente(3)
+  const r = await conferirCorrente(fichas, porFicha)
+  assert.equal(r.ok, true)
+  assert.equal(r.total, 3)
+  assert.equal(r.conferidas, 3)
+  assert.equal(r.primeiraQuebra, null)
+})
+
+test('alterar o hodômetro de uma ficha assinada QUEBRA a corrente', async () => {
+  // É o ponto da funcionalidade inteira.
+  const { fichas, porFicha } = await montarCorrente(3)
+  fichas[1].hodometro = 999999
+  const r = await conferirCorrente(fichas, porFicha)
+  assert.equal(r.ok, false)
+  assert.equal(r.primeiraQuebra.id, 'f1')
+  assert.match(r.primeiraQuebra.motivo, /conteúdo/i)
+})
+
+test('alterar a RESPOSTA de um item também quebra', async () => {
+  const { fichas, porFicha } = await montarCorrente(2)
+  porFicha['f0'][0].estado = 'nao_ok'
+  const r = await conferirCorrente(fichas, porFicha)
+  assert.equal(r.ok, false)
+  assert.equal(r.primeiraQuebra.id, 'f0')
+})
+
+test('apagar uma ficha do meio quebra o elo seguinte', async () => {
+  const { fichas, porFicha } = await montarCorrente(3)
+  const semMeio = [fichas[0], fichas[2]]
+  const r = await conferirCorrente(semMeio, porFicha)
+  assert.equal(r.ok, false)
+  assert.equal(r.primeiraQuebra.id, 'f2')
+  assert.match(r.primeiraQuebra.motivo, /anterior/i)
+})
+
+test('aponta a PRIMEIRA quebra, não a última', async () => {
+  const { fichas, porFicha } = await montarCorrente(4)
+  fichas[1].hodometro = 111
+  fichas[3].hodometro = 222
+  const r = await conferirCorrente(fichas, porFicha)
+  assert.equal(r.primeiraQuebra.id, 'f1')
+})
+
+test('ficha SEM assinatura é pulada, não conta como quebra', async () => {
+  // D22: quem não tem login preenche mas não assina. Isso não pode fazer a
+  // corrente do carro parecer adulterada.
+  const { fichas, porFicha } = await montarCorrente(2)
+  const semAssinatura = { id: 'fx', veiculo_id: 'v1', feita_em: '2026-08-09',
+    assinada_em: null, assinatura_hash: null }
+  const r = await conferirCorrente([fichas[0], semAssinatura, fichas[1]], porFicha)
+  assert.equal(r.ok, true)
+  assert.equal(r.total, 3)
+  assert.equal(r.conferidas, 2)
+})
+
+test('lista vazia confere, e diz que não conferiu nada', async () => {
+  const r = await conferirCorrente([], {})
+  assert.equal(r.ok, true)
+  assert.equal(r.conferidas, 0)
 })

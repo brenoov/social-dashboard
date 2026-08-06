@@ -101,3 +101,47 @@ export function tempoDePreenchimento(abertaEm, assinadaEm) {
   const segundos = Math.round((b - a) / 1000);
   return { segundos, rapidoDemais: segundos >= 0 && segundos < SEGUNDOS_SUSPEITOS };
 }
+
+/* ── A conferência da corrente ────────────────────────────────────────────── */
+
+/**
+ * Percorre a corrente de um carro e recalcula tudo.
+ *
+ * SEM ISTO O ENCADEAMENTO É ENFEITE: garantia que ninguém verifica não é
+ * garantia. Devolve a PRIMEIRA quebra, não todas — depois da primeira, tudo o
+ * que vem é consequência, e listar dez linhas vermelhas esconderia onde o
+ * problema começou.
+ *
+ * `fichas` vem da mais antiga pra mais nova. Ficha sem assinatura é pulada
+ * (D22): quem não tem login preenche e não assina, e isso não pode fazer a
+ * corrente parecer adulterada.
+ */
+export async function conferirCorrente(fichas, respostasPorFicha) {
+  const lista = fichas || [];
+  let anterior = null, conferidas = 0;
+  for (const ficha of lista) {
+    if (!ficha || !ficha.assinada_em || !ficha.assinatura_hash) continue;
+
+    if ((ficha.assinatura_hash_anterior || null) !== anterior) {
+      return { ok: false, total: lista.length, conferidas,
+        primeiraQuebra: { id: ficha.id, feita_em: ficha.feita_em,
+          motivo: 'Esta ficha aponta para uma ficha anterior diferente da que está no histórico. '
+            + 'Ou alguma ficha foi apagada, ou a ordem mudou.' } };
+    }
+
+    const texto = textoParaAssinar({
+      ficha, respostas: respostasPorFicha ? respostasPorFicha[ficha.id] : [],
+      hashAnterior: ficha.assinatura_hash_anterior,
+    });
+    if (await impressaoDigital(texto) !== ficha.assinatura_hash) {
+      return { ok: false, total: lista.length, conferidas,
+        primeiraQuebra: { id: ficha.id, feita_em: ficha.feita_em,
+          motivo: 'O conteúdo desta ficha não corresponde ao que foi assinado. '
+            + 'Alguma coisa foi alterada depois da assinatura.' } };
+    }
+
+    anterior = ficha.assinatura_hash;
+    conferidas++;
+  }
+  return { ok: true, total: lista.length, conferidas, primeiraQuebra: null };
+}
