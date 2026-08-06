@@ -122,6 +122,19 @@ test('a escada reproduz TODOS os conjuntos gravados hoje, sem perda', () => {
   }
 })
 
+test('recurso hipotetico sem "ver" no catalogo nao ganha nenhum degrau que conceda ver', () => {
+  // Achado 4 da revisao final: a escada inseria o degrau "So ver" sem checar
+  // se o catalogo do recurso realmente tinha 'ver' -- contradizendo o "NAO
+  // INVENTA ACAO" do topo do arquivo. Nenhum recurso real esta nessa situacao
+  // hoje (todos os 20 catalogados tem 'ver'), mas a guarda tem que aguentar
+  // um catalogo hipotetico que nao tenha.
+  const semVer = { key: 'x', label: 'X', acoes: ['exportar'] }
+  const degraus = degrausDoRecurso(semVer)
+  for (const d of degraus) {
+    assert.ok(!d.acoes.includes('ver'), `degrau "${d.chave}" concedeu 'ver' sem o catalogo ter essa acao`)
+  }
+})
+
 test('todo degrau de todo recurso so usa acao que existe no catalogo', () => {
   for (const r of RECURSOS) {
     for (const d of degrausDoRecurso(r)) {

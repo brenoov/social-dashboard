@@ -356,10 +356,22 @@ function loadAdminSection(name) {
 async function updateSaudeBadge() {
   const alvo = document.getElementById('admin-section-data'); if (!alvo) return
   const anterior = alvo.querySelector('.saude-faixa'); if (anterior) anterior.remove()
-  const last = await sb('data_integrity_checks?select=checked_date&order=checked_date.desc&limit=1')
-  if (!last.length) return
-  const fails = await sb('data_integrity_checks?select=id&status=eq.fail&checked_date=eq.' + last[0].checked_date)
-  if (!fails.length) return
+  // USE `sbClient`, NÃO o `sb()` desta tela (mesmo motivo do comentário em
+  // loadAdminUsers): `sb()` cai pra chave anônima quando `estado.currentSession`
+  // ainda não hidratou, e `data_integrity_checks` só abre `to authenticated` —
+  // o PostgREST responde 200 com lista vazia, sem erro, e a faixa simplesmente
+  // não desenha. É a mesma classe de bug que apagou o aviso das curtidas
+  // zeradas por semanas (comentário acima). Erro vai pro console: entre
+  // desenhar informação errada e não desenhar nada, aqui vale mais não
+  // desenhar — mas silenciar a falha por completo repetiria o bug original.
+  const { data: last, error: errLast } = await sbClient.from('data_integrity_checks')
+    .select('checked_date').order('checked_date', { ascending: false }).limit(1)
+  if (errLast) { console.error('updateSaudeBadge: falha ao ler data_integrity_checks', errLast); return }
+  if (!last?.length) return
+  const { data: fails, error: errFails } = await sbClient.from('data_integrity_checks')
+    .select('id').eq('status', 'fail').eq('checked_date', last[0].checked_date)
+  if (errFails) { console.error('updateSaudeBadge: falha ao ler falhas do dia', errFails); return }
+  if (!fails?.length) return
   const faixa = document.createElement('div')
   faixa.className = 'saude-faixa'
   faixa.textContent = `A conferência de ${last[0].checked_date} achou ${fails.length} divergência(s) entre o painel e a Meta.`
@@ -635,14 +647,20 @@ async function loadAdminEquipes() {
   const body = document.getElementById('admin-equipes-body'); if (!body) return
   body.innerHTML = '<div style="color:var(--muted);font-size:12px">Carregando…</div>'
   try {
-    const [times, membros, pessoas, canais] = await Promise.all([
+    // `profiles` USA `sbClient`, NÃO `sb()` (mesmo motivo do comentário em
+    // loadAdminUsers): com a chave anônima o PostgREST devolve 200 e lista
+    // vazia pra tabela que só abre `to authenticated` — falha disfarçada de
+    // "não tem nada". Como esta função roda A CADA loadAdminUsers, essa
+    // mentira se repetiria toda vez que a tela de Usuários abrisse.
+    const [times, membros, canais, rp] = await Promise.all([
       sb('equipes?select=*'),
       sb('equipes_membros?select=*'),
-      sb('profiles?select=id,name,email,disabled,escopo_por_equipe&order=name'),
       sb('bling_lojas?select=loja_id,nome&order=nome'),
+      sbClient.from('profiles').select('id,name,email,disabled,escopo_por_equipe').order('name'),
     ])
+    if (rp.error) throw rp.error
     _eqTimes = times || []; _eqMembros = membros || []
-    _eqPessoas = pessoas || []; _eqCanais = canais || []
+    _eqPessoas = rp.data || []; _eqCanais = canais || []
     _eqDesenhar()
   } catch (e) {
     // O MOTIVO VAI PRA TELA. `catch` mudo aqui já custou meia hora de caça
@@ -2218,7 +2236,7 @@ Object.assign(window, {
 
 .tela-admin :deep(.perm-card){border:1px solid var(--border);border-radius:7px;background:var(--surface);overflow:hidden;margin-bottom:10px;}
 .tela-admin :deep(.perm-card-hdr){display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border-bottom:1px solid var(--border);}
-.tela-admin :deep(.perm-card-titulo){font-family:var(--fonte-principal);font-size:12px;font-weight:700;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tela-admin :deep(.perm-card-titulo){font-family:var(--fonte-principal);font-size:12px;font-weight:700;color:var(--text);flex:1;min-width:0;overflow-wrap:anywhere;}
 .tela-admin :deep(.perm-card-contagem){font-family:var(--fonte-principal);font-size:10px;color:var(--muted);flex-shrink:0;font-variant-numeric:tabular-nums;}
 /* NOTIFICAÇÃO NÃO É COLUNA DA MATRIZ. A matriz é recurso × ação (ver, editar,
    criar...) e vale pra toda ferramenta; "quer receber aviso no celular" não é

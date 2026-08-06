@@ -23,26 +23,33 @@ export function degrausDoRecurso(recurso) {
   const out = [{ chave: 'sem', rotulo: 'Sem acesso', acoes: [] }]
   if (!A.length) return out
 
+  const temVer = contem(A, 'ver')
+
   // Só dá para ver: o segundo degrau é o único, então o rótulo é afirmativo.
-  if (A.length === 1 && contem(A, 'ver')) {
+  if (A.length === 1 && temVer) {
     out.push({ chave: 'ver', rotulo: 'Pode ver', acoes: ['ver'] })
     return out
   }
 
-  out.push({ chave: 'ver', rotulo: 'Só ver', acoes: ['ver'] })
+  // GUARDA: só insere o degrau "Só ver" (e qualquer outro que hard-codifique
+  // 'ver' no seu conjunto) se o catálogo deste recurso realmente tiver essa
+  // ação. Antes, esta linha era incondicional — assumia que todo recurso tem
+  // 'ver', contradizendo o "NÃO INVENTA AÇÃO" do topo do arquivo. Hoje nenhum
+  // recurso real está nessa situação, mas o próximo pode estar.
+  if (temVer) out.push({ chave: 'ver', rotulo: 'Só ver', acoes: ['ver'] })
 
   const mexe = contem(A, 'editar')
   const cria = contem(A, 'criar') || contem(A, 'excluir')
 
   // Ferramenta de leitura: ver e baixar, e acabou.
-  if (contem(A, 'exportar') && !mexe && !cria) {
+  if (temVer && contem(A, 'exportar') && !mexe && !cria) {
     out.push({ chave: 'exportar', rotulo: 'Ver e baixar', acoes: ['ver', 'exportar'] })
     return out
   }
 
   // "Mexer" é editar o que já existe — NÃO inclui criar nem excluir. É o degrau
   // das 6 pessoas da Frota, que registram uso sem poder cadastrar veículo.
-  if (mexe) {
+  if (temVer && mexe) {
     const acoes = ['ver', 'editar']
     if (contem(A, 'exportar')) acoes.push('exportar')
     out.push({ chave: 'mexer', rotulo: 'Ver e mexer', acoes })
