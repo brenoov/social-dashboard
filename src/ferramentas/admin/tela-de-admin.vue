@@ -2138,7 +2138,14 @@ Object.assign(window, {
 .tela-admin :deep(.admin-section-sub){font-family:var(--fonte-principal);font-size:12px;color:var(--muted);margin-bottom:28px;}
 /* Faixa de aviso da Saúde dos dados, montada em updateSaudeBadge() (Task 5) —
    substitui a bolinha vermelha que morava no item da barra que não existe mais. */
-.tela-admin :deep(.saude-faixa){background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:10px;padding:10px 12px;font-size:12px;margin-bottom:14px;}
+/* Mesma história da `.grupo-sem`: era âmbar fixo e virava uma barra branca no
+   tema escuro.
+   O ÂMBAR FICA NA BORDA E NO FUNDO, ONDE ELE É SINAL; O TEXTO USA `--text`.
+   Medido: o `--orange` do tema claro (#b85800) sobre esse fundo dá 4,14 de
+   contraste — abaixo do mínimo de 4,5 para texto de 12px, e nenhuma proporção
+   da mistura conserta (a 4% ainda dá 4,48). Com `--text` são 15,2 no claro e
+   14,0 no escuro. Aviso que não se lê não avisa. */
+.tela-admin :deep(.saude-faixa){background:color-mix(in srgb, var(--orange) 10%, var(--surface));border:1px solid color-mix(in srgb, var(--orange) 38%, var(--surface));color:var(--text);border-radius:10px;padding:10px 12px;font-size:12px;margin-bottom:14px;cursor:pointer;}
 .tela-admin :deep(.admin-stats){display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:24px;}
 .tela-admin :deep(.admin-stat){background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;text-align:center;}
 .tela-admin :deep(.admin-stat-val){font-family:var(--fonte-dados);font-size:30px;font-weight:500;color:var(--accent);}
@@ -2269,7 +2276,21 @@ Object.assign(window, {
 /* Diretório de pessoas por marca/local/setor (Task 6): um cartão por gaveta,
    uma coluna, sem tabela — nome nunca corta (overflow-wrap, não ellipsis). */
 .tela-admin :deep(.usr-grupo){border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:10px;}
-.tela-admin :deep(.usr-grupo.grupo-sem){background:#fffbeb;border-color:#fde68a;}
+/* O AVISO ÂMBAR TEM DE EXISTIR NOS DOIS TEMAS.
+   Este bloco nasceu com `background:#fffbeb` fixo — âmbar claríssimo. No tema
+   escuro isso virou um retângulo BRANCO ocupando a seção inteira, porque hoje
+   o grupo "Sem marca" contém TODAS as pessoas. Cor fixa não sabe que existe
+   tema escuro.
+   A cor sai de `--orange`, que o tema já troca (claro #b85800, escuro #f97316),
+   misturada com a superfície do tema. Assim o aviso continua âmbar e legível
+   nos dois, sem uma segunda regra para manter em sincronia. */
+.tela-admin :deep(.usr-grupo.grupo-sem){
+  background:color-mix(in srgb, var(--orange) 10%, var(--surface));
+  border-color:color-mix(in srgb, var(--orange) 38%, var(--surface));
+}
+/* Rede de segurança: navegador sem `color-mix` ignora as duas linhas acima e o
+   cartão fica com o fundo padrão do tema — discreto, mas nunca branco no
+   escuro. O aviso continua legível pelo texto e pela borda. */
 /* Correção 2: overflow-wrap também no cabeçalho do grupo — nenhum título
    pode cortar, nem o de gaveta (ex.: nome de setor comprido). */
 .tela-admin :deep(.usr-grupo-cab){display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:700;font-size:12px;letter-spacing:.5px;overflow-wrap:anywhere;}
