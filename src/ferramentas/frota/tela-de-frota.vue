@@ -191,21 +191,54 @@ function fecharFicha() { ficha.value = null; problemas.value = [] }
 /* ── Passar o carro (F6b) ─────────────────────────────────────────────────
    Quem tem carro fixo não "retira" e "devolve" — a posse é uma linha aberta
    à parte da viagem (posse.js). Passar o carro fecha a posse de quem estava
-   e abre a de quem pegou; devolver sem apontar ninguém só fecha, e o carro
-   fica pendente no quadro de cobrança da Gestão até alguém reabrir. */
+   e abre a de quem pegou; devolver sem apontar ninguém fecha a do emprestado
+   e REABRE a do dono fixo, no mesmo instante — sem buraco na linha do tempo
+   (D9c). Um carro sem dono fixo (rodízio) só fecha mesmo, "livre" é o certo. */
 const passando = ref(null)      // o veículo cujo passe está aberto
 const paraQuem = ref('')        // id da pessoa escolhida
+const erroPasse = ref('')
 
 async function confirmarPasse() {
   if (gravando.value || !passando.value) return
   gravando.value = true
+  erroPasse.value = ''
   const alvo = pessoas.value.find((p) => p.id === paraQuem.value) || null
+  const veiculo = passando.value
+  const donoFixo = veiculo.pessoa_id ? { id: veiculo.pessoa_id, nome: nomeDaPessoa(veiculo.pessoa_id) } : null
   const { fechar, abrir } = passarPara({
-    usos: usos.value, veiculoId: passando.value.id,
-    para: alvo, quando: new Date().toISOString(),
+    usos: usos.value, veiculoId: veiculo.id,
+    para: alvo, donoFixo, quando: new Date().toISOString(),
   })
-  if (fechar) await sbClient.from('frota_uso').update({ volta_em: fechar.volta_em }).eq('id', fechar.id)
-  if (abrir) await sbClient.from('frota_uso').insert(abrir)
+
+  if (fechar) {
+    const { error: erroFechar } = await sbClient.from('frota_uso').update({ volta_em: fechar.volta_em }).eq('id', fechar.id)
+    if (erroFechar) {
+      // Nada foi aberto ainda — não tenta o segundo passo com o primeiro
+      // falho. A tela não recarrega: recarregar aqui faria parecer que deu
+      // certo, quando na verdade nada mudou.
+      gravando.value = false
+      erroPasse.value = 'Não consegui registrar a troca. Tente de novo — nada foi alterado.'
+      return
+    }
+  }
+  if (abrir) {
+    const { error: erroAbrir } = await sbClient.from('frota_uso').insert(abrir)
+    if (erroAbrir) {
+      gravando.value = false
+      // O MESMO defeito crítico da Tarefa 6, e aqui é pior: se o fechamento
+      // gravou e a abertura falhou, o carro fica SEM posse aberta nenhuma —
+      // e recarregar a tela mostraria o dono fixo como se estivesse tudo
+      // certo, enquanto o carro está fisicamente com outra pessoa e a linha
+      // do tempo perdeu esse trecho pra sempre. A pessoa precisa saber e agir
+      // agora, não descobrir depois numa multa sem resposta.
+      erroPasse.value = fechar
+        ? 'A troca fechou o registro de quem estava com o carro, mas não consegui abrir o novo — '
+          + 'o carro ficou SEM responsável registrado no sistema. Avise quem administra a Frota '
+          + 'agora, e tente de novo em seguida.'
+        : 'Não consegui registrar a troca. Tente de novo — nada foi alterado.'
+      return
+    }
+  }
   gravando.value = false
   passando.value = null
   paraQuem.value = ''
@@ -762,7 +795,7 @@ onMounted(async () => {
             </div>
           </div>
           <div class="fr-acoes" v-if="passando !== meuCarroFixo">
-            <button class="fr-btn" v-if="podeEditar" @click="passando = meuCarroFixo">
+            <button class="fr-btn" v-if="podeEditar" @click="passando = meuCarroFixo; erroPasse = ''">
               Passar o carro para outra pessoa
             </button>
           </div>
@@ -775,8 +808,9 @@ onMounted(async () => {
               <option v-for="p in pessoas" :key="p.id" :value="p.id">{{ p.nome }}</option>
             </select>
             <button class="fr-btn primario" :disabled="gravando" @click="confirmarPasse">Confirmar</button>
-            <button class="fr-btn" @click="passando = null; paraQuem = ''">Cancelar</button>
+            <button class="fr-btn" @click="passando = null; paraQuem = ''; erroPasse = ''">Cancelar</button>
           </div>
+          <p class="fr-erro" v-if="erroPasse">{{ erroPasse }}</p>
         </div>
       </template>
 

@@ -26,11 +26,37 @@ test('passar o carro fecha a posse de quem estava e abre a de quem pegou', () =>
   assert.equal(r.abrir.volta_em, undefined)
 })
 
-test('devolver ao dono sem apontar ninguém só fecha a posse', () => {
+test('devolver sem dono fixo (carro de rodízio): só fecha, não abre nada', () => {
   const usos = [{ id: 'u1', veiculo_id: 'v1', tipo: 'posse', pessoa_id: 'p2', saida_em: '2026-08-01T00:00:00Z', volta_em: null }]
-  const r = passarPara({ usos, veiculoId: 'v1', para: null, quando: AGORA })
+  const r = passarPara({ usos, veiculoId: 'v1', para: null, donoFixo: null, quando: AGORA })
   assert.deepEqual(r.fechar, { id: 'u1', volta_em: AGORA })
   assert.equal(r.abrir, null)
+})
+
+test('devolver COM dono fixo: fecha a do emprestado e reabre a dele, no mesmo instante — sem buraco', () => {
+  // Era o bug relatado: sem reabrir, quemEstavaCom() passava a devolver
+  // "não sei" pro período depois da devolução, mesmo o dono fixo estando com
+  // o carro de verdade. A multa que chegasse com data desse intervalo ficava
+  // sem resposta.
+  const usos = [{ id: 'u1', veiculo_id: 'v1', tipo: 'posse', pessoa_id: 'p2', pessoa_nome: 'Barbara', saida_em: '2026-08-01T00:00:00Z', volta_em: null }]
+  const r = passarPara({ usos, veiculoId: 'v1', para: null, donoFixo: { id: 'p1', nome: 'Marcus' }, quando: AGORA })
+  assert.deepEqual(r.fechar, { id: 'u1', volta_em: AGORA })
+  assert.equal(r.abrir.pessoa_id, 'p1')
+  assert.equal(r.abrir.pessoa_nome, 'Marcus')
+  assert.equal(r.abrir.tipo, 'posse')
+  // Mesmo instante do fechamento: nenhum intervalo sem posse no meio.
+  assert.equal(r.abrir.saida_em, AGORA)
+})
+
+test('devolver com dono fixo fecha a linha do tempo sem buraco de verdade: quemEstavaCom acha alguém logo depois', () => {
+  const usos = [{ id: 'u1', veiculo_id: 'v1', tipo: 'posse', pessoa_id: 'p2', pessoa_nome: 'Barbara', saida_em: '2026-08-01T00:00:00Z', volta_em: null }]
+  const { fechar, abrir } = passarPara({ usos, veiculoId: 'v1', para: null, donoFixo: { id: 'p1', nome: 'Marcus' }, quando: AGORA })
+  const depoisDaDevolucao = [
+    { ...usos[0], volta_em: fechar.volta_em },
+    abrir,
+  ]
+  const umSegundoDepois = '2026-08-05T12:00:01.000Z'
+  assert.equal(quemEstavaCom(depoisDaDevolucao, 'v1', umSegundoDepois).pessoa_nome, 'Marcus')
 })
 
 test('carro que nunca teve posse só abre, sem fechar nada', () => {

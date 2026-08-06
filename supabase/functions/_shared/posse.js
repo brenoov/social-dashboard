@@ -24,18 +24,31 @@ export function posseAberta(usos, veiculoId) {
 }
 
 /**
- * Passar o carro para outra pessoa. Devolve o que gravar:
+ * Passar o carro para outra pessoa — ou devolver. Devolve o que gravar:
  * `fechar` é o update na posse de quem estava, `abrir` é o insert da nova.
- * Qualquer um dos dois pode ser nulo — carro novo não tem o que fechar, e
- * devolver sem apontar ninguém não tem o que abrir.
+ * Qualquer um dos dois pode ser nulo.
+ *
+ * `donoFixo` é `{ id, nome }` do responsável fixo do veículo, ou nulo se ele
+ * não tem um (carro de rodízio) — mesmo formato de `para`, só que resolvido
+ * pelo chamador a partir do veículo, não escolhido na tela. Só importa
+ * quando `para` é nulo (devolver):
+ *
+ * D9c: devolver SEM apontar ninguém não pode deixar a linha do tempo com um
+ * buraco. Antes desta função só fechava a posse de quem estava — e depois
+ * disso `quemEstavaCom` passava a devolver "não sei" pra aquele período,
+ * mesmo o dono fixo estando com o carro de verdade (só não tinha ficado
+ * registrado). Agora, se há dono fixo, a posse dele REABRE no mesmo
+ * instante em que a do emprestado fecha — sem buraco. Sem dono fixo (carro
+ * de rodízio), só fecha mesmo: "livre" é o estado certo.
  */
-export function passarPara({ usos, veiculoId, para, quando }) {
+export function passarPara({ usos, veiculoId, para, donoFixo, quando }) {
   const atual = posseAberta(usos, veiculoId);
+  const alvo = para || donoFixo || null;
   return {
     fechar: atual ? { id: atual.id, volta_em: quando } : null,
-    abrir: para ? {
+    abrir: alvo ? {
       veiculo_id: veiculoId, tipo: 'posse',
-      pessoa_id: para.id, pessoa_nome: para.nome, saida_em: quando,
+      pessoa_id: alvo.id, pessoa_nome: alvo.nome, saida_em: quando,
     } : null,
   };
 }
