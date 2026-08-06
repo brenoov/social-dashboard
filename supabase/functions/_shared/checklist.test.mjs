@@ -321,6 +321,38 @@ test('sem carro com dono nenhum, o resumo não mente dizendo que está tudo cert
   assert.equal(resumoDaCobranca([]), 'Nenhum carro com dono fixo cadastrado.')
 })
 
+/* ── O calendário: o quadro não cobra em dia que não pede checklist ───────── */
+
+test('no sábado e no domingo o quadro não cobra ninguém', () => {
+  // 2026-08-08 é sábado, 2026-08-09 é domingo. Sem a data, o quadro acusava
+  // os carros todos num dia em que ninguém deve nada — e um quadro que acusa
+  // à toa é um quadro que ninguém olha mais.
+  for (const fimDeSemana of ['2026-08-08', '2026-08-09']) {
+    const l = quemFaltaHoje({ veiculos: VEICULOS, fichasDeHoje: [], pessoas: PESSOAS, hoje: fimDeSemana })
+    assert.deepEqual(l, [])
+    // E a frase do topo diz POR QUE está vazio — "nenhum carro cadastrado"
+    // seria mentira, os carros estão lá.
+    assert.equal(resumoDaCobranca(l, fimDeSemana),
+      'Hoje é fim de semana: o checklist é de dia útil, ninguém deve nada.')
+  }
+})
+
+test('em dia útil o quadro cobra normalmente, com a data passada', () => {
+  // 2026-08-05 é uma quarta-feira: a data não pode virar desculpa pra o quadro
+  // ficar mudo em dia de trabalho.
+  const l = quemFaltaHoje({ veiculos: VEICULOS, fichasDeHoje: [], pessoas: PESSOAS, hoje: '2026-08-05' })
+  assert.equal(l.length, 2)
+  assert.equal(resumoDaCobranca(l, '2026-08-05'), '2 carros ainda sem checklist hoje.')
+})
+
+test('sem a data, tudo continua como era — as chamadas antigas não mudam', () => {
+  // O parâmetro é opcional de propósito: quem já chamava sem data continua
+  // recebendo a lista inteira, e nenhum chamador existente quebra.
+  const l = quemFaltaHoje({ veiculos: VEICULOS, fichasDeHoje: [], pessoas: PESSOAS })
+  assert.equal(l.length, 2)
+  assert.equal(resumoDaCobranca(l), '2 carros ainda sem checklist hoje.')
+})
+
 /* ── Quem precisa preencher, e quando ────────────────────────────────────── */
 
 test('carro sem ficha hoje precisa de checklist ao ser pego', () => {

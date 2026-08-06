@@ -36,8 +36,23 @@ select cron.schedule(
 -- falha silenciosa nunca vira alerta visível. Não é crítico: perder um dia de
 -- aviso do checklist não trava nada do resto do sistema, ao contrário do
 -- coletar-dados.
+-- 80 HORAS, E A CONTA É O FIM DE SEMANA. Este robô roda '30 10 * * 1-5': de
+-- segunda a sexta e mais nada. O intervalo mais longo entre dois sucessos é,
+-- portanto, o da sexta 10h30 UTC até a segunda 10h30 UTC = 72 horas, TODA
+-- semana. Com o limite em 30 horas, o sábado às 16h30 já acusaria ATRASADO e
+-- ficaria assim por ~42 horas, todo santo fim de semana — não é caso de
+-- feriado, é o funcionamento normal do robô virando alarme. Alarme que dispara
+-- à toa vira alarme ignorado, e aí o dia em que o robô falhar de verdade
+-- passa batido.
+--
+-- 72 + 8 de folga = 80. As 8 horas são pra atraso de execução (o disparo sai,
+-- a Edge demora, a conferência roda de 5 em 5 minutos), NÃO pra feriado: uma
+-- segunda-feira feriada estica o intervalo pra 96 horas e vai acusar mesmo
+-- assim. Isso é aceitável — feriado emendado é raro, e um alerta que se explica
+-- olhando o calendário é melhor do que um limite tão largo que esconderia uma
+-- semana inteira de robô parado.
 insert into public.robos_esperados (robo, horas_sem_sucesso_ate, critico, porque) values
-  ('enviar-push-frota', 30, false, 'Avisa quem falta conferir o carro, de manhã, dia útil.')
+  ('enviar-push-frota', 80, false, 'Avisa quem falta conferir o carro, de manhã, dia útil.')
 on conflict (robo) do update
   set horas_sem_sucesso_ate = excluded.horas_sem_sucesso_ate,
       critico = excluded.critico,

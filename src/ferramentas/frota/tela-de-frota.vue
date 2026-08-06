@@ -29,7 +29,7 @@ import { revisoesDoVeiculo, resumoDeRevisoes, problemasDoItem, avisoAoDesativar 
 import { linkDoWhatsapp, telefoneLegivel, porQueNaoDaLink } from '../../compartilhado/whatsapp.js'
 import PainelDeChecklist from './painel-de-checklist.vue'
 import EditorDeChecklist from './editor-de-checklist.vue'
-import { cadenciasDoDia, quemFaltaHoje, resumoDaCobranca, precisaDeChecklist } from '../../../supabase/functions/_shared/checklist.js'
+import { quemFaltaHoje, resumoDaCobranca, precisaDeChecklist } from '../../../supabase/functions/_shared/checklist.js'
 
 const router = useRouter()
 const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
@@ -92,19 +92,41 @@ const fichasDeHoje = computed(() => fichas.value.filter((f) => f.feita_em === ho
 // `usos` entra aqui (D9b): enquanto o carro está emprestado, quem cobra é
 // quem está com ele, não o dono no papel — Marcus não é cobrado enquanto a
 // Barbara está com o Volvo, ela é.
+// `hoje` entra pelo calendário: sábado e domingo não cobram ninguém, do mesmo
+// jeito que o robô da manhã já não cobrava.
 const cobranca = computed(() => quemFaltaHoje({
-  veiculos: veiculos.value, fichasDeHoje: fichasDeHoje.value, pessoas: pessoas.value, usos: usos.value }))
+  veiculos: veiculos.value, fichasDeHoje: fichasDeHoje.value, pessoas: pessoas.value,
+  usos: usos.value, hoje: hoje.value }))
 
 function voltar() { router.push({ name: 'gestao-interna' }) }
 
 async function carregar() {
   carregando.value = true
   falha.value = ''
-  const [v, u, p, q, pl, rv, bn, ci, cc, cf] = await Promise.all([
+  const [v, ua, uh, p, q, pl, rv, bn, ci, cc, cf] = await Promise.all([
     sbClient.from('frota_veiculos').select('*').order('nome'),
-    // Só o que interessa pra montar a tela: o aberto de cada carro e as
-    // devoluções recentes. Puxar o histórico inteiro cresceria pra sempre.
-    sbClient.from('frota_uso').select('*').order('saida_em', { ascending: false }).limit(400),
+    // frota_uso vem em DUAS consultas de propósito, e não numa só com limite.
+    //
+    // Uma posse que nunca troca de mão guarda o `saida_em` do dia em que foi
+    // aberta pra sempre — ou seja, ela é das linhas mais ANTIGAS da tabela, a
+    // primeira a cair fora de um "as 400 mais recentes". Passando a tabela de
+    // 400 linhas, a tela deixava de enxergar as posses abertas antigas e caía
+    // no dono fixo, enquanto o robô da manhã (que lê só as abertas, sem limite)
+    // continuava vendo a posse — os dois discordando em silêncio sobre quem
+    // está com o carro emprestado, que é a divergência que o D9b existe pra
+    // não deixar acontecer.
+    //
+    // ABERTAS: sem limite. São poucas por natureza (no máximo uma por carro) e
+    // são elas que decidem quem responde pelo carro hoje. Nenhuma pode faltar.
+    // A ordem se mantém da mais recente pra mais antiga como era antes: quem
+    // procura "o uso aberto deste carro" sem dizer o tipo espera o mais novo.
+    sbClient.from('frota_uso').select('*').is('volta_em', null)
+      .order('saida_em', { ascending: false }),
+    // FECHADAS: o histórico de viagens, que é o que cresce pra sempre. Aqui o
+    // limite faz sentido — só as devoluções recentes interessam pra montar a
+    // tela (último KM, último tanque).
+    sbClient.from('frota_uso').select('*').not('volta_em', 'is', null)
+      .order('saida_em', { ascending: false }).limit(400),
     sbClient.from('acessos_pessoas').select('id,nome,email_corporativo').order('nome'),
     // A agenda de reservas: quem vê a Frota vê a agenda inteira. Saber que o
     // carro está reservado é o que evita o conflito de viagens — esconder isso
@@ -124,13 +146,15 @@ async function carregar() {
       .gte('feita_em', new Date(Date.now() - 120 * 86400000).toISOString().slice(0, 10))
       .order('feita_em', { ascending: false }),
   ])
-  if (v.error || u.error) {
+  // As duas metades de frota_uso são igualmente obrigatórias: sem as abertas a
+  // tela não sabe quem está com cada carro; sem as fechadas ela não sabe o KM.
+  if (v.error || ua.error || uh.error) {
     falha.value = 'Não consegui carregar a frota. Recarregue a página; se continuar, avise.'
     carregando.value = false
     return
   }
   veiculos.value = v.data || []
-  usos.value = u.data || []
+  usos.value = [...(ua.data || []), ...(uh.data || [])]
   pessoas.value = (p.data || [])
   // A agenda pode falhar sozinha (permissão nova ainda não concedida) sem
   // derrubar o resto da tela: sem ela a Frota ainda serve pra pegar e devolver.
@@ -364,23 +388,52 @@ async function gravarChecklist({ ficha, respostas }) {
 /* ── O editor da lista e dos dias (aba Gestão, F8) ────────────────────────────
    A repartição é do GESTOR, não do código: o mecânico muda de opinião, a
    frota muda, e a lista tem que acompanhar sem depender de programador. */
+// Erro de cada gravação do editor, separado porque o editor mostra cada um ao
+// lado do campo que falhou. Erro engolido aqui era pior do que em outras telas:
+// o editor guarda cópia local do que foi escolhido, então a tela continuava
+// exibindo os dias novos e o campo do item já limpo — a cara exata de "deu
+// certo" em cima de uma gravação que não aconteceu.
+const erroDaConfig = ref('')
+const erroDoItem = ref('')
+
 async function salvarItemDeChecklist(dados) {
+  erroDoItem.value = ''
   const { error } = await sbClient.from('frota_checklist_itens').insert(dados)
-  if (!error) carregar()
+  if (error) {
+    erroDoItem.value = /duplicate|unique/i.test(error.message || '')
+      ? `Já existe um item chamado "${dados.item}". Edite o que existe em vez de criar outro igual.`
+      : `Não consegui acrescentar "${dados.item}". Confira a conexão e clique em Acrescentar de novo `
+        + '— o que você digitou continua no campo.'
+    return
+  }
+  carregar()
 }
 async function alternarItemDeChecklist(i) {
+  erroDoItem.value = ''
   const { error } = await sbClient.from('frota_checklist_itens')
     .update({ ativo: !i.ativo }).eq('id', i.id)
-  if (!error) carregar()
+  if (error) {
+    erroDoItem.value = `Não consegui ${i.ativo ? 'desligar' : 'religar'} "${i.item}". `
+      + 'Confira a conexão e tente de novo — ele continua como estava.'
+    return
+  }
+  carregar()
 }
 async function salvarConfigDeChecklist(cfg) {
+  erroDaConfig.value = ''
   // frota_checklist_config tem UMA linha só, com chave primária `id` booleana
   // sempre verdadeira — por isso o update filtra por `id = true`, não por um
   // id de registro comum.
   const { error } = await sbClient.from('frota_checklist_config')
     .update({ dia_semanal: cfg.dia_semanal, semana_mensal: cfg.semana_mensal,
       dia_mensal: cfg.dia_mensal }).eq('id', true)
-  if (!error) carregar()
+  if (error) {
+    erroDaConfig.value = 'Não consegui gravar os dias. Os campos voltaram para o que está valendo '
+      + 'hoje — escolha de novo e clique em Salvar os dias; se falhar outra vez, avise quem '
+      + 'administra a Frota.'
+    return
+  }
+  carregar()
 }
 
 /* ── Requisição de uso (F2) ──────────────────────────────────────────────────
@@ -670,19 +723,50 @@ async function salvarVeiculo() {
   })
 
   const { error } = await sbClient.from('frota_veiculos').update(dados).eq('id', veiculoAberto.value.id)
-  if (!error && fecharPosse) {
-    await sbClient.from('frota_uso').update({ volta_em: fecharPosse.volta_em }).eq('id', fecharPosse.id)
-  }
-  if (!error && abrirPosse) {
-    await sbClient.from('frota_uso').insert(abrirPosse)
-  }
-  gravando.value = false
   if (error) {
+    gravando.value = false
     errosDoVeiculo.value = [/duplicate|unique/i.test(error.message || '')
       ? 'Já existe outro veículo com essa placa.'
       : 'Não consegui gravar. Confira a conexão e tente de novo.']
     return
   }
+
+  // Os dois passos da posse conferidos um a um, com o mesmo critério de
+  // confirmarPasse() e gravarChecklist(): erro engolido aqui inventa resposta
+  // sobre quem estava com o carro, que é justamente o que o D9c existe pra
+  // evitar. Se o fechamento falha e a abertura acontece mesmo assim, o carro
+  // fica com DUAS posses abertas; e como a posse vence o dono fixo, a tela e o
+  // robô da manhã passam a cobrar quem não está mais com o carro — enquanto o
+  // dono novo nunca é chamado e a linha do tempo afirma, pra sempre, que quem
+  // saiu continuou com ele.
+  if (fecharPosse) {
+    const { error: erroFechar } = await sbClient.from('frota_uso')
+      .update({ volta_em: fecharPosse.volta_em }).eq('id', fecharPosse.id)
+    if (erroFechar) {
+      // Nada de abrir a posse nova: o segundo passo com o primeiro falho é o
+      // que produziria as duas posses abertas. A ficha NÃO fecha — fechar
+      // faria parecer que deu tudo certo.
+      gravando.value = false
+      errosDoVeiculo.value = ['O veículo foi gravado, mas não consegui encerrar o registro de '
+        + 'quem estava com ele — o responsável antigo continua aparecendo como quem está com o '
+        + 'carro. Abra o veículo de novo e troque o responsável mais uma vez; se falhar outra '
+        + 'vez, avise quem administra a Frota.']
+      return
+    }
+  }
+  if (abrirPosse) {
+    const { error: erroAbrir } = await sbClient.from('frota_uso').insert(abrirPosse)
+    if (erroAbrir) {
+      gravando.value = false
+      errosDoVeiculo.value = ['O veículo foi gravado, mas não consegui registrar que o carro '
+        + 'passou para o responsável novo — ele ficou SEM ninguém registrado como quem está com '
+        + 'ele. Avise quem administra a Frota agora, e tente trocar o responsável de novo em '
+        + 'seguida.']
+      return
+    }
+  }
+
+  gravando.value = false
   fecharVeiculo()
   carregar()
 }
@@ -929,7 +1013,7 @@ onMounted(async () => {
          Gestão pra este bloco aparecer, mesmo com a tela ainda carregando. -->
     <template v-else-if="area === 'gestao'">
       <h2 class="fr-secao">Checklist de hoje</h2>
-      <p class="fr-aviso">{{ resumoDaCobranca(cobranca) }}</p>
+      <p class="fr-aviso">{{ resumoDaCobranca(cobranca, hoje) }}</p>
       <ul class="fr-cobranca">
         <li v-for="c in cobranca" :key="c.veiculo.id" :class="{ pendente: !c.fez }">
           <strong>{{ c.veiculo.nome }}</strong>
@@ -1206,6 +1290,7 @@ onMounted(async () => {
     <div class="fr-checklist-editor" v-if="area === 'checklist' && !carregando && !falha">
       <EditorDeChecklist
         :itens="itensDeChecklist" :config="configDeChecklist" :gravando="gravando"
+        :erro-config="erroDaConfig" :erro-item="erroDoItem"
         @salvar-item="salvarItemDeChecklist"
         @alternar-item="alternarItemDeChecklist"
         @salvar-config="salvarConfigDeChecklist" />

@@ -67,8 +67,48 @@ Deno.serve(async (req) => {
     sb.from('push_preferencias').select('*'),
   ]);
 
+  // AS CONSULTAS DE QUE A DECISÃO DEPENDE, TODAS CONFERIDAS. O cabeçalho diz
+  // "NÃO ENVIA quando não tem certeza", e conferir só duas das oito deixava a
+  // promessa valendo pela metade, com duas falhas concretas:
+  //
+  // - `usos` falha → usos.data vira nulo → quemFaltaHoje() perde o D9b e volta
+  //   a apontar o dono no papel. O robô acorda o Marcus enquanto a tela cobra a
+  //   Barbara, que é quem está com o carro. As duas versões da verdade que este
+  //   arquivo inteiro existe pra impedir.
+  // - `veiculos` falha → a lista sai vazia, ninguém é avisado, e a função
+  //   responde "0 enviados" com 200. A Saúde dos Robôs marca SUCESSO e fica
+  //   verde num dia em que aviso nenhum saiu.
+  //
+  // Por isso a falha volta com 500: conferir_robos() grava ok = (status entre
+  // 200 e 299), então é o código de status — e só ele — que separa "rodou e
+  // decidiu certo" de "não rodou". `motivo` diz qual consulta faltou, pra quem
+  // for investigar não ter que adivinhar.
+  const obrigatorias = {
+    'veículos': veiculos,
+    'itens do checklist': itens,
+    'configuração': config,
+    'fichas de checklist': fichas,
+    'quem está com cada carro': usos,
+    'pessoas': pessoas,
+    'aparelhos inscritos': subs,
+    'preferências de aviso': prefs,
+  };
+  const faltando = Object.entries(obrigatorias)
+    .filter(([, r]) => r.error).map(([nome]) => nome);
+  if (faltando.length) {
+    return json({
+      enviados: 0,
+      erro: 'consulta_falhou',
+      motivo: `não enviei: não consegui ler ${faltando.join(', ')} — avisar com dado incompleto `
+        + 'mandaria a pessoa errada ou a contagem errada',
+    }, 500);
+  }
+
   const cfg = config.data?.[0];
   if (!cfg || !itens.data?.length) {
+    // Isto NÃO é falha de consulta: a consulta respondeu, e respondeu vazio.
+    // Sem lista de itens ou sem configuração não há checklist montado ainda —
+    // o robô rodou e decidiu certo ao não mandar nada.
     return json({ enviados: 0, motivo: 'sem lista ou sem configuração — não envio com dado incompleto' });
   }
 

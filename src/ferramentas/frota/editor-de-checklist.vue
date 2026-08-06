@@ -4,13 +4,18 @@
  * Igual ao plano de revisão: a repartição é do GESTOR, não do código. O
  * mecânico muda de opinião, a frota muda, e a lista tem que acompanhar sem
  * depender de programador. */
-import { reactive, ref, computed } from 'vue'
+import { reactive, ref, computed, watch } from 'vue'
 import { CADENCIAS, problemasDoItemDeChecklist } from '../../../supabase/functions/_shared/checklist.js'
 
 const props = defineProps({
   itens: { type: Array, default: () => [] },
   config: { type: Object, required: true },
   gravando: { type: Boolean, default: false },
+  // O que a gravação lá em cima respondeu. Vazio quer dizer "sem notícia
+  // ruim" — quem grava é o pai, e sem estes dois o gestor via os dias e o item
+  // na tela como se tivessem sido gravados, sem nada dizer que falhou.
+  erroConfig: { type: String, default: '' },
+  erroItem: { type: String, default: '' },
 })
 const emit = defineEmits(['salvar-item', 'alternar-item', 'salvar-config'])
 
@@ -27,12 +32,34 @@ const SEMANAS = [
 
 const novo = reactive({ item: '', cadencia: 'diario' })
 const erros = ref([])
+// Cópia local porque os `<select>` precisam de algo pra editar antes de gravar.
+// Como é cópia, ela SÓ pode continuar diferente do que está no banco enquanto a
+// gravação não respondeu — os dois `watch` abaixo é que garantem isso.
 const cfg = reactive({ ...props.config })
+
+// Gravou: o pai recarrega e manda a configuração nova. A cópia local acompanha,
+// senão ela ficaria pra sempre com o que foi digitado, mesmo que o banco tenha
+// gravado outra coisa.
+watch(() => props.config, (c) => Object.assign(cfg, c), { deep: true })
+
+// Falhou: os dias voltam a mostrar o que está GRAVADO. Deixar na tela a escolha
+// que não foi gravada é o defeito em si — o gestor sai achando que o semanal
+// mudou de dia, e só recarregando a página descobriria que não mudou.
+watch(() => props.erroConfig, (msg) => { if (msg) Object.assign(cfg, props.config) })
 
 const porCadencia = computed(() => CADENCIAS.map((c) => ({
   cadencia: c, rotulo: ROTULO[c],
   itens: props.itens.filter((i) => i.cadencia === c).sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0)),
 })))
+
+const mesmoNome = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase()
+
+// O campo só se limpa quando o item REALMENTE aparece na lista (o pai recarrega
+// depois de gravar). Limpar na hora do emit apagava o que foi digitado mesmo
+// quando a gravação falhava: o gestor perdia o texto e não recebia aviso nenhum.
+watch(() => props.itens, (lista) => {
+  if (novo.item.trim() && (lista || []).some((i) => mesmoNome(i.item, novo.item))) novo.item = ''
+}, { deep: true })
 
 function adicionar() {
   erros.value = problemasDoItemDeChecklist({
@@ -40,7 +67,6 @@ function adicionar() {
   if (erros.value.length) return
   emit('salvar-item', { item: novo.item.trim(), cadencia: novo.cadencia,
     ordem: (props.itens.length + 1) * 10 })
-  novo.item = ''
 }
 </script>
 
@@ -74,6 +100,7 @@ function adicionar() {
         Salvar os dias
       </button>
     </div>
+    <p class="ec-erro" v-if="erroConfig">{{ erroConfig }}</p>
 
     <h2 class="ec-titulo">Os itens</h2>
     <div v-for="g in porCadencia" :key="g.cadencia" class="ec-grupo">
@@ -97,6 +124,7 @@ function adicionar() {
       <button class="ec-btn" :disabled="gravando" @click="adicionar">Acrescentar</button>
     </div>
     <ul class="ec-erros" v-if="erros.length"><li v-for="e in erros" :key="e">{{ e }}</li></ul>
+    <p class="ec-erro" v-if="erroItem">{{ erroItem }}</p>
   </section>
 </template>
 
@@ -118,6 +146,5 @@ function adicionar() {
 .ec-btn.pequeno { padding: 4px 10px; font-size: .85rem; }
 .ec-btn:disabled { opacity: .6; cursor: default; }
 .ec-erros { color: #a12727; font-size: .9rem; padding-left: 18px; }
+.ec-erro { color: #a12727; font-size: .9rem; margin: 8px 0 0; }
 </style>
-</content>
-</invoke>

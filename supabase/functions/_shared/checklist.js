@@ -167,8 +167,18 @@ export function problemasDaFicha({ hodometro, ultimoKm, justificativa, respostas
  * emprestado (posse aberta) é quem é cobrado, e não o dono no papel: enquanto
  * o Marcus emprestou o carro pra Barbara, é a Barbara quem tem que preencher
  * a ficha, não ele.
+ *
+ * `hoje` também é OPCIONAL, e pela mesma razão: as chamadas que já existem não
+ * passam data nenhuma, e mudá-las de uma vez trocaria um defeito por outro.
+ * Quem passa a data ganha a regra do calendário — sábado e domingo não cobram
+ * ninguém, porque o checklist diário é de dia útil (cadenciasDoDia devolve
+ * vazio no fim de semana, e o robô da manhã já respeitava isso). Sem a data,
+ * o quadro acusava "7 carros ainda sem checklist hoje" num domingo em que
+ * ninguém deve nada — exatamente o ruído que este comentário diz não poder
+ * existir, e que faz as pessoas pararem de olhar o quadro.
  */
-export function quemFaltaHoje({ veiculos, fichasDeHoje, pessoas, usos }) {
+export function quemFaltaHoje({ veiculos, fichasDeHoje, pessoas, usos, hoje }) {
+  if (hoje && diaDaSemana(hoje) > 5) return [];
   const comFicha = new Set((fichasDeHoje || []).map((f) => f && f.veiculo_id));
   return (veiculos || [])
     .filter((v) => v && v.pessoa_id && v.situacao === 'ativo')
@@ -208,8 +218,15 @@ export function problemasDoItemDeChecklist({ item, cadencia, existentes, idAtual
   return p;
 }
 
-/** A frase do topo do quadro. Nunca diz "tudo certo" sobre o que não sabe. */
-export function resumoDaCobranca(linhas) {
+/** A frase do topo do quadro. Nunca diz "tudo certo" sobre o que não sabe.
+ *
+ * `hoje` é OPCIONAL. Com a data, o fim de semana tem frase própria: sem ela a
+ * lista vazia de sábado cairia em "Nenhum carro com dono fixo cadastrado.",
+ * que é mentira — os carros estão lá, é o dia que não cobra. */
+export function resumoDaCobranca(linhas, hoje) {
+  if (hoje && diaDaSemana(hoje) > 5) {
+    return 'Hoje é fim de semana: o checklist é de dia útil, ninguém deve nada.';
+  }
   const l = linhas || [];
   if (!l.length) return 'Nenhum carro com dono fixo cadastrado.';
   const faltam = l.filter((x) => !x.fez).length;
