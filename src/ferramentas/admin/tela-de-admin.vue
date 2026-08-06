@@ -1367,6 +1367,23 @@ function _subtitulo(p, gaveta) {
   return esc(outras.join(' · '))
 }
 
+// Correção 2: e-mail + "desde <data>", numa terceira linha discreta abaixo
+// da lotação — sem isso, duas pessoas de nome parecido na mesma gaveta só se
+// distinguem abrindo "Trocar senha". Quando a pessoa NÃO tem cadastro de
+// colaborador, o NOME já exibido é o próprio e-mail (`c?.nome || u.name ||
+// u.email` em `loadAdminUsers`) — repetir o e-mail aqui seria eco, então só
+// a data entra nesse caso. `mkEl` usa textContent, então não precisa de
+// `esc()` aqui (e não deve: textContent já escapa sozinho).
+function _contato(p) {
+  const partes = []
+  if (p.temCadastro && p.email) partes.push(p.email)
+  if (p.bruto.created_at) {
+    const d = new Date(p.bruto.created_at)
+    if (!isNaN(d)) partes.push('desde ' + d.toLocaleDateString('pt-BR'))
+  }
+  return partes.join(' · ')
+}
+
 // Ações por pessoa (Correção 1): permissões, trocar papel, trocar senha,
 // desativar/reativar, excluir, avatar — e "minhas notificações" pra você
 // mesmo, que usa o MESMO openPermModal com soNotificacoes (é o jeito de
@@ -1420,6 +1437,8 @@ function _criarLinhaPessoa(p, gaveta, currentEmail) {
   const sub = mkEl('div', 'usr-sub')
   sub.innerHTML = _subtitulo(p, gaveta) // já vem escapado (ou é o span fixo de "sem cadastro")
   info.appendChild(sub)
+  const contato = _contato(p)
+  if (contato) info.appendChild(mkEl('div', 'usr-contato', contato))
   topo.appendChild(info)
 
   topo.appendChild(mkEl('span', 'usr-papel papel-' + p.papel, p.papel))
@@ -1538,8 +1557,9 @@ async function loadAdminUsers() {
   const [rp, rc] = await Promise.all([
     // avatar_url e allowed_accounts entraram na Correção 1: sem eles a foto
     // não desenha e o editor de permissões (openPermModal) recebe
-    // allowed_accounts undefined em vez do valor gravado.
-    sbClient.from('profiles').select('id,email,name,role,is_superadmin,permissions,disabled,avatar_url,allowed_accounts'),
+    // allowed_accounts undefined em vez do valor gravado. created_at entrou
+    // na Correção 2, pra mostrar "desde <data>" junto do e-mail.
+    sbClient.from('profiles').select('id,email,name,role,is_superadmin,permissions,disabled,avatar_url,allowed_accounts,created_at'),
     sbClient.from('acessos_pessoas').select(
       'profile_id,nome,setor_id,organizacao_id,marca_id,'
       + 'acessos_setores(nome),acessos_organizacoes(nome),patrimonio_empresas(nome)'),
@@ -2232,7 +2252,9 @@ Object.assign(window, {
    uma coluna, sem tabela — nome nunca corta (overflow-wrap, não ellipsis). */
 .tela-admin :deep(.usr-grupo){border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:10px;}
 .tela-admin :deep(.usr-grupo.grupo-sem){background:#fffbeb;border-color:#fde68a;}
-.tela-admin :deep(.usr-grupo-cab){display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:700;font-size:12px;letter-spacing:.5px;}
+/* Correção 2: overflow-wrap também no cabeçalho do grupo — nenhum título
+   pode cortar, nem o de gaveta (ex.: nome de setor comprido). */
+.tela-admin :deep(.usr-grupo-cab){display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:700;font-size:12px;letter-spacing:.5px;overflow-wrap:anywhere;}
 /* Correção 1: a linha virou um cartão de DUAS fileiras — topo (avatar+nome+
    papel) e ações (embaixo, quebra livre). Antes `.usr-linha` era só a
    fileira do topo (display:flex direto); agora é a coluna que segura as
@@ -2243,6 +2265,10 @@ Object.assign(window, {
 .tela-admin :deep(.usr-nome-wrap){display:flex;align-items:center;flex-wrap:wrap;gap:6px;}
 .tela-admin :deep(.usr-nome){font-weight:600;font-size:13px;overflow-wrap:anywhere;}
 .tela-admin :deep(.usr-sub){font-size:11px;color:var(--muted);overflow-wrap:anywhere;}
+/* Correção 2: e-mail + "desde <data>" — terceira linha discreta, mesmo
+   tratamento visual do subtítulo de lotação. E-mail comprido quebra, nunca
+   corta (overflow-wrap, sem ellipsis). */
+.tela-admin :deep(.usr-contato){font-size:11px;color:var(--muted);overflow-wrap:anywhere;}
 .tela-admin :deep(.usr-alerta){color:var(--orange,#d97706);}
 .tela-admin :deep(.usr-badge){font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--accent);background:var(--accent-light);padding:2px 6px;border-radius:3px;flex-shrink:0;}
 .tela-admin :deep(.usr-badge-super){color:#fff;background:#7c3aed;}
