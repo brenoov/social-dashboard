@@ -69,3 +69,24 @@ test('lista vazia e entradas nulas nao estouram', () => {
   assert.equal(estadoDoVinculo(LOGIN, null).estado, 'sem-cadastro')
   assert.equal(estadoDoVinculo(null, [C({})]).estado, 'sem-cadastro')
 })
+
+test('mesmo colaborador aparecendo duas vezes na lista devolve sugestao, nao ambiguo', () => {
+  // Se uma lista vem de um join errado ou outro bug, o mesmo id pode aparecer
+  // duas vezes. Isso não deve vencer a sugestão — é a mesma pessoa.
+  const duplo = [C({ id: 'c-1', email_corporativo: 'raissaherculano@rbvcompany.com' }),
+                 C({ id: 'c-1', email_corporativo: 'raissaherculano@rbvcompany.com' })]
+  const r = estadoDoVinculo(LOGIN, duplo)
+  assert.equal(r.estado, 'sugestao')
+  assert.equal(r.colaborador.id, 'c-1')
+})
+
+test('ambiguidade de verdade: dois IDs diferentes com mesmo e-mail segue ambiguo', () => {
+  // A proteção contra caixa compartilhada não pode ser enfraquecida pela
+  // deduplicação. Dois ID DIFERENTES, mesmo que com mesmo e-mail de fato,
+  // precisam continuar sendo ambíguos.
+  const dois = [C({ id: 'c-1', email_corporativo: 'ti@rbvcompany.com' }),
+                C({ id: 'c-2', nome: 'Outra', email_corporativo: 'ti@rbvcompany.com' })]
+  const r = estadoDoVinculo({ id: 'u-9', email: 'ti@rbvcompany.com' }, dois)
+  assert.equal(r.estado, 'ambiguo')
+  assert.equal(r.colaborador, null)
+})

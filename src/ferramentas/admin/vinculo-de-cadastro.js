@@ -35,11 +35,30 @@ export function estadoDoVinculo(login, colaboradores) {
   //    um clique que rouba o cadastro alheio.
   const candidatos = lista.filter((c) => !c.profile_id && emailsDo(c).includes(email))
 
-  if (candidatos.length === 1) return { estado: 'sugestao', colaborador: candidatos[0] }
+  // Deduplicar por id: um mesmo id (mesmo que apareça em múltiplas linhas
+  // por erro de join ou outro bug) conta como um só. Colaboradores sem id não
+  // são agrupados — cada um é uma entrada própria. Isso não enfraquece a
+  // proteção contra caixa compartilhada: dois IDs DIFERENTES com o mesmo
+  // e-mail continuam sendo ambíguos. Só idênticos (mesmo id) viram um.
+  const vistos = new Set()
+  const deduplicados = []
+  for (const c of candidatos) {
+    if (c.id) {
+      if (!vistos.has(c.id)) {
+        vistos.add(c.id)
+        deduplicados.push(c)
+      }
+    } else {
+      // Sem id: cada um é uma entrada própria
+      deduplicados.push(c)
+    }
+  }
+
+  if (deduplicados.length === 1) return { estado: 'sugestao', colaborador: deduplicados[0] }
 
   // 3. Mais de um com o mesmo e-mail: caixa compartilhada. Escolher seria
   //    chutar qual pessoa recebe a lotação.
-  if (candidatos.length > 1) return { estado: 'ambiguo', colaborador: null }
+  if (deduplicados.length > 1) return { estado: 'ambiguo', colaborador: null }
 
   return { estado: 'sem-cadastro', colaborador: null }
 }
