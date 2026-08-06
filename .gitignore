@@ -60,3 +60,18 @@ coletor/fotos_por_sku/
 # São temporários por natureza — um deles escapou pro commit em 2026-07-29.
 public/lab-*
 __repro/
+
+# Sessão real gravada em arquivo por ferramenta de automação (login do
+# claudecode@rbvcompany.com para abrir tela sem digitar senha).
+#
+# É token VIVO: o access_token vale 1 hora, mas o refresh_token que vem junto
+# emite sessões novas sem prazo. Duas razões para nunca versionar:
+#   1. `public/` é publicado — um commit levaria o token para a internet;
+#   2. várias sessões editam este repo ao mesmo tempo, e um `git add -A` distraído
+#      basta. Em 06/08/2026 o arquivo existia solto na árvore, fora do .gitignore.
+#      Não vazou (não estava no git, e o rewrite do vercel.json devolve index.html),
+#      mas foi por pouco e por acidente, não por desenho.
+# O lugar certo é FORA de public/, com permissão 600.
+public/_sessao-temp.json
+public/*sessao*.json
+public/*.session.json
