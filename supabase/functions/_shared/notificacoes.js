@@ -12,6 +12,13 @@
 
 // Os tipos que existem. Adicionar um aqui é o que o faz aparecer na tela de
 // permissões — a tela lê esta lista, não uma cópia dela.
+//
+// AVISO PRA QUEM ACRESCENTAR UM TIPO NOVO: só mexer aqui NÃO BASTA. O banco
+// tem um CHECK em push_preferencias.tipo com a lista de chaves permitidas —
+// esqueceu de ampliar o CHECK, o admin liga o interruptor na tela e leva um
+// erro de restrição do Postgres na cara, sem nada na mensagem que aponte pra
+// cá. Já aconteceu duas vezes (com 'conteudo' e com 'frota'). Ver a migration
+// db/migrations/acessos/030_push_tipo_frota.sql como exemplo do que fazer.
 export const TIPOS_DE_NOTIFICACAO = [
   {
     chave: 'vendas',
