@@ -1,5 +1,10 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { exigirSegredoDeCron } from '../_shared/segredo-de-cron.ts';
+// O guarda da leitura de engajamento mora fora daqui, puro e com teste ao lado
+// (leitura-de-engajamento.test.mjs). Antes eram `bdSum`/`bdBroken`/`engOk`
+// soltas neste arquivo, onde não havia como testá-las sem Deno e sem a Meta —
+// e foi exatamente ali que passou o bug das curtidas zeradas.
+import { somaDoDetalhe, leituraParcial, leituraServe } from '../_shared/leitura-de-engajamento.js';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 const APP_ID = Deno.env.get('META_APP_ID') ?? '';
@@ -209,19 +214,9 @@ async function coletarEngajamentoConta(igId: string, token: string, dias: number
   } catch { return null; }
 }
 
-function bdSum(v: Record<string, number> | null): number {
-  if (!v) return 0;
-  return (Number(v.likes) || 0) + (Number(v.comments) || 0) + (Number(v.saves) || 0) + (Number(v.shares) || 0);
-}
-function engOk(v: Record<string, number> | null): boolean {
-  if (!v) return false;
-  if (!((Number(v.reach) || 0) > 0)) return false;
-  if ((Number(v.total_interactions) || 0) > 0 && bdSum(v) === 0) return false;
-  return true;
-}
-function bdBroken(v: Record<string, number> | null): boolean {
-  return !!v && (Number(v.total_interactions) || 0) > 0 && bdSum(v) === 0;
-}
+const bdSum = somaDoDetalhe;
+const engOk = leituraServe;
+const bdBroken = leituraParcial;
 
 async function coletarEngResiliente(igId: string, token: string, dias: number): Promise<{ eng: Record<string, number> | null; ok: boolean }> {
   let last: Record<string, number> | null = null;
@@ -237,9 +232,19 @@ async function carregarUltimoBom(sb: any, accountId: string, dias: number): Prom
   const { data } = await sb.from('engagement_snapshots')
     .select('likes,comments,saves,shares,reach,views,total_interactions,accounts_engaged,profile_views')
     .eq('account_id', accountId).eq('period_days', dias).gt('reach', 0)
-    .order('captured_at', { ascending: false }).limit(8);
-  for (const row of (data ?? [])) { if (!bdBroken(row)) return row; }
-  return (data && data[0]) ?? null;
+    // 30 dias, e não 8: a leitura pela metade durou 4 dias seguidos em agosto de
+    // 2026 e chegou a durar mais. Uma janela curta acaba dentro do período doente
+    // e não encontra nada são para onde voltar.
+    .order('captured_at', { ascending: false }).limit(30);
+  for (const row of (data ?? [])) { if (leituraServe(row)) return row; }
+  // NENHUMA linha presta: devolve nada, e quem chamou desiste de gravar.
+  //
+  // Antes esta linha devolvia `data[0]` — a mais recente, mesmo doente. Era o
+  // último elo do estrago: quando o período envenenado passava da janela, o
+  // conserto ia buscar o valor exatamente na linha que estava errada e o zero
+  // se copiava para a frente. Não ter valor é melhor que ter um errado: sem
+  // valor o painel mantém o que já mostrava, e o alerta de degradado dispara.
+  return null;
 }
 
 function engCols(v: Record<string, number> | null): Record<string, number> | null {
@@ -257,6 +262,14 @@ async function gravarEng(sb: any, accountId: string, hoje: string, dias: number,
       if (!bdBroken(v)) break;
       if (i < 3) await new Promise((r) => setTimeout(r, 300 * (i + 1)));
     }
+    // Leitura pela metade não é gravada, nem no período "hoje".
+    //
+    // Aqui não cabe cair no valor de ontem (é outro dia), mas cabe NÃO
+    // sobrescrever: este período é reescrito 4x por dia, e o valor só cresce ao
+    // longo do dia. Gravar a leitura quebrada apagaria a leitura boa da rodada
+    // anterior e zeraria as curtidas de hoje no painel — que é o sintoma que o
+    // dono viu. Sem gravar, fica valendo a última rodada que prestou.
+    if (leituraParcial(v)) { degraded.push(`${name} ${periodLabel(dias)}`); return; }
     const engC0 = engCols(v);
     if (engC0) await sb.from('engagement_snapshots').upsert(
       { account_id: accountId, captured_at: hoje, period_days: dias, ...engC0 },
@@ -276,6 +289,10 @@ async function gravarEng(sb: any, accountId: string, hoje: string, dias: number,
       if (dias !== 1) degraded.push(`${name} ${periodLabel(dias)}`);
     } else {
       if (!merged || !(Number(merged.reach) > 0)) { if (dias !== 1) degraded.push(`${name} ${periodLabel(dias)} (sem histórico)`); return; }
+      // Sem histórico são para onde voltar, uma leitura PELA METADE não vira
+      // linha. Antes ela passava por aqui só por ter alcance, e era gravada com
+      // as curtidas zeradas — o mesmo estrago, agora sem nem o disfarce.
+      if (leituraParcial(merged)) { if (dias !== 1) degraded.push(`${name} ${periodLabel(dias)} (sem histórico)`); return; }
     }
   }
   const engC = engCols(merged);
