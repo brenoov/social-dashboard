@@ -40,6 +40,18 @@ export const TIPOS_DE_NOTIFICACAO = [
     // problema que a tabela push_preferencias existe para resolver.
     padrao: false,
   },
+  {
+    chave: 'frota',
+    rotulo: 'Checklist do carro',
+    descricao: 'De manhã, de segunda a sexta, para quem tem carro fixo e ainda não conferiu hoje.',
+    // DESLIGADO por padrão, como toda chave nova nesta central.
+    //
+    // CONSEQUÊNCIA QUE PRECISA ESTAR DITA: enquanto o dono não ligar isto para
+    // os motoristas em Administração › Usuários, NINGUÉM recebe nada. É por
+    // isso que o quadro de cobrança na aba Gestão não é enfeite — ele é o que
+    // torna a falha visível quando o aviso está desligado.
+    padrao: false,
+  },
 ];
 
 export function ehTipoValido(tipo) {

@@ -9,7 +9,7 @@ const subs = [
 ];
 
 test('os tipos que existem hoje', () => {
-  assert.deepEqual(TIPOS_DE_NOTIFICACAO.map((t) => t.chave), ['vendas', 'saldo', 'conteudo']);
+  assert.deepEqual(TIPOS_DE_NOTIFICACAO.map((t) => t.chave), ['vendas', 'saldo', 'conteudo', 'frota']);
   assert.equal(ehTipoValido('vendas'), true);
   assert.equal(ehTipoValido('inventado'), false);
 });
@@ -49,9 +49,14 @@ test('todo tipo tem chave, rotulo e descricao (a tela de preferencias le esta li
 test('a lista de tipos bate com o CHECK de push_preferencias.tipo', () => {
   // Se um tipo novo entrar aqui sem a migration que solta o CHECK, salvar a
   // preferencia falha com erro de constraint. Ja aconteceu com 'conteudo'.
+  //
+  // 'frota' entrou aqui na Tarefa 11 (F6c); a migration que solta o CHECK pra
+  // aceitar 'frota' ainda NAO existe (ver db/migrations/2026-07-30-conteudo-04-hora-h.sql,
+  // que fez o mesmo pra 'conteudo') — fica pendente pra quem ligar o robo da
+  // manha (Tarefa 12), senao salvar a preferencia de 'frota' quebra em runtime.
   assert.deepEqual(
     TIPOS_DE_NOTIFICACAO.map((t) => t.chave).sort(),
-    ['conteudo', 'saldo', 'vendas'],
+    ['conteudo', 'frota', 'saldo', 'vendas'],
   );
 });
 
