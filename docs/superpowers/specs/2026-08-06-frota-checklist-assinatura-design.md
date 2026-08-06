@@ -61,6 +61,28 @@ prova): `veiculo_id`, `feita_em`, `pessoa_id`, `hodometro`,
 e o `hash` da ficha anterior daquele carro. A primeira ficha de cada carro
 encadeia em texto vazio, e isso fica dito no registro.
 
+### D19a — A senha se confere no SERVIDOR, nunca com `signInWithPassword`
+
+**Descoberto ao planejar, e é uma armadilha real.** O único jeito de conferir uma
+senha pelo cliente com Supabase é `signInWithPassword` — que é o que
+`tela-de-login.vue:111` usa. Só que ele **troca a sessão**: devolve token novo e
+reinicia o estado de login. Chamá-lo para "confirmar a senha" no meio do
+checklist faria o app entrar de novo com a ficha pela metade na tela, e ainda
+faria a senha trafegar pelo cliente a cada assinatura.
+
+Então a conferência é uma **Edge Function** — `conferir-senha` — no mesmo molde de
+`invite-user`: recebe o JWT de quem está logado, confere a senha **daquele
+usuário** com um cliente de serviço próprio, e devolve só `{ ok: true }` ou
+`{ ok: false }`. Nunca devolve sessão, nunca aceita e-mail vindo do cliente (o
+usuário sai do token, não do corpo do pedido — senão vira um oráculo de senhas de
+terceiros).
+
+**Limite de tentativas:** cinco erros seguidos por usuário bloqueiam a assinatura
+por dez minutos. Sem isso a função vira um jeito confortável de testar senhas.
+
+O carro **nunca fica preso por isso**: senha errada impede a ASSINATURA, não o
+preenchimento. A ficha grava sem assinatura, com o motivo registrado (D22).
+
 ### D19b — O que a assinatura NÃO protege, dito por extenso
 
 | Risco | Coberto? |
@@ -163,10 +185,30 @@ Lógica pura com teste ao lado, no `_shared` (o robô da fila é Edge):
 - `conferirCorrente(fichas, respostasPorFicha)` → `{ ok, primeiraQuebra }`
 - `tempoDePreenchimento(abertaEm, assinadaEm)` → `{ segundos, rapidoDemais }`
 
+**Edge** — `conferir-senha` (D19a): confere a senha de quem está logado e devolve
+só sim ou não, sem tocar na sessão.
+
 **Tela** — o cartão ganha o passo de assinar ao fim; a Gestão ganha o selo de
 assinada e o botão de conferir a corrente.
 
 **Robô** — `enviar-pdf-checklist`, cron de poucos em poucos minutos, drena a fila.
+
+## O que fica sem prova, e precisa ser dito
+
+A impressão digital e a corrente são calculadas e gravadas **pelo cliente**. Um
+motorista mal-intencionado com conhecimento técnico poderia forjar o próprio
+`hash` e assinar uma ficha que não corresponde ao que foi respondido.
+
+Fechar isso exigiria calcular a impressão digital **no servidor**, o que é a
+evolução natural desta fase — e nada do que está escrito aqui precisa mudar para
+isso acontecer, porque `textoParaAssinar` é a mesma função dos dois lados.
+
+**Está fora do escopo de agora por proporção**, e a razão é honesta: o risco real
+desta ferramenta é o motorista marcar tudo OK sem olhar (D19b), que nenhuma
+criptografia resolve. Contra a fraude deliberada, a corrente já entrega o que
+importa — **alteração retroativa continua impossível de esconder**, porque
+reescrever uma ficha antiga obrigaria a reescrever todas as seguintes daquele
+carro, e a função de conferência denuncia.
 
 ## Fases
 
