@@ -37,6 +37,11 @@ assumiu criar as contas.
 Enquanto não existirem, a tela **precisa dizer isso na cara**, e não deixar a
 ficha parecer assinada. Ver D22.
 
+**E existe a saída de emergência**, que o dono pediu depois: quem administra a
+Frota preenche e assina pelo carro dessas pessoas (D21b). Não é o ideal — o certo
+é quem dirige conferir —, mas é melhor do que sete carros sem histórico enquanto
+quatro contas não são criadas.
+
 ## Decisões
 
 ### D19 — A assinatura é a senha no instante, mais o encadeamento
@@ -118,6 +123,30 @@ a corrente daquele carro, recalcula cada impressão digital e devolve a primeira
 que não fecha. Sem ela o encadeamento é enfeite: garantia que ninguém verifica não
 é garantia. A aba Gestão ganha um botão que roda isso e mostra o resultado em
 português.
+
+### D21b — Quem administra a Frota preenche o checklist de qualquer carro
+
+Pedido do dono. Hoje o cartão só aparece para o **carro fixo da pessoa** ou para
+o carro de rodízio que ela está pegando. Quem administra (permissão `frota` com
+`criar` ou `excluir`) passa a poder preencher a ficha de **qualquer veículo
+ativo**, pela aba Gestão.
+
+**Por que isso importa mais do que parece:** é o que destrava o problema dos
+quatro motoristas sem login. Enquanto Barbara, Marcus, Thiago e Raissa não têm
+conta, o carro delas ficaria eternamente sem ficha — e agora quem administra
+preenche e **assina com a própria senha**.
+
+**A ficha registra quem REALMENTE conferiu, não de quem é o carro.** Se o gestor
+preenche a ficha do Fiat Punto, `pessoa_id` é o gestor. Registrar a Barbara
+porque o carro é dela seria inventar que ela olhou o veículo — exatamente a
+resposta falsa que o resto deste desenho existe para impedir.
+
+A tela precisa deixar isso claro nos dois lados: quem preenche vê *"você está
+preenchendo pelo Fiat Punto, que é o carro de Marcus Vinicius"*, e o histórico
+mostra que foi o gestor.
+
+**O quadro de cobrança não muda:** ele continua contando por CARRO, não por
+pessoa. Carro conferido é carro conferido, tenha sido o dono ou o gestor.
 
 ### D22 — Quem não tem login não pode assinar, e a tela diz isso
 
