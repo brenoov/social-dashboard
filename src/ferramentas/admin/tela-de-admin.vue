@@ -23,14 +23,12 @@
       <nav class="admin-sidebar">
         <div class="admin-nav-group-label">Gestão</div>
         <div class="admin-nav-item active" data-section="users" onclick="loadAdminSection('users')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Usuários</span></div>
-        <div class="admin-nav-item" data-section="equipes" onclick="loadAdminSection('equipes')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/></svg><span>Times de venda</span></div>
         <div class="admin-nav-item" data-section="accounts" onclick="loadAdminSection('accounts')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg><span>Contas</span></div>
         <div class="admin-nav-item" data-section="requests" onclick="loadAdminSection('requests')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Solicitações</span></div>
         <div class="admin-nav-group-label">Vendas</div>
         <div class="admin-nav-item" data-section="metas" onclick="loadAdminSection('metas')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Metas</span></div>
         <div class="admin-nav-group-label">Plataforma</div>
         <div class="admin-nav-item" data-section="data" onclick="loadAdminSection('data')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><span>Dados</span></div>
-        <div class="admin-nav-item" data-section="saude" onclick="loadAdminSection('saude')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>Saúde dos dados</span></div>
       </nav>
       <div class="admin-content">
         <!-- USUÁRIOS -->
@@ -38,8 +36,6 @@
           <div class="admin-section-title">Usuários &amp; Acessos</div>
           <div class="admin-section-sub">Gerencie quem tem acesso à Central de Inteligência</div>
           <div id="admin-stats-users" class="admin-stats"></div>
-          <span class="sg-label">Usuários cadastrados</span>
-          <div class="sg" id="admin-user-list"></div>
           <span class="sg-label">Convidar novo usuário</span>
           <div class="sg" style="padding:16px 20px;">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;">
@@ -78,6 +74,15 @@
               </div>
             </div>
           </div>
+          <!-- Times de venda mora aqui dentro de Usuários (Task 5): quem cria
+               conta e quem organiza times é a mesma pessoa fazendo a mesma
+               tarefa de gestão de acesso, então a ordem virou criar → times →
+               pessoas, do jeito que o dono aprovou. -->
+          <span class="sg-label">Times de venda</span>
+          <div class="admin-section-sub">Lojas, canais e setores — e quem trabalha em cada um. É por aqui que uma loja nova entra no sistema.</div>
+          <div id="admin-equipes-body"><div style="color:var(--muted);font-size:12px">Carregando...</div></div>
+          <span class="sg-label">Usuários cadastrados</span>
+          <div id="admin-user-list"></div>
         </div>
         <!-- CONTAS -->
         <div class="admin-section" id="admin-section-accounts">
@@ -99,16 +104,13 @@
           </div>
           <div id="admin-action-info" style="display:none;margin-top:12px"></div>
         </div>
-        <!-- SAÚDE / METAS -->
+        <!-- SAÚDE: saiu da barra (Task 5), mas a tela de detalhe continua aqui —
+             a faixa de aviso em Dados abre esta seção por onclick, então
+             loadAdminSaude() precisa ter onde desenhar o detalhamento. -->
         <div class="admin-section" id="admin-section-saude">
           <div class="admin-section-title">Saúde dos dados</div>
           <div class="admin-section-sub">Verificação automática diária (23:30) — frescor, consistência e anomalias das métricas de todos os perfis.</div>
           <div id="admin-saude-body"><div style="color:var(--muted);font-size:12px">Carregando...</div></div>
-        </div>
-        <div class="admin-section" id="admin-section-equipes">
-          <div class="admin-section-title">Times de venda</div>
-          <div class="admin-section-sub">Lojas, canais e setores — e quem trabalha em cada um. É por aqui que uma loja nova entra no sistema.</div>
-          <div id="admin-equipes-body"><div style="color:var(--muted);font-size:12px">Carregando...</div></div>
         </div>
         <div class="admin-section" id="admin-section-metas">
           <div class="admin-section-title">Metas de Vendas</div>
@@ -148,8 +150,12 @@ import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { estado, PERMISSION_TREE, RECURSOS } from '../../compartilhado/controle-de-login-e-usuario.js'
-import { ACOES_MATRIZ, agruparRecursos, contarAcoes, estadoDaSelecao, marcarTudo } from './agrupar-permissoes.js'
+import { agruparRecursos, contarAcoes, estadoDaSelecao, marcarTudo } from './agrupar-permissoes.js'
 import { derivarFeatures } from '../../compartilhado/derivar-features.js'
+// A escada de niveis (Sem acesso / Ver / Mexer / Tudo) que substitui a matriz
+// de caixinhas no editor de permissoes: uma escolha por ferramenta, em vez de
+// ate 5 caixinhas por linha das quais mais da metade nunca existiu de verdade.
+import { degrausDoRecurso, degrauDoConjunto, acoesDoDegrau } from './niveis-de-permissao.js'
 // Quais notificações existem e qual o padrão de cada uma. A lista mora junto da
 // Edge que envia (supabase/functions/_shared) pra não haver duas verdades sobre
 // quem recebe o quê — a tela LÊ dela em vez de repetir os nomes.
@@ -169,6 +175,9 @@ import {
 import {
   agruparVendedores, lojaDaVendedora, comoDizerALoja, viraConta, emailSugerido,
 } from './vendedoras.js'
+// Separar as pessoas por marca, local ou setor: a gaveta escolhida e o "sem
+// ___" que fecha a lista moram aqui, puro e testado — a tela só desenha.
+import { agruparPor, DIMENSOES } from './lotacao.js'
 
 const router = useRouter()
 
@@ -327,18 +336,57 @@ function loadAdminSection(name) {
   document.querySelectorAll('.admin-nav-item').forEach(el => el.classList.toggle('active', el.dataset.section === name))
   document.querySelectorAll('.admin-section').forEach(el => el.classList.remove('active'))
   const sec = document.getElementById('admin-section-' + name); if (sec) sec.classList.add('active')
-  const carregadores = { users: loadAdminUsers, accounts: loadAdminAccounts, data: loadAdminData, metas: loadAdminMetas, requests: loadAdminRequests, saude: loadAdminSaude, equipes: loadAdminEquipes }
+  // 'saude' e 'equipes' saíram deste mapa na Task 5: Saúde não tem mais item na
+  // barra (vive só na faixa de Dados, aberta pelo onclick montado em
+  // updateSaudeBadge) e Times de venda carrega junto com Usuários, dentro de
+  // loadAdminUsers.
+  const carregadores = { users: loadAdminUsers, accounts: loadAdminAccounts, data: loadAdminData, metas: loadAdminMetas, requests: loadAdminRequests }
   carregadores[name]?.()
   updateSaudeBadge()
 }
-// Badge vermelho no item "Saúde dos dados" quando há ❌ no último run.
+
+// O SINAL DA SAÚDE NÃO MORRE COM A ABA.
+//
+// A aba saiu da barra a pedido do dono, mas ela estava CERTA: as 13 falhas por
+// dia que ela acusava eram o bug das curtidas zeradas (commit 9943dda), e ela
+// era o único lugar que avisava. Apagar o aviso junto com a tela repetiria o
+// silêncio que deixou o bug invisível por semanas.
+//
+// Some sozinha quando não há falha: aviso que fica sempre aceso vira paisagem.
 async function updateSaudeBadge() {
-  const nav = document.querySelector('.admin-nav-item[data-section="saude"]'); if (!nav) return
-  const last = await sb('data_integrity_checks?select=checked_date&order=checked_date.desc&limit=1')
-  let dot = nav.querySelector('.saude-dot')
-  const fails = last.length ? await sb('data_integrity_checks?select=id&status=eq.fail&checked_date=eq.' + last[0].checked_date) : []
-  if (fails.length) { if (!dot) { dot = document.createElement('span'); dot.className = 'saude-dot'; dot.style.cssText = 'display:inline-block;width:7px;height:7px;border-radius:50%;background:#dc2626;margin-left:6px;vertical-align:middle;'; (nav.querySelector('span') || nav).appendChild(dot) } }
-  else if (dot) { dot.remove() }
+  const alvo = document.getElementById('admin-section-data'); if (!alvo) return
+  const anterior = alvo.querySelector('.saude-faixa'); if (anterior) anterior.remove()
+  // USE `sbClient`, NÃO o `sb()` desta tela (mesmo motivo do comentário em
+  // loadAdminUsers): `sb()` cai pra chave anônima quando `estado.currentSession`
+  // ainda não hidratou, e `data_integrity_checks` só abre `to authenticated` —
+  // o PostgREST responde 200 com lista vazia, sem erro, e a faixa simplesmente
+  // não desenha. É a mesma classe de bug que apagou o aviso das curtidas
+  // zeradas por semanas (comentário acima). Erro vai pro console: entre
+  // desenhar informação errada e não desenhar nada, aqui vale mais não
+  // desenhar — mas silenciar a falha por completo repetiria o bug original.
+  const { data: last, error: errLast } = await sbClient.from('data_integrity_checks')
+    .select('checked_date').order('checked_date', { ascending: false }).limit(1)
+  if (errLast) { console.error('updateSaudeBadge: falha ao ler data_integrity_checks', errLast); return }
+  if (!last?.length) return
+  const { data: fails, error: errFails } = await sbClient.from('data_integrity_checks')
+    .select('id').eq('status', 'fail').eq('checked_date', last[0].checked_date)
+  if (errFails) { console.error('updateSaudeBadge: falha ao ler falhas do dia', errFails); return }
+  if (!fails?.length) return
+  const faixa = document.createElement('div')
+  faixa.className = 'saude-faixa'
+  faixa.textContent = `A conferência de ${last[0].checked_date} achou ${fails.length} divergência(s) entre o painel e a Meta.`
+  // Clicável: a aba de detalhe (#admin-section-saude) continua no template e
+  // loadAdminSaude() continua existindo — só não tem mais botão na barra pra
+  // chegar nela. A faixa é o novo caminho.
+  faixa.style.cursor = 'pointer'
+  faixa.title = 'Clique para ver o detalhamento'
+  faixa.onclick = () => {
+    document.querySelectorAll('.admin-nav-item').forEach(el => el.classList.remove('active'))
+    document.querySelectorAll('.admin-section').forEach(el => el.classList.remove('active'))
+    document.getElementById('admin-section-saude')?.classList.add('active')
+    loadAdminSaude()
+  }
+  alvo.insertBefore(faixa, alvo.firstChild)
 }
 
 /* ── PUXAR AS VENDEDORAS DAS VENDAS ─────────────────────────────────────────
@@ -599,14 +647,20 @@ async function loadAdminEquipes() {
   const body = document.getElementById('admin-equipes-body'); if (!body) return
   body.innerHTML = '<div style="color:var(--muted);font-size:12px">Carregando…</div>'
   try {
-    const [times, membros, pessoas, canais] = await Promise.all([
+    // `profiles` USA `sbClient`, NÃO `sb()` (mesmo motivo do comentário em
+    // loadAdminUsers): com a chave anônima o PostgREST devolve 200 e lista
+    // vazia pra tabela que só abre `to authenticated` — falha disfarçada de
+    // "não tem nada". Como esta função roda A CADA loadAdminUsers, essa
+    // mentira se repetiria toda vez que a tela de Usuários abrisse.
+    const [times, membros, canais, rp] = await Promise.all([
       sb('equipes?select=*'),
       sb('equipes_membros?select=*'),
-      sb('profiles?select=id,name,email,disabled,escopo_por_equipe&order=name'),
       sb('bling_lojas?select=loja_id,nome&order=nome'),
+      sbClient.from('profiles').select('id,name,email,disabled,escopo_por_equipe').order('name'),
     ])
+    if (rp.error) throw rp.error
     _eqTimes = times || []; _eqMembros = membros || []
-    _eqPessoas = pessoas || []; _eqCanais = canais || []
+    _eqPessoas = rp.data || []; _eqCanais = canais || []
     _eqDesenhar()
   } catch (e) {
     // O MOTIVO VAI PRA TELA. `catch` mudo aqui já custou meia hora de caça
@@ -1049,12 +1103,14 @@ function _renderPermBody(u) {
     const info = document.createElement('div'); info.textContent = 'Super-admin tem acesso total — permissões e perfis não se aplicam.'; info.style.cssText = 'font-size:12px;color:var(--muted);padding:6px 0'
     body.appendChild(info); return
   }
-  // 2) Matriz recurso × ação, agrupada por ferramenta (um card por ferramenta).
+  // 2) Escada de níveis por recurso, agrupada por ferramenta (um card por
+  // ferramenta).
   //
-  // As COLUNAS SÃO FIXAS (ACOES_MATRIZ) e valem para todos os cards: recurso que
-  // não tem uma ação mostra a célula vazia, NÃO pula a coluna. Antes as ações
-  // eram empilhadas por recurso, então "ver" caía num x diferente em cada linha
-  // e não dava pra varrer uma coluna com o olho — era a causa do "horrível".
+  // Cada ferramenta é UMA escolha (Sem acesso / Ver / Mexer / Tudo — conforme
+  // o que aquele recurso realmente tem no catálogo), não mais uma linha de 5
+  // caixinhas. Era a matriz que fazia 105 células parecerem 105 escolhas
+  // quando só 45 existiam de verdade, e metade dessas 45 nunca foi marcada em
+  // produção (ver niveis-de-permissao.js).
   //
   // Os grupos saem de agruparRecursos(RECURSOS, PERMISSION_TREE): derivados da
   // chave ('social.relatorio' → ferramenta 'social'). Nenhuma lista de grupos
@@ -1078,39 +1134,13 @@ function _renderPermBody(u) {
     hdr.appendChild(_mkMarcarTudo('Tudo', g.recursos, u))
     card.appendChild(hdr)
 
-    // Rolagem horizontal só do card: no celular a matriz desliza dentro dele em
-    // vez de estourar a tela (e o modal continua rolando na vertical).
-    const scroll = document.createElement('div'); scroll.className = 'perm-grade-scroll'
-    const grade = document.createElement('div'); grade.className = 'perm-grade'
-
-    const cab = document.createElement('div'); cab.className = 'perm-linha perm-linha-cab'
-    cab.appendChild(document.createElement('span')) // canto vazio, sobre a coluna dos rótulos
-    ACOES_MATRIZ.forEach(a => { const c = document.createElement('span'); c.className = 'perm-cab-acao'; c.textContent = a; cab.appendChild(c) })
-    grade.appendChild(cab)
-
+    // Cada recurso vira uma linha: a escada de degraus, exceto as chaves de
+    // "aprovar" (frota.aprovar, conteudo.aprovar) — essas são uma caixinha só,
+    // porque "Pode ver" não diz o que elas realmente liberam.
     g.recursos.forEach(r => {
-      const linha = document.createElement('div'); linha.className = 'perm-linha'
-      const lbl = document.createElement('span'); lbl.className = 'perm-linha-nome'; lbl.textContent = r.label; lbl.title = r.label
-      linha.appendChild(lbl)
-      ACOES_MATRIZ.forEach(acao => {
-        if (!r.acoes.includes(acao)) {
-          // Célula vazia: traço discreto. Segura a coluna no lugar — é o que
-          // mantém "ver" alinhado de cima a baixo.
-          const vazia = document.createElement('span'); vazia.className = 'perm-cel perm-cel-vazia'; vazia.textContent = '–'
-          vazia.title = `${r.label} não tem a ação "${acao}"`
-          linha.appendChild(vazia); return
-        }
-        const cel = document.createElement('label'); cel.className = 'perm-cel'
-        const cb = document.createElement('input'); cb.type = 'checkbox'
-        cb.checked = (_permState.permissions[r.key] || []).includes(acao)
-        cb.setAttribute('aria-label', `${r.label} — ${acao}`)
-        cb.title = `${r.label} — ${acao}`
-        cb.addEventListener('change', () => { _togglePerm(r, acao, cb.checked); _renderPermBody(u) })
-        cel.appendChild(cb); linha.appendChild(cel)
-      })
-      grade.appendChild(linha)
+      card.appendChild(APROVACOES[r.key] ? _linhaDeAprovacao(r, u) : _linhaDeNivel(r, u))
     })
-    scroll.appendChild(grade); card.appendChild(scroll); body.appendChild(card)
+    body.appendChild(card)
   })
   // 3) Perfis de rede social
   body.appendChild(_lbl10('PERFIS DE REDE SOCIAL', 12))
@@ -1154,6 +1184,79 @@ function _togglePerm(r, acao, on) {
   else { cur.delete(acao); if (acao === 'ver') cur.clear() }
   const arr = r.acoes.filter(a => cur.has(a))
   if (arr.length) _permState.permissions[r.key] = arr; else delete _permState.permissions[r.key]
+}
+
+// As duas chaves de "aprovar" só têm 'ver' no catálogo, mas "Pode ver" não diz
+// o que elas realmente liberam — quem aprova requisição de veículo não está só
+// "vendo" a Frota. Por isso ganham uma caixinha única com o texto por extenso,
+// em vez de entrar na escada.
+const APROVACOES = {
+  'frota.aprovar': 'Pode aprovar requisição de veículo',
+  'conteudo.aprovar': 'Pode aprovar peças para publicar',
+}
+
+// Uma ferramenta = uma escolha. Os degraus vêm do catálogo (niveis-de-
+// permissao.js), então ferramenta que só deixa ver mostra dois botões, e
+// ferramenta completa mostra quatro. Nada de célula vazia: era isso que fazia
+// a matriz parecer ter 105 escolhas quando tinha 45.
+function _linhaDeNivel(r, u) {
+  const atual = _permState.permissions[r.key] || []
+  const degrau = degrauDoConjunto(r, atual)   // null = conjunto fora da escada
+
+  const linha = document.createElement('div')
+  linha.className = 'perm-nivel'
+
+  const nome = document.createElement('div')
+  nome.className = 'perm-nivel-nome'
+  nome.textContent = r.label            // linha inteira: o nome NUNCA corta
+  linha.appendChild(nome)
+
+  const botoes = document.createElement('div')
+  botoes.className = 'perm-nivel-botoes'
+  for (const d of degrausDoRecurso(r)) {
+    const b = document.createElement('button')
+    b.type = 'button'
+    b.className = 'perm-degrau' + (d.chave === degrau ? ' escolhido' : '')
+    b.textContent = d.rotulo
+    b.onclick = () => { _aplicarDegrau(r, d.chave); _renderPermBody(u) }
+    botoes.appendChild(b)
+  }
+  linha.appendChild(botoes)
+
+  // CONJUNTO FORA DA ESCADA: não escolhe degrau nenhum e não aproxima. Mostra o
+  // que está gravado e deixa a pessoa decidir. Aproximar mudaria acesso sem
+  // ninguém ter pedido — e é justamente o que esta tela não pode fazer.
+  if (atual.length && !degrau) {
+    const aviso = document.createElement('div')
+    aviso.className = 'perm-nivel-aviso'
+    aviso.textContent = 'Personalizado: ' + atual.join(', ') + '. Escolher um nível substitui isto.'
+    linha.appendChild(aviso)
+  }
+  return linha
+}
+
+// Aplica um degrau: grava exatamente as ações daquele degrau, e apaga a chave
+// quando o degrau é "Sem acesso" — mesmo contrato do _togglePerm, onde recurso
+// sem 'ver' não existe no objeto.
+function _aplicarDegrau(r, chaveDoDegrau) {
+  const acoes = acoesDoDegrau(r, chaveDoDegrau)
+  if (!acoes.length) delete _permState.permissions[r.key]
+  else _permState.permissions[r.key] = acoes
+}
+
+// Caixinha única das aprovações: mesmo _togglePerm da escada, só que sem
+// degrau nenhum — é liga/desliga puro, porque só existe uma ação ('ver') a
+// marcar.
+function _linhaDeAprovacao(r, u) {
+  const linha = document.createElement('label')
+  linha.className = 'perm-nivel perm-nivel-aprovacao'
+  linha.style.cssText = 'display:flex;align-items:center;gap:8px;cursor:pointer'
+  const cb = document.createElement('input'); cb.type = 'checkbox'
+  cb.checked = (_permState.permissions[r.key] || []).includes('ver')
+  cb.addEventListener('change', () => { _togglePerm(r, 'ver', cb.checked); _renderPermBody(u) })
+  const txt = document.createElement('span'); txt.textContent = APROVACOES[r.key]
+  linha.appendChild(cb); linha.appendChild(txt)
+  return linha
 }
 
 function closePermModal() {
@@ -1219,106 +1322,324 @@ async function savePermissions() {
   setTimeout(loadAdminUsers, 400)
 }
 
-/* ── USUÁRIOS (legacy L4609-4708, verbatim, exceto currentEmail — ver
-   adaptação nº2 no comentário do topo) ── */
+/* ── USUÁRIOS: lista separada por marca, local ou setor (Task 6) ──
+   CORREÇÃO 1 (revisão da Task 6): a primeira versão desta lista virou só um
+   DIRETÓRIO — nome, as outras duas lotações, papel — e deixou pra trás os
+   controles que a lista antiga tinha (permissões, trocar papel, trocar
+   senha, desativar, excluir, avatar). Isso não era escopo novo, era
+   regressão: o editor de permissões que a Task 4 reconstruiu ficou
+   INALCANÇÁVEL, sem nenhum botão que o chamasse. Corrigido aqui: o
+   agrupamento por lotação continua (é o pedido original desta tarefa), mas
+   cada pessoa GANHA DE VOLTA a linha de ações, como uma segunda fileira
+   dentro do mesmo cartão — ver `_criarLinhaPessoa` e a classe `.usr-acoes`. */
+
+// Sem acento, sem caixa: quem digita "raissa" tem de achar "Raíssa".
+const _crua = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+
+// A busca filtra ANTES de agrupar, senão os cabeçalhos mostrariam contagem que
+// não corresponde ao que está na tela.
+function _filtrar(linhas, termo) {
+  const t = _crua(termo)
+  if (!t) return linhas
+  return linhas.filter((p) => _crua(p.nome).includes(t) || _crua(p.email).includes(t))
+}
+
+// A gaveta escolhida sobrevive ao recarregar — mesmo espírito do "lembrar onde
+// parei" que o projeto já usa nas outras telas. try/catch porque navegador com
+// armazenamento bloqueado não pode derrubar a tela inteira por causa disto.
+const CHAVE_GAVETA = 'admin-agrupar-por'
+function _gavetaEscolhida() {
+  try { const v = localStorage.getItem(CHAVE_GAVETA); if (DIMENSOES.some((d) => d.chave === v)) return v } catch (e) {}
+  return 'marca'
+}
+function _guardarGaveta(chave) { try { localStorage.setItem(CHAVE_GAVETA, chave) } catch (e) {} }
+
+// O seletor é um botão por dimensão (mesma classe `.perm-degrau` da Task 4,
+// que já tem 32px de altura e quebra linha).
+function _desenharSeletor(alvo, atual, aoTrocar) {
+  const barra = document.createElement('div')
+  barra.className = 'usr-gavetas'
+  const rot = document.createElement('span')
+  rot.className = 'usr-gavetas-rot'; rot.textContent = 'Agrupar:'
+  barra.appendChild(rot)
+  for (const d of DIMENSOES) {
+    const b = document.createElement('button')
+    b.type = 'button'
+    b.className = 'perm-degrau' + (d.chave === atual ? ' escolhido' : '')
+    b.textContent = d.rotulo
+    b.onclick = () => { _guardarGaveta(d.chave); aoTrocar(d.chave) }
+    barra.appendChild(b)
+  }
+  alvo.appendChild(barra)
+}
+
+const esc = (s) => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
+// As OUTRAS duas informações — a que agrupa já está no cabeçalho, repeti-la em
+// cada linha é ruído.
+function _subtitulo(p, gaveta) {
+  if (!p.temCadastro) return '<span class="usr-alerta">sem cadastro de colaborador</span>'
+  const outras = DIMENSOES.filter((d) => d.chave !== gaveta)
+    .map((d) => p[d.chave] || `sem ${d.rotulo.toLowerCase()}`)
+  return esc(outras.join(' · '))
+}
+
+// Correção 2: e-mail + "desde <data>", numa terceira linha discreta abaixo
+// da lotação — sem isso, duas pessoas de nome parecido na mesma gaveta só se
+// distinguem abrindo "Trocar senha". Quando a pessoa NÃO tem cadastro de
+// colaborador, o NOME já exibido é o próprio e-mail (`c?.nome || u.name ||
+// u.email` em `loadAdminUsers`) — repetir o e-mail aqui seria eco, então só
+// a data entra nesse caso. `mkEl` usa textContent, então não precisa de
+// `esc()` aqui (e não deve: textContent já escapa sozinho).
+function _contato(p) {
+  const partes = []
+  if (p.temCadastro && p.email) partes.push(p.email)
+  if (p.bruto.created_at) {
+    const d = new Date(p.bruto.created_at)
+    if (!isNaN(d)) partes.push('desde ' + d.toLocaleDateString('pt-BR'))
+  }
+  return partes.join(' · ')
+}
+
+// Ações por pessoa (Correção 1): permissões, trocar papel, trocar senha,
+// desativar/reativar, excluir, avatar — e "minhas notificações" pra você
+// mesmo, que usa o MESMO openPermModal com soNotificacoes (é o jeito de
+// evitar o bug de 2026-07-29, onde sem esse botão o dono acabou tentando
+// ligar o próprio aviso e gravando na linha de outro usuário). A linha vira
+// nó de DOM de verdade (não mais template de string), porque select/blur/
+// upload de avatar/confirm() precisam de listener de verdade.
+//
+// `p.bruto` é o profile cru que `loadAdminUsers` guardou em cada linha —
+// mesmos campos que a lista antiga usava (id, email, name, role,
+// is_superadmin, disabled, avatar_url, allowed_accounts, permissions).
+function _criarLinhaPessoa(p, gaveta, currentEmail) {
+  const u = p.bruto
+  const isSelf = u.email === currentEmail
+  const isSuperAdmin = !!u.is_superadmin
+  const canEdit = !isSuperAdmin || estado.is_superadmin // super-admin só é editável por outro super-admin
+
+  const linha = document.createElement('div')
+  linha.className = 'usr-linha'
+  linha.dataset.uid = p.id
+  if (u.disabled) linha.style.opacity = '.5'
+
+  // ── topo: avatar + nome/badges/subtítulo (as outras duas lotações) + papel ──
+  const topo = document.createElement('div')
+  topo.className = 'usr-linha-topo'
+
+  const avWrap = mkEl('div', 'av-wrap'); avWrap.style.cssText = 'width:32px;height:32px;'
+  const av = mkEl('div'); av.style.cssText = 'width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);overflow:hidden;position:relative;'
+  av.style.background = u.role === 'admin' ? 'var(--accent)' : 'var(--surface2)'
+  if (u.avatar_url) { const img = mkEl('img', 'av-img'); img.src = u.avatar_url + '?t=' + Date.now(); img.alt = ''; av.appendChild(img) }
+  else { const avTxt = mkEl('span'); avTxt.style.cssText = 'font-family:var(--fonte-principal);font-size:13px;font-weight:600'; avTxt.style.color = u.role === 'admin' ? '#fff' : 'var(--muted)'; avTxt.textContent = (p.nome || u.email).charAt(0).toUpperCase(); av.appendChild(avTxt) }
+  const avEditBtn = mkEl('button', 'av-edit-btn'); avEditBtn.type = 'button'; avEditBtn.title = 'Trocar foto'
+  avEditBtn.innerHTML = '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'
+  avEditBtn.addEventListener('click', () => _triggerAvatarUpload(u.id, (url) => {
+    av.innerHTML = ''; const img = mkEl('img', 'av-img'); img.src = url + '?t=' + Date.now(); img.alt = ''; av.appendChild(img)
+    // _setGubAvatar (botão de usuário global) ainda não existe no app Vue —
+    // o typeof evita o ReferenceError que fazia aparecer um toast de erro falso
+    // mesmo com o upload OK. Volta a funcionar sozinho se o botão global for portado.
+    if (u.id === estado.userId && typeof _setGubAvatar === 'function') _setGubAvatar(url)
+    adminToast('Foto atualizada!')
+  }))
+  avWrap.appendChild(av); avWrap.appendChild(avEditBtn)
+  topo.appendChild(avWrap)
+
+  const info = mkEl('div', 'usr-linha-info')
+  const nomeWrap = mkEl('div', 'usr-nome-wrap')
+  nomeWrap.appendChild(mkEl('span', 'usr-nome', p.nome))
+  if (isSelf) nomeWrap.appendChild(mkEl('span', 'usr-badge', 'Você'))
+  if (isSuperAdmin) nomeWrap.appendChild(mkEl('span', 'usr-badge usr-badge-super', 'SUPERADMIN'))
+  info.appendChild(nomeWrap)
+  const sub = mkEl('div', 'usr-sub')
+  sub.innerHTML = _subtitulo(p, gaveta) // já vem escapado (ou é o span fixo de "sem cadastro")
+  info.appendChild(sub)
+  const contato = _contato(p)
+  if (contato) info.appendChild(mkEl('div', 'usr-contato', contato))
+  topo.appendChild(info)
+
+  topo.appendChild(mkEl('span', 'usr-papel papel-' + p.papel, p.papel))
+  linha.appendChild(topo)
+
+  // ── ações: fileira própria, quebra livre — nunca estoura a largura do
+  // cartão no celular. `.usr-acoes` no CSS garante alvo de toque >=40px.
+  const acoes = mkEl('div', 'usr-acoes')
+
+  const sel = mkEl('select', 'admin-form-input usr-acao-select')
+  ;[{ v: 'viewer', l: 'Viewer' }, { v: 'admin', l: 'Admin' }].forEach(({ v, l }) => {
+    const o = mkEl('option'); o.value = v; o.textContent = l; if (u.role === v) o.selected = true; sel.appendChild(o)
+  })
+  if (!isSelf && canEdit) {
+    sel.addEventListener('change', async () => {
+      await adFetch('profiles?id=eq.' + u.id, { method: 'PATCH', body: JSON.stringify({ role: sel.value }) })
+      adminToast('Role atualizado'); setTimeout(loadAdminUsers, 800)
+    })
+  } else sel.disabled = true
+  acoes.appendChild(sel)
+
+  // Trocar senha (só superadmin) — pode resetar a senha de QUALQUER usuário que esqueceu a dele.
+  if (estado.is_superadmin) {
+    const pwBtn = mkEl('button', 'sr-btn usr-acao-btn'); pwBtn.type = 'button'; pwBtn.textContent = 'Trocar senha'
+    pwBtn.title = 'Definir uma nova senha para este usuário'
+    pwBtn.addEventListener('click', () => _abrirTrocaSenha(u, acoes))
+    acoes.appendChild(pwBtn)
+  }
+
+  if (isSelf) {
+    const notifBtn = mkEl('button', 'sr-btn usr-acao-btn'); notifBtn.type = 'button'; notifBtn.textContent = 'Minhas notificações'
+    notifBtn.addEventListener('click', () => _abrirMinhasNotificacoes(u))
+    acoes.appendChild(notifBtn)
+  }
+
+  if (!isSelf && canEdit) {
+    const permBtn = mkEl('button', 'sr-btn usr-acao-btn'); permBtn.type = 'button'; permBtn.textContent = 'Permissões'
+    permBtn.addEventListener('click', () => openPermModal(u))
+    acoes.appendChild(permBtn)
+
+    const disBtn = mkEl('button', 'sr-btn usr-acao-btn ' + (u.disabled ? '' : 'danger'))
+    disBtn.type = 'button'; disBtn.textContent = u.disabled ? 'Ativar' : 'Desativar'
+    disBtn.addEventListener('click', async () => {
+      await adFetch('profiles?id=eq.' + u.id, { method: 'PATCH', body: JSON.stringify({ disabled: !u.disabled }) })
+      adminToast(u.disabled ? 'Usuário ativado' : 'Usuário desativado'); setTimeout(loadAdminUsers, 600)
+    })
+    acoes.appendChild(disBtn)
+
+    // SENSITIVE MUTATION — exclui usuário DE VERDADE (edge function
+    // invite-user com {deleteUserId}). Único confirm() do módulo Admin,
+    // preservado com a MESMA mensagem/lugar do legado.
+    const delBtn = mkEl('button', 'sr-btn usr-acao-btn danger'); delBtn.type = 'button'; delBtn.textContent = 'Excluir'
+    delBtn.addEventListener('click', async () => {
+      if (!confirm(`Excluir definitivamente "${u.name || u.email}"?\n\nRemove o acesso e o perfil. Esta ação NÃO pode ser desfeita.`)) return
+      delBtn.disabled = true; delBtn.textContent = 'Excluindo…'
+      try {
+        const { data: { session: s } } = await sbClient.auth.getSession()
+        const tok = s?.access_token || SUPABASE_ANON_KEY
+        const r = await fetch(`${SUPABASE_URL}/functions/v1/invite-user`, { method: 'POST', headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ deleteUserId: u.id }) })
+        const res = await r.json()
+        if (res.error) throw new Error(res.error)
+        adminToast('Usuário excluído')
+        setTimeout(loadAdminUsers, 600)
+      } catch (e) {
+        alert('Erro ao excluir: ' + (e.message || e))
+        delBtn.disabled = false; delBtn.textContent = 'Excluir'
+      }
+    })
+    acoes.appendChild(delBtn)
+  }
+
+  linha.appendChild(acoes)
+  return linha
+}
+
+function _desenharGrupos(alvo, linhas, gaveta, currentEmail) {
+  const grupos = agruparPor(linhas, gaveta)
+  if (!grupos.length) {
+    alvo.insertAdjacentHTML('beforeend', '<div class="usr-vazio">Ninguém encontrado com esse nome.</div>')
+    return
+  }
+  for (const g of grupos) {
+    const cx = document.createElement('div')
+    cx.className = 'usr-grupo' + (g.semLotacao ? ' grupo-sem' : '')
+    cx.innerHTML = `
+      <div class="usr-grupo-cab">
+        <span>${esc(g.rotulo)} · ${g.quantos}</span>
+        ${g.semLotacao ? '<span class="usr-preencher">preencher ›</span>' : ''}
+      </div>`
+    for (const p of g.pessoas) cx.appendChild(_criarLinhaPessoa(p, gaveta, currentEmail))
+    alvo.appendChild(cx)
+  }
+}
+
+/* ── USUÁRIOS (legacy L4609-4708, adaptado — ver comentário acima: a lista
+   de linhas ricas virou diretório agrupado por lotação) ── */
 async function loadAdminUsers() {
-  const res = await adFetch('profiles?order=created_at.asc&select=id,email,name,role,disabled,created_at,features,avatar_url,permissions,allowed_accounts,is_superadmin')
-  const users = await res.json(); if (!Array.isArray(users)) return
-  _usersCache = users // p/ o "duplicar permissões de outro usuário" no editor
-  const active = users.filter(u => !u.disabled), admins = active.filter(u => u.role === 'admin').length
+  // Times de venda virou seção de Usuários (Task 5): carrega junto, sem
+  // esperar — tem DOM e tratamento de erro próprios (loadAdminEquipes),
+  // então travar a lista de pessoas por causa dela seria pior que os dois
+  // carregarem em paralelo.
+  loadAdminEquipes()
+
+  const alvo = document.getElementById('admin-user-list')
+
+  // A lotação mora no cadastro de Colaboradores, não no login — uma verdade só.
+  // `organizacao` é o LOCAL (Sede Centro, Sede Village, Fábrica Conchal): o nome
+  // da coluna é histórico, o conteúdo é lugar.
+  //
+  // USE `sbClient`, NÃO o `sb()` desta tela: o `sb()` monta o cabeçalho com
+  // `estado.currentSession?.access_token || SUPABASE_ANON_KEY` — e, com a chave
+  // anônima, o PostgREST responde 200 com lista VAZIA para tabela que só abre
+  // para `authenticated`. Falha que se disfarça de "não tem nada". Foi
+  // exatamente isso que matou o botão "Puxar das vendedoras" em 05/08/2026
+  // (ver comentário de _vdPuxar). `acessos_pessoas` está nessa situação.
+  const [rp, rc] = await Promise.all([
+    // avatar_url e allowed_accounts entraram na Correção 1: sem eles a foto
+    // não desenha e o editor de permissões (openPermModal) recebe
+    // allowed_accounts undefined em vez do valor gravado. created_at entrou
+    // na Correção 2, pra mostrar "desde <data>" junto do e-mail.
+    sbClient.from('profiles').select('id,email,name,role,is_superadmin,permissions,disabled,avatar_url,allowed_accounts,created_at'),
+    sbClient.from('acessos_pessoas').select(
+      'profile_id,nome,setor_id,organizacao_id,marca_id,'
+      + 'acessos_setores(nome),acessos_organizacoes(nome),patrimonio_empresas(nome)'),
+  ])
+  if (rp.error || rc.error) {
+    // Erro NÃO vira lista vazia: dizer "não há usuários" quando a leitura falhou
+    // é a mentira mais cara desta tela.
+    alvo.innerHTML = '<div class="usr-vazio">Não consegui ler os usuários: '
+      + esc((rp.error || rc.error).message) + '</div>'
+    return
+  }
+  const perfis = rp.data || []
+  const pessoas = rc.data || []
+  _usersCache = perfis // p/ o "duplicar permissões de outro usuário" no editor
+
+  const active = perfis.filter(u => !u.disabled), admins = active.filter(u => u.role === 'admin').length
   const stats = document.getElementById('admin-stats-users'); stats.replaceChildren()
-  ;[[users.length, 'Total'], [admins, 'Admins'], [active.length - admins, 'Viewers'], [users.filter(u => u.disabled).length, 'Inativos']].forEach(([v, l]) => {
+  ;[[perfis.length, 'Total'], [admins, 'Admins'], [active.length - admins, 'Viewers'], [perfis.filter(u => u.disabled).length, 'Inativos']].forEach(([v, l]) => {
     const s = mkEl('div', 'admin-stat'); s.appendChild(mkEl('div', 'admin-stat-val', String(v))); s.appendChild(mkEl('div', 'admin-stat-lbl', l)); stats.appendChild(s)
   })
-  const list = document.getElementById('admin-user-list'); list.replaceChildren()
-  const currentEmail = estado.user?.email || ''
-  users.forEach(u => {
-    const isSelf = u.email === currentEmail
-    const isSuperAdmin = !!u.is_superadmin
-    const canEdit = !isSuperAdmin || estado.is_superadmin // super-admin só é editável por outro super-admin
-    const row = mkEl('div', 'sr'); row.style.cssText = 'justify-content:space-between;flex-wrap:wrap;gap:8px'; if (u.disabled) row.style.opacity = '.5'
-    const avWrap = mkEl('div', 'av-wrap'); avWrap.style.cssText = 'width:34px;height:34px;'
-    const av = mkEl('div'); av.style.cssText = 'width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);overflow:hidden;position:relative;'
-    av.style.background = u.role === 'admin' ? 'var(--accent)' : 'var(--surface2)'
-    if (u.avatar_url) { const img = mkEl('img', 'av-img'); img.src = u.avatar_url + '?t=' + Date.now(); img.alt = ''; av.appendChild(img) }
-    else { const avTxt = mkEl('span'); avTxt.style.cssText = 'font-family:var(--fonte-principal);font-size:14px;font-weight:600'; avTxt.style.color = u.role === 'admin' ? '#fff' : 'var(--muted)'; avTxt.textContent = (u.name || u.email).charAt(0).toUpperCase(); av.appendChild(avTxt) }
-    const avEditBtn = mkEl('button', 'av-edit-btn'); avEditBtn.title = 'Trocar foto'; avEditBtn.innerHTML = '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'
-    avEditBtn.addEventListener('click', () => _triggerAvatarUpload(u.id, (url) => {
-      av.innerHTML = ''; const img = mkEl('img', 'av-img'); img.src = url + '?t=' + Date.now(); img.alt = ''; av.appendChild(img)
-      // _setGubAvatar (botão de usuário global) ainda não existe no app Vue —
-      // o typeof evita o ReferenceError que fazia aparecer um toast de erro falso
-      // mesmo com o upload OK. Volta a funcionar sozinho se o botão global for portado.
-      if (u.id === estado.userId && typeof _setGubAvatar === 'function') _setGubAvatar(url)
-      adminToast('Foto atualizada!')
-    }))
-    avWrap.appendChild(av); avWrap.appendChild(avEditBtn)
-    const main = mkEl('div', 'sr-main'); main.style.marginLeft = '10px'
-    const nameWrap = mkEl('div'); nameWrap.style.cssText = 'display:flex;align-items:center;gap:6px'
-    const nameInp = mkEl('input'); nameInp.value = u.name || ''; nameInp.placeholder = 'Nome'
-    nameInp.style.cssText = 'font-family:var(--fonte-principal);font-size:13px;font-weight:500;color:var(--text);background:transparent;border:none;border-bottom:1px solid transparent;outline:none;width:140px;padding:1px 0;transition:border-color .15s'
-    nameInp.addEventListener('focus', () => nameInp.style.borderBottomColor = 'var(--accent)')
-    nameInp.addEventListener('blur', async () => { nameInp.style.borderBottomColor = 'transparent'; if (nameInp.value.trim() === (u.name || '')) return; await adFetch('profiles?id=eq.' + u.id, { method: 'PATCH', body: JSON.stringify({ name: nameInp.value.trim() }) }); adminToast('Nome atualizado') })
-    nameWrap.appendChild(nameInp)
-    if (isSelf) { const you = mkEl('span'); you.textContent = 'Você'; you.style.cssText = 'font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--accent);background:var(--accent-light);padding:2px 6px;border-radius:3px'; nameWrap.appendChild(you) }
-    if (isSuperAdmin) { const sa = mkEl('span'); sa.textContent = 'SUPERADMIN'; sa.style.cssText = 'font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#fff;background:#7c3aed;padding:2px 6px;border-radius:3px'; nameWrap.appendChild(sa) }
-    main.appendChild(nameWrap)
-    const emailTxt = mkEl('div', 'sr-sub', u.email)
-    const dateTxt = mkEl('span'); dateTxt.style.cssText = 'font-size:10px;color:rgba(10,10,18,.3);margin-left:8px'
-    dateTxt.textContent = u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : ''
-    emailTxt.appendChild(dateTxt); main.appendChild(emailTxt)
-    const ctrl = mkEl('div'); ctrl.style.cssText = 'display:flex;align-items:center;gap:8px;flex-shrink:0'
-    const sel = mkEl('select', 'admin-form-input'); sel.style.cssText = 'max-width:120px;font-size:11px;padding:4px 6px'
-    ;[{ v: 'viewer', l: 'Viewer' }, { v: 'admin', l: 'Admin' }].forEach(({ v, l }) => { const o = mkEl('option'); o.value = v; o.textContent = l; if (u.role === v) o.selected = true; sel.appendChild(o) })
-    if (!isSelf && canEdit) sel.addEventListener('change', async () => { await adFetch('profiles?id=eq.' + u.id, { method: 'PATCH', body: JSON.stringify({ role: sel.value }) }); adminToast('Role atualizado'); setTimeout(loadAdminUsers, 800) })
-    else sel.disabled = true
-    ctrl.appendChild(sel)
-    // Trocar senha (só superadmin) — pode resetar a senha de QUALQUER usuário que esqueceu a dele.
-    if (estado.is_superadmin) {
-      const pwBtn = mkEl('button', 'sr-btn'); pwBtn.textContent = 'Trocar senha'; pwBtn.title = 'Definir uma nova senha para este usuário'
-      pwBtn.addEventListener('click', () => _abrirTrocaSenha(u, row))
-      ctrl.appendChild(pwBtn)
+
+  const porPerfil = {}
+  for (const p of pessoas) if (p.profile_id) porPerfil[p.profile_id] = p
+  const linhas = perfis.map((u) => {
+    const c = porPerfil[u.id]
+    return {
+      id: u.id, nome: c?.nome || u.name || u.email, email: u.email,
+      papel: u.is_superadmin ? 'super' : (u.role || 'viewer'),
+      marca: c?.patrimonio_empresas?.nome || null,
+      local: c?.acessos_organizacoes?.nome || null,
+      setor: c?.acessos_setores?.nome || null,
+      temCadastro: !!c, bruto: u,
     }
-    // O botão "Permissões" some na PRÓPRIA linha (trava contra autopromoção, e
-    // ela fica) — mas isso também trancava as próprias NOTIFICAÇÕES, que não são
-    // privilégio nenhum: é escolher o que chega no seu celular. Sem este botão o
-    // dono tentou ligar o próprio aviso e acabou gravando na linha de outro
-    // usuário (2026-07-29). Aqui abre SÓ o bloco de notificações.
-    if (isSelf) {
-      const notifBtn = mkEl('button', 'sr-btn'); notifBtn.textContent = 'Minhas notificações'
-      notifBtn.addEventListener('click', () => _abrirMinhasNotificacoes(u))
-      ctrl.appendChild(notifBtn)
-    }
-    if (!isSelf && canEdit) {
-      const permBtn = mkEl('button', 'sr-btn'); permBtn.textContent = 'Permissões'
-      permBtn.addEventListener('click', () => openPermModal(u))
-      ctrl.appendChild(permBtn)
-      const disBtn = mkEl('button', 'sr-btn ' + (u.disabled ? '' : 'danger')); disBtn.textContent = u.disabled ? 'Ativar' : 'Desativar'
-      disBtn.addEventListener('click', async () => { await adFetch('profiles?id=eq.' + u.id, { method: 'PATCH', body: JSON.stringify({ disabled: !u.disabled }) }); adminToast(u.disabled ? 'Usuário ativado' : 'Usuário desativado'); setTimeout(loadAdminUsers, 600) })
-      ctrl.appendChild(disBtn)
-      // SENSITIVE MUTATION — exclui usuário DE VERDADE (edge function
-      // invite-user com {deleteUserId}). Único confirm() do módulo Admin,
-      // preservado com a MESMA mensagem/lugar do legado.
-      const delBtn = mkEl('button', 'sr-btn danger'); delBtn.textContent = 'Excluir'
-      delBtn.addEventListener('click', async () => {
-        if (!confirm(`Excluir definitivamente "${u.name || u.email}"?\n\nRemove o acesso e o perfil. Esta ação NÃO pode ser desfeita.`)) return
-        delBtn.disabled = true; delBtn.textContent = 'Excluindo…'
-        try {
-          const { data: { session: s } } = await sbClient.auth.getSession()
-          const tok = s?.access_token || SUPABASE_ANON_KEY
-          const r = await fetch(`${SUPABASE_URL}/functions/v1/invite-user`, { method: 'POST', headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ deleteUserId: u.id }) })
-          const res = await r.json()
-          if (res.error) throw new Error(res.error)
-          adminToast('Usuário excluído')
-          setTimeout(loadAdminUsers, 600)
-        } catch (e) {
-          alert('Erro ao excluir: ' + (e.message || e))
-          delBtn.disabled = false; delBtn.textContent = 'Excluir'
-        }
-      })
-      ctrl.appendChild(delBtn)
-    }
-    row.appendChild(avWrap); row.appendChild(main); row.appendChild(ctrl); list.appendChild(row)
   })
+
+  // A barra (seletor + busca) só é reconstruída quando a gaveta muda — trocar
+  // gaveta é clique deliberado, então recriar o campo de busca ali não perde
+  // nada. Já a cada tecla digitada só os GRUPOS são redesenhados: recriar o
+  // <input> de busca a cada tecla derrubaria o foco/cursor no meio da digitação.
+  const currentEmail = estado.user?.email || '' // quem sou eu, pra "Você" e pra travar autopromoção
+  let gaveta = _gavetaEscolhida()
+  let termo = ''
+  const grupos = document.createElement('div')
+
+  function _redesenharGrupos() {
+    grupos.innerHTML = ''
+    _desenharGrupos(grupos, _filtrar(linhas, termo), gaveta, currentEmail)
+  }
+
+  function _redesenharTudo() {
+    alvo.innerHTML = ''
+    _desenharSeletor(alvo, gaveta, (nova) => { gaveta = nova; _redesenharTudo() })
+    const busca = mkEl('input', 'admin-form-input usr-busca')
+    busca.type = 'search'
+    busca.placeholder = 'Buscar por nome ou email…'
+    busca.value = termo
+    busca.addEventListener('input', () => { termo = busca.value; _redesenharGrupos() })
+    alvo.appendChild(busca)
+    alvo.appendChild(grupos)
+    _redesenharGrupos()
+  }
+  _redesenharTudo()
 }
 
 // Mini-form de troca de senha (só superadmin). Abre inline na linha do usuário; digita OU gera.
@@ -1815,6 +2136,9 @@ Object.assign(window, {
 .tela-admin :deep(.admin-section.active){display:block;}
 .tela-admin :deep(.admin-section-title){font-family:var(--fonte-principal);font-size:22px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);margin-bottom:3px;}
 .tela-admin :deep(.admin-section-sub){font-family:var(--fonte-principal);font-size:12px;color:var(--muted);margin-bottom:28px;}
+/* Faixa de aviso da Saúde dos dados, montada em updateSaudeBadge() (Task 5) —
+   substitui a bolinha vermelha que morava no item da barra que não existe mais. */
+.tela-admin :deep(.saude-faixa){background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:10px;padding:10px 12px;font-size:12px;margin-bottom:14px;}
 .tela-admin :deep(.admin-stats){display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:24px;}
 .tela-admin :deep(.admin-stat){background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;text-align:center;}
 .tela-admin :deep(.admin-stat-val){font-family:var(--fonte-dados);font-size:30px;font-weight:500;color:var(--accent);}
@@ -1912,7 +2236,7 @@ Object.assign(window, {
 
 .tela-admin :deep(.perm-card){border:1px solid var(--border);border-radius:7px;background:var(--surface);overflow:hidden;margin-bottom:10px;}
 .tela-admin :deep(.perm-card-hdr){display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border-bottom:1px solid var(--border);}
-.tela-admin :deep(.perm-card-titulo){font-family:var(--fonte-principal);font-size:12px;font-weight:700;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tela-admin :deep(.perm-card-titulo){font-family:var(--fonte-principal);font-size:12px;font-weight:700;color:var(--text);flex:1;min-width:0;overflow-wrap:anywhere;}
 .tela-admin :deep(.perm-card-contagem){font-family:var(--fonte-principal);font-size:10px;color:var(--muted);flex-shrink:0;font-variant-numeric:tabular-nums;}
 /* NOTIFICAÇÃO NÃO É COLUNA DA MATRIZ. A matriz é recurso × ação (ver, editar,
    criar...) e vale pra toda ferramenta; "quer receber aviso no celular" não é
@@ -1929,27 +2253,61 @@ Object.assign(window, {
 .tela-admin :deep(.perm-notif-des){font-family:var(--fonte-principal);font-size:11px;color:var(--muted);line-height:1.45;}
 .tela-admin :deep(.perm-notif-nota){font-family:var(--fonte-principal);font-size:10.5px;color:var(--muted);padding:2px 12px 8px;font-style:italic;}
 
-/* A rolagem horizontal vive DENTRO do card: no celular a grade desliza aqui e
-   o modal nunca ganha barra horizontal. */
-.tela-admin :deep(.perm-grade-scroll){overflow-x:auto;}
-.tela-admin :deep(.perm-grade){min-width:415px;}
+/* A escada de níveis: uma linha por recurso, o nome ocupando a linha inteira
+   (nunca corta) e os degraus quebrando linha por baixo — sem coluna fixa,
+   porque não é mais matriz. Nome grande o bastante pra caber no dedo, no
+   celular e no desktop igual. */
+.tela-admin :deep(.perm-nivel){padding:10px 12px;border-bottom:1px solid var(--border);}
+.tela-admin :deep(.perm-nivel-nome){font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:7px;}
+.tela-admin :deep(.perm-nivel-botoes){display:flex;flex-wrap:wrap;gap:6px;}
+.tela-admin :deep(.perm-degrau){border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:99px;padding:7px 12px;font-size:11.5px;min-height:32px;cursor:pointer;font-family:var(--fonte-principal);}
+.tela-admin :deep(.perm-degrau.escolhido){background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+/* Conjunto fora da escada: mostra o que está gravado sem aproximar de degrau
+   nenhum — aproximar mudaria acesso que ninguém pediu. */
+.tela-admin :deep(.perm-nivel-aviso){margin-top:7px;font-size:11px;color:var(--orange,#d97706);}
 
-/* O alinhamento das colunas depende deste template ser IDÊNTICO no cabeçalho e
-   em toda linha — é o conserto do "ver" que caía num x diferente por linha.
-   As colunas têm 57px porque "EXPORTAR" em maiúsculas com letter-spacing não cabe
-   em menos: com 42px os cabeçalhos EXCLUIR e EXPORTAR transbordavam e se colavam
-   ("EXCLUIREXPORTAR"). Mexeu na fonte do cabeçalho? Confira a largura de novo. */
-.tela-admin :deep(.perm-linha){display:grid;grid-template-columns:minmax(130px,1fr) repeat(5,57px);align-items:center;padding:0 12px;border-bottom:1px solid var(--border);}
-.tela-admin :deep(.perm-linha:last-child){border-bottom:none;}
-.tela-admin :deep(.perm-linha:not(.perm-linha-cab):hover){background:var(--surface2);}
-.tela-admin :deep(.perm-linha-cab){border-bottom:1px solid var(--border);background:transparent;}
-.tela-admin :deep(.perm-cab-acao){font-family:var(--fonte-principal);font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:700;text-align:center;padding:6px 0;}
-.tela-admin :deep(.perm-linha-nome){font-family:var(--fonte-principal);font-size:12px;color:var(--text);padding:7px 8px 7px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.tela-admin :deep(.perm-cel){display:flex;align-items:center;justify-content:center;padding:7px 0;cursor:pointer;}
-.tela-admin :deep(.perm-cel input){cursor:pointer;margin:0;}
-/* Célula vazia = recurso não tem essa ação. Ocupa a coluna (segura o
-   alinhamento) sem fingir que é um checkbox desmarcado. */
-.tela-admin :deep(.perm-cel-vazia){color:var(--border);cursor:default;font-size:11px;user-select:none;}
+/* Diretório de pessoas por marca/local/setor (Task 6): um cartão por gaveta,
+   uma coluna, sem tabela — nome nunca corta (overflow-wrap, não ellipsis). */
+.tela-admin :deep(.usr-grupo){border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:10px;}
+.tela-admin :deep(.usr-grupo.grupo-sem){background:#fffbeb;border-color:#fde68a;}
+/* Correção 2: overflow-wrap também no cabeçalho do grupo — nenhum título
+   pode cortar, nem o de gaveta (ex.: nome de setor comprido). */
+.tela-admin :deep(.usr-grupo-cab){display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:700;font-size:12px;letter-spacing:.5px;overflow-wrap:anywhere;}
+/* Correção 1: a linha virou um cartão de DUAS fileiras — topo (avatar+nome+
+   papel) e ações (embaixo, quebra livre). Antes `.usr-linha` era só a
+   fileira do topo (display:flex direto); agora é a coluna que segura as
+   duas, e `.usr-linha-topo` herdou o que era do `.usr-linha` antigo. */
+.tela-admin :deep(.usr-linha){display:flex;flex-direction:column;gap:8px;padding:10px 0;border-top:1px solid var(--border);}
+.tela-admin :deep(.usr-linha-topo){display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+.tela-admin :deep(.usr-linha-info){display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;}
+.tela-admin :deep(.usr-nome-wrap){display:flex;align-items:center;flex-wrap:wrap;gap:6px;}
+.tela-admin :deep(.usr-nome){font-weight:600;font-size:13px;overflow-wrap:anywhere;}
+.tela-admin :deep(.usr-sub){font-size:11px;color:var(--muted);overflow-wrap:anywhere;}
+/* Correção 2: e-mail + "desde <data>" — terceira linha discreta, mesmo
+   tratamento visual do subtítulo de lotação. E-mail comprido quebra, nunca
+   corta (overflow-wrap, sem ellipsis). */
+.tela-admin :deep(.usr-contato){font-size:11px;color:var(--muted);overflow-wrap:anywhere;}
+.tela-admin :deep(.usr-alerta){color:var(--orange,#d97706);}
+.tela-admin :deep(.usr-badge){font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--accent);background:var(--accent-light);padding:2px 6px;border-radius:3px;flex-shrink:0;}
+.tela-admin :deep(.usr-badge-super){color:#fff;background:#7c3aed;}
+.tela-admin :deep(.usr-papel){font-size:10px;border:1px solid var(--border);color:var(--muted);border-radius:99px;padding:2px 8px;white-space:nowrap;flex-shrink:0;}
+.tela-admin :deep(.usr-papel.papel-super),.tela-admin :deep(.usr-papel.papel-admin){background:var(--accent);border-color:var(--accent);color:#fff;}
+/* Ações restauradas (Correção 1): permissões/papel/senha/desativar/excluir/
+   avatar. `flex-wrap` deixa os botões quebrarem pra uma nova linha DENTRO do
+   mesmo cartão quando não cabem ao lado — nunca estouram a largura no
+   celular. min-height:40px é o alvo de toque mínimo pedido na correção
+   (o `.sr-btn` global só tem padding:5px 12px, insuficiente sozinho). */
+.tela-admin :deep(.usr-acoes){display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+.tela-admin :deep(.usr-acoes .sr-btn),.tela-admin :deep(.usr-acoes select){min-height:40px;box-sizing:border-box;}
+.tela-admin :deep(.usr-acao-select){max-width:130px;font-size:12px;padding:6px 8px;}
+.tela-admin :deep(.usr-gavetas){display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:14px 0 8px;}
+.tela-admin :deep(.usr-gavetas-rot){font-size:11px;color:var(--muted);}
+.tela-admin :deep(.usr-preencher){font-size:11px;color:var(--orange,#d97706);cursor:pointer;}
+.tela-admin :deep(.usr-vazio){color:var(--muted);font-size:12px;padding:14px 2px;}
+/* A busca não está no brief original — foi preciso desenhar o campo pra
+   `_filtrar` ter onde ler o termo. `admin-form-input` já dá o visual padrão
+   (width:100%); aqui só limita a largura no desktop. */
+.tela-admin :deep(.usr-busca){max-width:280px;margin-bottom:10px;}
 
 @media (max-width:640px){
   /* Topbar compacto no celular: menos padding, logo e e-mail do usuário somem
@@ -1958,9 +2316,64 @@ Object.assign(window, {
   .tela-admin :deep(.admin-topbar-title){font-size:12px;letter-spacing:1.5px;}
   .tela-admin :deep(.admin-topbar .rbv-logo){display:none;}
   .tela-admin :deep(#admin-topbar-user){display:none;}
-  .tela-admin :deep(.perm-linha){grid-template-columns:minmax(110px,1fr) repeat(5,38px);padding:0 8px;}
-  .tela-admin :deep(.perm-linha-nome){font-size:11px;}
   .tela-admin :deep(.perm-modal-body){padding:12px 14px;}
   .tela-admin :deep(.perm-card-hdr){padding:7px 8px;}
+
+  /* Task 7 — Medir e consertar o celular. Tudo daqui pra baixo é o que a
+     medição a 375px acusou (script no brief da tarefa): estouro=0 já fechava
+     sozinho, sobrou alvo de toque <40px e fonte <16px em input/select
+     (zoom automático do iOS ao focar). Nada de desktop foi tocado — os
+     seletores abaixo só valem dentro deste @media. */
+
+  /* 1) Campos de texto/seleção (.admin-form-input): 13px de fonte e ~37-39px
+     de altura. O !important é porque alguns nascem com font-size/padding
+     inline (desenhados em JS: o input de "trocar senha" por linha e o select
+     de "duplicar permissões de outro usuário") — sem ele, a cascata perderia
+     pro estilo inline e o celular continuaria dando zoom. */
+  .tela-admin :deep(.admin-form-input){font-size:16px!important;min-height:40px!important;box-sizing:border-box;}
+  /* .usr-acao-select (Viewer/Admin por pessoa) já tinha min-height:40px do
+     `.usr-acoes select` (correção anterior) — faltava só a fonte. */
+  .tela-admin :deep(.usr-acao-select){font-size:16px;}
+
+  /* 2) Botões padrão (.sr-btn): "Enviar convite"/"Criar com senha", rodapé
+     do modal (Cancelar/Salvar), "Aplicar" (duplicar permissões) e o miniform
+     de trocar senha por linha (Gerar/Salvar senha/Cancelar) tinham só
+     padding:5-8px — na prática 25-31px de altura. */
+  .tela-admin :deep(.sr-btn){min-height:40px;box-sizing:border-box;}
+
+  /* 3) Degraus (.perm-degrau): tanto o "Agrupar: Marca|Local|Setor" quanto os
+     graus dentro do modal (Sem acesso/Só ver/Ver e mexer/Tudo) herdavam os
+     32px do desktop. */
+  .tela-admin :deep(.perm-degrau){min-height:40px;box-sizing:border-box;padding:9px 14px;}
+
+  /* 4) Botões dos Times de venda ("Puxar das vendas", "+ Novo time",
+     "Editar", "Quem trabalha aqui (N)") são HTML cru com style inline (sem
+     classe própria) — os data-attributes que os identificam no JS servem de
+     gancho aqui; nenhum deles define altura inline, então não precisa de
+     !important. */
+  .tela-admin :deep([data-vd-puxar]),
+  .tela-admin :deep([data-eq-novo]),
+  .tela-admin :deep([data-eq-editar]),
+  .tela-admin :deep([data-eq-gente]){min-height:40px;box-sizing:border-box;display:inline-flex;align-items:center;}
+
+  /* 5) Checkboxes soltos (Super-admin, "Marcar tudo", "Tudo" de cada card,
+     "Todos os perfis", cada conta em "Perfis de rede social") usam o <label>
+     inteiro como alvo de toque — o quadradinho nativo sempre mede uns 13px
+     (é o checkbox do sistema, não dá pra crescer sem reinventá-lo do zero) e
+     por isso NÃO está na lista de seletores medidos pelo dono; o que importa
+     de verdade é o label. .perm-notif não precisava (já tem 67px pela
+     descrição de duas linhas) mas herdar o min-height não muda nada nele. */
+  .tela-admin :deep(.perm-modal-body label){min-height:40px;box-sizing:border-box;}
+
+  /* 6) .av-edit-btn ("trocar foto"): só aparecia no :hover do avatar — no
+     toque isso nunca dispara, então ficava para sempre invisível E
+     inalcançável (bug de sempre, não desta tarefa; aqui ele passa a
+     aparecer). NÃO foi levado a 40px de propósito: o avatar em si tem 32px,
+     e um selo de edição do mesmo tamanho (ou maior) cobriria a foto/inicial
+     da pessoa por baixo — pior que hoje. É ação secundária e rara (trocar
+     foto), então documentamos a exceção em vez de forçar uma tela pior só
+     pra fechar o número. */
+  .tela-admin :deep(.av-edit-btn){opacity:1;width:22px;height:22px;bottom:-4px;right:-4px;}
+  .tela-admin :deep(.av-edit-btn svg){width:11px;height:11px;}
 }
 </style>
