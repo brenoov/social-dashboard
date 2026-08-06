@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { abrirPossesQueFaltam } from '../src/ferramentas/frota/posse.js';
+import { abrirPossesQueFaltam } from '../supabase/functions/_shared/posse.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 for (const raw of readFileSync(join(__dirname, '.env'), 'utf8').split('\n')) {

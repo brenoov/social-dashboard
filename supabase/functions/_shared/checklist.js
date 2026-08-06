@@ -14,6 +14,8 @@
  * _shared. Um arquivo, dois consumidores, pra não haver duas verdades sobre
  * que dia pede o quê. */
 
+import { quemEstaComOCarro } from './posse.js';
+
 export const CADENCIAS = ['diario', 'semanal', 'mensal'];
 
 const num = (iso, de, ate) => Number(String(iso).slice(de, ate));
@@ -159,14 +161,22 @@ export function problemasDaFicha({ hodometro, ultimoKm, justificativa, respostas
  * cobrar (a ficha dele acontece quando alguém pega), e cobrar dele acusaria
  * todo dia um carro que ninguém usou — o quadro viraria ruído e ninguém
  * olharia mais.
+ *
+ * `usos` é OPCIONAL (D9b). Sem ele, o comportamento é IDÊNTICO ao de antes —
+ * o dono fixo é sempre quem responde. Com ele, quem está com o carro
+ * emprestado (posse aberta) é quem é cobrado, e não o dono no papel: enquanto
+ * o Marcus emprestou o carro pra Barbara, é a Barbara quem tem que preencher
+ * a ficha, não ele.
  */
-export function quemFaltaHoje({ veiculos, fichasDeHoje, pessoas }) {
+export function quemFaltaHoje({ veiculos, fichasDeHoje, pessoas, usos }) {
   const comFicha = new Set((fichasDeHoje || []).map((f) => f && f.veiculo_id));
   return (veiculos || [])
     .filter((v) => v && v.pessoa_id && v.situacao === 'ativo')
     .map((v) => {
-      const dono = (pessoas || []).find((p) => p && p.id === v.pessoa_id);
-      return { veiculo: v, donoId: v.pessoa_id, dono: dono ? dono.nome : null,
+      const quem = usos ? quemEstaComOCarro(v, usos) : null;
+      const donoId = (quem && quem.pessoaId) || v.pessoa_id;
+      const dono = (pessoas || []).find((p) => p && p.id === donoId);
+      return { veiculo: v, donoId, dono: dono ? dono.nome : null,
         fez: comFicha.has(v.id) };
     })
     .sort((a, b) => (a.fez === b.fez

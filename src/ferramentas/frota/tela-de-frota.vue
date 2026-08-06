@@ -16,7 +16,11 @@ import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { estadoDoVeiculo, resumoDoEstado, ordenarEstados, rotuloDoTanque, NIVEIS_TANQUE, problemasDaDevolucao, ultimoHodometro } from './estado-do-veiculo.js'
 import { AREAS, areasVisiveis, areaInicial, painelDoMotorista, resumoDoMotorista } from './areas-da-frota.js'
-import { passarPara, posseAberta, abrirPossesQueFaltam } from './posse.js'
+// Mora em supabase/functions/_shared, não em src/, como checklist.js: a Edge
+// Function do robô da manhã (Tarefa 12) roda em Deno e precisa da mesma regra
+// de "quem está com o carro" — ela não alcança src/, só o front alcança o
+// _shared.
+import { passarPara, quemEstaComOCarro, trocarDonoFixo } from '../../../supabase/functions/_shared/posse.js'
 import {
   SITUACOES, problemasDaRequisicao, bloqueios, podeDecidir, motivoEmPortugues,
   ordenarFila, quando,
@@ -59,9 +63,16 @@ const fichas = ref([])
 const hoje = computed(() =>
   new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10))
 
-// O carro fixo desta pessoa: é o que ela vai conferir hoje.
-const meuCarroFixo = computed(() =>
-  veiculos.value.find((v) => v.pessoa_id && v.pessoa_id === euId.value) || null)
+// O carro desta pessoa HOJE: é o que ela vai conferir. D9b — a posse aberta
+// vence o dono fixo, senão o botão "Passar o carro" gravava uma troca que
+// nenhuma tela lia: Marcus continuava vendo "Seu carro" depois de emprestar
+// pra Barbara, e ela não via o carro em lugar nenhum. `euId.value` checado
+// antes: sem ele os dois lados da comparação virariam `null` e qualquer
+// carro de rodízio (sem dono nem posse) passaria como "meu" por acidente.
+const meuCarroFixo = computed(() => {
+  if (!euId.value) return null
+  return veiculos.value.find((v) => quemEstaComOCarro(v, usos.value).pessoaId === euId.value) || null
+})
 
 const fichaDeHoje = computed(() => !meuCarroFixo.value ? null
   : fichas.value.find((f) => f.veiculo_id === meuCarroFixo.value.id && f.feita_em === hoje.value) || null)
@@ -78,8 +89,11 @@ const ultimaDoTipo = (veiculoId, cadencia) => {
 // conferiu hoje. Só as fichas de HOJE entram na conta — uma de ontem não conta
 // como feita, senão o quadro ficaria em dia por engano o dia inteiro.
 const fichasDeHoje = computed(() => fichas.value.filter((f) => f.feita_em === hoje.value))
+// `usos` entra aqui (D9b): enquanto o carro está emprestado, quem cobra é
+// quem está com ele, não o dono no papel — Marcus não é cobrado enquanto a
+// Barbara está com o Volvo, ela é.
 const cobranca = computed(() => quemFaltaHoje({
-  veiculos: veiculos.value, fichasDeHoje: fichasDeHoje.value, pessoas: pessoas.value }))
+  veiculos: veiculos.value, fichasDeHoje: fichasDeHoje.value, pessoas: pessoas.value, usos: usos.value }))
 
 function voltar() { router.push({ name: 'gestao-interna' }) }
 
@@ -134,12 +148,17 @@ async function carregar() {
 
 const nomeDaPessoa = (id) => (pessoas.value.find((x) => x.id === id) || {}).nome || null
 
+// `pessoa_nome` aqui é quem está com o carro DE FATO (D9b), não sempre o
+// dono no papel: se há posse aberta (emprestado), o nome é de quem pegou;
+// senão cai no dono fixo, do jeito que já era. estadoDoVeiculo() usa este
+// campo pra "Com quem" quando não há viagem aberta (posse não conta como
+// viagem, de propósito — ver usoAberto() em estado-do-veiculo.js).
 const linhas = computed(() => ordenarEstados(
-  veiculos.value.map((v) => estadoDoVeiculo(
-    { ...v, pessoa_nome: nomeDaPessoa(v.pessoa_id) },
-    usos.value,
-    fichas.value,
-  )),
+  veiculos.value.map((v) => {
+    const dono = { ...v, pessoa_nome: nomeDaPessoa(v.pessoa_id) }
+    const quem = quemEstaComOCarro(dono, usos.value)
+    return estadoDoVeiculo({ ...dono, pessoa_nome: quem.pessoaNome }, usos.value, fichas.value)
+  }),
 ))
 
 const naRua = computed(() => linhas.value.filter((l) => l.naRua).length)
@@ -602,16 +621,27 @@ async function salvarVeiculo() {
   dados.seguro_valor_centavos = centavosDe(vForm.seguroValor)
   dados.atualizado_em = new Date().toISOString()
 
-  // Tirar o dono fixo do carro (pessoa_id vira nulo) NÃO PODE deixar uma posse
-  // aberta órfã: `disponivel` (estado-do-veiculo.js) depende só de pessoa_id,
-  // não do uso aberto, então um carro sem dono e com posse aberta apareceria
-  // livre pra qualquer um pegar mesmo estando com alguém. Fechar a posse junto
-  // com a troca é o que impede esse estado de existir.
-  const posseOrfa = !dados.pessoa_id ? posseAberta(usos.value, veiculoAberto.value.id) : null
+  // Trocar o dono fixo NÃO é emprestar (D9c): três casos, cobertos por
+  // trocarDonoFixo() em posse.js — carro na mão do dono muda de posse junto;
+  // carro emprestado a um terceiro não mexe (mexer diria que o novo dono
+  // esteve com o carro num dia em que nunca o viu); e tirar o dono fixo fecha
+  // a posse aberta sem abrir outra, pra nunca deixar uma posse órfã — a
+  // mesma invariante que o gatilho `trg_frota_fechar_posse_orfa` no banco
+  // também garante (migration 029), pra cobrir os caminhos de escrita que não
+  // passam por esta tela.
+  const { fechar: fecharPosse, abrir: abrirPosse } = trocarDonoFixo({
+    usos: usos.value, veiculoId: veiculoAberto.value.id,
+    deId: veiculoAberto.value.pessoa_id || null, paraId: dados.pessoa_id || null,
+    paraNome: dados.pessoa_id ? nomeDaPessoa(dados.pessoa_id) : null,
+    quando: dados.atualizado_em,
+  })
 
   const { error } = await sbClient.from('frota_veiculos').update(dados).eq('id', veiculoAberto.value.id)
-  if (!error && posseOrfa) {
-    await sbClient.from('frota_uso').update({ volta_em: dados.atualizado_em }).eq('id', posseOrfa.id)
+  if (!error && fecharPosse) {
+    await sbClient.from('frota_uso').update({ volta_em: fecharPosse.volta_em }).eq('id', fecharPosse.id)
+  }
+  if (!error && abrirPosse) {
+    await sbClient.from('frota_uso').insert(abrirPosse)
   }
   gravando.value = false
   if (error) {

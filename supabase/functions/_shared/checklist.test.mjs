@@ -263,6 +263,32 @@ test('dono que saiu do cadastro não quebra a linha — o carro continua cobrado
   assert.equal(l[0].donoId, 'sumiu')
 })
 
+/* ── D9b: com `usos`, quem cobra é quem está com o carro, não o dono no papel ── */
+
+test('sem `usos`, o comportamento é idêntico ao de antes — o dono fixo sempre', () => {
+  // Chamada como sempre foi chamada, sem o parâmetro novo — é o contrato que
+  // o parâmetro opcional promete às chamadas existentes.
+  const l = quemFaltaHoje({ veiculos: VEICULOS, fichasDeHoje: [], pessoas: PESSOAS })
+  const v1 = l.find((x) => x.veiculo.id === 'v1')
+  assert.equal(v1.donoId, 'p1')
+  assert.equal(v1.dono, 'Humberto Mendonça')
+})
+
+test('com `usos`, o carro emprestado cobra de quem está com ele — não do dono fixo', () => {
+  // Marcus emprestou o Volvo (v1, dono Humberto) para a Barbara. Enquanto
+  // durar, é a Barbara quem tem que preencher o checklist de hoje, não o
+  // Humberto — que nem está com o carro pra conferir o que quer que seja.
+  const usos = [{ id: 'u1', veiculo_id: 'v1', tipo: 'posse', pessoa_id: 'p4', pessoa_nome: 'Barbara Souza',
+    volta_em: null, saida_em: '2026-08-01T00:00:00Z' }]
+  const l = quemFaltaHoje({ veiculos: VEICULOS, fichasDeHoje: [], pessoas: [...PESSOAS, { id: 'p4', nome: 'Barbara Souza' }], usos })
+  const v1 = l.find((x) => x.veiculo.id === 'v1')
+  assert.equal(v1.donoId, 'p4')
+  assert.equal(v1.dono, 'Barbara Souza')
+  // O carro sem posse (v2, Marcus) continua cobrando do dono fixo dele.
+  const v2 = l.find((x) => x.veiculo.id === 'v2')
+  assert.equal(v2.donoId, 'p2')
+})
+
 test('dois carros sem checklist saem em ordem alfabética pelo nome, não pela ordem de entrada', () => {
   // Nomes de propósito ao contrário da ordem em que entram no array: se
   // alguém tirar o localeCompare do sort, este é o único teste que denuncia —
