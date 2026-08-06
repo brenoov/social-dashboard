@@ -18,11 +18,14 @@
     <!-- O SUBTITULO E CONTEUDO: diz de quem sao os numeros desta tela.
          Foi trocar isso por um titulo unico que fez a primeira versao
          desta barra ser revertida. -->
-    <barra-de-topo voltar="Vendas" titulo="Análise de Vendas" subtitulo="Inteligência RBV" @voltar="closeSalesAnalysis" />
-
-    <!-- FAIXA DE CONTROLES: periodo e filtros. Nao sao acoes pequenas —
-         sao uma tira larga que dentro da barra disputava espaco com o
-         titulo. Aqui tem a linha propria. -->
+    <barra-de-topo voltar="Vendas" titulo="Análise de Vendas" subtitulo="Inteligência RBV" @voltar="closeSalesAnalysis">
+    <!-- FAIXA DE CONTROLES DENTRO DA BARRA (2026-08-06, pedido do dono).
+         Antes era irmã da barra, numa faixa própria — e no computador isso
+         gastava ~80px de altura à toa. Agora entra pelo encaixe de ações, que
+         já resolve os dois tamanhos de tela sozinho: fica na linha 1 quando
+         cabe (computador) e desce em largura cheia quando não cabe (celular).
+         É a mesma faixa, no mesmo lugar visual do celular — muda só o desktop. -->
+    <template #acoes>
     <div class="gv-controles">
       <div class="gv-period-btns">
         <button class="gv-pbtn" data-period="today" onclick="saSelectPeriod('today')"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite;vertical-align:middle;flex-shrink:0;"></span>HOJE</button>
@@ -47,8 +50,11 @@
         <div class="gv-clock-date" id="sa-clock-date"></div>
         <div class="gv-update-status" id="sa-update-status">—</div>
       </div>
-    
+
     </div>
+    </template>
+    </barra-de-topo>
+
     <div id="sa-body"></div>
   </div>
 </template>
@@ -1359,6 +1365,10 @@ body.dev-tv .tela-analise-vendas :deep(.sa-pos-cell){font-size:16px;padding:6px 
 body.dev-tv .tela-analise-vendas :deep(.sa-pos-name){font-size:18px;padding:6px 13px;}
 body.dev-tv .tela-analise-vendas :deep(.sa-loading-lbl){font-size:16px;}
 /* FAIXA DE CONTROLES — ver o comentario no template. */
-.tela-analise-vendas :deep(.gv-controles){display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;padding:8px 24px;border-bottom:1px solid var(--border);background:var(--surface);}
-@media(max-width:640px){.tela-analise-vendas :deep(.gv-controles){padding:0;flex-direction:column;align-items:stretch;gap:0;}}
+/* A faixa agora mora DENTRO da barra. Quem dá fundo, borda de baixo e respiro
+   lateral é a barra — repetir aqui desenharia moldura dentro de moldura. */
+.tela-analise-vendas :deep(.gv-controles){display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;padding:0;background:transparent;}
+/* No celular ela desce em largura cheia (é o .bt-dir que decide isso) e aí sim
+   precisa do respiro próprio: era a margem que faltava nesta tela. */
+@media(max-width:640px){.tela-analise-vendas :deep(.gv-controles){padding:8px 12px;flex-direction:column;align-items:stretch;gap:8px;}}
 </style>

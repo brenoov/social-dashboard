@@ -1864,5 +1864,5 @@ body.dev-tv .tela-gestao-a-vista :deep(#gv-ac-toggle){font-size:21px;padding:8px
 }
 /* FAIXA DE CONTROLES — ver o comentario no template. */
 .tela-gestao-a-vista :deep(.gv-controles){display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;padding:8px 24px;border-bottom:1px solid var(--border);background:var(--surface);}
-@media(max-width:640px){.tela-gestao-a-vista :deep(.gv-controles){padding:0;flex-direction:column;align-items:stretch;gap:0;}}
+@media(max-width:640px){.tela-gestao-a-vista :deep(.gv-controles){padding:8px 12px;flex-direction:column;align-items:stretch;gap:8px;}}
 </style>
