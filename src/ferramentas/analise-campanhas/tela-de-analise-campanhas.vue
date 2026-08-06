@@ -1377,8 +1377,11 @@ Object.assign(window, {
 @media(max-width:640px){
   .tela-analise-campanhas :deep(.gv-topbar){padding:6px 10px;}
   .tela-analise-campanhas :deep(.gv-brand-tag){display:none;}
-  .tela-analise-campanhas :deep(.gv-period-btns){flex-wrap:wrap;gap:3px;}
-  .tela-analise-campanhas :deep(.gv-pbtn){font-size:9px;padding:3px 7px;border-radius:4px;}
+  /* Mesma correção da Análise de Vendas: era a outra tela que ainda quebrava a
+     régua em duas fileiras e encolhia o botão para 9px — herança do monólito.
+     Uma linha que rola, botão de 10px, como a Gestão de Tráfego. */
+  .tela-analise-campanhas :deep(.gv-period-btns){flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;gap:6px;padding-bottom:2px;}
+  .tela-analise-campanhas :deep(.gv-pbtn){font-size:10px;padding:5px 10px;border-radius:6px;flex-shrink:0;white-space:nowrap;}
   .tela-analise-campanhas :deep(.gv-update-status){display:none;}
 }
 @media(max-width:480px){
