@@ -1329,6 +1329,30 @@ onUnmounted(() => {
      que a Gestão de Tráfego e a Redes Sociais já faziam, e que ele aprovou. */
   .tela-analise-vendas :deep(.gv-period-btns){flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;gap:6px;padding-bottom:2px;}
   .tela-analise-vendas :deep(.gv-pbtn){font-size:10px;padding:5px 10px;border-radius:6px;flex-shrink:0;white-space:nowrap;}
+
+  /* ── OS CARTÕES DE NÚMERO NO CELULAR ──────────────────────────────────────
+     Três defeitos medidos em 390px, que juntos davam o aspecto quebrado:
+
+     1. As linhas da grade tinham altura livre — 96, 65, 113 e 100px. Cada
+        dupla se alinhava entre si, mas o conjunto ficava irregular, com
+        cartões curtos esticados ao lado de cartões longos.
+        `grid-auto-rows:1fr` deixa todas as linhas com a mesma altura.
+
+     2. A linha de comparação ("-20.8% vs ant. (R$ -3.511,95)") tem 29
+        caracteres e cabiam ~28 num cartão de 174px a 11px. Faltava UM
+        caractere, e ela quebrava no meio do parêntese. A 10px cabe inteira —
+        e 10px é o mesmo tamanho do rótulo do cartão, que já era assim.
+
+     3. São SETE cartões em duas colunas: o último ficava sozinho numa linha
+        pela metade, parecendo esquecido. Agora ele ocupa a linha inteira,
+        o que lê como decisão em vez de sobra. */
+  .tela-analise-vendas :deep(.sa-kpis){grid-auto-rows:1fr;}
+  /* Medido: a 10px o texto pede 144px e o cartão oferecia 142. Faltavam DOIS
+     pixels. Em vez de encolher mais a letra, os 4px vêm do espaço interno
+     lateral (14px -> 12px), que ninguém percebe faltar. */
+  .tela-analise-vendas :deep(.sa-kpi){padding:12px 12px;}
+  .tela-analise-vendas :deep(.sa-kpi-delta){font-size:10px;line-height:1.35;}
+  .tela-analise-vendas :deep(.sa-kpi:last-child:nth-child(odd)){grid-column:1 / -1;}
 }
 /* ── RESPONSIVE: Análise de Vendas (legacy L619-621 — só a regra viva; as
    demais deste bloco miravam .sa-brand-nm/.sa-pbtn, classes mortas) ── */
