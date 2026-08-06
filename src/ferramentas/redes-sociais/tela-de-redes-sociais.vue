@@ -20,7 +20,13 @@
     <div class="wrapper">
 
       <!-- TOPBAR — sticky, primeira coisa visível -->
-      <barra-de-topo voltar="Central" titulo="Análise de Redes Sociais" subtitulo="Inteligência RBV" @voltar="fecharDashboard" />
+      <barra-de-topo voltar="Central" titulo="Análise de Redes Sociais" subtitulo="Inteligência RBV" @voltar="fecharDashboard">
+    <!-- FAIXA DE CONTROLES DENTRO DA BARRA (2026-08-06, pedido do dono).
+         Antes era irma da barra, numa faixa propria — e no computador isso
+         gastava ~80px de altura a toa. Agora entra pelo encaixe de acoes, que
+         ja resolve os dois tamanhos sozinho: fica na linha 1 quando cabe
+         (computador) e desce em largura cheia quando nao cabe (celular). -->
+    <template #acoes>
 
       <!-- FAIXA DE CONTROLES: periodo, datas e perfis. Tira larga que dentro da
            barra disputava espaco com o titulo. -->
@@ -52,6 +58,8 @@
              `if (el)`, então nada quebra por eles não existirem mais. -->
     
       </div>
+    </template>
+    </barra-de-topo>
 
       <!-- GUARDA DE FRESCOR: avisa quando os dados não são de hoje (coletor parado) -->
       <div id="freshness-banner" style="display:none;align-items:center;gap:8px;padding:9px 16px;background:#7f1d1d;color:#fff;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;letter-spacing:.3px;border-bottom:1px solid #991b1b;"></div>
@@ -178,6 +186,10 @@
             <div id="chart-data-labels"></div>
           </div>
           <div class="x-labels" id="chart-xlabels"></div>
+          <!-- Aviso dos dias ESTIMADOS. Só aparece quando existe dia estimado; fica
+               vazio (e sem ocupar espaço) no dia a dia normal. O texto técnico de
+               dentro é só para super-admin — ver montarNotaDeEstimativa(). -->
+          <div class="nota-estimativa" id="nota-estimativa" hidden></div>
         </div>
       </div>
 
@@ -947,11 +959,47 @@ function _animateChartLine(el, pts) {
   el.style.transition = 'stroke-dashoffset .9s cubic-bezier(.22,1,.36,1)'
   el.style.strokeDashoffset = '0'
 }
+// A nota embaixo do gráfico de novos seguidores por dia.
+//
+// DOIS PÚBLICOS, DE PROPÓSITO:
+//   • TODO MUNDO vê que as barras marcadas com ≈ são estimativa. Esconder isso de
+//     quem não é super-admin recriaria exatamente o defeito que estamos
+//     consertando — número calculado por nós passando por número do Instagram.
+//   • SÓ O SUPER-ADMIN vê a explicação técnica (desde quando, quantos dias, que a
+//     falta é da Meta). Para quem só usa o painel isso é ruído; para quem cuida
+//     do sistema é o aviso de que tem coisa parada.
+function montarNotaDeEstimativa(semPublicacao) {
+  const el = document.getElementById('nota-estimativa')
+  if (!el) return
+  const dias = semPublicacao || []
+  if (!dias.length) { el.hidden = true; el.innerHTML = ''; return }
+  // Só datas YYYY-MM-DD entram. Este texto vai por innerHTML e o rótulo do dia dá
+  // uma volta pela Edge Function antes de chegar aqui — nada que não seja data
+  // passa, e o resto do texto é fixo, escrito neste arquivo.
+  const soData = iso => (/^\d{4}-\d{2}-\d{2}$/.test(String(iso)) ? String(iso) : null)
+  const ordenados = dias.map(soData).filter(Boolean).sort()
+  if (!ordenados.length) { el.hidden = true; el.innerHTML = ''; return }
+  const fmt = iso => iso.slice(8, 10) + '/' + iso.slice(5, 7)
+  const desde = fmt(ordenados[0])
+  const plural = ordenados.length === 1 ? 'dia' : 'dias'
+  let html = `<span class="nota-est-marca">≈</span> <b>${ordenados.length} ${plural}</b> com número estimado pela variação do total de seguidores — o Instagram ainda não divulgou quantas pessoas seguiram e quantas saíram nesses dias. O saldo está certo; a divisão entre "seguiram" e "deixaram" é que não existe ainda.`
+  if (estado.is_superadmin) {
+    html += `<div class="nota-est-tec">🔧 O Instagram não publica <code>follows_and_unfollows</code> desde ${desde}. A coleta está rodando normalmente e a contagem total continua chegando — a falta é do lado da Meta. Se ela voltar a publicar em até 14 dias, o coletor preenche esses dias sozinho; passando disso, o número se perde.</div>`
+  }
+  el.innerHTML = html
+  el.hidden = false
+}
+
 function buildChart(chartData) {
   // BARRAS EMPILHADAS por dia: VERDE (seguiu) embaixo + VERMELHO (deixou) em cima; LÍQUIDO rotulado no topo.
   let { gained, lost, labels, dates } = chartData
   const prevSeguiu = chartData.prevSeguiu, prevDeixou = chartData.prevDeixou, prevDates = chartData.prevDates
   const netOnly = chartData.netOnly || [] // dias "líquidos" (hoje/ontem): barra única, só o nº líquido (sem seguiu/deixou dentro)
+  // Dias em que o Instagram NÃO publicou o número e a barra é ESTIMATIVA pela
+  // variação da contagem total. Vão desenhados diferente (vazados, com contorno
+  // tracejado) e o rótulo ganha "≈". Sem isso, estimativa e número real do
+  // Instagram ficam iguais na tela — que é o defeito de origem.
+  const estimado = chartData.estimado || []
   gained = (gained || []).slice(); lost = (lost || []).slice(); labels = (labels || []).slice(); dates = (dates || []).slice()
   if (gained.length === 0) { gained = [0]; lost = [0]; labels = labels.length ? labels : ['']; dates = dates.length ? dates : [''] }
   const n = gained.length
@@ -973,12 +1021,22 @@ function buildChart(chartData) {
   const bars = document.getElementById('chart-bars'); bars.textContent = ''
   const slot = (W - padX * 2) / Math.max(n, 1)
   const bw = Math.max(4, Math.min(slot * 0.6, 22))
-  const _rect = (x, y, h, fill, rTop) => { const r = document.createElementNS(NS, 'rect'); r.setAttribute('x', (x - bw / 2).toFixed(2)); r.setAttribute('y', y.toFixed(2)); r.setAttribute('width', bw.toFixed(2)); r.setAttribute('height', Math.max(0, h).toFixed(2)); r.setAttribute('rx', rTop ? '2' : '0'); r.setAttribute('fill', fill); bars.appendChild(r) }
+  const _rect = (x, y, h, fill, rTop, est) => {
+    const r = document.createElementNS(NS, 'rect')
+    r.setAttribute('x', (x - bw / 2).toFixed(2)); r.setAttribute('y', y.toFixed(2))
+    r.setAttribute('width', bw.toFixed(2)); r.setAttribute('height', Math.max(0, h).toFixed(2))
+    r.setAttribute('rx', rTop ? '2' : '0'); r.setAttribute('fill', fill)
+    if (est) { // estimativa: barra vazada com contorno tracejado, na mesma cor
+      r.setAttribute('fill-opacity', '0.28')
+      r.setAttribute('stroke', fill); r.setAttribute('stroke-width', '1'); r.setAttribute('stroke-dasharray', '2,1.5')
+    }
+    bars.appendChild(r)
+  }
   for (let i = 0; i < n; i++) {
-    const x = px(i), g = gained[i] || 0, l = lost[i] || 0
+    const x = px(i), g = gained[i] || 0, l = lost[i] || 0, est = !!estimado[i]
     const gh = hOf(g), lh = hOf(l)
-    if (g > 0) _rect(x, baseY - gh, gh, '#16a34a', l === 0) // verde (seguiu) embaixo
-    if (l > 0) _rect(x, baseY - gh - lh, lh, '#dc2626', true) // vermelho (deixou) em cima
+    if (g > 0) _rect(x, baseY - gh, gh, '#16a34a', l === 0, est) // verde (seguiu) embaixo
+    if (l > 0) _rect(x, baseY - gh - lh, lh, '#dc2626', true, est) // vermelho (deixou) em cima
   }
   // Rótulos HTML SOBREPOSTOS (não distorcem como o <text> do SVG esticado): números dentro + líquido no topo.
   const labelsG = document.getElementById('chart-data-labels'); labelsG.textContent = ''
@@ -992,7 +1050,11 @@ function buildChart(chartData) {
       if (l > 0 && lh >= 12) { const s = _lab(x, baseY - gh - lh / 2, String(l), 'cdl-in'); s.style.transform = 'translate(-50%, -50%)' }
     }
     const v = net[i], topY = baseY - hOf(totals[i])
-    const s = _lab(x, topY, (v > 0 ? '+' : '') + fmtN(v), 'cdl' + (n > 12 ? ' cdl-sm' : '') + (v > 0 ? ' cdl-up' : v < 0 ? ' cdl-down' : ''))
+    // "≈" na frente = este número é ESTIMATIVA (variação da contagem), não o
+    // número que o Instagram publicou. Um sinal, não um texto: cabe no gráfico
+    // apertado e o significado fica escrito por extenso na nota abaixo dele.
+    const marca = estimado[i] ? '≈' : ''
+    const s = _lab(x, topY, marca + (v > 0 ? '+' : '') + fmtN(v), 'cdl' + (n > 12 ? ' cdl-sm' : '') + (estimado[i] ? ' cdl-est' : '') + (v > 0 ? ' cdl-up' : v < 0 ? ' cdl-down' : ''))
     s.style.transform = 'translate(-50%, -118%)'
   }
   const xlWrap = document.getElementById('chart-xlabels'); xlWrap.textContent = ''
@@ -1758,6 +1820,7 @@ function update(d, period) {
     }
   }
   buildChart(d.chart)
+  montarNotaDeEstimativa(d.semPublicacao)
   // Comparação só quando confirmado (no período em consolidação o "anterior" do bruto distorceria).
   const cmpEl = document.getElementById('cmp-followers')
   // AO VIVO: compara total atual vs total do período ANTERIOR (exato, mesma janela). Senão, coletado.
@@ -2133,7 +2196,15 @@ async function refresh() {
       // BARRA LÍQUIDA no fim (só o nº líquido — a Meta ainda não fechou a quebra desses dias). MÊS PASS.
       // (mês fechado) e personalizado NÃO. Base: Hoje/1D = últimos 7 dias; demais = o próprio serie do intervalo.
       const baseSerie = (currentPeriod === 0 || currentPeriod === 1) ? ((await buscarSerieNovos(currentAccountId, 7, null, null)) || []) : (serie || [])
-      const { data: tots } = await sbClient.from('daily_snapshots').select('captured_at,followers_count').eq('account_id', currentAccountId).order('captured_at', { ascending: false }).limit(6)
+      // 100 dias de contagem total, e não 6.
+      //
+      // Os 6 davam só para hoje e ontem, que eram os únicos dias que caíam na
+      // barra líquida. Agora QUALQUER dia que o Instagram não tenha publicado vira
+      // estimativa pela variação da contagem — e um dia parado no meio do período
+      // (foi o que houve de 03 a 06/08/2026) precisa da contagem do dia anterior
+      // para ter de onde estimar. Com 6 dias ele ficaria sem base e voltaria a
+      // desenhar zero, que é justamente o defeito que estamos tirando.
+      const { data: tots } = await sbClient.from('daily_snapshots').select('captured_at,followers_count').eq('account_id', currentAccountId).order('captured_at', { ascending: false }).limit(100)
       if (myId !== _refreshId) return // trocou de período/perfil no meio → aborta este refresh
       const totMap = {}; (tots || []).forEach(t => { totMap[t.captured_at] = Number(t.followers_count) || 0 })
       const _brt = ms => new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
@@ -2144,14 +2215,45 @@ async function refresh() {
       const netHoje = (totMap[ontem] != null) ? (totHoje - totMap[ontem]) : 0
       // Guarda os líquidos AO VIVO (mesma fonte do gráfico) p/ o card usar — senão card (coletado) e gráfico (ao vivo) divergem.
       data.netRecente = { hoje: netHoje, ontem: netOntem }
-      const dias = [...baseSerie.map(s => ({ iso: s.label, g: s.seguiu, l: s.deixou, net: false })),
-        { iso: ontem, g: netOntem >= 0 ? netOntem : 0, l: netOntem < 0 ? -netOntem : 0, net: true },
-        { iso: hoje, g: netHoje >= 0 ? netHoje : 0, l: netHoje < 0 ? -netHoje : 0, net: true }]
+      // ── DIA QUE O INSTAGRAM NÃO PUBLICOU → ESTIMATIVA, não zero ──
+      //
+      // A Edge Function serie-novos-dia agora devolve `publicado: false` quando a
+      // Meta responde 200 sem número nenhum. Antes isso virava `seguiu:0, deixou:0`
+      // e o gráfico desenhava uma barra zerada idêntica à de um dia em que ninguém
+      // seguiu de verdade. Foi o que o dono viu de 03 a 06/08/2026, nos 7 perfis.
+      //
+      // No lugar do zero entra o líquido pela variação da contagem total — a mesma
+      // régua que hoje e ontem já usam. É estimativa e vai MARCADA como tal (não
+      // separa quem seguiu de quem saiu, só mostra o saldo).
+      const _diaAntes = iso => { const d = new Date(iso + 'T12:00:00-03:00'); d.setDate(d.getDate() - 1); return _brt(d.getTime()) }
+      const _netContagem = iso => {
+        const aqui = totMap[iso], antes = totMap[_diaAntes(iso)]
+        return (aqui != null && antes != null) ? (aqui - antes) : null
+      }
+      const semPublicacao = []
+      const diasBase = baseSerie.map(s => {
+        // `publicado === false` é a informação nova. O `=== false` é de propósito:
+        // série antiga (cache de 3 min, ou Edge ainda não deployada) vem SEM o
+        // campo, e aí `undefined` não deve virar estimativa — mantém o de antes.
+        const naoPublicado = s.publicado === false && s.label !== hoje && s.label !== ontem
+        if (!naoPublicado) return { iso: s.label, g: s.seguiu, l: s.deixou, net: false, est: false }
+        semPublicacao.push(s.label)
+        const n = _netContagem(s.label)
+        // Sem contagem para estimar (histórico curto): não inventa nada e continua
+        // marcado como estimado/sem dado, para não passar por número real.
+        if (n == null) return { iso: s.label, g: 0, l: 0, net: true, est: true }
+        return { iso: s.label, g: n >= 0 ? n : 0, l: n < 0 ? -n : 0, net: true, est: true }
+      })
+      const dias = [...diasBase,
+        { iso: ontem, g: netOntem >= 0 ? netOntem : 0, l: netOntem < 0 ? -netOntem : 0, net: true, est: false },
+        { iso: hoje, g: netHoje >= 0 ? netHoje : 0, l: netHoje < 0 ? -netHoje : 0, net: true, est: false }]
       data.chart = {
         gained: dias.map(d => d.g), lost: dias.map(d => d.l), netOnly: dias.map(d => d.net),
+        estimado: dias.map(d => !!d.est),
         labels: dias.map(d => _lbl(d.iso)), dates: dias.map(d => _dfull(d.iso)),
         prevSeguiu: null, prevDeixou: null, prevDates: null,
       }
+      data.semPublicacao = semPublicacao
     } else {
       const curto = serie.length <= 7
       data.chart = {
@@ -2703,6 +2805,17 @@ onUnmounted(() => {
 [data-theme="dark"] .tela-redes-sociais :deep(.cdl){color:rgba(226,228,240,0.78);}
 .tela-redes-sociais :deep(.cdl-in){position:absolute;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;line-height:1;color:#fff;white-space:nowrap;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.28);}
 .tela-redes-sociais :deep(.cdl-sm){font-size:10px;letter-spacing:0;}
+/* Rótulo de dia ESTIMADO: mais apagado que o número real, para a diferença entre
+   "o Instagram disse" e "nós calculamos" ser visível sem precisar ler nada. */
+.tela-redes-sociais :deep(.cdl-est){opacity:.62;font-style:italic;}
+/* Nota dos dias estimados, embaixo do gráfico. */
+.tela-redes-sociais :deep(.nota-estimativa){margin-top:8px;font-family:'IBM Plex Sans',sans-serif;font-size:10.5px;line-height:1.45;color:var(--muted);border-top:1px dashed var(--border);padding-top:7px;}
+.tela-redes-sociais :deep(.nota-est-marca){font-weight:800;color:var(--orange);font-size:12px;}
+/* Bloco técnico: só o super-admin recebe este pedaço no HTML (montarNotaDeEstimativa). */
+.tela-redes-sociais :deep(.nota-est-tec){margin-top:5px;padding:5px 8px;border-left:2px solid var(--orange);background:rgba(180,83,9,.06);border-radius:0 4px 4px 0;font-size:10px;color:var(--muted);}
+.tela-redes-sociais :deep(.nota-est-tec code){font-family:'IBM Plex Mono','SF Mono',monospace;font-size:9.5px;background:rgba(0,0,0,.06);padding:0 3px;border-radius:3px;}
+[data-theme="dark"] .tela-redes-sociais :deep(.nota-est-tec){background:rgba(251,146,60,.08);}
+[data-theme="dark"] .tela-redes-sociais :deep(.nota-est-tec code){background:rgba(255,255,255,.08);}
 .tela-redes-sociais :deep(.cdl-hi){transform:translate(-50%,calc(-100% - 22px));}
 .tela-redes-sociais :deep(.cdl-hi)::after{content:'';position:absolute;left:50%;top:100%;width:0;height:20px;border-left:1px dashed currentColor;opacity:.4;}
 .tela-redes-sociais :deep(.cdl-up){color:#16a34a;}
@@ -2956,6 +3069,6 @@ body.dev-tv .tela-redes-sociais :deep(.camp-filter-info){font-size:16px;}
 body.dev-tv .tela-redes-sociais :deep(.btn-campaign-filter){font-size:13px;}
 body.dev-tv .tela-redes-sociais :deep(.rbv-logo){height:72px;}
 /* FAIXA DE CONTROLES — ver o comentario no template. */
-.gv-controles{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;padding:8px 24px;border-bottom:1px solid var(--border);background:var(--surface);}
+.gv-controles{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;padding:0;background:transparent;}  /* mora DENTRO da barra: fundo, borda de baixo e respiro lateral sao dela */
 @media(max-width:640px){.gv-controles{padding:8px 12px;flex-direction:column;align-items:stretch;gap:8px;}}
 </style>

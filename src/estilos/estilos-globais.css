@@ -1585,6 +1585,22 @@ img{max-width:100%;}
   /* Botão de ícone não estica: tem uma letra só dentro, e esticar deixa um "?"
      solto no meio de um botão do tamanho de "Exportar". */
   .bt-dir > .bt-acao.so-icone{flex:0 0 auto;width:42px;}
+
+  /* ── A FAIXA DE CONTROLES DENTRO DA BARRA, NO CELULAR ──────────────────────
+     As 5 dashboards põem a faixa de período/filtros no encaixe de ações. No
+     celular a faixa vira coluna, e aí `min-width:auto` (o padrão de um item
+     flex) faz ela assumir a largura NATURAL do filho mais largo — a régua de
+     8 botões de período, que é uma linha só de ~495px. Resultado medido antes
+     desta regra: faixa de 519px dentro de uma barra de 362px, com "Funil",
+     "KPIs" e o seletor de conta cortados na borda direita E SEM ROLAGEM, ou
+     seja, inalcançáveis.
+     `min-width:0` é o que autoriza o item flex a encolher abaixo do conteúdo. */
+  .bt-dir > .gv-controles{min-width:0;max-width:100%;}
+  .bt-dir > .gv-controles > *{min-width:0;max-width:100%;}
+  /* A régua de período continua rolando de lado, como já rolava antes: são 8
+     períodos que não cabem em 390px de jeito nenhum, e empilhar em duas linhas
+     custaria mais altura do que a tela tem pra dar. */
+  .bt-dir .gv-period-btns{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;}
 }
 
 /* ── FAIXA RESERVADA DO AVATAR — TENTATIVA REVERTIDA, NÃO REFAZER ──────────

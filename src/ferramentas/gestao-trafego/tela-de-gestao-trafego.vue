@@ -22,7 +22,13 @@
     <!-- O SUBTITULO E CONTEUDO: diz de quem sao os numeros desta tela.
          Foi trocar isso por um titulo unico que fez a primeira versao
          desta barra ser revertida. -->
-    <barra-de-topo voltar="Meta Ads" titulo="Gestão de Tráfego" subtitulo="Meta Ads · Inteligência RBV" @voltar="closeGestaoTrafego" />
+    <barra-de-topo voltar="Meta Ads" titulo="Gestão de Tráfego" subtitulo="Meta Ads · Inteligência RBV" @voltar="closeGestaoTrafego">
+    <!-- FAIXA DE CONTROLES DENTRO DA BARRA (2026-08-06, pedido do dono).
+         Antes era irma da barra, numa faixa propria — e no computador isso
+         gastava ~80px de altura a toa. Agora entra pelo encaixe de acoes, que
+         ja resolve os dois tamanhos sozinho: fica na linha 1 quando cabe
+         (computador) e desce em largura cheia quando nao cabe (celular). -->
+    <template #acoes>
 
     <!-- FAIXA DE CONTROLES: periodo e filtros. Nao sao acoes pequenas —
          sao uma tira larga que dentro da barra disputava espaco com o
@@ -63,6 +69,8 @@
       </div>
     
     </div>
+    </template>
+    </barra-de-topo>
 
     <!-- Casca de abas: só mostra/esconde painel via _gtTrocarAba, nunca
          remonta a lista de campanhas (remontar chamaria a Meta de novo). -->
@@ -5711,6 +5719,6 @@ Object.assign(window, {
   .tela-gestao-trafego :deep(.gv-topbar-brand){gap:8px;}
 }
 /* FAIXA DE CONTROLES — ver o comentario no template. */
-.tela-gestao-trafego :deep(.gv-controles){display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;padding:8px 24px;border-bottom:1px solid var(--border);background:var(--surface);}
+.tela-gestao-trafego :deep(.gv-controles){display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;padding:0;background:transparent;}  /* mora DENTRO da barra: fundo, borda de baixo e respiro lateral sao dela */
 @media(max-width:640px){.tela-gestao-trafego :deep(.gv-controles){padding:8px 12px;flex-direction:column;align-items:stretch;gap:8px;}}
 </style>
