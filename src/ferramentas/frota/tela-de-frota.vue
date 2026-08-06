@@ -1559,9 +1559,12 @@ onMounted(async () => {
    `flex-wrap` no `li` é o que evita estourar a tela no celular — nome do
    carro comprido, dono e selo cabem em duas linhas em vez de rolar de lado. */
 .tela-frota .fr-cobranca{list-style:none;padding:0 14px;margin:0 0 20px;}
-.tela-frota .fr-cobranca li{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--borda, #eee);}
-.tela-frota .fr-cobranca-selo{margin-left:auto;font-size:.8rem;padding:2px 10px;border-radius:999px;background:#e7f2ea;color:#1c7c3f;}
-.tela-frota .fr-cobranca li.pendente .fr-cobranca-selo{background:#f7e7e7;color:#a12727;}
+.tela-frota .fr-cobranca li{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--border);}
+/* Cor pelo token, nunca chumbada: o app tem modo escuro, e verde-claro fixo
+   sobre fundo preto é ilegível. Mesmo motivo que fez o painel do motorista
+   inteiro precisar ser refeito. */
+.tela-frota .fr-cobranca-selo{margin-left:auto;font-size:.8rem;font-weight:600;padding:2px 10px;border-radius:999px;background:var(--surface2);color:var(--green);}
+.tela-frota .fr-cobranca li.pendente .fr-cobranca-selo{color:var(--red);}
 /* Os carros de outras pessoas: lista simples, sem cartão e sem botão. Dar
    cartão a eles daria a entender que há algo a fazer, e não há. */
 .tela-frota .fr-outros{margin:0;padding:0 14px 40px;list-style:none;display:flex;flex-direction:column;gap:7px;font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);}

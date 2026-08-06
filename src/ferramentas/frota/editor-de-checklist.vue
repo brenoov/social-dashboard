@@ -129,30 +129,59 @@ function adicionar() {
 </template>
 
 <style scoped>
-.ec-titulo { font-size: 1rem; font-weight: 700; margin: 20px 0 4px; }
-.ec-nota { font-size: .85rem; opacity: .7; margin: 0 0 12px; }
-.ec-dias { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-bottom: 8px; }
+/* Tudo em cima das variaveis do app (--surface, --border, --red...), nunca cor
+   chumbada nem `--borda`, que NAO EXISTE aqui — a certa e `--border`. Era por
+   isso que este editor e o painel do motorista ignoravam o tema e caiam num
+   cinza de emergencia, feio no claro e pior no escuro. */
+.ec-titulo {
+  margin: var(--sp-5) 0 var(--sp-1); font-size: 10px; font-weight: 700;
+  letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted);
+}
+.ec-nota { font-size: 13px; color: var(--muted); margin: 0 0 var(--sp-3); line-height: 1.45; }
+.ec-dias { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--sp-2); margin-bottom: var(--sp-2); }
 .ec-campo { display: block; }
-.ec-lab { display: block; font-size: .8rem; opacity: .75; margin-bottom: 4px; }
-.ec-campo select, .ec-novo input, .ec-novo select { padding: 8px; border-radius: 8px; border: 1px solid var(--borda, #e3e3e3); font: inherit; }
-.ec-grupo-titulo { font-size: .9rem; font-weight: 600; margin: 16px 0 6px; }
-.ec-conta { opacity: .6; font-weight: 400; }
+.ec-lab {
+  display: block; font-size: 10px; font-weight: 700; letter-spacing: 1.2px;
+  text-transform: uppercase; color: var(--muted); margin-bottom: var(--sp-1);
+}
+.ec-campo select, .ec-novo input, .ec-novo select {
+  padding: 9px var(--sp-3); border-radius: var(--radius-md);
+  border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  font-family: var(--fonte-principal); font-size: 14px;
+}
+.ec-campo select:focus, .ec-novo input:focus, .ec-novo select:focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light);
+}
+.ec-grupo-titulo { font-size: 13px; font-weight: 600; color: var(--text); margin: var(--sp-4) 0 var(--sp-2); }
+.ec-conta { color: var(--muted); font-weight: 400; font-family: var(--fonte-dados); font-size: 11px; }
 .ec-lista { list-style: none; padding: 0; margin: 0; }
-.ec-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--borda, #eee); }
-.ec-item.desligado span { opacity: .45; text-decoration: line-through; }
-.ec-novo { display: flex; flex-wrap: wrap; gap: 8px; }
+.ec-item {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+  padding: var(--sp-3); margin-bottom: 6px;
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--bg); font-size: 14px; color: var(--text);
+}
+.ec-item.desligado { opacity: .55; }
+.ec-item.desligado span { text-decoration: line-through; }
+.ec-novo { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .ec-novo input { flex: 1 1 200px; }
-.ec-btn { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--borda, #ddd); background: transparent; font: inherit; cursor: pointer; }
-.ec-btn.pequeno { padding: 4px 10px; font-size: .85rem; }
+.ec-btn {
+  padding: 9px var(--sp-4); border-radius: var(--radius-md);
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  font-family: var(--fonte-principal); font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: background .15s, border-color .15s;
+}
+.ec-btn:hover:not(:disabled) { background: var(--surface2); border-color: var(--accent-mid); }
+.ec-btn.pequeno { padding: 5px var(--sp-3); font-size: 12px; }
 .ec-btn:disabled { opacity: .6; cursor: default; }
-.ec-erros { color: #a12727; font-size: .9rem; padding-left: 18px; }
-.ec-erro { color: #a12727; font-size: .9rem; margin: 8px 0 0; }
-/* Mesmo ponto de quebra do irmão painel-de-checklist.vue (linha 171). Só
- * .ec-item precisa disso: sem flex-wrap, um nome de item comprido (o gestor
- * digita livre, sem limite de tamanho) fica espremido ao lado do botão. As
- * outras áreas (.ec-dias, .ec-novo) já têm flex-wrap e se acomodam sozinhas —
- * não duplicamos a regra onde ela não muda nada. */
-@media (max-width: 520px) {
-  .ec-item { flex-direction: column; align-items: flex-start; }
+.ec-erros { color: var(--red); font-size: 13px; padding-left: 18px; line-height: 1.5; }
+.ec-erro { color: var(--red); font-size: 13px; margin: var(--sp-2) 0 0; line-height: 1.45; }
+/* Mesmo ponto de quebra do irmao painel-de-checklist.vue. So .ec-item precisa
+ * disso: sem quebrar em coluna, um nome de item comprido (o gestor digita
+ * livre) fica espremido ao lado do botao. As outras areas (.ec-dias, .ec-novo)
+ * ja tem flex-wrap e se acomodam sozinhas. */
+@media (max-width: 560px) {
+  .ec-item { flex-direction: column; align-items: stretch; gap: var(--sp-2); }
+  .ec-item .ec-btn { width: 100%; }
 }
 </style>
