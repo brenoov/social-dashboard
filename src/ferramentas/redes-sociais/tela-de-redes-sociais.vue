@@ -459,6 +459,10 @@ import { adminToast } from '../../compartilhado/avisos.js'
 import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { hojeLocal } from '../../compartilhado/datas.js'
 import { montarSerieDeInvestimento, montarSerieDeCustoPorSeguidor } from './series-diarias-de-meta-ads.js'
+// Decide se a barra do dia é número do Instagram ou estimativa nossa. Puro e com
+// teste ao lado (estimativa-de-seguidores.test.mjs), usando a contagem REAL do
+// Breno nos dias em que a Meta parou de publicar.
+import { barraDoDia, diasSemPublicacao } from './estimativa-de-seguidores.js'
 
 const router = useRouter()
 
@@ -2191,23 +2195,34 @@ async function refresh() {
     const _lbl = iso => { const dt = new Date(iso + 'T12:00:00'); return dt.getDate() + '/' + (dt.getMonth() + 1) }
     const _mesAtual = currentPeriod === 'monthfull' || currentPeriod === 'sofar' || currentPeriod === 'month'
     const _rolante = [0, 1, 3, 7, 14, 30].includes(currentPeriod)
+    // ── DIA QUE O INSTAGRAM NÃO PUBLICOU → ESTIMATIVA, não zero ──
+    //
+    // A Edge Function serie-novos-dia agora devolve `publicado: false` quando a
+    // Meta responde 200 sem número nenhum. Antes isso virava `seguiu:0, deixou:0`
+    // e o gráfico desenhava uma barra zerada idêntica à de um dia em que ninguém
+    // seguiu de verdade — foi o que o dono viu de 03 a 06/08/2026, nos 7 perfis.
+    //
+    // No lugar do zero entra o líquido pela variação da contagem total: é o saldo
+    // real do dia, e vai MARCADO como estimativa (não separa quem seguiu de quem
+    // saiu, porque esse dado é justamente o que não existe).
+    //
+    // Fica ANTES do if para valer nos DOIS caminhos. Mês passado e período
+    // personalizado caem no `else` e ficariam com os zeros de volta — o defeito
+    // reapareceria em quem olhasse um mês fechado.
+    //
+    // 100 dias de contagem total, e não os 6 de antes: os 6 só davam para hoje e
+    // ontem. Um dia parado no meio do período precisa da contagem do DIA ANTERIOR
+    // para ter de onde estimar; sem ela, volta a desenhar zero.
+    const { data: tots } = await sbClient.from('daily_snapshots').select('captured_at,followers_count').eq('account_id', currentAccountId).order('captured_at', { ascending: false }).limit(100)
+    if (myId !== _refreshId) return // trocou de período/perfil no meio → aborta este refresh
+    const totMap = {}; (tots || []).forEach(t => { totMap[t.captured_at] = Number(t.followers_count) || 0 })
+    const _brt = ms => new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+    let semPublicacao = []
     if (_rolante || _mesAtual) {
       // TODOS os intervalos atuais/rolantes (Hoje/1D/3D/7D/14D/30D) e MÊS incluem HOJE e ONTEM como
       // BARRA LÍQUIDA no fim (só o nº líquido — a Meta ainda não fechou a quebra desses dias). MÊS PASS.
       // (mês fechado) e personalizado NÃO. Base: Hoje/1D = últimos 7 dias; demais = o próprio serie do intervalo.
       const baseSerie = (currentPeriod === 0 || currentPeriod === 1) ? ((await buscarSerieNovos(currentAccountId, 7, null, null)) || []) : (serie || [])
-      // 100 dias de contagem total, e não 6.
-      //
-      // Os 6 davam só para hoje e ontem, que eram os únicos dias que caíam na
-      // barra líquida. Agora QUALQUER dia que o Instagram não tenha publicado vira
-      // estimativa pela variação da contagem — e um dia parado no meio do período
-      // (foi o que houve de 03 a 06/08/2026) precisa da contagem do dia anterior
-      // para ter de onde estimar. Com 6 dias ele ficaria sem base e voltaria a
-      // desenhar zero, que é justamente o defeito que estamos tirando.
-      const { data: tots } = await sbClient.from('daily_snapshots').select('captured_at,followers_count').eq('account_id', currentAccountId).order('captured_at', { ascending: false }).limit(100)
-      if (myId !== _refreshId) return // trocou de período/perfil no meio → aborta este refresh
-      const totMap = {}; (tots || []).forEach(t => { totMap[t.captured_at] = Number(t.followers_count) || 0 })
-      const _brt = ms => new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
       const hoje = _brt(Date.now()), base = new Date(hoje + 'T12:00:00-03:00').getTime()
       const ontem = _brt(base - 86400000), anteontem = _brt(base - 2 * 86400000)
       const totHoje = live.followers_count != null ? live.followers_count : (totMap[hoje] ?? 0)
@@ -2215,35 +2230,11 @@ async function refresh() {
       const netHoje = (totMap[ontem] != null) ? (totHoje - totMap[ontem]) : 0
       // Guarda os líquidos AO VIVO (mesma fonte do gráfico) p/ o card usar — senão card (coletado) e gráfico (ao vivo) divergem.
       data.netRecente = { hoje: netHoje, ontem: netOntem }
-      // ── DIA QUE O INSTAGRAM NÃO PUBLICOU → ESTIMATIVA, não zero ──
-      //
-      // A Edge Function serie-novos-dia agora devolve `publicado: false` quando a
-      // Meta responde 200 sem número nenhum. Antes isso virava `seguiu:0, deixou:0`
-      // e o gráfico desenhava uma barra zerada idêntica à de um dia em que ninguém
-      // seguiu de verdade. Foi o que o dono viu de 03 a 06/08/2026, nos 7 perfis.
-      //
-      // No lugar do zero entra o líquido pela variação da contagem total — a mesma
-      // régua que hoje e ontem já usam. É estimativa e vai MARCADA como tal (não
-      // separa quem seguiu de quem saiu, só mostra o saldo).
-      const _diaAntes = iso => { const d = new Date(iso + 'T12:00:00-03:00'); d.setDate(d.getDate() - 1); return _brt(d.getTime()) }
-      const _netContagem = iso => {
-        const aqui = totMap[iso], antes = totMap[_diaAntes(iso)]
-        return (aqui != null && antes != null) ? (aqui - antes) : null
-      }
-      const semPublicacao = []
-      const diasBase = baseSerie.map(s => {
-        // `publicado === false` é a informação nova. O `=== false` é de propósito:
-        // série antiga (cache de 3 min, ou Edge ainda não deployada) vem SEM o
-        // campo, e aí `undefined` não deve virar estimativa — mantém o de antes.
-        const naoPublicado = s.publicado === false && s.label !== hoje && s.label !== ontem
-        if (!naoPublicado) return { iso: s.label, g: s.seguiu, l: s.deixou, net: false, est: false }
-        semPublicacao.push(s.label)
-        const n = _netContagem(s.label)
-        // Sem contagem para estimar (histórico curto): não inventa nada e continua
-        // marcado como estimado/sem dado, para não passar por número real.
-        if (n == null) return { iso: s.label, g: 0, l: 0, net: true, est: true }
-        return { iso: s.label, g: n >= 0 ? n : 0, l: n < 0 ? -n : 0, net: true, est: true }
-      })
+      // Hoje e ontem já entram como barra líquida logo abaixo, com a contagem AO
+      // VIVO — por isso saem do estimador (senão viriam duas vezes, e a segunda
+      // com o número do banco, mais velho que o ao vivo).
+      const diasBase = baseSerie.map(s => barraDoDia(s, totMap, [hoje, ontem]))
+      semPublicacao = diasSemPublicacao(baseSerie, [hoje, ontem])
       const dias = [...diasBase,
         { iso: ontem, g: netOntem >= 0 ? netOntem : 0, l: netOntem < 0 ? -netOntem : 0, net: true, est: false },
         { iso: hoje, g: netHoje >= 0 ? netHoje : 0, l: netHoje < 0 ? -netHoje : 0, net: true, est: false }]
@@ -2253,11 +2244,17 @@ async function refresh() {
         labels: dias.map(d => _lbl(d.iso)), dates: dias.map(d => _dfull(d.iso)),
         prevSeguiu: null, prevDeixou: null, prevDates: null,
       }
-      data.semPublicacao = semPublicacao
     } else {
+      // MÊS PASSADO e período PERSONALIZADO: sem hoje/ontem no fim (são janelas
+      // fechadas), mas com a MESMA estimativa para dias que o Instagram não
+      // publicou — senão o defeito voltaria a aparecer para quem olha um mês
+      // fechado, que é justamente onde ninguém iria conferir.
       const curto = serie.length <= 7
+      const barras = serie.map(s => barraDoDia(s, totMap))
+      semPublicacao = diasSemPublicacao(serie)
       data.chart = {
-        gained: serie.map(s => s.seguiu), lost: serie.map(s => s.deixou),
+        gained: barras.map(b => b.g), lost: barras.map(b => b.l),
+        netOnly: barras.map(b => b.net), estimado: barras.map(b => !!b.est),
         labels: serie.map(s => { const dt = new Date(s.label + 'T12:00:00'); return curto ? _d3[dt.getDay()] : _lbl(s.label) }),
         dates: serie.map(s => _dfull(s.label)),
         // comparativo: mesmos dias do MÊS ANTERIOR (por dia).
@@ -2266,6 +2263,7 @@ async function refresh() {
         prevDates: seriePrev ? seriePrev.map(s => _dfull(s.label)) : null,
       }
     }
+    data.semPublicacao = semPublicacao
   }
   update(data, currentPeriod)
 }

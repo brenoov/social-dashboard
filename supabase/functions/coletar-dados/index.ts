@@ -5,6 +5,10 @@ import { exigirSegredoDeCron } from '../_shared/segredo-de-cron.ts';
 // soltas neste arquivo, onde não havia como testá-las sem Deno e sem a Meta —
 // e foi exatamente ali que passou o bug das curtidas zeradas.
 import { somaDoDetalhe, leituraParcial, leituraServe } from '../_shared/leitura-de-engajamento.js';
+// Mesma ideia, para o bruto de seguidores: separar "a Meta publicou zero" de "a
+// Meta não publicou". Vinham iguais para cá e saíam iguais no painel — foi o que
+// deixou os 7 perfis com "novos seguidores" zerado por 4 dias sem ninguém saber.
+import { lerBrutoDoDia, atrasoDoBruto, recadoDeAtraso } from '../_shared/bruto-de-seguidores.js';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 const APP_ID = Deno.env.get('META_APP_ID') ?? '';
@@ -170,7 +174,14 @@ async function atualizarFotoDoPerfil(sb: any, accountId: string, igId: string, t
   }
 }
 
-async function coletarFollowsDia(igId: string, dia: string, token: string): Promise<{ gained: number; lost: number } | null> {
+// A leitura do bruto de um dia. O QUE MUDOU: antes devolvia `null` tanto quando a
+// Meta dava erro quanto quando ela respondia 200 sem número — e o `catch` vazio
+// engolia os dois em silêncio. Agora sempre volta um veredito, e quem chama
+// consegue distinguir "não publicado" de "publicou zero".
+//
+// A leitura em si mora em ../_shared/bruto-de-seguidores.js, pura e com teste ao
+// lado usando as respostas REAIS da Meta.
+async function coletarFollowsDia(igId: string, dia: string, token: string): Promise<{ publicado: boolean; gained?: number; lost?: number; motivo?: string }> {
   const since = Math.floor(new Date(`${dia}T00:00:00-03:00`).getTime() / 1000);
   const until = Math.floor(new Date(`${dia}T23:59:59-03:00`).getTime() / 1000);
   try {
@@ -179,20 +190,12 @@ async function coletarFollowsDia(igId: string, dia: string, token: string): Prom
       metric_type: 'total_value', breakdown: 'follow_type',
       since: String(since), until: String(until), access_token: token,
     });
-    const rows = d.data ?? [];
-    if (!rows.length) return null;
-    const bd = rows[0].total_value?.breakdowns ?? [];
-    const results = bd[0]?.results ?? [];
-    if (!results.length) return null;
-    let gained = 0, lost = 0;
-    for (const r of results) {
-      const dv = (r.dimension_values ?? [null])[0];
-      const v = r.value ?? 0;
-      if (dv === 'FOLLOWER') gained = v;
-      else if (dv === 'NON_FOLLOWER') lost = v;
-    }
-    return { gained, lost };
-  } catch { return null; }
+    return lerBrutoDoDia(d);
+  } catch (e) {
+    // Erro de rede/HTTP também é "não publicado", mas com o motivo preservado —
+    // é a diferença entre "o Instagram está sem o dado" e "o nosso token caiu".
+    return { publicado: false, motivo: String(e).slice(0, 120) };
+  }
 }
 
 async function coletarEngajamentoConta(igId: string, token: string, dias: number): Promise<Record<string, number> | null> {
@@ -437,7 +440,7 @@ async function coletarAdsDia(sb: any, adAccountId: string, accountId: string, to
   } catch { /* sem dados de ads */ }
 }
 
-async function processarConta(sb: any, acc: any, degraded: string[]) {
+async function processarConta(sb: any, acc: any, degraded: string[], semBruto: string[]) {
   const { id: accountId, instagram_id: igId, name, access_token: token, ad_account_id: adAccountId, picture_url: fotoAtual } = acc;
   if (!token) { console.log(`⚠ Sem token: ${name}`); return null; }
   const hoje = todayBR();
@@ -472,18 +475,32 @@ async function processarConta(sb: any, acc: any, degraded: string[]) {
     .eq('account_id', accountId).gte('captured_at', brDateMinus(14)).lte('captured_at', hoje);
   const mapaDias: Record<string, any> = {};
   for (const r of (recentes ?? [])) mapaDias[r.captured_at] = r;
+  // O que a Meta publicou (ou não) em cada dia desta rodada. É daqui que sai o
+  // alerta: sem esta lista, "o Instagram parou de publicar" não tinha como
+  // chegar em ninguém — a função devolvia nada e o laço seguia calado.
+  const publicacaoPorDia: Array<{ dia: string; publicado: boolean }> = [];
   for (let dd = 0; dd < 14; dd++) {
     const dia = brDateMinus(dd);
     const row = mapaDias[dia];
     const ehRecente = dd < 3;
     const ehBuraco = row && (Number(row.gained) || 0) === 0 && (Number(row.lost) || 0) === 0;
-    if (!ehRecente && !ehBuraco) continue; // dia antigo já preenchido → não re-busca (economia)
+    if (!ehRecente && !ehBuraco) {
+      // Dia antigo JÁ preenchido: não re-busca (economia), e conta como publicado
+      // — porque o número dele está no banco.
+      if (row) publicacaoPorDia.push({ dia, publicado: true });
+      continue;
+    }
     const fu = await coletarFollowsDia(igId, dia, token);
-    if (fu) {
+    publicacaoPorDia.push({ dia, publicado: fu.publicado });
+    if (fu.publicado) {
       await sb.from('daily_snapshots').update({ gained: fu.gained, lost: fu.lost })
         .eq('account_id', accountId).eq('captured_at', dia);
     }
   }
+  // Dia fechado há 2+ dias e ainda sem número = o Instagram parou de publicar.
+  // Fica gravado como fato do dia; quem avisa é o auditar-dados, uma vez só.
+  const recado = recadoDeAtraso(name, atrasoDoBruto(publicacaoPorDia, hoje));
+  if (recado) { semBruto.push(recado); await registrarBrutoParado(sb, accountId, recado); }
 
   const stories = await coletarStoriesHoje(igId, token);
 
@@ -539,6 +556,37 @@ async function avisarSuperAdmin(sb: any, degraded: string[]) {
   }
 }
 
+// REGISTRA (não dispara) que o Instagram parou de publicar o bruto de um perfil.
+//
+// POR QUE NÃO DISPARA O WEBHOOK AQUI: desde 2026-07-31 o cron manda UMA conta por
+// chamada, 4 vezes ao dia. Um webhook por conta por rodada daria 7 × 4 = 28
+// mensagens por dia enquanto a Meta estivesse fora — exatamente a doença do
+// `meta_spotcheck`, que falhava 6 de 7 perfis todo dia e por isso já não avisava
+// mais nada. Alarme que toca o tempo todo é ruído, e ruído é pior que silêncio
+// porque dá a sensação de que alguém está olhando.
+//
+// Então aqui só fica o FATO gravado, um por conta por dia. Quem junta os fatos e
+// manda UM recado por dia é o auditar-dados, que já roda 1x/dia e já enxerga os
+// 7 perfis de uma vez.
+//
+// Também não entra no `degraded` do avisarSuperAdmin: a mensagem de lá fala de
+// métricas zeradas e manda "verificar token/permissões da Meta". Aqui o token
+// está bom e não há nada a verificar do nosso lado — o dado não existe ainda.
+async function registrarBrutoParado(sb: any, accountId: string, recado: string) {
+  const hoje = todayBR();
+  try {
+    // Regravável: a mesma conta é coletada 4x por dia e o recado muda de "1 dia"
+    // para "2 dias" conforme a coisa se arrasta. Fica sempre a leitura mais nova.
+    await sb.from('data_integrity_checks').delete()
+      .eq('checked_date', hoje).eq('check_name', 'bruto_seguidores_parado').eq('account_id', accountId);
+    await sb.from('data_integrity_checks').insert({
+      checked_date: hoje, account_id: accountId,
+      status: 'fail', check_name: 'bruto_seguidores_parado',
+      detail: recado.slice(0, 900),
+    });
+  } catch (e) { console.error('registro bruto parado:', e); }
+}
+
 // `apenasConta` = processa UMA conta só. É o modo normal desde 2026-07-31.
 //
 // POR QUE MUDOU: varrer as 7 contas numa chamada só estourava o teto de 150s da
@@ -572,8 +620,9 @@ async function rodarColeta(apenasConta?: string | null) {
   const comeco = Date.now();
   console.log(`Coleta — ${accounts.length} conta(s)${apenasConta ? ' (uma só)' : ' (todas)'}`);
   const degraded: string[] = [];
+  const semBruto: string[] = [];
   for (const acc of accounts) {
-    try { await processarConta(sb, acc, degraded); } catch (e) { console.error(`Erro ${acc.name}:`, e); }
+    try { await processarConta(sb, acc, degraded, semBruto); } catch (e) { console.error(`Erro ${acc.name}:`, e); }
   }
   await avisarSuperAdmin(sb, degraded);
 
@@ -585,6 +634,7 @@ async function rodarColeta(apenasConta?: string | null) {
     conta: accounts.length === 1 ? accounts[0].name : null,
     segundos: Math.round((Date.now() - comeco) / 1000),
     degradados: degraded,
+    semBrutoDeSeguidores: semBruto,
   };
 }
 

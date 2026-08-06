@@ -2,6 +2,11 @@
 // A Meta exige agregação por janela (follows_and_unfollows só com metric_type=total_value); então fazemos
 // 1 chamada por dia, todas num único batch. Auth (usuário social) + CORS iguais a insights-ao-vivo. verify_jwt=false.
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+// Separa "a Meta publicou zero" de "a Meta não publicou". Aqui era onde os dois
+// viravam a mesma coisa: `seguiu = 0, deixou = 0` era empurrado para a série
+// mesmo quando a resposta vinha sem número nenhum, e o gráfico desenhava um zero
+// que parecia verdade. Foi o que o dono viu de 03 a 06/08/2026.
+import { lerBrutoDoDia } from '../_shared/bruto-de-seguidores.js'
 
 const GRAPH = 'https://graph.facebook.com/v21.0'
 const cors = {
@@ -38,9 +43,18 @@ Deno.serve(async (req) => {
       const r = await fetch(`${GRAPH}/`, { method: 'POST', body: form })
       const arr = await r.json()
       for (let i = 0; i < chunk.length; i++) {
-        let seguiu = 0, deixou = 0
-        try { const b = JSON.parse(arr[i].body); for (const x of (b.data?.[0]?.total_value?.breakdowns?.[0]?.results ?? [])) { const dv = (x.dimension_values ?? ['?'])[0]; if (dv === 'FOLLOWER') seguiu = x.value; else if (dv === 'NON_FOLLOWER') deixou = x.value } } catch (e) {}
-        serie.push({ label: chunk[i].label, seguiu, deixou })
+        // `publicado: false` é a informação nova. Quem desenha o gráfico usa isso
+        // para trocar o dia pela ESTIMATIVA (variação da contagem total) em vez de
+        // desenhar um zero que não é zero. `seguiu`/`deixou` continuam saindo em 0
+        // para não quebrar quem já consumia estes campos.
+        let lido: any = { publicado: false }
+        try { lido = lerBrutoDoDia(JSON.parse(arr[i].body)) } catch (e) { /* corpo ilegível = não publicado */ }
+        serie.push({
+          label: chunk[i].label,
+          seguiu: lido.publicado ? lido.gained : 0,
+          deixou: lido.publicado ? lido.lost : 0,
+          publicado: !!lido.publicado,
+        })
       }
     }
     return json({ serie })
