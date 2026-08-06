@@ -147,4 +147,12 @@ function adicionar() {
 .ec-btn:disabled { opacity: .6; cursor: default; }
 .ec-erros { color: #a12727; font-size: .9rem; padding-left: 18px; }
 .ec-erro { color: #a12727; font-size: .9rem; margin: 8px 0 0; }
+/* Mesmo ponto de quebra do irmão painel-de-checklist.vue (linha 171). Só
+ * .ec-item precisa disso: sem flex-wrap, um nome de item comprido (o gestor
+ * digita livre, sem limite de tamanho) fica espremido ao lado do botão. As
+ * outras áreas (.ec-dias, .ec-novo) já têm flex-wrap e se acomodam sozinhas —
+ * não duplicamos a regra onde ela não muda nada. */
+@media (max-width: 520px) {
+  .ec-item { flex-direction: column; align-items: flex-start; }
+}
 </style>
