@@ -1320,8 +1320,15 @@ onUnmounted(() => {
 @media(max-width:640px){
   .tela-analise-vendas :deep(.gv-topbar){padding:6px 10px;}
   .tela-analise-vendas :deep(.gv-brand-tag){display:none;}
-  .tela-analise-vendas :deep(.gv-period-btns){flex-wrap:wrap;gap:3px;}
-  .tela-analise-vendas :deep(.gv-pbtn){font-size:9px;padding:3px 7px;border-radius:4px;}
+  /* ── A RÉGUA DE PERÍODOS NO CELULAR ───────────────────────────────────────
+     Herdado do monólito: os 9 períodos QUEBRAVAM em duas fileiras e os botões
+     encolhiam para 9px de fonte e 19px de altura — metade do alvo que um dedo
+     precisa (~44px), em duas linhas desalinhadas. Era o "pequeno demais" que o
+     dono apontou.
+     Agora é uma linha só que rola de lado, com botões de 10px — exatamente o
+     que a Gestão de Tráfego e a Redes Sociais já faziam, e que ele aprovou. */
+  .tela-analise-vendas :deep(.gv-period-btns){flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;gap:6px;padding-bottom:2px;}
+  .tela-analise-vendas :deep(.gv-pbtn){font-size:10px;padding:5px 10px;border-radius:6px;flex-shrink:0;white-space:nowrap;}
 }
 /* ── RESPONSIVE: Análise de Vendas (legacy L619-621 — só a regra viva; as
    demais deste bloco miravam .sa-brand-nm/.sa-pbtn, classes mortas) ── */
