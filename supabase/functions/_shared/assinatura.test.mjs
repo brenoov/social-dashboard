@@ -117,3 +117,66 @@ test('instantes em formatos diferentes dão o mesmo resultado', () => {
 test('o limiar é uma constante nomeada, não número solto', () => {
   assert.equal(typeof SEGUNDOS_SUSPEITOS, 'number')
 })
+
+/* ── Colisões: o separador dentro do próprio conteúdo ────────────────────── */
+// Achado da revisão da Tarefa 1: os separadores entre campos e entre itens
+// não eram escapados, então um campo de TEXTO LIVRE (a observação de um
+// item, por exemplo — a pessoa aperta Enter e escreve mais de uma linha)
+// podia carregar o próprio separador e fazer dois conteúdos DIFERENTES
+// darem o MESMO texto canônico. `frota_checklist` ainda não tinha nenhuma
+// linha quando isso foi achado, então não havia nada assinado pra
+// invalidar — mas se a correção for desfeita depois de existir a primeira
+// assinatura real, ela vira uma migração de dados, não uma troca de código.
+
+test('deslocar o separador \\u001f entre item_texto e estado não engana mais o texto', () => {
+  // Antes da correção este par colidia byte a byte: "A" + SEP + "B" + SEP +
+  // "C" era o mesmo texto não importa onde a fronteira real do dado caía.
+  const r1 = [{ item_texto: 'A', estado: 'B\x1fC', observacao: null }]
+  const r2 = [{ item_texto: 'A\x1fB', estado: 'C', observacao: null }]
+  const t1 = textoParaAssinar({ ficha: FICHA, respostas: r1, hashAnterior: '' })
+  const t2 = textoParaAssinar({ ficha: FICHA, respostas: r2, hashAnterior: '' })
+  assert.notEqual(t1, t2)
+})
+
+test('uma quebra de linha dentro de um campo da ficha não se confunde com a quebra entre linhas', () => {
+  // '\\n' é o separador entre os campos de nível de ficha (textoParaAssinar
+  // usa linhas.join('\\n')). Um campo de texto livre — `anomalias` — pode
+  // conter uma quebra de linha de verdade, e ela não pode ser lida como se
+  // fosse o separador estrutural.
+  const comQuebraNoMeio = textoParaAssinar({
+    ficha: { ...FICHA, anomalias: 'x\ny' }, respostas: RESPOSTAS, hashAnterior: '',
+  })
+  const semQuebraEquivalente = textoParaAssinar({
+    ficha: { ...FICHA, anomalias: 'x' }, respostas: [
+      { item_texto: 'y', estado: 'ok', observacao: null },
+      RESPOSTAS[1],
+    ], hashAnterior: '',
+  })
+  assert.notEqual(comQuebraNoMeio, semQuebraEquivalente)
+})
+
+test('uma cadência com vírgula não se confunde com duas cadências separadas', () => {
+  // (ficha.cadencias || []).join(',') dava o mesmo texto pra ['a,b'] e
+  // ['a', 'b']. Agora o array inteiro é serializado, não só concatenado.
+  const comVirgulaDentro = textoParaAssinar({
+    ficha: { ...FICHA, cadencias: ['a,b'] }, respostas: RESPOSTAS, hashAnterior: '',
+  })
+  const duasCadencias = textoParaAssinar({
+    ficha: { ...FICHA, cadencias: ['a', 'b'] }, respostas: RESPOSTAS, hashAnterior: '',
+  })
+  assert.notEqual(comVirgulaDentro, duasCadencias)
+})
+
+test('caso realista: observação com Enter dá texto diferente, e a impressão digital é estável', async () => {
+  // O caso que faz o defeito ser sério e não teórico: a pessoa aperta Enter
+  // numa caixa de texto de verdade — não precisa nem saber que separador
+  // existe por trás pra colidir com outra ficha.
+  const ficha = { ...FICHA, anomalias: 'pneu murcho\nlevar na borracharia' }
+  const t = textoParaAssinar({ ficha, respostas: RESPOSTAS, hashAnterior: '' })
+  const outra = textoParaAssinar({ ficha: FICHA, respostas: RESPOSTAS, hashAnterior: '' })
+  assert.notEqual(t, outra)
+
+  const h1 = await impressaoDigital(t)
+  const h2 = await impressaoDigital(t)
+  assert.equal(h1, h2)
+})

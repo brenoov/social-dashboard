@@ -66,6 +66,18 @@ prova): `veiculo_id`, `feita_em`, `pessoa_id`, `hodometro`,
 e o `hash` da ficha anterior daquele carro. A primeira ficha de cada carro
 encadeia em texto vazio, e isso fica dito no registro.
 
+**CADA CAMPO VAI ESCAPADO, e isso não é detalhe.** A primeira versão juntava os
+campos com separadores crus, e a revisão da Tarefa 1 provou a falha rodando o
+código: como `anomalias` e a observação de cada item são **caixas de texto**, a
+pessoa pode digitar uma quebra de linha — que era justamente o separador entre
+campos. Duas fichas de conteúdo diferente passavam a dar a mesma impressão
+digital, quebrando a única coisa que a assinatura promete.
+
+Cada campo é serializado com `JSON.stringify` antes de entrar, o que escapa
+quebra de linha, aspas e qualquer caractere de controle. Foi corrigido **antes de
+qualquer ficha ser assinada** — depois disso, arrumar exigiria descartar as
+assinaturas existentes.
+
 ### D19a — A senha se confere no SERVIDOR, nunca com `signInWithPassword`
 
 **Descoberto ao planejar, e é uma armadilha real.** O único jeito de conferir uma
