@@ -2358,3 +2358,31 @@ git commit -m "frota: o robo da manha avisa quem ainda nao conferiu o carro"
 2. **Conferir a repartição dos 21 itens** na aba Checklist e mudar o que discordar. A proposta é minha, a decisão é dele.
 3. **O `git user.email` deste repositório está vazio**, e pela anotação do projeto isso trava o build. Resolver antes do primeiro push.
 4. **O Doblo** continua sem revisão registrada. Assim que alguém preencher o primeiro checklist dele, o hodômetro real aparece e dá pra decidir o que fazer com a troca de óleo de 272.257 que a planilha trazia.
+
+---
+
+# ⚠️ O QUE ESTE PLANO ERROU
+
+Escrito depois da execução (2026-08-06). **Este documento tem trechos de código
+que NÃO devem ser copiados** — os implementadores os corrigiram durante a
+execução, e o que está no repositório é o certo. Se você está lendo isto para
+entender o que foi feito, leia o desenho e o código; se está lendo para
+aproveitar o método, leia isto primeiro.
+
+| Onde | O que o plano dizia | O que estava certo |
+|---|---|---|
+| Task 1–12, comandos | `npx node --test ...` | `node --test ...`. O `npx` baixa um pacote node inteiro sem necessidade. |
+| Task 2, teste | import pelo caminho longo | O teste mora ao lado do módulo: `'./checklist.js'`. |
+| Task 6, gravar ficha | `estado.perfil?.nome` | `estado` **não tem** a chave `perfil` — gravaria nome nulo em toda ficha. Usar `nomeDaPessoa(euId.value)`. |
+| Task 6, erro ao gravar | reaproveitar o ref `falha` | `falha` governa um `v-else-if` que **troca a tela inteira** por uma linha de texto. Erro de gravação precisa de ref próprio. |
+| Task 6, gravar respostas | não conferia o erro do 2º insert | **Crítico.** Ficha gravava sem respostas e a tela dizia "feito". |
+| Task 7, modal | `retirada.veiculo` | A variável do modal é `ficha = { modo, linha }`, e o modal é **compartilhado** entre retirar e devolver — precisa gatear por `ficha.modo === 'retirar'`. |
+| Task 9, template | `<template v-if>` antes do `v-else-if` da Gestão | **Quebra a corrente** das áreas. Fundir quadro e lista num único `<template v-else-if>`. |
+| Task 11 | (não previa) | A restrição `push_preferencias_tipo_check` só aceitava 3 tipos. Sem ampliar, ligar o aviso novo dá erro de Postgres na cara do dono. Virou a migration 030. |
+| Task 12, achar a pessoa | `pessoa.user_id` | `acessos_pessoas` **não tem** `user_id`, tem `profile_id`. Seguindo o plano, o robô rodaria sem erro e nunca acharia ninguém. |
+| Task 12, quem avisar | o dono fixo (`pessoa_id`) | Mudou na execução (D9b): é quem tem a **posse aberta**, e só na falta dela o dono fixo. |
+| Task 12, migration | numerada 029 | 029 e 030 já tinham sido usadas. Virou 031. |
+
+**E o que o plano não previu de todo:** que a suíte de testes não compila `.vue`,
+e que por isso um arquivo quebrado atravessaria doze revisões sem ninguém notar.
+A guarda `src/compartilhado/todo-vue-compila.test.mjs` nasceu disso.

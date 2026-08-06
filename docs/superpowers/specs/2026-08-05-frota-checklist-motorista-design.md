@@ -303,6 +303,40 @@ ele. É o que destrava a F3 (multas).
 
 **F6c** — o push e o quadro de cobrança.
 
+## O que ficou construído (2026-08-06)
+
+As três fases foram implementadas na branch `frota-checklist`, 24 commits, com
+revisão por tarefa e uma revisão final da branch inteira. **Nada foi mesclado.**
+
+| | Estado |
+|---|---|
+| Código | `npm run build` passa · 1901 testes · branch não mesclada |
+| Migrations **aplicadas** | 028 (tabelas + 21 itens) · 029 (gatilho da posse órfã) · 030 (o CHECK aceitar 'frota') · 031 (cron + Saúde dos Robôs) |
+| Cron do robô | **desagendado**, a pedido do dono, até a Edge ser publicada |
+| Edge `enviar-push-frota` | **não publicada** — precisa do login do dono |
+| As 7 posses iniciais | **não gravadas** |
+| Conferência no navegador | **não feita** |
+
+**A F5 (custo por quilômetro) continua não construída**, mas deixou de estar
+travada: o hodômetro do checklist passa a alimentar o km, que era o denominador
+que faltava. A **F3 (multas)** ganhou a linha do tempo de que precisava
+(`quemEstavaCom`), mas ela só começa a ter conteúdo quando as 7 posses forem
+abertas.
+
+### O que a execução ensinou, e vale para a próxima fase
+
+- **Teste verde não é tela que abre.** A branch chegou à revisão final **sem
+  compilar** — um `.vue` tinha texto de andaime depois do `</style>` — com 1895
+  testes passando, porque `node --test` não compila `.vue`. Existe agora a guarda
+  `src/compartilhado/todo-vue-compila.test.mjs`. Mas a lição maior é que o
+  "conferir na tela" foi adiado onze vezes e era onde o defeito estava.
+- **Duas gravações, só a primeira conferida** foi o defeito mais recorrente:
+  apareceu quatro vezes (ficha do checklist, passar o carro, trocar o dono fixo,
+  e o robô). A tela sempre dizia que tinha dado certo.
+- **Quatro dos sete motoristas não têm login** (Barbara, Marcus, Thiago,
+  Raissa). O aviso no celular nunca alcança essas pessoas; para elas o quadro da
+  aba Gestão é o único canal.
+
 ## Fora de escopo
 
 - **Assinatura das duas partes** que o papel pede: quem preenche está logado, e o
