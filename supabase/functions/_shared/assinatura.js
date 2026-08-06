@@ -52,7 +52,13 @@ export function textoParaAssinar({ ficha, respostas, hashAnterior }) {
     campo(ficha.resultado),
     campo(ficha.anomalias),
     campo(ficha.assinada_em),
-    `ANTERIOR:${hashAnterior || 'PRIMEIRA'}`,
+    // `hashAnterior` PASSA POR `campo()` também: sem isso era o único campo
+    // que ia cru pro texto, e um hash real que por acaso valesse a palavra
+    // "PRIMEIRA" dava o mesmo texto que "não há ficha anterior" — a marca
+    // que devia provar exatamente o contrário. `campo()` sempre entre aspas
+    // pra qualquer string (JSON.stringify), então nenhum valor real se
+    // parece com o literal `PRIMEIRA` sem aspas usado só quando não há hash.
+    `ANTERIOR:${hashAnterior ? campo(hashAnterior) : 'PRIMEIRA'}`,
     `ITENS:${(respostas || []).length}`,
   ];
   for (const r of respostas || []) {

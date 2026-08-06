@@ -140,19 +140,32 @@ test('deslocar o separador \\u001f entre item_texto e estado não engana mais o 
 
 test('uma quebra de linha dentro de um campo da ficha não se confunde com a quebra entre linhas', () => {
   // '\\n' é o separador entre os campos de nível de ficha (textoParaAssinar
-  // usa linhas.join('\\n')). Um campo de texto livre — `anomalias` — pode
-  // conter uma quebra de linha de verdade, e ela não pode ser lida como se
-  // fosse o separador estrutural.
-  const comQuebraNoMeio = textoParaAssinar({
-    ficha: { ...FICHA, anomalias: 'x\ny' }, respostas: RESPOSTAS, hashAnterior: '',
-  })
-  const semQuebraEquivalente = textoParaAssinar({
-    ficha: { ...FICHA, anomalias: 'x' }, respostas: [
-      { item_texto: 'y', estado: 'ok', observacao: null },
-      RESPOSTAS[1],
-    ], hashAnterior: '',
-  })
-  assert.notEqual(comQuebraNoMeio, semQuebraEquivalente)
+  // usa linhas.join('\\n')). Sem escape, um '\n' DENTRO de `anomalias`
+  // desloca a fronteira: o mesmo texto final sai tanto de
+  // (anomalias='x\ny', assinada_em='Z') quanto de (anomalias='x',
+  // assinada_em='y\nZ') — nos dois casos o formato antigo produzia
+  // "...x\ny\nZ..." byte a byte igual. Provado rodando este par contra o
+  // código de antes da correção (commit aa36cd0): colide lá, não colide
+  // aqui. Ver task-1-report.md pela saída das duas rodadas.
+  const fichaA = { ...FICHA, resultado: 'R', anomalias: 'x\ny', assinada_em: 'Z' }
+  const fichaB = { ...FICHA, resultado: 'R', anomalias: 'x', assinada_em: 'y\nZ' }
+  const a = textoParaAssinar({ ficha: fichaA, respostas: RESPOSTAS, hashAnterior: '' })
+  const b = textoParaAssinar({ ficha: fichaB, respostas: RESPOSTAS, hashAnterior: '' })
+  assert.notEqual(a, b)
+})
+
+test('um hashAnterior real que valesse a palavra PRIMEIRA não se confunde com "não há ficha anterior"', () => {
+  // Achado da re-revisão: `hashAnterior` era o único campo que não passava
+  // por `campo()`, indo cru pro texto como `ANTERIOR:${hashAnterior ||
+  // 'PRIMEIRA'}`. Isso fazia a string literal "PRIMEIRA" dar o MESMO texto
+  // que "não há ficha anterior" — justamente o campo que garante a corrente
+  // contra alteração retroativa. Na prática o valor real é sempre vazio ou
+  // um SHA-256 hex, então nunca seria literalmente "PRIMEIRA" — mas fechar
+  // agora custa uma linha, e depois da primeira assinatura custaria
+  // descartar assinaturas.
+  const comHashLiteralPrimeira = textoParaAssinar({ ficha: FICHA, respostas: RESPOSTAS, hashAnterior: 'PRIMEIRA' })
+  const semFichaAnterior = textoParaAssinar({ ficha: FICHA, respostas: RESPOSTAS, hashAnterior: null })
+  assert.notEqual(comHashLiteralPrimeira, semFichaAnterior)
 })
 
 test('uma cadência com vírgula não se confunde com duas cadências separadas', () => {
@@ -167,10 +180,13 @@ test('uma cadência com vírgula não se confunde com duas cadências separadas'
   assert.notEqual(comVirgulaDentro, duasCadencias)
 })
 
-test('caso realista: observação com Enter dá texto diferente, e a impressão digital é estável', async () => {
-  // O caso que faz o defeito ser sério e não teórico: a pessoa aperta Enter
-  // numa caixa de texto de verdade — não precisa nem saber que separador
-  // existe por trás pra colidir com outra ficha.
+test('caso realista (ESTABILIDADE, não colisão): observação com Enter dá texto diferente do normal, e o hash não muda de uma chamada pra outra', async () => {
+  // Este teste NÃO prova colisão — 'pneu murcho\nlevar na borracharia' não
+  // colide com mais nada, nem antes nem depois da correção. Ele prova a
+  // outra metade da garantia: o caso realista (a pessoa aperta Enter numa
+  // caixa de texto de verdade) continua dando um texto DIFERENTE do normal
+  // e uma impressão digital REPETÍVEL — que é a base de tudo o que a
+  // assinatura promete, com ou sem separador escapado.
   const ficha = { ...FICHA, anomalias: 'pneu murcho\nlevar na borracharia' }
   const t = textoParaAssinar({ ficha, respostas: RESPOSTAS, hashAnterior: '' })
   const outra = textoParaAssinar({ ficha: FICHA, respostas: RESPOSTAS, hashAnterior: '' })
