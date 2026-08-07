@@ -5514,9 +5514,9 @@ Object.assign(window, {
 /* Auto button */
 .tela-gestao-trafego :deep(.gt-auto-btn){display:flex;align-items:center;gap:6px;padding:5px 14px;border-radius:7px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);letter-spacing:.3px;transition:all .2s;white-space:nowrap;position:relative;}
 .tela-gestao-trafego :deep(.gt-auto-btn:hover){border-color:var(--muted);color:var(--text);}
-.tela-gestao-trafego :deep(.gt-auto-btn.active){border-color:#7c3aed;background:rgba(124,58,237,.12);color:#7c3aed;}
+.tela-gestao-trafego :deep(.gt-auto-btn.active){border-color:var(--roxo);background:color-mix(in srgb,var(--roxo) 12%,var(--surface));color:color-mix(in srgb,var(--roxo) 75%,var(--text));}
 .tela-gestao-trafego :deep(.gt-auto-btn.active:hover){background:rgba(124,58,237,.2);}
-.tela-gestao-trafego :deep(.gt-auto-btn.running){border-color:#7c3aed;background:#7c3aed;color:#fff;animation:pulse 1.5s infinite;}
+.tela-gestao-trafego :deep(.gt-auto-btn.running){border-color:var(--roxo);background:var(--roxo);color:#fff;animation:pulse 1.5s infinite;}
 .tela-gestao-trafego :deep(.gt-auto-btn:disabled){opacity:.5;cursor:not-allowed;}
 .tela-gestao-trafego :deep(.gt-empty){text-align:center;padding:32px 16px;font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));color:var(--muted);line-height:1.7;}
 /* Config modal (editor admin — métricas por objetivo) */

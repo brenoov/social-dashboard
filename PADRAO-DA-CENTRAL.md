@@ -36,6 +36,7 @@ tema claro e o escuro.
 | Linha, borda | `var(--border)` |
 | Ação principal | `var(--accent)` |
 | Sucesso / atenção / erro | `var(--green)` · `var(--orange)` · `var(--red)` |
+| **O robô agindo** (automação) | `var(--roxo)` |
 
 **PROIBIDO:** `#fffbeb`, `#f2f2f2`, `background:#eee`, qualquer hex de fundo ou
 texto.
@@ -55,6 +56,15 @@ color: var(--text);   /* o texto usa --text, não a cor do aviso */
 > **Por que o texto é `--text`:** o `--orange` do tema claro sobre esse fundo dá
 > 4,14 de contraste — abaixo do mínimo de 4,5 para letra pequena. Medido. A cor
 > é o sinal; o texto é para ler.
+
+**`--roxo` tem significado, não é enfeite:** ele separa *o que você mandou fazer*
+de *o que a automação faz sozinha*. Na Gestão de Tráfego é a diferença entre um
+botão que você apertou e uma campanha que o robô está mexendo. Toda ferramenta
+com automação usa esta cor — e nada mais usa.
+
+**Etiqueta de estado** (em uso, pausado, atrasado…) usa as classes prontas:
+`.selo` mais `.selo-ok` · `.selo-atencao` · `.selo-erro` · `.selo-info` ·
+`.selo-robo` · `.selo-neutro`.
 
 **Contraste mínimo 4,5:1** para texto normal. Não é opinião, é o que se lê.
 
