@@ -1443,7 +1443,16 @@ function abrirFichaDaPessoa(p) {
   if (estado.is_superadmin) _secaoSenha(corpo, p)
 
   fundo.appendChild(caixa)
-  document.body.appendChild(fundo)
+  // PENDURAR DENTRO DA `.tela-admin`, NUNCA NO `body`.
+  //
+  // O CSS deste arquivo é `scoped`: `.tela-admin :deep(.ficha-fundo)` só casa
+  // com elemento que esteja DENTRO do componente. Pendurado no `body`, a ficha
+  // ficava sem uma única regra aplicada — `position: static`, sem fundo, sem
+  // z-index — e em vez de um painel por cima despencava como texto cru no fim
+  // da página. Foi assim que foi para produção, e foi o dono quem viu.
+  const raiz = document.querySelector('.tela-admin')
+  if (raiz) raiz.appendChild(fundo)
+  else { fechar(); adminToast('Não consegui abrir a ficha nesta tela.', false) }
 }
 
 function _secaoVinculo(alvo, p, aoMudar) {
