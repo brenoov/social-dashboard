@@ -1431,6 +1431,11 @@ function abrirFichaDaPessoa(p) {
   const v = estadoDoVinculo({ id: p.id, email: p.email }, _colaboradores)
   _secaoLotacao(corpo, v.estado === 'ligado' ? v.colaborador : null)
 
+  // Só superadmin troca a senha de outra pessoa — é o que a edge function
+  // exige. Mostrar o campo para quem vai receber "não autorizado" seria
+  // prometer o que a tela não cumpre.
+  if (estado.is_superadmin) _secaoSenha(corpo, p)
+
   fundo.appendChild(caixa)
   document.body.appendChild(fundo)
 }
@@ -1473,6 +1478,78 @@ function _secaoVinculo(alvo, p, aoMudar) {
     sec.appendChild(b)
   }
   alvo.appendChild(sec)
+}
+
+// Copiar com plano B: `navigator.clipboard` falha em contexto sem HTTPS e
+// quando a permissão é negada. Falhar calado aqui faz o dono mandar por
+// mensagem uma senha que ele não copiou.
+function _copiar(texto, aoTerminar) {
+  const plano2 = () => {
+    try {
+      const ta = document.createElement('textarea')
+      ta.value = texto; ta.style.position = 'fixed'; ta.style.opacity = '0'
+      document.body.appendChild(ta); ta.focus(); ta.select()
+      document.execCommand('copy'); ta.remove(); return true
+    } catch (e) { return false }
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texto).then(() => aoTerminar(true)).catch(() => aoTerminar(plano2()))
+  } else { aoTerminar(plano2()) }
+}
+
+function _secaoSenha(alvo, p) {
+  const sec = mkEl('div', 'ficha-sec')
+  sec.appendChild(mkEl('div', 'ficha-sec-tit', 'Senha'))
+  sec.appendChild(mkEl('div', 'ficha-txt',
+    'Gere uma senha, copie e mande para a pessoa. '
+    + 'Ela vai ser obrigada a trocar por uma dela no primeiro acesso.'))
+
+  const inp = mkEl('input', 'admin-form-input'); inp.type = 'text'
+  inp.placeholder = 'clique em Gerar'
+  inp.style.cssText = 'width:100%;font-family:var(--fonte-dados);font-size:16px;margin-bottom:8px'
+  sec.appendChild(inp)
+
+  const acoes = mkEl('div'); acoes.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px'
+  const gerar = mkEl('button', 'sr-btn', 'Gerar'); gerar.type = 'button'
+  gerar.addEventListener('click', () => { inp.value = gerarSenhaForte(14); inp.focus(); inp.select() })
+
+  const copiar = mkEl('button', 'sr-btn', 'Copiar'); copiar.type = 'button'
+  copiar.addEventListener('click', () => {
+    if (!inp.value) { adminToast('Gere uma senha primeiro.', false); return }
+    _copiar(inp.value, (ok) => adminToast(
+      ok ? 'Senha copiada.' : 'Não consegui copiar — selecione e copie à mão.', ok))
+  })
+
+  const salvar = mkEl('button', 'sr-btn', 'Salvar senha'); salvar.type = 'button'
+  salvar.style.cssText = 'background:var(--accent);color:#fff'
+  salvar.addEventListener('click', () => _salvarSenha(salvar, inp, p))
+
+  acoes.appendChild(gerar); acoes.appendChild(copiar); acoes.appendChild(salvar)
+  sec.appendChild(acoes)
+  alvo.appendChild(sec)
+}
+
+async function _salvarSenha(botao, inp, p) {
+  const pw = String(inp.value || '').trim()
+  if (pw.length < 6) { adminToast('A senha precisa de no mínimo 6 caracteres.', false); return }
+  botao.disabled = true; botao.textContent = 'Salvando…'
+  try {
+    const { data: { session: s } } = await sbClient.auth.getSession()
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/invite-user`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${s?.access_token || SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resetPasswordUserId: p.id, password: pw }),
+    })
+    const res = await r.json()
+    if (res.error) throw new Error(res.error)
+    botao.textContent = 'Salva'
+    // A SENHA FICA NO CAMPO. É ela que o dono vai copiar e mandar; sumir agora
+    // faria o botão de copiar chegar tarde demais.
+    adminToast('Senha trocada. Copie e mande para a pessoa.')
+  } catch (e) {
+    botao.disabled = false; botao.textContent = 'Salvar senha'
+    adminToast('Não consegui trocar a senha: ' + e.message, false)
+  }
 }
 
 function _secaoLotacao(alvo, colaborador) {
@@ -1672,13 +1749,11 @@ function _criarLinhaPessoa(p, gaveta, currentEmail) {
   } else sel.disabled = true
   acoes.appendChild(sel)
 
-  // Trocar senha (só superadmin) — pode resetar a senha de QUALQUER usuário que esqueceu a dele.
-  if (estado.is_superadmin) {
-    const pwBtn = mkEl('button', 'sr-btn usr-acao-btn'); pwBtn.type = 'button'; pwBtn.textContent = 'Trocar senha'
-    pwBtn.title = 'Definir uma nova senha para este usuário'
-    pwBtn.addEventListener('click', () => _abrirTrocaSenha(u, acoes))
-    acoes.appendChild(pwBtn)
-  }
+  // A TROCA DE SENHA SAIU DAQUI e foi para a ficha da pessoa (etapa 2), onde
+  // ela ganhou o botão de copiar e a senha que permanece na tela até a ficha
+  // fechar. Dois caminhos para a mesma coisa é o começo de dois comportamentos
+  // diferentes — e o daqui não copiava, então mandaria o dono anotar à mão.
+  // A ficha abre clicando no nome da pessoa.
 
   if (isSelf) {
     const notifBtn = mkEl('button', 'sr-btn usr-acao-btn'); notifBtn.type = 'button'; notifBtn.textContent = 'Minhas notificações'
@@ -1865,45 +1940,9 @@ async function loadAdminUsers() {
 // Mini-form de troca de senha (só superadmin). Abre inline na linha do usuário; digita OU gera.
 // A troca em si roda na Edge invite-user ({resetPasswordUserId,password}), que confere superadmin
 // no servidor e usa auth.admin.updateUserById (service_role nunca vai pro front).
-function _abrirTrocaSenha(u, row) {
-  const existente = row.querySelector('.sr-pwform')
-  if (existente) { existente.remove(); return }   // clique de novo fecha
-  const form = mkEl('div', 'sr-pwform')
-  form.style.cssText = 'flex-basis:100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)'
-  const lbl = mkEl('span'); lbl.textContent = 'Nova senha de ' + (u.name || u.email) + ':'
-  lbl.style.cssText = 'font-size:11px;color:var(--muted);letter-spacing:.3px'
-  const inp = mkEl('input', 'admin-form-input'); inp.type = 'text'; inp.placeholder = 'digite ou gere (mín. 6)'
-  inp.style.cssText = 'max-width:240px;font-size:13px;font-family:var(--fonte-dados)'
-  const gerar = mkEl('button', 'sr-btn'); gerar.textContent = 'Gerar'; gerar.type = 'button'
-  gerar.addEventListener('click', () => { inp.value = gerarSenhaForte(14); inp.focus(); inp.select() })
-  const salvar = mkEl('button', 'sr-btn'); salvar.textContent = 'Salvar senha'; salvar.style.cssText = 'background:var(--accent);color:#fff'
-  const cancelar = mkEl('button', 'sr-btn'); cancelar.textContent = 'Cancelar'
-  cancelar.addEventListener('click', () => form.remove())
-  const hint = mkEl('span'); hint.style.cssText = 'font-size:11px;color:var(--muted)'; hint.textContent = 'Anote e passe pro usuário.'
-  salvar.addEventListener('click', async () => {
-    const pw = inp.value.trim()
-    if (pw.length < 6) { alert('A senha precisa de no mínimo 6 caracteres.'); inp.focus(); return }
-    salvar.disabled = true; salvar.textContent = 'Salvando…'
-    try {
-      const { data: { session: s } } = await sbClient.auth.getSession()
-      const tok = s?.access_token || SUPABASE_ANON_KEY
-      const r = await fetch(`${SUPABASE_URL}/functions/v1/invite-user`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resetPasswordUserId: u.id, password: pw }),
-      })
-      const res = await r.json()
-      if (res.error) throw new Error(res.error)
-      adminToast('Senha de ' + u.email + ' alterada')
-      form.remove()
-    } catch (e) {
-      alert('Erro ao trocar senha: ' + (e.message || e))
-      salvar.disabled = false; salvar.textContent = 'Salvar senha'
-    }
-  })
-  ;[lbl, inp, gerar, salvar, cancelar, hint].forEach((el) => form.appendChild(el))
-  row.appendChild(form); inp.focus()
-}
+// `_abrirTrocaSenha` foi APAGADA aqui: a troca de senha virou seção da ficha
+// da pessoa, com gerar, copiar e a senha permanecendo na tela. Esta versão não
+// copiava — mandava "anote e passe pro usuário".
 // SENSITIVE MUTATION — cria/convida usuário DE VERDADE (edge function
 // invite-user). Sem confirm() no legado; nenhum foi adicionado aqui.
 async function adminInviteUser(mode) {
