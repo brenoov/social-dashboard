@@ -178,6 +178,10 @@ import {
 // Separar as pessoas por marca, local ou setor: a gaveta escolhida e o "sem
 // ___" que fecha a lista moram aqui, puro e testado — a tela só desenha.
 import { agruparPor, DIMENSOES } from './lotacao.js'
+// Decide se um login e um cadastro de colaborador são a mesma pessoa. Puro e
+// testado à parte: um casamento errado dá a lotação e o histórico de alguém
+// para outra pessoa, ou para uma caixa de e-mail compartilhada.
+import { estadoDoVinculo } from './vinculo-de-cadastro.js'
 
 const router = useRouter()
 
@@ -1376,10 +1380,125 @@ function _desenharSeletor(alvo, atual, aoTrocar) {
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
+// A lista inteira de colaboradores, guardada por `loadAdminUsers`. A ficha
+// precisa dela para saber o que oferecer, e reler a cada abertura seria um ida
+// e volta ao banco por clique.
+let _colaboradores = []
+
+/* ── A FICHA DA PESSOA ───────────────────────────────────────────────────────
+ *
+ * POR QUE FICHA E NÃO EDIÇÃO NA LINHA: são três campos de lotação por pessoa e
+ * quinze pessoas. Sempre visíveis, no celular isso vira uma coluna interminável
+ * e empurra as ações para longe do polegar.
+ *
+ * A ORDEM DAS SEÇÕES NÃO É ESTÉTICA: o vínculo vem primeiro porque a lotação
+ * depende dele. Sem cadastro ligado não existe onde gravar marca, local e setor.
+ */
+function abrirFichaDaPessoa(p) {
+  const fundo = mkEl('div', 'ficha-fundo')
+  const caixa = mkEl('div', 'ficha-caixa')
+  const fechar = () => fundo.remove()
+  // Clique no fundo fecha; clique DENTRO da caixa não (senão mexer num campo
+  // fecharia a ficha na cara da pessoa).
+  fundo.addEventListener('click', (e) => { if (e.target === fundo) fechar() })
+
+  const cab = mkEl('div', 'ficha-cab')
+  cab.appendChild(mkEl('div', 'ficha-titulo', p.nome))
+  const x = mkEl('button', 'ficha-x'); x.type = 'button'; x.textContent = '✕'
+  x.setAttribute('aria-label', 'Fechar'); x.addEventListener('click', fechar)
+  cab.appendChild(x); caixa.appendChild(cab)
+
+  const corpo = mkEl('div', 'ficha-corpo'); caixa.appendChild(corpo)
+  // Ao ligar ou criar cadastro, a ficha se refaz: a lotação que estava travada
+  // passa a valer, e a lista de trás precisa parar de dizer "sem cadastro".
+  const refazer = () => { fechar(); loadAdminUsers() }
+  _secaoVinculo(corpo, p, refazer)
+
+  fundo.appendChild(caixa)
+  document.body.appendChild(fundo)
+}
+
+function _secaoVinculo(alvo, p, aoMudar) {
+  const sec = mkEl('div', 'ficha-sec')
+  sec.appendChild(mkEl('div', 'ficha-sec-tit', 'Cadastro de colaborador'))
+
+  const { estado, colaborador } = estadoDoVinculo({ id: p.id, email: p.email }, _colaboradores)
+  const txt = mkEl('div', 'ficha-txt')
+
+  if (estado === 'ligado') {
+    txt.textContent = 'Ligado a ' + colaborador.nome + '.'
+    sec.appendChild(txt)
+  } else if (estado === 'sugestao') {
+    // Montado por nós, não por innerHTML: o nome vem do banco, e escapar à mão
+    // funciona até alguém esquecer uma vez. `textContent` não tem esse jeito de
+    // errar.
+    txt.appendChild(document.createTextNode('Achei um cadastro com este e-mail: '))
+    txt.appendChild(mkEl('b', null, colaborador.nome))
+    txt.appendChild(document.createTextNode('. É a mesma pessoa?'))
+    sec.appendChild(txt)
+    const b = mkEl('button', 'sr-btn', 'Sim, ligar'); b.type = 'button'
+    b.style.cssText = 'background:var(--accent);color:#fff'
+    b.addEventListener('click', () => _ligarCadastro(b, colaborador.id, p.id, aoMudar))
+    sec.appendChild(b)
+  } else if (estado === 'ambiguo') {
+    // Sem botão de propósito: escolher por conta própria seria chutar qual
+    // pessoa recebe a lotação e o histórico.
+    txt.textContent = 'Há mais de um cadastro com este e-mail. Resolva em '
+      + 'Colaboradores antes de ligar — daqui não dá para saber qual é a pessoa certa.'
+    sec.appendChild(txt)
+  } else {
+    txt.textContent = 'Esta pessoa ainda não tem cadastro de colaborador. '
+      + 'Sem ele não há onde guardar marca, local e setor.'
+    sec.appendChild(txt)
+    const b = mkEl('button', 'sr-btn', 'Criar cadastro'); b.type = 'button'
+    b.style.cssText = 'background:var(--accent);color:#fff'
+    b.addEventListener('click', () => _criarCadastro(b, p, aoMudar))
+    sec.appendChild(b)
+  }
+  alvo.appendChild(sec)
+}
+
+async function _ligarCadastro(botao, colaboradorId, profileId, aoMudar) {
+  botao.disabled = true; const antes = botao.textContent; botao.textContent = 'Ligando…'
+  const { error } = await sbClient.from('acessos_pessoas')
+    .update({ profile_id: profileId }).eq('id', colaboradorId)
+  if (error) {
+    // Falha não pode passar por sucesso: o dono acharia que ligou e seguiria
+    // preenchendo a lotação num cadastro que continua solto.
+    botao.disabled = false; botao.textContent = antes
+    adminToast('Não consegui ligar: ' + error.message, false); return
+  }
+  adminToast('Ligado.'); aoMudar()
+}
+
+async function _criarCadastro(botao, p, aoMudar) {
+  botao.disabled = true; const antes = botao.textContent; botao.textContent = 'Criando…'
+  // `nome` é a única coluna obrigatória sem valor padrão. Cai para o e-mail
+  // quando o login não tem nome — mesma regra que a lista usa para exibir.
+  const { error } = await sbClient.from('acessos_pessoas').insert({
+    nome: (p.bruto && p.bruto.name) || p.email,
+    email_corporativo: p.email,
+    profile_id: p.id,
+  })
+  if (error) {
+    botao.disabled = false; botao.textContent = antes
+    adminToast('Não consegui criar o cadastro: ' + error.message, false); return
+  }
+  adminToast('Cadastro criado.'); aoMudar()
+}
+
 // As OUTRAS duas informações — a que agrupa já está no cabeçalho, repeti-la em
 // cada linha é ruído.
 function _subtitulo(p, gaveta) {
-  if (!p.temCadastro) return '<span class="usr-alerta">sem cadastro de colaborador</span>'
+  // "Sem cadastro" era MENTIRA em um caso, e foi o dono quem percebeu: a Raíssa
+  // tem cadastro ativo com o e-mail idêntico ao login, só sem ninguém ter ligado
+  // os dois. Dizer "sem cadastro" mandava procurar o que já existia.
+  if (!p.temCadastro) {
+    const { estado } = estadoDoVinculo({ id: p.id, email: p.email }, _colaboradores)
+    if (estado === 'sugestao') return '<span class="usr-alerta">cadastro encontrado — falta ligar</span>'
+    if (estado === 'ambiguo') return '<span class="usr-alerta">mais de um cadastro com este e-mail</span>'
+    return '<span class="usr-alerta">sem cadastro de colaborador</span>'
+  }
   const outras = DIMENSOES.filter((d) => d.chave !== gaveta)
     .map((d) => p[d.chave] || `sem ${d.rotulo.toLowerCase()}`)
   return esc(outras.join(' · '))
@@ -1455,6 +1574,12 @@ function _criarLinhaPessoa(p, gaveta, currentEmail) {
   const sub = mkEl('div', 'usr-sub')
   sub.innerHTML = _subtitulo(p, gaveta) // já vem escapado (ou é o span fixo de "sem cadastro")
   info.appendChild(sub)
+
+  // O clique no bloco do nome abre a ficha. NÃO na linha inteira: a fileira de
+  // ações fica logo abaixo, e clicar em "Permissões" abriria as duas coisas.
+  info.style.cursor = 'pointer'
+  info.title = 'Abrir a ficha de ' + (p.nome || p.email)
+  info.addEventListener('click', () => abrirFichaDaPessoa(p))
   const contato = _contato(p)
   if (contato) info.appendChild(mkEl('div', 'usr-contato', contato))
   topo.appendChild(info)
@@ -1578,8 +1703,14 @@ async function loadAdminUsers() {
     // allowed_accounts undefined em vez do valor gravado. created_at entrou
     // na Correção 2, pra mostrar "desde <data>" junto do e-mail.
     sbClient.from('profiles').select('id,email,name,role,is_superadmin,permissions,disabled,avatar_url,allowed_accounts,created_at'),
+    // `id`, `email_corporativo` e `conta_apple` entraram na etapa 2 e são
+    // ESSENCIAIS: sem os dois e-mails, `estadoDoVinculo` não acha candidato
+    // nenhum e a Raíssa — que TEM cadastro ativo com o e-mail idêntico ao
+    // login — continuaria aparecendo como "sem cadastro de colaborador". Sem o
+    // `id`, ligar o cadastro mandaria `undefined` e não atualizaria nada. Os
+    // dois defeitos seriam silenciosos: nenhum erro, nenhum teste vermelho.
     sbClient.from('acessos_pessoas').select(
-      'profile_id,nome,setor_id,organizacao_id,marca_id,'
+      'id,profile_id,nome,email_corporativo,conta_apple,setor_id,organizacao_id,marca_id,'
       + 'acessos_setores(nome),acessos_organizacoes(nome),patrimonio_empresas(nome)'),
   ])
   if (rp.error || rc.error) {
@@ -1592,6 +1723,9 @@ async function loadAdminUsers() {
   const perfis = rp.data || []
   const pessoas = rc.data || []
   _usersCache = perfis // p/ o "duplicar permissões de outro usuário" no editor
+  // A ficha precisa da lista INTEIRA, inclusive de quem ainda não tem login:
+  // é justamente entre esses que mora o cadastro a sugerir.
+  _colaboradores = pessoas
 
   const active = perfis.filter(u => !u.disabled), admins = active.filter(u => u.role === 'admin').length
   const stats = document.getElementById('admin-stats-users'); stats.replaceChildren()
@@ -2325,6 +2459,19 @@ Object.assign(window, {
 .tela-admin :deep(.usr-gavetas-rot){font-size:11px;color:var(--muted);}
 .tela-admin :deep(.usr-preencher){font-size:11px;color:var(--orange,#d97706);cursor:pointer;}
 .tela-admin :deep(.usr-vazio){color:var(--muted);font-size:12px;padding:14px 2px;}
+
+/* A ficha da pessoa (etapa 2). Uma coluna, cabe no celular, e as cores saem do
+   tema — nada de cor fixa, que foi o que deixou a seção branca no escuro. */
+.tela-admin :deep(.ficha-fundo){position:fixed;inset:0;z-index:99990;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;}
+.tela-admin :deep(.ficha-caixa){background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:14px;width:100%;max-width:420px;max-height:88vh;overflow-y:auto;}
+.tela-admin :deep(.ficha-cab){display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);}
+.tela-admin :deep(.ficha-titulo){font-weight:700;font-size:14px;overflow-wrap:anywhere;}
+.tela-admin :deep(.ficha-x){border:none;background:transparent;color:var(--muted);font-size:18px;cursor:pointer;min-width:40px;min-height:40px;flex-shrink:0;}
+.tela-admin :deep(.ficha-corpo){padding:14px 16px;}
+.tela-admin :deep(.ficha-sec){padding:12px 0;border-bottom:1px solid var(--border);}
+.tela-admin :deep(.ficha-sec:last-child){border-bottom:none;}
+.tela-admin :deep(.ficha-sec-tit){font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+.tela-admin :deep(.ficha-txt){font-size:12.5px;line-height:1.5;margin-bottom:10px;overflow-wrap:anywhere;}
 /* A busca não está no brief original — foi preciso desenhar o campo pra
    `_filtrar` ter onde ler o termo. `admin-form-input` já dá o visual padrão
    (width:100%); aqui só limita a largura no desktop. */
