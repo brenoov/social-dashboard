@@ -1747,3 +1747,30 @@ img{max-width:100%;}
    ninguém lê. */
 .btn.btn-perigo{ color:var(--red); border-color:color-mix(in srgb, var(--red) 40%, var(--surface)); }
 .btn.btn-perigo:hover{ background:color-mix(in srgb, var(--red) 10%, var(--surface)); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SELOS E ETIQUETAS COLORIDAS — o padrão. Ver PADRAO-DA-CENTRAL.md, item 2.
+
+   Etiqueta de estado (em uso, manutenção, baixado, atrasado…) é fundo tingido
+   + texto na mesma cor. Antes cada tela escolhia um par de hex no olho, e no
+   tema escuro viravam blocos claros.
+
+   A PROPORÇÃO NÃO É CHUTE: fundo com 12% da cor, e o TEXTO com 75% da cor mais
+   25% de `--text`. A cor pura no texto reprovava em dois dos oito casos (âmbar
+   no tema claro dava 4,03 e o azul no escuro 4,42, abaixo do mínimo de 4,5).
+   Com 75/25 o pior dos oito casos é 5,74 — e a cor continua sendo lida como
+   informação, que é para o que ela existe. */
+.selo{
+  display:inline-flex; align-items:center; gap:4px;
+  font-family:var(--fonte-principal); font-size:10.5px; font-weight:600;
+  letter-spacing:.3px; padding:3px 9px; border-radius:999px;
+  white-space:nowrap; overflow-wrap:anywhere;
+  background:color-mix(in srgb, var(--selo-cor) 12%, var(--surface));
+  color:color-mix(in srgb, var(--selo-cor) 75%, var(--text));
+}
+.selo-ok      { --selo-cor:var(--green); }
+.selo-atencao { --selo-cor:var(--orange); }
+.selo-erro    { --selo-cor:var(--red); }
+.selo-info    { --selo-cor:var(--accent); }
+/* Sem cor: cinza do tema, para "nenhum estado" — nunca um cinza escolhido à mão. */
+.selo-neutro  { background:var(--surface2); color:var(--muted); }
