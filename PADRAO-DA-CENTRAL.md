@@ -93,6 +93,27 @@ Regras que valem para os três:
 - Botão de fechar com 40px de alvo, no canto, e cabeçalho que não rola junto.
 - Conteúdo rola DENTRO da caixa (`overflow-y:auto`), nunca a página atrás.
 
+### A página atrás fica travada — três peças, e as três são obrigatórias
+
+```js
+import { travarRolagem, destravarRolagem } from '@/compartilhado/travar-rolagem.js'
+// ao abrir:  travarRolagem()
+// ao fechar: destravarRolagem()   ← em TODOS os caminhos: X, clique no fundo, Esc
+```
+
+```css
+.meu-fundo  { touch-action:none; overscroll-behavior:contain; }
+.minha-caixa{ overscroll-behavior:contain; touch-action:pan-y; }
+```
+
+O `travar-rolagem.js` usa **contador, não booleano**: dois modais podem se
+sobrepor (abrir o editor de permissões de dentro da ficha), e com booleano
+fechar o de cima destravaria a página com o de baixo ainda aberto.
+
+> **O estrago:** com o modal aberto, a página atrás continuava rolável. No
+> celular, arrastar o dedo em cima do modal **fazia a tela escorregar para os
+> lados.** O dono viu no aparelho.
+
 > **O estrago 1:** `max-height:88vh` deixava uma faixa escura embaixo que no
 > aparelho lê como **barra preta**, e cortava a última linha do conteúdo.
 >

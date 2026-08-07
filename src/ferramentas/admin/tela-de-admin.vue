@@ -182,6 +182,9 @@ import { agruparPor, DIMENSOES } from './lotacao.js'
 // testado à parte: um casamento errado dá a lotação e o histórico de alguém
 // para outra pessoa, ou para uma caixa de e-mail compartilhada.
 import { estadoDoVinculo } from './vinculo-de-cadastro.js'
+// Trava a rolagem da pagina enquanto um modal esta aberto. Sem isso, arrastar em
+// cima do modal no celular movia o conteudo de tras.
+import { travarRolagem, destravarRolagem } from '../../compartilhado/travar-rolagem.js'
 
 const router = useRouter()
 
@@ -1015,6 +1018,7 @@ async function openPermModal(u, opcoes) {
   if (!_contasCache) { try { const r = await adFetch('accounts?select=id,name&order=name'); _contasCache = await r.json() } catch { _contasCache = [] } }
   _renderPermBody(u)
   document.getElementById('perm-modal-overlay').classList.add('open')
+  travarRolagem()
 }
 
 // `??` e não `||`: com `||`, passar mt=0 caía no default 6 — o topo da matriz
@@ -1266,6 +1270,7 @@ function _linhaDeAprovacao(r, u) {
 function closePermModal() {
   document.getElementById('perm-modal-overlay').classList.remove('open')
   _permState = null
+  destravarRolagem()
 }
 
 // SENSITIVE MUTATION — PATCH em profiles.permissions/features/allowed_accounts/is_superadmin.
@@ -1414,7 +1419,7 @@ function abrirFichaDaPessoa(p) {
 
   const fundo = mkEl('div', 'ficha-fundo')
   const caixa = mkEl('div', 'ficha-caixa')
-  const fechar = () => fundo.remove()
+  const fechar = () => { fundo.remove(); destravarRolagem() }
   // Clique no fundo fecha; clique DENTRO da caixa não (senão mexer num campo
   // fecharia a ficha na cara da pessoa).
   fundo.addEventListener('click', (e) => { if (e.target === fundo) fechar() })
@@ -1462,7 +1467,7 @@ function abrirFichaDaPessoa(p) {
   // z-index — e em vez de um painel por cima despencava como texto cru no fim
   // da página. Foi assim que foi para produção, e foi o dono quem viu.
   const raiz = document.querySelector('.tela-admin')
-  if (raiz) raiz.appendChild(fundo)
+  if (raiz) { raiz.appendChild(fundo); travarRolagem() }
   else { fechar(); adminToast('Não consegui abrir a ficha nesta tela.', false) }
 }
 
@@ -2529,7 +2534,7 @@ Object.assign(window, {
 /* ── Modal de permissões (.perm-*, legacy L1402-1423) — não é .admin-*,
    MANTIDO no global também; duplicado aqui pois o modal foi trazido para
    dentro da raiz deste componente. ── */
-.tela-admin :deep(.perm-overlay){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
+.tela-admin :deep(.perm-overlay){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);touch-action:none;overscroll-behavior:contain;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
 .tela-admin :deep(.perm-overlay.open){display:flex;}
 /* 420 → 760: a matriz tem 5 colunas fixas de ação + a coluna de nomes; em 420
    ela nasceria rolando na horizontal já no desktop. 95vw segura o celular. */
@@ -2537,7 +2542,7 @@ Object.assign(window, {
 .tela-admin :deep(.perm-modal-hdr){padding:20px 22px 14px;border-bottom:1px solid var(--border);}
 .tela-admin :deep(.perm-modal-title){font-family:var(--fonte-principal);font-size:17px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--text);}
 .tela-admin :deep(.perm-modal-user){font-family:var(--fonte-principal);font-size:12px;color:var(--muted);margin-top:3px;}
-.tela-admin :deep(.perm-modal-body){flex:1;overflow-y:auto;padding:14px 22px;}
+.tela-admin :deep(.perm-modal-body){flex:1;overflow-y:auto;padding:14px 22px;overscroll-behavior:contain;touch-action:pan-y;}
 .tela-admin :deep(.perm-section){margin-bottom:2px;}
 .tela-admin :deep(.perm-row){display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:5px;transition:background .12s;cursor:pointer;}
 .tela-admin :deep(.perm-row:hover){background:var(--surface2);}
@@ -2650,8 +2655,12 @@ Object.assign(window, {
 
 /* A ficha da pessoa (etapa 2). Uma coluna, cabe no celular, e as cores saem do
    tema — nada de cor fixa, que foi o que deixou a seção branca no escuro. */
-.tela-admin :deep(.ficha-fundo){position:fixed;inset:0;z-index:99990;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;}
-.tela-admin :deep(.ficha-caixa){background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:14px;width:100%;max-width:420px;max-height:88vh;overflow-y:auto;}
+/* `touch-action:none` no fundo: arrastar o dedo na área escura não faz nada.
+   `overscroll-behavior:contain` na caixa: chegar ao fim da rolagem de dentro
+   NÃO continua rolando a página atrás (é o "encadeamento de rolagem"). Os dois,
+   mais a trava de `travar-rolagem.js`, é o que impede a tela de escorregar. */
+.tela-admin :deep(.ficha-fundo){position:fixed;inset:0;z-index:99990;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;touch-action:none;overscroll-behavior:contain;}
+.tela-admin :deep(.ficha-caixa){background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:14px;width:100%;max-width:420px;max-height:88vh;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;}
 .tela-admin :deep(.ficha-cab){display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);}
 .tela-admin :deep(.ficha-titulo){font-weight:700;font-size:14px;overflow-wrap:anywhere;}
 .tela-admin :deep(.ficha-x){border:none;background:transparent;color:var(--muted);font-size:18px;cursor:pointer;min-width:40px;min-height:40px;flex-shrink:0;}
