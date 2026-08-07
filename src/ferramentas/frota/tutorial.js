@@ -106,6 +106,21 @@ export const PASSOS_VEICULO = [
       + 'cobrada no checklist de hoje, e é pra ela que o aviso da manhã vai.',
   },
   {
+    selector: '[data-tour="veic-empresa"]',
+    titulo: 'De qual empresa é o carro',
+    texto: 'De quem é o carro, e não onde ele fica — são duas perguntas diferentes, e por '
+      + 'isso são dois campos. Um carro da RBV Company pode passar a semana guardado na '
+      + 'Fábrica Conchal da Vessel sem por isso virar patrimônio da Vessel.',
+  },
+  {
+    selector: '[data-tour="veic-local"]',
+    titulo: 'Onde o carro fica',
+    texto: 'Aqui você não digita: você escolhe na lista que já existe, a mesma do '
+      + 'Patrimônio. Repare que o nome da marca anda junto do local — existem duas '
+      + '"Fábrica Conchal", de empresas diferentes, e sem a marca não dá pra saber qual é '
+      + 'qual. Se o local que falta não estiver na lista, o + cadastra na hora.',
+  },
+  {
     selector: '[data-tour="veic-contato"]',
     titulo: 'Contato',
     texto: 'Um telefone de quem resolve as coisas deste carro. Pode ser o próprio '

@@ -9,7 +9,12 @@
  * Fase 1: cadastro, "onde está" e o ciclo de retirada/devolução. Requisição
  * com aprovação, multas e plano de revisão vêm nas fases seguintes; o desenho
  * inteiro está em docs/superpowers/specs/2026-08-04-frota-design.md. */
-import { ref, reactive, computed, onMounted } from 'vue'
+// `watch` faz falta de verdade: sem ele a tela inteira morre com
+// "watch is not defined" ao montar, e não mostra NADA — foi o que aconteceu
+// entre o commit do passeio guiado (8decfb5) e aqui. Nem o `npm test` nem o
+// `npm run build` pegam isso: os dois compilam o arquivo, nenhum dos dois o
+// executa num navegador.
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
@@ -38,12 +43,18 @@ import {
   problemasAbertosHoje,
 } from '../../../supabase/functions/_shared/checklist.js'
 import { bensLivresParaFrota, patchDoBem } from './bens-para-veiculo.js'
+import { dadosDoLocal, insertDaArvore } from './local-do-veiculo.js'
 import { contatoParaCobranca, podeCopiarTelefoneDoCarro } from './contato-do-motorista.js'
 // O tutorial: o passeio pela tela inteira, os textos fixos dos 6 modais e o
 // passeio pelos campos de cada um. PasseioGuiado é o MESMO componente que o
 // Patrimônio usa (compartilhado/) — ele já aponta pra dentro de um modal
 // aberto sozinho, não precisou de adaptação nenhuma.
 import PasseioGuiado from '../../compartilhado/passeio-guiado.vue'
+// A MESMA escolha de local que o Patrimônio tem, agora aqui: Marca › Local ›
+// Ambiente, mostrando o que já está no banco em vez de deixar digitar às cegas.
+// Bronca do dono: "fui editar a ficha de carro BMW, aí tem lá campo local, eu
+// digito ao invés de já mostrar tudo o que já temos em banco".
+import EscolhaDeLocalEAmbiente from '../../compartilhado/escolha-de-local-e-ambiente.vue'
 import {
   PASSOS, TEXTOS, PASSOS_VEICULO, PASSOS_ITEM, PASSOS_FICHA_DETALHE,
   PASSOS_PEDIDO, PASSOS_DECISAO, PASSOS_FICHA, deveAbrirSozinho, marcarComoVisto,
@@ -59,6 +70,18 @@ const pessoas = ref([])
 const carregando = ref(true)
 const falha = ref('')
 const podeEditar = computed(() => hasPermission('frota', 'editar'))
+
+/* A árvore Marca › Local › Ambiente do Patrimônio, lida aqui pra a ficha do
+ * carro poder APONTAR um local de verdade em vez de guardar texto solto. São as
+ * mesmas três tabelas que o Patrimônio usa — não é uma cópia da lista, é a
+ * lista. */
+const empresasPat = ref([])
+const locaisPat = ref([])
+const comodosPat = ref([])
+// Falhou a LEITURA da árvore? A lista vazia tem de dizer por quê. Sem isto,
+// "não há local cadastrado" e "não consegui ler os locais" ficam iguais na tela
+// — e a segunda é mentira (item 9 do padrão).
+const falhaArvore = ref(false)
 // Duas áreas (D8): Motorista pra quem dirige, Gestão pra quem administra.
 // A separação é de ATENÇÃO, não de sigilo — quem só dirige não precisa de FIPE,
 // contrato e chassi na frente enquanto pega o carro pra sair.
@@ -366,7 +389,34 @@ async function carregar() {
     falhaRespostas.value = false
     respostasDeHoje.value = []
   }
+
+  // A árvore de locais não derruba a frota se falhar (mesmo tratamento do
+  // Patrimônio nas outras leituras): quem não enxerga as tabelas do Patrimônio
+  // continua pegando e devolvendo carro, só não consegue apontar o local.
+  await carregarArvoreDeLocais()
   carregando.value = false
+}
+
+/* Lê a árvore de locais do Patrimônio. Fora do Promise.all de cima de propósito:
+ * ela é recarregada sozinha toda vez que alguém cadastra uma marca, um local ou
+ * um ambiente pelo "+" da ficha, e recarregar a frota inteira pra isso seria
+ * caro à toa.
+ *
+ * As TRÊS leituras são conferidas, não só a primeira: uma árvore com marcas e
+ * sem locais parece "marca sem local nenhum", que é uma resposta errada com cara
+ * de resposta certa. Devolve `true` só quando as três vieram. */
+async function carregarArvoreDeLocais() {
+  const [emp, loc, com] = await Promise.all([
+    sbClient.from('patrimonio_empresas').select('id,nome').order('ordem').order('nome'),
+    sbClient.from('patrimonio_locais').select('id,nome,empresa_id').order('ordem').order('nome'),
+    sbClient.from('patrimonio_comodos').select('id,nome,local_id').order('ordem').order('nome'),
+  ])
+  if (emp.error || loc.error || com.error) { falhaArvore.value = true; return false }
+  falhaArvore.value = false
+  empresasPat.value = emp.data || []
+  locaisPat.value = loc.data || []
+  comodosPat.value = com.data || []
+  return true
 }
 
 const nomeDaPessoa = (id) => (pessoas.value.find((x) => x.id === id) || {}).nome || null
@@ -867,7 +917,18 @@ const vForm = reactive({})
 const errosDoVeiculo = ref([])
 const CAMPOS_VEICULO = [
   'nome', 'placa', 'marca', 'ano', 'cor', 'combustivel', 'renavam', 'chassi', 'tipo_oleo',
-  'contrato', 'codigo_patrimonial', 'categoria_comercial', 'situacao', 'pessoa_id', 'local_texto',
+  'contrato', 'codigo_patrimonial', 'categoria_comercial', 'situacao', 'pessoa_id',
+  // `local_texto` CONTINUA na lista, e não é sobra: é o que estava escrito à mão
+  // antes da árvore existir ("Casa RB", "Conchal", "Barracão", em 5 dos 9
+  // carros). Ele é lido pra ficha e gravado de volta do jeito que estava —
+  // apontar o local NÃO o apaga. É a única pista de onde o carro estava, e
+  // apagá-la ao gravar o local certo perderia essa pista pra sempre, sem volta.
+  'local_texto',
+  // De quem é o carro (empresa_id) e onde ele fica (local_id/comodo_id) são
+  // perguntas DIFERENTES, e por isso são campos diferentes — decisão do dono:
+  // um carro da RBV Company pode passar a semana guardado na Fábrica Conchal da
+  // Vessel sem virar patrimônio da Vessel. Nada aqui deduz um do outro.
+  'empresa_id', 'local_id', 'comodo_id',
   'seguro_seguradora', 'seguro_apolice', 'seguro_vence_em', 'tag_pedagio', 'rastreador',
   'contato_nome', 'contato_telefone', 'contato_papel',
   'oficina_nome', 'oficina_telefone',
@@ -922,7 +983,54 @@ function abrirVeiculoNovo() {
   novaRevisao.oficina = ''
   novaRevisao.custo = ''
 }
-function fecharVeiculo() { veiculoAberto.value = null; errosDoVeiculo.value = []; passeioVeiculoAberto.value = false }
+function fecharVeiculo() {
+  veiculoAberto.value = null
+  errosDoVeiculo.value = []
+  passeioVeiculoAberto.value = false
+  erroDaArvore.value = ''
+}
+
+/* O "+" da árvore, dentro da ficha do carro. Mesma ideia do "+" do Patrimônio:
+ * sem ele, quem só edita a ficha TRAVA quando o local que precisa ainda não
+ * está cadastrado — e o jeito de destravar era digitar texto solto, que é
+ * justamente o defeito que esta troca veio matar.
+ *
+ * Grava numa tabela e RELÊ a árvore. São duas idas ao banco, e as DUAS são
+ * conferidas: este projeto já teve quatro defeitos do tipo "gravou, a releitura
+ * falhou em silêncio, e a tela disse que deu certo". Se a releitura falhar, o
+ * recado diz que o cadastro foi feito mas a lista não voltou — e a caixinha do
+ * "+" continua aberta, porque o nome novo não apareceu nas props. */
+const criandoNaArvore = ref(false)
+const erroDaArvore = ref('')
+
+async function criarNaArvore({ nivel, nome, empresaId, localId }) {
+  if (criandoNaArvore.value) return
+  criandoNaArvore.value = true
+  erroDaArvore.value = ''
+
+  const pedido = insertDaArvore({ nivel, nome, empresaId, localId })
+  if (!pedido) {
+    criandoNaArvore.value = false
+    erroDaArvore.value = 'Não consegui cadastrar: faltou o nome, ou faltou dizer em que '
+      + 'marca (ou em que local) essa opção nova entra.'
+    return
+  }
+
+  const { error } = await sbClient.from(pedido.tabela).insert(pedido.dados)
+  if (error) {
+    criandoNaArvore.value = false
+    erroDaArvore.value = 'Não consegui cadastrar. Tente de novo; se continuar falhando, '
+      + 'confirme se você tem permissão para editar as listas do Patrimônio.'
+    return
+  }
+
+  const releu = await carregarArvoreDeLocais()
+  criandoNaArvore.value = false
+  if (!releu) {
+    erroDaArvore.value = 'Cadastrei, mas não consegui recarregar a lista de locais. '
+      + 'Recarregue a página para vê-lo aparecer.'
+  }
+}
 
 // Escolher um bem no seletor de ligação, enquanto cria, também sugere nome,
 // marca, FIPE e código patrimonial pra ficha (patchDoBem só preenche o que
@@ -959,6 +1067,17 @@ async function salvarVeiculo() {
   dados.aluguel_centavos = centavosDe(vForm.aluguel)
   dados.fipe_centavos = centavosDe(vForm.fipe)
   dados.seguro_valor_centavos = centavosDe(vForm.seguroValor)
+  // O "onde fica" vem de uma função testada, e não do laço genérico acima, por
+  // uma razão só: é ela que garante que `local_texto` volta INTACTO ao gravar o
+  // local escolhido. Escrito solto aqui no meio, um "aproveita e limpa o texto
+  // velho" entraria em qualquer revisão futura sem ninguém notar — e o texto é
+  // a única pista de onde o carro estava. Ver local-do-veiculo.js.
+  Object.assign(dados, dadosDoLocal({
+    empresaId: vForm.empresa_id,
+    localId: vForm.local_id,
+    comodoId: vForm.comodo_id,
+    textoAntigo: vForm.local_texto,
+  }))
   dados.atualizado_em = new Date().toISOString()
 
   if (criando) {
@@ -1526,7 +1645,12 @@ onMounted(async () => {
             </label>
           </div>
 
-          <h3 class="fr-grupo">Onde está</h3>
+          <!-- DE QUEM É e ONDE ESTÁ são duas perguntas, e por isso dois campos.
+               Decisão do dono, e o motivo importa pra ninguém "simplificar" isso
+               depois: um carro da RBV Company pode passar a semana guardado na
+               Fábrica Conchal da Vessel sem virar patrimônio da Vessel. A
+               empresa NÃO é deduzida do local escolhido. -->
+          <h3 class="fr-grupo">De quem é e onde está</h3>
           <div class="fr-dupla">
             <label class="fr-campo" v-if="!veiculoAberto.novo" data-tour="veic-responsavel">
               <span class="fr-lab">Responsável</span>
@@ -1536,10 +1660,47 @@ onMounted(async () => {
               </select>
               <span class="fr-ajuda">Carro com responsável deixa de aparecer como livre para os outros.</span>
             </label>
-            <label class="fr-campo">
-              <span class="fr-lab">Local</span>
-              <input v-model="vForm.local_texto" type="text" placeholder="Barracão, Conchal…">
+            <label class="fr-campo" data-tour="veic-empresa">
+              <span class="fr-lab">De qual empresa é este carro</span>
+              <select v-model="vForm.empresa_id">
+                <option value="">— não informado —</option>
+                <option v-for="e in empresasPat" :key="e.id" :value="e.id">{{ e.nome }}</option>
+              </select>
+              <span class="fr-ajuda">
+                De quem é o carro, não onde ele fica. Um carro da RBV pode ficar guardado
+                num local da Vessel sem deixar de ser da RBV.
+              </span>
             </label>
+          </div>
+
+          <!-- LOCAL: era uma caixa de digitar às cegas ("Barracão, Conchal…").
+               Agora é a MESMA árvore Marca › Local › Ambiente que o Patrimônio
+               usa. O texto que já estava escrito não some: ele continua guardado
+               na ficha e aparece aqui até alguém apontar o local certo — e
+               continua guardado depois disso também. -->
+          <!-- Sem um `fr-lab` por fora: o próprio componente já escreve o rótulo
+               dentro da caixa do "o que está valendo agora", e dois rótulos
+               iguais um em cima do outro só ocupam altura de celular. -->
+          <div class="fr-campo" data-tour="veic-local">
+            <p class="fr-erro-inline" v-if="falhaArvore">
+              Não consegui ler a lista de locais do Patrimônio. A lista abaixo pode estar
+              vazia por causa disso, e não porque não haja local cadastrado. Recarregue a
+              página; se continuar, confirme se você tem acesso ao Patrimônio.
+            </p>
+            <EscolhaDeLocalEAmbiente
+              :empresas="empresasPat" :locais="locaisPat" :comodos="comodosPat"
+              v-model:localId="vForm.local_id"
+              v-model:comodoId="vForm.comodo_id"
+              :texto-livre="vForm.local_texto"
+              com-ambiente
+              rotulo="Onde este carro fica"
+              :pode-criar="podeEditar" :criando="criandoNaArvore"
+              @criar="criarNaArvore" />
+            <p class="fr-erro-inline" v-if="erroDaArvore">{{ erroDaArvore }}</p>
+            <span class="fr-ajuda" v-if="vForm.local_texto">
+              O que estava escrito à mão continua guardado nesta ficha mesmo depois de você
+              apontar o local — nada é apagado.
+            </span>
           </div>
 
           <h3 class="fr-grupo" data-tour="veic-contato">Contato</h3>
