@@ -341,7 +341,23 @@ git commit -m "senha posta por outra pessoa e provisoria: o reset passa a cobrar
 import { estadoDoVinculo } from './vinculo-de-cadastro.js'
 ```
 
-Em `loadAdminUsers`, a leitura de `acessos_pessoas` já existe (via `sbClient`).
+**ANTES DE MAIS NADA, ALARGUE O `select`.** A leitura de `acessos_pessoas` já
+existe em `loadAdminUsers`, mas hoje traz só
+`profile_id, nome, setor_id, organizacao_id, marca_id` mais os nomes embutidos.
+**Faltam três campos sem os quais esta etapa inteira falha em silêncio:**
+
+- `id` — sem ele, ligar o cadastro manda `undefined` e não atualiza nada;
+- `email_corporativo` e `conta_apple` — sem eles, `estadoDoVinculo` nunca
+  encontra candidato, e a Raíssa continua aparecendo como "sem cadastro".
+
+O `select` passa a ser:
+
+```js
+  sbClient.from('acessos_pessoas').select(
+    'id,profile_id,nome,email_corporativo,conta_apple,setor_id,organizacao_id,marca_id,'
+    + 'acessos_setores(nome),acessos_organizacoes(nome),patrimonio_empresas(nome)'),
+```
+
 Guarde a lista inteira num escopo que a ficha alcance — a ficha precisa dos
 colaboradores SEM vínculo para poder sugerir:
 
