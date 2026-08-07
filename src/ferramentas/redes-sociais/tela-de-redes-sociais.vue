@@ -62,7 +62,7 @@
     </barra-de-topo>
 
       <!-- GUARDA DE FRESCOR: avisa quando os dados não são de hoje (coletor parado) -->
-      <div id="freshness-banner" style="display:none;align-items:center;gap:8px;padding:9px 16px;background:#7f1d1d;color:#fff;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;letter-spacing:.3px;border-bottom:1px solid #991b1b;"></div>
+      <div id="freshness-banner" style="display:none;align-items:center;gap:8px;padding:9px 16px;background:var(--red);color:#fff;font-family:var(--fonte-principal);font-size:12px;font-weight:600;letter-spacing:.3px;"></div>
 
       <!-- HEADER — seleção de perfil (abaixo da topbar) -->
       <header>
@@ -89,7 +89,7 @@
           </div>
           <div>
             <div class="admin-section-title">Usuários cadastrados</div>
-            <div class="user-list" id="user-list"><div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--muted)">Carregando...</div></div>
+            <div class="user-list" id="user-list"><div style="font-family:var(--fonte-principal);font-size:11px;color:var(--muted)">Carregando...</div></div>
           </div>
         </div>
       </div>
@@ -159,8 +159,8 @@
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
             <div style="font-family:'Oswald',sans-serif;font-weight:400;font-size:11px;letter-spacing:1.5px;color:var(--muted)">NOVOS SEGUIDORES / DIA</div>
             <div class="chart-legend">
-              <div class="legend-item"><div class="legend-dot" style="background:#16a34a"></div><span>Seguiram</span></div>
-              <div class="legend-item"><div class="legend-dot" style="background:#dc2626"></div><span>Deixaram</span></div>
+              <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div><span>Seguiram</span></div>
+              <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div><span>Deixaram</span></div>
               <div class="legend-item"><span style="font-weight:700;color:var(--text)">n</span><span>= líquido</span></div>
             </div>
           </div>
@@ -420,8 +420,8 @@
          muda o layout visual) -->
     <div id="chart-tooltip">
       <div class="tt-date" id="tt-date"></div>
-      <div class="tt-row"><span class="tt-dot" style="background:#16a34a"></span><span class="tt-label">Seguiram</span><span class="tt-val" id="tt-seguiu"></span></div>
-      <div class="tt-row"><span class="tt-dot" style="background:#dc2626"></span><span class="tt-label">Deixaram</span><span class="tt-val" id="tt-deixou"></span></div>
+      <div class="tt-row"><span class="tt-dot" style="background:var(--green)"></span><span class="tt-label">Seguiram</span><span class="tt-val" id="tt-seguiu"></span></div>
+      <div class="tt-row"><span class="tt-dot" style="background:var(--red)"></span><span class="tt-label">Deixaram</span><span class="tt-val" id="tt-deixou"></span></div>
       <div class="tt-sep"></div>
       <div class="tt-row"><span class="tt-label" style="font-weight:700;color:var(--text)">Líquido</span><span class="tt-val" id="tt-liquido" style="font-weight:800"></span></div>
       <div class="tt-cmp" id="tt-cmp"></div>
@@ -747,7 +747,7 @@ function verificarTravaJanelas() {
     }
   }
   if (falhas.length) {
-    console.error('%c🔒⚠️ TRAVA DAS JANELAS DISPAROU — a lógica de intervalo (engajamento e/ou novos seguidores) mudou e NÃO bate mais com o painel profissional:\n' + falhas.join('\n') + '\n→ Reverta janelasDoPeriodo OU revalide com os números exatos do Breno E atualize a referência da trava antes de subir.', 'color:#dc2626;font-weight:bold;font-size:13px')
+    console.error('%c🔒⚠️ TRAVA DAS JANELAS DISPAROU — a lógica de intervalo (engajamento e/ou novos seguidores) mudou e NÃO bate mais com o painel profissional:\n' + falhas.join('\n') + '\n→ Reverta janelasDoPeriodo OU revalide com os números exatos do Breno E atualize a referência da trava antes de subir.', 'color:var(--red);font-weight:bold;font-size:13px')
     return false
   }
   return true
@@ -1678,24 +1678,24 @@ function openFollowersInfo() {
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));'
   ov.onclick = e => { if (e.target === ov) ov.remove() }
   const m = document.createElement('div')
-  m.style.cssText = "background:#fff;max-width:470px;width:100%;max-height:85vh;overflow:auto;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.32);font-family:'IBM Plex Sans',sans-serif;color:#1e293b;"
+  m.style.cssText = "background:var(--surface);max-width:470px;width:100%;max-height:calc(100dvh - 24px);overflow:auto;overscroll-behavior:contain;border-radius:16px;box-shadow:var(--shadow-lg);font-family:var(--fonte-principal);color:var(--text);"
   m.innerHTML =
     `<div style="padding:18px 20px;border-bottom:1px solid #eef2f7;display:flex;align-items:center;justify-content:space-between;gap:12px;">
       <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;letter-spacing:.5px;">COMO CONTAMOS OS NOVOS SEGUIDORES</div>
-      <button id="_fi_x" style="border:0;background:#f1f5f9;border-radius:8px;width:30px;height:30px;font-size:15px;cursor:pointer;color:#475569;">✕</button>
+      <button id="_fi_x" style="border:0;background:var(--surface2);border-radius:8px;min-width:40px;min-height:40px;font-size:15px;cursor:pointer;color:var(--muted);">✕</button>
     </div>
     <div style="padding:18px 20px;font-size:13px;line-height:1.6;">
-      <div style="background:#dcfce7;border:1px solid #86efac;border-radius:10px;padding:12px 14px;margin:0 0 14px;">
-        <p style="margin:0 0 6px;"><b style="color:#15803d;">✓ Confirmado pelo Instagram</b></p>
+      <div style="background:color-mix(in srgb,var(--green) 12%,var(--surface));border:1px solid #86efac;border-radius:10px;padding:12px 14px;margin:0 0 14px;">
+        <p style="margin:0 0 6px;"><b style="color:color-mix(in srgb,var(--green) 75%,var(--text));">✓ Confirmado pelo Instagram</b></p>
         <p style="margin:0;">O período já tem o número oficial do Instagram (<b>seguiram − deixaram de seguir</b>). É exatamente o que aparece no painel profissional — se conferir no app, vai bater.</p>
       </div>
-      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;margin:0 0 14px;">
-        <p style="margin:0 0 6px;"><b style="color:#b45309;">⏳ Em consolidação</b></p>
+      <div style="background:color-mix(in srgb,var(--orange) 10%,var(--surface));border:1px solid #fde68a;border-radius:10px;padding:12px 14px;margin:0 0 14px;">
+        <p style="margin:0 0 6px;"><b style="color:color-mix(in srgb,var(--orange) 75%,var(--text));">⏳ Em consolidação</b></p>
         <p style="margin:0;">O Instagram ainda <b>não fechou</b> os números oficiais (seguiram/saíram) deste período. Isso costuma levar 1–2 dias, mas às vezes a Meta <b>atrasa bastante</b>. Enquanto isso, mostramos a <b>variação real de seguidores</b> (quantos a conta tem a mais), que é sempre atual. Quando o Instagram fecha, o card vira <b>✓ confirmado</b> sozinho.</p>
       </div>
       <p style="margin:0 0 14px;"><b>Por que pode mudar ao confirmar?</b> A variação da contagem e o "seguiram − saíram" do Instagram são medidas um pouco diferentes (a contagem inclui também quem desativou/reativou a conta), então em dias de pico podem divergir.</p>
-      <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:12px 14px;">
-        <p style="margin:0;"><b style="color:#0369a1;">Na prática:</b> o número <b>✓ confirmado</b> é o oficial do Instagram (use para apresentar). O <b>⏳ em consolidação</b> é o crescimento real mais recente, que o Instagram ainda vai oficializar.</p>
+      <div style="background:color-mix(in srgb,var(--accent) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 30%,var(--surface));border-radius:10px;padding:12px 14px;">
+        <p style="margin:0;"><b style="color:var(--accent);">Na prática:</b> o número <b>✓ confirmado</b> é o oficial do Instagram (use para apresentar). O <b>⏳ em consolidação</b> é o crescimento real mais recente, que o Instagram ainda vai oficializar.</p>
       </div>
     </div>`
   ov.appendChild(m); document.body.appendChild(ov)
@@ -1822,10 +1822,10 @@ function update(d, period) {
   if (prevEl) {
     prevEl.style.display = 'block'
     if (confirmado) {
-      prevEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:800;color:#15803d;background:#dcfce7;border:1px solid #86efac;border-radius:6px;padding:2px 8px;">✓ confirmado pelo Instagram</span>`
+      prevEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:800;color:color-mix(in srgb,var(--green) 75%,var(--text));background:color-mix(in srgb,var(--green) 12%,var(--surface));border:1px solid #86efac;border-radius:6px;padding:2px 8px;">✓ confirmado pelo Instagram</span>`
     } else {
-      prevEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:800;color:#b45309;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:2px 8px;">⏳ em consolidação</span>` +
-        `<div style="font-size:9.5px;line-height:1.35;color:#9aa0a6;font-weight:500;margin-top:3px;">Número pela variação real de seguidores. O Instagram ainda não fechou os números oficiais (seguiram/saíram) deste período — quando fechar, aparece o ✓ confirmado.</div>`
+      prevEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:800;color:color-mix(in srgb,var(--orange) 75%,var(--text));background:color-mix(in srgb,var(--orange) 12%,var(--surface));border:1px solid #fcd34d;border-radius:6px;padding:2px 8px;">⏳ em consolidação</span>` +
+        `<div style="font-size:9.5px;line-height:1.35;color:var(--muted);font-weight:500;margin-top:3px;">Número pela variação real de seguidores. O Instagram ainda não fechou os números oficiais (seguiram/saíram) deste período — quando fechar, aparece o ✓ confirmado.</div>`
     }
   }
   buildChart(d.chart)
@@ -2341,7 +2341,7 @@ function renderGoalBar(d) {
   const pct = valid.length > 0
     ? Math.min(100, Math.round(valid.reduce((s, m) => s + Math.min(100, m.curr / m.goal * 100), 0) / valid.length))
     : 0
-  const color = pct >= 100 ? '#16a34a' : pct >= 60 ? 'var(--accent)' : '#d97706'
+  const color = pct >= 100 ? 'var(--green)' : pct >= 60 ? 'var(--accent)' : 'var(--orange)'
   const fill = document.getElementById('overall-bar-fill')
   const pctEl = document.getElementById('overall-bar-pct')
   if (fill) { fill.style.width = pct + '%'; fill.style.background = color; fill.style.boxShadow = pct >= 100 ? '0 0 7px #16a34a99,0 0 18px #16a34a33' : '' }
@@ -2369,7 +2369,7 @@ async function loadUsers() {
     headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` }
   })
   const users = await r.json()
-  if (!Array.isArray(users) || users.length === 0) { listEl.innerHTML = '<div style="font-family:\'DM Sanso\',monospace;font-size:11px;color:var(--muted)">Nenhum usuário.</div>'; return }
+  if (!Array.isArray(users) || users.length === 0) { listEl.innerHTML = '<div style="font-family:var(--fonte-principal);font-size:11px;color:var(--muted)">Nenhum usuário.</div>'; return }
   users.forEach(u => {
     const row = document.createElement('div'); row.className = 'user-row'
     const info = document.createElement('div'); info.className = 'user-info'
@@ -2586,18 +2586,18 @@ onUnmounted(() => {
   content: attr(data-full);
   position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%);
   background: var(--text); color: var(--surface);
-  font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: .3px;
+  font-family: var(--fonte-principal); font-size: 12px; font-weight: 600; letter-spacing: .3px;
   padding: 4px 8px; border-radius: 6px; white-space: nowrap; z-index: 60; pointer-events: none;
   box-shadow: 0 4px 14px rgba(0,0,0,.22);
 }
 /* ── Novos seguidores em 3 linhas de FONTE IGUAL (Seguidores / Deixaram de seguir / Total) ── */
 .tela-redes-sociais :deep(.nf-linhas){ display:flex; flex-direction:column; gap:6px; margin:4px 0 2px; }
 .tela-redes-sociais :deep(.nf-linha){ display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
-.tela-redes-sociais :deep(.nf-lbl){ font-family:'IBM Plex Sans',sans-serif; font-size:12px; font-weight:500; color:var(--muted); letter-spacing:.2px; }
+.tela-redes-sociais :deep(.nf-lbl){ font-family:var(--fonte-principal); font-size:12px; font-weight:500; color:var(--muted); letter-spacing:.2px; }
 .tela-redes-sociais :deep(.nf-val){ font-family:'Oswald',sans-serif; font-size:22px; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums; line-height:1.1; }
 .tela-redes-sociais :deep(.nf-total){ font-size:32px; font-weight:700; }
-.tela-redes-sociais :deep(.nf-val.a-green){ color:#16a34a; }
-.tela-redes-sociais :deep(.nf-val.a-red){ color:#ef4444; }
+.tela-redes-sociais :deep(.nf-val.a-green){ color:var(--green); }
+.tela-redes-sociais :deep(.nf-val.a-red){ color:var(--red); }
 .tela-redes-sociais :deep(.nf-val.a-blue){ color:var(--accent); }
 /* NÚMERO PARCIAL — quando o Instagram ainda não fechou o dia.
    O !important vence o .a-blue do template: sem isso o total sairia no mesmo azul
@@ -2609,15 +2609,15 @@ onUnmounted(() => {
    text-fill que pinta o texto de verdade. Só com `color` o getComputedStyle().color
    já diz laranja e o pixel continua azul — foi o que aconteceu na 1ª tentativa. */
 .tela-redes-sociais :deep(.nf-val.nf-em-consolidacao){ color:var(--orange)!important; -webkit-text-fill-color:var(--orange)!important; }
-.tela-redes-sociais :deep(.nf-provisorio){ font-family:'IBM Plex Sans',sans-serif; font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:var(--orange); border:1px solid var(--orange); border-radius:4px; padding:1px 5px; margin-left:7px; opacity:.95; white-space:nowrap; }
+.tela-redes-sociais :deep(.nf-provisorio){ font-family:var(--fonte-principal); font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:var(--orange); border:1px solid var(--orange); border-radius:4px; padding:1px 5px; margin-left:7px; opacity:.95; white-space:nowrap; }
 .tela-redes-sociais :deep(.nf-linha:has(.nf-provisorio:not([hidden]))){ align-items:center; }
 /* PRÉVIA do CUSTO POR SEGUIDOR — quando o Instagram ainda não publicou o bruto (seguiu/deixou)
    dos dias recentes e o custo sai pelo saldo líquido. Mesma cor âmbar da consolidação dos seguidores,
    via tokens de tema (claro E escuro). Não usa cores fixas pra não quebrar no modo escuro. */
-.tela-redes-sociais :deep(.previa-selo){ display:inline-flex; align-items:center; gap:5px; font-family:'IBM Plex Sans',sans-serif; font-size:10.5px; font-weight:800; letter-spacing:.3px; color:var(--orange); border:1px solid var(--orange); border-radius:6px; padding:2px 8px; white-space:nowrap; }
-.tela-redes-sociais :deep(.previa-nota){ font-family:'IBM Plex Sans',sans-serif; font-size:9.5px; line-height:1.35; font-weight:500; color:var(--muted); margin-top:3px; }
-.tela-redes-sociais :deep(.mc-ad-sub){ font-family:'IBM Plex Sans',sans-serif; font-size:10.5px; font-weight:600; color:var(--muted); margin-top:2px; letter-spacing:.2px; }
-.tela-redes-sociais :deep(.mc-obs){ font-family:'IBM Plex Sans',sans-serif; font-size:10px; font-weight:500; line-height:1.35; color:var(--muted); opacity:.85; margin-top:4px; }
+.tela-redes-sociais :deep(.previa-selo){ display:inline-flex; align-items:center; gap:5px; font-family:var(--fonte-principal); font-size:10.5px; font-weight:800; letter-spacing:.3px; color:var(--orange); border:1px solid var(--orange); border-radius:6px; padding:2px 8px; white-space:nowrap; }
+.tela-redes-sociais :deep(.previa-nota){ font-family:var(--fonte-principal); font-size:9.5px; line-height:1.35; font-weight:500; color:var(--muted); margin-top:3px; }
+.tela-redes-sociais :deep(.mc-ad-sub){ font-family:var(--fonte-principal); font-size:10.5px; font-weight:600; color:var(--muted); margin-top:2px; letter-spacing:.2px; }
+.tela-redes-sociais :deep(.mc-obs){ font-family:var(--fonte-principal); font-size:10px; font-weight:500; line-height:1.35; color:var(--muted); opacity:.85; margin-top:4px; }
 /* Porte das regras do dashboard central de Redes Sociais (legacy/index.html,
    principalmente L34-386/389-470/683-709/815-870 — hoje ainda em
    src/estilos/estilos-globais.css, de onde NÃO foram removidas: ao contrário
@@ -2655,11 +2655,11 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(header){display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:16px;padding-bottom:0;}
 .tela-redes-sociais :deep(#header-collapsible){display:flex;align-items:center;gap:16px;flex-wrap:wrap;overflow:hidden;max-height:120px;opacity:1;transition:max-height .35s ease,opacity .25s ease;}
 .tela-redes-sociais :deep(#header-collapsible.collapsed){max-height:0;opacity:0;pointer-events:none;}
-.tela-redes-sociais :deep(#header-toggle){background:none;border:1px solid var(--border);cursor:pointer;color:var(--muted);font-size:11px;padding:5px 10px;border-radius:3px;font-family:'IBM Plex Sans',sans-serif;display:flex;align-items:center;gap:5px;transition:border-color .18s,color .18s;white-space:nowrap;align-self:flex-start;}
+.tela-redes-sociais :deep(#header-toggle){background:none;border:1px solid var(--border);cursor:pointer;color:var(--muted);font-size:11px;padding:5px 10px;border-radius:3px;font-family:var(--fonte-principal);display:flex;align-items:center;gap:5px;transition:border-color .18s,color .18s;white-space:nowrap;align-self:flex-start;}
 .tela-redes-sociais :deep(#header-toggle:hover){border-color:var(--accent);color:var(--accent);}
 .tela-redes-sociais :deep(#header-toggle .ht-arrow){display:inline-block;transition:transform .35s ease;font-size:9px;line-height:1;}
 .tela-redes-sociais :deep(.profile-select){display:flex;gap:6px;flex-wrap:wrap;}
-.tela-redes-sociais :deep(.profile-btn){background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:var(--radius-sm);font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .2s cubic-bezier(.4,0,.2,1),border-color .2s ease,color .15s ease,transform .12s ease;}
+.tela-redes-sociais :deep(.profile-btn){background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:var(--radius-sm);font-family:var(--fonte-principal);font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .2s cubic-bezier(.4,0,.2,1),border-color .2s ease,color .15s ease,transform .12s ease;}
 .tela-redes-sociais :deep(.profile-btn:active){transform:scale(.95);}
 .tela-redes-sociais :deep(.profile-btn:focus-visible){outline:2px solid var(--accent);outline-offset:2px;}
 .tela-redes-sociais :deep(.profile-btn .av){width:20px;height:20px;border-radius:50%;font-size:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;overflow:hidden;flex-shrink:0;position:relative;z-index:1;}
@@ -2683,25 +2683,25 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.topbar-center)::-webkit-scrollbar{display:none;}
 .tela-redes-sociais :deep(.topbar-right){display:flex;align-items:center;gap:12px;text-align:right;flex-shrink:0;}
 .tela-redes-sociais :deep(.period-tabs){display:flex;gap:3px;flex-wrap:nowrap;flex-shrink:0;}
-.tela-redes-sociais :deep(.ptab){padding:4px 7px;border-radius:var(--radius-sm);font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:600;cursor:pointer;color:var(--muted);border:1px solid var(--border);background:none;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap;flex-shrink:0;transition:background .2s cubic-bezier(.4,0,.2,1),color .15s ease,border-color .15s ease,transform .12s ease,box-shadow .2s ease;}
+.tela-redes-sociais :deep(.ptab){padding:4px 7px;border-radius:var(--radius-sm);font-family:var(--fonte-principal);font-size:9px;font-weight:600;cursor:pointer;color:var(--muted);border:1px solid var(--border);background:none;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap;flex-shrink:0;transition:background .2s cubic-bezier(.4,0,.2,1),color .15s ease,border-color .15s ease,transform .12s ease,box-shadow .2s ease;}
 .tela-redes-sociais :deep(.ptab):active{transform:scale(.94);}
 .tela-redes-sociais :deep(.ptab.active){background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 2px 8px rgba(29,78,216,.25);}
 [data-theme="dark"] .tela-redes-sociais :deep(.ptab.active){box-shadow:0 2px 10px rgba(79,124,255,.35);}
 .tela-redes-sociais :deep(.ptab):focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 
 /* Relógio / live-dot / logo — compartilhados com outras telas (cópia própria, ver nota acima) */
-.tela-redes-sociais :deep(.live-dot){display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:9px;color:var(--green);letter-spacing:1.5px;font-weight:500;text-transform:uppercase;}
+.tela-redes-sociais :deep(.live-dot){display:inline-flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:9px;color:var(--green);letter-spacing:1.5px;font-weight:500;text-transform:uppercase;}
 .tela-redes-sociais :deep(.live-dot)::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
 .tela-redes-sociais :deep(.rbv-logo){height:52px;width:auto;object-fit:contain;display:block;}
 .tela-redes-sociais :deep(.rbv-logo-dark){display:none;}
 [data-theme="dark"] .tela-redes-sociais :deep(.rbv-logo-light){display:none;}
 [data-theme="dark"] .tela-redes-sociais :deep(.rbv-logo-dark){display:block;}
-.tela-redes-sociais :deep(.gv-back){display:flex;align-items:center;gap:4px;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;transition:opacity .15s;letter-spacing:.3px;text-transform:uppercase;}
+.tela-redes-sociais :deep(.gv-back){display:flex;align-items:center;gap:4px;font-family:var(--fonte-principal);font-size:10px;font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;transition:opacity .15s;letter-spacing:.3px;text-transform:uppercase;}
 .tela-redes-sociais :deep(.gv-back):hover{opacity:.75;}
-.tela-redes-sociais :deep(.gv-perf-tag){font-family:'IBM Plex Sans',sans-serif;font-size:13.5px;font-weight:700;letter-spacing:6px;text-transform:uppercase;color:var(--text);opacity:1;line-height:1.2;}
-.tela-redes-sociais :deep(.gv-brand-tag){font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--text);opacity:.6;line-height:1;}
-.tela-redes-sociais :deep(.gv-clock-date){font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:3px;}
-.tela-redes-sociais :deep(.gv-update-status){font-family:'IBM Plex Sans',sans-serif;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);opacity:.45;margin-top:4px;text-align:right;}
+.tela-redes-sociais :deep(.gv-perf-tag){font-family:var(--fonte-principal);font-size:13.5px;font-weight:700;letter-spacing:6px;text-transform:uppercase;color:var(--text);opacity:1;line-height:1.2;}
+.tela-redes-sociais :deep(.gv-brand-tag){font-family:var(--fonte-principal);font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--text);opacity:.6;line-height:1;}
+.tela-redes-sociais :deep(.gv-clock-date){font-family:var(--fonte-principal);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:3px;}
+.tela-redes-sociais :deep(.gv-update-status){font-family:var(--fonte-principal);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);opacity:.45;margin-top:4px;text-align:right;}
 .tela-redes-sociais :deep(#dash-clock){font-family:'Oswald',sans-serif;font-size:15px;font-weight:400;letter-spacing:2px;color:var(--muted);white-space:nowrap;line-height:1;}
 .tela-redes-sociais :deep(#dash-clock span){color:var(--accent);font-weight:500;}
 
@@ -2716,17 +2716,17 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.ac-toggle-track.on){background:var(--accent);}
 .tela-redes-sociais :deep(.ac-toggle-thumb){position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .25s cubic-bezier(.34,1.56,.64,1);}
 .tela-redes-sociais :deep(.ac-toggle-track.on .ac-toggle-thumb){transform:translateX(15px);}
-.tela-redes-sociais :deep(.ac-toggle-lbl){font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;transition:color .2s;}
+.tela-redes-sociais :deep(.ac-toggle-lbl){font-family:var(--fonte-principal);font-size:10px;font-weight:600;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;transition:color .2s;}
 .tela-redes-sociais :deep(.ac-toggle.on .ac-toggle-lbl){color:var(--accent);}
-.tela-redes-sociais :deep(#autocycle-badge){position:fixed;bottom:18px;right:18px;display:none;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:7px 14px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--text);letter-spacing:.8px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.15);}
+.tela-redes-sociais :deep(#autocycle-badge){position:fixed;bottom:18px;right:18px;display:none;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:7px 14px;font-family:var(--fonte-principal);font-size:11px;color:var(--text);letter-spacing:.8px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.15);}
 .tela-redes-sociais :deep(#autocycle-badge .ac-dot){width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;flex-shrink:0;}
 
 /* Section headers / grids / cards */
 .tela-redes-sociais :deep(.sec-header){display:flex;align-items:center;gap:12px;margin-bottom:8px;}
-.tela-redes-sociais :deep(.section-label){font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;white-space:nowrap;}
+.tela-redes-sociais :deep(.section-label){font-family:var(--fonte-principal);font-weight:600;font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;white-space:nowrap;}
 .tela-redes-sociais :deep(.sec-line){flex:1;height:1px;background:var(--border);}
 .tela-redes-sociais :deep(.sec-chips){display:flex;gap:6px;flex-wrap:wrap;}
-.tela-redes-sociais :deep(.sec-chip){font-family:'IBM Plex Sans',sans-serif;font-weight:500;font-size:10px;padding:3px 8px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--muted);border:1px solid var(--border);white-space:nowrap;letter-spacing:.3px;}
+.tela-redes-sociais :deep(.sec-chip){font-family:var(--fonte-principal);font-weight:500;font-size:10px;padding:3px 8px;border-radius:var(--radius-sm);background:var(--surface2);color:var(--muted);border:1px solid var(--border);white-space:nowrap;letter-spacing:.3px;}
 .tela-redes-sociais :deep(.mb40){margin-bottom:22px;}
 .tela-redes-sociais :deep(.card){background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:22px 24px;border-left:3px solid transparent;animation:fadeUp .55s cubic-bezier(.22,1,.36,1) both;transition:border-color .22s,box-shadow .22s;will-change:transform,opacity;cursor:default;}
 .tela-redes-sociais :deep(.card):hover{border-left-color:var(--accent);border-color:var(--accent-mid);box-shadow:var(--shadow-md);}
@@ -2737,7 +2737,7 @@ onUnmounted(() => {
    nenhuma classe genérica do estilos-globais.css. Como o SVG é criado por JS (não pelo template),
    ele não recebe o atributo de escopo do Vue — por isso :deep(), igual ao resto do arquivo. */
 .tela-redes-sociais :deep(.gmad-bloco){margin-top:14px;padding-top:12px;border-top:1px solid var(--border);}
-.tela-redes-sociais :deep(.gmad-titulo){font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+.tela-redes-sociais :deep(.gmad-titulo){font-family:var(--fonte-principal);font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
 .tela-redes-sociais :deep(.gmad-svg){display:block;width:100%;height:auto;max-width:100%;overflow:visible;}
 .tela-redes-sociais :deep(.gmad-barra){fill:var(--accent);}
 .tela-redes-sociais :deep(.gmad-barra-acima){fill:var(--red);}
@@ -2745,31 +2745,31 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.gmad-base){stroke:var(--border);stroke-width:1;}
 /* Meta = referência discreta: linha propositalmente translúcida pra não competir com as barras. */
 .tela-redes-sociais :deep(.gmad-meta){stroke:var(--orange);stroke-width:1.5;stroke-dasharray:4 3;opacity:.5;}
-.tela-redes-sociais :deep(.gmad-meta-txt){font-family:'IBM Plex Sans',sans-serif;font-size:8px;font-weight:600;fill:var(--orange);}
+.tela-redes-sociais :deep(.gmad-meta-txt){font-family:var(--fonte-principal);font-size:8px;font-weight:600;fill:var(--orange);}
 /* Rótulo de dados (valor R$) em cima de cada barra dos gráficos diários. */
-.tela-redes-sociais :deep(.gmad-valor){font-family:'IBM Plex Sans',sans-serif;font-size:7.5px;font-weight:700;fill:var(--text);}
+.tela-redes-sociais :deep(.gmad-valor){font-family:var(--fonte-principal);font-size:7.5px;font-weight:700;fill:var(--text);}
 /* Tarja atrás do rótulo da meta: ele fica sobre as barras e sem fundo virava sujeira. */
 .tela-redes-sociais :deep(.gmad-meta-tarja){fill:var(--surface);stroke:var(--orange);stroke-width:.5;opacity:.94;}
-.tela-redes-sociais :deep(.gmad-xlabel){font-family:'IBM Plex Sans',sans-serif;font-size:8px;fill:var(--muted);}
-.tela-redes-sociais :deep(.gmad-legenda){font-family:'IBM Plex Sans',sans-serif;font-size:10px;line-height:1.4;color:var(--muted);margin-top:6px;}
-.tela-redes-sociais :deep(.gmad-vazio){font-family:'IBM Plex Sans',sans-serif;font-size:11px;line-height:1.4;color:var(--muted);padding:10px 0;}
+.tela-redes-sociais :deep(.gmad-xlabel){font-family:var(--fonte-principal);font-size:8px;fill:var(--muted);}
+.tela-redes-sociais :deep(.gmad-legenda){font-family:var(--fonte-principal);font-size:10px;line-height:1.4;color:var(--muted);margin-top:6px;}
+.tela-redes-sociais :deep(.gmad-vazio){font-family:var(--fonte-principal);font-size:11px;line-height:1.4;color:var(--muted);padding:10px 0;}
 
 /* Metric card */
 .tela-redes-sociais :deep(.mc-header){display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;}
 .tela-redes-sociais :deep(.mc-icon){font-size:16px;opacity:.35;}
 .tela-redes-sociais :deep(.mc-goal-area){display:flex;align-items:center;gap:5px;}
-.tela-redes-sociais :deep(.mc-goal-lbl){font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:10px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;}
-.tela-redes-sociais :deep(.mc-goal-val){font-family:'IBM Plex Sans',sans-serif;font-weight:500;font-size:12px;color:var(--text);border-bottom:1px dashed rgba(0,0,0,.15);cursor:text;outline:none;background:transparent;min-width:20px;text-align:right;}
+.tela-redes-sociais :deep(.mc-goal-lbl){font-family:var(--fonte-principal);font-weight:600;font-size:10px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;}
+.tela-redes-sociais :deep(.mc-goal-val){font-family:var(--fonte-principal);font-weight:500;font-size:12px;color:var(--text);border-bottom:1px dashed rgba(0,0,0,.15);cursor:text;outline:none;background:transparent;min-width:20px;text-align:right;}
 .tela-redes-sociais :deep(.mc-goal-val):focus{border-color:var(--accent);color:var(--accent);}
 .tela-redes-sociais :deep(.mc-edit-hint){font-size:9px;color:var(--muted);opacity:.35;transition:opacity .2s;}
 .tela-redes-sociais :deep(.mc-goal-val:focus+.mc-edit-hint),.tela-redes-sociais :deep(.mc-edit-hint):hover{opacity:1;}
-.tela-redes-sociais :deep(.mc-lbl){font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:11px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:5px;}
+.tela-redes-sociais :deep(.mc-lbl){font-family:var(--fonte-principal);font-weight:600;font-size:11px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:5px;}
 .tela-redes-sociais :deep(.mc-val){font-family:'Oswald',sans-serif;font-size:44px;font-weight:500;line-height:1;margin-bottom:8px;color:var(--text);font-variant-numeric:tabular-nums;}
 .tela-redes-sociais :deep(.mc-compare){display:flex;flex-direction:column;gap:4px;margin-bottom:12px;padding:7px 10px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border);}
-.tela-redes-sociais :deep(.mc-compare-label){font-family:'IBM Plex Sans',sans-serif;font-weight:500;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;overflow-wrap:break-word;word-break:break-word;line-height:1.3;}
+.tela-redes-sociais :deep(.mc-compare-label){font-family:var(--fonte-principal);font-weight:500;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;overflow-wrap:break-word;word-break:break-word;line-height:1.3;}
 .tela-redes-sociais :deep(.mc-compare-vals){display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;}
-.tela-redes-sociais :deep(.mc-compare-prev){font-family:'IBM Plex Sans',sans-serif;font-weight:400;font-size:12px;color:var(--muted);}
-.tela-redes-sociais :deep(.mc-compare-delta){font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;white-space:nowrap;}
+.tela-redes-sociais :deep(.mc-compare-prev){font-family:var(--fonte-principal);font-weight:400;font-size:12px;color:var(--muted);}
+.tela-redes-sociais :deep(.mc-compare-delta){font-family:var(--fonte-principal);font-size:12px;font-weight:600;white-space:nowrap;}
 .tela-redes-sociais :deep(.mc-divider){height:1px;background:var(--border);margin-bottom:10px;}
 .tela-redes-sociais :deep(.mc-progress-track){height:2px;border-radius:0;background:var(--surface2);overflow:hidden;margin-bottom:7px;}
 .tela-redes-sociais :deep(.mc-progress-fill){height:100%;border-radius:0;transition:width .8s cubic-bezier(.34,1.56,.64,1),background .4s,box-shadow .5s;position:relative;overflow:hidden;}
@@ -2778,7 +2778,7 @@ onUnmounted(() => {
 [data-theme="light"] .tela-redes-sociais :deep(.mc-progress-fill.bg-green){box-shadow:0 0 5px #1a6e4566;}
 .tela-redes-sociais :deep(.mc-bottom){display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;}
 .tela-redes-sociais :deep(.mc-pct){font-family:'Oswald',sans-serif;font-size:15px;font-weight:400;color:var(--muted);}
-.tela-redes-sociais :deep(.mc-diff){font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:500;}
+.tela-redes-sociais :deep(.mc-diff){font-family:var(--fonte-principal);font-size:10px;font-weight:500;}
 
 /* Colors */
 .tela-redes-sociais :deep(.c-green){color:var(--green)!important;}
@@ -2803,16 +2803,16 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(#chart-data-labels){position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;overflow:visible;}
 /* Linha de meta de seguidores/dia: laranja tracejado e translúcido, igual às outras metas. */
 .tela-redes-sociais :deep(#chart-meta){stroke:var(--orange);stroke-width:1.2;stroke-dasharray:4 3;opacity:.5;vector-effect:non-scaling-stroke;}
-.tela-redes-sociais :deep(.cdl-meta){position:absolute;font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;color:var(--orange);opacity:.75;white-space:nowrap;pointer-events:none;}
+.tela-redes-sociais :deep(.cdl-meta){position:absolute;font-family:var(--fonte-principal);font-size:9px;font-weight:700;color:var(--orange);opacity:.75;white-space:nowrap;pointer-events:none;}
 .tela-redes-sociais :deep(.cdl){position:absolute;transform:translate(-50%,calc(-100% - 3px));font-family:'Oswald',sans-serif;font-size:14px;font-weight:500;color:rgba(22,22,42,0.65);white-space:nowrap;letter-spacing:.3px;}
 [data-theme="dark"] .tela-redes-sociais :deep(.cdl){color:rgba(226,228,240,0.78);}
-.tela-redes-sociais :deep(.cdl-in){position:absolute;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:700;line-height:1;color:#fff;white-space:nowrap;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.28);}
+.tela-redes-sociais :deep(.cdl-in){position:absolute;font-family:var(--fonte-principal);font-size:10px;font-weight:700;line-height:1;color:#fff;white-space:nowrap;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.28);}
 .tela-redes-sociais :deep(.cdl-sm){font-size:10px;letter-spacing:0;}
 /* Rótulo de dia ESTIMADO: mais apagado que o número real, para a diferença entre
    "o Instagram disse" e "nós calculamos" ser visível sem precisar ler nada. */
 .tela-redes-sociais :deep(.cdl-est){opacity:.62;font-style:italic;}
 /* Nota dos dias estimados, embaixo do gráfico. */
-.tela-redes-sociais :deep(.nota-estimativa){margin-top:8px;font-family:'IBM Plex Sans',sans-serif;font-size:10.5px;line-height:1.45;color:var(--muted);border-top:1px dashed var(--border);padding-top:7px;}
+.tela-redes-sociais :deep(.nota-estimativa){margin-top:8px;font-family:var(--fonte-principal);font-size:10.5px;line-height:1.45;color:var(--muted);border-top:1px dashed var(--border);padding-top:7px;}
 .tela-redes-sociais :deep(.nota-est-marca){font-weight:800;color:var(--orange);font-size:12px;}
 /* Bloco técnico: só o super-admin recebe este pedaço no HTML (montarNotaDeEstimativa). */
 .tela-redes-sociais :deep(.nota-est-tec){margin-top:5px;padding:5px 8px;border-left:2px solid var(--orange);background:rgba(180,83,9,.06);border-radius:0 4px 4px 0;font-size:10px;color:var(--muted);}
@@ -2821,10 +2821,10 @@ onUnmounted(() => {
 [data-theme="dark"] .tela-redes-sociais :deep(.nota-est-tec code){background:rgba(255,255,255,.08);}
 .tela-redes-sociais :deep(.cdl-hi){transform:translate(-50%,calc(-100% - 22px));}
 .tela-redes-sociais :deep(.cdl-hi)::after{content:'';position:absolute;left:50%;top:100%;width:0;height:20px;border-left:1px dashed currentColor;opacity:.4;}
-.tela-redes-sociais :deep(.cdl-up){color:#16a34a;}
-.tela-redes-sociais :deep(.cdl-down){color:#dc2626;}
-[data-theme="dark"] .tela-redes-sociais :deep(.cdl-up){color:#4ade80;}
-[data-theme="dark"] .tela-redes-sociais :deep(.cdl-down){color:#f87171;}
+.tela-redes-sociais :deep(.cdl-up){color:var(--green);}
+.tela-redes-sociais :deep(.cdl-down){color:var(--red);}
+[data-theme="dark"] .tela-redes-sociais :deep(.cdl-up){color:var(--green);}
+[data-theme="dark"] .tela-redes-sociais :deep(.cdl-down){color:var(--red);}
 .tela-redes-sociais :deep(.chart-legend){display:flex;gap:16px;margin-top:8px;margin-bottom:4px;}
 .tela-redes-sociais :deep(.legend-item){display:flex;align-items:center;gap:5px;font-family:'Oswald',sans-serif;font-size:10px;font-weight:400;color:var(--muted);letter-spacing:.5px;}
 .tela-redes-sociais :deep(.legend-line){width:20px;height:2px;border-radius:0;}
@@ -2849,39 +2849,39 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.tt-cmp-row){display:flex;align-items:center;justify-content:space-between;gap:14px;font-family:'Oswald',sans-serif;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;}
 
 /* Calc badge / seletor de período personalizado (compartilhado com Análise de Campanhas) */
-.tela-redes-sociais :deep(.calc-badge){display:inline-flex;align-items:center;gap:5px;font-family:'IBM Plex Sans',sans-serif;font-size:10px;background:var(--accent-light);color:var(--accent);padding:3px 10px;border-radius:2px;margin-top:8px;font-weight:500;letter-spacing:.3px;}
-.tela-redes-sociais :deep(.custom-range-btn){font-family:'IBM Plex Sans',sans-serif;font-weight:500;font-size:11px;padding:5px 14px;border-radius:3px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap;}
+.tela-redes-sociais :deep(.calc-badge){display:inline-flex;align-items:center;gap:5px;font-family:var(--fonte-principal);font-size:10px;background:var(--accent-light);color:var(--accent);padding:3px 10px;border-radius:2px;margin-top:8px;font-weight:500;letter-spacing:.3px;}
+.tela-redes-sociais :deep(.custom-range-btn){font-family:var(--fonte-principal);font-weight:500;font-size:11px;padding:5px 14px;border-radius:3px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap;}
 .tela-redes-sociais :deep(.custom-range-btn):hover,.tela-redes-sociais :deep(.custom-range-btn.active){border-color:var(--accent);color:var(--accent);}
-.tela-redes-sociais :deep(.custom-date-input){font-family:'IBM Plex Sans',sans-serif;font-weight:400;font-size:10px;padding:4px 7px;border-radius:3px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);outline:none;cursor:pointer;flex-shrink:0;}
+.tela-redes-sociais :deep(.custom-date-input){font-family:var(--fonte-principal);font-weight:400;font-size:10px;padding:4px 7px;border-radius:3px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);outline:none;cursor:pointer;flex-shrink:0;}
 .tela-redes-sociais :deep(.custom-date-input):hover,.tela-redes-sociais :deep(.custom-date-input):focus{border-color:var(--accent);}
 .tela-redes-sociais :deep(.custom-range-inline){display:flex;align-items:center;gap:5px;flex-wrap:nowrap;flex-shrink:0;}
-.tela-redes-sociais :deep(.custom-range-lbl){font-family:'DM Sans',sans-serif;font-size:11px;color:var(--muted);}
+.tela-redes-sociais :deep(.custom-range-lbl){font-family:var(--fonte-principal);font-size:11px;color:var(--muted);}
 .tela-redes-sociais :deep(.eng-tabs){display:inline-flex;gap:4px;flex-wrap:wrap;margin-bottom:22px;padding:4px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;}
-.tela-redes-sociais :deep(.eng-tab){font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:11.5px;letter-spacing:.2px;padding:7px 18px;border-radius:9px;background:transparent;border:none;color:var(--muted);cursor:pointer;transition:all .16s;white-space:nowrap;}
+.tela-redes-sociais :deep(.eng-tab){font-family:var(--fonte-principal);font-weight:600;font-size:11.5px;letter-spacing:.2px;padding:7px 18px;border-radius:9px;background:transparent;border:none;color:var(--muted);cursor:pointer;transition:all .16s;white-space:nowrap;}
 .tela-redes-sociais :deep(.eng-tab):hover{color:var(--text);background:rgba(128,128,128,.10);}
 .tela-redes-sociais :deep(.eng-tab.active){background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.14);}
 .tela-redes-sociais :deep(.eng-tab.active):hover{background:var(--accent);color:#fff;}
 .tela-redes-sociais :deep(.custom-date-input):focus{border-color:var(--accent);}
-.tela-redes-sociais :deep(.custom-apply-btn){font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:11px;padding:5px 14px;border-radius:3px;background:var(--accent);color:#fff;border:none;cursor:pointer;letter-spacing:.5px;text-transform:uppercase;}
-.tela-redes-sociais :deep(.custom-clear-btn){font-family:'IBM Plex Sans',sans-serif;font-size:11px;padding:5px 10px;border-radius:3px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;}
+.tela-redes-sociais :deep(.custom-apply-btn){font-family:var(--fonte-principal);font-weight:600;font-size:11px;padding:5px 14px;border-radius:3px;background:var(--accent);color:#fff;border:none;cursor:pointer;letter-spacing:.5px;text-transform:uppercase;}
+.tela-redes-sociais :deep(.custom-clear-btn){font-family:var(--fonte-principal);font-size:11px;padding:5px 10px;border-radius:3px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;}
 
 /* Insight card + barra de meta geral */
 .tela-redes-sociais :deep(.insight-card){background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:10px 16px 12px;margin-bottom:22px;border-left:3px solid var(--accent);}
 .tela-redes-sociais :deep(.insight-header){display:flex;align-items:center;gap:8px;margin-bottom:7px;}
 .tela-redes-sociais :deep(.insight-icon){font-size:11px;opacity:.5;}
-.tela-redes-sociais :deep(.insight-title){font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;}
-.tela-redes-sociais :deep(.insight-period){font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:600;letter-spacing:1.5px;color:var(--accent);text-transform:uppercase;margin-left:auto;background:var(--accent-light);padding:2px 7px;border-radius:2px;}
+.tela-redes-sociais :deep(.insight-title){font-family:var(--fonte-principal);font-weight:600;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;}
+.tela-redes-sociais :deep(.insight-period){font-family:var(--fonte-principal);font-size:9px;font-weight:600;letter-spacing:1.5px;color:var(--accent);text-transform:uppercase;margin-left:auto;background:var(--accent-light);padding:2px 7px;border-radius:2px;}
 .tela-redes-sociais :deep(.insight-list){display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
-.tela-redes-sociais :deep(.insight-item){display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;line-height:1.4;color:var(--text);background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;}
+.tela-redes-sociais :deep(.insight-item){display:inline-flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:11px;line-height:1.4;color:var(--text);background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;}
 .tela-redes-sociais :deep(.insight-dot){width:5px;height:5px;border-radius:50%;flex-shrink:0;}
-.tela-redes-sociais :deep(.insight-dot.green){background:#16a34a;}
+.tela-redes-sociais :deep(.insight-dot.green){background:var(--green);}
 .tela-redes-sociais :deep(.insight-dot.blue){background:var(--accent);}
-.tela-redes-sociais :deep(.insight-dot.yellow){background:#d97706;}
-.tela-redes-sociais :deep(.insight-dot.red){background:#dc2626;}
+.tela-redes-sociais :deep(.insight-dot.yellow){background:var(--orange);}
+.tela-redes-sociais :deep(.insight-dot.red){background:var(--red);}
 .tela-redes-sociais :deep(.insight-dot.muted){background:var(--border);}
 .tela-redes-sociais :deep(.insight-item.muted){color:var(--muted);}
 .tela-redes-sociais :deep(.overall-bar-row){display:flex;align-items:center;gap:10px;}
-.tela-redes-sociais :deep(.overall-bar-lbl){font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:600;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;white-space:nowrap;}
+.tela-redes-sociais :deep(.overall-bar-lbl){font-family:var(--fonte-principal);font-size:9px;font-weight:600;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;white-space:nowrap;}
 .tela-redes-sociais :deep(.overall-bar-track){flex:1;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;border:1px solid var(--border);}
 .tela-redes-sociais :deep(.overall-bar-fill){height:100%;border-radius:2px;transition:width .9s cubic-bezier(.4,0,.2,1),box-shadow .5s;position:relative;overflow:hidden;}
 .tela-redes-sociais :deep(.overall-bar-fill)::after{content:'';position:absolute;top:0;left:-60%;width:55%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);animation:barLiq 2.2s ease-in-out infinite;pointer-events:none;}
@@ -2890,30 +2890,30 @@ onUnmounted(() => {
 
 /* Filtro de campanhas — barra + modal (exclusivo desta tela) */
 .tela-redes-sociais :deep(.camp-filter-bar){display:flex;align-items:center;gap:10px;background:var(--accent-light);border:1px solid var(--accent-mid);border-radius:4px;padding:9px 14px;margin-bottom:14px;flex-wrap:wrap;}
-.tela-redes-sociais :deep(.camp-filter-lbl){font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:500;color:var(--muted);white-space:nowrap;text-transform:uppercase;letter-spacing:.8px;}
-.tela-redes-sociais :deep(.camp-filter-info){font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;color:var(--accent);flex:1;}
-.tela-redes-sociais :deep(.btn-campaign-filter){font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:600;padding:5px 14px;border-radius:3px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;letter-spacing:.8px;transition:opacity .15s;white-space:nowrap;text-transform:uppercase;}
+.tela-redes-sociais :deep(.camp-filter-lbl){font-family:var(--fonte-principal);font-size:10px;font-weight:500;color:var(--muted);white-space:nowrap;text-transform:uppercase;letter-spacing:.8px;}
+.tela-redes-sociais :deep(.camp-filter-info){font-family:var(--fonte-principal);font-size:12px;font-weight:600;color:var(--accent);flex:1;}
+.tela-redes-sociais :deep(.btn-campaign-filter){font-family:var(--fonte-principal);font-size:10px;font-weight:600;padding:5px 14px;border-radius:3px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;letter-spacing:.8px;transition:opacity .15s;white-space:nowrap;text-transform:uppercase;}
 .tela-redes-sociais :deep(.btn-campaign-filter):hover{opacity:.85;}
 .tela-redes-sociais :deep(.camp-filter-count){font-size:10px;opacity:.8;}
 .tela-redes-sociais :deep(.campaign-modal){background:#fff;border-radius:4px;width:500px;max-width:95vw;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,.18);}
-.tela-redes-sociais :deep(.camp-modal-hdr){display:flex;align-items:center;justify-content:space-between;padding:18px 20px 10px;font-family:'IBM Plex Sans',sans-serif;font-weight:700;font-size:14px;color:var(--text);}
-.tela-redes-sociais :deep(.camp-modal-close){background:none;border:none;font-size:18px;cursor:pointer;color:#aaa;line-height:1;padding:2px 6px;border-radius:3px;transition:background .1s;}
+.tela-redes-sociais :deep(.camp-modal-hdr){display:flex;align-items:center;justify-content:space-between;padding:18px 20px 10px;font-family:var(--fonte-principal);font-weight:700;font-size:14px;color:var(--text);}
+.tela-redes-sociais :deep(.camp-modal-close){background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);line-height:1;padding:2px 6px;border-radius:3px;transition:background .1s;}
 .tela-redes-sociais :deep(.camp-modal-close):hover{background:var(--surface2);}
-.tela-redes-sociais :deep(.camp-modal-sub){padding:0 20px 12px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:var(--muted);line-height:1.5;}
+.tela-redes-sociais :deep(.camp-modal-sub){padding:0 20px 12px;font-family:var(--fonte-principal);font-size:12px;color:var(--muted);line-height:1.5;}
 .tela-redes-sociais :deep(.camp-list){flex:1;overflow-y:auto;padding:0 12px 8px;display:flex;flex-direction:column;gap:2px;}
-.tela-redes-sociais :deep(.camp-group-hdr){font-family:'IBM Plex Sans',sans-serif;font-size:9px;font-weight:700;letter-spacing:2px;color:#aaa;text-transform:uppercase;padding:10px 8px 4px;margin-top:4px;}
+.tela-redes-sociais :deep(.camp-group-hdr){font-family:var(--fonte-principal);font-size:9px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;padding:10px 8px 4px;margin-top:4px;}
 .tela-redes-sociais :deep(.camp-row){display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:3px;cursor:pointer;transition:background .1s;}
 .tela-redes-sociais :deep(.camp-row):hover{background:var(--surface2);}
 .tela-redes-sociais :deep(.camp-row) input[type=checkbox]{margin-top:2px;accent-color:var(--accent);width:15px;height:15px;flex-shrink:0;cursor:pointer;}
 .tela-redes-sociais :deep(.camp-info){display:flex;flex-direction:column;gap:1px;}
-.tela-redes-sociais :deep(.camp-name){font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:400;color:var(--text);line-height:1.4;}
-.tela-redes-sociais :deep(.camp-obj){font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.8px;}
+.tela-redes-sociais :deep(.camp-name){font-family:var(--fonte-principal);font-size:13px;font-weight:400;color:var(--text);line-height:1.4;}
+.tela-redes-sociais :deep(.camp-obj){font-family:var(--fonte-principal);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;}
 .tela-redes-sociais :deep(.camp-modal-footer){display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--border);}
-.tela-redes-sociais :deep(.btn-camp-all){flex:1;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:500;padding:9px 14px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:background .1s;letter-spacing:.5px;}
+.tela-redes-sociais :deep(.btn-camp-all){flex:1;font-family:var(--fonte-principal);font-size:11px;font-weight:500;padding:9px 14px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:background .1s;letter-spacing:.5px;}
 .tela-redes-sociais :deep(.btn-camp-all):hover{background:var(--surface2);}
-.tela-redes-sociais :deep(.btn-camp-none){font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:500;padding:9px 14px;border-radius:3px;border:1px solid rgba(176,30,58,.3);background:transparent;color:var(--red);cursor:pointer;transition:background .1s;}
+.tela-redes-sociais :deep(.btn-camp-none){font-family:var(--fonte-principal);font-size:11px;font-weight:500;padding:9px 14px;border-radius:3px;border:1px solid rgba(176,30,58,.3);background:transparent;color:var(--red);cursor:pointer;transition:background .1s;}
 .tela-redes-sociais :deep(.btn-camp-none):hover{background:rgba(176,30,58,.04);}
-.tela-redes-sociais :deep(.btn-camp-save){flex:2;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;padding:9px 20px;border-radius:3px;border:none;background:var(--accent);color:#fff;cursor:pointer;transition:opacity .15s;text-transform:uppercase;letter-spacing:.8px;}
+.tela-redes-sociais :deep(.btn-camp-save){flex:2;font-family:var(--fonte-principal);font-size:12px;font-weight:600;padding:9px 20px;border-radius:3px;border:none;background:var(--accent);color:#fff;cursor:pointer;transition:opacity .15s;text-transform:uppercase;letter-spacing:.8px;}
 .tela-redes-sociais :deep(.btn-camp-save):hover{opacity:.88;}
 
 /* Painel admin embutido (compartilhado com tela-de-login/Admin tool p/ .admin-input/
@@ -2922,23 +2922,23 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.admin-title){font-family:'Oswald',sans-serif;font-size:20px;font-weight:500;letter-spacing:3px;text-transform:uppercase;margin-bottom:20px;display:flex;align-items:center;gap:10px;color:var(--text);}
 .tela-redes-sociais :deep(.admin-grid){display:grid;grid-template-columns:1fr 1fr;gap:20px;}
 @media(max-width:640px){.tela-redes-sociais :deep(.admin-grid){grid-template-columns:1fr;}}
-.tela-redes-sociais :deep(.admin-section-title){font-family:'IBM Plex Sans',sans-serif;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:12px;font-weight:600;}
+.tela-redes-sociais :deep(.admin-section-title){font-family:var(--fonte-principal);font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:12px;font-weight:600;}
 .tela-redes-sociais :deep(.admin-input-row){display:flex;gap:8px;margin-bottom:10px;}
-.tela-redes-sociais :deep(.admin-input){flex:1;padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:3px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;outline:none;transition:border-color .18s;}
+.tela-redes-sociais :deep(.admin-input){flex:1;padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--fonte-principal);font-size:13px;outline:none;transition:border-color .18s;}
 .tela-redes-sociais :deep(.admin-input):focus{border-color:var(--accent);}
-.tela-redes-sociais :deep(.admin-select){padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:3px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:12px;outline:none;cursor:pointer;}
-.tela-redes-sociais :deep(.admin-action-btn){padding:9px 16px;background:var(--accent);color:#fff;border:none;border-radius:3px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;cursor:pointer;white-space:nowrap;transition:opacity .18s;font-weight:600;text-transform:uppercase;letter-spacing:.8px;}
+.tela-redes-sociais :deep(.admin-select){padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--fonte-principal);font-size:12px;outline:none;cursor:pointer;}
+.tela-redes-sociais :deep(.admin-action-btn){padding:9px 16px;background:var(--accent);color:#fff;border:none;border-radius:3px;font-family:var(--fonte-principal);font-size:11px;cursor:pointer;white-space:nowrap;transition:opacity .18s;font-weight:600;text-transform:uppercase;letter-spacing:.8px;}
 .tela-redes-sociais :deep(.admin-action-btn):hover{opacity:.85;}
 .tela-redes-sociais :deep(.admin-action-btn):disabled{opacity:.5;}
-.tela-redes-sociais :deep(.admin-msg){font-family:'IBM Plex Sans',sans-serif;font-size:11px;margin-top:8px;padding:7px 12px;border-radius:3px;display:none;}
+.tela-redes-sociais :deep(.admin-msg){font-family:var(--fonte-principal);font-size:11px;margin-top:8px;padding:7px 12px;border-radius:3px;display:none;}
 .tela-redes-sociais :deep(.admin-msg.ok){background:rgba(26,110,69,.07);color:var(--green);}
 .tela-redes-sociais :deep(.admin-msg.err){background:rgba(176,30,58,.06);color:var(--red);}
 .tela-redes-sociais :deep(.user-list){display:flex;flex-direction:column;gap:8px;}
 .tela-redes-sociais :deep(.user-row){display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface2);border-radius:3px;border:1px solid var(--border);}
 .tela-redes-sociais :deep(.user-info){display:flex;flex-direction:column;gap:2px;}
-.tela-redes-sociais :deep(.user-email){font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;color:var(--text);}
-.tela-redes-sociais :deep(.user-name){font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:400;color:var(--muted);}
-.tela-redes-sociais :deep(.user-role-select){font-family:'IBM Plex Sans',sans-serif;font-size:11px;padding:4px 8px;background:var(--surface);border:1px solid var(--border);border-radius:3px;color:var(--text);cursor:pointer;outline:none;}
+.tela-redes-sociais :deep(.user-email){font-family:var(--fonte-principal);font-size:12px;font-weight:600;color:var(--text);}
+.tela-redes-sociais :deep(.user-name){font-family:var(--fonte-principal);font-size:11px;font-weight:400;color:var(--muted);}
+.tela-redes-sociais :deep(.user-role-select){font-family:var(--fonte-principal);font-size:11px;padding:4px 8px;background:var(--surface);border:1px solid var(--border);border-radius:3px;color:var(--text);cursor:pointer;outline:none;}
 
 /* ── RESPONSIVE ── */
 
