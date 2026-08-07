@@ -10,6 +10,8 @@ O que tem aqui:
   patrimonio-lista.js     somar, formatar data, texto de linha do histórico
   rotulos-do-bem.js       situações do bem e como cada uma aparece na tela
   filtro-de-bens.js       busca por texto, filtros e total
+  nova-opcao.js           o "+" que cria empresa/categoria/local/ambiente/tipo
+                          direto no formulário, sem precisar abrir Listas
 
 Os arquivos .js são LÓGICA PURA: não tocam banco nem tela, e cada um tem seu
 .test.mjs ao lado. Rode com "npm test".

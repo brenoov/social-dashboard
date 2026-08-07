@@ -502,18 +502,37 @@
           <div class="pat-campo-par">
             <label class="pat-campo">
               <span>Empresa</span>
-              <select v-model="form.empresa_id">
-                <option value="">—</option>
-                <option v-for="e in empresas" :key="e.id" :value="e.id">{{ e.nome }}</option>
-              </select>
+              <div class="pat-campo-mais">
+                <select v-model="form.empresa_id">
+                  <option value="">—</option>
+                  <option v-for="e in empresas" :key="e.id" :value="e.id">{{ e.nome }}</option>
+                </select>
+                <button type="button" class="pat-btn-mais" @click="abrirNovaOpcao('empresa')" title="Cadastrar uma empresa nova">+</button>
+              </div>
             </label>
             <label class="pat-campo">
               <span>Categoria</span>
-              <select v-model="form.categoria_id">
-                <option value="">—</option>
-                <option v-for="c in categorias" :key="c.id" :value="c.id">{{ c.nome }}</option>
-              </select>
+              <div class="pat-campo-mais">
+                <select v-model="form.categoria_id">
+                  <option value="">—</option>
+                  <option v-for="c in categorias" :key="c.id" :value="c.id">{{ c.nome }}</option>
+                </select>
+                <button type="button" class="pat-btn-mais" @click="abrirNovaOpcao('categoria')" title="Cadastrar uma categoria nova">+</button>
+              </div>
             </label>
+          </div>
+
+          <!-- A caixinha do "+" nasce e morre aqui: some ao criar, cancelar, ou
+               fechar a ficha (cancelarNovaOpcao), pra nunca ficar aberta numa
+               pergunta que já foi respondida. -->
+          <div class="pat-nova-opcao" v-if="novaOpcaoAberta === 'empresa' || novaOpcaoAberta === 'categoria'">
+            <input v-model="novaOpcaoNome" type="text" autofocus
+                   :placeholder="novaOpcaoAberta === 'empresa' ? 'Nome da empresa nova…' : 'Nome da categoria nova…'"
+                   @keyup.enter="confirmarNovaOpcao" @keyup.esc="cancelarNovaOpcao">
+            <button type="button" class="pat-btn primario" :disabled="salvandoNovaOpcao" @click="confirmarNovaOpcao">
+              {{ salvandoNovaOpcao ? 'Criando…' : 'Criar' }}
+            </button>
+            <button type="button" class="pat-btn" @click="cancelarNovaOpcao">Cancelar</button>
           </div>
 
           <!-- Local só mostra os da marca escolhida; cômodo só os do local
@@ -522,23 +541,41 @@
           <div class="pat-campo-par">
             <label class="pat-campo">
               <span>Local</span>
-              <select v-model="form.local_id" :disabled="!form.empresa_id">
-                <option value="">{{ form.empresa_id ? '—' : 'escolha a marca antes' }}</option>
-                <option v-for="l in locaisDoForm" :key="l.id" :value="l.id">{{ l.nome }}</option>
-              </select>
+              <div class="pat-campo-mais">
+                <select v-model="form.local_id" :disabled="!form.empresa_id">
+                  <option value="">{{ form.empresa_id ? '—' : 'escolha a marca antes' }}</option>
+                  <option v-for="l in locaisDoForm" :key="l.id" :value="l.id">{{ l.nome }}</option>
+                </select>
+                <button type="button" class="pat-btn-mais" :disabled="!form.empresa_id"
+                        @click="abrirNovaOpcao('local')" title="Cadastrar um local novo nesta marca">+</button>
+              </div>
             </label>
             <label class="pat-campo">
               <span>Ambiente</span>
-              <select v-model="form.comodo_id" :disabled="!form.local_id">
-                <option value="">{{ form.local_id ? '—' : 'escolha o local antes' }}</option>
-                <option v-for="c in comodosDoForm" :key="c.id" :value="c.id">{{ c.nome }}</option>
-              </select>
+              <div class="pat-campo-mais">
+                <select v-model="form.comodo_id" :disabled="!form.local_id">
+                  <option value="">{{ form.local_id ? '—' : 'escolha o local antes' }}</option>
+                  <option v-for="c in comodosDoForm" :key="c.id" :value="c.id">{{ c.nome }}</option>
+                </select>
+                <button type="button" class="pat-btn-mais" :disabled="!form.local_id"
+                        @click="abrirNovaOpcao('comodo')" title="Cadastrar um ambiente novo neste local">+</button>
+              </div>
             </label>
           </div>
 
-          <div class="pat-nota" v-if="form.empresa_id && !locaisDoForm.length">
-            Esta marca ainda não tem nenhum local cadastrado. Abra <strong>Listas</strong>
-            (o botão ≡ lá em cima) e crie um local dentro dela.
+          <div class="pat-nova-opcao" v-if="novaOpcaoAberta === 'local' || novaOpcaoAberta === 'comodo'">
+            <input v-model="novaOpcaoNome" type="text" autofocus
+                   :placeholder="novaOpcaoAberta === 'local' ? 'Nome do local novo…' : 'Nome do ambiente novo…'"
+                   @keyup.enter="confirmarNovaOpcao" @keyup.esc="cancelarNovaOpcao">
+            <button type="button" class="pat-btn primario" :disabled="salvandoNovaOpcao" @click="confirmarNovaOpcao">
+              {{ salvandoNovaOpcao ? 'Criando…' : 'Criar' }}
+            </button>
+            <button type="button" class="pat-btn" @click="cancelarNovaOpcao">Cancelar</button>
+          </div>
+
+          <div class="pat-nota" v-if="form.empresa_id && !locaisDoForm.length && novaOpcaoAberta !== 'local'">
+            Esta marca ainda não tem nenhum local cadastrado. Toque no <strong>+</strong> ao
+            lado de Local pra criar um agora, sem sair daqui.
           </div>
 
           <!-- Classificação de 3 níveis que o dono já usava na planilha:
@@ -547,15 +584,28 @@
           <div class="pat-campo-par">
             <label class="pat-campo">
               <span>Tipo</span>
-              <select v-model="form.tipo_id" :disabled="!form.categoria_id">
-                <option value="">{{ form.categoria_id ? '—' : 'escolha a categoria antes' }}</option>
-                <option v-for="t in tiposDoForm" :key="t.id" :value="t.id">{{ t.nome }}</option>
-              </select>
+              <div class="pat-campo-mais">
+                <select v-model="form.tipo_id" :disabled="!form.categoria_id">
+                  <option value="">{{ form.categoria_id ? '—' : 'escolha a categoria antes' }}</option>
+                  <option v-for="t in tiposDoForm" :key="t.id" :value="t.id">{{ t.nome }}</option>
+                </select>
+                <button type="button" class="pat-btn-mais" :disabled="!form.categoria_id"
+                        @click="abrirNovaOpcao('tipo')" title="Cadastrar um tipo novo nesta categoria">+</button>
+              </div>
             </label>
             <label class="pat-campo">
               <span>Marca / modelo</span>
               <input v-model="form.marca" type="text" placeholder="Ex.: Macbook">
             </label>
+          </div>
+
+          <div class="pat-nova-opcao" v-if="novaOpcaoAberta === 'tipo'">
+            <input v-model="novaOpcaoNome" type="text" autofocus placeholder="Nome do tipo novo…"
+                   @keyup.enter="confirmarNovaOpcao" @keyup.esc="cancelarNovaOpcao">
+            <button type="button" class="pat-btn primario" :disabled="salvandoNovaOpcao" @click="confirmarNovaOpcao">
+              {{ salvandoNovaOpcao ? 'Criando…' : 'Criar' }}
+            </button>
+            <button type="button" class="pat-btn" @click="cancelarNovaOpcao">Cancelar</button>
           </div>
 
           <label class="pat-campo">
@@ -745,6 +795,7 @@ import { resultadoDaLeitura, mensagemDoResultado, etiqueta as etiquetaImpressa }
 import { COLUNAS_PLANILHA, ordenarPlanilha, resumirPor, totaisGerais, montarLinhasParaExcel } from './planilha-e-resumo.js'
 import { LIMPAR, montarAlteracaoEmMassa, temAlgoParaMudar, resumoDaSelecao,
   alternarTodosVisiveis, estadoDaSelecaoVisivel } from './acao-em-massa.js'
+import { resolverNovaOpcao } from './nova-opcao.js'
 
 const router = useRouter()
 
@@ -1018,9 +1069,107 @@ watch(() => form.local_id, () => {
   if (!comodosDoForm.value.some((c) => c.id === form.comodo_id)) form.comodo_id = ''
 })
 
+// -------------------------------------------------- "+" nos campos do bem
+// O mesmo travamento do caso da BMW existe em qualquer lista de seleção do
+// formulário: quem cadastra o bem não pode ficar preso ao que já foi
+// cadastrado antes. Quem já pode criar o bem já pode criar a opção que
+// falta — não é ação de admin, e por isso usa a MESMA permissão de escrita
+// destas 5 tabelas que a tela de Listas já usa (RLS via is_patrimonio_admin,
+// idêntica à de patrimonio_bens: quem cria bem hoje já teria acesso).
+// Local/ambiente/tipo têm PAI (marca/local/categoria): a opção nova nasce
+// ligada a ele, e sem o pai escolhido o "+" nem abre.
+const DEFS_CAMPO = {
+  empresa:   { tabela: 'patrimonio_empresas',  campoForm: 'empresa_id' },
+  categoria: { tabela: 'patrimonio_categorias', campoForm: 'categoria_id' },
+  local:     { tabela: 'patrimonio_locais',    campoForm: 'local_id',
+               paiCampo: 'empresa_id', mensagemPai: 'Escolha a marca antes de criar um local novo.' },
+  comodo:    { tabela: 'patrimonio_comodos',   campoForm: 'comodo_id',
+               paiCampo: 'local_id', mensagemPai: 'Escolha o local antes de criar um ambiente novo.' },
+  tipo:      { tabela: 'patrimonio_tipos',     campoForm: 'tipo_id',
+               paiCampo: 'categoria_id', mensagemPai: 'Escolha a categoria antes de criar um tipo novo.' },
+}
+
+// A lista certa pra comparar duplicata (e o vínculo pro insert) é a mesma
+// já filtrada pelo pai que os <select> em cascata usam — reaproveitar evita
+// um segundo jeito de "quais locais são desta marca" divergir do primeiro.
+function listaEVinculoDoCampo(chave) {
+  if (chave === 'local') return { lista: locaisDoForm.value, vinculo: { empresa_id: form.empresa_id } }
+  if (chave === 'comodo') return { lista: comodosDoForm.value, vinculo: { local_id: form.local_id } }
+  if (chave === 'tipo') return { lista: tiposDoForm.value, vinculo: { categoria_id: form.categoria_id } }
+  if (chave === 'empresa') return { lista: empresas.value, vinculo: {} }
+  return { lista: categorias.value, vinculo: {} }
+}
+
+// Qual "+" está com a caixinha de nome aberta ('' = nenhum).
+const novaOpcaoAberta = ref('')
+const novaOpcaoNome = ref('')
+const salvandoNovaOpcao = ref(false)
+
+function abrirNovaOpcao(chave) {
+  const def = DEFS_CAMPO[chave]
+  if (def.paiCampo && !form[def.paiCampo]) { adminToast(def.mensagemPai, false); return }
+  novaOpcaoAberta.value = chave
+  novaOpcaoNome.value = ''
+}
+function cancelarNovaOpcao() {
+  novaOpcaoAberta.value = ''
+  novaOpcaoNome.value = ''
+}
+
+async function confirmarNovaOpcao() {
+  const chave = novaOpcaoAberta.value
+  const def = DEFS_CAMPO[chave]
+  if (!def) return
+  // Checa de novo: o pai pode ter sido limpo enquanto a caixinha estava aberta.
+  if (def.paiCampo && !form[def.paiCampo]) { adminToast(def.mensagemPai, false); return }
+
+  const { lista, vinculo } = listaEVinculoDoCampo(chave)
+  const r = resolverNovaOpcao(novaOpcaoNome.value, lista)
+  if (!r.ok) { adminToast(r.mensagem, false); return }
+
+  if (r.jaExistia) {
+    form[def.campoForm] = r.item.id
+    adminToast(`"${r.item.nome}" já existia — selecionei ela para você`)
+    cancelarNovaOpcao()
+    return
+  }
+
+  salvandoNovaOpcao.value = true
+  const { data, error } = await sbClient.from(def.tabela)
+    .insert({ nome: r.nome, ordem: lista.length + 1, ...vinculo })
+    .select('id, nome')
+    .single()
+  salvandoNovaOpcao.value = false
+
+  if (error) {
+    // unique(nome) violado por uma corrida com outra pessoa: a opção passou a
+    // existir entre o "resolver" e o "gravar". Recarrega e avisa — não finge
+    // que criou o que não criou.
+    const jaExiste = /duplicate key|unique/i.test(error.message)
+    if (jaExiste) {
+      await carregar()
+      const { lista: listaAtualizada } = listaEVinculoDoCampo(chave)
+      const achado = listaAtualizada.find((item) => item.nome === r.nome)
+        || resolverNovaOpcao(r.nome, listaAtualizada).item
+      if (achado) form[def.campoForm] = achado.id
+      adminToast(`"${r.nome}" já tinha sido criado — selecionei ela para você`)
+      cancelarNovaOpcao()
+      return
+    }
+    adminToast('Erro ao criar: ' + error.message, false)
+    return
+  }
+
+  await carregar()
+  form[def.campoForm] = data.id
+  adminToast(`"${data.nome}" criado`)
+  cancelarNovaOpcao()
+}
+
 function fecharFicha() {
   bemAberto.value = null
   historico.value = []
+  cancelarNovaOpcao()
 }
 
 async function carregarHistorico(bemId) {
@@ -1684,6 +1833,23 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-patrimonio .pat-campo input,.tela-patrimonio .pat-campo select,.tela-patrimonio .pat-campo textarea{font-size:16px;font-family:var(--fonte-principal);padding:11px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);width:100%;}
 .tela-patrimonio .pat-campo select:disabled{opacity:.5;}
 .tela-patrimonio .pat-campo-par{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+/* ---- "+" nos campos de lista do formulário do bem ---- */
+/* min-width:0 no select é o que deixa ele encolher dentro do grid de 2
+   colunas em vez de estourar a largura do celular — sem isso o botão "+"
+   era empurrado pra fora da tela em nomes compridos. */
+.tela-patrimonio .pat-campo-mais{display:flex;gap:6px;align-items:stretch;}
+.tela-patrimonio .pat-campo-mais select{min-width:0;flex:1;}
+.tela-patrimonio .pat-btn-mais{flex-shrink:0;width:38px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--accent);font-size:19px;line-height:1;cursor:pointer;touch-action:manipulation;}
+.tela-patrimonio .pat-btn-mais:hover:not(:disabled){border-color:var(--accent);}
+/* Desabilitado = o pai ainda não foi escolhido. O select ao lado já diz qual
+   ("escolha a marca antes"); aqui só reduz a chance de o dedo tocar à toa. */
+.tela-patrimonio .pat-btn-mais:disabled{opacity:.4;cursor:not-allowed;}
+/* Caixinha de criar: mesmo visual de .pat-lista-novo (Listas), pra não
+   inventar um segundo jeito de "digitar e criar" na mesma tela. */
+.tela-patrimonio .pat-nova-opcao{display:flex;gap:7px;align-items:center;margin-top:-4px;}
+.tela-patrimonio .pat-nova-opcao input{flex:1;min-width:0;font-size:16px;font-family:var(--fonte-principal);padding:9px 11px;border:1px solid var(--accent-mid);border-radius:8px;background:var(--surface);color:var(--text);}
+.tela-patrimonio .pat-nova-opcao .pat-btn{flex-shrink:0;padding:9px 12px;font-size:12px;}
 .tela-patrimonio .pat-check{display:flex;align-items:center;gap:9px;font-family:var(--fonte-principal);font-size:13px;color:var(--text);}
 .tela-patrimonio .pat-check input{width:19px;height:19px;}
 .tela-patrimonio .pat-nota{font-family:var(--fonte-principal);font-size:12px;line-height:1.6;color:#92400e;background:#fef3c7;border-radius:8px;padding:10px 12px;}
