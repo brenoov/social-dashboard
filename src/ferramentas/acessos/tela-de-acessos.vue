@@ -1265,7 +1265,7 @@ async function _acFixAliases(mism){
 async function _acDriveShare(itemId,name,onDone){
   let shares=[],folderLink='';try{const r=await _acProxy('microsoft.shares',{itemId});shares=(r&&r.shares)||[];folderLink=(r&&r.link)||'';}catch(e){}
   const ov=document.createElement('div');ov.className='ac-modal-ov open';ov.id='ac-drv-share';
-  let _picker;try{_picker=_acColabPicker('ac-drv-cb');}catch(err){console.error('[acessos] picker erro',err);adminToast('ERRO no painel: '+((err&&err.message)||err),false);_picker='<div class="ac-card" style="color:#f87171">Falha ao montar a lista de colaboradores: '+_acEsc((err&&err.message)||String(err))+'</div>';}
+  let _picker;try{_picker=_acColabPicker('ac-drv-cb');}catch(err){console.error('[acessos] picker erro',err);adminToast('ERRO no painel: '+((err&&err.message)||err),false);_picker='<div class="ac-card" style="color:var(--red)">Falha ao montar a lista de colaboradores: '+_acEsc((err&&err.message)||String(err))+'</div>';}
   ov.innerHTML=`<div class="ac-modal ac-modal-lg">
     <div class="ac-modal-head"><h3 style="margin:0">Compartilhar — ${_acEsc(name)}</h3><button class="ac-btn ghost" id="ac-drv-x">Fechar</button></div>
     <div class="ac-modal-body">
@@ -1366,7 +1366,7 @@ function _acRenderOrganizacoes(){
       </div>`;
     }).join('');
     const semSetorCard=semSetor.length?`<div class="ac-stcard" onclick="_acOpenSetor(false)" style="border-style:dashed">
-        <div class="ac-stcard-h"><span class="ac-stcard-name" style="color:var(--muted)">Sem setor</span><span class="ac-stcard-ct" style="background:rgba(148,163,184,.18);color:#cbd5e1">${semSetor.length}</span></div>
+        <div class="ac-stcard-h"><span class="ac-stcard-name" style="color:var(--muted)">Sem setor</span><span class="ac-stcard-ct" style="background:var(--surface2);color:var(--muted)">${semSetor.length}</span></div>
         <div class="ac-ava-stack">${semSetor.slice(0,5).map(p=>_acAvatar(p,28)).join('')}${semSetor.length>5?'<span class="ac-ava-more">+'+(semSetor.length-5)+'</span>':''}</div>
       </div>`:'';
     return `<div class="ac-org-block ${open?'open':''}" data-org="${key}">
@@ -2828,6 +2828,11 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-rail-item.sel){background:var(--accent-light);border-color:var(--accent-mid)}
 .tela-acessos :deep(.ac-rail-name){display:flex;align-items:center;gap:8px;font-weight:650;font-size:13.5px;color:var(--text)}
 .tela-acessos :deep(.ac-glyph){width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:800;flex:none}
+/* CORES DE MARCA DE TERCEIRO — NÃO trocar por token, e não é esquecimento.
+   Verde do Zoho, azul da Microsoft, cinza da Apple: elas identificam o serviço
+   de onde o acesso vem, e trocar por --green/--accent faria os três parecerem
+   estados do nosso sistema em vez de logotipos de fora. Exceção prevista no
+   PADRAO-DA-CENTRAL.md. */
 .tela-acessos :deep(.ac-g-zoho){background:#2c8a3d}
 .tela-acessos :deep(.ac-g-ms){background:#2b6fd6}
 .tela-acessos :deep(.ac-g-ap){background:#586172}
@@ -2942,14 +2947,14 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-wd-papel){font-size:13px;font-weight:600;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer}
 .tela-acessos :deep(.ac-btn){background:#0d9488;border:none;color:#fff;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px}
 .tela-acessos :deep(.ac-btn.ghost){background:none;border:1px solid rgba(255,255,255,.18);color:inherit}
-.tela-acessos :deep(.ac-btn.danger){background:#991b1b}
+.tela-acessos :deep(.ac-btn.danger){background:var(--red)}
 .tela-acessos :deep(.ac-input), .tela-acessos :deep(.ac-select), .tela-acessos :deep(.ac-textarea){background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.16);color:inherit;border-radius:8px;padding:8px 10px;font-size:13px;width:100%}
 .tela-acessos :deep(.ac-textarea){min-height:160px;font-family:ui-monospace,monospace}
 .tela-acessos :deep(.ac-grid2){display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .tela-acessos :deep(.ac-pill){display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600}
-.tela-acessos :deep(.ac-pill.ok){background:rgba(13,148,136,.2);color:#2dd4bf}
-.tela-acessos :deep(.ac-pill.warn){background:rgba(245,158,11,.18);color:#fbbf24}
-.tela-acessos :deep(.ac-pill.bad){background:rgba(239,68,68,.18);color:#f87171}
+.tela-acessos :deep(.ac-pill.ok){background:color-mix(in srgb,var(--green) 12%,var(--surface));color:color-mix(in srgb,var(--green) 75%,var(--text))}
+.tela-acessos :deep(.ac-pill.warn){background:color-mix(in srgb,var(--orange) 12%,var(--surface));color:color-mix(in srgb,var(--orange) 75%,var(--text))}
+.tela-acessos :deep(.ac-pill.bad){background:color-mix(in srgb,var(--red) 12%,var(--surface));color:color-mix(in srgb,var(--red) 75%,var(--text))}
   @media(max-width:640px){.tela-acessos :deep(.ac-grid2){grid-template-columns:1fr}.tela-acessos :deep(.ac-tabs){width:100%;margin-left:0}}
   @keyframes acFadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .tela-acessos :deep(.ac-card), .tela-acessos :deep(.ac-setor-card), .tela-acessos :deep(.ac-tile){animation:acFadeUp .32s ease both}
@@ -2971,7 +2976,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-count){display:inline-flex;align-items:center;gap:5px;margin-top:12px;padding:3px 10px;border-radius:999px;background:rgba(13,148,136,.18);color:#2dd4bf;font-size:12px;font-weight:700;position:relative}
 .tela-acessos :deep(.ac-setor-del){position:absolute;top:10px;right:10px;width:26px;height:26px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.25);color:#f87171;cursor:pointer;opacity:0;transition:opacity .15s ease;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1}
 .tela-acessos :deep(.ac-setor-card:hover .ac-setor-del){opacity:1}
-.tela-acessos :deep(.ac-pill.neutral){background:rgba(148,163,184,.18);color:#cbd5e1}
+.tela-acessos :deep(.ac-pill.neutral){background:var(--surface2);color:var(--muted)}
 .tela-acessos :deep(.ac-chip){display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);font-size:11px;margin:2px 4px 2px 0}
 /* overflow-y:auto no overlay = cinto de segurança: em telas MUITO baixas
    (paisagem no celular), se o modal + respiro ainda passar da janela, o

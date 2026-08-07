@@ -66,6 +66,12 @@ com automação usa esta cor — e nada mais usa.
 `.selo` mais `.selo-ok` · `.selo-atencao` · `.selo-erro` · `.selo-info` ·
 `.selo-robo` · `.selo-neutro`.
 
+**A única exceção ao "só token": cor de marca de terceiro.** O verde do Zoho, o
+azul da Microsoft, o cinza da Apple — elas identificam o serviço de fora, e
+trocar por `--green`/`--accent` faria logotipo virar estado do nosso sistema.
+Deixe em hex **com um comentário dizendo que é cor de marca**, senão o próximo
+que passar por ali vai "consertar".
+
 **Contraste mínimo 4,5:1** para texto normal. Não é opinião, é o que se lê.
 
 ---
@@ -124,7 +130,7 @@ página.
 .minha-caixa{ overscroll-behavior:contain; touch-action:pan-y; }
 ```
 
-O `travar-rolagem.js` usa **contador, não booleano**: dois modais podem se
+O `travar-rolagem-de-fundo.js` usa **contador, não booleano**: dois modais podem se
 sobrepor (abrir o editor de permissões de dentro da ficha), e com booleano
 fechar o de cima destravaria a página com o de baixo ainda aberto.
 
