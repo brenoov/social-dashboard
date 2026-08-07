@@ -1437,6 +1437,17 @@ function abrirFichaDaPessoa(p) {
   const v = estadoDoVinculo({ id: p.id, email: p.email }, _colaboradores)
   _secaoLotacao(corpo, v.estado === 'ligado' ? v.colaborador : null)
 
+  // As mesmas ações da linha, aqui dentro. No celular a fileira da linha fica
+  // escondida e ESTE é o único caminho — por isso a ficha precisa ter tudo.
+  const u = p.bruto || {}
+  const secAcesso = mkEl('div', 'ficha-sec')
+  secAcesso.appendChild(mkEl('div', 'ficha-sec-tit', 'Acesso'))
+  secAcesso.appendChild(_construirAcoes(p, u, {
+    isSelf: u.email === estado.user?.email,
+    canEdit: !u.is_superadmin || estado.is_superadmin,
+  }))
+  corpo.appendChild(secAcesso)
+
   // Só superadmin troca a senha de outra pessoa — é o que a edge function
   // exige. Mostrar o campo para quem vai receber "não autorizado" seria
   // prometer o que a tela não cumpre.
@@ -1771,6 +1782,20 @@ function _criarLinhaPessoa(p, gaveta, currentEmail) {
 
   // ── ações: fileira própria, quebra livre — nunca estoura a largura do
   // cartão no celular. `.usr-acoes` no CSS garante alvo de toque >=40px.
+  //
+  // NO CELULAR ESTA FILEIRA FICA ESCONDIDA (ver o @media no fim do arquivo) e
+  // as mesmas ações aparecem na ficha, que abre tocando no nome. Com quatro
+  // controles por pessoa e quinze pessoas, a lista virava meia tela por linha,
+  // com "Excluir" em vermelho a um toque de distância em todas elas.
+  const acoes = _construirAcoes(p, u, { isSelf, canEdit })
+  linha.appendChild(acoes)
+  return linha
+}
+
+// As ações de uma pessoa, num bloco só. Usada pela LINHA (no computador) e pela
+// FICHA (sempre) — uma função só para os dois, senão os dois lugares divergem
+// e um deles fica com o comportamento velho sem ninguém perceber.
+function _construirAcoes(p, u, { isSelf, canEdit }) {
   const acoes = mkEl('div', 'usr-acoes')
 
   const sel = mkEl('select', 'admin-form-input usr-acao-select')
@@ -1833,8 +1858,7 @@ function _criarLinhaPessoa(p, gaveta, currentEmail) {
     acoes.appendChild(delBtn)
   }
 
-  linha.appendChild(acoes)
-  return linha
+  return acoes
 }
 
 function _desenharGrupos(alvo, linhas, gaveta, currentEmail) {
@@ -2651,6 +2675,15 @@ Object.assign(window, {
 .tela-admin :deep(.usr-busca){max-width:280px;margin-bottom:10px;}
 
 @media (max-width:640px){
+  /* NO CELULAR A LINHA É COMPACTA. As quatro ações por pessoa (papel,
+     permissões, desativar, excluir) quebravam em duas fileiras e faziam cada
+     pessoa ocupar meia tela — quinze vezes, com "Excluir" em vermelho a um
+     toque de distância em todas. Aqui elas somem da lista e vivem na ficha,
+     que abre tocando no nome. No computador, onde sobra largura, continuam na
+     linha. */
+  .tela-admin :deep(.usr-linha > .usr-acoes){display:none;}
+  /* A ficha é o caminho no celular, então o convite tem de estar visível. */
+  .tela-admin :deep(.usr-linha-info::after){content:'tocar para abrir ›';display:block;margin-top:4px;font-size:10.5px;color:var(--accent);}
   /* Topbar compacto no celular: menos padding, logo e e-mail do usuário somem
      (não são essenciais na barra) — sobra Voltar + título, ocupando menos altura. */
   .tela-admin :deep(.admin-topbar){padding:8px 14px;gap:10px;}
