@@ -218,6 +218,48 @@ export function problemasDoItemDeChecklist({ item, cadencia, existentes, idAtual
   return p;
 }
 
+/* ── O detalhe do dia (V2 do quadro D16) ──────────────────────────────────── */
+
+/**
+ * O telefone que a cobrança usa pra chamar no WhatsApp: corporativo primeiro,
+ * pessoal se não tiver — a mesma coluna que o cadastro de Colaboradores e
+ * Acessos já guarda, sem inventar campo novo. Devolve null (nunca string
+ * vazia) pra já entrar pronto em linkDoWhatsapp()/porQueNaoDaLink(), que
+ * tratam nulo e vazio do mesmo jeito.
+ */
+export function telefoneDaCobranca(pessoa) {
+  if (!pessoa) return null;
+  return pessoa.numero_corporativo || pessoa.numero_pessoal || null;
+}
+
+/**
+ * Os itens marcados "Problema" nas fichas de HOJE, de todos os carros, num
+ * lugar só — pra não precisar abrir carro por carro pra descobrir o que está
+ * pendente (pedido do dono).
+ *
+ * `fichasDeHoje` decide o QUE conta como hoje (a mesma lista que
+ * quemFaltaHoje já recebe); `respostas` pode trazer resposta de qualquer
+ * ficha — a função filtra sozinha pelas que pertencem a uma ficha de hoje,
+ * então quem chama não precisa acertar o corte antes.
+ */
+export function problemasAbertosHoje({ fichasDeHoje, respostas, veiculos }) {
+  const fichaPorId = new Map((fichasDeHoje || []).filter(Boolean).map((f) => [f.id, f]));
+  const veiculoPorId = new Map((veiculos || []).filter(Boolean).map((v) => [v.id, v]));
+  return (respostas || [])
+    .filter((r) => r && r.estado === 'nao_ok' && fichaPorId.has(r.checklist_id))
+    .map((r) => {
+      const ficha = fichaPorId.get(r.checklist_id);
+      const veiculo = veiculoPorId.get(ficha.veiculo_id);
+      return {
+        veiculoId: ficha.veiculo_id,
+        veiculoNome: veiculo ? veiculo.nome : 'Veículo removido',
+        item: r.item_texto,
+        observacao: r.observacao || '',
+      };
+    })
+    .sort((a, b) => a.veiculoNome.localeCompare(b.veiculoNome) || a.item.localeCompare(b.item));
+}
+
 /** A frase do topo do quadro. Nunca diz "tudo certo" sobre o que não sabe.
  *
  * `hoje` é OPCIONAL. Com a data, o fim de semana tem frase própria: sem ela a

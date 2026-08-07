@@ -349,8 +349,17 @@ abertas.
 
 ## Fora de escopo
 
-- **Assinatura das duas partes** que o papel pede: quem preenche está logado, e o
-  login é a assinatura. Assinatura desenhada na tela não acrescenta prova.
-- **Exportar a ficha em PDF.** Só se for pedido.
+- ~~**Assinatura das duas partes** que o papel pede: quem preenche está logado, e
+  o login é a assinatura.~~ **REABERTO em 2026-08-06, a pedido do dono.** Virou a
+  F7a, com desenho próprio em `2026-08-06-frota-checklist-assinatura-design.md`:
+  senha conferida no instante, impressão digital do conteúdo, e cada ficha
+  encadeada na anterior do mesmo carro. O raciocínio original não estava errado —
+  o login continua provando mais que um rabisco desenhado com o dedo —, mas o
+  dono quis o gesto explícito e a prova contra alteração retroativa.
+- ~~**Exportar a ficha em PDF.** Só se for pedido.~~ **Foi pedido** (2026-08-06):
+  é a F7b, com arquivo numa pasta do Zoho WorkDrive.
+- **Quem administra a Frota confere qualquer carro** (D21b do desenho da F7a).
+  Não estava previsto aqui: este documento só dava o cartão para o carro fixo da
+  pessoa e para o de rodízio que ela pega.
 - **Foto do item não OK.** Tentador e não pedido; fica para depois.
 - **Setor do motorista**, campo do papel: o cadastro da pessoa já tem.

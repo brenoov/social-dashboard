@@ -29,7 +29,11 @@ import { revisoesDoVeiculo, resumoDeRevisoes, problemasDoItem, avisoAoDesativar 
 import { linkDoWhatsapp, telefoneLegivel, porQueNaoDaLink } from '../../compartilhado/whatsapp.js'
 import PainelDeChecklist from './painel-de-checklist.vue'
 import EditorDeChecklist from './editor-de-checklist.vue'
-import { quemFaltaHoje, resumoDaCobranca, precisaDeChecklist } from '../../../supabase/functions/_shared/checklist.js'
+import {
+  quemFaltaHoje, resumoDaCobranca, precisaDeChecklist,
+  telefoneDaCobranca, problemasAbertosHoje,
+} from '../../../supabase/functions/_shared/checklist.js'
+import { bensLivresParaFrota, patchDoBem } from './bens-para-veiculo.js'
 
 const router = useRouter()
 const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
@@ -98,12 +102,74 @@ const cobranca = computed(() => quemFaltaHoje({
   veiculos: veiculos.value, fichasDeHoje: fichasDeHoje.value, pessoas: pessoas.value,
   usos: usos.value, hoje: hoje.value }))
 
+// O QUE foi marcado nas fichas de hoje (pedido do dono: o quadro dizia QUEM
+// fez, mas não deixava ver O QUE). Só de HOJE — decisão dele, sem navegação
+// por data passada. `falhaRespostas` distingue "não tinha nenhum item" de
+// "não consegui carregar": sem essa distinção uma falha de rede virava,
+// silenciosamente, "ficha vazia", que é dado inventado.
+const respostasDeHoje = ref([])
+const falhaRespostas = ref(false)
+
+// Os "Problema" de todos os carros, juntos — pra não abrir carro por carro.
+const problemasAbertos = computed(() => problemasAbertosHoje({
+  fichasDeHoje: fichasDeHoje.value, respostas: respostasDeHoje.value, veiculos: veiculos.value }))
+
+// O detalhe de uma ficha de hoje, aberto ao clicar num carro já feito.
+const fichaDetalhe = ref(null)   // { veiculo, ficha } | null
+const respostasDoDetalhe = computed(() => {
+  if (!fichaDetalhe.value) return []
+  return respostasDeHoje.value
+    .filter((r) => r.checklist_id === fichaDetalhe.value.ficha.id)
+    .slice()
+    .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
+})
+function abrirDetalheChecklist(c) {
+  const ficha = fichasDeHoje.value.find((f) => f.veiculo_id === c.veiculo.id)
+  if (!ficha) return  // defensivo: card "feito" sempre tem ficha de hoje por trás
+  fichaDetalhe.value = { veiculo: c.veiculo, ficha }
+}
+function fecharDetalheChecklist() { fichaDetalhe.value = null }
+
+const ROTULOS_RESULTADO = { liberado: 'Liberado', com_ressalvas: 'Com ressalvas', nao_liberado: 'Não liberado' }
+const rotuloResultado = (r) => ROTULOS_RESULTADO[r] || r
+const ROTULOS_ESTADO_ITEM = { ok: 'OK', nao_ok: 'Problema', na: 'Não se aplica' }
+const rotuloEstadoItem = (e) => ROTULOS_ESTADO_ITEM[e] || e
+
+// A hora de `criada_em` (timestamptz em UTC) no fuso de quem pergunta —
+// mesmo cuidado de `hoje`: mostrar a hora crua do servidor confundiria quem
+// olha às 20h e vê "23h" na tela.
+function horaBR(iso) {
+  if (!iso) return null
+  return new Date(iso).toLocaleTimeString('pt-BR', {
+    hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
+}
+
+// O link de WhatsApp pra cobrar quem ainda não fez o checklist hoje. A
+// mensagem já leva o carro e o motivo — quem recebe entende sem perguntar.
+function zapDeCobranca(c) {
+  const pessoa = pessoas.value.find((p) => p.id === c.donoId)
+  const tel = telefoneDaCobranca(pessoa)
+  return linkDoWhatsapp(tel, `Olá${c.dono ? ', ' + c.dono : ''}! Falta fazer o checklist de hoje `
+    + `do ${c.veiculo.nome} (${c.veiculo.placa}).`)
+}
+// Por que o botão não aparece — nunca some em silêncio (pedido do dono: só
+// 1 das 7 pessoas com carro tem telefone cadastrado hoje). Reaproveita
+// porQueNaoDaLink() pro caso raro de número mal formatado; escreve a mensagem
+// própria só pro caso comum, que é a ausência do telefone.
+function porQueSemZapDeCobranca(c) {
+  const pessoa = pessoas.value.find((p) => p.id === c.donoId)
+  const tel = telefoneDaCobranca(pessoa)
+  if (tel) return porQueNaoDaLink(tel)
+  return (c.dono ? `${c.dono} não tem telefone cadastrado.` : 'Não há telefone cadastrado para o responsável.')
+    + ' Sem telefone não dá pra chamar no WhatsApp — complete o cadastro em Colaboradores e Acessos.'
+}
+
 function voltar() { router.push({ name: 'gestao-interna' }) }
 
 async function carregar() {
   carregando.value = true
   falha.value = ''
-  const [v, ua, uh, p, q, pl, rv, bn, ci, cc, cf] = await Promise.all([
+  const [v, ua, uh, p, q, pl, rv, bn, ci, cc, cf, catv] = await Promise.all([
     sbClient.from('frota_veiculos').select('*').order('nome'),
     // frota_uso vem em DUAS consultas de propósito, e não numa só com limite.
     //
@@ -127,17 +193,24 @@ async function carregar() {
     // tela (último KM, último tanque).
     sbClient.from('frota_uso').select('*').not('volta_em', 'is', null)
       .order('saida_em', { ascending: false }).limit(400),
-    sbClient.from('acessos_pessoas').select('id,nome,email_corporativo').order('nome'),
+    // numero_corporativo/numero_pessoal entram pelo botão de WhatsApp da
+    // cobrança (V2 do quadro D16) — telefoneDaCobranca() escolhe qual dos dois
+    // usar. Sem trazer as colunas aqui, a decisão sempre veria "sem telefone",
+    // mesmo pra quem tem o número cadastrado.
+    sbClient.from('acessos_pessoas')
+      .select('id,nome,email_corporativo,numero_corporativo,numero_pessoal').order('nome'),
     // A agenda de reservas: quem vê a Frota vê a agenda inteira. Saber que o
     // carro está reservado é o que evita o conflito de viagens — esconder isso
     // de quem dirige recriaria no app o problema que o papel tem.
     sbClient.from('frota_requisicoes').select('*').order('retirada_prevista'),
     sbClient.from('frota_plano_revisao').select('*').order('ordem'),
     sbClient.from('frota_revisoes').select('*'),
-    // Bens do Patrimônio que são veículos — a lista do seletor de ligação na
-    // ficha. Pode falhar sem derrubar nada: quem não tem Patrimônio ainda
-    // gere a frota.
-    sbClient.from('patrimonio_bens').select('id,nome,numero').order('nome').limit(500),
+    // Bens do Patrimônio — a lista do seletor de ligação na ficha (qualquer
+    // categoria, como já era) e, com os campos extras, a matéria-prima pra
+    // "Acrescentar veículo" puxar dados de um bem (F9). Pode falhar sem
+    // derrubar nada: quem não tem Patrimônio ainda gere a frota.
+    sbClient.from('patrimonio_bens')
+      .select('id,nome,numero,categoria_id,marca,valor_centavos').order('nome').limit(500),
     sbClient.from('frota_checklist_itens').select('*').order('ordem'),
     sbClient.from('frota_checklist_config').select('*').limit(1),
     // 120 dias: o bastante pra saber quando foi a última mensal, sem crescer
@@ -145,6 +218,11 @@ async function carregar() {
     sbClient.from('frota_checklist').select('*')
       .gte('feita_em', new Date(Date.now() - 120 * 86400000).toISOString().slice(0, 10))
       .order('feita_em', { ascending: false }),
+    // A categoria "Veículos" do Patrimônio, só pra saber QUAL id filtrar em
+    // bensLivresParaFrota — sem ela o seletor de "puxar de um bem" fica vazio
+    // de propósito, em vez de listar bem de qualquer categoria (cadeira,
+    // notebook…) como se fosse candidato a virar carro.
+    sbClient.from('patrimonio_categorias').select('id,nome').ilike('nome', '%ve%cul%').limit(1),
   ])
   // As duas metades de frota_uso são igualmente obrigatórias: sem as abertas a
   // tela não sabe quem está com cada carro; sem as fechadas ela não sabe o KM.
@@ -162,11 +240,31 @@ async function carregar() {
   plano.value = pl && !pl.error ? (pl.data || []) : []
   revisoes.value = rv && !rv.error ? (rv.data || []) : []
   bensVeiculo.value = bn && !bn.error ? (bn.data || []) : []
+  categoriaVeiculoId.value = catv && !catv.error && catv.data && catv.data[0] ? catv.data[0].id : null
   // Mesmo padrão tolerante a falha: sem o checklist a Frota ainda serve pra
   // pegar e devolver carro.
   itensDeChecklist.value = ci && !ci.error ? (ci.data || []) : []
   configDeChecklist.value = cc && !cc.error && cc.data?.[0] ? cc.data[0] : configDeChecklist.value
   fichas.value = cf && !cf.error ? (cf.data || []) : []
+
+  // As respostas das fichas de HOJE, só (pedido do dono: só as de hoje, sem
+  // navegação por data passada). Um segundo passo, fora do Promise.all de
+  // cima, porque precisa saber quais fichas SÃO de hoje antes de pedir as
+  // respostas delas — e isso só se sabe depois de `fichas.value` estar
+  // pronto. Sem ficha nenhuma hoje, nem consulta: não há o que buscar.
+  const idsDeHoje = fichas.value.filter((f) => f.feita_em === hoje.value).map((f) => f.id)
+  if (idsDeHoje.length) {
+    const rd = await sbClient.from('frota_checklist_respostas')
+      .select('*').in('checklist_id', idsDeHoje).order('ordem')
+    // Falhou? A lista fica vazia, mas `falhaRespostas` avisa a tela — sem essa
+    // marca, "vazio por falha" e "vazio porque não tinha item" ficam iguais,
+    // e a tela mentiria dizendo "nenhum problema" quando na verdade não sabe.
+    falhaRespostas.value = !!rd.error
+    respostasDeHoje.value = rd.error ? [] : (rd.data || [])
+  } else {
+    falhaRespostas.value = false
+    respostasDeHoje.value = []
+  }
   carregando.value = false
 }
 
@@ -665,8 +763,17 @@ const CAMPOS_VEICULO = [
   'bem_id', 'observacao',
 ]
 
-// Os bens do Patrimônio que são veículos — a lista do seletor de ligação.
+// Os bens do Patrimônio (qualquer categoria) — a lista do seletor de ligação.
 const bensVeiculo = ref([])
+// O id da categoria "Veículos", só pra filtrar bensLivres (ver carregar()).
+const categoriaVeiculoId = ref(null)
+
+// Os bens que "Acrescentar veículo" pode oferecer pra puxar dados: só
+// Veículos, e só os que NENHUM carro da frota já aponta — ver bens-para-
+// veiculo.js. Recalcula sozinho quando alguém liga outro bem por aqui, então
+// o bem que acabou de ser usado some da lista pro próximo carro.
+const bensLivres = computed(() =>
+  bensLivresParaFrota(bensVeiculo.value, veiculos.value, categoriaVeiculoId.value))
 
 function abrirVeiculo(v) {
   veiculoAberto.value = v
@@ -681,7 +788,42 @@ function abrirVeiculo(v) {
   novaRevisao.oficina = ''
   novaRevisao.custo = ''
 }
+
+// Abre a MESMA ficha, vazia (F9): antes só existia abrirVeiculo() pra editar
+// um carro que já tem `id` — não havia caminho nenhum pra cadastrar o
+// primeiro. `{ novo: true }` marca o modo pro template (esconde Responsável,
+// Situação e Histórico de manutenção, que não fazem sentido pra um carro que
+// ainda nem foi gravado) e pra salvarVeiculo() (grava por insert, não update).
+function abrirVeiculoNovo() {
+  veiculoAberto.value = { novo: true }
+  errosDoVeiculo.value = []
+  for (const c of CAMPOS_VEICULO) vForm[c] = ''
+  // Decisão do dono: todo carro nasce ativo e sem dono fixo (de rodízio).
+  // Fixado aqui e de novo em salvarVeiculo() — a ficha nem mostra os campos
+  // pra mudar isso na criação, ver template.
+  vForm.situacao = 'ativo'
+  vForm.aluguel = ''
+  vForm.fipe = ''
+  vForm.seguroValor = ''
+  novaRevisao.item = plano.value.length ? plano.value[0].item : ''
+  novaRevisao.km = ''
+  novaRevisao.feita_em = ''
+  novaRevisao.oficina = ''
+  novaRevisao.custo = ''
+}
 function fecharVeiculo() { veiculoAberto.value = null; errosDoVeiculo.value = [] }
+
+// Escolher um bem no seletor de ligação, enquanto cria, também sugere nome,
+// marca, FIPE e código patrimonial pra ficha (patchDoBem só preenche o que
+// ainda está vazio — nunca apaga o que a pessoa já tinha digitado). Editando
+// um carro que já existe, o seletor só liga: reabrir a ficha de um carro
+// pronto não deveria reescrever os dados dele.
+function aoEscolherBem() {
+  if (!veiculoAberto.value || !veiculoAberto.value.novo) return
+  const bem = bensLivres.value.find((b) => b.id === vForm.bem_id)
+  if (!bem) return
+  Object.assign(vForm, patchDoBem(vForm, bem))
+}
 
 // Dinheiro em centavos, sempre — float com centavo vira erro de arredondamento
 // que ninguém acha depois.
@@ -697,6 +839,7 @@ async function salvarVeiculo() {
     errosDoVeiculo.value = ['Nome e placa são obrigatórios — é por eles que o carro é reconhecido.']
     return
   }
+  const criando = !!(veiculoAberto.value && veiculoAberto.value.novo)
   gravando.value = true
   const dados = {}
   for (const c of CAMPOS_VEICULO) dados[c] = vForm[c] === '' ? null : vForm[c]
@@ -706,6 +849,35 @@ async function salvarVeiculo() {
   dados.fipe_centavos = centavosDe(vForm.fipe)
   dados.seguro_valor_centavos = centavosDe(vForm.seguroValor)
   dados.atualizado_em = new Date().toISOString()
+
+  if (criando) {
+    // Decisão do dono, fixada aqui de novo (o template já esconde os campos
+    // pra mudar isso): o carro nasce ativo e sem dono fixo. Forçar os dois
+    // valores no dado gravado — em vez de confiar só no template escondido —
+    // é o que garante a regra mesmo se algum campo escapar por engano.
+    //
+    // É também o que evita a dança de posse (trocarDonoFixo, abaixo): ela
+    // precisa do `id` do veículo pra abrir uma posse nova, e um carro que
+    // ainda não foi gravado não tem id. Sem dono na criação, não há posse pra
+    // abrir — quem quiser dar dono usa a ficha depois, num carro que já
+    // existe, pelo caminho de sempre.
+    dados.situacao = 'ativo'
+    dados.pessoa_id = null
+
+    const { error } = await sbClient.from('frota_veiculos').insert(dados)
+    gravando.value = false
+    if (error) {
+      // Placa é UNIQUE no banco (migration 022): duas pessoas cadastrando o
+      // mesmo carro, ou alguém repetindo sem perceber, batem aqui.
+      errosDoVeiculo.value = [/duplicate|unique/i.test(error.message || '')
+        ? 'Já existe outro veículo com essa placa.'
+        : 'Não consegui gravar. Confira a conexão e tente de novo.']
+      return
+    }
+    fecharVeiculo()
+    carregar()
+    return
+  }
 
   // Trocar o dono fixo NÃO é emprestar (D9c): três casos, cobertos por
   // trocarDonoFixo() em posse.js — carro na mão do dono muda de posse junto;
@@ -1012,16 +1184,66 @@ onMounted(async () => {
          "carregando/falha/sem veículo/motorista" — bastaria estar na aba
          Gestão pra este bloco aparecer, mesmo com a tela ainda carregando. -->
     <template v-else-if="area === 'gestao'">
+      <!-- F9: até aqui, o único jeito de um carro entrar na Frota era o
+           script de importação da planilha — não existia caminho nenhum pela
+           tela. -->
+      <div class="fr-novo" v-if="pode('criar')">
+        <button class="fr-btn primario" @click="abrirVeiculoNovo">+ Acrescentar veículo</button>
+      </div>
+
       <h2 class="fr-secao">Checklist de hoje</h2>
       <p class="fr-aviso">{{ resumoDaCobranca(cobranca, hoje) }}</p>
-      <ul class="fr-cobranca">
-        <li v-for="c in cobranca" :key="c.veiculo.id" :class="{ pendente: !c.fez }">
-          <strong>{{ c.veiculo.nome }}</strong>
-          <span v-if="c.dono"> · {{ c.dono }}</span>
-          <span v-else> · dono saiu do cadastro</span>
-          <span class="fr-cobranca-selo">{{ c.fez ? 'feito' : 'falta' }}</span>
-        </li>
-      </ul>
+      <!-- Em cards (pedido do dono), não em lista de linhas. Quem já fez abre
+           o detalhe pra ver O QUE foi marcado — o quadro antigo só dizia QUEM
+           fez, e o dono apontou que isso não dava pra ler. Quem falta ganha um
+           jeito de cobrar na hora. -->
+      <div class="fr-lista">
+        <div v-for="c in cobranca" :key="c.veiculo.id" class="fr-card fr-card-cobranca" :class="{ pendente: !c.fez }">
+          <div class="fr-card-topo">
+            <div class="fr-card-ident">
+              <span class="fr-card-nome">{{ c.veiculo.nome }}</span>
+              <span class="fr-placa">{{ c.dono || 'dono saiu do cadastro' }}</span>
+            </div>
+            <span class="fr-cobranca-selo" :class="{ pendente: !c.fez }">{{ c.fez ? 'feito' : 'falta' }}</span>
+          </div>
+          <!-- Feito → abre o detalhe. Falta com telefone → cobra por WhatsApp.
+               Falta sem telefone → a tela DIZ isso com todas as letras (nunca
+               some em silêncio, senão o dono acha que está tudo certo e nunca
+               descobre por que ninguém recebeu a cobrança). `v-else-if`
+               explícito nos três, no mesmo padrão que o resto do arquivo usa. -->
+          <div class="fr-acoes" v-if="c.fez">
+            <button class="fr-btn" @click="abrirDetalheChecklist(c)">Ver o que foi marcado</button>
+          </div>
+          <div class="fr-acoes" v-else-if="zapDeCobranca(c)">
+            <a class="fr-btn fr-zap" :href="zapDeCobranca(c)" target="_blank" rel="noopener"
+               :title="'Cobrar ' + (c.dono || 'o responsável') + ' no WhatsApp'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.47 14.38c-.3-.15-1.74-.86-2-.96-.27-.1-.47-.15-.66.15-.2.29-.76.95-.93 1.15-.17.2-.34.22-.63.07-.3-.15-1.25-.46-2.38-1.47-.88-.78-1.47-1.75-1.64-2.05-.17-.29-.02-.45.13-.6.13-.13.3-.34.44-.51.15-.17.2-.29.3-.49.1-.2.05-.37-.02-.51-.08-.15-.66-1.59-.9-2.18-.24-.57-.48-.5-.66-.51h-.57c-.2 0-.51.07-.78.37-.27.29-1.02 1-1.02 2.43s1.05 2.82 1.2 3.02c.15.2 2.06 3.14 4.99 4.4.7.3 1.24.48 1.66.62.7.22 1.33.19 1.83.12.56-.08 1.74-.71 1.98-1.4.24-.68.24-1.27.17-1.39-.07-.12-.27-.2-.56-.34M12 2a10 10 0 0 0-8.6 15.1L2 22l5.05-1.32A10 10 0 1 0 12 2"/></svg>
+              Cobrar no WhatsApp
+            </a>
+          </div>
+          <p class="fr-ajuda fr-cobranca-sem-tel" v-else>{{ porQueSemZapDeCobranca(c) }}</p>
+        </div>
+      </div>
+
+      <h2 class="fr-secao">Problemas em aberto hoje</h2>
+      <p class="fr-erro" v-if="falhaRespostas">
+        Não consegui carregar as respostas de hoje, então não dá pra saber se algum item ficou
+        marcado como problema. Recarregue a página; se continuar assim, avise quem administra a Frota.
+      </p>
+      <p class="fr-aviso" v-else-if="!problemasAbertos.length">
+        Nenhum item marcado como problema nas fichas de hoje.
+      </p>
+      <div class="fr-lista" v-else>
+        <div v-for="(pr, i) in problemasAbertos" :key="i" class="fr-card ruimzao">
+          <div class="fr-card-topo">
+            <div class="fr-card-ident">
+              <span class="fr-card-nome">{{ pr.veiculoNome }}</span>
+              <span class="fr-placa">{{ pr.item }}</span>
+            </div>
+          </div>
+          <p class="fr-pedido-motivo">{{ pr.observacao || 'Sem observação escrita para este item.' }}</p>
+        </div>
+      </div>
 
       <div class="fr-lista">
         <div v-for="l in linhas" :key="l.veiculo.id" class="fr-card" :class="{ rua: l.naRua, parado: !l.disponivel && !l.naRua }">
@@ -1106,10 +1328,16 @@ onMounted(async () => {
     <div class="fr-ficha-fundo" v-if="veiculoAberto" @click.self="fecharVeiculo">
       <div class="fr-ficha larga" role="dialog">
         <div class="fr-ficha-topo">
-          <span class="fr-ficha-titulo">{{ veiculoAberto.nome }} · {{ veiculoAberto.placa }}</span>
+          <span class="fr-ficha-titulo">
+            {{ veiculoAberto.novo ? 'Novo veículo' : (veiculoAberto.nome + ' · ' + veiculoAberto.placa) }}
+          </span>
           <button class="fr-fechar" @click="fecharVeiculo" aria-label="Fechar">✕</button>
         </div>
         <div class="fr-ficha-corpo">
+          <p class="fr-aviso" v-if="veiculoAberto.novo">
+            Este carro entra ativo e sem responsável fixo — um carro de rodízio, que qualquer um
+            pode pegar. Para dar um responsável fixo a ele, abra a ficha de novo depois de gravar.
+          </p>
           <h3 class="fr-grupo">Identificação</h3>
           <div class="fr-dupla">
             <label class="fr-campo"><span class="fr-lab">Nome</span><input v-model="vForm.nome" type="text"></label>
@@ -1121,7 +1349,7 @@ onMounted(async () => {
             <label class="fr-campo"><span class="fr-lab">Renavam</span><input v-model="vForm.renavam" type="text"></label>
             <label class="fr-campo"><span class="fr-lab">Chassi</span><input v-model="vForm.chassi" type="text"></label>
             <label class="fr-campo"><span class="fr-lab">Tipo de óleo</span><input v-model="vForm.tipo_oleo" type="text"></label>
-            <label class="fr-campo">
+            <label class="fr-campo" v-if="!veiculoAberto.novo">
               <span class="fr-lab">Situação</span>
               <select v-model="vForm.situacao">
                 <option value="ativo">Ativo</option>
@@ -1134,7 +1362,7 @@ onMounted(async () => {
 
           <h3 class="fr-grupo">Onde está</h3>
           <div class="fr-dupla">
-            <label class="fr-campo">
+            <label class="fr-campo" v-if="!veiculoAberto.novo">
               <span class="fr-lab">Responsável</span>
               <select v-model="vForm.pessoa_id">
                 <option value="">— ninguém —</option>
@@ -1197,15 +1425,22 @@ onMounted(async () => {
             <label class="fr-campo"><span class="fr-lab">Tag de pedágio</span><input v-model="vForm.tag_pedagio" type="text" placeholder="Sem Parar, número da tag…"></label>
             <label class="fr-campo"><span class="fr-lab">Rastreador</span><input v-model="vForm.rastreador" type="text" placeholder="empresa, identificador…"></label>
             <label class="fr-campo"><span class="fr-lab">Código patrimonial</span><input v-model="vForm.codigo_patrimonial" type="text" placeholder="RBB-007"></label>
-            <label class="fr-campo">
+            <!-- Ao criar, a lista é bensLivres — só Veículos ainda sem carro
+                 ligado (F9). Oferecer um bem já ligado duplicaria o carro.
+                 Some o campo inteiro se não sobrar nenhum, em vez de mostrar
+                 um seletor vazio sem dizer por quê. -->
+            <label class="fr-campo" v-if="!veiculoAberto.novo || bensLivres.length">
               <span class="fr-lab">Bem no Patrimônio</span>
-              <select v-model="vForm.bem_id">
+              <select v-model="vForm.bem_id" @change="aoEscolherBem">
                 <option value="">— não ligado —</option>
-                <option v-for="b in bensVeiculo" :key="b.id" :value="b.id">
+                <option v-for="b in (veiculoAberto.novo ? bensLivres : bensVeiculo)" :key="b.id" :value="b.id">
                   {{ b.numero ? String(b.numero).padStart(6, '0') + ' · ' : '' }}{{ b.nome }}
                 </option>
               </select>
-              <span class="fr-ajuda">Só para carro próprio. Os alugados não são bens da empresa.</span>
+              <span class="fr-ajuda" v-if="veiculoAberto.novo">
+                Escolher um bem já cadastrado traz nome e marca pra ficha, e liga os dois.
+              </span>
+              <span class="fr-ajuda" v-else>Só para carro próprio. Os alugados não são bens da empresa.</span>
             </label>
           </div>
 
@@ -1214,35 +1449,43 @@ onMounted(async () => {
             <input v-model="vForm.observacao" type="text">
           </label>
 
-          <h3 class="fr-grupo">Histórico de manutenção</h3>
-          <ul class="fr-hist" v-if="historicoDoVeiculo.length">
-            <li v-for="h in historicoDoVeiculo" :key="h.id">
-              <span class="fr-item-nome">{{ h.item }}</span>
-              <span class="fr-item-txt">
-                {{ h.km ? h.km.toLocaleString('pt-BR') + ' km' : 'sem km' }}
-                <template v-if="h.feita_em"> · {{ h.feita_em.split('-').reverse().join('/') }}</template>
-                <template v-if="h.oficina"> · {{ h.oficina }}</template>
-              </span>
-              <button class="fr-mini" @click="apagarRevisao(h)" title="Apagar este registro">✕</button>
-            </li>
-          </ul>
-          <p class="fr-ajuda" v-else>Nenhuma manutenção registrada neste carro ainda.</p>
+          <!-- Histórico de manutenção depende de um `veiculo_id` que só existe
+               depois do carro estar gravado — não faz sentido pra um carro
+               ainda em criação (F9). -->
+          <template v-if="!veiculoAberto.novo">
+            <h3 class="fr-grupo">Histórico de manutenção</h3>
+            <ul class="fr-hist" v-if="historicoDoVeiculo.length">
+              <li v-for="h in historicoDoVeiculo" :key="h.id">
+                <span class="fr-item-nome">{{ h.item }}</span>
+                <span class="fr-item-txt">
+                  {{ h.km ? h.km.toLocaleString('pt-BR') + ' km' : 'sem km' }}
+                  <template v-if="h.feita_em"> · {{ h.feita_em.split('-').reverse().join('/') }}</template>
+                  <template v-if="h.oficina"> · {{ h.oficina }}</template>
+                </span>
+                <button class="fr-mini" @click="apagarRevisao(h)" title="Apagar este registro">✕</button>
+              </li>
+            </ul>
+            <p class="fr-ajuda" v-else>Nenhuma manutenção registrada neste carro ainda.</p>
 
-          <div class="fr-dupla">
-            <label class="fr-campo">
-              <span class="fr-lab">O que foi feito</span>
-              <select v-model="novaRevisao.item">
-                <option v-for="p in plano" :key="p.id" :value="p.item">{{ p.item }}</option>
-              </select>
-            </label>
-            <label class="fr-campo"><span class="fr-lab">Com quantos km</span><input v-model="novaRevisao.km" type="text" inputmode="numeric"></label>
-            <label class="fr-campo"><span class="fr-lab">Quando</span><input v-model="novaRevisao.feita_em" type="date"></label>
-            <label class="fr-campo"><span class="fr-lab">Oficina</span><input v-model="novaRevisao.oficina" type="text"></label>
-            <label class="fr-campo"><span class="fr-lab">Custo (R$)</span><input v-model="novaRevisao.custo" type="text" inputmode="decimal"></label>
-          </div>
-          <div class="fr-acoes">
-            <button class="fr-btn" :disabled="gravando" @click="gravarRevisao">+ Registrar manutenção</button>
-          </div>
+            <div class="fr-dupla">
+              <label class="fr-campo">
+                <span class="fr-lab">O que foi feito</span>
+                <select v-model="novaRevisao.item">
+                  <option v-for="p in plano" :key="p.id" :value="p.item">{{ p.item }}</option>
+                </select>
+              </label>
+              <label class="fr-campo"><span class="fr-lab">Com quantos km</span><input v-model="novaRevisao.km" type="text" inputmode="numeric"></label>
+              <label class="fr-campo"><span class="fr-lab">Quando</span><input v-model="novaRevisao.feita_em" type="date"></label>
+              <label class="fr-campo"><span class="fr-lab">Oficina</span><input v-model="novaRevisao.oficina" type="text"></label>
+              <label class="fr-campo"><span class="fr-lab">Custo (R$)</span><input v-model="novaRevisao.custo" type="text" inputmode="decimal"></label>
+            </div>
+            <div class="fr-acoes">
+              <button class="fr-btn" :disabled="gravando" @click="gravarRevisao">+ Registrar manutenção</button>
+            </div>
+          </template>
+          <p class="fr-ajuda" v-else>
+            O histórico de manutenção fica disponível depois de gravar o carro pela primeira vez.
+          </p>
 
           <ul class="fr-problemas" v-if="errosDoVeiculo.length">
             <li v-for="(e, i) in errosDoVeiculo" :key="i">{{ e }}</li>
@@ -1251,7 +1494,7 @@ onMounted(async () => {
         <div class="fr-ficha-rodape">
           <button class="fr-btn" @click="fecharVeiculo">Fechar</button>
           <button class="fr-btn primario" :disabled="gravando" @click="salvarVeiculo">
-            {{ gravando ? 'Gravando…' : 'Gravar' }}
+            {{ gravando ? 'Gravando…' : (veiculoAberto.novo ? 'Acrescentar' : 'Gravar') }}
           </button>
         </div>
       </div>
@@ -1332,6 +1575,72 @@ onMounted(async () => {
           <button class="fr-btn primario" :disabled="gravando" @click="salvarItem">
             {{ gravando ? 'Gravando…' : 'Gravar' }}
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- O QUE FOI MARCADO — o detalhe de UMA ficha de hoje (pedido do dono).
+         Só de hoje: sem navegação por data passada, decisão dele. -->
+    <div class="fr-ficha-fundo" v-if="fichaDetalhe" @click.self="fecharDetalheChecklist">
+      <div class="fr-ficha" role="dialog">
+        <div class="fr-ficha-topo">
+          <span class="fr-ficha-titulo">
+            Checklist de hoje · {{ fichaDetalhe.veiculo.nome }} · {{ fichaDetalhe.veiculo.placa }}
+          </span>
+          <button class="fr-fechar" @click="fecharDetalheChecklist" aria-label="Fechar">✕</button>
+        </div>
+        <div class="fr-ficha-corpo">
+          <div class="fr-dados">
+            <div class="fr-dado">
+              <span class="fr-dado-lab">Quilometragem</span>
+              <span class="fr-dado-val">{{ fichaDetalhe.ficha.hodometro.toLocaleString('pt-BR') }} km</span>
+            </div>
+            <div class="fr-dado">
+              <span class="fr-dado-lab">Resultado</span>
+              <span class="fr-dado-val" :class="'fr-resultado-' + fichaDetalhe.ficha.resultado">
+                {{ rotuloResultado(fichaDetalhe.ficha.resultado) }}
+              </span>
+            </div>
+            <div class="fr-dado">
+              <span class="fr-dado-lab">Quem preencheu</span>
+              <span class="fr-dado-val">{{ fichaDetalhe.ficha.pessoa_nome || '—' }}</span>
+            </div>
+            <div class="fr-dado">
+              <span class="fr-dado-lab">A que horas</span>
+              <span class="fr-dado-val">{{ horaBR(fichaDetalhe.ficha.criada_em) || '—' }}</span>
+            </div>
+          </div>
+
+          <p class="fr-ajuda" v-if="fichaDetalhe.ficha.hodometro_justificativa">
+            Sobre a quilometragem: {{ fichaDetalhe.ficha.hodometro_justificativa }}
+          </p>
+          <p class="fr-ajuda" v-if="fichaDetalhe.ficha.anomalias">
+            Anomalias escritas: {{ fichaDetalhe.ficha.anomalias }}
+          </p>
+
+          <h3 class="fr-grupo">O que foi conferido</h3>
+          <!-- `falhaRespostas` distingue "não consegui carregar" de "não tinha
+               item nenhum" — uma ficha sem resposta carregada NUNCA pode virar
+               "vazio" na tela, senão o dado inventado parece dado real. -->
+          <p class="fr-erro" v-if="falhaRespostas">
+            Não consegui carregar as respostas deste checklist. Recarregue a página; se continuar
+            assim, avise quem administra a Frota.
+          </p>
+          <p class="fr-ajuda" v-else-if="!respostasDoDetalhe.length">
+            Esta ficha não tem nenhum item registrado — isso não deveria acontecer. Avise quem
+            administra a Frota.
+          </p>
+          <ul class="fr-itens" v-else>
+            <li v-for="r in respostasDoDetalhe" :key="r.id" :class="'estado-' + r.estado">
+              <span class="fr-item-nome">{{ r.item_texto }}</span>
+              <span class="fr-item-txt">
+                {{ rotuloEstadoItem(r.estado) }}<template v-if="r.observacao"> · {{ r.observacao }}</template>
+              </span>
+            </li>
+          </ul>
+        </div>
+        <div class="fr-ficha-rodape">
+          <button class="fr-btn" @click="fecharDetalheChecklist">Fechar</button>
         </div>
       </div>
     </div>
@@ -1555,16 +1864,25 @@ onMounted(async () => {
 .tela-frota .fr-motorista-resumo{margin:0;padding:14px 14px 4px;font-family:var(--fonte-principal);font-size:15px;font-weight:600;color:var(--text);}
 .tela-frota .fr-secao{margin:16px 0 8px;padding:0 14px;font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);}
 .tela-frota .fr-aviso{margin:0;padding:4px 14px 10px;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.55;color:var(--muted);}
-/* O quadro de cobrança (D16): quem tem carro fixo e ainda não conferiu hoje.
-   `flex-wrap` no `li` é o que evita estourar a tela no celular — nome do
-   carro comprido, dono e selo cabem em duas linhas em vez de rolar de lado. */
-.tela-frota .fr-cobranca{list-style:none;padding:0 14px;margin:0 0 20px;}
-.tela-frota .fr-cobranca li{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--border);}
+/* O botão "Acrescentar veículo" (F9), no topo da aba Gestão — full-width
+   porque .fr-btn sozinho (fora de um .fr-acoes de cartão) não herda o
+   flex:1 que o deixa ocupar a linha inteira. */
+.tela-frota .fr-novo{padding:0 14px;margin:6px 0 14px;}
+.tela-frota .fr-novo .fr-btn{width:100%;}
+/* O quadro de cobrança (D16), em cards (pedido do dono, V2): cada carro é um
+   .fr-card do mesmo tipo usado no resto da tela, então herda de graça a
+   grade responsiva do `.fr-lista` (uma coluna no celular, várias no
+   computador) — nada de CSS novo de layout só pra este quadro. */
+.tela-frota .fr-card-cobranca{border-left-color:var(--green,#16a34a);}
+.tela-frota .fr-card-cobranca.pendente{border-left-color:var(--red,#c0392b);}
 /* Cor pelo token, nunca chumbada: o app tem modo escuro, e verde-claro fixo
    sobre fundo preto é ilegível. Mesmo motivo que fez o painel do motorista
    inteiro precisar ser refeito. */
-.tela-frota .fr-cobranca-selo{margin-left:auto;font-size:.8rem;font-weight:600;padding:2px 10px;border-radius:999px;background:var(--surface2);color:var(--green);}
-.tela-frota .fr-cobranca li.pendente .fr-cobranca-selo{color:var(--red);}
+.tela-frota .fr-cobranca-selo{font-size:.8rem;font-weight:600;padding:2px 10px;border-radius:999px;background:var(--surface2);color:var(--green);white-space:nowrap;}
+.tela-frota .fr-cobranca-selo.pendente{color:var(--red);}
+/* Por que o botão de WhatsApp não apareceu — nunca em silêncio. Mesma cor de
+   atenção que os outros avisos "algo pede providência" desta tela. */
+.tela-frota .fr-cobranca-sem-tel{margin-top:14px;padding:0;}
 /* Os carros de outras pessoas: lista simples, sem cartão e sem botão. Dar
    cartão a eles daria a entender que há algo a fazer, e não há. */
 .tela-frota .fr-outros{margin:0;padding:0 14px 40px;list-style:none;display:flex;flex-direction:column;gap:7px;font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);}
@@ -1584,6 +1902,16 @@ onMounted(async () => {
 .tela-frota .fr-itens li.vencida{border-left-color:var(--red,#c0392b);}
 .tela-frota .fr-itens li.perto{border-left-color:var(--orange,#d97706);}
 .tela-frota .fr-itens li.em-dia{border-left-color:var(--green,#16a34a);}
+/* O mesmo código de cor, agora pras respostas do checklist (detalhe da
+   ficha, V2): OK verde, Problema vermelho, Não se aplica neutro. */
+.tela-frota .fr-itens li.estado-ok{border-left-color:var(--green,#16a34a);}
+.tela-frota .fr-itens li.estado-nao_ok{border-left-color:var(--red,#c0392b);}
+.tela-frota .fr-itens li.estado-na{border-left-color:var(--muted);}
+/* O resultado da ficha (liberado/com ressalvas/não liberado), mesmo esquema
+   de cor do restante da tela. */
+.tela-frota .fr-resultado-liberado{color:var(--green,#16a34a);}
+.tela-frota .fr-resultado-com_ressalvas{color:var(--orange,#d97706);}
+.tela-frota .fr-resultado-nao_liberado{color:var(--red,#c0392b);}
 .tela-frota .fr-item-nome{color:var(--text);font-weight:600;}
 .tela-frota .fr-item-txt{font-variant-numeric:tabular-nums;}
 .tela-frota .fr-item-km{font-family:var(--fonte-dados);font-size:12.5px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;}
