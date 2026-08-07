@@ -96,10 +96,18 @@ Regras que valem para os três:
 ### A página atrás fica travada — três peças, e as três são obrigatórias
 
 ```js
-import { travarRolagem, destravarRolagem } from '@/compartilhado/travar-rolagem.js'
-// ao abrir:  travarRolagem()
-// ao fechar: destravarRolagem()   ← em TODOS os caminhos: X, clique no fundo, Esc
+import { abrirModal, fecharModal } from '@/compartilhado/travar-rolagem-de-fundo.js'
+// ao abrir:  abrirModal()
+// ao fechar: fecharModal()   ← em TODOS os caminhos: X, clique no fundo, Esc
 ```
+
+**Modal montado por `v-if`** usa a diretiva `v-trava-rolagem`, sem chamar nada.
+
+**Modal legado montado por JavaScript puro** já é coberto pelo observador
+(`src/compartilhado/observar-modais-legados.js`), ligado uma vez na moldura:
+basta o seletor dele estar na lista de lá. **Não chame `abrirModal()` num modal
+que o observador já cobre** — travaria duas vezes e destravaria uma, prendendo a
+página.
 
 ```css
 .meu-fundo  { touch-action:none; overscroll-behavior:contain; }

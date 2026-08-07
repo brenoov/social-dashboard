@@ -182,9 +182,12 @@ import { agruparPor, DIMENSOES } from './lotacao.js'
 // testado à parte: um casamento errado dá a lotação e o histórico de alguém
 // para outra pessoa, ou para uma caixa de e-mail compartilhada.
 import { estadoDoVinculo } from './vinculo-de-cadastro.js'
-// Trava a rolagem da pagina enquanto um modal esta aberto. Sem isso, arrastar em
-// cima do modal no celular movia o conteudo de tras.
-import { travarRolagem, destravarRolagem } from '../../compartilhado/travar-rolagem.js'
+// Trava a rolagem do fundo enquanto a ficha esta aberta. Peca compartilhada,
+// que tambem compensa a barra de rolagem e resolve o efeito elastico do iOS.
+// O editor de permissoes (#perm-modal-overlay) NAO precisa de chamada aqui: ele
+// ja e coberto pelo observador de modais legados, ligado na moldura. Chamar nos
+// dois lugares travaria duas vezes e destravaria uma, prendendo a pagina.
+import { abrirModal, fecharModal } from '../../compartilhado/travar-rolagem-de-fundo.js'
 
 const router = useRouter()
 
@@ -1018,7 +1021,6 @@ async function openPermModal(u, opcoes) {
   if (!_contasCache) { try { const r = await adFetch('accounts?select=id,name&order=name'); _contasCache = await r.json() } catch { _contasCache = [] } }
   _renderPermBody(u)
   document.getElementById('perm-modal-overlay').classList.add('open')
-  travarRolagem()
 }
 
 // `??` e não `||`: com `||`, passar mt=0 caía no default 6 — o topo da matriz
@@ -1270,7 +1272,6 @@ function _linhaDeAprovacao(r, u) {
 function closePermModal() {
   document.getElementById('perm-modal-overlay').classList.remove('open')
   _permState = null
-  destravarRolagem()
 }
 
 // SENSITIVE MUTATION — PATCH em profiles.permissions/features/allowed_accounts/is_superadmin.
@@ -1419,7 +1420,7 @@ function abrirFichaDaPessoa(p) {
 
   const fundo = mkEl('div', 'ficha-fundo')
   const caixa = mkEl('div', 'ficha-caixa')
-  const fechar = () => { fundo.remove(); destravarRolagem() }
+  const fechar = () => { fundo.remove(); fecharModal() }
   // Clique no fundo fecha; clique DENTRO da caixa não (senão mexer num campo
   // fecharia a ficha na cara da pessoa).
   fundo.addEventListener('click', (e) => { if (e.target === fundo) fechar() })
@@ -1467,7 +1468,7 @@ function abrirFichaDaPessoa(p) {
   // z-index — e em vez de um painel por cima despencava como texto cru no fim
   // da página. Foi assim que foi para produção, e foi o dono quem viu.
   const raiz = document.querySelector('.tela-admin')
-  if (raiz) { raiz.appendChild(fundo); travarRolagem() }
+  if (raiz) { raiz.appendChild(fundo); abrirModal() }
   else { fechar(); adminToast('Não consegui abrir a ficha nesta tela.', false) }
 }
 
