@@ -1670,6 +1670,11 @@ function applyFreshness(lastSnapStr) {
 /* ── INFO: como contamos novos seguidores (modal do "?") (legacy L4015-4042, verbatim) ── */
 function openFollowersInfo() {
   const ov = document.createElement('div')
+  // O id não muda nada visualmente — é o que permite o observador global de
+  // trava-de-rolagem (observar-modais-legados.js) achar este modal: ele não
+  // tinha nome nenhum antes, e sem um seletor estável a rolagem do fundo não
+  // travaria enquanto ele estivesse aberto.
+  ov.id = 'rs-followers-info-ov'
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));'
   ov.onclick = e => { if (e.target === ov) ov.remove() }
   const m = document.createElement('div')

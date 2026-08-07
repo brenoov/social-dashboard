@@ -364,7 +364,7 @@
     <!-- Painel de alteração em massa. Todo campo começa VAZIO, e vazio quer
          dizer "não mexe nisso" — é o que impede alterar a situação de 80 itens
          e apagar o dono, o local e a categoria dos 80 sem querer. -->
-    <div class="pat-ficha-fundo" v-if="massaAberta" @click.self="massaAberta = false">
+    <div class="pat-ficha-fundo" v-if="massaAberta" v-trava-rolagem @click.self="massaAberta = false">
       <div class="pat-ficha">
         <div class="pat-ficha-topo">
           <button class="pat-ficha-fechar" @click="massaAberta = false" aria-label="Fechar">✕</button>
@@ -454,7 +454,7 @@
 
     <!-- Confirmação da tela. Fica por cima de tudo (inclusive do painel de
          Listas) porque é ela que segura uma ação destrutiva em cascata. -->
-    <div class="pat-confirm-fundo" v-if="confirmacao">
+    <div class="pat-confirm-fundo" v-if="confirmacao" v-trava-rolagem>
       <div class="pat-confirm">
         <p>{{ confirmacao.texto }}</p>
         <p class="pat-confirm-pergunta">Quer apagar mesmo assim?</p>
@@ -467,7 +467,7 @@
 
     <!-- Ficha do bem. É um painel DENTRO do componente (v-if), não um elemento
          anexado em document.body: assim o CSS escopado alcança sempre. -->
-    <div class="pat-ficha-fundo" v-if="bemAberto" @click.self="fecharFicha">
+    <div class="pat-ficha-fundo" v-if="bemAberto" v-trava-rolagem @click.self="fecharFicha">
       <div class="pat-ficha">
         <div class="pat-ficha-topo">
           <button class="pat-ficha-fechar" @click="fecharFicha" aria-label="Fechar">✕</button>
@@ -741,7 +741,7 @@
 
     <!-- Listas editáveis: o dono cria/renomeia/apaga as opções que aparecem nos
          campos do bem. Sem isto ele ficaria preso nos valores semeados. -->
-    <div class="pat-ficha-fundo" v-if="listasAbertas" @click.self="listasAbertas = false">
+    <div class="pat-ficha-fundo" v-if="listasAbertas" v-trava-rolagem @click.self="listasAbertas = false">
       <div class="pat-ficha">
         <div class="pat-ficha-topo">
           <button class="pat-ficha-fechar" @click="listasAbertas = false" aria-label="Fechar">✕</button>
@@ -876,6 +876,9 @@ import {
   temAcessoFrota, categoriaVeiculoEntre, bemEhCategoriaVeiculo,
   veiculoLigadoAoBem, veiculosParaLigar, patchVeiculoDoBem,
 } from './ligacao-com-frota.js'
+// Trava a rolagem do fundo enquanto um destes 4 modais estiver aberto (bronca
+// do dono: "abro um modal e a tela atrás continua rolando").
+import { vTravaRolagem } from '../../compartilhado/travar-rolagem-de-fundo.js'
 
 const router = useRouter()
 

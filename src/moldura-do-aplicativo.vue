@@ -158,6 +158,11 @@ import { useRouter, useRoute } from 'vue-router'
 import { estado } from './compartilhado/controle-de-login-e-usuario.js'
 import { sbClient } from './compartilhado/conectar-no-banco-de-dados.js'
 import { inscrever, jaInscrito, permissaoAtual, pushSuportado, registrarSW } from './compartilhado/notificacoes-push.js'
+// Trava a rolagem do fundo enquanto um modal legado (JavaScript puro, sem
+// v-if) estiver aberto — Acessos, Admin, Redes Sociais, Gestão Comercial e
+// Gestão de Tráfego. Fica na MOLDURA, e não em cada tela, pelo mesmo motivo
+// do aviso de versão nova: um observador só, ligado uma vez, vale pra todas.
+import { observarModaisLegados, fecharTodosOsModaisLegadosAoTrocarDeRota } from './compartilhado/observar-modais-legados.js'
 
 const router = useRouter()
 
@@ -304,9 +309,16 @@ onMounted(() => {
   // funcionar de cara pra quem já ativou noutra sessão.
   if (pushSuportado()) registrarSW().catch(() => {})
   avaliarPush()
+  observarModaisLegados()
 })
 // estado.user pode chegar depois do boot (sessão assíncrona) -> reavaliar.
 watch(() => estado.user?.id, avaliarPush)
+
+// Ao trocar de rota, força o fechamento de qualquer modal legado que tenha
+// ficado aberto — a tela que o abriu já foi embora, então ninguém mais vai
+// clicar no "✕" dele. Sem isto a rolagem ficaria travada na tela NOVA, sem
+// modal nenhum visível nela (ver o porquê completo em observar-modais-legados.js).
+router.afterEach(() => fecharTodosOsModaisLegadosAoTrocarDeRota())
 </script>
 
 <style scoped>

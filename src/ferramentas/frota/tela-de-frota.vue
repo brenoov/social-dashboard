@@ -27,6 +27,10 @@ import {
 } from './requisicoes.js'
 import { revisoesDoVeiculo, resumoDeRevisoes, problemasDoItem, avisoAoDesativar } from './revisoes.js'
 import { linkDoWhatsapp, telefoneLegivel, porQueNaoDaLink } from '../../compartilhado/whatsapp.js'
+// Trava a rolagem do fundo enquanto um destes 6 modais estiver aberto (bronca
+// do dono: "abro um modal e a tela atrás continua rolando"). `v-trava-rolagem`
+// é resolvida automaticamente pelo <script setup> por causa do prefixo `v`.
+import { vTravaRolagem } from '../../compartilhado/travar-rolagem-de-fundo.js'
 import PainelDeChecklist from './painel-de-checklist.vue'
 import EditorDeChecklist from './editor-de-checklist.vue'
 import {
@@ -1424,7 +1428,7 @@ onMounted(async () => {
     </template>
 
     <!-- FICHA DO VEÍCULO: tudo do carro num lugar só, e editável. -->
-    <div class="fr-ficha-fundo" v-if="veiculoAberto" @click.self="fecharVeiculo">
+    <div class="fr-ficha-fundo" v-if="veiculoAberto" v-trava-rolagem @click.self="fecharVeiculo">
       <div class="fr-ficha larga" role="dialog">
         <div class="fr-ficha-topo">
           <span class="fr-ficha-titulo">
@@ -1644,7 +1648,7 @@ onMounted(async () => {
     </template>
 
     <!-- EDITOR DE UM ITEM DO PLANO -->
-    <div class="fr-ficha-fundo" v-if="itemEmEdicao" @click.self="fecharItem">
+    <div class="fr-ficha-fundo" v-if="itemEmEdicao" v-trava-rolagem @click.self="fecharItem">
       <div class="fr-ficha" role="dialog">
         <div class="fr-ficha-topo">
           <span class="fr-ficha-titulo">{{ itemEmEdicao.novo ? 'Novo item de revisão' : 'Editar item' }}</span>
@@ -1680,7 +1684,7 @@ onMounted(async () => {
 
     <!-- O QUE FOI MARCADO — o detalhe de UMA ficha de hoje (pedido do dono).
          Só de hoje: sem navegação por data passada, decisão dele. -->
-    <div class="fr-ficha-fundo" v-if="fichaDetalhe" @click.self="fecharDetalheChecklist">
+    <div class="fr-ficha-fundo" v-if="fichaDetalhe" v-trava-rolagem @click.self="fecharDetalheChecklist">
       <div class="fr-ficha" role="dialog">
         <div class="fr-ficha-topo">
           <span class="fr-ficha-titulo">
@@ -1778,7 +1782,7 @@ onMounted(async () => {
     </template>
 
     <!-- PEDIR O CARRO PARA UMA DATA -->
-    <div class="fr-ficha-fundo" v-if="pedido" @click.self="fecharPedido">
+    <div class="fr-ficha-fundo" v-if="pedido" v-trava-rolagem @click.self="fecharPedido">
       <div class="fr-ficha" role="dialog">
         <div class="fr-ficha-topo">
           <span class="fr-ficha-titulo">Reservar veículo</span>
@@ -1836,7 +1840,7 @@ onMounted(async () => {
     </div>
 
     <!-- APROVAR OU RECUSAR -->
-    <div class="fr-ficha-fundo" v-if="decisao" @click.self="fecharDecisao">
+    <div class="fr-ficha-fundo" v-if="decisao" v-trava-rolagem @click.self="fecharDecisao">
       <div class="fr-ficha" role="dialog">
         <div class="fr-ficha-topo">
           <span class="fr-ficha-titulo">{{ decisao.acao === 'aprovada' ? 'Aprovar' : 'Recusar' }} requisição</span>
@@ -1866,7 +1870,7 @@ onMounted(async () => {
 
     <!-- Ficha de retirada / devolução. Centralizada com margem, como os outros
          modais desta central. -->
-    <div class="fr-ficha-fundo" v-if="ficha" @click.self="fecharFicha">
+    <div class="fr-ficha-fundo" v-if="ficha" v-trava-rolagem @click.self="fecharFicha">
       <div class="fr-ficha" role="dialog">
         <div class="fr-ficha-topo">
           <span class="fr-ficha-titulo">
