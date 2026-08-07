@@ -62,7 +62,7 @@
     </barra-de-topo>
 
       <!-- GUARDA DE FRESCOR: avisa quando os dados não são de hoje (coletor parado) -->
-      <div id="freshness-banner" style="display:none;align-items:center;gap:8px;padding:9px 16px;background:var(--red);color:#fff;font-family:var(--fonte-principal);font-size:12px;font-weight:600;letter-spacing:.3px;"></div>
+      <div id="freshness-banner" style="display:none;align-items:center;gap:8px;padding:9px 16px;background:var(--red);color:var(--sobre-cor);font-family:var(--fonte-principal);font-size:12px;font-weight:600;letter-spacing:.3px;"></div>
 
       <!-- HEADER — seleção de perfil (abaixo da topbar) -->
       <header>
@@ -133,7 +133,7 @@
           <!-- Novos no período -->
           <div style="padding:16px 24px 20px;">
             <div class="mc-header" style="margin-bottom:6px;">
-              <div class="mc-lbl">NOVOS NO PERÍODO <button onclick="openFollowersInfo()" title="Como esse número é contado?" style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;border:1px solid currentColor;background:transparent;color:inherit;font-size:10px;font-weight:700;cursor:pointer;line-height:1;padding:0;vertical-align:middle;opacity:.6;">?</button></div>
+              <div class="mc-lbl">NOVOS NO PERÍODO <button onclick="openFollowersInfo()" title="Como esse número é contado?" style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;border:1px solid currentColor;background:transparent;color:inherit;font-size:10px;font-weight:700;cursor:pointer;line-height:1;padding:0;vertical-align:middle;">?</button></div>
               <div class="mc-goal-area">
                 <span class="mc-goal-lbl">META</span>
                 <span class="mc-goal-val" id="goal-followers" contenteditable="true" spellcheck="false">200</span>
@@ -168,18 +168,18 @@
             <svg id="followers-chart" viewBox="0 0 400 110" preserveAspectRatio="none">
               <defs>
                 <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="#1D4ED8" stop-opacity="0.25"/>
-                  <stop offset="100%" stop-color="#1D4ED8" stop-opacity="0"/>
+                  <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.25"/>
+                  <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
                 </linearGradient>
               </defs>
               <path id="chart-fill" fill="url(#chartGrad)"/>
               <line id="chart-zero" x1="0" y1="0" x2="400" y2="0" stroke="currentColor" stroke-width="0.6" opacity="0.25"/>
               <g id="chart-bars"></g>
               <polyline id="prev-line" fill="none" stroke="rgba(0,0,0,0.15)" stroke-width="1.5" stroke-dasharray="4,3" stroke-linecap="round"/>
-              <polyline id="chart-line" fill="none" stroke="#1D4ED8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <polyline id="chart-line" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               <line id="chart-meta" x1="0" y1="0" x2="400" y2="0" display="none"/>
               <line id="crosshair" x1="0" y1="0" x2="0" y2="110" stroke="rgba(0,0,0,0.15)" stroke-width="1" display="none"/>
-              <circle id="dot-curr" r="4" fill="#1D4ED8" stroke="#f4f5fa" stroke-width="2" display="none"/>
+              <circle id="dot-curr" r="4" fill="var(--accent)" stroke="var(--surface)" stroke-width="2" display="none"/>
               <circle id="dot-prev" r="3.5" fill="rgba(0,0,0,0.2)" stroke="#f4f5fa" stroke-width="2" display="none"/>
               <rect id="chart-overlay" x="0" y="0" width="400" height="110" fill="transparent"/>
             </svg>
@@ -530,15 +530,15 @@ const PERIODS = [{ label: 'Hoje', value: 0 }, { label: '1D', value: 1 }, { label
 const ACCOUNT_PICS = {}
 const PROFILE_THEMES = {
   'Raíssa Herculano': { accent: '#BE185D', light: 'rgba(190,24,93,0.08)', mid: 'rgba(190,24,93,0.30)' },
-  'Breno Vale': { accent: '#1D4ED8', light: 'rgba(29,78,216,0.08)', mid: 'rgba(29,78,216,0.30)' },
-  'Mantova Móveis': { accent: '#1D4ED8', light: 'rgba(29,78,216,0.08)', mid: 'rgba(29,78,216,0.30)' },
-  'Vessel': { accent: '#166534', light: 'rgba(22,101,52,0.08)', mid: 'rgba(22,101,52,0.30)' },
-  'Motoeasy': { accent: '#9B1C1C', light: 'rgba(155,28,28,0.08)', mid: 'rgba(155,28,28,0.30)' },
+  'Breno Vale': { accent: 'var(--accent)', light: 'rgba(29,78,216,0.08)', mid: 'rgba(29,78,216,0.30)' },
+  'Mantova Móveis': { accent: 'var(--accent)', light: 'rgba(29,78,216,0.08)', mid: 'rgba(29,78,216,0.30)' },
+  'Vessel': { accent: 'var(--green)', light: 'rgba(22,101,52,0.08)', mid: 'rgba(22,101,52,0.30)' },
+  'Motoeasy': { accent: 'var(--red)', light: 'rgba(155,28,28,0.08)', mid: 'rgba(155,28,28,0.30)' },
 }
 function applyProfileTheme(name) {
   // Cor de destaque FIXA — NÃO muda por perfil (nem no modo vitrine, nem no clique manual).
   // Usa o accent do tema atual (respeita claro/escuro); não sobrescreve --accent por perfil.
-  const acc = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#1D4ED8'
+  const acc = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || 'var(--accent)'
   const line = document.getElementById('chart-line'); if (line) line.setAttribute('stroke', acc)
   const dot = document.getElementById('dot-curr'); if (dot) dot.setAttribute('fill', acc)
   document.querySelectorAll('#chartGrad stop').forEach(s => s.setAttribute('stop-color', acc))
@@ -1039,8 +1039,8 @@ function buildChart(chartData) {
   for (let i = 0; i < n; i++) {
     const x = px(i), g = gained[i] || 0, l = lost[i] || 0, est = !!estimado[i]
     const gh = hOf(g), lh = hOf(l)
-    if (g > 0) _rect(x, baseY - gh, gh, '#16a34a', l === 0, est) // verde (seguiu) embaixo
-    if (l > 0) _rect(x, baseY - gh - lh, lh, '#dc2626', true, est) // vermelho (deixou) em cima
+    if (g > 0) _rect(x, baseY - gh, gh, 'var(--green)', l === 0, est) // verde (seguiu) embaixo
+    if (l > 0) _rect(x, baseY - gh - lh, lh, 'var(--red)', true, est) // vermelho (deixou) em cima
   }
   // Rótulos HTML SOBREPOSTOS (não distorcem como o <text> do SVG esticado): números dentro + líquido no topo.
   const labelsG = document.getElementById('chart-data-labels'); labelsG.textContent = ''
@@ -1226,13 +1226,13 @@ function _onChartMouseMove(e) {
   const liq = net[i] || 0
   const liqEl = document.getElementById('tt-liquido')
   liqEl.textContent = (liq >= 0 ? '+' : '') + nf(liq)
-  liqEl.style.color = liq >= 0 ? '#16a34a' : '#dc2626'
+  liqEl.style.color = liq >= 0 ? 'var(--green)' : 'var(--red)'
   // Comparativo: MESMO DIA do mês anterior.
   const cmpEl = document.getElementById('tt-cmp')
   if (prevSeguiu && prevSeguiu[i] != null) {
     const pNet = (prevSeguiu[i] || 0) - (prevDeixou[i] || 0)
     const dd = liq - pNet
-    const arrow = dd > 0 ? '▲' : dd < 0 ? '▼' : '•', col = dd > 0 ? '#16a34a' : dd < 0 ? '#dc2626' : 'var(--muted)'
+    const arrow = dd > 0 ? '▲' : dd < 0 ? '▼' : '•', col = dd > 0 ? 'var(--green)' : dd < 0 ? 'var(--red)' : 'var(--muted)'
     cmpEl.innerHTML = `<div class="tt-cmp-lbl">vs. ${prevDates[i] || ''} (mês ant.)</div>`
       + `<div class="tt-cmp-row"><span>Líquido ${(pNet >= 0 ? '+' : '') + nf(pNet)}</span>`
       + `<span style="color:${col};font-weight:800">${arrow} ${(dd >= 0 ? '+' : '') + nf(dd)}</span></div>`
@@ -1652,7 +1652,7 @@ function applyFreshness(lastSnapStr) {
   if (!snap) {
     banner.style.display = 'flex'
     banner.textContent = '⚠️ Sem dados coletados para este perfil.'
-    if (status) { status.textContent = '⚠️ SEM DADOS'; status.style.color = '#ef4444'; status.style.opacity = '1' }
+    if (status) { status.textContent = '⚠️ SEM DADOS'; status.style.color = 'var(--red)'; status.style.opacity = '1' }
     return
   }
   const diff = Math.round((new Date(today + 'T00:00:00') - new Date(snap + 'T00:00:00')) / 864e5)
@@ -1663,7 +1663,7 @@ function applyFreshness(lastSnapStr) {
   } else {
     banner.style.display = 'flex'
     banner.textContent = `⚠️ Dados desatualizados — última coleta ${br} (${diff} dia${diff > 1 ? 's' : ''} atrás). O coletor pode estar parado (verifique o token da Meta).`
-    if (status) { status.textContent = `⚠️ DESATUALIZADO · ${br}`; status.style.color = '#ef4444'; status.style.opacity = '1' }
+    if (status) { status.textContent = `⚠️ DESATUALIZADO · ${br}`; status.style.color = 'var(--red)'; status.style.opacity = '1' }
   }
 }
 
@@ -1772,11 +1772,11 @@ function update(d, period) {
   // Status ao vivo × fallback honesto (nunca esconde que é dado coletado quando a Meta falha).
   const _lsu = document.getElementById('live-status')
   if (_lsu) {
-    if (d.live) { _lsu.style.color = '#16a34a'; _lsu.textContent = '● ao vivo (Meta)' }
+    if (d.live) { _lsu.style.color = 'var(--green)'; _lsu.textContent = '● ao vivo (Meta)' }
     else {
       let q = ''
       try { q = new Date(d.trueLastSnap).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) } catch (e) {}
-      _lsu.style.color = '#b45309'; _lsu.textContent = '⚠ ao vivo indisponível — última coleta ' + q
+      _lsu.style.color = 'var(--orange)'; _lsu.textContent = '⚠ ao vivo indisponível — última coleta ' + q
     }
   }
   // RESILIENTE: se o período está confirmado pela Meta (bruto cobre a janela) → número oficial = IGUAL ao IG.
@@ -2673,8 +2673,8 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(#apb-ring-wrap.has-stories)::before{opacity:1;}
 .tela-redes-sociais :deep(#apb-img){width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;border:none;display:block;position:relative;z-index:1;}
 .tela-redes-sociais :deep(#apb-ring-wrap.has-stories #apb-img){outline:2.5px solid var(--bg);outline-offset:0;}
-.tela-redes-sociais :deep(.profile-btn.active){background:var(--accent);border-color:var(--accent);color:#fff;}
-.tela-redes-sociais :deep(.profile-btn:hover:not(.active)){border-color:var(--accent);color:var(--text);background:var(--accent-light);}
+.tela-redes-sociais :deep(.profile-btn.active){background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
+.tela-redes-sociais :deep(.profile-btn:hover:not(.active)){border-color:var(--accent-forte);color:var(--text);background:var(--accent-light);}
 
 /* Topbar */
 .tela-redes-sociais :deep(.topbar){display:flex;align-items:center;justify-content:space-between;padding-bottom:6px;margin-bottom:6px;flex-wrap:nowrap;gap:10px;padding-right:58px;/* reserva espaço pro avatar de perfil (fixed no topo direito) */}
@@ -2685,7 +2685,7 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.period-tabs){display:flex;gap:3px;flex-wrap:nowrap;flex-shrink:0;}
 .tela-redes-sociais :deep(.ptab){padding:4px 7px;border-radius:var(--radius-sm);font-family:var(--fonte-principal);font-size:9px;font-weight:600;cursor:pointer;color:var(--muted);border:1px solid var(--border);background:none;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap;flex-shrink:0;transition:background .2s cubic-bezier(.4,0,.2,1),color .15s ease,border-color .15s ease,transform .12s ease,box-shadow .2s ease;}
 .tela-redes-sociais :deep(.ptab):active{transform:scale(.94);}
-.tela-redes-sociais :deep(.ptab.active){background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 2px 8px rgba(29,78,216,.25);}
+.tela-redes-sociais :deep(.ptab.active){background:var(--accent);color:var(--sobre-cor);border-color:var(--accent);box-shadow:0 2px 8px rgba(29,78,216,.25);}
 [data-theme="dark"] .tela-redes-sociais :deep(.ptab.active){box-shadow:0 2px 10px rgba(79,124,255,.35);}
 .tela-redes-sociais :deep(.ptab):focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 
@@ -2763,6 +2763,7 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.mc-goal-val):focus{border-color:var(--accent);color:var(--accent);}
 .tela-redes-sociais :deep(.mc-edit-hint){font-size:9px;color:var(--muted);opacity:.35;transition:opacity .2s;}
 .tela-redes-sociais :deep(.mc-goal-val:focus+.mc-edit-hint),.tela-redes-sociais :deep(.mc-edit-hint):hover{opacity:1;}
+@media (hover:none){.tela-redes-sociais :deep(.mc-edit-hint){opacity:1;}}
 .tela-redes-sociais :deep(.mc-lbl){font-family:var(--fonte-principal);font-weight:600;font-size:11px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:5px;}
 .tela-redes-sociais :deep(.mc-val){font-family:'Oswald',sans-serif;font-size:44px;font-weight:500;line-height:1;margin-bottom:8px;color:var(--text);font-variant-numeric:tabular-nums;}
 .tela-redes-sociais :deep(.mc-compare){display:flex;flex-direction:column;gap:4px;margin-bottom:12px;padding:7px 10px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border);}
@@ -2806,11 +2807,11 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.cdl-meta){position:absolute;font-family:var(--fonte-principal);font-size:9px;font-weight:700;color:var(--orange);opacity:.75;white-space:nowrap;pointer-events:none;}
 .tela-redes-sociais :deep(.cdl){position:absolute;transform:translate(-50%,calc(-100% - 3px));font-family:'Oswald',sans-serif;font-size:14px;font-weight:500;color:rgba(22,22,42,0.65);white-space:nowrap;letter-spacing:.3px;}
 [data-theme="dark"] .tela-redes-sociais :deep(.cdl){color:rgba(226,228,240,0.78);}
-.tela-redes-sociais :deep(.cdl-in){position:absolute;font-family:var(--fonte-principal);font-size:10px;font-weight:700;line-height:1;color:#fff;white-space:nowrap;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.28);}
+.tela-redes-sociais :deep(.cdl-in){position:absolute;font-family:var(--fonte-principal);font-size:10px;font-weight:700;line-height:1;color:var(--sobre-cor);white-space:nowrap;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.28);}
 .tela-redes-sociais :deep(.cdl-sm){font-size:10px;letter-spacing:0;}
 /* Rótulo de dia ESTIMADO: mais apagado que o número real, para a diferença entre
    "o Instagram disse" e "nós calculamos" ser visível sem precisar ler nada. */
-.tela-redes-sociais :deep(.cdl-est){opacity:.62;font-style:italic;}
+.tela-redes-sociais :deep(.cdl-est){font-style:italic;}
 /* Nota dos dias estimados, embaixo do gráfico. */
 .tela-redes-sociais :deep(.nota-estimativa){margin-top:8px;font-family:var(--fonte-principal);font-size:10.5px;line-height:1.45;color:var(--muted);border-top:1px dashed var(--border);padding-top:7px;}
 .tela-redes-sociais :deep(.nota-est-marca){font-weight:800;color:var(--orange);font-size:12px;}
@@ -2849,7 +2850,7 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.tt-cmp-row){display:flex;align-items:center;justify-content:space-between;gap:14px;font-family:'Oswald',sans-serif;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;}
 
 /* Calc badge / seletor de período personalizado (compartilhado com Análise de Campanhas) */
-.tela-redes-sociais :deep(.calc-badge){display:inline-flex;align-items:center;gap:5px;font-family:var(--fonte-principal);font-size:10px;background:var(--accent-light);color:var(--accent);padding:3px 10px;border-radius:2px;margin-top:8px;font-weight:500;letter-spacing:.3px;}
+.tela-redes-sociais :deep(.calc-badge){display:inline-flex;align-items:center;gap:5px;font-family:var(--fonte-principal);font-size:10px;background:var(--accent-light);color:var(--accent-forte);padding:3px 10px;border-radius:2px;margin-top:8px;font-weight:500;letter-spacing:.3px;}
 .tela-redes-sociais :deep(.custom-range-btn){font-family:var(--fonte-principal);font-weight:500;font-size:11px;padding:5px 14px;border-radius:3px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap;}
 .tela-redes-sociais :deep(.custom-range-btn):hover,.tela-redes-sociais :deep(.custom-range-btn.active){border-color:var(--accent);color:var(--accent);}
 .tela-redes-sociais :deep(.custom-date-input){font-family:var(--fonte-principal);font-weight:400;font-size:10px;padding:4px 7px;border-radius:3px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);outline:none;cursor:pointer;flex-shrink:0;}
@@ -2859,18 +2860,18 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.eng-tabs){display:inline-flex;gap:4px;flex-wrap:wrap;margin-bottom:22px;padding:4px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;}
 .tela-redes-sociais :deep(.eng-tab){font-family:var(--fonte-principal);font-weight:600;font-size:11.5px;letter-spacing:.2px;padding:7px 18px;border-radius:9px;background:transparent;border:none;color:var(--muted);cursor:pointer;transition:all .16s;white-space:nowrap;}
 .tela-redes-sociais :deep(.eng-tab):hover{color:var(--text);background:rgba(128,128,128,.10);}
-.tela-redes-sociais :deep(.eng-tab.active){background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.14);}
-.tela-redes-sociais :deep(.eng-tab.active):hover{background:var(--accent);color:#fff;}
+.tela-redes-sociais :deep(.eng-tab.active){background:var(--accent);color:var(--sobre-cor);box-shadow:0 2px 8px rgba(0,0,0,.14);}
+.tela-redes-sociais :deep(.eng-tab.active):hover{background:var(--accent);color:var(--sobre-cor);}
 .tela-redes-sociais :deep(.custom-date-input):focus{border-color:var(--accent);}
-.tela-redes-sociais :deep(.custom-apply-btn){font-family:var(--fonte-principal);font-weight:600;font-size:11px;padding:5px 14px;border-radius:3px;background:var(--accent);color:#fff;border:none;cursor:pointer;letter-spacing:.5px;text-transform:uppercase;}
+.tela-redes-sociais :deep(.custom-apply-btn){font-family:var(--fonte-principal);font-weight:600;font-size:11px;padding:5px 14px;border-radius:3px;background:var(--accent);color:var(--sobre-cor);border:none;cursor:pointer;letter-spacing:.5px;text-transform:uppercase;}
 .tela-redes-sociais :deep(.custom-clear-btn){font-family:var(--fonte-principal);font-size:11px;padding:5px 10px;border-radius:3px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;}
 
 /* Insight card + barra de meta geral */
 .tela-redes-sociais :deep(.insight-card){background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:10px 16px 12px;margin-bottom:22px;border-left:3px solid var(--accent);}
 .tela-redes-sociais :deep(.insight-header){display:flex;align-items:center;gap:8px;margin-bottom:7px;}
-.tela-redes-sociais :deep(.insight-icon){font-size:11px;opacity:.5;}
+.tela-redes-sociais :deep(.insight-icon){font-size:11px;color:var(--muted);}
 .tela-redes-sociais :deep(.insight-title){font-family:var(--fonte-principal);font-weight:600;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;}
-.tela-redes-sociais :deep(.insight-period){font-family:var(--fonte-principal);font-size:9px;font-weight:600;letter-spacing:1.5px;color:var(--accent);text-transform:uppercase;margin-left:auto;background:var(--accent-light);padding:2px 7px;border-radius:2px;}
+.tela-redes-sociais :deep(.insight-period){font-family:var(--fonte-principal);font-size:9px;font-weight:600;letter-spacing:1.5px;color:var(--accent-forte);text-transform:uppercase;margin-left:auto;background:var(--accent-light);padding:2px 7px;border-radius:2px;}
 .tela-redes-sociais :deep(.insight-list){display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
 .tela-redes-sociais :deep(.insight-item){display:inline-flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:11px;line-height:1.4;color:var(--text);background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;}
 .tela-redes-sociais :deep(.insight-dot){width:5px;height:5px;border-radius:50%;flex-shrink:0;}
@@ -2892,7 +2893,7 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.camp-filter-bar){display:flex;align-items:center;gap:10px;background:var(--accent-light);border:1px solid var(--accent-mid);border-radius:4px;padding:9px 14px;margin-bottom:14px;flex-wrap:wrap;}
 .tela-redes-sociais :deep(.camp-filter-lbl){font-family:var(--fonte-principal);font-size:10px;font-weight:500;color:var(--muted);white-space:nowrap;text-transform:uppercase;letter-spacing:.8px;}
 .tela-redes-sociais :deep(.camp-filter-info){font-family:var(--fonte-principal);font-size:12px;font-weight:600;color:var(--accent);flex:1;}
-.tela-redes-sociais :deep(.btn-campaign-filter){font-family:var(--fonte-principal);font-size:10px;font-weight:600;padding:5px 14px;border-radius:3px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;letter-spacing:.8px;transition:opacity .15s;white-space:nowrap;text-transform:uppercase;}
+.tela-redes-sociais :deep(.btn-campaign-filter){font-family:var(--fonte-principal);font-size:10px;font-weight:600;padding:5px 14px;border-radius:3px;border:1px solid var(--accent);background:var(--accent);color:var(--sobre-cor);cursor:pointer;letter-spacing:.8px;transition:opacity .15s;white-space:nowrap;text-transform:uppercase;}
 .tela-redes-sociais :deep(.btn-campaign-filter):hover{opacity:.85;}
 .tela-redes-sociais :deep(.camp-filter-count){font-size:10px;opacity:.8;}
 .tela-redes-sociais :deep(.campaign-modal){background:#fff;border-radius:4px;width:500px;max-width:95vw;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,.18);}
@@ -2913,7 +2914,7 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.btn-camp-all):hover{background:var(--surface2);}
 .tela-redes-sociais :deep(.btn-camp-none){font-family:var(--fonte-principal);font-size:11px;font-weight:500;padding:9px 14px;border-radius:3px;border:1px solid rgba(176,30,58,.3);background:transparent;color:var(--red);cursor:pointer;transition:background .1s;}
 .tela-redes-sociais :deep(.btn-camp-none):hover{background:rgba(176,30,58,.04);}
-.tela-redes-sociais :deep(.btn-camp-save){flex:2;font-family:var(--fonte-principal);font-size:12px;font-weight:600;padding:9px 20px;border-radius:3px;border:none;background:var(--accent);color:#fff;cursor:pointer;transition:opacity .15s;text-transform:uppercase;letter-spacing:.8px;}
+.tela-redes-sociais :deep(.btn-camp-save){flex:2;font-family:var(--fonte-principal);font-size:12px;font-weight:600;padding:9px 20px;border-radius:3px;border:none;background:var(--accent);color:var(--sobre-cor);cursor:pointer;transition:opacity .15s;text-transform:uppercase;letter-spacing:.8px;}
 .tela-redes-sociais :deep(.btn-camp-save):hover{opacity:.88;}
 
 /* Painel admin embutido (compartilhado com tela-de-login/Admin tool p/ .admin-input/
@@ -2927,7 +2928,7 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.admin-input){flex:1;padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--fonte-principal);font-size:13px;outline:none;transition:border-color .18s;}
 .tela-redes-sociais :deep(.admin-input):focus{border-color:var(--accent);}
 .tela-redes-sociais :deep(.admin-select){padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--fonte-principal);font-size:12px;outline:none;cursor:pointer;}
-.tela-redes-sociais :deep(.admin-action-btn){padding:9px 16px;background:var(--accent);color:#fff;border:none;border-radius:3px;font-family:var(--fonte-principal);font-size:11px;cursor:pointer;white-space:nowrap;transition:opacity .18s;font-weight:600;text-transform:uppercase;letter-spacing:.8px;}
+.tela-redes-sociais :deep(.admin-action-btn){padding:9px 16px;background:var(--accent);color:var(--sobre-cor);border:none;border-radius:3px;font-family:var(--fonte-principal);font-size:11px;cursor:pointer;white-space:nowrap;transition:opacity .18s;font-weight:600;text-transform:uppercase;letter-spacing:.8px;}
 .tela-redes-sociais :deep(.admin-action-btn):hover{opacity:.85;}
 .tela-redes-sociais :deep(.admin-action-btn):disabled{opacity:.5;}
 .tela-redes-sociais :deep(.admin-msg){font-family:var(--fonte-principal);font-size:11px;margin-top:8px;padding:7px 12px;border-radius:3px;display:none;}

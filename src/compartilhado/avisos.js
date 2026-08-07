@@ -10,8 +10,8 @@ export function adminToast(msg, ok = true) {
     document.body.appendChild(t)
   }
   t.textContent = msg
-  t.style.background = ok ? '#166534' : '#991b1b'
-  t.style.color = '#fff'
+  t.style.background = ok ? 'var(--green)' : 'var(--red)'
+  t.style.color = 'var(--sobre-cor)'
   t.style.opacity = '1'
   clearTimeout(t._to)
   t._to = setTimeout(() => { t.style.opacity = '0' }, 2800)

@@ -150,7 +150,7 @@ function adicionar() {
   font-family: var(--fonte-principal); font-size: 14px;
 }
 .ec-campo select:focus, .ec-novo input:focus, .ec-novo select:focus {
-  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light);
+  outline: none; border-color: var(--accent-forte); box-shadow: 0 0 0 3px var(--accent-light);
 }
 .ec-grupo-titulo { font-size: 13px; font-weight: 600; color: var(--text); margin: var(--sp-4) 0 var(--sp-2); }
 .ec-conta { color: var(--muted); font-weight: 400; font-family: var(--fonte-dados); font-size: 11px; }

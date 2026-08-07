@@ -957,7 +957,7 @@ function _acDrivePaintShell(){
 }
 let _acDriveDepth=2,_acDriveSecOpen={},_acDriveDragId=null,_acDriveView='setor',_acDriveFlowOpen={};
 function _acDriveSecColor(key){
-  const m={financeiro:'#16a34a',contabil:'#0891b2',rh:'#7c3aed',marketing:'#db2777',comercial:'#ea580c',suprimentos:'#ca8a04',juridico:'#64748b',operacoes:'var(--modulo)',diretoria:'#9333ea',outros:'#94a3b8'};
+  const m={financeiro:'var(--green)',contabil:'#0891b2',rh:'var(--roxo)',marketing:'#db2777',comercial:'var(--orange)',suprimentos:'var(--yellow)',juridico:'var(--muted)',operacoes:'var(--modulo)',diretoria:'var(--roxo)',outros:'var(--muted)'};
   if(m[key])return m[key];
   let h=0;for(let i=0;i<key.length;i++)h=(h*31+key.charCodeAt(i))%360;return 'hsl('+h+',55%,46%)';
 }
@@ -2728,7 +2728,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-back){background:none;border:1px solid rgba(255,255,255,.18);color:inherit;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px}
 .tela-acessos :deep(.ac-tabs){display:flex;gap:6px;margin-left:auto}
 .tela-acessos :deep(.ac-tab){background:none;border:1px solid rgba(255,255,255,.14);color:inherit;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px}
-.tela-acessos :deep(.ac-tab.active){background:var(--modulo);border-color:var(--modulo);color:#fff}
+.tela-acessos :deep(.ac-tab.active){background:var(--modulo);border-color:var(--modulo);color:var(--sobre-cor)}
 .tela-acessos :deep(.ac-body){padding:20px clamp(14px,2.4vw,44px);width:100%}
 
 /* ===== TOPO do redesign (Tarefa 2): cabeçalho + faixa de KPIs =====
@@ -2741,7 +2741,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos .ac-topo{padding:clamp(16px,2.2vw,26px) clamp(14px,2.4vw,44px) 0;width:100%}
 .tela-acessos :deep(.ac-hero){display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:18px}
 .tela-acessos :deep(.ac-hero-brand){display:flex;align-items:center;gap:12px;min-width:0}
-.tela-acessos .ac-hero-mark{width:38px;height:38px;border-radius:10px;flex:none;display:grid;place-items:center;color:#fff;font-weight:800;font-size:16px;letter-spacing:.5px;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 72%,#000));box-shadow:var(--shadow-sm)}
+.tela-acessos .ac-hero-mark{width:38px;height:38px;border-radius:10px;flex:none;display:grid;place-items:center;color:var(--sobre-cor);font-weight:800;font-size:16px;letter-spacing:.5px;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 72%,#000));box-shadow:var(--shadow-sm)}
 .tela-acessos :deep(.ac-hero-h1){margin:0;font-family:var(--fonte-principal);font-size:clamp(19px,2.3vw,25px);font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text);line-height:1.05}
 .tela-acessos :deep(.ac-hero-sub){color:var(--muted);font-size:12.5px;margin-top:3px;line-height:1.35}
 .tela-acessos :deep(.ac-hero-provs){display:flex;gap:8px;flex-wrap:wrap}
@@ -2833,8 +2833,8 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
    de onde o acesso vem, e trocar por --green/--accent faria os três parecerem
    estados do nosso sistema em vez de logotipos de fora. Exceção prevista no
    PADRAO-DA-CENTRAL.md. */
-.tela-acessos :deep(.ac-g-zoho){background:#2c8a3d}
-.tela-acessos :deep(.ac-g-ms){background:#2b6fd6}
+.tela-acessos :deep(.ac-g-zoho){background:var(--green)}
+.tela-acessos :deep(.ac-g-ms){background:var(--accent)}
 .tela-acessos :deep(.ac-g-ap){background:#586172}
 .tela-acessos :deep(.ac-rail-meta){display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);padding-left:30px;flex-wrap:wrap}
 .tela-acessos :deep(.ac-tag){display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:999px}
@@ -2846,7 +2846,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-fnode){margin:0}
 .tela-acessos :deep(.ac-frow){display:flex;align-items:center;gap:9px;padding:10px 12px;cursor:pointer;border-left:2px solid transparent}
 .tela-acessos :deep(.ac-frow:hover){background:var(--surface2)}
-.tela-acessos :deep(.ac-frow.sel){background:var(--accent-light);border-left-color:var(--accent)}
+.tela-acessos :deep(.ac-frow.sel){background:var(--accent-light);border-left-color:var(--accent-forte)}
 .tela-acessos :deep(.ac-ftog){background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;line-height:1;padding:2px;flex:none;transition:transform .15s ease;transform:rotate(0deg)}
 .tela-acessos :deep(.ac-ftog.open){transform:rotate(90deg)}
 .tela-acessos :deep(.ac-fdot){width:5px;height:5px;border-radius:999px;background:var(--border);flex:none;margin:0 6px}
@@ -2873,7 +2873,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-pmeta){flex:1;min-width:0}
 .tela-acessos :deep(.ac-pname){font-weight:650;font-size:13.5px;color:var(--text)}
 .tela-acessos :deep(.ac-pmail){font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tela-acessos :deep(.ac-role){font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:999px;flex:none;color:var(--accent);background:var(--accent-light);white-space:nowrap}
+.tela-acessos :deep(.ac-role){font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:999px;flex:none;color:var(--accent-forte);background:var(--accent-light);white-space:nowrap}
 .tela-acessos :deep(.ac-linkrow){display:flex;align-items:center;gap:11px;padding:10px 8px;border-radius:var(--radius-sm)}
 .tela-acessos :deep(.ac-linkrow svg){width:18px;height:18px;flex:none;color:var(--muted)}
 .tela-acessos :deep(.ac-linkurl){font-size:12.5px;color:var(--text);word-break:break-all;line-height:1.35}
@@ -2888,7 +2888,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-btn-do){display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:640;padding:9px 15px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;transition:background .12s ease,filter .12s ease}
 .tela-acessos :deep(.ac-btn-do svg){width:15px;height:15px}
 .tela-acessos :deep(.ac-btn-do:hover){background:var(--surface2)}
-.tela-acessos :deep(.ac-btn-do.primary){background:var(--accent);border-color:var(--accent);color:#fff}
+.tela-acessos :deep(.ac-btn-do.primary){background:var(--accent);border-color:var(--accent);color:var(--sobre-cor)}
 .tela-acessos :deep(.ac-btn-do.primary:hover){filter:brightness(1.06)}
 .tela-acessos :deep(.ac-btn-do.danger){color:var(--red);border-color:var(--border)}
 .tela-acessos :deep(.ac-btn-do.danger:hover){background:color-mix(in srgb,var(--red) 12%,transparent)}
@@ -2898,7 +2898,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-prow-rem:hover){background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red);border-color:transparent}
 /* botãozinho "+ Adicionar pasta" no cabeçalho da lista + o agrupador à direita. */
 .tela-acessos :deep(.ac-phead-r){display:flex;align-items:center;gap:8px}
-.tela-acessos :deep(.ac-btn-mini){font-size:12px;font-weight:640;padding:5px 11px;border-radius:999px;border:1px solid var(--accent-mid);background:var(--accent-light);color:var(--accent);cursor:pointer;white-space:nowrap}
+.tela-acessos :deep(.ac-btn-mini){font-size:12px;font-weight:640;padding:5px 11px;border-radius:999px;border:1px solid var(--accent-mid);background:var(--accent-light);color:var(--accent-forte);cursor:pointer;white-space:nowrap}
 .tela-acessos :deep(.ac-btn-mini:hover){filter:brightness(1.04)}
 /* mobile: as 3 colunas empilham; o rail vira faixa rolável no topo */
 @media(max-width:1080px){
@@ -2945,7 +2945,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 /* Seletor leitura/edição da barra de ações do WorkDrive. */
 .tela-acessos :deep(.ac-wd-papel-wrap){display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:640;color:var(--muted)}
 .tela-acessos :deep(.ac-wd-papel){font-size:13px;font-weight:600;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer}
-.tela-acessos :deep(.ac-btn){background:var(--modulo);border:none;color:#fff;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px}
+.tela-acessos :deep(.ac-btn){background:var(--modulo);border:none;color:var(--sobre-cor);border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px}
 .tela-acessos :deep(.ac-btn.ghost){background:none;border:1px solid rgba(255,255,255,.18);color:inherit}
 .tela-acessos :deep(.ac-btn.danger){background:var(--red)}
 .tela-acessos :deep(.ac-input), .tela-acessos :deep(.ac-select), .tela-acessos :deep(.ac-textarea){background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.16);color:inherit;border-radius:8px;padding:8px 10px;font-size:13px;width:100%}
@@ -2954,7 +2954,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-pill){display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600}
 .tela-acessos :deep(.ac-pill.ok){background:color-mix(in srgb,var(--green) 12%,var(--surface));color:color-mix(in srgb,var(--green) 75%,var(--text))}
 .tela-acessos :deep(.ac-pill.warn){background:color-mix(in srgb,var(--orange) 12%,var(--surface));color:color-mix(in srgb,var(--orange) 75%,var(--text))}
-.tela-acessos :deep(.ac-pill.bad){background:color-mix(in srgb,var(--red) 12%,var(--surface));color:color-mix(in srgb,var(--red) 75%,var(--text))}
+.tela-acessos :deep(.ac-pill.bad){background:color-mix(in srgb,var(--red) 12%,var(--surface));color:color-mix(in srgb,var(--red) 65%,var(--text))}
   @media(max-width:640px){.tela-acessos :deep(.ac-grid2){grid-template-columns:1fr}.tela-acessos :deep(.ac-tabs){width:100%;margin-left:0}}
   @keyframes acFadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .tela-acessos :deep(.ac-card), .tela-acessos :deep(.ac-setor-card), .tela-acessos :deep(.ac-tile){animation:acFadeUp .32s ease both}
@@ -2970,7 +2970,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-setor-card){position:relative;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:18px;cursor:pointer;overflow:hidden;background:linear-gradient(155deg,rgba(13,148,136,.10),rgba(255,255,255,.02))}
 .tela-acessos :deep(.ac-setor-card::before){content:"";position:absolute;inset:0;background:radial-gradient(120% 80% at 100% 0%,rgba(13,148,136,.18),transparent 60%);opacity:.7;pointer-events:none}
 .tela-acessos :deep(.ac-setor-card:hover){transform:translateY(-3px);border-color:rgba(13,148,136,.5);box-shadow:0 12px 28px -12px rgba(13,148,136,.5)}
-.tela-acessos :deep(.ac-setor-ico){width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,color-mix(in srgb,var(--modulo) 80%,var(--text)),var(--modulo));color:#fff;margin-bottom:12px}
+.tela-acessos :deep(.ac-setor-ico){width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,color-mix(in srgb,var(--modulo) 80%,var(--text)),var(--modulo));color:var(--sobre-cor);margin-bottom:12px}
 .tela-acessos :deep(.ac-setor-nome){font-weight:700;font-size:15px;position:relative}
 .tela-acessos :deep(.ac-setor-sub){font-size:12px;opacity:.6;margin-top:2px;position:relative}
 .tela-acessos :deep(.ac-count){display:inline-flex;align-items:center;gap:5px;margin-top:12px;padding:3px 10px;border-radius:999px;background:rgba(13,148,136,.18);color:var(--modulo);font-size:12px;font-weight:700;position:relative}
@@ -3026,7 +3026,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-title){color:var(--text)}
 .tela-acessos :deep(.ac-back), .tela-acessos :deep(.ac-tab), .tela-acessos :deep(.ac-btn.ghost){border:1px solid var(--border);color:var(--text);background:var(--surface)}
 .tela-acessos :deep(.ac-back:hover), .tela-acessos :deep(.ac-tab:hover), .tela-acessos :deep(.ac-btn.ghost:hover){border-color:var(--accent-mid);box-shadow:var(--shadow-sm)}
-.tela-acessos :deep(.ac-tab.active){background:var(--modulo);border-color:var(--modulo);color:#fff}
+.tela-acessos :deep(.ac-tab.active){background:var(--modulo);border-color:var(--modulo);color:var(--sobre-cor)}
 .tela-acessos :deep(.ac-card){background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-md);border-left:3px solid transparent}
 .tela-acessos :deep(.ac-card:hover){border-color:var(--accent-mid);box-shadow:var(--shadow-lg)}
 .tela-acessos :deep(.ac-row){background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-sm)}
@@ -3037,13 +3037,13 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-hero .ac-sub){font-family:var(--fonte-principal);font-size:13px;color:var(--muted);margin-top:5px}
 .tela-acessos :deep(.ac-hero-actions){margin-left:auto;display:flex;gap:10px;flex-wrap:wrap}
 .tela-acessos :deep(.ac-btn.lg){padding:11px 18px;font-size:14px;border-radius:10px}
-.tela-acessos :deep(.ac-btn.primary){background:linear-gradient(135deg,color-mix(in srgb,var(--modulo) 80%,var(--text)),var(--modulo));color:#fff;border:none;box-shadow:0 6px 18px -8px rgba(13,148,136,.7)}
+.tela-acessos :deep(.ac-btn.primary){background:linear-gradient(135deg,color-mix(in srgb,var(--modulo) 80%,var(--text)),var(--modulo));color:var(--sobre-cor);border:none;box-shadow:0 6px 18px -8px rgba(13,148,136,.7)}
 .tela-acessos :deep(.ac-btn.primary:hover){border:none}
 .tela-acessos :deep(.ac-org-block){margin-bottom:18px;border:1px solid var(--border);border-radius:18px;background:var(--surface);box-shadow:var(--shadow-md);overflow:hidden;animation:acFadeUp .32s ease both}
 .tela-acessos :deep(.ac-org-head){display:flex;align-items:center;gap:14px;padding:16px 18px;cursor:pointer;border-bottom:1px solid transparent}
 .tela-acessos :deep(.ac-org-head:hover){background:rgba(13,148,136,.05)}
 .tela-acessos :deep(.ac-org-block.open .ac-org-head){border-bottom-color:var(--border)}
-.tela-acessos :deep(.ac-org-badge){width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,color-mix(in srgb,var(--modulo) 80%,var(--text)),var(--modulo));color:#fff;flex-shrink:0}
+.tela-acessos :deep(.ac-org-badge){width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,color-mix(in srgb,var(--modulo) 80%,var(--text)),var(--modulo));color:var(--sobre-cor);flex-shrink:0}
 .tela-acessos :deep(.ac-org-name){font-family:var(--fonte-principal);font-weight:700;font-size:21px;color:var(--text);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tela-acessos :deep(.ac-org-meta){font-family:var(--fonte-principal);font-size:10.5px;font-weight:600;letter-spacing:.6px;color:var(--muted);margin-top:3px;text-transform:uppercase}
 .tela-acessos :deep(.ac-org-chev){color:var(--muted);transition:transform .2s ease;flex-shrink:0}
@@ -3054,7 +3054,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-stcard:hover){transform:translateY(-2px);border-color:var(--accent-mid);box-shadow:var(--shadow-md)}
 .tela-acessos :deep(.ac-stcard-h){display:flex;align-items:center;justify-content:space-between;gap:8px}
 .tela-acessos :deep(.ac-stcard-name){font-family:var(--fonte-principal);font-weight:600;font-size:15px;letter-spacing:.4px;text-transform:uppercase;color:var(--text)}
-.tela-acessos :deep(.ac-stcard-ct){font-family:var(--fonte-dados);font-size:12px;font-weight:500;color:var(--modulo);background:rgba(13,148,136,.16);padding:2px 9px;border-radius:999px;white-space:nowrap}
+.tela-acessos :deep(.ac-stcard-ct){font-family:var(--fonte-dados);font-size:12px;font-weight:500;color:color-mix(in srgb,var(--modulo) 75%,var(--text));background:color-mix(in srgb,var(--modulo) 16%,var(--surface));padding:2px 9px;border-radius:999px;white-space:nowrap}
 .tela-acessos :deep(.ac-ava-stack){display:flex;align-items:center;margin-top:12px;flex-wrap:wrap;row-gap:6px}
 .tela-acessos :deep(.ac-ava-stack .ac-avatar){box-shadow:0 0 0 2px var(--surface2);margin-left:-8px}
 .tela-acessos :deep(.ac-ava-stack .ac-avatar:first-child){margin-left:0}
@@ -3199,7 +3199,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-termo-list){display:flex;flex-direction:column;gap:10px}
 .tela-acessos :deep(.ac-termo-item){display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface2);transition:border-color .15s ease}
 .tela-acessos :deep(.ac-termo-item:hover){border-color:var(--accent-mid)}
-.tela-acessos :deep(.ac-g-doc){width:30px;height:30px;border-radius:8px;background:var(--accent-light);color:var(--accent)}
+.tela-acessos :deep(.ac-g-doc){width:30px;height:30px;border-radius:8px;background:var(--accent-light);color:var(--accent-forte)}
 .tela-acessos :deep(.ac-g-doc svg){width:16px;height:16px}
 .tela-acessos :deep(.ac-termo-main){flex:1;min-width:160px}
 .tela-acessos :deep(.ac-termo-name){font-family:var(--fonte-principal);font-weight:600;font-size:14px;color:var(--text);line-height:1.3;overflow-wrap:anywhere}
@@ -3259,7 +3259,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-brand-bar){display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
 .tela-acessos :deep(.ac-brand-chip){position:relative;display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:var(--fonte-principal);font-weight:600;font-size:13px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;transition:border-color .15s,box-shadow .15s,background .15s}
 .tela-acessos :deep(.ac-brand-chip:hover){border-color:var(--accent-mid)}
-.tela-acessos :deep(.ac-brand-chip.active){background:linear-gradient(135deg,color-mix(in srgb,var(--modulo) 80%,var(--text)),var(--modulo));border-color:var(--modulo);color:#fff;box-shadow:0 6px 16px -8px rgba(13,148,136,.7)}
+.tela-acessos :deep(.ac-brand-chip.active){background:linear-gradient(135deg,color-mix(in srgb,var(--modulo) 80%,var(--text)),var(--modulo));border-color:var(--modulo);color:var(--sobre-cor);box-shadow:0 6px 16px -8px rgba(13,148,136,.7)}
 .tela-acessos :deep(.ac-brand-x){opacity:.55;font-size:11px;line-height:1}
 .tela-acessos :deep(.ac-brand-x:hover){opacity:1}
 .tela-acessos :deep(.ac-crumb){display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:16px;font-family:var(--fonte-principal);font-size:13px;color:var(--muted)}
@@ -3310,7 +3310,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-legend){display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
 .tela-acessos :deep(.ac-leg){display:inline-flex;align-items:center;gap:7px;font-family:var(--fonte-principal);font-size:12px;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:4px 6px 4px 11px}
 .tela-acessos :deep(.ac-leg-dot){width:11px;height:11px;border-radius:50%;flex-shrink:0}
-.tela-acessos :deep(.ac-leg-go){border:none;background:var(--modulo);color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:4px 10px;cursor:pointer;text-transform:uppercase;letter-spacing:.4px}
+.tela-acessos :deep(.ac-leg-go){border:none;background:var(--modulo);color:var(--sobre-cor);border-radius:999px;font-size:10px;font-weight:700;padding:4px 10px;cursor:pointer;text-transform:uppercase;letter-spacing:.4px}
 .tela-acessos :deep(.ac-leg-go:hover){filter:brightness(1.08)}
 .tela-acessos :deep(.ac-org-wrap){overflow:auto;padding:8px 4px 24px}
 .tela-acessos :deep(.ac-org), .tela-acessos :deep(.ac-org ul){display:flex;justify-content:center;padding-top:22px;position:relative;margin:0;list-style:none}
@@ -3389,7 +3389,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-secchev.open){transform:rotate(90deg)}
 .tela-acessos :deep(.ac-depth){display:flex;align-items:center;gap:8px;margin-bottom:18px;flex-wrap:wrap;font-family:var(--fonte-principal);font-size:12px;color:var(--muted)}
 .tela-acessos :deep(.ac-depth-b){border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:8px;width:30px;height:30px;cursor:pointer;font-weight:600;font-family:var(--fonte-principal)}
-.tela-acessos :deep(.ac-depth-b.active){background:var(--modulo);border-color:var(--modulo);color:#fff}
+.tela-acessos :deep(.ac-depth-b.active){background:var(--modulo);border-color:var(--modulo);color:var(--sobre-cor)}
 .tela-acessos :deep(.ac-folder-sub){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:640px){.tela-acessos :deep(.ac-folder-grid){grid-template-columns:1fr}}
 /* ===== Acessos — Fase 1: conexões ===== */
@@ -3402,12 +3402,12 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-conn-actions){display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
 @media(max-width:640px){.tela-acessos :deep(.ac-conn-actions .ac-btn){flex:1;min-width:120px;text-align:center}}
 .tela-acessos :deep(.ac-muted){color:var(--muted);opacity:1}
-.tela-acessos :deep(.ac-btn){background:var(--modulo);color:#fff;box-shadow:var(--shadow-sm)}
+.tela-acessos :deep(.ac-btn){background:var(--modulo);color:var(--sobre-cor);box-shadow:var(--shadow-sm)}
 .tela-acessos :deep(.ac-btn:hover){filter:brightness(1.06);box-shadow:var(--shadow-md)}
-.tela-acessos :deep(.ac-btn.danger){background:var(--red);color:#fff}
+.tela-acessos :deep(.ac-btn.danger){background:var(--red);color:var(--sobre-cor)}
 .tela-acessos :deep(.ac-input), .tela-acessos :deep(.ac-select), .tela-acessos :deep(.ac-textarea){background:var(--surface);border:1px solid var(--border);color:var(--text)}
 .tela-acessos :deep(.ac-input:focus), .tela-acessos :deep(.ac-select:focus), .tela-acessos :deep(.ac-textarea:focus){border-color:var(--accent-mid);outline:none;box-shadow:0 0 0 3px var(--accent-light)}
-.tela-acessos :deep(.ac-pill.ok){background:rgba(13,148,136,.16);color:#0a7e72}
+.tela-acessos :deep(.ac-pill.ok){background:color-mix(in srgb,var(--modulo) 16%,var(--surface));color:#0a7e72}
 .tela-acessos :deep(.ac-pill.warn){background:rgba(234,179,8,.18);color:var(--yellow)}
 .tela-acessos :deep(.ac-pill.bad){background:rgba(244,63,94,.16);color:var(--red)}
 .tela-acessos :deep(.ac-pill.neutral){background:rgba(120,130,150,.18);color:var(--muted)}
@@ -3415,8 +3415,8 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-setor-card:hover){border-color:rgba(13,148,136,.5);box-shadow:var(--shadow-lg)}
 .tela-acessos :deep(.ac-setor-nome){color:var(--text)}
 .tela-acessos :deep(.ac-setor-sub){color:var(--muted)}
-.tela-acessos :deep(.ac-count){background:var(--modulo);color:#fff}
-.tela-acessos :deep(.ac-setor-del){background:var(--surface);border:1px solid var(--border);color:var(--red)}
+.tela-acessos :deep(.ac-count){background:var(--modulo);color:var(--sobre-cor)}
+.tela-acessos :deep(.ac-setor-del){background:var(--surface);border:1px solid var(--border);color:color-mix(in srgb,var(--red) 65%,var(--text))}
 .tela-acessos :deep(.ac-chip){background:var(--surface2);border:1px solid var(--border);color:var(--text)}
 .tela-acessos :deep(.ac-section-h h3), .tela-acessos :deep(h2), .tela-acessos :deep(h3){color:var(--text)}
 .tela-acessos :deep(.ac-modal){background:var(--surface);border:1px solid var(--border);color:var(--text);box-shadow:var(--shadow-lg)}
@@ -3437,7 +3437,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-linklist .ac-row b){font-size:13px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 [data-theme="dark"] .tela-acessos :deep(.ac-pill.ok){color:var(--modulo)}
 .tela-acessos :deep(.ac-avatar){border-radius:50%;object-fit:cover;flex:none;border:1px solid var(--border);background:var(--surface2)}
-.tela-acessos :deep(.ac-avatar-fb){display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:#fff;background:linear-gradient(135deg,color-mix(in srgb,var(--modulo) 80%,var(--text)),var(--modulo))}
+.tela-acessos :deep(.ac-avatar-fb){display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:var(--sobre-cor);background:linear-gradient(135deg,color-mix(in srgb,var(--modulo) 80%,var(--text)),var(--modulo))}
 .tela-acessos :deep(.ac-section-h){flex-wrap:wrap}
 .tela-acessos :deep(.ac-row){flex-wrap:wrap}
 .tela-acessos :deep(.ac-row .grow){min-width:0}

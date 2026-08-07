@@ -2053,7 +2053,7 @@ onMounted(async () => {
 .tela-frota .fr-selo.neutra{background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--muted);}
 .tela-frota .fr-resumo{display:flex;align-items:center;gap:7px;padding:10px 14px;font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);}
 .tela-frota .fr-resumo strong{color:var(--text);font-variant-numeric:tabular-nums;}
-.tela-frota .fr-sep{opacity:.45;}
+.tela-frota .fr-sep{color:var(--muted);}
 .tela-frota .fr-vazio,.tela-frota .fr-erro{padding:40px 20px;text-align:center;font-family:var(--fonte-principal);font-size:13px;color:var(--muted);}
 .tela-frota .fr-erro{color:var(--red,#c0392b);}
 
@@ -2086,7 +2086,7 @@ onMounted(async () => {
 /* Verde do WhatsApp, que e como as pessoas reconhecem o botao sem ler. */
 .tela-frota .fr-zap{display:inline-flex;align-items:center;justify-content:center;gap:7px;text-decoration:none;border-color:#25d366;color:#128c4a;}
 .tela-frota .fr-zap:hover{background:color-mix(in srgb,#25d366 12%,transparent);}
-.tela-frota .fr-btn.primario{background:var(--accent);border-color:var(--accent);color:#fff;}
+.tela-frota .fr-btn.primario{background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
 .tela-frota .fr-btn:disabled{opacity:.6;cursor:default;}
 
 .tela-frota .fr-ficha-fundo{position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:14px;}

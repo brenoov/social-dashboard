@@ -41,7 +41,7 @@
       <div id="ma-account-picker" onclick="event.stopPropagation()" style="position:relative;display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
         <button id="ma-acc-trigger" style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:7px;padding:5px 12px;background:var(--surface2);cursor:pointer;font-family:var(--fonte-principal);font-size:12px;color:var(--text);white-space:nowrap;" onclick="event.stopPropagation();toggleMaAccPicker()">
           <img id="ma-acc-img" style="width:22px;height:22px;border-radius:50%;object-fit:cover;display:none;flex-shrink:0;" alt="">
-          <span id="ma-acc-av" style="width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--fonte-principal);font-size:11px;font-weight:700;color:#fff;flex-shrink:0;"></span>
+          <span id="ma-acc-av" style="width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--fonte-principal);font-size:11px;font-weight:700;color:var(--sobre-cor);flex-shrink:0;"></span>
           <span id="ma-acc-name" style="font-weight:500;max-width:130px;overflow:hidden;text-overflow:ellipsis;">—</span>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
@@ -277,7 +277,7 @@ async function _initMetaAds(){
   }catch(e){
     console.error('[MetaAds] _initMetaAds error:',e);
     if(nm)nm.textContent='Erro';
-    if(content)content.innerHTML=`<div class="gv-loading-screen"><span class="gv-loading-lbl" style="color:#dc2626">Erro: ${e.message}</span></div>`;
+    if(content)content.innerHTML=`<div class="gv-loading-screen"><span class="gv-loading-lbl" style="color:var(--red)">Erro: ${e.message}</span></div>`;
   }finally{
     _maInitInFlight=false;
   }
@@ -292,7 +292,7 @@ function _buildMaDropdown(drop){
     row.addEventListener('mouseleave',()=>row.style.background='');
     const lbl=a.display_name||a.name||'—';
     const bal=a.balance;
-    const balColor=bal==null?'var(--muted)':bal>=1000?'#16a34a':bal>=500?'#f59e0b':'#dc2626';
+    const balColor=bal==null?'var(--muted)':bal>=1000?'var(--green)':bal>=500?'var(--orange)':'var(--red)';
     const balStr=bal!=null?_maFmtR(bal):'—';
     const spendTxt=a.monthSpend>0?`R$ ${a.monthSpend.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})} este mês`:'';
     row.innerHTML=`
@@ -363,7 +363,7 @@ function toggleMaCustomRange(){
     </div>
     <div style="display:flex;gap:8px;">
       <button id="ma-modal-clear" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:var(--fonte-principal);font-size:11px;font-weight:700;color:var(--muted);background:none;cursor:pointer;">Limpar</button>
-      <button id="ma-modal-apply" style="flex:2;padding:10px;border:none;border-radius:8px;font-family:var(--fonte-principal);font-size:11px;font-weight:700;color:#fff;background:var(--accent);cursor:pointer;">Aplicar</button>
+      <button id="ma-modal-apply" style="flex:2;padding:10px;border:none;border-radius:8px;font-family:var(--fonte-principal);font-size:11px;font-weight:700;color:var(--sobre-cor);background:var(--accent);cursor:pointer;">Aplicar</button>
     </div>
   `;
 
@@ -382,8 +382,8 @@ function toggleMaCustomRange(){
   modal.querySelector('#ma-modal-apply').addEventListener('click',()=>{
     const s=modal.querySelector('#ma-custom-start').value;
     const e=modal.querySelector('#ma-custom-end').value;
-    if(!s||!e){modal.querySelector('#ma-custom-start').style.borderColor=s?'var(--border)':'#dc2626';modal.querySelector('#ma-custom-end').style.borderColor=e?'var(--border)':'#dc2626';return;}
-    if(s>e){modal.querySelector('#ma-custom-end').style.borderColor='#dc2626';return;}
+    if(!s||!e){modal.querySelector('#ma-custom-start').style.borderColor=s?'var(--border)':'var(--red)';modal.querySelector('#ma-custom-end').style.borderColor=e?'var(--border)':'var(--red)';return;}
+    if(s>e){modal.querySelector('#ma-custom-end').style.borderColor='var(--red)';return;}
     _maCustomSince=s;_maCustomUntil=e;
     document.querySelectorAll('#ma-period-btns .gv-pbtn').forEach(b=>b.classList.remove('active'));
     rangeBtn.classList.add('active');
@@ -525,14 +525,14 @@ const MA_FUNNEL_DEF={
     {key:'link_clicks',label:'Cliques no Link',icon:'🔗',color:'#0D47A1',cost:(s,v)=>v>0?s/v:0,costLabel:'Cost/link click'},
   ]},
   OUTCOME_LEADS:{label:'Leads',steps:[
-    {key:'impressions',label:'Impressões',icon:'👁',color:'#7C3AED',cost:(s,v)=>v>0?s/v*1000:0,costLabel:'CPM'},
-    {key:'reach',label:'Alcance',icon:'📡',color:'#6D28D9',cost:(s,v)=>v>0?s/v*1000:0,costLabel:'Custo/mil alc.'},
+    {key:'impressions',label:'Impressões',icon:'👁',color:'var(--roxo)',cost:(s,v)=>v>0?s/v*1000:0,costLabel:'CPM'},
+    {key:'reach',label:'Alcance',icon:'📡',color:'var(--roxo)',cost:(s,v)=>v>0?s/v*1000:0,costLabel:'Custo/mil alc.'},
     {key:'clicks',label:'Cliques',icon:'🖱',color:'#5B21B6',cost:(s,v)=>v>0?s/v:0,costLabel:'CPC'},
     {key:'lead',label:'Leads',icon:'📋',color:'#4C1D95',cost:(s,v)=>v>0?s/v:0,costLabel:'CPL',action:true},
   ]},
   OUTCOME_ENGAGEMENT:{label:'Engajamento',steps:[
-    {key:'impressions',label:'Impressões',icon:'👁',color:'#D97706',cost:(s,v)=>v>0?s/v*1000:0,costLabel:'CPM'},
-    {key:'reach',label:'Alcance',icon:'📡',color:'#B45309',cost:(s,v)=>v>0?s/v*1000:0,costLabel:'Custo/mil alc.'},
+    {key:'impressions',label:'Impressões',icon:'👁',color:'var(--orange)',cost:(s,v)=>v>0?s/v*1000:0,costLabel:'CPM'},
+    {key:'reach',label:'Alcance',icon:'📡',color:'var(--orange)',cost:(s,v)=>v>0?s/v*1000:0,costLabel:'Custo/mil alc.'},
     {key:'post_engagement',label:'Engajamentos',icon:'❤️',color:'#92400E',cost:(s,v)=>v>0?s/v:0,costLabel:'Custo/eng.',action:true},
     {key:'video_view',label:'Visualiz. Vídeo',icon:'▶️',color:'#78350F',cost:(s,v)=>v>0?s/v:0,costLabel:'Custo/view',action:true,optional:true},
   ]},
@@ -665,7 +665,7 @@ function _openCampanhaFilter(insights,campaigns,onApply){
       const status=camp?.effective_status||'—';
       const db=camp?.daily_budget?'R$'+(parseFloat(camp.daily_budget)/100).toFixed(0)+'/dia':camp?.lifetime_budget?'R$'+(parseFloat(camp.lifetime_budget)/100).toFixed(0)+' total':'—';
       const ctr=parseFloat(ins.ctr||0);
-      const statusColor=status==='ACTIVE'?'#16a34a':status==='PAUSED'?'#f59e0b':'var(--muted)';
+      const statusColor=status==='ACTIVE'?'var(--green)':status==='PAUSED'?'var(--orange)':'var(--muted)';
       const row=document.createElement('label');
       row.style.cssText='display:flex;align-items:center;gap:12px;padding:10px 14px;border-top:1px solid var(--border);cursor:pointer;transition:background .12s;';
       row.addEventListener('mouseenter',()=>row.style.background='var(--surface2)');
@@ -689,7 +689,7 @@ function _openCampanhaFilter(insights,campaigns,onApply){
   verBtn.textContent='Ver Tudo';
   verBtn.addEventListener('click',()=>{onApply(insights,null);drawer.remove();document.getElementById('ma-filter-bd')?.remove();});
   const applyBtn=document.createElement('button');
-  applyBtn.style.cssText='flex:2;padding:10px;border:none;border-radius:8px;font-family:var(--fonte-principal);font-size:11px;font-weight:700;color:#fff;background:var(--accent);cursor:pointer;';
+  applyBtn.style.cssText='flex:2;padding:10px;border:none;border-radius:8px;font-family:var(--fonte-principal);font-size:11px;font-weight:700;color:var(--sobre-cor);background:var(--accent);cursor:pointer;';
   applyBtn.textContent='Aplicar Filtro';
   applyBtn.addEventListener('click',()=>{
     const filtered=insights.filter(i=>selected.has(i.campaign_id));
@@ -721,7 +721,7 @@ function _maKpiQ(l){return MA_KPI_HELP[l]?`<button class="ma-kpi-q" onclick="_ma
 function _maTableHelp(){
   if(typeof _gtConfirm!=='function')return;
   const h=`<div style="text-align:left;font-size:12px;line-height:1.65;">
-  <p style="margin:0 0 9px"><b>● bolinha</b> = qualidade do CTR da campanha: <span style="color:#16a34a">verde</span> (CTR ≥ 2%, ótimo) · <span style="color:#d97706">amarelo</span> (0,8–2%, ok) · <span style="color:#dc2626">vermelho</span> (&lt; 0,8%, fraco).</p>
+  <p style="margin:0 0 9px"><b>● bolinha</b> = qualidade do CTR da campanha: <span style="color:var(--green)">verde</span> (CTR ≥ 2%, ótimo) · <span style="color:var(--orange)">amarelo</span> (0,8–2%, ok) · <span style="color:var(--red)">vermelho</span> (&lt; 0,8%, fraco).</p>
   <p style="margin:0 0 9px"><b>Selo de status</b> = Ativa / Pausada / Arquivada na Meta.</p>
   <p style="margin:0 0 9px"><b>Setinha ▲▼</b> ao lado de Gasto e CTR = variação vs. o <b>período anterior</b> de mesma duração (verde = subiu, vermelho = caiu).</p>
   <p style="margin:0 0 9px"><b>Colunas:</b> Gasto · CTR (cliques÷impressões) · CPC (custo/clique) · Impr. (impressões) · Cliques · Leads (quando o objetivo é conversão).</p>
@@ -802,7 +802,7 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily,prevDaily,a
         const isActive=o===resolvedObj;
         btn.style.cssText=`padding:7px 18px;border-radius:20px;font-family:var(--fonte-principal);font-size:12px;font-weight:600;letter-spacing:.3px;cursor:pointer;transition:all .15s;border:1px solid ${isActive?'var(--accent)':'var(--border)'};background:${isActive?'var(--accent)':'none'};color:${isActive?'#fff':'var(--text)'};white-space:nowrap;`;
         btn.textContent=MA_FUNNEL_DEF[o]?.label||o;
-        btn.addEventListener('mouseenter',()=>{if(o!==resolvedObj){btn.style.background='var(--accent)';btn.style.borderColor='var(--accent)';btn.style.color='#fff';}});
+        btn.addEventListener('mouseenter',()=>{if(o!==resolvedObj){btn.style.background='var(--accent)';btn.style.borderColor='var(--accent)';btn.style.color='var(--sobre-cor)';}});
         btn.addEventListener('mouseleave',()=>{if(o!==resolvedObj){btn.style.background='none';btn.style.borderColor='var(--border)';btn.style.color='var(--text)';}});
         btn.addEventListener('click',()=>_drawContent(insArr,o));
         selectorBar.appendChild(btn);
@@ -889,7 +889,7 @@ function _renderMaCampanha(el,{insights,campaigns,prevInsights,daily,prevDaily,a
       const k=document.createElement('div');k.className='ma-kpi';
       if(good)k.style.borderColor='rgba(22,163,74,.3)';
       if(bad)k.style.borderColor='rgba(220,38,38,.2)';
-      k.innerHTML=`<div class="ma-kpi-label">${l}${_maKpiQ(l)}</div><div class="ma-kpi-val" style="${good?'color:#16a34a':bad?'color:#dc2626':''}">${v}</div>${d.pct!==null?`<div class="ma-kpi-delta ${d.cls}">${d.sym}</div>`:''}<div class="ma-kpi-sub">${sub}</div>`;
+      k.innerHTML=`<div class="ma-kpi-label">${l}${_maKpiQ(l)}</div><div class="ma-kpi-val" style="${good?'color:var(--green)':bad?'color:var(--red)':''}">${v}</div>${d.pct!==null?`<div class="ma-kpi-delta ${d.cls}">${d.sym}</div>`:''}<div class="ma-kpi-sub">${sub}</div>`;
       kpi2.appendChild(k);
     });
     col.appendChild(kpi2);
@@ -938,7 +938,7 @@ function _buildMaTable(insights,campaigns){
       <td style="text-align:right;font-weight:600">${_maFmtR(ins.spend)}</td>
       <td style="text-align:right">${_maFmt(ins.impressions)}</td>
       <td style="text-align:right">${_maFmt(ins.clicks)}</td>
-      <td style="text-align:right;font-weight:600;color:${ctr>=2?'#16a34a':ctr<0.8?'#dc2626':'var(--text)'}">${_maFmtPct(ctr)}</td>
+      <td style="text-align:right;font-weight:600;color:${ctr>=2?'var(--green)':ctr<0.8?'var(--red)':'var(--text)'}">${_maFmtPct(ctr)}</td>
       <td style="text-align:right">${_maFmtR(ins.cpc)}</td>
       <td style="text-align:right">${_maFmtR(ins.cpm)}</td>
       <td style="text-align:right">${_maFmt(parseFloat(ins.frequency||0),2)}</td>
@@ -1050,7 +1050,7 @@ function _buildMaCampaignSection(insights,campaigns,prevCampMap){
     const chip=document.createElement('button');
     chip.style.cssText='padding:5px 11px;border-radius:20px;font-family:var(--fonte-principal);font-size:10px;font-weight:600;letter-spacing:.4px;cursor:pointer;transition:all .15s;border:1px solid var(--border);background:none;color:var(--muted);white-space:nowrap;';
     chip.textContent=lbl;
-    if(val==='todos'){chip.style.background='var(--accent)';chip.style.color='#fff';chip.style.borderColor='var(--accent)';}
+    if(val==='todos'){chip.style.background='var(--accent)';chip.style.color='var(--sobre-cor)';chip.style.borderColor='var(--accent)';}
     chip.addEventListener('click',()=>{
       activeStatus=val;
       chips.forEach((c,i)=>{c.style.background=statuses[i][0]===val?'var(--accent)':'none';c.style.color=statuses[i][0]===val?'#fff':'var(--muted)';c.style.borderColor=statuses[i][0]===val?'var(--accent)':'var(--border)';});
@@ -1085,7 +1085,7 @@ function _buildMaCampaignSection(insights,campaigns,prevCampMap){
     const body=rows.map(ins=>{
       const camp=campMap[ins.campaign_id];const status=camp?.effective_status||'—';
       const ctr=parseFloat(ins.ctr||0),spend=parseFloat(ins.spend||0),impressions=parseInt(ins.impressions||0),clicks=parseInt(ins.clicks||0),cpc=parseFloat(ins.cpc||0),leads=_getActions(ins,'lead');
-      const ctrColor=ctr>=2?'#16a34a':ctr<0.8?'#dc2626':'#d97706';
+      const ctrColor=ctr>=2?'var(--green)':ctr<0.8?'var(--red)':'var(--orange)';
       const scoreCls=ctr>=2?'good':ctr>=0.8?'mid':'bad';
       const badgeCls=status==='ACTIVE'?'active':status==='PAUSED'?'paused':'archived';
       const statusLabel=status==='ACTIVE'?'Ativa':status==='PAUSED'?'Pausada':status==='ARCHIVED'?'Arq.':status;
@@ -1160,7 +1160,7 @@ function _buildMaAdSection(adInsights,campInsights){
 
     const adRows=adsSorted.map(ad=>{
       const ctr=parseFloat(ad.ctr||0),spend=parseFloat(ad.spend||0),impressions=parseInt(ad.impressions||0),clicks=parseInt(ad.clicks||0),cpc=parseFloat(ad.cpc||0),cpm=parseFloat(ad.cpm||0);
-      const ctrColor=ctr>=2?'#16a34a':ctr<0.8?'#dc2626':'#d97706';
+      const ctrColor=ctr>=2?'var(--green)':ctr<0.8?'var(--red)':'var(--orange)';
       const scoreCls=ctr>=2?'good':ctr>=0.8?'mid':'bad';
       const nm=escHtml(ad.ad_name||'—'),adset=escHtml(ad.adset_name||'');
       return `<tr>
@@ -1258,7 +1258,7 @@ Object.assign(window, {
 .tela-analise-campanhas :deep(.gv-update-status){font-family:var(--fonte-principal);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);opacity:.45;margin-top:4px;text-align:right;}
 .tela-analise-campanhas :deep(.gv-period-btns){display:flex;align-items:center;gap:4px;}
 .tela-analise-campanhas :deep(.gv-pbtn){font-family:var(--fonte-principal);font-size:10px;padding:4px 9px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
-.tela-analise-campanhas :deep(.gv-pbtn.active){background:var(--accent);color:#fff;border-color:var(--accent);}
+.tela-analise-campanhas :deep(.gv-pbtn.active){background:var(--accent);color:var(--sobre-cor);border-color:var(--accent);}
 .tela-analise-campanhas :deep(.custom-range-btn){font-family:var(--fonte-principal);font-weight:500;font-size:11px;padding:5px 14px;border-radius:3px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap;}
 .tela-analise-campanhas :deep(.custom-range-btn:hover),.tela-analise-campanhas :deep(.custom-range-btn.active){border-color:var(--accent);color:var(--accent);}
 
@@ -1267,7 +1267,7 @@ Object.assign(window, {
 @keyframes maSpin{to{transform:rotate(360deg)}}
 .tela-analise-campanhas :deep(.gv-loading-screen){grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;min-height:60vh;}
 .tela-analise-campanhas :deep(.gv-spinner){width:48px;height:48px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:maSpin .9s linear infinite;}
-.tela-analise-campanhas :deep(.gv-loading-lbl){font-family:var(--fonte-principal);font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);opacity:.6;}
+.tela-analise-campanhas :deep(.gv-loading-lbl){font-family:var(--fonte-principal);font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);}
 
 /* ── Meta Ads — Análise de Campanhas (legacy/estilos-globais.css, bloco
      "── META ADS ──"; movido para cá na íntegra. Vários seletores abaixo,
@@ -1285,7 +1285,7 @@ Object.assign(window, {
 .tela-analise-campanhas :deep(.ma-account-sel){font-family:var(--fonte-principal);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:5px 10px;background:var(--surface2);color:var(--text);cursor:pointer;outline:none;}
 .tela-analise-campanhas :deep(.ma-period-row){display:flex;align-items:center;gap:4px;}
 .tela-analise-campanhas :deep(.ma-period-btn){font-family:var(--fonte-principal);font-size:11px;font-weight:500;padding:4px 10px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;letter-spacing:.3px;}
-.tela-analise-campanhas :deep(.ma-period-btn.active){background:var(--accent);color:#fff;border-color:var(--accent);}
+.tela-analise-campanhas :deep(.ma-period-btn.active){background:var(--accent);color:var(--sobre-cor);border-color:var(--accent);}
 .tela-analise-campanhas :deep(.ma-refresh-btn){display:flex;align-items:center;gap:5px;font-family:var(--fonte-principal);font-size:11px;border:1px solid var(--border);border-radius:5px;padding:4px 10px;background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
 .tela-analise-campanhas :deep(.ma-refresh-btn:hover){border-color:var(--accent);color:var(--accent);}
 .tela-analise-campanhas :deep(.ma-body){padding:24px;display:flex;flex-direction:column;gap:20px;max-width:1400px;margin:0 auto;width:100%;}
@@ -1300,8 +1300,8 @@ Object.assign(window, {
 .tela-analise-campanhas :deep(.ma-kpi-q:hover){border-color:var(--accent);color:var(--accent);}
 .tela-analise-campanhas :deep(.ma-kpi-val){font-family:var(--fonte-dados);font-size:26px;font-weight:700;color:var(--text);line-height:1.1;}
 .tela-analise-campanhas :deep(.ma-kpi-delta){font-family:var(--fonte-principal);font-size:11px;font-weight:500;display:flex;align-items:center;gap:4px;margin-top:2px;}
-.tela-analise-campanhas :deep(.ma-delta-up){color:#16a34a;}
-.tela-analise-campanhas :deep(.ma-delta-down){color:#dc2626;}
+.tela-analise-campanhas :deep(.ma-delta-up){color:var(--green);}
+.tela-analise-campanhas :deep(.ma-delta-down){color:var(--red);}
 .tela-analise-campanhas :deep(.ma-delta-neu){color:var(--muted);}
 .tela-analise-campanhas :deep(.ma-kpi-sub){font-family:var(--fonte-principal);font-size:10px;color:var(--muted);margin-top:1px;}
 .tela-analise-campanhas :deep(.ma-section){background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;}
@@ -1319,13 +1319,13 @@ Object.assign(window, {
 .tela-analise-campanhas :deep(.ma-table th:not(.sortable)){cursor:default;}
 .tela-analise-campanhas :deep(.ma-table th:not(.sortable):hover){color:var(--muted);}
 .tela-analise-campanhas :deep(.ma-badge){display:inline-flex;align-items:center;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:2px 7px;border-radius:3px;}
-.tela-analise-campanhas :deep(.ma-badge-active){background:rgba(22,163,74,.12);color:#16a34a;}
-.tela-analise-campanhas :deep(.ma-badge-paused){background:rgba(245,158,11,.12);color:#d97706;}
-.tela-analise-campanhas :deep(.ma-badge-archived){background:rgba(107,114,128,.12);color:#6b7280;}
+.tela-analise-campanhas :deep(.ma-badge-active){background:color-mix(in srgb,var(--green) 12%,var(--surface));color:var(--green);}
+.tela-analise-campanhas :deep(.ma-badge-paused){background:color-mix(in srgb,var(--orange) 12%,var(--surface));color:var(--orange);}
+.tela-analise-campanhas :deep(.ma-badge-archived){background:color-mix(in srgb,var(--muted) 12%,var(--surface));color:var(--muted);}
 .tela-analise-campanhas :deep(.ma-score){display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0;}
-.tela-analise-campanhas :deep(.ma-score-good){background:#16a34a;}
-.tela-analise-campanhas :deep(.ma-score-mid){background:#d97706;}
-.tela-analise-campanhas :deep(.ma-score-bad){background:#dc2626;}
+.tela-analise-campanhas :deep(.ma-score-good){background:var(--green);}
+.tela-analise-campanhas :deep(.ma-score-mid){background:var(--orange);}
+.tela-analise-campanhas :deep(.ma-score-bad){background:var(--red);}
 .tela-analise-campanhas :deep(.ma-obj-chip){font-family:var(--fonte-principal);font-size:9px;font-weight:600;letter-spacing:.5px;padding:2px 6px;border-radius:3px;background:var(--surface2);color:var(--muted);text-transform:uppercase;}
 .tela-analise-campanhas :deep(.ma-setup){display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:320px;gap:14px;text-align:center;}
 .tela-analise-campanhas :deep(.ma-setup-icon){width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#1877F2,#0062E0);display:flex;align-items:center;justify-content:center;}
@@ -1334,7 +1334,7 @@ Object.assign(window, {
 .tela-analise-campanhas :deep(.ma-setup-btn){background:linear-gradient(135deg,#1877F2,#0062E0);color:#fff;border:none;border-radius:7px;padding:10px 22px;font-family:var(--fonte-principal);font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.3px;}
 .tela-analise-campanhas :deep(.ma-adacc-list){display:flex;flex-direction:column;gap:6px;margin-top:8px;max-height:260px;overflow-y:auto;}
 .tela-analise-campanhas :deep(.ma-adacc-row){display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:1px solid var(--border);border-radius:7px;cursor:pointer;transition:all .15s;background:var(--surface2);}
-.tela-analise-campanhas :deep(.ma-adacc-row:hover){border-color:var(--accent);background:var(--accent-light);}
+.tela-analise-campanhas :deep(.ma-adacc-row:hover){border-color:var(--accent-forte);background:var(--accent-light);}
 .tela-analise-campanhas :deep(.ma-adacc-name){font-family:var(--fonte-principal);font-size:13px;font-weight:500;color:var(--text);}
 .tela-analise-campanhas :deep(.ma-adacc-id){font-family:var(--fonte-principal);font-size:10px;color:var(--muted);}
 .tela-analise-campanhas :deep(.ma-loading){display:flex;align-items:center;justify-content:center;min-height:280px;gap:10px;font-family:var(--fonte-principal);font-size:13px;color:var(--muted);}
@@ -1351,7 +1351,7 @@ Object.assign(window, {
 .tela-analise-campanhas :deep(.ma-obj-group-body){padding:10px 14px;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--border);}
 .tela-analise-campanhas :deep(.ma-camp-chk-row){display:flex;align-items:center;gap:8px;font-family:var(--fonte-principal);font-size:12px;color:var(--text);cursor:pointer;}
 .tela-analise-campanhas :deep(.ma-camp-chk-row input[type=checkbox]){accent-color:var(--accent);}
-.tela-analise-campanhas :deep(.ma-apply-btn){width:100%;padding:9px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-family:var(--fonte-principal);font-size:12px;font-weight:600;cursor:pointer;margin-top:8px;letter-spacing:.3px;}
+.tela-analise-campanhas :deep(.ma-apply-btn){width:100%;padding:9px;background:var(--accent);color:var(--sobre-cor);border:none;border-radius:6px;font-family:var(--fonte-principal);font-size:12px;font-weight:600;cursor:pointer;margin-top:8px;letter-spacing:.3px;}
 @media(max-width:900px){
   .tela-analise-campanhas :deep(.ma-kpi-row){grid-template-columns:repeat(2,1fr);}
   .tela-analise-campanhas :deep(.ma-two-col){grid-template-columns:1fr;}
@@ -1361,7 +1361,7 @@ Object.assign(window, {
   .tela-analise-campanhas :deep(.ma-kpi-val){font-size:20px;}
   .tela-analise-campanhas :deep(.ma-topbar){padding:8px 14px;}
 }
-.tela-analise-campanhas :deep(.ma-filter-btn){display:flex;align-items:center;gap:7px;padding:8px 16px;border:1px solid var(--accent);border-radius:8px;font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--accent);background:var(--accent-light);cursor:pointer;transition:background .15s;}
+.tela-analise-campanhas :deep(.ma-filter-btn){display:flex;align-items:center;gap:7px;padding:8px 16px;border:1px solid var(--accent);border-radius:8px;font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--accent-forte);background:var(--accent-light);cursor:pointer;transition:background .15s;}
 .tela-analise-campanhas :deep(.ma-filter-btn:hover){background:rgba(24,119,242,.15);}
 .tela-analise-campanhas :deep(.ma-funnel-bar-row){display:flex;justify-content:center;width:100%;}
 .tela-analise-campanhas :deep(.ma-funnel-bar){border-radius:8px;transition:width .5s ease;}

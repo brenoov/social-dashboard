@@ -221,5 +221,5 @@ onMounted(carregar)
 .tv-vazio-time { font-size: 12px; color: var(--muted); padding: 8px 0; }
 .tv-por { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
 .tv-por select { flex: 1; min-width: 180px; padding: 7px 10px; font-size: 12px; }
-.tv-por button { border: none; background: var(--accent); color: #fff; border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.tv-por button { border: none; background: var(--accent); color: var(--sobre-cor); border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer; }
 </style>

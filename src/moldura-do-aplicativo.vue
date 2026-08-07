@@ -343,7 +343,7 @@ router.afterEach(() => fecharTodosOsModaisLegadosAoTrocarDeRota())
 .perfil-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .perfil-avatar-ph {
   font-family: var(--fonte-principal); font-size: 17px; font-weight: 600;
-  color: #fff; background: var(--accent); width: 100%; height: 100%;
+  color: var(--sobre-cor); background: var(--accent); width: 100%; height: 100%;
   display: flex; align-items: center; justify-content: center;
 }
 .perfil-backdrop { position: fixed; inset: 0; z-index: 9998; }
@@ -390,7 +390,7 @@ router.afterEach(() => fecharTodosOsModaisLegadosAoTrocarDeRota())
   font-family: inherit; transition: all .14s ease;
 }
 .perfil-modal-btn:hover:not(:disabled) { border-color: var(--accent); }
-.perfil-modal-btn.primario { background: var(--accent); border-color: var(--accent); color: #fff; }
+.perfil-modal-btn.primario { background: var(--accent); border-color: var(--accent); color: var(--sobre-cor); }
 .perfil-modal-btn:disabled { opacity: .6; cursor: default; }
 
 /* ── Ajustes de leitura (tema + zoom): UM botão, menor que os dois de antes ── */
@@ -411,9 +411,9 @@ router.afterEach(() => fecharTodosOsModaisLegadosAoTrocarDeRota())
 .ajustes-rot { flex: 1; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
 .ajustes-grupo { display: flex; align-items: center; gap: 4px; border: 1px solid var(--border); border-radius: 9px; padding: 3px; }
 .ajustes-grupo button { min-width: 32px; height: 30px; padding: 0 9px; border: none; background: none; border-radius: 7px; font-family: var(--fonte-principal); font-size: 12px; font-weight: 600; color: var(--text); cursor: pointer; touch-action: manipulation; }
-.ajustes-grupo button.ativo { background: var(--accent); color: #fff; }
+.ajustes-grupo button.ativo { background: var(--accent); color: var(--sobre-cor); }
 .ajustes-val { min-width: 44px; text-align: center; font-size: 11px; font-weight: 600; color: var(--muted); cursor: pointer; user-select: none; font-variant-numeric: tabular-nums; }
-.ajustes-pronto { width: 100%; height: 36px; border: none; border-radius: 9px; background: var(--accent); color: #fff; font-family: var(--fonte-principal); font-size: 13px; font-weight: 600; cursor: pointer; touch-action: manipulation; }
+.ajustes-pronto { width: 100%; height: 36px; border: none; border-radius: 9px; background: var(--accent); color: var(--sobre-cor); font-family: var(--fonte-principal); font-size: 13px; font-weight: 600; cursor: pointer; touch-action: manipulation; }
 
 
 /* ── Modal de notificações (Web Push) — prefixo np- único (evita colisão CSS global) ── */
@@ -430,7 +430,7 @@ router.afterEach(() => fecharTodosOsModaisLegadosAoTrocarDeRota())
 .np-modal p { opacity: .8; font-size: 13.5px; line-height: 1.45; margin: 0; }
 .np-modal-ativar {
   margin-top: 18px; width: 100%; padding: 12px; border: 0; border-radius: 10px;
-  background: var(--accent); color: #fff; font-weight: 700; font-size: 14px;
+  background: var(--accent); color: var(--sobre-cor); font-weight: 700; font-size: 14px;
   cursor: pointer; font-family: inherit;
 }
 </style>

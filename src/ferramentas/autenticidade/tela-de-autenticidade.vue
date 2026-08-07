@@ -368,7 +368,7 @@ onMounted(carregar)
 .abas button.on{color:var(--accent);border-color:var(--accent);}
 
 .au-vazio,.au-erro,.au-pronto{font-family:var(--fonte-principal);font-size:13px;color:var(--muted);padding:28px 24px;line-height:1.7;max-width:620px;}
-.au-erro{color:#b91c1c;}
+.au-erro{color:var(--red);}
 .au-pronto{color:var(--accent);}
 .au-instrucao{font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);line-height:1.7;padding:16px 24px 0;max-width:620px;}
 .au-secao{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text);padding:24px 24px 4px;}
@@ -376,13 +376,13 @@ onMounted(carregar)
 .au-topo-acao{display:flex;gap:10px;align-items:center;padding:18px 24px 0;flex-wrap:wrap;}
 .au-busca{flex:1;min-width:180px;font-family:var(--fonte-principal);font-size:13px;padding:9px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);}
 
-.au-botao{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#fff;background:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:10px 16px;cursor:pointer;}
+.au-botao{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sobre-cor);background:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:10px 16px;cursor:pointer;}
 .au-botao[disabled]{opacity:.6;cursor:default;}
 .au-botao.secundario{color:var(--accent);background:transparent;}
 
 .au-lista{display:flex;flex-direction:column;gap:10px;padding:16px 24px 0;max-width:720px;}
 .au-card{border:1px solid var(--border);border-radius:8px;background:var(--surface);padding:14px 16px;}
-.au-card.alerta{border-color:#b45309;}
+.au-card.alerta{border-color:var(--orange);}
 .au-card-topo{display:flex;justify-content:space-between;align-items:baseline;gap:12px;}
 .au-modelo{font-family:var(--fonte-principal);font-size:14px;font-weight:600;color:var(--text);}
 .au-progresso{font-family:var(--fonte-principal);font-size:11px;color:var(--accent);white-space:nowrap;}

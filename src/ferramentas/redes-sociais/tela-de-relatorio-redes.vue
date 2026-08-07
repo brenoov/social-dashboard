@@ -258,17 +258,17 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .rel-select:focus{border-color:var(--accent);}
 .rel-seg{display:flex;gap:4px;}
 .rel-seg-btn{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;padding:7px 13px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--muted);cursor:pointer;transition:all .15s;}
-.rel-seg-btn.ativo{background:var(--accent);color:#fff;border-color:var(--accent);}
+.rel-seg-btn.ativo{background:var(--accent);color:var(--sobre-cor);border-color:var(--accent);}
 .rel-chips{display:flex;gap:6px;flex-wrap:wrap;}
 .rel-chip{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:600;padding:6px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--muted);cursor:pointer;transition:all .15s;}
-.rel-chip.ativo{background:var(--accent-light);color:var(--accent);border-color:var(--accent-mid);}
+.rel-chip.ativo{background:var(--accent-light);color:var(--accent-forte);border-color:var(--accent-mid);}
 .rel-export-btns{display:flex;gap:6px;}
 .rel-export{font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;padding:7px 14px;border-radius:6px;border:1px solid var(--accent-mid);background:var(--bg);color:var(--accent);cursor:pointer;transition:all .15s;}
-.rel-export:hover{background:var(--accent);color:#fff;}
+.rel-export:hover{background:var(--accent);color:var(--sobre-cor);}
 
 .rel-info{font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:var(--muted);padding:10px 28px 0;}
 .rel-nota{display:flex;align-items:center;gap:8px;margin:8px 28px 0;padding:8px 12px;border-radius:8px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.22);color:var(--muted);font-family:'IBM Plex Sans',sans-serif;font-size:11.5px;line-height:1.35;}
-.rel-nota svg{flex-shrink:0;color:#3b82f6;}
+.rel-nota svg{flex-shrink:0;color:var(--accent);}
 .rel-nota b{color:var(--fg,#e5e7eb);font-weight:600;}
 
 .rel-tabela-scroll{flex:1;overflow:auto;padding:14px 28px 40px;}
@@ -282,8 +282,8 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .rel-tabela td{font-size:12px;color:var(--text);padding:8px 12px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--border);}
 .rel-tabela td.data{text-align:left;font-weight:600;color:var(--muted);}
 .rel-tabela td.col-forte{font-weight:700;color:var(--accent);}
-.rel-tabela td.net-up{color:#16a34a;font-weight:600;}
-.rel-tabela td.net-down{color:#dc2626;font-weight:600;}
+.rel-tabela td.net-up{color:var(--green);font-weight:600;}
+.rel-tabela td.net-down{color:var(--red);font-weight:600;}
 .rel-tabela td.net-contagem{text-decoration:underline dotted;text-underline-offset:3px;cursor:help;}
 .rel-tabela tbody tr:nth-child(even) td{background:color-mix(in srgb, var(--surface) 45%, transparent);}
 .rel-tabela tbody tr:hover td{background:var(--accent-light);}

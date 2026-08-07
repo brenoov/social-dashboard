@@ -66,6 +66,29 @@ com automação usa esta cor — e nada mais usa.
 `.selo` mais `.selo-ok` · `.selo-atencao` · `.selo-erro` · `.selo-info` ·
 `.selo-robo` · `.selo-neutro`.
 
+**Texto em cima de bloco colorido: `var(--sobre-cor)`, nunca `#fff`.**
+
+```css
+.meu-botao { background:var(--accent); color:var(--sobre-cor); }   /* certo  */
+.meu-botao { background:var(--accent); color:#fff; }               /* errado */
+```
+
+No tema escuro os tokens de cor são CLAROS de propósito — foram feitos pra ser
+texto sobre fundo escuro. Branco em cima deles não se lê.
+
+> **O estrago:** 100 lugares da Central pintavam um bloco com o token e escreviam
+> branco em cima. No tema escuro, o botão principal ficava em 3,71 e o selo de
+> super-admin em 2,72 — abaixo do mínimo de 4,5. Ninguém tinha medido.
+
+**Cor sobre o próprio tom aguado: `var(--accent-forte)`.**
+
+```css
+.aba-ativa { background:var(--accent-light); color:var(--accent-forte); }
+```
+
+O accent puro sobre `--accent-light` dá 4,42 no tema escuro — reprova por pouco,
+e "por pouco" continua sendo reprovado. O par acima já vem medido (5,96 a 7,97).
+
 **Cada módulo PODE ter uma cor de identidade** — mas como token, nunca hex:
 
 ```css

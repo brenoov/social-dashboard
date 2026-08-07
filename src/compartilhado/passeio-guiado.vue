@@ -151,7 +151,7 @@ const estiloBalao = () => {
 .passeio-conta{flex:1;min-width:0;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;}
 .passeio-btn{font-family:var(--fonte-principal);font-size:12px;font-weight:600;padding:8px 13px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);cursor:pointer;touch-action:manipulation;}
 .passeio-btn:disabled{opacity:.45;cursor:not-allowed;}
-.passeio-btn.primario{background:var(--accent);border-color:var(--accent);color:#fff;}
+.passeio-btn.primario{background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
 
 @media(max-width:640px){
   /* Balão ancorado no alvo estoura na tela pequena: aqui ele vira uma faixa

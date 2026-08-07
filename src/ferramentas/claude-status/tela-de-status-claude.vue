@@ -735,7 +735,7 @@ onUnmounted(() => {
   --fs: 'IBM Plex Sans', system-ui, sans-serif;
   --fd: 'Sora', system-ui, sans-serif;
   --fm: 'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
-  --violet: #8b5cf6;
+  --violet: var(--roxo);
   min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--fs);
 }
 @keyframes cscUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
@@ -898,7 +898,7 @@ onUnmounted(() => {
 .csc-proj { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 11px 13px; display: flex; flex-direction: column; gap: 7px; }
 .csc-proj-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .csc-proj-titulo { font-weight: 600; font-size: 13.5px; color: var(--text); }
-.csc-proj-etapa { font-size: 10px; font-weight: 700; letter-spacing: .5px; color: var(--accent); background: var(--accent-light); border: 1px solid var(--accent-mid); border-radius: 5px; padding: 2px 7px; flex-shrink: 0; }
+.csc-proj-etapa { font-size: 10px; font-weight: 700; letter-spacing: .5px; color: var(--accent-forte); background: var(--accent-light); border: 1px solid var(--accent-mid); border-radius: 5px; padding: 2px 7px; flex-shrink: 0; }
 .csc-proj-desc { font-size: 12px; line-height: 1.45; color: var(--muted); }
 .csc-bar { height: 6px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
 .csc-bar i { display: block; height: 100%; background: var(--accent); border-radius: 4px; transition: width .4s ease; }
@@ -908,7 +908,7 @@ onUnmounted(() => {
 /* Kanban interativo */
 .csc-sec-proj { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .csc-sec-d b { color: var(--text); font-weight: 600; }
-.csc-add-btn { flex-shrink: 0; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer; transition: filter .15s, transform .12s; }
+.csc-add-btn { flex-shrink: 0; background: var(--accent); color: var(--sobre-cor); border: none; border-radius: var(--radius-sm); padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer; transition: filter .15s, transform .12s; }
 .csc-add-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
 .csc-col.is-over { outline: 2px dashed var(--accent-mid); outline-offset: -2px; }
 .csc-col-acoes { display: flex; align-items: center; gap: 7px; }
@@ -936,7 +936,7 @@ onUnmounted(() => {
 .csc-modal-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
 .csc-btn-sec { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: var(--radius-sm); padding: 9px 16px; font-size: 13px; font-weight: 500; cursor: pointer; }
 .csc-btn-sec:hover { border-color: var(--muted); color: var(--text); }
-.csc-btn-pri { background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.csc-btn-pri { background: var(--accent); color: var(--sobre-cor); border: none; border-radius: var(--radius-sm); padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; }
 .csc-btn-pri:hover { filter: brightness(1.08); }
 
 /* Abas + extrato */
@@ -963,7 +963,7 @@ onUnmounted(() => {
 .csc-ex-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .csc-periodo { display: flex; gap: 4px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 4px; flex-shrink: 0; }
 .csc-periodo button { border: none; background: none; color: var(--muted); font-family: inherit; font-size: 12.5px; font-weight: 600; padding: 6px 13px; border-radius: var(--radius-sm); cursor: pointer; transition: background .15s, color .15s; }
-.csc-periodo button.on { background: var(--accent); color: #fff; }
+.csc-periodo button.on { background: var(--accent); color: var(--sobre-cor); }
 .csc-periodo button:not(.on):hover { color: var(--text); }
 
 /* Ranking por área */

@@ -969,7 +969,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   const isDark=document.documentElement.dataset.theme==='dark';
   const trackClr=isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.08)';
   const numCls=i=>i===0?'gold':i===1?'silver':i===2?'bronze':'rest';
-  function pctHex(p){return p===null?'#4f7cff':p>=100?'#22c55e':p>=80?'#eab308':'#f43f5e';}
+  function pctHex(p){return p===null?'var(--accent)':p>=100?'var(--green)':p>=80?'var(--yellow)':'var(--red)';}
   function fmtK(v){const a=Math.abs(v);return a>=1e6?(v/1e6).toFixed(1)+'M':a>=1e3?(v/1e3).toFixed(0)+'k':String(Math.round(v));}
   function fmtPrevLbl(dip,dfp){if(!dip||!dfp)return 'ant.';const mons=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];const s=dip.slice(8),e=dfp.slice(8),mo=mons[parseInt(dip.slice(5,7))-1];const moe=mons[parseInt(dfp.slice(5,7))-1];if(dip===dfp)return s+'/'+mo;if(dip.slice(0,7)===dfp.slice(0,7))return s+'-'+e+'/'+mo;return s+'/'+mo+'→'+e+'/'+moe;}
   const prevLbl=fmtPrevLbl(diPrev,dfPrev);
@@ -1092,8 +1092,8 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
   const desvioStr=desvioMeta!=null?(desvioMeta>=0?'↑ R$':'↓ R$')+fmtK(Math.abs(desvioMeta))+' da meta':null;
   const deltaStr=deltaPct!=null?(deltaPct>=0?'↑':'↓')+Math.abs(deltaPct)+'% vs '+prevLbl:null;
   const line4parts=[];
-  if(desvioStr)line4parts.push({text:desvioStr,color:desvioMeta>=0?'#22c55e':'#f43f5e'});
-  if(deltaStr)line4parts.push({text:deltaStr,color:deltaPct>=0?'#22c55e':'#f43f5e'});
+  if(desvioStr)line4parts.push({text:desvioStr,color:desvioMeta>=0?'var(--green)':'var(--red)'});
+  if(deltaStr)line4parts.push({text:deltaStr,color:deltaPct>=0?'var(--green)':'var(--red)'});
 
   // ── SMALL GAUGES (per canal) ── um gauge por canal em EXIBIÇÃO (canaisArr já
   // é o universo completo — ver comentário acima), incluindo os com R$ 0,00.
@@ -1101,7 +1101,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     const hasMeta=!!metasMap[c.id];
     const cMetaP=hasMeta?_calcMetaPeriodo(c.id,metasMap[c.id]/diasMes*diasTotMeta):null;
     const cPct=cMetaP?Math.round(c.v/cMetaP*100):null;
-    const cHex=hasMeta?pctHex(cPct):'#4f7cff';
+    const cHex=hasMeta?pctHex(cPct):'var(--accent)';
     const topText=hasMeta&&cPct!==null?cPct+'%':fmtR0(c.v);
     const cPrev=porCanalPrev[c.id]||0;
     const cDelta=cPrev>0?Math.round((c.v-cPrev)/cPrev*100):null;
@@ -1109,9 +1109,9 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
     const vendStr=hasMeta?fmtR0(c.v):null;
     const metaTxt=cMetaP?'meta '+fmtR0(cMetaP):null;
     const desvTxt=cDesvio!=null?(cDesvio>=0?'↑ R$':'↓ R$')+fmtK(Math.abs(cDesvio))+' da meta':null;
-    const desvCol=cDesvio!=null?(cDesvio>=0?'#22c55e':'#f43f5e'):null;
+    const desvCol=cDesvio!=null?(cDesvio>=0?'var(--green)':'var(--red)'):null;
     const cDeltaTxt=cDelta!=null?(cDelta>=0?'↑':'↓')+Math.abs(cDelta)+'% vs '+prevLbl:null;
-    const cDeltaCol=cDelta!=null?(cDelta>=0?'#22c55e':'#f43f5e'):null;
+    const cDeltaCol=cDelta!=null?(cDelta>=0?'var(--green)':'var(--red)'):null;
     return `<div class="gv-sm-item">
       <div class="gv-sm-item-lbl">${escHtml(c.nm)}</div>
       ${smGauge(hasMeta?cPct:null,cHex,'gv-g-c'+i,topText,vendStr,metaTxt,desvTxt,desvCol,'',cDeltaTxt,cDeltaCol)}
@@ -1135,7 +1135,7 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
           </div>
         </div>
         <div class="gv-rank-bar"><div class="gv-rank-bar-fill ${numCls(i)}" data-w="${Math.round(c.v/maxC*100)}%" style="width:0"></div></div>
-        <div class="gv-rank-hint">${c.cnt} pedido${c.cnt!==1?'s':''}${cDesvio!=null?' · <span style="color:'+( cDesvio>=0?'#22c55e':'#f43f5e')+'">'+(cDesvio>=0?'+':'')+fmtK(cDesvio)+' meta</span>':''}</div>
+        <div class="gv-rank-hint">${c.cnt} pedido${c.cnt!==1?'s':''}${cDesvio!=null?' · <span style="color:'+( cDesvio>=0?'var(--green)':'var(--red)')+'">'+(cDesvio>=0?'+':'')+fmtK(cDesvio)+' meta</span>':''}</div>
       </div>
     </div>`;
   }).join('');
@@ -1174,25 +1174,25 @@ function renderGestaoVista(pedidos,canais,metasMap,hoje,diasMes,diaAtual,di,peri
         <div class="gv-main-kpi-item">
           <div class="gv-main-kpi-v">${fmtR0(totalHoje)}</div>
           <div class="gv-main-kpi-l">${period==='1d'?'Ontem':'Hoje'}</div>
-          ${deltaHoje!=null?`<div class="gv-main-kpi-d" style="color:${deltaHoje>=0?'#22c55e':'#f43f5e'}">${deltaHoje>=0?'↑':'↓'}${Math.abs(deltaHoje)}% vs ${todayPrevLbl}</div>`:''}
+          ${deltaHoje!=null?`<div class="gv-main-kpi-d" style="color:${deltaHoje>=0?'var(--green)':'var(--red)'}">${deltaHoje>=0?'↑':'↓'}${Math.abs(deltaHoje)}% vs ${todayPrevLbl}</div>`:''}
         </div>
         <div class="gv-main-kpi-item">
           <div class="gv-main-kpi-v">${fmtR0(proj)}</div>
           <div class="gv-main-kpi-l">Projeção</div>
-          ${deltaProj!=null?`<div class="gv-main-kpi-d" style="color:${deltaProj>=0?'#22c55e':'#f43f5e'}">${deltaProj>=0?'↑':'↓'}${Math.abs(deltaProj)}% vs ${prevLbl}</div>`:''}
+          ${deltaProj!=null?`<div class="gv-main-kpi-d" style="color:${deltaProj>=0?'var(--green)':'var(--red)'}">${deltaProj>=0?'↑':'↓'}${Math.abs(deltaProj)}% vs ${prevLbl}</div>`:''}
         </div>
         <div class="gv-main-kpi-item">
           <div class="gv-main-kpi-v">${pedidos.length}</div>
           <div class="gv-main-kpi-l">Pedidos</div>
-          ${deltaCnt!=null?`<div class="gv-main-kpi-d" style="color:${deltaCnt>=0?'#22c55e':'#f43f5e'}">${deltaCnt>=0?'↑':'↓'}${Math.abs(deltaCnt)}% vs ${prevLbl}</div>`:''}
+          ${deltaCnt!=null?`<div class="gv-main-kpi-d" style="color:${deltaCnt>=0?'var(--green)':'var(--red)'}">${deltaCnt>=0?'↑':'↓'}${Math.abs(deltaCnt)}% vs ${prevLbl}</div>`:''}
         </div>
         <div class="gv-main-kpi-item">
           <div class="gv-main-kpi-v">${fmtR(ticket)}</div>
           <div class="gv-main-kpi-l">Ticket</div>
-          ${deltaTicket!=null?`<div class="gv-main-kpi-d" style="color:${deltaTicket>=0?'#22c55e':'#f43f5e'}">${deltaTicket>=0?'↑':'↓'}${Math.abs(deltaTicket)}% vs ${prevLbl}</div>`:''}
+          ${deltaTicket!=null?`<div class="gv-main-kpi-d" style="color:${deltaTicket>=0?'var(--green)':'var(--red)'}">${deltaTicket>=0?'↑':'↓'}${Math.abs(deltaTicket)}% vs ${prevLbl}</div>`:''}
         </div>
-        ${desvioMeta!=null?`<div class="gv-main-kpi-item"><div class="gv-main-kpi-v" style="color:${desvioMeta>=0?'#22c55e':'#f43f5e'}">${desvioMeta>=0?'+':''}${fmtR0(desvioMeta)}</div><div class="gv-main-kpi-l">Desvio Meta</div></div>`:''}
-        ${deltaPct!=null?`<div class="gv-main-kpi-item"><div class="gv-main-kpi-v" style="color:${deltaPct>=0?'#22c55e':'#f43f5e'}">${deltaPct>=0?'+':''}${deltaPct}%</div><div class="gv-main-kpi-l">Var. Período</div></div>`:''}
+        ${desvioMeta!=null?`<div class="gv-main-kpi-item"><div class="gv-main-kpi-v" style="color:${desvioMeta>=0?'var(--green)':'var(--red)'}">${desvioMeta>=0?'+':''}${fmtR0(desvioMeta)}</div><div class="gv-main-kpi-l">Desvio Meta</div></div>`:''}
+        ${deltaPct!=null?`<div class="gv-main-kpi-item"><div class="gv-main-kpi-v" style="color:${deltaPct>=0?'var(--green)':'var(--red)'}">${deltaPct>=0?'+':''}${deltaPct}%</div><div class="gv-main-kpi-l">Var. Período</div></div>`:''}
       </div>
     </div>
     <div class="gv-right">
@@ -1438,7 +1438,7 @@ onUnmounted(() => {
 .tela-gestao-a-vista :deep(.tour-passo){font-family:var(--fonte-dados);font-size:11px;color:var(--muted);margin-right:auto;}
 .tela-gestao-a-vista :deep(.tour-balao .mini){font-family:var(--fonte-principal);font-size:12px;padding:6px 11px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;}
 .tela-gestao-a-vista :deep(.tour-balao .mini:disabled){opacity:.4;cursor:default;}
-.tela-gestao-a-vista :deep(.tour-balao .cmd){font-family:var(--fonte-principal);font-size:12px;font-weight:600;padding:6px 14px;border-radius:7px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;}
+.tela-gestao-a-vista :deep(.tour-balao .cmd){font-family:var(--fonte-principal);font-size:12px;font-weight:600;padding:6px 14px;border-radius:7px;border:1px solid var(--accent);background:var(--accent);color:var(--sobre-cor);cursor:pointer;}
 @media (prefers-reduced-motion:reduce){ .tela-gestao-a-vista :deep(.tour-realce){transition:none;} }
 .tela-gestao-a-vista :deep(.gv-brand-tag){font-family:var(--fonte-principal);font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--text);opacity:.6;line-height:1;}
 .tela-gestao-a-vista :deep(.gv-perf-tag){font-family:var(--fonte-principal);font-size:13.5px;font-weight:700;letter-spacing:6px;text-transform:uppercase;color:var(--text);opacity:1;line-height:1.2;}
@@ -1521,15 +1521,15 @@ onUnmounted(() => {
 .tela-gestao-a-vista :deep(.gv-sm-item-lbl){font-family:var(--fonte-principal);font-size:14px;font-weight:700;letter-spacing:.5px;color:var(--muted);text-align:center;line-height:1.3;overflow-wrap:break-word;word-break:break-word;max-width:100%;}
 .tela-gestao-a-vista :deep(.gv-sm-item-val){font-family:var(--fonte-dados);font-size:13px;color:var(--text);}
 .tela-gestao-a-vista :deep(.gv-sm-item-delta){font-family:var(--fonte-principal);font-size:9px;font-weight:700;letter-spacing:.3px;text-align:center;}
-.tela-gestao-a-vista :deep(.gv-sm-item-delta.up){color:#22c55e;}
-.tela-gestao-a-vista :deep(.gv-sm-item-delta.dn){color:#f43f5e;}
+.tela-gestao-a-vista :deep(.gv-sm-item-delta.up){color:var(--green);}
+.tela-gestao-a-vista :deep(.gv-sm-item-delta.dn){color:var(--red);}
 .tela-gestao-a-vista :deep(.gv-sm-item-desvio){font-family:var(--fonte-principal);font-size:9px;color:var(--muted);text-align:center;}
 .tela-gestao-a-vista :deep(.gv-rank-delta){font-family:var(--fonte-principal);font-size:10px;font-weight:700;flex-shrink:0;margin-right:2px;}
-.tela-gestao-a-vista :deep(.gv-rank-delta.up){color:#22c55e;}
-.tela-gestao-a-vista :deep(.gv-rank-delta.dn){color:#f43f5e;}
+.tela-gestao-a-vista :deep(.gv-rank-delta.up){color:var(--green);}
+.tela-gestao-a-vista :deep(.gv-rank-delta.dn){color:var(--red);}
 .tela-gestao-a-vista :deep(.gv-rank-desvio){font-family:var(--fonte-principal);font-size:10px;font-weight:600;flex-shrink:0;}
-.tela-gestao-a-vista :deep(.gv-rank-desvio.pos){color:#22c55e;}
-.tela-gestao-a-vista :deep(.gv-rank-desvio.neg){color:#f43f5e;}
+.tela-gestao-a-vista :deep(.gv-rank-desvio.pos){color:var(--green);}
+.tela-gestao-a-vista :deep(.gv-rank-desvio.neg){color:var(--red);}
 .tela-gestao-a-vista :deep(.gv-rankings){display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;}
 .tela-gestao-a-vista :deep(.gv-rank-panel){background:var(--bg);padding:7px 12px;display:flex;flex-direction:column;overflow:hidden;}
 .tela-gestao-a-vista :deep(.gv-rank-scroll){flex:1;overflow:hidden;min-height:0;position:relative;}
@@ -1548,7 +1548,7 @@ onUnmounted(() => {
 @keyframes gvSpin{to{transform:rotate(360deg)}}
 .tela-gestao-a-vista :deep(.gv-loading-screen){grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;min-height:60vh;}
 .tela-gestao-a-vista :deep(.gv-spinner){width:48px;height:48px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:gvSpin .9s linear infinite;}
-.tela-gestao-a-vista :deep(.gv-loading-lbl){font-family:var(--fonte-principal);font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);opacity:.6;}
+.tela-gestao-a-vista :deep(.gv-loading-lbl){font-family:var(--fonte-principal);font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);}
 /* KPI col */
 .tela-gestao-a-vista :deep(.gv-kpi-period){font-family:var(--fonte-principal);font-size:8px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:3px;flex-shrink:0;}
 .tela-gestao-a-vista :deep(.gv-big-num){font-family:var(--fonte-dados);font-size:58px;font-weight:600;letter-spacing:-2px;line-height:1;transition:color .6s,text-shadow .6s;font-variant-numeric:tabular-nums;}
@@ -1624,7 +1624,7 @@ onUnmounted(() => {
    aqui portado só para a Gestão à Vista, que é a única já migrada) */
 .tela-gestao-a-vista :deep(.gv-period-btns){display:flex;align-items:center;gap:4px;}
 .tela-gestao-a-vista :deep(.gv-pbtn){font-family:var(--fonte-principal);font-size:10px;padding:4px 9px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
-.tela-gestao-a-vista :deep(.gv-pbtn.active){background:var(--accent);color:#fff;border-color:var(--accent);}
+.tela-gestao-a-vista :deep(.gv-pbtn.active){background:var(--accent);color:var(--sobre-cor);border-color:var(--accent);}
 /* Auto-ciclo (idem — classe compartilhada, portada só aqui) */
 .tela-gestao-a-vista :deep(.vs-ac-toggle){font-family:var(--fonte-principal);font-size:10px;letter-spacing:.8px;text-transform:uppercase;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;margin-left:6px;}
 .tela-gestao-a-vista :deep(.vs-ac-toggle.running){border-color:var(--green);color:var(--green);}
