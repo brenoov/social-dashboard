@@ -1898,7 +1898,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-patrimonio .pat-ajuda-txt::before{content:'';position:absolute;top:-6px;left:16px;width:10px;height:10px;background:var(--accent-light);border-left:1px solid var(--accent-mid);border-top:1px solid var(--accent-mid);transform:rotate(45deg);}
 .tela-patrimonio .pat-btn-ajuda{width:24px;height:24px;flex-shrink:0;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:var(--fonte-principal);font-size:12px;font-weight:700;cursor:pointer;touch-action:manipulation;}
 .tela-patrimonio .pat-btn-ajuda:hover{color:var(--accent);border-color:var(--accent);}
-.tela-patrimonio .pat-btn-novo{width:46px;height:46px;flex-shrink:0;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:26px;line-height:1;cursor:pointer;touch-action:manipulation;}
+.tela-patrimonio .pat-btn-novo{width:46px;height:46px;flex-shrink:0;border-radius:10px;border:none;background:var(--accent);color:var(--sobre-cor);font-size:26px;line-height:1;cursor:pointer;touch-action:manipulation;}
 
 .tela-patrimonio .pat-resumo{flex:1;min-width:0;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-family:var(--fonte-principal);}
 .tela-patrimonio .pat-resumo-qtd{font-size:22px;font-weight:700;color:var(--text);}
@@ -1917,19 +1917,19 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-patrimonio .pat-filtros{display:flex;gap:8px;padding:4px 14px 12px;white-space:nowrap;}
 .tela-patrimonio .pat-select{font-size:16px;font-family:var(--fonte-principal);padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);flex-shrink:0;max-width:190px;}
 .tela-patrimonio .pat-chip{font-size:12px;font-family:var(--fonte-principal);font-weight:600;padding:9px 14px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);cursor:pointer;flex-shrink:0;touch-action:manipulation;}
-.tela-patrimonio .pat-chip.ativo{background:var(--accent);border-color:var(--accent);color:#fff;}
+.tela-patrimonio .pat-chip.ativo{background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
 
 .tela-patrimonio .pat-body{flex:1;padding:0 14px 40px;}
 .tela-patrimonio.com-barra .pat-body{padding-bottom:100px;}
 .tela-patrimonio .pat-aviso{padding:26px 4px;color:var(--muted);font-family:var(--fonte-principal);font-size:13px;}
-.tela-patrimonio .pat-aviso-erro{color:#dc2626;}
+.tela-patrimonio .pat-aviso-erro{color:var(--red);}
 
 .tela-patrimonio .pat-vazio{display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px;padding:48px 18px;color:var(--muted);}
 .tela-patrimonio .pat-vazio h3{font-family:var(--fonte-principal);font-size:16px;font-weight:600;color:var(--text);}
 .tela-patrimonio .pat-vazio p{font-family:var(--fonte-principal);font-size:13px;line-height:1.7;max-width:420px;}
 
 .tela-patrimonio .pat-btn{font-family:var(--fonte-principal);font-size:13px;font-weight:600;padding:11px 18px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);cursor:pointer;touch-action:manipulation;}
-.tela-patrimonio .pat-btn.primario{background:var(--accent);border-color:var(--accent);color:#fff;}
+.tela-patrimonio .pat-btn.primario{background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
 
 /* ---- árvore: trilha e pastas de nível ---- */
 .tela-patrimonio .pat-trilha{display:flex;align-items:center;gap:5px;padding:0 14px 8px;white-space:nowrap;}
@@ -1941,7 +1941,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-patrimonio .pat-grupo{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;font-family:var(--fonte-principal);color:var(--text);touch-action:manipulation;}
 .tela-patrimonio .pat-grupo:active{border-color:var(--accent);}
 .tela-patrimonio .pat-grupo-ico{width:34px;height:34px;flex-shrink:0;border-radius:9px;background:var(--surface2);color:var(--accent);display:flex;align-items:center;justify-content:center;}
-.tela-patrimonio .pat-grupo-ico.orfao{color:#b45309;}
+.tela-patrimonio .pat-grupo-ico.orfao{color:var(--orange);}
 .tela-patrimonio .pat-grupo-nome{flex:1;min-width:0;font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .tela-patrimonio .pat-grupo-num{font-size:11px;color:var(--muted);text-align:right;flex-shrink:0;}
 .tela-patrimonio .pat-grupo-num em{font-style:normal;display:block;}
@@ -1951,11 +1951,11 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 
 /* ---- selecao em massa ---- */
 .tela-patrimonio .pat-btn-sel{width:46px;height:46px;flex-shrink:0;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation;}
-.tela-patrimonio .pat-btn-sel.ativo{background:var(--accent);border-color:var(--accent);color:#fff;}
+.tela-patrimonio .pat-btn-sel.ativo{background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
 .tela-patrimonio .pat-selbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:0 0 12px;}
 .tela-patrimonio .pat-selbar-info{font-family:var(--fonte-principal);font-size:11px;color:var(--muted);}
 .tela-patrimonio .pat-check-caixa{width:22px;height:22px;flex-shrink:0;border:2px solid var(--border);border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;line-height:1;}
-.tela-patrimonio .pat-card.marcado{border-color:var(--accent);background:var(--accent-light);}
+.tela-patrimonio .pat-card.marcado{border-color:var(--accent-forte);background:var(--accent-light);}
 .tela-patrimonio .pat-card.marcado .pat-check-caixa,
 .tela-patrimonio .pat-tabela tbody tr.marcado .pat-check-caixa{background:var(--accent);border-color:var(--accent);}
 .tela-patrimonio .pat-tabela tbody tr.marcado{background:var(--accent-light);}
@@ -1999,14 +1999,14 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-patrimonio .pat-secao-num{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:18px 0 8px;}
 .tela-patrimonio .pat-faixas{display:flex;flex-wrap:wrap;gap:7px;}
 .tela-patrimonio .pat-faixa{font-family:var(--fonte-principal);font-size:12px;font-weight:600;padding:6px 11px;border-radius:8px;font-variant-numeric:tabular-nums;white-space:nowrap;}
-.tela-patrimonio .pat-faixa.livre{background:#dcfce7;color:#166534;}
+.tela-patrimonio .pat-faixa.livre{background:color-mix(in srgb,var(--green) 12%,var(--surface));color:color-mix(in srgb,var(--green) 75%,var(--text));}
 .tela-patrimonio .pat-faixa.usada{background:var(--surface2);color:var(--muted);}
-.tela-patrimonio .pat-faixa.fora{background:#fef3c7;color:#92400e;}
+.tela-patrimonio .pat-faixa.fora{background:color-mix(in srgb,var(--orange) 12%,var(--surface));color:color-mix(in srgb,var(--orange) 75%,var(--text));}
 .tela-patrimonio .pat-faixa-vazio{font-family:var(--fonte-principal);font-size:12px;color:var(--muted);}
 .tela-patrimonio .pat-btn-mais{width:100%;margin-top:20px;}
 
 /* Selo de recém-cadastrado: verde, pequeno, sem competir com a situação. */
-.tela-patrimonio .pat-selo-novo{flex-shrink:0;margin-left:6px;background:#16a34a;color:#fff;font-family:var(--fonte-principal);font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:999px;white-space:nowrap;vertical-align:1px;}
+.tela-patrimonio .pat-selo-novo{flex-shrink:0;margin-left:6px;background:var(--green);color:var(--sobre-cor);font-family:var(--fonte-principal);font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:999px;white-space:nowrap;vertical-align:1px;}
 
 .tela-patrimonio .pat-cards{display:flex;flex-direction:column;gap:10px;}
 .tela-patrimonio .pat-card{display:flex;flex-direction:column;gap:6px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;font-family:var(--fonte-principal);color:var(--text);touch-action:manipulation;}
@@ -2020,11 +2020,11 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
    na largura que sobra e quebra DENTRO da pilula, virando um bloco alto em vez
    de uma pilula. Quem cede espaco e o nome do bem (que tem ellipsis), nunca o badge. */
 .tela-patrimonio .pat-pill{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:4px 9px;border-radius:999px;flex-shrink:0;white-space:nowrap;line-height:1.4;}
-.tela-patrimonio .pat-pill-uso{background:#dcfce7;color:#166534;}
-.tela-patrimonio .pat-pill-estoque{background:#e0e7ff;color:#3730a3;}
-.tela-patrimonio .pat-pill-manutencao{background:#fef3c7;color:#92400e;}
-.tela-patrimonio .pat-pill-baixado{background:#f1f5f9;color:#475569;}
-.tela-patrimonio .pat-pill-neutro{background:#f1f5f9;color:#475569;}
+.tela-patrimonio .pat-pill-uso{background:color-mix(in srgb,var(--green) 12%,var(--surface));color:color-mix(in srgb,var(--green) 75%,var(--text));}
+.tela-patrimonio .pat-pill-estoque{background:color-mix(in srgb,var(--accent) 12%,var(--surface));color:color-mix(in srgb,var(--accent) 75%,var(--text));}
+.tela-patrimonio .pat-pill-manutencao{background:color-mix(in srgb,var(--orange) 12%,var(--surface));color:color-mix(in srgb,var(--orange) 75%,var(--text));}
+.tela-patrimonio .pat-pill-baixado{background:var(--surface2);color:var(--muted);}
+.tela-patrimonio .pat-pill-neutro{background:var(--surface2);color:var(--muted);}
 
 /* A tabela NAO existe no celular. */
 .tela-patrimonio .pat-tabela-wrap{display:none;}
@@ -2069,8 +2069,8 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-patrimonio .pat-nova-opcao .pat-btn{flex-shrink:0;padding:9px 12px;font-size:12px;}
 .tela-patrimonio .pat-check{display:flex;align-items:center;gap:9px;font-family:var(--fonte-principal);font-size:13px;color:var(--text);}
 .tela-patrimonio .pat-check input{width:19px;height:19px;}
-.tela-patrimonio .pat-nota{font-family:var(--fonte-principal);font-size:12px;line-height:1.6;color:#92400e;background:#fef3c7;border-radius:8px;padding:10px 12px;}
-.tela-patrimonio .pat-btn.perigo{border-color:#dc2626;color:#dc2626;}
+.tela-patrimonio .pat-nota{font-family:var(--fonte-principal);font-size:12px;line-height:1.6;color:var(--text);background:color-mix(in srgb,var(--orange) 10%,var(--surface));border-radius:8px;padding:10px 12px;}
+.tela-patrimonio .pat-btn.perigo{border-color:color-mix(in srgb,var(--red) 40%,var(--surface));color:var(--red);}
 
 .tela-patrimonio .pat-hist{border-top:1px solid var(--border);padding-top:12px;display:flex;flex-direction:column;gap:7px;}
 .tela-patrimonio .pat-hist h4{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
@@ -2103,7 +2103,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-patrimonio .pat-lista-bloco h4{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
 .tela-patrimonio .pat-lista-item,.tela-patrimonio .pat-lista-novo{display:flex;gap:7px;align-items:center;}
 .tela-patrimonio .pat-lista-nome{flex:1;min-width:0;font-size:16px;font-family:var(--fonte-principal);padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);}
-.tela-patrimonio .pat-lista-del{width:36px;height:36px;flex-shrink:0;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:#dc2626;cursor:pointer;touch-action:manipulation;}
+.tela-patrimonio .pat-lista-del{width:36px;height:36px;flex-shrink:0;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--red);cursor:pointer;touch-action:manipulation;}
 
 /* ---- árvore de cadastro (Listas) ---- */
 .tela-patrimonio .pat-arv{display:flex;flex-direction:column;}

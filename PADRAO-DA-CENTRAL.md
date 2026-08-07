@@ -36,6 +36,7 @@ tema claro e o escuro.
 | Linha, borda | `var(--border)` |
 | Ação principal | `var(--accent)` |
 | Sucesso / atenção / erro | `var(--green)` · `var(--orange)` · `var(--red)` |
+| **O robô agindo** (automação) | `var(--roxo)` |
 
 **PROIBIDO:** `#fffbeb`, `#f2f2f2`, `background:#eee`, qualquer hex de fundo ou
 texto.
@@ -55,6 +56,59 @@ color: var(--text);   /* o texto usa --text, não a cor do aviso */
 > **Por que o texto é `--text`:** o `--orange` do tema claro sobre esse fundo dá
 > 4,14 de contraste — abaixo do mínimo de 4,5 para letra pequena. Medido. A cor
 > é o sinal; o texto é para ler.
+
+**`--roxo` tem significado, não é enfeite:** ele separa *o que você mandou fazer*
+de *o que a automação faz sozinha*. Na Gestão de Tráfego é a diferença entre um
+botão que você apertou e uma campanha que o robô está mexendo. Toda ferramenta
+com automação usa esta cor — e nada mais usa.
+
+**Etiqueta de estado** (em uso, pausado, atrasado…) usa as classes prontas:
+`.selo` mais `.selo-ok` · `.selo-atencao` · `.selo-erro` · `.selo-info` ·
+`.selo-robo` · `.selo-neutro`.
+
+**Texto em cima de bloco colorido: `var(--sobre-cor)`, nunca `#fff`.**
+
+```css
+.meu-botao { background:var(--accent); color:var(--sobre-cor); }   /* certo  */
+.meu-botao { background:var(--accent); color:#fff; }               /* errado */
+```
+
+No tema escuro os tokens de cor são CLAROS de propósito — foram feitos pra ser
+texto sobre fundo escuro. Branco em cima deles não se lê.
+
+> **O estrago:** 100 lugares da Central pintavam um bloco com o token e escreviam
+> branco em cima. No tema escuro, o botão principal ficava em 3,71 e o selo de
+> super-admin em 2,72 — abaixo do mínimo de 4,5. Ninguém tinha medido.
+
+**Cor sobre o próprio tom aguado: `var(--accent-forte)`.**
+
+```css
+.aba-ativa { background:var(--accent-light); color:var(--accent-forte); }
+```
+
+O accent puro sobre `--accent-light` dá 4,42 no tema escuro — reprova por pouco,
+e "por pouco" continua sendo reprovado. O par acima já vem medido (5,96 a 7,97).
+
+**Cada módulo PODE ter uma cor de identidade** — mas como token, nunca hex:
+
+```css
+/* em estilos-globais.css, junto dos outros tokens */
+.tela-minha-ferramenta        { --modulo:#0f766e; }
+[data-theme="dark"] .tela-minha-ferramenta { --modulo:#2dd4bf; }
+```
+
+Quem não define herda `--accent`, que é o certo para a maioria. Dentro da tela,
+use sempre `var(--modulo)` para a cor de ação — nunca o hex.
+
+> **O estrago:** a tela de Acessos usava `#0d9488` cravado, e com texto branco em
+> cima isso dá **3,74 de contraste** — abaixo do mínimo. As abas e os botões dela
+> já reprovavam, e ninguém tinha percebido porque a cor nunca foi medida.
+
+**A única exceção ao "só token": cor de marca de terceiro.** O verde do Zoho, o
+azul da Microsoft, o cinza da Apple — elas identificam o serviço de fora, e
+trocar por `--green`/`--accent` faria logotipo virar estado do nosso sistema.
+Deixe em hex **com um comentário dizendo que é cor de marca**, senão o próximo
+que passar por ali vai "consertar".
 
 **Contraste mínimo 4,5:1** para texto normal. Não é opinião, é o que se lê.
 
@@ -92,6 +146,35 @@ Regras que valem para os três:
 - Fundo escurecido `rgba(0,0,0,.55)`, e clicar nele fecha.
 - Botão de fechar com 40px de alvo, no canto, e cabeçalho que não rola junto.
 - Conteúdo rola DENTRO da caixa (`overflow-y:auto`), nunca a página atrás.
+
+### A página atrás fica travada — três peças, e as três são obrigatórias
+
+```js
+import { abrirModal, fecharModal } from '@/compartilhado/travar-rolagem-de-fundo.js'
+// ao abrir:  abrirModal()
+// ao fechar: fecharModal()   ← em TODOS os caminhos: X, clique no fundo, Esc
+```
+
+**Modal montado por `v-if`** usa a diretiva `v-trava-rolagem`, sem chamar nada.
+
+**Modal legado montado por JavaScript puro** já é coberto pelo observador
+(`src/compartilhado/observar-modais-legados.js`), ligado uma vez na moldura:
+basta o seletor dele estar na lista de lá. **Não chame `abrirModal()` num modal
+que o observador já cobre** — travaria duas vezes e destravaria uma, prendendo a
+página.
+
+```css
+.meu-fundo  { touch-action:none; overscroll-behavior:contain; }
+.minha-caixa{ overscroll-behavior:contain; touch-action:pan-y; }
+```
+
+O `travar-rolagem-de-fundo.js` usa **contador, não booleano**: dois modais podem se
+sobrepor (abrir o editor de permissões de dentro da ficha), e com booleano
+fechar o de cima destravaria a página com o de baixo ainda aberto.
+
+> **O estrago:** com o modal aberto, a página atrás continuava rolável. No
+> celular, arrastar o dedo em cima do modal **fazia a tela escorregar para os
+> lados.** O dono viu no aparelho.
 
 > **O estrago 1:** `max-height:88vh` deixava uma faixa escura embaixo que no
 > aparelho lê como **barra preta**, e cortava a última linha do conteúdo.

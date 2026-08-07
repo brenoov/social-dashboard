@@ -396,8 +396,8 @@ onMounted(() => {
   /* ── Portal de Notícias — editorial "revista glossy" ── */
 #noticias-screen {display:flex;flex-direction:column;min-height:100vh;position:relative;
     --ink:#0d0d0d;--paper:#f6f3ee;--paper2:#efeae1;--np-line:#1a1a1a;--np-muted:#6b6258;--np-rule:rgba(13,13,13,.14);
-    --c-lancamento:#d6336c;--c-campanha:#1c5d99;--c-precopromo:#c81d25;--c-faturamento:#146b3a;
-    --c-expansao:#c2410c;--c-tendencia:#9a6700;--c-estrategia:#6d28d9;
+    --c-lancamento:#d6336c;--c-campanha:#1c5d99;--c-precopromo:var(--red);--c-faturamento:var(--green);
+    --c-expansao:var(--orange);--c-tendencia:var(--yellow);--c-estrategia:var(--roxo);
     --c-marketing:#0e7c86;--c-design:#b5179e;--c-moda:#7b1e3b;--c-bestseller:#9c6b1e;--c-desenvolvimento:#0f766e;--c-instagram:#c13584;--c-outro:#1a1a1a;
     background:var(--paper);color:var(--ink);font-family:var(--fonte-principal);}
 
@@ -462,7 +462,7 @@ onMounted(() => {
 #noticias-screen :deep(.np-ptrends) {display:flex;flex-wrap:wrap;gap:9px}
 #noticias-screen :deep(.np-ptrend) {display:inline-flex;align-items:baseline;gap:7px;padding:7px 13px;border:1px solid var(--np-rule);border-radius:999px;background:var(--paper)}
 #noticias-screen :deep(.np-ptrend b) {font-family:var(--fonte-principal);font-size:15px;color:var(--ink);text-transform:capitalize}
-#noticias-screen :deep(.np-ptrend i) {font-family:var(--fonte-principal);font-style:normal;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#c2410c}
+#noticias-screen :deep(.np-ptrend i) {font-family:var(--fonte-principal);font-style:normal;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--orange)}
 #noticias-screen :deep(.np-ptemas) {display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
 #noticias-screen :deep(.np-ptema) {border:1px solid var(--np-rule);border-radius:4px;background:var(--paper);overflow:hidden}
 #noticias-screen :deep(.np-ptema-h) {font-family:var(--fonte-principal);font-weight:600;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--ink);padding:12px 14px;border-bottom:1px solid var(--np-rule);display:flex;align-items:center;gap:8px}

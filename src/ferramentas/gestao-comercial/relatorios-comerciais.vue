@@ -655,14 +655,14 @@ onMounted(() => {
 .gc-rel-sel{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap;}
 .gc-rel-sel button{appearance:none;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-family:var(--fonte-principal);font-size:calc(12px*var(--gc-fs,1));letter-spacing:.8px;text-transform:uppercase;color:var(--muted);cursor:pointer;transition:all .15s ease;}
 .gc-rel-sel button:hover{color:var(--text);border-color:var(--accent-mid);}
-.gc-rel-sel button.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.gc-rel-sel button.on{background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
 .gc-rel-msg{padding:56px 0;text-align:center;color:var(--muted);font-size:calc(14px*var(--gc-fs,1));}
 .gc-rel-msg.erro{color:var(--red);}
 .gc-rel-head{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-bottom:14px;font-size:calc(13px*var(--gc-fs,1));color:var(--muted);}
 .gc-rel-head b{color:var(--text);font-variant-numeric:tabular-nums;}
 .gc-rel-hint{font-size:calc(11px*var(--gc-fs,1));font-style:italic;opacity:.7;}
 .gc-info-btn{width:20px;height:20px;flex-shrink:0;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:var(--fonte-principal);font-weight:700;font-size:calc(11px*var(--gc-fs,1));line-height:1;cursor:pointer;transition:all .15s ease;}
-.gc-info-btn:hover,.gc-info-btn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.gc-info-btn:hover,.gc-info-btn.on{background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
 .gc-rel-ajuda{background:linear-gradient(135deg,var(--accent-light),transparent 78%);border:1px solid var(--accent-mid);border-radius:var(--radius-xl);padding:16px 20px;margin-bottom:16px;font-size:calc(13px*var(--gc-fs,1));line-height:1.6;color:var(--text);}
 .gc-rel-ajuda-t{font-family:var(--fonte-principal);font-size:calc(13px*var(--gc-fs,1));font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
 .gc-rel-ajuda ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px;}

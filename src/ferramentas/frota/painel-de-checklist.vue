@@ -319,7 +319,7 @@ function gravar() {
   background: var(--bg); padding: 10px var(--sp-3);
   transition: border-color .18s, box-shadow .18s;
 }
-.ck-hodo-caixa:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+.ck-hodo-caixa:focus-within { border-color: var(--accent-forte); box-shadow: 0 0 0 3px var(--accent-light); }
 .ck-hodo-caixa.alerta { border-color: var(--orange); }
 .ck-hodo-campo {
   flex: 1; min-width: 0; border: 0; background: none; outline: none; padding: 0;
@@ -342,7 +342,7 @@ function gravar() {
   font-family: var(--fonte-principal); font-size: 14px; resize: vertical;
 }
 .ck-campo input:focus, .ck-campo textarea:focus {
-  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light);
+  outline: none; border-color: var(--accent-forte); box-shadow: 0 0 0 3px var(--accent-light);
 }
 .ck-aviso {
   margin: 0 0 var(--sp-3); padding: var(--sp-2) var(--sp-3);
@@ -415,7 +415,7 @@ function gravar() {
 .ck-erros { margin: var(--sp-3) 0 0; padding-left: 18px; color: var(--red); font-size: 13px; line-height: 1.5; }
 .ck-gravar {
   margin-top: var(--sp-4); width: 100%; min-height: 48px; padding: 12px;
-  border: 0; border-radius: var(--radius-md); background: var(--accent); color: #fff;
+  border: 0; border-radius: var(--radius-md); background: var(--accent); color: var(--sobre-cor);
   font-family: var(--fonte-principal); font-size: 14px; font-weight: 600;
   letter-spacing: .3px; cursor: pointer; transition: background .18s, opacity .18s;
 }

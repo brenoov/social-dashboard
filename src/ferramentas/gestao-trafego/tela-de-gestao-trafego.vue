@@ -120,7 +120,7 @@
         <div class="gt-cfg-body" id="gt-cfg-body"></div>
         <div class="gt-cfg-footer">
           <button style="padding:7px 16px;border-radius:7px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:600;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);" onclick="_gtCloseEditor()">Cancelar</button>
-          <button id="gt-cfg-save-btn" style="padding:7px 18px;border-radius:7px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;border:none;background:var(--accent);color:#fff;" onclick="_gtSaveEditor()">Salvar</button>
+          <button id="gt-cfg-save-btn" style="padding:7px 18px;border-radius:7px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;border:none;background:var(--accent);color:var(--sobre-cor);" onclick="_gtSaveEditor()">Salvar</button>
         </div>
       </div>
 
@@ -494,7 +494,7 @@ function _buildGtDropdown(){
     // Pré-pago: mostra o saldo (verde=folgado, âmbar=apertando, vermelho=baixo). Sem pré-pago
     // (cartão): mostra a nota, não um número.
     const balTxt=bal!=null?_maFmtR(bal):(a.notaSaldo||'—');
-    const balColor=bal==null?'var(--muted)':bal>=1000?'#16a34a':bal>=500?'#f59e0b':'#dc2626';
+    const balColor=bal==null?'var(--muted)':bal>=1000?'var(--green)':bal>=500?'var(--orange)':'var(--red)';
     const item=document.createElement('div');
     item.style.cssText='padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;transition:background .12s;';
     item.addEventListener('mouseenter',()=>item.style.background='var(--surface2)');
@@ -1931,7 +1931,7 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
   const ttl=document.createElement('div');ttl.style.cssText='font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text);';
   ttl.textContent=sorted.length+' Campanhas';
   const aiTag=document.createElement('div');
-  aiTag.style.cssText='font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:20px;background:rgba(99,102,241,.1);color:#6366f1;text-transform:uppercase;';
+  aiTag.style.cssText='font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:20px;background:var(--accent-light);color:var(--accent-forte);text-transform:uppercase;';
   aiTag.textContent='✦ IA em tempo real';
   ttlWrap.appendChild(ttl);ttlWrap.appendChild(aiTag);
   const searchInp=document.createElement('input');
@@ -2023,7 +2023,7 @@ function _renderGtCampaigns(col,campaigns,insights,adInsights,adsets){
       const camp=campMap[ins.campaign_id];
       const status=camp?.effective_status||'';
       const encerrada=_gtEncerrada(camp,Date.now());
-      const statusColor=status==='ACTIVE'?'#16a34a':status==='PAUSED'?'#f59e0b':'#6b7280';
+      const statusColor=status==='ACTIVE'?'var(--green)':status==='PAUSED'?'var(--orange)':'var(--muted)';
       const spend=parseFloat(ins.spend||0);
       const daily=camp?.daily_budget?parseFloat(camp.daily_budget)/100:null;
       const ads=adByCamp[ins.campaign_id]||[];
@@ -2656,7 +2656,7 @@ function _gtConfirm(title,detailHtml,opts){
     const bar=document.createElement('div');bar.style.cssText='display:flex;gap:10px;justify-content:flex-end;';
     const close=v=>{ov.style.display='none';resolve(v);};
     if(!opts.okOnly){const c=document.createElement('button');c.textContent='Cancelar';c.style.cssText='padding:9px 16px;border-radius:8px;border:1px solid var(--border,#ddd);background:none;color:var(--text,#111);font-weight:600;font-size:calc(13px*var(--gt-fs,1.3));cursor:pointer;';c.onclick=()=>close(false);bar.appendChild(c);}
-    const ok=document.createElement('button');ok.textContent=opts.okLabel||(opts.okOnly?'Entendi':'Confirmar');ok.style.cssText='padding:9px 18px;border-radius:8px;border:none;background:'+(opts.danger?'#dc2626':'var(--accent,#6366f1)')+';color:#fff;font-weight:700;font-size:calc(13px*var(--gt-fs,1.3));cursor:pointer;';ok.onclick=()=>close(true);bar.appendChild(ok);
+    const ok=document.createElement('button');ok.textContent=opts.okLabel||(opts.okOnly?'Entendi':'Confirmar');ok.style.cssText='padding:9px 18px;border-radius:8px;border:none;background:'+(opts.danger?'var(--red)':'var(--accent)')+';color:#fff;font-weight:700;font-size:calc(13px*var(--gt-fs,1.3));cursor:pointer;';ok.onclick=()=>close(true);bar.appendChild(ok);
     box.appendChild(bar);ov.appendChild(box);
     ov.onclick=e=>{if(e.target===ov)close(false);};
   });
@@ -3616,8 +3616,8 @@ function _gtPubSecaoPublicos(){
     const incluido=_gtPub.incluir.some(x=>x.id===String(a.id));
     const excluido=_gtPub.excluir.some(x=>x.id===String(a.id));
     const b=document.createElement('button');b.textContent=a.name;b.className='gt-btn-dup';
-    if(incluido)b.style.borderColor='#16a34a',b.style.color='#16a34a';
-    if(excluido)b.style.borderColor='#dc2626',b.style.color='#dc2626',b.textContent='∅ '+a.name;
+    if(incluido)b.style.borderColor='var(--green)',b.style.color='var(--green)';
+    if(excluido)b.style.borderColor='var(--red)',b.style.color='var(--red)',b.textContent='∅ '+a.name;
     b.onclick=ev=>{
       ev.stopPropagation();
       const id=String(a.id),nome=a.name;
@@ -4823,7 +4823,7 @@ async function _gtApplyAction(action,btn,rowEl){
       await metaPost('/'+action.id,{status:action.type==='pause_ad'?'PAUSED':'ACTIVE'},tok);
     else if(action.type==='update_budget')
       await metaPost('/'+action.id,{daily_budget:String(action.budget)},tok);
-    btn.textContent='✓ Aplicado';btn.style.background='#16a34a';btn.style.borderColor='#16a34a';btn.style.color='#fff';
+    btn.textContent='✓ Aplicado';btn.style.background='var(--green)';btn.style.borderColor='var(--green)';btn.style.color='var(--sobre-cor)';
     setTimeout(()=>loadGtData(),1500);
   }catch(e){
     const msg=String((e&&e.message)||e||'');
@@ -4961,7 +4961,7 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gv-update-status){font-family:var(--fonte-principal);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);opacity:.45;margin-top:4px;text-align:right;}
 .tela-gestao-trafego :deep(.gv-period-btns){display:flex;align-items:center;gap:4px;}
 .tela-gestao-trafego :deep(.gv-pbtn){font-family:var(--fonte-principal);font-size:10px;padding:4px 9px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
-.tela-gestao-trafego :deep(.gv-pbtn.active){background:var(--accent);color:#fff;border-color:var(--accent);}
+.tela-gestao-trafego :deep(.gv-pbtn.active){background:var(--accent);color:var(--sobre-cor);border-color:var(--accent);}
 
 /* Abas da ferramenta. Prefixo .pnd- próprio: nomes globais vazam pra dentro de
    telas scoped neste projeto e já causaram bug antes. */
@@ -5002,7 +5002,7 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-obj-filtros){display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px;border-bottom:1px solid var(--border);}
 .tela-gestao-trafego :deep(.gt-obj-filtro){display:inline-flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));padding:5px 11px;border-radius:999px;cursor:pointer;background:var(--surface2);border:1px solid var(--border);color:var(--muted);transition:all .12s ease;}
 .tela-gestao-trafego :deep(.gt-obj-filtro:hover){color:var(--text);border-color:var(--muted);}
-.tela-gestao-trafego :deep(.gt-obj-filtro.ativo){background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600;}
+.tela-gestao-trafego :deep(.gt-obj-filtro.ativo){background:var(--accent);color:var(--sobre-cor);border-color:var(--accent);font-weight:600;}
 .tela-gestao-trafego :deep(.gt-obj-n){font-family:var(--fonte-dados);font-size:calc(8.5px*var(--gt-fs,1.3));opacity:.65;}
 
 /* ── MODAL DO FUNIL ───────────────────────────────────────────────────────── */
@@ -5075,7 +5075,7 @@ Object.assign(window, {
 /* LISTA, nao blocos (pedido do dono, 2026-07-29): uma linha por sugestao, largura
    inteira. Em grade de cartoes, 8 sugestoes viravam 8 caixas altas e a decisao
    ficava espalhada; em lista o olho desce por uma coluna so de "de -> para". */
-.tela-gestao-trafego :deep(.pnd-aba-n){display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 5px;margin-left:6px;border-radius:9px;background:var(--red);color:#fff;font-family:var(--fonte-dados);font-size:calc(8.5px*var(--gt-fs,1.3));font-weight:700;line-height:1;}
+.tela-gestao-trafego :deep(.pnd-aba-n){display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 5px;margin-left:6px;border-radius:9px;background:var(--red);color:var(--sobre-cor);font-family:var(--fonte-dados);font-size:calc(8.5px*var(--gt-fs,1.3));font-weight:700;line-height:1;}
 .tela-gestao-trafego :deep(.gtf-cab){display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin:0 0 14px;}
 .tela-gestao-trafego :deep(.gtf-tit){font-family:var(--fonte-principal);font-size:calc(15px*var(--gt-fs,1.3));font-weight:700;color:var(--text);margin:0;}
 .tela-gestao-trafego :deep(.gtf-sub){font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--muted);margin:4px 0 0;line-height:1.5;}
@@ -5123,7 +5123,7 @@ Object.assign(window, {
    assenta no cartão nos dois. */
 .tela-gestao-trafego :deep(.gtf-btn){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));font-weight:600;padding:6px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted);transition:all .12s ease;}
 .tela-gestao-trafego :deep(.gtf-btn:hover){color:var(--text);border-color:var(--muted);}
-.tela-gestao-trafego :deep(.gtf-btn.aprovar){background:var(--accent);border-color:var(--accent);color:#fff;}
+.tela-gestao-trafego :deep(.gtf-btn.aprovar){background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
 /* O botao carrega a COR da acao: cortar verba e pausar nao sao a mesma decisao
    que escalar, e a cor avisa antes da leitura. */
 .tela-gestao-trafego :deep(.gtf-btn.aprovar.reduzir){background:var(--orange);border-color:var(--orange);}
@@ -5205,7 +5205,7 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gtf-cr-num){font-family:var(--fonte-dados);font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);white-space:nowrap;}
 /* O motivo ocupa a linha toda: e o que justifica pausar, nao pode ficar cortado. */
 .tela-gestao-trafego :deep(.gtf-cr-pq){flex:1 1 100%;font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);line-height:1.45;}
-.tela-gestao-trafego :deep(.gtf-btn.pausar-criativos){margin-top:9px;background:var(--red);border-color:var(--red);color:#fff;}
+.tela-gestao-trafego :deep(.gtf-btn.pausar-criativos){margin-top:9px;background:var(--red);border-color:var(--red);color:var(--sobre-cor);}
 .tela-gestao-trafego :deep(.gtf-btn.pausar-criativos:hover){filter:brightness(1.08);}
 .tela-gestao-trafego :deep(.gtf-hoje){font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);}
 .tela-gestao-trafego :deep(.gtf-sem-numero){font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);margin:6px 0 0;font-style:italic;}
@@ -5278,7 +5278,7 @@ Object.assign(window, {
 /* Campo: a caixa é que tem a borda, e o prefixo (R$ ou ×) mora DENTRO dela — assim
    dá pra ler "R$ 0,15" como uma coisa só, em vez de um número solto sem unidade. */
 .tela-gestao-trafego :deep(.pnd-campo){display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:9px;background:var(--surface2);padding:0 9px;transition:border-color .15s,box-shadow .15s;}
-.tela-gestao-trafego :deep(.pnd-campo:focus-within){border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-light);}
+.tela-gestao-trafego :deep(.pnd-campo:focus-within){border-color:var(--accent-forte);box-shadow:0 0 0 3px var(--accent-light);}
 .tela-gestao-trafego :deep(.pnd-pre){font-family:var(--fonte-dados);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);}
 /* Número em fonte de dados (IBM Plex Mono), como no resto da casa: dígito com
    largura fixa faz a coluna de valores alinhar sozinha. */
@@ -5293,7 +5293,7 @@ Object.assign(window, {
 /* "Sem meta de propósito" virou UMA nota no rodapé do cartão (ver M do review final,
    2026-07-28). Como linha de tabela, o texto quebrava em quatro e inchava a linha. */
 .tela-gestao-trafego :deep(.pnd-nota){margin:12px 0 0;padding-top:11px;border-top:1px dashed var(--border);font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;}
-.tela-gestao-trafego :deep(.pnd-salvar){margin-top:16px;padding:10px 22px;border-radius:22px;border:none;background:var(--accent);color:#fff;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;transition:filter .15s,transform .1s;}
+.tela-gestao-trafego :deep(.pnd-salvar){margin-top:16px;padding:10px 22px;border-radius:22px;border:none;background:var(--accent);color:var(--sobre-cor);font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;transition:filter .15s,transform .1s;}
 .tela-gestao-trafego :deep(.pnd-salvar:hover:not(:disabled)){filter:brightness(1.08);}
 .tela-gestao-trafego :deep(.pnd-salvar:active:not(:disabled)){transform:translateY(1px);}
 .tela-gestao-trafego :deep(.pnd-salvar:disabled){opacity:.65;cursor:default;}
@@ -5346,7 +5346,7 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gv-loading-screen){grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;min-height:60vh;}
 @keyframes gtSpin{to{transform:rotate(360deg)}}
 .tela-gestao-trafego :deep(.gv-spinner){width:48px;height:48px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:gtSpin .9s linear infinite;}
-.tela-gestao-trafego :deep(.gv-loading-lbl){font-family:var(--fonte-principal);font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);opacity:.6;}
+.tela-gestao-trafego :deep(.gv-loading-lbl){font-family:var(--fonte-principal);font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);}
 
 /* ── Chip de objetivo (compartilhado com Análise de Campanhas — cada tela traz sua cópia) ── */
 .tela-gestao-trafego :deep(.ma-obj-chip){font-family:var(--fonte-principal);font-size:9px;font-weight:600;letter-spacing:.5px;padding:2px 6px;border-radius:3px;background:var(--surface2);color:var(--muted);text-transform:uppercase;}
@@ -5397,14 +5397,14 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-set-nivel-nota){padding:0 0 9px 8px;opacity:.85;}
 /* Selo de onde fica o orçamento: campanha (CBO) x conjuntos (ABO) */
 .tela-gestao-trafego :deep(.gt-nivel-chip){font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));font-weight:700;letter-spacing:.3px;padding:2px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0;cursor:help;}
-.tela-gestao-trafego :deep(.gt-nivel-chip.cbo){background:rgba(99,102,241,.12);color:#6366f1;}
-.tela-gestao-trafego :deep(.gt-nivel-chip.abo){background:rgba(217,119,6,.12);color:#d97706;}
+.tela-gestao-trafego :deep(.gt-nivel-chip.cbo){background:color-mix(in srgb,var(--accent) 12%,var(--surface));color:color-mix(in srgb,var(--accent) 75%,var(--text));}
+.tela-gestao-trafego :deep(.gt-nivel-chip.abo){background:color-mix(in srgb,var(--orange) 12%,var(--surface));color:color-mix(in srgb,var(--orange) 75%,var(--text));}
 /* Selo de OBJETIVO POR INTERAÇÃO (Fase 3): mesma linguagem visual do chip
    CBO/ABO acima, só que clicável (abre o menu de escolha) — position:relative
    pra segurar o menu suspenso ancorado nele. */
 .tela-gestao-trafego :deep(.pnd-obj-chip){position:relative;display:inline-block;margin-top:3px;font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));font-weight:700;letter-spacing:.3px;padding:2px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0;cursor:pointer;background:var(--surface2);color:var(--muted);border:1px solid var(--border);transition:filter .15s;}
 .tela-gestao-trafego :deep(.pnd-obj-chip:hover){filter:brightness(1.08);}
-.tela-gestao-trafego :deep(.pnd-obj-chip.declarado){background:var(--accent-light);color:var(--accent);border-color:transparent;}
+.tela-gestao-trafego :deep(.pnd-obj-chip.declarado){background:var(--accent-light);color:var(--accent-forte);border-color:transparent;}
 /* H2(a): sem permissão de editar, o selo só informa — sem cursor de clique nem
    destaque de hover (o listener de clique nem é ligado em _gtSeloObjetivoEl). */
 .tela-gestao-trafego :deep(.pnd-obj-chip.readonly){cursor:default;}
@@ -5448,12 +5448,12 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-ad-top){display:flex;align-items:center;gap:8px;}
 /* Status badge — replaces dot */
 .tela-gestao-trafego :deep(.gt-status-badge){display:inline-flex;align-items:center;gap:4px;font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));font-weight:700;letter-spacing:.4px;padding:2px 8px;border-radius:20px;flex-shrink:0;text-transform:uppercase;}
-.tela-gestao-trafego :deep(.gt-status-badge.active){background:rgba(22,163,74,.12);color:#16a34a;}
-.tela-gestao-trafego :deep(.gt-status-badge.active::before){content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:#16a34a;animation:pulse 2s infinite;flex-shrink:0;}
-.tela-gestao-trafego :deep(.gt-status-badge.paused){background:rgba(245,158,11,.12);color:#d97706;}
-.tela-gestao-trafego :deep(.gt-status-badge.paused::before){content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:#f59e0b;flex-shrink:0;}
-.tela-gestao-trafego :deep(.gt-status-badge.inactive){background:rgba(107,114,128,.1);color:#6b7280;}
-.tela-gestao-trafego :deep(.gt-status-badge.inactive::before){content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:#9ca3af;flex-shrink:0;}
+.tela-gestao-trafego :deep(.gt-status-badge.active){background:color-mix(in srgb,var(--green) 12%,var(--surface));color:color-mix(in srgb,var(--green) 75%,var(--text));}
+.tela-gestao-trafego :deep(.gt-status-badge.active::before){content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;flex-shrink:0;}
+.tela-gestao-trafego :deep(.gt-status-badge.paused){background:color-mix(in srgb,var(--orange) 12%,var(--surface));color:color-mix(in srgb,var(--orange) 75%,var(--text));}
+.tela-gestao-trafego :deep(.gt-status-badge.paused::before){content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--orange);flex-shrink:0;}
+.tela-gestao-trafego :deep(.gt-status-badge.inactive){background:var(--surface2);color:var(--muted);}
+.tela-gestao-trafego :deep(.gt-status-badge.inactive::before){content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--muted);flex-shrink:0;}
 .tela-gestao-trafego :deep(.gt-chevron){flex-shrink:0;transition:transform .2s;color:var(--muted);opacity:.55;}
 .tela-gestao-trafego :deep(.gt-chevron.open){transform:rotate(90deg);}
 .tela-gestao-trafego :deep(.gt-expand-hint){font-family:var(--fonte-principal);font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);opacity:.7;white-space:nowrap;flex-shrink:0;transition:opacity .12s;}
@@ -5470,13 +5470,13 @@ Object.assign(window, {
 /* Pausar em massa: caixa de seleção + barra flutuante.
    A barra fica pendurada na RAIZ da tela (não no body) — o CSS aqui é scoped e,
    de quebra, ela some sozinha quando a tela é desmontada. */
-.tela-gestao-trafego :deep(.gt-sel-cb){width:16px;height:16px;flex:0 0 auto;margin:0;cursor:pointer;accent-color:#dc2626;}
+.tela-gestao-trafego :deep(.gt-sel-cb){width:16px;height:16px;flex:0 0 auto;margin:0;cursor:pointer;accent-color:var(--red);}
 .tela-gestao-trafego :deep(.gt-massa-bar){position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:9998;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;max-width:calc(100vw - 24px);padding:10px 14px;border-radius:14px;background:var(--surface);border:1px solid var(--border);box-shadow:0 16px 40px rgba(0,0,0,.28);font-family:var(--fonte-principal);}
 .tela-gestao-trafego :deep(.gt-massa-txt){font-size:calc(12px*var(--gt-fs,1.3));font-weight:700;color:var(--text);}
 .tela-gestao-trafego :deep(.gt-massa-btn){padding:7px 14px;border-radius:20px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;border:1px solid var(--border);background:none;color:var(--text);white-space:nowrap;transition:all .15s;}
-.tela-gestao-trafego :deep(.gt-massa-btn:hover){border-color:var(--accent);color:var(--accent);background:var(--accent-light);}
-.tela-gestao-trafego :deep(.gt-massa-btn.danger){border-color:#dc2626;background:#dc2626;color:#fff;}
-.tela-gestao-trafego :deep(.gt-massa-btn.danger:hover){background:#b91c1c;border-color:#b91c1c;color:#fff;}
+.tela-gestao-trafego :deep(.gt-massa-btn:hover){border-color:var(--accent-forte);color:var(--accent-forte);background:var(--accent-light);}
+.tela-gestao-trafego :deep(.gt-massa-btn.danger){border-color:var(--red);background:var(--red);color:var(--sobre-cor);}
+.tela-gestao-trafego :deep(.gt-massa-btn.danger:hover){background:var(--red);border-color:var(--red);color:var(--sobre-cor);}
 .tela-gestao-trafego :deep(.gt-massa-btn:disabled){opacity:.65;cursor:default;}
 @media (max-width:640px){
   /* No celular a barra vira faixa de ponta a ponta — não pode estourar a tela. */
@@ -5484,13 +5484,13 @@ Object.assign(window, {
 }
 .tela-gestao-trafego :deep(.gt-action-row){display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:4px;}
 .tela-gestao-trafego :deep(.gt-act-btn){padding:4px 11px;border-radius:20px;font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));font-weight:600;cursor:pointer;transition:all .15s;border:1px solid var(--border);background:none;color:var(--text);white-space:nowrap;display:flex;align-items:center;gap:4px;}
-.tela-gestao-trafego :deep(.gt-act-btn:hover){border-color:var(--accent);color:var(--accent);background:var(--accent-light);}
-.tela-gestao-trafego :deep(.gt-act-btn.danger){border-color:rgba(220,38,38,.3);color:#dc2626;}
-.tela-gestao-trafego :deep(.gt-act-btn.danger:hover){background:rgba(220,38,38,.08);border-color:#dc2626;}
-.tela-gestao-trafego :deep(.gt-act-btn.success){border-color:rgba(22,163,74,.3);color:#16a34a;}
-.tela-gestao-trafego :deep(.gt-act-btn.success:hover){background:rgba(22,163,74,.08);border-color:#16a34a;}
+.tela-gestao-trafego :deep(.gt-act-btn:hover){border-color:var(--accent-forte);color:var(--accent-forte);background:var(--accent-light);}
+.tela-gestao-trafego :deep(.gt-act-btn.danger){border-color:color-mix(in srgb,var(--red) 30%,var(--surface));color:var(--red);}
+.tela-gestao-trafego :deep(.gt-act-btn.danger:hover){background:color-mix(in srgb,var(--red) 8%,var(--surface));border-color:var(--red);}
+.tela-gestao-trafego :deep(.gt-act-btn.success){border-color:color-mix(in srgb,var(--green) 30%,var(--surface));color:var(--green);}
+.tela-gestao-trafego :deep(.gt-act-btn.success:hover){background:color-mix(in srgb,var(--green) 8%,var(--surface));border-color:var(--green);}
 .tela-gestao-trafego :deep(.gt-act-btn.primary){border-color:var(--accent);color:var(--accent);}
-.tela-gestao-trafego :deep(.gt-act-btn.primary:hover){background:var(--accent);color:#fff;}
+.tela-gestao-trafego :deep(.gt-act-btn.primary:hover){background:var(--accent);color:var(--sobre-cor);}
 .tela-gestao-trafego :deep(.gt-act-btn:disabled){opacity:.5;cursor:not-allowed;pointer-events:none;}
 .tela-gestao-trafego :deep(.gt-btn-dup){
   padding:6px 11px;border-radius:7px;border:1px solid var(--border,#ddd);
@@ -5513,10 +5513,10 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-ad-sub){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);}
 /* Auto button */
 .tela-gestao-trafego :deep(.gt-auto-btn){display:flex;align-items:center;gap:6px;padding:5px 14px;border-radius:7px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);letter-spacing:.3px;transition:all .2s;white-space:nowrap;position:relative;}
-.tela-gestao-trafego :deep(.gt-auto-btn:hover){border-color:#9ca3af;color:var(--text);}
-.tela-gestao-trafego :deep(.gt-auto-btn.active){border-color:#7c3aed;background:rgba(124,58,237,.12);color:#7c3aed;}
+.tela-gestao-trafego :deep(.gt-auto-btn:hover){border-color:var(--muted);color:var(--text);}
+.tela-gestao-trafego :deep(.gt-auto-btn.active){border-color:var(--roxo);background:color-mix(in srgb,var(--roxo) 12%,var(--surface));color:color-mix(in srgb,var(--roxo) 75%,var(--text));}
 .tela-gestao-trafego :deep(.gt-auto-btn.active:hover){background:rgba(124,58,237,.2);}
-.tela-gestao-trafego :deep(.gt-auto-btn.running){border-color:#7c3aed;background:#7c3aed;color:#fff;animation:pulse 1.5s infinite;}
+.tela-gestao-trafego :deep(.gt-auto-btn.running){border-color:var(--roxo);background:var(--roxo);color:var(--sobre-cor);animation:pulse 1.5s infinite;}
 .tela-gestao-trafego :deep(.gt-auto-btn:disabled){opacity:.5;cursor:not-allowed;}
 .tela-gestao-trafego :deep(.gt-empty){text-align:center;padding:32px 16px;font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));color:var(--muted);line-height:1.7;}
 /* Config modal (editor admin — métricas por objetivo) */
@@ -5576,7 +5576,7 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gtw-b:focus-visible){outline:2px solid var(--accent);outline-offset:2px;}
 .tela-gestao-trafego :deep(.gtw-b:active:not(:disabled)){transform:translateY(1px);}
 .tela-gestao-trafego :deep(.gtw-b:disabled){opacity:.5;cursor:default;}
-.tela-gestao-trafego :deep(.gtw-b.primario){background:var(--accent);color:#fff;box-shadow:var(--shadow-sm);}
+.tela-gestao-trafego :deep(.gtw-b.primario){background:var(--accent);color:var(--sobre-cor);box-shadow:var(--shadow-sm);}
 .tela-gestao-trafego :deep(.gtw-b.primario:hover:not(:disabled)){box-shadow:var(--shadow-md);}
 .tela-gestao-trafego :deep(.gtw-b.secundario){background:var(--surface2);color:var(--text);border-color:var(--border);}
 .tela-gestao-trafego :deep(.gtw-b.secundario:hover:not(:disabled)){border-color:var(--accent);color:var(--accent);}

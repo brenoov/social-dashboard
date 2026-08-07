@@ -354,7 +354,7 @@ onUnmounted(desligar)
 /* 44px de altura: alvo que o dedo acerta. Largura cheia no celular, porque a
    pessoa está de pé segurando o aparelho com uma mão só. */
 .let-btn{flex:1 1 auto;min-width:130px;min-height:44px;font-family:var(--fonte-principal);font-size:14px;font-weight:600;padding:11px 16px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);cursor:pointer;touch-action:manipulation;}
-.let-btn.primario{background:var(--accent);border-color:var(--accent);color:#fff;}
+.let-btn.primario{background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
 .let-dica,.let-erro{margin:0;padding:12px 14px;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.55;color:var(--muted);}
 .let-erro{color:var(--red,#c0392b);}
 </style>

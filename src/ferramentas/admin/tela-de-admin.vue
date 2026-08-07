@@ -48,7 +48,7 @@
                 <input type="email" id="adm-email" class="admin-form-input" placeholder="email@exemplo.com" style="width:100%;box-sizing:border-box;">
               </div>
               <div>
-                <label class="admin-form-label" for="adm-pass">Senha inicial <span style="font-weight:400;opacity:.6">(opcional)</span></label>
+                <label class="admin-form-label" for="adm-pass">Senha inicial <span style="font-weight:400">(opcional)</span></label>
                 <input type="password" id="adm-pass" class="admin-form-input" placeholder="Deixe vazio p/ enviar convite" style="width:100%;box-sizing:border-box;">
               </div>
               <div>
@@ -67,7 +67,7 @@
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                   Enviar convite
                 </button>
-                <button class="sr-btn" onclick="adminInviteUser('create')" style="background:var(--accent);color:#fff;font-size:11px;padding:7px 14px;gap:5px;display:flex;align-items:center;">
+                <button class="sr-btn" onclick="adminInviteUser('create')" style="background:var(--accent);color:var(--sobre-cor);font-size:11px;padding:7px 14px;gap:5px;display:flex;align-items:center;">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
                   Criar com senha
                 </button>
@@ -137,7 +137,7 @@
         <div class="perm-modal-body" id="perm-modal-body"></div>
         <div class="perm-modal-ftr">
           <button class="sr-btn" onclick="closePermModal()" style="font-size:12px;padding:8px 16px">Cancelar</button>
-          <button class="sr-btn" id="perm-save-btn" onclick="savePermissions()" style="background:var(--accent);color:#fff;font-size:12px;padding:8px 16px">Salvar</button>
+          <button class="sr-btn" id="perm-save-btn" onclick="savePermissions()" style="background:var(--accent);color:var(--sobre-cor);font-size:12px;padding:8px 16px">Salvar</button>
         </div>
       </div>
     </div>
@@ -182,6 +182,12 @@ import { agruparPor, DIMENSOES } from './lotacao.js'
 // testado à parte: um casamento errado dá a lotação e o histórico de alguém
 // para outra pessoa, ou para uma caixa de e-mail compartilhada.
 import { estadoDoVinculo } from './vinculo-de-cadastro.js'
+// Trava a rolagem do fundo enquanto a ficha esta aberta. Peca compartilhada,
+// que tambem compensa a barra de rolagem e resolve o efeito elastico do iOS.
+// O editor de permissoes (#perm-modal-overlay) NAO precisa de chamada aqui: ele
+// ja e coberto pelo observador de modais legados, ligado na moldura. Chamar nos
+// dois lugares travaria duas vezes e destravaria uma, prendendo a pagina.
+import { abrirModal, fecharModal } from '../../compartilhado/travar-rolagem-de-fundo.js'
 
 const router = useRouter()
 
@@ -305,10 +311,10 @@ function fmtR(v) { const p = v.toFixed(2).split('.'); return 'R$ ' + p[0].replac
    tela-de-redes-sociais.vue — cada tela guarda sua própria cópia) ── */
 const PROFILE_THEMES = {
   'Raíssa Herculano': { accent: '#BE185D', light: 'rgba(190,24,93,0.08)', mid: 'rgba(190,24,93,0.30)' },
-  'Breno Vale': { accent: '#1D4ED8', light: 'rgba(29,78,216,0.08)', mid: 'rgba(29,78,216,0.30)' },
-  'Mantova Móveis': { accent: '#1D4ED8', light: 'rgba(29,78,216,0.08)', mid: 'rgba(29,78,216,0.30)' },
-  'Vessel': { accent: '#166534', light: 'rgba(22,101,52,0.08)', mid: 'rgba(22,101,52,0.30)' },
-  'Motoeasy': { accent: '#9B1C1C', light: 'rgba(155,28,28,0.08)', mid: 'rgba(155,28,28,0.30)' },
+  'Breno Vale': { accent: 'var(--accent)', light: 'rgba(29,78,216,0.08)', mid: 'rgba(29,78,216,0.30)' },
+  'Mantova Móveis': { accent: 'var(--accent)', light: 'rgba(29,78,216,0.08)', mid: 'rgba(29,78,216,0.30)' },
+  'Vessel': { accent: 'var(--green)', light: 'rgba(22,101,52,0.08)', mid: 'rgba(22,101,52,0.30)' },
+  'Motoeasy': { accent: 'var(--red)', light: 'rgba(155,28,28,0.08)', mid: 'rgba(155,28,28,0.30)' },
 }
 
 /* ── Superadmin (legacy L4540-4541 — sem export equivalente ainda) ── */
@@ -548,7 +554,7 @@ function _vdSecao() {
     h += '</div>'
   }
   h += '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">'
-  h += '<button data-vd-criar-tudo style="border:none;background:var(--accent);color:#fff;border-radius:9px;padding:9px 16px;font-size:12.5px;font-weight:700;cursor:pointer;">Criar as contas marcadas</button>'
+  h += '<button data-vd-criar-tudo style="border:none;background:var(--accent);color:var(--sobre-cor);border-radius:9px;padding:9px 16px;font-size:12.5px;font-weight:700;cursor:pointer;">Criar as contas marcadas</button>'
   h += '<button data-vd-fechar style="border:1px solid var(--border);background:none;color:var(--text);border-radius:9px;padding:9px 14px;font-size:12.5px;cursor:pointer;">Cancelar</button>'
   h += '</div></div>'
   return h
@@ -681,7 +687,7 @@ function _eqDesenhar() {
   let html = _vdSecao()
   html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">'
   html += '<div style="color:var(--muted);font-size:12px;">' + _eqTimes.length + (_eqTimes.length === 1 ? ' time' : ' times') + ' cadastrados</div>'
-  if (podeCriar) html += '<button data-eq-novo style="border:none;background:var(--accent);color:#fff;border-radius:9px;padding:9px 16px;font-size:12.5px;font-weight:700;cursor:pointer;">+ Novo time</button>'
+  if (podeCriar) html += '<button data-eq-novo style="border:none;background:var(--accent);color:var(--sobre-cor);border-radius:9px;padding:9px 16px;font-size:12.5px;font-weight:700;cursor:pointer;">+ Novo time</button>'
   html += '</div>'
 
   if (!_eqTimes.length) {
@@ -747,7 +753,7 @@ function _eqFormulario(t) {
   h += '<div style="font-size:11px;color:var(--muted);margin-top:4px;">O nome no Bling quase nunca é o nome da casa: o time <b>Tivoli</b> usa o canal <b>Loja Santa Bárbara d\'Oeste</b>. Sem ligar, o time mostra faturamento zero.</div>'
   h += '<div data-eq-erro style="margin-top:10px;color:var(--red,#dc2626);font-size:12px;"></div>'
   h += '<div style="display:flex;gap:8px;margin-top:12px;">'
-  h += '<button data-eq-salvar="' + escHtml(e.id || '') + '" style="border:none;background:var(--accent);color:#fff;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;">Salvar</button>'
+  h += '<button data-eq-salvar="' + escHtml(e.id || '') + '" style="border:none;background:var(--accent);color:var(--sobre-cor);border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;">Salvar</button>'
   h += '<button data-eq-cancelar style="border:1px solid var(--border);background:none;color:var(--text);border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;">Cancelar</button>'
   h += '</div></div>'
   return h
@@ -794,7 +800,7 @@ function _eqGente(t) {
       + fora.map(p => '<option value="' + escHtml(p.id) + '">' + escHtml(p.name || p.email) + '</option>').join('') + '</select>'
     h += '<select data-eq-novo-papel style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;">'
       + podeDar.map(p => '<option value="' + p.id + '">' + escHtml(p.rotulo) + '</option>').join('') + '</select>'
-    h += '<button data-eq-por="' + escHtml(t.id) + '" style="border:none;background:var(--accent);color:#fff;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">Colocar no time</button>'
+    h += '<button data-eq-por="' + escHtml(t.id) + '" style="border:none;background:var(--accent);color:var(--sobre-cor);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">Colocar no time</button>'
     h += '</div>'
   }
   h += '<div style="display:flex;gap:8px;margin-top:12px;"><button data-eq-cancelar style="border:1px solid var(--border);background:none;color:var(--text);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;">Fechar</button></div>'
@@ -873,10 +879,10 @@ function _eqLigar(body) {
 async function loadAdminSaude() {
   const body = document.getElementById('admin-saude-body'); if (!body) return
   const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
-  const BTNP = 'style="border:none;background:var(--accent);color:#fff;border-radius:9px;padding:10px 18px;font-size:12.5px;font-weight:700;cursor:pointer;box-shadow:0 6px 16px -8px var(--accent);"'
+  const BTNP = 'style="border:none;background:var(--accent);color:var(--sobre-cor);border-radius:9px;padding:10px 18px;font-size:12.5px;font-weight:700;cursor:pointer;box-shadow:0 6px 16px -8px var(--accent);"'
   const BTNS = 'style="border:1px solid var(--accent);color:var(--accent);background:transparent;border-radius:9px;padding:10px 14px;font-size:12px;font-weight:600;cursor:pointer;"'
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-  const ST = { ok: ['✅', '#16a34a'], warn: ['⚠️', '#d97706'], fail: ['❌', '#dc2626'] }
+  const ST = { ok: ['✅', 'var(--green)'], warn: ['⚠️', 'var(--orange)'], fail: ['❌', 'var(--red)'] }
   const PERIODS = [0, 1, 7, 14, 30, 99]
   const post = async slug => { try { await fetch(SUPABASE_URL + '/functions/v1/' + slug, { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + (estado.currentSession?.access_token || SUPABASE_ANON_KEY), 'Content-Type': 'application/json' }, body: '{}' }) } catch (e) {} }
   const wire = () => {
@@ -923,7 +929,7 @@ async function loadAdminSaude() {
   // saúde geral
   const totalFail = counts.fail + cov.filter(c => c.st === 'fail').length
   const totalWarn = counts.warn + cov.filter(c => c.st === 'warn').length
-  const overall = totalFail ? ['❌', '#dc2626', totalFail + ' problema' + (totalFail > 1 ? 's' : '') + ' a corrigir'] : totalWarn ? ['⚠️', '#d97706', totalWarn + ' aviso' + (totalWarn > 1 ? 's' : '')] : ['✅', '#16a34a', 'Tudo saudável']
+  const overall = totalFail ? ['❌', 'var(--red)', totalFail + ' problema' + (totalFail > 1 ? 's' : '') + ' a corrigir'] : totalWarn ? ['⚠️', 'var(--orange)', totalWarn + ' aviso' + (totalWarn > 1 ? 's' : '')] : ['✅', 'var(--green)', 'Tudo saudável']
   const card = (big, lbl, col) => '<div style="flex:1 1 130px;min-width:120px;background:var(--card,#fff);border:1px solid var(--border,#e5e7eb);border-radius:12px;padding:14px 16px;"><div style="font-size:26px;font-weight:800;line-height:1;color:' + col + '">' + big + '</div><div style="font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-top:6px">' + lbl + '</div></div>'
   // ── header ──
   let html = '<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px;">'
@@ -931,20 +937,20 @@ async function loadAdminSaude() {
   html += '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-fix" ' + BTNP + '>🔧 Rodar e corrigir agora</button><button class="btn-rev" ' + BTNS + '>↻ Só revalidar</button></div></div>'
   // ── stat cards ──
   html += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px">'
-    + card(collected + '/' + accs.length, 'Contas coletadas hoje', collected === accs.length ? '#16a34a' : '#d97706')
-    + card(complete + '/' + accs.length, 'Coleta completa', complete === accs.length ? '#16a34a' : '#d97706')
-    + card(String(totalFail), 'Problemas (❌)', totalFail ? '#dc2626' : '#16a34a')
-    + card(String(totalWarn), 'Avisos (⚠️)', totalWarn ? '#d97706' : '#16a34a')
+    + card(collected + '/' + accs.length, 'Contas coletadas hoje', collected === accs.length ? 'var(--green)' : 'var(--orange)')
+    + card(complete + '/' + accs.length, 'Coleta completa', complete === accs.length ? 'var(--green)' : 'var(--orange)')
+    + card(String(totalFail), 'Problemas (❌)', totalFail ? 'var(--red)' : 'var(--green)')
+    + card(String(totalWarn), 'Avisos (⚠️)', totalWarn ? 'var(--orange)' : 'var(--green)')
     + '</div>'
   // ── seção A: cobertura da coleta de hoje ──
   html += '<div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Coleta de hoje · por perfil</div>'
   html += '<div style="overflow-x:auto"><table class="metas-tbl"><thead><tr><th>Perfil</th><th style="text-align:center">Seguidores</th><th style="text-align:center">Períodos</th><th style="text-align:center">Curtidas</th><th style="text-align:center">Alcance</th><th style="text-align:center">Status</th></tr></thead><tbody>'
   cov.forEach(c => { const s = ST[c.st]
     html += '<tr><td style="font-weight:600">' + esc(c.a.name || c.a.username || '—') + '</td>'
-      + '<td style="text-align:center;color:' + (c.fol > 0 ? '#16a34a' : '#dc2626') + '">' + (c.fol > 0 ? c.fol.toLocaleString('pt-BR') : '—') + '</td>'
-      + '<td style="text-align:center;color:' + (c.missing.length ? '#d97706' : '#16a34a') + '" title="' + (c.missing.length ? 'faltam: ' + c.missing.map(p => p === 99 ? 'mês' : p + 'd').join(', ') : 'todos os 6 períodos') + '">' + (PERIODS.length - c.missing.length) + '/6</td>'
-      + '<td style="text-align:center;color:' + (c.zeroBreak.length ? '#dc2626' : '#16a34a') + '" title="' + (c.zeroBreak.length ? 'zerado em: ' + c.zeroBreak.map(p => p === 99 ? 'mês' : p + 'd').join(', ') : 'ok') + '">' + (c.zeroBreak.length ? 'zerada' : 'ok') + '</td>'
-      + '<td style="text-align:center;color:' + (c.zeroReach.length ? '#dc2626' : '#16a34a') + '">' + (c.zeroReach.length ? 'zerado' : 'ok') + '</td>'
+      + '<td style="text-align:center;color:' + (c.fol > 0 ? 'var(--green)' : 'var(--red)') + '">' + (c.fol > 0 ? c.fol.toLocaleString('pt-BR') : '—') + '</td>'
+      + '<td style="text-align:center;color:' + (c.missing.length ? 'var(--orange)' : 'var(--green)') + '" title="' + (c.missing.length ? 'faltam: ' + c.missing.map(p => p === 99 ? 'mês' : p + 'd').join(', ') : 'todos os 6 períodos') + '">' + (PERIODS.length - c.missing.length) + '/6</td>'
+      + '<td style="text-align:center;color:' + (c.zeroBreak.length ? 'var(--red)' : 'var(--green)') + '" title="' + (c.zeroBreak.length ? 'zerado em: ' + c.zeroBreak.map(p => p === 99 ? 'mês' : p + 'd').join(', ') : 'ok') + '">' + (c.zeroBreak.length ? 'zerada' : 'ok') + '</td>'
+      + '<td style="text-align:center;color:' + (c.zeroReach.length ? 'var(--red)' : 'var(--green)') + '">' + (c.zeroReach.length ? 'zerado' : 'ok') + '</td>'
       + '<td style="text-align:center;color:' + s[1] + '">' + s[0] + '</td></tr>'
   })
   html += '</tbody></table></div>'
@@ -954,8 +960,8 @@ async function loadAdminSaude() {
   else {
     html += '<div style="overflow-x:auto"><table class="metas-tbl"><thead><tr><th>Perfil</th>' + CHECKS.map(c => '<th style="text-align:center">' + c[1] + '</th>').join('') + '</tr></thead><tbody>'
     accs.forEach(a => { html += '<tr><td style="font-weight:600">' + esc(a.name || a.username || '—') + '</td>'
-      CHECKS.forEach(c => { const r = idx[a.id] && idx[a.id][c[0]]; if (!r) { html += '<td style="text-align:center;color:#cbd5e1">—</td>'; return }
-        const s = ST[r.status] || ['?', '#888']; html += '<td style="text-align:center;color:' + s[1] + '" title="' + esc(r.detail) + '">' + s[0] + '</td>' })
+      CHECKS.forEach(c => { const r = idx[a.id] && idx[a.id][c[0]]; if (!r) { html += '<td style="text-align:center;color:var(--muted)">—</td>'; return }
+        const s = ST[r.status] || ['?', 'var(--muted)']; html += '<td style="text-align:center;color:' + s[1] + '" title="' + esc(r.detail) + '">' + s[0] + '</td>' })
       html += '</tr>' })
     html += '</tbody></table></div>'
   }
@@ -969,7 +975,7 @@ async function loadAdminSaude() {
       html += '<div style="font-size:12px"><span style="color:' + s[1] + '">' + s[0] + '</span> <b>' + esc(accMap[r.account_id] || '?') + '</b> — ' + esc(lbl) + (r.detail ? ' <span style="color:var(--muted)">(' + esc(r.detail) + ')</span>' : '') + '</div>' })
     html += '</div>'
     html += '<div style="margin-top:12px;font-size:11px;color:var(--muted);background:var(--card,#f8fafc);border:1px dashed var(--border,#e5e7eb);border-radius:10px;padding:10px 12px">🔧 <b>Rodar e corrigir agora</b> recoleta da Meta com 5 tentativas e, se ela insistir em zerar, mantém o último valor válido (carry-forward) — depois revalida. Curtidas/alcance/coleta faltando são corrigidos por aqui.</div>'
-  } else { html += '<div style="margin-top:16px;color:#16a34a;font-size:13px;font-weight:700">✅ Nenhum problema — coleta de hoje completa e auditoria 100% OK.</div>' }
+  } else { html += '<div style="margin-top:16px;color:var(--green);font-size:13px;font-weight:700">✅ Nenhum problema — coleta de hoje completa e auditoria 100% OK.</div>' }
   html += '<details style="margin-top:18px"><summary style="cursor:pointer;font-size:11px;color:var(--muted)">O que cada verificação significa</summary><div style="font-size:11px;color:var(--muted);line-height:1.8;margin-top:8px">'
     + '<b>Coleta de hoje</b> — leitura ao vivo: cada perfil precisa ter seguidores + os 6 períodos (hoje/1/7/14/30/mês) com curtidas e alcance não-zerados.<br>'
     + '<b>Frescor</b> — os dados de hoje foram coletados (seguidores + engajamento + conteúdo).<br>'
@@ -1414,7 +1420,7 @@ function abrirFichaDaPessoa(p) {
 
   const fundo = mkEl('div', 'ficha-fundo')
   const caixa = mkEl('div', 'ficha-caixa')
-  const fechar = () => fundo.remove()
+  const fechar = () => { fundo.remove(); fecharModal() }
   // Clique no fundo fecha; clique DENTRO da caixa não (senão mexer num campo
   // fecharia a ficha na cara da pessoa).
   fundo.addEventListener('click', (e) => { if (e.target === fundo) fechar() })
@@ -1462,7 +1468,7 @@ function abrirFichaDaPessoa(p) {
   // z-index — e em vez de um painel por cima despencava como texto cru no fim
   // da página. Foi assim que foi para produção, e foi o dono quem viu.
   const raiz = document.querySelector('.tela-admin')
-  if (raiz) raiz.appendChild(fundo)
+  if (raiz) { raiz.appendChild(fundo); abrirModal() }
   else { fechar(); adminToast('Não consegui abrir a ficha nesta tela.', false) }
 }
 
@@ -1741,7 +1747,7 @@ function _criarLinhaPessoa(p, gaveta, currentEmail) {
   const av = mkEl('div'); av.style.cssText = 'width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);overflow:hidden;position:relative;'
   av.style.background = u.role === 'admin' ? 'var(--accent)' : 'var(--surface2)'
   if (u.avatar_url) { const img = mkEl('img', 'av-img'); img.src = u.avatar_url + '?t=' + Date.now(); img.alt = ''; av.appendChild(img) }
-  else { const avTxt = mkEl('span'); avTxt.style.cssText = 'font-family:var(--fonte-principal);font-size:13px;font-weight:600'; avTxt.style.color = u.role === 'admin' ? '#fff' : 'var(--muted)'; avTxt.textContent = (p.nome || u.email).charAt(0).toUpperCase(); av.appendChild(avTxt) }
+  else { const avTxt = mkEl('span'); avTxt.style.cssText = 'font-family:var(--fonte-principal);font-size:13px;font-weight:600'; avTxt.style.color = u.role === 'admin' ? 'var(--sobre-cor)' : 'var(--muted)'; avTxt.textContent = (p.nome || u.email).charAt(0).toUpperCase(); av.appendChild(avTxt) }
   const avEditBtn = mkEl('button', 'av-edit-btn'); avEditBtn.type = 'button'; avEditBtn.title = 'Trocar foto'
   avEditBtn.innerHTML = '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'
   avEditBtn.addEventListener('click', () => _triggerAvatarUpload(u.id, (url) => {
@@ -2014,19 +2020,19 @@ async function adminInviteUser(mode) {
   const password = document.getElementById('adm-pass').value
   const role = document.getElementById('adm-role').value
   const msg = document.getElementById('adm-invite-msg')
-  if (!email) { msg.textContent = 'Informe o email.'; msg.style.color = '#dc2626'; return }
+  if (!email) { msg.textContent = 'Informe o email.'; msg.style.color = 'var(--red)'; return }
   const isInvite = mode === 'invite' || !password
-  if (!isInvite && password.length < 6) { msg.textContent = 'A senha precisa ter no mínimo 6 caracteres.'; msg.style.color = '#dc2626'; return }
+  if (!isInvite && password.length < 6) { msg.textContent = 'A senha precisa ter no mínimo 6 caracteres.'; msg.style.color = 'var(--red)'; return }
   msg.textContent = isInvite ? 'Enviando convite...' : 'Criando acesso...'; msg.style.color = 'var(--muted)'
   const { data: { session: s } } = await sbClient.auth.getSession()
   const tok = s?.access_token || SUPABASE_ANON_KEY
   const body = isInvite ? { email, name, role } : { email, name, role, password }
   const r = await fetch(`${SUPABASE_URL}/functions/v1/invite-user`, { method: 'POST', headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
   const res = await r.json()
-  if (res.error) { msg.textContent = 'Erro: ' + res.error; msg.style.color = '#dc2626' }
+  if (res.error) { msg.textContent = 'Erro: ' + res.error; msg.style.color = 'var(--red)' }
   else {
     msg.textContent = isInvite ? '✓ Convite enviado para ' + email : '✓ Acesso criado para ' + email
-    msg.style.color = '#16a34a'
+    msg.style.color = 'var(--green)'
     ;['adm-email', 'adm-name', 'adm-pass'].forEach(id => document.getElementById(id).value = '')
     adminToast(isInvite ? 'Convite enviado!' : 'Acesso criado com sucesso')
     setTimeout(loadAdminUsers, 1200)
@@ -2043,11 +2049,11 @@ async function loadAdminAccounts() {
     const head = mkEl('div', 'sr'); head.style.cssText = 'border-bottom:1px solid var(--border);padding-bottom:0'
     const av = mkEl('div'); av.style.cssText = `width:44px;height:44px;border-radius:50%;background:${storedColor};display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:2px solid var(--border)`
     if (acc.picture_url) { const img = mkEl('img'); img.src = acc.picture_url; img.style.cssText = 'width:100%;height:100%;object-fit:cover'; av.appendChild(img) }
-    else { const sp = mkEl('span'); sp.style.cssText = 'color:#fff;font-size:16px;font-weight:700'; sp.textContent = acc.name.charAt(0); av.appendChild(sp) }
+    else { const sp = mkEl('span'); sp.style.cssText = 'color:var(--sobre-cor);font-size:16px;font-weight:700'; sp.textContent = acc.name.charAt(0); av.appendChild(sp) }
     const hMain = mkEl('div', 'sr-main'); hMain.style.marginLeft = '12px'
     hMain.appendChild(mkEl('div', 'sr-label', acc.name))
     hMain.appendChild(mkEl('div', 'sr-sub', acc.instagram_id))
-    const connBadge = mkEl('span'); connBadge.style.cssText = 'display:flex;align-items:center;gap:5px;font-family:var(--fonte-principal);font-size:11px;color:#16a34a'
+    const connBadge = mkEl('span'); connBadge.style.cssText = 'display:flex;align-items:center;gap:5px;font-family:var(--fonte-principal);font-size:11px;color:var(--green)'
     const dot = mkEl('span', 'online-dot'); connBadge.appendChild(dot); connBadge.appendChild(document.createTextNode('Conectada'))
     head.appendChild(av); head.appendChild(hMain); head.appendChild(connBadge); card.appendChild(head)
     const nameRow = mkEl('div', 'sr'); nameRow.style.justifyContent = 'space-between'; nameRow.appendChild(mkEl('div', 'sr-sub', 'Nome da conta'))
@@ -2103,7 +2109,7 @@ async function loadAdminData() {
     row.appendChild(m)
     const val = mkEl('span', 'sr-val')
     if (d) { val.textContent = fmtN(d.followers_count) + ' seguidores'; val.style.color = d.followers_count > 0 ? 'var(--accent)' : 'var(--muted)' }
-    else { val.textContent = 'Sem dados'; val.style.color = '#f59e0b' }
+    else { val.textContent = 'Sem dados'; val.style.color = 'var(--orange)' }
     row.appendChild(val); syncEl.appendChild(row)
   })
 }
@@ -2143,7 +2149,7 @@ async function loadAdminMetas() {
     '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:24px">',
     '<button class="admin-btn-sm" onclick="downloadMetasTemplate()" style="display:flex;align-items:center;gap:6px;padding:8px 16px">',
     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Baixar template .xlsx</button>',
-    `<label class="admin-btn-sm" style="display:flex;align-items:center;gap:6px;padding:8px 16px;cursor:pointer;background:var(--accent);color:#fff;border-color:var(--accent)">`,
+    `<label class="admin-btn-sm" style="display:flex;align-items:center;gap:6px;padding:8px 16px;cursor:pointer;background:var(--accent);color:var(--sobre-cor);border-color:var(--accent)">`,
     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Importar planilha',
     `<input type="file" accept=".xlsx,.xls,.csv" id="metas-csv-input" style="display:none" onchange="importMetasCSV(this,${y},${m})"></label></div>`,
     '<div id="metas-import-msg" style="font-size:12px;margin-bottom:16px;display:none"></div>',
@@ -2246,7 +2252,7 @@ async function loadAdminVendMetas(parentBody, y, m, mesLabel) {
   dlBtn.addEventListener('click', () => downloadVendedoresTemplate())
   btnRow.appendChild(dlBtn)
 
-  const label = document.createElement('label'); label.className = 'admin-btn-sm'; label.style.cssText = 'display:flex;align-items:center;gap:6px;padding:8px 16px;cursor:pointer;background:var(--accent);color:#fff;border-color:var(--accent)'
+  const label = document.createElement('label'); label.className = 'admin-btn-sm'; label.style.cssText = 'display:flex;align-items:center;gap:6px;padding:8px 16px;cursor:pointer;background:var(--accent);color:var(--sobre-cor);border-color:var(--accent)'
   label.textContent = 'Importar planilha'
   const fileInput = document.createElement('input'); fileInput.type = 'file'; fileInput.accept = '.xlsx,.xls,.csv'; fileInput.style.display = 'none'; fileInput.id = 'vend-metas-csv-input'
   fileInput.addEventListener('change', function () { importVendedoresCSV(this, y, m) })
@@ -2323,7 +2329,7 @@ async function importVendedoresCSV(input, y, m) {
     if (msgEl) { msgEl.style.color = 'var(--accent)'; msgEl.textContent = records.length + ' vendedora(s) importada(s) com sucesso.' }
     adminToast('Metas de vendedoras importadas')
   } catch (e) {
-    if (msgEl) { msgEl.style.color = '#ef4444'; msgEl.textContent = 'Erro: ' + e.message }
+    if (msgEl) { msgEl.style.color = 'var(--red)'; msgEl.textContent = 'Erro: ' + e.message }
     adminToast('Erro ao importar: ' + e.message, false)
   }
   input.value = ''
@@ -2360,8 +2366,8 @@ async function loadAdminRequests() {
     const badge = document.createElement('span'); badge.style.cssText = `font-size:10px;font-weight:600;color:${statusColor[r.status] || 'var(--muted)'};letter-spacing:1px;text-transform:uppercase`; badge.textContent = statusLabel[r.status] || r.status
     ctrl.appendChild(badge)
     if (r.status === 'pending') {
-      const apv = document.createElement('button'); apv.className = 'admin-btn-sm'; apv.style.cssText = 'background:var(--green);color:#fff'; apv.textContent = 'Aprovar'; apv.addEventListener('click', () => handleRequest(r.id, 'approved'))
-      const den = document.createElement('button'); den.className = 'admin-btn-sm'; den.style.cssText = 'background:var(--red);color:#fff'; den.textContent = 'Negar'; den.addEventListener('click', () => handleRequest(r.id, 'denied'))
+      const apv = document.createElement('button'); apv.className = 'admin-btn-sm'; apv.style.cssText = 'background:var(--green);color:var(--sobre-cor)'; apv.textContent = 'Aprovar'; apv.addEventListener('click', () => handleRequest(r.id, 'approved'))
+      const den = document.createElement('button'); den.className = 'admin-btn-sm'; den.style.cssText = 'background:var(--red);color:var(--sobre-cor)'; den.textContent = 'Negar'; den.addEventListener('click', () => handleRequest(r.id, 'denied'))
       ctrl.appendChild(apv); ctrl.appendChild(den)
     }
     row.appendChild(main); row.appendChild(ctrl); wrap.appendChild(row)
@@ -2446,11 +2452,11 @@ Object.assign(window, {
 .tela-admin :deep(.admin-topbar-title){font-family:var(--fonte-principal);font-size:15px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--text);}
 .tela-admin :deep(.admin-layout){display:grid;grid-template-columns:210px 1fr;min-height:calc(100vh - 50px);}
 .tela-admin :deep(.admin-sidebar){border-right:1px solid var(--border);padding:12px 8px;background:var(--surface2);overflow-y:auto;}
-.tela-admin :deep(.admin-nav-group-label){font-family:var(--fonte-principal);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(10,10,18,.35);padding:14px 12px 4px;margin-top:4px;}
+.tela-admin :deep(.admin-nav-group-label){font-family:var(--fonte-principal);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);padding:14px 12px 4px;margin-top:4px;}
 .tela-admin :deep(.admin-nav-group-label:first-child){margin-top:0;}
 .tela-admin :deep(.admin-nav-item){display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-md);cursor:pointer;transition:all .15s;font-family:var(--fonte-principal);font-size:13px;color:var(--text);margin-bottom:1px;user-select:none;}
 .tela-admin :deep(.admin-nav-item:hover){background:var(--surface);}
-.tela-admin :deep(.admin-nav-item.active){background:var(--accent-light);color:var(--accent);}
+.tela-admin :deep(.admin-nav-item.active){background:var(--accent-light);color:var(--accent-forte);}
 .tela-admin :deep(.admin-nav-item svg){flex-shrink:0;opacity:.6;}
 .tela-admin :deep(.admin-nav-item.active svg){opacity:1;}
 .tela-admin :deep(.admin-content){padding:36px 44px;overflow-y:auto;max-height:calc(100vh - 50px);}
@@ -2463,7 +2469,7 @@ Object.assign(window, {
 /* Mesma história da `.grupo-sem`: era âmbar fixo e virava uma barra branca no
    tema escuro.
    O ÂMBAR FICA NA BORDA E NO FUNDO, ONDE ELE É SINAL; O TEXTO USA `--text`.
-   Medido: o `--orange` do tema claro (#b85800) sobre esse fundo dá 4,14 de
+   Medido: o `--orange` do tema claro (var(--orange)) sobre esse fundo dá 4,14 de
    contraste — abaixo do mínimo de 4,5 para texto de 12px, e nenhuma proporção
    da mistura conserta (a 4% ainda dá 4,48). Com `--text` são 15,2 no claro e
    14,0 no escuro. Aviso que não se lê não avisa. */
@@ -2478,7 +2484,7 @@ Object.assign(window, {
   .tela-admin :deep(.admin-nav-group-label){display:none;}
   .tela-admin :deep(.admin-content){padding:20px 16px;}
 }
-.tela-admin :deep(.admin-btn-sm){font-family:var(--fonte-principal);font-size:10px;color:#fff;background:var(--accent);border:none;border-radius:3px;padding:5px 10px;cursor:pointer;letter-spacing:.6px;white-space:nowrap;transition:opacity .18s;text-transform:uppercase;}
+.tela-admin :deep(.admin-btn-sm){font-family:var(--fonte-principal);font-size:10px;color:var(--sobre-cor);background:var(--accent);border:none;border-radius:3px;padding:5px 10px;cursor:pointer;letter-spacing:.6px;white-space:nowrap;transition:opacity .18s;text-transform:uppercase;}
 .tela-admin :deep(.admin-btn-sm:hover){opacity:.85;}
 /* .admin-input-row aparecia DUAS vezes no CSS global (grid, depois flex) — a
    segunda definição vencia a cascata; reproduzimos a mesma ordem aqui para o
@@ -2495,7 +2501,7 @@ Object.assign(window, {
 /* ── Design system de linhas/grupos (.sr/.sg*, legacy L528-542) — genérico,
    usado por várias telas; cada uma traz sua própria cópia, MANTIDO no
    global também (não é .admin-*). ── */
-.tela-admin :deep(.sg-label){font-family:var(--fonte-principal);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(10,10,18,.35);padding:0 4px 6px;margin-top:18px;display:block;}
+.tela-admin :deep(.sg-label){font-family:var(--fonte-principal);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);padding:0 4px 6px;margin-top:18px;display:block;}
 .tela-admin :deep(.sg){background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:4px;}
 .tela-admin :deep(.sr){display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);transition:background .15s;}
 .tela-admin :deep(.sr:last-child){border-bottom:none;}
@@ -2506,11 +2512,11 @@ Object.assign(window, {
 .tela-admin :deep(.sr-label){font-family:var(--fonte-principal);font-size:13px;color:var(--text);font-weight:500;}
 .tela-admin :deep(.sr-sub){font-family:var(--fonte-principal);font-size:11px;color:var(--muted);margin-top:1px;}
 .tela-admin :deep(.sr-val){font-family:var(--fonte-principal);font-size:12px;color:var(--muted);white-space:nowrap;}
-.tela-admin :deep(.sr-btn){font-family:var(--fonte-principal);font-size:11px;color:var(--accent);cursor:pointer;background:var(--accent-light);border:none;padding:5px 12px;border-radius:5px;transition:all .15s;white-space:nowrap;}
-.tela-admin :deep(.sr-btn:hover){background:var(--accent);color:#fff;}
-.tela-admin :deep(.sr-btn.danger){color:#dc2626;background:rgba(220,38,38,.08);}
-.tela-admin :deep(.sr-btn.danger:hover){background:#dc2626;color:#fff;}
-.tela-admin :deep(.online-dot){width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0;}
+.tela-admin :deep(.sr-btn){font-family:var(--fonte-principal);font-size:11px;color:var(--accent-forte);cursor:pointer;background:var(--accent-light);border:none;padding:5px 12px;border-radius:5px;transition:all .15s;white-space:nowrap;}
+.tela-admin :deep(.sr-btn:hover){background:var(--accent);color:var(--sobre-cor);}
+.tela-admin :deep(.sr-btn.danger){color:var(--red);background:rgba(220,38,38,.08);}
+.tela-admin :deep(.sr-btn.danger:hover){background:var(--red);color:var(--sobre-cor);}
+.tela-admin :deep(.online-dot){width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;}
 
 /* ── Tabela de metas/saúde (.metas-tbl, legacy L1358-1361) — genérico,
    MANTIDO no global também. ── */
@@ -2529,7 +2535,7 @@ Object.assign(window, {
 /* ── Modal de permissões (.perm-*, legacy L1402-1423) — não é .admin-*,
    MANTIDO no global também; duplicado aqui pois o modal foi trazido para
    dentro da raiz deste componente. ── */
-.tela-admin :deep(.perm-overlay){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
+.tela-admin :deep(.perm-overlay){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);touch-action:none;overscroll-behavior:contain;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
 .tela-admin :deep(.perm-overlay.open){display:flex;}
 /* 420 → 760: a matriz tem 5 colunas fixas de ação + a coluna de nomes; em 420
    ela nasceria rolando na horizontal já no desktop. 95vw segura o celular. */
@@ -2537,7 +2543,7 @@ Object.assign(window, {
 .tela-admin :deep(.perm-modal-hdr){padding:20px 22px 14px;border-bottom:1px solid var(--border);}
 .tela-admin :deep(.perm-modal-title){font-family:var(--fonte-principal);font-size:17px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--text);}
 .tela-admin :deep(.perm-modal-user){font-family:var(--fonte-principal);font-size:12px;color:var(--muted);margin-top:3px;}
-.tela-admin :deep(.perm-modal-body){flex:1;overflow-y:auto;padding:14px 22px;}
+.tela-admin :deep(.perm-modal-body){flex:1;overflow-y:auto;padding:14px 22px;overscroll-behavior:contain;touch-action:pan-y;}
 .tela-admin :deep(.perm-section){margin-bottom:2px;}
 .tela-admin :deep(.perm-row){display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:5px;transition:background .12s;cursor:pointer;}
 .tela-admin :deep(.perm-row:hover){background:var(--surface2);}
@@ -2590,7 +2596,7 @@ Object.assign(window, {
 .tela-admin :deep(.perm-nivel-nome){font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:7px;}
 .tela-admin :deep(.perm-nivel-botoes){display:flex;flex-wrap:wrap;gap:6px;}
 .tela-admin :deep(.perm-degrau){border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:99px;padding:7px 12px;font-size:11.5px;min-height:32px;cursor:pointer;font-family:var(--fonte-principal);}
-.tela-admin :deep(.perm-degrau.escolhido){background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+.tela-admin :deep(.perm-degrau.escolhido){background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);font-weight:600;}
 /* Conjunto fora da escada: mostra o que está gravado sem aproximar de degrau
    nenhum — aproximar mudaria acesso que ninguém pediu. */
 .tela-admin :deep(.perm-nivel-aviso){margin-top:7px;font-size:11px;color:var(--orange,#d97706);}
@@ -2603,7 +2609,7 @@ Object.assign(window, {
    escuro isso virou um retângulo BRANCO ocupando a seção inteira, porque hoje
    o grupo "Sem marca" contém TODAS as pessoas. Cor fixa não sabe que existe
    tema escuro.
-   A cor sai de `--orange`, que o tema já troca (claro #b85800, escuro #f97316),
+   A cor sai de `--orange`, que o tema já troca (claro var(--orange), escuro var(--orange)),
    misturada com a superfície do tema. Assim o aviso continua âmbar e legível
    nos dois, sem uma segunda regra para manter em sincronia. */
 .tela-admin :deep(.usr-grupo.grupo-sem){
@@ -2630,11 +2636,11 @@ Object.assign(window, {
    tratamento visual do subtítulo de lotação. E-mail comprido quebra, nunca
    corta (overflow-wrap, sem ellipsis). */
 .tela-admin :deep(.usr-contato){font-size:11px;color:var(--muted);overflow-wrap:anywhere;}
-.tela-admin :deep(.usr-alerta){color:var(--orange,#d97706);}
-.tela-admin :deep(.usr-badge){font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--accent);background:var(--accent-light);padding:2px 6px;border-radius:3px;flex-shrink:0;}
-.tela-admin :deep(.usr-badge-super){color:#fff;background:#7c3aed;}
+.tela-admin :deep(.usr-alerta){color:color-mix(in srgb,var(--orange) 75%,var(--text));}
+.tela-admin :deep(.usr-badge){font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--accent-forte);background:var(--accent-light);padding:2px 6px;border-radius:3px;flex-shrink:0;}
+.tela-admin :deep(.usr-badge-super){color:var(--sobre-cor);background:var(--roxo);}
 .tela-admin :deep(.usr-papel){font-size:10px;border:1px solid var(--border);color:var(--muted);border-radius:99px;padding:2px 8px;white-space:nowrap;flex-shrink:0;}
-.tela-admin :deep(.usr-papel.papel-super),.tela-admin :deep(.usr-papel.papel-admin){background:var(--accent);border-color:var(--accent);color:#fff;}
+.tela-admin :deep(.usr-papel.papel-super),.tela-admin :deep(.usr-papel.papel-admin){background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
 /* Ações restauradas (Correção 1): permissões/papel/senha/desativar/excluir/
    avatar. `flex-wrap` deixa os botões quebrarem pra uma nova linha DENTRO do
    mesmo cartão quando não cabem ao lado — nunca estouram a largura no
@@ -2645,13 +2651,17 @@ Object.assign(window, {
 .tela-admin :deep(.usr-acao-select){max-width:130px;font-size:12px;padding:6px 8px;}
 .tela-admin :deep(.usr-gavetas){display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:14px 0 8px;}
 .tela-admin :deep(.usr-gavetas-rot){font-size:11px;color:var(--muted);}
-.tela-admin :deep(.usr-preencher){font-size:11px;color:var(--orange,#d97706);cursor:pointer;}
+.tela-admin :deep(.usr-preencher){font-size:11px;color:color-mix(in srgb,var(--orange) 75%,var(--text));cursor:pointer;}
 .tela-admin :deep(.usr-vazio){color:var(--muted);font-size:12px;padding:14px 2px;}
 
 /* A ficha da pessoa (etapa 2). Uma coluna, cabe no celular, e as cores saem do
    tema — nada de cor fixa, que foi o que deixou a seção branca no escuro. */
-.tela-admin :deep(.ficha-fundo){position:fixed;inset:0;z-index:99990;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;}
-.tela-admin :deep(.ficha-caixa){background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:14px;width:100%;max-width:420px;max-height:88vh;overflow-y:auto;}
+/* `touch-action:none` no fundo: arrastar o dedo na área escura não faz nada.
+   `overscroll-behavior:contain` na caixa: chegar ao fim da rolagem de dentro
+   NÃO continua rolando a página atrás (é o "encadeamento de rolagem"). Os dois,
+   mais a trava de `travar-rolagem.js`, é o que impede a tela de escorregar. */
+.tela-admin :deep(.ficha-fundo){position:fixed;inset:0;z-index:99990;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;touch-action:none;overscroll-behavior:contain;}
+.tela-admin :deep(.ficha-caixa){background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:14px;width:100%;max-width:420px;max-height:88vh;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;}
 .tela-admin :deep(.ficha-cab){display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);}
 .tela-admin :deep(.ficha-titulo){font-weight:700;font-size:14px;overflow-wrap:anywhere;}
 .tela-admin :deep(.ficha-x){border:none;background:transparent;color:var(--muted);font-size:18px;cursor:pointer;min-width:40px;min-height:40px;flex-shrink:0;}

@@ -73,7 +73,7 @@
             <i :style="{ background: s.cor }"></i>{{ s.rotulo }} <b>{{ s.total }}</b>
           </span>
           <span v-if="aguardando" class="ctd-selo ctd-selo-pergunta">
-            <i class="ctd-pulso" style="background:#f59e0b"></i>Esperando você confirmar o post <b>{{ aguardando }}</b>
+            <i class="ctd-pulso" style="background:var(--orange)"></i>Esperando você confirmar o post <b>{{ aguardando }}</b>
           </span>
         </div>
 

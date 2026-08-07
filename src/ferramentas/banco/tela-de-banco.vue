@@ -208,7 +208,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-banco :deep(.banco-file-details){font-family:var(--fonte-principal);font-size:11px;color:var(--muted);margin-top:1px;}
 .tela-banco :deep(.banco-file-acts){display:flex;gap:5px;flex-shrink:0;}
 .tela-banco :deep(.banco-dl-btn){display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--fonte-principal);font-size:11px;font-weight:500;cursor:pointer;transition:all .15s;text-decoration:none;white-space:nowrap;}
-.tela-banco :deep(.banco-dl-btn:hover){border-color:var(--accent);color:var(--accent);background:var(--accent-light);}
+.tela-banco :deep(.banco-dl-btn:hover){border-color:var(--accent-forte);color:var(--accent-forte);background:var(--accent-light);}
 .tela-banco :deep(.banco-del-btn){display:flex;align-items:center;padding:6px 8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
 .tela-banco :deep(.banco-del-btn:hover){border-color:var(--red);color:var(--red);background:rgba(176,30,58,.06);}
 .tela-banco :deep(.banco-empty){text-align:center;padding:64px 24px;color:var(--muted);}

@@ -186,7 +186,7 @@ async function esqueciSenha() {
   forgotMsg.value = ''
   const alvo = forgotEmail.value.trim()
   if (!alvo) {
-    forgotMsgCor.value = '#ef4444'
+    forgotMsgCor.value = 'var(--red)'
     forgotMsg.value = 'Digite seu email.'
     return
   }
@@ -196,10 +196,10 @@ async function esqueciSenha() {
   })
   forgotCarregando.value = false
   if (error) {
-    forgotMsgCor.value = '#ef4444'
+    forgotMsgCor.value = 'var(--red)'
     forgotMsg.value = error.message
   } else {
-    forgotMsgCor.value = '#22c55e'
+    forgotMsgCor.value = 'var(--green)'
     forgotMsg.value = 'Link enviado! Verifique seu email.'
   }
 }
@@ -219,7 +219,7 @@ async function solicitarAcesso() {
   const nome = reqNome.value.trim()
   const emailReq = reqEmail.value.trim()
   if (!nome || !emailReq) {
-    reqFeedbackCor.value = '#ef4444'
+    reqFeedbackCor.value = 'var(--red)'
     reqFeedback.value = 'Nome e email são obrigatórios.'
     return
   }
@@ -231,10 +231,10 @@ async function solicitarAcesso() {
   })
   reqCarregando.value = false
   if (error) {
-    reqFeedbackCor.value = '#ef4444'
+    reqFeedbackCor.value = 'var(--red)'
     reqFeedback.value = 'Erro ao enviar. Tente novamente.'
   } else {
-    reqFeedbackCor.value = '#22c55e'
+    reqFeedbackCor.value = 'var(--green)'
     reqFeedback.value = 'Solicitação enviada! Aguarde aprovação do administrador.'
     reqEnviado.value = true
   }
