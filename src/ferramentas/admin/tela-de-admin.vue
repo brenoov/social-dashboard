@@ -1385,6 +1385,17 @@ const esc = (s) => String(s == null ? '' : s)
 // e volta ao banco por clique.
 let _colaboradores = []
 
+// As listas das três gavetas, lidas uma vez por carregamento da tela.
+let _listasDeLotacao = { marca: [], local: [], setor: [] }
+
+// A lotação mora no cadastro de colaborador. `organizacao_id` é o LOCAL: o nome
+// da coluna é histórico, o conteúdo é lugar (Sede Centro, Fábrica Conchal…).
+const CAMPOS_DE_LOTACAO = [
+  { chave: 'marca', rotulo: 'Marca', coluna: 'marca_id' },
+  { chave: 'local', rotulo: 'Local', coluna: 'organizacao_id' },
+  { chave: 'setor', rotulo: 'Setor', coluna: 'setor_id' },
+]
+
 /* ── A FICHA DA PESSOA ───────────────────────────────────────────────────────
  *
  * POR QUE FICHA E NÃO EDIÇÃO NA LINHA: são três campos de lotação por pessoa e
@@ -1413,6 +1424,12 @@ function abrirFichaDaPessoa(p) {
   // passa a valer, e a lista de trás precisa parar de dizer "sem cadastro".
   const refazer = () => { fechar(); loadAdminUsers() }
   _secaoVinculo(corpo, p, refazer)
+
+  // Só passa o colaborador quando o vínculo EXISTE. Com sugestão pendente os
+  // campos ficam travados de propósito: gravar num cadastro que ainda não é
+  // desta pessoa seria escrever na ficha de outra.
+  const v = estadoDoVinculo({ id: p.id, email: p.email }, _colaboradores)
+  _secaoLotacao(corpo, v.estado === 'ligado' ? v.colaborador : null)
 
   fundo.appendChild(caixa)
   document.body.appendChild(fundo)
@@ -1456,6 +1473,58 @@ function _secaoVinculo(alvo, p, aoMudar) {
     sec.appendChild(b)
   }
   alvo.appendChild(sec)
+}
+
+function _secaoLotacao(alvo, colaborador) {
+  const sec = mkEl('div', 'ficha-sec')
+  sec.appendChild(mkEl('div', 'ficha-sec-tit', 'Lotação'))
+
+  if (!colaborador) {
+    // O MOTIVO FICA ESCRITO. Campo travado sem explicação parece defeito da
+    // tela; com o motivo, vira instrução.
+    sec.appendChild(mkEl('div', 'ficha-txt',
+      'Ligue ou crie o cadastro de colaborador acima para poder preencher.'))
+  }
+
+  for (const campo of CAMPOS_DE_LOTACAO) {
+    const linha = mkEl('div', 'ficha-campo')
+    linha.appendChild(mkEl('label', null, campo.rotulo))
+    const sel = mkEl('select')
+    sel.disabled = !colaborador
+    const vazio = document.createElement('option')
+    vazio.value = ''; vazio.textContent = '— não informado —'
+    sel.appendChild(vazio)
+    for (const item of (_listasDeLotacao[campo.chave] || [])) {
+      const o = document.createElement('option')
+      o.value = item.id; o.textContent = item.nome
+      if (colaborador && String(colaborador[campo.coluna]) === String(item.id)) o.selected = true
+      sel.appendChild(o)
+    }
+    // Guardar o valor de partida ANTES de ligar o evento: é para onde o campo
+    // volta se a gravação falhar.
+    sel.dataset.valorAnterior = sel.value
+    if (colaborador) {
+      sel.addEventListener('change', () => _gravarLotacao(sel, colaborador.id, campo.coluna))
+    }
+    linha.appendChild(sel); sec.appendChild(linha)
+  }
+  alvo.appendChild(sec)
+}
+
+async function _gravarLotacao(sel, colaboradorId, coluna) {
+  const antes = sel.dataset.valorAnterior || ''
+  sel.disabled = true
+  const { error } = await sbClient.from('acessos_pessoas')
+    .update({ [coluna]: sel.value || null }).eq('id', colaboradorId)
+  sel.disabled = false
+  if (error) {
+    // Volta ao que era. Campo que PARECE salvo e não salvou é o defeito mais
+    // caro de perceber: ninguém desconfia do que já leu como certo.
+    sel.value = antes
+    adminToast('Não consegui salvar: ' + error.message, false); return
+  }
+  sel.dataset.valorAnterior = sel.value
+  adminToast('Salvo.')
 }
 
 async function _ligarCadastro(botao, colaboradorId, profileId, aoMudar) {
@@ -1723,6 +1792,23 @@ async function loadAdminUsers() {
   const perfis = rp.data || []
   const pessoas = rc.data || []
   _usersCache = perfis // p/ o "duplicar permissões de outro usuário" no editor
+
+  // As três listas da lotação. Vão em paralelo e NÃO travam a lista de pessoas:
+  // se falharem, a tela continua útil e só os campos da ficha ficam vazios.
+  Promise.all([
+    sbClient.from('patrimonio_empresas').select('id,nome').order('nome'),
+    sbClient.from('acessos_organizacoes').select('id,nome').order('nome'),
+    sbClient.from('acessos_setores').select('id,nome').order('nome'),
+  ]).then(([rMarcas, rLocais, rSetores]) => {
+    const err = rMarcas.error || rLocais.error || rSetores.error
+    if (err) {
+      // Select vazio pareceria "não há setores cadastrados" — mentira que faz o
+      // dono achar que precisa cadastrar tudo de novo.
+      adminToast('Não consegui carregar as listas de marca/local/setor: ' + err.message, false)
+      return
+    }
+    _listasDeLotacao = { marca: rMarcas.data || [], local: rLocais.data || [], setor: rSetores.data || [] }
+  })
   // A ficha precisa da lista INTEIRA, inclusive de quem ainda não tem login:
   // é justamente entre esses que mora o cadastro a sugerir.
   _colaboradores = pessoas
@@ -2472,6 +2558,12 @@ Object.assign(window, {
 .tela-admin :deep(.ficha-sec:last-child){border-bottom:none;}
 .tela-admin :deep(.ficha-sec-tit){font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
 .tela-admin :deep(.ficha-txt){font-size:12.5px;line-height:1.5;margin-bottom:10px;overflow-wrap:anywhere;}
+.tela-admin :deep(.ficha-campo){display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
+.tela-admin :deep(.ficha-campo label){font-size:11px;color:var(--muted);}
+/* Fonte 16px no select de propósito: abaixo disso o iOS dá zoom ao focar, e a
+   tela salta na cara de quem está escolhendo. */
+.tela-admin :deep(.ficha-campo select){width:100%;min-height:40px;font-size:16px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);padding:0 10px;}
+.tela-admin :deep(.ficha-campo select:disabled){opacity:.5;cursor:not-allowed;}
 /* A busca não está no brief original — foi preciso desenhar o campo pra
    `_filtrar` ter onde ler o termo. `admin-form-input` já dá o visual padrão
    (width:100%); aqui só limita a largura no desktop. */
