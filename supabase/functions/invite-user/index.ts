@@ -43,6 +43,21 @@ Deno.serve(async (req: Request) => {
       if (!password || password.length < 6) throw new Error('A senha precisa de no mínimo 6 caracteres')
       const { error: pwErr } = await adminClient.auth.admin.updateUserById(resetPasswordUserId, { password })
       if (pwErr) throw pwErr
+
+      // SENHA POSTA POR OUTRA PESSOA É PROVISÓRIA, SEMPRE.
+      //
+      // Quem digitou a senha também sabe entrar na conta. A tela que cobra a
+      // troca já existe (moldura-do-aplicativo.vue, em toda rota, sem botão de
+      // fechar) e já lê esta coluna — só ninguém a marcava aqui. Sem isto, a
+      // senha que o dono manda por mensagem vira a senha definitiva da pessoa.
+      //
+      // A marcação mora AQUI, e não na tela: em duas chamadas separadas, uma
+      // falha entre elas deixaria a senha trocada SEM a cobrança, e o dono
+      // acharia que cobrou.
+      const { error: flagErr } = await adminClient.from('profiles')
+        .update({ precisa_trocar_senha: true }).eq('id', resetPasswordUserId)
+      if (flagErr) throw flagErr
+
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...cors, 'Content-Type': 'application/json' }
       })
