@@ -1488,8 +1488,7 @@ function _secaoVinculo(alvo, p, aoMudar) {
     txt.appendChild(mkEl('b', null, colaborador.nome))
     txt.appendChild(document.createTextNode('. É a mesma pessoa?'))
     sec.appendChild(txt)
-    const b = mkEl('button', 'sr-btn', 'Sim, ligar'); b.type = 'button'
-    b.style.cssText = 'background:var(--accent);color:#fff'
+    const b = mkEl('button', 'btn btn-principal', 'Sim, ligar'); b.type = 'button'
     b.addEventListener('click', () => _ligarCadastro(b, colaborador.id, p.id, aoMudar))
     sec.appendChild(b)
   } else if (situacao === 'ambiguo') {
@@ -1502,8 +1501,7 @@ function _secaoVinculo(alvo, p, aoMudar) {
     txt.textContent = 'Esta pessoa ainda não tem cadastro de colaborador. '
       + 'Sem ele não há onde guardar marca, local e setor.'
     sec.appendChild(txt)
-    const b = mkEl('button', 'sr-btn', 'Criar cadastro'); b.type = 'button'
-    b.style.cssText = 'background:var(--accent);color:#fff'
+    const b = mkEl('button', 'btn btn-principal', 'Criar cadastro'); b.type = 'button'
     b.addEventListener('click', () => _criarCadastro(b, p, aoMudar))
     sec.appendChild(b)
   }
@@ -1540,18 +1538,17 @@ function _secaoSenha(alvo, p) {
   sec.appendChild(inp)
 
   const acoes = mkEl('div'); acoes.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px'
-  const gerar = mkEl('button', 'sr-btn', 'Gerar'); gerar.type = 'button'
+  const gerar = mkEl('button', 'btn', 'Gerar'); gerar.type = 'button'
   gerar.addEventListener('click', () => { inp.value = gerarSenhaForte(14); inp.focus(); inp.select() })
 
-  const copiar = mkEl('button', 'sr-btn', 'Copiar'); copiar.type = 'button'
+  const copiar = mkEl('button', 'btn', 'Copiar'); copiar.type = 'button'
   copiar.addEventListener('click', () => {
     if (!inp.value) { adminToast('Gere uma senha primeiro.', false); return }
     _copiar(inp.value, (ok) => adminToast(
       ok ? 'Senha copiada.' : 'Não consegui copiar — selecione e copie à mão.', ok))
   })
 
-  const salvar = mkEl('button', 'sr-btn', 'Salvar senha'); salvar.type = 'button'
-  salvar.style.cssText = 'background:var(--accent);color:#fff'
+  const salvar = mkEl('button', 'btn btn-principal', 'Salvar senha'); salvar.type = 'button'
   salvar.addEventListener('click', () => _salvarSenha(salvar, inp, p))
 
   acoes.appendChild(gerar); acoes.appendChild(copiar); acoes.appendChild(salvar)
@@ -1817,17 +1814,17 @@ function _construirAcoes(p, u, { isSelf, canEdit }) {
   // A ficha abre clicando no nome da pessoa.
 
   if (isSelf) {
-    const notifBtn = mkEl('button', 'sr-btn usr-acao-btn'); notifBtn.type = 'button'; notifBtn.textContent = 'Minhas notificações'
+    const notifBtn = mkEl('button', 'btn usr-acao-btn'); notifBtn.type = 'button'; notifBtn.textContent = 'Minhas notificações'
     notifBtn.addEventListener('click', () => _abrirMinhasNotificacoes(u))
     acoes.appendChild(notifBtn)
   }
 
   if (!isSelf && canEdit) {
-    const permBtn = mkEl('button', 'sr-btn usr-acao-btn'); permBtn.type = 'button'; permBtn.textContent = 'Permissões'
+    const permBtn = mkEl('button', 'btn usr-acao-btn'); permBtn.type = 'button'; permBtn.textContent = 'Permissões'
     permBtn.addEventListener('click', () => openPermModal(u))
     acoes.appendChild(permBtn)
 
-    const disBtn = mkEl('button', 'sr-btn usr-acao-btn ' + (u.disabled ? '' : 'danger'))
+    const disBtn = mkEl('button', 'btn usr-acao-btn' + (u.disabled ? '' : ' btn-perigo'))
     disBtn.type = 'button'; disBtn.textContent = u.disabled ? 'Ativar' : 'Desativar'
     disBtn.addEventListener('click', async () => {
       await adFetch('profiles?id=eq.' + u.id, { method: 'PATCH', body: JSON.stringify({ disabled: !u.disabled }) })
@@ -1838,7 +1835,7 @@ function _construirAcoes(p, u, { isSelf, canEdit }) {
     // SENSITIVE MUTATION — exclui usuário DE VERDADE (edge function
     // invite-user com {deleteUserId}). Único confirm() do módulo Admin,
     // preservado com a MESMA mensagem/lugar do legado.
-    const delBtn = mkEl('button', 'sr-btn usr-acao-btn danger'); delBtn.type = 'button'; delBtn.textContent = 'Excluir'
+    const delBtn = mkEl('button', 'btn usr-acao-btn btn-perigo'); delBtn.type = 'button'; delBtn.textContent = 'Excluir'
     delBtn.addEventListener('click', async () => {
       if (!confirm(`Excluir definitivamente "${u.name || u.email}"?\n\nRemove o acesso e o perfil. Esta ação NÃO pode ser desfeita.`)) return
       delBtn.disabled = true; delBtn.textContent = 'Excluindo…'
@@ -2066,7 +2063,7 @@ async function loadAdminAccounts() {
     colorPick.addEventListener('input', () => { colorVal.textContent = colorPick.value; av.style.background = colorPick.value })
     colorWrap.appendChild(colorPick); colorWrap.appendChild(colorVal); colorRow.appendChild(colorWrap); card.appendChild(colorRow)
     const actRow = mkEl('div', 'sr'); actRow.style.justifyContent = 'flex-end'; actRow.style.gap = '8px'
-    const saveBtn = mkEl('button', 'sr-btn'); saveBtn.textContent = 'Salvar alterações'; saveBtn.style.cssText = 'background:var(--accent);color:#fff;font-size:12px;padding:7px 16px'
+    const saveBtn = mkEl('button', 'btn btn-principal'); saveBtn.textContent = 'Salvar alterações'
     saveBtn.addEventListener('click', async () => {
       saveBtn.textContent = 'Salvando...'; saveBtn.disabled = true
       const { error } = await sbClient.from('accounts').update({ name: nameInp.value.trim(), username: usrInp.value.trim(), accent_color: colorPick.value }).eq('id', acc.id)

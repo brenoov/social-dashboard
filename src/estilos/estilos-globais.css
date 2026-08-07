@@ -1711,3 +1711,39 @@ img{max-width:100%;}
    que aconteceu na primeira tentativa. O botão some; o comportamento das telas
    antigas continua intacto. */
 .zoomctl{display:none !important;}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BOTÕES — O PADRÃO. Ver PADRAO-DA-CENTRAL.md, item 3.
+
+   Existem TRÊS, e eles cobrem tudo. Nenhuma tela deve escrever `style=` num
+   botão nem inventar um quarto tipo: foi assim que a Central foi ficando com um
+   botão diferente em cada canto, uns com fundo cinza, outros escuros.
+
+     .btn                → comum: borda e fundo transparente. NUNCA cinza.
+     .btn.btn-principal  → a ação que a tela quer. UMA por bloco.
+     .btn.btn-perigo     → apaga, desativa, é difícil de desfazer.
+
+   Altura mínima de 40px em todos: dedo não acerta menos que isso. As cores
+   saem de token, então os dois temas vêm de graça.
+
+   `.sr-btn` é o botão ANTIGO e continua funcionando para não quebrar as telas
+   que já o usam — mas nada novo deve usá-lo: ele tem 11px de fonte, altura
+   livre e vermelho cravado em hex. */
+.btn{
+  font-family:var(--fonte-principal); font-size:13px; font-weight:500;
+  min-height:40px; padding:0 14px; border-radius:var(--radius-md);
+  border:1px solid var(--border); background:transparent; color:var(--text);
+  cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center;
+  justify-content:center; gap:6px; transition:background .15s, border-color .15s;
+}
+.btn:hover{ background:var(--surface2); }
+.btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+.btn.btn-principal{ background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+.btn.btn-principal:hover{ opacity:.9; background:var(--accent); }
+
+/* O perigo é a BORDA e o TEXTO, não um bloco vermelho. Botão vermelho maciço
+   repetido em lista vira ruído e ensina a ignorar — e aí o dia em que importa
+   ninguém lê. */
+.btn.btn-perigo{ color:var(--red); border-color:color-mix(in srgb, var(--red) 40%, var(--surface)); }
+.btn.btn-perigo:hover{ background:color-mix(in srgb, var(--red) 10%, var(--surface)); }
