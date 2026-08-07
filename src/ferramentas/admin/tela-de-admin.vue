@@ -2682,6 +2682,16 @@ Object.assign(window, {
      que abre tocando no nome. No computador, onde sobra largura, continuam na
      linha. */
   .tela-admin :deep(.usr-linha > .usr-acoes){display:none;}
+
+  /* MODAL DE CELULAR OCUPA A TELA, COM MARGEM.
+     Com `max-width:420px` e `max-height:88vh` sobrava uma faixa escura embaixo
+     que no aparelho lê como barra preta, e o conteúdo era cortado bem no fim
+     (a frase da senha sumia no corte).
+     `dvh` e não `vh`: no celular a barra de endereço aparece e some, e `vh` é
+     calculado com ela escondida — a caixa passava do que dá para ver, e o fim
+     ficava embaixo da barra do navegador. */
+  .tela-admin :deep(.ficha-fundo){padding:12px;align-items:flex-start;height:100dvh;}
+  .tela-admin :deep(.ficha-caixa){max-width:none;max-height:calc(100dvh - 24px);}
   /* A ficha é o caminho no celular, então o convite tem de estar visível. */
   .tela-admin :deep(.usr-linha-info::after){content:'tocar para abrir ›';display:block;margin-top:4px;font-size:10.5px;color:var(--accent);}
   /* Topbar compacto no celular: menos padding, logo e e-mail do usuário somem
