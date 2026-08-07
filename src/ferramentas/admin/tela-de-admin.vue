@@ -1406,6 +1406,12 @@ const CAMPOS_DE_LOTACAO = [
  * depende dele. Sem cadastro ligado não existe onde gravar marca, local e setor.
  */
 function abrirFichaDaPessoa(p) {
+  // Uma ficha por vez. Sem isto, dois cliques rápidos empilham dois painéis, e
+  // fechar o de cima revela o de baixo ainda aberto — a pessoa acha que fechou
+  // e não fechou.
+  const jaAberta = document.querySelector('.ficha-fundo')
+  if (jaAberta) jaAberta.remove()
+
   const fundo = mkEl('div', 'ficha-fundo')
   const caixa = mkEl('div', 'ficha-caixa')
   const fechar = () => fundo.remove()
@@ -1610,8 +1616,24 @@ async function _gravarLotacao(sel, colaboradorId, coluna) {
 
 async function _ligarCadastro(botao, colaboradorId, profileId, aoMudar) {
   botao.disabled = true; const antes = botao.textContent; botao.textContent = 'Ligando…'
-  const { error } = await sbClient.from('acessos_pessoas')
-    .update({ profile_id: profileId }).eq('id', colaboradorId)
+  // `.is('profile_id', null)` NÃO É DECORAÇÃO: a lista que decidiu mostrar este
+  // botão foi lida uma vez, e a ficha pode ficar aberta. Há três superadmins;
+  // se outro tiver ligado este mesmo cadastro nesse meio-tempo, um update sem
+  // essa condição sobrescreveria o vínculo dele em silêncio — dando a lotação e
+  // o histórico daquela pessoa para outra. É exatamente o estrago que esta tela
+  // existe para evitar, e a guarda tem de estar no BANCO, não só na tela.
+  //
+  // O `.select('id')` é o que permite saber se alguma linha foi mesmo afetada:
+  // sem ele, zero linhas atualizadas volta como sucesso.
+  const { data, error } = await sbClient.from('acessos_pessoas')
+    .update({ profile_id: profileId })
+    .eq('id', colaboradorId).is('profile_id', null).select('id')
+  if (!error && (!data || !data.length)) {
+    botao.disabled = false; botao.textContent = antes
+    adminToast('Este cadastro já foi ligado a outro login enquanto esta ficha estava aberta. '
+      + 'Feche e abra de novo para ver como está agora.', false)
+    return
+  }
   if (error) {
     // Falha não pode passar por sucesso: o dono acharia que ligou e seguiria
     // preenchendo a lotação num cadastro que continua solto.
@@ -1873,22 +1895,28 @@ async function loadAdminUsers() {
   const pessoas = rc.data || []
   _usersCache = perfis // p/ o "duplicar permissões de outro usuário" no editor
 
-  // As três listas da lotação. Vão em paralelo e NÃO travam a lista de pessoas:
-  // se falharem, a tela continua útil e só os campos da ficha ficam vazios.
-  Promise.all([
+  // AS TRÊS LISTAS SÃO ESPERADAS, e não carregadas soltas em segundo plano.
+  //
+  // A primeira versão usava `.then()` sem esperar, para não atrasar a lista de
+  // pessoas. Mas a lista já fica clicável antes disso resolver: quem abrisse a
+  // ficha de alguém JÁ LOTADO nessa janela veria os três campos em "— não
+  // informado —", porque o select é montado uma vez com a lista ainda vazia.
+  // Ou seja, a tela diria "não tem" para quem tem — que é exatamente a mentira
+  // que esta etapa existe para consertar (o caso da Raíssa). São três consultas
+  // pequenas em paralelo; o atraso não se compara ao estrago.
+  const [rMarcas, rLocais, rSetores] = await Promise.all([
     sbClient.from('patrimonio_empresas').select('id,nome').order('nome'),
     sbClient.from('acessos_organizacoes').select('id,nome').order('nome'),
     sbClient.from('acessos_setores').select('id,nome').order('nome'),
-  ]).then(([rMarcas, rLocais, rSetores]) => {
-    const err = rMarcas.error || rLocais.error || rSetores.error
-    if (err) {
-      // Select vazio pareceria "não há setores cadastrados" — mentira que faz o
-      // dono achar que precisa cadastrar tudo de novo.
-      adminToast('Não consegui carregar as listas de marca/local/setor: ' + err.message, false)
-      return
-    }
+  ])
+  const errListas = rMarcas.error || rLocais.error || rSetores.error
+  if (errListas) {
+    // Select vazio pareceria "não há setores cadastrados" — mentira que faz o
+    // dono achar que precisa cadastrar tudo de novo.
+    adminToast('Não consegui carregar as listas de marca/local/setor: ' + errListas.message, false)
+  } else {
     _listasDeLotacao = { marca: rMarcas.data || [], local: rLocais.data || [], setor: rSetores.data || [] }
-  })
+  }
   // A ficha precisa da lista INTEIRA, inclusive de quem ainda não tem login:
   // é justamente entre esses que mora o cadastro a sugerir.
   _colaboradores = pessoas
