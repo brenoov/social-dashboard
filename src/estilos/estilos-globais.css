@@ -23,6 +23,10 @@
        Trafego isso e a diferenca entre um botao que voce apertou e uma campanha
        que o robo esta mexendo. Toda ferramenta com automacao usa esta. */
     --roxo:#7c3aed;
+    /* COR DE IDENTIDADE DO MÓDULO. Cada ferramenta PODE ter a sua (decisão do
+       dono), desde que seja token e responda ao tema. Quem não define, herda o
+       azul do sistema — que é o certo para a maioria. Ver PADRAO-DA-CENTRAL.md. */
+    --modulo:var(--accent);
     --radius-sm:3px;--radius-md:6px;--radius-lg:12px;--radius-xl:18px;
     --shadow-sm:0 1px 3px rgba(0,0,0,.07);
     --shadow-md:0 4px 16px rgba(0,0,0,.09);
@@ -48,6 +52,7 @@
     /* Medido: com o roxo do tema claro sobre fundo escuro o contraste cai; este
        tom fecha 7,20 no selo e 6,88 em bloco cheio. */
     --roxo:#a78bfa;
+    --modulo:var(--accent);
     --shadow-sm:0 1px 3px rgba(0,0,0,.3);
     --shadow-md:0 4px 16px rgba(0,0,0,.4);
     --shadow-lg:0 8px 32px rgba(0,0,0,.5);
@@ -88,7 +93,14 @@
     --fonte-dados:'Oswald',sans-serif;
     --fonte-marca:'Oswald',sans-serif;
   }
-  .wrapper{max-width:none;width:100%;margin:0;padding:16px 28px;box-sizing:border-box;position:relative;z-index:1;}
+    /* ACESSOS tem identidade propria (verde-azulado), decisao do dono. O tom claro
+     foi ESCURECIDO de #0d9488 para #0f766e: o anterior, com texto branco em
+     cima, dava 3,74 de contraste — abaixo do minimo de 4,5. As abas e os botoes
+     da tela ja reprovavam, e manter seria preservar o defeito junto com a cor. */
+  .tela-acessos{ --modulo:#0f766e; }
+  [data-theme="dark"] .tela-acessos{ --modulo:#2dd4bf; }
+
+.wrapper{max-width:none;width:100%;margin:0;padding:16px 28px;box-sizing:border-box;position:relative;z-index:1;}
 
   /* HEADER */
   header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:16px;padding-bottom:0;}

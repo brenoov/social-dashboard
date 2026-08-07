@@ -66,6 +66,21 @@ com automação usa esta cor — e nada mais usa.
 `.selo` mais `.selo-ok` · `.selo-atencao` · `.selo-erro` · `.selo-info` ·
 `.selo-robo` · `.selo-neutro`.
 
+**Cada módulo PODE ter uma cor de identidade** — mas como token, nunca hex:
+
+```css
+/* em estilos-globais.css, junto dos outros tokens */
+.tela-minha-ferramenta        { --modulo:#0f766e; }
+[data-theme="dark"] .tela-minha-ferramenta { --modulo:#2dd4bf; }
+```
+
+Quem não define herda `--accent`, que é o certo para a maioria. Dentro da tela,
+use sempre `var(--modulo)` para a cor de ação — nunca o hex.
+
+> **O estrago:** a tela de Acessos usava `#0d9488` cravado, e com texto branco em
+> cima isso dá **3,74 de contraste** — abaixo do mínimo. As abas e os botões dela
+> já reprovavam, e ninguém tinha percebido porque a cor nunca foi medida.
+
 **A única exceção ao "só token": cor de marca de terceiro.** O verde do Zoho, o
 azul da Microsoft, o cinza da Apple — elas identificam o serviço de fora, e
 trocar por `--green`/`--accent` faria logotipo virar estado do nosso sistema.
