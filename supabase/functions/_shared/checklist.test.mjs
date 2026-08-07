@@ -6,6 +6,7 @@ import {
   itensDaFicha, hodometroAceito, problemasDaFicha,
   quemFaltaHoje, resumoDaCobranca, precisaDeChecklist,
   problemasDoItemDeChecklist,
+  telefoneDaCobranca, problemasAbertosHoje,
 } from './checklist.js'
 
 // Padrão do banco: semanal na sexta, mensal na 1ª quarta-feira.
@@ -413,4 +414,85 @@ test('nome repetido não passa, e a mensagem diz por quê', () => {
 test('editar o próprio item sem trocar o nome passa', () => {
   assert.deepEqual(problemasDoItemDeChecklist({
     item: 'Faróis', cadencia: 'diario', existentes: EXISTENTES, idAtual: 'a' }), [])
+})
+
+/* ── O telefone da cobrança (V2 do quadro D16) ───────────────────────────── */
+
+test('telefoneDaCobranca prefere o corporativo, e cai pro pessoal se faltar', () => {
+  assert.equal(telefoneDaCobranca({ numero_corporativo: '19999998888', numero_pessoal: '19777776666' }),
+    '19999998888')
+  assert.equal(telefoneDaCobranca({ numero_corporativo: '', numero_pessoal: '19777776666' }), '19777776666')
+})
+
+test('telefoneDaCobranca devolve null — nunca string vazia — quando não há nenhum', () => {
+  // null, não '': é o que faz linkDoWhatsapp()/porQueNaoDaLink() tratarem
+  // "sem telefone" do jeito que já tratam em qualquer outro lugar do app.
+  assert.equal(telefoneDaCobranca({ numero_corporativo: '', numero_pessoal: '' }), null)
+  assert.equal(telefoneDaCobranca({}), null)
+  assert.equal(telefoneDaCobranca(null), null)
+  assert.equal(telefoneDaCobranca(undefined), null)
+})
+
+/* ── Os problemas em aberto, juntos (pedido do dono) ─────────────────────── */
+
+const VEICULOS_PROB = [
+  { id: 'v1', nome: 'VOLVO XC60' },
+  { id: 'v2', nome: 'FIAT PUNTO' },
+]
+const FICHAS_HOJE = [
+  { id: 'f1', veiculo_id: 'v1', feita_em: '2026-08-07' },
+  { id: 'f2', veiculo_id: 'v2', feita_em: '2026-08-07' },
+]
+
+test('só os itens "Problema" das fichas de HOJE entram, com o nome do carro', () => {
+  const respostas = [
+    { checklist_id: 'f1', item_texto: 'Faróis', estado: 'nao_ok', observacao: 'Farol direito queimado' },
+    { checklist_id: 'f1', item_texto: 'Buzina', estado: 'ok', observacao: null },
+    { checklist_id: 'f2', item_texto: 'Pneus', estado: 'nao_ok', observacao: null },
+  ]
+  const p = problemasAbertosHoje({ fichasDeHoje: FICHAS_HOJE, respostas, veiculos: VEICULOS_PROB })
+  assert.equal(p.length, 2)
+  assert.equal(p.some((x) => x.item === 'Buzina'), false)
+  const volvo = p.find((x) => x.veiculoNome === 'VOLVO XC60')
+  assert.equal(volvo.item, 'Faróis')
+  assert.equal(volvo.observacao, 'Farol direito queimado')
+})
+
+test('problema de uma ficha que não é de hoje não entra', () => {
+  // A resposta existe (viria de um `respostas` que trouxesse mais que o dia),
+  // mas o checklist_id dela não está em `fichasDeHoje` — não é hoje, não conta.
+  const respostas = [
+    { checklist_id: 'de-ontem', item_texto: 'Faróis', estado: 'nao_ok', observacao: null },
+  ]
+  const p = problemasAbertosHoje({ fichasDeHoje: FICHAS_HOJE, respostas, veiculos: VEICULOS_PROB })
+  assert.deepEqual(p, [])
+})
+
+test('sem observação escrita, o campo vem vazio — nunca null — pra tela não ter que tratar os dois', () => {
+  const respostas = [{ checklist_id: 'f1', item_texto: 'Faróis', estado: 'nao_ok', observacao: null }]
+  const p = problemasAbertosHoje({ fichasDeHoje: FICHAS_HOJE, respostas, veiculos: VEICULOS_PROB })
+  assert.equal(p[0].observacao, '')
+})
+
+test('nenhum problema hoje devolve lista vazia, não erro', () => {
+  const respostas = [{ checklist_id: 'f1', item_texto: 'Faróis', estado: 'ok', observacao: null }]
+  assert.deepEqual(problemasAbertosHoje({ fichasDeHoje: FICHAS_HOJE, respostas, veiculos: VEICULOS_PROB }), [])
+})
+
+test('carro sumido do cadastro não quebra a lista de problemas', () => {
+  const fichas = [{ id: 'f9', veiculo_id: 'sumiu', feita_em: '2026-08-07' }]
+  const respostas = [{ checklist_id: 'f9', item_texto: 'Faróis', estado: 'nao_ok', observacao: null }]
+  const p = problemasAbertosHoje({ fichasDeHoje: fichas, respostas, veiculos: VEICULOS_PROB })
+  assert.equal(p[0].veiculoNome, 'Veículo removido')
+})
+
+test('a ordem é por nome do carro, depois pelo item', () => {
+  const respostas = [
+    { checklist_id: 'f1', item_texto: 'Z item', estado: 'nao_ok', observacao: null },
+    { checklist_id: 'f2', item_texto: 'A item', estado: 'nao_ok', observacao: null },
+  ]
+  const p = problemasAbertosHoje({ fichasDeHoje: FICHAS_HOJE, respostas, veiculos: VEICULOS_PROB })
+  // FIAT PUNTO vem antes de VOLVO XC60 alfabeticamente.
+  assert.equal(p[0].veiculoNome, 'FIAT PUNTO')
+  assert.equal(p[1].veiculoNome, 'VOLVO XC60')
 })

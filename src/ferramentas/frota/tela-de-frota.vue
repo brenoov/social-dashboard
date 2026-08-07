@@ -29,7 +29,10 @@ import { revisoesDoVeiculo, resumoDeRevisoes, problemasDoItem, avisoAoDesativar 
 import { linkDoWhatsapp, telefoneLegivel, porQueNaoDaLink } from '../../compartilhado/whatsapp.js'
 import PainelDeChecklist from './painel-de-checklist.vue'
 import EditorDeChecklist from './editor-de-checklist.vue'
-import { quemFaltaHoje, resumoDaCobranca, precisaDeChecklist } from '../../../supabase/functions/_shared/checklist.js'
+import {
+  quemFaltaHoje, resumoDaCobranca, precisaDeChecklist,
+  telefoneDaCobranca, problemasAbertosHoje,
+} from '../../../supabase/functions/_shared/checklist.js'
 import { bensLivresParaFrota, patchDoBem } from './bens-para-veiculo.js'
 
 const router = useRouter()
@@ -99,6 +102,68 @@ const cobranca = computed(() => quemFaltaHoje({
   veiculos: veiculos.value, fichasDeHoje: fichasDeHoje.value, pessoas: pessoas.value,
   usos: usos.value, hoje: hoje.value }))
 
+// O QUE foi marcado nas fichas de hoje (pedido do dono: o quadro dizia QUEM
+// fez, mas não deixava ver O QUE). Só de HOJE — decisão dele, sem navegação
+// por data passada. `falhaRespostas` distingue "não tinha nenhum item" de
+// "não consegui carregar": sem essa distinção uma falha de rede virava,
+// silenciosamente, "ficha vazia", que é dado inventado.
+const respostasDeHoje = ref([])
+const falhaRespostas = ref(false)
+
+// Os "Problema" de todos os carros, juntos — pra não abrir carro por carro.
+const problemasAbertos = computed(() => problemasAbertosHoje({
+  fichasDeHoje: fichasDeHoje.value, respostas: respostasDeHoje.value, veiculos: veiculos.value }))
+
+// O detalhe de uma ficha de hoje, aberto ao clicar num carro já feito.
+const fichaDetalhe = ref(null)   // { veiculo, ficha } | null
+const respostasDoDetalhe = computed(() => {
+  if (!fichaDetalhe.value) return []
+  return respostasDeHoje.value
+    .filter((r) => r.checklist_id === fichaDetalhe.value.ficha.id)
+    .slice()
+    .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
+})
+function abrirDetalheChecklist(c) {
+  const ficha = fichasDeHoje.value.find((f) => f.veiculo_id === c.veiculo.id)
+  if (!ficha) return  // defensivo: card "feito" sempre tem ficha de hoje por trás
+  fichaDetalhe.value = { veiculo: c.veiculo, ficha }
+}
+function fecharDetalheChecklist() { fichaDetalhe.value = null }
+
+const ROTULOS_RESULTADO = { liberado: 'Liberado', com_ressalvas: 'Com ressalvas', nao_liberado: 'Não liberado' }
+const rotuloResultado = (r) => ROTULOS_RESULTADO[r] || r
+const ROTULOS_ESTADO_ITEM = { ok: 'OK', nao_ok: 'Problema', na: 'Não se aplica' }
+const rotuloEstadoItem = (e) => ROTULOS_ESTADO_ITEM[e] || e
+
+// A hora de `criada_em` (timestamptz em UTC) no fuso de quem pergunta —
+// mesmo cuidado de `hoje`: mostrar a hora crua do servidor confundiria quem
+// olha às 20h e vê "23h" na tela.
+function horaBR(iso) {
+  if (!iso) return null
+  return new Date(iso).toLocaleTimeString('pt-BR', {
+    hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
+}
+
+// O link de WhatsApp pra cobrar quem ainda não fez o checklist hoje. A
+// mensagem já leva o carro e o motivo — quem recebe entende sem perguntar.
+function zapDeCobranca(c) {
+  const pessoa = pessoas.value.find((p) => p.id === c.donoId)
+  const tel = telefoneDaCobranca(pessoa)
+  return linkDoWhatsapp(tel, `Olá${c.dono ? ', ' + c.dono : ''}! Falta fazer o checklist de hoje `
+    + `do ${c.veiculo.nome} (${c.veiculo.placa}).`)
+}
+// Por que o botão não aparece — nunca some em silêncio (pedido do dono: só
+// 1 das 7 pessoas com carro tem telefone cadastrado hoje). Reaproveita
+// porQueNaoDaLink() pro caso raro de número mal formatado; escreve a mensagem
+// própria só pro caso comum, que é a ausência do telefone.
+function porQueSemZapDeCobranca(c) {
+  const pessoa = pessoas.value.find((p) => p.id === c.donoId)
+  const tel = telefoneDaCobranca(pessoa)
+  if (tel) return porQueNaoDaLink(tel)
+  return (c.dono ? `${c.dono} não tem telefone cadastrado.` : 'Não há telefone cadastrado para o responsável.')
+    + ' Sem telefone não dá pra chamar no WhatsApp — complete o cadastro em Colaboradores e Acessos.'
+}
+
 function voltar() { router.push({ name: 'gestao-interna' }) }
 
 async function carregar() {
@@ -128,7 +193,12 @@ async function carregar() {
     // tela (último KM, último tanque).
     sbClient.from('frota_uso').select('*').not('volta_em', 'is', null)
       .order('saida_em', { ascending: false }).limit(400),
-    sbClient.from('acessos_pessoas').select('id,nome,email_corporativo').order('nome'),
+    // numero_corporativo/numero_pessoal entram pelo botão de WhatsApp da
+    // cobrança (V2 do quadro D16) — telefoneDaCobranca() escolhe qual dos dois
+    // usar. Sem trazer as colunas aqui, a decisão sempre veria "sem telefone",
+    // mesmo pra quem tem o número cadastrado.
+    sbClient.from('acessos_pessoas')
+      .select('id,nome,email_corporativo,numero_corporativo,numero_pessoal').order('nome'),
     // A agenda de reservas: quem vê a Frota vê a agenda inteira. Saber que o
     // carro está reservado é o que evita o conflito de viagens — esconder isso
     // de quem dirige recriaria no app o problema que o papel tem.
@@ -176,6 +246,25 @@ async function carregar() {
   itensDeChecklist.value = ci && !ci.error ? (ci.data || []) : []
   configDeChecklist.value = cc && !cc.error && cc.data?.[0] ? cc.data[0] : configDeChecklist.value
   fichas.value = cf && !cf.error ? (cf.data || []) : []
+
+  // As respostas das fichas de HOJE, só (pedido do dono: só as de hoje, sem
+  // navegação por data passada). Um segundo passo, fora do Promise.all de
+  // cima, porque precisa saber quais fichas SÃO de hoje antes de pedir as
+  // respostas delas — e isso só se sabe depois de `fichas.value` estar
+  // pronto. Sem ficha nenhuma hoje, nem consulta: não há o que buscar.
+  const idsDeHoje = fichas.value.filter((f) => f.feita_em === hoje.value).map((f) => f.id)
+  if (idsDeHoje.length) {
+    const rd = await sbClient.from('frota_checklist_respostas')
+      .select('*').in('checklist_id', idsDeHoje).order('ordem')
+    // Falhou? A lista fica vazia, mas `falhaRespostas` avisa a tela — sem essa
+    // marca, "vazio por falha" e "vazio porque não tinha item" ficam iguais,
+    // e a tela mentiria dizendo "nenhum problema" quando na verdade não sabe.
+    falhaRespostas.value = !!rd.error
+    respostasDeHoje.value = rd.error ? [] : (rd.data || [])
+  } else {
+    falhaRespostas.value = false
+    respostasDeHoje.value = []
+  }
   carregando.value = false
 }
 
@@ -1104,14 +1193,57 @@ onMounted(async () => {
 
       <h2 class="fr-secao">Checklist de hoje</h2>
       <p class="fr-aviso">{{ resumoDaCobranca(cobranca, hoje) }}</p>
-      <ul class="fr-cobranca">
-        <li v-for="c in cobranca" :key="c.veiculo.id" :class="{ pendente: !c.fez }">
-          <strong>{{ c.veiculo.nome }}</strong>
-          <span v-if="c.dono"> · {{ c.dono }}</span>
-          <span v-else> · dono saiu do cadastro</span>
-          <span class="fr-cobranca-selo">{{ c.fez ? 'feito' : 'falta' }}</span>
-        </li>
-      </ul>
+      <!-- Em cards (pedido do dono), não em lista de linhas. Quem já fez abre
+           o detalhe pra ver O QUE foi marcado — o quadro antigo só dizia QUEM
+           fez, e o dono apontou que isso não dava pra ler. Quem falta ganha um
+           jeito de cobrar na hora. -->
+      <div class="fr-lista">
+        <div v-for="c in cobranca" :key="c.veiculo.id" class="fr-card fr-card-cobranca" :class="{ pendente: !c.fez }">
+          <div class="fr-card-topo">
+            <div class="fr-card-ident">
+              <span class="fr-card-nome">{{ c.veiculo.nome }}</span>
+              <span class="fr-placa">{{ c.dono || 'dono saiu do cadastro' }}</span>
+            </div>
+            <span class="fr-cobranca-selo" :class="{ pendente: !c.fez }">{{ c.fez ? 'feito' : 'falta' }}</span>
+          </div>
+          <!-- Feito → abre o detalhe. Falta com telefone → cobra por WhatsApp.
+               Falta sem telefone → a tela DIZ isso com todas as letras (nunca
+               some em silêncio, senão o dono acha que está tudo certo e nunca
+               descobre por que ninguém recebeu a cobrança). `v-else-if`
+               explícito nos três, no mesmo padrão que o resto do arquivo usa. -->
+          <div class="fr-acoes" v-if="c.fez">
+            <button class="fr-btn" @click="abrirDetalheChecklist(c)">Ver o que foi marcado</button>
+          </div>
+          <div class="fr-acoes" v-else-if="zapDeCobranca(c)">
+            <a class="fr-btn fr-zap" :href="zapDeCobranca(c)" target="_blank" rel="noopener"
+               :title="'Cobrar ' + (c.dono || 'o responsável') + ' no WhatsApp'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.47 14.38c-.3-.15-1.74-.86-2-.96-.27-.1-.47-.15-.66.15-.2.29-.76.95-.93 1.15-.17.2-.34.22-.63.07-.3-.15-1.25-.46-2.38-1.47-.88-.78-1.47-1.75-1.64-2.05-.17-.29-.02-.45.13-.6.13-.13.3-.34.44-.51.15-.17.2-.29.3-.49.1-.2.05-.37-.02-.51-.08-.15-.66-1.59-.9-2.18-.24-.57-.48-.5-.66-.51h-.57c-.2 0-.51.07-.78.37-.27.29-1.02 1-1.02 2.43s1.05 2.82 1.2 3.02c.15.2 2.06 3.14 4.99 4.4.7.3 1.24.48 1.66.62.7.22 1.33.19 1.83.12.56-.08 1.74-.71 1.98-1.4.24-.68.24-1.27.17-1.39-.07-.12-.27-.2-.56-.34M12 2a10 10 0 0 0-8.6 15.1L2 22l5.05-1.32A10 10 0 1 0 12 2"/></svg>
+              Cobrar no WhatsApp
+            </a>
+          </div>
+          <p class="fr-ajuda fr-cobranca-sem-tel" v-else>{{ porQueSemZapDeCobranca(c) }}</p>
+        </div>
+      </div>
+
+      <h2 class="fr-secao">Problemas em aberto hoje</h2>
+      <p class="fr-erro" v-if="falhaRespostas">
+        Não consegui carregar as respostas de hoje, então não dá pra saber se algum item ficou
+        marcado como problema. Recarregue a página; se continuar assim, avise quem administra a Frota.
+      </p>
+      <p class="fr-aviso" v-else-if="!problemasAbertos.length">
+        Nenhum item marcado como problema nas fichas de hoje.
+      </p>
+      <div class="fr-lista" v-else>
+        <div v-for="(pr, i) in problemasAbertos" :key="i" class="fr-card ruimzao">
+          <div class="fr-card-topo">
+            <div class="fr-card-ident">
+              <span class="fr-card-nome">{{ pr.veiculoNome }}</span>
+              <span class="fr-placa">{{ pr.item }}</span>
+            </div>
+          </div>
+          <p class="fr-pedido-motivo">{{ pr.observacao || 'Sem observação escrita para este item.' }}</p>
+        </div>
+      </div>
 
       <div class="fr-lista">
         <div v-for="l in linhas" :key="l.veiculo.id" class="fr-card" :class="{ rua: l.naRua, parado: !l.disponivel && !l.naRua }">
@@ -1447,6 +1579,72 @@ onMounted(async () => {
       </div>
     </div>
 
+    <!-- O QUE FOI MARCADO — o detalhe de UMA ficha de hoje (pedido do dono).
+         Só de hoje: sem navegação por data passada, decisão dele. -->
+    <div class="fr-ficha-fundo" v-if="fichaDetalhe" @click.self="fecharDetalheChecklist">
+      <div class="fr-ficha" role="dialog">
+        <div class="fr-ficha-topo">
+          <span class="fr-ficha-titulo">
+            Checklist de hoje · {{ fichaDetalhe.veiculo.nome }} · {{ fichaDetalhe.veiculo.placa }}
+          </span>
+          <button class="fr-fechar" @click="fecharDetalheChecklist" aria-label="Fechar">✕</button>
+        </div>
+        <div class="fr-ficha-corpo">
+          <div class="fr-dados">
+            <div class="fr-dado">
+              <span class="fr-dado-lab">Quilometragem</span>
+              <span class="fr-dado-val">{{ fichaDetalhe.ficha.hodometro.toLocaleString('pt-BR') }} km</span>
+            </div>
+            <div class="fr-dado">
+              <span class="fr-dado-lab">Resultado</span>
+              <span class="fr-dado-val" :class="'fr-resultado-' + fichaDetalhe.ficha.resultado">
+                {{ rotuloResultado(fichaDetalhe.ficha.resultado) }}
+              </span>
+            </div>
+            <div class="fr-dado">
+              <span class="fr-dado-lab">Quem preencheu</span>
+              <span class="fr-dado-val">{{ fichaDetalhe.ficha.pessoa_nome || '—' }}</span>
+            </div>
+            <div class="fr-dado">
+              <span class="fr-dado-lab">A que horas</span>
+              <span class="fr-dado-val">{{ horaBR(fichaDetalhe.ficha.criada_em) || '—' }}</span>
+            </div>
+          </div>
+
+          <p class="fr-ajuda" v-if="fichaDetalhe.ficha.hodometro_justificativa">
+            Sobre a quilometragem: {{ fichaDetalhe.ficha.hodometro_justificativa }}
+          </p>
+          <p class="fr-ajuda" v-if="fichaDetalhe.ficha.anomalias">
+            Anomalias escritas: {{ fichaDetalhe.ficha.anomalias }}
+          </p>
+
+          <h3 class="fr-grupo">O que foi conferido</h3>
+          <!-- `falhaRespostas` distingue "não consegui carregar" de "não tinha
+               item nenhum" — uma ficha sem resposta carregada NUNCA pode virar
+               "vazio" na tela, senão o dado inventado parece dado real. -->
+          <p class="fr-erro" v-if="falhaRespostas">
+            Não consegui carregar as respostas deste checklist. Recarregue a página; se continuar
+            assim, avise quem administra a Frota.
+          </p>
+          <p class="fr-ajuda" v-else-if="!respostasDoDetalhe.length">
+            Esta ficha não tem nenhum item registrado — isso não deveria acontecer. Avise quem
+            administra a Frota.
+          </p>
+          <ul class="fr-itens" v-else>
+            <li v-for="r in respostasDoDetalhe" :key="r.id" :class="'estado-' + r.estado">
+              <span class="fr-item-nome">{{ r.item_texto }}</span>
+              <span class="fr-item-txt">
+                {{ rotuloEstadoItem(r.estado) }}<template v-if="r.observacao"> · {{ r.observacao }}</template>
+              </span>
+            </li>
+          </ul>
+        </div>
+        <div class="fr-ficha-rodape">
+          <button class="fr-btn" @click="fecharDetalheChecklist">Fechar</button>
+        </div>
+      </div>
+    </div>
+
     <!-- FILA DE APROVAÇÃO, na área de Gestão. Só aparece pra quem aprova. -->
     <template v-if="area === 'gestao' && podeAprovar && filaDeAprovacao.length">
       <h2 class="fr-secao">Aguardando sua decisão ({{ filaDeAprovacao.length }})</h2>
@@ -1671,16 +1869,20 @@ onMounted(async () => {
    flex:1 que o deixa ocupar a linha inteira. */
 .tela-frota .fr-novo{padding:0 14px;margin:6px 0 14px;}
 .tela-frota .fr-novo .fr-btn{width:100%;}
-/* O quadro de cobrança (D16): quem tem carro fixo e ainda não conferiu hoje.
-   `flex-wrap` no `li` é o que evita estourar a tela no celular — nome do
-   carro comprido, dono e selo cabem em duas linhas em vez de rolar de lado. */
-.tela-frota .fr-cobranca{list-style:none;padding:0 14px;margin:0 0 20px;}
-.tela-frota .fr-cobranca li{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--border);}
+/* O quadro de cobrança (D16), em cards (pedido do dono, V2): cada carro é um
+   .fr-card do mesmo tipo usado no resto da tela, então herda de graça a
+   grade responsiva do `.fr-lista` (uma coluna no celular, várias no
+   computador) — nada de CSS novo de layout só pra este quadro. */
+.tela-frota .fr-card-cobranca{border-left-color:var(--green,#16a34a);}
+.tela-frota .fr-card-cobranca.pendente{border-left-color:var(--red,#c0392b);}
 /* Cor pelo token, nunca chumbada: o app tem modo escuro, e verde-claro fixo
    sobre fundo preto é ilegível. Mesmo motivo que fez o painel do motorista
    inteiro precisar ser refeito. */
-.tela-frota .fr-cobranca-selo{margin-left:auto;font-size:.8rem;font-weight:600;padding:2px 10px;border-radius:999px;background:var(--surface2);color:var(--green);}
-.tela-frota .fr-cobranca li.pendente .fr-cobranca-selo{color:var(--red);}
+.tela-frota .fr-cobranca-selo{font-size:.8rem;font-weight:600;padding:2px 10px;border-radius:999px;background:var(--surface2);color:var(--green);white-space:nowrap;}
+.tela-frota .fr-cobranca-selo.pendente{color:var(--red);}
+/* Por que o botão de WhatsApp não apareceu — nunca em silêncio. Mesma cor de
+   atenção que os outros avisos "algo pede providência" desta tela. */
+.tela-frota .fr-cobranca-sem-tel{margin-top:14px;padding:0;}
 /* Os carros de outras pessoas: lista simples, sem cartão e sem botão. Dar
    cartão a eles daria a entender que há algo a fazer, e não há. */
 .tela-frota .fr-outros{margin:0;padding:0 14px 40px;list-style:none;display:flex;flex-direction:column;gap:7px;font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);}
@@ -1700,6 +1902,16 @@ onMounted(async () => {
 .tela-frota .fr-itens li.vencida{border-left-color:var(--red,#c0392b);}
 .tela-frota .fr-itens li.perto{border-left-color:var(--orange,#d97706);}
 .tela-frota .fr-itens li.em-dia{border-left-color:var(--green,#16a34a);}
+/* O mesmo código de cor, agora pras respostas do checklist (detalhe da
+   ficha, V2): OK verde, Problema vermelho, Não se aplica neutro. */
+.tela-frota .fr-itens li.estado-ok{border-left-color:var(--green,#16a34a);}
+.tela-frota .fr-itens li.estado-nao_ok{border-left-color:var(--red,#c0392b);}
+.tela-frota .fr-itens li.estado-na{border-left-color:var(--muted);}
+/* O resultado da ficha (liberado/com ressalvas/não liberado), mesmo esquema
+   de cor do restante da tela. */
+.tela-frota .fr-resultado-liberado{color:var(--green,#16a34a);}
+.tela-frota .fr-resultado-com_ressalvas{color:var(--orange,#d97706);}
+.tela-frota .fr-resultado-nao_liberado{color:var(--red,#c0392b);}
 .tela-frota .fr-item-nome{color:var(--text);font-weight:600;}
 .tela-frota .fr-item-txt{font-variant-numeric:tabular-nums;}
 .tela-frota .fr-item-km{font-family:var(--fonte-dados);font-size:12.5px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;}
