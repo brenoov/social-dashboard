@@ -55,7 +55,10 @@
     </div>
 
     <!-- Modal Trocar senha (o próprio usuário digita a nova senha) -->
-    <div v-if="trocarSenhaAberto" class="perfil-modal-overlay" @click.self="fecharTrocarSenha">
+    <!-- Os modais da MOLDURA também travam a rolagem do fundo. Eles ficaram de
+         fora da primeira rodada, que cobriu as 9 telas — mas são os que mais
+         aparecem, porque estão em cima de qualquer tela. -->
+    <div v-if="trocarSenhaAberto" class="perfil-modal-overlay" v-trava-rolagem @click.self="fecharTrocarSenha">
       <div class="perfil-modal">
         <div class="perfil-modal-titulo">Trocar senha</div>
         <input class="perfil-modal-input" type="password" v-model="novaSenha" placeholder="Nova senha (mín. 6 caracteres)" autocomplete="new-password">
@@ -81,7 +84,7 @@
       <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
     </button>
 
-    <div class="ajustes-fundo" v-if="ajustesAbertos" @click.self="ajustesAbertos = false">
+    <div class="ajustes-fundo" v-if="ajustesAbertos" v-trava-rolagem @click.self="ajustesAbertos = false">
       <div class="ajustes-caixa">
         <div class="ajustes-linha">
           <span class="ajustes-rot">Tema</span>
@@ -132,7 +135,10 @@
          consegue entrar. Marcar isso no cadastro sem cobrar seria promessa não
          cumprida — então a cobrança fica AQUI, na moldura, que está em toda
          rota. Sem botão de fechar de propósito: sair só trocando ou saindo. -->
-    <div v-if="estado.precisa_trocar_senha" class="ts-fundo">
+    <!-- Este é o mais importante dos três: a troca obrigatória de senha não tem
+         como ser dispensada, então deixar o fundo rolar convida a pessoa a
+         tentar usar o app por trás de uma parede. -->
+    <div v-if="estado.precisa_trocar_senha" class="ts-fundo" v-trava-rolagem>
       <div class="ts-caixa">
         <h2>Escolha uma senha sua</h2>
         <p>Esta conta foi criada com uma senha provisória, que alguém digitou e te entregou.

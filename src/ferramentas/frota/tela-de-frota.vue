@@ -158,7 +158,11 @@ function pessoaDoDono(c) {
   return pessoas.value.find((p) => p.id === c.donoId) || null
 }
 function contatoDaLinha(c) {
-  return contatoParaCobranca({ pessoa: pessoaDoDono(c), veiculo: c.veiculo })
+  // `pessoas` decide a AMBIGUIDADE, e sem ela a proteção não vale: a base tem
+  // 3 "Vieira" e 2 "Clara", e um contato escrito só com o sobrenome não
+  // identifica ninguém. Sem a lista, a função concluiria "é o próprio
+  // motorista" e ESCONDERIA o aviso de que o contato é outra pessoa.
+  return contatoParaCobranca({ pessoa: pessoaDoDono(c), veiculo: c.veiculo, pessoas: pessoas.value })
 }
 
 // O link de WhatsApp pra cobrar quem ainda não fez o checklist hoje. A
@@ -221,7 +225,10 @@ function podeCopiarTelefoneNoCadastro(c) {
   // (é lá que o RLS `is_acessos_admin()` também bate) — sem checar aqui, o
   // botão apareceria pra quem administra só a Frota e a gravação falharia
   // sempre, sem dar pra saber por quê antes de clicar.
-  return hasPermission('acessos', 'editar') && podeCopiarTelefoneDoCarro({ pessoa: pessoaDoDono(c), veiculo: c.veiculo })
+  // Mesma razão de contatoDaLinha: sem a base, um sobrenome ambíguo faria a
+  // tela oferecer copiar pro cadastro um telefone que talvez seja de OUTRA
+  // pessoa com o mesmo sobrenome.
+  return hasPermission('acessos', 'editar') && podeCopiarTelefoneDoCarro({ pessoa: pessoaDoDono(c), veiculo: c.veiculo, pessoas: pessoas.value })
 }
 
 async function copiarTelefoneParaCadastro(c) {
