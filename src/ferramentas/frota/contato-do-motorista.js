@@ -24,22 +24,58 @@ function normalizarNome(s) {
     .trim();
 }
 
+/** As palavras que contam pra comparação: sem acento/caixa, e sem as curtas
+ * demais ("de", "da", "e") pra elas nunca decidirem um "bate" sozinhas. */
+function palavrasSignificativas(s) {
+  return normalizarNome(s).split(/\s+/).filter((p) => p.length >= 3);
+}
+
 /**
- * Compara dois nomes de um jeito tolerante: a ficha do carro guarda "Marcus"
- * e o colaborador é "Marcus Vinicius" — comparar a string inteira nunca
- * bateria. Aqui basta uma PALAVRA em comum, de 3 letras ou mais (pra não
- * confundir por causa de "de"/"da"/"e"). Nomes vazios nunca batem — sem essa
- * guarda, dois campos em branco (`''` === `''`) passariam como "é a mesma
- * pessoa".
+ * Compara dois nomes de um jeito tolerante — mas SÓ tolerante de menos pra
+ * mais, nunca de mais pra menos. A ficha do carro guarda "Marcus" e o
+ * colaborador é "Marcus Vinicius" — comparar a string inteira nunca bateria,
+ * então quando um dos dois nomes é UMA palavra só, basta ela aparecer no
+ * outro (é como o campo é preenchido de verdade: um pedaço que já identifica
+ * a pessoa entre quem mexe naquele carro).
+ *
+ * Mas quando OS DOIS nomes têm mais de uma palavra, uma palavra em comum não
+ * basta — a base real tem 3 "Vieira" (Ana, Jeremias, Theo) e 2 "Clara"
+ * (Beduschi, Marques), e a versão antiga desta função dava
+ * `nomesBatem('Ana Vieira', 'Theo Vieira') === true`: duas pessoas
+ * diferentes, casadas só por dividirem o sobrenome. Pra dois nomes de mais
+ * de uma palavra, exige-se que TODAS as palavras do menor apareçam no maior
+ * — "Ana Vieira" só bate com um nome que tenha "ana" E "vieira", nunca só
+ * um dos dois.
+ *
+ * Isto também é a resposta pro caso ambíguo (revisão pediu pra decidir): a
+ * função não conhece um diretório de pessoas, então não tem como saber que
+ * "Vieira" sozinho é ambíguo entre três. O que ela garante é o lado seguro
+ * do erro — quando a comparação é mais fraca que "todas as palavras batem",
+ * ela devolve `false`, e `false` aqui vira `origem: 'carro_outra_pessoa'`
+ * em contatoParaCobranca(): a tela MOSTRA o aviso de "pode não ser quem
+ * dirige" em vez de apagá-lo. Nunca o contrário — falso positivo é que
+ * apagaria o aviso calado, que é o defeito que esta função existe pra
+ * evitar.
+ *
+ * Nomes vazios nunca batem — sem essa guarda, dois campos em branco
+ * (`''` === `''`) passariam como "é a mesma pessoa".
  */
 export function nomesBatem(a, b) {
-  const na = normalizarNome(a);
-  const nb = normalizarNome(b);
-  if (!na || !nb) return false;
-  if (na === nb) return true;
-  const palavrasA = na.split(/\s+/).filter((p) => p.length >= 3);
-  const palavrasB = new Set(nb.split(/\s+/).filter((p) => p.length >= 3));
-  return palavrasA.some((p) => palavrasB.has(p));
+  const palavrasA = palavrasSignificativas(a);
+  const palavrasB = palavrasSignificativas(b);
+  if (!palavrasA.length || !palavrasB.length) return false;
+
+  const [menor, maior] = palavrasA.length <= palavrasB.length ? [palavrasA, palavrasB] : [palavrasB, palavrasA];
+  const maiorSet = new Set(maior);
+
+  // Uma palavra só do lado mais curto: o caso comum (Marcus, Siqueira,
+  // Bárbara, Erick) — basta ela estar no outro nome.
+  if (menor.length === 1) return maiorSet.has(menor[0]);
+
+  // Duas palavras ou mais dos dois lados: TODAS as palavras do menor têm de
+  // estar no maior. Um sobrenome sozinho em comum (só "vieira", só "clara")
+  // não é o bastante.
+  return menor.every((p) => maiorSet.has(p));
 }
 
 /**

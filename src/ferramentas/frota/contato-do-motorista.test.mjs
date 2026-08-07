@@ -13,6 +13,27 @@ test('nomesBatem: par que não bate', () => {
   assert.equal(nomesBatem('Marcus', 'Bárbara Franco'), false)
 })
 
+// Achado da revisão: a base real tem sobrenome repetido — 3 "Vieira" (Ana,
+// Jeremias, Theo) e 2 "Clara" (Beduschi, Marques). A versão antiga desta
+// função batia qualquer par que compartilhasse UMA palavra, então
+// "Ana Vieira" e "Theo Vieira" — duas pessoas diferentes — davam `true`. Isso
+// importa porque um `true` aqui vira `origem: 'carro_mesma_pessoa'` em
+// contatoParaCobranca(), que APAGA o aviso de "pode não ser quem dirige".
+// Com nomes de mais de uma palavra dos dois lados, agora exige-se TODAS as
+// palavras batendo, não só o sobrenome em comum.
+test('nomesBatem: sobrenome repetido NÃO faz pessoas diferentes baterem (3 Vieira, 2 Clara reais)', () => {
+  assert.equal(nomesBatem('Ana Vieira', 'Theo Vieira'), false)
+  assert.equal(nomesBatem('Ana Vieira', 'Jeremias Vieira'), false)
+  assert.equal(nomesBatem('Jeremias Vieira', 'Theo Vieira'), false)
+  assert.equal(nomesBatem('Clara Beduschi', 'Clara Marques'), false)
+})
+
+test('nomesBatem: nome completo igual, ou com uma palavra a mais, continua batendo', () => {
+  assert.equal(nomesBatem('Ana Vieira', 'Ana Vieira'), true)
+  assert.equal(nomesBatem('Ana Vieira', 'Ana Vieira Souza'), true) // nome do meio/sobrenome extra
+  assert.equal(nomesBatem('Clara Beduschi', 'Clara Beduschi'), true)
+})
+
 test('nomesBatem: nome vazio ou ausente nunca bate, mesmo os dois vazios', () => {
   assert.equal(nomesBatem('', ''), false)
   assert.equal(nomesBatem(null, null), false)
@@ -63,6 +84,18 @@ test('contatoParaCobranca: sem pessoa (dono saiu do cadastro), carro com contato
   const veiculo = { contato_nome: 'Bárbara', contato_telefone: '19998086930' }
   assert.deepEqual(contatoParaCobranca({ pessoa: null, veiculo }), {
     telefone: '19998086930', origem: 'carro_outra_pessoa', nomeContato: 'Bárbara',
+  })
+})
+
+test('contatoParaCobranca: contato do carro é o nome completo de OUTRO Vieira — mostra o aviso, não apaga', () => {
+  // O caso que a revisão pegou: se a ficha do carro guardar o nome completo
+  // de uma pessoa ("Ana Vieira") e o motorista registrado for outra pessoa
+  // com o mesmo sobrenome ("Theo Vieira"), o sistema NUNCA pode tratar como
+  // se fosse a mesma pessoa — errar aqui pro lado do aviso é o seguro.
+  const pessoa = { nome: 'Theo Vieira', numero_corporativo: null, numero_pessoal: null }
+  const veiculo = { contato_nome: 'Ana Vieira', contato_telefone: '19999998877' }
+  assert.deepEqual(contatoParaCobranca({ pessoa, veiculo }), {
+    telefone: '19999998877', origem: 'carro_outra_pessoa', nomeContato: 'Ana Vieira',
   })
 })
 
