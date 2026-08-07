@@ -30,6 +30,7 @@ import { linkDoWhatsapp, telefoneLegivel, porQueNaoDaLink } from '../../comparti
 import PainelDeChecklist from './painel-de-checklist.vue'
 import EditorDeChecklist from './editor-de-checklist.vue'
 import { quemFaltaHoje, resumoDaCobranca, precisaDeChecklist } from '../../../supabase/functions/_shared/checklist.js'
+import { bensLivresParaFrota, patchDoBem } from './bens-para-veiculo.js'
 
 const router = useRouter()
 const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
@@ -103,7 +104,7 @@ function voltar() { router.push({ name: 'gestao-interna' }) }
 async function carregar() {
   carregando.value = true
   falha.value = ''
-  const [v, ua, uh, p, q, pl, rv, bn, ci, cc, cf] = await Promise.all([
+  const [v, ua, uh, p, q, pl, rv, bn, ci, cc, cf, catv] = await Promise.all([
     sbClient.from('frota_veiculos').select('*').order('nome'),
     // frota_uso vem em DUAS consultas de propósito, e não numa só com limite.
     //
@@ -134,10 +135,12 @@ async function carregar() {
     sbClient.from('frota_requisicoes').select('*').order('retirada_prevista'),
     sbClient.from('frota_plano_revisao').select('*').order('ordem'),
     sbClient.from('frota_revisoes').select('*'),
-    // Bens do Patrimônio que são veículos — a lista do seletor de ligação na
-    // ficha. Pode falhar sem derrubar nada: quem não tem Patrimônio ainda
-    // gere a frota.
-    sbClient.from('patrimonio_bens').select('id,nome,numero').order('nome').limit(500),
+    // Bens do Patrimônio — a lista do seletor de ligação na ficha (qualquer
+    // categoria, como já era) e, com os campos extras, a matéria-prima pra
+    // "Acrescentar veículo" puxar dados de um bem (F9). Pode falhar sem
+    // derrubar nada: quem não tem Patrimônio ainda gere a frota.
+    sbClient.from('patrimonio_bens')
+      .select('id,nome,numero,categoria_id,marca,valor_centavos').order('nome').limit(500),
     sbClient.from('frota_checklist_itens').select('*').order('ordem'),
     sbClient.from('frota_checklist_config').select('*').limit(1),
     // 120 dias: o bastante pra saber quando foi a última mensal, sem crescer
@@ -145,6 +148,11 @@ async function carregar() {
     sbClient.from('frota_checklist').select('*')
       .gte('feita_em', new Date(Date.now() - 120 * 86400000).toISOString().slice(0, 10))
       .order('feita_em', { ascending: false }),
+    // A categoria "Veículos" do Patrimônio, só pra saber QUAL id filtrar em
+    // bensLivresParaFrota — sem ela o seletor de "puxar de um bem" fica vazio
+    // de propósito, em vez de listar bem de qualquer categoria (cadeira,
+    // notebook…) como se fosse candidato a virar carro.
+    sbClient.from('patrimonio_categorias').select('id,nome').ilike('nome', '%ve%cul%').limit(1),
   ])
   // As duas metades de frota_uso são igualmente obrigatórias: sem as abertas a
   // tela não sabe quem está com cada carro; sem as fechadas ela não sabe o KM.
@@ -162,6 +170,7 @@ async function carregar() {
   plano.value = pl && !pl.error ? (pl.data || []) : []
   revisoes.value = rv && !rv.error ? (rv.data || []) : []
   bensVeiculo.value = bn && !bn.error ? (bn.data || []) : []
+  categoriaVeiculoId.value = catv && !catv.error && catv.data && catv.data[0] ? catv.data[0].id : null
   // Mesmo padrão tolerante a falha: sem o checklist a Frota ainda serve pra
   // pegar e devolver carro.
   itensDeChecklist.value = ci && !ci.error ? (ci.data || []) : []
@@ -665,8 +674,17 @@ const CAMPOS_VEICULO = [
   'bem_id', 'observacao',
 ]
 
-// Os bens do Patrimônio que são veículos — a lista do seletor de ligação.
+// Os bens do Patrimônio (qualquer categoria) — a lista do seletor de ligação.
 const bensVeiculo = ref([])
+// O id da categoria "Veículos", só pra filtrar bensLivres (ver carregar()).
+const categoriaVeiculoId = ref(null)
+
+// Os bens que "Acrescentar veículo" pode oferecer pra puxar dados: só
+// Veículos, e só os que NENHUM carro da frota já aponta — ver bens-para-
+// veiculo.js. Recalcula sozinho quando alguém liga outro bem por aqui, então
+// o bem que acabou de ser usado some da lista pro próximo carro.
+const bensLivres = computed(() =>
+  bensLivresParaFrota(bensVeiculo.value, veiculos.value, categoriaVeiculoId.value))
 
 function abrirVeiculo(v) {
   veiculoAberto.value = v
@@ -681,7 +699,42 @@ function abrirVeiculo(v) {
   novaRevisao.oficina = ''
   novaRevisao.custo = ''
 }
+
+// Abre a MESMA ficha, vazia (F9): antes só existia abrirVeiculo() pra editar
+// um carro que já tem `id` — não havia caminho nenhum pra cadastrar o
+// primeiro. `{ novo: true }` marca o modo pro template (esconde Responsável,
+// Situação e Histórico de manutenção, que não fazem sentido pra um carro que
+// ainda nem foi gravado) e pra salvarVeiculo() (grava por insert, não update).
+function abrirVeiculoNovo() {
+  veiculoAberto.value = { novo: true }
+  errosDoVeiculo.value = []
+  for (const c of CAMPOS_VEICULO) vForm[c] = ''
+  // Decisão do dono: todo carro nasce ativo e sem dono fixo (de rodízio).
+  // Fixado aqui e de novo em salvarVeiculo() — a ficha nem mostra os campos
+  // pra mudar isso na criação, ver template.
+  vForm.situacao = 'ativo'
+  vForm.aluguel = ''
+  vForm.fipe = ''
+  vForm.seguroValor = ''
+  novaRevisao.item = plano.value.length ? plano.value[0].item : ''
+  novaRevisao.km = ''
+  novaRevisao.feita_em = ''
+  novaRevisao.oficina = ''
+  novaRevisao.custo = ''
+}
 function fecharVeiculo() { veiculoAberto.value = null; errosDoVeiculo.value = [] }
+
+// Escolher um bem no seletor de ligação, enquanto cria, também sugere nome,
+// marca, FIPE e código patrimonial pra ficha (patchDoBem só preenche o que
+// ainda está vazio — nunca apaga o que a pessoa já tinha digitado). Editando
+// um carro que já existe, o seletor só liga: reabrir a ficha de um carro
+// pronto não deveria reescrever os dados dele.
+function aoEscolherBem() {
+  if (!veiculoAberto.value || !veiculoAberto.value.novo) return
+  const bem = bensLivres.value.find((b) => b.id === vForm.bem_id)
+  if (!bem) return
+  Object.assign(vForm, patchDoBem(vForm, bem))
+}
 
 // Dinheiro em centavos, sempre — float com centavo vira erro de arredondamento
 // que ninguém acha depois.
@@ -697,6 +750,7 @@ async function salvarVeiculo() {
     errosDoVeiculo.value = ['Nome e placa são obrigatórios — é por eles que o carro é reconhecido.']
     return
   }
+  const criando = !!(veiculoAberto.value && veiculoAberto.value.novo)
   gravando.value = true
   const dados = {}
   for (const c of CAMPOS_VEICULO) dados[c] = vForm[c] === '' ? null : vForm[c]
@@ -706,6 +760,35 @@ async function salvarVeiculo() {
   dados.fipe_centavos = centavosDe(vForm.fipe)
   dados.seguro_valor_centavos = centavosDe(vForm.seguroValor)
   dados.atualizado_em = new Date().toISOString()
+
+  if (criando) {
+    // Decisão do dono, fixada aqui de novo (o template já esconde os campos
+    // pra mudar isso): o carro nasce ativo e sem dono fixo. Forçar os dois
+    // valores no dado gravado — em vez de confiar só no template escondido —
+    // é o que garante a regra mesmo se algum campo escapar por engano.
+    //
+    // É também o que evita a dança de posse (trocarDonoFixo, abaixo): ela
+    // precisa do `id` do veículo pra abrir uma posse nova, e um carro que
+    // ainda não foi gravado não tem id. Sem dono na criação, não há posse pra
+    // abrir — quem quiser dar dono usa a ficha depois, num carro que já
+    // existe, pelo caminho de sempre.
+    dados.situacao = 'ativo'
+    dados.pessoa_id = null
+
+    const { error } = await sbClient.from('frota_veiculos').insert(dados)
+    gravando.value = false
+    if (error) {
+      // Placa é UNIQUE no banco (migration 022): duas pessoas cadastrando o
+      // mesmo carro, ou alguém repetindo sem perceber, batem aqui.
+      errosDoVeiculo.value = [/duplicate|unique/i.test(error.message || '')
+        ? 'Já existe outro veículo com essa placa.'
+        : 'Não consegui gravar. Confira a conexão e tente de novo.']
+      return
+    }
+    fecharVeiculo()
+    carregar()
+    return
+  }
 
   // Trocar o dono fixo NÃO é emprestar (D9c): três casos, cobertos por
   // trocarDonoFixo() em posse.js — carro na mão do dono muda de posse junto;
@@ -1012,6 +1095,13 @@ onMounted(async () => {
          "carregando/falha/sem veículo/motorista" — bastaria estar na aba
          Gestão pra este bloco aparecer, mesmo com a tela ainda carregando. -->
     <template v-else-if="area === 'gestao'">
+      <!-- F9: até aqui, o único jeito de um carro entrar na Frota era o
+           script de importação da planilha — não existia caminho nenhum pela
+           tela. -->
+      <div class="fr-novo" v-if="pode('criar')">
+        <button class="fr-btn primario" @click="abrirVeiculoNovo">+ Acrescentar veículo</button>
+      </div>
+
       <h2 class="fr-secao">Checklist de hoje</h2>
       <p class="fr-aviso">{{ resumoDaCobranca(cobranca, hoje) }}</p>
       <ul class="fr-cobranca">
@@ -1106,10 +1196,16 @@ onMounted(async () => {
     <div class="fr-ficha-fundo" v-if="veiculoAberto" @click.self="fecharVeiculo">
       <div class="fr-ficha larga" role="dialog">
         <div class="fr-ficha-topo">
-          <span class="fr-ficha-titulo">{{ veiculoAberto.nome }} · {{ veiculoAberto.placa }}</span>
+          <span class="fr-ficha-titulo">
+            {{ veiculoAberto.novo ? 'Novo veículo' : (veiculoAberto.nome + ' · ' + veiculoAberto.placa) }}
+          </span>
           <button class="fr-fechar" @click="fecharVeiculo" aria-label="Fechar">✕</button>
         </div>
         <div class="fr-ficha-corpo">
+          <p class="fr-aviso" v-if="veiculoAberto.novo">
+            Este carro entra ativo e sem responsável fixo — um carro de rodízio, que qualquer um
+            pode pegar. Para dar um responsável fixo a ele, abra a ficha de novo depois de gravar.
+          </p>
           <h3 class="fr-grupo">Identificação</h3>
           <div class="fr-dupla">
             <label class="fr-campo"><span class="fr-lab">Nome</span><input v-model="vForm.nome" type="text"></label>
@@ -1121,7 +1217,7 @@ onMounted(async () => {
             <label class="fr-campo"><span class="fr-lab">Renavam</span><input v-model="vForm.renavam" type="text"></label>
             <label class="fr-campo"><span class="fr-lab">Chassi</span><input v-model="vForm.chassi" type="text"></label>
             <label class="fr-campo"><span class="fr-lab">Tipo de óleo</span><input v-model="vForm.tipo_oleo" type="text"></label>
-            <label class="fr-campo">
+            <label class="fr-campo" v-if="!veiculoAberto.novo">
               <span class="fr-lab">Situação</span>
               <select v-model="vForm.situacao">
                 <option value="ativo">Ativo</option>
@@ -1134,7 +1230,7 @@ onMounted(async () => {
 
           <h3 class="fr-grupo">Onde está</h3>
           <div class="fr-dupla">
-            <label class="fr-campo">
+            <label class="fr-campo" v-if="!veiculoAberto.novo">
               <span class="fr-lab">Responsável</span>
               <select v-model="vForm.pessoa_id">
                 <option value="">— ninguém —</option>
@@ -1197,15 +1293,22 @@ onMounted(async () => {
             <label class="fr-campo"><span class="fr-lab">Tag de pedágio</span><input v-model="vForm.tag_pedagio" type="text" placeholder="Sem Parar, número da tag…"></label>
             <label class="fr-campo"><span class="fr-lab">Rastreador</span><input v-model="vForm.rastreador" type="text" placeholder="empresa, identificador…"></label>
             <label class="fr-campo"><span class="fr-lab">Código patrimonial</span><input v-model="vForm.codigo_patrimonial" type="text" placeholder="RBB-007"></label>
-            <label class="fr-campo">
+            <!-- Ao criar, a lista é bensLivres — só Veículos ainda sem carro
+                 ligado (F9). Oferecer um bem já ligado duplicaria o carro.
+                 Some o campo inteiro se não sobrar nenhum, em vez de mostrar
+                 um seletor vazio sem dizer por quê. -->
+            <label class="fr-campo" v-if="!veiculoAberto.novo || bensLivres.length">
               <span class="fr-lab">Bem no Patrimônio</span>
-              <select v-model="vForm.bem_id">
+              <select v-model="vForm.bem_id" @change="aoEscolherBem">
                 <option value="">— não ligado —</option>
-                <option v-for="b in bensVeiculo" :key="b.id" :value="b.id">
+                <option v-for="b in (veiculoAberto.novo ? bensLivres : bensVeiculo)" :key="b.id" :value="b.id">
                   {{ b.numero ? String(b.numero).padStart(6, '0') + ' · ' : '' }}{{ b.nome }}
                 </option>
               </select>
-              <span class="fr-ajuda">Só para carro próprio. Os alugados não são bens da empresa.</span>
+              <span class="fr-ajuda" v-if="veiculoAberto.novo">
+                Escolher um bem já cadastrado traz nome e marca pra ficha, e liga os dois.
+              </span>
+              <span class="fr-ajuda" v-else>Só para carro próprio. Os alugados não são bens da empresa.</span>
             </label>
           </div>
 
@@ -1214,35 +1317,43 @@ onMounted(async () => {
             <input v-model="vForm.observacao" type="text">
           </label>
 
-          <h3 class="fr-grupo">Histórico de manutenção</h3>
-          <ul class="fr-hist" v-if="historicoDoVeiculo.length">
-            <li v-for="h in historicoDoVeiculo" :key="h.id">
-              <span class="fr-item-nome">{{ h.item }}</span>
-              <span class="fr-item-txt">
-                {{ h.km ? h.km.toLocaleString('pt-BR') + ' km' : 'sem km' }}
-                <template v-if="h.feita_em"> · {{ h.feita_em.split('-').reverse().join('/') }}</template>
-                <template v-if="h.oficina"> · {{ h.oficina }}</template>
-              </span>
-              <button class="fr-mini" @click="apagarRevisao(h)" title="Apagar este registro">✕</button>
-            </li>
-          </ul>
-          <p class="fr-ajuda" v-else>Nenhuma manutenção registrada neste carro ainda.</p>
+          <!-- Histórico de manutenção depende de um `veiculo_id` que só existe
+               depois do carro estar gravado — não faz sentido pra um carro
+               ainda em criação (F9). -->
+          <template v-if="!veiculoAberto.novo">
+            <h3 class="fr-grupo">Histórico de manutenção</h3>
+            <ul class="fr-hist" v-if="historicoDoVeiculo.length">
+              <li v-for="h in historicoDoVeiculo" :key="h.id">
+                <span class="fr-item-nome">{{ h.item }}</span>
+                <span class="fr-item-txt">
+                  {{ h.km ? h.km.toLocaleString('pt-BR') + ' km' : 'sem km' }}
+                  <template v-if="h.feita_em"> · {{ h.feita_em.split('-').reverse().join('/') }}</template>
+                  <template v-if="h.oficina"> · {{ h.oficina }}</template>
+                </span>
+                <button class="fr-mini" @click="apagarRevisao(h)" title="Apagar este registro">✕</button>
+              </li>
+            </ul>
+            <p class="fr-ajuda" v-else>Nenhuma manutenção registrada neste carro ainda.</p>
 
-          <div class="fr-dupla">
-            <label class="fr-campo">
-              <span class="fr-lab">O que foi feito</span>
-              <select v-model="novaRevisao.item">
-                <option v-for="p in plano" :key="p.id" :value="p.item">{{ p.item }}</option>
-              </select>
-            </label>
-            <label class="fr-campo"><span class="fr-lab">Com quantos km</span><input v-model="novaRevisao.km" type="text" inputmode="numeric"></label>
-            <label class="fr-campo"><span class="fr-lab">Quando</span><input v-model="novaRevisao.feita_em" type="date"></label>
-            <label class="fr-campo"><span class="fr-lab">Oficina</span><input v-model="novaRevisao.oficina" type="text"></label>
-            <label class="fr-campo"><span class="fr-lab">Custo (R$)</span><input v-model="novaRevisao.custo" type="text" inputmode="decimal"></label>
-          </div>
-          <div class="fr-acoes">
-            <button class="fr-btn" :disabled="gravando" @click="gravarRevisao">+ Registrar manutenção</button>
-          </div>
+            <div class="fr-dupla">
+              <label class="fr-campo">
+                <span class="fr-lab">O que foi feito</span>
+                <select v-model="novaRevisao.item">
+                  <option v-for="p in plano" :key="p.id" :value="p.item">{{ p.item }}</option>
+                </select>
+              </label>
+              <label class="fr-campo"><span class="fr-lab">Com quantos km</span><input v-model="novaRevisao.km" type="text" inputmode="numeric"></label>
+              <label class="fr-campo"><span class="fr-lab">Quando</span><input v-model="novaRevisao.feita_em" type="date"></label>
+              <label class="fr-campo"><span class="fr-lab">Oficina</span><input v-model="novaRevisao.oficina" type="text"></label>
+              <label class="fr-campo"><span class="fr-lab">Custo (R$)</span><input v-model="novaRevisao.custo" type="text" inputmode="decimal"></label>
+            </div>
+            <div class="fr-acoes">
+              <button class="fr-btn" :disabled="gravando" @click="gravarRevisao">+ Registrar manutenção</button>
+            </div>
+          </template>
+          <p class="fr-ajuda" v-else>
+            O histórico de manutenção fica disponível depois de gravar o carro pela primeira vez.
+          </p>
 
           <ul class="fr-problemas" v-if="errosDoVeiculo.length">
             <li v-for="(e, i) in errosDoVeiculo" :key="i">{{ e }}</li>
@@ -1251,7 +1362,7 @@ onMounted(async () => {
         <div class="fr-ficha-rodape">
           <button class="fr-btn" @click="fecharVeiculo">Fechar</button>
           <button class="fr-btn primario" :disabled="gravando" @click="salvarVeiculo">
-            {{ gravando ? 'Gravando…' : 'Gravar' }}
+            {{ gravando ? 'Gravando…' : (veiculoAberto.novo ? 'Acrescentar' : 'Gravar') }}
           </button>
         </div>
       </div>
@@ -1555,6 +1666,11 @@ onMounted(async () => {
 .tela-frota .fr-motorista-resumo{margin:0;padding:14px 14px 4px;font-family:var(--fonte-principal);font-size:15px;font-weight:600;color:var(--text);}
 .tela-frota .fr-secao{margin:16px 0 8px;padding:0 14px;font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);}
 .tela-frota .fr-aviso{margin:0;padding:4px 14px 10px;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.55;color:var(--muted);}
+/* O botão "Acrescentar veículo" (F9), no topo da aba Gestão — full-width
+   porque .fr-btn sozinho (fora de um .fr-acoes de cartão) não herda o
+   flex:1 que o deixa ocupar a linha inteira. */
+.tela-frota .fr-novo{padding:0 14px;margin:6px 0 14px;}
+.tela-frota .fr-novo .fr-btn{width:100%;}
 /* O quadro de cobrança (D16): quem tem carro fixo e ainda não conferiu hoje.
    `flex-wrap` no `li` é o que evita estourar a tela no celular — nome do
    carro comprido, dono e selo cabem em duas linhas em vez de rolar de lado. */
