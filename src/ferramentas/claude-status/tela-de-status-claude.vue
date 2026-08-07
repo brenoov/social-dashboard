@@ -287,7 +287,7 @@
     </div>
 
     <!-- Modal criar/editar projeto -->
-    <div v-if="modal.aberto" class="csc-modal-bg" @click.self="fecharModal">
+    <div v-if="modal.aberto" v-trava-rolagem class="csc-modal-bg" @click.self="fecharModal">
       <div class="csc-modal">
         <h3 class="csc-modal-t">{{ modal.editando ? 'Editar projeto' : 'Novo projeto' }}</h3>
         <label class="csc-campo"><span>Nome do projeto</span><input v-model="modal.titulo" type="text" placeholder="Ex.: Portal de Notícias" @keyup.enter="salvarModal"></label>
@@ -315,6 +315,9 @@ import { sb } from '../../compartilhado/buscar-e-salvar-dados.js'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 import FaixaDeErro from '../../compartilhado/faixa-de-erro.vue'
+// Trava a rolagem do fundo enquanto o modal de projeto estiver aberto (bronca
+// do dono: "abro um modal e a tela atrás continua rolando").
+import { vTravaRolagem } from '../../compartilhado/travar-rolagem-de-fundo.js'
 
 const router = useRouter()
 const voltar = () => router.push({ name: 'inicio' })

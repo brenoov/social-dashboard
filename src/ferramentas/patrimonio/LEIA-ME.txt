@@ -2,7 +2,9 @@ Módulo Patrimônio: o inventário de bens da empresa (o que a empresa tem, onde
 está, quanto vale e com quem está).
 
 É um dos submódulos de "Gestão Interna" — a porta que fica na Central. Os outros
-são Colaboradores e Acessos (src/ferramentas/acessos) e, no futuro, Frota.
+são Colaboradores e Acessos (src/ferramentas/acessos) e Frota
+(src/ferramentas/frota) — um bem de categoria Veículos pode estar ligado a um
+carro da Frota, e a ligação se mexe dos dois lados (ver ligacao-com-frota.js).
 
 O que tem aqui:
   tela-de-patrimonio.vue  a tela (lista de bens, ficha do bem, listas editáveis)
@@ -12,6 +14,10 @@ O que tem aqui:
   filtro-de-bens.js       busca por texto, filtros e total
   nova-opcao.js           o "+" que cria empresa/categoria/local/ambiente/tipo
                           direto no formulário, sem precisar abrir Listas
+  ligacao-com-frota.js    a ligação bem↔veículo vista da ficha do bem: liga a
+                          um carro existente, cria um carro a partir do bem, ou
+                          desfaz — a gravação é em frota_veiculos.bem_id, então
+                          exige a mesma permissão da Frota (RLS is_frota_admin)
 
 Os arquivos .js são LÓGICA PURA: não tocam banco nem tela, e cada um tem seu
 .test.mjs ao lado. Rode com "npm test".
