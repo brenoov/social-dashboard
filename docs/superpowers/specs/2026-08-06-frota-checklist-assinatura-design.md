@@ -251,6 +251,35 @@ importa — **alteração retroativa continua impossível de esconder**, porque
 reescrever uma ficha antiga obrigaria a reescrever todas as seguintes daquele
 carro, e a função de conferência denuncia.
 
+**O que a conferência prova, e o que não prova.** Levantado na revisão da
+conferência da corrente, com os cenários rodados contra o código:
+
+| Tentativa | A conferência acusa? |
+|---|---|
+| Alterar uma ficha e recalcular só o hash dela | **Sim** — quebra no elo seguinte |
+| Alterar e recalcular a subcorrente inteira dali pra frente | Não |
+| Reaproveitar o hash de outra ficha | **Sim** |
+| Apontar para uma ficha anterior errada | **Sim** |
+| Reordenar as fichas | **Sim** |
+| **Uma corrente inteira forjada do zero, coerente consigo mesma** | **Não** |
+
+A conferência prova **consistência interna** — que o conteúdo bate com o hash e
+que os elos se encaixam. Ela não prova **origem**. Quem tiver escrita direta no
+banco e souber o algoritmo (que é público, está no repositório) monta uma
+corrente falsa que passa inteira.
+
+**O que barra isso na prática são os gatilhos** (migrations 032 e 033): ficha
+assinada não pode ser alterada nem apagada, e resposta não pode ser inserida,
+alterada nem apagada numa ficha assinada. **O que eles NÃO barram é inserir uma
+ficha nova já com hash arbitrário** — para isso, a barreira é a política de
+escrita da tabela, e o dia em que o hash for calculado no servidor essa porta
+fecha sozinha.
+
+Dito de outro jeito: contra quem **altera o passado**, a garantia é forte e
+verificável. Contra quem **inventa um passado inteiro** com acesso direto ao
+banco, ela não é — e é honesto que isso esteja escrito, porque a alternativa é
+alguém confiar em algo que não foi prometido.
+
 ## Fases
 
 **F7a** — a assinatura: senha, impressão digital, corrente, gatilho, função de

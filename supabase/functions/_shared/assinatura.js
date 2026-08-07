@@ -115,26 +115,50 @@ export function tempoDePreenchimento(abertaEm, assinadaEm) {
  * `fichas` vem da mais antiga pra mais nova. Ficha sem assinatura é pulada
  * (D22): quem não tem login preenche e não assina, e isso não pode fazer a
  * corrente parecer adulterada.
+ *
+ * `respostasPorFicha[id]` AUSENTE (`undefined`) não é o mesmo que `[]`: array
+ * vazio é um FATO sobre a ficha (ela não tinha item nenhum), chave ausente é
+ * uma FALHA DE QUEM CHAMOU (as respostas não chegaram pra conferência). Tratar
+ * os dois igual acusaria de adulterada uma ficha que pode estar intacta — o
+ * pior defeito possível aqui. Por isso a chave ausente vira `naoConferida`,
+ * nunca `primeiraQuebra`, e o laço CONTINUA depois dela: uma lacuna de leitura
+ * numa ficha não pode esconder uma adulteração de verdade mais adiante na
+ * mesma corrente.
  */
 export async function conferirCorrente(fichas, respostasPorFicha) {
   const lista = fichas || [];
-  let anterior = null, conferidas = 0;
+  let anterior = null, conferidas = 0, naoConferida = null;
   for (const ficha of lista) {
     if (!ficha || !ficha.assinada_em || !ficha.assinatura_hash) continue;
 
     if ((ficha.assinatura_hash_anterior || null) !== anterior) {
-      return { ok: false, total: lista.length, conferidas,
+      return { ok: false, total: lista.length, conferidas, naoConferida,
         primeiraQuebra: { id: ficha.id, feita_em: ficha.feita_em,
           motivo: 'Esta ficha aponta para uma ficha anterior diferente da que está no histórico. '
             + 'Ou alguma ficha foi apagada, ou a ordem mudou.' } };
     }
 
+    const respostas = respostasPorFicha ? respostasPorFicha[ficha.id] : undefined;
+    if (respostas === undefined) {
+      // Guarda só a primeira lacuna (mesmo princípio da primeira quebra: não
+      // precisa listar todas pra saber que há um problema de leitura) e
+      // segue andando — sem isso, ela impediria de ver uma quebra real que
+      // viesse depois.
+      if (!naoConferida) {
+        naoConferida = { id: ficha.id, feita_em: ficha.feita_em,
+          motivo: 'Não foi possível conferir esta ficha: as respostas dela não chegaram '
+            + 'pra conferência. Isso NÃO é indício de adulteração — é falha de leitura de '
+            + 'quem pediu a conferência, não da ficha.' };
+      }
+      anterior = ficha.assinatura_hash;
+      continue;
+    }
+
     const texto = textoParaAssinar({
-      ficha, respostas: respostasPorFicha ? respostasPorFicha[ficha.id] : [],
-      hashAnterior: ficha.assinatura_hash_anterior,
+      ficha, respostas, hashAnterior: ficha.assinatura_hash_anterior,
     });
     if (await impressaoDigital(texto) !== ficha.assinatura_hash) {
-      return { ok: false, total: lista.length, conferidas,
+      return { ok: false, total: lista.length, conferidas, naoConferida,
         primeiraQuebra: { id: ficha.id, feita_em: ficha.feita_em,
           motivo: 'O conteúdo desta ficha não corresponde ao que foi assinado. '
             + 'Alguma coisa foi alterada depois da assinatura.' } };
@@ -143,5 +167,8 @@ export async function conferirCorrente(fichas, respostasPorFicha) {
     anterior = ficha.assinatura_hash;
     conferidas++;
   }
-  return { ok: true, total: lista.length, conferidas, primeiraQuebra: null };
+  // ok só é verdadeiro se a corrente inteira foi conferida de ponta a ponta
+  // SEM lacuna nenhuma — uma ficha não conferida não prova adulteração, mas
+  // também não dá pra dizer "está tudo certo" sobre algo que não foi olhado.
+  return { ok: !naoConferida, total: lista.length, conferidas, naoConferida, primeiraQuebra: null };
 }

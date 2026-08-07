@@ -282,3 +282,40 @@ test('lista vazia confere, e diz que não conferiu nada', async () => {
   assert.equal(r.ok, true)
   assert.equal(r.conferidas, 0)
 })
+
+/* ── Chave ausente em respostasPorFicha NÃO é acusação ───────────────────── */
+// Achado da revisão: `respostasPorFicha[id]` ausente (`undefined`) virava
+// `[]` do mesmo jeito que uma ficha que REALMENTE não tem resposta nenhuma —
+// as duas caíam na mesma conta e a corrente acusava "conteúdo alterado" numa
+// ficha que pode estar intacta. A distinção que importa: chave ausente é
+// FALHA DE QUEM CHAMOU (não conseguiu ler), não um fato sobre a ficha.
+
+test('chave ausente em respostasPorFicha não vira quebra — vira "não conferida", com mensagem de falha de leitura', async () => {
+  const { fichas, porFicha } = await montarCorrente(3)
+  delete porFicha['f1']
+  const r = await conferirCorrente(fichas, porFicha)
+  assert.equal(r.ok, false)
+  assert.equal(r.primeiraQuebra, null)
+  assert.equal(r.naoConferida.id, 'f1')
+  assert.match(r.naoConferida.motivo, /não foi possível conferir/i)
+  assert.match(r.naoConferida.motivo, /leitura/i)
+})
+
+test('respostas: [] de VERDADE (a chave existe) é conteúdo diferente do assinado — continua sendo quebra, com a mensagem de conteúdo alterado, não a de leitura', async () => {
+  const { fichas, porFicha } = await montarCorrente(2)
+  porFicha['f0'] = []
+  const r = await conferirCorrente(fichas, porFicha)
+  assert.equal(r.ok, false)
+  assert.equal(r.primeiraQuebra.id, 'f0')
+  assert.match(r.primeiraQuebra.motivo, /conteúdo/i)
+  assert.equal(r.naoConferida, null)
+})
+
+test('uma ficha não conferida não esconde uma quebra de verdade mais adiante na mesma corrente', async () => {
+  const { fichas, porFicha } = await montarCorrente(4)
+  delete porFicha['f1'] // lacuna de leitura no meio
+  fichas[2].hodometro = 999999 // adulteração de verdade, depois da lacuna
+  const r = await conferirCorrente(fichas, porFicha)
+  assert.equal(r.naoConferida.id, 'f1')
+  assert.equal(r.primeiraQuebra.id, 'f2')
+})
