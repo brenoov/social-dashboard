@@ -642,6 +642,82 @@
             <span>Já está etiquetado</span>
           </label>
 
+          <!-- Situação na Frota (Bronca 2 do dono): "criei a BMW X1 no
+               Patrimônio mas só a Frota consegue linkar como bem — precisa
+               ter essa via de mão dupla". Só aparece pra bem da categoria
+               Veículos, e só depois do bem já existir (precisa de um id pra
+               ligar). A tabela é da Frota — ver e mexer aqui exige a mesma
+               permissão que a tela da Frota já cobra, não uma nova. -->
+          <div class="pat-frota" v-if="mostrarLigacaoFrota">
+            <h4>Situação na Frota</h4>
+
+            <!-- Sem a feature "frota", a consulta volta vazia pela RLS —
+                 dizer "não ligado" aqui seria inventar dado que a tela não
+                 tem como saber. Ela admite o que não vê, em vez disso. -->
+            <p class="pat-frota-aviso" v-if="!temAcessoFrota(estado)">
+              Você não tem acesso à Frota, então não dá pra saber se este bem está ligado a um veículo.
+              Peça acesso ao módulo Frota, ou peça a quem administra pra conferir por lá.
+            </p>
+            <p class="pat-frota-aviso" v-else-if="frotaErro">
+              Não consegui carregar os dados da Frota agora. Recarregue a página; se continuar assim, avise quem administra.
+            </p>
+            <template v-else>
+              <div class="pat-frota-estado" v-if="veiculoDoBem">
+                <p>Ligado ao veículo <strong>{{ veiculoDoBem.nome }}</strong> · {{ veiculoDoBem.placa }}.</p>
+                <button type="button" class="pat-btn" v-if="podeGerenciarFrota"
+                        :disabled="gravandoLigacaoFrota" @click="desfazerLigacaoFrota">
+                  {{ gravandoLigacaoFrota ? 'Desfazendo…' : 'Desfazer a ligação' }}
+                </button>
+              </div>
+
+              <div class="pat-frota-estado" v-else>
+                <p>Não ligado a nenhum veículo da Frota.</p>
+                <p class="pat-frota-sem-permissao" v-if="!podeGerenciarFrota">
+                  Você não tem permissão para editar a Frota, então não dá pra ligar por aqui.
+                </p>
+                <template v-else>
+                  <div class="pat-frota-ligar" v-if="!criandoVeiculoDoBem">
+                    <div class="pat-campo-mais" v-if="veiculosParaEscolher.length">
+                      <select v-model="ligandoVeiculoId">
+                        <option value="">Escolha um veículo da Frota…</option>
+                        <option v-for="v in veiculosParaEscolher" :key="v.id" :value="v.id">{{ v.nome }} · {{ v.placa }}</option>
+                      </select>
+                      <button type="button" class="pat-btn-mais" :disabled="!ligandoVeiculoId || gravandoLigacaoFrota"
+                              @click="ligarVeiculoExistente" title="Ligar a este veículo">→</button>
+                    </div>
+                    <p class="pat-frota-sem-permissao" v-else>
+                      Não há veículo livre na Frota para ligar — todos já estão ligados a outro bem.
+                    </p>
+                    <button type="button" class="pat-btn" @click="abrirCriarVeiculoDoBem">
+                      Criar veículo na Frota a partir deste bem
+                    </button>
+                  </div>
+
+                  <div class="pat-frota-criar" v-else>
+                    <label class="pat-campo">
+                      <span>Nome do carro</span>
+                      <input v-model="novoVeiculoForm.nome" type="text" placeholder="Ex.: BMW X1">
+                    </label>
+                    <label class="pat-campo">
+                      <span>Placa</span>
+                      <input v-model="novoVeiculoForm.placa" type="text" placeholder="Ex.: ABC1D23">
+                    </label>
+                    <label class="pat-campo">
+                      <span>Marca</span>
+                      <input v-model="novoVeiculoForm.marca" type="text" placeholder="Ex.: BMW">
+                    </label>
+                    <div class="pat-frota-criar-acoes">
+                      <button type="button" class="pat-btn" @click="fecharCriarVeiculoDoBem">Cancelar</button>
+                      <button type="button" class="pat-btn primario" :disabled="gravandoLigacaoFrota" @click="criarVeiculoDoBem">
+                        {{ gravandoLigacaoFrota ? 'Criando…' : 'Criar e ligar' }}
+                      </button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+
           <!-- Histórico de posse: só faz sentido em bem que já existe. -->
           <div class="pat-hist" v-if="!bemAberto.novo">
             <h4>Histórico de posse</h4>
@@ -796,6 +872,10 @@ import { COLUNAS_PLANILHA, ordenarPlanilha, resumirPor, totaisGerais, montarLinh
 import { LIMPAR, montarAlteracaoEmMassa, temAlgoParaMudar, resumoDaSelecao,
   alternarTodosVisiveis, estadoDaSelecaoVisivel } from './acao-em-massa.js'
 import { resolverNovaOpcao } from './nova-opcao.js'
+import {
+  temAcessoFrota, categoriaVeiculoEntre, bemEhCategoriaVeiculo,
+  veiculoLigadoAoBem, veiculosParaLigar, patchVeiculoDoBem,
+} from './ligacao-com-frota.js'
 
 const router = useRouter()
 
@@ -808,6 +888,13 @@ const comodos = ref([])
 const categorias = ref([])
 const tipos = ref([])
 const pessoas = ref([])
+// A ligação com a Frota (Bronca 2 do dono): carros que já apontam pra um bem
+// daqui. `frotaErro` distingue "a consulta falhou de verdade" (rede, banco
+// fora do ar) de "vazio porque não tenho a feature frota" — as duas
+// produzem lista vazia, mas só a primeira é uma FALHA que a tela precisa
+// admitir; a segunda é resolvida à parte por `temAcessoFrota()`.
+const veiculosFrota = ref([])
+const frotaErro = ref(false)
 
 const filtro = reactive({ ...FILTRO_VAZIO })
 
@@ -1046,6 +1133,94 @@ const avisoDono = computed(() => avisoDeDonoVazio({
   temDono: !!form.pessoa_id,
 }))
 
+/* ── Ligação com a Frota (Bronca 2) ───────────────────────────────────────
+   Via de mão dupla: até aqui só a tela da Frota linkava bem↔veículo. Aqui a
+   ficha do bem mostra a mesma ligação e oferece desfazer, ligar a um
+   veículo existente, ou criar o veículo a partir deste bem. A decisão de
+   QUE MOSTRAR mora em ligacao-com-frota.js, testada; aqui só estado de tela
+   e as chamadas ao banco — que continuam escrevendo em `frota_veiculos`,
+   porque é lá que o vínculo mora (não dá pra inventar uma segunda coluna
+   duplicando o mesmo dado nos dois lados). */
+const categoriaVeiculoId = computed(() => categoriaVeiculoEntre(categorias.value))
+// Um bem "novo" (ainda sendo criado, sem id) não tem o que ligar — ligar
+// precisa de um `frota_veiculos.bem_id` apontando pra um id que já existe.
+const mostrarLigacaoFrota = computed(() =>
+  !!bemAberto.value && !bemAberto.value.novo && bemEhCategoriaVeiculo(bemAberto.value, categoriaVeiculoId.value))
+const veiculoDoBem = computed(() =>
+  bemAberto.value ? veiculoLigadoAoBem(veiculosFrota.value, bemAberto.value.id) : null)
+const veiculosParaEscolher = computed(() => veiculosParaLigar(veiculosFrota.value))
+// Escrever em frota_veiculos exige a mesma permissão que a tela da Frota já
+// respeita (RLS `is_frota_admin()`, ligada à feature "frota" do perfil) —
+// não é uma permissão nova pro Patrimônio, é a MESMA que só existia do
+// outro lado até agora.
+const podeGerenciarFrota = computed(() => hasPermission('frota', 'editar'))
+
+const ligandoVeiculoId = ref('')
+const gravandoLigacaoFrota = ref(false)
+const criandoVeiculoDoBem = ref(false)
+const novoVeiculoForm = reactive({ nome: '', placa: '', marca: '' })
+
+function abrirCriarVeiculoDoBem() {
+  Object.assign(novoVeiculoForm, { nome: '', placa: '', marca: '' })
+  if (bemAberto.value) Object.assign(novoVeiculoForm, patchVeiculoDoBem(novoVeiculoForm, bemAberto.value))
+  criandoVeiculoDoBem.value = true
+}
+function fecharCriarVeiculoDoBem() { criandoVeiculoDoBem.value = false }
+
+async function ligarVeiculoExistente() {
+  if (gravandoLigacaoFrota.value || !ligandoVeiculoId.value || !bemAberto.value) return
+  gravandoLigacaoFrota.value = true
+  const { error } = await sbClient.from('frota_veiculos')
+    .update({ bem_id: bemAberto.value.id, atualizado_em: new Date().toISOString() })
+    .eq('id', ligandoVeiculoId.value)
+  gravandoLigacaoFrota.value = false
+  // A tela NUNCA pode parecer que deu certo quando a gravação falhou — o
+  // toast vermelho é o mesmo caminho que salvarBem()/criarItem() já usam
+  // nesta tela pra erro de escrita, sem inventar um padrão novo aqui.
+  if (error) { adminToast('Não consegui ligar o veículo. Confira se você tem permissão para editar a Frota, ou tente de novo.', false); return }
+  ligandoVeiculoId.value = ''
+  adminToast('Veículo ligado a este bem')
+  await carregar()
+}
+
+async function desfazerLigacaoFrota() {
+  if (gravandoLigacaoFrota.value || !veiculoDoBem.value) return
+  gravandoLigacaoFrota.value = true
+  const { error } = await sbClient.from('frota_veiculos')
+    .update({ bem_id: null, atualizado_em: new Date().toISOString() })
+    .eq('id', veiculoDoBem.value.id)
+  gravandoLigacaoFrota.value = false
+  if (error) { adminToast('Não consegui desfazer a ligação. Tente de novo.', false); return }
+  adminToast('Ligação desfeita')
+  await carregar()
+}
+
+async function criarVeiculoDoBem() {
+  if (gravandoLigacaoFrota.value || !bemAberto.value) return
+  if (!String(novoVeiculoForm.nome || '').trim() || !String(novoVeiculoForm.placa || '').trim()) {
+    adminToast('Nome e placa são obrigatórios — é por eles que o carro é reconhecido na Frota.', false)
+    return
+  }
+  gravandoLigacaoFrota.value = true
+  const { error } = await sbClient.from('frota_veiculos').insert({
+    nome: novoVeiculoForm.nome.trim(),
+    placa: String(novoVeiculoForm.placa).toUpperCase().replace(/[^A-Z0-9]/g, ''),
+    marca: novoVeiculoForm.marca.trim() || null,
+    bem_id: bemAberto.value.id,
+    situacao: 'ativo',
+  })
+  gravandoLigacaoFrota.value = false
+  if (error) {
+    adminToast(/duplicate|unique/i.test(error.message || '')
+      ? 'Já existe outro veículo da Frota com essa placa.'
+      : 'Não consegui criar o veículo na Frota. Tente de novo.', false)
+    return
+  }
+  criandoVeiculoDoBem.value = false
+  adminToast('Veículo criado na Frota e ligado a este bem')
+  await carregar()
+}
+
 // Os seletores em cascata da ficha.
 const tiposDaCategoria = (categoriaId) =>
   categoriaId ? tipos.value.filter((t) => t.categoria_id === categoriaId) : []
@@ -1170,6 +1345,11 @@ function fecharFicha() {
   bemAberto.value = null
   historico.value = []
   cancelarNovaOpcao()
+  // Sem isto, abrir a ficha de OUTRO bem depois de mexer na ligação da Frota
+  // reaproveitaria o veículo escolhido ou o mini-formulário de criar — de um
+  // bem que não é mais o que está na tela.
+  ligandoVeiculoId.value = ''
+  criandoVeiculoDoBem.value = false
 }
 
 async function carregarHistorico(bemId) {
@@ -1180,6 +1360,10 @@ async function carregarHistorico(bemId) {
 
 // Preenche o formulário quando a ficha abre (bem existente ou novo).
 watch(bemAberto, async (bem) => {
+  // Mesmo defensivo de fecharFicha(): a ficha de um bem NUNCA deve carregar
+  // o estado de ligação que sobrou da ficha do bem anterior.
+  ligandoVeiculoId.value = ''
+  criandoVeiculoDoBem.value = false
   if (!bem) return
   if (bem.novo) {
     Object.assign(form, FORM_VAZIO)
@@ -1604,7 +1788,7 @@ async function excluirBem() {
 async function carregar() {
   carregando.value = true
   erro.value = ''
-  const [rBens, rEmp, rLoc, rCom, rCat, rTip, rPes, rCfg] = await Promise.all([
+  const [rBens, rEmp, rLoc, rCom, rCat, rTip, rPes, rCfg, rFrota] = await Promise.all([
     sbClient.from('patrimonio_bens').select('*').order('numero', { ascending: true, nullsFirst: false }),
     sbClient.from('patrimonio_empresas').select('id,nome').order('ordem').order('nome'),
     sbClient.from('patrimonio_locais').select('id,nome,empresa_id').order('ordem').order('nome'),
@@ -1613,6 +1797,14 @@ async function carregar() {
     sbClient.from('patrimonio_tipos').select('id,nome,categoria_id').order('ordem').order('nome'),
     sbClient.from('acessos_pessoas').select('id,nome,status').order('nome'),
     sbClient.from('patrimonio_config').select('chave,valor'),
+    // A ligação com a Frota (Bronca 2): id/nome/placa/bem_id de cada carro,
+    // só o bastante pra saber quem está ligado a qual bem. A tabela é da
+    // Frota (RLS `is_frota_admin()`), então quem não tem essa feature recebe
+    // lista vazia sem erro nenhum — é por isso que a tela NÃO decide "não
+    // ligado" olhando só pra esse resultado; ela pergunta antes, com
+    // `temAcessoFrota()`, se faz sentido interpretar o vazio como "nada
+    // ligado" ou como "eu não vejo esse dado".
+    sbClient.from('frota_veiculos').select('id,nome,placa,bem_id').order('nome'),
   ])
   if (rBens.error) {
     erro.value = rBens.error.message
@@ -1625,11 +1817,14 @@ async function carregar() {
   comodos.value = rCom.data || []
   categorias.value = rCat.data || []
   tipos.value = rTip.data || []
-  // Colaboradores vêm do módulo vizinho: é o ÚNICO ponto em que Patrimônio
-  // depende de Colaboradores e Acessos. Se a pessoa não tiver acesso àquele
-  // módulo, a RLS devolve lista vazia — e a tela segue funcionando, mostrando
-  // o nome solto (dono_texto) quando houver.
+  // Colaboradores e Frota vêm de módulos vizinhos — os dois pontos em que
+  // Patrimônio depende de outra ferramenta. Se a pessoa não tiver acesso a
+  // um deles, a RLS devolve lista vazia sem erro, e a tela segue
+  // funcionando: pessoas cai no nome solto (dono_texto); a Frota cai no
+  // aviso de "sem acesso" (`temAcessoFrota()`), nunca em "nada ligado".
   pessoas.value = rPes.data || []
+  veiculosFrota.value = rFrota && !rFrota.error ? (rFrota.data || []) : []
+  frotaErro.value = !!(rFrota && rFrota.error)
   const cfgTeto = (rCfg.data || []).find((x) => x.chave === 'numero_maximo')
   teto.value = Number(cfgTeto?.valor) || TETO_PADRAO
   agoraNaTela.value = new Date().toISOString()
@@ -1859,6 +2054,20 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-patrimonio .pat-hist h4{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
 .tela-patrimonio .pat-hist-vazio{font-family:var(--fonte-principal);font-size:12px;line-height:1.6;color:var(--muted);}
 .tela-patrimonio .pat-hist-linha{font-family:var(--fonte-principal);font-size:12px;color:var(--text);padding:7px 10px;background:var(--surface2);border-radius:7px;}
+
+/* Situação na Frota (Bronca 2): mesma moldura visual do Histórico de posse
+   logo abaixo, pra ler como parte do mesmo tipo de bloco — "extra que só
+   aparece quando faz sentido", não um formulário novo. Cor sempre por
+   token: nada chumbado, porque a tela tem modo escuro. */
+.tela-patrimonio .pat-frota{border-top:1px solid var(--border);padding-top:12px;display:flex;flex-direction:column;gap:9px;}
+.tela-patrimonio .pat-frota h4{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+.tela-patrimonio .pat-frota-aviso{font-family:var(--fonte-principal);font-size:12px;line-height:1.6;color:var(--orange);background:var(--surface2);border-radius:8px;padding:10px 12px;}
+.tela-patrimonio .pat-frota-estado{display:flex;flex-direction:column;gap:9px;font-family:var(--fonte-principal);font-size:13px;color:var(--text);}
+.tela-patrimonio .pat-frota-estado>.pat-btn{align-self:flex-start;}
+.tela-patrimonio .pat-frota-sem-permissao{font-family:var(--fonte-principal);font-size:12px;line-height:1.6;color:var(--muted);}
+.tela-patrimonio .pat-frota-ligar{display:flex;flex-direction:column;gap:9px;}
+.tela-patrimonio .pat-frota-criar{display:flex;flex-direction:column;gap:10px;}
+.tela-patrimonio .pat-frota-criar-acoes{display:flex;gap:8px;justify-content:flex-end;}
 
 /* ---- listas editáveis ---- */
 .tela-patrimonio .pat-btn-listas{width:46px;height:46px;flex-shrink:0;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation;}

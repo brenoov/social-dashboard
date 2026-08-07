@@ -31,9 +31,10 @@ import PainelDeChecklist from './painel-de-checklist.vue'
 import EditorDeChecklist from './editor-de-checklist.vue'
 import {
   quemFaltaHoje, resumoDaCobranca, precisaDeChecklist,
-  telefoneDaCobranca, problemasAbertosHoje,
+  problemasAbertosHoje,
 } from '../../../supabase/functions/_shared/checklist.js'
 import { bensLivresParaFrota, patchDoBem } from './bens-para-veiculo.js'
+import { contatoParaCobranca, podeCopiarTelefoneDoCarro } from './contato-do-motorista.js'
 
 const router = useRouter()
 const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
@@ -144,24 +145,104 @@ function horaBR(iso) {
     hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
 }
 
+// De quem é o telefone que vamos usar pra cobrar (Bronca 1 do dono: a ficha
+// do carro TEM telefone pra Marcus e pro Thiago Siqueira, e o quadro dizia
+// que faltava porque só olhava `acessos_pessoas`). A decisão — inclusive a
+// armadilha de o contato do carro nem sempre ser quem dirige — mora em
+// contato-do-motorista.js, testada; aqui só monta o link e o texto.
+function pessoaDoDono(c) {
+  return pessoas.value.find((p) => p.id === c.donoId) || null
+}
+function contatoDaLinha(c) {
+  return contatoParaCobranca({ pessoa: pessoaDoDono(c), veiculo: c.veiculo })
+}
+
 // O link de WhatsApp pra cobrar quem ainda não fez o checklist hoje. A
-// mensagem já leva o carro e o motivo — quem recebe entende sem perguntar.
+// mensagem muda quando quem atende não é quem dirige (contato do carro é
+// outra pessoa, ex.: a supervisora que aparece na ficha de um carro de
+// rodízio) — pedir o checklist DELA seria absurdo; o certo é pedir que ela
+// avise quem está com o carro.
 function zapDeCobranca(c) {
-  const pessoa = pessoas.value.find((p) => p.id === c.donoId)
-  const tel = telefoneDaCobranca(pessoa)
-  return linkDoWhatsapp(tel, `Olá${c.dono ? ', ' + c.dono : ''}! Falta fazer o checklist de hoje `
-    + `do ${c.veiculo.nome} (${c.veiculo.placa}).`)
+  const contato = contatoDaLinha(c)
+  if (!contato.telefone) return null
+  const mensagem = contato.origem === 'carro_outra_pessoa'
+    ? `Olá${contato.nomeContato ? ', ' + contato.nomeContato : ''}! Você está cadastrado(a) como contato `
+      + `do ${c.veiculo.nome} (${c.veiculo.placa}) — o checklist de hoje ainda não foi feito. `
+      + 'Consegue avisar quem está com o carro?'
+    : `Olá${c.dono ? ', ' + c.dono : ''}! Falta fazer o checklist de hoje do ${c.veiculo.nome} (${c.veiculo.placa}).`
+  return linkDoWhatsapp(contato.telefone, mensagem)
+}
+// O texto do botão avisa DE QUEM é o telefone quando não é do motorista —
+// decisão do dono: quem clica precisa saber que não está falando com quem
+// dirige, senão a mensagem confunde os dois lados da conversa.
+function rotuloZapDeCobranca(c) {
+  const contato = contatoDaLinha(c)
+  return contato.origem === 'carro_outra_pessoa'
+    ? `Falar com ${contato.nomeContato || 'o contato do carro'}`
+    : 'Cobrar no WhatsApp'
+}
+function tituloZapDeCobranca(c) {
+  const contato = contatoDaLinha(c)
+  return contato.origem === 'carro_outra_pessoa'
+    ? `Falar com ${contato.nomeContato || 'o contato do carro'} no WhatsApp — é o contato do carro, não quem dirige`
+    : `Cobrar ${c.dono || 'o responsável'} no WhatsApp`
 }
 // Por que o botão não aparece — nunca some em silêncio (pedido do dono: só
 // 1 das 7 pessoas com carro tem telefone cadastrado hoje). Reaproveita
 // porQueNaoDaLink() pro caso raro de número mal formatado; escreve a mensagem
-// própria só pro caso comum, que é a ausência do telefone.
+// própria só pro caso comum, que é a ausência do telefone em QUALQUER lugar
+// (nem cadastro, nem ficha do carro).
 function porQueSemZapDeCobranca(c) {
-  const pessoa = pessoas.value.find((p) => p.id === c.donoId)
-  const tel = telefoneDaCobranca(pessoa)
-  if (tel) return porQueNaoDaLink(tel)
-  return (c.dono ? `${c.dono} não tem telefone cadastrado.` : 'Não há telefone cadastrado para o responsável.')
-    + ' Sem telefone não dá pra chamar no WhatsApp — complete o cadastro em Colaboradores e Acessos.'
+  const contato = contatoDaLinha(c)
+  if (contato.telefone) return porQueNaoDaLink(contato.telefone)
+  return (c.dono
+    ? `${c.dono} não tem telefone cadastrado, e a ficha do ${c.veiculo.nome} também não tem um contato.`
+    : 'Não há telefone cadastrado para o responsável, nem um contato na ficha do carro.')
+    + ' Sem telefone não dá pra chamar no WhatsApp — complete o cadastro em Colaboradores e Acessos '
+    + 'ou na ficha do veículo.'
+}
+
+/* ── Devolver o telefone pro cadastro do colaborador (Bronca 1) ──────────────
+   Quando o telefone mora só na ficha do carro E é da mesma pessoa (nomes
+   batem), oferece copiá-lo pro cadastro em Colaboradores e Acessos — é o
+   pedido do dono de fazer o dado fluir entre as ferramentas, não morar num
+   canto só. Escreve em `numero_pessoal`: não dá pra saber se é um número
+   corporativo, e `numero_pessoal` é o campo mais neutro dos dois. */
+const salvandoTelefone = reactive({})   // veiculoId -> boolean
+const erroSalvarTelefone = reactive({}) // veiculoId -> string
+const telefoneSalvoAgora = reactive({}) // veiculoId -> boolean (confirmação nesta sessão)
+
+function podeCopiarTelefoneNoCadastro(c) {
+  // Escrever em acessos_pessoas exige a permissão de Colaboradores e Acessos
+  // (é lá que o RLS `is_acessos_admin()` também bate) — sem checar aqui, o
+  // botão apareceria pra quem administra só a Frota e a gravação falharia
+  // sempre, sem dar pra saber por quê antes de clicar.
+  return hasPermission('acessos', 'editar') && podeCopiarTelefoneDoCarro({ pessoa: pessoaDoDono(c), veiculo: c.veiculo })
+}
+
+async function copiarTelefoneParaCadastro(c) {
+  const pessoa = pessoaDoDono(c)
+  const contato = contatoDaLinha(c)
+  if (!pessoa || !contato.telefone || salvandoTelefone[c.veiculo.id]) return
+  salvandoTelefone[c.veiculo.id] = true
+  erroSalvarTelefone[c.veiculo.id] = ''
+  const { error } = await sbClient.from('acessos_pessoas')
+    .update({ numero_pessoal: contato.telefone, atualizado_em: new Date().toISOString() })
+    .eq('id', pessoa.id)
+  salvandoTelefone[c.veiculo.id] = false
+  if (error) {
+    // A gravação pode falhar (sem permissão, sem rede) e a tela NUNCA pode
+    // parecer que deu certo quando não deu — é o defeito mais recorrente
+    // deste projeto. Mensagem em português do que fazer, não o erro cru.
+    erroSalvarTelefone[c.veiculo.id] = 'Não consegui salvar o telefone no cadastro. Tente de novo; '
+      + 'se continuar falhando, confirme se você tem permissão para editar Colaboradores e Acessos.'
+    return
+  }
+  telefoneSalvoAgora[c.veiculo.id] = true
+  // Atualiza a lista local na hora: sem isto, o botão continuaria oferecendo
+  // "copiar" até um recarregar inteiro da tela, como se nada tivesse gravado.
+  const idx = pessoas.value.findIndex((p) => p.id === pessoa.id)
+  if (idx !== -1) pessoas.value[idx] = { ...pessoas.value[idx], numero_pessoal: contato.telefone }
 }
 
 function voltar() { router.push({ name: 'gestao-interna' }) }
@@ -1216,12 +1297,30 @@ onMounted(async () => {
           </div>
           <div class="fr-acoes" v-else-if="zapDeCobranca(c)">
             <a class="fr-btn fr-zap" :href="zapDeCobranca(c)" target="_blank" rel="noopener"
-               :title="'Cobrar ' + (c.dono || 'o responsável') + ' no WhatsApp'">
+               :title="tituloZapDeCobranca(c)">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.47 14.38c-.3-.15-1.74-.86-2-.96-.27-.1-.47-.15-.66.15-.2.29-.76.95-.93 1.15-.17.2-.34.22-.63.07-.3-.15-1.25-.46-2.38-1.47-.88-.78-1.47-1.75-1.64-2.05-.17-.29-.02-.45.13-.6.13-.13.3-.34.44-.51.15-.17.2-.29.3-.49.1-.2.05-.37-.02-.51-.08-.15-.66-1.59-.9-2.18-.24-.57-.48-.5-.66-.51h-.57c-.2 0-.51.07-.78.37-.27.29-1.02 1-1.02 2.43s1.05 2.82 1.2 3.02c.15.2 2.06 3.14 4.99 4.4.7.3 1.24.48 1.66.62.7.22 1.33.19 1.83.12.56-.08 1.74-.71 1.98-1.4.24-.68.24-1.27.17-1.39-.07-.12-.27-.2-.56-.34M12 2a10 10 0 0 0-8.6 15.1L2 22l5.05-1.32A10 10 0 1 0 12 2"/></svg>
-              Cobrar no WhatsApp
+              {{ rotuloZapDeCobranca(c) }}
             </a>
           </div>
           <p class="fr-ajuda fr-cobranca-sem-tel" v-else>{{ porQueSemZapDeCobranca(c) }}</p>
+
+          <!-- Devolver o telefone pro cadastro (Bronca 1 do dono: o dado não
+               pode morar só na ficha do carro). É um bloco À PARTE da corrente
+               de três ramos acima — não é v-else-if dela, é um complemento que
+               aparece ou não por conta própria, então não interfere na
+               corrente de "feito / cobra / sem telefone". Só aparece quando o
+               nome bate (é o telefone da própria pessoa) e quem está vendo
+               pode editar Colaboradores e Acessos. -->
+          <div class="fr-copiar-tel" v-if="!c.fez && podeCopiarTelefoneNoCadastro(c)">
+            <button type="button" class="fr-copiar-tel-btn" :disabled="salvandoTelefone[c.veiculo.id]"
+                    @click="copiarTelefoneParaCadastro(c)">
+              {{ salvandoTelefone[c.veiculo.id] ? 'Salvando…' : `Salvar este telefone no cadastro de ${c.dono}` }}
+            </button>
+            <p class="fr-erro-inline" v-if="erroSalvarTelefone[c.veiculo.id]">{{ erroSalvarTelefone[c.veiculo.id] }}</p>
+          </div>
+          <p class="fr-copiado-tel" v-else-if="!c.fez && telefoneSalvoAgora[c.veiculo.id]">
+            Telefone salvo no cadastro de {{ c.dono }}.
+          </p>
         </div>
       </div>
 
@@ -1883,6 +1982,16 @@ onMounted(async () => {
 /* Por que o botão de WhatsApp não apareceu — nunca em silêncio. Mesma cor de
    atenção que os outros avisos "algo pede providência" desta tela. */
 .tela-frota .fr-cobranca-sem-tel{margin-top:14px;padding:0;}
+/* Devolver o telefone pro cadastro (Bronca 1): botão discreto de propósito —
+   é um extra opcional, não a ação principal do card, que continua sendo
+   cobrar no WhatsApp. Mesmo padrão de "botão-link" que .ck-trocar usa no
+   painel de checklist: sem fundo nem borda, cor de destaque por token. */
+.tela-frota .fr-copiar-tel{margin-top:8px;}
+.tela-frota .fr-copiar-tel-btn{background:none;border:0;padding:2px 0;cursor:pointer;font-family:var(--fonte-principal);font-size:11.5px;font-weight:600;color:var(--accent);text-align:left;}
+.tela-frota .fr-copiar-tel-btn:hover:not(:disabled){text-decoration:underline;}
+.tela-frota .fr-copiar-tel-btn:disabled{opacity:.6;cursor:default;}
+.tela-frota .fr-erro-inline{margin:4px 0 0;font-family:var(--fonte-principal);font-size:11.5px;color:var(--red,#c0392b);line-height:1.4;}
+.tela-frota .fr-copiado-tel{margin-top:8px;font-family:var(--fonte-principal);font-size:11.5px;color:var(--green,#16a34a);}
 /* Os carros de outras pessoas: lista simples, sem cartão e sem botão. Dar
    cartão a eles daria a entender que há algo a fazer, e não há. */
 .tela-frota .fr-outros{margin:0;padding:0 14px 40px;list-style:none;display:flex;flex-direction:column;gap:7px;font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);}
