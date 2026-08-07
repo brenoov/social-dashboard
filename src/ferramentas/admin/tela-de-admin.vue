@@ -1444,13 +1444,17 @@ function _secaoVinculo(alvo, p, aoMudar) {
   const sec = mkEl('div', 'ficha-sec')
   sec.appendChild(mkEl('div', 'ficha-sec-tit', 'Cadastro de colaborador'))
 
-  const { estado, colaborador } = estadoDoVinculo({ id: p.id, email: p.email }, _colaboradores)
+  // `situacao`, e não `estado`: `estado` é o estado global de login do app,
+  // importado no topo deste arquivo. Sombreá-lo aqui funcionaria hoje, e
+  // quebraria calado no dia em que alguém escrevesse `estado.is_superadmin`
+  // dentro desta função e recebesse `undefined`.
+  const { estado: situacao, colaborador } = estadoDoVinculo({ id: p.id, email: p.email }, _colaboradores)
   const txt = mkEl('div', 'ficha-txt')
 
-  if (estado === 'ligado') {
+  if (situacao === 'ligado') {
     txt.textContent = 'Ligado a ' + colaborador.nome + '.'
     sec.appendChild(txt)
-  } else if (estado === 'sugestao') {
+  } else if (situacao === 'sugestao') {
     // Montado por nós, não por innerHTML: o nome vem do banco, e escapar à mão
     // funciona até alguém esquecer uma vez. `textContent` não tem esse jeito de
     // errar.
@@ -1462,7 +1466,7 @@ function _secaoVinculo(alvo, p, aoMudar) {
     b.style.cssText = 'background:var(--accent);color:#fff'
     b.addEventListener('click', () => _ligarCadastro(b, colaborador.id, p.id, aoMudar))
     sec.appendChild(b)
-  } else if (estado === 'ambiguo') {
+  } else if (situacao === 'ambiguo') {
     // Sem botão de propósito: escolher por conta própria seria chutar qual
     // pessoa recebe a lotação e o histórico.
     txt.textContent = 'Há mais de um cadastro com este e-mail. Resolva em '
@@ -1640,9 +1644,10 @@ function _subtitulo(p, gaveta) {
   // tem cadastro ativo com o e-mail idêntico ao login, só sem ninguém ter ligado
   // os dois. Dizer "sem cadastro" mandava procurar o que já existia.
   if (!p.temCadastro) {
-    const { estado } = estadoDoVinculo({ id: p.id, email: p.email }, _colaboradores)
-    if (estado === 'sugestao') return '<span class="usr-alerta">cadastro encontrado — falta ligar</span>'
-    if (estado === 'ambiguo') return '<span class="usr-alerta">mais de um cadastro com este e-mail</span>'
+    // `situacao` e nao `estado`: `estado` e o estado global de login do app.
+    const { estado: situacao } = estadoDoVinculo({ id: p.id, email: p.email }, _colaboradores)
+    if (situacao === 'sugestao') return '<span class="usr-alerta">cadastro encontrado — falta ligar</span>'
+    if (situacao === 'ambiguo') return '<span class="usr-alerta">mais de um cadastro com este e-mail</span>'
     return '<span class="usr-alerta">sem cadastro de colaborador</span>'
   }
   const outras = DIMENSOES.filter((d) => d.chave !== gaveta)
