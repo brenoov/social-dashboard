@@ -79,6 +79,40 @@ export function nomesBatem(a, b) {
 }
 
 /**
+ * Quantas pessoas DA BASE aquele nome de contato poderia descrever —
+ * `nomesBatem` contra cada uma. É a peça que faltava: comparar só o par
+ * (contato do carro, dono) nunca poderia saber que "Vieira" é ambíguo, porque
+ * ambiguidade não é propriedade do PAR de nomes, é propriedade da BASE ("tem
+ * um Siqueira só" x "tem três Vieira") — a mesma forma de nome ("Siqueira" x
+ * "Thiago Siqueira", "Vieira" x "Ana Vieira") tem que dar respostas
+ * diferentes dependendo de quantos Siqueira/Vieira existem na empresa.
+ */
+function pessoasQueBatem(nomeContato, pessoas) {
+  return (pessoas || []).filter((p) => p && nomesBatem(nomeContato, p.nome));
+}
+
+/**
+ * Decide se o contato do carro É o dono passado, agora olhando pra base
+ * inteira quando ela é dada:
+ *  - nome do contato não bate com NINGUÉM da base → é outra pessoa mesmo
+ *    (ex.: um mecânico, um terceiro) — nunca ambíguo, nunca o dono;
+ *  - bate com MAIS DE UMA pessoa → ambíguo (o caso dos 3 "Vieira" e das 2
+ *    "Clara") — não dá pra afirmar que é o dono, mesmo que o dono seja um
+ *    dos que bateram;
+ *  - bate com EXATAMENTE UMA → é o dono só se essa uma for o próprio dono
+ *    passado.
+ * `pessoas` é OPCIONAL: quem ainda não tem a lista à mão continua com o
+ * comportamento antigo (compara só os dois nomes) — pra não quebrar nenhuma
+ * chamada existente enquanto a tela não é atualizada pra passar a base.
+ */
+function mesmaPessoaDoContato({ nomeContato, pessoa, pessoas }) {
+  if (!pessoas) return nomesBatem(nomeContato, pessoa ? pessoa.nome : null);
+  const candidatos = pessoasQueBatem(nomeContato, pessoas);
+  if (candidatos.length !== 1) return false;
+  return !!(pessoa && candidatos[0].id === pessoa.id);
+}
+
+/**
  * Decide QUAL telefone usar pra cobrar o motorista, e de quem ele é —
  * decisão do dono, com três desfechos:
  *  - 'colaborador': o cadastro em Colaboradores e Acessos tem telefone. Caso
@@ -87,12 +121,19 @@ export function nomesBatem(a, b) {
  *    contato e o nome bate com o do motorista — é o telefone dele mesmo,
  *    só que mora no lugar errado. Botão normal.
  *  - 'carro_outra_pessoa': a ficha do carro tem contato, mas o nome NÃO bate
- *    com o motorista (ex.: o Honda Fit é de rodízio e o contato é a
- *    supervisora). A tela tem de avisar que quem atende não é quem dirige.
+ *    com o motorista — seja porque é claramente outra pessoa (ex.: o Honda
+ *    Fit é de rodízio e o contato é a supervisora), seja porque o nome é
+ *    AMBÍGUO na base (mais de um "Vieira") e não dá pra afirmar que é o
+ *    dono. A tela tem de avisar nos dois casos.
  *  - 'nenhum': não há telefone em lugar nenhum. Continua dizendo que falta,
  *    como já fazia.
+ *
+ * `pessoas` (opcional): a base inteira de colaboradores, pra resolver
+ * ambiguidade de nome (ver mesmaPessoaDoContato). Sem ela, cai no
+ * comportamento antigo — compara só o contato do carro contra o dono
+ * passado, sem saber se o nome é ambíguo na empresa.
  */
-export function contatoParaCobranca({ pessoa, veiculo }) {
+export function contatoParaCobranca({ pessoa, veiculo, pessoas }) {
   const telColaborador = telefoneDaCobranca(pessoa);
   if (telColaborador) {
     return { telefone: telColaborador, origem: 'colaborador', nomeContato: pessoa ? pessoa.nome : null };
@@ -100,7 +141,7 @@ export function contatoParaCobranca({ pessoa, veiculo }) {
 
   const telCarro = veiculo && veiculo.contato_telefone;
   if (telCarro) {
-    const mesmaPessoa = nomesBatem(veiculo.contato_nome, pessoa ? pessoa.nome : null);
+    const mesmaPessoa = mesmaPessoaDoContato({ nomeContato: veiculo.contato_nome, pessoa, pessoas });
     return {
       telefone: telCarro,
       origem: mesmaPessoa ? 'carro_mesma_pessoa' : 'carro_outra_pessoa',
@@ -113,17 +154,18 @@ export function contatoParaCobranca({ pessoa, veiculo }) {
 
 /**
  * Só oferece "copiar telefone pro cadastro" quando é seguro fazer isso:
- *  - o carro tem telefone E o nome do contato bate com o do colaborador (é o
- *    telefone dele mesmo, não de outra pessoa que atende por ele);
+ *  - o carro tem telefone E o contato é seguramente o colaborador — nome
+ *    bate, e (quando `pessoas` é dado) o nome não é ambíguo na base;
  *  - o colaborador está mesmo sem telefone (senão a cópia sobrescreveria algo
  *    que a pessoa já tinha digitado).
- * Nunca oferece pra 'carro_outra_pessoa': copiar o telefone da Bárbara pro
- * cadastro de quem pega o Honda Fit de rodízio gravaria um dado errado, não
- * devolveria o dado certo.
+ * Nunca oferece pra 'carro_outra_pessoa' nem pro caso ambíguo: copiar o
+ * telefone de um "Vieira" que pode ser um dos três pro cadastro de um deles
+ * gravaria um dado que pode estar errado — mesmo raciocínio que zera o botão
+ * pro contato da Bárbara no Honda Fit de rodízio.
  */
-export function podeCopiarTelefoneDoCarro({ pessoa, veiculo }) {
+export function podeCopiarTelefoneDoCarro({ pessoa, veiculo, pessoas }) {
   if (!pessoa || telefoneDaCobranca(pessoa)) return false;
   const telCarro = veiculo && veiculo.contato_telefone;
   if (!telCarro) return false;
-  return nomesBatem(veiculo.contato_nome, pessoa.nome);
+  return mesmaPessoaDoContato({ nomeContato: veiculo.contato_nome, pessoa, pessoas });
 }
