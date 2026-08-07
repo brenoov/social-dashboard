@@ -2132,6 +2132,11 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
    foco) — o que encolhe é o padding e a largura máxima, não a fonte. */
 @media(max-width:640px){
   .tela-patrimonio .pat-topbar{padding:9px 12px;}
+  /* 40px de alvo no celular, como manda o PADRÃO ("dedo não acerta menos que
+     isso"). Fica só no celular porque no computador o ponteiro acerta 24px de
+     sobra, e o "?" divide a linha com o ✕ — 40px lá deixaria os dois quase
+     encostados. Mesma decisão do fr-btn-ajuda na Frota. */
+  .tela-patrimonio .pat-btn-ajuda{width:40px;height:40px;font-size:14px;}
   /* No celular a logo SAI. Nao e o tamanho dela: e a largura. O titulo desta
      barra e o caminho onde voce esta ("Vessel Conchal > Fabrica > Escritorio"),
      e com a logo ocupando a linha ele quebrava em duas — a barra ia de 49 pra

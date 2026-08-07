@@ -384,7 +384,17 @@ const linhas = computed(() => ordenarEstados(
   }),
 ))
 
-const naRua = computed(() => linhas.value.filter((l) => l.naRua).length)
+/* A CONTAGEM de "na rua" saiu do resumo a pedido do dono, e o motivo importa
+ * pra ninguém trazer de volta: `naRua` só conta VIAGEM aberta — posse não
+ * conta, e isso está certo (D9: senão o Volvo do Humberto ficaria "na rua com
+ * Humberto" pra sempre). Só que ninguém aqui registra viagem: as 9 linhas de
+ * `frota_uso` são TODAS de posse, nenhuma de viagem. O número marcava 0
+ * permanentemente e sugeria frota parada justamente quando 8 dos 9 carros
+ * estão com motorista — pior que não mostrar nada.
+ *
+ * `l.naRua` CONTINUA em uso no card e no botão Devolver: o campo por veículo
+ * responde certo quando alguém de fato registra uma viagem. O que não servia
+ * era o TOTAL no topo. */
 const livres = computed(() => linhas.value.filter((l) => l.disponivel).length)
 
 /* ── Retirar e devolver ──────────────────────────────────────────────────── */
@@ -1138,8 +1148,6 @@ onMounted(async () => {
 
     <div class="fr-resumo" v-if="!carregando && !falha && area === 'gestao'">
       <span><strong>{{ livres }}</strong> {{ livres === 1 ? 'livre' : 'livres' }}</span>
-      <span class="fr-sep">·</span>
-      <span><strong>{{ naRua }}</strong> na rua</span>
       <span class="fr-sep">·</span>
       <span><strong>{{ linhas.length }}</strong> {{ linhas.length === 1 ? 'veículo' : 'veículos' }}</span>
     </div>
@@ -2180,7 +2188,13 @@ onMounted(async () => {
 /* O "?" de dentro do modal, que abre o passeio pelos campos DELE — mesmo
    desenho redondo do "?" da barra de topo (pat-btn-ajuda no Patrimônio), só
    que com as classes fr- desta tela. */
-.tela-frota .fr-btn-ajuda{width:24px;height:24px;flex:0 0 auto;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:var(--fonte-principal);font-size:12px;font-weight:700;cursor:pointer;touch-action:manipulation;}
+/* 40px na base (celular) porque o PADRÃO exige 40px de alvo de toque — "dedo
+   não acerta menos que isso" — e o tutorial existe justamente pra quem está
+   perdido: errar o botão de ajuda é o pior lugar possível pra errar. No
+   desktop volta a 24px (ver o bloco min-width:900px): lá o ponteiro acerta
+   24px de sobra, e o "?" fica ao lado do ✕ com só 10px de gap — 40px no
+   desktop deixaria os dois quase encostados. */
+.tela-frota .fr-btn-ajuda{width:40px;height:40px;flex:0 0 auto;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:var(--fonte-principal);font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation;}
 .tela-frota .fr-btn-ajuda:hover{color:var(--accent);border-color:var(--accent);}
 .tela-frota .fr-ficha-corpo{padding:14px 15px;overflow-y:auto;display:flex;flex-direction:column;gap:13px;}
 /* O texto fixo do topo de cada modal (pedido do dono, em todos os 9). Curto
@@ -2202,5 +2216,7 @@ onMounted(async () => {
   .tela-frota .fr-resumo{padding:12px 24px;}
   .tela-frota .fr-lista{padding:4px 24px 40px;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}
   .tela-frota .fr-checklist-editor{padding:4px 24px 40px;}
+  /* Ponteiro do mouse acerta 24px sem esforço — ver o comentário no fr-btn-ajuda. */
+  .tela-frota .fr-btn-ajuda{width:24px;height:24px;font-size:12px;}
 }
 </style>
