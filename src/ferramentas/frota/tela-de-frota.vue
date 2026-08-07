@@ -39,6 +39,15 @@ import {
 } from '../../../supabase/functions/_shared/checklist.js'
 import { bensLivresParaFrota, patchDoBem } from './bens-para-veiculo.js'
 import { contatoParaCobranca, podeCopiarTelefoneDoCarro } from './contato-do-motorista.js'
+// O tutorial: o passeio pela tela inteira, os textos fixos dos 6 modais e o
+// passeio pelos campos de cada um. PasseioGuiado é o MESMO componente que o
+// Patrimônio usa (compartilhado/) — ele já aponta pra dentro de um modal
+// aberto sozinho, não precisou de adaptação nenhuma.
+import PasseioGuiado from '../../compartilhado/passeio-guiado.vue'
+import {
+  PASSOS, TEXTOS, PASSOS_VEICULO, PASSOS_ITEM, PASSOS_FICHA_DETALHE,
+  PASSOS_PEDIDO, PASSOS_DECISAO, PASSOS_FICHA, deveAbrirSozinho, marcarComoVisto,
+} from './tutorial.js'
 
 const router = useRouter()
 const logoClaroUrl = '/midia/LOGOTIPOBRENOPRETO.png'
@@ -133,7 +142,7 @@ function abrirDetalheChecklist(c) {
   if (!ficha) return  // defensivo: card "feito" sempre tem ficha de hoje por trás
   fichaDetalhe.value = { veiculo: c.veiculo, ficha }
 }
-function fecharDetalheChecklist() { fichaDetalhe.value = null }
+function fecharDetalheChecklist() { fichaDetalhe.value = null; passeioFichaDetalheAberto.value = false }
 
 const ROTULOS_RESULTADO = { liberado: 'Liberado', com_ressalvas: 'Com ressalvas', nao_liberado: 'Não liberado' }
 const rotuloResultado = (r) => ROTULOS_RESULTADO[r] || r
@@ -400,7 +409,7 @@ function abrirDevolucao(linha) {
   Object.assign(form, { pessoaId: '', km: '', tanque: '', destino: '', finalidade: '', observacao: '' })
   problemas.value = []
 }
-function fecharFicha() { ficha.value = null; problemas.value = [] }
+function fecharFicha() { ficha.value = null; problemas.value = []; passeioFichaAberto.value = false }
 
 /* ── Passar o carro (F6b) ─────────────────────────────────────────────────
    Quem tem carro fixo não "retira" e "devolve" — a posse é uma linha aberta
@@ -661,7 +670,7 @@ function abrirPedido(veiculoId) {
     destino: '', finalidade: '', retirada: '', devolucao: '', observacao: '',
   })
 }
-function fecharPedido() { pedido.value = null; avisosDoPedido.value = [] }
+function fecharPedido() { pedido.value = null; avisosDoPedido.value = []; passeioPedidoAberto.value = false }
 
 // <input type="datetime-local"> devolve hora LOCAL sem fuso. Mandar essa string
 // crua pro banco gravaria como se fosse UTC — três horas de diferença, que é
@@ -722,7 +731,7 @@ function abrirDecisao(requisicao, acao) {
   motivoDaRecusa.value = ''
   erroDaDecisao.value = ''
 }
-function fecharDecisao() { decisao.value = null; erroDaDecisao.value = '' }
+function fecharDecisao() { decisao.value = null; erroDaDecisao.value = ''; passeioDecisaoAberto.value = false }
 
 function porQueNaoDecido(r) {
   return podeDecidir({
@@ -795,7 +804,7 @@ function abrirItem(p) {
     item: p ? p.item : '', aCadaKm: p ? String(p.a_cada_km) : '', observacao: (p && p.observacao) || '',
   })
 }
-function fecharItem() { itemEmEdicao.value = null; errosDoItem.value = [] }
+function fecharItem() { itemEmEdicao.value = null; errosDoItem.value = []; passeioItemAberto.value = false }
 
 async function salvarItem() {
   if (gravando.value) return
@@ -903,7 +912,7 @@ function abrirVeiculoNovo() {
   novaRevisao.oficina = ''
   novaRevisao.custo = ''
 }
-function fecharVeiculo() { veiculoAberto.value = null; errosDoVeiculo.value = [] }
+function fecharVeiculo() { veiculoAberto.value = null; errosDoVeiculo.value = []; passeioVeiculoAberto.value = false }
 
 // Escolher um bem no seletor de ligação, enquanto cria, também sugere nome,
 // marca, FIPE e código patrimonial pra ficha (patchDoBem só preenche o que
@@ -1074,16 +1083,51 @@ async function apagarRevisao(r) {
   if (!error) carregar()
 }
 
+// -------------------------------------------------------------------- tutorial
+// O passeio da tela inteira, e um por modal (pelos campos DAQUELE modal). Cada
+// um é independente — fechar o da ficha do veículo não fecha o da tela.
+const passeioAberto = ref(false)
+const passeioVeiculoAberto = ref(false)
+const passeioItemAberto = ref(false)
+const passeioFichaDetalheAberto = ref(false)
+const passeioPedidoAberto = ref(false)
+const passeioDecisaoAberto = ref(false)
+const passeioFichaAberto = ref(false)
+
+function abrirPasseio() { passeioAberto.value = true }
+// Fechou o passeio da tela (concluiu ou pulou): não abre mais sozinho pra
+// esta pessoa, nesta ferramenta. Só o passeio DA TELA marca como visto — os
+// passeios de dentro dos modais são sempre por pedido (o "?"), nunca abrem
+// sozinhos, então não têm o que "marcar como visto".
+watch(passeioAberto, (aberto) => {
+  if (!aberto) marcarComoVisto(typeof localStorage !== 'undefined' ? localStorage : null, estado.user?.id)
+})
+
 onMounted(async () => {
   await carregar()
   // Só depois de saber as permissões dá pra escolher a aba de abertura.
   area.value = areaInicial(pode)
+  // Só depois dos dados na tela: passeio apontando pra botão que ainda não
+  // existe (`.fr-novo` só aparece com `pode('criar')` já resolvido) mostraria
+  // o balão sem realce no primeiro passo, e ninguém entenderia por quê.
+  if (deveAbrirSozinho(typeof localStorage !== 'undefined' ? localStorage : null, estado.user?.id)) {
+    passeioAberto.value = true
+  }
 })
 </script>
 
 <template>
   <div class="tela-frota">
-    <barra-de-topo voltar="Gestão Interna" titulo="Frota" @voltar="voltar" />
+    <barra-de-topo voltar="Gestão Interna" titulo="Frota" @voltar="voltar">
+      <template #acoes>
+        <button class="fr-btn-ajuda" @click="abrirPasseio" title="Como usar esta tela">?</button>
+      </template>
+    </barra-de-topo>
+
+    <!-- O passeio da tela inteira. Abre sozinho na primeira visita e depois
+         só pelo "?" da barra de topo. Componente compartilhado com o
+         Patrimônio. -->
+    <PasseioGuiado v-model="passeioAberto" :passos="PASSOS" />
 
     <!-- Duas áreas (D8). Quem só dirige vê uma aba só — e nesse caso a barra
          não aparece: barra de uma aba é enfeite que come altura de tela. -->
@@ -1119,6 +1163,7 @@ onMounted(async () => {
            carro de rodízio o preenche na hora de pegar (F7, tarefa futura). -->
       <PainelDeChecklist
         v-if="meuCarroFixo && !fichaDeHoje"
+        data-tour="fr-checklist-hoje"
         :veiculo="meuCarroFixo"
         :itens="itensDeChecklist"
         :config="configDeChecklist"
@@ -1289,7 +1334,7 @@ onMounted(async () => {
            o detalhe pra ver O QUE foi marcado — o quadro antigo só dizia QUEM
            fez, e o dono apontou que isso não dava pra ler. Quem falta ganha um
            jeito de cobrar na hora. -->
-      <div class="fr-lista">
+      <div class="fr-lista" data-tour="fr-cobranca-quadro">
         <div v-for="c in cobranca" :key="c.veiculo.id" class="fr-card fr-card-cobranca" :class="{ pendente: !c.fez }">
           <div class="fr-card-topo">
             <div class="fr-card-ident">
@@ -1441,16 +1486,19 @@ onMounted(async () => {
           <span class="fr-ficha-titulo">
             {{ veiculoAberto.novo ? 'Novo veículo' : (veiculoAberto.nome + ' · ' + veiculoAberto.placa) }}
           </span>
+          <button class="fr-btn-ajuda" @click="passeioVeiculoAberto = true" title="Passeio pelos campos">?</button>
           <button class="fr-fechar" @click="fecharVeiculo" aria-label="Fechar">✕</button>
         </div>
+        <PasseioGuiado v-model="passeioVeiculoAberto" :passos="PASSOS_VEICULO" />
         <div class="fr-ficha-corpo">
+          <p class="fr-tutorial-fixo">{{ TEXTOS.veiculoAberto }}</p>
           <p class="fr-aviso" v-if="veiculoAberto.novo">
             Este carro entra ativo e sem responsável fixo — um carro de rodízio, que qualquer um
             pode pegar. Para dar um responsável fixo a ele, abra a ficha de novo depois de gravar.
           </p>
           <h3 class="fr-grupo">Identificação</h3>
           <div class="fr-dupla">
-            <label class="fr-campo"><span class="fr-lab">Nome</span><input v-model="vForm.nome" type="text"></label>
+            <label class="fr-campo" data-tour="veic-nome"><span class="fr-lab">Nome</span><input v-model="vForm.nome" type="text"></label>
             <label class="fr-campo"><span class="fr-lab">Placa</span><input v-model="vForm.placa" type="text"></label>
             <label class="fr-campo"><span class="fr-lab">Marca</span><input v-model="vForm.marca" type="text"></label>
             <label class="fr-campo"><span class="fr-lab">Ano</span><input v-model="vForm.ano" type="text" inputmode="numeric"></label>
@@ -1472,7 +1520,7 @@ onMounted(async () => {
 
           <h3 class="fr-grupo">Onde está</h3>
           <div class="fr-dupla">
-            <label class="fr-campo" v-if="!veiculoAberto.novo">
+            <label class="fr-campo" v-if="!veiculoAberto.novo" data-tour="veic-responsavel">
               <span class="fr-lab">Responsável</span>
               <select v-model="vForm.pessoa_id">
                 <option value="">— ninguém —</option>
@@ -1486,7 +1534,7 @@ onMounted(async () => {
             </label>
           </div>
 
-          <h3 class="fr-grupo">Contato</h3>
+          <h3 class="fr-grupo" data-tour="veic-contato">Contato</h3>
           <div class="fr-dupla">
             <label class="fr-campo"><span class="fr-lab">Quem é</span><input v-model="vForm.contato_nome" type="text" placeholder="JHM Auto Center"></label>
             <label class="fr-campo"><span class="fr-lab">O que faz</span><input v-model="vForm.contato_papel" type="text" placeholder="Oficina, locadora, seguro, guincho…"></label>
@@ -1502,7 +1550,7 @@ onMounted(async () => {
             </label>
           </div>
 
-          <h3 class="fr-grupo">Contrato e valores</h3>
+          <h3 class="fr-grupo" data-tour="veic-contrato">Contrato e valores</h3>
           <div class="fr-dupla">
             <label class="fr-campo"><span class="fr-lab">Contrato</span><input v-model="vForm.contrato" type="text" placeholder="CTR-007"></label>
             <label class="fr-campo"><span class="fr-lab">Aluguel por mês (R$)</span><input v-model="vForm.aluguel" type="text" inputmode="decimal"></label>
@@ -1518,7 +1566,7 @@ onMounted(async () => {
             <label class="fr-campo"><span class="fr-lab">Valor (R$)</span><input v-model="vForm.seguroValor" type="text" inputmode="decimal"></label>
           </div>
 
-          <h3 class="fr-grupo">Oficina</h3>
+          <h3 class="fr-grupo" data-tour="veic-oficina">Oficina</h3>
           <div class="fr-dupla">
             <label class="fr-campo"><span class="fr-lab">Mecânica</span><input v-model="vForm.oficina_nome" type="text" placeholder="JHM Auto Center"></label>
             <label class="fr-campo">
@@ -1539,7 +1587,7 @@ onMounted(async () => {
                  ligado (F9). Oferecer um bem já ligado duplicaria o carro.
                  Some o campo inteiro se não sobrar nenhum, em vez de mostrar
                  um seletor vazio sem dizer por quê. -->
-            <label class="fr-campo" v-if="!veiculoAberto.novo || bensLivres.length">
+            <label class="fr-campo" v-if="!veiculoAberto.novo || bensLivres.length" data-tour="veic-bem">
               <span class="fr-lab">Bem no Patrimônio</span>
               <select v-model="vForm.bem_id" @change="aoEscolherBem">
                 <option value="">— não ligado —</option>
@@ -1563,7 +1611,7 @@ onMounted(async () => {
                depois do carro estar gravado — não faz sentido pra um carro
                ainda em criação (F9). -->
           <template v-if="!veiculoAberto.novo">
-            <h3 class="fr-grupo">Histórico de manutenção</h3>
+            <h3 class="fr-grupo" data-tour="veic-historico">Histórico de manutenção</h3>
             <ul class="fr-hist" v-if="historicoDoVeiculo.length">
               <li v-for="h in historicoDoVeiculo" :key="h.id">
                 <span class="fr-item-nome">{{ h.item }}</span>
@@ -1617,7 +1665,7 @@ onMounted(async () => {
          moram juntos aqui, quilometragem primeiro (o que já existia) e
          checklist depois. -->
     <template v-if="area === 'plano' && !carregando && !falha">
-      <h2 class="fr-secao">Plano de manutenção — o que a oficina troca, de quantos em quantos quilômetros</h2>
+      <h2 class="fr-secao" data-tour="fr-secao-plano">Plano de manutenção — o que a oficina troca, de quantos em quantos quilômetros</h2>
       <p class="fr-aviso">
         Estes números são os que geram os avisos da aba Revisões. Mude quando o mecânico mandar,
         e acrescente o que faltar.
@@ -1631,7 +1679,15 @@ onMounted(async () => {
           <div class="fr-pedido-quando" v-if="p.observacao">{{ p.observacao }}</div>
           <div class="fr-acoes">
             <button class="fr-btn" @click="abrirItem(p)">Editar</button>
-            <button class="fr-btn" @click="alternarItem(p)">{{ p.ativo ? 'Desativar' : 'Reativar' }}</button>
+            <!-- O passeio do item ("Desativar") aponta pra ESTE botão, não pra
+                 dentro do modal: o modal de editar não tem esse controle, ele
+                 mora aqui, na lista. `data-tour` só nasce no item que está
+                 sendo editado agora — se apontasse pra todo mundo, o realce
+                 pegaria o primeiro item do plano, não o que está aberto. -->
+            <button class="fr-btn" @click="alternarItem(p)"
+                    :data-tour="(itemEmEdicao && !itemEmEdicao.novo && p.id === itemEmEdicao.id) ? 'item-desativar' : null">
+              {{ p.ativo ? 'Desativar' : 'Reativar' }}
+            </button>
           </div>
         </li>
       </ul>
@@ -1659,14 +1715,17 @@ onMounted(async () => {
       <div class="fr-ficha" role="dialog">
         <div class="fr-ficha-topo">
           <span class="fr-ficha-titulo">{{ itemEmEdicao.novo ? 'Novo item de revisão' : 'Editar item' }}</span>
+          <button class="fr-btn-ajuda" @click="passeioItemAberto = true" title="Passeio pelos campos">?</button>
           <button class="fr-fechar" @click="fecharItem" aria-label="Fechar">✕</button>
         </div>
+        <PasseioGuiado v-model="passeioItemAberto" :passos="PASSOS_ITEM" />
         <div class="fr-ficha-corpo">
-          <label class="fr-campo">
+          <p class="fr-tutorial-fixo">{{ TEXTOS.itemEmEdicao }}</p>
+          <label class="fr-campo" data-tour="item-nome">
             <span class="fr-lab">O que se troca</span>
             <input v-model="itemForm.item" type="text" placeholder="Filtro de ar, fluido de freio…">
           </label>
-          <label class="fr-campo">
+          <label class="fr-campo" data-tour="item-km">
             <span class="fr-lab">A cada quantos quilômetros</span>
             <input v-model="itemForm.aCadaKm" type="text" inputmode="numeric" placeholder="20000">
             <span class="fr-ajuda">O aviso começa quando faltarem 10% disso.</span>
@@ -1697,15 +1756,18 @@ onMounted(async () => {
           <span class="fr-ficha-titulo">
             Checklist de hoje · {{ fichaDetalhe.veiculo.nome }} · {{ fichaDetalhe.veiculo.placa }}
           </span>
+          <button class="fr-btn-ajuda" @click="passeioFichaDetalheAberto = true" title="Passeio pelos campos">?</button>
           <button class="fr-fechar" @click="fecharDetalheChecklist" aria-label="Fechar">✕</button>
         </div>
+        <PasseioGuiado v-model="passeioFichaDetalheAberto" :passos="PASSOS_FICHA_DETALHE" />
         <div class="fr-ficha-corpo">
+          <p class="fr-tutorial-fixo">{{ TEXTOS.fichaDetalhe }}</p>
           <div class="fr-dados">
-            <div class="fr-dado">
+            <div class="fr-dado" data-tour="fdet-km">
               <span class="fr-dado-lab">Quilometragem</span>
               <span class="fr-dado-val">{{ fichaDetalhe.ficha.hodometro.toLocaleString('pt-BR') }} km</span>
             </div>
-            <div class="fr-dado">
+            <div class="fr-dado" data-tour="fdet-resultado">
               <span class="fr-dado-lab">Resultado</span>
               <span class="fr-dado-val" :class="'fr-resultado-' + fichaDetalhe.ficha.resultado">
                 {{ rotuloResultado(fichaDetalhe.ficha.resultado) }}
@@ -1724,11 +1786,11 @@ onMounted(async () => {
           <p class="fr-ajuda" v-if="fichaDetalhe.ficha.hodometro_justificativa">
             Sobre a quilometragem: {{ fichaDetalhe.ficha.hodometro_justificativa }}
           </p>
-          <p class="fr-ajuda" v-if="fichaDetalhe.ficha.anomalias">
+          <p class="fr-ajuda" v-if="fichaDetalhe.ficha.anomalias" data-tour="fdet-anomalias">
             Anomalias escritas: {{ fichaDetalhe.ficha.anomalias }}
           </p>
 
-          <h3 class="fr-grupo">O que foi conferido</h3>
+          <h3 class="fr-grupo" data-tour="fdet-itens">O que foi conferido</h3>
           <!-- `falhaRespostas` distingue "não consegui carregar" de "não tinha
                item nenhum" — uma ficha sem resposta carregada NUNCA pode virar
                "vazio" na tela, senão o dado inventado parece dado real. -->
@@ -1793,9 +1855,12 @@ onMounted(async () => {
       <div class="fr-ficha" role="dialog">
         <div class="fr-ficha-topo">
           <span class="fr-ficha-titulo">Reservar veículo</span>
+          <button class="fr-btn-ajuda" @click="passeioPedidoAberto = true" title="Passeio pelos campos">?</button>
           <button class="fr-fechar" @click="fecharPedido" aria-label="Fechar">✕</button>
         </div>
+        <PasseioGuiado v-model="passeioPedidoAberto" :passos="PASSOS_PEDIDO" />
         <div class="fr-ficha-corpo">
+          <p class="fr-tutorial-fixo">{{ TEXTOS.pedido }}</p>
           <label class="fr-campo">
             <span class="fr-lab">Veículo</span>
             <select v-model="pedidoForm.veiculoId" @change="conferirPedido">
@@ -1812,7 +1877,7 @@ onMounted(async () => {
               <option v-for="p in pessoas" :key="p.id" :value="p.id">{{ p.nome }}</option>
             </select>
           </label>
-          <label class="fr-campo">
+          <label class="fr-campo" data-tour="ped-quando">
             <span class="fr-lab">Retirada</span>
             <input v-model="pedidoForm.retirada" type="datetime-local" @change="conferirPedido">
           </label>
@@ -1820,7 +1885,7 @@ onMounted(async () => {
             <span class="fr-lab">Devolução prevista</span>
             <input v-model="pedidoForm.devolucao" type="datetime-local" @change="conferirPedido">
           </label>
-          <label class="fr-campo">
+          <label class="fr-campo" data-tour="ped-destino">
             <span class="fr-lab">Destino</span>
             <input v-model="pedidoForm.destino" type="text" placeholder="Conchal, Campinas…">
           </label>
@@ -1837,7 +1902,7 @@ onMounted(async () => {
             <li v-for="(a, i) in avisosDoPedido" :key="i">{{ a.texto }}</li>
           </ul>
         </div>
-        <div class="fr-ficha-rodape">
+        <div class="fr-ficha-rodape" data-tour="ped-depois">
           <button class="fr-btn" @click="fecharPedido">Cancelar</button>
           <button class="fr-btn primario" :disabled="gravando" @click="enviarPedido">
             {{ gravando ? 'Enviando…' : (jaAvisado && avisosDoPedido.length ? 'Pedir assim mesmo' : 'Pedir') }}
@@ -1851,22 +1916,25 @@ onMounted(async () => {
       <div class="fr-ficha" role="dialog">
         <div class="fr-ficha-topo">
           <span class="fr-ficha-titulo">{{ decisao.acao === 'aprovada' ? 'Aprovar' : 'Recusar' }} requisição</span>
+          <button class="fr-btn-ajuda" @click="passeioDecisaoAberto = true" title="Passeio pelos campos">?</button>
           <button class="fr-fechar" @click="fecharDecisao" aria-label="Fechar">✕</button>
         </div>
+        <PasseioGuiado v-model="passeioDecisaoAberto" :passos="PASSOS_DECISAO" />
         <div class="fr-ficha-corpo">
+          <p class="fr-tutorial-fixo">{{ TEXTOS.decisao }}</p>
           <p class="fr-recado">
             {{ (veiculos.find((v) => v.id === decisao.requisicao.veiculo_id) || {}).nome }}
             para {{ decisao.requisicao.pessoa_nome || 'motorista não informado' }},
             {{ quando(decisao.requisicao.retirada_prevista) }}<span v-if="decisao.requisicao.destino">, {{ decisao.requisicao.destino }}</span>.
           </p>
-          <label class="fr-campo">
+          <label class="fr-campo" data-tour="dec-motivo">
             <span class="fr-lab">{{ decisao.acao === 'recusada' ? 'Motivo (obrigatório)' : 'Observação' }}</span>
             <input v-model="motivoDaRecusa" type="text"
                    :placeholder="decisao.acao === 'recusada' ? 'O carro já está reservado nesse dia…' : 'opcional'">
           </label>
           <ul class="fr-problemas" v-if="erroDaDecisao"><li>{{ erroDaDecisao }}</li></ul>
         </div>
-        <div class="fr-ficha-rodape">
+        <div class="fr-ficha-rodape" data-tour="dec-depois">
           <button class="fr-btn" @click="fecharDecisao">Cancelar</button>
           <button class="fr-btn primario" :disabled="gravando" @click="confirmarDecisao">
             {{ gravando ? 'Gravando…' : (decisao.acao === 'aprovada' ? 'Aprovar' : 'Recusar') }}
@@ -1883,10 +1951,21 @@ onMounted(async () => {
           <span class="fr-ficha-titulo">
             {{ ficha.modo === 'retirar' ? 'Retirar' : 'Devolver' }} · {{ ficha.linha.veiculo.nome }}
           </span>
+          <button class="fr-btn-ajuda" @click="passeioFichaAberto = true" title="Passeio pelos campos">?</button>
           <button class="fr-fechar" @click="fecharFicha" aria-label="Fechar">✕</button>
         </div>
+        <PasseioGuiado v-model="passeioFichaAberto" :passos="PASSOS_FICHA" />
 
         <div class="fr-ficha-corpo">
+          <!-- Texto fixo VERBATIM (dono): a frase certa depende do modo —
+               quem retira não precisa ler a instrução de devolver. -->
+          <p class="fr-tutorial-fixo" v-if="ficha.modo === 'retirar'">
+            <strong>Ao retirar:</strong> {{ TEXTOS.fichaRetirar }}
+          </p>
+          <p class="fr-tutorial-fixo" v-else>
+            <strong>Ao devolver:</strong> {{ TEXTOS.fichaDevolver }}
+          </p>
+
           <!-- O checklist do rodízio (F7): quem pega um carro que não é o seu
                fixo confere ANTES DE SAIR, como o papel manda — sábado ou não
                (D6/D9 cobre só o carro fixo, todo dia; este cobre quem pega
@@ -1895,6 +1974,7 @@ onMounted(async () => {
                pelo calendário e no fim de semana devolveria zero itens. -->
           <PainelDeChecklist
             v-if="ficha.modo === 'retirar' && precisaDeChecklist({ veiculoId: ficha.linha.veiculo.id, fichas, hoje })"
+            data-tour="ficha-checklist"
             :veiculo="ficha.linha.veiculo"
             :itens="itensDeChecklist"
             :config="configDeChecklist"
@@ -1915,7 +1995,7 @@ onMounted(async () => {
             </select>
           </label>
 
-          <label class="fr-campo">
+          <label class="fr-campo" data-tour="ficha-km">
             <span class="fr-lab">
               KM no painel {{ ficha.modo === 'devolver' ? 'agora' : 'ao sair' }}
             </span>
@@ -1925,7 +2005,7 @@ onMounted(async () => {
             </span>
           </label>
 
-          <label class="fr-campo">
+          <label class="fr-campo" data-tour="ficha-combustivel">
             <span class="fr-lab">Combustível no painel</span>
             <select v-model="form.tanque">
               <option value="">— não informar —</option>
@@ -2092,9 +2172,23 @@ onMounted(async () => {
 .tela-frota .fr-ficha-fundo{position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:14px;}
 .tela-frota .fr-ficha{width:100%;max-width:460px;max-height:calc(100dvh - 28px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35);}
 .tela-frota .fr-ficha-topo{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 15px;border-bottom:1px solid var(--border);}
-.tela-frota .fr-ficha-titulo{font-family:var(--fonte-principal);font-size:12.5px;font-weight:700;letter-spacing:.6px;color:var(--text);}
+/* flex:1 pra empurrar o "?" e o "✕" pro canto direito, juntos — sem isso os
+   três filhos do topo (título, ajuda, fechar) ficariam espaçados igualmente
+   pelo justify-content:space-between de cima, com o "?" preso no meio. */
+.tela-frota .fr-ficha-titulo{flex:1;min-width:0;font-family:var(--fonte-principal);font-size:12.5px;font-weight:700;letter-spacing:.6px;color:var(--text);}
 .tela-frota .fr-fechar{appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:9px;width:34px;height:34px;font-size:15px;cursor:pointer;flex:0 0 auto;}
+/* O "?" de dentro do modal, que abre o passeio pelos campos DELE — mesmo
+   desenho redondo do "?" da barra de topo (pat-btn-ajuda no Patrimônio), só
+   que com as classes fr- desta tela. */
+.tela-frota .fr-btn-ajuda{width:24px;height:24px;flex:0 0 auto;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:var(--fonte-principal);font-size:12px;font-weight:700;cursor:pointer;touch-action:manipulation;}
+.tela-frota .fr-btn-ajuda:hover{color:var(--accent);border-color:var(--accent);}
 .tela-frota .fr-ficha-corpo{padding:14px 15px;overflow-y:auto;display:flex;flex-direction:column;gap:13px;}
+/* O texto fixo do topo de cada modal (pedido do dono, em todos os 9). Curto
+   de propósito — por isso um bloco pequeno com fundo sutil, não uma caixa de
+   aviso do tamanho de um parágrafo de aviso de erro. Cor de fundo por
+   color-mix (nunca hex): mistura o token com a superfície, então os dois
+   temas ficam legíveis sem precisar de uma cor "clara" e uma "escura" à mão. */
+.tela-frota .fr-tutorial-fixo{margin:0;padding:10px 12px;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.6;color:var(--text);background:color-mix(in srgb,var(--accent) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 22%,var(--surface));border-radius:10px;}
 .tela-frota .fr-campo{display:flex;flex-direction:column;gap:5px;}
 .tela-frota .fr-lab{font-family:var(--fonte-principal);font-size:10.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);}
 /* 16px nos campos: abaixo disso o iPhone dá zoom sozinho ao tocar. */

@@ -4,6 +4,7 @@
 // Por que isto é um arquivo e não texto solto no template: o tutorial é o que
 // ensina alguém que nunca viu o módulo. Ele precisa ser revisado como texto —
 // lido inteiro, de uma vez — e não caçado no meio de 1.500 linhas de tela.
+import { deveAbrirSozinho as devePorPrefixo, marcarComoVisto as marcarPorPrefixo } from '../../compartilhado/tutorial-visto.js'
 
 // Cada passo aponta pra um seletor REAL da tela. Seletor que não existe faz o
 // passeio mostrar o balão no centro, sem realce — o texto aparece de qualquer
@@ -65,6 +66,111 @@ export const PASSOS = [
       + 'número da etiqueta — explicando o que aquilo significa na prática. Pode fechar '
       + 'agora: nada aqui se perde, e você já sabe onde procurar.',
   },
+  // Os dois passos abaixo nasceram DEPOIS dos 7 de cima — o resto do passeio
+  // não mudou. Os dois apontam pro mesmo "+": é abrindo a ficha de um bem que
+  // se chega tanto no "+" dos campos quanto na ligação com a Frota.
+  {
+    selector: '.pat-btn-novo',
+    titulo: '8. Criar uma opção sem sair da ficha',
+    texto: 'Dentro da ficha do bem, os campos Empresa, Local, Ambiente, Categoria e Tipo '
+      + 'têm um "+" ao lado. Toque nele pra cadastrar uma opção nova ali mesmo, na hora — '
+      + 'sem fechar o bem que você está preenchendo pra ir até a engrenagem e voltar.',
+  },
+  {
+    selector: '.pat-btn-novo',
+    titulo: '9. Um carro é dois cadastros, ligados',
+    texto: 'Bem da categoria Veículos ganhou um bloco "Situação na Frota" dentro da '
+      + 'ficha: liga o bem a um carro que já existe na Frota, ou cria o carro lá a partir '
+      + 'dos dados que você já digitou aqui. Ligar os dois evita o mesmo carro virar dois '
+      + 'cadastros separados, um em cada ferramenta, sem ninguém perceber.',
+  },
+]
+
+// Os textos fixos dos 3 modais, escritos pelo dono e usados sem alteração —
+// mesmo padrão do frota/tutorial.js (leia o comentário lá: ficam num objeto
+// pelo mesmo motivo do PASSOS, pra poder ser lido e revisado de uma vez).
+export const TEXTOS = {
+  massaAberta: 'Você marcou vários bens e vai mudar todos juntos. Só o que você preencher '
+    + 'aqui muda — o que deixar em branco fica como estava em cada um. Confira quantos '
+    + 'itens estão selecionados antes de confirmar.',
+  bemAberto: 'Tudo sobre este bem: o que é, quanto vale, onde está e com quem. O número de '
+    + 'patrimônio é o da etiqueta colada nele — é por ele que o bem é achado na busca e '
+    + 'pelo leitor de código.',
+  listasAbertas: 'Aqui você arruma as listas que aparecem nos formulários: empresas, '
+    + 'locais, ambientes, categorias e tipos. Mudar um nome aqui muda em todos os bens '
+    + 'que o usam.',
+}
+
+/* ── Os 3 modais: passeio pelos campos, disparado pelo "?" ao lado do X ──── */
+
+export const PASSOS_MASSA = [
+  {
+    selector: '[data-tour="massa-titulo"]',
+    titulo: 'Quantos itens',
+    texto: 'O número no título é quantos bens vão ser alterados. Se estiver diferente do '
+      + 'que você esperava, feche e refaça a seleção.',
+  },
+  {
+    selector: '[data-tour="massa-campo"]',
+    titulo: 'Cada campo',
+    texto: 'Em branco significa "não mexer". Preenchido significa "igualar todos a este '
+      + 'valor".',
+  },
+  {
+    selector: '[data-tour="massa-local"]',
+    titulo: 'Local e ambiente',
+    texto: 'Escolha a empresa primeiro: o local depende dela, e o ambiente depende do '
+      + 'local.',
+  },
+]
+
+export const PASSOS_BEM = [
+  {
+    selector: '[data-tour="bem-numero"]',
+    titulo: 'Número',
+    texto: 'O da etiqueta física. A tela de Etiquetas mostra quais números ainda estão '
+      + 'livres.',
+  },
+  {
+    selector: '[data-tour="bem-local"]',
+    titulo: 'Empresa, local e ambiente',
+    texto: 'Onde o bem está. Um depende do outro: escolha a empresa, depois o local, '
+      + 'depois o ambiente.',
+  },
+  {
+    selector: '[data-tour="bem-categoria"]',
+    titulo: 'Categoria e tipo',
+    texto: 'Categoria é o grupo grande (Veículos, Computadores); tipo é a marca ou o '
+      + 'modelo. Se o que você precisa não estiver na lista, o botão + ao lado cria na '
+      + 'hora.',
+  },
+  {
+    selector: '[data-tour="bem-responsavel"]',
+    titulo: 'Responsável',
+    texto: 'Com quem o bem está. É o que aparece no termo de responsabilidade.',
+  },
+  {
+    selector: '[data-tour="bem-situacao"]',
+    titulo: 'Situação',
+    texto: 'Em uso, em estoque, em manutenção ou baixado. Baixado some dos totais, mas '
+      + 'não é apagado.',
+  },
+]
+
+export const PASSOS_LISTAS = [
+  {
+    selector: '[data-tour="listas-por-que"]',
+    titulo: 'Por que arrumar',
+    texto: 'Nomes escritos de formas diferentes viram opções diferentes na lista. '
+      + '"Volvo" e "VOLVO" seriam duas marcas para o sistema, e os totais se dividiriam '
+      + 'entre as duas.',
+  },
+  {
+    selector: '[data-tour="listas-apagar"]',
+    titulo: 'Apagar',
+    texto: 'Só dá para apagar o que não está sendo usado por nenhum bem. Se estiver em '
+      + 'uso, o sistema avisa em vez de deixar o bem órfão.',
+  },
 ]
 
 // As explicações do "?". Cada uma responde a pergunta que a pessoa faz olhando
@@ -91,23 +197,9 @@ export const AJUDAS = {
     + 'de 80 itens sem mexer no dono, no lugar ou na categoria deles.',
 }
 
-// A memória é POR PESSOA, não por navegador. Sem o identificador na chave, quem
-// entrasse num aparelho onde outra pessoa já tinha fechado o passeio nunca veria
-// o tutorial — e é justamente quem chega depois que mais precisa dele.
-function chaveDe(usuarioId) {
-  return 'pat-tutorial-visto:' + (usuarioId || 'anonimo')
-}
-
-// O passeio abre sozinho UMA vez, na primeira visita daquela pessoa. Depois
-// disso, só quando ela pedir — tutorial que reaparece vira estorvo, e quem já
-// sabe usar passa a fechar no reflexo, sem ler.
-export function deveAbrirSozinho(armazem, usuarioId) {
-  // Sem lugar pra guardar (modo privado, armazém bloqueado), NÃO abre: abrir
-  // sem conseguir lembrar significa abrir toda santa vez.
-  if (!armazem || typeof armazem.getItem !== 'function') return false
-  try { return !armazem.getItem(chaveDe(usuarioId)) } catch (e) { return false }
-}
-
-export function marcarComoVisto(armazem, usuarioId) {
-  try { armazem?.setItem(chaveDe(usuarioId), '1') } catch (e) { /* modo privado: só não guarda */ }
-}
+// A memória de "já viu" mora em compartilhado/tutorial-visto.js — a Frota usa
+// a MESMA lógica, só com prefixo de chave diferente. Ver o comentário lá pra
+// entender por que "por pessoa" e por que o prefixo não pode sumir.
+const PREFIXO = 'pat-tutorial-visto'
+export function deveAbrirSozinho(armazem, usuarioId) { return devePorPrefixo(armazem, usuarioId, PREFIXO) }
+export function marcarComoVisto(armazem, usuarioId) { return marcarPorPrefixo(armazem, usuarioId, PREFIXO) }

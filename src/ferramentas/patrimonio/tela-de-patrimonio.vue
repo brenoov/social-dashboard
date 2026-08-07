@@ -368,17 +368,16 @@
       <div class="pat-ficha">
         <div class="pat-ficha-topo">
           <button class="pat-ficha-fechar" @click="massaAberta = false" aria-label="Fechar">✕</button>
-          <span class="pat-ficha-titulo">Alterar {{ resumoSelecao.quantidade }} itens</span>
+          <span class="pat-ficha-titulo" data-tour="massa-titulo">Alterar {{ resumoSelecao.quantidade }} itens</span>
+          <button class="pat-btn-ajuda" @click="passeioMassaAberto = true" title="Passeio pelos campos">?</button>
         </div>
+        <PasseioGuiado v-model="passeioMassaAberto" :passos="PASSOS_MASSA" />
 
         <div class="pat-ficha-corpo">
-          <p class="pat-listas-ajuda">
-            Preencha só o que você quer mudar. <strong>Campo deixado em branco não é
-            alterado</strong> — os itens mantêm o que já têm.
-          </p>
+          <p class="pat-tutorial-fixo">{{ TEXTOS.massaAberta }}</p>
           <div class="pat-ajuda-txt">{{ AJUDAS.massa }}</div>
 
-          <label class="pat-campo">
+          <label class="pat-campo" data-tour="massa-campo">
             <span>Situação</span>
             <select v-model="massa.situacao">
               <option value="">— não mudar —</option>
@@ -403,7 +402,7 @@
             </select>
           </label>
 
-          <div class="pat-campo-par">
+          <div class="pat-campo-par" data-tour="massa-local">
             <label class="pat-campo">
               <span>Marca</span>
               <select v-model="massa.empresaId">
@@ -472,16 +471,19 @@
         <div class="pat-ficha-topo">
           <button class="pat-ficha-fechar" @click="fecharFicha" aria-label="Fechar">✕</button>
           <span class="pat-ficha-titulo">{{ bemAberto.novo ? 'Novo bem' : 'Editar bem' }}</span>
+          <button class="pat-btn-ajuda" @click="passeioBemAberto = true" title="Passeio pelos campos">?</button>
         </div>
+        <PasseioGuiado v-model="passeioBemAberto" :passos="PASSOS_BEM" />
 
         <div class="pat-ficha-corpo">
+          <p class="pat-tutorial-fixo">{{ TEXTOS.bemAberto }}</p>
           <label class="pat-campo">
             <span>Nome do bem</span>
             <input v-model="form.nome" type="text" placeholder="Ex.: Macbook Air M4">
           </label>
 
           <div class="pat-campo-par">
-            <label class="pat-campo">
+            <label class="pat-campo" data-tour="bem-numero">
               <span>Nº da etiqueta <button type="button" class="pat-ajuda-q" @click.prevent="alternarAjuda('etiqueta')" title="O que é isso?">?</button></span>
               <input v-model="form.numero" type="text" inputmode="numeric" placeholder="Ex.: 47">
             </label>
@@ -500,7 +502,7 @@
           </label>
 
           <div class="pat-campo-par">
-            <label class="pat-campo">
+            <label class="pat-campo" data-tour="bem-local">
               <span>Empresa</span>
               <div class="pat-campo-mais">
                 <select v-model="form.empresa_id">
@@ -582,7 +584,7 @@
                Categoria (Computadores) → Tipo (Notebook) → Marca/modelo (Macbook).
                Tipo só lista os da categoria escolhida, mesma regra de local/cômodo. -->
           <div class="pat-campo-par">
-            <label class="pat-campo">
+            <label class="pat-campo" data-tour="bem-categoria">
               <span>Tipo</span>
               <div class="pat-campo-mais">
                 <select v-model="form.tipo_id" :disabled="!form.categoria_id">
@@ -608,7 +610,7 @@
             <button type="button" class="pat-btn" @click="cancelarNovaOpcao">Cancelar</button>
           </div>
 
-          <label class="pat-campo">
+          <label class="pat-campo" data-tour="bem-situacao">
             <span>Situação <button type="button" class="pat-ajuda-q" @click.prevent="alternarAjuda('situacao')" title="O que é isso?">?</button></span>
             <select v-model="form.situacao">
               <option v-for="s in SITUACOES" :key="s.valor" :value="s.valor">{{ s.rotulo }}</option>
@@ -616,7 +618,7 @@
           </label>
           <div class="pat-ajuda-txt" v-if="ajudaAberta === 'situacao'">{{ AJUDAS.situacao }}</div>
 
-          <label class="pat-campo">
+          <label class="pat-campo" data-tour="bem-responsavel">
             <span>Com quem está <em>(opcional)</em> <button type="button" class="pat-ajuda-q" @click.prevent="alternarAjuda('dono')" title="O que é isso?">?</button></span>
             <select v-model="form.pessoa_id">
               <option value="">Ninguém</option>
@@ -746,13 +748,11 @@
         <div class="pat-ficha-topo">
           <button class="pat-ficha-fechar" @click="listasAbertas = false" aria-label="Fechar">✕</button>
           <span class="pat-ficha-titulo">Listas</span>
+          <button class="pat-btn-ajuda" @click="passeioListasAberto = true" title="Passeio pelos campos">?</button>
         </div>
+        <PasseioGuiado v-model="passeioListasAberto" :passos="PASSOS_LISTAS" />
         <div class="pat-ficha-corpo">
-          <p class="pat-listas-ajuda">
-            Aqui você monta a estrutura: cada <strong>marca</strong> tem seus
-            <strong>locais</strong>, e cada local tem seus <strong>ambientes</strong>.
-            É a mesma ordem em que você navega os bens.
-          </p>
+          <p class="pat-tutorial-fixo">{{ TEXTOS.listasAbertas }}</p>
           <div class="pat-ajuda-txt">{{ AJUDAS.arvore }}</div>
 
           <!-- Árvore de cadastro, aberta um galho por vez. Fechado por padrão
@@ -763,9 +763,9 @@
               <button class="pat-arv-abrir" @click="alternarGalho('m' + marca.id)" :aria-expanded="galhoAberto('m' + marca.id)">
                 {{ galhoAberto('m' + marca.id) ? '▾' : '▸' }}
               </button>
-              <input class="pat-lista-nome" :value="marca.nome"
+              <input class="pat-lista-nome" :value="marca.nome" data-tour="listas-por-que"
                      @change="renomearItem(DEF_MARCAS, marca, $event.target.value)">
-              <button class="pat-lista-del" @click="apagarItem(DEF_MARCAS, marca)" aria-label="Apagar marca">✕</button>
+              <button class="pat-lista-del" @click="apagarItem(DEF_MARCAS, marca)" aria-label="Apagar marca" data-tour="listas-apagar">✕</button>
             </div>
 
             <div class="pat-arv-filhos" v-if="galhoAberto('m' + marca.id)">
@@ -864,7 +864,9 @@ import { SITUACOES, rotuloDaSituacao, classeDaSituacao, textoDoDono, avisoDeDono
 import { FILTRO_VAZIO, filtrarBens, resumoDaLista } from './filtro-de-bens.js'
 import { SEM_VALOR, agruparBens, bensDoCaminho, rotuloDoCaminho } from './arvore-de-bens.js'
 import PasseioGuiado from '../../compartilhado/passeio-guiado.vue'
-import { PASSOS, AJUDAS, deveAbrirSozinho, marcarComoVisto } from './tutorial.js'
+import {
+  PASSOS, TEXTOS, PASSOS_MASSA, PASSOS_BEM, PASSOS_LISTAS, AJUDAS, deveAbrirSozinho, marcarComoVisto,
+} from './tutorial.js'
 import { TETO_PADRAO, textoDaFaixa, mapaDeNumeros, aumentarTeto, ehRecente } from './numeros-de-etiqueta.js'
 import LeitorDeEtiqueta from './leitor-de-etiqueta.vue'
 import { resultadoDaLeitura, mensagemDoResultado, etiqueta as etiquetaImpressa } from './leitor-de-codigo.js'
@@ -1346,6 +1348,7 @@ async function confirmarNovaOpcao() {
 
 function fecharFicha() {
   bemAberto.value = null
+  passeioBemAberto.value = false
   historico.value = []
   cancelarNovaOpcao()
   // Sem isto, abrir a ficha de OUTRO bem depois de mexer na ligação da Frota
@@ -1501,10 +1504,17 @@ const ehNovo = (bem) => ehRecente(bem?.criado_em, agoraNaTela.value, 24)
 
 // -------------------------------------------------------------------- tutorial
 const passeioAberto = ref(false)
+// Um passeio por modal, pelos campos DAQUELE modal — independente do passeio
+// da tela inteira, e independente uns dos outros.
+const passeioMassaAberto = ref(false)
+const passeioBemAberto = ref(false)
+const passeioListasAberto = ref(false)
 const ajudaAberta = ref('')            // qual "?" está aberto (vazio = nenhum)
 function alternarAjuda(chave) { ajudaAberta.value = ajudaAberta.value === chave ? '' : chave }
 function abrirPasseio() { passeioAberto.value = true }
-// Fechou o passeio (concluiu ou pulou): não abre mais sozinho.
+// Fechou o passeio (concluiu ou pulou): não abre mais sozinho. Só o passeio
+// DA TELA marca como visto — os passeios de dentro dos modais são sempre por
+// pedido (o "?"), nunca abrem sozinhos.
 watch(passeioAberto, (aberto) => {
   if (!aberto) marcarComoVisto(typeof localStorage !== 'undefined' ? localStorage : null, estado.user?.id)
 })
@@ -1672,6 +1682,12 @@ async function apagarEmMassa() {
 
 // ------------------------------------------------------------ listas editáveis
 const listasAbertas = ref(false)
+// massaAberta e listasAbertas fecham em VÁRIOS pontos do template e do script
+// (cancelar, aplicar com sucesso, apagar com sucesso, clique fora) — um watch
+// aqui é mais seguro do que caçar cada `= false` e lembrar de resetar o
+// passeio do modal em cada um deles.
+watch(massaAberta, (aberto) => { if (!aberto) passeioMassaAberto.value = false })
+watch(listasAbertas, (aberto) => { if (!aberto) passeioListasAberto.value = false })
 const podeEditar = computed(() => hasPermission('patrimonio', 'editar'))
 const novos = reactive({ patrimonio_empresas: '', patrimonio_categorias: '' })
 // Um campo de "novo" por PAI: cada marca tem sua caixa de novo local, cada local
@@ -2021,7 +2037,10 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-patrimonio .pat-ficha{background:var(--surface);width:100%;max-width:520px;max-height:88vh;display:flex;flex-direction:column;border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.28);}
 .tela-patrimonio .pat-ficha-topo{display:flex;align-items:center;gap:10px;padding:14px;border-bottom:1px solid var(--border);}
 .tela-patrimonio .pat-ficha-fechar{width:34px;height:34px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);font-size:15px;cursor:pointer;touch-action:manipulation;}
-.tela-patrimonio .pat-ficha-titulo{font-family:var(--fonte-principal);font-size:13px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);}
+/* flex:1 empurra o "?" de dentro do modal pro canto direito, junto do X —
+   sem isto os 3 filhos do topo (fechar, título, ajuda) ficariam agrupados à
+   esquerda, com um vão vazio sobrando à direita. */
+.tela-patrimonio .pat-ficha-titulo{flex:1;min-width:0;font-family:var(--fonte-principal);font-size:13px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);}
 .tela-patrimonio .pat-ficha-corpo{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px;}
 .tela-patrimonio .pat-ficha-pe{display:flex;gap:8px;justify-content:flex-end;padding:12px 14px;border-top:1px solid var(--border);background:var(--surface);}
 
@@ -2075,6 +2094,11 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 /* ---- listas editáveis ---- */
 .tela-patrimonio .pat-btn-listas{width:46px;height:46px;flex-shrink:0;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation;}
 .tela-patrimonio .pat-listas-ajuda{font-family:var(--fonte-principal);font-size:12px;line-height:1.6;color:var(--muted);}
+/* O texto fixo do topo de cada modal (pedido do dono, nos 9 modais da Frota e
+   do Patrimônio — mesma classe que fr-tutorial-fixo na Frota, com o prefixo
+   desta tela). Curto de propósito: fundo sutil por color-mix, nunca hex, pra
+   ler certo nos dois temas sem precisar de uma cor "clara" e uma "escura". */
+.tela-patrimonio .pat-tutorial-fixo{margin:0;padding:10px 12px;font-family:var(--fonte-principal);font-size:12px;line-height:1.6;color:var(--text);background:color-mix(in srgb,var(--accent) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 22%,var(--surface));border-radius:10px;}
 .tela-patrimonio .pat-lista-bloco{display:flex;flex-direction:column;gap:7px;border-top:1px solid var(--border);padding-top:12px;}
 .tela-patrimonio .pat-lista-bloco h4{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
 .tela-patrimonio .pat-lista-item,.tela-patrimonio .pat-lista-novo{display:flex;gap:7px;align-items:center;}

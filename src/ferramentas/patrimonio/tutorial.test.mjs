@@ -1,7 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { PASSOS, AJUDAS, deveAbrirSozinho, marcarComoVisto } from './tutorial.js'
+import {
+  PASSOS, TEXTOS, PASSOS_MASSA, PASSOS_BEM, PASSOS_LISTAS, AJUDAS, deveAbrirSozinho, marcarComoVisto,
+} from './tutorial.js'
 
 // Um armazém de mentira, pra testar sem navegador.
 const armazem = (inicial = {}) => {
@@ -111,5 +113,40 @@ test('toda explicação exibida existe no catálogo AJUDAS', () => {
   }
   for (const m of TELA.matchAll(/alternarAjuda\('([a-z]+)'\)/g)) {
     assert.ok(AJUDAS[m[1]], `o botão abre a ajuda "${m[1]}", que não existe em AJUDAS`)
+  }
+})
+
+/* ── Os 3 passeios de modal (massa, bem, listas), novos — mesmo padrão de
+   verificação de cima, só que o `selector` aqui é `[data-tour="chave"]` em
+   vez de classe CSS (os campos dentro do modal precisavam de um alvo único;
+   classes como .pat-campo se repetem várias vezes no mesmo modal). */
+function existeNaTela(selector) {
+  const dataTour = selector.match(/^\[data-tour="([a-z0-9-]+)"\]$/)
+  if (dataTour) return TELA.includes(`data-tour="${dataTour[1]}"`)
+  const classes = [...selector.matchAll(/\.([A-Za-z0-9_-]+)/g)].map((m) => m[1])
+  const naTela = new Set(
+    [...TELA.matchAll(/class="([^"]*)"/g)].flatMap((m) => m[1].split(/\s+/)))
+  return classes.every((c) => naTela.has(c))
+}
+
+function confereTodos(passos, nome) {
+  for (const p of passos) {
+    assert.ok(existeNaTela(p.selector),
+      `${nome}: o passo "${p.titulo}" aponta pra ${p.selector}, que não existe em tela-de-patrimonio.vue`)
+    assert.ok(p.titulo && p.titulo.length > 2, `${nome}: passo sem título (${p.selector})`)
+    assert.ok(p.texto && p.texto.length > 20, `${nome}: texto curto demais em "${p.titulo}"`)
+  }
+}
+
+test('os 3 passeios de modal (massa, bem, listas) apontam pra seletores que existem', () => {
+  confereTodos(PASSOS_MASSA, 'PASSOS_MASSA')
+  confereTodos(PASSOS_BEM, 'PASSOS_BEM')
+  confereTodos(PASSOS_LISTAS, 'PASSOS_LISTAS')
+})
+
+test('cada texto fixo de TEXTOS é usado (verbatim) em algum modal da tela', () => {
+  for (const [chave, texto] of Object.entries(TEXTOS)) {
+    assert.ok(TELA.includes(`TEXTOS.${chave}`) || TELA.includes(texto),
+      `TEXTOS.${chave} não aparece em tela-de-patrimonio.vue — o modal ficou sem o texto fixo?`)
   }
 })
