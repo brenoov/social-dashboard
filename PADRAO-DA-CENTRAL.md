@@ -324,6 +324,29 @@ confira item a item.** Informação exibida, ação, texto explicativo — tudo.
 
 ---
 
+## 9½. O padrão se verifica sozinho
+
+Cinco destas regras não dependem mais de você lembrar delas — `npm test` reprova:
+
+| Verificado | Onde |
+|---|---|
+| Cor de estado sai de token | `padrao-da-central.test.mjs` |
+| Bloco pintado com token não leva branco cravado | idem |
+| Fundo de modal trava o arrasto | idem |
+| Botão usa as três classes | idem |
+| Botão comum não tem fundo cinza | idem |
+| Diretiva usada está registrada | `diretiva-usada-esta-registrada.test.mjs` |
+| Todo `.vue` compila | `todo-vue-compila.test.mjs` |
+
+**Precisa de uma exceção?** Adicione no teste, com o motivo escrito ao lado —
+como já estão lá marca de terceiro, identidade de módulo, medalha de ranking e
+paleta de gráfico. Nunca contorne calado.
+
+O resto do padrão — hierarquia, "um assunto por bloco", "uma ação principal" —
+continua sendo olho, e se mede a 375px num navegador de verdade.
+
+---
+
 ## 10. Antes de dizer que acabou
 
 - [ ] `npm test` inteiro passando
