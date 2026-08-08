@@ -121,7 +121,7 @@ const estiloBalao = () => {
        e o balão caíam em lugar errado por causa disso. Fora da árvore da tela,
        não há ancestral que possa prendê-los. -->
   <Teleport to="body">
-  <div v-if="modelValue" class="passeio-fundo">
+  <div v-if="modelValue" class="passeio-fundo" v-trava-rolagem>
     <div v-if="rect" class="passeio-realce" :style="estiloRealce()"></div>
     <div class="passeio-balao" ref="balaoEl" :style="estiloBalao()" role="dialog" aria-live="polite">
       <div class="passeio-tit">{{ passo?.titulo }}</div>

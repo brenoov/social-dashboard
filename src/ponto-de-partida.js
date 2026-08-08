@@ -5,6 +5,7 @@ import { roteador } from './mapa-de-enderecos.js'
 import { sbClient } from './compartilhado/conectar-no-banco-de-dados.js'
 import { setSession, carregarPerfil, limparEstado, estado } from './compartilhado/controle-de-login-e-usuario.js'
 import { detectarFluxoDeSenha } from './ferramentas/login/detectar-fluxo-de-senha.js'
+import { vTravaRolagem } from './compartilhado/travar-rolagem-de-fundo.js'
 
 async function iniciar() {
   // Guardado ANTES de qualquer await: o SDK consome e apaga o #access_token do
@@ -57,7 +58,15 @@ async function iniciar() {
     await roteador.replace({ name: 'login' })
   }
 
-  createApp(Moldura).use(roteador).mount('#app')
+  // A diretiva PRECISA ser registrada aqui. Ela era usada em 8 modais (moldura,
+  // Patrimonio, Frota, Status do Claude, leitor de etiqueta, passeio guiado) e
+  // NENHUM travava: o Vue avisava "Failed to resolve directive: trava-rolagem"
+  // no console e seguia em frente, entao o defeito passava calado. Em <script
+  // setup> uma diretiva so vale se for importada no proprio componente ou
+  // registrada no app -- e aqui vale pra Central inteira, de uma vez.
+  const app = createApp(Moldura)
+  app.directive('trava-rolagem', vTravaRolagem)
+  app.use(roteador).mount('#app')
 }
 
 iniciar()

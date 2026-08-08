@@ -108,7 +108,7 @@
     <!-- Modal insistente de opt-in (só botão Ativar agora; some ao ativar/negar).
          O controle permanente de ativar fica no menu do avatar, só enquanto não
          ativou — ativação é só de ida (sem desativar). -->
-    <div v-if="mostrarModalPush" class="np-modal-fundo">
+    <div v-if="mostrarModalPush" class="np-modal-fundo" v-trava-rolagem>
       <div class="np-modal">
         <div class="np-modal-emoji">🔔</div>
         <h3>Ativar notificações</h3>

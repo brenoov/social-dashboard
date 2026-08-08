@@ -280,7 +280,7 @@ onUnmounted(desligar)
 
 <template>
   <Teleport to="body">
-    <div v-if="modelValue" class="let-fundo" @click.self="fechar">
+    <div v-if="modelValue" class="let-fundo" v-trava-rolagem @click.self="fechar">
       <div class="let-caixa" role="dialog" aria-label="Ler etiqueta com a câmera">
         <div class="let-topo">
           <span class="let-titulo">{{ aviso ? aviso.titulo : 'Aponte para a etiqueta' }}</span>

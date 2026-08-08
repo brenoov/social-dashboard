@@ -44,6 +44,7 @@ const SELETORES_DE_MODAL_LEGADO = [
   '#gt-cr-overlay',          // Gestão de Tráfego — ver criativo
   '#ma-custom-modal-bd',     // Análise de Campanhas — período personalizado
   '#ma-filter-bd',           // Análise de Campanhas — filtrar campanhas
+  '#np-brandmenu',           // Notícias — menu de marcas em tela cheia (montado por JS)
 ].join(',')
 
 // O parceiro visual de alguns elementos acima: abre/fecha sempre JUNTO com
