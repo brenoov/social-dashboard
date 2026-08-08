@@ -73,7 +73,7 @@
         </div>
         <!-- Dashboard de Vendas: Menu de Vendas + Gestão à Vista já migrados. -->
         <div class="home-card" id="home-card-sales" v-show="podeVendas" @click="ir('vendas')" @mouseenter="definirTemaFundo('sales')" @mouseleave="definirTemaFundo('default')">
-          <div class="home-card-icon" style="background:linear-gradient(135deg,#1d4ed8 0%,#2563eb 100%)">
+          <div class="home-card-icon" style="background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 78%,var(--text)) 0%,var(--accent) 100%)">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
           </div>
           <div class="home-card-text">
@@ -95,7 +95,7 @@
         </div>
         <!-- Banco de Arquivos: rota ainda não existe. -->
         <div class="home-card" id="home-card-banco" v-show="podeBanco" @click="ir('banco')">
-          <div class="home-card-icon" style="background:linear-gradient(135deg,#0f4c81 0%,#1d4ed8 100%)">
+          <div class="home-card-icon" style="background:linear-gradient(135deg,#0f4c81 0%,var(--accent) 100%)">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
           </div>
           <div class="home-card-text">
@@ -106,7 +106,7 @@
         </div>
         <!-- Portal de Notícias: única ferramenta já migrada, navega de verdade. -->
         <div class="home-card" id="home-card-noticias" v-show="podeNoticias" @click="ir('noticias')" @mouseenter="definirTemaFundo('default')" @mouseleave="definirTemaFundo('default')">
-          <div class="home-card-icon" style="background:linear-gradient(135deg,#0f4c81 0%,#1d4ed8 100%)">
+          <div class="home-card-icon" style="background:linear-gradient(135deg,#0f4c81 0%,var(--accent) 100%)">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v16a2 2 0 0 1-2 2 2 2 0 0 1-2-2V9a1 1 0 0 1 1-1h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8z"/></svg>
           </div>
           <div class="home-card-text">
@@ -116,7 +116,7 @@
           <span class="home-card-enter">→</span>
         </div>
         <div class="home-card" id="home-card-gestor" v-show="podeGestor" @click="ir('gestao-comercial')" @mouseenter="definirTemaFundo('default')" @mouseleave="definirTemaFundo('default')">
-          <div class="home-card-icon" style="background:linear-gradient(135deg,#0f4c81 0%,#1d4ed8 100%)">
+          <div class="home-card-icon" style="background:linear-gradient(135deg,#0f4c81 0%,var(--accent) 100%)">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
           </div>
           <div class="home-card-text">

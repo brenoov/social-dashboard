@@ -2656,7 +2656,7 @@ function _gtConfirm(title,detailHtml,opts){
     const bar=document.createElement('div');bar.style.cssText='display:flex;gap:10px;justify-content:flex-end;';
     const close=v=>{ov.style.display='none';resolve(v);};
     if(!opts.okOnly){const c=document.createElement('button');c.textContent='Cancelar';c.style.cssText='padding:9px 16px;border-radius:8px;border:1px solid var(--border,#ddd);background:none;color:var(--text,#111);font-weight:600;font-size:calc(13px*var(--gt-fs,1.3));cursor:pointer;';c.onclick=()=>close(false);bar.appendChild(c);}
-    const ok=document.createElement('button');ok.textContent=opts.okLabel||(opts.okOnly?'Entendi':'Confirmar');ok.style.cssText='padding:9px 18px;border-radius:8px;border:none;background:'+(opts.danger?'var(--red)':'var(--accent)')+';color:#fff;font-weight:700;font-size:calc(13px*var(--gt-fs,1.3));cursor:pointer;';ok.onclick=()=>close(true);bar.appendChild(ok);
+    const ok=document.createElement('button');ok.textContent=opts.okLabel||(opts.okOnly?'Entendi':'Confirmar');ok.style.cssText='padding:9px 18px;border-radius:8px;border:none;background:'+(opts.danger?'var(--red)':'var(--accent)')+';color:var(--sobre-cor);font-weight:700;font-size:calc(13px*var(--gt-fs,1.3));cursor:pointer;';ok.onclick=()=>close(true);bar.appendChild(ok);
     box.appendChild(bar);ov.appendChild(box);
     ov.onclick=e=>{if(e.target===ov)close(false);};
   });

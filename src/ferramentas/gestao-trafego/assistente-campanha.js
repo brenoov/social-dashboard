@@ -62,7 +62,7 @@ function pastilha(doc, rotulo, ligada, aoClicar) {
   const b = el(doc, 'button', 'padding:7px 13px;border-radius:999px;cursor:pointer;'
     + 'font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));'
     + (ligada
-      ? 'background:var(--accent);border:1px solid var(--accent);color:#fff;font-weight:700;'
+      ? 'background:var(--accent);border:1px solid var(--accent);color:var(--sobre-cor);font-weight:700;'
       : 'background:var(--surface2);border:1px solid var(--border);color:var(--muted);'), rotulo);
   b.type = 'button';
   b.onclick = (ev) => { if (ev && ev.preventDefault) ev.preventDefault(); aoClicar(); };
@@ -750,7 +750,7 @@ function maisCampos(doc, o) {
       p.appendChild(el(doc, 'div', 'background:var(--surface);border-radius:10px 10px 10px 2px;padding:7px 10px;'
         + 'display:inline-block;max-width:100%;color:var(--text);', o.estado.saudacao));
       p.appendChild(el(doc, 'div', 'margin-top:6px;text-align:right;'));
-      p.lastChild.appendChild(el(doc, 'span', 'background:var(--accent);color:#fff;border-radius:10px 10px 2px 10px;'
+      p.lastChild.appendChild(el(doc, 'span', 'background:var(--accent);color:var(--sobre-cor);border-radius:10px 10px 2px 10px;'
         + 'padding:7px 10px;display:inline-block;max-width:100%;',
         String(o.estado.saudacaoResposta || '').trim() || RESPOSTA_PADRAO));
       dentro.appendChild(p);
@@ -824,7 +824,7 @@ export function montarAssistente(opcoes = {}) {
   const btnAntigo = (rotulo, primario, ligado, aoClicar) => {
     const b = el(doc, 'button', 'padding:9px 16px;border-radius:8px;cursor:pointer;font-weight:700;'
       + 'font-family:var(--fonte-principal);font-size:calc(11.5px*var(--gt-fs,1.3));'
-      + (primario ? 'border:1px solid var(--accent);background:var(--accent);color:#fff;'
+      + (primario ? 'border:1px solid var(--accent);background:var(--accent);color:var(--sobre-cor);'
         : 'border:1px solid var(--border);background:var(--surface);color:var(--muted);font-weight:600;')
       + (ligado ? '' : 'opacity:.5;cursor:not-allowed;'), rotulo);
     b.type = 'button';

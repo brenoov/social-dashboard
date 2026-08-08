@@ -409,8 +409,8 @@ onMounted(() => {
 .tela-gestao-comercial :deep(.gc-kpis){display:grid;grid-template-columns:repeat(auto-fit,minmax(252px,1fr));gap:16px;margin-bottom:30px;}
 .tela-gestao-comercial :deep(.gck){position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:20px 20px 16px;box-shadow:var(--shadow-sm);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;overflow:hidden;}
 .tela-gestao-comercial :deep(.gck::before){content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--muted);}
-.tela-gestao-comercial :deep(.gck.adiantado::before){background:linear-gradient(180deg,#22c55e,#16a34a);}
-.tela-gestao-comercial :deep(.gck.atrasado::before){background:linear-gradient(180deg,#f43f5e,#e11d48);}
+.tela-gestao-comercial :deep(.gck.adiantado::before){background:linear-gradient(180deg,var(--green),var(--green));}
+.tela-gestao-comercial :deep(.gck.atrasado::before){background:linear-gradient(180deg,var(--red),#e11d48);}
 .tela-gestao-comercial :deep(.gck:hover){transform:translateY(-4px);box-shadow:var(--shadow-lg);border-color:var(--accent-mid);}
 .tela-gestao-comercial :deep(.gck-top){display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px;}
 .tela-gestao-comercial :deep(.gck-canal){font-family:var(--fonte-principal);font-size:calc(13.5px*var(--gc-fs,1));font-weight:500;letter-spacing:.8px;text-transform:uppercase;color:var(--text);line-height:1.25;}
@@ -439,7 +439,7 @@ onMounted(() => {
 .tela-gestao-comercial :deep(.gc-sec){background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:clamp(22px,2vw,32px) clamp(24px,2.6vw,44px) clamp(22px,2vw,34px);box-shadow:var(--shadow-sm);transition:box-shadow .18s ease,border-color .18s ease;}
 .tela-gestao-comercial :deep(.gc-sec:hover){box-shadow:var(--shadow-md);border-color:var(--accent-mid);}
 .tela-gestao-comercial :deep(.gc-sec-h){display:flex;align-items:center;gap:14px;margin-bottom:18px;padding-bottom:15px;border-bottom:1px solid var(--border);}
-.tela-gestao-comercial :deep(.gc-sec-n){font-family:var(--fonte-dados);font-size:calc(14px*var(--gc-fs,1));font-weight:600;color:var(--sobre-cor);background:linear-gradient(135deg,var(--accent),#2563eb);min-width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 3px 10px var(--accent-mid);}
+.tela-gestao-comercial :deep(.gc-sec-n){font-family:var(--fonte-dados);font-size:calc(14px*var(--gc-fs,1));font-weight:600;color:var(--sobre-cor);background:linear-gradient(135deg,var(--accent),var(--accent));min-width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 3px 10px var(--accent-mid);}
 .tela-gestao-comercial :deep(.gc-report .gc-sec-h h2){font-family:var(--fonte-principal);font-size:calc(clamp(16px,1.7vw,20px)*var(--gc-fs,1));font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--text);margin:0;border:none;padding:0;display:block;}
 .tela-gestao-comercial :deep(.gc-sec-b>*:first-child){margin-top:0;}
 .tela-gestao-comercial :deep(.gc-sec-b>*:last-child){margin-bottom:0;}

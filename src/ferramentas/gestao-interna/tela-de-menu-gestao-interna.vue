@@ -22,7 +22,7 @@
         </div>
 
         <div class="gimenu-card" v-if="podePatrimonio" @click="ir('patrimonio')">
-          <div class="gimenu-card-icon" style="background:linear-gradient(135deg,#b45309 0%,#d97706 100%)">
+          <div class="gimenu-card-icon" style="background:linear-gradient(135deg,color-mix(in srgb,var(--orange) 78%,var(--text)) 0%,var(--orange) 100%)">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
           </div>
           <div class="gimenu-card-title">Patrimônio</div>

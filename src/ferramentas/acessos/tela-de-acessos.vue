@@ -2763,8 +2763,8 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
    como "Colaboradores", pastas em laranja como "Drive". */
 .tela-acessos :deep(.ac-kpi-ico){width:34px;height:34px;flex:none;border-radius:10px;display:grid;place-items:center;color:#fff;margin-bottom:12px}
 .tela-acessos :deep(.ac-kpi.k1 .ac-kpi-ico){background:linear-gradient(140deg,var(--modulo),#14b8a6)}
-.tela-acessos :deep(.ac-kpi.k2 .ac-kpi-ico){background:linear-gradient(140deg,#15803d,#22c55e)}
-.tela-acessos :deep(.ac-kpi.k3 .ac-kpi-ico){background:linear-gradient(140deg,#b45309,#f59e0b)}
+.tela-acessos :deep(.ac-kpi.k2 .ac-kpi-ico){background:linear-gradient(140deg,var(--green),var(--green))}
+.tela-acessos :deep(.ac-kpi.k3 .ac-kpi-ico){background:linear-gradient(140deg,var(--orange),var(--orange))}
 .tela-acessos :deep(.ac-kpi.k4 .ac-kpi-ico){background:linear-gradient(140deg,#4338ca,#7c6cf6)}
 .tela-acessos :deep(.ac-kpi-fine){order:3;font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.4;opacity:.85}
 
@@ -2777,7 +2777,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-atalho:hover){border-color:var(--accent);transform:translateY(-2px)}
 .tela-acessos :deep(.ac-atalho-ico){width:36px;height:36px;flex:none;border-radius:10px;display:grid;place-items:center;color:#fff}
 .tela-acessos :deep(.ac-atalho-ico.org){background:linear-gradient(135deg,color-mix(in srgb,var(--modulo) 80%,var(--text)),var(--modulo))}
-.tela-acessos :deep(.ac-atalho-ico.drive){background:linear-gradient(135deg,#b45309,#d97706)}
+.tela-acessos :deep(.ac-atalho-ico.drive){background:linear-gradient(135deg,var(--orange),var(--orange))}
 .tela-acessos :deep(.ac-atalho-ico.aud){background:linear-gradient(135deg,#4f46e5,#7c3aed)}
 .tela-acessos :deep(.ac-atalho-txt){flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .tela-acessos :deep(.ac-atalho-txt b){font-size:14px;font-weight:600}
