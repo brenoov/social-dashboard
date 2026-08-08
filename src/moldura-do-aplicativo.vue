@@ -368,7 +368,9 @@ router.afterEach(() => fecharTodosOsModaisLegadosAoTrocarDeRota())
 /* ── Modal Trocar senha ── */
 .perfil-modal-overlay {
   position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,.45);
-  display: flex; align-items: center; justify-content: center; padding: 20px;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
+  display: flex; align-items: center; justify-content: center; padding: 20px;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));touch-action:none;overscroll-behavior:contain;}
+/* ── Modal Trocar senha ── */
+.perfil-modal-overlay > *{overscroll-behavior:contain;touch-action:pan-y;}
 .perfil-modal {
   background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
   box-shadow: var(--shadow-lg); padding: 22px; width: 100%; max-width: 340px;
@@ -405,7 +407,8 @@ router.afterEach(() => fecharTodosOsModaisLegadosAoTrocarDeRota())
 .btn-ajustes:hover { opacity: 1; color: var(--accent); transform: translateY(-1px); }
 .btn-ajustes:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; opacity: 1; }
 
-.ajustes-fundo { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: flex-end; justify-content: flex-end; padding: 16px; background: rgba(0,0,0,.28); }
+.ajustes-fundo { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: flex-end; justify-content: flex-end; padding: 16px; background: rgba(0,0,0,.28);touch-action:none;overscroll-behavior:contain;}
+.ajustes-fundo > *{overscroll-behavior:contain;touch-action:pan-y;}
 .ajustes-caixa { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-lg); padding: 14px; width: 100%; max-width: 280px; display: flex; flex-direction: column; gap: 12px; font-family: var(--fonte-principal); }
 .ajustes-linha { display: flex; align-items: center; gap: 10px; }
 .ajustes-rot { flex: 1; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
@@ -419,7 +422,9 @@ router.afterEach(() => fecharTodosOsModaisLegadosAoTrocarDeRota())
 /* ── Modal de notificações (Web Push) — prefixo np- único (evita colisão CSS global) ── */
 .np-modal-fundo {
   position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 10001;
-  display: flex; align-items: center; justify-content: center; padding: 20px;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
+  display: flex; align-items: center; justify-content: center; padding: 20px;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));touch-action:none;overscroll-behavior:contain;}
+/* ── Modal de notificações (Web Push) — prefixo np- único (evita colisão CSS global) ── */
+.np-modal-fundo > *{overscroll-behavior:contain;touch-action:pan-y;}
 .np-modal {
   background: var(--surface); color: var(--text); border: 1px solid var(--border);
   border-radius: 16px; box-shadow: var(--shadow-lg); padding: 28px 24px;
@@ -437,7 +442,8 @@ router.afterEach(() => fecharTodosOsModaisLegadosAoTrocarDeRota())
 
 <style scoped>
 .ts-fundo { position: fixed; inset: 0; z-index: 99998; background: rgba(0,0,0,.72);
-  display: flex; align-items: center; justify-content: center; padding: 20px; }
+  display: flex; align-items: center; justify-content: center; padding: 20px;touch-action:none;overscroll-behavior:contain;}
+.ts-fundo > *{overscroll-behavior:contain;touch-action:pan-y;}
 .ts-caixa { background: var(--surface, #fff); color: var(--text, #111); border-radius: 14px;
   max-width: 420px; width: 100%; padding: 26px; box-shadow: 0 24px 60px rgba(0,0,0,.45);
   font-family: var(--fonte-principal); }

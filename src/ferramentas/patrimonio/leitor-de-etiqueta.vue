@@ -335,7 +335,8 @@ onUnmounted(desligar)
 </template>
 
 <style scoped>
-.let-fundo{position:fixed;inset:0;z-index:10060;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:14px;}
+.let-fundo{position:fixed;inset:0;z-index:10060;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:14px;touch-action:none;overscroll-behavior:contain;}
+.let-fundo > *{overscroll-behavior:contain;touch-action:pan-y;}
 /* Centralizado COM margem, nunca colado nas bordas — é o padrão dos modais
    desta central, pedido do dono. */
 .let-caixa{width:100%;max-width:520px;max-height:calc(100dvh - 28px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4);}

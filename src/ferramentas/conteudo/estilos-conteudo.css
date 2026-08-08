@@ -707,8 +707,16 @@
   background: rgba(0, 0, 0, .58); backdrop-filter: blur(3px);
   display: flex; align-items: center; justify-content: center;
   padding: clamp(12px, 3vh, 40px) clamp(12px, 3vw, 40px);
-  animation: ctdFundoEntra .18s ease both;
-}
+  animation: ctdFundoEntra .18s ease both;touch-action:none;overscroll-behavior:contain;}
+/* ── Painel lateral (criar/editar) ────────────────────────────────────────── */
+/* MODAL DE VERDADE, CENTRALIZADO — não mais gaveta colada na direita.
+ *
+ * A gaveta colava no canto e ia do topo ao rodapé da janela, o que fazia o
+ * conteúdo ficar espremido numa faixa alta e estreita mesmo em tela larga.
+ * Centralizado, a caixa respeita os limites da tela: nunca passa de 88% da
+ * altura nem encosta nas bordas, e a rolagem acontece DENTRO dela.
+ */
+.ctd-fundo > *{overscroll-behavior:contain;touch-action:pan-y;}
 @keyframes ctdFundoEntra { from { opacity: 0; } to { opacity: 1; } }
 
 .ctd-painel {

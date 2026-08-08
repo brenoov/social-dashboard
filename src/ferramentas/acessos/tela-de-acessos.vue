@@ -2981,7 +2981,11 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 /* overflow-y:auto no overlay = cinto de segurança: em telas MUITO baixas
    (paisagem no celular), se o modal + respiro ainda passar da janela, o
    próprio overlay rola em vez de cortar o conteúdo. */
-.tela-acessos :deep(.ac-modal-ov){position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:60;padding:20px;overflow-y:auto;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
+.tela-acessos :deep(.ac-modal-ov){position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:60;padding:20px;overflow-y:auto;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));touch-action:none;overscroll-behavior:contain;}
+/* overflow-y:auto no overlay = cinto de segurança: em telas MUITO baixas
+   (paisagem no celular), se o modal + respiro ainda passar da janela, o
+   próprio overlay rola em vez de cortar o conteúdo. */
+.tela-acessos :deep(.ac-modal-ov) > *{overscroll-behavior:contain;touch-action:pan-y;}
 .tela-acessos :deep(.ac-modal-ov.open){display:flex;animation:acFadeUp .2s ease both}
 /* max-height + overflow no modal BASE (antes só existia dentro do @media
    mobile lá embaixo, então no desktop os modais altos — registrar patrimônio,

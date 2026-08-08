@@ -141,7 +141,8 @@ const estiloBalao = () => {
 </template>
 
 <style scoped>
-.passeio-fundo{position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.55);}
+.passeio-fundo{position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.55);touch-action:none;overscroll-behavior:contain;}
+.passeio-fundo > *{overscroll-behavior:contain;touch-action:pan-y;}
 /* O realce é um buraco de luz: a sombra gigante escurece tudo em volta dele. */
 .passeio-realce{position:fixed;border-radius:12px;border:2px solid var(--accent);box-shadow:0 0 0 9999px rgba(0,0,0,.55);pointer-events:none;transition:all .18s ease;}
 .passeio-balao{position:fixed;max-width:330px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.28);padding:16px;font-family:var(--fonte-principal);z-index:10051;}

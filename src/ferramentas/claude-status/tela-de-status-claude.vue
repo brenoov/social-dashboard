@@ -925,7 +925,9 @@ onUnmounted(() => {
 .csc-proj-ferramentas button:last-child:hover { border-color: var(--red); color: var(--red); }
 
 /* Modal */
-.csc-modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px; backdrop-filter: blur(2px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
+.csc-modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px; backdrop-filter: blur(2px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));touch-action:none;overscroll-behavior:contain;}
+/* Modal */
+.csc-modal-bg > *{overscroll-behavior:contain;touch-action:pan-y;}
 .csc-modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; width: min(440px, 100%); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; gap: 13px; }
 .csc-modal-t { font-family: var(--fd); font-size: 23px; font-weight: 600; color: var(--text); letter-spacing: -.3px; }
 .csc-campo { display: flex; flex-direction: column; gap: 5px; }

@@ -2648,7 +2648,7 @@ function _gtConfirm(title,detailHtml,opts){
   opts=opts||{};
   return new Promise(resolve=>{
     let ov=document.getElementById('gt-confirm-ov');
-    if(!ov){ov=document.createElement('div');ov.id='gt-confirm-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));';document.body.appendChild(ov);}
+    if(!ov){ov=document.createElement('div');ov.id='gt-confirm-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));touch-action:none;overscroll-behavior:contain;';document.body.appendChild(ov);}
     ov.innerHTML='';ov.style.display='flex';
     const box=document.createElement('div');
     box.style.cssText='background:var(--surface,#fff);color:var(--text,#111);border-radius:14px;max-width:400px;width:100%;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.45);font-family:var(--fonte-principal);';
@@ -2668,7 +2668,7 @@ function _gtConfirm(title,detailHtml,opts){
 function _gtDuplicarModal(resumo){
   return new Promise(resolve=>{
     let ov=document.getElementById('gt-dup-ov');
-    if(!ov){ov=document.createElement('div');ov.id='gt-dup-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';document.body.appendChild(ov);}
+    if(!ov){ov=document.createElement('div');ov.id='gt-dup-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;touch-action:none;overscroll-behavior:contain;';document.body.appendChild(ov);}
     ov.innerHTML='';ov.style.display='flex';
     const box=document.createElement('div');
     box.style.cssText='background:var(--surface,#fff);color:var(--text,#111);border-radius:14px;max-width:440px;width:100%;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.45);font-family:var(--fonte-principal);';
@@ -2950,7 +2950,7 @@ let _gtPubRedesenha=()=>{};
 
 function _gtPubOverlay(){
   let ov=document.getElementById('gt-pub-ov');
-  if(!ov){ov=document.createElement('div');ov.id='gt-pub-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';document.body.appendChild(ov);}
+  if(!ov){ov=document.createElement('div');ov.id='gt-pub-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;touch-action:none;overscroll-behavior:contain;';document.body.appendChild(ov);}
   return ov;
 }
 function _gtPubFechar(){const ov=document.getElementById('gt-pub-ov');if(ov)ov.style.display='none';}
@@ -5531,7 +5531,8 @@ Object.assign(window, {
      ícone, e sem isso os dois ficariam desalinhados. */
   .tela-gestao-trafego :deep(.gt-dupla > .gt-auto-btn){flex:1 1 0;justify-content:center;}
 }
-.tela-gestao-trafego :deep(#gt-cfg-overlay){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1300;display:none;backdrop-filter:blur(2px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
+.tela-gestao-trafego :deep(#gt-cfg-overlay){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1300;display:none;backdrop-filter:blur(2px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));touch-action:none;overscroll-behavior:contain;}
+.tela-gestao-trafego :deep(#gt-cfg-overlay) > *{overscroll-behavior:contain;touch-action:pan-y;}
 .tela-gestao-trafego :deep(#gt-cfg-modal){position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1301;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(720px,calc(100vw - 28px));max-height:84vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.35);}
 .tela-gestao-trafego :deep(.gt-cfg-head){padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
 .tela-gestao-trafego :deep(.gt-cfg-title){font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:700;color:var(--text);}
@@ -5615,7 +5616,8 @@ Object.assign(window, {
    — os dois soltos no meio da barra. So o primeiro empurra; o segundo cola. */
 .tela-gestao-trafego :deep(.pnd-aba-acao + .pnd-aba-acao){margin-left:0;}
 .tela-gestao-trafego :deep(.pnd-aba-acao:hover){border-color:var(--accent);}
-.tela-gestao-trafego :deep(#gt-novo-ov){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1300;display:none;backdrop-filter:blur(2px);}
+.tela-gestao-trafego :deep(#gt-novo-ov){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1300;display:none;backdrop-filter:blur(2px);touch-action:none;overscroll-behavior:contain;}
+.tela-gestao-trafego :deep(#gt-novo-ov) > *{overscroll-behavior:contain;touch-action:pan-y;}
 .tela-gestao-trafego :deep(#gt-novo-modal){position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1301;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(620px,94vw);max-height:88vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.35);}
 /* O corpo é quem rola, não a janela: com a janela rolando, o rodapé (onde
    ficam "Voltar" e "Criar") saía da tela justo no passo mais longo.
@@ -5659,7 +5661,9 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-cfg-chk input){accent-color:var(--accent);cursor:pointer;}
 .tela-gestao-trafego :deep(.gt-cfg-footer){padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;gap:10px;}
 /* Modal "Ver criativo" */
-.tela-gestao-trafego :deep(#gt-cr-overlay){position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1400;display:none;backdrop-filter:blur(2px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
+.tela-gestao-trafego :deep(#gt-cr-overlay){position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1400;display:none;backdrop-filter:blur(2px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));touch-action:none;overscroll-behavior:contain;}
+/* Modal "Ver criativo" */
+.tela-gestao-trafego :deep(#gt-cr-overlay) > *{overscroll-behavior:contain;touch-action:pan-y;}
 .tela-gestao-trafego :deep(#gt-cr-modal){position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1401;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(420px,calc(100vw - 28px));max-height:88vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4);overflow:hidden;}
 .tela-gestao-trafego :deep(.gt-cr-body){padding:14px;overflow:auto;flex:1;display:flex;justify-content:center;align-items:flex-start;}
 .tela-gestao-trafego :deep(.gt-cr-frame){width:100%;display:flex;justify-content:center;}

@@ -336,7 +336,7 @@ function toggleMaCustomRange(){
 
   const bd=document.createElement('div');
   bd.id='ma-custom-modal-bd';
-  bd.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1100;display:flex;align-items:center;justify-content:center;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));';
+  bd.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1100;display:flex;align-items:center;justify-content:center;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));touch-action:none;overscroll-behavior:contain;';
 
   const modal=document.createElement('div');
   modal.id='ma-custom-modal';
@@ -1406,5 +1406,6 @@ Object.assign(window, {
 @keyframes slideInRight{from{transform:translateX(100%);opacity:0;}to{transform:translateX(0);opacity:1;}}
 @keyframes fadeInBd{from{opacity:0;}to{opacity:1;}}
 .ma-filter-drawer{position:fixed;top:0;right:0;width:400px;max-width:95vw;height:100vh;background:var(--surface);border-left:1px solid var(--border);z-index:9999;display:flex;flex-direction:column;animation:slideInRight .22s ease;box-shadow:-6px 0 32px rgba(0,0,0,.22);}
-.ma-filter-bd{position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.32);animation:fadeInBd .22s ease;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
+.ma-filter-bd{position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.32);animation:fadeInBd .22s ease;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));touch-action:none;overscroll-behavior:contain;}
+.ma-filter-bd > *{overscroll-behavior:contain;touch-action:pan-y;}
 </style>
