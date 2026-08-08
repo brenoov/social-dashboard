@@ -2763,8 +2763,8 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
    como "Colaboradores", pastas em laranja como "Drive". */
 .tela-acessos :deep(.ac-kpi-ico){width:34px;height:34px;flex:none;border-radius:10px;display:grid;place-items:center;color:#fff;margin-bottom:12px}
 .tela-acessos :deep(.ac-kpi.k1 .ac-kpi-ico){background:linear-gradient(140deg,var(--modulo),#14b8a6)}
-.tela-acessos :deep(.ac-kpi.k2 .ac-kpi-ico){background:linear-gradient(140deg,#15803d,#22c55e)}
-.tela-acessos :deep(.ac-kpi.k3 .ac-kpi-ico){background:linear-gradient(140deg,#b45309,#f59e0b)}
+.tela-acessos :deep(.ac-kpi.k2 .ac-kpi-ico){background:linear-gradient(140deg,var(--green),var(--green))}
+.tela-acessos :deep(.ac-kpi.k3 .ac-kpi-ico){background:linear-gradient(140deg,var(--orange),var(--orange))}
 .tela-acessos :deep(.ac-kpi.k4 .ac-kpi-ico){background:linear-gradient(140deg,#4338ca,#7c6cf6)}
 .tela-acessos :deep(.ac-kpi-fine){order:3;font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.4;opacity:.85}
 
@@ -2777,7 +2777,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-atalho:hover){border-color:var(--accent);transform:translateY(-2px)}
 .tela-acessos :deep(.ac-atalho-ico){width:36px;height:36px;flex:none;border-radius:10px;display:grid;place-items:center;color:#fff}
 .tela-acessos :deep(.ac-atalho-ico.org){background:linear-gradient(135deg,color-mix(in srgb,var(--modulo) 80%,var(--text)),var(--modulo))}
-.tela-acessos :deep(.ac-atalho-ico.drive){background:linear-gradient(135deg,#b45309,#d97706)}
+.tela-acessos :deep(.ac-atalho-ico.drive){background:linear-gradient(135deg,var(--orange),var(--orange))}
 .tela-acessos :deep(.ac-atalho-ico.aud){background:linear-gradient(135deg,#4f46e5,#7c3aed)}
 .tela-acessos :deep(.ac-atalho-txt){flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .tela-acessos :deep(.ac-atalho-txt b){font-size:14px;font-weight:600}
@@ -2981,7 +2981,11 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 /* overflow-y:auto no overlay = cinto de segurança: em telas MUITO baixas
    (paisagem no celular), se o modal + respiro ainda passar da janela, o
    próprio overlay rola em vez de cortar o conteúdo. */
-.tela-acessos :deep(.ac-modal-ov){position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:60;padding:20px;overflow-y:auto;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
+.tela-acessos :deep(.ac-modal-ov){position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:60;padding:20px;overflow-y:auto;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));touch-action:none;overscroll-behavior:contain;}
+/* overflow-y:auto no overlay = cinto de segurança: em telas MUITO baixas
+   (paisagem no celular), se o modal + respiro ainda passar da janela, o
+   próprio overlay rola em vez de cortar o conteúdo. */
+.tela-acessos :deep(.ac-modal-ov) > *{overscroll-behavior:contain;touch-action:pan-y;}
 .tela-acessos :deep(.ac-modal-ov.open){display:flex;animation:acFadeUp .2s ease both}
 /* max-height + overflow no modal BASE (antes só existia dentro do @media
    mobile lá embaixo, então no desktop os modais altos — registrar patrimônio,
@@ -3429,7 +3433,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 /* Auditoria — OneDrive consolidado (drive completo / setor + detalhar) */
 .tela-acessos :deep(.ac-od-chip){display:block;margin:0 0 5px;font-size:12.5px;line-height:1.5}
 .tela-acessos :deep(.ac-od-chip:last-child){margin-bottom:0}
-.tela-acessos :deep(.ac-detbtn){font-size:10.5px;border:1px solid var(--border);background:var(--surface2);color:var(--accent);border-radius:7px;padding:1px 7px;cursor:pointer;margin-left:4px;font-weight:700}
+.tela-acessos :deep(.ac-detbtn){font-size:10.5px;border:1px solid var(--border);background:transparent;color:var(--accent);border-radius:7px;padding:1px 7px;cursor:pointer;margin-left:4px;font-weight:700}
 .tela-acessos :deep(.ac-detbtn:hover){background:var(--accent-light)}
 .tela-acessos :deep(.ac-detlist){font-size:11.5px;color:var(--muted);margin:5px 0 2px;padding:7px 10px;border-left:2px solid var(--border);background:var(--surface2);border-radius:0 8px 8px 0;line-height:1.7}
 .tela-acessos :deep(.ac-linklist){display:flex;flex-direction:column;gap:8px}

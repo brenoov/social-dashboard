@@ -2033,7 +2033,12 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 /* Centralizado e com margem, também no celular. Antes ele nascia colado no
    rodapé, de ponta a ponta — parecia uma gaveta presa na borda em vez de uma
    ficha, e no aparelho grande ficava com meia tela vazia em cima. */
-.tela-patrimonio .pat-ficha-fundo{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;display:flex;align-items:center;justify-content:center;padding:16px;}
+.tela-patrimonio .pat-ficha-fundo{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;display:flex;align-items:center;justify-content:center;padding:16px;touch-action:none;overscroll-behavior:contain;}
+/* ---- ficha do bem: painel de baixo pra cima no celular, caixa no desktop ---- */
+/* Centralizado e com margem, também no celular. Antes ele nascia colado no
+   rodapé, de ponta a ponta — parecia uma gaveta presa na borda em vez de uma
+   ficha, e no aparelho grande ficava com meia tela vazia em cima. */
+.tela-patrimonio .pat-ficha-fundo > *{overscroll-behavior:contain;touch-action:pan-y;}
 .tela-patrimonio .pat-ficha{background:var(--surface);width:100%;max-width:520px;max-height:88vh;display:flex;flex-direction:column;border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.28);}
 .tela-patrimonio .pat-ficha-topo{display:flex;align-items:center;gap:10px;padding:14px;border-bottom:1px solid var(--border);}
 .tela-patrimonio .pat-ficha-fechar{width:34px;height:34px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);font-size:15px;cursor:pointer;touch-action:manipulation;}
@@ -2121,7 +2126,9 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-patrimonio .pat-arv-vazio{font-family:var(--fonte-principal);font-size:11px;color:var(--muted);padding:5px 0 5px 16px;}
 
 /* ---- confirmação ---- */
-.tela-patrimonio .pat-confirm-fundo{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:18px;}
+.tela-patrimonio .pat-confirm-fundo{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:18px;touch-action:none;overscroll-behavior:contain;}
+/* ---- confirmação ---- */
+.tela-patrimonio .pat-confirm-fundo > *{overscroll-behavior:contain;touch-action:pan-y;}
 .tela-patrimonio .pat-confirm{background:var(--surface);border-radius:14px;padding:18px;max-width:400px;width:100%;font-family:var(--fonte-principal);display:flex;flex-direction:column;gap:10px;}
 .tela-patrimonio .pat-confirm p{font-size:13px;line-height:1.6;color:var(--text);}
 .tela-patrimonio .pat-confirm-pergunta{font-weight:600;}

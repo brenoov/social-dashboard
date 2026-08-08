@@ -22,7 +22,7 @@
       </div>
       <div class="smenu-cards" :class="{ 'view-list': visualizacao === 'list' }">
         <div class="smenu-card" v-if="hasPermission('module:sales:gestao-vista')" @click="ir('gestao-vista')">
-          <div class="smenu-card-icon" style="background:linear-gradient(135deg,#0f4c81 0%,#1d4ed8 100%)">
+          <div class="smenu-card-icon" style="background:linear-gradient(135deg,#0f4c81 0%,var(--accent) 100%)">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           </div>
           <div class="smenu-card-title">Gestão à Vista</div>

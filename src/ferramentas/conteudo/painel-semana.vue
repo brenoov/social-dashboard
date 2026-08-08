@@ -7,7 +7,7 @@
        ELA PROPÕE, VOCÊ DECIDE: o plano não vira peça sozinho. Cinco peças
        aparecendo do nada no calendário seria poder demais para um clique. -->
   <Teleport to="body">
-  <div class="ctd-fundo" @click.self="fechar">
+  <div class="ctd-fundo" v-trava-rolagem @click.self="fechar">
     <div class="ctd-painel ctd-painel-largo" role="dialog" aria-labelledby="ctd-sem-t">
       <div class="ctd-painel-cab">
         <span id="ctd-sem-t" class="ctd-painel-t">

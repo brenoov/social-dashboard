@@ -765,7 +765,7 @@ onUnmounted(() => {
     radial-gradient(70% 120% at 0% 100%, color-mix(in srgb, var(--violet) 15%, transparent) 0%, transparent 52%),
     var(--surface); box-shadow: var(--shadow-md); overflow: hidden; }
 .csc-hero-txt { flex: 1 1 380px; display: flex; flex-direction: column; justify-content: center; }
-.csc-hero-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: var(--accent); }
+.csc-hero-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: var(--accent-forte); }
 .csc-hero-h1 { font-family: var(--fd); font-size: clamp(30px, 4.6vw, 52px); font-weight: 600; letter-spacing: -.5px; color: var(--text); margin: 10px 0 14px; line-height: 1.02; }
 .csc-hero-p { font-size: clamp(14px, 1.1vw, 16px); line-height: 1.65; color: var(--muted); max-width: 620px; }
 .csc-hero-p b { color: var(--text); font-weight: 600; }
@@ -925,7 +925,9 @@ onUnmounted(() => {
 .csc-proj-ferramentas button:last-child:hover { border-color: var(--red); color: var(--red); }
 
 /* Modal */
-.csc-modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px; backdrop-filter: blur(2px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
+.csc-modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px; backdrop-filter: blur(2px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));touch-action:none;overscroll-behavior:contain;}
+/* Modal */
+.csc-modal-bg > *{overscroll-behavior:contain;touch-action:pan-y;}
 .csc-modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; width: min(440px, 100%); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; gap: 13px; }
 .csc-modal-t { font-family: var(--fd); font-size: 23px; font-weight: 600; color: var(--text); letter-spacing: -.3px; }
 .csc-campo { display: flex; flex-direction: column; gap: 5px; }

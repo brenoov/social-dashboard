@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-  <div class="ctd-fundo" @click.self="$emit('fechar')">
+  <div class="ctd-fundo" v-trava-rolagem @click.self="$emit('fechar')">
     <div class="ctd-painel" role="dialog" aria-label="Peça de conteúdo">
       <div class="ctd-painel-cab">
         <span class="ctd-painel-t">{{ ehNova ? 'Nova peça' : 'Editar peça' }}</span>

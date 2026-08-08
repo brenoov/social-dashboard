@@ -62,9 +62,9 @@
       </button>
       </div>
       <div id="gt-account-picker" onclick="event.stopPropagation()" style="position:relative;display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
-        <button id="gt-acc-trigger" style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:7px;padding:5px 12px;background:var(--surface2);cursor:pointer;font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));color:var(--text);white-space:nowrap;" onclick="event.stopPropagation();toggleGtAccPicker()">
+        <button class="btn" id="gt-acc-trigger" onclick="event.stopPropagation();toggleGtAccPicker()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.6"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          <span id="gt-acc-name" style="font-weight:500;max-width:140px;overflow:hidden;text-overflow:ellipsis;">—</span>
+          <span id="gt-acc-name" style="font-weight:500;max-width:200px;overflow-wrap:anywhere;">—</span>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         <div id="gt-acc-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:270px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.18);z-index:999;overflow:hidden;max-height:340px;overflow-y:auto;" onclick="event.stopPropagation()"></div>
@@ -119,8 +119,8 @@
         </div>
         <div class="gt-cfg-body" id="gt-cfg-body"></div>
         <div class="gt-cfg-footer">
-          <button style="padding:7px 16px;border-radius:7px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:600;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);" onclick="_gtCloseEditor()">Cancelar</button>
-          <button id="gt-cfg-save-btn" style="padding:7px 18px;border-radius:7px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;border:none;background:var(--accent);color:var(--sobre-cor);" onclick="_gtSaveEditor()">Salvar</button>
+          <button class="btn" onclick="_gtCloseEditor()">Cancelar</button>
+          <button class="btn btn-principal" id="gt-cfg-save-btn" onclick="_gtSaveEditor()">Salvar</button>
         </div>
       </div>
 
@@ -2648,7 +2648,7 @@ function _gtConfirm(title,detailHtml,opts){
   opts=opts||{};
   return new Promise(resolve=>{
     let ov=document.getElementById('gt-confirm-ov');
-    if(!ov){ov=document.createElement('div');ov.id='gt-confirm-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));';document.body.appendChild(ov);}
+    if(!ov){ov=document.createElement('div');ov.id='gt-confirm-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));touch-action:none;overscroll-behavior:contain;';document.body.appendChild(ov);}
     ov.innerHTML='';ov.style.display='flex';
     const box=document.createElement('div');
     box.style.cssText='background:var(--surface,#fff);color:var(--text,#111);border-radius:14px;max-width:400px;width:100%;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.45);font-family:var(--fonte-principal);';
@@ -2656,7 +2656,7 @@ function _gtConfirm(title,detailHtml,opts){
     const bar=document.createElement('div');bar.style.cssText='display:flex;gap:10px;justify-content:flex-end;';
     const close=v=>{ov.style.display='none';resolve(v);};
     if(!opts.okOnly){const c=document.createElement('button');c.textContent='Cancelar';c.style.cssText='padding:9px 16px;border-radius:8px;border:1px solid var(--border,#ddd);background:none;color:var(--text,#111);font-weight:600;font-size:calc(13px*var(--gt-fs,1.3));cursor:pointer;';c.onclick=()=>close(false);bar.appendChild(c);}
-    const ok=document.createElement('button');ok.textContent=opts.okLabel||(opts.okOnly?'Entendi':'Confirmar');ok.style.cssText='padding:9px 18px;border-radius:8px;border:none;background:'+(opts.danger?'var(--red)':'var(--accent)')+';color:#fff;font-weight:700;font-size:calc(13px*var(--gt-fs,1.3));cursor:pointer;';ok.onclick=()=>close(true);bar.appendChild(ok);
+    const ok=document.createElement('button');ok.textContent=opts.okLabel||(opts.okOnly?'Entendi':'Confirmar');ok.style.cssText='padding:9px 18px;border-radius:8px;border:none;background:'+(opts.danger?'var(--red)':'var(--accent)')+';color:var(--sobre-cor);font-weight:700;font-size:calc(13px*var(--gt-fs,1.3));cursor:pointer;';ok.onclick=()=>close(true);bar.appendChild(ok);
     box.appendChild(bar);ov.appendChild(box);
     ov.onclick=e=>{if(e.target===ov)close(false);};
   });
@@ -2668,7 +2668,7 @@ function _gtConfirm(title,detailHtml,opts){
 function _gtDuplicarModal(resumo){
   return new Promise(resolve=>{
     let ov=document.getElementById('gt-dup-ov');
-    if(!ov){ov=document.createElement('div');ov.id='gt-dup-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';document.body.appendChild(ov);}
+    if(!ov){ov=document.createElement('div');ov.id='gt-dup-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;touch-action:none;overscroll-behavior:contain;';document.body.appendChild(ov);}
     ov.innerHTML='';ov.style.display='flex';
     const box=document.createElement('div');
     box.style.cssText='background:var(--surface,#fff);color:var(--text,#111);border-radius:14px;max-width:440px;width:100%;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.45);font-family:var(--fonte-principal);';
@@ -2950,7 +2950,7 @@ let _gtPubRedesenha=()=>{};
 
 function _gtPubOverlay(){
   let ov=document.getElementById('gt-pub-ov');
-  if(!ov){ov=document.createElement('div');ov.id='gt-pub-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';document.body.appendChild(ov);}
+  if(!ov){ov=document.createElement('div');ov.id='gt-pub-ov';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;touch-action:none;overscroll-behavior:contain;';document.body.appendChild(ov);}
   return ov;
 }
 function _gtPubFechar(){const ov=document.getElementById('gt-pub-ov');if(ov)ov.style.display='none';}
@@ -5116,12 +5116,14 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gtf-pct.neg){color:var(--orange);}
 .tela-gestao-trafego :deep(.gtf-pausar-nota){font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--red);font-weight:600;}
 .tela-gestao-trafego :deep(.gtf-acoes){flex:0 0 auto;display:flex;gap:7px;}
-/* `--surface2` e não `--bg`: no tema escuro `--bg` (#0a0a0b) é MAIS ESCURO que o
-   cartão (#121214), e o botão virava um bloco preto furado dentro dele — foi o
-   que o dono viu e chamou de "fundo preto com letra branca". `--surface2` é o
-   token de superfície elevada: mais claro no escuro, mais escuro no claro, e
-   assenta no cartão nos dois. */
-.tela-gestao-trafego :deep(.gtf-btn){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));font-weight:600;padding:6px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted);transition:all .12s ease;}
+/* FUNDO TRANSPARENTE, que é o que o padrão pede pro botão comum.
+   O histórico: primeiro era `--bg`, e no tema escuro `--bg` (#0a0a0b) é MAIS
+   ESCURO que o cartão (#121214) — o botão virava um bloco preto furado dentro
+   dele, o que o dono chamou de "fundo preto com letra branca". A correção da
+   época foi `--surface2`, que resolvia o escuro mas deixava o botão CINZA no
+   claro — a outra bronca do dono. Transparente resolve os dois de uma vez: o
+   botão assume a cor do cartão atrás, em qualquer tema. */
+.tela-gestao-trafego :deep(.gtf-btn){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));font-weight:600;padding:6px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);transition:all .12s ease;}
 .tela-gestao-trafego :deep(.gtf-btn:hover){color:var(--text);border-color:var(--muted);}
 .tela-gestao-trafego :deep(.gtf-btn.aprovar){background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
 /* O botao carrega a COR da acao: cortar verba e pausar nao sao a mesma decisao
@@ -5494,7 +5496,7 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-act-btn:disabled){opacity:.5;cursor:not-allowed;pointer-events:none;}
 .tela-gestao-trafego :deep(.gt-btn-dup){
   padding:6px 11px;border-radius:7px;border:1px solid var(--border,#ddd);
-  background:var(--surface2);color:var(--text,#111);font-weight:600;
+  background:transparent;color:var(--text,#111);font-weight:600;
   font-size:calc(12px*var(--gt-fs,1.3));cursor:pointer;white-space:nowrap;
 }
 .tela-gestao-trafego :deep(.gt-btn-dup:hover){background:var(--surface-2,rgba(0,0,0,.05));}
@@ -5531,7 +5533,8 @@ Object.assign(window, {
      ícone, e sem isso os dois ficariam desalinhados. */
   .tela-gestao-trafego :deep(.gt-dupla > .gt-auto-btn){flex:1 1 0;justify-content:center;}
 }
-.tela-gestao-trafego :deep(#gt-cfg-overlay){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1300;display:none;backdrop-filter:blur(2px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
+.tela-gestao-trafego :deep(#gt-cfg-overlay){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1300;display:none;backdrop-filter:blur(2px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));touch-action:none;overscroll-behavior:contain;}
+.tela-gestao-trafego :deep(#gt-cfg-overlay) > *{overscroll-behavior:contain;touch-action:pan-y;}
 .tela-gestao-trafego :deep(#gt-cfg-modal){position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1301;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(720px,calc(100vw - 28px));max-height:84vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.35);}
 .tela-gestao-trafego :deep(.gt-cfg-head){padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
 .tela-gestao-trafego :deep(.gt-cfg-title){font-family:var(--fonte-principal);font-size:calc(13px*var(--gt-fs,1.3));font-weight:700;color:var(--text);}
@@ -5605,9 +5608,10 @@ Object.assign(window, {
    uma segunda janela faria a tela parecer dois aplicativos. O miolo é montado
    em assistente-campanha.js com estilo inline, então aqui só mora a moldura.
 
-   `--surface2` e não `--bg` no botão: `--bg` (#0a0a0b) é mais escuro que o
-   cartão no tema escuro, e o resultado era botão preto com letra branca — foi
-   exatamente isso que o dono apontou nas outras telas desta ferramenta. */
+   Botão com fundo TRANSPARENTE (padrão da Central): assume a cor do cartão
+   atrás. Já foi `--bg` (virava bloco preto no tema escuro) e depois
+   `--surface2` (virava cinza no claro); transparente não tem nenhum dos dois
+   problemas. */
 .tela-gestao-trafego :deep(.pnd-aba-acao){appearance:none;margin-left:auto;margin-bottom:-1px;padding:7px 15px;align-self:center;border:1px solid var(--border);border-radius:8px;background:var(--surface2,var(--surface));color:var(--accent);font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:border-color .15s ease,color .15s ease;}
 /* Os dois botoes de acao andam JUNTOS na direita. Antes cada um tinha o seu
    `margin-left:auto` e o navegador reparte a sobra entre todas as margens
@@ -5615,7 +5619,8 @@ Object.assign(window, {
    — os dois soltos no meio da barra. So o primeiro empurra; o segundo cola. */
 .tela-gestao-trafego :deep(.pnd-aba-acao + .pnd-aba-acao){margin-left:0;}
 .tela-gestao-trafego :deep(.pnd-aba-acao:hover){border-color:var(--accent);}
-.tela-gestao-trafego :deep(#gt-novo-ov){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1300;display:none;backdrop-filter:blur(2px);}
+.tela-gestao-trafego :deep(#gt-novo-ov){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1300;display:none;backdrop-filter:blur(2px);touch-action:none;overscroll-behavior:contain;}
+.tela-gestao-trafego :deep(#gt-novo-ov) > *{overscroll-behavior:contain;touch-action:pan-y;}
 .tela-gestao-trafego :deep(#gt-novo-modal){position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1301;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(620px,94vw);max-height:88vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.35);}
 /* O corpo é quem rola, não a janela: com a janela rolando, o rodapé (onde
    ficam "Voltar" e "Criar") saía da tela justo no passo mais longo.
@@ -5659,7 +5664,9 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-cfg-chk input){accent-color:var(--accent);cursor:pointer;}
 .tela-gestao-trafego :deep(.gt-cfg-footer){padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;gap:10px;}
 /* Modal "Ver criativo" */
-.tela-gestao-trafego :deep(#gt-cr-overlay){position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1400;display:none;backdrop-filter:blur(2px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
+.tela-gestao-trafego :deep(#gt-cr-overlay){position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1400;display:none;backdrop-filter:blur(2px);padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));touch-action:none;overscroll-behavior:contain;}
+/* Modal "Ver criativo" */
+.tela-gestao-trafego :deep(#gt-cr-overlay) > *{overscroll-behavior:contain;touch-action:pan-y;}
 .tela-gestao-trafego :deep(#gt-cr-modal){position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1401;background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(420px,calc(100vw - 28px));max-height:88vh;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4);overflow:hidden;}
 .tela-gestao-trafego :deep(.gt-cr-body){padding:14px;overflow:auto;flex:1;display:flex;justify-content:center;align-items:flex-start;}
 .tela-gestao-trafego :deep(.gt-cr-frame){width:100%;display:flex;justify-content:center;}

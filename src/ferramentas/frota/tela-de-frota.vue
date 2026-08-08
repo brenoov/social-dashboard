@@ -2707,7 +2707,8 @@ onMounted(async () => {
 .tela-frota .fr-btn.primario{background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
 .tela-frota .fr-btn:disabled{opacity:.6;cursor:default;}
 
-.tela-frota .fr-ficha-fundo{position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:14px;}
+.tela-frota .fr-ficha-fundo{position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:14px;touch-action:none;overscroll-behavior:contain;}
+.tela-frota .fr-ficha-fundo > *{overscroll-behavior:contain;touch-action:pan-y;}
 .tela-frota .fr-ficha{width:100%;max-width:460px;max-height:calc(100dvh - 28px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35);}
 .tela-frota .fr-ficha-topo{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 15px;border-bottom:1px solid var(--border);}
 /* flex:1 pra empurrar o "?" e o "✕" pro canto direito, juntos — sem isso os

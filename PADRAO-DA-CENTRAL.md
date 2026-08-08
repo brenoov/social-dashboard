@@ -168,6 +168,26 @@ página.
 .minha-caixa{ overscroll-behavior:contain; touch-action:pan-y; }
 ```
 
+Sem esse par, o dedo arrasta a tela pros lados por dentro do modal.
+
+> **O estrago:** eu apliquei esse par só na tela que o dono estava olhando.
+> Os outros 27 fundos de modal da Central continuaram arrastando por semanas.
+
+### O defeito mais silencioso de todos: a diretiva que ninguém registrou
+
+`v-trava-rolagem` estava escrita em 8 modais e **nenhum deles travava nada.**
+Em `<script setup>`, uma diretiva só existe se for importada no componente ou
+registrada no `createApp` — e não era nem uma coisa nem outra. O Vue não
+quebra nesse caso: escreve `Failed to resolve directive` no console e segue.
+
+Módulo pronto, testes verdes, diretiva exportada e usada — e o comportamento
+simplesmente não acontecia.
+
+**Regra que vale para qualquer coisa registrada no app** (diretiva, componente
+global, plugin): escrever no template não é ligar. Se o efeito é invisível
+quando falha, ele precisa de teste — `diretiva-usada-esta-registrada.test.mjs`
+lê o console por você a cada rodada.
+
 O `travar-rolagem-de-fundo.js` usa **contador, não booleano**: dois modais podem se
 sobrepor (abrir o editor de permissões de dentro da ficha), e com booleano
 fechar o de cima destravaria a página com o de baixo ainda aberto.
@@ -239,6 +259,27 @@ document.documentElement.scrollWidth - document.documentElement.clientWidth   //
 **Ajuste de celular vai em `@media (max-width:640px)`. Nunca mexa na regra do
 desktop para consertar o celular.**
 
+### 40px de alvo sem engordar o botão
+
+Aba, chip e ícone não precisam VIRAR 40px — quem precisa de 40px é a área do
+dedo. Cresça a área, não o desenho:
+
+```css
+@media(max-width:640px){
+  .meu-icone       { position:relative; }
+  .meu-icone::after{ content:'';position:absolute;left:0;right:0;top:50%;
+                     transform:translateY(-50%);height:40px; }
+}
+```
+
+Sem `pointer-events:none` — o pseudo PRECISA receber o toque, é para isso que
+ele existe. Só no celular: no computador o mouse acerta o alvo real.
+
+> **Cuidado obrigatório:** o `::after` de um elemento pode cobrir o vizinho e
+> deixá-lo inalcançável. Depois de aplicar, verifique que o centro de cada alvo
+> ainda responde a ele mesmo:
+> `document.elementFromPoint(cx, cy)` tem de cair no próprio elemento.
+
 ---
 
 ## 7. Espaço e hierarquia
@@ -280,6 +321,29 @@ confira item a item.** Informação exibida, ação, texto explicativo — tudo.
 > **O estrago:** o helper `sb()` desta base, com a chave anônima, responde **200
 > com lista vazia** para tabela que só abre para quem está logado. Um botão
 > inteiro pareceu "não ter dados" por um dia. **Use `sbClient`.**
+
+---
+
+## 9½. O padrão se verifica sozinho
+
+Cinco destas regras não dependem mais de você lembrar delas — `npm test` reprova:
+
+| Verificado | Onde |
+|---|---|
+| Cor de estado sai de token | `padrao-da-central.test.mjs` |
+| Bloco pintado com token não leva branco cravado | idem |
+| Fundo de modal trava o arrasto | idem |
+| Botão usa as três classes | idem |
+| Botão comum não tem fundo cinza | idem |
+| Diretiva usada está registrada | `diretiva-usada-esta-registrada.test.mjs` |
+| Todo `.vue` compila | `todo-vue-compila.test.mjs` |
+
+**Precisa de uma exceção?** Adicione no teste, com o motivo escrito ao lado —
+como já estão lá marca de terceiro, identidade de módulo, medalha de ranking e
+paleta de gráfico. Nunca contorne calado.
+
+O resto do padrão — hierarquia, "um assunto por bloco", "uma ação principal" —
+continua sendo olho, e se mede a 375px num navegador de verdade.
 
 ---
 

@@ -1682,7 +1682,7 @@ function openFollowersInfo() {
   m.innerHTML =
     `<div style="padding:18px 20px;border-bottom:1px solid #eef2f7;display:flex;align-items:center;justify-content:space-between;gap:12px;">
       <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;letter-spacing:.5px;">COMO CONTAMOS OS NOVOS SEGUIDORES</div>
-      <button id="_fi_x" style="border:0;background:var(--surface2);border-radius:8px;min-width:40px;min-height:40px;font-size:15px;cursor:pointer;color:var(--muted);">✕</button>
+      <button class="btn" id="_fi_x" style="min-width:40px">✕</button>
     </div>
     <div style="padding:18px 20px;font-size:13px;line-height:1.6;">
       <div style="background:color-mix(in srgb,var(--green) 12%,var(--surface));border:1px solid #86efac;border-radius:10px;padding:12px 14px;margin:0 0 14px;">
@@ -2851,10 +2851,13 @@ onUnmounted(() => {
 
 /* Calc badge / seletor de período personalizado (compartilhado com Análise de Campanhas) */
 .tela-redes-sociais :deep(.calc-badge){display:inline-flex;align-items:center;gap:5px;font-family:var(--fonte-principal);font-size:10px;background:var(--accent-light);color:var(--accent-forte);padding:3px 10px;border-radius:2px;margin-top:8px;font-weight:500;letter-spacing:.3px;}
-.tela-redes-sociais :deep(.custom-range-btn){font-family:var(--fonte-principal);font-weight:500;font-size:11px;padding:5px 14px;border-radius:3px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap;}
+.tela-redes-sociais :deep(.custom-range-btn){font-family:var(--fonte-principal);font-weight:500;font-size:11px;padding:5px 14px;border-radius:3px;background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap;}
 .tela-redes-sociais :deep(.custom-range-btn):hover,.tela-redes-sociais :deep(.custom-range-btn.active){border-color:var(--accent);color:var(--accent);}
 .tela-redes-sociais :deep(.custom-date-input){font-family:var(--fonte-principal);font-weight:400;font-size:10px;padding:4px 7px;border-radius:3px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);outline:none;cursor:pointer;flex-shrink:0;}
 .tela-redes-sociais :deep(.custom-date-input):hover,.tela-redes-sociais :deep(.custom-date-input):focus{border-color:var(--accent);}
+/* 16px no celular: abaixo disso o iOS da zoom sozinho ao focar. No
+   computador o tamanho miudo continua, que la nao ha esse efeito. */
+@media(max-width:640px){.tela-redes-sociais :deep(.custom-date-input){font-size:16px;}}
 .tela-redes-sociais :deep(.custom-range-inline){display:flex;align-items:center;gap:5px;flex-wrap:nowrap;flex-shrink:0;}
 .tela-redes-sociais :deep(.custom-range-lbl){font-family:var(--fonte-principal);font-size:11px;color:var(--muted);}
 .tela-redes-sociais :deep(.eng-tabs){display:inline-flex;gap:4px;flex-wrap:wrap;margin-bottom:22px;padding:4px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;}
@@ -2864,7 +2867,7 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.eng-tab.active):hover{background:var(--accent);color:var(--sobre-cor);}
 .tela-redes-sociais :deep(.custom-date-input):focus{border-color:var(--accent);}
 .tela-redes-sociais :deep(.custom-apply-btn){font-family:var(--fonte-principal);font-weight:600;font-size:11px;padding:5px 14px;border-radius:3px;background:var(--accent);color:var(--sobre-cor);border:none;cursor:pointer;letter-spacing:.5px;text-transform:uppercase;}
-.tela-redes-sociais :deep(.custom-clear-btn){font-family:var(--fonte-principal);font-size:11px;padding:5px 10px;border-radius:3px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;}
+.tela-redes-sociais :deep(.custom-clear-btn){font-family:var(--fonte-principal);font-size:11px;padding:5px 10px;border-radius:3px;background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;}
 
 /* Insight card + barra de meta geral */
 .tela-redes-sociais :deep(.insight-card){background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:10px 16px 12px;margin-bottom:22px;border-left:3px solid var(--accent);}
