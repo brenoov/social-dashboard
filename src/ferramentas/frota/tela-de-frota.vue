@@ -52,6 +52,7 @@ import { recusaDaSenha, avisoDoQueGravou, selo } from './assinar-checklist.js'
 import {
   textoDaConferencia, resumoDaAssinatura, avisoDeTempo,
 } from './conferencia-de-assinaturas.js'
+import { resumoDasCopias } from './copias-no-zoho.js'
 // O tutorial: o passeio pela tela inteira, os textos fixos dos 6 modais e o
 // passeio pelos campos de cada um. PasseioGuiado é o MESMO componente que o
 // Patrimônio usa (compartilhado/) — ele já aponta pra dentro de um modal
@@ -203,6 +204,18 @@ const falhaRespostas = ref(false)
 // Os "Problema" de todos os carros, juntos — pra não abrir carro por carro.
 const problemasAbertos = computed(() => problemasAbertosHoje({
   fichasDeHoje: fichasDeHoje.value, respostas: respostasDeHoje.value, veiculos: veiculos.value }))
+
+/* AS CÓPIAS EM PDF DAS FICHAS ASSINADAS (D23). A tabela `frota_checklist_pdf`
+ * guardava isto desde que o robô subiu, e não aparecia em lugar nenhum: se um
+ * PDF falhasse, só quem abrisse o banco ficaria sabendo. A regra e as três
+ * situações (esperando / tropeçou / desistiu) moram em copias-no-zoho.js,
+ * testadas — aqui só ficam os dados. */
+const copiasPendentes = ref([])   // as que ainda NÃO estão na pasta do Zoho
+const copiasEntregues = ref(0)    // contagem das que já estão lá
+const falhaCopias = ref(false)
+const copias = computed(() => resumoDasCopias({
+  linhas: copiasPendentes.value, entregues: copiasEntregues.value,
+  fichas: fichas.value, veiculos: veiculos.value, falhaLeitura: falhaCopias.value }))
 
 // O detalhe de uma ficha de hoje, aberto ao clicar num carro já feito.
 const fichaDetalhe = ref(null)   // { veiculo, ficha } | null
@@ -481,8 +494,38 @@ async function carregar() {
   // A árvore de locais não derruba a frota se falhar (mesmo tratamento do
   // Patrimônio nas outras leituras): quem não enxerga as tabelas do Patrimônio
   // continua pegando e devolvendo carro, só não consegue apontar o local.
-  await carregarArvoreDeLocais()
+  await Promise.all([carregarArvoreDeLocais(), carregarCopiasNoZoho()])
   carregando.value = false
+}
+
+/* AS CÓPIAS EM PDF: duas leituras, e as duas de propósito.
+ *
+ * 1) AS QUE FALTAM (`situacao <> 'enviado'`), com tudo: é o punhado de linhas
+ *    que tem algo a dizer. Trazer a tabela inteira seria trazer, pra sempre,
+ *    ~150 linhas por mês que só dizem "chegou" — e as que chegaram não têm
+ *    nada a contar pra quem olha a tela.
+ * 2) SÓ A CONTAGEM das que chegaram (`head: true`, nenhuma linha de volta).
+ *    Ela existe por UM motivo: separar "nunca teve ficha assinada" de "tudo já
+ *    subiu". As duas dão quadro vazio, e um quadro vazio sem explicação parece
+ *    defeito — que é justamente o estado que o dono vai ver primeiro, hoje.
+ *
+ * Falhar aqui não derruba nada, mas TAMBÉM não passa em silêncio: `falhaCopias`
+ * faz o quadro dizer que não conseguiu olhar, em vez de dizer "está tudo em
+ * dia" sem ter olhado. */
+async function carregarCopiasNoZoho() {
+  const [pend, ent] = await Promise.all([
+    sbClient.from('frota_checklist_pdf')
+      .select('checklist_id,situacao,tentativas,ultimo_erro,criado_em')
+      .neq('situacao', 'enviado').order('criado_em').limit(200),
+    sbClient.from('frota_checklist_pdf')
+      .select('checklist_id', { count: 'exact', head: true }).eq('situacao', 'enviado'),
+  ])
+  // A contagem pode falhar sozinha sem invalidar a lista: nesse caso ela vira
+  // zero e a frase cai no texto de "nenhuma ficha assinada ainda". A lista é a
+  // que manda — é nela que mora o problema, se houver.
+  falhaCopias.value = !!pend.error
+  copiasPendentes.value = pend.error ? [] : (pend.data || [])
+  copiasEntregues.value = ent && !ent.error ? (ent.count || 0) : 0
 }
 
 /* Lê a árvore de locais do Patrimônio. Fora do Promise.all de cima de propósito:
@@ -1823,6 +1866,43 @@ onMounted(async () => {
         </div>
       </div>
 
+      <!-- AS CÓPIAS EM PDF NO ZOHO (D23).
+           Este `<h2>` não tem `v-if` NENHUM de propósito: ele encerra a corrente
+           `v-if/v-else-if/v-else` do bloco de problemas logo acima e começa um
+           quadro independente. (A lista de carros que vem depois também não tem
+           diretiva, então nada aqui se encadeia com nada — que é o defeito que o
+           comentário lá em cima, sobre o `v-else` solto, existe pra evitar.)
+
+           O QUADRO É DISCRETO POR PROJETO: quando está tudo bem ele é UMA frase
+           e mais nada. Só ganha caixa quando alguma cópia não chegou. Espera não
+           é problema — o robô sobe de 10 em 10 minutos, e uma ficha assinada há
+           dois minutos está esperando o relógio, não quebrada. -->
+      <h2 class="fr-secao">Cópia das fichas no Zoho</h2>
+      <p class="fr-erro" v-if="copias.falhaLeitura">
+        Não consegui olhar se as cópias em PDF chegaram na pasta do Zoho. As fichas assinadas
+        continuam gravadas e valendo — o que não deu pra conferir foi o arquivo. Recarregue a
+        página; se continuar assim, avise quem cuida da central.
+      </p>
+      <template v-else>
+        <p class="fr-aviso">{{ copias.frase }}</p>
+        <div class="fr-copias" v-if="copias.temProblema">
+          <div v-for="(g, i) in copias.grupos" :key="i" class="fr-copia-grupo" :class="g.gravidade">
+            <p class="fr-copia-titulo">{{ g.titulo }}</p>
+            <ul class="fr-copia-carros">
+              <li v-for="(nome, j) in g.veiculos" :key="j">{{ nome }}</li>
+            </ul>
+            <!-- O texto do robô como ele escreveu. Ele já vem em português
+                 dizendo o que FAZER; trocar por "erro ao enviar" jogaria fora
+                 justamente a parte que resolve. -->
+            <p class="fr-copia-motivo">{{ g.mensagem }}</p>
+          </div>
+          <p class="fr-copia-calma">
+            As fichas continuam assinadas e valendo. O que está atrasado é só o arquivo em PDF —
+            a prova mora aqui dentro, não no papel.
+          </p>
+        </div>
+      </template>
+
       <div class="fr-lista">
         <div v-for="l in linhas" :key="l.veiculo.id" class="fr-card" :class="{ rua: l.naRua, parado: !l.disponivel && !l.naRua }">
           <div class="fr-card-topo">
@@ -2583,6 +2663,41 @@ onMounted(async () => {
 .tela-frota .fr-cobranca-selo.sem-assinatura{
   background:color-mix(in srgb, var(--orange) 16%, var(--surface));
   color:var(--text);white-space:normal;text-align:right;}
+
+/* AS CÓPIAS EM PDF NA PASTA DO ZOHO (D23).
+
+   ESTE QUADRO NÃO TEM CAIXA QUANDO ESTÁ TUDO BEM. Nada esperando e nada
+   falhado = uma frase em `.fr-aviso`, o mesmo cinza discreto do resto da aba.
+   O CSS abaixo só entra em cena quando alguma cópia não chegou — quem abre a
+   Gestão veio cobrar checklist, não administrar arquivo.
+
+   A COR SEGUE A GRAVIDADE, e a diferença entre as duas é o ponto:
+     vermelho  — o robô tentou 8 vezes e parou. Só sai com alguém fazendo algo.
+     laranja   — tropeçou, mas o robô continua tentando sozinho.
+   Esperando não ganha cor nenhuma: é o relógio, não defeito.
+
+   FUNDO TINGIDO COM O TEXTO EM --text, nunca texto colorido. `--orange` como
+   texto mede 4,06 de contraste no tema claro — medido nesta mesma tela, ver o
+   comentário do .fr-cobranca-selo —, e o mínimo é 4,5. Tingindo a superfície a
+   10%, a cor continua sendo o sinal e o texto passa folgado nos dois temas
+   (~16 no claro, ~14 no escuro, medido). */
+.tela-frota .fr-copias{padding:0 14px 4px;display:flex;flex-direction:column;gap:10px;}
+.tela-frota .fr-copia-grupo{border:1px solid var(--border);border-left:3px solid var(--muted);border-radius:12px;padding:12px 14px;background:var(--surface);}
+.tela-frota .fr-copia-grupo.desistiu{border-left-color:var(--red);background:color-mix(in srgb,var(--red) 10%,var(--surface));}
+.tela-frota .fr-copia-grupo.tentando{border-left-color:var(--orange);background:color-mix(in srgb,var(--orange) 10%,var(--surface));}
+.tela-frota .fr-copia-titulo{margin:0;font-family:var(--fonte-principal);font-size:12.5px;font-weight:700;line-height:1.45;color:var(--text);}
+/* A cor fica na BORDA da linha, não no texto do nome do carro — mesma decisão
+   do .fr-itens li, pelo mesmo motivo: nome colorido some num dos dois temas. */
+.tela-frota .fr-copia-carros{margin:9px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:5px;}
+.tela-frota .fr-copia-carros li{font-family:var(--fonte-principal);font-size:12.5px;line-height:1.45;color:var(--text);padding-left:9px;border-left:2px solid var(--border);overflow-wrap:anywhere;}
+/* `overflow-wrap:anywhere` porque a frase do robô pode trazer nome de arquivo
+   comprido, e `overflow-x:clip` nos estilos globais cortaria isso em silêncio,
+   sem barra de rolagem pra denunciar — no celular, que é onde se olha. */
+.tela-frota .fr-copia-motivo{margin:10px 0 0;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.55;color:var(--text);overflow-wrap:anywhere;}
+/* A frase que impede a leitura errada, e por isso ela é fixa e não some: papel
+   atrasado NÃO invalida ficha. A prova é a assinatura gravada no banco; o PDF
+   é cópia de arquivo. */
+.tela-frota .fr-copia-calma{margin:0;font-family:var(--fonte-principal);font-size:11.5px;line-height:1.55;color:var(--muted);}
 
 /* "Outros carros sem checklist hoje" (D21b). Uma linha por carro: nome, de quem
    ele é, e o botão. No celular vira coluna, senão o nome comprido ("FIAT PUNTO
