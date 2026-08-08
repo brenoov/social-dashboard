@@ -184,7 +184,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-banco :deep(.banco-upload-text){font-family:var(--fonte-principal);font-size:13px;color:var(--muted);line-height:1.7;}
 .tela-banco :deep(.banco-upload-text em){color:var(--accent);font-style:normal;font-weight:600;cursor:pointer;}
 .tela-banco :deep(.banco-upload-text em:hover){text-decoration:underline;}
-.tela-banco :deep(.banco-upload-limit){font-family:var(--fonte-principal);font-size:10px;color:var(--muted);letter-spacing:.5px;margin-top:4px;opacity:.7;}
+.tela-banco :deep(.banco-upload-limit){font-family:var(--fonte-principal);font-size:10px;color:var(--muted);letter-spacing:.5px;margin-top:4px;}
 .tela-banco :deep(.banco-progress-wrap){margin-top:14px;text-align:left;display:none;}
 .tela-banco :deep(.banco-progress-lbl){font-family:var(--fonte-principal);font-size:11px;color:var(--muted);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .tela-banco :deep(.banco-progress-bar){height:3px;background:var(--border);border-radius:2px;overflow:hidden;}

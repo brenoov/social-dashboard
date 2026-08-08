@@ -1834,7 +1834,7 @@ body.dev-tv .tela-gestao-a-vista :deep(#gv-ac-toggle){font-size:21px;padding:8px
 .tela-gestao-a-vista :deep(.gv-est-caret){font-size:9px;color:var(--accent);transition:transform .15s ease;display:inline-block;}
 .tela-gestao-a-vista :deep(.gv-est.open .gv-est-caret){transform:rotate(90deg);}
 .tela-gestao-a-vista :deep(.gv-est-t){font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--text);font-weight:600;}
-.tela-gestao-a-vista :deep(.gv-est-sub){font-size:9px;letter-spacing:1px;color:var(--muted);opacity:.7;}
+.tela-gestao-a-vista :deep(.gv-est-sub){font-size:9px;letter-spacing:1px;color:var(--muted);}
 .tela-gestao-a-vista :deep(.gv-est-body[hidden]){display:none;}
 /* Sem teto de altura: com a tela rolável (.is-est-open) o estoque cresce à vontade e
    quem rola é a PÁGINA. O nº de linhas por depósito é controlado pelo seletor "mostrar"
