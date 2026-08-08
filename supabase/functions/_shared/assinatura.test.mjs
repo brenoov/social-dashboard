@@ -319,3 +319,56 @@ test('uma ficha não conferida não esconde uma quebra de verdade mais adiante n
   assert.equal(r.naoConferida.id, 'f1')
   assert.equal(r.primeiraQuebra.id, 'f2')
 })
+
+/* ── O instante da assinatura sobrevive à ida e volta do banco ─────────────── */
+
+// O DEFEITO QUE ESTES TESTES FECHAM: `assinada_em` é o único campo da ficha que
+// o Postgres reescreve. Medido no banco de verdade:
+//   manda '2026-08-07T12:00:00.000Z'  ->  devolve '2026-08-07T12:00:00+00:00'
+//   manda '2026-08-07T12:00:00.120Z'  ->  devolve '2026-08-07T12:00:00.12+00:00'
+//   manda '2026-08-07T12:00:00.123Z'  ->  devolve '2026-08-07T12:00:00.123+00:00'
+// Com o texto cru no hash, o valor calculado ao assinar NUNCA bateria com o
+// recalculado ao conferir, e conferirCorrente acusaria de adulterada toda ficha
+// honesta. Estes casos são os três formatos reais que saem do banco.
+const IDAS_E_VOLTAS = [
+  ['2026-08-07T12:00:00.000Z', '2026-08-07T12:00:00+00:00'],
+  ['2026-08-07T12:00:00.120Z', '2026-08-07T12:00:00.12+00:00'],
+  ['2026-08-07T12:00:00.123Z', '2026-08-07T12:00:00.123+00:00'],
+]
+
+test('assinada_em: o texto que o navegador manda e o que o Postgres devolve dão o MESMO hash', async () => {
+  for (const [mandado, devolvido] of IDAS_E_VOLTAS) {
+    assert.notEqual(mandado, devolvido, 'o caso do teste tem que ser mesmo dois textos diferentes')
+    const aoAssinar = await impressaoDigital(textoParaAssinar({
+      ficha: { ...FICHA, assinada_em: mandado }, respostas: RESPOSTAS, hashAnterior: null,
+    }))
+    const aoConferir = await impressaoDigital(textoParaAssinar({
+      ficha: { ...FICHA, assinada_em: devolvido }, respostas: RESPOSTAS, hashAnterior: null,
+    }))
+    assert.equal(aoConferir, aoAssinar, `${mandado} e ${devolvido} são o mesmo instante`)
+  }
+})
+
+test('assinada_em: instantes DIFERENTES continuam dando hashes diferentes', async () => {
+  // A canonização não pode ter apagado a discriminação junto com o formato: se
+  // qualquer instante virasse o mesmo texto, dava pra reescrever a hora da
+  // assinatura sem quebrar o hash.
+  const a = textoParaAssinar({ ficha: { ...FICHA, assinada_em: '2026-08-07T12:00:00.000Z' }, respostas: RESPOSTAS, hashAnterior: null })
+  const b = textoParaAssinar({ ficha: { ...FICHA, assinada_em: '2026-08-07T12:00:00.001Z' }, respostas: RESPOSTAS, hashAnterior: null })
+  const c = textoParaAssinar({ ficha: { ...FICHA, assinada_em: '2026-08-07T09:00:00.000-03:00' }, respostas: RESPOSTAS, hashAnterior: null })
+  assert.notEqual(a, b, 'um milésimo de diferença tem que mudar o texto')
+  assert.equal(a, c, 'o mesmo instante em outro fuso é o mesmo instante')
+})
+
+test('assinada_em nulo continua diferente de assinada_em preenchido, e texto ilegível não vira data inventada', () => {
+  const semNada = textoParaAssinar({ ficha: { ...FICHA, assinada_em: null }, respostas: RESPOSTAS, hashAnterior: null })
+  const comData = textoParaAssinar({ ficha: FICHA, respostas: RESPOSTAS, hashAnterior: null })
+  assert.notEqual(semNada, comData)
+  // Texto que não é instante passa cru em vez de virar `null` (que seria "não
+  // assinada") ou uma data qualquer: preferimos o valor ilegível de volta a
+  // inventar dado.
+  const lixoA = textoParaAssinar({ ficha: { ...FICHA, assinada_em: 'nem-data' }, respostas: RESPOSTAS, hashAnterior: null })
+  const lixoB = textoParaAssinar({ ficha: { ...FICHA, assinada_em: 'outra-coisa' }, respostas: RESPOSTAS, hashAnterior: null })
+  assert.notEqual(lixoA, semNada)
+  assert.notEqual(lixoA, lixoB)
+})

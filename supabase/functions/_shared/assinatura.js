@@ -28,6 +28,25 @@ export const SEGUNDOS_SUSPEITOS = 10;
 // distinguir nulo de vazio.
 const campo = (v) => JSON.stringify(v === undefined ? null : v);
 
+// INSTANTE VAI PELO INSTANTE, NUNCA PELO TEXTO CRU.
+//
+// `assinada_em` é o único campo da ficha que o Postgres REESCREVE: quem assina
+// manda `2026-08-07T12:00:00.000Z` e a coluna timestamptz devolve
+// `2026-08-07T12:00:00+00:00` — some o `.000`, `.120` vira `.12`, e o `Z` vira
+// `+00:00`. Medido no banco, não deduzido. Guardando o texto cru, o hash
+// calculado na hora de assinar JAMAIS bateria com o recalculado na hora de
+// conferir, e `conferirCorrente` acusaria de adulterada TODA ficha honesta —
+// que é o pior defeito possível aqui, porque acusa alguém inocente.
+//
+// Então o instante entra em UMA forma só, derivada de `Date.parse` (o mesmo
+// número dos dois lados) e reemitida por `toISOString`. Texto que não é
+// instante passa cru: um campo ilegível não pode virar data inventada.
+const instanteCanonico = (v) => {
+  if (v === null || v === undefined) return null;
+  const t = Date.parse(v);
+  return Number.isNaN(t) ? v : new Date(t).toISOString();
+};
+
 /**
  * O texto exato que a assinatura cobre. A ORDEM faz parte da prova — trocar
  * dois itens de lugar tem que dar texto diferente.
@@ -51,7 +70,7 @@ export function textoParaAssinar({ ficha, respostas, hashAnterior }) {
     campo(ficha.cadencias || []),
     campo(ficha.resultado),
     campo(ficha.anomalias),
-    campo(ficha.assinada_em),
+    campo(instanteCanonico(ficha.assinada_em)),
     // `hashAnterior` PASSA POR `campo()` também: sem isso era o único campo
     // que ia cru pro texto, e um hash real que por acaso valesse a palavra
     // "PRIMEIRA" dava o mesmo texto que "não há ficha anterior" — a marca

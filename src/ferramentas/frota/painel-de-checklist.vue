@@ -53,8 +53,18 @@ const props = defineProps({
   // checklist do rodízio simplesmente não aparece pra quem pega o carro no
   // sábado.
   pegandoAgora: { type: Boolean, default: false },
+  // Quem não tem login não pode assinar (D22). O cartão continua funcionando:
+  // a ficha grava sem assinatura, e a tela DIZ isso — ficha sem assinatura
+  // parecendo assinada seria a mentira mais cara desta fase.
+  podeAssinar: { type: Boolean, default: true },
+  erroDaAssinatura: { type: String, default: '' },
 })
 const emit = defineEmits(['gravar'])
+
+// D20: o tempo de preenchimento é o único sinal contra "marcou tudo sem olhar".
+// Marcado na montagem do componente, não no primeiro toque — quem abre e demora
+// a começar também é informação.
+const abertaEm = new Date().toISOString()
 
 const cadencias = computed(() => cadenciasDoDia({
   hoje: props.hoje, config: props.config,
@@ -74,6 +84,10 @@ const hodometro = ref('')
 const justificativa = ref('')
 const anomalias = ref('')
 const erros = ref([])
+// A senha NÃO fica em lugar nenhum além desta variável, que morre junto com o
+// cartão: ela vai pro pai, que a manda pra Edge conferir e a esquece. Nada de
+// senha em campo de ficha, em log ou no que se assina.
+const senha = ref('')
 
 /* ── O hodômetro ─────────────────────────────────────────────────────────── */
 
@@ -141,7 +155,9 @@ const textoDoBotao = computed(() => {
   if (props.gravando) return 'Gravando…'
   if (faltam.value === 1) return 'Falta 1 item'
   if (faltam.value > 1) return `Faltam ${faltam.value} itens`
-  return 'Gravar checklist'
+  // O botão diz o que vai acontecer. "Gravar" escondendo uma assinatura
+  // definitiva por trás é o tipo de surpresa que a D21 não admite.
+  return props.podeAssinar ? 'Assinar e gravar checklist' : 'Gravar checklist'
 })
 
 function gravar() {
@@ -149,6 +165,13 @@ function gravar() {
     hodometro: hodometroNumero.value, ultimoKm: props.ultimoKm,
     justificativa: justificativa.value, respostas, itens: daFicha.value,
   })
+  // Senha em branco se avisa AQUI, não no servidor: mandar assim faria a Edge
+  // responder "senha incorreta", que é mentira — a pessoa não errou a senha,
+  // ela não digitou nenhuma.
+  if (props.podeAssinar && !senha.value) {
+    erros.value = [...erros.value,
+      'Digite sua senha para assinar. É a mesma senha com que você entra no aplicativo.']
+  }
   if (erros.value.length) return
   emit('gravar', {
     ficha: {
@@ -167,6 +190,9 @@ function gravar() {
       estado: respostas[i.id],
       observacao: null,
     })),
+    // A senha vai pro pai, que confere no servidor e calcula a assinatura. O
+    // painel não fala com o banco nem com a Edge — ele só desenha.
+    assinatura: props.podeAssinar ? { senha: senha.value, aberta_em: abertaEm } : null,
   })
 }
 </script>
@@ -252,6 +278,30 @@ function gravar() {
       <!-- O carro NUNCA trava (D14). Dizer isso na tela evita a pessoa não marcar
            "não liberado" com medo de deixar a empresa a pé. -->
       <p class="ck-nota">Marcar "não liberado" não tira o carro de ninguém — só avisa quem administra.</p>
+    </div>
+
+    <!-- ASSINAR É O ÚLTIMO PASSO, e o cartão avisa ANTES o que ele faz. O banco
+         recusa mudar ficha assinada (gatilho da D21); descobrir isso pelo erro
+         do banco, depois de assinar, é defeito. -->
+    <div class="ck-assinar" v-if="podeAssinar">
+      <label class="ck-lab" for="ck-senha">Sua senha, para assinar</label>
+      <input id="ck-senha" v-model="senha" type="password" autocomplete="current-password"
+             class="ck-senha" placeholder="a mesma senha com que você entra">
+      <p class="ck-nota">
+        A senha confirma que foi você quem conferiu o carro. Ela não é guardada em lugar nenhum.
+      </p>
+      <p class="ck-nota">
+        Depois de assinada, esta ficha não pode mais ser mudada nem apagada. Se ficar algo
+        errado, o caminho é registrar uma ficha nova explicando.
+      </p>
+      <p class="ck-erro-assinatura" v-if="erroDaAssinatura">{{ erroDaAssinatura }}</p>
+    </div>
+    <div class="ck-assinar" v-else>
+      <p class="ck-nota destaque">
+        Esta ficha vai ficar <strong>sem assinatura</strong>: você ainda não tem login próprio
+        no aplicativo. O checklist é registrado do mesmo jeito — avise quem administra a Frota
+        para criarem seu acesso.
+      </p>
     </div>
 
     <ul class="ck-erros" v-if="erros.length">
@@ -410,6 +460,24 @@ function gravar() {
   letter-spacing: .6px; text-transform: uppercase; color: var(--accent);
 }
 .ck-nota { margin: var(--sp-2) 0 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
+
+/* ── Assinar ──────────────────────────────────────────────────────────────── */
+.ck-assinar { margin-top: var(--sp-4); padding-top: var(--sp-4); border-top: 1px solid var(--border); }
+.ck-senha {
+  width: 100%; box-sizing: border-box; padding: 10px var(--sp-3);
+  /* Alvo de toque: quem preenche isto está de pé no estacionamento, com uma
+     mão só. Medido a 375px, não deduzido. */
+  min-height: 44px;
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--bg); color: var(--text);
+  font-family: var(--fonte-principal); font-size: 15px;
+}
+/* `--accent-forte`, igual aos outros campos deste cartão: o accent puro sobre
+   o próprio accent-light não tem contraste (é o que o comentário do token
+   diz). */
+.ck-senha:focus { outline: none; border-color: var(--accent-forte); box-shadow: 0 0 0 3px var(--accent-light); }
+.ck-nota.destaque { color: var(--text); border-left: 3px solid var(--orange); padding-left: var(--sp-3); }
+.ck-erro-assinatura { margin: var(--sp-2) 0 0; font-size: 13px; color: var(--red); line-height: 1.45; }
 
 /* ── Erros e gravar ───────────────────────────────────────────────────────── */
 .ck-erros { margin: var(--sp-3) 0 0; padding-left: 18px; color: var(--red); font-size: 13px; line-height: 1.5; }

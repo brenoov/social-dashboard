@@ -45,6 +45,8 @@ import {
 import { bensLivresParaFrota, patchDoBem } from './bens-para-veiculo.js'
 import { dadosDoLocal, insertDaArvore } from './local-do-veiculo.js'
 import { contatoParaCobranca, podeCopiarTelefoneDoCarro } from './contato-do-motorista.js'
+import { textoParaAssinar, impressaoDigital } from '../../../supabase/functions/_shared/assinatura.js'
+import { recusaDaSenha, avisoDoQueGravou, selo } from './assinar-checklist.js'
 // O tutorial: o passeio pela tela inteira, os textos fixos dos 6 modais e o
 // passeio pelos campos de cada um. PasseioGuiado é o MESMO componente que o
 // Patrimônio usa (compartilhado/) — ele já aponta pra dentro de um modal
@@ -605,16 +607,99 @@ async function confirmar() {
 // esconder a lista de carros inteira — o mesmo tipo de defeito silencioso que
 // a guarda de estilo existe pra pegar, só que em comportamento, não em CSS.
 const erroChecklist = ref('')
+// Erro SÓ da senha, mostrado dentro do cartão, ao lado do campo. Separado de
+// `erroChecklist` porque é de outra natureza: senha errada não gravou nada e a
+// pessoa resolve ali mesmo, sem sair do cartão nem avisar ninguém.
+const erroDaAssinatura = ref('')
+// O que a tela diz DEPOIS de gravar. Precisa existir porque "gravado" e
+// "gravado e assinado" são coisas diferentes, e a pessoa tem que saber qual
+// das duas aconteceu com ela (D22).
+const seloDoChecklist = ref('')
+// Quem não tem login não assina (D22). `euId` é o id da PESSOA
+// (acessos_pessoas); quem assina é o USUÁRIO (auth), e nem toda pessoa tem um —
+// Barbara, Marcus e Thiago são donos de carro e não têm conta no app.
+const podeAssinar = computed(() => !!estado.userId)
 
-async function gravarChecklist({ ficha, respostas }) {
+async function gravarChecklist({ ficha, respostas, assinatura }) {
   if (gravando.value) return
   gravando.value = true
   erroChecklist.value = ''
+  erroDaAssinatura.value = ''
+  seloDoChecklist.value = ''
+
+  // `estado` não tem campo `perfil` — o nome de quem preenche vem de
+  // `pessoas`, do mesmo jeito que a retirada e a requisição já fazem.
+  let campos = { ...ficha, pessoa_id: euId.value, pessoa_nome: euId.value ? nomeDaPessoa(euId.value) : null }
+  // O que vai virar assinatura no fim. Nulo = ficha sem assinatura (D22).
+  let assinar = null
+
+  if (assinatura) {
+    /* TUDO O QUE PODE RECUSAR A ASSINATURA ACONTECE ANTES DA PRIMEIRA ESCRITA.
+       Senha errada não pode deixar ficha pela metade no banco — e ficha do dia
+       gravada errado não dá pra refazer, o índice "um carro, um dia, uma
+       ficha" recusa a segunda. */
+
+    // 1) A senha, no SERVIDOR. `signInWithPassword` aqui TROCARIA A SESSÃO
+    //    (D19a) — é a razão de a Edge `conferir-senha` existir.
+    const { data: conf, error: erroConf } = await sbClient.functions.invoke('conferir-senha', {
+      body: { senha: assinatura.senha },
+    })
+    if (erroConf || !conf?.ok) {
+      // A Edge responde 429 (bloqueado), 401 (sem sessão) e 400 (sem senha)
+      // FORA do 2xx, e o supabase-js transforma isso em `error` com `data`
+      // NULO. Lendo o motivo só do `data`, "bloqueado por dez minutos"
+      // apareceria como "senha incorreta" e a pessoa tentaria de novo sem
+      // parar. O motivo real está no corpo do erro — mesmo caminho que
+      // dados-conteudo.js já usa.
+      const detalhe = erroConf ? await erroConf.context?.json?.().catch(() => null) : conf
+      gravando.value = false
+      erroDaAssinatura.value = recusaDaSenha(detalhe?.erro)
+      return
+    }
+
+    // 2) A ficha anterior DESTE carro, pra encadear.
+    const { data: anteriores, error: erroAnterior } = await sbClient.from('frota_checklist')
+      .select('assinatura_hash').eq('veiculo_id', ficha.veiculo_id)
+      .not('assinada_em', 'is', null).order('feita_em', { ascending: false }).limit(1)
+    if (erroAnterior) {
+      // NÃO segue com hashAnterior nulo: nulo quer dizer "esta é a primeira
+      // ficha deste carro". Gravar isso por não ter conseguido LER seria
+      // afirmar uma coisa falsa dentro da própria assinatura, e partiria a
+      // corrente exatamente onde ela deveria provar continuidade.
+      gravando.value = false
+      erroDaAssinatura.value = 'Não consegui ler a ficha anterior deste carro para encadear a '
+        + 'assinatura. Confira a conexão e tente de novo. Nada foi gravado.'
+      return
+    }
+    const hashAnterior = anteriores?.[0]?.assinatura_hash || null
+
+    const assinadaEm = new Date().toISOString()
+    assinar = {
+      aberta_em: assinatura.aberta_em,
+      assinada_em: assinadaEm,
+      assinada_por: estado.userId,
+      assinatura_hash_anterior: hashAnterior,
+      assinatura_hash: await impressaoDigital(textoParaAssinar({
+        ficha: { ...campos, assinada_em: assinadaEm }, respostas, hashAnterior,
+      })),
+    }
+  } else {
+    campos = { ...campos, aberta_em: null, sem_assinatura_motivo: 'sem_login' }
+  }
+
+  /* GRAVA EM TRÊS PASSOS, E A ORDEM NÃO É ESCOLHA DE ESTILO.
+     O gatilho `trg_frota_resposta_imutavel` (migration 033) recusa INSERT de
+     resposta em ficha JÁ assinada. Gravar a ficha assinada primeiro — que é o
+     caminho óbvio — deixaria uma ficha ASSINADA E VAZIA, que não dá pra apagar
+     (gatilho), não dá pra corrigir (gatilho) e não dá pra refazer (índice "um
+     carro, um dia, uma ficha"): um carro com o dia perdido pra sempre.
+     Provado contra o banco com `begin ... rollback`.
+     Por isso: ficha SEM assinatura, respostas, e só então a assinatura por
+     UPDATE — permitido porque o gatilho da ficha só dispara quando ela JÁ
+     estava assinada (`when (old.assinada_em is not null)`).
+     E OS TRÊS PASSOS SE CONFEREM, um a um. */
   const { data, error } = await sbClient.from('frota_checklist')
-    // `estado` não tem campo `perfil` — o nome de quem preenche vem de
-    // `pessoas`, do mesmo jeito que a retirada e a requisição já fazem.
-    .insert({ ...ficha, pessoa_id: euId.value, pessoa_nome: euId.value ? nomeDaPessoa(euId.value) : null })
-    .select('id').single()
+    .insert(campos).select('id').single()
   if (error) {
     gravando.value = false
     erroChecklist.value = /duplicate|unique/i.test(error.message || '')
@@ -622,25 +707,57 @@ async function gravarChecklist({ ficha, respostas }) {
       : 'Não consegui gravar o checklist. Confira a conexão e tente de novo.'
     return
   }
+
   // A ficha já tem `data.id` aqui — as respostas são um segundo insert, e
   // podem falhar sozinhas (rede caiu no meio, permissão faltando). Capturar o
   // erro é OBRIGATÓRIO: sem isso a ficha fica gravada sem nenhuma resposta,
   // e a tela segue como se tivesse dado tudo certo — ninguém percebe até
   // alguém abrir o banco e ver a contagem zerada.
+  //
+  // `ordem: i` é o que a migration 032 pediu à tela: `id` é uuid ALEATÓRIO e
+  // não dá ordem estável, mas a ORDEM DOS ITENS faz parte da impressão digital.
+  // Sem gravá-la, a leitura devolveria os itens em outra ordem e a conferência
+  // acusaria de adulterada uma ficha intacta.
   const { error: erroRespostas } = await sbClient.from('frota_checklist_respostas')
-    .insert(respostas.map((r) => ({ ...r, checklist_id: data.id })))
-  gravando.value = false
+    .insert(respostas.map((r, i) => ({ ...r, checklist_id: data.id, ordem: i })))
   if (erroRespostas) {
+    gravando.value = false
     // NÃO chama carregar(): recarregar acharia a ficha (ela gravou) e trocaria
     // o cartão pela frase "Checklist de hoje já feito" — sensação de sucesso
     // bem no caminho que falhou. A pessoa precisa ver que faltou a parte de
     // dentro, e saber a quem recorrer, porque tentar de novo bate no índice
     // "um carro, um dia, uma ficha" e é recusado como duplicidade.
-    erroChecklist.value = 'A ficha do checklist foi registrada, mas as respostas dos itens não '
-      + 'foram salvas. Avise quem administra a Frota antes de tentar de novo — tentar de novo '
-      + 'vai recusar dizendo que o checklist de hoje já existe.'
+    erroChecklist.value = avisoDoQueGravou({
+      fichaGravada: true, respostasGravadas: false,
+      assinaturaGravada: false, queriaAssinar: !!assinar,
+    })
     return
   }
+
+  let assinaturaGravada = false
+  if (assinar) {
+    const { data: assinada, error: erroAssinar } = await sbClient.from('frota_checklist')
+      .update(assinar).eq('id', data.id).select('id')
+    // CONFERE O NÚMERO DE LINHAS, não só o `error`: um UPDATE recusado por RLS
+    // volta SEM erro e com zero linha. Olhando só o `error`, a tela diria
+    // "assinado" sobre uma ficha que continua sem assinatura nenhuma — que é
+    // exatamente a mentira que esta fase inteira existe pra impedir.
+    assinaturaGravada = !erroAssinar && (assinada?.length || 0) === 1
+    if (!assinaturaGravada) {
+      gravando.value = false
+      erroChecklist.value = avisoDoQueGravou({
+        fichaGravada: true, respostasGravadas: true,
+        assinaturaGravada: false, queriaAssinar: true,
+      })
+      // Recarrega: diferente dos dois casos acima, aqui o checklist do dia está
+      // COMPLETO e vale. O cartão deve sair da frente; o aviso fica.
+      await carregar()
+      return
+    }
+  }
+
+  gravando.value = false
+  seloDoChecklist.value = selo({ queriaAssinar: !!assinar, assinaturaGravada })
   await carregar()
 }
 
@@ -1299,10 +1416,15 @@ onMounted(async () => {
         :ultimo-km="ultimoHodometro(fichas, meuCarroFixo.id)"
         :hoje="hoje"
         :gravando="gravando"
+        :pode-assinar="podeAssinar"
+        :erro-da-assinatura="erroDaAssinatura"
         @gravar="gravarChecklist" />
       <p class="fr-aviso" v-else-if="meuCarroFixo && fichaDeHoje">
         Checklist de hoje já feito, com {{ fichaDeHoje.hodometro.toLocaleString('pt-BR') }} km.
       </p>
+      <!-- "Gravado" e "gravado e assinado" são coisas diferentes, e a pessoa
+           tem que saber qual das duas aconteceu com ela (D22). -->
+      <p class="fr-aviso" v-if="seloDoChecklist">{{ seloDoChecklist }}</p>
       <p class="fr-erro" v-if="erroChecklist">{{ erroChecklist }}</p>
 
       <template v-if="meuCarroFixo">
@@ -2153,7 +2275,10 @@ onMounted(async () => {
             :hoje="hoje"
             :pegando-agora="true"
             :gravando="gravando"
+            :pode-assinar="podeAssinar"
+            :erro-da-assinatura="erroDaAssinatura"
             @gravar="gravarChecklist" />
+          <p class="fr-aviso" v-if="ficha.modo === 'retirar' && seloDoChecklist">{{ seloDoChecklist }}</p>
           <p class="fr-erro" v-if="ficha.modo === 'retirar' && erroChecklist">{{ erroChecklist }}</p>
 
           <label class="fr-campo" v-if="ficha.modo === 'retirar'">
