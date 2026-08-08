@@ -259,6 +259,27 @@ document.documentElement.scrollWidth - document.documentElement.clientWidth   //
 **Ajuste de celular vai em `@media (max-width:640px)`. Nunca mexa na regra do
 desktop para consertar o celular.**
 
+### 40px de alvo sem engordar o botão
+
+Aba, chip e ícone não precisam VIRAR 40px — quem precisa de 40px é a área do
+dedo. Cresça a área, não o desenho:
+
+```css
+@media(max-width:640px){
+  .meu-icone       { position:relative; }
+  .meu-icone::after{ content:'';position:absolute;left:0;right:0;top:50%;
+                     transform:translateY(-50%);height:40px; }
+}
+```
+
+Sem `pointer-events:none` — o pseudo PRECISA receber o toque, é para isso que
+ele existe. Só no celular: no computador o mouse acerta o alvo real.
+
+> **Cuidado obrigatório:** o `::after` de um elemento pode cobrir o vizinho e
+> deixá-lo inalcançável. Depois de aplicar, verifique que o centro de cada alvo
+> ainda responde a ele mesmo:
+> `document.elementFromPoint(cx, cy)` tem de cair no próprio elemento.
+
 ---
 
 ## 7. Espaço e hierarquia
