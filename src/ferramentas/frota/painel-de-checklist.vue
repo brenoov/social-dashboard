@@ -414,7 +414,11 @@ function gravar() {
   width: 100%; box-sizing: border-box; padding: 10px var(--sp-3);
   border: 1px solid var(--border); border-radius: var(--radius-md);
   background: var(--bg); color: var(--text);
-  font-family: var(--fonte-principal); font-size: 14px; resize: vertical;
+  /* Mesmo piso de 16px do campo de senha: abaixo disso o Safari do iPhone
+     amplia a página sozinho ao tocar. Aqui é onde a pessoa escreve o que
+     achou de errado no carro — o texto mais importante da ficha e o mais
+     chato de digitar com a tela dando zoom. */
+  font-family: var(--fonte-principal); font-size: 16px; resize: vertical;
 }
 .ck-campo input:focus, .ck-campo textarea:focus {
   outline: none; border-color: var(--accent-forte); box-shadow: 0 0 0 3px var(--accent-light);
@@ -480,7 +484,15 @@ function gravar() {
 .ck-resultado-val.com_ressalvas { color: var(--orange); }
 .ck-resultado-val.nao_liberado { color: var(--red); }
 .ck-trocar {
-  margin-left: auto; background: none; border: 0; cursor: pointer; padding: 4px 2px;
+  /* O TEXTO CONTINUA PEQUENO; O ALVO É QUE CRESCEU. Ele tinha 21px de altura
+     de toque — metade do mínimo de 40px do PADRÃO, e este é o botão que muda
+     o RESULTADO do checklist (liberado / não liberado), apertado com o
+     polegar de quem está de pé ao lado do carro. Errar o toque aqui é errar
+     no campo que mais importa da ficha.
+     `inline-flex` + `min-height` fazem a área clicável crescer sem empurrar o
+     texto de lugar: o rótulo continua com a mesma aparência de sempre. */
+  margin-left: auto; background: none; border: 0; cursor: pointer;
+  display: inline-flex; align-items: center; min-height: 40px; padding: 0 6px;
   font-family: var(--fonte-principal); font-size: 11px; font-weight: 600;
   letter-spacing: .6px; text-transform: uppercase; color: var(--accent);
 }
@@ -495,7 +507,12 @@ function gravar() {
   min-height: 44px;
   border: 1px solid var(--border); border-radius: var(--radius-md);
   background: var(--bg); color: var(--text);
-  font-family: var(--fonte-principal); font-size: 15px;
+  /* 16px NÃO É ESCOLHA DE ESTILO, É O PISO DO iPHONE. Abaixo disso o Safari
+     dá zoom sozinho ao tocar no campo, e a página fica ampliada e torta —
+     bem no momento de digitar a senha da assinatura, com o celular na mão e
+     de pé no estacionamento. Estava 15px: um pixel abaixo do piso, invisível
+     no computador e irritante no aparelho de quem usa. */
+  font-family: var(--fonte-principal); font-size: 16px;
 }
 /* `--accent-forte`, igual aos outros campos deste cartão: o accent puro sobre
    o próprio accent-light não tem contraste (é o que o comentário do token
