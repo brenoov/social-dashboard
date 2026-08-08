@@ -522,7 +522,7 @@
      ainda não migradas que também usam essas classes devem trazer sua
      própria cópia quando forem portadas, seguindo o mesmo padrão. */
   .custom-apply-btn{font-family:var(--fonte-principal);font-weight:600;font-size:11px;padding:5px 14px;border-radius:3px;background:var(--accent);color:var(--sobre-cor);border:none;cursor:pointer;letter-spacing:.5px;text-transform:uppercase;}
-  .custom-clear-btn{font-family:var(--fonte-principal);font-size:11px;padding:5px 10px;border-radius:3px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;}
+  .custom-clear-btn{font-family:var(--fonte-principal);font-size:11px;padding:5px 10px;border-radius:3px;background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;}
 
   @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
   @keyframes fadeUp{from{opacity:0;transform:translateY(16px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
@@ -690,7 +690,7 @@
   .user-bar{display:flex;align-items:center;gap:10px;}
   .user-badge{font-family:var(--fonte-principal);font-size:12px;font-weight:400;color:var(--muted);display:flex;align-items:center;gap:6px;}
   .user-role-chip{font-family:var(--fonte-principal);font-size:9px;padding:2px 8px;border-radius:2px;background:var(--accent);color:var(--sobre-cor);font-weight:600;letter-spacing:1px;text-transform:uppercase;}
-  .logout-btn{font-family:var(--fonte-principal);font-size:10px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:5px 12px;cursor:pointer;transition:all .18s;text-transform:uppercase;letter-spacing:.8px;}
+  .logout-btn{font-family:var(--fonte-principal);font-size:10px;color:var(--muted);background:transparent;border:1px solid var(--border);border-radius:3px;padding:5px 12px;cursor:pointer;transition:all .18s;text-transform:uppercase;letter-spacing:.8px;}
   .logout-btn:hover{border-color:var(--accent);color:var(--accent);}
   /* admin-btn, admin-btn-sm, admin-panel (id), admin-title, admin-grid,
      admin-section-title, admin-input-row, admin-input, admin-select,

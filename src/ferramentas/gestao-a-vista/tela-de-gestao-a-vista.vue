@@ -1425,7 +1425,7 @@ onUnmounted(() => {
 .tela-gestao-a-vista :deep(.gv-topbar){display:flex;align-items:center;justify-content:space-between;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
 .tela-gestao-a-vista :deep(.gv-back){display:flex;align-items:center;gap:4px;font-family:var(--fonte-principal);font-size:10px;font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;transition:opacity .15s;letter-spacing:.3px;text-transform:uppercase;}
 .tela-gestao-a-vista :deep(.gv-back:hover){opacity:.75;}
-.tela-gestao-a-vista :deep(.gv-tut-btn){display:flex;align-items:center;gap:5px;font-family:var(--fonte-principal);font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--accent);cursor:pointer;background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:4px 10px;transition:border-color .12s,background .12s;}
+.tela-gestao-a-vista :deep(.gv-tut-btn){display:flex;align-items:center;gap:5px;font-family:var(--fonte-principal);font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--accent);cursor:pointer;background:transparent;border:1px solid var(--border);border-radius:999px;padding:4px 10px;transition:border-color .12s,background .12s;}
 .tela-gestao-a-vista :deep(.gv-tut-btn:hover){border-color:var(--accent);}
 /* ── Tour interativo (coach-marks) — reusa ../meta-ads/tour-coachmark.vue; estilizado
    aqui com os tokens da GV via :deep() (o estudio.css é .fest-scoped e não vale aqui). */

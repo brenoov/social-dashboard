@@ -1259,7 +1259,7 @@ Object.assign(window, {
 .tela-analise-campanhas :deep(.gv-period-btns){display:flex;align-items:center;gap:4px;}
 .tela-analise-campanhas :deep(.gv-pbtn){font-family:var(--fonte-principal);font-size:10px;padding:4px 9px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
 .tela-analise-campanhas :deep(.gv-pbtn.active){background:var(--accent);color:var(--sobre-cor);border-color:var(--accent);}
-.tela-analise-campanhas :deep(.custom-range-btn){font-family:var(--fonte-principal);font-weight:500;font-size:11px;padding:5px 14px;border-radius:3px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap;}
+.tela-analise-campanhas :deep(.custom-range-btn){font-family:var(--fonte-principal);font-weight:500;font-size:11px;padding:5px 14px;border-radius:3px;background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap;}
 .tela-analise-campanhas :deep(.custom-range-btn:hover),.tela-analise-campanhas :deep(.custom-range-btn.active){border-color:var(--accent);color:var(--accent);}
 
 /* ── Loading state (compartilhado com Gestão à Vista — cada tela traz sua cópia) ── */

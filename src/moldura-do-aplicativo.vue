@@ -388,7 +388,7 @@ router.afterEach(() => fecharTodosOsModaisLegadosAoTrocarDeRota())
 .perfil-modal-acoes { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 .perfil-modal-btn {
   padding: 9px 16px; border-radius: 8px; border: 1px solid var(--border);
-  background: var(--surface2); color: var(--text); font-size: 13px; cursor: pointer;
+  background: transparent; color: var(--text); font-size: 13px; cursor: pointer;
   font-family: inherit; transition: all .14s ease;
 }
 .perfil-modal-btn:hover:not(:disabled) { border-color: var(--accent); }

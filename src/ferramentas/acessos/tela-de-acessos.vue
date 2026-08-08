@@ -3433,7 +3433,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 /* Auditoria — OneDrive consolidado (drive completo / setor + detalhar) */
 .tela-acessos :deep(.ac-od-chip){display:block;margin:0 0 5px;font-size:12.5px;line-height:1.5}
 .tela-acessos :deep(.ac-od-chip:last-child){margin-bottom:0}
-.tela-acessos :deep(.ac-detbtn){font-size:10.5px;border:1px solid var(--border);background:var(--surface2);color:var(--accent);border-radius:7px;padding:1px 7px;cursor:pointer;margin-left:4px;font-weight:700}
+.tela-acessos :deep(.ac-detbtn){font-size:10.5px;border:1px solid var(--border);background:transparent;color:var(--accent);border-radius:7px;padding:1px 7px;cursor:pointer;margin-left:4px;font-weight:700}
 .tela-acessos :deep(.ac-detbtn:hover){background:var(--accent-light)}
 .tela-acessos :deep(.ac-detlist){font-size:11.5px;color:var(--muted);margin:5px 0 2px;padding:7px 10px;border-left:2px solid var(--border);background:var(--surface2);border-radius:0 8px 8px 0;line-height:1.7}
 .tela-acessos :deep(.ac-linklist){display:flex;flex-direction:column;gap:8px}

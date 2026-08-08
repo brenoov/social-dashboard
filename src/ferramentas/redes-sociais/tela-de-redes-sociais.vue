@@ -2851,7 +2851,7 @@ onUnmounted(() => {
 
 /* Calc badge / seletor de período personalizado (compartilhado com Análise de Campanhas) */
 .tela-redes-sociais :deep(.calc-badge){display:inline-flex;align-items:center;gap:5px;font-family:var(--fonte-principal);font-size:10px;background:var(--accent-light);color:var(--accent-forte);padding:3px 10px;border-radius:2px;margin-top:8px;font-weight:500;letter-spacing:.3px;}
-.tela-redes-sociais :deep(.custom-range-btn){font-family:var(--fonte-principal);font-weight:500;font-size:11px;padding:5px 14px;border-radius:3px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap;}
+.tela-redes-sociais :deep(.custom-range-btn){font-family:var(--fonte-principal);font-weight:500;font-size:11px;padding:5px 14px;border-radius:3px;background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap;}
 .tela-redes-sociais :deep(.custom-range-btn):hover,.tela-redes-sociais :deep(.custom-range-btn.active){border-color:var(--accent);color:var(--accent);}
 .tela-redes-sociais :deep(.custom-date-input){font-family:var(--fonte-principal);font-weight:400;font-size:10px;padding:4px 7px;border-radius:3px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);outline:none;cursor:pointer;flex-shrink:0;}
 .tela-redes-sociais :deep(.custom-date-input):hover,.tela-redes-sociais :deep(.custom-date-input):focus{border-color:var(--accent);}
@@ -2867,7 +2867,7 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.eng-tab.active):hover{background:var(--accent);color:var(--sobre-cor);}
 .tela-redes-sociais :deep(.custom-date-input):focus{border-color:var(--accent);}
 .tela-redes-sociais :deep(.custom-apply-btn){font-family:var(--fonte-principal);font-weight:600;font-size:11px;padding:5px 14px;border-radius:3px;background:var(--accent);color:var(--sobre-cor);border:none;cursor:pointer;letter-spacing:.5px;text-transform:uppercase;}
-.tela-redes-sociais :deep(.custom-clear-btn){font-family:var(--fonte-principal);font-size:11px;padding:5px 10px;border-radius:3px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;}
+.tela-redes-sociais :deep(.custom-clear-btn){font-family:var(--fonte-principal);font-size:11px;padding:5px 10px;border-radius:3px;background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;}
 
 /* Insight card + barra de meta geral */
 .tela-redes-sociais :deep(.insight-card){background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:10px 16px 12px;margin-bottom:22px;border-left:3px solid var(--accent);}

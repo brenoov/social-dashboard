@@ -5116,12 +5116,14 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gtf-pct.neg){color:var(--orange);}
 .tela-gestao-trafego :deep(.gtf-pausar-nota){font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--red);font-weight:600;}
 .tela-gestao-trafego :deep(.gtf-acoes){flex:0 0 auto;display:flex;gap:7px;}
-/* `--surface2` e não `--bg`: no tema escuro `--bg` (#0a0a0b) é MAIS ESCURO que o
-   cartão (#121214), e o botão virava um bloco preto furado dentro dele — foi o
-   que o dono viu e chamou de "fundo preto com letra branca". `--surface2` é o
-   token de superfície elevada: mais claro no escuro, mais escuro no claro, e
-   assenta no cartão nos dois. */
-.tela-gestao-trafego :deep(.gtf-btn){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));font-weight:600;padding:6px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted);transition:all .12s ease;}
+/* FUNDO TRANSPARENTE, que é o que o padrão pede pro botão comum.
+   O histórico: primeiro era `--bg`, e no tema escuro `--bg` (#0a0a0b) é MAIS
+   ESCURO que o cartão (#121214) — o botão virava um bloco preto furado dentro
+   dele, o que o dono chamou de "fundo preto com letra branca". A correção da
+   época foi `--surface2`, que resolvia o escuro mas deixava o botão CINZA no
+   claro — a outra bronca do dono. Transparente resolve os dois de uma vez: o
+   botão assume a cor do cartão atrás, em qualquer tema. */
+.tela-gestao-trafego :deep(.gtf-btn){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));font-weight:600;padding:6px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);transition:all .12s ease;}
 .tela-gestao-trafego :deep(.gtf-btn:hover){color:var(--text);border-color:var(--muted);}
 .tela-gestao-trafego :deep(.gtf-btn.aprovar){background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
 /* O botao carrega a COR da acao: cortar verba e pausar nao sao a mesma decisao
@@ -5494,7 +5496,7 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gt-act-btn:disabled){opacity:.5;cursor:not-allowed;pointer-events:none;}
 .tela-gestao-trafego :deep(.gt-btn-dup){
   padding:6px 11px;border-radius:7px;border:1px solid var(--border,#ddd);
-  background:var(--surface2);color:var(--text,#111);font-weight:600;
+  background:transparent;color:var(--text,#111);font-weight:600;
   font-size:calc(12px*var(--gt-fs,1.3));cursor:pointer;white-space:nowrap;
 }
 .tela-gestao-trafego :deep(.gt-btn-dup:hover){background:var(--surface-2,rgba(0,0,0,.05));}
@@ -5606,9 +5608,10 @@ Object.assign(window, {
    uma segunda janela faria a tela parecer dois aplicativos. O miolo é montado
    em assistente-campanha.js com estilo inline, então aqui só mora a moldura.
 
-   `--surface2` e não `--bg` no botão: `--bg` (#0a0a0b) é mais escuro que o
-   cartão no tema escuro, e o resultado era botão preto com letra branca — foi
-   exatamente isso que o dono apontou nas outras telas desta ferramenta. */
+   Botão com fundo TRANSPARENTE (padrão da Central): assume a cor do cartão
+   atrás. Já foi `--bg` (virava bloco preto no tema escuro) e depois
+   `--surface2` (virava cinza no claro); transparente não tem nenhum dos dois
+   problemas. */
 .tela-gestao-trafego :deep(.pnd-aba-acao){appearance:none;margin-left:auto;margin-bottom:-1px;padding:7px 15px;align-self:center;border:1px solid var(--border);border-radius:8px;background:var(--surface2,var(--surface));color:var(--accent);font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:border-color .15s ease,color .15s ease;}
 /* Os dois botoes de acao andam JUNTOS na direita. Antes cada um tinha o seu
    `margin-left:auto` e o navegador reparte a sobra entre todas as margens
