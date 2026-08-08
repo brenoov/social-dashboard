@@ -2499,7 +2499,29 @@ Object.assign(window, {
   .tela-admin :deep(.admin-layout){grid-template-columns:1fr;}
   .tela-admin :deep(.admin-sidebar){display:flex;overflow-x:auto;border-right:none;border-bottom:1px solid var(--border);padding:8px;gap:4px;}
   .tela-admin :deep(.admin-nav-group-label){display:none;}
-  .tela-admin :deep(.admin-content){padding:20px 16px;}
+  /* O CELULAR ROLA A PÁGINA INTEIRA, e o conteúdo não tem teto de altura.
+   *
+   * O DEFEITO QUE ISTO CONSERTA, relatado com foto pelo dono: a lista de
+   * usuários SUMIA e sobrava uma faixa preta ocupando o resto da tela — o
+   * botão "Puxar das vendas" ficava cortado ao meio e nada abaixo dele
+   * aparecia. Não dava pra criar login nem mexer em permissão pelo celular,
+   * que é justamente o que essa tela serve pra fazer.
+   *
+   * A CAUSA: no computador a barra lateral fica à ESQUERDA, então descontar
+   * 50px (a barra de topo) da altura está certo. No celular ela vira uma
+   * faixa horizontal EM CIMA do conteúdo — e essa faixa nunca entrou na
+   * conta. O conteúdo ganhava altura de `100vh - 50px` num espaço que já
+   * tinha perdido ~100px, e o que passava disso caía pra fora do recorte:
+   * cortado, sem barra de rolagem visível, sem nada indicando que havia mais.
+   *
+   * No iPhone é pior ainda: `100vh` no Safari conta a barra de endereço
+   * junto, então o teto é maior que a tela de verdade mesmo no computador
+   * essa conta batendo.
+   *
+   * A correção não é acertar o número. É TIRAR o teto: no celular a página
+   * já rola sozinha, e uma caixa que rola por dentro de uma página que rola
+   * é sempre pior — o dedo nunca sabe qual das duas vai se mexer. */
+  .tela-admin :deep(.admin-content){padding:20px 16px;max-height:none;overflow-y:visible;}
 }
 .tela-admin :deep(.admin-btn-sm){font-family:var(--fonte-principal);font-size:10px;color:var(--sobre-cor);background:var(--accent);border:none;border-radius:3px;padding:5px 10px;cursor:pointer;letter-spacing:.6px;white-space:nowrap;transition:opacity .18s;text-transform:uppercase;}
 .tela-admin :deep(.admin-btn-sm:hover){opacity:.85;}
