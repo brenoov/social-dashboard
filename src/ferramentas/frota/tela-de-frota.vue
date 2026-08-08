@@ -45,8 +45,13 @@ import {
 import { bensLivresParaFrota, patchDoBem } from './bens-para-veiculo.js'
 import { dadosDoLocal, insertDaArvore } from './local-do-veiculo.js'
 import { contatoParaCobranca, podeCopiarTelefoneDoCarro } from './contato-do-motorista.js'
-import { textoParaAssinar, impressaoDigital } from '../../../supabase/functions/_shared/assinatura.js'
+import {
+  textoParaAssinar, impressaoDigital, conferirCorrente, tempoDePreenchimento,
+} from '../../../supabase/functions/_shared/assinatura.js'
 import { recusaDaSenha, avisoDoQueGravou, selo } from './assinar-checklist.js'
+import {
+  textoDaConferencia, resumoDaAssinatura, avisoDeTempo,
+} from './conferencia-de-assinaturas.js'
 // O tutorial: o passeio pela tela inteira, os textos fixos dos 6 modais e o
 // passeio pelos campos de cada um. PasseioGuiado é o MESMO componente que o
 // Patrimônio usa (compartilhado/) — ele já aponta pra dentro de um modal
@@ -163,10 +168,45 @@ const respostasDoDetalhe = computed(() => {
     .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
 })
 function abrirDetalheChecklist(c) {
-  const ficha = fichasDeHoje.value.find((f) => f.veiculo_id === c.veiculo.id)
+  const ficha = fichaDoVeiculoHoje(c.veiculo.id)
   if (!ficha) return  // defensivo: card "feito" sempre tem ficha de hoje por trás
   fichaDetalhe.value = { veiculo: c.veiculo, ficha }
 }
+
+/* A ficha de HOJE de um carro. Existe como função (e não repetida em três
+ * lugares) porque o quadro de cobrança e o detalhe têm de olhar exatamente a
+ * mesma ficha — duas buscas parecidas que divergissem fariam o selo dizer uma
+ * coisa e o detalhe mostrar outra. */
+function fichaDoVeiculoHoje(veiculoId) {
+  return fichasDeHoje.value.find((f) => f.veiculo_id === veiculoId) || null
+}
+
+/* O SELO DO QUADRO DE COBRANÇA TEM TRÊS ESTADOS, NÃO DOIS (D22).
+ * "feito" e "feito e assinado" não são a mesma coisa, e apagar a diferença
+ * seria deixar ficha sem assinatura parecer assinada — a mentira mais cara
+ * desta fase.
+ * O QUE ISTO NÃO É: uma acusação. Três dos donos de carro (Barbara, Marcus e
+ * Thiago) não têm login, e sem assinatura é o ÚNICO caminho que existe pra
+ * eles — por isso o selo é laranja (dado a saber), nunca vermelho (falta). */
+function fichaAssinadaHoje(veiculoId) {
+  const f = fichaDoVeiculoHoje(veiculoId)
+  return !!(f && f.assinada_em)
+}
+function seloDaCobranca(c) {
+  if (!c.fez) return 'falta'
+  return fichaAssinadaHoje(c.veiculo.id) ? 'assinado' : 'feito, sem assinatura'
+}
+
+// A assinatura da ficha aberta no detalhe, e o sinal de D20 sobre ela.
+const assinaturaDoDetalhe = computed(() =>
+  fichaDetalhe.value ? resumoDaAssinatura(fichaDetalhe.value.ficha) : null)
+// SÓ O CASO CURTO (D20): tempo curto prova desatenção, tempo longo não prova
+// zelo nenhum. Devolve nulo — e some da tela — em todo o resto.
+const avisoDeTempoDoDetalhe = computed(() => {
+  if (!fichaDetalhe.value) return null
+  const f = fichaDetalhe.value.ficha
+  return avisoDeTempo(tempoDePreenchimento(f.aberta_em, f.assinada_em))
+})
 function fecharDetalheChecklist() { fichaDetalhe.value = null; passeioFichaDetalheAberto.value = false }
 
 const ROTULOS_RESULTADO = { liberado: 'Liberado', com_ressalvas: 'Com ressalvas', nao_liberado: 'Não liberado' }
@@ -1067,6 +1107,9 @@ const bensLivres = computed(() =>
 function abrirVeiculo(v) {
   veiculoAberto.value = v
   errosDoVeiculo.value = []
+  // A conferência do carro ANTERIOR não pode sobrar na tela do próximo: um
+  // "conferem" verde herdado seria dito sobre um carro que ninguém conferiu.
+  conferencia.value = null
   for (const c of CAMPOS_VEICULO) vForm[c] = v[c] ?? ''
   vForm.aluguel = v.aluguel_centavos == null ? '' : (v.aluguel_centavos / 100).toString()
   vForm.fipe = v.fipe_centavos == null ? '' : (v.fipe_centavos / 100).toString()
@@ -1086,6 +1129,7 @@ function abrirVeiculo(v) {
 function abrirVeiculoNovo() {
   veiculoAberto.value = { novo: true }
   errosDoVeiculo.value = []
+  conferencia.value = null
   for (const c of CAMPOS_VEICULO) vForm[c] = ''
   // Decisão do dono: todo carro nasce ativo e sem dono fixo (de rodízio).
   // Fixado aqui e de novo em salvarVeiculo() — a ficha nem mostra os campos
@@ -1105,6 +1149,43 @@ function fecharVeiculo() {
   errosDoVeiculo.value = []
   passeioVeiculoAberto.value = false
   erroDaArvore.value = ''
+  conferencia.value = null
+}
+
+/* ── CONFERIR AS ASSINATURAS DESTE CARRO (D21) ────────────────────────────────
+ * Sem isto o encadeamento é enfeite: garantia que ninguém verifica não é
+ * garantia. Lê a corrente inteira do carro pelo banco e recalcula cada
+ * impressão digital com a MESMA função que assinou — duas contas diferentes
+ * seriam duas verdades sobre o que foi assinado.
+ *
+ * MEDIDO CONTRA O BANCO, não deduzido: os dez campos e as respostas voltam
+ * idênticos ao que foi gravado; o único que o Postgres reescreve é
+ * `assinada_em` (`.000Z` vira `+00:00`), e a canonização do instante em
+ * assinatura.js absorve isso. Se algum outro campo passasse a ser reescrito,
+ * esta tela acusaria de adulterada uma ficha honesta. */
+const conferindo = ref(false)
+const conferencia = ref(null)
+
+async function conferirAssinaturas(veiculo) {
+  if (conferindo.value || !veiculo || veiculo.novo) return
+  conferindo.value = true
+  conferencia.value = null
+  const { data, error } = await sbClient.rpc('frota_corrente_do_veiculo', { p_veiculo: veiculo.id })
+  conferindo.value = false
+  if (error) {
+    // Erro de leitura NÃO vira "nada a conferir" nem acusação (item 9 do
+    // padrão): a tela diz que não conseguiu ler, e nada mais.
+    conferencia.value = textoDaConferencia(null)
+    return
+  }
+  /* `respostas` AUSENTE e `[]` não são a mesma coisa pra conferirCorrente:
+     array vazio é um fato sobre a ficha, chave ausente é falha de leitura de
+     quem chamou. Por isso a chave só entra quando veio mesmo um array — um
+     `|| []` aqui transformaria "não consegui ler" em "não tinha item nenhum",
+     e a ficha honesta sairia acusada. */
+  const porFicha = {}
+  for (const f of data || []) if (Array.isArray(f.respostas)) porFicha[f.id] = f.respostas
+  conferencia.value = textoDaConferencia(await conferirCorrente(data || [], porFicha))
 }
 
 /* O "+" da árvore, dentro da ficha do carro. Mesma ideia do "+" do Patrimônio:
@@ -1590,7 +1671,13 @@ onMounted(async () => {
               <span class="fr-card-nome">{{ c.veiculo.nome }}</span>
               <span class="fr-placa">{{ c.dono || 'dono saiu do cadastro' }}</span>
             </div>
-            <span class="fr-cobranca-selo" :class="{ pendente: !c.fez }">{{ c.fez ? 'feito' : 'falta' }}</span>
+            <!-- Três estados, não dois (D22): feito e assinado, feito SEM
+                 assinatura, e falta. Laranja no do meio porque é um dado a
+                 saber, não uma falta — quem não tem login não podia assinar. -->
+            <span class="fr-cobranca-selo"
+                  :class="{ pendente: !c.fez, 'sem-assinatura': c.fez && !fichaAssinadaHoje(c.veiculo.id) }">
+              {{ seloDaCobranca(c) }}
+            </span>
           </div>
           <!-- Feito → abre o detalhe. Falta com telefone → cobra por WhatsApp.
                Falta sem telefone → a tela DIZ isso com todas as letras (nunca
@@ -1931,6 +2018,20 @@ onMounted(async () => {
             <div class="fr-acoes">
               <button class="fr-btn" :disabled="gravando" @click="gravarRevisao">+ Registrar manutenção</button>
             </div>
+
+            <!-- CONFERIR AS ASSINATURAS (D21). Fica na ficha do carro porque a
+                 pergunta é sobre UM carro: a corrente é por veículo. -->
+            <h3 class="fr-grupo">Checklists assinados</h3>
+            <p class="fr-ajuda">
+              Confere se alguma ficha deste carro foi alterada depois de assinada. Não muda nada —
+              só lê e recalcula.
+            </p>
+            <div class="fr-acoes">
+              <button class="fr-btn" :disabled="conferindo" @click="conferirAssinaturas(veiculoAberto)">
+                {{ conferindo ? 'Conferindo…' : 'Conferir as assinaturas deste carro' }}
+              </button>
+            </div>
+            <p class="fr-conferencia" v-if="conferencia" :class="conferencia.nivel">{{ conferencia.texto }}</p>
           </template>
           <p class="fr-ajuda" v-else>
             O histórico de manutenção fica disponível depois de gravar o carro pela primeira vez.
@@ -2072,7 +2173,22 @@ onMounted(async () => {
               <span class="fr-dado-lab">A que horas</span>
               <span class="fr-dado-val">{{ horaBR(fichaDetalhe.ficha.criada_em) || '—' }}</span>
             </div>
+            <!-- D22: ficha sem assinatura NÃO pode parecer assinada. E o
+                 contrário também vale — sem assinatura não é acusação, então
+                 nem verde nem vermelho: fica na cor normal do texto, com o
+                 motivo escrito logo abaixo. -->
+            <div class="fr-dado" v-if="assinaturaDoDetalhe">
+              <span class="fr-dado-lab">Assinatura</span>
+              <span class="fr-dado-val">
+                {{ assinaturaDoDetalhe.texto }}<template v-if="assinaturaDoDetalhe.assinada && horaBR(fichaDetalhe.ficha.assinada_em)"> às {{ horaBR(fichaDetalhe.ficha.assinada_em) }}</template>
+              </span>
+            </div>
           </div>
+          <p class="fr-ajuda" v-if="assinaturaDoDetalhe">{{ assinaturaDoDetalhe.ajuda }}</p>
+          <!-- D20, e SÓ o caso curto: tempo curto prova desatenção, tempo longo
+               não prova zelo. Não existe selo de bem-feito — a linha some
+               quando não há o que dizer, em vez de virar paisagem. -->
+          <p class="fr-conferencia incompleto" v-if="avisoDeTempoDoDetalhe">{{ avisoDeTempoDoDetalhe }}</p>
 
           <p class="fr-ajuda" v-if="fichaDetalhe.ficha.hodometro_justificativa">
             Sobre a quilometragem: {{ fichaDetalhe.ficha.hodometro_justificativa }}
@@ -2364,6 +2480,30 @@ onMounted(async () => {
    inteiro precisar ser refeito. */
 .tela-frota .fr-cobranca-selo{font-size:.8rem;font-weight:600;padding:2px 10px;border-radius:999px;background:var(--surface2);color:var(--green);white-space:nowrap;}
 .tela-frota .fr-cobranca-selo.pendente{color:var(--red);}
+/* "feito, sem assinatura" (D22): laranja, não vermelho. Vermelho é FALTA, e
+   sem assinatura não é falta de ninguém — três donos de carro não têm login.
+
+   POR QUE ESTE SELO É FUNDO TINGIDO, e os outros dois são texto colorido:
+   `--orange` como TEXTO sobre `--surface2` mede 4,06 de contraste no tema
+   claro — medido no navegador, não deduzido —, e o mínimo é 4,5. O verde
+   (5,36) e o vermelho (5,82) passam; só o laranja não. Então este usa a
+   receita do PADRÃO pra aviso: o token misturado na superfície, e o texto em
+   `--text`. A cor continua sendo o sinal; o texto é pra ler.
+
+   `white-space:normal` porque a frase é longa: com o `nowrap` da regra de
+   cima o cartão saía pela direita no celular, e `overflow-x:clip` cortaria
+   isso em silêncio. */
+.tela-frota .fr-cobranca-selo.sem-assinatura{
+  background:color-mix(in srgb, var(--orange) 16%, var(--surface));
+  color:var(--text);white-space:normal;text-align:right;}
+
+/* O resultado da conferência. Quatro estados, e a cor é a diferença entre
+   acusar e avisar: vermelho SÓ quando alguma coisa mudou depois de assinada. */
+.tela-frota .fr-conferencia{margin:8px 0 2px;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.55;color:var(--text);overflow-wrap:anywhere;}
+.tela-frota .fr-conferencia.ok{color:var(--green);}
+.tela-frota .fr-conferencia.ruim{color:var(--red);}
+.tela-frota .fr-conferencia.incompleto{color:var(--orange);}
+.tela-frota .fr-conferencia.nada{color:var(--muted);}
 /* Por que o botão de WhatsApp não apareceu — nunca em silêncio. Mesma cor de
    atenção que os outros avisos "algo pede providência" desta tela. */
 .tela-frota .fr-cobranca-sem-tel{margin-top:14px;padding:0;}
