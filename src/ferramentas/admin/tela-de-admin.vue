@@ -1605,7 +1605,7 @@ function _secaoLotacao(alvo, colaborador) {
   for (const campo of CAMPOS_DE_LOTACAO) {
     const linha = mkEl('div', 'ficha-campo')
     linha.appendChild(mkEl('label', null, campo.rotulo))
-    const sel = mkEl('select')
+    const sel = mkEl('select', 'admin-form-input')
     sel.disabled = !colaborador
     const vazio = document.createElement('option')
     vazio.value = ''; vazio.textContent = '— não informado —'
@@ -2511,7 +2511,16 @@ Object.assign(window, {
 .tela-admin :deep(.admin-input){flex:1;padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--fonte-principal);font-size:13px;outline:none;transition:border-color .18s;}
 .tela-admin :deep(.admin-input:focus){border-color:var(--accent);}
 .tela-admin :deep(.admin-form-label){font-family:var(--fonte-principal);font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px;font-weight:600;}
-.tela-admin :deep(.admin-form-input){width:100%;padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--fonte-principal);font-size:13px;outline:none;transition:border-color .18s;box-sizing:border-box;}
+/* O CAMPO USA --bg, NAO --surface2 NEM --surface.
+   --surface2 deixava o campo CINZA no tema claro (a bronca do dono), e
+   --surface deixava ele com a MESMA cor da caixa no tema escuro -- o campo
+   sumia e sobrava so a borda. --bg e o fundo da pagina: mais claro que a caixa
+   no tema claro, mais escuro no tema escuro. Nos dois o campo parece afundado,
+   que e como campo se le. Isto vale pra ficha inteira: os tres selects de
+   Lotacao nao tinham classe nenhuma e vinham com a aparencia crua do
+   navegador, diferente do select de Acesso ao lado -- mesma ficha, dois
+   padroes, e e disso que vem a cara de amador. */
+.tela-admin :deep(.admin-form-input){width:100%;min-height:40px;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text);font-family:var(--fonte-principal);font-size:16px;box-sizing:border-box;}
 .tela-admin :deep(.admin-form-input:focus){border-color:var(--accent);}
 .tela-admin :deep(.admin-form-input::placeholder){color:var(--muted);opacity:.7;}
 
@@ -2687,7 +2696,6 @@ Object.assign(window, {
 .tela-admin :deep(.ficha-campo label){font-size:11px;color:var(--muted);}
 /* Fonte 16px no select de propósito: abaixo disso o iOS dá zoom ao focar, e a
    tela salta na cara de quem está escolhendo. */
-.tela-admin :deep(.ficha-campo select){width:100%;min-height:40px;font-size:16px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);padding:0 10px;}
 .tela-admin :deep(.ficha-campo select:disabled){opacity:.5;cursor:not-allowed;}
 /* A busca não está no brief original — foi preciso desenhar o campo pra
    `_filtrar` ter onde ler o termo. `admin-form-input` já dá o visual padrão
@@ -2703,14 +2711,18 @@ Object.assign(window, {
      linha. */
   .tela-admin :deep(.usr-linha > .usr-acoes){display:none;}
 
-  /* MODAL DE CELULAR OCUPA A TELA, COM MARGEM.
-     Com `max-width:420px` e `max-height:88vh` sobrava uma faixa escura embaixo
-     que no aparelho lê como barra preta, e o conteúdo era cortado bem no fim
-     (a frase da senha sumia no corte).
-     `dvh` e não `vh`: no celular a barra de endereço aparece e some, e `vh` é
-     calculado com ela escondida — a caixa passava do que dá para ver, e o fim
-     ficava embaixo da barra do navegador. */
-  .tela-admin :deep(.ficha-fundo){padding:12px;align-items:flex-start;height:100dvh;}
+  /* MODAL DE CELULAR: LARGURA DA TELA COM MARGEM, E CENTRALIZADO.
+     Eu tinha escrito `align-items:flex-start` aqui pra evitar "faixa escura
+     embaixo" — e foi ISSO que criou o defeito: com a caixa presa no topo, TODO
+     o espaço que sobra vira um bloco preto embaixo dela, e o modal fica grudado
+     no alto da tela. O dono viu e chamou de amador, com razão.
+     Modal se centraliza: o véu escuro se reparte em cima e embaixo, como no
+     computador. `height:100dvh` também saiu — `inset:0` já cobre a tela, e a
+     altura extra só reforçava o bloco.
+     `dvh` e não `vh` na CAIXA continua valendo: no celular a barra de endereço
+     aparece e some, e `vh` é calculado com ela escondida — a caixa passava do
+     que dá pra ver e o fim ficava embaixo da barra do navegador. */
+  .tela-admin :deep(.ficha-fundo){padding:12px;}
   .tela-admin :deep(.ficha-caixa){max-width:none;max-height:calc(100dvh - 24px);}
   /* A ficha é o caminho no celular, então o convite tem de estar visível. */
   .tela-admin :deep(.usr-linha-info::after){content:'tocar para abrir ›';display:block;margin-top:4px;font-size:10.5px;color:var(--accent);}
@@ -2720,6 +2732,11 @@ Object.assign(window, {
   .tela-admin :deep(.admin-topbar-title){font-size:12px;letter-spacing:1.5px;}
   .tela-admin :deep(.admin-topbar .rbv-logo){display:none;}
   .tela-admin :deep(#admin-topbar-user){display:none;}
+  /* O outro modal desta tela seguia `max-height:85vh` -- `vh` no celular e
+     calculado com a barra de endereco ESCONDIDA, entao a caixa passava do que
+     da pra ver e o fim ficava atras da barra do navegador. Mesma correcao da
+     ficha: largura da tela com 12px de margem, altura em `dvh`. */
+  .tela-admin :deep(.perm-modal){max-width:none;width:100%;max-height:calc(100dvh - 24px);}
   .tela-admin :deep(.perm-modal-body){padding:12px 14px;}
   .tela-admin :deep(.perm-card-hdr){padding:7px 8px;}
 
