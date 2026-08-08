@@ -372,3 +372,92 @@ test('assinada_em nulo continua diferente de assinada_em preenchido, e texto ile
   assert.notEqual(lixoA, semNada)
   assert.notEqual(lixoA, lixoB)
 })
+
+/* ── V2: o rabisco que a pessoa desenha com o dedo ────────────────────────── */
+
+const RABISCO = [[[0.1, 0.2], [0.3, 0.45]], [[0.5, 0.5], [0.9, 0.1]]]
+
+test('ficha sem versão é V1 e NÃO ganha a linha do rabisco', () => {
+  // É o caso das fichas assinadas antes da coluna existir. Elas não podem
+  // mudar de hash — se mudarem, a conferência acusa quem não fez nada.
+  const t = textoParaAssinar({ ficha: FICHA, respostas: RESPOSTAS, hashAnterior: null })
+  assert.equal(t.split('\n')[0], 'FROTA-CHECKLIST-V1')
+  assert.ok(!t.includes('RABISCO:'), 'V1 não pode ter linha de rabisco')
+})
+
+test('V1 ignora o rabisco mesmo se ele vier junto', () => {
+  // Guarda contra o erro sutil: gravar rabisco numa ficha marcada como V1
+  // não pode mudar o texto dela, senão o hash antigo deixa de fechar.
+  const semRabisco = textoParaAssinar({ ficha: FICHA, respostas: RESPOSTAS, hashAnterior: null })
+  const comRabisco = textoParaAssinar({
+    ficha: { ...FICHA, assinatura_rabisco: RABISCO }, respostas: RESPOSTAS, hashAnterior: null,
+  })
+  assert.equal(comRabisco, semRabisco)
+})
+
+test('V2 põe o rabisco no texto, e trocar o desenho muda o texto', () => {
+  const a = textoParaAssinar({
+    ficha: { ...FICHA, assinatura_versao: 2, assinatura_rabisco: RABISCO },
+    respostas: RESPOSTAS, hashAnterior: null,
+  })
+  assert.equal(a.split('\n')[0], 'FROTA-CHECKLIST-V2')
+  assert.ok(a.includes('RABISCO:'))
+
+  // O ponto todo de pôr o rabisco na impressão digital: trocar o desenho
+  // depois de assinado tem que quebrar a corrente, igual mexer no hodômetro.
+  const outro = textoParaAssinar({
+    ficha: { ...FICHA, assinatura_versao: 2, assinatura_rabisco: [[[0.9, 0.9], [0.1, 0.1]]] },
+    respostas: RESPOSTAS, hashAnterior: null,
+  })
+  assert.notEqual(a, outro)
+})
+
+test('V2 sem rabisco é diferente de V2 com rabisco — e de V1', () => {
+  // Quem assina sem desenhar nada continua sendo V2 (é a regra vigente), e o
+  // texto dele não pode colidir nem com o de quem desenhou, nem com o V1.
+  const v2Vazio = textoParaAssinar({
+    ficha: { ...FICHA, assinatura_versao: 2 }, respostas: RESPOSTAS, hashAnterior: null,
+  })
+  const v2Cheio = textoParaAssinar({
+    ficha: { ...FICHA, assinatura_versao: 2, assinatura_rabisco: RABISCO },
+    respostas: RESPOSTAS, hashAnterior: null,
+  })
+  const v1 = textoParaAssinar({ ficha: FICHA, respostas: RESPOSTAS, hashAnterior: null })
+  assert.notEqual(v2Vazio, v2Cheio)
+  assert.notEqual(v2Vazio, v1)
+})
+
+test('ruído de casa decimal não muda o texto; movimento de verdade muda', () => {
+  // As coordenadas nascem de onde o dedo tocou e vêm com casas de sobra. Sem
+  // arredondar, o mesmo desenho lido de volta do banco poderia não bater com
+  // o que foi assinado — e a ficha seria acusada de adulterada por causa de
+  // ponto flutuante.
+  const base = { ...FICHA, assinatura_versao: 2 }
+  const a = textoParaAssinar({
+    ficha: { ...base, assinatura_rabisco: [[[0.1234561, 0.2]]] }, respostas: RESPOSTAS, hashAnterior: null,
+  })
+  const b = textoParaAssinar({
+    ficha: { ...base, assinatura_rabisco: [[[0.1234559, 0.2]]] }, respostas: RESPOSTAS, hashAnterior: null,
+  })
+  assert.equal(a, b, 'diferença invisível não pode mudar o texto')
+
+  const c = textoParaAssinar({
+    ficha: { ...base, assinatura_rabisco: [[[0.128, 0.2]]] }, respostas: RESPOSTAS, hashAnterior: null,
+  })
+  assert.notEqual(a, c, 'meio milésimo pra cima já é outro traço')
+})
+
+test('dois traços separados não viram um só', () => {
+  // Levantar o dedo e desenhar de novo é diferente de um traço contínuo
+  // passando pelos mesmos pontos — é o que distingue uma rubrica de um risco.
+  const base = { ...FICHA, assinatura_versao: 2 }
+  const doisTracos = textoParaAssinar({
+    ficha: { ...base, assinatura_rabisco: [[[0.1, 0.1]], [[0.2, 0.2]]] },
+    respostas: RESPOSTAS, hashAnterior: null,
+  })
+  const umTraco = textoParaAssinar({
+    ficha: { ...base, assinatura_rabisco: [[[0.1, 0.1], [0.2, 0.2]]] },
+    respostas: RESPOSTAS, hashAnterior: null,
+  })
+  assert.notEqual(doisTracos, umTraco)
+})

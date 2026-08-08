@@ -52,6 +52,54 @@ export const instanteCanonico = (v) => {
   return Number.isNaN(t) ? v : new Date(t).toISOString();
 };
 
+/* AS VERSÕES DO TEXTO ASSINADO, e por que elas precisam existir.
+ *
+ * Uma ficha é conferida recalculando o texto que ela assinou. Se o formato
+ * desse texto mudar, o hash de TODAS as fichas já assinadas muda junto — e
+ * `conferirCorrente()` passa a acusar de adulterada uma ficha que ninguém
+ * tocou. Num recurso que existe pra provar quem fez o quê, acusar inocente é
+ * pior do que deixar passar fraude.
+ *
+ * Então formato não se edita: cria-se um novo, e cada ficha guarda sob qual
+ * regra foi assinada (`frota_checklist.assinatura_versao`).
+ *
+ *   V1 — como nasceu. É a regra da primeira ficha real do sistema (BMW X1,
+ *        07/08/2026 23:16 BRT). `assinatura-ficha-real.test.mjs` guarda o
+ *        hash dela e fica vermelho se alguém encostar neste formato.
+ *   V2 — acrescenta o rabisco que a pessoa desenha com o dedo.
+ *
+ * `null` é V1: as fichas assinadas antes da coluna existir não têm versão
+ * gravada, e são justamente as que não podem mudar de valor.
+ */
+export const VERSAO_ATUAL = 2;
+
+function versaoDaFicha(ficha) {
+  const v = ficha && ficha.assinatura_versao;
+  return v === null || v === undefined ? 1 : Number(v);
+}
+
+/**
+ * O rabisco reduzido ao que a assinatura cobre: os traços, com as coordenadas
+ * arredondadas.
+ *
+ * ARREDONDAR NÃO É ENFEITE. As coordenadas nascem de onde o dedo tocou a tela
+ * e vêm com casas decimais de sobra (0.5234891...). Guardar tudo faria dois
+ * desenhos visualmente idênticos gerarem hashes diferentes, e — pior — o
+ * mesmo desenho lido de volta do banco poderia não bater com o que foi
+ * assinado, dependendo de como o número foi serializado no caminho. Três
+ * casas dão precisão de sobra pra um traço de dedo e são estáveis na ida e na
+ * volta.
+ */
+function rabiscoCanonico(rabisco) {
+  if (!Array.isArray(rabisco)) return null;
+  return rabisco.map((traco) =>
+    (Array.isArray(traco) ? traco : []).map((p) => [
+      Math.round(Number(p && p[0]) * 1000) / 1000,
+      Math.round(Number(p && p[1]) * 1000) / 1000,
+    ]),
+  );
+}
+
 /**
  * O texto exato que a assinatura cobre. A ORDEM faz parte da prova — trocar
  * dois itens de lugar tem que dar texto diferente.
@@ -59,10 +107,15 @@ export const instanteCanonico = (v) => {
  * `hashAnterior` é a impressão digital da ficha anterior DESTE CARRO. Vazio
  * significa que é a primeira, e o texto diz isso com todas as letras em vez de
  * deixar um campo em branco ambíguo.
+ *
+ * A versão sai de `ficha.assinatura_versao` — NUNCA da presença do rabisco.
+ * Inferir pelo conteúdo faria uma ficha V2 de quem não desenhou nada ser
+ * conferida como V1, e o hash não fecharia.
  */
 export function textoParaAssinar({ ficha, respostas, hashAnterior }) {
+  const versao = versaoDaFicha(ficha);
   const linhas = [
-    'FROTA-CHECKLIST-V1',
+    `FROTA-CHECKLIST-V${versao}`,
     campo(ficha.veiculo_id),
     campo(ficha.feita_em),
     campo(ficha.pessoa_id),
@@ -83,8 +136,20 @@ export function textoParaAssinar({ ficha, respostas, hashAnterior }) {
     // pra qualquer string (JSON.stringify), então nenhum valor real se
     // parece com o literal `PRIMEIRA` sem aspas usado só quando não há hash.
     `ANTERIOR:${hashAnterior ? campo(hashAnterior) : 'PRIMEIRA'}`,
-    `ITENS:${(respostas || []).length}`,
   ];
+
+  // O RABISCO ENTRA ANTES DA CONTAGEM DE ITENS, e só a partir do V2. Pôr uma
+  // linha nova no meio do que já existia é justamente o que quebraria o V1 —
+  // por isso ela só é acrescentada quando a ficha declara ser V2 ou mais.
+  //
+  // Ele entra na impressão digital de propósito: trocar o desenho depois de
+  // assinado quebra a corrente, igual mexer no hodômetro. Um rabisco que
+  // pudesse ser substituído sem deixar rastro não provaria nada.
+  if (versao >= 2) {
+    linhas.push(`RABISCO:${campo(rabiscoCanonico(ficha.assinatura_rabisco))}`);
+  }
+
+  linhas.push(`ITENS:${(respostas || []).length}`);
   for (const r of respostas || []) {
     linhas.push([campo(r.item_texto), campo(r.estado), campo(r.observacao)].join(''));
   }
