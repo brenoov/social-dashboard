@@ -1682,7 +1682,7 @@ function openFollowersInfo() {
   m.innerHTML =
     `<div style="padding:18px 20px;border-bottom:1px solid #eef2f7;display:flex;align-items:center;justify-content:space-between;gap:12px;">
       <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;letter-spacing:.5px;">COMO CONTAMOS OS NOVOS SEGUIDORES</div>
-      <button id="_fi_x" style="border:0;background:var(--surface2);border-radius:8px;min-width:40px;min-height:40px;font-size:15px;cursor:pointer;color:var(--muted);">✕</button>
+      <button class="btn" id="_fi_x" style="min-width:40px">✕</button>
     </div>
     <div style="padding:18px 20px;font-size:13px;line-height:1.6;">
       <div style="background:color-mix(in srgb,var(--green) 12%,var(--surface));border:1px solid #86efac;border-radius:10px;padding:12px 14px;margin:0 0 14px;">

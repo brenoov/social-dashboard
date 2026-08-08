@@ -63,11 +63,11 @@
             <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
               <div id="adm-invite-msg" style="font-family:var(--fonte-principal);font-size:12px;color:var(--muted);flex:1"></div>
               <div style="display:flex;gap:8px;flex-shrink:0">
-                <button class="sr-btn" onclick="adminInviteUser('invite')" style="font-size:11px;padding:7px 14px;gap:5px;display:flex;align-items:center;">
+                <button class="btn" onclick="adminInviteUser('invite')">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                   Enviar convite
                 </button>
-                <button class="sr-btn" onclick="adminInviteUser('create')" style="background:var(--accent);color:var(--sobre-cor);font-size:11px;padding:7px 14px;gap:5px;display:flex;align-items:center;">
+                <button class="btn btn-principal" onclick="adminInviteUser('create')">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
                   Criar com senha
                 </button>
@@ -136,8 +136,8 @@
         </div>
         <div class="perm-modal-body" id="perm-modal-body"></div>
         <div class="perm-modal-ftr">
-          <button class="sr-btn" onclick="closePermModal()" style="font-size:12px;padding:8px 16px">Cancelar</button>
-          <button class="sr-btn" id="perm-save-btn" onclick="savePermissions()" style="background:var(--accent);color:var(--sobre-cor);font-size:12px;padding:8px 16px">Salvar</button>
+          <button class="btn" onclick="closePermModal()">Cancelar</button>
+          <button class="btn btn-principal" id="perm-save-btn" onclick="savePermissions()">Salvar</button>
         </div>
       </div>
     </div>
@@ -488,7 +488,7 @@ function _vdSecao() {
     return '<div style="border:1px dashed var(--border);border-radius:12px;padding:16px;margin-bottom:14px;">'
       + '<div style="font-weight:700;color:var(--text);margin-bottom:4px;">Puxar as vendedoras das vendas</div>'
       + '<div class="admin-section-sub" style="margin-bottom:10px;">Lê quem já vendeu no Bling, junta os cadastros repetidos e sugere a loja de cada uma. Nada é criado sem você confirmar.</div>'
-      + '<button data-vd-puxar style="border:1px solid var(--accent);background:transparent;color:var(--accent);border-radius:9px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;">Puxar das vendas</button>'
+      + '<button class="btn" data-vd-puxar>Puxar das vendas</button>'
       + '</div>'
   }
   if (_vdCarregando) return '<div style="color:var(--muted);font-size:12px;margin-bottom:14px;">Lendo as vendas…</div>'
@@ -499,7 +499,7 @@ function _vdSecao() {
     return '<div style="border:1px solid var(--orange,#d97706);border-radius:12px;padding:16px;margin-bottom:14px;">'
       + '<div style="font-weight:700;color:var(--orange,#d97706);margin-bottom:5px;">Não deu para puxar as vendedoras</div>'
       + '<div class="admin-section-sub" style="margin-bottom:10px;">' + escHtml(_vdMotivoVazio) + '</div>'
-      + '<button data-vd-puxar style="border:1px solid var(--accent);background:transparent;color:var(--accent);border-radius:9px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;">Tentar de novo</button>'
+      + '<button class="btn" data-vd-puxar>Tentar de novo</button>'
       + '</div>'
   }
 
@@ -516,7 +516,7 @@ function _vdSecao() {
         + '<td style="padding:5px 0;font-family:var(--fonte-dados);font-weight:700;color:var(--text);">' + escHtml(s.senha) + '</td></tr>'
     }
     h += '</table>'
-    h += '<button data-vd-fechar style="margin-top:12px;border:1px solid var(--border);background:none;color:var(--text);border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;">Já anotei</button>'
+    h += '<button class="btn" data-vd-fechar>Já anotei</button>'
     h += '</div>'
     return h
   }
@@ -554,8 +554,8 @@ function _vdSecao() {
     h += '</div>'
   }
   h += '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">'
-  h += '<button data-vd-criar-tudo style="border:none;background:var(--accent);color:var(--sobre-cor);border-radius:9px;padding:9px 16px;font-size:12.5px;font-weight:700;cursor:pointer;">Criar as contas marcadas</button>'
-  h += '<button data-vd-fechar style="border:1px solid var(--border);background:none;color:var(--text);border-radius:9px;padding:9px 14px;font-size:12.5px;cursor:pointer;">Cancelar</button>'
+  h += '<button class="btn btn-principal" data-vd-criar-tudo>Criar as contas marcadas</button>'
+  h += '<button class="btn" data-vd-fechar>Cancelar</button>'
   h += '</div></div>'
   return h
 }
@@ -687,7 +687,7 @@ function _eqDesenhar() {
   let html = _vdSecao()
   html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">'
   html += '<div style="color:var(--muted);font-size:12px;">' + _eqTimes.length + (_eqTimes.length === 1 ? ' time' : ' times') + ' cadastrados</div>'
-  if (podeCriar) html += '<button data-eq-novo style="border:none;background:var(--accent);color:var(--sobre-cor);border-radius:9px;padding:9px 16px;font-size:12.5px;font-weight:700;cursor:pointer;">+ Novo time</button>'
+  if (podeCriar) html += '<button class="btn btn-principal" data-eq-novo>+ Novo time</button>'
   html += '</div>'
 
   if (!_eqTimes.length) {
@@ -717,8 +717,8 @@ function _eqDesenhar() {
       html += '<div style="margin-top:6px;font-size:11.5px;color:' + (a.grave ? 'var(--orange,#d97706)' : 'var(--muted)') + ';">' + escHtml(a.texto) + '</div>'
     }
     html += '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">'
-    if (posso) html += '<button data-eq-editar="' + escHtml(t.id) + '" style="border:1px solid var(--border);background:none;color:var(--text);border-radius:8px;padding:6px 12px;font-size:11.5px;font-weight:600;cursor:pointer;">Editar</button>'
-    if (posso) html += '<button data-eq-gente="' + escHtml(t.id) + '" style="border:1px solid var(--accent);background:none;color:var(--accent);border-radius:8px;padding:6px 12px;font-size:11.5px;font-weight:700;cursor:pointer;">Quem trabalha aqui (' + l.quantos + ')</button>'
+    if (posso) html += '<button class="btn" data-eq-editar="' + escHtml(t.id) + '">Editar</button>'
+    if (posso) html += '<button class="btn" data-eq-gente="' + escHtml(t.id) + '">Quem trabalha aqui (' + l.quantos + ')</button>'
     if (!posso) html += '<span style="font-size:11.5px;color:var(--muted);">Você não administra este time.</span>'
     html += '</div>'
     if (String(_eqEditando) === String(t.id)) html += _eqFormulario(t)
@@ -753,8 +753,8 @@ function _eqFormulario(t) {
   h += '<div style="font-size:11px;color:var(--muted);margin-top:4px;">O nome no Bling quase nunca é o nome da casa: o time <b>Tivoli</b> usa o canal <b>Loja Santa Bárbara d\'Oeste</b>. Sem ligar, o time mostra faturamento zero.</div>'
   h += '<div data-eq-erro style="margin-top:10px;color:var(--red,#dc2626);font-size:12px;"></div>'
   h += '<div style="display:flex;gap:8px;margin-top:12px;">'
-  h += '<button data-eq-salvar="' + escHtml(e.id || '') + '" style="border:none;background:var(--accent);color:var(--sobre-cor);border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;">Salvar</button>'
-  h += '<button data-eq-cancelar style="border:1px solid var(--border);background:none;color:var(--text);border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;">Cancelar</button>'
+  h += '<button class="btn btn-principal" data-eq-salvar="' + escHtml(e.id || '') + '">Salvar</button>'
+  h += '<button class="btn" data-eq-cancelar>Cancelar</button>'
   h += '</div></div>'
   return h
 }
@@ -785,7 +785,7 @@ function _eqGente(t) {
     } else {
       h += '<span style="font-size:11.5px;color:var(--muted);">' + escHtml(papel ? papel.rotulo : m.papel) + '</span>'
     }
-    if (r.pode) h += '<button data-eq-tirar="' + escHtml(m.id) + '" title="Tirar do time" style="border:1px solid var(--border);background:none;color:var(--red,#dc2626);border-radius:7px;padding:5px 10px;font-size:11.5px;cursor:pointer;">Tirar</button>'
+    if (r.pode) h += '<button class="btn btn-perigo" data-eq-tirar="' + escHtml(m.id) + '" title="Tirar do time">Tirar</button>'
     else h += '<span title="' + escHtml(r.porque) + '" style="font-size:11px;color:var(--muted);cursor:help;">não dá</span>'
     h += '</div></div>'
   }
@@ -800,10 +800,10 @@ function _eqGente(t) {
       + fora.map(p => '<option value="' + escHtml(p.id) + '">' + escHtml(p.name || p.email) + '</option>').join('') + '</select>'
     h += '<select data-eq-novo-papel style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;">'
       + podeDar.map(p => '<option value="' + p.id + '">' + escHtml(p.rotulo) + '</option>').join('') + '</select>'
-    h += '<button data-eq-por="' + escHtml(t.id) + '" style="border:none;background:var(--accent);color:var(--sobre-cor);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">Colocar no time</button>'
+    h += '<button class="btn btn-principal" data-eq-por="' + escHtml(t.id) + '">Colocar no time</button>'
     h += '</div>'
   }
-  h += '<div style="display:flex;gap:8px;margin-top:12px;"><button data-eq-cancelar style="border:1px solid var(--border);background:none;color:var(--text);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;">Fechar</button></div>'
+  h += '<div style="display:flex;gap:8px;margin-top:12px;"><button class="btn" data-eq-cancelar>Fechar</button></div>'
   h += '</div>'
   return h
 }
@@ -1176,7 +1176,7 @@ function _renderPermBody(u) {
   const dupSel = mkEl('select', 'admin-form-input'); dupSel.style.cssText = 'flex:1;font-size:12px;padding:5px'
   dupSel.appendChild(new Option('— escolher usuário —', ''))
   _usersCache.filter(x => x.id !== u.id).forEach(x => dupSel.appendChild(new Option(x.name || x.email, x.id)))
-  const dupBtn = mkEl('button', 'sr-btn'); dupBtn.textContent = 'Aplicar'; dupBtn.style.cssText = 'font-size:11px;padding:6px 12px'
+  const dupBtn = mkEl('button', 'btn btn-principal'); dupBtn.textContent = 'Aplicar'
   dupBtn.addEventListener('click', () => {
     const src = _usersCache.find(x => x.id === dupSel.value); if (!src) return
     _permState.permissions = JSON.parse(JSON.stringify(src.permissions || {}))
@@ -2147,7 +2147,7 @@ async function loadAdminMetas() {
   const html = [
     '<div class="admin-section-sub" style="margin-bottom:20px">Importe uma planilha <strong>.xlsx</strong> (Excel) com as metas por canal. Baixe o template, preencha a meta de cada dia por canal e importe. Também aceita <em>.xls</em> e <em>.csv</em>.</div>',
     '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:24px">',
-    '<button class="admin-btn-sm" onclick="downloadMetasTemplate()" style="display:flex;align-items:center;gap:6px;padding:8px 16px">',
+    '<button class="admin-btn-sm btn" onclick="downloadMetasTemplate()">',
     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Baixar template .xlsx</button>',
     `<label class="admin-btn-sm" style="display:flex;align-items:center;gap:6px;padding:8px 16px;cursor:pointer;background:var(--accent);color:var(--sobre-cor);border-color:var(--accent)">`,
     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Importar planilha',
@@ -2512,10 +2512,6 @@ Object.assign(window, {
 .tela-admin :deep(.sr-label){font-family:var(--fonte-principal);font-size:13px;color:var(--text);font-weight:500;}
 .tela-admin :deep(.sr-sub){font-family:var(--fonte-principal);font-size:11px;color:var(--muted);margin-top:1px;}
 .tela-admin :deep(.sr-val){font-family:var(--fonte-principal);font-size:12px;color:var(--muted);white-space:nowrap;}
-.tela-admin :deep(.sr-btn){font-family:var(--fonte-principal);font-size:11px;color:var(--accent-forte);cursor:pointer;background:var(--accent-light);border:none;padding:5px 12px;border-radius:5px;transition:all .15s;white-space:nowrap;}
-.tela-admin :deep(.sr-btn:hover){background:var(--accent);color:var(--sobre-cor);}
-.tela-admin :deep(.sr-btn.danger){color:var(--red);background:rgba(220,38,38,.08);}
-.tela-admin :deep(.sr-btn.danger:hover){background:var(--red);color:var(--sobre-cor);}
 .tela-admin :deep(.online-dot){width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;}
 
 /* ── Tabela de metas/saúde (.metas-tbl, legacy L1358-1361) — genérico,
@@ -2647,7 +2643,7 @@ Object.assign(window, {
    celular. min-height:40px é o alvo de toque mínimo pedido na correção
    (o `.sr-btn` global só tem padding:5px 12px, insuficiente sozinho). */
 .tela-admin :deep(.usr-acoes){display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
-.tela-admin :deep(.usr-acoes .sr-btn),.tela-admin :deep(.usr-acoes select){min-height:40px;box-sizing:border-box;}
+.tela-admin :deep(.usr-acoes select){min-height:40px;box-sizing:border-box;}
 .tela-admin :deep(.usr-acao-select){max-width:130px;font-size:12px;padding:6px 8px;}
 .tela-admin :deep(.usr-gavetas){display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:14px 0 8px;}
 .tela-admin :deep(.usr-gavetas-rot){font-size:11px;color:var(--muted);}
@@ -2730,7 +2726,6 @@ Object.assign(window, {
      do modal (Cancelar/Salvar), "Aplicar" (duplicar permissões) e o miniform
      de trocar senha por linha (Gerar/Salvar senha/Cancelar) tinham só
      padding:5-8px — na prática 25-31px de altura. */
-  .tela-admin :deep(.sr-btn){min-height:40px;box-sizing:border-box;}
 
   /* 3) Degraus (.perm-degrau): tanto o "Agrupar: Marca|Local|Setor" quanto os
      graus dentro do modal (Sem acesso/Só ver/Ver e mexer/Tudo) herdavam os

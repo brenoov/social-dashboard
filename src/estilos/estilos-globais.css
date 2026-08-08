@@ -599,6 +599,9 @@
   .sr-label{font-family:var(--fonte-principal);font-size:13px;color:var(--text);font-weight:500;}
   .sr-sub{font-family:var(--fonte-principal);font-size:11px;color:var(--muted);margin-top:1px;}
   .sr-val{font-family:var(--fonte-principal);font-size:12px;color:var(--muted);white-space:nowrap;}
+  /* SEM USO desde que o Admin passou a usar .btn/.btn-principal/.btn-perigo.
+     Fica aqui só como rede: se alguma tela ainda escrever a classe antiga, ela
+     continua com aparência. Botão novo NÃO usa isto — ver PADRAO-DA-CENTRAL. */
   .sr-btn{font-family:var(--fonte-principal);font-size:11px;color:var(--accent-forte);cursor:pointer;background:var(--accent-light);border:none;padding:5px 12px;border-radius:5px;transition:all .15s;white-space:nowrap;}
   .sr-btn:hover{background:var(--accent);color:var(--sobre-cor);}
   .sr-btn.danger{color:#dc2626;background:rgba(220,38,38,.08);}

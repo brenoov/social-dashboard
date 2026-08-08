@@ -39,7 +39,7 @@
         <button class="gv-pbtn" id="ma-refresh-btn" onclick="loadMaData()" style="border-color:var(--accent);color:var(--accent)">↻</button>
       </div>
       <div id="ma-account-picker" onclick="event.stopPropagation()" style="position:relative;display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
-        <button id="ma-acc-trigger" style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:7px;padding:5px 12px;background:var(--surface2);cursor:pointer;font-family:var(--fonte-principal);font-size:12px;color:var(--text);white-space:nowrap;" onclick="event.stopPropagation();toggleMaAccPicker()">
+        <button class="btn" id="ma-acc-trigger" onclick="event.stopPropagation();toggleMaAccPicker()">
           <img id="ma-acc-img" style="width:22px;height:22px;border-radius:50%;object-fit:cover;display:none;flex-shrink:0;" alt="">
           <span id="ma-acc-av" style="width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--fonte-principal);font-size:11px;font-weight:700;color:var(--sobre-cor);flex-shrink:0;"></span>
           <span id="ma-acc-name" style="font-weight:500;max-width:130px;overflow:hidden;text-overflow:ellipsis;">—</span>
@@ -362,8 +362,8 @@ function toggleMaCustomRange(){
       </div>
     </div>
     <div style="display:flex;gap:8px;">
-      <button id="ma-modal-clear" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:var(--fonte-principal);font-size:11px;font-weight:700;color:var(--muted);background:none;cursor:pointer;">Limpar</button>
-      <button id="ma-modal-apply" style="flex:2;padding:10px;border:none;border-radius:8px;font-family:var(--fonte-principal);font-size:11px;font-weight:700;color:var(--sobre-cor);background:var(--accent);cursor:pointer;">Aplicar</button>
+      <button class="btn" id="ma-modal-clear" style="flex:1">Limpar</button>
+      <button class="btn btn-principal" id="ma-modal-apply" style="flex:2">Aplicar</button>
     </div>
   `;
 

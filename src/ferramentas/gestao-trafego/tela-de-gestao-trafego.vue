@@ -62,7 +62,7 @@
       </button>
       </div>
       <div id="gt-account-picker" onclick="event.stopPropagation()" style="position:relative;display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
-        <button id="gt-acc-trigger" style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:7px;padding:5px 12px;background:var(--surface2);cursor:pointer;font-family:var(--fonte-principal);font-size:calc(12px*var(--gt-fs,1.3));color:var(--text);white-space:nowrap;" onclick="event.stopPropagation();toggleGtAccPicker()">
+        <button class="btn" id="gt-acc-trigger" onclick="event.stopPropagation();toggleGtAccPicker()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.6"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           <span id="gt-acc-name" style="font-weight:500;max-width:140px;overflow:hidden;text-overflow:ellipsis;">—</span>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>
@@ -119,8 +119,8 @@
         </div>
         <div class="gt-cfg-body" id="gt-cfg-body"></div>
         <div class="gt-cfg-footer">
-          <button style="padding:7px 16px;border-radius:7px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:600;cursor:pointer;border:1px solid var(--border);background:none;color:var(--muted);" onclick="_gtCloseEditor()">Cancelar</button>
-          <button id="gt-cfg-save-btn" style="padding:7px 18px;border-radius:7px;font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;border:none;background:var(--accent);color:var(--sobre-cor);" onclick="_gtSaveEditor()">Salvar</button>
+          <button class="btn" onclick="_gtCloseEditor()">Cancelar</button>
+          <button class="btn btn-principal" id="gt-cfg-save-btn" onclick="_gtSaveEditor()">Salvar</button>
         </div>
       </div>
 
