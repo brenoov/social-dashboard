@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   bytesDeTexto, dataPorExtenso, horaDeBrasilia, linhasDoChecklist,
-  montarPdf, nomeDoArquivo, pastasDoArquivo, pdfDoChecklist, tempoPorExtenso,
+  desenhoDoRabisco, montarPdf, nomeDoArquivo, pastasDoArquivo, pdfDoChecklist,
+  tempoPorExtenso, tracosNaFolha,
 } from './pdf-do-checklist.js';
 
 const VEICULO = { nome: 'FORD FIESTA SEDAN', placa: 'ERO3G55' };
@@ -241,4 +242,129 @@ test('linha comprida demais é quebrada, não cortada', () => {
   const s = comoTexto(linhas);
   const desenhadas = s.match(/\) Tj/g) || [];
   assert.ok(desenhadas.length > 1, 'a linha comprida devia virar várias linhas desenhadas');
+});
+
+/* ── O rabisco no papel (F7c) ─────────────────────────────────────────────── */
+
+// Um "L" deitado: começa no canto de cima à esquerda, desce e vai pra direita.
+// Forma assimétrica de propósito — ela denuncia espelhamento, que uma forma
+// simétrica esconderia.
+const RABISCO = [[[0, 0], [0, 1], [1, 1]]];
+const CAIXA = { x: 56, y: 200, largura: 240, altura: 120 };
+
+test('o topo da tela vira o TOPO do papel — assinatura não sai de cabeça pra baixo', () => {
+  // Na tela, y=0 é em cima. No PDF, y=0 é embaixo. Sem inverter, o papel sairia
+  // com a assinatura espelhada — que parece documento adulterado.
+  const [traco] = tracosNaFolha(RABISCO, CAIXA);
+  assert.deepEqual(traco, [
+    [56, 320],   // (0,0) na tela = canto de CIMA à esquerda = y da base + altura
+    [56, 200],   // (0,1) na tela = canto de BAIXO à esquerda = y da base
+    [296, 200],  // (1,1) = canto de baixo à direita
+  ]);
+});
+
+test('traço que escapou da área fica DENTRO do quadro, nunca por cima do texto', () => {
+  const [traco] = tracosNaFolha([[[-2, -2], [3, 3]]], CAIXA);
+  assert.deepEqual(traco, [[56, 320], [296, 200]]);
+});
+
+test('sem rabisco não desenha traço nenhum — e não quebra', () => {
+  assert.deepEqual(tracosNaFolha(null, CAIXA), []);
+  assert.deepEqual(tracosNaFolha([], CAIXA), []);
+  assert.deepEqual(tracosNaFolha([[]], CAIXA), []);
+});
+
+test('o desenho sai como caminho de verdade: mover, ligar e traçar', () => {
+  const d = desenhoDoRabisco(RABISCO, CAIXA);
+  assert.match(d, /56 320 m/, 'começa com "mover até"');
+  assert.match(d, /56 200 l/, 'liga o ponto seguinte');
+  assert.match(d, /296 200 l\nS/, 'e traça no fim');
+  // `q … Q`: sem guardar e devolver o estado, a grossura e a cor do rabisco
+  // vazariam pro que for desenhado depois na mesma página.
+  assert.ok(d.startsWith('q\n') && d.trimEnd().endsWith('Q'));
+});
+
+test('um toque só vira um ponto visível, não um caminho sem comprimento', () => {
+  const d = desenhoDoRabisco([[[0.5, 0.5]]], CAIXA);
+  assert.match(d, /176 260 m\n176 260 l\nS/);
+});
+
+test('o desenho fica FORA do bloco de texto — dentro dele o leitor recusa a página', () => {
+  const bytes = montarPdf([
+    { estilo: 'texto', texto: 'Assinatura de próprio punho:' },
+    { estilo: 'rabisco', texto: '', rabisco: RABISCO },
+    { estilo: 'texto', texto: 'Códigos de conferência' },
+  ]);
+  const s = comoTexto(bytes);
+  const fluxo = /stream\n([\s\S]*?)\nendstream/.exec(s)[1];
+  // Todo "m/l/S" tem de cair FORA de um par BT…ET.
+  let dentro = false;
+  for (const linha of fluxo.split('\n')) {
+    if (linha === 'BT') dentro = true;
+    if (linha === 'ET') dentro = false;
+    if (/^[\d.]+ [\d.]+ [ml]$/.test(linha) || linha === 'S') {
+      assert.equal(dentro, false, `operador de desenho dentro de BT…ET: ${linha}`);
+    }
+  }
+  // e os dois blocos de texto continuam existindo, um antes e um depois
+  assert.equal((fluxo.match(/^BT$/gm) || []).length, 2);
+  assert.equal((fluxo.match(/^ET$/gm) || []).length, 2);
+});
+
+test('a ficha assinada COM rabisco traz o desenho, e o papel diz o que é', () => {
+  const linhas = papel({ ficha: { assinatura_versao: 2, assinatura_rabisco: RABISCO } });
+  assert.match(texto(linhas), /Assinatura de próprio punho, feita na tela:/);
+  assert.ok(linhas.some((l) => l.estilo === 'rabisco'), 'faltou o quadro do rabisco');
+});
+
+test('assinada SEM rabisco: o papel diz isso, não deixa espaço em branco', () => {
+  // Rabisco é opcional (senão viraria porta fechada pra quem não conseguir
+  // desenhar). Espaço em branco no lugar de uma assinatura é a ambiguidade que
+  // este documento existe pra não ter.
+  const linhas = papel({ ficha: { assinatura_versao: 2, assinatura_rabisco: null } });
+  assert.match(texto(linhas), /assinada só com a senha: não há rabisco desenhado nela/);
+  assert.ok(!linhas.some((l) => l.estilo === 'rabisco'));
+});
+
+test('ficha NÃO assinada não ganha quadro de rabisco nem frase sobre ele', () => {
+  const linhas = papel({ ficha: { assinada_em: null, assinatura_rabisco: RABISCO } });
+  assert.ok(!linhas.some((l) => l.estilo === 'rabisco'));
+  assert.doesNotMatch(texto(linhas), /rabisco/);
+});
+
+test('o quadro do rabisco não se parte entre duas páginas', () => {
+  // Meia assinatura no pé de uma folha e metade no topo da outra parece
+  // documento adulterado.
+  const encher = Array.from({ length: 60 }, () => ({ estilo: 'texto', texto: 'linha de enchimento' }));
+  const bytes = montarPdf([...encher, { estilo: 'rabisco', texto: '', rabisco: RABISCO }]);
+  const s = comoTexto(bytes);
+  const fluxos = [...s.matchAll(/stream\n([\s\S]*?)\nendstream/g)].map((m) => m[1]);
+  const comDesenho = fluxos.filter((f) => f.includes(' m\n'));
+  assert.equal(comDesenho.length, 1, 'o desenho tem de estar inteiro numa página só');
+  // e dentro da folha: nada abaixo da margem de 56 pt
+  for (const m of comDesenho[0].matchAll(/^[\d.]+ ([\d.]+) [ml]$/gm)) {
+    assert.ok(Number(m[1]) >= 56, `ponto fora da margem: ${m[1]}`);
+  }
+});
+
+test('o PDF com rabisco continua um arquivo válido, com a xref certa', () => {
+  const bytes = pdfDoChecklist({
+    ficha: { ...FICHA, assinatura_versao: 2, assinatura_rabisco: RABISCO },
+    respostas: RESPOSTAS, veiculo: VEICULO,
+    donoNome: 'Marcus Vinicius', assinanteNome: 'Erick Martins',
+  });
+  const s = comoTexto(bytes);
+  assert.ok(s.startsWith('%PDF-1.4\n') && s.endsWith('%%EOF\n'));
+  const inicio = Number(/startxref\n(\d+)\n/.exec(s)[1]);
+  const tabela = s.slice(inicio).split('\n');
+  const total = Number(/0 (\d+)/.exec(tabela[1])[1]);
+  for (let n = 1; n < total; n++) {
+    const pos = Number(tabela[1 + n + 1].slice(0, 10));
+    assert.equal(s.slice(pos, pos + String(n).length + 6), `${n} 0 obj`);
+  }
+  // O tamanho declarado do fluxo tem de bater com os bytes de verdade, senão o
+  // leitor lê o desenho pela metade.
+  for (const m of s.matchAll(/<< \/Length (\d+) >>\nstream\n([\s\S]*?)\nendstream/g)) {
+    assert.equal(m[2].length, Number(m[1]));
+  }
 });

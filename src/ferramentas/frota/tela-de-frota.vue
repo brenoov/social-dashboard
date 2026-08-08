@@ -46,8 +46,9 @@ import { bensLivresParaFrota, patchDoBem } from './bens-para-veiculo.js'
 import { dadosDoLocal, insertDaArvore } from './local-do-veiculo.js'
 import { contatoParaCobranca, podeCopiarTelefoneDoCarro } from './contato-do-motorista.js'
 import {
-  textoParaAssinar, impressaoDigital, conferirCorrente, tempoDePreenchimento,
+  textoParaAssinar, impressaoDigital, conferirCorrente, tempoDePreenchimento, VERSAO_ATUAL,
 } from '../../../supabase/functions/_shared/assinatura.js'
+import { normalizarRabisco } from '../../../supabase/functions/_shared/rabisco.js'
 import { recusaDaSenha, avisoDoQueGravou, selo } from './assinar-checklist.js'
 import {
   textoDaConferencia, resumoDaAssinatura, avisoDeTempo,
@@ -803,13 +804,36 @@ async function gravarChecklist({ ficha, respostas, assinatura }) {
     const hashAnterior = anteriores?.[0]?.assinatura_hash || null
 
     const assinadaEm = new Date().toISOString()
+    /* O RABISCO E A VERSÃO ENTRAM AQUI, no MESMO objeto da assinatura.
+       Não é arrumação: este UPDATE é UMA gravação só, então ou a ficha fica
+       assinada COM o desenho, ou não fica assinada. Gravar o rabisco à parte
+       traria de volta o defeito que este módulo já teve quatro vezes — duas
+       gravações, só a primeira conferida, e a tela dizendo que deu certo.
+
+       `assinatura_versao: VERSAO_ATUAL` É OBRIGATÓRIO, e nunca o número 2
+       escrito na mão. Sem a versão gravada, a ficha é conferida como V1: o
+       texto recalculado sai SEM a linha do rabisco, o hash não fecha, e a
+       conferência acusa de adulterada a ficha do próprio motorista que acabou
+       de assinar. E é o MESMO valor que vai pro texto assinado logo abaixo —
+       gravar um e assinar outro daria o mesmo estrago.
+
+       O rabisco é arrumado UMA vez (`normalizarRabisco`) e o resultado serve
+       aos dois: ao que é gravado e ao que é assinado. */
+    const rabisco = normalizarRabisco(assinatura.rabisco)
+    const versao = VERSAO_ATUAL
     assinar = {
       aberta_em: assinatura.aberta_em,
       assinada_em: assinadaEm,
       assinada_por: estado.userId,
       assinatura_hash_anterior: hashAnterior,
+      assinatura_versao: versao,
+      assinatura_rabisco: rabisco,
       assinatura_hash: await impressaoDigital(textoParaAssinar({
-        ficha: { ...campos, assinada_em: assinadaEm }, respostas, hashAnterior,
+        ficha: {
+          ...campos, assinada_em: assinadaEm,
+          assinatura_versao: versao, assinatura_rabisco: rabisco,
+        },
+        respostas, hashAnterior,
       })),
     }
   } else {
@@ -1256,7 +1280,12 @@ function fecharVeiculo() {
  * idênticos ao que foi gravado; o único que o Postgres reescreve é
  * `assinada_em` (`.000Z` vira `+00:00`), e a canonização do instante em
  * assinatura.js absorve isso. Se algum outro campo passasse a ser reescrito,
- * esta tela acusaria de adulterada uma ficha honesta. */
+ * esta tela acusaria de adulterada uma ficha honesta.
+ *
+ * O RABISCO (F7c) É JSONB e volta como número, não como texto — as coordenadas
+ * são gravadas já arredondadas em 3 casas (rabisco.js), que é a mesma conta que
+ * `assinatura.js` faz pra montar o texto assinado. Por isso a ida e a volta dão
+ * o mesmo valor, e nada muda de hash no caminho. */
 const conferindo = ref(false)
 const conferencia = ref(null)
 
@@ -1264,13 +1293,43 @@ async function conferirAssinaturas(veiculo) {
   if (conferindo.value || !veiculo || veiculo.novo) return
   conferindo.value = true
   conferencia.value = null
-  const { data, error } = await sbClient.rpc('frota_corrente_do_veiculo', { p_veiculo: veiculo.id })
+  /* AS DUAS LEITURAS SÃO UMA CONFERÊNCIA SÓ, e a segunda não é enfeite.
+     A função do banco `frota_corrente_do_veiculo` (migration 032) nasceu antes
+     do rabisco e devolve uma lista FIXA de colunas — sem `assinatura_versao` e
+     sem `assinatura_rabisco`. Conferindo só com o que ela devolve, toda ficha
+     assinada a partir de agora seria lida como V1: o texto sairia sem a linha
+     do rabisco, o hash não fecharia, e a tela acusaria de ADULTERADA a ficha de
+     quem acabou de assinar direitinho. As duas colunas vêm da tabela, e são
+     casadas por `id`. */
+  const [{ data, error }, { data: extras, error: erroExtras }] = await Promise.all([
+    sbClient.rpc('frota_corrente_do_veiculo', { p_veiculo: veiculo.id }),
+    sbClient.from('frota_checklist')
+      .select('id, assinatura_versao, assinatura_rabisco').eq('veiculo_id', veiculo.id),
+  ])
   conferindo.value = false
-  if (error) {
+  if (error || erroExtras) {
     // Erro de leitura NÃO vira "nada a conferir" nem acusação (item 9 do
     // padrão): a tela diz que não conseguiu ler, e nada mais.
     conferencia.value = textoDaConferencia(null)
     return
+  }
+  const porId = new Map((extras || []).map((e) => [e.id, e]))
+  const fichas = []
+  for (const f of data || []) {
+    const extra = porId.get(f.id)
+    if (!extra) {
+      // Ficha na corrente e não na outra leitura: as duas saíram da MESMA
+      // tabela na mesma sessão, então isto não deveria acontecer. Se acontecer,
+      // conferir assim mesmo seria chutar a versão dela — e chutar errado
+      // acusa um inocente. Melhor dizer que não deu pra ler.
+      conferencia.value = textoDaConferencia(null)
+      return
+    }
+    fichas.push({
+      ...f,
+      assinatura_versao: extra.assinatura_versao,
+      assinatura_rabisco: extra.assinatura_rabisco,
+    })
   }
   /* `respostas` AUSENTE e `[]` não são a mesma coisa pra conferirCorrente:
      array vazio é um fato sobre a ficha, chave ausente é falha de leitura de
@@ -1278,8 +1337,8 @@ async function conferirAssinaturas(veiculo) {
      `|| []` aqui transformaria "não consegui ler" em "não tinha item nenhum",
      e a ficha honesta sairia acusada. */
   const porFicha = {}
-  for (const f of data || []) if (Array.isArray(f.respostas)) porFicha[f.id] = f.respostas
-  conferencia.value = textoDaConferencia(await conferirCorrente(data || [], porFicha))
+  for (const f of fichas) if (Array.isArray(f.respostas)) porFicha[f.id] = f.respostas
+  conferencia.value = textoDaConferencia(await conferirCorrente(fichas, porFicha))
 }
 
 /* O "+" da árvore, dentro da ficha do carro. Mesma ideia do "+" do Patrimônio:

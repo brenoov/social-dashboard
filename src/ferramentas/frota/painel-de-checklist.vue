@@ -37,6 +37,7 @@
  * tela. */
 import { ref, reactive, computed } from 'vue'
 import { cadenciasDoDia, itensDaFicha, problemasDaFicha, hodometroAceito } from '../../../supabase/functions/_shared/checklist.js'
+import CampoDeRabisco from './campo-de-rabisco.vue'
 
 const props = defineProps({
   veiculo: { type: Object, required: true },
@@ -88,6 +89,17 @@ const erros = ref([])
 // cartão: ela vai pro pai, que a manda pra Edge conferir e a esquece. Nada de
 // senha em campo de ficha, em log ou no que se assina.
 const senha = ref('')
+/* O RABISCO — os traços que a pessoa desenha com o dedo, ou nulo se ela não
+ * desenhou nada.
+ *
+ * É OPCIONAL DE PROPÓSITO, e isso é decisão de desenho, não descuido. A prova
+ * técnica é a senha; o rabisco é o gesto deliberado que o dono pediu. Exigi-lo
+ * criaria uma porta fechada nova — um celular em que o toque não pega no
+ * quadro deixaria a pessoa sem NENHUM jeito de registrar o checklist do dia
+ * (o índice "um carro, um dia, uma ficha" não deixa refazer amanhã). A ficha
+ * assinada sem rabisco continua valendo, e o papel DIZ que ela foi assinada só
+ * com a senha, em vez de deixar um espaço em branco ambíguo. */
+const rabisco = ref(null)
 
 /* ── O hodômetro ─────────────────────────────────────────────────────────── */
 
@@ -192,7 +204,14 @@ function gravar() {
     })),
     // A senha vai pro pai, que confere no servidor e calcula a assinatura. O
     // painel não fala com o banco nem com a Edge — ele só desenha.
-    assinatura: props.podeAssinar ? { senha: senha.value, aberta_em: abertaEm } : null,
+    //
+    // O RABISCO VAI NA MESMA CARONA que a senha, num objeto só: os dois viram
+    // UMA gravação e UMA impressão digital. Mandar o desenho por outro caminho
+    // é o defeito que este módulo já teve quatro vezes — duas gravações, só a
+    // primeira conferida, e a tela dizendo que deu tudo certo.
+    assinatura: props.podeAssinar
+      ? { senha: senha.value, aberta_em: abertaEm, rabisco: rabisco.value }
+      : null,
   })
 }
 </script>
@@ -290,6 +309,12 @@ function gravar() {
       <p class="ck-nota">
         A senha confirma que foi você quem conferiu o carro. Ela não é guardada em lugar nenhum.
       </p>
+
+      <!-- O RABISCO, junto da senha e no mesmo passo: é uma assinatura só. Ele
+           é opcional (ver o comentário de `rabisco` lá em cima) — quem não
+           desenhar assina do mesmo jeito, e o papel dirá que foi só com a senha. -->
+      <CampoDeRabisco v-model="rabisco" :desabilitado="gravando" />
+
       <p class="ck-nota">
         Depois de assinada, esta ficha não pode mais ser mudada nem apagada. Se ficar algo
         errado, o caminho é registrar uma ficha nova explicando.

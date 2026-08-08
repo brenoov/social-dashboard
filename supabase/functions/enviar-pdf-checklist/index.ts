@@ -310,9 +310,15 @@ Deno.serve(async (req) => {
     try {
       const { data: ficha, error: erroFicha } = await sb
         .from('frota_checklist')
+        // `assinatura_rabisco` PRECISA estar aqui: é o desenho que a pessoa fez
+        // com o dedo, e é ele que o papel imprime. Sem esta coluna na leitura, o
+        // PDF sairia dizendo "assinada só com a senha" sobre uma ficha que TEM
+        // rabisco — o documento discordando do sistema, que é o que este módulo
+        // inteiro existe pra evitar.
         .select('id, veiculo_id, feita_em, pessoa_nome, hodometro, hodometro_justificativa, '
           + 'cadencias, resultado, anomalias, aberta_em, assinada_em, assinada_por, '
-          + 'assinatura_hash, assinatura_hash_anterior, sem_assinatura_motivo')
+          + 'assinatura_hash, assinatura_hash_anterior, sem_assinatura_motivo, '
+          + 'assinatura_rabisco, assinatura_versao')
         .eq('id', linha.id_da_ficha)
         .single();
       if (erroFicha || !ficha) throw new Error('Não consegui ler a ficha do checklist no banco.');

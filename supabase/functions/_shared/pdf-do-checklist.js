@@ -23,6 +23,7 @@
  * realmente perguntado hoje. */
 
 import { instanteCanonico, tempoDePreenchimento } from './assinatura.js';
+import { normalizarRabisco } from './rabisco.js';
 
 /* ── Formatação de números, datas e horas ─────────────────────────────────── */
 
@@ -150,6 +151,23 @@ export function linhasDoChecklist({ ficha, respostas, veiculo, donoNome, assinan
       // contra quem talvez nem tenha como ter o dado (ficha sem login nasce
       // sem `aberta_em`).
       : 'Tempo de preenchimento: não registrado nesta ficha');
+
+    /* O RABISCO (F7c). Sai desenhado, com os traços que a pessoa fez com o dedo
+       na hora de assinar — é o que o dono pediu pra "deixar mais fiel".
+       Vem dos PONTOS gravados, não de uma imagem: este gerador não desenha
+       imagem, mas desenha linha, que é nativa do formato.
+
+       QUANDO NÃO HÁ DESENHO, O PAPEL DIZ ISSO com todas as letras. Nem toda
+       ficha assinada tem rabisco (ele é opcional, pra não virar uma porta
+       fechada nova), e um espaço em branco no lugar de uma assinatura é
+       exatamente o tipo de ambiguidade que este documento existe pra não ter. */
+    const rabisco = normalizarRabisco(f.assinatura_rabisco);
+    if (rabisco) {
+      put('texto', 'Assinatura de próprio punho, feita na tela:');
+      L.push({ estilo: 'rabisco', texto: '', rabisco });
+    } else {
+      put('fraco', 'Esta ficha foi assinada só com a senha: não há rabisco desenhado nela.');
+    }
   } else {
     put('texto', 'Esta ficha NÃO foi assinada.');
     const motivo = ROTULO_SEM_ASSINATURA[f.sem_assinatura_motivo] || f.sem_assinatura_motivo;
@@ -231,6 +249,26 @@ const ESTILOS = {
   vazio: { fonte: 'F1', tamanho: 10, antes: 0, depois: 6 },
 };
 
+/* ── O quadro do rabisco ──────────────────────────────────────────────────────
+   A PROPORÇÃO É A MESMA DO CAMPO DE DESENHO DA TELA (2:1, ver
+   campo-de-rabisco.vue), e isso é obrigatório, não combinação bonita: os pontos
+   são guardados de 0 a 1 RELATIVOS ao quadro em que foram feitos. Imprimir num
+   quadro de outra proporção esticaria ou espremeria a assinatura — o papel
+   mostraria um desenho que a pessoa nunca fez.
+
+   240x120 pt ≈ 8,5 x 4,2 cm: o tamanho de uma assinatura de caneta num
+   documento, e cabe com folga na largura útil da folha (483 pt). */
+const RABISCO = {
+  largura: 240, altura: 120, antes: 4, depois: 10,
+  // Espaço abaixo da linha de assinatura, DENTRO do quadro: é onde as letras
+  // que descem (o "g" de "Rodrigo") passam sem bater no fim da caixa.
+  base: 16,
+  // Grossura do traço em pontos. 1,1 imita caneta esferográfica; mais fino
+  // some numa impressão a laser ruim, mais grosso vira borrão nas curvas de um
+  // rabisco feito com o dedo.
+  grossura: 1.1,
+};
+
 // Largura média de caractere, em fração do tamanho da fonte. Helvetica em
 // texto corrido fica perto de 0,50; o valor aqui é FOLGADO de propósito
 // (0,54) porque errar pra mais só quebra a linha um pouco antes, enquanto
@@ -291,6 +329,74 @@ export function bytesDeTexto(texto) {
   return out;
 }
 
+/* ── O rabisco virando linha no papel ─────────────────────────────────────── */
+
+// Duas casas bastam: o PDF é medido em pontos (1/72 pol), e 0,01 pt é 3,5
+// milésimos de milímetro. Guardar mais casas só engorda o arquivo.
+const pt = (n) => Math.round(n * 100) / 100;
+
+/**
+ * Os traços do rabisco convertidos em coordenadas da folha.
+ *
+ * `caixa` é `{ x, y, largura, altura }`, com `y` na BASE do quadro — a mesma
+ * convenção do resto do arquivo, porque no PDF o eixo Y cresce PRA CIMA.
+ *
+ * E é aí que mora a única sutileza desta função: na tela, `y = 0` é o TOPO
+ * (é assim que todo sistema de desenho de tela conta). No papel, `y = 0` é o
+ * PÉ da folha. Sem inverter, a assinatura sairia impressa de cabeça pra baixo —
+ * espelhada na horizontal, que é pior do que não sair, porque parece um
+ * documento adulterado.
+ *
+ * Os pontos passam por `normalizarRabisco` antes: é ela que prende as
+ * coordenadas entre 0 e 1 (traço que escapou da área de desenho não pode virar
+ * risco fora do quadro, por cima do texto da ficha) e descarta o que não é
+ * número — nunca convertendo lixo em zero, que aqui seria um canto do quadro.
+ */
+export function tracosNaFolha(rabisco, caixa) {
+  const { x, y, largura, altura } = caixa || {};
+  const tracos = normalizarRabisco(rabisco);
+  if (!tracos) return [];
+  return tracos.map((traco) => traco.map((p) => [
+    pt(x + p[0] * largura),
+    pt(y + altura - p[1] * altura),
+  ]));
+}
+
+/**
+ * O quadro do rabisco como operadores de desenho do PDF.
+ *
+ * Sai FORA de `BT … ET`: dentro de um bloco de texto o PDF só aceita operadores
+ * de texto, e um caminho ali dentro faz o leitor recusar a página inteira.
+ *
+ * `q … Q` guarda e devolve o estado gráfico. Sem isso, a grossura e a cor do
+ * traço vazariam pro que for desenhado depois na mesma página.
+ */
+export function desenhoDoRabisco(rabisco, caixa) {
+  const linhas = ['q'];
+
+  // A linha de assinatura, como no papel. Cinza claro (`0.75 G`) pra ser
+  // guia, não parte do desenho.
+  const yBase = pt(caixa.y + RABISCO.base);
+  linhas.push('0.75 G 0.5 w');
+  linhas.push(`${pt(caixa.x)} ${yBase} m ${pt(caixa.x + caixa.largura)} ${yBase} l S`);
+
+  // A tinta. Preto puro, e aqui não há token que valha: papel branco, caneta
+  // preta — o documento não tem tema claro e escuro.
+  linhas.push(`0 G ${RABISCO.grossura} w 1 J 1 j`);
+  for (const traco of tracosNaFolha(rabisco, caixa)) {
+    linhas.push(`${traco[0][0]} ${traco[0][1]} m`);
+    for (let i = 1; i < traco.length; i++) linhas.push(`${traco[i][0]} ${traco[i][1]} l`);
+    // Um toque só: sem repetir o ponto, o caminho não tem comprimento e o
+    // leitor não desenha nada — a ponta redonda (`1 J`) só aparece se houver
+    // segmento. O mesmo cuidado que o campo da tela toma.
+    if (traco.length === 1) linhas.push(`${traco[0][0]} ${traco[0][1]} l`);
+    linhas.push('S');
+  }
+
+  linhas.push('Q');
+  return linhas.join('\n') + '\n';
+}
+
 /**
  * As linhas viram bytes de PDF. Devolve `Uint8Array`.
  *
@@ -303,6 +409,23 @@ export function montarPdf(linhas) {
   let atual = [];
   let y = ALTURA - MARGEM;
   for (const l of (linhas || [])) {
+    /* O QUADRO DO RABISCO NÃO SE PARTE ENTRE DUAS PÁGINAS. Meia assinatura no
+       pé de uma folha e a outra metade no topo da seguinte não é um documento
+       de conferência — é um defeito de impressão que parece adulteração. Se
+       não couber inteiro no que resta, ele desce inteiro pra próxima página. */
+    if (l.estilo === 'rabisco') {
+      if (y - (RABISCO.antes + RABISCO.altura) < MARGEM) {
+        paginas.push(atual); atual = []; y = ALTURA - MARGEM;
+      }
+      y -= RABISCO.antes + RABISCO.altura;
+      atual.push({
+        tipo: 'rabisco', rabisco: l.rabisco,
+        caixa: { x: MARGEM, y, largura: RABISCO.largura, altura: RABISCO.altura },
+      });
+      y -= RABISCO.depois;
+      continue;
+    }
+
     const est = ESTILOS[l.estilo] || ESTILOS.texto;
     const pedacos = l.estilo === 'vazio' ? [''] : quebrar(l.texto, l.estilo);
     for (const pedaco of pedacos) {
@@ -321,13 +444,26 @@ export function montarPdf(linhas) {
   const fluxos = paginas.map((itens) => {
     const bytes = [];
     const escrever = (s) => { for (const c of s) bytes.push(c.charCodeAt(0)); };
-    escrever('BT\n');
+    /* TEXTO E DESENHO NÃO CONVIVEM NO MESMO BLOCO. Dentro de `BT … ET` o PDF só
+       aceita operadores de texto: um caminho ali dentro faz o leitor recusar a
+       página inteira, e o arquivo abre em branco. Por isso o bloco de texto se
+       abre quando há texto e se FECHA antes de cada desenho. */
+    let emTexto = false;
+    const abrirTexto = () => { if (!emTexto) { escrever('BT\n'); emTexto = true; } };
+    const fecharTexto = () => { if (emTexto) { escrever('ET\n'); emTexto = false; } };
+
     for (const it of itens) {
+      if (it.tipo === 'rabisco') {
+        fecharTexto();
+        escrever(desenhoDoRabisco(it.rabisco, it.caixa));
+        continue;
+      }
+      abrirTexto();
       escrever(`/${it.fonte} ${it.tamanho} Tf\n1 0 0 1 ${it.x} ${it.y.toFixed(2)} Tm\n(`);
       bytes.push(...bytesDeTexto(it.texto));
       escrever(') Tj\n');
     }
-    escrever('ET\n');
+    fecharTexto();
     return bytes;
   });
 
