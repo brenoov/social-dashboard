@@ -277,3 +277,49 @@ export function resumoDaCobranca(linhas, hoje) {
     ? '1 carro ainda sem checklist hoje.'
     : `${faltam} carros ainda sem checklist hoje.`;
 }
+
+/* ── Por quais carros esta pessoa pode preencher (D21b) ───────────────────── */
+
+/**
+ * Por quais carros esta pessoa pode preencher o checklist hoje.
+ *
+ * Quem só dirige: o próprio carro. Quem administra: todos os ativos — e é o
+ * que destrava o problema dos motoristas sem login (Barbara, Marcus e Thiago),
+ * cujo carro ficaria eternamente sem ficha nenhuma.
+ *
+ * O carro da própria pessoa vem PRIMEIRO: é o que ela provavelmente veio fazer,
+ * e obrigá-la a procurar o dela no meio de nove seria trocar um problema por
+ * outro.
+ *
+ * `donoId` é o DONO NO CADASTRO, e vai junto pra tela poder dizer por quem se
+ * está preenchendo — quem administra precisa saber que aquele Punto é do
+ * Marcus. Repare que ele NÃO muda quando o carro está emprestado: de quem o
+ * carro É e quem está COM ele são perguntas diferentes, e responder uma com a
+ * outra faria a tela dizer que o carro é de quem pegou emprestado.
+ *
+ * `quemEstaCom` é opcional e decide só o `meu` (D9b): enquanto o carro está
+ * emprestado, quem confere é quem está com ele. Sem essa função, "meu" é o
+ * dono no cadastro — que é o certo quando não se sabe da posse. Sem ela a tela
+ * teria um buraco: o quadro de cobrança JÁ olha a posse, então cobraria de
+ * quem pegou emprestado uma ficha que o cartão não deixava preencher.
+ */
+export function veiculosParaConferir({ veiculos, euId, ehGestor, fichas, hoje, quemEstaCom }) {
+  const dono = typeof quemEstaCom === 'function' ? quemEstaCom : (v) => v.pessoa_id;
+  return (veiculos || [])
+    .filter((v) => v && v.situacao === 'ativo')
+    // A mesma pergunta que o resto da ferramenta já faz — reaproveitada, e não
+    // reescrita: duas contas de "precisa de checklist" divergem com o tempo.
+    .filter((v) => precisaDeChecklist({ veiculoId: v.id, fichas, hoje }))
+    .map((v) => ({
+      veiculo: v,
+      donoId: v.pessoa_id || null,
+      // `euId &&` é obrigatório: sem ele, um carro de rodízio (`pessoa_id`
+      // nulo) visto por quem não foi achado no cadastro (`euId` nulo) daria
+      // `null === null` e abriria sozinho como se fosse o carro da pessoa.
+      meu: !!(euId && dono(v) === euId),
+    }))
+    .filter((x) => ehGestor || x.meu)
+    .sort((a, b) => (a.meu === b.meu
+      ? String(a.veiculo.nome || '').localeCompare(String(b.veiculo.nome || ''))
+      : (a.meu ? -1 : 1)));
+}

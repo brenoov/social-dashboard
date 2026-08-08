@@ -40,7 +40,7 @@ import PainelDeChecklist from './painel-de-checklist.vue'
 import EditorDeChecklist from './editor-de-checklist.vue'
 import {
   quemFaltaHoje, resumoDaCobranca, precisaDeChecklist,
-  problemasAbertosHoje,
+  problemasAbertosHoje, veiculosParaConferir, cadenciasDoDia,
 } from '../../../supabase/functions/_shared/checklist.js'
 import { bensLivresParaFrota, patchDoBem } from './bens-para-veiculo.js'
 import { dadosDoLocal, insertDaArvore } from './local-do-veiculo.js'
@@ -124,6 +124,52 @@ const meuCarroFixo = computed(() => {
 
 const fichaDeHoje = computed(() => !meuCarroFixo.value ? null
   : fichas.value.find((f) => f.veiculo_id === meuCarroFixo.value.id && f.feita_em === hoje.value) || null)
+
+/* ── QUEM ADMINISTRA PREENCHE POR QUALQUER CARRO (D21b) ───────────────────────
+ * Pedido do dono, e é o que destrava o problema dos motoristas SEM LOGIN:
+ * Barbara, Marcus e Thiago são donos de carro e não têm conta no aplicativo.
+ * Sem isto, o carro deles ficaria sem ficha nenhuma até o RH criar as contas.
+ *
+ * A FICHA REGISTRA QUEM REALMENTE CONFERIU, não de quem é o carro. Isso não é
+ * detalhe: `gravarChecklist` grava `pessoa_id: euId` — quem está com a tela
+ * aberta —, e nada aqui muda isso. Gravar a Barbara porque o Punto é dela seria
+ * inventar que ela olhou o veículo, que é exatamente a resposta falsa que este
+ * desenho inteiro existe pra impedir. E numa multa, inverteria a
+ * responsabilidade. */
+const ehGestorDaFrota = computed(() => pode('criar') || pode('excluir'))
+const paraConferir = computed(() => veiculosParaConferir({
+  veiculos: veiculos.value, euId: euId.value,
+  ehGestor: ehGestorDaFrota.value, fichas: fichas.value, hoje: hoje.value,
+  // D9b: enquanto o carro está emprestado, quem confere é quem está COM ele.
+  // Sem isto, o quadro de cobrança (que já olha a posse) cobraria da Barbara
+  // uma ficha que o cartão não deixava ela preencher.
+  quemEstaCom: (v) => quemEstaComOCarro(v, usos.value).pessoaId || v.pessoa_id,
+}))
+/* Qual carro está aberto pra preencher. Guarda o ID, nunca o objeto: a lista é
+ * recalculada a cada leitura, e um objeto guardado ficaria velho — depois de
+ * gravar, o carro sai de `paraConferir` e a tela continuaria mostrando o cartão
+ * dele, que é o "parece salvo e não salvou" ao contrário. Com o id, some
+ * sozinho. */
+const conferindoVeiculo = ref(null)
+const aberto = computed(() => {
+  const escolhido = conferindoVeiculo.value
+    && paraConferir.value.find((x) => x.veiculo.id === conferindoVeiculo.value)
+  if (escolhido) return escolhido
+  // O primeiro abre sozinho SÓ quando é o carro da própria pessoa: quem tem
+  // carro fixo não deve ter que escolher nada. Abrir o carro de outro sozinho
+  // seria empurrar o gestor a assinar pelo veículo errado.
+  return paraConferir.value[0]?.meu ? paraConferir.value[0] : null
+})
+const outrosParaConferir = computed(() =>
+  paraConferir.value.filter((x) => !aberto.value || x.veiculo.id !== aberto.value.veiculo.id))
+/* Hoje é dia de checklist? Fim de semana não pede nada (`cadenciasDoDia`
+ * devolve vazio), e o cartão se esconde sozinho. Sem esta guarda, a lista
+ * "Outros carros" ofereceria no sábado um botão que abre um cartão vazio —
+ * botão que não faz nada é a tela mentindo que faz. */
+const diaPedeChecklist = computed(() => cadenciasDoDia({
+  hoje: hoje.value, config: configDeChecklist.value,
+  ultimaSemanal: null, ultimaMensal: null,
+}).length > 0)
 
 const ultimaDoTipo = (veiculoId, cadencia) => {
   const l = fichas.value
@@ -798,6 +844,11 @@ async function gravarChecklist({ ficha, respostas, assinatura }) {
 
   gravando.value = false
   seloDoChecklist.value = selo({ queriaAssinar: !!assinar, assinaturaGravada })
+  // Limpa a escolha de "conferir por outro carro" (D21b). O `carregar()` já
+  // tiraria o carro de `paraConferir`, mas deixar o id apontando pra um carro
+  // que saiu da lista faria a próxima escolha depender de ordem de execução —
+  // e o cartão de outro carro pode reabrir sozinho no lugar errado.
+  conferindoVeiculo.value = null
   await carregar()
 }
 
@@ -1484,29 +1535,65 @@ onMounted(async () => {
         carro está com você. Dá pra pegar e devolver normalmente, escolhendo o nome na hora.
       </p>
 
-      <!-- O checklist de hoje, só pra quem tem carro fixo (D6/D9): quem usa
-           carro de rodízio o preenche na hora de pegar (F7, tarefa futura). -->
-      <PainelDeChecklist
-        v-if="meuCarroFixo && !fichaDeHoje"
-        data-tour="fr-checklist-hoje"
-        :veiculo="meuCarroFixo"
-        :itens="itensDeChecklist"
-        :config="configDeChecklist"
-        :ultima-semanal="ultimaDoTipo(meuCarroFixo.id, 'semanal')"
-        :ultima-mensal="ultimaDoTipo(meuCarroFixo.id, 'mensal')"
-        :ultimo-km="ultimoHodometro(fichas, meuCarroFixo.id)"
-        :hoje="hoje"
-        :gravando="gravando"
-        :pode-assinar="podeAssinar"
-        :erro-da-assinatura="erroDaAssinatura"
-        @gravar="gravarChecklist" />
-      <p class="fr-aviso" v-else-if="meuCarroFixo && fichaDeHoje">
+      <!-- O checklist de hoje. Era só do carro fixo da pessoa; agora quem
+           administra a Frota preenche por qualquer carro ativo (D21b), que é a
+           única saída enquanto três dos donos de carro não têm login. -->
+      <template v-if="aberto">
+        <!-- Quando o gestor preenche por outro, a tela DIZ de quem é o carro: a
+             ficha vai registrar o GESTOR como quem conferiu, e ele precisa
+             saber disso antes de assinar. -->
+        <p class="fr-aviso" v-if="!aberto.meu">
+          Você está preenchendo pelo {{ aberto.veiculo.nome }}<template v-if="aberto.donoId && nomeDaPessoa(aberto.donoId)">, que é o carro de {{ nomeDaPessoa(aberto.donoId) }}</template>.
+          A ficha vai registrar que <strong>você</strong> conferiu este carro — não o dono dele.
+        </p>
+        <PainelDeChecklist
+          :key="aberto.veiculo.id"
+          data-tour="fr-checklist-hoje"
+          :veiculo="aberto.veiculo"
+          :itens="itensDeChecklist"
+          :config="configDeChecklist"
+          :ultima-semanal="ultimaDoTipo(aberto.veiculo.id, 'semanal')"
+          :ultima-mensal="ultimaDoTipo(aberto.veiculo.id, 'mensal')"
+          :ultimo-km="ultimoHodometro(fichas, aberto.veiculo.id)"
+          :hoje="hoje"
+          :gravando="gravando"
+          :pode-assinar="podeAssinar"
+          :erro-da-assinatura="erroDaAssinatura"
+          @gravar="gravarChecklist" />
+      </template>
+      <!-- `v-if` PRÓPRIO, não `v-else-if` do cartão: as duas frases respondem
+           perguntas diferentes agora. Encadeadas, o gestor que abrisse o carro
+           de outra pessoa deixaria de ver que o SEU já estava feito. -->
+      <p class="fr-aviso" v-if="meuCarroFixo && fichaDeHoje">
         Checklist de hoje já feito, com {{ fichaDeHoje.hodometro.toLocaleString('pt-BR') }} km.
       </p>
       <!-- "Gravado" e "gravado e assinado" são coisas diferentes, e a pessoa
-           tem que saber qual das duas aconteceu com ela (D22). -->
+           tem que saber qual das duas aconteceu com ela (D22). Fica AQUI, logo
+           abaixo do cartão: depois da lista de outros carros, a resposta do que
+           acabou de acontecer nasceria longe demais de onde se apertou o botão. -->
       <p class="fr-aviso" v-if="seloDoChecklist">{{ seloDoChecklist }}</p>
       <p class="fr-erro" v-if="erroChecklist">{{ erroChecklist }}</p>
+
+      <!-- Os outros carros que quem administra pode conferir. Não aparece pra
+           quem só dirige: essa pessoa tem um carro e mais nada. -->
+      <template v-if="ehGestorDaFrota && diaPedeChecklist && outrosParaConferir.length">
+        <h2 class="fr-secao">Outros carros sem checklist hoje</h2>
+        <p class="fr-aviso">
+          Você administra a Frota, então pode preencher a ficha destes carros. Quem preencher
+          fica registrado na ficha — preencha só o que você conferiu de verdade.
+        </p>
+        <ul class="fr-outros">
+          <li v-for="x in outrosParaConferir" :key="x.veiculo.id">
+            <div class="fr-outros-ident">
+              <span class="fr-card-nome">{{ x.veiculo.nome }}</span>
+              <span class="fr-placa">
+                {{ x.donoId && nomeDaPessoa(x.donoId) ? nomeDaPessoa(x.donoId) : 'sem responsável fixo' }}
+              </span>
+            </div>
+            <button class="fr-btn" @click="conferindoVeiculo = x.veiculo.id">Conferir este</button>
+          </li>
+        </ul>
+      </template>
 
       <template v-if="meuCarroFixo">
         <h2 class="fr-secao">Seu carro</h2>
@@ -2496,6 +2583,23 @@ onMounted(async () => {
 .tela-frota .fr-cobranca-selo.sem-assinatura{
   background:color-mix(in srgb, var(--orange) 16%, var(--surface));
   color:var(--text);white-space:normal;text-align:right;}
+
+/* "Outros carros sem checklist hoje" (D21b). Uma linha por carro: nome, de quem
+   ele é, e o botão. No celular vira coluna, senão o nome comprido ("FIAT PUNTO
+   ESSENCE 1.6") espremeria o botão contra a borda — e `overflow-x:clip` cortaria
+   isso em silêncio, sem barra de rolagem pra denunciar. */
+.tela-frota .fr-outros{list-style:none;margin:0;padding:0 14px;display:flex;flex-direction:column;gap:10px;}
+.tela-frota .fr-outros li{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);}
+.tela-frota .fr-outros-ident{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 160px;overflow-wrap:anywhere;}
+.tela-frota .fr-outros li .fr-btn{flex:0 0 auto;}
+@media (max-width:640px){
+  .tela-frota .fr-outros li{align-items:stretch;flex-direction:column;}
+  /* O `flex-basis:160px` de cima vira ALTURA quando a linha vira coluna, e
+     abria um buraco de 160px entre o nome e o botão — visto na foto, não
+     deduzido. Em coluna, a caixa do nome tem a altura do que ela contém. */
+  .tela-frota .fr-outros-ident{flex:0 0 auto;}
+  .tela-frota .fr-outros li .fr-btn{width:100%;}
+}
 
 /* O resultado da conferência. Quatro estados, e a cor é a diferença entre
    acusar e avisar: vermelho SÓ quando alguma coisa mudou depois de assinada. */

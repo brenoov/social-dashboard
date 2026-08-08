@@ -6,7 +6,7 @@ import {
   itensDaFicha, hodometroAceito, problemasDaFicha,
   quemFaltaHoje, resumoDaCobranca, precisaDeChecklist,
   problemasDoItemDeChecklist,
-  telefoneDaCobranca, problemasAbertosHoje,
+  telefoneDaCobranca, problemasAbertosHoje, veiculosParaConferir,
 } from './checklist.js'
 
 // Padrão do banco: semanal na sexta, mensal na 1ª quarta-feira.
@@ -495,4 +495,94 @@ test('a ordem é por nome do carro, depois pelo item', () => {
   // FIAT PUNTO vem antes de VOLVO XC60 alfabeticamente.
   assert.equal(p[0].veiculoNome, 'FIAT PUNTO')
   assert.equal(p[1].veiculoNome, 'VOLVO XC60')
+})
+
+/* ── Por quais carros esta pessoa pode preencher (D21b) ──────────────────── */
+
+const FROTA = [
+  { id: 'v1', nome: 'FIAT PUNTO', pessoa_id: 'p1', situacao: 'ativo' },
+  { id: 'v2', nome: 'VOLVO XC60', pessoa_id: 'p2', situacao: 'ativo' },
+  { id: 'v3', nome: 'HONDA FIT',  pessoa_id: null, situacao: 'ativo' },
+  { id: 'v4', nome: 'FIAT DOBLO', pessoa_id: 'p9', situacao: 'em_manutencao' },
+]
+
+test('quem só dirige vê apenas o próprio carro', () => {
+  const l = veiculosParaConferir({ veiculos: FROTA, euId: 'p1', ehGestor: false, fichas: [], hoje: '2026-08-06' })
+  assert.deepEqual(l.map((x) => x.veiculo.id), ['v1'])
+  assert.equal(l[0].meu, true)
+})
+
+test('quem administra vê todos os ativos, com o próprio na frente', () => {
+  // O carro da pessoa vem primeiro: é o que ela provavelmente veio fazer.
+  const l = veiculosParaConferir({ veiculos: FROTA, euId: 'p2', ehGestor: true, fichas: [], hoje: '2026-08-06' })
+  assert.deepEqual(l.map((x) => x.veiculo.id), ['v2', 'v1', 'v3'])
+  assert.equal(l[0].meu, true)
+  assert.equal(l[1].meu, false)
+})
+
+test('carro fora de operação não entra nem pro gestor', () => {
+  const l = veiculosParaConferir({ veiculos: FROTA, euId: 'p1', ehGestor: true, fichas: [], hoje: '2026-08-06' })
+  assert.equal(l.some((x) => x.veiculo.id === 'v4'), false)
+})
+
+test('carro que já tem ficha hoje sai da lista', () => {
+  const fichas = [{ veiculo_id: 'v1', feita_em: '2026-08-06' }]
+  const l = veiculosParaConferir({ veiculos: FROTA, euId: 'p1', ehGestor: true, fichas, hoje: '2026-08-06' })
+  assert.equal(l.some((x) => x.veiculo.id === 'v1'), false)
+})
+
+test('ficha de ontem não conta como feita hoje', () => {
+  const fichas = [{ veiculo_id: 'v1', feita_em: '2026-08-05' }]
+  const l = veiculosParaConferir({ veiculos: FROTA, euId: 'p1', ehGestor: false, fichas, hoje: '2026-08-06' })
+  assert.equal(l.length, 1)
+})
+
+test('gestor sem carro próprio vê todos, sem quebrar', () => {
+  const l = veiculosParaConferir({ veiculos: FROTA, euId: 'p9', ehGestor: true, fichas: [], hoje: '2026-08-06' })
+  assert.deepEqual(l.map((x) => x.veiculo.id), ['v1', 'v3', 'v2'])
+  assert.equal(l.every((x) => !x.meu), true)
+})
+
+test('o dono do carro vem junto, pro gestor saber por quem está preenchendo', () => {
+  const l = veiculosParaConferir({ veiculos: FROTA, euId: 'p2', ehGestor: true, fichas: [], hoje: '2026-08-06' })
+  const punto = l.find((x) => x.veiculo.id === 'v1')
+  assert.equal(punto.donoId, 'p1')
+})
+
+/* Os que o brief não pediu, e que existem porque a tela depende deles ─────── */
+
+test('quem está COM o carro emprestado o vê como seu (D9b)', () => {
+  // Marcus emprestou o Punto pra Barbara. Sem isto, ela não veria o cartão de
+  // checklist de um carro que está com ela — e o quadro de cobrança, que já
+  // olha a posse, cobraria dela uma ficha que a tela não deixava preencher.
+  const l = veiculosParaConferir({ veiculos: FROTA, euId: 'barbara', ehGestor: false,
+    fichas: [], hoje: '2026-08-06', quemEstaCom: (v) => (v.id === 'v1' ? 'barbara' : v.pessoa_id) })
+  assert.deepEqual(l.map((x) => x.veiculo.id), ['v1'])
+  assert.equal(l[0].meu, true)
+  // E o dono CONTINUA sendo o Marcus: é o cadastro do carro, não quem está com
+  // ele hoje. Trocar isso faria a tela dizer que o carro é de quem pegou.
+  assert.equal(l[0].donoId, 'p1')
+})
+
+test('emprestar o carro tira ele do "meu" de quem emprestou', () => {
+  const l = veiculosParaConferir({ veiculos: FROTA, euId: 'p1', ehGestor: true,
+    fichas: [], hoje: '2026-08-06', quemEstaCom: (v) => (v.id === 'v1' ? 'barbara' : v.pessoa_id) })
+  assert.equal(l.find((x) => x.veiculo.id === 'v1').meu, false)
+  // e sem carro "meu" nenhum, nada abre sozinho: o primeiro da lista não é dele
+  assert.equal(l[0].meu, false)
+})
+
+test('quem não foi achado no cadastro (euId nulo) não vira dono de carro sem dono', () => {
+  // `v3` não tem `pessoa_id`. Sem a guarda, `null === null` daria "meu" e o
+  // cartão de um carro de rodízio abriria sozinho pra quem não foi
+  // identificado.
+  const l = veiculosParaConferir({ veiculos: FROTA, euId: null, ehGestor: true, fichas: [], hoje: '2026-08-06' })
+  assert.equal(l.every((x) => !x.meu), true)
+  const so = veiculosParaConferir({ veiculos: FROTA, euId: null, ehGestor: false, fichas: [], hoje: '2026-08-06' })
+  assert.deepEqual(so, [])
+})
+
+test('lista vazia e entrada suja não derrubam nada', () => {
+  assert.deepEqual(veiculosParaConferir({}), [])
+  assert.deepEqual(veiculosParaConferir({ veiculos: [null, undefined], euId: 'p1', ehGestor: true }), [])
 })
