@@ -2041,6 +2041,9 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-patrimonio .pat-ficha-fundo > *{overscroll-behavior:contain;touch-action:pan-y;}
 .tela-patrimonio .pat-ficha{background:var(--surface);width:100%;max-width:520px;max-height:88vh;display:flex;flex-direction:column;border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.28);}
 .tela-patrimonio .pat-ficha-topo{display:flex;align-items:center;gap:10px;padding:14px;border-bottom:1px solid var(--border);}
+/* 34px aqui, 40px no celular (bloco max-width:640px). Este arquivo é
+   desktop-first, então o tamanho do dedo entra na media query — o contrário da
+   Frota, que é mobile-first. Ver o comentário lá embaixo. */
 .tela-patrimonio .pat-ficha-fechar{width:34px;height:34px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);font-size:15px;cursor:pointer;touch-action:manipulation;}
 /* flex:1 empurra o "?" de dentro do modal pro canto direito, junto do X —
    sem isto os 3 filhos do topo (fechar, título, ajuda) ficariam agrupados à
@@ -2144,6 +2147,15 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
      sobra, e o "?" divide a linha com o ✕ — 40px lá deixaria os dois quase
      encostados. Mesma decisão do fr-btn-ajuda na Frota. */
   .tela-patrimonio .pat-btn-ajuda{width:40px;height:40px;font-size:14px;}
+  /* O ✕ dos 3 modais, pela mesma regra: o PADRÃO pede "botão de fechar com 40px
+     de alvo", e ele estava em 34px. Fica só no celular — 40px é a medida do
+     DEDO; no computador o ponteiro acerta 34px de sobra, e o topo do modal é
+     apertado (aqui o ✕ mora à esquerda do título, não junto do "?", então o
+     motivo é o do ponteiro, não o de encostar um no outro).
+     ⚠️ padrao-da-central.test.mjs NÃO pega isto (ele lê `style=` inline, e a
+     medida está em classe). Medido no navegador: 40 a 375px e a 640px, 34 a
+     partir de 641px. */
+  .tela-patrimonio .pat-ficha-fechar{width:40px;height:40px;}
   /* No celular a logo SAI. Nao e o tamanho dela: e a largura. O titulo desta
      barra e o caminho onde voce esta ("Vessel Conchal > Fabrica > Escritorio"),
      e com a logo ocupando a linha ele quebrava em duas — a barra ia de 49 pra

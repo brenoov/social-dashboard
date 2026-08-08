@@ -2830,7 +2830,15 @@ onMounted(async () => {
    três filhos do topo (título, ajuda, fechar) ficariam espaçados igualmente
    pelo justify-content:space-between de cima, com o "?" preso no meio. */
 .tela-frota .fr-ficha-titulo{flex:1;min-width:0;font-family:var(--fonte-principal);font-size:12.5px;font-weight:700;letter-spacing:.6px;color:var(--text);}
-.tela-frota .fr-fechar{appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:9px;width:34px;height:34px;font-size:15px;cursor:pointer;flex:0 0 auto;}
+/* O ✕ dos 6 modais. 40px na base (celular) porque o PADRÃO manda: "botão de
+   fechar com 40px de alvo" e "dedo não acerta menos que isso". Estava em 34px,
+   e errar o ✕ num modal que trava a rolagem do fundo é ficar preso na ficha.
+   No computador volta pra 34px (bloco min-width:900px) — mesma decisão do
+   fr-btn-ajuda logo abaixo, e pelo mesmo motivo: o ✕ divide a linha com o "?"
+   com 10px de gap, e engordar os dois no desktop deixaria eles encostados.
+   ⚠️ O teste padrao-da-central.test.mjs NÃO enxerga isto: ele lê `style=` no
+   HTML, e a medida mora aqui, em classe. Conferido no navegador. */
+.tela-frota .fr-fechar{appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:9px;width:40px;height:40px;font-size:15px;cursor:pointer;flex:0 0 auto;touch-action:manipulation;}
 /* O "?" de dentro do modal, que abre o passeio pelos campos DELE — mesmo
    desenho redondo do "?" da barra de topo (pat-btn-ajuda no Patrimônio), só
    que com as classes fr- desta tela. */
@@ -2864,5 +2872,9 @@ onMounted(async () => {
   .tela-frota .fr-checklist-editor{padding:4px 24px 40px;}
   /* Ponteiro do mouse acerta 24px sem esforço — ver o comentário no fr-btn-ajuda. */
   .tela-frota .fr-btn-ajuda{width:24px;height:24px;font-size:12px;}
+  /* E o ✕ volta pra 34px aqui pelo mesmo motivo: no computador o ponteiro
+     acerta 34px de sobra, e os dois em 40px ficariam quase encostados com só
+     10px de gap entre eles. */
+  .tela-frota .fr-fechar{width:34px;height:34px;}
 }
 </style>
