@@ -1091,6 +1091,8 @@
 }
 .ctd-busca-in::-webkit-search-cancel-button { display: none; }
 .ctd-busca-in:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* 16px no celular: abaixo disso o iOS da zoom sozinho ao focar. */
+@media (max-width: 640px) { .ctd-busca-in { font-size: 16px; } }
 .ctd-busca-x {
   position: absolute; right: 6px; background: none; border: none; cursor: pointer;
   color: var(--muted); font-size: 16px; line-height: 1; padding: 4px 6px; border-radius: 6px;

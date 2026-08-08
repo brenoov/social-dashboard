@@ -7,7 +7,7 @@
 .fest{
   --void:#05080c; --panel:#0e1622; --panel-2:#101a28; --grid-l:#16222f;
   --edge:#22303f; --edge-hot:#33506a;
-  --ink:#dbe6f1; --ink-dim:#8299ad; --ink-faint:#5a6f83;
+  --ink:#dbe6f1; --ink-dim:#8299ad; --ink-faint:#7b90a4;   /* era #5a6f83: 3,49 sobre o painel */
   --amber:#ffb23a; --amber-soft:#ffcf7a; --cyan:#48e6d6;
   --go:#33d17a; --hold:#ffc24a; --abort:#ff5a45; --idle:#5b7288;
   --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
@@ -48,6 +48,12 @@
   --void:#e9eff5; --panel:#ffffff; --panel-2:#f2f6fa; --grid-l:#d5dfe9;
   --edge:#cbd7e3; --edge-hot:#93a8bd;
   --ink:#17232f; --ink-dim:#4c5e6e; --ink-faint:#7c8ea0;
+  /* NAO MEXER SEM ANALISAR A TELA INTEIRA. Cheguei a escurecer este tom porque
+     medi 3,37 de contraste -- mas o Estudio renderiza ESCURO mesmo com o tema
+     claro ligado (e ferramenta de edicao, como um estudio de verdade), e o
+     mesmo `.k` aparece sobre o cabecalho claro E sobre o painel escuro. Um tom
+     que conserta um contexto estraga o outro. O conserto certo e separar os
+     dois contextos, e isso e trabalho proprio -- nao ajuste de token. */
   --amber:#c47f10; --amber-soft:#e2a542; --cyan:#0f9b8e;
   --go:#1f9d5a; --hold:#c8920f; --abort:#e23b28; --idle:#93a3b3;
 }
@@ -69,7 +75,7 @@
 .fest .pub-badge.ok{color:#3ad07f; border-color:rgba(58,208,127,.4)}
 .fest .pub-badge.warn{color:var(--amber); border-color:rgba(255,178,58,.4)}
 .fest .pub-badge.bad{color:#ff6b6b; border-color:rgba(255,107,107,.45)}
-.fest .pub-badge.mute{opacity:.55}
+.fest .pub-badge.mute{opacity:.78}   /* .55 deixava o selo em 2,70 */
 .fest .brand{margin-right:auto}
 .fest .brand .t{font-size:15px; letter-spacing:.16em; text-transform:uppercase; color:var(--amber)}
 .fest .brand .s{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-dim); margin-top:2px}
@@ -269,7 +275,7 @@
 .fest .fab-selall{display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-dim); cursor:pointer; white-space:nowrap}
 .fest .fab-card.sel{border-color:var(--cyan); background:linear-gradient(180deg,rgba(72,230,214,.06),transparent)}
 .fest .ph-right{flex-wrap:wrap}
-.fest .cmd.danger{border-color:var(--abort); color:var(--abort); background:rgba(255,90,69,.12)}
+.fest .cmd.danger{border-color:var(--abort); color:color-mix(in srgb,var(--abort) 72%,var(--ink)); background:rgba(255,90,69,.12)}
 .fest .cmd.danger:not(:disabled):hover{background:rgba(255,90,69,.22); box-shadow:0 10px 26px -14px rgba(255,90,69,.6)}
 .fest .cmd:disabled{opacity:.45; cursor:default}
 

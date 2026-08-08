@@ -765,7 +765,7 @@ onUnmounted(() => {
     radial-gradient(70% 120% at 0% 100%, color-mix(in srgb, var(--violet) 15%, transparent) 0%, transparent 52%),
     var(--surface); box-shadow: var(--shadow-md); overflow: hidden; }
 .csc-hero-txt { flex: 1 1 380px; display: flex; flex-direction: column; justify-content: center; }
-.csc-hero-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: var(--accent); }
+.csc-hero-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: var(--accent-forte); }
 .csc-hero-h1 { font-family: var(--fd); font-size: clamp(30px, 4.6vw, 52px); font-weight: 600; letter-spacing: -.5px; color: var(--text); margin: 10px 0 14px; line-height: 1.02; }
 .csc-hero-p { font-size: clamp(14px, 1.1vw, 16px); line-height: 1.65; color: var(--muted); max-width: 620px; }
 .csc-hero-p b { color: var(--text); font-weight: 600; }
