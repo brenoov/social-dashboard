@@ -1518,7 +1518,7 @@
   .banco-progress-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;}
   .banco-progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .25s ease;}
   .banco-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
-  .banco-search{flex:1;padding:9px 13px;border-radius:var(--radius-md);border:1.5px solid var(--border);background:var(--surface);font-family:var(--fonte-principal);font-size:13px;color:var(--text);outline:none;transition:border-color .18s;}
+  .banco-search{flex:1;padding:9px 13px;border-radius:var(--radius-md);border:1.5px solid var(--border);background:var(--surface);font-family:var(--fonte-principal);font-size:16px;color:var(--text);outline:none;transition:border-color .18s;}
   .banco-search:focus{border-color:var(--accent);}
   .banco-stats-lbl{font-family:var(--fonte-principal);font-size:11px;color:var(--muted);white-space:nowrap;flex-shrink:0;}
   .banco-file-list{display:flex;flex-direction:column;gap:4px;}
@@ -1627,7 +1627,41 @@ img{max-width:100%;}
 .bt-acao.so-icone{padding:8px;width:36px;}
 .bt-acao:disabled{opacity:.55;cursor:default;}
 @media(max-width:640px){
+  /* CAMPO NUNCA ABAIXO DE 16px NO CELULAR. Não é estética: abaixo disso o iOS
+     dá zoom sozinho ao focar, e a tela salta na cara de quem está digitando --
+     depois fica torta até a pessoa fechar o teclado e voltar na mão.
+     Vale pra Central inteira, inclusive pro campo que ainda vai ser escrito. */
+  input, select, textarea{font-size:16px;}
+
+  /* ALVO DE TOQUE DE 40px SEM MUDAR O DESENHO.
+     O padrão pede 40px de altura pro dedo, mas engordar uma aba de 24px ou a
+     lupa de 22px estragaria a diagramação — e o dono já reclamou de tela
+     inchada. Então quem cresce é a ÁREA DO DEDO, não o botão: um ::after
+     invisível centralizado, com a altura mínima. Só no celular; no computador
+     o mouse acerta o alvo real.
+
+     Nenhuma destas classes usava ::after (conferido antes), e o `position` só
+     é declarado onde ainda não havia. */
+  .ptab, .sa-tab, .eng-tab, .gv-pbtn, .gc-lupa, .gc-xls-btn,
+  .banco-dl-btn, .banco-del-btn, .av-edit-btn, .ac-setor-del,
+  .gc-info, .profile-btn, .passeio-btn, .gt-auto-btn, .pnd-aba-acao,
+  .vs-ac-toggle, .sa-canal-trigger, .gv-cf-trigger, .custom-range-btn,
+  .view-toggle-btn, .pat-ver-todos, .btn-campaign-filter{position:relative;}
+  .ptab::after, .sa-tab::after, .eng-tab::after, .gv-pbtn::after, .gc-lupa::after,
+  .gc-xls-btn::after, .banco-dl-btn::after, .banco-del-btn::after,
+  .av-edit-btn::after, .ac-setor-del::after, .gc-info::after, .profile-btn::after,
+  .passeio-btn::after, .gt-auto-btn::after, .pnd-aba-acao::after,
+  .vs-ac-toggle::after, .sa-canal-trigger::after, .gv-cf-trigger::after,
+  .custom-range-btn::after, .view-toggle-btn::after, .pat-ver-todos::after,
+  .btn-campaign-filter::after{
+    content:'';position:absolute;left:0;right:0;top:50%;
+    transform:translateY(-50%);height:40px;
+  }
+
   .bt-dir > .bt-acao{flex:1 1 auto;min-height:42px;font-size:12.5px;}
+  /* Só o SELECT: campo abaixo de 16px faz o iOS dar zoom ao focar. O botão
+     continua em 12,5px -- engordar todos estouraria a faixa de ações. */
+  select.bt-acao, .bt-dir > select.bt-acao{font-size:16px;}
   /* Botão de ícone não estica: tem uma letra só dentro, e esticar deixa um "?"
      solto no meio de um botão do tamanho de "Exportar". */
   .bt-dir > .bt-acao.so-icone{flex:0 0 auto;width:42px;}

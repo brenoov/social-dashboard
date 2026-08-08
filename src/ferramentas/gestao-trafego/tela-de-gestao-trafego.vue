@@ -64,7 +64,7 @@
       <div id="gt-account-picker" onclick="event.stopPropagation()" style="position:relative;display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
         <button class="btn" id="gt-acc-trigger" onclick="event.stopPropagation();toggleGtAccPicker()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.6"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          <span id="gt-acc-name" style="font-weight:500;max-width:140px;overflow:hidden;text-overflow:ellipsis;">—</span>
+          <span id="gt-acc-name" style="font-weight:500;max-width:200px;overflow-wrap:anywhere;">—</span>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         <div id="gt-acc-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:270px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.18);z-index:999;overflow:hidden;max-height:340px;overflow-y:auto;" onclick="event.stopPropagation()"></div>

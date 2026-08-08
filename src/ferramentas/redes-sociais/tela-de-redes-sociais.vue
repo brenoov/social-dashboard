@@ -2855,6 +2855,9 @@ onUnmounted(() => {
 .tela-redes-sociais :deep(.custom-range-btn):hover,.tela-redes-sociais :deep(.custom-range-btn.active){border-color:var(--accent);color:var(--accent);}
 .tela-redes-sociais :deep(.custom-date-input){font-family:var(--fonte-principal);font-weight:400;font-size:10px;padding:4px 7px;border-radius:3px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);outline:none;cursor:pointer;flex-shrink:0;}
 .tela-redes-sociais :deep(.custom-date-input):hover,.tela-redes-sociais :deep(.custom-date-input):focus{border-color:var(--accent);}
+/* 16px no celular: abaixo disso o iOS da zoom sozinho ao focar. No
+   computador o tamanho miudo continua, que la nao ha esse efeito. */
+@media(max-width:640px){.tela-redes-sociais :deep(.custom-date-input){font-size:16px;}}
 .tela-redes-sociais :deep(.custom-range-inline){display:flex;align-items:center;gap:5px;flex-wrap:nowrap;flex-shrink:0;}
 .tela-redes-sociais :deep(.custom-range-lbl){font-family:var(--fonte-principal);font-size:11px;color:var(--muted);}
 .tela-redes-sociais :deep(.eng-tabs){display:inline-flex;gap:4px;flex-wrap:wrap;margin-bottom:22px;padding:4px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;}

@@ -192,6 +192,9 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-banco :deep(.banco-toolbar){display:flex;align-items:center;gap:10px;margin-bottom:14px;}
 .tela-banco :deep(.banco-search){flex:1;padding:9px 13px;border-radius:var(--radius-md);border:1.5px solid var(--border);background:var(--surface);font-family:var(--fonte-principal);font-size:13px;color:var(--text);outline:none;transition:border-color .18s;}
 .tela-banco :deep(.banco-search:focus){border-color:var(--accent);}
+/* 16px no celular: abaixo disso o iOS da zoom sozinho ao focar. No
+   computador o tamanho miudo continua, que la nao ha esse efeito. */
+@media(max-width:640px){.tela-banco :deep(.banco-search){font-size:16px;}}
 .tela-banco :deep(.banco-stats-lbl){font-family:var(--fonte-principal);font-size:11px;color:var(--muted);white-space:nowrap;flex-shrink:0;}
 .tela-banco :deep(.banco-file-list){display:flex;flex-direction:column;gap:4px;}
 .tela-banco :deep(.banco-file-row){display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:var(--radius-md);background:var(--surface);border:1px solid var(--border);transition:border-color .15s,box-shadow .15s;}

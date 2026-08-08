@@ -42,7 +42,7 @@
         <button class="btn" id="ma-acc-trigger" onclick="event.stopPropagation();toggleMaAccPicker()">
           <img id="ma-acc-img" style="width:22px;height:22px;border-radius:50%;object-fit:cover;display:none;flex-shrink:0;" alt="">
           <span id="ma-acc-av" style="width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--fonte-principal);font-size:11px;font-weight:700;color:var(--sobre-cor);flex-shrink:0;"></span>
-          <span id="ma-acc-name" style="font-weight:500;max-width:130px;overflow:hidden;text-overflow:ellipsis;">—</span>
+          <span id="ma-acc-name" style="font-weight:500;max-width:200px;overflow-wrap:anywhere;">—</span>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         <div id="ma-acc-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:260px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.18);z-index:999;overflow:hidden;" onclick="event.stopPropagation()"></div>
@@ -1401,7 +1401,7 @@ Object.assign(window, {
    ficam FORA da árvore do componente no DOM, então o atributo de escopo do
    Vue (data-v-*) nunca chega até eles e nenhum :deep() no bloco acima
    alcança esses elementos. Precisam de CSS global de verdade. */
-.custom-date-input{font-family:var(--fonte-principal);font-weight:400;font-size:11px;padding:5px 10px;border-radius:3px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);outline:none;cursor:pointer;}
+.custom-date-input{font-family:var(--fonte-principal);font-weight:400;font-size:16px;padding:5px 10px;border-radius:3px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);outline:none;cursor:pointer;}
 .custom-date-input:focus{border-color:var(--accent);}
 @keyframes slideInRight{from{transform:translateX(100%);opacity:0;}to{transform:translateX(0);opacity:1;}}
 @keyframes fadeInBd{from{opacity:0;}to{opacity:1;}}
