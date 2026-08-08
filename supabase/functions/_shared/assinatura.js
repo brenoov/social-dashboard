@@ -41,7 +41,12 @@ const campo = (v) => JSON.stringify(v === undefined ? null : v);
 // Então o instante entra em UMA forma só, derivada de `Date.parse` (o mesmo
 // número dos dois lados) e reemitida por `toISOString`. Texto que não é
 // instante passa cru: um campo ilegível não pode virar data inventada.
-const instanteCanonico = (v) => {
+// EXPORTADO porque o PDF (F7b) precisa imprimir EXATAMENTE o instante que foi
+// assinado. Se o papel formatasse a data por conta própria a partir do texto
+// cru do banco, ele mostraria um instante e a assinatura cobriria outro — e o
+// documento passaria a discordar do sistema justamente no campo que existe pra
+// provar quando a conferência aconteceu.
+export const instanteCanonico = (v) => {
   if (v === null || v === undefined) return null;
   const t = Date.parse(v);
   return Number.isNaN(t) ? v : new Date(t).toISOString();

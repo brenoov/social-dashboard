@@ -24,3 +24,10 @@ a janela de métricas de 7/14/30 dias e não é mais chamada por nenhuma tela.
 probe-fidelidade: função de diagnóstico/backfill temporária, também já
 desligada — só devolve um aviso de que está desativada. Não é mais chamada
 por nenhuma tela.
+
+enviar-pdf-checklist: robô da Frota. Pega as fichas de checklist já
+assinadas que estão na fila (tabela frota_checklist_pdf), monta o PDF de
+cada uma e arquiva no Zoho WorkDrive, dentro da pasta "Gestão de Serviços",
+em Frota / <carro> / <ano-mês>. Não é chamada por tela nenhuma: quem chama é
+o cron. Se o Zoho estiver fora, a ficha continua assinada e válida — só o
+papel atrasa, e o motivo fica escrito na fila em português.
