@@ -168,6 +168,26 @@ página.
 .minha-caixa{ overscroll-behavior:contain; touch-action:pan-y; }
 ```
 
+Sem esse par, o dedo arrasta a tela pros lados por dentro do modal.
+
+> **O estrago:** eu apliquei esse par só na tela que o dono estava olhando.
+> Os outros 27 fundos de modal da Central continuaram arrastando por semanas.
+
+### O defeito mais silencioso de todos: a diretiva que ninguém registrou
+
+`v-trava-rolagem` estava escrita em 8 modais e **nenhum deles travava nada.**
+Em `<script setup>`, uma diretiva só existe se for importada no componente ou
+registrada no `createApp` — e não era nem uma coisa nem outra. O Vue não
+quebra nesse caso: escreve `Failed to resolve directive` no console e segue.
+
+Módulo pronto, testes verdes, diretiva exportada e usada — e o comportamento
+simplesmente não acontecia.
+
+**Regra que vale para qualquer coisa registrada no app** (diretiva, componente
+global, plugin): escrever no template não é ligar. Se o efeito é invisível
+quando falha, ele precisa de teste — `diretiva-usada-esta-registrada.test.mjs`
+lê o console por você a cada rodada.
+
 O `travar-rolagem-de-fundo.js` usa **contador, não booleano**: dois modais podem se
 sobrepor (abrir o editor de permissões de dentro da ficha), e com booleano
 fechar o de cima destravaria a página com o de baixo ainda aberto.
