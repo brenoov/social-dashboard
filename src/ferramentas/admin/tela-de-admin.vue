@@ -669,6 +669,12 @@ async function loadAdminEquipes() {
       sbClient.from('profiles').select('id,name,email,disabled,escopo_por_equipe').order('name'),
     ])
     if (rp.error) throw rp.error
+    // `sb()` NAO lanca: devolve [] com `.erro` anexado. Sem conferir, uma falha
+    // de rede ou de permissao virava "0 times cadastrados" na tela -- o numero
+    // errado com cara de verdade, que e o defeito que o `.erro` existe pra
+    // evitar. Confira ANTES de transformar: `.filter`/`.map` perdem o `.erro`.
+    const falhou = times.erro || membros.erro || canais.erro
+    if (falhou) throw new Error(falhou.mensagem || String(falhou))
     _eqTimes = times || []; _eqMembros = membros || []
     _eqPessoas = rp.data || []; _eqCanais = canais || []
     _eqDesenhar()
@@ -2043,6 +2049,11 @@ async function adminInviteUser(mode) {
 async function loadAdminAccounts() {
   const accounts = await sb('accounts?order=name.asc&select=id,name,username,instagram_id,picture_url,accent_color')
   const c = document.getElementById('admin-accounts-list'); c.innerHTML = ''
+  if (accounts.erro) {
+    c.appendChild(mkEl('div', null, 'Não consegui carregar as contas: ' + (accounts.erro.mensagem || 'erro desconhecido')))
+    c.lastChild.style.color = 'var(--red)'
+    return
+  }
   accounts.forEach(acc => {
     const storedColor = acc.accent_color || (PROFILE_THEMES[acc.name] || { accent: '#1A3A6B' }).accent
     const card = mkEl('div', 'sg'); card.style.marginBottom = '12px'
@@ -2089,12 +2100,18 @@ async function loadAdminAccounts() {
 async function loadAdminData() {
   const accounts = await sb('accounts?order=name.asc&select=id,name')
   const syncEl = document.getElementById('admin-data-sync')
+  if (accounts.erro) {
+    syncEl.innerHTML = ''
+    const aviso = mkEl('div', null, 'Não consegui carregar as contas: ' + (accounts.erro.mensagem || 'erro desconhecido'))
+    aviso.style.color = 'var(--red)'; syncEl.appendChild(aviso)
+    return
+  }
   syncEl.innerHTML = ''; const loading = mkEl('div', 'sr'); loading.appendChild(mkEl('span', null, 'Carregando...')); syncEl.appendChild(loading)
   const [daily, eng, cnt, ads, syncResults] = await Promise.all([
-    sb('daily_snapshots?select=id').then(r => r.length).catch(() => '?'),
-    sb('engagement_snapshots?select=id').then(r => r.length).catch(() => '?'),
-    sb('content_snapshots?select=id').then(r => r.length).catch(() => '?'),
-    sb('ads_snapshots?select=id').then(r => r.length).catch(() => '?'),
+    sb('daily_snapshots?select=id').then(r => r.erro ? '?' : r.length),
+    sb('engagement_snapshots?select=id').then(r => r.erro ? '?' : r.length),
+    sb('content_snapshots?select=id').then(r => r.erro ? '?' : r.length),
+    sb('ads_snapshots?select=id').then(r => r.erro ? '?' : r.length),
     Promise.all(accounts.map(a => sb(`daily_snapshots?account_id=eq.${a.id}&order=captured_at.desc&limit=1&select=captured_at,followers_count`).then(r => ({ a, d: r[0] || null }))))
   ])
   const stats = document.getElementById('admin-data-stats'); stats.innerHTML = ''
