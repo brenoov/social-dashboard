@@ -6,7 +6,7 @@
 // três saídas de discordarem entre si — a mesma razão pela qual COLUNAS_PLANILHA
 // já existe.
 
-import { COLUNAS_PLANILHA } from './planilha-e-resumo.js'
+import { COLUNAS_PLANILHA, resumirPor } from './planilha-e-resumo.js'
 
 // A linha achatada guarda o NOME da marca e do local ("Vessel", "Fábrica
 // Conchal"), não o id. Recortar por nome quebraria justamente nos homônimos —
@@ -103,6 +103,39 @@ export const RELATORIOS_DO_PATRIMONIO = [
           motivo: p.motivo || '',
         }]
       })
+    },
+  },
+
+  {
+    chave: 'resumo',
+    titulo: 'Resumo por marca/local',
+    explicacao: 'Só os totais: quanto tem cada marca, cada local. Sem listar item por item.',
+    periodo: false,
+    colunas: [
+      { chave: 'grupo', titulo: 'Grupo', tipo: 'texto' },
+      { chave: 'quantidade', titulo: 'Itens', tipo: 'numero' },
+      { chave: 'total_centavos', titulo: 'Valor total', tipo: 'dinheiro' },
+      { chave: 'fatia', titulo: '% do total', tipo: 'texto' },
+    ],
+    // Este relatório JÁ é a separação por marca/local, e ele mesmo desce um
+    // nível conforme o recorte (ver `montar`). Deixar o filtro genérico cortar
+    // por cima disso tiraria linhas duas vezes.
+    pegarIds: () => ({ empresaId: null, localId: null }),
+    montar: async ({ linhasAchatadas, recorte }) => {
+      // Em "Tudo", a pergunta é "quanto tem cada marca?". Escolhida uma marca,
+      // a pergunta vira "e dentro dela, onde está?" — agrupar por marca aí
+      // devolveria uma linha só.
+      const soUmaMarca = recorte?.modo === 'marca' && recorte?.empresaId
+      const chave = soUmaMarca ? 'local' : 'empresa'
+      const daMarca = soUmaMarca
+        ? (linhasAchatadas || []).filter((l) => l?._bem?.empresa_id === recorte.empresaId)
+        : (linhasAchatadas || [])
+      return resumirPor(daMarca, (l) => l[chave]).map((g) => ({
+        grupo: g.chave,
+        quantidade: g.quantidade,
+        total_centavos: g.totalCentavos,
+        fatia: (g.fatia * 100).toFixed(1).replace('.', ',') + '%',
+      }))
     },
   },
 ]

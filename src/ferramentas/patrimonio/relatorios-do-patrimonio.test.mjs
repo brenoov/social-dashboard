@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { RELATORIOS_DO_PATRIMONIO, acharRelatorio } from './relatorios-do-patrimonio.js'
 import { COLUNAS_PLANILHA } from './planilha-e-resumo.js'
+import { RECORTE_VAZIO } from '../../compartilhado/relatorios/recorte.js'
 
 // Dublê do supabase-js: só o encadeamento que este catálogo usa.
 // Testar contra o banco de verdade tornaria o teste dependente de dado real, e
@@ -110,6 +111,60 @@ test('"Com quem está" recorta pelo bem, não pela pessoa', async () => {
   const linhasAchatadas = [{ id: 'b1', nome: 'Notebook', _bem: { empresa_id: 'e9', local_id: 'l9' } }]
   const [linha] = await acharRelatorio('com-quem').montar({ sbClient, linhasAchatadas })
   assert.deepEqual(acharRelatorio('com-quem').pegarIds(linha), { empresaId: 'e9', localId: 'l9' })
+})
+
+// ─────────────────────────────── Resumo por marca/local ─────────────────────
+
+test('"Resumo" em "Tudo" agrupa por MARCA, com total e fatia', async () => {
+  const linhasAchatadas = [
+    { id: 'a', empresa: 'Vessel', local: 'Conchal', valor_centavos: 30000, _bem: {} },
+    { id: 'b', empresa: 'Vessel', local: 'Sede', valor_centavos: 10000, _bem: {} },
+    { id: 'c', empresa: 'RB Builders', local: 'Casa RB', valor_centavos: 10000, _bem: {} },
+  ]
+  const linhas = await acharRelatorio('resumo').montar({ linhasAchatadas, recorte: RECORTE_VAZIO })
+  assert.equal(linhas.length, 2)
+  assert.equal(linhas[0].grupo, 'Vessel')
+  assert.equal(linhas[0].quantidade, 2)
+  assert.equal(linhas[0].total_centavos, 40000)
+  assert.equal(linhas[0].fatia, '80,0%')
+})
+
+test('"Resumo" com uma marca escolhida desce um nível e agrupa por LOCAL', async () => {
+  // Agrupar por marca dentro de uma marca só devolveria uma linha — inútil.
+  // Escolher a marca é justamente pedir "e dentro dela, onde está?".
+  const linhasAchatadas = [
+    { id: 'a', empresa: 'Vessel', local: 'Fábrica Conchal', valor_centavos: 30000, _bem: { empresa_id: 'e1' } },
+    { id: 'b', empresa: 'Vessel', local: 'Sede Limeira', valor_centavos: 10000, _bem: { empresa_id: 'e1' } },
+  ]
+  const linhas = await acharRelatorio('resumo').montar({
+    linhasAchatadas, recorte: { modo: 'marca', empresaId: 'e1', localId: '' },
+  })
+  assert.deepEqual(linhas.map((l) => l.grupo), ['Fábrica Conchal', 'Sede Limeira'])
+})
+
+test('"Resumo" com marca escolhida NÃO conta bem de outra marca', async () => {
+  const linhasAchatadas = [
+    { id: 'a', empresa: 'Vessel', local: 'Fábrica Conchal', valor_centavos: 30000, _bem: { empresa_id: 'e1' } },
+    { id: 'b', empresa: 'RB Builders', local: 'Casa RB', valor_centavos: 99999, _bem: { empresa_id: 'e2' } },
+  ]
+  const linhas = await acharRelatorio('resumo').montar({
+    linhasAchatadas, recorte: { modo: 'marca', empresaId: 'e1', localId: '' },
+  })
+  assert.deepEqual(linhas.map((l) => l.grupo), ['Fábrica Conchal'])
+})
+
+test('"Resumo" sem recorte informado não estoura, e agrupa por marca', async () => {
+  const linhas = await acharRelatorio('resumo').montar({
+    linhasAchatadas: [{ id: 'a', empresa: 'Vessel', valor_centavos: 100, _bem: {} }],
+  })
+  assert.equal(linhas[0].grupo, 'Vessel')
+})
+
+test('"Resumo" não é recortável pelo filtro genérico — ele JÁ é a separação', () => {
+  // pegarIds nulo faz o filtro genérico cair sempre em "tudo", que é o certo:
+  // cortar por Vessel um relatório que já separa por Vessel tiraria linha duas
+  // vezes e deixaria uma só na tabela.
+  assert.deepEqual(acharRelatorio('resumo').pegarIds({}), { empresaId: null, localId: null })
 })
 
 // ─────────────────────────────── Histórico de movimentação ──────────────────
