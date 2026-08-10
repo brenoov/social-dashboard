@@ -2,6 +2,8 @@
 // (o que a aba Dinâmica da planilha fazia, só que viva). Lógica pura: não toca
 // banco nem DOM.
 
+import { matrizParaExcel } from '../../compartilhado/relatorios/exportar.js'
+
 // As colunas da planilha, na ordem em que o dono já lia o arquivo dele. Cada uma
 // sabe extrair o próprio valor de um bem "achatado" (com os nomes já resolvidos)
 // — assim a mesma definição serve pra tabela na tela E pra exportação, sem duas
@@ -80,16 +82,9 @@ export function totaisGerais(bens) {
   }
 }
 
-// Monta a matriz do arquivo .xlsx: cabeçalho + linhas, na ordem das colunas.
-// Dinheiro sai como NÚMERO em reais (não texto) pra somar dentro do Excel —
-// exportar "R$ 8.000,00" como texto faz a planilha virar um retrato inútil.
+// Monta a matriz do arquivo .xlsx das COLUNAS_PLANILHA. A regra de como cada
+// tipo de coluna vira célula mora em compartilhado/relatorios/exportar.js, e é
+// a MESMA dos outros relatórios — duas cópias divergiriam na primeira mudança.
 export function montarLinhasParaExcel(linhas) {
-  const cab = COLUNAS_PLANILHA.map((c) => c.titulo)
-  const corpo = (linhas || []).map((l) => COLUNAS_PLANILHA.map((c) => {
-    const v = l?.[c.chave]
-    if (c.tipo === 'dinheiro') return typeof v === 'number' ? v / 100 : null
-    if (v === null || v === undefined) return ''
-    return v
-  }))
-  return [cab, ...corpo]
+  return matrizParaExcel(COLUNAS_PLANILHA, linhas)
 }
