@@ -64,6 +64,47 @@ export const RELATORIOS_DO_PATRIMONIO = [
       })
     },
   },
+
+  {
+    chave: 'historico',
+    titulo: 'Histórico de movimentação',
+    explicacao: 'Quem pegou e quem devolveu cada bem, no período escolhido.',
+    periodo: true,
+    colunas: [
+      { chave: 'de', titulo: 'De', tipo: 'texto' },
+      { chave: 'ate', titulo: 'Até', tipo: 'texto' },
+      { chave: 'numero', titulo: 'Nº', tipo: 'numero' },
+      { chave: 'nome', titulo: 'Item', tipo: 'texto' },
+      { chave: 'pessoa', titulo: 'Pessoa', tipo: 'texto' },
+      { chave: 'motivo', titulo: 'Motivo', tipo: 'texto' },
+      { chave: 'empresa', titulo: 'Marca', tipo: 'texto' },
+      { chave: 'local', titulo: 'Local', tipo: 'texto' },
+    ],
+    pegarIds: idsDoBemAchatado,
+    montar: async ({ sbClient, linhasAchatadas, de, ate }) => {
+      // O período corta pela data de INÍCIO da posse: "o que mudou de mão neste
+      // período". Cortar pelo fim deixaria de fora quem pegou no período e
+      // ainda está com a coisa, que é metade da pergunta.
+      const { data, error } = await sbClient
+        .from('patrimonio_posse').select('*')
+        .gte('de', de).lte('de', ate)
+        .order('de', { ascending: false })
+      if (error) throw new Error(error.message)
+      const porId = new Map((linhasAchatadas || []).map((l) => [l.id, l]))
+      return (data || []).flatMap((p) => {
+        const bem = porId.get(p.bem_id)
+        if (!bem) return []
+        // Vazio na coluna "Até" seria lido como "devolveu e não anotaram".
+        return [{
+          ...bem,
+          de: p.de,
+          ate: p.ate || 'ainda está',
+          pessoa: p.pessoa_nome || 'Não informada',
+          motivo: p.motivo || '',
+        }]
+      })
+    },
+  },
 ]
 
 export function acharRelatorio(chave) {

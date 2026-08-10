@@ -19,6 +19,22 @@ function bancoFalso(linhas, erro = null) {
   return { from: () => encadeia }
 }
 
+// Igual ao bancoFalso, mas ANOTA os filtros pedidos. Sem isto, um relatório que
+// ignora o período passaria no teste — traria linhas, e ninguém veria que ele
+// trouxe a base inteira.
+function bancoEspiao(pedidos, linhas) {
+  const resposta = Promise.resolve({ data: linhas, error: null })
+  const encadeia = {
+    select: () => encadeia,
+    is: () => encadeia,
+    gte: (c, v) => { pedidos.push(['gte', c, v]); return encadeia },
+    lte: (c, v) => { pedidos.push(['lte', c, v]); return encadeia },
+    order: () => resposta,
+    then: (...a) => resposta.then(...a),
+  }
+  return { from: () => encadeia }
+}
+
 test('todo relatório declara o que a casca precisa, sem faltar campo', () => {
   for (const r of RELATORIOS_DO_PATRIMONIO) {
     assert.ok(r.chave, 'relatório sem chave')
@@ -94,6 +110,35 @@ test('"Com quem está" recorta pelo bem, não pela pessoa', async () => {
   const linhasAchatadas = [{ id: 'b1', nome: 'Notebook', _bem: { empresa_id: 'e9', local_id: 'l9' } }]
   const [linha] = await acharRelatorio('com-quem').montar({ sbClient, linhasAchatadas })
   assert.deepEqual(acharRelatorio('com-quem').pegarIds(linha), { empresaId: 'e9', localId: 'l9' })
+})
+
+// ─────────────────────────────── Histórico de movimentação ──────────────────
+
+test('"Histórico" pede período', () => {
+  assert.equal(acharRelatorio('historico').periodo, true)
+})
+
+test('"Histórico" pergunta ao banco pelo período recebido, e não traz a base toda', async () => {
+  const pedidos = []
+  const sbClient = bancoEspiao(pedidos, [
+    { bem_id: 'b1', pessoa_nome: 'Ana', de: '2026-07-02', ate: '2026-07-20', motivo: 'troca' },
+  ])
+  const linhasAchatadas = [{ id: 'b1', numero: 7, nome: 'Notebook', _bem: {} }]
+  await acharRelatorio('historico').montar({
+    sbClient, linhasAchatadas, de: '2026-07-01', ate: '2026-07-31',
+  })
+  assert.deepEqual(pedidos, [['gte', 'de', '2026-07-01'], ['lte', 'de', '2026-07-31']])
+})
+
+test('"Histórico" mostra "ainda está" quando a posse não fechou', async () => {
+  // Vazio aqui seria lido como "devolveu e não anotaram". Dizer "ainda está" é
+  // a informação que a pessoa foi buscar.
+  const sbClient = bancoFalso([{ bem_id: 'b1', pessoa_nome: 'Ana', de: '2026-07-02', ate: null }])
+  const linhasAchatadas = [{ id: 'b1', nome: 'Notebook', _bem: {} }]
+  const [linha] = await acharRelatorio('historico').montar({
+    sbClient, linhasAchatadas, de: '2026-07-01', ate: '2026-07-31',
+  })
+  assert.equal(linha.ate, 'ainda está')
 })
 
 test('"Com quem está" ESTOURA quando o banco recusa, em vez de devolver vazio', async () => {
