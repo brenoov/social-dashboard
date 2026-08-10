@@ -28,6 +28,42 @@ export const RELATORIOS_DO_PATRIMONIO = [
     // vezes pela mesma consulta e abrir espaço para as duas divergirem.
     montar: async ({ linhasAchatadas }) => linhasAchatadas || [],
   },
+
+  {
+    chave: 'com-quem',
+    titulo: 'Com quem está cada bem',
+    explicacao: 'O que está na mão de cada pessoa hoje. É o relatório de "fulano saiu, o que precisa voltar".',
+    periodo: false,
+    colunas: [
+      { chave: 'pessoa', titulo: 'Pessoa', tipo: 'texto' },
+      { chave: 'numero', titulo: 'Nº', tipo: 'numero' },
+      { chave: 'nome', titulo: 'Item', tipo: 'texto' },
+      { chave: 'categoria', titulo: 'Categoria', tipo: 'texto' },
+      { chave: 'empresa', titulo: 'Marca', tipo: 'texto' },
+      { chave: 'local', titulo: 'Local', tipo: 'texto' },
+      { chave: 'desde', titulo: 'Desde', tipo: 'texto' },
+      { chave: 'motivo', titulo: 'Motivo', tipo: 'texto' },
+      { chave: 'valor_centavos', titulo: 'Valor', tipo: 'dinheiro' },
+    ],
+    pegarIds: idsDoBemAchatado,
+    montar: async ({ sbClient, linhasAchatadas }) => {
+      // `ate is null` é o que define "ainda está com a pessoa" — a coluna nasceu
+      // assim na migration, e conferir por data daria resposta diferente.
+      const { data, error } = await sbClient
+        .from('patrimonio_posse').select('*').is('ate', null).order('de', { ascending: false })
+      // Estourar, e não devolver vazio: lista vazia por erro se lê como
+      // "ninguém está com nada", que é o contrário do que aconteceu.
+      if (error) throw new Error(error.message)
+      const porId = new Map((linhasAchatadas || []).map((l) => [l.id, l]))
+      return (data || []).flatMap((p) => {
+        const bem = porId.get(p.bem_id)
+        // Posse de bem apagado não vira linha meia-boca: sem o bem não há
+        // número, item nem valor, e a linha só confundiria quem lê.
+        if (!bem) return []
+        return [{ ...bem, pessoa: p.pessoa_nome || 'Não informada', desde: p.de, motivo: p.motivo || '' }]
+      })
+    },
+  },
 ]
 
 export function acharRelatorio(chave) {
