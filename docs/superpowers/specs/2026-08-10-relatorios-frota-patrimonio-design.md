@@ -53,8 +53,12 @@ Três observações que já vêm decididas:
    exportação, sem duas listas que discordam"*. Criar uma segunda lista de
    colunas para o mesmo dado seria desfazer isso.
 2. **"Resumo por marca/local" não lista item por item** — para isso existe
-   "Bens". Ele usa `resumirPor` e `totaisGerais`, que já estão escritos e
-   testados.
+   "Bens". Ele usa `resumirPor`, que já está escrito e testado.
+
+   E ele **desce um nível conforme o recorte**: em "Tudo", agrupa por marca
+   ("quanto tem cada marca?"); com uma marca escolhida, agrupa por local ("e
+   dentro dela, onde está?"). Agrupar por marca dentro de uma marca só
+   devolveria uma linha, que é relatório nenhum.
 3. **"Revisões" é retrato, e não tem período — e isso foi uma correção.** O
    rascunho deste desenho pedia período e, ao mesmo tempo, uma coluna Situação
    (Vencida / Próxima / Em dia). As duas coisas se mordem: filtrando por data,
@@ -149,7 +153,15 @@ iPhone, e **não acrescenta nenhuma biblioteca** — o projeto tem três
 dependências hoje, e um botão não justifica a quarta.
 
 A folha leva: título do relatório, o recorte por extenso, o período, a data de
-emissão, a tabela em A4 e "página 1 de N" no pé.
+emissão e a tabela em A4, com o cabeçalho da tabela **repetindo em toda página**
+(`thead { display: table-header-group }`) — senão a partir da página 2 ninguém
+sabe qual coluna é qual.
+
+**Numeração de página fica por conta do navegador**, no cabeçalho/rodapé dele.
+Isto é uma correção do rascunho, que prometia "página 1 de N" na nossa folha:
+contador de página em conteúdo (`@page { @bottom-right { content: counter(page) } }`)
+não é suportado por Chrome nem Safari. Prometer isso seria prometer o que não
+dá para entregar.
 
 **O risco conhecido**, e ele é real: imprimir exige esconder o resto do sistema,
 e o CSS global deste projeto já vazou entre telas antes (ver
@@ -189,8 +201,25 @@ tocada por este trabalho precisa ter o `imports.test.mjs`. Frota ainda não tem.
 
 ## 7. Permissão
 
-`relatorios` nasce como **ação própria** em `frota` e em `patrimonio`, dentro de
-`controle-de-login-e-usuario.js`, junto de `ver / criar / editar / excluir`.
+Duas **chaves próprias** em `RECURSOS`, dentro de
+`controle-de-login-e-usuario.js`:
+
+```js
+{ key: 'patrimonio.relatorios', label: 'Patrimônio — Relatórios', acoes: ['ver', 'exportar'] },
+{ key: 'frota.relatorios',      label: 'Frota — Relatórios',      acoes: ['ver', 'exportar'] },
+```
+
+**Chave nova, e não ação nova** — isto é uma correção do rascunho deste
+desenho, que pedia uma ação `relatorios` ao lado de `ver/criar/editar/excluir`.
+Não dá: `ACOES_MATRIZ` é fixa em 5 colunas, e o próprio código já registra o
+porquê, na linha de `conteudo.aprovar`:
+
+> "Chave separada em vez de uma 6ª coluna 'aprovar' na matriz: ACOES_MATRIZ é
+> fixa em 5 colunas, e uma coluna nova abriria célula vazia nas 15 linhas
+> existentes para servir só a esta."
+
+O formato acima copia `social.relatorio` e `gestor.relatorios`, que já existem e
+já fazem exatamente isto.
 
 **Nasce desmarcada para todo mundo, inclusive para o dono.** Nenhuma migration
 concede a permissão a ninguém — quem libera é o Config de Admin, na mão. Regra
