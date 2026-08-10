@@ -27,17 +27,37 @@ export function matrizParaExcel(colunas, linhas) {
 }
 
 /**
+ * O nome da aba, do jeito que o Excel aceita.
+ *
+ * Duas regras dele, e as duas derrubam o arquivo INTEIRO — não a aba:
+ *  - nada de `: \ / ? * [ ]`;
+ *  - no máximo 31 caracteres.
+ *
+ * A barra é a que morde de verdade: "Resumo por marca/local" é título de
+ * relatório, e o botão Excel dele simplesmente não baixava nada.
+ */
+export function nomeDeAbaValido(titulo) {
+  const limpo = String(titulo ?? '').replace(/[:\\/?*[\]]/g, '-').trim()
+  return (limpo || 'Relatório').slice(0, 31)
+}
+
+/**
  * Dispara o download do .xlsx. Devolve `{ ok }` em vez de avisar sozinho:
  * quem chama é que sabe como esta ferramenta mostra recado ao usuário.
+ *
+ * E NUNCA estoura: exceção solta aqui vira clique que não faz nada, sem uma
+ * palavra na tela. Foi assim que a barra do título passou despercebida.
  */
 export function baixarExcel({ colunas, linhas, nomeAba, nomeArquivo } = {}) {
   const XLSX = typeof globalThis !== 'undefined' ? globalThis.XLSX : undefined
   if (!XLSX) return { ok: false, motivo: 'Exportador não carregou. Recarregue a página.' }
-  const ws = XLSX.utils.aoa_to_sheet(matrizParaExcel(colunas, linhas))
-  const wb = XLSX.utils.book_new()
-  // O Excel recusa nome de aba com mais de 31 caracteres — e recusa o arquivo
-  // inteiro, não a aba. Cortar aqui é mais barato que descobrir na mão do dono.
-  XLSX.utils.book_append_sheet(wb, ws, String(nomeAba || 'Relatório').slice(0, 31))
-  XLSX.writeFile(wb, nomeArquivo)
-  return { ok: true }
+  try {
+    const ws = XLSX.utils.aoa_to_sheet(matrizParaExcel(colunas, linhas))
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, nomeDeAbaValido(nomeAba))
+    XLSX.writeFile(wb, nomeArquivo)
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, motivo: e?.message || 'Não consegui gerar a planilha.' }
+  }
 }

@@ -28,6 +28,25 @@ export function filtrarPorRecorte(linhas, recorte, pegarIds) {
   return lista
 }
 
+/**
+ * O recorte de UM relatório — é isto que a tela chama, e não `filtrarPorRecorte`
+ * direto.
+ *
+ * Existe por causa de um defeito real (10/08/2026): há relatório que se recorta
+ * SOZINHO. O Resumo, em "Tudo", agrupa por marca; com uma marca escolhida, ele
+ * mesmo desce e agrupa por local. Para o filtro genérico não cortar por cima
+ * disso, o `pegarIds` dele devolvia `null` — só que o filtro compara por
+ * IGUALDADE, e `null` nunca é igual a 'e1'. Escolher Vessel esvaziava a tabela:
+ * "0 linhas · Vessel".
+ *
+ * A intenção agora é declarada, não deduzida de um valor nulo.
+ */
+export function aplicarRecorte(relatorio, linhas, recorte) {
+  if (!relatorio) return []
+  if (relatorio.recortaSozinho) return linhas || []
+  return filtrarPorRecorte(linhas, recorte, relatorio.pegarIds)
+}
+
 /** Quantos ficaram fora de qualquer recorte. É o número que a tela precisa
  * mostrar para a pessoa não achar que sumiu dado. */
 export function contarForaDoRecorte(linhas, pegarIds) {

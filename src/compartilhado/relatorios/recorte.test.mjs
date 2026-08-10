@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { montarArvore } from '../arvore-de-locais.js'
 import {
   RECORTE_VAZIO, filtrarPorRecorte, rotuloDoRecorte, contarForaDoRecorte, opcoesDeLocal,
+  aplicarRecorte,
 } from './recorte.js'
 
 // Duas "Fábrica Conchal" de marcas diferentes — o caso real medido no banco
@@ -57,6 +58,37 @@ test('conta quantos ficaram sem marca e sem local — para a tela avisar', () =>
   // O caso que motivou isto: os 10 veículos da Frota estão TODOS sem marca.
   // Uma tabela que some com linhas caladas é como relatório vira mentira.
   assert.deepEqual(contarForaDoRecorte(LINHAS, pegarIds), { semMarca: 1, semLocal: 2 })
+})
+
+// ─── relatório que se recorta sozinho ────────────────────────────────────────
+//
+// ESTE DEFEITO CHEGOU A EXISTIR (10/08/2026), e passou por um teste verde.
+//
+// O Resumo se recorta sozinho: em "Tudo" agrupa por marca, com uma marca
+// escolhida agrupa por local. Para o filtro genérico não cortar por cima disso,
+// o `pegarIds` dele devolvia `null` — só que o filtro compara por IGUALDADE, e
+// `null` nunca é igual a 'e1'. Resultado: escolher Vessel esvaziava a tabela
+// inteira. "0 linhas · Vessel".
+//
+// O teste que existia só afirmava que `pegarIds` devolvia nulo. Nunca perguntou
+// o que o FILTRO fazia com esse nulo — testou a peça, não a consequência. Quem
+// pegou foi abrir a tela.
+
+test('relatório que se recorta sozinho não passa pelo filtro genérico', () => {
+  const relatorio = { recortaSozinho: true, pegarIds: () => ({ empresaId: null, localId: null }) }
+  const linhas = [{ id: 'x' }, { id: 'y' }]
+  const escolhida = { modo: 'marca', empresaId: 'e1', localId: '' }
+  assert.deepEqual(aplicarRecorte(relatorio, linhas, escolhida), linhas)
+})
+
+test('relatório comum CONTINUA passando pelo filtro genérico', () => {
+  const relatorio = { pegarIds }
+  const escolhida = { modo: 'marca', empresaId: 'e1', localId: '' }
+  assert.deepEqual(ids(aplicarRecorte(relatorio, LINHAS, escolhida)), ['a', 'c'])
+})
+
+test('aplicarRecorte sem relatório devolve lista vazia, e não estoura', () => {
+  assert.deepEqual(aplicarRecorte(null, LINHAS, RECORTE_VAZIO), [])
 })
 
 test('recorte apontando para id que não existe devolve vazio, não devolve tudo', () => {

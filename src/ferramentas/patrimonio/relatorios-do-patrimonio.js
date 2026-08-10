@@ -118,8 +118,13 @@ export const RELATORIOS_DO_PATRIMONIO = [
       { chave: 'fatia', titulo: '% do total', tipo: 'texto' },
     ],
     // Este relatório JÁ é a separação por marca/local, e ele mesmo desce um
-    // nível conforme o recorte (ver `montar`). Deixar o filtro genérico cortar
-    // por cima disso tiraria linhas duas vezes.
+    // nível conforme o recorte (ver `montar`). O filtro genérico não passa
+    // por cima dele.
+    //
+    // A flag é declarada em vez de deduzida de um `pegarIds` nulo: a versão
+    // que devolvia null esvaziava a tabela, porque o filtro compara por
+    // igualdade e null nunca casa. Ver aplicarRecorte() em recorte.js.
+    recortaSozinho: true,
     pegarIds: () => ({ empresaId: null, localId: null }),
     montar: async ({ linhasAchatadas, recorte }) => {
       // Em "Tudo", a pergunta é "quanto tem cada marca?". Escolhida uma marca,

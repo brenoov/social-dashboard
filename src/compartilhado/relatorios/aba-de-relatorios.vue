@@ -130,7 +130,7 @@ import { computed, ref, watch } from 'vue'
 import { montarArvore } from '../arvore-de-locais.js'
 import { baixarExcel } from './exportar.js'
 import {
-  RECORTE_VAZIO, filtrarPorRecorte, rotuloDoRecorte, contarForaDoRecorte, opcoesDeLocal,
+  RECORTE_VAZIO, aplicarRecorte, rotuloDoRecorte, contarForaDoRecorte, opcoesDeLocal,
 } from './recorte.js'
 import { hojeLocal } from '../datas.js'
 import './folha.css'
@@ -171,11 +171,7 @@ const arvore = computed(() => montarArvore({
 }))
 const locaisParaEscolher = computed(() => opcoesDeLocal(arvore.value))
 
-const linhas = computed(() => {
-  const r = relatorioAtual.value
-  if (!r) return []
-  return filtrarPorRecorte(linhasCruas.value, recorte.value, r.pegarIds)
-})
+const linhas = computed(() => aplicarRecorte(relatorioAtual.value, linhasCruas.value, recorte.value))
 
 const fora = computed(() => {
   const r = relatorioAtual.value
@@ -185,6 +181,9 @@ const fora = computed(() => {
 
 const avisoDoQueFicouFora = computed(() => {
   if (recorte.value.modo === 'tudo') return ''
+  // Relatório que se recorta sozinho não tem "linha que ficou de fora": ele
+  // já entregou só o que pertence ao recorte. O aviso ali seria mentira.
+  if (relatorioAtual.value?.recortaSozinho) return ''
   const { semMarca, semLocal } = fora.value
   const quantos = recorte.value.modo === 'marca' ? semMarca : semLocal
   if (!quantos) return ''
