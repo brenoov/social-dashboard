@@ -1,0 +1,46 @@
+/* A folha impressa dos relatórios.
+ *
+ * TRUQUE DE VISIBILIDADE, E NÃO display:none NO QUE ESTÁ FORA
+ * -----------------------------------------------------------
+ * Num SPA tudo mora dentro de #app. Esconder os pais com display:none
+ * esconderia a folha junto, porque ela é filha deles. Com `visibility`, o pai
+ * fica invisível e o filho pode voltar a aparecer — é o único jeito de imprimir
+ * só um pedaço de dentro da árvore.
+ *
+ * A classe `imprimindo-relatorio` entra no <body> no clique e sai no
+ * onafterprint. Fora da impressão, a folha não existe na tela: a prévia que a
+ * pessoa vê é a tabela normal da aba. */
+
+/* Na tela, a folha não aparece — senão a mesma tabela sairia duas vezes. */
+.folha-de-impressao { display: none; }
+
+@media print {
+  body.imprimindo-relatorio * { visibility: hidden; }
+  body.imprimindo-relatorio .folha-de-impressao,
+  body.imprimindo-relatorio .folha-de-impressao * { visibility: visible; }
+
+  body.imprimindo-relatorio .folha-de-impressao {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0;
+  }
+
+  /* Sem isto, da página 2 em diante ninguém sabe qual coluna é qual. */
+  .folha-de-impressao thead { display: table-header-group; }
+  .folha-de-impressao tr { break-inside: avoid; }
+
+  /* Papel é preto e branco: cor de fundo gasta tinta e some na impressão. O
+   * #999 da borda não é cor de estado — é traço de tabela impressa, e por isso
+   * não sai de token de tema (que muda com o modo escuro e não vale no papel). */
+  .folha-de-impressao table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+  .folha-de-impressao th,
+  .folha-de-impressao td { border: 1px solid #999; padding: 3pt 4pt; text-align: left; }
+  .folha-de-impressao th { font-weight: 700; }
+
+  .folha-de-impressao .folha-cabecalho { margin-bottom: 10pt; }
+  .folha-de-impressao .folha-titulo { font-size: 14pt; font-weight: 700; margin: 0 0 2pt; }
+  .folha-de-impressao .folha-linha { font-size: 9pt; margin: 0; }
+}

@@ -46,9 +46,11 @@
       <button role="tab" :class="{ on: visao === 'planilha' }" @click="visao = 'planilha'">Planilha</button>
       <button role="tab" :class="{ on: visao === 'resumo' }" @click="visao = 'resumo'">Resumo</button>
       <button role="tab" :class="{ on: visao === 'etiquetas' }" @click="visao = 'etiquetas'">Etiquetas</button>
+      <button role="tab" v-if="podeRelatorios" :class="{ on: visao === 'relatorios' }"
+              @click="visao = 'relatorios'">Relatórios</button>
     </div>
 
-    <div class="pat-busca-wrap" v-if="visao !== 'resumo' && visao !== 'etiquetas'">
+    <div class="pat-busca-wrap" v-if="visao !== 'resumo' && visao !== 'etiquetas' && visao !== 'relatorios'">
       <input
         class="pat-busca"
         v-model="filtro.busca"
@@ -87,7 +89,7 @@
          Sobraram dois, então no celular eles OCUPAM a largura toda, lado a lado,
          em vez de ficarem estreitos numa faixa que rola. No desktop, onde há
          espaço de sobra, seguem em linha. -->
-    <div class="pat-filtros rolagem-x" v-if="visao !== 'resumo' && visao !== 'etiquetas'">
+    <div class="pat-filtros rolagem-x" v-if="visao !== 'resumo' && visao !== 'etiquetas' && visao !== 'relatorios'">
       <select class="pat-select" v-model="filtro.categoriaId" aria-label="Categoria">
         <option value="">Todas as categorias</option>
         <option v-for="c in categorias" :key="c.id" :value="c.id">{{ c.nome }}</option>
@@ -133,7 +135,7 @@
 
       <!-- O Resumo olha o patrimônio inteiro, então não pode cair no vazio de
            filtro: com uma busca sem resultado ele ainda tem o que mostrar. -->
-      <div class="pat-vazio" v-else-if="!bensFiltrados.length && visao !== 'resumo' && visao !== 'etiquetas'">
+      <div class="pat-vazio" v-else-if="!bensFiltrados.length && visao !== 'resumo' && visao !== 'etiquetas' && visao !== 'relatorios'">
         <h3>Nenhum bem para esses filtros</h3>
         <p>Tente limpar a busca ou escolher outra empresa, local ou situação.</p>
         <button class="pat-btn" @click="limparFiltros">Limpar filtros</button>
@@ -307,6 +309,21 @@
                 @click="ampliarNumeracao">
           {{ salvandoTeto ? 'Ampliando…' : `Liberar mais 100 números (até ${numeros.teto + 100})` }}
         </button>
+      </template>
+
+      <!-- RELATÓRIOS: a casca compartilhada com a Frota. Entra como mais um
+           v-else-if da cadeia, ANTES do v-else do Resumo — um v-if solto aqui
+           partiria a cadeia em duas, e é o defeito que o comentário lá em cima
+           registra como já acontecido. -->
+      <template v-else-if="visao === 'relatorios'">
+        <aba-de-relatorios
+          :relatorios="RELATORIOS_DO_PATRIMONIO"
+          :contexto="{ sbClient, linhasAchatadas }"
+          :empresas="empresas"
+          :locais="locais"
+          :comodos="comodos"
+          nome-do-arquivo="patrimonio"
+          :pode-exportar="podeExportarRelatorio" />
       </template>
 
       <!-- RESUMO: onde está o dinheiro. É a aba Dinâmica da planilha, viva. -->
@@ -871,6 +888,8 @@ import { TETO_PADRAO, textoDaFaixa, mapaDeNumeros, aumentarTeto, ehRecente } fro
 import LeitorDeEtiqueta from './leitor-de-etiqueta.vue'
 import { resultadoDaLeitura, mensagemDoResultado, etiqueta as etiquetaImpressa } from './leitor-de-codigo.js'
 import { COLUNAS_PLANILHA, ordenarPlanilha, resumirPor, totaisGerais, montarLinhasParaExcel } from './planilha-e-resumo.js'
+import AbaDeRelatorios from '../../compartilhado/relatorios/aba-de-relatorios.vue'
+import { RELATORIOS_DO_PATRIMONIO } from './relatorios-do-patrimonio.js'
 import { LIMPAR, montarAlteracaoEmMassa, temAlgoParaMudar, resumoDaSelecao,
   alternarTodosVisiveis, estadoDaSelecaoVisivel } from './acao-em-massa.js'
 import { resolverNovaOpcao } from './nova-opcao.js'
@@ -904,6 +923,11 @@ const frotaErro = ref(false)
 const filtro = reactive({ ...FILTRO_VAZIO })
 
 const podeCriar = computed(() => hasPermission('patrimonio', 'criar'))
+// Chave PRÓPRIA, e não uma ação de 'patrimonio': quem mexe no cadastro não é
+// necessariamente quem pode tirar a base inteira em planilha. Nasce desmarcada
+// para todo mundo — nenhuma migration concede, quem libera é o Config de Admin.
+const podeRelatorios = computed(() => hasPermission('patrimonio.relatorios', 'ver'))
+const podeExportarRelatorio = computed(() => hasPermission('patrimonio.relatorios', 'exportar'))
 
 const pessoasById = computed(() => {
   const mapa = {}

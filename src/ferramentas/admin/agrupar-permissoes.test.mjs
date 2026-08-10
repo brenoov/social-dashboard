@@ -24,6 +24,7 @@ const RECURSOS = [
   { key: 'banco', label: 'Banco de Arquivos', acoes: ['ver', 'criar', 'excluir'] },
   { key: 'acessos', label: 'Colaboradores e Acessos', acoes: ['ver', 'criar', 'editar', 'excluir'] },
   { key: 'patrimonio', label: 'Patrimônio', acoes: ['ver', 'criar', 'editar', 'excluir'] },
+  { key: 'patrimonio.relatorios', label: 'Patrimônio — Relatórios', acoes: ['ver', 'exportar'] },
   { key: 'frota', label: 'Frota', acoes: ['ver', 'criar', 'editar', 'excluir'] },
   { key: 'frota.aprovar', label: 'Aprovar requisição de veículo', acoes: ['ver'] },
   { key: 'autenticidade', label: 'Autenticidade e Garantia', acoes: ['ver', 'criar', 'editar'] },
@@ -45,6 +46,7 @@ const TREE = [
   { key: 'gestao-interna', label: 'Gestão Interna', children: [
     { key: 'acessos', label: 'Colaboradores e Acessos' },
     { key: 'patrimonio', label: 'Patrimônio' },
+    { key: 'patrimonio.relatorios', label: 'Patrimônio — Relatórios' },
     { key: 'frota', label: 'Frota' },
     { key: 'frota.aprovar', label: 'Aprovar requisição de veículo' },
     { key: 'autenticidade', label: 'Autenticidade e Garantia' },
@@ -194,7 +196,8 @@ test('filho declarado na árvore cai no grupo do pai, mesmo sem prefixo na chave
   const g = agruparRecursos(RECURSOS, TREE)
   const gi = g.find((x) => x.key === 'gestao-interna')
   assert.ok(gi, 'esperava um grupo gestao-interna')
-  assert.deepEqual(gi.recursos.map((r) => r.key), ['acessos', 'patrimonio', 'frota', 'frota.aprovar', 'autenticidade'])
+  assert.deepEqual(gi.recursos.map((r) => r.key),
+    ['acessos', 'patrimonio', 'patrimonio.relatorios', 'frota', 'frota.aprovar', 'autenticidade'])
   assert.equal(gi.label, 'Gestão Interna')
 })
 
@@ -210,7 +213,8 @@ test('marcar tudo do grupo pega TODOS os submódulos de uma vez', () => {
   const g = agruparRecursos(RECURSOS, TREE)
   const gi = g.find((x) => x.key === 'gestao-interna')
   const p = marcarTudo({}, gi.recursos, true)
-  assert.deepEqual(Object.keys(p).sort(), ['acessos', 'autenticidade', 'frota', 'frota.aprovar', 'patrimonio'])
+  assert.deepEqual(Object.keys(p).sort(),
+    ['acessos', 'autenticidade', 'frota', 'frota.aprovar', 'patrimonio', 'patrimonio.relatorios'])
   assert.equal(estadoDaSelecao(gi.recursos, p), 'cheio')
   assert.equal(estadoDaSelecao(gi.recursos, {}), 'vazio')
   assert.equal(estadoDaSelecao(gi.recursos, { acessos: ['ver'] }), 'parcial')
