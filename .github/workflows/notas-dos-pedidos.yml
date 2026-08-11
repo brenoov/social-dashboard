@@ -1,0 +1,61 @@
+name: Notas dos Pedidos (data da venda)
+
+# Todo dia às 09:23 UTC (06:23 de Brasília): descobre em que dia cada venda foi
+# FATURADA e guarda na tabela bling_pedido_nota.
+#
+# Por que 7 dias de janela e não 1: o pedido não é concluído no dia em que é
+# feito. Medido em 11/08/2026, o pedido nº2372 era de 27/07 e só virou Atendido
+# em 11/08 — uma janela de 1 dia o perderia para sempre. O robô é idempotente
+# (upsert por pedido), então reler o mesmo pedido sete vezes não custa nada.
+#
+# Minuto quebrado de propósito: agendamento na hora cheia cai no pico de carga
+# do GitHub Actions e atrasa (medido neste repo: 2 a 3h de atraso).
+#
+# Roda DEPOIS do Relatórios Comerciais (08:52 UTC) porque os dois batem no
+# mesmo Bling, que limita 3 chamadas por segundo.
+on:
+  schedule:
+    - cron: '23 9 * * *'
+  workflow_dispatch:
+    inputs:
+      dias:
+        description: 'Janela em dias (vazio = 7)'
+        required: false
+        default: ''
+      backfill:
+        description: 'Nº de MESES de histórico (vazio = não faz backfill)'
+        required: false
+        default: ''
+
+concurrency:
+  group: notas-dos-pedidos
+  cancel-in-progress: false
+
+jobs:
+  coletar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Rodar o robô das notas
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GESTOR_USER_EMAIL: ${{ secrets.GESTOR_USER_EMAIL }}
+          GESTOR_USER_PASSWORD: ${{ secrets.GESTOR_USER_PASSWORD }}
+          DIAS: ${{ github.event.inputs.dias }}
+          BACKFILL: ${{ github.event.inputs.backfill }}
+        run: |
+          for var in DIAS BACKFILL; do
+            valor="${!var}"
+            if [ -n "$valor" ] && ! printf '%s' "$valor" | grep -qE '^[0-9]+$'; then
+              echo "$var inválido (esperado número): $valor"; exit 1
+            fi
+          done
+          if [ -n "$BACKFILL" ]; then
+            node coletor/notas-dos-pedidos.mjs --backfill="$BACKFILL"
+          else
+            node coletor/notas-dos-pedidos.mjs --dias="${DIAS:-7}"
+          fi
