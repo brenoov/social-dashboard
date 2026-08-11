@@ -11,6 +11,9 @@ const GESTOR_EMAIL = process.env.GESTOR_USER_EMAIL;
 const GESTOR_PASS = process.env.GESTOR_USER_PASSWORD;
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
+// A regra de qual dia a venda conta + o leitor das linhas. Ver notas-bling.mjs.
+import { ajustarPelaDataDaNota, linhasDaJanela } from './notas-bling.mjs';
+
 // Depósito de cada canal foco (mapeado no Bling):
 export const DEP_FOCO = [
   { canal: 'Shopping Tivoli (Santa Bárbara)', deposito_id: '14888726315' },
@@ -50,7 +53,19 @@ export async function blingProxy(token, endpoint, params) {
   throw new Error('bling-proxy ' + endpoint + ' -> falhou (429/5xx repetido)');
 }
 
-// Lista todas as páginas de pedidos de venda concluídos no intervalo
+// Lista os pedidos de venda cuja venda CONTA no intervalo.
+//
+// Não é a mesma coisa que "pedidos feitos no intervalo": a venda conta no dia em
+// que a NOTA saiu. A loja emite NFC-e na hora, mas o Atacado emite NF-e no dia
+// seguinte — então a venda de sexta caía na quinta. Medido em 11/08/2026 sobre
+// 12 meses: 197 dos 325 dias com venda mostravam valor errado.
+//
+// O AJUSTE MORA AQUI, e não em cada robô, DE PROPÓSITO: três robôs chamam esta
+// função (gestor-comercial, relatorios-comerciais e atualizar-cards-comercial).
+// Corrigir um a um deixaria o esquecido publicando outro número — e dois lugares
+// discordando é pior que um errado, porque ninguém sabe em qual acreditar.
+//
+// Se não der para ler a data certa, esta função LANÇA (ver linhasDaJanela).
 export async function blingPedidos(token, dataInicial, dataFinal) {
   const all = [];
   for (let pagina = 1; pagina <= 10; pagina++) {
@@ -65,7 +80,14 @@ export async function blingPedidos(token, dataInicial, dataFinal) {
     all.push(...items);
     if (items.length < 100) break;
   }
-  return all;
+
+  // A chave de serviço passa por cima do RLS. Sem ela, a leitura iria pelo JWT
+  // da conta de serviço — que hoje enxerga tudo, mas passaria a enxergar nada se
+  // um dia alguém ligasse o escopo por equipe nessa conta, e o robô ficaria
+  // errado em silêncio. Com a chave, isso não depende de configuração de conta.
+  const chave = process.env.SUPABASE_SERVICE_KEY || token;
+  const linhas = await linhasDaJanela(SUPABASE_URL, chave, dataInicial, dataFinal);
+  return ajustarPelaDataDaNota(all, linhas, dataInicial, dataFinal).pedidos;
 }
 
 // Lista o catálogo de produtos (id → nome/código/preço). Bounded por segurança.

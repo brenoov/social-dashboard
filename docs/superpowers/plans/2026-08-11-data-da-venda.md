@@ -1,6 +1,6 @@
 # A data da venda: o dia da nota, não o dia do pedido
 
-Status: **Etapas 1 e 2 no ar** · falta a Etapa 3.
+Status: **as três etapas feitas.** Falta só olhar as telas logado.
 
 ## O problema, em uma frase
 
@@ -95,13 +95,34 @@ Guarda de import (pendência B1) instalado nas duas pastas, cobrindo também
 O caminho **C** (virar a fonte) continua valendo como melhoria futura de
 velocidade, não de correção.
 
-## Etapa 3 — o resto
+## Etapa 3 — o resto ✔ FEITA
 
-Notificação das 22h/07h, Relatórios Comerciais e briefing do Gestor. Todos
-usam o mesmo filtro; nenhum pode ficar para trás, senão dois lugares do sistema
-passam a dar números diferentes — que é a pior classe de defeito deste projeto.
+**A regra passou a ter UMA cópia só**, em `supabase/functions/_shared/data-da-venda.js`.
+Ela mora ali, e não em `src/`, porque a Edge roda no Deno e não alcança `src/`
+nem `coletor/` — mesmo arranjo de `checklist.js` e `rabisco.js`, pelo mesmo
+motivo. As telas e os robôs importam de lá.
 
-## O que o dono precisa saber
+**Notificação das 22h/07h** (`enviar-push-vendas`): ajusta os dois dias (o de
+referência e o de comparação) antes de contar itens — senão um pedido trazido de
+outro dia chegaria ao push com zero itens. Segue a regra dura desta Edge: se não
+der para saber a data certa, **não envia** (`data_da_venda_indisponivel`), como
+já valia para token, Bling fora do ar e itens incompletos.
 
-Os números de meses fechados vão mudar. Não é defeito, é a correção — e é por
-isso que a Etapa 1 termina com o relatório de antes/depois, mês a mês.
+**Robôs**: o ajuste entrou DENTRO de `blingPedidos` (`coletor/lib/bling-comercial.mjs`),
+não em cada robô. São **três** que chamam essa função — `gestor-comercial`,
+`relatorios-comerciais` e `atualizar-cards-comercial`, este último descoberto só
+ao procurar. Corrigir um a um deixaria o esquecido publicando outro número.
+
+`linhasDaJanela` **lança** quando não consegue ler, de propósito: robô que segue
+calado publicaria o número errado num relatório que ninguém confere. A rodada é
+diária e o erro aparece no log do Actions.
+
+## O que ainda NÃO foi verificado
+
+As telas **abertas e logadas**. Não dá para Playwright neste projeto (o
+navegador de teste entra noutra conta). O que cobre: build, guarda de import, e
+os números conferidos contra o banco real.
+
+E a rede da máquina do dono derrubava 1 em cada 5 chamadas ao Supabase no dia
+desta entrega — o que fez dois backfills locais caírem pela metade e dois testes
+da Fábrica falharem por `fetch failed`. Rodar pelo GitHub Actions contorna.
