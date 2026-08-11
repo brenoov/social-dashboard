@@ -119,6 +119,28 @@ Então a lista de locais escreve **"Fábrica Conchal (Vessel)"**, nunca só o no
 Um relatório entregue com o recorte errado é pior que relatório nenhum, porque
 ninguém desconfia dele.
 
+### Na Frota o filtro se chama "Empresa", e não "Marca"
+
+Conferido no banco em 10/08/2026, depois de o dono dizer que os veículos já
+tinham marca preenchida — **e ele estava certo**:
+
+| | Preenchido nos 10 veículos? |
+|---|---|
+| `marca` — o fabricante: BMW, FIAT, VOLVO, PORSCHE… | **Sim, nos 10** |
+| `empresa_id` — a empresa do grupo: Vessel, RB Builders, RBV Company | **Não, em nenhum** |
+
+São dois campos que, na cabeça de quem usa, têm o mesmo nome. Quem abre a ficha
+do carro vê "Marca: VOLVO" e conclui, com razão, que está preenchido.
+
+Então **na Frota o filtro se chama "Empresa"** (decisão do dono). No Patrimônio
+segue "marca", que é o certo lá — e o Patrimônio já resolvia isso na planilha
+dele escrevendo "Marca / modelo" para uma e "Marca (empresa)" para a outra.
+
+A casca recebe isso na propriedade `palavraDaMarca`. Cuidado registrado no
+código: só palavra **feminina** ali, porque a frase do aviso concorda em
+feminino ("sem marca apontada", "sem empresa apontada") enquanto "local" pede
+masculino ("sem local apontado").
+
 ### O que fica de fora do recorte NUNCA some calado
 
 Bem ou veículo sem marca/local apontado aparece em **"Tudo"** e num balde
@@ -264,12 +286,12 @@ que responde. Nada neste trabalho vai deduzir marca a partir de local, porque a
 própria migration 034 registra que os dois são perguntas diferentes de
 propósito — um carro da RBV Company pode passar a semana na fábrica da Vessel.
 
-Duas saídas, e as duas servem:
+**Resolvido em 10/08/2026: o dono preenche os 10 na ficha, na mão.** O seletor
+em árvore já está pronto na ficha desde 07/08. Nada de migration de dado — e
+nada aqui vai deduzir empresa a partir do texto antigo.
 
-1. **O dono aponta os 10 na ficha de cada carro.** O seletor em árvore já está
-   pronto na ficha desde 07/08. São 10 carros.
-2. **O dono diz aqui a marca e o local de cada um**, e isso vira uma migration
-   de dado, conferida antes.
+Parte da confusão era de nome, não de preenchimento: ele tinha visto o campo
+`marca` cheio (VOLVO, BMW…) e concluído que estava tudo lá. Ver a seção 4.
 
 A aba pode ser construída e entregue antes disso — ela nasce correta e passa a
 valer sozinha assim que os campos forem preenchidos. Mas enquanto não forem,
