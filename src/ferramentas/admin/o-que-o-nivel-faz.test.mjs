@@ -26,8 +26,21 @@ test('ferramenta sem frase conferida cai no texto neutro, e nao inventa nada', (
   assert.ok(oQueONivelFaz('escritorio3d', 'tudo').length > 0, 'nunca devolve vazio')
 })
 
-test('"sem acesso" fala do MENU, que e o efeito visivel', () => {
+test('"sem acesso" fala do MENU quando o menu depende SO daquela chave', () => {
+  // Frota tem card proprio em tela-de-menu-gestao-interna.vue:66, gateado so
+  // por hasPermission('frota','ver'): tirar a chave faz o card sumir mesmo.
   assert.match(oQueONivelFaz('frota', 'sem'), /não aparece/i)
+})
+
+test('nao promete sumico de menu que e liberado por um OU de varias chaves', () => {
+  // O card de Redes na tela de Inicio (tela-de-inicio.vue:184) sai de
+  // social || social.relatorio || conteudo, e 13 das 15 pessoas tem
+  // social.relatorio: tirar 'social' NAO faz o menu sumir. Idem o texto
+  // neutro, que serve sales.gestao/sales.analise (card de Vendas) e
+  // meta.campanha (card de Meta), ambos OU de duas chaves.
+  assert.doesNotMatch(oQueONivelFaz('social', 'sem'), /menu/i)
+  assert.match(oQueONivelFaz('social', 'sem'), /não abre/i)
+  assert.doesNotMatch(NEUTRO.sem, /menu/i)
 })
 
 test('recurso desconhecido nao estoura', () => {

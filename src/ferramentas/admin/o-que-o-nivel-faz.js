@@ -65,7 +65,12 @@ export const FRASES = {
     tudo: 'Cadastra e apaga bem, e imprime as etiquetas.',
   },
   social: {
-    sem: 'As Redes Sociais não aparecem no menu dela.',
+    // O card de Redes Sociais na tela de Início (tela-de-inicio.vue:184) é um
+    // OU de TRÊS chaves: social || social.relatorio || conteudo. Quem perde
+    // 'social' e fica com 'social.relatorio' continua vendo o menu — e hoje 13
+    // das 15 pessoas têm 'social.relatorio'. A frase fala do que é verdade em
+    // qualquer combinação: o painel em si (tela-de-menu-redes.vue:64) não abre.
+    sem: 'O painel de Redes Sociais não abre para ela.',
     ver: 'Vê os números dos perfis. É painel de leitura: nada aqui se altera.',
     exportar: 'Vê os números dos perfis e baixa a planilha. '
       + 'É painel de leitura: nada aqui se altera.',
@@ -173,7 +178,12 @@ export const FRASES = {
 // com o dono. Descreve o EFEITO do nível, que é verdade em qualquer ferramenta,
 // e não afirma nada sobre o que ela faz por dentro.
 export const NEUTRO = {
-  sem: 'Não aparece no menu dela.',
+  // NÃO diz "não aparece no menu": este texto vale pra qualquer ferramenta, e
+  // há card de menu liberado por um OU de várias chaves — Vendas
+  // (sales.gestao || sales.analise) e Meta (meta.campanha || meta.gestor),
+  // tela-de-inicio.vue:185-186. Perder UMA chave não faz o card sumir. O que
+  // é verdade em todo caso é que a ferramenta em si não abre.
+  sem: 'Essa ferramenta não abre para ela.',
   ver: 'Abre e consulta, sem alterar nada.',
   exportar: 'Abre, consulta e baixa a planilha, sem alterar nada.',
   mexer: 'Abre e altera o que já existe. Não cria nem apaga.',

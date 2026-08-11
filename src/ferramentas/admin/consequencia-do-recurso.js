@@ -10,7 +10,13 @@
 //   são "consequência que não se desfaz", que é OUTRO critério. Misturar os
 //   dois faz o selo perder força. Se o dono quiser esse segundo aviso, ele
 //   ganha selo próprio — não este.
-export const SELO_DINHEIRO = '💰 mexe em dinheiro'
+// O símbolo mora aqui, sozinho, porque ele aparece em DOIS lugares com textos
+// diferentes: o selo por recurso no modal ("💰 mexe em dinheiro") e a contagem
+// na linha da lista ("💰 2"). Escrever o emoji à mão no segundo já deixou a
+// lista com o símbolo antigo quando o módulo mudou — e calada.
+export const EMOJI_DINHEIRO = '💰'
+
+export const SELO_DINHEIRO = `${EMOJI_DINHEIRO} mexe em dinheiro`
 
 const GASTAM = new Set([
   'meta.gestor',   // muda orçamento de campanha em veiculação

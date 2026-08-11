@@ -160,7 +160,7 @@ import { degrausDoRecurso, degrauDoConjunto, acoesDoDegrau } from './niveis-de-p
 // permissões: o que cada nível FAZ naquela ferramenta, e quais ferramentas
 // gastam verba de verdade.
 import { oQueONivelFaz } from './o-que-o-nivel-faz.js'
-import { mexeEmDinheiro, SELO_DINHEIRO } from './consequencia-do-recurso.js'
+import { mexeEmDinheiro, SELO_DINHEIRO, EMOJI_DINHEIRO } from './consequencia-do-recurso.js'
 import { resumoDoAcesso } from './resumo-do-acesso.js'
 // Quais notificações existem e qual o padrão de cada uma. A lista mora junto da
 // Edge que envia (supabase/functions/_shared) pra não haver duas verdades sobre
@@ -1910,12 +1910,23 @@ function _criarLinhaPessoa(p, gaveta, currentEmail) {
   info.appendChild(sub)
 
   // O resumo de uma linha: quem é essa pessoa aqui dentro, sem abrir (D5).
-  const resumo = resumoDoAcesso(u.permissions)
+  //
+  // Super-admin não passa por `permissions`: ele entra por is_superadmin, e as
+  // marcas gravadas na coluna não decidem nada. Contar "15 de 22" nele seria
+  // mentira legível — a linha do erick@ dizia que ele não mexia em veículo,
+  // bem, peça nem etiqueta, quando ele cadastra e apaga os quatro. Por isso
+  // aqui não vai contagem nem selo de dinheiro: a contagem não se aplica.
+  // É a mesma resposta que a ficha já dá em _abaDeFerramentas.
   const resumoLinha = mkEl('div', 'usr-resumo')
-  resumoLinha.textContent = `${resumo.frase} · ${resumo.quantos} de ${RECURSOS.length}`
-  if (resumo.comDinheiro) {
-    const resumoSelo = mkEl('span', 'perm-selo-dinheiro', `💰 ${resumo.comDinheiro}`)
-    resumoLinha.appendChild(resumoSelo)
+  if (isSuperAdmin) {
+    resumoLinha.textContent = 'Acesso total — super-admin'
+  } else {
+    const resumo = resumoDoAcesso(u.permissions)
+    resumoLinha.textContent = `${resumo.frase} · ${resumo.quantos} de ${RECURSOS.length}`
+    if (resumo.comDinheiro) {
+      const resumoSelo = mkEl('span', 'perm-selo-dinheiro', `${EMOJI_DINHEIRO} ${resumo.comDinheiro}`)
+      resumoLinha.appendChild(resumoSelo)
+    }
   }
   info.appendChild(resumoLinha)
 
