@@ -49,6 +49,16 @@ peça pra classificar 26 pessoas antes de funcionar morre na primeira semana.
 lacuna que fez o aviso do checklist não chegar em quem tinha login — ver
 `2026-08-11` no histórico da Frota. Hoje ela é invisível na tela.
 
+**Duas permissões concedidas não existem na árvore** (achado ao escrever o
+plano, 11/08/2026): `sales.metas` e `gestor.relatorios` estão gravadas para 12
+pessoas cada e **não aparecem em `PERMISSION_TREE`** — a tela de admin nunca as
+mostrou, então não dá para ver nem revogar pela interface. `hasPermission()` as
+consulta normalmente, então elas valem de verdade.
+
+É a primeira queixa do dono na forma mais crua: ele não consegue ver o que a
+pessoa tem porque duas coisas simplesmente não estão lá. Vira a Task 1 do plano
+da Fase 1.
+
 ## As decisões
 
 ### D1 · Nenhuma ferramenta some da lista
