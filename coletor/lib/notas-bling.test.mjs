@@ -100,3 +100,9 @@ test('nota que não existe em modelo nenhum devolve nulo, sem estourar', async (
   const proxyFalso = async () => { throw new Error('404'); };
   assert.equal(await notaPorId(proxyFalso, 'tk', 1), null);
 });
+
+test('conferido_em vai em toda gravação — o default do banco só valeria na primeira', () => {
+  const l = montarLinha(pedido(), null, new Date('2026-08-11T21:30:00Z'));
+  assert.equal(l.conferido_em, '2026-08-11T21:30:00.000Z',
+    'sem isto, uma linha reconferida hoje exibiria a data da primeira vez');
+});
