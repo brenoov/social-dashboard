@@ -139,6 +139,26 @@ catálogos reais num staging temporário **com banco de mentira**.
 Subiu assim porque o dono mandou subir sabendo. Volta fácil (`git revert` ou
 Instant Rollback da Vercel).
 
+### B1b · Frota › a tela acha a pessoa pelo e-mail, o aviso acha pelo elo 🔴
+São **dois caminhos diferentes** pra mesma pergunta "quem é essa pessoa", e eles
+discordam:
+
+| Quem pergunta | Como acha | Onde |
+|---|---|---|
+| A **tela** (qual carro é meu) | casa `acessos_pessoas.email_corporativo` com o e-mail do login | `meuId()` em `tela-de-frota.vue:679` |
+| O **aviso das 7h30** | usa `acessos_pessoas.profile_id` | `enviar-push-frota/index.ts:171` |
+
+O aviso tem `if (!pessoa?.profile_id) continue;` — **pula em silêncio**.
+
+**O caso vivo é a Raissa** (medido 11/08): o e-mail dela bate nos dois lados, então
+ela **já usa a tela normalmente hoje**. Mas a ficha está sem `profile_id`, então
+ela **nunca vai receber o aviso** — nem depois de ligar o A1. Ninguém perceberia:
+não dá erro, não aparece no quadro, simplesmente não chega.
+
+Conserto de dado: ligar o `profile_id` da ficha dela em Colaboradores e Acessos.
+Conserto de código (o que mata a classe, não a instância): o push cair pro e-mail
+quando não houver `profile_id`, ou as duas pontas passarem a usar o mesmo helper.
+
 ### B2b · Patrimônio › 36 bens com a ficha incompleta
 Medido em 11/08, dos 350 bens: **2 sem empresa** (os dois "Macbook Neo", nº 284 e
 285 — também sem local e sem cômodo), **8 sem local** (os 5 REDMI 15C, o Samsung
