@@ -44,6 +44,22 @@ O que é cada arquivo?
         de LLM). Rodados na mão ou por outro script desta pasta,
         não direto pelo GitHub Actions.
 
+  notas-dos-pedidos.mjs
+     -> Robô da DATA DA VENDA. Descobre em que dia cada venda foi
+        FATURADA (o dia da NOTA FISCAL) e guarda na tabela
+        bling_pedido_nota. Existe porque a dashboard lança a venda no
+        dia em que o PEDIDO foi gerado, e não é a mesma coisa: a loja
+        emite NFC-e no mesmo dia, mas o Atacado emite NF-e no dia
+        seguinte — então a venda de sexta aparecia na quinta.
+        Ele NÃO muda número de tela nenhuma; só guarda a data certa.
+        Roda todo dia no GitHub Actions, olhando os pedidos mexidos
+        nos últimos 7 dias (é assim que aparece o pedido antigo que
+        só hoje foi concluído).
+        Na mão:
+           node notas-dos-pedidos.mjs --previa        (não grava nada)
+           node notas-dos-pedidos.mjs --dias=15
+           node notas-dos-pedidos.mjs --backfill=12   (histórico)
+
   run-migrations.mjs
      -> "Aplicador de mudanças no banco". Pega os arquivos .sql do
         NÍVEL DE CIMA de db/migrations/ que ainda NÃO foram aplicados
@@ -64,6 +80,14 @@ O que é cada arquivo?
                              Não acessa internet — fácil de testar.
      meta-pace.test.mjs   -> Os TESTES do arquivo acima (confere se
                              as contas estão certas).
+     notas-bling.mjs      -> As regras da DATA DA VENDA: monta a linha
+                             do pedido com a data da nota, calcula o
+                             impacto por mês e lê as notas no Bling.
+                             Guarda duas armadilhas MEDIDAS: o filtro
+                             de data da lista de notas deixa escapar a
+                             borda de baixo, e "pedido sem nota" chega
+                             do Bling como id ZERO, não como vazio.
+     notas-bling.test.mjs -> Os TESTES do arquivo acima.
 
   package.json        -> Lista as "dependências" (bibliotecas que os
                          robôs usam) e comandos do projeto Node.

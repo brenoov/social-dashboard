@@ -24,6 +24,10 @@ const corsHeaders = {
 //   - produtos e produtos/{id}             → Gestão Comercial e os robôs
 //     (baixar-fotos-bling, foto-produto).
 //   - estoques/saldos                      → robô relatorios-comerciais.
+//   - nfe, nfe/{id}, nfce, nfce/{id}       → robô notas-dos-pedidos, que
+//     descobre em que dia a venda foi FATURADA. O pedido sozinho não conta essa
+//     história: ele guarda o dia em que foi gerado, e a nota do Atacado costuma
+//     sair no dia seguinte. Só leitura — nada aqui emite nem cancela nota.
 //
 // O trecho do id aceita letras, números, hífen e underline. Não aceita ponto
 // nem barra, então não dá pra escapar do caminho (ex.: "produtos/../oauth/token").
@@ -36,6 +40,10 @@ const CAMINHOS_PERMITIDOS: RegExp[] = [
   /^produtos$/,
   /^produtos\/[A-Za-z0-9_-]+$/,
   /^estoques\/saldos$/,
+  /^nfe$/,
+  /^nfe\/[A-Za-z0-9_-]+$/,
+  /^nfce$/,
+  /^nfce\/[A-Za-z0-9_-]+$/,
 ];
 
 function caminhoPermitido(endpoint: string): boolean {
