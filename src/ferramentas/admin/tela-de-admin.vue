@@ -156,6 +156,11 @@ import { derivarFeatures } from '../../compartilhado/derivar-features.js'
 // de caixinhas no editor de permissoes: uma escolha por ferramenta, em vez de
 // ate 5 caixinhas por linha das quais mais da metade nunca existiu de verdade.
 import { degrausDoRecurso, degrauDoConjunto, acoesDoDegrau } from './niveis-de-permissao.js'
+// A frase sempre visível (D3) e o selo de dinheiro (D4) do editor de
+// permissões: o que cada nível FAZ naquela ferramenta, e quais ferramentas
+// gastam verba de verdade.
+import { oQueONivelFaz } from './o-que-o-nivel-faz.js'
+import { mexeEmDinheiro, SELO_DINHEIRO } from './consequencia-do-recurso.js'
 // Quais notificações existem e qual o padrão de cada uma. A lista mora junto da
 // Edge que envia (supabase/functions/_shared) pra não haver duas verdades sobre
 // quem recebe o quê — a tela LÊ dela em vez de repetir os nomes.
@@ -1227,6 +1232,16 @@ function _linhaDeNivel(r, u) {
   nome.textContent = r.label            // linha inteira: o nome NUNCA corta
   linha.appendChild(nome)
 
+  // SELO DE DINHEIRO (D4). Vai junto do nome, não junto da frase: quem lê o
+  // nome da ferramenta precisa ver o selo no MESMO movimento de olho.
+  if (mexeEmDinheiro(r.key)) {
+    linha.classList.add('perm-dinheiro')
+    const selo = document.createElement('span')
+    selo.className = 'perm-selo-dinheiro'
+    selo.textContent = SELO_DINHEIRO
+    nome.appendChild(selo)
+  }
+
   const botoes = document.createElement('div')
   botoes.className = 'perm-nivel-botoes'
   for (const d of degrausDoRecurso(r)) {
@@ -1238,6 +1253,20 @@ function _linhaDeNivel(r, u) {
     botoes.appendChild(b)
   }
   linha.appendChild(botoes)
+
+  // A FRASE SEMPRE VISÍVEL (D3). O dono recusou que ela aparecesse só ao
+  // clicar: "eu ainda gosto de uma visualização de todas as ferramentas, porém
+  // um detalhamento maior do que é cada permissão".
+  //
+  // SÓ quando há degrau. Conjunto fora da escada já tem a própria mensagem
+  // logo abaixo (`perm-nivel-aviso`, mais adiante) — duas mensagens na mesma
+  // linha brigariam, e a de baixo é a mais importante ali.
+  if (degrau) {
+    const frase = document.createElement('div')
+    frase.className = 'perm-o-que-faz'
+    frase.textContent = oQueONivelFaz(r.key, degrau)
+    linha.appendChild(frase)
+  }
 
   // CONJUNTO FORA DA ESCADA: não escolhe degrau nenhum e não aproxima. Mostra o
   // que está gravado e deixa a pessoa decidir. Aproximar mudaria acesso sem
@@ -2641,6 +2670,9 @@ Object.assign(window, {
 .tela-admin :deep(.perm-nivel-botoes){display:flex;flex-wrap:wrap;gap:6px;}
 .tela-admin :deep(.perm-degrau){border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:99px;padding:7px 12px;font-size:11.5px;min-height:32px;cursor:pointer;font-family:var(--fonte-principal);}
 .tela-admin :deep(.perm-degrau.escolhido){background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);font-weight:600;}
+.tela-admin :deep(.perm-o-que-faz){font-size:12.5px;line-height:1.5;color:var(--muted);margin:6px 0 2px;max-width:62ch;overflow-wrap:anywhere;}
+.tela-admin :deep(.perm-selo-dinheiro){font-size:10.5px;letter-spacing:.4px;color:var(--orange);border:1px solid var(--orange);border-radius:99px;padding:2px 8px;margin-left:8px;white-space:nowrap;}
+.tela-admin :deep(.perm-dinheiro){border-left:2px solid var(--orange);padding-left:10px;}
 /* Conjunto fora da escada: mostra o que está gravado sem aproximar de degrau
    nenhum — aproximar mudaria acesso que ninguém pediu. */
 .tela-admin :deep(.perm-nivel-aviso){margin-top:7px;font-size:11px;color:var(--orange,#d97706);}
