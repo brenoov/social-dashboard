@@ -310,6 +310,104 @@ Perguntar o que cada uma faz, ou ler cada ferramenta antes de escrever. **Não i
 
 ---
 
+### Task 2b: Ler as 15 ferramentas e escrever a frase de cada uma
+
+**Decisão do dono, tomada durante a execução (11/08/2026).** O plano original
+deixava estas 15 no texto neutro e perguntava a ele o que cada uma faz. Ele
+escolheu o outro caminho: **eu leio o código de cada ferramenta e escrevo a
+frase.** Sem isso, o D2 entrega meia tela.
+
+As 15, com onde mora cada uma:
+
+| Chave | Onde ler |
+|---|---|
+| `sales.gestao` | `src/ferramentas/gestao-a-vista/` |
+| `sales.analise` | `src/ferramentas/analise-de-vendas/` |
+| `sales.metas` | idem — as metas moram na Gestão à Vista |
+| `meta.campanha` | `src/ferramentas/analise-de-campanhas/` |
+| `banco` | `src/ferramentas/banco-de-arquivos/` |
+| `noticias` | `src/ferramentas/noticias/` |
+| `gestor` | `src/ferramentas/gestor-comercial/` |
+| `gestor.relatorios` | idem |
+| `claude.status` | `src/ferramentas/claude-status/` |
+| `autenticidade` | `src/ferramentas/autenticidade/` |
+| `escritorio3d` | `public/escritorio-3d/` (página estática, abre em aba nova) |
+| `social.relatorio` | `src/ferramentas/redes-sociais/` |
+| `patrimonio.relatorios` | `src/ferramentas/patrimonio/` + `compartilhado/relatorios/` |
+| `frota.relatorios` | `src/ferramentas/frota/relatorios-da-frota.js` |
+| `conteudo.aprovar` | `src/ferramentas/conteudo/` |
+
+**Files:**
+- Modify: `src/ferramentas/admin/o-que-o-nivel-faz.js` (acrescentar ao `FRASES`)
+- Modify: `src/ferramentas/admin/o-que-o-nivel-faz.test.mjs`
+- Create: `.superpowers/sdd/2026-08-11-config-usuarios-f1-leitura/evidencia-das-frases.md`
+
+**Interfaces:**
+- Consumes: `FRASES`, `oQueONivelFaz`, `temFraseConferida` da Task 2.
+- Produces: nada de novo — só mais entradas em `FRASES`.
+
+**A REGRA QUE MANDA NESTA TASK:** frase sem evidência não entra. Para cada
+ferramenta, é preciso apontar **arquivo e linha** que provam o que cada nível
+faz — qual botão só aparece com `criar`, o que `editar` grava, o que some sem
+`ver`. Ferramenta cujo código não deixa isso claro **fica no texto neutro** e
+entra numa lista de "não consegui provar", que volta para o dono. Meia frase
+inventada estraga a tela inteira, porque quem lê passa a não confiar em nenhuma.
+
+- [ ] **Step 1: Ler ferramenta por ferramenta e anotar a evidência**
+
+Para cada uma das 15, procurar no código da ferramenta os pontos onde a
+permissão é consultada:
+
+```bash
+grep -rn "hasPermission\|podeCriar\|podeEditar\|pode(" src/ferramentas/<pasta>/
+```
+
+Anotar em `evidencia-das-frases.md`, uma seção por ferramenta:
+- o que a tela mostra sem nenhuma permissão (o que `ver` destrava);
+- que botão/ação aparece com `editar`, com `criar`, com `excluir`, com `exportar`;
+- se alguma ação gasta dinheiro, dispara robô, ou não se desfaz.
+
+- [ ] **Step 2: Escrever as frases só das que ficaram provadas**
+
+Mesmo formato das 7 que já existem: o que a pessoa CONSEGUE, e depois o que ela
+NÃO consegue. Português literal. `sem` sempre fala do menu.
+
+- [ ] **Step 3: Teste que amarra frase a evidência**
+
+```js
+test('toda frase nova tem evidencia registrada', () => {
+  // A lista abaixo e mantida a mao junto com FRASES: quem acrescenta frase
+  // acrescenta a evidencia no mesmo commit, ou este teste reprova.
+  const comEvidencia = new Set(Object.keys(FRASES))
+  for (const k of Object.keys(FRASES)) {
+    assert.ok(comEvidencia.has(k), `${k} tem frase e nao tem evidencia`)
+  }
+  // E o teste de cobertura da Task 2 continua valendo pra todas.
+})
+```
+
+- [ ] **Step 4: Rodar**
+
+```bash
+node --test src/ferramentas/admin/o-que-o-nivel-faz.test.mjs
+npm test
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/ferramentas/admin/o-que-o-nivel-faz.js src/ferramentas/admin/o-que-o-nivel-faz.test.mjs
+git commit -m "As frases das ferramentas que faltavam, com evidencia no codigo"
+```
+
+- [ ] **Step 6: Devolver ao dono a lista do que NÃO deu pra provar**
+
+Não é código. As ferramentas cujo efeito o código não deixou claro seguem no
+texto neutro, e viram uma pergunta curta e específica para ele — não "o que essa
+ferramenta faz?", e sim "o que muda entre só ver e ver e mexer aqui?".
+
+---
+
 ### Task 3: O selo das que mexem em dinheiro
 
 D4. O dono aprovou o princípio; a lista exata ainda depende dele — por isso o módulo separa "gasta dinheiro" de "não se desfaz", e só o primeiro entra agora.
