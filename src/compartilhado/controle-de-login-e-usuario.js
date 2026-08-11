@@ -143,11 +143,6 @@ export const PERMISSION_TREE = [
   { key: 'sales', label: 'Dashboard de Vendas', children: [
     { key: 'sales.gestao', label: 'Gestão à Vista' },
     { key: 'sales.analise', label: 'Análise de Vendas' },
-    // Concedida a 12 pessoas desde antes desta árvore existir, e ausente dela
-    // até 11/08/2026 — ou seja, invisível na tela de admin. hasPermission()
-    // sempre a consultou (ver o grupo 'sales' acima). Entrar aqui NÃO concede
-    // nada a ninguém: só a torna visível e revogável.
-    { key: 'sales.metas', label: 'Metas de venda' },
   ] },
   { key: 'meta', label: 'Meta Ads', children: [
     { key: 'meta.campanha', label: 'Análise de Campanhas' },
@@ -156,10 +151,7 @@ export const PERMISSION_TREE = [
   ] },
   { key: 'banco', label: 'Banco de Arquivos', children: [] },
   { key: 'noticias', label: 'Portal de Notícias', children: [] },
-  { key: 'gestor', label: 'Gestão Comercial (IA)', children: [
-    // Mesma história de sales.metas: 12 pessoas têm, a tela nunca mostrou.
-    { key: 'gestor.relatorios', label: 'Relatórios do Gestor' },
-  ] },
+  { key: 'gestor', label: 'Gestão Comercial (IA)', children: [] },
   // Gestão Interna é uma PORTA (menu), não uma ferramenta: não tem permissão
   // própria. Aqui ela existe só para o editor de permissões mostrar os dois
   // submódulos juntos, com um "marcar tudo" do grupo. As chaves dos filhos
