@@ -35,15 +35,27 @@ test('recurso desconhecido nao estoura', () => {
   assert.ok(oQueONivelFaz(null, null).length > 0)
 })
 
-test('toda frase escrita cobre TODOS os degraus daquele recurso', () => {
-  // Meia cobertura e pior que nenhuma: a linha diria a verdade num nivel e
-  // o texto neutro no outro, sem quem le perceber a troca.
-  for (const [recurso, porDegrau] of Object.entries(FRASES)) {
-    for (const d of ['sem', 'ver', 'mexer', 'tudo']) {
-      if (porDegrau[d] === undefined) continue
-      assert.ok(String(porDegrau[d]).trim().length > 10,
-        `${recurso}.${d} tem frase curta demais pra explicar algo`)
+test('as frases batem com os degraus que a ferramenta REALMENTE tem', async () => {
+  // O teste antigo so olhava para dentro de FRASES: nao pegava frase de um
+  // degrau inexistente (meta.gestor nao tem "tudo") nem frase faltando num
+  // degrau que existe. Sem cruzar com o catalogo, ele valida so a coerencia
+  // do proprio erro.
+  globalThis.window = { supabase: { createClient: () => ({}) } }
+  const { RECURSOS } = await import('../../compartilhado/controle-de-login-e-usuario.js')
+  const { degrausDoRecurso } = await import('./niveis-de-permissao.js')
+
+  for (const [chave, porDegrau] of Object.entries(FRASES)) {
+    const recurso = RECURSOS.find((r) => r.key === chave)
+    assert.ok(recurso, `${chave} tem frase e nao existe em RECURSOS`)
+    const reais = new Set(degrausDoRecurso(recurso).map((d) => d.chave))
+
+    for (const escrito of Object.keys(porDegrau)) {
+      assert.ok(reais.has(escrito),
+        `${chave}.${escrito}: frase para um degrau que a tela nunca oferece`)
     }
-    assert.ok(porDegrau.sem, `${recurso} nao diz o que "sem acesso" significa`)
+    for (const real of reais) {
+      assert.ok(porDegrau[real],
+        `${chave}.${real}: degrau existe e ficou sem frase — cairia no texto neutro no meio de uma ferramenta conferida`)
+    }
   }
 })

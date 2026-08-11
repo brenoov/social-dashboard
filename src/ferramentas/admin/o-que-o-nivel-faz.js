@@ -35,16 +35,14 @@ export const FRASES = {
     sem: 'A Gestão de Tráfego não aparece no menu dela.',
     ver: 'Acompanha o gasto e o resultado das campanhas. Não altera nada.',
     mexer: 'Muda o orçamento de campanha que está gastando agora, pausa e '
-      + 'reativa anúncio no ar, e aprova as sugestões do robô. '
-      + 'Não cria campanha nova.',
-    tudo: 'Tudo do anterior, mais criar e duplicar campanha na conta de anúncios.',
+      + 'reativa anúncio no ar, aprova as sugestões do robô, e cria e duplica '
+      + 'campanha na conta de anúncios.',
   },
   'meta.fabrica': {
     sem: 'A Fábrica de Anúncios não aparece no menu dela.',
     ver: 'Vê os criativos e as campanhas que a Fábrica montou. Não gera nem sobe.',
     mexer: 'Gera criativo com IA e monta campanha. O que sobe para a Meta '
       + 'nasce pausado, e alguém precisa ativar.',
-    tudo: 'Tudo do anterior, mais apagar criativo e campanha da Fábrica.',
   },
   acessos: {
     sem: 'Colaboradores e Acessos não aparece no menu dela.',
