@@ -8,7 +8,19 @@ O que é esta pasta?
 funcionalidade. Aqui não roda nada — é só leitura, para entender o
 que foi combinado e por quê.
 
-Tem uma subpasta:
+Tem um arquivo e uma subpasta:
+
+pendencias.md   —  A LISTA DO QUE ESTÁ EM ABERTO
+-------------------------------------------------
+A lista viva do que falta fazer no projeto inteiro, dividida em
+três partes: o que só o dono resolve clicando (ligar aviso,
+liberar permissão, apontar dado), o que precisa de programação, e
+as ideias guardadas que ninguém pediu ainda.
+
+Cada item diz o QUE falta, POR QUE importa e ONDE se resolve.
+Item que fecha sai da lista; item adiado fica, com a data e o
+motivo. É o primeiro arquivo a abrir quando a pergunta for
+"o que ainda falta?".
 
 docs/superpowers/   —  PLANOS E ESPECIFICAÇÕES
 -----------------------------------------------
