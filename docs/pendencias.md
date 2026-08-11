@@ -17,20 +17,46 @@ Cada item tem um código fixo (A1, B3...) pra dar pra citar em conversa.
 
 ## Parte A — Só o dono resolve (clique, sem código)
 
-### A1 · Frota › ligar o aviso do "Checklist do carro" ⚠️
+### A1 · Frota › ligar o aviso do "Checklist do carro" ⚠️ *o que trava mais coisa*
 Em **Administração › Usuários**. O aviso nasce desligado: o robô roda todo dia às
 7h30, não manda nada e ninguém sabe que não mandou.
-Ferramenta no ar desde 06/08.
 
-### A2 · Frota › 3 donos de carro não têm login
-**Barbara Franco** (`barbara.franco@vesselbrasil.com.br` — atenção, o domínio é
-diferente dos outros), **Marcus Vinicius** e **Thiago Siqueira**.
-Sem login não chega aviso nenhum neles. Pra eles, o quadro da aba **Gestão** é o
-único canal. (Medido em 07/08. Raissa **já tem** login.)
+**A prova de que ninguém usa** (medido em 11/08): a ferramenta está no ar desde
+06/08 e existem **2 checklists gravados no total**, 1 assinado, o mais recente de
+**07/08**. Ou seja: fizeram o teste e parou. Sem o aviso, ninguém lembra.
 
-### A3 · Frota › apontar Empresa e Local nos 10 veículos 🔵 *o dono vai fazer*
-Os 10 veículos estão sem `empresa_id` e sem `local_id` (medido em 10 e 11/08).
-Enquanto isso, nos Relatórios da Frota só o filtro "Tudo" traz linha.
+E é isso que segura o **B10** — sem checklist diário não nasce o registro de quem
+estava com o carro, que é o que faltava pras multas e pro custo por km.
+
+### A2 · Frota › 4 fichas de dono não estão ligadas a um login
+Medido em 11/08. **Uma delas não é falta de login, é elo faltando:**
+
+| Dono | Carro | Situação |
+|---|---|---|
+| **Raissa Herculano** | Porsche Cayenne | **JÁ TEM login** (`raissaherculano@rbvcompany.com`) — só não está ligado à ficha. Conserto de um clique. |
+| Barbara Franco | Honda Fit | Sem login. Domínio é `@vesselbrasil.com.br`, diferente dos outros. |
+| Marcus Vinicius | Fiat Punto | Sem login (tem telefone → WhatsApp alcança) |
+| Thiago Siqueira | Ford Fiesta Sedan | Sem login (tem telefone → WhatsApp alcança) |
+
+Sem o elo, push nenhum chega. Pra eles o quadro da aba **Gestão** é o único canal.
+
+**Junto disso: 2 carros sem dono nenhum** — `OLW4I46` Fiat Bravo Essence e
+`QQT9B68` Fiat Doblo. Sem dono fixo não há de quem cobrar o checklist.
+
+### A3 · Frota › apontar Empresa e Local 🟢 *começou — 7 de 10 feitos*
+Medido em 11/08: **7 dos 10 já têm empresa** (todos "RB Builders") e **6 têm
+local**. Faltam:
+
+| Placa | Carro | Falta |
+|---|---|---|
+| BDN3A67 | Volvo XC60 | empresa **e** local |
+| FEF0C13 | Volvo XC90 | empresa **e** local |
+| FQW7G77 | Porsche Cayenne PHEV | empresa **e** local |
+| FFK9E60 | Fiat Bravo Blackmotion | só o local |
+
+São justamente os três de maior valor que faltam — e dois deles (XC90 e Cayenne)
+são os blindados que estão na oficina.
+
 Preencher **na ficha, na mão** — decisão do dono: nada de migration mexendo em dado.
 
 > ⚠️ **Cuidado com a palavra "Marca".** Na Frota, `marca` é o **fabricante**
@@ -113,6 +139,15 @@ catálogos reais num staging temporário **com banco de mentira**.
 Subiu assim porque o dono mandou subir sabendo. Volta fácil (`git revert` ou
 Instant Rollback da Vercel).
 
+### B2b · Patrimônio › 36 bens com a ficha incompleta
+Medido em 11/08, dos 350 bens: **2 sem empresa** (os dois "Macbook Neo", nº 284 e
+285 — também sem local e sem cômodo), **8 sem local** (os 5 REDMI 15C, o Samsung
+A127M e os 2 Macbook) e **26 sem cômodo**. Categoria está em 100%.
+
+Não é defeito da ferramenta: é ficha que nasceu sem o campo. Importa porque os
+relatórios recortam por empresa e local — bem sem esses campos some do recorte e
+só aparece em "Tudo".
+
 ### B3 · Frota › os caminhos de erro do checklist nunca foram vistos numa tela
 Hodômetro pra trás, passar o carro pra outro, gravação falhando no meio. Têm
 teste, mas ninguém abriu a tela e provocou.
@@ -161,9 +196,12 @@ true`). Foi deixado de propósito porque a equipe é interna — só trava de ve
 proxiando pelo Edge.
 
 ### B10 · Frota › F3 (multas) e F5 (custo por km) seguem travadas
-As duas dependem de haver linha em `frota_uso`, que em 05/08 tinha **zero**. A
-saída desenhada é justamente o checklist do motorista (A1) alimentar isso. Ou
-seja: **ligar o aviso destrava estas duas.**
+As duas dependem de saber **quem estava com o carro no dia**. Em 05/08 `frota_uso`
+tinha zero linhas; em 11/08 tem **10** — mas são as *posses* (o dono fixo de cada
+carro), não o uso do dia a dia. O que alimenta o dia a dia é o checklist, e ele
+tem **2 registros** (ver A1).
+
+Ou seja: **ligar o aviso do A1 é o que destrava estas duas.**
 
 O que está em jogo: das 26 multas (R$ 4.653,76), **5 são "não identificação do
 condutor", R$ 1.301,60** — dinheiro perdido puramente por não saber quem dirigia.
