@@ -22,15 +22,15 @@
           <input type="radio" value="tudo" v-model="recorte.modo"> Tudo
         </label>
         <label class="rel-radio">
-          <input type="radio" value="marca" v-model="recorte.modo"> Uma marca
+          <input type="radio" value="marca" v-model="recorte.modo"> Uma {{ palavraDaMarca }}
         </label>
         <label class="rel-radio">
           <input type="radio" value="local" v-model="recorte.modo"> Um local
         </label>
       </div>
       <select class="rel-select" v-model="recorte.empresaId"
-              v-if="recorte.modo === 'marca'" aria-label="Marca">
-        <option value="">Escolha a marca…</option>
+              v-if="recorte.modo === 'marca'" :aria-label="palavraDaMarcaMaiuscula">
+        <option value="">Escolha a {{ palavraDaMarca }}…</option>
         <option v-for="e in empresas" :key="e.id" :value="e.id">{{ e.nome }}</option>
       </select>
       <select class="rel-select" v-model="recorte.localId"
@@ -131,6 +131,7 @@ import { montarArvore } from '../arvore-de-locais.js'
 import { baixarExcel } from './exportar.js'
 import {
   RECORTE_VAZIO, aplicarRecorte, rotuloDoRecorte, contarForaDoRecorte, opcoesDeLocal,
+  avisoDeForaDoRecorte,
 } from './recorte.js'
 import { hojeLocal } from '../datas.js'
 import './folha.css'
@@ -143,6 +144,13 @@ const props = defineProps({
   comodos: { type: Array, default: () => [] },
   nomeDoArquivo: { type: String, default: 'relatorio' },
   podeExportar: { type: Boolean, default: false },
+  // Como esta ferramenta chama o primeiro nível da árvore. No Patrimônio é
+  // "marca"; na Frota TEM de ser "empresa", porque lá `marca` já quer dizer
+  // Volvo, BMW, Fiat — e está preenchida em todos os veículos, enquanto a
+  // empresa do grupo está vazia. Ver avisoDeForaDoRecorte() em recorte.js.
+  //
+  // Só palavra FEMININA aqui: a frase do aviso concorda em feminino.
+  palavraDaMarca: { type: String, default: 'marca' },
 })
 
 const escolhido = ref(props.relatorios[0]?.chave || '')
@@ -186,14 +194,11 @@ const avisoDoQueFicouFora = computed(() => {
   if (relatorioAtual.value?.recortaSozinho) return ''
   const { semMarca, semLocal } = fora.value
   const quantos = recorte.value.modo === 'marca' ? semMarca : semLocal
-  if (!quantos) return ''
-  // "marca" é feminino e "local" é masculino: uma frase só, com "apontado"
-  // cravado, escreveria "sem marca apontado" na tela do dono.
-  const falta = recorte.value.modo === 'marca' ? 'marca apontada' : 'local apontado'
-  return quantos === 1
-    ? `1 linha ainda está sem ${falta} — ela só aparece em "Tudo".`
-    : `${quantos} linhas ainda estão sem ${falta} — elas só aparecem em "Tudo".`
+  return avisoDeForaDoRecorte(recorte.value.modo, quantos, props.palavraDaMarca)
 })
+
+const palavraDaMarcaMaiuscula = computed(() =>
+  props.palavraDaMarca.charAt(0).toUpperCase() + props.palavraDaMarca.slice(1))
 
 // O recorte por extenso, para o topo da tela E para o cabeçalho da folha —
 // a mesma frase nos dois, senão o papel diz uma coisa e a tela diz outra.

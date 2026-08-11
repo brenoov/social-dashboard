@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { montarArvore } from '../arvore-de-locais.js'
 import {
   RECORTE_VAZIO, filtrarPorRecorte, rotuloDoRecorte, contarForaDoRecorte, opcoesDeLocal,
-  aplicarRecorte,
+  aplicarRecorte, avisoDeForaDoRecorte,
 } from './recorte.js'
 
 // Duas "Fábrica Conchal" de marcas diferentes — o caso real medido no banco
@@ -58,6 +58,37 @@ test('conta quantos ficaram sem marca e sem local — para a tela avisar', () =>
   // O caso que motivou isto: os 10 veículos da Frota estão TODOS sem marca.
   // Uma tabela que some com linhas caladas é como relatório vira mentira.
   assert.deepEqual(contarForaDoRecorte(LINHAS, pegarIds), { semMarca: 1, semLocal: 2 })
+})
+
+// ─── o aviso do que ficou fora, e a concordância ─────────────────────────────
+//
+// Na FROTA a palavra não pode ser "marca": lá `marca` já quer dizer Volvo, BMW,
+// Fiat — e está preenchida nos 10 veículos. O dono olhou, viu marca preenchida
+// e concluiu, com razão, que estava tudo certo. São dois campos com o mesmo
+// nome. Decisão dele em 10/08/2026: na Frota o filtro se chama "Empresa".
+//
+// Daí a palavra virar parâmetro. E daí o cuidado com o gênero: "marca" e
+// "empresa" são femininas, "local" é masculino.
+
+test('o aviso concorda em FEMININO com marca', () => {
+  assert.match(avisoDeForaDoRecorte('marca', 3, 'marca'), /sem marca apontada/)
+})
+
+test('o aviso concorda em FEMININO com empresa (a palavra da Frota)', () => {
+  assert.match(avisoDeForaDoRecorte('marca', 3, 'empresa'), /sem empresa apontada/)
+})
+
+test('o aviso concorda em MASCULINO com local', () => {
+  assert.match(avisoDeForaDoRecorte('local', 3, 'marca'), /sem local apontado/)
+})
+
+test('uma linha só fala no singular', () => {
+  assert.match(avisoDeForaDoRecorte('marca', 1, 'marca'), /^1 linha ainda está/)
+  assert.match(avisoDeForaDoRecorte('marca', 2, 'marca'), /^2 linhas ainda estão/)
+})
+
+test('nenhuma linha fora não vira aviso', () => {
+  assert.equal(avisoDeForaDoRecorte('marca', 0, 'marca'), '')
 })
 
 // ─── relatório que se recorta sozinho ────────────────────────────────────────

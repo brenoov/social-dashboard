@@ -61,6 +61,30 @@ export function contarForaDoRecorte(linhas, pegarIds) {
   return { semMarca, semLocal }
 }
 
+/**
+ * A frase de "isto aqui ficou de fora do recorte".
+ *
+ * A PALAVRA É PARÂMETRO por um motivo concreto: na Frota ela não pode ser
+ * "marca". Lá `marca` já quer dizer Volvo, BMW, Fiat — e está preenchida nos 10
+ * veículos, enquanto a empresa do grupo está vazia. O dono olhou a ficha, viu
+ * "marca" preenchida e concluiu, com razão, que estava tudo certo. São dois
+ * campos com o mesmo nome. Na Frota o filtro se chama "Empresa" (decisão dele,
+ * 10/08/2026); no Patrimônio segue "marca".
+ *
+ * E o gênero muda com a palavra: "marca" e "empresa" pedem "apontada", "local"
+ * pede "apontado". Uma frase só, com um dos dois cravado, escreveria "sem marca
+ * apontado" na tela.
+ */
+export function avisoDeForaDoRecorte(modo, quantos, palavraDaMarca = 'marca') {
+  if (!quantos) return ''
+  const falta = modo === 'marca'
+    ? `${palavraDaMarca} apontada`   // marca, empresa — femininas
+    : 'local apontado'               // masculino
+  return quantos === 1
+    ? `1 linha ainda está sem ${falta} — ela só aparece em "Tudo".`
+    : `${quantos} linhas ainda estão sem ${falta} — elas só aparecem em "Tudo".`
+}
+
 /** Os locais para o seletor, com a marca SEMPRE na frente. */
 export function opcoesDeLocal(arvore) {
   return listarLocais(arvore).map((l) => ({
