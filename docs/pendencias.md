@@ -28,20 +28,28 @@ Em **Administração › Usuários**. O aviso nasce desligado: o robô roda todo
 E é isso que segura o **B10** — sem checklist diário não nasce o registro de quem
 estava com o carro, que é o que faltava pras multas e pro custo por km.
 
-### A2 · Frota › 4 fichas de dono não estão ligadas a um login
-Medido em 11/08. **Uma delas não é falta de login, é elo faltando:**
+### A2 · Frota › 3 donos de carro não têm login
+Medido em 11/08.
 
 | Dono | Carro | Situação |
 |---|---|---|
-| **Raissa Herculano** | Porsche Cayenne | **JÁ TEM login** (`raissaherculano@rbvcompany.com`) — só não está ligado à ficha. Conserto de um clique. |
 | Barbara Franco | Honda Fit | Sem login. Domínio é `@vesselbrasil.com.br`, diferente dos outros. |
 | Marcus Vinicius | Fiat Punto | Sem login (tem telefone → WhatsApp alcança) |
 | Thiago Siqueira | Ford Fiesta Sedan | Sem login (tem telefone → WhatsApp alcança) |
 
-Sem o elo, push nenhum chega. Pra eles o quadro da aba **Gestão** é o único canal.
+Sem login, push nenhum chega. Pra eles o quadro da aba **Gestão** é o único canal
+— e por isso quem administra a Frota pode preencher o checklist por qualquer carro.
 
-**Junto disso: 2 carros sem dono nenhum** — `OLW4I46` Fiat Bravo Essence e
-`QQT9B68` Fiat Doblo. Sem dono fixo não há de quem cobrar o checklist.
+> ✅ **A Raissa saiu desta lista em 11/08.** Ela tem login, mas a ficha estava sem
+> o elo `profile_id` — e o robô do aviso exigia justamente esse elo, enquanto a
+> tela a reconhecia pelo e-mail. Duas respostas pra mesma pergunta. Corrigido no
+> código (`_shared/quem-loga.js`, commit `a0178b6`): agora as duas pontas usam a
+> mesma regra, com o e-mail como resgate. Ligar o elo na ficha dela continua sendo
+> boa arrumação, mas **não é mais requisito** pra ela receber o aviso.
+
+### A2b · Frota › 2 carros sem dono nenhum
+`OLW4I46` Fiat Bravo Essence e `QQT9B68` Fiat Doblo. Sem dono fixo não há de quem
+cobrar o checklist — esses dois nunca entram no quadro de cobrança nem no aviso.
 
 ### A3 · Frota › apontar Empresa e Local 🟢 *começou — 7 de 10 feitos*
 Medido em 11/08: **7 dos 10 já têm empresa** (todos "RB Builders") e **6 têm
@@ -138,26 +146,6 @@ catálogos reais num staging temporário **com banco de mentira**.
 **Não** foram vistos dentro do app logado, com os 350 bens e os 10 carros reais.
 Subiu assim porque o dono mandou subir sabendo. Volta fácil (`git revert` ou
 Instant Rollback da Vercel).
-
-### B1b · Frota › a tela acha a pessoa pelo e-mail, o aviso acha pelo elo 🔴
-São **dois caminhos diferentes** pra mesma pergunta "quem é essa pessoa", e eles
-discordam:
-
-| Quem pergunta | Como acha | Onde |
-|---|---|---|
-| A **tela** (qual carro é meu) | casa `acessos_pessoas.email_corporativo` com o e-mail do login | `meuId()` em `tela-de-frota.vue:679` |
-| O **aviso das 7h30** | usa `acessos_pessoas.profile_id` | `enviar-push-frota/index.ts:171` |
-
-O aviso tem `if (!pessoa?.profile_id) continue;` — **pula em silêncio**.
-
-**O caso vivo é a Raissa** (medido 11/08): o e-mail dela bate nos dois lados, então
-ela **já usa a tela normalmente hoje**. Mas a ficha está sem `profile_id`, então
-ela **nunca vai receber o aviso** — nem depois de ligar o A1. Ninguém perceberia:
-não dá erro, não aparece no quadro, simplesmente não chega.
-
-Conserto de dado: ligar o `profile_id` da ficha dela em Colaboradores e Acessos.
-Conserto de código (o que mata a classe, não a instância): o push cair pro e-mail
-quando não houver `profile_id`, ou as duas pontas passarem a usar o mesmo helper.
 
 ### B2b · Patrimônio › 36 bens com a ficha incompleta
 Medido em 11/08, dos 350 bens: **2 sem empresa** (os dois "Macbook Neo", nº 284 e
