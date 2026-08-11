@@ -16,6 +16,13 @@
 // A segunda metade da frase (o que a pessoa NÃO consegue) costuma valer mais
 // que a primeira: é ela que responde a dúvida de quem está decidindo.
 //
+// TASK 2b (11/08/2026): mais 9 ferramentas ganharam frase, todas com
+// evidência de arquivo:linha registrada em
+// .superpowers/sdd/2026-08-11-config-usuarios-f1-leitura/evidencia-das-frases.md
+// (gitignorado — é o memorial de prova, não faz parte do commit). Outras 6
+// ficaram de fora e continuam no texto neutro — o motivo de cada uma está no
+// mesmo relatório (task-2b-report.md), não aqui.
+//
 // PURO: sem rede, sem DOM.
 
 export const FRASES = {
@@ -69,6 +76,96 @@ export const FRASES = {
     mexer: 'Cria peça, sobe a arte e agenda. Não aprova a própria peça — '
       + 'aprovar é a chave separada, logo abaixo.',
     tudo: 'Tudo do anterior, mais apagar peça agendada.',
+  },
+  'conteudo.aprovar': {
+    // conteudo/painel-peca.vue:215 (botão "Aprovar e agendar", só com
+    // podeAprovar) e :233-245 (reprovar, que pede o motivo); a decisão em si
+    // passa por estados.js:69 (podeTransicionar exige podeAprovar) e
+    // dados-conteudo.js:56-58 (podeAprovar lê 'conteudo.aprovar').
+    sem: 'Não decide (aprova ou reprova) peça de ninguém.',
+    ver: 'Aprova e reprova a peça de qualquer um, com o motivo da recusa. '
+      + 'A tela esconde o botão, mas quem trava de verdade é o banco.',
+  },
+  gestor: {
+    // gestao-comercial/tela-de-gestao-comercial.vue:348 (guarda de entrada) e
+    // :18 (a aba de Relatórios só aparece com podeRelatorios — chave
+    // separada, abaixo). O briefing (gc-body) é só leitura: sem .insert/
+    // .update/.delete no arquivo inteiro.
+    sem: 'A Gestão Comercial não aparece no menu dela.',
+    ver: 'Lê o briefing semanal que a IA escreve sobre a área comercial. '
+      + 'Não vê a aba de Relatórios — essa é chave separada, logo abaixo.',
+  },
+  'gestor.relatorios': {
+    // gestao-comercial/tela-de-gestao-comercial.vue:18 (a aba só existe com
+    // podeRelatorios) e relatorios-comerciais.vue:57+335 (botão "Exportar"
+    // só com podeExportar).
+    sem: 'A aba de Relatórios não aparece dentro da Gestão Comercial — só o '
+      + 'briefing.',
+    ver: 'Abre a aba de Relatórios Comerciais e consulta os números. Não '
+      + 'baixa nada.',
+    exportar: 'Abre a aba de Relatórios Comerciais, consulta e baixa o '
+      + 'relatório.',
+  },
+  'claude.status': {
+    // mapa-de-enderecos.js:31 (rota gateada em 'ver'); dentro da tela não há
+    // NENHUM hasPermission — o kanban de projetos (criar/editar/mover/
+    // arquivar, tela-de-status-claude.vue:677-712) fica liberado pra quem já
+    // tem 'ver'. Não existe outro degrau no catálogo.
+    sem: 'O Status do Claude não aparece no menu dela.',
+    ver: 'Vê o gasto e o progresso dos robôs de IA, e mexe livre no quadro '
+      + 'de projetos: cria, edita, arrasta entre colunas e arquiva os cards. '
+      + 'Não há um nível intermediário — quem entra, mexe em tudo isso.',
+  },
+  noticias: {
+    // mapa-de-enderecos.js:7 (rota gateada em 'ver'); a tela inteira só faz
+    // .select (loadNoticias, tela-de-noticias.vue) — nenhum insert/update/
+    // delete no arquivo. É porta fechada ou vitrine de leitura, sem meio-termo.
+    sem: 'O Portal de Notícias não aparece no menu dela.',
+    ver: 'Lê o resumo do mercado e das concorrentes, edição por edição. É '
+      + 'vitrine: nada aqui se registra ou se altera.',
+  },
+  autenticidade: {
+    // tela-de-autenticidade.vue:15 (botão "Gerar lote", só com podeCriar) e
+    // :75 (botão "Gravei essa", só com podeEditar); "Baixar planilha" (linha
+    // 85-87) não tem guarda própria — é liberado a partir do 'ver'.
+    sem: 'Autenticidade e Garantia não aparece no menu dela.',
+    ver: 'Vê os lotes de etiquetas, o progresso de gravação, os registros de '
+      + 'garantia das clientes e os alertas de leitura suspeita, e baixa a '
+      + 'planilha de registros. Não gera lote novo nem marca etiqueta como gravada.',
+    mexer: 'Marca cada etiqueta como gravada, uma a uma. Não gera lote novo.',
+    tudo: 'Tudo do anterior, mais gerar lote novo de etiquetas.',
+  },
+  'social.relatorio': {
+    // tela-de-relatorio-redes.vue:229 (guarda de entrada em 'ver'; sem ela a
+    // tela devolve pro Início) e :27+119 (bloco de exportar só com
+    // podeExportar). ATENÇÃO: o card "Relatório Interativo" no submenu de
+    // Redes Sociais (tela-de-menu-redes.vue:24) é visível só para
+    // estado.role==='admin', que é OUTRO controle — por isso o degrau "sem"
+    // aqui fala da própria tela, não do card do submenu.
+    sem: 'Não abre o Relatório Interativo — tentando entrar, a tela manda '
+      + 'de volta pro Início.',
+    ver: 'Vê a planilha do histórico coletado, dia a dia, por perfil, e '
+      + 'ordena e filtra as colunas. Não baixa o arquivo.',
+    exportar: 'Vê, ordena e filtra a planilha, e baixa em CSV.',
+  },
+  'patrimonio.relatorios': {
+    // tela-de-patrimonio.vue:49 (a aba só aparece com podeRelatorios) e
+    // relatorios-do-patrimonio.js + aba-de-relatorios.vue (pode-exportar =
+    // podeExportarRelatorio, linha 930).
+    sem: 'A aba de Relatórios não aparece dentro do Patrimônio.',
+    ver: 'Abre a aba de Relatórios do Patrimônio e consulta os números. Não '
+      + 'baixa a planilha.',
+    exportar: 'Abre a aba de Relatórios do Patrimônio, consulta e baixa a '
+      + 'planilha.',
+  },
+  'frota.relatorios': {
+    // tela-de-frota.vue:107-110 (podeRelatorios decide se a aba entra em
+    // areasVisiveis) e :108+2319 (pode-exportar = podeExportarRelatorio).
+    sem: 'A aba de Relatórios não aparece dentro da Frota.',
+    ver: 'Abre a aba de Relatórios da Frota e consulta os números. Não '
+      + 'baixa a planilha.',
+    exportar: 'Abre a aba de Relatórios da Frota, consulta e baixa a '
+      + 'planilha.',
   },
 }
 
