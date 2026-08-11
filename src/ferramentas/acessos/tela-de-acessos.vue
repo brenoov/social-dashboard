@@ -42,7 +42,7 @@ import { montarArvoreDePastas } from './montar-arvore-de-pastas.js'
 import { montarDetalhePastas } from './montar-textos-do-topo.js'
 import { decidirEstadoAcesso, mensagemEstadoVazio, agruparPorEscopo, corDeAvatar, inicialDe } from './acesso-da-pasta.js'
 import { montarEmailsDeSelecao } from './onedrive-escrita.js'
-import { contarAcessosOneDrive, resumoAcessosOneDrive, statusWorkdrive, campoPreenchido, resumoDaFicha } from './ficha-do-colaborador.js'
+import { contarAcessosOneDrive, resumoAcessosOneDrive, statusWorkdrive, campoPreenchido, resumoDaFicha, camposDaFicha, CAMPOS_DA_FICHA } from './ficha-do-colaborador.js'
 // Patrimônio (Tarefa 5): dinheiro em centavos + histórico de posse (módulo já testado)
 import { formatarValor, parsearValor, CATEGORIAS_PATRIMONIO, fecharEAbrirHistorico } from '../patrimonio/patrimonio.js'
 // Lógica pura da lista/consolidado de patrimônio (somar, filtrar, formatar data, histórico)
@@ -1583,18 +1583,11 @@ async function _acSaveColaborador(id){
   // Onboarding (opção B): colaborador NOVO → abre o provisionamento de acessos na sequência
   if(!isEdit)setTimeout(()=>_acProvisionar(id),250);
 }
-// Campos editáveis da ficha (coluna DB -> rótulo + tipo do input). Fica no
-// escopo do módulo pra o render e o editor (_acFichaEditarCampo) compartilharem
-// a MESMA verdade — assim não dá pra o rótulo/tipo divergir entre os dois.
-const AC_FICHA_CAMPOS={
-  email_corporativo:{label:'E-mail corporativo',tipo:'email'},
-  conta_apple:{label:'Conta Apple (iCloud)',tipo:'email'},
-  numero_corporativo:{label:'Telefone corporativo',tipo:'tel'},
-  numero_pessoal:{label:'Telefone pessoal',tipo:'tel'},
-  data_inicio_contrato:{label:'Início de contrato',tipo:'date'},
-  data_fim_contrato:{label:'Fim de contrato',tipo:'date'},
-  motivo_saida:{label:'Motivo da saída',tipo:'text'},
-};
+// Campos editáveis da ficha: a verdade mora em ficha-do-colaborador.js, com
+// teste ao lado. Aqui era um objeto solto, e ao lado dele havia uma SEGUNDA
+// lista dizendo quais colunas aparecem — as duas divergiram (`email_outlook`
+// numa e não na outra) e NENHUMA ficha abria. Ver camposDaFicha().
+const AC_FICHA_CAMPOS=CAMPOS_DA_FICHA;
 // Avatar GRANDE da identidade (mockup: quadrado arredondado 76px). Se tem foto,
 // usa a foto; senão, iniciais coloridas de forma determinística (mesma pessoa =
 // mesma cor sempre, igual à bolinha de app de mensagem). corDeAvatar/inicialDe
@@ -1619,8 +1612,8 @@ function _acRenderFicha(id){
   const roleParts=[c.cargo,setor||'Sem setor'].filter(Boolean).map(_acEsc);
   // Uma linha de campo editável. Cheio = mostra o valor (clicar edita); vazio =
   // vira "+ adicionar" (nunca fica em branco morto, convida a preencher).
-  const fld=(col,logo)=>{
-    const cfg=AC_FICHA_CAMPOS[col];const raw=c[col];const cheio=campoPreenchido(raw);
+  const fld=(cfg,logo)=>{
+    const col=cfg.col;const raw=c[col];const cheio=campoPreenchido(raw);
     const disp=cheio?(cfg.tipo==='date'?dt(raw):raw):'';
     return `<div class="ac-fx-fld ${cheio?'':'vazio'}">
       <span class="ac-fx-fld-l">${logo||''}${_acEsc(cfg.label)}</span>
@@ -1629,8 +1622,9 @@ function _acRenderFicha(id){
         : `<button class="ac-fx-fld-add" onclick="_acFichaEditarCampo('${c.id}','${col}')">+ adicionar</button>`}
     </div>`;
   };
-  const contatoCampos=['email_corporativo','email_outlook','conta_apple','numero_corporativo','numero_pessoal','data_inicio_contrato']
-    .concat(ativo?[]:['data_fim_contrato','motivo_saida']);
+  // Já vem com rótulo e tipo junto de cada coluna: não há mais como listar uma
+  // coluna que não tenha configuração — que era o defeito.
+  const contatoCampos=camposDaFicha(ativo);
   const logoDe={email_corporativo:_acLogo('zoho'),email_outlook:_acLogo('ms'),conta_apple:_acLogo('apple')};
   document.getElementById('ac-body').innerHTML=`
     <button class="ac-btn ghost" onclick="_acVoltarSel('pessoa')" style="margin-bottom:14px">← Voltar</button>
@@ -1667,7 +1661,7 @@ function _acRenderFicha(id){
         <div class="ac-panel">
           <div class="ac-phead"><h2>Contatos &amp; contas</h2></div>
           <div class="ac-fx-fields">
-            ${contatoCampos.map(col=>fld(col,logoDe[col]||'')).join('')}
+            ${contatoCampos.map(cfg=>fld(cfg,logoDe[cfg.col]||'')).join('')}
           </div>
         </div>
 
