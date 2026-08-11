@@ -203,6 +203,29 @@ no painel. Ao fazer: manter a **fonte única de preço** e a linguagem literal.
 true`). Foi deixado de propósito porque a equipe é interna — só trava de vez
 proxiando pelo Edge.
 
+### B11 · Vendas › as telas ainda contam pelo dia do PEDIDO, não pelo da nota 🔴
+A Etapa 1 está feita: a data certa (a da nota fiscal) já é coletada e guardada
+em `bling_pedido_nota`, com backfill de 12 meses (1.795 pedidos). **Nenhuma tela
+usa ainda** — de propósito, para o dono ver o impacto antes.
+
+**O tamanho do erro, medido em 11/08:** **197 dos 325 dias com venda mostram
+valor errado (61%)**, erro médio de **R$ 2.487,58** por dia. O pior:
+16/10/2025 mostra R$ 299,90 quando foram R$ 34.002,35. A **Black Friday de
+2025** aparece com R$ 14.717,76 e foram R$ 3.167,83.
+
+O fechamento MENSAL quase não muda (a maioria das mudanças é dentro do mesmo
+mês). Quem sofre é o telão, a Análise de Vendas e o push das 22h/07h — tudo que
+fala em "hoje", "ontem" e "7 dias".
+
+Faltam as Etapas 2 (telão + Análise de Vendas) e 3 (push, Relatórios Comerciais
+e briefing do Gestor). **Nenhuma pode ficar para trás**: dois lugares com regras
+diferentes dão números diferentes, que é a pior classe de defeito daqui.
+
+Os três caminhos possíveis e o que cada um custa estão em
+`docs/superpowers/plans/2026-08-11-data-da-venda.md`. ⚠️ Ao encostar nisso, ler
+as armadilhas do plano antes: `dataSaida` não serve, o filtro de data da lista
+de notas come a borda de baixo, e "sem nota" chega como id ZERO.
+
 ### B10 · Frota › F3 (multas) e F5 (custo por km) seguem travadas
 As duas dependem de saber **quem estava com o carro no dia**. Em 05/08 `frota_uso`
 tinha zero linhas; em 11/08 tem **10** — mas são as *posses* (o dono fixo de cada
