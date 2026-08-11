@@ -11,13 +11,31 @@
 import { mexeEmDinheiro } from './consequencia-do-recurso.js'
 
 // Como se chama, em uma palavra, o assunto de cada ferramenta que dá poder.
+// A ORDEM AQUI é a ordem em que os assuntos aparecem na frase — determinística,
+// e não a ordem em que a pessoa (ou o banco) listou as chaves de permissions.
+//
+// FICARAM DE FORA de propósito, e não por esquecimento: `meta.campanha`,
+// `frota.aprovar` e `conteudo.aprovar` só têm 'ver'/'exportar' no catálogo
+// (ver RECURSOS em controle-de-login-e-usuario.js) — nunca ganham
+// criar/editar/excluir, logo `podeMexer` nunca é true pra elas e nunca
+// entrariam na frase mesmo mapeadas. Mapeá-las aqui é código morto que
+// engana quem lê. Se um dia ganharem ação de mexer, o teste de
+// "toda ferramenta que dá poder tem assunto" abaixo vai acusar.
 const ASSUNTO = {
-  'meta.gestor': 'Anúncios', 'meta.fabrica': 'Anúncios', 'meta.campanha': 'Anúncios',
-  frota: 'Frota', 'frota.aprovar': 'Frota',
-  patrimonio: 'Patrimônio', acessos: 'Colaboradores',
-  conteudo: 'Conteúdo', 'conteudo.aprovar': 'Conteúdo',
-  'sales.metas': 'Metas de venda', banco: 'Arquivos',
+  'meta.gestor': 'Anúncios', 'meta.fabrica': 'Anúncios',
+  frota: 'Frota',
+  patrimonio: 'Patrimônio',
+  acessos: 'Colaboradores',
+  conteudo: 'Conteúdo',
+  autenticidade: 'Autenticidade',
+  'sales.metas': 'Metas de venda',
+  banco: 'Arquivos',
 }
+
+// Exportado para o teste de guarda: toda ferramenta do catálogo que dá poder
+// (tem ação de criar/editar/excluir) precisa estar aqui, senão ela aparece
+// na frase como se fosse só leitura — foi o que aconteceu com `autenticidade`.
+export const ASSUNTOS_CONHECIDOS = new Set(Object.keys(ASSUNTO))
 
 const MEXE = ['criar', 'editar', 'excluir']
 const podeMexer = (acoes) => (acoes || []).some((a) => MEXE.includes(a))
@@ -27,13 +45,18 @@ const podeMexer = (acoes) => (acoes || []).some((a) => MEXE.includes(a))
 export function resumoDoAcesso(permissions) {
   const p = permissions || {}
   const chaves = Object.keys(p).filter((k) => (p[k] || []).length)
-  const comDinheiro = chaves.filter(mexeEmDinheiro).length
 
+  // Só conta quem pode GASTAR, não quem só vê o painel de anúncios — senão
+  // o selo e a frase se contradizem (frase diz "só leitura", selo acende).
+  const comDinheiro = chaves.filter((k) => mexeEmDinheiro(k) && podeMexer(p[k])).length
+
+  // Percorre a ordem de ASSUNTO (fixa), não a ordem das chaves da pessoa —
+  // senão a mesma pessoa sai com frases diferentes conforme o objeto foi
+  // montado.
   const assuntos = []
-  for (const k of chaves) {
-    if (!podeMexer(p[k])) continue
-    const a = ASSUNTO[k]
-    if (a && !assuntos.includes(a)) assuntos.push(a)
+  for (const [chave, assunto] of Object.entries(ASSUNTO)) {
+    if (assuntos.includes(assunto)) continue
+    if (podeMexer(p[chave])) assuntos.push(assunto)
   }
 
   let frase

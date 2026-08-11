@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { resumoDoAcesso } from './resumo-do-acesso.js'
+import { resumoDoAcesso, ASSUNTOS_CONHECIDOS } from './resumo-do-acesso.js'
 
 // Permissões reais, medidas no banco em 11/08/2026.
 const RAISSA = {
@@ -46,4 +46,34 @@ test('sem acesso nenhum diz isso, e nao fica em branco', () => {
 
 test('nao estoura com nulo', () => {
   assert.equal(resumoDoAcesso(null).quantos, 0)
+})
+
+test('o selo de dinheiro NAO acende pra quem so ve', () => {
+  // meta.gestor no degrau "Só ver" existe de verdade. Contar a PRESENCA da
+  // chave (em vez da ACAO concedida) contradiz a propria frase, que já diz
+  // "só painéis de leitura" pra essa mesma pessoa.
+  const soVe = { 'meta.gestor': ['ver'] }
+  const r = resumoDoAcesso(soVe)
+  assert.equal(r.comDinheiro, 0)
+  assert.match(r.frase, /leitura/i)
+})
+
+test('toda ferramenta que da poder tem assunto na frase', async () => {
+  // Sem isto, ferramenta nova com criar/editar aparece como "so leitura" e
+  // ninguem descobre — foi o que aconteceu com autenticidade.
+  globalThis.window = { supabase: { createClient: () => ({}) } }
+  const { RECURSOS } = await import('../../compartilhado/controle-de-login-e-usuario.js')
+  const MEXE = ['criar', 'editar', 'excluir']
+  const semAssunto = RECURSOS
+    .filter((r) => (r.acoes || []).some((a) => MEXE.includes(a)))
+    .map((r) => r.key)
+    .filter((k) => !ASSUNTOS_CONHECIDOS.has(k))
+  assert.deepEqual(semAssunto, [],
+    'ferramenta com acao de mexer e sem assunto sai da frase como se fosse so leitura')
+})
+
+test('a ordem da frase e determinística: nao depende da ordem das chaves da pessoa', () => {
+  const ordemA = { frota: ['ver', 'editar'], 'meta.gestor': ['ver', 'editar'] }
+  const ordemB = { 'meta.gestor': ['ver', 'editar'], frota: ['ver', 'editar'] }
+  assert.equal(resumoDoAcesso(ordemA).frase, resumoDoAcesso(ordemB).frase)
 })
