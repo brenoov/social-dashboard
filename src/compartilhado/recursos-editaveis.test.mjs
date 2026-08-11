@@ -23,7 +23,7 @@ const CONCEDIDAS_EM_PRODUCAO = [
 // aqui no node, não. Então fingimos um window mínimo ANTES de fazer o import —
 // por isso o import é dinâmico e não estático, senão ele rodaria primeiro.
 test('toda permissao concedida esta em RECURSOS, logo tem linha no editor', async () => {
-  globalThis.window = globalThis.window || { supabase: { createClient: () => ({}) } }
+  globalThis.window = { supabase: { createClient: () => ({}) } }
   const { RECURSOS } = await import('./controle-de-login-e-usuario.js')
   const editaveis = new Set(RECURSOS.map((r) => r.key))
   const invisiveis = CONCEDIDAS_EM_PRODUCAO.filter((k) => !editaveis.has(k))
