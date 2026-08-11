@@ -22,31 +22,55 @@
 
 ---
 
-### Task 1: As duas permissões invisíveis
+### Task 1: O guarda de que toda permissão concedida é editável ~~As duas permissões invisíveis~~
 
-Medido em 11/08/2026: **`sales.metas` e `gestor.relatorios` estão concedidas a 12 pessoas cada**, e **não existem em `PERMISSION_TREE`**. A tela de admin nunca as mostrou — não dá pra ver nem revogar pela interface. `hasPermission` as consulta normalmente (L128 usa `sales.metas`), então elas valem de verdade.
-
-É a primeira queixa do dono na forma mais crua: ele não consegue ver o que a pessoa tem porque duas coisas não estão na tela.
+> **ERRO MEU, CORRIGIDO EM 11/08/2026 — a premissa original desta task estava errada.**
+>
+> Eu havia escrito que `sales.metas` e `gestor.relatorios` eram **invisíveis** na
+> tela de admin, por não estarem em `PERMISSION_TREE`. **Falso.** Fui conferir o
+> caminho de desenho e a tela NÃO desenha a partir da árvore: `agruparRecursos`
+> (`agrupar-permissoes.js:47`) itera **`RECURSOS`**, e agrupa cada um pelo prefixo
+> da chave quando a árvore não declara o grupo. As duas estão em `RECURSOS`
+> (L90 e L107), então **sempre apareceram e sempre foram revogáveis**.
+>
+> Eu medi a árvore e supus o resto, em vez de ler o caminho até a tela. O commit
+> `ecf7511` foi revertido.
+>
+> **O que sobra de verdadeiro:** o risco existe, só que na outra lista. Conceder no
+> banco uma chave que não está em `RECURSOS` produziria uma permissão que vale e
+> não aparece em lugar nenhum. Hoje isso não acontece (medido: 18 chaves
+> concedidas, todas presentes). Esta task passa a ser o guarda desse invariante.
 
 **Files:**
-- Modify: `src/compartilhado/controle-de-login-e-usuario.js:143-146` (grupo `sales`) e `:154` (grupo `gestor`)
-- Test: `src/compartilhado/arvore-de-permissoes.test.mjs` (criar)
+- Test: `src/compartilhado/recursos-editaveis.test.mjs` (criar)
+- Nenhum arquivo de produção muda.
 
 **Interfaces:**
-- Consumes: `PERMISSION_TREE`, `RECURSOS` de `controle-de-login-e-usuario.js`
-- Produces: nada de novo — só a árvore completa. Tasks 2 e 4 dependem de a árvore listar todo recurso concedível.
+- Consumes: `RECURSOS` de `controle-de-login-e-usuario.js`.
+- Produces: nada. É um guarda.
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Write the test**
+
+Atenção ao importar: `controle-de-login-e-usuario.js` toca `window` na cadeia de
+import e estoura no Node. O arquivo vizinho `controle-de-login-e-usuario.test.mjs`
+já resolve isso com um stub de `globalThis.window` + import dinâmico — **copie
+esse padrão**, não invente outro.
 
 ```js
-// src/compartilhado/arvore-de-permissoes.test.mjs
+// src/compartilhado/recursos-editaveis.test.mjs
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { PERMISSION_TREE } from './controle-de-login-e-usuario.js'
 
-// Chaves que hasPermission() consulta ou que estão gravadas em produção.
-// Medido no banco em 11/08/2026: sales.metas e gestor.relatorios tinham 12
-// pessoas cada e NÃO apareciam na árvore — invisíveis na tela de admin.
+// TODA PERMISSÃO CONCEDIDA PRECISA SER EDITÁVEL NA TELA.
+//
+// Quem desenha as linhas do editor é `RECURSOS` — não `PERMISSION_TREE`. A
+// árvore só agrupa, e `agruparRecursos` cai no prefixo da chave quando ela não
+// declara o grupo. Uma chave concedida no banco e ausente de `RECURSOS` seria
+// uma permissão que VALE (hasPermission a consulta) e que ninguém consegue ver
+// nem tirar pela interface.
+//
+// Medido em 11/08/2026: 18 chaves concedidas em produção, todas presentes.
+// Este teste existe pra continuar assim.
 const CONCEDIDAS_EM_PRODUCAO = [
   'social', 'social.relatorio', 'sales.gestao', 'sales.analise', 'sales.metas',
   'meta.campanha', 'meta.gestor', 'meta.fabrica', 'banco', 'noticias',
@@ -54,67 +78,40 @@ const CONCEDIDAS_EM_PRODUCAO = [
   'frota.aprovar', 'autenticidade', 'claude.status',
 ]
 
-function chavesDaArvore(nos = PERMISSION_TREE, acc = []) {
-  for (const n of nos) {
-    acc.push(n.key)
-    if (n.children) chavesDaArvore(n.children, acc)
-  }
-  return acc
-}
-
-test('toda permissao concedida aparece na arvore', () => {
-  const arvore = new Set(chavesDaArvore())
-  const invisiveis = CONCEDIDAS_EM_PRODUCAO.filter((k) => !arvore.has(k))
+test('toda permissao concedida esta em RECURSOS, logo tem linha no editor', async () => {
+  globalThis.window = globalThis.window || {}
+  const { RECURSOS } = await import('./controle-de-login-e-usuario.js')
+  const editaveis = new Set(RECURSOS.map((r) => r.key))
+  const invisiveis = CONCEDIDAS_EM_PRODUCAO.filter((k) => !editaveis.has(k))
   assert.deepEqual(invisiveis, [],
-    'permissao concedida que nao esta na arvore e invisivel na tela de admin: nao da pra ver nem revogar')
+    'chave concedida fora de RECURSOS vale no sistema e nao aparece no editor: ninguem consegue revogar')
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+> Se o stub de `window` acima não bastar, use exatamente o mesmo preparo do
+> arquivo vizinho — ele já lida com `window.supabase.createClient()`.
 
-Run: `node --test src/compartilhado/arvore-de-permissoes.test.mjs`
-Expected: FAIL, listando `sales.metas` e `gestor.relatorios`.
+- [ ] **Step 2: Rodar**
 
-- [ ] **Step 3: Write minimal implementation**
+Run: `node --test src/compartilhado/recursos-editaveis.test.mjs`
+Expected: PASS (o invariante já vale hoje — o guarda é pra ele continuar valendo).
 
-Em `controle-de-login-e-usuario.js`, acrescentar os dois filhos que faltam:
+- [ ] **Step 3: Provar que o guarda pega o defeito**
 
-```js
-  { key: 'sales', label: 'Dashboard de Vendas', children: [
-    { key: 'sales.gestao', label: 'Gestão à Vista' },
-    { key: 'sales.analise', label: 'Análise de Vendas' },
-    // Concedida a 12 pessoas desde antes desta árvore existir, e ausente dela
-    // até 11/08/2026 — ou seja, invisível na tela de admin. hasPermission()
-    // sempre a consultou (ver o grupo 'sales' acima). Entrar aqui NÃO concede
-    // nada a ninguém: só a torna visível e revogável.
-    { key: 'sales.metas', label: 'Metas de venda' },
-  ] },
-```
+Um teste que passa sempre não protege nada. Temporariamente acrescente uma chave
+inventada (`'inventada.que.nao.existe'`) à lista `CONCEDIDAS_EM_PRODUCAO`, rode e
+**veja falhar**. Depois tire.
 
-```js
-  { key: 'gestor', label: 'Gestão Comercial (IA)', children: [
-    // Mesma história de sales.metas: 12 pessoas têm, a tela nunca mostrou.
-    { key: 'gestor.relatorios', label: 'Relatórios do Gestor' },
-  ] },
-```
+- [ ] **Step 4: Suite inteira**
 
-- [ ] **Step 4: Run test to verify it passes**
+Run: `npm test`
+Expected: 2385 passando (2384 + 1).
 
-Run: `node --test src/compartilhado/arvore-de-permissoes.test.mjs`
-Expected: PASS
-
-Depois: `npm test` inteiro. `agruparRecursos(RECURSOS, PERMISSION_TREE)` (usado em `tela-de-admin.vue:1134`) passa a devolver dois cards a mais — conferir que nenhum teste de admin quebrou.
-
-- [ ] **Step 5: Conferir na tela que ninguém mudou de acesso**
-
-Run: `npm run dev -- --port 5199 --strictPort`, abrir Administração › Usuários, abrir uma pessoa que tem `sales.metas` (ex.: Raissa Herculano).
-Expected: as duas linhas novas aparecem **já marcadas no nível que ela tem**, não em "Sem acesso". Se aparecerem vazias, o mapeamento está errado e a gravação tiraria o acesso de 12 pessoas — **parar e investigar antes de commitar**.
-
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src/compartilhado/controle-de-login-e-usuario.js src/compartilhado/arvore-de-permissoes.test.mjs
-git commit -m "Duas permissoes concedidas a 12 pessoas nao apareciam na tela"
+git add src/compartilhado/recursos-editaveis.test.mjs
+git commit -m "Guarda: permissao concedida fora de RECURSOS seria invisivel"
 ```
 
 ---

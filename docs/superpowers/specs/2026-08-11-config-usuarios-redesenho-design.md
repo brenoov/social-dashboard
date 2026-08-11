@@ -49,15 +49,19 @@ peça pra classificar 26 pessoas antes de funcionar morre na primeira semana.
 lacuna que fez o aviso do checklist não chegar em quem tinha login — ver
 `2026-08-11` no histórico da Frota. Hoje ela é invisível na tela.
 
-**Duas permissões concedidas não existem na árvore** (achado ao escrever o
-plano, 11/08/2026): `sales.metas` e `gestor.relatorios` estão gravadas para 12
-pessoas cada e **não aparecem em `PERMISSION_TREE`** — a tela de admin nunca as
-mostrou, então não dá para ver nem revogar pela interface. `hasPermission()` as
-consulta normalmente, então elas valem de verdade.
+**Correção de um achado meu que estava errado** (11/08/2026): eu havia anotado
+que `sales.metas` e `gestor.relatorios` eram invisíveis no editor por não estarem
+em `PERMISSION_TREE`. **Não são.** O editor desenha a partir de `RECURSOS`, não da
+árvore — `agruparRecursos` agrupa pelo prefixo da chave quando a árvore não
+declara o grupo. As duas sempre apareceram e sempre foram revogáveis.
 
-É a primeira queixa do dono na forma mais crua: ele não consegue ver o que a
-pessoa tem porque duas coisas simplesmente não estão lá. Vira a Task 1 do plano
-da Fase 1.
+Eu medi a árvore e supus o resto sem ler o caminho até a tela. Fica registrado
+porque o erro é instrutivo: **neste projeto, "qual lista manda" é pergunta que se
+responde lendo quem itera, não quem parece ser o catálogo.**
+
+O risco real mora na outra lista: chave concedida no banco e ausente de
+`RECURSOS` valeria e não teria linha no editor. Hoje não acontece (18 chaves
+concedidas, todas presentes) e virou um teste-guarda.
 
 ## As decisões
 
