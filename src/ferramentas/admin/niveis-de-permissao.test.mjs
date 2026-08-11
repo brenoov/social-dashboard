@@ -24,6 +24,7 @@ const RECURSOS = [
   { key: 'patrimonio', label: 'Patrimônio', acoes: ['ver', 'criar', 'editar', 'excluir'] },
   { key: 'patrimonio.relatorios', label: 'Patrimônio — Relatórios', acoes: ['ver', 'exportar'] },
   { key: 'frota', label: 'Frota', acoes: ['ver', 'criar', 'editar', 'excluir'] },
+  { key: 'frota.relatorios', label: 'Frota — Relatórios', acoes: ['ver', 'exportar'] },
   { key: 'frota.aprovar', label: 'Aprovar requisição de veículo', acoes: ['ver'] },
   { key: 'autenticidade', label: 'Autenticidade e Garantia', acoes: ['ver', 'criar', 'editar'] },
   { key: 'noticias', label: 'Portal de Notícias', acoes: ['ver'] },

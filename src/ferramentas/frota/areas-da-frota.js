@@ -13,21 +13,31 @@ export const AREAS = [
   { chave: 'gestao', rotulo: 'Gestão' },
   { chave: 'revisoes', rotulo: 'Revisões' },
   { chave: 'plano', rotulo: 'Plano' },
+  { chave: 'relatorios', rotulo: 'Relatórios' },
 ];
 
 /**
  * Quais áreas esta pessoa vê.
  * Todo mundo com acesso vê Motorista. Gestão só para quem pode cadastrar ou
  * excluir veículo — quem tem apenas 'ver' e 'editar' dirige, não administra.
+ *
+ * `podeRelatorios` vem SEPARADO de propósito: Relatórios tem chave de permissão
+ * própria (`frota.relatorios`), porque quem cadastra veículo não é
+ * necessariamente quem pode tirar a frota inteira em planilha. Ele também não
+ * é atalho: sem ser da Gestão, a aba não aparece nem com a permissão — ela
+ * mostra a frota toda, com contrato e valor.
  */
-export function areasVisiveis(pode) {
+export function areasVisiveis(pode, podeRelatorios = false) {
   const p = typeof pode === 'function' ? pode : () => false;
   const areas = ['motorista'];
   // Revisões e Plano andam junto com Gestão: quem cadastra veículo é quem
   // decide de quantos em quantos quilômetros cada item se troca, e é o mesmo
   // gestor que mantém a lista do checklist e os dias em que ele cai — o
   // checklist mora dentro da aba Plano (D10), não numa aba própria.
-  if (p('criar') || p('excluir')) areas.push('gestao', 'revisoes', 'plano');
+  if (p('criar') || p('excluir')) {
+    areas.push('gestao', 'revisoes', 'plano');
+    if (podeRelatorios) areas.push('relatorios');
+  }
   return areas;
 }
 

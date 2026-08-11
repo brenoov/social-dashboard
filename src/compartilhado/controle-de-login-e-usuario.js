@@ -99,6 +99,7 @@ export const RECURSOS = [
   // formato de social.relatorio e gestor.relatorios, que já fazem isto.
   { key: 'patrimonio.relatorios', label: 'Patrimônio — Relatórios', acoes: ['ver', 'exportar'] },
   { key: 'frota', label: 'Frota', acoes: ['ver', 'criar', 'editar', 'excluir'] },
+  { key: 'frota.relatorios', label: 'Frota — Relatórios', acoes: ['ver', 'exportar'] },
   { key: 'frota.aprovar', label: 'Aprovar requisição de veículo', acoes: ['ver'] },
   { key: 'autenticidade', label: 'Autenticidade e Garantia', acoes: ['ver', 'criar', 'editar'] },
   { key: 'noticias', label: 'Portal de Notícias', acoes: ['ver'] },
@@ -162,6 +163,7 @@ export const PERMISSION_TREE = [
     { key: 'patrimonio', label: 'Patrimônio' },
     { key: 'patrimonio.relatorios', label: 'Patrimônio — Relatórios' },
     { key: 'frota', label: 'Frota' },
+    { key: 'frota.relatorios', label: 'Frota — Relatórios' },
     { key: 'frota.aprovar', label: 'Aprovar requisição de veículo' },
     // Selo Vessel: as etiquetas NFC das bolsas. A chave é a MESMA string que o
     // is_vessel_admin() procura dentro de features[] — renomear aqui tira o

@@ -26,6 +26,7 @@ const RECURSOS = [
   { key: 'patrimonio', label: 'Patrimônio', acoes: ['ver', 'criar', 'editar', 'excluir'] },
   { key: 'patrimonio.relatorios', label: 'Patrimônio — Relatórios', acoes: ['ver', 'exportar'] },
   { key: 'frota', label: 'Frota', acoes: ['ver', 'criar', 'editar', 'excluir'] },
+  { key: 'frota.relatorios', label: 'Frota — Relatórios', acoes: ['ver', 'exportar'] },
   { key: 'frota.aprovar', label: 'Aprovar requisição de veículo', acoes: ['ver'] },
   { key: 'autenticidade', label: 'Autenticidade e Garantia', acoes: ['ver', 'criar', 'editar'] },
   { key: 'noticias', label: 'Portal de Notícias', acoes: ['ver'] },
@@ -48,6 +49,7 @@ const TREE = [
     { key: 'patrimonio', label: 'Patrimônio' },
     { key: 'patrimonio.relatorios', label: 'Patrimônio — Relatórios' },
     { key: 'frota', label: 'Frota' },
+    { key: 'frota.relatorios', label: 'Frota — Relatórios' },
     { key: 'frota.aprovar', label: 'Aprovar requisição de veículo' },
     { key: 'autenticidade', label: 'Autenticidade e Garantia' },
   ] },
@@ -197,7 +199,7 @@ test('filho declarado na árvore cai no grupo do pai, mesmo sem prefixo na chave
   const gi = g.find((x) => x.key === 'gestao-interna')
   assert.ok(gi, 'esperava um grupo gestao-interna')
   assert.deepEqual(gi.recursos.map((r) => r.key),
-    ['acessos', 'patrimonio', 'patrimonio.relatorios', 'frota', 'frota.aprovar', 'autenticidade'])
+    ['acessos', 'patrimonio', 'patrimonio.relatorios', 'frota', 'frota.relatorios', 'frota.aprovar', 'autenticidade'])
   assert.equal(gi.label, 'Gestão Interna')
 })
 
@@ -214,7 +216,7 @@ test('marcar tudo do grupo pega TODOS os submódulos de uma vez', () => {
   const gi = g.find((x) => x.key === 'gestao-interna')
   const p = marcarTudo({}, gi.recursos, true)
   assert.deepEqual(Object.keys(p).sort(),
-    ['acessos', 'autenticidade', 'frota', 'frota.aprovar', 'patrimonio', 'patrimonio.relatorios'])
+    ['acessos', 'autenticidade', 'frota', 'frota.aprovar', 'frota.relatorios', 'patrimonio', 'patrimonio.relatorios'])
   assert.equal(estadoDaSelecao(gi.recursos, p), 'cheio')
   assert.equal(estadoDaSelecao(gi.recursos, {}), 'vazio')
   assert.equal(estadoDaSelecao(gi.recursos, { acessos: ['ver'] }), 'parcial')

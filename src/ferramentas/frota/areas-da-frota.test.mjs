@@ -25,6 +25,29 @@ test('Revisões anda junto com Gestão — quem cadastra veículo define os limi
   assert.ok(!areasVisiveis(MOTORISTA).includes('plano'), 'quem só dirige não mexe nos limiares')
 })
 
+// Relatórios tem CHAVE DE PERMISSÃO PRÓPRIA (frota.relatorios), que não é a
+// mesma que abre a Frota: quem cadastra veículo não é necessariamente quem pode
+// tirar a frota inteira em planilha. Por isso vem num parâmetro separado, e não
+// é deduzida de `pode`.
+test('Relatórios não aparece só por ser admin da frota', () => {
+  assert.ok(!areasVisiveis(ADMIN).includes('relatorios'))
+})
+
+test('Relatórios aparece quando a permissão própria está liberada', () => {
+  assert.ok(areasVisiveis(ADMIN, true).includes('relatorios'))
+})
+
+test('Relatórios NÃO aparece para quem só dirige, mesmo com a permissão', () => {
+  // A aba mostra a frota inteira, com contrato e valor — é área de quem
+  // administra. A permissão de relatório não pode virar atalho para isso.
+  assert.ok(!areasVisiveis(MOTORISTA, true).includes('relatorios'))
+})
+
+test('Relatórios entra por último, depois de Plano', () => {
+  assert.deepEqual(areasVisiveis(ADMIN, true),
+    ['motorista', 'gestao', 'revisoes', 'plano', 'relatorios'])
+})
+
 test('poder criar já basta pra Gestão, mesmo sem poder excluir', () => {
   // Cadastrar veículo é trabalho de gestão. Excluir é mais raro e mais grave;
   // exigir os dois esconderia a aba de quem cadastra e não apaga.

@@ -21,6 +21,8 @@ import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { estadoDoVeiculo, resumoDoEstado, ordenarEstados, rotuloDoTanque, NIVEIS_TANQUE, problemasDaDevolucao, ultimoHodometro } from './estado-do-veiculo.js'
 import { AREAS, areasVisiveis, areaInicial, painelDoMotorista, resumoDoMotorista } from './areas-da-frota.js'
+import AbaDeRelatorios from '../../compartilhado/relatorios/aba-de-relatorios.vue'
+import { RELATORIOS_DA_FROTA } from './relatorios-da-frota.js'
 // Mora em supabase/functions/_shared, não em src/, como checklist.js: a Edge
 // Function do robô da manhã (Tarefa 12) roda em Deno e precisa da mesma regra
 // de "quem está com o carro" — ela não alcança src/, só o front alcança o
@@ -95,7 +97,14 @@ const falhaArvore = ref(false)
 // A separação é de ATENÇÃO, não de sigilo — quem só dirige não precisa de FIPE,
 // contrato e chassi na frente enquanto pega o carro pra sair.
 const pode = (acao) => hasPermission('frota', acao)
-const abas = computed(() => AREAS.filter((a) => areasVisiveis(pode).includes(a.chave)))
+// Relatórios tem chave PRÓPRIA (frota.relatorios), e nasce desmarcada para
+// todo mundo: quem cadastra veículo não é necessariamente quem pode tirar a
+// frota inteira em planilha. Nenhuma migration concede — quem libera é o
+// Config de Admin.
+const podeRelatorios = computed(() => hasPermission('frota.relatorios', 'ver'))
+const podeExportarRelatorio = computed(() => hasPermission('frota.relatorios', 'exportar'))
+const abas = computed(() =>
+  AREAS.filter((a) => areasVisiveis(pode, podeRelatorios.value).includes(a.chave)))
 const area = ref('motorista')
 const euId = computed(() => meuId())
 const painel = computed(() => painelDoMotorista(linhas.value, euId.value))
@@ -2282,6 +2291,23 @@ onMounted(async () => {
          foi tratado separado; são o mesmo assunto visto de dois lados, então
          moram juntos aqui, quilometragem primeiro (o que já existia) e
          checklist depois. -->
+    <!-- RELATÓRIOS: a mesma casca do Patrimônio. A palavra do primeiro nível
+         aqui é "empresa", e NÃO "marca": nesta tela `marca` já quer dizer
+         VOLVO, BMW, FIAT — e está preenchida nos 10 veículos, enquanto a
+         empresa do grupo está vazia. Dois campos, o mesmo nome. -->
+    <template v-if="area === 'relatorios' && !carregando && !falha">
+      <aba-de-relatorios
+        :relatorios="RELATORIOS_DA_FROTA"
+        :contexto="{ sbClient, veiculos, empresas: empresasPat, locais: locaisPat,
+                     comodos: comodosPat, pessoas, plano, revisoes, fichas }"
+        :empresas="empresasPat"
+        :locais="locaisPat"
+        :comodos="comodosPat"
+        palavra-da-marca="empresa"
+        nome-do-arquivo="frota"
+        :pode-exportar="podeExportarRelatorio" />
+    </template>
+
     <template v-if="area === 'plano' && !carregando && !falha">
       <h2 class="fr-secao" data-tour="fr-secao-plano">Plano de manutenção — o que a oficina troca, de quantos em quantos quilômetros</h2>
       <p class="fr-aviso">
