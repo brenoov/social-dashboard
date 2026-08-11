@@ -235,22 +235,19 @@ no painel. Ao fazer: manter a **fonte única de preço** e a linguagem literal.
 true`). Foi deixado de propósito porque a equipe é interna — só trava de vez
 proxiando pelo Edge.
 
-### B11 · Vendas › falta a Etapa 3 da data da venda 🟡
-As Etapas 1 e 2 estão no ar: a data certa (a da nota fiscal) é coletada de hora
-em hora, e **a Gestão à Vista e a Análise de Vendas já contam por ela**.
+### B11 · Vendas › a data da venda nunca foi vista na tela logada 🟡
+As três etapas estão no ar: a data da nota é coletada de hora em hora, e o
+telão, a Análise de Vendas, a notificação das 22h/07h, os Relatórios Comerciais
+e o briefing do Gestor **contam todos por ela**. A regra tem uma cópia só, em
+`supabase/functions/_shared/data-da-venda.js`.
 
-**O que mudou na prática** (medido em 11/08 sobre 12 meses): 197 dos 325 dias
-com venda mostravam valor errado. Exemplos recentes — 04/08 mostrava
-R$ 8.071,19 e são R$ 299,70; 05/08 mostrava R$ 224,95 e são R$ 7.996,44.
+O que falta é olhar: **ninguém abriu o telão logado depois da mudança.** O que
+foi verificado: 2.4k testes, build, e os números conferidos contra o banco real
+(04/08 sai de R$ 8.071,19 para R$ 299,70; 05/08 sai de R$ 224,95 para
+R$ 7.996,44). Se algo parecer errado, o retorno é o Instant Rollback da Vercel.
 
-**Falta a Etapa 3:** a notificação das 22h/07h (`enviar-push-vendas`), os
-Relatórios Comerciais e o briefing do Gestor **ainda contam pelo dia do
-pedido**. Enquanto isso durar, o push da noite e o telão podem discordar no
-mesmo dia — dois lugares com réguas diferentes é a pior classe de defeito daqui.
-
-Como fazer: a regra pronta está em `src/compartilhado/data-da-venda.js`; o push
-é Edge (Deno) e precisa da mesma lógica lendo `bling_pedido_nota`. Detalhes e
-armadilhas em `docs/superpowers/plans/2026-08-11-data-da-venda.md`.
+Conferir também **um dia em que o push e o telão falem do mesmo número** — era o
+risco de os dois discordarem, e é o que a Etapa 3 fechou.
 
 ### B10 · Frota › F3 (multas) e F5 (custo por km) seguem travadas
 As duas dependem de saber **quem estava com o carro no dia**. Em 05/08 `frota_uso`

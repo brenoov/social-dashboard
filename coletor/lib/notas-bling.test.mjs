@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { montarLinha, impactoPorMes, indiceDeNotas, notaPorId, idDaNota } from './notas-bling.mjs';
+import { montarLinha, impactoPorMes, indiceDeNotas, notaPorId, idDaNota, linhasDaJanela } from './notas-bling.mjs';
 
 test('nota id 0 do Bling significa SEM NOTA, não nota número zero', () => {
   assert.equal(idDaNota({ data: { notaFiscal: { id: 0 } } }), null, 'foi o caso real do pedido nº2372');
@@ -110,4 +110,32 @@ test('conferido_em vai em toda gravação — o default do banco só valeria na 
   const l = montarLinha(pedido(), null, new Date('2026-08-11T21:30:00Z'));
   assert.equal(l.conferido_em, '2026-08-11T21:30:00.000Z',
     'sem isto, uma linha reconferida hoje exibiria a data da primeira vez');
+});
+
+test('linhasDaJanela pede as que ENTRAM e as que SAEM da janela', async () => {
+  let url = '';
+  const fetchFalso = async (u) => { url = u; return { ok: true, json: async () => [{ pedido_id: 1 }] }; };
+  const r = await linhasDaJanela('https://x.supabase.co', 'chave', '2026-08-01', '2026-08-31', fetchFalso);
+  assert.equal(r.length, 1);
+  assert.ok(url.includes('data_da_venda.gte.2026-08-01'), 'as que entram');
+  assert.ok(url.includes('data_pedido.gte.2026-08-01'), 'as que saem');
+});
+
+test('linhasDaJanela LANÇA se não conseguir ler — robô calado publicaria número errado', async () => {
+  const fetchFalso = async () => ({ ok: false, status: 500, text: async () => 'caiu' });
+  await assert.rejects(
+    () => linhasDaJanela('https://x.supabase.co', 'chave', '2026-08-01', '2026-08-31', fetchFalso),
+    /não deu para ler bling_pedido_nota/,
+  );
+});
+
+test('linhasDaJanela tenta de novo antes de desistir', async () => {
+  let tentativas = 0;
+  const fetchFalso = async () => {
+    tentativas++;
+    if (tentativas < 3) throw new Error('rede');
+    return { ok: true, json: async () => [] };
+  };
+  await linhasDaJanela('https://x.supabase.co', 'chave', '2026-08-01', '2026-08-31', fetchFalso);
+  assert.equal(tentativas, 3, 'soluço de rede não pode derrubar a rodada');
 });

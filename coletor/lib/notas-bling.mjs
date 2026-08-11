@@ -21,6 +21,13 @@
 // não trouxer é buscado um a um. Janela torta custa chamada extra, nunca data
 // errada.
 
+import { ajustarPelaDataDaNota } from '../../supabase/functions/_shared/data-da-venda.js';
+
+// A REGRA de qual dia a venda conta mora em supabase/functions/_shared/ porque
+// a Edge da notificação roda no Deno e não alcança nem src/ nem coletor/. Aqui
+// só reexportamos, para quem lê este arquivo saber onde ela está.
+export { ajustarPelaDataDaNota };
+
 const MODELOS = ['nfe', 'nfce'];
 
 // ── Pura: o id da nota de um pedido, ou null quando não há nota ────────────
@@ -136,4 +143,30 @@ export async function notaPorId(blingProxy, token, notaId) {
     } catch { /* 404/403 nesse modelo: tenta o outro */ }
   }
   return null;
+}
+
+// ── As linhas de bling_pedido_nota que tocam uma janela ───────────────────
+// Usada pelos robôs (que falam com o Supabase por REST, não pelo supabase-js).
+//
+// LANÇA quando não consegue ler, de propósito. Robô que não conseguiu saber a
+// data certa e segue calado publicaria de novo o número errado — e num relatório
+// que ninguém confere isso passa despercebido por meses. Falhar alto é melhor:
+// a rodada é diária e o erro aparece no log do GitHub Actions.
+export async function linhasDaJanela(supabaseUrl, chave, di, df, fetchImpl = fetch) {
+  const alvo = `${supabaseUrl}/rest/v1/bling_pedido_nota` +
+    `?select=pedido_id,pedido_numero,data_pedido,data_da_venda,total,loja_id` +
+    `&or=(and(data_da_venda.gte.${di},data_da_venda.lte.${df}),and(data_pedido.gte.${di},data_pedido.lte.${df}))` +
+    `&limit=10000`;
+  let ultimoErro;
+  for (let tentativa = 0; tentativa < 3; tentativa++) {
+    try {
+      const r = await fetchImpl(alvo, { headers: { apikey: chave, Authorization: 'Bearer ' + chave } });
+      if (!r.ok) throw new Error(`bling_pedido_nota -> ${r.status} ${(await r.text()).slice(0, 120)}`);
+      return await r.json();
+    } catch (e) {
+      ultimoErro = e;
+      await new Promise((r) => setTimeout(r, 800 * (tentativa + 1)));
+    }
+  }
+  throw new Error('não deu para ler bling_pedido_nota: ' + (ultimoErro?.message || ultimoErro));
 }
