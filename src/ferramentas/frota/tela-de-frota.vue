@@ -28,6 +28,9 @@ import { RELATORIOS_DA_FROTA } from './relatorios-da-frota.js'
 // de "quem está com o carro" — ela não alcança src/, só o front alcança o
 // _shared.
 import { passarPara, quemEstaComOCarro, trocarDonoFixo } from '../../../supabase/functions/_shared/posse.js'
+// Mesmo motivo, mesma pasta: quem loga por cada colaborador é regra que a tela
+// e o robô do aviso PRECISAM responder igual. Ver quem-loga.js.
+import { pessoaDoUsuario } from '../../../supabase/functions/_shared/quem-loga.js'
 import {
   SITUACOES, problemasDaRequisicao, bloqueios, podeDecidir, motivoEmPortugues,
   ordenarFila, quando,
@@ -432,8 +435,12 @@ async function carregar() {
     // cobrança (V2 do quadro D16) — telefoneDaCobranca() escolhe qual dos dois
     // usar. Sem trazer as colunas aqui, a decisão sempre veria "sem telefone",
     // mesmo pra quem tem o número cadastrado.
+    // `profile_id` entra porque pessoaDoUsuario() casa por ELE antes do e-mail
+    // (ficha ligada ao login mas sem e-mail preenchido não era achada). Sem a
+    // coluna aqui, o resgate pelo elo nunca dispararia — é o mesmo erro que já
+    // aconteceu com `email_corporativo`: a decisão erra calada.
     sbClient.from('acessos_pessoas')
-      .select('id,nome,email_corporativo,numero_corporativo,numero_pessoal').order('nome'),
+      .select('id,nome,email_corporativo,profile_id,numero_corporativo,numero_pessoal').order('nome'),
     // A agenda de reservas: quem vê a Frota vê a agenda inteira. Saber que o
     // carro está reservado é o que evita o conflito de viagens — esconder isso
     // de quem dirige recriaria no app o problema que o papel tem.
@@ -669,17 +676,21 @@ async function confirmarPasse() {
   await carregar()
 }
 
-// Quem está logado, ligado ao colaborador pelo e-mail corporativo. Serve de
-// sugestão na retirada (o campo continua editável — quem pega pode ser outra
-// pessoa) e é o que a área Motorista usa pra saber qual carro é "o meu".
+// Quem está logado, ligado ao colaborador. Serve de sugestão na retirada (o
+// campo continua editável — quem pega pode ser outra pessoa) e é o que a área
+// Motorista usa pra saber qual carro é "o meu".
+//
+// A REGRA MORA EM _shared/quem-loga.js, a MESMA que o robô do aviso das 7h30
+// usa. Aqui havia uma cópia que só olhava o e-mail corporativo, e o robô tinha
+// outra que só olhava o elo `profile_id`: a Raissa era reconhecida por esta
+// tela e pulada pelo robô, calado. Duas respostas pra "quem é essa pessoa" é o
+// defeito; não mudar isto pra uma comparação local de novo.
 //
 // A coluna chama `email_corporativo`, não `email` — a primeira versão procurava
 // por `p.email`, que não existe, e sem trazer a coluna na consulta. Devolvia
 // nulo SEMPRE, calada.
 function meuId() {
-  const email = estado.user && estado.user.email
-  if (!email) return null
-  const eu = pessoas.value.find((p) => (p.email_corporativo || '').toLowerCase() === email.toLowerCase())
+  const eu = pessoaDoUsuario(estado.user, pessoas.value)
   return eu ? eu.id : null
 }
 
