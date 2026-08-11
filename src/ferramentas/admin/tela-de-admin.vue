@@ -161,6 +161,7 @@ import { degrausDoRecurso, degrauDoConjunto, acoesDoDegrau } from './niveis-de-p
 // gastam verba de verdade.
 import { oQueONivelFaz } from './o-que-o-nivel-faz.js'
 import { mexeEmDinheiro, SELO_DINHEIRO } from './consequencia-do-recurso.js'
+import { resumoDoAcesso } from './resumo-do-acesso.js'
 // Quais notificações existem e qual o padrão de cada uma. A lista mora junto da
 // Edge que envia (supabase/functions/_shared) pra não haver duas verdades sobre
 // quem recebe o quê — a tela LÊ dela em vez de repetir os nomes.
@@ -1806,6 +1807,16 @@ function _criarLinhaPessoa(p, gaveta, currentEmail) {
   sub.innerHTML = _subtitulo(p, gaveta) // já vem escapado (ou é o span fixo de "sem cadastro")
   info.appendChild(sub)
 
+  // O resumo de uma linha: quem é essa pessoa aqui dentro, sem abrir (D5).
+  const resumo = resumoDoAcesso(u.permissions)
+  const resumoLinha = mkEl('div', 'usr-resumo')
+  resumoLinha.textContent = `${resumo.frase} · ${resumo.quantos} de ${RECURSOS.length}`
+  if (resumo.comDinheiro) {
+    const resumoSelo = mkEl('span', 'perm-selo-dinheiro', `💰 ${resumo.comDinheiro}`)
+    resumoLinha.appendChild(resumoSelo)
+  }
+  info.appendChild(resumoLinha)
+
   // O clique no bloco do nome abre a ficha. NÃO na linha inteira: a fileira de
   // ações fica logo abaixo, e clicar em "Permissões" abriria as duas coisas.
   info.style.cursor = 'pointer'
@@ -2708,6 +2719,10 @@ Object.assign(window, {
 .tela-admin :deep(.usr-nome-wrap){display:flex;align-items:center;flex-wrap:wrap;gap:6px;}
 .tela-admin :deep(.usr-nome){font-weight:600;font-size:13px;overflow-wrap:anywhere;}
 .tela-admin :deep(.usr-sub){font-size:11px;color:var(--muted);overflow-wrap:anywhere;}
+/* O resumo de uma linha (D5): quem é essa pessoa aqui dentro, sem abrir a
+   ficha. Mesmo tratamento discreto do subtítulo, com o selo de dinheiro
+   herdado de .perm-selo-dinheiro (já usado dentro do modal de permissões). */
+.tela-admin :deep(.usr-resumo){font-size:12px;color:var(--muted);margin-top:3px;}
 /* Correção 2: e-mail + "desde <data>" — terceira linha discreta, mesmo
    tratamento visual do subtítulo de lotação. E-mail comprido quebra, nunca
    corta (overflow-wrap, sem ellipsis). */
