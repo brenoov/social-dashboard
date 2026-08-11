@@ -41,7 +41,7 @@ export function idDaNota(detalheDoPedido) {
 // Sem nota, a venda continua no dia do pedido — é o comportamento de hoje, e é
 // o certo: inventar outro dia para um pedido que nunca foi faturado seria trocar
 // um erro conhecido por um chute.
-export function montarLinha(pedido, nota) {
+export function montarLinha(pedido, nota, agora = new Date()) {
   const soData = (v) => {
     const s = String(v ?? '').slice(0, 10);
     return /^\d{4}-\d{2}-\d{2}$/.test(s) && s !== '0000-00-00' ? s : null;
@@ -68,6 +68,12 @@ export function montarLinha(pedido, nota) {
     //
     // data_da_venda e origem_da_data são colunas GERADAS pelo banco; não são
     // enviadas daqui (o Postgres recusaria, e com razão).
+    //
+    // conferido_em vai EXPLÍCITO: o default do banco só vale na primeira
+    // gravação, e o upsert regrava só as colunas que a gente manda. Sem isto,
+    // uma linha reconferida hoje continuaria exibindo a data da primeira vez —
+    // uma coluna que diz "conferido em" e mente sobre isso.
+    conferido_em: agora.toISOString(),
   };
 }
 
