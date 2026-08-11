@@ -235,28 +235,22 @@ no painel. Ao fazer: manter a **fonte única de preço** e a linguagem literal.
 true`). Foi deixado de propósito porque a equipe é interna — só trava de vez
 proxiando pelo Edge.
 
-### B11 · Vendas › as telas ainda contam pelo dia do PEDIDO, não pelo da nota 🔴
-A Etapa 1 está feita: a data certa (a da nota fiscal) já é coletada e guardada
-em `bling_pedido_nota`, com backfill de 12 meses (1.795 pedidos). **Nenhuma tela
-usa ainda** — de propósito, para o dono ver o impacto antes.
+### B11 · Vendas › falta a Etapa 3 da data da venda 🟡
+As Etapas 1 e 2 estão no ar: a data certa (a da nota fiscal) é coletada de hora
+em hora, e **a Gestão à Vista e a Análise de Vendas já contam por ela**.
 
-**O tamanho do erro, medido em 11/08:** **197 dos 325 dias com venda mostram
-valor errado (61%)**, erro médio de **R$ 2.487,58** por dia. O pior:
-16/10/2025 mostra R$ 299,90 quando foram R$ 34.002,35. A **Black Friday de
-2025** aparece com R$ 14.717,76 e foram R$ 3.167,83.
+**O que mudou na prática** (medido em 11/08 sobre 12 meses): 197 dos 325 dias
+com venda mostravam valor errado. Exemplos recentes — 04/08 mostrava
+R$ 8.071,19 e são R$ 299,70; 05/08 mostrava R$ 224,95 e são R$ 7.996,44.
 
-O fechamento MENSAL quase não muda (a maioria das mudanças é dentro do mesmo
-mês). Quem sofre é o telão, a Análise de Vendas e o push das 22h/07h — tudo que
-fala em "hoje", "ontem" e "7 dias".
+**Falta a Etapa 3:** a notificação das 22h/07h (`enviar-push-vendas`), os
+Relatórios Comerciais e o briefing do Gestor **ainda contam pelo dia do
+pedido**. Enquanto isso durar, o push da noite e o telão podem discordar no
+mesmo dia — dois lugares com réguas diferentes é a pior classe de defeito daqui.
 
-Faltam as Etapas 2 (telão + Análise de Vendas) e 3 (push, Relatórios Comerciais
-e briefing do Gestor). **Nenhuma pode ficar para trás**: dois lugares com regras
-diferentes dão números diferentes, que é a pior classe de defeito daqui.
-
-Os três caminhos possíveis e o que cada um custa estão em
-`docs/superpowers/plans/2026-08-11-data-da-venda.md`. ⚠️ Ao encostar nisso, ler
-as armadilhas do plano antes: `dataSaida` não serve, o filtro de data da lista
-de notas come a borda de baixo, e "sem nota" chega como id ZERO.
+Como fazer: a regra pronta está em `src/compartilhado/data-da-venda.js`; o push
+é Edge (Deno) e precisa da mesma lógica lendo `bling_pedido_nota`. Detalhes e
+armadilhas em `docs/superpowers/plans/2026-08-11-data-da-venda.md`.
 
 ### B10 · Frota › F3 (multas) e F5 (custo por km) seguem travadas
 As duas dependem de saber **quem estava com o carro no dia**. Em 05/08 `frota_uso`

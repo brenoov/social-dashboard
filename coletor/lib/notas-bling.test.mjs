@@ -9,7 +9,12 @@ test('nota id 0 do Bling significa SEM NOTA, não nota número zero', () => {
   assert.equal(idDaNota(null), null);
 });
 
-const pedido = (extra = {}) => ({ id: 26576164334, data: '2026-08-04', total: 3644.30, loja: { id: 205451611 }, ...extra });
+const pedido = (extra = {}) => ({ id: 26576164334, numero: 2429, data: '2026-08-04', total: 3644.30, loja: { id: 205451611 }, ...extra });
+
+test('o numero do pedido vai junto — a tela precisa dele p/ mostrar um pedido trazido de outro dia', () => {
+  assert.equal(montarLinha(pedido(), null).pedido_numero, '2429');
+  assert.equal(montarLinha({ id: 1, data: '2026-08-04', total: 1 }, null).pedido_numero, null);
+});
 
 test('a venda fica no dia da NOTA, não no dia do pedido', () => {
   const l = montarLinha(pedido(), { id: 99, dataEmissao: '2026-08-05 09:12:00', numero: '000946', serie: 1, situacao: 6, modelo: 'nfe' });

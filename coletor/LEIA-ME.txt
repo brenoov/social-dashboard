@@ -52,9 +52,11 @@ O que é cada arquivo?
         emite NFC-e no mesmo dia, mas o Atacado emite NF-e no dia
         seguinte — então a venda de sexta aparecia na quinta.
         Ele NÃO muda número de tela nenhuma; só guarda a data certa.
-        Roda todo dia no GitHub Actions, olhando os pedidos mexidos
-        nos últimos 7 dias (é assim que aparece o pedido antigo que
-        só hoje foi concluído).
+        Roda DE HORA EM HORA no GitHub Actions, olhando os pedidos
+        mexidos nos últimos 7 dias (é assim que aparece o pedido
+        antigo que só hoje foi concluído). De hora em hora porque o
+        telão mostra "hoje": com rodada diária, uma nota emitida hoje
+        de manhã só entraria no dia certo amanhã.
         Na mão:
            node notas-dos-pedidos.mjs --previa        (não grava nada)
            node notas-dos-pedidos.mjs --dias=15

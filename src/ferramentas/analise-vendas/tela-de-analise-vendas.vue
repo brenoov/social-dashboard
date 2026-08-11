@@ -67,6 +67,7 @@ import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/c
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 import { hojeLocal, diasAtras } from '../../compartilhado/datas.js'
+import { aplicarDataDaVenda } from '../../compartilhado/data-da-venda.js'
 
 const router = useRouter()
 
@@ -333,7 +334,7 @@ async function loadSalesAnalysisData(period){
   const df15=brtToday;
 
   try{
-    const[pedidos,pedidosPrev,lojaMap,metasArr,vendedoresArr,pedidos15]=await Promise.all([
+    const[pedidosBrutos,pedidosPrevBrutos,lojaMap,metasArr,vendedoresArr,pedidos15Brutos]=await Promise.all([
       blingPages('pedidos/vendas',{dataInicial:di,dataFinal:df,'idsSituacoes[]':9}),
       blingPages('pedidos/vendas',{dataInicial:diPrev,dataFinal:dfPrev,'idsSituacoes[]':9}).catch(()=>[]),
       sbClient.from('bling_lojas').select('loja_id,nome').order('loja_id').then(r=>{const mp={};(r.data||[]).forEach(l=>mp[l.loja_id]=l.nome);return mp;}),
@@ -341,6 +342,17 @@ async function loadSalesAnalysisData(period){
       sbClient.from('bling_vendedores').select('vendor_id,nome').then(r=>r.data||[]),
       blingPages('pedidos/vendas',{dataInicial:di15,dataFinal:df15,'idsSituacoes[]':9}).catch(()=>[])
     ]);
+
+    // A VENDA CONTA NO DIA DA NOTA, não no dia do pedido. As TRÊS janelas
+    // recebem o mesmo tratamento — a atual, a anterior (senão o comparativo
+    // mistura duas réguas) e a de 15 dias do gráfico.
+    // Ver src/compartilhado/data-da-venda.js.
+    const[aj,ajPrev,aj15]=await Promise.all([
+      aplicarDataDaVenda(sbClient,pedidosBrutos,di,df),
+      aplicarDataDaVenda(sbClient,pedidosPrevBrutos,diPrev,dfPrev),
+      aplicarDataDaVenda(sbClient,pedidos15Brutos,di15,df15),
+    ]);
+    const pedidos=aj.pedidos, pedidosPrev=ajPrev.pedidos, pedidos15=aj15.pedidos;
 
     const allIds=[...new Set([...pedidos,...pedidosPrev,...pedidos15].map(p=>parseInt(p.id)))];
     let pvMap={};let pvQtdMap={};

@@ -1,6 +1,6 @@
 # A data da venda: o dia da nota, não o dia do pedido
 
-Status: **Etapa 1 no ar** · Etapas 2 e 3 dependem de decisão do dono.
+Status: **Etapas 1 e 2 no ar** · falta a Etapa 3.
 
 ## O problema, em uma frase
 
@@ -38,15 +38,16 @@ esse **sem nota nenhuma**.
   `bling_pedido_nota`, com `data_da_venda` como **coluna gerada**
   (`coalesce(data_da_nota, data_pedido)`). Gerada de propósito: se cada tela
   decidisse a regra, cinco telas dariam cinco respostas.
-- `coletor/notas-dos-pedidos.mjs` (diário, janela de 7 dias, idempotente) +
+- `coletor/notas-dos-pedidos.mjs` (janela de 7 dias, idempotente) +
   regras puras em `coletor/lib/notas-bling.mjs` com 13 testes.
-- `.github/workflows/notas-dos-pedidos.yml` — 09:23 UTC, depois do Relatórios
-  Comerciais (os dois batem no mesmo Bling, que limita 3 chamadas/segundo).
+- `.github/workflows/notas-dos-pedidos.yml` — de hora em hora, aos 23 minutos
+  (era diário; ver Etapa 2). Não colide com o Relatórios Comerciais — os dois
+  batem no mesmo Bling, que limita 3 chamadas/segundo.
 - `bling-proxy` v9: rotas `nfe`/`nfce` liberadas, só leitura.
 
 **Nenhum número de tela mudou nesta etapa.** De propósito.
 
-## Etapa 2 — as telas passarem a usar a data da nota
+## Etapa 2 — as telas passarem a usar a data da nota ✔ FEITA
 
 Telas: Gestão à Vista (o telão) e Análise de Vendas. Hoje as duas pedem ao Bling
 `pedidos/vendas` por faixa de data do pedido e somam o que vier.
@@ -68,8 +69,31 @@ Gestão Comercial já faz com `gc_vendas_item`), e o Bling fica só para o "ao
 vivo" de hoje. É a mais trabalhosa e a que deixa tudo mais rápido — leitura do
 Supabase não tem limite de 3 por segundo.
 
-Recomendação: **B** se o objetivo é consertar a data logo; **C** se o telão
-lento já incomoda (aí conserta as duas coisas de uma vez).
+**Feito o B**, em `src/compartilhado/data-da-venda.js` (12 testes): a busca no
+Bling continua igual e o ajuste acontece depois — sai quem foi faturado noutro
+dia, entra quem foi faturado neste. As três janelas da Análise de Vendas e as
+duas do telão (atual e anterior) recebem o mesmo tratamento; comparar períodos
+com réguas diferentes seria pior que o defeito original.
+
+Duas decisões que seguram a tela de pé:
+- **Pedido sem linha nossa fica como está.** O robô roda de hora em hora; um
+  pedido feito agora ainda não passou por ele. Sumir com ele seria trocar um
+  erro pequeno por um buraco.
+- **Banco fora do ar = tela como está hoje, nunca vazia.** `buscarLinhasDaJanela`
+  devolve `null` ("não sei") e o chamador mantém o comportamento antigo.
+
+A data original vai junto em `dataDoPedido`, porque a Gestão à Vista grava
+`pedido_data` no cache `bling_pedido_vendedor` — gravar ali a data da nota
+deixaria a mentira no banco.
+
+O robô passou a rodar **de hora em hora** (era diário): o telão mostra "hoje", e
+com rodada diária uma nota emitida hoje de manhã só entraria amanhã.
+
+Guarda de import (pendência B1) instalado nas duas pastas, cobrindo também
+`src/compartilhado/` — e **provado** removendo o import de propósito.
+
+O caminho **C** (virar a fonte) continua valendo como melhoria futura de
+velocidade, não de correção.
 
 ## Etapa 3 — o resto
 
@@ -77,7 +101,7 @@ Notificação das 22h/07h, Relatórios Comerciais e briefing do Gestor. Todos
 usam o mesmo filtro; nenhum pode ficar para trás, senão dois lugares do sistema
 passam a dar números diferentes — que é a pior classe de defeito deste projeto.
 
-## O que o dono precisa saber antes da Etapa 2
+## O que o dono precisa saber
 
 Os números de meses fechados vão mudar. Não é defeito, é a correção — e é por
 isso que a Etapa 1 termina com o relatório de antes/depois, mês a mês.

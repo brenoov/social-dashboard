@@ -6,6 +6,11 @@ Aqui ficam as peças que TODAS as ferramentas usam:
 - controle-de-login-e-usuario.js → quem está logado, usuário e permissões
 - avisos.js                      → aviso rápido (toast) no canto da tela
 - datas.js                       → régua única de datas em BRT (fix: das 21h à meia-noite o painel pedia data errada)
+- data-da-venda.js                → a venda conta no dia em que a NOTA saiu, não no dia do pedido.
+                                    O Bling entrega por data do pedido; a loja emite NFC-e na hora e o
+                                    Atacado emite NF-e no dia seguinte, então a venda de sexta aparecia
+                                    na quinta. Medido em 12 meses: 197 dos 325 dias com venda mostravam
+                                    valor errado. Usado pela Gestão à Vista e pela Análise de Vendas.
 - escolha-de-local-e-ambiente.vue → o campo de LOCAL de qualquer ferramenta: mostra
                                    a árvore Marca > Local > Ambiente que já existe no
                                    banco, em vez de deixar a pessoa digitar às cegas

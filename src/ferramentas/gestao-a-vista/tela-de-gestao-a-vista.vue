@@ -109,6 +109,7 @@ import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/c
 import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 import { filtrarPedidosPorCanal, depositosVisiveis, prepararEstoque, statusSaldo, categoriasDisponiveis, DEPOSITOS } from './estoque-gv.js'
+import { aplicarDataDaVenda } from '../../compartilhado/data-da-venda.js'
 
 const router = useRouter()
 
@@ -229,7 +230,7 @@ async function _gvBuildSkuSlide(pedidos,pedidosPrev){
         // A LOJA VAI JUNTO. O Bling sempre mandou `loja.id` no pedido e esta
         // linha jogava fora — e sem ela não há como saber de qual loja é cada
         // vendedora, que é o que o time de venda precisa saber.
-        bgMappings.push({pedido_id:parseInt(p.id),vendor_id:vid,pedido_data:p.data?.slice(0,10)||null,qtd_itens:det?.itens?.length||1,loja_id:det?.loja?.id??p.loja?.id??null});
+        bgMappings.push({pedido_id:parseInt(p.id),vendor_id:vid,pedido_data:p.dataDoPedido||p.data?.slice(0,10)||null,qtd_itens:det?.itens?.length||1,loja_id:det?.loja?.id??p.loja?.id??null});
         if(!window._gvVendedoresCache[vid])newVendIds.add(vid);
         if(isNew)newVendorFound=true;
       }
@@ -267,7 +268,7 @@ async function _gvBuildSkuSlide(pedidos,pedidosPrev){
       const vid=resp.data?.vendedor?.id;
       if(vid){
         window._gvPedidoVendorMap[p.id]=vid;
-        bgMappings.push({pedido_id:parseInt(p.id),vendor_id:vid,pedido_data:p.data?.slice(0,10)||null,qtd_itens:resp.data?.itens?.length||1,loja_id:resp.data?.loja?.id??p.loja?.id??null});
+        bgMappings.push({pedido_id:parseInt(p.id),vendor_id:vid,pedido_data:p.dataDoPedido||p.data?.slice(0,10)||null,qtd_itens:resp.data?.itens?.length||1,loja_id:resp.data?.loja?.id??p.loja?.id??null});
         if(!window._gvVendedoresCache[vid])newVendIds.add(vid);
         newVendorFound=true;
       }
@@ -607,10 +608,21 @@ async function loadGestaoVistaData(period){
   if(period==='monthfull'||period==='sofar'){const _pme=new Date(y,m-1,0);dfPrev=`${_pme.getFullYear()}-${pad2(_pme.getMonth()+1)}-${pad2(_pme.getDate())}`; }
   try{
     // Bling: chamadas SEQUENCIAIS para evitar rate limit (3 simultâneas causavam paginação incompleta)
-    const pedidos=await blingPages('pedidos/vendas',{dataInicial:di,dataFinal:df,'idsSituacoes[]':9});
+    const pedidosBrutos=await blingPages('pedidos/vendas',{dataInicial:di,dataFinal:df,'idsSituacoes[]':9});
     if(myLoad!==_gvLoadId)return;
-    const pedidosPrev=await blingPages('pedidos/vendas',{dataInicial:diPrev,dataFinal:dfPrev,'idsSituacoes[]':9}).catch(()=>[]);
+    const pedidosPrevBrutos=await blingPages('pedidos/vendas',{dataInicial:diPrev,dataFinal:dfPrev,'idsSituacoes[]':9}).catch(()=>[]);
     if(myLoad!==_gvLoadId)return;
+
+    // A VENDA CONTA NO DIA DA NOTA, não no dia do pedido. O Bling entrega por
+    // data do pedido; aqui os pedidos faturados em outro dia saem desta janela
+    // e os que foram faturados nela entram. Ver src/compartilhado/data-da-venda.js.
+    // O período anterior recebe o MESMO tratamento — senão o "vs. anterior"
+    // compararia uma régua com outra.
+    const ajuste=await aplicarDataDaVenda(sbClient,pedidosBrutos,di,df);
+    const ajustePrev=await aplicarDataDaVenda(sbClient,pedidosPrevBrutos,diPrev,dfPrev);
+    if(myLoad!==_gvLoadId)return;
+    const pedidos=ajuste.pedidos;
+    const pedidosPrev=ajustePrev.pedidos;
 
     // Supabase: pode rodar em paralelo (API diferente)
     const[canais,metasRows]=await Promise.all([

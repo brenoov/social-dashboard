@@ -1,21 +1,26 @@
 name: Notas dos Pedidos (data da venda)
 
-# Todo dia às 09:23 UTC (06:23 de Brasília): descobre em que dia cada venda foi
-# FATURADA e guarda na tabela bling_pedido_nota.
+# DE HORA EM HORA (aos 23 minutos): descobre em que dia cada venda foi FATURADA
+# e guarda na tabela bling_pedido_nota.
+#
+# Por que de hora em hora e não uma vez por dia: a Gestão à Vista é um TELÃO que
+# mostra "hoje". Uma nota emitida hoje de manhã, de um pedido de ontem, só
+# entraria no dia certo na rodada seguinte — com rodada diária, isso é amanhã.
+# De hora em hora, o telão fica no máximo uma hora atrás. A rodada é barata:
+# a janela de 7 dias leva cerca de 1 minuto e o robô é idempotente.
 #
 # Por que 7 dias de janela e não 1: o pedido não é concluído no dia em que é
 # feito. Medido em 11/08/2026, o pedido nº2372 era de 27/07 e só virou Atendido
 # em 11/08 — uma janela de 1 dia o perderia para sempre. O robô é idempotente
 # (upsert por pedido), então reler o mesmo pedido sete vezes não custa nada.
 #
-# Minuto quebrado de propósito: agendamento na hora cheia cai no pico de carga
-# do GitHub Actions e atrasa (medido neste repo: 2 a 3h de atraso).
-#
-# Roda DEPOIS do Relatórios Comerciais (08:52 UTC) porque os dois batem no
-# mesmo Bling, que limita 3 chamadas por segundo.
+# O minuto 23 evita a hora cheia (medido neste repo: agendar na hora cheia
+# atrasa de 2 a 3 horas) e não colide com o
+# Relatórios Comerciais (08:52 UTC) — os dois batem no mesmo Bling, que limita
+# 3 chamadas por segundo.
 on:
   schedule:
-    - cron: '23 9 * * *'
+    - cron: '23 * * * *'
   workflow_dispatch:
     inputs:
       dias:

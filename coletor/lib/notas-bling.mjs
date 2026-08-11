@@ -49,6 +49,7 @@ export function montarLinha(pedido, nota, agora = new Date()) {
   const emissao = nota ? soData(nota.dataEmissao) : null;
   return {
     pedido_id: Number(pedido.id),
+    pedido_numero: pedido?.numero != null ? String(pedido.numero) : null,
     loja_id: pedido?.loja?.id != null ? Number(pedido.loja.id) : null,
     data_pedido: soData(pedido.data),
     total: Number(pedido.total) || 0,
