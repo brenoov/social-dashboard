@@ -377,6 +377,7 @@ um item do plano), e as 2 linhas já gravadas continuam válidas com
 | Encerrar posse falha | Não abre a posse nova (duas abertas é o estado proibido do D9c) |
 | Convite de login falha | Diz que o convite **não** foi enviado, com o endereço tentado |
 | Árvore de locais não carrega | `falhaArvore` já existe; "Onde fica" cai no texto antigo e a tela diz por quê |
+| **Plano de revisão vazio ou que não carregou** | A aba diz que **não sabe**, nunca que está em dia. `resumoDeRevisoes([])` respondia `em-dia` — a antiga aba escondia isso por acidente, ao descartar carro sem item vencendo, e a D30 removeu esse acidente junto com o filtro. Sem esta linha, uma falha de leitura do plano pinta os 10 carros de verde |
 
 Regra que vale pras nove telas: **a tela nunca diz que deu certo sem ter
 conferido**. "Duas gravações e só a primeira conferida" apareceu 4× na fase do
