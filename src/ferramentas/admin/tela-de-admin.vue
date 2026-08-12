@@ -1299,6 +1299,37 @@ function _abaDeFerramentas(body, u) {
     _renderPermBody(u); adminToast('Permissões copiadas — salve para aplicar')
   })
   dupRow.appendChild(dupSel); dupRow.appendChild(dupBtn); body.appendChild(dupRow)
+
+  // 5) Salvar como perfil — D7: o perfil nasce de alguém que já está certo. Não
+  // existe taxonomia de cargo neste banco — 21 das 26 pessoas têm o campo
+  // vazio —, então pedir pra classificar todo mundo antes de usar mataria a
+  // funcionalidade na primeira semana. Copiar de uma pessoa real é o caminho
+  // que funciona no dia 1. Botão comum (não principal): "Aplicar" já é a ação
+  // principal deste bloco.
+  const btnPerfil = mkEl('button', 'btn')
+  btnPerfil.type = 'button'
+  btnPerfil.textContent = 'Salvar como perfil'
+  btnPerfil.style.cssText = 'margin-top:8px'
+  btnPerfil.addEventListener('click', async () => {
+    // `uiPrompt`/`uiConfirm` NÃO EXISTEM neste projeto (são de outro projeto do
+    // dono). O que existe aqui é `_gtConfirmAdmin`, que só confirma — não pede
+    // texto. Como o nome do perfil precisa ser digitado, `window.prompt` é o
+    // caminho coerente com o que o arquivo já faz para confirmar; não há
+    // proibição a diálogo nativo em PADRAO-DA-CENTRAL.md (conferido por leitura).
+    const nome = window.prompt('Nome do perfil (ex.: Vendedora)')
+    if (!nome || !nome.trim()) return
+    const r = await adFetch('acessos_perfis', {
+      method: 'POST',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ nome: String(nome).trim(), permissions: _permState.permissions }),
+    })
+    // `nome` é unique na tabela (039_perfis_de_acesso.sql) — nome repetido
+    // devolve 409, e precisa dizer isso, não "não consegui".
+    if (r.status === 409) { adminToast(`Já existe um perfil chamado "${nome.trim()}"`, false); return }
+    if (!r.ok) { adminToast('Não consegui salvar o perfil', false); return }
+    adminToast(`Perfil "${nome.trim()}" criado`)
+  })
+  body.appendChild(btnPerfil)
 }
 
 // Marcar uma ação marca 'ver' junto; desmarcar 'ver' limpa o recurso. Mantém a ordem do catálogo.
