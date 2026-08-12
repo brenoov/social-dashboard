@@ -20,6 +20,8 @@ import { useRouter } from 'vue-router'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { estadoDoVeiculo, resumoDoEstado, ordenarEstados, rotuloDoTanque, NIVEIS_TANQUE, problemasDaDevolucao, ultimoHodometro } from './estado-do-veiculo.js'
+import { montarArvore } from '../../compartilhado/arvore-de-locais.js'
+import { localCurto } from './onde-o-carro-fica.js'
 import { AREAS, areasVisiveis, areaInicial, painelDoMotorista, resumoDoMotorista } from './areas-da-frota.js'
 import AbaDeRelatorios from '../../compartilhado/relatorios/aba-de-relatorios.vue'
 import { RELATORIOS_DA_FROTA } from './relatorios-da-frota.js'
@@ -569,14 +571,29 @@ async function carregarArvoreDeLocais() {
 
 const nomeDaPessoa = (id) => (pessoas.value.find((x) => x.id === id) || {}).nome || null
 
+// A árvore de locais do Patrimônio, no formato que `localCurto()` entende.
+// `carregarArvoreDeLocais()` já roda junto com `carregar()` (linha 514), então
+// ela chega antes ou junto dos carros — não é uma segunda viagem ao banco.
+const arvoreDeLocais = computed(() => montarArvore({
+  empresas: empresasPat.value, locais: locaisPat.value, comodos: comodosPat.value,
+}))
+
 // `pessoa_nome` aqui é quem está com o carro DE FATO (D9b), não sempre o
 // dono no papel: se há posse aberta (emprestado), o nome é de quem pegou;
 // senão cai no dono fixo, do jeito que já era. estadoDoVeiculo() usa este
 // campo pra "Com quem" quando não há viagem aberta (posse não conta como
 // viagem, de propósito — ver usoAberto() em estado-do-veiculo.js).
+//
+// `local_bonito` é o mesmo enriquecimento, mas pro local (B1): a árvore vence
+// o `local_texto` digitado à mão, e resolver isso aqui — não dentro de
+// estadoDoVeiculo() — mantém aquela função pura e livre do Patrimônio.
 const linhas = computed(() => ordenarEstados(
   veiculos.value.map((v) => {
-    const dono = { ...v, pessoa_nome: nomeDaPessoa(v.pessoa_id) }
+    const dono = {
+      ...v,
+      pessoa_nome: nomeDaPessoa(v.pessoa_id),
+      local_bonito: localCurto({ arvore: arvoreDeLocais.value, veiculo: v }),
+    }
     const quem = quemEstaComOCarro(dono, usos.value)
     return estadoDoVeiculo({ ...dono, pessoa_nome: quem.pessoaNome }, usos.value, fichas.value)
   }),

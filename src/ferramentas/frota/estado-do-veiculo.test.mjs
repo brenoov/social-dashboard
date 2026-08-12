@@ -188,6 +188,27 @@ test('chamar com dois argumentos continua funcionando', () => {
   assert.equal(e.km, null)
 })
 
+/* ── O local da árvore vence o texto antigo (B1) ─────────────────────────── */
+
+test('onde o carro está prefere o local da árvore ao texto antigo', () => {
+  // Medido em 12/08: BMW, Porsche e XC90 tinham árvore apontada E texto velho.
+  // A tela mostrava o texto velho, e o dono achava que não tinha salvado.
+  const v = { id: 'v1', situacao: 'ativo', local_texto: 'Casa RB', local_bonito: 'Fábrica Conchal' }
+  const e = estadoDoVeiculo(v, [], [])
+  assert.equal(e.ondeEsta, 'Fábrica Conchal')
+})
+
+test('sem local da árvore, o texto escrito à mão continua aparecendo', () => {
+  const v = { id: 'v1', situacao: 'ativo', local_texto: 'Barracão', local_bonito: null }
+  assert.equal(estadoDoVeiculo(v, [], []).ondeEsta, 'Barracão')
+})
+
+test('carro na rua não mostra local nenhum — está com uma pessoa, não num lugar', () => {
+  const v = { id: 'v1', situacao: 'ativo', local_texto: 'Barracão', local_bonito: 'Casa RB' }
+  const usos = [{ veiculo_id: 'v1', tipo: 'viagem', volta_em: null, pessoa_nome: 'Gabriel' }]
+  assert.equal(estadoDoVeiculo(v, usos, []).ondeEsta, null)
+})
+
 /* ── Posse não é "na rua" (D9) ───────────────────────────────────────────── */
 
 test('posse aberta do dono fixo NÃO deixa o carro eternamente na rua', () => {

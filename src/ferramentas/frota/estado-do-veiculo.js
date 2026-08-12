@@ -82,7 +82,13 @@ export function estadoDoVeiculo(veiculo, usos, fichas) {
     // pra separar "o meu carro" de "o carro de outra pessoa" — comparar por
     // nome quebraria com dois Gabriéis, e a empresa tem dois.
     usoAbertoPessoaId: aberto ? (aberto.pessoa_id || null) : null,
-    ondeEsta: aberto ? null : (veiculo.local_texto || null),
+    // ONDE ELE ESTÁ: o local apontado na árvore VENCE o texto digitado à mão.
+    // O contrário era o defeito B1 — 9 dos 10 carros tinham local apontado e a
+    // lista lia só `local_texto`, então o trabalho de apontar não aparecia em
+    // lugar nenhum. `local_bonito` é enriquecido por quem chama (mesmo padrão
+    // de `pessoa_nome`), porque resolver a árvore aqui obrigaria esta função —
+    // que é pura e roda no teste — a conhecer o Patrimônio.
+    ondeEsta: aberto ? null : (veiculo.local_bonito || veiculo.local_texto || null),
     desde: aberto ? aberto.saida_em : (fechado ? fechado.volta_em : null),
     km,
     tanque,
