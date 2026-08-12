@@ -87,6 +87,29 @@ async function upsert(table, conflict, rows) {
   }
 }
 
+// ── Apaga o que DEIXOU de existir no mês ─────────────────────────────────
+//
+// POR QUE: o upsert só insere e atualiza — nunca remove. Se um pedido saiu de
+// setembro para outubro (porque a venda passa a contar no dia da NOTA) e ele era
+// a única venda daquele SKU em setembro, o recálculo de setembro simplesmente
+// não produz aquela linha... e a linha ANTIGA fica no banco, com o valor velho.
+// O SKU passa a aparecer nos dois meses, inflando a Curva ABC e a Matriz BCG.
+//
+// A regra: quem não foi tocado por ESTA rodada não pertence mais a este mês.
+// Por isso o carimbo é enviado explicitamente — é ele que separa "recalculado
+// agora" de "sobra de uma rodada antiga".
+//
+// Apaga DEPOIS de gravar, nunca antes: se a rodada morrer no meio, o mês fica
+// com o dado velho (que é ruim) em vez de vazio (que é pior).
+async function limparSobrasDoMes(mes, canalLojaId, carimbo) {
+  const alvo = `${REST}/gc_vendas_item?mes=eq.${mes}&canal_loja_id=eq.${canalLojaId}` +
+               `&atualizado_em=lt.${encodeURIComponent(carimbo)}`;
+  const r = await fetch(alvo, { method: 'DELETE', headers: { ...sb, Prefer: 'return=representation' } });
+  if (!r.ok) throw new Error(`limpar sobras ${mes}/${canalLojaId} -> ${r.status} ${(await r.text()).slice(0, 200)}`);
+  const apagadas = await r.json().catch(() => []);
+  if (apagadas.length) console.log(`      (${apagadas.length} linha(s) que deixaram de existir neste mês foram removidas)`);
+}
+
 async function main() {
   if (!SERVICE_KEY) { console.error('✗ Falta SUPABASE_SERVICE_KEY'); process.exit(1); }
   const bf = Number((process.argv.find(a => a.startsWith('--backfill=')) || '').split('=')[1]) || 0;
@@ -94,6 +117,8 @@ async function main() {
   console.log(`→ Relatórios comerciais: ${meses.length} mês(es) [${meses[0].mes}..${meses.at(-1).mes}]`);
 
   const token = await loginServico();
+  // Marca desta rodada: o que ficar com carimbo anterior a isto é sobra.
+  const carimbo = new Date().toISOString();
 
   // ── Vendas por item/mês/canal ──
   for (const { mes, ini, fim } of meses) {
@@ -116,8 +141,18 @@ async function main() {
         mes, canal_loja_id: Number(canal.loja_id), sku: x.sku, produto: x.produto,
         categoria: classificarItem(x.produto), unidades: Math.round(x.unidades),
         faturamento: Math.round(x.faturamento * 100) / 100,
+        // O carimbo vai EXPLÍCITO: o default do banco só vale quando a linha
+        // nasce, e o upsert regrava apenas as colunas enviadas. Sem isto, uma
+        // linha recalculada hoje continua exibindo a data da primeira vez — foi
+        // essa coluna mentindo que me fez achar que set/2025 não tinha sido
+        // reprocessado, quando tinha.
+        atualizado_em: carimbo,
       }));
       await upsert('gc_vendas_item', 'mes,canal_loja_id,sku', rows);
+      // A limpeza só roda se o mês trouxe pedidos. Um mês que volta VAZIO do
+      // Bling é muito mais provavelmente um soluço de rede do que um mês sem
+      // nenhuma venda — e limpar em cima disso apagaria o mês inteiro.
+      if (pedidos.length) await limparSobrasDoMes(mes, canal.loja_id, carimbo);
       const fat = rows.reduce((s, r) => s + r.faturamento, 0);
       console.log(`    ${canal.nome}: ${rows.length} SKUs, R$ ${fat.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
     }
