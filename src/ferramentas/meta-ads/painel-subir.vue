@@ -7,6 +7,7 @@ import AjudaTooltip from './ajuda-tooltip.vue'
 import TourCoachmark from './tour-coachmark.vue'
 import { TOUR_SUBIR } from './tutorial-fabrica.js'
 import { orcamentoBase, validarOrcamento, orcamentoParaEnvio } from './orcamento-form.js'
+import { resumoDoDestino } from './resumo-do-destino.js'
 import { baldeDoObjetivoDaFabrica } from '../gestao-trafego/baldes.js'
 const tourAberto = ref(false)
 const props = defineProps({ campanhaId: String, retomarJobId: String })
@@ -14,6 +15,7 @@ const emit = defineEmits(['subido'])
 const ACCOUNT_ID = 'b6883e82-07cb-4f21-9fd7-ea7626786174', ACT = 'act_1197997517858139'
 const campanhas = ref([]); const destino = reactive({ tipo: 'nova', lojas: ['tivoli'], campaignId: '' })
 const LOJAS = [{ slug: 'tivoli', nome: 'Tivoli' }, { slug: 'dp', nome: 'Dom Pedro' }]
+const resumo = computed(() => resumoDoDestino(destino, LOJAS))
 const { job, start } = useJobStatus()
 
 // ===== Localização + Público POR LOJA (abas; só quando destino.tipo === 'nova') =====
@@ -297,6 +299,13 @@ watch(job, (j) => { if (j?.status === 'concluido' && j.resultado) emit('subido',
           <span class="ch-nm">Campanha existente</span>
           <select v-if="destino.tipo==='existente'" v-model="destino.campaignId"><option v-for="c in campanhas" :key="c.id" :value="c.id">{{ c.name }}</option></select>
         </label>
+      </div>
+
+      <!-- O que vai acontecer, em português, ANTES de clicar. Pendência B4: sem esta frase, subir
+           só pra uma loja era indistinguível de subir pras duas — só se descobria no Gerenciador. -->
+      <div v-if="resumo" class="resumo-destino" :class="{ atencao: resumo.atencao }">
+        <p class="rd-texto">{{ resumo.texto }}</p>
+        <p v-if="resumo.fora" class="rd-fora">{{ resumo.fora }}</p>
       </div>
 
       <div class="cmdrow">

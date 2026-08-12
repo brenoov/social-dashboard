@@ -1,6 +1,6 @@
 # Pendências do iamundi
 
-Última revisão: **11/08/2026**
+Última revisão: **12/08/2026**
 
 O que é este arquivo: a lista viva do que está **em aberto** no projeto. Cada item
 diz o que falta, **por que importa** e **onde** se resolve. É a memória escrita —
@@ -228,15 +228,40 @@ só aparece em "Tudo".
 Hodômetro pra trás, passar o carro pra outro, gravação falhando no meio. Têm
 teste, mas ninguém abriu a tela e provocou.
 
-### B4 · Estúdio da Fábrica › conferir a subida multi-loja
-O bug era intermitente ("gerei e subiu só do Tivoli, faltou Dom Pedro"). O dono
-acha que foi corrigido, mas **não há commit de correção nem teste cobrindo** — o
-laço `for (const {slug,publico,orcamento} of alvosLoja)` em `subir-estudio.mjs`
-(~linha 298) está igual. Ele pediu explicitamente pra manter o item vivo.
+### B4 · Estúdio da Fábrica › a subida multi-loja (a premissa deste item estava errada)
+**Medido no banco em 12/08/2026: o laço multi-loja nunca perdeu loja.** Nas 5
+subidas da história (`fabrica_jobs` tipo `subir`), as 2 que tinham 2 lojas
+criaram 2 campanhas; as outras 3 já **chegavam com uma loja só**. Este item
+acusava o laço `for (const {slug,publico,orcamento} of alvosLoja)` — o laço
+sempre subiu exatamente o que recebeu. As duas metades do relato do dono tinham
+outras causas, e as duas foram achadas olhando os jobs reais:
 
-**Como conferir:** na próxima subida multi-loja, ver se **todas** as lojas
-subiram, não só a primeira. Se falhar, o conserto barato é teste do laço + um log
-por loja subida.
+1. **"Subiu só do Tivoli"** — a TELA nasce com `destino.lojas = ['tivoli']` e a
+   segunda loja dependia de um chip pequeno. Nada dizia, antes do clique, que ia
+   sair campanha pra uma loja só. Agora o passo Subir escreve o que vai
+   acontecer ("Vai criar 1 campanha nova: Tivoli. / Dom Pedro não vai receber
+   campanha.") — `resumo-do-destino.js`, com teste.
+2. **"Na primeira vez bugou e não subiu campanha"** — não bugou: o job
+   `66a8e030` (13/07 22:49) subiu com **zero criativos escolhidos**, e a tela
+   respondeu *"Publicado (pausado)! 0 anúncios"* e **fechou a rodada**. Zero
+   escolhido agora vira erro que manda voltar pro Curar, sem fechar nada.
+
+Dois defeitos latentes achados na mesma trilha, ambos consertados:
+- O laço **abortava e perdia o rastro**: falha na loja 2 derrubava o job inteiro
+  e o `resultado` sumia, mesmo com a campanha da loja 1 já criada de verdade na
+  Meta — o Conferir e o Ativar deixavam de enxergá-la.
+- **Re-disparar duplicava campanha.** Em rate limit o job vira erro com
+  "re-disparar pra continuar", e **não existe botão de re-disparar**: o dono
+  clica em Publicar de novo. O segundo clique criava uma segunda campanha por
+  loja. Agora reaproveita a campanha que a rodada já criou (`campanhaDoRastro`,
+  chave = rodada + loja). ⚠️ **A chave NUNCA pode ser o nome da campanha:**
+  `CFG_ADSET.DATA_CAMPANHA` é constante congelada, então toda campanha da mesma
+  loja+objetivo nasce com nome idêntico em qualquer rodada.
+
+**O que falta:** o caminho do re-disparo **não foi provado ao vivo** — depende de
+a Meta devolver rate limit de verdade. Money-path: na próxima vez que der rate
+limit, conferir no Gerenciador que continuou na MESMA campanha, sem uma segunda
+igual. Só depois disso o item sai daqui.
 
 ### B5 · Fábrica Hero-IA › trocar a composição pelo relight da foto real 💰
 O motor `coletor/hero-ia/hero-ia.mjs` hoje compõe `[cena de fundo, recorte da
