@@ -199,6 +199,7 @@ import { montarPainelRegua } from './painel-regua.js'
 // silêncio de 7 dias, a repartição por conjunto) moram em fila.js, puro e
 // testado; painel-fila.js só monta a tela.
 import { montarPainelFila } from './painel-fila.js'
+import { resumoDoRobo, fraseDaFilaVazia } from './fila.js'
 // A LISTA do histórico de campanhas começadas por aqui. As regras de leitura
 // moram em rascunhos.js; este só desenha (e escapa tudo que vem de fora).
 import { montarPainelHistorico, marcarQuemPodeApagar } from './painel-historico.js'
@@ -834,6 +835,10 @@ let _gtFilaCarregando = false;
 // Só vira true quando a leitura terminou de verdade. Enquanto for false, a aba
 // diz "carregando", nunca "não há nada" — ver a guarda em _gtCarregarFila.
 let _gtFilaCarregou = false;
+// As analises COMO O ROBO GRAVOU, sem o filtro de `pedeAcao`. A fila vazia
+// precisa delas pra dizer "analisei 2 e nas duas o conselho foi manter" —
+// 'manter' e exatamente o que montarFila descarta.
+let _gtAnalisesCruas = [];
 
 // Busca as campanhas e os conjuntos SÓ das contas que têm pendência. Sem este
 // recorte seriam duas chamadas por conta em toda abertura da aba, quatro delas
@@ -899,6 +904,9 @@ async function _gtCarregarFila() {
       sb(`campaign_insights?select=campaign_id,captured_at,period_days,spend&captured_at=gte.${_gtDiasAtras(3)}`),
     ]);
     if (analises.erro) { console.error('[GT] falha ao ler as análises da fila:', analises.erro); }
+    // Guarda as análises CRUAS: a fila vazia precisa contar quantas o robô olhou
+    // e quantas vieram 'manter', e 'manter' é justamente o que montarFila filtra.
+    _gtAnalisesCruas = analises || [];
     _gtFila = montarFila(analises || [], decisoes || [], new Date().toISOString());
     // O gasto entra DEPOIS de montar a fila, por campanha. Agrupar aqui em vez
     // de dentro de montarFila mantém aquele módulo puro sem saber de insights.
@@ -990,7 +998,11 @@ async function _gtCarregarFila() {
           : [],
       });
     }
-    _gtFila = mesclarSaude(_gtFila, saudes);
+    // As decisões de saúde vão junto: sem elas o alerta dispensado ressuscitava a
+    // cada carregamento (`mesclarSaude` roda depois de `montarFila` e só pulava
+    // campanha que já estivesse na fila de orçamento).
+    const decisoesSaude = await sb('gt_fila_decisoes?select=campaign_id,decisao,decidido_em,silenciar_ate,escopo&escopo=eq.saude&order=decidido_em.desc');
+    _gtFila = mesclarSaude(_gtFila, saudes, decisoesSaude || [], agoraMs);
 
     // CRIATIVOS SEM TRAÇÃO: o robô analisa anúncio a anúncio e marca 'pausar'
     // nos que não engatam. Eles aparecem AGRUPADOS na linha da campanha —
@@ -1076,7 +1088,12 @@ async function _gtFilaRecusar(item, botao) {
   if (!ok) return;
   const orig = botao.textContent;
   botao.disabled = true; botao.textContent = '…';
-  const erro = await _gtFilaGravarDecisao(item, 'recusada', [], null);
+  // O ESCOPO É O DA PERGUNTA QUE ESTÁ SENDO RECUSADA. Item vindo da saúde não é
+  // pergunta de verba: gravá-lo como 'orcamento' (o default) calava por 7 dias a
+  // sugestão de orçamento da MESMA campanha — e ainda por cima não calava o
+  // alerta de saúde, que voltava no carregamento seguinte. Medido em 12/08/2026.
+  const erro = await _gtFilaGravarDecisao(item, 'recusada', [], null,
+    item.origem === 'saude' ? 'saude' : item.origem === 'criativos' ? 'criativos' : 'orcamento');
   if (erro) {
     console.error('[GT] falha ao gravar a recusa:', erro);
     adminToast(_gtEhErroDePermissao(erro) ? 'Você não tem permissão para decidir na fila.' : 'Não consegui registrar a recusa. Tente de novo.', false);
@@ -2343,6 +2360,8 @@ function _gtTrocarAba(nome) {
       contaNome: (_gtCurAcc && (_gtCurAcc.display_name || _gtCurAcc.name)) || '',
       agora: new Date().toISOString(),
       carregou: _gtFilaCarregou,
+      // A fila vazia se explica: o que o robo fez NESTA conta.
+      explicacaoVazia: fraseDaFilaVazia(resumoDoRobo(_gtAnalisesCruas, (_gtCurAcc && _gtCurAcc.id) || null)),
       // Mesmo critério da régua e do RLS da tabela: decidir na fila é ação de
       // quem pode EDITAR nesta ferramenta.
       editavel: hasPermission('meta.gestor', 'editar'),
