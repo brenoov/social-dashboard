@@ -133,23 +133,27 @@ test('sem destino é só um empurrão, não uma trava', () => {
 
 /* ── Quem decide ──────────────────────────────────────────────────────────── */
 
-test('ninguém aprova a própria requisição', () => {
-  // É o sentido da aprovação: um segundo par de olhos. Existem dois
-  // aprovadores justamente para que sempre haja alguém.
-  const r = podeDecidir({ requisicao: req({ pessoa_id: 'p1' }), minhaPessoaId: 'p1', temPermissaoAprovar: true })
-  assert.equal(r.pode, false)
-  assert.equal(r.motivo, 'propria')
-  assert.match(motivoEmPortugues('propria'), /dois aprovadores/)
-})
+/* Os dois testes que ficavam aqui — "ninguém aprova a própria requisição" e
+ * "nem quando pediu para outra pessoa dirigir" — guardavam a regra que o dono
+ * derrubou em 12/08/2026. Foram apagados, não adaptados: teste que continua
+ * verde por outro caminho depois que a regra muda vira armadilha, porque quem
+ * ler acredita que a regra velha ainda vale em algum canto. */
 
-test('nem quando pediu para outra pessoa dirigir', () => {
-  // Quem CRIOU a requisição também não decide, mesmo pondo outro no volante.
+test('quem administra a Frota aprova a própria requisição', () => {
+  // Decisão do dono, consultado sobre marcar visualmente: aprova como qualquer
+  // outra, sem selo diferente. O caso real: as 2 requisições pendentes de
+  // OLW4I46 eram dele, e ficaram travadas desde 11/08 sem saída na tela.
   const r = podeDecidir({
-    requisicao: req({ pessoa_id: 'p9', criada_por: 'u1' }),
+    requisicao: req({ pessoa_id: 'p1', criada_por: 'u1' }),
     minhaPessoaId: 'p1', meuUsuarioId: 'u1', temPermissaoAprovar: true,
   })
-  assert.equal(r.pode, false)
-  assert.equal(r.motivo, 'propria')
+  assert.equal(r.pode, true)
+  assert.equal(r.motivo, null)
+})
+
+test('a frase da regra velha não existe mais — nem sobrando no código', () => {
+  // Frase que a tela nunca mostra é frase que alguém lê e acredita.
+  assert.equal(motivoEmPortugues('propria'), '')
 })
 
 test('o outro aprovador decide normalmente', () => {
@@ -167,7 +171,9 @@ test('sem permissão não decide, e requisição já decidida não reabre', () =
 })
 
 test('toda recusa tem frase, nenhuma sai muda', () => {
-  for (const m of ['propria', 'ja-decidida', 'sem-permissao']) {
+  // 'propria' saiu da lista em 12/08/2026: deixou de ser uma recusa possível
+  // quando o dono passou a aprovar a própria requisição.
+  for (const m of ['ja-decidida', 'sem-permissao']) {
     assert.ok(motivoEmPortugues(m).length > 15, `motivo ${m} sem frase`)
   }
 })

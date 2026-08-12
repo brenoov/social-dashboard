@@ -1150,12 +1150,10 @@ function abrirDecisao(requisicao, acao) {
 function fecharDecisao() { decisao.value = null; erroDaDecisao.value = ''; passeioDecisaoAberto.value = false }
 
 function porQueNaoDecido(r) {
-  return podeDecidir({
-    requisicao: r,
-    minhaPessoaId: euId.value,
-    meuUsuarioId: estado.user && estado.user.id,
-    temPermissaoAprovar: podeAprovar.value,
-  })
+  // `minhaPessoaId` e `meuUsuarioId` saíram daqui junto com a regra de não
+  // aprovar a própria requisição (D24, 12/08/2026): quem decide agora depende
+  // só da permissão e de a requisição estar pendente.
+  return podeDecidir({ requisicao: r, temPermissaoAprovar: podeAprovar.value })
 }
 
 async function confirmarDecisao() {

@@ -100,25 +100,28 @@ export function bloqueios(problemas) {
 /**
  * Quem pode decidir esta requisição.
  *
- * Aprovar a própria requisição esvazia a aprovação: o sentido dela é um
- * segundo par de olhos. Por isso o solicitante e o motorista ficam de fora,
- * mesmo tendo a permissão. Há dois aprovadores justamente para que sempre
- * exista alguém — cada um decide a do outro.
+ * ATÉ 12/08/2026 o solicitante ficava de fora, para a aprovação ser um segundo
+ * par de olhos. O dono derrubou a regra, ciente do que se perde: com dois
+ * aprovadores e a maior parte dos pedidos saindo dele mesmo, ela não produzia
+ * revisão nenhuma — produzia requisição parada. Duas ficaram travadas desde
+ * 11/08 sem saída nenhuma pela tela, e é isso que este `podeDecidir` conserta.
+ *
+ * O que NÃO se perde: `decidida_por` e `decidida_em` continuam gravando quem
+ * decidiu. O rastro segue no banco; o que o dono dispensou foi o aviso na tela.
  */
-export function podeDecidir({ requisicao, minhaPessoaId, meuUsuarioId, temPermissaoAprovar }) {
+export function podeDecidir({ requisicao, temPermissaoAprovar }) {
   if (!temPermissaoAprovar) return { pode: false, motivo: 'sem-permissao' };
   if (!requisicao || requisicao.situacao !== 'pendente') return { pode: false, motivo: 'ja-decidida' };
-  const souEu = (minhaPessoaId && (requisicao.pessoa_id === minhaPessoaId))
-    || (meuUsuarioId && requisicao.criada_por === meuUsuarioId);
-  if (souEu) return { pode: false, motivo: 'propria' };
   return { pode: true, motivo: null };
 }
 
-/** A frase que a tela mostra quando não dá pra decidir. */
+/** A frase que a tela mostra quando não dá pra decidir.
+ *
+ * O caso 'propria' saiu junto com a regra que o produzia (12/08/2026). Não
+ * ficou como resposta órfã de propósito: frase que a tela nunca mostra é frase
+ * que alguém lê no código e acredita. */
 export function motivoEmPortugues(motivo) {
   switch (motivo) {
-    case 'propria':
-      return 'Esta requisição é sua. Quem aprova é a outra pessoa — é para isso que existem dois aprovadores.';
     case 'ja-decidida': return 'Esta requisição já foi decidida.';
     case 'sem-permissao': return 'Você não aprova requisições de veículo.';
     default: return '';
