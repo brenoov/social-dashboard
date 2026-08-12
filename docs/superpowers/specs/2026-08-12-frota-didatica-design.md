@@ -40,7 +40,7 @@ Contra o banco de produção, por `select`. Nenhuma linha foi alterada.
 | Checklists gravados desde 06/08 | 2, o último em 07/08. Hoje: **0** |
 | Requisições pendentes | **2, ambas do próprio dono** — travadas desde 11/08 |
 | Pessoas ativas no cadastro | 22 · com login: 9 · **com telefone: 5** |
-| Campos com exemplo dentro da caixa | 12 |
+| Campos com exemplo de valor dentro da caixa | 17, dos quais **8 parecem dado preenchido** |
 | `tela-de-frota.vue` | **2.976 linhas** — o maior arquivo da Central |
 
 Duas consequências que decidem fases inteiras:
@@ -220,9 +220,19 @@ celular; a **grade carros × itens** só cabe arrastando pro lado no celular, qu
 
 ### D31 · Exemplo sai de dentro do campo
 
-Os 12 `placeholder` que parecem dado preenchido (`JHM Auto Center`,
-`(19) 3033-9837`, `CTR-007`, `RBB-007`, `145928`, `20000`) saem da caixa e viram
-texto de ajuda embaixo dela, escrito como exemplo: *"Ex.: JHM Auto Center"*.
+**Contado com precisão:** `tela-de-frota.vue` tem 20 `placeholder`. Destes, **8
+parecem dado preenchido** — `JHM Auto Center` (2×), `(19) 3033-9837` (2×),
+`CTR-007`, `RBB-007`, `145928`, `20000` — e outros 9 são listas de exemplo
+dentro da caixa ("Conchal, Campinas…", "Oficina, locadora, seguro, guincho…").
+
+**Os 17 saem da caixa** e viram texto de ajuda embaixo dela, escrito como
+exemplo: *"Ex.: JHM Auto Center"*.
+
+**O que fica onde está:** `placeholder` que é *instrução*, não valor — "opcional"
+e "a mesma senha com que você entra" (`painel-de-checklist.vue`). Ninguém
+confunde instrução com dado gravado, e tirá-los da caixa só ocuparia altura de
+celular. O `'— — —'` do hodômetro também fica: ele já foi decidido assim de
+propósito, justamente por este motivo.
 
 É a mesma decisão que `painel-de-checklist.vue:242` já tinha tomado sozinho pro
 hodômetro (*"na fonte de números ele parece dado preenchido"*) — aqui ela vira
