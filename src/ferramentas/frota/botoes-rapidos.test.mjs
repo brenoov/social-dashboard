@@ -14,7 +14,7 @@ test('o motorista vê o nome do carro dele e que o checklist falta hoje', () => 
     nomeDoMeuCarro: 'FIAT BRAVO BLACKMOTION',
   })
   assert.equal(acha(b, 'meu-checklist').rotulo, 'Fazer meu checklist')
-  assert.equal(acha(b, 'meu-checklist').estado, 'Bravo Blackmotion · falta hoje')
+  assert.equal(acha(b, 'meu-checklist').estado, 'BRAVO BLACKMOTION · falta hoje')
 })
 
 test('checklist já feito hoje diz que está feito — e não some', () => {
@@ -23,7 +23,7 @@ test('checklist já feito hoje diz que está feito — e não some', () => {
     painel: { comigo: [], livres: [], comOutros: [] },
     checklistDeHoje: 'feito', nomeDoMeuCarro: 'HONDA FIT',
   })
-  assert.equal(acha(b, 'meu-checklist').estado, 'Honda Fit · feito hoje')
+  assert.equal(acha(b, 'meu-checklist').estado, 'HONDA FIT · feito hoje')
 })
 
 test('quem não tem carro fixo não recebe uma promessa vazia', () => {
@@ -95,33 +95,87 @@ test('toda tecla e toda ação são únicas — botão repetido é bug de menu',
   }
 })
 
-/* Nomes reais da frota medidos em 12/08/2026: código de modelo com dígito
- * (XC60, X1) remove a marca e fica preservado. Acrônimo final (PHEV) em 3+
- * palavras também fica maiúsculo. Palavra normal (Cayenne, Bravo) fica título-case. */
+/* Frota real medida em 12/08/2026: 10 veículos de 5 marcas. Regra: tira marca
+ * (primeira palavra) só quando há 3+ palavras. Não toca em maiúscula/minúscula
+ * porque case-fold quebra um subconjunto diferente a cada carro novo comprado. */
 
-test('VOLVO XC60: marca cai, código preservado (dígito)', () => {
+test('FIAT BRAVO BLACKMOTION: 3 palavras, marca cai', () => {
   const b = botoesDoMotorista({
     painel: { comigo: [], livres: [], comOutros: [] },
     checklistDeHoje: 'falta',
-    nomeDoMeuCarro: 'VOLVO XC60',
+    nomeDoMeuCarro: 'FIAT BRAVO BLACKMOTION',
   })
-  assert.equal(acha(b, 'meu-checklist').estado, 'XC60 · falta hoje')
+  assert.equal(acha(b, 'meu-checklist').estado, 'BRAVO BLACKMOTION · falta hoje')
 })
 
-test('BMW X1: marca cai quando segunda é modelo (tem dígito)', () => {
+test('FIAT BRAVO ESSENCE: 3 palavras, marca cai, fica distinto do BLACKMOTION', () => {
   const b = botoesDoMotorista({
     painel: { comigo: [], livres: [], comOutros: [] },
     checklistDeHoje: 'falta',
-    nomeDoMeuCarro: 'BMW X1',
+    nomeDoMeuCarro: 'FIAT BRAVO ESSENCE',
   })
-  assert.equal(acha(b, 'meu-checklist').estado, 'X1 · falta hoje')
+  assert.equal(acha(b, 'meu-checklist').estado, 'BRAVO ESSENCE · falta hoje')
 })
 
-test('PORSCHE CAYENNE PHEV: acrônimo 4-letras no final fica maiúsculo', () => {
+test('FORD FIESTA SEDAN: 3 palavras, marca cai', () => {
+  const b = botoesDoMotorista({
+    painel: { comigo: [], livres: [], comOutros: [] },
+    checklistDeHoje: 'falta',
+    nomeDoMeuCarro: 'FORD FIESTA SEDAN',
+  })
+  assert.equal(acha(b, 'meu-checklist').estado, 'FIESTA SEDAN · falta hoje')
+})
+
+test('PORSCHE CAYENNE PHEV: 3 palavras, marca cai, maiúsculas intactas', () => {
   const b = botoesDoMotorista({
     painel: { comigo: [], livres: [], comOutros: [] },
     checklistDeHoje: 'falta',
     nomeDoMeuCarro: 'PORSCHE CAYENNE PHEV',
   })
-  assert.equal(acha(b, 'meu-checklist').estado, 'Cayenne PHEV · falta hoje')
+  assert.equal(acha(b, 'meu-checklist').estado, 'CAYENNE PHEV · falta hoje')
+})
+
+test('VOLVO XC60: 2 palavras, marca fica', () => {
+  const b = botoesDoMotorista({
+    painel: { comigo: [], livres: [], comOutros: [] },
+    checklistDeHoje: 'falta',
+    nomeDoMeuCarro: 'VOLVO XC60',
+  })
+  assert.equal(acha(b, 'meu-checklist').estado, 'VOLVO XC60 · falta hoje')
+})
+
+test('VOLVO XC90: 2 palavras, marca fica', () => {
+  const b = botoesDoMotorista({
+    painel: { comigo: [], livres: [], comOutros: [] },
+    checklistDeHoje: 'falta',
+    nomeDoMeuCarro: 'VOLVO XC90',
+  })
+  assert.equal(acha(b, 'meu-checklist').estado, 'VOLVO XC90 · falta hoje')
+})
+
+test('BMW X1: 2 palavras, marca fica, modelo com dígito não some', () => {
+  const b = botoesDoMotorista({
+    painel: { comigo: [], livres: [], comOutros: [] },
+    checklistDeHoje: 'falta',
+    nomeDoMeuCarro: 'BMW X1',
+  })
+  assert.equal(acha(b, 'meu-checklist').estado, 'BMW X1 · falta hoje')
+})
+
+test('FIAT PUNTO: 2 palavras, marca fica', () => {
+  const b = botoesDoMotorista({
+    painel: { comigo: [], livres: [], comOutros: [] },
+    checklistDeHoje: 'falta',
+    nomeDoMeuCarro: 'FIAT PUNTO',
+  })
+  assert.equal(acha(b, 'meu-checklist').estado, 'FIAT PUNTO · falta hoje')
+})
+
+test('FIAT DOBLO: 2 palavras, marca fica', () => {
+  const b = botoesDoMotorista({
+    painel: { comigo: [], livres: [], comOutros: [] },
+    checklistDeHoje: 'falta',
+    nomeDoMeuCarro: 'FIAT DOBLO',
+  })
+  assert.equal(acha(b, 'meu-checklist').estado, 'FIAT DOBLO · falta hoje')
 })

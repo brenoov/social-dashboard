@@ -11,26 +11,18 @@
  * carregou é a tela mentindo — e é o defeito que a Fase A inteira existiu pra
  * consertar. */
 
-/** "FIAT BRAVO BLACKMOTION" é como o banco guarda; ninguém fala assim. */
+/** Nomes de carro como o banco guarda (tudo maiúscula). Tira a marca da frente
+ * quando há 3+ palavras. Case-fold quebra um subconjunto diferente a cada nova
+ * compra de carro (Xc60, depois Bmw, depois a marca sumia inteira). Não há regra
+ * que case-fold que sobrevive — deixa como vem da base. O dono reconhece VOLVO
+ * XC60 de pé no estacionamento, reconhece XC60 só na tela da TV (paredão). */
 function nomeCurto(nome) {
   const limpo = String(nome || '').trim()
   if (!limpo) return null
-  // Tira a marca da frente quando: há 3+ palavras, OU há 2 palavras e a segunda é código de modelo (tem dígito).
+  // Tira a marca da frente quando há 3+ palavras, ponto. Não toca em maiúscula/minúscula.
   const partes = limpo.split(/\s+/)
-  const temCodigoDeModelo = partes.length >= 2 && /\d/.test(partes[1])
-  const ehNomeComMarca = partes.length > 2 || temCodigoDeModelo
-  const semMarca = ehNomeComMarca ? partes.slice(1) : partes
-
-  return semMarca
-    .map((p, index) => {
-      // Código de modelo (XC60, X1) com dígito fica como está.
-      if (/\d/.test(p)) return p
-      // Acrônimo de 4 letras (PHEV) no final de nome com 3+ palavras fica maiúsculo.
-      if (partes.length > 2 && index === semMarca.length - 1 && /^[A-Z]{4}$/.test(p)) return p
-      // Palavra normal: primeiro maiúsculo, resto minúsculo.
-      return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()
-    })
-    .join(' ')
+  const semMarca = partes.length > 2 ? partes.slice(1) : partes
+  return semMarca.join(' ')
 }
 
 const contar = (n, um, muitos) => `${n} ${n === 1 ? um : muitos}`
