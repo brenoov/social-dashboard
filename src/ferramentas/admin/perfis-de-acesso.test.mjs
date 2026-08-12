@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { acessoEfetivo, excecaoDe, impactoDaMudanca } from './perfis-de-acesso.js'
+import { acessoEfetivo, excecaoAoSalvar, excecaoDe, impactoDaMudanca } from './perfis-de-acesso.js'
 
 const PERFIL = { social: ['ver', 'exportar'], 'meta.gestor': ['ver', 'editar'] }
 
@@ -170,4 +170,67 @@ test('ferramenta NOVA no catalogo nao entra em perfil nenhum (D10)', () => {
   const efetivo = acessoEfetivo(perfil, {})
   assert.equal(efetivo['ferramenta.novissima'], undefined)
   assert.deepEqual(Object.keys(efetivo), ['social'])
+})
+
+/* ── excecaoAoSalvar — o caminho REAL do D9 (revisao final 12/08/2026) ──
+   Este bloco existe porque `excecaoDe` estava verde e MORTA: nenhuma linha da
+   aplicacao chamava. Os testes abaixo cobrem a decisao que a tela toma de
+   verdade quando alguem clica "Salvar" na ficha de uma pessoa. */
+
+test('D9 CAMINHO REAL: ferramenta dada a mao vira excecao gravavel', () => {
+  // A Ana esta no perfil "Vendedora" (so social). Alguem abriu a ficha dela e
+  // marcou Frota. Sem isto, regravar o perfil apagaria a Frota da Ana.
+  const perfis = [{ id: 'p1', nome: 'Vendedora', permissions: { social: ['ver'] } }]
+  const r = excecaoAoSalvar({
+    perfilId: 'p1',
+    perfis,
+    permissions: { social: ['ver'], frota: ['ver', 'editar'] },
+  })
+  assert.equal(r.gravar, true)
+  assert.equal(r.aviso, null)
+  assert.deepEqual(r.excecao, { frota: ['ver', 'editar'] })
+  // E a prova de que a excecao SOBREVIVE a regravacao do perfil:
+  assert.deepEqual(acessoEfetivo({ social: ['ver', 'exportar'] }, r.excecao).frota, ['ver', 'editar'])
+})
+
+test('o que veio do perfil NAO vira excecao', () => {
+  const perfis = [{ id: 'p1', permissions: { social: ['ver'] } }]
+  const r = excecaoAoSalvar({ perfilId: 'p1', perfis, permissions: { social: ['ver'] } })
+  assert.equal(r.gravar, true)
+  assert.deepEqual(r.excecao, {})
+})
+
+test('nivel trocado a mao na MESMA chave do perfil vira excecao', () => {
+  const perfis = [{ id: 'p1', permissions: { social: ['ver'] } }]
+  const r = excecaoAoSalvar({ perfilId: 'p1', perfis, permissions: { social: ['ver', 'exportar'] } })
+  assert.deepEqual(r.excecao, { social: ['ver', 'exportar'] })
+})
+
+test('pessoa sem perfil nao grava excecao e nao avisa nada', () => {
+  const r = excecaoAoSalvar({ perfilId: null, perfis: [], permissions: { frota: ['ver'] } })
+  assert.equal(r.gravar, false)
+  assert.equal(r.aviso, null)
+})
+
+test('perfil desconhecido NAO grava e AVISA — chute aqui vira acesso perdido depois', () => {
+  const r = excecaoAoSalvar({ perfilId: 'p9', perfis: [], permissions: { frota: ['ver'] } })
+  assert.equal(r.gravar, false)
+  assert.equal(typeof r.aviso, 'string')
+  assert.ok(r.aviso.length > 0)
+})
+
+test('cache vazio por falha de leitura tambem AVISA, nao fica calado', () => {
+  const r = excecaoAoSalvar({ perfilId: 'p1', perfis: null, permissions: {} })
+  assert.equal(r.gravar, false)
+  assert.ok(r.aviso)
+})
+
+test('id numero x id texto sao a mesma pessoa no mesmo perfil', () => {
+  const r = excecaoAoSalvar({ perfilId: 7, perfis: [{ id: '7', permissions: {} }], permissions: { frota: ['ver'] } })
+  assert.equal(r.gravar, true)
+  assert.deepEqual(r.excecao, { frota: ['ver'] })
+})
+
+test('nao estoura sem argumento nenhum', () => {
+  assert.deepEqual(excecaoAoSalvar(), { gravar: false, aviso: null })
 })

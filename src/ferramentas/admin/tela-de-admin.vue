@@ -167,7 +167,10 @@ import { derivarFeatures } from '../../compartilhado/derivar-features.js'
 // A sobreposição perfil × exceção (D9) e QUEM MUDA de acesso se um perfil for
 // regravado (D11). Puro e testado à parte (perfis-de-acesso.test.mjs): aqui só
 // se busca no banco, se mostra e se grava.
-import { acessoEfetivo, impactoDaMudanca } from './perfis-de-acesso.js'
+// `excecaoAoSalvar` é o que faz o D9 valer no CAMINHO REAL: sem ele, dar uma
+// ferramenta à mão a quem está num perfil não ficava registrado em lugar nenhum,
+// e a próxima regravação do perfil apagava o que alguém concedeu de propósito.
+import { acessoEfetivo, excecaoAoSalvar, impactoDaMudanca } from './perfis-de-acesso.js'
 // A escada de niveis (Sem acesso / Ver / Mexer / Tudo) que substitui a matriz
 // de caixinhas no editor de permissoes: uma escolha por ferramenta, em vez de
 // ate 5 caixinhas por linha das quais mais da metade nunca existiu de verdade.
@@ -1026,7 +1029,7 @@ async function loadAdminSaude() {
 }
 
 /* ── PERMISSÕES (Fase 1: matriz recurso×ação + escopo por perfil + super-admin + duplicar) ── */
-let _permState = null       // { userId, permissions, allowed_accounts, is_superadmin }
+let _permState = null       // { userId, perfilId, permissions, allowed_accounts, is_superadmin }
 let _contasCache = null     // perfis de rede (accounts)
 let _usersCache = []        // lista de usuários (p/ o "duplicar")
 let _perfisCache = []       // acessos_perfis (p/ "começar com o acesso de…" ao criar usuário — Task 5)
@@ -1039,6 +1042,11 @@ async function openPermModal(u, opcoes) {
   _permAba = soNotificacoes ? 'avisos' : 'ferramentas'
   _permState = {
     userId: u.id,
+    // Em que perfil esta pessoa está, se está em algum. Não é enfeite: é o que
+    // permite `savePermissions` separar "veio do perfil" de "alguém deu de
+    // propósito" e gravar a segunda metade em `permissions_excecao` (D9). Vem
+    // de `loadAdminUsers`, que já traz `perfil_id` no select de `profiles`.
+    perfilId: u.perfil_id || null,
     permissions: JSON.parse(JSON.stringify(u.permissions || {})),
     allowed_accounts: u.allowed_accounts ?? null,
     is_superadmin: !!u.is_superadmin,
@@ -1407,11 +1415,76 @@ function _abaDeFerramentas(body, u) {
       if (r.status === 409) { await _regravarPerfilExistente(nomeLimpo, novasPermissions, u); return }
       if (!r.ok) { adminToast('Não consegui salvar o perfil', false); return }
       // Perfil recém-criado não tem ninguém dentro (`perfil_id` de ninguém
-      // aponta pra ele ainda), então não há acesso de terceiro pra mudar aqui.
-      adminToast(`Perfil "${nomeLimpo}" criado`)
+      // aponta pra ele ainda), então nenhum acesso de terceiro muda aqui. O que
+      // muda é a pessoa DESTA ficha, e só se ela for perguntada — I4, logo
+      // abaixo. UM toast só, no fim: dizer "criado" agora e "entrou" depois
+      // seriam duas frases sobre o mesmo clique, e a primeira sumiria por trás
+      // da janela de confirmação.
+      const criadas = await r.json().catch(() => null)
+      const novoPerfil = Array.isArray(criadas) ? criadas[0] : null
+      if (!novoPerfil || !novoPerfil.id) {
+        adminToast(`O perfil "${nomeLimpo}" foi criado, mas não consegui ler o id dele — ninguém entrou no perfil.`, false)
+        return
+      }
+      // O perfil recém-criado ainda não está em `_perfisCache` (ele só recarrega
+      // em `loadAdminUsers`). Sem pôr aqui, um "Salvar" logo em seguida nesta
+      // mesma ficha não acharia o mapa do perfil e deixaria de gravar a exceção.
+      _perfisCache = [...(_perfisCache || []), { id: novoPerfil.id, nome: nomeLimpo, permissions: novasPermissions }]
+      await _porPessoaNoPerfil(u, novoPerfil.id, nomeLimpo)
     })
     body.appendChild(btnPerfil)
   }
+}
+
+/**
+ * I4 — PÔR NO PERFIL A PESSOA CUJA FICHA ORIGINOU ELE.
+ *
+ * POR QUE ISTO EXISTE (revisão final de 12/08/2026): `perfil_id` só era escrito
+ * no convite. "Salvar como perfil" criava o perfil e não punha ninguém dentro —
+ * nem a própria pessoa de quem ele foi copiado. Efeito em cascata: nos primeiros
+ * usos a lista de membros vinha vazia, o impacto dava sempre zero e a janela de
+ * confirmação (D11) NUNCA aparecia. O dono aprenderia que "salvar perfil não
+ * pergunta nada", e a janela iria surpreendê-lo justamente no dia em que houver
+ * gente para mudar — que é o dia em que ela precisa ser lida.
+ *
+ * PERGUNTA ANTES porque entrar num perfil VIVO tem consequência futura: daí em
+ * diante toda regravação do perfil mexe no acesso dela. Agora não muda nada — o
+ * perfil é cópia exata do que está na ficha —, e é isso que o texto diz.
+ *
+ * A exceção nasce `{}` pelo mesmo motivo: neste instante não existe nada "dado
+ * à mão" além do perfil para preservar.
+ */
+async function _porPessoaNoPerfil(u, perfilId, nomePerfil) {
+  const quem = u.name || u.email
+  const ok = await _gtConfirmAdmin(
+    `Pôr ${quem} dentro do perfil "${nomePerfil}"?`,
+    `Ela passa a receber as mudanças dele: toda vez que alguém regravar o perfil "${nomePerfil}", `
+    + `o acesso de ${quem} muda junto.\n\n`
+    + 'Agora nada muda no acesso dela — o perfil é uma cópia exata do que está nesta ficha.\n\n'
+    + 'Se disser não, o perfil fica criado do mesmo jeito e ela continua fora dele.',
+  )
+  if (!ok) { adminToast(`Perfil "${nomePerfil}" criado — ${quem} continua fora dele.`); return }
+  let r = null
+  try {
+    r = await adFetch('profiles?id=eq.' + encodeURIComponent(u.id), {
+      method: 'PATCH',
+      // Mesma exigência dos outros PATCHes desta tela: RLS que filtra a linha
+      // devolve 204 com `.ok === true` e zero linha alterada. Sem exigir a linha
+      // de volta, a tela diria que pôs a pessoa no perfil sem ter posto.
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ perfil_id: perfilId, permissions_excecao: {} }),
+    })
+  } catch { r = null }
+  const linhas = r && r.ok ? await r.json().catch(() => null) : null
+  if (!Array.isArray(linhas) || linhas.length === 0) {
+    adminToast(`O perfil "${nomePerfil}" foi criado, mas não consegui pôr ${quem} dentro dele — ela continua fora do perfil.`, false)
+    return
+  }
+  // O editor continua aberto nesta ficha: sem atualizar o estado, um "Salvar"
+  // logo em seguida acharia que ela não está em perfil nenhum e não gravaria a
+  // exceção (D9).
+  if (_permState && _permState.userId === u.id) _permState.perfilId = perfilId
+  adminToast(`Perfil "${nomePerfil}" criado, e ${quem} está dentro dele.`)
 }
 
 // O nome que o dono lê. `patrimonio` e `meta.gestor` são chave de banco; a
@@ -1516,14 +1589,42 @@ async function _regravarPerfilExistente(nome, novasPermissions, u) {
   // perfis-de-acesso.js) — não mexa nesse cálculo achando que é detalhe.
 
   // 3) Gravar o mapa novo no perfil. Se isto falhar, ninguém foi tocado ainda.
+  //
+  // `.ok` NÃO PROVA GRAVAÇÃO. Um PATCH do PostgREST cujo alvo o RLS filtra
+  // devolve 204, não 403: zero linhas alteradas e `.ok === true`. Sem exigir a
+  // linha de volta, esta função seguia achando que gravou e PROPAGAVA em cima
+  // de gente com um perfil que não mudou.
+  //
+  // E o caminho para isso acontecer está aberto: existem DUAS definições
+  // independentes de super-admin neste sistema. A tela usa
+  // `estado.is_superadmin` (a coluna `profiles.is_superadmin`); a policy
+  // `acessos_perfis_escrever` (039_perfis_de_acesso.sql) usa
+  // `public.is_superadmin()`, que é uma LISTA FIXA DE E-MAILS escrita dentro da
+  // função. Uma não lê a outra. Quem for super-admin pela coluna e não estiver
+  // na lista vê o botão, passa pela confirmação, não grava nada — e antes desta
+  // guarda a propagação rodava mesmo assim.
+  //
+  // Medido em 12/08/2026 (leitura): hoje as duas listas BATEM — erick@,
+  // gabriel.gertrudes@ e breno@ são super-admin nos dois caminhos, e nenhuma
+  // conta cai no meio. Mas quem for promovido só pela coluna amanhã cai, e
+  // nada no sistema obriga a mexer nos dois lugares. Alinhar as definições é
+  // decisão do dono e mexe em segurança; aqui a tela só para de mentir sobre o
+  // que aconteceu.
   let rG = null
   try {
     rG = await adFetch('acessos_perfis?id=eq.' + encodeURIComponent(perfil.id), {
       method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
       body: JSON.stringify({ permissions: novasPermissions }),
     })
   } catch { rG = null }
   if (!rG || !rG.ok) { adminToast('Não consegui regravar o perfil — ninguém foi alterado.', false); return }
+  const linhasPerfil = await rG.json().catch(() => null)
+  if (!Array.isArray(linhasPerfil) || linhasPerfil.length === 0) {
+    adminToast('O banco recusou a gravação: seu login não está na lista de super-admins do banco. '
+      + 'Nada foi alterado.', false)
+    return
+  }
 
   if (impacto.total === 0) {
     adminToast(`Perfil "${nome}" atualizado — ninguém muda de acesso.`)
@@ -1557,11 +1658,19 @@ async function _regravarPerfilExistente(nome, novasPermissions, u) {
     if (features !== null) corpo.features = features
     let okp = false
     try {
+      // Mesma armadilha do PATCH do perfil: RLS que filtra a linha devolve 204
+      // com `.ok === true` e zero linhas alteradas. Exigir a linha de volta é o
+      // que separa "gravei" de "achei que gravei" — e o nome desta pessoa só
+      // entra na lista de falhas se a gravação realmente não aconteceu.
       const rr = await adFetch('profiles?id=eq.' + encodeURIComponent(p.id), {
         method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
         body: JSON.stringify(corpo),
       })
-      okp = !!(rr && rr.ok)
+      if (rr && rr.ok) {
+        const linhas = await rr.json().catch(() => null)
+        okp = Array.isArray(linhas) && linhas.length > 0
+      }
     } catch { okp = false }
     if (!okp) falhas.push(p.name || p.email)
     noBanco.set(p.id, okp ? efetivo : (p.permissions || {}))
@@ -1749,6 +1858,29 @@ async function savePermissions() {
     is_superadmin: _permState.is_superadmin,
   }
   if (features !== null) payload.features = features
+
+  // D9 NO CAMINHO REAL — o que foi dado à mão precisa ficar REGISTRADO como
+  // exceção, senão a próxima regravação do perfil apaga.
+  //
+  // Sem isto (era o estado até 12/08/2026), a sequência real era: cria a Ana no
+  // perfil "Vendedora" com exceção `{}` → alguém dá Frota a ela pela ficha →
+  // entra só em `permissions`, exceção continua `{}` → alguém regrava o perfil
+  // → a Frota da Ana some. A promessa "exceção sobrevive" valia só nos testes.
+  //
+  // A decisão mora em `excecaoAoSalvar` (perfis-de-acesso.js), pura e testada:
+  // sem o mapa do perfil em mãos ela devolve `gravar: false` com aviso, porque
+  // gravar exceção errada é pior que não gravar — e ficar calado é pior ainda.
+  let avisoExcecao = null
+  if (!_permState.soNotificacoes) {
+    const dec = excecaoAoSalvar({
+      perfilId: _permState.perfilId,
+      perfis: _perfisCache,
+      permissions: _permState.permissions,
+    })
+    if (dec.gravar) payload.permissions_excecao = dec.excecao
+    avisoExcecao = dec.aviso
+  }
+
   if (!_permState.soNotificacoes) {
     await adFetch('profiles?id=eq.' + _permState.userId, {
       method: 'PATCH',
@@ -1774,7 +1906,11 @@ async function savePermissions() {
   }
 
   btn.disabled = false; btn.textContent = 'Salvar'
-  adminToast('Permissões atualizadas')
+  // O aviso de exceção não gravada vai NA MESMA frase, e em vermelho: um toast
+  // verde "Permissões atualizadas" seguido de silêncio ensinaria que está tudo
+  // certo justamente quando o D9 ficou sem registro.
+  if (avisoExcecao) adminToast('Permissões atualizadas. ' + avisoExcecao, false)
+  else adminToast('Permissões atualizadas')
   closePermModal()
   setTimeout(loadAdminUsers, 400)
 }
@@ -2377,7 +2513,11 @@ async function loadAdminUsers() {
     // não desenha e o editor de permissões (openPermModal) recebe
     // allowed_accounts undefined em vez do valor gravado. created_at entrou
     // na Correção 2, pra mostrar "desde <data>" junto do e-mail.
-    sbClient.from('profiles').select('id,email,name,role,is_superadmin,permissions,disabled,avatar_url,allowed_accounts,created_at'),
+    // `perfil_id` entrou na revisão final (12/08/2026): sem ele o editor de
+    // permissões não sabe em que perfil a pessoa está, e sem saber disso não dá
+    // pra registrar o que foi dado à mão como exceção (D9). Era por isso que a
+    // exceção nunca era gravada e o perfil apagava trabalho na regravação.
+    sbClient.from('profiles').select('id,email,name,role,is_superadmin,permissions,disabled,avatar_url,allowed_accounts,created_at,perfil_id'),
     // `id`, `email_corporativo` e `conta_apple` entraram na etapa 2 e são
     // ESSENCIAIS: sem os dois e-mails, `estadoDoVinculo` não acha candidato
     // nenhum e a Raíssa — que TEM cadastro ativo com o e-mail idêntico ao

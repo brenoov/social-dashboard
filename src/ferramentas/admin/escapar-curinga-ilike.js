@@ -13,10 +13,16 @@
 // DE OUTRA PESSOA — é o mesmo risco que a guarda de pré-existência existia
 // pra fechar, só que por uma porta lateral.
 //
+// O `*` É CURINGA TAMBÉM, e só aqui. O PostgREST traduz `*` para `%` antes de
+// mandar o padrão pro Postgres (`like`/`ilike`), então ele é um metacaractere a
+// mais que o Postgres sozinho não tem. Quem lê só a documentação do Postgres não
+// encontra esse — e `a*@rbv` sem escapar viraria `a%@rbv`, casando conta alheia
+// pela mesma porta lateral que `_` abria.
+//
 // PURO: string entra, string sai. Sem rede, sem DOM.
 export function paraIlike(email) {
-  // A barra invertida vai PRIMEIRO. Se escapássemos `%`/`_` antes dela, a
+  // A barra invertida vai PRIMEIRO. Se escapássemos `%`/`_`/`*` antes dela, a
   // própria barra que acabamos de inserir seria escapada de novo no passo
   // seguinte — dobrando o escape errado.
-  return String(email || '').replace(/[\\%_]/g, (m) => '\\' + m)
+  return String(email || '').replace(/[\\%_*]/g, (m) => '\\' + m)
 }

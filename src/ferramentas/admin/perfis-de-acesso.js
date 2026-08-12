@@ -51,6 +51,45 @@ export function excecaoDe(perfilPermissions, permissionsAtuais) {
 }
 
 /**
+ * D9 NO CAMINHO REAL — o que gravar em `permissions_excecao` quando alguém
+ * salva a ficha de uma pessoa no editor de permissões.
+ *
+ * POR QUE ESTA FUNÇÃO EXISTE (revisão final de 12/08/2026): `excecaoDe` estava
+ * escrita, testada e NÃO ERA CHAMADA POR NINGUÉM na aplicação. O único ponto
+ * que escrevia `permissions_excecao` era o convite, e escrevia `{}`. Ou seja:
+ * dar Frota à Ana à mão entrava só em `permissions`, a exceção continuava
+ * vazia, e a primeira regravação do perfil dela apagava a Frota — exatamente a
+ * promessa que o dono comprou ao aceitar o perfil vivo, quebrada em silêncio.
+ *
+ * O CÁLCULO ESTÁ AQUI, e não dentro do `.vue`, porque decisão que só existe num
+ * arquivo `.vue` não tem como ser testada — e foi a falta de teste do caminho
+ * real que deixou o defeito passar.
+ *
+ * NÃO RECALCULAR É MELHOR QUE RECALCULAR ERRADO. Sem o mapa do perfil em mãos
+ * (cache não carregou, perfil apagado por outra janela), gravar exceção seria
+ * chutar o que veio do perfil — e um chute aqui vira acesso concedido ou
+ * apagado depois, sem ninguém ver. Nesse caso a resposta é `gravar: false` com
+ * um aviso para a tela DIZER, nunca ficar calada.
+ *
+ * @param {{perfilId: any, perfis: Array<{id: any, permissions: object}>, permissions: object}} arg
+ * @returns {{gravar: boolean, excecao?: object, aviso: string|null}}
+ */
+export function excecaoAoSalvar({ perfilId, perfis, permissions } = {}) {
+  // Sem perfil não existe exceção: o acesso dela é o que está em `permissions`,
+  // ponto. Gravar `{}` aqui seria inventar um vínculo que não existe.
+  if (!perfilId) return { gravar: false, aviso: null }
+  const perfil = (perfis || []).find((p) => p && String(p.id) === String(perfilId))
+  if (!perfil) {
+    return {
+      gravar: false,
+      aviso: 'Não consegui abrir o perfil desta pessoa, então não registrei o que foi dado à mão. '
+        + 'Se alguém regravar esse perfil, o que você marcou aqui pode ser desfeito.',
+    }
+  }
+  return { gravar: true, excecao: excecaoDe(perfil.permissions, permissions), aviso: null }
+}
+
+/**
  * Quem muda de acesso se este perfil virar `perfilNovo`, e o que muda para cada.
  *
  * D11: nada de perfil é gravado sem a tela nomear estas pessoas. É o passo que

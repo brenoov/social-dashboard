@@ -28,3 +28,14 @@ test('nao estoura com undefined nem string vazia', () => {
 test('varios curingas seguidos escapam todos, cada um por si', () => {
   assert.equal(paraIlike('%_%'), '\\%\\_\\%')
 })
+
+test('o asterisco do PostgREST tambem e curinga e precisa escapar', () => {
+  // O PostgREST traduz `*` para `%` em like/ilike — e-mail com `*` sem escapar
+  // vira padrao aberto e casa conta de outra pessoa.
+  assert.equal(paraIlike('a*@rbv.com'), 'a\\*@rbv.com')
+  assert.equal(paraIlike('*'), '\\*')
+})
+
+test('a barra e escapada ANTES do asterisco tambem', () => {
+  assert.equal(paraIlike('a\\*b'), 'a\\\\\\*b')
+})
