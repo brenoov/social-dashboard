@@ -304,7 +304,7 @@ function gravar() {
       <!-- DIZ O PORQUÊ. "Não liberado" sozinho não ajuda ninguém a resolver;
            com o nome do item, a pessoa sabe o que levar pra oficina. -->
       <p class="ck-nota" v-if="porQue.graves.length">
-        O carro não sai por {{ porQue.graves.length === 1 ? 'isto' : 'isto' }}:
+        O carro não sai por {{ porQue.graves.length === 1 ? 'isto' : 'estes' }}:
         <strong>{{ porQue.graves.join(', ') }}</strong>. Avise quem administra a Frota.
       </p>
       <p class="ck-nota" v-else-if="porQue.leves.length">
