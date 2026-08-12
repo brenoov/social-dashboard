@@ -355,7 +355,7 @@ function _acWdRepaint(){
   // O invólucro com rolagem própria existe pro celular: um ramo fundo é largo,
   // e sem ele a árvore empurraria a PÁGINA inteira pro lado. Assim quem rola é
   // só a árvore.
-  cont.innerHTML=`<div class="ac-muted" style="font-size:11px;margin:0 0 12px">${_acWdPastas.length} pasta(s) sob controle. Clique no <b>▸</b> para abrir ou fechar um ramo.</div>
+  cont.innerHTML=`<div class="ac-muted" style="font-size:max(9px, calc(11px * var(--escala-texto, 1)));margin:0 0 12px">${_acWdPastas.length} pasta(s) sob controle. Clique no <b>▸</b> para abrir ou fechar um ramo.</div>
     <div class="ac-wd-arvore"><ul class="ac-tree ac-tree-root">${raizes.map(_acWdNo).join('')}</ul></div>`;
 }
 // Desenha uma pasta e, embaixo dela, as filhas — chamando a si mesma. É a
@@ -797,7 +797,7 @@ function _acConfirmar(msg,opts){
   return new Promise(resolve=>{
     const ov=document.createElement('div');ov.className='ac-modal-ov open';
     ov.innerHTML=`<div class="ac-modal" style="max-width:440px">
-      <div class="ac-modal-body" style="padding-top:18px"><div style="font-size:14px;line-height:1.5">${_acEsc(msg)}</div></div>
+      <div class="ac-modal-body" style="padding-top:18px"><div style="font-size:max(9px, calc(14px * var(--escala-texto, 1)));line-height:1.5">${_acEsc(msg)}</div></div>
       <div class="ac-modal-foot" style="justify-content:flex-end">
         <button class="ac-btn ghost" data-c="0">${_acEsc(opts.cancelar||'Cancelar')}</button>
         <button class="ac-btn ${opts.perigo?'danger':'primary'}" data-c="1">${_acEsc(opts.ok||'Confirmar')}</button>
@@ -870,8 +870,8 @@ function _acPaWdMostrarLink(url){
   const ov=document.createElement('div');ov.className='ac-modal-ov open';
   ov.innerHTML=`<div class="ac-modal" style="max-width:520px">
     <div class="ac-modal-body" style="padding-top:18px">
-      <div style="font-size:14px;font-weight:640;margin-bottom:8px">Link criado ✓</div>
-      <div class="ac-muted" style="font-size:12.5px;margin-bottom:12px">Copie e compartilhe. A lista de links da pasta pode levar alguns segundos para mostrar este link.</div>
+      <div style="font-size:max(9px, calc(14px * var(--escala-texto, 1)));font-weight:640;margin-bottom:8px">Link criado ✓</div>
+      <div class="ac-muted" style="font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));margin-bottom:12px">Copie e compartilhe. A lista de links da pasta pode levar alguns segundos para mostrar este link.</div>
       <div class="ac-linkrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg><div class="grow" style="min-width:0"><div class="ac-linkurl">${_acEsc(url||'')}</div></div><button class="ac-btn2" id="ac-wd-copylink">Copiar</button></div>
     </div>
     <div class="ac-modal-foot" style="justify-content:flex-end"><button class="ac-btn primary" data-x>Fechar</button></div></div>`;
@@ -1102,12 +1102,12 @@ function _acDriveRepaint(){
   const folders=_acDriveTree;
   const secs=_acDriveAllSectors();
   const marca=_acDriveMarcas.find(m=>m.id===_acDriveSel);
-  const marcaBar=(marca&&marca.external_id)?`<div class="ac-drive-marcabar"><div class="grow"><span class="ac-drive-marca-nome">${_acEsc(marca.nome)}</span><span class="ac-muted" style="font-size:11px;display:block;margin-top:2px">Compartilhar a marca inteira dá acesso a TUDO dentro dela (a pessoa passa a ver toda a árvore).</span></div><button class="ac-btn primary" data-drv="share" data-id="${_acEsc(marca.external_id)}" data-name="${_acEsc(marca.nome)}">Compartilhar marca inteira</button></div>`:'';
+  const marcaBar=(marca&&marca.external_id)?`<div class="ac-drive-marcabar"><div class="grow"><span class="ac-drive-marca-nome">${_acEsc(marca.nome)}</span><span class="ac-muted" style="font-size:max(9px, calc(11px * var(--escala-texto, 1)));display:block;margin-top:2px">Compartilhar a marca inteira dá acesso a TUDO dentro dela (a pessoa passa a ver toda a árvore).</span></div><button class="ac-btn primary" data-drv="share" data-id="${_acEsc(marca.external_id)}" data-name="${_acEsc(marca.nome)}">Compartilhar marca inteira</button></div>`:'';
   const viewToggle=`<div class="ac-driveviews"><button class="ac-tab ${_acDriveView==='setor'?'active':''}" onclick="_acDriveSetView('setor')">Por setor</button><button class="ac-tab ${_acDriveView==='arvore'?'active':''}" onclick="_acDriveSetView('arvore')">Árvore (fluxo)</button></div>`;
   const depthCtl=`<div class="ac-depth"><span class="ac-muted">Camadas:</span>${[1,2,3,4].map(d=>'<button class="ac-depth-b '+(d===_acDriveDepth?'active':'')+'" onclick="_acDriveSetDepth('+d+')">'+d+'</button>').join('')}${_acDriveView==='setor'?'<button class="ac-btn ghost" onclick="_acDriveAddSetor()">+ Novo setor</button>':''}<span class="ac-muted" style="margin-left:auto">${folders.length} pasta(s)${_acDriveTreeTrunc?' · limite atingido':''}</span></div>`;
   let bodyHtml;
   if(_acDriveView==='arvore'){
-    bodyHtml=`<div class="ac-muted" style="font-size:11px;margin:0 0 12px">Fluxograma a partir da raiz da marca. Cores = setor. Clique no <b>▸</b> de um card para abrir o ramo; <b>⤴</b> compartilha a pasta; "Liberar setor" libera tudo do setor.</div>`+_acDriveLegend()+_acDriveRenderFlow();
+    bodyHtml=`<div class="ac-muted" style="font-size:max(9px, calc(11px * var(--escala-texto, 1)));margin:0 0 12px">Fluxograma a partir da raiz da marca. Cores = setor. Clique no <b>▸</b> de um card para abrir o ramo; <b>⤴</b> compartilha a pasta; "Liberar setor" libera tudo do setor.</div>`+_acDriveLegend()+_acDriveRenderFlow();
   }else{
     const buckets={};
     folders.forEach(f=>{const s=_acDriveSectorOf(f);(buckets[s.key]=buckets[s.key]||{label:s.label,list:[]}).list.push(f);});
@@ -1125,7 +1125,7 @@ function _acDriveRepaint(){
         <div class="ac-folder-grid ac-secbody" data-sec="${s.key}" style="${open?'':'display:none'}">${b.list.map(f=>_acDriveFolderCard(f,secs)).join('')}</div>
       </div>`;
     }).join('');
-    bodyHtml=`<div class="ac-muted" style="font-size:11px;margin:0 0 14px">Arraste uma pasta para outro setor (ou use o seletor no card). "Liberar setor" compartilha todas as pastas do setor.</div>`+(mods||'<div class="ac-empty">Nenhuma pasta encontrada nesta marca.</div>');
+    bodyHtml=`<div class="ac-muted" style="font-size:max(9px, calc(11px * var(--escala-texto, 1)));margin:0 0 14px">Arraste uma pasta para outro setor (ou use o seletor no card). "Liberar setor" compartilha todas as pastas do setor.</div>`+(mods||'<div class="ac-empty">Nenhuma pasta encontrada nesta marca.</div>');
   }
   cont.innerHTML=viewToggle+marcaBar+depthCtl+bodyHtml;
   _acDriveWire(cont);
@@ -1158,8 +1158,8 @@ function _acAbrirLiberacaoEmMassa(folders,titulo,subtitulo,onDone){
   if(!folders||!folders.length){adminToast('Nenhuma pasta para liberar',false);return;}
   const ov=document.createElement('div');ov.className='ac-modal-ov open';
   ov.innerHTML=`<div class="ac-modal ac-modal-lg">
-    <div class="ac-modal-head"><div><h3 style="margin:0">${_acEsc(titulo)}</h3><div class="ac-muted" style="font-size:12px;margin-top:3px">${_acEsc(subtitulo||'')}</div></div><button class="ac-btn ghost" id="ac-lib-x">Fechar</button></div>
-    <div class="ac-modal-body"><div id="ac-lib-has"><div class="ac-muted" style="font-size:12px;padding:0 0 12px">Carregando quem já tem acesso…</div></div><div class="ac-kicker" style="display:block;margin:0 0 6px">Escolha um setor inteiro (botão "todos") ou pessoas avulsas</div>${_acColabPicker('ac-lib-cb')}</div>
+    <div class="ac-modal-head"><div><h3 style="margin:0">${_acEsc(titulo)}</h3><div class="ac-muted" style="font-size:max(9px, calc(12px * var(--escala-texto, 1)));margin-top:3px">${_acEsc(subtitulo||'')}</div></div><button class="ac-btn ghost" id="ac-lib-x">Fechar</button></div>
+    <div class="ac-modal-body"><div id="ac-lib-has"><div class="ac-muted" style="font-size:max(9px, calc(12px * var(--escala-texto, 1)));padding:0 0 12px">Carregando quem já tem acesso…</div></div><div class="ac-kicker" style="display:block;margin:0 0 6px">Escolha um setor inteiro (botão "todos") ou pessoas avulsas</div>${_acColabPicker('ac-lib-cb')}</div>
     <div class="ac-modal-foot">
       <span class="ac-pick-count">0 selecionados</span>
       <input class="ac-input" id="ac-lib-extra" placeholder="ou e-mail avulso" style="flex:1;min-width:120px">
@@ -1173,8 +1173,8 @@ function _acAbrirLiberacaoEmMassa(folders,titulo,subtitulo,onDone){
   // quem já tem acesso às pastas (agregado) — consistente com o modal de pasta única
   (async()=>{const box=ov.querySelector('#ac-lib-has');if(!box)return;
     let sh=[];try{const r=await _acProxy('microsoft.sharesMany',{items:folders.map(f=>f.id)});sh=(r&&r.shares)||[];}catch(e){}
-    if(!sh.length){box.innerHTML='<div class="ac-muted" style="font-size:12px;padding:0 0 12px">Ninguém tem acesso a estas pastas ainda.</div>';return;}
-    box.innerHTML='<div class="ac-kicker" style="display:block;margin:0 0 6px">Quem já tem acesso <span class="ac-muted" style="text-transform:none;letter-spacing:0">('+folders.length+' pasta(s))</span></div><div style="margin-bottom:16px">'+sh.map(s=>'<div class="ac-row"><div class="grow">'+_acEsc(s.name||s.email||'—')+((s.email&&s.name)?' <span class="ac-muted">'+_acEsc(s.email)+'</span>':'')+' <span class="ac-pill '+(s.role==='edição'?'warn':'ok')+'">'+_acEsc(s.role)+'</span> <span class="ac-muted" style="font-size:11px">'+s.folders+'/'+folders.length+' pastas</span></div></div>').join('')+'</div>';
+    if(!sh.length){box.innerHTML='<div class="ac-muted" style="font-size:max(9px, calc(12px * var(--escala-texto, 1)));padding:0 0 12px">Ninguém tem acesso a estas pastas ainda.</div>';return;}
+    box.innerHTML='<div class="ac-kicker" style="display:block;margin:0 0 6px">Quem já tem acesso <span class="ac-muted" style="text-transform:none;letter-spacing:0">('+folders.length+' pasta(s))</span></div><div style="margin-bottom:16px">'+sh.map(s=>'<div class="ac-row"><div class="grow">'+_acEsc(s.name||s.email||'—')+((s.email&&s.name)?' <span class="ac-muted">'+_acEsc(s.email)+'</span>':'')+' <span class="ac-pill '+(s.role==='edição'?'warn':'ok')+'">'+_acEsc(s.role)+'</span> <span class="ac-muted" style="font-size:max(9px, calc(11px * var(--escala-texto, 1)))">'+s.folders+'/'+folders.length+' pastas</span></div></div>').join('')+'</div>';
   })();
   ov.querySelector('#ac-lib-go').onclick=async()=>{
     const role=ov.querySelector('#ac-lib-role').value;
@@ -1194,13 +1194,13 @@ function _acAbrirLiberacaoEmMassa(folders,titulo,subtitulo,onDone){
     const fixes=await _acFixAliases(mism); // auto-corrige o cadastro p/ a conta real
     const modal=ov.querySelector('.ac-modal');
     modal.innerHTML=`
-      <div class="ac-modal-head"><div><h3 style="margin:0">Liberado ✓</h3><div class="ac-muted" style="font-size:12px;margin-top:3px">✓ ${okN} compartilhamento(s)${(r&&r.fail)?(' · '+r.fail+' falha(s)'):''}${(r&&r.truncated)?' (limite atingido)':''}</div></div><button class="ac-btn ghost" id="ac-lib-x2">Fechar</button></div>
+      <div class="ac-modal-head"><div><h3 style="margin:0">Liberado ✓</h3><div class="ac-muted" style="font-size:max(9px, calc(12px * var(--escala-texto, 1)));margin-top:3px">✓ ${okN} compartilhamento(s)${(r&&r.fail)?(' · '+r.fail+' falha(s)'):''}${(r&&r.truncated)?' (limite atingido)':''}</div></div><button class="ac-btn ghost" id="ac-lib-x2">Fechar</button></div>
       <div class="ac-modal-body">
         ${fixes.length?`<div class="ac-note ac-note-warn">✅ <b>Apelido corrigido automaticamente.</b> Estes e-mails eram alias; o acesso já caiu na <b>conta Microsoft real</b> e atualizei o cadastro pra ela (futuros compartilhamentos já miram a conta certa):<br>${fixes.map(f=>'• '+_acEsc(f.invited)+' → <b>'+_acEsc(f.account)+'</b>'+(f.nome?' — '+_acEsc(f.nome)+' atualizado':' — não cadastrado, avise pra acessar com essa conta')).join('<br>')}</div>`:''}
         <div class="ac-note">Acessos concedidos. <b>Envie os links abaixo ao colaborador</b> — é mais confiável que o e-mail automático da Microsoft (que pode cair em outro endereço ou no spam). Só quem foi convidado consegue abrir.</div>
         <div class="ac-linklist">${links.map(l=>`<div class="ac-row"><div class="grow" style="min-width:0"><b>${_acEsc(l.name||'(pasta)')}</b><div class="ac-linkurl">${l.link?_acEsc(l.link):'<span class="ac-muted">link indisponível</span>'}</div></div>${l.link?`<button class="ac-btn" data-copy1="${_acEsc(l.link)}">Copiar</button>`:''}</div>`).join('')||'<div class="ac-muted">Nenhum link disponível.</div>'}</div>
       </div>
-      <div class="ac-modal-foot"><span class="ac-muted" style="font-size:11px">${emails.length} colaborador(es)</span><button class="ac-btn primary" id="ac-lib-copyall">Copiar todos os links</button></div>`;
+      <div class="ac-modal-foot"><span class="ac-muted" style="font-size:max(9px, calc(11px * var(--escala-texto, 1)))">${emails.length} colaborador(es)</span><button class="ac-btn primary" id="ac-lib-copyall">Copiar todos os links</button></div>`;
     modal.querySelector('#ac-lib-x2').onclick=close;
     modal.querySelectorAll('button[data-copy1]').forEach(b=>b.onclick=()=>_acCopy(b.dataset.copy1,b));
     const allText='Acessos (RBV):\n'+links.filter(l=>l.link).map(l=>'• '+(l.name||'pasta')+': '+l.link).join('\n');
@@ -2190,7 +2190,7 @@ async function _acPatTrocarDono(id,pessoaAtualId){
   const ov=document.createElement('div');ov.className='ac-modal-ov open';
   ov.innerHTML=`<div class="ac-modal" style="max-width:460px">
     <h3 style="margin-top:0">Trocar dono</h3>
-    <div class="ac-muted" style="font-size:13px;margin-bottom:12px">${_acEsc(item?item.descricao:'Item')}</div>
+    <div class="ac-muted" style="font-size:max(9px, calc(13px * var(--escala-texto, 1)));margin-bottom:12px">${_acEsc(item?item.descricao:'Item')}</div>
     <label style="display:block">Novo dono
       <select class="ac-select" id="ac-pat-novodono">${pessoas.map(p=>`<option value="${p.id}" ${p.id===(item&&item.pessoa_id)?'selected':''}>${_acEsc(p.nome)}${p.status==='desligado'?' (desligado)':''}</option>`).join('')}</select></label>
     <label style="display:block;margin-top:10px">Motivo (opcional)
@@ -2719,9 +2719,9 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos{display:flex;flex-direction:column;min-height:100vh;position:relative;z-index:1;background:transparent}
 .tela-acessos :deep(.ac-topbar .rbv-logo){height:24px;width:auto;}
 .tela-acessos :deep(.ac-topbar){display:flex;align-items:center;gap:18px;padding:16px 24px;border-bottom:1px solid rgba(255,255,255,.08);position:sticky;top:0;background:inherit;flex-wrap:wrap}
-.tela-acessos :deep(.ac-back){background:none;border:1px solid rgba(255,255,255,.18);color:inherit;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px}
+.tela-acessos :deep(.ac-back){background:none;border:1px solid rgba(255,255,255,.18);color:inherit;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:max(9px, calc(13px * var(--escala-texto, 1)))}
 .tela-acessos :deep(.ac-tabs){display:flex;gap:6px;margin-left:auto}
-.tela-acessos :deep(.ac-tab){background:none;border:1px solid rgba(255,255,255,.14);color:inherit;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px}
+.tela-acessos :deep(.ac-tab){background:none;border:1px solid rgba(255,255,255,.14);color:inherit;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:max(9px, calc(13px * var(--escala-texto, 1)))}
 .tela-acessos :deep(.ac-tab.active){background:var(--modulo);border-color:var(--modulo);color:var(--sobre-cor)}
 .tela-acessos :deep(.ac-body){padding:20px clamp(14px,2.4vw,44px);width:100%}
 
@@ -2735,12 +2735,12 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos .ac-topo{padding:clamp(16px,2.2vw,26px) clamp(14px,2.4vw,44px) 0;width:100%}
 .tela-acessos :deep(.ac-hero){display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:18px}
 .tela-acessos :deep(.ac-hero-brand){display:flex;align-items:center;gap:12px;min-width:0}
-.tela-acessos .ac-hero-mark{width:38px;height:38px;border-radius:10px;flex:none;display:grid;place-items:center;color:var(--sobre-cor);font-weight:800;font-size:16px;letter-spacing:.5px;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 72%,#000));box-shadow:var(--shadow-sm)}
+.tela-acessos .ac-hero-mark{width:38px;height:38px;border-radius:10px;flex:none;display:grid;place-items:center;color:var(--sobre-cor);font-weight:800;font-size:max(16px, calc(16px * var(--escala-texto, 1)));letter-spacing:.5px;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 72%,#000));box-shadow:var(--shadow-sm)}
 .tela-acessos :deep(.ac-hero-h1){margin:0;font-family:var(--fonte-principal);font-size:clamp(19px,2.3vw,25px);font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text);line-height:1.05}
-.tela-acessos :deep(.ac-hero-sub){color:var(--muted);font-size:12.5px;margin-top:3px;line-height:1.35}
+.tela-acessos :deep(.ac-hero-sub){color:var(--muted);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));margin-top:3px;line-height:1.35}
 .tela-acessos :deep(.ac-hero-provs){display:flex;gap:8px;flex-wrap:wrap}
-.tela-acessos :deep(.ac-hero-prov){display:flex;align-items:center;gap:7px;padding:7px 12px;border:1px solid var(--border);border-radius:999px;background:var(--surface);font-size:12.5px;font-weight:600;color:var(--text);box-shadow:var(--shadow-sm)}
-.tela-acessos :deep(.ac-hero-prov-note){color:var(--muted);font-weight:500;font-size:11.5px}
+.tela-acessos :deep(.ac-hero-prov){display:flex;align-items:center;gap:7px;padding:7px 12px;border:1px solid var(--border);border-radius:999px;background:var(--surface);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));font-weight:600;color:var(--text);box-shadow:var(--shadow-sm)}
+.tela-acessos :deep(.ac-hero-prov-note){color:var(--muted);font-weight:500;font-size:max(9px, calc(11.5px * var(--escala-texto, 1)))}
 .tela-acessos :deep(.ac-hero-prov-note):empty{display:none}
 .tela-acessos :deep(.ac-hero-dot){width:8px;height:8px;border-radius:999px;flex:none;background:var(--muted)}
 .tela-acessos :deep(.ac-hero-dot).on{background:var(--green);box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 20%,transparent)}
@@ -2760,7 +2760,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-kpi.k2 .ac-kpi-ico){background:linear-gradient(140deg,var(--green),var(--green))}
 .tela-acessos :deep(.ac-kpi.k3 .ac-kpi-ico){background:linear-gradient(140deg,var(--orange),var(--orange))}
 .tela-acessos :deep(.ac-kpi.k4 .ac-kpi-ico){background:linear-gradient(140deg,#4338ca,#7c6cf6)}
-.tela-acessos :deep(.ac-kpi-fine){order:3;font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.4;opacity:.85}
+.tela-acessos :deep(.ac-kpi-fine){order:3;font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);margin-top:8px;line-height:1.4;opacity:.85}
 
 /* ── Atalhos da Visão geral ──────────────────────────────────────────────────
    Os três botões estavam sem regra nenhuma e ficavam jogados embaixo dos cards.
@@ -2774,9 +2774,9 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-atalho-ico.drive){background:linear-gradient(135deg,var(--orange),var(--orange))}
 .tela-acessos :deep(.ac-atalho-ico.aud){background:linear-gradient(135deg,#4f46e5,#7c3aed)}
 .tela-acessos :deep(.ac-atalho-txt){flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-.tela-acessos :deep(.ac-atalho-txt b){font-size:14px;font-weight:600}
-.tela-acessos :deep(.ac-atalho-txt em){font-style:normal;font-size:11.5px;color:var(--muted);line-height:1.35}
-.tela-acessos :deep(.ac-atalho-seta){color:var(--muted);font-size:18px;flex:none}
+.tela-acessos :deep(.ac-atalho-txt b){font-size:max(9px, calc(14px * var(--escala-texto, 1)));font-weight:600}
+.tela-acessos :deep(.ac-atalho-txt em){font-style:normal;font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);line-height:1.35}
+.tela-acessos :deep(.ac-atalho-seta){color:var(--muted);font-size:max(16px, calc(18px * var(--escala-texto, 1)));flex:none}
 @media(max-width:900px){.tela-acessos :deep(.ac-geral-atalhos){grid-template-columns:1fr}}
 /* No celular os 4 KPIs viram 2 colunas (não estoura a tela) e o cabeçalho
    empilha marca em cima, pills embaixo. */
@@ -2795,11 +2795,11 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
      esconder conteudo e exatamente o que o dono mandou parar de fazer. A
      altura sai do titulo, que estava grande demais pra tela pequena — o
      subtitulo custa 16px e diz de quem sao as pessoas listadas. */
-  .tela-acessos :deep(.ac-hero-h1){font-size:17px;letter-spacing:.6px}
-  .tela-acessos :deep(.ac-hero-sub){font-size:11.5px;margin-top:2px}
+  .tela-acessos :deep(.ac-hero-h1){font-size:max(16px, calc(17px * var(--escala-texto, 1)));letter-spacing:.6px}
+  .tela-acessos :deep(.ac-hero-sub){font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));margin-top:2px}
 }
 @media(max-width:420px){
-  .tela-acessos :deep(.ac-kpi-val){font-size:27px}
+  .tela-acessos :deep(.ac-kpi-val){font-size:max(16px, calc(27px * var(--escala-texto, 1)))}
 }
 
 /* ===== Aba "Pastas & Acessos" (Tarefa 3): master-detail 3 colunas =====
@@ -2811,8 +2811,8 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-console){display:grid;grid-template-columns:230px 1.15fr 1fr;gap:16px;align-items:start}
 .tela-acessos :deep(.ac-panel){background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);overflow:hidden}
 .tela-acessos :deep(.ac-phead){padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px}
-.tela-acessos :deep(.ac-phead h2){font-size:13px;margin:0;font-weight:700;letter-spacing:-.01em;color:var(--text)}
-.tela-acessos :deep(.ac-cnt){font-size:12px;color:var(--muted);font-weight:600}
+.tela-acessos :deep(.ac-phead h2){font-size:max(9px, calc(13px * var(--escala-texto, 1)));margin:0;font-weight:700;letter-spacing:-.01em;color:var(--text)}
+.tela-acessos :deep(.ac-cnt){font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);font-weight:600}
 .tela-acessos :deep(.tnum){font-variant-numeric:tabular-nums}
 /* rail de provedores */
 .tela-acessos :deep(.ac-rail-list){padding:8px}
@@ -2820,8 +2820,8 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-rail-item+.ac-rail-item){margin-top:4px}
 .tela-acessos :deep(.ac-rail-item:hover){background:var(--surface2)}
 .tela-acessos :deep(.ac-rail-item.sel){background:var(--accent-light);border-color:var(--accent-mid)}
-.tela-acessos :deep(.ac-rail-name){display:flex;align-items:center;gap:8px;font-weight:650;font-size:13.5px;color:var(--text)}
-.tela-acessos :deep(.ac-glyph){width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:800;flex:none}
+.tela-acessos :deep(.ac-rail-name){display:flex;align-items:center;gap:8px;font-weight:650;font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));color:var(--text)}
+.tela-acessos :deep(.ac-glyph){width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:#fff;font-size:max(9px, calc(12px * var(--escala-texto, 1)));font-weight:800;flex:none}
 /* CORES DE MARCA DE TERCEIRO — NÃO trocar por token, e não é esquecimento.
    Verde do Zoho, azul da Microsoft, cinza da Apple: elas identificam o serviço
    de onde o acesso vem, e trocar por --green/--accent faria os três parecerem
@@ -2830,8 +2830,8 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-g-zoho){background:var(--green)}
 .tela-acessos :deep(.ac-g-ms){background:var(--accent)}
 .tela-acessos :deep(.ac-g-ap){background:#586172}
-.tela-acessos :deep(.ac-rail-meta){display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);padding-left:30px;flex-wrap:wrap}
-.tela-acessos :deep(.ac-tag){display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:999px}
+.tela-acessos :deep(.ac-rail-meta){display:flex;align-items:center;gap:8px;font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);padding-left:30px;flex-wrap:wrap}
+.tela-acessos :deep(.ac-tag){display:inline-flex;align-items:center;gap:4px;font-size:max(9px, calc(10.5px * var(--escala-texto, 1)));font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:999px}
 .tela-acessos :deep(.ac-tag.ativo){color:var(--green);background:color-mix(in srgb,var(--green) 14%,transparent)}
 .tela-acessos :deep(.ac-tag.legado){color:var(--orange);background:color-mix(in srgb,var(--orange) 14%,transparent)}
 /* lista de pastas */
@@ -2841,45 +2841,45 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-frow){display:flex;align-items:center;gap:9px;padding:10px 12px;cursor:pointer;border-left:2px solid transparent}
 .tela-acessos :deep(.ac-frow:hover){background:var(--surface2)}
 .tela-acessos :deep(.ac-frow.sel){background:var(--accent-light);border-left-color:var(--accent-forte)}
-.tela-acessos :deep(.ac-ftog){background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;line-height:1;padding:2px;flex:none;transition:transform .15s ease;transform:rotate(0deg)}
+.tela-acessos :deep(.ac-ftog){background:none;border:none;color:var(--muted);cursor:pointer;font-size:max(9px, calc(11px * var(--escala-texto, 1)));line-height:1;padding:2px;flex:none;transition:transform .15s ease;transform:rotate(0deg)}
 .tela-acessos :deep(.ac-ftog.open){transform:rotate(90deg)}
 .tela-acessos :deep(.ac-fdot){width:5px;height:5px;border-radius:999px;background:var(--border);flex:none;margin:0 6px}
 .tela-acessos :deep(.ac-fic){width:16px;height:16px;flex:none;color:var(--muted)}
-.tela-acessos :deep(.ac-fname){font-weight:600;font-size:13.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.tela-acessos :deep(.ac-fname){font-weight:600;font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
 /* detalhe */
 .tela-acessos :deep(.ac-pa-detpanel){min-height:220px}
-.tela-acessos :deep(.ac-det-empty){padding:40px 24px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;color:var(--muted);font-size:13px}
+.tela-acessos :deep(.ac-det-empty){padding:40px 24px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;color:var(--muted);font-size:max(9px, calc(13px * var(--escala-texto, 1)))}
 .tela-acessos :deep(.ac-det-empty svg){width:34px;height:34px;opacity:.5}
 .tela-acessos :deep(.ac-det-hero){padding:18px 18px 16px;border-bottom:1px solid var(--border)}
-.tela-acessos :deep(.ac-det-crumb){font-size:11.5px;color:var(--muted);font-weight:600;margin-bottom:7px}
+.tela-acessos :deep(.ac-det-crumb){font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);font-weight:600;margin-bottom:7px}
 .tela-acessos :deep(.ac-det-title){display:flex;align-items:center;gap:11px}
 .tela-acessos :deep(.ac-det-big){width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:#fff;flex:none}
 .tela-acessos :deep(.ac-det-big .ac-fic){width:18px;height:18px;color:#fff}
-.tela-acessos :deep(.ac-det-title h3){margin:0;font-size:17px;font-weight:700;letter-spacing:-.02em;color:var(--text)}
+.tela-acessos :deep(.ac-det-title h3){margin:0;font-size:max(16px, calc(17px * var(--escala-texto, 1)));font-weight:700;letter-spacing:-.02em;color:var(--text)}
 .tela-acessos :deep(.ac-det-chips){display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-.tela-acessos :deep(.ac-chip){display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:5px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface2);color:var(--text)}
+.tela-acessos :deep(.ac-chip){display:inline-flex;align-items:center;gap:6px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));font-weight:600;padding:5px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface2);color:var(--text)}
 .tela-acessos :deep(.ac-ci){width:13px;height:13px;color:var(--muted)}
-.tela-acessos :deep(.ac-sec-lab){padding:15px 18px 4px;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
+.tela-acessos :deep(.ac-sec-lab){padding:15px 18px 4px;font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
 .tela-acessos :deep(.ac-people){padding:6px 10px 12px}
 .tela-acessos :deep(.ac-prow){display:flex;align-items:center;gap:12px;padding:9px 8px;border-radius:var(--radius-sm)}
 .tela-acessos :deep(.ac-prow:hover){background:var(--surface2)}
-.tela-acessos :deep(.ac-av){width:34px;height:34px;border-radius:999px;flex:none;display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px}
+.tela-acessos :deep(.ac-av){width:34px;height:34px;border-radius:999px;flex:none;display:grid;place-items:center;color:#fff;font-weight:700;font-size:max(9px, calc(13px * var(--escala-texto, 1)))}
 .tela-acessos :deep(.ac-pmeta){flex:1;min-width:0}
-.tela-acessos :deep(.ac-pname){font-weight:650;font-size:13.5px;color:var(--text)}
-.tela-acessos :deep(.ac-pmail){font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tela-acessos :deep(.ac-role){font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:999px;flex:none;color:var(--accent-forte);background:var(--accent-light);white-space:nowrap}
+.tela-acessos :deep(.ac-pname){font-weight:650;font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));color:var(--text)}
+.tela-acessos :deep(.ac-pmail){font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tela-acessos :deep(.ac-role){font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));font-weight:700;padding:4px 10px;border-radius:999px;flex:none;color:var(--accent-forte);background:var(--accent-light);white-space:nowrap}
 .tela-acessos :deep(.ac-linkrow){display:flex;align-items:center;gap:11px;padding:10px 8px;border-radius:var(--radius-sm)}
 .tela-acessos :deep(.ac-linkrow svg){width:18px;height:18px;flex:none;color:var(--muted)}
-.tela-acessos :deep(.ac-linkurl){font-size:12.5px;color:var(--text);word-break:break-all;line-height:1.35}
-.tela-acessos :deep(.ac-btn2){flex:none;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:7px 13px;font-size:12.5px;font-weight:600;cursor:pointer}
+.tela-acessos :deep(.ac-linkurl){font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));color:var(--text);word-break:break-all;line-height:1.35}
+.tela-acessos :deep(.ac-btn2){flex:none;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:7px 13px;font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));font-weight:600;cursor:pointer}
 .tela-acessos :deep(.ac-btn2:hover){background:var(--surface2)}
-.tela-acessos :deep(.ac-pa-detpanel .ac-empty){display:flex;align-items:center;gap:10px;padding:14px 16px;border:1px dashed var(--border);border-radius:var(--radius-md);color:var(--muted);font-size:13px;background:var(--surface2)}
+.tela-acessos :deep(.ac-pa-detpanel .ac-empty){display:flex;align-items:center;gap:10px;padding:14px 16px;border:1px dashed var(--border);border-radius:var(--radius-md);color:var(--muted);font-size:max(9px, calc(13px * var(--escala-texto, 1)));background:var(--surface2)}
 .tela-acessos :deep(.ac-pa-detpanel .ac-empty svg){width:18px;height:18px;flex:none;opacity:.7}
 .tela-acessos :deep(.ac-actbar){padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:9px;flex-wrap:wrap}
-.tela-acessos :deep(.ac-btn-lock){display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;padding:9px 15px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:not-allowed;opacity:.8}
+.tela-acessos :deep(.ac-btn-lock){display:inline-flex;align-items:center;gap:7px;font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;padding:9px 15px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:not-allowed;opacity:.8}
 .tela-acessos :deep(.ac-btn-lock svg){width:15px;height:15px}
 /* Botões de ESCRITA do OneDrive na barra de ações (a versão "ligada" do ac-btn-lock). */
-.tela-acessos :deep(.ac-btn-do){display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:640;padding:9px 15px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;transition:background .12s ease,filter .12s ease}
+.tela-acessos :deep(.ac-btn-do){display:inline-flex;align-items:center;gap:7px;font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:640;padding:9px 15px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;transition:background .12s ease,filter .12s ease}
 .tela-acessos :deep(.ac-btn-do svg){width:15px;height:15px}
 .tela-acessos :deep(.ac-btn-do:hover){background:var(--surface2)}
 .tela-acessos :deep(.ac-btn-do.primary){background:var(--accent);border-color:var(--accent);color:var(--sobre-cor)}
@@ -2892,7 +2892,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-prow-rem:hover){background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red);border-color:transparent}
 /* botãozinho "+ Adicionar pasta" no cabeçalho da lista + o agrupador à direita. */
 .tela-acessos :deep(.ac-phead-r){display:flex;align-items:center;gap:8px}
-.tela-acessos :deep(.ac-btn-mini){font-size:12px;font-weight:640;padding:5px 11px;border-radius:999px;border:1px solid var(--accent-mid);background:var(--accent-light);color:var(--accent-forte);cursor:pointer;white-space:nowrap}
+.tela-acessos :deep(.ac-btn-mini){font-size:max(9px, calc(12px * var(--escala-texto, 1)));font-weight:640;padding:5px 11px;border-radius:999px;border:1px solid var(--accent-mid);background:var(--accent-light);color:var(--accent-forte);cursor:pointer;white-space:nowrap}
 .tela-acessos :deep(.ac-btn-mini:hover){filter:brightness(1.04)}
 /* mobile: as 3 colunas empilham; o rail vira faixa rolável no topo */
 @media(max-width:1080px){
@@ -2910,12 +2910,12 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
    depois do recuo, e 330 estourava a tela. Em telas grandes o auto-fill
    continua enchendo com quantas colunas couberem, entao nada muda la. */
 .tela-acessos :deep(.ac-aud-grid){display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
-.tela-acessos :deep(.ac-aud-line){margin-top:5px;font-size:13px}
+.tela-acessos :deep(.ac-aud-line){margin-top:5px;font-size:max(9px, calc(13px * var(--escala-texto, 1)))}
 .tela-acessos :deep(.ac-aud-line .ac-kicker){display:inline}
 .tela-acessos :deep(.ac-card){border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:16px;margin-bottom:14px}
 .tela-acessos :deep(.ac-row){display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid rgba(255,255,255,.08);border-radius:10px;margin-bottom:8px;flex-wrap:wrap}
 .tela-acessos :deep(.ac-row .grow){flex:1;min-width:160px}
-.tela-acessos :deep(.ac-muted){opacity:.6;font-size:12px}
+.tela-acessos :deep(.ac-muted){opacity:.6;font-size:max(9px, calc(12px * var(--escala-texto, 1)))}
 /* Aviso de "o quadro abaixo está incompleto".
    Usa var(--orange) e não cor cravada porque o painel tem tema claro E escuro:
    cor fixa ficaria ilegível num dos dois. Precisa de :deep() porque a Auditoria
@@ -2925,7 +2925,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
   border:1px solid var(--orange);border-left-width:4px;
   border-radius:var(--radius-md);
   background:color-mix(in srgb, var(--orange) 8%, transparent);
-  color:var(--orange);font-size:13px;line-height:1.45;font-weight:600;
+  color:var(--orange);font-size:max(9px, calc(13px * var(--escala-texto, 1)));line-height:1.45;font-weight:600;
 }
 /* Aviso "atualizando…" após uma escrita no WorkDrive (informativo, não alarme):
    usa o tom de acento, não o laranja de erro. Tokens de tema (claro E escuro). */
@@ -2934,18 +2934,18 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
   border:1px solid var(--accent-mid);border-left-width:4px;
   border-radius:var(--radius-md);
   background:var(--accent-light);
-  color:var(--accent);font-size:12.5px;line-height:1.45;font-weight:600;
+  color:var(--accent);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.45;font-weight:600;
 }
 /* Seletor leitura/edição da barra de ações do WorkDrive. */
-.tela-acessos :deep(.ac-wd-papel-wrap){display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:640;color:var(--muted)}
-.tela-acessos :deep(.ac-wd-papel){font-size:13px;font-weight:600;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer}
-.tela-acessos :deep(.ac-btn){background:var(--modulo);border:none;color:var(--sobre-cor);border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px}
+.tela-acessos :deep(.ac-wd-papel-wrap){display:inline-flex;align-items:center;gap:7px;font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));font-weight:640;color:var(--muted)}
+.tela-acessos :deep(.ac-wd-papel){font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer}
+.tela-acessos :deep(.ac-btn){background:var(--modulo);border:none;color:var(--sobre-cor);border-radius:8px;padding:7px 14px;cursor:pointer;font-size:max(9px, calc(13px * var(--escala-texto, 1)))}
 .tela-acessos :deep(.ac-btn.ghost){background:none;border:1px solid rgba(255,255,255,.18);color:inherit}
 .tela-acessos :deep(.ac-btn.danger){background:var(--red)}
-.tela-acessos :deep(.ac-input), .tela-acessos :deep(.ac-select), .tela-acessos :deep(.ac-textarea){background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.16);color:inherit;border-radius:8px;padding:8px 10px;font-size:13px;width:100%}
+.tela-acessos :deep(.ac-input), .tela-acessos :deep(.ac-select), .tela-acessos :deep(.ac-textarea){background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.16);color:inherit;border-radius:8px;padding:8px 10px;font-size:max(9px, calc(13px * var(--escala-texto, 1)));width:100%}
 .tela-acessos :deep(.ac-textarea){min-height:160px;font-family:ui-monospace,monospace}
 .tela-acessos :deep(.ac-grid2){display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.tela-acessos :deep(.ac-pill){display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600}
+.tela-acessos :deep(.ac-pill){display:inline-block;padding:2px 9px;border-radius:999px;font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:600}
 .tela-acessos :deep(.ac-pill.ok){background:color-mix(in srgb,var(--green) 12%,var(--surface));color:color-mix(in srgb,var(--green) 75%,var(--text))}
 .tela-acessos :deep(.ac-pill.warn){background:color-mix(in srgb,var(--orange) 12%,var(--surface));color:color-mix(in srgb,var(--orange) 75%,var(--text))}
 .tela-acessos :deep(.ac-pill.bad){background:color-mix(in srgb,var(--red) 12%,var(--surface));color:color-mix(in srgb,var(--red) 65%,var(--text))}
@@ -2965,13 +2965,13 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-setor-card::before){content:"";position:absolute;inset:0;background:radial-gradient(120% 80% at 100% 0%,rgba(13,148,136,.18),transparent 60%);opacity:.7;pointer-events:none}
 .tela-acessos :deep(.ac-setor-card:hover){transform:translateY(-3px);border-color:rgba(13,148,136,.5);box-shadow:0 12px 28px -12px rgba(13,148,136,.5)}
 .tela-acessos :deep(.ac-setor-ico){width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,color-mix(in srgb,var(--modulo) 80%,var(--text)),var(--modulo));color:var(--sobre-cor);margin-bottom:12px}
-.tela-acessos :deep(.ac-setor-nome){font-weight:700;font-size:15px;position:relative}
-.tela-acessos :deep(.ac-setor-sub){font-size:12px;opacity:.6;margin-top:2px;position:relative}
-.tela-acessos :deep(.ac-count){display:inline-flex;align-items:center;gap:5px;margin-top:12px;padding:3px 10px;border-radius:999px;background:rgba(13,148,136,.18);color:var(--modulo);font-size:12px;font-weight:700;position:relative}
-.tela-acessos :deep(.ac-setor-del){position:absolute;top:10px;right:10px;width:26px;height:26px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.25);color:#f87171;cursor:pointer;opacity:0;transition:opacity .15s ease;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1}
+.tela-acessos :deep(.ac-setor-nome){font-weight:700;font-size:max(9px, calc(15px * var(--escala-texto, 1)));position:relative}
+.tela-acessos :deep(.ac-setor-sub){font-size:max(9px, calc(12px * var(--escala-texto, 1)));opacity:.6;margin-top:2px;position:relative}
+.tela-acessos :deep(.ac-count){display:inline-flex;align-items:center;gap:5px;margin-top:12px;padding:3px 10px;border-radius:999px;background:rgba(13,148,136,.18);color:var(--modulo);font-size:max(9px, calc(12px * var(--escala-texto, 1)));font-weight:700;position:relative}
+.tela-acessos :deep(.ac-setor-del){position:absolute;top:10px;right:10px;width:26px;height:26px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.25);color:#f87171;cursor:pointer;opacity:0;transition:opacity .15s ease;display:flex;align-items:center;justify-content:center;font-size:max(9px, calc(14px * var(--escala-texto, 1)));line-height:1}
 .tela-acessos :deep(.ac-setor-card:hover .ac-setor-del){opacity:1}
 .tela-acessos :deep(.ac-pill.neutral){background:var(--surface2);color:var(--muted)}
-.tela-acessos :deep(.ac-chip){display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);font-size:11px;margin:2px 4px 2px 0}
+.tela-acessos :deep(.ac-chip){display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);font-size:max(9px, calc(11px * var(--escala-texto, 1)));margin:2px 4px 2px 0}
 /* overflow-y:auto no overlay = cinto de segurança: em telas MUITO baixas
    (paisagem no celular), se o modal + respiro ainda passar da janela, o
    próprio overlay rola em vez de cortar o conteúdo. */
@@ -3000,23 +3000,23 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 /* ===== Acessos — lista de colaboradores premium ===== */
 .tela-acessos :deep(.ac-person){padding:13px 14px;gap:14px}
 .tela-acessos :deep(.ac-person .ac-avatar){box-shadow:var(--shadow-sm)}
-.tela-acessos :deep(.ac-person-name){font-family:var(--fonte-principal);font-size:19px;font-weight:600;color:var(--text);letter-spacing:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;line-height:1.15}
-.tela-acessos :deep(.ac-kicker){font-family:var(--fonte-principal);font-size:9.5px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:var(--muted);margin-top:4px}
-.tela-acessos :deep(.ac-person-email){font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);margin-top:3px}
+.tela-acessos :deep(.ac-person-name){font-family:var(--fonte-principal);font-size:max(16px, calc(19px * var(--escala-texto, 1)));font-weight:600;color:var(--text);letter-spacing:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;line-height:1.15}
+.tela-acessos :deep(.ac-kicker){font-family:var(--fonte-principal);font-size:max(9px, calc(9.5px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.tela-acessos :deep(.ac-person-email){font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));color:var(--muted);margin-top:3px}
 /* ===== Acessos — tipografia (Sora principal + IBM Plex Mono nos números, alinhado ao app) ===== */
-.tela-acessos :deep(.ac-title){font-family:var(--fonte-principal);font-weight:600;font-size:19px;letter-spacing:.8px;text-transform:uppercase;color:var(--text)}
-.tela-acessos :deep(.ac-tab){font-family:var(--fonte-principal);font-size:11px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase}
+.tela-acessos :deep(.ac-title){font-family:var(--fonte-principal);font-weight:600;font-size:max(16px, calc(19px * var(--escala-texto, 1)));letter-spacing:.8px;text-transform:uppercase;color:var(--text)}
+.tela-acessos :deep(.ac-tab){font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:600;letter-spacing:1.2px;text-transform:uppercase}
 .tela-acessos :deep(.ac-section-h){align-items:center;gap:12px;margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid var(--border)}
-.tela-acessos :deep(.ac-section-h h3){font-family:var(--fonte-principal);font-weight:600;font-size:16px;letter-spacing:.7px;text-transform:uppercase;color:var(--text)}
+.tela-acessos :deep(.ac-section-h h3){font-family:var(--fonte-principal);font-weight:600;font-size:max(16px, calc(16px * var(--escala-texto, 1)));letter-spacing:.7px;text-transform:uppercase;color:var(--text)}
 .tela-acessos :deep(.ac-section-h h2){font-family:var(--fonte-principal);font-weight:800;font-size:clamp(22px,3vw,30px);letter-spacing:-.01em;line-height:1.05;text-transform:none;color:var(--text)}
-.tela-acessos :deep(.ac-card h3){font-family:var(--fonte-principal);font-weight:600;font-size:15px;letter-spacing:.6px;text-transform:uppercase;color:var(--text)}
+.tela-acessos :deep(.ac-card h3){font-family:var(--fonte-principal);font-weight:600;font-size:max(9px, calc(15px * var(--escala-texto, 1)));letter-spacing:.6px;text-transform:uppercase;color:var(--text)}
 .tela-acessos :deep(.ac-card){border-left:3px solid transparent;border-radius:14px;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
 .tela-acessos :deep(.ac-card:hover){border-left-color:var(--modulo)}
-.tela-acessos :deep(.ac-setor-nome){font-family:var(--fonte-principal);font-weight:600;font-size:18px;letter-spacing:.5px;text-transform:uppercase;color:var(--text)}
-.tela-acessos :deep(.ac-setor-sub){font-family:var(--fonte-principal);font-size:10px;font-weight:600;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);margin-top:5px}
-.tela-acessos :deep(.ac-count){font-family:var(--fonte-dados);font-size:13px;font-weight:500;letter-spacing:.6px;font-variant-numeric:tabular-nums}
+.tela-acessos :deep(.ac-setor-nome){font-family:var(--fonte-principal);font-weight:600;font-size:max(16px, calc(18px * var(--escala-texto, 1)));letter-spacing:.5px;text-transform:uppercase;color:var(--text)}
+.tela-acessos :deep(.ac-setor-sub){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:600;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);margin-top:5px}
+.tela-acessos :deep(.ac-count){font-family:var(--fonte-dados);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:500;letter-spacing:.6px;font-variant-numeric:tabular-nums}
 .tela-acessos :deep(.ac-row strong){font-weight:600;letter-spacing:.2px}
-.tela-acessos :deep(.ac-pill){font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase}
+.tela-acessos :deep(.ac-pill){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.6px;text-transform:uppercase}
 .tela-acessos :deep(.ac-chip){font-family:var(--fonte-principal);letter-spacing:.2px}
 .tela-acessos :deep(.ac-btn){font-family:var(--fonte-principal);font-weight:600;letter-spacing:.3px}
 .tela-acessos :deep(.ac-input), .tela-acessos :deep(.ac-select), .tela-acessos :deep(.ac-textarea){font-family:var(--fonte-principal)}
@@ -3032,9 +3032,9 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 /* ===== Acessos — Fase 1: abertura expandida + mobile real ===== */
 .tela-acessos :deep(.ac-hero){display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:22px}
 .tela-acessos :deep(.ac-hero h2){font-family:var(--fonte-principal);font-weight:800;font-size:clamp(24px,4vw,34px);line-height:1.02;letter-spacing:-.01em;color:var(--text);margin:0}
-.tela-acessos :deep(.ac-hero .ac-sub){font-family:var(--fonte-principal);font-size:13px;color:var(--muted);margin-top:5px}
+.tela-acessos :deep(.ac-hero .ac-sub){font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--muted);margin-top:5px}
 .tela-acessos :deep(.ac-hero-actions){margin-left:auto;display:flex;gap:10px;flex-wrap:wrap}
-.tela-acessos :deep(.ac-btn.lg){padding:11px 18px;font-size:14px;border-radius:10px}
+.tela-acessos :deep(.ac-btn.lg){padding:11px 18px;font-size:max(9px, calc(14px * var(--escala-texto, 1)));border-radius:10px}
 .tela-acessos :deep(.ac-btn.primary){background:linear-gradient(135deg,color-mix(in srgb,var(--modulo) 80%,var(--text)),var(--modulo));color:var(--sobre-cor);border:none;box-shadow:0 6px 18px -8px rgba(13,148,136,.7)}
 .tela-acessos :deep(.ac-btn.primary:hover){border:none}
 .tela-acessos :deep(.ac-org-block){margin-bottom:18px;border:1px solid var(--border);border-radius:18px;background:var(--surface);box-shadow:var(--shadow-md);overflow:hidden;animation:acFadeUp .32s ease both}
@@ -3042,8 +3042,8 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-org-head:hover){background:rgba(13,148,136,.05)}
 .tela-acessos :deep(.ac-org-block.open .ac-org-head){border-bottom-color:var(--border)}
 .tela-acessos :deep(.ac-org-badge){width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,color-mix(in srgb,var(--modulo) 80%,var(--text)),var(--modulo));color:var(--sobre-cor);flex-shrink:0}
-.tela-acessos :deep(.ac-org-name){font-family:var(--fonte-principal);font-weight:700;font-size:21px;color:var(--text);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tela-acessos :deep(.ac-org-meta){font-family:var(--fonte-principal);font-size:10.5px;font-weight:600;letter-spacing:.6px;color:var(--muted);margin-top:3px;text-transform:uppercase}
+.tela-acessos :deep(.ac-org-name){font-family:var(--fonte-principal);font-weight:700;font-size:max(16px, calc(21px * var(--escala-texto, 1)));color:var(--text);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tela-acessos :deep(.ac-org-meta){font-family:var(--fonte-principal);font-size:max(9px, calc(10.5px * var(--escala-texto, 1)));font-weight:600;letter-spacing:.6px;color:var(--muted);margin-top:3px;text-transform:uppercase}
 .tela-acessos :deep(.ac-org-chev){color:var(--muted);transition:transform .2s ease;flex-shrink:0}
 .tela-acessos :deep(.ac-org-block.open .ac-org-chev){transform:rotate(90deg)}
 .tela-acessos :deep(.ac-org-body){display:none;padding:16px 18px;gap:14px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
@@ -3051,20 +3051,20 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-stcard){border:1px solid var(--border);border-radius:14px;padding:14px;background:var(--surface2);cursor:pointer;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
 .tela-acessos :deep(.ac-stcard:hover){transform:translateY(-2px);border-color:var(--accent-mid);box-shadow:var(--shadow-md)}
 .tela-acessos :deep(.ac-stcard-h){display:flex;align-items:center;justify-content:space-between;gap:8px}
-.tela-acessos :deep(.ac-stcard-name){font-family:var(--fonte-principal);font-weight:600;font-size:15px;letter-spacing:.4px;text-transform:uppercase;color:var(--text)}
-.tela-acessos :deep(.ac-stcard-ct){font-family:var(--fonte-dados);font-size:12px;font-weight:500;color:color-mix(in srgb,var(--modulo) 75%,var(--text));background:color-mix(in srgb,var(--modulo) 16%,var(--surface));padding:2px 9px;border-radius:999px;white-space:nowrap}
+.tela-acessos :deep(.ac-stcard-name){font-family:var(--fonte-principal);font-weight:600;font-size:max(9px, calc(15px * var(--escala-texto, 1)));letter-spacing:.4px;text-transform:uppercase;color:var(--text)}
+.tela-acessos :deep(.ac-stcard-ct){font-family:var(--fonte-dados);font-size:max(9px, calc(12px * var(--escala-texto, 1)));font-weight:500;color:color-mix(in srgb,var(--modulo) 75%,var(--text));background:color-mix(in srgb,var(--modulo) 16%,var(--surface));padding:2px 9px;border-radius:999px;white-space:nowrap}
 .tela-acessos :deep(.ac-ava-stack){display:flex;align-items:center;margin-top:12px;flex-wrap:wrap;row-gap:6px}
 .tela-acessos :deep(.ac-ava-stack .ac-avatar){box-shadow:0 0 0 2px var(--surface2);margin-left:-8px}
 .tela-acessos :deep(.ac-ava-stack .ac-avatar:first-child){margin-left:0}
-.tela-acessos :deep(.ac-ava-more){font-family:var(--fonte-principal);font-size:11px;font-weight:700;color:var(--muted);margin-left:8px}
-.tela-acessos :deep(.ac-empty){font-family:var(--fonte-principal);color:var(--muted);font-size:13px;padding:8px 2px}
+.tela-acessos :deep(.ac-ava-more){font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;color:var(--muted);margin-left:8px}
+.tela-acessos :deep(.ac-empty){font-family:var(--fonte-principal);color:var(--muted);font-size:max(9px, calc(13px * var(--escala-texto, 1)));padding:8px 2px}
 @media(max-width:640px){
 .tela-acessos :deep(.ac-body){padding:16px 14px}
 .tela-acessos :deep(.ac-hero-actions){margin-left:0;width:100%}
 .tela-acessos :deep(.ac-hero-actions .ac-btn){flex:1;min-width:140px;text-align:center}
-.tela-acessos :deep(.ac-btn){padding:11px 14px;font-size:14px}
+.tela-acessos :deep(.ac-btn){padding:11px 14px;font-size:max(9px, calc(14px * var(--escala-texto, 1)))}
 .tela-acessos :deep(.ac-org-body){grid-template-columns:1fr}
-.tela-acessos :deep(.ac-org-name){font-size:18px;white-space:normal}
+.tela-acessos :deep(.ac-org-name){font-size:max(16px, calc(18px * var(--escala-texto, 1)));white-space:normal}
   /* No celular o cabecalho da organizacao ESPREMIA tudo numa linha so: o nome,
      a contagem em tres linhas e dois botoes, todos disputando 390px. E o
      "+ Setor" quebrava no meio — "+" em cima, "Setor" embaixo.
@@ -3097,16 +3097,16 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-ficha-hero .ac-avatar){box-shadow:0 10px 26px -12px rgba(0,0,0,.55),0 0 0 3px var(--surface)}
 .tela-acessos :deep(.ac-ficha-id){min-width:0;flex:1}
 .tela-acessos :deep(.ac-ficha-name){font-family:var(--fonte-principal);font-weight:800;font-size:clamp(22px,3.4vw,30px);line-height:1.05;letter-spacing:-.01em;color:var(--text);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.tela-acessos :deep(.ac-ficha-sub){font-family:var(--fonte-principal);font-size:13px;color:var(--muted);margin-top:7px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tela-acessos :deep(.ac-ficha-sub){font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--muted);margin-top:7px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .tela-acessos :deep(.ac-ficha-sub .dot){opacity:.4}
 .tela-acessos :deep(.ac-ficha-actions){display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
 .tela-acessos :deep(.ac-fgrid){display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:14px;margin-top:18px}
 .tela-acessos :deep(.ac-fblock){background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:6px 16px 10px}
-.tela-acessos :deep(.ac-fblock-h){font-family:var(--fonte-principal);font-weight:600;font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);margin:12px 0 4px}
+.tela-acessos :deep(.ac-fblock-h){font-family:var(--fonte-principal);font-weight:600;font-size:max(9px, calc(11px * var(--escala-texto, 1)));letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);margin:12px 0 4px}
 .tela-acessos :deep(.ac-field){display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
 .tela-acessos :deep(.ac-field:last-child){border-bottom:none}
-.tela-acessos :deep(.ac-field-l){font-family:var(--fonte-principal);font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap}
-.tela-acessos :deep(.ac-field-v){font-family:var(--fonte-principal);font-size:13.5px;color:var(--text);margin-left:auto;text-align:right;word-break:break-word;font-weight:600}
+.tela-acessos :deep(.ac-field-l){font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap}
+.tela-acessos :deep(.ac-field-v){font-family:var(--fonte-principal);font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));color:var(--text);margin-left:auto;text-align:right;word-break:break-word;font-weight:600}
 .tela-acessos :deep(.ac-field-v.empty){color:var(--muted);font-weight:400}
 @media(max-width:640px){
 .tela-acessos :deep(.ac-ficha-actions){width:100%}
@@ -3123,32 +3123,32 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-fx-ficha){display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start}
 .tela-acessos :deep(.ac-fx-idcol){position:sticky;top:16px}
 .tela-acessos :deep(.ac-fx-hero){padding:22px 20px 18px;text-align:center;border-bottom:1px solid var(--border)}
-.tela-acessos :deep(.ac-fx-av){width:76px;height:76px;border-radius:20px;margin:0 auto 14px;display:grid;place-items:center;color:#fff;font-family:var(--fonte-principal);font-weight:600;font-size:26px;letter-spacing:1px;object-fit:cover;box-shadow:var(--shadow-md)}
+.tela-acessos :deep(.ac-fx-av){width:76px;height:76px;border-radius:20px;margin:0 auto 14px;display:grid;place-items:center;color:#fff;font-family:var(--fonte-principal);font-weight:600;font-size:max(16px, calc(26px * var(--escala-texto, 1)));letter-spacing:1px;object-fit:cover;box-shadow:var(--shadow-md)}
 .tela-acessos :deep(.ac-fx-av-fb){text-transform:uppercase}
-.tela-acessos :deep(.ac-fx-name){font-family:var(--fonte-principal);font-size:22px;font-weight:800;letter-spacing:-.01em;color:var(--text);line-height:1.1}
-.tela-acessos :deep(.ac-fx-role){font-family:var(--fonte-principal);font-size:13px;color:var(--muted);margin-top:4px}
+.tela-acessos :deep(.ac-fx-name){font-family:var(--fonte-principal);font-size:max(16px, calc(22px * var(--escala-texto, 1)));font-weight:800;letter-spacing:-.01em;color:var(--text);line-height:1.1}
+.tela-acessos :deep(.ac-fx-role){font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--muted);margin-top:4px}
 .tela-acessos :deep(.ac-fx-pills){display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin-top:13px}
-.tela-acessos :deep(.ac-fx-stpill){display:inline-flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:11.5px;font-weight:600;padding:5px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface2);color:var(--text)}
+.tela-acessos :deep(.ac-fx-stpill){display:inline-flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));font-weight:600;padding:5px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface2);color:var(--text)}
 .tela-acessos :deep(.ac-fx-stpill.on){color:var(--green);background:color-mix(in srgb,var(--green) 13%,transparent);border-color:transparent}
 .tela-acessos :deep(.ac-fx-quick){display:grid;grid-template-columns:repeat(3,1fr);padding:8px 6px;gap:2px}
 .tela-acessos :deep(.ac-fx-qa){text-align:center;padding:12px 4px;border-radius:var(--radius-md)}
-.tela-acessos :deep(.ac-fx-qn){display:block;font-family:var(--fonte-dados);font-size:24px;font-weight:600;letter-spacing:.5px;color:var(--text);line-height:1;font-variant-numeric:tabular-nums}
-.tela-acessos :deep(.ac-fx-ql){font-family:var(--fonte-principal);font-size:11px;color:var(--muted);font-weight:500;letter-spacing:.2px}
+.tela-acessos :deep(.ac-fx-qn){display:block;font-family:var(--fonte-dados);font-size:max(16px, calc(24px * var(--escala-texto, 1)));font-weight:600;letter-spacing:.5px;color:var(--text);line-height:1;font-variant-numeric:tabular-nums}
+.tela-acessos :deep(.ac-fx-ql){font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);font-weight:500;letter-spacing:.2px}
 .tela-acessos :deep(.ac-fx-actions){display:flex;gap:8px;flex-wrap:wrap;padding:14px 16px;border-top:1px solid var(--border)}
 .tela-acessos :deep(.ac-fx-data){display:flex;flex-direction:column;gap:16px;min-width:0}
 /* linhas de campo (Contatos & contas) */
 .tela-acessos :deep(.ac-fx-fields){padding:6px 16px 12px}
 .tela-acessos :deep(.ac-fx-fld){display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 2px;min-height:44px}
 .tela-acessos :deep(.ac-fx-fld+.ac-fx-fld){border-top:1px solid var(--border)}
-.tela-acessos :deep(.ac-fx-fld-l){font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);font-weight:500;display:flex;align-items:center;gap:5px;min-width:0}
+.tela-acessos :deep(.ac-fx-fld-l){font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));color:var(--muted);font-weight:500;display:flex;align-items:center;gap:5px;min-width:0}
 .tela-acessos :deep(.ac-fx-fld.vazio .ac-fx-fld-l){color:var(--faint,var(--muted));opacity:.85}
-.tela-acessos :deep(.ac-fx-fld-v){font-family:var(--fonte-principal);font-size:13.5px;font-weight:600;color:var(--text);text-align:right;word-break:break-word;background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:var(--radius-sm);max-width:62%}
+.tela-acessos :deep(.ac-fx-fld-v){font-family:var(--fonte-principal);font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));font-weight:600;color:var(--text);text-align:right;word-break:break-word;background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:var(--radius-sm);max-width:62%}
 .tela-acessos :deep(.ac-fx-fld-v:hover){background:var(--surface2);color:var(--accent)}
-.tela-acessos :deep(.ac-fx-fld-add){font-family:var(--fonte-principal);border:1px dashed var(--accent-mid);background:transparent;color:var(--accent);font-size:12.5px;font-weight:600;padding:5px 12px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.tela-acessos :deep(.ac-fx-fld-add){font-family:var(--fonte-principal);border:1px dashed var(--accent-mid);background:transparent;color:var(--accent);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));font-weight:600;padding:5px 12px;border-radius:999px;cursor:pointer;white-space:nowrap}
 .tela-acessos :deep(.ac-fx-fld-add:hover){background:var(--accent-light)}
 /* ganchos (dispositivos / termos): estado vazio pontilhado do mockup */
 .tela-acessos :deep(.ac-fx-wrap){padding:14px 16px}
-.tela-acessos :deep(.ac-fx-empty){display:flex;align-items:center;gap:11px;padding:16px;border:1px dashed var(--border);border-radius:var(--radius-md);background:var(--surface2);color:var(--muted);font-family:var(--fonte-principal);font-size:12.5px;line-height:1.45}
+.tela-acessos :deep(.ac-fx-empty){display:flex;align-items:center;gap:11px;padding:16px;border:1px dashed var(--border);border-radius:var(--radius-md);background:var(--surface2);color:var(--muted);font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.45}
 .tela-acessos :deep(.ac-fx-empty svg){width:20px;height:20px;flex:none;opacity:.65}
 /* ===== Patrimônio (Tarefa 5): lista na ficha, histórico e aba consolidada ===== */
 .tela-acessos :deep(.ac-pat-list){display:flex;flex-direction:column;gap:10px}
@@ -3156,21 +3156,21 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-pat-item:hover){border-color:var(--accent-mid)}
 .tela-acessos :deep(.ac-pat-main){flex:1;min-width:180px}
 .tela-acessos :deep(.ac-pat-top){display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px}
-.tela-acessos :deep(.ac-pat-desc){font-family:var(--fonte-principal);font-weight:600;font-size:14px;color:var(--text);line-height:1.3}
-.tela-acessos :deep(.ac-pat-meta){display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:5px;font-family:var(--fonte-principal);font-size:12px;color:var(--muted)}
+.tela-acessos :deep(.ac-pat-desc){font-family:var(--fonte-principal);font-weight:600;font-size:max(9px, calc(14px * var(--escala-texto, 1)));color:var(--text);line-height:1.3}
+.tela-acessos :deep(.ac-pat-meta){display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:5px;font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted)}
 .tela-acessos :deep(.ac-pat-acts){display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-.tela-acessos :deep(.ac-pat-acts .ac-btn){padding:6px 11px;font-size:12px}
-.tela-acessos :deep(.ac-pat-total){margin-top:12px;text-align:right;font-family:var(--fonte-principal);font-size:13px;color:var(--muted)}
-.tela-acessos :deep(.ac-pat-total strong){font-family:var(--fonte-dados);font-size:16px;color:var(--text);margin-left:6px;font-variant-numeric:tabular-nums}
+.tela-acessos :deep(.ac-pat-acts .ac-btn){padding:6px 11px;font-size:max(9px, calc(12px * var(--escala-texto, 1)))}
+.tela-acessos :deep(.ac-pat-total){margin-top:12px;text-align:right;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--muted)}
+.tela-acessos :deep(.ac-pat-total strong){font-family:var(--fonte-dados);font-size:max(16px, calc(16px * var(--escala-texto, 1)));color:var(--text);margin-left:6px;font-variant-numeric:tabular-nums}
 .tela-acessos :deep(.ac-pat-hist){display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto}
-.tela-acessos :deep(.ac-pat-histrow){padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface2);font-family:var(--fonte-principal);font-size:13px;color:var(--text);line-height:1.4}
+.tela-acessos :deep(.ac-pat-histrow){padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface2);font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--text);line-height:1.4}
 .tela-acessos :deep(.ac-pat-filtros){display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
 .tela-acessos :deep(.ac-pat-filtros .ac-select){width:auto;min-width:180px;flex:1 1 200px}
-.tela-acessos :deep(.ac-pat-kpi){margin-left:auto;font-family:var(--fonte-principal);font-size:13px;color:var(--muted)}
-.tela-acessos :deep(.ac-pat-kpi strong){font-family:var(--fonte-dados);font-size:17px;color:var(--text);margin-left:4px;font-variant-numeric:tabular-nums}
+.tela-acessos :deep(.ac-pat-kpi){margin-left:auto;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--muted)}
+.tela-acessos :deep(.ac-pat-kpi strong){font-family:var(--fonte-dados);font-size:max(16px, calc(17px * var(--escala-texto, 1)));color:var(--text);margin-left:4px;font-variant-numeric:tabular-nums}
 .tela-acessos :deep(.ac-pat-tablewrap){width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface)}
-.tela-acessos :deep(.ac-pat-table){width:100%;border-collapse:collapse;font-family:var(--fonte-principal);font-size:13px}
-.tela-acessos :deep(.ac-pat-table th){text-align:left;padding:11px 14px;font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap}
+.tela-acessos :deep(.ac-pat-table){width:100%;border-collapse:collapse;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)))}
+.tela-acessos :deep(.ac-pat-table th){text-align:left;padding:11px 14px;font-size:max(9px, calc(10.5px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap}
 .tela-acessos :deep(.ac-pat-table td){padding:11px 14px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
 .tela-acessos :deep(.ac-pat-table tbody tr){cursor:pointer;transition:background .15s ease}
 .tela-acessos :deep(.ac-pat-table tbody tr:hover){background:var(--surface2)}
@@ -3189,9 +3189,9 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-fx-accrow.ac-fx-muted){opacity:.62}
 .tela-acessos :deep(.ac-fx-accrow .ac-glyph){width:30px;height:30px;border-radius:8px}
 .tela-acessos :deep(.ac-fx-accmeta){flex:1;min-width:0}
-.tela-acessos :deep(.ac-fx-accname){font-family:var(--fonte-principal);font-weight:600;font-size:13.5px;color:var(--text)}
-.tela-acessos :deep(.ac-fx-accfine){font-family:var(--fonte-principal);font-size:12px;color:var(--muted);line-height:1.35;overflow-wrap:anywhere}
-.tela-acessos :deep(.ac-fx-acccnt){font-family:var(--fonte-dados);font-size:18px;font-weight:600;letter-spacing:.4px;color:var(--text);flex:none;font-variant-numeric:tabular-nums}
+.tela-acessos :deep(.ac-fx-accname){font-family:var(--fonte-principal);font-weight:600;font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));color:var(--text)}
+.tela-acessos :deep(.ac-fx-accfine){font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);line-height:1.35;overflow-wrap:anywhere}
+.tela-acessos :deep(.ac-fx-acccnt){font-family:var(--fonte-dados);font-size:max(16px, calc(18px * var(--escala-texto, 1)));font-weight:600;letter-spacing:.4px;color:var(--text);flex:none;font-variant-numeric:tabular-nums}
 
 /* ===== Termos / documentos (Tarefa 7): lista limpa dentro do painel da ficha ===== */
 .tela-acessos :deep(.ac-termo-list){display:flex;flex-direction:column;gap:10px}
@@ -3200,10 +3200,10 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-g-doc){width:30px;height:30px;border-radius:8px;background:var(--accent-light);color:var(--accent-forte)}
 .tela-acessos :deep(.ac-g-doc svg){width:16px;height:16px}
 .tela-acessos :deep(.ac-termo-main){flex:1;min-width:160px}
-.tela-acessos :deep(.ac-termo-name){font-family:var(--fonte-principal);font-weight:600;font-size:14px;color:var(--text);line-height:1.3;overflow-wrap:anywhere}
-.tela-acessos :deep(.ac-termo-meta){font-family:var(--fonte-principal);font-size:12px;color:var(--muted);margin-top:3px}
+.tela-acessos :deep(.ac-termo-name){font-family:var(--fonte-principal);font-weight:600;font-size:max(9px, calc(14px * var(--escala-texto, 1)));color:var(--text);line-height:1.3;overflow-wrap:anywhere}
+.tela-acessos :deep(.ac-termo-meta){font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);margin-top:3px}
 .tela-acessos :deep(.ac-termo-acts){display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-.tela-acessos :deep(.ac-termo-acts .ac-btn){padding:6px 11px;font-size:12px}
+.tela-acessos :deep(.ac-termo-acts .ac-btn){padding:6px 11px;font-size:max(9px, calc(12px * var(--escala-texto, 1)))}
 @media(max-width:640px){
   .tela-acessos :deep(.ac-termo-acts){width:100%}
   .tela-acessos :deep(.ac-termo-acts .ac-btn){flex:1 1 calc(50% - 3px);text-align:center;justify-content:center}
@@ -3212,7 +3212,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 /* ===== Auditoria (Tarefa 6): destaque de quem tem acesso a MUITAS pastas ===== */
 /* Selo âmbar ao lado do nome + realce do contador/borda. É sinal de atenção
    (possível permissão demais), não de erro — por isso âmbar, não vermelho. */
-.tela-acessos :deep(.ac-badge-muitas){display:inline-flex;align-items:center;gap:4px;margin-left:6px;padding:2px 9px;border-radius:999px;font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--orange);background:color-mix(in srgb,var(--orange) 14%,transparent);border:1px solid color-mix(in srgb,var(--orange) 34%,transparent);vertical-align:middle;white-space:nowrap}
+.tela-acessos :deep(.ac-badge-muitas){display:inline-flex;align-items:center;gap:4px;margin-left:6px;padding:2px 9px;border-radius:999px;font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--orange);background:color-mix(in srgb,var(--orange) 14%,transparent);border:1px solid color-mix(in srgb,var(--orange) 34%,transparent);vertical-align:middle;white-space:nowrap}
 .tela-acessos :deep(.ac-cnt.ac-cnt-hot){color:var(--orange);border-color:color-mix(in srgb,var(--orange) 42%,transparent);background:color-mix(in srgb,var(--orange) 12%,transparent);font-weight:700}
 .tela-acessos :deep(.ac-audcard-hot){border-color:color-mix(in srgb,var(--orange) 40%,var(--border))}
 .tela-acessos :deep(.ac-audrow-hot){border-left:3px solid var(--orange)}
@@ -3232,15 +3232,15 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-aud-hd){display:flex;align-items:center;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:2px}
 .tela-acessos :deep(.ac-aud-item){padding:9px 0;border-bottom:1px solid var(--border);display:grid;grid-template-columns:104px 1fr;gap:12px;align-items:baseline}
 .tela-acessos :deep(.ac-aud-item:last-child){border-bottom:none}
-.tela-acessos :deep(.ac-aud-k){font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:5px}
-.tela-acessos :deep(.ac-aud-v){font-family:var(--fonte-principal);font-size:13px;color:var(--text);word-break:break-word;line-height:1.45}
+.tela-acessos :deep(.ac-aud-k){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:5px}
+.tela-acessos :deep(.ac-aud-v){font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--text);word-break:break-word;line-height:1.45}
 .tela-acessos :deep(.ac-audrow){display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-sm);margin-bottom:8px;transition:border-color .15s,box-shadow .15s}
 .tela-acessos :deep(.ac-audrow:hover){border-color:rgba(13,148,136,.45);box-shadow:var(--shadow-md)}
 .tela-acessos :deep(.ac-audrow .grow){flex:1;min-width:140px}
 .tela-acessos :deep(.ac-audrow-counts){display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
-.tela-acessos :deep(.ac-cnt){display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);font-family:var(--fonte-principal);font-size:11px;font-weight:600;color:var(--text);white-space:nowrap}
+.tela-acessos :deep(.ac-cnt){display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:600;color:var(--text);white-space:nowrap}
 .tela-acessos :deep(.ac-cnt.zero){color:var(--muted);opacity:.65}
-.tela-acessos :deep(.ac-aud-setor){font-family:var(--fonte-principal);font-weight:600;font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--text);margin:18px 0 10px;display:flex;align-items:center;gap:8px}
+.tela-acessos :deep(.ac-aud-setor){font-family:var(--fonte-principal);font-weight:600;font-size:max(9px, calc(12px * var(--escala-texto, 1)));letter-spacing:1.2px;text-transform:uppercase;color:var(--text);margin:18px 0 10px;display:flex;align-items:center;gap:8px}
 .tela-acessos :deep(.ac-aud-setor::after){content:"";flex:1;height:1px;background:var(--border)}
 @media(max-width:640px){
 .tela-acessos :deep(.ac-audrow-counts){width:100%;margin-left:0;order:3}
@@ -3250,22 +3250,22 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 /* ===== Acessos — anti-zoom no mobile (iOS dá zoom ao focar campo <16px) ===== */
 .tela-acessos{touch-action:manipulation}
 @media(max-width:640px){
-.tela-acessos :deep(.ac-input), .tela-acessos :deep(.ac-select), .tela-acessos :deep(.ac-textarea){font-size:16px}
-.tela-acessos :deep(.ac-modal .ac-input), .tela-acessos :deep(.ac-modal .ac-select), .tela-acessos :deep(.ac-modal .ac-textarea){font-size:16px}
+.tela-acessos :deep(.ac-input), .tela-acessos :deep(.ac-select), .tela-acessos :deep(.ac-textarea){font-size:max(16px, calc(16px * var(--escala-texto, 1)))}
+.tela-acessos :deep(.ac-modal .ac-input), .tela-acessos :deep(.ac-modal .ac-select), .tela-acessos :deep(.ac-modal .ac-textarea){font-size:max(16px, calc(16px * var(--escala-texto, 1)))}
 }
 /* ===== Acessos — Fase 2: Drive ===== */
 .tela-acessos :deep(.ac-brand-bar){display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
-.tela-acessos :deep(.ac-brand-chip){position:relative;display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:var(--fonte-principal);font-weight:600;font-size:13px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;transition:border-color .15s,box-shadow .15s,background .15s}
+.tela-acessos :deep(.ac-brand-chip){position:relative;display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:var(--fonte-principal);font-weight:600;font-size:max(9px, calc(13px * var(--escala-texto, 1)));letter-spacing:.5px;text-transform:uppercase;cursor:pointer;transition:border-color .15s,box-shadow .15s,background .15s}
 .tela-acessos :deep(.ac-brand-chip:hover){border-color:var(--accent-mid)}
 .tela-acessos :deep(.ac-brand-chip.active){background:linear-gradient(135deg,color-mix(in srgb,var(--modulo) 80%,var(--text)),var(--modulo));border-color:var(--modulo);color:var(--sobre-cor);box-shadow:0 6px 16px -8px rgba(13,148,136,.7)}
-.tela-acessos :deep(.ac-brand-x){opacity:.55;font-size:11px;line-height:1}
+.tela-acessos :deep(.ac-brand-x){opacity:.55;font-size:max(9px, calc(11px * var(--escala-texto, 1)));line-height:1}
 .tela-acessos :deep(.ac-brand-x:hover){opacity:1}
-.tela-acessos :deep(.ac-crumb){display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:16px;font-family:var(--fonte-principal);font-size:13px;color:var(--muted)}
+.tela-acessos :deep(.ac-crumb){display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:16px;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--muted)}
 .tela-acessos :deep(.ac-crumb-b){background:none;border:none;color:var(--accent-mid);cursor:pointer;font:inherit;padding:2px 4px;border-radius:6px}
 .tela-acessos :deep(.ac-crumb-b:hover){background:rgba(13,148,136,.1)}
 .tela-acessos :deep(.ac-secmod){margin-bottom:26px}
-.tela-acessos :deep(.ac-secmod-h){font-family:var(--fonte-principal);font-weight:600;font-size:13px;letter-spacing:1.4px;text-transform:uppercase;color:var(--text);margin:0 0 12px;display:flex;align-items:center;gap:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
-.tela-acessos :deep(.ac-move){width:auto;max-width:138px;padding:6px 8px;font-size:11px}
+.tela-acessos :deep(.ac-secmod-h){font-family:var(--fonte-principal);font-weight:600;font-size:max(9px, calc(13px * var(--escala-texto, 1)));letter-spacing:1.4px;text-transform:uppercase;color:var(--text);margin:0 0 12px;display:flex;align-items:center;gap:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.tela-acessos :deep(.ac-move){width:auto;max-width:138px;padding:6px 8px;font-size:max(9px, calc(11px * var(--escala-texto, 1)))}
 .tela-acessos :deep(.ac-folder[draggable=true]){cursor:grab;-webkit-user-select:none;user-select:none}
 .tela-acessos :deep(.ac-folder[draggable=true]:active){cursor:grabbing}
 .tela-acessos :deep(.ac-folder.ac-dragging){opacity:.45;border-style:dashed}
@@ -3281,7 +3281,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 @media(max-width:640px){.tela-acessos :deep(.ac-wd-arvore .ac-vcard){max-width:none}}
 .tela-acessos :deep(.ac-drive-marcabar){display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface2);margin-bottom:14px}
 .tela-acessos :deep(.ac-drive-marcabar .grow){flex:1;min-width:160px}
-.tela-acessos :deep(.ac-drive-marca-nome){font-family:var(--fonte-principal);font-weight:700;font-size:17px;color:var(--text)}
+.tela-acessos :deep(.ac-drive-marca-nome){font-family:var(--fonte-principal);font-weight:700;font-size:max(16px, calc(17px * var(--escala-texto, 1)));color:var(--text)}
 @media(max-width:640px){.tela-acessos :deep(.ac-drive-marcabar .ac-btn){width:100%}}
 .tela-acessos :deep(.ac-tree){list-style:none;margin:0;padding-left:20px}
 .tela-acessos :deep(.ac-tnode){position:relative;padding-left:20px}
@@ -3292,23 +3292,23 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-tree-root>.ac-tnode){padding-left:0}
 .tela-acessos :deep(.ac-tree-root>.ac-tnode::before), .tela-acessos :deep(.ac-tree-root>.ac-tnode::after){display:none}
 .tela-acessos :deep(.ac-tn-row){display:flex;align-items:center;gap:8px;padding:4px 0}
-.tela-acessos :deep(.ac-tn-tog){width:20px;height:20px;border:1px solid var(--border);background:var(--surface);color:var(--muted);border-radius:6px;cursor:pointer;font-size:10px;flex-shrink:0;transition:transform .15s ease;line-height:1}
+.tela-acessos :deep(.ac-tn-tog){width:20px;height:20px;border:1px solid var(--border);background:var(--surface);color:var(--muted);border-radius:6px;cursor:pointer;font-size:max(9px, calc(10px * var(--escala-texto, 1)));flex-shrink:0;transition:transform .15s ease;line-height:1}
 .tela-acessos :deep(.ac-tn-tog.open){transform:rotate(90deg)}
 .tela-acessos :deep(.ac-tn-dot){width:20px;flex-shrink:0}
-.tela-acessos :deep(.ac-tn-ico){font-size:15px;line-height:1}
-.tela-acessos :deep(.ac-tn-name){font-family:var(--fonte-principal);font-size:13px;font-weight:600;color:var(--text);word-break:break-word}
-.tela-acessos :deep(.ac-tn-sec){font-family:var(--fonte-principal);font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--modulo);background:rgba(13,148,136,.14);padding:2px 7px;border-radius:999px;white-space:nowrap}
-.tela-acessos :deep(.ac-tn-share){padding:3px 9px;font-size:11px;margin-left:auto;flex-shrink:0}
+.tela-acessos :deep(.ac-tn-ico){font-size:max(9px, calc(15px * var(--escala-texto, 1)));line-height:1}
+.tela-acessos :deep(.ac-tn-name){font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;color:var(--text);word-break:break-word}
+.tela-acessos :deep(.ac-tn-sec){font-family:var(--fonte-principal);font-size:max(9px, calc(9.5px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--modulo);background:rgba(13,148,136,.14);padding:2px 7px;border-radius:999px;white-space:nowrap}
+.tela-acessos :deep(.ac-tn-share){padding:3px 9px;font-size:max(9px, calc(11px * var(--escala-texto, 1)));margin-left:auto;flex-shrink:0}
 /* O setor NAO some mais no celular — ele diz de quem e a pasta, que e metade
    do sentido desta arvore. Antes era display:none pra caber na largura;
    agora a linha quebra e o selo desce, custando altura em vez de
    informacao. */
-@media(max-width:640px){.tela-acessos :deep(.ac-tn-row){flex-wrap:wrap}.tela-acessos :deep(.ac-tn-sec){font-size:9px;order:9}.tela-acessos :deep(.ac-tree){padding-left:14px}.tela-acessos :deep(.ac-tnode){padding-left:14px}}
+@media(max-width:640px){.tela-acessos :deep(.ac-tn-row){flex-wrap:wrap}.tela-acessos :deep(.ac-tn-sec){font-size:max(9px, calc(9px * var(--escala-texto, 1)));order:9}.tela-acessos :deep(.ac-tree){padding-left:14px}.tela-acessos :deep(.ac-tnode){padding-left:14px}}
 /* ===== Drive: fluxograma (org-chart) ===== */
 .tela-acessos :deep(.ac-legend){display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
-.tela-acessos :deep(.ac-leg){display:inline-flex;align-items:center;gap:7px;font-family:var(--fonte-principal);font-size:12px;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:4px 6px 4px 11px}
+.tela-acessos :deep(.ac-leg){display:inline-flex;align-items:center;gap:7px;font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:4px 6px 4px 11px}
 .tela-acessos :deep(.ac-leg-dot){width:11px;height:11px;border-radius:50%;flex-shrink:0}
-.tela-acessos :deep(.ac-leg-go){border:none;background:var(--modulo);color:var(--sobre-cor);border-radius:999px;font-size:10px;font-weight:700;padding:4px 10px;cursor:pointer;text-transform:uppercase;letter-spacing:.4px}
+.tela-acessos :deep(.ac-leg-go){border:none;background:var(--modulo);color:var(--sobre-cor);border-radius:999px;font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;padding:4px 10px;cursor:pointer;text-transform:uppercase;letter-spacing:.4px}
 .tela-acessos :deep(.ac-leg-go:hover){filter:brightness(1.08)}
 .tela-acessos :deep(.ac-org-wrap){overflow:auto;padding:8px 4px 24px}
 .tela-acessos :deep(.ac-org), .tela-acessos :deep(.ac-org ul){display:flex;justify-content:center;padding-top:22px;position:relative;margin:0;list-style:none}
@@ -3326,55 +3326,55 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-fcard:hover){transform:translateY(-2px);box-shadow:var(--shadow-md)}
 .tela-acessos :deep(.ac-fcard-root){border-top:3px solid var(--modulo);background:linear-gradient(180deg,rgba(13,148,136,.14),var(--surface));width:200px}
 .tela-acessos :deep(.ac-fcard-body){padding:9px 11px}
-.tela-acessos :deep(.ac-fcard-name){font-family:var(--fonte-principal);font-size:12px;font-weight:600;color:var(--text);line-height:1.25;max-height:3.1em;overflow:hidden}
-.tela-acessos :deep(.ac-fcard-root .ac-fcard-name){font-family:var(--fonte-principal);font-size:15px;font-weight:700}
-.tela-acessos :deep(.ac-fcard-sec){font-family:var(--fonte-principal);font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-top:4px;color:var(--muted)}
+.tela-acessos :deep(.ac-fcard-name){font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));font-weight:600;color:var(--text);line-height:1.25;max-height:3.1em;overflow:hidden}
+.tela-acessos :deep(.ac-fcard-root .ac-fcard-name){font-family:var(--fonte-principal);font-size:max(9px, calc(15px * var(--escala-texto, 1)));font-weight:700}
+.tela-acessos :deep(.ac-fcard-sec){font-family:var(--fonte-principal);font-size:max(9px, calc(9px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-top:4px;color:var(--muted)}
 .tela-acessos :deep(.ac-fcard-acts){display:flex;gap:5px;margin-top:8px;justify-content:flex-end}
-.tela-acessos :deep(.ac-fcard-share), .tela-acessos :deep(.ac-fcard-tog){border:1px solid var(--border);background:var(--surface2);border-radius:7px;cursor:pointer;font-size:12px;padding:3px 8px;color:var(--text);min-width:26px;line-height:1.1}
+.tela-acessos :deep(.ac-fcard-share), .tela-acessos :deep(.ac-fcard-tog){border:1px solid var(--border);background:var(--surface2);border-radius:7px;cursor:pointer;font-size:max(9px, calc(12px * var(--escala-texto, 1)));padding:3px 8px;color:var(--text);min-width:26px;line-height:1.1}
 .tela-acessos :deep(.ac-fcard-share:hover), .tela-acessos :deep(.ac-fcard-tog:hover){border-color:var(--accent-mid);color:var(--accent-mid)}
 .tela-acessos :deep(.ac-fcard-tog){font-weight:700}
 /* ===== Drive: arvore vertical (cards coloridos, sem scroll lateral) ===== */
 .tela-acessos :deep(.ac-vcard){display:inline-flex;align-items:center;gap:9px;max-width:560px;background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--sc,var(--modulo));border-radius:10px;padding:7px 11px;box-shadow:var(--shadow-sm);transition:box-shadow .14s ease,transform .14s ease}
 .tela-acessos :deep(.ac-vcard:hover){box-shadow:var(--shadow-md);transform:translateX(2px)}
 .tela-acessos :deep(.ac-vcard-root){border-left-color:var(--modulo);background:linear-gradient(90deg,rgba(13,148,136,.16),var(--surface))}
-.tela-acessos :deep(.ac-vc-ico){font-size:15px;line-height:1;flex-shrink:0}
-.tela-acessos :deep(.ac-vc-name){font-family:var(--fonte-principal);font-size:13px;font-weight:600;color:var(--text);min-width:0;overflow-wrap:anywhere;line-height:1.25}
-.tela-acessos :deep(.ac-vcard-root .ac-vc-name){font-family:var(--fonte-principal);font-size:16px;font-weight:700}
-.tela-acessos :deep(.ac-vc-sec){font-family:var(--fonte-principal);font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;flex-shrink:0}
-.tela-acessos :deep(.ac-vc-count){font-family:var(--fonte-dados);font-size:11px;font-weight:600;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:1px 8px;flex-shrink:0}
-.tela-acessos :deep(.ac-vc-share){border:1px solid var(--border);background:var(--surface2);border-radius:7px;cursor:pointer;font-size:12px;padding:3px 8px;color:var(--text);flex-shrink:0;line-height:1.1}
+.tela-acessos :deep(.ac-vc-ico){font-size:max(9px, calc(15px * var(--escala-texto, 1)));line-height:1;flex-shrink:0}
+.tela-acessos :deep(.ac-vc-name){font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;color:var(--text);min-width:0;overflow-wrap:anywhere;line-height:1.25}
+.tela-acessos :deep(.ac-vcard-root .ac-vc-name){font-family:var(--fonte-principal);font-size:max(16px, calc(16px * var(--escala-texto, 1)));font-weight:700}
+.tela-acessos :deep(.ac-vc-sec){font-family:var(--fonte-principal);font-size:max(9px, calc(9px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;flex-shrink:0}
+.tela-acessos :deep(.ac-vc-count){font-family:var(--fonte-dados);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:600;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:1px 8px;flex-shrink:0}
+.tela-acessos :deep(.ac-vc-share){border:1px solid var(--border);background:var(--surface2);border-radius:7px;cursor:pointer;font-size:max(9px, calc(12px * var(--escala-texto, 1)));padding:3px 8px;color:var(--text);flex-shrink:0;line-height:1.1}
 .tela-acessos :deep(.ac-vc-share:hover){border-color:var(--accent-mid);color:var(--accent-mid)}
 /* Idem no cartao da arvore: o setor desce de linha em vez de sumir. */
-@media(max-width:640px){.tela-acessos :deep(.ac-vcard){gap:5px 7px;padding:6px 9px;flex-wrap:wrap}.tela-acessos :deep(.ac-vc-sec){font-size:8.5px;flex-basis:100%}}
+@media(max-width:640px){.tela-acessos :deep(.ac-vcard){gap:5px 7px;padding:6px 9px;flex-wrap:wrap}.tela-acessos :deep(.ac-vc-sec){font-size:max(9px, calc(8.5px * var(--escala-texto, 1)));flex-basis:100%}}
 .tela-acessos :deep(.ac-folder-grid){display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
 .tela-acessos :deep(.ac-folder){background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:10px;transition:border-color .15s,box-shadow .15s,transform .15s}
 .tela-acessos :deep(.ac-folder:hover){border-color:var(--accent-mid);box-shadow:var(--shadow-md);transform:translateY(-2px)}
 .tela-acessos :deep(.ac-folder-top){display:flex;align-items:center;gap:10px}
-.tela-acessos :deep(.ac-folder-ico){font-size:20px;line-height:1}
-.tela-acessos :deep(.ac-folder-name){font-family:var(--fonte-principal);font-weight:600;font-size:13.5px;color:var(--text);word-break:break-word;line-height:1.25}
-.tela-acessos :deep(.ac-folder-sub){font-family:var(--fonte-principal);font-size:11px;color:var(--muted);margin-top:2px}
+.tela-acessos :deep(.ac-folder-ico){font-size:max(16px, calc(20px * var(--escala-texto, 1)));line-height:1}
+.tela-acessos :deep(.ac-folder-name){font-family:var(--fonte-principal);font-weight:600;font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));color:var(--text);word-break:break-word;line-height:1.25}
+.tela-acessos :deep(.ac-folder-sub){font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);margin-top:2px}
 .tela-acessos :deep(.ac-folder-actions){display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
-.tela-acessos :deep(.ac-folder-actions .ac-btn){padding:6px 12px;font-size:12px}
+.tela-acessos :deep(.ac-folder-actions .ac-btn){padding:6px 12px;font-size:max(9px, calc(12px * var(--escala-texto, 1)))}
 .tela-acessos :deep(.ac-pick){display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;cursor:pointer}
 .tela-acessos :deep(.ac-pick:hover){background:rgba(13,148,136,.06)}
-.tela-acessos :deep(.ac-pick .grow){font-family:var(--fonte-principal);font-size:13px;min-width:0}
+.tela-acessos :deep(.ac-pick .grow){font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));min-width:0}
 .tela-acessos :deep(.ac-pick-search){margin-bottom:8px}
 .tela-acessos :deep(.ac-pick-list){max-height:42vh;overflow:auto;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
-.tela-acessos :deep(.ac-pick-grp-h){position:sticky;top:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:var(--surface2);border-bottom:1px solid var(--border);font-family:var(--fonte-principal);font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);z-index:1}
-.tela-acessos :deep(.ac-pick-all){border:1px solid var(--border);background:var(--surface);color:var(--accent-mid);border-radius:6px;font-family:var(--fonte-principal);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:3px 9px;cursor:pointer}
+.tela-acessos :deep(.ac-pick-grp-h){position:sticky;top:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:var(--surface2);border-bottom:1px solid var(--border);font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);z-index:1}
+.tela-acessos :deep(.ac-pick-all){border:1px solid var(--border);background:var(--surface);color:var(--accent-mid);border-radius:6px;font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:3px 9px;cursor:pointer}
 .tela-acessos :deep(.ac-pick-all:hover){border-color:var(--accent-mid)}
 .tela-acessos :deep(.ac-pick-list .ac-pick){border-radius:0;border-bottom:1px solid var(--border);padding:8px 10px}
 .tela-acessos :deep(.ac-pick-grp:last-child .ac-pick:last-child){border-bottom:none}
 .tela-acessos :deep(.ac-pick .grow){display:flex;flex-direction:column;min-width:0}
-.tela-acessos :deep(.ac-pick-name){font-family:var(--fonte-principal);font-size:13.5px;font-weight:600;color:var(--text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tela-acessos :deep(.ac-pick-meta){font-family:var(--fonte-principal);font-size:11.5px;color:var(--muted);line-height:1.2;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tela-acessos :deep(.ac-pick-name){font-family:var(--fonte-principal);font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));font-weight:600;color:var(--text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tela-acessos :deep(.ac-pick-meta){font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);line-height:1.2;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* painel grande de compartilhar */
 .tela-acessos :deep(.ac-modal-lg){max-width:720px;width:100%;max-height:90vh;display:flex;flex-direction:column;padding:0;overflow:hidden}
 .tela-acessos :deep(.ac-modal-head){display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 22px;border-bottom:1px solid var(--border)}
-.tela-acessos :deep(.ac-modal-head h3){font-family:var(--fonte-principal);font-weight:600;letter-spacing:.5px;font-size:18px}
+.tela-acessos :deep(.ac-modal-head h3){font-family:var(--fonte-principal);font-weight:600;letter-spacing:.5px;font-size:max(16px, calc(18px * var(--escala-texto, 1)))}
 .tela-acessos :deep(.ac-modal-body){flex:1;min-height:0;overflow:auto;padding:18px 22px}
 .tela-acessos :deep(.ac-modal-foot){display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 22px;border-top:1px solid var(--border);background:var(--surface2)}
-.tela-acessos :deep(.ac-pick-count){font-family:var(--fonte-principal);font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
+.tela-acessos :deep(.ac-pick-count){font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));font-weight:600;color:var(--muted);white-space:nowrap}
 .tela-acessos :deep(.ac-pick-count.on){color:var(--accent-mid)}
 .tela-acessos :deep(.ac-modal-lg .ac-pick-list){max-height:none;border:1px solid var(--border)}
 @media(max-width:640px){
@@ -3383,9 +3383,9 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-modal-foot .ac-btn.primary){flex:1}
 }
 .tela-acessos :deep(.ac-secmod-toggle){cursor:pointer;user-select:none}
-.tela-acessos :deep(.ac-secchev){display:inline-block;transition:transform .18s ease;color:var(--muted);font-size:11px}
+.tela-acessos :deep(.ac-secchev){display:inline-block;transition:transform .18s ease;color:var(--muted);font-size:max(9px, calc(11px * var(--escala-texto, 1)))}
 .tela-acessos :deep(.ac-secchev.open){transform:rotate(90deg)}
-.tela-acessos :deep(.ac-depth){display:flex;align-items:center;gap:8px;margin-bottom:18px;flex-wrap:wrap;font-family:var(--fonte-principal);font-size:12px;color:var(--muted)}
+.tela-acessos :deep(.ac-depth){display:flex;align-items:center;gap:8px;margin-bottom:18px;flex-wrap:wrap;font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted)}
 .tela-acessos :deep(.ac-depth-b){border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:8px;width:30px;height:30px;cursor:pointer;font-weight:600;font-family:var(--fonte-principal)}
 .tela-acessos :deep(.ac-depth-b.active){background:var(--modulo);border-color:var(--modulo);color:var(--sobre-cor)}
 .tela-acessos :deep(.ac-folder-sub){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -3395,8 +3395,8 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-conn){background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:var(--shadow-md);display:flex;flex-direction:column;gap:10px;transition:border-color .16s,box-shadow .16s}
 .tela-acessos :deep(.ac-conn:hover){border-color:var(--accent-mid);box-shadow:var(--shadow-lg)}
 .tela-acessos :deep(.ac-conn-top){display:flex;align-items:center;gap:10px}
-.tela-acessos :deep(.ac-conn-name){font-family:var(--fonte-principal);font-weight:600;font-size:16px;letter-spacing:.5px;text-transform:uppercase;color:var(--text)}
-.tela-acessos :deep(.ac-conn-desc){font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);line-height:1.45;flex:1}
+.tela-acessos :deep(.ac-conn-name){font-family:var(--fonte-principal);font-weight:600;font-size:max(16px, calc(16px * var(--escala-texto, 1)));letter-spacing:.5px;text-transform:uppercase;color:var(--text)}
+.tela-acessos :deep(.ac-conn-desc){font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));color:var(--muted);line-height:1.45;flex:1}
 .tela-acessos :deep(.ac-conn-actions){display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
 @media(max-width:640px){.tela-acessos :deep(.ac-conn-actions .ac-btn){flex:1;min-width:120px;text-align:center}}
 .tela-acessos :deep(.ac-muted){color:var(--muted);opacity:1}
@@ -3420,19 +3420,19 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-modal){background:var(--surface);border:1px solid var(--border);color:var(--text);box-shadow:var(--shadow-lg)}
 /* Copiar link (Compartilhar + Liberar setor) */
 .tela-acessos :deep(.ac-linkbar){display:flex;align-items:center;gap:12px;padding:12px 14px;margin:0 0 16px;border:1px solid var(--accent-mid);background:var(--accent-light);border-radius:12px}
-.tela-acessos :deep(.ac-linkurl){font-family:var(--fonte-dados);font-size:11.5px;color:var(--text);opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tela-acessos :deep(.ac-note){font-size:12.5px;line-height:1.55;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin:0 0 14px}
+.tela-acessos :deep(.ac-linkurl){font-family:var(--fonte-dados);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--text);opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tela-acessos :deep(.ac-note){font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.55;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin:0 0 14px}
 .tela-acessos :deep(.ac-note-warn){color:var(--text);background:rgba(184,88,0,.12);border-color:var(--orange)}
 .tela-acessos :deep(.ac-note-warn b){color:var(--text)}
 /* Auditoria — OneDrive consolidado (drive completo / setor + detalhar) */
-.tela-acessos :deep(.ac-od-chip){display:block;margin:0 0 5px;font-size:12.5px;line-height:1.5}
+.tela-acessos :deep(.ac-od-chip){display:block;margin:0 0 5px;font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.5}
 .tela-acessos :deep(.ac-od-chip:last-child){margin-bottom:0}
-.tela-acessos :deep(.ac-detbtn){font-size:10.5px;border:1px solid var(--border);background:transparent;color:var(--accent);border-radius:7px;padding:1px 7px;cursor:pointer;margin-left:4px;font-weight:700}
+.tela-acessos :deep(.ac-detbtn){font-size:max(9px, calc(10.5px * var(--escala-texto, 1)));border:1px solid var(--border);background:transparent;color:var(--accent);border-radius:7px;padding:1px 7px;cursor:pointer;margin-left:4px;font-weight:700}
 .tela-acessos :deep(.ac-detbtn:hover){background:var(--accent-light)}
-.tela-acessos :deep(.ac-detlist){font-size:11.5px;color:var(--muted);margin:5px 0 2px;padding:7px 10px;border-left:2px solid var(--border);background:var(--surface2);border-radius:0 8px 8px 0;line-height:1.7}
+.tela-acessos :deep(.ac-detlist){font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);margin:5px 0 2px;padding:7px 10px;border-left:2px solid var(--border);background:var(--surface2);border-radius:0 8px 8px 0;line-height:1.7}
 .tela-acessos :deep(.ac-linklist){display:flex;flex-direction:column;gap:8px}
 .tela-acessos :deep(.ac-linklist .ac-row){align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface2)}
-.tela-acessos :deep(.ac-linklist .ac-row b){font-size:13px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tela-acessos :deep(.ac-linklist .ac-row b){font-size:max(9px, calc(13px * var(--escala-texto, 1)));display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 [data-theme="dark"] .tela-acessos :deep(.ac-pill.ok){color:var(--modulo)}
 .tela-acessos :deep(.ac-avatar){border-radius:50%;object-fit:cover;flex:none;border:1px solid var(--border);background:var(--surface2)}
 .tela-acessos :deep(.ac-avatar-fb){display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:var(--sobre-cor);background:linear-gradient(135deg,color-mix(in srgb,var(--modulo) 80%,var(--text)),var(--modulo))}

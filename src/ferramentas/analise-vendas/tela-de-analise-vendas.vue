@@ -809,7 +809,7 @@ function renderSADesconto({pedidos,lojas,lojaMap,di,df}){
   const mkStat=(label,val1,val2,color)=>{
     const b=document.createElement('div');
     b.style.cssText=`flex:1;min-width:150px;background:var(--card);border:1px solid var(--border);border-left:3px solid ${color};border-radius:8px;padding:10px 14px`;
-    b.innerHTML=`<div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:4px">${label}</div><div style="font-size:18px;font-weight:700;font-family:var(--fonte-dados);color:var(--text);letter-spacing:1px">${val1}</div>${val2?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${val2}</div>`:''}`;
+    b.innerHTML=`<div style="font-size:max(9px, calc(9px * var(--escala-texto, 1)));letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:4px">${label}</div><div style="font-size:max(16px, calc(18px * var(--escala-texto, 1)));font-weight:700;font-family:var(--fonte-dados);color:var(--text);letter-spacing:1px">${val1}</div>${val2?`<div style="font-size:max(9px, calc(10px * var(--escala-texto, 1)));color:var(--muted);margin-top:2px">${val2}</div>`:''}`;
     return b;
   };
   stats.appendChild(mkStat('Com Desconto',fmtR(totalCom),`${comDesc.length} pedidos · ${pctCom}%`,'rgba(239,68,68,0.8)'));
@@ -1123,7 +1123,7 @@ function renderSAPositivacao({loja,pedidos15,vendedoresArr,pvMap,di15,df15,now})
   wrap.appendChild(posTitle);
 
   if(!vendCom.length){
-    const empty=document.createElement('div');empty.style.cssText='color:var(--muted);font-size:12px';empty.textContent='Sem vendas nos últimos 15 dias.';
+    const empty=document.createElement('div');empty.style.cssText='color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)))';empty.textContent='Sem vendas nos últimos 15 dias.';
     wrap.appendChild(empty);return wrap;
   }
 
@@ -1247,80 +1247,80 @@ onUnmounted(() => {
 
 /* ── Topbar (compartilhado com Gestão à Vista/Gestão de Tráfego — cada tela traz sua cópia) ── */
 .tela-analise-vendas :deep(.gv-topbar){display:flex;align-items:center;justify-content:space-between;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
-.tela-analise-vendas :deep(.gv-back){display:flex;align-items:center;gap:4px;font-family:var(--fonte-principal);font-size:10px;font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;transition:opacity .15s;letter-spacing:.3px;text-transform:uppercase;}
+.tela-analise-vendas :deep(.gv-back){display:flex;align-items:center;gap:4px;font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;transition:opacity .15s;letter-spacing:.3px;text-transform:uppercase;}
 .tela-analise-vendas :deep(.gv-back:hover){opacity:.75;}
-.tela-analise-vendas :deep(.gv-brand-tag){font-family:var(--fonte-principal);font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--text);opacity:.6;line-height:1;}
-.tela-analise-vendas :deep(.gv-perf-tag){font-family:var(--fonte-principal);font-size:13.5px;font-weight:700;letter-spacing:6px;text-transform:uppercase;color:var(--text);opacity:1;line-height:1.2;}
+.tela-analise-vendas :deep(.gv-brand-tag){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--text);opacity:.6;line-height:1;}
+.tela-analise-vendas :deep(.gv-perf-tag){font-family:var(--fonte-principal);font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));font-weight:700;letter-spacing:6px;text-transform:uppercase;color:var(--text);opacity:1;line-height:1.2;}
 .tela-analise-vendas :deep(.gv-clock-wrap){text-align:right;}
-.tela-analise-vendas :deep(.gv-clock-time){font-family:var(--fonte-dados);font-size:28px;font-weight:400;letter-spacing:3px;color:var(--text);line-height:1;}
-.tela-analise-vendas :deep(.gv-clock-date){font-family:var(--fonte-principal);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:3px;}
-.tela-analise-vendas :deep(.gv-update-status){font-family:var(--fonte-principal);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);opacity:.45;margin-top:4px;text-align:right;}
+.tela-analise-vendas :deep(.gv-clock-time){font-family:var(--fonte-dados);font-size:max(16px, calc(28px * var(--escala-texto, 1)));font-weight:400;letter-spacing:3px;color:var(--text);line-height:1;}
+.tela-analise-vendas :deep(.gv-clock-date){font-family:var(--fonte-principal);font-size:max(9px, calc(8px * var(--escala-texto, 1)));letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:3px;}
+.tela-analise-vendas :deep(.gv-update-status){font-family:var(--fonte-principal);font-size:max(9px, calc(8px * var(--escala-texto, 1)));letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);opacity:.45;margin-top:4px;text-align:right;}
 .tela-analise-vendas :deep(.gv-period-btns){display:flex;align-items:center;gap:4px;}
-.tela-analise-vendas :deep(.gv-pbtn){font-family:var(--fonte-principal);font-size:10px;padding:4px 9px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
+.tela-analise-vendas :deep(.gv-pbtn){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));padding:4px 9px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
 .tela-analise-vendas :deep(.gv-pbtn.active){background:var(--accent);color:var(--sobre-cor);border-color:var(--accent);}
-.tela-analise-vendas :deep(.vs-ac-toggle){font-family:var(--fonte-principal);font-size:10px;letter-spacing:.8px;text-transform:uppercase;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;margin-left:6px;}
+.tela-analise-vendas :deep(.vs-ac-toggle){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));letter-spacing:.8px;text-transform:uppercase;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;margin-left:6px;}
 .tela-analise-vendas :deep(.vs-ac-toggle.running){border-color:var(--green);color:var(--green);}
 
 /* ── Loading (compartilhado com Gestão à Vista/Gestão de Tráfego — cada tela traz sua cópia) ── */
 .tela-analise-vendas :deep(.gv-loading-screen){grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;min-height:60vh;}
 @keyframes saSpin{to{transform:rotate(360deg)}}
 .tela-analise-vendas :deep(.gv-spinner){width:48px;height:48px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:saSpin .9s linear infinite;}
-.tela-analise-vendas :deep(.gv-loading-lbl){font-family:var(--fonte-principal);font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);}
+.tela-analise-vendas :deep(.gv-loading-lbl){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));letter-spacing:4px;text-transform:uppercase;color:var(--muted);}
 
 /* ── Dropdown de canais (legacy L1855-1861, próprio desta tela) ── */
 .tela-analise-vendas :deep(.sa-canal-wrap){position:relative;}
-.tela-analise-vendas :deep(.sa-canal-trigger){background:none;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius-sm);padding:5px 16px;font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-family:var(--fonte-principal);cursor:pointer;white-space:nowrap;transition:background .2s,color .15s,border-color .15s;}
+.tela-analise-vendas :deep(.sa-canal-trigger){background:none;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius-sm);padding:5px 16px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));font-weight:600;letter-spacing:1px;text-transform:uppercase;font-family:var(--fonte-principal);cursor:pointer;white-space:nowrap;transition:background .2s,color .15s,border-color .15s;}
 .tela-analise-vendas :deep(.sa-canal-trigger:hover){border-color:var(--accent);color:var(--accent);}
 .tela-analise-vendas :deep(.sa-canal-drop){position:absolute;top:calc(100% + 6px);right:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 6px;min-width:190px;z-index:9999;display:none;flex-direction:column;gap:2px;box-shadow:var(--shadow-lg);}
 .tela-analise-vendas :deep(.sa-canal-drop.open){display:flex;}
-.tela-analise-vendas :deep(.sa-canal-check){display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;cursor:pointer;font-size:12px;color:var(--text);user-select:none;}
+.tela-analise-vendas :deep(.sa-canal-check){display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;cursor:pointer;font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--text);user-select:none;}
 .tela-analise-vendas :deep(.sa-canal-check:hover){background:var(--accent-light);}
 .tela-analise-vendas :deep(.sa-canal-check input[type=checkbox]){accent-color:var(--accent);width:14px;height:14px;cursor:pointer;flex-shrink:0;}
 .tela-analise-vendas :deep(.sa-canal-drop-foot){display:flex;gap:6px;margin-top:4px;padding-top:6px;border-top:1px solid var(--border);}
-.tela-analise-vendas :deep(.sa-canal-drop-foot button){flex:1;background:none;border:1px solid var(--border);color:var(--muted);border-radius:5px;padding:4px 0;font-size:11px;cursor:pointer;}
+.tela-analise-vendas :deep(.sa-canal-drop-foot button){flex:1;background:none;border:1px solid var(--border);color:var(--muted);border-radius:5px;padding:4px 0;font-size:max(9px, calc(11px * var(--escala-texto, 1)));cursor:pointer;}
 .tela-analise-vendas :deep(.sa-canal-drop-foot button:hover){background:var(--accent-light);color:var(--accent-forte);}
 
 /* ── Corpo (#sa-body, montado via innerHTML/createElement — legacy L1866-1911) ── */
 .tela-analise-vendas :deep(#sa-body){flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px;position:relative;z-index:1;}
 .tela-analise-vendas :deep(.sa-loading){display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;min-height:60vh;}
-.tela-analise-vendas :deep(.sa-loading-lbl){font-family:var(--fonte-principal);font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);}
+.tela-analise-vendas :deep(.sa-loading-lbl){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));letter-spacing:4px;text-transform:uppercase;color:var(--muted);}
 .tela-analise-vendas :deep(#sa-bg-canvas){position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;}
 .tela-analise-vendas :deep(.sa-kpis){display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;}
 .tela-analise-vendas :deep(.sa-kpi){background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;}
-.tela-analise-vendas :deep(.sa-kpi-label){font-family:var(--fonte-principal);font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:2px;}
-.tela-analise-vendas :deep(.sa-kpi-val){font-size:18px;font-weight:800;color:var(--text);}
-.tela-analise-vendas :deep(.sa-kpi-sub){font-size:11px;font-weight:500;color:var(--muted);}
-.tela-analise-vendas :deep(.sa-kpi-delta){font-size:11px;font-weight:700;}
+.tela-analise-vendas :deep(.sa-kpi-label){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:2px;}
+.tela-analise-vendas :deep(.sa-kpi-val){font-size:max(16px, calc(18px * var(--escala-texto, 1)));font-weight:800;color:var(--text);}
+.tela-analise-vendas :deep(.sa-kpi-sub){font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:500;color:var(--muted);}
+.tela-analise-vendas :deep(.sa-kpi-delta){font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;}
 .tela-analise-vendas :deep(.sa-kpi-delta.good){color:var(--green);}
 .tela-analise-vendas :deep(.sa-kpi-delta.warn){color:var(--orange);}
 .tela-analise-vendas :deep(.sa-kpi-delta.bad){color:var(--red);}
 .tela-analise-vendas :deep(.sa-section){background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;}
-.tela-analise-vendas :deep(.sa-section-title){font-family:var(--fonte-principal);font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;}
+.tela-analise-vendas :deep(.sa-section-title){font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;}
 .tela-analise-vendas :deep(.sa-chart-wrap){position:relative;width:100%;height:220px;}
 .tela-analise-vendas :deep(.sa-chart-row){display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .tela-analise-vendas :deep(.sa-chart-row .sa-chart-wrap){height:200px;}
 .tela-analise-vendas :deep(.sa-tab-row){display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
-.tela-analise-vendas :deep(.sa-tab){background:none;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius-sm);padding:5px 16px;font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-family:var(--fonte-principal);cursor:pointer;transition:background .2s cubic-bezier(.4,0,.2,1),color .15s ease,border-color .15s ease,box-shadow .2s ease;}
+.tela-analise-vendas :deep(.sa-tab){background:none;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius-sm);padding:5px 16px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));font-weight:600;letter-spacing:1px;text-transform:uppercase;font-family:var(--fonte-principal);cursor:pointer;transition:background .2s cubic-bezier(.4,0,.2,1),color .15s ease,border-color .15s ease,box-shadow .2s ease;}
 .tela-analise-vendas :deep(.sa-tab.active){background:var(--accent);color:var(--sobre-cor);border-color:var(--accent);box-shadow:0 2px 8px rgba(29,78,216,.25);}
-.tela-analise-vendas :deep(.sa-summary-card){background:var(--accent-light);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--muted);margin-top:10px;display:flex;flex-wrap:wrap;gap:12px;}
+.tela-analise-vendas :deep(.sa-summary-card){background:var(--accent-light);border-radius:8px;padding:10px 14px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);margin-top:10px;display:flex;flex-wrap:wrap;gap:12px;}
 .tela-analise-vendas :deep(.sa-summary-card span){color:var(--text);font-weight:600;}
 .tela-analise-vendas :deep(.sa-loja-section){display:flex;flex-direction:column;gap:12px;}
-.tela-analise-vendas :deep(.sa-loja-title){font-size:13px;font-weight:700;color:var(--text);}
+.tela-analise-vendas :deep(.sa-loja-title){font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:700;color:var(--text);}
 .tela-analise-vendas :deep(.sa-loja-summary){display:flex;flex-wrap:wrap;gap:8px;padding:8px 0;}
 .tela-analise-vendas :deep(.sa-loja-summary-item){background:var(--surface2);border-radius:6px;padding:6px 12px;display:flex;flex-direction:column;gap:2px;min-width:100px;}
-.tela-analise-vendas :deep(.sa-loja-summary-label){font-family:var(--fonte-principal);font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;}
-.tela-analise-vendas :deep(.sa-loja-summary-val){font-family:var(--fonte-principal);font-size:13px;font-weight:800;color:var(--text);}
-.tela-analise-vendas :deep(.sa-loja-table){width:100%;border-collapse:collapse;font-size:12px;}
+.tela-analise-vendas :deep(.sa-loja-summary-label){font-family:var(--fonte-principal);font-size:max(9px, calc(9px * var(--escala-texto, 1)));font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;}
+.tela-analise-vendas :deep(.sa-loja-summary-val){font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:800;color:var(--text);}
+.tela-analise-vendas :deep(.sa-loja-table){width:100%;border-collapse:collapse;font-size:max(9px, calc(12px * var(--escala-texto, 1)));}
 .tela-analise-vendas :deep(.sa-loja-table th){color:var(--muted);font-weight:700;text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);}
 .tela-analise-vendas :deep(.sa-loja-table td){padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top;font-weight:500;}
 .tela-analise-vendas :deep(.sa-loja-table tr:last-child td){border-bottom:none;}
 .tela-analise-vendas :deep(.sa-pos-grid){display:grid;gap:2px;overflow-x:auto;}
 .tela-analise-vendas :deep(.sa-pos-row){display:contents;}
-.tela-analise-vendas :deep(.sa-pos-cell){padding:4px 6px;border-radius:4px;font-size:10px;text-align:center;white-space:nowrap;min-width:52px;}
+.tela-analise-vendas :deep(.sa-pos-cell){padding:4px 6px;border-radius:4px;font-size:max(9px, calc(10px * var(--escala-texto, 1)));text-align:center;white-space:nowrap;min-width:52px;}
 .tela-analise-vendas :deep(.sa-pos-cell.green){background:color-mix(in srgb,var(--green) 13%,var(--surface));color:var(--green);}
 .tela-analise-vendas :deep(.sa-pos-cell.red){background:color-mix(in srgb,var(--red) 13%,var(--surface));color:var(--red);}
 .tela-analise-vendas :deep(.sa-pos-cell.header){background:none;color:var(--muted);font-weight:600;}
-.tela-analise-vendas :deep(.sa-pos-name){font-size:11px;color:var(--text);font-weight:600;padding:4px 8px;white-space:nowrap;}
+.tela-analise-vendas :deep(.sa-pos-name){font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--text);font-weight:600;padding:4px 8px;white-space:nowrap;}
 
 /* ── RESPONSIVE (compartilhado — legacy L645-662/694-696) ── */
 @media(max-width:1024px){
@@ -1340,7 +1340,7 @@ onUnmounted(() => {
      Agora é uma linha só que rola de lado, com botões de 10px — exatamente o
      que a Gestão de Tráfego e a Redes Sociais já faziam, e que ele aprovou. */
   .tela-analise-vendas :deep(.gv-period-btns){flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;gap:6px;padding-bottom:2px;}
-  .tela-analise-vendas :deep(.gv-pbtn){font-size:10px;padding:5px 10px;border-radius:6px;flex-shrink:0;white-space:nowrap;}
+  .tela-analise-vendas :deep(.gv-pbtn){font-size:max(9px, calc(10px * var(--escala-texto, 1)));padding:5px 10px;border-radius:6px;flex-shrink:0;white-space:nowrap;}
 
   /* ── OS CARTÕES DE NÚMERO NO CELULAR ──────────────────────────────────────
      Três defeitos medidos em 390px, que juntos davam o aspecto quebrado:
@@ -1363,13 +1363,13 @@ onUnmounted(() => {
      pixels. Em vez de encolher mais a letra, os 4px vêm do espaço interno
      lateral (14px -> 12px), que ninguém percebe faltar. */
   .tela-analise-vendas :deep(.sa-kpi){padding:12px 12px;}
-  .tela-analise-vendas :deep(.sa-kpi-delta){font-size:10px;line-height:1.35;}
+  .tela-analise-vendas :deep(.sa-kpi-delta){font-size:max(9px, calc(10px * var(--escala-texto, 1)));line-height:1.35;}
   .tela-analise-vendas :deep(.sa-kpi:last-child:nth-child(odd)){grid-column:1 / -1;}
 }
 /* ── RESPONSIVE: Análise de Vendas (legacy L619-621 — só a regra viva; as
    demais deste bloco miravam .sa-brand-nm/.sa-pbtn, classes mortas) ── */
 @media(max-width:480px){
-  .tela-analise-vendas :deep(.sa-canal-trigger){padding:4px 10px;font-size:10px;letter-spacing:.5px;}
+  .tela-analise-vendas :deep(.sa-canal-trigger){padding:4px 10px;font-size:max(9px, calc(10px * var(--escala-texto, 1)));letter-spacing:.5px;}
 }
 
 /* ── TV OVERRIDES (≥1920px) — ativadas por body.dev-tv, um toggle ainda não
@@ -1378,35 +1378,35 @@ onUnmounted(() => {
    (as que miravam .sa-topbar/.sa-back/.sa-brand-av/.sa-brand-nm/.sa-status-
    (todas) /.sa-clock-time/.sa-clock-date/.sa-pbtn eram código morto — ver
    nota no topo deste bloco de estilo) ── */
-body.dev-tv .tela-analise-vendas :deep(.sa-canal-trigger){font-size:19px;padding:8px 26px;}
+body.dev-tv .tela-analise-vendas :deep(.sa-canal-trigger){font-size:max(16px, calc(19px * var(--escala-texto, 1)));padding:8px 26px;}
 body.dev-tv .tela-analise-vendas :deep(.sa-canal-drop){min-width:304px;}
-body.dev-tv .tela-analise-vendas :deep(.sa-canal-check){font-size:19px;padding:8px 13px;}
+body.dev-tv .tela-analise-vendas :deep(.sa-canal-check){font-size:max(16px, calc(19px * var(--escala-texto, 1)));padding:8px 13px;}
 body.dev-tv .tela-analise-vendas :deep(.sa-canal-check input[type=checkbox]){width:22px;height:22px;}
-body.dev-tv .tela-analise-vendas :deep(.sa-canal-drop-foot button){font-size:18px;}
+body.dev-tv .tela-analise-vendas :deep(.sa-canal-drop-foot button){font-size:max(16px, calc(18px * var(--escala-texto, 1)));}
 body.dev-tv .tela-analise-vendas :deep(#sa-body){padding:26px;gap:26px;}
 body.dev-tv .tela-analise-vendas :deep(.sa-kpis){gap:16px;grid-template-columns:repeat(auto-fit,minmax(224px,1fr));}
 body.dev-tv .tela-analise-vendas :deep(.sa-kpi){padding:19px 22px;}
-body.dev-tv .tela-analise-vendas :deep(.sa-kpi-label){font-size:16px;}
-body.dev-tv .tela-analise-vendas :deep(.sa-kpi-val){font-size:29px;}
-body.dev-tv .tela-analise-vendas :deep(.sa-kpi-sub){font-size:18px;}
-body.dev-tv .tela-analise-vendas :deep(.sa-kpi-delta){font-size:18px;}
+body.dev-tv .tela-analise-vendas :deep(.sa-kpi-label){font-size:max(16px, calc(16px * var(--escala-texto, 1)));}
+body.dev-tv .tela-analise-vendas :deep(.sa-kpi-val){font-size:max(16px, calc(29px * var(--escala-texto, 1)));}
+body.dev-tv .tela-analise-vendas :deep(.sa-kpi-sub){font-size:max(16px, calc(18px * var(--escala-texto, 1)));}
+body.dev-tv .tela-analise-vendas :deep(.sa-kpi-delta){font-size:max(16px, calc(18px * var(--escala-texto, 1)));}
 body.dev-tv .tela-analise-vendas :deep(.sa-section){padding:26px;}
-body.dev-tv .tela-analise-vendas :deep(.sa-section-title){font-size:18px;}
+body.dev-tv .tela-analise-vendas :deep(.sa-section-title){font-size:max(16px, calc(18px * var(--escala-texto, 1)));}
 body.dev-tv .tela-analise-vendas :deep(.sa-chart-wrap){height:352px;}
 body.dev-tv .tela-analise-vendas :deep(.sa-chart-row .sa-chart-wrap){height:320px;}
-body.dev-tv .tela-analise-vendas :deep(.sa-tab){font-size:19px;padding:8px 26px;}
-body.dev-tv .tela-analise-vendas :deep(.sa-summary-card){font-size:19px;padding:16px 22px;}
-body.dev-tv .tela-analise-vendas :deep(.sa-loja-title){font-size:21px;}
+body.dev-tv .tela-analise-vendas :deep(.sa-tab){font-size:max(16px, calc(19px * var(--escala-texto, 1)));padding:8px 26px;}
+body.dev-tv .tela-analise-vendas :deep(.sa-summary-card){font-size:max(16px, calc(19px * var(--escala-texto, 1)));padding:16px 22px;}
+body.dev-tv .tela-analise-vendas :deep(.sa-loja-title){font-size:max(16px, calc(21px * var(--escala-texto, 1)));}
 body.dev-tv .tela-analise-vendas :deep(.sa-loja-summary-item){padding:10px 19px;}
-body.dev-tv .tela-analise-vendas :deep(.sa-loja-summary-label){font-size:14px;}
-body.dev-tv .tela-analise-vendas :deep(.sa-loja-summary-val){font-size:21px;}
-body.dev-tv .tela-analise-vendas :deep(.sa-loja-table){font-size:19px;}
+body.dev-tv .tela-analise-vendas :deep(.sa-loja-summary-label){font-size:max(9px, calc(14px * var(--escala-texto, 1)));}
+body.dev-tv .tela-analise-vendas :deep(.sa-loja-summary-val){font-size:max(16px, calc(21px * var(--escala-texto, 1)));}
+body.dev-tv .tela-analise-vendas :deep(.sa-loja-table){font-size:max(16px, calc(19px * var(--escala-texto, 1)));}
 body.dev-tv .tela-analise-vendas :deep(.sa-loja-table th){padding:10px 13px;}
 body.dev-tv .tela-analise-vendas :deep(.sa-loja-table td){padding:10px 13px;}
 body.dev-tv .tela-analise-vendas :deep(.sa-pos-grid){gap:3px;}
-body.dev-tv .tela-analise-vendas :deep(.sa-pos-cell){font-size:16px;padding:6px 10px;min-width:83px;}
-body.dev-tv .tela-analise-vendas :deep(.sa-pos-name){font-size:18px;padding:6px 13px;}
-body.dev-tv .tela-analise-vendas :deep(.sa-loading-lbl){font-size:16px;}
+body.dev-tv .tela-analise-vendas :deep(.sa-pos-cell){font-size:max(16px, calc(16px * var(--escala-texto, 1)));padding:6px 10px;min-width:83px;}
+body.dev-tv .tela-analise-vendas :deep(.sa-pos-name){font-size:max(16px, calc(18px * var(--escala-texto, 1)));padding:6px 13px;}
+body.dev-tv .tela-analise-vendas :deep(.sa-loading-lbl){font-size:max(16px, calc(16px * var(--escala-texto, 1)));}
 /* FAIXA DE CONTROLES — ver o comentario no template. */
 /* A faixa agora mora DENTRO da barra. Quem dá fundo, borda de baixo e respiro
    lateral é a barra — repetir aqui desenharia moldura dentro de moldura. */

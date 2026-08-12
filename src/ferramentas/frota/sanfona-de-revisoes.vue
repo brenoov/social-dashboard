@@ -103,17 +103,17 @@ const km = (n) => (n == null ? 'sem quilometragem' : `${n.toLocaleString('pt-BR'
    nada aqui corta uma palavra comprida sem espaço. Sem isso ela empurra o
    cartão pra fora da tela e estoura rolagem horizontal no celular, contra a
    regra da casa. Mesmo par de `.fr-item-txt`/`.fr-ajuda` em tela-de-frota.vue. */
-.sr-card-nome{font-family:var(--fonte-principal);font-size:13.5px;font-weight:700;color:var(--text);overflow-wrap:anywhere;}
-.sr-placa{font-family:var(--fonte-dados);font-size:11px;letter-spacing:1.5px;color:var(--muted);}
+.sr-card-nome{font-family:var(--fonte-principal);font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));font-weight:700;color:var(--text);overflow-wrap:anywhere;}
+.sr-placa{font-family:var(--fonte-dados);font-size:max(9px, calc(11px * var(--escala-texto, 1)));letter-spacing:1.5px;color:var(--muted);}
 
-.sr-selo{font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:.4px;padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--text);white-space:nowrap;}
+.sr-selo{font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.4px;padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--text);white-space:nowrap;}
 .sr-selo.espera{background:color-mix(in srgb,var(--orange) 18%,transparent);color:var(--orange);}
 .sr-selo.boa{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green);}
 .sr-selo.ruim{background:color-mix(in srgb,var(--red) 16%,transparent);color:var(--red);}
 .sr-selo.neutra{background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--muted);}
 
 .sr-itens{margin:12px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;}
-.sr-itens li{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);padding-left:10px;border-left:2px solid var(--border);}
+.sr-itens li{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));color:var(--muted);padding-left:10px;border-left:2px solid var(--border);}
 .sr-itens li.vencida{border-left-color:var(--red);}
 .sr-itens li.perto{border-left-color:var(--orange);}
 .sr-itens li.em-dia{border-left-color:var(--green);}
@@ -128,11 +128,11 @@ const km = (n) => (n == null ? 'sem quilometragem' : `${n.toLocaleString('pt-BR'
 /* Sem padding horizontal próprio: este aviso mora DENTRO de `.sr-lista`, que
    já dá os 14px/24px da margem da página — dobrar o respiro aqui desalinharia
    o texto em relação aos cartões. */
-.sr-aviso{margin:0;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.55;color:var(--muted);}
+.sr-aviso{margin:0;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.55;color:var(--muted);}
 /* Mesma receita do `.fr-btn` da tela grande — copiada por causa do limite do
    `<style scoped>`, não por escolha. 40px de alvo, como o padrão manda. */
 .sr-acoes{display:flex;gap:8px;margin-top:10px;}
-.sr-btn{min-height:40px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-family:var(--fonte-principal);font-size:13px;font-weight:600;cursor:pointer;touch-action:manipulation;}
+.sr-btn{min-height:40px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;cursor:pointer;touch-action:manipulation;}
 .sr-btn:hover{border-color:var(--accent);}
 
 @media(min-width:900px){

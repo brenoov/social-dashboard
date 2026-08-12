@@ -354,7 +354,7 @@ watch(job, (j) => { if (j?.status === 'concluido' && j.resultado) emit('subido',
           <button type="button" class="loja-chip" :class="{ sel: orcamento.modo==='ABO' }" @click="orcamento.modo='ABO'">ABO — no conjunto</button>
           <button type="button" class="loja-chip" :class="{ sel: orcamento.modo==='CBO' }" @click="orcamento.modo='CBO'">CBO — na campanha</button>
         </div>
-        <p class="muted" style="font-size:12px; margin:-4px 0 12px">
+        <p class="muted" style="font-size:max(9px, calc(12px * var(--escala-texto, 1))); margin:-4px 0 12px">
           {{ orcamento.modo==='CBO' ? 'CBO: você dá um orçamento único e a Meta divide entre os conjuntos, otimizando sozinha.' : 'ABO: o orçamento fica fixo neste conjunto de anúncios.' }}
         </p>
 
@@ -378,7 +378,7 @@ watch(job, (j) => { if (j?.status === 'concluido' && j.resultado) emit('subido',
             <input type="date" v-model="orcamento.fim" style="width:100%">
           </label>
         </div>
-        <p v-if="orcamento.tipo==='total'" class="muted" style="font-size:12px; margin:8px 0 0">
+        <p v-if="orcamento.tipo==='total'" class="muted" style="font-size:max(9px, calc(12px * var(--escala-texto, 1))); margin:8px 0 0">
           A campanha sobe pausada; se a data de início já tiver passado quando você ativar, a Meta ajusta pra ativação.
         </p>
       </div>
@@ -403,7 +403,7 @@ watch(job, (j) => { if (j?.status === 'concluido' && j.resultado) emit('subido',
         </label>
       </div>
 
-      <p v-if="erroCidade" style="color:var(--abort);font-size:13px;margin:4px 0">{{ erroCidade }}</p>
+      <p v-if="erroCidade" style="color:var(--abort);font-size:max(9px, calc(13px * var(--escala-texto, 1)));margin:4px 0">{{ erroCidade }}</p>
 
       <ul v-if="cidadesAchadas.length" class="resultlist">
         <li v-for="c in cidadesAchadas" :key="c.key">
@@ -500,7 +500,7 @@ watch(job, (j) => { if (j?.status === 'concluido' && j.resultado) emit('subido',
         <button class="cmd cyan" type="button" @click="listarAudiences">{{ carregandoAud ? 'Carregando…' : 'Carregar públicos' }}</button>
         <button class="cmd cyan" type="button" @click="criarEngajamento">Criar engajamento</button>
       </div>
-      <p v-if="erroAud" style="color:var(--abort);font-size:13px;margin:4px 0">{{ erroAud }}</p>
+      <p v-if="erroAud" style="color:var(--abort);font-size:max(9px, calc(13px * var(--escala-texto, 1)));margin:4px 0">{{ erroAud }}</p>
 
       <ul v-if="audiences.length" class="resultlist">
         <li v-for="a in audiences" :key="a.id">

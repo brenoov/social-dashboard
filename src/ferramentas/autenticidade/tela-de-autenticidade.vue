@@ -364,19 +364,19 @@ onMounted(carregar)
 <style scoped>
 .tela-autenticidade{min-height:100vh;background:transparent;position:relative;z-index:1;padding-bottom:48px;}
 .abas{display:flex;gap:8px;padding:16px 24px 0;flex-wrap:wrap;}
-.abas button{font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);background:none;border:1px solid var(--border);border-radius:5px;padding:7px 13px;cursor:pointer;transition:all .15s;}
+.abas button{font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);background:none;border:1px solid var(--border);border-radius:5px;padding:7px 13px;cursor:pointer;transition:all .15s;}
 .abas button.on{color:var(--accent);border-color:var(--accent);}
 
-.au-vazio,.au-erro,.au-pronto{font-family:var(--fonte-principal);font-size:13px;color:var(--muted);padding:28px 24px;line-height:1.7;max-width:620px;}
+.au-vazio,.au-erro,.au-pronto{font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--muted);padding:28px 24px;line-height:1.7;max-width:620px;}
 .au-erro{color:var(--red);}
 .au-pronto{color:var(--accent);}
-.au-instrucao{font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);line-height:1.7;padding:16px 24px 0;max-width:620px;}
-.au-secao{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text);padding:24px 24px 4px;}
+.au-instrucao{font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));color:var(--muted);line-height:1.7;padding:16px 24px 0;max-width:620px;}
+.au-secao{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text);padding:24px 24px 4px;}
 
 .au-topo-acao{display:flex;gap:10px;align-items:center;padding:18px 24px 0;flex-wrap:wrap;}
-.au-busca{flex:1;min-width:180px;font-family:var(--fonte-principal);font-size:13px;padding:9px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);}
+.au-busca{flex:1;min-width:180px;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));padding:9px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);}
 
-.au-botao{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sobre-cor);background:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:10px 16px;cursor:pointer;}
+.au-botao{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sobre-cor);background:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:10px 16px;cursor:pointer;}
 .au-botao[disabled]{opacity:.6;cursor:default;}
 .au-botao.secundario{color:var(--accent);background:transparent;}
 
@@ -384,27 +384,27 @@ onMounted(carregar)
 .au-card{border:1px solid var(--border);border-radius:8px;background:var(--surface);padding:14px 16px;}
 .au-card.alerta{border-color:var(--orange);}
 .au-card-topo{display:flex;justify-content:space-between;align-items:baseline;gap:12px;}
-.au-modelo{font-family:var(--fonte-principal);font-size:14px;font-weight:600;color:var(--text);}
-.au-progresso{font-family:var(--fonte-principal);font-size:11px;color:var(--accent);white-space:nowrap;}
-.au-card-linha{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;font-family:var(--fonte-principal);font-size:12px;color:var(--muted);}
+.au-modelo{font-family:var(--fonte-principal);font-size:max(9px, calc(14px * var(--escala-texto, 1)));font-weight:600;color:var(--text);}
+.au-progresso{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--accent);white-space:nowrap;}
+.au-card-linha{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);}
 .au-ref{font-family:var(--fonte-dados);}
-.au-link{margin-top:10px;font-family:var(--fonte-principal);font-size:11px;font-weight:600;color:var(--accent);background:none;border:none;padding:0;cursor:pointer;}
+.au-link{margin-top:10px;font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:600;color:var(--accent);background:none;border:none;padding:0;cursor:pointer;}
 
 .au-campo{display:block;padding:16px 24px 0;max-width:520px;}
-.au-rot{display:block;font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
-.au-campo input,.au-campo select{width:100%;font-family:var(--fonte-principal);font-size:14px;padding:9px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);}
+.au-rot{display:block;font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+.au-campo input,.au-campo select{width:100%;font-family:var(--fonte-principal);font-size:max(9px, calc(14px * var(--escala-texto, 1)));padding:9px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);}
 
 .au-gravacao{padding:8px 24px 0;max-width:620px;}
-.au-passo{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);padding-top:18px;}
+.au-passo{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);padding-top:18px;}
 /* O endereço é o que a pessoa vai conferir letra por letra na hora de gravar:
    fonte de dados, tamanho grande e quebra garantida em tela de celular. */
-.au-endereco{font-family:var(--fonte-dados);font-size:17px;line-height:1.6;color:var(--text);background:var(--surface);border:1px solid var(--accent);border-radius:8px;padding:16px;margin-top:14px;word-break:break-all;user-select:all;}
+.au-endereco{font-family:var(--fonte-dados);font-size:max(16px, calc(17px * var(--escala-texto, 1)));line-height:1.6;color:var(--text);background:var(--surface);border:1px solid var(--accent);border-radius:8px;padding:16px;margin-top:14px;word-break:break-all;user-select:all;}
 .au-acoes{display:flex;gap:10px;padding:16px 24px 0;flex-wrap:wrap;}
 .au-gravacao .au-acoes{padding-left:0;padding-right:0;}
 
 .au-fundo{position:fixed;inset:0;background:rgba(15,15,15,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50;}
 .au-folha{background:var(--surface);border:1px solid var(--border);border-radius:10px;max-width:520px;width:100%;max-height:90dvh;overflow-y:auto;padding:22px 0;}
-.au-folha h2{font-family:var(--fonte-principal);font-size:16px;font-weight:600;color:var(--text);padding:0 24px;}
+.au-folha h2{font-family:var(--fonte-principal);font-size:max(16px, calc(16px * var(--escala-texto, 1)));font-weight:600;color:var(--text);padding:0 24px;}
 .au-folha .au-erro{padding:12px 24px 0;}
 
 @media (max-width:520px){

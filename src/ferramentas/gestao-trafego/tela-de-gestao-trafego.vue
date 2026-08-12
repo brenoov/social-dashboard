@@ -4951,16 +4951,16 @@ Object.assign(window, {
 
 /* ── Topbar (compartilhado com Gestão à Vista/Análise de Campanhas — cada tela traz sua cópia) ── */
 .tela-gestao-trafego :deep(.gv-topbar){display:flex;align-items:center;justify-content:space-between;padding:7px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
-.tela-gestao-trafego :deep(.gv-back){display:flex;align-items:center;gap:4px;font-family:var(--fonte-principal);font-size:10px;font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;transition:opacity .15s;letter-spacing:.3px;text-transform:uppercase;}
+.tela-gestao-trafego :deep(.gv-back){display:flex;align-items:center;gap:4px;font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:600;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;transition:opacity .15s;letter-spacing:.3px;text-transform:uppercase;}
 .tela-gestao-trafego :deep(.gv-back:hover){opacity:.75;}
-.tela-gestao-trafego :deep(.gv-brand-tag){font-family:var(--fonte-principal);font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--text);opacity:.6;line-height:1;}
-.tela-gestao-trafego :deep(.gv-perf-tag){font-family:var(--fonte-principal);font-size:13.5px;font-weight:700;letter-spacing:6px;text-transform:uppercase;color:var(--text);opacity:1;line-height:1.2;}
+.tela-gestao-trafego :deep(.gv-brand-tag){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--text);opacity:.6;line-height:1;}
+.tela-gestao-trafego :deep(.gv-perf-tag){font-family:var(--fonte-principal);font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));font-weight:700;letter-spacing:6px;text-transform:uppercase;color:var(--text);opacity:1;line-height:1.2;}
 .tela-gestao-trafego :deep(.gv-clock-wrap){text-align:right;}
-.tela-gestao-trafego :deep(.gv-clock-time){font-family:var(--fonte-dados);font-size:28px;font-weight:400;letter-spacing:3px;color:var(--text);line-height:1;}
-.tela-gestao-trafego :deep(.gv-clock-date){font-family:var(--fonte-principal);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:3px;}
-.tela-gestao-trafego :deep(.gv-update-status){font-family:var(--fonte-principal);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);opacity:.45;margin-top:4px;text-align:right;}
+.tela-gestao-trafego :deep(.gv-clock-time){font-family:var(--fonte-dados);font-size:max(16px, calc(28px * var(--escala-texto, 1)));font-weight:400;letter-spacing:3px;color:var(--text);line-height:1;}
+.tela-gestao-trafego :deep(.gv-clock-date){font-family:var(--fonte-principal);font-size:max(9px, calc(8px * var(--escala-texto, 1)));letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:3px;}
+.tela-gestao-trafego :deep(.gv-update-status){font-family:var(--fonte-principal);font-size:max(9px, calc(8px * var(--escala-texto, 1)));letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);opacity:.45;margin-top:4px;text-align:right;}
 .tela-gestao-trafego :deep(.gv-period-btns){display:flex;align-items:center;gap:4px;}
-.tela-gestao-trafego :deep(.gv-pbtn){font-family:var(--fonte-principal);font-size:10px;padding:4px 9px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
+.tela-gestao-trafego :deep(.gv-pbtn){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));padding:4px 9px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
 .tela-gestao-trafego :deep(.gv-pbtn.active){background:var(--accent);color:var(--sobre-cor);border-color:var(--accent);}
 
 /* Abas da ferramenta. Prefixo .pnd- próprio: nomes globais vazam pra dentro de
@@ -5245,7 +5245,7 @@ Object.assign(window, {
    campanhas): círculo pequeno e discreto, cor de destaque só no hover. Fica ao
    lado do rótulo que já existe (título de cartão, rótulo de KPI, selo…), nunca
    sozinho anunciando algo (ver _gtAjudaBtn). */
-.tela-gestao-trafego :deep(.pnd-ajuda-btn){margin-left:5px;width:14px;height:14px;border-radius:50%;border:1px solid var(--border);background:none;color:var(--muted);font-size:9px;font-weight:700;cursor:pointer;line-height:1;padding:0;vertical-align:middle;flex:0 0 auto;}
+.tela-gestao-trafego :deep(.pnd-ajuda-btn){margin-left:5px;width:14px;height:14px;border-radius:50%;border:1px solid var(--border);background:none;color:var(--muted);font-size:max(9px, calc(9px * var(--escala-texto, 1)));font-weight:700;cursor:pointer;line-height:1;padding:0;vertical-align:middle;flex:0 0 auto;}
 .tela-gestao-trafego :deep(.pnd-ajuda-btn:hover){border-color:var(--accent);color:var(--accent);}
 .tela-gestao-trafego :deep(.pnd-ajuda){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);margin:0 0 12px;line-height:1.55;}
 .tela-gestao-trafego :deep(.pnd-tabela){width:100%;border-collapse:collapse;}
@@ -5348,10 +5348,10 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gv-loading-screen){grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;min-height:60vh;}
 @keyframes gtSpin{to{transform:rotate(360deg)}}
 .tela-gestao-trafego :deep(.gv-spinner){width:48px;height:48px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:gtSpin .9s linear infinite;}
-.tela-gestao-trafego :deep(.gv-loading-lbl){font-family:var(--fonte-principal);font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);}
+.tela-gestao-trafego :deep(.gv-loading-lbl){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));letter-spacing:4px;text-transform:uppercase;color:var(--muted);}
 
 /* ── Chip de objetivo (compartilhado com Análise de Campanhas — cada tela traz sua cópia) ── */
-.tela-gestao-trafego :deep(.ma-obj-chip){font-family:var(--fonte-principal);font-size:9px;font-weight:600;letter-spacing:.5px;padding:2px 6px;border-radius:3px;background:var(--surface2);color:var(--muted);text-transform:uppercase;}
+.tela-gestao-trafego :deep(.ma-obj-chip){font-family:var(--fonte-principal);font-size:max(9px, calc(9px * var(--escala-texto, 1)));font-weight:600;letter-spacing:.5px;padding:2px 6px;border-radius:3px;background:var(--surface2);color:var(--muted);text-transform:uppercase;}
 
 /* ── GESTÃO DE TRÁFEGO — CSS próprio (legacy/index.html L2350-2477, íntegro) ── */
 /* #gt-painel-campanhas é só o alvo do toggle de aba — "display:contents" tira ele
@@ -5686,9 +5686,9 @@ Object.assign(window, {
    L1703-1707 + variante dark L1378-1381; cada tela que usa zoom traz sua
    própria cópia, mesmo padrão de tela-de-noticias.vue) ── */
 .tela-gestao-trafego :deep(.zoomctl){position:fixed;right:20px;bottom:calc(env(safe-area-inset-bottom,0px) + 72px);z-index:9997;display:inline-flex;align-items:center;gap:2px;background:#ffffff;border:1px solid rgba(13,13,13,.14);border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:4px;}
-.tela-gestao-trafego :deep(.zoomctl button){width:34px;height:34px;border:none;background:none;border-radius:50%;font-family:var(--fonte-principal);font-size:14px;font-weight:700;color:#1a1a1a;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;}
+.tela-gestao-trafego :deep(.zoomctl button){width:34px;height:34px;border:none;background:none;border-radius:50%;font-family:var(--fonte-principal);font-size:max(9px, calc(14px * var(--escala-texto, 1)));font-weight:700;color:#1a1a1a;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;}
 .tela-gestao-trafego :deep(.zoomctl button:hover){background:#f0ece4;}
-.tela-gestao-trafego :deep(.zoomctl-val){font-family:var(--fonte-principal);font-size:11px;font-weight:600;color:#6b6258;min-width:40px;text-align:center;cursor:pointer;user-select:none;font-variant-numeric:tabular-nums;}
+.tela-gestao-trafego :deep(.zoomctl-val){font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:600;color:#6b6258;min-width:40px;text-align:center;cursor:pointer;user-select:none;font-variant-numeric:tabular-nums;}
 /* O tema fica em `safe-area + 20px` com 42px de altura (termina em +62); o zoom
    precisa começar ACIMA disso. Sem a safe-area aqui os dois se encavalavam em
    aparelho com barra de gestos (achado do dono, 2026-07-29). */
@@ -5714,7 +5714,7 @@ Object.assign(window, {
   .tela-gestao-trafego :deep(#gt-account-picker){order:2;flex-shrink:0;}
   /* filtros de período: faixa própria (linha 2) que ROLA na horizontal — nunca quebram em 3 linhas */
   .tela-gestao-trafego :deep(.gv-period-btns){order:3;width:100%;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;gap:6px;padding-bottom:2px;}
-  .tela-gestao-trafego :deep(.gv-pbtn){font-size:10px;padding:5px 10px;border-radius:6px;flex-shrink:0;white-space:nowrap;}
+  .tela-gestao-trafego :deep(.gv-pbtn){font-size:max(9px, calc(10px * var(--escala-texto, 1)));padding:5px 10px;border-radius:6px;flex-shrink:0;white-space:nowrap;}
   .tela-gestao-trafego :deep(.gv-clock-wrap),.tela-gestao-trafego :deep(.gv-update-status){display:none;}
   /* CORPO DOS CARDS no celular: botões QUEBRAM o texto (não estouram) + busca ocupa a largura */
   .tela-gestao-trafego :deep(.gt-act-btn){white-space:normal;max-width:100%;height:auto;text-align:center;}

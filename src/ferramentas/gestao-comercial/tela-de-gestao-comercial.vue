@@ -454,7 +454,7 @@ onMounted(() => {
 .tela-gestao-comercial :deep(.gc-report strong){color:var(--text);font-weight:700;}
 .tela-gestao-comercial :deep(.gc-tw){margin:18px 0;border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm);}
 .tela-gestao-comercial :deep(.gc-tw-bar){display:flex;justify-content:flex-end;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);}
-.tela-gestao-comercial :deep(.gc-xls-btn){display:inline-flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:11.5px;font-weight:600;color:var(--green);background:rgba(34,197,94,.10);border:1px solid rgba(34,197,94,.35);border-radius:8px;padding:6px 12px;cursor:pointer;transition:all .15s ease;letter-spacing:.2px;}
+.tela-gestao-comercial :deep(.gc-xls-btn){display:inline-flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));font-weight:600;color:var(--green);background:rgba(34,197,94,.10);border:1px solid rgba(34,197,94,.35);border-radius:8px;padding:6px 12px;cursor:pointer;transition:all .15s ease;letter-spacing:.2px;}
 .tela-gestao-comercial :deep(.gc-xls-btn:hover){background:rgba(34,197,94,.18);border-color:rgba(34,197,94,.55);transform:translateY(-1px);}
 .tela-gestao-comercial :deep(.gc-xls-btn svg){flex-shrink:0;}
 .tela-gestao-comercial :deep(.gc-tw-scroll){overflow-x:auto;-webkit-overflow-scrolling:touch;}
@@ -546,7 +546,7 @@ onMounted(() => {
   .tela-gestao-comercial :deep(.gc-edicao){flex:1 0 100%;gap:10px;}
   /* 16px no seletor: abaixo disso o iPhone da zoom sozinho ao tocar, e a tela
      fica torta ate a pessoa pinçar de volta. */
-  .tela-gestao-comercial :deep(.gc-edicao select){flex:1;min-width:0;font-size:16px;padding:9px 10px;}
+  .tela-gestao-comercial :deep(.gc-edicao select){flex:1;min-width:0;font-size:max(16px, calc(16px * var(--escala-texto, 1)));padding:9px 10px;}
 
   /* O heroi mantinha o anel de 96px na mesma linha do titulo: sobravam 156px
      de texto num aparelho de 375, e o bloco esticava pra 220px de altura. */

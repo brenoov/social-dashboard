@@ -3385,11 +3385,11 @@ onMounted(async () => {
 .tela-frota{min-height:100vh;display:flex;flex-direction:column;background:transparent;}
 .tela-frota .fr-topbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
 .tela-frota .fr-topbar .rbv-logo{height:22px;width:auto;flex-shrink:0;}
-.tela-frota .fr-back{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--muted);font-family:var(--fonte-principal);font-size:11px;font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:1.2px;flex-shrink:0;}
-.tela-frota .fr-title{font-family:var(--fonte-principal);font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text);flex:1;min-width:0;text-align:right;}
-.tela-frota .fr-motorista-resumo{margin:0;padding:14px 14px 4px;font-family:var(--fonte-principal);font-size:15px;font-weight:600;color:var(--text);}
-.tela-frota .fr-secao{margin:16px 0 8px;padding:0 14px;font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);}
-.tela-frota .fr-aviso{margin:0;padding:4px 14px 10px;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.55;color:var(--muted);}
+.tela-frota .fr-back{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--muted);font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:1.2px;flex-shrink:0;}
+.tela-frota .fr-title{font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text);flex:1;min-width:0;text-align:right;}
+.tela-frota .fr-motorista-resumo{margin:0;padding:14px 14px 4px;font-family:var(--fonte-principal);font-size:max(9px, calc(15px * var(--escala-texto, 1)));font-weight:600;color:var(--text);}
+.tela-frota .fr-secao{margin:16px 0 8px;padding:0 14px;font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);}
+.tela-frota .fr-aviso{margin:0;padding:4px 14px 10px;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.55;color:var(--muted);}
 /* O quadro de cobrança (D16), em cards (pedido do dono, V2): cada carro é um
    .fr-card do mesmo tipo usado no resto da tela, então herda de graça a
    grade responsiva do `.fr-lista` (uma coluna no celular, várias no
@@ -3439,19 +3439,19 @@ onMounted(async () => {
 .tela-frota .fr-copia-grupo{border:1px solid var(--border);border-left:3px solid var(--muted);border-radius:12px;padding:12px 14px;background:var(--surface);}
 .tela-frota .fr-copia-grupo.desistiu{border-left-color:var(--red);background:color-mix(in srgb,var(--red) 10%,var(--surface));}
 .tela-frota .fr-copia-grupo.tentando{border-left-color:var(--orange);background:color-mix(in srgb,var(--orange) 10%,var(--surface));}
-.tela-frota .fr-copia-titulo{margin:0;font-family:var(--fonte-principal);font-size:12.5px;font-weight:700;line-height:1.45;color:var(--text);}
+.tela-frota .fr-copia-titulo{margin:0;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));font-weight:700;line-height:1.45;color:var(--text);}
 /* A cor fica na BORDA da linha, não no texto do nome do carro — mesma decisão
    do .fr-itens li, pelo mesmo motivo: nome colorido some num dos dois temas. */
 .tela-frota .fr-copia-carros{margin:9px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:5px;}
-.tela-frota .fr-copia-carros li{font-family:var(--fonte-principal);font-size:12.5px;line-height:1.45;color:var(--text);padding-left:9px;border-left:2px solid var(--border);overflow-wrap:anywhere;}
+.tela-frota .fr-copia-carros li{font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.45;color:var(--text);padding-left:9px;border-left:2px solid var(--border);overflow-wrap:anywhere;}
 /* `overflow-wrap:anywhere` porque a frase do robô pode trazer nome de arquivo
    comprido, e `overflow-x:clip` nos estilos globais cortaria isso em silêncio,
    sem barra de rolagem pra denunciar — no celular, que é onde se olha. */
-.tela-frota .fr-copia-motivo{margin:10px 0 0;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.55;color:var(--text);overflow-wrap:anywhere;}
+.tela-frota .fr-copia-motivo{margin:10px 0 0;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.55;color:var(--text);overflow-wrap:anywhere;}
 /* A frase que impede a leitura errada, e por isso ela é fixa e não some: papel
    atrasado NÃO invalida ficha. A prova é a assinatura gravada no banco; o PDF
    é cópia de arquivo. */
-.tela-frota .fr-copia-calma{margin:0;font-family:var(--fonte-principal);font-size:11.5px;line-height:1.55;color:var(--muted);}
+.tela-frota .fr-copia-calma{margin:0;font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));line-height:1.55;color:var(--muted);}
 
 /* "Outros carros sem checklist hoje" (D21b). Uma linha por carro: nome, de quem
    ele é, e o botão. No celular vira coluna, senão o nome comprido ("FIAT PUNTO
@@ -3472,7 +3472,7 @@ onMounted(async () => {
 
 /* O resultado da conferência. Quatro estados, e a cor é a diferença entre
    acusar e avisar: vermelho SÓ quando alguma coisa mudou depois de assinada. */
-.tela-frota .fr-conferencia{margin:8px 0 2px;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.55;color:var(--text);overflow-wrap:anywhere;}
+.tela-frota .fr-conferencia{margin:8px 0 2px;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.55;color:var(--text);overflow-wrap:anywhere;}
 .tela-frota .fr-conferencia.ok{color:var(--green);}
 .tela-frota .fr-conferencia.ruim{color:var(--red);}
 .tela-frota .fr-conferencia.incompleto{color:var(--orange);}
@@ -3485,25 +3485,25 @@ onMounted(async () => {
    cobrar no WhatsApp. Mesmo padrão de "botão-link" que .ck-trocar usa no
    painel de checklist: sem fundo nem borda, cor de destaque por token. */
 .tela-frota .fr-copiar-tel{margin-top:8px;}
-.tela-frota .fr-copiar-tel-btn{background:none;border:0;padding:2px 0;cursor:pointer;font-family:var(--fonte-principal);font-size:11.5px;font-weight:600;color:var(--accent);text-align:left;}
+.tela-frota .fr-copiar-tel-btn{background:none;border:0;padding:2px 0;cursor:pointer;font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));font-weight:600;color:var(--accent);text-align:left;}
 .tela-frota .fr-copiar-tel-btn:hover:not(:disabled){text-decoration:underline;}
 .tela-frota .fr-copiar-tel-btn:disabled{opacity:.6;cursor:default;}
-.tela-frota .fr-erro-inline{margin:4px 0 0;font-family:var(--fonte-principal);font-size:11.5px;color:var(--red,#c0392b);line-height:1.4;}
-.tela-frota .fr-copiado-tel{margin-top:8px;font-family:var(--fonte-principal);font-size:11.5px;color:var(--green,#16a34a);}
+.tela-frota .fr-erro-inline{margin:4px 0 0;font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--red,#c0392b);line-height:1.4;}
+.tela-frota .fr-copiado-tel{margin-top:8px;font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--green,#16a34a);}
 /* Os carros de outras pessoas: lista simples, sem cartão e sem botão. Dar
    cartão a eles daria a entender que há algo a fazer, e não há. */
-.tela-frota .fr-outros{margin:0;padding:0 14px 40px;list-style:none;display:flex;flex-direction:column;gap:7px;font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);}
+.tela-frota .fr-outros{margin:0;padding:0 14px 40px;list-style:none;display:flex;flex-direction:column;gap:7px;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));color:var(--muted);}
 .tela-frota .fr-outros strong{color:var(--text);font-weight:600;}
 .tela-frota .fr-pedidos{margin:0;padding:0 14px;list-style:none;display:flex;flex-direction:column;gap:9px;}
 .tela-frota .fr-pedido{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:12px 14px;}
-.tela-frota .fr-pedido-topo{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-family:var(--fonte-principal);font-size:13px;color:var(--text);}
-.tela-frota .fr-pedido-quando{margin-top:4px;font-family:var(--fonte-principal);font-size:12px;color:var(--muted);}
-.tela-frota .fr-pedido-motivo{margin:8px 0 0;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.5;color:var(--muted);}
-.tela-frota .fr-recado{margin:0 0 4px;font-family:var(--fonte-principal);font-size:13.5px;line-height:1.6;color:var(--text);}
+.tela-frota .fr-pedido-topo{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--text);}
+.tela-frota .fr-pedido-quando{margin-top:4px;font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);}
+.tela-frota .fr-pedido-motivo{margin:8px 0 0;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.5;color:var(--muted);}
+.tela-frota .fr-recado{margin:0 0 4px;font-family:var(--fonte-principal);font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));line-height:1.6;color:var(--text);}
 .tela-frota .fr-card.espera{border-left-color:var(--orange,#d97706);}
 .tela-frota .fr-card.ruimzao{border-left-color:var(--red,#c0392b);}
 .tela-frota .fr-itens{margin:12px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;}
-.tela-frota .fr-itens li{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);padding-left:10px;border-left:2px solid var(--border);}
+.tela-frota .fr-itens li{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));color:var(--muted);padding-left:10px;border-left:2px solid var(--border);}
 /* A cor fica na BORDA, não no texto: item vencido em vermelho sobre fundo
    claro e escuro fica ilegível num dos dois temas. */
 .tela-frota .fr-itens li.vencida{border-left-color:var(--red,#c0392b);}
@@ -3528,24 +3528,24 @@ onMounted(async () => {
    li`/`.fr-copia-motivo`/`.fr-outros-ident`/`.fr-conferencia` logo abaixo —
    não tire um sem o outro. */
 .tela-frota .fr-item-txt{font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
-.tela-frota .fr-item-km{font-family:var(--fonte-dados);font-size:12.5px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;}
+.tela-frota .fr-item-km{font-family:var(--fonte-dados);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;}
 .tela-frota .fr-pedido.desligado{opacity:.5;}
-.tela-frota .fr-grupo{margin:6px 0 2px;font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--accent);}
+.tela-frota .fr-grupo{margin:6px 0 2px;font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--accent);}
 .tela-frota .fr-dupla{display:grid;grid-template-columns:1fr;gap:12px;}
 @media(min-width:560px){ .tela-frota .fr-dupla{grid-template-columns:1fr 1fr;} }
 .tela-frota .fr-hist{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;}
-.tela-frota .fr-hist li{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;background:var(--surface2,var(--surface));border:1px solid var(--border);border-radius:9px;font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);}
+.tela-frota .fr-hist li{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;background:var(--surface2,var(--surface));border:1px solid var(--border);border-radius:9px;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));color:var(--muted);}
 .tela-frota .fr-hist .fr-item-txt{flex:1;min-width:0;}
-.tela-frota .fr-mini{appearance:none;border:1px solid var(--border);background:none;color:var(--muted);border-radius:7px;width:28px;height:28px;font-size:12px;cursor:pointer;flex:0 0 auto;}
+.tela-frota .fr-mini{appearance:none;border:1px solid var(--border);background:none;color:var(--muted);border-radius:7px;width:28px;height:28px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));cursor:pointer;flex:0 0 auto;}
 .tela-frota .fr-mini:hover{border-color:var(--red,#c0392b);color:var(--red,#c0392b);}
 .tela-frota .fr-selo.espera{background:color-mix(in srgb,var(--orange,#d97706) 18%,transparent);color:var(--orange,#d97706);}
 .tela-frota .fr-selo.boa{background:color-mix(in srgb,var(--green,#16a34a) 18%,transparent);color:var(--green,#16a34a);}
 .tela-frota .fr-selo.ruim{background:color-mix(in srgb,var(--red,#c0392b) 16%,transparent);color:var(--red,#c0392b);}
 .tela-frota .fr-selo.neutra{background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--muted);}
-.tela-frota .fr-resumo{display:flex;align-items:center;gap:7px;padding:10px 14px;font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);}
+.tela-frota .fr-resumo{display:flex;align-items:center;gap:7px;padding:10px 14px;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));color:var(--muted);}
 .tela-frota .fr-resumo strong{color:var(--text);font-variant-numeric:tabular-nums;}
 .tela-frota .fr-sep{color:var(--muted);}
-.tela-frota .fr-vazio,.tela-frota .fr-erro{padding:40px 20px;text-align:center;font-family:var(--fonte-principal);font-size:13px;color:var(--muted);}
+.tela-frota .fr-vazio,.tela-frota .fr-erro{padding:40px 20px;text-align:center;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--muted);}
 .tela-frota .fr-erro{color:var(--red,#c0392b);}
 
 /* O editor da lista de checklist (F8) só empresta o espaçamento lateral das
@@ -3558,22 +3558,22 @@ onMounted(async () => {
 .tela-frota .fr-card.parado{border-left-color:var(--muted);opacity:.72;}
 .tela-frota .fr-card-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
 .tela-frota .fr-card-ident{display:flex;flex-direction:column;gap:2px;min-width:0;}
-.tela-frota .fr-card-nome{font-family:var(--fonte-principal);font-size:13.5px;font-weight:700;color:var(--text);}
-.tela-frota .fr-placa{font-family:var(--fonte-dados);font-size:11px;letter-spacing:1.5px;color:var(--muted);}
-.tela-frota .fr-selo{font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:.4px;padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--text);white-space:nowrap;}
+.tela-frota .fr-card-nome{font-family:var(--fonte-principal);font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));font-weight:700;color:var(--text);}
+.tela-frota .fr-placa{font-family:var(--fonte-dados);font-size:max(9px, calc(11px * var(--escala-texto, 1)));letter-spacing:1.5px;color:var(--muted);}
+.tela-frota .fr-selo{font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.4px;padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--text);white-space:nowrap;}
 .tela-frota .fr-selo.livre{background:color-mix(in srgb,var(--green,#16a34a) 18%,transparent);color:var(--green,#16a34a);}
 .tela-frota .fr-selo.rua{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent);}
 
 .tela-frota .fr-dados{display:flex;gap:26px;margin-top:12px;flex-wrap:wrap;}
 .tela-frota .fr-dado{display:flex;flex-direction:column;gap:1px;}
-.tela-frota .fr-dado-lab{font-family:var(--fonte-principal);font-size:9.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);}
-.tela-frota .fr-dado-val{font-family:var(--fonte-dados);font-size:13px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;}
+.tela-frota .fr-dado-lab{font-family:var(--fonte-principal);font-size:max(9px, calc(9.5px * var(--escala-texto, 1)));letter-spacing:.8px;text-transform:uppercase;color:var(--muted);}
+.tela-frota .fr-dado-val{font-family:var(--fonte-dados);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;}
 .tela-frota .fr-dado-val.alerta{color:var(--orange,#d97706);}
 .tela-frota .fr-acoes{display:flex;gap:8px;margin-top:14px;}
 
 /* 44px de altura em tudo que se toca: é o alvo que o dedo acerta. Esta
    ferramenta é usada em pé, no estacionamento, com uma mão só. */
-.tela-frota .fr-btn{flex:1 1 auto;min-height:44px;font-family:var(--fonte-principal);font-size:13.5px;font-weight:600;padding:11px 16px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);cursor:pointer;touch-action:manipulation;}
+.tela-frota .fr-btn{flex:1 1 auto;min-height:44px;font-family:var(--fonte-principal);font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));font-weight:600;padding:11px 16px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);cursor:pointer;touch-action:manipulation;}
 /* Verde do WhatsApp, que e como as pessoas reconhecem o botao sem ler. */
 .tela-frota .fr-zap{display:inline-flex;align-items:center;justify-content:center;gap:7px;text-decoration:none;border-color:#25d366;color:#128c4a;}
 .tela-frota .fr-zap:hover{background:color-mix(in srgb,#25d366 12%,transparent);}
@@ -3595,7 +3595,7 @@ onMounted(async () => {
 /* flex:1 pra empurrar o "?" e o "✕" pro canto direito, juntos — sem isso os
    três filhos do topo (título, ajuda, fechar) ficariam espaçados igualmente
    pelo justify-content:space-between de cima, com o "?" preso no meio. */
-.tela-frota .fr-ficha-titulo{flex:1;min-width:0;font-family:var(--fonte-principal);font-size:12.5px;font-weight:700;letter-spacing:.6px;color:var(--text);}
+.tela-frota .fr-ficha-titulo{flex:1;min-width:0;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.6px;color:var(--text);}
 /* O ✕ dos 6 modais. 40px na base (celular) porque o PADRÃO manda: "botão de
    fechar com 40px de alvo" e "dedo não acerta menos que isso". Estava em 34px,
    e errar o ✕ num modal que trava a rolagem do fundo é ficar preso na ficha.
@@ -3604,7 +3604,7 @@ onMounted(async () => {
    com 10px de gap, e engordar os dois no desktop deixaria eles encostados.
    ⚠️ O teste padrao-da-central.test.mjs NÃO enxerga isto: ele lê `style=` no
    HTML, e a medida mora aqui, em classe. Conferido no navegador. */
-.tela-frota .fr-fechar{appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:9px;width:40px;height:40px;font-size:15px;cursor:pointer;flex:0 0 auto;touch-action:manipulation;}
+.tela-frota .fr-fechar{appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:9px;width:40px;height:40px;font-size:max(9px, calc(15px * var(--escala-texto, 1)));cursor:pointer;flex:0 0 auto;touch-action:manipulation;}
 /* O "?" de dentro do modal, que abre o passeio pelos campos DELE — mesmo
    desenho redondo do "?" da barra de topo (pat-btn-ajuda no Patrimônio), só
    que com as classes fr- desta tela. */
@@ -3614,7 +3614,7 @@ onMounted(async () => {
    desktop volta a 24px (ver o bloco min-width:900px): lá o ponteiro acerta
    24px de sobra, e o "?" fica ao lado do ✕ com só 10px de gap — 40px no
    desktop deixaria os dois quase encostados. */
-.tela-frota .fr-btn-ajuda{width:40px;height:40px;flex:0 0 auto;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:var(--fonte-principal);font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation;}
+.tela-frota .fr-btn-ajuda{width:40px;height:40px;flex:0 0 auto;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:var(--fonte-principal);font-size:max(9px, calc(14px * var(--escala-texto, 1)));font-weight:700;cursor:pointer;touch-action:manipulation;}
 .tela-frota .fr-btn-ajuda:hover{color:var(--accent);border-color:var(--accent);}
 /* O corpo rola SÓ na vertical. `overflow-y:auto` com o eixo x em `visible` faz
    o x virar `auto` sozinho pela regra do CSS — foi assim que a ficha ficou
@@ -3634,18 +3634,18 @@ onMounted(async () => {
    aviso do tamanho de um parágrafo de aviso de erro. Cor de fundo por
    color-mix (nunca hex): mistura o token com a superfície, então os dois
    temas ficam legíveis sem precisar de uma cor "clara" e uma "escura" à mão. */
-.tela-frota .fr-tutorial-fixo{margin:0;padding:10px 12px;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.6;color:var(--text);background:color-mix(in srgb,var(--accent) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 22%,var(--surface));border-radius:10px;}
+.tela-frota .fr-tutorial-fixo{margin:0;padding:10px 12px;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.6;color:var(--text);background:color-mix(in srgb,var(--accent) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 22%,var(--surface));border-radius:10px;}
 .tela-frota .fr-campo{display:flex;flex-direction:column;gap:5px;}
-.tela-frota .fr-lab{font-family:var(--fonte-principal);font-size:10.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);}
+.tela-frota .fr-lab{font-family:var(--fonte-principal);font-size:max(9px, calc(10.5px * var(--escala-texto, 1)));letter-spacing:.8px;text-transform:uppercase;color:var(--muted);}
 /* 16px nos campos: abaixo disso o iPhone dá zoom sozinho ao tocar. */
-.tela-frota .fr-campo input,.tela-frota .fr-campo select{font-family:var(--fonte-principal);font-size:16px;padding:11px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);width:100%;box-sizing:border-box;}
+.tela-frota .fr-campo input,.tela-frota .fr-campo select{font-family:var(--fonte-principal);font-size:max(16px, calc(16px * var(--escala-texto, 1)));padding:11px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);width:100%;box-sizing:border-box;}
 /* Mesmo motivo do `.fr-item-txt` lá em cima: este span mostra
    `hodometro_justificativa`/`anomalias`, texto digitado por gente dentro de um
    `.fr-ficha-corpo` que corta em `overflow-x:clip` (Tarefa 4/B3). Sem
    `overflow-wrap`, uma palavra comprida sem espaço sumiria na borda sem
    avisar — não tire este `anywhere` sem também tirar o `clip` de cima. */
-.tela-frota .fr-ajuda{font-family:var(--fonte-principal);font-size:11.5px;color:var(--muted);overflow-wrap:anywhere;}
-.tela-frota .fr-problemas{margin:0;padding:11px 13px 11px 30px;background:color-mix(in srgb,var(--orange,#d97706) 12%,transparent);border:1px solid color-mix(in srgb,var(--orange,#d97706) 34%,transparent);border-radius:10px;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.55;color:var(--text);}
+.tela-frota .fr-ajuda{font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);overflow-wrap:anywhere;}
+.tela-frota .fr-problemas{margin:0;padding:11px 13px 11px 30px;background:color-mix(in srgb,var(--orange,#d97706) 12%,transparent);border:1px solid color-mix(in srgb,var(--orange,#d97706) 34%,transparent);border-radius:10px;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.55;color:var(--text);}
 .tela-frota .fr-ficha-rodape{display:flex;gap:9px;padding:13px 15px;border-top:1px solid var(--border);}
 
 @media(min-width:900px){
@@ -3654,7 +3654,7 @@ onMounted(async () => {
   .tela-frota .fr-lista{padding:4px 24px 40px;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}
   .tela-frota .fr-checklist-editor{padding:4px 24px 40px;}
   /* Ponteiro do mouse acerta 24px sem esforço — ver o comentário no fr-btn-ajuda. */
-  .tela-frota .fr-btn-ajuda{width:24px;height:24px;font-size:12px;}
+  .tela-frota .fr-btn-ajuda{width:24px;height:24px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));}
   /* E o ✕ volta pra 34px aqui pelo mesmo motivo: no computador o ponteiro
      acerta 34px de sobra, e os dois em 40px ficariam quase encostados com só
      10px de gap entre eles. */

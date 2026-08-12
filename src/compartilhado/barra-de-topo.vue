@@ -69,11 +69,11 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 /* Sem `white-space:nowrap`, sem `text-overflow:ellipsis`. Foi essa dupla que
    apagou o caminho do Patrimônio na primeira versão. `word-break` cuida do
    nome comprido sem espaço, que senão vazaria a barra. */
-.bt-titulo{font-family:var(--fonte-principal);font-size:13px;font-weight:600;letter-spacing:1.6px;text-transform:uppercase;color:var(--text);line-height:1.25;overflow-wrap:anywhere;}
-.bt-sub{font-family:var(--fonte-principal);font-size:11px;color:var(--muted);line-height:1.3;overflow-wrap:anywhere;}
+.bt-titulo{font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;letter-spacing:1.6px;text-transform:uppercase;color:var(--text);line-height:1.25;overflow-wrap:anywhere;}
+.bt-sub{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);line-height:1.3;overflow-wrap:anywhere;}
 
 .bt-dir{display:flex;align-items:center;gap:8px;flex:0 0 auto;}
-.bt-voltar{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--muted);font-family:var(--fonte-principal);font-size:11px;font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:1.2px;white-space:nowrap;padding:6px 2px;touch-action:manipulation;}
+.bt-voltar{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--muted);font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:1.2px;white-space:nowrap;padding:6px 2px;touch-action:manipulation;}
 .bt-voltar:hover{color:var(--text);}
 /* A regra global manda .rbv-logo com 52px, que é o tamanho da HOME. */
 .bt-barra .bt-logo{height:22px;width:auto;flex:0 0 auto;}
@@ -81,8 +81,8 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 @media(min-width:768px){
   .bt-barra{padding:12px 24px;}
   .bt-barra .bt-logo{height:26px;}
-  .bt-titulo{font-size:14px;}
-  .bt-sub{font-size:11.5px;}
+  .bt-titulo{font-size:max(9px, calc(14px * var(--escala-texto, 1)));}
+  .bt-sub{font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));}
 }
 
 @media(max-width:640px){
@@ -94,8 +94,8 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
      "Vessel Conchal > Fábrica > Escritório Administrativo" isso era uma linha
      inteira a mais. É economia de espaço que NÃO custa informação, que é
      exatamente o tipo que vale fazer. */
-  .bt-titulo{font-size:12.5px;letter-spacing:.2px;text-transform:none;font-weight:700;}
-  .bt-sub{font-size:10.5px;}
+  .bt-titulo{font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));letter-spacing:.2px;text-transform:none;font-weight:700;}
+  .bt-sub{font-size:max(9px, calc(10.5px * var(--escala-texto, 1)));}
   /* A própria linha de ações também quebra: com três botões numa tela de
      320px eles não cabem lado a lado, e como cada rótulo é `nowrap` (pra não
      partir "Nova peça" no meio) o que sobrava vazava a tela. Quebrar é a

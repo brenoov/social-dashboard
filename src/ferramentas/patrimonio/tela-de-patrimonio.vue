@@ -1905,99 +1905,99 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 /* Sem reserva de espaço: o avatar é um filho de verdade desta barra agora. */
 .tela-patrimonio .pat-topbar .rbv-logo{height:22px;width:auto;flex-shrink:0;}
 .tela-patrimonio .pat-topbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
-.tela-patrimonio .pat-back{font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);cursor:pointer;background:none;border:1px solid var(--accent-mid);border-radius:5px;padding:6px 10px;display:flex;align-items:center;gap:5px;white-space:nowrap;touch-action:manipulation;}
-.tela-patrimonio .pat-title{font-family:var(--fonte-principal);font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text);flex:1;min-width:0;}
+.tela-patrimonio .pat-back{font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);cursor:pointer;background:none;border:1px solid var(--accent-mid);border-radius:5px;padding:6px 10px;display:flex;align-items:center;gap:5px;white-space:nowrap;touch-action:manipulation;}
+.tela-patrimonio .pat-title{font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text);flex:1;min-width:0;}
 /* Contagem e ações na mesma linha: o número puxa pra esquerda, os botões pra
    direita. Antes eram duas faixas empilhadas, comendo altura à toa no celular. */
 .tela-patrimonio .pat-linha-topo{display:flex;align-items:center;gap:10px;padding:10px 14px 2px;}
 .tela-patrimonio .pat-acoes{display:flex;gap:8px;flex-shrink:0;}
-.tela-patrimonio .pat-resumo-onde{font-size:11px;color:var(--muted);}
-.tela-patrimonio .pat-ajuda-q{width:16px;height:16px;padding:0;border-radius:50%;border:1px solid var(--border);background:none;color:var(--muted);font-size:9px;font-weight:700;cursor:pointer;vertical-align:1px;}
+.tela-patrimonio .pat-resumo-onde{font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);}
+.tela-patrimonio .pat-ajuda-q{width:16px;height:16px;padding:0;border-radius:50%;border:1px solid var(--border);background:none;color:var(--muted);font-size:max(9px, calc(9px * var(--escala-texto, 1)));font-weight:700;cursor:pointer;vertical-align:1px;}
 .tela-patrimonio .pat-ajuda-q:hover{color:var(--accent);border-color:var(--accent);}
 /* A explicação nasce colada no campo que a pessoa tocou — antes ela aparecia
    sempre no mesmo lugar, lá no fim do formulário, e quem tocava no "?" do
    número da etiqueta não via nada acontecer. A setinha em cima amarra
    visualmente o texto ao campo de onde ele veio. */
-.tela-patrimonio .pat-ajuda-txt{position:relative;font-family:var(--fonte-principal);font-size:12px;line-height:1.65;color:var(--text);background:var(--accent-light);border:1px solid var(--accent-mid);border-radius:8px;padding:10px 12px;margin-top:-4px;}
+.tela-patrimonio .pat-ajuda-txt{position:relative;font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));line-height:1.65;color:var(--text);background:var(--accent-light);border:1px solid var(--accent-mid);border-radius:8px;padding:10px 12px;margin-top:-4px;}
 .tela-patrimonio .pat-ajuda-txt::before{content:'';position:absolute;top:-6px;left:16px;width:10px;height:10px;background:var(--accent-light);border-left:1px solid var(--accent-mid);border-top:1px solid var(--accent-mid);transform:rotate(45deg);}
-.tela-patrimonio .pat-btn-ajuda{width:24px;height:24px;flex-shrink:0;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:var(--fonte-principal);font-size:12px;font-weight:700;cursor:pointer;touch-action:manipulation;}
+.tela-patrimonio .pat-btn-ajuda{width:24px;height:24px;flex-shrink:0;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));font-weight:700;cursor:pointer;touch-action:manipulation;}
 .tela-patrimonio .pat-btn-ajuda:hover{color:var(--accent);border-color:var(--accent);}
-.tela-patrimonio .pat-btn-novo{width:46px;height:46px;flex-shrink:0;border-radius:10px;border:none;background:var(--accent);color:var(--sobre-cor);font-size:26px;line-height:1;cursor:pointer;touch-action:manipulation;}
+.tela-patrimonio .pat-btn-novo{width:46px;height:46px;flex-shrink:0;border-radius:10px;border:none;background:var(--accent);color:var(--sobre-cor);font-size:max(16px, calc(26px * var(--escala-texto, 1)));line-height:1;cursor:pointer;touch-action:manipulation;}
 
 .tela-patrimonio .pat-resumo{flex:1;min-width:0;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-family:var(--fonte-principal);}
-.tela-patrimonio .pat-resumo-qtd{font-size:22px;font-weight:700;color:var(--text);}
-.tela-patrimonio .pat-resumo-lab,.tela-patrimonio .pat-resumo-sep{font-size:12px;color:var(--muted);}
-.tela-patrimonio .pat-resumo-total{font-size:15px;font-weight:600;color:var(--accent);}
+.tela-patrimonio .pat-resumo-qtd{font-size:max(16px, calc(22px * var(--escala-texto, 1)));font-weight:700;color:var(--text);}
+.tela-patrimonio .pat-resumo-lab,.tela-patrimonio .pat-resumo-sep{font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);}
+.tela-patrimonio .pat-resumo-total{font-size:max(9px, calc(15px * var(--escala-texto, 1)));font-weight:600;color:var(--accent);}
 
 .tela-patrimonio .pat-busca-wrap{padding:8px 14px;display:flex;align-items:center;gap:8px;}
 /* 44px de lado: e o alvo minimo que um dedo acerta sem errar. */
 .tela-patrimonio .pat-btn-camera{flex:0 0 auto;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);cursor:pointer;touch-action:manipulation;}
 .tela-patrimonio .pat-btn-camera:hover{border-color:var(--accent);color:var(--accent);}
-.tela-patrimonio .pat-aviso-leitura{margin:0;padding:0 14px 8px;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.5;color:var(--orange,#b26a00);}
+.tela-patrimonio .pat-aviso-leitura{margin:0;padding:0 14px 8px;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.5;color:var(--orange,#b26a00);}
 
 /* 16px obrigatório: abaixo disso o iOS dá zoom sozinho ao focar o campo. */
-.tela-patrimonio .pat-busca{width:100%;font-size:16px;font-family:var(--fonte-principal);padding:11px 13px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);}
+.tela-patrimonio .pat-busca{width:100%;font-size:max(16px, calc(16px * var(--escala-texto, 1)));font-family:var(--fonte-principal);padding:11px 13px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);}
 
 .tela-patrimonio .pat-filtros{display:flex;gap:8px;padding:4px 14px 12px;white-space:nowrap;}
-.tela-patrimonio .pat-select{font-size:16px;font-family:var(--fonte-principal);padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);flex-shrink:0;max-width:190px;}
-.tela-patrimonio .pat-chip{font-size:12px;font-family:var(--fonte-principal);font-weight:600;padding:9px 14px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);cursor:pointer;flex-shrink:0;touch-action:manipulation;}
+.tela-patrimonio .pat-select{font-size:max(16px, calc(16px * var(--escala-texto, 1)));font-family:var(--fonte-principal);padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);flex-shrink:0;max-width:190px;}
+.tela-patrimonio .pat-chip{font-size:max(9px, calc(12px * var(--escala-texto, 1)));font-family:var(--fonte-principal);font-weight:600;padding:9px 14px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);cursor:pointer;flex-shrink:0;touch-action:manipulation;}
 .tela-patrimonio .pat-chip.ativo{background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
 
 .tela-patrimonio .pat-body{flex:1;padding:0 14px 40px;}
 .tela-patrimonio.com-barra .pat-body{padding-bottom:100px;}
-.tela-patrimonio .pat-aviso{padding:26px 4px;color:var(--muted);font-family:var(--fonte-principal);font-size:13px;}
+.tela-patrimonio .pat-aviso{padding:26px 4px;color:var(--muted);font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));}
 .tela-patrimonio .pat-aviso-erro{color:var(--red);}
 
 .tela-patrimonio .pat-vazio{display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px;padding:48px 18px;color:var(--muted);}
-.tela-patrimonio .pat-vazio h3{font-family:var(--fonte-principal);font-size:16px;font-weight:600;color:var(--text);}
-.tela-patrimonio .pat-vazio p{font-family:var(--fonte-principal);font-size:13px;line-height:1.7;max-width:420px;}
+.tela-patrimonio .pat-vazio h3{font-family:var(--fonte-principal);font-size:max(16px, calc(16px * var(--escala-texto, 1)));font-weight:600;color:var(--text);}
+.tela-patrimonio .pat-vazio p{font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));line-height:1.7;max-width:420px;}
 
-.tela-patrimonio .pat-btn{font-family:var(--fonte-principal);font-size:13px;font-weight:600;padding:11px 18px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);cursor:pointer;touch-action:manipulation;}
+.tela-patrimonio .pat-btn{font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;padding:11px 18px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);cursor:pointer;touch-action:manipulation;}
 .tela-patrimonio .pat-btn.primario{background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
 
 /* ---- árvore: trilha e pastas de nível ---- */
 .tela-patrimonio .pat-trilha{display:flex;align-items:center;gap:5px;padding:0 14px 8px;white-space:nowrap;}
-.tela-patrimonio .pat-trilha-item{font-family:var(--fonte-principal);font-size:12px;font-weight:600;color:var(--accent);background:none;border:none;padding:4px 2px;cursor:pointer;flex-shrink:0;touch-action:manipulation;}
+.tela-patrimonio .pat-trilha-item{font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));font-weight:600;color:var(--accent);background:none;border:none;padding:4px 2px;cursor:pointer;flex-shrink:0;touch-action:manipulation;}
 .tela-patrimonio .pat-trilha-item.atual{color:var(--muted);cursor:default;}
-.tela-patrimonio .pat-trilha-sep{color:var(--muted);font-size:12px;flex-shrink:0;}
+.tela-patrimonio .pat-trilha-sep{color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)));flex-shrink:0;}
 
 .tela-patrimonio .pat-grupos{display:flex;flex-direction:column;gap:8px;}
 .tela-patrimonio .pat-grupo{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;font-family:var(--fonte-principal);color:var(--text);touch-action:manipulation;}
 .tela-patrimonio .pat-grupo:active{border-color:var(--accent);}
 .tela-patrimonio .pat-grupo-ico{width:34px;height:34px;flex-shrink:0;border-radius:9px;background:var(--surface2);color:var(--accent);display:flex;align-items:center;justify-content:center;}
 .tela-patrimonio .pat-grupo-ico.orfao{color:var(--orange);}
-.tela-patrimonio .pat-grupo-nome{flex:1;min-width:0;font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.tela-patrimonio .pat-grupo-num{font-size:11px;color:var(--muted);text-align:right;flex-shrink:0;}
+.tela-patrimonio .pat-grupo-nome{flex:1;min-width:0;font-size:max(9px, calc(15px * var(--escala-texto, 1)));font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tela-patrimonio .pat-grupo-num{font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);text-align:right;flex-shrink:0;}
 .tela-patrimonio .pat-grupo-num em{font-style:normal;display:block;}
-.tela-patrimonio .pat-grupo-seta{color:var(--muted);font-size:17px;flex-shrink:0;}
+.tela-patrimonio .pat-grupo-seta{color:var(--muted);font-size:max(16px, calc(17px * var(--escala-texto, 1)));flex-shrink:0;}
 
-.tela-patrimonio .pat-ver-todos{width:100%;margin-top:10px;font-family:var(--fonte-principal);font-size:12px;font-weight:600;color:var(--accent);background:none;border:1px dashed var(--border);border-radius:10px;padding:11px;cursor:pointer;touch-action:manipulation;}
+.tela-patrimonio .pat-ver-todos{width:100%;margin-top:10px;font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));font-weight:600;color:var(--accent);background:none;border:1px dashed var(--border);border-radius:10px;padding:11px;cursor:pointer;touch-action:manipulation;}
 
 /* ---- selecao em massa ---- */
 .tela-patrimonio .pat-btn-sel{width:46px;height:46px;flex-shrink:0;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation;}
 .tela-patrimonio .pat-btn-sel.ativo{background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
 .tela-patrimonio .pat-selbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:0 0 12px;}
-.tela-patrimonio .pat-selbar-info{font-family:var(--fonte-principal);font-size:11px;color:var(--muted);}
-.tela-patrimonio .pat-check-caixa{width:22px;height:22px;flex-shrink:0;border:2px solid var(--border);border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;line-height:1;}
+.tela-patrimonio .pat-selbar-info{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);}
+.tela-patrimonio .pat-check-caixa{width:22px;height:22px;flex-shrink:0;border:2px solid var(--border);border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:700;color:#fff;line-height:1;}
 .tela-patrimonio .pat-card.marcado{border-color:var(--accent-forte);background:var(--accent-light);}
 .tela-patrimonio .pat-card.marcado .pat-check-caixa,
 .tela-patrimonio .pat-tabela tbody tr.marcado .pat-check-caixa{background:var(--accent);border-color:var(--accent);}
 .tela-patrimonio .pat-tabela tbody tr.marcado{background:var(--accent-light);}
 /* A barra fica colada embaixo: e onde o polegar alcanca no celular. */
 .tela-patrimonio .pat-massa-barra{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;align-items:center;gap:12px;padding:12px 14px calc(12px + env(safe-area-inset-bottom,0px));background:var(--surface);border-top:1px solid var(--border);box-shadow:0 -6px 20px rgba(0,0,0,.10);}
-.tela-patrimonio .pat-massa-conta{flex:1;min-width:0;font-family:var(--fonte-principal);font-size:13px;color:var(--text);}
+.tela-patrimonio .pat-massa-conta{flex:1;min-width:0;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--text);}
 .tela-patrimonio .pat-massa-conta em{font-style:normal;color:var(--muted);}
-.tela-patrimonio .pat-massa-vazia{font-family:var(--fonte-principal);font-size:12px;color:var(--muted);text-align:center;padding:6px;}
+.tela-patrimonio .pat-massa-vazia{font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);text-align:center;padding:6px;}
 
 /* ---- visoes: planilha e resumo ---- */
 .tela-patrimonio .pat-visoes{display:flex;gap:8px;padding:0 14px 8px;white-space:nowrap;}
-.tela-patrimonio .pat-plan-topo{font-family:var(--fonte-principal);font-size:12px;color:var(--muted);padding:2px 0 10px;}
-.tela-patrimonio .pat-plan-dica{display:block;font-size:11px;opacity:.8;margin-top:2px;}
+.tela-patrimonio .pat-plan-topo{font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);padding:2px 0 10px;}
+.tela-patrimonio .pat-plan-dica{display:block;font-size:max(9px, calc(11px * var(--escala-texto, 1)));opacity:.8;margin-top:2px;}
 /* A planilha ROLA de lado, como planilha rola — 14 colunas nao cabem em tela
    nenhuma, e espremer viraria papa. A rolagem fica no wrap, nunca na pagina. */
 .tela-patrimonio .pat-plan-wrap{border:1px solid var(--border);border-radius:10px;background:var(--surface);}
-.tela-patrimonio .pat-plan{border-collapse:collapse;font-family:var(--fonte-principal);font-size:12px;white-space:nowrap;}
-.tela-patrimonio .pat-plan th{position:sticky;top:0;background:var(--surface2);text-align:left;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);padding:9px 10px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;}
+.tela-patrimonio .pat-plan{border-collapse:collapse;font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));white-space:nowrap;}
+.tela-patrimonio .pat-plan th{position:sticky;top:0;background:var(--surface2);text-align:left;font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);padding:9px 10px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;}
 .tela-patrimonio .pat-plan th.ativa{color:var(--accent);}
 .tela-patrimonio .pat-plan th.num,.tela-patrimonio .pat-plan td.num{text-align:right;}
 .tela-patrimonio .pat-plan td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text);max-width:260px;overflow:hidden;text-overflow:ellipsis;}
@@ -2006,44 +2006,44 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 
 .tela-patrimonio .pat-kpis{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:14px;}
 .tela-patrimonio .pat-kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:3px;font-family:var(--fonte-principal);}
-.tela-patrimonio .pat-kpi-lab{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);}
-.tela-patrimonio .pat-kpi-val{font-size:21px;font-weight:700;color:var(--text);}
-.tela-patrimonio .pat-kpi-fine{font-size:11px;color:var(--muted);}
+.tela-patrimonio .pat-kpi-lab{font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);}
+.tela-patrimonio .pat-kpi-val{font-size:max(16px, calc(21px * var(--escala-texto, 1)));font-weight:700;color:var(--text);}
+.tela-patrimonio .pat-kpi-fine{font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);}
 .tela-patrimonio .pat-eixos{display:flex;gap:8px;padding-bottom:12px;white-space:nowrap;}
 .tela-patrimonio .pat-rank{display:flex;flex-direction:column;gap:12px;}
 .tela-patrimonio .pat-rank-linha{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-family:var(--fonte-principal);}
 .tela-patrimonio .pat-rank-topo{display:flex;gap:10px;align-items:baseline;}
-.tela-patrimonio .pat-rank-nome{flex:1;min-width:0;font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.tela-patrimonio .pat-rank-val{font-size:13px;font-weight:700;color:var(--accent);white-space:nowrap;}
+.tela-patrimonio .pat-rank-nome{flex:1;min-width:0;font-size:max(9px, calc(14px * var(--escala-texto, 1)));font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tela-patrimonio .pat-rank-val{font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:700;color:var(--accent);white-space:nowrap;}
 .tela-patrimonio .pat-rank-barra{height:6px;border-radius:999px;background:var(--surface2);margin:8px 0 6px;overflow:hidden;}
 .tela-patrimonio .pat-rank-barra i{display:block;height:100%;background:var(--accent);border-radius:999px;}
-.tela-patrimonio .pat-rank-pe{font-size:11px;color:var(--muted);}
+.tela-patrimonio .pat-rank-pe{font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);}
 
 /* ---- etiquetas ---- */
-.tela-patrimonio .pat-secao-num{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:18px 0 8px;}
+.tela-patrimonio .pat-secao-num{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:18px 0 8px;}
 .tela-patrimonio .pat-faixas{display:flex;flex-wrap:wrap;gap:7px;}
-.tela-patrimonio .pat-faixa{font-family:var(--fonte-principal);font-size:12px;font-weight:600;padding:6px 11px;border-radius:8px;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.tela-patrimonio .pat-faixa{font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));font-weight:600;padding:6px 11px;border-radius:8px;font-variant-numeric:tabular-nums;white-space:nowrap;}
 .tela-patrimonio .pat-faixa.livre{background:color-mix(in srgb,var(--green) 12%,var(--surface));color:color-mix(in srgb,var(--green) 75%,var(--text));}
 .tela-patrimonio .pat-faixa.usada{background:var(--surface2);color:var(--muted);}
 .tela-patrimonio .pat-faixa.fora{background:color-mix(in srgb,var(--orange) 12%,var(--surface));color:color-mix(in srgb,var(--orange) 75%,var(--text));}
-.tela-patrimonio .pat-faixa-vazio{font-family:var(--fonte-principal);font-size:12px;color:var(--muted);}
+.tela-patrimonio .pat-faixa-vazio{font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);}
 .tela-patrimonio .pat-btn-mais{width:100%;margin-top:20px;}
 
 /* Selo de recém-cadastrado: verde, pequeno, sem competir com a situação. */
-.tela-patrimonio .pat-selo-novo{flex-shrink:0;margin-left:6px;background:var(--green);color:var(--sobre-cor);font-family:var(--fonte-principal);font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:999px;white-space:nowrap;vertical-align:1px;}
+.tela-patrimonio .pat-selo-novo{flex-shrink:0;margin-left:6px;background:var(--green);color:var(--sobre-cor);font-family:var(--fonte-principal);font-size:max(9px, calc(9px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:999px;white-space:nowrap;vertical-align:1px;}
 
 .tela-patrimonio .pat-cards{display:flex;flex-direction:column;gap:10px;}
 .tela-patrimonio .pat-card{display:flex;flex-direction:column;gap:6px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;font-family:var(--fonte-principal);color:var(--text);touch-action:manipulation;}
 .tela-patrimonio .pat-card:active{border-color:var(--accent);}
 .tela-patrimonio .pat-card-topo{display:flex;align-items:center;gap:8px;min-width:0;}
-.tela-patrimonio .pat-card-nome{font-size:15px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.tela-patrimonio .pat-card-meta{font-size:12px;color:var(--muted);display:flex;gap:5px;}
-.tela-patrimonio .pat-card-linha{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);}
+.tela-patrimonio .pat-card-nome{font-size:max(9px, calc(15px * var(--escala-texto, 1)));font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tela-patrimonio .pat-card-meta{font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);display:flex;gap:5px;}
+.tela-patrimonio .pat-card-linha{display:flex;align-items:center;gap:6px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);}
 
 /* nowrap OBRIGATORIO: 'EM MANUTENCAO' em caixa alta com espacamento nao cabe
    na largura que sobra e quebra DENTRO da pilula, virando um bloco alto em vez
    de uma pilula. Quem cede espaco e o nome do bem (que tem ellipsis), nunca o badge. */
-.tela-patrimonio .pat-pill{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:4px 9px;border-radius:999px;flex-shrink:0;white-space:nowrap;line-height:1.4;}
+.tela-patrimonio .pat-pill{font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:4px 9px;border-radius:999px;flex-shrink:0;white-space:nowrap;line-height:1.4;}
 .tela-patrimonio .pat-pill-uso{background:color-mix(in srgb,var(--green) 12%,var(--surface));color:color-mix(in srgb,var(--green) 75%,var(--text));}
 .tela-patrimonio .pat-pill-estoque{background:color-mix(in srgb,var(--accent) 12%,var(--surface));color:color-mix(in srgb,var(--accent) 75%,var(--text));}
 .tela-patrimonio .pat-pill-manutencao{background:color-mix(in srgb,var(--orange) 12%,var(--surface));color:color-mix(in srgb,var(--orange) 75%,var(--text));}
@@ -2068,11 +2068,11 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 /* 34px aqui, 40px no celular (bloco max-width:640px). Este arquivo é
    desktop-first, então o tamanho do dedo entra na media query — o contrário da
    Frota, que é mobile-first. Ver o comentário lá embaixo. */
-.tela-patrimonio .pat-ficha-fechar{width:34px;height:34px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);font-size:15px;cursor:pointer;touch-action:manipulation;}
+.tela-patrimonio .pat-ficha-fechar{width:34px;height:34px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);font-size:max(9px, calc(15px * var(--escala-texto, 1)));cursor:pointer;touch-action:manipulation;}
 /* flex:1 empurra o "?" de dentro do modal pro canto direito, junto do X —
    sem isto os 3 filhos do topo (fechar, título, ajuda) ficariam agrupados à
    esquerda, com um vão vazio sobrando à direita. */
-.tela-patrimonio .pat-ficha-titulo{flex:1;min-width:0;font-family:var(--fonte-principal);font-size:13px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);overflow-wrap:anywhere;}
+.tela-patrimonio .pat-ficha-titulo{flex:1;min-width:0;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);overflow-wrap:anywhere;}
 /* O corpo rola SÓ na vertical. Um eixo em `auto` promove o outro a `auto` pela
    regra do CSS, e foi assim que este modal ficou arrastável pros lados sem
    ninguém pedir — o dono relatou em 12/08: "o modal na gestão de patrimônio eu
@@ -2087,9 +2087,9 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-patrimonio .pat-ficha-pe{display:flex;gap:8px;justify-content:flex-end;padding:12px 14px;border-top:1px solid var(--border);background:var(--surface);}
 
 .tela-patrimonio .pat-campo{display:flex;flex-direction:column;gap:5px;font-family:var(--fonte-principal);}
-.tela-patrimonio .pat-campo > span{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+.tela-patrimonio .pat-campo > span{font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
 .tela-patrimonio .pat-campo em{font-style:normal;text-transform:none;letter-spacing:0;font-weight:400;}
-.tela-patrimonio .pat-campo input,.tela-patrimonio .pat-campo select,.tela-patrimonio .pat-campo textarea{font-size:16px;font-family:var(--fonte-principal);padding:11px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);width:100%;}
+.tela-patrimonio .pat-campo input,.tela-patrimonio .pat-campo select,.tela-patrimonio .pat-campo textarea{font-size:max(16px, calc(16px * var(--escala-texto, 1)));font-family:var(--fonte-principal);padding:11px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);width:100%;}
 .tela-patrimonio .pat-campo select:disabled{opacity:.5;}
 .tela-patrimonio .pat-campo-par{display:grid;grid-template-columns:1fr 1fr;gap:10px;overflow-wrap:anywhere;}
 
@@ -2099,7 +2099,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
    era empurrado pra fora da tela em nomes compridos. */
 .tela-patrimonio .pat-campo-mais{display:flex;gap:6px;align-items:stretch;}
 .tela-patrimonio .pat-campo-mais select{min-width:0;flex:1;}
-.tela-patrimonio .pat-btn-mais{flex-shrink:0;width:38px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--accent);font-size:19px;line-height:1;cursor:pointer;touch-action:manipulation;}
+.tela-patrimonio .pat-btn-mais{flex-shrink:0;width:38px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--accent);font-size:max(16px, calc(19px * var(--escala-texto, 1)));line-height:1;cursor:pointer;touch-action:manipulation;}
 .tela-patrimonio .pat-btn-mais:hover:not(:disabled){border-color:var(--accent);}
 /* Desabilitado = o pai ainda não foi escolhido. O select ao lado já diz qual
    ("escolha a marca antes"); aqui só reduz a chance de o dedo tocar à toa. */
@@ -2107,44 +2107,44 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 /* Caixinha de criar: mesmo visual de .pat-lista-novo (Listas), pra não
    inventar um segundo jeito de "digitar e criar" na mesma tela. */
 .tela-patrimonio .pat-nova-opcao{display:flex;gap:7px;align-items:center;margin-top:-4px;}
-.tela-patrimonio .pat-nova-opcao input{flex:1;min-width:0;font-size:16px;font-family:var(--fonte-principal);padding:9px 11px;border:1px solid var(--accent-mid);border-radius:8px;background:var(--surface);color:var(--text);}
-.tela-patrimonio .pat-nova-opcao .pat-btn{flex-shrink:0;padding:9px 12px;font-size:12px;}
-.tela-patrimonio .pat-check{display:flex;align-items:center;gap:9px;font-family:var(--fonte-principal);font-size:13px;color:var(--text);}
+.tela-patrimonio .pat-nova-opcao input{flex:1;min-width:0;font-size:max(16px, calc(16px * var(--escala-texto, 1)));font-family:var(--fonte-principal);padding:9px 11px;border:1px solid var(--accent-mid);border-radius:8px;background:var(--surface);color:var(--text);}
+.tela-patrimonio .pat-nova-opcao .pat-btn{flex-shrink:0;padding:9px 12px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));}
+.tela-patrimonio .pat-check{display:flex;align-items:center;gap:9px;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--text);}
 .tela-patrimonio .pat-check input{width:19px;height:19px;}
-.tela-patrimonio .pat-nota{font-family:var(--fonte-principal);font-size:12px;line-height:1.6;color:var(--text);background:color-mix(in srgb,var(--orange) 10%,var(--surface));border-radius:8px;padding:10px 12px;}
+.tela-patrimonio .pat-nota{font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));line-height:1.6;color:var(--text);background:color-mix(in srgb,var(--orange) 10%,var(--surface));border-radius:8px;padding:10px 12px;}
 .tela-patrimonio .pat-btn.perigo{border-color:color-mix(in srgb,var(--red) 40%,var(--surface));color:var(--red);}
 
 .tela-patrimonio .pat-hist{border-top:1px solid var(--border);padding-top:12px;display:flex;flex-direction:column;gap:7px;}
-.tela-patrimonio .pat-hist h4{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
-.tela-patrimonio .pat-hist-vazio{font-family:var(--fonte-principal);font-size:12px;line-height:1.6;color:var(--muted);}
-.tela-patrimonio .pat-hist-linha{font-family:var(--fonte-principal);font-size:12px;color:var(--text);padding:7px 10px;background:var(--surface2);border-radius:7px;}
+.tela-patrimonio .pat-hist h4{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+.tela-patrimonio .pat-hist-vazio{font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));line-height:1.6;color:var(--muted);}
+.tela-patrimonio .pat-hist-linha{font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--text);padding:7px 10px;background:var(--surface2);border-radius:7px;}
 
 /* Situação na Frota (Bronca 2): mesma moldura visual do Histórico de posse
    logo abaixo, pra ler como parte do mesmo tipo de bloco — "extra que só
    aparece quando faz sentido", não um formulário novo. Cor sempre por
    token: nada chumbado, porque a tela tem modo escuro. */
 .tela-patrimonio .pat-frota{border-top:1px solid var(--border);padding-top:12px;display:flex;flex-direction:column;gap:9px;}
-.tela-patrimonio .pat-frota h4{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
-.tela-patrimonio .pat-frota-aviso{font-family:var(--fonte-principal);font-size:12px;line-height:1.6;color:var(--orange);background:var(--surface2);border-radius:8px;padding:10px 12px;}
-.tela-patrimonio .pat-frota-estado{display:flex;flex-direction:column;gap:9px;font-family:var(--fonte-principal);font-size:13px;color:var(--text);}
+.tela-patrimonio .pat-frota h4{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+.tela-patrimonio .pat-frota-aviso{font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));line-height:1.6;color:var(--orange);background:var(--surface2);border-radius:8px;padding:10px 12px;}
+.tela-patrimonio .pat-frota-estado{display:flex;flex-direction:column;gap:9px;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--text);}
 .tela-patrimonio .pat-frota-estado>.pat-btn{align-self:flex-start;}
-.tela-patrimonio .pat-frota-sem-permissao{font-family:var(--fonte-principal);font-size:12px;line-height:1.6;color:var(--muted);}
+.tela-patrimonio .pat-frota-sem-permissao{font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));line-height:1.6;color:var(--muted);}
 .tela-patrimonio .pat-frota-ligar{display:flex;flex-direction:column;gap:9px;}
 .tela-patrimonio .pat-frota-criar{display:flex;flex-direction:column;gap:10px;}
 .tela-patrimonio .pat-frota-criar-acoes{display:flex;gap:8px;justify-content:flex-end;}
 
 /* ---- listas editáveis ---- */
 .tela-patrimonio .pat-btn-listas{width:46px;height:46px;flex-shrink:0;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation;}
-.tela-patrimonio .pat-listas-ajuda{font-family:var(--fonte-principal);font-size:12px;line-height:1.6;color:var(--muted);}
+.tela-patrimonio .pat-listas-ajuda{font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));line-height:1.6;color:var(--muted);}
 /* O texto fixo do topo de cada modal (pedido do dono, nos 9 modais da Frota e
    do Patrimônio — mesma classe que fr-tutorial-fixo na Frota, com o prefixo
    desta tela). Curto de propósito: fundo sutil por color-mix, nunca hex, pra
    ler certo nos dois temas sem precisar de uma cor "clara" e uma "escura". */
-.tela-patrimonio .pat-tutorial-fixo{margin:0;padding:10px 12px;font-family:var(--fonte-principal);font-size:12px;line-height:1.6;color:var(--text);background:color-mix(in srgb,var(--accent) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 22%,var(--surface));border-radius:10px;}
+.tela-patrimonio .pat-tutorial-fixo{margin:0;padding:10px 12px;font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));line-height:1.6;color:var(--text);background:color-mix(in srgb,var(--accent) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 22%,var(--surface));border-radius:10px;}
 .tela-patrimonio .pat-lista-bloco{display:flex;flex-direction:column;gap:7px;border-top:1px solid var(--border);padding-top:12px;}
-.tela-patrimonio .pat-lista-bloco h4{font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+.tela-patrimonio .pat-lista-bloco h4{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
 .tela-patrimonio .pat-lista-item,.tela-patrimonio .pat-lista-novo{display:flex;gap:7px;align-items:center;}
-.tela-patrimonio .pat-lista-nome{flex:1;min-width:0;font-size:16px;font-family:var(--fonte-principal);padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);}
+.tela-patrimonio .pat-lista-nome{flex:1;min-width:0;font-size:max(16px, calc(16px * var(--escala-texto, 1)));font-family:var(--fonte-principal);padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);}
 .tela-patrimonio .pat-lista-del{width:36px;height:36px;flex-shrink:0;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--red);cursor:pointer;touch-action:manipulation;}
 
 /* ---- árvore de cadastro (Listas) ---- */
@@ -2158,16 +2158,16 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
    hierarquia deixa de ser legivel pelo recuo, que e todo o proposito. */
 .tela-patrimonio .pat-arv-vaga{width:26px;flex-shrink:0;}
 .tela-patrimonio .pat-arv-linha.nivel1 .pat-lista-nome{font-weight:600;}
-.tela-patrimonio .pat-arv-abrir{width:26px;height:34px;flex-shrink:0;border:none;background:none;color:var(--muted);font-size:12px;cursor:pointer;touch-action:manipulation;}
+.tela-patrimonio .pat-arv-abrir{width:26px;height:34px;flex-shrink:0;border:none;background:none;color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)));cursor:pointer;touch-action:manipulation;}
 .tela-patrimonio .pat-arv-filhos{border-left:2px solid var(--border);margin-left:12px;padding-left:2px;}
-.tela-patrimonio .pat-arv-vazio{font-family:var(--fonte-principal);font-size:11px;color:var(--muted);padding:5px 0 5px 16px;}
+.tela-patrimonio .pat-arv-vazio{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);padding:5px 0 5px 16px;}
 
 /* ---- confirmação ---- */
 .tela-patrimonio .pat-confirm-fundo{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:18px;touch-action:none;overscroll-behavior:contain;}
 /* ---- confirmação ---- */
 .tela-patrimonio .pat-confirm-fundo > *{overscroll-behavior:contain;touch-action:pan-y;}
 .tela-patrimonio .pat-confirm{background:var(--surface);border-radius:14px;padding:18px;max-width:400px;width:100%;font-family:var(--fonte-principal);display:flex;flex-direction:column;gap:10px;}
-.tela-patrimonio .pat-confirm p{font-size:13px;line-height:1.6;color:var(--text);}
+.tela-patrimonio .pat-confirm p{font-size:max(9px, calc(13px * var(--escala-texto, 1)));line-height:1.6;color:var(--text);}
 .tela-patrimonio .pat-confirm-pergunta{font-weight:600;}
 .tela-patrimonio .pat-confirm-pe{display:flex;gap:8px;justify-content:flex-end;margin-top:4px;}
 
@@ -2180,7 +2180,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
      isso"). Fica só no celular porque no computador o ponteiro acerta 24px de
      sobra, e o "?" divide a linha com o ✕ — 40px lá deixaria os dois quase
      encostados. Mesma decisão do fr-btn-ajuda na Frota. */
-  .tela-patrimonio .pat-btn-ajuda{width:40px;height:40px;font-size:14px;}
+  .tela-patrimonio .pat-btn-ajuda{width:40px;height:40px;font-size:max(9px, calc(14px * var(--escala-texto, 1)));}
   /* O ✕ dos 3 modais, pela mesma regra: o PADRÃO pede "botão de fechar com 40px
      de alvo", e ele estava em 34px. Fica só no celular — 40px é a medida do
      DEDO; no computador o ponteiro acerta 34px de sobra, e o topo do modal é
@@ -2197,15 +2197,15 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
      em pe andando pelo predio, ganha saber onde voce esta. No tablet e no
      computador a logo aparece normal. (A Gestao a Vista ja faz o mesmo.) */
   .tela-patrimonio .pat-topbar .rbv-logo{display:none;}
-  .tela-patrimonio .pat-back{font-size:9px;letter-spacing:1px;padding:5px 8px;}
-  .tela-patrimonio .pat-title{font-size:12px;letter-spacing:1.2px;}
+  .tela-patrimonio .pat-back{font-size:max(9px, calc(9px * var(--escala-texto, 1)));letter-spacing:1px;padding:5px 8px;}
+  .tela-patrimonio .pat-title{font-size:max(9px, calc(12px * var(--escala-texto, 1)));letter-spacing:1.2px;}
   /* No celular eles ficam MAIORES, nao menores: e onde se usa a ferramenta
      em pe, andando pelo predio, com uma mao so. Antes encolhiam pra 34px —
      bem abaixo dos 44px que o dedo acerta sem errar. */
   .tela-patrimonio .pat-btn-novo,.tela-patrimonio .pat-btn-listas,.tela-patrimonio .pat-btn-sel{width:48px;height:48px;}
-  .tela-patrimonio .pat-btn-novo{font-size:28px;}
+  .tela-patrimonio .pat-btn-novo{font-size:max(16px, calc(28px * var(--escala-texto, 1)));}
   .tela-patrimonio .pat-linha-topo{padding:9px 12px 2px;gap:8px;}
-  .tela-patrimonio .pat-resumo-qtd{font-size:19px;}
+  .tela-patrimonio .pat-resumo-qtd{font-size:max(16px, calc(19px * var(--escala-texto, 1)));}
   .tela-patrimonio .pat-busca-wrap,.tela-patrimonio .pat-filtros,.tela-patrimonio .pat-visoes{padding-left:12px;padding-right:12px;}
   .tela-patrimonio .pat-busca{padding:9px 11px;}
   /* Dois filtros, largura toda, lado a lado. Antes eram estreitos (max-width)
@@ -2214,7 +2214,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
   .tela-patrimonio .pat-select{padding:8px 9px;max-width:none;width:100%;}
   /* "Limpar" só aparece com filtro ativo; quando aparece, pega a linha inteira. */
   .tela-patrimonio .pat-filtros .pat-chip{grid-column:1 / -1;}
-  .tela-patrimonio .pat-chip{padding:7px 11px;font-size:11px;}
+  .tela-patrimonio .pat-chip{padding:7px 11px;font-size:max(9px, calc(11px * var(--escala-texto, 1)));}
   .tela-patrimonio .pat-body{padding:0 12px 40px;}
 }
 
@@ -2226,8 +2226,8 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
   .tela-patrimonio .pat-body{padding:0 24px 48px;}
   .tela-patrimonio .pat-cards{display:none;}
   .tela-patrimonio .pat-tabela-wrap{display:block;}
-  .tela-patrimonio .pat-tabela{width:100%;border-collapse:collapse;font-family:var(--fonte-principal);font-size:13px;}
-  .tela-patrimonio .pat-tabela th{text-align:left;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap;}
+  .tela-patrimonio .pat-tabela{width:100%;border-collapse:collapse;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));}
+  .tela-patrimonio .pat-tabela th{text-align:left;font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap;}
   .tela-patrimonio .pat-tabela td{padding:11px 12px;border-bottom:1px solid var(--border);color:var(--text);}
   .tela-patrimonio .pat-tabela tbody tr{cursor:pointer;}
   .tela-patrimonio .pat-tabela tbody tr:hover{background:var(--surface2);}

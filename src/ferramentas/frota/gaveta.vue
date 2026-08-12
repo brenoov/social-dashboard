@@ -69,14 +69,14 @@ defineEmits(['alternar'])
 .gv.aberta .gv-seta{transform:rotate(90deg);}
 /* Mesma tipografia do `fr-secao` que estas seções tinham antes — a gaveta muda
    o comportamento, não a cara da tela. */
-.gv-titulo{flex:0 1 auto;min-width:0;font-family:var(--fonte-principal);font-size:10px;
+.gv-titulo{flex:0 1 auto;min-width:0;font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));
   font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);
   overflow-wrap:anywhere;}
 .gv.aberta .gv-titulo,.gv.travada .gv-titulo{color:var(--text);}
 /* O estado à direita, na cor de texto normal: é a informação que a gaveta
    fechada precisa entregar, então não pode ser mais apagada que o título. */
 .gv-estado{flex:1 1 auto;min-width:0;text-align:right;font-family:var(--fonte-principal);
-  font-size:11.5px;color:var(--text);overflow-wrap:anywhere;}
+  font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--text);overflow-wrap:anywhere;}
 .gv-corpo{padding-bottom:6px;}
 @media(min-width:900px){
   .gv-topo{padding:12px 24px;}

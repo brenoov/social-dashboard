@@ -311,16 +311,16 @@ onMounted(() => {
    estilos-globais.css tem classes genéricas e este projeto já teve bug de
    colisão entre global e tela scoped (o caso home-card → fab-card). */
 .inicio-vazio{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:64px 24px;text-align:center;}
-.inicio-vazio-icone{font-size:34px;line-height:1;opacity:.55;margin-bottom:4px;}
-.inicio-vazio-t{font-family:'Sora',sans-serif;font-size:15px;font-weight:600;color:var(--text);margin:0;}
-.inicio-vazio-d{font-family:var(--fonte-principal);font-size:13px;color:var(--muted);margin:0;max-width:38ch;}
-.inicio-vazio-btn{margin-top:14px;padding:8px 18px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text);font-family:var(--fonte-principal);font-size:13px;font-weight:500;cursor:pointer;transition:background .15s;}
+.inicio-vazio-icone{font-size:max(16px, calc(34px * var(--escala-texto, 1)));line-height:1;opacity:.55;margin-bottom:4px;}
+.inicio-vazio-t{font-family:'Sora',sans-serif;font-size:max(9px, calc(15px * var(--escala-texto, 1)));font-weight:600;color:var(--text);margin:0;}
+.inicio-vazio-d{font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--muted);margin:0;max-width:38ch;}
+.inicio-vazio-btn{margin-top:14px;padding:8px 18px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text);font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:500;cursor:pointer;transition:background .15s;}
 .inicio-vazio-btn:hover{background:var(--surface2);}
 @media (max-width:640px){
   .inicio-vazio{padding:40px 18px;}
-  .inicio-vazio-t{font-size:14px;}
-  .inicio-vazio-d{font-size:12px;}
+  .inicio-vazio-t{font-size:max(9px, calc(14px * var(--escala-texto, 1)));}
+  .inicio-vazio-d{font-size:max(9px, calc(12px * var(--escala-texto, 1)));}
 }
 
-.tela-inicio-aviso{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);font-family:var(--fonte-principal);font-size:12.5px;padding:10px 18px;border-radius:8px;box-shadow:var(--shadow-lg);z-index:9999;}
+.tela-inicio-aviso{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));padding:10px 18px;border-radius:8px;box-shadow:var(--shadow-lg);z-index:9999;}
 </style>

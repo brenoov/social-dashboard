@@ -68,12 +68,12 @@
                 </select>
               </div>
             </div>
-            <div style="font-family:var(--fonte-principal);font-size:11px;color:var(--muted);margin-top:12px;display:flex;align-items:center;gap:6px;">
+            <div style="font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);margin-top:12px;display:flex;align-items:center;gap:6px;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.6"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               Se a senha for deixada em branco, um link de primeiro acesso será enviado para o email.
             </div>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
-              <div id="adm-invite-msg" style="font-family:var(--fonte-principal);font-size:12px;color:var(--muted);flex:1"></div>
+              <div id="adm-invite-msg" style="font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);flex:1"></div>
               <div style="display:flex;gap:8px;flex-shrink:0">
                 <button class="btn" onclick="adminInviteUser('invite')">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -92,7 +92,7 @@
                pessoas, do jeito que o dono aprovou. -->
           <span class="sg-label">Times de venda</span>
           <div class="admin-section-sub">Lojas, canais e setores — e quem trabalha em cada um. É por aqui que uma loja nova entra no sistema.</div>
-          <div id="admin-equipes-body"><div style="color:var(--muted);font-size:12px">Carregando...</div></div>
+          <div id="admin-equipes-body"><div style="color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)))">Carregando...</div></div>
           <span class="sg-label">Usuários cadastrados</span>
           <div id="admin-user-list"></div>
         </div>
@@ -111,8 +111,8 @@
           <div class="sg" id="admin-data-sync"></div>
           <span class="sg-label">Ações de manutenção</span>
           <div class="sg">
-            <div class="sr clickable" style="justify-content:space-between" onclick="adminShowRefetchInfo()"><div class="sr-main"><div class="sr-label">Atualizar fotos de perfil</div><div class="sr-sub">Rebusca as fotos dos perfis via Meta API</div></div><span style="font-size:18px">↻</span></div>
-            <div class="sr clickable" style="justify-content:space-between" onclick="adminShowColetorInfo()"><div class="sr-main"><div class="sr-label">Rodar coletor de dados</div><div class="sr-sub">Coleta métricas do Instagram para todos os perfis</div></div><span style="font-size:18px">⚡</span></div>
+            <div class="sr clickable" style="justify-content:space-between" onclick="adminShowRefetchInfo()"><div class="sr-main"><div class="sr-label">Atualizar fotos de perfil</div><div class="sr-sub">Rebusca as fotos dos perfis via Meta API</div></div><span style="font-size:max(16px, calc(18px * var(--escala-texto, 1)))">↻</span></div>
+            <div class="sr clickable" style="justify-content:space-between" onclick="adminShowColetorInfo()"><div class="sr-main"><div class="sr-label">Rodar coletor de dados</div><div class="sr-sub">Coleta métricas do Instagram para todos os perfis</div></div><span style="font-size:max(16px, calc(18px * var(--escala-texto, 1)))">⚡</span></div>
           </div>
           <div id="admin-action-info" style="display:none;margin-top:12px"></div>
         </div>
@@ -122,18 +122,18 @@
         <div class="admin-section" id="admin-section-saude">
           <div class="admin-section-title">Saúde dos dados</div>
           <div class="admin-section-sub">Verificação automática diária (23:30) — frescor, consistência e anomalias das métricas de todos os perfis.</div>
-          <div id="admin-saude-body"><div style="color:var(--muted);font-size:12px">Carregando...</div></div>
+          <div id="admin-saude-body"><div style="color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)))">Carregando...</div></div>
         </div>
         <div class="admin-section" id="admin-section-metas">
           <div class="admin-section-title">Metas de Vendas</div>
           <div class="admin-section-sub">Configure as metas mensais por canal e loja</div>
-          <div id="admin-metas-body"><div style="color:var(--muted);font-size:12px">Carregando...</div></div>
+          <div id="admin-metas-body"><div style="color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)))">Carregando...</div></div>
         </div>
         <!-- SOLICITAÇÕES -->
         <div class="admin-section" id="admin-section-requests">
           <div class="admin-section-title">Solicitações de Acesso</div>
           <div class="admin-section-sub">Usuários que solicitaram acesso à plataforma</div>
-          <div id="admin-requests-body"><div style="color:var(--muted);font-size:12px">Carregando...</div></div>
+          <div id="admin-requests-body"><div style="color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)))">Carregando...</div></div>
         </div>
       </div>
     </div>
@@ -524,7 +524,7 @@ function _vdSecao() {
       + '<button class="btn" data-vd-puxar>Puxar das vendas</button>'
       + '</div>'
   }
-  if (_vdCarregando) return '<div style="color:var(--muted);font-size:12px;margin-bottom:14px;">Lendo as vendas…</div>'
+  if (_vdCarregando) return '<div style="color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)));margin-bottom:14px;">Lendo as vendas…</div>'
 
   // O MOTIVO NA TELA, e o botão de volta ao lado. Voltar em silêncio ao estado
   // inicial faz o botão parecer quebrado.
@@ -542,7 +542,7 @@ function _vdSecao() {
     let h = '<div style="border:1px solid var(--green,#16a34a);border-radius:12px;padding:16px;margin-bottom:14px;">'
     h += '<div style="font-weight:800;color:var(--green,#16a34a);margin-bottom:4px;">Contas criadas — anote as senhas AGORA</div>'
     h += '<div class="admin-section-sub" style="margin-bottom:10px;">Esta lista não volta a aparecer. Cada uma é obrigada a trocar a senha no primeiro acesso.</div>'
-    h += '<table style="width:100%;border-collapse:collapse;font-size:12px;">'
+    h += '<table style="width:100%;border-collapse:collapse;font-size:max(9px, calc(12px * var(--escala-texto, 1)));">'
     for (const s of _vdSenhas) {
       h += '<tr><td style="padding:5px 8px 5px 0;color:var(--text);">' + escHtml(s.nome) + '</td>'
         + '<td style="padding:5px 8px;color:var(--muted);">' + escHtml(s.email) + '</td>'
@@ -563,22 +563,22 @@ function _vdSecao() {
     h += '<div style="border-bottom:1px solid var(--border);padding:9px 0;">'
     h += '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;">'
     h += '<div><span style="font-weight:700;color:var(--text);">' + escHtml(g.nome) + '</span>'
-    if (g.balcao) h += '<span style="margin-left:7px;font-size:10px;font-weight:700;color:var(--orange,#d97706);border:1px solid var(--orange,#d97706);border-radius:999px;padding:1px 7px;">balcão</span>'
-    if (g.ids.length > 1) h += '<span style="margin-left:7px;font-size:10.5px;color:var(--green,#16a34a);">' + g.ids.length + ' cadastros juntados</span>'
+    if (g.balcao) h += '<span style="margin-left:7px;font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:700;color:var(--orange,#d97706);border:1px solid var(--orange,#d97706);border-radius:999px;padding:1px 7px;">balcão</span>'
+    if (g.ids.length > 1) h += '<span style="margin-left:7px;font-size:max(9px, calc(10.5px * var(--escala-texto, 1)));color:var(--green,#16a34a);">' + g.ids.length + ' cadastros juntados</span>'
     h += '</div>'
-    h += '<div style="font-size:11.5px;color:var(--muted);font-family:var(--fonte-dados);">' + g.pedidos + ' pedidos · ' + escHtml(comoDizerALoja(g.loja, nomeDaLoja)) + '</div>'
+    h += '<div style="font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);font-family:var(--fonte-dados);">' + g.pedidos + ' pedidos · ' + escHtml(comoDizerALoja(g.loja, nomeDaLoja)) + '</div>'
     h += '</div>'
     // O AVISO DOS PARECIDOS. A máquina não junta por conta própria quando tem
     // dúvida — ela conta a dúvida.
     if ((g.parecidos || []).length) {
-      h += '<div style="font-size:11px;color:var(--orange,#d97706);margin-top:3px;">Parecido com ' + escHtml(g.parecidos.join(', ')) + ' — se for a mesma pessoa, junte no Bling antes de criar a conta.</div>'
+      h += '<div style="font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--orange,#d97706);margin-top:3px;">Parecido com ' + escHtml(g.parecidos.join(', ')) + ' — se for a mesma pessoa, junte no Bling antes de criar a conta.</div>'
     }
     if (!g.balcao) {
       h += '<div style="display:flex;gap:8px;margin-top:7px;flex-wrap:wrap;align-items:center;">'
-      h += '<label style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted);cursor:pointer;">'
+      h += '<label style="display:flex;align-items:center;gap:5px;font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);cursor:pointer;">'
         + '<input type="checkbox" data-vd-criar="' + escHtml(g.nome) + '"' + (e.criar ? ' checked' : '') + '> criar conta</label>'
-      h += '<input data-vd-email="' + escHtml(g.nome) + '" value="' + escHtml(e.email || '') + '" placeholder="e-mail" style="flex:1;min-width:190px;padding:6px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:11.5px;">'
-      h += '<select data-vd-equipe="' + escHtml(g.nome) + '" style="padding:6px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:11.5px;">'
+      h += '<input data-vd-email="' + escHtml(g.nome) + '" value="' + escHtml(e.email || '') + '" placeholder="e-mail" style="flex:1;min-width:190px;padding:6px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));">'
+      h += '<select data-vd-equipe="' + escHtml(g.nome) + '" style="padding:6px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));">'
         + '<option value="">— sem time —</option>'
         + ordenarTimes(_eqTimes).map(t => '<option value="' + escHtml(t.id) + '"' + (String(e.equipe_id) === String(t.id) ? ' selected' : '') + '>' + escHtml(t.nome) + '</option>').join('')
         + '</select>'
@@ -688,7 +688,7 @@ function _eqMeuPapel(timeId) {
 
 async function loadAdminEquipes() {
   const body = document.getElementById('admin-equipes-body'); if (!body) return
-  body.innerHTML = '<div style="color:var(--muted);font-size:12px">Carregando…</div>'
+  body.innerHTML = '<div style="color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)))">Carregando…</div>'
   try {
     // `profiles` USA `sbClient`, NÃO `sb()` (mesmo motivo do comentário em
     // loadAdminUsers): com a chave anônima o PostgREST devolve 200 e lista
@@ -714,7 +714,7 @@ async function loadAdminEquipes() {
   } catch (e) {
     // O MOTIVO VAI PRA TELA. `catch` mudo aqui já custou meia hora de caça
     // noutra tela deste mesmo sistema.
-    body.innerHTML = '<div style="color:var(--red,#dc2626);font-size:12.5px">Não consegui carregar os times: ' + escHtml(String(e && e.message || e)) + '</div>'
+    body.innerHTML = '<div style="color:var(--red,#dc2626);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)))">Não consegui carregar os times: ' + escHtml(String(e && e.message || e)) + '</div>'
   }
 }
 
@@ -725,12 +725,12 @@ function _eqDesenhar() {
 
   let html = _vdSecao()
   html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">'
-  html += '<div style="color:var(--muted);font-size:12px;">' + _eqTimes.length + (_eqTimes.length === 1 ? ' time' : ' times') + ' cadastrados</div>'
+  html += '<div style="color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)));">' + _eqTimes.length + (_eqTimes.length === 1 ? ' time' : ' times') + ' cadastrados</div>'
   if (podeCriar) html += '<button class="btn btn-principal" data-eq-novo>+ Novo time</button>'
   html += '</div>'
 
   if (!_eqTimes.length) {
-    html += '<div style="border:1px dashed var(--border);border-radius:12px;padding:22px;text-align:center;color:var(--muted);font-size:12.5px;">'
+    html += '<div style="border:1px dashed var(--border);border-radius:12px;padding:22px;text-align:center;color:var(--muted);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));">'
       + 'Nenhum time ainda. Crie um para cada loja e cada canal de venda — é o que permite dizer que uma vendedora só enxerga a loja dela.</div>'
   }
 
@@ -742,23 +742,23 @@ function _eqDesenhar() {
     html += '<div style="border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;background:var(--surface);'
       + (l.ativo ? '' : 'opacity:.6;') + '">'
     html += '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">'
-    html += '<div style="font-weight:800;font-size:14px;color:var(--text);">' + escHtml(l.nome)
-      + '<span style="font-weight:600;font-size:10.5px;color:var(--muted);margin-left:8px;text-transform:uppercase;letter-spacing:1px;">' + escHtml(l.tipo) + '</span>'
-      + (l.ativo ? '' : '<span style="font-weight:700;font-size:10.5px;color:var(--orange,#d97706);margin-left:8px;">inativo</span>')
+    html += '<div style="font-weight:800;font-size:max(9px, calc(14px * var(--escala-texto, 1)));color:var(--text);">' + escHtml(l.nome)
+      + '<span style="font-weight:600;font-size:max(9px, calc(10.5px * var(--escala-texto, 1)));color:var(--muted);margin-left:8px;text-transform:uppercase;letter-spacing:1px;">' + escHtml(l.tipo) + '</span>'
+      + (l.ativo ? '' : '<span style="font-weight:700;font-size:max(9px, calc(10.5px * var(--escala-texto, 1)));color:var(--orange,#d97706);margin-left:8px;">inativo</span>')
       + '</div>'
-    html += '<div style="font-size:12px;color:var(--muted);">' + escHtml(l.quemTem) + '</div>'
+    html += '<div style="font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);">' + escHtml(l.quemTem) + '</div>'
     html += '</div>'
     // A AMARRA COM O BLING em letras claras: é ela que faz o faturamento
     // aparecer, e o nome de lá quase nunca é o nome da casa.
-    html += '<div style="font-size:11.5px;color:var(--muted);margin-top:5px;">Vendas pelo canal: '
+    html += '<div style="font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);margin-top:5px;">Vendas pelo canal: '
       + (canal ? '<b style="color:var(--text)">' + escHtml(canal.nome) + '</b>' : '<i>nenhum ligado</i>') + '</div>'
     for (const a of l.avisos) {
-      html += '<div style="margin-top:6px;font-size:11.5px;color:' + (a.grave ? 'var(--orange,#d97706)' : 'var(--muted)') + ';">' + escHtml(a.texto) + '</div>'
+      html += '<div style="margin-top:6px;font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:' + (a.grave ? 'var(--orange,#d97706)' : 'var(--muted)') + ';">' + escHtml(a.texto) + '</div>'
     }
     html += '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">'
     if (posso) html += '<button class="btn" data-eq-editar="' + escHtml(t.id) + '">Editar</button>'
     if (posso) html += '<button class="btn" data-eq-gente="' + escHtml(t.id) + '">Quem trabalha aqui (' + l.quantos + ')</button>'
-    if (!posso) html += '<span style="font-size:11.5px;color:var(--muted);">Você não administra este time.</span>'
+    if (!posso) html += '<span style="font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);">Você não administra este time.</span>'
     html += '</div>'
     if (String(_eqEditando) === String(t.id)) html += _eqFormulario(t)
     if (String(_eqEditando) === 'gente:' + t.id) html += _eqGente(t)
@@ -777,8 +777,8 @@ function _eqFormulario(t) {
   const livres = canaisLivres(_eqCanais, _eqTimes, e.id)
   const opc = (lista, val, chave, rot) => lista.map(x =>
     '<option value="' + escHtml(x[chave]) + '"' + (String(x[chave]) === String(val) ? ' selected' : '') + '>' + escHtml(x[rot]) + '</option>').join('')
-  const campo = 'style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12.5px;"'
-  const rot = 'style="display:block;font-size:11px;font-weight:700;color:var(--text);margin:10px 0 4px;"'
+  const campo = 'style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));"'
+  const rot = 'style="display:block;font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;color:var(--text);margin:10px 0 4px;"'
   let h = '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">'
   h += '<label ' + rot + '>Nome do time</label>'
   h += '<input data-eq-campo="nome" value="' + escHtml(e.nome || '') + '" placeholder="Tivoli, Iguatemi Campinas, Sorocaba…" ' + campo + '>'
@@ -789,8 +789,8 @@ function _eqFormulario(t) {
     + '<option value="setor"' + (e.tipo === 'setor' ? ' selected' : '') + '>Setor — não vende</option></select>'
   h += '<label ' + rot + '>Canal no Bling (é ele que traz o faturamento)</label>'
   h += '<select data-eq-campo="canal_loja_id" ' + campo + '><option value="">— ainda não tem —</option>' + opc(livres, e.canal_loja_id, 'loja_id', 'nome') + '</select>'
-  h += '<div style="font-size:11px;color:var(--muted);margin-top:4px;">O nome no Bling quase nunca é o nome da casa: o time <b>Tivoli</b> usa o canal <b>Loja Santa Bárbara d\'Oeste</b>. Sem ligar, o time mostra faturamento zero.</div>'
-  h += '<div data-eq-erro style="margin-top:10px;color:var(--red,#dc2626);font-size:12px;"></div>'
+  h += '<div style="font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);margin-top:4px;">O nome no Bling quase nunca é o nome da casa: o time <b>Tivoli</b> usa o canal <b>Loja Santa Bárbara d\'Oeste</b>. Sem ligar, o time mostra faturamento zero.</div>'
+  h += '<div data-eq-erro style="margin-top:10px;color:var(--red,#dc2626);font-size:max(9px, calc(12px * var(--escala-texto, 1)));"></div>'
   h += '<div style="display:flex;gap:8px;margin-top:12px;">'
   h += '<button class="btn btn-principal" data-eq-salvar="' + escHtml(e.id || '') + '">Salvar</button>'
   h += '<button class="btn" data-eq-cancelar>Cancelar</button>'
@@ -810,22 +810,22 @@ function _eqGente(t) {
     return p ? (p.name || p.email) : '(usuário removido)'
   }
   let h = '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">'
-  if (!meus.length) h += '<div style="color:var(--muted);font-size:12px;margin-bottom:10px;">Ninguém neste time ainda.</div>'
+  if (!meus.length) h += '<div style="color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)));margin-bottom:10px;">Ninguém neste time ainda.</div>'
   for (const m of meus) {
     const papel = acharPapel(m.papel)
     const r = podeRemover(eu, meu, m, meus)
     h += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">'
-    h += '<div><div style="font-size:12.5px;color:var(--text);font-weight:600;">' + escHtml(nome(m.profile_id)) + '</div>'
-      + '<div style="font-size:11px;color:var(--muted);">' + escHtml(papel ? papel.explicacao : m.papel) + '</div></div>'
+    h += '<div><div style="font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));color:var(--text);font-weight:600;">' + escHtml(nome(m.profile_id)) + '</div>'
+      + '<div style="font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);">' + escHtml(papel ? papel.explicacao : m.papel) + '</div></div>'
     h += '<div style="display:flex;gap:7px;align-items:center;">'
     if (podeDar.length) {
-      h += '<select data-eq-papel="' + escHtml(m.id) + '" style="padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:11.5px;">'
+      h += '<select data-eq-papel="' + escHtml(m.id) + '" style="padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));">'
         + podeDar.map(p => '<option value="' + p.id + '"' + (p.id === m.papel ? ' selected' : '') + '>' + escHtml(p.rotulo) + '</option>').join('') + '</select>'
     } else {
-      h += '<span style="font-size:11.5px;color:var(--muted);">' + escHtml(papel ? papel.rotulo : m.papel) + '</span>'
+      h += '<span style="font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);">' + escHtml(papel ? papel.rotulo : m.papel) + '</span>'
     }
     if (r.pode) h += '<button class="btn btn-perigo" data-eq-tirar="' + escHtml(m.id) + '" title="Tirar do time">Tirar</button>'
-    else h += '<span title="' + escHtml(r.porque) + '" style="font-size:11px;color:var(--muted);cursor:help;">não dá</span>'
+    else h += '<span title="' + escHtml(r.porque) + '" style="font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);cursor:help;">não dá</span>'
     h += '</div></div>'
   }
   // COLOCAR GENTE. Só quem ainda não está no time aparece — oferecer quem já
@@ -834,10 +834,10 @@ function _eqGente(t) {
     const dentro = new Set(meus.map(m => String(m.profile_id)))
     const fora = _eqPessoas.filter(p => !dentro.has(String(p.id)) && !p.disabled)
     h += '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center;">'
-    h += '<select data-eq-nova-pessoa style="flex:1;min-width:180px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;">'
+    h += '<select data-eq-nova-pessoa style="flex:1;min-width:180px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:max(9px, calc(12px * var(--escala-texto, 1)));">'
       + '<option value="">Escolha quem entra…</option>'
       + fora.map(p => '<option value="' + escHtml(p.id) + '">' + escHtml(p.name || p.email) + '</option>').join('') + '</select>'
-    h += '<select data-eq-novo-papel style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;">'
+    h += '<select data-eq-novo-papel style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:max(9px, calc(12px * var(--escala-texto, 1)));">'
       + podeDar.map(p => '<option value="' + p.id + '">' + escHtml(p.rotulo) + '</option>').join('') + '</select>'
     h += '<button class="btn btn-principal" data-eq-por="' + escHtml(t.id) + '">Colocar no time</button>'
     h += '</div>'
@@ -918,8 +918,8 @@ function _eqLigar(body) {
 async function loadAdminSaude() {
   const body = document.getElementById('admin-saude-body'); if (!body) return
   const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
-  const BTNP = 'style="border:none;background:var(--accent);color:var(--sobre-cor);border-radius:9px;padding:10px 18px;font-size:12.5px;font-weight:700;cursor:pointer;box-shadow:0 6px 16px -8px var(--accent);"'
-  const BTNS = 'style="border:1px solid var(--accent);color:var(--accent);background:transparent;border-radius:9px;padding:10px 14px;font-size:12px;font-weight:600;cursor:pointer;"'
+  const BTNP = 'style="border:none;background:var(--accent);color:var(--sobre-cor);border-radius:9px;padding:10px 18px;font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));font-weight:700;cursor:pointer;box-shadow:0 6px 16px -8px var(--accent);"'
+  const BTNS = 'style="border:1px solid var(--accent);color:var(--accent);background:transparent;border-radius:9px;padding:10px 14px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));font-weight:600;cursor:pointer;"'
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
   const ST = { ok: ['✅', 'var(--green)'], warn: ['⚠️', 'var(--orange)'], fail: ['❌', 'var(--red)'] }
   const PERIODS = [0, 1, 7, 14, 30, 99]
@@ -933,7 +933,7 @@ async function loadAdminSaude() {
     const rev = body.querySelector('.btn-rev')
     if (rev) rev.onclick = async () => { rev.disabled = true; rev.textContent = '🔎 Revalidando…'; await post('auditar-dados'); await loadAdminSaude(); updateSaudeBadge() }
   }
-  body.innerHTML = '<div style="color:var(--muted);font-size:12px">Carregando…</div>'
+  body.innerHTML = '<div style="color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)))">Carregando…</div>'
   const last = await sb('data_integrity_checks?select=checked_date&order=checked_date.desc&limit=1')
   const date = last.length ? last[0].checked_date : null
   const [rows, accs, engT, dayT] = await Promise.all([
@@ -969,10 +969,10 @@ async function loadAdminSaude() {
   const totalFail = counts.fail + cov.filter(c => c.st === 'fail').length
   const totalWarn = counts.warn + cov.filter(c => c.st === 'warn').length
   const overall = totalFail ? ['❌', 'var(--red)', totalFail + ' problema' + (totalFail > 1 ? 's' : '') + ' a corrigir'] : totalWarn ? ['⚠️', 'var(--orange)', totalWarn + ' aviso' + (totalWarn > 1 ? 's' : '')] : ['✅', 'var(--green)', 'Tudo saudável']
-  const card = (big, lbl, col) => '<div style="flex:1 1 130px;min-width:120px;background:var(--card,#fff);border:1px solid var(--border,#e5e7eb);border-radius:12px;padding:14px 16px;"><div style="font-size:26px;font-weight:800;line-height:1;color:' + col + '">' + big + '</div><div style="font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-top:6px">' + lbl + '</div></div>'
+  const card = (big, lbl, col) => '<div style="flex:1 1 130px;min-width:120px;background:var(--card,#fff);border:1px solid var(--border,#e5e7eb);border-radius:12px;padding:14px 16px;"><div style="font-size:max(16px, calc(26px * var(--escala-texto, 1)));font-weight:800;line-height:1;color:' + col + '">' + big + '</div><div style="font-size:max(9px, calc(10.5px * var(--escala-texto, 1)));letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-top:6px">' + lbl + '</div></div>'
   // ── header ──
   let html = '<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px;">'
-  html += '<div style="display:flex;align-items:center;gap:12px;"><div style="font-size:30px">' + overall[0] + '</div><div><div style="font-size:17px;font-weight:800;color:' + overall[1] + '">' + esc(overall[2]) + '</div><div style="font-size:11px;color:var(--muted)">Coleta: <b>' + esc(collAt) + '</b> · Auditoria: <b>' + esc(auditAt) + '</b> · auto todo dia 23:30</div></div></div>'
+  html += '<div style="display:flex;align-items:center;gap:12px;"><div style="font-size:max(16px, calc(30px * var(--escala-texto, 1)))">' + overall[0] + '</div><div><div style="font-size:max(16px, calc(17px * var(--escala-texto, 1)));font-weight:800;color:' + overall[1] + '">' + esc(overall[2]) + '</div><div style="font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted)">Coleta: <b>' + esc(collAt) + '</b> · Auditoria: <b>' + esc(auditAt) + '</b> · auto todo dia 23:30</div></div></div>'
   html += '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-fix" ' + BTNP + '>🔧 Rodar e corrigir agora</button><button class="btn-rev" ' + BTNS + '>↻ Só revalidar</button></div></div>'
   // ── stat cards ──
   html += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px">'
@@ -982,7 +982,7 @@ async function loadAdminSaude() {
     + card(String(totalWarn), 'Avisos (⚠️)', totalWarn ? 'var(--orange)' : 'var(--green)')
     + '</div>'
   // ── seção A: cobertura da coleta de hoje ──
-  html += '<div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Coleta de hoje · por perfil</div>'
+  html += '<div style="font-size:max(9px, calc(10px * var(--escala-texto, 1)));letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Coleta de hoje · por perfil</div>'
   html += '<div style="overflow-x:auto"><table class="metas-tbl"><thead><tr><th>Perfil</th><th style="text-align:center">Seguidores</th><th style="text-align:center">Períodos</th><th style="text-align:center">Curtidas</th><th style="text-align:center">Alcance</th><th style="text-align:center">Status</th></tr></thead><tbody>'
   cov.forEach(c => { const s = ST[c.st]
     html += '<tr><td style="font-weight:600">' + esc(c.a.name || c.a.username || '—') + '</td>'
@@ -994,8 +994,8 @@ async function loadAdminSaude() {
   })
   html += '</tbody></table></div>'
   // ── seção B: auditoria noturna (matriz) ──
-  html += '<div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:20px 0 8px">Auditoria de qualidade · ' + (date ? esc(String(date)) : 'sem registro') + '</div>'
-  if (!rows.length) { html += '<div style="font-size:12px;color:var(--muted)">Nenhuma auditoria registrada ainda — clique em “Rodar e corrigir agora”.</div>' }
+  html += '<div style="font-size:max(9px, calc(10px * var(--escala-texto, 1)));letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:20px 0 8px">Auditoria de qualidade · ' + (date ? esc(String(date)) : 'sem registro') + '</div>'
+  if (!rows.length) { html += '<div style="font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted)">Nenhuma auditoria registrada ainda — clique em “Rodar e corrigir agora”.</div>' }
   else {
     html += '<div style="overflow-x:auto"><table class="metas-tbl"><thead><tr><th>Perfil</th>' + CHECKS.map(c => '<th style="text-align:center">' + c[1] + '</th>').join('') + '</tr></thead><tbody>'
     accs.forEach(a => { html += '<tr><td style="font-weight:600">' + esc(a.name || a.username || '—') + '</td>'
@@ -1007,15 +1007,15 @@ async function loadAdminSaude() {
   // ── problemas consolidados ──
   const probsAudit = rows.filter(r => r.status !== 'ok')
   if (covBad.length || probsAudit.length) {
-    html += '<div style="margin-top:20px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">Problemas encontrados</div><div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">'
+    html += '<div style="margin-top:20px;font-size:max(9px, calc(10px * var(--escala-texto, 1)));letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">Problemas encontrados</div><div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">'
     covBad.forEach(c => { const s = ST[c.st]; const probs = []; if (!c.fol) probs.push('sem coleta hoje'); if (c.zeroBreak.length) probs.push('curtidas zeradas (' + c.zeroBreak.map(p => p === 99 ? 'mês' : p + 'd').join(', ') + ')'); if (c.zeroReach.length) probs.push('alcance zerado (' + c.zeroReach.map(p => p === 99 ? 'mês' : p + 'd').join(', ') + ')'); if (c.missing.length && c.missing.length < PERIODS.length) probs.push('faltam períodos (' + c.missing.map(p => p === 99 ? 'mês' : p + 'd').join(', ') + ')')
-      html += '<div style="font-size:12px"><span style="color:' + s[1] + '">' + s[0] + '</span> <b>' + esc(c.a.name || c.a.username || '?') + '</b> — ' + esc(probs.join(' · ')) + ' <span style="color:var(--accent);font-weight:600">→ corrigível ao rodar</span></div>' })
+      html += '<div style="font-size:max(9px, calc(12px * var(--escala-texto, 1)))"><span style="color:' + s[1] + '">' + s[0] + '</span> <b>' + esc(c.a.name || c.a.username || '?') + '</b> — ' + esc(probs.join(' · ')) + ' <span style="color:var(--accent);font-weight:600">→ corrigível ao rodar</span></div>' })
     probsAudit.forEach(r => { const s = ST[r.status]; const lbl = (CHECKS.find(c => c[0] === r.check_name) || ['', r.check_name])[1]
-      html += '<div style="font-size:12px"><span style="color:' + s[1] + '">' + s[0] + '</span> <b>' + esc(accMap[r.account_id] || '?') + '</b> — ' + esc(lbl) + (r.detail ? ' <span style="color:var(--muted)">(' + esc(r.detail) + ')</span>' : '') + '</div>' })
+      html += '<div style="font-size:max(9px, calc(12px * var(--escala-texto, 1)))"><span style="color:' + s[1] + '">' + s[0] + '</span> <b>' + esc(accMap[r.account_id] || '?') + '</b> — ' + esc(lbl) + (r.detail ? ' <span style="color:var(--muted)">(' + esc(r.detail) + ')</span>' : '') + '</div>' })
     html += '</div>'
-    html += '<div style="margin-top:12px;font-size:11px;color:var(--muted);background:var(--card,#f8fafc);border:1px dashed var(--border,#e5e7eb);border-radius:10px;padding:10px 12px">🔧 <b>Rodar e corrigir agora</b> recoleta da Meta com 5 tentativas e, se ela insistir em zerar, mantém o último valor válido (carry-forward) — depois revalida. Curtidas/alcance/coleta faltando são corrigidos por aqui.</div>'
-  } else { html += '<div style="margin-top:16px;color:var(--green);font-size:13px;font-weight:700">✅ Nenhum problema — coleta de hoje completa e auditoria 100% OK.</div>' }
-  html += '<details style="margin-top:18px"><summary style="cursor:pointer;font-size:11px;color:var(--muted)">O que cada verificação significa</summary><div style="font-size:11px;color:var(--muted);line-height:1.8;margin-top:8px">'
+    html += '<div style="margin-top:12px;font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);background:var(--card,#f8fafc);border:1px dashed var(--border,#e5e7eb);border-radius:10px;padding:10px 12px">🔧 <b>Rodar e corrigir agora</b> recoleta da Meta com 5 tentativas e, se ela insistir em zerar, mantém o último valor válido (carry-forward) — depois revalida. Curtidas/alcance/coleta faltando são corrigidos por aqui.</div>'
+  } else { html += '<div style="margin-top:16px;color:var(--green);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:700">✅ Nenhum problema — coleta de hoje completa e auditoria 100% OK.</div>' }
+  html += '<details style="margin-top:18px"><summary style="cursor:pointer;font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted)">O que cada verificação significa</summary><div style="font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);line-height:1.8;margin-top:8px">'
     + '<b>Coleta de hoje</b> — leitura ao vivo: cada perfil precisa ter seguidores + os 6 períodos (hoje/1/7/14/30/mês) com curtidas e alcance não-zerados.<br>'
     + '<b>Frescor</b> — os dados de hoje foram coletados (seguidores + engajamento + conteúdo).<br>'
     + '<b>Bruto seg.</b> — a métrica do IG de "seguiram − deixaram de seguir" está chegando. ⚠️ quando a Meta para de entregar (problema dela; o painel cai na contagem "em consolidação").<br>'
@@ -1074,7 +1074,7 @@ async function openPermModal(u, opcoes) {
 
 // `??` e não `||`: com `||`, passar mt=0 caía no default 6 — o topo da matriz
 // pede margem 0 de verdade.
-function _lbl10(txt, mt) { const d = document.createElement('div'); d.textContent = txt; d.style.cssText = `font-size:10px;letter-spacing:1.5px;color:var(--muted);font-weight:700;margin:${mt ?? 6}px 0 6px`; return d }
+function _lbl10(txt, mt) { const d = document.createElement('div'); d.textContent = txt; d.style.cssText = `font-size:max(9px, calc(10px * var(--escala-texto, 1)));letter-spacing:1.5px;color:var(--muted);font-weight:700;margin:${mt ?? 6}px 0 6px`; return d }
 
 // Checkbox "marcar/desmarcar tudo" de uma lista de recursos. O MESMO builder
 // serve o global (recebe RECURSOS inteiro) e o de cada card (recebe só os
@@ -1283,14 +1283,14 @@ function _abaDeFerramentas(body, u) {
   const saRow = document.createElement('label'); saRow.style.cssText = 'display:flex;align-items:center;gap:8px;cursor:pointer;border-bottom:2px solid var(--border);padding-bottom:10px;margin-bottom:8px'
   const saCb = document.createElement('input'); saCb.type = 'checkbox'; saCb.checked = _permState.is_superadmin
   saCb.addEventListener('change', () => { _permState.is_superadmin = saCb.checked; _renderPermBody(u) })
-  const saTxt = document.createElement('span'); saTxt.textContent = 'Super-admin (vê tudo · gerencia permissões)'; saTxt.style.cssText = 'font-weight:700;font-size:13px'
+  const saTxt = document.createElement('span'); saTxt.textContent = 'Super-admin (vê tudo · gerencia permissões)'; saTxt.style.cssText = 'font-weight:700;font-size:max(9px, calc(13px * var(--escala-texto, 1)))'
   saRow.appendChild(saCb); saRow.appendChild(saTxt); body.appendChild(saRow)
   // As NOTIFICAÇÕES ficavam aqui, antes do desvio de super-admin, para que
   // super-admin também escolhesse o que chega no celular. Foram inteiras para
   // a aba "Avisos no celular", que aparece para todo mundo — inclusive para
   // super-admin, que nem chega a ver o resto desta aba.
   if (_permState.is_superadmin) {
-    const info = document.createElement('div'); info.textContent = 'Super-admin tem acesso total — permissões e perfis não se aplicam.'; info.style.cssText = 'font-size:12px;color:var(--muted);padding:6px 0'
+    const info = document.createElement('div'); info.textContent = 'Super-admin tem acesso total — permissões e perfis não se aplicam.'; info.style.cssText = 'font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);padding:6px 0'
     body.appendChild(info); return
   }
   // 2) Escada de níveis por recurso, agrupada por ferramenta (um card por
@@ -1334,13 +1334,13 @@ function _abaDeFerramentas(body, u) {
   })
   // 3) Perfis de rede social
   body.appendChild(_lbl10('PERFIS DE REDE SOCIAL', 12))
-  const todos = document.createElement('label'); todos.style.cssText = 'display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:3px 0;font-weight:600'
+  const todos = document.createElement('label'); todos.style.cssText = 'display:flex;align-items:center;gap:5px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));cursor:pointer;padding:3px 0;font-weight:600'
   const todosCb = document.createElement('input'); todosCb.type = 'checkbox'; todosCb.checked = _permState.allowed_accounts === null
   todosCb.addEventListener('change', () => { _permState.allowed_accounts = todosCb.checked ? null : []; _renderPermBody(u) })
   todos.appendChild(todosCb); todos.appendChild(document.createTextNode('Todos os perfis')); body.appendChild(todos)
   if (_permState.allowed_accounts !== null) {
     (_contasCache || []).forEach(c => {
-      const w = document.createElement('label'); w.style.cssText = 'display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:3px 0 3px 16px'
+      const w = document.createElement('label'); w.style.cssText = 'display:flex;align-items:center;gap:5px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));cursor:pointer;padding:3px 0 3px 16px'
       const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = (_permState.allowed_accounts || []).includes(c.id)
       cb.addEventListener('change', () => {
         const arr = (_permState.allowed_accounts || []).slice()
@@ -1353,7 +1353,7 @@ function _abaDeFerramentas(body, u) {
   // 4) Duplicar de outro usuário
   body.appendChild(_lbl10('DUPLICAR PERMISSÕES DE', 12))
   const dupRow = document.createElement('div'); dupRow.style.cssText = 'display:flex;gap:6px;align-items:center'
-  const dupSel = mkEl('select', 'admin-form-input'); dupSel.style.cssText = 'flex:1;font-size:12px;padding:5px'
+  const dupSel = mkEl('select', 'admin-form-input'); dupSel.style.cssText = 'flex:1;font-size:max(9px, calc(12px * var(--escala-texto, 1)));padding:5px'
   dupSel.appendChild(new Option('— escolher usuário —', ''))
   _usersCache.filter(x => x.id !== u.id).forEach(x => dupSel.appendChild(new Option(x.name || x.email, x.id)))
   const dupBtn = mkEl('button', 'btn btn-principal'); dupBtn.textContent = 'Aplicar'
@@ -2140,7 +2140,7 @@ function _secaoSenha(alvo, p) {
 
   const inp = mkEl('input', 'admin-form-input'); inp.type = 'text'
   inp.placeholder = 'clique em Gerar'
-  inp.style.cssText = 'width:100%;font-family:var(--fonte-dados);font-size:16px;margin-bottom:8px'
+  inp.style.cssText = 'width:100%;font-family:var(--fonte-dados);font-size:max(16px, calc(16px * var(--escala-texto, 1)));margin-bottom:8px'
   sec.appendChild(inp)
 
   const acoes = mkEl('div'); acoes.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px'
@@ -2347,7 +2347,7 @@ function _criarLinhaPessoa(p, gaveta, currentEmail) {
   const av = mkEl('div'); av.style.cssText = 'width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);overflow:hidden;position:relative;'
   av.style.background = u.role === 'admin' ? 'var(--accent)' : 'var(--surface2)'
   if (u.avatar_url) { const img = mkEl('img', 'av-img'); img.src = u.avatar_url + '?t=' + Date.now(); img.alt = ''; av.appendChild(img) }
-  else { const avTxt = mkEl('span'); avTxt.style.cssText = 'font-family:var(--fonte-principal);font-size:13px;font-weight:600'; avTxt.style.color = u.role === 'admin' ? 'var(--sobre-cor)' : 'var(--muted)'; avTxt.textContent = (p.nome || u.email).charAt(0).toUpperCase(); av.appendChild(avTxt) }
+  else { const avTxt = mkEl('span'); avTxt.style.cssText = 'font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600'; avTxt.style.color = u.role === 'admin' ? 'var(--sobre-cor)' : 'var(--muted)'; avTxt.textContent = (p.nome || u.email).charAt(0).toUpperCase(); av.appendChild(avTxt) }
   const avEditBtn = mkEl('button', 'av-edit-btn'); avEditBtn.type = 'button'; avEditBtn.title = 'Trocar foto'
   avEditBtn.innerHTML = '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'
   avEditBtn.addEventListener('click', () => _triggerAvatarUpload(u.id, (url) => {
@@ -2798,18 +2798,18 @@ async function loadAdminAccounts() {
     const head = mkEl('div', 'sr'); head.style.cssText = 'border-bottom:1px solid var(--border);padding-bottom:0'
     const av = mkEl('div'); av.style.cssText = `width:44px;height:44px;border-radius:50%;background:${storedColor};display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:2px solid var(--border)`
     if (acc.picture_url) { const img = mkEl('img'); img.src = acc.picture_url; img.style.cssText = 'width:100%;height:100%;object-fit:cover'; av.appendChild(img) }
-    else { const sp = mkEl('span'); sp.style.cssText = 'color:var(--sobre-cor);font-size:16px;font-weight:700'; sp.textContent = acc.name.charAt(0); av.appendChild(sp) }
+    else { const sp = mkEl('span'); sp.style.cssText = 'color:var(--sobre-cor);font-size:max(16px, calc(16px * var(--escala-texto, 1)));font-weight:700'; sp.textContent = acc.name.charAt(0); av.appendChild(sp) }
     const hMain = mkEl('div', 'sr-main'); hMain.style.marginLeft = '12px'
     hMain.appendChild(mkEl('div', 'sr-label', acc.name))
     hMain.appendChild(mkEl('div', 'sr-sub', acc.instagram_id))
-    const connBadge = mkEl('span'); connBadge.style.cssText = 'display:flex;align-items:center;gap:5px;font-family:var(--fonte-principal);font-size:11px;color:var(--green)'
+    const connBadge = mkEl('span'); connBadge.style.cssText = 'display:flex;align-items:center;gap:5px;font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--green)'
     const dot = mkEl('span', 'online-dot'); connBadge.appendChild(dot); connBadge.appendChild(document.createTextNode('Conectada'))
     head.appendChild(av); head.appendChild(hMain); head.appendChild(connBadge); card.appendChild(head)
     const nameRow = mkEl('div', 'sr'); nameRow.style.justifyContent = 'space-between'; nameRow.appendChild(mkEl('div', 'sr-sub', 'Nome da conta'))
-    const nameInp = mkEl('input', 'auth-input'); nameInp.value = acc.name; nameInp.style.cssText = 'max-width:220px;font-size:12px;padding:5px 10px'
+    const nameInp = mkEl('input', 'auth-input'); nameInp.value = acc.name; nameInp.style.cssText = 'max-width:220px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));padding:5px 10px'
     nameRow.appendChild(nameInp); card.appendChild(nameRow)
     const usrRow = mkEl('div', 'sr'); usrRow.style.justifyContent = 'space-between'; usrRow.appendChild(mkEl('div', 'sr-sub', 'Username'))
-    const usrInp = mkEl('input', 'auth-input'); usrInp.value = acc.username; usrInp.style.cssText = 'max-width:220px;font-size:12px;padding:5px 10px'
+    const usrInp = mkEl('input', 'auth-input'); usrInp.value = acc.username; usrInp.style.cssText = 'max-width:220px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));padding:5px 10px'
     usrRow.appendChild(usrInp); card.appendChild(usrRow)
     const colorRow = mkEl('div', 'sr'); colorRow.style.justifyContent = 'space-between'; colorRow.appendChild(mkEl('div', 'sr-sub', 'Cor de destaque'))
     const colorWrap = mkEl('div'); colorWrap.style.cssText = 'display:flex;align-items:center;gap:10px'
@@ -2872,7 +2872,7 @@ function adminShowCmd(title, cmd) {
   const el = document.getElementById('admin-action-info'); el.style.display = 'block'; el.textContent = ''
   const card = mkEl('div', 'sg'); const row = mkEl('div', 'sr'); const m = mkEl('div', 'sr-main')
   m.appendChild(mkEl('div', 'sr-label', title))
-  const code = mkEl('div'); code.style.cssText = 'margin-top:8px;font-family:monospace;background:var(--surface2);padding:10px 12px;border-radius:6px;font-size:11px;line-height:1.8;white-space:pre;border:1px solid var(--border)'
+  const code = mkEl('div'); code.style.cssText = 'margin-top:8px;font-family:monospace;background:var(--surface2);padding:10px 12px;border-radius:6px;font-size:max(9px, calc(11px * var(--escala-texto, 1)));line-height:1.8;white-space:pre;border:1px solid var(--border)'
   code.textContent = cmd; m.appendChild(code); row.appendChild(m); card.appendChild(row); el.appendChild(card)
 }
 function adminShowRefetchInfo() { adminShowCmd('Atualizar fotos de perfil', 'cd ~/IAmundi/projetos/central-inteligencia/redes-sociais/coletor\npython3 fetch_profile_pics.py') }
@@ -2907,9 +2907,9 @@ async function loadAdminMetas() {
     `<label class="admin-btn-sm" style="display:flex;align-items:center;gap:6px;padding:8px 16px;cursor:pointer;background:var(--accent);color:var(--sobre-cor);border-color:var(--accent)">`,
     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Importar planilha',
     `<input type="file" accept=".xlsx,.xls,.csv" id="metas-csv-input" style="display:none" onchange="importMetasCSV(this,${y},${m})"></label></div>`,
-    '<div id="metas-import-msg" style="font-size:12px;margin-bottom:16px;display:none"></div>',
-    hasData ? `<div class="sg-label">Metas actuais — ${escHtml(mesLabel)}</div><div class="sg"><table class="metas-tbl"><thead><tr><th>Canal / Loja</th><th style="text-align:right">Meta (R$)</th><th style="text-align:right">Meta/dia*</th></tr></thead><tbody>${safeRows}</tbody></table><div style="font-size:10px;color:var(--muted);padding:8px 0">*Meta diária = meta mensal ÷ dias do mês</div></div>`
-      : '<div style="color:var(--muted);font-size:12px;padding:8px 0">Nenhuma meta cadastrada para este mês. Importe uma planilha para começar.</div>'
+    '<div id="metas-import-msg" style="font-size:max(9px, calc(12px * var(--escala-texto, 1)));margin-bottom:16px;display:none"></div>',
+    hasData ? `<div class="sg-label">Metas actuais — ${escHtml(mesLabel)}</div><div class="sg"><table class="metas-tbl"><thead><tr><th>Canal / Loja</th><th style="text-align:right">Meta (R$)</th><th style="text-align:right">Meta/dia*</th></tr></thead><tbody>${safeRows}</tbody></table><div style="font-size:max(9px, calc(10px * var(--escala-texto, 1)));color:var(--muted);padding:8px 0">*Meta diária = meta mensal ÷ dias do mês</div></div>`
+      : '<div style="color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)));padding:8px 0">Nenhuma meta cadastrada para este mês. Importe uma planilha para começar.</div>'
   ].join('')
   body.innerHTML = html
   await loadAdminVendMetas(body, y, m, mesLabel)
@@ -3015,7 +3015,7 @@ async function loadAdminVendMetas(parentBody, y, m, mesLabel) {
   btnRow.appendChild(label)
   sec.appendChild(btnRow)
 
-  const msgEl = document.createElement('div'); msgEl.id = 'vend-metas-import-msg'; msgEl.style.cssText = 'font-size:12px;margin-bottom:16px;display:none'
+  const msgEl = document.createElement('div'); msgEl.id = 'vend-metas-import-msg'; msgEl.style.cssText = 'font-size:max(9px, calc(12px * var(--escala-texto, 1)));margin-bottom:16px;display:none'
   sec.appendChild(msgEl)
 
   if (hasVendData) {
@@ -3036,7 +3036,7 @@ async function loadAdminVendMetas(parentBody, y, m, mesLabel) {
     })
     tbl.appendChild(tbody); sg.appendChild(tbl); sec.appendChild(sg)
   } else {
-    const empty = document.createElement('div'); empty.style.cssText = 'color:var(--muted);font-size:12px;padding:8px 0'; empty.textContent = 'Nenhuma meta de vendedora para este mês.'; sec.appendChild(empty)
+    const empty = document.createElement('div'); empty.style.cssText = 'color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)));padding:8px 0'; empty.textContent = 'Nenhuma meta de vendedora para este mês.'; sec.appendChild(empty)
   }
   parentBody.appendChild(sec)
 }
@@ -3101,10 +3101,10 @@ function showMetasMsg(text, isErr, neutral) {
 /* ── SOLICITAÇÕES ADMIN (legacy L5078-5213, verbatim) ── */
 async function loadAdminRequests() {
   const body = document.getElementById('admin-requests-body')
-  body.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:16px 0">Carregando...</div>'
+  body.innerHTML = '<div style="color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)));padding:16px 0">Carregando...</div>'
   const { data, error } = await sbClient.from('access_requests').select('*').order('created_at', { ascending: false })
-  if (error || !data) { body.innerHTML = '<div style="color:var(--red);font-size:12px">Erro ao carregar solicitações.</div>'; return }
-  if (!data.length) { body.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:16px 0">Nenhuma solicitação de acesso.</div>'; return }
+  if (error || !data) { body.innerHTML = '<div style="color:var(--red);font-size:max(9px, calc(12px * var(--escala-texto, 1)))">Erro ao carregar solicitações.</div>'; return }
+  if (!data.length) { body.innerHTML = '<div style="color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)));padding:16px 0">Nenhuma solicitação de acesso.</div>'; return }
   const statusLabel = { pending: 'Pendente', approved: 'Aprovado', denied: 'Negado' }
   const statusColor = { pending: 'var(--yellow)', approved: 'var(--green)', denied: 'var(--red)' }
   const wrap = document.createElement('div'); wrap.className = 'sg'
@@ -3118,7 +3118,7 @@ async function loadAdminRequests() {
     const sub = document.createElement('div'); sub.className = 'sr-sub'; sub.textContent = (r.message || 'Sem mensagem') + ' · ' + new Date(r.created_at).toLocaleDateString('pt-BR')
     main.appendChild(lbl); main.appendChild(sub)
     const ctrl = document.createElement('div'); ctrl.style.cssText = 'display:flex;align-items:center;gap:8px;flex-shrink:0'
-    const badge = document.createElement('span'); badge.style.cssText = `font-size:10px;font-weight:600;color:${statusColor[r.status] || 'var(--muted)'};letter-spacing:1px;text-transform:uppercase`; badge.textContent = statusLabel[r.status] || r.status
+    const badge = document.createElement('span'); badge.style.cssText = `font-size:max(9px, calc(10px * var(--escala-texto, 1)));font-weight:600;color:${statusColor[r.status] || 'var(--muted)'};letter-spacing:1px;text-transform:uppercase`; badge.textContent = statusLabel[r.status] || r.status
     ctrl.appendChild(badge)
     if (r.status === 'pending') {
       const apv = document.createElement('button'); apv.className = 'admin-btn-sm'; apv.style.cssText = 'background:var(--green);color:var(--sobre-cor)'; apv.textContent = 'Aprovar'; apv.addEventListener('click', () => handleRequest(r.id, 'approved'))
@@ -3203,13 +3203,13 @@ Object.assign(window, {
    terminava. */
 .tela-admin{min-height:100vh;display:flex;flex-direction:column;background:transparent;}
 .tela-admin :deep(.admin-topbar){display:flex;align-items:center;justify-content:space-between;padding:13px 24px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
-.tela-admin :deep(.admin-topbar-back){display:flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:13px;color:var(--accent);cursor:pointer;background:none;border:none;padding:0;letter-spacing:.2px;}
-.tela-admin :deep(.admin-topbar-title){font-family:var(--fonte-principal);font-size:15px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--text);}
+.tela-admin :deep(.admin-topbar-back){display:flex;align-items:center;gap:6px;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--accent);cursor:pointer;background:none;border:none;padding:0;letter-spacing:.2px;}
+.tela-admin :deep(.admin-topbar-title){font-family:var(--fonte-principal);font-size:max(9px, calc(15px * var(--escala-texto, 1)));font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--text);}
 .tela-admin :deep(.admin-layout){display:grid;grid-template-columns:210px 1fr;min-height:calc(100vh - 50px);}
 .tela-admin :deep(.admin-sidebar){border-right:1px solid var(--border);padding:12px 8px;background:var(--surface2);overflow-y:auto;}
-.tela-admin :deep(.admin-nav-group-label){font-family:var(--fonte-principal);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);padding:14px 12px 4px;margin-top:4px;}
+.tela-admin :deep(.admin-nav-group-label){font-family:var(--fonte-principal);font-size:max(9px, calc(9px * var(--escala-texto, 1)));letter-spacing:2px;text-transform:uppercase;color:var(--muted);padding:14px 12px 4px;margin-top:4px;}
 .tela-admin :deep(.admin-nav-group-label:first-child){margin-top:0;}
-.tela-admin :deep(.admin-nav-item){display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-md);cursor:pointer;transition:all .15s;font-family:var(--fonte-principal);font-size:13px;color:var(--text);margin-bottom:1px;user-select:none;}
+.tela-admin :deep(.admin-nav-item){display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-md);cursor:pointer;transition:all .15s;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--text);margin-bottom:1px;user-select:none;}
 .tela-admin :deep(.admin-nav-item:hover){background:var(--surface);}
 .tela-admin :deep(.admin-nav-item.active){background:var(--accent-light);color:var(--accent-forte);}
 .tela-admin :deep(.admin-nav-item svg){flex-shrink:0;opacity:.6;}
@@ -3217,8 +3217,8 @@ Object.assign(window, {
 .tela-admin :deep(.admin-content){padding:36px 44px;overflow-y:auto;max-height:calc(100vh - 50px);}
 .tela-admin :deep(.admin-section){display:none;}
 .tela-admin :deep(.admin-section.active){display:block;}
-.tela-admin :deep(.admin-section-title){font-family:var(--fonte-principal);font-size:22px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);margin-bottom:3px;}
-.tela-admin :deep(.admin-section-sub){font-family:var(--fonte-principal);font-size:12px;color:var(--muted);margin-bottom:28px;}
+.tela-admin :deep(.admin-section-title){font-family:var(--fonte-principal);font-size:max(16px, calc(22px * var(--escala-texto, 1)));font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);margin-bottom:3px;}
+.tela-admin :deep(.admin-section-sub){font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);margin-bottom:28px;}
 /* Faixa de aviso da Saúde dos dados, montada em updateSaudeBadge() (Task 5) —
    substitui a bolinha vermelha que morava no item da barra que não existe mais. */
 /* Mesma história da `.grupo-sem`: era âmbar fixo e virava uma barra branca no
@@ -3228,11 +3228,11 @@ Object.assign(window, {
    contraste — abaixo do mínimo de 4,5 para texto de 12px, e nenhuma proporção
    da mistura conserta (a 4% ainda dá 4,48). Com `--text` são 15,2 no claro e
    14,0 no escuro. Aviso que não se lê não avisa. */
-.tela-admin :deep(.saude-faixa){background:color-mix(in srgb, var(--orange) 10%, var(--surface));border:1px solid color-mix(in srgb, var(--orange) 38%, var(--surface));color:var(--text);border-radius:10px;padding:10px 12px;font-size:12px;margin-bottom:14px;cursor:pointer;}
+.tela-admin :deep(.saude-faixa){background:color-mix(in srgb, var(--orange) 10%, var(--surface));border:1px solid color-mix(in srgb, var(--orange) 38%, var(--surface));color:var(--text);border-radius:10px;padding:10px 12px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));margin-bottom:14px;cursor:pointer;}
 .tela-admin :deep(.admin-stats){display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:24px;}
 .tela-admin :deep(.admin-stat){background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;text-align:center;}
-.tela-admin :deep(.admin-stat-val){font-family:var(--fonte-dados);font-size:30px;font-weight:500;color:var(--accent);}
-.tela-admin :deep(.admin-stat-lbl){font-family:var(--fonte-principal);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-top:3px;}
+.tela-admin :deep(.admin-stat-val){font-family:var(--fonte-dados);font-size:max(16px, calc(30px * var(--escala-texto, 1)));font-weight:500;color:var(--accent);}
+.tela-admin :deep(.admin-stat-lbl){font-family:var(--fonte-principal);font-size:max(9px, calc(9px * var(--escala-texto, 1)));color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-top:3px;}
 @media(max-width:768px){
   .tela-admin :deep(.admin-layout){grid-template-columns:1fr;}
   .tela-admin :deep(.admin-sidebar){display:flex;overflow-x:auto;border-right:none;border-bottom:1px solid var(--border);padding:8px;gap:4px;}
@@ -3261,16 +3261,16 @@ Object.assign(window, {
    * é sempre pior — o dedo nunca sabe qual das duas vai se mexer. */
   .tela-admin :deep(.admin-content){padding:20px 16px;max-height:none;overflow-y:visible;}
 }
-.tela-admin :deep(.admin-btn-sm){font-family:var(--fonte-principal);font-size:10px;color:var(--sobre-cor);background:var(--accent);border:none;border-radius:3px;padding:5px 10px;cursor:pointer;letter-spacing:.6px;white-space:nowrap;transition:opacity .18s;text-transform:uppercase;}
+.tela-admin :deep(.admin-btn-sm){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));color:var(--sobre-cor);background:var(--accent);border:none;border-radius:3px;padding:5px 10px;cursor:pointer;letter-spacing:.6px;white-space:nowrap;transition:opacity .18s;text-transform:uppercase;}
 .tela-admin :deep(.admin-btn-sm:hover){opacity:.85;}
 /* .admin-input-row aparecia DUAS vezes no CSS global (grid, depois flex) — a
    segunda definição vencia a cascata; reproduzimos a mesma ordem aqui para o
    resultado visual ficar idêntico. */
 .tela-admin :deep(.admin-input-row){display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 16px;}
 .tela-admin :deep(.admin-input-row){display:flex;gap:8px;margin-bottom:10px;}
-.tela-admin :deep(.admin-input){flex:1;padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--fonte-principal);font-size:13px;outline:none;transition:border-color .18s;}
+.tela-admin :deep(.admin-input){flex:1;padding:9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));outline:none;transition:border-color .18s;}
 .tela-admin :deep(.admin-input:focus){border-color:var(--accent);}
-.tela-admin :deep(.admin-form-label){font-family:var(--fonte-principal);font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px;font-weight:600;}
+.tela-admin :deep(.admin-form-label){font-family:var(--fonte-principal);font-size:max(9px, calc(9px * var(--escala-texto, 1)));letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px;font-weight:600;}
 /* O CAMPO USA --bg, NAO --surface2 NEM --surface.
    --surface2 deixava o campo CINZA no tema claro (a bronca do dono), e
    --surface deixava ele com a MESMA cor da caixa no tema escuro -- o campo
@@ -3280,14 +3280,14 @@ Object.assign(window, {
    Lotacao nao tinham classe nenhuma e vinham com a aparencia crua do
    navegador, diferente do select de Acesso ao lado -- mesma ficha, dois
    padroes, e e disso que vem a cara de amador. */
-.tela-admin :deep(.admin-form-input){width:100%;min-height:40px;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text);font-family:var(--fonte-principal);font-size:16px;box-sizing:border-box;}
+.tela-admin :deep(.admin-form-input){width:100%;min-height:40px;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text);font-family:var(--fonte-principal);font-size:max(16px, calc(16px * var(--escala-texto, 1)));box-sizing:border-box;}
 .tela-admin :deep(.admin-form-input:focus){border-color:var(--accent);}
 .tela-admin :deep(.admin-form-input::placeholder){color:var(--muted);opacity:.7;}
 
 /* ── Design system de linhas/grupos (.sr/.sg*, legacy L528-542) — genérico,
    usado por várias telas; cada uma traz sua própria cópia, MANTIDO no
    global também (não é .admin-*). ── */
-.tela-admin :deep(.sg-label){font-family:var(--fonte-principal);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);padding:0 4px 6px;margin-top:18px;display:block;}
+.tela-admin :deep(.sg-label){font-family:var(--fonte-principal);font-size:max(9px, calc(9px * var(--escala-texto, 1)));letter-spacing:2px;text-transform:uppercase;color:var(--muted);padding:0 4px 6px;margin-top:18px;display:block;}
 .tela-admin :deep(.sg){background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:4px;}
 .tela-admin :deep(.sr){display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);transition:background .15s;}
 .tela-admin :deep(.sr:last-child){border-bottom:none;}
@@ -3295,16 +3295,16 @@ Object.assign(window, {
 .tela-admin :deep(.sr.clickable:hover){background:var(--surface2);}
 .tela-admin :deep(.sr-icon){width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .tela-admin :deep(.sr-main){flex:1;}
-.tela-admin :deep(.sr-label){font-family:var(--fonte-principal);font-size:13px;color:var(--text);font-weight:500;}
-.tela-admin :deep(.sr-sub){font-family:var(--fonte-principal);font-size:11px;color:var(--muted);margin-top:1px;}
-.tela-admin :deep(.sr-val){font-family:var(--fonte-principal);font-size:12px;color:var(--muted);white-space:nowrap;}
+.tela-admin :deep(.sr-label){font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--text);font-weight:500;}
+.tela-admin :deep(.sr-sub){font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);margin-top:1px;}
+.tela-admin :deep(.sr-val){font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);white-space:nowrap;}
 .tela-admin :deep(.online-dot){width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;}
 
 /* ── Tabela de metas/saúde (.metas-tbl, legacy L1358-1361) — genérico,
    MANTIDO no global também. ── */
 .tela-admin :deep(.metas-tbl){width:100%;border-collapse:collapse;}
-.tela-admin :deep(.metas-tbl th){font-family:var(--fonte-principal);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:7px 10px;text-align:left;border-bottom:1px solid var(--border);}
-.tela-admin :deep(.metas-tbl td){font-family:var(--fonte-principal);font-size:12px;padding:8px 10px;border-bottom:1px solid var(--border);}
+.tela-admin :deep(.metas-tbl th){font-family:var(--fonte-principal);font-size:max(9px, calc(9px * var(--escala-texto, 1)));letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:7px 10px;text-align:left;border-bottom:1px solid var(--border);}
+.tela-admin :deep(.metas-tbl td){font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));padding:8px 10px;border-bottom:1px solid var(--border);}
 .tela-admin :deep(.metas-tbl tr:last-child td){border-bottom:none;}
 
 /* ── Avatar editável na lista de usuários (.av-*, legacy L1377-1380) —
@@ -3330,8 +3330,8 @@ Object.assign(window, {
    ela nasceria rolando na horizontal já no desktop. 95vw segura o celular. */
 .tela-admin :deep(.perm-modal){background:var(--surface);border-radius:8px;width:760px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden;}
 .tela-admin :deep(.perm-modal-hdr){padding:20px 22px 14px;border-bottom:1px solid var(--border);}
-.tela-admin :deep(.perm-modal-title){font-family:var(--fonte-principal);font-size:17px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--text);}
-.tela-admin :deep(.perm-modal-user){font-family:var(--fonte-principal);font-size:12px;color:var(--muted);margin-top:3px;}
+.tela-admin :deep(.perm-modal-title){font-family:var(--fonte-principal);font-size:max(16px, calc(17px * var(--escala-texto, 1)));font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--text);}
+.tela-admin :deep(.perm-modal-user){font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);margin-top:3px;}
 .tela-admin :deep(.perm-modal-body){flex:1;overflow-y:auto;padding:14px 22px;overscroll-behavior:contain;touch-action:pan-y;}
 
 /* ── AS TRÊS ABAS DENTRO DA PESSOA (D6) ──────────────────────────────────────
@@ -3346,7 +3346,7 @@ Object.assign(window, {
 .tela-admin :deep(.perm-aba-ponto){display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--orange);margin-left:var(--sp-1);vertical-align:middle;flex-shrink:0;}
 /* A faixa do aviso, no topo da aba. `--orange` é o token de aviso deste projeto
    (`--aviso` não existe, e variável inexistente cai no herdado, calada). */
-.tela-admin :deep(.perm-faixa-aviso){border:1px solid color-mix(in srgb,var(--orange) 45%,transparent);background:color-mix(in srgb,var(--orange) 10%,var(--surface));color:color-mix(in srgb,var(--orange) 75%,var(--text));border-radius:var(--radius-md);padding:10px 12px;font-size:12.5px;line-height:1.5;margin-bottom:var(--sp-3);overflow-wrap:anywhere;}
+.tela-admin :deep(.perm-faixa-aviso){border:1px solid color-mix(in srgb,var(--orange) 45%,transparent);background:color-mix(in srgb,var(--orange) 10%,var(--surface));color:color-mix(in srgb,var(--orange) 75%,var(--text));border-radius:var(--radius-md);padding:10px 12px;font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.5;margin-bottom:var(--sp-3);overflow-wrap:anywhere;}
 /* A linha do botão de dispensar, quando a faixa é do tipo que fica até alguém
    fechar. Só posiciona: o botão é `.btn` comum, sem `style` solto. */
 .tela-admin :deep(.perm-faixa-aviso-acao){display:flex;justify-content:flex-end;margin-top:var(--sp-2);}
@@ -3354,8 +3354,8 @@ Object.assign(window, {
 .tela-admin :deep(.perm-row){display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:5px;transition:background .12s;cursor:pointer;}
 .tela-admin :deep(.perm-row:hover){background:var(--surface2);}
 .tela-admin :deep(.perm-row.child){padding-left:36px;}
-.tela-admin :deep(.perm-row-label){font-family:var(--fonte-principal);font-size:13px;color:var(--text);flex:1;user-select:none;}
-.tela-admin :deep(.perm-row.child .perm-row-label){font-size:12px;color:var(--muted);}
+.tela-admin :deep(.perm-row-label){font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--text);flex:1;user-select:none;}
+.tela-admin :deep(.perm-row.child .perm-row-label){font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);}
 .tela-admin :deep(.perm-section-sep){height:6px;}
 .tela-admin :deep(.perm-toggle){position:relative;width:36px;height:20px;flex-shrink:0;}
 .tela-admin :deep(.perm-toggle input){opacity:0;width:0;height:0;position:absolute;}
@@ -3371,14 +3371,14 @@ Object.assign(window, {
    (`home-card` → `fab-card`), então nada de nome genérico tipo .card/.grade. ── */
 .tela-admin :deep(.perm-matriz-topo){display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 0 8px;}
 
-.tela-admin :deep(.perm-marcar-tudo){display:flex;align-items:center;gap:5px;cursor:pointer;font-family:var(--fonte-principal);font-size:11px;font-weight:600;color:var(--muted);user-select:none;flex-shrink:0;white-space:nowrap;}
+.tela-admin :deep(.perm-marcar-tudo){display:flex;align-items:center;gap:5px;cursor:pointer;font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:600;color:var(--muted);user-select:none;flex-shrink:0;white-space:nowrap;}
 .tela-admin :deep(.perm-marcar-tudo:hover){color:var(--text);}
 .tela-admin :deep(.perm-marcar-tudo input){cursor:pointer;margin:0;}
 
 .tela-admin :deep(.perm-card){border:1px solid var(--border);border-radius:7px;background:var(--surface);overflow:hidden;margin-bottom:10px;}
 .tela-admin :deep(.perm-card-hdr){display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border-bottom:1px solid var(--border);}
-.tela-admin :deep(.perm-card-titulo){font-family:var(--fonte-principal);font-size:12px;font-weight:700;color:var(--text);flex:1;min-width:0;overflow-wrap:anywhere;}
-.tela-admin :deep(.perm-card-contagem){font-family:var(--fonte-principal);font-size:10px;color:var(--muted);flex-shrink:0;font-variant-numeric:tabular-nums;}
+.tela-admin :deep(.perm-card-titulo){font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));font-weight:700;color:var(--text);flex:1;min-width:0;overflow-wrap:anywhere;}
+.tela-admin :deep(.perm-card-contagem){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));color:var(--muted);flex-shrink:0;font-variant-numeric:tabular-nums;}
 /* NOTIFICAÇÃO NÃO É COLUNA DA MATRIZ. A matriz é recurso × ação (ver, editar,
    criar...) e vale pra toda ferramenta; "quer receber aviso no celular" não é
    uma ação sobre um recurso, e como coluna deixaria a célula vazia em quase
@@ -3388,27 +3388,27 @@ Object.assign(window, {
 .tela-admin :deep(.perm-notif:hover){background:var(--surface2);}
 .tela-admin :deep(.perm-notif input){margin-top:2px;flex-shrink:0;}
 .tela-admin :deep(.perm-notif-txt){display:flex;flex-direction:column;gap:2px;}
-.tela-admin :deep(.perm-notif-rot){font-family:var(--fonte-principal);font-size:12.5px;font-weight:600;color:var(--text);}
+.tela-admin :deep(.perm-notif-rot){font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));font-weight:600;color:var(--text);}
 /* A descrição existe porque "Saldo" sozinho não diz se avisa todo dia ou só
    quando acaba — quem liga precisa saber o que está ligando. */
-.tela-admin :deep(.perm-notif-des){font-family:var(--fonte-principal);font-size:11px;color:var(--muted);line-height:1.45;}
-.tela-admin :deep(.perm-notif-nota){font-family:var(--fonte-principal);font-size:10.5px;color:var(--muted);padding:2px 12px 8px;font-style:italic;}
+.tela-admin :deep(.perm-notif-des){font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);line-height:1.45;}
+.tela-admin :deep(.perm-notif-nota){font-family:var(--fonte-principal);font-size:max(9px, calc(10.5px * var(--escala-texto, 1)));color:var(--muted);padding:2px 12px 8px;font-style:italic;}
 
 /* A escada de níveis: uma linha por recurso, o nome ocupando a linha inteira
    (nunca corta) e os degraus quebrando linha por baixo — sem coluna fixa,
    porque não é mais matriz. Nome grande o bastante pra caber no dedo, no
    celular e no desktop igual. */
 .tela-admin :deep(.perm-nivel){padding:10px 12px;border-bottom:1px solid var(--border);}
-.tela-admin :deep(.perm-nivel-nome){font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:7px;}
+.tela-admin :deep(.perm-nivel-nome){font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));font-weight:600;color:var(--text);margin-bottom:7px;}
 .tela-admin :deep(.perm-nivel-botoes){display:flex;flex-wrap:wrap;gap:6px;}
-.tela-admin :deep(.perm-degrau){border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:99px;padding:7px 12px;font-size:11.5px;min-height:32px;cursor:pointer;font-family:var(--fonte-principal);}
+.tela-admin :deep(.perm-degrau){border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:99px;padding:7px 12px;font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));min-height:32px;cursor:pointer;font-family:var(--fonte-principal);}
 .tela-admin :deep(.perm-degrau.escolhido){background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);font-weight:600;}
-.tela-admin :deep(.perm-o-que-faz){font-size:12.5px;line-height:1.5;color:var(--muted);margin:6px 0 2px;max-width:62ch;overflow-wrap:anywhere;}
-.tela-admin :deep(.perm-selo-dinheiro){font-size:10.5px;letter-spacing:.4px;color:var(--orange);border:1px solid var(--orange);border-radius:99px;padding:2px 8px;margin-left:8px;white-space:nowrap;}
+.tela-admin :deep(.perm-o-que-faz){font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.5;color:var(--muted);margin:6px 0 2px;max-width:62ch;overflow-wrap:anywhere;}
+.tela-admin :deep(.perm-selo-dinheiro){font-size:max(9px, calc(10.5px * var(--escala-texto, 1)));letter-spacing:.4px;color:var(--orange);border:1px solid var(--orange);border-radius:99px;padding:2px 8px;margin-left:8px;white-space:nowrap;}
 .tela-admin :deep(.perm-dinheiro){border-left:2px solid var(--orange);padding-left:10px;}
 /* Conjunto fora da escada: mostra o que está gravado sem aproximar de degrau
    nenhum — aproximar mudaria acesso que ninguém pediu. */
-.tela-admin :deep(.perm-nivel-aviso){margin-top:7px;font-size:11px;color:var(--orange,#d97706);}
+.tela-admin :deep(.perm-nivel-aviso){margin-top:7px;font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--orange,#d97706);}
 
 /* Diretório de pessoas por marca/local/setor (Task 6): um cartão por gaveta,
    uma coluna, sem tabela — nome nunca corta (overflow-wrap, não ellipsis). */
@@ -3430,7 +3430,7 @@ Object.assign(window, {
    escuro. O aviso continua legível pelo texto e pela borda. */
 /* Correção 2: overflow-wrap também no cabeçalho do grupo — nenhum título
    pode cortar, nem o de gaveta (ex.: nome de setor comprido). */
-.tela-admin :deep(.usr-grupo-cab){display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:700;font-size:12px;letter-spacing:.5px;overflow-wrap:anywhere;}
+.tela-admin :deep(.usr-grupo-cab){display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:700;font-size:max(9px, calc(12px * var(--escala-texto, 1)));letter-spacing:.5px;overflow-wrap:anywhere;}
 /* Correção 1: a linha virou um cartão de DUAS fileiras — topo (avatar+nome+
    papel) e ações (embaixo, quebra livre). Antes `.usr-linha` era só a
    fileira do topo (display:flex direto); agora é a coluna que segura as
@@ -3439,20 +3439,20 @@ Object.assign(window, {
 .tela-admin :deep(.usr-linha-topo){display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
 .tela-admin :deep(.usr-linha-info){display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;}
 .tela-admin :deep(.usr-nome-wrap){display:flex;align-items:center;flex-wrap:wrap;gap:6px;}
-.tela-admin :deep(.usr-nome){font-weight:600;font-size:13px;overflow-wrap:anywhere;}
-.tela-admin :deep(.usr-sub){font-size:11px;color:var(--muted);overflow-wrap:anywhere;}
+.tela-admin :deep(.usr-nome){font-weight:600;font-size:max(9px, calc(13px * var(--escala-texto, 1)));overflow-wrap:anywhere;}
+.tela-admin :deep(.usr-sub){font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);overflow-wrap:anywhere;}
 /* O resumo de uma linha (D5): quem é essa pessoa aqui dentro, sem abrir a
    ficha. Mesmo tratamento discreto do subtítulo, com o selo de dinheiro
    herdado de .perm-selo-dinheiro (já usado dentro do modal de permissões). */
-.tela-admin :deep(.usr-resumo){font-size:12px;color:var(--muted);margin-top:3px;}
+.tela-admin :deep(.usr-resumo){font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);margin-top:3px;}
 /* Correção 2: e-mail + "desde <data>" — terceira linha discreta, mesmo
    tratamento visual do subtítulo de lotação. E-mail comprido quebra, nunca
    corta (overflow-wrap, sem ellipsis). */
-.tela-admin :deep(.usr-contato){font-size:11px;color:var(--muted);overflow-wrap:anywhere;}
+.tela-admin :deep(.usr-contato){font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);overflow-wrap:anywhere;}
 .tela-admin :deep(.usr-alerta){color:color-mix(in srgb,var(--orange) 75%,var(--text));}
-.tela-admin :deep(.usr-badge){font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--accent-forte);background:var(--accent-light);padding:2px 6px;border-radius:3px;flex-shrink:0;}
+.tela-admin :deep(.usr-badge){font-size:max(9px, calc(9px * var(--escala-texto, 1)));letter-spacing:1px;text-transform:uppercase;color:var(--accent-forte);background:var(--accent-light);padding:2px 6px;border-radius:3px;flex-shrink:0;}
 .tela-admin :deep(.usr-badge-super){color:var(--sobre-cor);background:var(--roxo);}
-.tela-admin :deep(.usr-papel){font-size:10px;border:1px solid var(--border);color:var(--muted);border-radius:99px;padding:2px 8px;white-space:nowrap;flex-shrink:0;}
+.tela-admin :deep(.usr-papel){font-size:max(9px, calc(10px * var(--escala-texto, 1)));border:1px solid var(--border);color:var(--muted);border-radius:99px;padding:2px 8px;white-space:nowrap;flex-shrink:0;}
 .tela-admin :deep(.usr-papel.papel-super),.tela-admin :deep(.usr-papel.papel-admin){background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
 /* Ações restauradas (Correção 1): permissões/papel/senha/desativar/excluir/
    avatar. `flex-wrap` deixa os botões quebrarem pra uma nova linha DENTRO do
@@ -3461,11 +3461,11 @@ Object.assign(window, {
    (o `.sr-btn` global só tem padding:5px 12px, insuficiente sozinho). */
 .tela-admin :deep(.usr-acoes){display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
 .tela-admin :deep(.usr-acoes select){min-height:40px;box-sizing:border-box;}
-.tela-admin :deep(.usr-acao-select){max-width:130px;font-size:12px;padding:6px 8px;}
+.tela-admin :deep(.usr-acao-select){max-width:130px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));padding:6px 8px;}
 .tela-admin :deep(.usr-gavetas){display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:14px 0 8px;}
-.tela-admin :deep(.usr-gavetas-rot){font-size:11px;color:var(--muted);}
-.tela-admin :deep(.usr-preencher){font-size:11px;color:color-mix(in srgb,var(--orange) 75%,var(--text));cursor:pointer;}
-.tela-admin :deep(.usr-vazio){color:var(--muted);font-size:12px;padding:14px 2px;}
+.tela-admin :deep(.usr-gavetas-rot){font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);}
+.tela-admin :deep(.usr-preencher){font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:color-mix(in srgb,var(--orange) 75%,var(--text));cursor:pointer;}
+.tela-admin :deep(.usr-vazio){color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)));padding:14px 2px;}
 
 /* A ficha da pessoa (etapa 2). Uma coluna, cabe no celular, e as cores saem do
    tema — nada de cor fixa, que foi o que deixou a seção branca no escuro. */
@@ -3476,15 +3476,15 @@ Object.assign(window, {
 .tela-admin :deep(.ficha-fundo){position:fixed;inset:0;z-index:99990;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;touch-action:none;overscroll-behavior:contain;}
 .tela-admin :deep(.ficha-caixa){background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:14px;width:100%;max-width:420px;max-height:88vh;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;}
 .tela-admin :deep(.ficha-cab){display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);}
-.tela-admin :deep(.ficha-titulo){font-weight:700;font-size:14px;overflow-wrap:anywhere;}
-.tela-admin :deep(.ficha-x){border:none;background:transparent;color:var(--muted);font-size:18px;cursor:pointer;min-width:40px;min-height:40px;flex-shrink:0;}
+.tela-admin :deep(.ficha-titulo){font-weight:700;font-size:max(9px, calc(14px * var(--escala-texto, 1)));overflow-wrap:anywhere;}
+.tela-admin :deep(.ficha-x){border:none;background:transparent;color:var(--muted);font-size:max(16px, calc(18px * var(--escala-texto, 1)));cursor:pointer;min-width:40px;min-height:40px;flex-shrink:0;}
 .tela-admin :deep(.ficha-corpo){padding:14px 16px;}
 .tela-admin :deep(.ficha-sec){padding:12px 0;border-bottom:1px solid var(--border);}
 .tela-admin :deep(.ficha-sec:last-child){border-bottom:none;}
-.tela-admin :deep(.ficha-sec-tit){font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
-.tela-admin :deep(.ficha-txt){font-size:12.5px;line-height:1.5;margin-bottom:10px;overflow-wrap:anywhere;}
+.tela-admin :deep(.ficha-sec-tit){font-size:max(9px, calc(10px * var(--escala-texto, 1)));letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+.tela-admin :deep(.ficha-txt){font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.5;margin-bottom:10px;overflow-wrap:anywhere;}
 .tela-admin :deep(.ficha-campo){display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
-.tela-admin :deep(.ficha-campo label){font-size:11px;color:var(--muted);}
+.tela-admin :deep(.ficha-campo label){font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);}
 /* Fonte 16px no select de propósito: abaixo disso o iOS dá zoom ao focar, e a
    tela salta na cara de quem está escolhendo. */
 .tela-admin :deep(.ficha-campo select:disabled){opacity:.5;cursor:not-allowed;}
@@ -3516,11 +3516,11 @@ Object.assign(window, {
   .tela-admin :deep(.ficha-fundo){padding:12px;}
   .tela-admin :deep(.ficha-caixa){max-width:none;max-height:calc(100dvh - 24px);}
   /* A ficha é o caminho no celular, então o convite tem de estar visível. */
-  .tela-admin :deep(.usr-linha-info::after){content:'tocar para abrir ›';display:block;margin-top:4px;font-size:10.5px;color:var(--accent);}
+  .tela-admin :deep(.usr-linha-info::after){content:'tocar para abrir ›';display:block;margin-top:4px;font-size:max(9px, calc(10.5px * var(--escala-texto, 1)));color:var(--accent);}
   /* Topbar compacto no celular: menos padding, logo e e-mail do usuário somem
      (não são essenciais na barra) — sobra Voltar + título, ocupando menos altura. */
   .tela-admin :deep(.admin-topbar){padding:8px 14px;gap:10px;}
-  .tela-admin :deep(.admin-topbar-title){font-size:12px;letter-spacing:1.5px;}
+  .tela-admin :deep(.admin-topbar-title){font-size:max(9px, calc(12px * var(--escala-texto, 1)));letter-spacing:1.5px;}
   .tela-admin :deep(.admin-topbar .rbv-logo){display:none;}
   .tela-admin :deep(#admin-topbar-user){display:none;}
   /* O outro modal desta tela seguia `max-height:85vh` -- `vh` no celular e
@@ -3542,10 +3542,10 @@ Object.assign(window, {
      inline (desenhados em JS: o input de "trocar senha" por linha e o select
      de "duplicar permissões de outro usuário") — sem ele, a cascata perderia
      pro estilo inline e o celular continuaria dando zoom. */
-  .tela-admin :deep(.admin-form-input){font-size:16px!important;min-height:40px!important;box-sizing:border-box;}
+  .tela-admin :deep(.admin-form-input){font-size:max(16px, calc(16px * var(--escala-texto, 1)))!important;min-height:40px!important;box-sizing:border-box;}
   /* .usr-acao-select (Viewer/Admin por pessoa) já tinha min-height:40px do
      `.usr-acoes select` (correção anterior) — faltava só a fonte. */
-  .tela-admin :deep(.usr-acao-select){font-size:16px;}
+  .tela-admin :deep(.usr-acao-select){font-size:max(16px, calc(16px * var(--escala-texto, 1)));}
 
   /* 2) Botões padrão (.sr-btn): "Enviar convite"/"Criar com senha", rodapé
      do modal (Cancelar/Salvar), "Aplicar" (duplicar permissões) e o miniform

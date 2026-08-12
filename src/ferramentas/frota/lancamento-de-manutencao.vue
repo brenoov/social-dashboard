@@ -227,38 +227,38 @@ function gravar() {
    ficha, com a lista de itens do plano, é das que mais aproveitam a largura. */
 .lm-ficha{width:100%;max-width:720px;max-height:calc(100dvh - 28px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35);}
 .lm-topo{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 15px;border-bottom:1px solid var(--border);}
-.lm-titulo{flex:1;min-width:0;font-family:var(--fonte-principal);font-size:12.5px;font-weight:700;letter-spacing:.6px;color:var(--text);overflow-wrap:anywhere;}
+.lm-titulo{flex:1;min-width:0;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));font-weight:700;letter-spacing:.6px;color:var(--text);overflow-wrap:anywhere;}
 /* 40px de alvo: o PADRÃO manda, e errar o ✕ num modal que trava a rolagem do
    fundo é ficar preso na ficha. */
-.lm-fechar{appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:9px;width:40px;height:40px;font-size:15px;cursor:pointer;flex:0 0 auto;touch-action:manipulation;}
+.lm-fechar{appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:9px;width:40px;height:40px;font-size:max(9px, calc(15px * var(--escala-texto, 1)));cursor:pointer;flex:0 0 auto;touch-action:manipulation;}
 /* `overflow-x:clip` + `touch-action:pan-y`: o corpo rola SÓ na vertical. Um eixo
    em `auto` promove o outro a `auto` pela regra do CSS, e foi assim que os
    modais desta tela ficaram arrastáveis pros lados sem ninguém pedir. */
 .lm-corpo{padding:14px 15px;overflow-y:auto;overflow-x:clip;touch-action:pan-y;overscroll-behavior:contain;display:flex;flex-direction:column;gap:13px;}
-.lm-explica{margin:0;padding:10px 12px;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.6;color:var(--text);background:color-mix(in srgb,var(--accent) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 22%,var(--surface));border-radius:10px;}
+.lm-explica{margin:0;padding:10px 12px;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.6;color:var(--text);background:color-mix(in srgb,var(--accent) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 22%,var(--surface));border-radius:10px;}
 .lm-dupla{display:grid;grid-template-columns:1fr;gap:12px;}
 .lm-dupla > *{min-width:0;}
 @media(min-width:560px){ .lm-dupla{grid-template-columns:1fr 1fr;} }
 .lm-campo{display:flex;flex-direction:column;gap:5px;}
-.lm-lab{font-family:var(--fonte-principal);font-size:10.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);}
+.lm-lab{font-family:var(--fonte-principal);font-size:max(9px, calc(10.5px * var(--escala-texto, 1)));letter-spacing:.8px;text-transform:uppercase;color:var(--muted);}
 /* 16px: abaixo disso o iPhone dá zoom sozinho ao tocar no campo. */
-.lm-campo input,.lm-item-valor input{font-family:var(--fonte-principal);font-size:16px;padding:11px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);width:100%;box-sizing:border-box;}
-.lm-ajuda{font-family:var(--fonte-principal);font-size:11.5px;color:var(--muted);overflow-wrap:anywhere;}
-.lm-grupo{margin:4px 0 0;font-family:var(--fonte-principal);font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);}
+.lm-campo input,.lm-item-valor input{font-family:var(--fonte-principal);font-size:max(16px, calc(16px * var(--escala-texto, 1)));padding:11px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);width:100%;box-sizing:border-box;}
+.lm-ajuda{font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);overflow-wrap:anywhere;}
+.lm-grupo{margin:4px 0 0;font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);}
 .lm-itens{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
 .lm-itens li{padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--surface);}
 .lm-itens li.marcado{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,var(--surface));}
 /* min-height 40px na linha inteira: o alvo é a linha, não a caixinha de 20px. */
 .lm-item-linha{display:flex;align-items:center;gap:10px;min-height:40px;cursor:pointer;touch-action:manipulation;}
 .lm-item-linha input[type=checkbox]{width:20px;height:20px;flex:0 0 auto;accent-color:var(--accent);}
-.lm-item-nome{flex:1 1 auto;min-width:0;font-family:var(--fonte-principal);font-size:13.5px;color:var(--text);overflow-wrap:anywhere;}
-.lm-item-km{font-family:var(--fonte-principal);font-size:11px;color:var(--muted);white-space:nowrap;}
+.lm-item-nome{flex:1 1 auto;min-width:0;font-family:var(--fonte-principal);font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));color:var(--text);overflow-wrap:anywhere;}
+.lm-item-km{font-family:var(--fonte-principal);font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);white-space:nowrap;}
 .lm-item-valor{display:flex;flex-direction:column;gap:5px;margin-top:8px;padding-left:30px;}
-.lm-divergencia{margin:0;padding:10px 12px;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.55;color:var(--text);background:var(--surface2);border-left:3px solid var(--border);border-radius:8px;overflow-wrap:anywhere;}
-.lm-aviso{margin:0;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.55;color:var(--orange);overflow-wrap:anywhere;}
-.lm-erro{margin:0;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.55;color:var(--red);overflow-wrap:anywhere;}
+.lm-divergencia{margin:0;padding:10px 12px;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.55;color:var(--text);background:var(--surface2);border-left:3px solid var(--border);border-radius:8px;overflow-wrap:anywhere;}
+.lm-aviso{margin:0;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.55;color:var(--orange);overflow-wrap:anywhere;}
+.lm-erro{margin:0;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.55;color:var(--red);overflow-wrap:anywhere;}
 .lm-pe{display:flex;gap:9px;justify-content:flex-end;padding:12px 15px;border-top:1px solid var(--border);}
-.lm-btn{min-height:40px;padding:10px 15px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-family:var(--fonte-principal);font-size:13px;font-weight:600;cursor:pointer;touch-action:manipulation;}
+.lm-btn{min-height:40px;padding:10px 15px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;cursor:pointer;touch-action:manipulation;}
 .lm-btn.primario{background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
 .lm-btn:disabled{opacity:.6;cursor:default;}
 .lm-novo-item{align-self:flex-start;}

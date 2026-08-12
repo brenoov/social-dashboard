@@ -117,9 +117,15 @@
       </div>
     </div>
 
-    <!-- O zoom envolve o conteúdo da rota, não o <html>: aplicado na raiz, ele
-         desloca tudo que é position:fixed (avatar, painéis, barra de seleção). -->
-    <div class="conteudo-da-rota" :style="zoom === 1 ? null : { zoom }">
+    <!-- O zoom NÃO mora mais aqui. Ele era aplicado neste `div`, e por isso
+         alcançava só o conteúdo da rota: modal e barra de topo são
+         `position:fixed`, saem deste elemento e o navegador os desenhava em
+         tamanho cheio. O dono relatou em 12/08/2026: "no meu celular estou
+         usando zoom 60% e ainda continua tudo muito grande" — e estava mesmo,
+         porque MODAL é onde ele passa a maior parte do tempo e o modal ficava
+         em 100%. Agora o zoom vai na raiz do documento (ver `aplicarZoom`),
+         onde alcança a Central inteira, como o nome sempre prometeu. -->
+    <div class="conteudo-da-rota">
       <router-view />
     </div>
 
@@ -318,6 +324,29 @@ const ajustesAbertos = ref(false)
 const zoom = ref(1)
 function aplicarZoom(z) {
   zoom.value = Math.min(2, Math.max(0.6, Math.round(z * 10) / 10))
+  // NA RAIZ, e é isto que faz o zoom valer "na Central toda": modal, barra de
+  // topo e qualquer coisa `position:fixed` vivem fora do `div` do conteúdo, e
+  // antes ficavam sempre em 100%. `zoom` no elemento raiz cria um sistema de
+  // coordenadas novo, então o que é fixo escala junto — o que `transform:scale`
+  // não faria (ele deslocaria os fixos em vez de redimensioná-los, que é a
+  // armadilha registrada no comentário antigo do template).
+  // O CONTROLE MEXE SÓ NA LETRA (pedido do dono, 12/08/2026: "o zoom vale pra
+  // texto somente; o quadrado, os blocos, ficam do mesmo jeito"). Antes ele era
+  // `zoom` de CSS, que encolhe a caixa junto — o modal virava um quadradinho.
+  // Agora é uma escala que multiplica cada `font-size` do aplicativo, via
+  // `--escala-texto`: a caixa fica onde está, a margem fica, e só o texto muda.
+  //
+  // As 1.571 declarações de tamanho viraram `calc(Npx * var(--escala-texto))`.
+  // As de 16px pra cima ganharam piso de 16px — é o tamanho dos campos de
+  // digitar, e abaixo disso o iPhone dá zoom sozinho ao tocar e a tela inteira
+  // pula, que é pior que letra grande.
+  //
+  // A barra de topo não precisa de compensação: o texto dela também é `font-size`
+  // e escalaria junto, então ela entra na lista de exceção em estilos-globais.css
+  // ("a barra de topo você pode deixar de fora, ficou perfeita").
+  try {
+    document.documentElement.style.setProperty('--escala-texto', String(zoom.value))
+  } catch (e) { /* sem DOM: nada a fazer */ }
   try { localStorage.setItem('zoom-central', String(zoom.value)) } catch (e) { /* modo privado */ }
 }
 function mudarZoom(passo) { aplicarZoom(zoom.value + passo) }

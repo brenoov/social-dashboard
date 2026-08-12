@@ -43,8 +43,8 @@ defineEmits(['escolher'])
 .brp-btn:hover{border-color:var(--accent);}
 /* `overflow-wrap:anywhere` nos dois: o nome do carro vem do banco e pode ser
    comprido, e o padrão da casa é que texto nunca corta. */
-.brp-nome{font-size:13.5px;font-weight:700;color:var(--text);line-height:1.25;overflow-wrap:anywhere;}
-.brp-estado{font-size:11.5px;color:var(--muted);line-height:1.3;overflow-wrap:anywhere;}
+.brp-nome{font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));font-weight:700;color:var(--text);line-height:1.25;overflow-wrap:anywhere;}
+.brp-estado{font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);line-height:1.3;overflow-wrap:anywhere;}
 @media(min-width:900px){
   /* Quatro por linha no computador. `align-items:start` porque um botão com
      estado e outro sem têm alturas diferentes, e a grade estica por padrão —
