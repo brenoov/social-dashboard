@@ -204,6 +204,7 @@ import { estadoDoVinculo } from './vinculo-de-cadastro.js'
 // a qual colaborador o login pertence. A ordem e o texto do aviso do elo
 // faltante são puros e testados; a tela só desenha.
 import { abasDaPessoa } from './abas-da-pessoa.js'
+import { paraIlike } from './escapar-curinga-ilike.js'
 // Trava a rolagem do fundo enquanto a ficha esta aberta. Peca compartilhada,
 // que tambem compensa a barra de rolagem e resolve o efeito elastico do iOS.
 // O editor de permissoes (#perm-modal-overlay) NAO precisa de chamada aqui: ele
@@ -2277,8 +2278,14 @@ async function adminInviteUser(mode) {
   // e-mail não diferencia por maiúscula/minúscula.
   // `null` = não consegui saber se já existia — nesse caso NÃO aplica: errar
   // para o lado de não mexer em conta alheia.
+  //
+  // Re-revisão: `_` e `%` são curingas no ILIKE, e `encodeURIComponent`
+  // resolve transporte (URL), não metacaractere de padrão — os dois
+  // problemas são independentes. `erick_martins@` sem escapar casaria
+  // `erick.martins@` também. `paraIlike` (escapar-curinga-ilike.js) escapa
+  // antes de codificar.
   const jaExistia = perfilEscolhidoId
-    ? await adFetch(`profiles?select=id&email=ilike.${encodeURIComponent(email)}`)
+    ? await adFetch(`profiles?select=id&email=ilike.${encodeURIComponent(paraIlike(email))}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((j) => (Array.isArray(j) ? j.length > 0 : null))
         .catch(() => null)
@@ -2313,10 +2320,36 @@ async function adminInviteUser(mode) {
         } else if (jaExistia === null) {
           avisoPerfil = ' Não consegui confirmar se o e-mail já tinha conta, então não apliquei o perfil — marque manualmente.'
         } else {
-          const rNovo = await adFetch(`profiles?select=id&email=ilike.${encodeURIComponent(email)}`).catch(() => null)
+          // GRAVE se sair errado: esta consulta escolhe QUEM recebe o PATCH
+          // do perfil. Sem escapar o curinga, um e-mail com `_` casaria conta
+          // de outra pessoa e aplicaria o perfil nela — exatamente o risco
+          // que a guarda de pré-existência acima existe pra fechar, só que
+          // por uma porta lateral. `&limit=1` é só teto de tamanho, NÃO é a
+          // proteção — a proteção é o escaping.
+          //
+          // `limit=1` sozinho TRUNCA a resposta em 1 linha, e uma resposta
+          // truncada não prova nada sobre quantas linhas existiam — por isso
+          // vai junto `Prefer: count=exact`, que faz o PostgREST devolver o
+          // TOTAL de casamentos no cabeçalho `Content-Range` (formato
+          // "0-0/N"), independente do `limit`. Se o total vier > 1 — dado
+          // estranho, e-mail duplicado por alguma falha anterior — a resposta
+          // é NÃO aplicar e avisar, nunca escolher a primeira linha às cegas.
+          // Se o cabeçalho não vier (CORS não expôs `Content-Range`), cai no
+          // tamanho do corpo como total — despiora a segurança em nada, só
+          // perde o bônus de detectar >1: quem protege de verdade continua
+          // sendo o escaping.
+          const rNovo = await adFetch(`profiles?select=id&email=ilike.${encodeURIComponent(paraIlike(email))}&limit=1`, {
+            headers: { Prefer: 'count=exact' },
+          }).catch(() => null)
           const jNovo = rNovo && rNovo.ok ? await rNovo.json() : null
-          const novoId = Array.isArray(jNovo) ? jNovo[0]?.id : null
-          if (novoId) {
+          const linhasNovo = Array.isArray(jNovo) ? jNovo : []
+          const contentRange = rNovo && rNovo.ok ? rNovo.headers.get('content-range') : null
+          const totalMatches = contentRange ? Number(contentRange.split('/')[1]) : linhasNovo.length
+          const novoId = Number.isFinite(totalMatches) && totalMatches === 1 && linhasNovo.length === 1
+            ? linhasNovo[0]?.id : null
+          if (Number.isFinite(totalMatches) && totalMatches > 1) {
+            avisoPerfil = ' Mas achei mais de um cadastro com esse e-mail — não apliquei o perfil, confira o dado.'
+          } else if (novoId) {
             const permissions = { ...perfil.permissions }
             const rPatch = await adFetch('profiles?id=eq.' + novoId, {
               method: 'PATCH',
