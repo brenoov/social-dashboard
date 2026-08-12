@@ -302,7 +302,25 @@ O D11 — o que torna o perfil vivo seguro. Sem isto, D8 não vai ao ar.
 
 **Interfaces:**
 - Consumes: `acessoEfetivo` (Task 2).
-- Produces: `impactoDaMudanca(perfilNovo, membros) -> {afetados: [{nome, ganha: [chaves], perde: [chaves]}], total}` — `membros` é `[{nome, permissions, permissions_excecao}]`.
+- Produces: `impactoDaMudanca(perfilNovo, membros) -> {afetados: [{nome, ganha: [chave], perde: [chave], muda: [{chave, de: [acoes], para: [acoes]}]}], total}` — `membros` é `[{nome, permissions, permissions_excecao}]`.
+
+> **Três listas, não duas — corrigido em 11/08/2026 durante a execução.** A versão
+> original tinha só `ganha`/`perde`, e com ela **quem PERDIA ações aparecia como
+> quem ganhou**: alguém que tinha `['ver','exportar','editar']` e passava a ter
+> `['ver']` era descrito ao dono como *"Ana: ganha social"*. Isso é literalmente
+> o texto que ele lê antes de aprovar. `muda` separa quem trocou de nível, com
+> o de-para.
+>
+> **E outra correção da mesma rodada:** o fixture de teste original tinha
+> `permissions: { social }` com `permissions_excecao: { frota }` — estado
+> impossível, porque `permissions` é sempre perfil + exceção. Confiar nesse dado
+> levou a implementação a pular do cálculo as chaves de exceção, o que **cegava o
+> D11**: com dado divergente devolvia `total: 0`, e o Step 2 da Task 6 trata
+> `total === 0` como "grava direto, sem confirmar". Concessão silenciosa, no
+> ponto exato que o D11 existe pra impedir.
+>
+> A lição, que vale pra qualquer task deste projeto: **asserção é decisão do dono
+> e se mantém verbatim; fixture é dado, e dado errado se conserta.**
 
 - [ ] **Step 1: Write the failing test**
 
@@ -630,10 +648,16 @@ const membros = membrosCrus.map((p) => ({
     await gravarPerfil()
     return
   }
+  // Três listas, e a de PERDA em maiúscula: quem lê rápido tem que enxergar a
+  // perda antes do ganho. `muda` mostra o de-para porque "mudou de nível" sem
+  // dizer para qual não ajuda ninguém a decidir.
   const linhas = impacto.afetados.map((a) => {
     const partes = []
     if (a.ganha.length) partes.push(`ganha ${a.ganha.join(', ')}`)
     if (a.perde.length) partes.push(`PERDE ${a.perde.join(', ')}`)
+    for (const m of a.muda || []) {
+      partes.push(`${m.chave}: de [${m.de.join(', ')}] para [${m.para.join(', ')}]`)
+    }
     return `${a.nome}: ${partes.join(' · ')}`
   })
   // `_gtConfirmAdmin(titulo, texto)` (~L638 deste arquivo) é o que existe aqui —
