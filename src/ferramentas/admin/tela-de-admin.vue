@@ -1319,30 +1319,43 @@ function _abaDeFerramentas(body, u) {
   // funcionalidade na primeira semana. Copiar de uma pessoa real é o caminho
   // que funciona no dia 1. Botão comum (não principal): "Aplicar" já é a ação
   // principal deste bloco.
-  const btnPerfil = mkEl('button', 'btn')
-  btnPerfil.type = 'button'
-  btnPerfil.textContent = 'Salvar como perfil'
-  btnPerfil.style.cssText = 'margin-top:8px'
-  btnPerfil.addEventListener('click', async () => {
-    // `uiPrompt`/`uiConfirm` NÃO EXISTEM neste projeto (são de outro projeto do
-    // dono). O que existe aqui é `_gtConfirmAdmin`, que só confirma — não pede
-    // texto. Como o nome do perfil precisa ser digitado, `window.prompt` é o
-    // caminho coerente com o que o arquivo já faz para confirmar; não há
-    // proibição a diálogo nativo em PADRAO-DA-CENTRAL.md (conferido por leitura).
-    const nome = window.prompt('Nome do perfil (ex.: Vendedora)')
-    if (!nome || !nome.trim()) return
-    const r = await adFetch('acessos_perfis', {
-      method: 'POST',
-      headers: { Prefer: 'return=representation' },
-      body: JSON.stringify({ nome: String(nome).trim(), permissions: _permState.permissions }),
+  //
+  // Revisão: a policy `acessos_perfis_escrever` (039_perfis_de_acesso.sql) é
+  // SÓ superadmin. Um admin comum que clicasse sempre bateria em 403 com um
+  // toast genérico — o botão nem deveria existir pra ele. Mesmo gate que já
+  // existe no arquivo para `_secaoSenha` (:1642) e para a Administração
+  // inteira (onMounted, :2670): `if (estado.is_superadmin)`.
+  if (estado.is_superadmin) {
+    const btnPerfil = mkEl('button', 'btn')
+    btnPerfil.type = 'button'
+    btnPerfil.textContent = 'Salvar como perfil'
+    btnPerfil.style.cssText = 'margin-top:8px'
+    btnPerfil.addEventListener('click', async () => {
+      // `uiPrompt`/`uiConfirm` NÃO EXISTEM neste projeto (são de outro projeto
+      // do dono). O que existe aqui é `_gtConfirmAdmin`, que só confirma — não
+      // pede texto. Como o nome do perfil precisa ser digitado, `window.prompt`
+      // é o caminho coerente com o que o arquivo já faz para confirmar; não há
+      // proibição a diálogo nativo em PADRAO-DA-CENTRAL.md (conferido por
+      // leitura).
+      const nome = window.prompt('Nome do perfil (ex.: Vendedora)')
+      if (!nome || !nome.trim()) return
+      const r = await adFetch('acessos_perfis', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        // `criado_por`: a coluna existe pra rastrear quem criou o perfil e não
+        // tem default (039_perfis_de_acesso.sql) — sem gravar aqui, fica
+        // sempre NULL. `estado.userId` é o campo certo (mesmo usado em
+        // `alterado_por: estado.userId`, ~L1500).
+        body: JSON.stringify({ nome: String(nome).trim(), permissions: _permState.permissions, criado_por: estado.userId }),
+      })
+      // `nome` é unique na tabela (039_perfis_de_acesso.sql) — nome repetido
+      // devolve 409, e precisa dizer isso, não "não consegui".
+      if (r.status === 409) { adminToast(`Já existe um perfil chamado "${nome.trim()}"`, false); return }
+      if (!r.ok) { adminToast('Não consegui salvar o perfil', false); return }
+      adminToast(`Perfil "${nome.trim()}" criado`)
     })
-    // `nome` é unique na tabela (039_perfis_de_acesso.sql) — nome repetido
-    // devolve 409, e precisa dizer isso, não "não consegui".
-    if (r.status === 409) { adminToast(`Já existe um perfil chamado "${nome.trim()}"`, false); return }
-    if (!r.ok) { adminToast('Não consegui salvar o perfil', false); return }
-    adminToast(`Perfil "${nome.trim()}" criado`)
-  })
-  body.appendChild(btnPerfil)
+    body.appendChild(btnPerfil)
+  }
 }
 
 // Marcar uma ação marca 'ver' junto; desmarcar 'ver' limpa o recurso. Mantém a ordem do catálogo.
@@ -2138,9 +2151,16 @@ async function loadAdminUsers() {
   // de criar usuário (Task 5). Falhar aqui não pode impedir criar usuário: sem
   // perfil, a pessoa nasce sem nada, que é o padrão do projeto (permissão nasce
   // desmarcada).
+  // Revisão: um 4xx do PostgREST devolve um OBJETO de erro, `.json()` resolve
+  // normal (não lança), e sem checar `.ok` o `_perfisCache` virava esse
+  // objeto — `.forEach`/`.find` nele lançavam TypeError que escapava desta
+  // função inteira e derrubava a renderização da lista de usuários. Por isso
+  // dois cintos: `.ok` antes de ler o corpo, e `Array.isArray` antes de
+  // aceitar o resultado.
   try {
     const rPerfis = await adFetch('acessos_perfis?select=id,nome,permissions&order=nome')
-    _perfisCache = await rPerfis.json()
+    const jPerfis = rPerfis.ok ? await rPerfis.json() : null
+    _perfisCache = Array.isArray(jPerfis) ? jPerfis : []
   } catch { _perfisCache = [] }
   const selPerfilForm = document.getElementById('adm-perfil')
   if (selPerfilForm) {
@@ -2245,6 +2265,25 @@ async function adminInviteUser(mode) {
   const isInvite = mode === 'invite' || !password
   if (!isInvite && password.length < 6) { msg.textContent = 'A senha precisa ter no mínimo 6 caracteres.'; msg.style.color = 'var(--red)'; return }
   msg.textContent = isInvite ? 'Enviando convite...' : 'Criando acesso...'; msg.style.color = 'var(--muted)'
+
+  // Task 5 (D7, segunda metade), revisão: a pergunta certa é "esta conta já
+  // existia?", checada ANTES de chamar invite-user — não "ela parece vazia?"
+  // depois. Conta criada sem permissão marcada (fluxo normal desta tela),
+  // conta que teve TUDO revogado (permissions={}, features=[] — mesma cara
+  // de recém-nascida) e conta desativada de ex-funcionário são todas
+  // indistinguíveis de "acabou de nascer" só pelo estado do dado. E o edge
+  // devolve sucesso mesmo quando o e-mail já tem conta (só reenvia link de
+  // senha), então o estado DEPOIS da chamada não prova nada. `ilike` porque
+  // e-mail não diferencia por maiúscula/minúscula.
+  // `null` = não consegui saber se já existia — nesse caso NÃO aplica: errar
+  // para o lado de não mexer em conta alheia.
+  const jaExistia = perfilEscolhidoId
+    ? await adFetch(`profiles?select=id&email=ilike.${encodeURIComponent(email)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => (Array.isArray(j) ? j.length > 0 : null))
+        .catch(() => null)
+    : false
+
   const { data: { session: s } } = await sbClient.auth.getSession()
   const tok = s?.access_token || SUPABASE_ANON_KEY
   const body = isInvite ? { email, name, role } : { email, name, role, password }
@@ -2256,52 +2295,49 @@ async function adminInviteUser(mode) {
     msg.style.color = 'var(--green)'
     ;['adm-email', 'adm-name', 'adm-pass'].forEach(id => document.getElementById(id).value = '')
 
-    // Task 5 (D7, segunda metade): se foi escolhido "começar com o acesso
-    // de…", aplica o perfil na pessoa recém-criada.
-    //
-    // O edge invite-user (supabase/functions/invite-user/index.ts) só grava
-    // id/email/name/role no upsert — conferido por leitura, não aceita
-    // perfil_id/permissions. Por isso a aplicação acontece aqui, com PATCH
-    // direto em profiles via adFetch, do mesmo jeito que o editor de
-    // permissões já grava (savePermissions, ~L1444).
-    //
-    // GUARDA: "Task 5 só afeta usuário que ainda não existe" é regra dura.
-    // O edge, se o e-mail digitado já tiver conta, NÃO cria nada — só
-    // reenvia um link de redefinição de senha — e mesmo assim devolve
-    // sucesso. Sem checar, essa borda aplicaria o perfil em cima do acesso
-    // de alguém que já tinha conta. Por isso só aplica quando o cadastro
-    // achado por e-mail está de fato em branco (sem permissão, sem perfil,
-    // não superadmin) — o formato exato de quem acabou de nascer.
+    // Se foi escolhido "começar com o acesso de…", aplica o perfil na pessoa
+    // — só quando `jaExistia === false`, ou seja, só na pessoa que este
+    // clique acabou de criar. O edge invite-user (supabase/functions/
+    // invite-user/index.ts) só grava id/email/name/role no upsert —
+    // conferido por leitura, não aceita perfil_id/permissions — por isso a
+    // aplicação acontece aqui, com PATCH direto em profiles via adFetch, do
+    // mesmo jeito que o editor de permissões já grava (savePermissions,
+    // ~L1480). `avisoPerfil` vira parte da MESMA frase do toast final — não
+    // um segundo toast que contradiz o primeiro.
+    let avisoPerfil = ''
     if (perfilEscolhidoId) {
       const perfil = _perfisCache.find(p => p.id === perfilEscolhidoId)
       if (perfil) {
-        const rProfile = await adFetch('profiles?select=id,permissions,perfil_id,is_superadmin&email=eq.' + encodeURIComponent(email))
-        const linhas = rProfile.ok ? await rProfile.json() : []
-        const novo = linhas[0]
-        const emBranco = novo && !novo.perfil_id && !novo.is_superadmin
-          && (!novo.permissions || Object.keys(novo.permissions).length === 0)
-        if (novo && emBranco) {
-          const permissions = { ...perfil.permissions }
-          const rPatch = await adFetch('profiles?id=eq.' + novo.id, {
-            method: 'PATCH',
-            body: JSON.stringify({
-              perfil_id: perfil.id,
-              permissions,
-              permissions_excecao: {},
-              features: derivarFeatures(permissions, { ehSuperadmin: false }),
-            }),
-          })
-          if (!rPatch.ok) adminToast('Acesso criado, mas não consegui aplicar o perfil — marque manualmente', false)
-        } else if (novo) {
-          adminToast('Esse e-mail já tinha acesso — não mexi no perfil dela. Marque manualmente se for o caso.', false)
+        if (jaExistia === true) {
+          avisoPerfil = ' Esse e-mail já tinha conta — não mexi no perfil dela, marque manualmente se for o caso.'
+        } else if (jaExistia === null) {
+          avisoPerfil = ' Não consegui confirmar se o e-mail já tinha conta, então não apliquei o perfil — marque manualmente.'
         } else {
-          adminToast('Acesso criado, mas não achei o cadastro pra aplicar o perfil — marque manualmente', false)
+          const rNovo = await adFetch(`profiles?select=id&email=ilike.${encodeURIComponent(email)}`).catch(() => null)
+          const jNovo = rNovo && rNovo.ok ? await rNovo.json() : null
+          const novoId = Array.isArray(jNovo) ? jNovo[0]?.id : null
+          if (novoId) {
+            const permissions = { ...perfil.permissions }
+            const rPatch = await adFetch('profiles?id=eq.' + novoId, {
+              method: 'PATCH',
+              body: JSON.stringify({
+                perfil_id: perfil.id,
+                permissions,
+                permissions_excecao: {},
+                features: derivarFeatures(permissions, { ehSuperadmin: false }),
+              }),
+            }).catch(() => null)
+            if (!rPatch || !rPatch.ok) avisoPerfil = ' Mas não consegui aplicar o perfil — marque manualmente.'
+          } else {
+            avisoPerfil = ' Mas não achei o cadastro pra aplicar o perfil — marque manualmente.'
+          }
         }
       }
     }
     if (selPerfil) selPerfil.value = ''
 
-    adminToast(isInvite ? 'Convite enviado!' : 'Acesso criado com sucesso')
+    const textoFinal = (isInvite ? 'Convite enviado!' : 'Acesso criado com sucesso') + avisoPerfil
+    adminToast(textoFinal, !avisoPerfil)
     setTimeout(loadAdminUsers, 1200)
   }
 }
