@@ -36,6 +36,7 @@ import { ALVOS, alvoDoBalde, avaliarAlvo } from './alvos.js';
 // 'curtidas/comentarios/...', então as chaves nunca colidem (ver Task 3 do plano
 // 2026-07-28-meta-ads-objetivo-por-interacao-f3.md).
 import { INTERACOES } from './interacoes.js';
+import { resumoPersona, fraseDaPersona, limparPersona, MAXIMO as PERSONA_MAXIMO } from './persona-da-marca.js';
 
 // Só estas quatro: são exatamente as chaves de PESOS_PADRAO. Visita foi
 // tentada e RETIRADA a pedido do dono — o porquê de cada peso (e de por que só
@@ -103,6 +104,43 @@ const BALDES_SECAO2 = Object.keys(ALVOS).filter((b) => b !== 'engajamento');
 function sufixoDoAlvo(balde) {
   const rotulo = (ALVOS[balde] && ALVOS[balde].rotulo) || '';
   return rotulo.replace(/^Custo por\s*/i, 'por ');
+}
+
+// A PERSONA DA MARCA — quem a conta atende, escrito pelo dono.
+//
+// POR QUE FICA AQUI: esta aba já é a configuração POR CONTA (as metas mudam de
+// conta pra conta e o cabeçalho diz qual está aberta). A persona tem exatamente a
+// mesma natureza, e é lida pela IA que sugere público.
+//
+// Botão PRÓPRIO, separado do "Salvar a régua": são coisas independentes, e um
+// botão só faria quem quisesse corrigir uma vírgula na persona regravar as metas
+// de verba junto.
+function blocoPersona(o) {
+  // Criterio PROPRIO: a RLS de `accounts` exige role='admin', enquanto a regua
+  // aceita a permissao do Gestor. Sao tabelas diferentes com donos diferentes.
+  const editavel = !!o.personaEditavel;
+  const nome = o.nomeConta || '';
+  if (!o.contaId) {
+    return `<div class="pnd-grupo pnd-persona">
+      <h2 class="pnd-grupo-tit">Persona da marca</h2>
+      <p class="pnd-grupo-sub">Escolha uma conta de anúncios lá em cima para escrever a persona dela.</p>
+    </div>`;
+  }
+  const texto = typeof o.persona === 'string' ? o.persona : '';
+  const r = resumoPersona(texto);
+  return `<div class="pnd-grupo pnd-persona">
+    <h2 class="pnd-grupo-tit">Persona da marca${nome ? ` — ${esc(nome)}` : ''}</h2>
+    <p class="pnd-grupo-sub">Para quem esta marca vende, nas suas palavras. A IA lê isto antes de sugerir idade, lugar e interesses — e o que estiver escrito aqui vale mais do que o padrão que ela encontrar nos números.</p>
+    <p class="pnd-ajuda">Escreva como explicaria para uma pessoa nova na equipe: quem é, que idade tem de verdade, o que procura, e principalmente <b>o que NÃO combina</b> com a marca. É o "não combina" que impede a sugestão de idade que você vem corrigindo na mão.</p>
+    <textarea class="pnd-persona-campo" id="pnd-persona" rows="10"
+      ${editavel ? '' : 'disabled'}
+      placeholder="Ex.: Mulher de 30 a 55 anos, classe média, que compra bolsa de couro para usar no trabalho e em viagem. Valoriza durabilidade e acabamento, não moda passageira. NÃO é público teen nem de bolsa de festa barata.">${esc(texto)}</textarea>
+    <p class="pnd-persona-conta" id="pnd-persona-conta">${r.caracteres} de ${PERSONA_MAXIMO} caracteres</p>
+    <p class="pnd-ajuda" id="pnd-persona-frase">${esc(fraseDaPersona(texto, nome))}</p>
+    ${editavel
+      ? '<button class="pnd-salvar" id="pnd-persona-salvar">Salvar a persona</button>'
+      : '<p class="pnd-nota">Só quem é administrador pode editar a persona.</p>'}
+  </div>`;
 }
 
 export function montarPainelRegua(alvo, opcoes) {
@@ -264,6 +302,7 @@ export function montarPainelRegua(alvo, opcoes) {
             ? '<button class="pnd-salvar" id="pnd-salvar">Salvar a régua</button>'
             : '<button class="pnd-salvar" id="pnd-salvar" disabled>Salvar a régua</button><p class="pnd-nota">Ainda não consegui confirmar a régua que está salva no banco. Recarregue a página antes de editar — salvar agora arriscaria apagar a meta de verdade.</p>'
         ) : '<p class="pnd-nota">Você não tem permissão para editar a régua.</p>'}
+        ${blocoPersona(o)}
       </div>
       <div class="pnd-exemplo" id="pnd-exemplo"></div>
     </div>`;
@@ -469,6 +508,28 @@ export function montarPainelRegua(alvo, opcoes) {
     // Além do atributo `disabled` no HTML, nem liga o listener quando a leitura do
     // banco não foi confirmada — dupla trava contra salvar em cima de dado errado.
     if (botao && podeSalvar) botao.addEventListener('click', () => o.aoSalvar && o.aoSalvar(reguaDaTela(), botao));
+  }
+
+  // PERSONA: FORA do `if (editavel)` acima de propósito. Quem manda aqui é
+  // `personaEditavel` (role='admin', o que a RLS de `accounts` exige) e não a
+  // permissão da régua — presas juntas, um admin sem permissão de editar a régua
+  // veria o campo e o botão e nenhum dos dois responderia ao clique.
+  // O botão é PRÓPRIO: salvar a persona não pode regravar as metas de verba junto.
+  const campo = document.getElementById('pnd-persona');
+  if (campo && o.personaEditavel) {
+    const conta = document.getElementById('pnd-persona-conta');
+    const frase = document.getElementById('pnd-persona-frase');
+    const repintar = () => {
+      const r = resumoPersona(campo.value);
+      if (conta) {
+        conta.textContent = `${r.caracteres} de ${PERSONA_MAXIMO} caracteres`;
+        conta.classList.toggle('pnd-persona-conta--estourou', r.excedeu);
+      }
+      if (frase) frase.textContent = fraseDaPersona(campo.value, o.nomeConta || '');
+    };
+    campo.addEventListener('input', repintar);
+    const bp = document.getElementById('pnd-persona-salvar');
+    if (bp) bp.addEventListener('click', () => o.aoSalvarPersona && o.aoSalvarPersona(limparPersona(campo.value), bp));
   }
   atualizarTela();
 }

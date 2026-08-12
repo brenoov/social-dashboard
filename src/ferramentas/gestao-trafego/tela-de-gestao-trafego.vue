@@ -200,6 +200,7 @@ import { montarPainelRegua } from './painel-regua.js'
 // testado; painel-fila.js só monta a tela.
 import { montarPainelFila } from './painel-fila.js'
 import { resumoDoRobo, fraseDaFilaVazia } from './fila.js'
+import { limparPersona, resumoPersona, fraseDaPersona, MAXIMO as PERSONA_MAXIMO } from './persona-da-marca.js'
 // A LISTA do histórico de campanhas começadas por aqui. As regras de leitura
 // moram em rascunhos.js; este só desenha (e escapa tudo que vem de fora).
 import { montarPainelHistorico, marcarQuemPodeApagar } from './painel-historico.js'
@@ -510,7 +511,7 @@ async function _initGestaoTrafego(){
   const setLbl=t=>{if(col)col.innerHTML=`<div class="gv-loading-screen"><div class="gv-spinner"></div><span class="gv-loading-lbl">${t}</span></div>`;};
   setLbl('Carregando contas…');
   try{
-    const res=await adFetch('accounts?select=id,name,ad_account_id,profile_picture_url,picture_url&order=name.asc');
+    const res=await adFetch('accounts?select=id,name,ad_account_id,profile_picture_url,picture_url,persona&order=name.asc');
     const socialAccs=await res.json();
     const seen=new Set();
     const accs=[];
@@ -1053,6 +1054,42 @@ function _gtPintarContadorFila() {
   el.textContent = String(n);
   // Enquanto não carregou, esconde: um "0" ali afirmaria que não há pendência.
   el.hidden = n === 0 || !_gtFilaCarregou;
+}
+
+// Grava a PERSONA da conta aberta.
+//
+// EXIGE A LINHA DE VOLTA antes de dizer que gravou. Um PATCH barrado pela RLS
+// volta 204 com ZERO linhas e `.ok` true — a tela anunciaria sucesso sem ter
+// gravado nada, que e exatamente o defeito que ja apareceu no PATCH de
+// permissoes. `return=representation` faz o banco devolver o que ficou gravado.
+async function _gtSalvarPersona(texto, botao) {
+  const conta = _gtCurAcc && _gtCurAcc.id;
+  if (!conta) return;
+  const orig = botao ? botao.textContent : '';
+  if (botao) { botao.disabled = true; botao.textContent = 'Salvando…'; }
+  try {
+    const r = await adFetch(`accounts?id=eq.${encodeURIComponent(conta)}&select=id,persona`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ persona: texto || null }),
+    });
+    const corpo = await r.json().catch(() => null);
+    if (!r.ok) throw new Error((corpo && (corpo.message || corpo.hint)) || ('HTTP ' + r.status));
+    if (!Array.isArray(corpo) || !corpo.length) {
+      throw new Error('o banco não devolveu a linha — a gravação foi barrada por permissão');
+    }
+    // O que ficou NO BANCO vira o que a tela mostra e o que a IA recebe: se o
+    // banco normalizou algo, a tela nao pode seguir exibindo o texto antigo.
+    _gtCurAcc.persona = corpo[0].persona || '';
+    const naLista = (_gtAccounts || []).find((c) => String(c.id) === String(conta));
+    if (naLista) naLista.persona = _gtCurAcc.persona;
+    adminToast('Persona salva. A IA vai usar isto na próxima sugestão de público.');
+    if (botao) botao.textContent = '✓ Salva';
+  } catch (e) {
+    console.error('[GT] falha ao salvar a persona:', e);
+    adminToast('Não consegui salvar a persona: ' + String((e && e.message) || e), false);
+    if (botao) { botao.disabled = false; botao.textContent = orig; }
+  }
 }
 
 // Grava a decisão. Append-only: cada decisão é uma linha nova (ver a migration
@@ -2397,6 +2434,16 @@ function _gtTrocarAba(nome) {
       // deixa gravar um valor que pode não ser o real (ver C3 do review final).
       carregouOk: _gtReguaCarregada,
       exemplos: _gtExemplosParaRegua(),
+      // PERSONA DA MARCA: quem esta conta atende. A IA de sugestao de publico le
+      // isto antes dos numeros -- sem ela, a idade sugerida saia de quem CLICOU.
+      contaId: (_gtCurAcc && _gtCurAcc.id) || '',
+      persona: (_gtCurAcc && _gtCurAcc.persona) || '',
+      // A RLS de `accounts` so deixa profiles.role='admin' gravar. Usar aqui o
+      // criterio do Gestor ('meta.gestor','editar') faria o campo aparecer
+      // editavel pra quem o banco recusa -- o mesmo erro que o comentario da
+      // regua logo acima ja avisa pra nao cometer.
+      personaEditavel: estado.role === 'admin',
+      aoSalvarPersona: _gtSalvarPersona,
       // O card de abertura é longo e explica a aba inteira. Quem já leu não quer
       // rolar por ele toda vez — mas o painel remonta a cada troca de conta e a
       // cada save, então a escolha precisa morar fora dele. Mesmo lugar onde o
@@ -3079,6 +3126,9 @@ async function _gtPubLeituraDaIA(sugestao,rotulo){
       body:JSON.stringify({
         evidencia:{contando:rotulo,idade:sugestao.idade,cidades:sugestao.cidades,interesses:sugestao.interesses,porque:sugestao.porqueDosConjuntos},
         marca:(_gtCurAcc&&(_gtCurAcc.display_name||_gtCurAcc.name))||'',
+        // QUEM a marca atende. Sem isto a IA tira a idade dos numeros da conta,
+        // que dizem quem CLICOU -- nao para quem a marca quer vender.
+        persona:limparPersona((_gtCurAcc&&_gtCurAcc.persona)||''),
         objetivo:(sub&&sub.rotulo)||'',
       }),
     });
@@ -4213,6 +4263,9 @@ async function _gtNovoLeituraDeTexto(evidencia,rotulo){
       body:JSON.stringify({
         modo:'texto',
         marca:(_gtCurAcc&&(_gtCurAcc.display_name||_gtCurAcc.name))||'',
+        // QUEM a marca atende. Sem isto a IA tira a idade dos numeros da conta,
+        // que dizem quem CLICOU -- nao para quem a marca quer vender.
+        persona:limparPersona((_gtCurAcc&&_gtCurAcc.persona)||''),
         objetivo:(sub&&sub.rotulo)||'',
         evidencia:{
           contando:rotulo,
@@ -5314,7 +5367,20 @@ Object.assign(window, {
 /* "Sem meta de propósito" virou UMA nota no rodapé do cartão (ver M do review final,
    2026-07-28). Como linha de tabela, o texto quebrava em quatro e inchava a linha. */
 .tela-gestao-trafego :deep(.pnd-nota){margin:12px 0 0;padding-top:11px;border-top:1px dashed var(--border);font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;}
-.tela-gestao-trafego :deep(.pnd-salvar){margin-top:16px;padding:10px 22px;border-radius:22px;border:none;background:var(--accent);color:var(--sobre-cor);font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;transition:filter .15s,transform .1s;}
+/* PERSONA DA MARCA — campo de texto longo, na mesma família visual da régua.
+   16px no campo não é estética: abaixo disso o iOS dá zoom ao focar e a tela
+   salta na cara de quem está digitando (PADRÃO item 6). */
+.tela-gestao-trafego :deep(.pnd-persona){margin-top:22px;}
+.tela-gestao-trafego :deep(.pnd-persona-campo){width:100%;box-sizing:border-box;min-height:150px;resize:vertical;padding:12px 13px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-family:var(--fonte-principal);font-size:16px;line-height:1.6;}
+.tela-gestao-trafego :deep(.pnd-persona-campo:focus-visible){outline:2px solid var(--accent);outline-offset:2px;}
+.tela-gestao-trafego :deep(.pnd-persona-campo:disabled){opacity:.65;cursor:not-allowed;}
+.tela-gestao-trafego :deep(.pnd-persona-conta){margin:6px 0 0;font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);}
+.tela-gestao-trafego :deep(.pnd-persona-conta--estourou){color:var(--red);font-weight:600;}
+/* min-height 40px: MEDIDO em 12/08/2026, o botão saía com 37px — abaixo do alvo
+   de toque do PADRÃO (item 6). Era assim antes deste bloco existir, no "Salvar a
+   régua"; como a persona soma um segundo botão da mesma classe, o conserto vai na
+   classe e pega os dois. Não mexe em largura nem em fonte. */
+.tela-gestao-trafego :deep(.pnd-salvar){margin-top:16px;padding:10px 22px;min-height:40px;border-radius:22px;border:none;background:var(--accent);color:var(--sobre-cor);font-family:var(--fonte-principal);font-size:calc(11px*var(--gt-fs,1.3));font-weight:700;cursor:pointer;transition:filter .15s,transform .1s;}
 .tela-gestao-trafego :deep(.pnd-salvar:hover:not(:disabled)){filter:brightness(1.08);}
 .tela-gestao-trafego :deep(.pnd-salvar:active:not(:disabled)){transform:translateY(1px);}
 .tela-gestao-trafego :deep(.pnd-salvar:disabled){opacity:.65;cursor:default;}
