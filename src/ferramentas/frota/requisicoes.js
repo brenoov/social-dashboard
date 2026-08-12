@@ -58,7 +58,13 @@ export function problemasDaRequisicao(req, todas, agoraIso) {
   const fim = ms(req && req.devolucao_prevista);
 
   if (!req || !req.veiculo_id) p.push({ bloqueia: true, texto: 'Escolha o veículo.' });
-  if (!req || !req.pessoa_id) p.push({ bloqueia: true, texto: 'Escolha quem vai dirigir.' });
+  // Quem vai dirigir pode ser um COLABORADOR (`pessoa_id`) ou alguém de fora,
+  // escrito na hora (`pessoa_nome` sem id) — ver nomes-de-fora.js. Exigir só o
+  // `pessoa_id` foi o que obrigou o dono a se pôr como motorista pra registrar
+  // o Felipe, e a multa da quinzena cairia no nome errado.
+  if (!req || (!req.pessoa_id && !String(req.pessoa_nome || '').trim())) {
+    p.push({ bloqueia: true, texto: 'Escolha quem vai dirigir, ou escreva o nome de quem é de fora.' });
+  }
   if (ini === null) {
     p.push({ bloqueia: true, texto: 'Informe quando você vai retirar o carro.' });
   } else {

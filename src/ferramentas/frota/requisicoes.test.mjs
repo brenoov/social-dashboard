@@ -318,3 +318,16 @@ test('reserva sem hora de volta segura o dia inteiro, e só ele', () => {
   assert.ok(reservaSegurando({ requisicoes: r, veiculoId: 'v1', agoraIso: '2026-08-12T20:00:00Z' }))
   assert.equal(reservaSegurando({ requisicoes: r, veiculoId: 'v1', agoraIso: '2026-08-14T09:00:00Z' }), null)
 })
+
+test('reserva para pessoa DE FORA é válida — nome sem cadastro basta', () => {
+  // O caso do Felipe: sem isto, o dono tinha de se pôr como motorista e
+  // escrever a verdade na finalidade, e a multa cairia no nome errado.
+  const p = problemasDaRequisicao(
+    req({ pessoa_id: null, pessoa_nome: 'Felipe modelista' }), [], AGORA)
+  assert.equal(bloqueios(p).length, 0)
+})
+
+test('sem colaborador E sem nome nenhum continua bloqueado', () => {
+  const p = problemasDaRequisicao(req({ pessoa_id: null, pessoa_nome: '  ' }), [], AGORA)
+  assert.ok(bloqueios(p).some((x) => /quem vai dirigir/i.test(x.texto)))
+})
