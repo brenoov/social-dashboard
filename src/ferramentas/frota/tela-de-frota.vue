@@ -2177,11 +2177,20 @@ onMounted(async () => {
 
           <h3 class="fr-grupo" data-tour="veic-contato">Contato</h3>
           <div class="fr-dupla">
-            <label class="fr-campo"><span class="fr-lab">Quem é</span><input v-model="vForm.contato_nome" type="text" placeholder="JHM Auto Center"></label>
-            <label class="fr-campo"><span class="fr-lab">O que faz</span><input v-model="vForm.contato_papel" type="text" placeholder="Oficina, locadora, seguro, guincho…"></label>
+            <label class="fr-campo">
+              <span class="fr-lab">Quem é</span>
+              <input v-model="vForm.contato_nome" type="text">
+              <span class="fr-ajuda">Ex.: JHM Auto Center</span>
+            </label>
+            <label class="fr-campo">
+              <span class="fr-lab">O que faz</span>
+              <input v-model="vForm.contato_papel" type="text">
+              <span class="fr-ajuda">Ex.: Oficina, locadora, seguro, guincho</span>
+            </label>
             <label class="fr-campo">
               <span class="fr-lab">Telefone</span>
-              <input v-model="vForm.contato_telefone" type="tel" inputmode="tel" placeholder="(19) 3033-9837">
+              <input v-model="vForm.contato_telefone" type="tel" inputmode="tel">
+              <span class="fr-ajuda">Ex.: (19) 3033-9837</span>
               <!-- Diz POR QUE não dá link, em vez de só não mostrar o botão: sem
                    DDD o app se recusa a montar o link, e a pessoa precisa saber
                    que é isso — não que o WhatsApp "não funciona". -->
@@ -2193,7 +2202,11 @@ onMounted(async () => {
 
           <h3 class="fr-grupo" data-tour="veic-contrato">Contrato e valores</h3>
           <div class="fr-dupla">
-            <label class="fr-campo"><span class="fr-lab">Contrato</span><input v-model="vForm.contrato" type="text" placeholder="CTR-007"></label>
+            <label class="fr-campo">
+              <span class="fr-lab">Contrato</span>
+              <input v-model="vForm.contrato" type="text">
+              <span class="fr-ajuda">Ex.: CTR-007</span>
+            </label>
             <label class="fr-campo"><span class="fr-lab">Aluguel por mês (R$)</span><input v-model="vForm.aluguel" type="text" inputmode="decimal"></label>
             <label class="fr-campo"><span class="fr-lab">Valor FIPE (R$)</span><input v-model="vForm.fipe" type="text" inputmode="decimal"></label>
             <label class="fr-campo"><span class="fr-lab">Categoria comercial</span><input v-model="vForm.categoria_comercial" type="text"></label>
@@ -2209,10 +2222,15 @@ onMounted(async () => {
 
           <h3 class="fr-grupo" data-tour="veic-oficina">Oficina</h3>
           <div class="fr-dupla">
-            <label class="fr-campo"><span class="fr-lab">Mecânica</span><input v-model="vForm.oficina_nome" type="text" placeholder="JHM Auto Center"></label>
+            <label class="fr-campo">
+              <span class="fr-lab">Mecânica</span>
+              <input v-model="vForm.oficina_nome" type="text">
+              <span class="fr-ajuda">Ex.: JHM Auto Center</span>
+            </label>
             <label class="fr-campo">
               <span class="fr-lab">Telefone da oficina</span>
-              <input v-model="vForm.oficina_telefone" type="tel" inputmode="tel" placeholder="(19) 3033-9837">
+              <input v-model="vForm.oficina_telefone" type="tel" inputmode="tel">
+              <span class="fr-ajuda">Ex.: (19) 3033-9837</span>
               <span class="fr-ajuda" v-if="vForm.oficina_telefone && !linkDoWhatsapp(vForm.oficina_telefone)">
                 {{ porQueNaoDaLink(vForm.oficina_telefone) }}
               </span>
@@ -2221,9 +2239,21 @@ onMounted(async () => {
 
           <h3 class="fr-grupo">Equipamentos e patrimônio</h3>
           <div class="fr-dupla">
-            <label class="fr-campo"><span class="fr-lab">Tag de pedágio</span><input v-model="vForm.tag_pedagio" type="text" placeholder="Sem Parar, número da tag…"></label>
-            <label class="fr-campo"><span class="fr-lab">Rastreador</span><input v-model="vForm.rastreador" type="text" placeholder="empresa, identificador…"></label>
-            <label class="fr-campo"><span class="fr-lab">Código patrimonial</span><input v-model="vForm.codigo_patrimonial" type="text" placeholder="RBB-007"></label>
+            <label class="fr-campo">
+              <span class="fr-lab">Tag de pedágio</span>
+              <input v-model="vForm.tag_pedagio" type="text">
+              <span class="fr-ajuda">Ex.: Sem Parar, número da tag</span>
+            </label>
+            <label class="fr-campo">
+              <span class="fr-lab">Rastreador</span>
+              <input v-model="vForm.rastreador" type="text">
+              <span class="fr-ajuda">Ex.: empresa, identificador</span>
+            </label>
+            <label class="fr-campo">
+              <span class="fr-lab">Código patrimonial</span>
+              <input v-model="vForm.codigo_patrimonial" type="text">
+              <span class="fr-ajuda">Ex.: RBB-007</span>
+            </label>
             <!-- Ao criar, a lista é bensLivres — só Veículos ainda sem carro
                  ligado (F9). Oferecer um bem já ligado duplicaria o carro.
                  Some o campo inteiro se não sobrar nenhum, em vez de mostrar
@@ -2395,11 +2425,13 @@ onMounted(async () => {
           <p class="fr-tutorial-fixo">{{ TEXTOS.itemEmEdicao }}</p>
           <label class="fr-campo" data-tour="item-nome">
             <span class="fr-lab">O que se troca</span>
-            <input v-model="itemForm.item" type="text" placeholder="Filtro de ar, fluido de freio…">
+            <input v-model="itemForm.item" type="text">
+            <span class="fr-ajuda">Ex.: Filtro de ar, fluido de freio</span>
           </label>
           <label class="fr-campo" data-tour="item-km">
             <span class="fr-lab">A cada quantos quilômetros</span>
-            <input v-model="itemForm.aCadaKm" type="text" inputmode="numeric" placeholder="20000">
+            <input v-model="itemForm.aCadaKm" type="text" inputmode="numeric">
+            <span class="fr-ajuda">Ex.: 20000</span>
             <span class="fr-ajuda">O aviso começa quando faltarem 10% disso.</span>
           </label>
           <label class="fr-campo">
@@ -2574,15 +2606,18 @@ onMounted(async () => {
           </label>
           <label class="fr-campo" data-tour="ped-destino">
             <span class="fr-lab">Destino</span>
-            <input v-model="pedidoForm.destino" type="text" placeholder="Conchal, Campinas…">
+            <input v-model="pedidoForm.destino" type="text">
+            <span class="fr-ajuda">Ex.: Conchal, Campinas</span>
           </label>
           <label class="fr-campo">
             <span class="fr-lab">Para quê</span>
-            <input v-model="pedidoForm.finalidade" type="text" placeholder="Homologação, buscar pedido…">
+            <input v-model="pedidoForm.finalidade" type="text">
+            <span class="fr-ajuda">Ex.: Homologação, buscar pedido</span>
           </label>
           <label class="fr-campo">
             <span class="fr-lab">Departamento</span>
-            <input v-model="pedidoForm.departamento" type="text" placeholder="Administrativo, Marketing…">
+            <input v-model="pedidoForm.departamento" type="text">
+            <span class="fr-ajuda">Ex.: Administrativo, Marketing</span>
           </label>
 
           <ul class="fr-problemas" v-if="avisosDoPedido.length">
@@ -2689,7 +2724,8 @@ onMounted(async () => {
             <span class="fr-lab">
               KM no painel {{ ficha.modo === 'devolver' ? 'agora' : 'ao sair' }}
             </span>
-            <input v-model="form.km" type="text" inputmode="numeric" placeholder="145928">
+            <input v-model="form.km" type="text" inputmode="numeric">
+            <span class="fr-ajuda">Ex.: 145928</span>
             <span class="fr-ajuda" v-if="ficha.modo === 'devolver' && ficha.uso && ficha.uso.km_saida">
               Saiu com {{ ficha.uso.km_saida.toLocaleString('pt-BR') }} km.
             </span>
@@ -2706,11 +2742,13 @@ onMounted(async () => {
           <template v-if="ficha.modo === 'retirar'">
             <label class="fr-campo">
               <span class="fr-lab">Destino</span>
-              <input v-model="form.destino" type="text" placeholder="Conchal, Rio Claro…">
+              <input v-model="form.destino" type="text">
+              <span class="fr-ajuda">Ex.: Conchal, Rio Claro</span>
             </label>
             <label class="fr-campo">
               <span class="fr-lab">Para quê</span>
-              <input v-model="form.finalidade" type="text" placeholder="Homologação, buscar pedido…">
+              <input v-model="form.finalidade" type="text">
+              <span class="fr-ajuda">Ex.: Homologação, buscar pedido</span>
             </label>
           </template>
 
