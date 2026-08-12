@@ -2949,7 +2949,14 @@ onMounted(async () => {
 .tela-frota .fr-resultado-com_ressalvas{color:var(--orange,#d97706);}
 .tela-frota .fr-resultado-nao_liberado{color:var(--red,#c0392b);}
 .tela-frota .fr-item-nome{color:var(--text);font-weight:600;}
-.tela-frota .fr-item-txt{font-variant-numeric:tabular-nums;}
+/* Mora dentro do `.fr-ficha-corpo`, que agora corta no `overflow-x:clip`
+   (Tarefa 4/B3) — e este texto vem de `r.observacao`/`h.oficina`, digitado
+   por gente, não escrito por quem programa. Sem quebrar em qualquer ponto,
+   uma palavra comprida sem espaço sumiria pra sempre na borda direita, sem
+   barra de rolagem pra denunciar. Mesmo par clip+anywhere de `.fr-copia-carros
+   li`/`.fr-copia-motivo`/`.fr-outros-ident`/`.fr-conferencia` logo abaixo —
+   não tire um sem o outro. */
+.tela-frota .fr-item-txt{font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
 .tela-frota .fr-item-km{font-family:var(--fonte-dados);font-size:12.5px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;}
 .tela-frota .fr-pedido.desligado{opacity:.5;}
 /* A ficha do veículo é longa: no computador ela abre mais larga e os campos
@@ -3056,7 +3063,12 @@ onMounted(async () => {
 .tela-frota .fr-lab{font-family:var(--fonte-principal);font-size:10.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);}
 /* 16px nos campos: abaixo disso o iPhone dá zoom sozinho ao tocar. */
 .tela-frota .fr-campo input,.tela-frota .fr-campo select{font-family:var(--fonte-principal);font-size:16px;padding:11px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);width:100%;box-sizing:border-box;}
-.tela-frota .fr-ajuda{font-family:var(--fonte-principal);font-size:11.5px;color:var(--muted);}
+/* Mesmo motivo do `.fr-item-txt` lá em cima: este span mostra
+   `hodometro_justificativa`/`anomalias`, texto digitado por gente dentro de um
+   `.fr-ficha-corpo` que corta em `overflow-x:clip` (Tarefa 4/B3). Sem
+   `overflow-wrap`, uma palavra comprida sem espaço sumiria na borda sem
+   avisar — não tire este `anywhere` sem também tirar o `clip` de cima. */
+.tela-frota .fr-ajuda{font-family:var(--fonte-principal);font-size:11.5px;color:var(--muted);overflow-wrap:anywhere;}
 .tela-frota .fr-problemas{margin:0;padding:11px 13px 11px 30px;background:color-mix(in srgb,var(--orange,#d97706) 12%,transparent);border:1px solid color-mix(in srgb,var(--orange,#d97706) 34%,transparent);border-radius:10px;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.55;color:var(--text);}
 .tela-frota .fr-ficha-rodape{display:flex;gap:9px;padding:13px 15px;border-top:1px solid var(--border);}
 
