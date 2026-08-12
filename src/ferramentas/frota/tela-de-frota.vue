@@ -17,7 +17,7 @@
 import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
-import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
+import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { estadoDoVeiculo, resumoDoEstado, ordenarEstados, rotuloDoTanque, NIVEIS_TANQUE, problemasDaDevolucao, ultimoHodometro } from './estado-do-veiculo.js'
 import { montarArvore } from '../../compartilhado/arvore-de-locais.js'
@@ -63,6 +63,8 @@ import { abrirCamada, fecharCamada } from '../../compartilhado/camada-de-modal.j
 import {
   nomesDeFora, problemasDoNomeDeFora, motoristaParaGravar, DE_FORA,
 } from './nomes-de-fora.js'
+// Dar acesso ao dono do carro, do próprio quadro de cobrança (D34/D-2).
+import { podeConvidar, senhaInicial, recadoDoConvite } from './convite-do-dono.js'
 import Gaveta from './gaveta.vue'
 import { gavetasVisiveis, lerPreferencias, gravarPreferencias } from './gavetas.js'
 import LancamentoDeManutencao from './lancamento-de-manutencao.vue'
@@ -480,6 +482,146 @@ function horaBR(iso) {
 // que faltava porque só olhava `acessos_pessoas`). A decisão — inclusive a
 // armadilha de o contato do carro nem sempre ser quem dirige — mora em
 // contato-do-motorista.js, testada; aqui só monta o link e o texto.
+/* ── DAR ACESSO AO DONO, do próprio quadro (D-2) ──────────────────────────
+ * Medido em 12/08/2026: Marcus, Thiago e Barbara são donos de carro e não têm
+ * login, então não recebem o aviso das 7h30 nem assinam checklist. Os três já
+ * têm cadastro completo — falta só a conta. O convite NÃO manda e-mail: cria a
+ * conta com senha temporária, que aparece aqui pra quem convida entregar. */
+const convidando = ref(null)      // { veiculoId, nome, email } enquanto grava
+const conviteFeito = ref(null)    // { veiculoId, nome, email, senha } depois
+const erroDoConvite = ref('')
+const senhaCopiada = ref(false)
+
+function conviteDaLinha(c) {
+  const pessoa = pessoaDoDono(c)
+  return podeConvidar({
+    pessoa,
+    jaTemLogin: !!(pessoa && pessoa.profile_id),
+    podeAdministrar: podeEditar.value,
+  })
+}
+
+async function darAcessoAoDono(c) {
+  if (convidando.value) return
+  const { pode, email } = conviteDaLinha(c)
+  if (!pode) return
+  const pessoa = pessoaDoDono(c)
+  convidando.value = { veiculoId: c.veiculo.id, nome: pessoa.nome, email }
+  erroDoConvite.value = ''
+  conviteFeito.value = null
+
+  const senha = senhaInicial(12)
+  try {
+    // PASSO 1: a conta.
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/invite-user`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${(await sbClient.auth.getSession()).data.session?.access_token || ''}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, name: pessoa.nome, role: 'viewer', password: senha }),
+    })
+    const d = await r.json().catch(() => ({}))
+    if (!r.ok) {
+      const cru = String(d.error || '')
+      // A mensagem crua da Supabase vem em inglês. Traduzir o caso mais comum
+      // evita "already been registered" na cara de quem não lê inglês.
+      throw new Error(/already.*registered|already exists/i.test(cru)
+        ? `Já existe uma conta com o e-mail ${email}. Peça a um super-admin para trocar a senha dela em Administração.`
+        : (cru || `a função respondeu ${r.status}`))
+    }
+
+    // A SENHA APARECE AGORA, com a conta recém-criada — e não no fim.
+    // A revisão pegou o defeito: se qualquer passo seguinte falhasse, a conta
+    // já existia e a senha era jogada fora, sem ninguém nunca ver. Ficava uma
+    // conta que a pessoa não podia ser avisada, e tentar de novo esbarrava em
+    // "e-mail já cadastrado". A partir daqui nada mais apaga a senha da tela:
+    // o que der errado vira AVISO ao lado dela.
+    conviteFeito.value = { veiculoId: c.veiculo.id, nome: pessoa.nome, email, senha, pendencias: [] }
+    senhaCopiada.value = false
+
+    const pendencias = []
+
+    // PASSO 2: achar o perfil. O id vem de CONSULTA, não da resposta — a edge
+    // devolve `{success:true}` e mais nada, e ler `d.id` daria nulo em silêncio.
+    const { data: perfil } = await sbClient.from('profiles')
+      .select('id,permissions,features').eq('email', email).maybeSingle()
+    if (!perfil || !perfil.id) {
+      pendencias.push('Não achei o cadastro da conta para terminar de configurar. '
+        + 'Ela entra com os dados acima, mas falta liberar a Frota e exigir a troca da senha — '
+        + 'peça isso em Administração › Usuários.')
+      conviteFeito.value = { ...conviteFeito.value, pendencias }
+      return
+    }
+
+    // PASSO 3: exigir a troca da senha. A edge NÃO faz isso no caminho de
+    // criação — conferido no código dela. Sem este passo a senha temporária
+    // vira permanente, e quem convidou (e o grupo onde ela foi colada) fica com
+    // credencial válida da conta de outra pessoa.
+    const { data: marcou } = await sbClient.from('profiles')
+      .update({ precisa_trocar_senha: true }).eq('id', perfil.id).select('id')
+    if ((marcou || []).length !== 1) {
+      pendencias.push('Não consegui exigir a troca da senha no primeiro acesso. '
+        + 'Esta senha vale até alguém trocá-la — avise quem administra.')
+    }
+
+    // PASSO 4: o acesso à Frota, nos DOIS modelos que esta central usa —
+    // `permissions` (que a tela lê) e `features` (que a permissão do banco lê).
+    // Conferido num usuário que funciona: o Humberto tem os dois. Gravar só um
+    // deixaria a pessoa entrando na tela e esbarrando no banco, ou o contrário.
+    // JUNTA com o que já existe, nos dois. Escrever `['frota']` cru apagaria
+    // qualquer outro acesso que a conta tivesse — nesta conta recém-criada não
+    // há nenhum, mas o botão pode um dia ser usado em alguém que já usa a
+    // central, e aí seria um estrago silencioso.
+    const permissoes = { ...(perfil.permissions || {}), frota: ['ver'] }
+    const recursos = [...new Set([...(perfil.features || []), 'frota'])]
+    const { data: liberou } = await sbClient.from('profiles')
+      .update({ permissions: permissoes, features: recursos }).eq('id', perfil.id).select('id')
+    if ((liberou || []).length !== 1) {
+      pendencias.push(`${pessoa.nome} entra no aplicativo, mas AINDA NÃO alcança a Frota. `
+        + 'Libere em Administração › Usuários.')
+    }
+
+    // PASSO 5: o elo com o cadastro. Sem ele o quadro de cobrança não casa a
+    // pessoa com a conta. (O aviso das 7h30 ainda chega: o robô resgata pelo
+    // e-mail quando o elo falta — conferido em `_shared/quem-loga.js`.)
+    const { data: ligou } = await sbClient.from('acessos_pessoas')
+      .update({ profile_id: perfil.id }).eq('id', pessoa.id).select('id')
+    if ((ligou || []).length !== 1) {
+      pendencias.push('O elo entre a conta e a ficha do colaborador não ficou gravado. '
+        + 'O aviso ainda chega pelo e-mail, mas avise quem administra para ligar a ficha.')
+    }
+
+    conviteFeito.value = { ...conviteFeito.value, pendencias }
+  } catch (e) {
+    // Se a conta chegou a ser criada, a senha já está na tela e continua lá —
+    // este ramo só fala do que não deu.
+    erroDoConvite.value = conviteFeito.value
+      ? (e.message || 'Alguma coisa falhou depois de criar a conta.')
+      : `${e.message || 'Não consegui criar o acesso.'} Se a conta chegou a ser criada, `
+        + 'ela vai aparecer em Administração › Usuários — confira antes de tentar de novo.'
+  } finally {
+    convidando.value = null
+  }
+  // FORA do try: se recarregar a lista falhar, a conta está criada e a senha na
+  // tela — dizer que deu errado aqui assustaria à toa.
+  try { await carregar() } catch (e) { /* a senha continua na tela */ }
+}
+async function copiarSenha() {
+  const c = conviteFeito.value
+  if (!c) return
+  try {
+    await navigator.clipboard.writeText(recadoDoConvite(c))
+    senhaCopiada.value = true
+  } catch (e) {
+    // Sem área de transferência (navegador antigo, permissão negada): a senha
+    // continua na tela pra copiar à mão. Dizer que copiou sem ter copiado seria
+    // a pessoa fechar a tela e perder a senha.
+    erroDoConvite.value = 'Não consegui copiar sozinho — selecione o texto acima e copie à mão.'
+  }
+}
+
 function pessoaDoDono(c) {
   return pessoas.value.find((p) => p.id === c.donoId) || null
 }
@@ -2405,6 +2547,66 @@ onMounted(async () => {
                corrente de "feito / cobra / sem telefone". Só aparece quando o
                nome bate (é o telefone da própria pessoa) e quem está vendo
                pode editar Colaboradores e Acessos. -->
+          <!-- DAR ACESSO AO DONO (D-2). Medido em 12/08: Marcus, Thiago e
+               Barbara são donos de carro e não têm login, então não recebem o
+               aviso das 7h30 nem assinam checklist — e é por isso que quem
+               administra preenche por eles (D21b), uma saída de emergência que
+               virou o normal. O botão fica AQUI, no card que mostra a falta,
+               porque é aqui que a pessoa descobre o problema. -->
+          <div class="fr-convite" v-if="conviteDaLinha(c).pode">
+            <button type="button" class="fr-btn" :disabled="!!convidando"
+                    @click="darAcessoAoDono(c)">
+              {{ convidando && convidando.veiculoId === c.veiculo.id
+                ? 'Criando o acesso…' : `Dar acesso a ${c.dono}` }}
+            </button>
+            <p class="fr-ajuda">
+              Sem acesso, {{ c.dono }} não recebe o aviso das 7h30 nem consegue assinar o
+              checklist. Nada é enviado por e-mail: a senha aparece aqui pra você entregar.
+            </p>
+          </div>
+          <!-- Quando NÃO dá, a tela diz o motivo. Botão que some sem explicação
+               faz a pessoa achar que a ferramenta está quebrada. -->
+          <!-- Pelo CÓDIGO, não pelo texto: a revisão pegou o template
+               decidindo por `.includes('já tem acesso')`, e mudar a frase no
+               módulo passaria a imprimir o aviso errado em todo card. -->
+          <p class="fr-ajuda" v-else-if="!c.fez
+             && ['sem-pessoa', 'sem-email'].includes(conviteDaLinha(c).codigo)">
+            {{ conviteDaLinha(c).motivo }}
+          </p>
+
+          <!-- A SENHA, uma vez só. -->
+          <div class="fr-convite-feito" v-if="conviteFeito && conviteFeito.veiculoId === c.veiculo.id">
+            <p class="fr-convite-titulo">
+              {{ conviteFeito.pendencias.length
+                ? `A conta de ${conviteFeito.nome} foi criada — mas falta terminar.`
+                : `${conviteFeito.nome} já pode entrar e abrir o checklist dela.` }}
+            </p>
+            <p class="fr-convite-dados">
+              <span>E-mail: <strong>{{ conviteFeito.email }}</strong></span>
+              <span>Senha: <strong class="fr-senha">{{ conviteFeito.senha }}</strong></span>
+            </p>
+            <div class="fr-acoes">
+              <button type="button" class="fr-btn primario" @click="copiarSenha">
+                {{ senhaCopiada ? 'Copiado' : 'Copiar para entregar' }}
+              </button>
+            </div>
+            <!-- O QUE FICOU PELA METADE, ao lado da senha e nunca no lugar
+                 dela. Criar a conta é o passo 1 de 5 (senha a trocar, acesso à
+                 Frota nos dois modelos, e o elo com a ficha) — a revisão pegou
+                 a tela dizendo "já pode entrar" para uma conta que não abria a
+                 Frota. -->
+            <ul class="fr-convite-pendencias" v-if="conviteFeito.pendencias.length">
+              <li v-for="(pnd, i) in conviteFeito.pendencias" :key="i">{{ pnd }}</li>
+            </ul>
+            <p class="fr-ajuda">
+              No primeiro acesso o aplicativo pede pra ela trocar a senha. Esta senha aparece
+              <strong>uma vez só</strong> — copie antes de fechar. Se perder, um super-admin
+              troca a senha dela em Administração.
+            </p>
+          </div>
+          <p class="fr-erro-inline" v-if="erroDoConvite && convidando === null
+             && (!conviteFeito || conviteFeito.veiculoId === c.veiculo.id)">{{ erroDoConvite }}</p>
+
           <div class="fr-copiar-tel" v-if="!c.fez && podeCopiarTelefoneNoCadastro(c)">
             <button type="button" class="fr-copiar-tel-btn" :disabled="salvandoTelefone[c.veiculo.id]"
                     @click="copiarTelefoneParaCadastro(c)">
@@ -3501,6 +3703,14 @@ onMounted(async () => {
    é um extra opcional, não a ação principal do card, que continua sendo
    cobrar no WhatsApp. Mesmo padrão de "botão-link" que .ck-trocar usa no
    painel de checklist: sem fundo nem borda, cor de destaque por token. */
+.tela-frota .fr-convite{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
+.tela-frota .fr-convite-feito{margin-top:10px;padding:11px 13px;border-radius:10px;display:flex;flex-direction:column;gap:8px;background:color-mix(in srgb,var(--green) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--green) 26%,var(--surface));}
+.tela-frota .fr-convite-titulo{margin:0;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:700;color:var(--text);}
+.tela-frota .fr-convite-dados{margin:0;display:flex;flex-direction:column;gap:3px;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));color:var(--text);overflow-wrap:anywhere;}
+/* Fonte de dados e espaçamento: esta senha vai ser LIDA em voz alta ou digitada
+   olhando pra tela, e o alfabeto já evita o que se confunde. */
+.tela-frota .fr-convite-pendencias{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px;font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));line-height:1.5;color:var(--orange);overflow-wrap:anywhere;}
+.tela-frota .fr-senha{font-family:var(--fonte-dados);letter-spacing:1.5px;}
 .tela-frota .fr-copiar-tel{margin-top:8px;}
 .tela-frota .fr-copiar-tel-btn{background:none;border:0;padding:2px 0;cursor:pointer;font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));font-weight:600;color:var(--accent);text-align:left;}
 .tela-frota .fr-copiar-tel-btn:hover:not(:disabled){text-decoration:underline;}

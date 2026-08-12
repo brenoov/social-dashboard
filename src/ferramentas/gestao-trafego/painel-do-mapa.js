@@ -40,19 +40,19 @@ const CSS = `
 .gt-mapa-pin{position:absolute;width:22px;height:22px;margin:-22px 0 0 -11px;pointer-events:auto;cursor:pointer;
   background:var(--accent,#4f7cff);border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 1px 4px rgba(0,0,0,.5);}
 .gt-mapa-pin:hover{filter:brightness(1.2);}
-.gt-mapa-credito{position:absolute;right:4px;bottom:3px;font-size:10px;padding:1px 5px;border-radius:4px;background:rgba(0,0,0,.5);color:#fff;pointer-events:none;}
+.gt-mapa-credito{position:absolute;right:4px;bottom:3px;font-size:max(9px, calc(10px * var(--escala-texto, 1)));padding:1px 5px;border-radius:4px;background:rgba(0,0,0,.5);color:#fff;pointer-events:none;}
 .gt-mapa-controles{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px;}
-.gt-mapa-bt{min-width:40px;min-height:40px;padding:0 12px;border:1px solid var(--border,#2a2a2a);border-radius:8px;background:var(--surface,#151a20);color:var(--text,#e6edf3);font-size:15px;cursor:pointer;}
-.gt-mapa-bt--largo{min-width:auto;font-size:13px;}
+.gt-mapa-bt{min-width:40px;min-height:40px;padding:0 12px;border:1px solid var(--border,#2a2a2a);border-radius:8px;background:var(--surface,#151a20);color:var(--text,#e6edf3);font-size:max(9px, calc(15px * var(--escala-texto, 1)));cursor:pointer;}
+.gt-mapa-bt--largo{min-width:auto;font-size:max(9px, calc(13px * var(--escala-texto, 1)));}
 .gt-mapa-bt:hover{border-color:var(--accent,#4f7cff);}
-.gt-mapa-dica{font-size:12px;color:var(--muted,#93a3b3);}
+.gt-mapa-dica{font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted,#93a3b3);}
 .gt-mapa-lista{margin-top:8px;display:flex;flex-direction:column;gap:6px;}
-.gt-mapa-vazio{margin:0;font-size:12px;color:var(--muted,#93a3b3);}
-.gt-mapa-linha{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12px;color:var(--text,#e6edf3);}
+.gt-mapa-vazio{margin:0;font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted,#93a3b3);}
+.gt-mapa-linha{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--text,#e6edf3);}
 .gt-mapa-linha-nome{flex:1 1 180px;overflow-wrap:anywhere;}
-.gt-mapa-linha-raio{width:74px;min-height:40px;font-size:16px;padding:0 8px;border:1px solid var(--border,#2a2a2a);border-radius:8px;background:var(--surface2,#11161c);color:var(--text,#e6edf3);}
+.gt-mapa-linha-raio{width:74px;min-height:40px;font-size:max(16px, calc(16px * var(--escala-texto, 1)));padding:0 8px;border:1px solid var(--border,#2a2a2a);border-radius:8px;background:var(--surface2,#11161c);color:var(--text,#e6edf3);}
 .gt-mapa-linha-un{color:var(--muted,#93a3b3);}
-.gt-mapa-linha-tirar{min-height:40px;padding:0 12px;border:1px solid var(--border,#2a2a2a);border-radius:8px;background:none;color:var(--muted,#93a3b3);font-size:12px;cursor:pointer;}
+.gt-mapa-linha-tirar{min-height:40px;padding:0 12px;border:1px solid var(--border,#2a2a2a);border-radius:8px;background:none;color:var(--muted,#93a3b3);font-size:max(9px, calc(12px * var(--escala-texto, 1)));cursor:pointer;}
 .gt-mapa-linha-tirar:hover{border-color:var(--red,#dc2626);color:var(--red,#dc2626);}
 @media(max-width:640px){.gt-mapa-tela{height:260px;}}
 `;
