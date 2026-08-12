@@ -37,7 +37,7 @@ import {
   SITUACOES, problemasDaRequisicao, bloqueios, podeDecidir, motivoEmPortugues,
   ordenarFila, quando,
 } from './requisicoes.js'
-import { revisoesDoVeiculo, resumoDeRevisoes, problemasDoItem, avisoAoDesativar } from './revisoes.js'
+import { revisoesDoVeiculo, resumoDeRevisoes, problemasDoItem, avisoAoDesativar, ordenarCarrosPorUrgencia } from './revisoes.js'
 import { linkDoWhatsapp, telefoneLegivel, porQueNaoDaLink } from '../../compartilhado/whatsapp.js'
 // Trava a rolagem do fundo enquanto um destes 6 modais estiver aberto (bronca
 // do dono: "abro um modal e a tela atrás continua rolando"). `v-trava-rolagem`
@@ -45,6 +45,7 @@ import { linkDoWhatsapp, telefoneLegivel, porQueNaoDaLink } from '../../comparti
 import { vTravaRolagem } from '../../compartilhado/travar-rolagem-de-fundo.js'
 import PainelDeChecklist from './painel-de-checklist.vue'
 import EditorDeChecklist from './editor-de-checklist.vue'
+import SanfonaDeRevisoes from './sanfona-de-revisoes.vue'
 import {
   quemFaltaHoje, resumoDaCobranca, precisaDeChecklist,
   problemasAbertosHoje, veiculosParaConferir, cadenciasDoDia,
@@ -1163,6 +1164,19 @@ const revisoesPorVeiculo = computed(() => linhas.value.map((l) => {
     return (ordem[a.resumo.nivel] ?? 9) - (ordem[b.resumo.nivel] ?? 9)
   }))
 
+// TODOS os itens de TODOS os carros (D30). A aba Revisões passou a mostrar
+// tudo: o dono pediu, e a razão é medida — com 8 dos 10 carros sem
+// quilometragem conhecida, filtrar por "vencida ou perto" deixava a aba vazia
+// e sugeria frota em dia justamente quando não se sabe nada sobre ela.
+const revisoesDeTodosOsCarros = computed(() => ordenarCarrosPorUrgencia(
+  linhas.value.map((l) => {
+    const todos = revisoesDoVeiculo({
+      veiculo: l.veiculo, kmAtual: l.km, plano: plano.value, revisoes: revisoes.value,
+    })
+    return { linha: l, itens: todos, resumo: resumoDeRevisoes(todos) }
+  }),
+))
+
 // O editor de limiares: o dono acrescenta e ajusta sem depender de programador,
 // porque quem muda de opinião é o mecânico.
 const itemEmEdicao = ref(null)
@@ -2076,6 +2090,12 @@ onMounted(async () => {
         </div>
       </div>
 
+      <h2 class="fr-secao">Todos os carros, item por item</h2>
+      <p class="fr-aviso">
+        Toque no carro para ver os {{ plano.length }} itens do plano — inclusive os que
+        estão longe de vencer.
+      </p>
+      <SanfonaDeRevisoes :cartoes="revisoesDeTodosOsCarros" />
     </template>
 
     <!-- FICHA DO VEÍCULO: tudo do carro num lugar só, e editável. -->

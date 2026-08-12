@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   ultimaRevisao, estadoDaRevisao, revisoesDoVeiculo, resumoDeRevisoes,
-  problemasDoItem, avisoAoDesativar, FATIA_DE_AVISO,
+  problemasDoItem, avisoAoDesativar, FATIA_DE_AVISO, ordenarCarrosPorUrgencia,
 } from './revisoes.js'
 
 const PLANO = [
@@ -190,4 +190,29 @@ test('um item em dia entre desconhecidos ainda conta como em dia', () => {
   // Aqui SE SABE de alguma coisa, e nada está vencendo.
   const r = resumoDeRevisoes([{ situacao: 'em-dia' }, { situacao: 'sem-km' }])
   assert.equal(r.nivel, 'em-dia')
+})
+
+/* ── A ordem da aba Revisões quando ela mostra TUDO (D30) ───────────────── */
+
+const cartao = (nome, nivel) => ({ linha: { veiculo: { id: nome, nome } }, itens: [], resumo: { nivel } })
+
+test('o que dói primeiro vem primeiro, e nada é descartado', () => {
+  // A aba antiga jogava fora o carro inteiro que não tivesse item vencendo.
+  // Medido em 12/08: isso escondia 8 dos 10 carros.
+  const fora = [cartao('BMW', 'em-dia'), cartao('Doblo', 'sem-km'),
+    cartao('XC60', 'vencida'), cartao('Porsche', 'perto'), cartao('Fit', 'sem-registro')]
+  const dentro = ordenarCarrosPorUrgencia(fora)
+  assert.deepEqual(dentro.map((c) => c.linha.veiculo.nome),
+    ['XC60', 'Porsche', 'BMW', 'Fit', 'Doblo'])
+  assert.equal(dentro.length, 5, 'nenhum carro pode sumir da aba')
+})
+
+test('empate de urgência desempata pelo nome, pra a lista não dançar a cada carregada', () => {
+  const dentro = ordenarCarrosPorUrgencia([cartao('Volvo', 'vencida'), cartao('Fiat', 'vencida')])
+  assert.deepEqual(dentro.map((c) => c.linha.veiculo.nome), ['Fiat', 'Volvo'])
+})
+
+test('lista vazia não quebra', () => {
+  assert.deepEqual(ordenarCarrosPorUrgencia([]), [])
+  assert.deepEqual(ordenarCarrosPorUrgencia(null), [])
 })

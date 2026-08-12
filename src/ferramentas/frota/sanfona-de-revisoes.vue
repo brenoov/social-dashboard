@@ -1,0 +1,117 @@
+<!-- src/ferramentas/frota/sanfona-de-revisoes.vue -->
+<script setup>
+/* A aba Revisões mostrando TUDO, um carro por vez (D30).
+ *
+ * Sanfona e não lista corrida: são 10 carros × 8 itens = 80 linhas, e 80 linhas
+ * de uma vez num celular é rolagem que ninguém termina. Sanfona e não grade
+ * carros × itens: grade só cabe arrastando pro lado no celular, que é
+ * exatamente a queixa que o B3 conserta. */
+import { ref } from 'vue'
+
+// Só `cartoes`. Nada de `podeEditar` aqui: a sanfona desta fase só MOSTRA, e
+// propriedade declarada sem uso é peso morto que a próxima pessoa tenta
+// adivinhar. O botão "Lançar manutenção" entra na Fase C, e leva a permissão
+// dele junto.
+defineProps({
+  cartoes: { type: Array, required: true },
+})
+
+const aberto = ref(null)
+const alternar = (id) => { aberto.value = aberto.value === id ? null : id }
+const km = (n) => (n == null ? 'sem quilometragem' : `${n.toLocaleString('pt-BR')} km`)
+</script>
+
+<template>
+  <div class="sr-lista">
+    <div v-for="c in cartoes" :key="c.linha.veiculo.id" class="sr-card"
+         :class="{ espera: c.resumo.nivel === 'perto', ruimzao: c.resumo.nivel === 'vencida',
+                   desconhecido: c.resumo.nivel === 'sem-km' || c.resumo.nivel === 'sem-registro' }">
+      <!-- O cabeçalho inteiro é o botão: alvo grande, que é o que o padrão
+           manda e o que quem tem dificuldade acerta. -->
+      <button type="button" class="sr-topo" :aria-expanded="aberto === c.linha.veiculo.id"
+              @click="alternar(c.linha.veiculo.id)">
+        <span class="sr-card-ident">
+          <span class="sr-card-nome">{{ c.linha.veiculo.nome }}</span>
+          <span class="sr-placa">{{ c.linha.veiculo.placa }} · {{ km(c.linha.km) }}</span>
+        </span>
+        <span class="sr-selo" :class="{
+          ruim: c.resumo.nivel === 'vencida',
+          espera: c.resumo.nivel === 'perto',
+          boa: c.resumo.nivel === 'em-dia',
+          neutra: c.resumo.nivel === 'sem-km' || c.resumo.nivel === 'sem-registro',
+        }">{{ c.resumo.texto }}</span>
+      </button>
+
+      <ul class="sr-itens" v-if="aberto === c.linha.veiculo.id">
+        <li v-for="i in c.itens" :key="i.item" :class="i.situacao">
+          <span class="sr-item-nome">{{ i.item }}</span>
+          <span class="sr-item-txt">{{ i.texto }}</span>
+        </li>
+      </ul>
+    </div>
+    <p class="sr-aviso" v-if="!cartoes.length">
+      Nenhum veículo cadastrado ainda.
+    </p>
+  </div>
+</template>
+
+<style scoped>
+/* Um componente com <style scoped> NÃO herda o <style scoped> de outro
+ * arquivo — cada regra abaixo é a mesma receita visual de `.fr-lista`/
+ * `.fr-card`/`.fr-selo`/`.fr-itens` em tela-de-frota.vue, copiada de propósito
+ * com o prefixo `sr-`, só com tokens (nunca hex fixo), pra o cartão fechado
+ * ficar indistinguível do cartão de "Chegando a hora" que continua logo acima
+ * na mesma aba. (Achado e corrigido na execução da T7: a primeira versão deste
+ * arquivo reaproveitava as classes `fr-*` do pai — e como o estilo delas mora
+ * só no `<style scoped>` de tela-de-frota.vue, a sanfona subiria sem cor
+ * nenhuma.) */
+
+.sr-lista{display:flex;flex-direction:column;gap:10px;padding:4px 14px 40px;}
+
+.sr-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--green,#16a34a);border-radius:12px;padding:14px 16px;}
+.sr-card.espera{border-left-color:var(--orange,#d97706);}
+.sr-card.ruimzao{border-left-color:var(--red,#c0392b);}
+/* "Sem quilometragem"/"sem histórico" não é nem bom nem ruim — é não se saber
+   nada. Por isso um quarto tom, cinza, e nunca o verde de "em dia": dizer que
+   está tudo bem quando não se sabe nada é exatamente a mentira que o D30
+   existe pra corrigir. */
+.sr-card.desconhecido{border-left-color:var(--muted);}
+
+/* Cabeçalho-botão: sem cara de botão, com alvo de botão. `width:100%` e
+   `text-align:left` porque o padrão da casa não tem botão que ocupe a linha
+   inteira, e este não é um dos três tipos — é a superfície de tocar do cartão.
+   O layout interno (flex, gap, wrap) é o mesmo de `.fr-card-topo` no pai. */
+.sr-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  width:100%;min-height:44px;padding:0;border:none;background:none;text-align:left;
+  cursor:pointer;font:inherit;color:inherit;touch-action:manipulation;}
+
+.sr-card-ident{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.sr-card-nome{font-family:var(--fonte-principal);font-size:13.5px;font-weight:700;color:var(--text);}
+.sr-placa{font-family:var(--fonte-dados);font-size:11px;letter-spacing:1.5px;color:var(--muted);}
+
+.sr-selo{font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:.4px;padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--text);white-space:nowrap;}
+.sr-selo.espera{background:color-mix(in srgb,var(--orange,#d97706) 18%,transparent);color:var(--orange,#d97706);}
+.sr-selo.boa{background:color-mix(in srgb,var(--green,#16a34a) 18%,transparent);color:var(--green,#16a34a);}
+.sr-selo.ruim{background:color-mix(in srgb,var(--red,#c0392b) 16%,transparent);color:var(--red,#c0392b);}
+.sr-selo.neutra{background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--muted);}
+
+.sr-itens{margin:12px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;}
+.sr-itens li{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);padding-left:10px;border-left:2px solid var(--border);}
+.sr-itens li.vencida{border-left-color:var(--red,#c0392b);}
+.sr-itens li.perto{border-left-color:var(--orange,#d97706);}
+.sr-itens li.em-dia{border-left-color:var(--green,#16a34a);}
+/* sem-km e sem-registro ficam na borda neutra do estado padrão, acima —
+   nem vermelho nem verde, porque não se sabe nada sobre este item. */
+
+.sr-item-nome{color:var(--text);font-weight:600;}
+.sr-item-txt{font-variant-numeric:tabular-nums;}
+
+/* Sem padding horizontal próprio: este aviso mora DENTRO de `.sr-lista`, que
+   já dá os 14px/24px da margem da página — dobrar o respiro aqui desalinharia
+   o texto em relação aos cartões. */
+.sr-aviso{margin:0;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.55;color:var(--muted);}
+
+@media(min-width:900px){
+  .sr-lista{padding:4px 24px 40px;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}
+}
+</style>
