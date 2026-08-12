@@ -3763,7 +3763,12 @@ onMounted(async () => {
 .tela-frota .fr-hist{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;}
 .tela-frota .fr-hist li{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;background:var(--surface2,var(--surface));border:1px solid var(--border);border-radius:9px;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));color:var(--muted);}
 .tela-frota .fr-hist .fr-item-txt{flex:1;min-width:0;}
-.tela-frota .fr-mini{appearance:none;border:1px solid var(--border);background:none;color:var(--muted);border-radius:7px;width:28px;height:28px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));cursor:pointer;flex:0 0 auto;}
+/* 34px, a mesma medida do "✕" dos modais no computador — e não 28px, que era
+   o que ele tinha. Dois motivos: o padrão da casa exige alvo confortável, e
+   este botão APAGA um registro do histórico, então errar o toque nele é o
+   erro mais caro desta tela. Fica igual aos irmãos, e deixa de ser o botãozinho
+   solto de tamanho próprio. */
+.tela-frota .fr-mini{appearance:none;border:1px solid var(--border);background:none;color:var(--muted);border-radius:9px;width:34px;height:34px;font-size:max(9px, calc(13px * var(--escala-texto, 1)));cursor:pointer;flex:0 0 auto;touch-action:manipulation;}
 .tela-frota .fr-mini:hover{border-color:var(--red,#c0392b);color:var(--red,#c0392b);}
 .tela-frota .fr-selo.espera{background:color-mix(in srgb,var(--orange,#d97706) 18%,transparent);color:var(--orange,#d97706);}
 .tela-frota .fr-selo.boa{background:color-mix(in srgb,var(--green,#16a34a) 18%,transparent);color:var(--green,#16a34a);}
@@ -3881,7 +3886,12 @@ onMounted(async () => {
   .tela-frota .fr-lista{padding:4px 24px 40px;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}
   .tela-frota .fr-checklist-editor{padding:4px 24px 40px;}
   /* Ponteiro do mouse acerta 24px sem esforço — ver o comentário no fr-btn-ajuda. */
-  .tela-frota .fr-btn-ajuda{width:24px;height:24px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));}
+  /* O "?" e o "✕" dividem a linha do topo do modal, com 10px entre eles: no
+     computador os dois encolhem JUNTOS e para o MESMO tamanho. Estavam em 24px
+     e 34px lado a lado, e a diferença saltava à vista — foi a bronca do dono
+     sobre botões de vários tamanhos. No celular os dois ficam em 40px, que é o
+     alvo que o padrão exige. */
+  .tela-frota .fr-btn-ajuda{width:34px;height:34px;font-size:max(9px, calc(13px * var(--escala-texto, 1)));}
   /* E o ✕ volta pra 34px aqui pelo mesmo motivo: no computador o ponteiro
      acerta 34px de sobra, e os dois em 40px ficariam quase encostados com só
      10px de gap entre eles. */

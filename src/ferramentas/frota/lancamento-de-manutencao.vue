@@ -258,8 +258,14 @@ function gravar() {
 .lm-aviso{margin:0;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.55;color:var(--orange);overflow-wrap:anywhere;}
 .lm-erro{margin:0;font-family:var(--fonte-principal);font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));line-height:1.55;color:var(--red);overflow-wrap:anywhere;}
 .lm-pe{display:flex;gap:9px;justify-content:flex-end;padding:12px 15px;border-top:1px solid var(--border);}
-.lm-btn{min-height:40px;padding:10px 15px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;cursor:pointer;touch-action:manipulation;}
+.lm-btn{min-height:44px;padding:11px 16px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-family:var(--fonte-principal);font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));font-weight:600;cursor:pointer;touch-action:manipulation;}
 .lm-btn.primario{background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);}
 .lm-btn:disabled{opacity:.6;cursor:default;}
 .lm-novo-item{align-self:flex-start;}
+@media(min-width:900px){
+  /* Mesma medida do "✕" dos outros modais da Frota no computador. Sem isto esta
+     ficha ficava com um ✕ de 40px ao lado de fichas com 34px — a divergência
+     que o dono apontou. */
+  .lm-fechar{width:34px;height:34px;}
+}
 </style>
