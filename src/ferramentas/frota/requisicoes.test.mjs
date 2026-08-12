@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   seAtropelam, conflitosDe, problemasDaRequisicao, bloqueios,
   podeDecidir, motivoEmPortugues, ordenarFila, quando, ANTECEDENCIA_IDEAL_DIAS,
+  reservaParaPegar,
 } from './requisicoes.js'
 
 const AGORA = '2026-08-04T12:00:00Z'
@@ -198,4 +199,80 @@ test('data ilegível não vira "Invalid Date" na cara da pessoa', () => {
   assert.equal(quando(null), '—')
   assert.equal(quando('banana'), '—')
   assert.match(quando('2026-08-10T14:30:00Z'), /\d{2}\/\d{2} às \d{2}:\d{2}/)
+})
+
+/* ── Quem pode PEGAR o carro (o "Vou usar" virou "Peguei o carro") ──────────
+ *
+ * O dono mandou tirar o "Vou usar" em 12/08/2026: com ele ao lado do
+ * "Reservar", quem quisesse evitar o pedido bastava tocar no outro, e a
+ * aprovação virava enfeite. O botão volta SÓ pra quem já foi aprovado. */
+
+const APROVADA = {
+  veiculo_id: 'v1', pessoa_id: 'p1', situacao: 'aprovada',
+  retirada_prevista: '2026-08-12T08:00:00Z', devolucao_prevista: '2026-08-12T18:00:00Z',
+}
+const pegar = (extra = {}) => reservaParaPegar({
+  requisicoes: [APROVADA], veiculoId: 'v1', minhaPessoaId: 'p1',
+  agoraIso: '2026-08-12T09:00:00Z', ...extra,
+})
+
+test('com reserva aprovada e na hora, dá pra pegar', () => {
+  assert.equal(pegar()?.veiculo_id, 'v1')
+})
+
+test('reserva PENDENTE não acende o botão — é isso que impede furar a aprovação', () => {
+  const r = reservaParaPegar({
+    requisicoes: [{ ...APROVADA, situacao: 'pendente' }],
+    veiculoId: 'v1', minhaPessoaId: 'p1', agoraIso: '2026-08-12T09:00:00Z',
+  })
+  assert.equal(r, null)
+})
+
+test('reserva de OUTRA pessoa não acende o botão pra mim', () => {
+  assert.equal(pegar({ minhaPessoaId: 'p9' }), null)
+})
+
+test('reserva de OUTRO carro não acende neste', () => {
+  assert.equal(pegar({ veiculoId: 'v9' }), null)
+})
+
+test('quem não foi achado no cadastro não pega por reserva nenhuma', () => {
+  // `euId` nulo: sem saber quem é a pessoa, não dá pra dizer que a reserva é dela.
+  assert.equal(pegar({ minhaPessoaId: null }), null)
+})
+
+test('carro JÁ na rua não acende "peguei" — o que falta é devolver', () => {
+  assert.equal(pegar({ usoJaAberto: true }), null)
+})
+
+test('um pouco antes da hora marcada JÁ dá pra pegar', () => {
+  // Reserva não é hora marcada: quem reservou pras 8h pega às 7h50.
+  assert.equal(pegar({ agoraIso: '2026-08-12T07:50:00Z' })?.veiculo_id, 'v1')
+})
+
+test('cedo DEMAIS não acende — reserva de amanhã não é carro de hoje', () => {
+  assert.equal(pegar({ agoraIso: '2026-08-11T10:00:00Z' }), null)
+})
+
+test('reserva velha não acende botão hoje', () => {
+  // Sem isto, uma reserva de duas semanas atrás viraria autorização permanente.
+  assert.equal(pegar({ agoraIso: '2026-08-26T09:00:00Z' }), null)
+})
+
+test('depois da devolução prevista ainda dá uma folga, mas não pra sempre', () => {
+  assert.ok(pegar({ agoraIso: '2026-08-12T22:00:00Z' }), 'até 12h depois, ainda vale')
+  assert.equal(pegar({ agoraIso: '2026-08-13T12:00:00Z' }), null, 'no dia seguinte, não')
+})
+
+test('reserva sem hora de volta vale a partir da retirada, com a mesma folga', () => {
+  const r = reservaParaPegar({
+    requisicoes: [{ ...APROVADA, devolucao_prevista: null }],
+    veiculoId: 'v1', minhaPessoaId: 'p1', agoraIso: '2026-08-12T15:00:00Z',
+  })
+  assert.ok(r)
+})
+
+test('sem reserva nenhuma, sem botão', () => {
+  assert.equal(reservaParaPegar({ requisicoes: [], veiculoId: 'v1', minhaPessoaId: 'p1' }), null)
+  assert.equal(reservaParaPegar({}), null)
 })

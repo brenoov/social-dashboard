@@ -143,3 +143,46 @@ export function quando(iso) {
   const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   return `${data} às ${hora}`;
 }
+
+/**
+ * Esta pessoa tem reserva APROVADA pra pegar este carro agora?
+ *
+ * De onde veio: até 12/08/2026 a aba Motorista tinha "Vou usar" ao lado de
+ * "Reservar", e o dono mandou tirar o primeiro — com os dois lado a lado, quem
+ * quisesse evitar o pedido bastava tocar no outro, e a aprovação virava enfeite.
+ *
+ * Mas tirar o botão sem mais nada abriria um buraco: aprovar NÃO cria o
+ * registro de uso, então o carro nunca ficaria "na rua" e o "Devolver" nunca
+ * apareceria. A saída escolhida pelo dono: o botão continua existindo, mas só
+ * aparece no carro que JÁ FOI APROVADO pra aquela pessoa.
+ *
+ * A JANELA (`TOLERANCIA_RETIRADA_MS`) existe porque reserva não é hora marcada:
+ * quem reservou pras 8h pega às 7h50 ou às 9h30, e a vida real não cabe no
+ * minuto. Mas ela também não pode ser infinita — reserva de duas semanas atrás
+ * não deve acender botão nenhum hoje.
+ *
+ * `usoJaAberto` é o que impede o botão de continuar aceso depois de a pessoa
+ * pegar: com o carro já na rua, o que ela precisa é do "Devolver".
+ */
+export const TOLERANCIA_RETIRADA_MS = 12 * 60 * 60 * 1000;   // 12 horas
+
+export function reservaParaPegar({ requisicoes, veiculoId, minhaPessoaId, agoraIso, usoJaAberto }) {
+  if (!veiculoId || !minhaPessoaId || usoJaAberto) return null;
+  const agora = ms(agoraIso) ?? Date.now();
+  const minhas = (requisicoes || []).filter((r) =>
+    r && r.veiculo_id === veiculoId
+    && r.pessoa_id === minhaPessoaId
+    && r.situacao === 'aprovada');
+
+  for (const r of minhas) {
+    const ini = ms(r.retirada_prevista);
+    if (ini === null) continue;
+    const fim = ms(r.devolucao_prevista);
+    // Cedo demais: ainda não é hora de pegar. Tarde demais: passou da
+    // devolução prevista (ou de 12h da retirada, quando não há devolução) e a
+    // reserva não vale mais como autorização pra sair hoje.
+    const limite = (fim === null ? ini : fim) + TOLERANCIA_RETIRADA_MS;
+    if (agora >= ini - TOLERANCIA_RETIRADA_MS && agora <= limite) return r;
+  }
+  return null;
+}

@@ -14,7 +14,7 @@
 // entre o commit do passeio guiado (8decfb5) e aqui. Nem o `npm test` nem o
 // `npm run build` pegam isso: os dois compilam o arquivo, nenhum dos dois o
 // executa num navegador.
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
@@ -35,7 +35,7 @@ import { passarPara, quemEstaComOCarro, trocarDonoFixo } from '../../../supabase
 import { pessoaDoUsuario } from '../../../supabase/functions/_shared/quem-loga.js'
 import {
   SITUACOES, problemasDaRequisicao, bloqueios, podeDecidir, motivoEmPortugues,
-  ordenarFila, quando,
+  ordenarFila, quando, reservaParaPegar,
 } from './requisicoes.js'
 import { revisoesDoVeiculo, resumoDeRevisoes, problemasDoItem, avisoAoDesativar, ordenarCarrosPorUrgencia } from './revisoes.js'
 import { linkDoWhatsapp, telefoneLegivel, porQueNaoDaLink } from '../../compartilhado/whatsapp.js'
@@ -53,6 +53,10 @@ import BotoesRapidos from './botoes-rapidos.vue'
 import { botoesDoMotorista, botoesDaGestao } from './botoes-rapidos.js'
 // Lançar manutenção (D27): um serviço com várias trocas, em lugar de preencher
 // o formulário de uma troca por vez N vezes.
+// As gavetas da aba Gestão: seção que abre e fecha, com o estado no título
+// fechado. A regra de quando abrir mora em gavetas.js, testada.
+import Gaveta from './gaveta.vue'
+import { gavetasVisiveis, lerPreferencias, gravarPreferencias } from './gavetas.js'
 import LancamentoDeManutencao from './lancamento-de-manutencao.vue'
 import {
   linhasParaGravar, mensagemDoLancamento, centavos, VALOR_INVALIDO,
@@ -178,10 +182,92 @@ const botoesGestao = computed(() => botoesDaGestao({
   podeCriar: pode('criar'), podeReservar: podeEditar.value,
 }))
 
+/* ── AS GAVETAS DA ABA GESTÃO ────────────────────────────────────────────────
+ *
+ * Pedido do dono: "as seções você pode minimizar em gavetas pra otimizar
+ * informação e espaço". Eram seis blocos empilhados, e chegar na lista de
+ * veículos era rolar tudo.
+ *
+ * A regra (gavetas.js, testada): abre sozinha a que tem algo esperando a
+ * pessoa, fica fechada a que é consulta, e o TÍTULO FECHADO já responde. O que
+ * a pessoa abrir ou fechar com a mão é lembrado — decisão dela, escolhida entre
+ * "lembra do jeito que você deixou" e "sempre começa no padrão".
+ *
+ * `urgente` aqui é sempre uma MEDIDA, nunca um palpite: pedido esperando
+ * decisão, problema marcado hoje, cópia que o robô desistiu de mandar. */
+const prefsDasGavetas = ref({})
+/** A gaveta de uma chave, ou `undefined` quando ela não aparece hoje (vazia).
+ *  O `v-if` do template usa esse `undefined` pra não desenhar nada. */
+const gv = (chave) => gavetasDaGestao.value.find((g) => g.chave === chave)
+function alternarGaveta(chave) {
+  const atual = gavetasDaGestao.value.find((g) => g.chave === chave)
+  if (!atual || atual.travadaAberta) return
+  prefsDasGavetas.value = { ...prefsDasGavetas.value, [chave]: !atual.aberta }
+  gravarPreferencias(
+    typeof localStorage !== 'undefined' ? localStorage : null,
+    estado.user?.id, prefsDasGavetas.value,
+  )
+}
+
+const gavetasDaGestao = computed(() => gavetasVisiveis([
+  {
+    chave: 'fila',
+    titulo: 'Aguardando sua decisão',
+    estado: filaDeAprovacao.value.length
+      ? `${filaDeAprovacao.value.length} ${filaDeAprovacao.value.length === 1 ? 'pedido' : 'pedidos'}`
+      : null,
+    // Pedido parado é o caso mais claro de "algo esperando a pessoa".
+    urgente: filaDeAprovacao.value.length > 0,
+    // Sem fila, a gaveta nem aparece: título que abre pro nada é ruído.
+    vazia: !podeAprovar.value || !filaDeAprovacao.value.length,
+  },
+  {
+    chave: 'cobranca',
+    titulo: 'Checklist de hoje',
+    estado: botoesGestao.value.find((b) => b.chave === 'conferir-checklists')?.estado || null,
+    padraoAberta: true,
+    // Fim de semana não pede checklist: `quemFaltaHoje` devolve vazio, e a
+    // gaveta some em vez de dizer "faltam 0".
+    vazia: !cobranca.value.length,
+  },
+  {
+    chave: 'problemas',
+    titulo: 'Problemas em aberto hoje',
+    // `falhaRespostas` NÃO é "sem problema": a gaveta continua, aberta, e o
+    // corpo dela explica que não deu pra ler. Sumir aqui seria a tela dizendo
+    // que está tudo bem sobre o que ela não conseguiu carregar.
+    estado: falhaRespostas.value
+      ? 'não consegui conferir'
+      : (problemasAbertos.value.length
+        ? `${problemasAbertos.value.length} ${problemasAbertos.value.length === 1 ? 'problema' : 'problemas'}`
+        : 'nenhum hoje'),
+    urgente: falhaRespostas.value || problemasAbertos.value.length > 0,
+    vazia: false,
+  },
+  {
+    chave: 'zoho',
+    titulo: 'Cópia das fichas no Zoho',
+    estado: copias.value.falhaLeitura ? 'não consegui conferir' : (copias.value.frase || null),
+    // Só grita quando o robô DESISTIU ou tropeçou — o que ainda está na fila é
+    // trabalho dele, não da pessoa.
+    urgente: copias.value.falhaLeitura || copias.value.temProblema,
+    vazia: !copias.value.falhaLeitura && !copias.value.temProblema && !copias.value.esperando,
+  },
+  {
+    chave: 'veiculos',
+    titulo: 'Veículos do grupo',
+    estado: botoesGestao.value.find((b) => b.chave === 'veiculos')?.estado || null,
+    // Consulta: fica fechada até a pessoa querer. É a maior das seções, e é
+    // fechá-la que devolve a tela pra quem só veio ver uma coisa.
+    padraoAberta: false,
+    vazia: !linhas.value.length,
+  },
+], prefsDasGavetas.value))
+
 /* Um botão rápido NÃO cria tela: ou abre uma ficha que já existe, ou rola até
  * uma seção que já está mais abaixo. É o que o desenho pede (D33) e é o que
  * impede esta fase de virar uma segunda ferramenta por cima da primeira. */
-function irPara(acao) {
+async function irPara(acao) {
   if (acao === 'reservar') return abrirPedido('')
   if (acao === 'acrescentar') return abrirVeiculoNovo()
   const ancoras = {
@@ -189,6 +275,16 @@ function irPara(acao) {
     'preciso-carro': 'fr-ancora-livres',
     'conferir-checklists': 'fr-ancora-cobranca',
     veiculos: 'fr-ancora-veiculos',
+  }
+  // ABRE A GAVETA ANTES DE ROLAR. Sem isto, o botão rápido rolaria até um
+  // título fechado e a pessoa veria a tela mexer sem entregar o que ela pediu —
+  // que é pior que o botão não fazer nada. O `await nextTick()` é o que espera
+  // o corpo da gaveta existir no DOM antes de medir onde ele está.
+  const daGaveta = { 'conferir-checklists': 'cobranca', veiculos: 'veiculos' }
+  const chave = daGaveta[acao]
+  if (chave) {
+    const g = gavetasDaGestao.value.find((x) => x.chave === chave)
+    if (g && !g.aberta) { alternarGaveta(chave); await nextTick() }
   }
   const alvo = document.getElementById(ancoras[acao])
   // Sem âncora não faz nada, em silêncio: rolar pro lugar errado é pior que não
@@ -677,6 +773,20 @@ const ficha = ref(null)          // { modo: 'retirar'|'devolver', linha }
 const form = reactive({ pessoaId: '', km: '', tanque: '', destino: '', finalidade: '', observacao: '' })
 const problemas = ref([])
 const gravando = ref(false)
+
+/* O carro tem reserva APROVADA pra esta pessoa, agora? É o que acende o
+ * "Peguei o carro" — ver reservaParaPegar() em requisicoes.js, onde a regra
+ * mora testada. `usoAberto` impede o botão de continuar aceso depois de ela
+ * pegar: com o carro na rua, o que ela precisa é do "Devolver". */
+function podePegar(linha) {
+  return !!reservaParaPegar({
+    requisicoes: requisicoes.value,
+    veiculoId: linha.veiculo.id,
+    minhaPessoaId: euId.value,
+    agoraIso: new Date().toISOString(),
+    usoJaAberto: linha.naRua,
+  })
+}
 
 function abrirRetirada(linha) {
   ficha.value = { modo: 'retirar', linha }
@@ -1807,6 +1917,11 @@ watch(passeioAberto, (aberto) => {
 
 onMounted(async () => {
   await carregar()
+  // O jeito que a pessoa deixou as gavetas da última vez. Lido no onMounted e
+  // não no setup: `estado.user` só existe depois que a sessão resolve.
+  prefsDasGavetas.value = lerPreferencias(
+    typeof localStorage !== 'undefined' ? localStorage : null, estado.user?.id,
+  )
   // Só depois de saber as permissões dá pra escolher a aba de abertura.
   area.value = areaInicial(pode)
   // Só depois dos dados na tela: o passeio aponta pros botões rápidos da
@@ -2027,11 +2142,17 @@ onMounted(async () => {
             </div>
           </div>
           <div class="fr-acoes">
-            <button class="fr-btn primario" v-if="podeEditar" @click="abrirRetirada(l)">Vou usar</button>
-            <!-- Pegar agora e reservar pra depois são coisas diferentes. O
-                 manual da planilha pede 3 dias de antecedência justamente pra
-                 não atropelar viagem de outro departamento. -->
-            <button class="fr-btn" v-if="podeEditar" @click="abrirPedido(l.veiculo.id)">Reservar</button>
+            <!-- O "Vou usar" SAIU daqui em 12/08/2026, a pedido do dono: pegar
+                 o carro passa a ser sempre por RESERVA, e reserva depende de
+                 aprovação. Com os dois lado a lado, quem quisesse evitar o
+                 pedido bastava tocar no outro, e a aprovação virava enfeite.
+                 O botão volta SÓ pra quem já foi aprovado — sem isso, aprovar
+                 não criaria registro de uso nenhum, o carro nunca ficaria "na
+                 rua" e o "Devolver" nunca apareceria. -->
+            <button class="fr-btn primario" v-if="podeEditar && podePegar(l)"
+                    @click="abrirRetirada(l)">Peguei o carro</button>
+            <button class="fr-btn" :class="{ primario: !podePegar(l) }" v-if="podeEditar"
+                    @click="abrirPedido(l.veiculo.id)">Reservar</button>
             <a v-if="zapDoVeiculo(l.veiculo)" class="fr-btn fr-zap" :href="zapDoVeiculo(l.veiculo)"
                target="_blank" rel="noopener"
                :title="l.veiculo.contato_nome ? ('Falar com ' + l.veiculo.contato_nome + ' no WhatsApp') : 'Falar no WhatsApp'">
@@ -2071,8 +2192,10 @@ onMounted(async () => {
 
       <!-- FILA DE APROVAÇÃO, na área de Gestão. Só aparece pra quem aprova.
            Pedido do dono: logo abaixo dos botões, não no fim da tela. -->
-      <template v-if="area === 'gestao' && podeAprovar && filaDeAprovacao.length">
-        <h2 class="fr-secao">Aguardando sua decisão ({{ filaDeAprovacao.length }})</h2>
+      <Gaveta v-if="gv('fila')" :titulo="gv('fila').titulo" :estado="gv('fila').estado"
+              :aberta="gv('fila').aberta" :travada-aberta="gv('fila').travadaAberta"
+              id="gv-fila" @alternar="alternarGaveta('fila')">
+
         <div class="fr-lista">
           <div v-for="r in filaDeAprovacao" :key="r.id" class="fr-card espera">
             <div class="fr-card-topo">
@@ -2101,9 +2224,11 @@ onMounted(async () => {
             <p class="fr-aviso" v-else>{{ motivoEmPortugues(porQueNaoDecido(r).motivo) }}</p>
           </div>
         </div>
-      </template>
+      </Gaveta>
 
-      <h2 class="fr-secao" id="fr-ancora-cobranca">Checklist de hoje</h2>
+      <Gaveta v-if="gv('cobranca')" :titulo="gv('cobranca').titulo" :estado="gv('cobranca').estado"
+              :aberta="gv('cobranca').aberta" :travada-aberta="gv('cobranca').travadaAberta"
+              id="gv-cobranca" data-ancora="fr-ancora-cobranca" @alternar="alternarGaveta('cobranca')">
       <p class="fr-aviso">{{ resumoDaCobranca(cobranca, hoje) }}</p>
       <!-- Em cards (pedido do dono), não em lista de linhas. Quem já fez abre
            o detalhe pra ver O QUE foi marcado — o quadro antigo só dizia QUEM
@@ -2161,7 +2286,11 @@ onMounted(async () => {
         </div>
       </div>
 
-      <h2 class="fr-secao">Problemas em aberto hoje</h2>
+      </Gaveta>
+
+      <Gaveta v-if="gv('problemas')" :titulo="gv('problemas').titulo" :estado="gv('problemas').estado"
+              :aberta="gv('problemas').aberta" :travada-aberta="gv('problemas').travadaAberta"
+              id="gv-problemas" @alternar="alternarGaveta('problemas')">
       <p class="fr-erro" v-if="falhaRespostas">
         Não consegui carregar as respostas de hoje, então não dá pra saber se algum item ficou
         marcado como problema. Recarregue a página; se continuar assim, avise quem administra a Frota.
@@ -2192,7 +2321,11 @@ onMounted(async () => {
            e mais nada. Só ganha caixa quando alguma cópia não chegou. Espera não
            é problema — o robô sobe de 10 em 10 minutos, e uma ficha assinada há
            dois minutos está esperando o relógio, não quebrada. -->
-      <h2 class="fr-secao">Cópia das fichas no Zoho</h2>
+      </Gaveta>
+
+      <Gaveta v-if="gv('zoho')" :titulo="gv('zoho').titulo" :estado="gv('zoho').estado"
+              :aberta="gv('zoho').aberta" :travada-aberta="gv('zoho').travadaAberta"
+              id="gv-zoho" @alternar="alternarGaveta('zoho')">
       <p class="fr-erro" v-if="copias.falhaLeitura">
         Não consegui olhar se as cópias em PDF chegaram na pasta do Zoho. As fichas assinadas
         continuam gravadas e valendo — o que não deu pra conferir foi o arquivo. Recarregue a
@@ -2218,6 +2351,11 @@ onMounted(async () => {
         </div>
       </template>
 
+      </Gaveta>
+
+      <Gaveta v-if="gv('veiculos')" :titulo="gv('veiculos').titulo" :estado="gv('veiculos').estado"
+              :aberta="gv('veiculos').aberta" :travada-aberta="gv('veiculos').travadaAberta"
+              id="gv-veiculos" @alternar="alternarGaveta('veiculos')">
       <div class="fr-lista" id="fr-ancora-veiculos">
         <div v-for="l in linhas" :key="l.veiculo.id" class="fr-card" :class="{ rua: l.naRua, parado: !l.disponivel && !l.naRua }">
           <div class="fr-card-topo">
@@ -2255,6 +2393,7 @@ onMounted(async () => {
           </div>
         </div>
       </div>
+      </Gaveta>
     </template>
 
     <!-- ÁREA REVISÕES: o que está vencendo, e o plano que o dono edita. -->
