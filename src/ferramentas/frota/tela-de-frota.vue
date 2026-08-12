@@ -644,7 +644,11 @@ const linhas = computed(() => ordenarEstados(
       local_bonito: localCurto({ arvore: arvoreDeLocais.value, veiculo: v }),
     }
     const quem = quemEstaComOCarro(dono, usos.value, pessoas.value)
-    return estadoDoVeiculo({ ...dono, pessoa_nome: quem.pessoaNome }, usos.value, fichas.value)
+    // `revisoes` é a QUARTA fonte de KM (D29): sem ela, 8 dos 10 carros ficam
+    // sem quilometragem conhecida e a aba Revisões não tem o que calcular.
+    return estadoDoVeiculo(
+      { ...dono, pessoa_nome: quem.pessoaNome }, usos.value, fichas.value, revisoes.value,
+    )
   }),
 ))
 

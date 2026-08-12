@@ -232,3 +232,48 @@ test('linha antiga sem o campo tipo é tratada como viagem', () => {
   const usos = [{ veiculo_id: 'v1', pessoa_id: 'p2', saida_em: '2026-08-05', volta_em: null }]
   assert.equal(estadoDoVeiculo({ id: 'v1', situacao: 'ativo' }, usos).naRua, true)
 })
+
+/* ── O KM da manutenção como quarta fonte (D29) ─────────────────────────────
+ *
+ * Medido em 12/08/2026: 8 dos 10 carros não tinham quilometragem conhecida
+ * nenhuma, e por isso a aba Revisões respondia "ainda não sei" em 8 carros × 8
+ * itens do plano. Sem esta fonte, o dono registra a troca e nada muda na tela —
+ * o trabalho dele não apareceria em lugar nenhum. */
+
+test('o KM de uma manutenção conta como quilometragem conhecida do carro', () => {
+  const v = { id: 'v1', situacao: 'ativo' }
+  const revisoes = [{ veiculo_id: 'v1', item: 'Troca de óleo', km: 92000 }]
+  assert.equal(estadoDoVeiculo(v, [], [], revisoes).km, 92000)
+})
+
+test('entre as fontes de KM vence o MAIOR, nunca o mais recente por data', () => {
+  // Mesma regra de ultimaRevisao(): data digitada errada acontece o tempo todo,
+  // odômetro só anda pra frente.
+  const v = { id: 'v1', situacao: 'ativo' }
+  const fichas = [{ veiculo_id: 'v1', hodometro: 188000 }]
+  const revisoes = [{ veiculo_id: 'v1', item: 'Óleo', km: 92000 }]
+  assert.equal(estadoDoVeiculo(v, [], fichas, revisoes).km, 188000)
+})
+
+test('revisão de OUTRO carro não vaza pra este', () => {
+  const v = { id: 'v1', situacao: 'ativo' }
+  const revisoes = [{ veiculo_id: 'v2', item: 'Óleo', km: 500000 }]
+  assert.equal(estadoDoVeiculo(v, [], [], revisoes).km, null)
+})
+
+test('revisão com km nulo não zera nem quebra', () => {
+  const v = { id: 'v1', situacao: 'ativo' }
+  const revisoes = [{ veiculo_id: 'v1', item: 'Óleo', km: null }]
+  assert.equal(estadoDoVeiculo(v, [], [], revisoes).km, null)
+})
+
+test('sem o quarto parâmetro nada muda — quem chama com três continua igual', () => {
+  const v = { id: 'v1', situacao: 'ativo' }
+  const fichas = [{ veiculo_id: 'v1', hodometro: 54000 }]
+  assert.equal(estadoDoVeiculo(v, [], fichas).km, 54000)
+})
+
+test('KM zero de manutenção é KM conhecido — carro zero km existe', () => {
+  const v = { id: 'v1', situacao: 'ativo' }
+  assert.equal(estadoDoVeiculo(v, [], [], [{ veiculo_id: 'v1', item: 'Óleo', km: 0 }]).km, 0)
+})

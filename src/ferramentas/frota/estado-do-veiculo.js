@@ -42,6 +42,25 @@ export function ultimoHodometro(fichas, veiculoId) {
   return meus.length ? Math.max(...meus) : null;
 }
 
+/** O maior KM já registrado numa manutenção deste carro. Nulo se não há.
+ *
+ * A QUARTA fonte de quilometragem (D29), e a que faz a aba Revisões existir de
+ * verdade: medido em 12/08/2026, 8 dos 10 carros não tinham KM conhecido nenhum,
+ * porque quase ninguém registra viagem e o checklist tinha 2 fichas na frota
+ * toda. Sem esta fonte, o dono registra a troca de óleo com 92.000 km e a aba
+ * continua respondendo "ainda não sei a quilometragem deste carro" — o trabalho
+ * dele não apareceria em lugar nenhum.
+ *
+ * Pelo MAIOR e não pela data mais nova, mesma razão de ultimoHodometro() e de
+ * ultimaRevisao(): data digitada errada acontece o tempo todo, e o odômetro só
+ * anda pra frente. */
+export function ultimoKmDeRevisao(revisoes, veiculoId) {
+  const meus = (revisoes || [])
+    .filter((r) => r && r.veiculo_id === veiculoId && Number.isInteger(r.km))
+    .map((r) => r.km);
+  return meus.length ? Math.max(...meus) : null;
+}
+
 /** O último uso ENCERRADO, que é de onde sai o KM atual. */
 export function ultimoUsoFechado(usos, veiculoId) {
   const fechados = (usos || [])
@@ -56,16 +75,23 @@ export function ultimoUsoFechado(usos, veiculoId) {
  * Monta a linha da tela para um veículo: onde está, com quem, KM e tanque.
  * Não inventa nada: campo sem resposta volta nulo, e a tela mostra travessão.
  */
-export function estadoDoVeiculo(veiculo, usos, fichas) {
+export function estadoDoVeiculo(veiculo, usos, fichas, revisoes) {
   const aberto = usoAberto(usos, veiculo.id);
   const fechado = ultimoUsoFechado(usos, veiculo.id);
-  // O KM mais alto que se conhece. Agora com três fontes: a última devolução, a
-  // saída de quem está na rua, e o hodômetro do checklist — que é a única que
-  // funciona pra quem tem carro fixo e nunca registra viagem.
+  // O KM mais alto que se conhece. QUATRO fontes: a última devolução, a saída de
+  // quem está na rua, o hodômetro do checklist — que é a única que funciona pra
+  // quem tem carro fixo e nunca registra viagem — e o KM da manutenção (D29),
+  // que é a única que funciona pra carro que ninguém dirige nem confere, e são
+  // 8 dos 10.
+  //
+  // `revisoes` é OPCIONAL de propósito: quem chamar com três argumentos continua
+  // com o comportamento de antes. É o mesmo molde do `pessoas` opcional de
+  // quemEstaComOCarro(), pela mesma razão — a Edge não tem essa lista à mão.
   const kms = [
     fechado && fechado.km_volta,
     aberto && aberto.km_saida,
     ultimoHodometro(fichas, veiculo.id),
+    ultimoKmDeRevisao(revisoes, veiculo.id),
   ].filter(Number.isInteger);
   const km = kms.length ? Math.max(...kms) : null;
   // O tanque também vem do registro mais recente que tiver informado.
