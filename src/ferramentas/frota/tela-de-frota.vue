@@ -51,6 +51,10 @@ import SanfonaDeRevisoes from './sanfona-de-revisoes.vue'
 // mais abaixo — nunca cria tela nova.
 import BotoesRapidos from './botoes-rapidos.vue'
 import { botoesDoMotorista, botoesDaGestao } from './botoes-rapidos.js'
+// Lançar manutenção (D27): um serviço com várias trocas, em lugar de preencher
+// o formulário de uma troca por vez N vezes.
+import LancamentoDeManutencao from './lancamento-de-manutencao.vue'
+import { linhasParaGravar } from './lancamento-de-manutencao.js'
 import {
   quemFaltaHoje, resumoDaCobranca, precisaDeChecklist,
   problemasAbertosHoje, veiculosParaConferir, cadenciasDoDia,
@@ -1677,6 +1681,106 @@ async function apagarRevisao(r) {
   if (!error) carregar()
 }
 
+/* ── LANÇAR MANUTENÇÃO: um serviço, várias trocas (D27) ──────────────────────
+ *
+ * Substitui o formulário de uma troca por vez (gravarRevisao, acima), que
+ * continua existindo pro histórico antigo. A dor medida em 12/08/2026: 15
+ * campos pra 3 trocas, e a frota inteira com 2 trocas registradas em 10 carros.
+ *
+ * A ARMADILHA, e ela já custou caro 4 vezes nesta ferramenta: cabeçalho e
+ * trocas são DUAS gravações, e "duas gravações com só a primeira conferida"
+ * sempre apareceu com a tela dizendo que tinha dado certo. Aqui cada passo é
+ * conferido, e o segundo falhando DESFAZ o primeiro — senão sobra um lançamento
+ * sem troca nenhuma, que aparece no histórico afirmando que algo foi feito e não
+ * diz o quê. */
+const lancamento = ref(null)          // { veiculo } ou nulo
+const erroDoLancamento = ref('')
+
+function abrirLancamento(veiculo) {
+  lancamento.value = { veiculo }
+  erroDoLancamento.value = ''
+}
+function fecharLancamento() { lancamento.value = null; erroDoLancamento.value = '' }
+
+/** O maior KM que se conhece do carro, pra ficha avisar quando o número for
+ *  menor. Sai da mesma linha que a lista já calcula — duas contas diferentes
+ *  pro mesmo número dariam duas verdades. */
+const kmConhecidoDoLancamento = computed(() => {
+  if (!lancamento.value) return null
+  const l = linhas.value.find((x) => x.veiculo.id === lancamento.value.veiculo.id)
+  return l && Number.isInteger(l.km) ? l.km : null
+})
+
+async function gravarLancamento(dados) {
+  if (gravando.value || !lancamento.value) return
+  gravando.value = true
+  erroDoLancamento.value = ''
+  const veiculoId = lancamento.value.veiculo.id
+
+  // PASSO 1: o cabeçalho. `.select()` é obrigatório — sem ele não volta o id, e
+  // sem o id não há como ligar as trocas nem como desfazer se o passo 2 falhar.
+  const { data: cab, error: erroCab } = await sbClient.from('frota_manutencoes')
+    .insert({
+      veiculo_id: veiculoId,
+      km: dados.km,
+      feita_em: dados.feitaEm,
+      oficina: dados.oficina,
+      total_centavos: dados.totalCentavos,
+      observacao: dados.observacao,
+    })
+    .select('id')
+    .single()
+
+  if (erroCab || !cab || !cab.id) {
+    gravando.value = false
+    // Nada foi gravado, e a tela DIZ isso: "não consegui gravar" com dúvida no
+    // ar faria a pessoa lançar de novo e duplicar o serviço.
+    erroDoLancamento.value = 'Não consegui gravar este lançamento, e NADA foi salvo — '
+      + 'nenhuma troca foi registrada. Confira a conexão e tente de novo.'
+    return
+  }
+
+  // PASSO 2: as trocas, uma linha por item marcado.
+  const { error: erroLinhas } = await sbClient.from('frota_revisoes')
+    .insert(linhasParaGravar({
+      manutencaoId: cab.id, veiculoId,
+      km: dados.km, feitaEm: dados.feitaEm, oficina: dados.oficina,
+      itens: dados.itens,
+    }))
+
+  if (erroLinhas) {
+    // DESFAZ o cabeçalho. Sem isto sobra um lançamento sem troca nenhuma no
+    // histórico do carro, dizendo que houve serviço e não dizendo qual.
+    const { error: erroDesfazer } = await sbClient.from('frota_manutencoes')
+      .delete().eq('id', cab.id)
+    gravando.value = false
+    erroDoLancamento.value = erroDesfazer
+      // Os dois falharam: o pior caso, e o único em que a tela precisa pedir
+      // socorro humano em vez de sugerir "tente de novo".
+      ? 'Gravei o lançamento mas não consegui gravar as trocas, e também não consegui '
+        + 'desfazer o lançamento. Ele ficou no histórico deste carro SEM as trocas. '
+        + 'Avise quem administra a Frota antes de lançar de novo.'
+      : 'Não consegui gravar as trocas, então desfiz o lançamento inteiro — nada '
+        + 'ficou pela metade. Tente de novo.'
+    return
+  }
+
+  gravando.value = false
+  fecharLancamento()
+  await carregar()
+}
+
+/* ── ITEM DE MECÂNICA NOVO, criado de dentro do lançamento (D28) ─────────────
+ * Pergunta o nome e DE QUANTOS EM QUANTOS KM se troca, e entra no plano: a
+ * partir daí o item avisa sozinho em toda a frota, que é o que o dono quis dizer
+ * com "vira parâmetro no banco". A validação é problemasDoItem(), que já existe
+ * e já barra nome curto, nome repetido e intervalo fora de 500–500.000. */
+function novoItemDoLancamento() {
+  // Reaproveita o editor do plano que já existe, em vez de um segundo
+  // formulário de item — dois jeitos de criar a mesma coisa divergem com o tempo.
+  abrirItem(null)
+}
+
 // -------------------------------------------------------------------- tutorial
 // O passeio da tela inteira, e um por modal (pelos campos DAQUELE modal). Cada
 // um é independente — fechar o da ficha do veículo não fecha o da tela.
@@ -2192,7 +2296,8 @@ onMounted(async () => {
         Toque no carro para ver os {{ planoAtivo.length }} itens do plano — inclusive os que
         estão longe de vencer.
       </p>
-      <SanfonaDeRevisoes :cartoes="revisoesDeTodosOsCarros" />
+      <SanfonaDeRevisoes :cartoes="revisoesDeTodosOsCarros" :pode-lancar="podeEditar"
+                         @lancar="abrirLancamento" />
     </template>
 
     <!-- FICHA DO VEÍCULO: tudo do carro num lugar só, e editável. -->
@@ -2357,21 +2462,21 @@ onMounted(async () => {
             </ul>
             <p class="fr-ajuda" v-else>Nenhuma manutenção registrada neste carro ainda.</p>
 
-            <div class="fr-dupla">
-              <label class="fr-campo">
-                <span class="fr-lab">O que foi feito</span>
-                <select v-model="novaRevisao.item">
-                  <option v-for="p in plano" :key="p.id" :value="p.item">{{ p.item }}</option>
-                </select>
-              </label>
-              <label class="fr-campo"><span class="fr-lab">Com quantos km</span><input v-model="novaRevisao.km" type="text" inputmode="numeric"></label>
-              <label class="fr-campo"><span class="fr-lab">Quando</span><input v-model="novaRevisao.feita_em" type="date"></label>
-              <label class="fr-campo"><span class="fr-lab">Oficina</span><input v-model="novaRevisao.oficina" type="text"></label>
-              <label class="fr-campo"><span class="fr-lab">Custo (R$)</span><input v-model="novaRevisao.custo" type="text" inputmode="decimal"></label>
-            </div>
+            <!-- O formulário de UMA TROCA POR VEZ saiu daqui (D27): registrar 3
+                 trocas era preencher 15 campos, redigitando KM, data e oficina a
+                 cada rodada, e a frota inteira tinha 2 trocas registradas em 10
+                 carros. Agora é uma ficha só, com as caixas do que foi trocado.
+                 `gravarRevisao` e `novaRevisao` continuam no código servindo o
+                 histórico antigo — as 2 trocas já gravadas não têm cabeçalho e
+                 seguem aparecendo e sendo apagáveis logo acima. -->
             <div class="fr-acoes">
-              <button class="fr-btn" :disabled="gravando" @click="gravarRevisao">+ Registrar manutenção</button>
+              <button class="fr-btn primario" @click="abrirLancamento(veiculoAberto)">
+                + Lançar manutenção
+              </button>
             </div>
+            <p class="fr-ajuda">
+              Uma nota da oficina, mesmo com várias peças trocadas, é um lançamento só.
+            </p>
           </template>
           <p class="fr-ajuda" v-else>
             O histórico de manutenção fica disponível depois de gravar o carro pela primeira vez.
@@ -2865,6 +2970,21 @@ onMounted(async () => {
         </div>
       </div>
     </div>
+
+    <!-- LANÇAR MANUTENÇÃO (D27). Fica no fim do template, fora das outras
+         fichas: ele abre de dois lugares — da sanfona de Revisões e da ficha do
+         veículo —, e aninhar dentro de uma delas o faria depender de qual estava
+         aberta. -->
+    <LancamentoDeManutencao
+      v-if="lancamento"
+      :veiculo="lancamento.veiculo"
+      :plano="planoAtivo"
+      :km-conhecido="kmConhecidoDoLancamento"
+      :gravando="gravando"
+      :erro="erroDoLancamento"
+      @gravar="gravarLancamento"
+      @fechar="fecharLancamento"
+      @novo-item="novoItemDoLancamento" />
   </div>
 </template>
 

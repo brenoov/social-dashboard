@@ -8,13 +8,15 @@
  * exatamente a queixa que o B3 conserta. */
 import { ref } from 'vue'
 
-// Só `cartoes`. Nada de `podeEditar` aqui: a sanfona desta fase só MOSTRA, e
-// propriedade declarada sem uso é peso morto que a próxima pessoa tenta
-// adivinhar. O botão "Lançar manutenção" entra na Fase C, e leva a permissão
-// dele junto.
+// `podeLancar` entrou na Fase C junto com o botão que ele guarda: registrar
+// manutenção é trabalho de quem administra, e é a mesma regra que a RLS de
+// `frota_manutencoes` aplica no banco (migration 041). Nasce `false` — quem
+// esquecer de passar recebe a tela mais fechada, não a mais aberta.
 defineProps({
   cartoes: { type: Array, required: true },
+  podeLancar: { type: Boolean, default: false },
 })
+defineEmits(['lancar'])
 
 const aberto = ref(null)
 const alternar = (id) => { aberto.value = aberto.value === id ? null : id }
@@ -49,6 +51,15 @@ const km = (n) => (n == null ? 'sem quilometragem' : `${n.toLocaleString('pt-BR'
           <span class="sr-item-txt">{{ i.texto }}</span>
         </li>
       </ul>
+
+      <!-- O passo seguinte a LER que a troca venceu é REGISTRAR que ela foi
+           feita. O botão fica aqui, dentro do carro aberto, pra não obrigar a
+           pessoa a fechar isto, ir na aba Gestão e achar a ficha do veículo. -->
+      <div class="sr-acoes" v-if="podeLancar && aberto === c.linha.veiculo.id">
+        <button type="button" class="sr-btn" @click="$emit('lancar', c.linha.veiculo)">
+          Lançar manutenção
+        </button>
+      </div>
     </div>
     <p class="sr-aviso" v-if="!cartoes.length">
       Nenhum veículo cadastrado ainda.
@@ -118,6 +129,11 @@ const km = (n) => (n == null ? 'sem quilometragem' : `${n.toLocaleString('pt-BR'
    já dá os 14px/24px da margem da página — dobrar o respiro aqui desalinharia
    o texto em relação aos cartões. */
 .sr-aviso{margin:0;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.55;color:var(--muted);}
+/* Mesma receita do `.fr-btn` da tela grande — copiada por causa do limite do
+   `<style scoped>`, não por escolha. 40px de alvo, como o padrão manda. */
+.sr-acoes{display:flex;gap:8px;margin-top:10px;}
+.sr-btn{min-height:40px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-family:var(--fonte-principal);font-size:13px;font-weight:600;cursor:pointer;touch-action:manipulation;}
+.sr-btn:hover{border-color:var(--accent);}
 
 @media(min-width:900px){
   /* `align-items:start`: sem isso o Grid estica cada item à altura do maior
