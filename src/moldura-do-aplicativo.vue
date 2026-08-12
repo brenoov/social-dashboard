@@ -213,8 +213,22 @@ const menuAberto = ref(false)
 const naTelaLogin = computed(() => route.name === 'login')
 const naTelaInicio = computed(() => route.name === 'inicio')
 // Fundo animado some em telas densas onde vira ruído visual (admin).
-const SEM_FUNDO = ['admin', 'claude-status']
-const mostrarFundo = computed(() => !SEM_FUNDO.includes(route.name))
+/* O fundo animado (7 ícones, 3 orbes, 3 anéis) só existe onde alguém OLHA a
+ * tela: a Gestão à Vista, que fica na TV, e a página de entrada. Nas telas de
+ * trabalho ele sai.
+ *
+ * A LISTA VIROU DO AVESSO em 12/08/2026, a pedido do dono: "os elementos de
+ * fundo podem sair né? deixar somente no gestão à vista, porque tá atrapalhando
+ * a visualização principalmente no celular". Antes era uma lista de EXCEÇÕES —
+ * o fundo aparecia em 27 das 29 telas e saía só em duas —, e cada tela nova
+ * nascia com ele por acidente. Agora é o contrário: quem quiser fundo entra
+ * nesta lista de propósito.
+ *
+ * O raciocínio já existia e só não tinha sido levado a sério: o Admin já tinha
+ * sido tirado justamente por ser "tela densa onde atrapalha a leitura". Toda
+ * tela de trabalho é densa. */
+const COM_FUNDO = ['inicio', 'gestao-vista']
+const mostrarFundo = computed(() => COM_FUNDO.includes(route.name))
 const iniciais = computed(() => {
   const email = estado.user?.email || ''
   return (email.trim()[0] || '?').toUpperCase()
