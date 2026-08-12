@@ -3033,7 +3033,19 @@ onMounted(async () => {
    desktop deixaria os dois quase encostados. */
 .tela-frota .fr-btn-ajuda{width:40px;height:40px;flex:0 0 auto;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:var(--fonte-principal);font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation;}
 .tela-frota .fr-btn-ajuda:hover{color:var(--accent);border-color:var(--accent);}
-.tela-frota .fr-ficha-corpo{padding:14px 15px;overflow-y:auto;display:flex;flex-direction:column;gap:13px;}
+/* O corpo rola SÓ na vertical. `overflow-y:auto` com o eixo x em `visible` faz
+   o x virar `auto` sozinho pela regra do CSS — foi assim que a ficha ficou
+   arrastável pros lados sem ninguém pedir, e num modal que trava a rolagem do
+   fundo isso é ficar perdido dentro da caixa. `clip` e não `hidden` pra não
+   quebrar `position:sticky` de nada que venha a morar aqui — mesma escolha do
+   `html,body` nos estilos globais.
+   `touch-action:pan-y` REPETIDO aqui de propósito: o que existe em
+   `.fr-ficha-fundo > *` pega a moldura da ficha, não este corpo, e é neste que
+   o dedo encosta. */
+.tela-frota .fr-ficha-corpo{padding:14px 15px;overflow-y:auto;overflow-x:clip;touch-action:pan-y;overscroll-behavior:contain;display:flex;flex-direction:column;gap:13px;}
+/* Filho de grade sem `min-width:0` não encolhe abaixo do próprio conteúdo — é
+   o que empurra a caixa e cria o estouro que a rolagem horizontal mostrava. */
+.tela-frota .fr-dupla > *{min-width:0;}
 /* O texto fixo do topo de cada modal (pedido do dono, em todos os 9). Curto
    de propósito — por isso um bloco pequeno com fundo sutil, não uma caixa de
    aviso do tamanho de um parágrafo de aviso de erro. Cor de fundo por
