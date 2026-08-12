@@ -26,6 +26,11 @@ const props = defineProps({
   gravando: { type: Boolean, default: false },
   // O erro vem de FORA: quem grava é a tela, e é ela que sabe o que falhou.
   erro: { type: String, default: '' },
+  // A camada vem de FORA, do balcão em compartilhado/camada-de-modal.js: quem
+  // abre por último fica na frente. Número fixo aqui foi o defeito anterior —
+  // pus esta ficha abaixo da do veículo pra resolver um caso e quebrei o
+  // caminho principal, que é abrir o lançamento DE DENTRO da ficha do veículo.
+  camada: { type: Number, default: null },
 })
 const emit = defineEmits(['gravar', 'fechar', 'novo-item'])
 
@@ -117,7 +122,7 @@ function gravar() {
 </script>
 
 <template>
-  <div class="lm-fundo" v-trava-rolagem @click.self="$emit('fechar')">
+  <div class="lm-fundo" v-trava-rolagem :style="{ zIndex: camada }" @click.self="$emit('fechar')">
     <div class="lm-ficha" role="dialog" aria-label="Lançar manutenção">
       <div class="lm-topo">
         <span class="lm-titulo">Lançar manutenção · {{ veiculo.nome }}</span>
@@ -211,15 +216,16 @@ function gravar() {
    classes `fr-` da tela grande — foi o defeito achado na Fase A, quando a
    sanfona de revisões quase subiu sem estilo nenhum. Só tokens, nunca hex, nem
    como valor de reserva dentro de `var()`. */
-/* `z-index:1150`, ABAIXO dos 1200 das fichas da tela grande, e é de propósito:
-   o "+ Acrescentar item de mecânica" abre o editor de item, que é uma ficha
-   `fr-ficha-fundo` (1200). Empatado em 1200, quem pintava por cima era esta
-   ficha — por ser o último elemento do template —, então o editor abria ATRÁS,
-   invisível, e o clique caía neste fundo, fechando o lançamento inteiro com
-   tudo o que a pessoa já tinha digitado. Ficando abaixo, um modal aberto A
-   PARTIR daqui pousa por cima, como se espera. */
-.lm-fundo{position:fixed;inset:0;z-index:1150;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:14px;touch-action:none;overscroll-behavior:contain;}
-.lm-ficha{width:100%;max-width:520px;max-height:calc(100dvh - 28px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+/* O `z-index` NÃO mora mais aqui: vem pela propriedade `camada`. O 1150 fixo
+   que ficava nesta linha era uma tentativa de resolver o empilhamento por
+   número, e ela se mostrou impossível — abaixo da ficha do veículo consertava o
+   editor de item aberto daqui, e quebrava o lançamento aberto DE DENTRO da
+   ficha. O 1200 abaixo é só o chão, pro caso de a camada não vir. */
+.lm-fundo{position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:14px;touch-action:none;overscroll-behavior:contain;}
+/* 720px, o MESMO de todos os modais da Frota (pedido do dono em 12/08/2026).
+   Modal sempre do mesmo tamanho é uma coisa a menos pra estranhar — e esta
+   ficha, com a lista de itens do plano, é das que mais aproveitam a largura. */
+.lm-ficha{width:100%;max-width:720px;max-height:calc(100dvh - 28px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35);}
 .lm-topo{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 15px;border-bottom:1px solid var(--border);}
 .lm-titulo{flex:1;min-width:0;font-family:var(--fonte-principal);font-size:12.5px;font-weight:700;letter-spacing:.6px;color:var(--text);overflow-wrap:anywhere;}
 /* 40px de alvo: o PADRÃO manda, e errar o ✕ num modal que trava a rolagem do

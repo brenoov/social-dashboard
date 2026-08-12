@@ -3317,7 +3317,14 @@ Object.assign(window, {
 /* ── Modal de permissões (.perm-*, legacy L1402-1423) — não é .admin-*,
    MANTIDO no global também; duplicado aqui pois o modal foi trazido para
    dentro da raiz deste componente. ── */
-.tela-admin :deep(.perm-overlay){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);touch-action:none;overscroll-behavior:contain;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
+/* 99995: ACIMA da ficha do usuário (99990), que é de onde este modal é
+   aberto. Estava em 3000 e nascia ATRÁS dela — o dono relatou em 12/08:
+   "na config de usuários, quando clico no botão permissões" abre outro modal
+   atrás desse. Modal aberto DE DENTRO de outro tem de cobrir quem o abriu.
+   A solução geral é o balcão em compartilhado/camada-de-modal.js, já usado
+   na Frota; aqui o número fixo resolve porque esta tela tem só estes dois
+   modais e a ordem entre eles é sempre a mesma. */
+.tela-admin :deep(.perm-overlay){position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99995;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);touch-action:none;overscroll-behavior:contain;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));}
 .tela-admin :deep(.perm-overlay.open){display:flex;}
 /* 420 → 760: a matriz tem 5 colunas fixas de ação + a coluna de nomes; em 420
    ela nasceria rolando na horizontal já no desktop. 95vw segura o celular. */

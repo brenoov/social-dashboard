@@ -55,6 +55,9 @@ import { botoesDoMotorista, botoesDaGestao } from './botoes-rapidos.js'
 // o formulário de uma troca por vez N vezes.
 // As gavetas da aba Gestão: seção que abre e fecha, com o estado no título
 // fechado. A regra de quando abrir mora em gavetas.js, testada.
+// Quem abre por último fica na frente. Sem isto, um modal aberto DE DENTRO de
+// outro pode nascer atrás dele — o defeito que o dono relatou em 12/08.
+import { abrirCamada, fecharCamada } from '../../compartilhado/camada-de-modal.js'
 import Gaveta from './gaveta.vue'
 import { gavetasVisiveis, lerPreferencias, gravarPreferencias } from './gavetas.js'
 import LancamentoDeManutencao from './lancamento-de-manutencao.vue'
@@ -195,6 +198,13 @@ const botoesGestao = computed(() => botoesDaGestao({
  *
  * `urgente` aqui é sempre uma MEDIDA, nunca um palpite: pedido esperando
  * decisão, problema marcado hoje, cópia que o robô desistiu de mandar. */
+/* A camada de cada modal desta tela. `camadas.algo` recebe um número ao abrir e
+ * o devolve ao fechar — quem abriu por último cobre quem já estava. Ver
+ * compartilhado/camada-de-modal.js. */
+const camadas = reactive({})
+function subirCamada(nome) { camadas[nome] = abrirCamada() }
+function descerCamada(nome) { fecharCamada(camadas[nome]); camadas[nome] = null }
+
 const prefsDasGavetas = ref({})
 /** A gaveta de uma chave, ou `undefined` quando ela não aparece hoje (vazia).
  *  O `v-if` do template usa esse `undefined` pra não desenhar nada. */
@@ -789,21 +799,36 @@ function podePegar(linha) {
 }
 
 function abrirRetirada(linha) {
-  ficha.value = { modo: 'retirar', linha }
+  subirCamada('ficha')
+  // A RESERVA VEM JUNTO, e é ela que faz a ficha encolher: quem chegou aqui
+  // pelo "Peguei o carro" já disse na reserva quem vai usar, pra onde e pra quê
+  // — perguntar de novo na hora de pegar a chave é fazer digitar duas vezes o
+  // mesmo (pedido do dono, 12/08/2026). Sem reserva (registro avulso pela
+  // Gestão) a ficha continua inteira, porque aí ninguém respondeu nada ainda.
+  const reserva = reservaParaPegar({
+    requisicoes: requisicoes.value, veiculoId: linha.veiculo.id,
+    minhaPessoaId: euId.value, agoraIso: new Date().toISOString(), usoJaAberto: linha.naRua,
+  })
+  ficha.value = { modo: 'retirar', linha, reserva }
   Object.assign(form, {
-    pessoaId: meuId() || '', km: linha.km == null ? '' : String(linha.km),
+    // Da reserva quando há; do próprio usuário quando é avulso.
+    pessoaId: (reserva && reserva.pessoa_id) || meuId() || '',
+    km: linha.km == null ? '' : String(linha.km),
     tanque: linha.tanque == null ? '' : String(linha.tanque),
-    destino: '', finalidade: '', observacao: '',
+    destino: (reserva && reserva.destino) || '',
+    finalidade: (reserva && reserva.finalidade) || '',
+    observacao: '',
   })
   problemas.value = []
 }
 function abrirDevolucao(linha) {
+  subirCamada('ficha')
   const aberto = usos.value.find((u) => u.veiculo_id === linha.veiculo.id && !u.volta_em)
   ficha.value = { modo: 'devolver', linha, uso: aberto }
   Object.assign(form, { pessoaId: '', km: '', tanque: '', destino: '', finalidade: '', observacao: '' })
   problemas.value = []
 }
-function fecharFicha() { ficha.value = null; problemas.value = []; passeioFichaAberto.value = false }
+function fecharFicha() { descerCamada('ficha'); ficha.value = null; problemas.value = []; passeioFichaAberto.value = false }
 
 /* ── Passar o carro (F6b) ─────────────────────────────────────────────────
    Quem tem carro fixo não "retira" e "devolve" — a posse é uma linha aberta
@@ -1203,6 +1228,7 @@ const filaDeAprovacao = computed(() =>
   ordenarFila(requisicoes.value.filter((r) => r.situacao === 'pendente')))
 
 function abrirPedido(veiculoId) {
+  subirCamada('pedido')
   pedido.value = { aberto: true }
   jaAvisado.value = false
   avisosDoPedido.value = []
@@ -1211,7 +1237,7 @@ function abrirPedido(veiculoId) {
     destino: '', finalidade: '', retirada: '', devolucao: '', observacao: '',
   })
 }
-function fecharPedido() { pedido.value = null; avisosDoPedido.value = []; passeioPedidoAberto.value = false }
+function fecharPedido() { descerCamada('pedido'); pedido.value = null; avisosDoPedido.value = []; passeioPedidoAberto.value = false }
 
 // <input type="datetime-local"> devolve hora LOCAL sem fuso. Mandar essa string
 // crua pro banco gravaria como se fosse UTC — três horas de diferença, que é
@@ -1268,11 +1294,12 @@ const motivoDaRecusa = ref('')
 const erroDaDecisao = ref('')
 
 function abrirDecisao(requisicao, acao) {
+  subirCamada('decisao')
   decisao.value = { requisicao, acao }
   motivoDaRecusa.value = ''
   erroDaDecisao.value = ''
 }
-function fecharDecisao() { decisao.value = null; erroDaDecisao.value = ''; passeioDecisaoAberto.value = false }
+function fecharDecisao() { descerCamada('decisao'); decisao.value = null; erroDaDecisao.value = ''; passeioDecisaoAberto.value = false }
 
 function porQueNaoDecido(r) {
   // `minhaPessoaId` e `meuUsuarioId` saíram daqui junto com a regra de não
@@ -1363,13 +1390,14 @@ const itemForm = reactive({ item: '', aCadaKm: '', observacao: '' })
 const errosDoItem = ref([])
 
 function abrirItem(p) {
+  subirCamada('item')
   itemEmEdicao.value = p || { novo: true }
   errosDoItem.value = []
   Object.assign(itemForm, {
     item: p ? p.item : '', aCadaKm: p ? String(p.a_cada_km) : '', observacao: (p && p.observacao) || '',
   })
 }
-function fecharItem() { itemEmEdicao.value = null; errosDoItem.value = []; passeioItemAberto.value = false }
+function fecharItem() { descerCamada('item'); itemEmEdicao.value = null; errosDoItem.value = []; passeioItemAberto.value = false }
 
 async function salvarItem() {
   if (gravando.value) return
@@ -1453,6 +1481,7 @@ const bensLivres = computed(() =>
   bensLivresParaFrota(bensVeiculo.value, veiculos.value, categoriaVeiculoId.value))
 
 function abrirVeiculo(v) {
+  subirCamada('veiculo')
   veiculoAberto.value = v
   errosDoVeiculo.value = []
   // A conferência do carro ANTERIOR não pode sobrar na tela do próximo: um
@@ -1470,6 +1499,7 @@ function abrirVeiculo(v) {
 // Situação e Histórico de manutenção, que não fazem sentido pra um carro que
 // ainda nem foi gravado) e pra salvarVeiculo() (grava por insert, não update).
 function abrirVeiculoNovo() {
+  subirCamada('veiculo')
   veiculoAberto.value = { novo: true }
   errosDoVeiculo.value = []
   conferencia.value = null
@@ -1482,7 +1512,7 @@ function abrirVeiculoNovo() {
   vForm.fipe = ''
   vForm.seguroValor = ''
 }
-function fecharVeiculo() {
+function fecharVeiculo() { descerCamada('veiculo');
   veiculoAberto.value = null
   errosDoVeiculo.value = []
   passeioVeiculoAberto.value = false
@@ -1793,10 +1823,11 @@ const lancamento = ref(null)          // { veiculo } ou nulo
 const erroDoLancamento = ref('')
 
 function abrirLancamento(veiculo) {
+  subirCamada('lancamento')
   lancamento.value = { veiculo }
   erroDoLancamento.value = ''
 }
-function fecharLancamento() { lancamento.value = null; erroDoLancamento.value = '' }
+function fecharLancamento() { descerCamada('lancamento'); lancamento.value = null; erroDoLancamento.value = '' }
 
 /** O maior KM que se conhece do carro, pra ficha avisar quando o número for
  *  menor. Sai da mesma linha que a lista já calcula — duas contas diferentes
@@ -2444,8 +2475,8 @@ onMounted(async () => {
     </template>
 
     <!-- FICHA DO VEÍCULO: tudo do carro num lugar só, e editável. -->
-    <div class="fr-ficha-fundo" v-if="veiculoAberto" v-trava-rolagem @click.self="fecharVeiculo">
-      <div class="fr-ficha larga" role="dialog">
+    <div class="fr-ficha-fundo" v-if="veiculoAberto" v-trava-rolagem :style="{ zIndex: camadas.veiculo }" @click.self="fecharVeiculo">
+      <div class="fr-ficha" role="dialog">
         <div class="fr-ficha-topo">
           <span class="fr-ficha-titulo">
             {{ veiculoAberto.novo ? 'Novo veículo' : (veiculoAberto.nome + ' · ' + veiculoAberto.placa) }}
@@ -2796,7 +2827,7 @@ onMounted(async () => {
     </template>
 
     <!-- EDITOR DE UM ITEM DO PLANO -->
-    <div class="fr-ficha-fundo" v-if="itemEmEdicao" v-trava-rolagem @click.self="fecharItem">
+    <div class="fr-ficha-fundo" v-if="itemEmEdicao" v-trava-rolagem :style="{ zIndex: camadas.item }" @click.self="fecharItem">
       <div class="fr-ficha" role="dialog">
         <div class="fr-ficha-topo">
           <span class="fr-ficha-titulo">{{ itemEmEdicao.novo ? 'Novo item de revisão' : 'Editar item' }}</span>
@@ -2919,7 +2950,7 @@ onMounted(async () => {
     </div>
 
     <!-- PEDIR O CARRO PARA UMA DATA -->
-    <div class="fr-ficha-fundo" v-if="pedido" v-trava-rolagem @click.self="fecharPedido">
+    <div class="fr-ficha-fundo" v-if="pedido" v-trava-rolagem :style="{ zIndex: camadas.pedido }" @click.self="fecharPedido">
       <div class="fr-ficha" role="dialog">
         <div class="fr-ficha-topo">
           <span class="fr-ficha-titulo">Reservar veículo</span>
@@ -2983,7 +3014,7 @@ onMounted(async () => {
     </div>
 
     <!-- APROVAR OU RECUSAR -->
-    <div class="fr-ficha-fundo" v-if="decisao" v-trava-rolagem @click.self="fecharDecisao">
+    <div class="fr-ficha-fundo" v-if="decisao" v-trava-rolagem :style="{ zIndex: camadas.decisao }" @click.self="fecharDecisao">
       <div class="fr-ficha" role="dialog">
         <div class="fr-ficha-topo">
           <span class="fr-ficha-titulo">{{ decisao.acao === 'aprovada' ? 'Aprovar' : 'Recusar' }} requisição</span>
@@ -3016,7 +3047,7 @@ onMounted(async () => {
 
     <!-- Ficha de retirada / devolução. Centralizada com margem, como os outros
          modais desta central. -->
-    <div class="fr-ficha-fundo" v-if="ficha" v-trava-rolagem @click.self="fecharFicha">
+    <div class="fr-ficha-fundo" v-if="ficha" v-trava-rolagem :style="{ zIndex: camadas.ficha }" @click.self="fecharFicha">
       <div class="fr-ficha" role="dialog">
         <div class="fr-ficha-topo">
           <span class="fr-ficha-titulo">
@@ -3058,10 +3089,26 @@ onMounted(async () => {
             :pode-assinar="podeAssinar"
             :erro-da-assinatura="erroDaAssinatura"
             @gravar="gravarChecklist" />
+          <!-- O que a reserva já respondeu, MOSTRADO e não perguntado. Sem isto
+               a ficha encolheria e a pessoa não saberia com que reserva está
+               pegando o carro — economizar campo não pode custar a certeza. -->
+          <p class="fr-tutorial-fixo" v-if="ficha.modo === 'retirar' && ficha.reserva">
+            Pela sua reserva de {{ quando(ficha.reserva.retirada_prevista) }}<template
+              v-if="ficha.reserva.destino">, para {{ ficha.reserva.destino }}</template><template
+              v-if="ficha.reserva.finalidade"> ({{ ficha.reserva.finalidade }})</template>.
+            Aqui só falta o checklist e o combustível.
+          </p>
+
           <p class="fr-aviso" v-if="ficha.modo === 'retirar' && seloDoChecklist">{{ seloDoChecklist }}</p>
           <p class="fr-erro" v-if="ficha.modo === 'retirar' && erroChecklist">{{ erroChecklist }}</p>
 
-          <label class="fr-campo" v-if="ficha.modo === 'retirar'">
+          <!-- Estes três campos SOMEM quando a retirada vem de uma reserva
+               aprovada (pedido do dono, 12/08/2026): a reserva já disse quem vai
+               usar, pra onde e pra quê, e repetir a pergunta na hora de pegar a
+               chave é fazer a pessoa digitar duas vezes o mesmo. Aparecem só no
+               registro de uso avulso, feito pela Gestão, que não tem reserva
+               atrás. -->
+          <label class="fr-campo" v-if="ficha.modo === 'retirar' && !ficha.reserva">
             <span class="fr-lab">Quem vai usar</span>
             <select v-model="form.pessoaId">
               <option value="">— escolha —</option>
@@ -3088,7 +3135,7 @@ onMounted(async () => {
             </select>
           </label>
 
-          <template v-if="ficha.modo === 'retirar'">
+          <template v-if="ficha.modo === 'retirar' && !ficha.reserva">
             <label class="fr-campo">
               <span class="fr-lab">Destino</span>
               <input v-model="form.destino" type="text">
@@ -3126,6 +3173,7 @@ onMounted(async () => {
          aberta. -->
     <LancamentoDeManutencao
       v-if="lancamento"
+      :camada="camadas.lancamento"
       :veiculo="lancamento.veiculo"
       :plano="planoAtivo"
       :km-conhecido="kmConhecidoDoLancamento"
@@ -3286,9 +3334,6 @@ onMounted(async () => {
 .tela-frota .fr-item-txt{font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
 .tela-frota .fr-item-km{font-family:var(--fonte-dados);font-size:12.5px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;}
 .tela-frota .fr-pedido.desligado{opacity:.5;}
-/* A ficha do veículo é longa: no computador ela abre mais larga e os campos
-   ficam em duas colunas, pra não virar um rolo de 40 linhas. */
-.tela-frota .fr-ficha.larga{max-width:720px;}
 .tela-frota .fr-grupo{margin:6px 0 2px;font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--accent);}
 .tela-frota .fr-dupla{display:grid;grid-template-columns:1fr;gap:12px;}
 @media(min-width:560px){ .tela-frota .fr-dupla{grid-template-columns:1fr 1fr;} }
@@ -3341,7 +3386,15 @@ onMounted(async () => {
 
 .tela-frota .fr-ficha-fundo{position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:14px;touch-action:none;overscroll-behavior:contain;}
 .tela-frota .fr-ficha-fundo > *{overscroll-behavior:contain;touch-action:pan-y;}
-.tela-frota .fr-ficha{width:100%;max-width:460px;max-height:calc(100dvh - 28px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+/* 720px em TODOS os modais desta tela (pedido do dono, 12/08/2026: "está
+   pequeno em algumas abas, pode ser maior igual o modal que abre quando abro a
+   ficha dos veículos"). Eram 460px aqui e 720px só na ficha do veículo, e a
+   diferença não tinha razão — era a ficha que tinha crescido, e as outras
+   ficaram pra trás.
+   Igualar não é só estética: modal sempre do mesmo tamanho é uma coisa a menos
+   pra estranhar, e quem usa esta ferramenta tem dificuldade com aplicativos.
+   No celular nada muda — `width:100%` com o respiro do fundo já mandava lá. */
+.tela-frota .fr-ficha{width:100%;max-width:720px;max-height:calc(100dvh - 28px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35);}
 .tela-frota .fr-ficha-topo{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 15px;border-bottom:1px solid var(--border);}
 /* flex:1 pra empurrar o "?" e o "✕" pro canto direito, juntos — sem isso os
    três filhos do topo (título, ajuda, fechar) ficariam espaçados igualmente
