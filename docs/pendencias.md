@@ -263,6 +263,49 @@ a Meta devolver rate limit de verdade. Money-path: na próxima vez que der rate
 limit, conferir no Gerenciador que continuou na MESMA campanha, sem uma segunda
 igual. Só depois disso o item sai daqui.
 
+### B4b · Meta Ads › as seis melhorias subiram sem ninguém ver na tela 🔴
+As seis melhorias que o dono pediu em 12/08/2026 estão **no ar e conferidas no
+bundle de produção**, mas **nenhuma foi vista funcionando com sessão logada**.
+Três são money-path:
+
+1. **Pin no mapa** — salvar ponto num conjunto que está RODANDO reescreve o
+   `custom_locations` na Meta. Antes de confiar, salvar num conjunto pausado e
+   conferir no Gerenciador que os pontos ficaram onde deviam.
+2. **Re-disparo do subir** (ver B4) — depende de rate limit real.
+3. **Sugestão de público lendo a persona** — a edge `sugerir-publico-ia` v4 tem
+   o bloco da persona, mas `verify_jwt` impede o teste sem sessão; quem executa
+   primeiro é o dono, clicando em sugerir.
+
+Também não foi executado o **upload de PDF** (edge `ler-documento` v1) pela tela
+— só pela API direto, com o PDF real da curadoria (US$ 0,067 por arquivo).
+
+**Falta ainda, e é clique do dono:**
+- **Persona das outras 4 contas** (Motoeasy, Mantova, Raíssa, Breno Vale). Só a
+  Vessel está preenchida. Sem persona, a IA sugere idade olhando quem CLICOU.
+- **Os 13 problemas que a Meta aponta** (agora visíveis na Fila): 5 conjuntos da
+  Raíssa pausados pela Meta por público personalizado que sumiu, 3 vídeos da
+  Mantova com menos de 500px que não rodam no Instagram, 2 anúncios que a Meta
+  não entrega, 1 com Página divergente e 1 sem link no cartão. O conserto é no
+  Gerenciador.
+- **A recusa por "políticas violadas" NÃO foi encontrada**: dos 517 anúncios,
+  nenhum está `DISAPPROVED`, e as 7 contas estão ativas (`disable_reason: 0`).
+  Se voltar a aparecer, anotar EM QUAL CONTA — provavelmente é Página ou Business
+  Manager, não a conta de anúncios.
+
+### B12 · Migrations › o runner acha que 57 estão pendentes 🔴 *não rodar*
+`cd coletor && node run-migrations.mjs --dry` lista **57 migrations como
+pendentes**, incluindo as que obviamente já rodaram. A tabela de controle
+`public.schema_migrations` tem **23 registros para 80 arquivos** — as outras
+foram aplicadas na mão e nunca registradas.
+
+**Rodar o runner replicaria 57 migrations em produção.** Muitas são
+`if not exists`, mas nem todas, e nenhuma foi conferida uma a uma. Enquanto isso
+não for arrumado, migration nova vai **dirigida pelo MCP** e se registra na mão
+no mesmo SQL (foi assim com as duas de 12/08).
+
+Arrumar de verdade é conferir as 57 contra o banco e registrar as que já valem.
+É trabalho próprio, não coisa pra fazer de passagem.
+
 ### B5 · Fábrica Hero-IA › trocar a composição pelo relight da foto real 💰
 O motor `coletor/hero-ia/hero-ia.mjs` hoje compõe `[cena de fundo, recorte da
 bolsa]` — e é isso que **embanana o texto da plaquinha**.
