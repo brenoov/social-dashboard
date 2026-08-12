@@ -1881,11 +1881,28 @@ async function savePermissions() {
     avisoExcecao = dec.aviso
   }
 
+  // `.ok` NÃO PROVA GRAVAÇÃO — mesma armadilha corrigida nos outros PATCHes
+  // desta tela (regravar perfil, propagação por membro, pôr pessoa no
+  // perfil): um PATCH do PostgREST cujo alvo o RLS filtra devolve 204, não
+  // 403, com zero linhas alteradas e `.ok === true`. Este é o PATCH mais
+  // usado da ficha — roda toda vez que alguém salva UMA pessoa, e é o que
+  // grava `permissions_excecao` (D9) — por isso não pode ficar de fora.
   if (!_permState.soNotificacoes) {
-    await adFetch('profiles?id=eq.' + _permState.userId, {
-      method: 'PATCH',
-      body: JSON.stringify(payload),
-    })
+    let r = null
+    try {
+      r = await adFetch('profiles?id=eq.' + _permState.userId, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(payload),
+      })
+    } catch { r = null }
+    const linhasPerm = r && r.ok ? await r.json().catch(() => null) : null
+    if (!Array.isArray(linhasPerm) || linhasPerm.length === 0) {
+      btn.disabled = false; btn.textContent = 'Salvar'
+      adminToast('O banco recusou a gravação — nada foi alterado. '
+        + 'Seu login pode não ter permissão para editar este usuário.', false)
+      return
+    }
   }
 
   // NOTIFICAÇÕES: grava uma linha por tipo com o estado escolhido. Poderia
