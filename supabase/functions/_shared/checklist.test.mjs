@@ -7,6 +7,7 @@ import {
   quemFaltaHoje, resumoDaCobranca, precisaDeChecklist,
   problemasDoItemDeChecklist,
   telefoneDaCobranca, problemasAbertosHoje, veiculosParaConferir,
+  resultadoDoChecklist, porQueDoResultado,
 } from './checklist.js'
 
 // Padrão do banco: semanal na sexta, mensal na 1ª quarta-feira.
@@ -586,3 +587,70 @@ test('lista vazia e entrada suja não derrubam nada', () => {
   assert.deepEqual(veiculosParaConferir({}), [])
   assert.deepEqual(veiculosParaConferir({ veiculos: [null, undefined], euId: 'p1', ehGestor: true }), [])
 })
+
+/* ── O resultado sai dos itens, e não do dedo de quem confere ───────────────
+ *
+ * Pedido do dono em 12/08/2026, derrubando a D14. A regra antiga permitia o
+ * pior desfecho: marcar LIBERADO com vazamento embaixo do carro, e a ficha
+ * assinada registrar isso como verdade. */
+
+const ITENS_GRAVIDADE = [
+  { item: 'Vazamentos sob o veículo', impede_uso: true },
+  { item: 'Estado geral dos pneus', impede_uso: true },
+  { item: 'Faróis', impede_uso: false },
+  { item: 'Buzina', impede_uso: false },
+];
+
+test('tudo certo libera', () => {
+  const r = [{ item_texto: 'Faróis', estado: 'ok' }, { item_texto: 'Buzina', estado: 'ok' }];
+  assert.equal(resultadoDoChecklist(r, ITENS_GRAVIDADE), 'liberado');
+});
+
+test('problema que NÃO impede rodar vira ressalva', () => {
+  const r = [{ item_texto: 'Buzina', estado: 'nao_ok' }];
+  assert.equal(resultadoDoChecklist(r, ITENS_GRAVIDADE), 'com_ressalvas');
+});
+
+test('vazamento NÃO LIBERA o carro — o caso que o dono citou', () => {
+  const r = [{ item_texto: 'Vazamentos sob o veículo', estado: 'nao_ok' }];
+  assert.equal(resultadoDoChecklist(r, ITENS_GRAVIDADE), 'nao_liberado');
+});
+
+test('pneu com problema NÃO LIBERA — o outro caso citado', () => {
+  assert.equal(resultadoDoChecklist([{ item_texto: 'Estado geral dos pneus', estado: 'nao_ok' }], ITENS_GRAVIDADE), 'nao_liberado');
+});
+
+test('um grave no meio de vários leves manda no resultado', () => {
+  // O grave não pode ser diluído: basta um pra o carro não sair.
+  const r = [
+    { item_texto: 'Buzina', estado: 'nao_ok' },
+    { item_texto: 'Faróis', estado: 'nao_ok' },
+    { item_texto: 'Vazamentos sob o veículo', estado: 'nao_ok' },
+  ];
+  assert.equal(resultadoDoChecklist(r, ITENS_GRAVIDADE), 'nao_liberado');
+});
+
+test('item que ninguém classificou conta como NÃO impeditivo', () => {
+  // Inventar gravidade sobre item que o dono nunca marcou seria pior que a
+  // ressalva — e a lista dele muda sem passar por aqui.
+  const r = [{ item_texto: 'Item que não está na lista', estado: 'nao_ok' }];
+  assert.equal(resultadoDoChecklist(r, ITENS_GRAVIDADE), 'com_ressalvas');
+});
+
+test('sem resposta nenhuma, libera — ficha vazia não acusa', () => {
+  assert.equal(resultadoDoChecklist([], ITENS_GRAVIDADE), 'liberado');
+  assert.equal(resultadoDoChecklist(null, null), 'liberado');
+});
+
+test('a tela consegue DIZER por que, separando grave de leve', () => {
+  // "Não liberado" sozinho não ajuda; com o nome do item, a pessoa sabe o que
+  // resolver.
+  const r = [
+    { item_texto: 'Vazamentos sob o veículo', estado: 'nao_ok' },
+    { item_texto: 'Buzina', estado: 'nao_ok' },
+    { item_texto: 'Faróis', estado: 'ok' },
+  ];
+  const p = porQueDoResultado(r, ITENS_GRAVIDADE);
+  assert.deepEqual(p.graves, ['Vazamentos sob o veículo']);
+  assert.deepEqual(p.leves, ['Buzina']);
+});

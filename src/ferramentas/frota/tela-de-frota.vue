@@ -1253,6 +1253,22 @@ async function salvarItemDeChecklist(dados) {
   }
   carregar()
 }
+/* Qual item deixa o carro NÃO LIBERADO. É o dono quem decide, e a decisão dele
+ * vale na hora — a ficha do motorista lê `impede_uso` direto. */
+async function alternarImpedeUso(i) {
+  erroDoItem.value = ''
+  const novo = !i.impede_uso
+  const { data, error } = await sbClient.from('frota_checklist_itens')
+    .update({ impede_uso: novo }).eq('id', i.id).select('id')
+  // CONTA AS LINHAS, não só o erro: um update recusado pela permissão volta sem
+  // erro e sem mudar nada, e a tela diria que gravou.
+  if (error || (data || []).length !== 1) {
+    erroDoItem.value = `Não consegui mudar "${i.item}". Ele continua como estava.`
+    return
+  }
+  await carregar()
+}
+
 async function alternarItemDeChecklist(i) {
   erroDoItem.value = ''
   const { error } = await sbClient.from('frota_checklist_itens')
@@ -2933,6 +2949,7 @@ onMounted(async () => {
           :erro-config="erroDaConfig" :erro-item="erroDoItem"
           @salvar-item="salvarItemDeChecklist"
           @alternar-item="alternarItemDeChecklist"
+          @alternar-impede="alternarImpedeUso"
           @salvar-config="salvarConfigDeChecklist" />
       </div>
     </template>

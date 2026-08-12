@@ -36,7 +36,10 @@
  * Toda a decisão de O QUE perguntar mora em checklist.js, testado. Aqui só tem
  * tela. */
 import { ref, reactive, computed } from 'vue'
-import { cadenciasDoDia, itensDaFicha, problemasDaFicha, hodometroAceito } from '../../../supabase/functions/_shared/checklist.js'
+import {
+  cadenciasDoDia, itensDaFicha, problemasDaFicha, hodometroAceito,
+  resultadoDoChecklist, porQueDoResultado,
+} from '../../../supabase/functions/_shared/checklist.js'
 import CampoDeRabisco from './campo-de-rabisco.vue'
 
 const props = defineProps({
@@ -137,6 +140,10 @@ const ultimoKmBonito = computed(() =>
 const respondidos = computed(() => daFicha.value.filter((i) => respostas[i.id]).length)
 const faltam = computed(() => daFicha.value.length - respondidos.value)
 const problemas = computed(() => daFicha.value.filter((i) => respostas[i.id] === 'nao_ok'))
+/* As respostas no formato que `resultadoDoChecklist` lê — o mesmo que vai pro
+ * banco, pra a regra do resultado ser UMA só entre a tela e a conferência. */
+const respostasParaResultado = computed(() =>
+  daFicha.value.map((i) => ({ item_texto: i.item, estado: respostas[i.id] || null })))
 
 const titulo = computed(() => {
   if (cadencias.value.includes('mensal')) return 'Checklist de hoje, com a conferência do mês'
@@ -149,10 +156,14 @@ const titulo = computed(() => {
 // Deduzido, e trocável. No dia comum — tudo certo — a pessoa não decide nada.
 // Mas a palavra final continua sendo dela: `resultadoEscolhido` vence assim que
 // ela toca, e a D14 exige exatamente isso.
-const resultadoEscolhido = ref(null)
-const resultadoSugerido = computed(() => (problemas.value.length ? 'com_ressalvas' : 'liberado'))
-const resultado = computed(() => resultadoEscolhido.value || resultadoSugerido.value)
-const trocandoResultado = ref(false)
+/* DEDUZIDO, e só. `resultadoEscolhido` e `trocandoResultado` foram APAGADOS
+ * junto com o botão "mudar" — a D14 dizia que a palavra final era de quem
+ * confere, e o dono derrubou em 12/08/2026 pelo motivo certo: o pior desfecho
+ * que a regra permitia era marcar LIBERADO com vazamento embaixo do carro.
+ * A gravidade de cada item é do DONO (`impede_uso`, editável na aba Plano),
+ * não deste arquivo. */
+const resultado = computed(() => resultadoDoChecklist(respostasParaResultado.value, props.itens))
+const porQue = computed(() => porQueDoResultado(respostasParaResultado.value, props.itens))
 const RESULTADOS = [
   { chave: 'liberado', rotulo: 'Liberado' },
   { chave: 'com_ressalvas', rotulo: 'Com ressalvas' },
@@ -281,22 +292,31 @@ function gravar() {
                 placeholder="Conte o que você viu, pra quem for resolver saber o que procurar"></textarea>
     </label>
 
+    <!-- O RESULTADO NÃO SE ESCOLHE (pedido do dono, 12/08/2026, derrubando a
+         D14): ele sai do que foi conferido. A regra antiga deixava marcar
+         LIBERADO com vazamento embaixo do carro, e a ficha assinada registrava
+         isso como verdade. -->
     <div class="ck-resultado">
       <div class="ck-resultado-linha">
         <span class="ck-lab">Resultado</span>
         <strong class="ck-resultado-val" :class="resultado">{{ rotuloDoResultado }}</strong>
-        <button type="button" class="ck-trocar" @click="trocandoResultado = !trocandoResultado">
-          {{ trocandoResultado ? 'fechar' : 'mudar' }}
-        </button>
       </div>
-      <div class="ck-escolha larga" v-if="trocandoResultado">
-        <button v-for="r in RESULTADOS" :key="r.chave" type="button"
-                class="ck-op" :class="[r.chave, { marcado: resultado === r.chave }]"
-                @click="resultadoEscolhido = r.chave; trocandoResultado = false">{{ r.rotulo }}</button>
-      </div>
-      <!-- O carro NUNCA trava (D14). Dizer isso na tela evita a pessoa não marcar
-           "não liberado" com medo de deixar a empresa a pé. -->
-      <p class="ck-nota">Marcar "não liberado" não tira o carro de ninguém — só avisa quem administra.</p>
+      <!-- DIZ O PORQUÊ. "Não liberado" sozinho não ajuda ninguém a resolver;
+           com o nome do item, a pessoa sabe o que levar pra oficina. -->
+      <p class="ck-nota" v-if="porQue.graves.length">
+        O carro não sai por {{ porQue.graves.length === 1 ? 'isto' : 'isto' }}:
+        <strong>{{ porQue.graves.join(', ') }}</strong>. Avise quem administra a Frota.
+      </p>
+      <p class="ck-nota" v-else-if="porQue.leves.length">
+        Dá pra rodar, mas precisa resolver: <strong>{{ porQue.leves.join(', ') }}</strong>.
+      </p>
+      <p class="ck-nota" v-else>Nada marcado como problema.</p>
+      <!-- O carro nunca trava por si: o app avisa, não impede. Dizer isso evita
+           a pessoa esconder um problema com medo de deixar a empresa a pé. -->
+      <p class="ck-nota">
+        O resultado sai do que você marcou acima — ninguém digita ele. E "não liberado"
+        não tira o carro de ninguém: só avisa quem administra.
+      </p>
     </div>
 
     <!-- ASSINAR É O ÚLTIMO PASSO, e o cartão avisa ANTES o que ele faz. O banco

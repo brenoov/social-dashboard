@@ -323,3 +323,51 @@ export function veiculosParaConferir({ veiculos, euId, ehGestor, fichas, hoje, q
       ? String(a.veiculo.nome || '').localeCompare(String(b.veiculo.nome || ''))
       : (a.meu ? -1 : 1)));
 }
+
+/**
+ * O RESULTADO da ficha, deduzido dos itens conferidos. Não se escolhe.
+ *
+ * Até 12/08/2026 a pessoa que conferia podia trocar o resultado a dedo (D14: "a
+ * palavra final continua sendo dela"). O dono derrubou, e a razão é o pior
+ * desfecho que a regra antiga permitia: marcar LIBERADO com vazamento embaixo
+ * do carro, e a ficha assinada registrar isso como verdade. Num histórico que
+ * serve pra responder por multa e por acidente, o resultado não pode depender
+ * da pressa de quem está com a chave na mão.
+ *
+ * Três desfechos:
+ *  - 'nao_liberado'  → algum item marcado como problema tem `impede_uso`. O
+ *                      carro não sai.
+ *  - 'com_ressalvas' → há problema, mas nenhum que impeça rodar.
+ *  - 'liberado'      → nenhum problema.
+ *
+ * QUAIS ITENS IMPEDEM O USO É DECISÃO DO DONO, não do código: vem de
+ * `frota_checklist_itens.impede_uso`, editável na aba Plano. Item que o
+ * `itens` não conhece conta como "não impede" — inventar gravidade sobre um
+ * item que ninguém classificou seria pior que a ressalva.
+ */
+export function resultadoDoChecklist(respostas, itens) {
+  const problemas = (respostas || []).filter((r) => r && r.estado === 'nao_ok');
+  if (!problemas.length) return 'liberado';
+
+  const bloqueia = new Set(
+    (itens || []).filter((i) => i && i.impede_uso).map((i) => String(i.item || '').trim()),
+  );
+  const grave = problemas.some((r) => bloqueia.has(String(r.item_texto || r.item || '').trim()));
+  return grave ? 'nao_liberado' : 'com_ressalvas';
+}
+
+/**
+ * Os itens que produziram o resultado, pra tela poder DIZER o porquê.
+ * "Não liberado" sozinho não ajuda ninguém a resolver; "Não liberado —
+ * vazamento sob o veículo" manda a pessoa direto pra oficina.
+ */
+export function porQueDoResultado(respostas, itens) {
+  const problemas = (respostas || []).filter((r) => r && r.estado === 'nao_ok');
+  const bloqueia = new Set(
+    (itens || []).filter((i) => i && i.impede_uso).map((i) => String(i.item || '').trim()),
+  );
+  const nome = (r) => String(r.item_texto || r.item || '').trim();
+  const graves = problemas.filter((r) => bloqueia.has(nome(r))).map(nome);
+  const leves = problemas.filter((r) => !bloqueia.has(nome(r))).map(nome);
+  return { graves, leves };
+}
