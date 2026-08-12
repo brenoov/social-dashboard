@@ -164,6 +164,10 @@ import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/c
 import { estado, PERMISSION_TREE, RECURSOS } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { agruparRecursos, contarAcoes, estadoDaSelecao, marcarTudo } from './agrupar-permissoes.js'
 import { derivarFeatures } from '../../compartilhado/derivar-features.js'
+// A sobreposição perfil × exceção (D9) e QUEM MUDA de acesso se um perfil for
+// regravado (D11). Puro e testado à parte (perfis-de-acesso.test.mjs): aqui só
+// se busca no banco, se mostra e se grava.
+import { acessoEfetivo, impactoDaMudanca } from './perfis-de-acesso.js'
 // A escada de niveis (Sem acesso / Ver / Mexer / Tudo) que substitui a matriz
 // de caixinhas no editor de permissoes: uma escolha por ferramenta, em vez de
 // ate 5 caixinhas por linha das quais mais da metade nunca existiu de verdade.
@@ -205,6 +209,9 @@ import { estadoDoVinculo } from './vinculo-de-cadastro.js'
 // faltante são puros e testados; a tela só desenha.
 import { abasDaPessoa } from './abas-da-pessoa.js'
 import { paraIlike } from './escapar-curinga-ilike.js'
+// O irmão do de cima, para `coluna=eq.<valor>`: nome de perfil é texto que
+// gente digita, e `,` `.` `(` `)` são gramática do filtro do PostgREST.
+import { paraEq } from './valor-de-filtro-postgrest.js'
 // Trava a rolagem do fundo enquanto a ficha esta aberta. Peca compartilhada,
 // que tambem compensa a barra de rolagem e resolve o efeito elastico do iOS.
 // O editor de permissoes (#perm-modal-overlay) NAO precisa de chamada aqui: ele
@@ -1340,6 +1347,11 @@ function _abaDeFerramentas(body, u) {
       // leitura).
       const nome = window.prompt('Nome do perfil (ex.: Vendedora)')
       if (!nome || !nome.trim()) return
+      const nomeLimpo = String(nome).trim()
+      // Cópia do mapa que está aberto na ficha. Cópia, e não a referência, para
+      // que fechar/mexer no editor enquanto as chamadas de rede acontecem não
+      // troque por baixo o que está sendo gravado e propagado.
+      const novasPermissions = JSON.parse(JSON.stringify(_permState.permissions || {}))
       const r = await adFetch('acessos_perfis', {
         method: 'POST',
         headers: { Prefer: 'return=representation' },
@@ -1347,16 +1359,174 @@ function _abaDeFerramentas(body, u) {
         // tem default (039_perfis_de_acesso.sql) — sem gravar aqui, fica
         // sempre NULL. `estado.userId` é o campo certo (mesmo usado em
         // `alterado_por: estado.userId`, ~L1500).
-        body: JSON.stringify({ nome: String(nome).trim(), permissions: _permState.permissions, criado_por: estado.userId }),
+        body: JSON.stringify({ nome: nomeLimpo, permissions: novasPermissions, criado_por: estado.userId }),
       })
       // `nome` é unique na tabela (039_perfis_de_acesso.sql) — nome repetido
-      // devolve 409, e precisa dizer isso, não "não consegui".
-      if (r.status === 409) { adminToast(`Já existe um perfil chamado "${nome.trim()}"`, false); return }
+      // devolve 409. Isso NÃO é erro: é o único jeito que esta fase tem de
+      // mudar o mapa de um perfil que já existe ("salvando de novo a partir de
+      // uma pessoa", plano de 11/08). E é exatamente aí que D8 acontece —
+      // regravar o perfil muda o acesso de todo mundo que está nele. Por isso
+      // este caminho passa OBRIGATORIAMENTE pela confirmação de impacto (D11).
+      if (r.status === 409) { await _regravarPerfilExistente(nomeLimpo, novasPermissions); return }
       if (!r.ok) { adminToast('Não consegui salvar o perfil', false); return }
-      adminToast(`Perfil "${nome.trim()}" criado`)
+      // Perfil recém-criado não tem ninguém dentro (`perfil_id` de ninguém
+      // aponta pra ele ainda), então não há acesso de terceiro pra mudar aqui.
+      adminToast(`Perfil "${nomeLimpo}" criado`)
     })
     body.appendChild(btnPerfil)
   }
+}
+
+// O nome que o dono lê. `patrimonio` e `meta.gestor` são chave de banco; a
+// confirmação de impacto é o texto que ele lê ANTES de mudar o acesso de
+// outras pessoas, e não pode estar em jargão de código. Chave que não estiver
+// no catálogo cai na própria chave, em vez de sumir do texto.
+function _rotuloDoRecurso(chave) {
+  const r = RECURSOS.find(x => x.key === chave)
+  return r ? r.label : chave
+}
+
+/**
+ * D8 + D11 — SENSITIVE MUTATION: regravar um perfil MUDA O ACESSO DE TODO
+ * MUNDO que está nele, de uma vez.
+ *
+ * O dono escolheu o perfil vivo ciente do risco (D8 do desenho de 11/08/2026).
+ * Esta função é a única proteção que sobrou: antes de gravar qualquer coisa ela
+ * NOMEIA as pessoas e diz o que cada uma perde, ganha ou tem trocado de nível.
+ * Sem essa confirmação, a propagação não vai ao ar — está escrito no desenho, e
+ * vale como regra: se um dia alguém precisar mexer aqui, some com a propagação
+ * junto, não com o aviso.
+ *
+ * A ordem importa e não é acidental:
+ *   1. ler quem está no perfil     — sem essa lista não dá pra confirmar nada;
+ *   2. confirmar com nome e perda  — a única chance do dono dizer "não";
+ *   3. gravar o perfil;
+ *   4. propagar pessoa por pessoa.
+ * Qualquer passo que falhe interrompe tudo ANTES de mexer em gente.
+ */
+async function _regravarPerfilExistente(nome, novasPermissions) {
+  // 1) Achar o perfil pelo nome (é `unique` na tabela, então é no máximo um).
+  let perfil = null
+  try {
+    const rP = await adFetch('acessos_perfis?select=id,nome&nome=eq.' + paraEq(nome))
+    const jP = rP.ok ? await rP.json() : null
+    if (Array.isArray(jP)) perfil = jP[0] || null
+  } catch { perfil = null }
+  if (!perfil) {
+    adminToast(`Já existe um perfil chamado "${nome}", mas não consegui abrir ele pra regravar. Nada foi alterado.`, false)
+    return
+  }
+
+  // 2) Só quem ESTÁ no perfil entra na conta. Perguntar por todo mundo faria a
+  // tela prometer mudança em gente que não muda.
+  //
+  // Falha de leitura NÃO pode virar "lista vazia": vazio segue pelo atalho do
+  // `total === 0` e gravaria o perfil sem ninguém conferir quem perde acesso —
+  // que é exatamente o que o D11 existe pra impedir. Por isso aqui a falha
+  // aborta tudo, sem tocar em nada.
+  let membrosCrus = null
+  try {
+    const rM = await adFetch('profiles?select=id,name,email,permissions,permissions_excecao,is_superadmin&perfil_id=eq.'
+      + encodeURIComponent(perfil.id))
+    const jM = rM.ok ? await rM.json() : null
+    if (Array.isArray(jM)) membrosCrus = jM
+  } catch { membrosCrus = null }
+  if (!membrosCrus) {
+    adminToast('Não consegui ler quem está neste perfil, então não mexi em nada.', false)
+    return
+  }
+
+  // DUAS listas de propósito: `membrosCrus` guarda a linha inteira (o `id` e o
+  // `is_superadmin` são necessários pro PATCH do passo 4); `membros` é a forma
+  // reduzida que `impactoDaMudanca` espera — e o nome do campo é `nome`, não
+  // `name`: passar a linha crua faria a confirmação dizer "undefined: PERDE…".
+  const membros = membrosCrus.map(p => ({
+    nome: p.name || p.email, permissions: p.permissions, permissions_excecao: p.permissions_excecao,
+  }))
+  const impacto = impactoDaMudanca(novasPermissions, membros)
+
+  if (impacto.total > 0) {
+    // A PERDA VEM PRIMEIRO, e em maiúscula. O plano escrevia o ganho antes, mas
+    // o motivo declarado dele é "quem lê rápido tem que enxergar a perda antes
+    // do ganho" — quem lê rápido lê a primeira coisa da linha, não a maiúscula
+    // no meio dela. `muda` mostra o de-para porque "mudou de nível" sem dizer
+    // pra qual não ajuda ninguém a decidir.
+    const linhas = impacto.afetados.map((a) => {
+      const partes = []
+      if (a.perde.length) partes.push(`PERDE ${a.perde.map(_rotuloDoRecurso).join(', ')}`)
+      if (a.ganha.length) partes.push(`ganha ${a.ganha.map(_rotuloDoRecurso).join(', ')}`)
+      for (const m of a.muda || []) {
+        partes.push(`${_rotuloDoRecurso(m.chave)}: de [${m.de.join(', ')}] para [${m.para.join(', ')}]`)
+      }
+      return `${a.nome}: ${partes.join(' · ')}`
+    })
+    // `_gtConfirmAdmin(titulo, texto)` é o que existe neste arquivo (~L658):
+    // dois argumentos, devolve Promise<boolean>. `uiConfirm` é de outro projeto
+    // do dono e não existe aqui.
+    const ok = await _gtConfirmAdmin(
+      `${impacto.total} ${impacto.total === 1 ? 'pessoa vai mudar' : 'pessoas vão mudar'} de acesso agora`,
+      `Regravando o perfil "${nome}" com o acesso desta ficha:\n\n${linhas.join('\n')}`,
+    )
+    if (!ok) return
+  }
+  // Se `total === 0` não há confirmação, de propósito: uma confirmação que não
+  // tem o que confirmar ensina a clicar "Aplicar" sem ler, e aí a que importa
+  // também passa batida. Isso só é seguro porque `impactoDaMudanca` enxerga
+  // TODAS as mudanças, inclusive as vindas de exceção (ver o cabeçalho de
+  // perfis-de-acesso.js) — não mexa nesse cálculo achando que é detalhe.
+
+  // 3) Gravar o mapa novo no perfil. Se isto falhar, ninguém foi tocado ainda.
+  let rG = null
+  try {
+    rG = await adFetch('acessos_perfis?id=eq.' + encodeURIComponent(perfil.id), {
+      method: 'PATCH',
+      body: JSON.stringify({ permissions: novasPermissions }),
+    })
+  } catch { rG = null }
+  if (!rG || !rG.ok) { adminToast('Não consegui regravar o perfil — ninguém foi alterado.', false); return }
+
+  if (impacto.total === 0) {
+    adminToast(`Perfil "${nome}" atualizado — ninguém muda de acesso.`)
+    return
+  }
+
+  // 4) Propagar. Um PATCH por pessoa, com o acesso recalculado pela regra de
+  // sobreposição (o perfil manda no que ele cobre, a exceção dada à mão
+  // sobrevive — D9). `features` vai junto porque este projeto tem dois modelos
+  // de permissão convivendo e gravar um só deixa a pessoa vendo metade das
+  // telas (ver derivar-features.js).
+  //
+  // `derivarFeatures` devolve `null` para super-admin, e null quer dizer "NÃO
+  // MEXA no features[] desta pessoa" — mandar isso no PATCH gravaria NULL na
+  // coluna e apagaria o acesso dela. Por isso o campo fica FORA do corpo nesse
+  // caso, igual ao que `savePermissions` já faz (~L1670).
+  const falhas = []
+  for (const p of membrosCrus) {
+    const efetivo = acessoEfetivo(novasPermissions, p.permissions_excecao)
+    const corpo = { permissions: efetivo }
+    const features = derivarFeatures(efetivo, { ehSuperadmin: !!p.is_superadmin })
+    if (features !== null) corpo.features = features
+    let okp = false
+    try {
+      const rr = await adFetch('profiles?id=eq.' + encodeURIComponent(p.id), {
+        method: 'PATCH',
+        body: JSON.stringify(corpo),
+      })
+      okp = !!(rr && rr.ok)
+    } catch { okp = false }
+    if (!okp) falhas.push(p.name || p.email)
+  }
+
+  // Falha no meio da propagação tem que ser DITA com nome. "Perfil atualizado"
+  // com metade das pessoas fora deixaria o dono achando que aplicou.
+  if (falhas.length) {
+    adminToast(`Perfil "${nome}" gravado, mas NÃO consegui aplicar em: ${falhas.join(', ')}.`
+      + ' O acesso dessas pessoas continua como estava — abra a ficha de cada uma.', false)
+  } else {
+    adminToast(`Perfil "${nome}" atualizado — ${impacto.total} `
+      + (impacto.total === 1 ? 'pessoa mudou' : 'pessoas mudaram') + ' de acesso.')
+  }
+  setTimeout(loadAdminUsers, 400)
 }
 
 // Marcar uma ação marca 'ver' junto; desmarcar 'ver' limpa o recurso. Mantém a ordem do catálogo.
