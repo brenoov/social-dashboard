@@ -256,3 +256,46 @@ test('posse com pessoa_id que não está na lista não inventa nome', () => {
   const usos = [{ veiculo_id: 'v1', tipo: 'posse', volta_em: null, pessoa_id: 'p-sumiu', pessoa_nome: null }]
   assert.equal(quemEstaComOCarro(veiculo, usos, [{ id: 'p-a', nome: 'Fulano' }]).pessoaNome, null)
 })
+
+/* ── Passar o carro pra quem já está com ele não é evento nenhum ───────────
+ * Achado na revisão da Fase B: confirmar a opção padrão num carro cuja posse
+ * aberta JÁ é a do dono fixo fechava e reabria a posse da mesma pessoa,
+ * escrevendo na linha do tempo uma transferência que nunca aconteceu. */
+
+test('passar para quem JÁ está com o carro não mexe em nada', () => {
+  const dono = { id: 'p1', nome: 'Humberto' };
+  const usos = [{ id: 'u1', veiculo_id: 'v1', tipo: 'posse', volta_em: null, pessoa_id: 'p1' }];
+  const r = passarPara({ usos, veiculoId: 'v1', para: dono, donoFixo: dono, quando: '2026-08-12T12:00:00Z' });
+  assert.equal(r.fechar, null, 'não fecha a posse de quem já está com o carro');
+  assert.equal(r.abrir, null, 'e não abre outra igual');
+});
+
+test('devolver ao dono fixo um carro que JÁ está com ele também não faz nada', () => {
+  // O caso do botão: `para` vem nulo, `passarPara` cai no dono fixo, e ele já é
+  // quem está com o carro.
+  const dono = { id: 'p1', nome: 'Humberto' };
+  const usos = [{ id: 'u1', veiculo_id: 'v1', tipo: 'posse', volta_em: null, pessoa_id: 'p1' }];
+  const r = passarPara({ usos, veiculoId: 'v1', para: null, donoFixo: dono, quando: '2026-08-12T12:00:00Z' });
+  assert.equal(r.fechar, null);
+  assert.equal(r.abrir, null);
+});
+
+test('passar para OUTRA pessoa continua fechando e abrindo', () => {
+  const usos = [{ id: 'u1', veiculo_id: 'v1', tipo: 'posse', volta_em: null, pessoa_id: 'p1' }];
+  const r = passarPara({
+    usos, veiculoId: 'v1', para: { id: 'p2', nome: 'Gabriel' },
+    donoFixo: { id: 'p1', nome: 'Humberto' }, quando: '2026-08-12T12:00:00Z',
+  });
+  assert.equal(r.fechar.id, 'u1');
+  assert.equal(r.abrir.pessoa_id, 'p2');
+});
+
+test('pessoa DE FORA vira posse com nome e SEM identificador', () => {
+  // É o que faz a multa da quinzena do Felipe ter resposta.
+  const r = passarPara({
+    usos: [], veiculoId: 'v1', para: { id: null, nome: 'Felipe modelista' },
+    donoFixo: null, quando: '2026-08-12T12:00:00Z',
+  });
+  assert.equal(r.abrir.pessoa_id, null);
+  assert.equal(r.abrir.pessoa_nome, 'Felipe modelista');
+});

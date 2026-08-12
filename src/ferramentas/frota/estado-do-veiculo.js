@@ -152,6 +152,16 @@ export function resumoDoEstado(e) {
   // razão pela qual o aviso de conflito carrega nome e destino.
   if (e.reservadaPor) return `Reservado para ${e.reservadaPor}`;
   if (e.veiculo.reservada) return 'Reservado';
+  // Sem responsável mas COM contato: o vazio sozinho parecia defeito, e o
+  // dono estranhou a Doblo justamente por isso — ela não tem responsável na
+  // Frota e tem "Siqueira" no contato, e as duas coisas se confundiam.
+  // Responsável é quem responde pelo carro; contato é a quem perguntar. Dizer
+  // as duas na mesma frase resolve, sem fingir que uma é a outra.
+  if (e.veiculo.contato_nome) {
+    return e.ondeEsta
+      ? `Livre, em ${e.ondeEsta} — perguntar a ${e.veiculo.contato_nome}`
+      : `Livre — sem responsável; perguntar a ${e.veiculo.contato_nome}`;
+  }
   if (e.ondeEsta) return `Livre, em ${e.ondeEsta}`;
   return 'Livre';
 }

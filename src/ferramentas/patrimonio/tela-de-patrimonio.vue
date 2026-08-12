@@ -2072,8 +2072,18 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 /* flex:1 empurra o "?" de dentro do modal pro canto direito, junto do X —
    sem isto os 3 filhos do topo (fechar, título, ajuda) ficariam agrupados à
    esquerda, com um vão vazio sobrando à direita. */
-.tela-patrimonio .pat-ficha-titulo{flex:1;min-width:0;font-family:var(--fonte-principal);font-size:13px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);}
-.tela-patrimonio .pat-ficha-corpo{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px;}
+.tela-patrimonio .pat-ficha-titulo{flex:1;min-width:0;font-family:var(--fonte-principal);font-size:13px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);overflow-wrap:anywhere;}
+/* O corpo rola SÓ na vertical. Um eixo em `auto` promove o outro a `auto` pela
+   regra do CSS, e foi assim que este modal ficou arrastável pros lados sem
+   ninguém pedir — o dono relatou em 12/08: "o modal na gestão de patrimônio eu
+   consigo arrastar para os lados, pelo jeito você corrigiu só em frota".
+   Estava certo: a Frota levou o conserto e o Patrimônio ficou pra trás.
+   `clip` e não `hidden` pra não quebrar `position:sticky` de nada aqui dentro.
+   ⚠️ `overflow-wrap:anywhere` nos filhos de texto é OBRIGATÓRIO junto: sem ele
+   o clip corta em silêncio, que é pior que arrastar. Ver `.pat-ajuda` e
+   `.pat-dado-val` abaixo. */
+.tela-patrimonio .pat-ficha-corpo{flex:1;overflow-y:auto;overflow-x:clip;touch-action:pan-y;overscroll-behavior:contain;padding:14px;display:flex;flex-direction:column;gap:12px;}
+.tela-patrimonio .pat-ficha-corpo .pat-dupla > *{min-width:0;}
 .tela-patrimonio .pat-ficha-pe{display:flex;gap:8px;justify-content:flex-end;padding:12px 14px;border-top:1px solid var(--border);background:var(--surface);}
 
 .tela-patrimonio .pat-campo{display:flex;flex-direction:column;gap:5px;font-family:var(--fonte-principal);}
@@ -2081,7 +2091,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-patrimonio .pat-campo em{font-style:normal;text-transform:none;letter-spacing:0;font-weight:400;}
 .tela-patrimonio .pat-campo input,.tela-patrimonio .pat-campo select,.tela-patrimonio .pat-campo textarea{font-size:16px;font-family:var(--fonte-principal);padding:11px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);width:100%;}
 .tela-patrimonio .pat-campo select:disabled{opacity:.5;}
-.tela-patrimonio .pat-campo-par{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.tela-patrimonio .pat-campo-par{display:grid;grid-template-columns:1fr 1fr;gap:10px;overflow-wrap:anywhere;}
 
 /* ---- "+" nos campos de lista do formulário do bem ---- */
 /* min-width:0 no select é o que deixa ele encolher dentro do grid de 2

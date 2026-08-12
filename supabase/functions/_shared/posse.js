@@ -44,6 +44,16 @@ export function posseAberta(usos, veiculoId) {
 export function passarPara({ usos, veiculoId, para, donoFixo, quando }) {
   const atual = posseAberta(usos, veiculoId);
   const alvo = para || donoFixo || null;
+  // Passar o carro pra quem JÁ está com ele não é evento nenhum. Sem esta
+  // guarda, confirmar a opção padrão num carro cuja posse aberta já é a do dono
+  // fixo fechava e reabria a posse da MESMA pessoa — e a linha do tempo ganhava
+  // uma transferência que nunca aconteceu. Num histórico que serve pra
+  // responder "quem estava com o carro no dia da multa", evento inventado é
+  // ruído caro. Comparação por identificador, não por nome: dois Gabriéis.
+  // `alvo.id` nulo é pessoa de fora — aí não há como ser "a mesma", e passa.
+  if (atual && alvo && alvo.id && atual.pessoa_id === alvo.id) {
+    return { fechar: null, abrir: null };
+  }
   return {
     fechar: atual ? { id: atual.id, volta_em: quando } : null,
     abrir: alvo ? {

@@ -787,11 +787,12 @@ const linhas = computed(() => ordenarEstados(
     const e = estadoDoVeiculo(
       { ...dono, pessoa_nome: quem.pessoaNome }, usos.value, fichas.value, revisoes.value,
     )
-    // Quem está com o carro POR POSSE (emprestado), e não por viagem. É o que
-    // acende os botões de posse na Gestão — o caso real: a Bravo Blackmotion
-    // está com Gabriel Alves desde 11/08 porque o dono emprestou e ele esqueceu
-    // de devolver, e não havia caminho nenhum na tela pra trazer de volta.
-    return { ...e, posseDe: quem.porPosse ? quem.pessoaNome : null, porPosse: quem.porPosse }
+    // `porPosse` diz que quem está com o carro está por EMPRÉSTIMO, não por
+    // viagem — e é ele que acende os botões de posse na Gestão. O caso real: a
+    // Bravo Blackmotion está com Gabriel Alves desde 11/08 porque o dono
+    // emprestou e ele esqueceu de devolver, e não havia caminho na tela pra
+    // trazer de volta.
+    return { ...e, porPosse: quem.porPosse }
   }),
 ))
 
@@ -869,18 +870,30 @@ function fecharFicha() { descerCamada('ficha'); ficha.value = null; problemas.va
    (D9c). Um carro sem dono fixo (rodízio) só fecha mesmo, "livre" é o certo. */
 const passando = ref(null)      // o veículo cujo passe está aberto
 function abrirPasse(veiculo) {
-  passando.value = veiculo; paraQuem.value = ''; erroPasse.value = ''
+  passando.value = veiculo; paraQuem.value = ''; nomeDeForaNoPasse.value = ''; erroPasse.value = ''
   subirCamada('passe')
 }
-function fecharPasse() { descerCamada('passe'); passando.value = null; paraQuem.value = ''; erroPasse.value = '' }
-const paraQuem = ref('')        // id da pessoa escolhida
+function fecharPasse() { descerCamada('passe'); passando.value = null; paraQuem.value = ''; nomeDeForaNoPasse.value = ''; erroPasse.value = '' }
+const paraQuem = ref('')        // id da pessoa escolhida, ou DE_FORA
+const nomeDeForaNoPasse = ref('')
+const avisosDoPasse = computed(() =>
+  (paraQuem.value === DE_FORA ? problemasDoNomeDeFora(nomeDeForaNoPasse.value) : []))
 const erroPasse = ref('')
 
 async function confirmarPasse() {
   if (gravando.value || !passando.value) return
+  // Nome de fora em branco não grava: sem nome, a posse ficaria sem ninguém
+  // identificado, que é pior que não registrar.
+  if (avisosDoPasse.value.some((a) => a.bloqueia)) return
   gravando.value = true
   erroPasse.value = ''
-  const alvo = pessoas.value.find((p) => p.id === paraQuem.value) || null
+  // Três casos: colaborador, pessoa DE FORA (id nulo, nome escrito na hora), ou
+  // ninguém — e "ninguém" é o que faz `passarPara` cair no dono fixo, ou deixar
+  // o carro livre se não houver dono. `passarPara` já aceita `{id, nome}`, então
+  // a pessoa de fora entra sem nenhuma adaptação lá dentro.
+  const alvo = paraQuem.value === DE_FORA
+    ? { id: null, nome: nomeDeForaNoPasse.value.trim() }
+    : (pessoas.value.find((p) => p.id === paraQuem.value) || null)
   const veiculo = passando.value
   const donoFixo = veiculo.pessoa_id ? { id: veiculo.pessoa_id, nome: nomeDaPessoa(veiculo.pessoa_id) } : null
   const { fechar, abrir } = passarPara({
@@ -1296,7 +1309,13 @@ function conferirPedido() {
       rascunhoDoPedido.value, requisicoes.value, new Date().toISOString()),
     // O empurrão pro sobrenome de quem é de fora entra na MESMA lista que a
     // tela já mostra — um segundo lugar pra ler aviso é um lugar que ninguém lê.
-    ...(pedidoForm.pessoaId === DE_FORA ? problemasDoNomeDeFora(pedidoForm.nomeDeFora) : []),
+    // Só os avisos que a validação geral NÃO cobre: com "de fora" escolhido e o
+    // nome em branco, as duas dariam a mesma bronca em palavras diferentes, e
+    // duas mensagens pro mesmo erro é o dobro de leitura pra quem tem
+    // dificuldade. A geral já barra; daqui vem só o empurrão pro sobrenome.
+    ...(pedidoForm.pessoaId === DE_FORA
+      ? problemasDoNomeDeFora(pedidoForm.nomeDeFora).filter((x) => !x.bloqueia)
+      : []),
   ]
   return avisosDoPedido.value
 }
@@ -2455,9 +2474,13 @@ onMounted(async () => {
                  esqueceu de devolver, e não havia caminho na tela pra desfazer.
                  Antes disto, "Passar o carro" só existia na aba Motorista e só
                  pro carro fixo da própria pessoa. -->
-            <button v-if="podeEditar && l.porPosse" class="fr-btn"
+            <!-- `porPosse || pessoa_id`: o botão também precisa aparecer no carro
+                 que TEM dono fixo mas nunca teve linha de posse aberta — senão
+                 quem administra não consegue registrar que alguém o levou.
+                 `passarPara` já trata o caso "não havia posse": só abre. -->
+            <button v-if="podeEditar && (l.porPosse || l.veiculo.pessoa_id)" class="fr-btn"
                     @click="abrirPasse(l.veiculo)">
-              {{ l.veiculo.pessoa_id ? 'Passar para outra pessoa' : 'Encerrar a posse' }}
+              {{ l.veiculo.pessoa_id ? 'Passar ou devolver' : 'Encerrar a posse' }}
             </button>
             <a v-if="zapDoVeiculo(l.veiculo)" class="fr-btn fr-zap" :href="zapDoVeiculo(l.veiculo)"
                  target="_blank" rel="noopener"
@@ -2570,12 +2593,16 @@ onMounted(async () => {
           <h3 class="fr-grupo">De quem é, onde fica e com quem falar</h3>
           <div class="fr-dupla">
             <label class="fr-campo" v-if="!veiculoAberto.novo" data-tour="veic-responsavel">
-              <span class="fr-lab">Responsável</span>
+              <span class="fr-lab">Responsável — de quem é o carro</span>
               <select v-model="vForm.pessoa_id">
                 <option value="">— ninguém —</option>
                 <option v-for="p in pessoas" :key="p.id" :value="p.id">{{ p.nome }}</option>
               </select>
-              <span class="fr-ajuda">Carro com responsável deixa de aparecer como livre para os outros.</span>
+              <span class="fr-ajuda">
+                Quem responde pelo carro — é este nome que a multa procura quando ninguém
+                pegou o carro emprestado. Carro com responsável deixa de aparecer como livre.
+                Vale também no Patrimônio: mudar aqui muda lá, e o contrário também.
+              </span>
             </label>
             <label class="fr-campo" data-tour="veic-empresa">
               <span class="fr-lab">De qual empresa é este carro</span>
@@ -2622,9 +2649,13 @@ onMounted(async () => {
 
           <div class="fr-dupla">
             <label class="fr-campo" data-tour="veic-contato">
-              <span class="fr-lab">Contato</span>
+              <span class="fr-lab">Contato — a quem perguntar</span>
               <input v-model="vForm.contato_nome" type="text">
-              <span class="fr-ajuda">O NOME de quem resolve as coisas deste carro. Ex.: Marcus Vinicius</span>
+              <span class="fr-ajuda">
+                O NOME de quem resolve as coisas deste carro. <strong>Não é o mesmo que
+                responsável</strong>: pode ser quem tem a chave, quem cuida da manutenção
+                ou a supervisora da loja. Ex.: Marcus Vinicius
+              </span>
             </label>
             <label class="fr-campo">
               <span class="fr-lab">O que essa pessoa faz</span>
@@ -3015,7 +3046,7 @@ onMounted(async () => {
           </label>
           <label class="fr-campo">
             <span class="fr-lab">Quem vai dirigir</span>
-            <select v-model="pedidoForm.pessoaId">
+            <select v-model="pedidoForm.pessoaId" @change="conferirPedido">
               <option value="">— escolha —</option>
               <option v-for="p in pessoas" :key="p.id" :value="p.id">{{ p.nome }}</option>
               <!-- Se a opção não existe, a pessoa TRAVA. Foi o que aconteceu em
@@ -3256,13 +3287,27 @@ onMounted(async () => {
                 ? ('Devolver para ' + (nomeDaPessoa(passando.pessoa_id) || 'o responsável fixo'))
                 : 'Encerrar a posse — o carro fica livre' }}</option>
               <option v-for="p in pessoas" :key="p.id" :value="p.id">{{ p.nome }}</option>
+              <!-- Pessoa de fora TAMBÉM aqui, e este é o lugar que mais importa:
+                   é `frota_uso` que responde "quem estava com o carro no dia da
+                   multa". Sem isto, a quinzena do Felipe continuaria caindo no
+                   nome do responsável fixo, que é o defeito de R$ 1.301,60 que
+                   motivou o módulo. -->
+              <option :value="DE_FORA">— outra pessoa, de fora da empresa —</option>
             </select>
           </label>
+          <label class="fr-campo" v-if="paraQuem === DE_FORA">
+            <span class="fr-lab">Nome de quem vai ficar com o carro</span>
+            <input v-model="nomeDeForaNoPasse" type="text" list="fr-nomes-de-fora">
+            <span class="fr-ajuda">Ex.: Felipe modelista</span>
+          </label>
+          <p class="fr-aviso" v-for="(a, i) in avisosDoPasse" :key="i">{{ a.texto }}</p>
           <p class="fr-erro" v-if="erroPasse">{{ erroPasse }}</p>
         </div>
         <div class="fr-ficha-rodape">
           <button class="fr-btn" @click="fecharPasse">Cancelar</button>
-          <button class="fr-btn primario" :disabled="gravando" @click="confirmarPasse">
+          <button class="fr-btn primario"
+                  :disabled="gravando || avisosDoPasse.some((a) => a.bloqueia)"
+                  @click="confirmarPasse">
             {{ gravando ? 'Gravando…' : 'Confirmar' }}
           </button>
         </div>

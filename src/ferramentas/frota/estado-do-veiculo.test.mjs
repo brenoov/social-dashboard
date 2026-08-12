@@ -291,3 +291,25 @@ test('sem reserva, o carro de rodízio continua livre como sempre', () => {
   const v = { id: 'v1', situacao: 'ativo', pessoa_id: null, reservada: false }
   assert.equal(estadoDoVeiculo(v, [], []).disponivel, true)
 })
+
+/* ── Responsável e contato são coisas diferentes ────────────────────────────
+ * O dono estranhou a Doblo: sem responsável na Frota, com "Siqueira" no
+ * contato, e as duas coisas se confundindo na tela. */
+
+test('carro sem responsável mas com contato DIZ a quem perguntar', () => {
+  const v = { id: 'v1', situacao: 'ativo', pessoa_id: null, contato_nome: 'Siqueira' }
+  const f = resumoDoEstado(estadoDoVeiculo(v, [], []))
+  assert.match(f, /sem responsável/i, 'tem de dizer que não há responsável')
+  assert.match(f, /Siqueira/, 'e a quem perguntar')
+})
+
+test('o contato NÃO é apresentado como se fosse o responsável', () => {
+  // Dizer "Com Siqueira" seria a tela afirmando que ele responde pelo carro.
+  const v = { id: 'v1', situacao: 'ativo', pessoa_id: null, contato_nome: 'Siqueira' }
+  assert.doesNotMatch(resumoDoEstado(estadoDoVeiculo(v, [], [])), /^Com /)
+})
+
+test('com responsável, o contato não entra na frase', () => {
+  const v = { id: 'v1', situacao: 'ativo', pessoa_id: 'p1', pessoa_nome: 'Marcus', contato_nome: 'Outro' }
+  assert.equal(resumoDoEstado(estadoDoVeiculo(v, [], [])), 'Com Marcus')
+})
