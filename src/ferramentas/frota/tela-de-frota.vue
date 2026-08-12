@@ -46,6 +46,11 @@ import { vTravaRolagem } from '../../compartilhado/travar-rolagem-de-fundo.js'
 import PainelDeChecklist from './painel-de-checklist.vue'
 import EditorDeChecklist from './editor-de-checklist.vue'
 import SanfonaDeRevisoes from './sanfona-de-revisoes.vue'
+// Os botões grandes do topo das duas abas (D33): estado embaixo do nome, e
+// cada um ou abre uma ficha que já existe ou rola até uma seção que já está
+// mais abaixo — nunca cria tela nova.
+import BotoesRapidos from './botoes-rapidos.vue'
+import { botoesDoMotorista, botoesDaGestao } from './botoes-rapidos.js'
 import {
   quemFaltaHoje, resumoDaCobranca, precisaDeChecklist,
   problemasAbertosHoje, veiculosParaConferir, cadenciasDoDia,
@@ -141,6 +146,44 @@ const meuCarroFixo = computed(() => {
 
 const fichaDeHoje = computed(() => !meuCarroFixo.value ? null
   : fichas.value.find((f) => f.veiculo_id === meuCarroFixo.value.id && f.feita_em === hoje.value) || null)
+
+// Os botões rápidos do topo (D33). Reaproveitam `meuCarroFixo` e `fichaDeHoje`
+// — já respondem exatamente "qual é meu carro" e "o checklist dele saiu hoje"
+// pro aviso "Checklist de hoje já feito" ali acima. Não existe `fezChecklistHoje()`
+// neste arquivo, e ir atrás de `aberto` erraria: `aberto` só lista quem AINDA
+// precisa conferir (`veiculosParaConferir` filtra por `precisaDeChecklist`), então
+// depois do checklist feito ele vira `null` e o botão perderia o nome do carro
+// junto com o estado — pareceria que a pessoa deixou de ter carro fixo.
+const meuCarroNome = computed(() => (meuCarroFixo.value ? meuCarroFixo.value.nome : null))
+const meuChecklistHoje = computed(() => {
+  if (!meuCarroFixo.value) return null
+  return fichaDeHoje.value ? 'feito' : 'falta'
+})
+
+const botoesMotorista = computed(() => botoesDoMotorista({
+  painel: painel.value, checklistDeHoje: meuChecklistHoje.value, nomeDoMeuCarro: meuCarroNome.value,
+}))
+const botoesGestao = computed(() => botoesDaGestao({
+  linhas: linhas.value, cobranca: cobranca.value, fila: filaDeAprovacao.value,
+}))
+
+/* Um botão rápido NÃO cria tela: ou abre uma ficha que já existe, ou rola até
+ * uma seção que já está mais abaixo. É o que o desenho pede (D33) e é o que
+ * impede esta fase de virar uma segunda ferramenta por cima da primeira. */
+function irPara(acao) {
+  if (acao === 'reservar') return abrirPedido('')
+  if (acao === 'acrescentar') return abrirVeiculoNovo()
+  const ancoras = {
+    'meu-checklist': 'fr-ancora-checklist',
+    'preciso-carro': 'fr-ancora-livres',
+    'conferir-checklists': 'fr-ancora-cobranca',
+    veiculos: 'fr-ancora-veiculos',
+  }
+  const alvo = document.getElementById(ancoras[acao])
+  // Sem âncora não faz nada, em silêncio: rolar pro lugar errado é pior que não
+  // rolar, e um botão que pula pro topo parece defeito.
+  if (alvo) alvo.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 
 /* ── QUEM ADMINISTRA PREENCHE POR QUALQUER CARRO (D21b) ───────────────────────
  * Pedido do dono, e é o que destrava o problema dos motoristas SEM LOGIN:
@@ -1652,7 +1695,7 @@ onMounted(async () => {
   // Só depois de saber as permissões dá pra escolher a aba de abertura.
   area.value = areaInicial(pode)
   // Só depois dos dados na tela: passeio apontando pra botão que ainda não
-  // existe (`.fr-novo` só aparece com `pode('criar')` já resolvido) mostraria
+  // existe (algo gated por `pode('criar')`, ainda não resolvido) mostraria
   // o balão sem realce no primeiro passo, e ninguém entenderia por quê.
   if (deveAbrirSozinho(typeof localStorage !== 'undefined' ? localStorage : null, estado.user?.id)) {
     passeioAberto.value = true
@@ -1694,6 +1737,8 @@ onMounted(async () => {
          pegar). Sem FIPE, contrato, chassi ou Renavam — quem está de pé no
          estacionamento não precisa disso na frente. -->
     <template v-else-if="area === 'motorista'">
+      <BotoesRapidos :botoes="botoesMotorista" @escolher="irPara" />
+
       <p class="fr-motorista-resumo">{{ resumoDoMotorista(painel) }}</p>
 
       <p class="fr-aviso" v-if="!euId">
@@ -1704,6 +1749,7 @@ onMounted(async () => {
       <!-- O checklist de hoje. Era só do carro fixo da pessoa; agora quem
            administra a Frota preenche por qualquer carro ativo (D21b), que é a
            única saída enquanto três dos donos de carro não têm login. -->
+      <div id="fr-ancora-checklist">
       <template v-if="aberto">
         <!-- Quando o gestor preenche por outro, a tela DIZ de quem é o carro: a
              ficha vai registrar o GESTOR como quem conferiu, e ele precisa
@@ -1727,6 +1773,7 @@ onMounted(async () => {
           :erro-da-assinatura="erroDaAssinatura"
           @gravar="gravarChecklist" />
       </template>
+      </div>
       <!-- `v-if` PRÓPRIO, não `v-else-if` do cartão: as duas frases respondem
            perguntas diferentes agora. Encadeadas, o gestor que abrisse o carro
            de outra pessoa deixaria de ver que o SEU já estava feito. -->
@@ -1838,7 +1885,7 @@ onMounted(async () => {
         </ul>
       </template>
 
-      <h2 class="fr-secao">{{ painel.livres.length ? 'Livres para pegar' : 'Nenhum carro livre' }}</h2>
+      <h2 class="fr-secao" id="fr-ancora-livres">{{ painel.livres.length ? 'Livres para pegar' : 'Nenhum carro livre' }}</h2>
       <p class="fr-aviso" v-if="!painel.livres.length">
         Todos estão na rua ou na oficina. Assim que alguém devolver, aparece aqui.
       </p>
@@ -1904,14 +1951,43 @@ onMounted(async () => {
          "carregando/falha/sem veículo/motorista" — bastaria estar na aba
          Gestão pra este bloco aparecer, mesmo com a tela ainda carregando. -->
     <template v-else-if="area === 'gestao'">
-      <!-- F9: até aqui, o único jeito de um carro entrar na Frota era o
-           script de importação da planilha — não existia caminho nenhum pela
-           tela. -->
-      <div class="fr-novo" v-if="pode('criar')">
-        <button class="fr-btn primario" @click="abrirVeiculoNovo">+ Acrescentar veículo</button>
-      </div>
+      <BotoesRapidos data-tour="fr-botoes-gestao" :botoes="botoesGestao" @escolher="irPara" />
 
-      <h2 class="fr-secao">Checklist de hoje</h2>
+      <!-- FILA DE APROVAÇÃO, na área de Gestão. Só aparece pra quem aprova.
+           Pedido do dono: logo abaixo dos botões, não no fim da tela. -->
+      <template v-if="area === 'gestao' && podeAprovar && filaDeAprovacao.length">
+        <h2 class="fr-secao">Aguardando sua decisão ({{ filaDeAprovacao.length }})</h2>
+        <div class="fr-lista">
+          <div v-for="r in filaDeAprovacao" :key="r.id" class="fr-card espera">
+            <div class="fr-card-topo">
+              <div class="fr-card-ident">
+                <span class="fr-card-nome">{{ (veiculos.find((v) => v.id === r.veiculo_id) || {}).nome || 'Veículo' }}</span>
+                <span class="fr-placa">{{ r.pessoa_nome || 'sem motorista informado' }}</span>
+              </div>
+              <span class="fr-selo espera">{{ quando(r.retirada_prevista) }}</span>
+            </div>
+            <div class="fr-dados">
+              <div class="fr-dado">
+                <span class="fr-dado-lab">Destino</span>
+                <span class="fr-dado-val">{{ r.destino || '—' }}</span>
+              </div>
+              <div class="fr-dado" v-if="r.devolucao_prevista">
+                <span class="fr-dado-lab">Devolve</span>
+                <span class="fr-dado-val">{{ quando(r.devolucao_prevista) }}</span>
+              </div>
+            </div>
+            <p class="fr-pedido-motivo" v-if="r.finalidade">{{ r.finalidade }}</p>
+
+            <div class="fr-acoes" v-if="porQueNaoDecido(r).pode">
+              <button class="fr-btn primario" @click="abrirDecisao(r, 'aprovada')">Aprovar</button>
+              <button class="fr-btn" @click="abrirDecisao(r, 'recusada')">Recusar</button>
+            </div>
+            <p class="fr-aviso" v-else>{{ motivoEmPortugues(porQueNaoDecido(r).motivo) }}</p>
+          </div>
+        </div>
+      </template>
+
+      <h2 class="fr-secao" id="fr-ancora-cobranca">Checklist de hoje</h2>
       <p class="fr-aviso">{{ resumoDaCobranca(cobranca, hoje) }}</p>
       <!-- Em cards (pedido do dono), não em lista de linhas. Quem já fez abre
            o detalhe pra ver O QUE foi marcado — o quadro antigo só dizia QUEM
@@ -2026,7 +2102,7 @@ onMounted(async () => {
         </div>
       </template>
 
-      <div class="fr-lista">
+      <div class="fr-lista" id="fr-ancora-veiculos">
         <div v-for="l in linhas" :key="l.veiculo.id" class="fr-card" :class="{ rua: l.naRua, parado: !l.disponivel && !l.naRua }">
           <div class="fr-card-topo">
             <div class="fr-card-ident">
@@ -2580,39 +2656,6 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- FILA DE APROVAÇÃO, na área de Gestão. Só aparece pra quem aprova. -->
-    <template v-if="area === 'gestao' && podeAprovar && filaDeAprovacao.length">
-      <h2 class="fr-secao">Aguardando sua decisão ({{ filaDeAprovacao.length }})</h2>
-      <div class="fr-lista">
-        <div v-for="r in filaDeAprovacao" :key="r.id" class="fr-card espera">
-          <div class="fr-card-topo">
-            <div class="fr-card-ident">
-              <span class="fr-card-nome">{{ (veiculos.find((v) => v.id === r.veiculo_id) || {}).nome || 'Veículo' }}</span>
-              <span class="fr-placa">{{ r.pessoa_nome || 'sem motorista informado' }}</span>
-            </div>
-            <span class="fr-selo espera">{{ quando(r.retirada_prevista) }}</span>
-          </div>
-          <div class="fr-dados">
-            <div class="fr-dado">
-              <span class="fr-dado-lab">Destino</span>
-              <span class="fr-dado-val">{{ r.destino || '—' }}</span>
-            </div>
-            <div class="fr-dado" v-if="r.devolucao_prevista">
-              <span class="fr-dado-lab">Devolve</span>
-              <span class="fr-dado-val">{{ quando(r.devolucao_prevista) }}</span>
-            </div>
-          </div>
-          <p class="fr-pedido-motivo" v-if="r.finalidade">{{ r.finalidade }}</p>
-
-          <div class="fr-acoes" v-if="porQueNaoDecido(r).pode">
-            <button class="fr-btn primario" @click="abrirDecisao(r, 'aprovada')">Aprovar</button>
-            <button class="fr-btn" @click="abrirDecisao(r, 'recusada')">Recusar</button>
-          </div>
-          <p class="fr-aviso" v-else>{{ motivoEmPortugues(porQueNaoDecido(r).motivo) }}</p>
-        </div>
-      </div>
-    </template>
-
     <!-- PEDIR O CARRO PARA UMA DATA -->
     <div class="fr-ficha-fundo" v-if="pedido" v-trava-rolagem @click.self="fecharPedido">
       <div class="fr-ficha" role="dialog">
@@ -2826,11 +2869,6 @@ onMounted(async () => {
 .tela-frota .fr-motorista-resumo{margin:0;padding:14px 14px 4px;font-family:var(--fonte-principal);font-size:15px;font-weight:600;color:var(--text);}
 .tela-frota .fr-secao{margin:16px 0 8px;padding:0 14px;font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);}
 .tela-frota .fr-aviso{margin:0;padding:4px 14px 10px;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.55;color:var(--muted);}
-/* O botão "Acrescentar veículo" (F9), no topo da aba Gestão — full-width
-   porque .fr-btn sozinho (fora de um .fr-acoes de cartão) não herda o
-   flex:1 que o deixa ocupar a linha inteira. */
-.tela-frota .fr-novo{padding:0 14px;margin:6px 0 14px;}
-.tela-frota .fr-novo .fr-btn{width:100%;}
 /* O quadro de cobrança (D16), em cards (pedido do dono, V2): cada carro é um
    .fr-card do mesmo tipo usado no resto da tela, então herda de graça a
    grade responsiva do `.fr-lista` (uma coluna no celular, várias no

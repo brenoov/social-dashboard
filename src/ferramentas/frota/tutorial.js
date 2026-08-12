@@ -68,11 +68,16 @@ export const PASSOS = [
       + 'com a cobrança escrita — só falta enviar.',
   },
   {
-    selector: '.fr-novo',
-    titulo: '4. Cadastrar um carro novo',
-    texto: 'Abre uma ficha em branco. Só nome e placa são obrigatórios, e o carro nasce '
-      + 'ativo, sem responsável fixo — de rodízio, que qualquer um pode pegar. Pra dar um '
-      + 'responsável fixo a ele, abra a ficha de novo depois de gravar.',
+    // Era `.fr-novo`, o botão solto de "+ Acrescentar veículo". Ele virou um dos
+    // botões rápidos do topo da aba (D33), e o passo passou a apontar pra bloco
+    // que não existia mais — o passeio quebrava calado. Agora aponta pro bloco
+    // dos botões, e o texto fala dos quatro, que é o que a pessoa vê na tela.
+    selector: '[data-tour="fr-botoes-gestao"]',
+    titulo: '4. Os quatro botões da Gestão',
+    texto: 'Cada um abre o que o nome diz, e a linha de baixo já responde antes de você '
+      + 'clicar: quantos carros faltam conferir hoje, quantos pedidos esperam decisão. '
+      + '"Acrescentar um veículo" abre uma ficha em branco — só nome e placa são '
+      + 'obrigatórios, e o carro nasce ativo e sem responsável fixo, de rodízio.',
   },
   {
     selector: '[data-tour="fr-secao-plano"]',
