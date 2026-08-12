@@ -974,6 +974,30 @@ O `revisoesPorVeiculo` de hoje fica como está, alimentando "Chegando a hora".
 
 - [ ] **Passo 6: criar a sanfona**
 
+> ⚠️ **Defeito do plano, achado na execução em 12/08 e corrigido aqui.** O
+> componente abaixo usava `fr-card`, `fr-selo`, `fr-itens`, `fr-card-ident`,
+> `fr-card-nome`, `fr-placa`, `fr-aviso` e `fr-lista` — classes cujas regras
+> moram **dentro do `<style scoped>` de `tela-de-frota.vue`**, atrás de um
+> ancestral `.tela-frota` e com o `data-v-` daquele arquivo. Componente com
+> estilo próprio NÃO herda isso: a sanfona subiria sem estilo nenhum.
+>
+> **A correção, que é o padrão que os dois componentes irmãos já seguem**
+> (`painel-de-checklist.vue` com `ck-*`, `editor-de-checklist.vue`): a sanfona
+> traz o **seu próprio bloco de estilo completo, com prefixo `sr-`**, escrito
+> só com tokens (`var(--surface)`, `var(--border)`, `var(--text)`,
+> `var(--muted)`, `var(--radius-*)`…), nunca hex.
+>
+> O resultado tem de ficar **visualmente igual aos cartões que já existem na
+> aba** — não é liberdade de desenho. O caminho: ler as regras de `.fr-card`,
+> `.fr-selo`, `.fr-itens`, `.fr-card-ident`, `.fr-card-nome`, `.fr-placa`,
+> `.fr-lista` e `.fr-aviso` no `<style>` de `tela-de-frota.vue` e espelhá-las
+> nas classes `sr-` equivalentes, inclusive os estados `vencida` / `perto` /
+> `em-dia` / `sem-km` / `sem-registro`.
+>
+> O que NÃO fazer: `:deep()` pra alcançar as classes do pai (vaza nos dois
+> sentidos), estilo global (é o defeito de colisão que esta base já pagou caro),
+> e passar as classes `fr-` por propriedade (o estilo continuaria não chegando).
+
 ```vue
 <!-- src/ferramentas/frota/sanfona-de-revisoes.vue -->
 <script setup>
