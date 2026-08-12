@@ -11,9 +11,20 @@
  * três JÁ TÊM cadastro completo: nome, e-mail e telefone. Falta só a conta.
  *
  * O CONVITE NÃO MANDA E-MAIL. A edge `invite-user` cria a conta com uma senha
- * temporária e marca `precisa_trocar_senha`; quem convida recebe a senha na
- * tela e entrega pela mensagem que quiser. Isso é bom pro nosso caso: nada sai
- * daqui sozinho, e não há como disparar mensagem pra alguém sem querer.
+ * temporária; quem convida recebe a senha na tela e entrega pela mensagem que
+ * quiser. Nada sai daqui sozinho, e não há como disparar mensagem sem querer.
+ *
+ * ⚠️ A EDGE NÃO MARCA `precisa_trocar_senha` — conferido no código dela, e a
+ * tela de Admin faz esse passo por fora justamente por isso. Quem grava é a
+ * Frota, junto dos outros passos, e conferindo. Sem ele a senha temporária vira
+ * permanente, e quem convidou (e todo mundo do grupo onde a senha foi colada)
+ * fica com credencial válida da conta de outra pessoa.
+ *
+ * ⚠️ CRIAR A CONTA NÃO DÁ ACESSO A NADA. `profiles.permissions` nasce vazio e
+ * `features` também, então a pessoa entra e não alcança a Frota — a revisão
+ * pegou a tela dizendo "já pode entrar" para uma conta que não abria o
+ * checklist. São QUATRO passos, não um: conta, senha a trocar, permissão da
+ * Frota (nos DOIS modelos que esta central usa), e o aviso das 7h30.
  */
 
 /** Um e-mail que dá pra usar como login. Frouxo de propósito: quem valida de
@@ -31,29 +42,31 @@ export function pareceEmail(txt) {
  */
 export function podeConvidar({ pessoa, jaTemLogin, podeAdministrar }) {
   if (!podeAdministrar) {
-    return { pode: false, motivo: 'Só quem administra a Frota cria acesso.', email: null };
+    return { pode: false, codigo: 'sem-permissao', motivo: 'Só quem administra a Frota cria acesso.', email: null };
   }
   if (!pessoa) {
     return {
       pode: false,
+      codigo: 'sem-pessoa',
       motivo: 'Este carro não tem responsável apontado. Aponte um na ficha do veículo primeiro — '
         + 'sem saber de quem é o carro, não há a quem dar acesso.',
       email: null,
     };
   }
   if (jaTemLogin) {
-    return { pode: false, motivo: `${pessoa.nome} já tem acesso ao aplicativo.`, email: null };
+    return { pode: false, codigo: 'ja-tem', motivo: `${pessoa.nome} já tem acesso ao aplicativo.`, email: null };
   }
   const email = String(pessoa.email_corporativo || '').trim();
   if (!pareceEmail(email)) {
     return {
       pode: false,
+      codigo: 'sem-email',
       motivo: `${pessoa.nome} está sem e-mail no cadastro, e o e-mail é o login. `
         + 'Preencha em Colaboradores e Acessos e volte aqui.',
       email: null,
     };
   }
-  return { pode: true, motivo: null, email };
+  return { pode: true, codigo: null, motivo: null, email };
 }
 
 /**
@@ -85,6 +98,5 @@ export function senhaInicial(tamanho = 12, aleatorio) {
 /** O que a tela mostra depois de criar a conta. */
 export function recadoDoConvite({ nome, email, senha }) {
   return `${nome} já pode entrar. Entregue a ela:\n\nE-mail: ${email}\nSenha: ${senha}\n\n`
-    + 'No primeiro acesso o aplicativo pede pra ela trocar a senha. '
-    + 'Esta senha aparece uma vez só — se fechar sem copiar, use o Reset de Senha em Administração.';
+    + 'No primeiro acesso o aplicativo pede pra ela trocar a senha.';
 }

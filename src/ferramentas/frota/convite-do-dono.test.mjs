@@ -90,11 +90,30 @@ test('duas senhas seguidas não saem iguais', () => {
   assert.equal(vistas.size, 50)
 })
 
-test('o recado traz e-mail, senha e o aviso de que ela aparece uma vez só', () => {
+test('o recado traz e-mail, senha e o aviso da troca', () => {
   const t = recadoDoConvite({ nome: 'Marcus', email: 'm@rbv.com', senha: 'AbCdEfGh2345' })
   assert.match(t, /m@rbv\.com/)
   assert.match(t, /AbCdEfGh2345/)
   assert.match(t, /trocar a senha/i)
-  assert.match(t, /uma vez só/i, 'quem fecha sem copiar precisa saber o que fazer')
-  assert.match(t, /Reset de Senha/, 'e para onde ir')
+})
+
+test('o recado NÃO manda pro Reset de Senha — só super-admin alcança aquilo', () => {
+  // A revisão pegou: a tela mandava usar o Reset de Senha em Administração, e
+  // aquela seção só aparece pra super-admin. Quem administra só a Frota ficaria
+  // sem caminho nenhum, seguindo uma instrução que não funciona pra ele.
+  const t = recadoDoConvite({ nome: 'Marcus', email: 'm@rbv.com', senha: 'x' })
+  assert.doesNotMatch(t, /Reset de Senha/)
+})
+
+test('cada motivo tem um CÓDIGO, pra tela não farejar texto', () => {
+  // A revisão pegou o template decidindo por `.includes('já tem acesso')`:
+  // mudar a frase no módulo passaria a imprimir o aviso errado em todo card.
+  const semPessoa = podeConvidar({ pessoa: null, podeAdministrar: true })
+  assert.equal(semPessoa.codigo, 'sem-pessoa')
+  assert.equal(podeConvidar({ pessoa: MARCUS, jaTemLogin: true, podeAdministrar: true }).codigo, 'ja-tem')
+  assert.equal(podeConvidar({ pessoa: MARCUS, podeAdministrar: false }).codigo, 'sem-permissao')
+  assert.equal(podeConvidar({
+    pessoa: { nome: 'X', email_corporativo: '' }, podeAdministrar: true,
+  }).codigo, 'sem-email')
+  assert.equal(podeConvidar({ pessoa: MARCUS, jaTemLogin: false, podeAdministrar: true }).codigo, null)
 })
