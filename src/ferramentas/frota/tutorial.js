@@ -61,23 +61,23 @@ export const PASSOS = [
       + 'de retirar, não aqui. Já feito hoje? A tela avisa e não pede de novo.',
   },
   {
-    selector: '[data-tour="fr-cobranca-quadro"]',
-    titulo: '3. Quem já conferiu, e quem falta',
-    texto: 'Na aba Gestão, este quadro mostra carro por carro se o checklist de hoje foi '
-      + 'feito. Quem falta e tem telefone cadastrado ganha um botão de WhatsApp pronto, já '
-      + 'com a cobrança escrita — só falta enviar.',
-  },
-  {
     // Era `.fr-novo`, o botão solto de "+ Acrescentar veículo". Ele virou um dos
     // botões rápidos do topo da aba (D33), e o passo passou a apontar pra bloco
     // que não existia mais — o passeio quebrava calado. Agora aponta pro bloco
     // dos botões, e o texto fala dos quatro, que é o que a pessoa vê na tela.
     selector: '[data-tour="fr-botoes-gestao"]',
-    titulo: '4. Os quatro botões da Gestão',
+    titulo: '3. Os quatro botões da Gestão',
     texto: 'Cada um abre o que o nome diz, e a linha de baixo já responde antes de você '
       + 'clicar: quantos carros faltam conferir hoje, quantos pedidos esperam decisão. '
       + '"Acrescentar um veículo" abre uma ficha em branco — só nome e placa são '
       + 'obrigatórios, e o carro nasce ativo e sem responsável fixo, de rodízio.',
+  },
+  {
+    selector: '[data-tour="fr-cobranca-quadro"]',
+    titulo: '4. Quem já conferiu, e quem falta',
+    texto: 'Na aba Gestão, este quadro mostra carro por carro se o checklist de hoje foi '
+      + 'feito. Quem falta e tem telefone cadastrado ganha um botão de WhatsApp pronto, já '
+      + 'com a cobrança escrita — só falta enviar.',
   },
   {
     selector: '[data-tour="fr-secao-plano"]',
@@ -193,17 +193,20 @@ export const PASSOS_FICHA_DETALHE = [
     texto: 'A conclusão de quem conferiu. Mesmo "não liberado" não tira o carro de '
       + 'ninguém: serve para avisar quem administra.',
   },
-  {
-    selector: '[data-tour="fdet-itens"]',
-    titulo: 'Cada item',
-    texto: 'OK é o que estava certo, Problema é o que precisa de atenção, Não se aplica é '
-      + 'o que aquele carro não tem.',
-  },
+  /* Anomalias antes de Cada item: é essa a ordem NA TELA. O passeio estava ao
+     contrário e descia até os itens pra depois voltar pra cima — quem está
+     seguindo o balão perde o fio quando ele anda pra trás. */
   {
     selector: '[data-tour="fdet-anomalias"]',
     titulo: 'Anomalias',
     texto: 'O que a pessoa escreveu com as próprias palavras. Só aparece quando ela '
       + 'marcou algum problema.',
+  },
+  {
+    selector: '[data-tour="fdet-itens"]',
+    titulo: 'Cada item',
+    texto: 'OK é o que estava certo, Problema é o que precisa de atenção, Não se aplica é '
+      + 'o que aquele carro não tem.',
   },
 ]
 

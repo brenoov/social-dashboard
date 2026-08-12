@@ -40,6 +40,18 @@ Medido em 11/08.
 Sem login, push nenhum chega. Pra eles o quadro da aba **Gestão** é o único canal
 — e por isso quem administra a Frota pode preencher o checklist por qualquer carro.
 
+**Agora tem botão pra isto (subiu em 12/08).** No card do checklist de cada carro,
+quem administra a Frota vê **"Dar acesso a &lt;nome&gt;"**. Ele cria o login, sorteia
+uma senha inicial (sem letras que se confundem — nada de O/0 nem l/1), obriga a
+trocar no primeiro acesso, e mostra um recado pronto pra mandar no WhatsApp. Só
+aparece se a pessoa tiver e-mail na ficha: **a Barbara tem** (`@vesselbrasil.com.br`),
+o **Marcus** e o **Thiago** precisam do e-mail preenchido antes.
+
+⚠️ **O que eu não consegui provar:** o caminho de ponta a ponta — clicar, a pessoa
+entrar, ser obrigada a trocar a senha e chegar no checklist. Provar isso exigiria
+criar um login de verdade e mexer numa conta real, e a regra aqui é não mexer.
+Então o primeiro convite é também o teste. **Se algo falhar, é neste item.**
+
 > ✅ **A Raissa saiu desta lista em 11/08.** Ela tem login, mas a ficha estava sem
 > o elo `profile_id` — e o robô do aviso exigia justamente esse elo, enquanto a
 > tela a reconhecia pelo e-mail. Duas respostas pra mesma pergunta. Corrigido no
@@ -50,6 +62,21 @@ Sem login, push nenhum chega. Pra eles o quadro da aba **Gestão** é o único c
 ### A2b · Frota › 2 carros sem dono nenhum
 `OLW4I46` Fiat Bravo Essence e `QQT9B68` Fiat Doblo. Sem dono fixo não há de quem
 cobrar o checklist — esses dois nunca entram no quadro de cobrança nem no aviso.
+
+### A2c · Frota › o valor do seguro está vazio nos 10 carros
+Medido em 12/08. **Nenhum** dos 10 tem valor de seguro. O `DCH1J89` BMW X1 também
+está sem aluguel e sem FIPE — é o único; os outros 9 têm os dois.
+
+Enquanto o seguro estiver vazio, qualquer conta de custo do carro sai por baixo:
+falta uma das três parcelas fixas (aluguel, FIPE, seguro).
+
+> ✅ **Susto que não era susto, conferido em 12/08.** Havia um defeito de leitura de
+> dinheiro na ficha: ele jogava fora todo ponto, tratando como separador de milhar.
+> Fui conferir os 10 carros esperando encontrar valores 100× maiores — **não tem
+> nenhum errado.** O motivo: quem preenche digita no jeito brasileiro
+> (`157.995,00`), e aí o ponto **é** milhar mesmo, então jogar fora estava certo por
+> acidente. O defeito só morderia quem digitasse no jeito americano (`157995.00`).
+> Já está corrigido de todo jeito. Nada a arrumar no banco.
 
 ### A3 · Frota › apontar Empresa e Local 🟢 *começou — 7 de 10 feitos*
 Medido em 11/08: **7 dos 10 já têm empresa** (todos "RB Builders") e **6 têm

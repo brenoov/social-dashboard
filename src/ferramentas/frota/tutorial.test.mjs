@@ -89,10 +89,22 @@ test('os 6 passeios de modal apontam pra seletores que existem', () => {
    penúltimo campo, e só depois voltava pra Histórico, o sétimo). */
 function indiceNaTela(selector) {
   const dataTour = selector.match(/^\[data-tour="([a-z0-9-]+)"\]$/)
-  if (!dataTour) return null
-  const chave = dataTour[1]
-  const porAtributo = TELA.indexOf(`data-tour="${chave}"`)
-  return porAtributo >= 0 ? porAtributo : TELA.indexOf(`'${chave}'`)
+  if (dataTour) {
+    const chave = dataTour[1]
+    const porAtributo = TELA.indexOf(`data-tour="${chave}"`)
+    return porAtributo >= 0 ? porAtributo : TELA.indexOf(`'${chave}'`)
+  }
+  // Seletor de classe (o passo 1 aponta pra `.tela-frota .abas`, a barra de
+  // abas). Sem tratar este caso, indiceNaTela devolvia null e a checagem de
+  // ordem não podia rodar no passeio da tela inteira — que é justamente o
+  // primeiro que a pessoa vê.
+  const classes = [...selector.matchAll(/\.([A-Za-z0-9_-]+)/g)].map((m) => m[1])
+  if (!classes.length) return null
+  const alvo = classes[classes.length - 1]
+  for (const m of TELA.matchAll(/class="([^"]*)"/g)) {
+    if (m[1].split(/\s+/).includes(alvo)) return m.index
+  }
+  return null
 }
 
 function confereOrdemCrescente(passos, nome) {
@@ -118,22 +130,38 @@ test('PASSOS_PEDIDO, PASSOS_DECISAO e PASSOS_FICHA também seguem a ordem do HTM
   confereOrdemCrescente(PASSOS_FICHA, 'PASSOS_FICHA')
 })
 
-// PASSOS_ITEM e PASSOS_FICHA_DETALHE NÃO entram na checagem de ordem acima:
-//
-// - PASSOS_ITEM: o passo "Desativar" aponta de propósito pra um botão FORA do
-//   modal — na lista de itens do plano, atrás dele (ver o comentário ao lado
-//   de `data-tour="item-desativar"` em tela-de-frota.vue). Não é um passeio
-//   dentro de um template único: o "antes/depois" no HTML não corresponde ao
-//   que a pessoa vê, porque o botão fica coberto pelo modal enquanto ele está
-//   aberto. A comparação de índice no arquivo-fonte não descreve esse caso.
-//
-// - PASSOS_FICHA_DETALHE: ESTE, sim, mapeia pra um modal só, e a checagem
-//   apontou uma ordem já errada hoje — "Cada item" (fdet-itens) vem ANTES de
-//   "Anomalias" (fdet-anomalias) no passeio, mas fdet-anomalias fica ACIMA de
-//   fdet-itens no HTML (tela-de-frota.vue:2553 e :2557). Ou seja: o mesmo tipo
-//   de defeito do finding 3, só que num modal diferente. Consertar a ordem
-//   dele não foi pedido nesta rodada — fica registrado aqui e no relatório
-//   para quem decidir se vira um novo finding.
+test('PASSOS_FICHA_DETALHE segue a ordem do HTML', () => {
+  // Estava ao contrário e ficou registrado aqui por uma rodada: o passeio ia
+  // até "Cada item" e voltava pra cima, pra "Anomalias", que fica ACIMA no
+  // HTML. Consertado em 12/08 trocando os dois passos de lugar. O teste é o
+  // que impede a ordem antiga de voltar.
+  confereOrdemCrescente(PASSOS_FICHA_DETALHE, 'PASSOS_FICHA_DETALHE')
+})
+
+test('o passeio da tela inteira também nunca rola pra trás', () => {
+  // O mesmo defeito estava aqui, e por um motivo que se repete: os botões
+  // rápidos (D33) entraram no TOPO da aba Gestão, e o passeio continuou
+  // visitando o quadro de cobrança antes deles — descia e voltava. Trocados
+  // de lugar, e os números dos títulos trocados junto.
+  confereOrdemCrescente(PASSOS, 'PASSOS')
+})
+
+test('cada passo do passeio da tela leva um número no título, na ordem', () => {
+  // Os títulos são "1. …", "2. …". Se a ordem dos passos muda e o número não,
+  // a pessoa lê "3" depois de "4" — foi o que quase aconteceu na troca acima.
+  PASSOS.forEach((p, i) => {
+    assert.match(p.titulo, new RegExp(`^${i + 1}\\. `),
+      `o passo ${i + 1} está numerado como "${p.titulo.slice(0, 12)}…"`)
+  })
+})
+
+// PASSOS_ITEM é o único que NÃO entra na checagem de ordem: o passo
+// "Desativar" aponta de propósito pra um botão FORA do modal — na lista de
+// itens do plano, atrás dele (ver o comentário ao lado de
+// `data-tour="item-desativar"` em tela-de-frota.vue). Não é um passeio dentro
+// de um template único: o "antes/depois" no HTML não corresponde ao que a
+// pessoa vê, porque o botão fica coberto pelo modal enquanto ele está aberto.
+// A comparação de índice no arquivo-fonte não descreve esse caso.
 
 /* ── Os textos fixos aparecem VERBATIM na tela ───────────────────────────── */
 
