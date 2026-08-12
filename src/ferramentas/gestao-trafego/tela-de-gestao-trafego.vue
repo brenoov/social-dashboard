@@ -5371,7 +5371,7 @@ Object.assign(window, {
    16px no campo não é estética: abaixo disso o iOS dá zoom ao focar e a tela
    salta na cara de quem está digitando (PADRÃO item 6). */
 .tela-gestao-trafego :deep(.pnd-persona){margin-top:22px;}
-.tela-gestao-trafego :deep(.pnd-persona-campo){width:100%;box-sizing:border-box;min-height:150px;resize:vertical;padding:12px 13px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-family:var(--fonte-principal);font-size:16px;line-height:1.6;}
+.tela-gestao-trafego :deep(.pnd-persona-campo){width:100%;box-sizing:border-box;min-height:150px;resize:vertical;padding:12px 13px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-family:var(--fonte-principal);font-size:max(16px, calc(16px * var(--escala-texto, 1)));line-height:1.6;}
 .tela-gestao-trafego :deep(.pnd-persona-campo:focus-visible){outline:2px solid var(--accent);outline-offset:2px;}
 .tela-gestao-trafego :deep(.pnd-persona-campo:disabled){opacity:.65;cursor:not-allowed;}
 .tela-gestao-trafego :deep(.pnd-persona-conta){margin:6px 0 0;font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);}
