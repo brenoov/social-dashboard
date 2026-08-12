@@ -59,8 +59,25 @@ export function botoesDoMotorista({ painel, checklistDeHoje, nomeDoMeuCarro } = 
   ]
 }
 
-/** Os botões da aba Gestão. */
-export function botoesDaGestao({ linhas, cobranca, fila } = {}) {
+/**
+ * Os botões da aba Gestão.
+ *
+ * `podeCriar` e `podeReservar` NÃO são enfeite: os botões que eles guardam
+ * substituíram controles que já eram protegidos, e sem eles a permissão
+ * sumiria em silêncio. O "+ Acrescentar veículo" que virou botão daqui era
+ * `v-if="pode('criar')"`, e o "Reservar" de cada carro é `v-if="podeEditar"`.
+ * A aba Gestão inteira aparece pra quem tem `criar` OU `excluir`
+ * (`areas-da-frota.js`), então quem tem só `excluir` chega aqui — e chegaria a
+ * um botão que não devia ver.
+ *
+ * Botão sem permissão **não aparece**, em vez de aparecer desligado: é como o
+ * resto desta base faz (`v-if`, não `:disabled`), e oferecer o que não se pode
+ * fazer é pior que não oferecer, sobretudo pra quem tem dificuldade de uso.
+ *
+ * Os dois nascem `false`: quem esquecer de passar recebe a tela mais fechada,
+ * não a mais aberta.
+ */
+export function botoesDaGestao({ linhas, cobranca, fila, podeCriar = false, podeReservar = false } = {}) {
   const l = linhas || []
   const livres = l.filter((x) => x && x.disponivel).length
   const naFila = (fila || []).length
@@ -74,24 +91,28 @@ export function botoesDaGestao({ linhas, cobranca, fila } = {}) {
       : 'todos conferidos hoje'
   }
 
-  return [
+  const todos = [
     {
       chave: 'reservar',
       rotulo: 'Reservar um carro',
       estado: naFila ? contar(naFila, 'pedido esperando', 'pedidos esperando') : null,
       acao: 'reservar',
+      exige: 'reservar',
     },
     {
       chave: 'conferir-checklists',
       rotulo: 'Conferir checklists',
       estado: estadoCobranca,
       acao: 'conferir-checklists',
+      // Só rola a tela até um quadro que quem está na aba já vê. Sem exigência.
+      exige: null,
     },
     {
       chave: 'acrescentar',
       rotulo: 'Acrescentar um veículo',
       estado: null,
       acao: 'acrescentar',
+      exige: 'criar',
     },
     {
       chave: 'veiculos',
@@ -100,6 +121,14 @@ export function botoesDaGestao({ linhas, cobranca, fila } = {}) {
         ? `${contar(l.length, 'veículo', 'veículos')} · ${contar(livres, 'livre', 'livres')}`
         : null,
       acao: 'veiculos',
+      exige: null,
     },
   ]
+
+  const liberado = { criar: podeCriar, reservar: podeReservar }
+  // `exige` sai do que a tela recebe: ele é decisão de dentro deste módulo, e
+  // deixá-lo vazar faria a tela achar que precisa conferir permissão de novo.
+  return todos
+    .filter((b) => !b.exige || liberado[b.exige])
+    .map(({ exige, ...b }) => b)
 }

@@ -48,11 +48,22 @@ Duas consequências que decidem fases inteiras:
 1. **Sem quilometragem, a aba Revisões não tem o que calcular.** 8 dos 10 carros
    caem em `sem-km` nos 8 itens do plano. A aba não está escondendo alerta: ela
    não tem alerta pra mostrar. Ver D29.
-2. **As travas que incomodam o dono são todas da tela.** `is_frota_admin()`
+2. **A maior parte das travas que incomodam o dono é da tela** — mas não todas,
+   e a frase original desta linha estava errada. `is_frota_admin()`
    (migration 022) já permite `for all` em `frota_veiculos`, `frota_uso` e
-   `frota_requisicoes` pra quem tem a chave `frota`. Nenhuma migration de
-   permissão é necessária — o que impede é `podeDecidir()` em `requisicoes.js`
-   e a ausência de botão na tela.
+   `frota_requisicoes` pra quem tem a chave `frota`, então encerrar posse e
+   registrar uso no lugar de outro (D25, D26) são de fato só de tela.
+
+   ⚠️ **Aprovar a própria requisição (D24) NÃO é.** Existe um gatilho —
+   `trg_frota_checar_decisao`, migration 023 — que rejeita a decisão da própria
+   requisição no banco, com superadmin explicitamente incluído. Ler a política de
+   RLS e concluir "a escrita está liberada" **dá uma resposta incompleta**:
+   gatilho também barra escrita, e este barrava. Achado pela revisão da Fase D-1,
+   depois de a tela já estar pronta. Corrigido pela migration
+   `040_frota_aprovar_a_propria.sql`.
+
+   **A regra que sai daqui:** antes de afirmar que algo é "só de tela", conferir
+   os GATILHOS da tabela, não só as políticas.
 
 ## Os defeitos achados
 
@@ -111,6 +122,16 @@ antes de dizer que acabou.
 ## As decisões
 
 ### D24 · Quem administra a Frota aprova a própria requisição, sem selo
+
+⚠️ **ERRO DESTE DESENHO, achado pela revisão em 12/08:** as duas afirmações de
+que esta decisão "não mexe no banco" **estavam erradas**. `is_frota_admin()`
+libera a escrita pela RLS, sim — mas o **gatilho `trg_frota_checar_decisao`**
+(migration 023) rejeita a decisão da própria requisição, e o comentário dele diz
+que superadmin não é exceção. Sem migration, a tela mostraria o botão e o clique
+falharia com a mensagem da regra velha — pior que não ter botão.
+**Corrigido pela migration `040_frota_aprovar_a_propria.sql`.** A lição:
+`for all` na RLS não é a única trava de escrita; gatilho também barra, e ler a
+política sem ler os gatilhos da tabela dá uma resposta incompleta.
 
 `podeDecidir()` deixa de devolver `{ pode: false, motivo: 'propria' }` para quem
 tem permissão de administrar. A aprovação da própria requisição fica **igual a

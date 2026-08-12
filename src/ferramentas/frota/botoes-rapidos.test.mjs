@@ -77,13 +77,15 @@ test('"veículos do grupo" mostra o total e quantos estão livres', () => {
   assert.equal(acha(b, 'veiculos').estado, '3 veículos · 2 livres')
 })
 
+// `podeReservar: true` nos dois: sem a permissão o botão não existe (ver os
+// testes de permissão no fim do arquivo), e o que se mede aqui é a FRASE dele.
 test('reservar avisa quando há pedido esperando decisão', () => {
-  const b = botoesDaGestao({ linhas: [], cobranca: [], fila: [{}, {}] })
+  const b = botoesDaGestao({ linhas: [], cobranca: [], fila: [{}, {}], podeReservar: true })
   assert.equal(acha(b, 'reservar').estado, '2 pedidos esperando')
 })
 
 test('sem fila, reservar não inventa aviso', () => {
-  const b = botoesDaGestao({ linhas: [], cobranca: [], fila: [] })
+  const b = botoesDaGestao({ linhas: [], cobranca: [], fila: [], podeReservar: true })
   assert.equal(acha(b, 'reservar').estado, null)
 })
 
@@ -178,4 +180,51 @@ test('FIAT DOBLO: 2 palavras, marca fica', () => {
     nomeDoMeuCarro: 'FIAT DOBLO',
   })
   assert.equal(acha(b, 'meu-checklist').estado, 'FIAT DOBLO · falta hoje')
+})
+
+/* ── Permissão: botão que a pessoa não pode usar não aparece ────────────────
+ *
+ * Estes botões SUBSTITUÍRAM controles que já eram protegidos: o "+ Acrescentar
+ * veículo" era `v-if="pode('criar')"` e o "Reservar" de cada carro é
+ * `v-if="podeEditar"`. A aba Gestão aparece pra quem tem `criar` OU `excluir`
+ * (areas-da-frota.js), então quem tem só `excluir` CHEGA aqui — e chegaria a um
+ * botão que não devia ver. Sem estes testes a permissão sumiria em silêncio, que
+ * é o defeito mais caro desta base. */
+
+test('quem não pode criar não vê "Acrescentar um veículo"', () => {
+  const b = botoesDaGestao({ linhas: [], cobranca: [], fila: [], podeCriar: false, podeReservar: true })
+  assert.equal(acha(b, 'acrescentar'), undefined)
+})
+
+test('quem não pode reservar não vê "Reservar um carro"', () => {
+  const b = botoesDaGestao({ linhas: [], cobranca: [], fila: [], podeCriar: true, podeReservar: false })
+  assert.equal(acha(b, 'reservar'), undefined)
+})
+
+test('quem pode os dois vê os quatro', () => {
+  const b = botoesDaGestao({ linhas: [], cobranca: [], fila: [], podeCriar: true, podeReservar: true })
+  assert.equal(b.length, 4)
+})
+
+test('sem dizer nada, a tela nasce FECHADA — nunca aberta por esquecimento', () => {
+  // Quem esquecer de passar a permissão recebe a tela mais fechada. O contrário
+  // (nascer liberado) é como uma permissão vaza sem ninguém notar.
+  const b = botoesDaGestao({ linhas: [], cobranca: [], fila: [] })
+  assert.equal(acha(b, 'acrescentar'), undefined)
+  assert.equal(acha(b, 'reservar'), undefined)
+  assert.equal(b.length, 2, 'só os dois que apenas rolam a tela')
+})
+
+test('os que só rolam a tela aparecem pra quem chegou na aba', () => {
+  const b = botoesDaGestao({ linhas: [], cobranca: [], fila: [] })
+  assert.ok(acha(b, 'conferir-checklists'))
+  assert.ok(acha(b, 'veiculos'))
+})
+
+test('nenhum botão devolvido carrega a marca de exigência pra fora', () => {
+  // `exige` é decisão interna: vazar faria a tela conferir permissão de novo,
+  // e duas respostas pra mesma pergunta é como as duas listas de superadmin
+  // desta base passaram a divergir.
+  const b = botoesDaGestao({ linhas: [], cobranca: [], fila: [], podeCriar: true, podeReservar: true })
+  for (const x of b) assert.equal('exige' in x, false)
 })

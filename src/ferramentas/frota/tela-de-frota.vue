@@ -163,8 +163,13 @@ const meuChecklistHoje = computed(() => {
 const botoesMotorista = computed(() => botoesDoMotorista({
   painel: painel.value, checklistDeHoje: meuChecklistHoje.value, nomeDoMeuCarro: meuCarroNome.value,
 }))
+// As duas permissões vão EXPLÍCITAS: os botões substituíram controles que já
+// eram protegidos — o "+ Acrescentar veículo" era `v-if="pode('criar')"`, e o
+// "Reservar" de cada carro é `v-if="podeEditar"`. Quem tem só `excluir` chega
+// nesta aba (areas-da-frota.js) e não pode ver esses dois.
 const botoesGestao = computed(() => botoesDaGestao({
   linhas: linhas.value, cobranca: cobranca.value, fila: filaDeAprovacao.value,
+  podeCriar: pode('criar'), podeReservar: podeEditar.value,
 }))
 
 /* Um botão rápido NÃO cria tela: ou abre uma ficha que já existe, ou rola até
@@ -1692,9 +1697,10 @@ onMounted(async () => {
   await carregar()
   // Só depois de saber as permissões dá pra escolher a aba de abertura.
   area.value = areaInicial(pode)
-  // Só depois dos dados na tela: passeio apontando pra botão que ainda não
-  // existe (algo gated por `pode('criar')`, ainda não resolvido) mostraria
-  // o balão sem realce no primeiro passo, e ninguém entenderia por quê.
+  // Só depois dos dados na tela: o passeio aponta pros botões rápidos da
+  // Gestão, e eles dependem de `pode('criar')` e de `linhas`/`cobranca` já
+  // carregados. Abrir antes mostraria o balão sem realce no passo 4, e ninguém
+  // entenderia por quê.
   if (deveAbrirSozinho(typeof localStorage !== 'undefined' ? localStorage : null, estado.user?.id)) {
     passeioAberto.value = true
   }
