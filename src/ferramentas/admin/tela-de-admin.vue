@@ -156,6 +156,12 @@ import { derivarFeatures } from '../../compartilhado/derivar-features.js'
 // de caixinhas no editor de permissoes: uma escolha por ferramenta, em vez de
 // ate 5 caixinhas por linha das quais mais da metade nunca existiu de verdade.
 import { degrausDoRecurso, degrauDoConjunto, acoesDoDegrau } from './niveis-de-permissao.js'
+// A frase sempre visível (D3) e o selo de dinheiro (D4) do editor de
+// permissões: o que cada nível FAZ naquela ferramenta, e quais ferramentas
+// gastam verba de verdade.
+import { oQueONivelFaz } from './o-que-o-nivel-faz.js'
+import { mexeEmDinheiro, SELO_DINHEIRO, EMOJI_DINHEIRO } from './consequencia-do-recurso.js'
+import { resumoDoAcesso } from './resumo-do-acesso.js'
 // Quais notificações existem e qual o padrão de cada uma. A lista mora junto da
 // Edge que envia (supabase/functions/_shared) pra não haver duas verdades sobre
 // quem recebe o quê — a tela LÊ dela em vez de repetir os nomes.
@@ -182,6 +188,10 @@ import { agruparPor, DIMENSOES } from './lotacao.js'
 // testado à parte: um casamento errado dá a lotação e o histórico de alguém
 // para outra pessoa, ou para uma caixa de e-mail compartilhada.
 import { estadoDoVinculo } from './vinculo-de-cadastro.js'
+// As três naturezas dentro da pessoa — o que ela abre, se o celular dela toca e
+// a qual colaborador o login pertence. A ordem e o texto do aviso do elo
+// faltante são puros e testados; a tela só desenha.
+import { abasDaPessoa } from './abas-da-pessoa.js'
 // Trava a rolagem do fundo enquanto a ficha esta aberta. Peca compartilhada,
 // que tambem compensa a barra de rolagem e resolve o efeito elastico do iOS.
 // O editor de permissoes (#perm-modal-overlay) NAO precisa de chamada aqui: ele
@@ -1002,6 +1012,10 @@ let _usersCache = []        // lista de usuários (p/ o "duplicar")
 
 async function openPermModal(u, opcoes) {
   const soNotificacoes = !!(opcoes && opcoes.soNotificacoes)
+  // Cada pessoa abre na primeira aba dela. Sem este reajuste, quem tivesse
+  // acabado de olhar o cadastro de alguém abriria a próxima pessoa direto no
+  // cadastro — e leria a situação de uma como se fosse a da outra.
+  _permAba = soNotificacoes ? 'avisos' : 'ferramentas'
   _permState = {
     userId: u.id,
     permissions: JSON.parse(JSON.stringify(u.permissions || {})),
@@ -1098,23 +1112,117 @@ function _mkBlocoNotificacoes() {
   return card
 }
 
+/* ── AS TRÊS ABAS DENTRO DA PESSOA (D6) ──────────────────────────────────────
+ *
+ * Estavam as três coisas numa janela só — o que ela abre, se o celular dela
+ * toca e a qual colaborador o login pertence — e era uma das quatro queixas do
+ * dono. Nada mudou de acesso aqui: os MESMOS blocos, pendurados em abas.
+ *
+ * A aba escolhida mora fora do `_permState` de propósito: `_permState` vira
+ * null ao fechar o modal, e a aba é da tela, não do que se salva.
+ */
+let _permAba = 'ferramentas'
+
+// A faixa fica no TOPO DA ABA, e nunca um `alert()` nativo: o alert trava a
+// tela num botão "OK" e some sem deixar rastro — mas o que ele tinha a dizer
+// continua verdadeiro depois do OK.
+function _mkFaixaDeAviso(texto) {
+  const f = document.createElement('div'); f.className = 'perm-faixa-aviso'
+  f.setAttribute('role', 'status')
+  f.textContent = texto
+  return f
+}
+
+// A barra das abas. Classe `.abas` compartilhada (a mesma da Frota, do
+// Patrimônio e dos Acessos), cujo estado ativo é `on` — e não `active`.
+function _mkBarraDeAbas(abas, u) {
+  const barra = document.createElement('div'); barra.className = 'abas perm-abas'
+  barra.setAttribute('role', 'tablist')
+  for (const a of abas) {
+    const b = document.createElement('button'); b.type = 'button'
+    b.dataset.aba = a.chave
+    b.classList.toggle('on', a.chave === _permAba)
+    b.setAttribute('role', 'tab')
+    b.setAttribute('aria-selected', a.chave === _permAba ? 'true' : 'false')
+    b.appendChild(document.createTextNode(a.rotulo))
+    // O ponto só existe quando há o que dizer — aviso que aparece sempre vira
+    // paisagem. Sem ele, a falta do elo só apareceria para quem CLICASSE na
+    // aba, e a lacuna continuaria escondida em quase todas as pessoas.
+    if (a.aviso) {
+      const ponto = document.createElement('span')
+      ponto.className = 'perm-aba-ponto'; ponto.setAttribute('aria-hidden', 'true')
+      b.appendChild(ponto)
+      b.title = a.aviso
+    }
+    b.addEventListener('click', () => { _permAba = a.chave; _renderPermBody(u) })
+    barra.appendChild(b)
+  }
+  return barra
+}
+
+// O CADASTRO é a MESMA seção da ficha da pessoa, botões de ligar e criar
+// inclusive. Reescrevê-la aqui daria duas telas para a mesma decisão, e essa
+// decisão é cara de errar: casar o login com o colaborador errado dá a lotação
+// e o histórico de uma pessoa para outra.
+function _abaDeCadastro(painel, u) {
+  _secaoVinculo(painel, { id: u.id, email: u.email, bruto: u }, async () => {
+    // NÃO fecha o modal: quem já mexeu na matriz e ainda não salvou perderia o
+    // que mexeu, sem aviso nenhum. Relê os colaboradores e redesenha a aba com
+    // o elo novo. `_permState` pode ter virado null se alguém fechou no meio.
+    await loadAdminUsers()
+    if (_permState) _renderPermBody(u)
+  })
+}
+
 function _renderPermBody(u) {
   const body = document.getElementById('perm-modal-body'); body.replaceChildren()
-  if (_permState.soNotificacoes) {
-    // Sem o interruptor de super-admin: ninguém se promove nem se rebaixa aqui.
-    body.appendChild(_mkBlocoNotificacoes())
-    return
-  }
+  // Quem responde se o elo existe é `estadoDoVinculo` — a MESMA regra da ficha
+  // e do subtítulo da lista. Uma segunda regra aqui daria duas respostas
+  // diferentes para a mesma pergunta, e uma delas estaria errada.
+  const { estado: situacaoDoVinculo } = estadoDoVinculo({ id: u.id, email: u.email }, _colaboradores)
+  const abas = abasDaPessoa({
+    soNotificacoes: _permState.soNotificacoes,
+    temVinculo: situacaoDoVinculo === 'ligado',
+  })
+  // No modo "minhas notificações" só existe a aba de avisos; uma aba escolhida
+  // que não está mais na lista cairia num painel vazio.
+  if (!abas.some((a) => a.chave === _permAba)) _permAba = abas[0].chave
+  body.appendChild(_mkBarraDeAbas(abas, u))
+
+  const painel = document.createElement('div'); painel.className = 'perm-aba-painel'
+  painel.setAttribute('role', 'tabpanel')
+  body.appendChild(painel)
+
+  const escolhida = abas.find((a) => a.chave === _permAba)
+  if (escolhida.aviso) painel.appendChild(_mkFaixaDeAviso(escolhida.aviso))
+
+  // AVISOS. Vale para todo mundo, super-admin inclusive: acesso total não quer
+  // dizer "recebe todo aviso no celular". E no modo "minhas notificações" esta
+  // é a única aba — sem o interruptor de super-admin junto, que é justamente o
+  // que ninguém pode mexer em si mesmo.
+  if (_permAba === 'avisos') { painel.appendChild(_mkBlocoNotificacoes()); return }
+  if (_permAba === 'cadastro') { _abaDeCadastro(painel, u); return }
+  _abaDeFerramentas(painel, u)
+}
+
+// O QUE ELA ABRE. Bloco inteiro como já estava — super-admin, a matriz por
+// ferramenta, os perfis de rede e o duplicar. Só mudou onde é pendurado: era
+// direto no corpo do modal, agora é no painel da aba. As notificações saíram
+// daqui porque não são permissão.
+//
+// O parâmetro se chama `body` de propósito: é o mesmo nó que estas linhas
+// sempre receberam, e trocar o nome só criaria diferença onde não há mudança.
+function _abaDeFerramentas(body, u) {
   // 1) Super-admin
   const saRow = document.createElement('label'); saRow.style.cssText = 'display:flex;align-items:center;gap:8px;cursor:pointer;border-bottom:2px solid var(--border);padding-bottom:10px;margin-bottom:8px'
   const saCb = document.createElement('input'); saCb.type = 'checkbox'; saCb.checked = _permState.is_superadmin
   saCb.addEventListener('change', () => { _permState.is_superadmin = saCb.checked; _renderPermBody(u) })
   const saTxt = document.createElement('span'); saTxt.textContent = 'Super-admin (vê tudo · gerencia permissões)'; saTxt.style.cssText = 'font-weight:700;font-size:13px'
   saRow.appendChild(saCb); saRow.appendChild(saTxt); body.appendChild(saRow)
-  // 1.5) NOTIFICAÇÕES — antes do desvio de super-admin de propósito: acesso
-  // total não quer dizer "recebe todo aviso no celular". Super-admin também
-  // escolhe o que chega.
-  body.appendChild(_mkBlocoNotificacoes())
+  // As NOTIFICAÇÕES ficavam aqui, antes do desvio de super-admin, para que
+  // super-admin também escolhesse o que chega no celular. Foram inteiras para
+  // a aba "Avisos no celular", que aparece para todo mundo — inclusive para
+  // super-admin, que nem chega a ver o resto desta aba.
   if (_permState.is_superadmin) {
     const info = document.createElement('div'); info.textContent = 'Super-admin tem acesso total — permissões e perfis não se aplicam.'; info.style.cssText = 'font-size:12px;color:var(--muted);padding:6px 0'
     body.appendChild(info); return
@@ -1227,6 +1335,16 @@ function _linhaDeNivel(r, u) {
   nome.textContent = r.label            // linha inteira: o nome NUNCA corta
   linha.appendChild(nome)
 
+  // SELO DE DINHEIRO (D4). Vai junto do nome, não junto da frase: quem lê o
+  // nome da ferramenta precisa ver o selo no MESMO movimento de olho.
+  if (mexeEmDinheiro(r.key)) {
+    linha.classList.add('perm-dinheiro')
+    const selo = document.createElement('span')
+    selo.className = 'perm-selo-dinheiro'
+    selo.textContent = SELO_DINHEIRO
+    nome.appendChild(selo)
+  }
+
   const botoes = document.createElement('div')
   botoes.className = 'perm-nivel-botoes'
   for (const d of degrausDoRecurso(r)) {
@@ -1238,6 +1356,20 @@ function _linhaDeNivel(r, u) {
     botoes.appendChild(b)
   }
   linha.appendChild(botoes)
+
+  // A FRASE SEMPRE VISÍVEL (D3). O dono recusou que ela aparecesse só ao
+  // clicar: "eu ainda gosto de uma visualização de todas as ferramentas, porém
+  // um detalhamento maior do que é cada permissão".
+  //
+  // SÓ quando há degrau. Conjunto fora da escada já tem a própria mensagem
+  // logo abaixo (`perm-nivel-aviso`, mais adiante) — duas mensagens na mesma
+  // linha brigariam, e a de baixo é a mais importante ali.
+  if (degrau) {
+    const frase = document.createElement('div')
+    frase.className = 'perm-o-que-faz'
+    frase.textContent = oQueONivelFaz(r.key, degrau)
+    linha.appendChild(frase)
+  }
 
   // CONJUNTO FORA DA ESCADA: não escolhe degrau nenhum e não aproxima. Mostra o
   // que está gravado e deixa a pessoa decidir. Aproximar mudaria acesso sem
@@ -1776,6 +1908,27 @@ function _criarLinhaPessoa(p, gaveta, currentEmail) {
   const sub = mkEl('div', 'usr-sub')
   sub.innerHTML = _subtitulo(p, gaveta) // já vem escapado (ou é o span fixo de "sem cadastro")
   info.appendChild(sub)
+
+  // O resumo de uma linha: quem é essa pessoa aqui dentro, sem abrir (D5).
+  //
+  // Super-admin não passa por `permissions`: ele entra por is_superadmin, e as
+  // marcas gravadas na coluna não decidem nada. Contar "15 de 22" nele seria
+  // mentira legível — a linha do erick@ dizia que ele não mexia em veículo,
+  // bem, peça nem etiqueta, quando ele cadastra e apaga os quatro. Por isso
+  // aqui não vai contagem nem selo de dinheiro: a contagem não se aplica.
+  // É a mesma resposta que a ficha já dá em _abaDeFerramentas.
+  const resumoLinha = mkEl('div', 'usr-resumo')
+  if (isSuperAdmin) {
+    resumoLinha.textContent = 'Acesso total — super-admin'
+  } else {
+    const resumo = resumoDoAcesso(u.permissions)
+    resumoLinha.textContent = `${resumo.frase} · ${resumo.quantos} de ${RECURSOS.length}`
+    if (resumo.comDinheiro) {
+      const resumoSelo = mkEl('span', 'perm-selo-dinheiro', `${EMOJI_DINHEIRO} ${resumo.comDinheiro}`)
+      resumoLinha.appendChild(resumoSelo)
+    }
+  }
+  info.appendChild(resumoLinha)
 
   // O clique no bloco do nome abre a ficha. NÃO na linha inteira: a fileira de
   // ações fica logo abaixo, e clicar em "Permissões" abriria as duas coisas.
@@ -2588,6 +2741,20 @@ Object.assign(window, {
 .tela-admin :deep(.perm-modal-title){font-family:var(--fonte-principal);font-size:17px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--text);}
 .tela-admin :deep(.perm-modal-user){font-family:var(--fonte-principal);font-size:12px;color:var(--muted);margin-top:3px;}
 .tela-admin :deep(.perm-modal-body){flex:1;overflow-y:auto;padding:14px 22px;overscroll-behavior:contain;touch-action:pan-y;}
+
+/* ── AS TRÊS ABAS DENTRO DA PESSOA (D6) ──────────────────────────────────────
+   A classe `.abas` é a compartilhada (mesma da Frota, do Patrimônio e dos
+   Acessos), e o estado ativo dela é `on` — não `active`. Aqui só se ajusta o
+   que muda por estar DENTRO de um modal: sem o recuo lateral próprio (o corpo
+   do modal já tem o dele) e alinhada à esquerda, junto do texto que ela manda.
+   Tudo em `:deep()` dentro de `.tela-admin`: regra global vazaria para as
+   outras 24 telas que usam `.abas`. ── */
+.tela-admin :deep(.perm-abas){justify-content:flex-start;padding-left:0;padding-right:0;margin-bottom:var(--sp-3);}
+/* O ponto de atenção na aba: só existe quando há aviso (ver _mkBarraDeAbas). */
+.tela-admin :deep(.perm-aba-ponto){display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--orange);margin-left:var(--sp-1);vertical-align:middle;flex-shrink:0;}
+/* A faixa do aviso, no topo da aba. `--orange` é o token de aviso deste projeto
+   (`--aviso` não existe, e variável inexistente cai no herdado, calada). */
+.tela-admin :deep(.perm-faixa-aviso){border:1px solid color-mix(in srgb,var(--orange) 45%,transparent);background:color-mix(in srgb,var(--orange) 10%,var(--surface));color:color-mix(in srgb,var(--orange) 75%,var(--text));border-radius:var(--radius-md);padding:10px 12px;font-size:12.5px;line-height:1.5;margin-bottom:var(--sp-3);overflow-wrap:anywhere;}
 .tela-admin :deep(.perm-section){margin-bottom:2px;}
 .tela-admin :deep(.perm-row){display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:5px;transition:background .12s;cursor:pointer;}
 .tela-admin :deep(.perm-row:hover){background:var(--surface2);}
@@ -2641,6 +2808,9 @@ Object.assign(window, {
 .tela-admin :deep(.perm-nivel-botoes){display:flex;flex-wrap:wrap;gap:6px;}
 .tela-admin :deep(.perm-degrau){border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:99px;padding:7px 12px;font-size:11.5px;min-height:32px;cursor:pointer;font-family:var(--fonte-principal);}
 .tela-admin :deep(.perm-degrau.escolhido){background:var(--accent);border-color:var(--accent);color:var(--sobre-cor);font-weight:600;}
+.tela-admin :deep(.perm-o-que-faz){font-size:12.5px;line-height:1.5;color:var(--muted);margin:6px 0 2px;max-width:62ch;overflow-wrap:anywhere;}
+.tela-admin :deep(.perm-selo-dinheiro){font-size:10.5px;letter-spacing:.4px;color:var(--orange);border:1px solid var(--orange);border-radius:99px;padding:2px 8px;margin-left:8px;white-space:nowrap;}
+.tela-admin :deep(.perm-dinheiro){border-left:2px solid var(--orange);padding-left:10px;}
 /* Conjunto fora da escada: mostra o que está gravado sem aproximar de degrau
    nenhum — aproximar mudaria acesso que ninguém pediu. */
 .tela-admin :deep(.perm-nivel-aviso){margin-top:7px;font-size:11px;color:var(--orange,#d97706);}
@@ -2676,6 +2846,10 @@ Object.assign(window, {
 .tela-admin :deep(.usr-nome-wrap){display:flex;align-items:center;flex-wrap:wrap;gap:6px;}
 .tela-admin :deep(.usr-nome){font-weight:600;font-size:13px;overflow-wrap:anywhere;}
 .tela-admin :deep(.usr-sub){font-size:11px;color:var(--muted);overflow-wrap:anywhere;}
+/* O resumo de uma linha (D5): quem é essa pessoa aqui dentro, sem abrir a
+   ficha. Mesmo tratamento discreto do subtítulo, com o selo de dinheiro
+   herdado de .perm-selo-dinheiro (já usado dentro do modal de permissões). */
+.tela-admin :deep(.usr-resumo){font-size:12px;color:var(--muted);margin-top:3px;}
 /* Correção 2: e-mail + "desde <data>" — terceira linha discreta, mesmo
    tratamento visual do subtítulo de lotação. E-mail comprido quebra, nunca
    corta (overflow-wrap, sem ellipsis). */
