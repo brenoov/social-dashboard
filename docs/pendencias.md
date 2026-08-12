@@ -72,6 +72,42 @@ Preencher **na ficha, na mão** — decisão do dono: nada de migration mexendo 
 > RB Builders, RBV Company) é outro campo, e é esse que está vazio. Isso já
 > confundiu uma vez.
 
+### A3b · ~~Duas definições de super-admin que não batem~~ ❌ **ERRO MEU, retirado em 12/08**
+Este item **nunca existiu**. Eu o escrevi ontem baseado na leitura de um arquivo de
+migration, e não conferi a função que está rodando.
+
+Medido no banco em 12/08: a função `public.is_superadmin()` tem **três** e-mails —
+`erick@`, `gabriel.gertrudes@` e **`breno@`** — e a coluna `profiles.is_superadmin`
+tem exatamente os mesmos três. **Batem.** Alguém acrescentou o `breno@` depois do
+arquivo `013_superadmin_gabriel.sql`, e o arquivo nunca foi atualizado.
+
+Consequência: **os botões de perfil funcionam para as três contas.** Não há parede.
+
+**A lição, que é a mesma que este projeto já aprendeu com Edge Function:** arquivo de
+migration **não** diz o que está rodando no banco; só o banco diz. `git log` e o
+conteúdo de `db/migrations/` são histórico do que se tentou, não retrato do que é.
+
+O que sobra de real, e é bem menor: **quem é super-admin mora em dois lugares** (a
+coluna e a lista dentro da função), e mantê-los iguais é trabalho manual. Hoje estão
+iguais. Se um dia divergirem, o sintoma será o botão aparecer e o banco recusar — com
+a mensagem honesta que a F2 passou a mostrar. Unificar (a função ler a coluna) é
+possível e seguro — o gatilho `impedir_autopromocao` já protege a coluna e usa a
+própria função, então só quem já é super-admin cria outro. **Não foi feito: é
+endurecimento, não conserto, e mexe em segurança sem nada quebrado hoje.**
+
+### A3c · Perfis de Acesso › o teste da primeira vez ⚠️ *antes do primeiro perfil de verdade*
+A ferramenta está no ar e **nunca foi usada**. Antes de criar um perfil com gente dentro,
+vale rodar o roteiro — ele prova que a trava funciona:
+
+1. Criar uma conta **descartável** (não use conta de quem trabalha aí).
+2. Criar um perfil de teste e pôr essa conta dentro.
+3. Mexer no perfil e **conferir que a janela nomeia a conta** e diz o que ela ganha ou perde.
+4. **Clicar em Cancelar** e conferir no banco que **nada mudou**. É este passo que prova a trava.
+5. Só então aplicar, e conferir que o acesso mudou e que a exceção sobreviveu.
+6. Desfazer tudo.
+
+Precisa ser feito por `erick@` ou `gabriel.gertrudes@` (ver A3b).
+
 ### A4 · Segurança › ligar MFA e a proteção de senha vazada 🔴 *risco nº 1*
 No painel do Supabase:
 - **Authentication › Password security** → ligar "Leaked password protection" +

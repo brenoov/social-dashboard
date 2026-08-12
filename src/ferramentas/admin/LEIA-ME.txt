@@ -18,6 +18,12 @@ PERMISSÕES REAIS QUE CONTROLAM O QUE CADA PESSOA PODE ACESSAR.
   quem precisa.
 - Aprovar/Negar uma solicitação de acesso (aba Solicitações) também é uma
   decisão real sobre quem entra na plataforma.
+- Dentro de "Permissões" existe o botão "Salvar como perfil". Se você digitar
+  o nome de um perfil QUE JÁ EXISTE, ele REGRAVA aquele perfil e muda o acesso
+  de TODO MUNDO que está nele de uma vez — não é só o acesso da pessoa cuja
+  ficha está aberta. Antes de gravar qualquer coisa, a tela mostra uma janela
+  com o nome de cada pessoa afetada e o que ela PERDE, ganha ou tem trocado de
+  nível. Leia essa lista até o fim; cancelar não muda nada.
 Erros aqui têm consequência real para pessoas reais. Tenha cuidado extra
 antes de clicar em qualquer botão desta tela.
 
