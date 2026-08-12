@@ -235,19 +235,21 @@ no painel. Ao fazer: manter a **fonte única de preço** e a linguagem literal.
 true`). Foi deixado de propósito porque a equipe é interna — só trava de vez
 proxiando pelo Edge.
 
-### B11 · Vendas › a data da venda nunca foi vista na tela logada 🟡
+### B11 · Vendas › falta só olhar o telão 🟢 *quase fechado*
 As três etapas estão no ar: a data da nota é coletada de hora em hora, e o
 telão, a Análise de Vendas, a notificação das 22h/07h, os Relatórios Comerciais
 e o briefing do Gestor **contam todos por ela**. A regra tem uma cópia só, em
 `supabase/functions/_shared/data-da-venda.js`.
 
-O que falta é olhar: **ninguém abriu o telão logado depois da mudança.** O que
-foi verificado: 2.4k testes, build, e os números conferidos contra o banco real
-(04/08 sai de R$ 8.071,19 para R$ 299,70; 05/08 sai de R$ 224,95 para
-R$ 7.996,44). Se algo parecer errado, o retorno é o Instant Rollback da Vercel.
+✅ **A notificação foi conferida ao vivo pelo dono em 11/08.** O push disparado
+à mão mostrou R$ 1.829,74 — o MESMO valor do telão para o dia — e comparou com
+ontem já corrigido (−25%; pela data do pedido teria dito −19%). Era esse o risco
+que a Etapa 3 existia para eliminar: push e tela discordando do mesmo dia.
 
-Conferir também **um dia em que o push e o telão falem do mesmo número** — era o
-risco de os dois discordarem, e é o que a Etapa 3 fechou.
+**O que falta é só um olhar:** ninguém abriu o telão logado depois da mudança.
+Não dá Playwright neste projeto. Se algo parecer errado, o retorno é o Instant
+Rollback da Vercel. Referência do que esperar: 04/08 sai de R$ 8.071,19 para
+R$ 299,70; 05/08 sai de R$ 224,95 para R$ 7.996,44.
 
 ### B10 · Frota › F3 (multas) e F5 (custo por km) seguem travadas
 As duas dependem de saber **quem estava com o carro no dia**. Em 05/08 `frota_uso`
