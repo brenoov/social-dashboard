@@ -266,6 +266,35 @@ function linha(item, agoraMs, editavel) {
 //           editavel, aoAprovar(item, botao, opcao), aoRecusar(item, botao),
 //           aoVerCriativo(item, adId, nome), aoVerGastos(item, botao),
 //           aoFiltrar(contaId), ajudaBtn }
+// O QUE A META ESTA RECLAMANDO. Fora da lista de decisoes pelo mesmo motivo do
+// farol: nao ha o que aprovar, e o numero da aba conta DECISOES pendentes.
+//
+// MEDIDO em 12/08/2026: 13 problemas reais nas 7 contas, e NENHUM aparecia na
+// tela — inclusive 5 conjuntos que a Meta pausou sozinha. Dinheiro parado que
+// ninguem via.
+function problemasDaMeta(o) {
+  const grupos = o.problemas || [];
+  if (!grupos.length) return '';
+  const linhas = grupos.map((g) => `
+    <li class="gtf-pb-item ${g.grave ? 'gtf-pb--grave' : 'gtf-pb--leve'}">
+      <div class="gtf-pb-cab">
+        <span class="gtf-pb-tit">${esc(g.titulo)}</span>
+        <span class="gtf-pb-selo">${g.grave ? 'impede de rodar' : 'roda com limitação'}</span>
+        <span class="gtf-pb-quantos">${g.quantos} ${g.nivel === 'conjunto' ? (g.quantos > 1 ? 'conjuntos' : 'conjunto') : (g.quantos > 1 ? 'anúncios' : 'anúncio')}</span>
+      </div>
+      ${g.detalhe ? `<p class="gtf-pb-det">${esc(g.detalhe)}</p>` : ''}
+      ${g.oQueFazer ? `<p class="gtf-pb-fazer"><b>O que fazer:</b> ${esc(g.oQueFazer)}</p>` : ''}
+      ${g.onde.length ? `<p class="gtf-pb-onde">${esc(g.onde.slice(0, 6).join(' · '))}${g.onde.length > 6 ? ` … e mais ${g.onde.length - 6}` : ''}</p>` : ''}
+    </li>`).join('');
+  return `
+    <section class="gtf-pb">
+      <h3 class="gtf-pb-h">A Meta está reclamando de alguns anúncios</h3>
+      <p class="gtf-pb-frase">${esc(o.fraseProblemas || '')}</p>
+      <ul class="gtf-pb-lista">${linhas}</ul>
+      <p class="gtf-pb-nota">Isto vem direto da Meta, e não muda nada sozinho — o conserto é no Gerenciador de Anúncios. Recusa por política, quando houver, aparece aqui também.</p>
+    </section>`;
+}
+
 // O FAROL DE PÚBLICO — leitura da conta, fora da lista de decisões.
 //
 // FICA FORA DA LISTA de propósito: ele aparece mesmo quando o veredito é
@@ -395,6 +424,7 @@ export function montarPainelFila(alvo, opcoes) {
       </details>` : ''}
     ${silenciadas.length ? `
       <div class="gtf-silenciadas">${silenciadas.length} sugest${silenciadas.length > 1 ? 'ões recusadas voltam' : 'ão recusada volta'} a aparecer se a situação continuar.</div>` : ''}
+    ${problemasDaMeta(o)}
     ${blocoPublico}
   `;
 
