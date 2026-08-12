@@ -201,6 +201,7 @@ import { montarPainelRegua } from './painel-regua.js'
 import { montarPainelFila } from './painel-fila.js'
 import { resumoDoRobo, fraseDaFilaVazia } from './fila.js'
 import { limparPersona, resumoPersona, fraseDaPersona, MAXIMO as PERSONA_MAXIMO } from './persona-da-marca.js'
+import { tipoDoArquivo, textoDoDocx, pareceTexto } from './ler-arquivo-de-texto.js'
 import { montarLeituraDePublico, publicoDaReceita } from './leitura-de-publico.js'
 import { PUBLICO_VAZIO } from './publico-alvo.js'
 // A LISTA do histórico de campanhas começadas por aqui. As regras de leitura
@@ -1116,6 +1117,55 @@ async function _gtUsarPublicoDaLeitura() {
   const iPublico = PASSOS.findIndex((x) => x.chave === 'publico');
   if (iPublico >= 0) _gtNovoPasso = iPublico;
   _gtNovoRedesenhar();
+}
+
+// LE UM ARQUIVO SOLTO NO CAMPO DA PERSONA e devolve o texto.
+//
+// DOIS CAMINHOS, e a diferenca importa: .docx/.txt/.md sao lidos AQUI, no
+// navegador, sem dependencia e sem custo. O .pdf vai pra IA no servidor, porque
+// extrair texto de PDF exige lidar com a codificacao de fonte de cada arquivo --
+// a extracao ingenua devolveu tabela de fonte no PDF real da curadoria da Vessel,
+// e um extrator que acerta as vezes enche o campo de lixo em silencio.
+//
+// Devolve TEXTO. Nao grava nada: quem grava e o botao Salvar, depois de a pessoa
+// conferir o que entrou no campo.
+async function _gtLerArquivoDePersona(arquivo) {
+  const tipo = tipoDoArquivo(arquivo.name);
+  if (tipo === 'nao-suportado') throw new Error(`Nao sei ler "${arquivo.name}". Use .docx, .pdf, .txt ou .md.`);
+  if (tipo === 'doc-antigo') throw new Error('O .doc antigo nao abre aqui. Abra no Word e salve como .docx (ou como PDF).');
+
+  if (tipo === 'texto') {
+    const t = await arquivo.text();
+    if (!pareceTexto(t)) throw new Error('Este arquivo nao parece ter texto legivel.');
+    return t;
+  }
+
+  if (tipo === 'docx') {
+    const t = await textoDoDocx(await arquivo.arrayBuffer());
+    if (!pareceTexto(t)) throw new Error('Nao consegui achar texto neste .docx.');
+    return t;
+  }
+
+  // PDF: vai pra IA. Custa alguns centavos por arquivo -- e acao rara, mas a tela
+  // avisa que demora, senao parece travada.
+  const bytes = new Uint8Array(await arquivo.arrayBuffer());
+  let bin = '';
+  // Em pedacos: `String.fromCharCode(...arr)` com um arquivo inteiro estoura a
+  // pilha de argumentos e quebra num PDF grande.
+  for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode(...bytes.subarray(i, i + 8192));
+  const base64 = btoa(bin);
+
+  const { data: { session } } = await sbClient.auth.getSession();
+  if (!session) throw new Error('Sessao expirada. Recarregue a pagina.');
+  const r = await fetch(SUPABASE_URL + '/functions/v1/ler-documento', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + session.access_token, apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ base64, limite: PERSONA_MAXIMO }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || !d.ok) throw new Error(d.detalhe || d.error || `Nao consegui ler o PDF (HTTP ${r.status}).`);
+  if (!pareceTexto(d.texto)) throw new Error('A leitura do PDF nao devolveu texto legivel.');
+  return d.texto;
 }
 
 // Grava a PERSONA da conta aberta.
@@ -2508,6 +2558,7 @@ function _gtTrocarAba(nome) {
       // regua logo acima ja avisa pra nao cometer.
       personaEditavel: estado.role === 'admin',
       aoSalvarPersona: _gtSalvarPersona,
+      aoLerArquivo: _gtLerArquivoDePersona,
       // O card de abertura é longo e explica a aba inteira. Quem já leu não quer
       // rolar por ele toda vez — mas o painel remonta a cada troca de conta e a
       // cada save, então a escolha precisa morar fora dele. Mesmo lugar onde o
@@ -5467,6 +5518,16 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.pnd-persona-campo:disabled){opacity:.65;cursor:not-allowed;}
 .tela-gestao-trafego :deep(.pnd-persona-conta){margin:6px 0 0;font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);}
 .tela-gestao-trafego :deep(.pnd-persona-conta--estourou){color:var(--red);font-weight:600;}
+/* TRAZER DE UM ARQUIVO. O <label> é o botão de verdade — o <input type=file> fica
+   escondido porque o botão nativo não aceita estilo e escreve em inglês. 40px de
+   altura é alvo de toque (PADRÃO item 6). */
+/* flex-wrap: a 375px o status não cabe ao lado do botão e quebrava no meio da
+   frase ("Trouxe 3681 / caracteres."). Assim ele desce inteiro pra própria linha. */
+.tela-gestao-trafego :deep(.pnd-persona-arquivo){margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;}
+.tela-gestao-trafego :deep(.pnd-persona-arquivo>p){flex:1 1 100%;}
+.tela-gestao-trafego :deep(.pnd-persona-botao){display:inline-flex;align-items:center;min-height:40px;padding:0 18px;border:1px solid var(--border);border-radius:22px;background:var(--surface2);color:var(--text);font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));font-weight:600;cursor:pointer;}
+.tela-gestao-trafego :deep(.pnd-persona-botao:hover){border-color:var(--accent);color:var(--accent);}
+.tela-gestao-trafego :deep(.pnd-persona-status){font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);}
 /* min-height 40px: MEDIDO em 12/08/2026, o botão saía com 37px — abaixo do alvo
    de toque do PADRÃO (item 6). Era assim antes deste bloco existir, no "Salvar a
    régua"; como a persona soma um segundo botão da mesma classe, o conserto vai na
