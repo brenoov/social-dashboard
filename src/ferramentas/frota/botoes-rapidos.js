@@ -15,11 +15,21 @@
 function nomeCurto(nome) {
   const limpo = String(nome || '').trim()
   if (!limpo) return null
-  // Tira a marca da frente quando sobra nome suficiente pra reconhecer o carro.
+  // Tira a marca da frente quando: há 3+ palavras, OU há 2 palavras e a segunda é código de modelo (tem dígito).
   const partes = limpo.split(/\s+/)
-  const semMarca = partes.length > 2 ? partes.slice(1) : partes
+  const temCodigoDeModelo = partes.length >= 2 && /\d/.test(partes[1])
+  const ehNomeComMarca = partes.length > 2 || temCodigoDeModelo
+  const semMarca = ehNomeComMarca ? partes.slice(1) : partes
+
   return semMarca
-    .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+    .map((p, index) => {
+      // Código de modelo (XC60, X1) com dígito fica como está.
+      if (/\d/.test(p)) return p
+      // Acrônimo de 4 letras (PHEV) no final de nome com 3+ palavras fica maiúsculo.
+      if (partes.length > 2 && index === semMarca.length - 1 && /^[A-Z]{4}$/.test(p)) return p
+      // Palavra normal: primeiro maiúsculo, resto minúsculo.
+      return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()
+    })
     .join(' ')
 }
 
@@ -95,7 +105,7 @@ export function botoesDaGestao({ linhas, cobranca, fila } = {}) {
       chave: 'veiculos',
       rotulo: 'Veículos do grupo',
       estado: l.length
-        ? `${contar(l.length, 'veículo', 'veículos')} · ${livres} ${livres === 1 ? 'livre' : 'livres'}`
+        ? `${contar(l.length, 'veículo', 'veículos')} · ${contar(livres, 'livre', 'livres')}`
         : null,
       acao: 'veiculos',
     },

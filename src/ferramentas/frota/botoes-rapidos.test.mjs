@@ -94,3 +94,34 @@ test('toda tecla e toda ação são únicas — botão repetido é bug de menu',
     for (const b of lista) assert.ok(b.rotulo && b.acao, 'botão sem rótulo ou sem ação')
   }
 })
+
+/* Nomes reais da frota medidos em 12/08/2026: código de modelo com dígito
+ * (XC60, X1) remove a marca e fica preservado. Acrônimo final (PHEV) em 3+
+ * palavras também fica maiúsculo. Palavra normal (Cayenne, Bravo) fica título-case. */
+
+test('VOLVO XC60: marca cai, código preservado (dígito)', () => {
+  const b = botoesDoMotorista({
+    painel: { comigo: [], livres: [], comOutros: [] },
+    checklistDeHoje: 'falta',
+    nomeDoMeuCarro: 'VOLVO XC60',
+  })
+  assert.equal(acha(b, 'meu-checklist').estado, 'XC60 · falta hoje')
+})
+
+test('BMW X1: marca cai quando segunda é modelo (tem dígito)', () => {
+  const b = botoesDoMotorista({
+    painel: { comigo: [], livres: [], comOutros: [] },
+    checklistDeHoje: 'falta',
+    nomeDoMeuCarro: 'BMW X1',
+  })
+  assert.equal(acha(b, 'meu-checklist').estado, 'X1 · falta hoje')
+})
+
+test('PORSCHE CAYENNE PHEV: acrônimo 4-letras no final fica maiúsculo', () => {
+  const b = botoesDoMotorista({
+    painel: { comigo: [], livres: [], comOutros: [] },
+    checklistDeHoje: 'falta',
+    nomeDoMeuCarro: 'PORSCHE CAYENNE PHEV',
+  })
+  assert.equal(acha(b, 'meu-checklist').estado, 'Cayenne PHEV · falta hoje')
+})
