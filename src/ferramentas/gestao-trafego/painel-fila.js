@@ -312,8 +312,13 @@ export function montarPainelFila(alvo, opcoes) {
          <b>Carregando suas campanhas…</b>
          <span>Assim que elas chegarem, mostro aqui o que está esperando decisão.</span>
        </div>`
+    // A fila vazia DIZ o que o robô fez. Sem isso, "nada esperando decisão" é
+    // indistinguível de "o robô não rodou nesta conta" — foi o que aconteceu com
+    // a Mantova (item 1 da lista do dono): ele analisou e disse 'manter' nas
+    // duas campanhas ativas, e 'manter' não entra na fila.
     : `<div class="gtf-vazio">
          <b>Nada esperando decisão${filtroAtual ? ` em ${esc(o.contaNome || 'nesta conta')}` : ''}.</b>
+         ${o.explicacaoVazia ? `<span>${esc(o.explicacaoVazia)}</span>` : ''}
          <span>O robô analisa as campanhas toda madrugada. Quando ele propuser mexer em orçamento, aparece aqui.</span>
        </div>`;
 
