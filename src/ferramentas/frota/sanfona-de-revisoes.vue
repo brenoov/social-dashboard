@@ -132,7 +132,7 @@ const km = (n) => (n == null ? 'sem quilometragem' : `${n.toLocaleString('pt-BR'
 /* Mesma receita do `.fr-btn` da tela grande — copiada por causa do limite do
    `<style scoped>`, não por escolha. 40px de alvo, como o padrão manda. */
 .sr-acoes{display:flex;gap:8px;margin-top:10px;}
-.sr-btn{min-height:40px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));font-weight:600;cursor:pointer;touch-action:manipulation;}
+.sr-btn{min-height:44px;padding:11px 16px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-family:var(--fonte-principal);font-size:max(9px, calc(13.5px * var(--escala-texto, 1)));font-weight:600;cursor:pointer;touch-action:manipulation;}
 .sr-btn:hover{border-color:var(--accent);}
 
 @media(min-width:900px){
