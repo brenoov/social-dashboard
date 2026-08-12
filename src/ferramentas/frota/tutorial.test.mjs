@@ -80,6 +80,61 @@ test('os 6 passeios de modal apontam pra seletores que existem', () => {
   confereTodos(PASSOS_FICHA, 'PASSOS_FICHA')
 })
 
+/* ── A ordem do passeio bate com a ordem do HTML ─────────────────────────────
+   passeio-guiado.vue faz `scrollIntoView` a cada passo. Se um passo aponta pra
+   algo que fica ACIMA do passo anterior no HTML, a tela rola pra baixo e
+   depois pra trás — pra quem acha app difícil isso lê como "perdi o lugar".
+   Medido: o reshuffle de seções da D32 moveu Histórico pra antes de Contrato
+   no HTML, e PASSOS_VEICULO ficou com a ordem antiga (visitava Bem, o
+   penúltimo campo, e só depois voltava pra Histórico, o sétimo). */
+function indiceNaTela(selector) {
+  const dataTour = selector.match(/^\[data-tour="([a-z0-9-]+)"\]$/)
+  if (!dataTour) return null
+  const chave = dataTour[1]
+  const porAtributo = TELA.indexOf(`data-tour="${chave}"`)
+  return porAtributo >= 0 ? porAtributo : TELA.indexOf(`'${chave}'`)
+}
+
+function confereOrdemCrescente(passos, nome) {
+  for (let i = 1; i < passos.length; i += 1) {
+    const antes = indiceNaTela(passos[i - 1].selector)
+    const depois = indiceNaTela(passos[i].selector)
+    assert.ok(antes != null && depois != null && antes < depois,
+      `${nome}: o passo "${passos[i].titulo}" (${passos[i].selector}) vem ANTES de `
+      + `"${passos[i - 1].titulo}" (${passos[i - 1].selector}) no HTML — o passeio rolaria pra trás.`)
+  }
+}
+
+test('PASSOS_VEICULO segue a ordem do HTML, do topo pro fim — nunca rola pra trás', () => {
+  confereOrdemCrescente(PASSOS_VEICULO, 'PASSOS_VEICULO')
+})
+
+test('PASSOS_PEDIDO, PASSOS_DECISAO e PASSOS_FICHA também seguem a ordem do HTML', () => {
+  // Os três mapeiam pra UM modal só, com todos os campos do passeio dentro
+  // dele — diferente de PASSOS_ITEM (comentário abaixo), onde um dos passos
+  // fica de propósito fora do modal.
+  confereOrdemCrescente(PASSOS_PEDIDO, 'PASSOS_PEDIDO')
+  confereOrdemCrescente(PASSOS_DECISAO, 'PASSOS_DECISAO')
+  confereOrdemCrescente(PASSOS_FICHA, 'PASSOS_FICHA')
+})
+
+// PASSOS_ITEM e PASSOS_FICHA_DETALHE NÃO entram na checagem de ordem acima:
+//
+// - PASSOS_ITEM: o passo "Desativar" aponta de propósito pra um botão FORA do
+//   modal — na lista de itens do plano, atrás dele (ver o comentário ao lado
+//   de `data-tour="item-desativar"` em tela-de-frota.vue). Não é um passeio
+//   dentro de um template único: o "antes/depois" no HTML não corresponde ao
+//   que a pessoa vê, porque o botão fica coberto pelo modal enquanto ele está
+//   aberto. A comparação de índice no arquivo-fonte não descreve esse caso.
+//
+// - PASSOS_FICHA_DETALHE: ESTE, sim, mapeia pra um modal só, e a checagem
+//   apontou uma ordem já errada hoje — "Cada item" (fdet-itens) vem ANTES de
+//   "Anomalias" (fdet-anomalias) no passeio, mas fdet-anomalias fica ACIMA de
+//   fdet-itens no HTML (tela-de-frota.vue:2553 e :2557). Ou seja: o mesmo tipo
+//   de defeito do finding 3, só que num modal diferente. Consertar a ordem
+//   dele não foi pedido nesta rodada — fica registrado aqui e no relatório
+//   para quem decidir se vira um novo finding.
+
 /* ── Os textos fixos aparecem VERBATIM na tela ───────────────────────────── */
 
 test('cada texto fixo de TEXTOS é usado (verbatim) em algum modal da tela', () => {

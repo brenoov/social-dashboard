@@ -76,6 +76,14 @@ export function revisoesDoVeiculo({ veiculo, kmAtual, plano, revisoes }) {
 /** O que a lista de carros mostra: quantos itens gritando neste veículo. */
 export function resumoDeRevisoes(itens) {
   const l = itens || [];
+  // Lista vazia é o que uma consulta ao plano que FALHOU devolve — não um
+  // carro sem nada a revisar. Ver tela-de-frota.vue:
+  // `plano.value = pl && !pl.error ? (pl.data || []) : []`: permissão negada
+  // ou rede fora dá `[]` em silêncio, e sem este corte os 10 carros da frota
+  // mostrariam o selo verde "Revisões em dia" sobre uma sanfona vazia — a
+  // mesma mentira que o resto desta função existe pra evitar (ver `semKm` e
+  // `semRegistro` abaixo).
+  if (!l.length) return { nivel: 'sem-registro', texto: 'Sem plano de revisão' };
   const vencidas = l.filter((i) => i.situacao === 'vencida').length;
   const perto = l.filter((i) => i.situacao === 'perto').length;
   if (vencidas) return { nivel: 'vencida', texto: vencidas === 1 ? '1 revisão vencida' : `${vencidas} revisões vencidas` };

@@ -1147,13 +1147,21 @@ async function confirmarDecisao() {
 const plano = ref([])
 const revisoes = ref([])
 
+// Só os itens ATIVOS do plano — a mesma condição que revisoesDoVeiculo já usa
+// por dentro (revisoes.js). Existe pra a frase "Toque no carro para ver os N
+// itens do plano" (mais abaixo, na aba Revisões) e a conta de revisoesDoVeiculo
+// partirem da MESMA lista: antes, a frase contava `plano.length` (todos,
+// inclusive desligados) enquanto revisoesDoVeiculo já filtrava por dentro —
+// desativar um item prometia N itens e entregava N-1.
+const planoAtivo = computed(() => plano.value.filter((p) => p.ativo !== false))
+
 // A aba Revisões mostra SÓ O QUE ESTÁ CHEGANDO (correção do dono). Listar
 // todos os itens de todos os carros virava uma parede de "em dia" onde o que
 // importa se perdia. Item em dia, sem registro ou sem quilometragem não é
 // notícia — quem quiser o histórico completo abre a ficha do carro na Gestão.
 const revisoesPorVeiculo = computed(() => linhas.value.map((l) => {
   const todos = revisoesDoVeiculo({
-    veiculo: l.veiculo, kmAtual: l.km, plano: plano.value, revisoes: revisoes.value,
+    veiculo: l.veiculo, kmAtual: l.km, plano: planoAtivo.value, revisoes: revisoes.value,
   })
   const itens = todos.filter((i) => i.situacao === 'vencida' || i.situacao === 'perto')
   return { linha: l, itens, resumo: resumoDeRevisoes(todos) }
@@ -1168,10 +1176,15 @@ const revisoesPorVeiculo = computed(() => linhas.value.map((l) => {
 // tudo: o dono pediu, e a razão é medida — com 8 dos 10 carros sem
 // quilometragem conhecida, filtrar por "vencida ou perto" deixava a aba vazia
 // e sugeria frota em dia justamente quando não se sabe nada sobre ela.
+//
+// Só o `alienado` ("fora da frota") é excluído — carro vendido/devolvido não
+// tem mais dono aqui pra revisar. `em_manutencao` e `inativo` continuam:
+// ainda são carros da empresa, e é justamente parado que a revisão atrasada
+// se resolve, não escondida.
 const revisoesDeTodosOsCarros = computed(() => ordenarCarrosPorUrgencia(
-  linhas.value.map((l) => {
+  linhas.value.filter((l) => l.veiculo.situacao !== 'alienado').map((l) => {
     const todos = revisoesDoVeiculo({
-      veiculo: l.veiculo, kmAtual: l.km, plano: plano.value, revisoes: revisoes.value,
+      veiculo: l.veiculo, kmAtual: l.km, plano: planoAtivo.value, revisoes: revisoes.value,
     })
     return { linha: l, itens: todos, resumo: resumoDeRevisoes(todos) }
   }),
@@ -2091,8 +2104,8 @@ onMounted(async () => {
       </div>
 
       <h2 class="fr-secao">Todos os carros, item por item</h2>
-      <p class="fr-aviso">
-        Toque no carro para ver os {{ plano.length }} itens do plano — inclusive os que
+      <p class="fr-aviso" v-if="revisoesDeTodosOsCarros.length">
+        Toque no carro para ver os {{ planoAtivo.length }} itens do plano — inclusive os que
         estão longe de vencer.
       </p>
       <SanfonaDeRevisoes :cartoes="revisoesDeTodosOsCarros" />
@@ -2463,8 +2476,7 @@ onMounted(async () => {
           <label class="fr-campo" data-tour="item-km">
             <span class="fr-lab">A cada quantos quilômetros</span>
             <input v-model="itemForm.aCadaKm" type="text" inputmode="numeric">
-            <span class="fr-ajuda">Ex.: 20000</span>
-            <span class="fr-ajuda">O aviso começa quando faltarem 10% disso.</span>
+            <span class="fr-ajuda">Ex.: 20000 — o aviso começa quando faltarem 10% disso.</span>
           </label>
           <label class="fr-campo">
             <span class="fr-lab">Observação</span>

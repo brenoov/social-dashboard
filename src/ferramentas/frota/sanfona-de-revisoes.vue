@@ -29,6 +29,7 @@ const km = (n) => (n == null ? 'sem quilometragem' : `${n.toLocaleString('pt-BR'
       <!-- O cabeçalho inteiro é o botão: alvo grande, que é o que o padrão
            manda e o que quem tem dificuldade acerta. -->
       <button type="button" class="sr-topo" :aria-expanded="aberto === c.linha.veiculo.id"
+              :aria-controls="'sr-itens-' + c.linha.veiculo.id"
               @click="alternar(c.linha.veiculo.id)">
         <span class="sr-card-ident">
           <span class="sr-card-nome">{{ c.linha.veiculo.nome }}</span>
@@ -42,7 +43,7 @@ const km = (n) => (n == null ? 'sem quilometragem' : `${n.toLocaleString('pt-BR'
         }">{{ c.resumo.texto }}</span>
       </button>
 
-      <ul class="sr-itens" v-if="aberto === c.linha.veiculo.id">
+      <ul class="sr-itens" :id="'sr-itens-' + c.linha.veiculo.id" v-if="aberto === c.linha.veiculo.id">
         <li v-for="i in c.itens" :key="i.item" :class="i.situacao">
           <span class="sr-item-nome">{{ i.item }}</span>
           <span class="sr-item-txt">{{ i.texto }}</span>
@@ -86,7 +87,12 @@ const km = (n) => (n == null ? 'sem quilometragem' : `${n.toLocaleString('pt-BR'
   cursor:pointer;font:inherit;color:inherit;touch-action:manipulation;}
 
 .sr-card-ident{display:flex;flex-direction:column;gap:2px;min-width:0;}
-.sr-card-nome{font-family:var(--fonte-principal);font-size:13.5px;font-weight:700;color:var(--text);}
+/* `overflow-wrap:anywhere`: `veiculo.nome` é digitado por gente, e diferente
+   de `.fr-ficha` (tela-de-frota.vue), `.sr-card` não tem `overflow:hidden` —
+   nada aqui corta uma palavra comprida sem espaço. Sem isso ela empurra o
+   cartão pra fora da tela e estoura rolagem horizontal no celular, contra a
+   regra da casa. Mesmo par de `.fr-item-txt`/`.fr-ajuda` em tela-de-frota.vue. */
+.sr-card-nome{font-family:var(--fonte-principal);font-size:13.5px;font-weight:700;color:var(--text);overflow-wrap:anywhere;}
 .sr-placa{font-family:var(--fonte-dados);font-size:11px;letter-spacing:1.5px;color:var(--muted);}
 
 .sr-selo{font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:.4px;padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--text);white-space:nowrap;}
@@ -103,8 +109,10 @@ const km = (n) => (n == null ? 'sem quilometragem' : `${n.toLocaleString('pt-BR'
 /* sem-km e sem-registro ficam na borda neutra do estado padrão, acima —
    nem vermelho nem verde, porque não se sabe nada sobre este item. */
 
-.sr-item-nome{color:var(--text);font-weight:600;}
-.sr-item-txt{font-variant-numeric:tabular-nums;}
+/* Mesmo motivo do `.sr-card-nome` acima: `plano.item` também é digitado por
+   gente (o mecânico, no editor de limiares), e este `<li>` não tem clip. */
+.sr-item-nome{color:var(--text);font-weight:600;overflow-wrap:anywhere;}
+.sr-item-txt{font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
 
 /* Sem padding horizontal próprio: este aviso mora DENTRO de `.sr-lista`, que
    já dá os 14px/24px da margem da página — dobrar o respiro aqui desalinharia

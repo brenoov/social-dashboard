@@ -85,6 +85,14 @@ export const PASSOS = [
 
 /* ── Os 6 modais: passeio pelos campos, disparado pelo "?" ao lado do X ──── */
 
+// A ordem aqui segue a ordem em que os campos aparecem na tela (o passeio usa
+// scrollIntoView em cada passo — ver passeio-guiado.vue — e um passo fora de
+// ordem rola pra baixo e depois pra cima, o que lê como "perder o lugar").
+// Reordenado nesta fase: o reshuffle das seções (D32) moveu Histórico pra
+// antes de Contrato no HTML, e o passeio tinha ficado com a ordem antiga —
+// visitava Bem (o penúltimo campo) e só depois voltava pra Histórico (o
+// sétimo). tutorial.test.mjs agora prova que a ordem daqui bate com a ordem
+// do HTML, pra um reshuffle futuro não repetir isso sem ser pego pelo teste.
 export const PASSOS_VEICULO = [
   {
     selector: '[data-tour="veic-nome"]',
@@ -92,12 +100,6 @@ export const PASSOS_VEICULO = [
     texto: 'São por eles que o carro é reconhecido no sistema inteiro, e são os únicos '
       + 'dois obrigatórios. A placa pode ser digitada como você quiser: o sistema arruma '
       + 'sozinho.',
-  },
-  {
-    selector: '[data-tour="veic-contrato"]',
-    titulo: 'Contrato e aluguel',
-    texto: 'Estes carros são alugados, não são da empresa. É por isso que eles não entram '
-      + 'no valor do patrimônio, mesmo aparecendo lá na lista de bens.',
   },
   {
     selector: '[data-tour="veic-responsavel"]',
@@ -134,16 +136,22 @@ export const PASSOS_VEICULO = [
       + 'vencer, já com a quilometragem escrita na mensagem.',
   },
   {
-    selector: '[data-tour="veic-bem"]',
-    titulo: 'Bem no Patrimônio',
-    texto: 'Se este carro também está cadastrado no Patrimônio, ligue os dois aqui. Serve '
-      + 'para não ter dois cadastros do mesmo carro sem ninguém perceber.',
-  },
-  {
     selector: '[data-tour="veic-historico"]',
     titulo: 'Histórico de manutenção',
     texto: 'Cada troca feita, com a quilometragem. É daqui que sai o aviso de revisão '
       + 'vencendo — sem registro, o sistema não tem como avisar nada.',
+  },
+  {
+    selector: '[data-tour="veic-contrato"]',
+    titulo: 'Contrato e aluguel',
+    texto: 'Estes carros são alugados, não são da empresa. É por isso que eles não entram '
+      + 'no valor do patrimônio, mesmo aparecendo lá na lista de bens.',
+  },
+  {
+    selector: '[data-tour="veic-bem"]',
+    titulo: 'Bem no Patrimônio',
+    texto: 'Se este carro também está cadastrado no Patrimônio, ligue os dois aqui. Serve '
+      + 'para não ter dois cadastros do mesmo carro sem ninguém perceber.',
   },
 ]
 
