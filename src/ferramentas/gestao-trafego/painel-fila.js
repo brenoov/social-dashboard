@@ -266,6 +266,60 @@ function linha(item, agoraMs, editavel) {
 //           editavel, aoAprovar(item, botao, opcao), aoRecusar(item, botao),
 //           aoVerCriativo(item, adId, nome), aoVerGastos(item, botao),
 //           aoFiltrar(contaId), ajudaBtn }
+// O FAROL DE PÚBLICO — leitura da conta, fora da lista de decisões.
+//
+// FICA FORA DA LISTA de propósito: ele aparece mesmo quando o veredito é
+// "manter" (pedido do dono), e o número da aba conta DECISÕES pendentes. Somar
+// aqui faria a aba dizer que há trabalho esperando quando não há.
+//
+// NÃO TEM BOTÃO DE APROVAR: a leitura é da conta inteira, e aplicar idade em
+// todos os conjuntos de uma vez reiniciaria o aprendizado de todas as campanhas
+// juntas. Mesma política do alerta de saúde. O que ele oferece é levar a receita
+// pronta pro editor de público.
+function leituraDePublico(o) {
+  // ⚠️ `reais()` deste arquivo recebe CENTAVOS (a fila inteira fala em centavos).
+  // Aqui os números vêm do Graph em REAIS — passar por ele mostraria R$ 4,30 onde
+  // são R$ 430,14. Formatador próprio, e o nome diz a unidade.
+  const emReais = (v) => v == null ? '—' : 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const L = o.leituraPublico;
+  if (!L) return '';
+  const conta = o.contaNome ? ` — ${esc(o.contaNome)}` : '';
+  const selo = { ajustar: 'gtf-lp--ajustar', manter: 'gtf-lp--manter', 'sem-dados': 'gtf-lp--neutro' }[L.veredito] || 'gtf-lp--neutro';
+
+  const linhas = (L.faixas || []).map((f) => `
+    <tr class="${f.confiavel ? '' : 'gtf-lp-fraca'}">
+      <td>${esc(f.faixa)}</td>
+      <td class="gtf-lp-num">${emReais(f.gasto)}</td>
+      <td class="gtf-lp-num">${Number(f.resultados || 0).toLocaleString('pt-BR')}</td>
+      <td class="gtf-lp-num">${emReais(f.custo)}</td>
+      <td>${f.confiavel ? '' : 'poucos dados'}</td>
+    </tr>`).join('');
+
+  const receita = L.receita ? `
+    <div class="gtf-lp-receita">
+      <b>Se virar público novo:</b> idade de ${L.receita.idadeMin} a ${L.receita.idadeMax} anos${
+        L.receita.cidades.length ? `, ${L.receita.cidades.length} cidade${L.receita.cidades.length > 1 ? 's' : ''}` : ''}${
+        L.receita.interesses.length ? ` e ${L.receita.interesses.length} interesse${L.receita.interesses.length > 1 ? 's' : ''}` : ''}.
+      ${L.receita.porqueDosConjuntos ? `<span class="gtf-lp-porque">${esc(L.receita.porqueDosConjuntos)}</span>` : ''}
+      <button class="gtf-btn gtf-lp-usar" type="button">Usar este público numa campanha nova</button>
+    </div>` : '';
+
+  return `
+    <section class="gtf-lp ${selo}">
+      <div class="gtf-lp-cab">
+        <h3 class="gtf-lp-tit">Leitura de público${conta}</h3>
+        <span class="gtf-lp-janela">últimos 90 dias${L.contando ? ` · contando ${esc(L.contando)}` : ''}</span>
+      </div>
+      <p class="gtf-lp-titulo2">${esc(L.titulo)}</p>
+      <p class="gtf-lp-frase">${esc(L.frase)}</p>
+      ${L.fraseDoDinheiro ? `<p class="gtf-lp-dinheiro">${esc(L.fraseDoDinheiro)}</p>` : ''}
+      ${L.alerta ? `<p class="gtf-lp-alerta">${esc(L.alerta)}</p>` : ''}
+      ${linhas ? `<table class="gtf-lp-tabela"><thead><tr><th>Idade</th><th class="gtf-lp-num">Gasto</th><th class="gtf-lp-num">Resultados</th><th class="gtf-lp-num">Custo</th><th></th></tr></thead><tbody>${linhas}</tbody></table>` : ''}
+      ${receita}
+      <p class="gtf-lp-nota">Esta leitura não muda nada sozinha: mexer na idade de todos os conjuntos de uma vez reiniciaria o aprendizado de todas as campanhas juntas.</p>
+    </section>`;
+}
+
 export function montarPainelFila(alvo, opcoes) {
   const o = opcoes || {};
   const agoraMs = Date.parse(o.agora || '') || Date.now();
@@ -299,6 +353,8 @@ export function montarPainelFila(alvo, opcoes) {
   const avisoOutras = totalFora
     ? `<div class="gtf-outras">Mais ${totalFora} em ${[...noutrasContas.entries()].map(([id, n]) => `<b>${esc(nomeDaConta(id))}</b> (${n})`).join(', ')} — troque a conta lá em cima para ver.</div>`
     : '';
+
+  const blocoPublico = leituraDePublico(o);
 
   // "Não carregou" e "está vazio" NÃO são a mesma coisa. Dizer "nada esperando
   // decisão" quando a leitura ainda não terminou é afirmar que não há o que
@@ -339,6 +395,7 @@ export function montarPainelFila(alvo, opcoes) {
       </details>` : ''}
     ${silenciadas.length ? `
       <div class="gtf-silenciadas">${silenciadas.length} sugest${silenciadas.length > 1 ? 'ões recusadas voltam' : 'ão recusada volta'} a aparecer se a situação continuar.</div>` : ''}
+    ${blocoPublico}
   `;
 
   if (!editavel) return;
@@ -379,5 +436,16 @@ export function montarPainelFila(alvo, opcoes) {
         o.aoVerCriativo(item, lp.dataset.gtfLupa, lp.dataset.gtfLupaNome || '');
       });
     }
+  }
+
+  // O FAROL. Fora do laço das linhas: ele não pertence a item nenhum — é a
+  // leitura da conta. Fica ligado mesmo sem permissão de editar, porque abrir o
+  // formulário de campanha nova não muda nada sozinho.
+  // `querySelectorAll` e não `querySelector`: o contrato deste painel com quem o
+  // chama é innerHTML + querySelectorAll (está escrito no topo do teste). Alargar
+  // o contrato por um botão faria o teste precisar de um DOM de verdade.
+  for (const usar of alvo.querySelectorAll('.gtf-lp-usar')) {
+    if (!o.aoUsarPublico) break;
+    usar.addEventListener('click', () => o.aoUsarPublico());
   }
 }

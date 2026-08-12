@@ -180,7 +180,7 @@ import { lerSalvos } from './publicos-salvos.js'
 // Sugerir público a partir do que JÁ ACONTECEU nesta conta. A evidência (idade
 // por custo, cidades e interesses dos conjuntos que performam) mora em
 // sugerir-publico.js, puro e testado com os números reais da conta.
-import { lerFaixasDeIdade, lerConjuntos, montarSugestao, escolherAcao, contadorDe } from './sugerir-publico.js'
+import { lerFaixasDeIdade, lerConjuntos, montarSugestao, escolherAcao, contadorDe, recomendarIdade } from './sugerir-publico.js'
 // A leitura das publicações do perfil (tipo, engajamento, miniatura) — puro.
 import { lerPublicacoes } from './conteudo-existente.js'
 // Os textos que já rodaram, agrupados e com a armadilha das vagas separada —
@@ -201,6 +201,9 @@ import { montarPainelRegua } from './painel-regua.js'
 import { montarPainelFila } from './painel-fila.js'
 import { resumoDoRobo, fraseDaFilaVazia } from './fila.js'
 import { limparPersona, resumoPersona, fraseDaPersona, MAXIMO as PERSONA_MAXIMO } from './persona-da-marca.js'
+import { tipoDoArquivo, textoDoDocx, pareceTexto } from './ler-arquivo-de-texto.js'
+import { montarLeituraDePublico, publicoDaReceita } from './leitura-de-publico.js'
+import { PUBLICO_VAZIO } from './publico-alvo.js'
 // A LISTA do histórico de campanhas começadas por aqui. As regras de leitura
 // moram em rascunhos.js; este só desenha (e escapa tudo que vem de fora).
 import { montarPainelHistorico, marcarQuemPodeApagar } from './painel-historico.js'
@@ -840,6 +843,9 @@ let _gtFilaCarregou = false;
 // precisa delas pra dizer "analisei 2 e nas duas o conselho foi manter" —
 // 'manter' e exatamente o que montarFila descarta.
 let _gtAnalisesCruas = [];
+// A leitura de publico da conta ABERTA (90 dias). Fora da lista de decisoes:
+// aparece mesmo quando o veredito e 'manter', e o contador da aba conta DECISOES.
+let _gtLeituraPublico = null;
 
 // Busca as campanhas e os conjuntos SÓ das contas que têm pendência. Sem este
 // recorte seriam duas chamadas por conta em toda abertura da aba, quatro delas
@@ -1037,6 +1043,8 @@ async function _gtCarregarFila() {
     // Marca o conflito: robô manda escalar numa campanha que está queimando a
     // audiência. É o motivo de as duas leituras andarem juntas.
     for (const item of _gtFila.pendentes) item.conflito = contradiz(item.saude, item.veredito);
+    // A leitura de publico vem depois da fila e NAO a bloqueia: e acessorio.
+    await _gtCarregarLeituraPublico();
     _gtFilaCarregou = true;
   } finally {
     _gtFilaCarregando = false;
@@ -1054,6 +1062,110 @@ function _gtPintarContadorFila() {
   el.textContent = String(n);
   // Enquanto não carregou, esconde: um "0" ali afirmaria que não há pendência.
   el.hidden = n === 0 || !_gtFilaCarregou;
+}
+
+// A LEITURA DE PUBLICO DA CONTA ABERTA (90 dias, por faixa de idade).
+//
+// UMA chamada por conta, e so da conta que esta na tela -- a fila ja faz quatro
+// por conta, e varrer as cinco aqui triplicaria isso pra mostrar uma leitura so.
+//
+// A JANELA E DIFERENTE do resto da fila (90 dias contra 30) porque faixa de idade
+// e dado ralo: medido em 12/08/2026, com 30 dias a maioria das faixas nao chega
+// aos 10 resultados que a recomendacao exige. A tela DIZ a janela, senao os
+// numeros pareceriam brigar com os do cartao da campanha.
+async function _gtCarregarLeituraPublico() {
+  _gtLeituraPublico = null;
+  const conta = _gtCurAcc;
+  if (!conta || !conta.ad_account_id) return;
+  try {
+    const acc = _maCleanAccId(conta.ad_account_id);
+    const ate = new Date();
+    const de = new Date(Date.now() - 90 * 86400000);
+    const iso = (d) => d.toISOString().slice(0, 10);
+    const linhas = await metaFetchAll(`/act_${acc}/insights`, {
+      level: 'account', fields: 'spend,actions', breakdowns: 'age',
+      time_range: JSON.stringify({ since: iso(de), until: iso(ate) }),
+    }, conta.id);
+    const rotulo = escolherAcao(linhas || []);
+    const faixas = lerFaixasDeIdade(linhas || [], contadorDe(rotulo));
+    _gtLeituraPublico = montarLeituraDePublico({
+      faixas, recomendacao: recomendarIdade(faixas), contando: rotulo,
+    });
+  } catch (e) {
+    // Leitura e acessorio: se a Meta recusar, a fila continua funcionando. Mas o
+    // erro vai pro console -- sumir com ele faria a leitura "nunca aparecer" sem
+    // ninguem saber por que.
+    console.warn('[GT] não consegui ler o público da conta:', e);
+    _gtLeituraPublico = null;
+  }
+}
+
+// O FAROL: leva a receita pro editor de publico de uma campanha NOVA.
+// Nao escreve na Meta -- abre o passo "Para quem" ja preenchido, e quem publica
+// continua sendo o dono, pelo caminho normal.
+async function _gtUsarPublicoDaLeitura() {
+  const L = _gtLeituraPublico;
+  if (!L || !L.receita) return;
+  // Abre o fluxo normal de campanha nova e SEMEIA o passo "Para quem". Deixar
+  // `_gtNovoAbrir` fazer o trabalho evita uma segunda porta de entrada pro mesmo
+  // formulario -- duas portas divergem, e uma delas some do teste.
+  await _gtNovoAbrir();
+  if (!_gtNovo) return;   // sem conta selecionada, _gtNovoAbrir ja avisou
+  _gtNovo.publico = publicoDaReceita(L.receita, PUBLICO_VAZIO);
+  // Vai direto pro passo do publico pra pessoa VER o que foi preenchido, em vez
+  // de descobrir tres telas adiante.
+  const iPublico = PASSOS.findIndex((x) => x.chave === 'publico');
+  if (iPublico >= 0) _gtNovoPasso = iPublico;
+  _gtNovoRedesenhar();
+}
+
+// LE UM ARQUIVO SOLTO NO CAMPO DA PERSONA e devolve o texto.
+//
+// DOIS CAMINHOS, e a diferenca importa: .docx/.txt/.md sao lidos AQUI, no
+// navegador, sem dependencia e sem custo. O .pdf vai pra IA no servidor, porque
+// extrair texto de PDF exige lidar com a codificacao de fonte de cada arquivo --
+// a extracao ingenua devolveu tabela de fonte no PDF real da curadoria da Vessel,
+// e um extrator que acerta as vezes enche o campo de lixo em silencio.
+//
+// Devolve TEXTO. Nao grava nada: quem grava e o botao Salvar, depois de a pessoa
+// conferir o que entrou no campo.
+async function _gtLerArquivoDePersona(arquivo) {
+  const tipo = tipoDoArquivo(arquivo.name);
+  if (tipo === 'nao-suportado') throw new Error(`Nao sei ler "${arquivo.name}". Use .docx, .pdf, .txt ou .md.`);
+  if (tipo === 'doc-antigo') throw new Error('O .doc antigo nao abre aqui. Abra no Word e salve como .docx (ou como PDF).');
+
+  if (tipo === 'texto') {
+    const t = await arquivo.text();
+    if (!pareceTexto(t)) throw new Error('Este arquivo nao parece ter texto legivel.');
+    return t;
+  }
+
+  if (tipo === 'docx') {
+    const t = await textoDoDocx(await arquivo.arrayBuffer());
+    if (!pareceTexto(t)) throw new Error('Nao consegui achar texto neste .docx.');
+    return t;
+  }
+
+  // PDF: vai pra IA. Custa alguns centavos por arquivo -- e acao rara, mas a tela
+  // avisa que demora, senao parece travada.
+  const bytes = new Uint8Array(await arquivo.arrayBuffer());
+  let bin = '';
+  // Em pedacos: `String.fromCharCode(...arr)` com um arquivo inteiro estoura a
+  // pilha de argumentos e quebra num PDF grande.
+  for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode(...bytes.subarray(i, i + 8192));
+  const base64 = btoa(bin);
+
+  const { data: { session } } = await sbClient.auth.getSession();
+  if (!session) throw new Error('Sessao expirada. Recarregue a pagina.');
+  const r = await fetch(SUPABASE_URL + '/functions/v1/ler-documento', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + session.access_token, apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ base64, limite: PERSONA_MAXIMO }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || !d.ok) throw new Error(d.detalhe || d.error || `Nao consegui ler o PDF (HTTP ${r.status}).`);
+  if (!pareceTexto(d.texto)) throw new Error('A leitura do PDF nao devolveu texto legivel.');
+  return d.texto;
 }
 
 // Grava a PERSONA da conta aberta.
@@ -2397,6 +2509,8 @@ function _gtTrocarAba(nome) {
       contaNome: (_gtCurAcc && (_gtCurAcc.display_name || _gtCurAcc.name)) || '',
       agora: new Date().toISOString(),
       carregou: _gtFilaCarregou,
+      leituraPublico: _gtLeituraPublico,
+      aoUsarPublico: _gtUsarPublicoDaLeitura,
       // A fila vazia se explica: o que o robo fez NESTA conta.
       explicacaoVazia: fraseDaFilaVazia(resumoDoRobo(_gtAnalisesCruas, (_gtCurAcc && _gtCurAcc.id) || null)),
       // Mesmo critério da régua e do RLS da tabela: decidir na fila é ação de
@@ -2444,6 +2558,7 @@ function _gtTrocarAba(nome) {
       // regua logo acima ja avisa pra nao cometer.
       personaEditavel: estado.role === 'admin',
       aoSalvarPersona: _gtSalvarPersona,
+      aoLerArquivo: _gtLerArquivoDePersona,
       // O card de abertura é longo e explica a aba inteira. Quem já leu não quer
       // rolar por ele toda vez — mas o painel remonta a cada troca de conta e a
       // cada save, então a escolha precisa morar fora dele. Mesmo lugar onde o
@@ -5291,6 +5406,33 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gtf-extra summary:hover){color:var(--text);}
 .tela-gestao-trafego :deep(.gtf-extra-nota){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);line-height:1.55;margin:0 0 11px;}
 .tela-gestao-trafego :deep(.gtf-silenciadas){margin-top:14px;font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);}
+/* LEITURA DE PÚBLICO — o farol. Fica DEPOIS da lista e com moldura própria: não
+   é uma decisão esperando, é uma leitura da conta. A borda esquerda diz o
+   veredito (verde = manter, âmbar = vale ajustar, neutro = sem dados). */
+.tela-gestao-trafego :deep(.gtf-lp){margin-top:22px;padding:16px 18px;border:1px solid var(--border);border-left:3px solid var(--muted);border-radius:10px;background:var(--surface);font-family:var(--fonte-principal);}
+.tela-gestao-trafego :deep(.gtf-lp--ajustar){border-left-color:var(--yellow);}
+.tela-gestao-trafego :deep(.gtf-lp--manter){border-left-color:var(--green);}
+.tela-gestao-trafego :deep(.gtf-lp-cab){display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;justify-content:space-between;}
+.tela-gestao-trafego :deep(.gtf-lp-tit){margin:0;font-size:calc(12px*var(--gt-fs,1.3));color:var(--text);font-weight:700;}
+.tela-gestao-trafego :deep(.gtf-lp-janela){font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);}
+.tela-gestao-trafego :deep(.gtf-lp-titulo2){margin:10px 0 4px;font-size:calc(11px*var(--gt-fs,1.3));color:var(--text);font-weight:600;}
+.tela-gestao-trafego :deep(.gtf-lp-frase){margin:0;font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);line-height:1.55;}
+.tela-gestao-trafego :deep(.gtf-lp-dinheiro){margin:8px 0 0;font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--text);font-weight:600;}
+.tela-gestao-trafego :deep(.gtf-lp-alerta){margin:10px 0 0;padding:9px 11px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);font-size:calc(10px*var(--gt-fs,1.3));color:var(--text);line-height:1.55;}
+.tela-gestao-trafego :deep(.gtf-lp-tabela){width:100%;margin-top:12px;border-collapse:collapse;font-size:calc(9.5px*var(--gt-fs,1.3));}
+.tela-gestao-trafego :deep(.gtf-lp-tabela th){text-align:left;padding:5px 8px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border);}
+.tela-gestao-trafego :deep(.gtf-lp-tabela td){padding:5px 8px;color:var(--text);border-bottom:1px solid var(--border);}
+/* nowrap: a 375px o "R$" quebrava do número ("R$" numa linha, "1.409,37" na outra). */
+.tela-gestao-trafego :deep(.gtf-lp-num){text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.tela-gestao-trafego :deep(.gtf-lp-fraca td){color:var(--muted);}
+.tela-gestao-trafego :deep(.gtf-lp-receita){margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);font-size:calc(10px*var(--gt-fs,1.3));color:var(--text);line-height:1.55;}
+.tela-gestao-trafego :deep(.gtf-lp-porque){display:block;margin-top:4px;color:var(--muted);}
+.tela-gestao-trafego :deep(.gtf-lp-usar){margin-top:10px;min-height:40px;}
+.tela-gestao-trafego :deep(.gtf-lp-nota){margin:12px 0 0;font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;}
+@media(max-width:640px){
+  .tela-gestao-trafego :deep(.gtf-lp){padding:12px 13px;}
+  .tela-gestao-trafego :deep(.gtf-lp-tabela){display:block;overflow-x:auto;}
+}
 /* No celular a linha vira duas: identificacao em cima, valores e botoes embaixo. */
 @media (max-width:720px){
   .tela-gestao-trafego :deep(.gtf-linha){flex-wrap:wrap;gap:9px;}
@@ -5376,6 +5518,16 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.pnd-persona-campo:disabled){opacity:.65;cursor:not-allowed;}
 .tela-gestao-trafego :deep(.pnd-persona-conta){margin:6px 0 0;font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);}
 .tela-gestao-trafego :deep(.pnd-persona-conta--estourou){color:var(--red);font-weight:600;}
+/* TRAZER DE UM ARQUIVO. O <label> é o botão de verdade — o <input type=file> fica
+   escondido porque o botão nativo não aceita estilo e escreve em inglês. 40px de
+   altura é alvo de toque (PADRÃO item 6). */
+/* flex-wrap: a 375px o status não cabe ao lado do botão e quebrava no meio da
+   frase ("Trouxe 3681 / caracteres."). Assim ele desce inteiro pra própria linha. */
+.tela-gestao-trafego :deep(.pnd-persona-arquivo){margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;}
+.tela-gestao-trafego :deep(.pnd-persona-arquivo>p){flex:1 1 100%;}
+.tela-gestao-trafego :deep(.pnd-persona-botao){display:inline-flex;align-items:center;min-height:40px;padding:0 18px;border:1px solid var(--border);border-radius:22px;background:var(--surface2);color:var(--text);font-family:var(--fonte-principal);font-size:calc(10.5px*var(--gt-fs,1.3));font-weight:600;cursor:pointer;}
+.tela-gestao-trafego :deep(.pnd-persona-botao:hover){border-color:var(--accent);color:var(--accent);}
+.tela-gestao-trafego :deep(.pnd-persona-status){font-family:var(--fonte-principal);font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);}
 /* min-height 40px: MEDIDO em 12/08/2026, o botão saía com 37px — abaixo do alvo
    de toque do PADRÃO (item 6). Era assim antes deste bloco existir, no "Salvar a
    régua"; como a persona soma um segundo botão da mesma classe, o conserto vai na

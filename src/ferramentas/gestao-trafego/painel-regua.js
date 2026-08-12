@@ -137,8 +137,14 @@ function blocoPersona(o) {
       placeholder="Ex.: Mulher de 30 a 55 anos, classe média, que compra bolsa de couro para usar no trabalho e em viagem. Valoriza durabilidade e acabamento, não moda passageira. NÃO é público teen nem de bolsa de festa barata.">${esc(texto)}</textarea>
     <p class="pnd-persona-conta" id="pnd-persona-conta">${r.caracteres} de ${PERSONA_MAXIMO} caracteres</p>
     <p class="pnd-ajuda" id="pnd-persona-frase">${esc(fraseDaPersona(texto, nome))}</p>
-    ${editavel
-      ? '<button class="pnd-salvar" id="pnd-persona-salvar">Salvar a persona</button>'
+    ${editavel ? `
+      <div class="pnd-persona-arquivo">
+        <label class="pnd-persona-botao" for="pnd-persona-upload">Trazer de um arquivo…</label>
+        <input type="file" id="pnd-persona-upload" accept=".txt,.md,.docx,.pdf" hidden>
+        <span class="pnd-persona-status" id="pnd-persona-status"></span>
+        <p class="pnd-ajuda" style="margin:6px 0 0">Vale .docx (Word), .txt e .md — esses são lidos aqui mesmo, na hora. O .pdf é lido pela IA no servidor e leva alguns segundos. <b>O texto entra no campo acima para você conferir e ajustar; nada é salvo até você clicar em Salvar.</b></p>
+      </div>
+      <button class="pnd-salvar" id="pnd-persona-salvar">Salvar a persona</button>`
       : '<p class="pnd-nota">Só quem é administrador pode editar a persona.</p>'}
   </div>`;
 }
@@ -530,6 +536,31 @@ export function montarPainelRegua(alvo, opcoes) {
     campo.addEventListener('input', repintar);
     const bp = document.getElementById('pnd-persona-salvar');
     if (bp) bp.addEventListener('click', () => o.aoSalvarPersona && o.aoSalvarPersona(limparPersona(campo.value), bp));
+
+    // TRAZER DE UM ARQUIVO. O texto cai NO CAMPO, não no banco: a pessoa confere e
+    // ajusta antes de salvar. Encher o banco direto de um arquivo que ninguém leu
+    // seria gravar o que a extração inventou.
+    const upload = document.getElementById('pnd-persona-upload');
+    const status = document.getElementById('pnd-persona-status');
+    if (upload && o.aoLerArquivo) {
+      upload.addEventListener('change', async () => {
+        const arquivo = upload.files && upload.files[0];
+        if (!arquivo) return;
+        if (status) status.textContent = 'Lendo…';
+        try {
+          const lido = await o.aoLerArquivo(arquivo);
+          campo.value = lido;
+          repintar();
+          if (status) status.textContent = `Trouxe ${lido.length} caracteres. Confira e clique em Salvar.`;
+        } catch (e) {
+          if (status) status.textContent = String((e && e.message) || e);
+        } finally {
+          // Zera o input: sem isto, escolher O MESMO arquivo de novo não dispara
+          // `change`, e a pessoa acha que a tela travou.
+          upload.value = '';
+        }
+      });
+    }
   }
   atualizarTela();
 }
