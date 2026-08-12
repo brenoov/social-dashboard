@@ -203,6 +203,7 @@ import { resumoDoRobo, fraseDaFilaVazia } from './fila.js'
 import { limparPersona, resumoPersona, fraseDaPersona, MAXIMO as PERSONA_MAXIMO } from './persona-da-marca.js'
 import { tipoDoArquivo, textoDoDocx, pareceTexto } from './ler-arquivo-de-texto.js'
 import { montarMapa } from './painel-do-mapa.js'
+import { agruparProblemas, fraseDosProblemas } from './problemas-do-anuncio.js'
 import { montarLeituraDePublico, publicoDaReceita } from './leitura-de-publico.js'
 import { PUBLICO_VAZIO } from './publico-alvo.js'
 // A LISTA do histórico de campanhas começadas por aqui. As regras de leitura
@@ -847,6 +848,8 @@ let _gtAnalisesCruas = [];
 // A leitura de publico da conta ABERTA (90 dias). Fora da lista de decisoes:
 // aparece mesmo quando o veredito e 'manter', e o contador da aba conta DECISOES.
 let _gtLeituraPublico = null;
+// O que a Meta reclama, agrupado por PROBLEMA (nao por anuncio).
+let _gtProblemasDaMeta = [];
 
 // Busca as campanhas e os conjuntos SÓ das contas que têm pendência. Sem este
 // recorte seriam duas chamadas por conta em toda abertura da aba, quatro delas
@@ -872,7 +875,9 @@ async function _gtFilaBuscarNomes() {
       metaFetchAll(`/act_${acc}/insights`, { level: 'campaign', fields: 'campaign_id,spend,impressions,ctr,frequency,clicks,cpc,reach,actions,video_play_actions', date_preset: 'last_30d' }, conta.id).catch(() => []),
       // Anúncios: o robô diz quais criativos não engatam (gt_ad_analises) e a
       // fila mostra a lista dentro da campanha. Só os ATIVOS interessam.
-      metaFetchAll(`/act_${acc}/ads`, { fields: 'id,name,campaign_id,effective_status' }, conta.id).catch(() => []),
+      // `issues_info` e o que a Meta reclama do anuncio -- e o MESMO campo onde
+      // uma recusa por politica apareceria (item 3 da lista do dono).
+      metaFetchAll(`/act_${acc}/ads`, { fields: 'id,name,campaign_id,effective_status,issues_info' }, conta.id).catch(() => []),
     ]);
     const insPorCamp = {};
     for (const i of ins || []) insPorCamp[String(i.campaign_id)] = i;
@@ -1022,6 +1027,23 @@ async function _gtCarregarFila() {
     ]);
     const porAd = {};
     for (const a of adAnalises || []) if (a && a.ad_id) porAd[String(a.ad_id)] = a;
+
+    // O QUE A META RECLAMA. Varre TODAS as campanhas, nao so as que estao na
+    // fila: um conjunto que a Meta pausou sozinha nao aparece em lugar nenhum
+    // -- foi o caso dos 5 da Raissa, medidos em 12/08/2026.
+    const comProblema = [];
+    for (const [, info] of mapa) {
+      for (const ad of info.anuncios || []) {
+        if (!Array.isArray(ad.issues_info) || !ad.issues_info.length) continue;
+        comProblema.push({
+          id: ad.id, nome: ad.name || ad.id,
+          conta_nome: info.conta.display_name || info.conta.name || '',
+          campanha_nome: info.campanha.name || '',
+          issues_info: ad.issues_info,
+        });
+      }
+    }
+    _gtProblemasDaMeta = agruparProblemas(comProblema);
     const criativos = [];
     for (const [id, info] of mapa) {
       if (!emVeiculacao(info.campanha, agoraMs)) continue;
@@ -2511,6 +2533,8 @@ function _gtTrocarAba(nome) {
       agora: new Date().toISOString(),
       carregou: _gtFilaCarregou,
       leituraPublico: _gtLeituraPublico,
+      problemas: _gtProblemasDaMeta,
+      fraseProblemas: fraseDosProblemas(_gtProblemasDaMeta),
       aoUsarPublico: _gtUsarPublicoDaLeitura,
       // A fila vazia se explica: o que o robo fez NESTA conta.
       explicacaoVazia: fraseDaFilaVazia(resumoDoRobo(_gtAnalisesCruas, (_gtCurAcc && _gtCurAcc.id) || null)),
@@ -5471,6 +5495,23 @@ Object.assign(window, {
 .tela-gestao-trafego :deep(.gtf-extra summary:hover){color:var(--text);}
 .tela-gestao-trafego :deep(.gtf-extra-nota){font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);line-height:1.55;margin:0 0 11px;}
 .tela-gestao-trafego :deep(.gtf-silenciadas){margin-top:14px;font-family:var(--fonte-principal);font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);}
+/* O QUE A META RECLAMA. Vermelho na borda quando IMPEDE de rodar, âmbar quando
+   só limita — a cor é a diferença entre "consertar hoje" e "consertar depois". */
+.tela-gestao-trafego :deep(.gtf-pb){margin-top:22px;padding:16px 18px;border:1px solid var(--border);border-radius:10px;background:var(--surface);font-family:var(--fonte-principal);}
+.tela-gestao-trafego :deep(.gtf-pb-h){margin:0;font-size:calc(12px*var(--gt-fs,1.3));color:var(--text);font-weight:700;}
+.tela-gestao-trafego :deep(.gtf-pb-frase){margin:6px 0 0;font-size:calc(10px*var(--gt-fs,1.3));color:var(--muted);line-height:1.55;}
+.tela-gestao-trafego :deep(.gtf-pb-lista){list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:10px;}
+.tela-gestao-trafego :deep(.gtf-pb-item){padding:10px 12px;border:1px solid var(--border);border-left:3px solid var(--muted);border-radius:8px;background:var(--surface2);}
+.tela-gestao-trafego :deep(.gtf-pb--grave){border-left-color:var(--red);}
+.tela-gestao-trafego :deep(.gtf-pb--leve){border-left-color:var(--yellow);}
+.tela-gestao-trafego :deep(.gtf-pb-cab){display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px;}
+.tela-gestao-trafego :deep(.gtf-pb-tit){font-size:calc(10.5px*var(--gt-fs,1.3));color:var(--text);font-weight:600;}
+.tela-gestao-trafego :deep(.gtf-pb-selo){font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);}
+.tela-gestao-trafego :deep(.gtf-pb-quantos){margin-left:auto;font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);white-space:nowrap;}
+.tela-gestao-trafego :deep(.gtf-pb-det){margin:6px 0 0;font-size:calc(9.5px*var(--gt-fs,1.3));color:var(--muted);line-height:1.55;}
+.tela-gestao-trafego :deep(.gtf-pb-fazer){margin:6px 0 0;font-size:calc(10px*var(--gt-fs,1.3));color:var(--text);line-height:1.55;}
+.tela-gestao-trafego :deep(.gtf-pb-onde){margin:6px 0 0;font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;overflow-wrap:anywhere;}
+.tela-gestao-trafego :deep(.gtf-pb-nota){margin:12px 0 0;font-size:calc(9px*var(--gt-fs,1.3));color:var(--muted);line-height:1.5;}
 /* LEITURA DE PÚBLICO — o farol. Fica DEPOIS da lista e com moldura própria: não
    é uma decisão esperando, é uma leitura da conta. A borda esquerda diz o
    veredito (verde = manter, âmbar = vale ajustar, neutro = sem dados). */
