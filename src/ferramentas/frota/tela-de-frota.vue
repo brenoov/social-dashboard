@@ -2175,28 +2175,46 @@ onMounted(async () => {
             </span>
           </div>
 
-          <h3 class="fr-grupo" data-tour="veic-contato">Contato</h3>
+          <!-- Contato e Oficina eram duas seções pedindo a mesma coisa (nome
+               + telefone de quem cuida do carro) com o mesmo exemplo — o dono
+               apontou como "praticamente a mesma coisa" (D32). Viram uma só,
+               mas os cinco campos continuam batendo 1:1 com CAMPOS_VEICULO;
+               só o agrupamento e os rótulos mudaram. -->
+          <h3 class="fr-grupo" data-tour="veic-contato">Quem cuida deste carro</h3>
           <div class="fr-dupla">
-            <label class="fr-campo">
-              <span class="fr-lab">Quem é</span>
-              <input v-model="vForm.contato_nome" type="text">
+            <label class="fr-campo" data-tour="veic-oficina">
+              <span class="fr-lab">Oficina</span>
+              <input v-model="vForm.oficina_nome" type="text">
               <span class="fr-ajuda">Ex.: JHM Auto Center</span>
             </label>
             <label class="fr-campo">
-              <span class="fr-lab">O que faz</span>
-              <input v-model="vForm.contato_papel" type="text">
-              <span class="fr-ajuda">Ex.: Oficina, locadora, seguro, guincho</span>
-            </label>
-            <label class="fr-campo">
-              <span class="fr-lab">Telefone</span>
-              <input v-model="vForm.contato_telefone" type="tel" inputmode="tel">
-              <span class="fr-ajuda">Ex.: (19) 3033-9837</span>
+              <span class="fr-lab">Telefone da oficina</span>
+              <input v-model="vForm.oficina_telefone" type="tel" inputmode="tel">
               <!-- Diz POR QUE não dá link, em vez de só não mostrar o botão: sem
                    DDD o app se recusa a montar o link, e a pessoa precisa saber
                    que é isso — não que o WhatsApp "não funciona". -->
+              <span class="fr-ajuda" v-if="vForm.oficina_telefone && !linkDoWhatsapp(vForm.oficina_telefone)">
+                {{ porQueNaoDaLink(vForm.oficina_telefone) }}
+              </span>
+              <span class="fr-ajuda" v-else>Ex.: (19) 3033-9837</span>
+            </label>
+            <label class="fr-campo">
+              <span class="fr-lab">Outro contato</span>
+              <input v-model="vForm.contato_nome" type="text">
+              <span class="fr-ajuda">Locadora, seguro, guincho — quem mais resolve coisa deste carro.</span>
+            </label>
+            <label class="fr-campo">
+              <span class="fr-lab">Telefone do outro contato</span>
+              <input v-model="vForm.contato_telefone" type="tel" inputmode="tel">
               <span class="fr-ajuda" v-if="vForm.contato_telefone && !linkDoWhatsapp(vForm.contato_telefone)">
                 {{ porQueNaoDaLink(vForm.contato_telefone) }}
               </span>
+              <span class="fr-ajuda" v-else>Ex.: (19) 3033-9837</span>
+            </label>
+            <label class="fr-campo">
+              <span class="fr-lab">O que esse outro contato faz</span>
+              <input v-model="vForm.contato_papel" type="text">
+              <span class="fr-ajuda">Ex.: locadora, seguro, guincho</span>
             </label>
           </div>
 
@@ -2218,23 +2236,6 @@ onMounted(async () => {
             <label class="fr-campo"><span class="fr-lab">Apólice</span><input v-model="vForm.seguro_apolice" type="text"></label>
             <label class="fr-campo"><span class="fr-lab">Vence em</span><input v-model="vForm.seguro_vence_em" type="date"></label>
             <label class="fr-campo"><span class="fr-lab">Valor (R$)</span><input v-model="vForm.seguroValor" type="text" inputmode="decimal"></label>
-          </div>
-
-          <h3 class="fr-grupo" data-tour="veic-oficina">Oficina</h3>
-          <div class="fr-dupla">
-            <label class="fr-campo">
-              <span class="fr-lab">Mecânica</span>
-              <input v-model="vForm.oficina_nome" type="text">
-              <span class="fr-ajuda">Ex.: JHM Auto Center</span>
-            </label>
-            <label class="fr-campo">
-              <span class="fr-lab">Telefone da oficina</span>
-              <input v-model="vForm.oficina_telefone" type="tel" inputmode="tel">
-              <span class="fr-ajuda">Ex.: (19) 3033-9837</span>
-              <span class="fr-ajuda" v-if="vForm.oficina_telefone && !linkDoWhatsapp(vForm.oficina_telefone)">
-                {{ porQueNaoDaLink(vForm.oficina_telefone) }}
-              </span>
-            </label>
           </div>
 
           <h3 class="fr-grupo">Equipamentos e patrimônio</h3>

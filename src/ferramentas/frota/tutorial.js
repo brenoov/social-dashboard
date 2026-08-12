@@ -122,10 +122,11 @@ export const PASSOS_VEICULO = [
   },
   {
     selector: '[data-tour="veic-contato"]',
-    titulo: 'Contato',
-    texto: 'Um telefone de quem resolve as coisas deste carro. Pode ser o próprio '
-      + 'responsável ou outra pessoa — se for outra, diga o nome dela aqui, porque o '
-      + 'sistema usa esse número para cobrar o checklist e precisa saber de quem é.',
+    titulo: 'Quem cuida deste carro',
+    texto: 'Dois telefones aqui: o da oficina e o de "outro contato" — locadora, seguro, '
+      + 'guincho, ou quem mais resolve as coisas deste carro quando não é o motorista. Se '
+      + 'preencher o outro contato, diga o nome de quem é, porque o sistema pode usar esse '
+      + 'número para cobrar o checklist e precisa saber de quem é o telefone.',
   },
   {
     selector: '[data-tour="veic-oficina"]',
