@@ -72,6 +72,40 @@ Preencher **na ficha, na mão** — decisão do dono: nada de migration mexendo 
 > RB Builders, RBV Company) é outro campo, e é esse que está vazio. Isso já
 > confundiu uma vez.
 
+### A3b · Decidir quem é super-admin — **duas definições que não batem** 🔴
+Achado em 12/08/2026, e é a causa de o Perfis de Acesso recusar gravação.
+
+Existem **duas listas de super-admin** neste sistema, e elas divergem:
+
+| Onde | O que é | Quem está |
+|---|---|---|
+| A **tela** | coluna `is_superadmin` no cadastro | erick@ · **breno@** · gabriel.gertrudes@ |
+| O **banco** | função com lista fixa de e-mails | erick@ · gabriel.gertrudes@ |
+
+**Consequência prática:** com o login `breno@`, os botões de perfil **aparecem** e o banco
+**recusa** a gravação. Hoje a tela diz a verdade quando isso acontece ("o banco recusou —
+nada foi alterado"), mas continua sendo uma parede.
+
+Duas saídas, e a escolha é sua porque mexe em segurança:
+- **Pôr `breno@` na lista do banco** — resolve, e é o que a coluna já diz. Precisa de migration.
+- **Tirar `breno@` da coluna** — se ele não deve ser super-admin, a coluna é que está errada.
+
+**Enquanto não decidir, quem consegue criar e mexer em perfil é `erick@` ou
+`gabriel.gertrudes@`.** Ninguém perde acesso por isso; é só quem pode usar a ferramenta nova.
+
+### A3c · Perfis de Acesso › o teste da primeira vez ⚠️ *antes do primeiro perfil de verdade*
+A ferramenta está no ar e **nunca foi usada**. Antes de criar um perfil com gente dentro,
+vale rodar o roteiro — ele prova que a trava funciona:
+
+1. Criar uma conta **descartável** (não use conta de quem trabalha aí).
+2. Criar um perfil de teste e pôr essa conta dentro.
+3. Mexer no perfil e **conferir que a janela nomeia a conta** e diz o que ela ganha ou perde.
+4. **Clicar em Cancelar** e conferir no banco que **nada mudou**. É este passo que prova a trava.
+5. Só então aplicar, e conferir que o acesso mudou e que a exceção sobreviveu.
+6. Desfazer tudo.
+
+Precisa ser feito por `erick@` ou `gabriel.gertrudes@` (ver A3b).
+
 ### A4 · Segurança › ligar MFA e a proteção de senha vazada 🔴 *risco nº 1*
 No painel do Supabase:
 - **Authentication › Password security** → ligar "Leaked password protection" +
