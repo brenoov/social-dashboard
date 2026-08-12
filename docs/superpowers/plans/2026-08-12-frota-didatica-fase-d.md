@@ -390,12 +390,20 @@ No `<script setup>`, junto dos outros computeds:
 
 ```js
 // Qual é o carro fixo de quem está olhando, e se o checklist dele saiu hoje.
-// `aberto` já existe nesta tela e é o cartão do checklist do dia.
+// `aberto` já existe nesta tela: é o cartão do checklist do dia, com `.veiculo`
+// e `.meu`.
+//
+// ⚠️ CONFERIDO NO ARQUIVO, não suposto: `fezChecklistHoje` NÃO EXISTE. Quem
+// sabe se a ficha de hoje saiu é `cobranca` — cada item dela é
+// `{ veiculo, donoId, dono, fez }` (ver `quemFaltaHoje` em
+// `_shared/checklist.js:180`). Usar a fonte que já existe, em vez de inventar
+// uma segunda resposta pra mesma pergunta.
 const meuCarroNome = computed(() => (aberto.value ? aberto.value.veiculo.nome : null))
 const meuChecklistHoje = computed(() => {
   if (!aberto.value) return null
-  return fichaAssinadaHoje(aberto.value.veiculo.id) || fezChecklistHoje(aberto.value.veiculo.id)
-    ? 'feito' : 'falta'
+  const linha = cobranca.value.find((c) => c.veiculo.id === aberto.value.veiculo.id)
+  if (!linha) return null          // não sei — e não sei não vira "falta"
+  return linha.fez ? 'feito' : 'falta'
 })
 
 const botoesMotorista = computed(() => botoesDoMotorista({
@@ -424,10 +432,11 @@ function irPara(acao) {
 }
 ```
 
-⚠️ **Confira os nomes reais antes de escrever**: `fichaAssinadaHoje` e
-`fezChecklistHoje` são usados no quadro de cobrança — abra o arquivo e use os
-nomes que existem. Se a função que diz "esta pessoa já fez hoje" tiver outro
-nome, use o dela e diga qual no relatório.
+**Um comportamento conhecido, pra ninguém tratar como defeito:** `quemFaltaHoje`
+devolve lista VAZIA no fim de semana (`_shared/checklist.js:181` — sábado e
+domingo não pedem checklist). Com `cobranca` vazia, o botão "Conferir
+checklists" fica **sem linha de estado**, e isso está certo: ele não afirma nada
+sobre um dia que não tem checklist. Não "consertar" isso escrevendo "0".
 
 E os imports, junto dos outros da pasta:
 
@@ -445,11 +454,12 @@ Acrescentar `id` — **sem mexer em mais nada dessas linhas**:
 | `<h2 class="fr-secao">Checklist de hoje</h2>` (~1914) | `id="fr-ancora-cobranca"` |
 | `<h2 class="fr-secao">{{ painel.livres.length ? 'Livres para pegar' : … }}` (~1841) | `id="fr-ancora-livres"` |
 | o cartão do checklist do motorista (o bloco `v-if="aberto"`, ~1706) | envolver com `<div id="fr-ancora-checklist">` |
-| a lista de veículos da Gestão | `id="fr-ancora-veiculos"` no `<h2>`/`<div class="fr-lista">` que a abre |
+| a lista de veículos da Gestão | `id="fr-ancora-veiculos"` no `<div class="fr-lista">` que envolve o `v-for="l in linhas"` |
 
-⚠️ A área Gestão **não tem hoje um `<h2>` pra lista de veículos** — ela vem
-depois do quadro de cobrança e dos problemas. Ache onde ela começa e ponha a
-âncora no elemento que a abre. Diga no relatório em qual elemento você pôs.
+**Conferido no arquivo:** a lista de veículos da Gestão não tem `<h2>` nenhum —
+ela é o `<div class="fr-lista">` imediatamente antes do
+`<div v-for="l in linhas" …>`. É nesse `div` que a âncora vai. Cuidado: existem
+VÁRIOS `div.fr-lista` neste arquivo; o certo é o que envolve `v-for="l in linhas"`.
 
 - [ ] **Passo 3: os botões no topo de cada aba**
 
