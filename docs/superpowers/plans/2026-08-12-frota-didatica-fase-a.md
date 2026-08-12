@@ -850,9 +850,12 @@ O `revisoesPorVeiculo` de hoje fica como está, alimentando "Chegando a hora".
  * exatamente a queixa que o B3 conserta. */
 import { ref } from 'vue'
 
+// Só `cartoes`. Nada de `podeEditar` aqui: a sanfona desta fase só MOSTRA, e
+// propriedade declarada sem uso é peso morto que a próxima pessoa tenta
+// adivinhar. O botão "Lançar manutenção" entra na Fase C, e leva a permissão
+// dele junto.
 defineProps({
   cartoes: { type: Array, required: true },
-  podeEditar: { type: Boolean, default: false },
 })
 
 const aberto = ref(null)
@@ -913,7 +916,7 @@ Em `tela-de-frota.vue`, dentro de `<template v-if="area === 'revisoes' …">`,
         Toque no carro para ver os {{ plano.length }} itens do plano — inclusive os que
         estão longe de vencer.
       </p>
-      <SanfonaDeRevisoes :cartoes="revisoesDeTodosOsCarros" :pode-editar="podeEditar" />
+      <SanfonaDeRevisoes :cartoes="revisoesDeTodosOsCarros" />
 ```
 
 E o import, junto dos outros componentes:
