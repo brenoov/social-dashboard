@@ -108,12 +108,12 @@ export function resumoDeRevisoes(itens) {
  * — dois critérios diferentes pra mesma urgência dariam duas respostas.
  */
 export function ordenarCarrosPorUrgencia(cartoes) {
-  const peso = (c) => SITUACOES_REVISAO[c && c.resumo && c.resumo.nivel]?.peso ?? 9
+  const peso = (c) => SITUACOES_REVISAO[c && c.resumo && c.resumo.nivel]?.peso ?? 9;
   return (cartoes || []).slice().sort((a, b) =>
     peso(a) - peso(b)
     // Desempate pelo nome: sem ele a lista dança de posição a cada carregada,
     // e quem procura um carro pelo lugar onde ele estava não acha.
-    || String(a?.linha?.veiculo?.nome || '').localeCompare(String(b?.linha?.veiculo?.nome || '')))
+    || String(a?.linha?.veiculo?.nome || '').localeCompare(String(b?.linha?.veiculo?.nome || '')));
 }
 
 /* ── O editor de limiares ─────────────────────────────────────────────────── */

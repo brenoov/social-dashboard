@@ -68,9 +68,9 @@ const km = (n) => (n == null ? 'sem quilometragem' : `${n.toLocaleString('pt-BR'
 
 .sr-lista{display:flex;flex-direction:column;gap:10px;padding:4px 14px 40px;}
 
-.sr-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--green,#16a34a);border-radius:12px;padding:14px 16px;}
-.sr-card.espera{border-left-color:var(--orange,#d97706);}
-.sr-card.ruimzao{border-left-color:var(--red,#c0392b);}
+.sr-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--green);border-radius:12px;padding:14px 16px;}
+.sr-card.espera{border-left-color:var(--orange);}
+.sr-card.ruimzao{border-left-color:var(--red);}
 /* "Sem quilometragem"/"sem histórico" não é nem bom nem ruim — é não se saber
    nada. Por isso um quarto tom, cinza, e nunca o verde de "em dia": dizer que
    está tudo bem quando não se sabe nada é exatamente a mentira que o D30
@@ -90,16 +90,16 @@ const km = (n) => (n == null ? 'sem quilometragem' : `${n.toLocaleString('pt-BR'
 .sr-placa{font-family:var(--fonte-dados);font-size:11px;letter-spacing:1.5px;color:var(--muted);}
 
 .sr-selo{font-family:var(--fonte-principal);font-size:10px;font-weight:700;letter-spacing:.4px;padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--text);white-space:nowrap;}
-.sr-selo.espera{background:color-mix(in srgb,var(--orange,#d97706) 18%,transparent);color:var(--orange,#d97706);}
-.sr-selo.boa{background:color-mix(in srgb,var(--green,#16a34a) 18%,transparent);color:var(--green,#16a34a);}
-.sr-selo.ruim{background:color-mix(in srgb,var(--red,#c0392b) 16%,transparent);color:var(--red,#c0392b);}
+.sr-selo.espera{background:color-mix(in srgb,var(--orange) 18%,transparent);color:var(--orange);}
+.sr-selo.boa{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green);}
+.sr-selo.ruim{background:color-mix(in srgb,var(--red) 16%,transparent);color:var(--red);}
 .sr-selo.neutra{background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--muted);}
 
 .sr-itens{margin:12px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;}
 .sr-itens li{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-family:var(--fonte-principal);font-size:12.5px;color:var(--muted);padding-left:10px;border-left:2px solid var(--border);}
-.sr-itens li.vencida{border-left-color:var(--red,#c0392b);}
-.sr-itens li.perto{border-left-color:var(--orange,#d97706);}
-.sr-itens li.em-dia{border-left-color:var(--green,#16a34a);}
+.sr-itens li.vencida{border-left-color:var(--red);}
+.sr-itens li.perto{border-left-color:var(--orange);}
+.sr-itens li.em-dia{border-left-color:var(--green);}
 /* sem-km e sem-registro ficam na borda neutra do estado padrão, acima —
    nem vermelho nem verde, porque não se sabe nada sobre este item. */
 
@@ -112,6 +112,11 @@ const km = (n) => (n == null ? 'sem quilometragem' : `${n.toLocaleString('pt-BR'
 .sr-aviso{margin:0;font-family:var(--fonte-principal);font-size:12.5px;line-height:1.55;color:var(--muted);}
 
 @media(min-width:900px){
-  .sr-lista{padding:4px 24px 40px;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}
+  /* `align-items:start`: sem isso o Grid estica cada item à altura do maior
+     da mesma linha (padrão do Grid é `stretch`). "Chegando a hora" logo acima
+     é uma lista de cartões estáticos — lá isso nunca aparece. Aqui é uma
+     sanfona: abrir UM cartão inflaria os vizinhos fechados da mesma linha com
+     espaço vazio embaixo se essa linha não estivesse aqui. */
+  .sr-lista{padding:4px 24px 40px;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;align-items:start;}
 }
 </style>
