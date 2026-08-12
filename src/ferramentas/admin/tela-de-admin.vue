@@ -55,6 +55,18 @@
                 <label class="admin-form-label" for="adm-role">Perfil de acesso</label>
                 <select id="adm-role" class="admin-form-input" style="width:100%;box-sizing:border-box;cursor:pointer;"><option value="viewer">Visualizador</option><option value="admin">Administrador</option></select>
               </div>
+              <!-- Task 5 (D7, segunda metade): a pessoa nova pode começar com o
+                   acesso de um perfil já salvo. "Sem nada" é a primeira opção e
+                   a padrão — permissão nasce desmarcada é regra do projeto, e um
+                   seletor que já viesse com perfil escolhido concederia acesso
+                   por omissão, que é exatamente o que a regra existe pra impedir.
+                   Opções além da primeira são preenchidas por loadAdminUsers. -->
+              <div style="grid-column:1 / -1">
+                <label class="admin-form-label" for="adm-perfil">Começar com o acesso de</label>
+                <select id="adm-perfil" class="admin-form-input" style="width:100%;box-sizing:border-box;cursor:pointer;">
+                  <option value="">Sem nada — marco uma a uma</option>
+                </select>
+              </div>
             </div>
             <div style="font-family:var(--fonte-principal);font-size:11px;color:var(--muted);margin-top:12px;display:flex;align-items:center;gap:6px;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.6"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -152,6 +164,13 @@ import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/c
 import { estado, PERMISSION_TREE, RECURSOS } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { agruparRecursos, contarAcoes, estadoDaSelecao, marcarTudo } from './agrupar-permissoes.js'
 import { derivarFeatures } from '../../compartilhado/derivar-features.js'
+// A sobreposição perfil × exceção (D9) e QUEM MUDA de acesso se um perfil for
+// regravado (D11). Puro e testado à parte (perfis-de-acesso.test.mjs): aqui só
+// se busca no banco, se mostra e se grava.
+// `excecaoAoSalvar` é o que faz o D9 valer no CAMINHO REAL: sem ele, dar uma
+// ferramenta à mão a quem está num perfil não ficava registrado em lugar nenhum,
+// e a próxima regravação do perfil apagava o que alguém concedeu de propósito.
+import { acessoEfetivo, excecaoAoSalvar, impactoDaMudanca } from './perfis-de-acesso.js'
 // A escada de niveis (Sem acesso / Ver / Mexer / Tudo) que substitui a matriz
 // de caixinhas no editor de permissoes: uma escolha por ferramenta, em vez de
 // ate 5 caixinhas por linha das quais mais da metade nunca existiu de verdade.
@@ -192,6 +211,10 @@ import { estadoDoVinculo } from './vinculo-de-cadastro.js'
 // a qual colaborador o login pertence. A ordem e o texto do aviso do elo
 // faltante são puros e testados; a tela só desenha.
 import { abasDaPessoa } from './abas-da-pessoa.js'
+import { paraIlike } from './escapar-curinga-ilike.js'
+// O irmão do de cima, para `coluna=eq.<valor>`: nome de perfil é texto que
+// gente digita, e `,` `.` `(` `)` são gramática do filtro do PostgREST.
+import { paraEq } from './valor-de-filtro-postgrest.js'
 // Trava a rolagem do fundo enquanto a ficha esta aberta. Peca compartilhada,
 // que tambem compensa a barra de rolagem e resolve o efeito elastico do iOS.
 // O editor de permissoes (#perm-modal-overlay) NAO precisa de chamada aqui: ele
@@ -1006,9 +1029,10 @@ async function loadAdminSaude() {
 }
 
 /* ── PERMISSÕES (Fase 1: matriz recurso×ação + escopo por perfil + super-admin + duplicar) ── */
-let _permState = null       // { userId, permissions, allowed_accounts, is_superadmin }
+let _permState = null       // { userId, perfilId, permissions, allowed_accounts, is_superadmin }
 let _contasCache = null     // perfis de rede (accounts)
 let _usersCache = []        // lista de usuários (p/ o "duplicar")
+let _perfisCache = []       // acessos_perfis (p/ "começar com o acesso de…" ao criar usuário — Task 5)
 
 async function openPermModal(u, opcoes) {
   const soNotificacoes = !!(opcoes && opcoes.soNotificacoes)
@@ -1018,6 +1042,11 @@ async function openPermModal(u, opcoes) {
   _permAba = soNotificacoes ? 'avisos' : 'ferramentas'
   _permState = {
     userId: u.id,
+    // Em que perfil esta pessoa está, se está em algum. Não é enfeite: é o que
+    // permite `savePermissions` separar "veio do perfil" de "alguém deu de
+    // propósito" e gravar a segunda metade em `permissions_excecao` (D9). Vem
+    // de `loadAdminUsers`, que já traz `perfil_id` no select de `profiles`.
+    perfilId: u.perfil_id || null,
     permissions: JSON.parse(JSON.stringify(u.permissions || {})),
     allowed_accounts: u.allowed_accounts ?? null,
     is_superadmin: !!u.is_superadmin,
@@ -1123,13 +1152,40 @@ function _mkBlocoNotificacoes() {
  */
 let _permAba = 'ferramentas'
 
+// O aviso de propagação incompleta (D8/D11). Mora fora do `_permState` pelo
+// mesmo motivo da aba: ele é da tela, não do que se salva.
+//
+// POR QUE ELE EXISTE: quando a propagação de um perfil falha para alguém, o
+// perfil JÁ FOI GRAVADO e aquela pessoa ficou com o acesso antigo — perfil e
+// pessoas divergem. Essa notícia num toast some em 2,8 segundos e não deixa
+// rastro nenhum: quem desviasse o olhar ficaria achando que aplicou em todo
+// mundo, e a divergência não reapareceria em lugar nenhum. Por isso ela vira
+// faixa que fica até alguém fechar.
+let _permAvisoPropagacao = null
+
 // A faixa fica no TOPO DA ABA, e nunca um `alert()` nativo: o alert trava a
 // tela num botão "OK" e some sem deixar rastro — mas o que ele tinha a dizer
-// continua verdadeiro depois do OK.
-function _mkFaixaDeAviso(texto) {
+// continua verdadeiro depois do OK. Pelo mesmo motivo ela também não é um
+// toast: toast some em 2,8s (avisos.js) e leva a notícia junto.
+//
+// `aoFechar` é opcional: quando vem, a faixa ganha um botão de dispensar e só
+// sai da tela por decisão de gente. Quem não passa nada continua com a faixa de
+// antes, sem botão — o aviso do elo faltante some sozinho quando o elo é feito.
+// Uma linha por `\n`, porque `textContent` não quebra linha sozinho.
+function _mkFaixaDeAviso(texto, aoFechar) {
   const f = document.createElement('div'); f.className = 'perm-faixa-aviso'
   f.setAttribute('role', 'status')
-  f.textContent = texto
+  for (const linha of String(texto).split('\n')) {
+    const l = document.createElement('div'); l.textContent = linha; f.appendChild(l)
+  }
+  if (aoFechar) {
+    const acao = document.createElement('div'); acao.className = 'perm-faixa-aviso-acao'
+    const b = document.createElement('button'); b.type = 'button'
+    b.className = 'btn'            // comum: dispensar não é a ação principal de nada
+    b.textContent = 'Entendi, fechar aviso'
+    b.addEventListener('click', aoFechar)
+    acao.appendChild(b); f.appendChild(acao)
+  }
   return f
 }
 
@@ -1188,6 +1244,16 @@ function _renderPermBody(u) {
   // que não está mais na lista cairia num painel vazio.
   if (!abas.some((a) => a.chave === _permAba)) _permAba = abas[0].chave
   body.appendChild(_mkBarraDeAbas(abas, u))
+
+  // Antes das abas e acima de tudo: propagação que ficou pela metade vale para
+  // o modal inteiro, não para uma aba só, e não pode depender de a pessoa
+  // clicar na aba certa para descobrir.
+  if (_permAvisoPropagacao) {
+    body.appendChild(_mkFaixaDeAviso(_permAvisoPropagacao, () => {
+      _permAvisoPropagacao = null
+      _renderPermBody(u)
+    }))
+  }
 
   const painel = document.createElement('div'); painel.className = 'perm-aba-painel'
   painel.setAttribute('role', 'tabpanel')
@@ -1299,6 +1365,353 @@ function _abaDeFerramentas(body, u) {
     _renderPermBody(u); adminToast('Permissões copiadas — salve para aplicar')
   })
   dupRow.appendChild(dupSel); dupRow.appendChild(dupBtn); body.appendChild(dupRow)
+
+  // 5) Salvar como perfil — D7: o perfil nasce de alguém que já está certo. Não
+  // existe taxonomia de cargo neste banco — 21 das 26 pessoas têm o campo
+  // vazio —, então pedir pra classificar todo mundo antes de usar mataria a
+  // funcionalidade na primeira semana. Copiar de uma pessoa real é o caminho
+  // que funciona no dia 1. Botão comum (não principal): "Aplicar" já é a ação
+  // principal deste bloco.
+  //
+  // Revisão: a policy `acessos_perfis_escrever` (039_perfis_de_acesso.sql) é
+  // SÓ superadmin. Um admin comum que clicasse sempre bateria em 403 com um
+  // toast genérico — o botão nem deveria existir pra ele. Mesmo gate que já
+  // existe no arquivo para `_secaoSenha` (:1642) e para a Administração
+  // inteira (onMounted, :2670): `if (estado.is_superadmin)`.
+  if (estado.is_superadmin) {
+    const btnPerfil = mkEl('button', 'btn')
+    btnPerfil.type = 'button'
+    btnPerfil.textContent = 'Salvar como perfil'
+    btnPerfil.style.cssText = 'margin-top:8px'
+    btnPerfil.addEventListener('click', async () => {
+      // `uiPrompt`/`uiConfirm` NÃO EXISTEM neste projeto (são de outro projeto
+      // do dono). O que existe aqui é `_gtConfirmAdmin`, que só confirma — não
+      // pede texto. Como o nome do perfil precisa ser digitado, `window.prompt`
+      // é o caminho coerente com o que o arquivo já faz para confirmar; não há
+      // proibição a diálogo nativo em PADRAO-DA-CENTRAL.md (conferido por
+      // leitura).
+      const nome = window.prompt('Nome do perfil (ex.: Vendedora)')
+      if (!nome || !nome.trim()) return
+      const nomeLimpo = String(nome).trim()
+      // Cópia do mapa que está aberto na ficha. Cópia, e não a referência, para
+      // que fechar/mexer no editor enquanto as chamadas de rede acontecem não
+      // troque por baixo o que está sendo gravado e propagado.
+      const novasPermissions = JSON.parse(JSON.stringify(_permState.permissions || {}))
+      const r = await adFetch('acessos_perfis', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        // `criado_por`: a coluna existe pra rastrear quem criou o perfil e não
+        // tem default (039_perfis_de_acesso.sql) — sem gravar aqui, fica
+        // sempre NULL. `estado.userId` é o campo certo (mesmo usado em
+        // `alterado_por: estado.userId`, ~L1500).
+        body: JSON.stringify({ nome: nomeLimpo, permissions: novasPermissions, criado_por: estado.userId }),
+      })
+      // `nome` é unique na tabela (039_perfis_de_acesso.sql) — nome repetido
+      // devolve 409. Isso NÃO é erro: é o único jeito que esta fase tem de
+      // mudar o mapa de um perfil que já existe ("salvando de novo a partir de
+      // uma pessoa", plano de 11/08). E é exatamente aí que D8 acontece —
+      // regravar o perfil muda o acesso de todo mundo que está nele. Por isso
+      // este caminho passa OBRIGATORIAMENTE pela confirmação de impacto (D11).
+      if (r.status === 409) { await _regravarPerfilExistente(nomeLimpo, novasPermissions, u); return }
+      if (!r.ok) { adminToast('Não consegui salvar o perfil', false); return }
+      // Perfil recém-criado não tem ninguém dentro (`perfil_id` de ninguém
+      // aponta pra ele ainda), então nenhum acesso de terceiro muda aqui. O que
+      // muda é a pessoa DESTA ficha, e só se ela for perguntada — I4, logo
+      // abaixo. UM toast só, no fim: dizer "criado" agora e "entrou" depois
+      // seriam duas frases sobre o mesmo clique, e a primeira sumiria por trás
+      // da janela de confirmação.
+      const criadas = await r.json().catch(() => null)
+      const novoPerfil = Array.isArray(criadas) ? criadas[0] : null
+      if (!novoPerfil || !novoPerfil.id) {
+        adminToast(`O perfil "${nomeLimpo}" foi criado, mas não consegui ler o id dele — ninguém entrou no perfil.`, false)
+        return
+      }
+      // O perfil recém-criado ainda não está em `_perfisCache` (ele só recarrega
+      // em `loadAdminUsers`). Sem pôr aqui, um "Salvar" logo em seguida nesta
+      // mesma ficha não acharia o mapa do perfil e deixaria de gravar a exceção.
+      _perfisCache = [...(_perfisCache || []), { id: novoPerfil.id, nome: nomeLimpo, permissions: novasPermissions }]
+      await _porPessoaNoPerfil(u, novoPerfil.id, nomeLimpo)
+    })
+    body.appendChild(btnPerfil)
+  }
+}
+
+/**
+ * I4 — PÔR NO PERFIL A PESSOA CUJA FICHA ORIGINOU ELE.
+ *
+ * POR QUE ISTO EXISTE (revisão final de 12/08/2026): `perfil_id` só era escrito
+ * no convite. "Salvar como perfil" criava o perfil e não punha ninguém dentro —
+ * nem a própria pessoa de quem ele foi copiado. Efeito em cascata: nos primeiros
+ * usos a lista de membros vinha vazia, o impacto dava sempre zero e a janela de
+ * confirmação (D11) NUNCA aparecia. O dono aprenderia que "salvar perfil não
+ * pergunta nada", e a janela iria surpreendê-lo justamente no dia em que houver
+ * gente para mudar — que é o dia em que ela precisa ser lida.
+ *
+ * PERGUNTA ANTES porque entrar num perfil VIVO tem consequência futura: daí em
+ * diante toda regravação do perfil mexe no acesso dela. Agora não muda nada — o
+ * perfil é cópia exata do que está na ficha —, e é isso que o texto diz.
+ *
+ * A exceção nasce `{}` pelo mesmo motivo: neste instante não existe nada "dado
+ * à mão" além do perfil para preservar.
+ */
+async function _porPessoaNoPerfil(u, perfilId, nomePerfil) {
+  const quem = u.name || u.email
+  const ok = await _gtConfirmAdmin(
+    `Pôr ${quem} dentro do perfil "${nomePerfil}"?`,
+    `Ela passa a receber as mudanças dele: toda vez que alguém regravar o perfil "${nomePerfil}", `
+    + `o acesso de ${quem} muda junto.\n\n`
+    + 'Agora nada muda no acesso dela — o perfil é uma cópia exata do que está nesta ficha.\n\n'
+    + 'Se disser não, o perfil fica criado do mesmo jeito e ela continua fora dele.',
+  )
+  if (!ok) { adminToast(`Perfil "${nomePerfil}" criado — ${quem} continua fora dele.`); return }
+  let r = null
+  try {
+    r = await adFetch('profiles?id=eq.' + encodeURIComponent(u.id), {
+      method: 'PATCH',
+      // Mesma exigência dos outros PATCHes desta tela: RLS que filtra a linha
+      // devolve 204 com `.ok === true` e zero linha alterada. Sem exigir a linha
+      // de volta, a tela diria que pôs a pessoa no perfil sem ter posto.
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ perfil_id: perfilId, permissions_excecao: {} }),
+    })
+  } catch { r = null }
+  const linhas = r && r.ok ? await r.json().catch(() => null) : null
+  if (!Array.isArray(linhas) || linhas.length === 0) {
+    adminToast(`O perfil "${nomePerfil}" foi criado, mas não consegui pôr ${quem} dentro dele — ela continua fora do perfil.`, false)
+    return
+  }
+  // O editor continua aberto nesta ficha: sem atualizar o estado, um "Salvar"
+  // logo em seguida acharia que ela não está em perfil nenhum e não gravaria a
+  // exceção (D9).
+  if (_permState && _permState.userId === u.id) _permState.perfilId = perfilId
+  adminToast(`Perfil "${nomePerfil}" criado, e ${quem} está dentro dele.`)
+}
+
+// O nome que o dono lê. `patrimonio` e `meta.gestor` são chave de banco; a
+// confirmação de impacto é o texto que ele lê ANTES de mudar o acesso de
+// outras pessoas, e não pode estar em jargão de código. Chave que não estiver
+// no catálogo cai na própria chave, em vez de sumir do texto.
+function _rotuloDoRecurso(chave) {
+  const r = RECURSOS.find(x => x.key === chave)
+  return r ? r.label : chave
+}
+
+/**
+ * D8 + D11 — SENSITIVE MUTATION: regravar um perfil MUDA O ACESSO DE TODO
+ * MUNDO que está nele, de uma vez.
+ *
+ * O dono escolheu o perfil vivo ciente do risco (D8 do desenho de 11/08/2026).
+ * Esta função é a única proteção que sobrou: antes de gravar qualquer coisa ela
+ * NOMEIA as pessoas e diz o que cada uma perde, ganha ou tem trocado de nível.
+ * Sem essa confirmação, a propagação não vai ao ar — está escrito no desenho, e
+ * vale como regra: se um dia alguém precisar mexer aqui, some com a propagação
+ * junto, não com o aviso.
+ *
+ * A ordem importa e não é acidental:
+ *   1. ler quem está no perfil     — sem essa lista não dá pra confirmar nada;
+ *   2. confirmar com nome e perda  — a única chance do dono dizer "não";
+ *   3. gravar o perfil;
+ *   4. propagar pessoa por pessoa.
+ * Qualquer passo que falhe interrompe tudo ANTES de mexer em gente.
+ *
+ * `u` é a pessoa cuja ficha está aberta — precisa dela para redesenhar o editor
+ * quando a propagação fica pela metade e o modal continua aberto com o aviso.
+ */
+async function _regravarPerfilExistente(nome, novasPermissions, u) {
+  // 1) Achar o perfil pelo nome (é `unique` na tabela, então é no máximo um).
+  let perfil = null
+  try {
+    const rP = await adFetch('acessos_perfis?select=id,nome&nome=eq.' + paraEq(nome))
+    const jP = rP.ok ? await rP.json() : null
+    if (Array.isArray(jP)) perfil = jP[0] || null
+  } catch { perfil = null }
+  if (!perfil) {
+    adminToast(`Já existe um perfil chamado "${nome}", mas não consegui abrir ele pra regravar. Nada foi alterado.`, false)
+    return
+  }
+
+  // 2) Só quem ESTÁ no perfil entra na conta. Perguntar por todo mundo faria a
+  // tela prometer mudança em gente que não muda.
+  //
+  // Falha de leitura NÃO pode virar "lista vazia": vazio segue pelo atalho do
+  // `total === 0` e gravaria o perfil sem ninguém conferir quem perde acesso —
+  // que é exatamente o que o D11 existe pra impedir. Por isso aqui a falha
+  // aborta tudo, sem tocar em nada.
+  let membrosCrus = null
+  try {
+    const rM = await adFetch('profiles?select=id,name,email,permissions,permissions_excecao,is_superadmin&perfil_id=eq.'
+      + encodeURIComponent(perfil.id))
+    const jM = rM.ok ? await rM.json() : null
+    if (Array.isArray(jM)) membrosCrus = jM
+  } catch { membrosCrus = null }
+  if (!membrosCrus) {
+    adminToast('Não consegui ler quem está neste perfil, então não mexi em nada.', false)
+    return
+  }
+
+  // DUAS listas de propósito: `membrosCrus` guarda a linha inteira (o `id` e o
+  // `is_superadmin` são necessários pro PATCH do passo 4); `membros` é a forma
+  // reduzida que `impactoDaMudanca` espera — e o nome do campo é `nome`, não
+  // `name`: passar a linha crua faria a confirmação dizer "undefined: PERDE…".
+  const membros = membrosCrus.map(p => ({
+    nome: p.name || p.email, permissions: p.permissions, permissions_excecao: p.permissions_excecao,
+  }))
+  const impacto = impactoDaMudanca(novasPermissions, membros)
+
+  if (impacto.total > 0) {
+    // A PERDA VEM PRIMEIRO, e em maiúscula. O plano escrevia o ganho antes, mas
+    // o motivo declarado dele é "quem lê rápido tem que enxergar a perda antes
+    // do ganho" — quem lê rápido lê a primeira coisa da linha, não a maiúscula
+    // no meio dela. `muda` mostra o de-para porque "mudou de nível" sem dizer
+    // pra qual não ajuda ninguém a decidir.
+    const linhas = impacto.afetados.map((a) => {
+      const partes = []
+      if (a.perde.length) partes.push(`PERDE ${a.perde.map(_rotuloDoRecurso).join(', ')}`)
+      if (a.ganha.length) partes.push(`ganha ${a.ganha.map(_rotuloDoRecurso).join(', ')}`)
+      for (const m of a.muda || []) {
+        partes.push(`${_rotuloDoRecurso(m.chave)}: de [${m.de.join(', ')}] para [${m.para.join(', ')}]`)
+      }
+      return `${a.nome}: ${partes.join(' · ')}`
+    })
+    // `_gtConfirmAdmin(titulo, texto)` é o que existe neste arquivo (~L658):
+    // dois argumentos, devolve Promise<boolean>. `uiConfirm` é de outro projeto
+    // do dono e não existe aqui.
+    const ok = await _gtConfirmAdmin(
+      `${impacto.total} ${impacto.total === 1 ? 'pessoa vai mudar' : 'pessoas vão mudar'} de acesso agora`,
+      `Regravando o perfil "${nome}" com o acesso desta ficha:\n\n${linhas.join('\n')}`,
+    )
+    if (!ok) return
+  }
+  // Se `total === 0` não há confirmação, de propósito: uma confirmação que não
+  // tem o que confirmar ensina a clicar "Aplicar" sem ler, e aí a que importa
+  // também passa batida. Isso só é seguro porque `impactoDaMudanca` enxerga
+  // TODAS as mudanças, inclusive as vindas de exceção (ver o cabeçalho de
+  // perfis-de-acesso.js) — não mexa nesse cálculo achando que é detalhe.
+
+  // 3) Gravar o mapa novo no perfil. Se isto falhar, ninguém foi tocado ainda.
+  //
+  // `.ok` NÃO PROVA GRAVAÇÃO. Um PATCH do PostgREST cujo alvo o RLS filtra
+  // devolve 204, não 403: zero linhas alteradas e `.ok === true`. Sem exigir a
+  // linha de volta, esta função seguia achando que gravou e PROPAGAVA em cima
+  // de gente com um perfil que não mudou.
+  //
+  // E o caminho para isso acontecer está aberto: existem DUAS definições
+  // independentes de super-admin neste sistema. A tela usa
+  // `estado.is_superadmin` (a coluna `profiles.is_superadmin`); a policy
+  // `acessos_perfis_escrever` (039_perfis_de_acesso.sql) usa
+  // `public.is_superadmin()`, que é uma LISTA FIXA DE E-MAILS escrita dentro da
+  // função. Uma não lê a outra. Quem for super-admin pela coluna e não estiver
+  // na lista vê o botão, passa pela confirmação, não grava nada — e antes desta
+  // guarda a propagação rodava mesmo assim.
+  //
+  // Medido em 12/08/2026 (leitura): hoje as duas listas BATEM — erick@,
+  // gabriel.gertrudes@ e breno@ são super-admin nos dois caminhos, e nenhuma
+  // conta cai no meio. Mas quem for promovido só pela coluna amanhã cai, e
+  // nada no sistema obriga a mexer nos dois lugares. Alinhar as definições é
+  // decisão do dono e mexe em segurança; aqui a tela só para de mentir sobre o
+  // que aconteceu.
+  let rG = null
+  try {
+    rG = await adFetch('acessos_perfis?id=eq.' + encodeURIComponent(perfil.id), {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ permissions: novasPermissions }),
+    })
+  } catch { rG = null }
+  if (!rG || !rG.ok) { adminToast('Não consegui regravar o perfil — ninguém foi alterado.', false); return }
+  const linhasPerfil = await rG.json().catch(() => null)
+  if (!Array.isArray(linhasPerfil) || linhasPerfil.length === 0) {
+    adminToast('O banco recusou a gravação: seu login não está na lista de super-admins do banco. '
+      + 'Nada foi alterado.', false)
+    return
+  }
+
+  if (impacto.total === 0) {
+    adminToast(`Perfil "${nome}" atualizado — ninguém muda de acesso.`)
+    // Fecha pelo mesmo motivo do caminho de sucesso lá embaixo: o editor ficaria
+    // com o mapa do perfil na mão, e salvar por cima de alguém que está neste
+    // perfil apagaria a exceção dela. "Ninguém muda de acesso" é sobre o que a
+    // propagação faz, não sobre o que um clique seguinte poderia fazer.
+    closePermModal()
+    return
+  }
+
+  // 4) Propagar. Um PATCH por pessoa, com o acesso recalculado pela regra de
+  // sobreposição (o perfil manda no que ele cobre, a exceção dada à mão
+  // sobrevive — D9). `features` vai junto porque este projeto tem dois modelos
+  // de permissão convivendo e gravar um só deixa a pessoa vendo metade das
+  // telas (ver derivar-features.js).
+  //
+  // `derivarFeatures` devolve `null` para super-admin, e null quer dizer "NÃO
+  // MEXA no features[] desta pessoa" — mandar isso no PATCH gravaria NULL na
+  // coluna e apagaria o acesso dela. Por isso o campo fica FORA do corpo nesse
+  // caso, igual ao que `savePermissions` já faz (~L1670).
+  const falhas = []
+  // O que FICOU no banco para cada pessoa: o efetivo quando o PATCH passou, o
+  // de antes quando falhou. Serve para resincronizar o editor logo abaixo, sem
+  // uma segunda ida ao banco.
+  const noBanco = new Map()
+  for (const p of membrosCrus) {
+    const efetivo = acessoEfetivo(novasPermissions, p.permissions_excecao)
+    const corpo = { permissions: efetivo }
+    const features = derivarFeatures(efetivo, { ehSuperadmin: !!p.is_superadmin })
+    if (features !== null) corpo.features = features
+    let okp = false
+    try {
+      // Mesma armadilha do PATCH do perfil: RLS que filtra a linha devolve 204
+      // com `.ok === true` e zero linhas alteradas. Exigir a linha de volta é o
+      // que separa "gravei" de "achei que gravei" — e o nome desta pessoa só
+      // entra na lista de falhas se a gravação realmente não aconteceu.
+      const rr = await adFetch('profiles?id=eq.' + encodeURIComponent(p.id), {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(corpo),
+      })
+      if (rr && rr.ok) {
+        const linhas = await rr.json().catch(() => null)
+        okp = Array.isArray(linhas) && linhas.length > 0
+      }
+    } catch { okp = false }
+    if (!okp) falhas.push(p.name || p.email)
+    noBanco.set(p.id, okp ? efetivo : (p.permissions || {}))
+  }
+
+  setTimeout(loadAdminUsers, 400)
+
+  if (!falhas.length) {
+    adminToast(`Perfil "${nome}" atualizado — ${impacto.total} `
+      + (impacto.total === 1 ? 'pessoa mudou' : 'pessoas mudaram') + ' de acesso.')
+    // FECHAR O EDITOR NÃO É COSMÉTICO. Ele continuaria aberto com o mapa do
+    // PERFIL na mão, e o que a pessoa desta ficha tem no banco é perfil +
+    // exceção DELA. Um "Salvar" logo depois gravaria o mapa cru nela e apagaria
+    // a exceção que a propagação acabou de preservar — desfazendo o D9 em
+    // silêncio, que é o oposto do que esta tela inteira existe pra garantir.
+    // `savePermissions` fecha pelo mesmo motivo.
+    closePermModal()
+    return
+  }
+
+  // Deu falha: o perfil está gravado e essas pessoas ficaram com o acesso
+  // antigo. O modal fica ABERTO de propósito — é onde a faixa mora, e fechar
+  // levaria o aviso junto. Um toast sozinho some em 2,8s e a divergência não
+  // reapareceria em lugar nenhum.
+  //
+  // As três coisas que o texto tem que dizer: o perfil FOI gravado, estas
+  // pessoas NÃO receberam (nome a nome), e o acesso delas continua como estava.
+  _permAvisoPropagacao = `O perfil "${nome}" FOI gravado, mas a mudança não chegou em todo mundo.\n`
+    + `Não consegui aplicar em: ${falhas.join(', ')}.\n`
+    + 'O acesso dessas pessoas continua exatamente como estava — o perfil e elas estão diferentes '
+    + 'até alguém abrir a ficha de cada uma e salvar de novo.'
+  adminToast(`Perfil "${nome}" gravado, mas NÃO consegui aplicar em: ${falhas.join(', ')}.`
+    + ' O acesso dessas pessoas continua como estava — abra a ficha de cada uma.', false)
+
+  // Com o modal aberto, o editor ainda mostra o mapa do PERFIL. Se a pessoa
+  // desta ficha estava no perfil, resincroniza com o que FICOU no banco pra
+  // ela: sem isso, salvar aqui apagaria a exceção dela (D9) sem avisar.
+  if (_permState && noBanco.has(_permState.userId)) {
+    _permState.permissions = JSON.parse(JSON.stringify(noBanco.get(_permState.userId) || {}))
+  }
+  if (_permState) _renderPermBody(u)
 }
 
 // Marcar uma ação marca 'ver' junto; desmarcar 'ver' limpa o recurso. Mantém a ordem do catálogo.
@@ -1410,6 +1823,11 @@ function _linhaDeAprovacao(r, u) {
 function closePermModal() {
   document.getElementById('perm-modal-overlay').classList.remove('open')
   _permState = null
+  // Fechar o modal é decisão de gente, e o aviso é sobre o que acabou de
+  // acontecer NESTA ficha. Deixá-lo de pé reapareceria na ficha de outra
+  // pessoa, dizendo dela o que era de outra — aviso que mente é pior que aviso
+  // nenhum. Quem grava com falha não passa por aqui: o modal fica aberto.
+  _permAvisoPropagacao = null
 }
 
 // SENSITIVE MUTATION — PATCH em profiles.permissions/features/allowed_accounts/is_superadmin.
@@ -1440,11 +1858,51 @@ async function savePermissions() {
     is_superadmin: _permState.is_superadmin,
   }
   if (features !== null) payload.features = features
+
+  // D9 NO CAMINHO REAL — o que foi dado à mão precisa ficar REGISTRADO como
+  // exceção, senão a próxima regravação do perfil apaga.
+  //
+  // Sem isto (era o estado até 12/08/2026), a sequência real era: cria a Ana no
+  // perfil "Vendedora" com exceção `{}` → alguém dá Frota a ela pela ficha →
+  // entra só em `permissions`, exceção continua `{}` → alguém regrava o perfil
+  // → a Frota da Ana some. A promessa "exceção sobrevive" valia só nos testes.
+  //
+  // A decisão mora em `excecaoAoSalvar` (perfis-de-acesso.js), pura e testada:
+  // sem o mapa do perfil em mãos ela devolve `gravar: false` com aviso, porque
+  // gravar exceção errada é pior que não gravar — e ficar calado é pior ainda.
+  let avisoExcecao = null
   if (!_permState.soNotificacoes) {
-    await adFetch('profiles?id=eq.' + _permState.userId, {
-      method: 'PATCH',
-      body: JSON.stringify(payload),
+    const dec = excecaoAoSalvar({
+      perfilId: _permState.perfilId,
+      perfis: _perfisCache,
+      permissions: _permState.permissions,
     })
+    if (dec.gravar) payload.permissions_excecao = dec.excecao
+    avisoExcecao = dec.aviso
+  }
+
+  // `.ok` NÃO PROVA GRAVAÇÃO — mesma armadilha corrigida nos outros PATCHes
+  // desta tela (regravar perfil, propagação por membro, pôr pessoa no
+  // perfil): um PATCH do PostgREST cujo alvo o RLS filtra devolve 204, não
+  // 403, com zero linhas alteradas e `.ok === true`. Este é o PATCH mais
+  // usado da ficha — roda toda vez que alguém salva UMA pessoa, e é o que
+  // grava `permissions_excecao` (D9) — por isso não pode ficar de fora.
+  if (!_permState.soNotificacoes) {
+    let r = null
+    try {
+      r = await adFetch('profiles?id=eq.' + _permState.userId, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(payload),
+      })
+    } catch { r = null }
+    const linhasPerm = r && r.ok ? await r.json().catch(() => null) : null
+    if (!Array.isArray(linhasPerm) || linhasPerm.length === 0) {
+      btn.disabled = false; btn.textContent = 'Salvar'
+      adminToast('O banco recusou a gravação — nada foi alterado. '
+        + 'Seu login pode não ter permissão para editar este usuário.', false)
+      return
+    }
   }
 
   // NOTIFICAÇÕES: grava uma linha por tipo com o estado escolhido. Poderia
@@ -1465,7 +1923,11 @@ async function savePermissions() {
   }
 
   btn.disabled = false; btn.textContent = 'Salvar'
-  adminToast('Permissões atualizadas')
+  // O aviso de exceção não gravada vai NA MESMA frase, e em vermelho: um toast
+  // verde "Permissões atualizadas" seguido de silêncio ensinaria que está tudo
+  // certo justamente quando o D9 ficou sem registro.
+  if (avisoExcecao) adminToast('Permissões atualizadas. ' + avisoExcecao, false)
+  else adminToast('Permissões atualizadas')
   closePermModal()
   setTimeout(loadAdminUsers, 400)
 }
@@ -2068,7 +2530,11 @@ async function loadAdminUsers() {
     // não desenha e o editor de permissões (openPermModal) recebe
     // allowed_accounts undefined em vez do valor gravado. created_at entrou
     // na Correção 2, pra mostrar "desde <data>" junto do e-mail.
-    sbClient.from('profiles').select('id,email,name,role,is_superadmin,permissions,disabled,avatar_url,allowed_accounts,created_at'),
+    // `perfil_id` entrou na revisão final (12/08/2026): sem ele o editor de
+    // permissões não sabe em que perfil a pessoa está, e sem saber disso não dá
+    // pra registrar o que foi dado à mão como exceção (D9). Era por isso que a
+    // exceção nunca era gravada e o perfil apagava trabalho na regravação.
+    sbClient.from('profiles').select('id,email,name,role,is_superadmin,permissions,disabled,avatar_url,allowed_accounts,created_at,perfil_id'),
     // `id`, `email_corporativo` e `conta_apple` entraram na etapa 2 e são
     // ESSENCIAIS: sem os dois e-mails, `estadoDoVinculo` não acha candidato
     // nenhum e a Raíssa — que TEM cadastro ativo com o e-mail idêntico ao
@@ -2089,6 +2555,29 @@ async function loadAdminUsers() {
   const perfis = rp.data || []
   const pessoas = rc.data || []
   _usersCache = perfis // p/ o "duplicar permissões de outro usuário" no editor
+
+  // Os perfis existentes, pra oferecer "começar com o acesso de…" no formulário
+  // de criar usuário (Task 5). Falhar aqui não pode impedir criar usuário: sem
+  // perfil, a pessoa nasce sem nada, que é o padrão do projeto (permissão nasce
+  // desmarcada).
+  // Revisão: um 4xx do PostgREST devolve um OBJETO de erro, `.json()` resolve
+  // normal (não lança), e sem checar `.ok` o `_perfisCache` virava esse
+  // objeto — `.forEach`/`.find` nele lançavam TypeError que escapava desta
+  // função inteira e derrubava a renderização da lista de usuários. Por isso
+  // dois cintos: `.ok` antes de ler o corpo, e `Array.isArray` antes de
+  // aceitar o resultado.
+  try {
+    const rPerfis = await adFetch('acessos_perfis?select=id,nome,permissions&order=nome')
+    const jPerfis = rPerfis.ok ? await rPerfis.json() : null
+    _perfisCache = Array.isArray(jPerfis) ? jPerfis : []
+  } catch { _perfisCache = [] }
+  const selPerfilForm = document.getElementById('adm-perfil')
+  if (selPerfilForm) {
+    while (selPerfilForm.options.length > 1) selPerfilForm.remove(1)
+    ;(_perfisCache || []).forEach(p => {
+      selPerfilForm.appendChild(new Option(`${p.nome} — ${Object.keys(p.permissions || {}).length} ferramentas`, p.id))
+    })
+  }
 
   // AS TRÊS LISTAS SÃO ESPERADAS, e não carregadas soltas em segundo plano.
   //
@@ -2178,11 +2667,38 @@ async function adminInviteUser(mode) {
   const name = document.getElementById('adm-name').value.trim()
   const password = document.getElementById('adm-pass').value
   const role = document.getElementById('adm-role').value
+  const selPerfil = document.getElementById('adm-perfil')
+  const perfilEscolhidoId = selPerfil ? selPerfil.value : ''
   const msg = document.getElementById('adm-invite-msg')
   if (!email) { msg.textContent = 'Informe o email.'; msg.style.color = 'var(--red)'; return }
   const isInvite = mode === 'invite' || !password
   if (!isInvite && password.length < 6) { msg.textContent = 'A senha precisa ter no mínimo 6 caracteres.'; msg.style.color = 'var(--red)'; return }
   msg.textContent = isInvite ? 'Enviando convite...' : 'Criando acesso...'; msg.style.color = 'var(--muted)'
+
+  // Task 5 (D7, segunda metade), revisão: a pergunta certa é "esta conta já
+  // existia?", checada ANTES de chamar invite-user — não "ela parece vazia?"
+  // depois. Conta criada sem permissão marcada (fluxo normal desta tela),
+  // conta que teve TUDO revogado (permissions={}, features=[] — mesma cara
+  // de recém-nascida) e conta desativada de ex-funcionário são todas
+  // indistinguíveis de "acabou de nascer" só pelo estado do dado. E o edge
+  // devolve sucesso mesmo quando o e-mail já tem conta (só reenvia link de
+  // senha), então o estado DEPOIS da chamada não prova nada. `ilike` porque
+  // e-mail não diferencia por maiúscula/minúscula.
+  // `null` = não consegui saber se já existia — nesse caso NÃO aplica: errar
+  // para o lado de não mexer em conta alheia.
+  //
+  // Re-revisão: `_` e `%` são curingas no ILIKE, e `encodeURIComponent`
+  // resolve transporte (URL), não metacaractere de padrão — os dois
+  // problemas são independentes. `erick_martins@` sem escapar casaria
+  // `erick.martins@` também. `paraIlike` (escapar-curinga-ilike.js) escapa
+  // antes de codificar.
+  const jaExistia = perfilEscolhidoId
+    ? await adFetch(`profiles?select=id&email=ilike.${encodeURIComponent(paraIlike(email))}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => (Array.isArray(j) ? j.length > 0 : null))
+        .catch(() => null)
+    : false
+
   const { data: { session: s } } = await sbClient.auth.getSession()
   const tok = s?.access_token || SUPABASE_ANON_KEY
   const body = isInvite ? { email, name, role } : { email, name, role, password }
@@ -2193,7 +2709,76 @@ async function adminInviteUser(mode) {
     msg.textContent = isInvite ? '✓ Convite enviado para ' + email : '✓ Acesso criado para ' + email
     msg.style.color = 'var(--green)'
     ;['adm-email', 'adm-name', 'adm-pass'].forEach(id => document.getElementById(id).value = '')
-    adminToast(isInvite ? 'Convite enviado!' : 'Acesso criado com sucesso')
+
+    // Se foi escolhido "começar com o acesso de…", aplica o perfil na pessoa
+    // — só quando `jaExistia === false`, ou seja, só na pessoa que este
+    // clique acabou de criar. O edge invite-user (supabase/functions/
+    // invite-user/index.ts) só grava id/email/name/role no upsert —
+    // conferido por leitura, não aceita perfil_id/permissions — por isso a
+    // aplicação acontece aqui, com PATCH direto em profiles via adFetch, do
+    // mesmo jeito que o editor de permissões já grava (savePermissions,
+    // ~L1480). `avisoPerfil` vira parte da MESMA frase do toast final — não
+    // um segundo toast que contradiz o primeiro.
+    let avisoPerfil = ''
+    if (perfilEscolhidoId) {
+      const perfil = _perfisCache.find(p => p.id === perfilEscolhidoId)
+      if (perfil) {
+        if (jaExistia === true) {
+          avisoPerfil = ' Esse e-mail já tinha conta — não mexi no perfil dela, marque manualmente se for o caso.'
+        } else if (jaExistia === null) {
+          avisoPerfil = ' Não consegui confirmar se o e-mail já tinha conta, então não apliquei o perfil — marque manualmente.'
+        } else {
+          // GRAVE se sair errado: esta consulta escolhe QUEM recebe o PATCH
+          // do perfil. Sem escapar o curinga, um e-mail com `_` casaria conta
+          // de outra pessoa e aplicaria o perfil nela — exatamente o risco
+          // que a guarda de pré-existência acima existe pra fechar, só que
+          // por uma porta lateral. `&limit=1` é só teto de tamanho, NÃO é a
+          // proteção — a proteção é o escaping.
+          //
+          // `limit=1` sozinho TRUNCA a resposta em 1 linha, e uma resposta
+          // truncada não prova nada sobre quantas linhas existiam — por isso
+          // vai junto `Prefer: count=exact`, que faz o PostgREST devolver o
+          // TOTAL de casamentos no cabeçalho `Content-Range` (formato
+          // "0-0/N"), independente do `limit`. Se o total vier > 1 — dado
+          // estranho, e-mail duplicado por alguma falha anterior — a resposta
+          // é NÃO aplicar e avisar, nunca escolher a primeira linha às cegas.
+          // Se o cabeçalho não vier (CORS não expôs `Content-Range`), cai no
+          // tamanho do corpo como total — despiora a segurança em nada, só
+          // perde o bônus de detectar >1: quem protege de verdade continua
+          // sendo o escaping.
+          const rNovo = await adFetch(`profiles?select=id&email=ilike.${encodeURIComponent(paraIlike(email))}&limit=1`, {
+            headers: { Prefer: 'count=exact' },
+          }).catch(() => null)
+          const jNovo = rNovo && rNovo.ok ? await rNovo.json() : null
+          const linhasNovo = Array.isArray(jNovo) ? jNovo : []
+          const contentRange = rNovo && rNovo.ok ? rNovo.headers.get('content-range') : null
+          const totalMatches = contentRange ? Number(contentRange.split('/')[1]) : linhasNovo.length
+          const novoId = Number.isFinite(totalMatches) && totalMatches === 1 && linhasNovo.length === 1
+            ? linhasNovo[0]?.id : null
+          if (Number.isFinite(totalMatches) && totalMatches > 1) {
+            avisoPerfil = ' Mas achei mais de um cadastro com esse e-mail — não apliquei o perfil, confira o dado.'
+          } else if (novoId) {
+            const permissions = { ...perfil.permissions }
+            const rPatch = await adFetch('profiles?id=eq.' + novoId, {
+              method: 'PATCH',
+              body: JSON.stringify({
+                perfil_id: perfil.id,
+                permissions,
+                permissions_excecao: {},
+                features: derivarFeatures(permissions, { ehSuperadmin: false }),
+              }),
+            }).catch(() => null)
+            if (!rPatch || !rPatch.ok) avisoPerfil = ' Mas não consegui aplicar o perfil — marque manualmente.'
+          } else {
+            avisoPerfil = ' Mas não achei o cadastro pra aplicar o perfil — marque manualmente.'
+          }
+        }
+      }
+    }
+    if (selPerfil) selPerfil.value = ''
+
+    const textoFinal = (isInvite ? 'Convite enviado!' : 'Acesso criado com sucesso') + avisoPerfil
+    adminToast(textoFinal, !avisoPerfil)
     setTimeout(loadAdminUsers, 1200)
   }
 }
@@ -2755,6 +3340,9 @@ Object.assign(window, {
 /* A faixa do aviso, no topo da aba. `--orange` é o token de aviso deste projeto
    (`--aviso` não existe, e variável inexistente cai no herdado, calada). */
 .tela-admin :deep(.perm-faixa-aviso){border:1px solid color-mix(in srgb,var(--orange) 45%,transparent);background:color-mix(in srgb,var(--orange) 10%,var(--surface));color:color-mix(in srgb,var(--orange) 75%,var(--text));border-radius:var(--radius-md);padding:10px 12px;font-size:12.5px;line-height:1.5;margin-bottom:var(--sp-3);overflow-wrap:anywhere;}
+/* A linha do botão de dispensar, quando a faixa é do tipo que fica até alguém
+   fechar. Só posiciona: o botão é `.btn` comum, sem `style` solto. */
+.tela-admin :deep(.perm-faixa-aviso-acao){display:flex;justify-content:flex-end;margin-top:var(--sp-2);}
 .tela-admin :deep(.perm-section){margin-bottom:2px;}
 .tela-admin :deep(.perm-row){display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:5px;transition:background .12s;cursor:pointer;}
 .tela-admin :deep(.perm-row:hover){background:var(--surface2);}
