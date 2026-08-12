@@ -49,3 +49,41 @@ export function excecaoDe(perfilPermissions, permissionsAtuais) {
   }
   return out
 }
+
+/**
+ * Quem muda de acesso se este perfil virar `perfilNovo`, e o que muda para cada.
+ *
+ * D11: nada de perfil é gravado sem a tela nomear estas pessoas. É o passo que
+ * mantém o dono como quem decide, em vez de descobrir depois — e a única
+ * proteção que o perfil vivo tem contra dar acesso em massa em silêncio.
+ *
+ * Quem NÃO muda fica de fora de propósito: lista com gente que não muda vira
+ * ruído, e quem lê ruído aprova sem ler.
+ */
+export function impactoDaMudanca(perfilNovo, membros) {
+  const afetados = []
+  for (const m of membros || []) {
+    const antes = m.permissions || {}
+    const excecao = m.permissions_excecao || {}
+    const depois = acessoEfetivo(perfilNovo, excecao)
+    const chaves = new Set([...Object.keys(antes), ...Object.keys(depois)])
+    const ganha = []
+    const perde = []
+    for (const k of chaves) {
+      // Chave coberta por exceção NUNCA é diferença de perfil: por D9 ela
+      // sobrevive a qualquer mudança do perfil, então comparar `antes` (sem a
+      // exceção) contra `depois` (com a exceção) inventaria ganho ou perda
+      // numa chave que, na prática, nunca muda para essa pessoa.
+      if (Object.prototype.hasOwnProperty.call(excecao, k)) continue
+      const a = antes[k]
+      const d = depois[k]
+      if (mesmasAcoes(a, d)) continue
+      if (temAcesso(d)) ganha.push(k)
+      else perde.push(k)
+    }
+    if (ganha.length || perde.length) {
+      afetados.push({ nome: m.nome, ganha: ganha.sort(), perde: perde.sort() })
+    }
+  }
+  return { afetados, total: afetados.length }
+}
