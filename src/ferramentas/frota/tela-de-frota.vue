@@ -54,7 +54,9 @@ import { botoesDoMotorista, botoesDaGestao } from './botoes-rapidos.js'
 // Lançar manutenção (D27): um serviço com várias trocas, em lugar de preencher
 // o formulário de uma troca por vez N vezes.
 import LancamentoDeManutencao from './lancamento-de-manutencao.vue'
-import { linhasParaGravar } from './lancamento-de-manutencao.js'
+import {
+  linhasParaGravar, mensagemDoLancamento, centavos, VALOR_INVALIDO,
+} from './lancamento-de-manutencao.js'
 import {
   quemFaltaHoje, resumoDaCobranca, precisaDeChecklist,
   problemasAbertosHoje, veiculosParaConferir, cadenciasDoDia,
@@ -1350,11 +1352,6 @@ function abrirVeiculo(v) {
   vForm.aluguel = v.aluguel_centavos == null ? '' : (v.aluguel_centavos / 100).toString()
   vForm.fipe = v.fipe_centavos == null ? '' : (v.fipe_centavos / 100).toString()
   vForm.seguroValor = v.seguro_valor_centavos == null ? '' : (v.seguro_valor_centavos / 100).toString()
-  novaRevisao.item = plano.value.length ? plano.value[0].item : ''
-  novaRevisao.km = ''
-  novaRevisao.feita_em = ''
-  novaRevisao.oficina = ''
-  novaRevisao.custo = ''
 }
 
 // Abre a MESMA ficha, vazia (F9): antes só existia abrirVeiculo() pra editar
@@ -1374,11 +1371,6 @@ function abrirVeiculoNovo() {
   vForm.aluguel = ''
   vForm.fipe = ''
   vForm.seguroValor = ''
-  novaRevisao.item = plano.value.length ? plano.value[0].item : ''
-  novaRevisao.km = ''
-  novaRevisao.feita_em = ''
-  novaRevisao.oficina = ''
-  novaRevisao.custo = ''
 }
 function fecharVeiculo() {
   veiculoAberto.value = null
@@ -1513,12 +1505,24 @@ function aoEscolherBem() {
   Object.assign(vForm, patchDoBem(vForm, bem))
 }
 
-// Dinheiro em centavos, sempre — float com centavo vira erro de arredondamento
-// que ninguém acha depois.
+/* Dinheiro em centavos, sempre — float com centavo vira erro de arredondamento
+ * que ninguém acha depois.
+ *
+ * A CONTA MUDOU em 12/08/2026, e o motivo importa: a versão anterior apagava
+ * TODO ponto como separador de milhar antes de olhar a vírgula, então um
+ * aluguel digitado `4500.00` virava R$ 450.000,00 — cem vezes o valor, gravado
+ * em silêncio, nos campos de aluguel, FIPE e seguro que já estavam no ar. E não
+ * era caso raro: o teclado que `inputmode="decimal"` abre no celular oferece
+ * PONTO. Agora delega pra `centavos()` (lancamento-de-manutencao.js), que trata
+ * o ÚLTIMO separador como a vírgula decimal e tem a tabela de formas reais
+ * travada em teste.
+ *
+ * Aqui, valor ilegível continua virando `null` pra não mudar o comportamento
+ * destes três campos numa fase que é sobre manutenção. Na ficha de lançamento,
+ * ilegível BARRA — ver `valoresIlegiveis` lá. */
 const centavosDe = (v) => {
-  if (v === '' || v === null || v === undefined) return null
-  const n = Number(String(v).replace(/\./g, '').replace(',', '.'))
-  return Number.isFinite(n) ? Math.round(n * 100) : null
+  const c = centavos(v)
+  return c === VALOR_INVALIDO ? null : c
 }
 
 async function salvarVeiculo() {
@@ -1651,30 +1655,12 @@ const historicoDoVeiculo = computed(() => {
     .sort((a, b) => (b.km ?? 0) - (a.km ?? 0))
 })
 
-const novaRevisao = reactive({ item: '', km: '', feita_em: '', oficina: '', custo: '' })
-
-async function gravarRevisao() {
-  if (gravando.value || !veiculoAberto.value) return
-  const km = parseInt(String(novaRevisao.km).replace(/\D/g, ''), 10)
-  if (!novaRevisao.item || !Number.isInteger(km)) {
-    errosDoVeiculo.value = ['Escolha o item e informe com quantos quilômetros ele foi trocado.']
-    return
-  }
-  gravando.value = true
-  const { error } = await sbClient.from('frota_revisoes').insert({
-    veiculo_id: veiculoAberto.value.id,
-    item: novaRevisao.item,
-    km,
-    feita_em: novaRevisao.feita_em || null,
-    oficina: novaRevisao.oficina || null,
-    custo_centavos: centavosDe(novaRevisao.custo),
-  })
-  gravando.value = false
-  if (error) { errosDoVeiculo.value = ['Não consegui gravar a manutenção.']; return }
-  errosDoVeiculo.value = []
-  novaRevisao.km = ''; novaRevisao.feita_em = ''; novaRevisao.oficina = ''; novaRevisao.custo = ''
-  await carregar()
-}
+/* `gravarRevisao` e `novaRevisao` foram APAGADOS em 12/08/2026, junto com o
+ * formulário de uma troca por vez que os usava (D27). Não sobraram "servindo o
+ * histórico antigo", como um comentário chegou a dizer: quem serve o histórico
+ * é `historicoDoVeiculo` (a lista) e `apagarRevisao` (o ✕ de cada linha), logo
+ * abaixo. Deixar código morto com uma explicação falsa é como alguém restaura,
+ * meses depois, o formulário que o dono pediu pra tirar. */
 
 async function apagarRevisao(r) {
   const { error } = await sbClient.from('frota_revisoes').delete().eq('id', r.id)
@@ -1683,9 +1669,9 @@ async function apagarRevisao(r) {
 
 /* ── LANÇAR MANUTENÇÃO: um serviço, várias trocas (D27) ──────────────────────
  *
- * Substitui o formulário de uma troca por vez (gravarRevisao, acima), que
- * continua existindo pro histórico antigo. A dor medida em 12/08/2026: 15
- * campos pra 3 trocas, e a frota inteira com 2 trocas registradas em 10 carros.
+ * Substituiu o formulário de uma troca por vez, que foi apagado junto (ver o
+ * comentário logo acima). A dor medida em 12/08/2026: 15 campos pra 3 trocas, e
+ * a frota inteira com 2 trocas registradas em 10 carros.
  *
  * A ARMADILHA, e ela já custou caro 4 vezes nesta ferramenta: cabeçalho e
  * trocas são DUAS gravações, e "duas gravações com só a primeira conferida"
@@ -1717,57 +1703,75 @@ async function gravarLancamento(dados) {
   erroDoLancamento.value = ''
   const veiculoId = lancamento.value.veiculo.id
 
-  // PASSO 1: o cabeçalho. `.select()` é obrigatório — sem ele não volta o id, e
-  // sem o id não há como ligar as trocas nem como desfazer se o passo 2 falhar.
-  const { data: cab, error: erroCab } = await sbClient.from('frota_manutencoes')
-    .insert({
-      veiculo_id: veiculoId,
-      km: dados.km,
-      feita_em: dados.feitaEm,
-      oficina: dados.oficina,
-      total_centavos: dados.totalCentavos,
-      observacao: dados.observacao,
-    })
-    .select('id')
-    .single()
+  // `try/finally`: sem ele, uma exceção (rede caindo no meio, resposta
+  // estranha) deixaria `gravando` ligado pra sempre — e `gravando` é o MESMO
+  // sinal usado por salvarVeiculo, salvarItem e o checklist, então um tropeço
+  // aqui desabilitaria todos os botões de gravar da Frota, sem explicação, até
+  // a pessoa recarregar a página.
+  try {
+    // PASSO 1: o cabeçalho. `.select()` é obrigatório — sem ele não volta o id,
+    // e sem o id não há como ligar as trocas nem como desfazer se o passo 2
+    // falhar.
+    const { data: cab, error: erroCab } = await sbClient.from('frota_manutencoes')
+      .insert({
+        veiculo_id: veiculoId,
+        km: dados.km,
+        feita_em: dados.feitaEm,
+        oficina: dados.oficina,
+        total_centavos: dados.totalCentavos,
+        observacao: dados.observacao,
+        // Quem lançou. Sem isto a coluna nasce nula e "quem registrou este
+        // serviço" fica sem resposta pra sempre.
+        criada_por: estado.user ? estado.user.id : null,
+      })
+      .select('id')
+      .single()
 
-  if (erroCab || !cab || !cab.id) {
+    if (erroCab || !cab || !cab.id) {
+      erroDoLancamento.value = mensagemDoLancamento({ erroCab: erroCab || new Error('sem id') })
+      return
+    }
+
+    // PASSO 2: as trocas, uma linha por item marcado. Insert de várias linhas
+    // numa chamada só: o PostgREST envolve numa transação, então não existe o
+    // estado "2 das 3 gravadas".
+    const { error: erroLinhas } = await sbClient.from('frota_revisoes')
+      .insert(linhasParaGravar({
+        manutencaoId: cab.id, veiculoId,
+        km: dados.km, feitaEm: dados.feitaEm, oficina: dados.oficina,
+        itens: dados.itens,
+      }))
+
+    if (erroLinhas) {
+      // DESFAZ o cabeçalho — senão sobra um lançamento sem troca nenhuma no
+      // histórico do carro, dizendo que houve serviço e não dizendo qual.
+      //
+      // `.select('id')` NO DELETE, e isto é o achado da revisão: um delete
+      // recusado pela permissão volta SEM erro e com ZERO linha apagada. Sem
+      // contar as linhas, a tela diria "desfiz, pode tentar de novo" com o
+      // cabeçalho órfão ainda lá — e o "tente de novo" produziria um SEGUNDO
+      // serviço. É a mesma regra que esta tela já aplica na decisão de
+      // requisição, 700 linhas acima: conferir a CONTAGEM, não só o erro.
+      const { data: apagadas, error: erroDesfazer } = await sbClient
+        .from('frota_manutencoes').delete().eq('id', cab.id).select('id')
+      erroDoLancamento.value = mensagemDoLancamento({
+        erroLinhas,
+        cabecalhoApagado: !erroDesfazer && (apagadas || []).length === 1,
+      })
+      return
+    }
+
+    fecharLancamento()
+    await carregar()
+  } catch (e) {
+    // Não se sabe o que foi gravado: a frase manda CONFERIR antes de repetir,
+    // em vez de convidar a lançar de novo e arriscar o serviço em dobro.
+    erroDoLancamento.value = 'Alguma coisa deu errado no meio da gravação e não sei dizer o '
+      + 'que ficou salvo. Confira o histórico deste carro ANTES de lançar de novo — '
+      + 'se o serviço já estiver lá, não repita.'
+  } finally {
     gravando.value = false
-    // Nada foi gravado, e a tela DIZ isso: "não consegui gravar" com dúvida no
-    // ar faria a pessoa lançar de novo e duplicar o serviço.
-    erroDoLancamento.value = 'Não consegui gravar este lançamento, e NADA foi salvo — '
-      + 'nenhuma troca foi registrada. Confira a conexão e tente de novo.'
-    return
   }
-
-  // PASSO 2: as trocas, uma linha por item marcado.
-  const { error: erroLinhas } = await sbClient.from('frota_revisoes')
-    .insert(linhasParaGravar({
-      manutencaoId: cab.id, veiculoId,
-      km: dados.km, feitaEm: dados.feitaEm, oficina: dados.oficina,
-      itens: dados.itens,
-    }))
-
-  if (erroLinhas) {
-    // DESFAZ o cabeçalho. Sem isto sobra um lançamento sem troca nenhuma no
-    // histórico do carro, dizendo que houve serviço e não dizendo qual.
-    const { error: erroDesfazer } = await sbClient.from('frota_manutencoes')
-      .delete().eq('id', cab.id)
-    gravando.value = false
-    erroDoLancamento.value = erroDesfazer
-      // Os dois falharam: o pior caso, e o único em que a tela precisa pedir
-      // socorro humano em vez de sugerir "tente de novo".
-      ? 'Gravei o lançamento mas não consegui gravar as trocas, e também não consegui '
-        + 'desfazer o lançamento. Ele ficou no histórico deste carro SEM as trocas. '
-        + 'Avise quem administra a Frota antes de lançar de novo.'
-      : 'Não consegui gravar as trocas, então desfiz o lançamento inteiro — nada '
-        + 'ficou pela metade. Tente de novo.'
-    return
-  }
-
-  gravando.value = false
-  fecharLancamento()
-  await carregar()
 }
 
 /* ── ITEM DE MECÂNICA NOVO, criado de dentro do lançamento (D28) ─────────────
@@ -2466,10 +2470,16 @@ onMounted(async () => {
                  trocas era preencher 15 campos, redigitando KM, data e oficina a
                  cada rodada, e a frota inteira tinha 2 trocas registradas em 10
                  carros. Agora é uma ficha só, com as caixas do que foi trocado.
-                 `gravarRevisao` e `novaRevisao` continuam no código servindo o
-                 histórico antigo — as 2 trocas já gravadas não têm cabeçalho e
-                 seguem aparecendo e sendo apagáveis logo acima. -->
-            <div class="fr-acoes">
+                 O histórico logo acima NÃO saiu: as 2 trocas já gravadas não têm
+                 cabeçalho de lançamento e seguem aparecendo e sendo apagáveis
+                 por `historicoDoVeiculo` e `apagarRevisao`. -->
+            <!-- `v-if="podeEditar"`: a mesma trava que a sanfona de Revisões usa
+                 no botão irmão, e a mesma regra que a permissão de
+                 `frota_manutencoes` aplica no banco (migration 041). Aqui ela é
+                 redundante hoje — só se chega nesta ficha por um botão que já
+                 exige `podeEditar` —, mas trava dita no lugar do botão é trava
+                 que não se perde quando alguém abrir outro caminho até aqui. -->
+            <div class="fr-acoes" v-if="podeEditar">
               <button class="fr-btn primario" @click="abrirLancamento(veiculoAberto)">
                 + Lançar manutenção
               </button>

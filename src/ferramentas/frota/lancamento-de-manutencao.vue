@@ -13,7 +13,9 @@
  * primeira conferida" apareceu 4× nesta ferramenta, sempre com a tela dizendo
  * que tinha dado certo. */
 import { ref, reactive, computed } from 'vue'
-import { problemasDoLancamento, diferencaDeValores } from './lancamento-de-manutencao.js'
+import {
+  problemasDoLancamento, diferencaDeValores, centavos, VALOR_INVALIDO,
+} from './lancamento-de-manutencao.js'
 
 const props = defineProps({
   veiculo: { type: Object, required: true },
@@ -39,14 +41,14 @@ function alternar(item) {
   marcados.value = s
 }
 
-/** "1.240,00" e "1240" viram 124000 centavos. Vírgula E ponto aceitos: quem
- *  digita no celular usa o que o teclado oferece. */
-function centavos(txt) {
-  const limpo = String(txt ?? '').trim()
-  if (!limpo) return null
-  const n = Number(limpo.replace(/\./g, '').replace(',', '.'))
-  return Number.isFinite(n) ? Math.round(n * 100) : null
+/** Só os centavos que dá pra gravar; texto ilegível vira nulo aqui e é BARRADO
+ *  por `valoresIlegiveis` mais abaixo, em vez de virar "sem valor" calado. */
+const centavosOuNulo = (txt) => {
+  const c = centavos(txt)
+  return c === VALOR_INVALIDO ? null : c
 }
+const ilegivel = (txt) => centavos(txt) === VALOR_INVALIDO
+
 function inteiro(txt) {
   const so = String(txt ?? '').replace(/\D/g, '')
   return so === '' ? null : parseInt(so, 10)
@@ -55,15 +57,43 @@ function inteiro(txt) {
 const itensMarcados = computed(() =>
   props.plano
     .filter((p) => marcados.value.has(p.item))
-    .map((p) => ({ item: p.item, valorCentavos: centavos(valores[p.item]) })))
+    .map((p) => ({ item: p.item, valorCentavos: centavosOuNulo(valores[p.item]) })))
 
-const problemas = computed(() => problemasDoLancamento({
-  km: inteiro(form.km), itens: itensMarcados.value, kmConhecido: props.kmConhecido,
-}))
+/* Valor que não dá pra ler BARRA, em vez de gravar nulo calado. Sem isto,
+ * quem digitasse "12,345" (ambíguo entre R$ 12.345,00 e R$ 12,34) veria a tela
+ * gravar sem valor nenhum e dizer que deu certo — a tela mentindo sobre o que
+ * a pessoa mandou. */
+const valoresIlegiveis = computed(() => {
+  const p = []
+  if (ilegivel(form.total)) {
+    p.push({
+      bloqueia: true,
+      texto: 'Não consegui ler o valor total. Escreva como 1.240,00 ou 1240,00 — '
+        + 'com vírgula antes dos centavos.',
+    })
+  }
+  for (const it of itensMarcados.value) {
+    if (ilegivel(valores[it.item])) {
+      p.push({
+        bloqueia: true,
+        texto: `Não consegui ler o valor de "${it.item}". Escreva como 180,00 — `
+          + 'com vírgula antes dos centavos.',
+      })
+    }
+  }
+  return p
+})
+
+const problemas = computed(() => [
+  ...problemasDoLancamento({
+    km: inteiro(form.km), itens: itensMarcados.value, kmConhecido: props.kmConhecido,
+  }),
+  ...valoresIlegiveis.value,
+])
 const bloqueios = computed(() => problemas.value.filter((p) => p.bloqueia))
 const avisos = computed(() => problemas.value.filter((p) => !p.bloqueia))
 const divergencia = computed(() => diferencaDeValores({
-  totalCentavos: centavos(form.total), itens: itensMarcados.value,
+  totalCentavos: centavosOuNulo(form.total), itens: itensMarcados.value,
 }))
 
 const quantas = computed(() => itensMarcados.value.length)
@@ -79,7 +109,7 @@ function gravar() {
     km: inteiro(form.km),
     feitaEm: form.feitaEm || null,
     oficina: form.oficina.trim() || null,
-    totalCentavos: centavos(form.total),
+    totalCentavos: centavosOuNulo(form.total),
     observacao: form.observacao.trim() || null,
     itens: itensMarcados.value,
   })
@@ -181,7 +211,14 @@ function gravar() {
    classes `fr-` da tela grande — foi o defeito achado na Fase A, quando a
    sanfona de revisões quase subiu sem estilo nenhum. Só tokens, nunca hex, nem
    como valor de reserva dentro de `var()`. */
-.lm-fundo{position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:14px;touch-action:none;overscroll-behavior:contain;}
+/* `z-index:1150`, ABAIXO dos 1200 das fichas da tela grande, e é de propósito:
+   o "+ Acrescentar item de mecânica" abre o editor de item, que é uma ficha
+   `fr-ficha-fundo` (1200). Empatado em 1200, quem pintava por cima era esta
+   ficha — por ser o último elemento do template —, então o editor abria ATRÁS,
+   invisível, e o clique caía neste fundo, fechando o lançamento inteiro com
+   tudo o que a pessoa já tinha digitado. Ficando abaixo, um modal aberto A
+   PARTIR daqui pousa por cima, como se espera. */
+.lm-fundo{position:fixed;inset:0;z-index:1150;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:14px;touch-action:none;overscroll-behavior:contain;}
 .lm-ficha{width:100%;max-width:520px;max-height:calc(100dvh - 28px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35);}
 .lm-topo{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 15px;border-bottom:1px solid var(--border);}
 .lm-titulo{flex:1;min-width:0;font-family:var(--fonte-principal);font-size:12.5px;font-weight:700;letter-spacing:.6px;color:var(--text);overflow-wrap:anywhere;}

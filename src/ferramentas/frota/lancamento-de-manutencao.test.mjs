@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   problemasDoLancamento, diferencaDeValores, linhasParaGravar,
+  centavos, VALOR_INVALIDO, mensagemDoLancamento,
 } from './lancamento-de-manutencao.js'
 
 const bloqueia = (p) => p.filter((x) => x.bloqueia)
@@ -132,4 +133,92 @@ test('data em branco grava nulo, não a data de hoje', () => {
   // Inventar a data de hoje seria a tela mentindo sobre quando o serviço foi.
   const l = linhasParaGravar({ manutencaoId: 'm', veiculoId: 'v', km: 1, feitaEm: '', itens: [{ item: 'A' }] })
   assert.equal(l[0].feita_em, null)
+})
+
+/* ── O valor em reais que a pessoa digita ───────────────────────────────────
+ *
+ * A tabela abaixo é O DEFEITO que estes testes existem pra travar: a conta
+ * antiga apagava TODO ponto como separador de milhar antes de olhar a vírgula,
+ * então `1240.00` virava R$ 124.000,00 — cem vezes o valor, gravado em
+ * silêncio. E não era caso exótico: `inputmode="decimal"` abre o teclado que
+ * oferece PONTO em boa parte dos celulares. A mesma conta já alimentava
+ * `aluguel_centavos`, `fipe_centavos` e `seguro_valor_centavos` na ficha do
+ * veículo — um aluguel digitado `4500.00` virava R$ 450.000,00. */
+
+test('as formas que uma pessoa realmente digita um valor', () => {
+  const casos = [
+    ['1.240,00', 124000],
+    ['1240', 124000],
+    ['1240,5', 124050],
+    ['0,50', 50],
+    ['1240.00', 124000],   // ← o defeito: dava 12400000
+    ['1240.5', 124050],    // ← o defeito: dava 1240500
+    ['1.240.00', 124000],  // os dois separadores misturados
+    ['1.240', 124000],     // três dígitos depois do ponto = MILHAR, não decimal
+    ['R$ 1.240,00', 124000],
+    ['1 240,00', 124000],
+    ['1 240,00', 124000], // espaço que não quebra, de valor copiado de site
+  ]
+  for (const [txt, esperado] of casos) {
+    assert.equal(centavos(txt), esperado, `"${txt}" devia virar ${esperado} centavos`)
+  }
+})
+
+test('em branco é "não informou" — e isso NÃO é erro', () => {
+  // Distinto de inválido: aqui a tela deixa o campo vazio e grava nulo.
+  // "R$" sozinho entra aqui de propósito: sobra vazio depois de limpar, e a
+  // pessoa claramente não digitou valor nenhum.
+  for (const vazio of ['', '   ', null, undefined, 'R$', 'R$ ']) {
+    assert.equal(centavos(vazio), null, `"${vazio}" devia ser "não informou"`)
+  }
+})
+
+test('texto que não dá pra ler devolve INVÁLIDO, não nulo', () => {
+  // Devolver nulo faria a tela gravar "sem valor" caladamente sobre o que a
+  // pessoa digitou — a tela mentindo sobre o que ela mandou.
+  for (const lixo of ['abc', '12abc', '1,2,3', '--50']) {
+    assert.equal(centavos(lixo), VALOR_INVALIDO, `"${lixo}" devia ser inválido`)
+  }
+})
+
+test('valor negativo é inválido — nota de oficina não tem valor negativo', () => {
+  assert.equal(centavos('-50'), VALOR_INVALIDO)
+  assert.equal(centavos('-1.240,00'), VALOR_INVALIDO)
+})
+
+test('vírgula com três casas é AMBÍGUA, e ambiguidade em dinheiro se barra', () => {
+  // "12,345" tanto pode ser R$ 12.345,00 quanto R$ 12,34 digitado com uma casa
+  // a mais. Adivinhar erra por um fator de mil, então a tela barra e a pessoa
+  // digita de novo. Com PONTO não há ambiguidade: "12.345" é o milhar.
+  assert.equal(centavos('12,345'), VALOR_INVALIDO)
+  assert.equal(centavos('12.345'), 1234500)
+})
+
+/* ── A frase depois de tentar gravar ────────────────────────────────────────
+ * O que ela decide não é o texto: é se a pessoa pode TENTAR DE NOVO. */
+
+test('deu tudo certo não tem frase nenhuma', () => {
+  assert.equal(mensagemDoLancamento({}), '')
+})
+
+test('cabeçalho falhou: NADA foi gravado, e pode tentar de novo', () => {
+  const m = mensagemDoLancamento({ erroCab: new Error('rede') })
+  assert.match(m, /NADA foi salvo/)
+  assert.match(m, /tente de novo/i)
+})
+
+test('trocas falharam e o desfazer foi CONFIRMADO: pode tentar de novo', () => {
+  const m = mensagemDoLancamento({ erroLinhas: new Error('x'), cabecalhoApagado: true })
+  assert.match(m, /desfiz o lançamento inteiro/)
+  assert.match(m, /tente de novo/i)
+})
+
+test('desfazer NÃO confirmado: manda NÃO tentar de novo', () => {
+  // O caso que a revisão pegou: um delete recusado pela permissão volta SEM
+  // erro e sem apagar nada. Se a tela dissesse "tente de novo", o mesmo serviço
+  // entraria duas vezes no histórico.
+  const m = mensagemDoLancamento({ erroLinhas: new Error('x'), cabecalhoApagado: false })
+  assert.match(m, /NÃO lance de novo/)
+  assert.match(m, /avise quem administra/i)
+  assert.doesNotMatch(m, /[Tt]ente de novo/, 'não pode convidar a repetir')
 })

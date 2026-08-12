@@ -28,6 +28,108 @@ const kmFmt = (n) => Math.abs(n).toLocaleString('pt-BR');
 const reaisFmt = (centavos) =>
   (Math.abs(centavos) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+/** O que `centavos()` devolve quando o texto não é um valor que dê pra ler. */
+export const VALOR_INVALIDO = Symbol('valor-invalido');
+
+/**
+ * Reais digitados por uma pessoa viram centavos (inteiro).
+ *
+ * O DEFEITO QUE ISTO CONSERTA, e ele já estava no ar: a conta antiga apagava
+ * TODO ponto como separador de milhar antes de olhar a vírgula, então
+ * `1240.00` virava 12.400.000 centavos — R$ 124.000,00, cem vezes o valor, e
+ * gravado em silêncio. Não é caso exótico: `inputmode="decimal"` abre o teclado
+ * que oferece PONTO em boa parte dos celulares, e a pessoa digita o que o
+ * teclado sugere. A mesma conta alimentava `aluguel_centavos`, `fipe_centavos`
+ * e `seguro_valor_centavos` na ficha do veículo — um aluguel digitado
+ * `4500.00` já virava R$ 450.000,00 hoje.
+ *
+ * A REGRA: **o ÚLTIMO separador presente é a vírgula decimal**, qualquer que
+ * seja ele. É o que faz `1.240,00`, `1240.00` e `1.240.00` lerem igual, e
+ * `1.240` (sem casas) ler como mil duzentos e quarenta.
+ *
+ * Texto que sobra sujo devolve VALOR_INVALIDO, não `null`: os dois são
+ * respostas diferentes — `null` é "não informou", e a tela deixa em branco;
+ * inválido é "digitou algo que não dá pra ler", e a tela precisa BARRAR em vez
+ * de gravar nada calada. Negativo também é inválido: nota de oficina não tem
+ * valor negativo, e o sinal quase sempre é dedo errado.
+ */
+export function centavos(txt) {
+  if (txt === null || txt === undefined) return null;
+  const limpo = String(txt)
+    .replace(/R\$/gi, '')
+    //   é o espaço que não quebra — vem colado em valor copiado de site.
+    .replace(/[\s ]/g, '')
+    .trim();
+  if (!limpo) return null;
+
+  const ultimoSep = Math.max(limpo.lastIndexOf(','), limpo.lastIndexOf('.'));
+  let inteiro = limpo;
+  let decimais = '';
+  if (ultimoSep !== -1) {
+    inteiro = limpo.slice(0, ultimoSep);
+    decimais = limpo.slice(ultimoSep + 1);
+    // Três dígitos depois do último separador é separador de MILHAR, não
+    // decimal: "1.240" é mil duzentos e quarenta, não um real e vinte e quatro.
+    //
+    // MAS só quando é PONTO. Com VÍRGULA a forma é ambígua — "12,345" tanto
+    // pode ser doze mil trezentos e quarenta e cinco (separador estranho) como
+    // três casas decimais digitadas por engano. Vírgula com 3 dígitos cai fora
+    // e vira VALOR_INVÁLIDO logo abaixo, porque em dinheiro adivinhar entre
+    // R$ 12.345,00 e R$ 12,34 é errar por um fator de mil. A tela BARRA e a
+    // pessoa desfaz a ambiguidade digitando de novo.
+    if (/^\d{3}$/.test(decimais) && limpo[ultimoSep] === '.') { inteiro = limpo; decimais = ''; }
+  }
+  // Os separadores restantes são de milhar por definição (o último já foi
+  // tratado acima) — mas só valem se estiverem AGRUPANDO DE 3 EM 3. "1.240.000"
+  // é milhão; "1,2,3" não é forma nenhuma, e em dinheiro forma torta vira
+  // VALOR_INVALIDO em vez de palpite: lido como "12,3" daria R$ 12,30 sobre o
+  // que a pessoa quis dizer com outra coisa.
+  if (/[.,]/.test(inteiro) && !/^\d{1,3}([.,]\d{3})*$/.test(inteiro)) return VALOR_INVALIDO;
+  inteiro = inteiro.replace(/[.,]/g, '');
+
+  if (!/^\d*$/.test(inteiro) || !/^\d*$/.test(decimais)) return VALOR_INVALIDO;
+  if (!inteiro && !decimais) return VALOR_INVALIDO;
+  if (decimais.length > 2) return VALOR_INVALIDO;
+
+  const cents = parseInt(inteiro || '0', 10) * 100 + parseInt(decimais.padEnd(2, '0') || '0', 10);
+  return Number.isSafeInteger(cents) ? cents : VALOR_INVALIDO;
+}
+
+/**
+ * A frase depois de tentar gravar um lançamento — e ela decide se a pessoa
+ * pode TENTAR DE NOVO ou não, que é a parte que estas mensagens costumam errar.
+ *
+ * Cabeçalho e trocas são duas gravações. "Duas gravações com só a primeira
+ * conferida" apareceu 4× nesta ferramenta, sempre com a tela dizendo que tinha
+ * dado certo. Aqui cada desfecho tem sua frase:
+ *
+ *  - deu tudo certo → sem frase.
+ *  - cabeçalho falhou → NADA foi gravado. Pode tentar de novo à vontade.
+ *  - trocas falharam e o cabeçalho foi apagado (CONFIRMADO, uma linha apagada)
+ *    → nada ficou pela metade. Pode tentar de novo.
+ *  - trocas falharam e o desfazer NÃO se confirmou → o lançamento pode ter
+ *    ficado no histórico sem troca nenhuma. **NÃO tentar de novo**: repetir
+ *    criaria um segundo serviço, e o histórico passaria a ter um lançamento
+ *    dizendo que nada foi feito e outro dizendo o que foi.
+ *
+ * `cabecalhoApagado` tem de vir da CONTAGEM DE LINHAS apagadas, não da ausência
+ * de erro: um delete recusado pela permissão volta sem erro e sem apagar nada.
+ */
+export function mensagemDoLancamento({ erroCab, erroLinhas, cabecalhoApagado }) {
+  if (erroCab) {
+    return 'Não consegui gravar este lançamento, e NADA foi salvo — nenhuma troca foi '
+      + 'registrada. Confira a conexão e tente de novo.';
+  }
+  if (!erroLinhas) return '';
+  if (cabecalhoApagado) {
+    return 'Não consegui gravar as trocas, então desfiz o lançamento inteiro — nada ficou '
+      + 'pela metade. Tente de novo.';
+  }
+  return 'Gravei o lançamento mas não consegui gravar as trocas, e também não consegui '
+    + 'desfazê-lo. Ele pode ter ficado no histórico deste carro SEM as trocas. '
+    + 'NÃO lance de novo: avise quem administra a Frota, senão o mesmo serviço entra duas vezes.';
+}
+
 /**
  * Problemas de um lançamento de manutenção ANTES de gravar. Devolve avisos em
  * português; cada um traz `bloqueia`: true impede gravar, false é só um alerta.
