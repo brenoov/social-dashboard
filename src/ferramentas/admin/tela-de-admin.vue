@@ -1144,13 +1144,40 @@ function _mkBlocoNotificacoes() {
  */
 let _permAba = 'ferramentas'
 
+// O aviso de propagação incompleta (D8/D11). Mora fora do `_permState` pelo
+// mesmo motivo da aba: ele é da tela, não do que se salva.
+//
+// POR QUE ELE EXISTE: quando a propagação de um perfil falha para alguém, o
+// perfil JÁ FOI GRAVADO e aquela pessoa ficou com o acesso antigo — perfil e
+// pessoas divergem. Essa notícia num toast some em 2,8 segundos e não deixa
+// rastro nenhum: quem desviasse o olhar ficaria achando que aplicou em todo
+// mundo, e a divergência não reapareceria em lugar nenhum. Por isso ela vira
+// faixa que fica até alguém fechar.
+let _permAvisoPropagacao = null
+
 // A faixa fica no TOPO DA ABA, e nunca um `alert()` nativo: o alert trava a
 // tela num botão "OK" e some sem deixar rastro — mas o que ele tinha a dizer
-// continua verdadeiro depois do OK.
-function _mkFaixaDeAviso(texto) {
+// continua verdadeiro depois do OK. Pelo mesmo motivo ela também não é um
+// toast: toast some em 2,8s (avisos.js) e leva a notícia junto.
+//
+// `aoFechar` é opcional: quando vem, a faixa ganha um botão de dispensar e só
+// sai da tela por decisão de gente. Quem não passa nada continua com a faixa de
+// antes, sem botão — o aviso do elo faltante some sozinho quando o elo é feito.
+// Uma linha por `\n`, porque `textContent` não quebra linha sozinho.
+function _mkFaixaDeAviso(texto, aoFechar) {
   const f = document.createElement('div'); f.className = 'perm-faixa-aviso'
   f.setAttribute('role', 'status')
-  f.textContent = texto
+  for (const linha of String(texto).split('\n')) {
+    const l = document.createElement('div'); l.textContent = linha; f.appendChild(l)
+  }
+  if (aoFechar) {
+    const acao = document.createElement('div'); acao.className = 'perm-faixa-aviso-acao'
+    const b = document.createElement('button'); b.type = 'button'
+    b.className = 'btn'            // comum: dispensar não é a ação principal de nada
+    b.textContent = 'Entendi, fechar aviso'
+    b.addEventListener('click', aoFechar)
+    acao.appendChild(b); f.appendChild(acao)
+  }
   return f
 }
 
@@ -1209,6 +1236,16 @@ function _renderPermBody(u) {
   // que não está mais na lista cairia num painel vazio.
   if (!abas.some((a) => a.chave === _permAba)) _permAba = abas[0].chave
   body.appendChild(_mkBarraDeAbas(abas, u))
+
+  // Antes das abas e acima de tudo: propagação que ficou pela metade vale para
+  // o modal inteiro, não para uma aba só, e não pode depender de a pessoa
+  // clicar na aba certa para descobrir.
+  if (_permAvisoPropagacao) {
+    body.appendChild(_mkFaixaDeAviso(_permAvisoPropagacao, () => {
+      _permAvisoPropagacao = null
+      _renderPermBody(u)
+    }))
+  }
 
   const painel = document.createElement('div'); painel.className = 'perm-aba-painel'
   painel.setAttribute('role', 'tabpanel')
@@ -1367,7 +1404,7 @@ function _abaDeFerramentas(body, u) {
       // uma pessoa", plano de 11/08). E é exatamente aí que D8 acontece —
       // regravar o perfil muda o acesso de todo mundo que está nele. Por isso
       // este caminho passa OBRIGATORIAMENTE pela confirmação de impacto (D11).
-      if (r.status === 409) { await _regravarPerfilExistente(nomeLimpo, novasPermissions); return }
+      if (r.status === 409) { await _regravarPerfilExistente(nomeLimpo, novasPermissions, u); return }
       if (!r.ok) { adminToast('Não consegui salvar o perfil', false); return }
       // Perfil recém-criado não tem ninguém dentro (`perfil_id` de ninguém
       // aponta pra ele ainda), então não há acesso de terceiro pra mudar aqui.
@@ -1403,8 +1440,11 @@ function _rotuloDoRecurso(chave) {
  *   3. gravar o perfil;
  *   4. propagar pessoa por pessoa.
  * Qualquer passo que falhe interrompe tudo ANTES de mexer em gente.
+ *
+ * `u` é a pessoa cuja ficha está aberta — precisa dela para redesenhar o editor
+ * quando a propagação fica pela metade e o modal continua aberto com o aviso.
  */
-async function _regravarPerfilExistente(nome, novasPermissions) {
+async function _regravarPerfilExistente(nome, novasPermissions, u) {
   // 1) Achar o perfil pelo nome (é `unique` na tabela, então é no máximo um).
   let perfil = null
   try {
@@ -1487,6 +1527,11 @@ async function _regravarPerfilExistente(nome, novasPermissions) {
 
   if (impacto.total === 0) {
     adminToast(`Perfil "${nome}" atualizado — ninguém muda de acesso.`)
+    // Fecha pelo mesmo motivo do caminho de sucesso lá embaixo: o editor ficaria
+    // com o mapa do perfil na mão, e salvar por cima de alguém que está neste
+    // perfil apagaria a exceção dela. "Ninguém muda de acesso" é sobre o que a
+    // propagação faz, não sobre o que um clique seguinte poderia fazer.
+    closePermModal()
     return
   }
 
@@ -1501,6 +1546,10 @@ async function _regravarPerfilExistente(nome, novasPermissions) {
   // coluna e apagaria o acesso dela. Por isso o campo fica FORA do corpo nesse
   // caso, igual ao que `savePermissions` já faz (~L1670).
   const falhas = []
+  // O que FICOU no banco para cada pessoa: o efetivo quando o PATCH passou, o
+  // de antes quando falhou. Serve para resincronizar o editor logo abaixo, sem
+  // uma segunda ida ao banco.
+  const noBanco = new Map()
   for (const p of membrosCrus) {
     const efetivo = acessoEfetivo(novasPermissions, p.permissions_excecao)
     const corpo = { permissions: efetivo }
@@ -1515,18 +1564,45 @@ async function _regravarPerfilExistente(nome, novasPermissions) {
       okp = !!(rr && rr.ok)
     } catch { okp = false }
     if (!okp) falhas.push(p.name || p.email)
+    noBanco.set(p.id, okp ? efetivo : (p.permissions || {}))
   }
 
-  // Falha no meio da propagação tem que ser DITA com nome. "Perfil atualizado"
-  // com metade das pessoas fora deixaria o dono achando que aplicou.
-  if (falhas.length) {
-    adminToast(`Perfil "${nome}" gravado, mas NÃO consegui aplicar em: ${falhas.join(', ')}.`
-      + ' O acesso dessas pessoas continua como estava — abra a ficha de cada uma.', false)
-  } else {
+  setTimeout(loadAdminUsers, 400)
+
+  if (!falhas.length) {
     adminToast(`Perfil "${nome}" atualizado — ${impacto.total} `
       + (impacto.total === 1 ? 'pessoa mudou' : 'pessoas mudaram') + ' de acesso.')
+    // FECHAR O EDITOR NÃO É COSMÉTICO. Ele continuaria aberto com o mapa do
+    // PERFIL na mão, e o que a pessoa desta ficha tem no banco é perfil +
+    // exceção DELA. Um "Salvar" logo depois gravaria o mapa cru nela e apagaria
+    // a exceção que a propagação acabou de preservar — desfazendo o D9 em
+    // silêncio, que é o oposto do que esta tela inteira existe pra garantir.
+    // `savePermissions` fecha pelo mesmo motivo.
+    closePermModal()
+    return
   }
-  setTimeout(loadAdminUsers, 400)
+
+  // Deu falha: o perfil está gravado e essas pessoas ficaram com o acesso
+  // antigo. O modal fica ABERTO de propósito — é onde a faixa mora, e fechar
+  // levaria o aviso junto. Um toast sozinho some em 2,8s e a divergência não
+  // reapareceria em lugar nenhum.
+  //
+  // As três coisas que o texto tem que dizer: o perfil FOI gravado, estas
+  // pessoas NÃO receberam (nome a nome), e o acesso delas continua como estava.
+  _permAvisoPropagacao = `O perfil "${nome}" FOI gravado, mas a mudança não chegou em todo mundo.\n`
+    + `Não consegui aplicar em: ${falhas.join(', ')}.\n`
+    + 'O acesso dessas pessoas continua exatamente como estava — o perfil e elas estão diferentes '
+    + 'até alguém abrir a ficha de cada uma e salvar de novo.'
+  adminToast(`Perfil "${nome}" gravado, mas NÃO consegui aplicar em: ${falhas.join(', ')}.`
+    + ' O acesso dessas pessoas continua como estava — abra a ficha de cada uma.', false)
+
+  // Com o modal aberto, o editor ainda mostra o mapa do PERFIL. Se a pessoa
+  // desta ficha estava no perfil, resincroniza com o que FICOU no banco pra
+  // ela: sem isso, salvar aqui apagaria a exceção dela (D9) sem avisar.
+  if (_permState && noBanco.has(_permState.userId)) {
+    _permState.permissions = JSON.parse(JSON.stringify(noBanco.get(_permState.userId) || {}))
+  }
+  if (_permState) _renderPermBody(u)
 }
 
 // Marcar uma ação marca 'ver' junto; desmarcar 'ver' limpa o recurso. Mantém a ordem do catálogo.
@@ -1638,6 +1714,11 @@ function _linhaDeAprovacao(r, u) {
 function closePermModal() {
   document.getElementById('perm-modal-overlay').classList.remove('open')
   _permState = null
+  // Fechar o modal é decisão de gente, e o aviso é sobre o que acabou de
+  // acontecer NESTA ficha. Deixá-lo de pé reapareceria na ficha de outra
+  // pessoa, dizendo dela o que era de outra — aviso que mente é pior que aviso
+  // nenhum. Quem grava com falha não passa por aqui: o modal fica aberto.
+  _permAvisoPropagacao = null
 }
 
 // SENSITIVE MUTATION — PATCH em profiles.permissions/features/allowed_accounts/is_superadmin.
@@ -3102,6 +3183,9 @@ Object.assign(window, {
 /* A faixa do aviso, no topo da aba. `--orange` é o token de aviso deste projeto
    (`--aviso` não existe, e variável inexistente cai no herdado, calada). */
 .tela-admin :deep(.perm-faixa-aviso){border:1px solid color-mix(in srgb,var(--orange) 45%,transparent);background:color-mix(in srgb,var(--orange) 10%,var(--surface));color:color-mix(in srgb,var(--orange) 75%,var(--text));border-radius:var(--radius-md);padding:10px 12px;font-size:12.5px;line-height:1.5;margin-bottom:var(--sp-3);overflow-wrap:anywhere;}
+/* A linha do botão de dispensar, quando a faixa é do tipo que fica até alguém
+   fechar. Só posiciona: o botão é `.btn` comum, sem `style` solto. */
+.tela-admin :deep(.perm-faixa-aviso-acao){display:flex;justify-content:flex-end;margin-top:var(--sp-2);}
 .tela-admin :deep(.perm-section){margin-bottom:2px;}
 .tela-admin :deep(.perm-row){display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:5px;transition:background .12s;cursor:pointer;}
 .tela-admin :deep(.perm-row:hover){background:var(--surface2);}
