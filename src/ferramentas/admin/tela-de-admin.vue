@@ -55,6 +55,18 @@
                 <label class="admin-form-label" for="adm-role">Perfil de acesso</label>
                 <select id="adm-role" class="admin-form-input" style="width:100%;box-sizing:border-box;cursor:pointer;"><option value="viewer">Visualizador</option><option value="admin">Administrador</option></select>
               </div>
+              <!-- Task 5 (D7, segunda metade): a pessoa nova pode começar com o
+                   acesso de um perfil já salvo. "Sem nada" é a primeira opção e
+                   a padrão — permissão nasce desmarcada é regra do projeto, e um
+                   seletor que já viesse com perfil escolhido concederia acesso
+                   por omissão, que é exatamente o que a regra existe pra impedir.
+                   Opções além da primeira são preenchidas por loadAdminUsers. -->
+              <div style="grid-column:1 / -1">
+                <label class="admin-form-label" for="adm-perfil">Começar com o acesso de</label>
+                <select id="adm-perfil" class="admin-form-input" style="width:100%;box-sizing:border-box;cursor:pointer;">
+                  <option value="">Sem nada — marco uma a uma</option>
+                </select>
+              </div>
             </div>
             <div style="font-family:var(--fonte-principal);font-size:11px;color:var(--muted);margin-top:12px;display:flex;align-items:center;gap:6px;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.6"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -1009,6 +1021,7 @@ async function loadAdminSaude() {
 let _permState = null       // { userId, permissions, allowed_accounts, is_superadmin }
 let _contasCache = null     // perfis de rede (accounts)
 let _usersCache = []        // lista de usuários (p/ o "duplicar")
+let _perfisCache = []       // acessos_perfis (p/ "começar com o acesso de…" ao criar usuário — Task 5)
 
 async function openPermModal(u, opcoes) {
   const soNotificacoes = !!(opcoes && opcoes.soNotificacoes)
@@ -2121,6 +2134,22 @@ async function loadAdminUsers() {
   const pessoas = rc.data || []
   _usersCache = perfis // p/ o "duplicar permissões de outro usuário" no editor
 
+  // Os perfis existentes, pra oferecer "começar com o acesso de…" no formulário
+  // de criar usuário (Task 5). Falhar aqui não pode impedir criar usuário: sem
+  // perfil, a pessoa nasce sem nada, que é o padrão do projeto (permissão nasce
+  // desmarcada).
+  try {
+    const rPerfis = await adFetch('acessos_perfis?select=id,nome,permissions&order=nome')
+    _perfisCache = await rPerfis.json()
+  } catch { _perfisCache = [] }
+  const selPerfilForm = document.getElementById('adm-perfil')
+  if (selPerfilForm) {
+    while (selPerfilForm.options.length > 1) selPerfilForm.remove(1)
+    ;(_perfisCache || []).forEach(p => {
+      selPerfilForm.appendChild(new Option(`${p.nome} — ${Object.keys(p.permissions || {}).length} ferramentas`, p.id))
+    })
+  }
+
   // AS TRÊS LISTAS SÃO ESPERADAS, e não carregadas soltas em segundo plano.
   //
   // A primeira versão usava `.then()` sem esperar, para não atrasar a lista de
@@ -2209,6 +2238,8 @@ async function adminInviteUser(mode) {
   const name = document.getElementById('adm-name').value.trim()
   const password = document.getElementById('adm-pass').value
   const role = document.getElementById('adm-role').value
+  const selPerfil = document.getElementById('adm-perfil')
+  const perfilEscolhidoId = selPerfil ? selPerfil.value : ''
   const msg = document.getElementById('adm-invite-msg')
   if (!email) { msg.textContent = 'Informe o email.'; msg.style.color = 'var(--red)'; return }
   const isInvite = mode === 'invite' || !password
@@ -2224,6 +2255,52 @@ async function adminInviteUser(mode) {
     msg.textContent = isInvite ? '✓ Convite enviado para ' + email : '✓ Acesso criado para ' + email
     msg.style.color = 'var(--green)'
     ;['adm-email', 'adm-name', 'adm-pass'].forEach(id => document.getElementById(id).value = '')
+
+    // Task 5 (D7, segunda metade): se foi escolhido "começar com o acesso
+    // de…", aplica o perfil na pessoa recém-criada.
+    //
+    // O edge invite-user (supabase/functions/invite-user/index.ts) só grava
+    // id/email/name/role no upsert — conferido por leitura, não aceita
+    // perfil_id/permissions. Por isso a aplicação acontece aqui, com PATCH
+    // direto em profiles via adFetch, do mesmo jeito que o editor de
+    // permissões já grava (savePermissions, ~L1444).
+    //
+    // GUARDA: "Task 5 só afeta usuário que ainda não existe" é regra dura.
+    // O edge, se o e-mail digitado já tiver conta, NÃO cria nada — só
+    // reenvia um link de redefinição de senha — e mesmo assim devolve
+    // sucesso. Sem checar, essa borda aplicaria o perfil em cima do acesso
+    // de alguém que já tinha conta. Por isso só aplica quando o cadastro
+    // achado por e-mail está de fato em branco (sem permissão, sem perfil,
+    // não superadmin) — o formato exato de quem acabou de nascer.
+    if (perfilEscolhidoId) {
+      const perfil = _perfisCache.find(p => p.id === perfilEscolhidoId)
+      if (perfil) {
+        const rProfile = await adFetch('profiles?select=id,permissions,perfil_id,is_superadmin&email=eq.' + encodeURIComponent(email))
+        const linhas = rProfile.ok ? await rProfile.json() : []
+        const novo = linhas[0]
+        const emBranco = novo && !novo.perfil_id && !novo.is_superadmin
+          && (!novo.permissions || Object.keys(novo.permissions).length === 0)
+        if (novo && emBranco) {
+          const permissions = { ...perfil.permissions }
+          const rPatch = await adFetch('profiles?id=eq.' + novo.id, {
+            method: 'PATCH',
+            body: JSON.stringify({
+              perfil_id: perfil.id,
+              permissions,
+              permissions_excecao: {},
+              features: derivarFeatures(permissions, { ehSuperadmin: false }),
+            }),
+          })
+          if (!rPatch.ok) adminToast('Acesso criado, mas não consegui aplicar o perfil — marque manualmente', false)
+        } else if (novo) {
+          adminToast('Esse e-mail já tinha acesso — não mexi no perfil dela. Marque manualmente se for o caso.', false)
+        } else {
+          adminToast('Acesso criado, mas não achei o cadastro pra aplicar o perfil — marque manualmente', false)
+        }
+      }
+    }
+    if (selPerfil) selPerfil.value = ''
+
     adminToast(isInvite ? 'Convite enviado!' : 'Acesso criado com sucesso')
     setTimeout(loadAdminUsers, 1200)
   }
