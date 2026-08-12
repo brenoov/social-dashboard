@@ -277,3 +277,17 @@ test('KM zero de manutenção é KM conhecido — carro zero km existe', () => {
   const v = { id: 'v1', situacao: 'ativo' }
   assert.equal(estadoDoVeiculo(v, [], [], [{ veiculo_id: 'v1', item: 'Óleo', km: 0 }]).km, 0)
 })
+
+/* ── Reserva aprovada tira o carro dos livres (defeito da Bravo Essence) ──── */
+
+test('carro com reserva aprovada em vigor NÃO é livre', () => {
+  // Medido em 12/08/2026: a Bravo Essence tinha reserva aprovada até 24/08 e
+  // continuava listada como livre pra qualquer um pegar.
+  const v = { id: 'v1', situacao: 'ativo', pessoa_id: null, reservada: true }
+  assert.equal(estadoDoVeiculo(v, [], []).disponivel, false)
+})
+
+test('sem reserva, o carro de rodízio continua livre como sempre', () => {
+  const v = { id: 'v1', situacao: 'ativo', pessoa_id: null, reservada: false }
+  assert.equal(estadoDoVeiculo(v, [], []).disponivel, true)
+})

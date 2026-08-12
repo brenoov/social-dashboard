@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   seAtropelam, conflitosDe, problemasDaRequisicao, bloqueios,
   podeDecidir, motivoEmPortugues, ordenarFila, quando, ANTECEDENCIA_IDEAL_DIAS,
-  reservaParaPegar,
+  reservaParaPegar, reservaSegurando,
 } from './requisicoes.js'
 
 const AGORA = '2026-08-04T12:00:00Z'
@@ -275,4 +275,46 @@ test('reserva sem hora de volta vale a partir da retirada, com a mesma folga', (
 test('sem reserva nenhuma, sem botão', () => {
   assert.equal(reservaParaPegar({ requisicoes: [], veiculoId: 'v1', minhaPessoaId: 'p1' }), null)
   assert.equal(reservaParaPegar({}), null)
+})
+
+/* ── A reserva segura o carro (o defeito da Bravo Essence) ──────────────────
+ *
+ * Medido em 12/08/2026: a Bravo Essence tinha reserva APROVADA e em vigor até
+ * 24/08 pro Felipe, e a tela continuava listando ela como livre pra pegar. */
+
+const EMVIGOR = {
+  veiculo_id: 'v1', situacao: 'aprovada',
+  retirada_prevista: '2026-08-11T20:09:00Z', devolucao_prevista: '2026-08-24T20:09:00Z',
+}
+const segura = (extra = {}) => reservaSegurando({
+  requisicoes: [EMVIGOR], veiculoId: 'v1', agoraIso: '2026-08-12T15:00:00Z', ...extra,
+})
+
+test('reserva aprovada e em vigor SEGURA o carro', () => {
+  assert.ok(segura())
+})
+
+test('reserva PENDENTE não segura — o carro é de todos até alguém decidir', () => {
+  // Travar por pedido que pode ser recusado deixaria a frota parada por engano.
+  assert.equal(segura({ requisicoes: [{ ...EMVIGOR, situacao: 'pendente' }] }), null)
+})
+
+test('reserva RECUSADA não segura nada', () => {
+  // O caso real: a Bravo tinha DUAS, uma aprovada e uma recusada.
+  assert.equal(segura({ requisicoes: [{ ...EMVIGOR, situacao: 'recusada' }] }), null)
+})
+
+test('antes de começar e depois de acabar, o carro está livre', () => {
+  assert.equal(segura({ agoraIso: '2026-08-10T10:00:00Z' }), null)
+  assert.equal(segura({ agoraIso: '2026-08-25T10:00:00Z' }), null)
+})
+
+test('reserva de outro carro não segura este', () => {
+  assert.equal(segura({ veiculoId: 'v9' }), null)
+})
+
+test('reserva sem hora de volta segura o dia inteiro, e só ele', () => {
+  const r = [{ ...EMVIGOR, retirada_prevista: '2026-08-12T08:00:00Z', devolucao_prevista: null }]
+  assert.ok(reservaSegurando({ requisicoes: r, veiculoId: 'v1', agoraIso: '2026-08-12T20:00:00Z' }))
+  assert.equal(reservaSegurando({ requisicoes: r, veiculoId: 'v1', agoraIso: '2026-08-14T09:00:00Z' }), null)
 })

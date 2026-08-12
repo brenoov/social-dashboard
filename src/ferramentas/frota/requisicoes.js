@@ -186,3 +186,30 @@ export function reservaParaPegar({ requisicoes, veiculoId, minhaPessoaId, agoraI
   }
   return null;
 }
+
+/**
+ * A reserva APROVADA que está segurando este carro agora.
+ *
+ * O defeito que isto conserta, relatado pelo dono em 12/08/2026: "tem uma
+ * reserva em vigor para o uso do Felipe até dia 24, mas ainda consta disponível
+ * a Bravo Essence". Estava mesmo — `estadoDoVeiculo` decidia "livre" olhando só
+ * posse, viagem aberta e dono fixo, e nunca a agenda de reservas. Ou seja: o
+ * app aprovava a reserva e continuava oferecendo o mesmo carro pra outra pessoa
+ * pegar, que é exatamente o CONFLITO DE VIAGENS que esta ferramenta existe pra
+ * impedir — o manual da planilha pede 3 dias de antecedência por causa dele.
+ *
+ * Só `aprovada` segura o carro. Pendente NÃO: enquanto ninguém decidiu, o carro
+ * continua de todos, e travá-lo por um pedido que pode ser recusado deixaria a
+ * frota parada por engano.
+ */
+export function reservaSegurando({ requisicoes, veiculoId, agoraIso }) {
+  const agora = ms(agoraIso) ?? Date.now();
+  return (requisicoes || []).find((r) => {
+    if (!r || r.veiculo_id !== veiculoId || r.situacao !== 'aprovada') return false;
+    const ini = ms(r.retirada_prevista);
+    if (ini === null) return false;
+    // Sem hora de volta, vale o dia inteiro — mesma regra de seAtropelam().
+    const fim = ms(r.devolucao_prevista) ?? (ini + DIA);
+    return agora >= ini && agora <= fim;
+  }) || null;
+}

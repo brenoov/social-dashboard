@@ -35,7 +35,7 @@ import { passarPara, quemEstaComOCarro, trocarDonoFixo } from '../../../supabase
 import { pessoaDoUsuario } from '../../../supabase/functions/_shared/quem-loga.js'
 import {
   SITUACOES, problemasDaRequisicao, bloqueios, podeDecidir, motivoEmPortugues,
-  ordenarFila, quando, reservaParaPegar,
+  ordenarFila, quando, reservaParaPegar, reservaSegurando,
 } from './requisicoes.js'
 import { revisoesDoVeiculo, resumoDeRevisoes, problemasDoItem, avisoAoDesativar, ordenarCarrosPorUrgencia } from './revisoes.js'
 import { linkDoWhatsapp, telefoneLegivel, porQueNaoDaLink } from '../../compartilhado/whatsapp.js'
@@ -750,10 +750,19 @@ const arvoreDeLocais = computed(() => montarArvore({
 // estadoDoVeiculo() — mantém aquela função pura e livre do Patrimônio.
 const linhas = computed(() => ordenarEstados(
   veiculos.value.map((v) => {
+    // A reserva aprovada em vigor tira o carro dos livres (12/08/2026): a
+    // Bravo Essence estava reservada pro Felipe até 24/08 e a tela continuava
+    // oferecendo ela — o app aprovava a reserva e convidava outra pessoa a
+    // pegar o mesmo carro.
+    const segurando = reservaSegurando({
+      requisicoes: requisicoes.value, veiculoId: v.id, agoraIso: new Date().toISOString(),
+    })
     const dono = {
       ...v,
       pessoa_nome: nomeDaPessoa(v.pessoa_id),
       local_bonito: localCurto({ arvore: arvoreDeLocais.value, veiculo: v }),
+      reservada: !!segurando,
+      reservada_por: segurando ? (segurando.pessoa_nome || null) : null,
     }
     const quem = quemEstaComOCarro(dono, usos.value, pessoas.value)
     // `revisoes` é a QUARTA fonte de KM (D29): sem ela, 8 dos 10 carros ficam

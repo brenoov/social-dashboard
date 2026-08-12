@@ -119,12 +119,19 @@ export function estadoDoVeiculo(veiculo, usos, fichas, revisoes) {
     km,
     tanque,
     precisaAbastecer: precisaAbastecer(tanque),
-    // LIVRE é só o carro que não está na rua E não tem responsável fixo.
-    // Correção do dono: "os carros que têm nome atrelado não estão livres" —
-    // o Volvo do Humberto não está esperando alguém pegar, ele é o carro do
-    // Humberto. Oferecer esses como disponíveis convidava a pegar o carro de
-    // outra pessoa.
-    disponivel: !aberto && veiculo.situacao === 'ativo' && !veiculo.pessoa_id,
+    // LIVRE é o carro sem viagem aberta, sem dono fixo, ativo — e SEM RESERVA
+    // APROVADA segurando. A reserva entrou aqui em 12/08/2026: a Bravo Essence
+    // estava reservada e aprovada pro Felipe até 24/08 e a tela continuava
+    // oferecendo ela como livre. O app aprovava a reserva e convidava outra
+    // pessoa a pegar o mesmo carro — o CONFLITO DE VIAGENS que esta ferramenta
+    // existe pra impedir.
+    // `reservada` vem enriquecida por quem chama, no mesmo molde de
+    // `pessoa_nome` e `local_bonito`: manter esta função pura e sem conhecer a
+    // agenda de requisições.
+    disponivel: !aberto && veiculo.situacao === 'ativo' && !veiculo.pessoa_id
+      && !veiculo.reservada,
+    // Quem reservou, pra frase da tela poder dizer com quem falar.
+    reservadaPor: (!aberto && veiculo.reservada && veiculo.reservada_por) || null,
   };
 }
 
@@ -139,6 +146,12 @@ export function resumoDoEstado(e) {
   // primeira versão escrevia "Livre, com Humberto", que se contradiz na mesma
   // frase e fazia a pessoa achar que podia pegar.
   if (e.comQuem) return `Com ${e.comQuem}`;
+  // Reservado NÃO é livre, e a frase tem de dizer POR QUE — senão o carro some
+  // da lista de livres e ninguém entende o motivo. Com o nome de quem reservou,
+  // quem precisa do carro resolve no WhatsApp em trinta segundos, que é a mesma
+  // razão pela qual o aviso de conflito carrega nome e destino.
+  if (e.reservadaPor) return `Reservado para ${e.reservadaPor}`;
+  if (e.veiculo.reservada) return 'Reservado';
   if (e.ondeEsta) return `Livre, em ${e.ondeEsta}`;
   return 'Livre';
 }
