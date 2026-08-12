@@ -222,3 +222,37 @@ test('trocar dono num carro que nunca teve posse: só abre a do novo', () => {
   assert.equal(r.fechar, null)
   assert.equal(r.abrir.pessoa_id, 'p2')
 })
+
+/* ── B2: posse sem nome gravado resgata pela lista de pessoas ───────────── */
+
+test('posse sem nome gravado descobre o nome pelo identificador', () => {
+  // O caso real: 5 das 8 posses abertas em 06/08 gravaram só o pessoa_id.
+  // Sem isto, XC90, Porsche, Punto, Fiesta e XC60 aparecem sem ninguém.
+  const veiculo = { id: 'v1', pessoa_id: 'p-humberto', pessoa_nome: 'Humberto Mendonça' }
+  const usos = [{ veiculo_id: 'v1', tipo: 'posse', volta_em: null, pessoa_id: 'p-humberto', pessoa_nome: null }]
+  const pessoas = [{ id: 'p-humberto', nome: 'Humberto Mendonça' }]
+  const quem = quemEstaComOCarro(veiculo, usos, pessoas)
+  assert.equal(quem.pessoaNome, 'Humberto Mendonça')
+  assert.equal(quem.porPosse, true)
+})
+
+test('o nome GRAVADO na posse continua vencendo a lista de pessoas', () => {
+  // A Bravo está com Gabriel por posse, e o dono fixo é o Erick. Deixar a lista
+  // sobrescrever diria que o carro está com quem não está com ele.
+  const veiculo = { id: 'v1', pessoa_id: 'p-erick', pessoa_nome: 'Erick Martins' }
+  const usos = [{ veiculo_id: 'v1', tipo: 'posse', volta_em: null, pessoa_id: 'p-gabriel', pessoa_nome: 'Gabriel Alves' }]
+  const pessoas = [{ id: 'p-gabriel', nome: 'Gabriel A. Silva' }]
+  assert.equal(quemEstaComOCarro(veiculo, usos, pessoas).pessoaNome, 'Gabriel Alves')
+})
+
+test('sem a lista de pessoas, nada muda — a Edge chama com dois argumentos', () => {
+  const veiculo = { id: 'v1', pessoa_id: 'p-a', pessoa_nome: 'Fulano' }
+  const usos = [{ veiculo_id: 'v1', tipo: 'posse', volta_em: null, pessoa_id: 'p-a', pessoa_nome: null }]
+  assert.equal(quemEstaComOCarro(veiculo, usos).pessoaNome, null)
+})
+
+test('posse com pessoa_id que não está na lista não inventa nome', () => {
+  const veiculo = { id: 'v1', pessoa_id: 'p-a', pessoa_nome: 'Fulano' }
+  const usos = [{ veiculo_id: 'v1', tipo: 'posse', volta_em: null, pessoa_id: 'p-sumiu', pessoa_nome: null }]
+  assert.equal(quemEstaComOCarro(veiculo, usos, [{ id: 'p-a', nome: 'Fulano' }]).pessoaNome, null)
+})

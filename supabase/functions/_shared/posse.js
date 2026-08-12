@@ -62,10 +62,21 @@ export function passarPara({ usos, veiculoId, para, donoFixo, quando }) {
  * caminhos respondeu, pra quem consome poder distinguir "é o dono" de "está
  * emprestado com essa pessoa".
  */
-export function quemEstaComOCarro(veiculo, usos) {
+export function quemEstaComOCarro(veiculo, usos, pessoas) {
   const posse = veiculo ? posseAberta(usos, veiculo.id) : null;
   if (posse) {
-    return { pessoaId: posse.pessoa_id || null, pessoaNome: posse.pessoa_nome || null, porPosse: true };
+    // O nome GRAVADO na posse vence sempre: ele é o que valia no dia em que a
+    // posse foi aberta, e histórico que muda quando o cadastro muda deixa de
+    // ser histórico. A lista só entra quando o nome está em BRANCO — as 5
+    // posses abertas em 06/08 gravaram só o pessoa_id, e sem este resgate 5
+    // carros com dono cadastrado aparecem sem ninguém (defeito B2).
+    // `pessoas` é opcional de propósito: a Edge chama com dois argumentos e
+    // não tem a lista à mão. Sem ela, o comportamento é o de antes.
+    const nome = posse.pessoa_nome
+      || (posse.pessoa_id && pessoas
+        ? ((pessoas.find((p) => p && p.id === posse.pessoa_id) || {}).nome || null)
+        : null);
+    return { pessoaId: posse.pessoa_id || null, pessoaNome: nome || null, porPosse: true };
   }
   return {
     pessoaId: (veiculo && veiculo.pessoa_id) || null,

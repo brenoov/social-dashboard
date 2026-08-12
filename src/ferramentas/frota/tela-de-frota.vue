@@ -594,7 +594,7 @@ const linhas = computed(() => ordenarEstados(
       pessoa_nome: nomeDaPessoa(v.pessoa_id),
       local_bonito: localCurto({ arvore: arvoreDeLocais.value, veiculo: v }),
     }
-    const quem = quemEstaComOCarro(dono, usos.value)
+    const quem = quemEstaComOCarro(dono, usos.value, pessoas.value)
     return estadoDoVeiculo({ ...dono, pessoa_nome: quem.pessoaNome }, usos.value, fichas.value)
   }),
 ))
