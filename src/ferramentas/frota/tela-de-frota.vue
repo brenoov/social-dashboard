@@ -2122,7 +2122,12 @@ onMounted(async () => {
                depois: um carro da RBV Company pode passar a semana guardado na
                Fábrica Conchal da Vessel sem virar patrimônio da Vessel. A
                empresa NÃO é deduzida do local escolhido. -->
-          <h3 class="fr-grupo">De quem é e onde está</h3>
+          <!-- D32, revisto pelo dono em 12/08: "de quem é o carro" e "com quem
+               eu falo" são a MESMA pergunta na cabeça de quem usa, e por isso
+               viram uma seção só. Oficina é outra coisa — continua existindo
+               logo abaixo, com a mecânica, o telefone dela e o histórico do
+               que ela já trocou. -->
+          <h3 class="fr-grupo">De quem é, onde fica e com quem falar</h3>
           <div class="fr-dupla">
             <label class="fr-campo" v-if="!veiculoAberto.novo" data-tour="veic-responsavel">
               <span class="fr-lab">Responsável</span>
@@ -2175,48 +2180,85 @@ onMounted(async () => {
             </span>
           </div>
 
-          <!-- Contato e Oficina eram duas seções pedindo a mesma coisa (nome
-               + telefone de quem cuida do carro) com o mesmo exemplo — o dono
-               apontou como "praticamente a mesma coisa" (D32). Viram uma só,
-               mas os cinco campos continuam batendo 1:1 com CAMPOS_VEICULO;
-               só o agrupamento e os rótulos mudaram. -->
-          <h3 class="fr-grupo" data-tour="veic-contato">Quem cuida deste carro</h3>
           <div class="fr-dupla">
-            <label class="fr-campo" data-tour="veic-oficina">
-              <span class="fr-lab">Oficina</span>
+            <label class="fr-campo" data-tour="veic-contato">
+              <span class="fr-lab">Contato</span>
+              <input v-model="vForm.contato_nome" type="text">
+              <span class="fr-ajuda">O NOME de quem resolve as coisas deste carro. Ex.: Marcus Vinicius</span>
+            </label>
+            <label class="fr-campo">
+              <span class="fr-lab">O que essa pessoa faz</span>
+              <input v-model="vForm.contato_papel" type="text">
+              <span class="fr-ajuda">Ex.: locadora, seguro, guincho</span>
+            </label>
+            <label class="fr-campo">
+              <span class="fr-lab">Telefone do contato</span>
+              <input v-model="vForm.contato_telefone" type="tel" inputmode="tel">
+              <!-- Diz POR QUE não dá link, em vez de só não mostrar o botão: sem
+                   DDD o app se recusa a montar o link, e a pessoa precisa saber
+                   que é isso — não que o WhatsApp "não funciona". -->
+              <span class="fr-ajuda" v-if="vForm.contato_telefone && !linkDoWhatsapp(vForm.contato_telefone)">
+                {{ porQueNaoDaLink(vForm.contato_telefone) }}
+              </span>
+              <span class="fr-ajuda" v-else>Ex.: (19) 3033-9837</span>
+            </label>
+          </div>
+
+          <h3 class="fr-grupo" data-tour="veic-oficina">Oficina</h3>
+          <div class="fr-dupla">
+            <label class="fr-campo">
+              <span class="fr-lab">Mecânica</span>
               <input v-model="vForm.oficina_nome" type="text">
               <span class="fr-ajuda">Ex.: JHM Auto Center</span>
             </label>
             <label class="fr-campo">
               <span class="fr-lab">Telefone da oficina</span>
               <input v-model="vForm.oficina_telefone" type="tel" inputmode="tel">
-              <!-- Diz POR QUE não dá link, em vez de só não mostrar o botão: sem
-                   DDD o app se recusa a montar o link, e a pessoa precisa saber
-                   que é isso — não que o WhatsApp "não funciona". -->
               <span class="fr-ajuda" v-if="vForm.oficina_telefone && !linkDoWhatsapp(vForm.oficina_telefone)">
                 {{ porQueNaoDaLink(vForm.oficina_telefone) }}
               </span>
               <span class="fr-ajuda" v-else>Ex.: (19) 3033-9837</span>
             </label>
-            <label class="fr-campo">
-              <span class="fr-lab">Outro contato</span>
-              <input v-model="vForm.contato_nome" type="text">
-              <span class="fr-ajuda">Locadora, seguro, guincho — quem mais resolve coisa deste carro.</span>
-            </label>
-            <label class="fr-campo">
-              <span class="fr-lab">Telefone do outro contato</span>
-              <input v-model="vForm.contato_telefone" type="tel" inputmode="tel">
-              <span class="fr-ajuda" v-if="vForm.contato_telefone && !linkDoWhatsapp(vForm.contato_telefone)">
-                {{ porQueNaoDaLink(vForm.contato_telefone) }}
-              </span>
-              <span class="fr-ajuda" v-else>Ex.: (19) 3033-9837</span>
-            </label>
-            <label class="fr-campo">
-              <span class="fr-lab">O que esse outro contato faz</span>
-              <input v-model="vForm.contato_papel" type="text">
-              <span class="fr-ajuda">Ex.: locadora, seguro, guincho</span>
-            </label>
           </div>
+
+          <!-- O bloco abaixo depende de um `veiculo_id` que só existe depois
+               do carro estar gravado — não faz sentido pra um carro ainda em
+               criação (F9). Mora logo abaixo da Oficina (D32, revisto): é o
+               registro do que aquela oficina já trocou. -->
+          <template v-if="!veiculoAberto.novo">
+            <h3 class="fr-grupo" data-tour="veic-historico">Histórico de manutenção</h3>
+            <ul class="fr-hist" v-if="historicoDoVeiculo.length">
+              <li v-for="h in historicoDoVeiculo" :key="h.id">
+                <span class="fr-item-nome">{{ h.item }}</span>
+                <span class="fr-item-txt">
+                  {{ h.km ? h.km.toLocaleString('pt-BR') + ' km' : 'sem km' }}
+                  <template v-if="h.feita_em"> · {{ h.feita_em.split('-').reverse().join('/') }}</template>
+                  <template v-if="h.oficina"> · {{ h.oficina }}</template>
+                </span>
+                <button class="fr-mini" @click="apagarRevisao(h)" title="Apagar este registro">✕</button>
+              </li>
+            </ul>
+            <p class="fr-ajuda" v-else>Nenhuma manutenção registrada neste carro ainda.</p>
+
+            <div class="fr-dupla">
+              <label class="fr-campo">
+                <span class="fr-lab">O que foi feito</span>
+                <select v-model="novaRevisao.item">
+                  <option v-for="p in plano" :key="p.id" :value="p.item">{{ p.item }}</option>
+                </select>
+              </label>
+              <label class="fr-campo"><span class="fr-lab">Com quantos km</span><input v-model="novaRevisao.km" type="text" inputmode="numeric"></label>
+              <label class="fr-campo"><span class="fr-lab">Quando</span><input v-model="novaRevisao.feita_em" type="date"></label>
+              <label class="fr-campo"><span class="fr-lab">Oficina</span><input v-model="novaRevisao.oficina" type="text"></label>
+              <label class="fr-campo"><span class="fr-lab">Custo (R$)</span><input v-model="novaRevisao.custo" type="text" inputmode="decimal"></label>
+            </div>
+            <div class="fr-acoes">
+              <button class="fr-btn" :disabled="gravando" @click="gravarRevisao">+ Registrar manutenção</button>
+            </div>
+          </template>
+          <p class="fr-ajuda" v-else>
+            O histórico de manutenção fica disponível depois de gravar o carro pela primeira vez.
+          </p>
 
           <h3 class="fr-grupo" data-tour="veic-contrato">Contrato e valores</h3>
           <div class="fr-dupla">
@@ -2279,40 +2321,12 @@ onMounted(async () => {
             <input v-model="vForm.observacao" type="text">
           </label>
 
-          <!-- Histórico de manutenção depende de um `veiculo_id` que só existe
+          <!-- Checklists assinados depende de um `veiculo_id` que só existe
                depois do carro estar gravado — não faz sentido pra um carro
-               ainda em criação (F9). -->
+               ainda em criação (F9). O registro de manutenção saiu daqui e
+               mora agora dentro da seção Oficina (D32, revisto); este bloco
+               ficou sozinho, então ganhou seu próprio `template v-if`. -->
           <template v-if="!veiculoAberto.novo">
-            <h3 class="fr-grupo" data-tour="veic-historico">Histórico de manutenção</h3>
-            <ul class="fr-hist" v-if="historicoDoVeiculo.length">
-              <li v-for="h in historicoDoVeiculo" :key="h.id">
-                <span class="fr-item-nome">{{ h.item }}</span>
-                <span class="fr-item-txt">
-                  {{ h.km ? h.km.toLocaleString('pt-BR') + ' km' : 'sem km' }}
-                  <template v-if="h.feita_em"> · {{ h.feita_em.split('-').reverse().join('/') }}</template>
-                  <template v-if="h.oficina"> · {{ h.oficina }}</template>
-                </span>
-                <button class="fr-mini" @click="apagarRevisao(h)" title="Apagar este registro">✕</button>
-              </li>
-            </ul>
-            <p class="fr-ajuda" v-else>Nenhuma manutenção registrada neste carro ainda.</p>
-
-            <div class="fr-dupla">
-              <label class="fr-campo">
-                <span class="fr-lab">O que foi feito</span>
-                <select v-model="novaRevisao.item">
-                  <option v-for="p in plano" :key="p.id" :value="p.item">{{ p.item }}</option>
-                </select>
-              </label>
-              <label class="fr-campo"><span class="fr-lab">Com quantos km</span><input v-model="novaRevisao.km" type="text" inputmode="numeric"></label>
-              <label class="fr-campo"><span class="fr-lab">Quando</span><input v-model="novaRevisao.feita_em" type="date"></label>
-              <label class="fr-campo"><span class="fr-lab">Oficina</span><input v-model="novaRevisao.oficina" type="text"></label>
-              <label class="fr-campo"><span class="fr-lab">Custo (R$)</span><input v-model="novaRevisao.custo" type="text" inputmode="decimal"></label>
-            </div>
-            <div class="fr-acoes">
-              <button class="fr-btn" :disabled="gravando" @click="gravarRevisao">+ Registrar manutenção</button>
-            </div>
-
             <!-- CONFERIR AS ASSINATURAS (D21). Fica na ficha do carro porque a
                  pergunta é sobre UM carro: a corrente é por veículo. -->
             <h3 class="fr-grupo">Checklists assinados</h3>
@@ -2327,9 +2341,6 @@ onMounted(async () => {
             </div>
             <p class="fr-conferencia" v-if="conferencia" :class="conferencia.nivel">{{ conferencia.texto }}</p>
           </template>
-          <p class="fr-ajuda" v-else>
-            O histórico de manutenção fica disponível depois de gravar o carro pela primeira vez.
-          </p>
 
           <ul class="fr-problemas" v-if="errosDoVeiculo.length">
             <li v-for="(e, i) in errosDoVeiculo" :key="i">{{ e }}</li>
