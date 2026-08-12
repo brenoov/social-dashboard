@@ -876,6 +876,10 @@ function abrirPasse(veiculo) {
 function fecharPasse() { descerCamada('passe'); passando.value = null; paraQuem.value = ''; nomeDeForaNoPasse.value = ''; erroPasse.value = '' }
 const paraQuem = ref('')        // id da pessoa escolhida, ou DE_FORA
 const nomeDeForaNoPasse = ref('')
+/* "Recolher pro estoque" não é uma pessoa, então não cabe na lista de gente —
+ * mas é a terceira coisa que se faz com um carro emprestado, e o dono pediu.
+ * Valor que nenhum identificador real teria, igual ao DE_FORA. */
+const PARA_ESTOQUE = '__para_estoque__'
 const avisosDoPasse = computed(() =>
   (paraQuem.value === DE_FORA ? problemasDoNomeDeFora(nomeDeForaNoPasse.value) : []))
 const erroPasse = ref('')
@@ -887,18 +891,24 @@ async function confirmarPasse() {
   if (avisosDoPasse.value.some((a) => a.bloqueia)) return
   gravando.value = true
   erroPasse.value = ''
-  // Três casos: colaborador, pessoa DE FORA (id nulo, nome escrito na hora), ou
-  // ninguém — e "ninguém" é o que faz `passarPara` cair no dono fixo, ou deixar
-  // o carro livre se não houver dono. `passarPara` já aceita `{id, nome}`, então
-  // a pessoa de fora entra sem nenhuma adaptação lá dentro.
-  const alvo = paraQuem.value === DE_FORA
+  // RECOLHER PRO ESTOQUE: fecha a posse e NÃO abre outra — nem a do responsável.
+  // É o que diferencia de "devolver": devolver põe o carro de volta na mão de
+  // quem responde por ele; recolher tira ele de circulação. `paraEstoque` faz
+  // `passarPara` receber `donoFixo: null`, e aí ele só fecha.
+  const paraEstoque = paraQuem.value === PARA_ESTOQUE
+
+  // Fora isso, três casos: colaborador, pessoa DE FORA (id nulo, nome escrito
+  // na hora), ou ninguém — e "ninguém" é o que faz `passarPara` cair no dono
+  // fixo. `passarPara` já aceita `{id, nome}`, então a pessoa de fora entra sem
+  // nenhuma adaptação lá dentro.
+  const alvo = paraEstoque ? null : (paraQuem.value === DE_FORA
     ? { id: null, nome: nomeDeForaNoPasse.value.trim() }
-    : (pessoas.value.find((p) => p.id === paraQuem.value) || null)
+    : (pessoas.value.find((p) => p.id === paraQuem.value) || null))
   const veiculo = passando.value
   const donoFixo = veiculo.pessoa_id ? { id: veiculo.pessoa_id, nome: nomeDaPessoa(veiculo.pessoa_id) } : null
   const { fechar, abrir } = passarPara({
     usos: usos.value, veiculoId: veiculo.id,
-    para: alvo, donoFixo, quando: new Date().toISOString(),
+    para: alvo, donoFixo: paraEstoque ? null : donoFixo, quando: new Date().toISOString(),
   })
 
   if (fechar) {
@@ -930,6 +940,28 @@ async function confirmarPasse() {
       return
     }
   }
+  // A SEGUNDA GRAVAÇÃO: pôr o carro em Parado (= "em estoque" no Patrimônio,
+  // pela migration 042). Vem DEPOIS da posse e é conferida sozinha — "duas
+  // gravações com só a primeira conferida" apareceu 4× nesta ferramenta, sempre
+  // com a tela dizendo que tinha dado certo.
+  //
+  // Se esta falhar, a posse JÁ foi encerrada e não dá pra desfazer sem inventar
+  // um empréstimo que acabou de terminar. Então a tela não finge: diz que o
+  // carro está livre mas não foi pro estoque, e o que fazer. Meia verdade dita
+  // é melhor que a verdade inteira escondida.
+  if (paraEstoque && veiculo.situacao !== 'inativo') {
+    const { data: mudou, error: erroEstoque } = await sbClient.from('frota_veiculos')
+      .update({ situacao: 'inativo' }).eq('id', veiculo.id).select('id')
+    if (erroEstoque || (mudou || []).length !== 1) {
+      gravando.value = false
+      erroPasse.value = 'Encerrei quem estava com o carro, mas NÃO consegui marcá-lo como '
+        + 'parado — ele está livre em vez de em estoque. Abra a ficha do veículo e mude a '
+        + 'situação para "Parado" à mão.'
+      await carregar()
+      return
+    }
+  }
+
   gravando.value = false
   fecharPasse()
   await carregar()
@@ -2474,13 +2506,17 @@ onMounted(async () => {
                  esqueceu de devolver, e não havia caminho na tela pra desfazer.
                  Antes disto, "Passar o carro" só existia na aba Motorista e só
                  pro carro fixo da própria pessoa. -->
-            <!-- `porPosse || pessoa_id`: o botão também precisa aparecer no carro
-                 que TEM dono fixo mas nunca teve linha de posse aberta — senão
-                 quem administra não consegue registrar que alguém o levou.
-                 `passarPara` já trata o caso "não havia posse": só abre. -->
-            <button v-if="podeEditar && (l.porPosse || l.veiculo.pessoa_id)" class="fr-btn"
+            <!-- Aparece em TODO carro ativo, e cada palavra do rótulo diz o que
+                 dá pra fazer com aquele: passar/devolver quando há alguém com
+                 ele, e recolher pro estoque em qualquer um. Antes só aparecia
+                 com posse aberta, e aí não havia como recolher um carro que
+                 ninguém tinha pegado. `passarPara` trata "não havia posse": só
+                 abre, ou nem isso. -->
+            <button v-if="podeEditar && l.veiculo.situacao !== 'alienado'" class="fr-btn"
                     @click="abrirPasse(l.veiculo)">
-              {{ l.veiculo.pessoa_id ? 'Passar ou devolver' : 'Encerrar a posse' }}
+              {{ l.porPosse
+                ? (l.veiculo.pessoa_id ? 'Passar, devolver ou recolher' : 'Encerrar ou recolher')
+                : 'Passar ou recolher' }}
             </button>
             <a v-if="zapDoVeiculo(l.veiculo)" class="fr-btn fr-zap" :href="zapDoVeiculo(l.veiculo)"
                  target="_blank" rel="noopener"
@@ -3293,8 +3329,21 @@ onMounted(async () => {
                    nome do responsável fixo, que é o defeito de R$ 1.301,60 que
                    motivou o módulo. -->
               <option :value="DE_FORA">— outra pessoa, de fora da empresa —</option>
+              <!-- Recolher pro estoque é diferente de devolver: devolver põe o
+                   carro de volta na mão do responsável, recolher tira ele de
+                   circulação. Vale no Patrimônio junto — "Parado" aqui é "em
+                   estoque" lá (migration 042). -->
+              <option :value="PARA_ESTOQUE">— recolher para o estoque —</option>
             </select>
           </label>
+          <p class="fr-tutorial-fixo" v-if="paraQuem === PARA_ESTOQUE">
+            O carro sai de circulação: para de aparecer como livre e some da cobrança do
+            checklist. No Patrimônio ele fica <strong>em estoque</strong>, junto.
+            <template v-if="passando.pessoa_id">
+              {{ nomeDaPessoa(passando.pessoa_id) }} continua como responsável — recolher não
+              é trocar de dono.
+            </template>
+          </p>
           <label class="fr-campo" v-if="paraQuem === DE_FORA">
             <span class="fr-lab">Nome de quem vai ficar com o carro</span>
             <input v-model="nomeDeForaNoPasse" type="text" list="fr-nomes-de-fora">
