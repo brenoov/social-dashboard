@@ -72,7 +72,11 @@ test('ida e volta: aplicar a excecao de volta devolve o acesso original', () => 
 // --- D11: quem sera afetado por uma mudanca de perfil ---
 
 const MEMBROS = [
-  { nome: 'Raissa', permissions: { social: ['ver'] }, permissions_excecao: { frota: ['ver', 'editar'] } },
+  // `permissions` da Raissa JÁ inclui a Frota: neste sistema `permissions` é
+  // sempre perfil+exceção mesclados (é o que `acessoEfetivo` grava e o que a
+  // Task 6 lê de volta). Um fixture sem a Frota aqui descreveria um estado que
+  // não existe no banco.
+  { nome: 'Raissa', permissions: { social: ['ver'], frota: ['ver', 'editar'] }, permissions_excecao: { frota: ['ver', 'editar'] } },
   { nome: 'Gabriel', permissions: { social: ['ver'] }, permissions_excecao: {} },
 ]
 
@@ -104,10 +108,47 @@ test('quem nao muda nao entra na lista', () => {
   assert.deepEqual(r.afetados, [])
 })
 
-test('mudar o NIVEL conta como mudanca, nao so ganhar ou perder a chave', () => {
+test('mudar o NIVEL conta como MUDA, nao como ganha', () => {
+  // Raissa ja tinha 'social' (via perfil); o perfil novo muda o nivel dela.
+  // Isso e mudanca de nivel, nao ganho de chave nova.
   const r = impactoDaMudanca({ social: ['ver', 'exportar'] }, MEMBROS)
   assert.equal(r.total, 2)
-  assert.deepEqual(r.afetados[0].ganha, ['social'])
+  assert.deepEqual(r.afetados[0].ganha, [])
+  assert.deepEqual(r.afetados[0].muda, [{ chave: 'social', de: ['ver'], para: ['ver', 'exportar'] }])
+})
+
+test('rebaixamento NAO aparece como ganho', () => {
+  // Quem perde acoes nao pode ser descrito como quem ganha: e o texto que o
+  // dono le antes de aprovar a mudanca.
+  const membros = [{ nome: 'Ana', permissions: { social: ['ver', 'exportar'] }, permissions_excecao: {} }]
+  const r = impactoDaMudanca({ social: ['ver'] }, membros)
+  const ana = r.afetados[0]
+  assert.deepEqual(ana.ganha, [])
+  assert.deepEqual(ana.perde, [])
+  assert.equal(ana.muda[0].chave, 'social')
+  assert.deepEqual(ana.muda[0].de, ['ver', 'exportar'])
+  assert.deepEqual(ana.muda[0].para, ['ver'])
+})
+
+test('subir de nivel tambem e mudanca, nao ganho', () => {
+  const membros = [{ nome: 'Ana', permissions: { social: ['ver'] }, permissions_excecao: {} }]
+  const r = impactoDaMudanca({ social: ['ver', 'exportar'] }, membros)
+  assert.deepEqual(r.afetados[0].ganha, [])
+  assert.equal(r.afetados[0].muda[0].para.length, 2)
+})
+
+test('duas chaves ganhas ficam em ordem alfabetica', () => {
+  // O .sort() de `ganha`/`perde` nao tinha nenhum caso com 2+ chaves — esse
+  // caso trava a ordem, em vez de depender da ordem de insercao do objeto.
+  const membros = [{ nome: 'Bia', permissions: {}, permissions_excecao: {} }]
+  const r = impactoDaMudanca({ social: ['ver'], frota: ['ver'] }, membros)
+  assert.deepEqual(r.afetados[0].ganha, ['frota', 'social'])
+})
+
+test('duas chaves perdidas ficam em ordem alfabetica', () => {
+  const membros = [{ nome: 'Bia', permissions: { social: ['ver'], frota: ['ver'] }, permissions_excecao: {} }]
+  const r = impactoDaMudanca({}, membros)
+  assert.deepEqual(r.afetados[0].perde, ['frota', 'social'])
 })
 
 test('perfil sem membro nenhum da impacto zero', () => {

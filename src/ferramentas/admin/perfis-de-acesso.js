@@ -59,6 +59,13 @@ export function excecaoDe(perfilPermissions, permissionsAtuais) {
  *
  * Quem NÃO muda fica de fora de propósito: lista com gente que não muda vira
  * ruído, e quem lê ruído aprova sem ler.
+ *
+ * `antes` (= `m.permissions`) é sempre perfil+exceção já mesclados — é o que
+ * `acessoEfetivo` grava e o que a Task 6 lê de volta do banco. Não filtramos
+ * chave de exceção aqui: se `permissions` estiver divergente da exceção (um
+ * admin editou `permissions` direto, sem passar pela exceção), é EXATAMENTE
+ * essa divergência que D11 existe para mostrar antes de gravar — escondê-la
+ * seria o perfil concedendo acesso calado.
  */
 export function impactoDaMudanca(perfilNovo, membros) {
   const afetados = []
@@ -69,20 +76,28 @@ export function impactoDaMudanca(perfilNovo, membros) {
     const chaves = new Set([...Object.keys(antes), ...Object.keys(depois)])
     const ganha = []
     const perde = []
+    const muda = []
     for (const k of chaves) {
-      // Chave coberta por exceção NUNCA é diferença de perfil: por D9 ela
-      // sobrevive a qualquer mudança do perfil, então comparar `antes` (sem a
-      // exceção) contra `depois` (com a exceção) inventaria ganho ou perda
-      // numa chave que, na prática, nunca muda para essa pessoa.
-      if (Object.prototype.hasOwnProperty.call(excecao, k)) continue
       const a = antes[k]
       const d = depois[k]
       if (mesmasAcoes(a, d)) continue
-      if (temAcesso(d)) ganha.push(k)
+      const tinha = temAcesso(a)
+      const tem = temAcesso(d)
+      // Tinha e continua tendo, só que com outro nível: é REBAIXAMENTO ou
+      // PROMOÇÃO, não "ganho". Contar isso como ganha faria o dono ler que
+      // alguém ganhou algo quando na verdade perdeu ações — é o texto que ele
+      // lê antes de aprovar, e o texto tem que dizer a verdade.
+      if (tinha && tem) muda.push({ chave: k, de: [...a], para: [...d] })
+      else if (tem) ganha.push(k)
       else perde.push(k)
     }
-    if (ganha.length || perde.length) {
-      afetados.push({ nome: m.nome, ganha: ganha.sort(), perde: perde.sort() })
+    if (ganha.length || perde.length || muda.length) {
+      afetados.push({
+        nome: m.nome,
+        ganha: ganha.sort(),
+        perde: perde.sort(),
+        muda: muda.sort((x, y) => (x.chave < y.chave ? -1 : x.chave > y.chave ? 1 : 0)),
+      })
     }
   }
   return { afetados, total: afetados.length }
