@@ -28,11 +28,16 @@ export const PUBLICO_VAZIO = {
   // pode virar valor gravado. Ver montarTargeting.
   advantagePlusDeclarado: false,
   outrasLocalizacoes: [],
+  // PIN no mapa (`custom_locations`). Medido em 12/08/2026: 26 dos 292 conjuntos
+  // ja usam isto — a Mantova segmenta condominio assim.
+  pins: [],
   // ONDE O ANÚNCIO APARECE. Automático é o estado de 44 dos 50 conjuntos da
   // conta (medido), então é ele que tem de ser o padrão aqui — o contrário faria
   // o editor propor "escolhido à mão" a quem nunca escolheu nada.
   posicionamentos: POSICIONAMENTO_AUTOMATICO,
 };
+
+import { pinDaMeta, pinParaMeta } from './mapa-de-pins.js';
 
 const lista = (v) => (Array.isArray(v) ? v : []);
 const nomeDe = (o) => (o && (o.name || o.nome)) || '';
@@ -112,11 +117,16 @@ function excluidasDe(targeting) {
 // como lugar. Toda chave listada precisa de um nome em português em
 // NOMES_LOCALIZACOES, senão o dono leria a chave crua em inglês no aviso.
 export const CHAVES_DE_LOCALIZACAO = [
-  'regions', 'countries', 'country_groups', 'zips', 'custom_locations',
+  'regions', 'countries', 'country_groups', 'zips',
   'places', 'geo_markets', 'metro_areas', 'electoral_districts',
   'medium_geo_areas', 'small_geo_areas', 'subcities', 'neighborhoods',
   'subneighborhoods', 'location_cluster_ids',
 ];
+
+// `custom_locations` (o PIN no mapa) saiu desta lista em 12/08/2026: o editor
+// passou a GERENCIAR pin, com mapa e tudo. Deixá-lo aqui faria a tela avisar
+// "há localidades que eu não mexo" sobre justamente o que ela agora edita —
+// e o aviso viraria mentira.
 
 // Localidades que o editor não gerencia, mas que devem ser preservadas.
 // Devolve os nomes das chaves de geo_locations que são lugar e têm conteúdo.
@@ -161,6 +171,9 @@ export function lerPublico(targeting) {
     // Descritivo apenas; montarTargeting ignora esse campo e preserva as outras
     // localidades direto do original.
     outrasLocalizacoes: outrasLocalizacoesDe(t),
+    pins: lista(geo.custom_locations)
+      .filter((c) => c && Number.isFinite(Number(c.latitude)) && Number.isFinite(Number(c.longitude)))
+      .map(pinDaMeta),
     posicionamentos: lerPosicionamentos(t),
   };
 }
@@ -273,6 +286,14 @@ export function montarTargeting(publico, original) {
     geoOriginal.cities = cidsFiltered;
   } else {
     delete geoOriginal.cities;
+  }
+  // OS PINS, com o mesmo cuidado das cidades: sobrescreve a chave e some com ela
+  // quando nao sobra nenhum. Mandar `[]` nao e a mesma coisa que nao mandar.
+  const pinsFiltered = (p.pins || []).filter((x) => x && Number.isFinite(Number(x.lat)) && Number.isFinite(Number(x.lng))).map(pinParaMeta);
+  if (pinsFiltered.length) {
+    geoOriginal.custom_locations = pinsFiltered;
+  } else {
+    delete geoOriginal.custom_locations;
   }
   // Deleta geo_locations inteira só se nenhuma outra localização restar
   if (Object.keys(geoOriginal).length) {
@@ -537,7 +558,13 @@ export function avisosDe(antes, depois, contexto) {
   // nem regiões/países/CEPs/etc.
   const temCidades = (d.cidades || []).length > 0;
   const temOutrasLoc = (d.outrasLocalizacoes || []).length > 0;
-  if (!temCidades && !temOutrasLoc) {
+  // PIN CONTA COMO LOCALIZACAO. Quando `custom_locations` saiu de
+  // CHAVES_DE_LOCALIZACAO (12/08/2026, porque o editor passou a gerencia-lo),
+  // um conjunto mirado SO por pin passou a cair aqui como "sem localizacao" e o
+  // Salvar morria sem o dono ter mudado nada. O teste que percorre a lista pegou
+  // isso na hora — e e exatamente o beco sem saida que ele existe pra impedir.
+  const temPins = (d.pins || []).length > 0;
+  if (!temCidades && !temOutrasLoc && !temPins) {
     avisos.push({
       tipo: 'sem-lugar',
       texto: 'O público ficou <b>sem nenhuma localização</b>. A Meta não aceita um conjunto sem localização — escolha pelo menos uma cidade, região, país, CEP ou localização customizada.',

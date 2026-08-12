@@ -202,6 +202,7 @@ import { montarPainelFila } from './painel-fila.js'
 import { resumoDoRobo, fraseDaFilaVazia } from './fila.js'
 import { limparPersona, resumoPersona, fraseDaPersona, MAXIMO as PERSONA_MAXIMO } from './persona-da-marca.js'
 import { tipoDoArquivo, textoDoDocx, pareceTexto } from './ler-arquivo-de-texto.js'
+import { montarMapa } from './painel-do-mapa.js'
 import { montarLeituraDePublico, publicoDaReceita } from './leitura-de-publico.js'
 import { PUBLICO_VAZIO } from './publico-alvo.js'
 // A LISTA do histórico de campanhas começadas por aqui. As regras de leitura
@@ -3586,6 +3587,45 @@ function _gtPubSecaoPublicosSalvos(){
   return bloco;
 }
 
+// A LISTA DOS PONTOS ao lado do mapa. O mapa mostra ONDE; a lista deixa
+// ajustar o RAIO e ler a coordenada -- numero que no mapa ninguem le.
+function _gtPubListaDePins(caixa){
+  const pins=_gtPub.pins||[];
+  caixa.innerHTML='';
+  if(!pins.length){
+    const p=document.createElement('p');
+    p.className='gt-mapa-vazio';
+    p.textContent='Nenhum ponto. As cidades acima continuam valendo.';
+    caixa.appendChild(p);
+    return;
+  }
+  pins.forEach((pin,i)=>{
+    const linha=document.createElement('div');
+    linha.className='gt-mapa-linha';
+    const nome=document.createElement('span');
+    nome.className='gt-mapa-linha-nome';
+    nome.textContent=pin.nome||`${Number(pin.lat).toFixed(5)}, ${Number(pin.lng).toFixed(5)}`;
+    nome.title=`${Number(pin.lat).toFixed(6)}, ${Number(pin.lng).toFixed(6)}`;
+    const raio=document.createElement('input');
+    raio.type='number';raio.min='1';raio.className='gt-mapa-linha-raio';
+    raio.value=String(pin.raio||1);
+    raio.setAttribute('aria-label','Raio do ponto '+(i+1));
+    // NAO redesenha a lista aqui: redesenhar tiraria o cursor do campo no meio
+    // da digitacao (mesmo motivo do raio das cidades, logo acima).
+    raio.onchange=()=>{pin.raio=Number(raio.value)||1;};
+    const un=document.createElement('span');
+    un.className='gt-mapa-linha-un';
+    un.textContent=pin.unidade==='mile'?'mi':'km';
+    const tirar=document.createElement('button');
+    tirar.type='button';tirar.className='gt-mapa-linha-tirar';
+    tirar.textContent='remover';
+    tirar.setAttribute('aria-label','Remover o ponto '+(i+1));
+    tirar.onclick=()=>{pins.splice(i,1);_gtPubRedesenha();};
+    linha.append(nome,raio,un,tirar);
+    caixa.appendChild(linha);
+  });
+}
+
 function _gtPubSecaoLugar(){
   const cx=document.createElement('div');
   cx.appendChild(_gtPubTitulo('Onde mostrar'));
@@ -3628,6 +3668,31 @@ function _gtPubSecaoLugar(){
   cx.appendChild(_gtPubBusca('Buscar cidade…',_gtPubBuscarCidades,
     c=>{if(!_gtPub.cidades.some(x=>x.key===String(c.key)))_gtPub.cidades.push({key:String(c.key),nome:c.name+(c.region?' · '+c.region:''),raio:0,unidade:'kilometer'});},
     c=>c.name+(c.region?' · '+c.region:'')));
+
+  // O MAPA DOS PONTOS. Vem depois das cidades porque ponto no mapa e o ajuste
+  // FINO em cima delas -- e porque o pedido do dono e conferir a coordenada:
+  // "apos 25 pins some o mapa e eu fico sem saber se esta correto".
+  cx.appendChild(_gtPubTitulo('Pontos exatos no mapa'));
+  cx.appendChild(_gtPubAjuda('Clique no mapa para pôr um ponto, e no ponto para tirar. Cada ponto tem um raio em volta. Diferente do Gerenciador, aqui não some nada quando passa de 25 pontos.'));
+  const caixaMapa = document.createElement('div');
+  cx.appendChild(caixaMapa);
+  // Desenha DEPOIS de estar na tela: o mapa mede a propria largura pra decidir
+  // quantos quadradinhos busca, e fora do documento ela e zero.
+  setTimeout(() => {
+    try {
+      montarMapa(caixaMapa, {
+        pins: _gtPub.pins,
+        editavel: true,
+        // Nao redesenha o painel inteiro: isso remontaria o mapa e jogaria a
+        // vista de volta pro enquadre, tirando o dono do lugar onde ele estava.
+        aoMudar: () => { _gtPubListaDePins(listaPins); },
+      });
+    } catch (e) { console.warn('[GT] mapa nao abriu:', e); caixaMapa.textContent = 'Nao consegui abrir o mapa.'; }
+  }, 0);
+  const listaPins = document.createElement('div');
+  listaPins.className = 'gt-mapa-lista';
+  _gtPubListaDePins(listaPins);
+  cx.appendChild(listaPins);
 
   cx.appendChild(_gtPubTitulo('Onde NÃO mostrar'));
   const fora=_gtPubLinha();

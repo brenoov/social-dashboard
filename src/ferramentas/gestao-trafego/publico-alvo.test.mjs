@@ -778,7 +778,13 @@ test('tipo geo desconhecido sobrevive a ida e volta (mas NAO conta como localiza
 // beco sem saída que o bloqueio de Advantage+ já custou. Este teste percorre a
 // lista INTEIRA, então tipo novo acrescentado lá entra aqui sozinho.
 test('TODO tipo de lugar da lista conta como lugar, nao trava o salvar e volta intacto', () => {
-  assert.ok(CHAVES_DE_LOCALIZACAO.length >= 15, 'a lista não pode encolher sem alguém perceber');
+  // 14 desde 12/08/2026: `custom_locations` SAIU daqui porque o editor passou a
+  // gerenciar pin (com mapa). Encolher a lista sem mais nada teria travado o
+  // Salvar de conjunto mirado só por pin — e foi este teste que pegou. Quem
+  // tirar outra chave daqui tem que fazer o mesmo: dar a ela um lugar próprio no
+  // editor E fazê-la contar no bloqueio de "sem localização".
+  assert.ok(CHAVES_DE_LOCALIZACAO.length >= 14, 'a lista não pode encolher sem alguém perceber');
+  assert.ok(!CHAVES_DE_LOCALIZACAO.includes('custom_locations'), 'pin é gerenciado pelo editor, não preservado às cegas');
   for (const chave of CHAVES_DE_LOCALIZACAO) {
     const conteudo = [{ key: 'x1' }];
     const original = { geo_locations: { [chave]: conteudo }, age_min: 25 };
@@ -901,3 +907,40 @@ test('a frase promete o que o codigo cumpre: nada se perde', () => {
   assert.match(a.texto, /nada se perde/)
   assert.equal(a.bloqueia, false)
 })
+
+
+// A REGRESSAO QUE ESTE ARQUIVO PEGOU EM 12/08/2026, guardada pra nao voltar:
+// ao tirar `custom_locations` de CHAVES_DE_LOCALIZACAO, um conjunto mirado SO
+// por pin virou "sem localizacao nenhuma" e o Salvar morreu sem o dono ter
+// mudado nada.
+test('conjunto mirado SO por PIN nao trava o Salvar, e o pin volta intacto', () => {
+  const pin = {
+    name: 'Rua Miguel Guidotti, Limeira, SP, Brasil',
+    address_string: 'Rua Miguel Guidotti, Limeira, SP, Brasil',
+    distance_unit: 'kilometer', latitude: -22.53414, longitude: -47.3843, radius: 3,
+    primary_city_id: 258269, region_id: 460, country: 'BR',
+  };
+  const original = { geo_locations: { custom_locations: [pin] }, age_min: 25 };
+  const p = lerPublico(original);
+  assert.equal(p.pins.length, 1, 'o pin tem que ser lido');
+  assert.deepEqual(p.cidades, [], 'pin nao e cidade');
+
+  const bloqueios = avisosDe(p, p, {}).filter((x) => x.bloqueia);
+  assert.deepEqual(bloqueios, [], 'so pin NAO pode bloquear o salvar');
+
+  const { targeting } = montarTargeting(p, original);
+  const volta = targeting.geo_locations.custom_locations;
+  assert.equal(volta.length, 1);
+  assert.equal(volta[0].latitude, -22.53414);
+  assert.equal(volta[0].radius, 3);
+  assert.equal(volta[0].primary_city_id, 258269, 'o id da cidade vem da Meta e tem que voltar igual');
+});
+
+test('tirar o ultimo pin APAGA a chave, nao manda lista vazia', () => {
+  // A Meta trata `[]` e ausente de formas diferentes — mandar `[]` e outra coisa.
+  const original = { geo_locations: { custom_locations: [{ latitude: -22.5, longitude: -47.4, radius: 1, distance_unit: 'kilometer', country: 'BR' }], cities: [{ key: '1' }] } };
+  const p = lerPublico(original);
+  p.pins = [];
+  const { targeting } = montarTargeting(p, original);
+  assert.ok(!('custom_locations' in (targeting.geo_locations || {})), 'a chave tem que sumir');
+});
