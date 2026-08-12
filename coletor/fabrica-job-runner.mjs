@@ -72,7 +72,20 @@ export function statusCampanhaGerar(ok) { return ok ? 'pronta' : 'erro'; }
 // rate limit (pendentes>0) vira 'erro' pra UI oferecer "re-disparar" (subir-estudio é idempotente,
 // então re-rodar só completa o que falta, sem duplicar). ---
 export function estadoTerminalSubir(res) {
+  // Nada escolhido no Curar: não subiu nada, então não é 'concluido' e a rodada NÃO fecha. Antes
+  // caía no return final e a tela dizia "Publicado (pausado)!" com 0 anúncios — job 66a8e030.
+  if (res.semCriativos) {
+    return { status: 'erro', fecha: false, erro: 'Nenhum criativo escolhido — volte no passo Curar e escolha pelo menos um antes de publicar.' };
+  }
   if (res.pendentes > 0) return { status: 'erro', fecha: false, erro: 'rate limit — re-disparar pra continuar' };
+  // Multi-loja parcial: alguma loja não subiu. As outras SUBIRAM de verdade (o `resultado` é gravado
+  // junto), então não é "tudo falhou" — mas também não é 'concluido', e a rodada não fecha.
+  if (res.falhas?.length) {
+    return {
+      status: 'erro', fecha: false,
+      erro: `Subiu ${res.campanhas?.length ?? 0} de ${(res.campanhas?.length ?? 0) + res.falhas.length} loja(s). Não subiu: ${res.falhas.map((f) => `${f.loja} (${f.erro})`).join('; ')}`,
+    };
+  }
   return { status: 'concluido', fecha: true };
 }
 
