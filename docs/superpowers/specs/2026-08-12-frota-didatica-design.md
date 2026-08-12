@@ -238,26 +238,36 @@ propósito, justamente por este motivo.
 hodômetro (*"na fonte de números ele parece dado preenchido"*) — aqui ela vira
 regra da ferramenta inteira.
 
-### D32 · "Contato" e "Oficina" viram uma seção só
+### D32 · "Contato" entra em "De quem é e onde está"; Oficina fica, e ganha o histórico
 
-O dono apontou "De quem é e onde está" e "Contato" como repetidas. **A repetição
-de fato é outra**: "Contato" (quem é / o que faz / telefone) e "Oficina"
-(mecânica / telefone) pedem a mesma coisa, com o mesmo exemplo `JHM Auto Center`
-nas duas. Apresentado ao dono e aprovado.
+**Esta decisão foi revista pelo dono em 12/08, depois de ver a primeira versão
+na tela — e a revisão dele vale.** Fica registrado o caminho, porque o erro é
+instrutivo: ele pediu desde o início pra unir "De quem é e onde está" com
+"Contato". Eu argumentei que a repetição *de fato* era outra — "Contato" e
+"Oficina" pedem os dois nome + telefone, com o mesmo exemplo `JHM Auto Center` —
+e implementei assim. Vendo pronto, ele corrigiu: **as duas perguntas que se
+repetem na cabeça de quem usa são "de quem é o carro" e "com quem eu falo",
+não "qual oficina" e "qual contato".** Oficina é outra coisa, e é a seção onde
+mora o histórico de manutenção.
+
+A forma que vale:
 
 ```
-DE QUEM É E ONDE FICA
+DE QUEM É, ONDE FICA E COM QUEM FALAR
   Responsável · De qual empresa é · Onde fica (Marca › Local › Ambiente)
+  Contato: quem é · o que faz · telefone
 
-QUEM CUIDA DESTE CARRO
-  Oficina · Telefone · Outro contato · Telefone
+OFICINA
+  Mecânica · Telefone da oficina
+  Histórico de manutenção   ← sai de seção solta e vem pra cá
 ```
 
-Cinco campos em duas seções viram quatro em uma. **Nenhuma coluna do banco é
-removida ou renomeada** — `contato_nome`, `contato_papel`, `contato_telefone`,
-`oficina_nome` e `oficina_telefone` continuam existindo e sendo gravados; o que
-muda é como a ficha os agrupa e rotula. `contatoParaCobranca()` continua lendo
-`contato_nome`/`contato_telefone` como sempre.
+**Nenhuma coluna do banco é removida ou renomeada** — `contato_nome`,
+`contato_papel`, `contato_telefone`, `oficina_nome` e `oficina_telefone`
+continuam existindo e sendo gravados; o que muda é como a ficha os agrupa.
+`contatoParaCobranca()` continua lendo `contato_nome`/`contato_telefone` como
+sempre, e o rótulo do contato continua sendo o nome de **quem** é o telefone —
+é disso que aquele módulo depende pra não cobrar a pessoa errada.
 
 ### D33 · Botões rápidos com o estado embaixo
 

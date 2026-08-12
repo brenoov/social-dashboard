@@ -628,7 +628,32 @@ git commit -m "O exemplo sai de dentro do campo e vira ajuda embaixo (D31)"
 
 ---
 
-### Tarefa 6: "Contato" e "Oficina" viram uma seção só (D32)
+### Tarefa 6 (REVISADA pelo dono em 12/08): Contato entra em "De quem é e onde está"; Oficina fica e recebe o histórico (D32)
+
+> ⚠️ **A primeira versão desta tarefa foi implementada e depois corrigida pelo
+> dono.** Ela unia Contato+Oficina. Está errada. A forma certa é a de baixo:
+> Contato entra na seção do responsável, Oficina continua existindo com a
+> mecânica e o telefone dela, e o **Histórico de manutenção** — que hoje é uma
+> seção solta lá embaixo — passa a morar dentro de Oficina.
+>
+> ```
+> DE QUEM É, ONDE FICA E COM QUEM FALAR
+>   Responsável · De qual empresa é · Onde fica
+>   Contato: quem é · o que faz · telefone
+>
+> OFICINA
+>   Mecânica · Telefone da oficina
+>   Histórico de manutenção
+> ```
+>
+> O texto abaixo descreve a versão VELHA e fica só como registro do que foi
+> feito antes da correção. As travas dele continuam valendo todas:
+> `CAMPOS_VEICULO` intacto, os dois `data-tour` existindo, os avisos de WhatsApp
+> preservados e mutuamente exclusivos com o exemplo.
+
+<details>
+<summary>Versão anterior (unia Contato+Oficina) — não implementar</summary>
+
 
 **Nenhuma coluna do banco muda.** `contato_nome`, `contato_papel`,
 `contato_telefone`, `oficina_nome` e `oficina_telefone` continuam existindo e
@@ -715,6 +740,116 @@ sem quebrar.
 ```bash
 git add src/ferramentas/frota/tela-de-frota.vue src/ferramentas/frota/tutorial.js
 git commit -m "Contato e Oficina viram 'Quem cuida deste carro' (D32)"
+```
+
+</details>
+
+#### O que fazer agora — Tarefa 6 corrigida
+
+Parte do que já está no ar (commit `71b2314`), que unia as duas seções erradas.
+
+- [ ] **Passo 1: desfazer a união errada e montar a certa**
+
+A seção do responsável recebe o contato, e passa a se chamar assim:
+
+```html
+<!-- D32, revisto pelo dono em 12/08: "de quem é o carro" e "com quem eu falo"
+     são a MESMA pergunta na cabeça de quem usa, e por isso viram uma seção só.
+     Oficina é outra coisa — continua existindo logo abaixo, com a mecânica, o
+     telefone dela e o histórico do que ela já trocou. -->
+<h3 class="fr-grupo">De quem é, onde fica e com quem falar</h3>
+```
+
+Dentro dela, DEPOIS do campo de local que já existe, entram os três campos de
+contato que hoje estão em "Quem cuida deste carro":
+
+```html
+<div class="fr-dupla">
+  <label class="fr-campo" data-tour="veic-contato">
+    <span class="fr-lab">Contato</span>
+    <input v-model="vForm.contato_nome" type="text">
+    <span class="fr-ajuda">O NOME de quem resolve as coisas deste carro. Ex.: Marcus Vinicius</span>
+  </label>
+  <label class="fr-campo">
+    <span class="fr-lab">O que essa pessoa faz</span>
+    <input v-model="vForm.contato_papel" type="text">
+    <span class="fr-ajuda">Ex.: locadora, seguro, guincho</span>
+  </label>
+  <label class="fr-campo">
+    <span class="fr-lab">Telefone do contato</span>
+    <input v-model="vForm.contato_telefone" type="tel" inputmode="tel">
+    <span class="fr-ajuda" v-if="vForm.contato_telefone && !linkDoWhatsapp(vForm.contato_telefone)">
+      {{ porQueNaoDaLink(vForm.contato_telefone) }}
+    </span>
+    <span class="fr-ajuda" v-else>Ex.: (19) 3033-9837</span>
+  </label>
+</div>
+```
+
+⚠️ O rótulo do contato **tem de pedir um NOME de pessoa**, e o texto de ajuda
+acima diz isso com todas as letras. `contatoParaCobranca()`
+(`contato-do-motorista.js`) casa esse nome contra a lista de colaboradores pra
+decidir se o telefone é do motorista ou de um terceiro; um rótulo que convide a
+escrever "guincho 24h" enfraquece essa decisão em silêncio. Foi um "minor" da
+revisão da versão anterior, e aqui ele se resolve.
+
+- [ ] **Passo 2: Oficina volta a existir, e recebe o histórico**
+
+```html
+<h3 class="fr-grupo" data-tour="veic-oficina">Oficina</h3>
+<div class="fr-dupla">
+  <label class="fr-campo">
+    <span class="fr-lab">Mecânica</span>
+    <input v-model="vForm.oficina_nome" type="text">
+    <span class="fr-ajuda">Ex.: JHM Auto Center</span>
+  </label>
+  <label class="fr-campo">
+    <span class="fr-lab">Telefone da oficina</span>
+    <input v-model="vForm.oficina_telefone" type="tel" inputmode="tel">
+    <span class="fr-ajuda" v-if="vForm.oficina_telefone && !linkDoWhatsapp(vForm.oficina_telefone)">
+      {{ porQueNaoDaLink(vForm.oficina_telefone) }}
+    </span>
+    <span class="fr-ajuda" v-else>Ex.: (19) 3033-9837</span>
+  </label>
+</div>
+```
+
+E o bloco **"Histórico de manutenção"** (hoje um `<h3 class="fr-grupo"
+data-tour="veic-historico">` solto mais abaixo, com a tabela e o formulário de
+`novaRevisao`) **move inteiro pra logo depois destes dois campos**, sem nenhuma
+alteração no que ele faz. É recorte e cola de um bloco, não reescrita: o
+`v-if` que o envolve, os `data-tour`, `historicoDoVeiculo` e `gravarRevisao`
+continuam exatamente como estão.
+
+- [ ] **Passo 3: as travas, todas de novo**
+
+```bash
+# Os 5 campos continuam sendo gravados. `grep -o`, NÃO `grep -c`: a array
+# empacota vários nomes por linha, e -c contaria linhas.
+sed -n "$(grep -n 'const CAMPOS_VEICULO' src/ferramentas/frota/tela-de-frota.vue | cut -d: -f1),/^]/p" src/ferramentas/frota/tela-de-frota.vue \
+  | grep -o "contato_nome\|contato_papel\|contato_telefone\|oficina_nome\|oficina_telefone" | sort | uniq -c
+# Esperado: 1 de cada um dos 5.
+
+# Os três data-tour desta região continuam existindo.
+grep -c 'data-tour="veic-contato"\|data-tour="veic-oficina"\|data-tour="veic-historico"' src/ferramentas/frota/tela-de-frota.vue
+# Esperado: 3.
+
+# O histórico não foi duplicado nem perdido.
+grep -c 'Histórico de manutenção' src/ferramentas/frota/tela-de-frota.vue
+# Esperado: 1.
+```
+
+`tutorial.js`: os passos `veic-contato`, `veic-oficina` e `veic-historico`
+precisam descrever o que está na tela AGORA. O passo de contato foi renomeado
+pra "Quem cuida deste carro" na versão anterior — tem de voltar a falar de
+responsável e contato juntos.
+
+- [ ] **Passo 4: build e commit**
+
+```bash
+npm test && npm run build
+git add src/ferramentas/frota/tela-de-frota.vue src/ferramentas/frota/tutorial.js
+git commit -m "Contato entra na seção do responsável; Oficina fica com o histórico (D32, revisto)"
 ```
 
 ---
