@@ -355,13 +355,14 @@ O que se encosta no arquivo velho: `podeDecidir` (D24), os 12 `placeholder`
 
 **Só a Fase C mexe.** Fases A, B e D são inteiramente de tela.
 
-⚠️ **O número 039 já foi usado.** Em 12/08, enquanto esta fase corria, a frente
-de perfis de acesso entrou na `main` com `039_perfis_de_acesso.sql`. A migration
-da Fase C é a **040**. Conferir o maior número em `db/migrations/acessos/` na
-hora de escrevê-la — há mais de uma frente mexendo neste repositório.
+⚠️ **039 e 040 já foram usados** — a 039 pela frente de perfis de acesso, e a
+040 pelo conserto do gatilho de aprovação (ver D24 acima). A migration da Fase C
+é a **041**. Conferir o maior número em `db/migrations/acessos/` na hora de
+escrevê-la: há mais de uma frente mexendo neste repositório, e este número já
+mudou duas vezes.
 
 ```sql
--- 040_frota_manutencao.sql
+-- 041_frota_manutencao.sql
 create table public.frota_manutencoes(
   id uuid primary key default gen_random_uuid(),
   veiculo_id uuid not null references public.frota_veiculos(id) on delete cascade,
