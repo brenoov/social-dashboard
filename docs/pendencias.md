@@ -72,26 +72,28 @@ Preencher **na ficha, na mão** — decisão do dono: nada de migration mexendo 
 > RB Builders, RBV Company) é outro campo, e é esse que está vazio. Isso já
 > confundiu uma vez.
 
-### A3b · Decidir quem é super-admin — **duas definições que não batem** 🔴
-Achado em 12/08/2026, e é a causa de o Perfis de Acesso recusar gravação.
+### A3b · ~~Duas definições de super-admin que não batem~~ ❌ **ERRO MEU, retirado em 12/08**
+Este item **nunca existiu**. Eu o escrevi ontem baseado na leitura de um arquivo de
+migration, e não conferi a função que está rodando.
 
-Existem **duas listas de super-admin** neste sistema, e elas divergem:
+Medido no banco em 12/08: a função `public.is_superadmin()` tem **três** e-mails —
+`erick@`, `gabriel.gertrudes@` e **`breno@`** — e a coluna `profiles.is_superadmin`
+tem exatamente os mesmos três. **Batem.** Alguém acrescentou o `breno@` depois do
+arquivo `013_superadmin_gabriel.sql`, e o arquivo nunca foi atualizado.
 
-| Onde | O que é | Quem está |
-|---|---|---|
-| A **tela** | coluna `is_superadmin` no cadastro | erick@ · **breno@** · gabriel.gertrudes@ |
-| O **banco** | função com lista fixa de e-mails | erick@ · gabriel.gertrudes@ |
+Consequência: **os botões de perfil funcionam para as três contas.** Não há parede.
 
-**Consequência prática:** com o login `breno@`, os botões de perfil **aparecem** e o banco
-**recusa** a gravação. Hoje a tela diz a verdade quando isso acontece ("o banco recusou —
-nada foi alterado"), mas continua sendo uma parede.
+**A lição, que é a mesma que este projeto já aprendeu com Edge Function:** arquivo de
+migration **não** diz o que está rodando no banco; só o banco diz. `git log` e o
+conteúdo de `db/migrations/` são histórico do que se tentou, não retrato do que é.
 
-Duas saídas, e a escolha é sua porque mexe em segurança:
-- **Pôr `breno@` na lista do banco** — resolve, e é o que a coluna já diz. Precisa de migration.
-- **Tirar `breno@` da coluna** — se ele não deve ser super-admin, a coluna é que está errada.
-
-**Enquanto não decidir, quem consegue criar e mexer em perfil é `erick@` ou
-`gabriel.gertrudes@`.** Ninguém perde acesso por isso; é só quem pode usar a ferramenta nova.
+O que sobra de real, e é bem menor: **quem é super-admin mora em dois lugares** (a
+coluna e a lista dentro da função), e mantê-los iguais é trabalho manual. Hoje estão
+iguais. Se um dia divergirem, o sintoma será o botão aparecer e o banco recusar — com
+a mensagem honesta que a F2 passou a mostrar. Unificar (a função ler a coluna) é
+possível e seguro — o gatilho `impedir_autopromocao` já protege a coluna e usa a
+própria função, então só quem já é super-admin cria outro. **Não foi feito: é
+endurecimento, não conserto, e mexe em segurança sem nada quebrado hoje.**
 
 ### A3c · Perfis de Acesso › o teste da primeira vez ⚠️ *antes do primeiro perfil de verdade*
 A ferramenta está no ar e **nunca foi usada**. Antes de criar um perfil com gente dentro,
