@@ -407,9 +407,11 @@
             <EscolhaDePessoa
               v-model="massa.pessoaId"
               :pessoas="pessoasAtivas" :marcas="empresas" :setores="setores"
-              :pode-criar="podeEditar" :criando="criandoPessoa" :recado-de-erro="erroDePessoa"
+              :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'massa'"
+              :recado-de-erro="campoDeCriacao === 'massa' ? erroDePessoa : ''"
               rotulo="Com quem está" texto-vazio="— não mudar —"
-              @criar="criarPessoaRapida" @criar-setor="criarSetorRapido" @criar-marca="criarMarcaRapida">
+              @criar="(p) => criarPessoaRapida(p, 'massa')" @criar-setor="(p) => criarSetorRapido(p, 'massa')"
+              @criar-marca="(p) => criarMarcaRapida(p, 'massa')">
               <option :value="LIMPAR">Tirar o dono (ninguém)</option>
             </EscolhaDePessoa>
           </div>
@@ -643,9 +645,11 @@
             <EscolhaDePessoa
               v-model="form.pessoa_id"
               :pessoas="pessoasAtivas" :marcas="empresas" :setores="setores"
-              :pode-criar="podeEditar" :criando="criandoPessoa" :recado-de-erro="erroDePessoa"
+              :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'ficha'"
+              :recado-de-erro="campoDeCriacao === 'ficha' ? erroDePessoa : ''"
               rotulo="Com quem está" texto-vazio="Ninguém"
-              @criar="criarPessoaRapida" @criar-setor="criarSetorRapido" @criar-marca="criarMarcaRapida" />
+              @criar="(p) => criarPessoaRapida(p, 'ficha')" @criar-setor="(p) => criarSetorRapido(p, 'ficha')"
+              @criar-marca="(p) => criarMarcaRapida(p, 'ficha')" />
           </div>
           <div class="pat-ajuda-txt" v-if="ajudaAberta === 'dono'">{{ AJUDAS.dono }}</div>
 
@@ -922,6 +926,11 @@ const pessoas = ref([])
 const setores = ref([])
 const criandoPessoa = ref(false)
 const erroDePessoa = ref('')
+// Qual campo de pessoa está criando agora ('' = nenhum). O aviso de erro e o
+// "Criando…" pertencem ao campo que pediu, não à tela: são dois campos de
+// pessoa aqui (a ficha e a alteração em massa) e o erro de um aparecia no
+// outro na primeira vez que a caixinha dele abria.
+const campoDeCriacao = ref('')   // '' | 'ficha' | 'massa'
 // A ligação com a Frota (Bronca 2 do dono): carros que já apontam pra um bem
 // daqui. `frotaErro` distingue "a consulta falhou de verdade" (rede, banco
 // fora do ar) de "vazio porque não tenho a feature frota" — as duas
@@ -1389,10 +1398,11 @@ async function confirmarNovaOpcao() {
  * banco é quem decide se pode: `criar_pessoa_rapida` recusa quem não mexe em
  * Patrimônio, Frota ou Acessos, e devolve `ja_existia` quando o nome já estava
  * lá (comparando sem caixa e sem espaço nas pontas). */
-async function criarPessoaRapida({ nome, cargo, marcaId, setorId }) {
+async function criarPessoaRapida({ nome, cargo, marcaId, setorId }, campo) {
   if (criandoPessoa.value) return
   criandoPessoa.value = true
   erroDePessoa.value = ''
+  campoDeCriacao.value = campo
 
   const { data, error } = await sbClient.rpc('criar_pessoa_rapida', {
     p_nome: nome, p_cargo: cargo, p_marca_id: marcaId, p_setor_id: setorId,
@@ -1405,32 +1415,37 @@ async function criarPessoaRapida({ nome, cargo, marcaId, setorId }) {
     return
   }
 
+  campoDeCriacao.value = ''
   const criada = Array.isArray(data) ? data[0] : data
   await carregar()
   if (criada && criada.ja_existia) adminToast(`"${criada.nome}" já estava cadastrada`)
   else if (criada) adminToast(`"${criada.nome}" cadastrada`)
 }
 
-async function criarSetorRapido({ nome }) {
+async function criarSetorRapido({ nome }, campo) {
   if (criandoPessoa.value) return
   criandoPessoa.value = true
   erroDePessoa.value = ''
+  campoDeCriacao.value = campo
   const { error } = await sbClient.rpc('criar_setor_rapido', { p_nome: nome })
   criandoPessoa.value = false
   if (error) { erroDePessoa.value = 'Não consegui cadastrar o setor. Tente de novo.'; return }
+  campoDeCriacao.value = ''
   await carregar()
 }
 
 // Marca reaproveita a tabela que o Patrimônio já cadastra por aqui — não há
 // função nova no banco pra ela.
-async function criarMarcaRapida({ nome }) {
+async function criarMarcaRapida({ nome }, campo) {
   if (criandoPessoa.value) return
   criandoPessoa.value = true
   erroDePessoa.value = ''
+  campoDeCriacao.value = campo
   const { error } = await sbClient.from('patrimonio_empresas')
     .insert({ nome, ordem: empresas.value.length + 1 })
   criandoPessoa.value = false
   if (error) { erroDePessoa.value = 'Não consegui cadastrar a marca. Tente de novo.'; return }
+  campoDeCriacao.value = ''
   await carregar()
 }
 
