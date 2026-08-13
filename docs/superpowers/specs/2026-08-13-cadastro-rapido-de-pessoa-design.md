@@ -143,7 +143,7 @@ precisa ser provado separado do resto.
 
 ## O banco
 
-Migration `db/migrations/2026-08-13-cadastro-rapido-de-pessoa.sql`. Quatro objetos, todos
+Migration `db/migrations/2026-08-13-cadastro-rapido-de-pessoa.sql`. Cinco objetos, todos
 `security definer` com `search_path = public`, executáveis só por `authenticated`
 (`revoke` de `public` e de `anon`, como já fazem `is_acessos_admin` e as irmãs).
 
@@ -152,7 +152,13 @@ Migration `db/migrations/2026-08-13-cadastro-rapido-de-pessoa.sql`. Quatro objet
    entre os quatro lugares que a usam.
 
 2. **`pessoas_para_escolher()`** → `id, nome, status, cargo, profile_id`. Nada de contato
-   (D3). Recusa quem não passa em `pode_cadastrar_pessoa_rapida()`.
+   (D3). Recusa quem não passa em `pode_cadastrar_pessoa_rapida()` — **estourando**, e não
+   devolvendo lista vazia: "não tenho acesso" e "não tem ninguém cadastrado" não podem
+   chegar iguais na tela.
+
+2b. **`setores_para_escolher()`** → `id, nome`. Pelo mesmo motivo: `acessos_setores` também
+   está fechada, e sem ela o campo Setor da caixinha nasceria vazio justamente para quem
+   mais precisa dele.
 
 3. **`criar_pessoa_rapida(p_nome, p_cargo, p_marca_id, p_setor_id)`** → devolve a linha
    criada **ou a que já existia**, com um campo dizendo qual dos dois foi (D4). Recusa nome
