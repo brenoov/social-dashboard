@@ -404,9 +404,15 @@
 
           <div class="pat-campo">
             <span class="pat-campo-titulo">Com quem está</span>
+            <div class="pat-nota" v-if="pessoasErro">
+              Não consegui carregar a lista de colaboradores. O campo pode estar vazio por
+              causa disso, e não porque não haja ninguém cadastrado. Recarregue a página; se
+              continuar, peça acesso a Colaboradores e Acessos (ou a Patrimônio/Frota) a quem
+              administra.
+            </div>
             <EscolhaDePessoa
               v-model="massa.pessoaId"
-              :pessoas="pessoasAtivas" :marcas="empresas" :setores="setores"
+              :pessoas="comSelecionada(pessoasAtivas, pessoas, massa.pessoaId)" :marcas="empresas" :setores="setores"
               :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'massa'"
               :recado-de-erro="campoDeCriacao === 'massa' ? erroDePessoa : ''"
               rotulo="Com quem está" texto-vazio="— não mudar —"
@@ -642,9 +648,15 @@
 
           <div class="pat-campo" data-tour="bem-responsavel">
             <span class="pat-campo-titulo">Com quem está <em>(opcional)</em> <button type="button" class="pat-ajuda-q" @click.prevent="alternarAjuda('dono')" title="O que é isso?">?</button></span>
+            <div class="pat-nota" v-if="pessoasErro">
+              Não consegui carregar a lista de colaboradores. O campo pode estar vazio por
+              causa disso, e não porque não haja ninguém cadastrado. Recarregue a página; se
+              continuar, peça acesso a Colaboradores e Acessos (ou a Patrimônio/Frota) a quem
+              administra.
+            </div>
             <EscolhaDePessoa
               v-model="form.pessoa_id"
-              :pessoas="pessoasAtivas" :marcas="empresas" :setores="setores"
+              :pessoas="comSelecionada(pessoasAtivas, pessoas, form.pessoa_id)" :marcas="empresas" :setores="setores"
               :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'ficha'"
               :recado-de-erro="campoDeCriacao === 'ficha' ? erroDePessoa : ''"
               rotulo="Com quem está" texto-vazio="Ninguém"
@@ -910,7 +922,7 @@ import {
 // do dono: "abro um modal e a tela atrás continua rolando").
 import { vTravaRolagem } from '../../compartilhado/travar-rolagem-de-fundo.js'
 import EscolhaDePessoa from '../../compartilhado/escolha-de-pessoa.vue'
-import { mesclarPessoas, apenasAtivas } from '../../compartilhado/pessoas-para-escolher.js'
+import { mesclarPessoas, apenasAtivas, comSelecionada } from '../../compartilhado/pessoas-para-escolher.js'
 
 const router = useRouter()
 
@@ -931,6 +943,15 @@ const erroDePessoa = ref('')
 // pessoa aqui (a ficha e a alteração em massa) e o erro de um aparecia no
 // outro na primeira vez que a caixinha dele abria.
 const campoDeCriacao = ref('')   // '' | 'ficha' | 'massa'
+// A RPC `pessoas_para_escolher()` ESTOURA (42501) pra quem não é
+// is_frota_admin, is_patrimonio_admin nem is_acessos_admin — de propósito
+// (migration 2026-08-13, linha ~31: "vazio silencioso é o defeito que já
+// mostrou R$ 0,00 na tela do dono por 17 horas"). Aqui não há leitura direta
+// de `acessos_pessoas` de reserva — a lista de pessoas vem só desta função —,
+// então o erro dela sozinho já é o "eu não vejo essa lista", mesmo
+// raciocínio do `frotaErro` logo abaixo: lista vazia sozinha não distingue
+// "ninguém pra escolher" de "eu não vejo essa lista".
+const pessoasErro = ref(false)
 // A ligação com a Frota (Bronca 2 do dono): carros que já apontam pra um bem
 // daqui. `frotaErro` distingue "a consulta falhou de verdade" (rede, banco
 // fora do ar) de "vazio porque não tenho a feature frota" — as duas
@@ -1960,6 +1981,9 @@ async function carregar() {
   setores.value = rSet && !rSet.error ? (rSet.data || []) : []
   veiculosFrota.value = rFrota && !rFrota.error ? (rFrota.data || []) : []
   frotaErro.value = !!(rFrota && rFrota.error)
+  // Sem leitura direta de reserva aqui — a RPC falhando é, sozinha, o "eu não
+  // vejo essa lista" (ver o comentário do `pessoasErro` lá em cima).
+  pessoasErro.value = !!(rPes && rPes.error)
   const cfgTeto = (rCfg.data || []).find((x) => x.chave === 'numero_maximo')
   teto.value = Number(cfgTeto?.valor) || TETO_PADRAO
   agoraNaTela.value = new Date().toISOString()

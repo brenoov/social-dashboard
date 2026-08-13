@@ -102,7 +102,7 @@ import EscolhaDeLocalEAmbiente from '../../compartilhado/escolha-de-local-e-ambi
 // passam a enxergar quem não tem Colaboradores e Acessos, e a cadastrar na
 // hora quem falta.
 import EscolhaDePessoa from '../../compartilhado/escolha-de-pessoa.vue'
-import { mesclarPessoas, apenasAtivas } from '../../compartilhado/pessoas-para-escolher.js'
+import { mesclarPessoas, apenasAtivas, comSelecionada } from '../../compartilhado/pessoas-para-escolher.js'
 import {
   PASSOS, TEXTOS, PASSOS_VEICULO, PASSOS_ITEM, PASSOS_FICHA_DETALHE,
   PASSOS_PEDIDO, PASSOS_DECISAO, PASSOS_FICHA, deveAbrirSozinho, marcarComoVisto,
@@ -123,6 +123,14 @@ const erroDePessoa = ref('')
 // pessoa nesta tela e o erro de um apareceria nos outros.
 const campoDeCriacao = ref('')   // '' | 'responsavel' | 'pedido' | 'retirada' | 'passar'
 const pessoasAtivas = computed(() => apenasAtivas(pessoas.value))
+// A RPC `pessoas_para_escolher()` ESTOURA (42501) pra quem não é
+// is_frota_admin, is_patrimonio_admin nem is_acessos_admin — de propósito
+// (migration 2026-08-13, linha ~31: "vazio silencioso é o defeito que já
+// mostrou R$ 0,00 na tela do dono por 17 horas"). Isto só é a falha real
+// quando a leitura direta de `acessos_pessoas` TAMBÉM não trouxe nada —
+// mesmo raciocínio do `falhaArvore` abaixo: lista vazia sozinha não distingue
+// "ninguém pra escolher" de "eu não vejo essa lista".
+const falhaPessoas = ref(false)
 const carregando = ref(true)
 const falha = ref('')
 const podeEditar = computed(() => hasPermission('frota', 'editar'))
@@ -825,6 +833,11 @@ async function carregar() {
   // falta de permissão.
   pessoas.value = mesclarPessoas(pe && !pe.error ? (pe.data || []) : [], p.data || [])
   setores.value = se && !se.error ? (se.data || []) : []
+  // A RPC falhou E a leitura direta não trouxe ninguém: as duas coisas juntas
+  // são o "eu não vejo essa lista" — se só a RPC tivesse falhado mas a leitura
+  // direta tivesse pessoas, a lista continuaria certa e não haveria o que
+  // avisar.
+  falhaPessoas.value = !!(pe && pe.error) && !(p.data && p.data.length)
   // A agenda pode falhar sozinha (permissão nova ainda não concedida) sem
   // derrubar o resto da tela: sem ela a Frota ainda serve pra pegar e devolver.
   requisicoes.value = q && !q.error ? (q.data || []) : []
@@ -2936,9 +2949,15 @@ onMounted(async () => {
           <div class="fr-dupla">
             <div class="fr-campo" v-if="!veiculoAberto.novo" data-tour="veic-responsavel">
               <span class="fr-lab">Responsável — de quem é o carro</span>
+              <p class="fr-erro-inline" v-if="falhaPessoas">
+                Não consegui carregar a lista de colaboradores. O campo pode estar vazio por
+                causa disso, e não porque não haja ninguém cadastrado. Recarregue a página; se
+                continuar, peça acesso a Colaboradores e Acessos (ou a Patrimônio/Frota) a quem
+                administra.
+              </p>
               <EscolhaDePessoa
                 v-model="vForm.pessoa_id"
-                :pessoas="pessoasAtivas" :marcas="empresasPat" :setores="setores"
+                :pessoas="comSelecionada(pessoasAtivas, pessoas, vForm.pessoa_id)" :marcas="empresasPat" :setores="setores"
                 :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'responsavel'"
                 :recado-de-erro="campoDeCriacao === 'responsavel' ? erroDePessoa : ''"
                 rotulo="Responsável pelo carro" texto-vazio="— ninguém —"
@@ -3393,9 +3412,15 @@ onMounted(async () => {
           </label>
           <div class="fr-campo">
             <span class="fr-lab">Quem vai dirigir</span>
+            <p class="fr-erro-inline" v-if="falhaPessoas">
+              Não consegui carregar a lista de colaboradores. O campo pode estar vazio por
+              causa disso, e não porque não haja ninguém cadastrado. Recarregue a página; se
+              continuar, peça acesso a Colaboradores e Acessos (ou a Patrimônio/Frota) a quem
+              administra.
+            </p>
             <EscolhaDePessoa
               v-model="pedidoForm.pessoaId"
-              :pessoas="pessoasAtivas" :marcas="empresasPat" :setores="setores"
+              :pessoas="comSelecionada(pessoasAtivas, pessoas, pedidoForm.pessoaId)" :marcas="empresasPat" :setores="setores"
               :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'pedido'"
               :recado-de-erro="campoDeCriacao === 'pedido' ? erroDePessoa : ''"
               rotulo="Quem vai dirigir" texto-vazio="— escolha —"
@@ -3558,9 +3583,15 @@ onMounted(async () => {
                atrás. -->
           <div class="fr-campo" v-if="ficha.modo === 'retirar' && !ficha.reserva">
             <span class="fr-lab">Quem vai usar</span>
+            <p class="fr-erro-inline" v-if="falhaPessoas">
+              Não consegui carregar a lista de colaboradores. O campo pode estar vazio por
+              causa disso, e não porque não haja ninguém cadastrado. Recarregue a página; se
+              continuar, peça acesso a Colaboradores e Acessos (ou a Patrimônio/Frota) a quem
+              administra.
+            </p>
             <EscolhaDePessoa
               v-model="form.pessoaId"
-              :pessoas="pessoasAtivas" :marcas="empresasPat" :setores="setores"
+              :pessoas="comSelecionada(pessoasAtivas, pessoas, form.pessoaId)" :marcas="empresasPat" :setores="setores"
               :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'retirada'"
               :recado-de-erro="campoDeCriacao === 'retirada' ? erroDePessoa : ''"
               rotulo="Quem vai usar" texto-vazio="— escolha —"
@@ -3636,6 +3667,12 @@ onMounted(async () => {
           </p>
           <div class="fr-campo">
             <span class="fr-lab">Passar para</span>
+            <p class="fr-erro-inline" v-if="falhaPessoas">
+              Não consegui carregar a lista de colaboradores. O campo pode estar vazio por
+              causa disso, e não porque não haja ninguém cadastrado. Recarregue a página; se
+              continuar, peça acesso a Colaboradores e Acessos (ou a Patrimônio/Frota) a quem
+              administra.
+            </p>
             <!-- Sem dono fixo, "devolver" não tem pra quem: o certo é o carro
                  ficar livre. Com dono fixo, a posse dele reabre no mesmo
                  instante — sem buraco na linha do tempo (D9c). O texto
@@ -3644,7 +3681,7 @@ onMounted(async () => {
                  pro componente. -->
             <EscolhaDePessoa
               v-model="paraQuem"
-              :pessoas="pessoasAtivas" :marcas="empresasPat" :setores="setores"
+              :pessoas="comSelecionada(pessoasAtivas, pessoas, paraQuem)" :marcas="empresasPat" :setores="setores"
               :pode-criar="podeEditar" :criando="criandoPessoa && campoDeCriacao === 'passar'"
               :recado-de-erro="campoDeCriacao === 'passar' ? erroDePessoa : ''"
               rotulo="Passar para"
