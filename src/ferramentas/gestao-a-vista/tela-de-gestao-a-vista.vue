@@ -61,6 +61,17 @@
     <!-- A FAIXA DO RECORTE. Só aparece para quem é de time de venda: um total
          menor sem explicação parece dado errado. -->
     <div id="gv-recorte" class="gv-recorte" style="display:none"></div>
+    <!-- A FAIXA DO BLING FORA DO AR. Só aparece quando a busca falha, e não
+         apaga o painel: o telão fica numa TV, e tela em branco é pior que
+         número de cinco minutos atrás — desde que rotulado com a hora. -->
+    <div id="gv-aviso" class="gv-aviso" hidden>
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path d="M12 3 2 20h20L12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M12 9v5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="12" cy="17.2" r="1.1" fill="currentColor"/>
+      </svg>
+      <div><strong id="gv-aviso-titulo"></strong><span id="gv-aviso-detalhe"></span></div>
+    </div>
     <div class="gv-board" id="gv-board">
       <div class="gv-loading-screen">
         <div class="gv-spinner"></div>
@@ -108,7 +119,7 @@ import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import TourCoachmark from '../meta-ads/tour-coachmark.vue'
 import { TOUR_GV } from './tutorial-gv.js'
-import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
+import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
 // QUEM É DE TIME DE VENDA VÊ SÓ A LOJA DELA (pedido do dono, 12/08/2026).
 // MESMO módulo da Análise de Vendas — duas telas de venda recortando por conta
@@ -120,6 +131,10 @@ import {
 import { adminToast } from '../../compartilhado/avisos.js'
 import { filtrarPedidosPorCanal, depositosVisiveis, prepararEstoque, statusSaldo, categoriasDisponiveis, DEPOSITOS } from './estoque-gv.js'
 import { aplicarDataDaVenda } from '../../compartilhado/data-da-venda.js'
+// A PORTA DO BLING E O QUE FAZER QUANDO ELE NÃO RESPONDE. Mesmo módulo da
+// Análise de Vendas: em 12/08/2026 a chamada devolvia o corpo sem olhar o status
+// HTTP, e a tela mostrou R$ 0,00 por 17 horas como se não tivesse havido venda.
+import { chamarBling, paginasDoBling, ErroDoBling, textoDoAviso } from '../../compartilhado/chamada-do-bling.js'
 
 const router = useRouter()
 
@@ -145,10 +160,12 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 // viraram onMounted/closeGestaoVista(cleanup+router) abaixo).
 //
 // Dependências externas resolvidas:
-//   - sbClient, SUPABASE_URL, SUPABASE_ANON_KEY  → import (conectar-no-banco-de-dados.js)
+//   - sbClient                                   → import (conectar-no-banco-de-dados.js)
+//     (a URL e a chave anônima moram dentro de chamada-do-bling.js agora)
 //   - adminToast                                  → import (avisos.js) — usado só na guarda
 //   - hasPermission                                → import (controle-de-login-e-usuario.js)
-//   - fmtR, fmtR0, escHtml, _fadeSwap, blingCall, blingPages → COPIADOS abaixo
+//   - chamarBling, paginasDoBling, textoDoAviso    → import (chamada-do-bling.js)
+//   - fmtR, fmtR0, escHtml, _fadeSwap → COPIADOS abaixo
 //     (helpers do legado que a Gestão à Vista usa e que ainda não têm um lugar
 //     compartilhado no Vue; ver legacy L3394, L6294, L4851, L5410, L6261, L6275).
 //   - setHomeBgTheme('sales') / o toggle de tela via getElementById+display /
@@ -181,38 +198,11 @@ function _fadeSwap(el,swapFn){
     },80);
   },190);
 }
-async function blingCall(endpoint,params){
-  const{data:{session}}=await sbClient.auth.getSession();
-  if(!session)throw new Error('Não autenticado');
-  const r=await fetch(SUPABASE_URL+'/functions/v1/bling-proxy',{
-    method:'POST',
-    headers:{
-      'Authorization':'Bearer '+session.access_token,
-      'apikey':SUPABASE_ANON_KEY,
-      'Content-Type':'application/json'
-    },
-    body:JSON.stringify({endpoint,params})
-  });
-  return r.json();
-}
-async function blingPages(endpoint,params){
-  const all=[];let page=1;
-  for(;;){
-    let items=[];
-    for(let retry=0;retry<3;retry++){
-      const resp=await blingCall(endpoint,{...params,pagina:page,limite:100});
-      const d=resp.data;
-      if(Array.isArray(d)&&d.length>0){items=d;break;}
-      if(retry<2)await new Promise(r=>setTimeout(r,700));
-    }
-    if(!items.length)break;
-    all.push(...items);
-    if(items.length<100)break;
-    page++;
-    if(page>10)break;
-  }
-  return all;
-}
+// A chamada e a paginação moram em src/compartilhado/chamada-do-bling.js — o
+// mesmo módulo que a Análise de Vendas usa. Aqui ficam só atalhos com o
+// sbClient já preso, para as chamadas desta tela não repetirem o argumento.
+const blingCall=(endpoint,params)=>chamarBling(sbClient,endpoint,params);
+const blingPages=(endpoint,params)=>paginasDoBling(sbClient,endpoint,params);
 
 /* ── Estado do módulo (legacy/index.html, verbatim) ── */
 let _gvSkuVersion=0;
@@ -584,6 +574,31 @@ function updateGvUpdateStatus(){
   el.textContent=`ULT. ${fmt(_gvLastLoadTime)} · PRÓX. ${fmt(next)}`;
 }
 
+// ── A faixa de aviso do Bling ─────────────────────────────────────────────
+// Quem é admin lê a causa e o que fazer; todos os outros — e a TV da loja —
+// leem só que o número está velho, sem jargão na frente de cliente.
+// A hora vem de _gvLastLoadTime, que SÓ avança em busca que deu certo: carimbar
+// uma tentativa que falhou diria "números de agora" sobre número velho, que é
+// exatamente a mentira que esta faixa existe para desfazer.
+function ehAdminGv(){ return estado.role==='admin'||estado.is_superadmin===true; }
+function horaDoDadoGv(){
+  if(!_gvLastLoadTime)return null;
+  const p=n=>String(n).padStart(2,'0');
+  return `${p(_gvLastLoadTime.getHours())}:${p(_gvLastLoadTime.getMinutes())}`;
+}
+function mostrarAvisoGv(causa,tecnica){
+  const el=document.getElementById('gv-aviso');
+  if(!el)return;
+  const {titulo,detalhe}=textoDoAviso(causa,{ehAdmin:ehAdminGv(),horaDoDado:horaDoDadoGv(),tecnica});
+  document.getElementById('gv-aviso-titulo').textContent=titulo;
+  document.getElementById('gv-aviso-detalhe').textContent=detalhe?' '+detalhe:'';
+  el.hidden=false;
+}
+function esconderAvisoGv(){
+  const el=document.getElementById('gv-aviso');
+  if(el)el.hidden=true;
+}
+
 let _gvCurrentPeriod='today';
 let _gvLoadId=0; // cancela fetches anteriores imediatamente ao trocar período
 async function loadGestaoVistaData(period){
@@ -617,6 +632,7 @@ async function loadGestaoVistaData(period){
   let diPrev=subMes(di),dfPrev=subMes(df);
   if(period==='monthfull'||period==='sofar'){const _pme=new Date(y,m-1,0);dfPrev=`${_pme.getFullYear()}-${pad2(_pme.getMonth()+1)}-${pad2(_pme.getDate())}`; }
   try{
+    esconderAvisoGv();
     // Bling: chamadas SEQUENCIAIS para evitar rate limit (3 simultâneas causavam paginação incompleta)
     const pedidosBrutos=await blingPages('pedidos/vendas',{dataInicial:di,dataFinal:df,'idsSituacoes[]':9});
     if(myLoad!==_gvLoadId)return;
@@ -720,7 +736,19 @@ async function loadGestaoVistaData(period){
     document.getElementById('gv-refresh-tag').textContent='PRÓX. '+String(brtNow.getHours()).padStart(2,'0')+':'+String((brtNow.getMinutes()+5)%60).padStart(2,'0');
   }catch(e){
     if(myLoad!==_gvLoadId)return;
-    board.innerHTML=`<div class="gv-loading-full">Erro ao carregar — ${escHtml(e.message)}</div>`;
+    const causa=e instanceof ErroDoBling?e.causa:'bling-fora';
+    mostrarAvisoGv(causa,e?.tecnica||e?.message||'');
+    // Painel com número bom: FICA como está, só rotulado pela faixa. Sem número
+    // anterior (primeira carga), o recado ocupa o lugar — nunca R$ 0,00, que é a
+    // mentira mais cara que uma tela de dinheiro conta (padrão, item 9).
+    if(!_gvLastLoadTime){
+      const recado=document.getElementById('gv-aviso-titulo')?.textContent||'Não foi possível buscar as vendas agora.';
+      board.innerHTML=`<div class="gv-loading-full">${escHtml(recado)}</div>`;
+    }
+    // A recarga de 5 min é armada DENTRO do try (abaixo). Sem esta linha, uma
+    // falha na primeira carga deixava o telão sem nunca tentar de novo — era o
+    // que aconteceria com quem abrisse a tela durante o apagão de 12/08.
+    if(!window._gvTimer)window._gvTimer=setInterval(()=>loadGestaoVistaData(_gvCurrentPeriod),5*60*1000);
   }
 }
 
@@ -1551,6 +1579,13 @@ onUnmounted(() => {
 /* Board layout — 2-column grid: left=gauge panel, right=canal gauges + rankings */
 .tela-gestao-a-vista :deep(.gv-recorte){margin:0 0 10px;padding:9px 12px;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;background:var(--surface2);color:var(--muted);font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));line-height:1.45;}
 .tela-gestao-a-vista :deep(.gv-recorte-vazio){border-left-color:var(--orange,#d97706);color:var(--orange,#d97706);}
+/* Faixa do Bling fora do ar. Fundo por color-mix com --orange (o tema cuida dos
+   dois lados) e TEXTO em --text: o laranja do tema claro sobre esse fundo dá
+   4,14 de contraste, abaixo do mínimo. A cor é o sinal; o texto é para ler. */
+.tela-gestao-a-vista :deep(.gv-aviso){display:flex;align-items:center;gap:var(--sp-2);margin:0 0 10px;padding:9px 12px;border:1px solid color-mix(in srgb, var(--orange) 38%, var(--surface));border-left:3px solid var(--orange);border-radius:var(--radius-md);background:color-mix(in srgb, var(--orange) 10%, var(--surface));color:var(--text);font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));line-height:1.45;overflow-wrap:anywhere;}
+.tela-gestao-a-vista :deep(.gv-aviso[hidden]){display:none;}
+.tela-gestao-a-vista :deep(.gv-aviso svg){flex:0 0 auto;color:var(--orange);}
+.tela-gestao-a-vista :deep(.gv-aviso span){color:var(--muted);}
 .tela-gestao-a-vista :deep(.gv-board){flex:1;display:grid;grid-template-columns:480px 1fr;gap:1px;background:var(--border);overflow:hidden;min-height:0;position:relative;z-index:2;backdrop-filter:none;}
 .tela-gestao-a-vista :deep(.gv-left){background:var(--bg);display:flex;flex-direction:column;align-items:center;padding:8px 22px;gap:0;overflow:hidden;justify-content:space-between;}
 /* align-items:safe center — quando o conteúdo é mais alto que a área (telão/dev-tv com
