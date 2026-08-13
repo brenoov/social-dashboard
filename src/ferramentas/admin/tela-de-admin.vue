@@ -168,6 +168,7 @@ import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/c
 import { estado, PERMISSION_TREE, RECURSOS } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { agruparRecursos, contarAcoes, estadoDaSelecao, marcarTudo } from './agrupar-permissoes.js'
 import { derivarFeatures } from '../../compartilhado/derivar-features.js'
+import { linhaDeContato } from './linha-de-contato.js'
 // A sobreposição perfil × exceção (D9) e QUEM MUDA de acesso se um perfil for
 // regravado (D11). Puro e testado à parte (perfis-de-acesso.test.mjs): aqui só
 // se busca no banco, se mostra e se grava.
@@ -2571,22 +2572,14 @@ function _subtitulo(p, gaveta) {
   return esc(outras.join(' · '))
 }
 
-// Correção 2: e-mail + "desde <data>", numa terceira linha discreta abaixo
-// da lotação — sem isso, duas pessoas de nome parecido na mesma gaveta só se
-// distinguem abrindo "Trocar senha". Quando a pessoa NÃO tem cadastro de
-// colaborador, o NOME já exibido é o próprio e-mail (`c?.nome || u.name ||
-// u.email` em `loadAdminUsers`) — repetir o e-mail aqui seria eco, então só
-// a data entra nesse caso. `mkEl` usa textContent, então não precisa de
-// `esc()` aqui (e não deve: textContent já escapa sozinho).
-function _contato(p) {
-  const partes = []
-  if (p.temCadastro && p.email) partes.push(p.email)
-  if (p.bruto.created_at) {
-    const d = new Date(p.bruto.created_at)
-    if (!isNaN(d)) partes.push('desde ' + d.toLocaleDateString('pt-BR'))
-  }
-  return partes.join(' · ')
-}
+// Correção 2: e-mail + "desde <data>", numa terceira linha discreta abaixo da
+// lotação — sem isso, duas pessoas de nome parecido na mesma gaveta só se
+// distinguem abrindo "Trocar senha".
+//
+// A REGRA saiu daqui em 13/08/2026 e virou `linha-de-contato.js`, com teste ao
+// lado: ela estava errada havia meses (o e-mail sumia de quem não tem cadastro
+// de colaborador ligado, que é o caso das pessoas dos times de venda) e não
+// tinha como quebrar nenhum teste, porque vivia dentro do .vue.
 
 // Ações por pessoa (Correção 1): permissões, trocar papel, trocar senha,
 // desativar/reativar, excluir, avatar — e "minhas notificações" pra você
@@ -2668,7 +2661,7 @@ function _criarLinhaPessoa(p, gaveta, currentEmail) {
   info.style.cursor = 'pointer'
   info.title = 'Abrir a ficha de ' + (p.nome || p.email)
   info.addEventListener('click', () => abrirFichaDaPessoa(p))
-  const contato = _contato(p)
+  const contato = linhaDeContato(p)
   if (contato) info.appendChild(mkEl('div', 'usr-contato', contato))
   topo.appendChild(info)
 
