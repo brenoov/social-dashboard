@@ -892,7 +892,7 @@ import AbaDeRelatorios from '../../compartilhado/relatorios/aba-de-relatorios.vu
 import { RELATORIOS_DO_PATRIMONIO } from './relatorios-do-patrimonio.js'
 import { LIMPAR, montarAlteracaoEmMassa, temAlgoParaMudar, resumoDaSelecao,
   alternarTodosVisiveis, estadoDaSelecaoVisivel } from './acao-em-massa.js'
-import { resolverNovaOpcao } from './nova-opcao.js'
+import { resolverNovaOpcao } from '../../compartilhado/nova-opcao.js'
 import {
   temAcessoFrota, categoriaVeiculoEntre, bemEhCategoriaVeiculo,
   veiculoLigadoAoBem, veiculosParaLigar, patchVeiculoDoBem,

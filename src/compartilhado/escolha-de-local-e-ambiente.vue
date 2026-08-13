@@ -217,7 +217,7 @@ import { montarArvore, filtrarArvore, listarLocais, estadoDaEscolha } from './ar
 // já existe e é só selecionar (comparando sem caixa e sem espaço nas pontas —
 // senão a lista vira "Volvo", "VOLVO" e "volvo" convivendo, que é o estado real
 // de Marcas hoje).
-import { resolverNovaOpcao, normalizarNome } from '../ferramentas/patrimonio/nova-opcao.js'
+import { resolverNovaOpcao, normalizarNome } from './nova-opcao.js'
 
 const props = defineProps({
   // As três listas cruas do banco, do jeito que a tela de Patrimônio já busca.
