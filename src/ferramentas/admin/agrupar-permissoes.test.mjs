@@ -13,12 +13,11 @@ import {
 // silenciosamente desatualizado.
 
 const RECURSOS = [
-  { key: 'social', label: 'Redes Sociais — Dashboard', acoes: ['ver', 'exportar'] },
+  { key: 'social', label: 'Redes Sociais — Dashboard', acoes: ['ver'] },
   { key: 'social.relatorio', label: 'Redes Sociais — Relatório Interativo', acoes: ['ver', 'exportar'] },
-  { key: 'sales.gestao', label: 'Gestão à Vista', acoes: ['ver', 'exportar'] },
-  { key: 'sales.analise', label: 'Análise de Vendas', acoes: ['ver', 'exportar'] },
-  { key: 'sales.metas', label: 'Metas de Vendas', acoes: ['ver', 'editar'] },
-  { key: 'meta.campanha', label: 'Análise de Campanhas', acoes: ['ver', 'exportar'] },
+  { key: 'sales.gestao', label: 'Gestão à Vista', acoes: ['ver'] },
+  { key: 'sales.analise', label: 'Análise de Vendas', acoes: ['ver'] },
+  { key: 'meta.campanha', label: 'Análise de Campanhas', acoes: ['ver'] },
   { key: 'meta.gestor', label: 'Gestão de Tráfego', acoes: ['ver', 'editar'] },
   { key: 'meta.fabrica', label: 'Fábrica de Anúncios', acoes: ['ver', 'editar'] },
   { key: 'banco', label: 'Banco de Arquivos', acoes: ['ver', 'criar', 'excluir'] },
@@ -67,7 +66,7 @@ test('agrupa o catálogo por ferramenta, na ordem do catálogo', () => {
   const g = agruparRecursos(RECURSOS, TREE)
   assert.deepEqual(g.map((x) => x.key), ['social', 'sales', 'meta', 'banco', 'gestao-interna', 'noticias', 'gestor', 'claude', 'conteudo'])
   assert.deepEqual(g[0].recursos.map((r) => r.key), ['social', 'social.relatorio'])
-  assert.deepEqual(g[1].recursos.map((r) => r.key), ['sales.gestao', 'sales.analise', 'sales.metas'])
+  assert.deepEqual(g[1].recursos.map((r) => r.key), ['sales.gestao', 'sales.analise'])
   assert.deepEqual(g[2].recursos.map((r) => r.key), ['meta.campanha', 'meta.gestor', 'meta.fabrica'])
   // Achado pela CHAVE, não pela posição: recurso novo inserido antes de 'gestor'
   // deslocava o índice e quebrava este teste por um motivo que não é o dele.
@@ -205,8 +204,10 @@ test('filho declarado na árvore cai no grupo do pai, mesmo sem prefixo na chave
 
 test('quem não está declarado continua agrupando pelo prefixo', () => {
   const g = agruparRecursos(RECURSOS, TREE)
-  // sales.metas não está nos children de 'sales' na árvore, e mesmo assim cai lá
-  assert.ok(g.find((x) => x.key === 'sales').recursos.some((r) => r.key === 'sales.metas'))
+  // sales.gestao não está nos children de 'sales' na árvore (ela tem
+  // `children: []`), e mesmo assim cai lá pelo prefixo. O exemplo era
+  // sales.metas, que saiu do catálogo em 13/08 — a regra testada é a mesma.
+  assert.ok(g.find((x) => x.key === 'sales').recursos.some((r) => r.key === 'sales.gestao'))
   // claude.status é nó próprio, sem filhos: continua virando o grupo 'claude'
   assert.ok(g.find((x) => x.key === 'claude'))
 })

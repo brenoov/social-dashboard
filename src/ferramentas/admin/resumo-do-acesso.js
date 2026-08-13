@@ -28,7 +28,6 @@ const ASSUNTO = {
   acessos: 'Colaboradores',
   conteudo: 'Conteúdo',
   autenticidade: 'Autenticidade',
-  'sales.metas': 'Metas de venda',
   banco: 'Arquivos',
 }
 

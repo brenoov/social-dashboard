@@ -210,38 +210,6 @@ catálogos reais num staging temporário **com banco de mentira**.
 Subiu assim porque o dono mandou subir sabendo. Volta fácil (`git revert` ou
 Instant Rollback da Vercel).
 
-### B1c · Banco de Arquivos › a permissão não controla o que promete 🔴
-Achado em 11/08/2026 lendo `src/ferramentas/banco/tela-de-banco.vue` para escrever
-a explicação da permissão. **Dois furos, e o segundo é de segurança:**
-
-1. **Enviar arquivo não confere `criar`.** `onMounted` (~L156) chama
-   `setupBancoUpload()` sem checar nada além de ter acesso à ferramenta. Quem tem
-   só **"Só ver"** consegue subir arquivo.
-2. **Excluir é gateado por `estado.role === 'admin'`** (~L92), que é outro campo,
-   não a permissão granular. Consequência: dar **"Tudo"** no Banco para alguém
-   **não** dá o poder de apagar, e quem é admin apaga mesmo sem "Tudo".
-
-Ou seja, a escada de permissões desta ferramenta não manda em nada. É por isso
-que ela ficou sem frase explicativa: não dá para escrever a verdade sobre níveis
-que não valem.
-
-### B1d · `sales.metas` está concedida a 12 pessoas e não faz nada
-Nenhuma tela chama `hasPermission('sales.metas', ...)`. A escrita real em
-`bling_metas` acontece em `tela-de-admin.vue` (~L2239) sem consultar essa chave.
-A permissão existe no catálogo, aparece no editor, 12 pessoas a têm — e ela não
-governa nada.
-
-Decidir: ou a tela de Metas passa a respeitá-la, ou a chave sai do catálogo. Hoje
-ela dá a impressão de controlar um acesso que está aberto por outro caminho.
-
-### B1e · `exportar` prometido e não implementado em 3 ferramentas
-`sales.gestao`, `sales.analise` e `meta.campanha` declaram a ação `exportar` no
-catálogo, e não há nenhum código de download/CSV/PDF nessas telas. O editor de
-permissões oferece o degrau **"Ver e baixar"**, que na prática é igual a "Só ver".
-
-Foram as três que ficaram sem frase explicativa na Config de Usuários, porque
-qualquer frase seria mentira.
-
 ### B2b · Patrimônio › 36 bens com a ficha incompleta
 Medido em 11/08, dos 350 bens: **2 sem empresa** (os dois "Macbook Neo", nº 284 e
 285 — também sem local e sem cômodo), **8 sem local** (os 5 REDMI 15C, o Samsung

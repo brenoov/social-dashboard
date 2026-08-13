@@ -11,8 +11,14 @@ import assert from 'node:assert/strict'
 //
 // Medido em 11/08/2026: 18 chaves concedidas em produção, todas presentes.
 // Este teste existe pra continuar assim.
+//
+// 13/08/2026: caiu para 17. `sales.metas` saiu do catálogo (não governava nada)
+// E foi apagada dos 15 perfis que a tinham — nesta ordem, porque tirar só do
+// catálogo é justamente o estado que ESTE teste existe para proibir: chave que
+// vale no sistema e não aparece no editor. A limpeza está em
+// supabase/migrations/20260813_tirar_permissoes_que_nao_mandam_em_nada.sql.
 const CONCEDIDAS_EM_PRODUCAO = [
-  'social', 'social.relatorio', 'sales.gestao', 'sales.analise', 'sales.metas',
+  'social', 'social.relatorio', 'sales.gestao', 'sales.analise',
   'meta.campanha', 'meta.gestor', 'meta.fabrica', 'banco', 'noticias',
   'gestor', 'gestor.relatorios', 'acessos', 'patrimonio', 'frota',
   'frota.aprovar', 'autenticidade', 'claude.status',

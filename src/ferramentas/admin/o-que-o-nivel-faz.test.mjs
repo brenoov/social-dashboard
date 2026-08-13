@@ -79,18 +79,32 @@ test('Task 2b: as .relatorios (gestor/patrimonio/frota) e social.relatorio segue
   }
 })
 
-test('Task 2b: as 6 que NAO deram pra provar continuam no texto neutro', () => {
-  // sales.gestao/sales.analise/meta.campanha: RECURSOS declara 'exportar',
-  // mas nenhum dos 3 arquivos tem qualquer feature de download (grep vazio).
-  // sales.metas: nenhuma tela chama hasPermission('sales.metas', ...) —
-  // quem edita bling_metas e o painel de Admin, sem checar esta chave.
-  // banco: upload roda sem checar 'criar'; excluir e gateado por
-  // estado.role==='admin', que e OUTRO campo, nao pela permissao 'banco'.
-  // escritorio3d: nem esta em RECURSOS (so em PERMISSION_TREE) — nao tem
-  // degraus deste sistema pra descrever.
-  for (const chave of ['sales.gestao', 'sales.analise', 'sales.metas', 'meta.campanha', 'banco', 'escritorio3d']) {
+test('as que continuam no texto neutro', () => {
+  // Em 13/08/2026 esta lista caiu de 6 para 4, e por dois motivos diferentes:
+  //
+  // - `banco` GANHOU frase, porque a escada dele passou a mandar em alguma
+  //   coisa (item B1c). Era o caso mais gritante: quem tinha "Só ver" enviava
+  //   arquivo, e "Tudo" não apagava.
+  // - `sales.metas` saiu da lista porque saiu do sistema (item B1d): a chave
+  //   não governava nada e foi tirada do catálogo E dos 15 perfis que a tinham.
+  //
+  // As 3 primeiras que sobram seguem sem frase por um motivo que MUDOU de
+  // forma: elas não têm mais o degrau "Ver e baixar" (item B1e tirou a ação
+  // 'exportar' das quatro que não baixam nada), então hoje são ferramentas de
+  // um degrau só. Frase para "Só ver" seria repetir o texto neutro.
+  for (const chave of ['sales.gestao', 'sales.analise', 'meta.campanha', 'escritorio3d']) {
     assert.equal(temFraseConferida(chave), false, `${chave} deveria seguir sem frase conferida`)
   }
+})
+
+test('o Banco de Arquivos agora TEM frase, e ela fala de enviar e apagar', () => {
+  // Guarda do item B1c: se alguém desfizer o enforcement e a frase ficar, a
+  // tela volta a mentir sobre permissão — que é o que este módulo existe para
+  // impedir.
+  assert.equal(temFraseConferida('banco'), true)
+  assert.match(oQueONivelFaz('banco', 'ver'), /Não envia nem apaga/)
+  assert.match(oQueONivelFaz('banco', 'tudo'), /ENVIA e APAGA/)
+  assert.match(oQueONivelFaz('banco', 'tudo'), /não há lixeira/)
 })
 
 test('as frases batem com os degraus que a ferramenta REALMENTE tem', async () => {

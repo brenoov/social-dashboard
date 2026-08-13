@@ -5,7 +5,13 @@
   <div class="tela-banco">
     <barra-de-topo voltar="Central" titulo="Banco de Arquivos" @voltar="voltar" />
     <div class="banco-body">
-      <div class="banco-upload-zone" id="banco-drop-zone">
+      <!-- A ÁREA DE ENVIO SÓ EXISTE PARA QUEM PODE CRIAR (B1c, 13/08/2026).
+           Antes ela aparecia para todo mundo que abrisse a ferramenta, e
+           funcionava: quem tinha "Só ver" arrastava um arquivo e ele subia.
+           Esconder não é a tranca — a tranca é o `if` do onMounted, que não
+           liga os eventos. Isto aqui é para a tela não oferecer o que a
+           pessoa não pode fazer. -->
+      <div v-if="podeEnviar" class="banco-upload-zone" id="banco-drop-zone">
         <div class="banco-upload-icon">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
         </div>
@@ -27,16 +33,34 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import { sbClient, SUPABASE_URL } from '../../compartilhado/conectar-no-banco-de-dados.js'
-import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
+import { hasPermission } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { adminToast } from '../../compartilhado/avisos.js'
 
 const router = useRouter()
 function voltar(){ router.push({ name: 'inicio' }) }
-function abrirSeletor(){ document.getElementById('banco-file-input').click() }
+function abrirSeletor(){
+  // Cinto além do v-if: o seletor não abre sem a permissão, mesmo se alguém
+  // chamar a função pelo console.
+  if(!podeEnviar.value) return
+  document.getElementById('banco-file-input').click()
+}
+
+// ── A ESCADA DESTA FERRAMENTA PASSOU A VALER (B1c, 13/08/2026) ──────────────
+//
+// Até aqui os três degraus do Banco de Arquivos não mandavam em nada:
+//   - ENVIAR não conferia coisa alguma. Quem tinha "Só ver" subia arquivo.
+//   - EXCLUIR olhava `estado.role === 'admin'`, que é OUTRO campo. Dar "Tudo"
+//     no Banco NÃO dava o poder de apagar, e quem era admin apagava mesmo sem
+//     "Tudo". A permissão dizia uma coisa e o botão obedecia a outra.
+//
+// Agora os dois saem da MESMA fonte que o editor de permissões desenha, então
+// a frase que o admin lê ao conceder é a que acontece na tela.
+const podeEnviar = computed(() => hasPermission('banco', 'criar'))
+const podeExcluir = computed(() => hasPermission('banco', 'excluir'))
 
 // ── JS portado verbatim de legacy/index.html (state L9635; funções L11632-11738) ──
 let _bancoFiles=[];
@@ -63,10 +87,13 @@ function renderArquivos(){
   const listEl=document.getElementById('banco-file-list');
   listEl.textContent='';
   if(!files.length){
-    _bancoBuildEmpty(listEl,q?'Nenhum resultado para "'+q+'"':'Nenhum arquivo ainda',q?'Tente outro termo':'Faça upload usando a área acima');
+    _bancoBuildEmpty(listEl,q?'Nenhum resultado para "'+q+'"':'Nenhum arquivo ainda',
+      q?'Tente outro termo'
+       :(podeEnviar.value?'Faça upload usando a área acima'
+                         :'Quem envia arquivo aqui é quem tem permissão para isso. Peça a um administrador.'));
     return;
   }
-  const isAdmin=estado.role==='admin';
+  const podeApagar=podeExcluir.value;
   files.forEach(f=>{
     const{cls,lbl}=_bancoIconInfo(f.name);
     const size=_fmtBytes(f.metadata?.size||0);
@@ -89,7 +116,7 @@ function renderArquivos(){
     dlA.innerHTML=_SVG_DL;
     const dlSp=document.createElement('span');dlSp.textContent='Baixar';dlA.appendChild(dlSp);
     acts.appendChild(dlA);
-    if(isAdmin){
+    if(podeApagar){
       const delB=document.createElement('button');
       delB.className='banco-del-btn';delB.title='Excluir';
       delB.innerHTML=_SVG_DEL;
@@ -120,6 +147,7 @@ function _bancoIconInfo(name){
 }
 function _fmtBytes(b){if(!b)return'0 B';const k=1024,u=['B','KB','MB','GB'],i=Math.floor(Math.log(b)/Math.log(k));return(b/Math.pow(k,i)).toFixed(i?1:0)+' '+u[i];}
 async function deletarArquivo(name){
+  if(!podeExcluir.value){ adminToast('Você não tem permissão para excluir arquivos.',false); return }
   if(!confirm('Excluir "'+name+'"?'))return;
   const{error}=await sbClient.storage.from('arquivos').remove([name]);
   if(error){alert('Erro ao excluir: '+error.message);return;}
@@ -155,7 +183,10 @@ async function _bancoUpload(file){
 
 onMounted(()=>{
   if(!hasPermission('banco')){ adminToast('Sem acesso',false); router.push({ name: 'inicio' }); return }
-  setupBancoUpload();
+  // Sem 'criar', os eventos de arrastar e de escolher arquivo NÃO são ligados.
+  // É aqui que mora a tranca: o `v-if` do template só some com a área, e sumir
+  // da tela nunca impediu ninguém que saiba usar o console.
+  if(podeEnviar.value) setupBancoUpload();
   loadArquivos();
 });
 

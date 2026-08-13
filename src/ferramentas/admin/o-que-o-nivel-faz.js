@@ -71,9 +71,27 @@ export const FRASES = {
     // das 15 pessoas têm 'social.relatorio'. A frase fala do que é verdade em
     // qualquer combinação: o painel em si (tela-de-menu-redes.vue:64) não abre.
     sem: 'O painel de Redes Sociais não abre para ela.',
+    // O degrau "Ver e baixar" SAIU em 13/08/2026 (item B1e): o Dashboard de
+    // Redes nunca teve download, e a frase aqui prometia a planilha que não
+    // existe. Frase errada é pior que frase nenhuma — e esta era das piores,
+    // porque descrevia com detalhe algo que não acontece.
     ver: 'Vê os números dos perfis. É painel de leitura: nada aqui se altera.',
-    exportar: 'Vê os números dos perfis e baixa a planilha. '
-      + 'É painel de leitura: nada aqui se altera.',
+  },
+  // Ganhou frase em 13/08/2026, quando os degraus passaram a valer (item B1c).
+  // Antes ficava no texto neutro de propósito: não dava para escrever a verdade
+  // sobre níveis que não governavam nada — quem tinha "Só ver" enviava arquivo,
+  // e "Tudo" não apagava.
+  banco: {
+    sem: 'O Banco de Arquivos não aparece no menu dela.',
+    // A escada desta ferramenta tem TRÊS degraus, não quatro: 'criar' e
+    // 'excluir' entram juntas no "Tudo" (niveis-de-permissao.js:60), então não
+    // existe "envia mas não apaga" para conceder pela tela. A frase diz isso
+    // com todas as letras, porque é a pergunta que quem concede vai fazer.
+    ver: 'Abre a lista e baixa qualquer arquivo. Não envia nem apaga — a área '
+      + 'de envio nem aparece para ela.',
+    tudo: 'Baixa, ENVIA e APAGA arquivo, inclusive os que outra pessoa subiu. '
+      + 'Não dá para separar: quem envia também apaga. E apagar aqui é '
+      + 'definitivo — o arquivo sai do armazenamento e não há lixeira.',
   },
   conteudo: {
     sem: 'A Central de Conteúdo não aparece no menu dela.',
