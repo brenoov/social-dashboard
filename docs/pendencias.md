@@ -303,8 +303,11 @@ Três são money-path:
    o bloco da persona, mas `verify_jwt` impede o teste sem sessão; quem executa
    primeiro é o dono, clicando em sugerir.
 
-Também não foi executado o **upload de PDF** (edge `ler-documento` v1) pela tela
-— só pela API direto, com o PDF real da curadoria (US$ 0,067 por arquivo).
+O **upload de Word (`.docx`) foi executado pela tela em 13/08** e passou (ver
+acima) — ele é lido no próprio navegador, sem custo. O que continua **sem nunca
+ter sido clicado é o upload de PDF** (edge `ler-documento` v1): esse sai do
+navegador e vai pra IA, custa US$ 0,067 por arquivo, e até hoje só foi exercitado
+pela API direto, com o PDF real da curadoria.
 
 > 🔴 **A tela não abria — e o motivo derrubava metade deste item (13/08).** O dono
 > abriu o Gestor de Tráfego e leu, no lugar da lista de contas:
@@ -330,14 +333,44 @@ Também não foi executado o **upload de PDF** (edge `ler-documento` v1) pela te
 > permissão de leitura**. Migration que cria coluna que a tela lê tem que dar o
 > GRANT no mesmo arquivo — é uma tarefa só, não duas.
 
+> 🔴 **E tinha um segundo defeito atrás do primeiro: a aba "A régua" estava MORTA
+> (13/08).** Assim que a lista de contas voltou a carregar, deu pra abrir a aba
+> pela primeira vez — e ela não pintava nada. No console:
+> `ReferenceError: Cannot access 'campo' before initialization`.
+>
+> Em `painel-regua.js`, a função `montarPainelRegua` usa o ajudante `campo(...)`
+> na linha 188 pra desenhar os campos de peso; **336 linhas abaixo, dentro da
+> mesma função**, a parte da persona declarava `const campo = ...`. Em
+> JavaScript um `const` vale pra função **inteira, inclusive nas linhas antes
+> dele** — então o uso de cima passou a apontar pro `const` de baixo, que ainda
+> não existia, e o painel morria inteiro.
+>
+> Entrou no commit `ebf162d` (12/08), o da própria persona, e **passou porque
+> `painel-regua.js` não tinha teste nenhum**. `npm test` verde, `npm run build`
+> verde, o `.vue` compilando — e a aba morta. É este item, B4b, se cumprindo:
+> subiu sem ninguém ver na tela.
+>
+> Corrigido (`campo` → `campoPersona`) e cercado por **duas** guardas novas:
+> `painel-regua.test.mjs` (monta o painel; os 5 casos falhavam antes) e
+> `sem-sombra-de-ajudante.test.mjs`, que varre o `src` inteiro atrás do mesmo
+> padrão e traz um teste provando que a guarda enxerga o defeito original — senão
+> um detector quebrado passaria por "está tudo limpo".
+
 **Falta ainda, e é clique do dono:**
 - **Persona das outras 4 contas** (Motoeasy, Mantova, Raíssa, Breno Vale). Só a
   Vessel está preenchida. Sem persona, a IA sugere idade olhando quem CLICOU.
-  ⚠️ **Isto não era falta de clique — era porta trancada.** Salvar a persona pela
-  tela usa `Prefer: return=representation`, que também precisa **ler** a coluna;
-  sem a permissão acima, toda gravação caía. A persona **nunca** pôde ser salva
-  pela tela desde que foi criada — a da Vessel entrou direto no banco. Destrancado
-  em 13/08; agora sim é só clique.
+  ⚠️ **Isto não era falta de clique — eram duas portas trancadas.** Além da
+  permissão da coluna (acima), salvar usa `Prefer: return=representation`, que
+  também precisa **ler** a coluna; e a aba onde se edita nem abria. A persona
+  **nunca** pôde ser salva pela tela desde que foi criada — a da Vessel entrou
+  direto no banco.
+
+  ✅ **Provado ponta a ponta em 13/08, na tela real, com sessão de verdade:**
+  subiu um `.docx`, o texto caiu no campo ("Trouxe 306 caracteres"), o Salvar
+  respondeu **200** na linha certa e o banco guardou os 306 caracteres, 5 linhas,
+  com o `&` intacto. **A conta de teste foi devolvida a vazio logo em seguida** e
+  as 7 personas foram conferidas contra a impressão digital de antes — a da
+  Vessel (2.326 caracteres) não foi tocada. Agora sim é só clique.
 - **Os 13 problemas que a Meta aponta** (agora visíveis na Fila): 5 conjuntos da
   Raíssa pausados pela Meta por público personalizado que sumiu, 3 vídeos da
   Mantova com menos de 500px que não rodam no Instagram, 2 anúncios que a Meta
