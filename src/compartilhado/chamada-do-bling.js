@@ -60,7 +60,9 @@ export function textoDoAviso(causa, { ehAdmin = false, horaDoDado = null, tecnic
   }
   if (!ehAdmin) {
     if (!horaDoDado) return { titulo: 'Não foi possível buscar as vendas agora.', detalhe: '' }
-    const fim = causa === 'sem-resposta' ? 'sem conexão' : 'aguardando o Bling'
+    const fim = causa === 'sem-resposta' ? 'sem conexão'
+      : causa === 'erro-na-tela' ? 'a Central falhou ao montar'
+      : 'aguardando o Bling'
     return { titulo: `Números de ${horaDoDado} — ${fim}.`, detalhe: '' }
   }
   const curto = String(tecnica || '').slice(0, 120)
@@ -72,6 +74,12 @@ export function textoDoAviso(causa, { ehAdmin = false, horaDoDado = null, tecnic
   }
   if (causa === 'sem-resposta') {
     return { titulo: 'Sem resposta.', detalhe: `Pode ser a internet ou o Supabase.${HORA(horaDoDado)}` }
+  }
+  if (causa === 'erro-na-tela') {
+    // Defeito NOSSO, não do fornecedor. Dizer "o Bling não respondeu" aqui
+    // mandaria quem for consertar mexer no Bling por causa de um bug da Central
+    // — o desperdício exato da manhã de 13/08/2026.
+    return { titulo: 'A tela falhou ao montar os números.', detalhe: `Não é o Bling: é um defeito da Central.${HORA(horaDoDado)}${curto ? ' · ' + curto : ''}` }
   }
   return { titulo: 'O Bling não respondeu.', detalhe: `Erro no servidor do Bling.${HORA(horaDoDado)}${curto ? ' · ' + curto : ''}` }
 }

@@ -92,6 +92,9 @@ import { aplicarDataDaVenda } from '../../compartilhado/data-da-venda.js'
 // A PORTA DO BLING E O QUE FAZER QUANDO ELE NÃO RESPONDE — mesmo módulo da
 // Gestão à Vista, para as duas telas de venda nunca discordarem sobre isso.
 import { chamarBling, paginasDoBling, ErroDoBling, textoDoAviso } from '../../compartilhado/chamada-do-bling.js'
+// Quando mostrar "Carregando" e quando escrever o recado de erro. Mora fora da
+// tela para poder ser provado sem navegador — ver o comentario do arquivo.
+import { corpoEstaVazio, deveMostrarCarregando, deveEscreverRecado } from './carregamento-da-tela.js'
 
 const router = useRouter()
 
@@ -307,7 +310,10 @@ function esconderAvisoSa(){
   if(el)el.hidden=true;
 }
 
-async function loadSalesAnalysisData(period){
+async function loadSalesAnalysisData(period,opcoes){
+  // `automatica` = veio do relógio de 5 minutos, não de um clique. Só a recarga
+  // automática segura o conteúdo sem piscar; quem PEDIU merece ver "Carregando".
+  const automatica=!!(opcoes&&opcoes.automatica);
   document.querySelectorAll('#sales-analysis-screen .gv-pbtn, .tela-analise-vendas .gv-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===period));
   const body=document.getElementById('sa-body');
   esconderAvisoSa();
@@ -315,7 +321,11 @@ async function loadSalesAnalysisData(period){
   // começo — então uma busca que falhasse deixava a tela vazia, sem nada para
   // voltar. Agora o conteúdo antigo fica até o dado novo chegar; quem limpa é o
   // renderSalesAnalysis, que já zera o corpo antes de montar.
-  if(!window._saRawData){
+  //
+  // O critério é O CORPO, não `window._saRawData`: a variável recebe valor ANTES
+  // do render, então ela diz "tem conteúdo" enquanto a tela ainda está vazia.
+  // Ver carregamento-da-tela.js.
+  if(deveMostrarCarregando({corpoVazio:corpoEstaVazio(body),automatica})){
     body.textContent='';
     const loading=document.createElement('div');loading.className='sa-loading';
     const spin=document.createElement('div');spin.className='gv-spinner';
@@ -461,7 +471,7 @@ async function loadSalesAnalysisData(period){
     window._saNextRefreshAt=new Date(window._saLastUpdateTime.getTime()+5*60*1000);
 
     clearInterval(window._saRefreshTimer);
-    window._saRefreshTimer=setInterval(()=>loadSalesAnalysisData(window._saCurrentPeriod||'sofar'),5*60*1000);
+    window._saRefreshTimer=setInterval(()=>loadSalesAnalysisData(window._saCurrentPeriod||'sofar',{automatica:true}),5*60*1000);
 
     clearInterval(window._saCountdownTimer);
     const _tickStatus=()=>{
@@ -482,11 +492,18 @@ async function loadSalesAnalysisData(period){
     if(!_hasRealQtd)_saPopulateItemCounts([...pedidos,...pedidosPrev],pvQtdMap,pvMap);
     _saPopulateDescontos(pedidos);
   }catch(e){
-    const causa=e instanceof ErroDoBling?e.causa:'bling-fora';
+    // Erro que NAO veio do Bling e defeito nosso, e o texto tem de dizer isso —
+    // senao a tela manda consertar o fornecedor por bug da Central.
+    const causa=e instanceof ErroDoBling?e.causa:'erro-na-tela';
     mostrarAvisoSa(causa,e?.tecnica||e?.message||'');
-    // Com gráfico na tela, ele FICA — a faixa diz de que hora é. Sem nada
-    // (primeira carga), o recado ocupa o lugar, nunca um gráfico zerado.
-    if(!window._saRawData){
+    // Com gráfico na tela, ele FICA — a faixa diz de que hora é. Sem nada, o
+    // recado ocupa o lugar, nunca um gráfico zerado.
+    //
+    // DE NOVO O CORPO, e não `window._saRawData`: o render limpa a tela e SÓ
+    // DEPOIS monta. Se ele explodir no meio, `_saRawData` já tem valor mas a
+    // tela está vazia — e perguntar à variável fazia a tela ficar EM BRANCO,
+    // sem nem a mensagem de erro. Era o "às vezes não carrega".
+    if(deveEscreverRecado({corpoVazio:corpoEstaVazio(body)})){
       body.textContent='';
       const err=document.createElement('div');err.className='sa-loading';
       err.textContent=document.getElementById('sa-aviso-titulo')?.textContent||'Não foi possível buscar as vendas agora.';
@@ -494,7 +511,7 @@ async function loadSalesAnalysisData(period){
     }
     // A recarga de 5 min é armada dentro do try: sem isto, falhar na primeira
     // carga deixava a tela sem nunca tentar de novo.
-    if(!window._saRefreshTimer)window._saRefreshTimer=setInterval(()=>loadSalesAnalysisData(window._saCurrentPeriod||'sofar'),5*60*1000);
+    if(!window._saRefreshTimer)window._saRefreshTimer=setInterval(()=>loadSalesAnalysisData(window._saCurrentPeriod||'sofar',{automatica:true}),5*60*1000);
   }
 }
 

@@ -736,7 +736,9 @@ async function loadGestaoVistaData(period){
     document.getElementById('gv-refresh-tag').textContent='PRÓX. '+String(brtNow.getHours()).padStart(2,'0')+':'+String((brtNow.getMinutes()+5)%60).padStart(2,'0');
   }catch(e){
     if(myLoad!==_gvLoadId)return;
-    const causa=e instanceof ErroDoBling?e.causa:'bling-fora';
+    // Erro que NAO veio do Bling e defeito nosso, e o texto tem de dizer isso —
+    // senao a tela manda consertar o fornecedor por bug da Central.
+    const causa=e instanceof ErroDoBling?e.causa:'erro-na-tela';
     mostrarAvisoGv(causa,e?.tecnica||e?.message||'');
     // Painel com número bom: FICA como está, só rotulado pela faixa. Sem número
     // anterior (primeira carga), o recado ocupa o lugar — nunca R$ 0,00, que é a

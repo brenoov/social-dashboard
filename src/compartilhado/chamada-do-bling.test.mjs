@@ -70,6 +70,20 @@ test('pessoa sem acesso a Vendas não ouve falar do Bling nem de hora', () => {
   assert.match(b.titulo, /Este login não tem acesso a Vendas/)
 })
 
+// Um defeito NOSSO não pode ser escrito como "o Bling não respondeu": em
+// 13/08/2026 a Análise de Vendas quebrou por erro de tela e o texto teria
+// culpado o Bling — mandando investigar o fornecedor por defeito nosso, que foi
+// exatamente o desperdício da manhã daquele dia.
+test('erro da tela não culpa o Bling', () => {
+  const admin = textoDoAviso('erro-na-tela', { ehAdmin: true, horaDoDado: '08:15', tecnica: "Cannot read properties of undefined (reading 'map')" })
+  assert.doesNotMatch(admin.titulo, /Bling/)
+  assert.match(admin.titulo, /tela|Central/i)
+  assert.match(admin.detalhe, /map/)   // o detalhe técnico chega a quem conserta
+
+  const outros = textoDoAviso('erro-na-tela', { ehAdmin: false, horaDoDado: '08:15' })
+  assert.doesNotMatch(outros.titulo, /Bling/)
+})
+
 test('ErroDoBling carrega causa e detalhe técnico', () => {
   const e = new ErroDoBling('bling-fora', 'boom')
   assert.equal(e.causa, 'bling-fora')
