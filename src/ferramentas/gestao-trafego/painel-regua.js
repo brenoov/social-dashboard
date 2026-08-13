@@ -133,6 +133,7 @@ function blocoPersona(o) {
     <p class="pnd-grupo-sub">Para quem esta marca vende, nas suas palavras. A IA lê isto antes de sugerir idade, lugar e interesses — e o que estiver escrito aqui vale mais do que o padrão que ela encontrar nos números.</p>
     <p class="pnd-ajuda">Escreva como explicaria para uma pessoa nova na equipe: quem é, que idade tem de verdade, o que procura, e principalmente <b>o que NÃO combina</b> com a marca. É o "não combina" que impede a sugestão de idade que você vem corrigindo na mão.</p>
     <textarea class="pnd-persona-campo" id="pnd-persona" rows="10"
+      data-conta-id="${esc(o.contaId)}"
       ${editavel ? '' : 'disabled'}
       placeholder="Ex.: Mulher de 30 a 55 anos, classe média, que compra bolsa de couro para usar no trabalho e em viagem. Valoriza durabilidade e acabamento, não moda passageira. NÃO é público teen nem de bolsa de festa barata.">${esc(texto)}</textarea>
     <p class="pnd-persona-conta" id="pnd-persona-conta">${r.caracteres} de ${PERSONA_MAXIMO} caracteres</p>
@@ -549,19 +550,56 @@ export function montarPainelRegua(alvo, opcoes) {
     // ajusta antes de salvar. Encher o banco direto de um arquivo que ninguém leu
     // seria gravar o que a extração inventou.
     const upload = document.getElementById('pnd-persona-upload');
-    const status = document.getElementById('pnd-persona-status');
     if (upload && o.aoLerArquivo) {
+      // POR QUE ESTE TRECHO NÃO USA AS VARIÁVEIS DE CIMA (medido em 13/08/2026):
+      // ler um PDF passa pela IA e leva de 10 a 60 SEGUNDOS. Nesse meio-tempo o
+      // painel pode se redesenhar sozinho — `loadGtData` remonta a régua quando
+      // termina de carregar a conta, e trocar de conta faz o mesmo. O redesenho
+      // TROCA os elementos: as referências capturadas aqui viram elementos
+      // órfãos, fora da tela.
+      //
+      // Era exatamente isso que acontecia: a edge devolvia o texto com 200, o
+      // código escrevia num campo que ninguém mais via, e o dono ficava olhando
+      // um campo vazio SEM NENHUM AVISO — tendo pago a leitura da IA. Medido
+      // duas vezes: subindo com a tela ainda carregando, o texto sumia; com a
+      // tela parada, chegava.
+      //
+      // Então, DEPOIS do await, tudo é procurado de novo pelo id. E confere-se a
+      // conta: se a tela trocou de conta enquanto a IA lia, escrever aqui
+      // colocaria a persona de uma marca dentro de outra.
+      const contaDoPedido = String(o.contaId);
+      const achar = (id) => document.getElementById(id);
+      const dizer = (texto) => { const s = achar('pnd-persona-status'); if (s) s.textContent = texto; };
+
       upload.addEventListener('change', async () => {
         const arquivo = upload.files && upload.files[0];
         if (!arquivo) return;
-        if (status) status.textContent = 'Lendo…';
+        dizer('Lendo…');
         try {
           const lido = await o.aoLerArquivo(arquivo);
-          campoPersona.value = lido;
-          repintar();
-          if (status) status.textContent = `Trouxe ${lido.length} caracteres. Confira e clique em Salvar.`;
+          const campoAgora = achar('pnd-persona');
+          if (!campoAgora) {
+            dizer('Saí da tela da régua enquanto lia o arquivo. Abra de novo e suba outra vez.');
+            return;
+          }
+          if (campoAgora.dataset.contaId !== contaDoPedido) {
+            // NÃO escreve: seria a persona de uma marca no campo de outra.
+            dizer('A tela trocou de conta enquanto eu lia o arquivo. Volte para a conta certa e suba de novo.');
+            return;
+          }
+          campoAgora.value = lido;
+          // Repinta contador e frase a partir dos elementos DE AGORA.
+          const r = resumoPersona(campoAgora.value);
+          const contaAgora = achar('pnd-persona-conta');
+          if (contaAgora) {
+            contaAgora.textContent = `${r.caracteres} de ${PERSONA_MAXIMO} caracteres`;
+            contaAgora.classList.toggle('pnd-persona-conta--estourou', r.excedeu);
+          }
+          const fraseAgora = achar('pnd-persona-frase');
+          if (fraseAgora) fraseAgora.textContent = fraseDaPersona(campoAgora.value, o.nomeConta || '');
+          dizer(`Trouxe ${lido.length} caracteres. Confira e clique em Salvar.`);
         } catch (e) {
-          if (status) status.textContent = String((e && e.message) || e);
+          dizer(String((e && e.message) || e));
         } finally {
           // Zera o input: sem isto, escolher O MESMO arquivo de novo não dispara
           // `change`, e a pessoa acha que a tela travou.

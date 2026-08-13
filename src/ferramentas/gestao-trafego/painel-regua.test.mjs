@@ -45,6 +45,46 @@ function alvoFalso() {
   return { innerHTML: '', querySelectorAll: () => [] };
 }
 
+// ── DOM de mentira COM elementos, para o caminho do upload ───────────────────
+//
+// O de cima (getElementById => null) prova que o painel monta. Este aqui prova o
+// que acontece DEPOIS do await da leitura do arquivo — que é onde mora o defeito
+// do PDF: a leitura demora dezenas de segundos e o painel pode se redesenhar no
+// meio, trocando os elementos por baixo.
+
+function elementoFalso(id) {
+  return {
+    id,
+    value: '',
+    textContent: '',
+    dataset: {},
+    files: null,
+    ouvintes: {},
+    classList: { toggle() {} },
+    addEventListener(evento, fn) { (this.ouvintes[evento] ||= []).push(fn); },
+  };
+}
+
+function domComElementos(contaId) {
+  const mapa = new Map();
+  for (const id of ['pnd-persona', 'pnd-persona-status', 'pnd-persona-conta',
+                    'pnd-persona-frase', 'pnd-persona-salvar', 'pnd-persona-upload']) {
+    mapa.set(id, elementoFalso(id));
+  }
+  mapa.get('pnd-persona').dataset.contaId = String(contaId);
+  return {
+    mapa,
+    document: { getElementById: (id) => mapa.get(id) || null },
+    // Simula o redesenho do painel: os elementos viram OUTROS objetos, como
+    // acontece de verdade quando o innerHTML é reescrito.
+    remontar(novaContaId) {
+      for (const id of [...mapa.keys()]) mapa.set(id, elementoFalso(id));
+      mapa.get('pnd-persona').dataset.contaId = String(novaContaId);
+    },
+    sumirCampo() { mapa.delete('pnd-persona'); },
+  };
+}
+
 const OPCOES_BASE = {
   regua: normalizarRegua({}),
   editavel: true,
@@ -104,4 +144,81 @@ test('o botão de trazer de um arquivo aceita Word, PDF e texto', () => {
       assert.ok(alvo.innerHTML.includes(ext), `o upload deixou de aceitar ${ext}`);
     }
   });
+});
+
+// ── O redesenho no meio da leitura do arquivo ───────────────────────────────
+//
+// MEDIDO NA TELA REAL (13/08/2026): subir um PDF com o Gestor de Tráfego ainda
+// carregando fazia o texto SUMIR sem aviso. A edge respondia 200 com o texto, e
+// o campo ficava vazio — porque o painel se redesenhou no meio da leitura (a IA
+// leva de 10 a 60 segundos) e o código escrevia no elemento velho, órfão.
+// Com a tela parada, o mesmo arquivo chegava. Custava dinheiro e não avisava.
+
+const CONTA_A = 'de592c37-9a0e-40a3-98c3-2b44a5db57ac';
+const CONTA_B = '0cc4f2b4-4d21-41e9-9b39-fb1d4043aa9b';
+
+// Monta o painel, dispara o upload e devolve o controle da leitura, para o teste
+// decidir o que acontece ENTRE o clique e a resposta da IA.
+function montarComUpload(dom, contaId) {
+  let resolver;
+  const opcoes = {
+    ...OPCOES_BASE,
+    contaId,
+    personaEditavel: true,
+    aoLerArquivo: () => new Promise((r) => { resolver = r; }),
+  };
+  const antes = globalThis.document;
+  globalThis.document = dom.document;
+  try {
+    montarPainelRegua(alvoFalso(), opcoes);
+  } finally {
+    globalThis.document = antes;
+  }
+  const upload = dom.mapa.get('pnd-persona-upload');
+  upload.files = [{ name: 'persona.pdf' }];
+  return {
+    async subir() {
+      globalThis.document = dom.document;
+      const p = upload.ouvintes.change[0]();
+      return { p, entregar: async (texto) => { resolver(texto); await p; globalThis.document = antes; } };
+    },
+  };
+}
+
+test('o texto do arquivo chega quando o painel NÃO se redesenhou', async () => {
+  const dom = domComElementos(CONTA_A);
+  const { subir } = montarComUpload(dom, CONTA_A);
+  const { entregar } = await subir();
+  await entregar('PERSONA VINDA DO PDF');
+  assert.equal(dom.mapa.get('pnd-persona').value, 'PERSONA VINDA DO PDF');
+  assert.match(dom.mapa.get('pnd-persona-status').textContent, /Trouxe 20 caracteres/);
+});
+
+test('painel redesenhado para a MESMA conta: o texto entra no campo NOVO', async () => {
+  const dom = domComElementos(CONTA_A);
+  const { subir } = montarComUpload(dom, CONTA_A);
+  const { entregar } = await subir();
+  dom.remontar(CONTA_A);              // loadGtData terminou e remontou a régua
+  await entregar('PERSONA VINDA DO PDF');
+  // Sem o conserto, isto ia para o elemento órfão e o campo ficava vazio.
+  assert.equal(dom.mapa.get('pnd-persona').value, 'PERSONA VINDA DO PDF');
+});
+
+test('trocou de CONTA no meio: não escreve a persona de uma marca na outra', async () => {
+  const dom = domComElementos(CONTA_A);
+  const { subir } = montarComUpload(dom, CONTA_A);
+  const { entregar } = await subir();
+  dom.remontar(CONTA_B);              // o dono trocou de conta enquanto a IA lia
+  await entregar('PERSONA DA CONTA A');
+  assert.equal(dom.mapa.get('pnd-persona').value, '', 'não pode vazar de uma conta para outra');
+  assert.match(dom.mapa.get('pnd-persona-status').textContent, /trocou de conta/i);
+});
+
+test('saiu da aba no meio: avisa em vez de engolir', async () => {
+  const dom = domComElementos(CONTA_A);
+  const { subir } = montarComUpload(dom, CONTA_A);
+  const { entregar } = await subir();
+  dom.sumirCampo();
+  await entregar('PERSONA VINDA DO PDF');
+  assert.match(dom.mapa.get('pnd-persona-status').textContent, /Saí da tela|suba outra vez/i);
 });
