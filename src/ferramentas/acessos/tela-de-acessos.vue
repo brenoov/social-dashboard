@@ -57,7 +57,7 @@ import { volumeDeAcesso } from './auditoria-volume.js'
 // tela-de-patrimonio.vue já usa pra decidir o mesmo tipo de aviso); o gêmeo
 // para o Patrimônio mora em bens-e-veiculos-da-pessoa.js.
 import { temAcessoFrota } from '../patrimonio/ligacao-com-frota.js'
-import { temAcessoPatrimonio, pilulaDaSituacaoDoBem, agruparPorPessoa } from './bens-e-veiculos-da-pessoa.js'
+import { temAcessoPatrimonio, pilulaDaSituacaoDoBem, agruparPorPessoa, decidirEstadoDaSecao } from './bens-e-veiculos-da-pessoa.js'
 
 const router = useRouter()
 
@@ -1648,7 +1648,7 @@ function _acRenderFicha(id){
         </div>
         <div class="ac-fx-quick">
           <div class="ac-fx-qa"><span class="ac-fx-qn tnum" id="ac-fx-qn-pastas">…</span><span class="ac-fx-ql">pastas</span></div>
-          <div class="ac-fx-qa"><span class="ac-fx-qn tnum" id="ac-fx-qn-equip">…</span><span class="ac-fx-ql">equipamentos</span></div>
+          <div class="ac-fx-qa"><span class="ac-fx-qn tnum" id="ac-fx-qn-equip">…</span><span class="ac-fx-ql">bens</span></div>
           <div class="ac-fx-qa"><span class="ac-fx-qn tnum" id="ac-fx-qn-termos">…</span><span class="ac-fx-ql">termos</span></div>
         </div>
         <div class="ac-fx-actions">
@@ -1676,7 +1676,7 @@ function _acRenderFicha(id){
              Patrimônio e na Frota, pra não ter dois lugares criando a mesma
              coisa e divergindo. -->
         <div class="ac-panel">
-          <div class="ac-phead"><h2>Dispositivos &amp; patrimônio</h2></div>
+          <div class="ac-phead"><h2>Bens &amp; Veículos</h2></div>
           <div id="ac-disp-wrap" class="ac-fx-wrap">
             <div class="ac-fx-empty">Carregando bens e veículos…</div>
           </div>
@@ -1717,7 +1717,7 @@ function _acRenderFicha(id){
   // sem travar a ficha. Cada um trata o próprio erro e é HONESTO (não vira 0).
   _acFichaCarregarAcessos(id);
   _acFichaCarregarContadores(id);
-  _acRenderPatItens(id); // preenche o painel "Dispositivos & patrimônio" (CRUD da Tarefa 5)
+  _acRenderPatItens(id); // preenche o painel "Bens & Veículos" (só leitura, ver bens-e-veiculos-da-pessoa.js)
   _acRenderTermos(id);   // preenche o painel "Termo de responsabilidade" (CRUD da Tarefa 7)
 }
 // Editor de UM campo da ficha, em modal PRÓPRIO (nada de prompt nativo). Salva
@@ -1772,17 +1772,21 @@ async function _acFichaCarregarAcessos(id){
   // Contagem no cabeçalho do painel de acessos (pastas do OneDrive).
   set('ac-fx-acc-cnt', r.indisponivel?'—':((r.parcial?'≥':'')+r.total+' pasta'+(r.total===1?'':'s')));
 }
-// Conta equipamentos e termos da pessoa (do banco) pros quadradinhos do topo.
-// Barato e honesto: se falhar, mostra "—" no lugar, não fake 0.
+// Conta bens (patrimonio_bens + frota_veiculos) e termos da pessoa (do banco)
+// pros quadradinhos do topo. Barato e honesto: se falhar, mostra "—" no
+// lugar, não fake 0. Fix round 1 / IMPORTANT 2: antes contava
+// acessos_dispositivos (0 linhas, estruturalmente); com o corpo da ficha
+// mostrando bens de verdade, o cabeçalho continuar em 0 ficava ridículo.
 async function _acFichaCarregarContadores(id){
   const set=(elId,txt)=>{const el=document.getElementById(elId);if(el)el.textContent=txt;};
   try{
-    const[d,t]=await Promise.all([
-      sbClient.from('acessos_dispositivos').select('*',{count:'exact',head:true}).eq('pessoa_id',id),
+    const[b,v,t]=await Promise.all([
+      sbClient.from('patrimonio_bens').select('*',{count:'exact',head:true}).eq('pessoa_id',id),
+      sbClient.from('frota_veiculos').select('*',{count:'exact',head:true}).eq('pessoa_id',id),
       sbClient.from('acessos_termos').select('*',{count:'exact',head:true}).eq('pessoa_id',id),
     ]);
     if(_acSel!==id)return;
-    set('ac-fx-qn-equip', d.error?'—':String(d.count||0));
+    set('ac-fx-qn-equip', (b.error||v.error)?'—':String((b.count||0)+(v.count||0)));
     set('ac-fx-qn-termos', t.error?'—':String(t.count||0));
   }catch(e){ if(_acSel!==id)return; set('ac-fx-qn-equip','—');set('ac-fx-qn-termos','—'); }
 }
@@ -1797,8 +1801,8 @@ function _acDesligar(id){
     <label style="display:block;margin-top:10px">Data de fim de contrato
       <input class="ac-input" type="date" id="ac-dlg-data" value="${hoje}"></label>
     <div class="ac-kicker" style="margin:14px 0 6px;display:block">Revogar acessos</div>
-    <label style="display:flex;align-items:center;gap:8px;margin-top:6px"><input type="checkbox" id="ac-dlg-equip" checked> Marcar equipamentos em uso para devolução</label>
-    <label style="display:flex;align-items:center;gap:8px;margin-top:6px"><input type="checkbox" id="ac-dlg-od" ${c.email_outlook?'checked':'disabled'}> Remover dos compartilhamentos do OneDrive${c.email_outlook?'':' <span class="ac-muted">(sem e-mail Outlook)</span>'}</label>
+    <div class="ac-muted" style="margin-top:2px">A devolução dos bens e veículos desta pessoa se registra no Patrimônio e na Frota — não por aqui.</div>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:10px"><input type="checkbox" id="ac-dlg-od" ${c.email_outlook?'checked':'disabled'}> Remover dos compartilhamentos do OneDrive${c.email_outlook?'':' <span class="ac-muted">(sem e-mail Outlook)</span>'}</label>
     <label style="display:flex;align-items:center;gap:8px;margin-top:6px"><input type="checkbox" id="ac-dlg-zoho" ${c.email_corporativo?'checked':'disabled'}> Suspender caixa de e-mail Zoho${c.email_corporativo?'':' <span class="ac-muted">(sem e-mail corporativo)</span>'}</label>
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
       <button class="ac-btn ghost" id="ac-dlg-cancel">Cancelar</button>
@@ -1813,17 +1817,18 @@ function _acDesligar(id){
     const motivo=ov.querySelector('#ac-dlg-motivo').value.trim();
     const data=ov.querySelector('#ac-dlg-data').value||null;
     if(!motivo){adminToast('Informe o motivo',false);return;}
-    const doEquip=ov.querySelector('#ac-dlg-equip').checked;
     const doOd=ov.querySelector('#ac-dlg-od').checked&&!!c.email_outlook;
     const doZoho=ov.querySelector('#ac-dlg-zoho').checked&&!!c.email_corporativo;
     const okBtn=ov.querySelector('#ac-dlg-ok');okBtn.disabled=true;okBtn.textContent='Processando…';
     const{error}=await sbClient.from('acessos_pessoas').update({status:'desligado',motivo_saida:motivo,data_fim_contrato:data,atualizado_em:new Date().toISOString()}).eq('id',id);
     if(error){adminToast('Erro: '+error.message,false);okBtn.disabled=false;okBtn.textContent='Confirmar desligamento';return;}
     let resumo='Desligado';
-    if(doEquip){
-      const{error:e2}=await sbClient.from('acessos_dispositivos').update({status:'a_devolver',atualizado_em:new Date().toISOString()}).eq('pessoa_id',id).eq('status','em_uso');
-      resumo+=e2?' · equip. falhou':' · equipamentos → devolução';
-    }
+    // A caixinha "marcar equipamentos para devolução" saiu daqui (fix round 1
+    // / IMPORTANT 3): ela gravava em acessos_dispositivos, que está sempre
+    // vazia, e dizia "equipamentos → devolução" mesmo sem devolver nada — e
+    // agora que a ficha mostra bens de verdade, isso vira mentira visível.
+    // A devolução se registra no Patrimônio/na Frota (mudar `situacao`/
+    // `pessoa_id` de lá), não por aqui.
     if(doOd){
       try{const r=await _acProxy('microsoft.revokeForEmail',{email:c.email_outlook});resumo+=' · OneDrive: '+(r&&r.removed||0)+' removido(s)';}
       catch(e){resumo+=' · OneDrive falhou';}
@@ -2091,35 +2096,46 @@ function _acVerPatrimonio(){router.push({name:'patrimonio'});}
 function _acVerFrota(){router.push({name:'frota'});}
 
 // Lista os bens e os veículos de UMA pessoa no painel da ficha (#ac-disp-wrap).
-// Duas seções, cada uma com o SEU estado — nunca uma lista vazia sozinha:
-//   1) sem acesso ao módulo (RLS filtra e volta vazio, sem erro) → diz que
-//      não vê e o que fazer, não inventa "nenhum".
-//   2) a consulta falhou de verdade (error) → diz que falhou, manda recarregar.
-//   3) não tem nada mesmo → o vazio de sempre.
-// As duas consultas rodam sempre (RLS sozinha nunca gera erro, só filtra em
-// silêncio) — quem decide a mensagem é temAcessoPatrimonio/temAcessoFrota,
-// não o tamanho da lista que voltou.
+// Duas seções, cada uma com o SEU estado — nunca uma lista vazia sozinha.
+// Fix round 1 (CRITICAL 1): quem decide o estado é `decidirEstadoDaSecao`,
+// NA ORDEM erro > com-dados > sem-acesso > vazio — dado na mão sempre vence a
+// flag de acesso (que é só uma aproximação da RLS real, mais generosa; ver
+// bens-e-veiculos-da-pessoa.js). Descartar linha de verdade porque a flag
+// achava que não devia existir é pior que o silêncio que esta tela veio
+// substituir.
+// Fix round 1 (IMPORTANT 4): as duas consultas vão dentro de um try/catch —
+// uma rejeição de verdade (offline, DNS, abort) não vira `{error}` do
+// Supabase, ela rejeita a Promise, e sem o catch a caixa ficava em
+// "Carregando…" pra sempre, sem explicação.
 async function _acRenderPatItens(pessoaId){
   const wrap=document.getElementById('ac-disp-wrap');if(!wrap)return;
-  const[{data:bens,error:erroBens},{data:veiculos,error:erroVeiculos}]=await Promise.all([
-    sbClient.from('patrimonio_bens')
-      .select('id,numero,nome,marca,numero_serie,situacao,valor_centavos,data_compra,patrimonio_categorias(nome),patrimonio_locais(nome),patrimonio_comodos(nome)')
-      .eq('pessoa_id',pessoaId).order('nome'),
-    sbClient.from('frota_veiculos').select('id,nome,placa').eq('pessoa_id',pessoaId).order('nome')
-  ]);
+  let bens=[],veiculos=[],erroBens=null,erroVeiculos=null;
+  try{
+    const r=await Promise.all([
+      sbClient.from('patrimonio_bens')
+        .select('id,numero,nome,marca,numero_serie,situacao,valor_centavos,data_compra,patrimonio_categorias(nome),patrimonio_locais(nome),patrimonio_comodos(nome)')
+        .eq('pessoa_id',pessoaId).order('nome'),
+      sbClient.from('frota_veiculos').select('id,nome,placa').eq('pessoa_id',pessoaId).order('nome')
+    ]);
+    bens=r[0].data||[];erroBens=r[0].error;
+    veiculos=r[1].data||[];erroVeiculos=r[1].error;
+  }catch(e){
+    erroBens=erroVeiculos=e&&e.message?e:{message:String(e)};
+  }
   if(_acSel!==pessoaId)return; // trocou de pessoa nesse meio-tempo: não escreve em ficha velha
-  wrap.innerHTML=_acSecaoBens(bens||[],erroBens)+_acSecaoVeiculos(veiculos||[],erroVeiculos);
+  wrap.innerHTML=_acSecaoBens(bens,erroBens)+_acSecaoVeiculos(veiculos,erroVeiculos);
 }
 // Seção "Bens" (patrimonio_bens). Sem filtro de categoria de propósito: a
 // ficha mostra TUDO que está com esta pessoa, categoria que for (a mesma
 // pessoa pode ter notebook, celular e mesa, por exemplo).
 function _acSecaoBens(bens,erro){
+  const estadoSecao=decidirEstadoDaSecao({lista:bens,erro,temAcesso:temAcessoPatrimonio(estado)});
   let corpo;
-  if(!temAcessoPatrimonio(estado)){
-    corpo='<div class="ac-fx-empty">Você não tem acesso ao módulo Patrimônio, então não dá pra saber se esta pessoa está com algum bem. Peça acesso ao módulo Patrimônio, ou peça a quem administra pra conferir por lá.</div>';
-  }else if(erro){
+  if(estadoSecao==='erro'){
     corpo='<div class="ac-fx-empty">Não consegui carregar os bens agora: '+_acEsc(erro.message)+'. Recarregue a página; se continuar assim, avise quem administra.</div>';
-  }else if(!bens.length){
+  }else if(estadoSecao==='sem-acesso'){
+    corpo='<div class="ac-fx-empty">Você não tem acesso ao módulo Patrimônio, então não dá pra saber se esta pessoa está com algum bem. Peça acesso ao módulo Patrimônio, ou peça a quem administra pra conferir por lá.</div>';
+  }else if(estadoSecao==='vazio'){
     corpo=`<div class="ac-fx-empty">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>
       Nenhum bem do Patrimônio está registrado com esta pessoa.
@@ -2155,13 +2171,19 @@ function _acBemRow(b){
 }
 // Seção "Veículos" (frota_veiculos). Aqui pessoa_id é o DONO FIXO do carro na
 // Frota, não necessariamente quem está com ele agora — o vazio explica isso.
+// Mesma ordem de decisão da seção Bens (decidirEstadoDaSecao). Do lado da
+// Frota isso não muda comportamento nenhum: a flag `temAcessoFrota` e a RLS
+// de frota_veiculos são a MESMA expressão (`'frota' = any(features) or
+// is_superadmin`, conferido em is_frota_admin()) — usar a função em comum
+// só evita as duas seções divergirem de novo no futuro.
 function _acSecaoVeiculos(veiculos,erro){
+  const estadoSecao=decidirEstadoDaSecao({lista:veiculos,erro,temAcesso:temAcessoFrota(estado)});
   let corpo;
-  if(!temAcessoFrota(estado)){
-    corpo='<div class="ac-fx-empty">Você não tem acesso ao módulo Frota, então não dá pra saber se esta pessoa está com algum veículo. Peça acesso ao módulo Frota, ou peça a quem administra pra conferir por lá.</div>';
-  }else if(erro){
+  if(estadoSecao==='erro'){
     corpo='<div class="ac-fx-empty">Não consegui carregar os veículos agora: '+_acEsc(erro.message)+'. Recarregue a página; se continuar assim, avise quem administra.</div>';
-  }else if(!veiculos.length){
+  }else if(estadoSecao==='sem-acesso'){
+    corpo='<div class="ac-fx-empty">Você não tem acesso ao módulo Frota, então não dá pra saber se esta pessoa está com algum veículo. Peça acesso ao módulo Frota, ou peça a quem administra pra conferir por lá.</div>';
+  }else if(estadoSecao==='vazio'){
     corpo='<div class="ac-fx-empty">Nenhum veículo da Frota tem esta pessoa cadastrada como dona fixa. (Quem usa o carro no dia a dia pode ser outra pessoa — confira na Frota.)</div>';
   }else{
     corpo=`<div class="ac-pat-list">${veiculos.map(_acVeiculoRow).join('')}</div>`;
@@ -2283,17 +2305,21 @@ async function _acRenderAuditoria(){
   // que não conseguiu olhar, que é a verdade.
   avisos.push('Não consegui consultar os acessos do OneDrive agora ('+(e&&e.message?e.message:'falha na conexão')+'). A coluna do OneDrive abaixo está VAZIA por causa disso — não porque as pessoas não tenham acesso.');
   }
-  // Mesma honestidade da ficha (item 2 do pedido do dono): "sem acesso ao
-  // módulo" nunca pode virar "ninguém tem bem/veículo" nas colunas abaixo.
-  if(!temAcessoPatrimonio(estado)){
-    avisos.push('Você não tem acesso ao módulo Patrimônio: a coluna "Bens" abaixo fica sempre vazia pra você — não significa que ninguém tem bem, peça acesso a quem administra.');
-  }else if(erroBens){
+  // Mesma honestidade da ficha (item 2 do pedido do dono) — e o MESMO cuidado
+  // do CRITICAL 1 do fix round 1: aqui as linhas NÃO são descartadas (ao
+  // contrário da ficha antes da correção), então empurrar "sem acesso" sem
+  // checar se veio dado faria a tela se contradizer — o aviso diria "a
+  // coluna fica sempre vazia pra você" bem em cima de uma coluna cheia de
+  // nomes. Só entra quando é vazio DE VERDADE (sem dado e sem a flag).
+  if(erroBens){
     avisos.push('Não consegui carregar os bens agora ('+(erroBens.message||'falha na conexão')+'). A coluna "Bens" abaixo pode estar incompleta.');
+  }else if(!temAcessoPatrimonio(estado)&&!(bens||[]).length){
+    avisos.push('Você não tem acesso ao módulo Patrimônio: a coluna "Bens" abaixo fica sempre vazia pra você — não significa que ninguém tem bem, peça acesso a quem administra.');
   }
-  if(!temAcessoFrota(estado)){
-    avisos.push('Você não tem acesso ao módulo Frota: a coluna "Veículos" abaixo fica sempre vazia pra você — não significa que ninguém está com carro, peça acesso a quem administra.');
-  }else if(erroVeiculosAud){
+  if(erroVeiculosAud){
     avisos.push('Não consegui carregar os veículos agora ('+(erroVeiculosAud.message||'falha na conexão')+'). A coluna "Veículos" abaixo pode estar incompleta.');
+  }else if(!temAcessoFrota(estado)&&!(veiculosAud||[]).length){
+    avisos.push('Você não tem acesso ao módulo Frota: a coluna "Veículos" abaixo fica sempre vazia pra você — não significa que ninguém está com carro, peça acesso a quem administra.');
   }
   if(avisos.length)_acAudAviso=avisos.join(' ');
   const setorById={};(setores||[]).forEach(s=>setorById[s.id]=s);
@@ -2374,6 +2400,9 @@ function _acAudPaint(){
   // Bens (patrimonio_bens) e veículos (frota_veiculos) desta pessoa — fonte de
   // verdade nova (13/08/2026); acessos_dispositivos, que estas colunas liam
   // antes, tinha 0 linhas desde sempre e dizia "nenhum" pra todo mundo.
+  // SEM filtro por situação de propósito (o antigo `inPoss` não volta): um bem
+  // no nome da pessoa é responsabilidade dela mesmo `em_estoque` — é isso que
+  // o dono quis dizer com "os bens que a pessoa usa". Não "consertar" de volta.
   const dispOf=p=>bensByP[p.id]||[];
   const veicOf=p=>veiculosByP[p.id]||[];
   const orgNomeOf=p=>{const s=p.setor_id?setorById[p.setor_id]:null;return p.organizacao_id?orgName(p.organizacao_id):(s&&s.organizacao_id?orgName(s.organizacao_id):null);};
@@ -3098,8 +3127,6 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-acessos :deep(.ac-pat-meta){display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:5px;font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted)}
 .tela-acessos :deep(.ac-pat-total){margin-top:12px;text-align:right;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--muted)}
 .tela-acessos :deep(.ac-pat-total strong){font-family:var(--fonte-dados);font-size:max(16px, calc(16px * var(--escala-texto, 1)));color:var(--text);margin-left:6px;font-variant-numeric:tabular-nums}
-.tela-acessos :deep(.ac-pat-hist){display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto}
-.tela-acessos :deep(.ac-pat-histrow){padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface2);font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--text);line-height:1.4}
 .tela-acessos :deep(.ac-pat-filtros){display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
 .tela-acessos :deep(.ac-pat-filtros .ac-select){width:auto;min-width:180px;flex:1 1 200px}
 .tela-acessos :deep(.ac-pat-kpi){margin-left:auto;font-family:var(--fonte-principal);font-size:max(9px, calc(13px * var(--escala-texto, 1)));color:var(--muted)}

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { temAcessoPatrimonio, pilulaDaSituacaoDoBem, agruparPorPessoa } from './bens-e-veiculos-da-pessoa.js'
+import { temAcessoPatrimonio, pilulaDaSituacaoDoBem, agruparPorPessoa, decidirEstadoDaSecao } from './bens-e-veiculos-da-pessoa.js'
 
 test('temAcessoPatrimonio: super-admin sempre tem, mesmo sem a feature na lista', () => {
   assert.equal(temAcessoPatrimonio({ is_superadmin: true, features: [] }), true)
@@ -53,4 +53,36 @@ test('agruparPorPessoa: item sem pessoa_id não entra em mapa nenhum (bem sem do
 test('agruparPorPessoa: lista vazia ou nula não quebra, devolve mapa vazio', () => {
   assert.deepEqual(agruparPorPessoa([]), {})
   assert.deepEqual(agruparPorPessoa(null), {})
+})
+
+// Fix round 1 / CRITICAL 1: a RLS de patrimonio_bens (pode_ver_bem) é mais
+// generosa que temAcessoPatrimonio — ela libera quem não é escopo_por_equipe
+// mesmo sem a feature "patrimonio". Medido em produção: 10 dos 20 perfis
+// recebem linha de verdade com temAcessoPatrimonio()===false, entre eles
+// ti@rbvcompany.com (o caso que o brief mediu). Dado na mão nunca é mentira:
+// se a consulta trouxe linha, a linha aparece — a flag de acesso só explica
+// o vazio, nunca descarta prova em contrário.
+test('decidirEstadoDaSecao: erro sempre vence, mesmo com dado na mão', () => {
+  const r = decidirEstadoDaSecao({ lista: [{ id: 'b1' }], erro: { message: 'falhou' }, temAcesso: true })
+  assert.equal(r, 'erro')
+})
+
+test('decidirEstadoDaSecao: dado na mão vence mesmo sem a flag de acesso — o caso do ti@', () => {
+  const r = decidirEstadoDaSecao({ lista: [{ id: 'b1' }], erro: null, temAcesso: false })
+  assert.equal(r, 'com-dados')
+})
+
+test('decidirEstadoDaSecao: sem dado e sem acesso vira "sem-acesso"', () => {
+  const r = decidirEstadoDaSecao({ lista: [], erro: null, temAcesso: false })
+  assert.equal(r, 'sem-acesso')
+})
+
+test('decidirEstadoDaSecao: sem dado e com acesso vira "vazio" (o caso de verdade)', () => {
+  const r = decidirEstadoDaSecao({ lista: [], erro: null, temAcesso: true })
+  assert.equal(r, 'vazio')
+})
+
+test('decidirEstadoDaSecao: lista nula/ausente não quebra, trata como vazia', () => {
+  assert.equal(decidirEstadoDaSecao({ lista: null, erro: null, temAcesso: true }), 'vazio')
+  assert.equal(decidirEstadoDaSecao({ erro: null, temAcesso: false }), 'sem-acesso')
 })
