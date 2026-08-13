@@ -14,6 +14,22 @@
               @click="abrirCaixinha">+</button>
     </div>
 
+    <!-- ESTE aviso vive FORA da caixinha de propósito, e o caso que ele atende é
+         o do nome repetido: a caixinha fecha e a escolha do campo muda sozinha,
+         e é ele quem explica por quê. Dentro da caixinha ele nunca chegava a
+         aparecer — o Vue tira a caixinha e o parágrafo no MESMO passo de
+         renderização — e a pessoa via a escolha trocar sem explicação nenhuma.
+         Aqui fora ele fica colado no campo que mudou, que é onde o olho está
+         depois do clique (mesma regra do painel-peca.vue), e o `aria-live`
+         anuncia pra quem usa leitor de tela: necessário aqui porque o botão que
+         estava com o foco sumiu junto com a caixinha.
+         Os recados de quem está com a caixinha ABERTA continuam DENTRO dela,
+         colados nos botões que os provocam — é o parágrafo gêmeo lá embaixo.
+         Os dois nunca aparecem juntos: um exige a caixinha fechada, o outro só
+         existe enquanto ela está aberta. -->
+    <p v-if="avisoDeFora" class="esc-pessoa-recado esc-pessoa-recado-fora"
+       role="status" aria-live="polite">{{ avisoDeFora }}</p>
+
     <!-- A caixinha nasce e morre aqui: some ao criar, ao cancelar e ao trocar de
          ficha, pra nunca ficar aberta numa pergunta que já foi respondida. -->
     <div v-if="aberta" class="esc-pessoa-caixa">
@@ -151,6 +167,23 @@ const campoNome = ref(null)
 // O nome que foi mandado criar e ainda não voltou nas props.
 const esperando = ref(null)
 
+// A escolha que o aviso de fora explica: o id que ESTE componente selecionou
+// sozinho ao topar com um nome já cadastrado. Guardar o ID (e não um "mostre o
+// aviso") é o que impede o aviso de acompanhar a pessoa pra outro lugar — no
+// instante em que a escolha deixa de ser esta (outro nome no campo, outra
+// ficha), a conta abaixo dá falso e o aviso sai sozinho, sem depender de ordem
+// de execução nenhuma.
+const idQueOAvisoExplica = ref('')
+
+// O aviso de fora só existe com a caixinha FECHADA — com ela aberta quem mostra
+// o recado é o parágrafo de dentro — e só enquanto a escolha for a que ele
+// explica.
+const avisoDeFora = computed(() => {
+  const aindaEhAEscolhaQueEuFiz = !!idQueOAvisoExplica.value
+    && props.modelValue === idQueOAvisoExplica.value
+  return !aberta.value && aindaEhAEscolhaQueEuFiz ? recado.value : ''
+})
+
 async function abrirCaixinha() {
   aberta.value = true
   novo.nome = ''
@@ -158,6 +191,7 @@ async function abrirCaixinha() {
   novo.marcaId = ''
   novo.setorId = ''
   recado.value = ''
+  idQueOAvisoExplica.value = ''
   esperando.value = null
   // Abrir também começa limpo: uma caixinha que nasce carregando uma criação
   // pendente de OUTRA ficha é o mesmo defeito do outro lado — ela ia aparecer
@@ -185,6 +219,7 @@ function cancelar() {
   recado.value = ''
   esperando.value = null
   esperandoSub.value = null
+  idQueOAvisoExplica.value = ''
 }
 
 function confirmar() {
@@ -206,7 +241,12 @@ function confirmar() {
     // (`esperandoSub`), zerar só `aberta` deixaria ela viva pra vazar na
     // próxima ficha, o mesmo defeito do resto deste arquivo.
     cancelar()
+    // As duas linhas vêm DEPOIS do `cancelar()` de propósito: é ele que limpa o
+    // recado e o id, então escrever antes seria escrever no vazio. Guardar o id
+    // aqui é o que mantém o aviso na tela — fora da caixinha, que acabou de
+    // sumir — enquanto esta escolha valer.
     recado.value = `“${r.item.nome}” já estava cadastrada — deixei essa selecionada.`
+    idQueOAvisoExplica.value = r.item.id
     return
   }
 
@@ -283,11 +323,24 @@ watch(() => [props.marcas, props.setores], () => {
   cancelarSub()
 })
 
-// Trocar de ficha (outro bem, outro carro) tem de fechar a caixinha: deixar
-// aberta uma pergunta que já foi respondida é o mesmo defeito que o
-// Patrimônio corrigiu no `fecharFicha`. O `esperando` protege o caso em que
-// a escolha mudou porque a pessoa ACABOU de ser criada por aqui.
-watch(() => props.modelValue, () => { if (aberta.value && !esperando.value) cancelar() })
+// Mudar a escolha tem dois efeitos, conforme a caixinha esteja aberta ou não.
+//
+// ABERTA: trocar de ficha (outro bem, outro carro) tem de fechar a caixinha —
+// deixar aberta uma pergunta que já foi respondida é o mesmo defeito que o
+// Patrimônio corrigiu no `fecharFicha`. O `esperando` protege o caso em que a
+// escolha mudou porque a pessoa ACABOU de ser criada por aqui.
+//
+// FECHADA: o que pode estar na tela é o aviso de fora. Ele sobrevive ao ECO do
+// próprio emit que o causou (mesmo id) — qualquer OUTRA mudança é assunto novo,
+// inclusive a tela abrir outra ficha, e aí o texto sai de vez. Sem apagar o
+// texto aqui ele ficaria guardado e voltaria a aparecer se uma ficha seguinte
+// caísse na mesma pessoa: aviso ressuscitando no registro errado.
+watch(() => props.modelValue, () => {
+  if (aberta.value) { if (!esperando.value) cancelar(); return }
+  if (props.modelValue === idQueOAvisoExplica.value) return
+  recado.value = ''
+  idQueOAvisoExplica.value = ''
+})
 </script>
 
 <style scoped>
@@ -352,6 +405,16 @@ watch(() => props.modelValue, () => { if (aberta.value && !esperando.value) canc
 .esc-pessoa-recado{
   margin:0; font-size:max(9px, calc(12px * var(--escala-texto, 1))); line-height:1.5;
   color:var(--muted); overflow-wrap:anywhere;
+}
+/* Fora da caixinha o recado perde a moldura que o segurava, e texto cinza solto
+   embaixo de um campo não se lê como recado. Ganha o mesmo realce sutil que o
+   `.esc-local-nota` do escolha-de-local-e-ambiente.vue dá ao recado dele, que
+   também vive solto no componente: fundo de realce e respiro. Mesmo par de
+   cores que este parágrafo já tem DENTRO da caixinha (--muted sobre
+   --surface2), então o contraste não muda em nenhum dos dois temas. */
+.esc-pessoa-recado-fora{
+  padding:var(--sp-2) var(--sp-3);
+  background:var(--surface2); border-radius:var(--radius-md);
 }
 /* O texto usa --text e não --orange: laranja sobre esta superfície fica em 4,14
    de contraste, abaixo do mínimo de 4,5. */
