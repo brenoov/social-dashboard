@@ -16,17 +16,29 @@
 // PURO de propósito: é a linha que responde "quem é essa pessoa afinal?", e
 // errar aqui não dá erro nenhum — só some informação, calado.
 
+// As duas informações SEPARADAS, porque o card as põe em lugares diferentes
+// desde o redesenho de 13/08: o e-mail é identidade e fica logo abaixo do nome;
+// o "desde" é contexto e desce para a última linha, junto da lotação.
+//
 // `p` é a linha já montada por `loadAdminUsers`: { nome, email, bruto }.
-export function linhaDeContato(p) {
-  const partes = []
+// Cada campo volta como string vazia quando não há o que mostrar — o card
+// simplesmente não desenha o elemento, em vez de desenhar um vazio.
+export function partesDeContato(p) {
   const email = (p && p.email) || ''
   // O eco: o nome exibido é o próprio e-mail. Repetir seria ocupar uma linha
   // do card para dizer duas vezes a mesma coisa.
-  if (email && p.nome !== email) partes.push(email)
+  const semEco = email && p.nome !== email ? email : ''
+  let desde = ''
   const cru = p && p.bruto && p.bruto.created_at
   if (cru) {
     const d = new Date(cru)
-    if (!isNaN(d)) partes.push('desde ' + d.toLocaleDateString('pt-BR'))
+    if (!isNaN(d)) desde = 'desde ' + d.toLocaleDateString('pt-BR')
   }
-  return partes.join(' · ')
+  return { email: semEco, desde }
+}
+
+// As duas juntas, para quem quiser a linha única (é o formato que a ficha usa).
+export function linhaDeContato(p) {
+  const { email, desde } = partesDeContato(p)
+  return [email, desde].filter(Boolean).join(' · ')
 }

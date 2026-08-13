@@ -168,7 +168,7 @@ import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/c
 import { estado, PERMISSION_TREE, RECURSOS } from '../../compartilhado/controle-de-login-e-usuario.js'
 import { agruparRecursos, contarAcoes, estadoDaSelecao, marcarTudo } from './agrupar-permissoes.js'
 import { derivarFeatures } from '../../compartilhado/derivar-features.js'
-import { linhaDeContato } from './linha-de-contato.js'
+import { linhaDeContato, partesDeContato } from './linha-de-contato.js'
 // A sobreposição perfil × exceção (D9) e QUEM MUDA de acesso se um perfil for
 // regravado (D11). Puro e testado à parte (perfis-de-acesso.test.mjs): aqui só
 // se busca no banco, se mostra e se grava.
@@ -2623,7 +2623,29 @@ function _criarLinhaPessoa(p, gaveta, currentEmail) {
     adminToast('Foto atualizada!')
   }))
   avWrap.appendChild(av); avWrap.appendChild(avEditBtn)
-  topo.appendChild(avWrap)
+
+  // ── A DISTRIBUIÇÃO DO CARD (redesenho de 13/08/2026, escolha do dono) ──────
+  //
+  // Antes eram QUATRO linhas empilhadas, todas do mesmo tamanho e do mesmo
+  // cinza: lotação, resumo de acesso, e-mail e data. Nada se destacava, e o
+  // e-mail — que é como se distingue uma pessoa de outra — era a última e a
+  // menos visível.
+  //
+  // Agora o card responde duas perguntas em dois lugares:
+  //   ESQUERDA  QUEM É   → avatar, nome, selos, e-mail logo abaixo do nome.
+  //   DIREITA   O QUE PODE → papel, resumo do acesso, selo de dinheiro.
+  //   EMBAIXO   CONTEXTO → lotação (ou o aviso de cadastro) e "desde", na
+  //                        menor fonte, separados por um filete.
+  // No celular a grade vira uma coluna só e a direita passa a ser uma fileira
+  // que quebra — mesma informação, empilhada.
+  //
+  // NADA FOI PERDIDO NA MUDANÇA, e isso foi conferido item a item, porque o
+  // padrão manda (§8) e porque já aconteceu antes nesta mesma lista: avatar +
+  // botão de trocar foto, nome, selo "Você", selo SUPERADMIN, lotação, aviso de
+  // cadastro, resumo do acesso, selo 💰, e-mail, "desde", papel, a fileira de
+  // ações e o convite "tocar para abrir ›" do celular.
+  const quem = mkEl('div', 'usr-quem')
+  quem.appendChild(avWrap)
 
   const info = mkEl('div', 'usr-linha-info')
   const nomeWrap = mkEl('div', 'usr-nome-wrap')
@@ -2631,9 +2653,20 @@ function _criarLinhaPessoa(p, gaveta, currentEmail) {
   if (isSelf) nomeWrap.appendChild(mkEl('span', 'usr-badge', 'Você'))
   if (isSuperAdmin) nomeWrap.appendChild(mkEl('span', 'usr-badge usr-badge-super', 'SUPERADMIN'))
   info.appendChild(nomeWrap)
-  const sub = mkEl('div', 'usr-sub')
-  sub.innerHTML = _subtitulo(p, gaveta) // já vem escapado (ou é o span fixo de "sem cadastro")
-  info.appendChild(sub)
+
+  // O E-MAIL SOBE PARA DEBAIXO DO NOME: é identidade, não rodapé. Era aqui que
+  // o dono não achava o e-mail das pessoas dos times de venda.
+  const { email: emailDoCard, desde } = partesDeContato(p)
+  if (emailDoCard) info.appendChild(mkEl('div', 'usr-contato', emailDoCard))
+  quem.appendChild(info)
+
+  // O clique no bloco de identidade abre a ficha. NÃO na linha inteira: a
+  // fileira de ações fica logo abaixo, e clicar em "Permissões" abriria as
+  // duas coisas.
+  quem.style.cursor = 'pointer'
+  quem.title = 'Abrir a ficha de ' + (p.nome || p.email)
+  quem.addEventListener('click', () => abrirFichaDaPessoa(p))
+  topo.appendChild(quem)
 
   // O resumo de uma linha: quem é essa pessoa aqui dentro, sem abrir (D5).
   //
@@ -2643,6 +2676,8 @@ function _criarLinhaPessoa(p, gaveta, currentEmail) {
   // bem, peça nem etiqueta, quando ele cadastra e apaga os quatro. Por isso
   // aqui não vai contagem nem selo de dinheiro: a contagem não se aplica.
   // É a mesma resposta que a ficha já dá em _abaDeFerramentas.
+  const direita = mkEl('div', 'usr-direita')
+  direita.appendChild(mkEl('span', 'usr-papel papel-' + p.papel, p.papel))
   const resumoLinha = mkEl('div', 'usr-resumo')
   if (isSuperAdmin) {
     resumoLinha.textContent = 'Acesso total — super-admin'
@@ -2654,18 +2689,21 @@ function _criarLinhaPessoa(p, gaveta, currentEmail) {
       resumoLinha.appendChild(resumoSelo)
     }
   }
-  info.appendChild(resumoLinha)
+  direita.appendChild(resumoLinha)
+  topo.appendChild(direita)
 
-  // O clique no bloco do nome abre a ficha. NÃO na linha inteira: a fileira de
-  // ações fica logo abaixo, e clicar em "Permissões" abriria as duas coisas.
-  info.style.cursor = 'pointer'
-  info.title = 'Abrir a ficha de ' + (p.nome || p.email)
-  info.addEventListener('click', () => abrirFichaDaPessoa(p))
-  const contato = linhaDeContato(p)
-  if (contato) info.appendChild(mkEl('div', 'usr-contato', contato))
-  topo.appendChild(info)
-
-  topo.appendChild(mkEl('span', 'usr-papel papel-' + p.papel, p.papel))
+  // A LINHA DE CONTEXTO: lotação (ou o aviso laranja de cadastro) e "desde".
+  // Só nasce se tiver o que dizer — filete sem conteúdo é sujeira.
+  const sub = _subtitulo(p, gaveta) // já vem escapado (ou é o span fixo de "sem cadastro")
+  if (sub || desde) {
+    const ctx = mkEl('div', 'usr-ctx')
+    ctx.innerHTML = sub
+    if (desde) {
+      if (sub) ctx.appendChild(document.createTextNode(' · '))
+      ctx.appendChild(document.createTextNode(desde))
+    }
+    topo.appendChild(ctx)
+  }
   linha.appendChild(topo)
 
   // ── ações: fileira própria, quebra livre — nunca estoura a largura do
@@ -3736,19 +3774,35 @@ Object.assign(window, {
    que impede um nome comprido de esticar o flex além da tela no celular. */
 .tela-admin :deep(.eq-por-quem){flex:1 1 190px;min-width:0;}
 .tela-admin :deep(.eq-vazio){color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)));padding:4px 0 2px;}
-.tela-admin :deep(.usr-linha-topo){display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+/* A GRADE DO CARD (13/08/2026): quem é a pessoa à esquerda, o que ela pode à
+   direita, contexto embaixo ocupando a largura toda. Grade e não flex porque a
+   linha de contexto precisa atravessar as duas colunas. */
+.tela-admin :deep(.usr-linha-topo){display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,280px);gap:4px var(--sp-4);align-items:start;}
+.tela-admin :deep(.usr-quem){display:flex;align-items:flex-start;gap:10px;min-width:0;}
 .tela-admin :deep(.usr-linha-info){display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;}
+/* `max-width` na coluna da direita para o resumo longo ("Mexe em Frota,
+   Patrimônio e Anúncios") não comer a largura do nome e do e-mail. Sem isto a
+   coluna `auto` cresce até onde quiser e espreme a esquerda. */
+/* QUEM MANDA NA LARGURA É A TRILHA DA GRADE, e não este elemento. Tentei
+   primeiro com `min-width` percentual aqui e não funcionou, por um motivo
+   que vale ficar escrito: porcentagem dentro de uma coluna `auto` se mede
+   contra a PRÓPRIA coluna, que já tinha encolhido — a conta se mordia e o
+   resumo descia letra a letra, com 68px de largura. Por isso a trilha é
+   `minmax(180px,280px)` lá em cima, em pixel. */
+.tela-admin :deep(.usr-direita){display:flex;flex-direction:column;align-items:flex-end;gap:4px;text-align:right;}
+/* A linha de contexto: menor fonte da tela, separada por um filete. */
+.tela-admin :deep(.usr-ctx){grid-column:1/-1;font-size:max(9px, calc(10.5px * var(--escala-texto, 1)));color:var(--muted);line-height:1.6;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);overflow-wrap:anywhere;}
 .tela-admin :deep(.usr-nome-wrap){display:flex;align-items:center;flex-wrap:wrap;gap:6px;}
 .tela-admin :deep(.usr-nome){font-weight:600;font-size:max(9px, calc(13px * var(--escala-texto, 1)));overflow-wrap:anywhere;}
 .tela-admin :deep(.usr-sub){font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);overflow-wrap:anywhere;}
 /* O resumo de uma linha (D5): quem é essa pessoa aqui dentro, sem abrir a
    ficha. Mesmo tratamento discreto do subtítulo, com o selo de dinheiro
    herdado de .perm-selo-dinheiro (já usado dentro do modal de permissões). */
-.tela-admin :deep(.usr-resumo){font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);margin-top:3px;}
+.tela-admin :deep(.usr-resumo){font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);}
 /* Correção 2: e-mail + "desde <data>" — terceira linha discreta, mesmo
    tratamento visual do subtítulo de lotação. E-mail comprido quebra, nunca
    corta (overflow-wrap, sem ellipsis). */
-.tela-admin :deep(.usr-contato){font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);overflow-wrap:anywhere;}
+.tela-admin :deep(.usr-contato){font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);overflow-wrap:anywhere;}
 .tela-admin :deep(.usr-alerta){color:color-mix(in srgb,var(--orange) 75%,var(--text));}
 .tela-admin :deep(.usr-badge){font-size:max(9px, calc(9px * var(--escala-texto, 1)));letter-spacing:1px;text-transform:uppercase;color:var(--accent-forte);background:var(--accent-light);padding:2px 6px;border-radius:3px;flex-shrink:0;}
 .tela-admin :deep(.usr-badge-super){color:var(--sobre-cor);background:var(--roxo);}
@@ -3815,6 +3869,20 @@ Object.assign(window, {
      que dá pra ver e o fim ficava embaixo da barra do navegador. */
   .tela-admin :deep(.ficha-fundo){padding:12px;}
   .tela-admin :deep(.ficha-caixa){max-width:none;max-height:calc(100dvh - 24px);}
+  /* NO CELULAR A GRADE VIRA UMA COLUNA. A direita deixa de ser coluna alinhada
+     ao fim e vira uma fileira que quebra — a mesma informação, empilhada, sem
+     espremer o nome contra a borda. */
+  .tela-admin :deep(.usr-linha-topo){grid-template-columns:1fr;}
+  .tela-admin :deep(.usr-direita){align-items:flex-start;text-align:left;flex-direction:row;flex-wrap:wrap;gap:4px 8px;margin-top:2px;}
+  /* O BOTÃO DE TROCAR FOTO tem 22px de altura e o padrão pede 40 de ALVO. A
+     área cresce só na VERTICAL, mantendo a largura do botão: o vizinho da
+     direita é o nome, e o toque nele abre a ficha — um alvo que crescesse para
+     o lado roubaria esse toque e abriria o seletor de foto no lugar.
+     Conferido com `elementFromPoint` que o centro do nome continua caindo no
+     nome. Sem `pointer-events:none`: o pseudo PRECISA receber o toque. */
+  .tela-admin :deep(.av-edit-btn){position:relative;}
+  .tela-admin :deep(.av-edit-btn)::after{content:'';position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);height:40px;}
+  .tela-admin :deep(.perm-selo-dinheiro){margin-left:0;}
   /* A ficha é o caminho no celular, então o convite tem de estar visível. */
   .tela-admin :deep(.usr-linha-info::after){content:'tocar para abrir ›';display:block;margin-top:4px;font-size:max(9px, calc(10.5px * var(--escala-texto, 1)));color:var(--accent);}
   /* Topbar compacto no celular: menos padding, logo e e-mail do usuário somem

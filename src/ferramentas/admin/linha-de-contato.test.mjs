@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { linhaDeContato } from './linha-de-contato.js'
+import { linhaDeContato, partesDeContato } from './linha-de-contato.js'
 
 const em = (extra) => ({
   nome: 'Héllen Cristiane Cardoso',
@@ -60,4 +60,27 @@ test('sem e-mail e sem data, devolve string vazia (o card nao desenha a linha)',
 test('nao explode com pessoa incompleta', () => {
   assert.equal(linhaDeContato({}), '')
   assert.equal(linhaDeContato(null), '')
+})
+
+// ── As partes separadas (o card B, 13/08/2026) ──────────────────────────────
+// O card passou a pôr o e-mail embaixo do nome e o "desde" na linha de
+// contexto. Sao lugares diferentes, entao a regra precisa entregar separado.
+
+test('as partes vem separadas, e a juncao continua sendo a linha antiga', () => {
+  const p = em()
+  const { email, desde } = partesDeContato(p)
+  assert.equal(email, 'hellen.cardoso@rbvcompany.com')
+  assert.match(desde, /^desde \d{2}\/\d{2}\/\d{4}$/)
+  assert.equal(linhaDeContato(p), email + ' · ' + desde)
+})
+
+test('o eco do nome zera SO o e-mail, e o desde sobrevive', () => {
+  const { email, desde } = partesDeContato(em({ nome: 'hellen.cardoso@rbvcompany.com' }))
+  assert.equal(email, '')
+  assert.match(desde, /^desde /)
+})
+
+test('sem nada, as duas partes sao vazias (o card nao desenha os elementos)', () => {
+  assert.deepEqual(partesDeContato({ nome: 'X', email: '', bruto: {} }), { email: '', desde: '' })
+  assert.deepEqual(partesDeContato(null), { email: '', desde: '' })
 })
