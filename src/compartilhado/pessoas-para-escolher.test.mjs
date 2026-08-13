@@ -92,7 +92,7 @@ test('comSelecionada: id que já está entre as ativas não duplica', () => {
   assert.equal(r.length, 2)
 })
 
-test('comSelecionada: id só em "todas" (desligada) entra no fim com o rótulo', () => {
+test('comSelecionada: id só em "todas" (quem saiu) entra no fim com o rótulo', () => {
   const visiveis = [{ id: 'a', nome: 'Ana', status: 'ativo' }]
   const todas = [
     { id: 'a', nome: 'Ana', status: 'ativo' },
@@ -100,7 +100,9 @@ test('comSelecionada: id só em "todas" (desligada) entra no fim com o rótulo',
   ]
   const r = comSelecionada(visiveis, todas, 'b')
   assert.deepEqual(r.map((p) => p.id), ['a', 'b'])
-  assert.equal(r[1].nome, 'Bruno (desligada)')
+  // "(saiu da empresa)" serve pra qualquer pessoa: "Bruno (desligada)" estava
+  // no feminino em cima de todo mundo.
+  assert.equal(r[1].nome, 'Bruno (saiu da empresa)')
   // O resto da ficha da pessoa (status, cargo…) continua vindo junto.
   assert.equal(r[1].status, 'desligado')
 })

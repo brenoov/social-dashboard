@@ -52,13 +52,16 @@ export function cargosConhecidos(pessoas) {
 // branco, e a tela passa a dizer "ninguém" sobre um registro que TEM dono.
 // O rótulo diz que ela saiu — some do alcance de quem escolhe, não do registro
 // que já a aponta.
+//
+// "(saiu da empresa)" e não "(desligada)": o rótulo vale para qualquer pessoa da
+// lista, e no masculino saía "Gabriel Alves (desligada)".
 export function comSelecionada(visiveis, todas, id) {
   if (!id) return visiveis || []
   const lista = visiveis || []
   if (lista.some((p) => p && p.id === id)) return lista
   const achada = (todas || []).find((p) => p && p.id === id)
   if (!achada) return lista
-  return [...lista, { ...achada, nome: `${achada.nome} (desligada)` }]
+  return [...lista, { ...achada, nome: `${achada.nome} (saiu da empresa)` }]
 }
 
 // Os argumentos da chamada `criar_pessoa_rapida` no banco. Só o nome é
