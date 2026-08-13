@@ -274,9 +274,15 @@ Custou concreto no mesmo dia: a trava do Caio Dias foi desligada durante a
 sessão, e **não há como dizer quem desligou nem a que horas**. Só deu pra
 descartar que tinha sido o robô por eliminação, comparando com outra pessoa.
 
+**E não é só ela:** mudar as **permissões** de alguém, a **conta de anúncio** que
+a pessoa vê ou o **perfil de acesso** dela também não deixa rastro. De tudo que
+diz respeito a acesso, só o cargo é registrado.
+
 Conserto: o `guard_profiles` já escreve no `audit_log`; é acrescentar o mesmo
-`insert` para `escopo_por_equipe`. Mesma classe de coisa do `role_change`, que já
-existe e já provou servir.
+`insert` para essas colunas. Mesma classe de coisa do `role_change`, que já
+existe e já provou servir. A lista de colunas já está pronta e escrita — é a
+mesma do gatilho `impedir_autopromocao` depois de 13/08
+(`supabase/migrations/20260813_ninguem_se_da_permissao.sql`).
 
 ### B2b · Patrimônio › 36 bens com a ficha incompleta
 Medido em 11/08, dos 350 bens: **2 sem empresa** (os dois "Macbook Neo", nº 284 e
