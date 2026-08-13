@@ -242,6 +242,42 @@ permissões oferece o degrau **"Ver e baixar"**, que na prática é igual a "Só
 Foram as três que ficaram sem frase explicativa na Config de Usuários, porque
 qualquer frase seria mentira.
 
+### B1f · O `bling-proxy` devolve os pedidos de todos os canais 🔴 *guardado pelo dono em 13/08*
+Lido linha a linha em 12/08 e conferido de novo em 13/08: a Edge Function
+`bling-proxy` (linhas 117–119) pergunta só **"essa pessoa pode?"** — se é `admin`
+ou tem `sales`/`gestor` — e devolve os pedidos de **todos os canais**. Filtro por
+loja não existe ali.
+
+Por que importa: a **Gestão à Vista** e a **Análise de Vendas** leem o Bling ao
+vivo por essa função. A trava do banco que protege `gc_vendas_item` **não vale
+nessas duas telas**, e o recorte que está no ar é no navegador
+(`src/compartilhado/canais-de-venda-permitidos.js`) — some da tela, mas quem abre
+o console pede tudo.
+
+**O cuidado que decide este item:** o `bling-proxy` não é só das duas telas. Os
+robôs `gestor-comercial`, `relatorios-comerciais` e `notas-dos-pedidos` chamam a
+MESMA função. Recortar sem antes descobrir com que identidade eles entram **cega
+os robôs em silêncio** — eles não têm tela pra reclamar. Descobrir isso é o
+primeiro passo, não o último.
+
+Irmão do item que foi fechado em 13/08 (a trava de loja no gatilho,
+`supabase/migrations/20260813_trava_de_loja_no_gatilho.sql`). Os dois foram
+guardados juntos pelo dono em 13/08: "salve os itens 1 e 2 para outra hora".
+
+### B1g · Ligar e desligar a trava de loja de alguém não fica registrado
+Achado em 13/08 enquanto se investigava uma mudança: a coluna
+`profiles.escopo_por_equipe` — a que decide se a pessoa vê o faturamento de todas
+as lojas ou só da dela — muda **sem deixar rastro**. O `audit_log` só grava troca
+de cargo (`role_change`), pelo gatilho `guard_profiles`.
+
+Custou concreto no mesmo dia: a trava do Caio Dias foi desligada durante a
+sessão, e **não há como dizer quem desligou nem a que horas**. Só deu pra
+descartar que tinha sido o robô por eliminação, comparando com outra pessoa.
+
+Conserto: o `guard_profiles` já escreve no `audit_log`; é acrescentar o mesmo
+`insert` para `escopo_por_equipe`. Mesma classe de coisa do `role_change`, que já
+existe e já provou servir.
+
 ### B2b · Patrimônio › 36 bens com a ficha incompleta
 Medido em 11/08, dos 350 bens: **2 sem empresa** (os dois "Macbook Neo", nº 284 e
 285 — também sem local e sem cômodo), **8 sem local** (os 5 REDMI 15C, o Samsung
