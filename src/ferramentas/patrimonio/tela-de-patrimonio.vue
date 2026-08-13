@@ -2120,7 +2120,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-patrimonio .pat-visoes{display:flex;gap:8px;padding:0 14px 8px;white-space:nowrap;}
 .tela-patrimonio .pat-plan-topo{font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));color:var(--muted);padding:2px 0 10px;}
 .tela-patrimonio .pat-plan-dica{display:block;font-size:max(9px, calc(11px * var(--escala-texto, 1)));opacity:.8;margin-top:2px;}
-/* A planilha ROLA de lado, como planilha rola — 14 colunas nao cabem em tela
+/* A planilha ROLA de lado, como planilha rola — 15 colunas nao cabem em tela
    nenhuma, e espremer viraria papa. A rolagem fica no wrap, nunca na pagina. */
 .tela-patrimonio .pat-plan-wrap{border:1px solid var(--border);border-radius:10px;background:var(--surface);}
 .tela-patrimonio .pat-plan{border-collapse:collapse;font-family:var(--fonte-principal);font-size:max(9px, calc(12px * var(--escala-texto, 1)));white-space:nowrap;}
