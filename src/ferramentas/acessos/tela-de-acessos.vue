@@ -1648,7 +1648,7 @@ function _acRenderFicha(id){
         </div>
         <div class="ac-fx-quick">
           <div class="ac-fx-qa"><span class="ac-fx-qn tnum" id="ac-fx-qn-pastas">…</span><span class="ac-fx-ql">pastas</span></div>
-          <div class="ac-fx-qa"><span class="ac-fx-qn tnum" id="ac-fx-qn-equip">…</span><span class="ac-fx-ql">bens</span></div>
+          <div class="ac-fx-qa"><span class="ac-fx-qn tnum" id="ac-fx-qn-equip">…</span><span class="ac-fx-ql">itens</span></div>
           <div class="ac-fx-qa"><span class="ac-fx-qn tnum" id="ac-fx-qn-termos">…</span><span class="ac-fx-ql">termos</span></div>
         </div>
         <div class="ac-fx-actions">
