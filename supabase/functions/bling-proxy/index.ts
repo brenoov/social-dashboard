@@ -1,4 +1,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+// A regra de quais canais de venda a pessoa vê. Mora em `_shared` porque as duas
+// telas de venda usam a MESMA — ver o cabeçalho do módulo.
+import { canaisDoEscopo, recortarRespostaDoBling } from '../_shared/canais-de-venda-permitidos.js';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -114,10 +117,46 @@ Deno.serve(async (req: Request) => {
     // Análise de Vendas) e Gestão Comercial ('gestor'). Quem tem qualquer uma
     // das duas pode consultar; admin passa direto. Tem gente com 'sales' e sem
     // 'gestor', então exigir só uma das chaves derrubaria telas legítimas.
-    const { data: prof } = await sb.from('profiles').select('role, features').eq('id', user.id).single();
+    const { data: prof } = await sb
+      .from('profiles')
+      .select('role, features, is_superadmin, escopo_por_equipe')
+      .eq('id', user.id)
+      .single();
     const features = Array.isArray(prof?.features) ? prof.features : [];
     const allowed = !!prof && (prof.role === 'admin' || features.includes('sales') || features.includes('gestor'));
     if (!allowed) return json({ error: 'sem permissao' }, 403);
+
+    // ── DE QUAIS CANAIS ESSA PESSOA VÊ O FATURAMENTO (B1f, 13/08/2026) ───────
+    //
+    // Até aqui a edge perguntava só "essa pessoa PODE?" e devolvia os pedidos de
+    // TODOS os canais. Quem estava limitada a uma loja via o faturamento das
+    // outras — bastava abrir o console, porque o recorte existia só na tela.
+    //
+    // Quem decide é o módulo puro, não um `if` reescrito aqui: é o jeito de a
+    // tela e a edge não contarem histórias diferentes sobre a mesma pessoa.
+    // O `if` abaixo é só economia de consulta para os 16 perfis não limitados —
+    // ele não pode mudar a resposta, porque a regra devolve `null` de qualquer
+    // jeito quando `escopo_por_equipe` não é `true`.
+    let times: { id: string; canal_loja_id: number | null }[] = [];
+    let membros: { equipe_id: string; profile_id: string }[] = [];
+    if (prof.escopo_por_equipe === true) {
+      const { data: m } = await sb.from('equipes_membros').select('equipe_id, profile_id').eq('profile_id', user.id);
+      membros = m || [];
+      const ids = membros.map((x) => x.equipe_id);
+      if (ids.length) {
+        const { data: t } = await sb.from('equipes').select('id, canal_loja_id').in('id', ids);
+        times = t || [];
+      }
+    }
+    // `null` = vê todos os canais (quase todo mundo, e a conta de serviço dos
+    // robôs). `[]` = não vê canal nenhum, que é DIFERENTE de `null`.
+    const canais = canaisDoEscopo({
+      isSuperadmin: !!prof.is_superadmin,
+      escopoPorEquipe: prof.escopo_por_equipe === true,
+      meuId: user.id,
+      times,
+      membros,
+    });
 
     const { endpoint, params } = await req.json();
 
@@ -131,30 +170,85 @@ Deno.serve(async (req: Request) => {
 
     const token = await getValidToken(sb);
 
-    const url = new URL(`${BLING_BASE}/${endpoint}`);
-    if (params) {
-      for (const [k, v] of Object.entries(params)) {
-        if (v === undefined || v === null) continue;
-        if (Array.isArray(v)) {
-          for (const item of v) url.searchParams.append(k, String(item));
-        } else {
-          url.searchParams.set(k, String(v));
+    const chamarBling = async (paramsDaVez: Record<string, unknown> | null) => {
+      const url = new URL(`${BLING_BASE}/${endpoint}`);
+      if (paramsDaVez) {
+        for (const [k, v] of Object.entries(paramsDaVez)) {
+          if (v === undefined || v === null) continue;
+          if (Array.isArray(v)) {
+            for (const item of v) url.searchParams.append(k, String(item));
+          } else {
+            url.searchParams.set(k, String(v));
+          }
         }
       }
+      const resp = await fetch(url.toString(), { headers: { 'Authorization': `Bearer ${token}` } });
+      const text = await resp.text();
+      let corpo;
+      try { corpo = JSON.parse(text); } catch { corpo = { raw: text }; }
+      return { status: resp.status, corpo };
+    };
+
+    const limitada = Array.isArray(canais);
+    const devolver = (corpo: unknown, status = 200) =>
+      new Response(JSON.stringify(corpo), {
+        status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+
+    // ── A LISTA DE PEDIDOS, para quem está limitada a uma loja ───────────────
+    //
+    // AQUI MORA O CUIDADO QUE QUASE VIROU DEFEITO. O primeiro jeito óbvio é
+    // pedir a lista inteira ao Bling e jogar fora o que não é dela. Só que a
+    // tela pagina assim (`paginasDoBling`, src/compartilhado/chamada-do-bling.js):
+    // pede de 100 em 100 e PARA quando a página vem com menos de 100. Jogando
+    // fora depois, a página de 100 chegaria com 30 na tela dela e a busca
+    // pararia na primeira página — a vendedora veria MENOS venda da PRÓPRIA
+    // loja, calada. Número errado é pior que tela travada.
+    //
+    // Então quem recorta é o Bling: `idLoja` (no singular). Medido contra a API
+    // em 13/08/2026, com a conta de serviço: `idLoja` é honrado, e nem
+    // `idsLojas[]` nem `idsLojas` nem `loja` são — os três voltam com tudo.
+    //
+    // `idLoja` aceita UMA loja por chamada, então quem estiver em dois times com
+    // canais diferentes vira duas chamadas, e as páginas se somam. Isso continua
+    // certo com a parada da tela: uma página só fica curta quando aquela loja
+    // acabou, então a soma só fica curta quando TODAS acabaram. Hoje as duas
+    // pessoas limitadas têm um canal cada (medido em 13/08) — o laço existe para
+    // o dia em que alguém tiver dois, não para hoje.
+    if (limitada && endpoint === 'pedidos/vendas') {
+      // Sem canal nenhum não se pergunta ao Bling: a resposta já é conhecida, e
+      // é vazia. A tela explica o porquê (`fraseDoRecorte`).
+      if (!canais.length) return devolver({ data: [] });
+
+      const pedidos: unknown[] = [];
+      for (const canal of canais) {
+        const r = await chamarBling({ ...(params || {}), idLoja: canal });
+        // Erro do Bling sobe como veio: a tela sabe distinguir "deu ruim" de
+        // "não vendeu nada", e essa diferença foi cara de conquistar.
+        if (r.status >= 400) return devolver(r.corpo, r.status);
+        if (Array.isArray(r.corpo?.data)) pedidos.push(...r.corpo.data);
+      }
+
+      // CINTO E SUSPENSÓRIO: recorta de novo, agora do nosso lado. Se isto
+      // tirar alguma coisa, quer dizer que o `idLoja` deixou de ser honrado —
+      // e aí a resposta certa é um erro visível, não uma lista que parece boa e
+      // está torta pela paginação.
+      const conferido = recortarRespostaDoBling(endpoint, { data: pedidos }, canais);
+      if (conferido.corpo.data.length !== pedidos.length) {
+        return devolver({
+          error: 'O filtro de loja do Bling parou de funcionar. Nao vou devolver '
+            + 'uma lista pela metade: avise quem cuida do sistema.',
+        }, 502);
+      }
+      return devolver(conferido.corpo);
     }
 
-    const blingResp = await fetch(url.toString(), {
-      headers: { 'Authorization': `Bearer ${token}` },
-    });
-
-    const text = await blingResp.text();
-    let data;
-    try { data = JSON.parse(text); } catch { data = { raw: text }; }
-
-    return new Response(JSON.stringify(data), {
-      status: blingResp.status,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    // ── Todo o resto ────────────────────────────────────────────────────────
+    const r = await chamarBling(params);
+    const { corpo, negado } = recortarRespostaDoBling(endpoint, r.corpo, canais);
+    if (negado) return json({ error: 'sem permissao para este canal' }, 403);
+    return devolver(corpo, r.status);
   } catch (err) {
     return new Response(JSON.stringify({ error: String(err) }), {
       status: 500,

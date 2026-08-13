@@ -28,8 +28,10 @@ Como funciona (resumido):
 - Botão "Canais": filtra quais lojas/canais entram nos números (checkboxes,
   com atalhos "Todos"/"Nenhum").
 - QUEM É DE TIME DE VENDA VÊ SÓ A LOJA DELA (12/08/2026). A regra mora em
-  src/compartilhado/canais-de-venda-permitidos.js, compartilhada com a Gestão
-  à Vista. Quem NÃO está sob escopo por equipe (15 dos 17 perfis de hoje)
+  supabase/functions/_shared/canais-de-venda-permitidos.js (a tela importa pela
+  ponte src/compartilhado/canais-de-venda-permitidos.js), compartilhada com a
+  Gestão à Vista E com a edge bling-proxy, que desde 13/08/2026 recorta a
+  resposta do Bling antes de ela sair do servidor. Quem NÃO está sob escopo por equipe (15 dos 17 perfis de hoje)
   continua vendo tudo, inclusive os canais zerados, exatamente como antes.
   O recorte vale para as TRÊS janelas de pedidos (atual, anterior e a de 15
   dias) e também para as METAS — recortar só a venda mediria uma loja contra a

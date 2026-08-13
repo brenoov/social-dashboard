@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   canaisDoEscopo, estaLimitada, filtrarPedidos, filtrarMapaDeCanais, fraseDoRecorte,
+  recortarRespostaDoBling,
 } from './canais-de-venda-permitidos.js'
 
 // Os times e canais REAIS, medidos no banco em 12/08/2026.
@@ -136,4 +137,96 @@ test('sem canal nenhum a frase diz o que fazer, nao so que esta vazio', () => {
 
 test('canal que o mapa nao conhece vira numero, nao frase muda', () => {
   assert.match(fraseDoRecorte([999], MAPA), /canal 999/)
+})
+
+// ── O lado da EDGE: recortar a resposta do Bling (B1f) ──────────────────────
+//
+// A diferença para os testes de cima: lá o assunto é o que a TELA desenha; aqui
+// é o que sequer sai do servidor. Uma falha aqui é vazamento, não é layout.
+
+const PEDIDO_TIVOLI = { id: 1, numero: '100', loja: { id: 205834140 } }
+const PEDIDO_DOMPEDRO = { id: 2, numero: '200', loja: { id: 205657609 } }
+const LISTA = { data: [PEDIDO_TIVOLI, PEDIDO_DOMPEDRO] }
+
+test('quem NAO esta limitada recebe o corpo intacto, o MESMO objeto', () => {
+  // Identidade, não igualdade: o caminho de quase todo mundo e dos robôs não
+  // pode nem copiar nem reordenar por engano.
+  const r = recortarRespostaDoBling('pedidos/vendas', LISTA, null)
+  assert.equal(r.corpo, LISTA)
+  assert.equal(r.negado, false)
+})
+
+test('a lista de pedidos perde o que nao e dos canais dela', () => {
+  const r = recortarRespostaDoBling('pedidos/vendas', LISTA, [205657609])
+  assert.deepEqual(r.corpo.data, [PEDIDO_DOMPEDRO])
+  assert.equal(r.negado, false)
+})
+
+test('sem canal nenhum a lista vem vazia, e nao inteira', () => {
+  // `[]` (nenhum canal) NÃO é `null` (todos). Confundir os dois é o defeito que
+  // faz quem não tem time enxergar a empresa inteira.
+  const r = recortarRespostaDoBling('pedidos/vendas', LISTA, [])
+  assert.deepEqual(r.corpo.data, [])
+})
+
+test('recortar a lista nao estraga o resto do corpo (paginacao do Bling)', () => {
+  const comPaginacao = { data: [PEDIDO_TIVOLI, PEDIDO_DOMPEDRO], pagina: 3, total: 87 }
+  const r = recortarRespostaDoBling('pedidos/vendas', comPaginacao, [205834140])
+  assert.equal(r.corpo.pagina, 3)
+  assert.equal(r.corpo.total, 87)
+  assert.deepEqual(r.corpo.data, [PEDIDO_TIVOLI])
+})
+
+test('UM pedido de outra loja e NEGADO, nao devolvido vazio', () => {
+  // Devolver vazio diria "não existe essa venda". O certo é dizer "você não
+  // pode ver", que é uma frase diferente e verdadeira.
+  const r = recortarRespostaDoBling('pedidos/vendas/2', { data: PEDIDO_DOMPEDRO }, [205834140])
+  assert.equal(r.negado, true)
+  assert.equal(r.corpo, null)
+})
+
+test('UM pedido da loja dela passa', () => {
+  const corpo = { data: PEDIDO_DOMPEDRO }
+  const r = recortarRespostaDoBling('pedidos/vendas/2', corpo, [205657609])
+  assert.equal(r.negado, false)
+  assert.equal(r.corpo, corpo)
+})
+
+test('pedido sem loja nao vira "de todo mundo"', () => {
+  // Sem canal identificável, o lado seguro é negar: o outro lado entrega
+  // faturamento de loja alheia.
+  const r = recortarRespostaDoBling('pedidos/vendas/9', { data: { id: 9 } }, [205657609])
+  assert.equal(r.negado, true)
+})
+
+test('nota fiscal e NEGADA para quem esta limitada', () => {
+  // É o faturamento de todas as lojas pela porta dos fundos. Nenhuma tela chama
+  // esses caminhos — só o robô, que entra com a conta de serviço, não limitada.
+  for (const caminho of ['nfe', 'nfe/123', 'nfce', 'nfce/456']) {
+    assert.equal(recortarRespostaDoBling(caminho, { data: [] }, [205657609]).negado, true, caminho)
+  }
+})
+
+test('nota fiscal PASSA para quem nao esta limitada (o robo)', () => {
+  const corpo = { data: [{ id: 1 }] }
+  assert.equal(recortarRespostaDoBling('nfe', corpo, null).negado, false)
+  assert.equal(recortarRespostaDoBling('nfe', corpo, null).corpo, corpo)
+})
+
+test('produto e saldo nao falam de canal: passam ate para quem esta limitada', () => {
+  const corpo = { data: [{ id: 1 }] }
+  for (const caminho of ['produtos', 'produtos/7', 'estoques/saldos', 'vendedores/3']) {
+    const r = recortarRespostaDoBling(caminho, corpo, [205657609])
+    assert.equal(r.negado, false, caminho)
+    assert.equal(r.corpo, corpo, caminho)
+  }
+})
+
+test('resposta de ERRO do Bling nao e confundida com lista', () => {
+  // O Bling responde `{error:...}` sem `data`. Recortar isso não pode explodir
+  // nem virar lista vazia — a tela precisa ver o erro que veio.
+  const erro = { error: { description: 'limite excedido' } }
+  const r = recortarRespostaDoBling('pedidos/vendas', erro, [205657609])
+  assert.equal(r.negado, false)
+  assert.equal(r.corpo, erro)
 })

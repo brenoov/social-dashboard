@@ -49,8 +49,12 @@ Para mexer só nesta tela, edite apenas esta pasta.
 QUEM É DE TIME DE VENDA VÊ SÓ A LOJA DELA (12/08/2026)
 ------------------------------------------------------
 Mesma regra e MESMO módulo da Análise de Vendas
-(src/compartilhado/canais-de-venda-permitidos.js) — duas telas de venda
+(supabase/functions/_shared/canais-de-venda-permitidos.js; a tela importa pela
+ponte src/compartilhado/canais-de-venda-permitidos.js) — duas telas de venda
 recortando por conta própria divergiriam no primeiro ajuste.
+- DESDE 13/08/2026 A MESMA REGRA RODA NA EDGE bling-proxy, sobre a resposta do
+  Bling. Até então isto era só o recorte da tela, e quem abrisse o console
+  continuava conseguindo pedir o faturamento das outras lojas.
 - Quem NÃO está sob escopo por equipe continua vendo tudo, com os canais
   zerados aparecendo como sempre apareceram. Isso foi pedido explicitamente.
 - Para quem é de time: os chips de canal, os pedidos das duas janelas (atual e

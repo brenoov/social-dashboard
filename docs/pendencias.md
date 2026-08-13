@@ -242,26 +242,34 @@ permissões oferece o degrau **"Ver e baixar"**, que na prática é igual a "Só
 Foram as três que ficaram sem frase explicativa na Config de Usuários, porque
 qualquer frase seria mentira.
 
-### B1f · O `bling-proxy` devolve os pedidos de todos os canais 🔴 *guardado pelo dono em 13/08*
-Lido linha a linha em 12/08 e conferido de novo em 13/08: a Edge Function
-`bling-proxy` (linhas 117–119) pergunta só **"essa pessoa pode?"** — se é `admin`
-ou tem `sales`/`gestor` — e devolve os pedidos de **todos os canais**. Filtro por
-loja não existe ali.
+### B1f · O `bling-proxy` devolve os pedidos de todos os canais 🟡 *escrito e provado; FALTA SÓ SUBIR A EDGE*
+**Estado em 13/08/2026: o código está pronto, testado e commitado. Não está no
+ar** porque subir Edge Function é na mão, e o CLI do Supabase desta máquina está
+logado em OUTRA conta (só enxerga o projeto do erickIA). Falta autorizar o MCP do
+Supabase, ou rodar `supabase login` com a conta do iamundi, e então subir a
+função. Enquanto não subir, **o recorte continua valendo só na tela.**
 
-Por que importa: a **Gestão à Vista** e a **Análise de Vendas** leem o Bling ao
-vivo por essa função. A trava do banco que protege `gc_vendas_item` **não vale
-nessas duas telas**, e o recorte que está no ar é no navegador
-(`src/compartilhado/canais-de-venda-permitidos.js`) — some da tela, mas quem abre
-o console pede tudo.
+O buraco: a edge perguntava só **"essa pessoa pode?"** — se é `admin` ou tem
+`sales`/`gestor` — e devolvia os pedidos de **todos os canais**. A Gestão à Vista
+e a Análise de Vendas leem o Bling ao vivo por ela, então a trava do banco que
+protege `gc_vendas_item` não valia nessas duas telas: sumia da tela, mas quem
+abrisse o console pedia tudo.
 
-**O cuidado que decide este item:** o `bling-proxy` não é só das duas telas. Os
-robôs `gestor-comercial`, `relatorios-comerciais` e `notas-dos-pedidos` chamam a
-MESMA função. Recortar sem antes descobrir com que identidade eles entram **cega
-os robôs em silêncio** — eles não têm tela pra reclamar. Descobrir isso é o
-primeiro passo, não o último.
+**Os robôs não são cegados, e isso foi medido, não suposto:** eles entram com
+LOGIN de conta de serviço (`claudecode@`), que não está limitada a loja nenhuma —
+então a regra devolve "vê tudo" para eles e nada muda. Se um dia alguém marcar
+"só os canais dos times dela" nessa conta, os robôs param de enxergar. Vale
+lembrar disso antes de mexer no perfil dela.
 
-Irmão do item que foi fechado em 13/08 (a trava de loja no gatilho,
-`supabase/migrations/20260813_trava_de_loja_no_gatilho.sql`). Os dois foram
+**O que quase virou defeito, e está resolvido no código:** o jeito óbvio seria
+pedir a lista inteira ao Bling e jogar fora o que não é da pessoa. Só que a tela
+pagina de 100 em 100 e para quando a página vem curta — jogando fora depois, a
+página chegaria com 30 e a busca pararia na primeira, mostrando **menos venda da
+própria loja**, calada. Quem recorta é o Bling, pelo parâmetro `idLoja`. Medido
+contra a API em 13/08 com a conta de serviço: `idLoja` é honrado; `idsLojas[]`,
+`idsLojas` e `loja` são ignorados e voltam com tudo.
+
+Irmão do item fechado em 13/08 (a trava de loja no gatilho). Os dois foram
 guardados juntos pelo dono em 13/08: "salve os itens 1 e 2 para outra hora".
 
 ### B2b · Patrimônio › 36 bens com a ficha incompleta
