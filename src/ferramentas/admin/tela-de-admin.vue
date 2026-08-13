@@ -91,9 +91,13 @@
                tarefa de gestão de acesso, então a ordem virou criar → times →
                pessoas, do jeito que o dono aprovou. -->
           <span class="sg-label">Times de venda</span>
-          <div class="admin-section-sub">Lojas, canais e setores — e quem trabalha em cada um. É por aqui que uma loja nova entra no sistema.</div>
+          <div class="admin-section-sub">Lojas, canais e setores — e quem trabalha em cada um. É por aqui que uma loja nova entra no sistema. Em <b>Quem trabalha aqui</b> você vê e muda, por pessoa, o que ela enxerga de canal de venda e das outras ferramentas, libera o estoque e troca a senha dela.</div>
           <div id="admin-equipes-body"><div style="color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)))">Carregando...</div></div>
-          <span class="sg-label">Usuários cadastrados</span>
+          <!-- Quem está num time de venda NÃO aparece aqui: a pessoa mora
+               dentro do card da loja dela, logo acima. O rótulo diz isso, senão
+               procurar a vendedora nesta lista e não achar parece defeito. -->
+          <span class="sg-label">Sem time de venda</span>
+          <div class="admin-section-sub">Quem está num time aparece dentro do card da loja dele, ali em cima.</div>
           <div id="admin-user-list"></div>
         </div>
         <!-- CONTAS -->
@@ -195,6 +199,13 @@ import {
   validarTime, canaisLivres, linhaDoTime, ordenarTimes,
   veOEstoque, podeLiberarEstoque,
 } from './equipes.js'
+// O que cada pessoa do time enxerga de VENDA, em uma frase — e quem pode mexer
+// na chave que decide isso (`profiles.escopo_por_equipe`). Puro e testado à
+// parte: a frase é o que o dono lê antes de clicar, e frase errada aqui vira
+// decisão errada lá.
+import {
+  oQueVeDeVendas, podeMudarEscopo, avisoDaMudancaDeEscopo,
+} from './acesso-do-membro.js'
 // Puxar as vendedoras das VENDAS: agrupa duplicadas, separa balcão de pessoa e
 // deduz a loja. Regras puras, testadas contra os 22 cadastros reais do Bling.
 import {
@@ -445,6 +456,10 @@ async function updateSaudeBadge() {
 let _vdLista = []
 let _vdEscolhas = {}     // nome -> { criar, email, equipe_id }
 let _vdSenhas = []       // as senhas geradas, mostradas UMA vez
+// Com que acesso as contas puxadas das vendas NASCEM. Vazio é o padrão e é
+// regra do projeto: permissão nasce desmarcada, e um seletor que já viesse
+// escolhido concederia acesso por omissão — exatamente o que a regra impede.
+let _vdPerfilId = ''
 let _vdCarregando = false
 // POR QUE A BUSCA NÃO DEU EM NADA. Sem isto, um resultado vazio devolvia a tela
 // ao botão inicial — indistinguível de "não cliquei". Foi exatamente o que
@@ -586,6 +601,18 @@ function _vdSecao() {
     }
     h += '</div>'
   }
+  // COM QUE ACESSO ELAS NASCEM. Sem isto, cada conta criada aqui nascia sem
+  // nada e alguém tinha de abrir uma por uma depois para marcar as ferramentas
+  // — o mesmo trabalho, repetido tantas vezes quantas forem as vendedoras.
+  h += '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">'
+  h += '<label style="display:block;font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;color:var(--text);margin-bottom:4px;">Todas começam com o acesso de</label>'
+  h += '<select data-vd-perfil style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:max(9px, calc(12px * var(--escala-texto, 1)));">'
+    + '<option value="">Sem nada — marco uma a uma depois</option>'
+    + (_perfisCache || []).map(p => '<option value="' + escHtml(p.id) + '"' + (String(_vdPerfilId) === String(p.id) ? ' selected' : '') + '>'
+        + escHtml(p.nome + ' — ' + Object.keys(p.permissions || {}).length + ' ferramentas') + '</option>').join('')
+    + '</select>'
+  h += '<div style="font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);margin-top:4px;">Vale para todas as marcadas. Depois dá para ajustar uma a uma pelo botão <b>Permissões</b> de cada pessoa, dentro do time.</div>'
+  h += '</div>'
   h += '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">'
   h += '<button class="btn btn-principal" data-vd-criar-tudo>Criar as contas marcadas</button>'
   h += '<button class="btn" data-vd-fechar>Cancelar</button>'
@@ -599,9 +626,18 @@ async function _vdCriarContas(botao) {
   const semEmail = marcadas.filter(g => !(_vdEscolhas[g.nome].email || '').includes('@'))
   if (semEmail.length) { adminToast('Falta e-mail em: ' + semEmail.map(g => g.nome).join(', '), false); return }
 
+  // O perfil é resolvido AQUI, uma vez, e o que a confirmação diz é o que vai
+  // ser gravado. Perfil escolhido que sumiu da lista (outra janela apagou) vira
+  // "sem nada" — o lado seguro do erro.
+  const perfilEscolhido = _vdPerfilId ? (_perfisCache || []).find(p => String(p.id) === String(_vdPerfilId)) : null
+
   const ok = await _gtConfirmAdmin('Criar ' + marcadas.length + (marcadas.length === 1 ? ' conta?' : ' contas?'),
     'Cada uma recebe uma senha diferente, e é obrigada a trocá-la no primeiro acesso. '
-    + 'As senhas aparecem UMA vez — anote antes de fechar.')
+    + 'As senhas aparecem UMA vez — anote antes de fechar.\n\n'
+    + (perfilEscolhido
+      ? 'Cada uma nasce com o acesso de "' + perfilEscolhido.nome + '" ('
+        + Object.keys(perfilEscolhido.permissions || {}).length + ' ferramentas).'
+      : 'Nenhuma delas vai enxergar ferramenta alguma até você marcar as permissões.'))
   if (!ok) return
 
   botao.disabled = true; botao.textContent = 'Criando…'
@@ -645,6 +681,30 @@ async function _vdCriarContas(botao) {
           { method: 'POST', body: JSON.stringify({ equipe_id: esc.equipe_id, profile_id: novoId, papel: 'vendedora' }) })
         if (!rTime.ok) throw new Error('a conta foi criada, mas não entrou no time')
       }
+
+      // O ACESSO INICIAL, se foi escolhido um perfil. Mesmo PATCH que o
+      // formulário de convidar faz (`adminInviteUser`) — `invite-user` só grava
+      // id/email/name/role, não aceita perfil nem permissões.
+      //
+      // Falhar aqui NÃO estoura: a conta e o time já estão feitos, e mandar o
+      // laço para o `catch` esconderia a senha desta pessoa, que só aparece uma
+      // vez. O aviso vai por toast e a senha continua na lista.
+      if (perfilEscolhido) {
+        const permissions = { ...perfilEscolhido.permissions }
+        const rPerfil = await adFetch('profiles?id=eq.' + encodeURIComponent(novoId), {
+          method: 'PATCH',
+          body: JSON.stringify({
+            perfil_id: perfilEscolhido.id,
+            permissions,
+            permissions_excecao: {},
+            features: derivarFeatures(permissions, { ehSuperadmin: false }),
+          }),
+        }).catch(() => null)
+        if (!rPerfil || !rPerfil.ok) {
+          adminToast('A conta de ' + g.nome + ' foi criada, mas não consegui aplicar o acesso de "'
+            + perfilEscolhido.nome + '" — marque pelo botão Permissões dela.', false)
+        }
+      }
       feitas.push({ nome: g.nome, email: esc.email.trim(), senha })
     } catch (e) {
       adminToast('Falhou em ' + g.nome + ': ' + String(e && e.message || e), false)
@@ -652,6 +712,9 @@ async function _vdCriarContas(botao) {
   }
   _vdSenhas = feitas
   _vdLista = []
+  // O perfil NÃO sobrevive à rodada: deixá-lo escolhido faria a próxima puxada
+  // conceder acesso por omissão, sem ninguém ter escolhido de novo.
+  _vdPerfilId = ''
   botao.disabled = false
   await loadAdminEquipes()
 }
@@ -676,7 +739,25 @@ let _eqTimes = []
 let _eqMembros = []
 let _eqPessoas = []
 let _eqCanais = []
+// O que a supervisora liberou para alguém do time (`equipes_permissoes`; hoje
+// só a chave 'estoque'). Sem esta lista, a caixinha de liberar estoque não tem
+// como saber o estado atual — e foi por não ter sido carregada que a caixinha
+// ficou dois meses sem ser desenhada.
+let _eqLiberacoes = []
 let _eqEditando = null   // id do time aberto para edição, ou 'novo'
+// AS PESSOAS, no formato que `_criarLinhaPessoa` desenha — o MESMO cartão da
+// lista de baixo. Guardado aqui porque quem monta é `loadAdminUsers` e quem
+// desenha dentro do time é `_eqLigar`.
+//
+// PEDIDO DO DONO (12/08/2026): "os cards que aparecem embaixo junto com os
+// outros usuários, pode subir nos cards de cada loja... para ficar mais
+// organizado e separado". Reusar o cartão, e não fazer um segundo parecido, é
+// o que garante que os dois lugares nunca digam coisas diferentes sobre a
+// mesma pessoa — e é o que apagou daqui um bloco inteiro de controles
+// repetidos ("informação demais").
+let _eqLinhasPessoa = []
+let _eqGaveta = 'marca'
+let _eqMeuEmail = ''
 
 const _eqEu = () => ({ is_superadmin: !!estado.is_superadmin, id: estado.user?.id })
 
@@ -686,20 +767,42 @@ function _eqMeuPapel(timeId) {
   return m ? m.papel : null
 }
 
-async function loadAdminEquipes() {
+// `desenhar: false` = só busca, não desenha.
+//
+// POR QUE O PARÂMETRO EXISTE: os cartões das pessoas dentro de cada loja são o
+// MESMO `_criarLinhaPessoa` da lista de baixo, e quem monta essas linhas é
+// `loadAdminUsers`. Mas `loadAdminUsers` também precisa saber QUEM já está num
+// time, para tirar essas pessoas da lista de baixo. Uma precisa da outra nos
+// dois sentidos.
+//
+// Buscar cedo e desenhar tarde desata o nó com UMA consulta só: no começo de
+// `loadAdminUsers` isto enche `_eqMembros`, e no fim `_eqDesenhar()` roda com
+// as linhas das pessoas já prontas. Sem isso, ou os times desenhavam vazios na
+// primeira passada, ou a mesma consulta seria feita duas vezes.
+async function loadAdminEquipes(opcoes) {
+  const desenhar = !(opcoes && opcoes.desenhar === false)
   const body = document.getElementById('admin-equipes-body'); if (!body) return
-  body.innerHTML = '<div style="color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)))">Carregando…</div>'
+  if (desenhar) body.innerHTML = '<div style="color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)))">Carregando…</div>'
   try {
     // `profiles` USA `sbClient`, NÃO `sb()` (mesmo motivo do comentário em
     // loadAdminUsers): com a chave anônima o PostgREST devolve 200 e lista
     // vazia pra tabela que só abre `to authenticated` — falha disfarçada de
     // "não tem nada". Como esta função roda A CADA loadAdminUsers, essa
     // mentira se repetiria toda vez que a tela de Usuários abrisse.
-    const [times, membros, canais, rp] = await Promise.all([
+    // AS COLUNAS DE PERMISSÃO ENTRAM AQUI, e não é enfeite: o botão
+    // "Permissões" desta seção abre o MESMO editor da lista de usuários
+    // (`openPermModal`), e esse editor GRAVA o que recebeu. Se a pessoa
+    // chegasse nele sem `permissions`/`allowed_accounts`/`perfil_id`, salvar
+    // apagaria o acesso inteiro dela em silêncio — o editor não teria como
+    // saber que o que faltava era o select, não o acesso.
+    const [times, membros, canais, liberacoes, rp] = await Promise.all([
       sb('equipes?select=*'),
       sb('equipes_membros?select=*'),
       sb('bling_lojas?select=loja_id,nome&order=nome'),
-      sbClient.from('profiles').select('id,name,email,disabled,escopo_por_equipe').order('name'),
+      sb('equipes_permissoes?select=equipe_id,profile_id,chave'),
+      sbClient.from('profiles').select(
+        'id,name,email,disabled,escopo_por_equipe,'
+        + 'permissions,permissions_excecao,allowed_accounts,is_superadmin,perfil_id,role').order('name'),
     ])
     if (rp.error) throw rp.error
     // `sb()` NAO lanca: devolve [] com `.erro` anexado. Sem conferir, uma falha
@@ -710,7 +813,12 @@ async function loadAdminEquipes() {
     if (falhou) throw new Error(falhou.mensagem || String(falhou))
     _eqTimes = times || []; _eqMembros = membros || []
     _eqPessoas = rp.data || []; _eqCanais = canais || []
-    _eqDesenhar()
+    // A liberação de estoque NÃO derruba a seção se falhar: sem ela a caixinha
+    // aparece desmarcada, que é o lado seguro do erro. Derrubar a lista de
+    // times inteira por causa dela seria trocar um defeito pequeno por um
+    // grande.
+    _eqLiberacoes = liberacoes && !liberacoes.erro ? liberacoes : []
+    if (desenhar) _eqDesenhar()
   } catch (e) {
     // O MOTIVO VAI PRA TELA. `catch` mudo aqui já custou meia hora de caça
     // noutra tela deste mesmo sistema.
@@ -757,11 +865,13 @@ function _eqDesenhar() {
     }
     html += '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">'
     if (posso) html += '<button class="btn" data-eq-editar="' + escHtml(t.id) + '">Editar</button>'
-    if (posso) html += '<button class="btn" data-eq-gente="' + escHtml(t.id) + '">Quem trabalha aqui (' + l.quantos + ')</button>'
     if (!posso) html += '<span style="font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);">Você não administra este time.</span>'
     html += '</div>'
     if (String(_eqEditando) === String(t.id)) html += _eqFormulario(t)
-    if (String(_eqEditando) === 'gente:' + t.id) html += _eqGente(t)
+    // AS PESSOAS MORAM AQUI DENTRO, sempre visíveis — não atrás de um botão.
+    // O cartão é preenchido por `_eqLigar`, com o MESMO `_criarLinhaPessoa` da
+    // lista de baixo (é DOM, não texto, então não dá pra concatenar aqui).
+    html += '<div data-eq-pessoas="' + escHtml(t.id) + '" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);"></div>'
     html += '</div>'
   }
   if (_eqEditando === 'novo') html += '<div style="border:1px solid var(--accent);border-radius:12px;padding:14px 16px;margin-bottom:10px;background:var(--surface);">' + _eqFormulario(null) + '</div>'
@@ -798,68 +908,176 @@ function _eqFormulario(t) {
   return h
 }
 
-// QUEM TRABALHA NO TIME. A lista de papéis que aparece depende de quem está
-// olhando — ninguém entrega um papel acima do seu.
-function _eqGente(t) {
+/* AS PESSOAS DENTRO DO CARD DA LOJA ────────────────────────────────────────
+ *
+ * PEDIDO DO DONO (12/08/2026): "os cards que aparecem embaixo junto com os
+ * outros usuários, pode subir nos cards de cada loja do time de vendas, para
+ * ficar mais organizado e separado" e "precisa melhorar o visual, tá muito
+ * carregado, informação demais".
+ *
+ * AS DUAS COISAS SE RESOLVEM COM A MESMA DECISÃO: aqui se desenha o MESMO
+ * cartão da lista de baixo (`_criarLinhaPessoa`), não um parecido. Por isso:
+ *  - Permissões, foto, papel, desativar e excluir vêm de graça, iguais aos de
+ *    lá — dois cartões diferentes seriam dois comportamentos divergindo;
+ *  - a troca de senha continua onde já estava: tocar no nome abre a ficha, e é
+ *    lá que mora `_secaoSenha` (só super-admin);
+ *  - o bloco de controles que eu tinha acrescentado saiu INTEIRO. Sobrou só o
+ *    que é do TIME e não existe no cartão: o papel, a liberação de estoque e o
+ *    tirar do time.
+ *
+ * A chave `escopo_por_equipe` mudou de lugar: é permissão da PESSOA (vale no
+ * sistema inteiro), então foi para dentro do editor de Permissões, junto do
+ * resto do acesso dela — e não numa caixinha solta em cada time.
+ */
+
+// A faixa do TIME, colada embaixo do cartão da pessoa. Curta de propósito.
+function _eqFaixaDoTime(m, { eu, meu, meus, t, podeDar }) {
+  const faixa = mkEl('div', 'eq-faixa')
+  const papel = acharPapel(m.papel)
+
+  if (podeDar.length) {
+    const sel = mkEl('select', 'eq-faixa-sel')
+    for (const p of podeDar) {
+      const o = mkEl('option'); o.value = p.id; o.textContent = p.rotulo
+      if (p.id === m.papel) o.selected = true
+      sel.appendChild(o)
+    }
+    sel.title = papel ? papel.explicacao : ''
+    sel.addEventListener('change', async () => {
+      sel.disabled = true
+      const r = await adFetch('equipes_membros?id=eq.' + encodeURIComponent(m.id),
+        { method: 'PATCH', body: JSON.stringify({ papel: sel.value }) })
+      if (!r.ok) { sel.disabled = false; adminToast('Não consegui mudar o papel.', false); return }
+      await loadAdminUsers()
+    })
+    faixa.appendChild(sel)
+  } else {
+    faixa.appendChild(mkEl('span', 'eq-faixa-txt', papel ? papel.rotulo : m.papel))
+  }
+
+  // ESTOQUE: pelo papel, ou porque alguém liberou. Quando vem do papel a
+  // caixinha fica marcada e travada — desmarcá-la não faria nada, e caixinha
+  // que não obedece ensina a não confiar na tela.
+  //
+  // Era ela a que estava MORTA: `veOEstoque`/`podeLiberarEstoque` tinham teste
+  // verde, estavam importadas, e nada nesta tela as chamava.
+  const est = veOEstoque(m, _eqLiberacoes)
+  const porPapel = est.porque === 'pelo papel'
+  const podeLiberar = podeLiberarEstoque(eu, meu)
+  const rot = mkEl('label', 'eq-faixa-chk')
+  const cb = mkEl('input'); cb.type = 'checkbox'; cb.checked = est.ve
+  cb.disabled = porPapel || !podeLiberar
+  rot.title = porPapel
+    ? 'Vem do papel dela — não dá para tirar sem mudar o papel.'
+    : 'Estar no time mostra as VENDAS. O estoque é liberado à parte.'
+  rot.appendChild(cb)
+  rot.appendChild(document.createTextNode(porPapel ? 'estoque (pelo papel)' : 'estoque'))
+  cb.addEventListener('change', async () => {
+    // Guardado ANTES do await: `cb.checked` muda no desfazer abaixo, e ler dele
+    // depois faria a mensagem de erro dizer o contrário do que falhou.
+    const liberando = cb.checked
+    cb.disabled = true
+    const alvo = 'equipes_permissoes?equipe_id=eq.' + encodeURIComponent(t.id)
+      + '&profile_id=eq.' + encodeURIComponent(m.profile_id) + '&chave=eq.estoque'
+    const r = liberando
+      ? await adFetch('equipes_permissoes', { method: 'POST', body: JSON.stringify({ equipe_id: t.id, profile_id: m.profile_id, chave: 'estoque' }) })
+      : await adFetch(alvo, { method: 'DELETE' })
+    if (!r.ok) {
+      // Desfaz na hora: caixinha marcada com o banco dizendo não é a mentira
+      // mais cara que uma tela de permissão pode contar.
+      cb.checked = !liberando; cb.disabled = false
+      adminToast('Não consegui ' + (liberando ? 'liberar' : 'tirar') + ' o estoque: ' + await r.text(), false)
+      return
+    }
+    adminToast(liberando ? 'Estoque liberado.' : 'Estoque tirado.')
+    await loadAdminEquipes()
+  })
+  faixa.appendChild(rot)
+
+  const r = podeRemover(eu, meu, m, meus)
+  if (r.pode) {
+    const b = mkEl('button', 'btn eq-faixa-btn', 'Tirar do time'); b.type = 'button'
+    b.addEventListener('click', async () => {
+      b.disabled = true
+      const resp = await adFetch('equipes_membros?id=eq.' + encodeURIComponent(m.id), { method: 'DELETE' })
+      if (!resp.ok) { b.disabled = false; adminToast('Não consegui tirar do time.', false); return }
+      // `loadAdminUsers`, e não `loadAdminEquipes`: quem sai do time reaparece
+      // na lista de baixo, e só a primeira redesenha as duas.
+      await loadAdminUsers()
+    })
+    faixa.appendChild(b)
+  } else {
+    const s = mkEl('span', 'eq-faixa-txt', 'não dá para tirar'); s.title = r.porque
+    faixa.appendChild(s)
+  }
+  return faixa
+}
+
+// COLOCAR GENTE. Só quem ainda não está no time aparece — oferecer quem já está
+// leva ao erro de chave repetida, que não diz nada a quem está usando.
+function _eqColocarNoTime(t, meus, podeDar) {
+  const cx = mkEl('div', 'eq-por')
+  const dentro = new Set(meus.map((m) => String(m.profile_id)))
+  const fora = _eqPessoas.filter((p) => !dentro.has(String(p.id)) && !p.disabled)
+
+  const selP = mkEl('select', 'eq-faixa-sel eq-por-quem')
+  const vazio = mkEl('option'); vazio.value = ''; vazio.textContent = 'Colocar alguém no time…'
+  selP.appendChild(vazio)
+  for (const p of fora) { const o = mkEl('option'); o.value = p.id; o.textContent = p.name || p.email; selP.appendChild(o) }
+
+  const selPapel = mkEl('select', 'eq-faixa-sel')
+  for (const p of podeDar) { const o = mkEl('option'); o.value = p.id; o.textContent = p.rotulo; selPapel.appendChild(o) }
+
+  const b = mkEl('button', 'btn eq-faixa-btn', 'Colocar'); b.type = 'button'
+  b.addEventListener('click', async () => {
+    if (!selP.value) { adminToast('Escolha quem entra no time.', false); return }
+    b.disabled = true
+    const r = await adFetch('equipes_membros', { method: 'POST', body: JSON.stringify({ equipe_id: t.id, profile_id: selP.value, papel: selPapel.value || 'vendedora' }) })
+    if (!r.ok) { b.disabled = false; adminToast('Não consegui colocar no time.', false); return }
+    await loadAdminUsers()
+  })
+  cx.appendChild(selP); cx.appendChild(selPapel); cx.appendChild(b)
+  return cx
+}
+
+// O miolo do card da loja: os cartões das pessoas daquele time.
+function _eqDesenharPessoas(cx, t) {
   const eu = _eqEu()
   const meu = _eqMeuPapel(t.id)
-  const meus = _eqMembros.filter(m => String(m.equipe_id) === String(t.id))
+  const meus = _eqMembros.filter((m) => String(m.equipe_id) === String(t.id))
   const podeDar = papeisQuePossoConceder(eu, meu)
-  const nome = (id) => {
-    const p = _eqPessoas.find(x => String(x.id) === String(id))
-    return p ? (p.name || p.email) : '(usuário removido)'
+
+  if (!meus.length) {
+    cx.appendChild(mkEl('div', 'eq-vazio', 'Ninguém neste time ainda.'))
   }
-  let h = '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">'
-  if (!meus.length) h += '<div style="color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)));margin-bottom:10px;">Ninguém neste time ainda.</div>'
   for (const m of meus) {
-    const papel = acharPapel(m.papel)
-    const r = podeRemover(eu, meu, m, meus)
-    h += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">'
-    h += '<div><div style="font-size:max(9px, calc(12.5px * var(--escala-texto, 1)));color:var(--text);font-weight:600;">' + escHtml(nome(m.profile_id)) + '</div>'
-      + '<div style="font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);">' + escHtml(papel ? papel.explicacao : m.papel) + '</div></div>'
-    h += '<div style="display:flex;gap:7px;align-items:center;">'
-    if (podeDar.length) {
-      h += '<select data-eq-papel="' + escHtml(m.id) + '" style="padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));">'
-        + podeDar.map(p => '<option value="' + p.id + '"' + (p.id === m.papel ? ' selected' : '') + '>' + escHtml(p.rotulo) + '</option>').join('') + '</select>'
-    } else {
-      h += '<span style="font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);">' + escHtml(papel ? papel.rotulo : m.papel) + '</span>'
+    const p = _eqLinhasPessoa.find((x) => String(x.id) === String(m.profile_id))
+    if (!p) {
+      // Membro sem cadastro em `profiles`: dizer isso é melhor que desenhar um
+      // cartão vazio, e melhor ainda que sumir com a linha em silêncio.
+      cx.appendChild(mkEl('div', 'eq-vazio', 'Um login deste time não existe mais em Usuários — tire do time.'))
+      continue
     }
-    if (r.pode) h += '<button class="btn btn-perigo" data-eq-tirar="' + escHtml(m.id) + '" title="Tirar do time">Tirar</button>'
-    else h += '<span title="' + escHtml(r.porque) + '" style="font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);cursor:help;">não dá</span>'
-    h += '</div></div>'
+    const cartao = _criarLinhaPessoa(p, _eqGaveta, _eqMeuEmail)
+    cartao.appendChild(_eqFaixaDoTime(m, { eu, meu, meus, t, podeDar }))
+    cx.appendChild(cartao)
   }
-  // COLOCAR GENTE. Só quem ainda não está no time aparece — oferecer quem já
-  // está leva ao erro de chave repetida, que não diz nada a quem está usando.
-  if (podeDar.length) {
-    const dentro = new Set(meus.map(m => String(m.profile_id)))
-    const fora = _eqPessoas.filter(p => !dentro.has(String(p.id)) && !p.disabled)
-    h += '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center;">'
-    h += '<select data-eq-nova-pessoa style="flex:1;min-width:180px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:max(9px, calc(12px * var(--escala-texto, 1)));">'
-      + '<option value="">Escolha quem entra…</option>'
-      + fora.map(p => '<option value="' + escHtml(p.id) + '">' + escHtml(p.name || p.email) + '</option>').join('') + '</select>'
-    h += '<select data-eq-novo-papel style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:max(9px, calc(12px * var(--escala-texto, 1)));">'
-      + podeDar.map(p => '<option value="' + p.id + '">' + escHtml(p.rotulo) + '</option>').join('') + '</select>'
-    h += '<button class="btn btn-principal" data-eq-por="' + escHtml(t.id) + '">Colocar no time</button>'
-    h += '</div>'
-  }
-  h += '<div style="display:flex;gap:8px;margin-top:12px;"><button class="btn" data-eq-cancelar>Fechar</button></div>'
-  h += '</div>'
-  return h
+  if (podeDar.length) cx.appendChild(_eqColocarNoTime(t, meus, podeDar))
 }
 
 function _eqLigar(body) {
   const q = (sel) => Array.from(body.querySelectorAll(sel))
   const um = (sel) => body.querySelector(sel)
   const puxar = um('[data-vd-puxar]'); if (puxar) puxar.onclick = () => _vdPuxar()
-  const fechar = um('[data-vd-fechar]'); if (fechar) fechar.onclick = () => { _vdLista = []; _vdSenhas = []; _vdMotivoVazio = ''; _eqDesenhar() }
+  const fechar = um('[data-vd-fechar]'); if (fechar) fechar.onclick = () => { _vdLista = []; _vdSenhas = []; _vdMotivoVazio = ''; _vdPerfilId = ''; _eqDesenhar() }
   const criarTudo = um('[data-vd-criar-tudo]'); if (criarTudo) criarTudo.onclick = () => _vdCriarContas(criarTudo)
   q('[data-vd-criar]').forEach(cb => { cb.onchange = () => { _vdEscolhas[cb.getAttribute('data-vd-criar')].criar = cb.checked } })
   q('[data-vd-email]').forEach(i => { i.oninput = () => { _vdEscolhas[i.getAttribute('data-vd-email')].email = i.value } })
   q('[data-vd-equipe]').forEach(s2 => { s2.onchange = () => { _vdEscolhas[s2.getAttribute('data-vd-equipe')].equipe_id = s2.value } })
+  const selPerfilVd = um('[data-vd-perfil]'); if (selPerfilVd) selPerfilVd.onchange = () => { _vdPerfilId = selPerfilVd.value }
 
   const novo = um('[data-eq-novo]'); if (novo) novo.onclick = () => { _eqEditando = 'novo'; _eqDesenhar() }
   q('[data-eq-editar]').forEach(b => { b.onclick = () => { _eqEditando = b.getAttribute('data-eq-editar'); _eqDesenhar() } })
-  q('[data-eq-gente]').forEach(b => { b.onclick = () => { _eqEditando = 'gente:' + b.getAttribute('data-eq-gente'); _eqDesenhar() } })
   q('[data-eq-cancelar]').forEach(b => { b.onclick = () => { _eqEditando = null; _eqDesenhar() } })
 
   const salvar = um('[data-eq-salvar]')
@@ -891,27 +1109,14 @@ function _eqLigar(body) {
     }
   }
 
-  q('[data-eq-papel]').forEach(sel => { sel.onchange = async () => {
-    const r = await adFetch('equipes_membros?id=eq.' + encodeURIComponent(sel.getAttribute('data-eq-papel')),
-      { method: 'PATCH', body: JSON.stringify({ papel: sel.value }) })
-    if (!r.ok) { adminToast('Não consegui mudar o papel.', false); return }
-    await loadAdminEquipes()
-  } })
-
-  q('[data-eq-tirar]').forEach(b => { b.onclick = async () => {
-    const r = await adFetch('equipes_membros?id=eq.' + encodeURIComponent(b.getAttribute('data-eq-tirar')), { method: 'DELETE' })
-    if (!r.ok) { adminToast('Não consegui tirar do time.', false); return }
-    await loadAdminEquipes()
-  } })
-
-  const por = um('[data-eq-por]')
-  if (por) por.onclick = async () => {
-    const pes = um('[data-eq-nova-pessoa]'), pap = um('[data-eq-novo-papel]')
-    if (!pes || !pes.value) { adminToast('Escolha quem entra no time.', false); return }
-    const r = await adFetch('equipes_membros', { method: 'POST', body: JSON.stringify({ equipe_id: por.getAttribute('data-eq-por'), profile_id: pes.value, papel: pap ? pap.value : 'vendedora' }) })
-    if (!r.ok) { adminToast('Não consegui colocar no time.', false); return }
-    await loadAdminEquipes()
-  }
+  // AS PESSOAS DE CADA TIME. `_criarLinhaPessoa` devolve DOM, não texto — por
+  // isso o card da loja sai do `innerHTML` com um lugar vazio e é preenchido
+  // aqui. Se `loadAdminUsers` ainda não montou as linhas, o lugar fica vazio e
+  // a próxima passada preenche (ela chama `loadAdminEquipes` no fim).
+  q('[data-eq-pessoas]').forEach(cx => {
+    const t = _eqTimes.find(x => String(x.id) === String(cx.getAttribute('data-eq-pessoas')))
+    if (t) _eqDesenharPessoas(cx, t)
+  })
 }
 
 /* ── SAÚDE DOS DADOS (legacy L4411-4522, verbatim) ── */
@@ -1050,6 +1255,14 @@ async function openPermModal(u, opcoes) {
     permissions: JSON.parse(JSON.stringify(u.permissions || {})),
     allowed_accounts: u.allowed_accounts ?? null,
     is_superadmin: !!u.is_superadmin,
+    // `!== false`, e não `=== true`: coluna ausente no select não pode virar
+    // "vê todos os canais" por omissão. Errar para o lado restritivo é o erro
+    // barato — o outro entrega faturamento de loja alheia.
+    escopo_por_equipe: u.escopo_por_equipe !== false,
+    // O valor de ANTES, para saber se a pessoa mexeu nele. Sem guardar isto, o
+    // salvamento não teria como perguntar só quando muda — e perguntar sempre
+    // ensina a clicar em "ok" sem ler.
+    escopoOriginal: u.escopo_por_equipe !== false,
     // { vendas: true, saldo: false } — o estado resolvido (preferência salva ou
     // o padrão do tipo).
     notificacoes: {},
@@ -1332,6 +1545,38 @@ function _abaDeFerramentas(body, u) {
     })
     body.appendChild(card)
   })
+  // 2b) DE QUAIS CANAIS DE VENDA ELA VÊ O FATURAMENTO
+  //
+  // Veio da seção de times (12/08/2026) para cá, e este é o lugar certo:
+  // `escopo_por_equipe` é da PESSOA e vale no sistema inteiro, não de um time.
+  // Numa caixinha dentro do card da loja, ela mentia por omissão — parecia
+  // dizer respeito só àquela loja.
+  //
+  // Só super-admin mexe: desligar abre TODOS os canais, inclusive os de times
+  // que quem clica não administra. É a regra de ouro dos times ao contrário
+  // ("ninguém concede o que não tem").
+  body.appendChild(_lbl10('CANAIS DE VENDA', 12))
+  const escLinha = document.createElement('label')
+  escLinha.style.cssText = 'display:flex;align-items:flex-start;gap:6px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));cursor:pointer;padding:3px 0;font-weight:600'
+  const escCb = document.createElement('input'); escCb.type = 'checkbox'
+  escCb.checked = _permState.escopo_por_equipe
+  // A REGRA vem do módulo puro e testado, não de um `if` reescrito aqui: é o
+  // jeito de a tela e o teste não contarem histórias diferentes sobre quem pode.
+  escCb.disabled = !podeMudarEscopo({ is_superadmin: estado.is_superadmin })
+  escCb.addEventListener('change', () => { _permState.escopo_por_equipe = escCb.checked; _renderPermBody(u) })
+  escLinha.appendChild(escCb)
+  escLinha.appendChild(document.createTextNode('Só os canais dos times dela'))
+  body.appendChild(escLinha)
+  // A FRASE DO EFEITO, sempre visível — o mesmo princípio do resto deste
+  // editor: a linha diz o que aquele estado FAZ, em vez de deixar adivinhar.
+  const escTxt = document.createElement('div')
+  escTxt.style.cssText = 'font-size:max(9px, calc(11px * var(--escala-texto, 1)));color:var(--muted);margin:2px 0 0 22px;line-height:1.45'
+  escTxt.textContent = oQueVeDeVendas({
+    pessoa: { ...u, escopo_por_equipe: _permState.escopo_por_equipe },
+    times: _eqTimes, membros: _eqMembros, canais: _eqCanais,
+  }).frase + (estado.is_superadmin ? '' : ' Só um super-admin muda isto.')
+  body.appendChild(escTxt)
+
   // 3) Perfis de rede social
   body.appendChild(_lbl10('PERFIS DE REDE SOCIAL', 12))
   const todos = document.createElement('label'); todos.style.cssText = 'display:flex;align-items:center;gap:5px;font-size:max(9px, calc(12px * var(--escala-texto, 1)));cursor:pointer;padding:3px 0;font-weight:600'
@@ -1856,6 +2101,32 @@ async function savePermissions() {
     permissions: _permState.permissions,
     allowed_accounts: _permState.allowed_accounts,
     is_superadmin: _permState.is_superadmin,
+  }
+  // O escopo de canal só vai no PATCH quando quem salva é super-admin. Mandar
+  // sempre faria um admin comum REGRAVAR o valor atual a cada salvamento — e
+  // um dia, com a caixinha desenhada a partir de um select incompleto, gravaria
+  // o valor errado sem ninguém ter clicado nela.
+  if (!_permState.soNotificacoes && podeMudarEscopo({ is_superadmin: estado.is_superadmin })) {
+    // MUDOU O ALCANCE DELA: pergunta, e diz o tamanho. Abrir os canais é a
+    // mudança de maior raio desta tela depois de excluir a conta — a pessoa
+    // passa a ver o faturamento de lojas que não são dela, no sistema inteiro.
+    // Só pergunta quando MUDA: perguntar em todo salvamento ensina a clicar em
+    // "ok" sem ler, que é pior que não perguntar.
+    if (_permState.escopo_por_equipe !== _permState.escopoOriginal) {
+      // O nome sai do cache de usuários (esta função não recebe a pessoa, só o
+      // `_permState`). Sem nome achado, `avisoDaMudancaDeEscopo` já diz "esta
+      // pessoa" — a frase continua verdadeira, só menos específica.
+      const quem = (_usersCache || []).find((x) => String(x.id) === String(_permState.userId))
+      const ok = await _gtConfirmAdmin(
+        _permState.escopo_por_equipe ? 'Limitar aos times dela?' : 'Abrir TODOS os canais para ela?',
+        avisoDaMudancaDeEscopo({
+          pessoa: { id: _permState.userId, name: quem && (quem.name || quem.email) },
+          ligar: _permState.escopo_por_equipe,
+          times: _eqTimes, membros: _eqMembros,
+        }))
+      if (!ok) { btn.disabled = false; btn.textContent = 'Salvar'; return }
+    }
+    payload.escopo_por_equipe = _permState.escopo_por_equipe
   }
   if (features !== null) payload.features = features
 
@@ -2507,11 +2778,12 @@ function _desenharGrupos(alvo, linhas, gaveta, currentEmail) {
 /* ── USUÁRIOS (legacy L4609-4708, adaptado — ver comentário acima: a lista
    de linhas ricas virou diretório agrupado por lotação) ── */
 async function loadAdminUsers() {
-  // Times de venda virou seção de Usuários (Task 5): carrega junto, sem
-  // esperar — tem DOM e tratamento de erro próprios (loadAdminEquipes),
-  // então travar a lista de pessoas por causa dela seria pior que os dois
-  // carregarem em paralelo.
-  loadAdminEquipes()
+  // Times de venda virou seção de Usuários (Task 5). Agora é ESPERADO, e só a
+  // busca: quem está num time sai da lista de baixo e vira cartão dentro do
+  // card da loja dele, então a lista de baixo não pode ser desenhada antes de
+  // saber quem está em time. O desenho dos times acontece no fim desta função,
+  // quando as linhas das pessoas já existem.
+  await loadAdminEquipes({ desenhar: false })
 
   const alvo = document.getElementById('admin-user-list')
 
@@ -2534,7 +2806,10 @@ async function loadAdminUsers() {
     // permissões não sabe em que perfil a pessoa está, e sem saber disso não dá
     // pra registrar o que foi dado à mão como exceção (D9). Era por isso que a
     // exceção nunca era gravada e o perfil apagava trabalho na regravação.
-    sbClient.from('profiles').select('id,email,name,role,is_superadmin,permissions,disabled,avatar_url,allowed_accounts,created_at,perfil_id'),
+    // `escopo_por_equipe` entrou em 12/08/2026: a chave "só os canais dos times
+    // dela" virou linha do editor de permissões, e sem a coluna aqui ela
+    // apareceria sempre marcada (o default restritivo) mesmo em quem vê tudo.
+    sbClient.from('profiles').select('id,email,name,role,is_superadmin,permissions,disabled,avatar_url,allowed_accounts,created_at,perfil_id,escopo_por_equipe'),
     // `id`, `email_corporativo` e `conta_apple` entraram na etapa 2 e são
     // ESSENCIAIS: sem os dois e-mails, `estadoDoVinculo` não acha candidato
     // nenhum e a Raíssa — que TEM cadastro ativo com o e-mail idêntico ao
@@ -2634,14 +2909,27 @@ async function loadAdminUsers() {
   let termo = ''
   const grupos = document.createElement('div')
 
+  // QUEM ESTÁ NUM TIME SAI DAQUI. A pessoa aparece dentro do card da loja dela,
+  // e não nos dois lugares: repetir a mesma pessoa em duas listas é o
+  // "informação demais" que o dono pediu pra cortar, e é também como duas
+  // telas começam a divergir.
+  //
+  // `linhas` (a lista INTEIRA) continua indo pra `_eqLinhasPessoa`, porque é
+  // dela que os cards das lojas tiram a pessoa.
+  _eqLinhasPessoa = linhas
+  _eqGaveta = gaveta
+  _eqMeuEmail = currentEmail
+  const emTime = new Set(_eqMembros.map((m) => String(m.profile_id)))
+  const linhasSemTime = linhas.filter((l) => !emTime.has(String(l.id)))
+
   function _redesenharGrupos() {
     grupos.innerHTML = ''
-    _desenharGrupos(grupos, _filtrar(linhas, termo), gaveta, currentEmail)
+    _desenharGrupos(grupos, _filtrar(linhasSemTime, termo), gaveta, currentEmail)
   }
 
   function _redesenharTudo() {
     alvo.innerHTML = ''
-    _desenharSeletor(alvo, gaveta, (nova) => { gaveta = nova; _redesenharTudo() })
+    _desenharSeletor(alvo, gaveta, (nova) => { gaveta = nova; _eqGaveta = nova; _redesenharTudo(); _eqDesenhar() })
     const busca = mkEl('input', 'admin-form-input usr-busca')
     busca.type = 'search'
     busca.placeholder = 'Buscar por nome ou email…'
@@ -2652,6 +2940,10 @@ async function loadAdminUsers() {
     _redesenharGrupos()
   }
   _redesenharTudo()
+
+  // OS TIMES DESENHAM POR ÚLTIMO, agora que `_eqLinhasPessoa` existe: é dela
+  // que cada card de loja tira o cartão das pessoas dele.
+  _eqDesenhar()
 }
 
 // Mini-form de troca de senha (só superadmin). Abre inline na linha do usuário; digita OU gera.
@@ -3436,6 +3728,21 @@ Object.assign(window, {
    fileira do topo (display:flex direto); agora é a coluna que segura as
    duas, e `.usr-linha-topo` herdou o que era do `.usr-linha` antigo. */
 .tela-admin :deep(.usr-linha){display:flex;flex-direction:column;gap:8px;padding:10px 0;border-top:1px solid var(--border);}
+/* ── A faixa do TIME, colada embaixo do cartão da pessoa ──────────────────
+   Só o que é do time e não existe no cartão: papel, estoque e tirar. Tudo
+   numa linha que QUEBRA (flex-wrap) — no celular ela vira duas ou três, e
+   nunca estoura a largura do card. Alvo de toque de 40px nos controles,
+   igual ao resto da tela. */
+.tela-admin :deep(.eq-faixa){display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding-top:8px;}
+.tela-admin :deep(.eq-faixa-sel){padding:6px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--fonte-principal);font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));max-width:100%;}
+.tela-admin :deep(.eq-faixa-chk){display:flex;align-items:center;gap:5px;font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);cursor:pointer;min-height:40px;}
+.tela-admin :deep(.eq-faixa-txt){font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));color:var(--muted);}
+.tela-admin :deep(.eq-faixa-btn){font-size:max(9px, calc(11.5px * var(--escala-texto, 1)));}
+.tela-admin :deep(.eq-por){display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px;padding-top:10px;border-top:1px dashed var(--border);}
+/* O seletor de quem entra cresce, mas nunca empurra a linha: `min-width:0` é o
+   que impede um nome comprido de esticar o flex além da tela no celular. */
+.tela-admin :deep(.eq-por-quem){flex:1 1 190px;min-width:0;}
+.tela-admin :deep(.eq-vazio){color:var(--muted);font-size:max(9px, calc(12px * var(--escala-texto, 1)));padding:4px 0 2px;}
 .tela-admin :deep(.usr-linha-topo){display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
 .tela-admin :deep(.usr-linha-info){display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;}
 .tela-admin :deep(.usr-nome-wrap){display:flex;align-items:center;flex-wrap:wrap;gap:6px;}
@@ -3565,7 +3872,7 @@ Object.assign(window, {
   .tela-admin :deep([data-vd-puxar]),
   .tela-admin :deep([data-eq-novo]),
   .tela-admin :deep([data-eq-editar]),
-  .tela-admin :deep([data-eq-gente]){min-height:40px;box-sizing:border-box;display:inline-flex;align-items:center;}
+  .tela-admin :deep(.eq-faixa-btn),.tela-admin :deep(.eq-faixa-sel){min-height:40px;box-sizing:border-box;display:inline-flex;align-items:center;}
 
   /* 5) Checkboxes soltos (Super-admin, "Marcar tudo", "Tudo" de cada card,
      "Todos os perfis", cada conta em "Perfis de rede social") usam o <label>
