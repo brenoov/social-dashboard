@@ -303,11 +303,28 @@ Três são money-path:
    o bloco da persona, mas `verify_jwt` impede o teste sem sessão; quem executa
    primeiro é o dono, clicando em sugerir.
 
-O **upload de Word (`.docx`) foi executado pela tela em 13/08** e passou (ver
-acima) — ele é lido no próprio navegador, sem custo. O que continua **sem nunca
-ter sido clicado é o upload de PDF** (edge `ler-documento` v1): esse sai do
-navegador e vai pra IA, custa US$ 0,067 por arquivo, e até hoje só foi exercitado
-pela API direto, com o PDF real da curadoria.
+✅ **Os DOIS uploads foram executados pela tela em 13/08 e passaram.** O `.docx` é
+lido no próprio navegador, sem custo. O **PDF** (edge `ler-documento`) sai para a
+IA: respondeu 200 e trouxe 748 caracteres para o campo, com a acentuação
+correta — e leva de 10 a 60 segundos, o que importou (ver abaixo).
+
+> 🔴 **O PDF achou um terceiro defeito, e este custava dinheiro calado.** Subindo
+> o MESMO arquivo duas vezes: com a tela parada, o texto chegava; com o Gestor
+> ainda carregando, a edge respondia **200 com o texto** e o campo ficava
+> **vazio, sem nenhum aviso** — e a leitura da IA já tinha sido paga.
+>
+> Enquanto a IA lê (dezenas de segundos), o painel se redesenha sozinho:
+> `loadGtData` remonta a régua ao terminar de carregar a conta, e trocar de conta
+> faz o mesmo. O redesenho **troca os elementos**, e o código escrevia o texto no
+> `<textarea>` de antes — órfão, fora da tela. Provado no navegador marcando o
+> campo e forçando o remonte: a marca não sobrevive e o que estava no campo some.
+>
+> Corrigido: depois da leitura tudo é procurado de novo pelo id, e o `<textarea>`
+> passou a carregar `data-conta-id`, conferido antes de escrever — se a tela
+> trocou de CONTA no meio, o texto **não** entra (seria a persona de uma marca
+> dentro de outra) e a tela diz o que houve. 3 testes novos, os 3 falham sem o
+> conserto. **Provado em produção** forçando o redesenho no meio da leitura: os
+> 748 caracteres chegaram assim mesmo.
 
 > 🔴 **A tela não abria — e o motivo derrubava metade deste item (13/08).** O dono
 > abriu o Gestor de Tráfego e leu, no lugar da lista de contas:
@@ -380,6 +397,37 @@ pela API direto, com o PDF real da curadoria.
   nenhum está `DISAPPROVED`, e as 7 contas estão ativas (`disable_reason: 0`).
   Se voltar a aparecer, anotar EM QUAL CONTA — provavelmente é Página ou Business
   Manager, não a conta de anúncios.
+
+### B4c · Deploy › o gatilho do Git parou quando o repositório virou da organização ✅ *resolvido em 13/08*
+Fica registrado porque **não aparece erro em lugar nenhum** e custou horas.
+
+O repositório saiu de `github.com/brenoov` (conta pessoal) para
+`github.com/rbv-co` (organização, criada em 11/08) às **10:13:59** de 13/08. No
+mesmo minuto os deploys pararam: **nenhum push virava build**, e não havia falha,
+fila nem aviso — a lista da Vercel simplesmente não ganhava linha nova.
+
+A causa: a Vercel fala com o GitHub por um **aplicativo instalado POR CONTA**. A
+instalação estava na conta pessoal e **não vai junto** na transferência. O GitHub
+para de avisar e a Vercel nunca fica sabendo.
+
+O que NÃO resolveu, e vale saber para não repetir:
+- **Redeploy pelo painel**: funciona, mas reconstrói *aquele* commit — não traz
+  os novos. Foi o que confundiu ("parece que voltou" com o site servindo o build
+  velho).
+- **Reconectar o repositório na Vercel antes** de instalar o app na organização.
+  A ordem importa: primeiro o app no GitHub, depois a reconexão.
+- Três commits vazios empurrados na mão. Nenhum virou build.
+
+O que resolveu: **instalar o app da Vercel na organização `rbv-co`** (exige ser
+dono da org). O primeiro push depois disso virou deploy em menos de um minuto.
+
+Dois efeitos colaterais da mudança de dono, para quem tropeçar neles:
+- O endereço antigo do repositório parou de redirecionar no push (dá
+  `Internal Server Error`, que não explica nada). O certo é
+  `git remote set-url origin https://github.com/rbv-co/social-dashboard.git`.
+- `git push` passou a exigir uma conta com acesso à **org**. Se o `gh` estiver
+  em outra conta (ele é global — outra sessão pode ter trocado), o erro é
+  `Permission to rbv-co/social-dashboard.git denied to <conta>`.
 
 ### B12 · Migrations › o runner acha que 57 estão pendentes 🔴 *não rodar*
 `cd coletor && node run-migrations.mjs --dry` lista **57 migrations como
