@@ -159,24 +159,38 @@ async function abrirCaixinha() {
   novo.setorId = ''
   recado.value = ''
   esperando.value = null
+  // Abrir também começa limpo: uma caixinha que nasce carregando uma criação
+  // pendente de OUTRA ficha é o mesmo defeito do outro lado — ela ia aparecer
+  // (e gravar sozinha) na ficha errada quando a marca/setor antiga voltasse.
+  sub.value = ''
+  subNome.value = ''
+  esperandoSub.value = null
   await nextTick()
   if (campoNome.value && campoNome.value.focus) campoNome.value.focus()
 }
 
+// INVARIANTE: fechar a caixinha — por qualquer caminho — significa não deixar
+// NADA pendente. `cancelar()` é o único lugar que fecha de verdade; todo
+// outro ponto do componente que precisa fechar (cancelar, trocar de ficha, a
+// pessoa nova ter aparecido nas props) chama esta função, nunca mexe direto
+// em `aberta`. Se abrir uma exceção aqui — zerar só `aberta` sem passar por
+// `cancelar()` — uma criação de marca/setor (ou de pessoa) que ainda não
+// voltou fica viva e, quando voltar, grava na ficha ERRADA: a que estiver
+// aberta na hora, não a que pediu. Já aconteceu duas vezes (rodadas 2 e 3
+// desta tarefa) por fechar a caixinha "na mão" em vez de por aqui.
 function cancelar() {
   aberta.value = false
   sub.value = ''
   subNome.value = ''
   recado.value = ''
   esperando.value = null
-  // Sem isto, uma criação de marca/setor pendente (pediu "Criar" e trocou de
-  // ficha antes de voltar) continuava viva: quando a marca/setor chegasse nas
-  // props, o watch de baixo gravava o id em `novo.marcaId`/`novo.setorId` da
-  // ficha ATUAL — valor de um cadastro vazando pro outro, sem aviso nenhum.
   esperandoSub.value = null
 }
 
 function confirmar() {
+  // Mesma trava do botão: o Enter no campo de nome não pode ser um jeito de
+  // burlar o "Criando…" e disparar duas gravações.
+  if (props.criando) return
   const dados = dadosDaPessoaRapida({
     nome: novo.nome, cargo: novo.cargo, marcaId: novo.marcaId, setorId: novo.setorId,
   })
@@ -187,8 +201,12 @@ function confirmar() {
   const r = resolverNovaOpcao(novo.nome, props.pessoas)
   if (r.ok && r.jaExistia) {
     emit('update:modelValue', r.item.id)
+    // Fecha pelo `cancelar()` — não zera `aberta` na mão — porque este também
+    // é um caminho de fechar: se houvesse uma criação de marca/setor pendente
+    // (`esperandoSub`), zerar só `aberta` deixaria ela viva pra vazar na
+    // próxima ficha, o mesmo defeito do resto deste arquivo.
+    cancelar()
     recado.value = `“${r.item.nome}” já estava cadastrada — deixei essa selecionada.`
-    aberta.value = false
     return
   }
 
@@ -205,10 +223,11 @@ watch(() => props.pessoas, () => {
   if (!esperando.value) return
   const achada = (props.pessoas || []).find((p) => normalizarNome(p?.nome) === esperando.value)
   if (!achada) return
+  // O emit vem ANTES do fechar: a tela precisa do id primeiro. O
+  // `watch(() => props.modelValue, …)` que este emit dispara acha `aberta`
+  // já falsa (fechada abaixo) e não faz nada — a ordem importa.
   emit('update:modelValue', achada.id)
-  esperando.value = null
-  aberta.value = false
-  recado.value = ''
+  cancelar()
 })
 
 // ── O "+" de dentro: marca e setor ──────────────────────────────────────────
@@ -233,6 +252,9 @@ function cancelarSub() {
 }
 
 function confirmarSub() {
+  // Mesma trava do botão: o Enter no campo da marca/setor não pode ser um
+  // jeito de burlar o "Criando…" e disparar duas gravações.
+  if (props.criando) return
   const lista = sub.value === 'marca' ? props.marcas : props.setores
   const r = resolverNovaOpcao(subNome.value, lista)
   if (!r.ok) { recado.value = r.mensagem; return }
