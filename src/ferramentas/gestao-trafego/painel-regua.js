@@ -521,21 +521,29 @@ export function montarPainelRegua(alvo, opcoes) {
   // permissão da régua — presas juntas, um admin sem permissão de editar a régua
   // veria o campo e o botão e nenhum dos dois responderia ao clique.
   // O botão é PRÓPRIO: salvar a persona não pode regravar as metas de verba junto.
-  const campo = document.getElementById('pnd-persona');
-  if (campo && o.personaEditavel) {
+  // NOME PRÓPRIO, e isto NÃO é preciosismo: enquanto esta variável se chamava
+  // `campo`, ela sombreava o ajudante `campo(...)` do módulo (lá em cima, que
+  // desenha os campos de peso). `const` vale para a função INTEIRA, inclusive
+  // ANTES da linha onde aparece — então o uso lá em cima passava a apontar para
+  // esta declaração, que ainda não existia, e o painel morria com
+  // "Cannot access 'campo' before initialization". A aba "A régua" ficou
+  // totalmente morta de 12/08 até 13/08 por causa disto. Guardado por
+  // painel-regua.test.mjs.
+  const campoPersona = document.getElementById('pnd-persona');
+  if (campoPersona && o.personaEditavel) {
     const conta = document.getElementById('pnd-persona-conta');
     const frase = document.getElementById('pnd-persona-frase');
     const repintar = () => {
-      const r = resumoPersona(campo.value);
+      const r = resumoPersona(campoPersona.value);
       if (conta) {
         conta.textContent = `${r.caracteres} de ${PERSONA_MAXIMO} caracteres`;
         conta.classList.toggle('pnd-persona-conta--estourou', r.excedeu);
       }
-      if (frase) frase.textContent = fraseDaPersona(campo.value, o.nomeConta || '');
+      if (frase) frase.textContent = fraseDaPersona(campoPersona.value, o.nomeConta || '');
     };
-    campo.addEventListener('input', repintar);
+    campoPersona.addEventListener('input', repintar);
     const bp = document.getElementById('pnd-persona-salvar');
-    if (bp) bp.addEventListener('click', () => o.aoSalvarPersona && o.aoSalvarPersona(limparPersona(campo.value), bp));
+    if (bp) bp.addEventListener('click', () => o.aoSalvarPersona && o.aoSalvarPersona(limparPersona(campoPersona.value), bp));
 
     // TRAZER DE UM ARQUIVO. O texto cai NO CAMPO, não no banco: a pessoa confere e
     // ajusta antes de salvar. Encher o banco direto de um arquivo que ninguém leu
@@ -549,7 +557,7 @@ export function montarPainelRegua(alvo, opcoes) {
         if (status) status.textContent = 'Lendo…';
         try {
           const lido = await o.aoLerArquivo(arquivo);
-          campo.value = lido;
+          campoPersona.value = lido;
           repintar();
           if (status) status.textContent = `Trouxe ${lido.length} caracteres. Confira e clique em Salvar.`;
         } catch (e) {
