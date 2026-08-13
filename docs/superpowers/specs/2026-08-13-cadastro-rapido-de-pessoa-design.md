@@ -79,9 +79,19 @@ estava digitado no formulário do bem ou do carro se perde.
 ### D3 — Porta estreita: nome sim, contato não
 
 Quem mexe em Patrimônio ou Frota passa a enxergar **id, nome, cargo, situação e o elo com
-o login** de cada colaborador — e **só isso**. E-mail corporativo, e-mail Outlook, celular
-pessoal, celular corporativo e conta Apple **continuam invisíveis** para quem não tem
-Colaboradores e Acessos.
+o login** de cada colaborador — e **só isso**. O que continua fechado é o **contato**
+guardado no cadastro de colaboradores: `email_corporativo`, `email_outlook`,
+`numero_pessoal`, `numero_corporativo`, `conta_apple` e `avatar_url` seguem invisíveis
+para quem não tem Colaboradores e Acessos.
+
+> **Correção de 13/08/2026, medida no banco em produção.** A frase original dizia que
+> "e-mail continua invisível", sem recorte, e isso é mais do que este trabalho entrega:
+> qualquer pessoa logada JÁ lê as 20 linhas de `profiles`, **inclusive a coluna `email`** —
+> que é o e-mail de LOGIN. Isso é anterior a esta branch e não muda com ela: nenhuma
+> policy foi afrouxada aqui. Não é o mesmo dado que a porta estreita protege (o contato do
+> colaborador), e também não é escândalo — é o e-mail de trabalho de colega, visível a
+> colega. Mas fica registrado: **a exposição de `profiles.email` é pré-existente, está
+> FORA do escopo deste trabalho, e merece um olhar próprio.**
 
 Foi a escolha do dono entre duas saídas:
 
@@ -118,6 +128,18 @@ modelos de permissão da casa precisam concordar, senão o botão aparece e o ba
 
 Criar colaborador **não** é o mesmo que criar login no aplicativo. A pessoa nasce só como
 ficha; login continua sendo assunto da tela de Usuários, com a permissão de sempre.
+
+> **Correção de 13/08/2026: o banco é mais largo do que este parágrafo promete.**
+> `is_patrimonio_admin()` e `is_frota_admin()` só olham se `profiles.features` contém
+> `patrimonio` / `frota` — e `derivar-features.js` deriva essas features de **qualquer**
+> permissão que tenha a ação `ver`. Ou seja: quem consegue apenas ABRIR o Patrimônio ou a
+> Frota já pode chamar `criar_pessoa_rapida`/`criar_setor_rapido` pela API, enquanto o `+`
+> na tela só aparece para quem pode EDITAR. O dono decidiu **deixar como está por
+> enquanto** (todo portador é gente da casa, e o estrago possível é uma ficha a mais — sem
+> login, sem contato, sem permissão), com a condição de o banco DIZER isso: a diferença
+> está escrita nos `comment on function` de
+> `db/migrations/2026-08-13-cadastro-rapido-nota-de-escopo.sql`. Apertar de verdade exige
+> ensinar ao banco o segundo modelo de permissão (`permissions{}`), que é a Onda 3.
 
 ### D6 — A pessoa nasce ativa e mínima
 
