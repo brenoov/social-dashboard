@@ -47,6 +47,20 @@ export function cargosConhecidos(pessoas) {
   return [...vistos.values()].sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }))
 }
 
+// A pessoa ESCOLHIDA continua aparecendo mesmo depois de desligada. Sem isto o
+// campo de um carro (ou de um bem) cujo responsável saiu da empresa fica em
+// branco, e a tela passa a dizer "ninguém" sobre um registro que TEM dono.
+// O rótulo diz que ela saiu — some do alcance de quem escolhe, não do registro
+// que já a aponta.
+export function comSelecionada(visiveis, todas, id) {
+  if (!id) return visiveis || []
+  const lista = visiveis || []
+  if (lista.some((p) => p && p.id === id)) return lista
+  const achada = (todas || []).find((p) => p && p.id === id)
+  if (!achada) return lista
+  return [...lista, { ...achada, nome: `${achada.nome} (desligada)` }]
+}
+
 // Os argumentos da chamada `criar_pessoa_rapida` no banco. Só o nome é
 // obrigatório: exigir marca e setor criaria uma trava nova no lugar da que se
 // está tirando (16 das 28 pessoas de hoje estão sem marca, 15 sem setor).

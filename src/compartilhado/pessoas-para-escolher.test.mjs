@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  mesclarPessoas, apenasAtivas, cargosConhecidos, dadosDaPessoaRapida,
+  mesclarPessoas, apenasAtivas, cargosConhecidos, dadosDaPessoaRapida, comSelecionada,
 } from './pessoas-para-escolher.js'
 
 // A porta estreita devolve nome/cargo/situação; a leitura direta da tabela
@@ -71,4 +71,43 @@ test('os dados vão aparados, e o que está em branco vai como nada', () => {
     ok: true,
     dados: { p_nome: 'Maria Souza', p_cargo: null, p_marca_id: null, p_setor_id: 'set-1' },
   })
+})
+
+// A pessoa que já está apontada num registro (carro, bem) não pode sumir do
+// campo só porque ela foi desligada — senão a tela passa a dizer "ninguém" pra
+// um registro que TEM dono. `comSelecionada` some do ALCANCE de quem escolhe
+// (não some do registro que já a aponta), e avisa que ela saiu, no rótulo.
+test('comSelecionada: id vazio devolve a lista de ativas como está', () => {
+  const visiveis = [{ id: 'a', nome: 'Ana' }]
+  assert.deepEqual(comSelecionada(visiveis, visiveis, ''), visiveis)
+  assert.deepEqual(comSelecionada(visiveis, visiveis, null), visiveis)
+  assert.deepEqual(comSelecionada(visiveis, visiveis, undefined), visiveis)
+})
+
+test('comSelecionada: id que já está entre as ativas não duplica', () => {
+  const visiveis = [{ id: 'a', nome: 'Ana' }, { id: 'b', nome: 'Bruno' }]
+  const todas = visiveis
+  const r = comSelecionada(visiveis, todas, 'b')
+  assert.deepEqual(r, visiveis)
+  assert.equal(r.length, 2)
+})
+
+test('comSelecionada: id só em "todas" (desligada) entra no fim com o rótulo', () => {
+  const visiveis = [{ id: 'a', nome: 'Ana', status: 'ativo' }]
+  const todas = [
+    { id: 'a', nome: 'Ana', status: 'ativo' },
+    { id: 'b', nome: 'Bruno', status: 'desligado' },
+  ]
+  const r = comSelecionada(visiveis, todas, 'b')
+  assert.deepEqual(r.map((p) => p.id), ['a', 'b'])
+  assert.equal(r[1].nome, 'Bruno (desligada)')
+  // O resto da ficha da pessoa (status, cargo…) continua vindo junto.
+  assert.equal(r[1].status, 'desligado')
+})
+
+test('comSelecionada: id que não existe em lugar nenhum não inventa linha', () => {
+  const visiveis = [{ id: 'a', nome: 'Ana' }]
+  const todas = visiveis
+  const r = comSelecionada(visiveis, todas, 'fantasma')
+  assert.deepEqual(r, visiveis)
 })
