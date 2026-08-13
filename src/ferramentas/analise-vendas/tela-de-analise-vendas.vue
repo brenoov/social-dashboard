@@ -58,6 +58,16 @@
     <!-- A FAIXA DO RECORTE. Só aparece para quem é de time de venda. Um total
          menor sem explicação parece dado errado — e é assim que nasce chamado. -->
     <div id="sa-recorte" class="sa-recorte" style="display:none"></div>
+    <!-- A FAIXA DO BLING FORA DO AR. Aparece só quando a busca falha; o gráfico
+         anterior fica, com a hora dele escrita aqui. -->
+    <div id="sa-aviso" class="sa-aviso" hidden>
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path d="M12 3 2 20h20L12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M12 9v5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="12" cy="17.2" r="1.1" fill="currentColor"/>
+      </svg>
+      <div><strong id="sa-aviso-titulo"></strong><span id="sa-aviso-detalhe"></span></div>
+    </div>
     <div id="sa-body"></div>
   </div>
 </template>
@@ -66,7 +76,7 @@
 import { onMounted, onUnmounted } from 'vue'
 import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
-import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
+import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
 // QUEM É DE TIME DE VENDA VÊ SÓ A LOJA DELA (pedido do dono, 12/08/2026).
 // A regra mora num módulo só, compartilhado com a Gestão à Vista: duas telas
@@ -79,6 +89,9 @@ import {
 import { adminToast } from '../../compartilhado/avisos.js'
 import { hojeLocal, diasAtras } from '../../compartilhado/datas.js'
 import { aplicarDataDaVenda } from '../../compartilhado/data-da-venda.js'
+// A PORTA DO BLING E O QUE FAZER QUANDO ELE NÃO RESPONDE — mesmo módulo da
+// Gestão à Vista, para as duas telas de venda nunca discordarem sobre isso.
+import { chamarBling, paginasDoBling, ErroDoBling, textoDoAviso } from '../../compartilhado/chamada-do-bling.js'
 
 const router = useRouter()
 
@@ -98,7 +111,9 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 // monólito (mesmo padrão de _gtDocClick em tela-de-gestao-trafego.vue).
 //
 // Dependências externas resolvidas:
-//   - sbClient, SUPABASE_URL, SUPABASE_ANON_KEY → import (conectar-no-banco-de-dados.js)
+//   - sbClient                                  → import (conectar-no-banco-de-dados.js)
+//   - chamarBling, paginasDoBling, textoDoAviso  → import (chamada-do-bling.js)
+//     (a URL e a chave anônima do Supabase moram lá dentro agora)
 //   - hasPermission                              → import (controle-de-login-e-usuario.js)
 //   - adminToast                                 → import (avisos.js) — usado só na guarda
 //   - fmtR, fmtR0, blingCall, blingPages          → COPIADOS abaixo (idênticos aos
@@ -141,38 +156,10 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 /* ── Helpers copiados do legado (self-contidos, idênticos aos de tela-de-gestao-a-vista.vue) ── */
 function fmtR(v){const p=v.toFixed(2).split('.');return 'R$ '+p[0].replace(/\B(?=(\d{3})+(?!\d))/g,'.')+','+p[1];}
 function fmtR0(v){return 'R$ '+Math.round(Number(v)).toLocaleString('pt-BR');}
-async function blingCall(endpoint,params){
-  const{data:{session}}=await sbClient.auth.getSession();
-  if(!session)throw new Error('Não autenticado');
-  const r=await fetch(SUPABASE_URL+'/functions/v1/bling-proxy',{
-    method:'POST',
-    headers:{
-      'Authorization':'Bearer '+session.access_token,
-      'apikey':SUPABASE_ANON_KEY,
-      'Content-Type':'application/json'
-    },
-    body:JSON.stringify({endpoint,params})
-  });
-  return r.json();
-}
-async function blingPages(endpoint,params){
-  const all=[];let page=1;
-  for(;;){
-    let items=[];
-    for(let retry=0;retry<3;retry++){
-      const resp=await blingCall(endpoint,{...params,pagina:page,limite:100});
-      const d=resp.data;
-      if(Array.isArray(d)&&d.length>0){items=d;break;}
-      if(retry<2)await new Promise(r=>setTimeout(r,700));
-    }
-    if(!items.length)break;
-    all.push(...items);
-    if(items.length<100)break;
-    page++;
-    if(page>10)break;
-  }
-  return all;
-}
+// Mesma porta da Gestão à Vista: src/compartilhado/chamada-do-bling.js. Aqui só
+// atalhos com o sbClient já preso.
+const blingCall=(endpoint,params)=>chamarBling(sbClient,endpoint,params);
+const blingPages=(endpoint,params)=>paginasDoBling(sbClient,endpoint,params);
 
 /* ── Relógio (legacy L5768-5779, verbatim) ── */
 function startSAClock(){
@@ -296,15 +283,46 @@ window._saCharts={};
 window._saRawData=null;
 let _saFsz=n=>n; // fallback antes da 1ª carga; reatribuída abaixo a cada loadSalesAnalysisData
 
+// ── A faixa de aviso do Bling ─────────────────────────────────────────────
+// Mesma regra da Gestão à Vista: admin lê a causa, os outros leem só que o
+// número está velho. A hora vem de window._saLastUpdateTime, que só é gravada
+// depois de uma busca que deu certo.
+function ehAdminSa(){ return estado.role==='admin'||estado.is_superadmin===true; }
+function horaDoDadoSa(){
+  const l=window._saLastUpdateTime;
+  if(!l)return null;
+  const p=n=>String(n).padStart(2,'0');
+  return `${p(l.getHours())}:${p(l.getMinutes())}`;
+}
+function mostrarAvisoSa(causa,tecnica){
+  const el=document.getElementById('sa-aviso');
+  if(!el)return;
+  const {titulo,detalhe}=textoDoAviso(causa,{ehAdmin:ehAdminSa(),horaDoDado:horaDoDadoSa(),tecnica});
+  document.getElementById('sa-aviso-titulo').textContent=titulo;
+  document.getElementById('sa-aviso-detalhe').textContent=detalhe?' '+detalhe:'';
+  el.hidden=false;
+}
+function esconderAvisoSa(){
+  const el=document.getElementById('sa-aviso');
+  if(el)el.hidden=true;
+}
+
 async function loadSalesAnalysisData(period){
   document.querySelectorAll('#sales-analysis-screen .gv-pbtn, .tela-analise-vendas .gv-pbtn').forEach(b=>b.classList.toggle('active',b.dataset.period===period));
   const body=document.getElementById('sa-body');
-  body.textContent='';
-  const loading=document.createElement('div');loading.className='sa-loading';
-  const spin=document.createElement('div');spin.className='gv-spinner';
-  const lbl=document.createElement('span');lbl.className='sa-loading-lbl';lbl.textContent='Carregando dados';
-  loading.appendChild(spin);loading.appendChild(lbl);
-  body.appendChild(loading);
+  esconderAvisoSa();
+  // A cada 5 minutos esta tela se recarrega. Antes ela zerava o corpo AQUI, no
+  // começo — então uma busca que falhasse deixava a tela vazia, sem nada para
+  // voltar. Agora o conteúdo antigo fica até o dado novo chegar; quem limpa é o
+  // renderSalesAnalysis, que já zera o corpo antes de montar.
+  if(!window._saRawData){
+    body.textContent='';
+    const loading=document.createElement('div');loading.className='sa-loading';
+    const spin=document.createElement('div');spin.className='gv-spinner';
+    const lbl=document.createElement('span');lbl.className='sa-loading-lbl';lbl.textContent='Carregando dados';
+    loading.appendChild(spin);loading.appendChild(lbl);
+    body.appendChild(loading);
+  }
   try{
     if(typeof ChartDataLabels!=='undefined')Chart.register(ChartDataLabels);
     Chart.defaults.font.family="var(--fonte-principal)";
@@ -464,8 +482,19 @@ async function loadSalesAnalysisData(period){
     if(!_hasRealQtd)_saPopulateItemCounts([...pedidos,...pedidosPrev],pvQtdMap,pvMap);
     _saPopulateDescontos(pedidos);
   }catch(e){
-    body.textContent='';
-    const err=document.createElement('div');err.className='sa-loading';err.textContent='Erro: '+e.message;body.appendChild(err);
+    const causa=e instanceof ErroDoBling?e.causa:'bling-fora';
+    mostrarAvisoSa(causa,e?.tecnica||e?.message||'');
+    // Com gráfico na tela, ele FICA — a faixa diz de que hora é. Sem nada
+    // (primeira carga), o recado ocupa o lugar, nunca um gráfico zerado.
+    if(!window._saRawData){
+      body.textContent='';
+      const err=document.createElement('div');err.className='sa-loading';
+      err.textContent=document.getElementById('sa-aviso-titulo')?.textContent||'Não foi possível buscar as vendas agora.';
+      body.appendChild(err);
+    }
+    // A recarga de 5 min é armada dentro do try: sem isto, falhar na primeira
+    // carga deixava a tela sem nunca tentar de novo.
+    if(!window._saRefreshTimer)window._saRefreshTimer=setInterval(()=>loadSalesAnalysisData(window._saCurrentPeriod||'sofar'),5*60*1000);
   }
 }
 
@@ -1339,6 +1368,13 @@ onUnmounted(() => {
 /* ── Corpo (#sa-body, montado via innerHTML/createElement — legacy L1866-1911) ── */
 .tela-analise-vendas :deep(#sa-body){flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px;position:relative;z-index:1;}
 .tela-analise-vendas :deep(.sa-loading){display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;min-height:60vh;}
+/* Faixa do Bling fora do ar. Fundo por color-mix com --orange e TEXTO em
+   --text: o laranja do tema claro sobre esse fundo dá 4,14 de contraste,
+   abaixo do mínimo de 4,5. A cor é o sinal; o texto é para ler. */
+.tela-analise-vendas :deep(.sa-aviso){display:flex;align-items:center;gap:var(--sp-2);margin:0 0 10px;padding:9px 12px;border:1px solid color-mix(in srgb, var(--orange) 38%, var(--surface));border-left:3px solid var(--orange);border-radius:var(--radius-md);background:color-mix(in srgb, var(--orange) 10%, var(--surface));color:var(--text);font-family:var(--fonte-principal);font-size:max(11px, calc(12px * var(--escala-texto, 1)));line-height:1.45;overflow-wrap:anywhere;}
+.tela-analise-vendas :deep(.sa-aviso[hidden]){display:none;}
+.tela-analise-vendas :deep(.sa-aviso svg){flex:0 0 auto;color:var(--orange);}
+.tela-analise-vendas :deep(.sa-aviso span){color:var(--muted);}
 .tela-analise-vendas :deep(.sa-loading-lbl){font-family:var(--fonte-principal);font-size:max(9px, calc(10px * var(--escala-texto, 1)));letter-spacing:4px;text-transform:uppercase;color:var(--muted);}
 .tela-analise-vendas :deep(#sa-bg-canvas){position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;}
 .tela-analise-vendas :deep(.sa-kpis){display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;}

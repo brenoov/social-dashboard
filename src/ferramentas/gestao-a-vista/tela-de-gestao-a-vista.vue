@@ -119,7 +119,7 @@ import BarraDeTopo from '../../compartilhado/barra-de-topo.vue'
 import { useRouter } from 'vue-router'
 import TourCoachmark from '../meta-ads/tour-coachmark.vue'
 import { TOUR_GV } from './tutorial-gv.js'
-import { sbClient, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../compartilhado/conectar-no-banco-de-dados.js'
+import { sbClient } from '../../compartilhado/conectar-no-banco-de-dados.js'
 import { hasPermission, estado } from '../../compartilhado/controle-de-login-e-usuario.js'
 // QUEM É DE TIME DE VENDA VÊ SÓ A LOJA DELA (pedido do dono, 12/08/2026).
 // MESMO módulo da Análise de Vendas — duas telas de venda recortando por conta
@@ -160,7 +160,8 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 // viraram onMounted/closeGestaoVista(cleanup+router) abaixo).
 //
 // Dependências externas resolvidas:
-//   - sbClient, SUPABASE_URL, SUPABASE_ANON_KEY  → import (conectar-no-banco-de-dados.js)
+//   - sbClient                                   → import (conectar-no-banco-de-dados.js)
+//     (a URL e a chave anônima moram dentro de chamada-do-bling.js agora)
 //   - adminToast                                  → import (avisos.js) — usado só na guarda
 //   - hasPermission                                → import (controle-de-login-e-usuario.js)
 //   - chamarBling, paginasDoBling, textoDoAviso    → import (chamada-do-bling.js)
