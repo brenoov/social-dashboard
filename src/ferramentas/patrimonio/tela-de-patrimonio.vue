@@ -402,14 +402,17 @@
             </select>
           </label>
 
-          <label class="pat-campo">
-            <span>Com quem está</span>
-            <select v-model="massa.pessoaId">
-              <option value="">— não mudar —</option>
+          <div class="pat-campo">
+            <span class="pat-campo-titulo">Com quem está</span>
+            <EscolhaDePessoa
+              v-model="massa.pessoaId"
+              :pessoas="pessoasAtivas" :marcas="empresas" :setores="setores"
+              :pode-criar="podeEditar" :criando="criandoPessoa" :recado-de-erro="erroDePessoa"
+              rotulo="Com quem está" texto-vazio="— não mudar —"
+              @criar="criarPessoaRapida" @criar-setor="criarSetorRapido" @criar-marca="criarMarcaRapida">
               <option :value="LIMPAR">Tirar o dono (ninguém)</option>
-              <option v-for="p in pessoasAtivas" :key="p.id" :value="p.id">{{ p.nome }}</option>
-            </select>
-          </label>
+            </EscolhaDePessoa>
+          </div>
 
           <label class="pat-campo">
             <span>Categoria</span>
@@ -635,13 +638,15 @@
           </label>
           <div class="pat-ajuda-txt" v-if="ajudaAberta === 'situacao'">{{ AJUDAS.situacao }}</div>
 
-          <label class="pat-campo" data-tour="bem-responsavel">
-            <span>Com quem está <em>(opcional)</em> <button type="button" class="pat-ajuda-q" @click.prevent="alternarAjuda('dono')" title="O que é isso?">?</button></span>
-            <select v-model="form.pessoa_id">
-              <option value="">Ninguém</option>
-              <option v-for="p in pessoasAtivas" :key="p.id" :value="p.id">{{ p.nome }}</option>
-            </select>
-          </label>
+          <div class="pat-campo" data-tour="bem-responsavel">
+            <span class="pat-campo-titulo">Com quem está <em>(opcional)</em> <button type="button" class="pat-ajuda-q" @click.prevent="alternarAjuda('dono')" title="O que é isso?">?</button></span>
+            <EscolhaDePessoa
+              v-model="form.pessoa_id"
+              :pessoas="pessoasAtivas" :marcas="empresas" :setores="setores"
+              :pode-criar="podeEditar" :criando="criandoPessoa" :recado-de-erro="erroDePessoa"
+              rotulo="Com quem está" texto-vazio="Ninguém"
+              @criar="criarPessoaRapida" @criar-setor="criarSetorRapido" @criar-marca="criarMarcaRapida" />
+          </div>
           <div class="pat-ajuda-txt" v-if="ajudaAberta === 'dono'">{{ AJUDAS.dono }}</div>
 
           <div class="pat-nota" v-if="avisoDono">{{ avisoDono }}</div>
@@ -900,6 +905,8 @@ import {
 // Trava a rolagem do fundo enquanto um destes 4 modais estiver aberto (bronca
 // do dono: "abro um modal e a tela atrás continua rolando").
 import { vTravaRolagem } from '../../compartilhado/travar-rolagem-de-fundo.js'
+import EscolhaDePessoa from '../../compartilhado/escolha-de-pessoa.vue'
+import { mesclarPessoas, apenasAtivas } from '../../compartilhado/pessoas-para-escolher.js'
 
 const router = useRouter()
 
@@ -912,6 +919,9 @@ const comodos = ref([])
 const categorias = ref([])
 const tipos = ref([])
 const pessoas = ref([])
+const setores = ref([])
+const criandoPessoa = ref(false)
+const erroDePessoa = ref('')
 // A ligação com a Frota (Bronca 2 do dono): carros que já apontam pra um bem
 // daqui. `frotaErro` distingue "a consulta falhou de verdade" (rede, banco
 // fora do ar) de "vazio porque não tenho a feature frota" — as duas
@@ -1144,7 +1154,10 @@ function abrirNovo() {
 const salvando = ref(false)
 const historico = ref([])
 const podeExcluir = computed(() => hasPermission('patrimonio', 'excluir'))
-const pessoasAtivas = computed(() => pessoas.value.filter((p) => p.status === 'ativo'))
+// `apenasAtivas` trata ficha sem `status` como ativa: a coluna tem padrão
+// 'ativo' no banco, e sumir com alguém por campo vazio seria dado a menos sem
+// avisar. Pessoa recém-criada pelo "+" cai exatamente nesse caso.
+const pessoasAtivas = computed(() => apenasAtivas(pessoas.value))
 
 const FORM_VAZIO = {
   nome: '', numero: '', valor: '', data_compra: '',
@@ -1368,6 +1381,57 @@ async function confirmarNovaOpcao() {
   form[def.campoForm] = data.id
   adminToast(`"${data.nome}" criado`)
   cancelarNovaOpcao()
+}
+
+/* CADASTRO RÁPIDO DE COLABORADOR (13/08/2026).
+ *
+ * Quem grava é a tela, não o componente — mesmo contrato do "+" de local. O
+ * banco é quem decide se pode: `criar_pessoa_rapida` recusa quem não mexe em
+ * Patrimônio, Frota ou Acessos, e devolve `ja_existia` quando o nome já estava
+ * lá (comparando sem caixa e sem espaço nas pontas). */
+async function criarPessoaRapida({ nome, cargo, marcaId, setorId }) {
+  if (criandoPessoa.value) return
+  criandoPessoa.value = true
+  erroDePessoa.value = ''
+
+  const { data, error } = await sbClient.rpc('criar_pessoa_rapida', {
+    p_nome: nome, p_cargo: cargo, p_marca_id: marcaId, p_setor_id: setorId,
+  })
+  criandoPessoa.value = false
+
+  if (error) {
+    erroDePessoa.value = 'Não consegui cadastrar. Tente de novo; se continuar, confirme '
+      + 'com quem administra se você pode cadastrar colaborador.'
+    return
+  }
+
+  const criada = Array.isArray(data) ? data[0] : data
+  await carregar()
+  if (criada && criada.ja_existia) adminToast(`"${criada.nome}" já estava cadastrada`)
+  else if (criada) adminToast(`"${criada.nome}" cadastrada`)
+}
+
+async function criarSetorRapido({ nome }) {
+  if (criandoPessoa.value) return
+  criandoPessoa.value = true
+  erroDePessoa.value = ''
+  const { error } = await sbClient.rpc('criar_setor_rapido', { p_nome: nome })
+  criandoPessoa.value = false
+  if (error) { erroDePessoa.value = 'Não consegui cadastrar o setor. Tente de novo.'; return }
+  await carregar()
+}
+
+// Marca reaproveita a tabela que o Patrimônio já cadastra por aqui — não há
+// função nova no banco pra ela.
+async function criarMarcaRapida({ nome }) {
+  if (criandoPessoa.value) return
+  criandoPessoa.value = true
+  erroDePessoa.value = ''
+  const { error } = await sbClient.from('patrimonio_empresas')
+    .insert({ nome, ordem: empresas.value.length + 1 })
+  criandoPessoa.value = false
+  if (error) { erroDePessoa.value = 'Não consegui cadastrar a marca. Tente de novo.'; return }
+  await carregar()
 }
 
 function fecharFicha() {
@@ -1831,14 +1895,19 @@ async function excluirBem() {
 async function carregar() {
   carregando.value = true
   erro.value = ''
-  const [rBens, rEmp, rLoc, rCom, rCat, rTip, rPes, rCfg, rFrota] = await Promise.all([
+  const [rBens, rEmp, rLoc, rCom, rCat, rTip, rPes, rSet, rCfg, rFrota] = await Promise.all([
     sbClient.from('patrimonio_bens').select('*').order('numero', { ascending: true, nullsFirst: false }),
     sbClient.from('patrimonio_empresas').select('id,nome').order('ordem').order('nome'),
     sbClient.from('patrimonio_locais').select('id,nome,empresa_id').order('ordem').order('nome'),
     sbClient.from('patrimonio_comodos').select('id,nome,local_id').order('ordem').order('nome'),
     sbClient.from('patrimonio_categorias').select('id,nome,vida_util_anos').order('ordem').order('nome'),
     sbClient.from('patrimonio_tipos').select('id,nome,categoria_id').order('ordem').order('nome'),
-    sbClient.from('acessos_pessoas').select('id,nome,status').order('nome'),
+    // PORTA ESTREITA (13/08/2026): a leitura direta de `acessos_pessoas` só
+    // abre para quem tem Colaboradores e Acessos, e devolvia lista VAZIA para
+    // os demais. A função do banco entrega nome/cargo/situação para quem mexe
+    // no Patrimônio, sem abrir e-mail nem telefone de ninguém.
+    sbClient.rpc('pessoas_para_escolher'),
+    sbClient.rpc('setores_para_escolher'),
     sbClient.from('patrimonio_config').select('chave,valor'),
     // A ligação com a Frota (Bronca 2): id/nome/placa/bem_id de cada carro,
     // só o bastante pra saber quem está ligado a qual bem. A tabela é da
@@ -1865,7 +1934,8 @@ async function carregar() {
   // um deles, a RLS devolve lista vazia sem erro, e a tela segue
   // funcionando: pessoas cai no nome solto (dono_texto); a Frota cai no
   // aviso de "sem acesso" (`temAcessoFrota()`), nunca em "nada ligado".
-  pessoas.value = rPes.data || []
+  pessoas.value = mesclarPessoas(rPes.data || [], [])
+  setores.value = rSet && !rSet.error ? (rSet.data || []) : []
   veiculosFrota.value = rFrota && !rFrota.error ? (rFrota.data || []) : []
   frotaErro.value = !!(rFrota && rFrota.error)
   const cfgTeto = (rCfg.data || []).find((x) => x.chave === 'numero_maximo')
@@ -2089,6 +2159,7 @@ const logoEscuroUrl = '/midia/LOGOTIPOBRENOBRANCO.png'
 .tela-patrimonio .pat-campo{display:flex;flex-direction:column;gap:5px;font-family:var(--fonte-principal);}
 .tela-patrimonio .pat-campo > span{font-size:max(9px, calc(11px * var(--escala-texto, 1)));font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
 .tela-patrimonio .pat-campo em{font-style:normal;text-transform:none;letter-spacing:0;font-weight:400;}
+.tela-patrimonio .pat-campo-titulo{display:block;margin-bottom:5px;}
 .tela-patrimonio .pat-campo input,.tela-patrimonio .pat-campo select,.tela-patrimonio .pat-campo textarea{font-size:max(16px, calc(16px * var(--escala-texto, 1)));font-family:var(--fonte-principal);padding:11px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);width:100%;}
 .tela-patrimonio .pat-campo select:disabled{opacity:.5;}
 .tela-patrimonio .pat-campo-par{display:grid;grid-template-columns:1fr 1fr;gap:10px;overflow-wrap:anywhere;}
