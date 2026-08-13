@@ -242,40 +242,6 @@ permissões oferece o degrau **"Ver e baixar"**, que na prática é igual a "Só
 Foram as três que ficaram sem frase explicativa na Config de Usuários, porque
 qualquer frase seria mentira.
 
-### B1f · O `bling-proxy` devolve os pedidos de todos os canais 🟢 *NO AR — falta só ver com um login limitado*
-**Subiu em 13/08/2026 (versão 10 da Edge Function, `verify_jwt` mantido em
-`true`).** Conferido logo depois com a conta de serviço: a lista de pedidos, o
-pedido pelo id, a nota fiscal e os produtos voltaram **exatamente** os mesmos
-números de antes do deploy — os robôs não foram cegados.
-
-**O que ainda não foi visto:** ninguém abriu a Gestão à Vista logado com um dos
-dois logins limitados (Héllen ou Juliana). O recorte tem 30 testes, mas teste não
-é tela. É um olhar de um minuto: abrir o telão com um desses logins e conferir
-que aparece só a Dom Pedro, e que o total bate com o que a loja vendeu.
-
-O buraco que isto fechou: a edge perguntava só **"essa pessoa pode?"** — se é `admin` ou tem
-`sales`/`gestor` — e devolvia os pedidos de **todos os canais**. A Gestão à Vista
-e a Análise de Vendas leem o Bling ao vivo por ela, então a trava do banco que
-protege `gc_vendas_item` não valia nessas duas telas: sumia da tela, mas quem
-abrisse o console pedia tudo.
-
-**Os robôs não são cegados, e isso foi medido, não suposto:** eles entram com
-LOGIN de conta de serviço (`claudecode@`), que não está limitada a loja nenhuma —
-então a regra devolve "vê tudo" para eles e nada muda. Se um dia alguém marcar
-"só os canais dos times dela" nessa conta, os robôs param de enxergar. Vale
-lembrar disso antes de mexer no perfil dela.
-
-**O que quase virou defeito, e está resolvido no código:** o jeito óbvio seria
-pedir a lista inteira ao Bling e jogar fora o que não é da pessoa. Só que a tela
-pagina de 100 em 100 e para quando a página vem curta — jogando fora depois, a
-página chegaria com 30 e a busca pararia na primeira, mostrando **menos venda da
-própria loja**, calada. Quem recorta é o Bling, pelo parâmetro `idLoja`. Medido
-contra a API em 13/08 com a conta de serviço: `idLoja` é honrado; `idsLojas[]`,
-`idsLojas` e `loja` são ignorados e voltam com tudo.
-
-Irmão do item fechado em 13/08 (a trava de loja no gatilho). Os dois foram
-guardados juntos pelo dono em 13/08: "salve os itens 1 e 2 para outra hora".
-
 ### B2b · Patrimônio › 36 bens com a ficha incompleta
 Medido em 11/08, dos 350 bens: **2 sem empresa** (os dois "Macbook Neo", nº 284 e
 285 — também sem local e sem cômodo), **8 sem local** (os 5 REDMI 15C, o Samsung
