@@ -1572,3 +1572,200 @@ Registrar na memória:
   13/08/2026 — senão alguém a "conserta" de volta lendo a anotação antiga;
 - que `acessos_pessoas` e `acessos_setores` agora têm porta estreita para Patrimônio/Frota,
   e que a leitura direta continua fechada.
+
+---
+
+## Tarefa 8: IMEI / Nº de série no Patrimônio
+
+**Pedido novo do dono, 13/08/2026:** *"adicione aí em patrimônio um campo de IMEI/Serial ID
+para melhor identificar o dispositivo, caso já houver deixe mais próximo do campo de
+patrimônio"*.
+
+**Medido antes:** o campo **não existe** — nem coluna no banco (`patrimonio_bens` tem 19
+colunas e nenhuma de série/IMEI) nem campo na ficha. Então é criar, não mover. O lugar
+pedido é logo abaixo do "Nº da etiqueta".
+
+**Decidido com o dono:** **um campo só** ("IMEI / Nº de série", serve para os dois — celular
+põe o IMEI, notebook põe o serial), que **entra na busca** e **entra na planilha exportada**.
+Fora: cartão da lista (apertaria a lista no celular).
+
+**Consequência que o dono precisa saber:** `COLUNAS_PLANILHA` alimenta ao mesmo tempo a
+exportação e a aba "Planilha" da tela. Pôr a coluna no arquivo põe a coluna na aba também —
+são a mesma lista, de propósito, justamente para as duas não divergirem.
+
+**Esta tarefa roda DEPOIS da Tarefa 5**: as duas mexem em `tela-de-patrimonio.vue`.
+
+**Arquivos:**
+- Criar: `db/migrations/2026-08-13-patrimonio-numero-de-serie.sql`
+- Modificar: `src/ferramentas/patrimonio/filtro-de-bens.js` (a busca) + `filtro-de-bens.test.mjs`
+- Modificar: `src/ferramentas/patrimonio/planilha-e-resumo.js` (a coluna)
+- Modificar: `src/ferramentas/patrimonio/tela-de-patrimonio.vue` (campo, formulário, gravação, achatamento)
+
+**Interfaces:**
+- Consome: nada das tarefas anteriores.
+- Entrega: coluna `patrimonio_bens.numero_serie text`.
+
+- [ ] **Passo 1: a migration**
+
+Criar `db/migrations/2026-08-13-patrimonio-numero-de-serie.sql`:
+
+```sql
+-- IMEI / Nº de série do bem. Pedido do dono em 13/08/2026: "um campo de
+-- IMEI/Serial ID para melhor identificar o dispositivo".
+--
+-- UM CAMPO SÓ para os dois números, decidido com ele: celular tem IMEI, notebook
+-- tem número de série, e a maioria dos 349 bens (cadeira, mesa, TV) não tem
+-- nenhum dos dois. Dois campos deixariam um sempre vazio.
+--
+-- SEM unique: o mesmo aparelho pode ser recadastrado por engano e uma trava dura
+-- impediria a correção; e serial de fabricante repete entre fabricantes
+-- diferentes. Quem confere é a pessoa, olhando a busca.
+alter table public.patrimonio_bens
+  add column if not exists numero_serie text;
+
+comment on column public.patrimonio_bens.numero_serie is
+  'IMEI (celular) ou número de série (notebook, TV). Nulo = não informado.';
+```
+
+Aplicar pelo MCP do Supabase (`apply_migration`, projeto `kounqtdoioootxqegkij`, nome
+`patrimonio_numero_de_serie`). **Não** rodar o runner do repositório.
+
+- [ ] **Passo 2: provar que a coluna nasceu legível E gravável**
+
+Esta casa já foi mordida por coluna nova sem permissão: uma coluna sem `GRANT` derruba a
+linha inteira na leitura (o erro que apareceu foi "g is not iterable"). Conferir, pelo MCP:
+
+```sql
+select privilege_type
+from information_schema.column_privileges
+where table_schema='public' and table_name='patrimonio_bens'
+  and column_name='numero_serie' and grantee='authenticated'
+order by privilege_type;
+```
+
+Esperado: `INSERT`, `REFERENCES`, `SELECT`, `UPDATE`. **Se faltar alguma**, rodar:
+
+```sql
+grant select, insert, update (numero_serie) on public.patrimonio_bens to authenticated;
+```
+
+e conferir de novo. Registrar no relatório o que veio ANTES e DEPOIS.
+
+- [ ] **Passo 3: o teste da busca (TDD, vermelho primeiro)**
+
+Em `src/ferramentas/patrimonio/filtro-de-bens.test.mjs`, acrescentar:
+
+```js
+test('busca acha o bem pelo IMEI / número de série', () => {
+  const bens = [
+    { id: '1', nome: 'Macbook Air', numero: 47, numero_serie: 'C02XK1ABJGH5' },
+    { id: '2', nome: 'Cadeira', numero: 48, numero_serie: null },
+  ]
+  const achados = filtrarBens(bens, { ...FILTRO_VAZIO, busca: 'c02xk1' })
+  assert.deepEqual(achados.map((b) => b.id), ['1'], 'digitar parte do serial tem que achar o aparelho')
+})
+```
+
+Conferir os nomes que o arquivo de teste já importa (`filtrarBens`, `FILTRO_VAZIO`) e usar
+os mesmos; se a assinatura de `filtrarBens` no arquivo for outra, seguir a que está lá.
+
+Rodar e ver FALHAR:
+```bash
+node --test src/ferramentas/patrimonio/filtro-de-bens.test.mjs
+```
+Esperado: falha, porque a busca ainda não olha `numero_serie`. **Capturar a saída de
+verdade** — prova prevista não vale.
+
+- [ ] **Passo 4: fazer a busca olhar o campo**
+
+Em `src/ferramentas/patrimonio/filtro-de-bens.js`, na função `casaBusca`, trocar:
+
+```js
+  const partes = [bem.nome, bem.numero, bem.marca, bem.dono_texto, bem.observacao]
+```
+
+por:
+
+```js
+  // `numero_serie` entra porque é o segundo jeito de identificar um aparelho com
+  // ele na mão: quando a etiqueta caiu, sobra o IMEI atrás do celular.
+  const partes = [bem.nome, bem.numero, bem.numero_serie, bem.marca, bem.dono_texto, bem.observacao]
+```
+
+E atualizar o comentário logo acima da função, que hoje lista o que a busca varre, para
+incluir o número de série. Rodar o teste de novo: tem de passar.
+
+- [ ] **Passo 5: a coluna na planilha**
+
+Em `src/ferramentas/patrimonio/planilha-e-resumo.js`, dentro de `COLUNAS_PLANILHA`, inserir
+logo DEPOIS da linha do `numero`:
+
+```js
+  { chave: 'numero_serie', titulo: 'IMEI / Nº de série', tipo: 'texto' },
+```
+
+Em `src/ferramentas/patrimonio/tela-de-patrimonio.vue`, no `linhasAchatadas` (perto da
+linha 1564), acrescentar logo depois de `numero: b.numero,`:
+
+```js
+    numero_serie: b.numero_serie || '',
+```
+
+Sem isso a coluna aparece vazia para todo mundo: quem monta a linha da planilha é este
+achatamento, não o bem cru.
+
+- [ ] **Passo 6: o campo na ficha**
+
+Em `src/ferramentas/patrimonio/tela-de-patrimonio.vue`, logo DEPOIS do bloco
+`<div class="pat-ajuda-txt" v-if="ajudaAberta === 'etiqueta' || ajudaAberta === 'valor'">`
+(que fecha o par "Nº da etiqueta / Valor de compra"), inserir:
+
+```html
+          <!-- Colado no Nº da etiqueta de propósito (pedido do dono): são os dois
+               jeitos de dizer QUAL aparelho é este. A etiqueta é da empresa e pode
+               cair; o IMEI é do aparelho e não sai nunca. -->
+          <label class="pat-campo">
+            <span>IMEI / Nº de série <em>(opcional)</em></span>
+            <input v-model="form.numero_serie" type="text" placeholder="Ex.: 356938035643809">
+          </label>
+```
+
+- [ ] **Passo 7: o campo no formulário, na abertura e na gravação**
+
+Três lugares, e esquecer qualquer um faz o valor sumir sem erro nenhum:
+
+1. No objeto que zera o formulário (perto da linha 1150, onde estão `nome`, `numero`,
+   `valor`, `data_compra`), acrescentar `numero_serie: '',`.
+2. Em `abrirFicha` (perto da linha 1405, onde faz `numero: bem.numero === null ...`),
+   acrescentar `numero_serie: bem.numero_serie || '',`.
+3. Em `salvarBem`, dentro do objeto `linha` (perto da linha 1469, logo depois de `numero:`),
+   acrescentar:
+
+```js
+    numero_serie: (form.numero_serie || '').trim() || null,
+```
+
+Aparar e virar nulo quando vazio é o mesmo tratamento que `marca` e `observacao` já
+recebem ali — texto em branco no banco vira dado sujo que a busca acha por engano.
+
+- [ ] **Passo 8: suíte, build e um olho na aba Planilha**
+
+```bash
+npm test
+npm run build
+```
+
+A suíte tem de fechar sem falha e com o total **maior** que o conhecido (a base desta
+branch é 2921 + o teste novo). Total MENOR que o conhecido significa arquivo de teste que
+não carregou — rodar `npm install` e repetir, nunca explicar como flake.
+
+- [ ] **Passo 9: commit**
+
+```bash
+git add db/migrations/2026-08-13-patrimonio-numero-de-serie.sql \
+        src/ferramentas/patrimonio/filtro-de-bens.js \
+        src/ferramentas/patrimonio/filtro-de-bens.test.mjs \
+        src/ferramentas/patrimonio/planilha-e-resumo.js \
+        src/ferramentas/patrimonio/tela-de-patrimonio.vue
+git commit -m "Patrimonio: IMEI / numero de serie para identificar o aparelho"
+```
